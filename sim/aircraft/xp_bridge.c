@@ -287,9 +287,16 @@ int main(void){
             struct timespec nw; clock_gettime(CLOCK_MONOTONIC,&nw);
             double ts=(nw.tv_sec-t0.tv_sec)+(nw.tv_nsec-t0.tv_nsec)/1e9;   /* real elapsed */
             uint16_t rc[8]={1500,1500,1000,1500,1000,1000,1000,1500};
-            if(ts<3.0){ }                                   /* cal: neutral, disarmed */
-            else if(ts<5.0){ rc[3]=2000; rc[4]=2000; }      /* YAW HIGH + ARM (nav bypass) */
-            else { rc[4]=2000; rc[5]=2000;                  /* ARM + ANGLE */
+            int armed=(t_armflags&4)!=0;
+            int calib=(t_armflags&(1<<9))!=0;
+            static double cal_done_t=-1;
+            if(!calib && cal_done_t<0 && ts>1.0) cal_done_t=ts;   /* remember when gyro cal cleared */
+            if(cal_done_t<0 || ts < cal_done_t+1.0){ }            /* arm LOW until cal done +1s */
+            else if(!armed){                                     /* pulse arm LOW 1.5s -> HIGH 1.5s to force a clean edge (clears ARM_SWITCH latch) */
+                double ph=fmod(ts-cal_done_t,3.0);
+                if(ph>=1.5){ rc[3]=2000; rc[4]=2000; }           /* YAW HIGH + ARM (nav bypass) */
+            }
+            else { rc[4]=2000; rc[5]=2000;                        /* ARM + ANGLE, then fly */
                    rc[0]=1500+(int)(cr*450); rc[1]=1500+(int)(cp*450); rc[3]=1500+(int)(cy*450);
                    double thr=(cthr>=0)?cthr:0.80; rc[2]=1000+(int)(thr*1000); }
             uint8_t pl[16]; for(int i=0;i<8;i++){ pl[i*2]=rc[i]&0xff; pl[i*2+1]=rc[i]>>8; }
@@ -321,9 +328,8 @@ int main(void){
             static video_packet_t v; render_horizon(&v,t_roll,t_pitch); sendto(fbfd,&v,sizeof v,0,(struct sockaddr*)&fbdst,sizeof fbdst);
         }
 
-        if(++tick%100==0) fprintf(stderr,"[xp_bridge] msp=%d armed=%d fix=%d/%d | iNav att r=%.1f p=%.1f y=%d | pos d=%.0fm alt=%.0f\n",
-            msp_fd>=0, (t_armflags&4)!=0, t_fix, t_sats, t_roll, t_pitch, t_yaw,
-            hypot((S.lat-HOME_LAT)*111320.0,(S.lon-HOME_LON)*111320.0), S.agl);
+        if(++tick%100==0) fprintf(stderr,"[xp_bridge] msp=%d armflags=0x%X fix=%d/%d modes=0x%X nbox=%d | iNav att r=%.1f p=%.1f y=%d | alt=%.0f\n",
+            msp_fd>=0, t_armflags, t_fix, t_sats, t_modeflags, nboxids, t_roll, t_pitch, t_yaw, S.agl);
         struct timespec tsp={0,(long)(dt*1e9)}; nanosleep(&tsp,NULL);
     }
     return 0;

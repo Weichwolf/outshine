@@ -21,7 +21,7 @@ podman build -f flightbox/Containerfile -t "$IMG_F" .
 echo ">> (re)start containers"
 podman rm -f "$IMG_A" "$IMG_F" >/dev/null 2>&1 || true
 podman run -d --name "$IMG_F" --network "$NET" -e AIRCRAFT_ADDR="$IMG_A" -p 8080:8080 "$IMG_F"
-podman run -d --name "$IMG_A" --network "$NET" -e FLIGHTBOX_ADDR="$IMG_F" "$IMG_A"
+podman run -d --name "$IMG_A" --network "$NET" -e FLIGHTBOX_ADDR="$IMG_F" -e FDM_MODEL="${FDM_MODEL:-1}" "$IMG_A"
 
 echo
 echo "== running =="

@@ -1,10 +1,13 @@
-# Aircraft simulator container. Build context = sim/
-FROM docker.io/library/debian:bookworm-slim
+# Aircraft container: real iNav SITL firmware + X-Plane FDM bridge (xp_bridge).
+# Build context = sim/. Ships the prebuilt SITL.elf (needs glibc >= 2.38 -> trixie).
+FROM docker.io/library/debian:trixie-slim
 RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY common/ common/
-COPY aircraft/aircraft.c aircraft/
-RUN gcc -O2 -Wall -Icommon aircraft/aircraft.c -o /usr/local/bin/aircraft -lm
-# FLIGHTBOX_ADDR is set at run time (podman network alias of the flightbox)
-CMD ["aircraft"]
+COPY aircraft/xp_bridge.c aircraft/
+COPY aircraft/SITL.elf aircraft/eeprom.bin aircraft/run.sh ./
+RUN gcc -O2 -Wall -Icommon aircraft/xp_bridge.c -o /usr/local/bin/xp_bridge -lm \
+    && chmod +x /app/SITL.elf /app/run.sh
+# FLIGHTBOX_ADDR + FDM_MODEL set at run time
+CMD ["/app/run.sh"]
