@@ -1,0 +1,17 @@
+# --- build outputs ---
+sim/build/
+sim/flightbox/web/cc.js
+sim/flightbox/web/cc.wasm
+*.o
+*.elf
+
+# --- vendored / generated (recreated by build scripts) ---
+sim/inav-src/
+sim/inav-sitl/
+**/eeprom.bin
+
+# --- logs & temp ---
+*.log
+
+# --- windows download markers ---
+*Zone.Identifier

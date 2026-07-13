@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FlightBox — Command Center</title>
+<style>
+  html,body{margin:0;height:100%;background:#0a0a0e;color:#cfd;font:14px system-ui,sans-serif}
+  #wrap{display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px}
+  canvas{border:1px solid #234;image-rendering:pixelated;max-width:100%}
+  #tip{opacity:.7;font-size:12px;text-align:center;max-width:640px}
+  kbd{background:#1a2330;border:1px solid #345;border-radius:3px;padding:0 4px}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <h3 style="margin:4px">FlightBox — Command Center</h3>
+  <canvas id="canvas" width="640" height="480" tabindex="1"></canvas>
+  <div id="tip">
+    Klick aufs Bild, dann steuern:
+    <kbd>←↑↓→</kbd> Roll/Pitch · <kbd>A</kbd>/<kbd>D</kbd> Yaw ·
+    <kbd>W</kbd>/<kbd>S</kbd> Gas · <kbd>Enter</kbd> Arm · <kbd>L</kbd> Link-Verlust (RTH testen).
+    Gamepad wird automatisch erkannt.
+  </div>
+</div>
+<script>
+  var Module = { canvas: (function(){ return document.getElementById('canvas'); })() };
+</script>
+<script src="cc.js"></script>
+</body>
+</html>

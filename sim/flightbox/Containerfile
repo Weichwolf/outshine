@@ -1,0 +1,14 @@
+# Flightbox container: HTTP+WASM server + WebSocket bridge + UDP radio.
+# Build context = sim/  (ships the prebuilt WASM in flightbox/web/)
+FROM docker.io/library/debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY common/ common/
+COPY flightbox/server.c flightbox/
+COPY flightbox/web/ flightbox/web/
+RUN gcc -O2 -Wall -Icommon flightbox/server.c -o /usr/local/bin/fbserver
+WORKDIR /app/flightbox
+EXPOSE 8080
+# AIRCRAFT_ADDR is set at run time (podman network alias of the aircraft)
+CMD ["fbserver"]
