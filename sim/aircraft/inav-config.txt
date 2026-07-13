@@ -1,0 +1,42 @@
+# iNav SITL config for the FlightBox X-Plane FDM bridge (CLI, over TCP 5760).
+# Apply once, `save`, then run SITL with --sim=xp + xp_bridge.
+#   SITL.elf --path=eeprom.bin --sim=xp --simip=127.0.0.1 --simport=49000 \
+#            --chanmap=M01-01,S01-02,S02-03,S03-04
+#
+# Verified (headless via MSP, iNav 9.1.0): arms, ANGLE holds attitude,
+# GPS 3D fix, RC-loss -> failsafe NAV-RTH returns to the home area + loiters.
+
+# --- platform + receiver ---
+set platform_type = AIRPLANE
+set receiver_type = MSP
+
+# --- servo mixer: S1<-roll, S2<-pitch, S3<-yaw (chanmap maps to X-Plane yoke) ---
+mmix 0 1.000 0.000 0.000 0.000
+smix reset
+smix 0 1 0 100 0 -1
+smix 1 2 1 100 0 -1
+smix 2 3 2 100 0 -1
+
+# --- GPS (SITL fake driver, fed by the bridge's inav_xitl/gps datarefs) ---
+feature GPS
+set gps_provider = FAKE
+set nav_extra_arming_safety = ALLOW_BYPASS   ; arm with YAW stick HIGH to bypass
+
+# --- failsafe -> RTH ---
+set failsafe_procedure = RTH
+set failsafe_delay = 5
+
+# --- modes: ARM=AUX1, ANGLE=AUX2, NAV RTH=AUX3 ---
+aux 0 0 0 1700 2100
+aux 1 1 1 1700 2100
+aux 2 8 2 1700 2100
+
+# --- test conveniences ---
+set small_angle = 180
+
+save
+
+# Arming sequence (MSP_SET_RAW_RC, AETR map, channels 0..):
+#   throttle(idx2)=1000 low, hold ~3s (gyro cal), then
+#   YAW(idx3)=2000 HIGH + AUX1(idx4)=2000  -> arms (nav bypass)
+#   then yaw->1500, AUX2(idx5)=2000 (ANGLE), throttle up = launch.

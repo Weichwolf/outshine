@@ -79,6 +79,20 @@ static float sensor_value(const char *d){
     if(!strcmp(d,"sim/weather/barometer_current_inhg")) return (float)baro_inhg(S.elev);
     if(!strcmp(d,"sim/joystick/has_joystick")) return 1.0f;
     if(!strcmp(d,"inav_xitl/plugin/xitlDrefVersion")) return 0.0f; /* plain X-Plane, not XITL */
+    /* iNav also subscribes to inav_xitl/* datarefs; xplane.c copies numSats/fix
+     * into gpsFakeSet regardless of mode, so these MUST be answered for a GPS fix. */
+    if(!strcmp(d,"inav_xitl/gps/numSats"))   return 16.0f;
+    if(!strcmp(d,"inav_xitl/gps/fix"))       return 3.0f;   /* GPS_FIX_3D */
+    if(!strcmp(d,"inav_xitl/gps/latitude"))  return (float)S.lat;
+    if(!strcmp(d,"inav_xitl/gps/longitude")) return (float)S.lon;
+    if(!strcmp(d,"inav_xitl/gps/elevation")) return (float)S.elev;
+    if(!strcmp(d,"inav_xitl/gps/groundspeed"))return (float)S.speed;
+    if(!strcmp(d,"inav_xitl/sensors/airspeed"))return (float)S.speed;
+    if(!strcmp(d,"inav_xitl/sensors/battery_voltage")) return 12.0f;
+    if(!strcmp(d,"inav_xitl/sensors/battery_current")) return 1.0f;
+    if(!strcmp(d,"inav_xitl/sensors/rangefinder")) return -1.0f;
+    if(!strcmp(d,"inav_xitl/rc/rssi"))       return 100.0f;
+    if(!strcmp(d,"inav_xitl/rc/failsafe"))   return 0.0f;
     return 0.0f;
 }
 
@@ -105,8 +119,12 @@ static void physics_step(double dt){
     if(g_inject){ S.roll=25.0; S.pitch=-15.0; S.yaw=90.0; return; }
     /* Pre-launch: held level & perfectly still on the hand/launcher so the gyro
      * calibration completes and iNav can arm. Throttle-up = launch. */
-    if(S.in_thr < 0.05){ S.roll=0; S.pitch=0; S.p=S.q=S.r=0; return; }
-    if(S.speed < 3.0) S.speed = 12.0;      /* hand-launch throw speed */
+    static int launched=0;
+    if(!launched){
+        if(S.in_thr < 0.05){ S.roll=0; S.pitch=0; S.p=S.q=S.r=0; S.speed=0; S.vx=S.vy=S.vz=0; return; }
+        launched=1; S.speed=12.0;          /* hand-launch throw speed */
+    }
+    /* once launched, physics always runs (glides at low throttle, e.g. RTH descent) */
     const double rho=1.225, g=9.81;
     double m=MDL->m, b=MDL->b, Sw=MDL->S, c=Sw/b;
     double Ix=0.020*m*b*b, Iy=0.030*m*b*b;     /* moments of inertia (est.) */
