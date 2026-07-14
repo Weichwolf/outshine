@@ -13,7 +13,7 @@ import socket, struct, base64, os, sys, time, threading
 
 HOST = os.environ.get("HOST", "127.0.0.1:8080")
 IP, PORT = HOST.split(":")[0], int(HOST.split(":")[1])
-TELE = struct.Struct("<IfffffffffffBBH")           # protocol.h telem_packet_t
+TELE = struct.Struct("<IffffffffffffffffffffBBH")  # telem_packet_t (20 floats: +cloud,vis,sun/moon,vs,airspeed)
 CTRL = struct.Struct("<IffffBBH")                   # ctrl_packet_t
 MAG_TELE, MAG_VID, MAG_CTRL = 0x314D4C54, 0x31444956, 0x314C5443
 STATES = ["DISARM", "ARMED", "CLIMB", "LOITER", "MANUAL", "RTH"]
@@ -83,8 +83,8 @@ class CC:
             time.sleep(0.05)
         return samples
 
-def T(m): return dict(state=STATES[m[12] % 6], roll=m[1], pitch=m[2], yaw=m[3],
-                      alt=m[4], gs=m[7], batt=m[8], home=m[9], hbrg=m[10], rssi=m[13])
+def T(m): return dict(state=STATES[m[21] % 6], roll=m[1], pitch=m[2], yaw=m[3],
+                      alt=m[4], gs=m[7], batt=m[8], home=m[9], hbrg=m[10], rssi=m[22])
 
 def main():
     results = []
@@ -134,6 +134,15 @@ def main():
     m = T(cc.telem)
     check("telemetry sane", m["home"] < 20000 and 5 < m["batt"] < 20 and abs(m["roll"]) < 90,
           "home=%.0fm batt=%.1fV roll=%.1f" % (m["home"], m["batt"], m["roll"]))
+
+    # wait until established airborne: manual stick input is only accepted once flying
+    # (the autopilot holds the launch attitude until it has climbed clear of the ground),
+    # so give the cold-start climb-out time before probing roll authority.
+    t0 = time.time()
+    while time.time() - t0 < 45:
+        cc.poll()
+        if cc.telem and T(cc.telem)["alt"] > 60: break
+        time.sleep(0.1)
 
     # 4) control response: command roll right, expect bank; then left
     base = T(cc.telem)["roll"]

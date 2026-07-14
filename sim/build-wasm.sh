@@ -15,7 +15,7 @@ TER="$OSM_DIR/wasm/data/hameln_terrain.pmtiles"
 
 emcc command_center/cc.c "$OSM_DIR"/libosmmesh/src/*.c \
     -O2 -Icommon -I"$OSM_DIR/libosmmesh/include" \
-    -DW3_RAD=2 -DW3_TEX=512 -DW3_TERR=22 \
+    -DW3_RAD=2 -DW3_TEX=1024 -DW3_FARTEX=512 -DW3_TERR=22 \
     -sUSE_SDL=2 -lwebsocket.js -sFULL_ES2 -sMAX_WEBGL_VERSION=2 -sMIN_WEBGL_VERSION=1 \
     -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=128MB -sSTACK_SIZE=4MB \
     -sEXIT_RUNTIME=0 \

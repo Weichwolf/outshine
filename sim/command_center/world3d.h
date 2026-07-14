@@ -40,27 +40,75 @@ static GLuint w3_shader(GLenum t,const char*src){ GLuint s=glCreateShader(t); gl
 static GLuint w3_prog(const char*vs,const char*fs){ GLuint p=glCreateProgram();
   glAttachShader(p,w3_shader(GL_VERTEX_SHADER,vs)); glAttachShader(p,w3_shader(GL_FRAGMENT_SHADER,fs)); glLinkProgram(p); return p; }
 
+/* uHaze = horizon/fog colour for the current time of day (set from sun elevation +
+ * cloud on the CPU) so distant geometry fades into the real sky, day or night. */
 static const char*W3_VSW=
  "attribute vec3 aPos; attribute vec3 aCol; uniform mat4 uMVP; varying vec3 vCol; varying float vFog;"
  "void main(){ vec4 p=uMVP*vec4(aPos,1.0); gl_Position=p; vCol=aCol; vFog=clamp(p.z/6000.0,0.0,1.0); }";
 static const char*W3_FSW=
- "precision mediump float; varying vec3 vCol; varying float vFog;"
- "void main(){ vec3 sky=vec3(0.55,0.70,0.90); gl_FragColor=vec4(mix(vCol,sky,vFog*0.7),1.0); }";
+ "precision mediump float; varying vec3 vCol; varying float vFog; uniform vec3 uHaze; uniform float uLight;"
+ "void main(){ gl_FragColor=vec4(mix(vCol*uLight,uHaze,vFog*0.7),1.0); }";
 /* textured terrain: OSM landcover/roads/buildings baked to a per-tile ortho texture */
 static const char*W3_VSWT=
  "attribute vec3 aPos; attribute vec2 aUV; uniform mat4 uMVP; varying vec2 vUV; varying float vFog;"
  "void main(){ vec4 p=uMVP*vec4(aPos,1.0); gl_Position=p; vUV=aUV; vFog=clamp((p.w-3000.0)/28000.0,0.0,1.0); }";
 static const char*W3_FSWT=
- "precision mediump float; varying vec2 vUV; varying float vFog; uniform sampler2D uTex;"
- "void main(){ vec3 c=texture2D(uTex,vUV).rgb; vec3 sky=vec3(0.55,0.70,0.90); gl_FragColor=vec4(mix(c,sky,vFog*0.6),1.0); }";
+ "precision mediump float; varying vec2 vUV; varying float vFog; uniform sampler2D uTex; uniform vec3 uHaze; uniform float uLight;"
+ "void main(){ vec3 c=texture2D(uTex,vUV).rgb*uLight; gl_FragColor=vec4(mix(c,uHaze,vFog*0.6),1.0); }";
 static const char*W3_VSH=
  "attribute vec2 aPos; attribute vec3 aCol; uniform vec2 uScale; varying vec3 vCol;"
  "void main(){ gl_Position=vec4(aPos.x*uScale.x-1.0, 1.0-aPos.y*uScale.y, 0.0,1.0); vCol=aCol; }";
 static const char*W3_FSH="precision mediump float; varying vec3 vCol; void main(){ gl_FragColor=vec4(vCol,1.0); }";
 
-static GLuint w3_pW,w3_pH,w3_pWT,w3_vTerr,w3_vBld,w3_hVBO; static int w3_nTerr,w3_nBld;
-static GLint w3_wPos,w3_wCol,w3_wMVP,w3_hPos,w3_hCol,w3_hScale;
-static GLint w3_wtPos,w3_wtUV,w3_wtMVP,w3_wtTex;
+/* ---- sky dome: fullscreen pass, per-pixel ray from the camera basis ----
+ * Colours the whole sky by the real sun position (day / dusk / night gradient),
+ * draws sun + moon discs and a night star field, and blends procedural clouds.
+ * Drawn first each frame with depth writes off; terrain paints over it. */
+static const char*W3_VSKY=
+ "attribute vec2 aPos; uniform vec3 uF,uS,uU; uniform float uTan,uAsp; varying vec3 vRay;"
+ "void main(){ vRay=uF + uS*(aPos.x*uTan*uAsp) + uU*(aPos.y*uTan); gl_Position=vec4(aPos,0.999,1.0); }";
+static const char*W3_FSKY=
+ "precision mediump float; varying vec3 vRay;"
+ "uniform vec3 uSun,uMoon; uniform float uMoonPh,uCloud;"
+ "float h21(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }"
+ "float vnoise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);"
+ "  float a=h21(i),b=h21(i+vec2(1,0)),c=h21(i+vec2(0,1)),d=h21(i+vec2(1,1));"
+ "  return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }"
+ "void main(){ vec3 r=normalize(vRay); float hgt=clamp(r.y,-0.15,1.0);"
+ "  float sEl=uSun.y; float day=smoothstep(-0.12,0.10,sEl);"
+ "  float t=pow(clamp(hgt,0.0,1.0),0.55);"
+ "  vec3 dayC=mix(vec3(0.72,0.82,0.92),vec3(0.22,0.45,0.82),t);"
+ "  vec3 ngtC=mix(vec3(0.05,0.06,0.13),vec3(0.01,0.02,0.06),t);"
+ "  vec3 sky=mix(ngtC,dayC,day);"
+ /* warm dusk band toward the sun, low on the horizon */
+ "  float dusk=exp(-(sEl*sEl)/(0.18*0.18));"          /* pow(neg,2.0) is undefined in GLES2 -> multiply */
+ "  float low=exp(-(max(hgt,0.0)*max(hgt,0.0))/(0.20*0.20));"
+ "  float tow=max(0.0,dot(normalize(vec3(r.x,0.0,r.z)),normalize(vec3(uSun.x,0.001,uSun.z))));"
+ "  sky=mix(sky,vec3(0.98,0.46,0.20),dusk*low*(0.30+0.55*tow));"
+ /* clouds: value-noise sheet projected on the dome, lit by day, silver by night */
+ "  if(uCloud>0.01 && hgt>0.04){ vec2 cuv=r.xz/(hgt+0.25)*1.6;"
+ "     float n=0.55*vnoise(cuv)+0.35*vnoise(cuv*2.3)+0.15*vnoise(cuv*4.7);"
+ "     float cl=smoothstep(1.0-uCloud,1.0-uCloud*0.35,n)*smoothstep(0.04,0.22,hgt);"
+ "     vec3 cc=mix(vec3(0.34,0.36,0.45),vec3(0.95,0.96,1.0),day);"
+ "     sky=mix(sky,cc,cl*0.85); }"
+ /* stars at night */
+ "  if(day<0.55 && hgt>0.02){ vec3 rc=floor(r*90.0); float s=h21(rc.xy+rc.z*7.0);"
+ "     float star=step(0.9965,s)*(1.0-day)*smoothstep(0.0,0.12,hgt); sky+=star*vec3(0.9,0.9,1.0); }"
+ /* moon disc + phase (visible when up, mostly at night) */
+ "  float ma=length(cross(r,uMoon)); float md=smoothstep(0.012,0.006,ma);"
+ "  float mb=(0.25+0.75*uMoonPh)*step(-0.03,uMoon.y)*(1.0-0.7*day);"
+ "  sky=mix(sky,vec3(0.92,0.92,0.86),md*mb);"
+ /* sun disc + glow (visible when up) */
+ "  float sa=length(cross(r,uSun)); float sd=smoothstep(0.016,0.004,sa);"
+ "  float glow=exp(-sa*7.0)*0.35 + exp(-sa*1.5)*0.12*day;"
+ "  float sup=smoothstep(-0.06,0.0,uSun.y);"
+ "  sky+=(sd*vec3(1.0,0.96,0.86)*2.2 + glow*vec3(1.0,0.80,0.55))*sup;"
+ "  gl_FragColor=vec4(sky,1.0); }";
+
+static GLuint w3_pW,w3_pH,w3_pWT,w3_pSky,w3_vTerr,w3_vBld,w3_hVBO,w3_skyVBO; static int w3_nTerr,w3_nBld;
+static GLint w3_wPos,w3_wCol,w3_wMVP,w3_wHaze,w3_wLight,w3_hPos,w3_hCol,w3_hScale;
+static GLint w3_wtPos,w3_wtUV,w3_wtMVP,w3_wtTex,w3_wtHaze,w3_wtLight;
+static GLint w3_skPos,w3_skF,w3_skS,w3_skU,w3_skTan,w3_skAsp,w3_skSun,w3_skMoon,w3_skMoonPh,w3_skCloud;
 
 /* world uses OSM/terrain meshes if loaded via w3_load_mesh(), else procedural. */
 #define W3_GRID 48
@@ -357,18 +405,38 @@ static void w3_text(float x,float y,float s,float r,float g,float b,const char*t
     for(int row=0;row<5;row++){ unsigned char m=W3_FONT[ix][row]; for(int c=0;c<3;c++) if(m&(4>>c)) w3_gpx(x+c*s,y+row*s,s,r,g,b);} x+=4*s; } }
 static void w3_printf(float x,float y,float s,float r,float g,float b,const char*fmt,...){ char bb[96]; va_list a; va_start(a,fmt); vsnprintf(bb,96,fmt,a); va_end(a); w3_text(x,y,s,r,g,b,bb); }
 static const char*W3_STN[]={"DISARM","ARMED","CLIMB","LOITER","MANUAL","RTH"};
+/* Full OSD: every telemetry field, computed/derived correctly. The bitmap font only
+ * has [ 0-9 A-Z - . : / ], so no '%'/'+': percent is implied by the label, sign shown
+ * via '-' plus colour (green=climb/good, amber=caution, red=warning). */
 static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
   w3_hudN=0; float cx=W/2,cy=H/2;
   w3_line(cx-24,cy,cx-8,cy,0.4f,1,0.4f); w3_line(cx+8,cy,cx+24,cy,0.4f,1,0.4f); w3_line(cx,cy-8,cx,cy+8,0.4f,1,0.4f);
   if(!have){ w3_text(cx-60,30,3,1,0.8f,0.2f,"NO TELEMETRY"); return; }
-  w3_printf(14,14,3,1,1,1,"ALT %4.0f",t->alt); w3_printf(14,34,3,1,1,1,"SPD %4.1f",t->gs);
-  w3_printf(14,54,3,1,1,1,"HDG %4.0f",t->yaw<0?t->yaw+360:t->yaw);
-  w3_printf(W-160,14,3,1,1,1,"HOME %4.0f",t->home_dist);
-  int rth=(t->state==5||t->state==3); w3_printf(W-160,34,3,rth?1:0.4f,rth?0.8f:1,rth?0.2f:0.4f,"%s",W3_STN[t->state%6]);
-  w3_printf(W-160,54,3,t->rssi>0?0.4f:1,t->rssi>0?1:0.8f,0.3f,"LNK %3d",t->rssi);
+  float hdg=t->yaw<0?t->yaw+360:t->yaw;
+  /* left column: flight state */
+  w3_printf(14, 14,3,1,1,1,      "ALT %5.0f",t->alt);
+  w3_printf(14, 34,3,0.7f,0.9f,1,"AS  %5.1f",t->airspeed);
+  w3_printf(14, 54,3,1,1,1,      "GS  %5.1f",t->gs);
+  { float v=t->vs, r=1,g=1,b=1; if(v>0.4f){r=0.4f;g=1;b=0.4f;} else if(v<-2.0f){r=1;g=0.7f;b=0.2f;}
+    w3_printf(14,74,3,r,g,b,     "VS  %5.1f",v); }
+  w3_printf(14, 94,3,1,1,1,      "HDG %5.0f",hdg);
+  /* right column: navigation / power / link / mode */
+  w3_printf(W-176,14,3,1,1,1,    "HOME %5.0f",t->home_dist);
+  { float v=t->batt, r=0.4f,g=1,b=0.3f; if(v<10.0f){r=1;g=0.3f;b=0.2f;} else if(v<11.0f){r=1;g=0.85f;b=0.2f;}
+    w3_printf(W-176,34,3,r,g,b,  "BAT %4.1fV",v); }
+  { int q=t->rssi; float r=0.4f,g=1,b=0.3f; if(q<25){r=1;g=0.3f;b=0.2f;} else if(q<50){r=1;g=0.85f;b=0.2f;}
+    w3_printf(W-176,54,3,r,g,b,  "LNK %4d",q); }
+  { int rth=(t->state==5||t->state==3);
+    w3_printf(W-176,74,3,rth?1:0.4f,rth?0.85f:1,rth?0.2f:0.4f,"%s",W3_STN[t->state%6]); }
+  /* attitude + environment (bottom) */
+  w3_printf(14,H-44,2,0.8f,0.8f,0.9f,"ROLL %4.0f   PITCH %4.0f",t->roll,t->pitch);
+  w3_printf(14,H-24,2,0.7f,0.85f,0.7f,"CLD %3.0f  VIS %4.1fKM  SUN %3.0f  MOON %3.0f",
+            t->cloud*100.f,t->vis/1000.f,t->sun_el,t->moon_phase*100.f);
+  /* home-direction arrow (top center) */
   float a=t->home_bearing*(float)M_PI/180.f,hx=cx,hy=110,len=34,tx=hx+sinf(a)*len,ty=hy-cosf(a)*len;
   w3_line(hx,hy,tx,ty,1,0.85f,0.2f); w3_line(tx,ty,tx+sinf(a+2.6f)*10,ty-cosf(a+2.6f)*10,1,0.85f,0.2f); w3_line(tx,ty,tx+sinf(a-2.6f)*10,ty-cosf(a-2.6f)*10,1,0.85f,0.2f);
   w3_text(cx-10,hy+16,2,1,0.85f,0.2f,"HOME");
+  /* glideslope ladder (right of center) */
   float gx=W-52,gy=cy; for(int i=-2;i<=2;i++) w3_line(gx-8,gy+i*26,gx+8,gy+i*26,1,1,1);
   float dy=-t->glideslope_err*5; if(dy<-52)dy=-52; if(dy>52)dy=52;
   w3_line(gx-6,gy+dy-5,gx+6,gy+dy-5,1,0.85f,0.2f); w3_line(gx+6,gy+dy-5,gx+6,gy+dy+5,1,0.85f,0.2f);
@@ -381,11 +449,22 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
  * is built as a standalone fallback. */
 static void world3d_init(void){
   w3_pW=w3_prog(W3_VSW,W3_FSW); w3_wPos=glGetAttribLocation(w3_pW,"aPos"); w3_wCol=glGetAttribLocation(w3_pW,"aCol"); w3_wMVP=glGetUniformLocation(w3_pW,"uMVP");
+  w3_wHaze=glGetUniformLocation(w3_pW,"uHaze"); w3_wLight=glGetUniformLocation(w3_pW,"uLight");
   w3_pH=w3_prog(W3_VSH,W3_FSH); w3_hPos=glGetAttribLocation(w3_pH,"aPos"); w3_hCol=glGetAttribLocation(w3_pH,"aCol"); w3_hScale=glGetUniformLocation(w3_pH,"uScale");
   glGenBuffers(1,&w3_hVBO);
+  /* sky dome program + a fullscreen quad (two triangles in NDC) */
+  w3_pSky=w3_prog(W3_VSKY,W3_FSKY);
+  w3_skPos=glGetAttribLocation(w3_pSky,"aPos");
+  w3_skF=glGetUniformLocation(w3_pSky,"uF"); w3_skS=glGetUniformLocation(w3_pSky,"uS"); w3_skU=glGetUniformLocation(w3_pSky,"uU");
+  w3_skTan=glGetUniformLocation(w3_pSky,"uTan"); w3_skAsp=glGetUniformLocation(w3_pSky,"uAsp");
+  w3_skSun=glGetUniformLocation(w3_pSky,"uSun"); w3_skMoon=glGetUniformLocation(w3_pSky,"uMoon");
+  w3_skMoonPh=glGetUniformLocation(w3_pSky,"uMoonPh"); w3_skCloud=glGetUniformLocation(w3_pSky,"uCloud");
+  { float q[12]={-1,-1, 1,-1, -1,1,  -1,1, 1,-1, 1,1}; glGenBuffers(1,&w3_skyVBO);
+    glBindBuffer(GL_ARRAY_BUFFER,w3_skyVBO); glBufferData(GL_ARRAY_BUFFER,sizeof q,q,GL_STATIC_DRAW); }
 #ifdef W3_USE_OSM
   w3_pWT=w3_prog(W3_VSWT,W3_FSWT); w3_wtPos=glGetAttribLocation(w3_pWT,"aPos"); w3_wtUV=glGetAttribLocation(w3_pWT,"aUV");
   w3_wtMVP=glGetUniformLocation(w3_pWT,"uMVP"); w3_wtTex=glGetUniformLocation(w3_pWT,"uTex");
+  w3_wtHaze=glGetUniformLocation(w3_pWT,"uHaze"); w3_wtLight=glGetUniformLocation(w3_pWT,"uLight");
   if(w3_osm) return;              /* geometry (textured tiles) comes from world3d_stream() */
 #endif
   w3_build_procedural();
@@ -407,11 +486,35 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
    * tilt the camera up toward the RIGHT (+s), so the world appears to roll left in view.
    * (The previous -s inverted it: a right bank looked like a left bank.) */
   float up[3]={u[0]*cosf(roll)+s[0]*sinf(roll),u[1]*cosf(roll)+s[1]*sinf(roll),u[2]*cosf(roll)+s[2]*sinf(roll)};
+  float sr[3]={s[0]*cosf(roll)-u[0]*sinf(roll),s[1]*cosf(roll)-u[1]*sinf(roll),s[2]*cosf(roll)-u[2]*sinf(roll)}; /* rolled screen-right */
   float eye[3]={px,py,pz},ctr[3]={px+f[0],py+f[1],pz+f[2]};
   float view[16],proj[16],mvp[16]; m_lookat(view,eye,ctr,up); m_persp(proj,W3_FOV*RAD,(float)W/H,2.0f,45000.f); m_mul(mvp,proj,view);
+
+  /* ---- environment: real sun/moon direction (ENU: E=+X, up=+Y, N=-Z), sky, light ---- */
+  float sun_el=have?t->sun_el:35.f, sun_az=have?t->sun_az:150.f;
+  float moon_el=have?t->moon_el:25.f, moon_az=have?t->moon_az:300.f, moon_ph=have?t->moon_phase:0.5f;
+  float cloud=have?t->cloud:0.3f; if(cloud<0)cloud=0; if(cloud>1)cloud=1;
+  float ce=cosf(sun_el*RAD), sun[3]={ce*sinf(sun_az*RAD),sinf(sun_el*RAD),-ce*cosf(sun_az*RAD)};
+  float me=cosf(moon_el*RAD), moon[3]={me*sinf(moon_az*RAD),sinf(moon_el*RAD),-me*cosf(moon_az*RAD)};
+  float day=fmaxf(0.f,fminf(1.f,(sun_el+6.f)/12.f));           /* 0 night (<-6°) .. 1 day (>6°) */
+  float haze[3]={0.05f+0.67f*day,0.06f+0.76f*day,0.13f+0.79f*day};
+  for(int i=0;i<3;i++){ float tgt=0.80f*day+0.30f*(1.f-day); haze[i]+=(tgt-haze[i])*cloud*0.45f; }
+  float light=0.20f+0.80f*day;                                 /* dim scene at night, full by day */
+  /* draw the sky first, depth writes off, so terrain paints over it */
+  glDepthMask(GL_FALSE); glDisable(GL_DEPTH_TEST);
+  glUseProgram(w3_pSky);
+  glUniform3fv(w3_skF,1,f); glUniform3fv(w3_skS,1,sr); glUniform3fv(w3_skU,1,up);
+  glUniform1f(w3_skTan,tanf(W3_FOV*RAD*0.5f)); glUniform1f(w3_skAsp,(float)W/H);
+  glUniform3fv(w3_skSun,1,sun); glUniform3fv(w3_skMoon,1,moon);
+  glUniform1f(w3_skMoonPh,moon_ph); glUniform1f(w3_skCloud,cloud);
+  glBindBuffer(GL_ARRAY_BUFFER,w3_skyVBO); glEnableVertexAttribArray(w3_skPos);
+  glVertexAttribPointer(w3_skPos,2,GL_FLOAT,GL_FALSE,0,0); glDrawArrays(GL_TRIANGLES,0,6);
+  glDisableVertexAttribArray(w3_skPos);
+  glDepthMask(GL_TRUE); glEnable(GL_DEPTH_TEST);
 #ifdef W3_USE_OSM
   if(w3_nT>0||w3_nTF>0){   /* textured OSM terrain: far coarse ring + near detail, one draw per tile */
     glUseProgram(w3_pWT); glUniformMatrix4fv(w3_wtMVP,1,GL_FALSE,mvp);
+    glUniform3fv(w3_wtHaze,1,haze); glUniform1f(w3_wtLight,light);
     glActiveTexture(GL_TEXTURE0); glUniform1i(w3_wtTex,0);
     glEnableVertexAttribArray(w3_wtPos); glEnableVertexAttribArray(w3_wtUV);
     #define W3_DRAWARR(arr,n) for(int i=0;i<n;i++){ glBindTexture(GL_TEXTURE_2D,arr[i].tex); glBindBuffer(GL_ARRAY_BUFFER,arr[i].vbo); \
@@ -425,7 +528,7 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
     glDisableVertexAttribArray(w3_wtUV);
   } else
 #endif
-  { glUseProgram(w3_pW); glUniformMatrix4fv(w3_wMVP,1,GL_FALSE,mvp); glEnableVertexAttribArray(w3_wPos); glEnableVertexAttribArray(w3_wCol);
+  { glUseProgram(w3_pW); glUniformMatrix4fv(w3_wMVP,1,GL_FALSE,mvp); glUniform3fv(w3_wHaze,1,haze); glUniform1f(w3_wLight,light); glEnableVertexAttribArray(w3_wPos); glEnableVertexAttribArray(w3_wCol);
     glBindBuffer(GL_ARRAY_BUFFER,w3_vTerr); glVertexAttribPointer(w3_wPos,3,GL_FLOAT,GL_FALSE,24,0); glVertexAttribPointer(w3_wCol,3,GL_FLOAT,GL_FALSE,24,(void*)12); glDrawArrays(GL_TRIANGLES,0,w3_nTerr);
     glBindBuffer(GL_ARRAY_BUFFER,w3_vBld); glVertexAttribPointer(w3_wPos,3,GL_FLOAT,GL_FALSE,24,0); glVertexAttribPointer(w3_wCol,3,GL_FLOAT,GL_FALSE,24,(void*)12); glDrawArrays(GL_TRIANGLES,0,w3_nBld);
     glDisableVertexAttribArray(w3_wCol); }

@@ -46,6 +46,15 @@ typedef struct {
     float    home_dist;          /* m */
     float    home_bearing;       /* deg, relative to nose (-180..180) */
     float    glideslope_err;     /* deg; + = above the ideal approach path */
+    float    cloud;              /* 0..1 total cloud cover (live weather) */
+    float    vis;                /* horizontal visibility, m (live weather -> haze) */
+    float    sun_el;             /* sun elevation, deg (+ = above horizon) */
+    float    sun_az;             /* sun azimuth, deg (0=N, 90=E) */
+    float    moon_el;            /* moon elevation, deg */
+    float    moon_az;            /* moon azimuth, deg */
+    float    moon_phase;         /* illuminated fraction 0=new .. 1=full */
+    float    vs;                 /* vertical speed, m/s (+ = climb) */
+    float    airspeed;           /* true airspeed, m/s (vs. gs = groundspeed) */
     uint8_t  state;              /* ST_* */
     uint8_t  rssi;               /* 0..100 link quality */
     uint16_t seq;

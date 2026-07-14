@@ -8,6 +8,7 @@
   html,body{margin:0;height:100%;background:#0a0a0e;color:#cfd;font:14px system-ui,sans-serif}
   #wrap{display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px}
   canvas{border:1px solid #234;image-rendering:pixelated;max-width:100%}
+  canvas:fullscreen{width:100vw;height:100vh;object-fit:contain;image-rendering:auto;border:0;background:#000}
   #tip{opacity:.7;font-size:12px;text-align:center;max-width:640px}
   kbd{background:#1a2330;border:1px solid #345;border-radius:3px;padding:0 4px}
 </style>
@@ -19,13 +20,26 @@
   <div id="tip">
     Klick aufs Bild, dann steuern:
     <kbd>←↑↓→</kbd> Roll/Pitch · <kbd>A</kbd>/<kbd>D</kbd> Yaw ·
-    <kbd>W</kbd>/<kbd>S</kbd> Gas · <kbd>Enter</kbd> Arm · <kbd>L</kbd> Link-Verlust (RTH testen).
-    Gamepad wird automatisch erkannt.
+    <kbd>W</kbd>/<kbd>S</kbd> Gas · <kbd>Enter</kbd> Arm · <kbd>L</kbd> Link-Verlust (RTH testen) ·
+    <kbd>F</kbd> Vollbild. Gamepad wird automatisch erkannt.
   </div>
 </div>
 <script src="config.js"></script>
 <script>
   var Module = { canvas: (function(){ return document.getElementById('canvas'); })() };
+  // F = fullscreen toggle. F is unused by the flight controls, so no conflict with the
+  // WASM's SDL key handling. The canvas keeps its 1280x720 render size; the browser
+  // CSS-scales it to the screen (object-fit:contain -> 16:9 letterbox), matching the
+  // "render low, upscale" pipeline.
+  window.addEventListener('keydown', function(e){
+    if((e.key==='f'||e.key==='F') && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey){
+      var c=document.getElementById('canvas');
+      var req=c.requestFullscreen||c.webkitRequestFullscreen;
+      if(!document.fullscreenElement && !document.webkitFullscreenElement){ if(req) req.call(c); }
+      else { (document.exitFullscreen||document.webkitExitFullscreen).call(document); }
+      e.preventDefault();
+    }
+  });
 </script>
 <script src="cc.js"></script>
 </body>

@@ -18,6 +18,7 @@
 #include <stdint.h>
 #include <math.h>
 #include <time.h>
+#include <pthread.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
@@ -51,14 +52,143 @@ static state_t S;
  * system (aircraft home + command-center osmmesh origin) can fly anywhere. */
 static double HOME_LAT = 52.045, HOME_LON = 9.385, HOME_ELEV = 71.0;  /* ground ASL, matches osmmesh terrain at origin */
 
-/* --- atmosphere: steady wind + gusts + turbulence (env-tunable) --- */
+/* --- atmosphere: steady wind + gusts + turbulence (env-tunable, live-overridable) --- */
 static double windN=0, windE=0;          /* steady wind vector, m/s (ground frame) */
 static double gustN=0, gustE=0;          /* slowly-varying gust offset, m/s */
 static double g_turb=1.0;                /* turbulence intensity (0=calm, 1=moderate, 2=rough) */
+static double g_sigma=0.6;               /* Dryden vertical-gust std, m/s (live-set from real gusts) */
+static double g_bl_height=800.0;         /* boundary-layer / thermal-top height, m AGL (live) */
+static double g_thermal_W=0.0;           /* peak thermal updraft, m/s (0=off; live from solar+BL) */
+static double g_gustP=0,g_gustQ=0;       /* current gust roll/pitch rates (deg/s) -> reported to iNav's gyro */
+static float  g_nz=1.0f;                  /* normal load factor (g) -> iNav accelerometer, not hardwired 1 */
+static float  g_cloud=0.25f, g_vis=30000.0f;  /* live cloud cover 0..1 + horizontal visibility, m */
+/* live sun/moon ephemeris (filled ~1 Hz in main from real UTC + origin) */
+static float  g_sun_el=45, g_sun_az=180, g_moon_el=-10, g_moon_az=0, g_moon_ph=0.5f;
 /* xorshift PRNG + ~gaussian (sum of uniforms). Deterministic per run. */
 static uint32_t g_rng=2463534242u;
 static double urand(void){ g_rng^=g_rng<<13; g_rng^=g_rng>>17; g_rng^=g_rng<<5; return g_rng/4294967296.0; }
-static double nrand(void){ return (urand()+urand()+urand()+urand()-2.0); }   /* mean 0, ~unit */
+/* ~gaussian, mean 0, UNIT variance (sum of 12 uniforms - 6). The old sum-of-4 had variance
+ * 1/3, so every turbulence RMS driven by it was 0.58x the commanded sigma. */
+static double nrand(void){ double s=0; for(int i=0;i<12;i++)s+=urand(); return s-6.0; }
+
+/* --- thermals: a field of Gaussian updraft columns on a jittered grid. Strength
+ * and top come from live weather (solar radiation + boundary-layer height). The
+ * plane bobs through lift and gentle inter-thermal sink, like a real soaring day. */
+static uint32_t hash2(int a,int b){ uint32_t h=(uint32_t)(a*73856093)^(uint32_t)(b*19349663); h^=h>>13; h*=0x5bd1e995u; h^=h>>15; return h; }
+static double thermal_w(double x,double y,double z){
+    if(g_thermal_W<0.1) return 0.0;
+    const double cell=340.0, R=110.0;                 /* thermal spacing + core radius, m */
+    double zf=z/fmax(g_bl_height,200.0);
+    if(zf<=0.0||zf>=1.0) return -0.10*g_thermal_W;     /* below/above the convective layer: no lift */
+    double prof=sin(zf*M_PI);                          /* 0 at ground, peak mid-layer, 0 at BL top */
+    int gx=(int)floor(x/cell+0.5), gy=(int)floor(y/cell+0.5);
+    double best=0.0;
+    for(int dx=-1;dx<=1;dx++)for(int dy=-1;dy<=1;dy++){
+        uint32_t h=hash2(gx+dx,gy+dy);
+        double cx=(gx+dx)*cell + ((h&255)/255.0-0.5)*cell*0.6;
+        double cy=(gy+dy)*cell + (((h>>8)&255)/255.0-0.5)*cell*0.6;
+        double rr=hypot(x-cx,y-cy);
+        double str=g_thermal_W*(0.55+0.45*(((h>>16)&255)/255.0));
+        double w=str*exp(-(rr*rr)/(R*R));
+        if(w>best)best=w;
+    }
+    return best*prof - 0.12*g_thermal_W;               /* core lift minus gentle ambient sink */
+}
+
+/* --- low-precision solar & lunar position (from real UTC + origin lat/lon) --- */
+static double julian_day(time_t t){ return t/86400.0 + 2440587.5; }
+static void sun_pos(double jd,double lat,double lon,double*el,double*az){
+    double n=jd-2451545.0;
+    double L=fmod(280.460+0.9856474*n,360.0); if(L<0)L+=360;
+    double g=fmod(357.528+0.9856003*n,360.0)*RAD;
+    double lam=(L+1.915*sin(g)+0.020*sin(2*g))*RAD;
+    double eps=(23.439-4.0e-7*n)*RAD;
+    double ra=atan2(cos(eps)*sin(lam),cos(lam));
+    double dec=asin(sin(eps)*sin(lam));
+    double gmst=fmod(280.46061837+360.98564736629*n,360.0);
+    double lst=fmod(gmst+lon,360.0)*RAD, H=lst-ra;
+    double sl=sin(lat*RAD), cl=cos(lat*RAD);
+    *el=asin(sl*sin(dec)+cl*cos(dec)*cos(H))*DEG;
+    double a=atan2(-cos(dec)*sin(H), sin(dec)*cl - cos(dec)*sl*cos(H));
+    *az=fmod(a*DEG+360.0,360.0);
+}
+/* simplified lunar position (Schlyter) + illuminated fraction; visual accuracy only */
+static void moon_pos(double jd,double lat,double lon,double*el,double*az,double*illum){
+    double d=jd-2451545.0;
+    double N=(125.1228-0.0529538083*d)*RAD, inc=5.1454*RAD, w=(318.0634+0.1643573223*d)*RAD;
+    double a=60.2666, e=0.054900, M=fmod(115.3654+13.0649929509*d,360.0)*RAD;
+    double E=M+e*sin(M)*(1+e*cos(M)); for(int k=0;k<3;k++) E=E-(E-e*sin(E)-M)/(1-e*cos(E));
+    double xv=a*(cos(E)-e), yv=a*sqrt(1-e*e)*sin(E);
+    double v=atan2(yv,xv), r=hypot(xv,yv);
+    double xh=r*(cos(N)*cos(v+w)-sin(N)*sin(v+w)*cos(inc));
+    double yh=r*(sin(N)*cos(v+w)+cos(N)*sin(v+w)*cos(inc));
+    double zh=r*(sin(v+w)*sin(inc));
+    double lon_e=atan2(yh,xh), lat_e=atan2(zh,hypot(xh,yh));
+    double ecl=(23.4393-3.563e-7*d)*RAD;
+    double xe=cos(lon_e)*cos(lat_e);
+    double ye=sin(lon_e)*cos(lat_e)*cos(ecl)-sin(lat_e)*sin(ecl);
+    double ze=sin(lon_e)*cos(lat_e)*sin(ecl)+sin(lat_e)*cos(ecl);
+    double ra=atan2(ye,xe), dec=atan2(ze,hypot(xe,ye));
+    double gmst=fmod(280.46061837+360.98564736629*d,360.0);
+    double lst=fmod(gmst+lon,360.0)*RAD, H=lst-ra;
+    double sl=sin(lat*RAD), cl=cos(lat*RAD);
+    *el=asin(sl*sin(dec)+cl*cos(dec)*cos(H))*DEG;
+    double A=atan2(-cos(dec)*sin(H), sin(dec)*cl-cos(dec)*sl*cos(H));
+    *az=fmod(A*DEG+360.0,360.0);
+    /* illuminated fraction from sun-moon elongation */
+    double se,sa; sun_pos(jd,lat,lon,&se,&sa);
+    double sunlon=fmod(280.460+0.9856474*(jd-2451545.0),360.0)*RAD;
+    double elong=acos(cos(lon_e-sunlon)*cos(lat_e));
+    *illum=(1.0-cos(elong))/2.0;
+}
+
+/* --- live weather via Open-Meteo (background thread; never blocks the FDM) --- */
+static double jnum(const char*s,const char*key){ char p[64]; snprintf(p,sizeof p,"\"%s\":",key);
+    const char*q=strstr(s,p); if(!q) return NAN; return atof(q+strlen(p)); }
+static double jnum_in(const char*s,const char*sect,const char*key){ const char*b=strstr(s,sect); return jnum(b?b:s,key); }
+static double jarr(const char*s,const char*key,int idx){ char p[64]; snprintf(p,sizeof p,"\"%s\":[",key);
+    const char*q=strstr(s,p); if(!q) return NAN; q+=strlen(p);
+    for(int i=0;i<idx;i++){ q=strchr(q,','); if(!q) return NAN; q++; } return atof(q); }
+static void wx_fetch(void){
+    char url[640];
+    snprintf(url,sizeof url,
+      "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f"
+      "&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover,visibility,temperature_2m"
+      "&hourly=boundary_layer_height,shortwave_radiation"
+      "&wind_speed_unit=ms&forecast_days=1", HOME_LAT, HOME_LON);
+    char cmd[760]; snprintf(cmd,sizeof cmd,"curl -s --max-time 8 \"%s\"",url);
+    FILE*f=popen(cmd,"r"); if(!f) return;
+    static char buf[32768]; size_t n=fread(buf,1,sizeof buf-1,f); buf[n]=0; pclose(f);
+    if(n<40 || !strstr(buf,"wind_speed_10m")) { fprintf(stderr,"[wx] no data (offline?) — keeping current weather\n"); return; }
+    double wsp =jnum_in(buf,"\"current\":{","wind_speed_10m");
+    double wdir=jnum_in(buf,"\"current\":{","wind_direction_10m");
+    double gust=jnum_in(buf,"\"current\":{","wind_gusts_10m");
+    double cc  =jnum_in(buf,"\"current\":{","cloud_cover");
+    double vis =jnum_in(buf,"\"current\":{","visibility");
+    time_t tt=time(NULL); struct tm gm; gmtime_r(&tt,&gm); int hr=gm.tm_hour;
+    double blh=jarr(buf,"boundary_layer_height",hr), swr=jarr(buf,"shortwave_radiation",hr);
+    if(!isfinite(wsp)||!isfinite(wdir)) { fprintf(stderr,"[wx] parse failed\n"); return; }
+    if(!isfinite(gust)) gust=wsp*1.4;
+    /* wind at flight altitude ~ a bit stronger than 10 m (log profile); FROM dir -> blows toward */
+    double v=wsp*1.25;
+    windN=-v*cos(wdir*RAD); windE=-v*sin(wdir*RAD);
+    /* turbulence from the gust factor; Dryden sigma scales with it */
+    double gf=fmax(0.0,gust-wsp);
+    /* realistic low-altitude turbulence: MIL-F-8785C puts sigma_w ~ 0.1*W20; add a
+     * modest gust-spread term. Capped so a strong-gust day is rough but still flyable. */
+    g_turb=fmax(0.3,fmin(1.6, 0.30+0.13*gf));
+    g_sigma=fmin(1.0, 0.08*wsp + 0.11*gf);   /* capped so even a very gusty day stays flyable */
+    g_bl_height=isfinite(blh)?fmax(300.0,blh):800.0;
+    g_thermal_W=isfinite(swr)?fmax(0.0,fmin(4.5, swr/230.0)):0.0;   /* ~1000 W/m2 midday -> strong lift */
+    if(isfinite(cc))  g_cloud=(float)fmax(0.0,fmin(1.0,cc/100.0));
+    if(isfinite(vis)) g_vis=(float)fmax(1500.0,fmin(60000.0,vis));
+    fprintf(stderr,"[wx] LIVE wind=%.1fm/s@%.0f gust=%.1f cloud=%.0f%% vis=%.0fkm BL=%.0fm sun=%.0fW/m2 -> turb=%.2f therm=%.1f\n",
+        wsp,wdir,gust,cc,vis/1000.0,blh,swr,g_turb,g_thermal_W);
+}
+static int g_wx_live=1;
+static void* wx_thread(void*arg){ (void)arg;
+    for(;;){ wx_fetch(); sleep(900); }   /* refresh every 15 min */
+}
 
 /* dataref subscriptions from iNav: id -> dataref string */
 static struct { int id; char dref[96]; } subs[128];
@@ -76,12 +206,12 @@ static float sensor_value(const char *d){
     if(!strcmp(d,"sim/flightmodel/position/theta")) return (float)(-S.pitch); /* X-Plane theta sign is opposite iNav pitch */
     if(!strcmp(d,"sim/flightmodel/position/psi"))   return (float)(S.yaw<0?S.yaw+360:S.yaw);
     if(!strcmp(d,"sim/flightmodel/position/hpath"))  return (float)(S.yaw<0?S.yaw+360:S.yaw);
-    if(!strcmp(d,"sim/flightmodel/position/P"))      return (float)S.p;
-    if(!strcmp(d,"sim/flightmodel/position/Q"))      return (float)S.q;
+    if(!strcmp(d,"sim/flightmodel/position/P"))      return (float)(S.p+g_gustP);  /* gyro sees the gust rate */
+    if(!strcmp(d,"sim/flightmodel/position/Q"))      return (float)(S.q+g_gustQ);
     if(!strcmp(d,"sim/flightmodel/position/R"))      return (float)S.r;
     if(!strcmp(d,"sim/flightmodel/forces/g_axil"))   return 0.0f;
     if(!strcmp(d,"sim/flightmodel/forces/g_side"))   return 0.0f;
-    if(!strcmp(d,"sim/flightmodel/forces/g_nrml"))   return 1.0f;   /* 1 g normal */
+    if(!strcmp(d,"sim/flightmodel/forces/g_nrml"))   return g_nz;   /* real normal load factor (turn + gust) */
     if(!strcmp(d,"sim/flightmodel/position/latitude"))  return (float)S.lat;
     if(!strcmp(d,"sim/flightmodel/position/longitude")) return (float)S.lon;
     if(!strcmp(d,"sim/flightmodel/position/elevation")) return (float)S.elev;
@@ -126,7 +256,7 @@ static const fdm_model_t *MDL = &MODELS[1];   /* default: AR-Wing */
 
 static int g_inject = 0;   /* XP_INJECT: force a fixed attitude to prove injection */
 static int g_mode = ST_DISARMED;   /* bridge autopilot mode -> telemetry state */
-static double g_loalt=500.0, g_lorad=400.0;   /* autonomous loiter altitude (m AGL) + orbit radius (m), env-tunable */
+static double g_loalt=500.0, g_lorad=1000.0;  /* autonomous loiter altitude (m AGL) + orbit radius (m), env-tunable */
 
 /* Simplified but realistic flying-wing aerodynamics: lift/drag, pitch static
  * stability + elevon + pitch damping, roll authority + roll damping. Naturally
@@ -144,33 +274,69 @@ static void physics_step(double dt){
     /* once launched, physics always runs (glides at low throttle, e.g. RTH descent) */
     const double rho=1.225, g=9.81;
     double m=MDL->m, b=MDL->b, Sw=MDL->S, c=Sw/b;
-    double Ix=0.020*m*b*b, Iy=0.030*m*b*b;     /* moments of inertia (est.) */
-    const double CLa=4.2, CD0=0.070, kInd=0.08;   /* draggy FPV wing -> realistic top speed ~24-26 m/s */
+    /* Inertias: for a wing, roll (about the long span b) is HEAVIER than pitch (about the
+     * short chord c), so Ix > Iy. The old Ix<Iy gave a ~0.024s roll time constant — twitchy
+     * and unphysical. Ix=0.06 m b^2 -> Tr~0.12s (realistic), and Ix ~ 2*Iy. */
+    double Ix=0.060*m*b*b, Iy=0.030*m*b*b;
+    const double CLa=4.2, CD0=0.070, kInd=0.08, CLmax=1.25;   /* draggy FPV wing -> top speed ~24-26 m/s; stalls at CLmax */
     const double Cm0=0.020, Cma=-0.35, Cmde=1.1, Cmq=-9.0;/* pitch: reflex trim, static stab, elevon, damping */
     const double Clda=0.16, Clp=-0.55;         /* roll: elevon diff, damping */
 
     double V=fmax(S.speed,3.0), Q=0.5*rho*V*V;
-    double gamma=(V>0.1)?asin(fmax(-1,fmin(1,S.vy/V))):0.0;   /* flight-path angle, rad */
-    double alpha=S.pitch*RAD - gamma;                        /* angle of attack, rad */
-    double CL=CLa*alpha, lift=Q*Sw*CL;
-    double drag=Q*Sw*(CD0+kInd*CL*CL);
-    double T=MDL->Tmax*S.in_thr;
 
-    /* rotational: moments -> angular accel -> rates (deg/s) -> attitude.
-     * Turbulence injects gust-induced moments; iNav's ANGLE/NAV loop fights them,
-     * so the aircraft is never perfectly steady (feels real, tests the controller). */
+    /* --- Dryden-form turbulence FIRST (MIL-F-8785C low-altitude spectra) so the vertical
+     * gust can bump the angle of attack below. First-order discrete filters driven by
+     * UNIT-variance noise; sigma from the live gust data. Scale lengths grow with altitude
+     * (choppy low, smooth high). wg = vertical gust (m/s); pg/qg = gust roll/pitch rates.
+     * The MIL scale-length constant is imperial, so Lu is computed in feet. */
+    double h=fmax(S.agl,10.0), hf=h/0.3048;
+    double Lw=fmax(h,30.0), Lu=0.3048*fmax(hf,50.0)/pow(0.177+0.000823*hf,1.2);
+    double aw=fmin(1.0,V*dt/Lw), au=fmin(1.0,V*dt/fmax(Lu,20.0));
+    double gsc=fmin(1.0,0.30+0.012*S.agl)*g_sigma;        /* ease near ground for hand-launch climb-out */
+    static double wg=0,pg=0,qg=0;
+    wg += -aw*wg + gsc     *sqrt(2*aw)*nrand();            /* vertical gust, m/s */
+    pg += -au*pg + 3.5*gsc *sqrt(2*au)*nrand();            /* roll-rate gust, deg/s */
+    qg += -au*qg + 1.7*gsc *sqrt(2*au)*nrand();            /* pitch-rate gust, deg/s */
+    g_gustP=pg; g_gustQ=qg;                                /* export so iNav's gyro (P/Q drefs) sees the turbulence */
+    /* thermal updraft column at the current position (air-mass vertical velocity) */
+    double tx=(S.lon-HOME_LON)*111320.0*cos(S.lat*RAD), ty=(S.lat-HOME_LAT)*111320.0;
+    double w_air=wg + thermal_w(tx,ty,S.agl);             /* total vertical air motion */
+
+    /* --- longitudinal aero ---
+     * Aerodynamic (AIR-relative) flight-path angle gamma is a PERSISTENT state integrated
+     * from lift — NOT re-derived from ground vy (which carries updraft and would double-count
+     * the aircraft's own climb). BUT a vertical gust/thermal tilts the relative wind and
+     * TRANSIENTLY raises alpha by ~w/V — the "lift bump" a glider feels flying into a thermal.
+     * gamma's own fast relaxation washes it out over the short period, so no nose-high trap. */
+    static double gamma=0.0;
+    double alpha=S.pitch*RAD - gamma + fmax(-0.10,fmin(0.10, w_air/V));
+    /* Stall: lift rises to CLmax then BREAKS (drops) past the stall angle, so the nose falls
+     * and speed recovers, with a post-stall drag rise. A real wing loses lift beyond the
+     * break — not just saturating flat — which is what makes a stall recover instead of hang. */
+    double astall=CLmax/CLa, aabs=fabs(alpha), sgn=(alpha<0?-1.0:1.0), CLlin=CLa*alpha, CLs;
+    if(aabs<=astall) CLs=CLlin;
+    else CLs=sgn*fmax(0.35, CLmax-0.7*CLa*(aabs-astall));   /* post-stall lift drop */
+    double lift=Q*Sw*CLs;
+    double dstall=fabs(CLlin-CLs);
+    double drag=Q*Sw*(CD0 + kInd*CLs*CLs + 0.9*dstall*dstall);
+    double T=MDL->Tmax*S.in_thr;
+    g_nz=(float)(lift/(m*g)); if(g_nz<-2)g_nz=-2; if(g_nz>6)g_nz=6;   /* normal load factor -> accelerometer */
+
+    /* --- rotational: moments -> angular accel -> rates (deg/s) -> attitude ---
+     * Gusts bodily rotate the airframe (added to attitude kinematics) AND are reported to the
+     * gyro above, so iNav's rate loop can damp them — turbulence it can actually fight. */
     double Cl=Clda*S.in_roll + Clp*(S.p*RAD*b/(2*V));
     double Cm=Cm0 + Cma*alpha + Cmde*S.in_pitch + Cmq*(S.q*RAD*c/(2*V));
-    double tq=g_turb*sqrt(dt);                                  /* scale bumps by intensity */
-    S.p += ((Q*Sw*b*Cl)/Ix)*DEG*dt + 26.0*tq*nrand();
-    S.q += ((Q*Sw*c*Cm)/Iy)*DEG*dt + 16.0*tq*nrand();
-    S.roll  += S.p*dt;
-    S.pitch += S.q*dt;
+    S.p += ((Q*Sw*b*Cl)/Ix)*DEG*dt;      /* airframe's own dynamic rates (aero + elevon) */
+    S.q += ((Q*Sw*c*Cm)/Iy)*DEG*dt;
+    S.roll  += (S.p + pg)*dt;
+    S.pitch += (S.q + qg)*dt;
     if(S.roll>180)S.roll-=360; if(S.roll<-180)S.roll+=360;
     if(S.pitch>85){S.pitch=85;S.q=0;} if(S.pitch<-85){S.pitch=-85;S.q=0;}
 
     /* translational (airspeed dynamics) */
     gamma += ((lift - m*g*cos(gamma))/(m*V))*dt;
+    if(gamma>1.4)gamma=1.4; if(gamma<-1.4)gamma=-1.4;        /* keep the air-frame path angle sane */
     double Vdot=(T-drag)/m - g*sin(gamma);
     S.speed += Vdot*dt; if(S.speed<0)S.speed=0;
     double yaw_rate=(S.speed>2.0)?(g*tan(S.roll*RAD)/S.speed)*DEG:0.0;
@@ -179,7 +345,7 @@ static void physics_step(double dt){
     S.yaw=fmod(S.yaw+yaw_rate*dt+540.0,360.0)-180.0;
 
     /* gusts: Ornstein-Uhlenbeck horizontal wind wander (mean-revert to 0 offset) */
-    double gtau=3.0, gsig=0.9*g_turb;
+    double gtau=3.0, gsig=0.52*g_turb;   /* RMS tuned for the now unit-variance nrand */
     gustN += (-gustN/gtau)*dt + gsig*sqrt(dt)*nrand();
     gustE += (-gustE/gtau)*dt + gsig*sqrt(dt)*nrand();
 
@@ -189,7 +355,7 @@ static void physics_step(double dt){
     double vN_air=S.speed*cos(S.yaw*RAD), vE_air=S.speed*sin(S.yaw*RAD);
     double vN=vN_air+windN+gustN, vE=vE_air+windE+gustE;
     S.gs=hypot(vN,vE);
-    double climb=S.speed*sin(gamma) + 0.15*g_turb*nrand();      /* light vertical gusts */
+    double climb=S.speed*sin(gamma) + w_air;   /* aero climb + air-mass vertical motion (gust + thermal) */
     S.elev+=climb*dt; S.agl+=climb*dt; if(S.agl<0)S.agl=0;
     S.lat+=(vN*dt)/111320.0; S.lon+=(vE*dt)/(111320.0*cos(S.lat*RAD));
     S.vx=vE; S.vy=climb; S.vz=-vN;
@@ -281,8 +447,15 @@ int main(void){
       double wdir=getenv("WIND_DIR")?atof(getenv("WIND_DIR")):240.0;   /* WSW default */
       windN=-wsp*cos(wdir*RAD); windE=-wsp*sin(wdir*RAD);              /* FROM dir -> blows toward */
       if(getenv("TURB")) g_turb=atof(getenv("TURB")); }
+    g_sigma=0.6*g_turb;                                                /* default gust std tracks turb */
+    if(getenv("THERMAL")) g_thermal_W=atof(getenv("THERMAL"));         /* manual thermal strength override */
+    if(getenv("WX_LIVE")) g_wx_live=atoi(getenv("WX_LIVE"));
     if(getenv("LOITER_ALT")) g_loalt=atof(getenv("LOITER_ALT"));
     if(getenv("LOITER_RADIUS")) g_lorad=atof(getenv("LOITER_RADIUS"));
+    if(g_lorad<180.0) g_lorad=180.0;   /* below ~V^2/(g*tan(bank cap)) the low-bank loiter can't hold it */
+    /* live weather in the background: real wind/gusts/cloud/visibility for the origin.
+     * Non-blocking; if the container is offline it just keeps the env defaults. */
+    if(g_wx_live){ pthread_t th; if(pthread_create(&th,NULL,wx_thread,NULL)==0) pthread_detach(th); }
     S.lat=HOME_LAT; S.lon=HOME_LON; S.elev=HOME_ELEV; S.agl=1.0; S.yaw=0; S.speed=14.0; S.gs=14.0; S.vy=0;  /* launch from the ground */
     if(getenv("XP_INJECT")) g_inject=1;
     fprintf(stderr,"[xp_bridge] FDM=%s  X-Plane :%d  MSP->127.0.0.1:5760\n", MDL->name, port);
@@ -373,24 +546,59 @@ int main(void){
                        static int climbing=1;                         /* hysteresis: climb to alt-12, hold until it sinks past alt-60 */
                        if(climbing && S.agl > g_loalt-12) climbing=0;
                        else if(!climbing && S.agl < g_loalt-60) climbing=1;
-                       g_mode = climbing ? ST_CLIMB : (link_up?ST_LOITER:ST_RTH);
+                       /* On RC-loss the MODE is RTH (climb-to-altitude is an RTH phase,
+                        * exactly like real iNav failsafe); with the link up it's the
+                        * autonomous climb/loiter mission. */
+                       g_mode = !link_up ? ST_RTH : (climbing ? ST_CLIMB : ST_LOITER);
                        double pitchT, thr;
                        if(climbing){ /* full power, steady climb pitch, backed off near stall speed */
                               thr=0.95; pitchT=20.0;
                               if(S.speed<14.0) pitchT = 20.0 - 3.0*(14.0-S.speed);   /* stall protection */
                               if(pitchT<0)pitchT=0; if(pitchT>22)pitchT=22; }
-                       else { pitchT = 0.10*(g_loalt-S.agl) - 1.3*S.vy;       /* altitude hold */
+                       else { static double alt_i=0; double aerr=g_loalt-S.agl;
+                              alt_i+=aerr*0.0004; if(alt_i>3)alt_i=3; if(alt_i<-3)alt_i=-3; /* slow trim, anti-windup */
+                              pitchT = 0.10*aerr - 1.3*S.vy + alt_i;                /* altitude hold (P + rate + I) */
                               if(pitchT>10)pitchT=10; if(pitchT<-8)pitchT=-8;
                               thr = 0.5 + 0.08*(CRUISE_V-S.speed); if(thr>0.9)thr=0.9; if(thr<0.3)thr=0.3; }
-                       /* orbit guidance: fly the CW tangent to the R-circle, steered toward/away
-                        * from home by the radius error so it converges onto radius g_lorad */
-                       double d=hypot(x,y), bc=atan2(-x,-y)*DEG;              /* bearing plane->home */
-                       double course=bc-90.0 + fmax(-55.0,fmin(55.0, 0.14*(d-g_lorad)));
-                       double yaw=(S.yaw<0?S.yaw+360:S.yaw);
-                       double herr=course-yaw; while(herr>180)herr-=360; while(herr<-180)herr+=360;
-                       double bank_ff=atan(S.speed*S.speed/(fmax(g_lorad,50.0)*9.81))*DEG;   /* CW = right bank */
-                       double rollT=bank_ff + 0.35*herr;
-                       double rlim=climbing?16.0:28.0;                        /* gentler bank while climbing */
+                       /* Vector-field loiter (UAV standard): build a desired ground-track that
+                        * spirals ONTO the circle of radius g_lorad. The equilibrium radius IS
+                        * g_lorad by construction — not an accident of the bank limit — so it flies
+                        * the true wide orbit instead of settling into a tight circle near home.
+                        *   pos rel. home (x east, y north); radial-out r^, tangent t^ (CCW);
+                        *   corr in [-1,1] from the radius error blends tangent<->radial:
+                        *     outside (d>R): head inward,  inside (d<R): head outward. */
+                       double d=hypot(x,y); if(d<1)d=1;
+                       double re=x/d, rn=y/d;                                 /* radial out (unit) */
+                       /* steer the GROUND TRACK (heading + wind), not the heading, so the actual
+                        * path is the circle and there's no steady crab bias in wind (expert P7). */
+                       double yawr=S.yaw*RAD;
+                       double gE=S.speed*sin(yawr)+windE+gustE, gN=S.speed*cos(yawr)+windN+gustN;
+                       double gsp=hypot(gE,gN); if(gsp<0.5)gsp=0.5;
+                       double te0=gE/gsp, tn0=gN/gsp;                         /* ground-track unit */
+                       double track=atan2(gE,gN)*DEG; if(track<0)track+=360;
+                       /* Orbit sense = sign of radial x track. When the plane flies nearly RADIALLY
+                        * (climb-out, or steering out toward the circle) this is ~0 and its raw sign
+                        * chatters -> the roll command flips -> "rolled right while turning left" jerks.
+                        * LATCH it and only flip on a clearly-reversed track (hysteresis). */
+                       static double odir=0; double crs=re*tn0-rn*te0;
+                       if(odir==0) odir=(crs>=0)?1.0:-1.0;
+                       else if(crs<-0.35) odir=-1.0; else if(crs>0.35) odir=1.0;
+                       double dir=odir;
+                       double te=-rn*dir, tn=re*dir;                          /* tangent in that direction */
+                       /* Desired course = tangent rotated toward the radial by an angle set by the
+                        * radius error: inside -> steer OUT (up to ~90°), outside -> steer IN. This
+                        * gives a strong outward velocity when far inside so it reaches the wide
+                        * circle quickly, fading to a pure tangent (the circle) as d -> g_lorad. */
+                       double ang=atan2(d-g_lorad, g_lorad*0.5);
+                       double cc=cos(ang), sc=sin(ang);
+                       double vde=cc*te - sc*re, vdn=cc*tn - sc*rn;
+                       double course=atan2(vde,vdn)*DEG;
+                       double herr=course-track; while(herr>180)herr-=360; while(herr<-180)herr+=360;
+                       double bank_ff=atan(S.speed*S.speed/(fmax(g_lorad,50.0)*9.81))*DEG; /* steady orbit bank */
+                       /* Gentle correction + a LOW bank cap: the cap keeps it from winding into a
+                        * tight circle (a 20° bank orbits at ~130 m); ~1.7° holds the true 1000 m. */
+                       double rollT=-dir*bank_ff + 0.22*herr;
+                       double rlim=climbing?12.0:10.0;
                        if(rollT>rlim)rollT=rlim; if(rollT<-rlim)rollT=-rlim;
                        rc[0]=1500+(int)(rollT/30.0*500);   /* ANGLE: full stick ~ iNav max bank 30 deg */
                        rc[1]=1500+(int)(pitchT/30.0*500);
@@ -414,18 +622,35 @@ int main(void){
          * renders at 60 fps and samples the LATEST pose each frame — since the state
          * updates faster than the display (game-engine style), the camera is smooth with
          * zero interpolation latency. Video (artificial horizon fallback) stays at ~12 Hz. */
+        if(tick%50==0){ double jd=julian_day(time(NULL)), el,az,mel,maz,mil;
+            sun_pos(jd,HOME_LAT,HOME_LON,&el,&az);   g_sun_el=(float)el;  g_sun_az=(float)az;
+            moon_pos(jd,HOME_LAT,HOME_LON,&mel,&maz,&mil); g_moon_el=(float)mel; g_moon_az=(float)maz; g_moon_ph=(float)mil; }
         if(1){
             double hd=hypot((S.lat-HOME_LAT)*111320.0,(S.lon-HOME_LON)*111320.0*cos(HOME_LAT*RAD));
             double tohome=atan2f(-(S.lon-HOME_LON),-(S.lat-HOME_LAT))*DEG;
             telem_packet_t t={0}; t.magic=FB_MAGIC_TELEM;
-            t.roll=t_roll; t.pitch=t_pitch; t.yaw=(float)t_yaw;
+            /* Attitude straight from the FDM (100 Hz) — NOT from iNav's MSP_ATTITUDE, which
+             * the bridge only polls at ~5 Hz. That 5 Hz was the "stepped rotation" jitter:
+             * position was smooth (100 Hz) but the camera rotated in 5 Hz steps. This is the
+             * true airframe attitude anyway (what iNav reads via the X-Plane DREFs). */
+            t.roll=(float)S.roll; t.pitch=(float)S.pitch; t.yaw=(float)S.yaw;
             t.alt=(float)S.agl; t.x=(float)((S.lon-HOME_LON)*111320.0); t.y=(float)((S.lat-HOME_LAT)*111320.0);
             t.gs=(float)S.gs; t.batt=(t_batt10>50&&t_batt10<255)?t_batt10/10.0f:11.4f; t.home_dist=(float)hd;
-            float hb=(float)(tohome - t_yaw); while(hb>180)hb-=360; while(hb<-180)hb+=360; t.home_bearing=hb;
+            float hb=(float)(tohome - S.yaw); while(hb>180)hb-=360; while(hb<-180)hb+=360; t.home_bearing=hb;
             float need=(hd>1)?atan2f((float)S.agl,(float)hd)*(float)DEG:0; t.glideslope_err=need-7.0f;
+            t.cloud=g_cloud; t.vis=g_vis;
+            t.sun_el=g_sun_el; t.sun_az=g_sun_az;
+            t.moon_el=g_moon_el; t.moon_az=g_moon_az; t.moon_phase=g_moon_ph;
+            t.vs=(float)S.vy; t.airspeed=(float)S.speed;
             int armed=(t_armflags&4)!=0;
             t.state = !armed?ST_DISARMED : g_mode;   /* bridge autopilot mode */
-            t.rssi = !armed?0 : (link_up?96:0);   /* 0 = RC link lost (failsafe) */
+            /* Link quality falls with range like a real FPV downlink (free-space-ish
+             * quadratic roll-off to a reference range), with a little flicker; 0 when the
+             * operator link is lost (RC failsafe) or disarmed. */
+            float lq=0.f;
+            if(armed && link_up){ float dr=(float)hd/4500.f; lq=100.f*(1.f-dr*dr)+(float)(nrand()*1.5);
+                if(lq>100)lq=100; if(lq<5)lq=5; }
+            t.rssi = (uint8_t)lq;
             sendto(fbfd,&t,sizeof t,0,(struct sockaddr*)&fbdst,sizeof fbdst);
         }
         if(tick%8==0){ static video_packet_t v; render_horizon(&v,t_roll,t_pitch); sendto(fbfd,&v,sizeof v,0,(struct sockaddr*)&fbdst,sizeof fbdst); }
