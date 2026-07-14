@@ -327,12 +327,14 @@ def main():
         mean_r = sum(homes) / len(homes)
         S.one("loiter is a WIDE circle (r>500m)", mean_r > 500, "mean r=%.0fm" % mean_r)
         S.one("loiter bounded (r<1600m)", max(homes) < 1600, "max r=%.0fm" % max(homes))
-        # circularity: yaw should sweep continuously one way (a real orbit)
-        yaws = [s["yaw"] for s in loi]
-        dyaws = [wrap180(yaws[i] - yaws[i-1]) for i in range(1, len(yaws))]
-        same = sum(1 for d in dyaws if d > 0); tot = len(dyaws)
-        frac = max(same, tot - same) / max(1, tot)
-        S.one("loiter turns one direction (>80%)", frac > 0.80, "%.0f%% consistent" % (frac*100))
+        # A clean circle keeps the home distance in a TIGHT band around its mean. (Checking
+        # per-sample yaw-rate sign is misleading here: a 1000 m orbit needs only ~1 deg of
+        # bank, so its yaw-rate is tiny and turbulence flips individual sample deltas even
+        # though the orbit itself is perfectly steady.)
+        var = sum((h - mean_r) ** 2 for h in homes) / len(homes)
+        std = var ** 0.5
+        S.one("loiter is a tight circle (std<15% of r)", std < 0.15 * mean_r,
+              "std=%.0fm (%.0f%% of r)" % (std, 100 * std / mean_r))
 
     # 8) RC-loss failsafe: autonomous RTH loiter over home --------------------
     print("-- RC-loss failsafe --")

@@ -389,8 +389,12 @@ static void world3d_stream(double lat,double lon){
 #endif /* W3_USE_OSM */
 
 /* ---- HUD (2D lines, pixel coords) ---- */
-static float w3_hud[9000]; static int w3_hudN;
-static void w3_line(float x0,float y0,float x1,float y1,float r,float g,float b){ if(w3_hudN>8980)return;
+/* Regenerated every frame (glBufferData DYNAMIC). Sized for the full OSD: the bitmap
+ * font draws ~2 line segments per lit pixel, so all the text + arrows + ladders add up
+ * to a few thousand segments. Too small a buffer silently drops the LAST-drawn elements
+ * (home arrow, glideslope). 65536 floats = ~6500 segments, comfortably above the OSD. */
+static float w3_hud[65536]; static int w3_hudN;
+static void w3_line(float x0,float y0,float x1,float y1,float r,float g,float b){ if(w3_hudN>65516)return;
   w3_hud[w3_hudN++]=x0;w3_hud[w3_hudN++]=y0;w3_hud[w3_hudN++]=r;w3_hud[w3_hudN++]=g;w3_hud[w3_hudN++]=b;
   w3_hud[w3_hudN++]=x1;w3_hud[w3_hudN++]=y1;w3_hud[w3_hudN++]=r;w3_hud[w3_hudN++]=g;w3_hud[w3_hudN++]=b; }
 static const char*W3_CS=" 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-.:/";
