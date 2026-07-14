@@ -68,7 +68,7 @@ static const char*W3_VSKY=
  "attribute vec2 aPos; uniform vec3 uF,uS,uU; uniform float uTan,uAsp; varying vec3 vRay;"
  "void main(){ vRay=uF + uS*(aPos.x*uTan*uAsp) + uU*(aPos.y*uTan); gl_Position=vec4(aPos,0.999,1.0); }";
 static const char*W3_FSKY=
- "precision mediump float; varying vec3 vRay;"
+ "precision highp float; varying vec3 vRay;"
  "uniform vec3 uSun,uMoon; uniform float uMoonPh,uCloud;"
  "float h21(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }"
  "float vnoise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);"
@@ -91,9 +91,13 @@ static const char*W3_FSKY=
  "     float cl=smoothstep(1.0-uCloud,1.0-uCloud*0.35,n)*smoothstep(0.04,0.22,hgt);"
  "     vec3 cc=mix(vec3(0.34,0.36,0.45),vec3(0.95,0.96,1.0),day);"
  "     sky=mix(sky,cc,cl*0.85); }"
- /* stars at night */
- "  if(day<0.55 && hgt>0.02){ vec3 rc=floor(r*90.0); float s=h21(rc.xy+rc.z*7.0);"
- "     float star=step(0.9965,s)*(1.0-day)*smoothstep(0.0,0.12,hgt); sky+=star*vec3(0.9,0.9,1.0); }"
+ /* stars at night: small POINTS, not whole grid cells. Fine grid + a hashed sub-cell
+  * position, lit only very near the point -> crisp small stars with brightness variation. */
+ "  if(day<0.5 && hgt>0.03){ vec3 rs=r*190.0; vec3 ci=floor(rs);"
+ "     float hh=h21(ci.xy+ci.z*23.0);"
+ "     if(hh>0.986){ vec3 fp=fract(rs)-0.5; float d2=dot(fp,fp);"
+ "        float star=smoothstep(0.045,0.0,d2)*(1.0-day)*smoothstep(0.03,0.16,hgt);"
+ "        sky+=star*vec3(0.85,0.88,1.0)*(0.55+0.45*h21(ci.yz+7.0)); } }"
  /* moon disc + phase (visible when up, mostly at night) */
  "  float ma=length(cross(r,uMoon)); float md=smoothstep(0.012,0.006,ma);"
  "  float mb=(0.25+0.75*uMoonPh)*step(-0.03,uMoon.y)*(1.0-0.7*day);"
