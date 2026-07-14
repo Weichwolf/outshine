@@ -118,7 +118,7 @@ static void w3_build_procedural(void){
 #define W3_FARRAD 2                /* far tier radius (2 -> 5x5 tiles ~ 100 km across) */
 #endif
 #ifndef W3_FARTEX
-#define W3_FARTEX 384              /* far tier texture resolution (coarse) */
+#define W3_FARTEX 256              /* far tier texture resolution (coarse; power-of-two for mipmaps) */
 #endif
 
 /* Old-flight-sim ground: OSM footprints/roads/rivers/rails + landcover are baked
@@ -236,10 +236,17 @@ static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS){
   }
   GLuint tex; glGenTextures(1,&tex); glBindTexture(GL_TEXTURE_2D,tex);
   glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,TS,TS,0,GL_RGB,GL_UNSIGNED_BYTE,im);
-  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+  /* trilinear (mipmaps) kills shimmer on distant tiles; anisotropy keeps the ground
+   * sharp at grazing angles (the terrain is seen almost edge-on). */
+  glGenerateMipmap(GL_TEXTURE_2D);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+  #ifndef GL_TEXTURE_MAX_ANISOTROPY_EXT
+  #define GL_TEXTURE_MAX_ANISOTROPY_EXT 0x84FE
+  #endif
+  glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_MAX_ANISOTROPY_EXT,8.0f);   /* ignored if unsupported */
   free(im); return tex;
 }
 
@@ -379,7 +386,10 @@ static void world3d_init(void){
 #endif
   w3_build_procedural();
 }
-static void world3d_render(const telem_packet_t*t,int W,int H,int have){
+/* Render just the 3D world (the aircraft "camera image") into the bound framebuffer.
+ * The HUD is drawn separately (world3d_render_hud) so it can be overlaid on top of the
+ * decoded video, not encoded into it. */
+static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
   float RAD=(float)M_PI/180.f;
   glViewport(0,0,W,H); glEnable(GL_DEPTH_TEST); glClearColor(0.55f,0.70f,0.90f,1); glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
   float px=have?t->x:0, py=(have&&t->alt>2)?t->alt:120, pz=have?-t->y:0;
@@ -415,9 +425,16 @@ static void world3d_render(const telem_packet_t*t,int W,int H,int have){
     glBindBuffer(GL_ARRAY_BUFFER,w3_vTerr); glVertexAttribPointer(w3_wPos,3,GL_FLOAT,GL_FALSE,24,0); glVertexAttribPointer(w3_wCol,3,GL_FLOAT,GL_FALSE,24,(void*)12); glDrawArrays(GL_TRIANGLES,0,w3_nTerr);
     glBindBuffer(GL_ARRAY_BUFFER,w3_vBld); glVertexAttribPointer(w3_wPos,3,GL_FLOAT,GL_FALSE,24,0); glVertexAttribPointer(w3_wCol,3,GL_FLOAT,GL_FALSE,24,(void*)12); glDrawArrays(GL_TRIANGLES,0,w3_nBld);
     glDisableVertexAttribArray(w3_wCol); }
-  glDisable(GL_DEPTH_TEST); w3_build_hud(t,W,H,have);
+}
+/* Draw the 2D HUD (line overlay) into the bound framebuffer at W×H pixel coords. */
+static void world3d_render_hud(const telem_packet_t*t,int W,int H,int have){
+  glViewport(0,0,W,H); glDisable(GL_DEPTH_TEST); w3_build_hud(t,W,H,have);
   glBindBuffer(GL_ARRAY_BUFFER,w3_hVBO); glBufferData(GL_ARRAY_BUFFER,w3_hudN*4,w3_hud,GL_DYNAMIC_DRAW);
   glUseProgram(w3_pH); glUniform2f(w3_hScale,2.0f/W,2.0f/H); glEnableVertexAttribArray(w3_hPos); glEnableVertexAttribArray(w3_hCol);
   glVertexAttribPointer(w3_hPos,2,GL_FLOAT,GL_FALSE,20,0); glVertexAttribPointer(w3_hCol,3,GL_FLOAT,GL_FALSE,20,(void*)8); glDrawArrays(GL_LINES,0,w3_hudN/5);
+}
+/* convenience: scene + HUD directly (used by the native offscreen renderer) */
+static void world3d_render(const telem_packet_t*t,int W,int H,int have){
+  world3d_render_scene(t,W,H,have); world3d_render_hud(t,W,H,have);
 }
 #endif
