@@ -377,6 +377,16 @@ static void physics_step(double dt){
     double p=S.p*RAD, q=S.q*RAD, r=S.r*RAD;
     double T=MDL->Tmax*S.in_thr;                          /* prop thrust along +x body */
 
+    /* --- elevon SERVO LAG (first-order, ~6 Hz bandwidth). Real servos are not
+     * instantaneous; this low-passes iNav's control output so its fast rate loop
+     * cannot toggle the elevons every exchange and drive a ~50 Hz (Nyquist) roll
+     * limit-cycle against this fast-rolling plant (tau_roll~0.03s). Low-frequency
+     * authority — bank/pitch commands, coordination — passes through untouched. */
+    static double el_roll=0, el_pitch=0;
+    const double tau_srv=0.030, a_srv=dt/(tau_srv+dt);   /* ~5 Hz servo; ~10x attenuation at the 50 Hz Nyquist */
+    el_roll  += a_srv*(S.in_roll  - el_roll);
+    el_pitch += a_srv*(S.in_pitch - el_pitch);
+
     /* The fluctuating air velocity (NED) resolved into body axes: subtract it from
      * the aircraft's velocity-through-mean-air to get the true relative flow the
      * surfaces feel. This is how gusts/thermals become real aerodynamic upsets. */
@@ -443,9 +453,9 @@ static void physics_step(double dt){
 
         /* --- CONTROL & residual derivatives (elevons are rudderless; in_yaw ~ dead).
          * qbar uses the aircraft airspeed (elevons act on the whole wing). */
-        Mx += qbar*Sw*b*( Clda*S.in_roll + Clb*beta );
-        My += qbar*Sw*c*( Cm0 + Cmde*S.in_pitch + Cmq*(q*c/(2.0*Vf)) );
-        Mz += qbar*Sw*b*( Cnda*S.in_roll + Cndr*S.in_yaw + Cnr*(r*b/(2.0*Vf)) );
+        Mx += qbar*Sw*b*( Clda*el_roll + Clb*beta );
+        My += qbar*Sw*c*( Cm0 + Cmde*el_pitch + Cmq*(q*c/(2.0*Vf)) );
+        Mz += qbar*Sw*b*( Cnda*el_roll + Cndr*S.in_yaw + Cnr*(r*b/(2.0*Vf)) );
 
         /* --- rigid-body equations of motion (body frame) --- */
         double ax=Fx/m, ay=Fy/m, az=Fz/m;
@@ -713,24 +723,30 @@ int main(void){
                         * LATCH it and only flip on a clearly-reversed track (hysteresis). */
                        static double odir=0; double crs=re*tn0-rn*te0;
                        if(odir==0) odir=(crs>=0)?1.0:-1.0;
-                       else if(crs<-0.35) odir=-1.0; else if(crs>0.35) odir=1.0;
+                       else if(crs<-0.45) odir=-1.0; else if(crs>0.45) odir=1.0;   /* wider hysteresis */
                        double dir=odir;
                        double te=-rn*dir, tn=re*dir;                          /* tangent in that direction */
                        /* Desired course = tangent rotated toward the radial by an angle set by the
-                        * radius error: inside -> steer OUT (up to ~90°), outside -> steer IN. This
-                        * gives a strong outward velocity when far inside so it reaches the wide
-                        * circle quickly, fading to a pure tangent (the circle) as d -> g_lorad. */
+                        * radius error: inside -> steer OUT (up to ~90°), outside -> steer IN. */
                        double ang=atan2(d-g_lorad, g_lorad*0.5);
                        double cc=cos(ang), sc=sin(ang);
                        double vde=cc*te - sc*re, vdn=cc*tn - sc*rn;
                        double course=atan2(vde,vdn)*DEG;
                        double herr=course-track; while(herr>180)herr-=360; while(herr<-180)herr+=360;
                        double bank_ff=atan(S.speed*S.speed/(fmax(g_lorad,50.0)*9.81))*DEG; /* steady orbit bank */
-                       /* Gentle correction + a LOW bank cap: the cap keeps it from winding into a
-                        * tight circle (a 20° bank orbits at ~130 m); ~1.7° holds the true 1000 m. */
-                       double rollT=-dir*bank_ff + 0.22*herr;
+                       /* Flying nearly RADIALLY (climb-out, steering outward) makes the track-based
+                        * course ill-conditioned; gate the heading correction down so a noisy course
+                        * can't slam the bank. The steady orbit bank still applies. */
+                       double gate=fmin(1.0, fabs(crs)/0.30);
+                       double rollT=-dir*bank_ff + 0.22*herr*gate;
                        double rlim=climbing?12.0:10.0;
                        if(rollT>rlim)rollT=rlim; if(rollT<-rlim)rollT=-rlim;
+                       /* Slew-limit the commanded bank: no guidance discontinuity (dir flip, mode
+                        * change, gust) can make iNav snap the roll — this kills the ~200 deg/s roll
+                        * kicks. Max ~18 deg/s of commanded-bank change. */
+                       static double rollT_p=0; double mx=18.0*(dt*2.0);
+                       if(rollT>rollT_p+mx)rollT=rollT_p+mx; else if(rollT<rollT_p-mx)rollT=rollT_p-mx;
+                       rollT_p=rollT;
                        rc[0]=1500+(int)(rollT/30.0*500);   /* ANGLE: full stick ~ iNav max bank 30 deg */
                        rc[1]=1500+(int)(pitchT/30.0*500);
                        rc[2]=1000+(int)(thr*1000);
