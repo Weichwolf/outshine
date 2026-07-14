@@ -9,6 +9,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <math.h>
+#include <time.h>
 #include <GLES2/gl2.h>
 #include "protocol.h"
 #ifndef W3_FOV
@@ -18,6 +19,26 @@
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
+
+/* ~45 brightest stars: right ascension (deg), declination (deg), visual magnitude.
+ * Rendered at their TRUE alt/az for the origin + wall-clock time, so the real
+ * constellations (Orion, Big Dipper, Cassiopeia, ...) appear where they actually are. */
+typedef struct { float ra, dec, mag; } w3_star;
+static const w3_star W3_STARS[] = {
+ {101.29f,-16.72f,-1.46f},{95.99f,-52.70f,-0.74f},{219.90f,-60.83f,-0.27f},{213.92f,19.18f,-0.05f},
+ {279.23f,38.78f,0.03f},{79.17f,46.00f,0.08f},{78.63f,-8.20f,0.13f},{114.83f,5.22f,0.34f},
+ {88.79f,7.41f,0.50f},{24.43f,-57.24f,0.46f},{210.96f,-60.37f,0.61f},{297.70f,8.87f,0.77f},
+ {186.65f,-63.10f,0.77f},{68.98f,16.51f,0.85f},{201.30f,-11.16f,0.98f},{247.35f,-26.43f,1.09f},
+ {116.33f,28.03f,1.14f},{344.41f,-29.62f,1.16f},{310.36f,45.28f,1.25f},{191.93f,-59.69f,1.25f},
+ {152.09f,11.97f,1.35f},{104.66f,-28.97f,1.50f},{113.65f,31.89f,1.58f},{263.40f,-37.10f,1.62f},
+ {81.28f,6.35f,1.64f},{81.57f,28.61f,1.65f},{84.05f,-1.20f,1.69f},{85.19f,-1.94f,1.77f},
+ {165.93f,61.75f,1.79f},{51.08f,49.86f,1.79f},{107.10f,-26.39f,1.83f},{276.04f,-34.38f,1.85f},
+ {206.89f,49.31f,1.86f},{89.88f,44.95f,1.90f},{99.43f,16.40f,1.93f},{37.95f,89.26f,1.98f},
+ {141.90f,-8.66f,1.98f},{154.99f,19.84f,2.08f},{31.79f,23.46f,2.00f},{17.43f,35.62f,2.07f},
+ {2.10f,29.09f,2.06f},{283.82f,-26.30f,2.05f},{211.67f,-36.37f,2.06f},{306.41f,-56.74f,1.94f}
+};
+#define W3_NSTARS ((int)(sizeof(W3_STARS)/sizeof(W3_STARS[0])))
+static double w3_olat=52.045, w3_olon=9.385;   /* origin, set on osmmesh open; drives star alt/az */
 
 /* ---- mat4 (column-major) ---- */
 static void m_identity(float*m){ memset(m,0,64); m[0]=m[5]=m[10]=m[15]=1; }
@@ -101,13 +122,7 @@ static const char*W3_FSKY=
  "     float cl=smoothstep(1.0-uCloud,1.0-uCloud*0.35,n)*smoothstep(0.04,0.22,hgt);"
  "     vec3 cc=mix(vec3(0.34,0.36,0.45),vec3(0.95,0.96,1.0),day);"
  "     sky=mix(sky,cc,cl*0.85); }"
- /* stars at night: small POINTS, not whole grid cells. Fine grid + a hashed sub-cell
-  * position, lit only very near the point -> crisp small stars with brightness variation. */
- "  if(day<0.5 && hgt>0.03){ vec3 rs=r*190.0; vec3 ci=floor(rs);"
- "     float hh=h21(ci.xy+ci.z*23.0);"
- "     if(hh>0.986){ vec3 fp=fract(rs)-0.5; float d2=dot(fp,fp);"
- "        float star=smoothstep(0.045,0.0,d2)*(1.0-day)*smoothstep(0.03,0.16,hgt);"
- "        sky+=star*vec3(0.85,0.88,1.0)*(0.55+0.45*h21(ci.yz+7.0)); } }"
+ /* (real stars are drawn as a separate GL_POINTS pass at their true alt/az) */
  /* moon disc + phase (visible when up, mostly at night) */
  "  float ma=length(cross(r,uMoon)); float md=smoothstep(0.012,0.006,ma);"
  "  float mb=(0.25+0.75*uMoonPh)*step(-0.03,uMoon.y)*(1.0-0.7*day);"
@@ -119,7 +134,20 @@ static const char*W3_FSKY=
  "  sky+=(sd*vec3(1.0,0.96,0.86)*2.2 + glow*vec3(1.0,0.80,0.55))*sup;"
  "  gl_FragColor=vec4(sky,1.0); }";
 
-static GLuint w3_pW,w3_pH,w3_pWT,w3_pSky,w3_vTerr,w3_vBld,w3_hVBO,w3_skyVBO; static int w3_nTerr,w3_nBld;
+/* ---- real stars: a GL_POINTS pass, each star placed at its true celestial direction ---- */
+static const char*W3_VSTAR=
+ "attribute vec3 aPos; attribute float aMag; uniform mat4 uMVP; varying float vB;"
+ "void main(){ gl_Position=uMVP*vec4(aPos,1.0);"
+ "  float b=clamp(1.45-0.42*aMag,0.15,1.4);"          /* brighter (lower mag) -> bigger, brighter */
+ "  gl_PointSize=1.0+2.4*b; vB=b; }";
+static const char*W3_FSTAR=
+ "precision mediump float; varying float vB; uniform float uDay;"
+ "void main(){ vec2 pc=gl_PointCoord-0.5; float d=dot(pc,pc);"
+ "  float a=smoothstep(0.25,0.0,d)*vB*(1.0-uDay);"    /* soft round point, fades out toward day */
+ "  gl_FragColor=vec4(vec3(0.85,0.89,1.0)*a, a); }";
+
+static GLuint w3_pW,w3_pH,w3_pWT,w3_pSky,w3_pStar,w3_vTerr,w3_vBld,w3_hVBO,w3_skyVBO,w3_starVBO; static int w3_nTerr,w3_nBld;
+static GLint w3_stPos,w3_stMag,w3_stMVP,w3_stDay;
 static GLint w3_wPos,w3_wCol,w3_wMVP,w3_wHaze,w3_wLight,w3_hPos,w3_hCol,w3_hScale;
 static GLint w3_wtPos,w3_wtUV,w3_wtMVP,w3_wtTex,w3_wtHaze,w3_wtLight,w3_wtNorm,w3_wtSun;
 static GLint w3_skPos,w3_skF,w3_skS,w3_skU,w3_skTan,w3_skAsp,w3_skSun,w3_skMoon,w3_skMoonPh,w3_skCloud;
@@ -374,7 +402,7 @@ static int world3d_osm_open_mem(const char*vec_path,const uint8_t*vec_data,size_
                                 double origin_lat,double origin_lon){
   osmmesh_config cfg={ .vector_url=vec_path, .vector_data=vec_data, .vector_len=vec_len,
     .terrain_url=terr_path, .terrain_data=terr_data, .terrain_len=terr_len,
-    .origin_lat=origin_lat, .origin_lon=origin_lon,
+    .origin_lat=(w3_olat=origin_lat), .origin_lon=(w3_olon=origin_lon),
     .enable_terrain=1, .enable_buildings=0, .enable_linears=0 };
   if(osmmesh_create(&cfg,&w3_osm)!=OSMMESH_OK){ printf("[world3d] osmmesh_create failed\n"); w3_osm=0; return 0; }
   int vrc = vec_data ? osmmesh_pmtiles_open_memory(&w3_vec,vec_data,vec_len)
@@ -493,6 +521,10 @@ static void world3d_init(void){
   w3_skMoonPh=glGetUniformLocation(w3_pSky,"uMoonPh"); w3_skCloud=glGetUniformLocation(w3_pSky,"uCloud");
   { float q[12]={-1,-1, 1,-1, -1,1,  -1,1, 1,-1, 1,1}; glGenBuffers(1,&w3_skyVBO);
     glBindBuffer(GL_ARRAY_BUFFER,w3_skyVBO); glBufferData(GL_ARRAY_BUFFER,sizeof q,q,GL_STATIC_DRAW); }
+  w3_pStar=w3_prog(W3_VSTAR,W3_FSTAR);
+  w3_stPos=glGetAttribLocation(w3_pStar,"aPos"); w3_stMag=glGetAttribLocation(w3_pStar,"aMag");
+  w3_stMVP=glGetUniformLocation(w3_pStar,"uMVP"); w3_stDay=glGetUniformLocation(w3_pStar,"uDay");
+  glGenBuffers(1,&w3_starVBO);
 #ifdef W3_USE_OSM
   w3_pWT=w3_prog(W3_VSWT,W3_FSWT); w3_wtPos=glGetAttribLocation(w3_pWT,"aPos"); w3_wtUV=glGetAttribLocation(w3_pWT,"aUV");
   w3_wtMVP=glGetUniformLocation(w3_pWT,"uMVP"); w3_wtTex=glGetUniformLocation(w3_pWT,"uTex");
@@ -543,6 +575,35 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
   glBindBuffer(GL_ARRAY_BUFFER,w3_skyVBO); glEnableVertexAttribArray(w3_skPos);
   glVertexAttribPointer(w3_skPos,2,GL_FLOAT,GL_FALSE,0,0); glDrawArrays(GL_TRIANGLES,0,6);
   glDisableVertexAttribArray(w3_skPos);
+  /* real stars: place each above-horizon catalogue star at its true alt/az (from wall-clock
+   * sidereal time + origin), far along that direction, additively blended, fading toward day. */
+  if(day<0.6f){
+    time_t tt=time(NULL); double jd=tt/86400.0+2440587.5, dd=jd-2451545.0;
+    double gmst=fmod(280.46061837+360.98564736629*dd,360.0);
+    double lst=fmod(gmst+w3_olon,360.0), slat=sin(w3_olat*RAD), clat=cos(w3_olat*RAD);
+    static float sv[W3_NSTARS*4]; int ns=0;
+    for(int i=0;i<W3_NSTARS;i++){
+      double Hh=(lst-W3_STARS[i].ra)*RAD, dec=W3_STARS[i].dec*RAD;
+      double sinAlt=slat*sin(dec)+clat*cos(dec)*cos(Hh);
+      if(sinAlt<=0.03) continue;                              /* below/at horizon */
+      double az=atan2(-cos(dec)*sin(Hh), sin(dec)*clat-cos(dec)*slat*cos(Hh));
+      double ca=sqrt(fmax(0.0,1.0-sinAlt*sinAlt));
+      float dE=(float)(ca*sin(az)), dU=(float)sinAlt, dN=(float)(ca*cos(az));
+      sv[ns*4]=eye[0]+dE*40000.f; sv[ns*4+1]=eye[1]+dU*40000.f; sv[ns*4+2]=eye[2]-dN*40000.f;
+      sv[ns*4+3]=W3_STARS[i].mag; ns++;
+    }
+    if(ns>0){
+      glEnable(GL_BLEND); glBlendFunc(GL_ONE,GL_ONE);
+      glUseProgram(w3_pStar); glUniformMatrix4fv(w3_stMVP,1,GL_FALSE,mvp); glUniform1f(w3_stDay,day);
+      glBindBuffer(GL_ARRAY_BUFFER,w3_starVBO); glBufferData(GL_ARRAY_BUFFER,(size_t)ns*16,sv,GL_DYNAMIC_DRAW);
+      glEnableVertexAttribArray(w3_stPos); glEnableVertexAttribArray(w3_stMag);
+      glVertexAttribPointer(w3_stPos,3,GL_FLOAT,GL_FALSE,16,0);
+      glVertexAttribPointer(w3_stMag,1,GL_FLOAT,GL_FALSE,16,(void*)12);
+      glDrawArrays(GL_POINTS,0,ns);
+      glDisableVertexAttribArray(w3_stPos); glDisableVertexAttribArray(w3_stMag);
+      glDisable(GL_BLEND);
+    }
+  }
   glDepthMask(GL_TRUE); glEnable(GL_DEPTH_TEST);
 #ifdef W3_USE_OSM
   if(w3_nT>0||w3_nTF>0){   /* textured OSM terrain: far coarse ring + near detail, one draw per tile */
