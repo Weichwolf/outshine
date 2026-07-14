@@ -410,11 +410,11 @@ int main(void){
         if(tick%20==12) msp1(109,NULL,0);   /* MSP_ALTITUDE: iNav estimated altitude */
 
         /* --- downlink telem + video to flightbox (~20 Hz) --- */
-        /* Telemetry = the camera pose, sent at 50 Hz (tick%2) so the browser camera
-         * is smooth at 60 fps. The FDM runs at 100 Hz; at only 20 Hz the world visibly
-         * jumped every 3rd frame even with an idle GPU. Video (artificial horizon) is
-         * bulky and only a fallback, so it goes out at ~12 Hz. */
-        if(tick%2==0){
+        /* Telemetry = the camera pose, sent every physics tick (~100 Hz). The browser
+         * renders at 60 fps and samples the LATEST pose each frame — since the state
+         * updates faster than the display (game-engine style), the camera is smooth with
+         * zero interpolation latency. Video (artificial horizon fallback) stays at ~12 Hz. */
+        if(1){
             double hd=hypot((S.lat-HOME_LAT)*111320.0,(S.lon-HOME_LON)*111320.0*cos(HOME_LAT*RAD));
             double tohome=atan2f(-(S.lon-HOME_LON),-(S.lat-HOME_LAT))*DEG;
             telem_packet_t t={0}; t.magic=FB_MAGIC_TELEM;

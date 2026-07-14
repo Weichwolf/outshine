@@ -30,14 +30,15 @@ extern void glRenderbufferStorageMultisample(GLenum,GLsizei,GLenum,GLsizei,GLsiz
 extern void glBlitFramebuffer(GLint,GLint,GLint,GLint,GLint,GLint,GLint,GLint,GLbitfield,GLenum);
 
 /* wasm-dvd-gl approach: render + encode at the real CAMERA resolution (below the display),
- * then bilinear-upscale to the canvas. Our hardware camera is a Starlight low-light with
- * Composite-PAL output -> 720x576, 4:3. We render 4:3 at PAL line count (576) and encode
- * that (H.264 stands in for the analog link's softness/artifacts). MSAA cleans the edges
- * at render res; the HUD is drawn crisp at full display res on top. */
-#define WIN_W 1024          /* display / canvas (4:3) */
-#define WIN_H 768
-#define CAM_W 768           /* "camera": PAL 576-line, 4:3 (720x576 PAL, square-pixel equiv) */
-#define CAM_H 576
+ * then bilinear-upscale to the canvas. Our hardware camera is a Caddx Ratel 2 (1/1.8"
+ * Starlight, 164° FOV, NTSC 16:9, 60 Hz) — analog composite ~480 lines, 16:9. We render
+ * 16:9 at NTSC line count (480) and encode it (H.264 stands in for the analog link's
+ * softness/artifacts); NTSC's 60 Hz matches a 60 fps render (smooth, no cadence judder).
+ * MSAA cleans the edges at render res; the HUD is drawn crisp at full display res on top. */
+#define WIN_W 1280          /* display / canvas (720p, 16:9) */
+#define WIN_H 720
+#define CAM_W 848           /* "camera": NTSC 480-line, 16:9 */
+#define CAM_H 480
 
 /* ===================== WebCodecs H.264 encode -> decode ===================== */
 EM_JS(int, fb_codec_init, (int w, int h), {
@@ -53,7 +54,7 @@ EM_JS(int, fb_codec_init, (int w, int h), {
     error:(e)=>console.error('[fb] enc',e) });
   try {
     S.encoder.configure({ codec:'avc1.42001f', width:w, height:h,
-      bitrate: 1500000, framerate: 50, latencyMode:'realtime', avc:{format:'avc'} });
+      bitrate: 1500000, framerate: 60, latencyMode:'realtime', avc:{format:'avc'} });
   } catch(e){ console.error('[fb] enc.configure', e); return 0; }
   S.ready = true; console.log('[fb] WebCodecs bereit', w+'x'+h); return 1;
 });
@@ -131,6 +132,9 @@ static void present(GLuint tex,float flip){
 static void frame(void){
   SDL_Event e; while(SDL_PollEvent(&e)) if(e.type==SDL_CONTROLLERDEVICEADDED&&!pad) pad=SDL_GameControllerOpen(e.cdevice.which);
   send_control();
+  /* Game-engine style: telemetry (the state) arrives faster than we render (100 Hz vs
+   * 60 fps), so we just sample the LATEST pose each frame — smooth motion, zero added
+   * latency (no interpolation delay). */
   if(have_telem){
     double lat = g_olat + (double)telem.y/111320.0;
     double lon = g_olon + (double)telem.x/(111320.0*cos(g_olat*M_PI/180.0));
@@ -148,7 +152,7 @@ static void frame(void){
   if(codec_ready){
     glBindFramebuffer(GL_FRAMEBUFFER, vid_fbo);
     glReadPixels(0,0,CAM_W,CAM_H,GL_RGBA,GL_UNSIGNED_BYTE,readback);
-    fb_codec_push((int)(intptr_t)readback, CAM_W, CAM_H, (double)frame_no*20000.0);
+    fb_codec_push((int)(intptr_t)readback, CAM_W, CAM_H, emscripten_get_now()*1000.0);  /* real-time µs timestamp */
     if(fb_codec_upload((int)codec_tex)) use_codec=1;
   }
   frame_no++;
