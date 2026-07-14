@@ -410,11 +410,13 @@ int main(void){
         if(tick%20==12) msp1(109,NULL,0);   /* MSP_ALTITUDE: iNav estimated altitude */
 
         /* --- downlink telem + video to flightbox (~20 Hz) --- */
-        if(tick%5==0){
+        /* Telemetry = the camera pose, sent at 50 Hz (tick%2) so the browser camera
+         * is smooth at 60 fps. The FDM runs at 100 Hz; at only 20 Hz the world visibly
+         * jumped every 3rd frame even with an idle GPU. Video (artificial horizon) is
+         * bulky and only a fallback, so it goes out at ~12 Hz. */
+        if(tick%2==0){
             double hd=hypot((S.lat-HOME_LAT)*111320.0,(S.lon-HOME_LON)*111320.0*cos(HOME_LAT*RAD));
-            double brg=atan2f((S.lon-HOME_LON),(S.lat-HOME_LAT))*DEG;              /* to-current from home; reverse for to-home */
             double tohome=atan2f(-(S.lon-HOME_LON),-(S.lat-HOME_LAT))*DEG;
-            (void)brg;
             telem_packet_t t={0}; t.magic=FB_MAGIC_TELEM;
             t.roll=t_roll; t.pitch=t_pitch; t.yaw=(float)t_yaw;
             t.alt=(float)S.agl; t.x=(float)((S.lon-HOME_LON)*111320.0); t.y=(float)((S.lat-HOME_LAT)*111320.0);
@@ -425,8 +427,8 @@ int main(void){
             t.state = !armed?ST_DISARMED : g_mode;   /* bridge autopilot mode */
             t.rssi = !armed?0 : (link_up?96:0);   /* 0 = RC link lost (failsafe) */
             sendto(fbfd,&t,sizeof t,0,(struct sockaddr*)&fbdst,sizeof fbdst);
-            static video_packet_t v; render_horizon(&v,t_roll,t_pitch); sendto(fbfd,&v,sizeof v,0,(struct sockaddr*)&fbdst,sizeof fbdst);
         }
+        if(tick%8==0){ static video_packet_t v; render_horizon(&v,t_roll,t_pitch); sendto(fbfd,&v,sizeof v,0,(struct sockaddr*)&fbdst,sizeof fbdst); }
 
         if(++tick%100==0){ const char*MN[]={"DISARM","ARMED","CLIMB","LOITER","MANUAL","RTH"};
             fprintf(stderr,"[xp_bridge] %s alt=%.0f pitch=%.1f roll=%.1f | airspd=%.1f gs=%.1f home=%.0f\n",

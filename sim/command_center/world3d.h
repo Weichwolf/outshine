@@ -45,7 +45,7 @@ static const char*W3_FSW=
 /* textured terrain: OSM landcover/roads/buildings baked to a per-tile ortho texture */
 static const char*W3_VSWT=
  "attribute vec3 aPos; attribute vec2 aUV; uniform mat4 uMVP; varying vec2 vUV; varying float vFog;"
- "void main(){ vec4 p=uMVP*vec4(aPos,1.0); gl_Position=p; vUV=aUV; vFog=clamp(p.z/9000.0,0.0,1.0); }";
+ "void main(){ vec4 p=uMVP*vec4(aPos,1.0); gl_Position=p; vUV=aUV; vFog=clamp((p.w-3000.0)/28000.0,0.0,1.0); }";
 static const char*W3_FSWT=
  "precision mediump float; varying vec2 vUV; varying float vFog; uniform sampler2D uTex;"
  "void main(){ vec3 c=texture2D(uTex,vUV).rgb; vec3 sky=vec3(0.55,0.70,0.90); gl_FragColor=vec4(mix(c,sky,vFog*0.6),1.0); }";
@@ -109,6 +109,17 @@ static void w3_build_procedural(void){
 #define W3_TERR 24                 /* terrain geometry: coarse GxG grid per tile (heightfield
                                     * shape only — the texture carries the detail). Small = fast. */
 #endif
+/* Distant terrain LOD: a wide ring of low-zoom tiles gives the 30-40 km horizon
+ * without streaming thousands of z14 tiles. Coarse terrain + landcover texture only. */
+#ifndef W3_FARZ
+#define W3_FARZ 11                 /* far tier zoom (each tile ~20 km at z11) */
+#endif
+#ifndef W3_FARRAD
+#define W3_FARRAD 2                /* far tier radius (2 -> 5x5 tiles ~ 100 km across) */
+#endif
+#ifndef W3_FARTEX
+#define W3_FARTEX 384              /* far tier texture resolution (coarse) */
+#endif
 
 /* Old-flight-sim ground: OSM footprints/roads/rivers/rails + landcover are baked
  * into ONE orthographic texture per tile (no building geometry). The texture is
@@ -120,8 +131,10 @@ static int w3_have_tile=0; static uint32_t w3_tx,w3_ty;
 static float w3_yoff=0; static int w3_yoff_set=0;   /* origin ground elevation (camera lift) */
 
 #define W3_MAXT ((2*W3_RAD+1)*(2*W3_RAD+1))
+#define W3_MAXTF ((2*W3_FARRAD+1)*(2*W3_FARRAD+1))
 typedef struct { GLuint vbo, tex; int nverts; } w3_tileGL;
-static w3_tileGL w3_T[W3_MAXT]; static int w3_nT=0;
+static w3_tileGL w3_T[W3_MAXT];  static int w3_nT=0;    /* near tier (z14, detailed) */
+static w3_tileGL w3_TF[W3_MAXTF]; static int w3_nTF=0;  /* far tier (low zoom, coarse) */
 
 /* --- software raster into an RGB image (tile-local coords * sc) --- */
 static void w3_px(uint8_t*im,int W,int H,int x,int y,uint8_t r,uint8_t g,uint8_t b){
@@ -181,8 +194,8 @@ static const char* w3_kind(const osmmesh_mvt_layer*l,const osmmesh_mvt_feature*f
   osmmesh_mvt_value v; if(osmmesh_mvt_feature_get_tag(l,f,"kind",&v)==0&&v.type==OSMMESH_MVT_VAL_STRING) return v.v.s; return ""; }
 
 /* bake one tile's OSM vector data into an orthographic RGB texture -> GL texture id */
-static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y){
-  int TS=W3_TEX; uint8_t*im=malloc((size_t)TS*TS*3);
+static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS){
+  uint8_t*im=malloc((size_t)TS*TS*3);
   for(int i=0;i<TS*TS;i++){ im[i*3]=150;im[i*3+1]=178;im[i*3+2]=118; }   /* base ground */
   uint8_t*d=0; size_t n=0;
   if(w3_vec && osmmesh_pmtiles_fetch(w3_vec,z,x,y,&d,&n)==OSMMESH_PMTILES_OK){
@@ -285,27 +298,34 @@ static int world3d_osm_open_mem(const char*vec_path,const uint8_t*vec_data,size_
 static int world3d_osm_open(const char*vec_path,const char*terr_path,double lat,double lon){
   return world3d_osm_open_mem(vec_path,0,0,terr_path,0,0,lat,lon);
 }
-/* stream the tile grid around (lat,lon); rebuilds only when the centre tile changes */
+/* stream one grid (zoom z, radius rad, texture size tex) around tile (cx,cy) into arr */
+static int w3_stream_grid(uint32_t cx,uint32_t cy,int z,int rad,int tex,int maxt,w3_tileGL*arr){
+  int n=0;
+  for(int dy=-rad;dy<=rad;dy++)for(int dx=-rad;dx<=rad;dx++){
+    osmmesh_tile t={0};
+    if(osmmesh_fetch_tile(w3_osm,z,cx+dx,cy+dy,&t)!=OSMMESH_OK || !t.terrain){ osmmesh_free_tile(&t); continue; }
+    if(!w3_yoff_set && dx==0 && dy==0 && z==W3_Z){
+      float best=1e30f; for(uint32_t i=0;i<t.terrain->n_vertices;i++){ const float*P=t.terrain->positions+i*3;
+        float dd=P[0]*P[0]+P[1]*P[1]; if(dd<best){best=dd; w3_yoff=P[2];} }
+      w3_yoff_set=1;
+    }
+    if(n<maxt){ w3_tileGL*g=&arr[n++]; g->vbo=w3_terr_vbo(t.terrain,&g->nverts); g->tex=w3_bake(z,cx+dx,cy+dy,tex); }
+    osmmesh_free_tile(&t);
+  }
+  return n;
+}
+/* stream near (z14 detailed) + far (low-zoom, wide) tiers; rebuild only on centre-tile change */
 static void world3d_stream(double lat,double lon){
   if(!w3_osm) return;
   uint32_t tx,ty; if(osmmesh_geo_to_tile(lon,lat,W3_Z,&tx,&ty)!=0) return;
   if(w3_have_tile && tx==w3_tx && ty==w3_ty) return;
   w3_tx=tx; w3_ty=ty; w3_have_tile=1;
-  for(int i=0;i<w3_nT;i++){ glDeleteBuffers(1,&w3_T[i].vbo); glDeleteTextures(1,&w3_T[i].tex); }
-  w3_nT=0;
-  for(int dy=-W3_RAD;dy<=W3_RAD;dy++)for(int dx=-W3_RAD;dx<=W3_RAD;dx++){
-    osmmesh_tile t={0};
-    if(osmmesh_fetch_tile(w3_osm,W3_Z,tx+dx,ty+dy,&t)!=OSMMESH_OK || !t.terrain){ osmmesh_free_tile(&t); continue; }
-    if(!w3_yoff_set){ /* origin ground elevation = nearest-to-origin vertex, once */
-      float best=1e30f; for(uint32_t i=0;i<t.terrain->n_vertices;i++){ const float*P=t.terrain->positions+i*3;
-        float dd=P[0]*P[0]+P[1]*P[1]; if(dd<best){best=dd; w3_yoff=P[2];} }
-      if(dx==0&&dy==0){ w3_yoff_set=1; }
-    }
-    if(w3_nT<W3_MAXT){ w3_tileGL*g=&w3_T[w3_nT++];
-      g->vbo=w3_terr_vbo(t.terrain,&g->nverts); g->tex=w3_bake(W3_Z, w3_tx+dx, w3_ty+dy); }
-    osmmesh_free_tile(&t);
-  }
-  printf("[world3d] streamed tile %u/%u  (%d tiles textured, yoff=%.0f)\n",tx,ty,w3_nT,w3_yoff);
+  for(int i=0;i<w3_nT;i++){  glDeleteBuffers(1,&w3_T[i].vbo);  glDeleteTextures(1,&w3_T[i].tex);  }
+  for(int i=0;i<w3_nTF;i++){ glDeleteBuffers(1,&w3_TF[i].vbo); glDeleteTextures(1,&w3_TF[i].tex); }
+  uint32_t fx,fy; osmmesh_geo_to_tile(lon,lat,W3_FARZ,&fx,&fy);
+  w3_nTF = w3_stream_grid(fx,fy,W3_FARZ,W3_FARRAD,W3_FARTEX,W3_MAXTF,w3_TF);   /* distant coarse ring */
+  w3_nT  = w3_stream_grid(tx,ty,W3_Z,   W3_RAD,   W3_TEX,   W3_MAXT, w3_T);    /* near detail */
+  printf("[world3d] streamed: near %d (z%d) + far %d (z%d) tiles, yoff=%.0f\n",w3_nT,W3_Z,w3_nTF,W3_FARZ,w3_yoff);
 }
 #endif /* W3_USE_OSM */
 
@@ -371,15 +391,20 @@ static void world3d_render(const telem_packet_t*t,int W,int H,int have){
   float wup[3]={0,1,0},s[3]; v_cross(s,f,wup); v_norm(s); float u[3]; v_cross(u,s,f);
   float up[3]={u[0]*cosf(roll)-s[0]*sinf(roll),u[1]*cosf(roll)-s[1]*sinf(roll),u[2]*cosf(roll)-s[2]*sinf(roll)};
   float eye[3]={px,py,pz},ctr[3]={px+f[0],py+f[1],pz+f[2]};
-  float view[16],proj[16],mvp[16]; m_lookat(view,eye,ctr,up); m_persp(proj,72*RAD,(float)W/H,1.5f,9000.f); m_mul(mvp,proj,view);
+  float view[16],proj[16],mvp[16]; m_lookat(view,eye,ctr,up); m_persp(proj,72*RAD,(float)W/H,2.0f,45000.f); m_mul(mvp,proj,view);
 #ifdef W3_USE_OSM
-  if(w3_nT>0){   /* textured OSM terrain: one draw per tile with its baked ortho texture */
+  if(w3_nT>0||w3_nTF>0){   /* textured OSM terrain: far coarse ring + near detail, one draw per tile */
     glUseProgram(w3_pWT); glUniformMatrix4fv(w3_wtMVP,1,GL_FALSE,mvp);
     glActiveTexture(GL_TEXTURE0); glUniform1i(w3_wtTex,0);
     glEnableVertexAttribArray(w3_wtPos); glEnableVertexAttribArray(w3_wtUV);
-    for(int i=0;i<w3_nT;i++){ glBindTexture(GL_TEXTURE_2D,w3_T[i].tex); glBindBuffer(GL_ARRAY_BUFFER,w3_T[i].vbo);
-      glVertexAttribPointer(w3_wtPos,3,GL_FLOAT,GL_FALSE,20,0); glVertexAttribPointer(w3_wtUV,2,GL_FLOAT,GL_FALSE,20,(void*)12);
-      glDrawArrays(GL_TRIANGLES,0,w3_T[i].nverts); }
+    #define W3_DRAWARR(arr,n) for(int i=0;i<n;i++){ glBindTexture(GL_TEXTURE_2D,arr[i].tex); glBindBuffer(GL_ARRAY_BUFFER,arr[i].vbo); \
+      glVertexAttribPointer(w3_wtPos,3,GL_FLOAT,GL_FALSE,20,0); glVertexAttribPointer(w3_wtUV,2,GL_FLOAT,GL_FALSE,20,(void*)12); \
+      glDrawArrays(GL_TRIANGLES,0,arr[i].nverts); }
+    glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(4.0f,64.0f);   /* push the far ring back so near detail wins on overlap */
+    W3_DRAWARR(w3_TF,w3_nTF);
+    glDisable(GL_POLYGON_OFFSET_FILL);
+    W3_DRAWARR(w3_T,w3_nT);
+    #undef W3_DRAWARR
     glDisableVertexAttribArray(w3_wtUV);
   } else
 #endif
