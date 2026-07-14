@@ -50,11 +50,21 @@ static const char*W3_FSW=
  "void main(){ gl_FragColor=vec4(mix(vCol*uLight,uHaze,vFog*0.7),1.0); }";
 /* textured terrain: OSM landcover/roads/buildings baked to a per-tile ortho texture */
 static const char*W3_VSWT=
- "attribute vec3 aPos; attribute vec2 aUV; uniform mat4 uMVP; varying vec2 vUV; varying float vFog;"
- "void main(){ vec4 p=uMVP*vec4(aPos,1.0); gl_Position=p; vUV=aUV; vFog=clamp((p.w-3000.0)/28000.0,0.0,1.0); }";
+ "attribute vec3 aPos; attribute vec2 aUV; attribute vec3 aNorm; uniform mat4 uMVP;"
+ "varying vec2 vUV; varying float vFog; varying vec3 vNorm;"
+ "void main(){ vec4 p=uMVP*vec4(aPos,1.0); gl_Position=p; vUV=aUV; vNorm=aNorm; vFog=clamp((p.w-3000.0)/28000.0,0.0,1.0); }";
+/* Self-rendered lighting: the tile texture is treated as ALBEDO (base colour) and lit by
+ * OUR sun (uSun, direction-to-sun in render space E=+X,up=+Y,N=-Z) via the terrain slope
+ * normal, plus sky ambient — so relief/shadows track our real, dynamic sun instead of any
+ * lighting baked into the texture. uLight carries the day->night level, uHaze the horizon. */
 static const char*W3_FSWT=
- "precision mediump float; varying vec2 vUV; varying float vFog; uniform sampler2D uTex; uniform vec3 uHaze; uniform float uLight;"
- "void main(){ vec3 c=texture2D(uTex,vUV).rgb*uLight; gl_FragColor=vec4(mix(c,uHaze,vFog*0.6),1.0); }";
+ "precision mediump float; varying vec2 vUV; varying float vFog; varying vec3 vNorm;"
+ "uniform sampler2D uTex; uniform vec3 uHaze; uniform float uLight; uniform vec3 uSun;"
+ "void main(){ vec3 N=normalize(vNorm); float sup=smoothstep(-0.05,0.12,uSun.y);"
+ "  float diff=max(0.0,dot(N,uSun))*sup;"
+ "  float shade=0.55+0.65*diff;"                       /* 0.55 sky ambient .. +direct sun on lit slopes */
+ "  vec3 c=texture2D(uTex,vUV).rgb*shade*uLight;"
+ "  gl_FragColor=vec4(mix(c,uHaze,vFog*0.6),1.0); }";
 static const char*W3_VSH=
  "attribute vec2 aPos; attribute vec3 aCol; uniform vec2 uScale; varying vec3 vCol;"
  "void main(){ gl_Position=vec4(aPos.x*uScale.x-1.0, 1.0-aPos.y*uScale.y, 0.0,1.0); vCol=aCol; }";
@@ -111,7 +121,7 @@ static const char*W3_FSKY=
 
 static GLuint w3_pW,w3_pH,w3_pWT,w3_pSky,w3_vTerr,w3_vBld,w3_hVBO,w3_skyVBO; static int w3_nTerr,w3_nBld;
 static GLint w3_wPos,w3_wCol,w3_wMVP,w3_wHaze,w3_wLight,w3_hPos,w3_hCol,w3_hScale;
-static GLint w3_wtPos,w3_wtUV,w3_wtMVP,w3_wtTex,w3_wtHaze,w3_wtLight;
+static GLint w3_wtPos,w3_wtUV,w3_wtMVP,w3_wtTex,w3_wtHaze,w3_wtLight,w3_wtNorm,w3_wtSun;
 static GLint w3_skPos,w3_skF,w3_skS,w3_skU,w3_skTan,w3_skAsp,w3_skSun,w3_skMoon,w3_skMoonPh,w3_skCloud;
 
 /* world uses OSM/terrain meshes if loaded via w3_load_mesh(), else procedural. */
@@ -310,9 +320,23 @@ static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS){
  * dense row-major grid (256x256); we DECIMATE it to a coarse W3_TERR x W3_TERR grid
  * (detail comes from the draped texture, not the geometry) and drape UV from the tile's
  * ENU bbox (north -> v=0 -> texture top). Coarse geometry = smooth framerate. */
+/* Take a 5-float/vertex triangle soup (pos.xyz, uv) and emit an 8-float/vertex VBO with a
+ * per-triangle FACE NORMAL appended (flat shading — the right look for terrain relief). The
+ * normal lets the fragment shader compute real sun/slope lighting instead of a flat tint. */
 static GLuint w3_push_soup(const float*v,size_t o,int*out_nv){
+  int nv=(int)(o/5); float*w=malloc((size_t)nv*8*sizeof(float));
+  for(int t=0;t+2<nv;t+=3){
+    const float*a=v+(size_t)t*5,*b=v+(size_t)(t+1)*5,*c=v+(size_t)(t+2)*5;
+    float e1[3]={b[0]-a[0],b[1]-a[1],b[2]-a[2]}, e2[3]={c[0]-a[0],c[1]-a[1],c[2]-a[2]};
+    float nx=e1[1]*e2[2]-e1[2]*e2[1], ny=e1[2]*e2[0]-e1[0]*e2[2], nz=e1[0]*e2[1]-e1[1]*e2[0];
+    float L=sqrtf(nx*nx+ny*ny+nz*nz); if(L<1e-6f)L=1; nx/=L;ny/=L;nz/=L;
+    if(ny<0){nx=-nx;ny=-ny;nz=-nz;}                       /* orient upward */
+    for(int k=0;k<3;k++){ const float*s=v+(size_t)(t+k)*5; float*d=w+(size_t)(t+k)*8;
+      d[0]=s[0];d[1]=s[1];d[2]=s[2];d[3]=s[3];d[4]=s[4];d[5]=nx;d[6]=ny;d[7]=nz; }
+  }
   GLuint vbo; glGenBuffers(1,&vbo); glBindBuffer(GL_ARRAY_BUFFER,vbo);
-  glBufferData(GL_ARRAY_BUFFER,o*sizeof(float),v,GL_STATIC_DRAW); *out_nv=(int)(o/5); return vbo;
+  glBufferData(GL_ARRAY_BUFFER,(size_t)nv*8*sizeof(float),w,GL_STATIC_DRAW); free(w);
+  *out_nv=nv; return vbo;
 }
 static GLuint w3_terr_vbo(const osmmesh_mesh*m,int*out_nv){
   float emin=1e18f,emax=-1e18f,nmin=1e18f,nmax=-1e18f;
@@ -473,6 +497,7 @@ static void world3d_init(void){
   w3_pWT=w3_prog(W3_VSWT,W3_FSWT); w3_wtPos=glGetAttribLocation(w3_pWT,"aPos"); w3_wtUV=glGetAttribLocation(w3_pWT,"aUV");
   w3_wtMVP=glGetUniformLocation(w3_pWT,"uMVP"); w3_wtTex=glGetUniformLocation(w3_pWT,"uTex");
   w3_wtHaze=glGetUniformLocation(w3_pWT,"uHaze"); w3_wtLight=glGetUniformLocation(w3_pWT,"uLight");
+  w3_wtNorm=glGetAttribLocation(w3_pWT,"aNorm"); w3_wtSun=glGetUniformLocation(w3_pWT,"uSun");
   if(w3_osm) return;              /* geometry (textured tiles) comes from world3d_stream() */
 #endif
   w3_build_procedural();
@@ -522,18 +547,19 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
 #ifdef W3_USE_OSM
   if(w3_nT>0||w3_nTF>0){   /* textured OSM terrain: far coarse ring + near detail, one draw per tile */
     glUseProgram(w3_pWT); glUniformMatrix4fv(w3_wtMVP,1,GL_FALSE,mvp);
-    glUniform3fv(w3_wtHaze,1,haze); glUniform1f(w3_wtLight,light);
+    glUniform3fv(w3_wtHaze,1,haze); glUniform1f(w3_wtLight,light); glUniform3fv(w3_wtSun,1,sun);
     glActiveTexture(GL_TEXTURE0); glUniform1i(w3_wtTex,0);
-    glEnableVertexAttribArray(w3_wtPos); glEnableVertexAttribArray(w3_wtUV);
+    glEnableVertexAttribArray(w3_wtPos); glEnableVertexAttribArray(w3_wtUV); glEnableVertexAttribArray(w3_wtNorm);
     #define W3_DRAWARR(arr,n) for(int i=0;i<n;i++){ glBindTexture(GL_TEXTURE_2D,arr[i].tex); glBindBuffer(GL_ARRAY_BUFFER,arr[i].vbo); \
-      glVertexAttribPointer(w3_wtPos,3,GL_FLOAT,GL_FALSE,20,0); glVertexAttribPointer(w3_wtUV,2,GL_FLOAT,GL_FALSE,20,(void*)12); \
+      glVertexAttribPointer(w3_wtPos,3,GL_FLOAT,GL_FALSE,32,0); glVertexAttribPointer(w3_wtUV,2,GL_FLOAT,GL_FALSE,32,(void*)12); \
+      glVertexAttribPointer(w3_wtNorm,3,GL_FLOAT,GL_FALSE,32,(void*)20); \
       glDrawArrays(GL_TRIANGLES,0,arr[i].nverts); }
     glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(4.0f,64.0f);   /* push the far ring back so near detail wins on overlap */
     W3_DRAWARR(w3_TF,w3_nTF);
     glDisable(GL_POLYGON_OFFSET_FILL);
     W3_DRAWARR(w3_T,w3_nT);
     #undef W3_DRAWARR
-    glDisableVertexAttribArray(w3_wtUV);
+    glDisableVertexAttribArray(w3_wtUV); glDisableVertexAttribArray(w3_wtNorm);
   } else
 #endif
   { glUseProgram(w3_pW); glUniformMatrix4fv(w3_wMVP,1,GL_FALSE,mvp); glUniform3fv(w3_wHaze,1,haze); glUniform1f(w3_wLight,light); glEnableVertexAttribArray(w3_wPos); glEnableVertexAttribArray(w3_wCol);
