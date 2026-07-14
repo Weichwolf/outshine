@@ -389,7 +389,10 @@ static void world3d_render(const telem_packet_t*t,int W,int H,int have){
   float yaw=have?t->yaw*RAD:0, pitch=have?t->pitch*RAD:0, roll=have?t->roll*RAD:0;
   float f[3]={cosf(pitch)*sinf(yaw),sinf(pitch),-cosf(pitch)*cosf(yaw)};
   float wup[3]={0,1,0},s[3]; v_cross(s,f,wup); v_norm(s); float u[3]; v_cross(u,s,f);
-  float up[3]={u[0]*cosf(roll)-s[0]*sinf(roll),u[1]*cosf(roll)-s[1]*sinf(roll),u[2]*cosf(roll)-s[2]*sinf(roll)};
+  /* roll the camera-up around the forward axis. +roll (right bank, right wing down) must
+   * tilt the camera up toward the RIGHT (+s), so the world appears to roll left in view.
+   * (The previous -s inverted it: a right bank looked like a left bank.) */
+  float up[3]={u[0]*cosf(roll)+s[0]*sinf(roll),u[1]*cosf(roll)+s[1]*sinf(roll),u[2]*cosf(roll)+s[2]*sinf(roll)};
   float eye[3]={px,py,pz},ctr[3]={px+f[0],py+f[1],pz+f[2]};
   float view[16],proj[16],mvp[16]; m_lookat(view,eye,ctr,up); m_persp(proj,72*RAD,(float)W/H,2.0f,45000.f); m_mul(mvp,proj,view);
 #ifdef W3_USE_OSM
