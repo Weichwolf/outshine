@@ -29,10 +29,15 @@
 extern void glRenderbufferStorageMultisample(GLenum,GLsizei,GLenum,GLsizei,GLsizei);
 extern void glBlitFramebuffer(GLint,GLint,GLint,GLint,GLint,GLint,GLint,GLint,GLbitfield,GLenum);
 
-#define WIN_W 800
-#define WIN_H 600
-#define CAM_W 640           /* "camera"/video resolution (4:3), what gets encoded */
-#define CAM_H 480
+/* wasm-dvd-gl approach: render + encode at the real CAMERA resolution (below the display),
+ * then bilinear-upscale to the canvas. Our hardware camera is a Starlight low-light with
+ * Composite-PAL output -> 720x576, 4:3. We render 4:3 at PAL line count (576) and encode
+ * that (H.264 stands in for the analog link's softness/artifacts). MSAA cleans the edges
+ * at render res; the HUD is drawn crisp at full display res on top. */
+#define WIN_W 1024          /* display / canvas (4:3) */
+#define WIN_H 768
+#define CAM_W 768           /* "camera": PAL 576-line, 4:3 (720x576 PAL, square-pixel equiv) */
+#define CAM_H 576
 
 /* ===================== WebCodecs H.264 encode -> decode ===================== */
 EM_JS(int, fb_codec_init, (int w, int h), {
@@ -48,7 +53,7 @@ EM_JS(int, fb_codec_init, (int w, int h), {
     error:(e)=>console.error('[fb] enc',e) });
   try {
     S.encoder.configure({ codec:'avc1.42001f', width:w, height:h,
-      bitrate: 1200000, framerate: 50, latencyMode:'realtime', avc:{format:'avc'} });
+      bitrate: 1500000, framerate: 50, latencyMode:'realtime', avc:{format:'avc'} });
   } catch(e){ console.error('[fb] enc.configure', e); return 0; }
   S.ready = true; console.log('[fb] WebCodecs bereit', w+'x'+h); return 1;
 });
