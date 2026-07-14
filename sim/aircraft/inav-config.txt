@@ -26,6 +26,14 @@ set nav_extra_arming_safety = ALLOW_BYPASS   ; arm with YAW stick HIGH to bypass
 set failsafe_procedure = RTH
 set failsafe_delay = 5
 
+# --- RTH behaviour: turn home immediately, return + loiter over home (don't land) ---
+# ("kreist über mir wie ein vogel"). climb_first=ON would make a fixed wing climb to
+# nav_rth_altitude BEFORE turning; our FDM can't complete that climb so it must be OFF.
+set nav_rth_climb_first = OFF
+set nav_rth_allow_landing = NEVER
+set nav_rth_altitude = 6000
+set nav_fw_cruise_thr = 1500
+
 # --- modes: ARM=AUX1, ANGLE=AUX2, NAV RTH=AUX3 ---
 aux 0 0 0 1700 2100
 aux 1 1 1 1700 2100

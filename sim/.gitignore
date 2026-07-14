@@ -1,0 +1,11 @@
+
+# command center WASM data bundle + native eval renderer
+flightbox/web/cc.data
+flightbox/web/cc.js
+flightbox/web/cc.wasm
+command_center/render_native
+*.rgb
+
+# python bytecode
+__pycache__/
+*.pyc

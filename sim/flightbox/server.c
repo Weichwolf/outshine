@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <poll.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/select.h>
@@ -62,6 +63,22 @@ static client_t cl[MAX_CLIENTS];
 
 static void set_nonblock(int fd){ int f=fcntl(fd,F_GETFL,0); fcntl(fd,F_SETFL,f|O_NONBLOCK); }
 
+/* Send the whole buffer even on a non-blocking socket: on EAGAIN, wait for the
+ * send buffer to drain (poll POLLOUT). Essential for the 32 MB cc.data payload,
+ * which otherwise gets silently truncated. Returns 0 on success, -1 on error. */
+static int send_all(int fd,const void*buf,size_t len){
+    const uint8_t*p=buf; size_t off=0;
+    while(off<len){
+        ssize_t w=send(fd,p+off,len-off,MSG_NOSIGNAL);
+        if(w>0){ off+=(size_t)w; continue; }
+        if(w<0 && (errno==EAGAIN||errno==EWOULDBLOCK)){
+            struct pollfd pf={fd,POLLOUT,0}; if(poll(&pf,1,5000)<=0) return -1; continue;
+        }
+        return -1;
+    }
+    return 0;
+}
+
 static void ws_send(int fd,const void*data,size_t len){
     uint8_t hdr[10]; int h=0; hdr[0]=0x82; /* FIN + binary */
     if(len<126){ hdr[1]=(uint8_t)len; h=2; }
@@ -94,6 +111,17 @@ static int http_handle(client_t*c){
     /* static file GET */
     char path[256]="/"; sscanf(req,"GET %255s",path);
     char*q=strchr(path,'?'); if(q)*q=0;
+
+    /* runtime config: origin (home) coordinates from server env -> command center.
+     * Set ORIGIN_LAT / ORIGIN_LON at container start to fly anywhere. */
+    if(strcmp(path,"/config.js")==0){
+        const char*la=getenv("ORIGIN_LAT"), *lo=getenv("ORIGIN_LON");
+        char body[256]; int bn=snprintf(body,sizeof body,
+            "window.FB_ORIGIN_LAT=%s;window.FB_ORIGIN_LON=%s;\n", la&&*la?la:"52.045", lo&&*lo?lo:"9.385");
+        char hdr[192]; int hn=snprintf(hdr,sizeof hdr,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/javascript\r\nContent-Length: %d\r\nConnection: close\r\n\r\n",bn);
+        send(c->fd,hdr,hn,MSG_NOSIGNAL); send(c->fd,body,bn,MSG_NOSIGNAL); c->rxn=0; return -1;
+    }
     char file[300];
     if(strcmp(path,"/")==0) snprintf(file,sizeof file,"%s/index.html",WEB_ROOT);
     else snprintf(file,sizeof file,"%s%s",WEB_ROOT,path);
@@ -106,8 +134,8 @@ static int http_handle(client_t*c){
     if(!f){ const char*e="HTTP/1.1 404 Not Found\r\nContent-Length: 3\r\n\r\n404"; send(c->fd,e,strlen(e),MSG_NOSIGNAL); c->rxn=0; return 1; }
     fseek(f,0,SEEK_END); long sz=ftell(f); fseek(f,0,SEEK_SET);
     char hdr[256]; int hn=snprintf(hdr,sizeof hdr,"HTTP/1.1 200 OK\r\nContent-Type: %s\r\nContent-Length: %ld\r\nConnection: close\r\n\r\n",mime,sz);
-    send(c->fd,hdr,hn,MSG_NOSIGNAL);
-    char b[8192]; size_t r; while((r=fread(b,1,sizeof b,f))>0) send(c->fd,b,r,MSG_NOSIGNAL);
+    send_all(c->fd,hdr,hn);
+    char b[65536]; size_t r; while((r=fread(b,1,sizeof b,f))>0){ if(send_all(c->fd,b,r)<0) break; }
     fclose(f); c->rxn=0; return -1;   /* -1 => close after serving */
 }
 

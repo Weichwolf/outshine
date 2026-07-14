@@ -46,7 +46,9 @@ typedef struct {
 } state_t;
 
 static state_t S;
-static const double HOME_LAT = 52.045, HOME_LON = 9.385, HOME_ELEV = 300.0;
+/* Home / ENU origin. Overridable via ORIGIN_LAT/ORIGIN_LON env so the whole
+ * system (aircraft home + command-center osmmesh origin) can fly anywhere. */
+static double HOME_LAT = 52.045, HOME_LON = 9.385, HOME_ELEV = 300.0;
 
 /* dataref subscriptions from iNav: id -> dataref string */
 static struct { int id; char dref[96]; } subs[128];
@@ -85,7 +87,7 @@ static float sensor_value(const char *d){
     /* iNav also subscribes to inav_xitl/* datarefs; xplane.c copies numSats/fix
      * into gpsFakeSet regardless of mode, so these MUST be answered for a GPS fix. */
     if(!strcmp(d,"inav_xitl/gps/numSats"))   return 16.0f;
-    if(!strcmp(d,"inav_xitl/gps/fix"))       return 3.0f;   /* GPS_FIX_3D */
+    if(!strcmp(d,"inav_xitl/gps/fix"))       return 2.0f;   /* GPS_FIX_3D == 2 in iNav's enum (NOT 3!). Feeding 3 left STATE(GPS_FIX) unset -> no nav/home/RTH. */
     if(!strcmp(d,"inav_xitl/gps/latitude"))  return (float)S.lat;
     if(!strcmp(d,"inav_xitl/gps/longitude")) return (float)S.lon;
     if(!strcmp(d,"inav_xitl/gps/elevation")) return (float)S.elev;
@@ -179,6 +181,8 @@ static void physics_step(double dt){
 static int msp_fd=-1;
 static uint8_t msp_rx[8192]; static int msp_rxn=0;
 static float t_roll=0,t_pitch=0; static int t_yaw=0,t_fix=0,t_sats=0,t_batt10=126;
+static int t_inav_dth=0,t_inav_dir=0;   /* iNav's own distance/direction to home (MSP_COMP_GPS) */
+static double t_inav_lat=0,t_inav_lon=0;
 static uint32_t t_armflags=0,t_modeflags=0;
 static uint8_t boxids[64]; static int nboxids=0;
 static int msp_connect(void){
@@ -206,7 +210,9 @@ static void msp_poll(void){
         if(msp_rx[i]=='$'&&msp_rx[i+1]=='M'&&msp_rx[i+2]=='>'){
             if(i+5>msp_rxn)break; int ln=msp_rx[i+3],cmd=msp_rx[i+4]; if(i+6+ln>msp_rxn)break; uint8_t*pl=msp_rx+i+5;
             if(cmd==108&&ln>=6){ t_roll=(int16_t)(pl[0]|pl[1]<<8)/10.0f; t_pitch=(int16_t)(pl[2]|pl[3]<<8)/10.0f; t_yaw=(int16_t)(pl[4]|pl[5]<<8); }
-            else if(cmd==106&&ln>=2){ t_fix=pl[0]; t_sats=pl[1]; }
+            else if(cmd==106&&ln>=2){ t_fix=pl[0]; t_sats=pl[1];
+                if(ln>=10){ int32_t la,lo; memcpy(&la,pl+2,4); memcpy(&lo,pl+6,4); t_inav_lat=la/1e7; t_inav_lon=lo/1e7; } }
+            else if(cmd==107&&ln>=4){ t_inav_dth=pl[0]|pl[1]<<8; t_inav_dir=pl[2]|pl[3]<<8; }
             else if(cmd==110&&ln>=1){ t_batt10=pl[0]; }
             else if(cmd==101&&ln>=10) memcpy(&t_modeflags,pl+6,4);
             else if(cmd==119){ nboxids=ln<64?ln:64; memcpy(boxids,pl,nboxids); }
@@ -241,6 +247,8 @@ int main(void){
     int fl=fcntl(fd,F_GETFL,0); fcntl(fd,F_SETFL,fl|O_NONBLOCK);
 
     if(getenv("FDM_MODEL")){ int idx=atoi(getenv("FDM_MODEL")); if(idx>=0&&idx<NMODELS) MDL=&MODELS[idx]; }
+    if(getenv("ORIGIN_LAT")) HOME_LAT=atof(getenv("ORIGIN_LAT"));
+    if(getenv("ORIGIN_LON")) HOME_LON=atof(getenv("ORIGIN_LON"));
     S.lat=HOME_LAT; S.lon=HOME_LON; S.elev=HOME_ELEV; S.agl=HOME_ELEV; S.yaw=0; S.speed=14.0; S.vy=0;
     if(getenv("XP_INJECT")) g_inject=1;
     fprintf(stderr,"[xp_bridge] FDM=%s  X-Plane :%d  MSP->127.0.0.1:5760\n", MDL->name, port);
@@ -256,6 +264,7 @@ int main(void){
 
     struct sockaddr_in inav={0}; socklen_t il=0; int have_client=0;
     float cr=0,cp=0,cy=0,cthr=-1;  /* control corrections from flightbox (-1 thr = autonomous) */
+    int link_up=1;                 /* operator RC link; 0 = simulate RC-loss -> iNav failsafe */
     const double dt=0.01;
     long tick=0;
     struct timespec t0; clock_gettime(CLOCK_MONOTONIC,&t0);
@@ -273,14 +282,18 @@ int main(void){
             for(int i=0;i<nsubs;i++){ int32_t id=subs[i].id; float v=sensor_value(subs[i].dref); memcpy(out+o,&id,4); memcpy(out+o+4,&v,4); o+=8; }
             sendto(fd,out,o,0,(struct sockaddr*)&inav,il); }
 
-        /* --- MSP: connect, poll telemetry --- */
-        if(msp_fd<0 && tick%50==0){ msp_fd=msp_connect(); if(msp_fd>=0){ msp1(119,NULL,0); } }
-        msp_poll();
+        /* --- MSP: connect, poll telemetry ---
+         * XP_NOMSP=1: act as a pure X-Plane sensor responder (level & still, GPS fix) and
+         * leave the MSP port free. Used by make-eeprom.sh to apply CLI config over TCP 5760. */
+        if(!getenv("XP_NOMSP")){
+            if(msp_fd<0 && tick%50==0){ msp_fd=msp_connect(); if(msp_fd>=0){ msp1(119,NULL,0); } }
+            msp_poll();
+        }
 
         /* --- control uplink from flightbox --- */
         ctrl_packet_t c; struct sockaddr_in cs; socklen_t csl=sizeof cs;
         while(recvfrom(fbfd,&c,sizeof c,0,(struct sockaddr*)&cs,&csl)==(ssize_t)sizeof c)
-            if(c.magic==FB_MAGIC_CTRL){ cr=c.roll; cp=c.pitch; cy=c.yaw; cthr=c.throttle; }
+            if(c.magic==FB_MAGIC_CTRL){ cr=c.roll; cp=c.pitch; cy=c.yaw; cthr=c.throttle; link_up=c.link_up; }
 
         /* --- auto-launch sequence + RC to iNav (senderless: cal -> yaw-bypass arm -> ANGLE -> throttle) --- */
         if(msp_fd>=0 && tick%2==0){
@@ -296,9 +309,14 @@ int main(void){
                 double ph=fmod(ts-cal_done_t,3.0);
                 if(ph>=1.5){ rc[3]=2000; rc[4]=2000; }           /* YAW HIGH + ARM (nav bypass) */
             }
-            else { rc[4]=2000; rc[5]=2000;                        /* ARM + ANGLE, then fly */
+            else if(link_up){ rc[4]=2000; rc[5]=2000;             /* ARM + ANGLE, then fly */
                    rc[0]=1500+(int)(cr*450); rc[1]=1500+(int)(cp*450); rc[3]=1500+(int)(cy*450);
                    double thr=(cthr>=0)?cthr:0.80; rc[2]=1000+(int)(thr*1000); }
+            else { /* RC-loss failsafe. A real ELRS receiver outputs preset failsafe
+                    * channel values on link loss; we configure AUX3 (RTH) to trigger.
+                    * Sticks centred, RTH switch high -> iNav NAV RTH flies home + loiters
+                    * (NAV RTH controls throttle itself). */
+                   rc[4]=2000; rc[5]=2000; rc[6]=2000; rc[0]=1500; rc[1]=1500; rc[3]=1500; rc[2]=1500; }
             uint8_t pl[16]; for(int i=0;i<8;i++){ pl[i*2]=rc[i]&0xff; pl[i*2+1]=rc[i]>>8; }
             msp1(200,pl,16);
         }
@@ -308,6 +326,7 @@ int main(void){
         if(tick%20==5) msp1(106,NULL,0);
         if(tick%20==10) msp1(110,NULL,0);
         if(tick%20==15){ msp1(101,NULL,0); msp2(0x2000); }
+        if(tick%20==18) msp1(107,NULL,0);   /* MSP_COMP_GPS: iNav distance/dir to home */
 
         /* --- downlink telem + video to flightbox (~20 Hz) --- */
         if(tick%5==0){
@@ -323,13 +342,14 @@ int main(void){
             float need=(hd>1)?atan2f((float)S.agl,(float)hd)*(float)DEG:0; t.glideslope_err=need-7.0f;
             int armed=(t_armflags&4)!=0;
             t.state = !armed?ST_DISARMED : (mode_active(8)?ST_RTH : ST_MANUAL);
-            t.rssi = armed?96:0;
+            t.rssi = !armed?0 : (link_up?96:0);   /* 0 = RC link lost (failsafe) */
             sendto(fbfd,&t,sizeof t,0,(struct sockaddr*)&fbdst,sizeof fbdst);
             static video_packet_t v; render_horizon(&v,t_roll,t_pitch); sendto(fbfd,&v,sizeof v,0,(struct sockaddr*)&fbdst,sizeof fbdst);
         }
 
-        if(++tick%100==0) fprintf(stderr,"[xp_bridge] msp=%d armflags=0x%X fix=%d/%d modes=0x%X nbox=%d | iNav att r=%.1f p=%.1f y=%d | alt=%.0f\n",
-            msp_fd>=0, t_armflags, t_fix, t_sats, t_modeflags, nboxids, t_roll, t_pitch, t_yaw, S.agl);
+        if(++tick%100==0) fprintf(stderr,"[xp_bridge] armed=%d RTH=%d ANG=%d link=%d | home=%.0fm iNavHome=%dm | alt=%.0f gs=%.1f fix=%d/%d\n",
+            (t_armflags&4)!=0, mode_active(8), mode_active(1), link_up,
+            hypot((S.lat-HOME_LAT)*111320.0,(S.lon-HOME_LON)*111320.0*cos(HOME_LAT*RAD)), t_inav_dth, S.agl, S.speed, t_fix, t_sats);
         struct timespec tsp={0,(long)(dt*1e9)}; nanosleep(&tsp,NULL);
     }
     return 0;
