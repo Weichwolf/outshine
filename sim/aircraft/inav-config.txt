@@ -26,13 +26,19 @@ set nav_extra_arming_safety = ALLOW_BYPASS   ; arm with YAW stick HIGH to bypass
 set failsafe_procedure = RTH
 set failsafe_delay = 5
 
-# --- RTH behaviour: turn home immediately, return + loiter over home (don't land) ---
-# ("kreist über mir wie ein vogel"). climb_first=ON would make a fixed wing climb to
-# nav_rth_altitude BEFORE turning; our FDM can't complete that climb so it must be OFF.
-set nav_rth_climb_first = OFF
+# --- Autonomous mission = NAV RTH used as "climb & loiter over home" ---
+# Default flight (no stick, and on RC-loss): climb to nav_rth_altitude and circle
+# over home at nav_fw_loiter_radius ("kreist über mir wie ein Vogel", inside the
+# ~1 km video/antenna cone). climb_first=OFF so it climbs while circling instead of
+# flying a straight climb-out our FDM can't finish. Loiter radius maxes at 300 m in iNav.
+set nav_rth_climb_first = ON_FW_SPIRAL   ; spiral-climb to RTH altitude over home, then loiter
 set nav_rth_allow_landing = NEVER
-set nav_rth_altitude = 6000
-set nav_fw_cruise_thr = 1500
+set nav_rth_alt_mode = AT_LEAST         ; always climb to at least the RTH altitude
+set nav_rth_altitude = 50000            ; 500 m above home
+set nav_fw_loiter_radius = 100000       ; 1000 m orbit (iNav max raised via source patch)
+set nav_min_rth_distance = 100          ; 1 m: don't treat launch-at-home as "already there"
+set nav_fw_cruise_thr = 1550
+set nav_auto_climb_rate = 300           ; 3 m/s climb toward RTH altitude
 
 # --- modes: ARM=AUX1, ANGLE=AUX2, NAV RTH=AUX3 ---
 aux 0 0 0 1700 2100

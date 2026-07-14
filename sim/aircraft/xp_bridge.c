@@ -38,8 +38,9 @@ typedef struct {
     double roll, pitch, yaw;      /* deg, X-Plane phi/theta/psi */
     double p, q, r;               /* deg/s body rates */
     double lat, lon, elev, agl;   /* deg, deg, m, m */
-    double speed;                 /* m/s */
-    double vx, vy, vz;            /* X-Plane local: +x east, +y up, +z south */
+    double speed;                 /* airspeed, m/s (aero uses this) */
+    double gs;                    /* groundspeed, m/s (airspeed + wind; GPS reports this) */
+    double vx, vy, vz;            /* X-Plane local ground velocity: +x east, +y up, +z south */
     /* control inputs from iNav (its mixer outputs) */
     double in_roll, in_pitch, in_yaw, in_thr;
     int armed_hint;               /* set once iNav commands throttle/servo */
@@ -48,7 +49,16 @@ typedef struct {
 static state_t S;
 /* Home / ENU origin. Overridable via ORIGIN_LAT/ORIGIN_LON env so the whole
  * system (aircraft home + command-center osmmesh origin) can fly anywhere. */
-static double HOME_LAT = 52.045, HOME_LON = 9.385, HOME_ELEV = 300.0;
+static double HOME_LAT = 52.045, HOME_LON = 9.385, HOME_ELEV = 71.0;  /* ground ASL, matches osmmesh terrain at origin */
+
+/* --- atmosphere: steady wind + gusts + turbulence (env-tunable) --- */
+static double windN=0, windE=0;          /* steady wind vector, m/s (ground frame) */
+static double gustN=0, gustE=0;          /* slowly-varying gust offset, m/s */
+static double g_turb=1.0;                /* turbulence intensity (0=calm, 1=moderate, 2=rough) */
+/* xorshift PRNG + ~gaussian (sum of uniforms). Deterministic per run. */
+static uint32_t g_rng=2463534242u;
+static double urand(void){ g_rng^=g_rng<<13; g_rng^=g_rng>>17; g_rng^=g_rng<<5; return g_rng/4294967296.0; }
+static double nrand(void){ return (urand()+urand()+urand()+urand()-2.0); }   /* mean 0, ~unit */
 
 /* dataref subscriptions from iNav: id -> dataref string */
 static struct { int id; char dref[96]; } subs[128];
@@ -79,7 +89,7 @@ static float sensor_value(const char *d){
     if(!strcmp(d,"sim/flightmodel/position/local_vx"))  return (float)S.vx;
     if(!strcmp(d,"sim/flightmodel/position/local_vy"))  return (float)S.vy;
     if(!strcmp(d,"sim/flightmodel/position/local_vz"))  return (float)S.vz;
-    if(!strcmp(d,"sim/flightmodel/position/groundspeed"))   return (float)S.speed;
+    if(!strcmp(d,"sim/flightmodel/position/groundspeed"))   return (float)S.gs;
     if(!strcmp(d,"sim/flightmodel/position/true_airspeed")) return (float)S.speed;
     if(!strcmp(d,"sim/weather/barometer_current_inhg")) return (float)baro_inhg(S.elev);
     if(!strcmp(d,"sim/joystick/has_joystick")) return 1.0f;
@@ -91,7 +101,7 @@ static float sensor_value(const char *d){
     if(!strcmp(d,"inav_xitl/gps/latitude"))  return (float)S.lat;
     if(!strcmp(d,"inav_xitl/gps/longitude")) return (float)S.lon;
     if(!strcmp(d,"inav_xitl/gps/elevation")) return (float)S.elev;
-    if(!strcmp(d,"inav_xitl/gps/groundspeed"))return (float)S.speed;
+    if(!strcmp(d,"inav_xitl/gps/groundspeed"))return (float)S.gs;
     if(!strcmp(d,"inav_xitl/sensors/airspeed"))return (float)S.speed;
     if(!strcmp(d,"inav_xitl/sensors/battery_voltage")) return 12.0f;
     if(!strcmp(d,"inav_xitl/sensors/battery_current")) return 1.0f;
@@ -105,16 +115,18 @@ static float sensor_value(const char *d){
 typedef struct { const char *name; double m, b, S, Tmax; } fdm_model_t;
 static const fdm_model_t MODELS[] = {
     /* name                 mass    span   area   maxThrust
-       kg      m      m^2    N      */
-    {"ZOHD-Dart-250G",      0.25,  0.57,  0.10,   4.0},   /* nano wing */
-    {"Sonicmodell-AR-Wing", 0.75,  0.90,  0.22,   9.0},   /* popular FPV wing */
-    {"Skywalker-X8",        1.90,  2.12,  0.80,  22.0},   /* large FPV/UAV wing */
-    {"Skywalker-X8-heavy",  3.40,  2.12,  0.80,  32.0},   /* X8 at max AUW */
+       kg      m      m^2    N   (realistic static thrust, T/W ~0.6-0.9) */
+    {"ZOHD-Dart-250G",      0.25,  0.57,  0.10,   2.2},   /* nano wing */
+    {"Sonicmodell-AR-Wing", 0.75,  0.90,  0.22,   6.5},   /* popular FPV wing */
+    {"Skywalker-X8",        1.90,  2.12,  0.80,  12.0},   /* large FPV/UAV wing */
+    {"Skywalker-X8-heavy",  3.40,  2.12,  0.80,  19.0},   /* X8 at max AUW */
 };
 #define NMODELS ((int)(sizeof(MODELS)/sizeof(MODELS[0])))
 static const fdm_model_t *MDL = &MODELS[1];   /* default: AR-Wing */
 
 static int g_inject = 0;   /* XP_INJECT: force a fixed attitude to prove injection */
+static int g_mode = ST_DISARMED;   /* bridge autopilot mode -> telemetry state */
+static double g_loalt=500.0, g_lorad=400.0;   /* autonomous loiter altitude (m AGL) + orbit radius (m), env-tunable */
 
 /* Simplified but realistic flying-wing aerodynamics: lift/drag, pitch static
  * stability + elevon + pitch damping, roll authority + roll damping. Naturally
@@ -144,17 +156,20 @@ static void physics_step(double dt){
     double drag=Q*Sw*(CD0+kInd*CL*CL);
     double T=MDL->Tmax*S.in_thr;
 
-    /* rotational: moments -> angular accel -> rates (deg/s) -> attitude */
+    /* rotational: moments -> angular accel -> rates (deg/s) -> attitude.
+     * Turbulence injects gust-induced moments; iNav's ANGLE/NAV loop fights them,
+     * so the aircraft is never perfectly steady (feels real, tests the controller). */
     double Cl=Clda*S.in_roll + Clp*(S.p*RAD*b/(2*V));
     double Cm=Cm0 + Cma*alpha + Cmde*S.in_pitch + Cmq*(S.q*RAD*c/(2*V));
-    S.p += ((Q*Sw*b*Cl)/Ix)*DEG*dt;
-    S.q += ((Q*Sw*c*Cm)/Iy)*DEG*dt;
+    double tq=g_turb*sqrt(dt);                                  /* scale bumps by intensity */
+    S.p += ((Q*Sw*b*Cl)/Ix)*DEG*dt + 26.0*tq*nrand();
+    S.q += ((Q*Sw*c*Cm)/Iy)*DEG*dt + 16.0*tq*nrand();
     S.roll  += S.p*dt;
     S.pitch += S.q*dt;
     if(S.roll>180)S.roll-=360; if(S.roll<-180)S.roll+=360;
     if(S.pitch>85){S.pitch=85;S.q=0;} if(S.pitch<-85){S.pitch=-85;S.q=0;}
 
-    /* translational */
+    /* translational (airspeed dynamics) */
     gamma += ((lift - m*g*cos(gamma))/(m*V))*dt;
     double Vdot=(T-drag)/m - g*sin(gamma);
     S.speed += Vdot*dt; if(S.speed<0)S.speed=0;
@@ -163,14 +178,24 @@ static void physics_step(double dt){
     S.r=yaw_rate;
     S.yaw=fmod(S.yaw+yaw_rate*dt+540.0,360.0)-180.0;
 
-    /* vertical + position */
-    double climb=S.speed*sin(gamma);
+    /* gusts: Ornstein-Uhlenbeck horizontal wind wander (mean-revert to 0 offset) */
+    double gtau=3.0, gsig=0.9*g_turb;
+    gustN += (-gustN/gtau)*dt + gsig*sqrt(dt)*nrand();
+    gustE += (-gustE/gtau)*dt + gsig*sqrt(dt)*nrand();
+
+    /* air-relative velocity (aircraft flies along heading through the air) + wind
+     * = GROUND velocity. Position/GPS use ground velocity; aero used airspeed above.
+     * The plane drifts downwind, so iNav must crab to hold a loiter — as in reality. */
+    double vN_air=S.speed*cos(S.yaw*RAD), vE_air=S.speed*sin(S.yaw*RAD);
+    double vN=vN_air+windN+gustN, vE=vE_air+windE+gustE;
+    S.gs=hypot(vN,vE);
+    double climb=S.speed*sin(gamma) + 0.15*g_turb*nrand();      /* light vertical gusts */
     S.elev+=climb*dt; S.agl+=climb*dt; if(S.agl<0)S.agl=0;
-    double vN=S.speed*cos(S.yaw*RAD), vE=S.speed*sin(S.yaw*RAD);
     S.lat+=(vN*dt)/111320.0; S.lon+=(vE*dt)/(111320.0*cos(S.lat*RAD));
     S.vx=vE; S.vy=climb; S.vz=-vN;
     /* robustness: keep the FDM from blowing up at ground/edge cases */
     if(!isfinite(S.speed)||S.speed>60) S.speed=isfinite(S.speed)?60:12;
+    if(!isfinite(S.gs)||S.gs>80) S.gs=S.speed;
     if(!isfinite(S.lat)||fabs(S.lat-HOME_LAT)>2) S.lat=HOME_LAT;
     if(!isfinite(S.lon)||fabs(S.lon-HOME_LON)>2) S.lon=HOME_LON;
     if(!isfinite(S.agl)) S.agl=100;
@@ -182,6 +207,7 @@ static int msp_fd=-1;
 static uint8_t msp_rx[8192]; static int msp_rxn=0;
 static float t_roll=0,t_pitch=0; static int t_yaw=0,t_fix=0,t_sats=0,t_batt10=126;
 static int t_inav_dth=0,t_inav_dir=0;   /* iNav's own distance/direction to home (MSP_COMP_GPS) */
+static int t_estalt=0;                  /* iNav estimated altitude, cm (MSP_ALTITUDE) */
 static double t_inav_lat=0,t_inav_lon=0;
 static uint32_t t_armflags=0,t_modeflags=0;
 static uint8_t boxids[64]; static int nboxids=0;
@@ -213,6 +239,7 @@ static void msp_poll(void){
             else if(cmd==106&&ln>=2){ t_fix=pl[0]; t_sats=pl[1];
                 if(ln>=10){ int32_t la,lo; memcpy(&la,pl+2,4); memcpy(&lo,pl+6,4); t_inav_lat=la/1e7; t_inav_lon=lo/1e7; } }
             else if(cmd==107&&ln>=4){ t_inav_dth=pl[0]|pl[1]<<8; t_inav_dir=pl[2]|pl[3]<<8; }
+            else if(cmd==109&&ln>=4){ int32_t a; memcpy(&a,pl,4); t_estalt=a; }   /* est alt cm */
             else if(cmd==110&&ln>=1){ t_batt10=pl[0]; }
             else if(cmd==101&&ln>=10) memcpy(&t_modeflags,pl+6,4);
             else if(cmd==119){ nboxids=ln<64?ln:64; memcpy(boxids,pl,nboxids); }
@@ -249,7 +276,14 @@ int main(void){
     if(getenv("FDM_MODEL")){ int idx=atoi(getenv("FDM_MODEL")); if(idx>=0&&idx<NMODELS) MDL=&MODELS[idx]; }
     if(getenv("ORIGIN_LAT")) HOME_LAT=atof(getenv("ORIGIN_LAT"));
     if(getenv("ORIGIN_LON")) HOME_LON=atof(getenv("ORIGIN_LON"));
-    S.lat=HOME_LAT; S.lon=HOME_LON; S.elev=HOME_ELEV; S.agl=HOME_ELEV; S.yaw=0; S.speed=14.0; S.vy=0;
+    /* atmosphere: steady wind (WIND_SPEED m/s FROM WIND_DIR deg) + turbulence (TURB) */
+    { double wsp=getenv("WIND_SPEED")?atof(getenv("WIND_SPEED")):3.5;
+      double wdir=getenv("WIND_DIR")?atof(getenv("WIND_DIR")):240.0;   /* WSW default */
+      windN=-wsp*cos(wdir*RAD); windE=-wsp*sin(wdir*RAD);              /* FROM dir -> blows toward */
+      if(getenv("TURB")) g_turb=atof(getenv("TURB")); }
+    if(getenv("LOITER_ALT")) g_loalt=atof(getenv("LOITER_ALT"));
+    if(getenv("LOITER_RADIUS")) g_lorad=atof(getenv("LOITER_RADIUS"));
+    S.lat=HOME_LAT; S.lon=HOME_LON; S.elev=HOME_ELEV; S.agl=1.0; S.yaw=0; S.speed=14.0; S.gs=14.0; S.vy=0;  /* launch from the ground */
     if(getenv("XP_INJECT")) g_inject=1;
     fprintf(stderr,"[xp_bridge] FDM=%s  X-Plane :%d  MSP->127.0.0.1:5760\n", MDL->name, port);
 
@@ -309,14 +343,61 @@ int main(void){
                 double ph=fmod(ts-cal_done_t,3.0);
                 if(ph>=1.5){ rc[3]=2000; rc[4]=2000; }           /* YAW HIGH + ARM (nav bypass) */
             }
-            else if(link_up){ rc[4]=2000; rc[5]=2000;             /* ARM + ANGLE, then fly */
-                   rc[0]=1500+(int)(cr*450); rc[1]=1500+(int)(cp*450); rc[3]=1500+(int)(cy*450);
-                   double thr=(cthr>=0)?cthr:0.80; rc[2]=1000+(int)(thr*1000); }
-            else { /* RC-loss failsafe. A real ELRS receiver outputs preset failsafe
-                    * channel values on link loss; we configure AUX3 (RTH) to trigger.
-                    * Sticks centred, RTH switch high -> iNav NAV RTH flies home + loiters
-                    * (NAV RTH controls throttle itself). */
-                   rc[4]=2000; rc[5]=2000; rc[6]=2000; rc[0]=1500; rc[1]=1500; rc[3]=1500; rc[2]=1500; }
+            else { /* armed. Autonomous mission by default, manual only while the
+                    * operator moves the sticks, NAV RTH on RC-loss — all unified:
+                    *   1) launch: level ANGLE + throttle until airborne
+                    *   2) default: NAV RTH -> climb to nav_rth_altitude (500 m), loiter
+                    *      over home at nav_fw_loiter_radius (300 m). "Kreist wie ein Vogel."
+                    *   3) manual: operator sticks -> ANGLE, hands back to loiter after 2 s
+                    *   4) RC-loss: same NAV RTH loiter (failsafe) */
+                   static double launch_t=-1; if(launch_t<0) launch_t=ts;
+                   int airborne=(S.agl>40.0)||(ts-launch_t>10.0);     /* climbed clear of the ground */
+                   int stick=(fabs(cr)>0.15||fabs(cp)>0.15||fabs(cy)>0.15);
+                   static double last_input=-100; if(stick&&link_up) last_input=ts;
+                   int manual=link_up&&(ts-last_input<2.0);
+                   rc[4]=2000; rc[5]=2000;                            /* ARM + ANGLE (iNav stabilises) */
+                   if(!airborne){ g_mode=ST_CLIMB; rc[1]=1650; rc[2]=1000+(int)(0.95*1000); }  /* hand-launch climb-out */
+                   else if(manual){ g_mode=ST_MANUAL;                 /* operator has the sticks */
+                                    rc[0]=1500+(int)(cr*450); rc[1]=1500+(int)(cp*450); rc[3]=1500+(int)(cy*450);
+                                    double thr=(cthr>=0)?cthr:0.70; rc[2]=1000+(int)(thr*1000); }
+                   else {
+                       /* Autonomous mission (default, and on RC-loss): the bridge is the outer
+                        * nav loop (companion computer) — iNav ANGLE holds the commanded attitude,
+                        * the real FDM + wind + turbulence do the rest. Classic autopilot split:
+                        *   pitch  -> hold altitude (g_loalt), damped by climb rate
+                        *   throttle-> hold airspeed (cruise), + a bit while climbing
+                        *   roll   -> orbit home at g_lorad: coordinated-turn feed-forward + a
+                        *             carrot-on-the-circle heading correction. */
+                       const double CRUISE_V=17.0;
+                       double x=(S.lon-HOME_LON)*111320.0*cos(HOME_LAT*RAD), y=(S.lat-HOME_LAT)*111320.0;
+                       static int climbing=1;                         /* hysteresis: climb to alt-12, hold until it sinks past alt-60 */
+                       if(climbing && S.agl > g_loalt-12) climbing=0;
+                       else if(!climbing && S.agl < g_loalt-60) climbing=1;
+                       g_mode = climbing ? ST_CLIMB : (link_up?ST_LOITER:ST_RTH);
+                       double pitchT, thr;
+                       if(climbing){ /* full power; pitch holds CLIMB airspeed (stall-safe) so the
+                                      * climb rate is whatever the excess thrust allows */
+                              const double CLIMB_V=15.0; thr=0.95;
+                              pitchT = 1.1*(S.speed-CLIMB_V);
+                              if(pitchT>15)pitchT=15; if(pitchT<-5)pitchT=-5; }
+                       else { pitchT = 0.10*(g_loalt-S.agl) - 1.3*S.vy;       /* altitude hold */
+                              if(pitchT>10)pitchT=10; if(pitchT<-8)pitchT=-8;
+                              thr = 0.5 + 0.08*(CRUISE_V-S.speed); if(thr>0.9)thr=0.9; if(thr<0.3)thr=0.3; }
+                       /* orbit guidance: fly the CW tangent to the R-circle, steered toward/away
+                        * from home by the radius error so it converges onto radius g_lorad */
+                       double d=hypot(x,y), bc=atan2(-x,-y)*DEG;              /* bearing plane->home */
+                       double course=bc-90.0 + fmax(-55.0,fmin(55.0, 0.14*(d-g_lorad)));
+                       double yaw=(S.yaw<0?S.yaw+360:S.yaw);
+                       double herr=course-yaw; while(herr>180)herr-=360; while(herr<-180)herr+=360;
+                       double bank_ff=atan(S.speed*S.speed/(fmax(g_lorad,50.0)*9.81))*DEG;   /* CW = right bank */
+                       double rollT=bank_ff + 0.35*herr;
+                       double rlim=climbing?16.0:28.0;                        /* gentler bank while climbing */
+                       if(rollT>rlim)rollT=rlim; if(rollT<-rlim)rollT=-rlim;
+                       rc[0]=1500+(int)(rollT/30.0*500);   /* ANGLE: full stick ~ iNav max bank 30 deg */
+                       rc[1]=1500+(int)(pitchT/30.0*500);
+                       rc[2]=1000+(int)(thr*1000);
+                   }
+                 }
             uint8_t pl[16]; for(int i=0;i<8;i++){ pl[i*2]=rc[i]&0xff; pl[i*2+1]=rc[i]>>8; }
             msp1(200,pl,16);
         }
@@ -327,6 +408,7 @@ int main(void){
         if(tick%20==10) msp1(110,NULL,0);
         if(tick%20==15){ msp1(101,NULL,0); msp2(0x2000); }
         if(tick%20==18) msp1(107,NULL,0);   /* MSP_COMP_GPS: iNav distance/dir to home */
+        if(tick%20==12) msp1(109,NULL,0);   /* MSP_ALTITUDE: iNav estimated altitude */
 
         /* --- downlink telem + video to flightbox (~20 Hz) --- */
         if(tick%5==0){
@@ -337,19 +419,20 @@ int main(void){
             telem_packet_t t={0}; t.magic=FB_MAGIC_TELEM;
             t.roll=t_roll; t.pitch=t_pitch; t.yaw=(float)t_yaw;
             t.alt=(float)S.agl; t.x=(float)((S.lon-HOME_LON)*111320.0); t.y=(float)((S.lat-HOME_LAT)*111320.0);
-            t.gs=(float)S.speed; t.batt=(t_batt10>50&&t_batt10<255)?t_batt10/10.0f:11.4f; t.home_dist=(float)hd;
+            t.gs=(float)S.gs; t.batt=(t_batt10>50&&t_batt10<255)?t_batt10/10.0f:11.4f; t.home_dist=(float)hd;
             float hb=(float)(tohome - t_yaw); while(hb>180)hb-=360; while(hb<-180)hb+=360; t.home_bearing=hb;
             float need=(hd>1)?atan2f((float)S.agl,(float)hd)*(float)DEG:0; t.glideslope_err=need-7.0f;
             int armed=(t_armflags&4)!=0;
-            t.state = !armed?ST_DISARMED : (mode_active(8)?ST_RTH : ST_MANUAL);
+            t.state = !armed?ST_DISARMED : g_mode;   /* bridge autopilot mode */
             t.rssi = !armed?0 : (link_up?96:0);   /* 0 = RC link lost (failsafe) */
             sendto(fbfd,&t,sizeof t,0,(struct sockaddr*)&fbdst,sizeof fbdst);
             static video_packet_t v; render_horizon(&v,t_roll,t_pitch); sendto(fbfd,&v,sizeof v,0,(struct sockaddr*)&fbdst,sizeof fbdst);
         }
 
-        if(++tick%100==0) fprintf(stderr,"[xp_bridge] armed=%d RTH=%d ANG=%d link=%d | home=%.0fm iNavHome=%dm | alt=%.0f gs=%.1f fix=%d/%d\n",
-            (t_armflags&4)!=0, mode_active(8), mode_active(1), link_up,
-            hypot((S.lat-HOME_LAT)*111320.0,(S.lon-HOME_LON)*111320.0*cos(HOME_LAT*RAD)), t_inav_dth, S.agl, S.speed, t_fix, t_sats);
+        if(++tick%50==0) fprintf(stderr,"[xp_bridge] armed=%d RTH=%d ANG=%d | aglSim=%.0f estAlt=%.0fm | iNav cmd: pitch=%+.2f roll=%+.2f thr=%.2f | gs=%.1f home=%.0f\n",
+            (t_armflags&4)!=0, mode_active(8), mode_active(1), S.agl, t_estalt/100.0,
+            S.in_pitch, S.in_roll, S.in_thr, S.speed,
+            hypot((S.lat-HOME_LAT)*111320.0,(S.lon-HOME_LON)*111320.0*cos(HOME_LAT*RAD)));
         struct timespec tsp={0,(long)(dt*1e9)}; nanosleep(&tsp,NULL);
     }
     return 0;

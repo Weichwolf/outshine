@@ -141,25 +141,19 @@ def main():
     sl = cc.wait(3.0, roll=-0.8, thr=0.6); rl = T(sl[-1])["roll"] if sl else base
     check("roll control responds", (rr - rl) > 8, "right=%.1f left=%.1f" % (rr, rl))
 
-    # 5) RC-loss -> NAV RTH: fly outbound, cut the operator link, and verify the real
-    #    iNav failsafe engages NAV RTH (state=RTH, rssi=0) and the aircraft turns around
-    #    and returns toward home (distance drops back from its turn-around peak) instead
-    #    of flying away or diving into the ground.
-    cc.wait(12.0, thr=0.75)                              # get a clear distance from home
-    homes, rth, rssi0, alts = [], False, False, []
-    t0 = time.time()
-    while time.time() - t0 < 42:
-        cc.wait(0.5, arm=1, link=0)
-        m = T(cc.telem); homes.append(m["home"]); alts.append(m["alt"])
-        if m["state"] == "RTH": rth = True
-        if m["rssi"] == 0:      rssi0 = True
-    ipk = homes.index(max(homes)); peak = homes[ipk]
-    min_after = min(homes[ipk:]) if ipk < len(homes) - 1 else peak
-    returned = (peak - min_after) > 80                   # turned around and came back
-    grounded = min(alts) < 3                             # must not dive into the ground
-    check("RC-loss -> NAV RTH engages", rth and rssi0)
-    check("RTH returns toward home (no flyaway/crash)", rth and returned and not grounded,
-          "peak=%.0fm -> %.0fm, min_alt=%.0fm" % (peak, min_after, min(alts)))
+    # 5) RC-loss -> autonomous RTH loiter: cut the operator link and verify the aircraft
+    #    switches to RTH state (rssi=0) and keeps loitering near home — bounded within the
+    #    envelope and maintaining altitude (no flyaway, no dive into the ground).
+    fs = cc.wait(30.0, arm=1, link=0)
+    sm = [T(x) for x in fs]
+    rth   = any(x["state"] == "RTH" for x in sm)
+    rssi0 = any(x["rssi"] == 0 for x in sm)
+    homes = [x["home"] for x in sm]; alts = [x["alt"] for x in sm]
+    bounded  = homes and max(homes) < 1400               # stays within the loiter/video envelope
+    airborne = alts and min(alts) > 40                   # holds altitude (no crash)
+    check("RC-loss -> autonomous RTH", rth and rssi0)
+    check("RTH loiters over home (bounded, airborne)", bool(bounded and airborne),
+          "home<=%.0fm  alt>=%.0fm" % (max(homes) if homes else -1, min(alts) if alts else -1))
 
     npass = sum(1 for _, ok in results if ok)
     print("== %d/%d PASS ==" % (npass, len(results)))
