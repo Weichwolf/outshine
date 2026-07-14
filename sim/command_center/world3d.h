@@ -42,13 +42,21 @@ static const char*W3_VSW=
 static const char*W3_FSW=
  "precision mediump float; varying vec3 vCol; varying float vFog;"
  "void main(){ vec3 sky=vec3(0.55,0.70,0.90); gl_FragColor=vec4(mix(vCol,sky,vFog*0.7),1.0); }";
+/* textured terrain: OSM landcover/roads/buildings baked to a per-tile ortho texture */
+static const char*W3_VSWT=
+ "attribute vec3 aPos; attribute vec2 aUV; uniform mat4 uMVP; varying vec2 vUV; varying float vFog;"
+ "void main(){ vec4 p=uMVP*vec4(aPos,1.0); gl_Position=p; vUV=aUV; vFog=clamp(p.z/9000.0,0.0,1.0); }";
+static const char*W3_FSWT=
+ "precision mediump float; varying vec2 vUV; varying float vFog; uniform sampler2D uTex;"
+ "void main(){ vec3 c=texture2D(uTex,vUV).rgb; vec3 sky=vec3(0.55,0.70,0.90); gl_FragColor=vec4(mix(c,sky,vFog*0.6),1.0); }";
 static const char*W3_VSH=
  "attribute vec2 aPos; attribute vec3 aCol; uniform vec2 uScale; varying vec3 vCol;"
  "void main(){ gl_Position=vec4(aPos.x*uScale.x-1.0, 1.0-aPos.y*uScale.y, 0.0,1.0); vCol=aCol; }";
 static const char*W3_FSH="precision mediump float; varying vec3 vCol; void main(){ gl_FragColor=vec4(vCol,1.0); }";
 
-static GLuint w3_pW,w3_pH,w3_vTerr,w3_vBld,w3_hVBO; static int w3_nTerr,w3_nBld;
+static GLuint w3_pW,w3_pH,w3_pWT,w3_vTerr,w3_vBld,w3_hVBO; static int w3_nTerr,w3_nBld;
 static GLint w3_wPos,w3_wCol,w3_wMVP,w3_hPos,w3_hCol,w3_hScale;
+static GLint w3_wtPos,w3_wtUV,w3_wtMVP,w3_wtTex;
 
 /* world uses OSM/terrain meshes if loaded via w3_load_mesh(), else procedural. */
 #define W3_GRID 48
@@ -86,77 +94,190 @@ static void w3_build_procedural(void){
  * and the terrain/building VBOs are rebuilt. Origin (lat/lon) is configurable. */
 #ifdef W3_USE_OSM
 #include "osmmesh/osmmesh.h"
+#include "osmmesh/pmtiles.h"
+#include "osmmesh/mvt.h"
 #ifndef W3_Z
-#define W3_Z 14                    /* streaming zoom level (lower = coarser LOD, larger tiles) */
+#define W3_Z 14                    /* streaming zoom level */
 #endif
 #ifndef W3_RAD
 #define W3_RAD 2                   /* tile radius around the aircraft (grid = 2R+1) */
 #endif
-#ifndef W3_TERR_STRIDE
-#define W3_TERR_STRIDE 1           /* terrain LOD stride. NOTE: osmmesh crops edge terrain
-                                    * grids to non-power-of-two sizes at z14, so stride>1 fails
-                                    * the divisibility check and drops whole tiles (incl. their
-                                    * buildings). Keep 1; use W3_RAD to bound weight instead. */
+#ifndef W3_TEX
+#define W3_TEX 1024                /* per-tile ortho texture resolution */
 #endif
-static osmmesh_ctx *w3_osm=0; static int w3_have_tile=0; static uint32_t w3_tx,w3_ty;
-static const float W3_SUN[3]={0.40f,0.85f,0.35f};
 
-typedef struct { float*v; size_t n,cap; } w3_vbuf;
-static void w3_vpush(w3_vbuf*b,float x,float y,float z,float r,float g,float bl){
-  if(b->n+6>b->cap){ b->cap=b->cap?b->cap*2:(1<<18); b->v=realloc(b->v,b->cap*sizeof(float)); }
-  float*p=b->v+b->n; p[0]=x;p[1]=y;p[2]=z;p[3]=r;p[4]=g;p[5]=bl; b->n+=6;
+/* Old-flight-sim ground: OSM footprints/roads/rivers/rails + landcover are baked
+ * into ONE orthographic texture per tile (no building geometry). The texture is
+ * draped over the terrain heightfield. The vector features come from the Shortbread
+ * PMTiles via osmmesh's MVT decoder; the terrain heightfield from osmmesh's terrain. */
+static osmmesh_ctx *w3_osm=0;          /* terrain heightfield meshes */
+static osmmesh_pmtiles *w3_vec=0;      /* raw vector tiles for texture baking */
+static int w3_have_tile=0; static uint32_t w3_tx,w3_ty;
+static float w3_yoff=0; static int w3_yoff_set=0;   /* origin ground elevation (camera lift) */
+
+#define W3_MAXT ((2*W3_RAD+1)*(2*W3_RAD+1))
+typedef struct { GLuint vbo, tex; int nverts; } w3_tileGL;
+static w3_tileGL w3_T[W3_MAXT]; static int w3_nT=0;
+
+/* --- software raster into an RGB image (tile-local coords * sc) --- */
+static void w3_px(uint8_t*im,int W,int H,int x,int y,uint8_t r,uint8_t g,uint8_t b){
+  if((unsigned)x<(unsigned)W&&(unsigned)y<(unsigned)H){ uint8_t*p=im+((size_t)y*W+x)*3; p[0]=r;p[1]=g;p[2]=b; } }
+static void w3_disk(uint8_t*im,int W,int H,float cx,float cy,float rad,uint8_t r,uint8_t g,uint8_t b){
+  int x0=(int)(cx-rad),x1=(int)(cx+rad),y0=(int)(cy-rad),y1=(int)(cy+rad); float rr=rad*rad;
+  for(int y=y0;y<=y1;y++)for(int x=x0;x<=x1;x++){ float dx=x-cx,dy=y-cy; if(dx*dx+dy*dy<=rr) w3_px(im,W,H,x,y,r,g,b); } }
+static void w3_thick(uint8_t*im,int W,int H,float x0,float y0,float x1,float y1,float w,uint8_t r,uint8_t g,uint8_t b){
+  float dx=x1-x0,dy=y1-y0,len=sqrtf(dx*dx+dy*dy); int n=(int)len+1; float rad=w*0.5f; if(rad<0.6f)rad=0.6f;
+  for(int i=0;i<=n;i++){ float t=(float)i/n; w3_disk(im,W,H,x0+dx*t,y0+dy*t,rad,r,g,b); } }
+/* scanline fill of an MVT polygon (all rings, even-odd -> holes carved out) */
+static void w3_fill(uint8_t*im,int W,int H,const osmmesh_mvt_feature*ft,float sc,uint8_t r,uint8_t g,uint8_t b){
+  const osmmesh_mvt_coord*co=ft->coords; size_t nco=ft->n_coords; if(nco<3) return;
+  float ymin=1e9f,ymax=-1e9f; for(size_t i=0;i<nco;i++){ float y=co[i].y*sc; if(y<ymin)ymin=y; if(y>ymax)ymax=y; }
+  int iy0=(int)floorf(ymin); if(iy0<0)iy0=0; int iy1=(int)ceilf(ymax); if(iy1>=H)iy1=H-1;
+  size_t nr=ft->n_rings?ft->n_rings:1; float xs[512];
+  for(int y=iy0;y<=iy1;y++){ float yc=y+0.5f; int nx=0;
+    for(size_t ring=0;ring<nr;ring++){
+      size_t a=ft->n_rings?ft->ring_offsets[ring]:0, bb=ft->n_rings?ft->ring_offsets[ring+1]:nco;
+      for(size_t k=a;k<bb;k++){ size_t k2=(k+1<bb)?k+1:a;
+        float ya=co[k].y*sc, yb=co[k2].y*sc, xa=co[k].x*sc, xb=co[k2].x*sc;
+        if((ya<=yc&&yb>yc)||(yb<=yc&&ya>yc)){ float xi=xa+(yc-ya)/(yb-ya)*(xb-xa); if(nx<512)xs[nx++]=xi; } } }
+    for(int i=1;i<nx;i++){ float v=xs[i]; int j=i-1; while(j>=0&&xs[j]>v){xs[j+1]=xs[j];j--;} xs[j+1]=v; }
+    for(int i=0;i+1<nx;i+=2){ int xa=(int)ceilf(xs[i]-0.5f); if(xa<0)xa=0; int xb=(int)floorf(xs[i+1]-0.5f); if(xb>=W)xb=W-1;
+      for(int x=xa;x<=xb;x++) w3_px(im,W,H,x,y,r,g,b); } } }
+static void w3_drawline(uint8_t*im,int W,int H,const osmmesh_mvt_feature*ft,float sc,float w,uint8_t r,uint8_t g,uint8_t b){
+  const osmmesh_mvt_coord*co=ft->coords; size_t nr=ft->n_rings?ft->n_rings:1;
+  for(size_t ring=0;ring<nr;ring++){ size_t a=ft->n_rings?ft->ring_offsets[ring]:0, bb=ft->n_rings?ft->ring_offsets[ring+1]:ft->n_coords;
+    for(size_t k=a+1;k<bb;k++) w3_thick(im,W,H,co[k-1].x*sc,co[k-1].y*sc,co[k].x*sc,co[k].y*sc,w,r,g,b); } }
+
+static void w3_landcolor(const char*k,uint8_t*r,uint8_t*g,uint8_t*b){
+  struct{const char*k;uint8_t r,g,bl;} T[]={
+    {"wood",70,105,60},{"forest",70,105,60},{"scrub",125,150,85},{"heath",150,160,100},
+    {"farmland",206,192,142},{"farmyard",192,178,132},{"allotments",182,186,122},{"vineyard",170,180,120},
+    {"meadow",156,192,112},{"grass",162,196,116},{"grassland",162,196,116},{"park",142,192,122},
+    {"garden",150,192,120},{"playground",150,190,120},{"cemetery",122,156,112},{"recreation_ground",150,190,120},
+    {"residential",206,199,189},{"commercial",196,181,166},{"retail",202,182,162},{"industrial",176,166,176},
+    {"quarry",180,170,160},{"sand",225,215,170},{"beach",235,225,180}};
+  for(size_t i=0;i<sizeof(T)/sizeof(T[0]);i++) if(!strcmp(k,T[i].k)){*r=T[i].r;*g=T[i].g;*b=T[i].bl;return;}
+  *r=150;*g=178;*b=118;
 }
-/* expand an indexed osmmesh into shaded triangle soup, ENU(e,n,u)->render(x=e,y=u,z=-n) */
-static void w3_emit(w3_vbuf*out,const osmmesh_mesh*m,const float base[3],float lo,float hi){
-  if(!m||!m->n_triangles) return;
-  for(uint32_t i=0;i<m->n_triangles*3;i++){
-    uint32_t idx=m->indices?m->indices[i]:i; const float*P=m->positions+idx*3;
-    float nx=0,ny=1,nz=0; if(m->normals){ const float*N=m->normals+idx*3; nx=N[0];ny=N[1];nz=N[2]; }
-    float d=nx*W3_SUN[0]+ny*W3_SUN[1]+nz*W3_SUN[2]; if(d<0)d=-d;
-    float sh=lo+(hi-lo)*(0.35f+0.65f*d);
-    w3_vpush(out,P[0],P[2],-P[1],base[0]*sh,base[1]*sh,base[2]*sh);
+static float w3_roadstyle(const char*k,uint8_t*r,uint8_t*g,uint8_t*b,int*rail){
+  *rail=0; float u=(float)W3_TEX/1024.0f;   /* widths tuned for a ~1.5 km tile */
+  if(!strcmp(k,"rail")||!strcmp(k,"tram")){*r=95;*g=95;*b=105;*rail=1;return 2.0f*u;}
+  if(!strcmp(k,"motorway")||!strcmp(k,"trunk")){*r=250;*g=205;*b=140;return 6*u;}
+  if(!strcmp(k,"primary")){*r=250;*g=222;*b=165;return 5*u;}
+  if(!strcmp(k,"secondary")){*r=250;*g=242;*b=205;return 4*u;}
+  if(!strcmp(k,"tertiary")){*r=246;*g=242;*b=222;return 3.2f*u;}
+  if(!strcmp(k,"residential")||!strcmp(k,"living_street")||!strcmp(k,"unclassified")||!strcmp(k,"service")){*r=236;*g=233;*b=225;return 2.4f*u;}
+  *r=200;*g=175;*b=140;return 1.4f*u;    /* track/path/footway/steps */
+}
+static const osmmesh_mvt_layer* w3_layer(osmmesh_mvt_tile*t,const char*name){
+  size_t nl=osmmesh_mvt_num_layers(t);
+  for(size_t i=0;i<nl;i++){ const osmmesh_mvt_layer*l=osmmesh_mvt_layer_at(t,i); if(!strcmp(osmmesh_mvt_layer_name(l),name)) return l; }
+  return 0; }
+static const char* w3_kind(const osmmesh_mvt_layer*l,const osmmesh_mvt_feature*f){
+  osmmesh_mvt_value v; if(osmmesh_mvt_feature_get_tag(l,f,"kind",&v)==0&&v.type==OSMMESH_MVT_VAL_STRING) return v.v.s; return ""; }
+
+/* bake one tile's OSM vector data into an orthographic RGB texture -> GL texture id */
+static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y){
+  int TS=W3_TEX; uint8_t*im=malloc((size_t)TS*TS*3);
+  for(int i=0;i<TS*TS;i++){ im[i*3]=150;im[i*3+1]=178;im[i*3+2]=118; }   /* base ground */
+  uint8_t*d=0; size_t n=0;
+  if(w3_vec && osmmesh_pmtiles_fetch(w3_vec,z,x,y,&d,&n)==OSMMESH_PMTILES_OK){
+    osmmesh_mvt_tile*t=0;
+    if(osmmesh_mvt_decode(d,n,&t)==OSMMESH_MVT_OK){
+      const osmmesh_mvt_layer*L; uint8_t r,g,b; int rail;
+      /* landcover polygons -> land-use colours */
+      if((L=w3_layer(t,"land"))){ float sc=(float)TS/osmmesh_mvt_layer_extent(L); size_t nf=osmmesh_mvt_num_features(L);
+        for(size_t f=0;f<nf;f++){ const osmmesh_mvt_feature*ft=osmmesh_mvt_feature_at(L,f);
+          if(ft->geom_type==OSMMESH_MVT_GEOM_POLYGON){ w3_landcolor(w3_kind(L,ft),&r,&g,&b); w3_fill(im,TS,TS,ft,sc,r,g,b); } } }
+      /* water */
+      if((L=w3_layer(t,"water_polygons"))){ float sc=(float)TS/osmmesh_mvt_layer_extent(L); size_t nf=osmmesh_mvt_num_features(L);
+        for(size_t f=0;f<nf;f++){ const osmmesh_mvt_feature*ft=osmmesh_mvt_feature_at(L,f);
+          if(ft->geom_type==OSMMESH_MVT_GEOM_POLYGON) w3_fill(im,TS,TS,ft,sc,92,140,190); } }
+      /* parking / sites */
+      if((L=w3_layer(t,"sites"))){ float sc=(float)TS/osmmesh_mvt_layer_extent(L); size_t nf=osmmesh_mvt_num_features(L);
+        for(size_t f=0;f<nf;f++){ const osmmesh_mvt_feature*ft=osmmesh_mvt_feature_at(L,f);
+          if(ft->geom_type==OSMMESH_MVT_GEOM_POLYGON) w3_fill(im,TS,TS,ft,sc,175,175,180); } }
+      /* pedestrian paved areas */
+      if((L=w3_layer(t,"street_polygons"))){ float sc=(float)TS/osmmesh_mvt_layer_extent(L); size_t nf=osmmesh_mvt_num_features(L);
+        for(size_t f=0;f<nf;f++){ const osmmesh_mvt_feature*ft=osmmesh_mvt_feature_at(L,f);
+          if(ft->geom_type==OSMMESH_MVT_GEOM_POLYGON) w3_fill(im,TS,TS,ft,sc,208,203,193); } }
+      /* building footprints */
+      if((L=w3_layer(t,"buildings"))){ float sc=(float)TS/osmmesh_mvt_layer_extent(L); size_t nf=osmmesh_mvt_num_features(L);
+        for(size_t f=0;f<nf;f++){ const osmmesh_mvt_feature*ft=osmmesh_mvt_feature_at(L,f);
+          if(ft->geom_type==OSMMESH_MVT_GEOM_POLYGON) w3_fill(im,TS,TS,ft,sc,128,114,102); } }
+      /* roads then rails (2nd pass keeps rails visible) then rivers */
+      if((L=w3_layer(t,"streets"))){ float sc=(float)TS/osmmesh_mvt_layer_extent(L); size_t nf=osmmesh_mvt_num_features(L);
+        for(int pass=0;pass<2;pass++) for(size_t f=0;f<nf;f++){ const osmmesh_mvt_feature*ft=osmmesh_mvt_feature_at(L,f);
+          if(ft->geom_type!=OSMMESH_MVT_GEOM_LINESTRING) continue; float w=w3_roadstyle(w3_kind(L,ft),&r,&g,&b,&rail);
+          if(rail!=pass) continue; w3_drawline(im,TS,TS,ft,sc,w,r,g,b); } }
+      if((L=w3_layer(t,"water_lines"))){ float sc=(float)TS/osmmesh_mvt_layer_extent(L); size_t nf=osmmesh_mvt_num_features(L);
+        for(size_t f=0;f<nf;f++){ const osmmesh_mvt_feature*ft=osmmesh_mvt_feature_at(L,f);
+          if(ft->geom_type==OSMMESH_MVT_GEOM_LINESTRING) w3_drawline(im,TS,TS,ft,sc,3.0f*TS/1024.0f,92,140,190); } }
+      osmmesh_mvt_free(t);
+    }
+    osmmesh_pmtiles_free_tile(d);
   }
+  GLuint tex; glGenTextures(1,&tex); glBindTexture(GL_TEXTURE_2D,tex);
+  glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,TS,TS,0,GL_RGB,GL_UNSIGNED_BYTE,im);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+  free(im); return tex;
 }
-/* open the PMTiles archives at a configurable origin. Accepts file paths OR
- * in-memory buffers (WASM hands fetch()'d ArrayBuffers). Returns 1 on success. */
+
+/* build a textured terrain VBO (interleaved x,y,z,u,v) from a heightfield mesh.
+ * UV maps the tile's ENU bbox to the ortho texture (north -> v=0 -> texture top). */
+static GLuint w3_terr_vbo(const osmmesh_mesh*m,int*out_nv){
+  float emin=1e18f,emax=-1e18f,nmin=1e18f,nmax=-1e18f;
+  for(uint32_t i=0;i<m->n_vertices;i++){ const float*P=m->positions+i*3;
+    if(P[0]<emin)emin=P[0]; if(P[0]>emax)emax=P[0]; if(P[1]<nmin)nmin=P[1]; if(P[1]>nmax)nmax=P[1]; }
+  float de=emax-emin?emax-emin:1, dn=nmax-nmin?nmax-nmin:1;
+  uint32_t nt=m->n_triangles; float*v=malloc((size_t)nt*3*5*sizeof(float)); size_t o=0;
+  for(uint32_t i=0;i<nt*3;i++){ uint32_t idx=m->indices?m->indices[i]:i; const float*P=m->positions+idx*3;
+    v[o++]=P[0]; v[o++]=P[2]; v[o++]=-P[1]; v[o++]=(P[0]-emin)/de; v[o++]=(nmax-P[1])/dn; }
+  GLuint vbo; glGenBuffers(1,&vbo); glBindBuffer(GL_ARRAY_BUFFER,vbo);
+  glBufferData(GL_ARRAY_BUFFER,o*sizeof(float),v,GL_STATIC_DRAW); free(v);
+  *out_nv=(int)(nt*3); return vbo;
+}
+
 static int world3d_osm_open_mem(const char*vec_path,const uint8_t*vec_data,size_t vec_len,
                                 const char*terr_path,const uint8_t*terr_data,size_t terr_len,
                                 double origin_lat,double origin_lon){
-  static const osmmesh_terrain_build_opts topts={ .stride=W3_TERR_STRIDE, .compute_normals=1 };
   osmmesh_config cfg={ .vector_url=vec_path, .vector_data=vec_data, .vector_len=vec_len,
     .terrain_url=terr_path, .terrain_data=terr_data, .terrain_len=terr_len,
-    .origin_lat=origin_lat, .origin_lon=origin_lon, .terrain_opts=&topts,
-    .enable_terrain=1, .enable_buildings=1, .enable_linears=0 };
-  int rc=osmmesh_create(&cfg,&w3_osm);
-  if(rc!=OSMMESH_OK){ printf("[world3d] osmmesh_create failed: %d\n",rc); w3_osm=0; return 0; }
+    .origin_lat=origin_lat, .origin_lon=origin_lon,
+    .enable_terrain=1, .enable_buildings=0, .enable_linears=0 };
+  if(osmmesh_create(&cfg,&w3_osm)!=OSMMESH_OK){ printf("[world3d] osmmesh_create failed\n"); w3_osm=0; return 0; }
+  int vrc = vec_data ? osmmesh_pmtiles_open_memory(&w3_vec,vec_data,vec_len)
+                     : osmmesh_pmtiles_open_file(&w3_vec,vec_path);
+  if(vrc!=OSMMESH_PMTILES_OK){ printf("[world3d] vector pmtiles open failed: %d\n",vrc); w3_vec=0; }
   w3_have_tile=0; return 1;
 }
 static int world3d_osm_open(const char*vec_path,const char*terr_path,double lat,double lon){
   return world3d_osm_open_mem(vec_path,0,0,terr_path,0,0,lat,lon);
 }
-/* stream tiles around (lat,lon); rebuilds VBOs only when the centre tile changes. */
+/* stream the tile grid around (lat,lon); rebuilds only when the centre tile changes */
 static void world3d_stream(double lat,double lon){
   if(!w3_osm) return;
   uint32_t tx,ty; if(osmmesh_geo_to_tile(lon,lat,W3_Z,&tx,&ty)!=0) return;
-  if(w3_have_tile && tx==w3_tx && ty==w3_ty) return;      /* same tile -> keep VBOs */
+  if(w3_have_tile && tx==w3_tx && ty==w3_ty) return;
   w3_tx=tx; w3_ty=ty; w3_have_tile=1;
-  w3_vbuf terr={0},bld={0};
-  const float gT[3]={0.34f,0.52f,0.26f}, gB[3]={0.62f,0.60f,0.58f};
-  int nt_tiles=0,nb=0;
+  for(int i=0;i<w3_nT;i++){ glDeleteBuffers(1,&w3_T[i].vbo); glDeleteTextures(1,&w3_T[i].tex); }
+  w3_nT=0;
   for(int dy=-W3_RAD;dy<=W3_RAD;dy++)for(int dx=-W3_RAD;dx<=W3_RAD;dx++){
     osmmesh_tile t={0};
-    if(osmmesh_fetch_tile(w3_osm,W3_Z,tx+dx,ty+dy,&t)!=OSMMESH_OK) continue;
-    if(t.terrain){ w3_emit(&terr,t.terrain,gT,0.45f,1.05f); nt_tiles++; }
-    for(uint32_t b=0;b<t.n_buildings;b++){ w3_emit(&bld,&t.buildings[b],gB,0.55f,1.05f); nb++; }
+    if(osmmesh_fetch_tile(w3_osm,W3_Z,tx+dx,ty+dy,&t)!=OSMMESH_OK || !t.terrain){ osmmesh_free_tile(&t); continue; }
+    if(!w3_yoff_set){ /* origin ground elevation = nearest-to-origin vertex, once */
+      float best=1e30f; for(uint32_t i=0;i<t.terrain->n_vertices;i++){ const float*P=t.terrain->positions+i*3;
+        float dd=P[0]*P[0]+P[1]*P[1]; if(dd<best){best=dd; w3_yoff=P[2];} }
+      if(dx==0&&dy==0){ w3_yoff_set=1; }
+    }
+    if(w3_nT<W3_MAXT){ w3_tileGL*g=&w3_T[w3_nT++];
+      g->vbo=w3_terr_vbo(t.terrain,&g->nverts); g->tex=w3_bake(W3_Z, w3_tx+dx, w3_ty+dy); }
     osmmesh_free_tile(&t);
   }
-  if(w3_vTerr) glDeleteBuffers(1,&w3_vTerr);
-  if(w3_vBld)  glDeleteBuffers(1,&w3_vBld);
-  w3_upload_terrain(terr.v,(int)(terr.n/6));
-  w3_upload_buildings(bld.v,(int)(bld.n/6));
-  printf("[world3d] streamed tile %u/%u (%d terr tiles, %d buildings, %u+%u verts)\n",
-    tx,ty,nt_tiles,nb,(unsigned)(terr.n/6),(unsigned)(bld.n/6));
-  free(terr.v); free(bld.v);
+  printf("[world3d] streamed tile %u/%u  (%d tiles textured, yoff=%.0f)\n",tx,ty,w3_nT,w3_yoff);
 }
 #endif /* W3_USE_OSM */
 
@@ -204,7 +325,9 @@ static void world3d_init(void){
   w3_pH=w3_prog(W3_VSH,W3_FSH); w3_hPos=glGetAttribLocation(w3_pH,"aPos"); w3_hCol=glGetAttribLocation(w3_pH,"aCol"); w3_hScale=glGetUniformLocation(w3_pH,"uScale");
   glGenBuffers(1,&w3_hVBO);
 #ifdef W3_USE_OSM
-  if(w3_osm) return;              /* geometry comes from world3d_stream() */
+  w3_pWT=w3_prog(W3_VSWT,W3_FSWT); w3_wtPos=glGetAttribLocation(w3_pWT,"aPos"); w3_wtUV=glGetAttribLocation(w3_pWT,"aUV");
+  w3_wtMVP=glGetUniformLocation(w3_pWT,"uMVP"); w3_wtTex=glGetUniformLocation(w3_pWT,"uTex");
+  if(w3_osm) return;              /* geometry (textured tiles) comes from world3d_stream() */
 #endif
   w3_build_procedural();
 }
@@ -212,15 +335,30 @@ static void world3d_render(const telem_packet_t*t,int W,int H,int have){
   float RAD=(float)M_PI/180.f;
   glViewport(0,0,W,H); glEnable(GL_DEPTH_TEST); glClearColor(0.55f,0.70f,0.90f,1); glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
   float px=have?t->x:0, py=(have&&t->alt>2)?t->alt:120, pz=have?-t->y:0;
+#ifdef W3_USE_OSM
+  if(w3_nT>0) py=(have&&t->alt>1?t->alt:2)+w3_yoff;   /* AGL above the osmmesh ground */
+#endif
   float yaw=have?t->yaw*RAD:0, pitch=have?t->pitch*RAD:0, roll=have?t->roll*RAD:0;
   float f[3]={cosf(pitch)*sinf(yaw),sinf(pitch),-cosf(pitch)*cosf(yaw)};
   float wup[3]={0,1,0},s[3]; v_cross(s,f,wup); v_norm(s); float u[3]; v_cross(u,s,f);
   float up[3]={u[0]*cosf(roll)-s[0]*sinf(roll),u[1]*cosf(roll)-s[1]*sinf(roll),u[2]*cosf(roll)-s[2]*sinf(roll)};
   float eye[3]={px,py,pz},ctr[3]={px+f[0],py+f[1],pz+f[2]};
-  float view[16],proj[16],mvp[16]; m_lookat(view,eye,ctr,up); m_persp(proj,72*RAD,(float)W/H,1.5f,7000.f); m_mul(mvp,proj,view);
-  glUseProgram(w3_pW); glUniformMatrix4fv(w3_wMVP,1,GL_FALSE,mvp); glEnableVertexAttribArray(w3_wPos); glEnableVertexAttribArray(w3_wCol);
-  glBindBuffer(GL_ARRAY_BUFFER,w3_vTerr); glVertexAttribPointer(w3_wPos,3,GL_FLOAT,GL_FALSE,24,0); glVertexAttribPointer(w3_wCol,3,GL_FLOAT,GL_FALSE,24,(void*)12); glDrawArrays(GL_TRIANGLES,0,w3_nTerr);
-  glBindBuffer(GL_ARRAY_BUFFER,w3_vBld); glVertexAttribPointer(w3_wPos,3,GL_FLOAT,GL_FALSE,24,0); glVertexAttribPointer(w3_wCol,3,GL_FLOAT,GL_FALSE,24,(void*)12); glDrawArrays(GL_TRIANGLES,0,w3_nBld);
+  float view[16],proj[16],mvp[16]; m_lookat(view,eye,ctr,up); m_persp(proj,72*RAD,(float)W/H,1.5f,9000.f); m_mul(mvp,proj,view);
+#ifdef W3_USE_OSM
+  if(w3_nT>0){   /* textured OSM terrain: one draw per tile with its baked ortho texture */
+    glUseProgram(w3_pWT); glUniformMatrix4fv(w3_wtMVP,1,GL_FALSE,mvp);
+    glActiveTexture(GL_TEXTURE0); glUniform1i(w3_wtTex,0);
+    glEnableVertexAttribArray(w3_wtPos); glEnableVertexAttribArray(w3_wtUV);
+    for(int i=0;i<w3_nT;i++){ glBindTexture(GL_TEXTURE_2D,w3_T[i].tex); glBindBuffer(GL_ARRAY_BUFFER,w3_T[i].vbo);
+      glVertexAttribPointer(w3_wtPos,3,GL_FLOAT,GL_FALSE,20,0); glVertexAttribPointer(w3_wtUV,2,GL_FLOAT,GL_FALSE,20,(void*)12);
+      glDrawArrays(GL_TRIANGLES,0,w3_T[i].nverts); }
+    glDisableVertexAttribArray(w3_wtUV);
+  } else
+#endif
+  { glUseProgram(w3_pW); glUniformMatrix4fv(w3_wMVP,1,GL_FALSE,mvp); glEnableVertexAttribArray(w3_wPos); glEnableVertexAttribArray(w3_wCol);
+    glBindBuffer(GL_ARRAY_BUFFER,w3_vTerr); glVertexAttribPointer(w3_wPos,3,GL_FLOAT,GL_FALSE,24,0); glVertexAttribPointer(w3_wCol,3,GL_FLOAT,GL_FALSE,24,(void*)12); glDrawArrays(GL_TRIANGLES,0,w3_nTerr);
+    glBindBuffer(GL_ARRAY_BUFFER,w3_vBld); glVertexAttribPointer(w3_wPos,3,GL_FLOAT,GL_FALSE,24,0); glVertexAttribPointer(w3_wCol,3,GL_FLOAT,GL_FALSE,24,(void*)12); glDrawArrays(GL_TRIANGLES,0,w3_nBld);
+    glDisableVertexAttribArray(w3_wCol); }
   glDisable(GL_DEPTH_TEST); w3_build_hud(t,W,H,have);
   glBindBuffer(GL_ARRAY_BUFFER,w3_hVBO); glBufferData(GL_ARRAY_BUFFER,w3_hudN*4,w3_hud,GL_DYNAMIC_DRAW);
   glUseProgram(w3_pH); glUniform2f(w3_hScale,2.0f/W,2.0f/H); glEnableVertexAttribArray(w3_hPos); glEnableVertexAttribArray(w3_hCol);
