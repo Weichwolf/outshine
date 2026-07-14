@@ -103,7 +103,11 @@ static void w3_build_procedural(void){
 #define W3_RAD 2                   /* tile radius around the aircraft (grid = 2R+1) */
 #endif
 #ifndef W3_TEX
-#define W3_TEX 1024                /* per-tile ortho texture resolution */
+#define W3_TEX 1024                /* per-tile ortho texture resolution (detail comes from here) */
+#endif
+#ifndef W3_TERR
+#define W3_TERR 24                 /* terrain geometry: coarse GxG grid per tile (heightfield
+                                    * shape only — the texture carries the detail). Small = fast. */
 #endif
 
 /* Old-flight-sim ground: OSM footprints/roads/rivers/rails + landcover are baked
@@ -226,19 +230,43 @@ static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y){
   free(im); return tex;
 }
 
-/* build a textured terrain VBO (interleaved x,y,z,u,v) from a heightfield mesh.
- * UV maps the tile's ENU bbox to the ortho texture (north -> v=0 -> texture top). */
+/* Build a textured terrain VBO (interleaved x,y,z,u,v). The osmmesh heightfield is a
+ * dense row-major grid (256x256); we DECIMATE it to a coarse W3_TERR x W3_TERR grid
+ * (detail comes from the draped texture, not the geometry) and drape UV from the tile's
+ * ENU bbox (north -> v=0 -> texture top). Coarse geometry = smooth framerate. */
+static GLuint w3_push_soup(const float*v,size_t o,int*out_nv){
+  GLuint vbo; glGenBuffers(1,&vbo); glBindBuffer(GL_ARRAY_BUFFER,vbo);
+  glBufferData(GL_ARRAY_BUFFER,o*sizeof(float),v,GL_STATIC_DRAW); *out_nv=(int)(o/5); return vbo;
+}
 static GLuint w3_terr_vbo(const osmmesh_mesh*m,int*out_nv){
   float emin=1e18f,emax=-1e18f,nmin=1e18f,nmax=-1e18f;
   for(uint32_t i=0;i<m->n_vertices;i++){ const float*P=m->positions+i*3;
     if(P[0]<emin)emin=P[0]; if(P[0]>emax)emax=P[0]; if(P[1]<nmin)nmin=P[1]; if(P[1]>nmax)nmax=P[1]; }
   float de=emax-emin?emax-emin:1, dn=nmax-nmin?nmax-nmin:1;
+  /* detect grid width C (row-major, north->south rows; x resets west at each row start) */
+  uint32_t C=0;
+  for(uint32_t i=1;i<m->n_vertices;i++) if(m->positions[i*3] < m->positions[(i-1)*3]-0.5f){ C=i; break; }
+  #define W3_UV(P) (P[0]-emin)/de, (nmax-P[1])/dn
+  if(C>=2 && m->n_vertices%C==0){                 /* regular grid -> decimate to W3_TERR x W3_TERR */
+    uint32_t R=m->n_vertices/C; int G=W3_TERR<2?2:W3_TERR;
+    int gc=(int)C<G+1?(int)C:G+1, gr=(int)R<G+1?(int)R:G+1;
+    float*v=malloc((size_t)(gr-1)*(gc-1)*6*5*sizeof(float)); size_t o=0;
+    #define W3_MV(r,c) (m->positions + ((size_t)(r)*C + (size_t)(c))*3)
+    for(int j=0;j<gr-1;j++)for(int i=0;i<gc-1;i++){
+      int r0=(int)((long)j*(R-1)/(gr-1)), r1=(int)((long)(j+1)*(R-1)/(gr-1));
+      int c0=(int)((long)i*(C-1)/(gc-1)), c1=(int)((long)(i+1)*(C-1)/(gc-1));
+      const float*q[6]={W3_MV(r0,c0),W3_MV(r0,c1),W3_MV(r1,c1), W3_MV(r0,c0),W3_MV(r1,c1),W3_MV(r1,c0)};
+      for(int k=0;k<6;k++){ const float*P=q[k]; v[o++]=P[0]; v[o++]=P[2]; v[o++]=-P[1]; v[o++]=(P[0]-emin)/de; v[o++]=(nmax-P[1])/dn; }
+    }
+    #undef W3_MV
+    GLuint vbo=w3_push_soup(v,o,out_nv); free(v); return vbo;
+  }
+  /* fallback: full-resolution soup (irregular mesh) */
   uint32_t nt=m->n_triangles; float*v=malloc((size_t)nt*3*5*sizeof(float)); size_t o=0;
   for(uint32_t i=0;i<nt*3;i++){ uint32_t idx=m->indices?m->indices[i]:i; const float*P=m->positions+idx*3;
     v[o++]=P[0]; v[o++]=P[2]; v[o++]=-P[1]; v[o++]=(P[0]-emin)/de; v[o++]=(nmax-P[1])/dn; }
-  GLuint vbo; glGenBuffers(1,&vbo); glBindBuffer(GL_ARRAY_BUFFER,vbo);
-  glBufferData(GL_ARRAY_BUFFER,o*sizeof(float),v,GL_STATIC_DRAW); free(v);
-  *out_nv=(int)(nt*3); return vbo;
+  #undef W3_UV
+  GLuint vbo=w3_push_soup(v,o,out_nv); free(v); return vbo;
 }
 
 static int world3d_osm_open_mem(const char*vec_path,const uint8_t*vec_data,size_t vec_len,

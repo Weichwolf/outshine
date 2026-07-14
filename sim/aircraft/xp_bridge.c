@@ -145,7 +145,7 @@ static void physics_step(double dt){
     const double rho=1.225, g=9.81;
     double m=MDL->m, b=MDL->b, Sw=MDL->S, c=Sw/b;
     double Ix=0.020*m*b*b, Iy=0.030*m*b*b;     /* moments of inertia (est.) */
-    const double CLa=4.2, CD0=0.03, kInd=0.06;
+    const double CLa=4.2, CD0=0.070, kInd=0.08;   /* draggy FPV wing -> realistic top speed ~24-26 m/s */
     const double Cm0=0.020, Cma=-0.35, Cmde=1.1, Cmq=-9.0;/* pitch: reflex trim, static stab, elevon, damping */
     const double Clda=0.16, Clp=-0.55;         /* roll: elevon diff, damping */
 
@@ -375,11 +375,10 @@ int main(void){
                        else if(!climbing && S.agl < g_loalt-60) climbing=1;
                        g_mode = climbing ? ST_CLIMB : (link_up?ST_LOITER:ST_RTH);
                        double pitchT, thr;
-                       if(climbing){ /* full power; pitch holds CLIMB airspeed (stall-safe) so the
-                                      * climb rate is whatever the excess thrust allows */
-                              const double CLIMB_V=15.0; thr=0.95;
-                              pitchT = 1.1*(S.speed-CLIMB_V);
-                              if(pitchT>15)pitchT=15; if(pitchT<-5)pitchT=-5; }
+                       if(climbing){ /* full power, steady climb pitch, backed off near stall speed */
+                              thr=0.95; pitchT=20.0;
+                              if(S.speed<14.0) pitchT = 20.0 - 3.0*(14.0-S.speed);   /* stall protection */
+                              if(pitchT<0)pitchT=0; if(pitchT>22)pitchT=22; }
                        else { pitchT = 0.10*(g_loalt-S.agl) - 1.3*S.vy;       /* altitude hold */
                               if(pitchT>10)pitchT=10; if(pitchT<-8)pitchT=-8;
                               thr = 0.5 + 0.08*(CRUISE_V-S.speed); if(thr>0.9)thr=0.9; if(thr<0.3)thr=0.3; }
@@ -429,10 +428,10 @@ int main(void){
             static video_packet_t v; render_horizon(&v,t_roll,t_pitch); sendto(fbfd,&v,sizeof v,0,(struct sockaddr*)&fbdst,sizeof fbdst);
         }
 
-        if(++tick%50==0) fprintf(stderr,"[xp_bridge] armed=%d RTH=%d ANG=%d | aglSim=%.0f estAlt=%.0fm | iNav cmd: pitch=%+.2f roll=%+.2f thr=%.2f | gs=%.1f home=%.0f\n",
-            (t_armflags&4)!=0, mode_active(8), mode_active(1), S.agl, t_estalt/100.0,
-            S.in_pitch, S.in_roll, S.in_thr, S.speed,
-            hypot((S.lat-HOME_LAT)*111320.0,(S.lon-HOME_LON)*111320.0*cos(HOME_LAT*RAD)));
+        if(++tick%100==0){ const char*MN[]={"DISARM","ARMED","CLIMB","LOITER","MANUAL","RTH"};
+            fprintf(stderr,"[xp_bridge] %s alt=%.0f pitch=%.1f roll=%.1f | airspd=%.1f gs=%.1f home=%.0f\n",
+            MN[g_mode%6], S.agl, S.pitch, S.roll, S.speed, S.gs,
+            hypot((S.lat-HOME_LAT)*111320.0,(S.lon-HOME_LON)*111320.0*cos(HOME_LAT*RAD))); }
         struct timespec tsp={0,(long)(dt*1e9)}; nanosleep(&tsp,NULL);
     }
     return 0;
