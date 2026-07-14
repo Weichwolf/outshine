@@ -258,114 +258,245 @@ static int g_inject = 0;   /* XP_INJECT: force a fixed attitude to prove injecti
 static int g_mode = ST_DISARMED;   /* bridge autopilot mode -> telemetry state */
 static double g_loalt=500.0, g_lorad=1000.0;  /* autonomous loiter altitude (m AGL) + orbit radius (m), env-tunable */
 
-/* Simplified but realistic flying-wing aerodynamics: lift/drag, pitch static
- * stability + elevon + pitch damping, roll authority + roll damping. Naturally
- * stable so iNav's ANGLE loop has a real plant to control. Scales with the
- * selected preset's mass/span/area. */
+/* --- Component-based full-envelope aerodynamics (Selig, AIAA J. Aircraft 2015,
+ * "Real-Time Flight Simulation of Highly Maneuverable UAVs"). The airframe is a
+ * SUM of lifting elements — a strip-theory wing (left/right elevon panels), a
+ * vertical fin/keel, plus a pod — each seeing its OWN local relative flow
+ * (freestream + body-rate x moment-arm). Forces & moments are summed in the body
+ * frame and fed to the 6-DOF rigid-body equations. This is what makes turns
+ * PHYSICAL: a bank tilts the wing lift (centripetal force), the resulting
+ * sideslip loads the fin, the fin yaws the nose INTO the bank — yaw follows roll
+ * through real moments, so a left turn while banked right is unreachable. */
+
+/* Full-envelope thin-surface coefficients: attached linear lift blended into
+ * flat-plate theory (Cd~2, Cl~2 sin^2a cosa at post-stall) across the whole
+ * +-180 deg range via a smooth sigmoid (Beard/McLain form; matches Selig Fig 5,
+ * Eq 7-12 qualitatively). `ang` = element angle to its own relative flow (rad). */
+static inline double esat(double x){ return exp(x<-40.0?-40.0:(x>40.0?40.0:x)); }
+static void surf_coeffs(double ang,double a_slope,double cd0,double k_ind,
+                        double *Cl,double *Cd){
+    const double a0=0.24, M=15.0;                       /* stall ~14 deg; blend width */
+    double num=1.0+esat(-M*(ang-a0))+esat(M*(ang+a0));
+    double den=(1.0+esat(-M*(ang-a0)))*(1.0+esat(M*(ang+a0)));
+    double sig=num/den;                                 /* 0 attached -> 1 flat-plate */
+    double s=sin(ang), cA=cos(ang), sgn=(ang<0?-1.0:1.0);
+    double Cl_att=a_slope*ang;
+    double Cl_fp =2.0*sgn*s*s*cA;                       /* flat-plate lift */
+    *Cl=(1.0-sig)*Cl_att + sig*Cl_fp;
+    double Cd_att=cd0 + k_ind*Cl_att*Cl_att;            /* profile + induced */
+    double Cd_fp =cd0 + 2.0*s*s;                        /* flat-plate drag (Cd~2 @ 90) */
+    *Cd=(1.0-sig)*Cd_att + sig*Cd_fp;
+}
+
+/* Body-axis <-> local NED (North,East,Down) rotations from Euler phi,theta,psi
+ * (roll right +, pitch nose-up +, yaw/heading). Standard 3-2-1 DCM. */
+static void ned_to_body(double ph,double th,double ps,double N,double E,double D,
+                        double*bx,double*by,double*bz){
+    double sp=sin(ph),cp=cos(ph),st=sin(th),ct=cos(th),ss=sin(ps),cs=cos(ps);
+    *bx=  ct*cs*N + ct*ss*E - st*D;
+    *by=(sp*st*cs-cp*ss)*N + (sp*st*ss+cp*cs)*E + sp*ct*D;
+    *bz=(cp*st*cs+sp*ss)*N + (cp*st*ss-sp*cs)*E + cp*ct*D;
+}
+static void body_to_ned(double ph,double th,double ps,double bx,double by,double bz,
+                        double*N,double*E,double*D){
+    double sp=sin(ph),cp=cos(ph),st=sin(th),ct=cos(th),ss=sin(ps),cs=cos(ps);
+    *N= ct*cs*bx + (sp*st*cs-cp*ss)*by + (cp*st*cs+sp*ss)*bz;
+    *E= ct*ss*bx + (sp*st*ss+cp*cs)*by + (cp*st*ss-sp*cs)*bz;
+    *D=   -st*bx +          sp*ct*by +          cp*ct*bz;
+}
+
 static void physics_step(double dt){
     if(g_inject){ S.roll=25.0; S.pitch=-15.0; S.yaw=90.0; return; }
     /* Pre-launch: held level & perfectly still on the hand/launcher so the gyro
      * calibration completes and iNav can arm. Throttle-up = launch. */
     static int launched=0;
+    /* body-frame AIR-relative velocity (m/s): u fwd, v right, w down. This is the
+     * core 6-DOF translational state (persists across calls). */
+    static double u=0,v=0,w=0;
     if(!launched){
-        if(S.in_thr < 0.05){ S.roll=0; S.pitch=0; S.p=S.q=S.r=0; S.speed=0; S.vx=S.vy=S.vz=0; return; }
-        launched=1; S.speed=12.0;          /* hand-launch throw speed */
+        if(S.in_thr < 0.05){ S.roll=0; S.pitch=0; S.p=S.q=S.r=0; S.speed=0;
+            u=v=w=0; S.vx=S.vy=S.vz=0; return; }
+        launched=1; u=12.0; v=0; w=0; S.speed=12.0;      /* hand-launch throw speed */
     }
     /* once launched, physics always runs (glides at low throttle, e.g. RTH descent) */
     const double rho=1.225, g=9.81;
-    double m=MDL->m, b=MDL->b, Sw=MDL->S, c=Sw/b;
-    /* Inertias: for a wing, roll (about the long span b) is HEAVIER than pitch (about the
-     * short chord c), so Ix > Iy. The old Ix<Iy gave a ~0.024s roll time constant — twitchy
-     * and unphysical. Ix=0.06 m b^2 -> Tr~0.12s (realistic), and Ix ~ 2*Iy. */
-    double Ix=0.060*m*b*b, Iy=0.030*m*b*b;
-    const double CLa=4.2, CD0=0.070, kInd=0.08, CLmax=1.25;   /* draggy FPV wing -> top speed ~24-26 m/s; stalls at CLmax */
-    const double Cm0=0.020, Cma=-0.35, Cmde=1.1, Cmq=-9.0;/* pitch: reflex trim, static stab, elevon, damping */
-    const double Clda=0.16, Clp=-0.55;         /* roll: elevon diff, damping */
+    double m=MDL->m, b=MDL->b, Sw=MDL->S, c=Sw/b, AR=b*b/Sw;
+    /* Inertias for a wing: roll (span-distributed mass) > pitch (short chord),
+     * yaw (both) largest. Scaled off the preset so all four presets fly. */
+    /* Inertias: pitch (Iy) kept substantial so the elevon can't drive a fast pitch
+     * limit-cycle against iNav's ANGLE loop (that would ring the vertical velocity). */
+    double Ix=0.055*m*b*b, Iy=0.045*m*b*b, Iz=0.080*m*b*b;
+    double a_w=2.0*M_PI*AR/(AR+2.0);       /* finite-wing lift-curve slope, /rad */
+    double kind=1.0/(M_PI*0.85*AR);        /* induced-drag factor (e=0.85) */
+    const double CD0=0.055;                /* wing profile drag -> top speed ~26 m/s */
+    /* control + stability derivatives (per rad unless noted) */
+    const double Clda=0.16;                /* elevon differential -> roll authority (bank-led turns) */
+    const double Cmde=0.28;                /* elevon symmetric -> pitch authority (nose-up +) */
+    const double Cm0 =0.02;                /* reflex camber -> nose-up trim moment */
+    const double Cmq =-14.0;               /* heavy pitch-rate damping (well-damped short period) */
+    /* Heavy yaw-rate damping: a rudderless wing must fly nearly coordinated, so the
+     * yaw rate has to track the slow g*sin(phi)/V turn and REJECT fast gust-induced
+     * sideslip. Weak damping let turbulence jitter the yaw past the small coordinated
+     * value at low bank (the coord-turn-rate / sign failures). */
+    const double Cnr =-0.45;               /* strong yaw-rate damping -> coordinated even at low bank */
+    const double Clb =-0.05;               /* dihedral effect (sweep): roll from sideslip */
+    const double Cnda= 0.0;                /* no EXPLICIT adverse yaw: it comes intrinsically from the
+                                            * strips' differential induced drag during a roll RATE, so it
+                                            * vanishes in steady bank (no wrong-sign yaw at small bank). */
+    const double Cndr= 0.003;              /* rudderless wing: in_yaw -> a whisper of differential-drag yaw only */
+    double xw=-0.10*c;                     /* wing AC behind CG -> static pitch stability */
+    /* vertical fin / keel: small area/arm -> gentle weathercock (Cnb~0.04). Kept low
+     * so gusts don't over-excite yaw; coordination comes from turn geometry + damping. */
+    double lf=0.40*b, Sf=0.06*Sw, zf=-0.10*b, a_f=2.2, kf=0.15, cdf0=0.02;
+    const int NS=6; double dS=Sw/NS;       /* wing discretised into 6 spanwise strips */
 
-    double V=fmax(S.speed,3.0), Q=0.5*rho*V*V;
+    double Vrep=fmax(S.speed,3.0);         /* for turbulence scale-lengths below */
 
-    /* --- Dryden-form turbulence FIRST (MIL-F-8785C low-altitude spectra) so the vertical
-     * gust can bump the angle of attack below. First-order discrete filters driven by
-     * UNIT-variance noise; sigma from the live gust data. Scale lengths grow with altitude
-     * (choppy low, smooth high). wg = vertical gust (m/s); pg/qg = gust roll/pitch rates.
-     * The MIL scale-length constant is imperial, so Lu is computed in feet. */
+    /* --- Dryden-form turbulence (MIL-F-8785C low-altitude spectra). wg = vertical
+     * gust (m/s, tilts the local alpha -> a REAL aero disturbance below); pg/qg =
+     * roll/pitch buffet rates reported to iNav's gyro so its rate loop can fight them. */
     double h=fmax(S.agl,10.0), hf=h/0.3048;
     double Lw=fmax(h,30.0), Lu=0.3048*fmax(hf,50.0)/pow(0.177+0.000823*hf,1.2);
-    double aw=fmin(1.0,V*dt/Lw), au=fmin(1.0,V*dt/fmax(Lu,20.0));
-    double gsc=fmin(1.0,0.30+0.012*S.agl)*g_sigma;        /* ease near ground for hand-launch climb-out */
+    double aw=fmin(1.0,Vrep*dt/Lw), au=fmin(1.0,Vrep*dt/fmax(Lu,20.0));
+    double gsc=fmin(1.0,0.30+0.012*S.agl)*g_sigma;       /* ease near ground for climb-out */
     static double wg=0,pg=0,qg=0;
-    wg += -aw*wg + gsc     *sqrt(2*aw)*nrand();            /* vertical gust, m/s */
-    pg += -au*pg + 3.5*gsc *sqrt(2*au)*nrand();            /* roll-rate gust, deg/s */
-    qg += -au*qg + 1.7*gsc *sqrt(2*au)*nrand();            /* pitch-rate gust, deg/s */
-    g_gustP=pg; g_gustQ=qg;                                /* export so iNav's gyro (P/Q drefs) sees the turbulence */
-    /* thermal updraft column at the current position (air-mass vertical velocity) */
-    double tx=(S.lon-HOME_LON)*111320.0*cos(S.lat*RAD), ty=(S.lat-HOME_LAT)*111320.0;
-    double w_air=wg + thermal_w(tx,ty,S.agl);             /* total vertical air motion */
-
-    /* --- longitudinal aero ---
-     * Aerodynamic (AIR-relative) flight-path angle gamma is a PERSISTENT state integrated
-     * from lift — NOT re-derived from ground vy (which carries updraft and would double-count
-     * the aircraft's own climb). BUT a vertical gust/thermal tilts the relative wind and
-     * TRANSIENTLY raises alpha by ~w/V — the "lift bump" a glider feels flying into a thermal.
-     * gamma's own fast relaxation washes it out over the short period, so no nose-high trap. */
-    static double gamma=0.0;
-    double alpha=S.pitch*RAD - gamma + fmax(-0.10,fmin(0.10, w_air/V));
-    /* Stall: lift rises to CLmax then BREAKS (drops) past the stall angle, so the nose falls
-     * and speed recovers, with a post-stall drag rise. A real wing loses lift beyond the
-     * break — not just saturating flat — which is what makes a stall recover instead of hang. */
-    double astall=CLmax/CLa, aabs=fabs(alpha), sgn=(alpha<0?-1.0:1.0), CLlin=CLa*alpha, CLs;
-    if(aabs<=astall) CLs=CLlin;
-    else CLs=sgn*fmax(0.35, CLmax-0.7*CLa*(aabs-astall));   /* post-stall lift drop */
-    double lift=Q*Sw*CLs;
-    double dstall=fabs(CLlin-CLs);
-    double drag=Q*Sw*(CD0 + kInd*CLs*CLs + 0.9*dstall*dstall);
-    double T=MDL->Tmax*S.in_thr;
-    g_nz=(float)(lift/(m*g)); if(g_nz<-2)g_nz=-2; if(g_nz>6)g_nz=6;   /* normal load factor -> accelerometer */
-
-    /* --- rotational: moments -> angular accel -> rates (deg/s) -> attitude ---
-     * Gusts bodily rotate the airframe (added to attitude kinematics) AND are reported to the
-     * gyro above, so iNav's rate loop can damp them — turbulence it can actually fight. */
-    double Cl=Clda*S.in_roll + Clp*(S.p*RAD*b/(2*V));
-    double Cm=Cm0 + Cma*alpha + Cmde*S.in_pitch + Cmq*(S.q*RAD*c/(2*V));
-    S.p += ((Q*Sw*b*Cl)/Ix)*DEG*dt;      /* airframe's own dynamic rates (aero + elevon) */
-    S.q += ((Q*Sw*c*Cm)/Iy)*DEG*dt;
-    S.roll  += (S.p + pg)*dt;
-    S.pitch += (S.q + qg)*dt;
-    if(S.roll>180)S.roll-=360; if(S.roll<-180)S.roll+=360;
-    if(S.pitch>85){S.pitch=85;S.q=0;} if(S.pitch<-85){S.pitch=-85;S.q=0;}
-
-    /* translational (airspeed dynamics) */
-    gamma += ((lift - m*g*cos(gamma))/(m*V))*dt;
-    if(gamma>1.4)gamma=1.4; if(gamma<-1.4)gamma=-1.4;        /* keep the air-frame path angle sane */
-    double Vdot=(T-drag)/m - g*sin(gamma);
-    S.speed += Vdot*dt; if(S.speed<0)S.speed=0;
-    double yaw_rate=(S.speed>2.0)?(g*tan(S.roll*RAD)/S.speed)*DEG:0.0;
-    yaw_rate += S.in_yaw*40.0;
-    S.r=yaw_rate;
-    S.yaw=fmod(S.yaw+yaw_rate*dt+540.0,360.0)-180.0;
-
-    /* gusts: Ornstein-Uhlenbeck horizontal wind wander (mean-revert to 0 offset) */
-    double gtau=3.0, gsig=0.52*g_turb;   /* RMS tuned for the now unit-variance nrand */
+    wg += -aw*wg + gsc     *sqrt(2*aw)*nrand();           /* vertical gust, m/s */
+    pg += -au*pg + 3.5*gsc *sqrt(2*au)*nrand();           /* roll-rate gust, deg/s */
+    qg += -au*qg + 1.7*gsc *sqrt(2*au)*nrand();           /* pitch-rate gust, deg/s */
+    g_gustP=pg; g_gustQ=qg;                               /* -> iNav gyro (P/Q drefs) */
+    /* Ornstein-Uhlenbeck horizontal wind wander (mean-revert to 0 offset) */
+    double gtau=3.0, gsig=0.52*g_turb;
     gustN += (-gustN/gtau)*dt + gsig*sqrt(dt)*nrand();
     gustE += (-gustE/gtau)*dt + gsig*sqrt(dt)*nrand();
+    /* thermal + vertical gust = total vertical air motion at the current position */
+    double tx=(S.lon-HOME_LON)*111320.0*cos(S.lat*RAD), ty=(S.lat-HOME_LAT)*111320.0;
+    double w_air=wg + thermal_w(tx,ty,S.agl);
 
-    /* air-relative velocity (aircraft flies along heading through the air) + wind
-     * = GROUND velocity. Position/GPS use ground velocity; aero used airspeed above.
+    /* Euler state -> radians; body rates -> rad/s (integrated internally, exported deg/s) */
+    double phi=S.roll*RAD, th=S.pitch*RAD, psi=S.yaw*RAD;
+    double p=S.p*RAD, q=S.q*RAD, r=S.r*RAD;
+    double T=MDL->Tmax*S.in_thr;                          /* prop thrust along +x body */
+
+    /* The fluctuating air velocity (NED) resolved into body axes: subtract it from
+     * the aircraft's velocity-through-mean-air to get the true relative flow the
+     * surfaces feel. This is how gusts/thermals become real aerodynamic upsets. */
+    double gbx,gby,gbz;
+    ned_to_body(phi,th,psi, gustN,gustE,-w_air, &gbx,&gby,&gbz);
+
+    double Fz_aero=0.0;                                   /* body-z aero force -> load factor */
+
+    /* --- 6-DOF integration, sub-stepped for stability at the fixed 100 Hz dt --- */
+    const int NSUB=3; double dts=dt/NSUB;
+    for(int it=0; it<NSUB; it++){
+        double sph=sin(phi),cph=cos(phi),sth=sin(th),cth=cos(th);
+        /* relative-flow freestream (body), gust-perturbed */
+        double ua=u-gbx, va=v-gby, wa=w-gbz;
+        double V=sqrt(ua*ua+va*va+wa*wa), Vf=fmax(V,3.0);
+        double qbar=0.5*rho*Vf*Vf;
+        double beta=asin(fmax(-1.0,fmin(1.0,va/Vf)));    /* sideslip */
+
+        double Fx=0,Fy=0,Fz=0, Mx=0,My=0,Mz=0;
+        Fz_aero=0.0;
+        /* gravity (body frame) + thrust */
+        Fx += -m*g*sth;  Fy += m*g*cth*sph;  Fz += m*g*cth*cph;
+        Fx += T;
+
+        /* --- WING: strip theory. Each strip sees freestream + (omega x r). The
+         * spanwise offset y_i makes roll rate raise/lower the local alpha (intrinsic
+         * roll damping) and differential lift/drag produce roll & yaw moments -- the
+         * mechanism Selig relies on for coupled rolls. */
+        for(int i=0;i<NS;i++){
+            double yi=(-0.5*b)+(i+0.5)*(b/NS);           /* strip centre, span station */
+            double Vlx=ua + (q*0.0 - r*yi);              /* + (omega x r)_x , z_w=0 */
+            double Vlz=wa + (p*yi - q*xw);               /* + (omega x r)_z */
+            double Vn=sqrt(fmax(Vlx*Vlx+Vlz*Vlz,1e-4));
+            double qN=0.5*rho*Vn*Vn;
+            double as=atan2(Vlz,Vlx);                    /* local angle of attack */
+            double Cl,Cd; surf_coeffs(as,a_w,CD0,kind,&Cl,&Cd);
+            double L=qN*dS*Cl, D=qN*dS*Cd;
+            /* drag along -flow, lift perpendicular (up = -z for +alpha), in x-z plane */
+            double Fxi=(-D*Vlx + L*Vlz)/Vn;
+            double Fzi=(-D*Vlz - L*Vlx)/Vn;
+            Fx+=Fxi; Fz+=Fzi; Fz_aero+=Fzi;
+            Mx+= yi*Fzi;                                 /* differential lift -> roll (+ damping) */
+            My+= -xw*Fzi;                                /* lift x arm-behind-CG -> pitch stability */
+            Mz+= -yi*Fxi;                                /* differential drag -> yaw (adverse) */
+        }
+
+        /* --- VERTICAL FIN / KEEL: a side-force element behind & above the CG. Its
+         * local sideslip beta' loads it; the arm lf turns that into a yawing moment
+         * (weathercock + yaw damping via r), the height zf into a rolling moment
+         * (dihedral-like). THIS is the yaw<->sideslip<->roll coupling that forbids
+         * turning against the bank. */
+        double Vfx=ua + q*zf;                            /* + (omega x r)_x at (-lf,0,zf) */
+        double Vfy=va + (-r*lf - p*zf);                  /* + (omega x r)_y */
+        double Vfn=sqrt(fmax(Vfx*Vfx+Vfy*Vfy,1e-4));
+        double qF=0.5*rho*Vfn*Vfn;
+        double bf=atan2(Vfy,Vfx);                        /* fin local sideslip */
+        double Clf,Cdf; surf_coeffs(bf,a_f,cdf0,kf,&Clf,&Cdf);
+        double Ffy=-qF*Sf*Clf;                           /* side force opposing sideslip */
+        double Ffx=-qF*Sf*Cdf*Vfx/Vfn;                   /* fin drag */
+        Fx+=Ffx; Fy+=Ffy;
+        Mx+= -zf*Ffy;                                    /* fin above CG -> stable dihedral effect */
+        My+=  zf*Ffx;
+        Mz+= -lf*Ffy;                                    /* fin behind CG -> weathercock into the slip */
+
+        /* --- CONTROL & residual derivatives (elevons are rudderless; in_yaw ~ dead).
+         * qbar uses the aircraft airspeed (elevons act on the whole wing). */
+        Mx += qbar*Sw*b*( Clda*S.in_roll + Clb*beta );
+        My += qbar*Sw*c*( Cm0 + Cmde*S.in_pitch + Cmq*(q*c/(2.0*Vf)) );
+        Mz += qbar*Sw*b*( Cnda*S.in_roll + Cndr*S.in_yaw + Cnr*(r*b/(2.0*Vf)) );
+
+        /* --- rigid-body equations of motion (body frame) --- */
+        double ax=Fx/m, ay=Fy/m, az=Fz/m;
+        double du=ax-(q*w - r*v);
+        double dv=ay-(r*u - p*w);
+        double dw=az-(p*v - q*u);
+        double dp=(Mx+(Iy-Iz)*q*r)/Ix;
+        double dq=(My+(Iz-Ix)*r*p)/Iy;
+        double dr=(Mz+(Ix-Iy)*p*q)/Iz;
+        u+=du*dts; v+=dv*dts; w+=dw*dts;
+        p+=dp*dts; q+=dq*dts; r+=dr*dts;
+        /* Euler kinematics (guard gimbal near +-90 deg pitch) */
+        double ctg=cth; if(fabs(ctg)<0.15) ctg=(ctg<0?-0.15:0.15);
+        double dphi=p+(q*sph+r*cph)*(sth/ctg);
+        double dth = q*cph - r*sph;
+        double dpsi=(q*sph+r*cph)/ctg;
+        phi+=dphi*dts; th+=dth*dts; psi+=dpsi*dts;
+        th=fmax(-1.48,fmin(1.48,th));                    /* ~+-85 deg gimbal guard */
+    }
+
+    /* gust roll/pitch buffet bodily rotates the airframe (iNav's gyro already saw it) */
+    phi += pg*RAD*dt;  th += qg*RAD*dt;
+    th=fmax(-1.48,fmin(1.48,th));
+
+    /* --- write attitude / rates back to the shared state --- */
+    S.roll=phi*DEG;  while(S.roll>180)S.roll-=360; while(S.roll<-180)S.roll+=360;
+    S.pitch=th*DEG;
+    S.yaw=fmod(psi*DEG+540.0,360.0)-180.0;
+    S.p=p*DEG; S.q=q*DEG; S.r=r*DEG;
+    S.speed=sqrt(u*u+v*v+w*w);
+    g_nz=(float)(-Fz_aero/(m*g)); if(g_nz<-2)g_nz=-2; if(g_nz>6)g_nz=6;
+
+    /* --- body velocity -> earth frame -> ground velocity (add wind+gust) -> position.
      * The plane drifts downwind, so iNav must crab to hold a loiter — as in reality. */
-    double vN_air=S.speed*cos(S.yaw*RAD), vE_air=S.speed*sin(S.yaw*RAD);
-    double vN=vN_air+windN+gustN, vE=vE_air+windE+gustE;
+    double VN,VE,VD;
+    body_to_ned(phi,th,psi, u,v,w, &VN,&VE,&VD);
+    double vN=VN+windN+gustN, vE=VE+windE+gustE;
     S.gs=hypot(vN,vE);
-    double climb=S.speed*sin(gamma) + w_air;   /* aero climb + air-mass vertical motion (gust + thermal) */
+    double climb=-VD + w_air;                            /* aero climb + air-mass vertical motion */
     S.elev+=climb*dt; S.agl+=climb*dt; if(S.agl<0)S.agl=0;
     S.lat+=(vN*dt)/111320.0; S.lon+=(vE*dt)/(111320.0*cos(S.lat*RAD));
     S.vx=vE; S.vy=climb; S.vz=-vN;
+
     /* robustness: keep the FDM from blowing up at ground/edge cases */
-    if(!isfinite(S.speed)||S.speed>60) S.speed=isfinite(S.speed)?60:12;
+    if(!isfinite(S.speed)||S.speed>60){ S.speed=isfinite(S.speed)?60:12; u=S.speed;v=0;w=0; }
     if(!isfinite(S.gs)||S.gs>80) S.gs=S.speed;
     if(!isfinite(S.lat)||fabs(S.lat-HOME_LAT)>2) S.lat=HOME_LAT;
     if(!isfinite(S.lon)||fabs(S.lon-HOME_LON)>2) S.lon=HOME_LON;
     if(!isfinite(S.agl)) S.agl=100;
-    if(!isfinite(S.roll))S.roll=0; if(!isfinite(S.pitch))S.pitch=0;
+    if(!isfinite(S.roll)){S.roll=0;phi=0;} if(!isfinite(S.pitch)){S.pitch=0;th=0;}
+    if(!isfinite(S.p)){S.p=0;} if(!isfinite(S.q)){S.q=0;} if(!isfinite(S.r)){S.r=0;}
 }
 
 /* ---- MSP client to iNav (TCP 5760): RC inject + telemetry read ---- */
@@ -634,7 +765,9 @@ int main(void){
              * position was smooth (100 Hz) but the camera rotated in 5 Hz steps. This is the
              * true airframe attitude anyway (what iNav reads via the X-Plane DREFs). */
             t.roll=(float)S.roll; t.pitch=(float)S.pitch; t.yaw=(float)S.yaw;
-            t.alt=(float)S.agl; t.x=(float)((S.lon-HOME_LON)*111320.0); t.y=(float)((S.lat-HOME_LAT)*111320.0);
+            /* x = TRUE east metres (incl. cos(lat)) so home_dist == hypot(x,y) and the renderer's
+             * lon reconstruction (divides by 111320*cos) is exact. Was missing the cos factor. */
+            t.alt=(float)S.agl; t.x=(float)((S.lon-HOME_LON)*111320.0*cos(HOME_LAT*RAD)); t.y=(float)((S.lat-HOME_LAT)*111320.0);
             t.gs=(float)S.gs; t.batt=(t_batt10>50&&t_batt10<255)?t_batt10/10.0f:11.4f; t.home_dist=(float)hd;
             float hb=(float)(tohome - S.yaw); while(hb>180)hb-=360; while(hb<-180)hb+=360; t.home_bearing=hb;
             float need=(hd>1)?atan2f((float)S.agl,(float)hd)*(float)DEG:0; t.glideslope_err=need-7.0f;
