@@ -93,11 +93,20 @@ Two traps that already cost a session each, both fixed in `shot.js` — do not u
     ceiling, not a target: a complete cut through the tree can be any number under it, depending on
     pose (this run: 126). `shot.sh` already waits on exactly that. Declaring "128 chunks" the
     criterion made a budget constant into a goal the code never used.
-  - **`pngstat` is a DAYLIGHT predicate.** It called this run `SUSPECT — scene looks empty` at 1 %
-    ground, while the screenshot shows fields, a settlement and stars. `SUN -14`: it was night, and
-    `uLight = 0.20 + 0.80*day` dims the world to 20 %. Not rock and snow — **the clock**. Any cold
-    run after sunset fails the gate. "Vegetation always beats blue" is an assumption about daylight
-    sold as a statement about the renderer.
+  - **`pngstat` was BLIND at night, not merely wrong — fixed in `e2d7dad`.** It called this run
+    `SUSPECT — scene looks empty` at 1 % ground while the screenshot showed fields, a settlement and
+    stars (`SUN -14`). The sign was never the problem: ground is green-dominant at night too
+    (g−b = **+5**), sky is blue-dominant (**−13**). The **margin** was a daylight constant while the
+    signal scales with the light — `uLight = 0.20 + 0.80*day`, so a daytime g−b of ~25 arrives as
+    ~5, under a threshold picked at noon. The killer number: a real night world scored **1.1 %** and
+    a screenshot with **no world in it at all** scored **1.0 %**. Two pictures, one verdict, one of
+    them empty. The gate was not red — it was blind. Now the margin is a fraction of the pixel's own
+    brightness (`max(2, 0.05*mean)`); the same two pictures separate to 33 % and 1.1 %, and daylight
+    is untouched by construction (`0.05*mean` = 7.5 at mean 150, against the old 8 — the two agree
+    to 0.1 pp on the one real daylight fixture, which mattered because the sun was down and the
+    daylight case could not be re-measured, only left alone).
+    **Still a colour predicate**: rock and snow are neutral and still under-report over an alpine
+    origin. That needs a structure criterion and a real rock screenshot, not a third recalibration.
   - Honest throughput, from the first properly defined window: **5.9 prefetch jobs/s** (2540 jobs,
     433 s, empty volume, 0 dropped, 0 failed). Consistent with the single worker thread; **proof of
     nothing** — the test would be N threads against this same fixture, which is now repeatable.
@@ -232,10 +241,11 @@ each other** — this has actually happened. Coordinate before editing outside y
 - **The gates only ever test warm.** `verify.sh` is 4/4 green on Hameln while a cold region loads
   nothing at all. A cold gate needs the empty volume above, not a foreign continent — and writing
   one before the fix is green would cement today's broken state as the expectation.
-- **`pngstat` may be calibrated on Hameln green.** Its predicate is "beats blue by a margin,
-  because vegetation always does" — rock and snow do not. Over the Matterhorn it called a streamed
-  scene `SUSPECT`. The criterion should be "has structure no sky has", and it must be shown to fail
-  over a rock face AND over empty sky, or it has only moved the calibration.
+- **`pngstat` is still a colour predicate, so still an assumption about the landscape.** The night
+  half is fixed (`e2d7dad`, above); rock and snow are neutral and still are not counted, so an
+  alpine origin under-reports and a real world can still be called empty. The criterion should be
+  "has structure no sky has" — and it needs a real rock-face screenshot to check against, not a
+  third recalibration of the same idea. Fix it when someone has that screenshot.
 - **Terrain LOD: the quadtree runs, the budget does not fit.** Measured warm, both grounds:
   `128 chunks drawn (budget 128), 0 pending`, `levels z8..z14 = 32/8/12/9/21/22/24`, streamed in
   10–20 s. But `31 wanted split, 10–13 over budget` — the tree wants finer ground than 128 chunks
