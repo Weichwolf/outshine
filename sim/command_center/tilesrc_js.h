@@ -24,6 +24,20 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 
+/* Two things about the EM_JS calls below look like typos and are not. Both cost a reader a
+ * detour once, so: no trailing ';' after the closing ')', and (void) spelled out where a C
+ * programmer would write ().
+ *
+ * The semicolon: _EM_JS already expands to a declaration that ends in one
+ * (`char __em_js__##name[] = ...;`, then _EM_END_CDECL, which is empty in C). Ours was simply a
+ * second one at file scope -- what -Wextra-semi is for. The docs write it WITH the semicolon.
+ *
+ * The (void): EM_JS stringifies this parameter list into the JAVASCRIPT signature
+ * ("(int x)<::>{body}" -> `function name(x) {body}`). So `(void)` would read as a parameter
+ * named `void` -- a reserved word, i.e. broken JS, from C that compiles clean. It only works
+ * because emscripten.py's create_em_js special-cases it (`if not args or args == 'void'`).
+ * Anything cleverer than a plain (void) here is worth checking against that function first,
+ * because no C compiler can see the JS this produces. */
 /* Base URL of fb-tiles, e.g. "http://localhost:8081". Set once at start-up. */
 EM_JS(void, w3_tiles_init, (const char *base), {
     Module.__fbTiles = { base: UTF8ToString(base), cache: new Map(), inflight: 0 };
