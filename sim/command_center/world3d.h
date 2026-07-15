@@ -15,6 +15,7 @@
 #include <GLES2/gl2.h>
 #include "protocol.h"
 #ifdef W3_USE_OSM
+#include "camera.h"      /* attitude -> basis + MVP, pure */
 #include "atmo.h"        /* the frame's sun/sky/light, pure — shared by sky, terrain and buildings */
 #include "tilesrc_js.h"   /* tile bytes from fb-tiles (async cache + osmmesh provider) */
 #endif
@@ -746,16 +747,14 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
 #ifdef W3_USE_OSM
   if(w3_nD>0) py=(have&&t->alt>1?t->alt:2)+w3_yoff;   /* AGL above the osmmesh ground */
 #endif
-  float yaw=have?t->yaw*RAD:0, pitch=have?t->pitch*RAD:0, roll=have?t->roll*RAD:0;
-  float f[3]={cosf(pitch)*sinf(yaw),sinf(pitch),-cosf(pitch)*cosf(yaw)};
-  float wup[3]={0,1,0},s[3]; v_cross(s,f,wup); v_norm(s); float u[3]; v_cross(u,s,f);
-  /* roll the camera-up around the forward axis. +roll (right bank, right wing down) must
-   * tilt the camera up toward the RIGHT (+s), so the world appears to roll left in view.
-   * (The previous -s inverted it: a right bank looked like a left bank.) */
-  float up[3]={u[0]*cosf(roll)+s[0]*sinf(roll),u[1]*cosf(roll)+s[1]*sinf(roll),u[2]*cosf(roll)+s[2]*sinf(roll)};
-  float sr[3]={s[0]*cosf(roll)-u[0]*sinf(roll),s[1]*cosf(roll)-u[1]*sinf(roll),s[2]*cosf(roll)-u[2]*sinf(roll)}; /* rolled screen-right */
-  float eye[3]={px,py,pz},ctr[3]={px+f[0],py+f[1],pz+f[2]};
-  float view[16],proj[16],mvp[16]; m_lookat(view,eye,ctr,up); m_persp(proj,W3_FOV*RAD,(float)W/H,W3_NEAR,W3_FARPLANE); m_mul(mvp,proj,view);
+  /* Basis and MVP from the attitude — pure maths, so it lives in camera.h and is testable there.
+   * The roll sign is the one that once made a right bank look like a left bank; a screenshot
+   * cannot catch that, a test can. The eye position stays HERE because it needs w3_yoff, which
+   * belongs to the tile side. The aliases keep every consumer below unchanged. */
+  const float eye[3]={px,py,pz};
+  const w3_cam C = w3_cam_from(have?t->yaw:0, have?t->pitch:0, have?t->roll:0,
+                               eye, W3_FOV, (float)W/H, W3_NEAR, W3_FARPLANE);
+  const float *f=C.f, *sr=C.sr, *up=C.up, *mvp=C.mvp;
 
   /* ---- environment: sun/moon direction, sky colour, light level ----
    * The arithmetic lives in atmo.h because it is pure and therefore testable, and because these

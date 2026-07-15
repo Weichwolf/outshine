@@ -43,5 +43,6 @@ void test_lru(void);
 void test_prefetch(void);
 void test_draw(void);
 void test_w3atmo(void);
+void test_camera(void);
 
 #endif /* FB_TASSERT_H */
