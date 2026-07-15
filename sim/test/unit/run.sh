@@ -8,6 +8,7 @@
 #   - aircraft/terrain.c            polls a running service            -> live checks
 #   - command_center/*              needs a GL context                 -> render_native + browser
 #   - aircraft/xp_bridge.c          is the plant in a closed loop      -> test/eval.py (~7500 invariants)
+#     (its PURE parts are being lifted out into fdm/* one at a time, and those ARE covered here)
 # Everything listed above is exercised elsewhere; nothing is simply unmeasured. Modules that ARE
 # in scope must be at 100% — the run fails otherwise and prints the uncovered lines.
 #
@@ -30,8 +31,8 @@ OUT=$(mktemp -d); trap 'rm -rf "$OUT"' EXIT
 fail=0
 
 # modules under test (pure) + the test drivers
-SRC="$ROOT/tiles/tilesrc.c $ROOT/tiles/route.c"
-TESTS="$HERE/main.c $HERE/test_tilemath.c $HERE/test_tilesrc.c $HERE/test_route.c"
+SRC="$ROOT/tiles/tilesrc.c $ROOT/tiles/route.c $ROOT/aircraft/fdm/atmosphere.c"
+TESTS="$HERE/main.c $HERE/test_tilemath.c $HERE/test_tilesrc.c $HERE/test_route.c $HERE/test_atmosphere.c $HERE/test_mat4.c $HERE/test_style.c"
 
 echo "== unit tests =="
 ( cd "$OUT" && gcc -O0 -g -Wall -Wextra --coverage -I"$HERE" -o unittests $TESTS $SRC -lm ) 2>"$OUT/cc.log" || {

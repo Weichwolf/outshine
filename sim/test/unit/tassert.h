@@ -28,9 +28,15 @@ static inline void ck_str(const char *got, const char *want, const char *what) {
     }
 }
 
+/* Section banner, so a failure says which group it came from. */
+static inline void tsection(const char *name) { printf("\n== %s ==\n", name); }
+
 /* Each module's tests. Return non-zero on failure. */
 int test_tilemath(void);
 int test_tilesrc(void);
 int test_route(void);
+void test_atmosphere(void);
+void test_mat4(void);
+void test_style(void);
 
 #endif /* FB_TASSERT_H */

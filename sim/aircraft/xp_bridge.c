@@ -29,6 +29,7 @@
 #include "protocol.h"
 #include "terrain.h"
 #include "fdm/ephemeris.h"
+#include "fdm/atmosphere.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -54,57 +55,17 @@ static state_t S;
  * system (aircraft home + command-center osmmesh origin) can fly anywhere. */
 static double HOME_LAT = 52.045, HOME_LON = 9.385, HOME_ELEV = 71.0;  /* ground ASL, matches osmmesh terrain at origin */
 
-/* --- atmosphere: steady wind + gusts + turbulence (env-tunable, live-overridable) --- */
-static double windN=0, windE=0;          /* steady wind vector, m/s (ground frame) */
-static double gustN=0, gustE=0;          /* slowly-varying gust offset, m/s */
-static double g_turb=1.0;                /* turbulence intensity (0=calm, 1=moderate, 2=rough) */
-static double g_sigma=0.6;               /* Dryden vertical-gust std, m/s (live-set from real gusts) */
-static double g_bl_height=800.0;         /* boundary-layer / thermal-top height, m AGL (live) */
-static double g_thermal_W=0.0;           /* peak thermal updraft, m/s (0=off; live from solar+BL) */
-/* TARGETS the 15-min live-weather refresh writes. The values above are slewed toward these
- * with a ~60 s time constant in physics_step. Assigning the wind DIRECTLY was an instantaneous
- * change of the aircraft's relative airflow every refresh — a real jolt ("kick") every 15 min.
- * Real weather changes gradually; so must ours. */
-static double windN_t=0, windE_t=0, g_turb_t=1.0, g_sigma_t=0.6, g_bl_t=800.0, g_thermal_t=0.0;
-static int    g_wx_first=1;              /* first fetch snaps (no minute-long ramp from zero) */
-static double g_gustP=0,g_gustQ=0;       /* current gust roll/pitch rates (deg/s) -> reported to iNav's gyro */
-static float  g_nz=1.0f;
-static long   g_bad_dref=0;     /* out-of-range control DREFs rejected (iNav servo glitches) */                  /* normal load factor (g) -> iNav accelerometer, not hardwired 1 */
+/* --- atmosphere: steady wind + gusts + turbulence + thermals. Lives in fdm/atmosphere.c;
+ * this is the only handle on it. Env-tunable at start-up, live-overridable by wx_fetch. --- */
+static fb_atmo ATM;
+static float  g_nz=1.0f;        /* normal load factor (g) -> iNav accelerometer, not hardwired 1 */
+static long   g_bad_dref=0;     /* out-of-range control DREFs rejected (iNav servo glitches) */
 static float  g_cloud=0.25f, g_vis=30000.0f;  /* live cloud cover 0..1 + horizontal visibility, m */
 /* live sun/moon ephemeris (filled ~1 Hz in main from real UTC + origin) */
 static float  g_sun_el=45, g_sun_az=180, g_moon_el=-10, g_moon_az=0, g_moon_ph=0.5f;
-/* xorshift PRNG + ~gaussian (sum of uniforms). Deterministic per run. */
-static uint32_t g_rng=2463534242u;
-static double urand(void){ g_rng^=g_rng<<13; g_rng^=g_rng>>17; g_rng^=g_rng<<5; return g_rng/4294967296.0; }
-/* ~gaussian, mean 0, UNIT variance (sum of 12 uniforms - 6). The old sum-of-4 had variance
- * 1/3, so every turbulence RMS driven by it was 0.58x the commanded sigma. */
-static double nrand(void){ double s=0; for(int i=0;i<12;i++)s+=urand(); return s-6.0; }
+/* Link-quality noise borrows the atmosphere's RNG stream (one deterministic sequence per run). */
+#define nrand() fb_atmo_nrand(&ATM)
 
-/* --- thermals: a field of Gaussian updraft columns on a jittered grid. Strength
- * and top come from live weather (solar radiation + boundary-layer height). The
- * plane bobs through lift and gentle inter-thermal sink, like a real soaring day. */
-static uint32_t hash2(int a,int b){ uint32_t h=(uint32_t)(a*73856093)^(uint32_t)(b*19349663); h^=h>>13; h*=0x5bd1e995u; h^=h>>15; return h; }
-static double thermal_w(double x,double y,double z){
-    if(g_thermal_W<0.1) return 0.0;
-    const double cell=340.0, R=110.0;                 /* thermal spacing + core radius, m */
-    double zf=z/fmax(g_bl_height,200.0);
-    if(zf<=0.0||zf>=1.0) return -0.10*g_thermal_W;     /* below/above the convective layer: no lift */
-    double prof=sin(zf*M_PI);                          /* 0 at ground, peak mid-layer, 0 at BL top */
-    int gx=(int)floor(x/cell+0.5), gy=(int)floor(y/cell+0.5);
-    double best=0.0;
-    for(int dx=-1;dx<=1;dx++)for(int dy=-1;dy<=1;dy++){
-        uint32_t h=hash2(gx+dx,gy+dy);
-        double cx=(gx+dx)*cell + ((h&255)/255.0-0.5)*cell*0.6;
-        double cy=(gy+dy)*cell + (((h>>8)&255)/255.0-0.5)*cell*0.6;
-        double rr=hypot(x-cx,y-cy);
-        double str=g_thermal_W*(0.55+0.45*(((h>>16)&255)/255.0));
-        double w=str*exp(-(rr*rr)/(R*R));
-        if(w>best)best=w;
-    }
-    return best*prof - 0.12*g_thermal_W;               /* core lift minus gentle ambient sink */
-}
-
-/* --- low-precision solar & lunar position (from real UTC + origin lat/lon) --- */
 /* --- live weather via Open-Meteo (background thread; never blocks the FDM) --- */
 static double jnum(const char*s,const char*key){ char p[64]; snprintf(p,sizeof p,"\"%s\":",key);
     const char*q=strstr(s,p); if(!q) return NAN; return atof(q+strlen(p)); }
@@ -134,19 +95,21 @@ static void wx_fetch(void){
     if(!isfinite(gust)) gust=wsp*1.4;
     /* wind at flight altitude ~ a bit stronger than 10 m (log profile); FROM dir -> blows toward */
     double v=wsp*1.25;
-    windN=-v*cos(wdir*RAD); windE=-v*sin(wdir*RAD);
     /* turbulence from the gust factor; Dryden sigma scales with it */
     double gf=fmax(0.0,gust-wsp);
     /* realistic low-altitude turbulence: MIL-F-8785C puts sigma_w ~ 0.1*W20; add a
      * modest gust-spread term. Capped so a strong-gust day is rough but still flyable. */
-    g_turb=fmax(0.3,fmin(1.6, 0.30+0.13*gf));
-    g_sigma=fmin(1.0, 0.08*wsp + 0.11*gf);   /* capped so even a very gusty day stays flyable */
-    g_bl_height=isfinite(blh)?fmax(300.0,blh):800.0;
-    g_thermal_W=isfinite(swr)?fmax(0.0,fmin(4.5, swr/230.0)):0.0;   /* ~1000 W/m2 midday -> strong lift */
+    fb_atmo_set_target(&ATM,
+        -v*cos(wdir*RAD), -v*sin(wdir*RAD),
+        fmax(0.3,fmin(1.6, 0.30+0.13*gf)),
+        fmin(1.0, 0.08*wsp + 0.11*gf),          /* capped so even a very gusty day stays flyable */
+        isfinite(blh)?fmax(300.0,blh):800.0,
+        isfinite(swr)?fmax(0.0,fmin(4.5, swr/230.0)):0.0);  /* ~1000 W/m2 midday -> strong lift */
+    fb_atmo_snap(&ATM);   /* TODO(slew): the ramp this file always claimed to do -> next commit */
     if(isfinite(cc))  g_cloud=(float)fmax(0.0,fmin(1.0,cc/100.0));
     if(isfinite(vis)) g_vis=(float)fmax(1500.0,fmin(60000.0,vis));
     fprintf(stderr,"[wx] LIVE wind=%.1fm/s@%.0f gust=%.1f cloud=%.0f%% vis=%.0fkm BL=%.0fm sun=%.0fW/m2 -> turb=%.2f therm=%.1f\n",
-        wsp,wdir,gust,cc,vis/1000.0,blh,swr,g_turb,g_thermal_W);
+        wsp,wdir,gust,cc,vis/1000.0,blh,swr,ATM.turb,ATM.thermal_W);
 }
 static int g_wx_live=1;
 static void* wx_thread(void*arg){ (void)arg;
@@ -169,8 +132,8 @@ static float sensor_value(const char *d){
     if(!strcmp(d,"sim/flightmodel/position/theta")) return (float)(-S.pitch); /* X-Plane theta sign is opposite iNav pitch */
     if(!strcmp(d,"sim/flightmodel/position/psi"))   return (float)(S.yaw<0?S.yaw+360:S.yaw);
     if(!strcmp(d,"sim/flightmodel/position/hpath"))  return (float)(S.yaw<0?S.yaw+360:S.yaw);
-    if(!strcmp(d,"sim/flightmodel/position/P"))      return (float)(S.p+g_gustP);  /* gyro sees the gust rate */
-    if(!strcmp(d,"sim/flightmodel/position/Q"))      return (float)(S.q+g_gustQ);
+    if(!strcmp(d,"sim/flightmodel/position/P"))      return (float)(S.p+ATM.gustP);  /* gyro sees the gust rate */
+    if(!strcmp(d,"sim/flightmodel/position/Q"))      return (float)(S.q+ATM.gustQ);
     if(!strcmp(d,"sim/flightmodel/position/R"))      return (float)S.r;
     if(!strcmp(d,"sim/flightmodel/forces/g_axil"))   return 0.0f;
     if(!strcmp(d,"sim/flightmodel/forces/g_side"))   return 0.0f;
@@ -315,25 +278,11 @@ static void physics_step(double dt){
 
     double Vrep=fmax(S.speed,3.0);         /* for turbulence scale-lengths below */
 
-    /* --- Dryden-form turbulence (MIL-F-8785C low-altitude spectra). wg = vertical
-     * gust (m/s, tilts the local alpha -> a REAL aero disturbance below); pg/qg =
-     * roll/pitch buffet rates reported to iNav's gyro so its rate loop can fight them. */
-    double h=fmax(S.agl,10.0), hf=h/0.3048;
-    double Lw=fmax(h,30.0), Lu=0.3048*fmax(hf,50.0)/pow(0.177+0.000823*hf,1.2);
-    double aw=fmin(1.0,Vrep*dt/Lw), au=fmin(1.0,Vrep*dt/fmax(Lu,20.0));
-    double gsc=fmin(1.0,0.30+0.012*S.agl)*g_sigma;       /* ease near ground for climb-out */
-    static double wg=0,pg=0,qg=0;
-    wg += -aw*wg + gsc     *sqrt(2*aw)*nrand();           /* vertical gust, m/s */
-    pg += -au*pg + 3.5*gsc *sqrt(2*au)*nrand();           /* roll-rate gust, deg/s */
-    qg += -au*qg + 1.7*gsc *sqrt(2*au)*nrand();           /* pitch-rate gust, deg/s */
-    g_gustP=pg; g_gustQ=qg;                               /* -> iNav gyro (P/Q drefs) */
-    /* Ornstein-Uhlenbeck horizontal wind wander (mean-revert to 0 offset) */
-    double gtau=3.0, gsig=0.52*g_turb;
-    gustN += (-gustN/gtau)*dt + gsig*sqrt(dt)*nrand();
-    gustE += (-gustE/gtau)*dt + gsig*sqrt(dt)*nrand();
+    /* Turbulence + gust wander: the atmosphere module owns the maths and the state. */
+    fb_atmo_step_gusts(&ATM, dt, S.agl, Vrep);
     /* thermal + vertical gust = total vertical air motion at the current position */
     double tx=(S.lon-HOME_LON)*111320.0*cos(S.lat*RAD), ty=(S.lat-HOME_LAT)*111320.0;
-    double w_air=wg + thermal_w(tx,ty,S.agl);
+    double w_air=ATM.wg + fb_atmo_thermal_w(&ATM,tx,ty,S.agl);
 
     /* Euler state -> radians; body rates -> rad/s (integrated internally, exported deg/s) */
     double phi=S.roll*RAD, th=S.pitch*RAD, psi=S.yaw*RAD;
@@ -354,7 +303,7 @@ static void physics_step(double dt){
      * the aircraft's velocity-through-mean-air to get the true relative flow the
      * surfaces feel. This is how gusts/thermals become real aerodynamic upsets. */
     double gbx,gby,gbz;
-    ned_to_body(phi,th,psi, gustN,gustE,-w_air, &gbx,&gby,&gbz);
+    ned_to_body(phi,th,psi, ATM.gustN,ATM.gustE,-w_air, &gbx,&gby,&gbz);
 
     double Fz_aero=0.0;                                   /* body-z aero force -> load factor */
 
@@ -440,7 +389,7 @@ static void physics_step(double dt){
     }
 
     /* gust roll/pitch buffet bodily rotates the airframe (iNav's gyro already saw it) */
-    phi += pg*RAD*dt;  th += qg*RAD*dt;
+    phi += ATM.pg*RAD*dt;  th += ATM.qg*RAD*dt;
     th=fmax(-1.48,fmin(1.48,th));
 
     /* --- write attitude / rates back to the shared state --- */
@@ -455,7 +404,7 @@ static void physics_step(double dt){
      * The plane drifts downwind, so iNav must crab to hold a loiter — as in reality. */
     double VN,VE,VD;
     body_to_ned(phi,th,psi, u,v,w, &VN,&VE,&VD);
-    double vN=VN+windN+gustN, vE=VE+windE+gustE;
+    double vN=VN+ATM.windN+ATM.gustN, vE=VE+ATM.windE+ATM.gustE;
     S.gs=hypot(vN,vE);
     double climb=-VD + w_air;                            /* aero climb + air-mass vertical motion */
     S.elev+=climb*dt;
@@ -554,13 +503,22 @@ int main(void){
     if(getenv("FDM_MODEL")){ int idx=atoi(getenv("FDM_MODEL")); if(idx>=0&&idx<NMODELS) MDL=&MODELS[idx]; }
     if(getenv("ORIGIN_LAT")) HOME_LAT=atof(getenv("ORIGIN_LAT"));
     if(getenv("ORIGIN_LON")) HOME_LON=atof(getenv("ORIGIN_LON"));
-    /* atmosphere: steady wind (WIND_SPEED m/s FROM WIND_DIR deg) + turbulence (TURB) */
+    /* atmosphere: steady wind (WIND_SPEED m/s FROM WIND_DIR deg) + turbulence (TURB).
+     * fb_atmo_init FIRST: ATM is a static, so without it every default would be 0 — a calm,
+     * thermal-free, sigma-0 world, silently different from the old file-scope initialisers. */
+    fb_atmo_init(&ATM);
     { double wsp=getenv("WIND_SPEED")?atof(getenv("WIND_SPEED")):3.5;
       double wdir=getenv("WIND_DIR")?atof(getenv("WIND_DIR")):240.0;   /* WSW default */
-      windN=-wsp*cos(wdir*RAD); windE=-wsp*sin(wdir*RAD);              /* FROM dir -> blows toward */
-      if(getenv("TURB")) g_turb=atof(getenv("TURB")); }
-    g_sigma=0.6*g_turb;                                                /* default gust std tracks turb */
-    if(getenv("THERMAL")) g_thermal_W=atof(getenv("THERMAL"));         /* manual thermal strength override */
+      double turb=getenv("TURB")?atof(getenv("TURB")):ATM.turb;
+      /* Seed target AND current: the env value is the starting weather, not something to
+       * ramp toward from zero. wx_fetch overrides both as soon as real weather lands. */
+      fb_atmo_set_target(&ATM,
+          -wsp*cos(wdir*RAD), -wsp*sin(wdir*RAD),                      /* FROM dir -> blows toward */
+          turb,
+          0.6*turb,                                                     /* default gust std tracks turb */
+          ATM.bl_height,
+          getenv("THERMAL")?atof(getenv("THERMAL")):ATM.thermal_W);     /* manual thermal override */
+      fb_atmo_snap(&ATM); }
     if(getenv("WX_LIVE")) g_wx_live=atoi(getenv("WX_LIVE"));
     if(getenv("LOITER_ALT")) g_loalt=atof(getenv("LOITER_ALT"));
     if(getenv("LOITER_RADIUS")) g_lorad=atof(getenv("LOITER_RADIUS"));
@@ -702,7 +660,7 @@ int main(void){
                        /* steer the GROUND TRACK (heading + wind), not the heading, so the actual
                         * path is the circle and there's no steady crab bias in wind (expert P7). */
                        double yawr=S.yaw*RAD;
-                       double gE=S.speed*sin(yawr)+windE+gustE, gN=S.speed*cos(yawr)+windN+gustN;
+                       double gE=S.speed*sin(yawr)+ATM.windE+ATM.gustE, gN=S.speed*cos(yawr)+ATM.windN+ATM.gustN;
                        double gsp=hypot(gE,gN); if(gsp<0.5)gsp=0.5;
                        double te0=gE/gsp, tn0=gN/gsp;                         /* ground-track unit */
                        double track=atan2(gE,gN)*DEG; if(track<0)track+=360;

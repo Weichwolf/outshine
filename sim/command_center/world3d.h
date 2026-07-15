@@ -43,20 +43,10 @@ static const w3_star W3_STARS[] = {
 #define W3_NSTARS ((int)(sizeof(W3_STARS)/sizeof(W3_STARS[0])))
 static double w3_olat=52.045, w3_olon=9.385;   /* origin, set on osmmesh open; drives star alt/az */
 
-/* ---- mat4 (column-major) ---- */
-static void m_identity(float*m){ memset(m,0,64); m[0]=m[5]=m[10]=m[15]=1; }
-static void m_mul(float*o,const float*a,const float*b){ float r[16];
-  for(int c=0;c<4;c++)for(int rr=0;rr<4;rr++){ float s=0; for(int k=0;k<4;k++) s+=a[k*4+rr]*b[c*4+k]; r[c*4+rr]=s; }
-  memcpy(o,r,64); }
-static void m_persp(float*m,float fovy,float asp,float zn,float zf){ float f=1.f/tanf(fovy*0.5f);
-  memset(m,0,64); m[0]=f/asp; m[5]=f; m[10]=(zf+zn)/(zn-zf); m[11]=-1; m[14]=(2*zf*zn)/(zn-zf); }
-static void v_norm(float*v){ float l=sqrtf(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]); if(l>1e-6f){v[0]/=l;v[1]/=l;v[2]/=l;} }
-static void v_cross(float*o,const float*a,const float*b){ o[0]=a[1]*b[2]-a[2]*b[1]; o[1]=a[2]*b[0]-a[0]*b[2]; o[2]=a[0]*b[1]-a[1]*b[0]; }
-static void m_lookat(float*m,const float*eye,const float*ctr,const float*up){
-  float f[3]={ctr[0]-eye[0],ctr[1]-eye[1],ctr[2]-eye[2]}; v_norm(f);
-  float s[3]; v_cross(s,f,up); v_norm(s); float u[3]; v_cross(u,s,f); m_identity(m);
-  m[0]=s[0];m[4]=s[1];m[8]=s[2]; m[1]=u[0];m[5]=u[1];m[9]=u[2]; m[2]=-f[0];m[6]=-f[1];m[10]=-f[2];
-  m[12]=-(s[0]*eye[0]+s[1]*eye[1]+s[2]*eye[2]); m[13]=-(u[0]*eye[0]+u[1]*eye[1]+u[2]*eye[2]); m[14]=(f[0]*eye[0]+f[1]*eye[1]+f[2]*eye[2]); }
+/* mat4 / vec3 maths: GL-free, so it lives in gfx/mat4.h and is unit-tested directly. */
+#include "gfx/mat4.h"
+/* OSM cartography (kind -> colour/width): GL-free, unit-tested in test/unit/test_style.c */
+#include "gfx/style.h"
 
 /* ---- GL program helpers ---- */
 static GLuint w3_shader(GLenum t,const char*src){ GLuint s=glCreateShader(t); glShaderSource(s,1,&src,0); glCompileShader(s);
@@ -263,27 +253,6 @@ static void w3_drawline(uint8_t*im,int W,int H,const osmmesh_mvt_feature*ft,floa
   for(size_t ring=0;ring<nr;ring++){ size_t a=ft->n_rings?ft->ring_offsets[ring]:0, bb=ft->n_rings?ft->ring_offsets[ring+1]:ft->n_coords;
     for(size_t k=a+1;k<bb;k++) w3_thick(im,W,H,co[k-1].x*sc,co[k-1].y*sc,co[k].x*sc,co[k].y*sc,w,r,g,b); } }
 
-static void w3_landcolor(const char*k,uint8_t*r,uint8_t*g,uint8_t*b){
-  struct{const char*k;uint8_t r,g,bl;} T[]={
-    {"wood",70,105,60},{"forest",70,105,60},{"scrub",125,150,85},{"heath",150,160,100},
-    {"farmland",206,192,142},{"farmyard",192,178,132},{"allotments",182,186,122},{"vineyard",170,180,120},
-    {"meadow",156,192,112},{"grass",162,196,116},{"grassland",162,196,116},{"park",142,192,122},
-    {"garden",150,192,120},{"playground",150,190,120},{"cemetery",122,156,112},{"recreation_ground",150,190,120},
-    {"residential",206,199,189},{"commercial",196,181,166},{"retail",202,182,162},{"industrial",176,166,176},
-    {"quarry",180,170,160},{"sand",225,215,170},{"beach",235,225,180}};
-  for(size_t i=0;i<sizeof(T)/sizeof(T[0]);i++) if(!strcmp(k,T[i].k)){*r=T[i].r;*g=T[i].g;*b=T[i].bl;return;}
-  *r=150;*g=178;*b=118;
-}
-static float w3_roadstyle(const char*k,uint8_t*r,uint8_t*g,uint8_t*b,int*rail){
-  *rail=0; float u=(float)W3_TEX/1024.0f;   /* widths tuned for a ~1.5 km tile */
-  if(!strcmp(k,"rail")||!strcmp(k,"tram")){*r=95;*g=95;*b=105;*rail=1;return 2.0f*u;}
-  if(!strcmp(k,"motorway")||!strcmp(k,"trunk")){*r=250;*g=205;*b=140;return 6*u;}
-  if(!strcmp(k,"primary")){*r=250;*g=222;*b=165;return 5*u;}
-  if(!strcmp(k,"secondary")){*r=250;*g=242;*b=205;return 4*u;}
-  if(!strcmp(k,"tertiary")){*r=246;*g=242;*b=222;return 3.2f*u;}
-  if(!strcmp(k,"residential")||!strcmp(k,"living_street")||!strcmp(k,"unclassified")||!strcmp(k,"service")){*r=236;*g=233;*b=225;return 2.4f*u;}
-  *r=200;*g=175;*b=140;return 1.4f*u;    /* track/path/footway/steps */
-}
 static const osmmesh_mvt_layer* w3_layer(osmmesh_mvt_tile*t,const char*name){
   size_t nl=osmmesh_mvt_num_layers(t);
   for(size_t i=0;i<nl;i++){ const osmmesh_mvt_layer*l=osmmesh_mvt_layer_at(t,i); if(!strcmp(osmmesh_mvt_layer_name(l),name)) return l; }
@@ -329,7 +298,7 @@ static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS){
       /* roads then rails (2nd pass keeps rails visible) then rivers */
       if((L=w3_layer(t,"streets"))){ float sc=(float)TS/osmmesh_mvt_layer_extent(L); size_t nf=osmmesh_mvt_num_features(L);
         for(int pass=0;pass<2;pass++) for(size_t f=0;f<nf;f++){ const osmmesh_mvt_feature*ft=osmmesh_mvt_feature_at(L,f);
-          if(ft->geom_type!=OSMMESH_MVT_GEOM_LINESTRING) continue; float w=w3_roadstyle(w3_kind(L,ft),&r,&g,&b,&rail);
+          if(ft->geom_type!=OSMMESH_MVT_GEOM_LINESTRING) continue; float w=w3_roadstyle(w3_kind(L,ft),W3_TEX,&r,&g,&b,&rail);
           if(rail!=pass) continue; w3_drawline(im,TS,TS,ft,sc,w,r,g,b); } }
       if((L=w3_layer(t,"water_lines"))){ float sc=(float)TS/osmmesh_mvt_layer_extent(L); size_t nf=osmmesh_mvt_num_features(L);
         for(size_t f=0;f<nf;f++){ const osmmesh_mvt_feature*ft=osmmesh_mvt_feature_at(L,f);
