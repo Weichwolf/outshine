@@ -81,6 +81,27 @@ Two traps that already cost a session each, both fixed in `shot.js` — do not u
 - The DEM/tile cache lives in the `fbtiles-cache` volume: upstream is hit once per tile, ever.
 - `ORIGIN_LAT`/`ORIGIN_LON` set the shared home and reach the browser via `/config.js`, as does
   `TILES_URL`.
+- **A COLD CACHE now converges — proven. A FOREIGN ORIGIN is still not.** Hameln on an empty volume
+  (`bench_stack.sh cold`, verified 0 files before the run): `0 pending, 0 waiting` after **432 s**,
+  against ~15 s warm — a factor of 29. Verified at the pixels, not just the counters: a fully
+  rendered night landscape. That settles the 404 fix below. What it does NOT settle is a foreign
+  origin: Aoraki was never given enough time (111/128 at 300 s, and Hameln alone needs 432), and
+  `/elev` still seeds the wrong home elevation there — the Hameln run had no confound only by luck,
+  because the compiled-in seed (71.0 m) *is* Hameln's ground. A proof that works because the fixture
+  happens to match the fallback is not a proof of the general case.
+  - **The gate criterion is `0 pending && 0 waiting`, never a chunk count.** `W3_BUDGET` is a
+    ceiling, not a target: a complete cut through the tree can be any number under it, depending on
+    pose (this run: 126). `shot.sh` already waits on exactly that. Declaring "128 chunks" the
+    criterion made a budget constant into a goal the code never used.
+  - **`pngstat` is a DAYLIGHT predicate.** It called this run `SUSPECT — scene looks empty` at 1 %
+    ground, while the screenshot shows fields, a settlement and stars. `SUN -14`: it was night, and
+    `uLight = 0.20 + 0.80*day` dims the world to 20 %. Not rock and snow — **the clock**. Any cold
+    run after sunset fails the gate. "Vegetation always beats blue" is an assumption about daylight
+    sold as a statement about the renderer.
+  - Honest throughput, from the first properly defined window: **5.9 prefetch jobs/s** (2540 jobs,
+    433 s, empty volume, 0 dropped, 0 failed). Consistent with the single worker thread; **proof of
+    nothing** — the test would be N threads against this same fixture, which is now repeatable.
+  - `dem_fail=89` in that run, with `fetch_fail=0` and `bake_fail=0`. Unexplained. Not interpreted.
 - **"Any origin on earth works" was the claim here, and it was FALSE.** A cold region did not load
   at all. Measured over the Matterhorn on an unmodified build: `0 chunks drawn, 39 pending`, one
   log line, then silence — while fb-tiles was already answering 200 for those very tiles. Hameln
