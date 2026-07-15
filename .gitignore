@@ -5,6 +5,11 @@ sim/flightbox/web/cc.wasm
 *.o
 *.elf
 
+# --- derived map data (~32 MB, obtained by sim/geo/fetch-data.sh) ---
+sim/geo/data/
+# --- download cache of the map-data build tools (GBs: planetiler.jar, OSM pbf, water polygons) ---
+sim/geo/tools/.cache/
+
 # --- vendored / generated (recreated by build scripts) ---
 sim/inav-src/
 sim/inav-sitl/
