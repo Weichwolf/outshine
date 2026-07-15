@@ -5,6 +5,7 @@
 #ifndef FB_PROTOCOL_H
 #define FB_PROTOCOL_H
 #include <stdint.h>
+#include <stddef.h>
 
 /* UDP ports of the fake radio link */
 #define FB_UP_PORT    6001   /* flightbox -> aircraft : control uplink   */
@@ -70,6 +71,31 @@ typedef struct {
 } video_packet_t;
 
 #pragma pack(pop)
+
+/* ---- wire-layout guards -------------------------------------------------------------
+ * These structs cross a process boundary (aircraft -> flightbox -> browser) AND are hand-decoded
+ * by test/eval.py, which hardcodes "<I + 20 floats + BBH". Nothing at run time re-checks the
+ * layout: a reordered or inserted field would decode as plausible-looking garbage — a wrong
+ * attitude, not an error. So pin it at compile time. If you change a struct, these fail and you
+ * update eval.py's struct string deliberately, instead of finding out from a wobbly horizon. */
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+_Static_assert(sizeof(telem_packet_t) == 4 + 20*4 + 1 + 1 + 2,
+    "telem_packet_t size changed -> update TELE in sim/test/eval.py");
+_Static_assert(offsetof(telem_packet_t, roll) == 4,
+    "telemetry floats must start right after magic");
+_Static_assert(offsetof(telem_packet_t, airspeed) == 4 + 19*4,
+    "airspeed must be the 20th float -> eval.py index m[20]");
+_Static_assert(offsetof(telem_packet_t, state) == 4 + 20*4,
+    "state follows the 20 floats -> eval.py index m[21]");
+_Static_assert(offsetof(telem_packet_t, rssi) == 4 + 20*4 + 1,
+    "rssi follows state -> eval.py index m[22]");
+_Static_assert(offsetof(telem_packet_t, seq) == 4 + 20*4 + 2,
+    "seq is last -> receivers space samples by it, never by arrival time");
+_Static_assert(sizeof(ctrl_packet_t) == 4 + 4*4 + 1 + 1 + 2,
+    "ctrl_packet_t size changed -> update CTRL in sim/test/eval.py");
+_Static_assert(sizeof(video_packet_t) == 4 + 2 + 2 + 2 + 2 + VID_W*VID_H*2,
+    "video_packet_t must stay one datagram with no padding");
+#endif
 
 #define RGB565(r, g, b) \
     ((uint16_t)(((((uint32_t)(r)) & 0xF8u) << 8) | \

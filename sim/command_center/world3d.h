@@ -358,10 +358,27 @@ static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS){
  * dense row-major grid (256x256); we DECIMATE it to a coarse W3_TERR x W3_TERR grid
  * (detail comes from the draped texture, not the geometry) and drape UV from the tile's
  * ENU bbox (north -> v=0 -> texture top). Coarse geometry = smooth framerate. */
+/* The terrain vertex layout, in one place.
+ *
+ * The writer (w3_push8/w3_terr_vbo) and the reader (glVertexAttribPointer) used to agree only by
+ * hand: literal stride 32 and offsets 0/12/20 spelled out at the draw call. When normals were
+ * added the stride went 20 -> 32 and every one of those numbers had to change together; getting
+ * one wrong does not error, it renders garbage. Derive them from the struct instead, and pin the
+ * result so a layout change breaks the build rather than the picture. */
+typedef struct { float pos[3]; float uv[2]; float norm[3]; } w3_vtx;
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+_Static_assert(sizeof(w3_vtx) == 8*sizeof(float), "terrain vertex must be tightly packed (no padding)");
+_Static_assert(offsetof(w3_vtx, pos)  == 0,  "aPos offset");
+_Static_assert(offsetof(w3_vtx, uv)   == 12, "aUV offset");
+_Static_assert(offsetof(w3_vtx, norm) == 20, "aNorm offset");
+#endif
+#define W3_VTX_STRIDE ((GLsizei)sizeof(w3_vtx))
+#define W3_VTX_OFF(f)  ((void*)offsetof(w3_vtx, f))
+
 /* Upload a ready 8-float/vertex soup (pos.xyz, uv, normal.xyz) as-is. */
 static GLuint w3_push8(const float*v,size_t o,int*out_nv){
   GLuint vbo; glGenBuffers(1,&vbo); glBindBuffer(GL_ARRAY_BUFFER,vbo);
-  glBufferData(GL_ARRAY_BUFFER,o*sizeof(float),v,GL_STATIC_DRAW); *out_nv=(int)(o/8); return vbo;
+  glBufferData(GL_ARRAY_BUFFER,o*sizeof(float),v,GL_STATIC_DRAW); *out_nv=(int)(o/(sizeof(w3_vtx)/sizeof(float))); return vbo;
 }
 /* Take a 5-float/vertex triangle soup (pos.xyz, uv) and emit an 8-float/vertex VBO with a
  * per-triangle FACE NORMAL appended (flat shading). Used only for the irregular-mesh
@@ -718,8 +735,9 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
     glActiveTexture(GL_TEXTURE0); glUniform1i(w3_wtTex,0);
     glEnableVertexAttribArray(w3_wtPos); glEnableVertexAttribArray(w3_wtUV); glEnableVertexAttribArray(w3_wtNorm);
     #define W3_DRAWARR(arr,n) for(int i=0;i<n;i++){ glBindTexture(GL_TEXTURE_2D,arr[i].tex); glBindBuffer(GL_ARRAY_BUFFER,arr[i].vbo); \
-      glVertexAttribPointer(w3_wtPos,3,GL_FLOAT,GL_FALSE,32,0); glVertexAttribPointer(w3_wtUV,2,GL_FLOAT,GL_FALSE,32,(void*)12); \
-      glVertexAttribPointer(w3_wtNorm,3,GL_FLOAT,GL_FALSE,32,(void*)20); \
+      glVertexAttribPointer(w3_wtPos,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(pos)); \
+      glVertexAttribPointer(w3_wtUV,2,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(uv)); \
+      glVertexAttribPointer(w3_wtNorm,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(norm)); \
       glDrawArrays(GL_TRIANGLES,0,arr[i].nverts); }
     glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(4.0f,64.0f);   /* push the far ring back so near detail wins on overlap */
     W3_DRAWARR(w3_TF,w3_nTF);
