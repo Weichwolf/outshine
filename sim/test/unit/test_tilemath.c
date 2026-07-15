@@ -7,22 +7,11 @@
  * Target: 100% line coverage of tilemath.h. It is pure maths — there is no excuse for less.
  */
 #include "../../tiles/tilemath.h"
-#include <stdio.h>
-#include <string.h>
+#include "tassert.h"
 
-static int g_fail = 0, g_run = 0;
 
-static void ck(int cond, const char *what) {
-    g_run++;
-    if (!cond) { g_fail++; printf("  [FAIL] %s\n", what); }
-}
-static void ck_near(double got, double want, double tol, const char *what) {
-    g_run++;
-    double d = got - want; if (d < 0) d = -d;
-    if (d > tol) { g_fail++; printf("  [FAIL] %s: got %.6f want %.6f (tol %.g)\n", what, got, want, tol); }
-}
 
-int main(void) {
+int test_tilemath(void) {
     printf("== tilemath unit tests ==\n");
 
     /* ---- fb_clampd ---- */
@@ -110,6 +99,5 @@ int main(void) {
     float one[1] = { 42 };
     ck_near(fb_bilinear(one, 1, 1, 0.7, 0.7), 42, 1e-6, "bilinear 1x1 grid");
 
-    printf("== %d/%d assertions passed ==\n", g_run - g_fail, g_run);
-    return g_fail ? 1 : 0;
+    return 0;
 }

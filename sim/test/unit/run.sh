@@ -1,48 +1,58 @@
 #!/usr/bin/env bash
 # Unit tests + line-coverage report for the pure-logic modules.
 #
-# Scope, honestly: this covers code that CAN be covered — pure maths and parsing. GL shaders
-# need a context and the service loops are `for(;;) accept()`; those are exercised end-to-end by
-# sim/test/eval.py, not here. Modules below 100% print their uncovered lines rather than having
-# the number quietly rounded up.
+# SCOPE, stated honestly. This covers code that CAN be covered by a unit test: pure maths,
+# source descriptors and parsers. Deliberately NOT here, and why:
+#   - tiles/cache.c, tiles/elev.c   need a network and a real upstream -> live route checks
+#   - tiles/main.c                  is a `for(;;) accept()` server loop -> live route checks
+#   - aircraft/terrain.c            polls a running service            -> live checks
+#   - command_center/*              needs a GL context                 -> render_native + browser
+#   - aircraft/xp_bridge.c          is the plant in a closed loop      -> test/eval.py (~7500 invariants)
+# Everything listed above is exercised elsewhere; nothing is simply unmeasured. Modules that ARE
+# in scope must be at 100% — the run fails otherwise and prints the uncovered lines.
 #
-# Note on gcov: do NOT pass -r/--relative-only. Our headers resolve to absolute paths, so it
-# silently drops them and then reports a meaningless "100% of 4 lines". We parse gcov's own
-# summary instead of counting lines ourselves — measuring the measurement is how you get fooled.
+# Two gcov traps this script exists to avoid (both bit us):
+#   - do NOT pass -r/--relative-only: our headers resolve to absolute paths, so it silently drops
+#     them and then reports a meaningless "100% of 4 lines".
+#   - gcov cannot merge across binaries. All tests therefore link into ONE binary; separate
+#     binaries reported every file a given test didn't touch as 0%, so the "coverage" depended on
+#     which report you read first.
+# We parse gcov's own summary rather than counting lines ourselves — measuring the measurement
+# is how you get fooled.
 #
 #   ./run.sh            run tests + print coverage
 #   ./run.sh --html     also write lcov HTML (needs lcov)
 set -uo pipefail
 cd "$(dirname "$0")"
 HERE=$(pwd)
+ROOT=$(cd "$HERE/../.." && pwd)
 OUT=$(mktemp -d); trap 'rm -rf "$OUT"' EXIT
 fail=0
 
+# modules under test (pure) + the test drivers
+SRC="$ROOT/tiles/tilesrc.c $ROOT/tiles/route.c"
+TESTS="$HERE/main.c $HERE/test_tilemath.c $HERE/test_tilesrc.c $HERE/test_route.c"
+
 echo "== unit tests =="
-for t in test_*.c; do
-    ( cd "$OUT" && gcc -O0 -g -Wall -Wextra --coverage -o "${t%.c}" "$HERE/$t" -lm ) 2>"$OUT/cc.log" || {
-        echo "  [BUILD FAIL] $t"; sed 's/^/      /' "$OUT/cc.log"; fail=1; continue; }
-    ( cd "$OUT" && "./${t%.c}" ) || fail=1
-done
+( cd "$OUT" && gcc -O0 -g -Wall -Wextra --coverage -I"$HERE" -o unittests $TESTS $SRC -lm ) 2>"$OUT/cc.log" || {
+    echo "  [BUILD FAIL]"; sed 's/^/      /' "$OUT/cc.log"; exit 1; }
+( cd "$OUT" && ./unittests ) || fail=1
 
 echo
 echo "== line coverage (gcov's own numbers) =="
-( cd "$OUT" && gcov ./*.gcda 2>/dev/null ) | awk -v root="$(cd "$HERE/../.." && pwd)" '
-  /^File / {
-      path=$2; gsub(/['\''"]/,"",path); file=path; next
-  }
+( cd "$OUT" && gcov ./unittests-*.gcda 2>/dev/null ) | awk -v root="$ROOT" '
+  /^File / { path=$2; gsub(/[\x27"]/,"",path); file=path; next }
   /^Lines executed:/ {
       split($0,a,":"); split(a[2],b,"% of "); pct=b[1]+0; tot=b[2]+0;
-      # only report our own sources, not the test drivers or system headers
-      if (file ~ /\/test_/ || file !~ root) next;
+      # skip the test drivers and their helpers: only production modules are reported
+      if (file ~ /test\/unit\// || file !~ root) next;
       short=file; sub(root"/","",short);
-      if (short in seen) next;                 # gcov can emit a file once per object; report once
-      seen[short]=1;
-      if (pct >= 99.995) printf "  [100%%] %-28s (%d lines)\n", short, tot;
-      else { printf "  [%5.1f%%] %-28s (%d lines)  <- NOT fully covered\n", pct, short, tot; bad=1 }
+      if (short in seen) next; seen[short]=1;
+      if (pct >= 99.995) printf "  [100%%] %-26s (%d lines)\n", short, tot;
+      else { printf "  [%5.1f%%] %-26s (%d lines)  <- NOT fully covered\n", pct, short, tot; bad=1 }
   }
   END { exit bad?1:0 }
-' || { echo "  ^ a module is below 100% — add tests or justify the gap"; fail=1; }
+' || { echo "  ^ a module in scope is below 100% — add tests or move it out of scope with a reason"; fail=1; }
 
 if [ "${1:-}" = "--html" ] && command -v lcov >/dev/null; then
     lcov -c -d "$OUT" -o "$OUT/c.info" >/dev/null 2>&1
