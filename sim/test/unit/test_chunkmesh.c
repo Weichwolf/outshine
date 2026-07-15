@@ -44,7 +44,10 @@ static float h_tilt(float e, float n){ return 0.3f*e - 0.2f*n; }
 /* dz/de = 0.02*e -- varies across the field, so neighbouring nodes cannot share a normal */
 static float h_curve(float e, float n){ (void)n; return 0.01f*e*e; }
 
-static const w3_vtx *vtx(const w3_chunk *c, int i){ return (const w3_vtx*)(c->verts) + i; }
+/* No cast: w3_chunk.verts IS w3_vtx*. It used to be a float* with the layout in a comment, and
+ * the cast this helper needed was the tell -- a type that has to be re-asserted at the reader is
+ * a type that was not doing its job. */
+static const w3_vtx *vtx(const w3_chunk *c, int i){ return &c->verts[i]; }
 
 void test_chunkmesh(void){
     tsection("chunkmesh: tilted plane decimates exactly (err == 0, analytic normal)");

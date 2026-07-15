@@ -34,12 +34,18 @@ _Static_assert(offsetof(w3_vtx, pos)  == 0,  "aPos offset");
 _Static_assert(offsetof(w3_vtx, uv)   == 12, "aUV offset");
 _Static_assert(offsetof(w3_vtx, norm) == 20, "aNorm offset");
 #endif
-#define W3_VTX_FLOATS ((int)(sizeof(w3_vtx)/sizeof(float)))
 
-/* One built chunk. `verts` is nverts * w3_vtx, malloc'd -- release with w3_chunk_free. */
+/* One built chunk. malloc'd -- release with w3_chunk_free.
+ *
+ * `verts` is w3_vtx*, not float*. That is the whole point of having the struct: as a float cursor
+ * the layout lives in the writer's head and in a comment, and every write site is eight
+ * unchecked v[o++] in an order nothing enforces. As w3_vtx* the compiler checks each field, the
+ * sizeof() at the glBufferData call is tautological rather than an agreement, and the count is a
+ * VERTEX count -- no float-count that has to be divided by 8 to become one, which is its own
+ * place to be wrong. */
 typedef struct {
-  float *verts;
-  int    nverts;
+  w3_vtx *verts;
+  int     nverts;
   float  err;      /* max |drawn surface - source height| in METRES; drives the LOD.
                     * 0 for the irregular-mesh fallback: nothing was decimated there, so there is
                     * no decimation error, so that chunk never wants to split. */
@@ -146,15 +152,16 @@ static int w3_chunk_build(const osmmesh_mesh *m, int grid, w3_chunk *out){
      * terrain on earth. The skirt hangs straight down and is hidden by the neighbour. */
     float skirt=2.f*err; if(skirt<5.f) skirt=5.f;
     int nquad=(gr-1)*(gc-1), nedge=2*((gr-1)+(gc-1));
-    float*v=malloc(((size_t)nquad+nedge)*6*(size_t)W3_VTX_FLOATS*sizeof(float)); size_t o=0;
+    w3_vtx*v=malloc(((size_t)nquad+nedge)*6*sizeof(w3_vtx)); size_t o=0;
     if(!v){ free(np); free(nv); return 0; }
     for(int j=0;j<gr-1;j++)for(int i=0;i<gc-1;i++){
       int q[6]={ j*gc+i, j*gc+(i+1), (j+1)*gc+(i+1), j*gc+i, (j+1)*gc+(i+1), (j+1)*gc+i };
       for(int k=0;k<6;k++){
         const float*P=np+(size_t)q[k]*3, *N=nv+(size_t)q[k]*3;
-        v[o++]=P[0]; v[o++]=P[2]; v[o++]=-P[1];                 /* pos: east, up, -north */
-        v[o++]=(P[0]-emin)/de; v[o++]=(nmax-P[1])/dn;           /* uv: u=0 west, v=0 NORTH */
-        v[o++]=N[0]; v[o++]=N[1]; v[o++]=N[2];                  /* smooth normal */
+        w3_vtx*d=&v[o++];
+        d->pos[0]=P[0];  d->pos[1]=P[2];  d->pos[2]=-P[1];      /* pos: east, up, -north */
+        d->uv[0]=(P[0]-emin)/de; d->uv[1]=(nmax-P[1])/dn;       /* uv: u=0 west, v=0 NORTH */
+        d->norm[0]=N[0]; d->norm[1]=N[1]; d->norm[2]=N[2];      /* smooth normal */
       }
     }
     /* skirt: a curtain hanging from each boundary edge, textured with the edge's own texels so
@@ -162,12 +169,13 @@ static int w3_chunk_build(const osmmesh_mesh *m, int grid, w3_chunk *out){
     #define W3_SKIRT_EDGE(a,b) do{ \
       const float*A=np+(size_t)(a)*3, *B=np+(size_t)(b)*3; \
       float au=(A[0]-emin)/de, av=(nmax-A[1])/dn, bu=(B[0]-emin)/de, bv=(nmax-B[1])/dn; \
-      const float NA[3]={0.f,1.f,0.f}; \
       float P6[6][3]={{A[0],A[2],-A[1]},{B[0],B[2],-B[1]},{B[0],B[2]-skirt,-B[1]}, \
                       {A[0],A[2],-A[1]},{B[0],B[2]-skirt,-B[1]},{A[0],A[2]-skirt,-A[1]}}; \
       float U6[6][2]={{au,av},{bu,bv},{bu,bv},{au,av},{bu,bv},{au,av}}; \
-      for(int k=0;k<6;k++){ v[o++]=P6[k][0]; v[o++]=P6[k][1]; v[o++]=P6[k][2]; \
-        v[o++]=U6[k][0]; v[o++]=U6[k][1]; v[o++]=NA[0]; v[o++]=NA[1]; v[o++]=NA[2]; } \
+      for(int k=0;k<6;k++){ w3_vtx*d=&v[o++]; \
+        d->pos[0]=P6[k][0]; d->pos[1]=P6[k][1]; d->pos[2]=P6[k][2]; \
+        d->uv[0]=U6[k][0];  d->uv[1]=U6[k][1]; \
+        d->norm[0]=0.f;     d->norm[1]=1.f;    d->norm[2]=0.f; } \
     }while(0)
     for(int i=0;i<gc-1;i++){ W3_SKIRT_EDGE(i+1, i);                                  }  /* north */
     for(int i=0;i<gc-1;i++){ W3_SKIRT_EDGE((gr-1)*gc+i, (gr-1)*gc+i+1);              }  /* south */
@@ -178,7 +186,7 @@ static int w3_chunk_build(const osmmesh_mesh *m, int grid, w3_chunk *out){
     #undef W3_MV
     #undef W3_RI
     #undef W3_CI
-    out->verts=v; out->nverts=(int)(o/(size_t)W3_VTX_FLOATS);
+    out->verts=v; out->nverts=(int)o;         /* o counts VERTICES, so there is nothing to divide */
     return 1;
   }
 
@@ -187,7 +195,7 @@ static int w3_chunk_build(const osmmesh_mesh *m, int grid, w3_chunk *out){
   uint32_t nt=m->n_triangles;
   if(nt==0) return 0;
   int nv3=(int)(nt*3);
-  float*w=malloc((size_t)nv3*(size_t)W3_VTX_FLOATS*sizeof(float));
+  w3_vtx*w=malloc((size_t)nv3*sizeof(w3_vtx));
   if(!w) return 0;
   for(int t=0;t+2<nv3;t+=3){
     const float*P[3];
@@ -200,10 +208,10 @@ static int w3_chunk_build(const osmmesh_mesh *m, int grid, w3_chunk *out){
     float L=sqrtf(nx*nx+ny*ny+nz*nz); if(L<1e-6f)L=1; nx/=L;ny/=L;nz/=L;
     if(ny<0){nx=-nx;ny=-ny;nz=-nz;}                       /* orient upward */
     for(int k=0;k<3;k++){
-      const float*S=P[k]; float*d=w+(size_t)(t+k)*(size_t)W3_VTX_FLOATS;
-      d[0]=S[0]; d[1]=S[2]; d[2]=-S[1];
-      d[3]=(S[0]-emin)/de; d[4]=(nmax-S[1])/dn;
-      d[5]=nx; d[6]=ny; d[7]=nz;
+      const float*S=P[k]; w3_vtx*d=&w[t+k];
+      d->pos[0]=S[0]; d->pos[1]=S[2]; d->pos[2]=-S[1];
+      d->uv[0]=(S[0]-emin)/de; d->uv[1]=(nmax-S[1])/dn;
+      d->norm[0]=nx; d->norm[1]=ny; d->norm[2]=nz;
     }
   }
   out->verts=w; out->nverts=nv3; out->err=0.f;
