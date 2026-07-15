@@ -304,6 +304,18 @@ each other** — this has actually happened. Coordinate before editing outside y
   `w3_atmo_from` is pure arithmetic — **natively testable like `chunkmesh`**, and every pixel of
   the image hangs off it (`day = clamp((sun_el+6)/12)`, `light = 0.20+0.80*day`, the haze/cloud
   mix). Nobody can check those numbers today.
+  **And that is only one of three couplings** — two of us looked at the same "mechanical" step and
+  each found what the other missed, which is the whole argument for a second pair of eyes: the star
+  pass reads `w3_olat`/`w3_olon` (the world origin, owned by the tile side and set in
+  `world3d_tiles_open`) plus `eye`/`mvp`; and the HUD reads `w3_ground_mode` (the albedo index,
+  owned by the cache/draw side) for its `VIS EVS/SVS` line. So the step is three ownership
+  decisions, and if they fall by default — globals stay global, the module reaches out — you get two
+  headers that CLAIM ownership and do not have it. Same class as everything else here: a thing
+  claiming more than the structure carries.
+  **The check a screenshot cannot do:** `pngstat` scores GROUND, not sky. A wrong star position
+  looks entirely plausible — the stars would simply stand over the prime meridian and nobody would
+  notice, least of all at night. If the star pass moves, the only real verification is that
+  `w3_olat`/`w3_olon` ARRIVE at the call: print them once. A picture will not tell you.
 - **Modularisation** — `xp_bridge.c` (771) and `world3d.h` are still god files. Out so far, each
   100 %-covered: `fdm/{ephemeris,atmosphere}`, `terrain`, `gfx/{mat4,style}`, `tiles/{lru,prefetch}`.
 - **`coordination(sign)` is weather-sensitive, and that is a decision for a human.** With the
