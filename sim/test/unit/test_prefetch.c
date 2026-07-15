@@ -23,13 +23,13 @@ void test_prefetch(void){
         ck(!fb_pf_pop(&p, &j), "popping an empty queue reports empty");
         ck(p.pushed == 0 && p.dropped == 0 && p.deduped == 0, "fresh counters");
 
-        ck(fb_pf_push(&p, 2, 14, 100, 200) == 1, "a push is accepted");
+        ck(fb_pf_push(&p, 2, 14, 100, 200, 1024) == 1, "a push is accepted");
         ck(fb_pf_count(&p) == 1, "count follows the push");
-        ck(fb_pf_has(&p, 2, 14, 100, 200), "the job is queued");
-        ck(!fb_pf_has(&p, 0, 14, 100, 200), "a different kind is a different job");
-        ck(!fb_pf_has(&p, 2, 15, 100, 200), "a different zoom is a different job");
-        ck(!fb_pf_has(&p, 2, 14, 101, 200), "a different x is a different job");
-        ck(!fb_pf_has(&p, 2, 14, 100, 201), "a different y is a different job");
+        ck(fb_pf_has(&p, 2, 14, 100, 200, 1024), "the job is queued");
+        ck(!fb_pf_has(&p, 0, 14, 100, 200, 1024), "a different kind is a different job");
+        ck(!fb_pf_has(&p, 2, 15, 100, 200, 1024), "a different zoom is a different job");
+        ck(!fb_pf_has(&p, 2, 14, 101, 200, 1024), "a different x is a different job");
+        ck(!fb_pf_has(&p, 2, 14, 100, 201, 1024), "a different y is a different job");
 
         ck(fb_pf_pop(&p, &j) == 1, "pop returns the job");
         ck(j.kind == 2 && j.z == 14 && j.x == 100 && j.y == 200, "pop returns it intact");
@@ -39,7 +39,7 @@ void test_prefetch(void){
          * ring order upstream means the nearest ground is queued first. Popping out of order
          * would fetch the horizon before the ground under the aircraft. */
         fb_pf_init(&p);
-        for(int i = 0; i < 5; i++) fb_pf_push(&p, 2, 14, i, 0);
+        for(int i = 0; i < 5; i++) fb_pf_push(&p, 2, 14, i, 0, 1024);
         int ok = 1;
         for(int i = 0; i < 5; i++){ fb_pf_pop(&p, &j); if(j.x != i) ok = 0; }
         ck(ok, "the queue is FIFO (nearest-first order survives)");
@@ -48,20 +48,27 @@ void test_prefetch(void){
     tsection("prefetch: de-duplication");
     {
         fb_pf_queue p; fb_pf_init(&p);
-        ck(fb_pf_push(&p, 2, 14, 1, 1) == 1, "first push of a tile is queued");
-        ck(fb_pf_push(&p, 2, 14, 1, 1) == 0, "the same tile again is refused");
+        ck(fb_pf_push(&p, 2, 14, 1, 1, 1024) == 1, "first push of a tile is queued");
+        ck(fb_pf_push(&p, 2, 14, 1, 1, 1024) == 0, "the same tile again is refused");
         ck(fb_pf_count(&p) == 1, "...and does not occupy a second slot");
         ck(p.deduped == 1, "the dedup is counted, not silent");
-        ck(fb_pf_push(&p, 2, 14, 1, 2) == 1, "a genuinely different tile is still queued");
-        ck(fb_pf_count(&p) == 2, "both distinct tiles are waiting");
+        ck(fb_pf_push(&p, 2, 14, 1, 2, 1024) == 1, "a genuinely different tile is still queued");
+        /* the texture size is part of the identity: the near tier wants 1024, the far tier 512,
+         * and they are different images of the same ground */
+        ck(fb_pf_push(&p, 2, 14, 1, 1, 512) == 1, "the same tile at another texture size is other work");
+        ck(fb_pf_push(&p, 2, 14, 1, 1, 512) == 0, "...and dedups on its own");
+        fb_pf_job jj; fb_pf_pop(&p, &jj); fb_pf_pop(&p, &jj); fb_pf_pop(&p, &jj);
+
 
         /* an area being hammered must not fill the queue with one tile */
-        for(int i = 0; i < 100; i++) fb_pf_push(&p, 2, 14, 1, 1);
-        ck(fb_pf_count(&p) == 2, "100 repeats of a queued tile add nothing");
+        fb_pf_init(&p);
+        fb_pf_push(&p, 2, 14, 1, 1, 1024);
+        for(int i = 0; i < 100; i++) fb_pf_push(&p, 2, 14, 1, 1, 1024);
+        ck(fb_pf_count(&p) == 1, "100 repeats of a queued tile add nothing");
 
         /* but once popped, it may legitimately be queued again */
-        fb_pf_job j; fb_pf_pop(&p, &j); fb_pf_pop(&p, &j);
-        ck(fb_pf_push(&p, 2, 14, 1, 1) == 1, "after being popped, a tile can be queued again");
+        fb_pf_job j; fb_pf_pop(&p, &j);
+        ck(fb_pf_push(&p, 2, 14, 1, 1, 1024) == 1, "after being popped, a tile can be queued again");
     }
 
     tsection("prefetch: full queue drops, never blocks or wraps");
@@ -69,7 +76,7 @@ void test_prefetch(void){
         fb_pf_queue p; fb_pf_init(&p);
         int accepted = 0;
         for(int i = 0; i < FB_PF_CAP + 500; i++)
-            if(fb_pf_push(&p, 1, 14, i, 0)) accepted++;
+            if(fb_pf_push(&p, 1, 14, i, 0, 1024)) accepted++;
 
         ck(accepted == FB_PF_CAP - 1, "a full queue accepts exactly its capacity, then stops");
         ck(fb_pf_count(&p) == FB_PF_CAP - 1, "count never exceeds capacity");
@@ -83,7 +90,7 @@ void test_prefetch(void){
 
         /* draining a full queue must yield exactly what went in, and then stop */
         fb_pf_init(&p);
-        for(int i = 0; i < FB_PF_CAP - 1; i++) fb_pf_push(&p, 1, 14, i, 0);
+        for(int i = 0; i < FB_PF_CAP - 1; i++) fb_pf_push(&p, 1, 14, i, 0, 1024);
         int drained = 0; while(fb_pf_pop(&p, &j)) drained++;
         ck(drained == FB_PF_CAP - 1, "a full queue drains to exactly what it accepted");
         ck(fb_pf_count(&p) == 0, "and is then empty");
@@ -97,7 +104,7 @@ void test_prefetch(void){
         fb_pf_queue p; fb_pf_init(&p);
         fb_pf_job j; int ok = 1;
         for(int i = 0; i < FB_PF_CAP * 3; i++){
-            if(!fb_pf_push(&p, 2, 16, i, 7)) ok = 0;
+            if(!fb_pf_push(&p, 2, 16, i, 7, 1024)) ok = 0;
             if(!fb_pf_pop(&p, &j) || j.x != i) ok = 0;
         }
         ck(ok, "push/pop stays correct over 3x capacity of wrap-around");
