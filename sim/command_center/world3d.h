@@ -414,18 +414,49 @@ static int world3d_osm_open(const char*vec_path,const char*terr_path,double lat,
   return world3d_osm_open_mem(vec_path,0,0,terr_path,0,0,lat,lon);
 }
 /* stream one grid (zoom z, radius rad, texture size tex) around tile (cx,cy) into arr */
+/* ---- baked-tile cache (LRU, keyed by z/x/y) ----
+ * Crossing a tile boundary used to DELETE and re-bake all 34 tiles: a multi-hundred-ms
+ * freeze every ~44 s in a 1000 m orbit (the video froze then jumped = the "kick"). But an
+ * orbit flies over the SAME tiles again and again, so we keep baked VBO+texture around and
+ * only bake genuinely new ones. Sized to hold a full orbit -> after the first lap nothing
+ * is re-baked at all. Eviction is least-recently-used. */
+#define W3_CACHE 64
+typedef struct { int z; uint32_t x,y; GLuint vbo,tex; int nverts; unsigned touch; int valid; } w3_cent;
+static w3_cent w3_cache[W3_CACHE];
+static unsigned w3_touch=0;
+static int w3_cache_hits=0, w3_cache_bakes=0;
+
+/* Return a cache slot holding the baked tile, baking it only if not already resident. */
+static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
+  for(int i=0;i<W3_CACHE;i++)
+    if(w3_cache[i].valid && w3_cache[i].z==z && w3_cache[i].x==x && w3_cache[i].y==y){
+      w3_cache[i].touch=++w3_touch; w3_cache_hits++; return i; }
+  osmmesh_tile t={0};
+  if(osmmesh_fetch_tile(w3_osm,z,x,y,&t)!=OSMMESH_OK || !t.terrain){ osmmesh_free_tile(&t); return -1; }
+  if(!w3_yoff_set && is_centre && z==W3_Z){
+    float best=1e30f; for(uint32_t i=0;i<t.terrain->n_vertices;i++){ const float*P=t.terrain->positions+i*3;
+      float dd=P[0]*P[0]+P[1]*P[1]; if(dd<best){best=dd; w3_yoff=P[2];} }
+    w3_yoff_set=1;
+  }
+  int slot=-1; unsigned oldest=~0u;
+  for(int i=0;i<W3_CACHE;i++){
+    if(!w3_cache[i].valid){ slot=i; break; }
+    if(w3_cache[i].touch<oldest){ oldest=w3_cache[i].touch; slot=i; }
+  }
+  if(w3_cache[slot].valid){ glDeleteBuffers(1,&w3_cache[slot].vbo); glDeleteTextures(1,&w3_cache[slot].tex); }
+  w3_cent*c=&w3_cache[slot];
+  c->vbo=w3_terr_vbo(t.terrain,&c->nverts); c->tex=w3_bake(z,x,y,tex);
+  c->z=z; c->x=x; c->y=y; c->valid=1; c->touch=++w3_touch; w3_cache_bakes++;
+  osmmesh_free_tile(&t);
+  return slot;
+}
+/* Build a draw list for the grid around (cx,cy); entries just reference cached tiles. */
 static int w3_stream_grid(uint32_t cx,uint32_t cy,int z,int rad,int tex,int maxt,w3_tileGL*arr){
   int n=0;
   for(int dy=-rad;dy<=rad;dy++)for(int dx=-rad;dx<=rad;dx++){
-    osmmesh_tile t={0};
-    if(osmmesh_fetch_tile(w3_osm,z,cx+dx,cy+dy,&t)!=OSMMESH_OK || !t.terrain){ osmmesh_free_tile(&t); continue; }
-    if(!w3_yoff_set && dx==0 && dy==0 && z==W3_Z){
-      float best=1e30f; for(uint32_t i=0;i<t.terrain->n_vertices;i++){ const float*P=t.terrain->positions+i*3;
-        float dd=P[0]*P[0]+P[1]*P[1]; if(dd<best){best=dd; w3_yoff=P[2];} }
-      w3_yoff_set=1;
-    }
-    if(n<maxt){ w3_tileGL*g=&arr[n++]; g->vbo=w3_terr_vbo(t.terrain,&g->nverts); g->tex=w3_bake(z,cx+dx,cy+dy,tex); }
-    osmmesh_free_tile(&t);
+    int ci=w3_cache_get(z,cx+dx,cy+dy,tex,(dx==0&&dy==0));
+    if(ci<0 || n>=maxt) continue;
+    arr[n].vbo=w3_cache[ci].vbo; arr[n].tex=w3_cache[ci].tex; arr[n].nverts=w3_cache[ci].nverts; n++;
   }
   return n;
 }
@@ -435,12 +466,12 @@ static void world3d_stream(double lat,double lon){
   uint32_t tx,ty; if(osmmesh_geo_to_tile(lon,lat,W3_Z,&tx,&ty)!=0) return;
   if(w3_have_tile && tx==w3_tx && ty==w3_ty) return;
   w3_tx=tx; w3_ty=ty; w3_have_tile=1;
-  for(int i=0;i<w3_nT;i++){  glDeleteBuffers(1,&w3_T[i].vbo);  glDeleteTextures(1,&w3_T[i].tex);  }
-  for(int i=0;i<w3_nTF;i++){ glDeleteBuffers(1,&w3_TF[i].vbo); glDeleteTextures(1,&w3_TF[i].tex); }
+  int b0=w3_cache_bakes, h0=w3_cache_hits;
   uint32_t fx,fy; osmmesh_geo_to_tile(lon,lat,W3_FARZ,&fx,&fy);
   w3_nTF = w3_stream_grid(fx,fy,W3_FARZ,W3_FARRAD,W3_FARTEX,W3_MAXTF,w3_TF);   /* distant coarse ring */
   w3_nT  = w3_stream_grid(tx,ty,W3_Z,   W3_RAD,   W3_TEX,   W3_MAXT, w3_T);    /* near detail */
-  printf("[world3d] streamed: near %d (z%d) + far %d (z%d) tiles, yoff=%.0f\n",w3_nT,W3_Z,w3_nTF,W3_FARZ,w3_yoff);
+  printf("[world3d] tiles near %d + far %d | this crossing: %d baked, %d cached (yoff=%.0f)\n",
+         w3_nT,w3_nTF,w3_cache_bakes-b0,w3_cache_hits-h0,w3_yoff);
 }
 #endif /* W3_USE_OSM */
 
