@@ -25,6 +25,7 @@
 #include "cache.h"
 #include "route.h"
 #include "prefetch_api.h"
+#include "bake.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -88,6 +89,31 @@ static void handle(int fd, char *req) {
         reply(fd, "200 OK", "text/plain", body);
         return;
     }
+    /* /bake/<osm|photo>/<z>/<x>/<y>[?tex=N] — the ground ALBEDO, ready to upload.
+     *
+     * This is the "prepares" half of this service's job, which used to be a lie: we handed out
+     * raw vector tiles and the browser rasterised them again on every load. The albedo is
+     * view-independent -- it is what the ground IS, not how it is lit -- so it is computed once
+     * and kept. Lighting is NOT baked and never will be: the renderer applies our own sun
+     * per-pixel from the DEM normals. Baking an albedo is not baking light. */
+    if (!strncmp(path, "/bake/", 6)) {
+        const char *r = path + 6;
+        fb_albedo_kind k;
+        if (!strncmp(r, "osm/", 4))        { k = FB_ALBEDO_OSM;   r += 4; }
+        else if (!strncmp(r, "photo/", 6)) { k = FB_ALBEDO_PHOTO; r += 6; }
+        else { reply(fd, "404 Not Found", "text/plain", "no such albedo\n"); return; }
+        int z; long x, y;
+        if (sscanf(r, "%d/%ld/%ld", &z, &x, &y) != 3) {
+            reply(fd, "400 Bad Request", "text/plain", "want /bake/<kind>/<z>/<x>/<y>\n"); return; }
+        double t = 0; int TS = fb_query_double(qs, "tex", &t) ? (int)t : 1024;
+        uint8_t *body = 0; size_t n = 0;
+        if (!fb_bake_get(k, z, x, y, TS, &body, &n)) {
+            reply(fd, "404 Not Found", "text/plain", "no albedo\n"); return; }
+        reply_bin(fd, k == FB_ALBEDO_PHOTO ? "image/jpeg" : "image/png", body, n);
+        free(body);
+        return;
+    }
+
     /* /t/<kind>/<z>/<x>/<y> — raw tiles for the renderer (terrain, vector, imagery). */
     {
         fb_tile_kind k; int z; long x, y;
@@ -110,14 +136,17 @@ static void handle(int fd, char *req) {
         }
     }
     if (!strcmp(path, "/health")) {
-        long h, m, f, ch, cf, cx, pq, pd, pdr, pf; fb_elev_stats(&h, &m, &f); fb_cache_stats(&ch, &cf, &cx);
-        fb_pf_stats(&pq, &pd, &pdr, &pf);
-        char body[320];
+        long h, m, f, ch, cf, cx, pq, pd, pdr, pf, bh, bb, bf;
+        fb_elev_stats(&h, &m, &f); fb_cache_stats(&ch, &cf, &cx);
+        fb_pf_stats(&pq, &pd, &pdr, &pf); fb_bake_stats(&bh, &bb, &bf);
+        char body[480];
         snprintf(body, sizeof body,
                  "ok dem_resident_hits=%ld dem_decoded=%ld dem_fail=%ld | "
                  "cache_hits=%ld upstream_fetches=%ld fetch_fail=%ld | "
-                 "prefetch_queued=%ld done=%ld dropped=%ld failed=%ld\n",
-                 h, m, f, ch, cf, cx, pq, pd, pdr, pf);
+                 "prefetch_queued=%ld done=%ld dropped=%ld failed=%ld | "
+                 "bake_disk_hits=%ld baked=%ld bake_fail=%ld scanline_refused=%ld\n",
+                 h, m, f, ch, cf, cx, pq, pd, pdr, pf, bh, bb, bf,
+                 fb_raster_scanline_overflows());
         reply(fd, "200 OK", "text/plain", body);
         return;
     }
@@ -128,6 +157,7 @@ int main(void) {
     int port = getenv("TILES_PORT") ? atoi(getenv("TILES_PORT")) : 8081;
     const char *cache = getenv("TILES_CACHE") ? getenv("TILES_CACHE") : "/var/cache/fbtiles";
     fb_elev_init(cache);
+    fb_bake_init(cache);
     fb_pf_start();   /* background warming of the sibling tile kinds */
 
     int lfd = socket(AF_INET, SOCK_STREAM, 0);
