@@ -83,37 +83,54 @@ void test_atmosphere(void){
         fb_atmo_set_target(&a, 10.0, -4.0, 1.5, 0.9, 1200.0, 2.5);
         ck(a.windN_t == 10.0 && a.windE_t == -4.0, "set_target records the wind target");
         ck(a.windN == 0.0 && a.windE == 0.0, "set_target alone does NOT move the current wind");
-
-        /* first observation must apply at once — no minute-long ramp up from a calm start */
         fb_atmo_slew(&a, 0.01);
-        ck(a.windN == 10.0 && a.windE == -4.0, "first slew SNAPS (start-up applies immediately)");
-        ck(a.turb == 1.5 && a.sigma == 0.9 && a.bl_height == 1200.0 && a.thermal_W == 2.5,
-           "first slew snaps every field, not just wind");
-        ck(a.first == 0, "the snap is one-shot");
+        ck(a.windN < 1.0 && a.windN > 0.0, "set_target + slew ramps; it does not snap");
 
-        /* thereafter: gradual. THIS is the anti-jolt the old comment promised and never did. */
-        fb_atmo_set_target(&a, 0.0, 0.0, 0.3, 0.2, 400.0, 0.0);
-        fb_atmo_slew(&a, 0.01);
-        ck(fabs(a.windN - 10.0) < 0.01, "a 10 m/s wind change does NOT step instantly");
-        ck(a.windN < 10.0, "...but it has started moving");
+        /* fb_atmo_observe: the FIRST live observation applies at once. `first` must be consumed
+         * here and not in slew -- the FDM slews every tick, so a flag checked there would be
+         * spent on tick one and the first real weather would ramp out of an env-var guess. */
+        fb_atmo b; fb_atmo_init(&b);
+        fb_atmo_observe(&b, 10.0, -4.0, 1.5, 0.9, 1200.0, 2.5);
+        ck(b.windN == 10.0 && b.windE == -4.0, "the FIRST observation applies instantly");
+        ck(b.turb == 1.5 && b.sigma == 0.9 && b.bl_height == 1200.0 && b.thermal_W == 2.5,
+           "the first observation snaps every field, not just wind");
+        ck(b.first == 0, "the snap is one-shot");
+
+        /* every LATER observation ramps -- this is the 15-minute jolt this module exists to kill */
+        fb_atmo_observe(&b, -10.0, 4.0, 0.3, 0.2, 400.0, 0.0);
+        ck(b.windN == 10.0, "a later observation does not move the wind by itself");
+        fb_atmo_slew(&b, 0.01);
+        ck(fabs(b.windN - 10.0) < 0.01, "a 20 m/s wind reversal does NOT step instantly");
+        ck(b.windN < 10.0, "...but it has started moving");
+
+        /* slew must be safe to call every tick once we are already there */
+        fb_atmo c; fb_atmo_init(&c);
+        fb_atmo_observe(&c, 5.0, 0, 1, 0.6, 800, 0);
+        for(int i = 0; i < 1000; i++) fb_atmo_slew(&c, 0.01);
+        ck(c.windN == 5.0, "slew is a no-op once current == target (no drift from repeated calls)");
 
         /* after one time constant, an exponential ease has covered ~63% */
-        fb_atmo b; fb_atmo_init(&b);
-        fb_atmo_set_target(&b, 10.0, 0, 1, 0.6, 800, 0); fb_atmo_snap(&b);
-        fb_atmo_set_target(&b, 0.0, 0, 1, 0.6, 800, 0);
-        for(double t = 0; t < FB_ATMO_TAU; t += 0.01) fb_atmo_slew(&b, 0.01);
-        ck_near(b.windN, 10.0*exp(-1.0), 0.15, "after one tau, ~1/e of the change remains");
-
-        /* and it converges rather than oscillating or overshooting */
-        for(double t = 0; t < 10*FB_ATMO_TAU; t += 0.01) fb_atmo_slew(&b, 0.01);
-        ck(fabs(b.windN) < 0.01, "slew converges onto the target");
+        fb_atmo d; fb_atmo_init(&d);
+        fb_atmo_observe(&d, 10.0, 0, 1, 0.6, 800, 0);      /* first: snaps */
+        fb_atmo_observe(&d, 0.0, 0, 1, 0.6, 800, 0);       /* second: ramps */
+        for(double t = 0; t < FB_ATMO_TAU; t += 0.01) fb_atmo_slew(&d, 0.01);
+        ck_near(d.windN, 10.0*exp(-1.0), 0.15, "after one tau, ~1/e of the change remains");
+        for(double t = 0; t < 10*FB_ATMO_TAU; t += 0.01) fb_atmo_slew(&d, 0.01);
+        ck(fabs(d.windN) < 0.01, "slew converges onto the target");
 
         /* a big dt must not overshoot past the target (k = dt/(tau+dt) < 1 always) */
-        fb_atmo c; fb_atmo_init(&c);
-        fb_atmo_set_target(&c, 0, 0, 1, 0.6, 800, 0); fb_atmo_snap(&c);
-        fb_atmo_set_target(&c, 10.0, 0, 1, 0.6, 800, 0);
-        fb_atmo_slew(&c, 1e6);
-        ck(c.windN <= 10.0 && c.windN > 9.0, "a huge dt converges, never overshoots");
+        fb_atmo e; fb_atmo_init(&e);
+        fb_atmo_observe(&e, 0, 0, 1, 0.6, 800, 0);
+        fb_atmo_observe(&e, 10.0, 0, 1, 0.6, 800, 0);
+        fb_atmo_slew(&e, 1e6);
+        ck(e.windN <= 10.0 && e.windN > 9.0, "a huge dt converges, never overshoots");
+
+        /* the jolt this replaces, quantified: at 100 Hz the wind must move by a hair, not a step */
+        fb_atmo f; fb_atmo_init(&f);
+        fb_atmo_observe(&f, 0, 0, 1, 0.6, 800, 0);
+        fb_atmo_observe(&f, 12.0, 0, 1, 0.6, 800, 0);      /* a big real refresh */
+        double before = f.windN; fb_atmo_slew(&f, 0.01);
+        ck(f.windN - before < 0.01, "one 100 Hz tick moves the wind <1 cm/s (no airflow step)");
     }
 
     tsection("atmosphere: Dryden gusts");

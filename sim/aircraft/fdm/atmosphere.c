@@ -71,8 +71,13 @@ void fb_atmo_snap(fb_atmo *a){
     a->first = 0;
 }
 
+void fb_atmo_observe(fb_atmo *a, double windN, double windE,
+                     double turb, double sigma, double bl_height, double thermal_W){
+    fb_atmo_set_target(a, windN, windE, turb, sigma, bl_height, thermal_W);
+    if(a->first) fb_atmo_snap(a);      /* start-up: don't ramp away from an env-var guess */
+}
+
 void fb_atmo_slew(fb_atmo *a, double dt){
-    if(a->first){ fb_atmo_snap(a); return; }       /* first observation applies at once */
     double k = dt / (FB_ATMO_TAU + dt);            /* exponential ease, stable for any dt>0 */
     a->windN     += k*(a->windN_t   - a->windN);
     a->windE     += k*(a->windE_t   - a->windE);

@@ -55,14 +55,22 @@ double fb_atmo_nrand(fb_atmo *a);
  * Pure: depends only on (thermal_W, bl_height) and the position. */
 double fb_atmo_thermal_w(const fb_atmo *a, double x, double y, double z);
 
-/* Point the atmosphere at new weather. Does NOT take effect instantly — see FB_ATMO_TAU.
- * Call fb_atmo_snap() once at start-up so the first real observation applies immediately. */
+/* Point the atmosphere at new weather. Does NOT take effect instantly — see FB_ATMO_TAU. */
 void   fb_atmo_set_target(fb_atmo *a, double windN, double windE,
                           double turb, double sigma, double bl_height, double thermal_W);
-void   fb_atmo_snap(fb_atmo *a);      /* current := target, right now */
+void   fb_atmo_snap(fb_atmo *a);      /* current := target, right now; clears `first` */
+
+/* A live weather observation arrived. Same as set_target, except the FIRST one applies at once:
+ * at start-up the air is only an env-var guess, and ramping away from a guess over a minute is
+ * pointless. Every later observation ramps, which is the whole point of the two-layer wind.
+ *
+ * This is why `first` is consumed HERE and not in fb_atmo_slew: the FDM slews every tick, so a
+ * flag checked there would be spent on tick one and the first real observation would ramp. */
+void   fb_atmo_observe(fb_atmo *a, double windN, double windE,
+                       double turb, double sigma, double bl_height, double thermal_W);
 
 /* Ease the current values toward the targets by dt. Exponential, time constant FB_ATMO_TAU.
- * Honours `first` by snapping instead of ramping. */
+ * Safe to call every FDM tick; a no-op once current == target. */
 void   fb_atmo_slew(fb_atmo *a, double dt);
 
 /* Advance the Dryden turbulence filters and the horizontal gust wander by dt.

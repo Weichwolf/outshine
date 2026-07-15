@@ -99,13 +99,15 @@ static void wx_fetch(void){
     double gf=fmax(0.0,gust-wsp);
     /* realistic low-altitude turbulence: MIL-F-8785C puts sigma_w ~ 0.1*W20; add a
      * modest gust-spread term. Capped so a strong-gust day is rough but still flyable. */
-    fb_atmo_set_target(&ATM,
+    fb_atmo_observe(&ATM,
         -v*cos(wdir*RAD), -v*sin(wdir*RAD),
         fmax(0.3,fmin(1.6, 0.30+0.13*gf)),
         fmin(1.0, 0.08*wsp + 0.11*gf),          /* capped so even a very gusty day stays flyable */
         isfinite(blh)?fmax(300.0,blh):800.0,
         isfinite(swr)?fmax(0.0,fmin(4.5, swr/230.0)):0.0);  /* ~1000 W/m2 midday -> strong lift */
-    fb_atmo_snap(&ATM);   /* TODO(slew): the ramp this file always claimed to do -> next commit */
+    /* NO snap here: the new weather is a TARGET. physics_step eases the air toward it over
+     * FB_ATMO_TAU, because a 15-minute refresh that assigned the wind directly stepped the
+     * aircraft's relative airflow instantly — a jolt out of a clear sky. */
     if(isfinite(cc))  g_cloud=(float)fmax(0.0,fmin(1.0,cc/100.0));
     if(isfinite(vis)) g_vis=(float)fmax(1500.0,fmin(60000.0,vis));
     fprintf(stderr,"[wx] LIVE wind=%.1fm/s@%.0f gust=%.1f cloud=%.0f%% vis=%.0fkm BL=%.0fm sun=%.0fW/m2 -> turb=%.2f therm=%.1f\n",
@@ -278,6 +280,8 @@ static void physics_step(double dt){
 
     double Vrep=fmax(S.speed,3.0);         /* for turbulence scale-lengths below */
 
+    /* Ease the air toward the last live-weather observation (no-op until wx_fetch lands one). */
+    fb_atmo_slew(&ATM, dt);
     /* Turbulence + gust wander: the atmosphere module owns the maths and the state. */
     fb_atmo_step_gusts(&ATM, dt, S.agl, Vrep);
     /* thermal + vertical gust = total vertical air motion at the current position */
@@ -518,7 +522,8 @@ int main(void){
           0.6*turb,                                                     /* default gust std tracks turb */
           ATM.bl_height,
           getenv("THERMAL")?atof(getenv("THERMAL")):ATM.thermal_W);     /* manual thermal override */
-      fb_atmo_snap(&ATM); }
+      fb_atmo_snap(&ATM);
+      ATM.first = 1; }   /* the env is only a guess: the first LIVE observation still applies at once */
     if(getenv("WX_LIVE")) g_wx_live=atoi(getenv("WX_LIVE"));
     if(getenv("LOITER_ALT")) g_loalt=atof(getenv("LOITER_ALT"));
     if(getenv("LOITER_RADIUS")) g_lorad=atof(getenv("LOITER_RADIUS"));
