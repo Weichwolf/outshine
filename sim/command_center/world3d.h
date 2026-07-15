@@ -49,11 +49,6 @@ static double w3_olat=52.045, w3_olon=9.385;   /* origin, set on osmmesh open; d
 /* stb_image: declarations only -- osmmesh/src/terrain.c owns the one implementation we link. */
 #include "../geo/osmmesh/src/3rdparty/stb_image.h"
 #include "gfx/mat4.h"
-/* OSM cartography. Lives in tiles/ because that is where it will RUN: fb-tiles bakes the albedo
- * and serves a finished texture (tiles/raster.c + tiles/bake.c). Until the renderer stops
- * rasterising and just downloads that texture, this include reaches across -- deliberately ugly,
- * so it does not get comfortable. */
-#include "../tiles/style.h"
 
 /* ---- GL program helpers ---- */
 static GLuint w3_shader(GLenum t,const char*src){ GLuint s=glCreateShader(t); glShaderSource(s,1,&src,0); glCompileShader(s);
@@ -232,147 +227,40 @@ static w3_tileGL w3_T[W3_MAXT];  static int w3_nT=0;    /* near tier (z14, detai
 static w3_tileGL w3_TF[W3_MAXTF]; static int w3_nTF=0;  /* far tier (low zoom, coarse) */
 
 /* --- software raster into an RGB image (tile-local coords * sc) --- */
-static void w3_px(uint8_t*im,int W,int H,int x,int y,uint8_t r,uint8_t g,uint8_t b){
-  if((unsigned)x<(unsigned)W&&(unsigned)y<(unsigned)H){ uint8_t*p=im+((size_t)y*W+x)*3; p[0]=r;p[1]=g;p[2]=b; } }
-static void w3_disk(uint8_t*im,int W,int H,float cx,float cy,float rad,uint8_t r,uint8_t g,uint8_t b){
-  int x0=(int)(cx-rad),x1=(int)(cx+rad),y0=(int)(cy-rad),y1=(int)(cy+rad); float rr=rad*rad;
-  for(int y=y0;y<=y1;y++)for(int x=x0;x<=x1;x++){ float dx=x-cx,dy=y-cy; if(dx*dx+dy*dy<=rr) w3_px(im,W,H,x,y,r,g,b); } }
-static void w3_thick(uint8_t*im,int W,int H,float x0,float y0,float x1,float y1,float w,uint8_t r,uint8_t g,uint8_t b){
-  float dx=x1-x0,dy=y1-y0,len=sqrtf(dx*dx+dy*dy); int n=(int)len+1; float rad=w*0.5f; if(rad<0.6f)rad=0.6f;
-  for(int i=0;i<=n;i++){ float t=(float)i/n; w3_disk(im,W,H,x0+dx*t,y0+dy*t,rad,r,g,b); } }
-/* scanline fill of an MVT polygon (all rings, even-odd -> holes carved out) */
-static void w3_fill(uint8_t*im,int W,int H,const osmmesh_mvt_feature*ft,float sc,uint8_t r,uint8_t g,uint8_t b){
-  const osmmesh_mvt_coord*co=ft->coords; size_t nco=ft->n_coords; if(nco<3) return;
-  float ymin=1e9f,ymax=-1e9f; for(size_t i=0;i<nco;i++){ float y=co[i].y*sc; if(y<ymin)ymin=y; if(y>ymax)ymax=y; }
-  int iy0=(int)floorf(ymin); if(iy0<0)iy0=0; int iy1=(int)ceilf(ymax); if(iy1>=H)iy1=H-1;
-  size_t nr=ft->n_rings?ft->n_rings:1; float xs[512];
-  for(int y=iy0;y<=iy1;y++){ float yc=y+0.5f; int nx=0;
-    for(size_t ring=0;ring<nr;ring++){
-      size_t a=ft->n_rings?ft->ring_offsets[ring]:0, bb=ft->n_rings?ft->ring_offsets[ring+1]:nco;
-      for(size_t k=a;k<bb;k++){ size_t k2=(k+1<bb)?k+1:a;
-        float ya=co[k].y*sc, yb=co[k2].y*sc, xa=co[k].x*sc, xb=co[k2].x*sc;
-        if((ya<=yc&&yb>yc)||(yb<=yc&&ya>yc)){ float xi=xa+(yc-ya)/(yb-ya)*(xb-xa); if(nx<512)xs[nx++]=xi; } } }
-    for(int i=1;i<nx;i++){ float v=xs[i]; int j=i-1; while(j>=0&&xs[j]>v){xs[j+1]=xs[j];j--;} xs[j+1]=v; }
-    for(int i=0;i+1<nx;i+=2){ int xa=(int)ceilf(xs[i]-0.5f); if(xa<0)xa=0; int xb=(int)floorf(xs[i+1]-0.5f); if(xb>=W)xb=W-1;
-      for(int x=xa;x<=xb;x++) w3_px(im,W,H,x,y,r,g,b); } } }
-static void w3_drawline(uint8_t*im,int W,int H,const osmmesh_mvt_feature*ft,float sc,float w,uint8_t r,uint8_t g,uint8_t b){
-  const osmmesh_mvt_coord*co=ft->coords; size_t nr=ft->n_rings?ft->n_rings:1;
-  for(size_t ring=0;ring<nr;ring++){ size_t a=ft->n_rings?ft->ring_offsets[ring]:0, bb=ft->n_rings?ft->ring_offsets[ring+1]:ft->n_coords;
-    for(size_t k=a+1;k<bb;k++) w3_thick(im,W,H,co[k-1].x*sc,co[k-1].y*sc,co[k].x*sc,co[k].y*sc,w,r,g,b); } }
-
-static const osmmesh_mvt_layer* w3_layer(osmmesh_mvt_tile*t,const char*name){
-  size_t nl=osmmesh_mvt_num_layers(t);
-  for(size_t i=0;i<nl;i++){ const osmmesh_mvt_layer*l=osmmesh_mvt_layer_at(t,i); if(!strcmp(osmmesh_mvt_layer_name(l),name)) return l; }
-  return 0; }
-static const char* w3_kind(const osmmesh_mvt_layer*l,const osmmesh_mvt_feature*f){
-  osmmesh_mvt_value v; if(osmmesh_mvt_feature_get_tag(l,f,"kind",&v)==0&&v.type==OSMMESH_MVT_VAL_STRING) return v.v.s; return ""; }
-
-/* bake one tile's OSM vector data into an orthographic RGB texture -> GL texture id */
-/* Raw vector bytes for texture baking: from fb-tiles via the provider when we stream, else
- * from the legacy preloaded archive. Returns 1 and hands over a malloc'd buffer. */
-static int w3_vec_bytes(uint32_t z,uint32_t x,uint32_t y,uint8_t**d,size_t*n){
-  if(w3_stream_tiles) return w3_tile_provider(0,OSMMESH_TILE_VECTOR,z,x,y,d,n);
-  return (w3_vec && osmmesh_pmtiles_fetch(w3_vec,z,x,y,d,n)==OSMMESH_PMTILES_OK);
-}
-/* ---- ground albedo source: OSM cartography or aerial photo (TAB) --------------------------
- * The renderer keeps BOTH because they are not competing textures: the photo is what a camera
- * would see, the OSM render is what we can draw when a camera cannot -- lost signal, dead sensor,
- * blinded by the sun, or simply night. Synthetic vision as a fallback, which is why the vector
- * path must stay first-class rather than become a legacy branch. */
+/* ---- ground albedo: downloaded ready-made from fb-tiles ------------------------------------
+ * There used to be ~150 lines of software rasteriser here: scanline polygon fill, thick lines,
+ * MVT layer walking, the aerial mosaic blit. It ran in the browser on EVERY page load, re-drawing
+ * cartography that had not changed since the last one, from a vector tile plus its 4 seam
+ * neighbours. Now fb-tiles does it once and keeps the result (tiles/raster.c, tiles/bake.c), so
+ * this is a download and an upload.
+ *
+ * The albedo is view-independent -- what the ground IS, not how it is lit -- which is exactly why
+ * it may be precomputed at all. Lighting stays here, per-pixel, from our own sun and the DEM
+ * normals. Baking an albedo is not baking light.
+ */
 enum { W3_GROUND_OSM = 0, W3_GROUND_PHOTO = 1 };
 static int w3_ground_mode = W3_GROUND_OSM;
-/* Set while any resident tile still carries the wrong albedo. It is what keeps world3d_stream
- * from declaring victory after a TAB and going back to sleep. */
+/* Set while any resident tile still lacks the albedo we want. Keeps world3d_stream from
+ * declaring victory and going back to sleep until the next tile boundary. */
 static int w3_ground_dirty = 0;
 
-/* Are all the photo children for this tile resident?  Touching every child is the POINT, not a
- * side effect: w3_tiles_size starts the fetch on a miss, so probing all of them kicks off all
- * their downloads in the same frame.
- *
- * The first version returned at the first missing child. That started exactly ONE fetch per tile
- * per frame -- 16 serial round trips per tile, times 25 tiles. Switching the ground took about a
- * minute, longer than reloading the whole app, and it looked like a cache problem. It was a loop
- * problem: the tiles were on the server's disk in under a millisecond, we just asked for them one
- * at a time. */
-static int w3_imagery_ready(int TS,uint32_t z,uint32_t x,uint32_t y){
-  int f=TS/256; if(f<1) f=1;
-  uint32_t zi=z; for(int t=f;t>1;t>>=1) zi++;
-  int pending=0;
-  for(int j=0;j<f;j++) for(int i=0;i<f;i++)
-    if(w3_tiles_size(W3_TILE_IMAGERY,(int)zi,(int)(x*(uint32_t)f+(uint32_t)i),
-                                     (int)(y*(uint32_t)f+(uint32_t)j)) < 0) pending=1;   /* starts it */
-  return !pending;
-}
-
-/* Blit the photo children into the tile texture. Caller must have checked w3_imagery_ready. */
-static int w3_fill_imagery(uint8_t*im,int TS,uint32_t z,uint32_t x,uint32_t y){
-  int f=TS/256; if(f<1) f=1;
-  uint32_t zi=z; for(int t=f;t>1;t>>=1) zi++;
-  for(int j=0;j<f;j++) for(int i=0;i<f;i++){
-    uint32_t cx=x*(uint32_t)f+(uint32_t)i, cy=y*(uint32_t)f+(uint32_t)j;
-    int n=w3_tiles_size(W3_TILE_IMAGERY,(int)zi,(int)cx,(int)cy);
-    if(n<=0) continue;                      /* hole (or, impossibly, still pending): base colour */
-    uint8_t*b=(uint8_t*)malloc((size_t)n); if(!b) continue;
-    w3_tiles_copy(W3_TILE_IMAGERY,(int)zi,(int)cx,(int)cy,b);
-    int w=0,h=0,comp=0; uint8_t*px=stbi_load_from_memory(b,n,&w,&h,&comp,3);
-    free(b);
-    if(!px) continue;                       /* undecodable tile: hole, not a crash */
-    for(int yy=0;yy<h;yy++){ int dy=j*256+yy; if(dy>=TS) break;
-      for(int xx=0;xx<w;xx++){ int dx=i*256+xx; if(dx>=TS) break;
-        uint8_t*d=im+((size_t)dy*TS+dx)*3, *sp=px+((size_t)yy*w+xx)*3;
-        d[0]=sp[0]; d[1]=sp[1]; d[2]=sp[2]; } }
-    stbi_image_free(px);
-  }
-  return 1;
-}
-
-/* Bake one tile's albedo. `mode` is passed rather than read from the global on purpose: a tile
- * may legitimately be baked as OSM while the ground source is PHOTO -- see w3_cache_get. */
+/* Upload one baked albedo as a GL texture. Returns 0 if it has not arrived yet (retry later) or
+ * the server has nothing for this tile. */
 static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS,int mode){
-  uint8_t*im=malloc((size_t)TS*TS*3);
-  for(int i=0;i<TS*TS;i++){ im[i*3]=150;im[i*3+1]=178;im[i*3+2]=118; }   /* base ground */
-  if(mode==W3_GROUND_PHOTO) w3_fill_imagery(im,TS,z,x,y);
-  uint8_t*d=0; size_t n=0;
-  if(mode==W3_GROUND_OSM && w3_vec_bytes(z,x,y,&d,&n)){
-    osmmesh_mvt_tile*t=0;
-    if(osmmesh_mvt_decode(d,n,&t)==OSMMESH_MVT_OK){
-      const osmmesh_mvt_layer*L; uint8_t r,g,b; int rail;
-      /* landcover polygons -> land-use colours */
-      if((L=w3_layer(t,"land"))){ float sc=(float)TS/osmmesh_mvt_layer_extent(L); size_t nf=osmmesh_mvt_num_features(L);
-        for(size_t f=0;f<nf;f++){ const osmmesh_mvt_feature*ft=osmmesh_mvt_feature_at(L,f);
-          if(ft->geom_type==OSMMESH_MVT_GEOM_POLYGON){ w3_landcolor(w3_kind(L,ft),&r,&g,&b); w3_fill(im,TS,TS,ft,sc,r,g,b); } } }
-      /* water */
-      if((L=w3_layer(t,"water_polygons"))){ float sc=(float)TS/osmmesh_mvt_layer_extent(L); size_t nf=osmmesh_mvt_num_features(L);
-        for(size_t f=0;f<nf;f++){ const osmmesh_mvt_feature*ft=osmmesh_mvt_feature_at(L,f);
-          if(ft->geom_type==OSMMESH_MVT_GEOM_POLYGON) w3_fill(im,TS,TS,ft,sc,92,140,190); } }
-      /* parking / sites */
-      if((L=w3_layer(t,"sites"))){ float sc=(float)TS/osmmesh_mvt_layer_extent(L); size_t nf=osmmesh_mvt_num_features(L);
-        for(size_t f=0;f<nf;f++){ const osmmesh_mvt_feature*ft=osmmesh_mvt_feature_at(L,f);
-          if(ft->geom_type==OSMMESH_MVT_GEOM_POLYGON) w3_fill(im,TS,TS,ft,sc,175,175,180); } }
-      /* pedestrian paved areas */
-      if((L=w3_layer(t,"street_polygons"))){ float sc=(float)TS/osmmesh_mvt_layer_extent(L); size_t nf=osmmesh_mvt_num_features(L);
-        for(size_t f=0;f<nf;f++){ const osmmesh_mvt_feature*ft=osmmesh_mvt_feature_at(L,f);
-          if(ft->geom_type==OSMMESH_MVT_GEOM_POLYGON) w3_fill(im,TS,TS,ft,sc,208,203,193); } }
-      /* building footprints */
-      if((L=w3_layer(t,"buildings"))){ float sc=(float)TS/osmmesh_mvt_layer_extent(L); size_t nf=osmmesh_mvt_num_features(L);
-        for(size_t f=0;f<nf;f++){ const osmmesh_mvt_feature*ft=osmmesh_mvt_feature_at(L,f);
-          if(ft->geom_type==OSMMESH_MVT_GEOM_POLYGON) w3_fill(im,TS,TS,ft,sc,128,114,102); } }
-      /* roads then rails (2nd pass keeps rails visible) then rivers */
-      if((L=w3_layer(t,"streets"))){ float sc=(float)TS/osmmesh_mvt_layer_extent(L); size_t nf=osmmesh_mvt_num_features(L);
-        for(int pass=0;pass<2;pass++) for(size_t f=0;f<nf;f++){ const osmmesh_mvt_feature*ft=osmmesh_mvt_feature_at(L,f);
-          if(ft->geom_type!=OSMMESH_MVT_GEOM_LINESTRING) continue; float w=w3_roadstyle(w3_kind(L,ft),TS,&r,&g,&b,&rail);
-          if(rail!=pass) continue; w3_drawline(im,TS,TS,ft,sc,w,r,g,b); } }
-      if((L=w3_layer(t,"water_lines"))){ float sc=(float)TS/osmmesh_mvt_layer_extent(L); size_t nf=osmmesh_mvt_num_features(L);
-        for(size_t f=0;f<nf;f++){ const osmmesh_mvt_feature*ft=osmmesh_mvt_feature_at(L,f);
-          if(ft->geom_type==OSMMESH_MVT_GEOM_LINESTRING) w3_drawline(im,TS,TS,ft,sc,3.0f*TS/1024.0f,92,140,190); } }
-      osmmesh_mvt_free(t);
-    }
-    osmmesh_pmtiles_free_tile(d);
-  }
+  int photo = (mode==W3_GROUND_PHOTO);
+  int n = w3_bake_size(photo,(int)z,(int)x,(int)y,TS);   /* also STARTS the fetch on a miss */
+  if(n<=0) return 0;                                     /* pending (-1) or a genuine hole (0) */
+  uint8_t*enc=(uint8_t*)malloc((size_t)n); if(!enc) return 0;
+  w3_bake_copy(photo,(int)z,(int)x,(int)y,TS,enc);
+  int w=0,h=0,comp=0;
+  uint8_t*px=stbi_load_from_memory(enc,n,&w,&h,&comp,3);
+  free(enc);
+  if(!px) return 0;                                      /* undecodable: a hole, not a crash */
+
   GLuint tex; glGenTextures(1,&tex); glBindTexture(GL_TEXTURE_2D,tex);
-  glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,TS,TS,0,GL_RGB,GL_UNSIGNED_BYTE,im);
-  /* trilinear (mipmaps) kills shimmer on distant tiles; anisotropy keeps the ground
-   * sharp at grazing angles (the terrain is seen almost edge-on). */
+  glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,w,h,0,GL_RGB,GL_UNSIGNED_BYTE,px);
+  /* trilinear (mipmaps) kills shimmer on distant tiles; anisotropy keeps the ground sharp at
+   * grazing angles (the terrain is seen almost edge-on). */
   glGenerateMipmap(GL_TEXTURE_2D);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
@@ -382,13 +270,10 @@ static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS,int mode){
   #define GL_TEXTURE_MAX_ANISOTROPY_EXT 0x84FE
   #endif
   glTexParameterf(GL_TEXTURE_2D,GL_TEXTURE_MAX_ANISOTROPY_EXT,8.0f);   /* ignored if unsupported */
-  free(im); return tex;
+  stbi_image_free(px);
+  return tex;
 }
 
-/* Build a textured terrain VBO (interleaved x,y,z,u,v). The osmmesh heightfield is a
- * dense row-major grid (256x256); we DECIMATE it to a coarse W3_TERR x W3_TERR grid
- * (detail comes from the draped texture, not the geometry) and drape UV from the tile's
- * ENU bbox (north -> v=0 -> texture top). Coarse geometry = smooth framerate. */
 /* The terrain vertex layout, in one place.
  *
  * The writer (w3_push8/w3_terr_vbo) and the reader (glVertexAttribPointer) used to agree only by
@@ -406,7 +291,7 @@ _Static_assert(offsetof(w3_vtx, norm) == 20, "aNorm offset");
 #define W3_VTX_STRIDE ((GLsizei)sizeof(w3_vtx))
 #define W3_VTX_OFF(f)  ((void*)offsetof(w3_vtx, f))
 
-/* Upload a ready 8-float/vertex soup (pos.xyz, uv, normal.xyz) as-is. */
+
 static GLuint w3_push8(const float*v,size_t o,int*out_nv){
   GLuint vbo; glGenBuffers(1,&vbo); glBindBuffer(GL_ARRAY_BUFFER,vbo);
   glBufferData(GL_ARRAY_BUFFER,o*sizeof(float),v,GL_STATIC_DRAW); *out_nv=(int)(o/(sizeof(w3_vtx)/sizeof(float))); return vbo;
@@ -545,44 +430,27 @@ static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
   for(int i=0;i<W3_CACHE;i++)
     if(w3_cache[i].valid && w3_cache[i].z==z && w3_cache[i].x==x && w3_cache[i].y==y){
       w3_cache[i].touch=++w3_touch; w3_cache_hits++;
-      /* Ground source changed (TAB)? Re-bake this tile's albedo in place -- but only when the new
-       * one is actually available, and NEVER drop the old texture first. Deleting them all on the
-       * keypress emptied the world until everything had re-baked; the tiles were on disk in under
-       * a millisecond, we were just showing nothing meanwhile. Now the switch ripples through the
-       * scene tile by tile and the ground never disappears. */
-      /* The photo half is baked opportunistically, whether or not it is being shown: by the time
-       * someone reaches for it, it must already be there. */
+      /* The photo half is fetched opportunistically, whether or not it is being shown: the moment
+       * someone reaches for the other view is the moment they cannot afford to wait for it. */
       if(!w3_cache[i].tex[W3_GROUND_PHOTO]){
-        if(w3_imagery_ready(tex,z,x,y)){ w3_cache[i].tex[W3_GROUND_PHOTO]=w3_bake(z,x,y,tex,W3_GROUND_PHOTO); w3_cache_bakes++; }
-        else w3_ground_dirty=1;           /* imagery in flight -> keep the streamer awake */
+        GLuint t2=w3_bake(z,x,y,tex,W3_GROUND_PHOTO);
+        if(t2){ w3_cache[i].tex[W3_GROUND_PHOTO]=t2; w3_cache_bakes++; }
+        else w3_ground_dirty=1;            /* still in flight -> keep the streamer awake */
       }
       return i; }
-  /* Which albedo can we actually build right now? Probing also STARTS every photo child's
-   * download, so this call is the thing that gets them moving.
-   *
-   * If the photo is not here yet we bake the OSM render instead of refusing to build the tile.
-   * Refusing meant a fresh load in photo mode showed pure sky until the imagery landed, and the
-   * TAB switch emptied the world -- for a view whose entire purpose is to be there when the
-   * camera is not. The synthetic render is the fallback, so let it BE the fallback: the ground
-   * appears at once and each tile upgrades to the photo as it arrives. */
-  /* Probing also STARTS every photo child's download, so this call is what gets them moving. */
-  int photo_ready = w3_imagery_ready(tex,z,x,y);
-  if(!photo_ready) w3_ground_dirty=1;      /* revisit this tile until its photo has landed */
 
   osmmesh_tile t={0};
   if(osmmesh_fetch_tile(w3_osm,z,x,y,&t)!=OSMMESH_OK || !t.terrain){ osmmesh_free_tile(&t); return -1; }
 
-  /* The VECTOR must be here, not merely on its way. osmmesh_fetch_tile above only guarantees
-   * terrain -- a tile whose vector is still in flight passes it, and then w3_bake finds no bytes,
-   * silently skips its entire drawing block, and hands back a texture that is nothing but the
-   * base ground colour. w3_cache_get then caches that plain green square FOREVER: the entry is
-   * valid, so the LRU never revisits it. That is the "large rectangles covering rivers and roads"
-   * -- sporadic, permanent, and dependent on a race, which is why the same place was right
-   * yesterday. Exactly the bug w3_imagery_ready already guards against for the photo; the vector
-   * had no such guard. */
-  if(w3_stream_tiles && w3_tiles_size(OSMMESH_TILE_VECTOR,(int)z,(int)x,(int)y) < 0){
-    osmmesh_free_tile(&t); w3_ground_dirty=1; return -1;      /* come back when it lands */
-  }
+  /* The OSM albedo must be HERE before this tile exists at all. w3_bake returns 0 while the
+   * server's texture is still in flight, and building the tile anyway is what once produced a
+   * plain green square over Grohnde: a missing datum cached as a valid result, permanently,
+   * because the entry looked valid and the LRU never revisited it. No albedo, no tile. */
+  GLuint tex_osm = w3_bake(z,x,y,tex,W3_GROUND_OSM);
+  if(!tex_osm){ osmmesh_free_tile(&t); w3_ground_dirty=1; return -1; }
+  GLuint tex_photo = w3_bake(z,x,y,tex,W3_GROUND_PHOTO);   /* 0 is fine: the draw falls back to OSM */
+  if(!tex_photo) w3_ground_dirty=1;
+
   if(!w3_yoff_set && is_centre && z==W3_Z){
     float best=1e30f; for(uint32_t i=0;i<t.terrain->n_vertices;i++){ const float*P=t.terrain->positions+i*3;
       float dd=P[0]*P[0]+P[1]*P[1]; if(dd<best){best=dd; w3_yoff=P[2];} }
@@ -597,8 +465,7 @@ static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
     for(int k=0;k<2;k++) if(w3_cache[slot].tex[k]) glDeleteTextures(1,&w3_cache[slot].tex[k]); }
   w3_cent*c=&w3_cache[slot];
   c->vbo=w3_terr_vbo(t.terrain,&c->nverts);
-  c->tex[W3_GROUND_OSM]  =w3_bake(z,x,y,tex,W3_GROUND_OSM);      /* always: it is the fallback */
-  c->tex[W3_GROUND_PHOTO]=photo_ready?w3_bake(z,x,y,tex,W3_GROUND_PHOTO):0;
+  c->tex[W3_GROUND_OSM]=tex_osm; c->tex[W3_GROUND_PHOTO]=tex_photo;
   c->z=z; c->x=x; c->y=y; c->valid=1; c->touch=++w3_touch; w3_cache_bakes++;
   osmmesh_free_tile(&t);
   return slot;

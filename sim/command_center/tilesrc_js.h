@@ -125,6 +125,66 @@ static void w3_tiles_copy(int kind, int z, int x, int y, uint8_t *dst) {
 static int w3_tiles_resident(void) { return w3_nt_n; }
 #endif
 
+/* ---- baked ground albedo -------------------------------------------------------------------
+ * fb-tiles rasterises the OSM cartography and stitches the aerial mosaic, then keeps the result
+ * on disk. So the renderer downloads ONE finished image per tile per albedo instead of a vector
+ * tile plus 4 seam neighbours (OSM) or 16 z16 children (photo) — and rasterises nothing.
+ *
+ * Same async contract as the raw tiles: -1 means "not here yet, a fetch is now running", and the
+ * caller retries on a later frame. Never blocks.
+ */
+#ifdef __EMSCRIPTEN__
+EM_JS(int, w3_bake_size, (int photo, int z, int x, int y, int tex), {
+    var T = Module.__fbTiles; if (!T) return -1;
+    var key = 'b' + photo + '/' + tex + '/' + z + '/' + x + '/' + y;
+    var e = T.cache.get(key);
+    if (e === undefined) {
+        if (T.inflight > 256) return -1;
+        T.cache.set(key, null);
+        T.inflight++;
+        fetch(T.base + '/bake/' + (photo ? 'photo' : 'osm') + '/' + z + '/' + x + '/' + y + '?tex=' + tex)
+            .then(function (r) { return r.ok ? r.arrayBuffer() : null; })
+            .then(function (b) { T.cache.set(key, b ? new Uint8Array(b) : new Uint8Array(0)); T.inflight--; })
+            .catch(function () { T.cache.delete(key); T.inflight--; });
+        return -1;
+    }
+    if (e === null) return -1;
+    return e.length;
+});
+EM_JS(void, w3_bake_copy, (int photo, int z, int x, int y, int tex, uint8_t *dst), {
+    var T = Module.__fbTiles; if (!T) return;
+    var e = T.cache.get('b' + photo + '/' + tex + '/' + z + '/' + x + '/' + y);
+    if (e && e.length) HEAPU8.set(e, dst);
+});
+#else
+static int w3_bake_size(int photo, int z, int x, int y, int tex){
+    int i = w3_nt_find(100 + photo, z, x, y);          /* 100+ = a kind space of our own */
+    if (i >= 0) return w3_nt[i].n;
+    if (!w3_nt_base[0] || w3_nt_n >= W3_NT_CACHE) return -1;
+    char cmd[512];
+    snprintf(cmd, sizeof cmd, "curl -s -f --max-time 60 '%s/bake/%s/%d/%d/%d?tex=%d'",
+             w3_nt_base, photo ? "photo" : "osm", z, x, y, tex);
+    FILE *f = popen(cmd, "r");
+    if (!f) return -1;
+    size_t cap = 1 << 16, n = 0; uint8_t *b = (uint8_t *)malloc(cap);
+    for (;;) {
+        if (n == cap) { cap *= 2; uint8_t *t = (uint8_t *)realloc(b, cap); if (!t) break; b = t; }
+        size_t r = fread(b + n, 1, cap - n, f);
+        if (!r) break;
+        n += r;
+    }
+    pclose(f);
+    w3_nt[w3_nt_n].kind = 100 + photo; w3_nt[w3_nt_n].z = z; w3_nt[w3_nt_n].x = x; w3_nt[w3_nt_n].y = y;
+    w3_nt[w3_nt_n].b = b; w3_nt[w3_nt_n].n = (int)n;
+    return w3_nt[w3_nt_n++].n;
+}
+static void w3_bake_copy(int photo, int z, int x, int y, int tex, uint8_t *dst){
+    (void)tex;
+    int i = w3_nt_find(100 + photo, z, x, y);
+    if (i >= 0 && w3_nt[i].n > 0) memcpy(dst, w3_nt[i].b, (size_t)w3_nt[i].n);
+}
+#endif
+
 /* The osmmesh provider. Contract: hand over a malloc'd buffer (osmmesh frees it), or return 0
  * for "no tile" — which covers both a genuine hole and "not fetched yet". */
 static int w3_tile_provider(void *user, osmmesh_tile_kind kind,
