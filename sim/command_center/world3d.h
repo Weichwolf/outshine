@@ -976,8 +976,10 @@ static void world3d_render_hud(const telem_packet_t*t,int W,int H,int have){
   glUseProgram(w3_pH); glUniform2f(w3_hScale,2.0f/W,2.0f/H); glEnableVertexAttribArray(w3_hPos); glEnableVertexAttribArray(w3_hCol);
   glVertexAttribPointer(w3_hPos,2,GL_FLOAT,GL_FALSE,20,0); glVertexAttribPointer(w3_hCol,3,GL_FLOAT,GL_FALSE,20,(void*)8); glDrawArrays(GL_LINES,0,w3_hudN/5);
 }
-/* convenience: scene + HUD directly (used by the native offscreen renderer) */
-static void world3d_render(const telem_packet_t*t,int W,int H,int have){
-  world3d_render_scene(t,W,H,have); world3d_render_hud(t,W,H,have);
-}
+/* There was a world3d_render() here that called scene+HUD back to back, "for the native offscreen
+ * renderer". That renderer is gone (f36f147) and it was the last caller, so the function outlived
+ * its only purpose. It is deliberately NOT replaced by a convenience wrapper: scene and HUD must
+ * stay separate, because the video codec runs BETWEEN them (cc.c) -- the HUD is overlaid on the
+ * decoded frame, never encoded into it. A wrapper would suggest a coupling whose absence is the
+ * whole point of the video pipeline. */
 #endif

@@ -11,7 +11,9 @@
  * (Technique adapted from ~/Git/wasm-dvd-gl.) Without WebCodecs (e.g. Firefox) the
  * raw FBO is shown directly — soft upscale, no artifacts.
  *
- * All 3D + HUD live in world3d.h so this browser view matches the native renderer.
+ * All 3D + HUD live in world3d.h, of which this file is the ONLY consumer. That used to be
+ * "so this browser view matches the native renderer" — there is no native renderer since
+ * f36f147; the visual check is a headless browser on this very artifact (test/shot.sh).
  * Keys: arrows roll/pitch, A/D yaw, W/S throttle, ENTER arm, L drop link,
  * TAB ground = OSM render <-> aerial photo (F = fullscreen, both handled in index.html). */
 #include <SDL2/SDL.h>
@@ -58,7 +60,7 @@ EM_JS(int, fb_codec_init, (int w, int h), {
       bitrate: 1500000, framerate: 60, latencyMode:'realtime', avc:{format:'avc'} });
   } catch(e){ console.error('[fb] enc.configure', e); return 0; }
   S.ready = true; console.log('[fb] WebCodecs bereit', w+'x'+h); return 1;
-});
+})
 EM_JS(void, fb_codec_push, (int ptr, int w, int h, double ts), {
   const S = Module.__fb; if(!S||!S.ready) return;
   if(S.encoder.encodeQueueSize > 2) return;                 /* backpressure */
@@ -67,7 +69,7 @@ EM_JS(void, fb_codec_push, (int ptr, int w, int h, double ts), {
   const key = (S.n % 50) === 0; S.n++;
   try { S.encoder.encode(vf, { keyFrame:key }); } catch(e){}
   vf.close();
-});
+})
 EM_JS(int, fb_codec_upload, (int texId), {
   const S = Module.__fb; if(!S||!S.frame) return 0;
   const tex = GL.textures[texId]; if(!tex) return 0;
@@ -75,7 +77,7 @@ EM_JS(int, fb_codec_upload, (int texId), {
   try { GLctx.texImage2D(GLctx.TEXTURE_2D,0,GLctx.RGBA,GLctx.RGBA,GLctx.UNSIGNED_BYTE, S.frame); }
   catch(e){ return 0; }
   return 1;
-});
+})
 
 static SDL_Window *win;
 static EMSCRIPTEN_WEBSOCKET_T ws; static int ws_open=0;
@@ -85,7 +87,7 @@ static double g_olat=52.045, g_olon=9.385;
 static GLuint vid_fbo,vid_tex,vid_depth,codec_tex,pres_prog,quad_vbo;
 static GLuint msaa_fbo,msaa_color,msaa_depth;   /* multisample render target (antialiasing) */
 static GLint pr_pos,pr_uv,pr_tex,pr_flip;
-static unsigned char *readback; static int codec_ready=0; static long frame_no=0;
+static unsigned char *readback; static int codec_ready=0;
 
 static const char*PVS="attribute vec2 aPos; attribute vec2 aUV; varying vec2 vUV;"
  "void main(){ gl_Position=vec4(aPos,0.0,1.0); vUV=aUV; }";
@@ -171,7 +173,6 @@ static void frame(void){
     fb_codec_push((int)(intptr_t)readback, CAM_W, CAM_H, emscripten_get_now()*1000.0);  /* real-time µs timestamp */
     if(fb_codec_upload((int)codec_tex)) use_codec=1;
   }
-  frame_no++;
   /* 3) present the received video upscaled, then 4) HUD crisp on top.
    * Both paths are GL-bottom-up (the codec's readback->VideoFrame double-flip cancels),
    * so no V-flip is needed. */

@@ -27,7 +27,7 @@
 /* Base URL of fb-tiles, e.g. "http://localhost:8081". Set once at start-up. */
 EM_JS(void, w3_tiles_init, (const char *base), {
     Module.__fbTiles = { base: UTF8ToString(base), cache: new Map(), inflight: 0 };
-});
+})
 
 /* Byte length of a cached tile: >=0 if resident (0 = known hole), -1 if not fetched yet.
  * Starts the fetch on a miss. Never blocks. */
@@ -58,20 +58,20 @@ EM_JS(int, w3_tiles_size, (int kind, int z, int x, int y), {
     }
     if (e === null) return -1;                          /* still in flight */
     return e.length;
-});
+})
 
 /* Copy a resident tile into the WASM heap. Caller must have checked w3_tiles_size first. */
 EM_JS(void, w3_tiles_copy, (int kind, int z, int x, int y, uint8_t *dst), {
     var T = Module.__fbTiles; if (!T) return;
     var e = T.cache.get(kind + '/' + z + '/' + x + '/' + y);
     if (e && e.length) HEAPU8.set(e, dst);
-});
+})
 
 /* How many tiles are resident / in flight — for the progress line and for tests. */
-EM_JS(int, w3_tiles_resident, (), {
+EM_JS(int, w3_tiles_resident, (void), {
     var T = Module.__fbTiles; if (!T) return 0;
     var n = 0; T.cache.forEach(function (v) { if (v) n++; }); return n;
-});
+})
 
 #else  /* ---- native build ----
  * Same provider contract, but fetched synchronously with curl: natively we MAY block, and the
@@ -150,12 +150,12 @@ EM_JS(int, w3_bake_size, (int photo, int z, int x, int y, int tex), {
     }
     if (e === null) return -1;
     return e.length;
-});
+})
 EM_JS(void, w3_bake_copy, (int photo, int z, int x, int y, int tex, uint8_t *dst), {
     var T = Module.__fbTiles; if (!T) return;
     var e = T.cache.get('b' + photo + '/' + tex + '/' + z + '/' + x + '/' + y);
     if (e && e.length) HEAPU8.set(e, dst);
-});
+})
 #else
 static int w3_bake_size(int photo, int z, int x, int y, int tex){
     int i = w3_nt_find(100 + photo, z, x, y);          /* 100+ = a kind space of our own */
