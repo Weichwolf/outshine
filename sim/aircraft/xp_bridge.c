@@ -27,6 +27,7 @@
 #include <netinet/tcp.h>
 #include <netdb.h>
 #include "protocol.h"
+#include "terrain.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -502,7 +503,15 @@ static void physics_step(double dt){
     double vN=VN+windN+gustN, vE=VE+windE+gustE;
     S.gs=hypot(vN,vE);
     double climb=-VD + w_air;                            /* aero climb + air-mass vertical motion */
-    S.elev+=climb*dt; S.agl+=climb*dt; if(S.agl<0)S.agl=0;
+    S.elev+=climb*dt;
+    /* TRUE AGL: height above the ACTUAL ground, queried from the fb-tiles world-data service.
+     * This used to integrate alongside S.elev, i.e. AGL was just (elev - HOME_ELEV) -- the model
+     * believed the world was a flat disc at 71 m, so it disagreed with the terrain the renderer
+     * drew everywhere except exactly over home. The lookup is cached and polled off-thread; the
+     * hot path only reads it. */
+    fb_terrain_set_pos(S.lat,S.lon);
+    S.agl = S.elev - fb_terrain_ground();
+    if(S.agl<0){ S.agl=0; S.elev=fb_terrain_ground(); }   /* ground contact */
     S.lat+=(vN*dt)/111320.0; S.lon+=(vE*dt)/(111320.0*cos(S.lat*RAD));
     S.vx=vE; S.vy=climb; S.vz=-vN;
 
@@ -604,7 +613,16 @@ int main(void){
     /* live weather in the background: real wind/gusts/cloud/visibility for the origin.
      * Non-blocking; if the container is offline it just keeps the env defaults. */
     if(g_wx_live){ pthread_t th; if(pthread_create(&th,NULL,wx_thread,NULL)==0) pthread_detach(th); }
-    S.lat=HOME_LAT; S.lon=HOME_LON; S.elev=HOME_ELEV; S.agl=1.0; S.yaw=0; S.speed=14.0; S.gs=14.0; S.vy=0;  /* launch from the ground */
+    /* Home's ground elevation comes from real DEM data via fb-tiles (the old hardcoded 71.0 m
+     * only ever matched Hameln -- it made any other origin fly underground or in the air). One
+     * blocking lookup here is fine; after this the poller keeps it current off-thread. */
+    { const char*ta=getenv("TILES_ADDR"); if(!ta)ta="fb-tiles:8081";
+      double he;
+      if(fb_terrain_lookup(ta,HOME_LAT,HOME_LON,&he)){ HOME_ELEV=he;
+          fprintf(stderr,"[xp_bridge] home ground elevation %.1f m (fb-tiles)\n",HOME_ELEV); }
+      else fprintf(stderr,"[xp_bridge] fb-tiles unreachable, seeding home elevation %.1f m\n",HOME_ELEV);
+      fb_terrain_start(ta,HOME_ELEV); }
+    S.lat=HOME_LAT; S.lon=HOME_LON; S.elev=HOME_ELEV+1.0; S.agl=1.0; S.yaw=0; S.speed=14.0; S.gs=14.0; S.vy=0;  /* launch from the ground */
     if(getenv("XP_INJECT")) g_inject=1;
     fprintf(stderr,"[xp_bridge] FDM=%s  X-Plane :%d  MSP->127.0.0.1:5760\n", MDL->name, port);
 

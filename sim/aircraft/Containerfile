@@ -6,9 +6,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY common/ common/
-COPY aircraft/xp_bridge.c aircraft/
+COPY aircraft/xp_bridge.c aircraft/terrain.c aircraft/terrain.h aircraft/
 COPY aircraft/SITL.elf aircraft/eeprom.bin aircraft/run.sh ./
-RUN gcc -O2 -Wall -Icommon aircraft/xp_bridge.c -o /usr/local/bin/xp_bridge -lm -lpthread \
+RUN gcc -O2 -Wall -Icommon -Iaircraft aircraft/xp_bridge.c aircraft/terrain.c -o /usr/local/bin/xp_bridge -lm -lpthread \
     && chmod +x /app/SITL.elf /app/run.sh
 # FLIGHTBOX_ADDR + FDM_MODEL set at run time
 CMD ["/app/run.sh"]

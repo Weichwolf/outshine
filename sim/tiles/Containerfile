@@ -1,0 +1,19 @@
+# fb-tiles: the world-data service. Dynamically fetches and prepares real-world data
+# (DEM now; vector/imagery next) and caches it, so neither the engine nor the renderer
+# ships a preloaded region. Build context = sim/.
+FROM docker.io/library/debian:trixie-slim
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
+    curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY tiles/ tiles/
+COPY geo/osmmesh/ geo/osmmesh/
+# Only the terrain decoder (+ its stb_image) is needed here, but compiling the library as a
+# whole keeps the vendored tree byte-identical to upstream — no per-file cherry-picking to
+# drift out of sync.
+RUN gcc -O2 -Wall -Itiles -Igeo/osmmesh/include \
+        tiles/main.c tiles/elev.c geo/osmmesh/src/*.c \
+        -o /usr/local/bin/fb-tiles -lm \
+    && mkdir -p /var/cache/fbtiles
+EXPOSE 8081
+CMD ["/usr/local/bin/fb-tiles"]
