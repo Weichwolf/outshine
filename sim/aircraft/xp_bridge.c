@@ -59,8 +59,15 @@ static double g_turb=1.0;                /* turbulence intensity (0=calm, 1=mode
 static double g_sigma=0.6;               /* Dryden vertical-gust std, m/s (live-set from real gusts) */
 static double g_bl_height=800.0;         /* boundary-layer / thermal-top height, m AGL (live) */
 static double g_thermal_W=0.0;           /* peak thermal updraft, m/s (0=off; live from solar+BL) */
+/* TARGETS the 15-min live-weather refresh writes. The values above are slewed toward these
+ * with a ~60 s time constant in physics_step. Assigning the wind DIRECTLY was an instantaneous
+ * change of the aircraft's relative airflow every refresh — a real jolt ("kick") every 15 min.
+ * Real weather changes gradually; so must ours. */
+static double windN_t=0, windE_t=0, g_turb_t=1.0, g_sigma_t=0.6, g_bl_t=800.0, g_thermal_t=0.0;
+static int    g_wx_first=1;              /* first fetch snaps (no minute-long ramp from zero) */
 static double g_gustP=0,g_gustQ=0;       /* current gust roll/pitch rates (deg/s) -> reported to iNav's gyro */
-static float  g_nz=1.0f;                  /* normal load factor (g) -> iNav accelerometer, not hardwired 1 */
+static float  g_nz=1.0f;
+static long   g_bad_dref=0;     /* out-of-range control DREFs rejected (iNav servo glitches) */                  /* normal load factor (g) -> iNav accelerometer, not hardwired 1 */
 static float  g_cloud=0.25f, g_vis=30000.0f;  /* live cloud cover 0..1 + horizontal visibility, m */
 /* live sun/moon ephemeris (filled ~1 Hz in main from real UTC + origin) */
 static float  g_sun_el=45, g_sun_az=180, g_moon_el=-10, g_moon_az=0, g_moon_ph=0.5f;
@@ -622,8 +629,17 @@ int main(void){
         while((n=recvfrom(fd,buf,sizeof buf,0,(struct sockaddr*)&src,&sl))>0){
             if(n>=5 && !memcmp(buf,"RREF",4)){ if(!have_client){inav=src;il=sl;have_client=1;} int32_t id; memcpy(&id,buf+9,4); char dr[96]; snprintf(dr,sizeof dr,"%s",(char*)buf+13); add_sub(id,dr); }
             else if(n>=9 && !memcmp(buf,"DREF",4)){ float val; memcpy(&val,buf+5,4); char*dr=(char*)buf+9;
-                if(strstr(dr,"yoke_roll_ratio"))S.in_roll=val; else if(strstr(dr,"yoke_pitch_ratio"))S.in_pitch=val;
-                else if(strstr(dr,"yoke_heading_ratio"))S.in_yaw=val; else if(strstr(dr,"throttle_ratio_all"))S.in_thr=val; }
+                /* VALIDATE. X-Plane yoke ratios are -1..+1 and throttle 0..1 — anything else is a
+                 * glitch, not a command. iNav's SITL derives the yoke from the servo PWM as
+                 * (servo-1500)/500, so a momentarily-unwritten servo of 0 arrives as EXACTLY -3.0:
+                 * three times full deflection, which slammed the roll at up to 224 deg/s ("kicks").
+                 * Reject out-of-range samples and hold the last good value (clamping to -1 would
+                 * still be full aileron). Only genuine, in-range commands reach the FDM. */
+                if(!isfinite(val)) { /* drop */ }
+                else if(strstr(dr,"yoke_roll_ratio"))    { if(fabsf(val)<=1.05f) S.in_roll=val;  else g_bad_dref++; }
+                else if(strstr(dr,"yoke_pitch_ratio"))   { if(fabsf(val)<=1.05f) S.in_pitch=val; else g_bad_dref++; }
+                else if(strstr(dr,"yoke_heading_ratio")) { if(fabsf(val)<=1.05f) S.in_yaw=val;   else g_bad_dref++; }
+                else if(strstr(dr,"throttle_ratio_all")) { if(val>=-0.05f&&val<=1.05f) S.in_thr=val; else g_bad_dref++; } }
         }
         physics_step(dt);
         if(have_client && nsubs>0){ uint8_t out[5+128*8]; memcpy(out,"RREF",4); out[4]=0; int o=5;
@@ -800,14 +816,19 @@ int main(void){
             if(armed && link_up){ float dr=(float)hd/4500.f; lq=100.f*(1.f-dr*dr)+(float)(nrand()*1.5);
                 if(lq>100)lq=100; if(lq<5)lq=5; }
             t.rssi = (uint8_t)lq;
+            /* Sequence number: lets the receiver detect LOST packets. Without it a gap in the
+             * stream is indistinguishable from a violent manoeuvre — two packets that are
+             * really 260 ms apart look like one 10 ms tick, so a normal 2 deg/s roll reads as
+             * 148 deg/s. Every consumer must space samples by the seq delta, not by arrival. */
+            static uint16_t tseq=0; t.seq=tseq++;
             sendto(fbfd,&t,sizeof t,0,(struct sockaddr*)&fbdst,sizeof fbdst);
         }
         if(tick%8==0){ static video_packet_t v; render_horizon(&v,t_roll,t_pitch); sendto(fbfd,&v,sizeof v,0,(struct sockaddr*)&fbdst,sizeof fbdst); }
 
         if(++tick%100==0){ const char*MN[]={"DISARM","ARMED","CLIMB","LOITER","MANUAL","RTH"};
-            fprintf(stderr,"[xp_bridge] %s alt=%.0f pitch=%.1f roll=%.1f | airspd=%.1f gs=%.1f home=%.0f\n",
+            fprintf(stderr,"[xp_bridge] %s alt=%.0f pitch=%.1f roll=%.1f | airspd=%.1f gs=%.1f home=%.0f | badDREF=%ld\n",
             MN[g_mode%6], S.agl, S.pitch, S.roll, S.speed, S.gs,
-            hypot((S.lat-HOME_LAT)*111320.0,(S.lon-HOME_LON)*111320.0*cos(HOME_LAT*RAD))); }
+            hypot((S.lat-HOME_LAT)*111320.0,(S.lon-HOME_LON)*111320.0*cos(HOME_LAT*RAD)), g_bad_dref); }
         struct timespec tsp={0,(long)(dt*1e9)}; nanosleep(&tsp,NULL);
     }
     return 0;
