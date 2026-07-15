@@ -10,19 +10,32 @@
  *     ever blocks the frame loop — which also means no "the world froze for 300 ms" hitch.
  *
  * This is what replaces the preloaded region: with it, any origin on earth works.
+ *
+ * Browser-only, and says so rather than pretending otherwise. There used to be a whole second
+ * implementation behind #else here: ~55 lines of curl/popen that fetched the same tiles
+ * synchronously, "because natively we MAY block, and the headless renderer is the only way to
+ * prove the streaming path without a browser". That renderer (render_native.c) was deleted in
+ * f36f147 and took the last native consumer with it -- this header only ever reaches a compiler
+ * through world3d.h, and world3d.h only through cc.c. So the branch was unreachable, and worse
+ * than dead: it described a portability constraint that does not exist, which is exactly the kind
+ * of fossil that distorts the next person's refactor. If a native consumer is ever wanted again,
+ * the #error below is where to start -- deliberately louder than a fallback that silently
+ * "works" while being maintained by nobody and exercised by nothing.
  */
 #ifndef W3_TILESRC_JS_H
 #define W3_TILESRC_JS_H
 #include <osmmesh/osmmesh.h>
 #include <stdlib.h>
 
+#ifndef __EMSCRIPTEN__
+#error "tilesrc_js.h is browser-only (EM_JS/fetch). The native path died with render_native.c (f36f147); the visual check is a headless browser on the real app -- see test/shot.sh."
+#endif
+#include <emscripten.h>
+
 /* Aerial photo tiles. osmmesh does not know about these -- it only needs vector + terrain to
  * build a mesh. The imagery is purely the renderer's business (it is only an albedo), so it
  * rides the same byte cache under its own kind rather than becoming an osmmesh_tile_kind. */
 #define W3_TILE_IMAGERY 2
-
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
 
 /* Two things about the EM_JS calls below look like typos and are not. Both cost a reader a
  * detour once, so: no trailing ';' after the closing ')', and (void) spelled out where a C
@@ -81,64 +94,6 @@ EM_JS(void, w3_tiles_copy, (int kind, int z, int x, int y, uint8_t *dst), {
     if (e && e.length) HEAPU8.set(e, dst);
 })
 
-/* How many tiles are resident / in flight — for the progress line and for tests. */
-EM_JS(int, w3_tiles_resident, (void), {
-    var T = Module.__fbTiles; if (!T) return 0;
-    var n = 0; T.cache.forEach(function (v) { if (v) n++; }); return n;
-})
-
-#else  /* ---- native build ----
- * Same provider contract, but fetched synchronously with curl: natively we MAY block, and the
- * headless renderer is the only way to prove the streaming path (provider -> osmmesh -> mesh ->
- * pixels) without a browser. The browser's async cache is the only part this cannot exercise. */
-#include <stdio.h>
-#include <string.h>
-
-#define W3_NT_CACHE 4096   /* imagery: 16 z16 children per z14 tile, x50 tiles */
-static struct { int kind, z, x, y; uint8_t *b; int n; } w3_nt[W3_NT_CACHE];
-static int  w3_nt_n = 0;
-static char w3_nt_base[160] = "";
-
-static void w3_tiles_init(const char *base) { snprintf(w3_nt_base, sizeof w3_nt_base, "%s", base ? base : ""); }
-
-static int w3_nt_find(int kind, int z, int x, int y) {
-    for (int i = 0; i < w3_nt_n; i++)
-        if (w3_nt[i].kind == kind && w3_nt[i].z == z && w3_nt[i].x == x && w3_nt[i].y == y) return i;
-    return -1;
-}
-static int w3_tiles_size(int kind, int z, int x, int y) {
-    int i = w3_nt_find(kind, z, x, y);
-    if (i >= 0) return w3_nt[i].n;
-    if (!w3_nt_base[0] || w3_nt_n >= W3_NT_CACHE) return -1;
-    /* 0,1 = osmmesh_tile_kind; 2 = W3_TILE_IMAGERY. This used to index with names[kind & 1],
-     * which masks kind 2 down to 0 -- the headless renderer would then have silently fetched
-     * VECTOR tiles and called them aerial photos. A wrong tile is worse than no tile. */
-    static const char *names[] = { "vector", "terrain", "imagery" };
-    if (kind < 0 || kind >= (int)(sizeof names / sizeof names[0])) return 0;
-    char cmd[512];
-    snprintf(cmd, sizeof cmd, "curl -s -f --max-time 20 '%s/t/%s/%d/%d/%d'",
-             w3_nt_base, names[kind], z, x, y);
-    FILE *f = popen(cmd, "r");
-    if (!f) return -1;
-    size_t cap = 1 << 16, n = 0; uint8_t *b = (uint8_t *)malloc(cap);
-    for (;;) {
-        if (n == cap) { cap *= 2; uint8_t *t = (uint8_t *)realloc(b, cap); if (!t) break; b = t; }
-        size_t r = fread(b + n, 1, cap - n, f);
-        if (!r) break;
-        n += r;
-    }
-    pclose(f);
-    w3_nt[w3_nt_n].kind = kind; w3_nt[w3_nt_n].z = z; w3_nt[w3_nt_n].x = x; w3_nt[w3_nt_n].y = y;
-    w3_nt[w3_nt_n].b = b; w3_nt[w3_nt_n].n = (int)n;        /* n == 0 records a hole, so we ask once */
-    return w3_nt[w3_nt_n++].n;
-}
-static void w3_tiles_copy(int kind, int z, int x, int y, uint8_t *dst) {
-    int i = w3_nt_find(kind, z, x, y);
-    if (i >= 0 && w3_nt[i].n > 0) memcpy(dst, w3_nt[i].b, (size_t)w3_nt[i].n);
-}
-static int w3_tiles_resident(void) { return w3_nt_n; }
-#endif
-
 /* ---- baked ground albedo -------------------------------------------------------------------
  * fb-tiles rasterises the OSM cartography and stitches the aerial mosaic, then keeps the result
  * on disk. So the renderer downloads ONE finished image per tile per albedo instead of a vector
@@ -147,7 +102,6 @@ static int w3_tiles_resident(void) { return w3_nt_n; }
  * Same async contract as the raw tiles: -1 means "not here yet, a fetch is now running", and the
  * caller retries on a later frame. Never blocks.
  */
-#ifdef __EMSCRIPTEN__
 EM_JS(int, w3_bake_size, (int photo, int z, int x, int y, int tex), {
     var T = Module.__fbTiles; if (!T) return -1;
     var key = 'b' + photo + '/' + tex + '/' + z + '/' + x + '/' + y;
@@ -170,34 +124,6 @@ EM_JS(void, w3_bake_copy, (int photo, int z, int x, int y, int tex, uint8_t *dst
     var e = T.cache.get('b' + photo + '/' + tex + '/' + z + '/' + x + '/' + y);
     if (e && e.length) HEAPU8.set(e, dst);
 })
-#else
-static int w3_bake_size(int photo, int z, int x, int y, int tex){
-    int i = w3_nt_find(100 + photo, z, x, y);          /* 100+ = a kind space of our own */
-    if (i >= 0) return w3_nt[i].n;
-    if (!w3_nt_base[0] || w3_nt_n >= W3_NT_CACHE) return -1;
-    char cmd[512];
-    snprintf(cmd, sizeof cmd, "curl -s -f --max-time 60 '%s/bake/%s/%d/%d/%d?tex=%d'",
-             w3_nt_base, photo ? "photo" : "osm", z, x, y, tex);
-    FILE *f = popen(cmd, "r");
-    if (!f) return -1;
-    size_t cap = 1 << 16, n = 0; uint8_t *b = (uint8_t *)malloc(cap);
-    for (;;) {
-        if (n == cap) { cap *= 2; uint8_t *t = (uint8_t *)realloc(b, cap); if (!t) break; b = t; }
-        size_t r = fread(b + n, 1, cap - n, f);
-        if (!r) break;
-        n += r;
-    }
-    pclose(f);
-    w3_nt[w3_nt_n].kind = 100 + photo; w3_nt[w3_nt_n].z = z; w3_nt[w3_nt_n].x = x; w3_nt[w3_nt_n].y = y;
-    w3_nt[w3_nt_n].b = b; w3_nt[w3_nt_n].n = (int)n;
-    return w3_nt[w3_nt_n++].n;
-}
-static void w3_bake_copy(int photo, int z, int x, int y, int tex, uint8_t *dst){
-    (void)tex;
-    int i = w3_nt_find(100 + photo, z, x, y);
-    if (i >= 0 && w3_nt[i].n > 0) memcpy(dst, w3_nt[i].b, (size_t)w3_nt[i].n);
-}
-#endif
 
 /* The osmmesh provider. Contract: hand over a malloc'd buffer (osmmesh frees it), or return 0
  * for "no tile" — which covers both a genuine hole and "not fetched yet". */
