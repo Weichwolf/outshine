@@ -298,7 +298,7 @@ static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS){
       /* roads then rails (2nd pass keeps rails visible) then rivers */
       if((L=w3_layer(t,"streets"))){ float sc=(float)TS/osmmesh_mvt_layer_extent(L); size_t nf=osmmesh_mvt_num_features(L);
         for(int pass=0;pass<2;pass++) for(size_t f=0;f<nf;f++){ const osmmesh_mvt_feature*ft=osmmesh_mvt_feature_at(L,f);
-          if(ft->geom_type!=OSMMESH_MVT_GEOM_LINESTRING) continue; float w=w3_roadstyle(w3_kind(L,ft),W3_TEX,&r,&g,&b,&rail);
+          if(ft->geom_type!=OSMMESH_MVT_GEOM_LINESTRING) continue; float w=w3_roadstyle(w3_kind(L,ft),TS,&r,&g,&b,&rail);
           if(rail!=pass) continue; w3_drawline(im,TS,TS,ft,sc,w,r,g,b); } }
       if((L=w3_layer(t,"water_lines"))){ float sc=(float)TS/osmmesh_mvt_layer_extent(L); size_t nf=osmmesh_mvt_num_features(L);
         for(size_t f=0;f<nf;f++){ const osmmesh_mvt_feature*ft=osmmesh_mvt_feature_at(L,f);
