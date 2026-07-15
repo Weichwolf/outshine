@@ -1,7 +1,9 @@
 /* FlightBox — shared 3D world + HUD renderer (GLES2/WebGL).
- * Included by both the WASM command center (cc.c) and the native offscreen
- * renderer (render_native.c) so the browser and the headless screenshot draw
- * exactly the same thing. Caller provides the GL context. */
+ * Included by cc.c, the WASM command center — the only consumer. There used to be a second,
+ * native renderer (render_native.c) that included this too "so both draw the same thing"; the
+ * two drifted anyway (it compiled W3_TERR=24/W3_FARTEX=256 while the browser shipped 22/512).
+ * The regression check is now a headless browser screenshot of the real app (test/shot.sh), so
+ * there is one renderer and nothing to keep in sync. Caller provides the GL context. */
 #ifndef WORLD3D_H
 #define WORLD3D_H
 #include <stdio.h>
@@ -222,7 +224,7 @@ static float w3_yoff=0; static int w3_yoff_set=0;   /* origin ground elevation (
 
 #define W3_MAXT ((2*W3_RAD+1)*(2*W3_RAD+1))
 #define W3_MAXTF ((2*W3_FARRAD+1)*(2*W3_FARRAD+1))
-typedef struct { GLuint vbo, tex; int nverts; } w3_tileGL;
+typedef struct { GLuint vbo, tex[2]; int nverts; } w3_tileGL;
 static w3_tileGL w3_T[W3_MAXT];  static int w3_nT=0;    /* near tier (z14, detailed) */
 static w3_tileGL w3_TF[W3_MAXTF]; static int w3_nTF=0;  /* far tier (low zoom, coarse) */
 
@@ -276,6 +278,9 @@ static int w3_vec_bytes(uint32_t z,uint32_t x,uint32_t y,uint8_t**d,size_t*n){
  * path must stay first-class rather than become a legacy branch. */
 enum { W3_GROUND_OSM = 0, W3_GROUND_PHOTO = 1 };
 static int w3_ground_mode = W3_GROUND_OSM;
+/* Set while any resident tile still carries the wrong albedo. It is what keeps world3d_stream
+ * from declaring victory after a TAB and going back to sleep. */
+static int w3_ground_dirty = 0;
 
 /* Are all the photo children for this tile resident?  Touching every child is the POINT, not a
  * side effect: w3_tiles_size starts the fetch on a miss, so probing all of them kicks off all
@@ -318,12 +323,14 @@ static int w3_fill_imagery(uint8_t*im,int TS,uint32_t z,uint32_t x,uint32_t y){
   return 1;
 }
 
-static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS){
+/* Bake one tile's albedo. `mode` is passed rather than read from the global on purpose: a tile
+ * may legitimately be baked as OSM while the ground source is PHOTO -- see w3_cache_get. */
+static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS,int mode){
   uint8_t*im=malloc((size_t)TS*TS*3);
   for(int i=0;i<TS*TS;i++){ im[i*3]=150;im[i*3+1]=178;im[i*3+2]=118; }   /* base ground */
-  if(w3_ground_mode==W3_GROUND_PHOTO) w3_fill_imagery(im,TS,z,x,y);
+  if(mode==W3_GROUND_PHOTO) w3_fill_imagery(im,TS,z,x,y);
   uint8_t*d=0; size_t n=0;
-  if(w3_ground_mode==W3_GROUND_OSM && w3_vec_bytes(z,x,y,&d,&n)){
+  if(mode==W3_GROUND_OSM && w3_vec_bytes(z,x,y,&d,&n)){
     osmmesh_mvt_tile*t=0;
     if(osmmesh_mvt_decode(d,n,&t)==OSMMESH_MVT_OK){
       const osmmesh_mvt_layer*L; uint8_t r,g,b; int rail;
@@ -519,7 +526,13 @@ static int world3d_tiles_open(const char*base,double lat,double lon){
  * only bake genuinely new ones. Sized to hold a full orbit -> after the first lap nothing
  * is re-baked at all. Eviction is least-recently-used. */
 #define W3_CACHE 64
-typedef struct { int z; uint32_t x,y; GLuint vbo,tex; int nverts; unsigned touch; int valid; } w3_cent;
+/* tex[] holds BOTH albedos for the tile: [W3_GROUND_OSM] = the OSM render, [W3_GROUND_PHOTO] =
+ * the aerial photo. Both are baked while streaming, so switching the ground is an index change,
+ * not a re-bake. That is what makes it usable as a camera fallback: the moment you need the other
+ * view is the moment you cannot afford to build it. Costs one extra texture per tile; the VBO
+ * (the expensive part) is shared -- the geometry does not care what is painted on it.
+ * tex[PHOTO] is 0 until its imagery lands; the draw falls back to tex[OSM] meanwhile. */
+typedef struct { int z; uint32_t x,y; GLuint vbo,tex[2]; int nverts; unsigned touch; int valid; } w3_cent;
 static w3_cent w3_cache[W3_CACHE];
 static unsigned w3_touch=0;
 static int w3_cache_hits=0, w3_cache_bakes=0;
@@ -528,11 +541,30 @@ static int w3_cache_hits=0, w3_cache_bakes=0;
 static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
   for(int i=0;i<W3_CACHE;i++)
     if(w3_cache[i].valid && w3_cache[i].z==z && w3_cache[i].x==x && w3_cache[i].y==y){
-      w3_cache[i].touch=++w3_touch; w3_cache_hits++; return i; }
-  /* Probe the photo FIRST. osmmesh_fetch_tile decodes a terrain PNG and a vector tile; doing
-   * that every frame only to throw it away because the imagery has not landed yet burns the CPU
-   * exactly while the network is busy. This also starts every child's download. */
-  if(w3_ground_mode==W3_GROUND_PHOTO && !w3_imagery_ready(tex,z,x,y)) return -1;
+      w3_cache[i].touch=++w3_touch; w3_cache_hits++;
+      /* Ground source changed (TAB)? Re-bake this tile's albedo in place -- but only when the new
+       * one is actually available, and NEVER drop the old texture first. Deleting them all on the
+       * keypress emptied the world until everything had re-baked; the tiles were on disk in under
+       * a millisecond, we were just showing nothing meanwhile. Now the switch ripples through the
+       * scene tile by tile and the ground never disappears. */
+      /* The photo half is baked opportunistically, whether or not it is being shown: by the time
+       * someone reaches for it, it must already be there. */
+      if(!w3_cache[i].tex[W3_GROUND_PHOTO]){
+        if(w3_imagery_ready(tex,z,x,y)){ w3_cache[i].tex[W3_GROUND_PHOTO]=w3_bake(z,x,y,tex,W3_GROUND_PHOTO); w3_cache_bakes++; }
+        else w3_ground_dirty=1;           /* imagery in flight -> keep the streamer awake */
+      }
+      return i; }
+  /* Which albedo can we actually build right now? Probing also STARTS every photo child's
+   * download, so this call is the thing that gets them moving.
+   *
+   * If the photo is not here yet we bake the OSM render instead of refusing to build the tile.
+   * Refusing meant a fresh load in photo mode showed pure sky until the imagery landed, and the
+   * TAB switch emptied the world -- for a view whose entire purpose is to be there when the
+   * camera is not. The synthetic render is the fallback, so let it BE the fallback: the ground
+   * appears at once and each tile upgrades to the photo as it arrives. */
+  /* Probing also STARTS every photo child's download, so this call is what gets them moving. */
+  int photo_ready = w3_imagery_ready(tex,z,x,y);
+  if(!photo_ready) w3_ground_dirty=1;      /* revisit this tile until its photo has landed */
 
   osmmesh_tile t={0};
   if(osmmesh_fetch_tile(w3_osm,z,x,y,&t)!=OSMMESH_OK || !t.terrain){ osmmesh_free_tile(&t); return -1; }
@@ -546,9 +578,12 @@ static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
     if(!w3_cache[i].valid){ slot=i; break; }
     if(w3_cache[i].touch<oldest){ oldest=w3_cache[i].touch; slot=i; }
   }
-  if(w3_cache[slot].valid){ glDeleteBuffers(1,&w3_cache[slot].vbo); glDeleteTextures(1,&w3_cache[slot].tex); }
+  if(w3_cache[slot].valid){ glDeleteBuffers(1,&w3_cache[slot].vbo);
+    for(int k=0;k<2;k++) if(w3_cache[slot].tex[k]) glDeleteTextures(1,&w3_cache[slot].tex[k]); }
   w3_cent*c=&w3_cache[slot];
-  c->vbo=w3_terr_vbo(t.terrain,&c->nverts); c->tex=w3_bake(z,x,y,tex);
+  c->vbo=w3_terr_vbo(t.terrain,&c->nverts);
+  c->tex[W3_GROUND_OSM]  =w3_bake(z,x,y,tex,W3_GROUND_OSM);      /* always: it is the fallback */
+  c->tex[W3_GROUND_PHOTO]=photo_ready?w3_bake(z,x,y,tex,W3_GROUND_PHOTO):0;
   c->z=z; c->x=x; c->y=y; c->valid=1; c->touch=++w3_touch; w3_cache_bakes++;
   osmmesh_free_tile(&t);
   return slot;
@@ -567,7 +602,8 @@ static int w3_stream_grid(uint32_t cx,uint32_t cy,int z,int rad,int tex,int maxt
       if(dx>-ring&&dx<ring&&dy>-ring&&dy<ring) continue;   /* interior: done on an earlier ring */
       int ci=w3_cache_get(z,cx+dx,cy+dy,tex,(dx==0&&dy==0));
       if(ci<0 || n>=maxt) continue;
-      arr[n].vbo=w3_cache[ci].vbo; arr[n].tex=w3_cache[ci].tex; arr[n].nverts=w3_cache[ci].nverts; n++;
+      arr[n].vbo=w3_cache[ci].vbo; arr[n].nverts=w3_cache[ci].nverts;
+      arr[n].tex[0]=w3_cache[ci].tex[0]; arr[n].tex[1]=w3_cache[ci].tex[1]; n++;
     }
   }
   return n;
@@ -588,6 +624,7 @@ static void world3d_stream(double lat,double lon){
   if(!moved && w3_stream_done) return;
   w3_tx=tx; w3_ty=ty; w3_have_tile=1;
   int b0=w3_cache_bakes, h0=w3_cache_hits;
+  w3_ground_dirty=0;                     /* recomputed by the w3_cache_get calls below */
   /* NEAR tier first: the ground under and around the aircraft is what you actually see, and it
    * must win the network budget over the distant ring. */
   w3_nT  = w3_stream_grid(tx,ty,W3_Z,   W3_RAD,   W3_TEX,   W3_MAXT, w3_T);    /* near detail */
@@ -595,7 +632,12 @@ static void world3d_stream(double lat,double lon){
   w3_nTF = w3_stream_grid(fx,fy,W3_FARZ,W3_FARRAD,W3_FARTEX,W3_MAXTF,w3_TF);   /* distant coarse ring */
   int want = (2*W3_RAD+1)*(2*W3_RAD+1) + (2*W3_FARRAD+1)*(2*W3_FARRAD+1);
   int was_done = w3_stream_done;
-  w3_stream_done = (w3_nT + w3_nTF) >= want;
+  /* "Done" means every tile is resident AND showing the albedo we actually asked for. Without
+   * the second half, a TAB only took effect when the aircraft next crossed a tile boundary --
+   * about a minute in a 1000 m orbit -- because this function returns early once done and
+   * w3_cache_get, which does the upgrading, never ran again. The tiles were on disk the whole
+   * time; we had simply stopped asking. */
+  w3_stream_done = ((w3_nT + w3_nTF) >= want) && !w3_ground_dirty;
   /* Only report on a real transition, or this would print every frame while tiles land. */
   if(moved || (w3_stream_done && !was_done))
     printf("[world3d] tiles near %d + far %d of %d | baked %d, cached %d%s\n",
@@ -604,19 +646,20 @@ static void world3d_stream(double lat,double lon){
 }
 #endif /* W3_USE_OSM */
 
-/* Switch the ground albedo source. Drops every baked tile: the cache is keyed by z/x/y only,
- * so without this you would keep seeing the old texture until each tile happened to be evicted.
+/* Switch the ground albedo source. Deliberately throws NOTHING away: each cached tile carries the
+ * mode it was baked from, and w3_cache_get re-bakes it in place once the new albedo is on hand.
+ * The geometry (VBO) is identical either way, so only the texture is redone.
  *
- * This DOES cost one re-bake of everything visible -- the very freeze the tile cache exists to
- * avoid. Accepted here because it is a deliberate keypress, not something that happens on its own
- * every time you cross a tile boundary. */
+ * The first version deleted every baked tile here. That emptied the world until everything had
+ * re-baked -- which reads as "the switch takes forever" even though the tiles were already on the
+ * server's disk in under a millisecond. A fallback view you reach for when the camera dies must
+ * not begin by removing the view. */
 static void w3_ground_toggle(void){
+  /* Both textures are already resident, so this really is just an index flip -- no re-bake, no
+   * flush, no network. Earlier versions re-baked here and the switch took about a minute, because
+   * world3d_stream returns early once everything is loaded and only wakes when the aircraft
+   * crosses a tile boundary (~1 min in a 1000 m orbit). The pictures were on disk the whole time. */
   w3_ground_mode = (w3_ground_mode==W3_GROUND_OSM) ? W3_GROUND_PHOTO : W3_GROUND_OSM;
-  for(int i=0;i<W3_CACHE;i++) if(w3_cache[i].valid){
-    glDeleteBuffers(1,&w3_cache[i].vbo); glDeleteTextures(1,&w3_cache[i].tex);
-    w3_cache[i].valid=0;
-  }
-  w3_nT=0; w3_nTF=0;
   printf("[world3d] ground = %s\n", w3_ground_mode==W3_GROUND_PHOTO?"aerial photo":"OSM render");
 }
 
@@ -796,7 +839,9 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
     glUniform3fv(w3_wtHaze,1,haze); glUniform1f(w3_wtLight,light); glUniform3fv(w3_wtSun,1,sun);
     glActiveTexture(GL_TEXTURE0); glUniform1i(w3_wtTex,0);
     glEnableVertexAttribArray(w3_wtPos); glEnableVertexAttribArray(w3_wtUV); glEnableVertexAttribArray(w3_wtNorm);
-    #define W3_DRAWARR(arr,n) for(int i=0;i<n;i++){ glBindTexture(GL_TEXTURE_2D,arr[i].tex); glBindBuffer(GL_ARRAY_BUFFER,arr[i].vbo); \
+    /* THE ground switch, in full: an index. Both albedos are already on the GPU. */
+    #define W3_DRAWARR(arr,n) for(int i=0;i<n;i++){ GLuint _t=arr[i].tex[w3_ground_mode]; if(!_t)_t=arr[i].tex[W3_GROUND_OSM]; \
+      glBindTexture(GL_TEXTURE_2D,_t); glBindBuffer(GL_ARRAY_BUFFER,arr[i].vbo); \
       glVertexAttribPointer(w3_wtPos,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(pos)); \
       glVertexAttribPointer(w3_wtUV,2,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(uv)); \
       glVertexAttribPointer(w3_wtNorm,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(norm)); \

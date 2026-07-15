@@ -11,10 +11,10 @@
 #                                   bilinear sample is tilemath.h -> both covered elsewhere.
 #   - tiles/main.c                  is a `for(;;) accept()` server loop -> live route checks
 #   - aircraft/terrain.c            polls a running service            -> live checks
-#   - command_center/*              needs a GL context                 -> render_native + browser
+#   - command_center/*              needs a GL context                 -> test/shot.sh (real browser)
 #   - aircraft/xp_bridge.c          is the plant in a closed loop      -> test/eval.py (~7500 invariants)
 #     (its PURE parts are being lifted out into fdm/* one at a time, and those ARE covered here)
-#   - command_center/world3d.h      needs a GL context -> render_native + browser.
+#   - command_center/world3d.h      needs a GL context -> test/shot.sh screenshots the real app.
 #     (same treatment: gfx/mat4.h and gfx/style.h are out and covered; sky/HUD/cache still inside)
 #
 # NAMED GAP, not rounded away: nothing here proves the wire between the modules. A correct

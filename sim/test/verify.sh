@@ -30,9 +30,7 @@ gate(){   # gate <name> <cmd...>
 gate "unit tests + coverage" test/unit/run.sh
 
 # --- 2. builds. The gate the ephemeris extraction walked straight through. -----------------
-# Every compile of the sources a refactor moves: all three images, plus the two native builds
-# that use their OWN source lists (run-native.sh, build-render-native.sh) and so break
-# independently of the containers.
+# Every compile of the sources a refactor moves: all three images plus the WASM.
 build_all(){
   local ok=0
   for f in aircraft flightbox tiles; do
@@ -40,41 +38,33 @@ build_all(){
     if podman build -q -f "$f/Containerfile" -t "fb-$f" . >/dev/null 2>&1; then echo OK
     else echo FAIL; podman build -f "$f/Containerfile" -t "fb-$f" . 2>&1 | tail -15 | sed 's/^/      /'; ok=1; fi
   done
-  printf '  building %-10s ... ' "render_native"
-  if ( cd command_center && ./build-render-native.sh >/dev/null 2>&1 ); then echo OK
-  else echo FAIL; ( cd command_center && ./build-render-native.sh 2>&1 | tail -10 | sed 's/^/      /' ); ok=1; fi
   printf '  building %-10s ... ' "wasm"
   if ./build-wasm.sh >/dev/null 2>&1; then echo OK; else echo FAIL; ./build-wasm.sh 2>&1 | tail -10 | sed 's/^/      /'; ok=1; fi
   return $ok
 }
-gate "builds (3 images + render_native + wasm)" build_all
+gate "builds (3 images + wasm)" build_all
 
-# --- 3. the renderer still renders a world ------------------------------------------------
-# Not a pixel-exact compare: the scene depends on live tiles and the sun's real position, so
-# exact pixels are not a stable oracle. What IS stable: it must stream real tiles and put real
-# ground on the screen. A refactor that breaks the mesh path shows up here as an empty sky.
+# --- 3. the renderer still renders a world -------------------------------------------------
+# Screenshots the REAL command center in a headless browser: same WASM, same JS, same HTML the
+# user gets. This used to be render_native.c, a SECOND renderer written in C that re-created the
+# camera/telemetry/scene setup cc.c already does. The duplication was not theoretical -- the two
+# drifted: render_native compiled W3_TERR=24/W3_FARTEX=256 while the browser shipped 22/512, so
+# the thing calling itself "the renderer's regression check" checked a scene nobody ran.
+# Both ground sources are shot, which render_native never covered.
 render_check(){
-  command -v podman >/dev/null && podman ps --filter name=fb-tiles --format '{{.Names}}' | grep -q fb-tiles || {
-    echo "  SKIP: fb-tiles not running (start it: ./run-podman.sh) — render gate needs live tiles"; return 0; }
-  local out; out=$(mktemp -d)/r.rgb
-  ( cd command_center && LIBGL_ALWAYS_SOFTWARE=1 timeout 300 ./render_native "$out" \
-      http://localhost:8081 http://localhost:8081 52.045 9.385 320 240 >/dev/null 2>&1 )
-  [ -s "$out" ] || { echo "  no output image"; return 1; }
-  python3 - "$out" <<'PY'
-import sys, collections
-d = open(sys.argv[1], 'rb').read()
-px = [d[i:i+3] for i in range(0, len(d), 3)]
-colours = len(set(px))
-# ground = anything that isn't sky-ish blue. A world with terrain has a good chunk of it.
-ground = sum(1 for p in px if not (p[2] > p[0] + 20 and p[2] > 90))
-pct = 100.0 * ground / len(px)
-print("  %d distinct colours, %.0f%% ground pixels" % (colours, pct))
-ok = colours > 200 and 10 < pct < 95
-print("  " + ("OK — real terrain on screen" if ok else "SUSPECT — scene looks empty/degenerate"))
-sys.exit(0 if ok else 1)
-PY
+  curl -s -f --max-time 3 http://localhost:8080/config.js >/dev/null 2>&1 || {
+    echo "  SKIP: stack not running (./run-podman.sh) — this gate screenshots the live app"; return 0; }
+  local rc=0 d; d=$(mktemp -d)
+  for g in osm photo; do
+    if test/shot.sh "$d/$g.png" "$g" 800x600 25 >/dev/null 2>&1; then
+      python3 test/pngstat.py "$d/$g.png" "$g" || rc=1
+    else
+      echo "  $g: no screenshot"; rc=1
+    fi
+  done
+  rm -rf "$d"; return $rc
 }
-gate "headless render (streams tiles -> pixels)" render_check
+gate "headless render (real browser, osm + photo)" render_check
 
 # --- 4. the physics still flies: ~7500 closed-loop invariants across 4 airframes ------------
 if [ "$QUICK" = "quick" ]; then

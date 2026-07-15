@@ -50,6 +50,20 @@
     }
   });
 </script>
+<script>
+  // ?ground=photo|osm — the same switch TAB throws, reachable without a keypress. Exists so a
+  // headless browser can screenshot BOTH ground sources; a human just presses TAB.
+  (function(){
+    var want=new URLSearchParams(location.search).get('ground');
+    if(want!=='photo' && want!=='osm') return;
+    var t=setInterval(function(){
+      if(!(window.Module && Module._cc_toggle_ground && Module.calledRun)) return;
+      clearInterval(t);
+      // the renderer starts on OSM; only toggle if the caller wants the other one
+      if(want==='photo') Module._cc_toggle_ground();
+    },100);
+  })();
+</script>
 <script src="cc.js"></script>
 </body>
 </html>

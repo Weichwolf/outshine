@@ -67,6 +67,6 @@ second stb TU would be the worse trade.
 - Neither decoder gunzips. Our tile service fetches with `curl --compressed`, so what it caches
   and serves is already raw — verified: 12 Shortbread layers decode straight from the cache.
 - The archive path (`vector_url` / `vector_data`) still works and is untouched; we simply no
-  longer use it. `render_native` still accepts a `.pmtiles` path as well as a service URL.
+  longer use it.
 - `osmmesh_fetch_tile(z,x,y)` internally also reads the **west/north neighbour** tiles for seam
   stitching, so a provider must be able to serve adjacent tiles, not just the requested one.
