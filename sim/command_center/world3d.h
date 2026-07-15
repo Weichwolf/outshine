@@ -348,9 +348,14 @@ static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS){
  * dense row-major grid (256x256); we DECIMATE it to a coarse W3_TERR x W3_TERR grid
  * (detail comes from the draped texture, not the geometry) and drape UV from the tile's
  * ENU bbox (north -> v=0 -> texture top). Coarse geometry = smooth framerate. */
+/* Upload a ready 8-float/vertex soup (pos.xyz, uv, normal.xyz) as-is. */
+static GLuint w3_push8(const float*v,size_t o,int*out_nv){
+  GLuint vbo; glGenBuffers(1,&vbo); glBindBuffer(GL_ARRAY_BUFFER,vbo);
+  glBufferData(GL_ARRAY_BUFFER,o*sizeof(float),v,GL_STATIC_DRAW); *out_nv=(int)(o/8); return vbo;
+}
 /* Take a 5-float/vertex triangle soup (pos.xyz, uv) and emit an 8-float/vertex VBO with a
- * per-triangle FACE NORMAL appended (flat shading — the right look for terrain relief). The
- * normal lets the fragment shader compute real sun/slope lighting instead of a flat tint. */
+ * per-triangle FACE NORMAL appended (flat shading). Used only for the irregular-mesh
+ * fallback, where there is no height grid to take smooth normals from. */
 static GLuint w3_push_soup(const float*v,size_t o,int*out_nv){
   int nv=(int)(o/5); float*w=malloc((size_t)nv*8*sizeof(float));
   for(int t=0;t+2<nv;t+=3){
@@ -378,16 +383,48 @@ static GLuint w3_terr_vbo(const osmmesh_mesh*m,int*out_nv){
   if(C>=2 && m->n_vertices%C==0){                 /* regular grid -> decimate to W3_TERR x W3_TERR */
     uint32_t R=m->n_vertices/C; int G=W3_TERR<2?2:W3_TERR;
     int gc=(int)C<G+1?(int)C:G+1, gr=(int)R<G+1?(int)R:G+1;
-    float*v=malloc((size_t)(gr-1)*(gc-1)*6*5*sizeof(float)); size_t o=0;
     #define W3_MV(r,c) (m->positions + ((size_t)(r)*C + (size_t)(c))*3)
-    for(int j=0;j<gr-1;j++)for(int i=0;i<gc-1;i++){
-      int r0=(int)((long)j*(R-1)/(gr-1)), r1=(int)((long)(j+1)*(R-1)/(gr-1));
-      int c0=(int)((long)i*(C-1)/(gc-1)), c1=(int)((long)(i+1)*(C-1)/(gc-1));
-      const float*q[6]={W3_MV(r0,c0),W3_MV(r0,c1),W3_MV(r1,c1), W3_MV(r0,c0),W3_MV(r1,c1),W3_MV(r1,c0)};
-      for(int k=0;k<6;k++){ const float*P=q[k]; v[o++]=P[0]; v[o++]=P[2]; v[o++]=-P[1]; v[o++]=(P[0]-emin)/de; v[o++]=(nmax-P[1])/dn; }
+    #define W3_RI(j)   ((int)((long)(j)*(R-1)/(gr-1)))
+    #define W3_CI(i)   ((int)((long)(i)*(C-1)/(gc-1)))
+    /* SMOOTH per-vertex normals from the HEIGHT FIELD (central differences over the
+     * decimated neighbours, so they match the geometry we actually draw). Face normals
+     * would be constant across each triangle -> the fragment shader's per-pixel lighting
+     * would still come out flat-shaded/faceted. Interpolating these makes vNorm vary
+     * across the triangle -> true smooth per-pixel shading on the slopes. */
+    int NN=gr*gc;
+    float*np=malloc((size_t)NN*3*sizeof(float));   /* node position (east,north,elev) */
+    float*nv=malloc((size_t)NN*3*sizeof(float));   /* node normal (render space) */
+    for(int j=0;j<gr;j++)for(int i=0;i<gc;i++){
+      const float*P=W3_MV(W3_RI(j),W3_CI(i)); float*d=np+((size_t)j*gc+i)*3;
+      d[0]=P[0]; d[1]=P[1]; d[2]=P[2];
     }
+    for(int j=0;j<gr;j++)for(int i=0;i<gc;i++){
+      int i0=i>0?i-1:i, i1=i<gc-1?i+1:i, j0=j>0?j-1:j, j1=j<gr-1?j+1:j;
+      const float*W=np+((size_t)j*gc+i0)*3, *E=np+((size_t)j*gc+i1)*3;
+      const float*Nn=np+((size_t)j0*gc+i)*3,*Sn=np+((size_t)j1*gc+i)*3;
+      float dE=E[0]-W[0], dN=Sn[1]-Nn[1];
+      float dzde=(fabsf(dE)>1e-6f)?(E[2]-W[2])/dE:0.f;   /* d(elev)/d(east)  */
+      float dzdn=(fabsf(dN)>1e-6f)?(Sn[2]-Nn[2])/dN:0.f; /* d(elev)/d(north) */
+      /* ENU normal = (-dz/de, -dz/dn, 1); render axes are E=+X, up=+Y, N=-Z */
+      float nx=-dzde, ny=1.f, nz=dzdn;
+      float L=sqrtf(nx*nx+ny*ny+nz*nz); if(L<1e-6f)L=1;
+      float*d=nv+((size_t)j*gc+i)*3; d[0]=nx/L; d[1]=ny/L; d[2]=nz/L;
+    }
+    float*v=malloc((size_t)(gr-1)*(gc-1)*6*8*sizeof(float)); size_t o=0;
+    for(int j=0;j<gr-1;j++)for(int i=0;i<gc-1;i++){
+      int q[6]={ j*gc+i, j*gc+(i+1), (j+1)*gc+(i+1), j*gc+i, (j+1)*gc+(i+1), (j+1)*gc+i };
+      for(int k=0;k<6;k++){
+        const float*P=np+(size_t)q[k]*3, *N=nv+(size_t)q[k]*3;
+        v[o++]=P[0]; v[o++]=P[2]; v[o++]=-P[1];                 /* pos: east, up, -north */
+        v[o++]=(P[0]-emin)/de; v[o++]=(nmax-P[1])/dn;           /* uv */
+        v[o++]=N[0]; v[o++]=N[1]; v[o++]=N[2];                  /* smooth normal */
+      }
+    }
+    free(np); free(nv);
     #undef W3_MV
-    GLuint vbo=w3_push_soup(v,o,out_nv); free(v); return vbo;
+    #undef W3_RI
+    #undef W3_CI
+    GLuint vbo=w3_push8(v,o,out_nv); free(v); return vbo;
   }
   /* fallback: full-resolution soup (irregular mesh) */
   uint32_t nt=m->n_triangles; float*v=malloc((size_t)nt*3*5*sizeof(float)); size_t o=0;
