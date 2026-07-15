@@ -33,6 +33,7 @@ renderer (terrain/map/imagery) — dynamically fetched, prepared and cached, nev
 | `sim/test/verify.sh` | **One command, all gates**: unit+coverage, every build, the browser render, the physics suite. Use it — see "Measure the measurement" below for why it exists. |
 | `sim/test/shot.sh` + `shot.js` | Screenshots the REAL command center in headless Chromium (playwright). Replaced `render_native.c`. Waits for the streamer's own "0 pending", never a sleep — exit 2 = it shot an unfinished world, which is not a verdict on the renderer. |
 | `sim/test/pngstat.py` | Decides whether a screenshot has ground on it. Stdlib-only PNG reader; the predicate is "beats blue by a margin", because sky and its haze never do and vegetation always does. |
+| `sim/test/bench*` + `baseline.json` | The regression net. **Counters, not times** — see below for why. Records the sha256 of the WASM it actually measured and a `not_measured` list, so a number cannot outlive its caveats. `bench_stack.sh cold` gives fb-tiles an EMPTY volume, which is the only repeatable way to test a cold region: testing a real origin warms it. |
 | `.claude/agents/` | The specialist team (below). |
 
 ## Build & run
@@ -143,6 +144,16 @@ Two traps that already cost a session each, both fixed in `shot.js` — do not u
     the build, not the match. `grep -c` on minified JS counts lines, not occurrences.
   - **`pgrep -f "foo.sh"` matches the waiter that greps for it.** A watcher waited 21 minutes on
     itself and reported "still running" the whole time.
+- **There is no hot loop in the renderer. Measured, so stop looking for one.** SVS costs **0.8 % of
+  one core** — `frame_cb` p50 = 0.55 ms against ~150 ms of browser idle between frames. A change
+  that halves it saves 0.3 ms, which is below the 10.5 % noise floor: not just pointless, but
+  *unprovable*. SIMD and cache-locality work on this path buys nothing and can be shown to buy
+  nothing. (EVS costs a core, but that is SwiftShader decoding H.264 in software — on real hardware
+  it sits in the video block. Never quote it as "EVS costs a core".) The corollary is worse: the
+  measurement environment is only stable under saturation (photo spreads 0.1 % at 96.8 % of a core;
+  osm spreads 27.7 % at 0.8 %) — so the only path we could prove anything on is the one we do not
+  want to optimise. Refactor here for **structure and correctness**; performance is not on the table
+  because there is nothing on it.
 - **A number borrows authority from where it stands.** Two halves of one mistake, both made here in
   one evening. A success criterion was declared "non-negotiable" without anyone asking whether it
   was *reachable* — the cold test was given 300 s by a guess, and the guess inherited the gravity
