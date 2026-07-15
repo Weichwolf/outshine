@@ -177,18 +177,40 @@ def main():
                 mx = max(r['gl'][k]['max'] for r in rs)
                 tot = statistics.fmean([r['gl'][k]['total'] for r in rs])
                 print(f"             {k:22s} p50={p50:7.1f}  max={mx:6.0f}  total/run={tot:8.0f}")
-        # THE invariant. In a settled world the renderer re-uploads nothing: it draws the textures
-        # it already has. A median above zero means it is rebuilding them every frame -- which is
-        # exactly the shape of the bug this whole effort came from (2x malloc + stbi_load +
-        # glGenerateMipmap per chunk per frame -> 1 fps). As a median it cannot be explained away
-        # by the occasional real tile-boundary bake, which lands in max only.
-        for k in ('texImage2D', 'generateMipmap', 'compressedTexImage2D'):
-            vals = [r['gl'][k]['p50'] for r in rs if k in r.get('gl', {})]
-            if vals and statistics.fmean(vals) > 0:
-                warnings.append(
-                    f"{ground}: {k} median is {statistics.fmean(vals):.1f} PER FRAME in steady "
-                    f"state — the renderer is re-uploading textures every frame, not reusing them. "
-                    f"This is the 1-fps thrash signature; expected median is 0")
+        # --- THE invariants. Two DIFFERENT uploads live in texImage2D and must not be conflated ---
+        #
+        # An earlier version asserted "texImage2D median == 0 per frame" and would have shipped a
+        # gate that is permanently red in EVS, because it counted two unrelated things:
+        #
+        #   tile albedo  w3_bake -> glTexImage2D + glGenerateMipmap   (world3d.h:322)
+        #   video frame  fb_codec_upload -> texImage2D, NO mipmap     (cc.c:77)
+        #
+        # ground=photo is EVS: the simulated 5.8 GHz link really does encode, decode and upload a
+        # NEW picture every frame -- that is the design, not repeated work. ground=osm is SVS and
+        # bypasses the codec entirely (a terrain database does not cross a radio link), so it is
+        # exactly 0. An alarm that always fires gets switched off, so the split is the gate.
+        #
+        # generateMipmap is the honest separator: only the tile path calls it. It is also exactly
+        # the counter that would have shown the bug this effort came from -- 256 per frame, not 0.
+        mip = 'generateMipmap'
+        bake = [r['gl'][mip]['p50'] for r in rs if mip in r.get('gl', {})]
+        if bake and statistics.fmean(bake) > 0:
+            warnings.append(
+                f"{ground}: {mip} median is {statistics.fmean(bake):.1f} PER FRAME with the world "
+                f"settled — tile albedo is being re-baked every frame instead of reused. This is "
+                f"the 1-fps thrash signature; expected median is 0 (a real tile-boundary bake "
+                f"lands in max, never in the median)")
+        # Video uploads = texture uploads that are NOT tile bakes. Hard expectation per mode, so a
+        # codec accidentally re-enabled in SVS shows up as a number rather than as a vibe.
+        tex = [r['gl'].get('texImage2D', {}).get('p50', 0) for r in rs]
+        vid = statistics.fmean(tex) - (statistics.fmean(bake) if bake else 0)
+        want = 1 if ground == 'photo' else 0
+        print(f"  codec      video uploads/frame = {vid:.2f}  (EVS expects 1, SVS expects 0)")
+        if abs(vid - want) > 0.05:
+            warnings.append(
+                f"{ground}: {vid:.2f} video uploads per frame, expected {want}. "
+                + ("SVS must bypass the codec — a terrain database does not cross the radio link"
+                   if want == 0 else "EVS should upload exactly one decoded frame per frame"))
         c = rs[0]['counters']
         if c:
             print(f"  streamer   drawn={c['drawn']}/{c['budget']} pending={c['pending']} "

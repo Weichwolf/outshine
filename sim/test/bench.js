@@ -94,7 +94,12 @@ const QUAD = /quadtree: (\d+) chunks drawn \(budget (\d+)\), (\d+) wanted split,
      * The steady-state expectation is a MEDIAN of zero, not an always-zero: the aircraft really
      * does cross tile boundaries mid-window and legitimately bakes then. Thrash shows up in p50,
      * a boundary crossing only in the max -- which is exactly the distinction a per-frame count
-     * makes and a per-run total does not. */
+     * makes and a per-run total does not.
+     *
+     * generateMipmap is counted because it is the one call ONLY the tile path makes (world3d.h),
+     * which is what lets bench_report.py tell a re-bake apart from the EVS codec's one legitimate
+     * video upload per frame (cc.c fb_codec_upload, texImage2D with no mipmap). Counting
+     * texImage2D alone conflates the two and alarms forever in EVS. */
     const COUNTED = ['texImage2D', 'texSubImage2D', 'compressedTexImage2D', 'generateMipmap',
                      'createTexture', 'deleteTexture', 'bufferData', 'bufferSubData',
                      'createBuffer', 'deleteBuffer', 'drawElements', 'drawArrays',
