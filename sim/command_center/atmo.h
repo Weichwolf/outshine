@@ -1,0 +1,82 @@
+/* The atmosphere of ONE frame, as pure arithmetic. No GL, no globals, no side effects.
+ *
+ * These nine lines used to sit inside world3d_render_scene as locals, under a comment that read
+ * like a sky prologue -- and that is how they were understood: as the sky's business. They are
+ * not. `haze`, `light` and `sun` are read by the TERRAIN pass (uHaze/uLight/uSun) and `haze` again
+ * by the building/wire pass. Three passes share them, and it worked only because they happened to
+ * be in scope: per-frame shared state with no name and therefore no owner. That is the same shape
+ * as the cache thrash (a size that was a parameter beside the key, stored nowhere), one level
+ * subtler -- this state did not even have a name to argue about.
+ *
+ * Now it has one. Whoever needs the atmosphere takes a `const w3_atmo*`; nobody re-derives it, so
+ * `0.20 + 0.80*day` exists once. A second copy would make the agreement a convention instead of a
+ * type, which is exactly what we refuse everywhere else here.
+ *
+ * And the reason it is a separate header rather than a tidier block: it is pure, so it is
+ * TESTABLE. Every pixel of the image hangs off these numbers -- the day/night ramp, the horizon
+ * colour, the light level -- and until now nothing could check them, because they were welded to
+ * glUniform calls. Same argument as chunkmesh.h, one storey up. See test/unit/test_atmo.c.
+ *
+ * ENU render space throughout: E=+X, up=+Y, N=-Z. Angles in degrees, as they arrive on the wire.
+ */
+#ifndef W3_ATMO_H
+#define W3_ATMO_H
+
+#include <math.h>
+#include "protocol.h"
+
+typedef struct {
+    float sun[3];    /* unit direction TO the sun */
+    float moon[3];   /* unit direction TO the moon */
+    float haze[3];   /* horizon/fog colour right now (sun elevation + cloud) */
+    float day;       /* 0 = night (sun <= -6 deg) .. 1 = day (sun >= +6 deg) */
+    float light;     /* scene light level: 0.20 at night, 1.00 by day */
+    float cloud;     /* total cover 0..1, clamped */
+    float moon_ph;   /* illuminated fraction, 0 new .. 1 full */
+} w3_atmo;
+
+/* `have` = 0 means no telemetry yet; the defaults are the ones the renderer has always used for
+ * that case (afternoon sun, some cloud) so a fresh page is not black. Keep them: they are what a
+ * browser shows in the second before the first packet arrives. */
+static w3_atmo w3_atmo_from(const telem_packet_t *t, int have)
+{
+    const float RAD = (float)M_PI / 180.f;
+    w3_atmo a;
+
+    float sun_el  = have ? t->sun_el     : 35.f, sun_az  = have ? t->sun_az  : 150.f;
+    float moon_el = have ? t->moon_el    : 25.f, moon_az = have ? t->moon_az : 300.f;
+    a.moon_ph     = have ? t->moon_phase : 0.5f;
+
+    a.cloud = have ? t->cloud : 0.3f;
+    if (a.cloud < 0) a.cloud = 0;
+    if (a.cloud > 1) a.cloud = 1;
+
+    float ce = cosf(sun_el * RAD);
+    a.sun[0] =  ce * sinf(sun_az * RAD);
+    a.sun[1] =  sinf(sun_el * RAD);
+    a.sun[2] = -ce * cosf(sun_az * RAD);
+
+    float me = cosf(moon_el * RAD);
+    a.moon[0] =  me * sinf(moon_az * RAD);
+    a.moon[1] =  sinf(moon_el * RAD);
+    a.moon[2] = -me * cosf(moon_az * RAD);
+
+    /* Civil twilight is the ramp: -6 deg is where the sky stops being a sky and starts being a
+     * star field. Below it nothing gets darker -- 0.20 is the floor, not an absence of light. */
+    a.day = fmaxf(0.f, fminf(1.f, (sun_el + 6.f) / 12.f));
+
+    a.haze[0] = 0.05f + 0.67f * a.day;
+    a.haze[1] = 0.06f + 0.76f * a.day;
+    a.haze[2] = 0.13f + 0.79f * a.day;
+    /* Cloud pulls the horizon toward a flat grey -- bright by day, dim by night -- but only 45 %
+     * of the way even at full cover, or an overcast noon would go pure white. */
+    for (int i = 0; i < 3; i++) {
+        float tgt = 0.80f * a.day + 0.30f * (1.f - a.day);
+        a.haze[i] += (tgt - a.haze[i]) * a.cloud * 0.45f;
+    }
+
+    a.light = 0.20f + 0.80f * a.day;
+    return a;
+}
+
+#endif /* W3_ATMO_H */

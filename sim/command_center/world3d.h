@@ -15,6 +15,7 @@
 #include <GLES2/gl2.h>
 #include "protocol.h"
 #ifdef W3_USE_OSM
+#include "atmo.h"        /* the frame's sun/sky/light, pure — shared by sky, terrain and buildings */
 #include "tilesrc_js.h"   /* tile bytes from fb-tiles (async cache + osmmesh provider) */
 #endif
 #ifndef W3_FOV
@@ -756,16 +757,15 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
   float eye[3]={px,py,pz},ctr[3]={px+f[0],py+f[1],pz+f[2]};
   float view[16],proj[16],mvp[16]; m_lookat(view,eye,ctr,up); m_persp(proj,W3_FOV*RAD,(float)W/H,W3_NEAR,W3_FARPLANE); m_mul(mvp,proj,view);
 
-  /* ---- environment: real sun/moon direction (ENU: E=+X, up=+Y, N=-Z), sky, light ---- */
-  float sun_el=have?t->sun_el:35.f, sun_az=have?t->sun_az:150.f;
-  float moon_el=have?t->moon_el:25.f, moon_az=have?t->moon_az:300.f, moon_ph=have?t->moon_phase:0.5f;
-  float cloud=have?t->cloud:0.3f; if(cloud<0)cloud=0; if(cloud>1)cloud=1;
-  float ce=cosf(sun_el*RAD), sun[3]={ce*sinf(sun_az*RAD),sinf(sun_el*RAD),-ce*cosf(sun_az*RAD)};
-  float me=cosf(moon_el*RAD), moon[3]={me*sinf(moon_az*RAD),sinf(moon_el*RAD),-me*cosf(moon_az*RAD)};
-  float day=fmaxf(0.f,fminf(1.f,(sun_el+6.f)/12.f));           /* 0 night (<-6°) .. 1 day (>6°) */
-  float haze[3]={0.05f+0.67f*day,0.06f+0.76f*day,0.13f+0.79f*day};
-  for(int i=0;i<3;i++){ float tgt=0.80f*day+0.30f*(1.f-day); haze[i]+=(tgt-haze[i])*cloud*0.45f; }
-  float light=0.20f+0.80f*day;                                 /* dim scene at night, full by day */
+  /* ---- environment: sun/moon direction, sky colour, light level ----
+   * The arithmetic lives in atmo.h because it is pure and therefore testable, and because these
+   * values are NOT the sky's: `haze`/`light`/`sun` are read by the terrain pass below and `haze`
+   * again by the buildings. They were locals that three passes happened to share -- per-frame
+   * state with no name and no owner. The names below are aliases so that every consumer stays
+   * exactly as it was; threading `A` through them is a separate step with its own proof. */
+  const w3_atmo A = w3_atmo_from(t, have);
+  const float *sun=A.sun, *moon=A.moon, *haze=A.haze;
+  const float day=A.day, light=A.light, cloud=A.cloud, moon_ph=A.moon_ph;
   /* draw the sky first, depth writes off, so terrain paints over it */
   glDepthMask(GL_FALSE); glDisable(GL_DEPTH_TEST);
   glUseProgram(w3_pSky);
