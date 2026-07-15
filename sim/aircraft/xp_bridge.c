@@ -762,9 +762,20 @@ int main(void){
         if(tick%8==0){ static video_packet_t v; render_horizon(&v,t_roll,t_pitch); sendto(fbfd,&v,sizeof v,0,(struct sockaddr*)&fbdst,sizeof fbdst); }
 
         if(++tick%100==0){ const char*MN[]={"DISARM","ARMED","CLIMB","LOITER","MANUAL","RTH"};
-            fprintf(stderr,"[xp_bridge] %s alt=%.0f pitch=%.1f roll=%.1f | airspd=%.1f gs=%.1f home=%.0f | badDREF=%ld\n",
+            /* in_* = what iNav ACTUALLY put on the servos, as this bridge received it.
+             *
+             * This line used to print only the aircraft's ATTITUDE. CLAUDE.md's own process
+             * section says why that is not enough, in as many words: "the worst bug in the
+             * project's history (iNav emitting a -3.0 yoke ratio = 3x full aileron) was invisible
+             * for a long time because only the aircraft's attitude was ever measured, never the
+             * COMMAND driving it." The rule was written down and the log still did not follow it.
+             * Right now the elevator is suspected of sitting at neutral while the autopilot asks
+             * for -8 deg; without in_pitch here that stays an inference forever. */
+            fprintf(stderr,"[xp_bridge] %s alt=%.0f pitch=%.1f roll=%.1f | airspd=%.1f gs=%.1f home=%.0f"
+                           " | in: p=%+.3f r=%+.3f y=%+.3f thr=%.2f | badDREF=%ld\n",
             MN[g_mode%6], S.agl, S.pitch, S.roll, S.speed, S.gs,
-            hypot((S.lat-HOME_LAT)*111320.0,(S.lon-HOME_LON)*111320.0*cos(HOME_LAT*RAD)), g_bad_dref); }
+            hypot((S.lat-HOME_LAT)*111320.0,(S.lon-HOME_LON)*111320.0*cos(HOME_LAT*RAD)),
+            S.in_pitch, S.in_roll, S.in_yaw, S.in_thr, g_bad_dref); }
         struct timespec tsp={0,(long)(dt*1e9)}; nanosleep(&tsp,NULL);
     }
     return 0;
