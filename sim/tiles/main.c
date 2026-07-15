@@ -111,10 +111,19 @@ static void handle(int fd, char *req) {
         /* ON DISK ONLY. Baking here would block the whole server: this is a single accept() loop
          * and a cold photo bake measures 1.6 s -- 1.6 s in which nobody is served, times ~25
          * tiles for a fresh region. So a miss queues the work and says so immediately; the
-         * renderer draws a placeholder and asks again. Nothing anywhere waits on a bake. */
+         * renderer draws a placeholder and asks again. Nothing anywhere waits on a bake.
+         *
+         * 202, NOT 404 -- and that is not cosmetics, it is the difference between a world that
+         * loads and one that does not. This said 404, which also means "there is no such thing",
+         * and the browser believed the second reading: tilesrc_js.h cached every 404 as a
+         * permanent hole and never asked again. Measured over the Matterhorn (cold region, same
+         * build): 0 chunks drawn, 39 pending, then silence -- while this server was already
+         * answering 200 for the very same tiles. Hameln only ever worked because its cache volume
+         * has been warm for months, which is also why every number we ever took was a warm one.
+         * 202 Accepted says what is true and nothing else: the work is queued, ask again. */
         if (!fb_bake_ondisk(k, z, x, y, TS, &body, &n)) {
             fb_pf_warm_bakes(z, x, y, TS);          /* this tile + its 8 neighbours, both albedos */
-            reply(fd, "404 Not Found", "text/plain", "baking\n");
+            reply(fd, "202 Accepted", "text/plain", "baking\n");
             return;
         }
         reply_bin(fd, k == FB_ALBEDO_PHOTO ? "image/jpeg" : "image/png", body, n);
@@ -133,11 +142,22 @@ static void handle(int fd, char *req) {
             /* Disk only. fb_cache_get would curl on a miss -- up to 20 s inside this single
              * accept() loop, i.e. 20 s in which nobody is served, including the live flight view.
              * A miss queues the fetch and says so; the caller asks again. Nothing here ever waits
-             * on the network. (Upstream also has genuine holes -- ocean, no imagery -- and 404 is
-             * the honest answer for those too: skip the tile rather than draw junk.) */
+             * on the network.
+             *
+             * The old comment here argued that 404 was "the honest answer" for genuine holes
+             * (ocean, no imagery) as well as for a queued fetch. That is exactly the bug: one
+             * status for two facts, so the caller cannot act on either. 202 = "queued, ask again"
+             * is now the only thing this line claims.
+             *
+             * The genuine hole has NO representation yet, and pretending otherwise would be the
+             * same mistake again: this server never learns that upstream lacks a tile -- there is
+             * no negative caching anywhere in prefetch/tilesrc/bake. So an ocean tile is retried
+             * forever until that exists (then: 204 No Content). A retry loop is noisy and shows
+             * up; a silent permanent hole looks exactly like a working world. We take the noisy
+             * one on purpose. */
             if (!fb_cache_ondisk(k, z, x, y, &body, &n)) {
                 fb_pf_fetch(k, z, x, y);
-                reply(fd, "404 Not Found", "text/plain", "fetching\n"); return;
+                reply(fd, "202 Accepted", "text/plain", "fetching\n"); return;
             }
             reply_bin(fd, fb_src_content_type(k), body, n);
             free(body);
