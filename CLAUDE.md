@@ -79,7 +79,18 @@ Two traps that already cost a session each, both fixed in `shot.js` — do not u
   `fb-tiles` for home's elevation at start-up, so start `fb-tiles` first.
 - The DEM/tile cache lives in the `fbtiles-cache` volume: upstream is hit once per tile, ever.
 - `ORIGIN_LAT`/`ORIGIN_LON` set the shared home and reach the browser via `/config.js`, as does
-  `TILES_URL`. **Any origin on earth works** — nothing is preloaded, every tile is fetched.
+  `TILES_URL`.
+- **"Any origin on earth works" was the claim here, and it was FALSE.** A cold region did not load
+  at all. Measured over the Matterhorn on an unmodified build: `0 chunks drawn, 39 pending`, one
+  log line, then silence — while fb-tiles was already answering 200 for those very tiles. Hameln
+  only ever worked because its cache volume has been warm for months, which means **every number
+  this project has ever produced was a warm-region number**, this file's "10–20 s to stream"
+  included. Cause: fb-tiles said `404` for both "queued, ask again" and "there is none", and the
+  browser cached every 404 as a permanent hole. Fixed on both sides (`b2c5ede` server → `202`,
+  `d681a6f` browser → only 200/204 are terminal). **Still not proven**: the cold run over Aoraki
+  reached 111/128 chunks and did not converge inside 300 s. Believed cause — read, not measured —
+  is `tiles/prefetch.c`: exactly ONE worker thread, so a cold region streams at the speed of one
+  serial curl (~14 jobs/s over 8715 jobs). Do not restore the claim until a cold run is green.
 - `printf` from the WASM goes to the **browser console**, not the container log.
 
 ## Process
@@ -104,6 +115,28 @@ Two traps that already cost a session each, both fixed in `shot.js` — do not u
   two-tool, false report that the renderer was broken — while the renderer drew 128/128 chunks in
   the user's browser the whole time. **Before believing a checker, watch it fail.** Both now do:
   the three known-empty screenshots score 0 % ground, the real one 40 %.
+- **The instrument that measures itself.** Six more, all from one evening, all the same shape —
+  the tool answered a question about itself instead of about the world:
+  - **Frame rate here is SIGN-INVERTED.** Headless chromium paces an idle page at ~131 ms while
+    the frame costs 0.5 ms, so injecting 25 ms/frame of CPU work makes the rate go UP (7.5 → 14
+    fps). A metric that improves when you add work cannot prove you removed any. `bench.sh` prints
+    it as a diagnostic and says so; never quote it.
+  - **A single sample is not a threshold.** "~47 % ground" was one screenshot, handed on as a
+    reference. Same software, other pose: 15–38 %. As a gate it would have failed everything,
+    forever. Gates are pngstat's own verdict and `128 chunks / 0 pending` — never a percentage.
+  - **A shared service is a shared measurement.** `run-podman.sh` is all-or-nothing: it rebuilds
+    `fb-tiles` too, so two agents on one box measure each other. Caught only by hashes and idle
+    sampling (WASM `a384db73` vs `c30957cb`; 61 % idle → 3 %). `bench_stack.sh` pins the artifact
+    and records its sha256 per run. **A result without artifact identity is not a result.**
+  - **An alarm that always fires gets switched off.** "Texture uploads per frame must be 0" is
+    violated by EVS *by design* — the video frame is a new image every frame. The thrash detector
+    is `generateMipmap` (only the tile path calls it), and it was checked to stay SILENT during a
+    real tile-boundary bake, not just to fire on 256/frame.
+  - **`grep` finds the text, not the thing.** `world3d_render: NOCH DA` — from the tombstone
+    comment naming the deleted function. Two of us, same trap, same hour. Ask the definition and
+    the build, not the match. `grep -c` on minified JS counts lines, not occurrences.
+  - **`pgrep -f "foo.sh"` matches the waiter that greps for it.** A watcher waited 21 minutes on
+    itself and reported "still running" the whole time.
 - **One renderer.** There is no second renderer to keep in sync — `render_native.c` was deleted
   because it drifted. The visual check is a headless browser on the real artifact (`test/shot.sh`).
 - **Space telemetry samples by `seq`, never by arrival time** — packets arrive batched, so `Δ/dt`
@@ -134,6 +167,29 @@ each other** — this has actually happened. Coordinate before editing outside y
 
 ## Open work
 
+- **Cold regions: fixed on the wire, not yet proven.** `202`/`204` replaced the overloaded `404`
+  (see above), but the cold run has not gone green. Two things are missing. (1) **A repeatable cold
+  fixture**: today's test burned a real origin — the act of testing warms it, so Matterhorn and
+  Aoraki are now warm and each retry is a *different* fixture (different relief → different `err`,
+  different split depth, not comparable). The answer is an `fb-tiles` with its OWN EMPTY VOLUME, so
+  Hameln itself is cold: same fixture every time, known warm target (`128/128, 0 pending, ~15 s`),
+  affordable budget. `run-podman.sh` hardwires `-v fbtiles-cache:` and `-p 8081:8081`; `test/
+  bench_stack.sh` already does this pinning exercise for :8098 — same tool, opposite direction
+  (the benchmark needs warmth, the cold gate needs the reverse). (2) **`tiles/prefetch.c` has ONE
+  worker thread** — read, not measured. A cold region therefore streams at the speed of one serial
+  curl. Whether that is a bug or deliberate politeness toward upstream is written down nowhere.
+- **`/elev` blocks for 5 s and then lies quietly.** `aircraft/terrain.c` uses `curl --max-time 5`;
+  over a cold region the DEM tile cannot arrive in time, so the engine seeds `HOME_ELEV` with the
+  compiled-in Hameln value (~70 m) over, say, a 750 m valley floor. Same family as the 404: "not
+  here yet" is indistinguishable from "does not exist". Better than the renderer was — it keeps the
+  last known ground and SAYS SO in the log — but it is a time bomb for any foreign origin.
+- **The gates only ever test warm.** `verify.sh` is 4/4 green on Hameln while a cold region loads
+  nothing at all. A cold gate needs the empty volume above, not a foreign continent — and writing
+  one before the fix is green would cement today's broken state as the expectation.
+- **`pngstat` may be calibrated on Hameln green.** Its predicate is "beats blue by a margin,
+  because vegetation always does" — rock and snow do not. Over the Matterhorn it called a streamed
+  scene `SUSPECT`. The criterion should be "has structure no sky has", and it must be shown to fail
+  over a rock face AND over empty sky, or it has only moved the calibration.
 - **Terrain LOD: the quadtree runs, the budget does not fit.** Measured warm, both grounds:
   `128 chunks drawn (budget 128), 0 pending`, `levels z8..z14 = 32/8/12/9/21/22/24`, streamed in
   10–20 s. But `31 wanted split, 10–13 over budget` — the tree wants finer ground than 128 chunks
