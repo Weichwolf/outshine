@@ -32,7 +32,17 @@ start_stack(){   # $1 = FDM_MODEL
   podman rm -f tf-aircraft tf-flightbox >/dev/null 2>&1 || true
   podman run -d --name tf-flightbox --network "$NET" -e AIRCRAFT_ADDR=tf-aircraft -p "$PORT":8080 "$IMG_F" >/dev/null || {
       echo "  FATAL: tf-flightbox did not start (port $PORT taken? set TEST_PORT=)"; exit 1; }
-  podman run -d --name tf-aircraft  --network "$NET" -e FLIGHTBOX_ADDR=tf-flightbox -e FDM_MODEL="$1" -e TEST_MODE=1 "$IMG_A" >/dev/null || {
+  # FIXED WEATHER. This used to pass TEST_MODE=1 -- which NOTHING reads (grep it: the only hits
+  # are vendored iNav USB constants). So the suite looked controlled and wasn't: g_wx_live
+  # defaults to 1, every container start fetched the REAL wind over Hameln from Open-Meteo, and
+  # the result depended on the actual weather at the moment you ran it. A calm afternoon passed;
+  # a gusty one tripped marginal thresholds. You cannot prove "no regression" with a test whose
+  # input is the sky. WX_LIVE=0 + explicit wind/turbulence makes a run comparable to another run.
+  podman run -d --name tf-aircraft  --network "$NET" -e FLIGHTBOX_ADDR=tf-flightbox -e FDM_MODEL="$1" \
+      -e WX_LIVE=0 \
+      -e WIND_SPEED="${TEST_WIND_SPEED:-3.5}" -e WIND_DIR="${TEST_WIND_DIR:-240}" \
+      -e TURB="${TEST_TURB:-1.0}" -e THERMAL="${TEST_THERMAL:-0}" \
+      "$IMG_A" >/dev/null || {
       echo "  FATAL: tf-aircraft did not start"; exit 1; }
   sleep 3
   # Prove we are talking to OUR stack, not something else that happens to hold the port.
