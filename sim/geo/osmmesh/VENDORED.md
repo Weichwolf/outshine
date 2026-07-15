@@ -1,8 +1,9 @@
 # osmmesh — vendored copy
 
 Source: local `~/Git/wasm-osm/libosmmesh`, copied so FlightBox has **no external path
-dependency**. `../data/*.pmtiles` (gitignored, obtained by `../fetch-data.sh`) are the legacy
-prebuilt Hameln tiles; they go away once the renderer sources everything from `fb-tiles`.
+dependency**. Nothing is preloaded any more: every tile comes from the `fb-tiles` service at run
+time, which is what the provider extension below exists for. The old preloaded-region machinery
+(region PMTiles + the Planetiler/Copernicus build scripts) is gone.
 
 ## Local deltas vs upstream
 
@@ -19,7 +20,13 @@ one remote archive, not fetch individual z/x/y tiles from a tile server.
 
 **What changed:**
 - `include/osmmesh/osmmesh.h`: added `osmmesh_tile_kind`, `osmmesh_tile_provider`, and the
-  `tile_provider` / `tile_provider_user` fields on `osmmesh_config`.
+  `tile_provider` / `tile_provider_user` + `provider_terrain_max_zoom` fields on `osmmesh_config`.
+- `src/osmmesh.c`, `osmmesh_create`: a provider now satisfies the "need a vector source" check,
+  and no archive is opened at all when one is set.
+- `src/osmmesh.c`, terrain path: `!ctx->ter_pm` used to mean "no terrain", which silently
+  skipped terrain on the provider path (`fetch_tile` returned OK with `terrain=NULL`). It now
+  also honours a provider. The terrain max zoom came from the PMTiles **header** — a tile server
+  has none, so it comes from `provider_terrain_max_zoom` instead (Tilezen: 15).
 - `src/osmmesh.c`: added `om_tile_bytes()` — one seam that calls the provider when set and
   otherwise falls through to `osmmesh_pmtiles_fetch` exactly as before. The three hardcoded
   archive reads (terrain grid; neighbour vector tile for seam stitching; primary vector tile) now
@@ -41,8 +48,9 @@ already treats a missing tile as a hole and carries on, and the renderer retries
 - The MVT and terrain decoders take **raw bytes** and are independent of PMTiles:
   `osmmesh_mvt_decode` (uncompressed Shortbread `.pbf`) and `osmmesh_terrain_decode_png`
   (Terrarium PNG — `h = R*256 + G + B/256 − 32768`; **not** Mapbox terrain-RGB).
-- Neither decoder gunzips, and the prebuilt PMTiles are therefore stored uncompressed
-  (`--tile_compression=none`). Our tile service fetches with `curl --compressed`, so what it
-  caches and serves is already raw — verified: 12 Shortbread layers decode straight from the cache.
+- Neither decoder gunzips. Our tile service fetches with `curl --compressed`, so what it caches
+  and serves is already raw — verified: 12 Shortbread layers decode straight from the cache.
+- The archive path (`vector_url` / `vector_data`) still works and is untouched; we simply no
+  longer use it. `render_native` still accepts a `.pmtiles` path as well as a service URL.
 - `osmmesh_fetch_tile(z,x,y)` internally also reads the **west/north neighbour** tiles for seam
   stitching, so a provider must be able to serve adjacent tiles, not just the requested one.

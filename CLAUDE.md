@@ -27,7 +27,7 @@ renderer (terrain/map/imagery) — dynamically fetched, prepared and cached, nev
 | `sim/flightbox/` | Container **`fb-flightbox`**: HTTP/WebSocket server + the built WASM under `web/`. |
 | `sim/command_center/` | `cc.c` + `world3d.h` → WASM/WebGL: terrain, sky, HUD, WebCodecs video. `render_native.c` renders the same scene headless (EGL) — use it to check the view without a browser. |
 | `sim/tiles/` | Container **`fb-tiles`**: the world-data service. Dynamically obtains and *prepares* real-world data and caches it, so nothing ships a preloaded region. `GET /elev?lat=&lon=` gives the engine one number — the ground height — by fetching the Terrarium DEM tile, decoding and interpolating it. Renderer tile routes (terrain/vector/imagery) come next. |
-| `sim/geo/` | **Vendored** osmmesh (`osmmesh/`) + its data-build scripts (`tools/`). No external checkout. (`data/` still holds the legacy preloaded PMTiles; they disappear once the renderer sources tiles from `fb-tiles`.) |
+| `sim/geo/` | **Vendored** osmmesh. No external checkout. Locally extended with a per-tile byte provider so tiles can be fetched on demand — see `osmmesh/VENDORED.md` for the delta. |
 | `sim/common/protocol.h` | The wire structs (telemetry / control / video). |
 | `sim/test/eval.py` | The physics validation suite — ~7500 invariants per run over real flight traces. |
 | `.claude/agents/` | The specialist team (below). |
@@ -35,8 +35,7 @@ renderer (terrain/map/imagery) — dynamically fetched, prepared and cached, nev
 ## Build & run
 
 ```bash
-sim/geo/fetch-data.sh     # legacy: preloaded PMTiles cache (goes away with fb-tiles tile routes)
-sim/build-wasm.sh         # renderer -> flightbox/web/
+sim/build-wasm.sh         # renderer -> flightbox/web/  (no bundled region: ~770 KB, was 33 MB)
 sim/run-podman.sh         # builds all three images and starts the stack -> localhost:8080
 sim/test/run-tests.sh     # or: HOST=127.0.0.1:8080 python3 sim/test/eval.py
 ```
@@ -46,8 +45,8 @@ sim/test/run-tests.sh     # or: HOST=127.0.0.1:8080 python3 sim/test/eval.py
 - **Restart the containers together** — the aircraft caches the flightbox address and asks
   `fb-tiles` for home's elevation at start-up, so start `fb-tiles` first.
 - The DEM/tile cache lives in the `fbtiles-cache` volume: upstream is hit once per tile, ever.
-- `ORIGIN_LAT`/`ORIGIN_LON` set the shared home; they reach the browser via `/config.js`.
-  Only the Hameln region is preloaded, so a different origin currently has no map data.
+- `ORIGIN_LAT`/`ORIGIN_LON` set the shared home and reach the browser via `/config.js`, as does
+  `TILES_URL`. **Any origin on earth works** — nothing is preloaded, every tile is fetched.
 - `printf` from the WASM goes to the **browser console**, not the container log.
 
 ## Process
@@ -81,10 +80,8 @@ each other** — this has actually happened. Coordinate before editing outside y
 
 ## Open work
 
-- **Worldwide on-demand tiles** — add terrain/vector/imagery routes to `fb-tiles` and have the
-  renderer source from them, which unlocks any origin and removes the preloaded PMTiles entirely.
-  (`/elev` already does this for the engine.)
-- **Aerial-imagery ground texture** — photo albedo with the baked-in illumination flattened out, lit
-  by our own sun (the per-pixel lighting foundation is in place).
+- **Aerial-imagery ground texture** — `fb-tiles` already serves the photos (`/t/imagery`); what is
+  left is using them as albedo with the baked-in illumination flattened out, lit by our own sun
+  (the per-pixel lighting foundation is in place).
 - **Modularisation** — `xp_bridge.c` and `world3d.h` are god files; the ownership boundaries above
   are still artificial because of it.
