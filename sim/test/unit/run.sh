@@ -15,7 +15,10 @@
 #   - aircraft/xp_bridge.c          is the plant in a closed loop      -> test/eval.py (~7500 invariants)
 #     (its PURE parts are being lifted out into fdm/* one at a time, and those ARE covered here)
 #   - command_center/world3d.h      needs a GL context -> test/shot.sh screenshots the real app.
-#     (same treatment: gfx/mat4.h and gfx/style.h are out and covered; sky/HUD/cache still inside)
+#     (same treatment: gfx/mat4.h, gfx/style.h and chunkmesh.h are out and covered; sky/HUD/cache
+#      still inside. "needs a GL context" was true of chunkmesh's maths only because it was welded
+#      to three glBufferData calls -- and `err`, which every LOD split decision reads, went
+#      unchecked for exactly that reason. Prising the maths loose is what makes it testable.)
 #
 # NAMED GAP, not rounded away: nothing here proves the wire between the modules. A correct
 # atmosphere wired to the wrong dref, or a correct LRU whose payload array is off by one, passes
@@ -44,7 +47,7 @@ fail=0
 
 # modules under test (pure) + the test drivers
 SRC="$ROOT/tiles/tilesrc.c $ROOT/tiles/route.c $ROOT/aircraft/fdm/atmosphere.c"
-TESTS="$HERE/main.c $HERE/test_tilemath.c $HERE/test_tilesrc.c $HERE/test_route.c $HERE/test_atmosphere.c $HERE/test_mat4.c $HERE/test_style.c $HERE/test_lru.c $HERE/test_prefetch.c $HERE/test_draw.c"
+TESTS="$HERE/main.c $HERE/test_tilemath.c $HERE/test_tilesrc.c $HERE/test_route.c $HERE/test_atmosphere.c $HERE/test_mat4.c $HERE/test_chunkmesh.c $HERE/test_style.c $HERE/test_lru.c $HERE/test_prefetch.c $HERE/test_draw.c"
 
 echo "== unit tests =="
 ( cd "$OUT" && gcc -O0 -g -Wall -Wextra --coverage -I"$HERE" -I"$ROOT/geo/osmmesh/include" -o unittests $TESTS $SRC -lm ) 2>"$OUT/cc.log" || {

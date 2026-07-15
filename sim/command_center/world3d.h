@@ -49,6 +49,10 @@ static double w3_olat=52.045, w3_olon=9.385;   /* origin, set on osmmesh open; d
 /* stb_image: declarations only -- osmmesh/src/terrain.c owns the one implementation we link. */
 #include "../geo/osmmesh/src/3rdparty/stb_image.h"
 #include "gfx/mat4.h"
+/* Chunk geometry + its measured error: GL-free, so it is unit-tested directly (test_chunkmesh.c)
+ * instead of being judged by looking at pixels. w3_vtx (the vertex layout) comes with it -- the
+ * code that writes a layout owns it. */
+#include "chunkmesh.h"
 
 /* ---- GL program helpers ---- */
 static GLuint w3_shader(GLenum t,const char*src){ GLuint s=glCreateShader(t); glShaderSource(s,1,&src,0); glCompileShader(s);
@@ -328,166 +332,24 @@ static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS,int mode){
   return tex;
 }
 
-/* The terrain vertex layout, in one place.
- *
- * The writer (w3_push8/w3_terr_vbo) and the reader (glVertexAttribPointer) used to agree only by
- * hand: literal stride 32 and offsets 0/12/20 spelled out at the draw call. When normals were
- * added the stride went 20 -> 32 and every one of those numbers had to change together; getting
- * one wrong does not error, it renders garbage. Derive them from the struct instead, and pin the
- * result so a layout change breaks the build rather than the picture. */
-typedef struct { float pos[3]; float uv[2]; float norm[3]; } w3_vtx;
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
-_Static_assert(sizeof(w3_vtx) == 8*sizeof(float), "terrain vertex must be tightly packed (no padding)");
-_Static_assert(offsetof(w3_vtx, pos)  == 0,  "aPos offset");
-_Static_assert(offsetof(w3_vtx, uv)   == 12, "aUV offset");
-_Static_assert(offsetof(w3_vtx, norm) == 20, "aNorm offset");
-#endif
+/* The terrain vertex layout is defined by its WRITER, in chunkmesh.h. These two macros are the
+ * READER's half of that contract -- they need GL types, so they stay here, but they derive from
+ * the same struct, so a layout change breaks the build rather than the picture. */
 #define W3_VTX_STRIDE ((GLsizei)sizeof(w3_vtx))
 #define W3_VTX_OFF(f)  ((void*)offsetof(w3_vtx, f))
 
-
-static GLuint w3_push8(const float*v,size_t o,int*out_nv){
-  GLuint vbo; glGenBuffers(1,&vbo); glBindBuffer(GL_ARRAY_BUFFER,vbo);
-  glBufferData(GL_ARRAY_BUFFER,o*sizeof(float),v,GL_STATIC_DRAW); *out_nv=(int)(o/(sizeof(w3_vtx)/sizeof(float))); return vbo;
-}
-/* Take a 5-float/vertex triangle soup (pos.xyz, uv) and emit an 8-float/vertex VBO with a
- * per-triangle FACE NORMAL appended (flat shading). Used only for the irregular-mesh
- * fallback, where there is no height grid to take smooth normals from. */
-static GLuint w3_push_soup(const float*v,size_t o,int*out_nv){
-  int nv=(int)(o/5); float*w=malloc((size_t)nv*8*sizeof(float));
-  for(int t=0;t+2<nv;t+=3){
-    const float*a=v+(size_t)t*5,*b=v+(size_t)(t+1)*5,*c=v+(size_t)(t+2)*5;
-    float e1[3]={b[0]-a[0],b[1]-a[1],b[2]-a[2]}, e2[3]={c[0]-a[0],c[1]-a[1],c[2]-a[2]};
-    float nx=e1[1]*e2[2]-e1[2]*e2[1], ny=e1[2]*e2[0]-e1[0]*e2[2], nz=e1[0]*e2[1]-e1[1]*e2[0];
-    float L=sqrtf(nx*nx+ny*ny+nz*nz); if(L<1e-6f)L=1; nx/=L;ny/=L;nz/=L;
-    if(ny<0){nx=-nx;ny=-ny;nz=-nz;}                       /* orient upward */
-    for(int k=0;k<3;k++){ const float*s=v+(size_t)(t+k)*5; float*d=w+(size_t)(t+k)*8;
-      d[0]=s[0];d[1]=s[1];d[2]=s[2];d[3]=s[3];d[4]=s[4];d[5]=nx;d[6]=ny;d[7]=nz; }
-  }
-  GLuint vbo; glGenBuffers(1,&vbo); glBindBuffer(GL_ARRAY_BUFFER,vbo);
-  glBufferData(GL_ARRAY_BUFFER,(size_t)nv*8*sizeof(float),w,GL_STATIC_DRAW); free(w);
-  *out_nv=nv; return vbo;
-}
-/* Build one chunk's VBO and MEASURE its geometric error while doing it.
- *
- * out_err = max |decimated surface - source height| over every source pixel, in metres. This is
- * the number the LOD runs on, and it costs nothing extra: the decimation already walks the whole
- * 256x256 height field, so the comparison rides along.
- *
- * It has to be measured per chunk, not tabulated per zoom. An error ladder measured over Hameln
- * says z8 = 234 m -- but Hameln has 96 m of total relief, so the ladder saturates and encodes this
- * one flat valley as a global constant. The same measurement at the Matterhorn gives z8 = 1396 m
- * and at Everest 2093 m. fb-tiles serves any origin on earth; a constant from one valley would be
- * wrong everywhere else. From the data, flat terrain saturates by itself and mountains subdivide
- * by themselves -- same line of code, both right. */
+/* Upload one built chunk. The maths -- decimation, smooth normals, the measured error, the skirt
+ * -- lives in chunkmesh.h and is unit-tested without a GL context; all that is left here is the
+ * upload. That split is the point: `err` drives every split decision the LOD makes, and while it
+ * was welded to these three GL calls the only way to check it was to look at the ground. */
 static GLuint w3_terr_vbo(const osmmesh_mesh*m,int*out_nv,float*out_err){
-  float emin=1e18f,emax=-1e18f,nmin=1e18f,nmax=-1e18f;
-  for(uint32_t i=0;i<m->n_vertices;i++){ const float*P=m->positions+i*3;
-    if(P[0]<emin)emin=P[0]; if(P[0]>emax)emax=P[0]; if(P[1]<nmin)nmin=P[1]; if(P[1]>nmax)nmax=P[1]; }
-  float de=emax-emin?emax-emin:1, dn=nmax-nmin?nmax-nmin:1;
-  if(out_err) *out_err=0.f;
-  /* detect grid width C (row-major, north->south rows; x resets west at each row start) */
-  uint32_t C=0;
-  for(uint32_t i=1;i<m->n_vertices;i++) if(m->positions[i*3] < m->positions[(i-1)*3]-0.5f){ C=i; break; }
-  #define W3_UV(P) (P[0]-emin)/de, (nmax-P[1])/dn
-  if(C>=2 && m->n_vertices%C==0){                 /* regular grid -> decimate to W3_TERR x W3_TERR */
-    uint32_t R=m->n_vertices/C; int G=W3_TERR<2?2:W3_TERR;
-    int gc=(int)C<G+1?(int)C:G+1, gr=(int)R<G+1?(int)R:G+1;
-    #define W3_MV(r,c) (m->positions + ((size_t)(r)*C + (size_t)(c))*3)
-    #define W3_RI(j)   ((int)((long)(j)*(R-1)/(gr-1)))
-    #define W3_CI(i)   ((int)((long)(i)*(C-1)/(gc-1)))
-    /* SMOOTH per-vertex normals from the HEIGHT FIELD (central differences over the
-     * decimated neighbours, so they match the geometry we actually draw). Face normals
-     * would be constant across each triangle -> the fragment shader's per-pixel lighting
-     * would still come out flat-shaded/faceted. Interpolating these makes vNorm vary
-     * across the triangle -> true smooth per-pixel shading on the slopes. */
-    int NN=gr*gc;
-    float*np=malloc((size_t)NN*3*sizeof(float));   /* node position (east,north,elev) */
-    float*nv=malloc((size_t)NN*3*sizeof(float));   /* node normal (render space) */
-    for(int j=0;j<gr;j++)for(int i=0;i<gc;i++){
-      const float*P=W3_MV(W3_RI(j),W3_CI(i)); float*d=np+((size_t)j*gc+i)*3;
-      d[0]=P[0]; d[1]=P[1]; d[2]=P[2];
-    }
-    for(int j=0;j<gr;j++)for(int i=0;i<gc;i++){
-      int i0=i>0?i-1:i, i1=i<gc-1?i+1:i, j0=j>0?j-1:j, j1=j<gr-1?j+1:j;
-      const float*W=np+((size_t)j*gc+i0)*3, *E=np+((size_t)j*gc+i1)*3;
-      const float*Nn=np+((size_t)j0*gc+i)*3,*Sn=np+((size_t)j1*gc+i)*3;
-      float dE=E[0]-W[0], dN=Sn[1]-Nn[1];
-      float dzde=(fabsf(dE)>1e-6f)?(E[2]-W[2])/dE:0.f;   /* d(elev)/d(east)  */
-      float dzdn=(fabsf(dN)>1e-6f)?(Sn[2]-Nn[2])/dN:0.f; /* d(elev)/d(north) */
-      /* ENU normal = (-dz/de, -dz/dn, 1); render axes are E=+X, up=+Y, N=-Z */
-      float nx=-dzde, ny=1.f, nz=dzdn;
-      float L=sqrtf(nx*nx+ny*ny+nz*nz); if(L<1e-6f)L=1;
-      float*d=nv+((size_t)j*gc+i)*3; d[0]=nx/L; d[1]=ny/L; d[2]=nz/L;
-    }
-    /* --- the chunk's own geometric error, from the data ---------------------------------
-     * Walk every SOURCE pixel, evaluate the surface we are about to draw at that spot (same two
-     * triangles per quad as below), and keep the worst vertical miss. 256x256 lerps per chunk --
-     * nothing next to the PNG decode that produced the heights. */
-    float err=0.f;
-    for(int j=0;j<gr-1;j++)for(int i=0;i<gc-1;i++){
-      int r0=W3_RI(j), r1=W3_RI(j+1), c0=W3_CI(i), c1=W3_CI(i+1);
-      float h00=np[((size_t)j*gc+i)*3+2],     h10=np[((size_t)j*gc+i+1)*3+2];
-      float h11=np[((size_t)(j+1)*gc+i+1)*3+2], h01=np[((size_t)(j+1)*gc+i)*3+2];
-      if(r1<=r0||c1<=c0) continue;
-      for(int r=r0;r<=r1;r++)for(int c=c0;c<=c1;c++){
-        float sv=(float)(r-r0)/(float)(r1-r0), su=(float)(c-c0)/(float)(c1-c0);
-        /* same diagonal as the quad below: (0,0)-(1,1) */
-        float h = (su>=sv) ? h00+(h10-h00)*su+(h11-h10)*sv
-                           : h00+(h11-h01)*su+(h01-h00)*sv;
-        float d=fabsf(h-W3_MV(r,c)[2]); if(d>err) err=d;
-      }
-    }
-    if(out_err) *out_err=err;
-    /* --- skirt height, also from the data ------------------------------------------------
-     * Neighbouring chunks may differ by one level, and their edges do NOT weld: each level
-     * decimates its own DEM, so the shared edge is two different polylines. Measured over the
-     * Weser valley the gap reaches 1.4 m between z13/z14 but 47.6 m between z11/z12 -- a constant
-     * skirt would be waste in one place and a visible crack in the other.
-     * The crack at a shared edge is bounded by the two chunks' errors, and the finer chunk's is
-     * the smaller, so 2*err is a sound bound that needs no magic number and travels to any
-     * terrain on earth. The skirt hangs straight down and is hidden by the neighbour. */
-    float skirt=2.f*err; if(skirt<5.f) skirt=5.f;
-    int nquad=(gr-1)*(gc-1), nedge=2*((gr-1)+(gc-1));
-    float*v=malloc(((size_t)nquad+nedge)*6*8*sizeof(float)); size_t o=0;
-    for(int j=0;j<gr-1;j++)for(int i=0;i<gc-1;i++){
-      int q[6]={ j*gc+i, j*gc+(i+1), (j+1)*gc+(i+1), j*gc+i, (j+1)*gc+(i+1), (j+1)*gc+i };
-      for(int k=0;k<6;k++){
-        const float*P=np+(size_t)q[k]*3, *N=nv+(size_t)q[k]*3;
-        v[o++]=P[0]; v[o++]=P[2]; v[o++]=-P[1];                 /* pos: east, up, -north */
-        v[o++]=(P[0]-emin)/de; v[o++]=(nmax-P[1])/dn;           /* uv */
-        v[o++]=N[0]; v[o++]=N[1]; v[o++]=N[2];                  /* smooth normal */
-      }
-    }
-    /* skirt: a curtain hanging from each boundary edge, textured with the edge's own texels so
-     * it reads as a continuation of the ground rather than a stripe. */
-    #define W3_SKIRT_EDGE(a,b) do{ \
-      const float*A=np+(size_t)(a)*3, *B=np+(size_t)(b)*3; \
-      float au=(A[0]-emin)/de, av=(nmax-A[1])/dn, bu=(B[0]-emin)/de, bv=(nmax-B[1])/dn; \
-      const float NA[3]={0.f,1.f,0.f}; \
-      float P6[6][3]={{A[0],A[2],-A[1]},{B[0],B[2],-B[1]},{B[0],B[2]-skirt,-B[1]}, \
-                      {A[0],A[2],-A[1]},{B[0],B[2]-skirt,-B[1]},{A[0],A[2]-skirt,-A[1]}}; \
-      float U6[6][2]={{au,av},{bu,bv},{bu,bv},{au,av},{bu,bv},{au,av}}; \
-      for(int k=0;k<6;k++){ v[o++]=P6[k][0]; v[o++]=P6[k][1]; v[o++]=P6[k][2]; \
-        v[o++]=U6[k][0]; v[o++]=U6[k][1]; v[o++]=NA[0]; v[o++]=NA[1]; v[o++]=NA[2]; } \
-    }while(0)
-    for(int i=0;i<gc-1;i++){ W3_SKIRT_EDGE(i+1, i);                                  }  /* north */
-    for(int i=0;i<gc-1;i++){ W3_SKIRT_EDGE((gr-1)*gc+i, (gr-1)*gc+i+1);              }  /* south */
-    for(int j=0;j<gr-1;j++){ W3_SKIRT_EDGE(j*gc, (j+1)*gc);                          }  /* west  */
-    for(int j=0;j<gr-1;j++){ W3_SKIRT_EDGE((j+1)*gc+gc-1, j*gc+gc-1);                }  /* east  */
-    #undef W3_SKIRT_EDGE
-    free(np); free(nv);
-    #undef W3_MV
-    #undef W3_RI
-    #undef W3_CI
-    GLuint vbo=w3_push8(v,o,out_nv); free(v); return vbo;
-  }
-  /* fallback: full-resolution soup (irregular mesh) */
-  uint32_t nt=m->n_triangles; float*v=malloc((size_t)nt*3*5*sizeof(float)); size_t o=0;
-  for(uint32_t i=0;i<nt*3;i++){ uint32_t idx=m->indices?m->indices[i]:i; const float*P=m->positions+idx*3;
-    v[o++]=P[0]; v[o++]=P[2]; v[o++]=-P[1]; v[o++]=(P[0]-emin)/de; v[o++]=(nmax-P[1])/dn; }
-  #undef W3_UV
-  GLuint vbo=w3_push_soup(v,o,out_nv); free(v); return vbo;
+  w3_chunk c;
+  if(!w3_chunk_build(m,W3_TERR,&c)){ *out_nv=0; if(out_err)*out_err=0.f; return 0; }
+  GLuint vbo; glGenBuffers(1,&vbo); glBindBuffer(GL_ARRAY_BUFFER,vbo);
+  glBufferData(GL_ARRAY_BUFFER,(GLsizeiptr)((size_t)c.nverts*sizeof(w3_vtx)),c.verts,GL_STATIC_DRAW);
+  *out_nv=c.nverts; if(out_err)*out_err=c.err;
+  w3_chunk_free(&c);
+  return vbo;
 }
 
 static int world3d_osm_open_mem(const char*vec_path,const uint8_t*vec_data,size_t vec_len,
