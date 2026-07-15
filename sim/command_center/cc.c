@@ -143,7 +143,9 @@ static void frame(void){
   if(have_telem){
     double lat = g_olat + (double)telem.y/111320.0;
     double lon = g_olon + (double)telem.x/(111320.0*cos(g_olat*M_PI/180.0));
-    world3d_stream(lat, lon);
+    /* Height above ground drives the LOD: it is the distance term for every chunk under the
+     * aircraft, so a hardcoded guess would refine the ground wrongly at both 100 m and 4000 m. */
+    world3d_stream_at(lat, lon, telem.alt > 1 ? telem.alt : 1.0);
   }
   /* 1) render the aircraft camera into the MULTISAMPLE FBO (antialiased) */
   glBindFramebuffer(GL_FRAMEBUFFER, msaa_fbo);
@@ -214,7 +216,15 @@ int main(void){
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
   glGenRenderbuffers(1,&vid_depth); glBindRenderbuffer(GL_RENDERBUFFER,vid_depth);
-  glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH_COMPONENT16,CAM_W,CAM_H);
+  /* 24-bit depth. With the far plane at 240 km, 16 bits resolve ~760 m at 10 km and 30 km at
+   * 200 km -- the distant terrain would z-fight into confetti. 24 bits give 0.3 m and 119 m, well
+   * under the 68 m / 900 m quads that could fight. WebGL2 has DEPTH_COMPONENT24 in core; a WebGL1
+   * context does not, so fall back rather than hand back an incomplete FBO. */
+  #ifndef GL_DEPTH_COMPONENT24
+  #define GL_DEPTH_COMPONENT24 0x81A6
+  #endif
+  glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH_COMPONENT24,CAM_W,CAM_H);
+  if(glGetError()!=GL_NO_ERROR) glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH_COMPONENT16,CAM_W,CAM_H);
   glGenFramebuffers(1,&vid_fbo); glBindFramebuffer(GL_FRAMEBUFFER,vid_fbo);
   glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,vid_tex,0);
   glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_RENDERBUFFER,vid_depth);
@@ -224,7 +234,8 @@ int main(void){
     glGenRenderbuffers(1,&msaa_color); glBindRenderbuffer(GL_RENDERBUFFER,msaa_color);
     glRenderbufferStorageMultisample(GL_RENDERBUFFER,samp,GL_RGBA8,CAM_W,CAM_H);
     glGenRenderbuffers(1,&msaa_depth); glBindRenderbuffer(GL_RENDERBUFFER,msaa_depth);
-    glRenderbufferStorageMultisample(GL_RENDERBUFFER,samp,GL_DEPTH_COMPONENT16,CAM_W,CAM_H);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER,samp,GL_DEPTH_COMPONENT24,CAM_W,CAM_H);
+    if(glGetError()!=GL_NO_ERROR) glRenderbufferStorageMultisample(GL_RENDERBUFFER,samp,GL_DEPTH_COMPONENT16,CAM_W,CAM_H);
     glGenFramebuffers(1,&msaa_fbo); glBindFramebuffer(GL_FRAMEBUFFER,msaa_fbo);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_RENDERBUFFER,msaa_color);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_RENDERBUFFER,msaa_depth);
