@@ -88,9 +88,15 @@ Two traps that already cost a session each, both fixed in `shot.js` — do not u
   included. Cause: fb-tiles said `404` for both "queued, ask again" and "there is none", and the
   browser cached every 404 as a permanent hole. Fixed on both sides (`b2c5ede` server → `202`,
   `d681a6f` browser → only 200/204 are terminal). **Still not proven**: the cold run over Aoraki
-  reached 111/128 chunks and did not converge inside 300 s. Believed cause — read, not measured —
-  is `tiles/prefetch.c`: exactly ONE worker thread, so a cold region streams at the speed of one
-  serial curl (~14 jobs/s over 8715 jobs). Do not restore the claim until a cold run is green.
+  reached 111/128 chunks and did not converge inside 300 s. It GROUND rather than stalled — 4539
+  upstream fetches with 0 failures, 1593 bakes with 0 failures, nothing dropped, chunks rising
+  monotonically — so it is not the Matterhorn stall. But "grinds" is not what was promised.
+  One fact, **read and not measured**: `tiles/prefetch.c` starts exactly ONE worker thread
+  (`pthread_create` once, not in a loop; the file header says so in the singular). **Whether that
+  thread is the bottleneck is unmeasured, and where the time actually goes is unknown** — 1593
+  bakes in ~600 s is far faster than the 1.6 s per cold bake the comments claim, so the obvious
+  story does not even add up. The cold Hameln run is the measurement that decides it.
+  Do not restore the claim until a cold run is green.
 - `printf` from the WASM goes to the **browser console**, not the container log.
 
 ## Process
@@ -137,6 +143,14 @@ Two traps that already cost a session each, both fixed in `shot.js` — do not u
     the build, not the match. `grep -c` on minified JS counts lines, not occurrences.
   - **`pgrep -f "foo.sh"` matches the waiter that greps for it.** A watcher waited 21 minutes on
     itself and reported "still running" the whole time.
+- **A number borrows authority from where it stands.** Two halves of one mistake, both made here in
+  one evening. A success criterion was declared "non-negotiable" without anyone asking whether it
+  was *reachable* — the cold test was given 300 s by a guess, and the guess inherited the gravity
+  of the criterion beside it. **A criterion without a feasibility check is not rigour, it is a
+  ritual; and a pre-registered number feels like rigour even when it was guessed.** Pre-registration
+  protects against explaining a result away afterwards. It does not protect against guessing.
+  Same shape, one paragraph up: a hedge ("read, not measured") placed BESIDE a claim covers the
+  provable half while the invented half rides along. Put the hedge in front, or split the sentence.
 - **One renderer.** There is no second renderer to keep in sync — `render_native.c` was deleted
   because it drifted. The visual check is a headless browser on the real artifact (`test/shot.sh`).
 - **Space telemetry samples by `seq`, never by arrival time** — packets arrive batched, so `Δ/dt`
