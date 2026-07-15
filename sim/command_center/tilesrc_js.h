@@ -32,9 +32,11 @@ EM_JS(int, w3_tiles_size, (int kind, int z, int x, int y), {
     var key = kind + '/' + z + '/' + x + '/' + y;
     var e = T.cache.get(key);
     if (e === undefined) {
-        /* Cap concurrency: a grid shift wants ~34 tiles at once and browsers queue anyway,
-         * but flooding the service makes every tile late instead of some tiles early. */
-        if (T.inflight > 12) return -1;
+        /* Cap concurrency, but not so tightly that the centre tile starves: building ONE tile
+         * needs its vector + terrain AND osmmesh pulls the 4 edge neighbours for seam stitching,
+         * so a single visible tile can be ~6 requests. With the cap at 12 the tile under the
+         * aircraft could sit behind the queue. The browser pipelines over one connection anyway. */
+        if (T.inflight > 48) return -1;
         T.cache.set(key, null);                        /* null = pending */
         T.inflight++;
         fetch(T.base + '/t/' + names[kind] + '/' + z + '/' + x + '/' + y)

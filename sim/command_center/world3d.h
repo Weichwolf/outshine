@@ -527,13 +527,22 @@ static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
   osmmesh_free_tile(&t);
   return slot;
 }
-/* Build a draw list for the grid around (cx,cy); entries just reference cached tiles. */
+/* Build a draw list for the grid around (cx,cy); entries just reference cached tiles.
+ *
+ * Walks the grid in RINGS outward from the centre: the tile under the aircraft first, then its
+ * 8 neighbours, then the rest. This matters because tiles now arrive over the network with a
+ * concurrency cap — iterating the grid corner-to-corner (dy=-rad..rad, dx=-rad..rad) let distant
+ * corner tiles occupy the whole request budget while the ground directly under the aircraft was
+ * still queued. Nearest-first means what you can actually see loads first. */
 static int w3_stream_grid(uint32_t cx,uint32_t cy,int z,int rad,int tex,int maxt,w3_tileGL*arr){
   int n=0;
-  for(int dy=-rad;dy<=rad;dy++)for(int dx=-rad;dx<=rad;dx++){
-    int ci=w3_cache_get(z,cx+dx,cy+dy,tex,(dx==0&&dy==0));
-    if(ci<0 || n>=maxt) continue;
-    arr[n].vbo=w3_cache[ci].vbo; arr[n].tex=w3_cache[ci].tex; arr[n].nverts=w3_cache[ci].nverts; n++;
+  for(int ring=0;ring<=rad;ring++){
+    for(int dy=-ring;dy<=ring;dy++)for(int dx=-ring;dx<=ring;dx++){
+      if(dx>-ring&&dx<ring&&dy>-ring&&dy<ring) continue;   /* interior: done on an earlier ring */
+      int ci=w3_cache_get(z,cx+dx,cy+dy,tex,(dx==0&&dy==0));
+      if(ci<0 || n>=maxt) continue;
+      arr[n].vbo=w3_cache[ci].vbo; arr[n].tex=w3_cache[ci].tex; arr[n].nverts=w3_cache[ci].nverts; n++;
+    }
   }
   return n;
 }
@@ -553,9 +562,11 @@ static void world3d_stream(double lat,double lon){
   if(!moved && w3_stream_done) return;
   w3_tx=tx; w3_ty=ty; w3_have_tile=1;
   int b0=w3_cache_bakes, h0=w3_cache_hits;
+  /* NEAR tier first: the ground under and around the aircraft is what you actually see, and it
+   * must win the network budget over the distant ring. */
+  w3_nT  = w3_stream_grid(tx,ty,W3_Z,   W3_RAD,   W3_TEX,   W3_MAXT, w3_T);    /* near detail */
   uint32_t fx,fy; osmmesh_geo_to_tile(lon,lat,W3_FARZ,&fx,&fy);
   w3_nTF = w3_stream_grid(fx,fy,W3_FARZ,W3_FARRAD,W3_FARTEX,W3_MAXTF,w3_TF);   /* distant coarse ring */
-  w3_nT  = w3_stream_grid(tx,ty,W3_Z,   W3_RAD,   W3_TEX,   W3_MAXT, w3_T);    /* near detail */
   int want = (2*W3_RAD+1)*(2*W3_RAD+1) + (2*W3_FARRAD+1)*(2*W3_FARRAD+1);
   int was_done = w3_stream_done;
   w3_stream_done = (w3_nT + w3_nTF) >= want;
