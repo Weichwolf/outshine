@@ -246,6 +246,22 @@ each other** — this has actually happened. Coordinate before editing outside y
   alpine origin under-reports and a real world can still be called empty. The criterion should be
   "has structure no sky has" — and it needs a real rock-face screenshot to check against, not a
   third recalibration of the same idea. Fix it when someone has that screenshot.
+- **Texture LOD as `tile.tex[mode][lod]` — designed, unbuilt, and its PROOF is the expensive part.**
+  The 1-FPS thrash had one cause: `tex` was a *parameter beside* the cache key, never part of it and
+  never stored — so a hit silently returned the wrong size, and the "fix" was a re-bake. Two callers
+  disagreeing (`w3_children_ready` guessing from the parent's distance, `w3_walk` computing the
+  child's own) then cost two full re-bakes per chunk per frame. With side-by-side slots the
+  disagreement costs **one extra bake, once**: hysteresis is not repaired but made unnecessary,
+  because there is no current state left for another caller to knock over — monotone state cannot
+  flutter. `vbo`/`nverts`/`err` are untouched by a texture LOD change (the geometry is
+  LOD-independent — visible only since `chunkmesh.h` was cut out). The one rule that carries it:
+  **release exists at exactly one place, `cache_trim`, once per pass.**
+  **The proof needs an injected disagreement, and this is the trap:** `generateMipmap` p50 == 0 is
+  green TODAY — nothing thrashes because every caller passes the same size. That counter is green
+  before and after, so it proves "I broke nothing", never "I made it impossible". It has to be:
+  *without* the slots + injected disagreement → p50 explodes (it was 256/frame at 1 FPS); *with*
+  them + same injection → p50 stays 0; injection removed → still 0. Only the middle line proves
+  anything. Same shape as a mutation test: break it on purpose to see the check bite.
 - **Terrain LOD: the quadtree runs, the budget does not fit.** Measured warm, both grounds:
   `128 chunks drawn (budget 128), 0 pending`, `levels z8..z14 = 32/8/12/9/21/22/24`, streamed in
   10–20 s. But `31 wanted split, 10–13 over budget` — the tree wants finer ground than 128 chunks
