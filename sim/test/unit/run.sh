@@ -3,12 +3,24 @@
 #
 # SCOPE, stated honestly. This covers code that CAN be covered by a unit test: pure maths,
 # source descriptors and parsers. Deliberately NOT here, and why:
-#   - tiles/cache.c, tiles/elev.c   need a network and a real upstream -> live route checks
+#   - tiles/cache.c                 is curl + stat + rename: I/O with no logic left in it once
+#                                   the URL building (tilesrc.c) is factored out -> live route checks
+#   - tiles/elev.c                  fetch + PNG decode glue. Its ONE piece of real logic was the
+#                                   LRU eviction; that now lives in tiles/lru.h and IS covered.
+#                                   The Terrarium decode itself is osmmesh's (vendored), and the
+#                                   bilinear sample is tilemath.h -> both covered elsewhere.
 #   - tiles/main.c                  is a `for(;;) accept()` server loop -> live route checks
 #   - aircraft/terrain.c            polls a running service            -> live checks
 #   - command_center/*              needs a GL context                 -> render_native + browser
 #   - aircraft/xp_bridge.c          is the plant in a closed loop      -> test/eval.py (~7500 invariants)
 #     (its PURE parts are being lifted out into fdm/* one at a time, and those ARE covered here)
+#   - command_center/world3d.h      needs a GL context -> render_native + browser.
+#     (same treatment: gfx/mat4.h and gfx/style.h are out and covered; sky/HUD/cache still inside)
+#
+# NAMED GAP, not rounded away: nothing here proves the wire between the modules. A correct
+# atmosphere wired to the wrong dref, or a correct LRU whose payload array is off by one, passes
+# every assertion in this file. That is what test/eval.py and the headless render are for --
+# see test/verify.sh, which runs all of it together.
 # Everything listed above is exercised elsewhere; nothing is simply unmeasured. Modules that ARE
 # in scope must be at 100% — the run fails otherwise and prints the uncovered lines.
 #
@@ -32,7 +44,7 @@ fail=0
 
 # modules under test (pure) + the test drivers
 SRC="$ROOT/tiles/tilesrc.c $ROOT/tiles/route.c $ROOT/aircraft/fdm/atmosphere.c"
-TESTS="$HERE/main.c $HERE/test_tilemath.c $HERE/test_tilesrc.c $HERE/test_route.c $HERE/test_atmosphere.c $HERE/test_mat4.c $HERE/test_style.c"
+TESTS="$HERE/main.c $HERE/test_tilemath.c $HERE/test_tilesrc.c $HERE/test_route.c $HERE/test_atmosphere.c $HERE/test_mat4.c $HERE/test_style.c $HERE/test_lru.c"
 
 echo "== unit tests =="
 ( cd "$OUT" && gcc -O0 -g -Wall -Wextra --coverage -I"$HERE" -o unittests $TESTS $SRC -lm ) 2>"$OUT/cc.log" || {

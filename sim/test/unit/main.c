@@ -11,6 +11,7 @@ int main(void) {
     test_atmosphere();
     test_mat4();
     test_style();
+    test_lru();
     printf("\n== %d/%d assertions passed ==\n", fb_t_run - fb_t_fail, fb_t_run);
     return fb_t_fail ? 1 : 0;
 }
