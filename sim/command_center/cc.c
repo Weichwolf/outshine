@@ -152,9 +152,18 @@ static void frame(void){
   glBindFramebuffer(GL_READ_FRAMEBUFFER, msaa_fbo);
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, vid_fbo);
   glBlitFramebuffer(0,0,CAM_W,CAM_H, 0,0,CAM_W,CAM_H, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-  /* 2) encode -> decode (the lossy video link) */
+  /* 2) encode -> decode (the lossy video link) -- but ONLY for what actually travels it.
+   *
+   * EVS is the aircraft's camera: it reaches the ground over 5.8 GHz, so the compression
+   * artifacts are part of the truth and belong here.
+   *
+   * SVS is not. A synthetic vision system is DRAWN BY THE GROUND STATION from telemetry and a
+   * terrain database -- the picture never crosses the video link, so putting it through the
+   * encoder would be simulating a transmission that does not happen. It also takes from the
+   * fallback exactly what you reach for it for: a clean picture when the camera cannot give one.
+   * Telemetry arrives over its own low-rate link and is already modelled (rssi/LNK). */
   int use_codec=0;
-  if(codec_ready){
+  if(codec_ready && w3_ground_mode == W3_GROUND_PHOTO){
     glBindFramebuffer(GL_FRAMEBUFFER, vid_fbo);
     glReadPixels(0,0,CAM_W,CAM_H,GL_RGBA,GL_UNSIGNED_BYTE,readback);
     fb_codec_push((int)(intptr_t)readback, CAM_W, CAM_H, emscripten_get_now()*1000.0);  /* real-time µs timestamp */
