@@ -80,7 +80,9 @@
 #endif
 
 #define STB_IMAGE_IMPLEMENTATION
-#define STBI_NO_JPEG
+/* JPEG stays ENABLED (upstream disabled it): the command center decodes Esri aerial imagery,
+ * which is JPEG, and this is the only image decoder we ship. Two stb_image implementations in
+ * one link would collide, so the renderer shares this one. See VENDORED.md. */
 #define STBI_NO_BMP
 #define STBI_NO_PSD
 #define STBI_NO_TGA

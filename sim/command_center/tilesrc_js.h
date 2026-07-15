@@ -16,6 +16,11 @@
 #include <osmmesh/osmmesh.h>
 #include <stdlib.h>
 
+/* Aerial photo tiles. osmmesh does not know about these -- it only needs vector + terrain to
+ * build a mesh. The imagery is purely the renderer's business (it is only an albedo), so it
+ * rides the same byte cache under its own kind rather than becoming an osmmesh_tile_kind. */
+#define W3_TILE_IMAGERY 2
+
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 
@@ -28,7 +33,8 @@ EM_JS(void, w3_tiles_init, (const char *base), {
  * Starts the fetch on a miss. Never blocks. */
 EM_JS(int, w3_tiles_size, (int kind, int z, int x, int y), {
     var T = Module.__fbTiles; if (!T) return -1;
-    var names = ['vector', 'terrain'];                 /* must match osmmesh_tile_kind */
+    var names = ['vector', 'terrain', 'imagery'];      /* 0,1 = osmmesh_tile_kind; 2 = W3_TILE_IMAGERY */
+    if (kind < 0 || kind >= names.length) return 0;    /* unknown kind = a hole, not a wrong tile */
     var key = kind + '/' + z + '/' + x + '/' + y;
     var e = T.cache.get(key);
     if (e === undefined) {
@@ -72,7 +78,7 @@ EM_JS(int, w3_tiles_resident, (), {
 #include <stdio.h>
 #include <string.h>
 
-#define W3_NT_CACHE 512
+#define W3_NT_CACHE 4096   /* imagery: 16 z16 children per z14 tile, x50 tiles */
 static struct { int kind, z, x, y; uint8_t *b; int n; } w3_nt[W3_NT_CACHE];
 static int  w3_nt_n = 0;
 static char w3_nt_base[160] = "";
@@ -88,10 +94,14 @@ static int w3_tiles_size(int kind, int z, int x, int y) {
     int i = w3_nt_find(kind, z, x, y);
     if (i >= 0) return w3_nt[i].n;
     if (!w3_nt_base[0] || w3_nt_n >= W3_NT_CACHE) return -1;
-    static const char *names[] = { "vector", "terrain" };   /* must match osmmesh_tile_kind */
+    /* 0,1 = osmmesh_tile_kind; 2 = W3_TILE_IMAGERY. This used to index with names[kind & 1],
+     * which masks kind 2 down to 0 -- the headless renderer would then have silently fetched
+     * VECTOR tiles and called them aerial photos. A wrong tile is worse than no tile. */
+    static const char *names[] = { "vector", "terrain", "imagery" };
+    if (kind < 0 || kind >= (int)(sizeof names / sizeof names[0])) return 0;
     char cmd[512];
     snprintf(cmd, sizeof cmd, "curl -s -f --max-time 20 '%s/t/%s/%d/%d/%d'",
-             w3_nt_base, names[kind & 1], z, x, y);
+             w3_nt_base, names[kind], z, x, y);
     FILE *f = popen(cmd, "r");
     if (!f) return -1;
     size_t cap = 1 << 16, n = 0; uint8_t *b = (uint8_t *)malloc(cap);

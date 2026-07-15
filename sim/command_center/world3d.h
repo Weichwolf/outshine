@@ -44,6 +44,8 @@ static const w3_star W3_STARS[] = {
 static double w3_olat=52.045, w3_olon=9.385;   /* origin, set on osmmesh open; drives star alt/az */
 
 /* mat4 / vec3 maths: GL-free, so it lives in gfx/mat4.h and is unit-tested directly. */
+/* stb_image: declarations only -- osmmesh/src/terrain.c owns the one implementation we link. */
+#include "../geo/osmmesh/src/3rdparty/stb_image.h"
 #include "gfx/mat4.h"
 /* OSM cartography (kind -> colour/width): GL-free, unit-tested in test/unit/test_style.c */
 #include "gfx/style.h"
@@ -267,11 +269,52 @@ static int w3_vec_bytes(uint32_t z,uint32_t x,uint32_t y,uint8_t**d,size_t*n){
   if(w3_stream_tiles) return w3_tile_provider(0,OSMMESH_TILE_VECTOR,z,x,y,d,n);
   return (w3_vec && osmmesh_pmtiles_fetch(w3_vec,z,x,y,d,n)==OSMMESH_PMTILES_OK);
 }
+/* ---- ground albedo source: OSM cartography or aerial photo (TAB) --------------------------
+ * The renderer keeps BOTH because they are not competing textures: the photo is what a camera
+ * would see, the OSM render is what we can draw when a camera cannot -- lost signal, dead sensor,
+ * blinded by the sun, or simply night. Synthetic vision as a fallback, which is why the vector
+ * path must stay first-class rather than become a legacy branch. */
+enum { W3_GROUND_OSM = 0, W3_GROUND_PHOTO = 1 };
+static int w3_ground_mode = W3_GROUND_OSM;
+
+/* Fill a tile texture from aerial photos. Returns 0 if any child is still in flight, so the
+ * caller can retry rather than cache a half-empty tile forever.
+ *
+ * The zoom arithmetic is exact, not a resample: a 256 px imagery tile is one child, so a TS-px
+ * texture wants (TS/256)^2 children at zoom z + log2(TS/256). For the near tier that is z14 ->
+ * 4x4 z16 tiles = exactly 1024 px = W3_TEX; for the far tier, z11 at 256 px = one tile. No
+ * scaling, a straight blit. */
+static int w3_fill_imagery(uint8_t*im,int TS,uint32_t z,uint32_t x,uint32_t y){
+  int f=TS/256; if(f<1) f=1;
+  uint32_t zi=z; for(int t=f;t>1;t>>=1) zi++;
+  for(int j=0;j<f;j++) for(int i=0;i<f;i++){
+    uint32_t cx=x*(uint32_t)f+(uint32_t)i, cy=y*(uint32_t)f+(uint32_t)j;
+    int n=w3_tiles_size(W3_TILE_IMAGERY,(int)zi,(int)cx,(int)cy);
+    if(n<0) return 0;                       /* still fetching -> tell the caller to retry */
+    if(n==0) continue;                      /* a genuine hole: leave the base colour */
+    uint8_t*b=(uint8_t*)malloc((size_t)n); if(!b) return 0;
+    w3_tiles_copy(W3_TILE_IMAGERY,(int)zi,(int)cx,(int)cy,b);
+    int w=0,h=0,comp=0; uint8_t*px=stbi_load_from_memory(b,n,&w,&h,&comp,3);
+    free(b);
+    if(!px) continue;                       /* undecodable tile: hole, not a crash */
+    for(int yy=0;yy<h;yy++){ int dy=j*256+yy; if(dy>=TS) break;
+      for(int xx=0;xx<w;xx++){ int dx=i*256+xx; if(dx>=TS) break;
+        uint8_t*d=im+((size_t)dy*TS+dx)*3, *sp=px+((size_t)yy*w+xx)*3;
+        d[0]=sp[0]; d[1]=sp[1]; d[2]=sp[2]; } }
+    stbi_image_free(px);
+  }
+  return 1;
+}
+
+/* Returns 0 when the tile is not bakeable yet (imagery still streaming). */
 static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS){
   uint8_t*im=malloc((size_t)TS*TS*3);
   for(int i=0;i<TS*TS;i++){ im[i*3]=150;im[i*3+1]=178;im[i*3+2]=118; }   /* base ground */
+  if(w3_ground_mode==W3_GROUND_PHOTO && !w3_fill_imagery(im,TS,z,x,y)){
+    free(im); return 0;                    /* children still in flight; retry next frame */
+  }
   uint8_t*d=0; size_t n=0;
-  if(w3_vec_bytes(z,x,y,&d,&n)){
+  if(w3_ground_mode==W3_GROUND_OSM && w3_vec_bytes(z,x,y,&d,&n)){
     osmmesh_mvt_tile*t=0;
     if(osmmesh_mvt_decode(d,n,&t)==OSMMESH_MVT_OK){
       const osmmesh_mvt_layer*L; uint8_t r,g,b; int rail;
@@ -484,6 +527,12 @@ static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
       float dd=P[0]*P[0]+P[1]*P[1]; if(dd<best){best=dd; w3_yoff=P[2];} }
     w3_yoff_set=1;
   }
+  /* Bake BEFORE evicting: in photo mode the bake can legitimately fail (children still in
+   * flight), and throwing away a good resident tile for one that isn't ready would make the
+   * cache churn exactly when the network is slowest. */
+  GLuint newtex=w3_bake(z,x,y,tex);
+  if(!newtex){ osmmesh_free_tile(&t); return -1; }        /* retry next frame */
+
   int slot=-1; unsigned oldest=~0u;
   for(int i=0;i<W3_CACHE;i++){
     if(!w3_cache[i].valid){ slot=i; break; }
@@ -491,7 +540,7 @@ static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
   }
   if(w3_cache[slot].valid){ glDeleteBuffers(1,&w3_cache[slot].vbo); glDeleteTextures(1,&w3_cache[slot].tex); }
   w3_cent*c=&w3_cache[slot];
-  c->vbo=w3_terr_vbo(t.terrain,&c->nverts); c->tex=w3_bake(z,x,y,tex);
+  c->vbo=w3_terr_vbo(t.terrain,&c->nverts); c->tex=newtex;
   c->z=z; c->x=x; c->y=y; c->valid=1; c->touch=++w3_touch; w3_cache_bakes++;
   osmmesh_free_tile(&t);
   return slot;
@@ -546,6 +595,22 @@ static void world3d_stream(double lat,double lon){
            w3_stream_done?"":" (waiting on fb-tiles)");
 }
 #endif /* W3_USE_OSM */
+
+/* Switch the ground albedo source. Drops every baked tile: the cache is keyed by z/x/y only,
+ * so without this you would keep seeing the old texture until each tile happened to be evicted.
+ *
+ * This DOES cost one re-bake of everything visible -- the very freeze the tile cache exists to
+ * avoid. Accepted here because it is a deliberate keypress, not something that happens on its own
+ * every time you cross a tile boundary. */
+static void w3_ground_toggle(void){
+  w3_ground_mode = (w3_ground_mode==W3_GROUND_OSM) ? W3_GROUND_PHOTO : W3_GROUND_OSM;
+  for(int i=0;i<W3_CACHE;i++) if(w3_cache[i].valid){
+    glDeleteBuffers(1,&w3_cache[i].vbo); glDeleteTextures(1,&w3_cache[i].tex);
+    w3_cache[i].valid=0;
+  }
+  w3_nT=0; w3_nTF=0;
+  printf("[world3d] ground = %s\n", w3_ground_mode==W3_GROUND_PHOTO?"aerial photo":"OSM render");
+}
 
 /* ---- HUD (2D lines, pixel coords) ---- */
 /* Regenerated every frame (glBufferData DYNAMIC). Sized for the full OSD: the bitmap

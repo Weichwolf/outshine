@@ -31,7 +31,16 @@
   // WASM's SDL key handling. The canvas keeps its 1280x720 render size; the browser
   // CSS-scales it to the screen (object-fit:contain -> 16:9 letterbox), matching the
   // "render low, upscale" pipeline.
+  // TAB = ground albedo: OSM render <-> aerial photo. Handled here rather than in the WASM's SDL
+  // key handling because the browser steals Tab for focus traversal; preventDefault must happen
+  // at the DOM. The point is not prettier ground: it is being able to fall back to a synthetic
+  // view when the camera cannot deliver one (lost, dead, dark, blinded).
   window.addEventListener('keydown', function(e){
+    if(e.key==='Tab' && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey){
+      e.preventDefault();
+      if(Module && Module._cc_toggle_ground) Module._cc_toggle_ground();
+      return;
+    }
     if((e.key==='f'||e.key==='F') && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey){
       var c=document.getElementById('canvas');
       var req=c.requestFullscreen||c.webkitRequestFullscreen;

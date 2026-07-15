@@ -41,6 +41,10 @@ int main(int argc, char** argv){
     t.home_dist=(float)hypot(t.x,t.y); t.home_bearing=(float)(atan2(-t.x,-t.y)*180/M_PI - t.yaw);
     t.glideslope_err=1.0f;
 
+    /* GROUND=photo -> bake the aerial imagery instead of the OSM cartography. Lets the headless
+     * renderer prove the whole TAB path (provider -> JPEG decode -> blit -> pixels) with no browser. */
+    int want_photo = getenv("GROUND") && !strcmp(getenv("GROUND"),"photo");
+
     EGLDisplay dpy = egl_headless_display();
     EGLint major,minor; if(!eglInitialize(dpy,&major,&minor)){ fprintf(stderr,"eglInitialize failed\n"); return 2; }
     fprintf(stderr,"EGL %d.%d — %s\n", major,minor, eglQueryString(dpy,EGL_VENDOR));
@@ -72,6 +76,7 @@ int main(int argc, char** argv){
                                         : world3d_osm_open(vec,terr,olat,olon);
     if(!ok) return 3;
     world3d_init();
+    if(want_photo) w3_ground_toggle();
     /* aircraft geographic position from ENU pose offset (east=x, north=y) */
     double lat = olat + (double)t.y/111320.0;
     double lon = olon + (double)t.x/(111320.0*cos(olat*M_PI/180.0));

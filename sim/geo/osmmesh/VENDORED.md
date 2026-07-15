@@ -43,6 +43,22 @@ already treats a missing tile as a hole and carries on, and the renderer retries
 
 **Worth upstreaming** — a small, general capability, not a FlightBox hack.
 
+### 2. stb_image: JPEG decoder re-enabled
+
+**Why:** `src/terrain.c` builds the only stb_image instance we ship, and upstream compiles it with
+`STBI_NO_JPEG` (it only ever needed Terrarium PNG). The command center now decodes **Esri World
+Imagery**, which is JPEG, for the TAB aerial-photo ground. A second stb_image implementation in the
+same link would collide on every symbol, so the renderer shares this one.
+
+**What changed:** one line — `#define STBI_NO_JPEG` removed from `src/terrain.c`.
+
+**Cost:** the JPEG decoder adds to every binary that links osmmesh, including `fb-tiles`, which
+does not need it. Measured, not guessed — see the commit. Cheap enough that a second decoder or a
+second stb TU would be the worse trade.
+
+**Why it's safe:** purely additive. `stbi_load_from_memory` gains a format; the PNG path,
+`osmmesh_terrain_decode_png` and every existing caller are untouched.
+
 ## Notes carried from upstream
 
 - The MVT and terrain decoders take **raw bytes** and are independent of PMTiles:

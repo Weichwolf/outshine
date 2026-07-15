@@ -12,7 +12,8 @@
  * raw FBO is shown directly — soft upscale, no artifacts.
  *
  * All 3D + HUD live in world3d.h so this browser view matches the native renderer.
- * Keys: arrows roll/pitch, A/D yaw, W/S throttle, ENTER arm, L drop link. */
+ * Keys: arrows roll/pitch, A/D yaw, W/S throttle, ENTER arm, L drop link,
+ * TAB ground = OSM render <-> aerial photo (F = fullscreen, both handled in index.html). */
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengles2.h>
 #include <emscripten.h>
@@ -99,6 +100,10 @@ static EM_BOOL on_msg(int t,const EmscriptenWebSocketMessageEvent*e,void*u){(voi
   if(mg==FB_MAGIC_TELEM && e->numBytes==sizeof(telem_packet_t)){ memcpy(&telem,e->data,sizeof telem); have_telem=1; }
   return 1;
 }
+/* TAB is handled in index.html, not by SDL: the browser uses Tab for focus traversal, so it has
+ * to be preventDefault()ed at the DOM before SDL ever sees it. */
+EMSCRIPTEN_KEEPALIVE void cc_toggle_ground(void){ w3_ground_toggle(); }
+
 static int armed_latch=0, prev_enter=0; static uint16_t seq=0;
 static void send_control(void){
   if(!ws_open)return; ctrl_packet_t c; memset(&c,0,sizeof c); c.magic=FB_MAGIC_CTRL; c.link_up=1; c.throttle=0.5f;
