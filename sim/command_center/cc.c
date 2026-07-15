@@ -169,6 +169,11 @@ int main(void){
   double la=atof(sl); if(la!=0) g_olat=la;
   const char*so=emscripten_run_script_string("(window.FB_ORIGIN_LON||0).toString()");
   double lo=atof(so); if(lo!=0) g_olon=lo;
+  /* emscripten_run_script_string returns a REUSED buffer — copy before the next call, or both
+   * pointers end up showing the last value (that bug once put the whole world at 9.385,9.385). */
+  char tiles_url[160];
+  snprintf(tiles_url,sizeof tiles_url,"%s",
+           emscripten_run_script_string("(window.FB_TILES_URL||'').toString()"));
 
   SDL_Init(SDL_INIT_VIDEO|SDL_INIT_GAMECONTROLLER);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,SDL_GL_CONTEXT_PROFILE_ES);
@@ -180,8 +185,12 @@ int main(void){
 
   emscripten_webgl_enable_extension(emscripten_webgl_get_current_context(),"EXT_texture_filter_anisotropic");
 
-  if(world3d_osm_open("/hameln.pmtiles","/hameln_terrain.pmtiles",g_olat,g_olon))
-    printf("[cc] osmmesh open OK, origin %.4f/%.4f\n",g_olat,g_olon);
+  /* Preferred: stream every tile on demand from fb-tiles — works at ANY origin on earth.
+   * Fallback: the legacy preloaded region archive (Hameln only). */
+  if(tiles_url[0] && world3d_tiles_open(tiles_url,g_olat,g_olon))
+    printf("[cc] tiles: streaming from %s, origin %.4f/%.4f\n",tiles_url,g_olat,g_olon);
+  else if(world3d_osm_open("/hameln.pmtiles","/hameln_terrain.pmtiles",g_olat,g_olon))
+    printf("[cc] tiles: legacy preloaded archive (Hameln), origin %.4f/%.4f\n",g_olat,g_olon);
   else printf("[cc] osmmesh open FAILED — procedural fallback\n");
   world3d_init();
 

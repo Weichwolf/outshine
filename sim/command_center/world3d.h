@@ -12,6 +12,9 @@
 #include <time.h>
 #include <GLES2/gl2.h>
 #include "protocol.h"
+#ifdef W3_USE_OSM
+#include "tilesrc_js.h"   /* tile bytes from fb-tiles (async cache + osmmesh provider) */
+#endif
 #ifndef W3_FOV
 #define W3_FOV 80.0f   /* vertical FOV (deg). Wide FPV cam (Caddx Ratel 2 ~164° diag ->
                         * ~80° vertical / ~112° horizontal at 16:9). */
@@ -220,7 +223,8 @@ static void w3_build_procedural(void){
  * draped over the terrain heightfield. The vector features come from the Shortbread
  * PMTiles via osmmesh's MVT decoder; the terrain heightfield from osmmesh's terrain. */
 static osmmesh_ctx *w3_osm=0;          /* terrain heightfield meshes */
-static osmmesh_pmtiles *w3_vec=0;      /* raw vector tiles for texture baking */
+static osmmesh_pmtiles *w3_vec=0;      /* raw vector tiles for texture baking (legacy archive path) */
+static int w3_stream_tiles=0;          /* 1 = tiles come from fb-tiles on demand, no preloaded region */
 static int w3_have_tile=0; static uint32_t w3_tx,w3_ty;
 static float w3_yoff=0; static int w3_yoff_set=0;   /* origin ground elevation (camera lift) */
 
@@ -288,11 +292,17 @@ static const char* w3_kind(const osmmesh_mvt_layer*l,const osmmesh_mvt_feature*f
   osmmesh_mvt_value v; if(osmmesh_mvt_feature_get_tag(l,f,"kind",&v)==0&&v.type==OSMMESH_MVT_VAL_STRING) return v.v.s; return ""; }
 
 /* bake one tile's OSM vector data into an orthographic RGB texture -> GL texture id */
+/* Raw vector bytes for texture baking: from fb-tiles via the provider when we stream, else
+ * from the legacy preloaded archive. Returns 1 and hands over a malloc'd buffer. */
+static int w3_vec_bytes(uint32_t z,uint32_t x,uint32_t y,uint8_t**d,size_t*n){
+  if(w3_stream_tiles) return w3_tile_provider(0,OSMMESH_TILE_VECTOR,z,x,y,d,n);
+  return (w3_vec && osmmesh_pmtiles_fetch(w3_vec,z,x,y,d,n)==OSMMESH_PMTILES_OK);
+}
 static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS){
   uint8_t*im=malloc((size_t)TS*TS*3);
   for(int i=0;i<TS*TS;i++){ im[i*3]=150;im[i*3+1]=178;im[i*3+2]=118; }   /* base ground */
   uint8_t*d=0; size_t n=0;
-  if(w3_vec && osmmesh_pmtiles_fetch(w3_vec,z,x,y,&d,&n)==OSMMESH_PMTILES_OK){
+  if(w3_vec_bytes(z,x,y,&d,&n)){
     osmmesh_mvt_tile*t=0;
     if(osmmesh_mvt_decode(d,n,&t)==OSMMESH_MVT_OK){
       const osmmesh_mvt_layer*L; uint8_t r,g,b; int rail;
@@ -450,6 +460,18 @@ static int world3d_osm_open_mem(const char*vec_path,const uint8_t*vec_data,size_
 static int world3d_osm_open(const char*vec_path,const char*terr_path,double lat,double lon){
   return world3d_osm_open_mem(vec_path,0,0,terr_path,0,0,lat,lon);
 }
+/* Stream tiles on demand from the fb-tiles service instead of a preloaded region archive.
+ * This is what makes any origin on earth work: nothing is bundled, everything is fetched. */
+static int world3d_tiles_open(const char*base,double lat,double lon){
+  w3_tiles_init(base);
+  osmmesh_config cfg={ .origin_lat=(w3_olat=lat), .origin_lon=(w3_olon=lon),
+    .tile_provider=w3_tile_provider, .tile_provider_user=0,
+    .enable_terrain=1, .enable_buildings=0, .enable_linears=0 };
+  if(osmmesh_create(&cfg,&w3_osm)!=OSMMESH_OK){ printf("[world3d] osmmesh_create (streaming) failed\n"); w3_osm=0; return 0; }
+  w3_vec=0; w3_stream_tiles=1; w3_have_tile=0;
+  printf("[world3d] streaming tiles from %s (origin %.4f/%.4f)\n",base,lat,lon);
+  return 1;
+}
 /* stream one grid (zoom z, radius rad, texture size tex) around tile (cx,cy) into arr */
 /* ---- baked-tile cache (LRU, keyed by z/x/y) ----
  * Crossing a tile boundary used to DELETE and re-bake all 34 tiles: a multi-hundred-ms
@@ -497,18 +519,33 @@ static int w3_stream_grid(uint32_t cx,uint32_t cy,int z,int rad,int tex,int maxt
   }
   return n;
 }
-/* stream near (z14 detailed) + far (low-zoom, wide) tiers; rebuild only on centre-tile change */
+/* Stream the near (z14 detailed) + far (low-zoom, wide) tiers.
+ *
+ * Called every frame. Two reasons to do work:
+ *   1. the aircraft crossed into a new centre tile -> the wanted grid moved
+ *   2. the last pass was INCOMPLETE -> tiles were still in flight from fb-tiles
+ * (2) is what makes async sourcing work: a tile that hasn't arrived is simply absent from the
+ * draw list and picked up on a later frame, so the world fills in progressively and the frame
+ * loop never blocks. Cached tiles cost nothing to re-visit, so retrying is cheap. */
+static int w3_stream_done=0;
 static void world3d_stream(double lat,double lon){
   if(!w3_osm) return;
   uint32_t tx,ty; if(osmmesh_geo_to_tile(lon,lat,W3_Z,&tx,&ty)!=0) return;
-  if(w3_have_tile && tx==w3_tx && ty==w3_ty) return;
+  int moved = !w3_have_tile || tx!=w3_tx || ty!=w3_ty;
+  if(!moved && w3_stream_done) return;
   w3_tx=tx; w3_ty=ty; w3_have_tile=1;
   int b0=w3_cache_bakes, h0=w3_cache_hits;
   uint32_t fx,fy; osmmesh_geo_to_tile(lon,lat,W3_FARZ,&fx,&fy);
   w3_nTF = w3_stream_grid(fx,fy,W3_FARZ,W3_FARRAD,W3_FARTEX,W3_MAXTF,w3_TF);   /* distant coarse ring */
   w3_nT  = w3_stream_grid(tx,ty,W3_Z,   W3_RAD,   W3_TEX,   W3_MAXT, w3_T);    /* near detail */
-  printf("[world3d] tiles near %d + far %d | this crossing: %d baked, %d cached (yoff=%.0f)\n",
-         w3_nT,w3_nTF,w3_cache_bakes-b0,w3_cache_hits-h0,w3_yoff);
+  int want = (2*W3_RAD+1)*(2*W3_RAD+1) + (2*W3_FARRAD+1)*(2*W3_FARRAD+1);
+  int was_done = w3_stream_done;
+  w3_stream_done = (w3_nT + w3_nTF) >= want;
+  /* Only report on a real transition, or this would print every frame while tiles land. */
+  if(moved || (w3_stream_done && !was_done))
+    printf("[world3d] tiles near %d + far %d of %d | baked %d, cached %d%s\n",
+           w3_nT,w3_nTF,want,w3_cache_bakes-b0,w3_cache_hits-h0,
+           w3_stream_done?"":" (waiting on fb-tiles)");
 }
 #endif /* W3_USE_OSM */
 

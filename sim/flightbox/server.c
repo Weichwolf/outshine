@@ -116,8 +116,13 @@ static int http_handle(client_t*c){
      * Set ORIGIN_LAT / ORIGIN_LON at container start to fly anywhere. */
     if(strcmp(path,"/config.js")==0){
         const char*la=getenv("ORIGIN_LAT"), *lo=getenv("ORIGIN_LON");
-        char body[256]; int bn=snprintf(body,sizeof body,
-            "window.FB_ORIGIN_LAT=%s;window.FB_ORIGIN_LON=%s;\n", la&&*la?la:"52.045", lo&&*lo?lo:"9.385");
+        /* TILES_URL points the browser at fb-tiles. Empty => the renderer falls back to the
+         * legacy preloaded region archive. It must be reachable from the BROWSER, not from
+         * this container, so it is a published host URL, not the podman-internal name. */
+        const char*tu=getenv("TILES_URL");
+        char body[384]; int bn=snprintf(body,sizeof body,
+            "window.FB_ORIGIN_LAT=%s;window.FB_ORIGIN_LON=%s;window.FB_TILES_URL='%s';\n",
+            la&&*la?la:"52.045", lo&&*lo?lo:"9.385", tu&&*tu?tu:"");
         char hdr[192]; int hn=snprintf(hdr,sizeof hdr,
             "HTTP/1.1 200 OK\r\nContent-Type: application/javascript\r\nContent-Length: %d\r\nConnection: close\r\n\r\n",bn);
         send(c->fd,hdr,hn,MSG_NOSIGNAL); send(c->fd,body,bn,MSG_NOSIGNAL); c->rxn=0; return -1;

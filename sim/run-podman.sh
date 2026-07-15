@@ -28,9 +28,11 @@ podman rm -f "$IMG_A" "$IMG_F" "$IMG_T" >/dev/null 2>&1 || true
 # fb-tiles first: the aircraft asks it for home's ground elevation at start-up.
 # A named volume keeps the DEM/tile cache across restarts so upstream is hit once per tile, ever.
 podman volume exists fbtiles-cache 2>/dev/null || podman volume create fbtiles-cache >/dev/null
-podman run -d --name "$IMG_T" --network "$NET" -v fbtiles-cache:/var/cache/fbtiles "$IMG_T" >/dev/null
+# Published on 8081 because the BROWSER fetches tiles from it directly, not just the aircraft.
+podman run -d --name "$IMG_T" --network "$NET" -v fbtiles-cache:/var/cache/fbtiles -p 8081:8081 "$IMG_T" >/dev/null
 podman run -d --name "$IMG_F" --network "$NET" -e AIRCRAFT_ADDR="$IMG_A" \
-    -e ORIGIN_LAT="$OLAT" -e ORIGIN_LON="$OLON" -p 8080:8080 "$IMG_F"
+    -e ORIGIN_LAT="$OLAT" -e ORIGIN_LON="$OLON" -e TILES_URL="${TILES_URL:-http://localhost:8081}" \
+    -p 8080:8080 "$IMG_F"
 podman run -d --name "$IMG_A" --network "$NET" -e FLIGHTBOX_ADDR="$IMG_F" -e TILES_ADDR="$IMG_T:8081" \
     -e ORIGIN_LAT="$OLAT" -e ORIGIN_LON="$OLON" -e FDM_MODEL="${FDM_MODEL:-1}" "$IMG_A"
 
