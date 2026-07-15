@@ -466,6 +466,7 @@ static int world3d_tiles_open(const char*base,double lat,double lon){
   w3_tiles_init(base);
   osmmesh_config cfg={ .origin_lat=(w3_olat=lat), .origin_lon=(w3_olon=lon),
     .tile_provider=w3_tile_provider, .tile_provider_user=0,
+    .provider_terrain_max_zoom=15,   /* Tilezen terrarium; no archive header to read */
     .enable_terrain=1, .enable_buildings=0, .enable_linears=0 };
   if(osmmesh_create(&cfg,&w3_osm)!=OSMMESH_OK){ printf("[world3d] osmmesh_create (streaming) failed\n"); w3_osm=0; return 0; }
   w3_vec=0; w3_stream_tiles=1; w3_have_tile=0;

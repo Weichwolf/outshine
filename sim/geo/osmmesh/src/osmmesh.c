@@ -75,6 +75,7 @@ struct osmmesh_ctx {
     /* FlightBox local extension: host-supplied per-tile byte provider (see osmmesh.h). */
     osmmesh_tile_provider tile_provider;
     void                 *tile_provider_user;
+    int                   provider_terrain_max_zoom;
 
     int enable_terrain;
     int enable_buildings;
@@ -222,11 +223,14 @@ int osmmesh_create(const osmmesh_config *cfg, osmmesh_ctx **out)
 {
     if (!cfg || !out) return OSMMESH_ERR_ARG;
     *out = NULL;
-    /* Vector source: either a file path or an in-memory buffer; at least
-     * one must be present. Memory takes precedence when both are set. */
+    /* Vector source: a file path, an in-memory buffer, or (FlightBox extension) a host tile
+     * provider. At least one must be present; memory takes precedence over a path, and a
+     * provider replaces both — it supplies every tile's bytes on demand, so there is no
+     * archive to open at all. */
     const int have_vec_mem = (cfg->vector_data  != NULL && cfg->vector_len  > 0);
     const int have_vec_url = (cfg->vector_url   != NULL);
-    if (!have_vec_mem && !have_vec_url) return OSMMESH_ERR_CONFIG;
+    const int have_provider = (cfg->tile_provider != NULL);
+    if (!have_vec_mem && !have_vec_url && !have_provider) return OSMMESH_ERR_CONFIG;
 
     osmmesh_ctx *ctx = (osmmesh_ctx *)calloc(1, sizeof(*ctx));
     if (!ctx) return OSMMESH_ERR_OOM;
@@ -237,6 +241,9 @@ int osmmesh_create(const osmmesh_config *cfg, osmmesh_ctx **out)
         return OSMMESH_ERR_CONFIG;
     }
 
+    /* With a provider there is no archive: leave vec_pm/ter_pm NULL — om_tile_bytes never
+     * touches them. Without one, open as before. */
+    if (!have_provider) {
     /* Open vector archive. Missing data is an I/O error (configuration
      * problem the caller needs to see, unlike a missing-tile). */
     int vrc;
@@ -281,8 +288,11 @@ int osmmesh_create(const osmmesh_config *cfg, osmmesh_ctx **out)
         ctx->has_terrain_opts = 1;
     }
 
+    }   /* end !have_provider: archive opening */
+
     ctx->tile_provider      = cfg->tile_provider;
     ctx->tile_provider_user = cfg->tile_provider_user;
+    ctx->provider_terrain_max_zoom = cfg->provider_terrain_max_zoom;
 
     ctx->enable_terrain   = cfg->enable_terrain   ? 1 : 0;
     ctx->enable_buildings = cfg->enable_buildings ? 1 : 0;
@@ -423,18 +433,27 @@ static int fetch_terrain_grid_raw(osmmesh_ctx *ctx,
                                    osmmesh_terrain_grid *out_grid)
 {
     memset(out_grid, 0, sizeof *out_grid);
-    if (!ctx->ter_pm) return OSMMESH_OK;
+    /* A provider supplies terrain without any archive, so ter_pm being NULL is only
+     * "no terrain" when there is no provider either. */
+    if (!ctx->ter_pm && !ctx->tile_provider) return OSMMESH_OK;
 
-    /* If request z exceeds terrain archive max_zoom, step up to the parent
-     * tile and crop the decoded heightmap to the sub-tile region. */
+    /* If request z exceeds the terrain source's max zoom, step up to the parent tile and crop
+     * the decoded heightmap to the sub-tile region. An archive states its max zoom in its
+     * header; a tile server has no header, so the host declares it in the config. */
     uint8_t ter_z = z;
     uint32_t ter_x = x, ter_y = y;
     uint32_t sub_x = 0, sub_y = 0, sub_div = 1;
-    const osmmesh_pmtiles_header *th = osmmesh_pmtiles_header_get(ctx->ter_pm);
-    if (th && z > th->max_zoom) {
-        uint8_t dz = (uint8_t)(z - th->max_zoom);
+    int src_maxz = -1;
+    if (ctx->ter_pm) {
+        const osmmesh_pmtiles_header *th = osmmesh_pmtiles_header_get(ctx->ter_pm);
+        if (th) src_maxz = (int)th->max_zoom;
+    } else if (ctx->provider_terrain_max_zoom > 0) {
+        src_maxz = ctx->provider_terrain_max_zoom;
+    }
+    if (src_maxz >= 0 && z > src_maxz) {
+        uint8_t dz = (uint8_t)(z - src_maxz);
         if (dz > 16) return OSMMESH_OK; /* absurd gap; give up silently */
-        ter_z = th->max_zoom;
+        ter_z = (uint8_t)src_maxz;
         sub_div = 1u << dz;
         ter_x = x >> dz;
         ter_y = y >> dz;

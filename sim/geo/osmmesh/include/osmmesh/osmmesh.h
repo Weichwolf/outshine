@@ -94,6 +94,12 @@ typedef struct {
     osmmesh_tile_provider  tile_provider;
     void                  *tile_provider_user;
 
+    /* Highest terrain zoom the provider can serve. Only used on the provider path: with an
+     * archive this is read from the PMTiles header, but a tile server has no header to ask.
+     * Requests above it step up to the parent tile and crop, exactly as with an archive.
+     * 0 => assume the provider serves terrain at every zoom we ask for. */
+    int                    provider_terrain_max_zoom;
+
     /* Origin for ENU projection. Typically the BBox centre of the region
      * the caller is streaming; all meshes share this frame so the consumer
      * can stitch them without re-projecting. */

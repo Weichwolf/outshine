@@ -27,7 +27,7 @@ static EGLDisplay egl_headless_display(void){
 }
 
 int main(int argc, char** argv){
-    if(argc<4){ fprintf(stderr,"usage: %s out.rgb vec.pmtiles terr.pmtiles [lat lon] [W H] [roll pitch yaw alt e n]\n",argv[0]); return 1; }
+    if(argc<4){ fprintf(stderr,"usage: %s out.rgb <vec.pmtiles|http://tiles-url> terr.pmtiles [lat lon] [W H] [roll pitch yaw alt e n]\n",argv[0]); return 1; }
     const char* out = argv[1];
     const char* vec = argv[2];
     const char* terr= argv[3];
@@ -65,7 +65,12 @@ int main(int argc, char** argv){
     glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_RENDERBUFFER,depth);
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE){ fprintf(stderr,"FBO incomplete\n"); return 2; }
 
-    if(!world3d_osm_open(vec,terr,olat,olon)) return 3;
+    /* A URL as the "vec" argument means: stream every tile from the fb-tiles service instead of
+     * opening a preloaded archive. Natively the provider may block, so this proves the whole
+     * streaming path (provider -> osmmesh -> mesh -> pixels) headless, without a browser. */
+    int ok = (strncmp(vec,"http",4)==0) ? world3d_tiles_open(vec,olat,olon)
+                                        : world3d_osm_open(vec,terr,olat,olon);
+    if(!ok) return 3;
     world3d_init();
     /* aircraft geographic position from ENU pose offset (east=x, north=y) */
     double lat = olat + (double)t.y/111320.0;

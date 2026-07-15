@@ -63,11 +63,52 @@ EM_JS(int, w3_tiles_resident, (), {
     var n = 0; T.cache.forEach(function (v) { if (v) n++; }); return n;
 });
 
-#else  /* native build: no browser, no fetch — the archive path is used instead */
-static void w3_tiles_init(const char *base) { (void)base; }
-static int  w3_tiles_size(int kind, int z, int x, int y) { (void)kind;(void)z;(void)x;(void)y; return -1; }
-static void w3_tiles_copy(int kind, int z, int x, int y, uint8_t *dst) { (void)kind;(void)z;(void)x;(void)y;(void)dst; }
-static int  w3_tiles_resident(void) { return 0; }
+#else  /* ---- native build ----
+ * Same provider contract, but fetched synchronously with curl: natively we MAY block, and the
+ * headless renderer is the only way to prove the streaming path (provider -> osmmesh -> mesh ->
+ * pixels) without a browser. The browser's async cache is the only part this cannot exercise. */
+#include <stdio.h>
+#include <string.h>
+
+#define W3_NT_CACHE 512
+static struct { int kind, z, x, y; uint8_t *b; int n; } w3_nt[W3_NT_CACHE];
+static int  w3_nt_n = 0;
+static char w3_nt_base[160] = "";
+
+static void w3_tiles_init(const char *base) { snprintf(w3_nt_base, sizeof w3_nt_base, "%s", base ? base : ""); }
+
+static int w3_nt_find(int kind, int z, int x, int y) {
+    for (int i = 0; i < w3_nt_n; i++)
+        if (w3_nt[i].kind == kind && w3_nt[i].z == z && w3_nt[i].x == x && w3_nt[i].y == y) return i;
+    return -1;
+}
+static int w3_tiles_size(int kind, int z, int x, int y) {
+    int i = w3_nt_find(kind, z, x, y);
+    if (i >= 0) return w3_nt[i].n;
+    if (!w3_nt_base[0] || w3_nt_n >= W3_NT_CACHE) return -1;
+    static const char *names[] = { "vector", "terrain" };   /* must match osmmesh_tile_kind */
+    char cmd[512];
+    snprintf(cmd, sizeof cmd, "curl -s -f --max-time 20 '%s/t/%s/%d/%d/%d'",
+             w3_nt_base, names[kind & 1], z, x, y);
+    FILE *f = popen(cmd, "r");
+    if (!f) return -1;
+    size_t cap = 1 << 16, n = 0; uint8_t *b = (uint8_t *)malloc(cap);
+    for (;;) {
+        if (n == cap) { cap *= 2; uint8_t *t = (uint8_t *)realloc(b, cap); if (!t) break; b = t; }
+        size_t r = fread(b + n, 1, cap - n, f);
+        if (!r) break;
+        n += r;
+    }
+    pclose(f);
+    w3_nt[w3_nt_n].kind = kind; w3_nt[w3_nt_n].z = z; w3_nt[w3_nt_n].x = x; w3_nt[w3_nt_n].y = y;
+    w3_nt[w3_nt_n].b = b; w3_nt[w3_nt_n].n = (int)n;        /* n == 0 records a hole, so we ask once */
+    return w3_nt[w3_nt_n++].n;
+}
+static void w3_tiles_copy(int kind, int z, int x, int y, uint8_t *dst) {
+    int i = w3_nt_find(kind, z, x, y);
+    if (i >= 0 && w3_nt[i].n > 0) memcpy(dst, w3_nt[i].b, (size_t)w3_nt[i].n);
+}
+static int w3_tiles_resident(void) { return w3_nt_n; }
 #endif
 
 /* The osmmesh provider. Contract: hand over a malloc'd buffer (osmmesh frees it), or return 0
