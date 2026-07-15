@@ -252,6 +252,17 @@ each other** — this has actually happened. Coordinate before editing outside y
   building shadows — those are high-frequency and survive.
 - **Night lights** — bake the OSM street layer into the texture's alpha as emissive; physically
   honest (lamps *are* emissive) and makes the synthetic view useful at night.
+- **`w3_avail{READY,PENDING,ABSENT}` belongs in the SAME step as negative caching + `204` — not
+  before it.** The plan was to fix `w3_bake`'s `if(n<=0)` (PENDING and ABSENT collapsed into one
+  int) with an enum, guarded by `-Wswitch`. Checked before building it: **the wire can no longer
+  produce a 0 at all.** `T.get` returns an empty array only on `204`, the server never sends one,
+  and a `200` always has bytes (`fb_bake_ondisk` requires `st_size > 0`). So `if(n<=0)` is toothless
+  today, `photo_none` is dead code, and `ABSENT` would have **no producer**. An enum whose third
+  case nothing can create is a type claiming more than the wire carries — the same lie as the
+  overloaded 404, mirrored. **If you have to write "the server never sends this" next to a case, the
+  type is too early.** Give the three states a producer first (`cache.c:63` fetches with `curl -s
+  -f`; the upstream 404 is distinguishable there, it is simply never recorded), then the enum
+  guards something real and the proof is an ocean tile that stops asking.
 - **Modularisation** — `xp_bridge.c` (771) and `world3d.h` are still god files. Out so far, each
   100 %-covered: `fdm/{ephemeris,atmosphere}`, `terrain`, `gfx/{mat4,style}`, `tiles/{lru,prefetch}`.
 - **`coordination(sign)` is weather-sensitive, and that is a decision for a human.** With the
