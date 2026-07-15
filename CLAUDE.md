@@ -262,6 +262,18 @@ each other** — this has actually happened. Coordinate before editing outside y
   *without* the slots + injected disagreement → p50 explodes (it was 256/frame at 1 FPS); *with*
   them + same injection → p50 stays 0; injection removed → still 0. Only the middle line proves
   anything. Same shape as a mutation test: break it on purpose to see the check bite.
+- **`day` exists twice, in two languages, with two formulas — and nobody decided that.**
+  `atmo.h` computes it linearly in degrees (`clamp((sun_el+6)/12)`); the sky shader computes its
+  own from the sun vector (`smoothstep(-0.12, 0.10, sEl)`, i.e. on sin(el)). Measured: at sun_el
+  +3 deg the CPU says 0.750 and the shader says 0.880 — **13 points apart**, and 7 apart at the
+  horizon. So the sky and the ground already disagree about when it is day, all through twilight.
+  Both curves are hand-tuned, both plausible, both named `day`. It may be deliberate (they drive a
+  sky gradient and a terrain brightness, which need not match) — but the decision is written down
+  nowhere, and whoever next touches one will expect the other to follow. This is the version of
+  "one state too few" you only see once you try to give the state a name: pulling `w3_atmo` out
+  forced the question, which is the whole argument for naming shared state.
+  Unifying them is a VISUAL judgement, not a refactor — it would change every dusk in the
+  simulator. Needs a human with the renderer open, not a tidy-up.
 - **Terrain LOD: the quadtree runs, the budget does not fit.** Measured warm, both grounds:
   `128 chunks drawn (budget 128), 0 pending`, `levels z8..z14 = 32/8/12/9/21/22/24`, streamed in
   10–20 s. But `31 wanted split, 10–13 over budget` — the tree wants finer ground than 128 chunks

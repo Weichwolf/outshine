@@ -62,7 +62,26 @@ static w3_atmo w3_atmo_from(const telem_packet_t *t, int have)
     a.moon[2] = -me * cosf(moon_az * RAD);
 
     /* Civil twilight is the ramp: -6 deg is where the sky stops being a sky and starts being a
-     * star field. Below it nothing gets darker -- 0.20 is the floor, not an absence of light. */
+     * star field. Below it nothing gets darker -- 0.20 is the floor, not an absence of light.
+     *
+     * WARNING, and it is the reason this struct earns its keep: `day` EXISTS TWICE. This one is
+     * linear in degrees; the sky shader computes its own from the sun's Y component:
+     *
+     *     world3d.h:111    float day = smoothstep(-0.12, 0.10, sEl);      // GLSL, on sin(el)
+     *
+     * They are not the same function. Measured:
+     *     sun_el  -6 deg : CPU 0.000   shader 0.014
+     *     sun_el   0 deg : CPU 0.500   shader 0.568
+     *     sun_el  +3 deg : CPU 0.750   shader 0.880    <- 13 points apart
+     *
+     * So the sky and the ground already disagree about when it is day, by up to 13 points through
+     * twilight. Both curves are hand-tuned, both are plausible, both are called "day". Whether
+     * that is a bug is a real question -- they drive different things (sky gradient vs terrain
+     * brightness) and it may well be deliberate -- but the DECISION is written down nowhere, and
+     * the next person to touch either one will expect the other to follow.
+     * Deliberately NOT unified here: that is a visual judgement, and quietly making the sky match
+     * the ground at 02:00 would change every dusk in the simulator on the strength of a tidy-up.
+     * Named, measured, and left for a human. */
     a.day = fmaxf(0.f, fminf(1.f, (sun_el + 6.f) / 12.f));
 
     a.haze[0] = 0.05f + 0.67f * a.day;
