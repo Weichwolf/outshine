@@ -277,22 +277,34 @@ static int w3_vec_bytes(uint32_t z,uint32_t x,uint32_t y,uint8_t**d,size_t*n){
 enum { W3_GROUND_OSM = 0, W3_GROUND_PHOTO = 1 };
 static int w3_ground_mode = W3_GROUND_OSM;
 
-/* Fill a tile texture from aerial photos. Returns 0 if any child is still in flight, so the
- * caller can retry rather than cache a half-empty tile forever.
+/* Are all the photo children for this tile resident?  Touching every child is the POINT, not a
+ * side effect: w3_tiles_size starts the fetch on a miss, so probing all of them kicks off all
+ * their downloads in the same frame.
  *
- * The zoom arithmetic is exact, not a resample: a 256 px imagery tile is one child, so a TS-px
- * texture wants (TS/256)^2 children at zoom z + log2(TS/256). For the near tier that is z14 ->
- * 4x4 z16 tiles = exactly 1024 px = W3_TEX; for the far tier, z11 at 256 px = one tile. No
- * scaling, a straight blit. */
+ * The first version returned at the first missing child. That started exactly ONE fetch per tile
+ * per frame -- 16 serial round trips per tile, times 25 tiles. Switching the ground took about a
+ * minute, longer than reloading the whole app, and it looked like a cache problem. It was a loop
+ * problem: the tiles were on the server's disk in under a millisecond, we just asked for them one
+ * at a time. */
+static int w3_imagery_ready(int TS,uint32_t z,uint32_t x,uint32_t y){
+  int f=TS/256; if(f<1) f=1;
+  uint32_t zi=z; for(int t=f;t>1;t>>=1) zi++;
+  int pending=0;
+  for(int j=0;j<f;j++) for(int i=0;i<f;i++)
+    if(w3_tiles_size(W3_TILE_IMAGERY,(int)zi,(int)(x*(uint32_t)f+(uint32_t)i),
+                                     (int)(y*(uint32_t)f+(uint32_t)j)) < 0) pending=1;   /* starts it */
+  return !pending;
+}
+
+/* Blit the photo children into the tile texture. Caller must have checked w3_imagery_ready. */
 static int w3_fill_imagery(uint8_t*im,int TS,uint32_t z,uint32_t x,uint32_t y){
   int f=TS/256; if(f<1) f=1;
   uint32_t zi=z; for(int t=f;t>1;t>>=1) zi++;
   for(int j=0;j<f;j++) for(int i=0;i<f;i++){
     uint32_t cx=x*(uint32_t)f+(uint32_t)i, cy=y*(uint32_t)f+(uint32_t)j;
     int n=w3_tiles_size(W3_TILE_IMAGERY,(int)zi,(int)cx,(int)cy);
-    if(n<0) return 0;                       /* still fetching -> tell the caller to retry */
-    if(n==0) continue;                      /* a genuine hole: leave the base colour */
-    uint8_t*b=(uint8_t*)malloc((size_t)n); if(!b) return 0;
+    if(n<=0) continue;                      /* hole (or, impossibly, still pending): base colour */
+    uint8_t*b=(uint8_t*)malloc((size_t)n); if(!b) continue;
     w3_tiles_copy(W3_TILE_IMAGERY,(int)zi,(int)cx,(int)cy,b);
     int w=0,h=0,comp=0; uint8_t*px=stbi_load_from_memory(b,n,&w,&h,&comp,3);
     free(b);
@@ -306,13 +318,10 @@ static int w3_fill_imagery(uint8_t*im,int TS,uint32_t z,uint32_t x,uint32_t y){
   return 1;
 }
 
-/* Returns 0 when the tile is not bakeable yet (imagery still streaming). */
 static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS){
   uint8_t*im=malloc((size_t)TS*TS*3);
   for(int i=0;i<TS*TS;i++){ im[i*3]=150;im[i*3+1]=178;im[i*3+2]=118; }   /* base ground */
-  if(w3_ground_mode==W3_GROUND_PHOTO && !w3_fill_imagery(im,TS,z,x,y)){
-    free(im); return 0;                    /* children still in flight; retry next frame */
-  }
+  if(w3_ground_mode==W3_GROUND_PHOTO) w3_fill_imagery(im,TS,z,x,y);
   uint8_t*d=0; size_t n=0;
   if(w3_ground_mode==W3_GROUND_OSM && w3_vec_bytes(z,x,y,&d,&n)){
     osmmesh_mvt_tile*t=0;
@@ -520,6 +529,11 @@ static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
   for(int i=0;i<W3_CACHE;i++)
     if(w3_cache[i].valid && w3_cache[i].z==z && w3_cache[i].x==x && w3_cache[i].y==y){
       w3_cache[i].touch=++w3_touch; w3_cache_hits++; return i; }
+  /* Probe the photo FIRST. osmmesh_fetch_tile decodes a terrain PNG and a vector tile; doing
+   * that every frame only to throw it away because the imagery has not landed yet burns the CPU
+   * exactly while the network is busy. This also starts every child's download. */
+  if(w3_ground_mode==W3_GROUND_PHOTO && !w3_imagery_ready(tex,z,x,y)) return -1;
+
   osmmesh_tile t={0};
   if(osmmesh_fetch_tile(w3_osm,z,x,y,&t)!=OSMMESH_OK || !t.terrain){ osmmesh_free_tile(&t); return -1; }
   if(!w3_yoff_set && is_centre && z==W3_Z){
@@ -527,12 +541,6 @@ static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
       float dd=P[0]*P[0]+P[1]*P[1]; if(dd<best){best=dd; w3_yoff=P[2];} }
     w3_yoff_set=1;
   }
-  /* Bake BEFORE evicting: in photo mode the bake can legitimately fail (children still in
-   * flight), and throwing away a good resident tile for one that isn't ready would make the
-   * cache churn exactly when the network is slowest. */
-  GLuint newtex=w3_bake(z,x,y,tex);
-  if(!newtex){ osmmesh_free_tile(&t); return -1; }        /* retry next frame */
-
   int slot=-1; unsigned oldest=~0u;
   for(int i=0;i<W3_CACHE;i++){
     if(!w3_cache[i].valid){ slot=i; break; }
@@ -540,7 +548,7 @@ static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
   }
   if(w3_cache[slot].valid){ glDeleteBuffers(1,&w3_cache[slot].vbo); glDeleteTextures(1,&w3_cache[slot].tex); }
   w3_cent*c=&w3_cache[slot];
-  c->vbo=w3_terr_vbo(t.terrain,&c->nverts); c->tex=newtex;
+  c->vbo=w3_terr_vbo(t.terrain,&c->nverts); c->tex=w3_bake(z,x,y,tex);
   c->z=z; c->x=x; c->y=y; c->valid=1; c->touch=++w3_touch; w3_cache_bakes++;
   osmmesh_free_tile(&t);
   return slot;
@@ -656,6 +664,15 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
     w3_printf(W-176,54,3,r,g,b,  "LNK %4d",q); }
   { int rth=(t->state==5||t->state==3);
     w3_printf(W-176,74,3,rth?1:0.4f,rth?0.85f:1,rth?0.2f:0.4f,"%s",W3_STN[t->state%6]); }
+  /* Vision source, in the avionics idiom:
+   *   EVS = Enhanced Vision System  -- a real sensor image (today the aerial photo; the real
+   *                                    camera feed is the point of the switch)
+   *   SVS = Synthetic Vision System -- terrain drawn from a database (our OSM render)
+   * Which one you are on matters because the synthetic view is what you fall back to when the
+   * sensor cannot deliver: signal lost, sensor dead, too dark, blinded. Not colour-coded as a
+   * warning: right now it is a deliberate choice (TAB), not a failure. */
+  { int evs=(w3_ground_mode==W3_GROUND_PHOTO);
+    w3_printf(W-176,94,3, evs?0.4f:0.5f, evs?1.0f:0.85f, evs?0.4f:1.0f, "VIS %s", evs?"EVS":"SVS"); }
   /* attitude + environment (bottom) */
   w3_printf(14,H-44,2,0.8f,0.8f,0.9f,"ROLL %4.0f   PITCH %4.0f",t->roll,t->pitch);
   w3_printf(14,H-24,2,0.7f,0.85f,0.7f,"CLD %3.0f  VIS %4.1fKM  SUN %3.0f  MOON %3.0f",

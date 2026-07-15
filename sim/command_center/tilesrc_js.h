@@ -38,11 +38,13 @@ EM_JS(int, w3_tiles_size, (int kind, int z, int x, int y), {
     var key = kind + '/' + z + '/' + x + '/' + y;
     var e = T.cache.get(key);
     if (e === undefined) {
-        /* Cap concurrency, but not so tightly that the centre tile starves: building ONE tile
-         * needs its vector + terrain AND osmmesh pulls the 4 edge neighbours for seam stitching,
-         * so a single visible tile can be ~6 requests. With the cap at 12 the tile under the
-         * aircraft could sit behind the queue. The browser pipelines over one connection anyway. */
-        if (T.inflight > 48) return -1;
+        /* Cap concurrency, but not so tightly that the centre tile starves. Building ONE tile in
+         * OSM mode is ~6 requests (vector + terrain + the 4 edge neighbours osmmesh pulls for seam
+         * stitching); in photo mode it is ~22, because the albedo is 16 z16 children on top. A cap
+         * of 48 was under three tiles' worth and made the ground switch crawl. The browser only
+         * opens ~6 sockets per host anyway, so a high cap here just lets them queue in OUR order --
+         * which is nearest-first (see w3_stream_grid). */
+        if (T.inflight > 256) return -1;
         T.cache.set(key, null);                        /* null = pending */
         T.inflight++;
         fetch(T.base + '/t/' + names[kind] + '/' + z + '/' + x + '/' + y)
