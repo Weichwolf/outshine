@@ -305,7 +305,16 @@ each other** — this has actually happened. Coordinate before editing outside y
   is one definition: `tilemath.h` describes what a tile IS, which is a shared contract exactly like
   `protocol.h` describes what a packet is — so it probably belongs in `common/`, included by both.
   That move touches `tiles/*.c`, `command_center/*`, `test/unit/run.sh` and `build-wasm.sh`, i.e.
-  three owners; it is a decision, not a tidy-up.
+  three owners; it is a decision, not a tidy-up. (`tiles/Containerfile` copies only `tiles/` and
+  `geo/` — a header moved to `common/` without touching it is the exact shape of the break that
+  went unnoticed this morning, except `verify.sh` now builds all three images and would catch it.)
+  **And "just use the server's clamped version" is the WRONG fix, which is worth knowing before
+  someone tries it.** Web Mercator cannot represent anything beyond ±85.0511 — there are no tiles
+  up there, so the clamp does not round to the right answer, it rounds to the nearest WRONG one: an
+  aircraft at 89 N would be shown the ground from 85 N and told nothing. Both sides lie today, just
+  differently — the renderer by drawing nothing, the server by handing over a tile from somewhere
+  else. The honest behaviour for a polar origin is to REFUSE it at startup and say why, once,
+  where a human reads it. Which is a design decision, not a clamp.
 - **`sky.h`/`hud.h` is NOT the mechanical step it looks like — there is a `w3_atmo` hiding in it.**
   `world3d_render_scene` computes `sun[3] moon[3] day cloud haze[3] light` from telemetry in what
   reads as a sky prologue (760-768) — and then the TERRAIN pass consumes them (`w3_wtHaze`,
