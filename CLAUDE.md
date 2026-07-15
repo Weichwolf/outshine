@@ -289,6 +289,21 @@ each other** — this has actually happened. Coordinate before editing outside y
   type is too early.** Give the three states a producer first (`cache.c:63` fetches with `curl -s
   -f`; the upstream 404 is distinguishable there, it is simply never recorded), then the enum
   guards something real and the proof is an ocean tile that stops asking.
+- **`sky.h`/`hud.h` is NOT the mechanical step it looks like — there is a `w3_atmo` hiding in it.**
+  `world3d_render_scene` computes `sun[3] moon[3] day cloud haze[3] light` from telemetry in what
+  reads as a sky prologue (760-768) — and then the TERRAIN pass consumes them (`w3_wtHaze`,
+  `w3_wtLight`, `w3_wtSun` at 812) and so does the building/wire pass (829). They are not sky's
+  state; they are per-frame shared state that works only because they are **locals that happen to
+  be in scope** — the same class as the `texpx` thrash, one level subtler, because this state does
+  not even have a name. Cutting sky out along "sky owns its programs" forces either a duplicated
+  `0.20 + 0.80*day` (convention instead of type) or a signature the plan does not have. What the
+  cut actually wants first:
+      typedef struct { float sun[3], moon[3], haze[3]; float day, light, cloud; } w3_atmo;
+      static w3_atmo w3_atmo_from(const telem_packet_t *t, int have);   /* PURE. No GL. */
+  `sky_draw` and `terr_draw` then take the same `const w3_atmo*`, the state has an owner, and
+  `w3_atmo_from` is pure arithmetic — **natively testable like `chunkmesh`**, and every pixel of
+  the image hangs off it (`day = clamp((sun_el+6)/12)`, `light = 0.20+0.80*day`, the haze/cloud
+  mix). Nobody can check those numbers today.
 - **Modularisation** — `xp_bridge.c` (771) and `world3d.h` are still god files. Out so far, each
   100 %-covered: `fdm/{ephemeris,atmosphere}`, `terrain`, `gfx/{mat4,style}`, `tiles/{lru,prefetch}`.
 - **`coordination(sign)` is weather-sensitive, and that is a decision for a human.** With the
