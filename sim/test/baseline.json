@@ -1,0 +1,1116 @@
+{
+ "runs": 8,
+ "grounds": {
+  "osm": {
+   "per_run": [
+    {
+     "frame_cb": {
+      "n": 395,
+      "mean": 1.3837974683416985,
+      "p50": 0.599999999627471,
+      "p95": 1.7000000001862645,
+      "p99": 17.200000000186265,
+      "max": 131.8999999994412
+     },
+     "interval_diag": {
+      "n": 394,
+      "mean": 151.66446700507566,
+      "p50": 148.3999999994412,
+      "p95": 301.29999999981374,
+      "p99": 358.3999999994412,
+      "max": 440.59999999962747
+     },
+     "fps": 6.583333333333333,
+     "cdp": {
+      "TaskDuration": 1.622,
+      "ScriptDuration": 0.7,
+      "LayoutDuration": 0,
+      "RecalcStyleDuration": 0
+     },
+     "counters": {
+      "drawn": 128,
+      "budget": 128,
+      "wanted_split": 33,
+      "waiting": 0,
+      "pending": 0,
+      "over_budget": 16,
+      "levels": "26/9/6/17/20/26/24",
+      "baked": 3,
+      "cached": 309,
+      "evicted": 0
+     },
+     "streamed_s": 9.1,
+     "ground_pct": 18.0,
+     "measure_wall_s": 60,
+     "script_ms_per_frame": 1.7721518987341771,
+     "script_share": 0.011666666666666665,
+     "task_share": 0.027033333333333336,
+     "cb_sum_s": 0.5465999999949709,
+     "gl": {
+      "texImage2D": {
+       "p50": 0,
+       "p95": 0,
+       "max": 8,
+       "total": 16
+      },
+      "texSubImage2D": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "compressedTexImage2D": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "generateMipmap": {
+       "p50": 0,
+       "p95": 0,
+       "max": 8,
+       "total": 16
+      },
+      "createTexture": {
+       "p50": 0,
+       "p95": 0,
+       "max": 8,
+       "total": 16
+      },
+      "deleteTexture": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "bufferData": {
+       "p50": 2,
+       "p95": 2,
+       "max": 7,
+       "total": 798
+      },
+      "bufferSubData": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "createBuffer": {
+       "p50": 0,
+       "p95": 0,
+       "max": 5,
+       "total": 8
+      },
+      "deleteBuffer": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "drawElements": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "drawArrays": {
+       "p50": 132,
+       "p95": 132,
+       "max": 132,
+       "total": 52140
+      },
+      "compileShader": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "linkProgram": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      }
+     },
+     "cb_over_script": 0.7808571428499584
+    },
+    {
+     "frame_cb": {
+      "n": 392,
+      "mean": 0.7395408163322326,
+      "p50": 0.599999999627471,
+      "p95": 1.599999999627471,
+      "p99": 4.7999999998137355,
+      "max": 5.2999999998137355
+     },
+     "interval_diag": {
+      "n": 391,
+      "mean": 153.11176470588282,
+      "p50": 149.3999999994412,
+      "p95": 302.40000000037253,
+      "p99": 343.20000000018626,
+      "max": 644.7999999998137
+     },
+     "fps": 6.533333333333333,
+     "cdp": {
+      "TaskDuration": 1.344,
+      "ScriptDuration": 0.45,
+      "LayoutDuration": 0,
+      "RecalcStyleDuration": 0
+     },
+     "counters": {
+      "drawn": 128,
+      "budget": 128,
+      "wanted_split": 28,
+      "waiting": 0,
+      "pending": 0,
+      "over_budget": 1,
+      "levels": "41/9/7/13/22/20/16",
+      "baked": 0,
+      "cached": 269,
+      "evicted": 20
+     },
+     "streamed_s": 9.5,
+     "ground_pct": 14.0,
+     "measure_wall_s": 60,
+     "script_ms_per_frame": 1.1479591836734695,
+     "script_share": 0.007500000000000001,
+     "task_share": 0.0224,
+     "cb_sum_s": 0.28990000000223515,
+     "gl": {
+      "texImage2D": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "texSubImage2D": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "compressedTexImage2D": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "generateMipmap": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "createTexture": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "deleteTexture": {
+       "p50": 0,
+       "p95": 0,
+       "max": 40,
+       "total": 40
+      },
+      "bufferData": {
+       "p50": 2,
+       "p95": 2,
+       "max": 2,
+       "total": 784
+      },
+      "bufferSubData": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "createBuffer": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "deleteBuffer": {
+       "p50": 0,
+       "p95": 0,
+       "max": 20,
+       "total": 20
+      },
+      "drawElements": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "drawArrays": {
+       "p50": 132,
+       "p95": 132,
+       "max": 132,
+       "total": 51744
+      },
+      "compileShader": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "linkProgram": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      }
+     },
+     "cb_over_script": 0.6442222222271892
+    },
+    {
+     "frame_cb": {
+      "n": 376,
+      "mean": 0.7210106383018354,
+      "p50": 0.5,
+      "p95": 1.7000000001862645,
+      "p99": 4.6000000005587935,
+      "max": 10.300000000745058
+     },
+     "interval_diag": {
+      "n": 375,
+      "mean": 159.2007999999995,
+      "p50": 155.5,
+      "p95": 306.40000000037253,
+      "p99": 370.59999999962747,
+      "max": 446.80000000074506
+     },
+     "fps": 6.266666666666667,
+     "cdp": {
+      "TaskDuration": 1.301,
+      "ScriptDuration": 0.42,
+      "LayoutDuration": 0,
+      "RecalcStyleDuration": 0
+     },
+     "counters": {
+      "drawn": 126,
+      "budget": 128,
+      "wanted_split": 27,
+      "waiting": 0,
+      "pending": 0,
+      "over_budget": 0,
+      "levels": "42/9/8/9/22/20/16",
+      "baked": 0,
+      "cached": 261,
+      "evicted": 4
+     },
+     "streamed_s": 8.6,
+     "ground_pct": 9.0,
+     "measure_wall_s": 60,
+     "script_ms_per_frame": 1.1170212765957446,
+     "script_share": 0.007,
+     "task_share": 0.021683333333333332,
+     "cb_sum_s": 0.2711000000014901,
+     "gl": {
+      "texImage2D": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "texSubImage2D": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "compressedTexImage2D": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "generateMipmap": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "createTexture": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "deleteTexture": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "bufferData": {
+       "p50": 2,
+       "p95": 2,
+       "max": 2,
+       "total": 752
+      },
+      "bufferSubData": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "createBuffer": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "deleteBuffer": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "drawElements": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "drawArrays": {
+       "p50": 130,
+       "p95": 130,
+       "max": 130,
+       "total": 48880
+      },
+      "compileShader": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "linkProgram": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      }
+     },
+     "cb_over_script": 0.6454761904797384
+    },
+    {
+     "frame_cb": {
+      "n": 397,
+      "mean": 0.6395465994783928,
+      "p50": 0.5,
+      "p95": 1.400000000372529,
+      "p99": 2.5,
+      "max": 5
+     },
+     "interval_diag": {
+      "n": 396,
+      "mean": 151.30530303030397,
+      "p50": 148.5,
+      "p95": 295.6000000005588,
+      "p99": 317.29999999981374,
+      "max": 446.90000000037253
+     },
+     "fps": 6.616666666666666,
+     "cdp": {
+      "TaskDuration": 1.331,
+      "ScriptDuration": 0.412,
+      "LayoutDuration": 0,
+      "RecalcStyleDuration": 0
+     },
+     "counters": {
+      "drawn": 128,
+      "budget": 128,
+      "wanted_split": 29,
+      "waiting": 0,
+      "pending": 0,
+      "over_budget": 4,
+      "levels": "38/8/12/9/22/19/20",
+      "baked": 4,
+      "cached": 277,
+      "evicted": 0
+     },
+     "streamed_s": 8.5,
+     "ground_pct": 9.0,
+     "measure_wall_s": 60,
+     "script_ms_per_frame": 1.0377833753148615,
+     "script_share": 0.006866666666666666,
+     "task_share": 0.022183333333333333,
+     "cb_sum_s": 0.25389999999292195,
+     "gl": {
+      "texImage2D": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "texSubImage2D": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "compressedTexImage2D": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "generateMipmap": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "createTexture": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "deleteTexture": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "bufferData": {
+       "p50": 2,
+       "p95": 2,
+       "max": 2,
+       "total": 794
+      },
+      "bufferSubData": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "createBuffer": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "deleteBuffer": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "drawElements": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "drawArrays": {
+       "p50": 132,
+       "p95": 132,
+       "max": 132,
+       "total": 52404
+      },
+      "compileShader": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "linkProgram": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      }
+     },
+     "cb_over_script": 0.6162621359051504
+    }
+   ],
+   "noise": {
+    "frame_cb.p50": 0.18181818120243134,
+    "frame_cb.p95": 0.18749999987267074,
+    "frame_cb.p99": 2.0206185566878334,
+    "frame_cb.max": 3.3285245901492777,
+    "script_ms_per_frame": 0.5788222401040266,
+    "script_share": 0.5812310797174571,
+    "task_share": 0.22936763129689194
+   },
+   "threshold_2sem": {
+    "frame_cb.p50": 0.1049727758607919,
+    "frame_cb.p95": 0.08838834758829485,
+    "frame_cb.p99": 0.9206800614027316,
+    "frame_cb.max": 1.6410205200385983,
+    "script_ms_per_frame": 0.26704463900231,
+    "script_share": 0.277116210574817,
+    "task_share": 0.10676828908164829
+   }
+  },
+  "photo": {
+   "per_run": [
+    {
+     "frame_cb": {
+      "n": 340,
+      "mean": 171.62558823533575,
+      "p50": 169.59999999962747,
+      "p95": 194.1000000005588,
+      "p99": 216.40000000037253,
+      "max": 238.29999999981374
+     },
+     "interval_diag": {
+      "n": 339,
+      "mean": 177.77817109144488,
+      "p50": 176.5,
+      "p95": 200.70000000018626,
+      "p99": 225.29999999981374,
+      "max": 250.19999999925494
+     },
+     "fps": 5.657237936772047,
+     "cdp": {
+      "TaskDuration": 59.27,
+      "ScriptDuration": 58.076,
+      "LayoutDuration": 0,
+      "RecalcStyleDuration": 0
+     },
+     "counters": {
+      "drawn": 128,
+      "budget": 128,
+      "wanted_split": 32,
+      "waiting": 0,
+      "pending": 0,
+      "over_budget": 13,
+      "levels": "29/8/11/12/25/23/20",
+      "baked": 0,
+      "cached": 301,
+      "evicted": 4
+     },
+     "streamed_s": 12,
+     "ground_pct": 14.0,
+     "measure_wall_s": 60.1,
+     "script_ms_per_frame": 170.81176470588235,
+     "script_share": 0.9663227953410981,
+     "task_share": 0.986189683860233,
+     "cb_sum_s": 58.35270000001415,
+     "gl": {
+      "texImage2D": {
+       "p50": 1,
+       "p95": 1,
+       "max": 1,
+       "total": 340
+      },
+      "texSubImage2D": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "compressedTexImage2D": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "generateMipmap": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "createTexture": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "deleteTexture": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "bufferData": {
+       "p50": 2,
+       "p95": 2,
+       "max": 2,
+       "total": 680
+      },
+      "bufferSubData": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "createBuffer": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "deleteBuffer": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "drawElements": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "drawArrays": {
+       "p50": 132,
+       "p95": 132,
+       "max": 132,
+       "total": 44880
+      },
+      "compileShader": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "linkProgram": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      }
+     },
+     "cb_over_script": 1.004764446587474
+    },
+    {
+     "frame_cb": {
+      "n": 349,
+      "mean": 166.67163323780207,
+      "p50": 163.3999999994412,
+      "p95": 190.29999999981374,
+      "p99": 256,
+      "max": 284.5
+     },
+     "interval_diag": {
+      "n": 348,
+      "mean": 172.7160919540235,
+      "p50": 169.79999999981374,
+      "p95": 195.59999999962747,
+      "p99": 263.5,
+      "max": 285.79999999981374
+     },
+     "fps": 5.808921438082557,
+     "cdp": {
+      "TaskDuration": 59.273,
+      "ScriptDuration": 58.117,
+      "LayoutDuration": 0,
+      "RecalcStyleDuration": 0
+     },
+     "counters": {
+      "drawn": 128,
+      "budget": 128,
+      "wanted_split": 33,
+      "waiting": 0,
+      "pending": 0,
+      "over_budget": 16,
+      "levels": "26/9/6/17/20/26/24",
+      "baked": 3,
+      "cached": 309,
+      "evicted": 4
+     },
+     "streamed_s": 11.5,
+     "ground_pct": 18.0,
+     "measure_wall_s": 60.08,
+     "script_ms_per_frame": 166.5243553008596,
+     "script_share": 0.96732689747004,
+     "task_share": 0.9865679094540614,
+     "cb_sum_s": 58.16839999999292,
+     "gl": {
+      "texImage2D": {
+       "p50": 1,
+       "p95": 1,
+       "max": 21,
+       "total": 385
+      },
+      "texSubImage2D": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "compressedTexImage2D": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "generateMipmap": {
+       "p50": 0,
+       "p95": 0,
+       "max": 20,
+       "total": 36
+      },
+      "createTexture": {
+       "p50": 0,
+       "p95": 0,
+       "max": 20,
+       "total": 36
+      },
+      "deleteTexture": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "bufferData": {
+       "p50": 2,
+       "p95": 2,
+       "max": 7,
+       "total": 706
+      },
+      "bufferSubData": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "createBuffer": {
+       "p50": 0,
+       "p95": 0,
+       "max": 5,
+       "total": 8
+      },
+      "deleteBuffer": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "drawElements": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "drawArrays": {
+       "p50": 132,
+       "p95": 132,
+       "max": 132,
+       "total": 46068
+      },
+      "compileShader": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "linkProgram": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      }
+     },
+     "cb_over_script": 1.0008844228021565
+    },
+    {
+     "frame_cb": {
+      "n": 344,
+      "mean": 169.9232558139551,
+      "p50": 167,
+      "p95": 195.40000000037253,
+      "p99": 227.79999999981374,
+      "max": 294.69999999925494
+     },
+     "interval_diag": {
+      "n": 343,
+      "mean": 175.49912536443202,
+      "p50": 172.20000000018626,
+      "p95": 203.3999999994412,
+      "p99": 234.79999999981374,
+      "max": 300.19999999925494
+     },
+     "fps": 5.728559533721898,
+     "cdp": {
+      "TaskDuration": 59.225,
+      "ScriptDuration": 58.149,
+      "LayoutDuration": 0,
+      "RecalcStyleDuration": 0
+     },
+     "counters": {
+      "drawn": 128,
+      "budget": 128,
+      "wanted_split": 32,
+      "waiting": 0,
+      "pending": 0,
+      "over_budget": 13,
+      "levels": "29/9/7/12/24/27/20",
+      "baked": 20,
+      "cached": 301,
+      "evicted": 8
+     },
+     "streamed_s": 12,
+     "ground_pct": 13.0,
+     "measure_wall_s": 60.05,
+     "script_ms_per_frame": 169.0377906976744,
+     "script_share": 0.9683430474604496,
+     "task_share": 0.9862614487926729,
+     "cb_sum_s": 58.453600000000556,
+     "gl": {
+      "texImage2D": {
+       "p50": 1,
+       "p95": 1,
+       "max": 1,
+       "total": 344
+      },
+      "texSubImage2D": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "compressedTexImage2D": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "generateMipmap": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "createTexture": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "deleteTexture": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "bufferData": {
+       "p50": 2,
+       "p95": 2,
+       "max": 2,
+       "total": 688
+      },
+      "bufferSubData": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "createBuffer": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "deleteBuffer": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "drawElements": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "drawArrays": {
+       "p50": 132,
+       "p95": 132,
+       "max": 132,
+       "total": 45408
+      },
+      "compileShader": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "linkProgram": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      }
+     },
+     "cb_over_script": 1.0052382672101077
+    },
+    {
+     "frame_cb": {
+      "n": 332,
+      "mean": 176.11867469875423,
+      "p50": 173.20000000018626,
+      "p95": 205.40000000037253,
+      "p99": 233,
+      "max": 267.5
+     },
+     "interval_diag": {
+      "n": 331,
+      "mean": 182.32839879154136,
+      "p50": 179.8999999994412,
+      "p95": 208.6000000005588,
+      "p99": 237.70000000018626,
+      "max": 269.69999999925494
+     },
+     "fps": 5.518617021276596,
+     "cdp": {
+      "TaskDuration": 59.346,
+      "ScriptDuration": 58.261,
+      "LayoutDuration": 0,
+      "RecalcStyleDuration": 0
+     },
+     "counters": {
+      "drawn": 126,
+      "budget": 128,
+      "wanted_split": 27,
+      "waiting": 0,
+      "pending": 0,
+      "over_budget": 0,
+      "levels": "42/9/8/9/22/20/16",
+      "baked": 0,
+      "cached": 261,
+      "evicted": 4
+     },
+     "streamed_s": 11.5,
+     "ground_pct": 7.0,
+     "measure_wall_s": 60.16,
+     "script_ms_per_frame": 175.48493975903614,
+     "script_share": 0.968434175531915,
+     "task_share": 0.9864694148936171,
+     "cb_sum_s": 58.4713999999864,
+     "gl": {
+      "texImage2D": {
+       "p50": 1,
+       "p95": 1,
+       "max": 1,
+       "total": 332
+      },
+      "texSubImage2D": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "compressedTexImage2D": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "generateMipmap": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "createTexture": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "deleteTexture": {
+       "p50": 0,
+       "p95": 0,
+       "max": 8,
+       "total": 8
+      },
+      "bufferData": {
+       "p50": 2,
+       "p95": 2,
+       "max": 2,
+       "total": 664
+      },
+      "bufferSubData": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "createBuffer": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "deleteBuffer": {
+       "p50": 0,
+       "p95": 0,
+       "max": 4,
+       "total": 4
+      },
+      "drawElements": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "drawArrays": {
+       "p50": 130,
+       "p95": 132,
+       "max": 132,
+       "total": 43306
+      },
+      "compileShader": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      },
+      "linkProgram": {
+       "p50": 0,
+       "p95": 0,
+       "max": 0,
+       "total": 0
+      }
+     },
+     "cb_over_script": 1.0036113351982698
+    }
+   ],
+   "noise": {
+    "frame_cb.p50": 0.058229352351490814,
+    "frame_cb.p95": 0.07692307692581407,
+    "frame_cb.p99": 0.16973853407466596,
+    "frame_cb.max": 0.2079262672792244,
+    "script_ms_per_frame": 0.05256562675448802,
+    "script_share": 0.0021820643941843714,
+    "task_share": 0.00038345122329002334
+   },
+   "threshold_2sem": {
+    "frame_cb.p50": 0.024594433079419782,
+    "frame_cb.p95": 0.03281209583801761,
+    "frame_cb.p99": 0.07134899344429323,
+    "frame_cb.max": 0.09093444592978737,
+    "script_ms_per_frame": 0.02217996561563397,
+    "script_share": 0.001025458511701339,
+    "task_share": 0.00017881800225815657
+   }
+  }
+ },
+ "warnings": [],
+ "env": {
+  "cache_files": 17069,
+  "cache_size": "880M",
+  "cache_state": "warm",
+  "viewport": "1280x720",
+  "measure_s": 60,
+  "url": "http://localhost:8098",
+  "idle_pct_at_start": 62,
+  "cores": 4,
+  "wasm_sha256": "c30957cbf1c589b26f7faa306c4f9ecbcd05fc04b2d9280d8d440314e6302620",
+  "ref": "7b77a5b",
+  "gl": "SwiftShader (software) \u2014 headless chromium, no GPU on this box",
+  "not_measured": [
+   "GPU cost \u2014 gl.finish() is ~0 ms here; software raster, no GPU on this box",
+   "frame rate / frame time \u2014 headless paces an idle page at ~131 ms; adding CPU load makes the rate go UP. frame_interval is a diagnostic only.",
+   "cache-locality realism \u2014 frames are ~130 ms apart, so caches are cold at frame entry"
+  ]
+ }
+}
