@@ -6,6 +6,7 @@
 #include "prefetch.h"
 #include "prefetch_api.h"
 #include "cache.h"
+#include "bake.h"
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -17,14 +18,7 @@ static pthread_cond_t   g_cv  = PTHREAD_COND_INITIALIZER;
 static int              g_run = 0;
 static long             g_done = 0, g_failed = 0;
 
-/* How deep to warm the aerial photo under one vector/terrain tile.
- *
- * The renderer bakes a TS-px texture per tile from (TS/256)^2 photo children at z+log2(TS/256).
- * Its near tier is z14 at 1024 px -> z+2 (4x4); its far tier is z11 at 512 px -> z+1 (2x2).
- * The server cannot know TS, so it warms BOTH depths, plus the tile's own zoom for good measure.
- * That is 1 + 4 + 16 = 21 photo tiles per ground tile — a lot, but each is fetched once, ever,
- * and the whole point is that TAB must not wait on the network. */
-#define PF_IMG_DEPTH 2
+
 
 static void *worker(void *arg){
     (void)arg;
@@ -35,11 +29,17 @@ static void *worker(void *arg){
         if(!g_run){ pthread_mutex_unlock(&g_mx); break; }
         pthread_mutex_unlock(&g_mx);
 
-        /* fb_cache_get answers from disk if present and fetches upstream otherwise; either way
-         * the tile ends up cached, which is the entire purpose. The bytes are not wanted here. */
+        /* Either call answers from disk if present and does the expensive work otherwise; either
+         * way the result ends up cached, which is the entire purpose. The bytes are not wanted
+         * here — only the side effect. */
         uint8_t *b = 0; size_t n = 0;
-        if(fb_cache_get((fb_tile_kind)j.kind, j.z, j.x, j.y, &b, &n)){ free(b); g_done++; }
-        else g_failed++;
+        int ok;
+        if(j.kind >= FB_PF_BAKE_OSM)
+            ok = fb_bake_get(j.kind==FB_PF_BAKE_PHOTO ? FB_ALBEDO_PHOTO : FB_ALBEDO_OSM,
+                             j.z, j.x, j.y, j.tex, &b, &n);
+        else
+            ok = fb_cache_get((fb_tile_kind)j.kind, j.z, j.x, j.y, &b, &n);
+        if(ok){ free(b); g_done++; } else g_failed++;
     }
     return 0;
 }
@@ -52,32 +52,43 @@ void fb_pf_start(void){
     else { g_run = 0; fprintf(stderr, "[pf] no thread — prefetch disabled\n"); }
 }
 
-static void push_locked(int kind, int z, long x, long y){
-    /* Never queue what the source cannot serve: vector stops at z14, terrain z15, imagery z19.
-     * Queueing a z16 vector tile would just burn a worker on a guaranteed 404. */
-    if(z < 0 || z > fb_src_max_zoom((fb_tile_kind)kind)) return;
-    fb_pf_push(&g_q, kind, z, x, y);
-}
-
-void fb_pf_warm(fb_tile_kind served, int z, long x, long y){
-    if(!g_run) return;
+/* Warm the 3x3 block around a requested albedo: the tile itself (the OTHER albedo of it -- TAB
+ * must not wait) and its 8 neighbours in both albedos.
+ *
+ * The 8 neighbours are the point: the aircraft is moving. Whatever is one tile away is what the
+ * renderer asks for next, and a cold photo bake is 1.6 s inside this server's single accept()
+ * loop -- 1.6 s in which nobody is served at all. Bake it on the worker before it is asked for,
+ * or pay for it in the request that asks.
+ *
+ * `tex` comes from the request rather than being guessed: the renderer's near tier asks for 1024
+ * and its far tier for 512, and baking a size nobody requests is work for its own sake. */
+void fb_pf_warm_bakes(int z, long x, long y, int tex){
+    if(!g_run || z < 0) return;
+    long n = 1L << z;                       /* wrap x at the antimeridian; y has no wrap */
     pthread_mutex_lock(&g_mx);
-
-    /* the sibling ground data for the very same tile */
-    if(served != FB_TILE_VECTOR)  push_locked(FB_TILE_VECTOR,  z, x, y);
-    if(served != FB_TILE_TERRAIN) push_locked(FB_TILE_TERRAIN, z, x, y);
-
-    /* the photo under it, at the depths the renderer bakes from */
-    if(served != FB_TILE_IMAGERY){
-        push_locked(FB_TILE_IMAGERY, z, x, y);
-        for(int d = 1; d <= PF_IMG_DEPTH; d++){
-            int f = 1 << d;
-            for(int j = 0; j < f; j++) for(int i = 0; i < f; i++)
-                push_locked(FB_TILE_IMAGERY, z + d, x * f + i, y * f + j);
-        }
+    for(int dy = -1; dy <= 1; dy++) for(int dx = -1; dx <= 1; dx++){
+        long tx = ((x + dx) % n + n) % n, ty = y + dy;
+        if(ty < 0 || ty >= n) continue;     /* off the top/bottom of the world */
+        fb_pf_push(&g_q, FB_PF_BAKE_OSM,   z, tx, ty, tex);
+        fb_pf_push(&g_q, FB_PF_BAKE_PHOTO, z, tx, ty, tex);
     }
     pthread_cond_signal(&g_cv);
     pthread_mutex_unlock(&g_mx);
+}
+
+void fb_pf_fetch(fb_tile_kind k, int z, long x, long y){
+    if(!g_run || z < 0 || z > fb_src_max_zoom(k)) return;
+    pthread_mutex_lock(&g_mx);
+    fb_pf_push(&g_q, (int)k, z, x, y, 0);
+    pthread_cond_signal(&g_cv);
+    pthread_mutex_unlock(&g_mx);
+}
+
+/* Raw-tile requests no longer trigger anything: the renderer stopped fetching raw tiles when the
+ * rasteriser moved here, and the bake pulls its own inputs. Kept as a no-op seam rather than
+ * ripped out, because /t/ is still the honest way to get a raw tile. */
+void fb_pf_warm(fb_tile_kind served, int z, long x, long y){
+    (void)served; (void)z; (void)x; (void)y;
 }
 
 void fb_pf_stats(long *queued, long *done, long *dropped, long *failed){

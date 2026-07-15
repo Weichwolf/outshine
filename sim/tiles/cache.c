@@ -34,14 +34,24 @@ static uint8_t *read_file(const char *p, size_t *n) {
     fclose(f); *n = (size_t)sz; return b;
 }
 
-int fb_cache_get(fb_tile_kind k, int z, long x, long y, uint8_t **out, size_t *n) {
+int fb_cache_ondisk(fb_tile_kind k, int z, long x, long y, uint8_t **out, size_t *n) {
     if (!fb_src_kind_name(k) || !out || !n) return 0;
     char path[400]; cache_path(k, z, x, y, path, sizeof path);
     struct stat st;
-    if (stat(path, &st) == 0 && st.st_size > 0) {
-        *out = read_file(path, n);
-        if (*out) { g_hits++; return 1; }
-    }
+    if (stat(path, &st) != 0 || st.st_size <= 0) return 0;
+    *out = read_file(path, n);
+    if (!*out) return 0;
+    g_hits++;
+    return 1;
+}
+
+/* BLOCKS on a miss (curl, up to 20 s). Only the prefetch worker may call this -- never the
+ * accept() loop, which serves every client including the live flight view. */
+int fb_cache_get(fb_tile_kind k, int z, long x, long y, uint8_t **out, size_t *n) {
+    if (!fb_src_kind_name(k) || !out || !n) return 0;
+    if (fb_cache_ondisk(k, z, x, y, out, n)) return 1;
+    char path[400]; cache_path(k, z, x, y, path, sizeof path);
+    struct stat st;
     char url[600];
     if (!fb_src_url(k, z, x, y, url, sizeof url)) { g_fail++; return 0; }
 

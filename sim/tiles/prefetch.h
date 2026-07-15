@@ -1,14 +1,17 @@
 /* FlightBox tiles — the prefetch work queue (pure).
  *
- * Why prefetching exists: the renderer can switch the ground between the OSM render and the
- * aerial photo (TAB). That switch is meant to be a fallback for when the camera cannot deliver —
- * lost signal, dead sensor, darkness, glare. A fallback view that first has to download 400 tiles
- * is not a fallback. So whenever we serve one kind of tile for an area, we warm the others.
+ * Why prefetching exists, measured: a genuinely cold photo bake takes 1.6 s — it pulls 16 aerial
+ * children from upstream, stitches and re-encodes them. This server is a single accept() loop, so
+ * that 1.6 s is 1.6 s in which NOBODY is served. A fresh region is ~25 tiles: ~40 s of a blocked
+ * server. Doing that work on a background thread instead is the entire point.
  *
- * Why a queue rather than just fetching inline: the server is a single accept() loop. Fetching
- * 20 extra tiles before answering would make every request pay for tiles nobody asked for, and
- * the renderer would stall on exactly the request it is waiting for. The queue hands the work to
- * a background thread and answers immediately.
+ * It also keeps the ground switch (TAB) honest. That switch is meant as a fallback for when the
+ * camera cannot deliver — lost signal, dead sensor, darkness, glare — and a fallback view that
+ * first has to bake is not a fallback.
+ *
+ * We warm the BAKED albedo, not the raw tiles: the renderer stopped fetching raw tiles when the
+ * rasteriser moved here, and the bake pulls whatever raw input it needs by itself. Warming the
+ * inputs of a step we are not performing would be work for its own sake.
  *
  * This header is the pure part — a fixed-size ring with de-duplication and drop-when-full — so it
  * can be asserted without a network. The thread and the fetch policy live in prefetch.c.
@@ -22,7 +25,12 @@
 
 #define FB_PF_CAP 4096          /* ~one full near+far grid of imagery children, with room to spare */
 
-typedef struct { int kind; int z; long x, y; } fb_pf_job;
+/* kind: 0..2 = fb_tile_kind (raw), FB_PF_BAKE_OSM/PHOTO = a baked albedo at `tex` px.
+ * tex is ignored for raw kinds. */
+#define FB_PF_BAKE_OSM   10
+#define FB_PF_BAKE_PHOTO 11
+
+typedef struct { int kind; int z; long x, y; int tex; } fb_pf_job;
 
 typedef struct {
     fb_pf_job q[FB_PF_CAP];
@@ -41,17 +49,19 @@ static int fb_pf_count(const fb_pf_queue *p){
 }
 
 /* Is this job already waiting? Keeps a hot area from queueing the same tile on every request. */
-static int fb_pf_has(const fb_pf_queue *p, int kind, int z, long x, long y){
+static int fb_pf_has(const fb_pf_queue *p, int kind, int z, long x, long y, int tex){
     for(int i = p->head; i != p->tail; i = (i + 1) % FB_PF_CAP)
-        if(p->q[i].kind == kind && p->q[i].z == z && p->q[i].x == x && p->q[i].y == y) return 1;
+        if(p->q[i].kind == kind && p->q[i].z == z && p->q[i].x == x && p->q[i].y == y
+           && p->q[i].tex == tex) return 1;
     return 0;
 }
 
 /* Returns 1 if queued, 0 if dropped (full) or already present. Never blocks, never grows. */
-static int fb_pf_push(fb_pf_queue *p, int kind, int z, long x, long y){
+static int fb_pf_push(fb_pf_queue *p, int kind, int z, long x, long y, int tex){
     if(fb_pf_count(p) >= FB_PF_CAP - 1){ p->dropped++; return 0; }   /* full: forget it */
-    if(fb_pf_has(p, kind, z, x, y)){ p->deduped++; return 0; }
+    if(fb_pf_has(p, kind, z, x, y, tex)){ p->deduped++; return 0; }
     p->q[p->tail].kind = kind; p->q[p->tail].z = z; p->q[p->tail].x = x; p->q[p->tail].y = y;
+    p->q[p->tail].tex = tex;
     p->tail = (p->tail + 1) % FB_PF_CAP;
     p->pushed++;
     return 1;

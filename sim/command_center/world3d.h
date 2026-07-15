@@ -442,10 +442,12 @@ static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
   osmmesh_tile t={0};
   if(osmmesh_fetch_tile(w3_osm,z,x,y,&t)!=OSMMESH_OK || !t.terrain){ osmmesh_free_tile(&t); return -1; }
 
-  /* The OSM albedo must be HERE before this tile exists at all. w3_bake returns 0 while the
-   * server's texture is still in flight, and building the tile anyway is what once produced a
-   * plain green square over Grohnde: a missing datum cached as a valid result, permanently,
-   * because the entry looked valid and the LRU never revisited it. No albedo, no tile. */
+  /* A tile is drawn when it is COMPLETE: elevation above, albedo here. Not blocking and not
+   * drawing are different things -- w3_bake returns 0 the instant the texture is not on hand, the
+   * streamer is kept awake by w3_ground_dirty, and the tile simply appears a frame or two later.
+   * An untextured stand-in would not be information, just a differently-coloured hole, and a
+   * placeholder that can be mistaken for a result is exactly what put a plain square over
+   * Grohnde. */
   GLuint tex_osm = w3_bake(z,x,y,tex,W3_GROUND_OSM);
   if(!tex_osm){ osmmesh_free_tile(&t); w3_ground_dirty=1; return -1; }
   GLuint tex_photo = w3_bake(z,x,y,tex,W3_GROUND_PHOTO);   /* 0 is fine: the draw falls back to OSM */

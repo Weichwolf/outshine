@@ -107,10 +107,21 @@ static void handle(int fd, char *req) {
             reply(fd, "400 Bad Request", "text/plain", "want /bake/<kind>/<z>/<x>/<y>\n"); return; }
         double t = 0; int TS = fb_query_double(qs, "tex", &t) ? (int)t : 1024;
         uint8_t *body = 0; size_t n = 0;
-        if (!fb_bake_get(k, z, x, y, TS, &body, &n)) {
-            reply(fd, "404 Not Found", "text/plain", "no albedo\n"); return; }
+
+        /* ON DISK ONLY. Baking here would block the whole server: this is a single accept() loop
+         * and a cold photo bake measures 1.6 s -- 1.6 s in which nobody is served, times ~25
+         * tiles for a fresh region. So a miss queues the work and says so immediately; the
+         * renderer draws a placeholder and asks again. Nothing anywhere waits on a bake. */
+        if (!fb_bake_ondisk(k, z, x, y, TS, &body, &n)) {
+            fb_pf_warm_bakes(z, x, y, TS);          /* this tile + its 8 neighbours, both albedos */
+            reply(fd, "404 Not Found", "text/plain", "baking\n");
+            return;
+        }
         reply_bin(fd, k == FB_ALBEDO_PHOTO ? "image/jpeg" : "image/png", body, n);
         free(body);
+        /* Answer first, warm after: the aircraft is moving, so the 8 neighbours are what gets
+         * asked for next. Bake them on the worker before the request for them arrives. */
+        fb_pf_warm_bakes(z, x, y, TS);
         return;
     }
 
@@ -119,10 +130,14 @@ static void handle(int fd, char *req) {
         fb_tile_kind k; int z; long x, y;
         if (fb_route_tile(path, &k, &z, &x, &y)) {
             uint8_t *body = 0; size_t n = 0;
-            if (!fb_cache_get(k, z, x, y, &body, &n)) {
-                /* Upstream has genuine holes (ocean, no imagery); say so honestly and let the
-                 * renderer skip the tile rather than draw whatever a 200 with junk would give. */
-                reply(fd, "404 Not Found", "text/plain", "no tile\n"); return;
+            /* Disk only. fb_cache_get would curl on a miss -- up to 20 s inside this single
+             * accept() loop, i.e. 20 s in which nobody is served, including the live flight view.
+             * A miss queues the fetch and says so; the caller asks again. Nothing here ever waits
+             * on the network. (Upstream also has genuine holes -- ocean, no imagery -- and 404 is
+             * the honest answer for those too: skip the tile rather than draw junk.) */
+            if (!fb_cache_ondisk(k, z, x, y, &body, &n)) {
+                fb_pf_fetch(k, z, x, y);
+                reply(fd, "404 Not Found", "text/plain", "fetching\n"); return;
             }
             reply_bin(fd, fb_src_content_type(k), body, n);
             free(body);

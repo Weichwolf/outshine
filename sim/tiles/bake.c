@@ -65,15 +65,21 @@ static void mem_write(void *ctx, void *data, int size){
     memcpy(m->b + m->n, data, (size_t)size); m->n += (size_t)size;
 }
 
+int fb_bake_ondisk(fb_albedo_kind k, int z, long x, long y, int TS, uint8_t **out, size_t *n){
+    if(TS < 64 || TS > 4096 || (TS & (TS-1))) return 0;
+    char path[400]; bake_path(k, z, x, y, TS, path, sizeof path);
+    struct stat st;
+    if(stat(path, &st) != 0 || st.st_size <= 0) return 0;
+    *out = read_file(path, n);
+    if(!*out) return 0;
+    g_hits++;
+    return 1;
+}
+
 int fb_bake_get(fb_albedo_kind k, int z, long x, long y, int TS, uint8_t **out, size_t *n){
     if(TS < 64 || TS > 4096 || (TS & (TS-1))) return 0;   /* power of two, sane range */
+    if(fb_bake_ondisk(k, z, x, y, TS, out, n)) return 1;
     char path[400]; bake_path(k, z, x, y, TS, path, sizeof path);
-
-    struct stat st;
-    if(stat(path, &st) == 0 && st.st_size > 0){
-        *out = read_file(path, n);
-        if(*out){ g_hits++; return 1; }
-    }
 
     uint8_t *rgb = malloc((size_t)TS*TS*3);
     if(!rgb){ g_fail++; return 0; }

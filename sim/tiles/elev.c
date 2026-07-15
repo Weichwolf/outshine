@@ -3,6 +3,7 @@
 #include "cache.h"
 #include "tilemath.h"
 #include "lru.h"
+#include "prefetch_api.h"
 #include <osmmesh/terrain.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,8 +32,15 @@ static osmmesh_terrain_grid *tile_get(int z, long x, long y) {
     int i = fb_lru_find(&g_lru, z, x, y);
     if (i >= 0) { g_hits++; return &g_grid[i]; }
 
+    /* Disk only, then queue. fb_cache_get would curl here -- inside the accept() loop, blocking
+     * every other client for up to 20 s. The aircraft polls this on a background thread and keeps
+     * its last good ground height on failure (see aircraft/terrain.c), so "not yet" costs it a
+     * poll interval, not a wrong altitude. */
     uint8_t *png = 0; size_t n = 0;
-    if (!fb_cache_get(FB_TILE_TERRAIN, z, x, y, &png, &n)) { g_fail++; return 0; }
+    if (!fb_cache_ondisk(FB_TILE_TERRAIN, z, x, y, &png, &n)) {
+        fb_pf_fetch(FB_TILE_TERRAIN, z, x, y);
+        g_fail++; return 0;
+    }
     osmmesh_terrain_grid grid = {0};
     int rc = osmmesh_terrain_decode_png(png, n, &grid);
     free(png);

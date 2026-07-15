@@ -11,6 +11,9 @@
 #include "raster.h"
 
 int  fb_bake_init(const char *dir);
+/* On-disk only: 1 + malloc'd bytes if the texture is already baked, 0 otherwise. Never bakes,
+ * never touches the network -- so it is safe to call from the accept() loop. */
+int  fb_bake_ondisk(fb_albedo_kind k, int z, long x, long y, int TS, uint8_t **out, size_t *n);
 /* Baked texture bytes for a tile, from disk or freshly baked+stored. Returns 1 and hands over a
  * malloc'd buffer the caller frees; 0 if the source data could not be obtained at all -- which
  * callers must treat as "unknown", never as "empty ground". Caching a missing tile as a plain

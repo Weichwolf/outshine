@@ -19,6 +19,9 @@ int  fb_cache_init(const char *dir);
  * malloc'd buffer the caller must free. Returns 0 if the tile could not be obtained —
  * callers must treat that as "unknown", never as "empty". */
 int  fb_cache_get(fb_tile_kind k, int z, long x, long y, uint8_t **out, size_t *n);
+/* Disk only: 1 + malloc'd bytes if already cached, 0 otherwise. Never fetches, never blocks --
+ * so it is the ONLY one of the two that may be called from the accept() loop. */
+int  fb_cache_ondisk(fb_tile_kind k, int z, long x, long y, uint8_t **out, size_t *n);
 void fb_cache_stats(long *hits, long *fetches, long *fails);
 
 #endif /* FB_CACHE_H */
