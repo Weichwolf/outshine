@@ -289,6 +289,23 @@ each other** — this has actually happened. Coordinate before editing outside y
   type is too early.** Give the three states a producer first (`cache.c:63` fetches with `curl -s
   -f`; the upstream 404 is distinguishable there, it is simply never recorded), then the enum
   guards something real and the proof is an ocean tile that stops asking.
+- **The renderer and the server each have their own idea of what a tile is — and they disagree at
+  the poles.** `world3d.h`'s `w3_geo_to_tile_f` and `tiles/tilemath.h`'s `fb_geo_to_tile` are the
+  same formula (`asinh(tan φ)` ≡ `log(tan φ + sec φ)`), but the server CLAMPS latitude to
+  `FB_MERC_LAT_MAX` (85.0511) and longitude to ±180, and the renderer does not. Measured with the
+  renderer's own code, z8:
+      lat 85.050 -> ty =     0.0093   ok (last valid)
+      lat 85.060 -> ty =    -0.0732   negative -> w3_walk rejects -> EMPTY WORLD
+      lat 90.000 -> ty = -1421.2780   empty world
+  So any origin beyond ±85.0511 renders nothing while fb-tiles happily serves it the clamped pole
+  tiles. Another entry against "any origin on earth works" — the poles are on earth — and the same
+  shape as the 404: two sides of one contract, each with its own private answer. The server's copy
+  is 100 % unit-tested; the renderer's copy has never been tested at all.
+  The fix is NOT a second clamp in the renderer (that makes the agreement a convention again). It
+  is one definition: `tilemath.h` describes what a tile IS, which is a shared contract exactly like
+  `protocol.h` describes what a packet is — so it probably belongs in `common/`, included by both.
+  That move touches `tiles/*.c`, `command_center/*`, `test/unit/run.sh` and `build-wasm.sh`, i.e.
+  three owners; it is a decision, not a tidy-up.
 - **`sky.h`/`hud.h` is NOT the mechanical step it looks like — there is a `w3_atmo` hiding in it.**
   `world3d_render_scene` computes `sun[3] moon[3] day cloud haze[3] light` from telemetry in what
   reads as a sky prologue (760-768) — and then the TERRAIN pass consumes them (`w3_wtHaze`,
