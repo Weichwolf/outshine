@@ -47,7 +47,7 @@ fail=0
 
 # modules under test (pure) + the test drivers
 SRC="$ROOT/tiles/tilesrc.c $ROOT/tiles/route.c $ROOT/aircraft/fdm/atmosphere.c"
-TESTS="$HERE/main.c $HERE/test_tilemath.c $HERE/test_tilesrc.c $HERE/test_route.c $HERE/test_atmosphere.c $HERE/test_mat4.c $HERE/test_chunkmesh.c $HERE/test_style.c $HERE/test_lru.c $HERE/test_prefetch.c $HERE/test_draw.c $HERE/test_w3atmo.c $HERE/test_camera.c"
+TESTS="$HERE/main.c $HERE/test_tilemath.c $HERE/test_tilesrc.c $HERE/test_route.c $HERE/test_atmosphere.c $HERE/test_mat4.c $HERE/test_chunkmesh.c $HERE/test_style.c $HERE/test_lru.c $HERE/test_prefetch.c $HERE/test_draw.c $HERE/test_w3atmo.c $HERE/test_camera.c $HERE/test_stars.c"
 
 echo "== unit tests =="
 ( cd "$OUT" && gcc -O0 -g -Wall -Wextra --coverage -I"$HERE" -I"$ROOT/common" -I"$ROOT/geo/osmmesh/include" -o unittests $TESTS $SRC -lm ) 2>"$OUT/cc.log" || {

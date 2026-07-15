@@ -16,6 +16,7 @@
 #include "protocol.h"
 #ifdef W3_USE_OSM
 #include "camera.h"      /* attitude -> basis + MVP, pure */
+#include "stars.h"       /* catalogue coords + time + place -> direction, pure */
 #include "atmo.h"        /* the frame's sun/sky/light, pure — shared by sky, terrain and buildings */
 #include "tilesrc_js.h"   /* tile bytes from fb-tiles (async cache + osmmesh provider) */
 #endif
@@ -778,18 +779,15 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
   /* real stars: place each above-horizon catalogue star at its true alt/az (from wall-clock
    * sidereal time + origin), far along that direction, additively blended, fading toward day. */
   if(day<0.6f){
-    time_t tt=time(NULL); double jd=tt/86400.0+2440587.5, dd=jd-2451545.0;
-    double gmst=fmod(280.46061837+360.98564736629*dd,360.0);
-    double lst=fmod(gmst+w3_olon,360.0), slat=sin(w3_olat*RAD), clat=cos(w3_olat*RAD);
+    /* The celestial maths is in stars.h because it is pure and therefore checkable — Polaris must
+     * stand at the observer's latitude, due north, and nothing in a screenshot says whether it
+     * does. The clock is passed IN rather than read there: an input, not a dependency. */
+    double lst=w3_lst_deg(w3_gmst_deg((double)time(NULL)), w3_olon);
     static float sv[W3_NSTARS*4]; int ns=0;
     for(int i=0;i<W3_NSTARS;i++){
-      double Hh=(lst-W3_STARS[i].ra)*RAD, dec=W3_STARS[i].dec*RAD;
-      double sinAlt=slat*sin(dec)+clat*cos(dec)*cos(Hh);
-      if(sinAlt<=0.03) continue;                              /* below/at horizon */
-      double az=atan2(-cos(dec)*sin(Hh), sin(dec)*clat-cos(dec)*slat*cos(Hh));
-      double ca=sqrt(fmax(0.0,1.0-sinAlt*sinAlt));
-      float dE=(float)(ca*sin(az)), dU=(float)sinAlt, dN=(float)(ca*cos(az));
-      sv[ns*4]=eye[0]+dE*40000.f; sv[ns*4+1]=eye[1]+dU*40000.f; sv[ns*4+2]=eye[2]-dN*40000.f;
+      w3_stardir d=w3_star_dir(lst,w3_olat,W3_STARS[i].ra,W3_STARS[i].dec);
+      if(!d.above) continue;
+      sv[ns*4]=eye[0]+d.e*40000.f; sv[ns*4+1]=eye[1]+d.u*40000.f; sv[ns*4+2]=eye[2]-d.n*40000.f;
       sv[ns*4+3]=W3_STARS[i].mag; ns++;
     }
     if(ns>0){
