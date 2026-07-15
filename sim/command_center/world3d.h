@@ -185,29 +185,79 @@ static void w3_build_procedural(void){
 #include "osmmesh/osmmesh.h"
 #include "osmmesh/pmtiles.h"
 #include "osmmesh/mvt.h"
-#ifndef W3_Z
-#define W3_Z 14                    /* streaming zoom level */
+/* ---- terrain LOD: a chunked quadtree (Ulrich 2002), not a stack of rings -------------------
+ *
+ * What was here before: three fixed 5x5 grids at z14/z11/z8, drawn coarse-to-fine with a polygon
+ * offset so the fine one "wins". They overlapped COMPLETELY -- the ground under the aircraft was
+ * rasterised three times -- and that was not an oversight to be tuned away, it was unfixable by
+ * construction:
+ *
+ *   - 5x5 z14 spans 7.5 km; ONE z11 tile spans 12.0 km. No z11 tile is ever fully covered, so not
+ *     one of them could be skipped. Same for z11 vs z8. 0 of the 50 coarse tiles were droppable.
+ *   - MEASURED at the origin: the z8 surface sits ABOVE the z14 surface at 72.8 % of near-field
+ *     points, by up to +85 m; z11 by up to +30 m at 55.8 %. The coarse mesh does not merely
+ *     disagree, it pokes through.
+ *   - glPolygonOffset cannot fix that. It biases DEPTH, not position, and the bias it buys is a
+ *     function of the triangle's depth slope: ~9 m of world depth for z11 at 1 km, ~37 m at 3 km,
+ *     ~584 m at 30 km. Against a 30 m intrusion that is a coin flip that lands differently per
+ *     triangle and per viewing angle -- which is exactly what "es ueberschneidet sich an den
+ *     raendern" looks like. Too weak up close, absurdly strong far away.
+ *
+ * A quadtree has a HOLE where the finer level sits: a node draws ITSELF or its four children,
+ * never both. Every square metre of ground is covered by exactly one chunk. No overlap, no
+ * offset, no fighting -- the problem is removed rather than biased.
+ *
+ * Refinement is by screen-space error, from each chunk's OWN measured geometric error:
+ *     SSE = node.error * W3_SSE_K / distance      (pixels)
+ *     split while SSE > W3_EPS
+ * See w3_terr_vbo for why the error must be measured per chunk and not tabulated per zoom. */
+#ifndef W3_ROOTZ
+#define W3_ROOTZ 8                 /* coarsest level: one chunk ~96 km at 52 N */
 #endif
-#ifndef W3_RAD
-#define W3_RAD 2                   /* tile radius around the aircraft (grid = 2R+1) */
+#ifndef W3_MAXZ
+#define W3_MAXZ 14                 /* finest level. The albedo bake stops here: fb-tiles' vector
+                                    * source (VersaTiles Shortbread) has no z15. */
 #endif
 #ifndef W3_TEX
-#define W3_TEX 1024                /* per-tile ortho texture resolution (detail comes from here) */
+#define W3_TEX 512                 /* per-chunk albedo, SAME at every level -- that is what makes
+                                    * it a chunk. z14 -> 1.5 km/512 = 2.94 m/texel.
+                                    * (The old near tier used 1024 = 1.47 m/texel over a 5x5 ring;
+                                    * matching that here would want z15, which the vector source
+                                    * does not have. Doubling this doubles texture VRAM.) */
 #endif
 #ifndef W3_TERR
-#define W3_TERR 24                 /* terrain geometry: coarse GxG grid per tile (heightfield
-                                    * shape only — the texture carries the detail). Small = fast. */
+#define W3_TERR 22                 /* chunk geometry: 22x22 quads. The texture carries the detail;
+                                    * the height field only has to carry the shape. */
 #endif
-/* Distant terrain LOD: a wide ring of low-zoom tiles gives the 30-40 km horizon
- * without streaming thousands of z14 tiles. Coarse terrain + landcover texture only. */
-#ifndef W3_FARZ
-#define W3_FARZ 11                 /* far tier zoom (each tile ~20 km at z11) */
+#ifndef W3_EPS
+#define W3_EPS 2.0f                /* the ONLY quality knob: allowed screen-space error, pixels. */
 #endif
-#ifndef W3_FARRAD
-#define W3_FARRAD 2                /* far tier radius (2 -> 5x5 tiles ~ 100 km across) */
+#ifndef W3_REACH
+#define W3_REACH 240000.0f         /* how far the ground is drawn. Just a parameter -- the tree
+                                    * covers whatever it is given; the horizon at 4000 m is 226 km. */
 #endif
-#ifndef W3_FARTEX
-#define W3_FARTEX 256              /* far tier texture resolution (coarse; power-of-two for mipmaps) */
+#ifndef W3_VIEWH
+#define W3_VIEWH 480               /* the height SSE is measured in: the camera FBO (NTSC 480). */
+#endif
+/* SSE = error * K / distance, with K = viewport_height / (2 tan(fov/2)). This is the standard
+ * chunked-LOD projection of a vertical error onto the screen. */
+#define W3_SSE_K ((float)(W3_VIEWH) / (2.0f * 0.8390996f))   /* tan(40 deg) for W3_FOV=80 */
+/* A budget is needed because the error comes from the DATA: over Hameln (96 m of relief) the z8
+ * chunks stop splitting immediately, but the same threshold at Everest keeps splitting even at the
+ * horizon (2093 m error -> 2.65 px at 226 km). Flat terrain costs nothing, mountains would run
+ * away. So: cap the resident set and spend it on the worst error first. */
+#ifndef W3_BUDGET
+#define W3_BUDGET 128              /* max chunks drawn/resident. 128 * 512^2 RGB * (mips) * 2
+                                    * albedos ~ 268 MB -- about what the three rings cost. */
+#endif
+/* Camera near/far. near was 2 m: at that ratio a 16-bit depth buffer cannot resolve 700 m at
+ * 10 km. Nothing is ever within 20 m of the camera -- it sits in the aircraft -- and moving the
+ * near plane out is the single cheapest precision win there is (10x, for one number). */
+#ifndef W3_NEAR
+#define W3_NEAR 20.0f
+#endif
+#ifndef W3_FARPLANE
+#define W3_FARPLANE 240000.0f      /* past the z8 ring; the horizon at 4000 m is 226 km */
 #endif
 
 /* Old-flight-sim ground: OSM footprints/roads/rivers/rails + landcover are baked
@@ -220,11 +270,11 @@ static int w3_stream_tiles=0;          /* 1 = tiles come from fb-tiles on demand
 static int w3_have_tile=0; static uint32_t w3_tx,w3_ty;
 static float w3_yoff=0; static int w3_yoff_set=0;   /* origin ground elevation (camera lift) */
 
-#define W3_MAXT ((2*W3_RAD+1)*(2*W3_RAD+1))
-#define W3_MAXTF ((2*W3_FARRAD+1)*(2*W3_FARRAD+1))
+/* ONE draw list, built by the tree walk each stream pass. There used to be three of these
+ * (w3_T/w3_TF/w3_TF2 with w3_nT/w3_nTF/w3_nTF2) -- the same code three times with suffixes,
+ * which is how the overlap got written down as a fact and then lived on as one. */
 typedef struct { GLuint vbo, tex[2]; int nverts; } w3_tileGL;
-static w3_tileGL w3_T[W3_MAXT];  static int w3_nT=0;    /* near tier (z14, detailed) */
-static w3_tileGL w3_TF[W3_MAXTF]; static int w3_nTF=0;  /* far tier (low zoom, coarse) */
+static w3_tileGL w3_D[W3_BUDGET]; static int w3_nD=0;
 
 /* --- software raster into an RGB image (tile-local coords * sc) --- */
 /* ---- ground albedo: downloaded ready-made from fb-tiles ------------------------------------
@@ -243,6 +293,10 @@ static int w3_ground_mode = W3_GROUND_OSM;
 /* Set while any resident tile still lacks the albedo we want. Keeps world3d_stream from
  * declaring victory and going back to sleep until the next tile boundary. */
 static int w3_ground_dirty = 0;
+/* Chunks the tree asked for and did not get. The streamer may only sleep when this is 0:
+ * "nothing is waiting" and "nothing was asked for" are different states, and conflating
+ * them let the tree declare victory over an EMPTY world and never look again. */
+static int w3_pending=0;
 
 /* Upload one baked albedo as a GL texture. Returns 0 if it has not arrived yet (retry later) or
  * the server has nothing for this tile. */
@@ -314,11 +368,24 @@ static GLuint w3_push_soup(const float*v,size_t o,int*out_nv){
   glBufferData(GL_ARRAY_BUFFER,(size_t)nv*8*sizeof(float),w,GL_STATIC_DRAW); free(w);
   *out_nv=nv; return vbo;
 }
-static GLuint w3_terr_vbo(const osmmesh_mesh*m,int*out_nv){
+/* Build one chunk's VBO and MEASURE its geometric error while doing it.
+ *
+ * out_err = max |decimated surface - source height| over every source pixel, in metres. This is
+ * the number the LOD runs on, and it costs nothing extra: the decimation already walks the whole
+ * 256x256 height field, so the comparison rides along.
+ *
+ * It has to be measured per chunk, not tabulated per zoom. An error ladder measured over Hameln
+ * says z8 = 234 m -- but Hameln has 96 m of total relief, so the ladder saturates and encodes this
+ * one flat valley as a global constant. The same measurement at the Matterhorn gives z8 = 1396 m
+ * and at Everest 2093 m. fb-tiles serves any origin on earth; a constant from one valley would be
+ * wrong everywhere else. From the data, flat terrain saturates by itself and mountains subdivide
+ * by themselves -- same line of code, both right. */
+static GLuint w3_terr_vbo(const osmmesh_mesh*m,int*out_nv,float*out_err){
   float emin=1e18f,emax=-1e18f,nmin=1e18f,nmax=-1e18f;
   for(uint32_t i=0;i<m->n_vertices;i++){ const float*P=m->positions+i*3;
     if(P[0]<emin)emin=P[0]; if(P[0]>emax)emax=P[0]; if(P[1]<nmin)nmin=P[1]; if(P[1]>nmax)nmax=P[1]; }
   float de=emax-emin?emax-emin:1, dn=nmax-nmin?nmax-nmin:1;
+  if(out_err) *out_err=0.f;
   /* detect grid width C (row-major, north->south rows; x resets west at each row start) */
   uint32_t C=0;
   for(uint32_t i=1;i<m->n_vertices;i++) if(m->positions[i*3] < m->positions[(i-1)*3]-0.5f){ C=i; break; }
@@ -353,7 +420,36 @@ static GLuint w3_terr_vbo(const osmmesh_mesh*m,int*out_nv){
       float L=sqrtf(nx*nx+ny*ny+nz*nz); if(L<1e-6f)L=1;
       float*d=nv+((size_t)j*gc+i)*3; d[0]=nx/L; d[1]=ny/L; d[2]=nz/L;
     }
-    float*v=malloc((size_t)(gr-1)*(gc-1)*6*8*sizeof(float)); size_t o=0;
+    /* --- the chunk's own geometric error, from the data ---------------------------------
+     * Walk every SOURCE pixel, evaluate the surface we are about to draw at that spot (same two
+     * triangles per quad as below), and keep the worst vertical miss. 256x256 lerps per chunk --
+     * nothing next to the PNG decode that produced the heights. */
+    float err=0.f;
+    for(int j=0;j<gr-1;j++)for(int i=0;i<gc-1;i++){
+      int r0=W3_RI(j), r1=W3_RI(j+1), c0=W3_CI(i), c1=W3_CI(i+1);
+      float h00=np[((size_t)j*gc+i)*3+2],     h10=np[((size_t)j*gc+i+1)*3+2];
+      float h11=np[((size_t)(j+1)*gc+i+1)*3+2], h01=np[((size_t)(j+1)*gc+i)*3+2];
+      if(r1<=r0||c1<=c0) continue;
+      for(int r=r0;r<=r1;r++)for(int c=c0;c<=c1;c++){
+        float sv=(float)(r-r0)/(float)(r1-r0), su=(float)(c-c0)/(float)(c1-c0);
+        /* same diagonal as the quad below: (0,0)-(1,1) */
+        float h = (su>=sv) ? h00+(h10-h00)*su+(h11-h10)*sv
+                           : h00+(h11-h01)*su+(h01-h00)*sv;
+        float d=fabsf(h-W3_MV(r,c)[2]); if(d>err) err=d;
+      }
+    }
+    if(out_err) *out_err=err;
+    /* --- skirt height, also from the data ------------------------------------------------
+     * Neighbouring chunks may differ by one level, and their edges do NOT weld: each level
+     * decimates its own DEM, so the shared edge is two different polylines. Measured over the
+     * Weser valley the gap reaches 1.4 m between z13/z14 but 47.6 m between z11/z12 -- a constant
+     * skirt would be waste in one place and a visible crack in the other.
+     * The crack at a shared edge is bounded by the two chunks' errors, and the finer chunk's is
+     * the smaller, so 2*err is a sound bound that needs no magic number and travels to any
+     * terrain on earth. The skirt hangs straight down and is hidden by the neighbour. */
+    float skirt=2.f*err; if(skirt<5.f) skirt=5.f;
+    int nquad=(gr-1)*(gc-1), nedge=2*((gr-1)+(gc-1));
+    float*v=malloc(((size_t)nquad+nedge)*6*8*sizeof(float)); size_t o=0;
     for(int j=0;j<gr-1;j++)for(int i=0;i<gc-1;i++){
       int q[6]={ j*gc+i, j*gc+(i+1), (j+1)*gc+(i+1), j*gc+i, (j+1)*gc+(i+1), (j+1)*gc+i };
       for(int k=0;k<6;k++){
@@ -363,6 +459,23 @@ static GLuint w3_terr_vbo(const osmmesh_mesh*m,int*out_nv){
         v[o++]=N[0]; v[o++]=N[1]; v[o++]=N[2];                  /* smooth normal */
       }
     }
+    /* skirt: a curtain hanging from each boundary edge, textured with the edge's own texels so
+     * it reads as a continuation of the ground rather than a stripe. */
+    #define W3_SKIRT_EDGE(a,b) do{ \
+      const float*A=np+(size_t)(a)*3, *B=np+(size_t)(b)*3; \
+      float au=(A[0]-emin)/de, av=(nmax-A[1])/dn, bu=(B[0]-emin)/de, bv=(nmax-B[1])/dn; \
+      const float NA[3]={0.f,1.f,0.f}; \
+      float P6[6][3]={{A[0],A[2],-A[1]},{B[0],B[2],-B[1]},{B[0],B[2]-skirt,-B[1]}, \
+                      {A[0],A[2],-A[1]},{B[0],B[2]-skirt,-B[1]},{A[0],A[2]-skirt,-A[1]}}; \
+      float U6[6][2]={{au,av},{bu,bv},{bu,bv},{au,av},{bu,bv},{au,av}}; \
+      for(int k=0;k<6;k++){ v[o++]=P6[k][0]; v[o++]=P6[k][1]; v[o++]=P6[k][2]; \
+        v[o++]=U6[k][0]; v[o++]=U6[k][1]; v[o++]=NA[0]; v[o++]=NA[1]; v[o++]=NA[2]; } \
+    }while(0)
+    for(int i=0;i<gc-1;i++){ W3_SKIRT_EDGE(i+1, i);                                  }  /* north */
+    for(int i=0;i<gc-1;i++){ W3_SKIRT_EDGE((gr-1)*gc+i, (gr-1)*gc+i+1);              }  /* south */
+    for(int j=0;j<gr-1;j++){ W3_SKIRT_EDGE(j*gc, (j+1)*gc);                          }  /* west  */
+    for(int j=0;j<gr-1;j++){ W3_SKIRT_EDGE((j+1)*gc+gc-1, j*gc+gc-1);                }  /* east  */
+    #undef W3_SKIRT_EDGE
     free(np); free(nv);
     #undef W3_MV
     #undef W3_RI
@@ -413,17 +526,37 @@ static int world3d_tiles_open(const char*base,double lat,double lon){
  * orbit flies over the SAME tiles again and again, so we keep baked VBO+texture around and
  * only bake genuinely new ones. Sized to hold a full orbit -> after the first lap nothing
  * is re-baked at all. Eviction is least-recently-used. */
-#define W3_CACHE 64
+/* The cache holds every chunk the tree may draw, plus room for the ones it is refining INTO.
+ * A chunk that is still being replaced by its children must stay resident -- that is what lets the
+ * parent keep drawing until all four children have landed, instead of a hole appearing.
+ * Eviction is by "the tree did not ask for it this pass", which is strictly better than either LRU
+ * or a radius: the tree already knows exactly what it wants. Flying straight for an hour, the
+ * chunks behind you are the NEWEST in the cache and the most useless; an LRU would keep them. */
+#define W3_CACHE (2*W3_BUDGET)
+
 /* tex[] holds BOTH albedos for the tile: [W3_GROUND_OSM] = the OSM render, [W3_GROUND_PHOTO] =
  * the aerial photo. Both are baked while streaming, so switching the ground is an index change,
  * not a re-bake. That is what makes it usable as a camera fallback: the moment you need the other
  * view is the moment you cannot afford to build it. Costs one extra texture per tile; the VBO
  * (the expensive part) is shared -- the geometry does not care what is painted on it.
  * tex[PHOTO] is 0 until its imagery lands; the draw falls back to tex[OSM] meanwhile. */
-typedef struct { int z; uint32_t x,y; GLuint vbo,tex[2]; int nverts; unsigned touch; int valid; } w3_cent;
+typedef struct { int z; uint32_t x,y; GLuint vbo,tex[2]; int nverts; unsigned touch; int valid;
+                 int photo_none;      /* the server has no photo here, ever */
+                 float err; } w3_cent; /* measured geometric error, metres -- drives the LOD */
 static w3_cent w3_cache[W3_CACHE];
 static unsigned w3_touch=0;
-static int w3_cache_hits=0, w3_cache_bakes=0;
+static int w3_cache_hits=0, w3_cache_bakes=0, w3_cache_evict=0;
+
+/* Drop everything the tree did not touch this pass. `touch` is stamped by w3_cache_get, so
+ * "not asked for" and "not reachable" are the same question, answered by the tree itself. */
+static void w3_cache_trim(unsigned mark){
+  for(int i=0;i<W3_CACHE;i++){
+    if(!w3_cache[i].valid || w3_cache[i].touch>=mark) continue;
+    glDeleteBuffers(1,&w3_cache[i].vbo);
+    for(int k=0;k<2;k++) if(w3_cache[i].tex[k]) glDeleteTextures(1,&w3_cache[i].tex[k]);
+    w3_cache[i].valid=0; w3_cache_evict++;
+  }
+}
 
 /* Return a cache slot holding the baked tile, baking it only if not already resident. */
 static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
@@ -432,100 +565,194 @@ static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
       w3_cache[i].touch=++w3_touch; w3_cache_hits++;
       /* The photo half is fetched opportunistically, whether or not it is being shown: the moment
        * someone reaches for the other view is the moment they cannot afford to wait for it. */
-      if(!w3_cache[i].tex[W3_GROUND_PHOTO]){
-        GLuint t2=w3_bake(z,x,y,tex,W3_GROUND_PHOTO);
-        if(t2){ w3_cache[i].tex[W3_GROUND_PHOTO]=t2; w3_cache_bakes++; }
-        else w3_ground_dirty=1;            /* still in flight -> keep the streamer awake */
+      /* PENDING (-1) and HOLE (0) are different answers. Conflating them costs a busy loop: a
+       * tile whose photo genuinely does not exist would keep w3_ground_dirty set forever, so
+       * world3d_stream never sleeps and walks every tile each frame. Only wait for what is
+       * actually coming. */
+      if(!w3_cache[i].tex[W3_GROUND_PHOTO] && !w3_cache[i].photo_none){
+        int n=w3_bake_size(1,(int)z,(int)x,(int)y,tex);
+        if(n>0){ GLuint t2=w3_bake(z,x,y,tex,W3_GROUND_PHOTO);
+                 if(t2){ w3_cache[i].tex[W3_GROUND_PHOTO]=t2; w3_cache_bakes++; } }
+        else if(n==0) w3_cache[i].photo_none=1;   /* no photo here, ever: stop asking */
+        else w3_ground_dirty=1;                   /* in flight: come back next frame */
       }
       return i; }
 
-  osmmesh_tile t={0};
-  if(osmmesh_fetch_tile(w3_osm,z,x,y,&t)!=OSMMESH_OK || !t.terrain){ osmmesh_free_tile(&t); return -1; }
+  /* CHEAP CHECK FIRST. osmmesh_fetch_tile decodes a 256x256 terrain PNG and an MVT tile; doing
+   * that and then discarding it because the albedo has not arrived costs a full decode PER CHUNK
+   * PER FRAME -- the GPU idles and the CPU burns, which is exactly what a fresh region looks
+   * like. Ask the albedo first: it is a cache probe, not a decode. */
+  if(w3_bake_size(0,(int)z,(int)x,(int)y,tex) < 0){ w3_pending++; return -1; }
 
-  /* A tile is drawn when it is COMPLETE: elevation above, albedo here. Not blocking and not
-   * drawing are different things -- w3_bake returns 0 the instant the texture is not on hand, the
-   * streamer is kept awake by w3_ground_dirty, and the tile simply appears a frame or two later.
-   * An untextured stand-in would not be information, just a differently-coloured hole, and a
-   * placeholder that can be mistaken for a result is exactly what put a plain square over
-   * Grohnde. */
+  osmmesh_tile t={0};
+  /* The DEM is still in flight. This MUST count as pending: it is the most common reason a chunk
+   * is missing on a cold region, and if it does not, the streamer declares victory with an empty
+   * world and never asks again. */
+  if(osmmesh_fetch_tile(w3_osm,z,x,y,&t)!=OSMMESH_OK || !t.terrain){
+    osmmesh_free_tile(&t); w3_pending++; return -1; }
+
+  /* A tile is drawn when it is COMPLETE: elevation above, albedo here. An untextured stand-in
+   * would not be information, just a differently-coloured hole -- and a placeholder that can be
+   * mistaken for a result is exactly what put a plain square over Grohnde. */
   GLuint tex_osm = w3_bake(z,x,y,tex,W3_GROUND_OSM);
-  if(!tex_osm){ osmmesh_free_tile(&t); w3_ground_dirty=1; return -1; }
+  if(!tex_osm){ osmmesh_free_tile(&t); w3_pending++; return -1; }
   GLuint tex_photo = w3_bake(z,x,y,tex,W3_GROUND_PHOTO);   /* 0 is fine: the draw falls back to OSM */
   if(!tex_photo) w3_ground_dirty=1;
 
-  if(!w3_yoff_set && is_centre && z==W3_Z){
+  if(!w3_yoff_set && is_centre && z==W3_MAXZ){
     float best=1e30f; for(uint32_t i=0;i<t.terrain->n_vertices;i++){ const float*P=t.terrain->positions+i*3;
       float dd=P[0]*P[0]+P[1]*P[1]; if(dd<best){best=dd; w3_yoff=P[2];} }
     w3_yoff_set=1;
   }
-  int slot=-1; unsigned oldest=~0u;
-  for(int i=0;i<W3_CACHE;i++){
-    if(!w3_cache[i].valid){ slot=i; break; }
-    if(w3_cache[i].touch<oldest){ oldest=w3_cache[i].touch; slot=i; }
-  }
-  if(w3_cache[slot].valid){ glDeleteBuffers(1,&w3_cache[slot].vbo);
-    for(int k=0;k<2;k++) if(w3_cache[slot].tex[k]) glDeleteTextures(1,&w3_cache[slot].tex[k]); }
+  /* A free slot always exists: W3_CACHE is twice the budget and w3_cache_trim drops everything the
+   * tree did not ask for. If it ever does not, that is a real inconsistency -- say so rather than
+   * silently thrash. */
+  int slot=-1;
+  for(int i=0;i<W3_CACHE;i++) if(!w3_cache[i].valid){ slot=i; break; }
+  if(slot<0){ osmmesh_free_tile(&t); w3_pending++; return -1; }
+
   w3_cent*c=&w3_cache[slot];
-  c->vbo=w3_terr_vbo(t.terrain,&c->nverts);
+  c->vbo=w3_terr_vbo(t.terrain,&c->nverts,&c->err);
   c->tex[W3_GROUND_OSM]=tex_osm; c->tex[W3_GROUND_PHOTO]=tex_photo;
-  c->z=z; c->x=x; c->y=y; c->valid=1; c->touch=++w3_touch; w3_cache_bakes++;
+  c->z=z; c->x=x; c->y=y; c->valid=1; c->touch=++w3_touch; c->photo_none=0; w3_cache_bakes++;
   osmmesh_free_tile(&t);
   return slot;
 }
-/* Build a draw list for the grid around (cx,cy); entries just reference cached tiles.
- *
- * Walks the grid in RINGS outward from the centre: the tile under the aircraft first, then its
- * 8 neighbours, then the rest. This matters because tiles now arrive over the network with a
- * concurrency cap — iterating the grid corner-to-corner (dy=-rad..rad, dx=-rad..rad) let distant
- * corner tiles occupy the whole request budget while the ground directly under the aircraft was
- * still queued. Nearest-first means what you can actually see loads first. */
-static int w3_stream_grid(uint32_t cx,uint32_t cy,int z,int rad,int tex,int maxt,w3_tileGL*arr){
-  int n=0;
-  for(int ring=0;ring<=rad;ring++){
-    for(int dy=-ring;dy<=ring;dy++)for(int dx=-ring;dx<=ring;dx++){
-      if(dx>-ring&&dx<ring&&dy>-ring&&dy<ring) continue;   /* interior: done on an earlier ring */
-      int ci=w3_cache_get(z,cx+dx,cy+dy,tex,(dx==0&&dy==0));
-      if(ci<0 || n>=maxt) continue;
-      arr[n].vbo=w3_cache[ci].vbo; arr[n].nverts=w3_cache[ci].nverts;
-      arr[n].tex[0]=w3_cache[ci].tex[0]; arr[n].tex[1]=w3_cache[ci].tex[1]; n++;
-    }
-  }
-  return n;
+
+/* Fractional tile coords -- the camera sits between tiles, and the tree needs to know where.
+ * osmmesh_geo_to_tile only answers in whole tiles. */
+static void w3_geo_to_tile_f(double lat,double lon,int z,double*tx,double*ty){
+  double n=ldexp(1.0,z), la=lat*M_PI/180.0;
+  *tx=(lon+180.0)/360.0*n;
+  *ty=(1.0-asinh(tan(la))/M_PI)/2.0*n;
 }
-/* Stream the near (z14 detailed) + far (low-zoom, wide) tiers.
+/* Metres per tile at this zoom and latitude. */
+static double w3_tile_span(int z,double lat){
+  return 40075016.686*cos(lat*M_PI/180.0)/ldexp(1.0,z);
+}
+/* --- the tree walk -------------------------------------------------------------------------
  *
- * Called every frame. Two reasons to do work:
- *   1. the aircraft crossed into a new centre tile -> the wanted grid moved
- *   2. the last pass was INCOMPLETE -> tiles were still in flight from fb-tiles
- * (2) is what makes async sourcing work: a tile that hasn't arrived is simply absent from the
- * draw list and picked up on a later frame, so the world fills in progressively and the frame
- * loop never blocks. Cached tiles cost nothing to re-visit, so retrying is cheap. */
+ * One rule, and everything else falls out of it:
+ *
+ *     a chunk draws ITSELF, or its four children -- never both.
+ *
+ * That is the whole difference from the ring stack. There is no overlap to bias away, so no
+ * polygon offset, no draw order, no z-fighting: each square metre belongs to exactly one chunk.
+ *
+ * Refinement is async and never blocks or leaves a hole. If a chunk wants to split but its
+ * children have not arrived, the PARENT keeps drawing while the children load; the swap happens
+ * only when all four are resident. "LOD ist doch nur ein VBO pointer" -- exactly: the chunks are
+ * already baked and cached, so switching level is picking a different vbo, and a chunk that is not
+ * there yet simply is not picked yet.
+ *
+ * Loading is nearest-first because the walk is depth-first from the camera outward, and fb-tiles
+ * has a concurrency cap: whatever asks first gets the network. */
+static int w3_split_want=0, w3_split_wait=0;   /* chunks that wanted to split; couldn't (yet) */
+static int w3_over=0;                          /* splits refused by the budget -> coarser ground */
+static int w3_lvl[8];                          /* chunks drawn per level, W3_ROOTZ..W3_MAXZ */
+#ifndef W3_TRACE
+#define W3_TRACE 0                             /* 1 = log every stream pass */
+#endif
+
+/* Can this chunk be replaced by its four children right now? Asks for them either way -- that ask
+ * is what starts the fetch. */
+static int w3_children_ready(int z,uint32_t x,uint32_t y,int ci[4]){
+  int ok=1;
+  for(int q=0;q<4;q++){
+    ci[q]=w3_cache_get(z+1,x*2+(q&1),y*2+(q>>1),W3_TEX,0);
+    if(ci[q]<0) ok=0;                 /* still in flight: keep drawing the parent */
+  }
+  return ok;
+}
+static void w3_emit(int ci){
+  if(ci<0) return;
+  /* Dropping here is a HOLE in the ground, not a coarser chunk -- the split guard is supposed to
+   * have coarsened long before. Count it loudly: a silent drop here would look exactly like the
+   * tree working, which is the one thing this must never do. */
+  if(w3_nD>=W3_BUDGET){ w3_over++; return; }
+  { int L=w3_cache[ci].z-W3_ROOTZ; if(L>=0&&L<8) w3_lvl[L]++; }
+  w3_D[w3_nD].vbo=w3_cache[ci].vbo; w3_D[w3_nD].nverts=w3_cache[ci].nverts;
+  w3_D[w3_nD].tex[0]=w3_cache[ci].tex[0]; w3_D[w3_nD].tex[1]=w3_cache[ci].tex[1]; w3_nD++;
+}
+/* Recurse. (lat,lon,alt) = camera; (tx,ty) = camera's fractional tile coord at THIS level. */
+static void w3_walk(int z,long x,long y,double lat,double alt,double tx,double ty){
+  long n=1L<<z; if(x<0||y<0||x>=n||y>=n) return;        /* off the map: a real hole, not a gap */
+  double span=w3_tile_span(z,lat);
+  /* horizontal distance from the camera to the nearest point of this chunk */
+  double dx=fabs(tx-((double)x+0.5))-0.5, dy=fabs(ty-((double)y+0.5))-0.5;
+  if(dx<0)dx=0; if(dy<0)dy=0;
+  double horiz=sqrt(dx*dx+dy*dy)*span;
+  if(horiz-span*0.71>W3_REACH) return;                  /* past the drawn world */
+  double dist=sqrt(horiz*horiz+alt*alt); if(dist<1.0) dist=1.0;
+
+  int ci=w3_cache_get(z,(uint32_t)x,(uint32_t)y,W3_TEX,(z==W3_ROOTZ));
+  if(ci<0) return;                                      /* not here yet; a later frame gets it */
+
+  /* SSE from THIS chunk's own measured error. Flat terrain saturates by itself, mountains
+   * subdivide by themselves -- no per-zoom table, no assumption about where we are flying. */
+  float sse = w3_cache[ci].err * W3_SSE_K / (float)dist;
+  if(z>=W3_MAXZ || sse<=W3_EPS){ w3_emit(ci); return; }
+
+  /* BUDGET: coarsen, never hole. Refusing to split draws this chunk instead -- blurrier, but the
+   * ground is still there. Dropping it from the draw list would punch a hole in the world, which
+   * is the one thing the tree exists to prevent. */
+  if(w3_nD+4>W3_BUDGET){ w3_over++; w3_emit(ci); return; }
+
+  w3_split_want++;
+  int cc[4];
+  if(!w3_children_ready(z,(uint32_t)x,(uint32_t)y,cc)){
+    w3_split_wait++; w3_ground_dirty=1;                 /* keep the streamer awake for them */
+    w3_emit(ci);                                        /* parent covers the ground meanwhile */
+    return;
+  }
+  double ctx=tx*2.0, cty=ty*2.0;
+  for(int q=0;q<4;q++) w3_walk(z+1,x*2+(q&1),y*2+(q>>1),lat,alt,ctx,cty);
+}
+
+/* Called every frame. Two reasons to do work:
+ *   1. the camera moved into a new chunk -> the tree wants a different set
+ *   2. the last pass was INCOMPLETE -> chunks were still in flight from fb-tiles
+ * (2) is what makes async sourcing work: a chunk that has not arrived is covered by its parent and
+ * picked up on a later frame, so the world refines progressively and the frame loop never blocks.
+ * Cached chunks cost nothing to re-visit, so retrying is cheap. */
 static int w3_stream_done=0;
-static void world3d_stream(double lat,double lon){
+static void world3d_stream_at(double lat,double lon,double alt_agl){
   if(!w3_osm) return;
-  uint32_t tx,ty; if(osmmesh_geo_to_tile(lon,lat,W3_Z,&tx,&ty)!=0) return;
+  uint32_t tx,ty; if(osmmesh_geo_to_tile(lon,lat,W3_MAXZ,&tx,&ty)!=0) return;
   int moved = !w3_have_tile || tx!=w3_tx || ty!=w3_ty;
   if(!moved && w3_stream_done) return;
   w3_tx=tx; w3_ty=ty; w3_have_tile=1;
   int b0=w3_cache_bakes, h0=w3_cache_hits;
   w3_ground_dirty=0;                     /* recomputed by the w3_cache_get calls below */
-  /* NEAR tier first: the ground under and around the aircraft is what you actually see, and it
-   * must win the network budget over the distant ring. */
-  w3_nT  = w3_stream_grid(tx,ty,W3_Z,   W3_RAD,   W3_TEX,   W3_MAXT, w3_T);    /* near detail */
-  uint32_t fx,fy; osmmesh_geo_to_tile(lon,lat,W3_FARZ,&fx,&fy);
-  w3_nTF = w3_stream_grid(fx,fy,W3_FARZ,W3_FARRAD,W3_FARTEX,W3_MAXTF,w3_TF);   /* distant coarse ring */
-  int want = (2*W3_RAD+1)*(2*W3_RAD+1) + (2*W3_FARRAD+1)*(2*W3_FARRAD+1);
+  unsigned mark=w3_touch+1;              /* everything the walk touches gets touch >= mark */
+
+  w3_nD=0; w3_split_want=0; w3_split_wait=0; w3_over=0; w3_pending=0;
+  for(int i=0;i<8;i++) w3_lvl[i]=0;
+  double rtx,rty; w3_geo_to_tile_f(lat,lon,W3_ROOTZ,&rtx,&rty);
+  /* Roots: enough W3_ROOTZ chunks to cover W3_REACH. The tree prunes the rest immediately. */
+  int rad=(int)ceil(W3_REACH/w3_tile_span(W3_ROOTZ,lat))+1;
+  for(int dy=-rad;dy<=rad;dy++)for(int dx=-rad;dx<=rad;dx++)
+    w3_walk(W3_ROOTZ,(long)rtx+dx,(long)rty+dy,lat,alt_agl,rtx,rty);
+
+  w3_cache_trim(mark);                   /* whatever the walk did not ask for is unreachable */
+
   int was_done = w3_stream_done;
-  /* "Done" means every tile is resident AND showing the albedo we actually asked for. Without
-   * the second half, a TAB only took effect when the aircraft next crossed a tile boundary --
-   * about a minute in a 1000 m orbit -- because this function returns early once done and
-   * w3_cache_get, which does the upgrading, never ran again. The tiles were on disk the whole
-   * time; we had simply stopped asking. */
-  w3_stream_done = ((w3_nT + w3_nTF) >= want) && !w3_ground_dirty;
-  /* Only report on a real transition, or this would print every frame while tiles land. */
-  if(moved || (w3_stream_done && !was_done))
-    printf("[world3d] tiles near %d + far %d of %d | baked %d, cached %d%s\n",
-           w3_nT,w3_nTF,want,w3_cache_bakes-b0,w3_cache_hits-h0,
+  /* "Done" means the tree got everything it asked for AND every chunk shows the albedo we want.
+   * Without the second half a TAB only took effect at the next chunk boundary, because this
+   * function returns early once done and w3_cache_get, which does the upgrading, never ran again.
+   * The tiles were on disk the whole time; we had simply stopped asking. */
+  /* w3_nD>0 is not pedantry: "nothing is waiting" is also true of a tree that asked for nothing.
+   * Without it the first pass over a cold region -- where every chunk is still in flight -- sets
+   * done=1, this function returns early forever, and the world stays empty with no error anywhere.
+   * That is exactly what happened: "0 chunks drawn, 0 waiting", then silence. */
+  w3_stream_done = w3_nD>0 && w3_pending==0 && w3_split_wait==0 && !w3_ground_dirty;
+  /* Only report on a real transition, or this would print every frame while chunks land. */
+  if(moved || (w3_stream_done && !was_done) || W3_TRACE)
+    printf("[world3d] quadtree: %d chunks drawn (budget %d), %d wanted split, %d waiting,"
+           " %d pending, %d over budget | levels %d/%d/%d/%d/%d/%d/%d | baked %d, cached %d, evicted %d%s\n",
+           w3_nD,W3_BUDGET,w3_split_want,w3_split_wait,w3_pending,w3_over,
+           w3_lvl[0],w3_lvl[1],w3_lvl[2],w3_lvl[3],w3_lvl[4],w3_lvl[5],w3_lvl[6],
+           w3_cache_bakes-b0,w3_cache_hits-h0,w3_cache_evict,
            w3_stream_done?"":" (waiting on fb-tiles)");
 }
 #endif /* W3_USE_OSM */
@@ -654,7 +881,7 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
   glViewport(0,0,W,H); glEnable(GL_DEPTH_TEST); glClearColor(0.55f,0.70f,0.90f,1); glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
   float px=have?t->x:0, py=(have&&t->alt>2)?t->alt:120, pz=have?-t->y:0;
 #ifdef W3_USE_OSM
-  if(w3_nT>0) py=(have&&t->alt>1?t->alt:2)+w3_yoff;   /* AGL above the osmmesh ground */
+  if(w3_nD>0) py=(have&&t->alt>1?t->alt:2)+w3_yoff;   /* AGL above the osmmesh ground */
 #endif
   float yaw=have?t->yaw*RAD:0, pitch=have?t->pitch*RAD:0, roll=have?t->roll*RAD:0;
   float f[3]={cosf(pitch)*sinf(yaw),sinf(pitch),-cosf(pitch)*cosf(yaw)};
@@ -665,7 +892,7 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
   float up[3]={u[0]*cosf(roll)+s[0]*sinf(roll),u[1]*cosf(roll)+s[1]*sinf(roll),u[2]*cosf(roll)+s[2]*sinf(roll)};
   float sr[3]={s[0]*cosf(roll)-u[0]*sinf(roll),s[1]*cosf(roll)-u[1]*sinf(roll),s[2]*cosf(roll)-u[2]*sinf(roll)}; /* rolled screen-right */
   float eye[3]={px,py,pz},ctr[3]={px+f[0],py+f[1],pz+f[2]};
-  float view[16],proj[16],mvp[16]; m_lookat(view,eye,ctr,up); m_persp(proj,W3_FOV*RAD,(float)W/H,2.0f,45000.f); m_mul(mvp,proj,view);
+  float view[16],proj[16],mvp[16]; m_lookat(view,eye,ctr,up); m_persp(proj,W3_FOV*RAD,(float)W/H,W3_NEAR,W3_FARPLANE); m_mul(mvp,proj,view);
 
   /* ---- environment: real sun/moon direction (ENU: E=+X, up=+Y, N=-Z), sky, light ---- */
   float sun_el=have?t->sun_el:35.f, sun_az=have?t->sun_az:150.f;
@@ -718,23 +945,22 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
   }
   glDepthMask(GL_TRUE); glEnable(GL_DEPTH_TEST);
 #ifdef W3_USE_OSM
-  if(w3_nT>0||w3_nTF>0){   /* textured OSM terrain: far coarse ring + near detail, one draw per tile */
+  if(w3_nD>0){                       /* textured terrain: one quadtree cut, one draw per chunk */
     glUseProgram(w3_pWT); glUniformMatrix4fv(w3_wtMVP,1,GL_FALSE,mvp);
     glUniform3fv(w3_wtHaze,1,haze); glUniform1f(w3_wtLight,light); glUniform3fv(w3_wtSun,1,sun);
     glActiveTexture(GL_TEXTURE0); glUniform1i(w3_wtTex,0);
     glEnableVertexAttribArray(w3_wtPos); glEnableVertexAttribArray(w3_wtUV); glEnableVertexAttribArray(w3_wtNorm);
-    /* THE ground switch, in full: an index. Both albedos are already on the GPU. */
-    #define W3_DRAWARR(arr,n) for(int i=0;i<n;i++){ GLuint _t=arr[i].tex[w3_ground_mode]; if(!_t)_t=arr[i].tex[W3_GROUND_OSM]; \
-      glBindTexture(GL_TEXTURE_2D,_t); glBindBuffer(GL_ARRAY_BUFFER,arr[i].vbo); \
-      glVertexAttribPointer(w3_wtPos,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(pos)); \
-      glVertexAttribPointer(w3_wtUV,2,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(uv)); \
-      glVertexAttribPointer(w3_wtNorm,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(norm)); \
-      glDrawArrays(GL_TRIANGLES,0,arr[i].nverts); }
-    glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(4.0f,64.0f);   /* push the far ring back so near detail wins on overlap */
-    W3_DRAWARR(w3_TF,w3_nTF);
-    glDisable(GL_POLYGON_OFFSET_FILL);
-    W3_DRAWARR(w3_T,w3_nT);
-    #undef W3_DRAWARR
+    /* No polygon offset, no draw order, no coarse-to-fine: the chunks in w3_D are a CUT through
+     * the tree, so they tile the ground without overlapping. There is nothing to bias apart. */
+    for(int i=0;i<w3_nD;i++){
+      /* THE ground switch, in full: an index. Both albedos are already on the GPU. */
+      GLuint _t=w3_D[i].tex[w3_ground_mode]; if(!_t)_t=w3_D[i].tex[W3_GROUND_OSM];
+      glBindTexture(GL_TEXTURE_2D,_t); glBindBuffer(GL_ARRAY_BUFFER,w3_D[i].vbo);
+      glVertexAttribPointer(w3_wtPos,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(pos));
+      glVertexAttribPointer(w3_wtUV,2,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(uv));
+      glVertexAttribPointer(w3_wtNorm,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(norm));
+      glDrawArrays(GL_TRIANGLES,0,w3_D[i].nverts);
+    }
     glDisableVertexAttribArray(w3_wtUV); glDisableVertexAttribArray(w3_wtNorm);
   } else
 #endif
