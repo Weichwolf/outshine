@@ -49,8 +49,11 @@ static double w3_olat=52.045, w3_olon=9.385;   /* origin, set on osmmesh open; d
 /* stb_image: declarations only -- osmmesh/src/terrain.c owns the one implementation we link. */
 #include "../geo/osmmesh/src/3rdparty/stb_image.h"
 #include "gfx/mat4.h"
-/* OSM cartography (kind -> colour/width): GL-free, unit-tested in test/unit/test_style.c */
-#include "gfx/style.h"
+/* OSM cartography. Lives in tiles/ because that is where it will RUN: fb-tiles bakes the albedo
+ * and serves a finished texture (tiles/raster.c + tiles/bake.c). Until the renderer stops
+ * rasterising and just downloads that texture, this include reaches across -- deliberately ugly,
+ * so it does not get comfortable. */
+#include "../tiles/style.h"
 
 /* ---- GL program helpers ---- */
 static GLuint w3_shader(GLenum t,const char*src){ GLuint s=glCreateShader(t); glShaderSource(s,1,&src,0); glCompileShader(s);
@@ -568,6 +571,18 @@ static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
 
   osmmesh_tile t={0};
   if(osmmesh_fetch_tile(w3_osm,z,x,y,&t)!=OSMMESH_OK || !t.terrain){ osmmesh_free_tile(&t); return -1; }
+
+  /* The VECTOR must be here, not merely on its way. osmmesh_fetch_tile above only guarantees
+   * terrain -- a tile whose vector is still in flight passes it, and then w3_bake finds no bytes,
+   * silently skips its entire drawing block, and hands back a texture that is nothing but the
+   * base ground colour. w3_cache_get then caches that plain green square FOREVER: the entry is
+   * valid, so the LRU never revisits it. That is the "large rectangles covering rivers and roads"
+   * -- sporadic, permanent, and dependent on a race, which is why the same place was right
+   * yesterday. Exactly the bug w3_imagery_ready already guards against for the photo; the vector
+   * had no such guard. */
+  if(w3_stream_tiles && w3_tiles_size(OSMMESH_TILE_VECTOR,(int)z,(int)x,(int)y) < 0){
+    osmmesh_free_tile(&t); w3_ground_dirty=1; return -1;      /* come back when it lands */
+  }
   if(!w3_yoff_set && is_centre && z==W3_Z){
     float best=1e30f; for(uint32_t i=0;i<t.terrain->n_vertices;i++){ const float*P=t.terrain->positions+i*3;
       float dd=P[0]*P[0]+P[1]*P[1]; if(dd<best){best=dd; w3_yoff=P[2];} }

@@ -59,6 +59,23 @@ second stb TU would be the worse trade.
 **Why it's safe:** purely additive. `stbi_load_from_memory` gains a format; the PNG path,
 `osmmesh_terrain_decode_png` and every existing caller are untouched.
 
+### 3. stb_image_write.h added (3rdparty)
+
+**Why:** `fb-tiles` now bakes ground albedo textures and stores them on disk, so it needs to
+*encode* images, not just decode them. Upstream osmmesh only ever decoded (`stb_image.h`), so there
+was no encoder anywhere in the tree.
+
+**What:** `src/3rdparty/stb_image_write.h` v1.16, public domain / MIT — same author and repository
+as the `stb_image.h` already vendored here. PNG for the OSM cartography (flat colours, compresses
+hard) and JPEG for the aerial mosaic (a photo as PNG is ~2 MB — bigger than the 16 source JPEGs it
+replaces, which would make the "cache" a pessimisation).
+
+**Cost:** brings its own deflate, so no zlib and no new package in any container image. Nothing
+links it except `tiles/`.
+
+**Why it's safe:** a header-only addition. It defines no symbol `stb_image.h` uses, and nothing
+outside `tiles/` includes it.
+
 ## Notes carried from upstream
 
 - The MVT and terrain decoders take **raw bytes** and are independent of PMTiles:

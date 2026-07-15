@@ -1,14 +1,17 @@
-/* FlightBox renderer — OSM cartography: what colour is a thing, how wide is a road.
+/* FlightBox — OSM cartography: what colour is a thing, how wide is a road.
  *
- * Split out of world3d.h because it is pure data-driven mapping: a Shortbread "kind" string in,
- * an RGB triple (and a line width) out. No GL, no osmmesh types, no state — so the map's look is
- * assertable in a unit test instead of only judgeable by staring at a baked tile.
+ * Pure data-driven mapping: a Shortbread "kind" string in, an RGB triple (and a line width) out.
+ * No GL, no osmmesh types, no state — so the map's look is assertable in a unit test instead of
+ * only judgeable by staring at a baked tile.
+ *
+ * Lives in tiles/ rather than command_center/ because that is where it now RUNS: fb-tiles bakes
+ * the ground albedo and serves a finished texture, so the renderer no longer draws maps at all.
  *
  * The palette is deliberately flat/unlit: the tile texture is ALBEDO, and the sun is applied
  * per-pixel by the terrain shader. Baking shadows in here would double-light the world.
  */
-#ifndef W3_STYLE_H
-#define W3_STYLE_H
+#ifndef FB_STYLE_H
+#define FB_STYLE_H
 #include <stdint.h>
 #include <string.h>
 
@@ -44,4 +47,4 @@ static float w3_roadstyle(const char*k,int tex_res,uint8_t*r,uint8_t*g,uint8_t*b
   *r=200;*g=175;*b=140;return 1.4f*u;    /* track/path/footway/steps */
 }
 
-#endif /* W3_STYLE_H */
+#endif /* FB_STYLE_H */

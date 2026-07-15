@@ -1,4 +1,4 @@
-/* Unit tests — command_center/gfx/style.h
+/* Unit tests — tiles/style.h
  *
  * The map's cartography: a Shortbread "kind" string -> colour and stroke width. Pure mapping, so
  * it is assertable. What these pin is not "this exact RGB" (the palette is a taste decision that
@@ -7,7 +7,7 @@
  * Pinning exact bytes would make every palette tweak a test failure for no gain.
  */
 #include "tassert.h"
-#include "../../command_center/gfx/style.h"
+#include "../../tiles/style.h"
 
 /* the tile size the widths are tuned for */
 #define REF 1024
