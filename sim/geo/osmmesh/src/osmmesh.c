@@ -72,6 +72,10 @@ struct osmmesh_ctx {
     int                        has_linear_opts;
     int                        has_terrain_opts;
 
+    /* FlightBox local extension: host-supplied per-tile byte provider (see osmmesh.h). */
+    osmmesh_tile_provider tile_provider;
+    void                 *tile_provider_user;
+
     int enable_terrain;
     int enable_buildings;
     int enable_linears;
@@ -87,6 +91,19 @@ struct osmmesh_ctx {
  *  Keep these tables flat rather than hash-built: the layer count per tile
  *  is O(10) in Shortbread, a linear scan is cheaper than hashing.
  * ====================================================================== */
+
+/* --- FlightBox local extension ---
+ * Single seam for obtaining a tile's raw bytes: the host's provider if one is configured,
+ * otherwise the PMTiles archive as before. Both paths hand over a malloc'd buffer that the
+ * caller frees with osmmesh_pmtiles_free_tile (which is free()), so call sites are unchanged. */
+static int om_tile_bytes(osmmesh_ctx *ctx, osmmesh_tile_kind kind, osmmesh_pmtiles *pm,
+                         uint32_t z, uint32_t x, uint32_t y, uint8_t **out, size_t *len)
+{
+    if (ctx->tile_provider)
+        return ctx->tile_provider(ctx->tile_provider_user, kind, z, x, y, out, len)
+               ? OSMMESH_PMTILES_OK : OSMMESH_PMTILES_ERR_NOT_FOUND;
+    return osmmesh_pmtiles_fetch(pm, z, x, y, out, len);
+}
 
 static int name_matches(const char *name, const char *const *set, size_t n)
 {
@@ -264,6 +281,9 @@ int osmmesh_create(const osmmesh_config *cfg, osmmesh_ctx **out)
         ctx->has_terrain_opts = 1;
     }
 
+    ctx->tile_provider      = cfg->tile_provider;
+    ctx->tile_provider_user = cfg->tile_provider_user;
+
     ctx->enable_terrain   = cfg->enable_terrain   ? 1 : 0;
     ctx->enable_buildings = cfg->enable_buildings ? 1 : 0;
     ctx->enable_linears   = cfg->enable_linears   ? 1 : 0;
@@ -423,7 +443,7 @@ static int fetch_terrain_grid_raw(osmmesh_ctx *ctx,
     }
 
     uint8_t *png = NULL; size_t png_len = 0;
-    int rc = osmmesh_pmtiles_fetch(ctx->ter_pm, ter_z, ter_x, ter_y, &png, &png_len);
+    int rc = om_tile_bytes(ctx, OSMMESH_TILE_TERRAIN, ctx->ter_pm, ter_z, ter_x, ter_y, &png, &png_len);
     if (rc == OSMMESH_PMTILES_ERR_NOT_FOUND) return OSMMESH_OK;
     if (rc != OSMMESH_PMTILES_OK) return OSMMESH_ERR_IO;
 
@@ -622,7 +642,7 @@ static int build_neighbor_flat_full(osmmesh_ctx *ctx,
     }
 
     uint8_t *mvt_bytes = NULL; size_t mvt_len = 0;
-    if (osmmesh_pmtiles_fetch(ctx->vec_pm, z, nx, ny, &mvt_bytes, &mvt_len)
+    if (om_tile_bytes(ctx, OSMMESH_TILE_VECTOR, ctx->vec_pm, z, nx, ny, &mvt_bytes, &mvt_len)
             != OSMMESH_PMTILES_OK) {
         osmmesh_terrain_grid_free(&nraw);
         return OSMMESH_OK;
@@ -672,7 +692,7 @@ int osmmesh_fetch_tile(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
     /* ---- 1+2. Vector fetch + decode --------------------------------- */
 
     uint8_t *mvt_bytes = NULL; size_t mvt_len = 0;
-    int vrc = osmmesh_pmtiles_fetch(ctx->vec_pm, z, x, y, &mvt_bytes, &mvt_len);
+    int vrc = om_tile_bytes(ctx, OSMMESH_TILE_VECTOR, ctx->vec_pm, z, x, y, &mvt_bytes, &mvt_len);
 
     osmmesh_mvt_tile *mvt = NULL;
     int have_mvt = 0;

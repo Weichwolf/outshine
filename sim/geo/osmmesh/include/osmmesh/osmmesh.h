@@ -46,6 +46,17 @@ extern "C" {
 
 typedef struct osmmesh_ctx osmmesh_ctx;
 
+/* --- FlightBox local extension --- */
+typedef enum {
+    OSMMESH_TILE_VECTOR  = 0,   /* Shortbread MVT, uncompressed */
+    OSMMESH_TILE_TERRAIN = 1    /* Terrarium-encoded PNG */
+} osmmesh_tile_kind;
+
+/* See osmmesh_config.tile_provider. Returns 1 on success (hands over a malloc'd buffer). */
+typedef int (*osmmesh_tile_provider)(void *user, osmmesh_tile_kind kind,
+                                     uint32_t z, uint32_t x, uint32_t y,
+                                     uint8_t **out, size_t *len);
+
 typedef struct {
     /* Vector-tile source. The MVP accepts local filesystem paths only.
      * The field is named "url" because T10 will add an HTTP IO backend
@@ -69,6 +80,19 @@ typedef struct {
     size_t         vector_len;
     const uint8_t *terrain_data;
     size_t         terrain_len;
+
+    /* --- FlightBox local extension: per-tile byte provider ---------------------------
+     * If `tile_provider` is set it REPLACES the PMTiles archives entirely: osmmesh asks the
+     * host for each tile's raw bytes instead of needing a whole region up front. That is what
+     * lets tiles be fetched on demand from anywhere on earth rather than preloading a region.
+     *
+     * Contract: return 1 and hand over a malloc'd buffer in *out (+ *len) that osmmesh frees
+     * with free(); return 0 if the tile is unavailable (a genuine hole, or not fetched yet —
+     * osmmesh treats both as "no tile" and carries on). MUST NOT BLOCK: on WASM the host
+     * fetches asynchronously and answers from its own cache, returning 0 until the bytes land.
+     */
+    osmmesh_tile_provider  tile_provider;
+    void                  *tile_provider_user;
 
     /* Origin for ENU projection. Typically the BBox centre of the region
      * the caller is streaming; all meshes share this frame so the consumer
