@@ -55,11 +55,15 @@ render_check(){
   curl -s -f --max-time 3 http://localhost:8080/config.js >/dev/null 2>&1 || {
     echo "  SKIP: stack not running (./run-podman.sh) — this gate screenshots the live app"; return 0; }
   local rc=0 d; d=$(mktemp -d)
+  # 90 is a TIMEOUT, not a sleep: shot.sh returns as soon as the streamer reports "0 pending"
+  # (~10 s warm), and only spends the 90 if the tiles genuinely are not coming. Its exit 2 --
+  # "shot an unfinished world" -- must fail the gate rather than hand pngstat a half-empty sky
+  # and let it pass judgement on the renderer for it.
   for g in osm photo; do
-    if test/shot.sh "$d/$g.png" "$g" 800x600 25 >/dev/null 2>&1; then
+    if test/shot.sh "$d/$g.png" "$g" 800x600 90 >/dev/null 2>&1; then
       python3 test/pngstat.py "$d/$g.png" "$g" || rc=1
     else
-      echo "  $g: no screenshot"; rc=1
+      echo "  $g: no screenshot, or the world never finished streaming"; rc=1
     fi
   done
   rm -rf "$d"; return $rc

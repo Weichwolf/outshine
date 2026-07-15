@@ -61,13 +61,35 @@ def read_png(path):
     return w, h, bpp, out
 
 
+def is_ground(r, g, b):
+    """Is this pixel ground rather than sky?
+
+    The predicate this replaces was `not (b > r+20 and b > 90)` -- "anything not strongly blue is
+    ground". That let three things through that are not ground: the pale haze along the horizon
+    (near-white, b ~= r), the dark page title bar, and the HUD text. A screenshot of pure empty sky
+    scored 10% "non-sky" and the gate was `> 10`, so an empty world passed as
+    "OK — real terrain on screen". It did, for real, over two runs.
+
+    What actually separates them: sky is blue-dominant (b > g) at every brightness, and so is its
+    haze -- washing out moves it towards white, i.e. b -> g, never past it. Ground is the opposite:
+    vegetation and fields are green- or earth-dominant (g > b, r > b). So require the pixel to beat
+    blue by a margin. Neutral greys (title bar, cloud, HUD glyph edges) sit at b == g and are
+    excluded rather than counted, which is the whole point.
+
+    Grey asphalt is ground and is NOT counted here. That is deliberate: this is a floor on "did
+    real tiles reach the screen", not a land-cover census, and a predicate that admits neutral grey
+    would admit the title bar again.
+    """
+    return g > b + 8 or r > b + 8
+
+
 def main():
     path = sys.argv[1]
     label = sys.argv[2] if len(sys.argv) > 2 else ''
     w, h, bpp, px = read_png(path)
 
     cols = set()
-    nonsky = 0
+    ground = 0
     total = 0
     for y in range(0, h, 2):
         for x in range(0, w, 2):
@@ -75,14 +97,16 @@ def main():
             r, g, b = px[o], px[o+1], px[o+2]
             cols.add((r, g, b))
             total += 1
-            if not (b > r + 20 and b > 90):     # sky-ish blue -> not ground
-                nonsky += 1
-    pct = 100.0 * nonsky / total
+            if is_ground(r, g, b):
+                ground += 1
+    pct = 100.0 * ground / total
 
-    # >200 colours: a flat error screen or a bare sky has a handful. 10..98% non-sky: some ground
-    # AND some sky -- all-ground means the camera is buried, all-sky means nothing streamed.
-    ok = len(cols) > 200 and 10 < pct < 98
-    print("  %-6s %dx%d, %d distinct colours, %.0f%% non-sky" % (label, w, h, len(cols), pct))
+    # >200 colours: a flat error screen has a handful. 8..98% ground: some ground AND some sky --
+    # all-ground means the camera is buried, all-sky means nothing streamed. 8% is low because a
+    # level 500 m cruise legitimately puts the horizon high; it is a floor against "nothing", not
+    # a measure of framing.
+    ok = len(cols) > 200 and 8 < pct < 98
+    print("  %-6s %dx%d, %d distinct colours, %.0f%% ground" % (label, w, h, len(cols), pct))
     print("  %-6s %s" % (label, "OK — real terrain on screen" if ok
                          else "SUSPECT — scene looks empty or degenerate"))
     return 0 if ok else 1

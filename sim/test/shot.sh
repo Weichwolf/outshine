@@ -8,7 +8,11 @@
 # scene nobody ran. A headless browser loads the same WASM, the same JS and the same HTML the
 # user gets, so there is nothing left to drift.
 #
-#   ./shot.sh out.png [osm|photo] [WxH] [seconds]
+#   ./shot.sh out.png [osm|photo] [WxH] [timeout-seconds]
+#
+# The seconds are a TIMEOUT, not a sleep: shot.js waits for the streamer to report "chunks drawn,
+# 0 pending" and shoots then. Exit 2 means it never got there — the picture is of an unfinished
+# world and must not be read as a verdict on the renderer.
 #
 # Needs the stack running (../run-podman.sh) — it screenshots http://localhost:8080 like a user.
 set -uo pipefail
@@ -17,31 +21,25 @@ cd "$(dirname "$0")"
 OUT="${1:-/tmp/fb-shot.png}"
 GROUND="${2:-osm}"
 SIZE="${3:-1280x720}"
-WAIT="${4:-25}"
+WAIT="${4:-90}"
 
-# Chrome comes from the playwright cache — see the toolchain notes in CLAUDE.md. Overridable so
-# this is not welded to one machine.
-CHROME="${FB_CHROME:-$HOME/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome}"
-[ -x "$CHROME" ] || { echo "no chrome at $CHROME — set FB_CHROME"; exit 1; }
+command -v node >/dev/null || { echo "no node on PATH"; exit 1; }
+node -e "require('playwright')" 2>/dev/null || { echo "playwright not resolvable by node"; exit 1; }
+
+# Chrome comes from the playwright cache — see the toolchain notes in CLAUDE.md. Pinned rather
+# than left to playwright, which asks for a revision it did not install. Overridable so this is
+# not welded to one machine.
+export FB_CHROME="${FB_CHROME:-$HOME/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome}"
+[ -x "$FB_CHROME" ] || { echo "no chrome at $FB_CHROME — set FB_CHROME"; exit 1; }
 
 curl -s -f --max-time 3 http://localhost:8080/config.js >/dev/null || {
     echo "nothing serving on :8080 — start the stack with sim/run-podman.sh"; exit 1; }
 
-URL="http://localhost:8080/?ground=$GROUND"
 W="${SIZE%x*}"; H="${SIZE#*x}"
-
-# --use-angle=swiftshader: software GL, so this works headless with no GPU. NOT --use-gl=
-# swiftshader: this Chrome answers that with "Requested GL implementation (gl=none,angle=none)
-# not found", renders a blank white canvas, and still exits 0 with a screenshot -- a green-looking
-# check of an empty page.
-# --virtual-time-budget: chrome fast-forwards its clock and only shoots once the page goes idle,
-#   which is what gives the tile streaming time to actually land. Wall-clock sleeps would race.
 rm -f "$OUT"
-timeout $((WAIT + 40)) "$CHROME" --headless --no-sandbox --disable-gpu-sandbox \
-    --use-angle=swiftshader --enable-unsafe-swiftshader \
-    --screenshot="$OUT" --window-size="$W,$H" \
-    --virtual-time-budget=$((WAIT * 1000)) \
-    "$URL" >/dev/null 2>&1
+node shot.js "$OUT" "$GROUND" "$W" "$H" "$WAIT"
+rc=$?
 
 [ -s "$OUT" ] || { echo "no screenshot produced"; exit 1; }
 echo "$OUT  ($(stat -c%s "$OUT") bytes, ground=$GROUND, ${W}x${H})"
+exit $rc
