@@ -3,7 +3,9 @@
 # artifact it names instead of whatever happens to be on :8080.
 #
 #   ./bench_stack.sh up <git-ref> [port]   -> builds ref's WASM, serves it, prints the URL
-#   ./bench_stack.sh down                  -> removes the container
+#   ./bench_stack.sh down                  -> removes the containers
+#   ./bench_stack.sh cold [port]           -> a fb-tiles on an EMPTY volume, for cold-start gates
+#   ./bench_stack.sh coldrm                -> removes it and its volume
 #
 # WHY THIS EXISTS. A baseline was taken here against :8080 while another agent rebuilt that stack
 # from their working tree; the numbers were real, reproducible, and about the wrong build. This is
@@ -29,6 +31,8 @@ REPO="$(git rev-parse --show-toplevel)"
 
 NAME=fb-bench-flightbox
 AC=fb-bench-aircraft
+TCOLD=fb-tiles-cold
+VCOLD=fbtiles-cold
 NET=flightboxnet
 WT=/tmp/fb-bench-src
 
@@ -80,6 +84,46 @@ down)
     podman rm -f "$NAME" "$AC" >/dev/null 2>&1
     rm -rf "$WT"; git worktree prune
     echo ">> $NAME removed"
+    ;;
+cold)
+    # The same tool pointed the opposite way. The benchmark above NEEDS warmth -- a cold run
+    # measures network latency and upstream mood, not the renderer. A cold-start GATE needs the
+    # reverse, and cannot get it from a fresh origin: testing a region warms it, so every retry is
+    # a different origin, different relief, different split depths. You cannot iterate on a fix
+    # whose test rig changes with each attempt. An empty VOLUME makes Hameln itself cold, which is
+    # the same fixture every time, against a known warm target (128/128, 0 pending, ~9-12 s).
+    #
+    # Deliberately a separate switch and never a default: this really does fetch from upstream
+    # (thousands of tiles) and so breaks "upstream once per tile, ever". That is acceptable for a
+    # rare gate -- it is exactly what a new user's first minute does -- and not acceptable inside
+    # verify.sh quick.
+    #
+    # It does NOT touch fbtiles-cache. The warm volume is the baseline's precondition, not a
+    # convenience, and a gate that eats it would take the benchmark down with it.
+    PORT="${2:-8082}"
+    podman rm -f "$TCOLD" >/dev/null 2>&1
+    podman volume rm -f "$VCOLD" >/dev/null 2>&1
+    podman volume create "$VCOLD" >/dev/null
+    podman image exists fb-tiles || { echo "   FATAL: no fb-tiles image — run sim/run-podman.sh once"; exit 1; }
+    podman network exists "$NET" || podman network create "$NET" >/dev/null
+    podman run -d --name "$TCOLD" --network "$NET" -v "$VCOLD":/var/cache/fbtiles \
+        -p "$PORT":8081 fb-tiles >/dev/null || {
+        echo "   FATAL: $TCOLD did not start (port $PORT taken?)"; exit 1; }
+    # /health, never /elev. The readiness probe must not be a tile request: /elev fetches and
+    # caches a real DEM tile, so the check that says "the cold fixture is up" was itself the first
+    # thing to warm it (measured: one file in the empty volume, put there by this line). /health
+    # reports cache stats and fetches nothing.
+    for i in $(seq 1 20); do curl -s -f --max-time 2 "http://localhost:$PORT/health" >/dev/null && break; sleep 1; done
+    echo ">> COLD tiles on http://localhost:$PORT (volume $VCOLD, empty)"
+    echo "   flightbox: TILES_URL=http://localhost:$PORT   aircraft: TILES_ADDR=$TCOLD:8081"
+    # Do not hand out a timeout here. The first cold run MEASURES what cold costs; a number
+    # invented in advance arrives with the authority of a decision and is only a guess.
+    echo "   NOTE: the first run measures the cold cost — do not pre-declare a timeout, read it off."
+    ;;
+coldrm)
+    podman rm -f "$TCOLD" >/dev/null 2>&1
+    podman volume rm -f "$VCOLD" >/dev/null 2>&1
+    echo ">> $TCOLD and volume $VCOLD removed"
     ;;
 *)
     sed -n '2,8p' "$0"; exit 1 ;;
