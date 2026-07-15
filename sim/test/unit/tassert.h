@@ -39,5 +39,6 @@ void test_atmosphere(void);
 void test_mat4(void);
 void test_style(void);
 void test_lru(void);
+void test_prefetch(void);
 
 #endif /* FB_TASSERT_H */

@@ -44,7 +44,7 @@ fail=0
 
 # modules under test (pure) + the test drivers
 SRC="$ROOT/tiles/tilesrc.c $ROOT/tiles/route.c $ROOT/aircraft/fdm/atmosphere.c"
-TESTS="$HERE/main.c $HERE/test_tilemath.c $HERE/test_tilesrc.c $HERE/test_route.c $HERE/test_atmosphere.c $HERE/test_mat4.c $HERE/test_style.c $HERE/test_lru.c"
+TESTS="$HERE/main.c $HERE/test_tilemath.c $HERE/test_tilesrc.c $HERE/test_route.c $HERE/test_atmosphere.c $HERE/test_mat4.c $HERE/test_style.c $HERE/test_lru.c $HERE/test_prefetch.c"
 
 echo "== unit tests =="
 ( cd "$OUT" && gcc -O0 -g -Wall -Wextra --coverage -I"$HERE" -o unittests $TESTS $SRC -lm ) 2>"$OUT/cc.log" || {

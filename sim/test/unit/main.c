@@ -12,6 +12,7 @@ int main(void) {
     test_mat4();
     test_style();
     test_lru();
+    test_prefetch();
     printf("\n== %d/%d assertions passed ==\n", fb_t_run - fb_t_fail, fb_t_run);
     return fb_t_fail ? 1 : 0;
 }

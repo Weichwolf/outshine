@@ -24,6 +24,7 @@
 #include "elev.h"
 #include "cache.h"
 #include "route.h"
+#include "prefetch_api.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -99,15 +100,24 @@ static void handle(int fd, char *req) {
             }
             reply_bin(fd, fb_src_content_type(k), body, n);
             free(body);
+            /* Warm the OTHER kinds for the same ground, in the background. The renderer can
+             * switch its ground between the OSM render and the aerial photo at a keypress —
+             * meant as a fallback for when the camera cannot deliver — and a fallback view that
+             * first downloads 400 tiles is not a fallback. Answer first, warm after: this must
+             * never make the request the renderer IS waiting for any slower. */
+            fb_pf_warm(k, z, x, y);
             return;
         }
     }
     if (!strcmp(path, "/health")) {
-        long h, m, f, ch, cf, cx; fb_elev_stats(&h, &m, &f); fb_cache_stats(&ch, &cf, &cx);
-        char body[256];
+        long h, m, f, ch, cf, cx, pq, pd, pdr, pf; fb_elev_stats(&h, &m, &f); fb_cache_stats(&ch, &cf, &cx);
+        fb_pf_stats(&pq, &pd, &pdr, &pf);
+        char body[320];
         snprintf(body, sizeof body,
                  "ok dem_resident_hits=%ld dem_decoded=%ld dem_fail=%ld | "
-                 "cache_hits=%ld upstream_fetches=%ld fetch_fail=%ld\n", h, m, f, ch, cf, cx);
+                 "cache_hits=%ld upstream_fetches=%ld fetch_fail=%ld | "
+                 "prefetch_queued=%ld done=%ld dropped=%ld failed=%ld\n",
+                 h, m, f, ch, cf, cx, pq, pd, pdr, pf);
         reply(fd, "200 OK", "text/plain", body);
         return;
     }
@@ -118,6 +128,7 @@ int main(void) {
     int port = getenv("TILES_PORT") ? atoi(getenv("TILES_PORT")) : 8081;
     const char *cache = getenv("TILES_CACHE") ? getenv("TILES_CACHE") : "/var/cache/fbtiles";
     fb_elev_init(cache);
+    fb_pf_start();   /* background warming of the sibling tile kinds */
 
     int lfd = socket(AF_INET, SOCK_STREAM, 0);
     int one = 1; setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
