@@ -51,9 +51,46 @@
  * because emscripten.py's create_em_js special-cases it (`if not args or args == 'void'`).
  * Anything cleverer than a plain (void) here is worth checking against that function first,
  * because no C compiler can see the JS this produces. */
-/* Base URL of fb-tiles, e.g. "http://localhost:8081". Set once at start-up. */
+/* Base URL of fb-tiles, e.g. "http://localhost:8081". Set once at start-up.
+ *
+ * T.get is the ONE place that decides what a response MEANS. It used to be decided twice -- the
+ * raw-tile fetch and the albedo fetch carried the same eight lines -- and so it carried the same
+ * bug twice:
+ *
+ *     .then(function (r) { return r.ok ? r.arrayBuffer() : null; })
+ *     .then(function (b) { T.cache.set(key, b ? new Uint8Array(b) : new Uint8Array(0)); })
+ *
+ * fb-tiles answers a miss with 404 and the body "fetching\n" / "baking\n" -- it is telling us it
+ * has queued the work and we should ask again. `!r.ok` threw that away and recorded the tile as an
+ * empty one, permanently: `e === undefined` is the only thing that re-fetches, so the tile was
+ * never asked for again. MEASURED consequence: a cold region never loads. Over the Matterhorn the
+ * streamer sat at "0 chunks drawn, 39 pending" and went silent WHILE fb-tiles served those very
+ * tiles with 200 -- the browser had written them off seconds earlier. Hameln only ever worked
+ * because its cache volume has been warm for months.
+ *
+ * The rule, and it is deliberately asymmetric:
+ *
+ *     ONLY 200 (here it is) and 204 (nothing here, ever) are terminal. Everything else --
+ *     202, 404, 5xx, a network error, anything we have not thought of -- means ASK AGAIN.
+ *
+ * Unknown must fall towards the visible failure, not the invisible one. A retry loop is annoying
+ * and gets noticed; a silent hole looks exactly like a working world, which is what let this
+ * survive. Note the status is read, not the body: matching on "baking\n" would be a second, weaker
+ * copy of the same fact, and it would break the first time someone rewords the string. */
 EM_JS(void, w3_tiles_init, (const char *base), {
-    Module.__fbTiles = { base: UTF8ToString(base), cache: new Map(), inflight: 0 };
+    var T = { base: UTF8ToString(base), cache: new Map(), inflight: 0 };
+    T.get = function (url, key) {
+        fetch(url).then(function (r) {
+            if (r.status === 200) return r.arrayBuffer().then(function (buf) { return new Uint8Array(buf); });
+            if (r.status === 204) return new Uint8Array(0);   /* terminal: the server HAS looked, there is nothing */
+            return null;                                      /* 202/404/5xx/anything: not an answer yet */
+        }).then(function (v) {
+            if (v === null) T.cache.delete(key);              /* forget it -> the next frame asks again */
+            else T.cache.set(key, v);                         /* bytes, or a real 0-length hole */
+            T.inflight--;
+        }).catch(function () { T.cache.delete(key); T.inflight--; });   /* network error: also just retry */
+    };
+    Module.__fbTiles = T;
 })
 
 /* Byte length of a cached tile: >=0 if resident (0 = known hole), -1 if not fetched yet.
@@ -74,13 +111,7 @@ EM_JS(int, w3_tiles_size, (int kind, int z, int x, int y), {
         if (T.inflight > 256) return -1;
         T.cache.set(key, null);                        /* null = pending */
         T.inflight++;
-        fetch(T.base + '/t/' + names[kind] + '/' + z + '/' + x + '/' + y)
-            .then(function (r) { return r.ok ? r.arrayBuffer() : null; })
-            .then(function (b) {
-                T.cache.set(key, b ? new Uint8Array(b) : new Uint8Array(0));  /* empty = hole */
-                T.inflight--;
-            })
-            .catch(function () { T.cache.delete(key); T.inflight--; });       /* allow a retry */
+        T.get(T.base + '/t/' + names[kind] + '/' + z + '/' + x + '/' + y, key);
         return -1;
     }
     if (e === null) return -1;                          /* still in flight */
@@ -99,8 +130,8 @@ EM_JS(void, w3_tiles_copy, (int kind, int z, int x, int y, uint8_t *dst), {
  * on disk. So the renderer downloads ONE finished image per tile per albedo instead of a vector
  * tile plus 4 seam neighbours (OSM) or 16 z16 children (photo) — and rasterises nothing.
  *
- * Same async contract as the raw tiles: -1 means "not here yet, a fetch is now running", and the
- * caller retries on a later frame. Never blocks.
+ * Same async contract as the raw tiles, and the same T.get: -1 means "not here yet, ask again",
+ * 0 means "the server looked and there is nothing", >0 is bytes. Never blocks.
  */
 EM_JS(int, w3_bake_size, (int photo, int z, int x, int y, int tex), {
     var T = Module.__fbTiles; if (!T) return -1;
@@ -110,10 +141,7 @@ EM_JS(int, w3_bake_size, (int photo, int z, int x, int y, int tex), {
         if (T.inflight > 256) return -1;
         T.cache.set(key, null);
         T.inflight++;
-        fetch(T.base + '/bake/' + (photo ? 'photo' : 'osm') + '/' + z + '/' + x + '/' + y + '?tex=' + tex)
-            .then(function (r) { return r.ok ? r.arrayBuffer() : null; })
-            .then(function (b) { T.cache.set(key, b ? new Uint8Array(b) : new Uint8Array(0)); T.inflight--; })
-            .catch(function () { T.cache.delete(key); T.inflight--; });
+        T.get(T.base + '/bake/' + (photo ? 'photo' : 'osm') + '/' + z + '/' + x + '/' + y + '?tex=' + tex, key);
         return -1;
     }
     if (e === null) return -1;
