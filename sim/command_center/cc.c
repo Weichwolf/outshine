@@ -105,6 +105,12 @@ static EM_BOOL on_msg(int t,const EmscriptenWebSocketMessageEvent*e,void*u){(voi
 /* TAB is handled in index.html, not by SDL: the browser uses Tab for focus traversal, so it has
  * to be preventDefault()ed at the DOM before SDL ever sees it. */
 EMSCRIPTEN_KEEPALIVE void cc_toggle_ground(void){ w3_ground_toggle(); }
+/* glGenerateMipmap count over the whole run -- the tile-cache thrash counter. Sampled per frame by
+ * the LOD proof harness (per-frame delta -> p50); ~0 warm, explodes if a tile re-bakes each frame. */
+EMSCRIPTEN_KEEPALIVE long cc_mipmaps(void){ return w3_mipmaps; }
+/* Resident texture VRAM in bytes -- real, summed from the cache (world3d.h), for the ramp's VRAM
+ * budget check. Sampled by the harness against the 2 GB cap. */
+EMSCRIPTEN_KEEPALIVE long cc_texvram(void){ return w3_texvram(); }
 
 static int armed_latch=0, prev_enter=0; static uint16_t seq=0;
 static void send_control(void){

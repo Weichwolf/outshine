@@ -225,12 +225,77 @@ static void w3_build_procedural(void){
 #define W3_MAXZ 14                 /* finest level. The albedo bake stops here: fb-tiles' vector
                                     * source (VersaTiles Shortbread) has no z15. */
 #endif
-#ifndef W3_TEX
-#define W3_TEX 512                 /* per-chunk albedo, SAME at every level -- that is what makes
-                                    * it a chunk. z14 -> 1.5 km/512 = 2.94 m/texel.
-                                    * (The old near tier used 1024 = 1.47 m/texel over a 5x5 ring;
-                                    * matching that here would want z15, which the vector source
-                                    * does not have. Doubling this doubles texture VRAM.) */
+/* --- texture LOD ramp -----------------------------------------------------------------------
+ * The albedo used to be ONE fixed size (512) at every level -- "what makes it a chunk". But a
+ * chunk right under the camera fills far more screen than one at the horizon, so a single size is
+ * wrong at both ends: 512 stretched over a near chunk is blurry, 512 baked for a far one is wasted
+ * VRAM and a wasted server bake. The size is now chosen per draw from the chunk's on-screen size
+ * (w3_chunk_px -> w3_lod_for_px): the smallest ramp step that still covers it.
+ *
+ * The two callers -- w3_walk (the chunk's own distance) and w3_children_ready (the parent asking on
+ * the children's behalf) -- can pick different steps for the same tile. That disagreement is the
+ * OLD 1-FPS thrash: back then `tex` was a size passed BESIDE an unkeyed single texture, so a hit
+ * returned the wrong size and the "fix" was a re-bake, every frame, both ways. The cure is to make
+ * the step part of what a texture IS: tex[mode][lod] holds every size the tree has asked for, side
+ * by side. A disagreement then costs one extra bake, ONCE, and is a cache hit forever after --
+ * monotone state cannot flutter. Release stays at exactly one place, w3_cache_trim.
+ *
+ * The sizes are the server's bake sizes: the JS bake cache is already keyed by tex (tilesrc_js.h),
+ * and the server bakes per-tex, so a step maps straight to a bake request. 2048 is safe by the
+ * WebGL2 spec (MAX_TEXTURE_SIZE >= 2048); w3_lod_cap trims the table to what the context reports,
+ * so a spec-minimum context simply never uses a step it cannot hold. */
+#ifndef W3_NLOD
+#define W3_NLOD 4
+#endif
+static const int w3_lod_px[W3_NLOD] = { 256, 512, 1024, 2048 };
+static int w3_lod_cap = W3_NLOD;   /* trimmed at gfx init: min(hardware cap, policy ceiling below) */
+
+/* The ramp uses its full range (256..2048); the only cap is the hardware MAX_TEXTURE_SIZE. Load
+ * time is second to quality -- a big bake is paid ONCE and cached, and progressive loading (below)
+ * means it never blocks the first, visible image (a fresh 2048 OSM bake is 7-20 s against the live
+ * server; the 256 shows at once and the tile sharpens up the ladder behind it). 2048 is justified
+ * for BOTH albedos, each for its own reason, both MEASURED: PHOTO carries real z16 sub-metre imagery
+ * detail; OSM is VECTOR, and the MVT source extent is 4096 -- finer than a 2048 texture -- so
+ * rasterising at 2048 keeps street and footprint edges HARD (the max luma gradient is identical at
+ * 1024 and 2048; an upscale of 1024 would soften it). Sharper edges, less aliasing -- not upscaled.
+ * (An earlier note here claimed 2048 OSM was detail-free upscaling because "the source ends at z14".
+ * That was a measurement error: z14 is the TILE zoom, not the vector precision -- frequency/area
+ * averages miss edge sharpness, which is exactly where vector rasterisation wins. Corrected against
+ * the extent and the gradient.) The only real ceiling above 2048 is the extent (4096), which is
+ * VRAM-bound, not a source limit. W3_LOD_MAXSTEPS stays a knob only for a spec-minimum context that
+ * cannot hold the full ramp; normal contexts (>=2048 by the WebGL2 spec) use every step. */
+#ifndef W3_LOD_MAXSTEPS
+#define W3_LOD_MAXSTEPS W3_NLOD
+#endif
+
+/* Smallest ramp step whose texels meet the chunk's on-screen pixels (>= px), clamped to the caps.
+ * Under-supply (a small texture stretched over a big screen area) is the visible defect; over-
+ * supply is absorbed by the mipmap chain, so round UP. */
+static int w3_lod_for_px(double px){
+  int lod=0;
+  while(lod < w3_lod_cap-1 && (double)w3_lod_px[lod] < px) lod++;
+  return lod;
+}
+
+/* Proof scaffolding, both compiled out of production (default 0):
+ *   W3_LOD_INJECT -- force w3_children_ready to request one step away from w3_walk, so the
+ *                    side-by-side slots are actually exercised by a disagreement.
+ *   W3_LOD_NOKEY  -- collapse the ramp back to a single stored texture per mode that re-bakes on
+ *                    a size change: this reproduces the OLD thrash, and is the control the middle
+ *                    line of the proof is measured against. See w3_bake / the mipmap counter. */
+#ifndef W3_LOD_INJECT
+#define W3_LOD_INJECT 0
+#endif
+#ifndef W3_LOD_NOKEY
+#define W3_LOD_NOKEY 0
+#endif
+#ifndef W3_LOD_SPIN
+#define W3_LOD_SPIN 0             /* proof only: walk every frame (see world3d_stream_at) */
+#endif
+#if W3_LOD_NOKEY
+#define W3_LODIDX(lod) 0
+#else
+#define W3_LODIDX(lod) (lod)
 #endif
 #ifndef W3_TERR
 #define W3_TERR 22                 /* chunk geometry: 22x22 quads. The texture carries the detail;
@@ -304,6 +369,20 @@ static int w3_ground_dirty = 0;
  * "nothing is waiting" and "nothing was asked for" are different states, and conflating
  * them let the tree declare victory over an EMPTY world and never look again. */
 static int w3_pending=0;
+/* Chunks that ARE drawable (floor 256 present) but still below their SSE target -- the ones
+ * climbing the ramp. Kept apart from w3_pending on purpose: progressive loading means "shown" and
+ * "fully sharp" are different states, and only the FIRST gates convergence. w3_sharpen keeps the
+ * streamer awake so it keeps climbing, but never blocks "0 pending" -- otherwise a moving camera,
+ * always mid-climb on some near tile (a fresh 2048 is 7-20 s), would never let the gate latch. */
+static int w3_sharpen=0;
+static unsigned w3_pass_mark=0;   /* touch stamp at the start of THIS stream pass; want_lod_max is
+                                   * reset once per pass off it (first touch), then max'd. */
+
+/* Every glGenerateMipmap the tile path does. The tile cache is the ONLY caller (EVS uploads a raw
+ * video frame with no mipmap), so this is a clean per-frame thrash counter: it is ~0 once the cache
+ * is warm and explodes the instant a tile re-bakes every frame. That is the whole proof of the
+ * side-by-side LOD slots -- read it out of cc_mipmaps(). */
+static long w3_mipmaps=0;
 
 /* Upload one baked albedo as a GL texture. Returns 0 if it has not arrived yet (retry later) or
  * the server has nothing for this tile. */
@@ -322,7 +401,7 @@ static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS,int mode){
   glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,w,h,0,GL_RGB,GL_UNSIGNED_BYTE,px);
   /* trilinear (mipmaps) kills shimmer on distant tiles; anisotropy keeps the ground sharp at
    * grazing angles (the terrain is seen almost edge-on). */
-  glGenerateMipmap(GL_TEXTURE_2D);
+  glGenerateMipmap(GL_TEXTURE_2D); w3_mipmaps++;
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
@@ -394,12 +473,16 @@ static int world3d_tiles_open(const char*base,double lat,double lon){
  * chunks behind you are the NEWEST in the cache and the most useless; an LRU would keep them. */
 #define W3_CACHE (2*W3_BUDGET)
 
-/* tex[] holds BOTH albedos for the tile: [W3_GROUND_OSM] = the OSM render, [W3_GROUND_PHOTO] =
- * the aerial photo. Both are baked while streaming, so switching the ground is an index change,
- * not a re-bake. That is what makes it usable as a camera fallback: the moment you need the other
- * view is the moment you cannot afford to build it. Costs one extra texture per tile; the VBO
- * (the expensive part) is shared -- the geometry does not care what is painted on it.
- * tex[PHOTO] is 0 until its imagery lands; the draw falls back to tex[OSM] meanwhile. */
+/* tex[mode][lod] holds BOTH albedos at EVERY size the tree has asked for. [mode] is the ground
+ * source: [W3_GROUND_OSM] = the OSM render, [W3_GROUND_PHOTO] = the aerial photo -- both baked
+ * while streaming, so switching the ground is an index change, not a re-bake (the moment you need
+ * the camera fallback is the moment you cannot afford to build it). [lod] is the texture size step
+ * (w3_lod_px): a moving camera asks the same tile for different sizes as it nears, and each is kept
+ * side by side rather than re-baked over the last -- that is what turns the old size-disagreement
+ * thrash into one extra bake. The VBO (the expensive part) is shared across all of it -- the
+ * geometry is LOD-independent and does not care what size is painted on it.
+ * Any tex[mode][lod] is 0 until baked; the draw picks the nearest resident size (w3_pick_lod), and
+ * PHOTO falls back to OSM. */
 /* A slot's LIFECYCLE lives IN the slot, not in a side channel. The mesh is built OFF the main
  * thread now (tileworker.c), so a tile is no longer either absent or done -- it passes through
  * "asked the worker" and "worker delivered, not yet on the GPU". Putting `state` beside the entry
@@ -411,35 +494,69 @@ enum { W3_SLOT_FREE=0,   /* unused */
        W3_SLOT_WAIT,     /* posted to the worker; no mesh back yet */
        W3_SLOT_MESH,     /* worker delivered verts (in mverts, main heap); not yet uploaded */
        W3_SLOT_READY };  /* vbo uploaded + OSM albedo present -> drawable (the old `valid`) */
-typedef struct { int z; uint32_t x,y; GLuint vbo,tex[2]; int nverts; unsigned touch; int state;
-                 int photo_none;      /* the server has no photo here, ever */
+typedef struct { int z; uint32_t x,y; GLuint vbo,tex[2][W3_NLOD]; int nverts; unsigned touch; int state;
+                 int photo_none;      /* the server has no photo here, ever (size-independent) */
+                 int want_lod_max;    /* highest ramp step this chunk justifies THIS pass (its SSE
+                                       * target). trim frees resident steps above it -> a receding
+                                       * chunk gives its fine steps back. Per-pass max, distance-only. */
                  float err;           /* measured geometric error, metres -- drives the LOD */
                  float *mverts; int mnverts; float merr;  /* worker's mesh, awaiting GL upload */
+#if W3_LOD_NOKEY
+                 int texpx[2];        /* proof control: the size stored in tex[mode][0], to detect
+                                       * a size change and force the old re-bake */
+#endif
                  int want_yoff; } w3_cent;                /* this WAIT was the origin-elevation probe */
 static w3_cent w3_cache[W3_CACHE];
 static unsigned w3_touch=0;
 static int w3_cache_hits=0, w3_cache_bakes=0, w3_cache_evict=0;
 
-/* Drop everything the tree did not touch this pass. `touch` is stamped by w3_cache_get, so
- * "not asked for" and "not reachable" are the same question, answered by the tree itself.
+/* The ONE place a resident texture or VBO is freed, in both directions:
+ *  - a chunk the tree did NOT touch this pass is unreachable -> free it whole. `touch` is stamped by
+ *    w3_cache_get, so "not asked for" and "not reachable" are the same question, answered by the
+ *    tree. This is DISTANCE-based (the walk covers the 360 deg ring in range), NOT view-based: a
+ *    chunk turned out of frame but still near keeps its textures, so turning back is instant.
+ *  - a chunk the tree DID touch, but now at a lower SSE target than before (it is receding), frees
+ *    its ramp steps ABOVE want_lod_max -> VRAM tracks the resolution actually needed, symmetric with
+ *    w3_climb building it up. The floor (l=0) is never above any target, so a drawable tile never
+ *    loses its last texture here.
  *
  * Each state frees exactly what it owns. A WAIT slot owns nothing yet -- its worker request may
  * still be in flight; when the reply lands, w3_worker_mesh finds no matching WAIT slot (this freed
  * it) and frees the verts there. A MESH slot owns heap verts the worker delivered and the GPU
- * never received. A READY slot owns GL objects. Miss one and it leaks silently every boundary
- * crossing -- which is why the free lives at exactly one place, keyed off the state. */
+ * never received. A READY slot owns GL objects. Miss one and it leaks silently. */
 static void w3_cache_trim(unsigned mark){
   for(int i=0;i<W3_CACHE;i++){
     w3_cent*c=&w3_cache[i];
-    if(c->state==W3_SLOT_FREE || c->touch>=mark) continue;
+    if(c->state==W3_SLOT_FREE) continue;
+    if(c->touch>=mark){
+      /* touched: keep the chunk, but release ramp steps finer than it now justifies */
+      if(c->state==W3_SLOT_READY)
+        for(int m=0;m<2;m++) for(int l=c->want_lod_max+1;l<W3_NLOD;l++)
+          if(c->tex[m][l]){ glDeleteTextures(1,&c->tex[m][l]); c->tex[m][l]=0; }
+      continue;
+    }
     if(c->state==W3_SLOT_READY){
       glDeleteBuffers(1,&c->vbo);
-      for(int k=0;k<2;k++) if(c->tex[k]) glDeleteTextures(1,&c->tex[k]);
+      for(int m=0;m<2;m++) for(int l=0;l<W3_NLOD;l++)
+        if(c->tex[m][l]) glDeleteTextures(1,&c->tex[m][l]);
     } else if(c->state==W3_SLOT_MESH){
       free(c->mverts); c->mverts=0;
     }
     c->state=W3_SLOT_FREE; w3_cache_evict++;
   }
+}
+
+/* Real resident texture VRAM in bytes -- summed from what is actually on the GPU, not estimated.
+ * Each texture is size^2 RGB (3 B) plus its mipmap chain (+1/3), both albedos, every held step. This
+ * is the number that decides whether the top of the ramp fits the 2 GB budget, not a guess. */
+static long w3_texvram(void){
+  long b=0;
+  for(int i=0;i<W3_CACHE;i++){
+    if(w3_cache[i].state!=W3_SLOT_READY) continue;
+    for(int m=0;m<2;m++) for(int l=0;l<W3_NLOD;l++)
+      if(w3_cache[i].tex[m][l]){ long s=w3_lod_px[l]; b += s*s*3*4/3; }
+  }
+  return b;
 }
 
 /* The worker delivered a finished mesh for (z,x,y). Called from JS (the worker's onmessage copied
@@ -469,20 +586,89 @@ void w3_worker_fail(int z,uint32_t x,uint32_t y){
   }
 }
 
-/* Return a READY (drawable) slot for (z,x,y), or -1 if it is not ready yet. NEVER blocks.
+/* Bake tex[mode][lod] for (z,x,y) at size TS if it is not already resident. Returns:
+ *   1  present (already there, or baked just now)
+ *   0  the server has nothing here -- a genuine hole (only meaningful for PHOTO -> photo_none)
+ *  -1  in flight (or momentarily undecodable): ask again next frame
+ * This is the ONE place a tile texture is created, mirroring w3_cache_trim as the one place it is
+ * freed. The size is TS; the STORAGE slot is W3_LODIDX(lod) -- the two differ only under the
+ * W3_LOD_NOKEY control, where every size collapses onto slot 0 and a size change evicts first,
+ * reproducing the old re-bake-every-frame thrash on purpose. */
+static int w3_ensure_tex(w3_cent*c,int mode,int z,uint32_t x,uint32_t y,int TS,int lod){
+  int idx=W3_LODIDX(lod);
+#if W3_LOD_NOKEY
+  if(c->tex[mode][0] && c->texpx[mode]!=TS){ glDeleteTextures(1,&c->tex[mode][0]); c->tex[mode][0]=0; }
+#endif
+  if(c->tex[mode][idx]) return 1;
+  int n=w3_bake_size(mode==W3_GROUND_PHOTO,(int)z,(int)x,(int)y,TS);
+  if(n<0) return -1;
+  if(n==0) return 0;
+  GLuint t=w3_bake(z,x,y,TS,mode);
+  if(!t) return -1;                              /* undecodable: treat as in flight, keep asking */
+  c->tex[mode][idx]=t;
+#if W3_LOD_NOKEY
+  c->texpx[mode]=TS;
+#endif
+  w3_cache_bakes++;
+  return 1;
+}
+
+/* The GL texture to DRAW for this tile at the wanted step: the wanted size if resident, else the
+ * nearest resident FINER size (never blurrier than asked), else the nearest coarser, else 0. A
+ * tile can be READY with only one size baked -- the others land on later frames -- so the draw must
+ * always have something to bind rather than a hole. */
+static GLuint w3_pick_lod(const w3_cent*c,int mode,int lod){
+  for(int l=lod;l<W3_NLOD;l++) if(c->tex[mode][l]) return c->tex[mode][l];
+  for(int l=lod-1;l>=0;l--)    if(c->tex[mode][l]) return c->tex[mode][l];
+  return 0;
+}
+
+/* Progressive refinement: climb the ramp one step at a time toward `target`. The floor (256) is
+ * already resident when this runs (the MESH gate ensures it), so the tile is drawable the whole
+ * time -- each call requests only the NEXT step above the highest one present. That lets the cheap
+ * sizes show first and the expensive ones (a fresh 2048 is 7-20 s) land in the background without
+ * ever blocking the image. Sequential, not all-at-once: a 2048 bake is never kicked off before the
+ * 512 it supersedes is even shown, and the in-flight set stays small (the JS side caps at 256).
+ * Returns 1 when OSM has reached `target`, 0 while still climbing -- the caller counts a 0 as
+ * w3_sharpen (drawable, not yet sharp), NEVER as w3_pending, so climbing does not hold the gate. */
+static int w3_climb(w3_cent*c,int z,uint32_t x,uint32_t y,int target){
+  int hi=-1; for(int l=0;l<=target;l++) if(c->tex[W3_GROUND_OSM][l]) hi=l;
+  if(hi>=target){
+    /* OSM at target: let PHOTO catch up to the same step (opportunistic, never blocks the gate). */
+    if(!c->photo_none && !c->tex[W3_GROUND_PHOTO][target]){
+      int p=w3_ensure_tex(c,W3_GROUND_PHOTO,z,x,y,w3_lod_px[target],target);
+      if(p==0) c->photo_none=1; else if(p<0) return 0;   /* top photo step still fetching */
+    }
+    return 1;
+  }
+  int next=hi+1, TS=w3_lod_px[next];
+  w3_ensure_tex(c,W3_GROUND_OSM,z,x,y,TS,next);           /* -1 pending is the normal case here */
+  if(!c->photo_none){
+    int p=w3_ensure_tex(c,W3_GROUND_PHOTO,z,x,y,TS,next);
+    if(p==0) c->photo_none=1;
+  }
+  return 0;
+}
+
+/* Return a READY (drawable) slot for (z,x,y) at texture step `lod`, or -1 if not ready yet. NEVER
+ * blocks.
  *
  * The expensive work -- fetch DEM+MVT, decode, build the mesh (measured: 76 % of the per-tile
  * cost, ~23 ms) -- runs OFF the main thread now (tileworker.c). So this no longer DOES that work;
  * it drives the per-slot state machine and posts to the worker:
  *   not resident -> claim a slot, post to the worker, go WAIT, return -1
  *   WAIT         -> worker still building; return -1 WITHOUT re-posting (WAIT is the dedup)
- *   MESH         -> verts delivered; when the OSM albedo is here too, upload the VBO + bake the
- *                   textures, go READY, return the slot
- *   READY        -> drawable; opportunistically upgrade the photo albedo; return the slot
+ *   MESH         -> verts delivered; when the FLOOR albedo (256) is here too, upload the VBO, go
+ *                   READY at the floor and start climbing toward `lod` -- return the slot
+ *   READY        -> drawable; climb one ramp step toward `lod` (progressive), return the slot
  *
- * The albedo (OSM + photo) is still baked synchronously here via w3_bake -- that is the ~24 % the
- * worker does not carry (1c moves it to createImageBitmap). The frame-blocking 76 % is gone. */
-static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
+ * Progressive by design: a tile becomes drawable at the cheap 256 floor and SHARPENS up the ramp to
+ * its SSE target `lod` over later frames (w3_climb). So the readiness gate is the FLOOR, not the
+ * target -- a fresh 2048 (7-20 s) never blocks the first image. `lod` is part of what identifies a
+ * texture (tex[mode][lod]), never a size passed beside an unkeyed one, so the several steps a chunk
+ * climbs through sit side by side, not re-baked over each other. want_lod_max records the target so
+ * trim can release steps above it once the chunk recedes. */
+static int w3_cache_get(int z,uint32_t x,uint32_t y,int lod,int is_centre){
   int slot=-1;
   for(int i=0;i<W3_CACHE;i++)
     if(w3_cache[i].state!=W3_SLOT_FREE && w3_cache[i].z==z && w3_cache[i].x==x && w3_cache[i].y==y){ slot=i; break; }
@@ -494,8 +680,11 @@ static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
     for(int i=0;i<W3_CACHE;i++) if(w3_cache[i].state==W3_SLOT_FREE){ slot=i; break; }
     if(slot<0){ w3_pending++; return -1; }
     w3_cent*c=&w3_cache[slot];
-    c->z=z; c->x=x; c->y=y; c->state=W3_SLOT_WAIT; c->touch=++w3_touch;
-    c->photo_none=0; c->tex[0]=c->tex[1]=0; c->mverts=0; c->vbo=0;
+    c->z=z; c->x=x; c->y=y; c->state=W3_SLOT_WAIT; c->touch=++w3_touch; c->want_lod_max=lod;
+    c->photo_none=0; memset(c->tex,0,sizeof c->tex); c->mverts=0; c->vbo=0;
+#if W3_LOD_NOKEY
+    c->texpx[0]=c->texpx[1]=0;
+#endif
     /* Preserve the original yoff condition EXACTLY (is_centre && z==W3_MAXZ && !set): the worker
      * computes the origin ground elevation only when asked, and w3_worker_mesh applies it. */
     c->want_yoff = (is_centre && z==W3_MAXZ && !w3_yoff_set);
@@ -505,40 +694,34 @@ static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
   }
 
   w3_cent*c=&w3_cache[slot];
+  int fresh=(c->touch < w3_pass_mark);                    /* first touch this pass? */
   c->touch=++w3_touch;
+  if(fresh || lod>c->want_lod_max) c->want_lod_max=lod;   /* per-pass MAX of the requested target */
 
   if(c->state==W3_SLOT_WAIT){ w3_pending++; return -1; }   /* worker still building */
 
   if(c->state==W3_SLOT_MESH){
-    /* Mesh in hand. Draw only when COMPLETE (geometry + OSM albedo): a placeholder that can be
-     * mistaken for a result is exactly what put a plain square over Grohnde. Probe the albedo
-     * (a cache probe, not a decode) and upload the VBO only once we know we can finish, so a slot
-     * never holds a VBO with no texture. */
-    int n=w3_bake_size(0,(int)z,(int)x,(int)y,tex);
-    if(n<0){ w3_pending++; return -1; }                    /* albedo still in flight */
-    GLuint tex_osm = (n>0) ? w3_bake(z,x,y,tex,W3_GROUND_OSM) : 0;
-    if(!tex_osm){ w3_pending++; return -1; }               /* hole or undecodable: keep asking */
+    /* Mesh in hand. Gate drawability on the FLOOR albedo (256) -- cheap and fast, so the tile
+     * shows almost at once and sharpens later. Upload the VBO only once that texture is in hand, so
+     * a slot never holds a VBO with no texture (a placeholder square over Grohnde is the bug). */
+    int r=w3_ensure_tex(c,W3_GROUND_OSM,z,x,y,w3_lod_px[0],0);
+    if(r<=0){ w3_pending++; return -1; }                   /* floor in flight: keep asking */
     GLuint vbo; glGenBuffers(1,&vbo); glBindBuffer(GL_ARRAY_BUFFER,vbo);
     glBufferData(GL_ARRAY_BUFFER,(GLsizeiptr)((size_t)c->mnverts*sizeof(w3_vtx)),c->mverts,GL_STATIC_DRAW);
     free(c->mverts); c->mverts=0;
     c->vbo=vbo; c->nverts=c->mnverts; c->err=c->merr;
-    c->tex[W3_GROUND_OSM]=tex_osm;
-    c->tex[W3_GROUND_PHOTO]=w3_bake(z,x,y,tex,W3_GROUND_PHOTO);   /* 0 ok: draw falls back to OSM */
-    if(!c->tex[W3_GROUND_PHOTO]) w3_ground_dirty=1;
-    c->state=W3_SLOT_READY; w3_cache_bakes++;
+    { int p=w3_ensure_tex(c,W3_GROUND_PHOTO,z,x,y,w3_lod_px[0],0);  /* photo floor; OSM covers if -1 */
+      if(p==0) c->photo_none=1; }
+    c->state=W3_SLOT_READY;
+    if(!w3_climb(c,z,x,y,lod)) w3_sharpen++;                /* start the climb toward the target */
     return slot;
   }
 
-  /* READY: drawable. Opportunistic photo upgrade -- PENDING(-1) and HOLE(0) are different answers;
-   * conflating them keeps w3_ground_dirty set forever and walks every tile each frame. */
+  /* READY: drawable. Climb one step toward the target if not there yet -- side by side with the
+   * steps already resident, never re-baked over them. A chunk below its target is w3_sharpen, not
+   * w3_pending: it is on screen, just not yet at full resolution. */
   w3_cache_hits++;
-  if(!c->tex[W3_GROUND_PHOTO] && !c->photo_none){
-    int n=w3_bake_size(1,(int)z,(int)x,(int)y,tex);
-    if(n>0){ GLuint t2=w3_bake(z,x,y,tex,W3_GROUND_PHOTO);
-             if(t2){ c->tex[W3_GROUND_PHOTO]=t2; w3_cache_bakes++; } }
-    else if(n==0) c->photo_none=1;   /* no photo here, ever: stop asking */
-    else w3_ground_dirty=1;          /* in flight: come back next frame */
-  }
+  if(!w3_climb(c,z,x,y,lod)) w3_sharpen++;
   return slot;
 }
 
@@ -552,6 +735,19 @@ static void w3_geo_to_tile_f(double lat,double lon,int z,double*tx,double*ty){
 /* Metres per tile at this zoom and latitude. */
 static double w3_tile_span(int z,double lat){
   return 40075016.686*cos(lat*M_PI/180.0)/ldexp(1.0,z);
+}
+/* On-screen size of a chunk in FBO pixels: span * K / distance, the same projection the SSE uses
+ * (K = viewport_height / (2 tan(fov/2))). This is what the texture step is chosen to match, so a
+ * chunk's texel density tracks the pixels it actually covers -- and, being the identical arithmetic
+ * for a given (z,x,y,camera), it makes w3_walk and w3_children_ready agree by construction rather
+ * than by convention. (tx,ty) is the camera's fractional tile coord AT LEVEL z. */
+static double w3_chunk_px(int z,long x,long y,double lat,double alt,double tx,double ty){
+  double span=w3_tile_span(z,lat);
+  double dx=fabs(tx-((double)x+0.5))-0.5, dy=fabs(ty-((double)y+0.5))-0.5;
+  if(dx<0)dx=0; if(dy<0)dy=0;
+  double horiz=sqrt(dx*dx+dy*dy)*span;
+  double dist=sqrt(horiz*horiz+alt*alt); if(dist<1.0) dist=1.0;
+  return span*(double)W3_SSE_K/dist;
 }
 /* --- the tree walk -------------------------------------------------------------------------
  *
@@ -578,16 +774,24 @@ static int w3_lvl[8];                          /* chunks drawn per level, W3_ROO
 #endif
 
 /* Can this chunk be replaced by its four children right now? Asks for them either way -- that ask
- * is what starts the fetch. */
-static int w3_children_ready(int z,uint32_t x,uint32_t y,int ci[4]){
+ * is what starts the fetch. Each child is requested at the SAME step w3_walk will pick when it
+ * recurses into it (w3_chunk_px on the child's own coords), so in production the two callers agree
+ * and no size is baked twice. W3_LOD_INJECT bumps the step by one to force the disagreement the
+ * side-by-side slots exist to absorb -- the proof control, compiled out otherwise. */
+static int w3_children_ready(int z,uint32_t x,uint32_t y,int ci[4],
+                             double lat,double alt,double ctx,double cty){
   int ok=1;
   for(int q=0;q<4;q++){
-    ci[q]=w3_cache_get(z+1,x*2+(q&1),y*2+(q>>1),W3_TEX,0);
+    long cx=x*2+(q&1), cy=y*2+(q>>1);
+    int lod=w3_lod_for_px(w3_chunk_px(z+1,cx,cy,lat,alt,ctx,cty));
+    if(W3_LOD_INJECT) lod = (lod+1<w3_lod_cap) ? lod+1 : lod-1;
+    if(lod<0) lod=0;
+    ci[q]=w3_cache_get(z+1,(uint32_t)cx,(uint32_t)cy,lod,0);
     if(ci[q]<0) ok=0;                 /* still in flight: keep drawing the parent */
   }
   return ok;
 }
-static void w3_emit(int ci){
+static void w3_emit(int ci,int lod){
   if(ci<0) return;
   /* Dropping here is a HOLE in the ground, not a coarser chunk -- the split guard is supposed to
    * have coarsened long before. Count it loudly: a silent drop here would look exactly like the
@@ -595,7 +799,8 @@ static void w3_emit(int ci){
   if(w3_nD>=W3_BUDGET){ w3_over++; return; }
   { int L=w3_cache[ci].z-W3_ROOTZ; if(L>=0&&L<8) w3_lvl[L]++; }
   w3_D[w3_nD].vbo=w3_cache[ci].vbo; w3_D[w3_nD].nverts=w3_cache[ci].nverts;
-  w3_D[w3_nD].tex[0]=w3_cache[ci].tex[0]; w3_D[w3_nD].tex[1]=w3_cache[ci].tex[1]; w3_nD++;
+  w3_D[w3_nD].tex[0]=w3_pick_lod(&w3_cache[ci],W3_GROUND_OSM,lod);
+  w3_D[w3_nD].tex[1]=w3_pick_lod(&w3_cache[ci],W3_GROUND_PHOTO,lod); w3_nD++;
 }
 /* Recurse. (lat,lon,alt) = camera; (tx,ty) = camera's fractional tile coord at THIS level. */
 static void w3_walk(int z,long x,long y,double lat,double alt,double tx,double ty){
@@ -608,27 +813,30 @@ static void w3_walk(int z,long x,long y,double lat,double alt,double tx,double t
   if(horiz-span*0.71>W3_REACH) return;                  /* past the drawn world */
   double dist=sqrt(horiz*horiz+alt*alt); if(dist<1.0) dist=1.0;
 
-  int ci=w3_cache_get(z,(uint32_t)x,(uint32_t)y,W3_TEX,(z==W3_ROOTZ));
+  /* Texture step for THIS chunk from its own on-screen size -- the same arithmetic
+   * w3_children_ready used to request it, so no size is baked twice for one tile. */
+  int lod=w3_lod_for_px(span*(double)W3_SSE_K/dist);
+  int ci=w3_cache_get(z,(uint32_t)x,(uint32_t)y,lod,(z==W3_ROOTZ));
   if(ci<0) return;                                      /* not here yet; a later frame gets it */
 
   /* SSE from THIS chunk's own measured error. Flat terrain saturates by itself, mountains
    * subdivide by themselves -- no per-zoom table, no assumption about where we are flying. */
   float sse = w3_cache[ci].err * W3_SSE_K / (float)dist;
-  if(z>=W3_MAXZ || sse<=W3_EPS){ w3_emit(ci); return; }
+  if(z>=W3_MAXZ || sse<=W3_EPS){ w3_emit(ci,lod); return; }
 
   /* BUDGET: coarsen, never hole. Refusing to split draws this chunk instead -- blurrier, but the
    * ground is still there. Dropping it from the draw list would punch a hole in the world, which
    * is the one thing the tree exists to prevent. */
-  if(w3_nD+4>W3_BUDGET){ w3_over++; w3_emit(ci); return; }
+  if(w3_nD+4>W3_BUDGET){ w3_over++; w3_emit(ci,lod); return; }
 
   w3_split_want++;
   int cc[4];
-  if(!w3_children_ready(z,(uint32_t)x,(uint32_t)y,cc)){
+  double ctx=tx*2.0, cty=ty*2.0;
+  if(!w3_children_ready(z,(uint32_t)x,(uint32_t)y,cc,lat,alt,ctx,cty)){
     w3_split_wait++; w3_ground_dirty=1;                 /* keep the streamer awake for them */
-    w3_emit(ci);                                        /* parent covers the ground meanwhile */
+    w3_emit(ci,lod);                                    /* parent covers the ground meanwhile */
     return;
   }
-  double ctx=tx*2.0, cty=ty*2.0;
   for(int q=0;q<4;q++) w3_walk(z+1,x*2+(q&1),y*2+(q>>1),lat,alt,ctx,cty);
 }
 
@@ -643,13 +851,19 @@ static void world3d_stream_at(double lat,double lon,double alt_agl){
   if(!w3_osm) return;
   uint32_t tx,ty; if(osmmesh_geo_to_tile(lon,lat,W3_MAXZ,&tx,&ty)!=0) return;
   int moved = !w3_have_tile || tx!=w3_tx || ty!=w3_ty;
-  if(!moved && w3_stream_done) return;
+  /* W3_LOD_SPIN (proof only, 0 in production): defeat the "converged -> sleep" early-out so the
+   * tree walk runs EVERY frame. That is the adversarial condition the LOD-slot proof needs -- the
+   * old size-disagreement thrash was 256 mipmaps/frame precisely because the walk ran every frame;
+   * once it sleeps, no design re-bakes. Spinning here lets the mipmap counter separate a design
+   * that re-bakes under a persistent disagreement (NOKEY) from one that does not (the slots). */
+  if(!moved && w3_stream_done && w3_sharpen==0 && !W3_LOD_SPIN) return;   /* climb keeps us awake */
   w3_tx=tx; w3_ty=ty; w3_have_tile=1;
   int b0=w3_cache_bakes, h0=w3_cache_hits;
   w3_ground_dirty=0;                     /* recomputed by the w3_cache_get calls below */
   unsigned mark=w3_touch+1;              /* everything the walk touches gets touch >= mark */
+  w3_pass_mark=mark;                     /* want_lod_max resets off this on a chunk's first touch */
 
-  w3_nD=0; w3_split_want=0; w3_split_wait=0; w3_over=0; w3_pending=0;
+  w3_nD=0; w3_split_want=0; w3_split_wait=0; w3_over=0; w3_pending=0; w3_sharpen=0;
   for(int i=0;i<8;i++) w3_lvl[i]=0;
   double rtx,rty; w3_geo_to_tile_f(lat,lon,W3_ROOTZ,&rtx,&rty);
   /* Roots: enough W3_ROOTZ chunks to cover W3_REACH. The tree prunes the rest immediately. */
@@ -668,15 +882,23 @@ static void world3d_stream_at(double lat,double lon,double alt_agl){
    * Without it the first pass over a cold region -- where every chunk is still in flight -- sets
    * done=1, this function returns early forever, and the world stays empty with no error anywhere.
    * That is exactly what happened: "0 chunks drawn, 0 waiting", then silence. */
+  /* "Done" is the FLOOR criterion: every chunk drawable (256 present), nothing waiting. Sharpening
+   * up the ramp (w3_sharpen) is deliberately NOT here -- it keeps the streamer awake (the early-out
+   * above) but must not hold the gate, or a moving camera forever mid-climb on a fresh 2048 would
+   * never let "0 pending" latch. */
   w3_stream_done = w3_nD>0 && w3_pending==0 && w3_split_wait==0 && !w3_ground_dirty;
-  /* Only report on a real transition, or this would print every frame while chunks land. */
-  if(moved || (w3_stream_done && !was_done) || W3_TRACE)
+  /* Report on a transition, or when the sharpening count CHANGES (a step landed) -- not every frame
+   * while it merely stays nonzero, which under motion would be every frame. */
+  static int w3_last_sharpen=-1;
+  if(moved || (w3_stream_done && !was_done) || w3_sharpen!=w3_last_sharpen || W3_TRACE){
+    w3_last_sharpen=w3_sharpen;
     printf("[world3d] quadtree: %d chunks drawn (budget %d), %d wanted split, %d waiting,"
-           " %d pending, %d over budget | levels %d/%d/%d/%d/%d/%d/%d | baked %d, cached %d, evicted %d%s\n",
-           w3_nD,W3_BUDGET,w3_split_want,w3_split_wait,w3_pending,w3_over,
+           " %d pending, %d sharpening, %d over budget | levels %d/%d/%d/%d/%d/%d/%d | baked %d, cached %d, evicted %d, vram %ldMB%s\n",
+           w3_nD,W3_BUDGET,w3_split_want,w3_split_wait,w3_pending,w3_sharpen,w3_over,
            w3_lvl[0],w3_lvl[1],w3_lvl[2],w3_lvl[3],w3_lvl[4],w3_lvl[5],w3_lvl[6],
-           w3_cache_bakes-b0,w3_cache_hits-h0,w3_cache_evict,
+           w3_cache_bakes-b0,w3_cache_hits-h0,w3_cache_evict,w3_texvram()/(1024*1024),
            w3_stream_done?"":" (waiting on fb-tiles)");
+  }
 }
 #endif /* W3_USE_OSM */
 
@@ -770,6 +992,14 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
  * (live osmmesh) when an archive has been opened; otherwise a procedural world
  * is built as a standalone fallback. */
 static void world3d_init(void){
+  /* Trim the texture-LOD ramp to what this context can actually hold. WebGL2 guarantees >= 2048,
+   * so normally all four steps survive; a spec-minimum context simply never asks for a size it
+   * cannot bind, rather than failing the glTexImage2D silently at draw time. */
+  { GLint mx=2048; glGetIntegerv(GL_MAX_TEXTURE_SIZE,&mx);
+    int cap=0; while(cap<W3_NLOD && w3_lod_px[cap]<=(int)mx) cap++;
+    if(cap>W3_LOD_MAXSTEPS) cap=W3_LOD_MAXSTEPS;    /* policy ceiling: 2048 is gated (see table) */
+    if(cap<1) cap=1; w3_lod_cap=cap;
+    printf("[world3d] LOD ramp: %d steps, top %d px (MAX_TEXTURE_SIZE %d)\n",cap,w3_lod_px[cap-1],(int)mx); }
   w3_pW=w3_prog(W3_VSW,W3_FSW); w3_wPos=glGetAttribLocation(w3_pW,"aPos"); w3_wCol=glGetAttribLocation(w3_pW,"aCol"); w3_wMVP=glGetUniformLocation(w3_pW,"uMVP");
   w3_wHaze=glGetUniformLocation(w3_pW,"uHaze"); w3_wLight=glGetUniformLocation(w3_pW,"uLight");
   w3_pH=w3_prog(W3_VSH,W3_FSH); w3_hPos=glGetAttribLocation(w3_pH,"aPos"); w3_hCol=glGetAttribLocation(w3_pH,"aCol"); w3_hScale=glGetUniformLocation(w3_pH,"uScale");
