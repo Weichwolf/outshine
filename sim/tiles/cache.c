@@ -52,9 +52,14 @@ static void cache_path(fb_tile_kind k, int z, long x, long y, char *p, size_t n)
  * first: Squid's negative_ttl defaults to 0, and the whole mod_tile/renderd design is expiry
  * (render_expired, dirty timestamps). 30 days is derived, not picked: VersaTiles ships planet
  * builds roughly quarterly (osm.20260413, osm.20260105, osm.251006, osm.250728...), so a hole
- * CANNOT heal faster than that -- 30 days re-checks well inside one release cycle. The cost of
- * being wrong is asymmetric and that is why it is long: ~99% of holes are ocean and ocean never
- * heals, so a short TTL buys nothing and re-asks thousands of tiles for it. */
+ * CANNOT heal faster than that -- 30 days re-checks well inside one release cycle.
+ *
+ * The "~99% of holes are ocean, and ocean never heals" that used to justify the length here is
+ * DEAD: measured, the ocean is not a hole at all (Shortbread carries it as an explicit polygon on
+ * every zoom, so a missing tile can only be LAND). Which inverts the argument rather than removing
+ * it -- unmapped land is exactly the thing that later gets mapped, so the expiry matters MORE than
+ * the dead reason claimed, not less. The number survives its own justification; that is worth
+ * noticing rather than tidying away. */
 
 static void absent_path(fb_tile_kind k, int z, long x, long y, char *p, size_t n) {
     snprintf(p, n, "%s/%s/%d_%ld_%ld.absent", g_dir, fb_src_kind_name(k), z, x, y);

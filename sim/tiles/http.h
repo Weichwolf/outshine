@@ -1,15 +1,7 @@
 /* FlightBox tiles — the one HTTP GET.
  *
- * Extracted from cache.c when tilemap.c turned out to need the same thing. Copying it would have
- * meant two connection pools with two lifetimes, and the whole point of this code is that the pool
- * survives between requests: libcurl keeps its connections in the EASY HANDLE, so a handle per
- * fetch links the library and still pays every TLS handshake. Measured before this existed:
- * 127 ms/tile with a handle per fetch (or a curl process), 54 ms/tile with one kept -- 2.34x, and
- * the variance goes with it, because the variance WAS the handshake.
- *
- * The handle is thread-local: the prefetch pool has N workers, each gets its own pool of
- * connections, and nothing is shared between them. That is also why there is no mutex here.
- */
+ * The handle is thread-local and KEPT: libcurl's connection pool lives in the easy handle, so a
+ * handle per fetch pays every TLS handshake. That is the whole reason this is not a local. */
 #ifndef FB_HTTP_H
 #define FB_HTTP_H
 #include <stdint.h>
@@ -33,17 +25,10 @@ static CURL *fb_http_handle(void) {
     if (!h) return 0;
     curl_easy_setopt(h, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(h, CURLOPT_TIMEOUT, FB_HTTP_TIMEOUT_S);
-    /* "" = every encoding libcurl was built with. VersaTiles gzips as a TRANSFER encoding, and the
-     * cache must hold what a decoder expects, not the wire form. */
+    /* VersaTiles gzips as a TRANSFER encoding; the cache must hold what a decoder expects. */
     curl_easy_setopt(h, CURLOPT_ACCEPT_ENCODING, "");
-    /* The prevailing norm (OSM's tile usage policy, which VersaTiles/Esri/AWS do not restate but
-     * which is what tile consumers are judged by) requires a User-Agent that clearly identifies
-     * the application -- explicitly NOT a library default. `flightbox-tiles/1` said nothing about
-     * who we are or what we are for.
-     *
-     * No contact address: that is the user's to give, not ours to invent, and it would put a
-     * private address in the logs of three third parties. The trade is deliberate and worth
-     * knowing: without a contact, anyone we bother can only block us, never ask. */
+    /* The norm wants app name AND contact. No contact by the user's choice, so anyone we bother
+     * can only block us, never ask. */
     curl_easy_setopt(h, CURLOPT_USERAGENT,
                      "flightbox-sim/1 (flight simulator; non-commercial research)");
     pthread_setspecific(fb_http__key, h);
@@ -65,14 +50,8 @@ static size_t fb_http__sink(void *p, size_t sz, size_t nm, void *ud) {
     return add;
 }
 
-/* GET into memory. Returns the HTTP status (0 = the request never completed), and hands over a
- * malloc'd buffer the caller must free. The buffer is NUL-terminated one past `*n`, so a JSON
- * reply can be handed straight to a string parser without a copy -- the bytes themselves are
- * untouched, so a JPEG is still exactly `*n` bytes.
- *
- * A 404 is a RESULT, not an error: it is returned as 404 with no body, because "upstream does not
- * have this" and "the fetch broke" are different facts. `curl -f` used to collapse them into one
- * exit code, which is how an ocean of holes became indistinguishable from a broken network. */
+/* GET into memory; caller frees. Returns the HTTP status, 0 if the request never completed --
+ * a 404 is a result, not an error. NUL-terminated one past *n so JSON needs no copy. */
 static long fb_http_get(const char *url, uint8_t **out, size_t *n) {
     *out = 0; *n = 0;
     CURL *h = fb_http_handle();

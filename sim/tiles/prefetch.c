@@ -12,21 +12,10 @@
 #include <stdio.h>
 #include <unistd.h>
 
-/* How many workers. One was not a decision anybody wrote down -- the file said "the thread", in the
- * singular, and a cold region therefore streamed at the speed of one serial fetch.
- *
- * 4 is MEASURED, not chosen. 64 cold tiles through /t/, each thread count on its own untouched
- * region, ladder walked up and back down (the two passes agree, so the run did not drift):
- *      threads   1      2      4      8     16
- *      drain  4.04s  1.94s  1.40s  1.60s  1.58s
- *      vs 1   1.00x  2.09x  2.89x  2.53x  2.55x
- * It saturates at 4 and 8/16 buy nothing. What this does NOT say is that 4 beats 8: that gap
- * (0.20 s) is inside 4's own spread (1.48/1.31), so the honest claim is "1->2->4 helps, past 4 is
- * flat" -- and 4 is the cheapest point on the flat part. The ceiling is ~2.9x rather than linear
- * and WHY is unmeasured; do not invent a reason for it here.
- *
- * Overridable because the right number depends on the box and on what upstream tolerates, and a
- * value nobody can change is a value nobody can re-measure when either changes. */
+/* 4 is politeness toward upstream, not a measured optimum: fb-tiles scales to 16 and so does
+ * upstream, but nobody has measured what VersaTiles/Esri/AWS tolerate and their policies name no
+ * limit -- silence is not permission. Raising it trades a measured gain against an unmeasured ban.
+ */
 #define FB_PF_THREADS_DEFAULT 4
 #define FB_PF_THREADS_MAX     64
 
@@ -37,13 +26,8 @@ static int              g_run = 0;
 static long             g_done = 0, g_failed = 0, g_absent = 0;
 static int              g_nthreads = 0;
 
-/* IN-FLIGHT set. The queue de-duplicates against jobs that are WAITING; a job that has been popped
- * is invisible to it. With one worker that was harmless -- the duplicate simply found the tile on
- * disk a moment later and cost a cheap hit. With a pool it is not: two workers pop the same tile's
- * two copies and fetch it from upstream TWICE, in parallel, for nothing.
- *
- * So the popped job stays visible until it is finished. This lives here and not in prefetch.h
- * because it is policy, not queue: the header stays pure and assertable without a network. */
+/* The queue only de-dups against WAITING jobs; a popped one is invisible to it, so two workers
+ * could fetch the same tile at once. Policy, not queue -- prefetch.h stays pure. */
 static fb_pf_job g_inflight[FB_PF_THREADS_MAX];
 static int       g_inflight_on[FB_PF_THREADS_MAX];
 static long      g_inflight_hits = 0;
@@ -72,9 +56,7 @@ static void *worker(void *arg){
         g_inflight[slot] = j; g_inflight_on[slot] = 1;   /* claim it before letting go of the lock */
         pthread_mutex_unlock(&g_mx);
 
-        /* Either call answers from disk if present and does the expensive work otherwise; either
-         * way the result ends up cached, which is the entire purpose. The bytes are not wanted
-         * here — only the side effect. */
+        /* The bytes are not wanted here — only the cache side effect. */
         uint8_t *b = 0; size_t n = 0;
         int ok, absent = 0;
         if(j.kind >= FB_PF_BAKE_OSM)
@@ -82,21 +64,14 @@ static void *worker(void *arg){
                              j.z, j.x, j.y, j.tex, &b, &n);
         else {
             ok = fb_cache_get((fb_tile_kind)j.kind, j.z, j.x, j.y, &b, &n);
-            /* A tile upstream does not HAVE is not a failure, and counting it as one is the very
-             * mistake this pool now exists to stop making one layer down. Over an ocean region
-             * `failed` would climb into the hundreds and read as "the fetcher is broken" -- a
-             * counter lying in the exact way that costs an afternoon of debugging. */
+            /* A tile upstream does not have is not a failure. */
             if(!ok){ uint8_t *d = 0; size_t dn = 0;
                      absent = fb_cache_state((fb_tile_kind)j.kind, j.z, j.x, j.y, &d, &dn) == FB_TILE_ABSENT;
                      free(d); }
         }
         if(ok) free(b);
 
-        /* Both counters are shared now. They were incremented outside the lock, which was fine for
-         * exactly as long as there was one thread: `g_done++` is read-modify-write, so a pool turns
-         * the numbers we would judge the pool BY into a data race. A benchmark that corrupts its
-         * own counters reports whatever it likes. */
-        pthread_mutex_lock(&g_mx);
+        pthread_mutex_lock(&g_mx);            /* ++ is read-modify-write; the pool shares these */
         if(ok) g_done++; else if(absent) g_absent++; else g_failed++;
         g_inflight_on[slot] = 0;
         pthread_mutex_unlock(&g_mx);
@@ -111,16 +86,12 @@ void fb_pf_start(void){
     if(want < 1) want = 1;
     if(want > FB_PF_THREADS_MAX) want = FB_PF_THREADS_MAX;
 
-    /* The lock is held across the whole spawn loop on purpose. g_nthreads is read by inflight_has
-     * (under the lock) and written here; without this, an early worker reads it while it is still
-     * growing -- a data race, and one that would only ever show up as a missed de-duplication,
-     * i.e. as "the network is slow today". Workers block on their first pop until this returns. */
+    /* Held across the whole loop: inflight_has reads g_nthreads while it is still growing. */
     pthread_mutex_lock(&g_mx);
     g_run = 1;
     for(int i = 0; i < want; i++){
         pthread_t th;
-        /* g_nthreads counts what STARTED, not what was asked for: inflight_has scans it, and a
-         * thread that failed to spawn must not leave a slot nobody clears. */
+        /* counts what STARTED: a slot nobody clears would never de-dup */
         if(pthread_create(&th, 0, worker, (void *)(long)g_nthreads) != 0) break;
         pthread_detach(th);
         g_nthreads++;
@@ -152,8 +123,7 @@ void fb_pf_warm_bakes(int z, long x, long y, int tex){
         push_locked(FB_PF_BAKE_OSM,   z, tx, ty, tex);
         push_locked(FB_PF_BAKE_PHOTO, z, tx, ty, tex);
     }
-    /* broadcast, not signal: this pushed up to 18 jobs and there are now N workers asleep. A signal
-     * wakes ONE, which would drain 18 jobs through one thread and quietly undo the pool. */
+    /* broadcast: signal wakes ONE, which would drain all 18 jobs through one thread */
     pthread_cond_broadcast(&g_cv);
     pthread_mutex_unlock(&g_mx);
 }

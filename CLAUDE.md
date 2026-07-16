@@ -166,8 +166,12 @@ Two traps that already cost a session each, both fixed in `shot.js` — do not u
     agent held it — and every following `curl` returned **0**, because it got real answers from
     that agent's server. I read its counters as mine. The only thing that catches this is asking
     the thing under test to prove it is the thing under test: a fresh volume must answer
-    `cache_hits=0`; `threads.sh` survived only because it happened to assert
-    `prefetch_threads == requested`, which no foreign server could satisfy five times running.
+    `cache_hits=0` — **except that check is also wrong**: a freshly started FOREIGN container answers
+    `cache_hits=0` too, so it tests warmth, not ownership. It caught my case by luck (geo's server
+    was warm) and would miss the general one. What actually works: `podman run` exits 126 on a held
+    port — and `shopt -s inherit_errexit` is needed for `set -e` to see it at all, because bash
+    disables errexit inside `$(...)` by default. `threads.sh` survived only because it happened to
+    assert `prefetch_threads == requested`, and even that is blind at the default (4).
   - **A shared service is a shared measurement.** `run-podman.sh` is all-or-nothing: it rebuilds
     `fb-tiles` too, so two agents on one box measure each other. Caught only by hashes and idle
     sampling (WASM `a384db73` vs `c30957cb`; 61 % idle → 3 %). `bench_stack.sh` pins the artifact
