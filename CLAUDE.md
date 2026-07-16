@@ -1,404 +1,182 @@
 # FlightBox
 
 Simulated FPV flying-wing control system. All C. Real iNav firmware in the loop, a WASM browser
-"command center", live 3D terrain from real OSM/DEM data, live real-world weather.
+"command center", live 3D terrain from real OSM/DEM data, live weather.
 
-**The chain:** `control input → iNav (REAL firmware, SITL) → FDM → telemetry → renderer`
-Alongside it, **`fb-tiles`** serves real-world data to both the engine (ground elevation) and the
-renderer (terrain/map/imagery) — dynamically fetched, prepared and cached, never preloaded.
+**Chain:** `control → iNav (REAL SITL) → FDM → telemetry → renderer`. Alongside, **`fb-tiles`**
+serves real-world data to engine (elevation) and renderer (terrain/map/imagery) — fetched and
+cached on demand, never preloaded.
 
 ## Three facts that surprise everyone
 
-1. **There is no real X-Plane.** `sim/aircraft/xp_bridge.c` **is** the flight model. It merely
-   *speaks* the X-Plane UDP protocol (DREF/RREF :49000) so real iNav SITL connects to it as if it
-   were X-Plane. So the aerodynamics, wind, turbulence and thermals are all ours.
-2. **The renderer is a pure consumer.** It only displays telemetry and cannot influence the flight —
-   the simulation runs fine with no browser attached. A render freeze *looks* exactly like a flight
-   kick (the view stalls, then snaps to the meanwhile-advanced pose), so always check which it is.
-3. **iNav runs in truth-attitude mode** (`--sim=xp`): it reads attitude/rates straight from our
-   DREFs rather than deriving them from sensors. It will happily fly a physically impossible state
-   if we feed it one — it cannot detect our modelling errors. Our physics suite has to.
+1. **No real X-Plane.** `sim/aircraft/xp_bridge.c` **is** the flight model; it only *speaks* the
+   X-Plane UDP protocol (:49000) so real iNav SITL connects to it. Aerodynamics/wind/thermals are ours.
+2. **The renderer is a pure consumer** — displays telemetry, cannot influence flight. A render
+   freeze looks exactly like a flight kick (view stalls, then snaps to the advanced pose); check which.
+3. **iNav runs truth-attitude** (`--sim=xp`): reads attitude/rates from our DREFs, not sensors. It
+   will fly a physically impossible state if we feed one — it can't detect our modelling errors, the
+   physics suite has to.
 
 ## Inventory
 
 | Path | What |
 |---|---|
-| `sim/aircraft/` | Container **`fb-aircraft`**: real iNav 9.1.0 SITL + `xp_bridge.c` (FDM, atmosphere, ephemeris, MSP client, autonomous autopilot, telemetry downlink). `inav-patches/` carries our fixes to iNav itself. |
-| `sim/flightbox/` | Container **`fb-flightbox`**: HTTP/WebSocket server + the built WASM under `web/`. |
-| `sim/command_center/` | `cc.c` + `world3d.h` → WASM/WebGL: terrain (chunked-LOD quadtree), sky, HUD, WebCodecs video. There is no second renderer — to look at the view without a browser window, `test/shot.sh` screenshots this one. |
-| `sim/tiles/` | Container **`fb-tiles`**: the world-data service. Dynamically obtains and *prepares* real-world data and caches it, so nothing ships a preloaded region. `GET /elev?lat=&lon=` gives the engine one number — the ground height — by fetching the Terrarium DEM tile, decoding and interpolating it. Renderer tile routes (terrain/vector/imagery) come next. |
-| `sim/geo/` | **Vendored** osmmesh. No external checkout. Locally extended with a per-tile byte provider so tiles can be fetched on demand — see `osmmesh/VENDORED.md` for the delta. |
-| `sim/common/protocol.h` | The wire structs (telemetry / control / video). |
-| `sim/test/eval.py` | The physics validation suite — ~7500 invariants per run over real flight traces. |
-| `sim/test/verify.sh` | **One command, all gates**: unit+coverage, every build, the browser render, the physics suite. Use it — see "Measure the measurement" below for why it exists. |
-| `sim/test/shot.sh` + `shot.js` | Screenshots the REAL command center in headless Chromium (playwright). Replaced `render_native.c`. Waits for the streamer's own "0 pending", never a sleep — exit 2 = it shot an unfinished world, which is not a verdict on the renderer. |
-| `sim/test/pngstat.py` | Decides whether a screenshot has ground on it. Stdlib-only PNG reader; the predicate is "beats blue by a margin", because sky and its haze never do and vegetation always does. |
-| `sim/test/bench*` + `baseline.json` | The regression net. **Counters, not times** — see below for why. Records the sha256 of the WASM it actually measured and a `not_measured` list, so a number cannot outlive its caveats. `bench_stack.sh cold` gives fb-tiles an EMPTY volume, which is the only repeatable way to test a cold region: testing a real origin warms it. |
-| `.claude/agents/` | The specialist team (below). |
+| `sim/aircraft/` | **`fb-aircraft`**: iNav 9.1.0 SITL + `xp_bridge.c` (FDM, atmosphere, ephemeris, MSP, autopilot, telemetry). `inav-patches/` = our iNav fixes. |
+| `sim/flightbox/` | **`fb-flightbox`**: HTTP/WebSocket server + built WASM under `web/`. |
+| `sim/command_center/` | `cc.c` + `world3d.h` → WASM/WebGL: terrain (chunked-LOD quadtree), sky, HUD, WebCodecs video. No second renderer — `test/shot.sh` screenshots this one. |
+| `sim/tiles/` | **`fb-tiles`**: world-data service. `GET /elev?lat=&lon=` → ground height. `/t/<kind>/z/x/y` raw tiles, `/bake/<osm\|photo>/z/x/y?tex=` baked albedo. |
+| `sim/geo/` | **Vendored** osmmesh + per-tile byte provider. See `osmmesh/VENDORED.md`. |
+| `sim/common/protocol.h` | Wire structs (telemetry/control/video). |
+| `sim/test/eval.py` | Physics suite — ~7500 invariants/run over real traces. |
+| `sim/test/verify.sh` | **All gates**: unit+coverage, builds, browser render, physics. `quick` skips E2E. |
+| `sim/test/shot.sh`+`shot.js` | Screenshots real CC in headless Chromium. Waits streamer's `0 pending`; exit 2 = shot an unfinished world. |
+| `sim/test/pngstat.py` | Is there ground on a screenshot? Stdlib PNG reader, "beats blue by a margin". |
+| `sim/test/bench*`+`baseline.json` | Regression net. **Counters, not times.** Records measured WASM sha256; `bench_stack.sh cold` = empty volume. |
 
 ## Build & run
 
 ```bash
-sim/build-wasm.sh         # renderer -> flightbox/web/  (no bundled region: ~770 KB, was 33 MB)
-sim/run-podman.sh         # builds all three images and starts the stack -> localhost:8080
-sim/test/verify.sh        # ALL gates: unit+coverage, builds, browser render, physics suite
-sim/test/verify.sh quick  # ...without the E2E suite, for tight edit/check loops
-sim/test/shot.sh out.png [osm|photo] [WxH] [timeout-s]   # look at the real app, no browser window
-python3 sim/test/pngstat.py out.png    # ...and get a second opinion on whether it has ground
+sim/build-wasm.sh         # renderer -> flightbox/web/  (~770 KB, no bundled region)
+sim/run-podman.sh         # builds 3 images + starts stack -> localhost:8080
+sim/test/verify.sh [quick]
+sim/test/shot.sh out.png [osm|photo] [WxH] [timeout-s]
+python3 sim/test/pngstat.py out.png
 ```
 
-## Toolchain — it is all already installed, do not go looking
+- After `xp_bridge.c`: rebuild **aircraft**. After renderer: rebuild WASM **and** **flightbox** (WASM baked in).
+- **Restart containers together**, `fb-tiles` first (aircraft asks it for home elevation at startup).
+- DEM/tile cache in `fbtiles-cache` volume; upstream hit once per tile ever.
+- `ORIGIN_LAT`/`ORIGIN_LON`/`TILES_URL` reach the browser via `/config.js`.
+- `printf` from WASM → **browser console**, not container log.
 
-Nothing here needs installing, and nothing needs a container pulled. This list exists because a
-session once spent time and a 350 MB image pull rediscovering it.
+## Toolchain — already installed, do not go looking
 
 | What | Where |
 |---|---|
-| **emcc** (WASM) | `~/Git/emsdk` — `build-wasm.sh` finds it |
-| **node** | `node` is on `$PATH` (v20). A second one ships with emsdk (`~/Git/emsdk/node/22.16.0_64bit/bin/node`) — irrelevant, `build-wasm.sh` finds its own. |
-| **playwright** | installed globally; `require('playwright')` just resolves. |
-| **Chromium** | `~/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome` — **not** on `$PATH`, so `command -v chromium` finds nothing. `shot.sh` pins it and exports `FB_CHROME`. |
+| **emcc** | `~/Git/emsdk` — `build-wasm.sh` finds it |
+| **node** | on `$PATH` (v20) |
+| **playwright** | global; `require('playwright')` resolves |
+| **Chromium** | `~/.cache/ms-playwright/chromium-1228/...` — NOT on `$PATH`; `shot.sh` pins it via `FB_CHROME` |
 
-Headless Chromium needs `--use-angle=swiftshader` (there is no GPU). **Not** `--use-gl=swiftshader`:
-this Chrome answers that with `gl=none,angle=none`, renders a blank white canvas, and still exits
-0 with a screenshot — a green-looking check of an empty page.
+Headless Chromium needs `--use-angle=swiftshader` (no GPU). **Not** `--use-gl=swiftshader` (renders
+blank white, still exits 0). Fixed in `shot.js`, do not undo: never `--virtual-time-budget` (fast-
+forwards page clock while fetches run in real time → shoots empty worlds); pin the Chromium path;
+`shot.js` swallows the distro `rimraf` crash after the shot is saved.
 
-Two traps that already cost a session each, both fixed in `shot.js` — do not undo them:
-- **Never `--virtual-time-budget`.** It fast-forwards the *page's* clock while the tile fetches run
-  in real seconds, so it does not give streaming time, it takes it away and then shoots. Wait for
-  the streamer's `0 pending` instead.
-- **Pin the Chromium path.** The installed playwright asks for a revision it did not install (1.38
-  wants `chromium-1080`, the box has 1228) and answers `npx playwright install` — a browser
-  download to run a check that already has a browser.
-- The distro playwright throws `rimraf: callback function required` out of `close()`, after the
-  shot is safely on disk. `shot.js` swallows that one deliberately; a good screenshot exiting 1
-  gets ignored just as fast as a bad one exiting 0.
-
-- After changing `xp_bridge.c`: rebuild the **aircraft** image. After changing the renderer:
-  rebuild the WASM **and** the **flightbox** image (the WASM is baked in).
-- **Restart the containers together** — the aircraft caches the flightbox address and asks
-  `fb-tiles` for home's elevation at start-up, so start `fb-tiles` first.
-- The DEM/tile cache lives in the `fbtiles-cache` volume: upstream is hit once per tile, ever.
-- `ORIGIN_LAT`/`ORIGIN_LON` set the shared home and reach the browser via `/config.js`, as does
-  `TILES_URL`.
-- **A COLD CACHE now converges — proven. A FOREIGN ORIGIN is still not.** Hameln on an empty volume
-  (`bench_stack.sh cold`, verified 0 files before the run): `0 pending, 0 waiting` after **432 s**,
-  against ~15 s warm — a factor of 29. Verified at the pixels, not just the counters: a fully
-  rendered night landscape. That settles the 404 fix below. What it does NOT settle is a foreign
-  origin: Aoraki was never given enough time (111/128 at 300 s, and Hameln alone needs 432), and
-  `/elev` still seeds the wrong home elevation there — the Hameln run had no confound only by luck,
-  because the compiled-in seed (71.0 m) *is* Hameln's ground. A proof that works because the fixture
-  happens to match the fallback is not a proof of the general case.
-  - **The gate criterion is `0 pending && 0 waiting`, never a chunk count.** `W3_BUDGET` is a
-    ceiling, not a target: a complete cut through the tree can be any number under it, depending on
-    pose (this run: 126). `shot.sh` already waits on exactly that. Declaring "128 chunks" the
-    criterion made a budget constant into a goal the code never used.
-  - **`pngstat` was BLIND at night, not merely wrong — fixed in `e2d7dad`.** It called this run
-    `SUSPECT — scene looks empty` at 1 % ground while the screenshot showed fields, a settlement and
-    stars (`SUN -14`). The sign was never the problem: ground is green-dominant at night too
-    (g−b = **+5**), sky is blue-dominant (**−13**). The **margin** was a daylight constant while the
-    signal scales with the light — `uLight = 0.20 + 0.80*day`, so a daytime g−b of ~25 arrives as
-    ~5, under a threshold picked at noon. The killer number: a real night world scored **1.1 %** and
-    a screenshot with **no world in it at all** scored **1.0 %**. Two pictures, one verdict, one of
-    them empty. The gate was not red — it was blind. Now the margin is a fraction of the pixel's own
-    brightness (`max(2, 0.05*mean)`); the same two pictures separate to 33 % and 1.1 %, and daylight
-    is untouched by construction (`0.05*mean` = 7.5 at mean 150, against the old 8 — the two agree
-    to 0.1 pp on the one real daylight fixture, which mattered because the sun was down and the
-    daylight case could not be re-measured, only left alone).
-    **Still a colour predicate**: rock and snow are neutral and still under-report over an alpine
-    origin. That needs a structure criterion and a real rock screenshot, not a third recalibration.
-  - Honest throughput, from the first properly defined window: **5.9 prefetch jobs/s** (2540 jobs,
-    433 s, empty volume, 0 dropped, 0 failed). Consistent with the single worker thread; **proof of
-    nothing** — the test would be N threads against this same fixture, which is now repeatable.
-  - `dem_fail=89` in that run, with `fetch_fail=0` and `bake_fail=0`. Unexplained. Not interpreted.
-- **"Any origin on earth works" was the claim here, and it was FALSE.** A cold region did not load
-  at all. Measured over the Matterhorn on an unmodified build: `0 chunks drawn, 39 pending`, one
-  log line, then silence — while fb-tiles was already answering 200 for those very tiles. Hameln
-  only ever worked because its cache volume has been warm for months, which means **every number
-  this project has ever produced was a warm-region number**, this file's "10–20 s to stream"
-  included. Cause: fb-tiles said `404` for both "queued, ask again" and "there is none", and the
-  browser cached every 404 as a permanent hole. Fixed on both sides (`b2c5ede` server → `202`,
-  `d681a6f` browser → only 200/204 are terminal). **Still not proven**: the cold run over Aoraki
-  reached 111/128 chunks and did not converge inside 300 s. It GROUND rather than stalled — 4539
-  upstream fetches with 0 failures, 1593 bakes with 0 failures, nothing dropped, chunks rising
-  monotonically — so it is not the Matterhorn stall. But "grinds" is not what was promised.
-  Both halves of that run's fetch path have since been changed (libcurl, and a 4-thread pool —
-  measured 2.34x and 2.89x on the fetch path in isolation), so **the 300 s figure and everything
-  derived from it now describe a build that no longer exists.** Whether Aoraki converges today is
-  unknown; nobody has re-run it. **What is still unexplained and was never the thread**: 1593 bakes
-  in ~600 s is far faster than the 1.6 s per cold bake the comments claim, so the obvious story did
-  not add up then and does not now. Do not restore the "any origin" claim until a cold run is green.
-- `printf` from the WASM goes to the **browser console**, not the container log.
-
-## Process
+## Process — the rules, each earned by a bug
 
 - **Measure before theorising.** Every long debugging failure here began with a confident theory.
-- **Measure the measurement.** Five separate checks in this repo have reported confidently about
-  the wrong thing. `run-tests.sh` published :8080, the port a live stack already holds — the bind
-  failed into `/dev/null`, `set -e` was absent, and `eval.py` happily measured the LIVE aircraft
-  four times over while printing four model names. `TEST_MODE=1` was read by nobody, so the suite
-  flew on real Open-Meteo weather and was never reproducible: `coordination(sign)` was green
-  because the wind was calm, not because the physics was right. And `render_native` compiled
-  `W3_TERR=24/W3_FARTEX=256` while the browser shipped `22/512`, so "the renderer's regression
-  check" checked a scene nobody ran. **A green check of the wrong thing costs more than no check.**
-  The suite now takes its own port (`TEST_PORT`, default 8099), fails loudly if a container does
-  not start, and pins the weather (`WX_LIVE=0` + `TEST_*` knobs) so two runs are comparable.
-- **The replacement inherits the disease — twice, from the same hand, on the same afternoon.**
-  `shot.sh` was written to kill `render_native` for checking a scene nobody ran, then used
-  `--virtual-time-budget` under a comment claiming it "gives the tile streaming time to actually
-  land". It does the opposite, so it photographed empty worlds. And `pngstat.py` scored those
-  photographs `OK — real terrain on screen`, because "not strongly blue" counted the horizon haze,
-  the title bar and the HUD text as ground. Together they produced a confident, reproducible,
-  two-tool, false report that the renderer was broken — while the renderer drew 128/128 chunks in
-  the user's browser the whole time. **Before believing a checker, watch it fail.** Both now do:
-  the three known-empty screenshots score 0 % ground, the real one 40 %.
-- **The instrument that measures itself.** Six more, all from one evening, all the same shape —
-  the tool answered a question about itself instead of about the world:
-  - **Frame rate here is SIGN-INVERTED.** Headless chromium paces an idle page at ~131 ms while
-    the frame costs 0.5 ms, so injecting 25 ms/frame of CPU work makes the rate go UP (7.5 → 14
-    fps). A metric that improves when you add work cannot prove you removed any. `bench.sh` prints
-    it as a diagnostic and says so; never quote it.
-  - **A single sample is not a threshold.** "~47 % ground" was one screenshot, handed on as a
-    reference. Same software, other pose: 15–38 %. As a gate it would have failed everything,
-    forever. Gates are pngstat's own verdict and `128 chunks / 0 pending` — never a percentage.
-  - **`set -e` cannot catch a container that did not start.** Done again today, with the lesson
-    above already in this file: `podman run -p 8097` failed on "address already in use" — another
-    agent held it — and every following `curl` returned **0**, because it got real answers from
-    that agent's server. I read its counters as mine. The only thing that catches this is asking
-    the thing under test to prove it is the thing under test: a fresh volume must answer
-    `cache_hits=0` — **except that check is also wrong**: a freshly started FOREIGN container answers
-    `cache_hits=0` too, so it tests warmth, not ownership. It caught my case by luck (geo's server
-    was warm) and would miss the general one. What actually works: `podman run` exits 126 on a held
-    port — and `shopt -s inherit_errexit` is needed for `set -e` to see it at all, because bash
-    disables errexit inside `$(...)` by default. `threads.sh` survived only because it happened to
-    assert `prefetch_threads == requested`, and even that is blind at the default (4).
-  - **A shared service is a shared measurement.** `run-podman.sh` is all-or-nothing: it rebuilds
-    `fb-tiles` too, so two agents on one box measure each other. Caught only by hashes and idle
-    sampling (WASM `a384db73` vs `c30957cb`; 61 % idle → 3 %). `bench_stack.sh` pins the artifact
-    and records its sha256 per run. **A result without artifact identity is not a result.**
-  - **An alarm that always fires gets switched off.** "Texture uploads per frame must be 0" is
-    violated by EVS *by design* — the video frame is a new image every frame. The thrash detector
-    is `generateMipmap` (only the tile path calls it), and it was checked to stay SILENT during a
-    real tile-boundary bake, not just to fire on 256/frame.
-  - **`grep` finds the text, not the thing.** `world3d_render: NOCH DA` — from the tombstone
-    comment naming the deleted function. Two of us, same trap, same hour. Ask the definition and
-    the build, not the match. `grep -c` on minified JS counts lines, not occurrences.
-  - **`pgrep -f "foo.sh"` matches the waiter that greps for it.** A watcher waited 21 minutes on
-    itself and reported "still running" the whole time.
-- **There is no hot loop in the renderer. Measured, so stop looking for one.** SVS costs **0.8 % of
-  one core** — `frame_cb` p50 = 0.55 ms against ~150 ms of browser idle between frames. A change
-  that halves it saves 0.3 ms, which is below the 10.5 % noise floor: not just pointless, but
-  *unprovable*. SIMD and cache-locality work on this path buys nothing and can be shown to buy
-  nothing. (EVS costs a core, but that is SwiftShader decoding H.264 in software — on real hardware
-  it sits in the video block. Never quote it as "EVS costs a core".) The corollary is worse: the
-  measurement environment is only stable under saturation (photo spreads 0.1 % at 96.8 % of a core;
-  osm spreads 27.7 % at 0.8 %) — so the only path we could prove anything on is the one we do not
-  want to optimise. Refactor here for **structure and correctness**; performance is not on the table
-  because there is nothing on it.
-- **A number borrows authority from where it stands.** Two halves of one mistake, both made here in
-  one evening. A success criterion was declared "non-negotiable" without anyone asking whether it
-  was *reachable* — the cold test was given 300 s by a guess, and the guess inherited the gravity
-  of the criterion beside it. **A criterion without a feasibility check is not rigour, it is a
-  ritual; and a pre-registered number feels like rigour even when it was guessed.** Pre-registration
-  protects against explaining a result away afterwards. It does not protect against guessing.
-  Same shape, one paragraph up: a hedge ("read, not measured") placed BESIDE a claim covers the
-  provable half while the invented half rides along. Put the hedge in front, or split the sentence.
-- **One renderer.** There is no second renderer to keep in sync — `render_native.c` was deleted
-  because it drifted. The visual check is a headless browser on the real artifact (`test/shot.sh`).
-- **Space telemetry samples by `seq`, never by arrival time** — packets arrive batched, so `Δ/dt`
-  explodes into nonsense. This single mistake has produced two wrong diagnoses.
-- **Measure the input as well as the output.** The worst bug in the project's history (iNav emitting
-  a −3.0 yoke ratio = 3× full aileron) was invisible for a long time because only the aircraft's
-  *attitude* was ever measured, never the *command* driving it.
-- **No regression:** the physics suite must stay green. `coordination(sign)` and `coord-turn-rate`
-  encode "a real aircraft cannot turn one way while banked the other" — the worst bug we ever had.
-- Commit messages and code comments are in German/English as the file already uses; comment *why*,
-  not *what*.
+- **Measure the measurement.** Green checks of the wrong thing have cost more than no check: a suite
+  bound to `:8080` measured a live stack; a screenshot tool photographed empty worlds and a
+  predicate scored them "real terrain". Before believing a checker, **watch it fail** (mutate it,
+  see the check bite).
+- **Artifact identity, or it's not a result.** Two agents on one box measure each other. Pin the
+  artifact, record its sha256; `set -e` does NOT catch a container that failed to start (its
+  `podman run` exits 126, but curls to a *foreign* server on that port still return 0 — and bash
+  disables `set -e` inside `$(...)` unless `shopt -s inherit_errexit`). "Fresh volume ⇒ cache_hits=0"
+  tests warmth, not ownership.
+- **No number without a measurement; no criterion without a feasibility check.** A pre-registered
+  number feels rigorous even when guessed. A hedge beside a claim covers the provable half while the
+  invented half rides along — put the hedge in front.
+- **Space telemetry by `seq`, never arrival time** (packets arrive batched → Δ/dt explodes).
+- **Measure the input as well as the output** — the worst bug ever (iNav −3.0 yoke = 3× aileron) was
+  invisible because only attitude was measured, never the command.
+- **No hot loop in the renderer.** SVS = 0.8% of one core; the environment is only stable under
+  saturation. Refactor for structure/correctness, not performance. (EVS costs a core only because
+  SwiftShader decodes H.264 in software — never quote it as real cost.)
+- **Frame rate here is sign-inverted** (idle page paced ~131 ms, frame costs 0.5 ms → adding work
+  raises fps). Diagnostic only, never a gate. Gates: pngstat's verdict + `0 pending`, never a percentage.
+- **`grep` finds the text, not the thing** (tombstone comments; `grep -c` on minified JS counts
+  lines). `pgrep -f "x.sh"` matches the waiter grepping for it.
+- **Comments: only what code can't say** (a constraint, a unit, a why). Code is the truth; a comment
+  that restates it only diverges. Prefer deleting to explaining.
+- **No regression:** physics suite stays green. `coordination(sign)`/`coord-turn-rate` encode "can't
+  turn one way while banked the other" — the worst bug we had.
+- Commit messages / comments in German or English as the file already uses.
 
 ## The specialist team (`.claude/agents/`)
 
-They know each other and consult via `SendMessage`. **Details live with them — this file stays an
-overview.**
+They consult via `SendMessage`. **Ownership is social — concurrent edits to one file clobber.**
+Coordinate before editing outside your area.
 
-| Agent | Domain | Owns |
-|---|---|---|
-| `selig-fdm` | Flight dynamics & atmosphere | `physics_step` + aero constants |
-| `inav-firmware` | iNav, SITL↔X-Plane bridge, MSP, mixer, PIDs, real HW | `sim/aircraft/*`, protocol & MSP layer |
-| `renderer-gfx` | GLSL/WebGL, lighting, sky, tiles, video, HUD | `sim/command_center/*` |
-| `geo-mapdata` | osmmesh, PMTiles/MVT, DEM, projections, imagery | `sim/geo/*` |
-| `verify-measure` | Measurement rigour, the physics suite, falsification | `sim/test/*` |
+| Agent | Owns |
+|---|---|
+| `selig-fdm` | `physics_step` + aero constants |
+| `inav-firmware` | `sim/aircraft/*`, protocol & MSP |
+| `renderer-gfx` | `sim/command_center/*` |
+| `geo-mapdata` | `sim/geo/*` |
+| `verify-measure` | `sim/test/*`, measurement rigour |
 
-File ownership is enforced socially, not by tooling: **concurrent edits to the same file clobber
-each other** — this has actually happened. Coordinate before editing outside your area.
+## Cold regions & foreign origins
 
-## Open work
+- **Cold cache converges** (Hameln empty volume: `0 pending` after ~432 s vs ~15 s warm, verified at
+  pixels). Root cause was `404` meaning both "queued" and "none" → browser cached holes forever;
+  fixed server→`202`, browser→only 200/204 terminal.
+- **Foreign origin still unproven.** Aoraki ground rather than stalled at 300 s — but the fetch path
+  has since changed (libcurl + pool), so that figure describes a build that no longer exists; nobody
+  re-ran it. `/elev` still seeds Hameln's ~71 m over foreign ground. Don't restore "any origin works".
+- **Poles: renderer and server disagree.** `world3d.h`'s `w3_geo_to_tile_f` and `tiles/tilemath.h`'s
+  `fb_geo_to_tile` are the same formula but the server clamps lat to ±85.0511, the renderer doesn't →
+  origin beyond ±85.0511 renders nothing while fb-tiles serves clamped pole tiles. Fix is ONE shared
+  definition (probably `common/`, like `protocol.h`), not a second clamp — clamping rounds to the
+  nearest *wrong* tile. Honest polar behaviour: refuse at startup. Touches three owners.
 
-- **fb-tiles' fetch path was rebuilt; the numbers live in `tiles/cache.c` and `tiles/prefetch.c`.**
-  libcurl with a kept handle (2.34x) and a 4-thread pool (2.89x, saturates at 4 — the ladder is in
-  the code). `/t/` now answers 200/202/204 from `fb_tile_state{READY,UNKNOWN,ABSENT}`; a 404 writes
-  a `.absent` marker with a 30-day TTL, so the ocean tile stops asking. Proven at the wire, not
-  just the counter.
-  - **Two numbers previously in THIS file are withdrawn**: "3.2x" (a /tmp benchmark, not this
-    server) and "116 s of the 433 s cold Hameln run" (that ratio times a fetch count nobody had
-    measured — a real number times a guessed one is a guess). What a cold Hameln run saves is
-    still unmeasured.
-  - **The 30-day TTL**: nobody in this business caches a negative forever (Squid's `negative_ttl`
-    is 0; mod_tile is built entirely on expiry), and a permanent, silent, self-invented rule is the
-    wrong thing to be first at. Derivation in `cache.c`.
-- **Esri NEVER answers 404 — it serves a placeholder with a 200, and we used to cache it as ground.**
-      z21/z24/x out of range/z99/1/1  -> 200, 2521 B, sha 9eafd300   the same placeholder card
-      z12 ocean                       -> 200, 1652 B, ddd50da0       a real (constant) ocean tile
-  So absence cannot be read off the status code, and `maxz = 19` in `tilesrc.c` is a GLOBAL constant
-  standing in for a LOCAL fact. Measured coverage: Hameln z19 yes, Sahara stops at z18, Patagonia at
-  z17, Antarctica has nothing at z16 at all. Fixed by asking Esri's own tilemap oracle
-  (`tiles/tilemap.{h,c}`, 1024 tiles per 80 ms request): Patagonia z18 now answers 204 and is never
-  fetched, Hameln z18 still returns its real 18126-byte image.
-  - **`"adjusted": true` is the trap in it**: a 32x32 request came back describing a 32x4 rectangle.
-    The reply answers a question you did not ask and says so only in `location`. Indexing against
-    your own request reads garbage from the first adjusted answer on, at some tiles, sometimes —
-    and adjusted replies turned out to be COMMON, not exotic. Read the rectangle out of the reply.
-  - The parser is pure and 100% covered; **all five mutations bite — but only after one of them did
-    not.** The `valid:false` test was green for the wrong reason (its fixture also failed the length
-    check, so deleting the valid-check changed nothing). A test that passes for a reason other than
-    the one it names is not a weaker test, it is not a test.
-  - `-1` from the oracle means UNKNOWN and must fall through to fetching. Absence has to be
-    positively established, or "no answer" quietly becomes "no tile" — the overloaded 404 again.
-- **What the three sources do where there is no data — measured, and it inverts the obvious guess.**
-      Patagonia -41.77/-66.01   OSM 404   DEM 545 m         Esri 10119 B
-      S Atlantic -35/-45        OSM 200   DEM exactly 0     Esri 1652 B
-      N Atlantic 30/-40         OSM 200   DEM -3409..-3175  Esri 1652 B
-  **The ocean is not a hole**: Shortbread carries it as a polygon, so it answers 200. **The holes
-  are UNMAPPED LAND.** Esri never 404s — it has ONE constant ocean tile (both oceans byte-identical,
-  `ddd50da0…`, 0.2 bit/px). Terrarium fills no-data with **0 = sea level**, and serves real
-  bathymetry where it has it. So: **nobody upstream ever answers "no data" — they all always
-  deliver.** Our `/bake` now does too (an ABSENT vector tile bakes the base fill: measured
-  202 -> 200, one colour, `bake_fail` 18 -> 0).
-  **The correction that matters more than the finding**: `e570963`'s commit message and this file
-  called the proof tile an ocean tile. It sits 80 km INLAND in Rio Negro — Patagonian steppe with
-  nothing in OSM and 545 m of elevation under it. I wrote "South Atlantic, open ocean" without
-  looking at the coordinate, and had it been ocean the fix would have been backwards (blue over
-  Patagonia). Look at the coordinate before naming it.
-- **The gates only ever test warm.** `verify.sh` is 4/4 green on Hameln while a cold region loads
-  nothing at all. A cold gate needs the empty volume above, not a foreign continent — and writing
-  one before the fix is green would cement today's broken state as the expectation.
-- **`pngstat` is still a colour predicate, so still an assumption about the landscape.** The night
-  half is fixed (`e2d7dad`, above); rock and snow are neutral and still are not counted, so an
-  alpine origin under-reports and a real world can still be called empty. The criterion should be
-  "has structure no sky has" — and it needs a real rock-face screenshot to check against, not a
-  third recalibration of the same idea. Fix it when someone has that screenshot.
-- **Texture LOD as `tile.tex[mode][lod]` — designed, unbuilt, and its PROOF is the expensive part.**
-  The 1-FPS thrash had one cause: `tex` was a *parameter beside* the cache key, never part of it and
-  never stored — so a hit silently returned the wrong size, and the "fix" was a re-bake. Two callers
-  disagreeing (`w3_children_ready` guessing from the parent's distance, `w3_walk` computing the
-  child's own) then cost two full re-bakes per chunk per frame. With side-by-side slots the
-  disagreement costs **one extra bake, once**: hysteresis is not repaired but made unnecessary,
-  because there is no current state left for another caller to knock over — monotone state cannot
-  flutter. `vbo`/`nverts`/`err` are untouched by a texture LOD change (the geometry is
-  LOD-independent — visible only since `chunkmesh.h` was cut out). The one rule that carries it:
-  **release exists at exactly one place, `cache_trim`, once per pass.**
-  **The proof needs an injected disagreement, and this is the trap:** `generateMipmap` p50 == 0 is
-  green TODAY — nothing thrashes because every caller passes the same size. That counter is green
-  before and after, so it proves "I broke nothing", never "I made it impossible". It has to be:
-  *without* the slots + injected disagreement → p50 explodes (it was 256/frame at 1 FPS); *with*
-  them + same injection → p50 stays 0; injection removed → still 0. Only the middle line proves
-  anything. Same shape as a mutation test: break it on purpose to see the check bite.
-- **`day` exists twice, in two languages, with two formulas — and nobody decided that.**
-  `atmo.h` computes it linearly in degrees (`clamp((sun_el+6)/12)`); the sky shader computes its
-  own from the sun vector (`smoothstep(-0.12, 0.10, sEl)`, i.e. on sin(el)). Measured: at sun_el
-  +3 deg the CPU says 0.750 and the shader says 0.880 — **13 points apart**, and 7 apart at the
-  horizon. So the sky and the ground already disagree about when it is day, all through twilight.
-  Both curves are hand-tuned, both plausible, both named `day`. It may be deliberate (they drive a
-  sky gradient and a terrain brightness, which need not match) — but the decision is written down
-  nowhere, and whoever next touches one will expect the other to follow. This is the version of
-  "one state too few" you only see once you try to give the state a name: pulling `w3_atmo` out
-  forced the question, which is the whole argument for naming shared state.
-  Unifying them is a VISUAL judgement, not a refactor — it would change every dusk in the
-  simulator. Needs a human with the renderer open, not a tidy-up.
-- **Terrain LOD: the quadtree runs, the budget does not fit.** Measured warm, both grounds:
-  `128 chunks drawn (budget 128), 0 pending`, `levels z8..z14 = 32/8/12/9/21/22/24`, streamed in
-  10–20 s. But `31 wanted split, 10–13 over budget` — the tree wants finer ground than 128 chunks
-  can hold, so `W3_BUDGET` is currently what limits detail, not the screen-space error. Decide
-  whether to raise the budget or to spend it better (the SSE is computed per node from
-  `w3_terr_vbo`'s real decimation error, so the ordering is honest — there is just not enough
-  room). Related: `W3_TEX=512` gives 2.94 m/texel at z14 against 1.47 from the old near ring;
-  matching it needs z15, which Shortbread (maxz=14) does not have. `W3_TEX 1024` doubles VRAM.
-- **Aerial photo: flatten the baked-in illumination.** TAB switches the ground between the OSM
-  render (SVS) and the real photo (EVS) — today the photo is raw, shadows and all. Measured on a
-  real Esri tile: 78–90 % of the detail is in luma, chroma std is 5.6/255, so the old
-  "keep UV, drop Y" idea is dead (neutral-grey roads would vanish). Homomorphic flatten
-  (`Y / lowpass(Y)`, sigma ~50 m ≈ our DEM quad size) removes the terrain gradient but NOT hard
-  building shadows — those are high-frequency and survive.
-- **Night lights** — bake the OSM street layer into the texture's alpha as emissive; physically
-  honest (lamps *are* emissive) and makes the synthetic view useful at night.
-- **`w3_avail{READY,PENDING,ABSENT}` belongs in the SAME step as negative caching + `204` — not
-  before it.** The plan was to fix `w3_bake`'s `if(n<=0)` (PENDING and ABSENT collapsed into one
-  int) with an enum, guarded by `-Wswitch`. Checked before building it: **the wire can no longer
-  produce a 0 at all.** `T.get` returns an empty array only on `204`, the server never sends one,
-  and a `200` always has bytes (`fb_bake_ondisk` requires `st_size > 0`). So `if(n<=0)` is toothless
-  today, `photo_none` is dead code, and `ABSENT` would have had **no producer**. An enum whose third
-  case nothing can create is a type claiming more than the wire carries — the same lie as the
-  overloaded 404, mirrored. **If you have to write "the server never sends this" next to a case, the
-  type is too early.**
-  **The server half is done and the ORDER was the point**: the producer first, the type second.
-  What is left is the renderer's `w3_bake` `if(n<=0)` and `photo_none` — the wire can now produce a
-  real empty array (`204` -> `Uint8Array(0)`), so `n==0` finally means something. `renderer-gfx`.
-- **The renderer and the server each have their own idea of what a tile is — and they disagree at
-  the poles.** `world3d.h`'s `w3_geo_to_tile_f` and `tiles/tilemath.h`'s `fb_geo_to_tile` are the
-  same formula (`asinh(tan φ)` ≡ `log(tan φ + sec φ)`), but the server CLAMPS latitude to
-  `FB_MERC_LAT_MAX` (85.0511) and longitude to ±180, and the renderer does not. Measured with the
-  renderer's own code, z8:
-      lat 85.050 -> ty =     0.0093   ok (last valid)
-      lat 85.060 -> ty =    -0.0732   negative -> w3_walk rejects -> EMPTY WORLD
-      lat 90.000 -> ty = -1421.2780   empty world
-  So any origin beyond ±85.0511 renders nothing while fb-tiles happily serves it the clamped pole
-  tiles. Another entry against "any origin on earth works" — the poles are on earth — and the same
-  shape as the 404: two sides of one contract, each with its own private answer. The server's copy
-  is 100 % unit-tested; the renderer's copy has never been tested at all.
-  The fix is NOT a second clamp in the renderer (that makes the agreement a convention again). It
-  is one definition: `tilemath.h` describes what a tile IS, which is a shared contract exactly like
-  `protocol.h` describes what a packet is — so it probably belongs in `common/`, included by both.
-  That move touches `tiles/*.c`, `command_center/*`, `test/unit/run.sh` and `build-wasm.sh`, i.e.
-  three owners; it is a decision, not a tidy-up. (`tiles/Containerfile` copies only `tiles/` and
-  `geo/` — a header moved to `common/` without touching it is the exact shape of the break that
-  went unnoticed this morning, except `verify.sh` now builds all three images and would catch it.)
-  **And "just use the server's clamped version" is the WRONG fix, which is worth knowing before
-  someone tries it.** Web Mercator cannot represent anything beyond ±85.0511 — there are no tiles
-  up there, so the clamp does not round to the right answer, it rounds to the nearest WRONG one: an
-  aircraft at 89 N would be shown the ground from 85 N and told nothing. Both sides lie today, just
-  differently — the renderer by drawing nothing, the server by handing over a tile from somewhere
-  else. The honest behaviour for a polar origin is to REFUSE it at startup and say why, once,
-  where a human reads it. Which is a design decision, not a clamp.
-- **`sky.h`/`hud.h` is NOT the mechanical step it looks like — there is a `w3_atmo` hiding in it.**
-  `world3d_render_scene` computes `sun[3] moon[3] day cloud haze[3] light` from telemetry in what
-  reads as a sky prologue (760-768) — and then the TERRAIN pass consumes them (`w3_wtHaze`,
-  `w3_wtLight`, `w3_wtSun` at 812) and so does the building/wire pass (829). They are not sky's
-  state; they are per-frame shared state that works only because they are **locals that happen to
-  be in scope** — the same class as the `texpx` thrash, one level subtler, because this state does
-  not even have a name. Cutting sky out along "sky owns its programs" forces either a duplicated
-  `0.20 + 0.80*day` (convention instead of type) or a signature the plan does not have. What the
-  cut actually wants first:
-      typedef struct { float sun[3], moon[3], haze[3]; float day, light, cloud; } w3_atmo;
-      static w3_atmo w3_atmo_from(const telem_packet_t *t, int have);   /* PURE. No GL. */
-  `sky_draw` and `terr_draw` then take the same `const w3_atmo*`, the state has an owner, and
-  `w3_atmo_from` is pure arithmetic — **natively testable like `chunkmesh`**, and every pixel of
-  the image hangs off it (`day = clamp((sun_el+6)/12)`, `light = 0.20+0.80*day`, the haze/cloud
-  mix). Nobody can check those numbers today.
-  **And that is only one of three couplings** — two of us looked at the same "mechanical" step and
-  each found what the other missed, which is the whole argument for a second pair of eyes: the star
-  pass reads `w3_olat`/`w3_olon` (the world origin, owned by the tile side and set in
-  `world3d_tiles_open`) plus `eye`/`mvp`; and the HUD reads `w3_ground_mode` (the albedo index,
-  owned by the cache/draw side) for its `VIS EVS/SVS` line. So the step is three ownership
-  decisions, and if they fall by default — globals stay global, the module reaches out — you get two
-  headers that CLAIM ownership and do not have it. Same class as everything else here: a thing
-  claiming more than the structure carries.
-  **The check a screenshot cannot do:** `pngstat` scores GROUND, not sky. A wrong star position
-  looks entirely plausible — the stars would simply stand over the prime meridian and nobody would
-  notice, least of all at night. If the star pass moves, the only real verification is that
-  `w3_olat`/`w3_olon` ARRIVE at the call: print them once. A picture will not tell you.
-- **Modularisation** — `xp_bridge.c` (771) and `world3d.h` are still god files. Out so far, each
-  100 %-covered: `fdm/{ephemeris,atmosphere}`, `terrain`, `gfx/{mat4,style}`, `tiles/{lru,prefetch}`.
-- **`coordination(sign)` is weather-sensitive, and that is a decision for a human.** With the
-  weather pinned at `TURB=1.0` about 3 % of samples fail — not broken physics, but
-  `steady = abs(roll_rate) < 12` letting through exactly the adverse-yaw transients its own
-  comment says to exclude (a wing rolling at 11°/s is not in steady flight). Tightening the filter
-  or picking a calmer test wind both change what the invariant means. Do not quietly retune it.
+## fb-tiles — done, details in code
+
+- **Fetch path rebuilt**: libcurl with a kept thread-local handle (`http.h`), 4-thread prefetch pool
+  (4 = politeness toward upstream, NOT a measured optimum — the earlier "2.89x saturates at 4" was a
+  harness artefact, falsified). `/t/` answers 200/202/204 from `fb_tile_state{READY,UNKNOWN,ABSENT}`.
+- **Negative cache**: a 404 writes a `.absent` marker (own file — a 0-byte tile would read as
+  "not yet"), 30-day TTL (nobody caches negatives forever; unmapped land is what later gets mapped).
+  The 204's `max-age` must equal the TTL.
+- **Esri never 404s** — serves a 2521 B placeholder (`9eafd300`) with 200 above its coverage, which
+  we used to cache as ground. Coverage is local (Hameln z19, Sahara z18, Patagonia z17, Antarctica
+  <z16), so `maxz` can't be one global constant. Fixed by Esri's own tilemap oracle
+  (`tilemap.{h,c}`, 1024 tiles/request). Trap: `"adjusted":true` — a 32×32 request returns a smaller
+  rectangle; read `location`, never assume your own request. Oracle `-1` = UNKNOWN → must fetch
+  (absence positively established or "no answer" silently becomes "no tile").
+- **Nobody upstream ever answers "no data"**: ocean is a Shortbread polygon (200), holes are unmapped
+  LAND, Terrarium fills no-data with 0 = sea level. So `/bake` over an ABSENT vector tile bakes the
+  base ground fill; `bake_photo` overzooms to the deepest zoom the oracle confirms.
+- **Open**: attribution missing entirely (ODbL "OpenStreetMap Contributors" + Esri credit are license
+  obligations, belong in HUD → `renderer-gfx`); UA has no contact (user's call); the prefetch 3×3
+  warm is technically "bulk downloading" per OSM policy but is the allowed "modest look-ahead".
+
+## Open work — renderer & measurement
+
+- **Gates only test warm.** `verify.sh` 4/4 green on Hameln while a cold region loads nothing. A cold
+  gate needs the empty volume, not a foreign continent — writing one before the fix is green cements
+  today's state as the expectation.
+- **`pngstat` is a colour predicate.** Night fixed (`e2d7dad`: margin scales with pixel brightness);
+  rock/snow are neutral and under-report, so an alpine origin can score empty. Needs a structure
+  criterion + a real rock screenshot, not a third recalibration.
+- **`day` exists twice, two formulas**: `atmo.h` linear in degrees `clamp((sun_el+6)/12)`, sky shader
+  `smoothstep(-0.12,0.10,sinEl)` — 13 points apart at sun_el +3°. Sky and ground disagree about when
+  it's day. May be deliberate; nobody decided. Unifying is a VISUAL judgement, needs a human.
+- **Terrain LOD budget doesn't fit**: `128 chunks (budget 128), 0 pending`, but 31 want split, 10-13
+  over budget — `W3_BUDGET` limits detail, not screen-space error. Raise budget or spend it better.
+  `W3_TEX=512` = 2.94 m/texel at z14; matching the old 1.47 needs z15 (Shortbread maxz=14 lacks it).
+- **Texture LOD as `tile.tex[mode][lod]`** — designed, unbuilt. The 1-FPS thrash was `tex` a
+  parameter beside the cache key, not part of it; side-by-side slots make disagreement cost one bake
+  once. Release at exactly one place, `cache_trim`. PROOF needs injected disagreement: without slots
+  → `generateMipmap` p50 explodes; with → stays 0; injection removed → still 0. Only the middle line
+  proves anything (`generateMipmap` p50==0 is green today anyway).
+- **`sky.h`/`hud.h` split hides a `w3_atmo`.** `world3d_render_scene` computes `sun/moon/day/cloud/
+  haze/light` as locals that the terrain AND building passes consume — per-frame shared state with no
+  owner. Pull out `w3_atmo` + pure `w3_atmo_from(telem,have)` (natively testable, every pixel hangs
+  off it) before cutting sky. Two more couplings: star pass reads `w3_olat/w3_olon` (tile side), HUD
+  reads `w3_ground_mode` (cache side). A wrong star position looks plausible — verify origins ARRIVE
+  by printing them, a screenshot won't tell you.
+- **`w3_avail{READY,PENDING,ABSENT}`**: server half done (204 producer exists now). Renderer's
+  `w3_bake` `if(n<=0)` + `photo_none` remain — `204`→`Uint8Array(0)` means `n==0` finally means
+  something. `renderer-gfx`.
+- **Aerial photo: flatten baked-in illumination.** 78-90% of detail is luma, chroma std 5.6/255 (so
+  "keep UV drop Y" is dead). Homomorphic flatten `Y/lowpass(Y)` (sigma ~50 m ≈ DEM quad) removes the
+  terrain gradient but not hard building shadows.
+- **Night lights**: bake OSM streets into texture alpha as emissive.
+- **Modularisation**: `xp_bridge.c` and `world3d.h` still god files. Out (each 100% covered):
+  `fdm/{ephemeris,atmosphere}`, `terrain`, `gfx/{mat4,style}`, `tiles/{lru,prefetch}`, `atmo/camera/
+  stars/chunkmesh`.
+- **`coordination(sign)` is weather-sensitive**: at `TURB=1.0` ~3% fail — `steady = abs(roll_rate)<12`
+  admits adverse-yaw transients its own comment excludes. Retuning changes what the invariant means;
+  don't do it quietly.
