@@ -176,20 +176,13 @@ static int w3_tile_provider(void *user, osmmesh_tile_kind kind,
  * `_w3_worker_mesh` etc. are called directly (not via ccall): an EM_JS body runs in the module
  * scope where exported wasm functions are `_name` and `_malloc`/`HEAPF32` are in scope.
  *
- * ONE worker, not a pool -- and the reason is a measurement the box cannot make, not a preference.
- * The per-tile work is 72 % fetch-wait / 28 % CPU (measured), so a pool of N workers fetching in
- * parallel SHOULD cut the ~16-28 s warm convergence. A 4-worker pool was built and measured -- and
- * it could NOT be shown to help: convergence here is HIGH-VARIANCE (one worker AND four both land
- * anywhere in ~16-28 s), because headless swiftshader renders GL in SOFTWARE on the CPU and
- * oversubscribes this box's 4 cores, so the pool's parallelism has no free core to land on. The
- * pool DOES double throughput (2.05x, measured), but a moving camera makes fast workers build
- * ~29 % more tiles (165 for 128 needed) that trim then discards, and the rest drowns in the
- * core-contention noise. On a REAL browser (GL on the GPU, cores free) the pool should win -- but
- * only the user's machine can show that, and the reported symptom (load stutter) is already fixed
- * by moving the work off-thread at all (frame p95 752 -> 27 ms, which IS measurable here). A perf
- * change that helps only where we cannot measure and is indistinguishable-to-worse where we can is
- * not a commit. If revived: bound the in-flight set (nearest N by distance) so camera motion does
- * not churn, and measure in a real browser -- target "beats one worker", not a guessed number. */
+ * ONE worker, not a pool. A 4-worker pool was built and measured and NOT committed: the per-tile
+ * work is 72 % fetch-wait so parallelism looks right, and it does double throughput (2.05x) -- but a
+ * moving camera makes fast workers build ~29 % more tiles than trim keeps, a HARDWARE-INDEPENDENT
+ * churn that cancels the gain, so the naive pool is the fix on no hardware. The reported symptom
+ * (load stutter) is already gone from moving the work off-thread at all (frame p95 752 -> 27 ms).
+ * Full measurements and the real fix (bound the in-flight set by distance) are in CLAUDE.md Open
+ * Work -- kept in ONE place so the two do not drift. */
 EM_JS(void, w3_worker_init, (const char *base, double lat, double lon), {
     var baseStr = UTF8ToString(base);   /* NOW -- the C pointer is not valid inside the callback */
     var T = { w: new Worker('tileworker.js'), opened: false, q: [] };

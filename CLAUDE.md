@@ -170,6 +170,20 @@ Coordinate before editing outside your area.
 - **`w3_avail{READY,PENDING,ABSENT}`**: server half done (204 producer exists now). Renderer's
   `w3_bake` `if(n<=0)` + `photo_none` remain — `204`→`Uint8Array(0)` means `n==0` finally means
   something. `renderer-gfx`.
+- **Tile work is off-thread (worker), but a POOL is NOT the fix — on any hardware.** `2e682c4` moved
+  fetch+decode+mesh to one Web Worker: frame p95 during streaming 752→27 ms, the reported load
+  stutter gone. Warm convergence is ~16-28 s (high variance). Work is 72% fetch-wait, so a 4-worker
+  pool was built and measured: it doubles throughput (2.05×) but a MOVING camera makes fast workers
+  build ~29% more tiles (165 for 128) that `trim` discards — a **hardware-independent** churn that
+  cancels the throughput, so the naive pool nets nothing. (Also unmeasurable here: headless
+  swiftshader is software GL on 4 cores, the main thread contends; one worker and four are both
+  16-28 s, indistinguishable.) Not committed; documented at `w3_worker_init`. Real fix if load time
+  ever matters: bound the in-flight set (nearest N by distance) so camera motion does not churn —
+  unbuilt, target "beats one worker", only half-measurable on swiftshader. `renderer-gfx`.
+- **1c — albedo off-thread.** The worker carries the mesh (76%); the albedo decode (24%, stbi +
+  glTexImage2D) is still synchronous in `w3_bake`, which is why p95 is 27 ms not <16. Move it to
+  `createImageBitmap` (browser decodes off-thread, feeds `texImage2D` directly). Measurable HERE
+  (p95, not convergence — no confound). `renderer-gfx`.
 - **Aerial photo: flatten baked-in illumination.** 78-90% of detail is luma, chroma std 5.6/255 (so
   "keep UV drop Y" is dead). Homomorphic flatten `Y/lowpass(Y)` (sigma ~50 m ≈ DEM quad) removes the
   terrain gradient but not hard building shadows.
