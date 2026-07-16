@@ -161,6 +161,13 @@ Two traps that already cost a session each, both fixed in `shot.js` — do not u
   - **A single sample is not a threshold.** "~47 % ground" was one screenshot, handed on as a
     reference. Same software, other pose: 15–38 %. As a gate it would have failed everything,
     forever. Gates are pngstat's own verdict and `128 chunks / 0 pending` — never a percentage.
+  - **`set -e` cannot catch a container that did not start.** Done again today, with the lesson
+    above already in this file: `podman run -p 8097` failed on "address already in use" — another
+    agent held it — and every following `curl` returned **0**, because it got real answers from
+    that agent's server. I read its counters as mine. The only thing that catches this is asking
+    the thing under test to prove it is the thing under test: a fresh volume must answer
+    `cache_hits=0`; `threads.sh` survived only because it happened to assert
+    `prefetch_threads == requested`, which no foreign server could satisfy five times running.
   - **A shared service is a shared measurement.** `run-podman.sh` is all-or-nothing: it rebuilds
     `fb-tiles` too, so two agents on one box measure each other. Caught only by hashes and idle
     sampling (WASM `a384db73` vs `c30957cb`; 61 % idle → 3 %). `bench_stack.sh` pins the artifact
