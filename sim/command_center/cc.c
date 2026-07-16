@@ -70,6 +70,17 @@ EM_JS(void, fb_codec_push, (int ptr, int w, int h, double ts), {
   try { S.encoder.encode(vf, { keyFrame:key }); } catch(e){}
   vf.close();
 })
+/* Sync XHR, startup only: one request before the render loop so w3_yoff is known at frame 0. */
+EM_JS(double, fb_fetch_elev, (double lat, double lon), {
+  try {
+    var base = window.FB_TILES_URL; if(!base) return -1e9;
+    var x = new XMLHttpRequest();
+    x.open('GET', base + '/elev?lat=' + lat + '&lon=' + lon, false);
+    x.send(null);
+    if(x.status>=200 && x.status<300){ var v=parseFloat(x.responseText); if(isFinite(v)) return v; }
+  } catch(e){}
+  return -1e9;
+})
 EM_JS(int, fb_codec_upload, (int texId), {
   const S = Module.__fb; if(!S||!S.frame) return 0;
   const tex = GL.textures[texId]; if(!tex) return 0;
@@ -211,13 +222,13 @@ int main(void){
 
   emscripten_webgl_enable_extension(emscripten_webgl_get_current_context(),"EXT_texture_filter_anisotropic");
 
-  /* Preferred: stream every tile on demand from fb-tiles — works at ANY origin on earth.
-   * Fallback: the legacy preloaded region archive (Hameln only). */
+  { double he=fb_fetch_elev(g_olat,g_olon);   /* seed camera lift before streaming; else spawn is underground */
+    if(he>-1e8){ w3_seed_yoff((float)he); printf("[cc] origin ground %.1f m (/elev), camera seeded\n",he); }
+    else printf("[cc] /elev unreachable at startup — lift waits for the origin tile\n"); }
+  /* Stream every tile on demand from fb-tiles — works at ANY origin on earth. */
   if(tiles_url[0] && world3d_tiles_open(tiles_url,g_olat,g_olon))
     printf("[cc] tiles: streaming from %s, origin %.4f/%.4f\n",tiles_url,g_olat,g_olon);
-  else if(world3d_osm_open("/hameln.pmtiles","/hameln_terrain.pmtiles",g_olat,g_olon))
-    printf("[cc] tiles: legacy preloaded archive (Hameln), origin %.4f/%.4f\n",g_olat,g_olon);
-  else printf("[cc] osmmesh open FAILED — procedural fallback\n");
+  else printf("[cc] no tiles url or open failed — procedural fallback\n");
   world3d_init();
 
   /* video FBO (colour texture + depth), decoded-frame texture, present shader + quad */

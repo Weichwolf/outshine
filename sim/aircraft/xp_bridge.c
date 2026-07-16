@@ -47,7 +47,6 @@ typedef struct {
     double vx, vy, vz;            /* X-Plane local ground velocity: +x east, +y up, +z south */
     /* control inputs from iNav (its mixer outputs) */
     double in_roll, in_pitch, in_yaw, in_thr;
-    int armed_hint;               /* set once iNav commands throttle/servo */
 } state_t;
 
 static state_t S;
@@ -429,7 +428,7 @@ static void physics_step(double dt){
     if(!isfinite(S.lat)||fabs(S.lat-HOME_LAT)>2) S.lat=HOME_LAT;
     if(!isfinite(S.lon)||fabs(S.lon-HOME_LON)>2) S.lon=HOME_LON;
     if(!isfinite(S.agl)) S.agl=100;
-    if(!isfinite(S.roll)){S.roll=0;phi=0;} if(!isfinite(S.pitch)){S.pitch=0;th=0;}
+    if(!isfinite(S.roll)){S.roll=0;} if(!isfinite(S.pitch)){S.pitch=0;}
     if(!isfinite(S.p)){S.p=0;} if(!isfinite(S.q)){S.q=0;} if(!isfinite(S.r)){S.r=0;}
 }
 
@@ -540,7 +539,7 @@ int main(void){
           fprintf(stderr,"[xp_bridge] home ground elevation %.1f m (fb-tiles)\n",HOME_ELEV); }
       else fprintf(stderr,"[xp_bridge] fb-tiles unreachable, seeding home elevation %.1f m\n",HOME_ELEV);
       fb_terrain_start(ta,HOME_ELEV); }
-    S.lat=HOME_LAT; S.lon=HOME_LON; S.elev=HOME_ELEV+1.0; S.agl=1.0; S.yaw=0; S.speed=14.0; S.gs=14.0; S.vy=0;  /* launch from the ground */
+    S.lat=HOME_LAT; S.lon=HOME_LON; S.elev=HOME_ELEV+2.0; S.agl=2.0; S.yaw=0; S.speed=14.0; S.gs=14.0; S.vy=0;  /* launch 2 m above the ground */
     if(getenv("XP_INJECT")) g_inject=1;
     fprintf(stderr,"[xp_bridge] FDM=%s  X-Plane :%d  MSP->127.0.0.1:5760\n", MDL->name, port);
 
@@ -651,7 +650,7 @@ int main(void){
                        else { static double alt_i=0; double aerr=g_loalt-S.agl;
                               alt_i+=aerr*0.0004; if(alt_i>3)alt_i=3; if(alt_i<-3)alt_i=-3; /* slow trim, anti-windup */
                               pitchT = 0.10*aerr - 1.3*S.vy + alt_i;                /* altitude hold (P + rate + I) */
-                              if(pitchT>10)pitchT=10; if(pitchT<-8)pitchT=-8;
+                              if(pitchT>10)pitchT=10; if(pitchT<-14)pitchT=-14;    /* -14 deg ~= 4.1 m/s sink at 17 m/s, beats a live thermal */
                               thr = 0.5 + 0.08*(CRUISE_V-S.speed); if(thr>0.9)thr=0.9; if(thr<0.3)thr=0.3; }
                        /* Vector-field loiter (UAV standard): build a desired ground-track that
                         * spirals ONTO the circle of radius g_lorad. The equilibrium radius IS

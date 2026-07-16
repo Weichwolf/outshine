@@ -163,7 +163,7 @@ static void w3_upload_terrain(const float*v,int nverts){ glGenBuffers(1,&w3_vTer
 static void w3_upload_buildings(const float*v,int nverts){ glGenBuffers(1,&w3_vBld); glBindBuffer(GL_ARRAY_BUFFER,w3_vBld); glBufferData(GL_ARRAY_BUFFER,nverts*6*4,v,GL_STATIC_DRAW); w3_nBld=nverts; }
 
 static void w3_build_procedural(void){
-  float*v=malloc(W3_GRID*W3_GRID*6*6*sizeof(float)); int o=0;
+  float*v=malloc(W3_GRID*W3_GRID*6*6*sizeof(float)); if(!v)return; int o=0;
   for(int j=0;j<W3_GRID;j++)for(int i=0;i<W3_GRID;i++){
     float e0=(i-W3_GRID/2)*W3_CELL,n0=(j-W3_GRID/2)*W3_CELL,e1=e0+W3_CELL,n1=n0+W3_CELL;
     float p[4][3]={{e0,w3_hgt(e0,n0),-n0},{e1,w3_hgt(e1,n0),-n0},{e1,w3_hgt(e1,n1),-n1},{e0,w3_hgt(e0,n1),-n1}};
@@ -171,7 +171,7 @@ static void w3_build_procedural(void){
     for(int k=0;k<6;k++){ float*P=p[idx[k]]; float g=0.35f+0.0045f*P[1]; if(g<0.25f)g=0.25f; if(g>0.6f)g=0.6f;
       v[o++]=P[0];v[o++]=P[1];v[o++]=P[2]; v[o++]=0.20f+g*0.2f;v[o++]=g;v[o++]=0.18f; } }
   w3_upload_terrain(v,o/6); free(v);
-  float*b=malloc(600*36*6*sizeof(float)); int bo=0; unsigned s=12345;
+  float*b=malloc(600*36*6*sizeof(float)); if(!b)return; int bo=0; unsigned s=12345;
   for(int k=0;k<600;k++){ s=s*1103515245+12345; float e=((int)((s>>9)%4000))-2000;
     s=s*1103515245+12345; float n=((int)((s>>9)%4000))-2000; if(fabsf(e)<150&&fabsf(n)<150) continue;
     s=s*1103515245+12345; float w=8+((s>>9)%20),d=8+((s>>10)%20); s=s*1103515245+12345; float ht=10+((s>>9)%40); float base=w3_hgt(e,n);
@@ -337,10 +337,10 @@ static int w3_lod_for_px(double px){
  * draped over the terrain heightfield. The vector features come from the Shortbread
  * PMTiles via osmmesh's MVT decoder; the terrain heightfield from osmmesh's terrain. */
 static osmmesh_ctx *w3_osm=0;          /* terrain heightfield meshes */
-static osmmesh_pmtiles *w3_vec=0;      /* raw vector tiles for texture baking (legacy archive path) */
-static int w3_stream_tiles=0;          /* 1 = tiles come from fb-tiles on demand, no preloaded region */
 static int w3_have_tile=0; static uint32_t w3_tx,w3_ty;
 static float w3_yoff=0; static int w3_yoff_set=0;   /* origin ground elevation (camera lift) */
+/* Seed the lift before any tile streams, so a fresh spawn is not rendered under the ground. */
+static void w3_seed_yoff(float y){ if(!w3_yoff_set){ w3_yoff=y; w3_yoff_set=1; } }
 
 /* ONE draw list, built by the tree walk each stream pass. There used to be three of these
  * (w3_T/w3_TF/w3_TF2 with w3_nT/w3_nTF/w3_nTF2) -- the same code three times with suffixes,
@@ -426,24 +426,8 @@ static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS,int mode){
  * on the main thread is glBufferData, inline in w3_cache_get's MESH->READY transition. The GL
  * upload wrapper that used to live here (w3_terr_vbo) is gone with the synchronous path. */
 
-static int world3d_osm_open_mem(const char*vec_path,const uint8_t*vec_data,size_t vec_len,
-                                const char*terr_path,const uint8_t*terr_data,size_t terr_len,
-                                double origin_lat,double origin_lon){
-  osmmesh_config cfg={ .vector_url=vec_path, .vector_data=vec_data, .vector_len=vec_len,
-    .terrain_url=terr_path, .terrain_data=terr_data, .terrain_len=terr_len,
-    .origin_lat=(w3_olat=origin_lat), .origin_lon=(w3_olon=origin_lon),
-    .enable_terrain=1, .enable_buildings=0, .enable_linears=0 };
-  if(osmmesh_create(&cfg,&w3_osm)!=OSMMESH_OK){ printf("[world3d] osmmesh_create failed\n"); w3_osm=0; return 0; }
-  int vrc = vec_data ? osmmesh_pmtiles_open_memory(&w3_vec,vec_data,vec_len)
-                     : osmmesh_pmtiles_open_file(&w3_vec,vec_path);
-  if(vrc!=OSMMESH_PMTILES_OK){ printf("[world3d] vector pmtiles open failed: %d\n",vrc); w3_vec=0; }
-  w3_have_tile=0; return 1;
-}
-static int world3d_osm_open(const char*vec_path,const char*terr_path,double lat,double lon){
-  return world3d_osm_open_mem(vec_path,0,0,terr_path,0,0,lat,lon);
-}
-/* Stream tiles on demand from the fb-tiles service instead of a preloaded region archive.
- * This is what makes any origin on earth work: nothing is bundled, everything is fetched. */
+/* Stream tiles on demand from the fb-tiles service. Nothing is bundled, everything is fetched --
+ * this is what makes any origin on earth work. */
 static int world3d_tiles_open(const char*base,double lat,double lon){
   w3_tiles_init(base);
   osmmesh_config cfg={ .origin_lat=(w3_olat=lat), .origin_lon=(w3_olon=lon),
@@ -451,7 +435,7 @@ static int world3d_tiles_open(const char*base,double lat,double lon){
     .provider_terrain_max_zoom=15,   /* Tilezen terrarium; no archive header to read */
     .enable_terrain=1, .enable_buildings=0, .enable_linears=0 };
   if(osmmesh_create(&cfg,&w3_osm)!=OSMMESH_OK){ printf("[world3d] osmmesh_create (streaming) failed\n"); w3_osm=0; return 0; }
-  w3_vec=0; w3_stream_tiles=1; w3_have_tile=0;
+  w3_have_tile=0;
   /* Spawn the tile worker with the SAME origin: the mesh it builds is ENU-relative to it. The main
    * thread's osmmesh ctx above is now only the "world is open" gate and osmmesh_geo_to_tile -- the
    * fetch/decode/mesh it used to do runs in the worker. */
