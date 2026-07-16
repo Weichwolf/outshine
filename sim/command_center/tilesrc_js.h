@@ -168,4 +168,44 @@ static int w3_tile_provider(void *user, osmmesh_tile_kind kind,
     return 1;
 }
 
+/* ---- tile worker glue (main-thread side) ---------------------------------------------------
+ * Spawns tileworker.js and pumps messages. The worker fetches+decodes+meshes a tile off-thread
+ * and posts back a finished vertex array (Transferable). This side copies it into the main heap
+ * and calls the C entry points in world3d.h (w3_worker_mesh / w3_worker_fail, both KEEPALIVE).
+ *
+ * `_w3_worker_mesh` etc. are called directly (not via ccall): an EM_JS body runs in the module
+ * scope where exported wasm functions are `_name` and `_malloc`/`HEAPF32` are in scope. */
+EM_JS(void, w3_worker_init, (const char *base, double lat, double lon), {
+    var baseStr = UTF8ToString(base);   /* NOW -- the C pointer is not valid inside the callback */
+    var T = { w: new Worker('tileworker.js'), opened: false, q: [] };
+    Module.__tw = T;
+    T.w.onmessage = function (e) {
+        var d = e.data;
+        if (d.type === 'ready') {
+            T.w.postMessage({ cmd: 'open', base: baseStr, lat: lat, lon: lon });
+        } else if (d.type === 'opened') {
+            T.opened = true;
+            T.q.forEach(function (m) { T.w.postMessage(m); });
+            T.q = [];
+        } else if (d.type === 'built') {
+            if (d.ok) {
+                var floats = d.nverts * 8;                 /* w3_vtx = 8 floats */
+                var ptr = _malloc(floats * 4);
+                HEAPF32.set(new Float32Array(d.verts), ptr >> 2);
+                _w3_worker_mesh(d.z, d.x, d.y, ptr, d.nverts, d.err, d.yoff);
+            } else {
+                _w3_worker_fail(d.z, d.x, d.y);
+            }
+        }
+    };
+})
+/* Ask the worker for one tile. Buffer the request until tw_open has finished (the worker replies
+ * 'opened'): a build posted before open would find no world and fail, costing a wasted round trip
+ * and a re-request. */
+EM_JS(void, w3_worker_post, (int z, int x, int y, int grid, int want_yoff), {
+    var T = Module.__tw; if (!T) return;
+    var msg = { cmd: 'build', z: z, x: x, y: y, grid: grid, want_yoff: want_yoff };
+    if (T.opened) T.w.postMessage(msg); else T.q.push(msg);
+})
+
 #endif /* W3_TILESRC_JS_H */

@@ -52,10 +52,10 @@ static double w3_olat=52.045, w3_olon=9.385;   /* origin, set on osmmesh open; d
 /* stb_image: declarations only -- osmmesh/src/terrain.c owns the one implementation we link. */
 #include "../geo/osmmesh/src/3rdparty/stb_image.h"
 #include "gfx/mat4.h"
-/* Chunk geometry + its measured error: GL-free, so it is unit-tested directly (test_chunkmesh.c)
- * instead of being judged by looking at pixels. w3_vtx (the vertex layout) comes with it -- the
- * code that writes a layout owns it. */
-#include "chunkmesh.h"
+/* The main thread needs only the vertex LAYOUT (to set glVertexAttribPointer and size the VBO) --
+ * the mesh BUILD (w3_chunk_build) runs in the tile worker now, so including chunkmesh.h here would
+ * be a -Wunused-function error. The worker includes chunkmesh.h; both share chunkvtx.h. */
+#include "chunkvtx.h"
 
 /* ---- GL program helpers ---- */
 static GLuint w3_shader(GLenum t,const char*src){ GLuint s=glCreateShader(t); glShaderSource(s,1,&src,0); glCompileShader(s);
@@ -341,19 +341,10 @@ static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS,int mode){
 #define W3_VTX_STRIDE ((GLsizei)sizeof(w3_vtx))
 #define W3_VTX_OFF(f)  ((void*)offsetof(w3_vtx, f))
 
-/* Upload one built chunk. The maths -- decimation, smooth normals, the measured error, the skirt
- * -- lives in chunkmesh.h and is unit-tested without a GL context; all that is left here is the
- * upload. That split is the point: `err` drives every split decision the LOD makes, and while it
- * was welded to these three GL calls the only way to check it was to look at the ground. */
-static GLuint w3_terr_vbo(const osmmesh_mesh*m,int*out_nv,float*out_err){
-  w3_chunk c;
-  if(!w3_chunk_build(m,W3_TERR,&c)){ *out_nv=0; if(out_err)*out_err=0.f; return 0; }
-  GLuint vbo; glGenBuffers(1,&vbo); glBindBuffer(GL_ARRAY_BUFFER,vbo);
-  glBufferData(GL_ARRAY_BUFFER,(GLsizeiptr)((size_t)c.nverts*sizeof(w3_vtx)),c.verts,GL_STATIC_DRAW);
-  *out_nv=c.nverts; if(out_err)*out_err=c.err;
-  w3_chunk_free(&c);
-  return vbo;
-}
+/* w3_chunk_build (chunkmesh.h) -- decimation, smooth normals, the measured error, the skirt -- now
+ * runs in the WORKER (tileworker.c), which hands back a finished w3_vtx[] array. All that is left
+ * on the main thread is glBufferData, inline in w3_cache_get's MESH->READY transition. The GL
+ * upload wrapper that used to live here (w3_terr_vbo) is gone with the synchronous path. */
 
 static int world3d_osm_open_mem(const char*vec_path,const uint8_t*vec_data,size_t vec_len,
                                 const char*terr_path,const uint8_t*terr_data,size_t terr_len,
@@ -381,7 +372,11 @@ static int world3d_tiles_open(const char*base,double lat,double lon){
     .enable_terrain=1, .enable_buildings=0, .enable_linears=0 };
   if(osmmesh_create(&cfg,&w3_osm)!=OSMMESH_OK){ printf("[world3d] osmmesh_create (streaming) failed\n"); w3_osm=0; return 0; }
   w3_vec=0; w3_stream_tiles=1; w3_have_tile=0;
-  printf("[world3d] streaming tiles from %s (origin %.4f/%.4f)\n",base,lat,lon);
+  /* Spawn the tile worker with the SAME origin: the mesh it builds is ENU-relative to it. The main
+   * thread's osmmesh ctx above is now only the "world is open" gate and osmmesh_geo_to_tile -- the
+   * fetch/decode/mesh it used to do runs in the worker. */
+  w3_worker_init(base,lat,lon);
+  printf("[world3d] streaming tiles from %s (origin %.4f/%.4f), worker spawned\n",base,lat,lon);
   return 1;
 }
 /* stream one grid (zoom z, radius rad, texture size tex) around tile (cx,cy) into arr */
@@ -405,82 +400,145 @@ static int world3d_tiles_open(const char*base,double lat,double lon){
  * view is the moment you cannot afford to build it. Costs one extra texture per tile; the VBO
  * (the expensive part) is shared -- the geometry does not care what is painted on it.
  * tex[PHOTO] is 0 until its imagery lands; the draw falls back to tex[OSM] meanwhile. */
-typedef struct { int z; uint32_t x,y; GLuint vbo,tex[2]; int nverts; unsigned touch; int valid;
+/* A slot's LIFECYCLE lives IN the slot, not in a side channel. The mesh is built OFF the main
+ * thread now (tileworker.c), so a tile is no longer either absent or done -- it passes through
+ * "asked the worker" and "worker delivered, not yet on the GPU". Putting `state` beside the entry
+ * it describes is the same lesson as `tex` belonging IN the cache key: a per-entry fact kept next
+ * to the entry instead of inside it is the bug this project has already paid for twice. It also
+ * keeps the coming tex[mode][lod] change orthogonal -- that adds a dimension to `tex`, it never
+ * touches `state`. */
+enum { W3_SLOT_FREE=0,   /* unused */
+       W3_SLOT_WAIT,     /* posted to the worker; no mesh back yet */
+       W3_SLOT_MESH,     /* worker delivered verts (in mverts, main heap); not yet uploaded */
+       W3_SLOT_READY };  /* vbo uploaded + OSM albedo present -> drawable (the old `valid`) */
+typedef struct { int z; uint32_t x,y; GLuint vbo,tex[2]; int nverts; unsigned touch; int state;
                  int photo_none;      /* the server has no photo here, ever */
-                 float err; } w3_cent; /* measured geometric error, metres -- drives the LOD */
+                 float err;           /* measured geometric error, metres -- drives the LOD */
+                 float *mverts; int mnverts; float merr;  /* worker's mesh, awaiting GL upload */
+                 int want_yoff; } w3_cent;                /* this WAIT was the origin-elevation probe */
 static w3_cent w3_cache[W3_CACHE];
 static unsigned w3_touch=0;
 static int w3_cache_hits=0, w3_cache_bakes=0, w3_cache_evict=0;
 
 /* Drop everything the tree did not touch this pass. `touch` is stamped by w3_cache_get, so
- * "not asked for" and "not reachable" are the same question, answered by the tree itself. */
+ * "not asked for" and "not reachable" are the same question, answered by the tree itself.
+ *
+ * Each state frees exactly what it owns. A WAIT slot owns nothing yet -- its worker request may
+ * still be in flight; when the reply lands, w3_worker_mesh finds no matching WAIT slot (this freed
+ * it) and frees the verts there. A MESH slot owns heap verts the worker delivered and the GPU
+ * never received. A READY slot owns GL objects. Miss one and it leaks silently every boundary
+ * crossing -- which is why the free lives at exactly one place, keyed off the state. */
 static void w3_cache_trim(unsigned mark){
   for(int i=0;i<W3_CACHE;i++){
-    if(!w3_cache[i].valid || w3_cache[i].touch>=mark) continue;
-    glDeleteBuffers(1,&w3_cache[i].vbo);
-    for(int k=0;k<2;k++) if(w3_cache[i].tex[k]) glDeleteTextures(1,&w3_cache[i].tex[k]);
-    w3_cache[i].valid=0; w3_cache_evict++;
+    w3_cent*c=&w3_cache[i];
+    if(c->state==W3_SLOT_FREE || c->touch>=mark) continue;
+    if(c->state==W3_SLOT_READY){
+      glDeleteBuffers(1,&c->vbo);
+      for(int k=0;k<2;k++) if(c->tex[k]) glDeleteTextures(1,&c->tex[k]);
+    } else if(c->state==W3_SLOT_MESH){
+      free(c->mverts); c->mverts=0;
+    }
+    c->state=W3_SLOT_FREE; w3_cache_evict++;
   }
 }
 
-/* Return a cache slot holding the baked tile, baking it only if not already resident. */
-static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
-  for(int i=0;i<W3_CACHE;i++)
-    if(w3_cache[i].valid && w3_cache[i].z==z && w3_cache[i].x==x && w3_cache[i].y==y){
-      w3_cache[i].touch=++w3_touch; w3_cache_hits++;
-      /* The photo half is fetched opportunistically, whether or not it is being shown: the moment
-       * someone reaches for the other view is the moment they cannot afford to wait for it. */
-      /* PENDING (-1) and HOLE (0) are different answers. Conflating them costs a busy loop: a
-       * tile whose photo genuinely does not exist would keep w3_ground_dirty set forever, so
-       * world3d_stream never sleeps and walks every tile each frame. Only wait for what is
-       * actually coming. */
-      if(!w3_cache[i].tex[W3_GROUND_PHOTO] && !w3_cache[i].photo_none){
-        int n=w3_bake_size(1,(int)z,(int)x,(int)y,tex);
-        if(n>0){ GLuint t2=w3_bake(z,x,y,tex,W3_GROUND_PHOTO);
-                 if(t2){ w3_cache[i].tex[W3_GROUND_PHOTO]=t2; w3_cache_bakes++; } }
-        else if(n==0) w3_cache[i].photo_none=1;   /* no photo here, ever: stop asking */
-        else w3_ground_dirty=1;                   /* in flight: come back next frame */
-      }
-      return i; }
-
-  /* CHEAP CHECK FIRST. osmmesh_fetch_tile decodes a 256x256 terrain PNG and an MVT tile; doing
-   * that and then discarding it because the albedo has not arrived costs a full decode PER CHUNK
-   * PER FRAME -- the GPU idles and the CPU burns, which is exactly what a fresh region looks
-   * like. Ask the albedo first: it is a cache probe, not a decode. */
-  if(w3_bake_size(0,(int)z,(int)x,(int)y,tex) < 0){ w3_pending++; return -1; }
-
-  osmmesh_tile t={0};
-  /* The DEM is still in flight. This MUST count as pending: it is the most common reason a chunk
-   * is missing on a cold region, and if it does not, the streamer declares victory with an empty
-   * world and never asks again. */
-  if(osmmesh_fetch_tile(w3_osm,z,x,y,&t)!=OSMMESH_OK || !t.terrain){
-    osmmesh_free_tile(&t); w3_pending++; return -1; }
-
-  /* A tile is drawn when it is COMPLETE: elevation above, albedo here. An untextured stand-in
-   * would not be information, just a differently-coloured hole -- and a placeholder that can be
-   * mistaken for a result is exactly what put a plain square over Grohnde. */
-  GLuint tex_osm = w3_bake(z,x,y,tex,W3_GROUND_OSM);
-  if(!tex_osm){ osmmesh_free_tile(&t); w3_pending++; return -1; }
-  GLuint tex_photo = w3_bake(z,x,y,tex,W3_GROUND_PHOTO);   /* 0 is fine: the draw falls back to OSM */
-  if(!tex_photo) w3_ground_dirty=1;
-
-  if(!w3_yoff_set && is_centre && z==W3_MAXZ){
-    float best=1e30f; for(uint32_t i=0;i<t.terrain->n_vertices;i++){ const float*P=t.terrain->positions+i*3;
-      float dd=P[0]*P[0]+P[1]*P[1]; if(dd<best){best=dd; w3_yoff=P[2];} }
-    w3_yoff_set=1;
+/* The worker delivered a finished mesh for (z,x,y). Called from JS (the worker's onmessage copied
+ * the transferred vertex buffer into `verts`, a main-heap malloc we now OWN). Move the matching
+ * WAIT slot to MESH; if the tree stopped asking and trim already freed the slot, there is nobody
+ * to hand it to -- free it rather than leak. */
+EMSCRIPTEN_KEEPALIVE
+void w3_worker_mesh(int z,uint32_t x,uint32_t y,float*verts,int nverts,float err,float yoff){
+  for(int i=0;i<W3_CACHE;i++){
+    w3_cent*c=&w3_cache[i];
+    if(c->state==W3_SLOT_WAIT && c->z==z && c->x==x && c->y==y){
+      c->mverts=verts; c->mnverts=nverts; c->merr=err; c->state=W3_SLOT_MESH;
+      if(c->want_yoff && !w3_yoff_set){ w3_yoff=yoff; w3_yoff_set=1; }
+      return;
+    }
   }
-  /* A free slot always exists: W3_CACHE is twice the budget and w3_cache_trim drops everything the
-   * tree did not ask for. If it ever does not, that is a real inconsistency -- say so rather than
-   * silently thrash. */
+  free(verts);   /* no taker: the tile was trimmed while its build was in flight */
+}
+/* The worker could not build (a real 204 hole, or it gave up after retries). Free the WAIT slot so
+ * the tree either re-asks next frame or leaves it absent -- the same "retry, never silently hole"
+ * the sync path had. */
+EMSCRIPTEN_KEEPALIVE
+void w3_worker_fail(int z,uint32_t x,uint32_t y){
+  for(int i=0;i<W3_CACHE;i++){
+    w3_cent*c=&w3_cache[i];
+    if(c->state==W3_SLOT_WAIT && c->z==z && c->x==x && c->y==y){ c->state=W3_SLOT_FREE; return; }
+  }
+}
+
+/* Return a READY (drawable) slot for (z,x,y), or -1 if it is not ready yet. NEVER blocks.
+ *
+ * The expensive work -- fetch DEM+MVT, decode, build the mesh (measured: 76 % of the per-tile
+ * cost, ~23 ms) -- runs OFF the main thread now (tileworker.c). So this no longer DOES that work;
+ * it drives the per-slot state machine and posts to the worker:
+ *   not resident -> claim a slot, post to the worker, go WAIT, return -1
+ *   WAIT         -> worker still building; return -1 WITHOUT re-posting (WAIT is the dedup)
+ *   MESH         -> verts delivered; when the OSM albedo is here too, upload the VBO + bake the
+ *                   textures, go READY, return the slot
+ *   READY        -> drawable; opportunistically upgrade the photo albedo; return the slot
+ *
+ * The albedo (OSM + photo) is still baked synchronously here via w3_bake -- that is the ~24 % the
+ * worker does not carry (1c moves it to createImageBitmap). The frame-blocking 76 % is gone. */
+static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
   int slot=-1;
-  for(int i=0;i<W3_CACHE;i++) if(!w3_cache[i].valid){ slot=i; break; }
-  if(slot<0){ osmmesh_free_tile(&t); w3_pending++; return -1; }
+  for(int i=0;i<W3_CACHE;i++)
+    if(w3_cache[i].state!=W3_SLOT_FREE && w3_cache[i].z==z && w3_cache[i].x==x && w3_cache[i].y==y){ slot=i; break; }
+
+  if(slot<0){
+    /* Not resident: claim a free slot and ask the worker. A free slot always exists -- W3_CACHE is
+     * twice the budget and trim drops everything unreached -- but if a pass ever fills it, treat it
+     * as pending rather than thrash. */
+    for(int i=0;i<W3_CACHE;i++) if(w3_cache[i].state==W3_SLOT_FREE){ slot=i; break; }
+    if(slot<0){ w3_pending++; return -1; }
+    w3_cent*c=&w3_cache[slot];
+    c->z=z; c->x=x; c->y=y; c->state=W3_SLOT_WAIT; c->touch=++w3_touch;
+    c->photo_none=0; c->tex[0]=c->tex[1]=0; c->mverts=0; c->vbo=0;
+    /* Preserve the original yoff condition EXACTLY (is_centre && z==W3_MAXZ && !set): the worker
+     * computes the origin ground elevation only when asked, and w3_worker_mesh applies it. */
+    c->want_yoff = (is_centre && z==W3_MAXZ && !w3_yoff_set);
+    w3_worker_post(z,(int)x,(int)y,W3_TERR,c->want_yoff);
+    w3_pending++;
+    return -1;
+  }
 
   w3_cent*c=&w3_cache[slot];
-  c->vbo=w3_terr_vbo(t.terrain,&c->nverts,&c->err);
-  c->tex[W3_GROUND_OSM]=tex_osm; c->tex[W3_GROUND_PHOTO]=tex_photo;
-  c->z=z; c->x=x; c->y=y; c->valid=1; c->touch=++w3_touch; c->photo_none=0; w3_cache_bakes++;
-  osmmesh_free_tile(&t);
+  c->touch=++w3_touch;
+
+  if(c->state==W3_SLOT_WAIT){ w3_pending++; return -1; }   /* worker still building */
+
+  if(c->state==W3_SLOT_MESH){
+    /* Mesh in hand. Draw only when COMPLETE (geometry + OSM albedo): a placeholder that can be
+     * mistaken for a result is exactly what put a plain square over Grohnde. Probe the albedo
+     * (a cache probe, not a decode) and upload the VBO only once we know we can finish, so a slot
+     * never holds a VBO with no texture. */
+    int n=w3_bake_size(0,(int)z,(int)x,(int)y,tex);
+    if(n<0){ w3_pending++; return -1; }                    /* albedo still in flight */
+    GLuint tex_osm = (n>0) ? w3_bake(z,x,y,tex,W3_GROUND_OSM) : 0;
+    if(!tex_osm){ w3_pending++; return -1; }               /* hole or undecodable: keep asking */
+    GLuint vbo; glGenBuffers(1,&vbo); glBindBuffer(GL_ARRAY_BUFFER,vbo);
+    glBufferData(GL_ARRAY_BUFFER,(GLsizeiptr)((size_t)c->mnverts*sizeof(w3_vtx)),c->mverts,GL_STATIC_DRAW);
+    free(c->mverts); c->mverts=0;
+    c->vbo=vbo; c->nverts=c->mnverts; c->err=c->merr;
+    c->tex[W3_GROUND_OSM]=tex_osm;
+    c->tex[W3_GROUND_PHOTO]=w3_bake(z,x,y,tex,W3_GROUND_PHOTO);   /* 0 ok: draw falls back to OSM */
+    if(!c->tex[W3_GROUND_PHOTO]) w3_ground_dirty=1;
+    c->state=W3_SLOT_READY; w3_cache_bakes++;
+    return slot;
+  }
+
+  /* READY: drawable. Opportunistic photo upgrade -- PENDING(-1) and HOLE(0) are different answers;
+   * conflating them keeps w3_ground_dirty set forever and walks every tile each frame. */
+  w3_cache_hits++;
+  if(!c->tex[W3_GROUND_PHOTO] && !c->photo_none){
+    int n=w3_bake_size(1,(int)z,(int)x,(int)y,tex);
+    if(n>0){ GLuint t2=w3_bake(z,x,y,tex,W3_GROUND_PHOTO);
+             if(t2){ c->tex[W3_GROUND_PHOTO]=t2; w3_cache_bakes++; } }
+    else if(n==0) c->photo_none=1;   /* no photo here, ever: stop asking */
+    else w3_ground_dirty=1;          /* in flight: come back next frame */
+  }
   return slot;
 }
 

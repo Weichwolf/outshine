@@ -34,3 +34,20 @@ emcc command_center/cc.c geo/osmmesh/src/*.c \
     -sEXIT_RUNTIME=0 \
     -o flightbox/web/cc.js
 echo "WASM -> flightbox/web/cc.js (+ cc.wasm) — no bundled region; tiles come from fb-tiles"
+
+# The tile worker: a SECOND wasm that runs osmmesh_fetch_tile + w3_chunk_build OFF the main thread,
+# loaded with `new Worker` (tileworker.js glue). Built separately on purpose:
+#   - it carries NO SDL/WebGL -- it never touches the GPU, it hands back a vertex array;
+#   - ASYNCIFY lives HERE and not in cc.js, because only the worker blocks
+#     (EMSCRIPTEN_FETCH_SYNCHRONOUS: a worker MAY wait, the main thread never may), so only it pays
+#     the ~35 KB. Measured: tw.wasm is ~196 KB, NOT "osmmesh a second time" -- and how much cc.wasm
+#     shrinks once osmmesh leaves the main module is a number to MEASURE when that lands, not now.
+# MODULARIZE + ENVIRONMENT=worker so the glue can `new TileWorker()` inside the Worker scope.
+emcc command_center/tileworker.c geo/osmmesh/src/*.c \
+    -O2 -Wall -Wextra -Wpedantic -Werror -Wno-unused-parameter \
+    -Icommon -Igeo/osmmesh/include -Icommand_center \
+    -sFETCH -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=64MB -sEXIT_RUNTIME=0 \
+    -sMODULARIZE=1 -sEXPORT_NAME=TileWorker -sENVIRONMENT=worker \
+    -sEXPORTED_RUNTIME_METHODS=ccall,HEAPF32 \
+    -o flightbox/web/tw.js
+echo "WASM -> flightbox/web/tw.js (+ tw.wasm) — off-thread tile fetch/decode/mesh"

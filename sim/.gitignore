@@ -3,6 +3,8 @@
 flightbox/web/cc.data
 flightbox/web/cc.js
 flightbox/web/cc.wasm
+flightbox/web/tw.js
+flightbox/web/tw.wasm
 command_center/render_native
 *.rgb
 

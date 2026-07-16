@@ -19,21 +19,7 @@
 #include <stdint.h>
 #include <math.h>
 #include <osmmesh/mesh.h>
-
-/* The terrain vertex layout, owned by the code that WRITES it.
- *
- * The writer and the reader (glVertexAttribPointer) used to agree only by hand: literal stride 32
- * and offsets 0/12/20 spelled out at the draw call. When normals were added the stride went
- * 20 -> 32 and every one of those numbers had to change together; getting one wrong does not
- * error, it renders garbage. Derive them from the struct instead, and pin the result so a layout
- * change breaks the build rather than the picture. */
-typedef struct { float pos[3]; float uv[2]; float norm[3]; } w3_vtx;
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
-_Static_assert(sizeof(w3_vtx) == 8*sizeof(float), "terrain vertex must be tightly packed (no padding)");
-_Static_assert(offsetof(w3_vtx, pos)  == 0,  "aPos offset");
-_Static_assert(offsetof(w3_vtx, uv)   == 12, "aUV offset");
-_Static_assert(offsetof(w3_vtx, norm) == 20, "aNorm offset");
-#endif
+#include "chunkvtx.h"   /* w3_vtx: the layout the worker WRITES and the main thread READS */
 
 /* One built chunk. malloc'd -- release with w3_chunk_free.
  *

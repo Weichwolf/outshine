@@ -2,6 +2,8 @@
 sim/build/
 sim/flightbox/web/cc.js
 sim/flightbox/web/cc.wasm
+sim/flightbox/web/tw.js
+sim/flightbox/web/tw.wasm
 sim/flightbox/web/cc.data
 *.o
 *.elf
