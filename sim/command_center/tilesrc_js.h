@@ -155,20 +155,16 @@ EM_JS(void, w3_bake_copy, (int photo, int z, int x, int y, int tex, uint8_t *dst
 
 /* The osmmesh provider. Contract: hand over a malloc'd buffer (osmmesh frees it), or return 0
  * for "no tile" — which covers both a genuine hole and "not fetched yet". */
-/* MESSUNG, temporaer: was kostet das Beschaffen der Bytes (Probe + malloc + HEAP-Kopie)? */
-double w3_m_prov = 0; int w3_m_provn = 0; size_t w3_m_provbytes = 0;
 static int w3_tile_provider(void *user, osmmesh_tile_kind kind,
                             uint32_t z, uint32_t x, uint32_t y,
                             uint8_t **out, size_t *len) {
     (void)user;
-    double m_p0 = emscripten_get_now();
     int n = w3_tiles_size((int)kind, (int)z, (int)x, (int)y);
     if (n <= 0) return 0;                    /* pending (-1) or a known hole (0) */
     uint8_t *b = (uint8_t *)malloc((size_t)n);
     if (!b) return 0;
     w3_tiles_copy((int)kind, (int)z, (int)x, (int)y, b);
     *out = b; *len = (size_t)n;
-    w3_m_prov += emscripten_get_now()-m_p0; w3_m_provn++; w3_m_provbytes += (size_t)n;
     return 1;
 }
 
