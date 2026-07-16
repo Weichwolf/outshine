@@ -156,11 +156,25 @@ Coordinate before editing outside your area.
 - **Terrain LOD budget doesn't fit**: `128 chunks (budget 128), 0 pending`, but 31 want split, 10-13
   over budget — `W3_BUDGET` limits detail, not screen-space error. Raise budget or spend it better.
   `W3_TEX=512` = 2.94 m/texel at z14; matching the old 1.47 needs z15 (Shortbread maxz=14 lacks it).
-- **Texture LOD as `tile.tex[mode][lod]`** — designed, unbuilt. The 1-FPS thrash was `tex` a
-  parameter beside the cache key, not part of it; side-by-side slots make disagreement cost one bake
-  once. Release at exactly one place, `cache_trim`. PROOF needs injected disagreement: without slots
-  → `generateMipmap` p50 explodes; with → stays 0; injection removed → still 0. Only the middle line
-  proves anything (`generateMipmap` p50==0 is green today anyway).
+- **DONE: texture ramp `tile.tex[mode][lod]`, progressive by screen size (`bad398a`).** 256 floor
+  shown immediately, climbs stage by stage to the SSE target; 2048 free for both modes (hardware
+  cap only). `lod` is part of the cache key, release only in `cache_trim`, hold by distance NOT
+  frustum (turning is instant — a turned-away near chunk keeps its texture; only receding frees).
+  VRAM self-regulating (937 MB normal / 1670 adversarial, under the 2 GB the user set).
+  - **The proof METAMORPHOSED, and that is the honest part.** Progressive loading eliminated the
+    thrash PATH structurally (all chunks climb from the shared 256 floor, so the walk/children_ready
+    size-alternation is gone). So the NOKEY mutation no longer thrashes — it STALLS: without
+    side-by-side slots a chunk can't hold the shown 256 and load the 512, so 185 chunks freeze at
+    the floor, never sharp. `generateMipmap` p50 is 0 in ALL variants now (with slots: cache hit;
+    NOKEY: it stalls instead of rebaking) — so p50 is a dead indicator here; the live one is
+    "sharpening count" (NOKEY 185 stuck vs slots 0). The mutation still bites; the slots are
+    load-bearing for the climb, not just anti-thrash. Test what you ship: proving the old 480/frame
+    thrash would test the non-progressive code we don't ship.
+  - **2048-OSM is justified — and my first "no detail" measurement was WRONG, a caught mistake.**
+    I measured area-average / HF-energy, which miss EDGE sharpness — exactly where vector rasterising
+    wins. Correct: MVT extent = 4096 (finer than a 2048 texture), max-gradient identical at 1024 and
+    2048 → OSM rasterises sharper road edges at 2048, real gain, not upscaling. The user caught it
+    ("OSM is vector, scales infinitely"). Lesson: a frequency/area mean is blind to edge sharpness.
 - **`sky.h`/`hud.h` split hides a `w3_atmo`.** `world3d_render_scene` computes `sun/moon/day/cloud/
   haze/light` as locals that the terrain AND building passes consume — per-frame shared state with no
   owner. Pull out `w3_atmo` + pure `w3_atmo_from(telem,have)` (natively testable, every pixel hangs
