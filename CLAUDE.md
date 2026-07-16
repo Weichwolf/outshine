@@ -265,15 +265,39 @@ each other** — this has actually happened. Coordinate before editing outside y
     de-dup catches nearly everything first, and the in-flight window is thin. Kept for correctness
     under a pool; its benefit under real streaming load is unmeasured. Reported in `/health`
     because a de-dup with no counter cannot fail visibly — it can only make the network look slow.
-- **`ABSENT` HAS A PRODUCER NOW — the entry below saying it has none is out of date.** `cache.c`
-  fetched with `curl -s -f`, which swallowed "upstream 404" and "the network broke" into one exit
-  code. libcurl reads `CURLINFO_RESPONSE_CODE`, so the two are now separate facts and `absent` is
-  counted in `/health`. **Verified against the real upstream, not just the counter**: a cold
-  Patagonian z12 run reported `absent=10`, and asking VersaTiles directly confirms it — tile
-  `12/2572/…` answers `404` while its neighbours answer `200`. Genuine holes are real, common, and
-  now detectable at the one place that can see them. What still does not exist is the ACT: nothing
-  records the 404, so an ocean tile is still retried forever. That is the 204/negative-caching step,
-  and it is no longer blocked on "what would ever produce ABSENT".
+- **DONE for `/t/`: the ocean tile stops asking. `fb_tile_state{UNKNOWN,READY,ABSENT}` -> 202/200/204.**
+  `curl -s -f` had swallowed "upstream 404" and "the network broke" into one exit code, so ABSENT
+  had no producer and the type was correctly refused. libcurl reads `CURLINFO_RESPONSE_CODE`; a 404
+  now writes an empty `<tile>.absent` marker beside where the tile would be, `fb_cache_get` checks
+  it before touching the network, and `/t/` answers `204 No Content`. `tilesrc_js.h` already treated
+  204 as terminal (`d681a6f`) — the browser was waiting for a status the server never sent.
+  **Proven, and this is exactly the proof this file asked for:**
+      upstream (VersaTiles 12/1297/2572)  -> 404      (neighbours: 200)
+      1st request, nothing known          -> 202
+      after the worker looked             -> 204
+      20 further requests: upstream_fetches 0 -> 0    it really stops
+  - The marker is an EMPTY FILE, and the obvious encoding is the wrong one: a zero-byte tile file
+    would read as "not there yet", because `st_size > 0` is how `fb_cache_ondisk` tells a tile from
+    a truncated write. ABSENT would have collapsed back into UNKNOWN inside the one function built
+    to keep them apart.
+  - `204` gets its own reply function: RFC 7230 forbids `Content-Length` on it, `reply()` always
+    sends one, and browsers tolerate the wrong version — i.e. it would never have been noticed.
+  - **The negative cache is PERMANENT and that is a bet**: upstream could add a tile later and we
+    would never look. Taken deliberately (the alternative is today's retry-forever), which is why
+    the marker is a separate file — deleting the `.absent` files re-asks the world. Nothing expires
+    it automatically; nothing should, silently.
+  - **The same disease was one layer up, in the fix's own instrument**: prefetch counted an absent
+    tile as `failed`. Over an ocean region `failed` would climb into the hundreds and read as a
+    broken fetcher. Split into `absent` (`absent=1 failed=0` on the hole above).
+- **`/bake` still asks forever over a hole — measured, and NOT a mechanical follow-up.** Same tile,
+  `/bake/osm/12/1297/2572`: 202, 202, 202, with `bake_fail=18`. The vector tile is ABSENT, so
+  `bake_osm` returns 0 and the albedo is never produced. But "upstream has no OSM data here" is not
+  "the bake failed" — there is nothing to draw, and the base fill would be a perfectly valid albedo.
+  **The reason this is not a two-line fix**: that base fill is GREEN (`150,178,118`), and green is
+  the wrong answer over an ocean. So the question is what an OSM albedo over no-data should BE
+  (water? a kind-specific default? 204 and let the renderer decide?) — a design decision about what
+  the world looks like where we know nothing, not a status-code repair. Do not paper it over by
+  copying the `/t/` switch across.
   - **How the A/B had to be built, because the first one was worthless.** v1 used ONE cold region
     for both configs, so the second run inherited a warm CDN edge. It came out 132 vs 67 ms/tile
     AGAINST libcurl, and at that point the design says *nothing*: it cannot separate "no effect"
@@ -366,15 +390,15 @@ each other** — this has actually happened. Coordinate before editing outside y
   case nothing can create is a type claiming more than the wire carries — the same lie as the
   overloaded 404, mirrored. **If you have to write "the server never sends this" next to a case, the
   type is too early.**
-  **HALF DONE, and the half that is done is the one this entry demanded.** It said: give the three
-  states a producer first, `cache.c` fetches with `curl -s -f` and the upstream 404 is
-  distinguishable there, it is simply never recorded. libcurl now reads `CURLINFO_RESPONSE_CODE`,
-  so 404 is separated from network failure and counted (`fb_cache_absent`, in `/health`) — and
-  genuine holes are confirmed real against upstream, not merely possible in principle (Patagonia
-  z12: `absent=10`; VersaTiles answers 404 for `12/2572/…` and 200 for its neighbours). **What is
-  still missing is the ACT**: nothing records the 404, so the server cannot yet answer `204` and the
-  renderer still retries an ocean tile forever. Do that next, then the enum guards something real
-  and the proof stays what it always was — an ocean tile that stops asking.
+  **DONE on the server side, and the sequence this entry insisted on is why it worked.** It said:
+  give the three states a producer FIRST, because `cache.c` threw the 404 away and a type whose
+  third case nothing can create claims more than the wire carries. That is exactly the order it
+  went in — libcurl made the 404 visible (`0a9715f`), then the marker recorded it, then
+  `fb_tile_state{UNKNOWN,READY,ABSENT}` and `204` had something real to guard. Had the enum come
+  first it would have been a lie with a `-Wswitch` around it.
+  **What is left is the RENDERER half**: `w3_bake`'s `if(n<=0)` and `photo_none`. The wire can now
+  produce a genuine empty array (`204` -> `Uint8Array(0)`), so `n==0` finally MEANS something and
+  `w3_avail` would have all three producers. That is `renderer-gfx` territory and a separate step.
 - **The renderer and the server each have their own idea of what a tile is — and they disagree at
   the poles.** `world3d.h`'s `w3_geo_to_tile_f` and `tiles/tilemath.h`'s `fb_geo_to_tile` are the
   same formula (`asinh(tan φ)` ≡ `log(tan φ + sec φ)`), but the server CLAMPS latitude to

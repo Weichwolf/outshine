@@ -34,7 +34,7 @@ static fb_pf_queue      g_q;
 static pthread_mutex_t  g_mx  = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t   g_cv  = PTHREAD_COND_INITIALIZER;
 static int              g_run = 0;
-static long             g_done = 0, g_failed = 0;
+static long             g_done = 0, g_failed = 0, g_absent = 0;
 static int              g_nthreads = 0;
 
 /* IN-FLIGHT set. The queue de-duplicates against jobs that are WAITING; a job that has been popped
@@ -76,12 +76,20 @@ static void *worker(void *arg){
          * way the result ends up cached, which is the entire purpose. The bytes are not wanted
          * here — only the side effect. */
         uint8_t *b = 0; size_t n = 0;
-        int ok;
+        int ok, absent = 0;
         if(j.kind >= FB_PF_BAKE_OSM)
             ok = fb_bake_get(j.kind==FB_PF_BAKE_PHOTO ? FB_ALBEDO_PHOTO : FB_ALBEDO_OSM,
                              j.z, j.x, j.y, j.tex, &b, &n);
-        else
+        else {
             ok = fb_cache_get((fb_tile_kind)j.kind, j.z, j.x, j.y, &b, &n);
+            /* A tile upstream does not HAVE is not a failure, and counting it as one is the very
+             * mistake this pool now exists to stop making one layer down. Over an ocean region
+             * `failed` would climb into the hundreds and read as "the fetcher is broken" -- a
+             * counter lying in the exact way that costs an afternoon of debugging. */
+            if(!ok){ uint8_t *d = 0; size_t dn = 0;
+                     absent = fb_cache_state((fb_tile_kind)j.kind, j.z, j.x, j.y, &d, &dn) == FB_TILE_ABSENT;
+                     free(d); }
+        }
         if(ok) free(b);
 
         /* Both counters are shared now. They were incremented outside the lock, which was fine for
@@ -89,7 +97,7 @@ static void *worker(void *arg){
          * the numbers we would judge the pool BY into a data race. A benchmark that corrupts its
          * own counters reports whatever it likes. */
         pthread_mutex_lock(&g_mx);
-        if(ok) g_done++; else g_failed++;
+        if(ok) g_done++; else if(absent) g_absent++; else g_failed++;
         g_inflight_on[slot] = 0;
         pthread_mutex_unlock(&g_mx);
     }
@@ -174,9 +182,10 @@ void fb_pf_stats(long *queued, long *done, long *dropped, long *failed){
     pthread_mutex_unlock(&g_mx);
 }
 
-void fb_pf_pool(int *threads, long *inflight_hits){
+void fb_pf_pool(int *threads, long *inflight_hits, long *absent){
     pthread_mutex_lock(&g_mx);
     if(threads)       *threads       = g_nthreads;
     if(inflight_hits) *inflight_hits = g_inflight_hits;
+    if(absent)        *absent        = g_absent;
     pthread_mutex_unlock(&g_mx);
 }

@@ -35,6 +35,35 @@ static void cache_path(fb_tile_kind k, int z, long x, long y, char *p, size_t n)
     snprintf(p, n, "%s/%s/%d_%ld_%ld.%s", g_dir, fb_src_kind_name(k), z, x, y, fb_src_ext(k));
 }
 
+/* The negative cache: an empty marker file beside where the tile would be. Its EXISTENCE is the
+ * fact -- there is nothing to read, so there is nothing to get wrong.
+ *
+ * A zero-byte tile file would have been the obvious encoding and it is exactly wrong: st_size > 0
+ * is how `fb_cache_ondisk` tells a tile from a truncated write, so an empty file would read as
+ * "nothing here yet" -- ABSENT collapsing back into UNKNOWN, in the one place built to keep them
+ * apart.
+ *
+ * This is PERMANENT, and that is a real bet: upstream could add a tile later (VersaTiles re-cuts,
+ * Esri extends coverage) and we would never look again. Taken deliberately -- the alternative is
+ * retrying every ocean tile forever, which is today's behaviour -- but it is why the marker is a
+ * separate file and not a flag inside a tile: deleting the .absent files re-asks the whole world,
+ * and that is the escape hatch. Nothing expires it automatically; nothing should, silently. */
+static void absent_path(fb_tile_kind k, int z, long x, long y, char *p, size_t n) {
+    snprintf(p, n, "%s/%s/%d_%ld_%ld.absent", g_dir, fb_src_kind_name(k), z, x, y);
+}
+
+static int is_absent(fb_tile_kind k, int z, long x, long y) {
+    char p[400]; absent_path(k, z, x, y, p, sizeof p);
+    struct stat st;
+    return stat(p, &st) == 0;
+}
+
+static void mark_absent(fb_tile_kind k, int z, long x, long y) {
+    char p[400]; absent_path(k, z, x, y, p, sizeof p);
+    FILE *f = fopen(p, "wb");     /* content-free on purpose: the name carries the whole fact */
+    if (f) fclose(f);
+}
+
 static uint8_t *read_file(const char *p, size_t *n) {
     FILE *f = fopen(p, "rb"); if (!f) return 0;
     fseek(f, 0, SEEK_END); long sz = ftell(f); fseek(f, 0, SEEK_SET);
@@ -125,6 +154,9 @@ static size_t sink(void *p, size_t sz, size_t nm, void *ud) {
 int fb_cache_get(fb_tile_kind k, int z, long x, long y, uint8_t **out, size_t *n) {
     if (!fb_src_kind_name(k) || !out || !n) return 0;
     if (fb_cache_ondisk(k, z, x, y, out, n)) return 1;
+    /* Known hole: do not ask upstream again. This is the only line that makes the negative cache
+     * worth anything -- without it we would record the 404 and keep paying for it. */
+    if (is_absent(k, z, x, y)) return 0;
     char url[600];
     if (!fb_src_url(k, z, x, y, url, sizeof url)) { g_fail++; return 0; }
 
@@ -145,7 +177,7 @@ int fb_cache_get(fb_tile_kind k, int z, long x, long y, uint8_t **out, size_t *n
          * none, so the renderer retries an ocean tile forever. Counted here rather than acted on:
          * a counter is honest, and turning it into a negative cache entry is its own step with
          * its own proof. -f used to swallow this distinction into one exit code. */
-        if (code == 404) g_absent++; else g_fail++;
+        if (code == 404) { g_absent++; mark_absent(k, z, x, y); } else g_fail++;
         return 0;
     }
 
@@ -167,6 +199,15 @@ int fb_cache_get(fb_tile_kind k, int z, long x, long y, uint8_t **out, size_t *n
     *out = o.b; *n = o.n;
     g_fetch++;
     return 1;
+}
+
+fb_tile_state fb_cache_state(fb_tile_kind k, int z, long x, long y, uint8_t **out, size_t *n) {
+    if (!fb_src_kind_name(k) || !out || !n) return FB_TILE_UNKNOWN;
+    if (fb_cache_ondisk(k, z, x, y, out, n)) return FB_TILE_READY;
+    /* Order matters: bytes win over a marker. If both somehow exist, the tile arrived after we gave
+     * up on it, and the bytes are the newer truth. */
+    if (is_absent(k, z, x, y)) return FB_TILE_ABSENT;
+    return FB_TILE_UNKNOWN;
 }
 
 void fb_cache_stats(long *hits, long *fetches, long *fails) {

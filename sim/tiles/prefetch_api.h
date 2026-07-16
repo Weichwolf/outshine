@@ -21,8 +21,10 @@ void fb_pf_stats(long *queued, long *done, long *dropped, long *failed);
  * `threads` is reported rather than assumed: the count is configurable (TILES_PF_THREADS) and
  * pthread_create can fail, so "we asked for 8" and "8 are running" are different facts -- and a
  * benchmark that prints the number it WANTED is this project's oldest mistake.
+ * `absent` is jobs whose tile upstream does not HAVE -- split out of `failed` because an ocean
+ * region would otherwise drive `failed` into the hundreds and read as a broken fetcher.
  * `inflight_hits` is the evidence that de-duplication against in-flight work does anything at all.
  * Without it, the dedup is a claim: it cannot fail visibly, it can only make the network look slow. */
-void fb_pf_pool(int *threads, long *inflight_hits);
+void fb_pf_pool(int *threads, long *inflight_hits, long *absent);
 
 #endif

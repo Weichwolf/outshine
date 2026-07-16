@@ -57,6 +57,21 @@ static void reply(int fd, const char *status, const char *ctype, const char *bod
     send_all(fd, body, strlen(body));
 }
 
+/* 204 No Content: "we looked, there is nothing, stop asking."
+ *
+ * Its own function because it is the one reply that must NOT carry Content-Length -- RFC 7230
+ * forbids it on 204, and reply() always sends one. Browsers tolerate the wrong version, which is
+ * exactly why it would never have been noticed.
+ *
+ * Cached as hard as a real tile: "there is no tile here" is as permanent as the tile would have
+ * been, and a hole that has to be re-learned on every page load is only half a negative cache. */
+static void reply_204(int fd) {
+    static const char h[] =
+        "HTTP/1.1 204 No Content\r\nAccess-Control-Allow-Origin: *\r\n"
+        "Cache-Control: public, max-age=31536000, immutable\r\nConnection: close\r\n\r\n";
+    send_all(fd, h, sizeof h - 1);
+}
+
 /* Binary reply. Tiles are immutable for a given z/x/y, so let every layer cache them hard. */
 static void reply_bin(int fd, const char *ctype, const uint8_t *body, size_t n) {
     char hdr[512];
@@ -144,20 +159,20 @@ static void handle(int fd, char *req) {
              * A miss queues the fetch and says so; the caller asks again. Nothing here ever waits
              * on the network.
              *
-             * The old comment here argued that 404 was "the honest answer" for genuine holes
-             * (ocean, no imagery) as well as for a queued fetch. That is exactly the bug: one
-             * status for two facts, so the caller cannot act on either. 202 = "queued, ask again"
-             * is now the only thing this line claims.
-             *
-             * The genuine hole has NO representation yet, and pretending otherwise would be the
-             * same mistake again: this server never learns that upstream lacks a tile -- there is
-             * no negative caching anywhere in prefetch/tilesrc/bake. So an ocean tile is retried
-             * forever until that exists (then: 204 No Content). A retry loop is noisy and shows
-             * up; a silent permanent hole looks exactly like a working world. We take the noisy
-             * one on purpose. */
-            if (!fb_cache_ondisk(k, z, x, y, &body, &n)) {
+             * Three answers for three facts, which took this project two bugs to arrive at. It
+             * first said 404 for BOTH "queued, ask again" and "there is none" -- the browser cached
+             * the permanent reading and a cold region never loaded. Then everything became 202,
+             * which fixed that and made an ocean tile retry forever instead. Both are the same
+             * missing state, seen from opposite sides; the switch below is the state finally
+             * existing, and -Wswitch is what keeps it from collapsing again. */
+            switch (fb_cache_state(k, z, x, y, &body, &n)) {
+            case FB_TILE_UNKNOWN:
                 fb_pf_fetch(k, z, x, y);
                 reply(fd, "202 Accepted", "text/plain", "fetching\n"); return;
+            case FB_TILE_ABSENT:
+                reply_204(fd); return;
+            case FB_TILE_READY:
+                break;
             }
             reply_bin(fd, fb_src_content_type(k), body, n);
             free(body);
@@ -171,11 +186,11 @@ static void handle(int fd, char *req) {
         }
     }
     if (!strcmp(path, "/health")) {
-        long h, m, f, ch, cf, cx, pq, pd, pdr, pf, bh, bb, bf, pif;
+        long h, m, f, ch, cf, cx, pq, pd, pdr, pf, bh, bb, bf, pif, pab;
         int pth;
         fb_elev_stats(&h, &m, &f); fb_cache_stats(&ch, &cf, &cx);
         fb_pf_stats(&pq, &pd, &pdr, &pf); fb_bake_stats(&bh, &bb, &bf);
-        fb_pf_pool(&pth, &pif);
+        fb_pf_pool(&pth, &pif, &pab);
         char body[640];
         snprintf(body, sizeof body,
                  "ok dem_resident_hits=%ld dem_decoded=%ld dem_fail=%ld | "
@@ -184,9 +199,9 @@ static void handle(int fd, char *req) {
                   * retry. Still only a counter: nothing acts on it yet. */
                  "cache_hits=%ld upstream_fetches=%ld fetch_fail=%ld absent=%ld | "
                  /* threads = what STARTED, not what TILES_PF_THREADS asked for. */
-                 "prefetch_threads=%d queued=%ld done=%ld dropped=%ld failed=%ld inflight_dedup=%ld | "
+                 "prefetch_threads=%d queued=%ld done=%ld dropped=%ld failed=%ld absent=%ld inflight_dedup=%ld | "
                  "bake_disk_hits=%ld baked=%ld bake_fail=%ld scanline_refused=%ld\n",
-                 h, m, f, ch, cf, cx, fb_cache_absent(), pth, pq, pd, pdr, pf, pif, bh, bb, bf,
+                 h, m, f, ch, cf, cx, fb_cache_absent(), pth, pq, pd, pdr, pf, pab, pif, bh, bb, bf,
                  fb_raster_scanline_overflows());
         reply(fd, "200 OK", "text/plain", body);
         return;
