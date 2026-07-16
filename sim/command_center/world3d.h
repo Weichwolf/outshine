@@ -345,8 +345,9 @@ static float w3_yoff=0; static int w3_yoff_set=0;   /* origin ground elevation (
 /* ONE draw list, built by the tree walk each stream pass. There used to be three of these
  * (w3_T/w3_TF/w3_TF2 with w3_nT/w3_nTF/w3_nTF2) -- the same code three times with suffixes,
  * which is how the overlap got written down as a fact and then lived on as one. */
-typedef struct { GLuint vbo, tex[2]; int nverts; } w3_tileGL;
+typedef struct { GLuint vbo, tex[2]; int nverts; float bmin[3], bmax[3]; } w3_tileGL;
 static w3_tileGL w3_D[W3_BUDGET]; static int w3_nD=0;
+static int w3_nvis=0;   /* of w3_nD, how many last frame's frustum drew; proof the cull bites */
 
 /* --- software raster into an RGB image (tile-local coords * sc) --- */
 /* ---- ground albedo: downloaded ready-made from fb-tiles ------------------------------------
@@ -500,6 +501,7 @@ typedef struct { int z; uint32_t x,y; GLuint vbo,tex[2][W3_NLOD]; int nverts; un
                                        * target). trim frees resident steps above it -> a receding
                                        * chunk gives its fine steps back. Per-pass max, distance-only. */
                  float err;           /* measured geometric error, metres -- drives the LOD */
+                 float bmin[3], bmax[3];  /* AABB, read only by the draw-time frustum cull */
                  float *mverts; int mnverts; float merr;  /* worker's mesh, awaiting GL upload */
 #if W3_LOD_NOKEY
                  int texpx[2];        /* proof control: the size stored in tex[mode][0], to detect
@@ -708,6 +710,11 @@ static int w3_cache_get(int z,uint32_t x,uint32_t y,int lod,int is_centre){
     if(r<=0){ w3_pending++; return -1; }                   /* floor in flight: keep asking */
     GLuint vbo; glGenBuffers(1,&vbo); glBindBuffer(GL_ARRAY_BUFFER,vbo);
     glBufferData(GL_ARRAY_BUFFER,(GLsizeiptr)((size_t)c->mnverts*sizeof(w3_vtx)),c->mverts,GL_STATIC_DRAW);
+    /* AABB from the mesh: the skirt only lowers bmin -> the box grows, never over-culls. */
+    { const w3_vtx*v=(const w3_vtx*)c->mverts;
+      c->bmin[0]=c->bmax[0]=v[0].pos[0]; c->bmin[1]=c->bmax[1]=v[0].pos[1]; c->bmin[2]=c->bmax[2]=v[0].pos[2];
+      for(int k=1;k<c->mnverts;k++)for(int a=0;a<3;a++){
+        float p=v[k].pos[a]; if(p<c->bmin[a])c->bmin[a]=p; if(p>c->bmax[a])c->bmax[a]=p; } }
     free(c->mverts); c->mverts=0;
     c->vbo=vbo; c->nverts=c->mnverts; c->err=c->merr;
     { int p=w3_ensure_tex(c,W3_GROUND_PHOTO,z,x,y,w3_lod_px[0],0);  /* photo floor; OSM covers if -1 */
@@ -800,7 +807,9 @@ static void w3_emit(int ci,int lod){
   { int L=w3_cache[ci].z-W3_ROOTZ; if(L>=0&&L<8) w3_lvl[L]++; }
   w3_D[w3_nD].vbo=w3_cache[ci].vbo; w3_D[w3_nD].nverts=w3_cache[ci].nverts;
   w3_D[w3_nD].tex[0]=w3_pick_lod(&w3_cache[ci],W3_GROUND_OSM,lod);
-  w3_D[w3_nD].tex[1]=w3_pick_lod(&w3_cache[ci],W3_GROUND_PHOTO,lod); w3_nD++;
+  w3_D[w3_nD].tex[1]=w3_pick_lod(&w3_cache[ci],W3_GROUND_PHOTO,lod);
+  for(int a=0;a<3;a++){ w3_D[w3_nD].bmin[a]=w3_cache[ci].bmin[a]; w3_D[w3_nD].bmax[a]=w3_cache[ci].bmax[a]; }
+  w3_nD++;
 }
 /* Recurse. (lat,lon,alt) = camera; (tx,ty) = camera's fractional tile coord at THIS level. */
 static void w3_walk(int z,long x,long y,double lat,double alt,double tx,double ty){
@@ -1099,7 +1108,13 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
     glEnableVertexAttribArray(w3_wtPos); glEnableVertexAttribArray(w3_wtUV); glEnableVertexAttribArray(w3_wtNorm);
     /* No polygon offset, no draw order, no coarse-to-fine: the chunks in w3_D are a CUT through
      * the tree, so they tile the ground without overlapping. There is nothing to bias apart. */
+    /* Cull here, not in the walk: rotation moves the frustum every frame while the walk sleeps, and
+     * keeping the walk view-independent is what holds tiles / picks LOD by distance alone. */
+    const w3_frustum fr=w3_frustum_from(mvp);
+    w3_nvis=0;
     for(int i=0;i<w3_nD;i++){
+      if(!w3_aabb_visible(&fr,w3_D[i].bmin,w3_D[i].bmax)) continue;
+      w3_nvis++;
       /* THE ground switch, in full: an index. Both albedos are already on the GPU. */
       GLuint _t=w3_D[i].tex[w3_ground_mode]; if(!_t)_t=w3_D[i].tex[W3_GROUND_OSM];
       glBindTexture(GL_TEXTURE_2D,_t); glBindBuffer(GL_ARRAY_BUFFER,w3_D[i].vbo);

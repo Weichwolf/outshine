@@ -111,6 +111,9 @@ EMSCRIPTEN_KEEPALIVE long cc_mipmaps(void){ return w3_mipmaps; }
 /* Resident texture VRAM in bytes -- real, summed from the cache (world3d.h), for the ramp's VRAM
  * budget check. Sampled by the harness against the 2 GB cap. */
 EMSCRIPTEN_KEEPALIVE long cc_texvram(void){ return w3_texvram(); }
+/* Walk's draw list vs what the frustum actually drew: cc_visible < cc_drawn = the cull works. */
+EMSCRIPTEN_KEEPALIVE int cc_drawn(void){ return w3_nD; }
+EMSCRIPTEN_KEEPALIVE int cc_visible(void){ return w3_nvis; }
 
 static int armed_latch=0, prev_enter=0; static uint16_t seq=0;
 static void send_control(void){

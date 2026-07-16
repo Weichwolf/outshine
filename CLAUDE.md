@@ -156,6 +156,11 @@ Coordinate before editing outside your area.
 - **Terrain LOD budget doesn't fit**: `128 chunks (budget 128), 0 pending`, but 31 want split, 10-13
   over budget — `W3_BUDGET` limits detail, not screen-space error. Raise budget or spend it better.
   `W3_TEX=512` = 2.94 m/texel at z14; matching the old 1.47 needs z15 (Shortbread maxz=14 lacks it).
+  (`W3_BUDGET`/`w3_nD` count the DISTANCE walk, not what is drawn — see the frustum-cull DONE below.)
+- **DONE: frustum cull at DRAW time (`camera.h` `w3_frustum`/`w3_aabb_visible`).** Cut at draw, not in
+  the walk: the walk stays view-independent so tile-hold, LOD and the texture ramp remain distance-only
+  and TTL/`cache_trim` never see the view — turning is instant, nothing reloads. Measured
+  `cc_visible/cc_drawn` = 49-53/128 on a moving camera (≈40 %, follows heading), screenshot 0 holes.
 - **DONE: texture ramp `tile.tex[mode][lod]`, progressive by screen size (`bad398a`).** 256 floor
   shown immediately, climbs stage by stage to the SSE target; 2048 free for both modes (hardware
   cap only). `lod` is part of the cache key, release only in `cache_trim`, hold by distance NOT

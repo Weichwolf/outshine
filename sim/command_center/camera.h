@@ -70,4 +70,34 @@ static w3_cam w3_cam_from(float yaw_deg, float pitch_deg, float roll_deg,
     return c;
 }
 
+/* Six inward half-spaces from an MVP (Gribb-Hartmann): inside iff every plane[k]·(x,y,z,1) >= 0.
+ * Same silent-mirror class as the basis above -- a wrong sign culls on-screen terrain (a hole at
+ * one heading) or nothing, neither crashes, no screenshot shows it. Pinned in test_camera.c.
+ * Planes stay UNnormalised: a sign test does not need unit length, and it saves the sqrt. */
+typedef struct { float p[6][4]; } w3_frustum;   /* mvp is column-major: mvp[col*4+row] */
+
+static w3_frustum w3_frustum_from(const float mvp[16]) {
+    w3_frustum fr;
+    for (int a = 0; a < 3; a++)                  /* a: 0 L/R, 1 B/T, 2 N/F -- clip row a and row w */
+        for (int j = 0; j < 4; j++) {
+            float w = mvp[j*4+3], c = mvp[j*4+a];
+            fr.p[a*2][j] = w + c; fr.p[a*2+1][j] = w - c;
+        }
+    return fr;
+}
+
+/* AABB at least partially inside? Positive-vertex test. Errs toward keeping (a false positive is one
+ * wasted draw; a false negative would be a hole) -- the safe asymmetry for culling. */
+static int w3_aabb_visible(const w3_frustum *fr, const float bmin[3], const float bmax[3]) {
+    for (int k = 0; k < 6; k++) {
+        const float *pl = fr->p[k];
+        float d = pl[3]
+            + pl[0] * (pl[0] >= 0 ? bmax[0] : bmin[0])
+            + pl[1] * (pl[1] >= 0 ? bmax[1] : bmin[1])
+            + pl[2] * (pl[2] >= 0 ? bmax[2] : bmin[2]);
+        if (d < 0) return 0;
+    }
+    return 1;
+}
+
 #endif /* W3_CAMERA_H */

@@ -149,4 +149,32 @@ void test_camera(void) {
         ck(fabsf(wide.mvp[0]) < fabsf(narrow.mvp[0]), "a wider fov squeezes x (more world per pixel)");
         ck(memcmp(wide.f, narrow.f, sizeof wide.f) == 0, "fov does not touch the basis");
     }
+
+    tsection("frustum: an AABB is drawn iff the camera can see it");
+    {
+        /* A wrong plane sign culls on-screen terrain or culls nothing -- neither shows in a shot. */
+        w3_cam c = w3_cam_from(0, 0, 0, origin, 80, 1.333f, 20, 240000);   /* facing north, level */
+        w3_frustum fr = w3_frustum_from(c.mvp);
+        #define BOX(cx,cy,cz,r,mn,mx) float mn[3]={(cx)-(r),(cy)-(r),(cz)-(r)}, mx[3]={(cx)+(r),(cy)+(r),(cz)+(r)}
+
+        { BOX(0,0,-1000,50, mn,mx); ck(w3_aabb_visible(&fr,mn,mx), "1 km straight ahead (north) is visible"); }
+        { BOX(0,0,+1000,50, mn,mx); ck(!w3_aabb_visible(&fr,mn,mx), "1 km behind (south) is culled -- the near plane"); }
+        { BOX(0,0,-5,1,     mn,mx); ck(!w3_aabb_visible(&fr,mn,mx), "in front but nearer than the near plane (20 m) is culled"); }
+        { BOX(0,0,-100000,50, mn,mx); ck(w3_aabb_visible(&fr,mn,mx), "100 km ahead is still inside the 240 km far plane"); }
+        { BOX(0,0,-241000,50, mn,mx); ck(!w3_aabb_visible(&fr,mn,mx), "past the 240 km far plane is culled"); }
+        { BOX(100000,0,-1000,50, mn,mx); ck(!w3_aabb_visible(&fr,mn,mx), "far off to the +X side is out of the horizontal fov"); }
+        { BOX(-100000,0,-1000,50, mn,mx); ck(!w3_aabb_visible(&fr,mn,mx), "far off to the -X side too -- the mirror plane"); }
+
+        /* A big box straddling the eye contains the near frustum: the positive-vertex test must not
+         * reject it (that false negative would punch a hole under the aircraft). */
+        { BOX(0,0,0,5000, mn,mx); ck(w3_aabb_visible(&fr,mn,mx), "a box enclosing the camera is visible, not culled"); }
+
+        /* Turn to face east: the box that was ahead (north) leaves the frustum, and one to the east
+         * enters it. This is the whole point -- the visible set follows the heading. */
+        c = w3_cam_from(90, 0, 0, origin, 80, 1.333f, 20, 240000);
+        fr = w3_frustum_from(c.mvp);
+        { BOX(0,0,-1000,50, mn,mx); ck(!w3_aabb_visible(&fr,mn,mx), "facing east: the northern box is now behind -> culled"); }
+        { BOX(1000,0,0,50, mn,mx);  ck(w3_aabb_visible(&fr,mn,mx),  "facing east: the eastern box is now ahead -> visible"); }
+        #undef BOX
+    }
 }
