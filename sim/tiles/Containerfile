@@ -2,8 +2,18 @@
 # (DEM now; vector/imagery next) and caches it, so neither the engine nor the renderer
 # ships a preloaded region. Build context = sim/.
 FROM docker.io/library/debian:trixie-slim
+# libcurl4-openssl-dev is the HEADER only: libcurl.so.4 was already here (curl pulls it in). The
+# fetch path used to shell out to the curl BINARY once per tile -- fork, exec, TLS handshake, no
+# connection reuse; measured 2.34x slower than one kept connection (see cache.c for the A/B and why
+# the first version of it was worthless). So this is a link, not a new dependency: the library was
+# always installed, we were just starting it as a process.
+#
+# The curl BINARY is now unused in this image (no system(), no popen(), no HEALTHCHECK -- checked,
+# not assumed) and libcurl4-openssl-dev pulls libcurl4 by itself, so `curl` below could go. Left in
+# deliberately: it is the only way to debug an upstream fetch from inside the container, and this
+# image is where "why did that tile not arrive" gets asked. Cheap to keep, awkward to miss.
 RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
-    curl ca-certificates \
+    curl ca-certificates libcurl4-openssl-dev \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY tiles/ tiles/
@@ -13,7 +23,7 @@ COPY geo/osmmesh/ geo/osmmesh/
 # drift out of sync.
 RUN gcc -O2 -Wall -Itiles -Igeo/osmmesh/include \
         tiles/main.c tiles/elev.c tiles/cache.c tiles/route.c tiles/tilesrc.c tiles/prefetch.c tiles/raster.c tiles/bake.c geo/osmmesh/src/*.c \
-        -o /usr/local/bin/fb-tiles -lm -lpthread \
+        -o /usr/local/bin/fb-tiles -lm -lpthread -lcurl \
     && mkdir -p /var/cache/fbtiles
 EXPOSE 8081
 CMD ["/usr/local/bin/fb-tiles"]

@@ -222,20 +222,38 @@ each other** — this has actually happened. Coordinate before editing outside y
 
 ## Open work
 
-- **`fb-tiles` spawns a SHELL and a CURL PROCESS per tile — measured 3.2x, and it is not the thread.**
-  `cache.c:64` is `system("curl -s -f ... -o tmp url")`. Per tile that is: fork+exec /bin/sh,
-  fork+exec curl, DNS, TCP, a full **TLS handshake**, download, exit — then write `.tmp`, rename,
-  and read the file back off disk. **No connection reuse, ever.** Measured against the real Esri
-  CDN, 10 adjacent tiles:
-      one system(curl) per tile (today) : 0.77 s
-      one curl, connection reused       : 0.24 s   -> 3.2x, 53 ms/tile of pure process+TLS
-  On the cold Hameln run that is **116 s of the 433 s** spent on handshakes, moving zero extra
-  bytes. This is INDEPENDENT of the single worker thread (`prefetch.c:51`, one `pthread_create`):
-  threads would overlap the handshakes, reuse would remove them, and the two compose. Note which
-  claim came first and was wrong to lead with: "one thread" was read off the code; this was
-  measured. `libcurl.so.4` is already installed in the container — only the dev header is missing,
-  so this is a link, not a new dependency. `curl_multi` would also make the network half parallel
-  on one thread, leaving real threads for the CPU half (the bakes).
+- **DONE: `fb-tiles` fetches with libcurl, one kept handle per thread — 2.34x on the fetch path.**
+  `cache.c` was `system("curl -s -f ... -o tmp url")`: per tile a fork+exec /bin/sh, a fork+exec
+  curl, DNS, TCP, a full TLS handshake, download, exit — then `.tmp`, rename, and read the file
+  back off disk. No connection reuse, ever. Now: a thread-local `CURL*` that is KEPT (that IS the
+  fix — libcurl's connection pool lives in the easy handle, so a handle per fetch would link the
+  library and still pay every handshake), and the bytes go network -> memory -> disk instead of
+  network -> disk -> memory. Measured on this server, /t/ route, 4x64 cold tiles per config:
+      system(curl) : mean 8.13 s / 64 (sd 2.55) = 127 ms/tile
+      libcurl      : mean 3.47 s / 64 (sd 0.00) =  54 ms/tile   -> 2.34x, ~73 ms/tile
+  **The spread is the more telling half**: reuse removes the handshake, and the handshake was where
+  the variance lived. Per-tile cost also FALLS with batch size (75/55/42 ms at 4/16/64) — one
+  connection amortised, i.e. the mechanism showing itself rather than being argued.
+  **Two numbers from this file are WITHDRAWN**: "3.2x" came from a throwaway /tmp benchmark, not
+  from this server, and "116 s of the 433 s cold Hameln run" was that ratio multiplied by a fetch
+  count nobody had measured — a real number times a guessed one, which is a guess. What a cold
+  Hameln run saves is still unmeasured. Independent of the single worker thread (`prefetch.c:51`):
+  threads overlap handshakes, reuse removes them, and the two compose.
+  - **How the A/B had to be built, because the first one was worthless.** v1 used ONE cold region
+    for both configs, so the second run inherited a warm CDN edge. It came out 132 vs 67 ms/tile
+    AGAINST libcurl, and at that point the design says *nothing*: it cannot separate "no effect"
+    from "effect smaller than the confound". Calling the confound "a handicap, so a win is a lower
+    bound" only works if you win. A design that speaks only when it agrees with you is not an
+    instrument. v2: every run gets its OWN untouched region (nobody inherits warm bytes), adjacent
+    blocks of one strip (so terrain and JPEG size stay comparable), ABBA-balanced order (so time
+    drift cancels), every sample printed, and it prints "SPREAD EXCEEDS THE GAP — this run decides
+    nothing" when it cannot tell.
+  - **`sd = 0.00` was the tell, and my first reading of it was wrong.** Four cold regions timing to
+    within 10 ms looked impossible, so I suspected my own harness — hypothesis: 64 host-side curl
+    processes were the floor. Measured the floor: **0.37 s, not 3.47.** The harness was innocent
+    and the constancy was the effect itself. Then falsified the artifact theory properly: the
+    number SCALES with tile count (0.30/0.88/2.69 s at 4/16/64), which an artifact would not.
+    Suspecting the instrument is right; stopping at the first suspicion that fits is not.
 - **Cold regions: fixed on the wire, not yet proven.** `202`/`204` replaced the overloaded `404`
   (see above), but the cold run has not gone green. Two things are missing. (1) **A repeatable cold
   fixture**: today's test burned a real origin — the act of testing warms it, so Matterhorn and

@@ -24,4 +24,9 @@ int  fb_cache_get(fb_tile_kind k, int z, long x, long y, uint8_t **out, size_t *
 int  fb_cache_ondisk(fb_tile_kind k, int z, long x, long y, uint8_t **out, size_t *n);
 void fb_cache_stats(long *hits, long *fetches, long *fails);
 
+/* Upstream answered 404: this tile does not exist and never will. Deliberately NOT folded into
+ * `fails` -- "not there yet" and "not there, ever" are different facts, and merging them into one
+ * number is the same mistake the overloaded 404 made on our own wire. */
+long fb_cache_absent(void);
+
 #endif /* FB_CACHE_H */
