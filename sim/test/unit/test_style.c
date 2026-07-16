@@ -9,10 +9,54 @@
 #include "tassert.h"
 #include "../../tiles/style.h"
 
-/* the tile size the widths are tuned for */
-#define REF 1024
+/* The reference denominator the widths are expressed against. It comes FROM style.h — this file
+ * used to carry its own `#define REF 1024`, which made it a third private copy of a number that
+ * also sat in style.h and (hand-inlined) in raster.c. A test with its own copy of the constant
+ * does not catch a change to it, it AGREES with it. */
+#define REF ((int)FB_STYLE_REF_TEX)
 
 void test_style(void){
+    tsection("style: the unit is TILE-EDGE FRACTIONS — not pixels, not metres");
+    {
+        /* This section exists because reading the old comment ("stroke width in texture pixels")
+         * and the call site, without reading the function between them, produced a confident and
+         * entirely wrong bug report: "every doubling of the texture halves each road's ground
+         * width; a motorway at 2048 would be 4.4 m". It does not. `u` cancels the resolution out.
+         * The numbers below are the refutation, kept as a test so the claim cannot come back. */
+        uint8_t r, g, b; int rail;
+        const double SPAN_Z14 = 1504.0;   /* m, one z14 tile at 52 N — the aircraft's home tile */
+
+        /* ACROSS TEXTURE SIZE: the ground width must not move at all. This is what makes a texture
+         * LOD ramp (256/512/1024/2048) possible in the first place: the same road, sharper. */
+        double w_ref = -1;
+        for (int ts = 256; ts <= 2048; ts *= 2) {
+            double wpx = w3_roadstyle("motorway", ts, &r, &g, &b, &rail);
+            double wm  = wpx * (SPAN_Z14 / ts);          /* texels -> metres on the ground */
+            if (w_ref < 0) w_ref = wm;
+            ck_near(wm, w_ref, 1e-3, "motorway keeps its ground width across texture sizes");
+        }
+        ck_near(w_ref, 8.81, 0.05, "and that width is ~8.8 m — a plausible motorway, not a footpath");
+
+        /* Same for the narrowest kind: a bug that only scales the wide ones would slip past. */
+        double p_ref = -1;
+        for (int ts = 256; ts <= 2048; ts *= 2) {
+            double wpx = w3_roadstyle("footway", ts, &r, &g, &b, &rail);
+            double wm  = wpx * (SPAN_Z14 / ts);
+            if (p_ref < 0) p_ref = wm;
+            ck_near(wm, p_ref, 1e-3, "a footpath keeps its ground width across texture sizes too");
+        }
+
+        /* ACROSS ZOOM: the ground width MUST scale with the tile's span, and that is deliberate
+         * cartography, not a bug. A z8 tile is 96 km across and is drawn ~200 km away; its
+         * motorway is ~564 m wide, which is about one screen pixel. At 8.8 m it would not exist.
+         * Small-scale maps draw roads wider than the ground truth on purpose. */
+        double span_z8 = SPAN_Z14 * 64.0;               /* z14 -> z8 is 6 doublings */
+        double w14 = w3_roadstyle("motorway", 512, &r, &g, &b, &rail) * (SPAN_Z14 / 512);
+        double w8  = w3_roadstyle("motorway", 512, &r, &g, &b, &rail) * (span_z8  / 512);
+        ck_near(w8 / w14, 64.0, 1e-6, "a motorway is 64x wider on the ground at z8 than at z14");
+        ck(w8 > 500 && w8 < 600, "z8 motorway is ~564 m — about one screen pixel at 200 km");
+    }
+
     tsection("style: landcover colours");
     {
         uint8_t r, g, b;

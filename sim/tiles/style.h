@@ -29,15 +29,30 @@ static void w3_landcolor(const char*k,uint8_t*r,uint8_t*g,uint8_t*b){
   *r=150;*g=178;*b=118;
 }
 
-/* Street "kind" -> colour + stroke width in texture pixels, and whether it is a railway.
+/* The reference texture size the stroke widths below are expressed against. It is NOT a texture
+ * size we bake at — it is the denominator of a UNIT. `6` means "6/1024 of the tile's edge", and
+ * `u` converts that to whatever resolution is actually being baked.
+ *
+ * It has a name because it had none: the same 1024 was hand-inlined in raster.c for the river
+ * stroke, so the two lived in separate files with no way to notice if one moved. Widths in
+ * different units that all look like plain numbers is exactly how this project loses afternoons. */
+#define FB_STYLE_REF_TEX 1024.0f
+
+/* Street "kind" -> colour + stroke width, and whether it is a railway.
  * Rails are drawn in a second pass so they stay visible where they cross roads.
  *
- * tex_res = the resolution of the texture being baked. Widths are tuned for a ~1.5 km tile at
- * 1024 px, so they scale with it: a 256 px far tile must get proportionally thinner roads, not
- * the same pixel widths (which would render as a coarse grey mat at distance).
+ * THE UNIT IS TILE-EDGE FRACTIONS (1/FB_STYLE_REF_TEX of one edge), not pixels and not metres.
+ * That distinction is not pedantry — it is the whole behaviour, and reading "pixels" here once
+ * cost a wrong bug report:
+ *   - across TEXTURE SIZE the ground width is CONSTANT (motorway = 8.8 m on a z14 tile, whether
+ *     baked at 256 or 2048), because `u` cancels the resolution out. Measured, see test_style.c.
+ *   - across ZOOM it scales with the tile's span, and that is deliberate cartographic
+ *     generalisation: the same motorway is 564 m wide on a z8 tile. A z8 chunk is 96 km across and
+ *     sits ~200 km away, so 564 m is about one screen pixel — at 8.8 m the road would simply not
+ *     exist. Roads on a small-scale map are drawn wider than the ground truth, on purpose.
  */
 static float w3_roadstyle(const char*k,int tex_res,uint8_t*r,uint8_t*g,uint8_t*b,int*rail){
-  *rail=0; float u=(float)tex_res/1024.0f;
+  *rail=0; float u=(float)tex_res/FB_STYLE_REF_TEX;
   if(!strcmp(k,"rail")||!strcmp(k,"tram")){*r=95;*g=95;*b=105;*rail=1;return 2.0f*u;}
   if(!strcmp(k,"motorway")||!strcmp(k,"trunk")){*r=250;*g=205;*b=140;return 6*u;}
   if(!strcmp(k,"primary")){*r=250;*g=222;*b=165;return 5*u;}

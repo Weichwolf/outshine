@@ -77,7 +77,10 @@ static int bake_osm(int z, long x, long y, int TS, uint8_t *im){
         for(size_t f=0;f<nf;f++){
             const osmmesh_mvt_feature *ft = osmmesh_mvt_feature_at(L,f);
             if(ft->geom_type == OSMMESH_MVT_GEOM_LINESTRING)
-                fb_draw_line(im,TS,TS,ft,sc, 3.0f*TS/1024.0f, 92,140,190);
+                /* 3 tile-edge fractions, same unit as every width in style.h — the reference
+                 * denominator lives there and only there, or the rivers and the roads drift
+                 * apart the day someone tunes one of them. */
+                fb_draw_line(im,TS,TS,ft,sc, 3.0f*(float)TS/FB_STYLE_REF_TEX, 92,140,190);
         }
     }
     osmmesh_mvt_free(t);
