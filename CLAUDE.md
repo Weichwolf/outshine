@@ -122,12 +122,12 @@ Two traps that already cost a session each, both fixed in `shot.js` — do not u
   reached 111/128 chunks and did not converge inside 300 s. It GROUND rather than stalled — 4539
   upstream fetches with 0 failures, 1593 bakes with 0 failures, nothing dropped, chunks rising
   monotonically — so it is not the Matterhorn stall. But "grinds" is not what was promised.
-  One fact, **read and not measured**: `tiles/prefetch.c` starts exactly ONE worker thread
-  (`pthread_create` once, not in a loop; the file header says so in the singular). **Whether that
-  thread is the bottleneck is unmeasured, and where the time actually goes is unknown** — 1593
-  bakes in ~600 s is far faster than the 1.6 s per cold bake the comments claim, so the obvious
-  story does not even add up. The cold Hameln run is the measurement that decides it.
-  Do not restore the claim until a cold run is green.
+  Both halves of that run's fetch path have since been changed (libcurl, and a 4-thread pool —
+  measured 2.34x and 2.89x on the fetch path in isolation), so **the 300 s figure and everything
+  derived from it now describe a build that no longer exists.** Whether Aoraki converges today is
+  unknown; nobody has re-run it. **What is still unexplained and was never the thread**: 1593 bakes
+  in ~600 s is far faster than the 1.6 s per cold bake the comments claim, so the obvious story did
+  not add up then and does not now. Do not restore the "any origin" claim until a cold run is green.
 - `printf` from the WASM goes to the **browser console**, not the container log.
 
 ## Process
@@ -237,8 +237,43 @@ each other** — this has actually happened. Coordinate before editing outside y
   **Two numbers from this file are WITHDRAWN**: "3.2x" came from a throwaway /tmp benchmark, not
   from this server, and "116 s of the 433 s cold Hameln run" was that ratio multiplied by a fetch
   count nobody had measured — a real number times a guessed one, which is a guess. What a cold
-  Hameln run saves is still unmeasured. Independent of the single worker thread (`prefetch.c:51`):
-  threads overlap handshakes, reuse removes them, and the two compose.
+  Hameln run saves is still unmeasured. Independent of the worker pool below — threads overlap
+  handshakes, reuse removes them, and the two compose.
+- **DONE: the prefetch pool is 4 threads, and the 4 is measured rather than picked.** `prefetch.c`
+  ran ONE worker (`pthread_create` once, not in a loop; the header said "the thread", singular), so
+  a cold region streamed at the speed of one serial fetch. Now `TILES_PF_THREADS`, default 4.
+  64 cold tiles through `/t/`, each thread count on its OWN untouched region, ladder walked up and
+  then back down (both passes agree, so the run did not drift):
+      threads   1      2      4      8     16
+      drain  4.04s  1.94s  1.40s  1.60s  1.58s      -> 1.00x 2.09x 2.89x 2.53x 2.55x
+  **It saturates at 4.** What this does NOT show is that 4 beats 8: that gap (0.20 s) is inside 4's
+  own spread (1.48/1.31). The honest claim is "1->2->4 helps, past 4 is flat", and 4 is the cheapest
+  point on the flat part. The ~2.9x ceiling (not linear) is UNEXPLAINED and deliberately left so.
+  My first default was 8 — a guess, and the ladder refuted it.
+  - **Two things a pool would have broken silently, both caught before the measurement, not by it.**
+    (1) `g_done++`/`g_failed++` sat OUTSIDE the mutex: harmless with one thread, a data race with a
+    pool — in exactly the counters the pool would be judged by. A benchmark that corrupts its own
+    counters reports whatever it likes. (2) `fb_pf_warm_bakes` pushes up to 18 jobs and woke workers
+    with `pthread_cond_signal`, which wakes ONE. That one would drain all 18 while the others slept:
+    a pool, built and inert, and the ladder would have read "threads do not help". `signal` is still
+    right in `fb_pf_fetch`, which pushes exactly one job.
+  - **In-flight de-duplication: it fires, and it is nearly pointless — both are measured.** The
+    queue de-dups against WAITING jobs only; a popped job was invisible, so two workers could fetch
+    one tile from upstream twice. Closed with an in-flight set (policy in `prefetch.c`, so
+    `prefetch.h` stays pure). Forced duplicates via the overlapping 3x3 warms of nine adjacent
+    `/bake` requests: `inflight_dedup=2` out of 50 jobs. So it is not dead code — but the queue
+    de-dup catches nearly everything first, and the in-flight window is thin. Kept for correctness
+    under a pool; its benefit under real streaming load is unmeasured. Reported in `/health`
+    because a de-dup with no counter cannot fail visibly — it can only make the network look slow.
+- **`ABSENT` HAS A PRODUCER NOW — the entry below saying it has none is out of date.** `cache.c`
+  fetched with `curl -s -f`, which swallowed "upstream 404" and "the network broke" into one exit
+  code. libcurl reads `CURLINFO_RESPONSE_CODE`, so the two are now separate facts and `absent` is
+  counted in `/health`. **Verified against the real upstream, not just the counter**: a cold
+  Patagonian z12 run reported `absent=10`, and asking VersaTiles directly confirms it — tile
+  `12/2572/…` answers `404` while its neighbours answer `200`. Genuine holes are real, common, and
+  now detectable at the one place that can see them. What still does not exist is the ACT: nothing
+  records the 404, so an ocean tile is still retried forever. That is the 204/negative-caching step,
+  and it is no longer blocked on "what would ever produce ABSENT".
   - **How the A/B had to be built, because the first one was worthless.** v1 used ONE cold region
     for both configs, so the second run inherited a warm CDN edge. It came out 132 vs 67 ms/tile
     AGAINST libcurl, and at that point the design says *nothing*: it cannot separate "no effect"
@@ -327,12 +362,19 @@ each other** — this has actually happened. Coordinate before editing outside y
   int) with an enum, guarded by `-Wswitch`. Checked before building it: **the wire can no longer
   produce a 0 at all.** `T.get` returns an empty array only on `204`, the server never sends one,
   and a `200` always has bytes (`fb_bake_ondisk` requires `st_size > 0`). So `if(n<=0)` is toothless
-  today, `photo_none` is dead code, and `ABSENT` would have **no producer**. An enum whose third
+  today, `photo_none` is dead code, and `ABSENT` would have had **no producer**. An enum whose third
   case nothing can create is a type claiming more than the wire carries — the same lie as the
   overloaded 404, mirrored. **If you have to write "the server never sends this" next to a case, the
-  type is too early.** Give the three states a producer first (`cache.c:63` fetches with `curl -s
-  -f`; the upstream 404 is distinguishable there, it is simply never recorded), then the enum
-  guards something real and the proof is an ocean tile that stops asking.
+  type is too early.**
+  **HALF DONE, and the half that is done is the one this entry demanded.** It said: give the three
+  states a producer first, `cache.c` fetches with `curl -s -f` and the upstream 404 is
+  distinguishable there, it is simply never recorded. libcurl now reads `CURLINFO_RESPONSE_CODE`,
+  so 404 is separated from network failure and counted (`fb_cache_absent`, in `/health`) — and
+  genuine holes are confirmed real against upstream, not merely possible in principle (Patagonia
+  z12: `absent=10`; VersaTiles answers 404 for `12/2572/…` and 200 for its neighbours). **What is
+  still missing is the ACT**: nothing records the 404, so the server cannot yet answer `204` and the
+  renderer still retries an ocean tile forever. Do that next, then the enum guards something real
+  and the proof stays what it always was — an ocean tile that stops asking.
 - **The renderer and the server each have their own idea of what a tile is — and they disagree at
   the poles.** `world3d.h`'s `w3_geo_to_tile_f` and `tiles/tilemath.h`'s `fb_geo_to_tile` are the
   same formula (`asinh(tan φ)` ≡ `log(tan φ + sec φ)`), but the server CLAMPS latitude to

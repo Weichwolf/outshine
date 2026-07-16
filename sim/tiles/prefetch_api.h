@@ -15,5 +15,14 @@ void fb_pf_warm_bakes(int z, long x, long y, int tex);
 /* One raw tile, fetched on the worker. For routes that must answer without blocking. */
 void fb_pf_fetch(fb_tile_kind k, int z, long x, long y);
 void fb_pf_stats(long *queued, long *done, long *dropped, long *failed);
+/* How many workers actually started, and how many pushes were suppressed because a worker was
+ * already on that exact tile.
+ *
+ * `threads` is reported rather than assumed: the count is configurable (TILES_PF_THREADS) and
+ * pthread_create can fail, so "we asked for 8" and "8 are running" are different facts -- and a
+ * benchmark that prints the number it WANTED is this project's oldest mistake.
+ * `inflight_hits` is the evidence that de-duplication against in-flight work does anything at all.
+ * Without it, the dedup is a claim: it cannot fail visibly, it can only make the network look slow. */
+void fb_pf_pool(int *threads, long *inflight_hits);
 
 #endif
