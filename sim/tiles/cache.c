@@ -8,9 +8,12 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <curl/curl.h>
+#include <time.h>
 
 
+#define FB_ABSENT_TTL_S (30L * 24 * 3600)
 static char g_dir[256] = "/var/cache/fbtiles";
+static long g_absent_ttl = FB_ABSENT_TTL_S;   /* TILES_ABSENT_TTL_S overrides; 0 = never cache a hole */
 static long g_hits = 0, g_fetch = 0, g_fail = 0, g_absent = 0;
 
 /* Upstream timeout. Was `--max-time 20` on a command line, i.e. a number in a string that no
@@ -25,6 +28,8 @@ int fb_cache_init(const char *dir) {
         char sub[320]; snprintf(sub, sizeof sub, "%s/%s", g_dir, fb_src_kind_name((fb_tile_kind)i));
         mkdir(sub, 0755);
     }
+    const char *t = getenv("TILES_ABSENT_TTL_S");
+    if (t && *t) g_absent_ttl = atol(t);
     /* Once, before any thread exists: curl_global_init is explicitly NOT thread-safe, and doing it
      * lazily inside the first fetch is the classic way to get a rare, unreproducible crash. */
     curl_global_init(CURL_GLOBAL_DEFAULT);
@@ -36,18 +41,20 @@ static void cache_path(fb_tile_kind k, int z, long x, long y, char *p, size_t n)
 }
 
 /* The negative cache: an empty marker file beside where the tile would be. Its EXISTENCE is the
- * fact -- there is nothing to read, so there is nothing to get wrong.
+ * fact, its mtime is when we learned it.
  *
- * A zero-byte tile file would have been the obvious encoding and it is exactly wrong: st_size > 0
- * is how `fb_cache_ondisk` tells a tile from a truncated write, so an empty file would read as
- * "nothing here yet" -- ABSENT collapsing back into UNKNOWN, in the one place built to keep them
- * apart.
+ * A zero-byte TILE file would be the obvious encoding and is exactly wrong: `st_size > 0` is how
+ * fb_cache_ondisk tells a tile from a truncated write, so ABSENT would read as UNKNOWN inside the
+ * one function built to keep them apart.
  *
- * This is PERMANENT, and that is a real bet: upstream could add a tile later (VersaTiles re-cuts,
- * Esri extends coverage) and we would never look again. Taken deliberately -- the alternative is
- * retrying every ocean tile forever, which is today's behaviour -- but it is why the marker is a
- * separate file and not a flag inside a tile: deleting the .absent files re-asks the whole world,
- * and that is the escape hatch. Nothing expires it automatically; nothing should, silently. */
+ * It EXPIRES, because nobody in this business caches a negative forever and we should not be the
+ * first: Squid's negative_ttl defaults to 0, and the whole mod_tile/renderd design is expiry
+ * (render_expired, dirty timestamps). 30 days is derived, not picked: VersaTiles ships planet
+ * builds roughly quarterly (osm.20260413, osm.20260105, osm.251006, osm.250728...), so a hole
+ * CANNOT heal faster than that -- 30 days re-checks well inside one release cycle. The cost of
+ * being wrong is asymmetric and that is why it is long: ~99% of holes are ocean and ocean never
+ * heals, so a short TTL buys nothing and re-asks thousands of tiles for it. */
+
 static void absent_path(fb_tile_kind k, int z, long x, long y, char *p, size_t n) {
     snprintf(p, n, "%s/%s/%d_%ld_%ld.absent", g_dir, fb_src_kind_name(k), z, x, y);
 }
@@ -55,7 +62,10 @@ static void absent_path(fb_tile_kind k, int z, long x, long y, char *p, size_t n
 static int is_absent(fb_tile_kind k, int z, long x, long y) {
     char p[400]; absent_path(k, z, x, y, p, sizeof p);
     struct stat st;
-    return stat(p, &st) == 0;
+    if (stat(p, &st) != 0) return 0;
+    if (time(0) - st.st_mtime < g_absent_ttl) return 1;
+    remove(p);                     /* stale: ask upstream once more, and re-mark if still gone */
+    return 0;
 }
 
 static void mark_absent(fb_tile_kind k, int z, long x, long y) {
@@ -220,3 +230,4 @@ void fb_cache_stats(long *hits, long *fetches, long *fails) {
  * timeout, 5xx) because one is permanent and the other is worth retrying -- the whole distinction
  * this project has been missing. */
 long fb_cache_absent(void) { return g_absent; }
+long fb_cache_absent_ttl(void) { return g_absent_ttl; }

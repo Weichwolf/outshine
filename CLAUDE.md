@@ -222,113 +222,23 @@ each other** — this has actually happened. Coordinate before editing outside y
 
 ## Open work
 
-- **DONE: `fb-tiles` fetches with libcurl, one kept handle per thread — 2.34x on the fetch path.**
-  `cache.c` was `system("curl -s -f ... -o tmp url")`: per tile a fork+exec /bin/sh, a fork+exec
-  curl, DNS, TCP, a full TLS handshake, download, exit — then `.tmp`, rename, and read the file
-  back off disk. No connection reuse, ever. Now: a thread-local `CURL*` that is KEPT (that IS the
-  fix — libcurl's connection pool lives in the easy handle, so a handle per fetch would link the
-  library and still pay every handshake), and the bytes go network -> memory -> disk instead of
-  network -> disk -> memory. Measured on this server, /t/ route, 4x64 cold tiles per config:
-      system(curl) : mean 8.13 s / 64 (sd 2.55) = 127 ms/tile
-      libcurl      : mean 3.47 s / 64 (sd 0.00) =  54 ms/tile   -> 2.34x, ~73 ms/tile
-  **The spread is the more telling half**: reuse removes the handshake, and the handshake was where
-  the variance lived. Per-tile cost also FALLS with batch size (75/55/42 ms at 4/16/64) — one
-  connection amortised, i.e. the mechanism showing itself rather than being argued.
-  **Two numbers from this file are WITHDRAWN**: "3.2x" came from a throwaway /tmp benchmark, not
-  from this server, and "116 s of the 433 s cold Hameln run" was that ratio multiplied by a fetch
-  count nobody had measured — a real number times a guessed one, which is a guess. What a cold
-  Hameln run saves is still unmeasured. Independent of the worker pool below — threads overlap
-  handshakes, reuse removes them, and the two compose.
-- **DONE: the prefetch pool is 4 threads, and the 4 is measured rather than picked.** `prefetch.c`
-  ran ONE worker (`pthread_create` once, not in a loop; the header said "the thread", singular), so
-  a cold region streamed at the speed of one serial fetch. Now `TILES_PF_THREADS`, default 4.
-  64 cold tiles through `/t/`, each thread count on its OWN untouched region, ladder walked up and
-  then back down (both passes agree, so the run did not drift):
-      threads   1      2      4      8     16
-      drain  4.04s  1.94s  1.40s  1.60s  1.58s      -> 1.00x 2.09x 2.89x 2.53x 2.55x
-  **It saturates at 4.** What this does NOT show is that 4 beats 8: that gap (0.20 s) is inside 4's
-  own spread (1.48/1.31). The honest claim is "1->2->4 helps, past 4 is flat", and 4 is the cheapest
-  point on the flat part. The ~2.9x ceiling (not linear) is UNEXPLAINED and deliberately left so.
-  My first default was 8 — a guess, and the ladder refuted it.
-  - **Two things a pool would have broken silently, both caught before the measurement, not by it.**
-    (1) `g_done++`/`g_failed++` sat OUTSIDE the mutex: harmless with one thread, a data race with a
-    pool — in exactly the counters the pool would be judged by. A benchmark that corrupts its own
-    counters reports whatever it likes. (2) `fb_pf_warm_bakes` pushes up to 18 jobs and woke workers
-    with `pthread_cond_signal`, which wakes ONE. That one would drain all 18 while the others slept:
-    a pool, built and inert, and the ladder would have read "threads do not help". `signal` is still
-    right in `fb_pf_fetch`, which pushes exactly one job.
-  - **In-flight de-duplication: it fires, and it is nearly pointless — both are measured.** The
-    queue de-dups against WAITING jobs only; a popped job was invisible, so two workers could fetch
-    one tile from upstream twice. Closed with an in-flight set (policy in `prefetch.c`, so
-    `prefetch.h` stays pure). Forced duplicates via the overlapping 3x3 warms of nine adjacent
-    `/bake` requests: `inflight_dedup=2` out of 50 jobs. So it is not dead code — but the queue
-    de-dup catches nearly everything first, and the in-flight window is thin. Kept for correctness
-    under a pool; its benefit under real streaming load is unmeasured. Reported in `/health`
-    because a de-dup with no counter cannot fail visibly — it can only make the network look slow.
-- **DONE for `/t/`: the ocean tile stops asking. `fb_tile_state{UNKNOWN,READY,ABSENT}` -> 202/200/204.**
-  `curl -s -f` had swallowed "upstream 404" and "the network broke" into one exit code, so ABSENT
-  had no producer and the type was correctly refused. libcurl reads `CURLINFO_RESPONSE_CODE`; a 404
-  now writes an empty `<tile>.absent` marker beside where the tile would be, `fb_cache_get` checks
-  it before touching the network, and `/t/` answers `204 No Content`. `tilesrc_js.h` already treated
-  204 as terminal (`d681a6f`) — the browser was waiting for a status the server never sent.
-  **Proven, and this is exactly the proof this file asked for:**
-      upstream (VersaTiles 12/1297/2572)  -> 404      (neighbours: 200)
-      1st request, nothing known          -> 202
-      after the worker looked             -> 204
-      20 further requests: upstream_fetches 0 -> 0    it really stops
-  - The marker is an EMPTY FILE, and the obvious encoding is the wrong one: a zero-byte tile file
-    would read as "not there yet", because `st_size > 0` is how `fb_cache_ondisk` tells a tile from
-    a truncated write. ABSENT would have collapsed back into UNKNOWN inside the one function built
-    to keep them apart.
-  - `204` gets its own reply function: RFC 7230 forbids `Content-Length` on it, `reply()` always
-    sends one, and browsers tolerate the wrong version — i.e. it would never have been noticed.
-  - **The negative cache is PERMANENT and that is a bet**: upstream could add a tile later and we
-    would never look. Taken deliberately (the alternative is today's retry-forever), which is why
-    the marker is a separate file — deleting the `.absent` files re-asks the world. Nothing expires
-    it automatically; nothing should, silently.
-  - **The same disease was one layer up, in the fix's own instrument**: prefetch counted an absent
-    tile as `failed`. Over an ocean region `failed` would climb into the hundreds and read as a
-    broken fetcher. Split into `absent` (`absent=1 failed=0` on the hole above).
-- **`/bake` still asks forever over a hole — measured, and NOT a mechanical follow-up.** Same tile,
-  `/bake/osm/12/1297/2572`: 202, 202, 202, with `bake_fail=18`. The vector tile is ABSENT, so
-  `bake_osm` returns 0 and the albedo is never produced. But "upstream has no OSM data here" is not
-  "the bake failed" — there is nothing to draw, and the base fill would be a perfectly valid albedo.
-  **The reason this is not a two-line fix**: that base fill is GREEN (`150,178,118`), and green is
-  the wrong answer over an ocean. So the question is what an OSM albedo over no-data should BE
-  (water? a kind-specific default? 204 and let the renderer decide?) — a design decision about what
-  the world looks like where we know nothing, not a status-code repair. Do not paper it over by
+- **fb-tiles' fetch path was rebuilt; the numbers live in `tiles/cache.c` and `tiles/prefetch.c`.**
+  libcurl with a kept handle (2.34x) and a 4-thread pool (2.89x, saturates at 4 — the ladder is in
+  the code). `/t/` now answers 200/202/204 from `fb_tile_state{READY,UNKNOWN,ABSENT}`; a 404 writes
+  a `.absent` marker with a 30-day TTL, so the ocean tile stops asking. Proven at the wire, not
+  just the counter.
+  - **Two numbers previously in THIS file are withdrawn**: "3.2x" (a /tmp benchmark, not this
+    server) and "116 s of the 433 s cold Hameln run" (that ratio times a fetch count nobody had
+    measured — a real number times a guessed one is a guess). What a cold Hameln run saves is
+    still unmeasured.
+  - **The 30-day TTL is a bet on the 1%.** ~99% of holes are ocean and ocean never heals, so the
+    TTL buys almost nothing; it exists because nobody in this business caches a negative forever
+    (Squid's `negative_ttl` is 0; the whole mod_tile design is expiry) and a permanent, silent,
+    self-invented rule is the wrong thing to be first at. Derivation in `cache.c`.
+- **`/bake` still asks forever over a hole** — 202/202/202, `bake_fail=18`, measured. Not a
+  status-code fix: the base fill would be a valid albedo but it is GREEN, and green is wrong over
+  an ocean. What an OSM albedo over no-data should BE is a design decision. Do not paper over it by
   copying the `/t/` switch across.
-  - **How the A/B had to be built, because the first one was worthless.** v1 used ONE cold region
-    for both configs, so the second run inherited a warm CDN edge. It came out 132 vs 67 ms/tile
-    AGAINST libcurl, and at that point the design says *nothing*: it cannot separate "no effect"
-    from "effect smaller than the confound". Calling the confound "a handicap, so a win is a lower
-    bound" only works if you win. A design that speaks only when it agrees with you is not an
-    instrument. v2: every run gets its OWN untouched region (nobody inherits warm bytes), adjacent
-    blocks of one strip (so terrain and JPEG size stay comparable), ABBA-balanced order (so time
-    drift cancels), every sample printed, and it prints "SPREAD EXCEEDS THE GAP — this run decides
-    nothing" when it cannot tell.
-  - **`sd = 0.00` was the tell, and my first reading of it was wrong.** Four cold regions timing to
-    within 10 ms looked impossible, so I suspected my own harness — hypothesis: 64 host-side curl
-    processes were the floor. Measured the floor: **0.37 s, not 3.47.** The harness was innocent
-    and the constancy was the effect itself. Then falsified the artifact theory properly: the
-    number SCALES with tile count (0.30/0.88/2.69 s at 4/16/64), which an artifact would not.
-    Suspecting the instrument is right; stopping at the first suspicion that fits is not.
-- **Cold regions: fixed on the wire, not yet proven.** `202`/`204` replaced the overloaded `404`
-  (see above), but the cold run has not gone green. Two things are missing. (1) **A repeatable cold
-  fixture**: today's test burned a real origin — the act of testing warms it, so Matterhorn and
-  Aoraki are now warm and each retry is a *different* fixture (different relief → different `err`,
-  different split depth, not comparable). The answer is an `fb-tiles` with its OWN EMPTY VOLUME, so
-  Hameln itself is cold: same fixture every time, known warm target (`128/128, 0 pending, ~15 s`),
-  affordable budget. `run-podman.sh` hardwires `-v fbtiles-cache:` and `-p 8081:8081`; `test/
-  bench_stack.sh` already does this pinning exercise for :8098 — same tool, opposite direction
-  (the benchmark needs warmth, the cold gate needs the reverse). (2) **`tiles/prefetch.c` has ONE
-  worker thread** — read, not measured. A cold region therefore streams at the speed of one serial
-  curl. Whether that is a bug or deliberate politeness toward upstream is written down nowhere.
-- **`/elev` blocks for 5 s and then lies quietly.** `aircraft/terrain.c` uses `curl --max-time 5`;
-  over a cold region the DEM tile cannot arrive in time, so the engine seeds `HOME_ELEV` with the
-  compiled-in Hameln value (~70 m) over, say, a 750 m valley floor. Same family as the 404: "not
-  here yet" is indistinguishable from "does not exist". Better than the renderer was — it keeps the
-  last known ground and SAYS SO in the log — but it is a time bomb for any foreign origin.
 - **The gates only ever test warm.** `verify.sh` is 4/4 green on Hameln while a cold region loads
   nothing at all. A cold gate needs the empty volume above, not a foreign continent — and writing
   one before the fix is green would cement today's broken state as the expectation.
@@ -390,15 +300,9 @@ each other** — this has actually happened. Coordinate before editing outside y
   case nothing can create is a type claiming more than the wire carries — the same lie as the
   overloaded 404, mirrored. **If you have to write "the server never sends this" next to a case, the
   type is too early.**
-  **DONE on the server side, and the sequence this entry insisted on is why it worked.** It said:
-  give the three states a producer FIRST, because `cache.c` threw the 404 away and a type whose
-  third case nothing can create claims more than the wire carries. That is exactly the order it
-  went in — libcurl made the 404 visible (`0a9715f`), then the marker recorded it, then
-  `fb_tile_state{UNKNOWN,READY,ABSENT}` and `204` had something real to guard. Had the enum come
-  first it would have been a lie with a `-Wswitch` around it.
-  **What is left is the RENDERER half**: `w3_bake`'s `if(n<=0)` and `photo_none`. The wire can now
-  produce a genuine empty array (`204` -> `Uint8Array(0)`), so `n==0` finally MEANS something and
-  `w3_avail` would have all three producers. That is `renderer-gfx` territory and a separate step.
+  **The server half is done and the ORDER was the point**: the producer first, the type second.
+  What is left is the renderer's `w3_bake` `if(n<=0)` and `photo_none` — the wire can now produce a
+  real empty array (`204` -> `Uint8Array(0)`), so `n==0` finally means something. `renderer-gfx`.
 - **The renderer and the server each have their own idea of what a tile is — and they disagree at
   the poles.** `world3d.h`'s `w3_geo_to_tile_f` and `tiles/tilemath.h`'s `fb_geo_to_tile` are the
   same formula (`asinh(tan φ)` ≡ `log(tan φ + sec φ)`), but the server CLAMPS latitude to

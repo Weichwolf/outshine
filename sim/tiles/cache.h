@@ -43,10 +43,13 @@ void fb_cache_stats(long *hits, long *fetches, long *fails);
  * and records the 404), which is why the type comes NOW and not then. */
 typedef enum { FB_TILE_UNKNOWN = 0, FB_TILE_READY, FB_TILE_ABSENT } fb_tile_state;
 fb_tile_state fb_cache_state(fb_tile_kind k, int z, long x, long y, uint8_t **out, size_t *n);
+/* Seconds a recorded hole is trusted. The 204 must not out-cache it in the browser: the server
+ * re-asks after this, so a client that believed a year-long 204 would be the only one still
+ * convinced. One number, both sides. */
+long fb_cache_absent_ttl(void);
 
-/* Upstream answered 404: this tile does not exist and never will. Deliberately NOT folded into
- * `fails` -- "not there yet" and "not there, ever" are different facts, and merging them into one
- * number is the same mistake the overloaded 404 made on our own wire. */
+/* Upstream answered 404. Deliberately NOT folded into `fails`: "not there yet" and "not there"
+ * are different facts, and merging them is the mistake the overloaded 404 made on our own wire. */
 long fb_cache_absent(void);
 
 #endif /* FB_CACHE_H */

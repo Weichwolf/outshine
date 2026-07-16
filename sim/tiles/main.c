@@ -63,13 +63,16 @@ static void reply(int fd, const char *status, const char *ctype, const char *bod
  * forbids it on 204, and reply() always sends one. Browsers tolerate the wrong version, which is
  * exactly why it would never have been noticed.
  *
- * Cached as hard as a real tile: "there is no tile here" is as permanent as the tile would have
- * been, and a hole that has to be re-learned on every page load is only half a negative cache. */
+ * max-age is the SAME number the server trusts its own marker for -- not a year, and not
+ * `immutable`. A hole is not immutable: we re-ask after the TTL, and a client still convinced by a
+ * year-old 204 would be the only one who never found out. Two caches, one expiry. */
 static void reply_204(int fd) {
-    static const char h[] =
+    char h[256];
+    int n = snprintf(h, sizeof h,
         "HTTP/1.1 204 No Content\r\nAccess-Control-Allow-Origin: *\r\n"
-        "Cache-Control: public, max-age=31536000, immutable\r\nConnection: close\r\n\r\n";
-    send_all(fd, h, sizeof h - 1);
+        "Cache-Control: public, max-age=%ld\r\nConnection: close\r\n\r\n",
+        fb_cache_absent_ttl());
+    send_all(fd, h, (size_t)n);
 }
 
 /* Binary reply. Tiles are immutable for a given z/x/y, so let every layer cache them hard. */
