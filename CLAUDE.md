@@ -231,14 +231,24 @@ each other** — this has actually happened. Coordinate before editing outside y
     server) and "116 s of the 433 s cold Hameln run" (that ratio times a fetch count nobody had
     measured — a real number times a guessed one is a guess). What a cold Hameln run saves is
     still unmeasured.
-  - **The 30-day TTL is a bet on the 1%.** ~99% of holes are ocean and ocean never heals, so the
-    TTL buys almost nothing; it exists because nobody in this business caches a negative forever
-    (Squid's `negative_ttl` is 0; the whole mod_tile design is expiry) and a permanent, silent,
-    self-invented rule is the wrong thing to be first at. Derivation in `cache.c`.
-- **`/bake` still asks forever over a hole** — 202/202/202, `bake_fail=18`, measured. Not a
-  status-code fix: the base fill would be a valid albedo but it is GREEN, and green is wrong over
-  an ocean. What an OSM albedo over no-data should BE is a design decision. Do not paper over it by
-  copying the `/t/` switch across.
+  - **The 30-day TTL**: nobody in this business caches a negative forever (Squid's `negative_ttl`
+    is 0; mod_tile is built entirely on expiry), and a permanent, silent, self-invented rule is the
+    wrong thing to be first at. Derivation in `cache.c`.
+- **What the three sources do where there is no data — measured, and it inverts the obvious guess.**
+      Patagonia -41.77/-66.01   OSM 404   DEM 545 m         Esri 10119 B
+      S Atlantic -35/-45        OSM 200   DEM exactly 0     Esri 1652 B
+      N Atlantic 30/-40         OSM 200   DEM -3409..-3175  Esri 1652 B
+  **The ocean is not a hole**: Shortbread carries it as a polygon, so it answers 200. **The holes
+  are UNMAPPED LAND.** Esri never 404s — it has ONE constant ocean tile (both oceans byte-identical,
+  `ddd50da0…`, 0.2 bit/px). Terrarium fills no-data with **0 = sea level**, and serves real
+  bathymetry where it has it. So: **nobody upstream ever answers "no data" — they all always
+  deliver.** Our `/bake` now does too (an ABSENT vector tile bakes the base fill: measured
+  202 -> 200, one colour, `bake_fail` 18 -> 0).
+  **The correction that matters more than the finding**: `e570963`'s commit message and this file
+  called the proof tile an ocean tile. It sits 80 km INLAND in Rio Negro — Patagonian steppe with
+  nothing in OSM and 545 m of elevation under it. I wrote "South Atlantic, open ocean" without
+  looking at the coordinate, and had it been ocean the fix would have been backwards (blue over
+  Patagonia). Look at the coordinate before naming it.
 - **The gates only ever test warm.** `verify.sh` is 4/4 green on Hameln while a cold region loads
   nothing at all. A cold gate needs the empty volume above, not a foreign continent — and writing
   one before the fix is green would cement today's broken state as the expectation.

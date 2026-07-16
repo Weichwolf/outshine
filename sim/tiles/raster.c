@@ -40,7 +40,22 @@ static const char *kind_of(const osmmesh_mvt_layer *l, const osmmesh_mvt_feature
 
 static int bake_osm(int z, long x, long y, int TS, uint8_t *im){
     uint8_t *d = 0; size_t n = 0;
-    if(!fb_cache_get(FB_TILE_VECTOR, z, x, y, &d, &n)) return 0;
+    if(!fb_cache_get(FB_TILE_VECTOR, z, x, y, &d, &n)){
+        /* ABSENT is not failure: upstream HAS no vector tile here, which means nothing is mapped --
+         * and the base fill fb_raster_bake already laid down IS the albedo. Returning 0 made /bake
+         * answer 202 forever over such ground (measured: 202/202/202, bake_fail=18).
+         *
+         * Do not read this as "ocean". Measured, and it inverts the obvious guess: the ocean HAS a
+         * vector tile (Shortbread carries ocean as a polygon; z12 mid-Atlantic answers 200). The
+         * holes are UNMAPPED LAND -- the one that proved this fix sits at -41.77/-66.01, which is
+         * ~80 km inland in Rio Negro, Patagonian steppe with nothing in OSM and 545 m of Terrarium
+         * elevation under it. So green is the right answer here, and blue would have been a
+         * confident, plausible, measured-nowhere mistake. */
+        uint8_t *p = 0; size_t pn = 0;
+        int absent = fb_cache_state(FB_TILE_VECTOR, z, x, y, &p, &pn) == FB_TILE_ABSENT;
+        free(p);
+        return absent;
+    }
     osmmesh_mvt_tile *t = 0;
     int rc = osmmesh_mvt_decode(d, n, &t);
     free(d);
