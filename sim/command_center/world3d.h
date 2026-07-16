@@ -307,6 +307,19 @@ static int w3_pending=0;
 
 /* Upload one baked albedo as a GL texture. Returns 0 if it has not arrived yet (retry later) or
  * the server has nothing for this tile. */
+/* MESSUNG, temporaer: wie teilt sich ein Bake auf Decode / Upload / Mipmap auf? */
+static double w3_m_dec=0, w3_m_tex=0, w3_m_mip=0; static int w3_m_n=0;
+static double w3_m_fetch=0; static int w3_m_fn=0;
+extern double w3_m_prov; extern int w3_m_provn; extern size_t w3_m_provbytes;
+/* MESSUNG: Fetches nach Ausgang, und wie oft dieselbe Kachel geholt wird. */
+static double w3_m_f_ok=0, w3_m_f_bad=0; static int w3_m_n_ok=0, w3_m_n_bad=0;
+static struct { int z; uint32_t x,y; int n; } w3_m_seen[2048]; static int w3_m_nseen=0;
+static int w3_m_note(int z,uint32_t x,uint32_t y){
+  for(int i=0;i<w3_m_nseen;i++) if(w3_m_seen[i].z==z&&w3_m_seen[i].x==x&&w3_m_seen[i].y==y) return ++w3_m_seen[i].n;
+  if(w3_m_nseen<2048){ w3_m_seen[w3_m_nseen].z=z; w3_m_seen[w3_m_nseen].x=x; w3_m_seen[w3_m_nseen].y=y;
+                       w3_m_seen[w3_m_nseen].n=1; w3_m_nseen++; }
+  return 1; }
+
 static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS,int mode){
   int photo = (mode==W3_GROUND_PHOTO);
   int n = w3_bake_size(photo,(int)z,(int)x,(int)y,TS);   /* also STARTS the fetch on a miss */
@@ -314,15 +327,23 @@ static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS,int mode){
   uint8_t*enc=(uint8_t*)malloc((size_t)n); if(!enc) return 0;
   w3_bake_copy(photo,(int)z,(int)x,(int)y,TS,enc);
   int w=0,h=0,comp=0;
+  double m_t0=emscripten_get_now();
   uint8_t*px=stbi_load_from_memory(enc,n,&w,&h,&comp,3);
+  double m_t1=emscripten_get_now();
   free(enc);
   if(!px) return 0;                                      /* undecodable: a hole, not a crash */
 
   GLuint tex; glGenTextures(1,&tex); glBindTexture(GL_TEXTURE_2D,tex);
   glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,w,h,0,GL_RGB,GL_UNSIGNED_BYTE,px);
+  double m_t2=emscripten_get_now();
   /* trilinear (mipmaps) kills shimmer on distant tiles; anisotropy keeps the ground sharp at
    * grazing angles (the terrain is seen almost edge-on). */
   glGenerateMipmap(GL_TEXTURE_2D);
+  double m_t3=emscripten_get_now();
+  w3_m_dec += m_t1-m_t0; w3_m_tex += m_t2-m_t1; w3_m_mip += m_t3-m_t2; w3_m_n++;
+  if((w3_m_n % 32)==0)
+    printf("[bake-split] n=%d  decode=%.2fms  texImage2D=%.2fms  generateMipmap=%.2fms  (je Bake, Mittel)\n",
+           w3_m_n, w3_m_dec/w3_m_n, w3_m_tex/w3_m_n, w3_m_mip/w3_m_n);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
@@ -450,11 +471,25 @@ static int w3_cache_get(int z,uint32_t x,uint32_t y,int tex,int is_centre){
   if(w3_bake_size(0,(int)z,(int)x,(int)y,tex) < 0){ w3_pending++; return -1; }
 
   osmmesh_tile t={0};
+  double m_f0=emscripten_get_now();
   /* The DEM is still in flight. This MUST count as pending: it is the most common reason a chunk
    * is missing on a cold region, and if it does not, the streamer declares victory with an empty
    * world and never asks again. */
-  if(osmmesh_fetch_tile(w3_osm,z,x,y,&t)!=OSMMESH_OK || !t.terrain){
-    osmmesh_free_tile(&t); w3_pending++; return -1; }
+  int m_frc = (osmmesh_fetch_tile(w3_osm,z,x,y,&t)!=OSMMESH_OK || !t.terrain);
+  { double m_dt=emscripten_get_now()-m_f0; w3_m_fetch += m_dt; w3_m_fn++;
+    if(m_frc){ w3_m_f_bad += m_dt; w3_m_n_bad++; } else { w3_m_f_ok += m_dt; w3_m_n_ok++; }
+    int rep = w3_m_note(z,x,y);
+    if((w3_m_fn % 64)==0){
+      int multi=0, worst=0; for(int i=0;i<w3_m_nseen;i++){ if(w3_m_seen[i].n>1) multi++; if(w3_m_seen[i].n>worst) worst=w3_m_seen[i].n; }
+      printf("[fetch] gesamt=%d  ERFOLG n=%d %.2fms/Stk (%.0fms)  FEHLSCHLAG n=%d %.2fms/Stk (%.0fms)"
+             " | distinkte Kacheln=%d, davon mehrfach geholt=%d, schlimmste %dx (letzte: %dx)\n",
+             w3_m_fn, w3_m_n_ok, w3_m_n_ok?w3_m_f_ok/w3_m_n_ok:0.0, w3_m_f_ok,
+             w3_m_n_bad, w3_m_n_bad?w3_m_f_bad/w3_m_n_bad:0.0, w3_m_f_bad,
+             w3_m_nseen, multi, worst, rep);
+      printf("[provider] n=%d  %.2fms/Aufruf (%.0fms gesamt, %.1f MB) -> osmmesh-intern = %.2fms je ERFOLG\n",
+             w3_m_provn, w3_m_provn?w3_m_prov/w3_m_provn:0.0, w3_m_prov, w3_m_provbytes/1048576.0,
+             w3_m_n_ok?(w3_m_f_ok - w3_m_prov)/w3_m_n_ok:0.0); } }
+  if(m_frc){ osmmesh_free_tile(&t); w3_pending++; return -1; }
 
   /* A tile is drawn when it is COMPLETE: elevation above, albedo here. An untextured stand-in
    * would not be information, just a differently-coloured hole -- and a placeholder that can be
