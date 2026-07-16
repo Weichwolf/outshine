@@ -36,7 +36,16 @@ static CURL *fb_http_handle(void) {
     /* "" = every encoding libcurl was built with. VersaTiles gzips as a TRANSFER encoding, and the
      * cache must hold what a decoder expects, not the wire form. */
     curl_easy_setopt(h, CURLOPT_ACCEPT_ENCODING, "");
-    curl_easy_setopt(h, CURLOPT_USERAGENT, "flightbox-tiles/1");
+    /* The prevailing norm (OSM's tile usage policy, which VersaTiles/Esri/AWS do not restate but
+     * which is what tile consumers are judged by) requires a User-Agent that clearly identifies
+     * the application -- explicitly NOT a library default. `flightbox-tiles/1` said nothing about
+     * who we are or what we are for.
+     *
+     * No contact address: that is the user's to give, not ours to invent, and it would put a
+     * private address in the logs of three third parties. The trade is deliberate and worth
+     * knowing: without a contact, anyone we bother can only block us, never ask. */
+    curl_easy_setopt(h, CURLOPT_USERAGENT,
+                     "flightbox-sim/1 (flight simulator; non-commercial research)");
     pthread_setspecific(fb_http__key, h);
     return h;
 }
