@@ -26,6 +26,7 @@
 #include "route.h"
 #include "prefetch_api.h"
 #include "bake.h"
+#include "tilemap_api.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -190,11 +191,13 @@ static void handle(int fd, char *req) {
     }
     if (!strcmp(path, "/health")) {
         long h, m, f, ch, cf, cx, pq, pd, pdr, pf, bh, bb, bf, pif, pab;
+        long tq, tmh, tmm, tl, td;
         int pth;
         fb_elev_stats(&h, &m, &f); fb_cache_stats(&ch, &cf, &cx);
         fb_pf_stats(&pq, &pd, &pdr, &pf); fb_bake_stats(&bh, &bb, &bf);
         fb_pf_pool(&pth, &pif, &pab);
-        char body[640];
+        fb_tm_stats(&tq, &tmh, &tmm, &tl, &td);
+        char body[900];
         snprintf(body, sizeof body,
                  "ok dem_resident_hits=%ld dem_decoded=%ld dem_fail=%ld | "
                  /* absent = upstream said 404. Split out of fetch_fail because "there is no such
@@ -203,9 +206,13 @@ static void handle(int fd, char *req) {
                  "cache_hits=%ld upstream_fetches=%ld fetch_fail=%ld absent=%ld | "
                  /* threads = what STARTED, not what TILES_PF_THREADS asked for. */
                  "prefetch_threads=%d queued=%ld done=%ld dropped=%ld failed=%ld absent=%ld inflight_dedup=%ld | "
-                 "bake_disk_hits=%ld baked=%ld bake_fail=%ld scanline_refused=%ld\n",
+                 "bake_disk_hits=%ld baked=%ld bake_fail=%ld scanline_refused=%ld | "
+                 /* Esri's own answer to "does this tile exist". `learned` per `queries` is the
+                  * leverage: one round trip teaches up to 1024 tiles. `dropped` must stay 0 --
+                  * a full table looks exactly like a slow network. */
+                 "tilemap_queries=%ld hits=%ld misses=%ld learned=%ld dropped=%ld\n",
                  h, m, f, ch, cf, cx, fb_cache_absent(), pth, pq, pd, pdr, pf, pab, pif, bh, bb, bf,
-                 fb_raster_scanline_overflows());
+                 fb_raster_scanline_overflows(), tq, tmh, tmm, tl, td);
         reply(fd, "200 OK", "text/plain", body);
         return;
     }

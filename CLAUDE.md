@@ -234,6 +234,24 @@ each other** — this has actually happened. Coordinate before editing outside y
   - **The 30-day TTL**: nobody in this business caches a negative forever (Squid's `negative_ttl`
     is 0; mod_tile is built entirely on expiry), and a permanent, silent, self-invented rule is the
     wrong thing to be first at. Derivation in `cache.c`.
+- **Esri NEVER answers 404 — it serves a placeholder with a 200, and we used to cache it as ground.**
+      z21/z24/x out of range/z99/1/1  -> 200, 2521 B, sha 9eafd300   the same placeholder card
+      z12 ocean                       -> 200, 1652 B, ddd50da0       a real (constant) ocean tile
+  So absence cannot be read off the status code, and `maxz = 19` in `tilesrc.c` is a GLOBAL constant
+  standing in for a LOCAL fact. Measured coverage: Hameln z19 yes, Sahara stops at z18, Patagonia at
+  z17, Antarctica has nothing at z16 at all. Fixed by asking Esri's own tilemap oracle
+  (`tiles/tilemap.{h,c}`, 1024 tiles per 80 ms request): Patagonia z18 now answers 204 and is never
+  fetched, Hameln z18 still returns its real 18126-byte image.
+  - **`"adjusted": true` is the trap in it**: a 32x32 request came back describing a 32x4 rectangle.
+    The reply answers a question you did not ask and says so only in `location`. Indexing against
+    your own request reads garbage from the first adjusted answer on, at some tiles, sometimes —
+    and adjusted replies turned out to be COMMON, not exotic. Read the rectangle out of the reply.
+  - The parser is pure and 100% covered; **all five mutations bite — but only after one of them did
+    not.** The `valid:false` test was green for the wrong reason (its fixture also failed the length
+    check, so deleting the valid-check changed nothing). A test that passes for a reason other than
+    the one it names is not a weaker test, it is not a test.
+  - `-1` from the oracle means UNKNOWN and must fall through to fetching. Absence has to be
+    positively established, or "no answer" quietly becomes "no tile" — the overloaded 404 again.
 - **What the three sources do where there is no data — measured, and it inverts the obvious guess.**
       Patagonia -41.77/-66.01   OSM 404   DEM 545 m         Esri 10119 B
       S Atlantic -35/-45        OSM 200   DEM exactly 0     Esri 1652 B

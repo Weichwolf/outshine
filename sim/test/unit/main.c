@@ -12,6 +12,7 @@ int main(void) {
     test_mat4();
     test_chunkmesh();
     test_style();
+    test_tilemap();
     test_lru();
     test_prefetch();
     test_draw();

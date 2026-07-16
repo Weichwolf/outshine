@@ -7,7 +7,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <pthread.h>
-#include <curl/curl.h>
+#include "http.h"
+#include "tilemap_api.h"
 #include <time.h>
 
 
@@ -96,69 +97,24 @@ int fb_cache_ondisk(fb_tile_kind k, int z, long x, long y, uint8_t **out, size_t
 
 /* ---- upstream fetch ------------------------------------------------------------------------
  *
- * This was `system("curl -s -f --compressed --max-time 20 -o tmp url")`. Per tile that meant:
- * fork+exec /bin/sh, sh parses the line, fork+exec curl, DNS, TCP, a full TLS handshake,
- * download, exit — and then the bytes travelled network -> disk -> memory, because the caller
- * read the file straight back. **No connection was ever reused.**
+ * The HTTP GET and its kept, thread-local libcurl handle live in http.h -- tilemap.c needs the
+ * same one, and two copies would mean two connection pools with two lifetimes.
  *
- * Measured ON THIS SERVER, /t/ route (fetches, never bakes), 4x64 cold tiles per config, each run
- * on its OWN untouched region so nobody inherits a warm CDN edge, order ABBA-balanced against
- * drift:
- *     system(curl) : mean 8.13 s / 64 tiles  (sd 2.55)  = 127 ms/tile
- *     libcurl, kept: mean 3.47 s / 64 tiles  (sd 0.00)  =  54 ms/tile   -> 2.34x, ~73 ms/tile
+ * This was `system("curl -s -f --compressed --max-time 20 -o tmp url")`: per tile a fork+exec
+ * /bin/sh, a fork+exec curl, DNS, TCP, a full TLS handshake, download, exit -- and the bytes went
+ * network -> disk -> memory, because the caller read the file straight back.
  *
+ * Measured on this server, /t/ route, 4x64 cold tiles per config, each run on its OWN untouched
+ * region (nobody inherits a warm CDN edge), order ABBA-balanced against drift:
+ *     system(curl) : mean 8.13 s / 64 (sd 2.55) = 127 ms/tile
+ *     libcurl kept : mean 3.47 s / 64 (sd 0.00) =  54 ms/tile   -> 2.34x
  * The SPREAD is the more telling half: reuse removes the handshake, and the handshake was where
- * the variance lived. And the per-tile cost FALLS with batch size (75/55/42 ms at 4/16/64 tiles) --
- * one connection amortised over more tiles, which is the mechanism showing itself.
+ * the variance lived. Per-tile cost also falls with batch size (75/55/42 ms at 4/16/64) -- one
+ * connection amortised, the mechanism showing itself.
  *
- * An earlier note here claimed 3.2x and "~116 s of the 433 s cold Hameln run". Both are withdrawn.
- * The 3.2x came from a throwaway /tmp benchmark, not from this server; the 116 s was that ratio
- * multiplied by a fetch count nobody had measured. What a cold Hameln run actually saves is still
- * unmeasured -- this number is about the fetch path alone.
- *
- * libcurl was already IN the container (libcurl.so.4) — curl was being started as a process
- * rather than linked. So this is a link, not a new dependency.
- *
- * The handle is thread-local and kept: that IS the fix. libcurl holds its connection pool per
- * easy handle, so the TLS session survives from one tile to the next only as long as the handle
- * does. A handle created per fetch would link libcurl and still pay every handshake — the same
- * bug with a nicer API.
+ * Two numbers once claimed here are withdrawn: "3.2x" (a /tmp benchmark, not this server) and
+ * "116 s of the 433 s cold Hameln run" (that ratio times a fetch count nobody had measured).
  */
-static pthread_key_t  g_key;
-static pthread_once_t g_key_once = PTHREAD_ONCE_INIT;
-static void handle_free(void *h) { if (h) curl_easy_cleanup((CURL *)h); }
-static void key_make(void)       { pthread_key_create(&g_key, handle_free); }
-
-static CURL *handle(void) {
-    pthread_once(&g_key_once, key_make);
-    CURL *h = (CURL *)pthread_getspecific(g_key);
-    if (h) return h;
-    h = curl_easy_init();
-    if (!h) return 0;
-    curl_easy_setopt(h, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(h, CURLOPT_TIMEOUT, FB_FETCH_TIMEOUT_S);
-    /* was --compressed: VersaTiles gzips as transfer encoding, and the cache must hold exactly
-     * what a decoder expects, not the wire form. "" = every encoding libcurl was built with. */
-    curl_easy_setopt(h, CURLOPT_ACCEPT_ENCODING, "");
-    curl_easy_setopt(h, CURLOPT_USERAGENT, "flightbox-tiles/1");
-    pthread_setspecific(g_key, h);
-    return h;
-}
-
-typedef struct { uint8_t *b; size_t n, cap; } buf;
-static size_t sink(void *p, size_t sz, size_t nm, void *ud) {
-    buf *o = (buf *)ud; size_t add = sz * nm;
-    if (o->n + add > o->cap) {
-        size_t cap = o->cap ? o->cap : 1 << 16;
-        while (cap < o->n + add) cap <<= 1;
-        uint8_t *t = realloc(o->b, cap);
-        if (!t) return 0;                       /* short write -> libcurl aborts the transfer */
-        o->b = t; o->cap = cap;
-    }
-    memcpy(o->b + o->n, p, add); o->n += add;
-    return add;
-}
-
 /* BLOCKS on a miss (up to FB_FETCH_TIMEOUT_S). Only the prefetch worker may call this -- never
  * the accept() loop, which serves every client including the live flight view. */
 int fb_cache_get(fb_tile_kind k, int z, long x, long y, uint8_t **out, size_t *n) {
@@ -167,21 +123,24 @@ int fb_cache_get(fb_tile_kind k, int z, long x, long y, uint8_t **out, size_t *n
     /* Known hole: do not ask upstream again. This is the only line that makes the negative cache
      * worth anything -- without it we would record the 404 and keep paying for it. */
     if (is_absent(k, z, x, y)) return 0;
+
+    /* Esri NEVER answers 404 -- measured, every case a 200, including z99/1/1. Above its coverage
+     * it serves a 2521-byte placeholder card (sha256 9eafd300), which fb_cache_get would happily
+     * store and serve forever as ground texture. So imagery absence cannot be learned from the
+     * status code; it has to be ASKED, and Esri's tilemap is its own authoritative answer.
+     * Only 0 acts. -1 (unknown) falls through and fetches: a failing oracle costs a request, not
+     * correctness. */
+    if (k == FB_TILE_IMAGERY && fb_tm_has(z, x, y) == 0) {
+        g_absent++; mark_absent(k, z, x, y);
+        return 0;
+    }
     char url[600];
     if (!fb_src_url(k, z, x, y, url, sizeof url)) { g_fail++; return 0; }
 
-    CURL *h = handle();
-    if (!h) { g_fail++; return 0; }
-    buf o = {0, 0, 0};
-    curl_easy_setopt(h, CURLOPT_URL, url);
-    curl_easy_setopt(h, CURLOPT_WRITEFUNCTION, sink);
-    curl_easy_setopt(h, CURLOPT_WRITEDATA, &o);
-    CURLcode rc = curl_easy_perform(h);
-    long code = 0;
-    curl_easy_getinfo(h, CURLINFO_RESPONSE_CODE, &code);
-
-    if (rc != CURLE_OK || code != 200 || o.n == 0) {
-        free(o.b);
+    uint8_t *body = 0; size_t bn = 0;
+    long code = fb_http_get(url, &body, &bn);
+    if (code != 200 || bn == 0) {
+        free(body);
         /* An upstream 404 is a DIFFERENT fact from "the network broke", and telling them apart is
          * what `204 No Content` and w3_avail{...,ABSENT} need a producer for -- today there is
          * none, so the renderer retries an ocean tile forever. Counted here rather than acted on:
@@ -200,13 +159,13 @@ int fb_cache_get(fb_tile_kind k, int z, long x, long y, uint8_t **out, size_t *n
     cache_path(k, z, x, y, path, sizeof path);
     snprintf(tmp, sizeof tmp, "%s.%lu.tmp", path, (unsigned long)pthread_self());
     FILE *f = fopen(tmp, "wb");
-    if (!f || fwrite(o.b, 1, o.n, f) != o.n) { if (f) fclose(f); remove(tmp); free(o.b); g_fail++; return 0; }
+    if (!f || fwrite(body, 1, bn, f) != bn) { if (f) fclose(f); remove(tmp); free(body); g_fail++; return 0; }
     fclose(f);
-    if (rename(tmp, path) != 0) { remove(tmp); free(o.b); g_fail++; return 0; }
+    if (rename(tmp, path) != 0) { remove(tmp); free(body); g_fail++; return 0; }
 
     /* The bytes are already here -- the old code wrote them to disk and then read the same file
      * straight back. network -> memory -> disk, not network -> disk -> memory. */
-    *out = o.b; *n = o.n;
+    *out = body; *n = bn;
     g_fetch++;
     return 1;
 }

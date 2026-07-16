@@ -22,7 +22,7 @@ COPY geo/osmmesh/ geo/osmmesh/
 # whole keeps the vendored tree byte-identical to upstream — no per-file cherry-picking to
 # drift out of sync.
 RUN gcc -O2 -Wall -Itiles -Igeo/osmmesh/include \
-        tiles/main.c tiles/elev.c tiles/cache.c tiles/route.c tiles/tilesrc.c tiles/prefetch.c tiles/raster.c tiles/bake.c geo/osmmesh/src/*.c \
+        tiles/main.c tiles/elev.c tiles/cache.c tiles/route.c tiles/tilesrc.c tiles/prefetch.c tiles/raster.c tiles/bake.c tiles/tilemap.c geo/osmmesh/src/*.c \
         -o /usr/local/bin/fb-tiles -lm -lpthread -lcurl \
     && mkdir -p /var/cache/fbtiles
 EXPOSE 8081

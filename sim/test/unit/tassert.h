@@ -39,6 +39,7 @@ void test_atmosphere(void);
 void test_mat4(void);
 void test_chunkmesh(void);
 void test_style(void);
+void test_tilemap(void);
 void test_lru(void);
 void test_prefetch(void);
 void test_draw(void);
