@@ -4,13 +4,12 @@
 #include <string.h>
 #include <math.h>
 
-/* Read a non-negative integer and advance *p. Returns 0 if there are no digits. */
 static int read_num(const char **p, long *out) {
     const char *s = *p;
     if (*s < '0' || *s > '9') return 0;
     long v = 0;
     while (*s >= '0' && *s <= '9') {
-        if (v > 100000000L) return 0;            /* absurd: reject rather than overflow */
+        if (v > 100000000L) return 0;
         v = v * 10 + (*s++ - '0');
     }
     *out = v; *p = s; return 1;
@@ -34,11 +33,11 @@ int fb_route_tile(const char *path, fb_tile_kind *k, int *z, long *x, long *y) {
     if (!read_num(&p, &zz) || *p++ != '/') return 0;
     if (!read_num(&p, &xx) || *p++ != '/') return 0;
     if (!read_num(&p, &yy)) return 0;
-    if (*p && *p != '.') return 0;               /* only a file extension may follow */
+    if (*p && *p != '.') return 0;
 
     if (zz < 0 || zz > fb_src_max_zoom(*k)) return 0;
     long n = (long)ldexp(1.0, (int)zz);
-    if (xx >= n || yy >= n) return 0;            /* off the map at this zoom */
+    if (xx >= n || yy >= n) return 0;
 
     *z = (int)zz; *x = xx; *y = yy;
     return 1;
@@ -48,7 +47,7 @@ int fb_query_double(const char *qs, const char *key, double *out) {
     if (!qs || !key || !out) return 0;
     size_t klen = strlen(key);
     for (const char *p = qs; p && *p; ) {
-        /* match a whole key: at a boundary, followed by '=' */
+
         if (!strncmp(p, key, klen) && p[klen] == '=') {
             const char *v = p + klen + 1;
             char *end = 0;

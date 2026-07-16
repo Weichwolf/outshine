@@ -1,18 +1,3 @@
-/* FlightBox tiles — serve baked ground albedo, cached on disk.
- *
- * The albedo is view-independent: it is what the ground IS, not how it is lit. So it can be
- * computed once and kept forever, which is the whole difference between a tile server that hands
- * out raw bytes and one that "prepares" data. Lighting is not baked and never will be — the
- * renderer applies our own sun per pixel from the DEM normals.
- *
- * Same URL shape as the raw tiles, so the cache lives in the same volume and survives restarts:
- *   /bake/osm/{z}/{x}/{y}?tex=1024    -> PNG   (cartography: flat colours, compresses hard)
- *   /bake/photo/{z}/{x}/{y}?tex=1024  -> JPEG  (aerial mosaic)
- *
- * PNG for the map, JPEG for the photo, and that split is not taste: a 1024² aerial mosaic as PNG
- * is ~2 MB, which is BIGGER than the 16 source JPEGs it replaces. A cache that inflates its
- * payload is a pessimisation with extra steps.
- */
 #define _GNU_SOURCE
 #include "bake.h"
 #include "raster.h"
@@ -22,7 +7,7 @@
 #include <sys/stat.h>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#define STBI_WRITE_NO_STDIO          /* we encode to memory, then write via the .tmp+rename dance */
+#define STBI_WRITE_NO_STDIO
 #include "../geo/osmmesh/src/3rdparty/stb_image_write.h"
 
 static char g_dir[256] = "/var/cache/fbtiles";
@@ -52,7 +37,6 @@ static uint8_t *read_file(const char *p, size_t *n){
     fclose(f); *n = (size_t)sz; return b;
 }
 
-/* stb writes through this callback; we accumulate into one buffer. */
 typedef struct { uint8_t *b; size_t n, cap; } membuf;
 static void mem_write(void *ctx, void *data, int size){
     membuf *m = (membuf*)ctx;
@@ -77,7 +61,7 @@ int fb_bake_ondisk(fb_albedo_kind k, int z, long x, long y, int TS, uint8_t **ou
 }
 
 int fb_bake_get(fb_albedo_kind k, int z, long x, long y, int TS, uint8_t **out, size_t *n){
-    if(TS < 64 || TS > 4096 || (TS & (TS-1))) return 0;   /* power of two, sane range */
+    if(TS < 64 || TS > 4096 || (TS & (TS-1))) return 0;
     if(fb_bake_ondisk(k, z, x, y, TS, out, n)) return 1;
     char path[400]; bake_path(k, z, x, y, TS, path, sizeof path);
 
@@ -91,8 +75,6 @@ int fb_bake_get(fb_albedo_kind k, int z, long x, long y, int TS, uint8_t **out, 
     free(rgb);
     if(!m.n){ free(m.b); g_fail++; return 0; }
 
-    /* .tmp then rename: a killed process must never leave a truncated texture to be served
-     * forever -- the same reason the raw tile cache does it. */
     char tmp[420]; snprintf(tmp, sizeof tmp, "%s.tmp", path);
     FILE *f = fopen(tmp, "wb");
     if(f){

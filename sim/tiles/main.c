@@ -1,25 +1,3 @@
-/* FlightBox — fb-tiles: the world-data service.
- *
- * One job: dynamically obtain and PREPARE real-world data, so that both consumers can just ask
- * for what they need instead of shipping a preloaded region:
- *
- *   - the ENGINE (fb-aircraft's FDM) needs the ground height under the aircraft, or it cannot
- *     know its true AGL. It asks /elev and gets one number back — we do the tile fetch,
- *     the Terrarium decode and the interpolation.
- *   - the RENDERER (the WASM command center) fetches terrain/vector/imagery tiles here,
- *     prepared for it: we fetch with curl --compressed, so VersaTiles' gzip transfer-encoding
- *     is already undone and the cache holds exactly the raw protobuf osmmesh's decoder wants
- *     (verified: 12 Shortbread layers decode straight from the cached bytes).
- *
- * Everything is cached on disk, so upstream is hit once per tile, ever.
- *
- * Routes:
- *   GET /elev?lat=<f>&lon=<f>       -> "<metres>\n"   ground elevation AMSL (the engine)
- *   GET /t/<kind>/<z>/<x>/<y>       -> raw tile      kind = terrain|vector|imagery (the renderer)
- *   GET /health                     -> cache stats
- *
- * Env: TILES_PORT (8081), TILES_CACHE (/var/cache/fbtiles)
- */
 #define _GNU_SOURCE
 #include "elev.h"
 #include "cache.h"
@@ -58,15 +36,6 @@ static void reply(int fd, const char *status, const char *ctype, const char *bod
     send_all(fd, body, strlen(body));
 }
 
-/* 204 No Content: "we looked, there is nothing, stop asking."
- *
- * Its own function because it is the one reply that must NOT carry Content-Length -- RFC 7230
- * forbids it on 204, and reply() always sends one. Browsers tolerate the wrong version, which is
- * exactly why it would never have been noticed.
- *
- * max-age is the SAME number the server trusts its own marker for -- not a year, and not
- * `immutable`. A hole is not immutable: we re-ask after the TTL, and a client still convinced by a
- * year-old 204 would be the only one who never found out. Two caches, one expiry. */
 static void reply_204(int fd) {
     char h[256];
     int n = snprintf(h, sizeof h,
@@ -76,7 +45,6 @@ static void reply_204(int fd) {
     send_all(fd, h, (size_t)n);
 }
 
-/* Binary reply. Tiles are immutable for a given z/x/y, so let every layer cache them hard. */
 static void reply_bin(int fd, const char *ctype, const uint8_t *body, size_t n) {
     char hdr[512];
     int h = snprintf(hdr, sizeof hdr,
@@ -100,21 +68,14 @@ static void handle(int fd, char *req) {
         }
         double m;
         if (!fb_elev_at(lat, lon, &m)) {
-            /* Honest failure: the caller must keep its previous value, not treat this as
-             * "the ground is at 0". */
+
             reply(fd, "503 Service Unavailable", "text/plain", "no dem\n"); return;
         }
         char body[64]; snprintf(body, sizeof body, "%.2f\n", m);
         reply(fd, "200 OK", "text/plain", body);
         return;
     }
-    /* /bake/<osm|photo>/<z>/<x>/<y>[?tex=N] — the ground ALBEDO, ready to upload.
-     *
-     * This is the "prepares" half of this service's job, which used to be a lie: we handed out
-     * raw vector tiles and the browser rasterised them again on every load. The albedo is
-     * view-independent -- it is what the ground IS, not how it is lit -- so it is computed once
-     * and kept. Lighting is NOT baked and never will be: the renderer applies our own sun
-     * per-pixel from the DEM normals. Baking an albedo is not baking light. */
+
     if (!strncmp(path, "/bake/", 6)) {
         const char *r = path + 6;
         fb_albedo_kind k;
@@ -127,48 +88,23 @@ static void handle(int fd, char *req) {
         double t = 0; int TS = fb_query_double(qs, "tex", &t) ? (int)t : 1024;
         uint8_t *body = 0; size_t n = 0;
 
-        /* ON DISK ONLY. Baking here would block the whole server: this is a single accept() loop
-         * and a cold photo bake measures 1.6 s -- 1.6 s in which nobody is served, times ~25
-         * tiles for a fresh region. So a miss queues the work and says so immediately; the
-         * renderer draws a placeholder and asks again. Nothing anywhere waits on a bake.
-         *
-         * 202, NOT 404 -- and that is not cosmetics, it is the difference between a world that
-         * loads and one that does not. This said 404, which also means "there is no such thing",
-         * and the browser believed the second reading: tilesrc_js.h cached every 404 as a
-         * permanent hole and never asked again. Measured over the Matterhorn (cold region, same
-         * build): 0 chunks drawn, 39 pending, then silence -- while this server was already
-         * answering 200 for the very same tiles. Hameln only ever worked because its cache volume
-         * has been warm for months, which is also why every number we ever took was a warm one.
-         * 202 Accepted says what is true and nothing else: the work is queued, ask again. */
         if (!fb_bake_ondisk(k, z, x, y, TS, &body, &n)) {
-            fb_pf_warm_bakes(z, x, y, TS);          /* this tile + its 8 neighbours, both albedos */
+            fb_pf_warm_bakes(z, x, y, TS);
             reply(fd, "202 Accepted", "text/plain", "baking\n");
             return;
         }
         reply_bin(fd, k == FB_ALBEDO_PHOTO ? "image/jpeg" : "image/png", body, n);
         free(body);
-        /* Answer first, warm after: the aircraft is moving, so the 8 neighbours are what gets
-         * asked for next. Bake them on the worker before the request for them arrives. */
+
         fb_pf_warm_bakes(z, x, y, TS);
         return;
     }
 
-    /* /t/<kind>/<z>/<x>/<y> — raw tiles for the renderer (terrain, vector, imagery). */
     {
         fb_tile_kind k; int z; long x, y;
         if (fb_route_tile(path, &k, &z, &x, &y)) {
             uint8_t *body = 0; size_t n = 0;
-            /* Disk only. fb_cache_get would curl on a miss -- up to 20 s inside this single
-             * accept() loop, i.e. 20 s in which nobody is served, including the live flight view.
-             * A miss queues the fetch and says so; the caller asks again. Nothing here ever waits
-             * on the network.
-             *
-             * Three answers for three facts, which took this project two bugs to arrive at. It
-             * first said 404 for BOTH "queued, ask again" and "there is none" -- the browser cached
-             * the permanent reading and a cold region never loaded. Then everything became 202,
-             * which fixed that and made an ocean tile retry forever instead. Both are the same
-             * missing state, seen from opposite sides; the switch below is the state finally
-             * existing, and -Wswitch is what keeps it from collapsing again. */
+
             switch (fb_cache_state(k, z, x, y, &body, &n)) {
             case FB_TILE_UNKNOWN:
                 fb_pf_fetch(k, z, x, y);
@@ -180,11 +116,7 @@ static void handle(int fd, char *req) {
             }
             reply_bin(fd, fb_src_content_type(k), body, n);
             free(body);
-            /* Warm the OTHER kinds for the same ground, in the background. The renderer can
-             * switch its ground between the OSM render and the aerial photo at a keypress —
-             * meant as a fallback for when the camera cannot deliver — and a fallback view that
-             * first downloads 400 tiles is not a fallback. Answer first, warm after: this must
-             * never make the request the renderer IS waiting for any slower. */
+
             fb_pf_warm(k, z, x, y);
             return;
         }
@@ -200,16 +132,12 @@ static void handle(int fd, char *req) {
         char body[900];
         snprintf(body, sizeof body,
                  "ok dem_resident_hits=%ld dem_decoded=%ld dem_fail=%ld | "
-                 /* absent = upstream said 404. Split out of fetch_fail because "there is no such
-                  * tile" and "the network broke" are different facts, and only one is worth a
-                  * retry. Still only a counter: nothing acts on it yet. */
+
                  "cache_hits=%ld upstream_fetches=%ld fetch_fail=%ld absent=%ld | "
-                 /* threads = what STARTED, not what TILES_PF_THREADS asked for. */
+
                  "prefetch_threads=%d queued=%ld done=%ld dropped=%ld failed=%ld absent=%ld inflight_dedup=%ld | "
                  "bake_disk_hits=%ld baked=%ld bake_fail=%ld scanline_refused=%ld | "
-                 /* Esri's own answer to "does this tile exist". `learned` per `queries` is the
-                  * leverage: one round trip teaches up to 1024 tiles. `dropped` must stay 0 --
-                  * a full table looks exactly like a slow network. */
+
                  "tilemap_queries=%ld hits=%ld misses=%ld learned=%ld dropped=%ld\n",
                  h, m, f, ch, cf, cx, fb_cache_absent(), pth, pq, pd, pdr, pf, pab, pif, bh, bb, bf,
                  fb_raster_scanline_overflows(), tq, tmh, tmm, tl, td);
@@ -224,7 +152,7 @@ int main(void) {
     const char *cache = getenv("TILES_CACHE") ? getenv("TILES_CACHE") : "/var/cache/fbtiles";
     fb_elev_init(cache);
     fb_bake_init(cache);
-    fb_pf_start();   /* background warming of the sibling tile kinds */
+    fb_pf_start();
 
     int lfd = socket(AF_INET, SOCK_STREAM, 0);
     int one = 1; setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);

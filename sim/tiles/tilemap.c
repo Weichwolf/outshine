@@ -1,6 +1,3 @@
-/* FlightBox tiles — Esri's tilemap oracle: the fetching and caching half.
- * The parse is pure and lives in tilemap.h (100% unit-tested, no network). See there for WHY.
- */
 #define _GNU_SOURCE
 #include "tilemap_api.h"
 #include "tilemap.h"
@@ -8,22 +5,12 @@
 #include <stdio.h>
 #include <pthread.h>
 
-/* One request answers a whole square. Measured against the live service: 32x32 = 1024 tiles in
- * 80 ms and ~2 KB of reply. That is the entire reason to ask an oracle instead of probing tiles:
- * one round trip replaces a thousand. */
 #define FB_TM_BLOCK 32
 
-/* Esri's tilemap URL is /tilemap/{z}/{top}/{left}/{h}/{w} -- row before column, matching the tile
- * URL's {z}/{y}/{x}. Verified against the reply's own `location` field, not assumed. */
 #define FB_TM_URL "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer" \
                   "/tilemap/%d/%ld/%ld/%d/%d"
 
-/* Known bits, keyed by (z,x,y). Open addressing, fixed size, never grows.
- *
- * Per-TILE and not per-block on purpose: the service adjusts requests (a 32x32 ask came back as
- * 32x4, `"adjusted": true`), so what we learn is whatever rectangle the reply describes -- storing
- * it under the block we ASKED for would file the right answers at the wrong coordinates. */
-#define FB_TM_CAP 65536                    /* 64k tiles ~ 1 MB; a session touches far fewer */
+#define FB_TM_CAP 65536
 typedef struct { int z; long x, y; unsigned char used, bit; } tm_ent;
 static tm_ent          g_tab[FB_TM_CAP];
 static pthread_mutex_t g_mx = PTHREAD_MUTEX_INITIALIZER;
@@ -34,7 +21,6 @@ static size_t tm_slot(int z, long x, long y) {
     return h % FB_TM_CAP;
 }
 
-/* caller holds g_mx */
 static int tab_get(int z, long x, long y) {
     size_t i = tm_slot(z, x, y);
     for (int probe = 0; probe < 32; probe++, i = (i + 1) % FB_TM_CAP) {
@@ -52,8 +38,7 @@ static void tab_put(int z, long x, long y, unsigned char bit) {
             return;
         }
     }
-    g_full++;   /* the table is a cache, so dropping is fine -- but it must be VISIBLE in /health,
-                 * or a full table looks exactly like a slow network. */
+    g_full++;
 }
 
 int fb_tm_has(int z, long x, long y) {
@@ -76,8 +61,7 @@ int fb_tm_has(int z, long x, long y) {
     static _Thread_local unsigned char bits[FB_TM_BLOCK * FB_TM_BLOCK];
     int got = fb_tm_parse((const char *)body, n + 1, &r, bits, (int)sizeof bits);
     free(body);
-    /* 0 means "learned nothing", never "no tiles". Returning -1 (unknown) sends the caller to
-     * fetch the tile anyway -- the oracle failing must cost quality, never correctness. */
+
     if (got <= 0) return -1;
 
     pthread_mutex_lock(&g_mx);
@@ -87,9 +71,7 @@ int fb_tm_has(int z, long x, long y) {
     g_learned += got;
     v = tab_get(z, x, y);
     pthread_mutex_unlock(&g_mx);
-    /* v can still be -1: the reply may describe a rectangle that does not contain the tile we
-     * asked about (that is what `adjusted` does). Unknown, so the caller fetches. Correct, and
-     * one wasted round trip -- which is the right way round. */
+
     return v;
 }
 

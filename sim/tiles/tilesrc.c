@@ -7,17 +7,15 @@ static const struct {
     const char *name, *url, *ctype, *ext;
     int maxz;
 } K[FB_TILE_KIND_COUNT] = {
-    /* Terrarium DEM: h = R*256 + G + B/256 - 32768. Byte-identical to what the vendored
-     * osmmesh terrain decoder expects. NOT Mapbox terrain-RGB (different base/interval). */
+
     [FB_TILE_TERRAIN] = { "terrain",
         "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/%d/%ld/%ld.png",
         "image/png", "png", 15 },
-    /* VersaTiles global Shortbread. Gzip is only a TRANSFER encoding here, so fetching with
-     * curl --compressed yields raw protobuf — no gunzip step needed. */
+
     [FB_TILE_VECTOR]  = { "vector",
         "https://tiles.versatiles.org/tiles/osm/%d/%ld/%ld",
         "application/vnd.mapbox-vector-tile", "pbf", 14 },
-    /* Esri World Imagery — addressed {z}/{y}/{x}, the odd one out. */
+
     [FB_TILE_IMAGERY] = { "imagery",
         "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/%d/%ld/%ld",
         "image/jpeg", "jpg", 19 },
@@ -42,7 +40,7 @@ int fb_src_url(fb_tile_kind k, int z, long x, long y, char *buf, size_t bufsz) {
     if (z < 0 || z > K[k].maxz) return 0;
     long n = (long)ldexp(1.0, z);
     if (x < 0 || x >= n || y < 0 || y >= n) return 0;
-    if (k == FB_TILE_IMAGERY) snprintf(buf, bufsz, K[k].url, z, y, x);   /* {z}/{y}/{x} */
-    else                      snprintf(buf, bufsz, K[k].url, z, x, y);   /* {z}/{x}/{y} */
+    if (k == FB_TILE_IMAGERY) snprintf(buf, bufsz, K[k].url, z, y, x);
+    else                      snprintf(buf, bufsz, K[k].url, z, x, y);
     return 1;
 }
