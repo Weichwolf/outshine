@@ -222,6 +222,20 @@ each other** — this has actually happened. Coordinate before editing outside y
 
 ## Open work
 
+- **`fb-tiles` spawns a SHELL and a CURL PROCESS per tile — measured 3.2x, and it is not the thread.**
+  `cache.c:64` is `system("curl -s -f ... -o tmp url")`. Per tile that is: fork+exec /bin/sh,
+  fork+exec curl, DNS, TCP, a full **TLS handshake**, download, exit — then write `.tmp`, rename,
+  and read the file back off disk. **No connection reuse, ever.** Measured against the real Esri
+  CDN, 10 adjacent tiles:
+      one system(curl) per tile (today) : 0.77 s
+      one curl, connection reused       : 0.24 s   -> 3.2x, 53 ms/tile of pure process+TLS
+  On the cold Hameln run that is **116 s of the 433 s** spent on handshakes, moving zero extra
+  bytes. This is INDEPENDENT of the single worker thread (`prefetch.c:51`, one `pthread_create`):
+  threads would overlap the handshakes, reuse would remove them, and the two compose. Note which
+  claim came first and was wrong to lead with: "one thread" was read off the code; this was
+  measured. `libcurl.so.4` is already installed in the container — only the dev header is missing,
+  so this is a link, not a new dependency. `curl_multi` would also make the network half parallel
+  on one thread, leaving real threads for the CPU half (the bakes).
 - **Cold regions: fixed on the wire, not yet proven.** `202`/`204` replaced the overloaded `404`
   (see above), but the cold run has not gone green. Two things are missing. (1) **A repeatable cold
   fixture**: today's test burned a real origin — the act of testing warms it, so Matterhorn and
