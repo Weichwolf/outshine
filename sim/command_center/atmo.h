@@ -67,7 +67,7 @@ static w3_atmo w3_atmo_from(const telem_packet_t *t, int have)
      * WARNING, and it is the reason this struct earns its keep: `day` EXISTS TWICE. This one is
      * linear in degrees; the sky shader computes its own from the sun's Y component:
      *
-     *     world3d.h:111    float day = smoothstep(-0.12, 0.10, sEl);      // GLSL, on sin(el)
+     *     gfx/shaders.h W3_FSKY    float day = smoothstep(-0.12, 0.10, sEl);   // GLSL, on sin(el)
      *
      * They are not the same function. Measured:
      *     sun_el  -6 deg : CPU 0.000   shader 0.014

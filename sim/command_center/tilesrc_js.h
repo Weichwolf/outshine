@@ -107,7 +107,7 @@ EM_JS(int, w3_tiles_size, (int kind, int z, int x, int y), {
          * stitching); in photo mode it is ~22, because the albedo is 16 z16 children on top. A cap
          * of 48 was under three tiles' worth and made the ground switch crawl. The browser only
          * opens ~6 sockets per host anyway, so a high cap here just lets them queue in OUR order --
-         * which is nearest-first (see w3_stream_grid). */
+         * which is nearest-first (see w3_walk). */
         if (T.inflight > 256) return -1;
         T.cache.set(key, null);                        /* null = pending */
         T.inflight++;

@@ -102,7 +102,7 @@ static GLint w3_skPos,w3_skF,w3_skS,w3_skU,w3_skTan,w3_skAsp,w3_skSun,w3_skMoon,
  * Refinement is by screen-space error, from each chunk's OWN measured geometric error:
  *     SSE = node.error * W3_SSE_K / distance      (pixels)
  *     split while SSE > W3_EPS
- * See w3_terr_vbo for why the error must be measured per chunk and not tabulated per zoom. */
+ * See chunkmesh.h (w3_chunk_build) for why the error must be measured per chunk, not tabulated per zoom. */
 #include "terrain/lod.h"
 
 /* Old-flight-sim ground: OSM footprints/roads/rivers/rails + landcover are baked
@@ -122,7 +122,6 @@ typedef struct { GLuint vbo, tex[2]; int nverts; float bmin[3], bmax[3]; } w3_ti
 static w3_tileGL w3_D[W3_BUDGET]; static int w3_nD=0;
 static int w3_nvis=0;   /* of w3_nD, how many last frame's frustum drew; proof the cull bites */
 
-/* --- software raster into an RGB image (tile-local coords * sc) --- */
 /* ---- ground albedo: downloaded ready-made from fb-tiles ------------------------------------
  * There used to be ~150 lines of software rasteriser here: scanline polygon fill, thick lines,
  * MVT layer walking, the aerial mosaic blit. It ran in the browser on EVERY page load, re-drawing
@@ -188,7 +187,6 @@ static int world3d_tiles_open(const char*base,double lat,double lon){
   printf("[world3d] streaming tiles from %s (origin %.4f/%.4f), worker spawned\n",base,lat,lon);
   return 1;
 }
-/* stream one grid (zoom z, radius rad, texture size tex) around tile (cx,cy) into arr */
 #include "tiles/lru.h"
 
 #include "tiles/tilemath.h"
