@@ -33,6 +33,7 @@ typedef struct {
     float light;     /* scene light level: 0.20 at night, 1.00 by day */
     float cloud;     /* total cover 0..1, clamped */
     float moon_ph;   /* illuminated fraction, 0 new .. 1 full */
+    float sun_disc;  /* 1 = draw the sun disc + glow (EVS/real sky); 0 = plain map-blue (SVS) */
 } w3_atmo;
 
 /* `have` = 0 means no telemetry yet; the defaults are the ones the renderer has always used for
@@ -95,14 +96,19 @@ static w3_atmo w3_atmo_from(const telem_packet_t *t, int have)
     }
 
     a.light = 0.20f + 0.80f * a.day;
+    a.sun_disc = 1.f;                    /* the real sky shows the sun */
     return a;
 }
 
-/* SVS (synthetic vision) atmosphere: a CONSTANT, time-independent daylight. The OSM synthetic view is
- * a database picture for situational awareness, not a photo of the sky, so it has no day/night, no
- * stars, no cloud/haze variation and no real sun -- it looks the same at any SIM_UTC or wall-clock.
- * A fixed high sun (~55 deg) gives even relief without harsh shadows; clear blue horizon; full day
- * light level. EVS (the real camera, PHOTO) keeps w3_atmo_from; only SVS uses this. */
+/* SVS (synthetic vision) atmosphere: a CONSTANT, time-independent daylight, per RTCA DO-315B (SVS/EVS
+ * MASPS) and the Garmin SVT / Honeywell PFD convention -- blue-over-brown, a map-like sky, not a photo
+ * of the real one. So: no day/night, no stars, no clouds, and NO sun disc (sun_disc=0) -- just a blue
+ * gradient. The sun vector is kept only as a FIXED directional light for terrain relief shading (one
+ * light, no wandering, no moving shadows), high (~55 deg) for even relief. Same at any SIM_UTC.
+ *
+ * Extension point, deliberately NOT built (that is more than asked): TAWS terrain-awareness colouring
+ * -- tinting the terrain green/amber/red by height relative to the aircraft's altitude. The standard
+ * next step for a real SVS; it would key off telemetry alt in the terrain pass, not here. */
 static w3_atmo w3_atmo_synthetic(void)
 {
     const float RAD = (float)M_PI / 180.f;
@@ -113,10 +119,11 @@ static w3_atmo w3_atmo_synthetic(void)
     a.sun[1] =  sinf(sun_el * RAD);
     a.sun[2] = -ce * cosf(sun_az * RAD);
     a.moon[0] = 0.f; a.moon[1] = -1.f; a.moon[2] = 0.f;      /* below horizon: no moon disc */
-    a.moon_ph = 0.f;
-    a.cloud   = 0.f;
-    a.day     = 1.f;
-    a.light   = 1.f;
+    a.moon_ph  = 0.f;
+    a.cloud    = 0.f;
+    a.day      = 1.f;
+    a.light    = 1.f;
+    a.sun_disc = 0.f;                                        /* map-like: plain blue, no sun disc */
     a.haze[0] = 0.72f; a.haze[1] = 0.82f; a.haze[2] = 0.92f; /* clear-day blue horizon */
     return a;
 }

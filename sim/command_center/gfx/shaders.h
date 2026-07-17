@@ -46,7 +46,7 @@ static const char*W3_VSKY=
  "void main(){ vRay=uF + uS*(aPos.x*uTan*uAsp) + uU*(aPos.y*uTan); gl_Position=vec4(aPos,0.999,1.0); }";
 static const char*W3_FSKY=
  "precision highp float; varying vec3 vRay;"
- "uniform vec3 uSun,uMoon; uniform float uMoonPh,uCloud;"
+ "uniform vec3 uSun,uMoon; uniform float uMoonPh,uCloud,uSunDisc;"
  "float h21(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }"
  "float vnoise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);"
  "  float a=h21(i),b=h21(i+vec2(1,0)),c=h21(i+vec2(0,1)),d=h21(i+vec2(1,1));"
@@ -77,7 +77,7 @@ static const char*W3_FSKY=
  "  float sa=length(cross(r,uSun)); float sd=smoothstep(0.016,0.004,sa);"
  "  float glow=exp(-sa*7.0)*0.35 + exp(-sa*1.5)*0.12*day;"
  "  float sup=smoothstep(-0.06,0.0,uSun.y);"
- "  sky+=(sd*vec3(1.0,0.96,0.86)*2.2 + glow*vec3(1.0,0.80,0.55))*sup;"
+ "  sky+=(sd*vec3(1.0,0.96,0.86)*2.2 + glow*vec3(1.0,0.80,0.55))*sup*uSunDisc;"
  "  gl_FragColor=vec4(sky,1.0); }";
 
 /* ---- real stars: a GL_POINTS pass, each star placed at its true celestial direction ----
