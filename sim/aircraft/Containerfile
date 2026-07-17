@@ -11,8 +11,9 @@ COPY aircraft/xp_bridge.c aircraft/terrain.c aircraft/terrain.h aircraft/sim_sta
 # lands here without touching this file. NOT aircraft/*.c — aircraft.c is the legacy
 # hand-written FBW (run-native.sh still builds it) and would collide on main().
 COPY aircraft/fdm/ aircraft/fdm/
+COPY aircraft/bridge/ aircraft/bridge/
 COPY aircraft/SITL.elf aircraft/eeprom.bin aircraft/run.sh ./
-RUN gcc -O2 -Wall -Icommon -Iaircraft aircraft/xp_bridge.c aircraft/terrain.c aircraft/fdm/*.c \
+RUN gcc -O2 -Wall -Icommon -Iaircraft aircraft/xp_bridge.c aircraft/terrain.c aircraft/fdm/*.c aircraft/bridge/*.c \
         -o /usr/local/bin/xp_bridge -lm -lpthread \
     && chmod +x /app/SITL.elf /app/run.sh
 # FLIGHTBOX_ADDR + FDM_MODEL set at run time
