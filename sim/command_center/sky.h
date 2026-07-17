@@ -33,39 +33,41 @@ static void w3_draw_sky(const w3_cam *C, const w3_atmo *A, float aspect){
  * sky as the aircraft moves -- baking the whole VBO for 20 s would let aircraft parallax drift them. */
 static void w3_draw_stars(const w3_cam *C, const w3_atmo *A, const float eye[3]){
   if(A->day>=0.6f || w3_nstars<=0) return;
-  static float *dir=0;          /* per visible star: e, u, n, mag -- celestial, eye-independent */
+  static float *dir=0;          /* per visible star: e, u, n, mag, bv -- celestial, eye-independent */
   static int    ndir=0;
   static double dir_at=-1e30;
   double now = w3_sim_utc>0 ? w3_sim_utc : (double)time(NULL);
   if(!dir || now-dir_at>20.0){
-    if(!dir){ dir=(float*)malloc((size_t)w3_nstars*4*sizeof(float)); if(!dir) return; }
+    if(!dir){ dir=(float*)malloc((size_t)w3_nstars*5*sizeof(float)); if(!dir) return; }
     double lst=w3_lst_deg(w3_gmst_deg(now), w3_O.lon);
     int m=0;
     for(int i=0;i<w3_nstars;i++){
       w3_stardir d=w3_star_dir(lst,w3_O.lat,w3_stars[i].ra,w3_stars[i].dec);
       if(!d.above) continue;
-      dir[m*4]=d.e; dir[m*4+1]=d.u; dir[m*4+2]=d.n; dir[m*4+3]=w3_stars[i].mag; m++;
+      dir[m*5]=d.e; dir[m*5+1]=d.u; dir[m*5+2]=d.n; dir[m*5+3]=w3_stars[i].mag; dir[m*5+4]=w3_stars[i].bv; m++;
     }
     ndir=m; dir_at=now;
   }
   if(ndir<=0) return;
   static float *sv=0; static int svcap=0;
-  if(svcap<ndir){ free(sv); sv=(float*)malloc((size_t)ndir*4*sizeof(float)); svcap=sv?ndir:0; }
+  if(svcap<ndir){ free(sv); sv=(float*)malloc((size_t)ndir*5*sizeof(float)); svcap=sv?ndir:0; }
   if(!sv) return;
   for(int i=0;i<ndir;i++){
-    sv[i*4]  =eye[0]+dir[i*4]  *40000.f;
-    sv[i*4+1]=eye[1]+dir[i*4+1]*40000.f;
-    sv[i*4+2]=eye[2]-dir[i*4+2]*40000.f;
-    sv[i*4+3]=dir[i*4+3];
+    sv[i*5]  =eye[0]+dir[i*5]  *40000.f;
+    sv[i*5+1]=eye[1]+dir[i*5+1]*40000.f;
+    sv[i*5+2]=eye[2]-dir[i*5+2]*40000.f;
+    sv[i*5+3]=dir[i*5+3];
+    sv[i*5+4]=dir[i*5+4];
   }
   glEnable(GL_BLEND); glBlendFunc(GL_ONE,GL_ONE);
   glUseProgram(w3_gl.pStar); glUniformMatrix4fv(w3_gl.stMVP,1,GL_FALSE,C->mvp); glUniform1f(w3_gl.stDay,A->day);
-  glBindBuffer(GL_ARRAY_BUFFER,w3_gl.starVBO); glBufferData(GL_ARRAY_BUFFER,(size_t)ndir*16,sv,GL_DYNAMIC_DRAW);
-  glEnableVertexAttribArray(w3_gl.stPos); glEnableVertexAttribArray(w3_gl.stMag);
-  glVertexAttribPointer(w3_gl.stPos,3,GL_FLOAT,GL_FALSE,16,0);
-  glVertexAttribPointer(w3_gl.stMag,1,GL_FLOAT,GL_FALSE,16,(void*)12);
+  glBindBuffer(GL_ARRAY_BUFFER,w3_gl.starVBO); glBufferData(GL_ARRAY_BUFFER,(size_t)ndir*20,sv,GL_DYNAMIC_DRAW);
+  glEnableVertexAttribArray(w3_gl.stPos); glEnableVertexAttribArray(w3_gl.stMag); glEnableVertexAttribArray(w3_gl.stBV);
+  glVertexAttribPointer(w3_gl.stPos,3,GL_FLOAT,GL_FALSE,20,0);
+  glVertexAttribPointer(w3_gl.stMag,1,GL_FLOAT,GL_FALSE,20,(void*)12);
+  glVertexAttribPointer(w3_gl.stBV,1,GL_FLOAT,GL_FALSE,20,(void*)16);
   glDrawArrays(GL_POINTS,0,ndir);
-  glDisableVertexAttribArray(w3_gl.stPos); glDisableVertexAttribArray(w3_gl.stMag);
+  glDisableVertexAttribArray(w3_gl.stPos); glDisableVertexAttribArray(w3_gl.stMag); glDisableVertexAttribArray(w3_gl.stBV);
   glDisable(GL_BLEND);
 }
 

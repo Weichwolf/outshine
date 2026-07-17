@@ -46,7 +46,7 @@
  * as ~40 loose globals. */
 static struct {
   GLuint pW,pH,pWT,pSky,pStar,vTerr,vBld,hVBO,skyVBO,starVBO; int nTerr,nBld;
-  GLint stPos,stMag,stMVP,stDay;
+  GLint stPos,stMag,stBV,stMVP,stDay;
   GLint wPos,wCol,wMVP,wHaze,wLight,hPos,hCol,hScale;
   GLint wtPos,wtUV,wtMVP,wtTex,wtHaze,wtLight,wtNorm,wtSun;
   GLint skPos,skF,skS,skU,skTan,skAsp,skSun,skMoon,skMoonPh,skCloud;
@@ -246,6 +246,7 @@ static void world3d_init(void){
     glBindBuffer(GL_ARRAY_BUFFER,w3_gl.skyVBO); glBufferData(GL_ARRAY_BUFFER,sizeof q,q,GL_STATIC_DRAW); }
   w3_gl.pStar=w3_prog(W3_VSTAR,W3_FSTAR);
   w3_gl.stPos=glGetAttribLocation(w3_gl.pStar,"aPos"); w3_gl.stMag=glGetAttribLocation(w3_gl.pStar,"aMag");
+  w3_gl.stBV=glGetAttribLocation(w3_gl.pStar,"aBV");
   w3_gl.stMVP=glGetUniformLocation(w3_gl.pStar,"uMVP"); w3_gl.stDay=glGetUniformLocation(w3_gl.pStar,"uDay");
   glGenBuffers(1,&w3_gl.starVBO);
 #ifdef W3_USE_OSM

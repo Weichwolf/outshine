@@ -80,15 +80,24 @@ static const char*W3_FSKY=
  "  sky+=(sd*vec3(1.0,0.96,0.86)*2.2 + glow*vec3(1.0,0.80,0.55))*sup;"
  "  gl_FragColor=vec4(sky,1.0); }";
 
-/* ---- real stars: a GL_POINTS pass, each star placed at its true celestial direction ---- */
+/* ---- real stars: a GL_POINTS pass, each star placed at its true celestial direction ----
+ * aBV is the catalogue B-V colour index; starColour maps it to the real spectral-class tint
+ * (blue-white O/B .. white A .. yellow F/G .. orange K .. red M), computed per point in the vertex
+ * shader and interpolated flat across the tiny sprite. */
 static const char*W3_VSTAR=
- "attribute vec3 aPos; attribute float aMag; uniform mat4 uMVP; varying float vB;"
+ "attribute vec3 aPos; attribute float aMag; attribute float aBV; uniform mat4 uMVP; varying float vB; varying vec3 vCol;"
+ "vec3 starColour(float bv){ float t=clamp(bv,-0.4,1.8);"
+ "  vec3 blue=vec3(0.61,0.70,1.0),white=vec3(1.0,1.0,1.0),yellow=vec3(1.0,0.96,0.84),orange=vec3(1.0,0.80,0.55),red=vec3(1.0,0.62,0.42);"
+ "  if(t<0.0) return mix(blue,white,(t+0.4)/0.4);"
+ "  if(t<0.6) return mix(white,yellow,t/0.6);"
+ "  if(t<1.2) return mix(yellow,orange,(t-0.6)/0.6);"
+ "  return mix(orange,red,(t-1.2)/0.6); }"
  "void main(){ gl_Position=uMVP*vec4(aPos,1.0);"
  "  float b=clamp(1.45-0.42*aMag,0.15,1.4);"          /* brighter (lower mag) -> bigger, brighter */
- "  gl_PointSize=1.0+2.4*b; vB=b; }";
+ "  gl_PointSize=1.0+2.4*b; vB=b; vCol=starColour(aBV); }";
 static const char*W3_FSTAR=
- "precision mediump float; varying float vB; uniform float uDay;"
+ "precision mediump float; varying float vB; varying vec3 vCol; uniform float uDay;"
  "void main(){ vec2 pc=gl_PointCoord-0.5; float d=dot(pc,pc);"
  "  float a=smoothstep(0.25,0.0,d)*vB*(1.0-uDay);"    /* soft round point, fades out toward day */
- "  gl_FragColor=vec4(vec3(0.85,0.89,1.0)*a, a); }";
+ "  gl_FragColor=vec4(vCol*a, a); }";
 #endif
