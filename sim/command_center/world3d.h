@@ -316,12 +316,14 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
   const float eye[3]={px,py,pz};
   const w3_cam C = w3_cam_from(have?t->yaw:0, have?t->pitch:0, have?t->roll:0,
                                eye, W3_FOV, (float)W/H, W3_NEAR, W3_FARPLANE);
-  /* The frame's atmosphere (sun/moon/sky/light) lives in atmo.h because it is pure and testable;
-   * sky, stars and terrain all read it, so it is derived ONCE and threaded through as `A`. */
-  const w3_atmo A = w3_atmo_from(t, have);
+  /* The frame's atmosphere, derived ONCE and threaded through as `A` (atmo.h, pure/testable) --
+   * but from two producers by view mode. SVS (OSM synthetic vision) is deliberately TIME-INDEPENDENT:
+   * a constant daylit database view for situational awareness, no day/night, no stars, no clouds.
+   * EVS (PHOTO, the real camera through the codec) keeps the true sun/sky/stars. */
+  const w3_atmo A = (w3_ground.mode==W3_GROUND_OSM) ? w3_atmo_synthetic() : w3_atmo_from(t, have);
 
   w3_draw_sky(&C, &A, (float)W/H);
-  w3_draw_stars(&C, &A, eye);
+  if(w3_ground.mode==W3_GROUND_PHOTO) w3_draw_stars(&C, &A, eye);   /* real stars -> EVS only */
   glDepthMask(GL_TRUE); glEnable(GL_DEPTH_TEST);
 #ifdef W3_USE_OSM
   if(w3_frame.nD>0) w3_draw_terrain(&C, &A);

@@ -98,4 +98,27 @@ static w3_atmo w3_atmo_from(const telem_packet_t *t, int have)
     return a;
 }
 
+/* SVS (synthetic vision) atmosphere: a CONSTANT, time-independent daylight. The OSM synthetic view is
+ * a database picture for situational awareness, not a photo of the sky, so it has no day/night, no
+ * stars, no cloud/haze variation and no real sun -- it looks the same at any SIM_UTC or wall-clock.
+ * A fixed high sun (~55 deg) gives even relief without harsh shadows; clear blue horizon; full day
+ * light level. EVS (the real camera, PHOTO) keeps w3_atmo_from; only SVS uses this. */
+static w3_atmo w3_atmo_synthetic(void)
+{
+    const float RAD = (float)M_PI / 180.f;
+    const float sun_el = 55.f, sun_az = 160.f;
+    w3_atmo a;
+    float ce = cosf(sun_el * RAD);
+    a.sun[0] =  ce * sinf(sun_az * RAD);
+    a.sun[1] =  sinf(sun_el * RAD);
+    a.sun[2] = -ce * cosf(sun_az * RAD);
+    a.moon[0] = 0.f; a.moon[1] = -1.f; a.moon[2] = 0.f;      /* below horizon: no moon disc */
+    a.moon_ph = 0.f;
+    a.cloud   = 0.f;
+    a.day     = 1.f;
+    a.light   = 1.f;
+    a.haze[0] = 0.72f; a.haze[1] = 0.82f; a.haze[2] = 0.92f; /* clear-day blue horizon */
+    return a;
+}
+
 #endif /* W3_ATMO_H */
