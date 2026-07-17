@@ -71,9 +71,9 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
   /* Compact attitude bar: a SHORT conformal horizon reference at the boresight -- the primary roll +
    * pitch cue now that the full-width horizon line and the bank arc are gone. Its centre and tilt come
    * from the SAME camera projection as the scene (the verified-conformal sense). The segments are the
-   * same compact length but sit further out (gap ~+/-74 px, ends ~+/-124 px) so that at level + on-path
-   * -- when the bar, the steering cue and the waterline all fall on cy -- each stays in its own band and
-   * none touch: waterline (+/-28) | cue (+/-36..64) | bar (+/-74..124). Thin AA. It TILTS with roll and rides the pitch offset --
+   * same compact length but sit further out (gap ~+/-74 px, ends ~+/-124 px) so the waterline/nose and
+   * FPM keep clear room in the centre -- the steering cue now lives on the far left, so the centre is
+   * just waterline + FPM + this bar. Thin AA. It TILTS with roll and rides the pitch offset --
    * which is what tells it apart from the steering cue (that only slides vertically, never tilts).
    * Centre = the horizon point straight ahead (az=yaw); a second point at +20 deg gives the tilt. */
   { w3_cam HC=w3_cam_from(t->yaw,t->pitch,t->roll,(float[3]){0,0,0}, W3_FOV, (float)W/H, 1.f, 1000.f);
@@ -132,13 +132,14 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
     w3_printf(axr-63,cy+18,1.6f,HG_R,HG_G,HG_B,"AGL%4.0f",w3_agl);
     w3_printf(axr-63,cy+36,1.6f,HG_R,HG_G,HG_B,"VS%+4.0f",t->vs); }
 
-  /* ===== Glideslope / steering cue (centre): a horizontal deviation bar with short inner down-ticks
-   * (a distinct "goal-post" shape, so it never reads like the tilting attitude bar). glideslope_err > 0
-   * means ABOVE the ideal approach path, so the bar sits BELOW the boresight -- fly down to centre it.
-   * Always horizontal, only slides vertically. README A7 instrument homing. ===== */
-  { float gsy=cy + t->glideslope_err*22.f; if(gsy<cy-120)gsy=cy-120; if(gsy>cy+120)gsy=cy+120;
-    w3_qline(cx-64,gsy,cx-36,gsy,1.1f,HG_R,HG_G,HG_B); w3_qline(cx+36,gsy,cx+64,gsy,1.1f,HG_R,HG_G,HG_B);
-    w3_qline(cx-36,gsy,cx-36,gsy+7,1.1f,HG_R,HG_G,HG_B); w3_qline(cx+36,gsy,cx+36,gsy+7,1.1f,HG_R,HG_G,HG_B); }
+  /* ===== Steering / glideslope cue -- far LEFT edge (F-16 style), OUT of the central attitude field:
+   * a compact ILS-like glidepath indicator. Short vertical scale, a caret from glideslope_err riding
+   * it; err > 0 (ABOVE the ideal path) puts the caret BELOW centre -- fly down to it. README A7. ===== */
+  { float gx=26.f, gsy=cy + t->glideslope_err*7.f; if(gsy<cy-40)gsy=cy-40; if(gsy>cy+40)gsy=cy+40;
+    w3_line(gx,cy-42,gx,cy+42,HG_R,HG_G,HG_B);
+    for(int i=-2;i<=2;i++) w3_line(gx-4,cy+i*20,gx+4,cy+i*20,HG_R,HG_G,HG_B);       /* scale + centre tick */
+    w3_qline(gx-9,gsy-5,gx,gsy,1.2f,HG_R,HG_G,HG_B); w3_qline(gx,gsy,gx-9,gsy+5,1.2f,HG_R,HG_G,HG_B); w3_qline(gx-9,gsy+5,gx-9,gsy-5,1.2f,HG_R,HG_G,HG_B);   /* caret -> scale */
+    w3_text(gx-8,cy+48,1.3f,HG_R,HG_G,HG_B,"GP"); }
   /* ===== Secondary data + annunciations at the EDGES (the primary attitude field stays clean).
    * Green monochrome; only battery/link CAUTION breaks to amber/red -- a safety convention MIL-STD
    * allows even on a mono HUD. The old home arrow (now the heading-tape pointer), the old white
