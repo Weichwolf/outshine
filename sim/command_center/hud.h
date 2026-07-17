@@ -29,6 +29,10 @@ static void w3_printf(float x,float y,float s,float r,float g,float b,const char
 static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
   w3_hudN=0; float cx=W/2,cy=H/2;
   w3_line(cx-24,cy,cx-8,cy,0.4f,1,0.4f); w3_line(cx+8,cy,cx+24,cy,0.4f,1,0.4f); w3_line(cx,cy-8,cx,cy+8,0.4f,1,0.4f);
+  /* Data attribution -- a licence obligation, so drawn ALWAYS (before the no-telemetry return): OSM
+   * vector (ODbL), Esri imagery, HYG star catalogue (CC-BY-SA). The bitmap font is upper-case only
+   * and has no '(c)', so the credits read in the plain characters it can draw. */
+  w3_text(14, H-10, 1.5f, 0.45f,0.45f,0.55f, "OPENSTREETMAP CONTRIBUTORS - ESRI IMAGERY - HYG DATABASE CC-BY-SA");
   if(!have){ w3_text(cx-60,30,3,1,0.8f,0.2f,"NO TELEMETRY"); return; }
   float hdg=t->yaw<0?t->yaw+360:t->yaw;
   /* left column: flight state */
