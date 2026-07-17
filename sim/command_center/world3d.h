@@ -110,6 +110,9 @@ static w3_origin w3_O = { .lat = 52.045, .lon = 9.385 };   /* Hameln default unt
  * night/dusk sky can be pinned reproducibly. The star sidereal time reads it; the aircraft honours the
  * matching SIM_UTC env for the sun, so visibility (sun) and star positions agree on the same instant. */
 static double w3_sim_utc = 0;
+/* Height above ground, metres, computed in cc.c each frame as telem.alt(ASL) - DEM ground under the
+ * aircraft (async /elev, origin-ground fallback). Drives the HUD's AGL readout; the LOD gets it too. */
+static float w3_agl = 0;
 /* Seed the lift before any tile streams, so a fresh spawn is not rendered under the ground. */
 static void w3_seed_yoff(float y){ if(!w3_O.yoff_set){ w3_O.yoff=y; w3_O.yoff_set=1; } }
 

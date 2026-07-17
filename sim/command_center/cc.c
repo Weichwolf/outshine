@@ -75,6 +75,19 @@ EM_JS(double, fb_fetch_elev, (double lat, double lon), {
   } catch(e){}
   return -1e9;
 })
+/* Ground elevation under the aircraft, fetched ASYNC so it never blocks the frame loop (unlike the
+ * startup sync fb_fetch_elev): fb_ground_request kicks off a /elev fetch if none is in flight,
+ * fb_ground_get returns the last resolved ASL ground (-1e9 until the first lands). The C side
+ * throttles it by only requesting after ~30 m of travel. */
+EM_JS(void, fb_ground_request, (double lat, double lon), {
+  var G = Module.__fbGround || (Module.__fbGround = { val:-1e9, busy:false });
+  if(G.busy) return; var base = window.FB_TILES_URL; if(!base) return; G.busy=true;
+  fetch(base + '/elev?lat=' + lat + '&lon=' + lon)
+    .then(function(r){ return r.ok ? r.text() : null; })
+    .then(function(t){ if(t!==null){ var v=parseFloat(t); if(isFinite(v)) Module.__fbGround.val=v; } Module.__fbGround.busy=false; })
+    .catch(function(){ Module.__fbGround.busy=false; });
+})
+EM_JS(double, fb_ground_get, (void), { var G=Module.__fbGround; return G?G.val:-1e9; })
 /* Fetch one HYG star band synchronously into the WASM heap. Binary over a SYNC XHR needs the
  * x-user-defined charset trick (a sync XHR may not set responseType='arraybuffer'): each character
  * of responseText is then exactly one raw byte. Startup only, like fb_fetch_elev. Returns bytes or -1. */
@@ -194,9 +207,17 @@ static void frame(void){
   if(have_telem){
     double lat = w3_O.lat + (double)telem.y/FB_M_PER_DEG_LAT;
     double lon = w3_O.lon + (double)telem.x/(FB_M_PER_DEG_LAT*cos(w3_O.lat*M_PI/180.0));
-    /* Height above ground drives the LOD: it is the distance term for every chunk under the
-     * aircraft, so a hardcoded guess would refine the ground wrongly at both 100 m and 4000 m. */
-    world3d_stream_at(lat, lon, telem.alt > 1 ? telem.alt : 1.0);
+    /* telem.alt is ASL now; AGL (height above ground) drives the LOD and the HUD. Ground under the
+     * aircraft comes from an ASYNC /elev (never blocks the frame loop), re-requested only after ~30 m
+     * of travel; until the first sample lands we fall back to the origin ground so AGL is sane at
+     * frame 0. Height above ground is the distance term for every chunk under the aircraft -- feeding
+     * ASL would refine the ground for the wrong distance. */
+    static double g_glat=1e9, g_glon=1e9;
+    if(fabs(lat-g_glat)>3.0e-4 || fabs(lon-g_glon)>4.5e-4){ fb_ground_request(lat,lon); g_glat=lat; g_glon=lon; }
+    double ground = fb_ground_get(); if(ground<=-1e8) ground = w3_O.yoff;
+    double agl = (double)telem.alt - ground; if(agl < 1.0) agl = 1.0;
+    w3_agl = (float)agl;
+    world3d_stream_at(lat, lon, agl);
   }
   /* 1) render the aircraft camera into the MULTISAMPLE FBO (antialiased) */
   glBindFramebuffer(GL_FRAMEBUFFER, msaa_fbo);
