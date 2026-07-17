@@ -1,5 +1,5 @@
 /* FlightBox renderer — the procedural fallback world (no-OSM build): a sine heightfield plus
- * scattered boxes, uploaded into the shared w3_vTerr/w3_vBld VBOs that world3d.h declares. */
+ * scattered boxes, uploaded into the shared w3_gl.vTerr/w3_gl.vBld VBOs that world3d.h declares. */
 #ifndef W3_PROCEDURAL_H
 #define W3_PROCEDURAL_H
 /* world uses OSM/terrain meshes if loaded via w3_load_mesh(), else procedural. */
@@ -7,8 +7,8 @@
 #define W3_CELL 120.0f
 static float w3_hgt(float e,float n){ return 20.0f*sinf(e/900.f)*cosf(n/1100.f)+8.0f*sinf(e/300.f+n/250.f); }
 
-static void w3_upload_terrain(const float*v,int nverts){ glGenBuffers(1,&w3_vTerr); glBindBuffer(GL_ARRAY_BUFFER,w3_vTerr); glBufferData(GL_ARRAY_BUFFER,nverts*6*4,v,GL_STATIC_DRAW); w3_nTerr=nverts; }
-static void w3_upload_buildings(const float*v,int nverts){ glGenBuffers(1,&w3_vBld); glBindBuffer(GL_ARRAY_BUFFER,w3_vBld); glBufferData(GL_ARRAY_BUFFER,nverts*6*4,v,GL_STATIC_DRAW); w3_nBld=nverts; }
+static void w3_upload_terrain(const float*v,int nverts){ glGenBuffers(1,&w3_gl.vTerr); glBindBuffer(GL_ARRAY_BUFFER,w3_gl.vTerr); glBufferData(GL_ARRAY_BUFFER,nverts*6*4,v,GL_STATIC_DRAW); w3_gl.nTerr=nverts; }
+static void w3_upload_buildings(const float*v,int nverts){ glGenBuffers(1,&w3_gl.vBld); glBindBuffer(GL_ARRAY_BUFFER,w3_gl.vBld); glBufferData(GL_ARRAY_BUFFER,nverts*6*4,v,GL_STATIC_DRAW); w3_gl.nBld=nverts; }
 
 static void w3_build_procedural(void){
   float*v=malloc(W3_GRID*W3_GRID*6*6*sizeof(float)); if(!v)return; int o=0;

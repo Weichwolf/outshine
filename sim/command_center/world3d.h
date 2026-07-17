@@ -40,11 +40,17 @@
 /* ---- GL program helpers ---- */
 #include "gfx/shaders.h"
 
-static GLuint w3_pW,w3_pH,w3_pWT,w3_pSky,w3_pStar,w3_vTerr,w3_vBld,w3_hVBO,w3_skyVBO,w3_starVBO; static int w3_nTerr,w3_nBld;
-static GLint w3_stPos,w3_stMag,w3_stMVP,w3_stDay;
-static GLint w3_wPos,w3_wCol,w3_wMVP,w3_wHaze,w3_wLight,w3_hPos,w3_hCol,w3_hScale;
-static GLint w3_wtPos,w3_wtUV,w3_wtMVP,w3_wtTex,w3_wtHaze,w3_wtLight,w3_wtNorm,w3_wtSun;
-static GLint w3_skPos,w3_skF,w3_skS,w3_skU,w3_skTan,w3_skAsp,w3_skSun,w3_skMoon,w3_skMoonPh,w3_skCloud;
+/* Every GL object the renderer owns: one program handle + its uniform/attribute locations per
+ * shader, plus the VBOs and the fallback vertex counts. Written once in world3d_init, read by the
+ * draw passes. Grouped so a program and the locations that index into it live together instead of
+ * as ~40 loose globals. */
+static struct {
+  GLuint pW,pH,pWT,pSky,pStar,vTerr,vBld,hVBO,skyVBO,starVBO; int nTerr,nBld;
+  GLint stPos,stMag,stMVP,stDay;
+  GLint wPos,wCol,wMVP,wHaze,wLight,hPos,hCol,hScale;
+  GLint wtPos,wtUV,wtMVP,wtTex,wtHaze,wtLight,wtNorm,wtSun;
+  GLint skPos,skF,skS,skU,skTan,skAsp,skSun,skMoon,skMoonPh,skCloud;
+} w3_gl;
 
 #include "procedural.h"
 
@@ -215,28 +221,28 @@ static void world3d_init(void){
     if(cap>W3_LOD_MAXSTEPS) cap=W3_LOD_MAXSTEPS;    /* policy ceiling: 2048 is gated (see table) */
     if(cap<1) cap=1; w3_lod_cap=cap;
     printf("[world3d] LOD ramp: %d steps, top %d px (MAX_TEXTURE_SIZE %d)\n",cap,w3_lod_px[cap-1],(int)mx); }
-  w3_pW=w3_prog(W3_VSW,W3_FSW); w3_wPos=glGetAttribLocation(w3_pW,"aPos"); w3_wCol=glGetAttribLocation(w3_pW,"aCol"); w3_wMVP=glGetUniformLocation(w3_pW,"uMVP");
-  w3_wHaze=glGetUniformLocation(w3_pW,"uHaze"); w3_wLight=glGetUniformLocation(w3_pW,"uLight");
-  w3_pH=w3_prog(W3_VSH,W3_FSH); w3_hPos=glGetAttribLocation(w3_pH,"aPos"); w3_hCol=glGetAttribLocation(w3_pH,"aCol"); w3_hScale=glGetUniformLocation(w3_pH,"uScale");
-  glGenBuffers(1,&w3_hVBO);
+  w3_gl.pW=w3_prog(W3_VSW,W3_FSW); w3_gl.wPos=glGetAttribLocation(w3_gl.pW,"aPos"); w3_gl.wCol=glGetAttribLocation(w3_gl.pW,"aCol"); w3_gl.wMVP=glGetUniformLocation(w3_gl.pW,"uMVP");
+  w3_gl.wHaze=glGetUniformLocation(w3_gl.pW,"uHaze"); w3_gl.wLight=glGetUniformLocation(w3_gl.pW,"uLight");
+  w3_gl.pH=w3_prog(W3_VSH,W3_FSH); w3_gl.hPos=glGetAttribLocation(w3_gl.pH,"aPos"); w3_gl.hCol=glGetAttribLocation(w3_gl.pH,"aCol"); w3_gl.hScale=glGetUniformLocation(w3_gl.pH,"uScale");
+  glGenBuffers(1,&w3_gl.hVBO);
   /* sky dome program + a fullscreen quad (two triangles in NDC) */
-  w3_pSky=w3_prog(W3_VSKY,W3_FSKY);
-  w3_skPos=glGetAttribLocation(w3_pSky,"aPos");
-  w3_skF=glGetUniformLocation(w3_pSky,"uF"); w3_skS=glGetUniformLocation(w3_pSky,"uS"); w3_skU=glGetUniformLocation(w3_pSky,"uU");
-  w3_skTan=glGetUniformLocation(w3_pSky,"uTan"); w3_skAsp=glGetUniformLocation(w3_pSky,"uAsp");
-  w3_skSun=glGetUniformLocation(w3_pSky,"uSun"); w3_skMoon=glGetUniformLocation(w3_pSky,"uMoon");
-  w3_skMoonPh=glGetUniformLocation(w3_pSky,"uMoonPh"); w3_skCloud=glGetUniformLocation(w3_pSky,"uCloud");
-  { float q[12]={-1,-1, 1,-1, -1,1,  -1,1, 1,-1, 1,1}; glGenBuffers(1,&w3_skyVBO);
-    glBindBuffer(GL_ARRAY_BUFFER,w3_skyVBO); glBufferData(GL_ARRAY_BUFFER,sizeof q,q,GL_STATIC_DRAW); }
-  w3_pStar=w3_prog(W3_VSTAR,W3_FSTAR);
-  w3_stPos=glGetAttribLocation(w3_pStar,"aPos"); w3_stMag=glGetAttribLocation(w3_pStar,"aMag");
-  w3_stMVP=glGetUniformLocation(w3_pStar,"uMVP"); w3_stDay=glGetUniformLocation(w3_pStar,"uDay");
-  glGenBuffers(1,&w3_starVBO);
+  w3_gl.pSky=w3_prog(W3_VSKY,W3_FSKY);
+  w3_gl.skPos=glGetAttribLocation(w3_gl.pSky,"aPos");
+  w3_gl.skF=glGetUniformLocation(w3_gl.pSky,"uF"); w3_gl.skS=glGetUniformLocation(w3_gl.pSky,"uS"); w3_gl.skU=glGetUniformLocation(w3_gl.pSky,"uU");
+  w3_gl.skTan=glGetUniformLocation(w3_gl.pSky,"uTan"); w3_gl.skAsp=glGetUniformLocation(w3_gl.pSky,"uAsp");
+  w3_gl.skSun=glGetUniformLocation(w3_gl.pSky,"uSun"); w3_gl.skMoon=glGetUniformLocation(w3_gl.pSky,"uMoon");
+  w3_gl.skMoonPh=glGetUniformLocation(w3_gl.pSky,"uMoonPh"); w3_gl.skCloud=glGetUniformLocation(w3_gl.pSky,"uCloud");
+  { float q[12]={-1,-1, 1,-1, -1,1,  -1,1, 1,-1, 1,1}; glGenBuffers(1,&w3_gl.skyVBO);
+    glBindBuffer(GL_ARRAY_BUFFER,w3_gl.skyVBO); glBufferData(GL_ARRAY_BUFFER,sizeof q,q,GL_STATIC_DRAW); }
+  w3_gl.pStar=w3_prog(W3_VSTAR,W3_FSTAR);
+  w3_gl.stPos=glGetAttribLocation(w3_gl.pStar,"aPos"); w3_gl.stMag=glGetAttribLocation(w3_gl.pStar,"aMag");
+  w3_gl.stMVP=glGetUniformLocation(w3_gl.pStar,"uMVP"); w3_gl.stDay=glGetUniformLocation(w3_gl.pStar,"uDay");
+  glGenBuffers(1,&w3_gl.starVBO);
 #ifdef W3_USE_OSM
-  w3_pWT=w3_prog(W3_VSWT,W3_FSWT); w3_wtPos=glGetAttribLocation(w3_pWT,"aPos"); w3_wtUV=glGetAttribLocation(w3_pWT,"aUV");
-  w3_wtMVP=glGetUniformLocation(w3_pWT,"uMVP"); w3_wtTex=glGetUniformLocation(w3_pWT,"uTex");
-  w3_wtHaze=glGetUniformLocation(w3_pWT,"uHaze"); w3_wtLight=glGetUniformLocation(w3_pWT,"uLight");
-  w3_wtNorm=glGetAttribLocation(w3_pWT,"aNorm"); w3_wtSun=glGetUniformLocation(w3_pWT,"uSun");
+  w3_gl.pWT=w3_prog(W3_VSWT,W3_FSWT); w3_gl.wtPos=glGetAttribLocation(w3_gl.pWT,"aPos"); w3_gl.wtUV=glGetAttribLocation(w3_gl.pWT,"aUV");
+  w3_gl.wtMVP=glGetUniformLocation(w3_gl.pWT,"uMVP"); w3_gl.wtTex=glGetUniformLocation(w3_gl.pWT,"uTex");
+  w3_gl.wtHaze=glGetUniformLocation(w3_gl.pWT,"uHaze"); w3_gl.wtLight=glGetUniformLocation(w3_gl.pWT,"uLight");
+  w3_gl.wtNorm=glGetAttribLocation(w3_gl.pWT,"aNorm"); w3_gl.wtSun=glGetUniformLocation(w3_gl.pWT,"uSun");
   if(w3_osm) return;              /* geometry (textured tiles) comes from world3d_stream() */
 #endif
   w3_build_procedural();
@@ -271,14 +277,14 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
   const float day=A.day, light=A.light, cloud=A.cloud, moon_ph=A.moon_ph;
   /* draw the sky first, depth writes off, so terrain paints over it */
   glDepthMask(GL_FALSE); glDisable(GL_DEPTH_TEST);
-  glUseProgram(w3_pSky);
-  glUniform3fv(w3_skF,1,f); glUniform3fv(w3_skS,1,sr); glUniform3fv(w3_skU,1,up);
-  glUniform1f(w3_skTan,tanf(W3_FOV*RAD*0.5f)); glUniform1f(w3_skAsp,(float)W/H);
-  glUniform3fv(w3_skSun,1,sun); glUniform3fv(w3_skMoon,1,moon);
-  glUniform1f(w3_skMoonPh,moon_ph); glUniform1f(w3_skCloud,cloud);
-  glBindBuffer(GL_ARRAY_BUFFER,w3_skyVBO); glEnableVertexAttribArray(w3_skPos);
-  glVertexAttribPointer(w3_skPos,2,GL_FLOAT,GL_FALSE,0,0); glDrawArrays(GL_TRIANGLES,0,6);
-  glDisableVertexAttribArray(w3_skPos);
+  glUseProgram(w3_gl.pSky);
+  glUniform3fv(w3_gl.skF,1,f); glUniform3fv(w3_gl.skS,1,sr); glUniform3fv(w3_gl.skU,1,up);
+  glUniform1f(w3_gl.skTan,tanf(W3_FOV*RAD*0.5f)); glUniform1f(w3_gl.skAsp,(float)W/H);
+  glUniform3fv(w3_gl.skSun,1,sun); glUniform3fv(w3_gl.skMoon,1,moon);
+  glUniform1f(w3_gl.skMoonPh,moon_ph); glUniform1f(w3_gl.skCloud,cloud);
+  glBindBuffer(GL_ARRAY_BUFFER,w3_gl.skyVBO); glEnableVertexAttribArray(w3_gl.skPos);
+  glVertexAttribPointer(w3_gl.skPos,2,GL_FLOAT,GL_FALSE,0,0); glDrawArrays(GL_TRIANGLES,0,6);
+  glDisableVertexAttribArray(w3_gl.skPos);
   /* real stars: place each above-horizon catalogue star at its true alt/az (from wall-clock
    * sidereal time + origin), far along that direction, additively blended, fading toward day. */
   if(day<0.6f){
@@ -295,23 +301,23 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
     }
     if(ns>0){
       glEnable(GL_BLEND); glBlendFunc(GL_ONE,GL_ONE);
-      glUseProgram(w3_pStar); glUniformMatrix4fv(w3_stMVP,1,GL_FALSE,mvp); glUniform1f(w3_stDay,day);
-      glBindBuffer(GL_ARRAY_BUFFER,w3_starVBO); glBufferData(GL_ARRAY_BUFFER,(size_t)ns*16,sv,GL_DYNAMIC_DRAW);
-      glEnableVertexAttribArray(w3_stPos); glEnableVertexAttribArray(w3_stMag);
-      glVertexAttribPointer(w3_stPos,3,GL_FLOAT,GL_FALSE,16,0);
-      glVertexAttribPointer(w3_stMag,1,GL_FLOAT,GL_FALSE,16,(void*)12);
+      glUseProgram(w3_gl.pStar); glUniformMatrix4fv(w3_gl.stMVP,1,GL_FALSE,mvp); glUniform1f(w3_gl.stDay,day);
+      glBindBuffer(GL_ARRAY_BUFFER,w3_gl.starVBO); glBufferData(GL_ARRAY_BUFFER,(size_t)ns*16,sv,GL_DYNAMIC_DRAW);
+      glEnableVertexAttribArray(w3_gl.stPos); glEnableVertexAttribArray(w3_gl.stMag);
+      glVertexAttribPointer(w3_gl.stPos,3,GL_FLOAT,GL_FALSE,16,0);
+      glVertexAttribPointer(w3_gl.stMag,1,GL_FLOAT,GL_FALSE,16,(void*)12);
       glDrawArrays(GL_POINTS,0,ns);
-      glDisableVertexAttribArray(w3_stPos); glDisableVertexAttribArray(w3_stMag);
+      glDisableVertexAttribArray(w3_gl.stPos); glDisableVertexAttribArray(w3_gl.stMag);
       glDisable(GL_BLEND);
     }
   }
   glDepthMask(GL_TRUE); glEnable(GL_DEPTH_TEST);
 #ifdef W3_USE_OSM
   if(w3_nD>0){                       /* textured terrain: one quadtree cut, one draw per chunk */
-    glUseProgram(w3_pWT); glUniformMatrix4fv(w3_wtMVP,1,GL_FALSE,mvp);
-    glUniform3fv(w3_wtHaze,1,haze); glUniform1f(w3_wtLight,light); glUniform3fv(w3_wtSun,1,sun);
-    glActiveTexture(GL_TEXTURE0); glUniform1i(w3_wtTex,0);
-    glEnableVertexAttribArray(w3_wtPos); glEnableVertexAttribArray(w3_wtUV); glEnableVertexAttribArray(w3_wtNorm);
+    glUseProgram(w3_gl.pWT); glUniformMatrix4fv(w3_gl.wtMVP,1,GL_FALSE,mvp);
+    glUniform3fv(w3_gl.wtHaze,1,haze); glUniform1f(w3_gl.wtLight,light); glUniform3fv(w3_gl.wtSun,1,sun);
+    glActiveTexture(GL_TEXTURE0); glUniform1i(w3_gl.wtTex,0);
+    glEnableVertexAttribArray(w3_gl.wtPos); glEnableVertexAttribArray(w3_gl.wtUV); glEnableVertexAttribArray(w3_gl.wtNorm);
     /* No polygon offset, no draw order, no coarse-to-fine: the chunks in w3_D are a CUT through
      * the tree, so they tile the ground without overlapping. There is nothing to bias apart. */
     /* Cull here, not in the walk: rotation moves the frustum every frame while the walk sleeps, and
@@ -324,18 +330,18 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
       /* THE ground switch, in full: an index. Both albedos are already on the GPU. */
       GLuint _t=w3_D[i].tex[w3_ground_mode]; if(!_t)_t=w3_D[i].tex[W3_GROUND_OSM];
       glBindTexture(GL_TEXTURE_2D,_t); glBindBuffer(GL_ARRAY_BUFFER,w3_D[i].vbo);
-      glVertexAttribPointer(w3_wtPos,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(pos));
-      glVertexAttribPointer(w3_wtUV,2,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(uv));
-      glVertexAttribPointer(w3_wtNorm,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(norm));
+      glVertexAttribPointer(w3_gl.wtPos,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(pos));
+      glVertexAttribPointer(w3_gl.wtUV,2,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(uv));
+      glVertexAttribPointer(w3_gl.wtNorm,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(norm));
       glDrawArrays(GL_TRIANGLES,0,w3_D[i].nverts);
     }
-    glDisableVertexAttribArray(w3_wtUV); glDisableVertexAttribArray(w3_wtNorm);
+    glDisableVertexAttribArray(w3_gl.wtUV); glDisableVertexAttribArray(w3_gl.wtNorm);
   } else
 #endif
-  { glUseProgram(w3_pW); glUniformMatrix4fv(w3_wMVP,1,GL_FALSE,mvp); glUniform3fv(w3_wHaze,1,haze); glUniform1f(w3_wLight,light); glEnableVertexAttribArray(w3_wPos); glEnableVertexAttribArray(w3_wCol);
-    glBindBuffer(GL_ARRAY_BUFFER,w3_vTerr); glVertexAttribPointer(w3_wPos,3,GL_FLOAT,GL_FALSE,24,0); glVertexAttribPointer(w3_wCol,3,GL_FLOAT,GL_FALSE,24,(void*)12); glDrawArrays(GL_TRIANGLES,0,w3_nTerr);
-    glBindBuffer(GL_ARRAY_BUFFER,w3_vBld); glVertexAttribPointer(w3_wPos,3,GL_FLOAT,GL_FALSE,24,0); glVertexAttribPointer(w3_wCol,3,GL_FLOAT,GL_FALSE,24,(void*)12); glDrawArrays(GL_TRIANGLES,0,w3_nBld);
-    glDisableVertexAttribArray(w3_wCol); }
+  { glUseProgram(w3_gl.pW); glUniformMatrix4fv(w3_gl.wMVP,1,GL_FALSE,mvp); glUniform3fv(w3_gl.wHaze,1,haze); glUniform1f(w3_gl.wLight,light); glEnableVertexAttribArray(w3_gl.wPos); glEnableVertexAttribArray(w3_gl.wCol);
+    glBindBuffer(GL_ARRAY_BUFFER,w3_gl.vTerr); glVertexAttribPointer(w3_gl.wPos,3,GL_FLOAT,GL_FALSE,24,0); glVertexAttribPointer(w3_gl.wCol,3,GL_FLOAT,GL_FALSE,24,(void*)12); glDrawArrays(GL_TRIANGLES,0,w3_gl.nTerr);
+    glBindBuffer(GL_ARRAY_BUFFER,w3_gl.vBld); glVertexAttribPointer(w3_gl.wPos,3,GL_FLOAT,GL_FALSE,24,0); glVertexAttribPointer(w3_gl.wCol,3,GL_FLOAT,GL_FALSE,24,(void*)12); glDrawArrays(GL_TRIANGLES,0,w3_gl.nBld);
+    glDisableVertexAttribArray(w3_gl.wCol); }
 }
 /* There was a world3d_render() here that called scene+HUD back to back, "for the native offscreen
  * renderer". That renderer is gone (f36f147) and it was the last caller, so the function outlived
