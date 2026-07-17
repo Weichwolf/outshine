@@ -36,6 +36,17 @@ typedef struct {
     float sun_disc;  /* 1 = draw the sun disc + glow (EVS/real sky); 0 = plain map-blue (SVS) */
 } w3_atmo;
 
+/* ONE daylight factor from sun elevation, shared by sky, ground AND star visibility so they never
+ * disagree. Replaces two different `day` curves that were up to 13 points apart through twilight (a
+ * CPU one linear in degrees, a shader one on sin(el)); the sky now takes THIS value as a uniform.
+ * Physically it tracks twilight: full day just above the horizon, fading through civil twilight,
+ * fully dark by nautical twilight (~ -9 deg) so deep night is genuinely dark. smoothstep = smooth
+ * monotone S-curve. EVS only -- SVS pins day=1 (constant synthetic daylight). */
+static float w3_daylight(float sun_el_deg){
+  float t=(sun_el_deg + 9.f) / 12.f; if(t<0.f)t=0.f; if(t>1.f)t=1.f;
+  return t*t*(3.f - 2.f*t);
+}
+
 /* `have` = 0 means no telemetry yet; the defaults are the ones the renderer has always used for
  * that case (afternoon sun, some cloud) so a fresh page is not black. Keep them: they are what a
  * browser shows in the second before the first packet arrives. */
@@ -62,28 +73,11 @@ static w3_atmo w3_atmo_from(const telem_packet_t *t, int have)
     a.moon[1] =  sinf(moon_el * RAD);
     a.moon[2] = -me * cosf(moon_az * RAD);
 
-    /* Civil twilight is the ramp: -6 deg is where the sky stops being a sky and starts being a
-     * star field. Below it nothing gets darker -- 0.20 is the floor, not an absence of light.
-     *
-     * WARNING, and it is the reason this struct earns its keep: `day` EXISTS TWICE. This one is
-     * linear in degrees; the sky shader computes its own from the sun's Y component:
-     *
-     *     gfx/shaders.h W3_FSKY    float day = smoothstep(-0.12, 0.10, sEl);   // GLSL, on sin(el)
-     *
-     * They are not the same function. Measured:
-     *     sun_el  -6 deg : CPU 0.000   shader 0.014
-     *     sun_el   0 deg : CPU 0.500   shader 0.568
-     *     sun_el  +3 deg : CPU 0.750   shader 0.880    <- 13 points apart
-     *
-     * So the sky and the ground already disagree about when it is day, by up to 13 points through
-     * twilight. Both curves are hand-tuned, both are plausible, both are called "day". Whether
-     * that is a bug is a real question -- they drive different things (sky gradient vs terrain
-     * brightness) and it may well be deliberate -- but the DECISION is written down nowhere, and
-     * the next person to touch either one will expect the other to follow.
-     * Deliberately NOT unified here: that is a visual judgement, and quietly making the sky match
-     * the ground at 02:00 would change every dusk in the simulator on the strength of a tidy-up.
-     * Named, measured, and left for a human. */
-    a.day = fmaxf(0.f, fminf(1.f, (sun_el + 6.f) / 12.f));
+    /* Daylight -- ONE curve now (w3_daylight, above). This used to disagree with the sky shader: a
+     * CPU value linear in degrees here vs a shader value on sin(el), up to 13 points apart through
+     * twilight. Both are gone -- sky, ground and star visibility all read this, and the sky takes it
+     * as a uniform (uDayF) instead of recomputing. */
+    a.day = w3_daylight(sun_el);
 
     a.haze[0] = 0.05f + 0.67f * a.day;
     a.haze[1] = 0.06f + 0.76f * a.day;
@@ -91,11 +85,11 @@ static w3_atmo w3_atmo_from(const telem_packet_t *t, int have)
     /* Cloud pulls the horizon toward a flat grey -- bright by day, dim by night -- but only 45 %
      * of the way even at full cover, or an overcast noon would go pure white. */
     for (int i = 0; i < 3; i++) {
-        float tgt = 0.80f * a.day + 0.30f * (1.f - a.day);
+        float tgt = 0.80f * a.day + 0.06f * (1.f - a.day);
         a.haze[i] += (tgt - a.haze[i]) * a.cloud * 0.45f;
     }
 
-    a.light = 0.20f + 0.80f * a.day;
+    a.light = 0.08f + 0.92f * a.day;   /* low deep-night floor so EVS night is genuinely dark */
     a.sun_disc = 1.f;                    /* the real sky shows the sun */
     return a;
 }

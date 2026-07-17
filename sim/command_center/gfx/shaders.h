@@ -46,13 +46,13 @@ static const char*W3_VSKY=
  "void main(){ vRay=uF + uS*(aPos.x*uTan*uAsp) + uU*(aPos.y*uTan); gl_Position=vec4(aPos,0.999,1.0); }";
 static const char*W3_FSKY=
  "precision highp float; varying vec3 vRay;"
- "uniform vec3 uSun,uMoon; uniform float uMoonPh,uCloud,uSunDisc;"
+ "uniform vec3 uSun,uMoon; uniform float uMoonPh,uCloud,uSunDisc,uDayF;"
  "float h21(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }"
  "float vnoise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);"
  "  float a=h21(i),b=h21(i+vec2(1,0)),c=h21(i+vec2(0,1)),d=h21(i+vec2(1,1));"
  "  return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }"
  "void main(){ vec3 r=normalize(vRay); float hgt=clamp(r.y,-0.15,1.0);"
- "  float sEl=uSun.y; float day=smoothstep(-0.12,0.10,sEl);"
+ "  float sEl=uSun.y; float day=uDayF;"                  /* unified daylight from atmo.h (w3_daylight), not recomputed */
  "  float t=pow(clamp(hgt,0.0,1.0),0.55);"
  "  vec3 dayC=mix(vec3(0.72,0.82,0.92),vec3(0.22,0.45,0.82),t);"
  "  vec3 ngtC=mix(vec3(0.05,0.06,0.13),vec3(0.01,0.02,0.06),t);"
@@ -66,7 +66,7 @@ static const char*W3_FSKY=
  "  if(uCloud>0.01 && hgt>0.04){ vec2 cuv=r.xz/(hgt+0.25)*1.6;"
  "     float n=0.55*vnoise(cuv)+0.35*vnoise(cuv*2.3)+0.15*vnoise(cuv*4.7);"
  "     float cl=smoothstep(1.0-uCloud,1.0-uCloud*0.35,n)*smoothstep(0.04,0.22,hgt);"
- "     vec3 cc=mix(vec3(0.34,0.36,0.45),vec3(0.95,0.96,1.0),day);"
+ "     vec3 cc=mix(vec3(0.03,0.04,0.06),vec3(0.95,0.96,1.0),day);"    /* dark night clouds (occlude, don't glow) -> stars read through */
  "     sky=mix(sky,cc,cl*0.85); }"
  /* (real stars are drawn as a separate GL_POINTS pass at their true alt/az) */
  /* moon disc + phase (visible when up, mostly at night) */

@@ -17,7 +17,7 @@ static void w3_draw_sky(const w3_cam *C, const w3_atmo *A, float aspect){
   glUniform3fv(w3_gl.skF,1,C->f); glUniform3fv(w3_gl.skS,1,C->sr); glUniform3fv(w3_gl.skU,1,C->up);
   glUniform1f(w3_gl.skTan,tanf(W3_FOV*RAD*0.5f)); glUniform1f(w3_gl.skAsp,aspect);
   glUniform3fv(w3_gl.skSun,1,A->sun); glUniform3fv(w3_gl.skMoon,1,A->moon);
-  glUniform1f(w3_gl.skMoonPh,A->moon_ph); glUniform1f(w3_gl.skCloud,A->cloud); glUniform1f(w3_gl.skSunDisc,A->sun_disc);
+  glUniform1f(w3_gl.skMoonPh,A->moon_ph); glUniform1f(w3_gl.skCloud,A->cloud); glUniform1f(w3_gl.skSunDisc,A->sun_disc); glUniform1f(w3_gl.skDayF,A->day);
   glBindBuffer(GL_ARRAY_BUFFER,w3_gl.skyVBO); glEnableVertexAttribArray(w3_gl.skPos);
   glVertexAttribPointer(w3_gl.skPos,2,GL_FLOAT,GL_FALSE,0,0); glDrawArrays(GL_TRIANGLES,0,6);
   glDisableVertexAttribArray(w3_gl.skPos);

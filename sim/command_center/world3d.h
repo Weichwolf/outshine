@@ -49,7 +49,7 @@ static struct {
   GLint stPos,stMag,stBV,stMVP,stDay;
   GLint wPos,wCol,wMVP,wHaze,wLight,hPos,hCol,hScale;
   GLint wtPos,wtUV,wtMVP,wtTex,wtHaze,wtLight,wtNorm,wtSun;
-  GLint skPos,skF,skS,skU,skTan,skAsp,skSun,skMoon,skMoonPh,skCloud,skSunDisc;
+  GLint skPos,skF,skS,skU,skTan,skAsp,skSun,skMoon,skMoonPh,skCloud,skSunDisc,skDayF;
 } w3_gl;
 
 #include "procedural.h"
@@ -245,7 +245,7 @@ static void world3d_init(void){
   w3_gl.skTan=glGetUniformLocation(w3_gl.pSky,"uTan"); w3_gl.skAsp=glGetUniformLocation(w3_gl.pSky,"uAsp");
   w3_gl.skSun=glGetUniformLocation(w3_gl.pSky,"uSun"); w3_gl.skMoon=glGetUniformLocation(w3_gl.pSky,"uMoon");
   w3_gl.skMoonPh=glGetUniformLocation(w3_gl.pSky,"uMoonPh"); w3_gl.skCloud=glGetUniformLocation(w3_gl.pSky,"uCloud");
-  w3_gl.skSunDisc=glGetUniformLocation(w3_gl.pSky,"uSunDisc");
+  w3_gl.skSunDisc=glGetUniformLocation(w3_gl.pSky,"uSunDisc"); w3_gl.skDayF=glGetUniformLocation(w3_gl.pSky,"uDayF");
   { float q[12]={-1,-1, 1,-1, -1,1,  -1,1, 1,-1, 1,1}; glGenBuffers(1,&w3_gl.skyVBO);
     glBindBuffer(GL_ARRAY_BUFFER,w3_gl.skyVBO); glBufferData(GL_ARRAY_BUFFER,sizeof q,q,GL_STATIC_DRAW); }
   w3_gl.pStar=w3_prog(W3_VSTAR,W3_FSTAR);
