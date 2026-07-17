@@ -23,33 +23,50 @@ static void w3_draw_sky(const w3_cam *C, const w3_atmo *A, float aspect){
   glDisableVertexAttribArray(w3_gl.skPos);
 }
 
-/* Real stars: place each above-horizon catalogue star at its true alt/az (wall-clock sidereal time +
- * origin), far along that direction, additively blended, fading toward day. Runs with the sky's
- * depth-off state. The celestial maths is in stars.h because it is pure and therefore checkable --
- * Polaris must stand at the observer's latitude, due north, and nothing in a screenshot says whether
- * it does. The clock is passed IN rather than read there: an input, not a dependency. */
+/* Real stars: place each above-horizon catalogue star at its true alt/az (sidereal time + origin),
+ * far along that direction, additively blended, fading toward day. Runs with the sky's depth-off
+ * state. The celestial maths is in stars.h (pure, Polaris-tested); the clock is passed IN.
+ *
+ * The DIRECTIONS are recomputed only every ~20 s: stars drift ~15"/s, so 20 s stays sub-pixel, and
+ * w3_star_dir (trig per star) over the ~8920-star catalogue is far too heavy for every frame. The
+ * eye-relative POSITIONS are still rebuilt per frame (cheap, no trig) so the stars stay locked to the
+ * sky as the aircraft moves -- baking the whole VBO for 20 s would let aircraft parallax drift them. */
 static void w3_draw_stars(const w3_cam *C, const w3_atmo *A, const float eye[3]){
-  if(A->day<0.6f){
-    double lst=w3_lst_deg(w3_gmst_deg((double)time(NULL)), w3_O.lon);
-    static float sv[W3_NSTARS*4]; int ns=0;
-    for(int i=0;i<W3_NSTARS;i++){
-      w3_stardir d=w3_star_dir(lst,w3_O.lat,W3_STARS[i].ra,W3_STARS[i].dec);
+  if(A->day>=0.6f || w3_nstars<=0) return;
+  static float *dir=0;          /* per visible star: e, u, n, mag -- celestial, eye-independent */
+  static int    ndir=0;
+  static double dir_at=-1e30;
+  double now=(double)time(NULL);
+  if(!dir || now-dir_at>20.0){
+    if(!dir){ dir=(float*)malloc((size_t)w3_nstars*4*sizeof(float)); if(!dir) return; }
+    double lst=w3_lst_deg(w3_gmst_deg(now), w3_O.lon);
+    int m=0;
+    for(int i=0;i<w3_nstars;i++){
+      w3_stardir d=w3_star_dir(lst,w3_O.lat,w3_stars[i].ra,w3_stars[i].dec);
       if(!d.above) continue;
-      sv[ns*4]=eye[0]+d.e*40000.f; sv[ns*4+1]=eye[1]+d.u*40000.f; sv[ns*4+2]=eye[2]-d.n*40000.f;
-      sv[ns*4+3]=W3_STARS[i].mag; ns++;
+      dir[m*4]=d.e; dir[m*4+1]=d.u; dir[m*4+2]=d.n; dir[m*4+3]=w3_stars[i].mag; m++;
     }
-    if(ns>0){
-      glEnable(GL_BLEND); glBlendFunc(GL_ONE,GL_ONE);
-      glUseProgram(w3_gl.pStar); glUniformMatrix4fv(w3_gl.stMVP,1,GL_FALSE,C->mvp); glUniform1f(w3_gl.stDay,A->day);
-      glBindBuffer(GL_ARRAY_BUFFER,w3_gl.starVBO); glBufferData(GL_ARRAY_BUFFER,(size_t)ns*16,sv,GL_DYNAMIC_DRAW);
-      glEnableVertexAttribArray(w3_gl.stPos); glEnableVertexAttribArray(w3_gl.stMag);
-      glVertexAttribPointer(w3_gl.stPos,3,GL_FLOAT,GL_FALSE,16,0);
-      glVertexAttribPointer(w3_gl.stMag,1,GL_FLOAT,GL_FALSE,16,(void*)12);
-      glDrawArrays(GL_POINTS,0,ns);
-      glDisableVertexAttribArray(w3_gl.stPos); glDisableVertexAttribArray(w3_gl.stMag);
-      glDisable(GL_BLEND);
-    }
+    ndir=m; dir_at=now;
   }
+  if(ndir<=0) return;
+  static float *sv=0; static int svcap=0;
+  if(svcap<ndir){ free(sv); sv=(float*)malloc((size_t)ndir*4*sizeof(float)); svcap=sv?ndir:0; }
+  if(!sv) return;
+  for(int i=0;i<ndir;i++){
+    sv[i*4]  =eye[0]+dir[i*4]  *40000.f;
+    sv[i*4+1]=eye[1]+dir[i*4+1]*40000.f;
+    sv[i*4+2]=eye[2]-dir[i*4+2]*40000.f;
+    sv[i*4+3]=dir[i*4+3];
+  }
+  glEnable(GL_BLEND); glBlendFunc(GL_ONE,GL_ONE);
+  glUseProgram(w3_gl.pStar); glUniformMatrix4fv(w3_gl.stMVP,1,GL_FALSE,C->mvp); glUniform1f(w3_gl.stDay,A->day);
+  glBindBuffer(GL_ARRAY_BUFFER,w3_gl.starVBO); glBufferData(GL_ARRAY_BUFFER,(size_t)ndir*16,sv,GL_DYNAMIC_DRAW);
+  glEnableVertexAttribArray(w3_gl.stPos); glEnableVertexAttribArray(w3_gl.stMag);
+  glVertexAttribPointer(w3_gl.stPos,3,GL_FLOAT,GL_FALSE,16,0);
+  glVertexAttribPointer(w3_gl.stMag,1,GL_FLOAT,GL_FALSE,16,(void*)12);
+  glDrawArrays(GL_POINTS,0,ndir);
+  glDisableVertexAttribArray(w3_gl.stPos); glDisableVertexAttribArray(w3_gl.stMag);
+  glDisable(GL_BLEND);
 }
 
 #endif

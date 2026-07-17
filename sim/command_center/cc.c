@@ -75,6 +75,25 @@ EM_JS(double, fb_fetch_elev, (double lat, double lon), {
   } catch(e){}
   return -1e9;
 })
+/* Fetch one HYG star band synchronously into the WASM heap. Binary over a SYNC XHR needs the
+ * x-user-defined charset trick (a sync XHR may not set responseType='arraybuffer'): each character
+ * of responseText is then exactly one raw byte. Startup only, like fb_fetch_elev. Returns bytes or -1. */
+EM_JS(int, fb_fetch_stars, (int band, uint8_t *dst, int maxbytes), {
+  try {
+    var base = window.FB_TILES_URL; if(!base) return -1;
+    var x = new XMLHttpRequest();
+    x.open('GET', base + '/t/stars/' + band + '/0/0', false);
+    x.overrideMimeType('text/plain; charset=x-user-defined');
+    x.send(null);
+    if(x.status>=200 && x.status<300){
+      var s = x.responseText, n = s.length;
+      if(n > maxbytes) return -1;
+      for(var i=0;i<n;i++) HEAPU8[dst+i] = s.charCodeAt(i) & 0xff;
+      return n;
+    }
+  } catch(e){}
+  return -1;
+})
 EM_JS(int, fb_codec_upload, (int texId), {
   const S = Module.__fb; if(!S||!S.frame) return 0;
   const tex = GL.textures[texId]; if(!tex) return 0;
@@ -265,6 +284,22 @@ static void net_init(void){
   emscripten_websocket_set_onmessage_callback(ws,0,on_msg);
 }
 
+/* Load the star catalogue once at startup: fetch the 4 HYG magnitude bands (~53 KB total, universal
+ * and static) into one buffer -- concatenated they stay globally mag-sorted -- and decode into
+ * w3_stars. A failed fetch leaves the catalogue empty (a blank night sky), never blocks startup. */
+static void stars_load_from_tiles(void){
+  const int cap = 96*1024;
+  uint8_t *buf = (uint8_t*)malloc((size_t)cap); if(!buf) return;
+  int off = 0, ok = 1;
+  for(int b=0;b<4;b++){
+    int n = fb_fetch_stars(b, buf+off, cap-off);
+    if(n<0){ printf("[cc] star band %d fetch failed\n", b); ok=0; break; }
+    off += n;
+  }
+  if(ok){ int ns = w3_stars_load(buf, off); printf("[cc] star catalogue: %d stars, %d bytes\n", ns, off); }
+  free(buf);
+}
+
 int main(void){
   char tiles_url[160];
   cfg_from_js(tiles_url, sizeof tiles_url);
@@ -286,6 +321,7 @@ int main(void){
     printf("[cc] tiles: streaming from %s, origin %.4f/%.4f\n",tiles_url,w3_O.lat,w3_O.lon);
   else printf("[cc] no tiles url or open failed — procedural fallback\n");
   world3d_init();
+  stars_load_from_tiles();
 
   gl_targets_init();
   net_init();
