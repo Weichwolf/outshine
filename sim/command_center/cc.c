@@ -125,12 +125,12 @@ static GLint hu_pos,hu_uv,hu_tex,hu_texel;
 static const char*HGVS="attribute vec2 aPos; attribute vec2 aUV; varying vec2 vUV;"
  "void main(){ gl_Position=vec4(aPos,0.0,1.0); vUV=aUV; }";
 static const char*HGFS="precision mediump float; varying vec2 vUV; uniform sampler2D uHud; uniform vec2 uTexel;"
- "void main(){ vec4 c=texture2D(uHud,vUV); vec2 t=uTexel*2.0;"
+ "void main(){ vec4 c=texture2D(uHud,vUV); vec2 t=uTexel*1.4;"      /* tighter halo -> text stays crisp */
  "  vec4 g=texture2D(uHud,vUV+vec2(t.x,0.0))+texture2D(uHud,vUV+vec2(-t.x,0.0))"
  "        +texture2D(uHud,vUV+vec2(0.0,t.y))+texture2D(uHud,vUV+vec2(0.0,-t.y))"
  "        +texture2D(uHud,vUV+t)+texture2D(uHud,vUV-t)"
  "        +texture2D(uHud,vUV+vec2(t.x,-t.y))+texture2D(uHud,vUV+vec2(-t.x,t.y));"
- "  g*=0.125; float ga=g.a*0.35;"                     /* subtle halo */
+ "  g*=0.125; float ga=g.a*0.18;"                     /* very light phosphor halo: lines glow, text sharp */
  "  vec3 col = c.a>0.01 ? c.rgb : g.rgb/max(g.a,0.001);"
  "  gl_FragColor=vec4(col, clamp(c.a+ga,0.0,1.0)); }";
 
