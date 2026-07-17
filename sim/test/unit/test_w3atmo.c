@@ -137,4 +137,57 @@ void test_w3atmo(void) {
         w3_atmo a = w3_atmo_from(&t, 1), b = w3_atmo_from(&t, 1);
         ck(memcmp(&a, &b, sizeof a) == 0, "same telemetry -> byte-identical atmosphere");
     }
+
+    tsection("w3_atmo_synthetic: constant map-like daylight, per RTCA DO-315B SVS");
+    {
+        /* The values pinned here are the SVS convention, not tuning: full day, full light, no
+         * cloud, NO sun disc (map-blue, not a photo of the sky). If any drifts, the synthetic
+         * vision mode stops looking like a PFD and starts looking like the real sky. */
+        w3_atmo s = w3_atmo_synthetic();
+        ck_near(s.day,     1.0f, 1e-6, "SVS is always full day");
+        ck_near(s.light,   1.0f, 1e-6, "SVS is always full light");
+        ck_near(s.cloud,   0.0f, 1e-6, "SVS has no cloud");
+        ck_near(s.moon_ph, 0.0f, 1e-6, "SVS has no moon phase");
+        ck_near(s.sun_disc, 0.0f, 1e-6, "SVS draws NO sun disc — plain map-blue, the point of SVS");
+
+        /* Sun fixed at el=55, az=160 (high, for even relief shading). Pin the vector so the
+         * directional light cannot wander. */
+        ck_near(s.sun[0],  0.19617f, 1e-4, "SVS sun x = cos55*sin160");
+        ck_near(s.sun[1],  0.81915f, 1e-4, "SVS sun y = sin55 (high, above horizon)");
+        ck_near(s.sun[2],  0.53900f, 1e-4, "SVS sun z = -cos55*cos160");
+        float sl = sqrtf(s.sun[0]*s.sun[0] + s.sun[1]*s.sun[1] + s.sun[2]*s.sun[2]);
+        ck_near(sl, 1.0f, 1e-5, "SVS sun direction is unit length");
+        ck(s.sun[1] > 0, "SVS sun is above the horizon");
+
+        /* Moon deliberately below the horizon: no moon disc in synthetic vision. */
+        ck_near(s.moon[0],  0.0f, 1e-6, "SVS moon x = 0");
+        ck_near(s.moon[1], -1.0f, 1e-6, "SVS moon points straight down — below horizon, no disc");
+        ck_near(s.moon[2],  0.0f, 1e-6, "SVS moon z = 0");
+
+        ck_near(s.haze[0], 0.72f, 1e-6, "SVS horizon r (clear-day blue)");
+        ck_near(s.haze[1], 0.82f, 1e-6, "SVS horizon g");
+        ck_near(s.haze[2], 0.92f, 1e-6, "SVS horizon b (bluest channel)");
+        ck(s.haze[2] > s.haze[0], "SVS horizon is blue-dominant");
+    }
+
+    tsection("w3_atmo_synthetic: TIME-INDEPENDENT — the architectural contract");
+    {
+        /* THE contract for SVS: the synthetic atmosphere ignores time and telemetry entirely.
+         * The signature already says so — w3_atmo_synthetic() takes void, so no packet and no
+         * clock can reach it. This asserts the consequence: whatever the world is doing, whatever
+         * SIM_UTC reads, two calls are byte-identical. That is what makes SVS a stable reference
+         * view instead of a second sky renderer. */
+        w3_atmo x = w3_atmo_synthetic();
+        w3_atmo y = w3_atmo_synthetic();
+        ck(memcmp(&x, &y, sizeof x) == 0, "synthetic atmosphere is byte-identical across calls");
+
+        /* And it must NOT equal a real atmosphere driven by live telemetry — a positive check
+         * that SVS is genuinely a different, fixed view, not accidentally the daytime default. */
+        telem_packet_t night = mk(-14.f, 300.f, 0.9f);   /* deep night, heavy cloud */
+        w3_atmo real = w3_atmo_from(&night, 1);
+        ck(memcmp(&x, &real, sizeof x) != 0,
+           "synthetic ignores telemetry: stays daylight even when the world is night");
+        ck(x.sun_disc != real.sun_disc || x.day != real.day,
+           "synthetic day/sun_disc differ from a live night atmosphere");
+    }
 }
