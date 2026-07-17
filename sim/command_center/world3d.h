@@ -113,8 +113,7 @@ static void w3_seed_yoff(float y){ if(!w3_O.yoff_set){ w3_O.yoff=y; w3_O.yoff_se
  * (w3_T/w3_TF/w3_TF2 with w3_nT/w3_nTF/w3_nTF2) -- the same code three times with suffixes,
  * which is how the overlap got written down as a fact and then lived on as one. */
 typedef struct { GLuint vbo, tex[2]; int nverts; float bmin[3], bmax[3]; } w3_tileGL;
-static w3_tileGL w3_D[W3_BUDGET]; static int w3_nD=0;
-static int w3_nvis=0;   /* of w3_nD, how many last frame's frustum drew; proof the cull bites */
+static w3_tileGL w3_D[W3_BUDGET];
 
 /* ---- ground albedo: downloaded ready-made from fb-tiles ------------------------------------
  * There used to be ~150 lines of software rasteriser here: scanline polygon fill, thick lines,
@@ -132,24 +131,31 @@ static int w3_ground_mode = W3_GROUND_OSM;
 /* Set while any resident tile still lacks the albedo we want. Keeps world3d_stream from
  * declaring victory and going back to sleep until the next tile boundary. */
 static int w3_ground_dirty = 0;
-/* Chunks the tree asked for and did not get. The streamer may only sleep when this is 0:
- * "nothing is waiting" and "nothing was asked for" are different states, and conflating
- * them let the tree declare victory over an EMPTY world and never look again. */
-static int w3_pending=0;
-/* Chunks that ARE drawable (floor 256 present) but still below their SSE target -- the ones
- * climbing the ramp. Kept apart from w3_pending on purpose: progressive loading means "shown" and
- * "fully sharp" are different states, and only the FIRST gates convergence. w3_sharpen keeps the
- * streamer awake so it keeps climbing, but never blocks "0 pending" -- otherwise a moving camera,
- * always mid-climb on some near tile (a fresh 2048 is 7-20 s), would never let the gate latch. */
-static int w3_sharpen=0;
-static unsigned w3_pass_mark=0;   /* touch stamp at the start of THIS stream pass; want_lod_max is
-                                   * reset once per pass off it (first touch), then max'd. */
-
-/* Every glGenerateMipmap the tile path does. The tile cache is the ONLY caller (EVS uploads a raw
- * video frame with no mipmap), so this is a clean per-frame thrash counter: it is ~0 once the cache
- * is warm and explodes the instant a tile re-bakes every frame. That is the whole proof of the
- * side-by-side LOD slots -- read it out of cc_mipmaps(). */
-static long w3_mipmaps=0;
+/* Per-pass render/stream bookkeeping: counters reset or accumulated each stream pass, plus the two
+ * running thrash/diagnostic totals the harness reads. One owner; world3d_stream_at resets the per-pass
+ * fields at the top of a pass. The KEEPALIVE accessors in cc.c (cc_drawn/cc_visible/cc_mipmaps) expose
+ * fields -- their names are unchanged, only their bodies now read w3_frame. */
+static struct {
+  int nD;                    /* draw-list length this pass (indexes w3_D) */
+  int nvis;                  /* of nD, how many last frame's frustum drew; proof the cull bites */
+  /* Chunks the tree asked for and did not get. The streamer may only sleep when this is 0:
+   * "nothing is waiting" and "nothing was asked for" are different states, and conflating them let
+   * the tree declare victory over an EMPTY world and never look again. */
+  int pending;
+  /* Chunks that ARE drawable (floor 256 present) but still below their SSE target -- climbing the
+   * ramp. Kept apart from pending on purpose: "shown" and "fully sharp" are different states, only the
+   * FIRST gates convergence. Keeps the streamer awake to climb, never blocks "0 pending" -- else a
+   * moving camera, always mid-climb on some near tile (a fresh 2048 is 7-20 s), would never latch. */
+  int sharpen;
+  unsigned pass_mark;        /* touch stamp at the start of THIS pass; want_lod_max resets off it, then max's */
+  /* Every glGenerateMipmap the tile path does -- a clean per-frame thrash counter (~0 warm, explodes
+   * if a tile re-bakes each frame). The whole proof of the side-by-side LOD slots; read via cc_mipmaps(). */
+  long mipmaps;
+  int split_want, split_wait;   /* chunks that wanted to split; couldn't (yet) */
+  int over;                     /* splits refused by the budget -> coarser ground */
+  int lvl[8];                   /* chunks drawn per level, W3_ROOTZ..W3_MAXZ */
+  int cache_hits, cache_bakes, cache_evict;
+} w3_frame;
 
 #include "tiles/bake.h"
 
@@ -255,7 +261,7 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
   glViewport(0,0,W,H); glEnable(GL_DEPTH_TEST); glClearColor(0.55f,0.70f,0.90f,1); glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
   float px=have?t->x:0, py=(have&&t->alt>2)?t->alt:120, pz=have?-t->y:0;
 #ifdef W3_USE_OSM
-  if(w3_nD>0) py=(have&&t->alt>1?t->alt:2)+w3_O.yoff;   /* AGL above the osmmesh ground */
+  if(w3_frame.nD>0) py=(have&&t->alt>1?t->alt:2)+w3_O.yoff;   /* AGL above the osmmesh ground */
 #endif
   /* Basis and MVP from the attitude — pure maths, so it lives in camera.h and is testable there.
    * The roll sign is the one that once made a right bank look like a left bank; a screenshot
@@ -313,7 +319,7 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
   }
   glDepthMask(GL_TRUE); glEnable(GL_DEPTH_TEST);
 #ifdef W3_USE_OSM
-  if(w3_nD>0){                       /* textured terrain: one quadtree cut, one draw per chunk */
+  if(w3_frame.nD>0){                       /* textured terrain: one quadtree cut, one draw per chunk */
     glUseProgram(w3_gl.pWT); glUniformMatrix4fv(w3_gl.wtMVP,1,GL_FALSE,mvp);
     glUniform3fv(w3_gl.wtHaze,1,haze); glUniform1f(w3_gl.wtLight,light); glUniform3fv(w3_gl.wtSun,1,sun);
     glActiveTexture(GL_TEXTURE0); glUniform1i(w3_gl.wtTex,0);
@@ -323,10 +329,10 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
     /* Cull here, not in the walk: rotation moves the frustum every frame while the walk sleeps, and
      * keeping the walk view-independent is what holds tiles / picks LOD by distance alone. */
     const w3_frustum fr=w3_frustum_from(mvp);
-    w3_nvis=0;
-    for(int i=0;i<w3_nD;i++){
+    w3_frame.nvis=0;
+    for(int i=0;i<w3_frame.nD;i++){
       if(!w3_aabb_visible(&fr,w3_D[i].bmin,w3_D[i].bmax)) continue;
-      w3_nvis++;
+      w3_frame.nvis++;
       /* THE ground switch, in full: an index. Both albedos are already on the GPU. */
       GLuint _t=w3_D[i].tex[w3_ground_mode]; if(!_t)_t=w3_D[i].tex[W3_GROUND_OSM];
       glBindTexture(GL_TEXTURE_2D,_t); glBindBuffer(GL_ARRAY_BUFFER,w3_D[i].vbo);

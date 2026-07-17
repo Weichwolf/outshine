@@ -20,9 +20,6 @@
  *
  * Loading is nearest-first because the walk is depth-first from the camera outward, and fb-tiles
  * has a concurrency cap: whatever asks first gets the network. */
-static int w3_split_want=0, w3_split_wait=0;   /* chunks that wanted to split; couldn't (yet) */
-static int w3_over=0;                          /* splits refused by the budget -> coarser ground */
-static int w3_lvl[8];                          /* chunks drawn per level, W3_ROOTZ..W3_MAXZ */
 #ifndef W3_TRACE
 #define W3_TRACE 0                             /* 1 = log every stream pass */
 #endif
@@ -50,13 +47,13 @@ static void w3_emit(int ci,int lod){
   /* Dropping here is a HOLE in the ground, not a coarser chunk -- the split guard is supposed to
    * have coarsened long before. Count it loudly: a silent drop here would look exactly like the
    * tree working, which is the one thing this must never do. */
-  if(w3_nD>=W3_BUDGET){ w3_over++; return; }
-  { int L=w3_cache[ci].z-W3_ROOTZ; if(L>=0&&L<8) w3_lvl[L]++; }
-  w3_D[w3_nD].vbo=w3_cache[ci].vbo; w3_D[w3_nD].nverts=w3_cache[ci].nverts;
-  w3_D[w3_nD].tex[0]=w3_pick_lod(&w3_cache[ci],W3_GROUND_OSM,lod);
-  w3_D[w3_nD].tex[1]=w3_pick_lod(&w3_cache[ci],W3_GROUND_PHOTO,lod);
-  for(int a=0;a<3;a++){ w3_D[w3_nD].bmin[a]=w3_cache[ci].bmin[a]; w3_D[w3_nD].bmax[a]=w3_cache[ci].bmax[a]; }
-  w3_nD++;
+  if(w3_frame.nD>=W3_BUDGET){ w3_frame.over++; return; }
+  { int L=w3_cache[ci].z-W3_ROOTZ; if(L>=0&&L<8) w3_frame.lvl[L]++; }
+  w3_D[w3_frame.nD].vbo=w3_cache[ci].vbo; w3_D[w3_frame.nD].nverts=w3_cache[ci].nverts;
+  w3_D[w3_frame.nD].tex[0]=w3_pick_lod(&w3_cache[ci],W3_GROUND_OSM,lod);
+  w3_D[w3_frame.nD].tex[1]=w3_pick_lod(&w3_cache[ci],W3_GROUND_PHOTO,lod);
+  for(int a=0;a<3;a++){ w3_D[w3_frame.nD].bmin[a]=w3_cache[ci].bmin[a]; w3_D[w3_frame.nD].bmax[a]=w3_cache[ci].bmax[a]; }
+  w3_frame.nD++;
 }
 /* Recurse. (lat,lon,alt) = camera; (tx,ty) = camera's fractional tile coord at THIS level. */
 static void w3_walk(int z,long x,long y,double lat,double alt,double tx,double ty){
@@ -83,13 +80,13 @@ static void w3_walk(int z,long x,long y,double lat,double alt,double tx,double t
   /* BUDGET: coarsen, never hole. Refusing to split draws this chunk instead -- blurrier, but the
    * ground is still there. Dropping it from the draw list would punch a hole in the world, which
    * is the one thing the tree exists to prevent. */
-  if(w3_nD+4>W3_BUDGET){ w3_over++; w3_emit(ci,lod); return; }
+  if(w3_frame.nD+4>W3_BUDGET){ w3_frame.over++; w3_emit(ci,lod); return; }
 
-  w3_split_want++;
+  w3_frame.split_want++;
   int cc[4];
   double ctx=tx*2.0, cty=ty*2.0;
   if(!w3_children_ready(z,(uint32_t)x,(uint32_t)y,cc,lat,alt,ctx,cty)){
-    w3_split_wait++; w3_ground_dirty=1;                 /* keep the streamer awake for them */
+    w3_frame.split_wait++; w3_ground_dirty=1;                 /* keep the streamer awake for them */
     w3_emit(ci,lod);                                    /* parent covers the ground meanwhile */
     return;
   }

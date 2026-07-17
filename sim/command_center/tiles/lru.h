@@ -53,7 +53,6 @@ typedef struct { int z; uint32_t x,y; GLuint vbo,tex[2][W3_NLOD]; int nverts; un
                  int want_yoff; } w3_cent;                /* this WAIT was the origin-elevation probe */
 static w3_cent w3_cache[W3_CACHE];
 static unsigned w3_touch=0;
-static int w3_cache_hits=0, w3_cache_bakes=0, w3_cache_evict=0;
 
 /* The ONE place a resident texture or VBO is freed, in both directions:
  *  - a chunk the tree did NOT touch this pass is unreachable -> free it whole. `touch` is stamped by
@@ -87,7 +86,7 @@ static void w3_cache_trim(unsigned mark){
     } else if(c->state==W3_SLOT_MESH){
       free(c->mverts); c->mverts=0;
     }
-    c->state=W3_SLOT_FREE; w3_cache_evict++;
+    c->state=W3_SLOT_FREE; w3_frame.cache_evict++;
   }
 }
 
@@ -154,7 +153,7 @@ static int w3_ensure_tex(w3_cent*c,int mode,int z,uint32_t x,uint32_t y,int TS,i
 #if W3_LOD_NOKEY
   c->texpx[mode]=TS;
 #endif
-  w3_cache_bakes++;
+  w3_frame.cache_bakes++;
   return 1;
 }
 
@@ -175,7 +174,7 @@ static GLuint w3_pick_lod(const w3_cent*c,int mode,int lod){
  * ever blocking the image. Sequential, not all-at-once: a 2048 bake is never kicked off before the
  * 512 it supersedes is even shown, and the in-flight set stays small (the JS side caps at 256).
  * Returns 1 when OSM has reached `target`, 0 while still climbing -- the caller counts a 0 as
- * w3_sharpen (drawable, not yet sharp), NEVER as w3_pending, so climbing does not hold the gate. */
+ * w3_frame.sharpen (drawable, not yet sharp), NEVER as w3_frame.pending, so climbing does not hold the gate. */
 static int w3_climb(w3_cent*c,int z,uint32_t x,uint32_t y,int target){
   int hi=-1; for(int l=0;l<=target;l++) if(c->tex[W3_GROUND_OSM][l]) hi=l;
   if(hi>=target){
@@ -223,7 +222,7 @@ static int w3_cache_get(int z,uint32_t x,uint32_t y,int lod,int is_centre){
      * twice the budget and trim drops everything unreached -- but if a pass ever fills it, treat it
      * as pending rather than thrash. */
     for(int i=0;i<W3_CACHE;i++) if(w3_cache[i].state==W3_SLOT_FREE){ slot=i; break; }
-    if(slot<0){ w3_pending++; return -1; }
+    if(slot<0){ w3_frame.pending++; return -1; }
     w3_cent*c=&w3_cache[slot];
     c->z=z; c->x=x; c->y=y; c->state=W3_SLOT_WAIT; c->touch=++w3_touch; c->want_lod_max=lod;
     c->photo_none=0; memset(c->tex,0,sizeof c->tex); c->mverts=0; c->vbo=0;
@@ -234,23 +233,23 @@ static int w3_cache_get(int z,uint32_t x,uint32_t y,int lod,int is_centre){
      * computes the origin ground elevation only when asked, and w3_worker_mesh applies it. */
     c->want_yoff = (is_centre && z==W3_MAXZ && !w3_O.yoff_set);
     w3_worker_post(z,(int)x,(int)y,W3_TERR,c->want_yoff);
-    w3_pending++;
+    w3_frame.pending++;
     return -1;
   }
 
   w3_cent*c=&w3_cache[slot];
-  int fresh=(c->touch < w3_pass_mark);                    /* first touch this pass? */
+  int fresh=(c->touch < w3_frame.pass_mark);                    /* first touch this pass? */
   c->touch=++w3_touch;
   if(fresh || lod>c->want_lod_max) c->want_lod_max=lod;   /* per-pass MAX of the requested target */
 
-  if(c->state==W3_SLOT_WAIT){ w3_pending++; return -1; }   /* worker still building */
+  if(c->state==W3_SLOT_WAIT){ w3_frame.pending++; return -1; }   /* worker still building */
 
   if(c->state==W3_SLOT_MESH){
     /* Mesh in hand. Gate drawability on the FLOOR albedo (256) -- cheap and fast, so the tile
      * shows almost at once and sharpens later. Upload the VBO only once that texture is in hand, so
      * a slot never holds a VBO with no texture (a placeholder square over Grohnde is the bug). */
     int r=w3_ensure_tex(c,W3_GROUND_OSM,z,x,y,w3_lod_px[0],0);
-    if(r<=0){ w3_pending++; return -1; }                   /* floor in flight: keep asking */
+    if(r<=0){ w3_frame.pending++; return -1; }                   /* floor in flight: keep asking */
     GLuint vbo; glGenBuffers(1,&vbo); glBindBuffer(GL_ARRAY_BUFFER,vbo);
     glBufferData(GL_ARRAY_BUFFER,(GLsizeiptr)((size_t)c->mnverts*sizeof(w3_vtx)),c->mverts,GL_STATIC_DRAW);
     /* AABB from the mesh: the skirt only lowers bmin -> the box grows, never over-culls. */
@@ -263,15 +262,15 @@ static int w3_cache_get(int z,uint32_t x,uint32_t y,int lod,int is_centre){
     { int p=w3_ensure_tex(c,W3_GROUND_PHOTO,z,x,y,w3_lod_px[0],0);  /* photo floor; OSM covers if -1 */
       if(p==0) c->photo_none=1; }
     c->state=W3_SLOT_READY;
-    if(!w3_climb(c,z,x,y,lod)) w3_sharpen++;                /* start the climb toward the target */
+    if(!w3_climb(c,z,x,y,lod)) w3_frame.sharpen++;                /* start the climb toward the target */
     return slot;
   }
 
   /* READY: drawable. Climb one step toward the target if not there yet -- side by side with the
-   * steps already resident, never re-baked over them. A chunk below its target is w3_sharpen, not
-   * w3_pending: it is on screen, just not yet at full resolution. */
-  w3_cache_hits++;
-  if(!w3_climb(c,z,x,y,lod)) w3_sharpen++;
+   * steps already resident, never re-baked over them. A chunk below its target is w3_frame.sharpen, not
+   * w3_frame.pending: it is on screen, just not yet at full resolution. */
+  w3_frame.cache_hits++;
+  if(!w3_climb(c,z,x,y,lod)) w3_frame.sharpen++;
   return slot;
 }
 #endif

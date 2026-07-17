@@ -19,7 +19,7 @@ static GLuint w3_bake(uint32_t z,uint32_t x,uint32_t y,int TS,int mode){
   glTexImage2D(GL_TEXTURE_2D,0,GL_RGB,w,h,0,GL_RGB,GL_UNSIGNED_BYTE,px);
   /* trilinear (mipmaps) kills shimmer on distant tiles; anisotropy keeps the ground sharp at
    * grazing angles (the terrain is seen almost edge-on). */
-  glGenerateMipmap(GL_TEXTURE_2D); w3_mipmaps++;
+  glGenerateMipmap(GL_TEXTURE_2D); w3_frame.mipmaps++;
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR_MIPMAP_LINEAR);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);

@@ -120,13 +120,13 @@ static EM_BOOL on_msg(int t,const EmscriptenWebSocketMessageEvent*e,void*u){(voi
 EMSCRIPTEN_KEEPALIVE void cc_toggle_ground(void){ w3_ground_toggle(); }
 /* glGenerateMipmap count over the whole run -- the tile-cache thrash counter. Sampled per frame by
  * the LOD proof harness (per-frame delta -> p50); ~0 warm, explodes if a tile re-bakes each frame. */
-EMSCRIPTEN_KEEPALIVE long cc_mipmaps(void){ return w3_mipmaps; }
+EMSCRIPTEN_KEEPALIVE long cc_mipmaps(void){ return w3_frame.mipmaps; }
 /* Resident texture VRAM in bytes -- real, summed from the cache (world3d.h), for the ramp's VRAM
  * budget check. Sampled by the harness against the 2 GB cap. */
 EMSCRIPTEN_KEEPALIVE long cc_texvram(void){ return w3_texvram(); }
 /* Walk's draw list vs what the frustum actually drew: cc_visible < cc_drawn = the cull works. */
-EMSCRIPTEN_KEEPALIVE int cc_drawn(void){ return w3_nD; }
-EMSCRIPTEN_KEEPALIVE int cc_visible(void){ return w3_nvis; }
+EMSCRIPTEN_KEEPALIVE int cc_drawn(void){ return w3_frame.nD; }
+EMSCRIPTEN_KEEPALIVE int cc_visible(void){ return w3_frame.nvis; }
 
 static int armed_latch=0, prev_enter=0; static uint16_t seq=0;
 static void send_control(void){
