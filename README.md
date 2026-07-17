@@ -436,3 +436,17 @@ Video-Scrambling** und der **senderlose Selbststart**.
 *Grundlagen-Recherche (Machbarkeit, Sensor-/Funk-/Video-Optionen, CH-Bandwahl
 gegen NaFZ 2026 / RIR verifiziert) im Projektverlauf erarbeitet; diese Fassung ist
 die verdichtete Bauspezifikation.*
+
+---
+
+## Datenquellen & Lizenzen
+
+Der Simulator lädt reale Welt-Daten on-demand. Attributionspflicht der Quellen:
+
+- **Kartendaten:** © OpenStreetMap contributors — lizenziert unter der
+  [Open Database License (ODbL)](https://www.openstreetmap.org/copyright)
+  (Shortbread-Vektorkacheln).
+- **Luftbilder:** Esri World Imagery — © Esri und seine Datenlieferanten.
+- **Geländehöhe:** Copernicus DEM (Terrarium-kodiert).
+- **Sternkatalog:** [HYG Database](https://github.com/astronexus/HYG-Database)
+  (Hipparcos-abgeleitet) — lizenziert unter CC-BY-SA 4.0.
