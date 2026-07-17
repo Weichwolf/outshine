@@ -103,6 +103,18 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
     w3_box(ax+3,cy-11,ax+63,cy+11,HG_R,HG_G,HG_B); w3_printf(ax+9,cy-7,2.f,HG_R,HG_G,HG_B,"%3.0f",as);
     w3_line(ax,cy,ax+3,cy-6,HG_R,HG_G,HG_B); w3_line(ax,cy,ax+3,cy+6,HG_R,HG_G,HG_B);           /* caret at the rail */
     w3_text(ax+3,cy-30,1.4f,HG_R,HG_G,HG_B,"TAS"); w3_printf(ax+3,cy+18,1.7f,HG_R,HG_G,HG_B,"GS %2.0f",t->gs); }
+
+  /* ===== Altitude tape (right): moving vertical AGL scale + VS. telem alt = height above ground
+   * (S.agl); the telemetry sends only AGL, no ASL, so this is honestly labelled AGL, not ALT. ===== */
+  { float mpx=1.5f, axr=W-70.f, agl=t->alt;
+    for(int d=-100; d<=100; d+=10){
+      float av=agl+(float)d; if(av<0.f) continue; float sy=cy-(float)d*mpx; int ai=(int)lroundf(av);
+      float tk=(ai%20==0)?11.f:6.f; w3_line(axr,sy,axr+tk,sy,HG_R,HG_G,HG_B);
+      if(ai%20==0) w3_printf(axr+tk+3,sy-4,1.6f,HG_R,HG_G,HG_B,"%3d",ai); }
+    w3_line(axr,cy-150,axr,cy+150,HG_R,HG_G,HG_B);
+    w3_box(axr-63,cy-11,axr-3,cy+11,HG_R,HG_G,HG_B); w3_printf(axr-58,cy-7,2.f,HG_R,HG_G,HG_B,"%3.0f",agl);
+    w3_line(axr,cy,axr-3,cy-6,HG_R,HG_G,HG_B); w3_line(axr,cy,axr-3,cy+6,HG_R,HG_G,HG_B);        /* < caret at the rail */
+    w3_text(axr-58,cy-30,1.4f,HG_R,HG_G,HG_B,"AGL"); w3_printf(axr-63,cy+18,1.7f,HG_R,HG_G,HG_B,"VS%+3.0f",t->vs); }
   /* right column: navigation / power / link / mode */
   w3_printf(W-176,14,3,1,1,1,    "HOME %5.0f",t->home_dist);
   { float v=t->batt, r=0.4f,g=1,b=0.3f; if(v<10.0f){r=1;g=0.3f;b=0.2f;} else if(v<11.0f){r=1;g=0.85f;b=0.2f;}
