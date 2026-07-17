@@ -311,6 +311,15 @@ static void physics_step(double dt){
     if(!isfinite(S.p)){S.p=0;} if(!isfinite(S.q)){S.q=0;} if(!isfinite(S.r)){S.r=0;}
 }
 
+/* Deterministic clock for the ephemeris ONLY: SIM_UTC (unix epoch seconds, parsed once) overrides
+ * real time so the aircraft's sun/moon and the renderer's stars share one faked "now". 0/unset = live.
+ * Telemetry timestamps and the weather clock stay on real time. */
+static time_t fb_now(void){
+    static time_t sim=-1;
+    if(sim==-1){ const char*e=getenv("SIM_UTC"); sim=(e&&atol(e)>0)?(time_t)atol(e):0; }
+    return sim>0 ? sim : time(NULL);
+}
+
 int main(void){
     int port = getenv("XP_LISTEN_PORT")?atoi(getenv("XP_LISTEN_PORT")):49000;
     int fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -425,7 +434,7 @@ int main(void){
          * renders at 60 fps and samples the LATEST pose each frame — since the state
          * updates faster than the display (game-engine style), the camera is smooth with
          * zero interpolation latency. Video (artificial horizon fallback) stays at ~12 Hz. */
-        if(tick%50==0){ double jd=fb_julian_day(time(NULL)), el,az,mel,maz,mil;
+        if(tick%50==0){ double jd=fb_julian_day(fb_now()), el,az,mel,maz,mil;
             fb_sun_pos(jd,HOME_LAT,HOME_LON,&el,&az);   g_sun_el=(float)el;  g_sun_az=(float)az;
             fb_moon_pos(jd,HOME_LAT,HOME_LON,&mel,&maz,&mil); g_moon_el=(float)mel; g_moon_az=(float)maz; g_moon_ph=(float)mil; }
         telem_send(fbfd,fbdst,link_up);
