@@ -1,33 +1,26 @@
-/* FlightBox renderer — the HUD/OSD: a 2D line overlay in pixel coords, regenerated every frame and
- * drawn on top of the decoded video (never encoded into it). Bitmap font, then the full avionics OSD. */
+/* FlightBox renderer — the HUD/OSD: regenerated every frame and drawn on top of the decoded video
+ * (never encoded into it). Text is tile blits from the MAX7456 font atlas (max7456.h); the geometry
+ * here is only the LINE primitives (tape rails, ticks, carets, boxes, FPM ring, conformal horizon). */
 #ifndef W3_HUD_H
 #define W3_HUD_H
-/* ---- HUD (2D lines, pixel coords) ---- */
-/* Regenerated every frame (glBufferData DYNAMIC). Sized for the full OSD: the bitmap
- * font draws ~2 line segments per lit pixel, so all the text + arrows + ladders add up
- * to a few thousand segments. Too small a buffer silently drops the LAST-drawn elements. The
- * MIL-STD-1787 pitch ladder + its numbers pushed the count up, so this is sized well above it:
- * 131072 floats = ~13000 segments. */
+/* ---- HUD line primitives (2D, pixel coords) ---- */
+/* Regenerated every frame (glBufferData DYNAMIC). Now that text moved to the atlas, only line
+ * segments land here (rails/ticks/carets/boxes) -- a few hundred, far under the cap. Kept generous;
+ * a too-small buffer silently drops the LAST-drawn elements. */
 static float w3_hud[131072]; static int w3_hudN;
 /* Second buffer: filled TRIANGLES (same x,y,r,g,b layout). Drawn under the lines; the MSAA HUD FBO
  * antialiases their edges, so a thin quad reads as a smooth thin line solid at ANY angle -- unlike a
  * 1px GL_LINE, which stair-steps and breaks apart when tilted. Used for the conformal horizon. */
 static float w3_hudT[16384]; static int w3_hudTN;
-static const char*W3_CS=" 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-.:/";
-static const unsigned char W3_FONT[41][5]={
- {0,0,0,0,0},{7,5,5,5,7},{2,6,2,2,7},{7,1,7,4,7},{7,1,7,1,7},{5,5,7,1,1},{7,4,7,1,7},{7,4,7,5,7},{7,1,2,2,2},{7,5,7,5,7},{7,5,7,1,7},
- {7,5,7,5,5},{6,5,6,5,6},{7,4,4,4,7},{6,5,5,5,6},{7,4,7,4,7},{7,4,7,4,4},{7,4,5,5,7},{5,5,7,5,5},{7,2,2,2,7},{1,1,1,5,7},{5,5,6,5,5},{4,4,4,4,7},
- {5,7,7,5,5},{5,7,7,7,5},{7,5,5,5,7},{7,5,7,4,4},{7,5,5,7,1},{6,5,6,5,5},{7,4,7,1,7},{7,2,2,2,2},{5,5,5,5,7},{5,5,5,5,2},{5,5,7,7,5},{5,5,2,5,5},{5,5,2,2,2},{7,1,2,4,7},
- {0,0,7,0,0},{0,0,0,0,2},{0,2,0,2,0},{1,1,2,4,4}};
 static const char*W3_STN[]={"DISARM","ARMED","CLIMB","LOITER","MANUAL","RTH"};
 static void w3_line(float x0,float y0,float x1,float y1,float r,float g,float b){ if(w3_hudN>131052)return;
   w3_hud[w3_hudN++]=x0;w3_hud[w3_hudN++]=y0;w3_hud[w3_hudN++]=r;w3_hud[w3_hudN++]=g;w3_hud[w3_hudN++]=b;
   w3_hud[w3_hudN++]=x1;w3_hud[w3_hudN++]=y1;w3_hud[w3_hudN++]=r;w3_hud[w3_hudN++]=g;w3_hud[w3_hudN++]=b; }
-static void w3_gpx(float x,float y,float s,float r,float g,float b){ w3_line(x,y,x+s,y,r,g,b); w3_line(x,y+s*0.5f,x+s,y+s*0.5f,r,g,b); }
-static void w3_text(float x,float y,float s,float r,float g,float b,const char*t){
-  for(;*t;t++){ char u=*t; if(u>='a'&&u<='z')u-=32; const char*p=strchr(W3_CS,u); int ix=p?(int)(p-W3_CS):0;
-    for(int row=0;row<5;row++){ unsigned char m=W3_FONT[ix][row]; for(int c=0;c<3;c++) if(m&(4>>c)) w3_gpx(x+c*s,y+row*s,s,r,g,b);} x+=4*s; } }
-static void w3_printf(float x,float y,float s,float r,float g,float b,const char*fmt,...){ char bb[96]; va_list a; va_start(a,fmt); vsnprintf(bb,96,fmt,a); va_end(a); w3_text(x,y,s,r,g,b,bb); }
+/* Text is now tile blits from the MAX7456 font atlas (max7456.h), not vector lines -- kills the
+ * per-glyph vertex explosion. Same (x,y,scale,rgb,str) contract as before, so no call site changes. */
+static void w3_text(float x,float y,float s,float r,float g,float b,const char*t){ mx_text(x,y,s,r,g,b,t); }
+static void w3_printf(float x,float y,float s,float r,float g,float b,const char*fmt,...){
+  char bb[96]; va_list a; va_start(a,fmt); vsnprintf(bb,96,fmt,a); va_end(a); mx_text(x,y,s,r,g,b,bb); }
 
 static void w3_qvert(float x,float y,float r,float g,float b){ if(w3_hudTN>16374)return;
   w3_hudT[w3_hudTN++]=x; w3_hudT[w3_hudTN++]=y; w3_hudT[w3_hudTN++]=r; w3_hudT[w3_hudTN++]=g; w3_hudT[w3_hudTN++]=b; }
@@ -45,11 +38,11 @@ static void w3_circle(float cx,float cy,float rad,int seg,float r,float g,float 
 /* A rectangle outline -- the boxed current value on a tape. */
 static void w3_box(float x0,float y0,float x1,float y1,float r,float g,float b){
   w3_line(x0,y0,x1,y0,r,g,b); w3_line(x1,y0,x1,y1,r,g,b); w3_line(x1,y1,x0,y1,r,g,b); w3_line(x0,y1,x0,y0,r,g,b); }
-/* Full OSD: every telemetry field, computed/derived correctly. The bitmap font only
- * has [ 0-9 A-Z - . : / ], so no '%'/'+': percent is implied by the label, sign shown
- * via '-' plus colour (green=climb/good, amber=caution, red=warning). */
+/* Full OSD: every telemetry field, computed/derived correctly. The atlas font has [ 0-9 A-Z - . : /
+ * + ° ], no '%': percent stays implied by the label; sign shown via '-'/'+' plus colour
+ * (green=climb/good, amber=caution, red=warning). */
 static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
-  w3_hudN=0; w3_hudTN=0; float cx=W/2,cy=H/2;
+  w3_hudN=0; w3_hudTN=0; mx_reset(); float cx=W/2,cy=H/2;
   const float RAD=(float)M_PI/180.f, HG_R=0.30f,HG_G=1.0f,HG_B=0.40f;   /* monochrome HUD green */
   /* Waterline / boresight: the FIXED aircraft reference (nose / longitudinal axis), screen-locked. */
   w3_line(cx-28,cy,cx-10,cy,HG_R,HG_G,HG_B); w3_line(cx+10,cy,cx+28,cy,HG_R,HG_G,HG_B);
@@ -188,5 +181,6 @@ static void world3d_render_hud(const telem_packet_t*t,int W,int H,int have){
     glDrawArrays(GL_TRIANGLES,0,w3_hudTN/5); }
   glBufferData(GL_ARRAY_BUFFER,w3_hudN*4,w3_hud,GL_DYNAMIC_DRAW);
   glVertexAttribPointer(w3_gl.hPos,2,GL_FLOAT,GL_FALSE,20,0); glVertexAttribPointer(w3_gl.hCol,3,GL_FLOAT,GL_FALSE,20,(void*)8); glDrawArrays(GL_LINES,0,w3_hudN/5);
+  mx_render(W,H);          /* tile-blit text on top of the line primitives, same FBO */
 }
 #endif

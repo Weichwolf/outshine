@@ -219,6 +219,7 @@ static void w3_ground_toggle(void){
   printf("[world3d] ground = %s\n", w3_ground.mode==W3_GROUND_PHOTO?"aerial photo":"OSM render");
 }
 
+#include "max7456.h"
 #include "hud.h"
 
 /* ---- init + render ----
@@ -238,6 +239,7 @@ static void world3d_init(void){
   w3_gl.wHaze=glGetUniformLocation(w3_gl.pW,"uHaze"); w3_gl.wLight=glGetUniformLocation(w3_gl.pW,"uLight");
   w3_gl.pH=w3_prog(W3_VSH,W3_FSH); w3_gl.hPos=glGetAttribLocation(w3_gl.pH,"aPos"); w3_gl.hCol=glGetAttribLocation(w3_gl.pH,"aCol"); w3_gl.hScale=glGetUniformLocation(w3_gl.pH,"uScale");
   glGenBuffers(1,&w3_gl.hVBO);
+  mx_init();               /* MAX7456 font atlas + glyph program for the HUD text */
   /* sky dome program + a fullscreen quad (two triangles in NDC) */
   w3_gl.pSky=w3_prog(W3_VSKY,W3_FSKY);
   w3_gl.skPos=glGetAttribLocation(w3_gl.pSky,"aPos");
