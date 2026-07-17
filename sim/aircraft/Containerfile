@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY common/ common/
-COPY aircraft/xp_bridge.c aircraft/terrain.c aircraft/terrain.h aircraft/
+COPY aircraft/xp_bridge.c aircraft/terrain.c aircraft/terrain.h aircraft/sim_state.h aircraft/
 # Sub-modules split out of the xp_bridge god-file. Globbed on purpose: the next extraction
 # lands here without touching this file. NOT aircraft/*.c — aircraft.c is the legacy
 # hand-written FBW (run-native.sh still builds it) and would collide on main().
