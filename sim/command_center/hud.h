@@ -64,8 +64,13 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
    * climb-dive rungs are omitted as clutter. Roll sign verified against the terrain horizon at a shot. */
   float ca=cosf(t->roll*RAD), sa=sinf(t->roll*RAD);
   float horY=cy - K*tanf((0.f-pitch)*RAD);
-  w3_rline(cx,cy,ca,sa, cx-260,horY, cx-40,horY, HG_R,HG_G,HG_B);
-  w3_rline(cx,cy,ca,sa, cx+40,horY, cx+260,horY, HG_R,HG_G,HG_B);
+  /* Draw it ~3 px thick (three perpendicular-offset copies): a single 1 px GL_LINE at a bank angle
+   * rasterises stair-stepped -- and MSAA antialiases polygon edges, not thin lines -- so a tilted
+   * 1 px horizon breaks into visible dashes. Stacking three offset lines gives a solid bar. */
+  for(float off=-1.f; off<=1.f; off+=1.f){
+    w3_rline(cx,cy,ca,sa, cx-260,horY+off, cx-40,horY+off, HG_R,HG_G,HG_B);
+    w3_rline(cx,cy,ca,sa, cx+40,horY+off, cx+260,horY+off, HG_R,HG_G,HG_B);
+  }
   float hdg=t->yaw<0?t->yaw+360:t->yaw;
   /* left column: flight state */
   w3_printf(14, 14,3,1,1,1,      "ALT %5.0f",t->alt);
