@@ -40,7 +40,7 @@ typedef struct {
 typedef struct {
     uint32_t magic;          /* FB_MAGIC_TELEM */
     float    roll, pitch, yaw;   /* deg */
-    float    alt;                /* m  */
+    float    alt;                /* ASL, m — height above sea level (GPS); base station derives AGL = alt - terrain */
     float    x, y;               /* local position, m (home = 0,0) */
     float    gs;                 /* ground speed m/s */
     float    batt;               /* volts */

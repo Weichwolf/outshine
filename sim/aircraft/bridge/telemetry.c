@@ -33,7 +33,8 @@ void telem_send(int fbfd, struct sockaddr_in fbdst, int link_up){
     t.roll=(float)S.roll; t.pitch=(float)S.pitch; t.yaw=(float)S.yaw;
     /* x = TRUE east metres (incl. cos(lat)) so home_dist == hypot(x,y) and the renderer's
      * lon reconstruction (divides by 111320*cos) is exact. Was missing the cos factor. */
-    t.alt=(float)S.agl; t.x=(float)((S.lon-HOME_LON)*111320.0*cos(HOME_LAT*RAD)); t.y=(float)((S.lat-HOME_LAT)*111320.0);
+    t.alt=(float)S.elev;   /* ASL (what GPS reports); the base station derives AGL from its own DEM */
+    t.x=(float)((S.lon-HOME_LON)*111320.0*cos(HOME_LAT*RAD)); t.y=(float)((S.lat-HOME_LAT)*111320.0);
     t.gs=(float)S.gs; t.batt=(t_batt10>50&&t_batt10<255)?t_batt10/10.0f:11.4f; t.home_dist=(float)hd;
     float hb=(float)(tohome - S.yaw); while(hb>180)hb-=360; while(hb<-180)hb+=360; t.home_bearing=hb;
     float need=(hd>1)?atan2f((float)S.agl,(float)hd)*(float)DEG:0; t.glideslope_err=need-7.0f;
