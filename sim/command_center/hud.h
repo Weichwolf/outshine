@@ -9,6 +9,10 @@
  * MIL-STD-1787 pitch ladder + its numbers pushed the count up, so this is sized well above it:
  * 131072 floats = ~13000 segments. */
 static float w3_hud[131072]; static int w3_hudN;
+/* Second buffer: filled TRIANGLES (same x,y,r,g,b layout). Drawn under the lines; the MSAA HUD FBO
+ * antialiases their edges, so a thin quad reads as a smooth thin line solid at ANY angle -- unlike a
+ * 1px GL_LINE, which stair-steps and breaks apart when tilted. Used for the conformal horizon. */
+static float w3_hudT[16384]; static int w3_hudTN;
 static const char*W3_CS=" 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-.:/";
 static const unsigned char W3_FONT[41][5]={
  {0,0,0,0,0},{7,5,5,5,7},{2,6,2,2,7},{7,1,7,4,7},{7,1,7,1,7},{5,5,7,1,1},{7,4,7,1,7},{7,4,7,5,7},{7,1,2,2,2},{7,5,7,5,7},{7,5,7,1,7},
@@ -25,13 +29,15 @@ static void w3_text(float x,float y,float s,float r,float g,float b,const char*t
     for(int row=0;row<5;row++){ unsigned char m=W3_FONT[ix][row]; for(int c=0;c<3;c++) if(m&(4>>c)) w3_gpx(x+c*s,y+row*s,s,r,g,b);} x+=4*s; } }
 static void w3_printf(float x,float y,float s,float r,float g,float b,const char*fmt,...){ char bb[96]; va_list a; va_start(a,fmt); vsnprintf(bb,96,fmt,a); va_end(a); w3_text(x,y,s,r,g,b,bb); }
 
-/* Rotate (x,y) about (ox,oy) by a screen-space angle given as (ca=cos,sa=sin); y is DOWN. Banks the
- * conformal horizon line with roll, its endpoints turned about the boresight. */
-static void w3_rot(float ox,float oy,float ca,float sa,float x,float y,float*rx,float*ry){
-  float dx=x-ox,dy=y-oy; *rx=ox+dx*ca-dy*sa; *ry=oy+dx*sa+dy*ca; }
-/* A line whose two endpoints are first rotated about (ox,oy) by (ca,sa). */
-static void w3_rline(float ox,float oy,float ca,float sa,float x0,float y0,float x1,float y1,float r,float g,float b){
-  float ax,ay,bx,by; w3_rot(ox,oy,ca,sa,x0,y0,&ax,&ay); w3_rot(ox,oy,ca,sa,x1,y1,&bx,&by); w3_line(ax,ay,bx,by,r,g,b); }
+static void w3_qvert(float x,float y,float r,float g,float b){ if(w3_hudTN>16374)return;
+  w3_hudT[w3_hudTN++]=x; w3_hudT[w3_hudTN++]=y; w3_hudT[w3_hudTN++]=r; w3_hudT[w3_hudTN++]=g; w3_hudT[w3_hudTN++]=b; }
+/* A thin filled quad along (x0,y0)-(x1,y1), half-width hw -> a smooth AA line at any angle (two tris). */
+static void w3_qline(float x0,float y0,float x1,float y1,float hw,float r,float g,float b){
+  float dx=x1-x0,dy=y1-y0,L=sqrtf(dx*dx+dy*dy); if(L<1e-3f)return;
+  float px=-dy/L*hw, py=dx/L*hw;
+  float ax=x0+px,ay=y0+py, bx=x1+px,by=y1+py, cx2=x1-px,cy2=y1-py, dx2=x0-px,dy2=y0-py;
+  w3_qvert(ax,ay,r,g,b); w3_qvert(bx,by,r,g,b); w3_qvert(cx2,cy2,r,g,b);
+  w3_qvert(ax,ay,r,g,b); w3_qvert(cx2,cy2,r,g,b); w3_qvert(dx2,dy2,r,g,b); }
 /* Approximate a circle as `seg` chords -- the Flight-Path-Marker ring. */
 static void w3_circle(float cx,float cy,float rad,int seg,float r,float g,float b){
   float px=cx+rad,py=cy; for(int i=1;i<=seg;i++){ float a=(float)i/(float)seg*6.2831853f;
@@ -43,7 +49,7 @@ static void w3_box(float x0,float y0,float x1,float y1,float r,float g,float b){
  * has [ 0-9 A-Z - . : / ], so no '%'/'+': percent is implied by the label, sign shown
  * via '-' plus colour (green=climb/good, amber=caution, red=warning). */
 static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
-  w3_hudN=0; float cx=W/2,cy=H/2;
+  w3_hudN=0; w3_hudTN=0; float cx=W/2,cy=H/2;
   const float RAD=(float)M_PI/180.f, HG_R=0.30f,HG_G=1.0f,HG_B=0.40f;   /* monochrome HUD green */
   /* Waterline / boresight: the FIXED aircraft reference (nose / longitudinal axis), screen-locked. */
   w3_line(cx-46,cy,cx-16,cy,HG_R,HG_G,HG_B); w3_line(cx+16,cy,cx+46,cy,HG_R,HG_G,HG_B);
@@ -62,18 +68,21 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
   if(fy<cy-H*0.45f)fy=cy-H*0.45f; if(fy>cy+H*0.45f)fy=cy+H*0.45f;
   w3_circle(fx,fy,7,10,HG_R,HG_G,HG_B);
   w3_line(fx-7,fy,fx-18,fy,HG_R,HG_G,HG_B); w3_line(fx+7,fy,fx+18,fy,HG_R,HG_G,HG_B); w3_line(fx,fy-7,fx,fy-15,HG_R,HG_G,HG_B);
-  /* Horizon line: the single 0-deg pitch reference, conformal (sits on the video horizon), a long bar
-   * with a central gap for the boresight, banked with roll. Only this 0-deg line stays -- the numbered
-   * climb-dive rungs are omitted as clutter. Roll sign verified against the terrain horizon at a shot. */
-  float ca=cosf(t->roll*RAD), sa=sinf(t->roll*RAD);
-  float horY=cy - K*tanf((0.f-pitch)*RAD);
-  /* Draw it ~3 px thick (three perpendicular-offset copies): a single 1 px GL_LINE at a bank angle
-   * rasterises stair-stepped -- and MSAA antialiases polygon edges, not thin lines -- so a tilted
-   * 1 px horizon breaks into visible dashes. Stacking three offset lines gives a solid bar. */
-  for(float off=-1.f; off<=1.f; off+=1.f){
-    w3_rline(cx,cy,ca,sa, cx-260,horY+off, cx-40,horY+off, HG_R,HG_G,HG_B);
-    w3_rline(cx,cy,ca,sa, cx+40,horY+off, cx+260,horY+off, HG_R,HG_G,HG_B);
-  }
+  /* Conformal horizon: project two elevation-0 world directions through the SAME camera the scene
+   * uses (w3_cam_from), so the green line lies EXACTLY on the video terrain/sky edge at every pitch
+   * AND roll -- position and tilt both fall out of the projection, no separate rotate-about-boresight
+   * that could drift off. Drawn as a thin AA quad (w3_qline) with a central gap for the boresight. */
+  { w3_cam HC=w3_cam_from(t->yaw,t->pitch,t->roll,(float[3]){0,0,0}, W3_FOV, (float)W/H, 1.f, 1000.f);
+    float Kc=(H*0.5f)/tanf(W3_FOV*0.5f*RAD), ex[2],ey[2];
+    for(int k=0;k<2;k++){ float az=(t->yaw+(k?55.f:-55.f))*RAD; float d[3]={sinf(az),0.f,-cosf(az)};
+      float xc=d[0]*HC.sr[0]+d[1]*HC.sr[1]+d[2]*HC.sr[2];
+      float yc=d[0]*HC.up[0]+d[1]*HC.up[1]+d[2]*HC.up[2];
+      float zc=d[0]*HC.f[0] +d[1]*HC.f[1] +d[2]*HC.f[2]; if(zc<0.05f)zc=0.05f;
+      ex[k]=cx+Kc*xc/zc; ey[k]=cy-Kc*yc/zc; }
+    float ddx=ex[1]-ex[0],ddy=ey[1]-ey[0],LL=sqrtf(ddx*ddx+ddy*ddy);
+    if(LL>1.f){ float ux=ddx/LL,uy=ddy/LL, mx=(ex[0]+ex[1])*0.5f,my=(ey[0]+ey[1])*0.5f, gap=40.f;
+      w3_qline(ex[0],ey[0], mx-ux*gap,my-uy*gap, 1.0f, HG_R,HG_G,HG_B);
+      w3_qline(mx+ux*gap,my+uy*gap, ex[1],ey[1], 1.0f, HG_R,HG_G,HG_B); } }
   float hdg=t->yaw<0?t->yaw+360:t->yaw;
 
   /* ===== Heading tape (top): moving scale centred on heading, boxed value + up-caret, home pointer.
@@ -149,8 +158,14 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
 /* Draw the 2D HUD (line overlay) into the bound framebuffer at W×H pixel coords. */
 static void world3d_render_hud(const telem_packet_t*t,int W,int H,int have){
   glViewport(0,0,W,H); glDisable(GL_DEPTH_TEST); w3_build_hud(t,W,H,have);
-  glBindBuffer(GL_ARRAY_BUFFER,w3_gl.hVBO); glBufferData(GL_ARRAY_BUFFER,w3_hudN*4,w3_hud,GL_DYNAMIC_DRAW);
-  glUseProgram(w3_gl.pH); glUniform2f(w3_gl.hScale,2.0f/W,2.0f/H); glEnableVertexAttribArray(w3_gl.hPos); glEnableVertexAttribArray(w3_gl.hCol);
+  glUseProgram(w3_gl.pH); glUniform2f(w3_gl.hScale,2.0f/W,2.0f/H);
+  glEnableVertexAttribArray(w3_gl.hPos); glEnableVertexAttribArray(w3_gl.hCol);
+  glBindBuffer(GL_ARRAY_BUFFER,w3_gl.hVBO);
+  if(w3_hudTN>0){                       /* filled AA quads (conformal horizon) first, lines/text over */
+    glBufferData(GL_ARRAY_BUFFER,w3_hudTN*4,w3_hudT,GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(w3_gl.hPos,2,GL_FLOAT,GL_FALSE,20,0); glVertexAttribPointer(w3_gl.hCol,3,GL_FLOAT,GL_FALSE,20,(void*)8);
+    glDrawArrays(GL_TRIANGLES,0,w3_hudTN/5); }
+  glBufferData(GL_ARRAY_BUFFER,w3_hudN*4,w3_hud,GL_DYNAMIC_DRAW);
   glVertexAttribPointer(w3_gl.hPos,2,GL_FLOAT,GL_FALSE,20,0); glVertexAttribPointer(w3_gl.hCol,3,GL_FLOAT,GL_FALSE,20,(void*)8); glDrawArrays(GL_LINES,0,w3_hudN/5);
 }
 #endif
