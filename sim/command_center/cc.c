@@ -117,6 +117,23 @@ static const char*PVS="attribute vec2 aPos; attribute vec2 aUV; varying vec2 vUV
 static const char*PFS="precision mediump float; varying vec2 vUV; uniform sampler2D uTex; uniform float uFlip;"
  "void main(){ vec2 c=vec2(vUV.x, uFlip>0.5?1.0-vUV.y:vUV.y); gl_FragColor=texture2D(uTex,c); }";
 
+/* HUD post: the line overlay renders to an MSAA FBO (smooth, antialiased lines), resolves to a
+ * texture, then a glow pass composites it over the video with a subtle green phosphor halo -- like a
+ * real HUD/CRT. Deliberately light (glow weight 0.35, ~2 px radius); the crisp core stays sharp. */
+static GLuint hud_msaa_fbo,hud_msaa_color,hud_fbo,hud_tex,hud_prog;
+static GLint hu_pos,hu_uv,hu_tex,hu_texel;
+static const char*HGVS="attribute vec2 aPos; attribute vec2 aUV; varying vec2 vUV;"
+ "void main(){ gl_Position=vec4(aPos,0.0,1.0); vUV=aUV; }";
+static const char*HGFS="precision mediump float; varying vec2 vUV; uniform sampler2D uHud; uniform vec2 uTexel;"
+ "void main(){ vec4 c=texture2D(uHud,vUV); vec2 t=uTexel*2.0;"
+ "  vec4 g=texture2D(uHud,vUV+vec2(t.x,0.0))+texture2D(uHud,vUV+vec2(-t.x,0.0))"
+ "        +texture2D(uHud,vUV+vec2(0.0,t.y))+texture2D(uHud,vUV+vec2(0.0,-t.y))"
+ "        +texture2D(uHud,vUV+t)+texture2D(uHud,vUV-t)"
+ "        +texture2D(uHud,vUV+vec2(t.x,-t.y))+texture2D(uHud,vUV+vec2(-t.x,t.y));"
+ "  g*=0.125; float ga=g.a*0.35;"                     /* subtle halo */
+ "  vec3 col = c.a>0.01 ? c.rgb : g.rgb/max(g.a,0.001);"
+ "  gl_FragColor=vec4(col, clamp(c.a+ga,0.0,1.0)); }";
+
 /* ---------------- websocket ---------------- */
 static EM_BOOL on_open(int t,const EmscriptenWebSocketOpenEvent*e,void*u){(void)t;(void)e;(void)u;ws_open=1;return 1;}
 static EM_BOOL on_close(int t,const EmscriptenWebSocketCloseEvent*e,void*u){(void)t;(void)e;(void)u;ws_open=0;return 1;}
@@ -205,11 +222,26 @@ static void frame(void){
     fb_codec_push((int)(intptr_t)readback, CAM_W, CAM_H, emscripten_get_now()*1000.0);  /* real-time µs timestamp */
     if(fb_codec_upload((int)codec_tex)) use_codec=1;
   }
-  /* 3) present the received video upscaled, then 4) HUD crisp on top.
-   * Both paths are GL-bottom-up (the codec's readback->VideoFrame double-flip cancels),
-   * so no V-flip is needed. */
+  /* 3) present the received video upscaled, then 4) HUD on top -- rendered into an MSAA FBO for
+   * smooth lines, resolved, then a glow pass composites it with a subtle phosphor halo.
+   * Both video paths are GL-bottom-up (the codec's readback->VideoFrame double-flip cancels). */
   present(use_codec?codec_tex:vid_tex, 0.0f);
+  glBindFramebuffer(GL_FRAMEBUFFER, hud_msaa_fbo);
+  glViewport(0,0,WIN_W,WIN_H); glClearColor(0,0,0,0); glClear(GL_COLOR_BUFFER_BIT);
   world3d_render_hud(&telem, WIN_W, WIN_H, have_telem);
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, hud_msaa_fbo);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, hud_fbo);
+  glBlitFramebuffer(0,0,WIN_W,WIN_H, 0,0,WIN_W,WIN_H, GL_COLOR_BUFFER_BIT, GL_NEAREST);   /* resolve MSAA */
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glViewport(0,0,WIN_W,WIN_H); glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glUseProgram(hud_prog);
+  glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, hud_tex); glUniform1i(hu_tex,0);
+  glUniform2f(hu_texel, 1.0f/WIN_W, 1.0f/WIN_H);
+  glBindBuffer(GL_ARRAY_BUFFER, quad_vbo);
+  glVertexAttribPointer(hu_pos,2,GL_FLOAT,GL_FALSE,16,0); glVertexAttribPointer(hu_uv,2,GL_FLOAT,GL_FALSE,16,(void*)8);
+  glEnableVertexAttribArray(hu_pos); glEnableVertexAttribArray(hu_uv);
+  glDrawArrays(GL_TRIANGLES,0,6);
+  glDisable(GL_BLEND);
   SDL_GL_SwapWindow(win);
 }
 
@@ -275,6 +307,22 @@ static void gl_targets_init(void){
   readback=(unsigned char*)malloc((size_t)CAM_W*CAM_H*4);
   codec_ready=fb_codec_init(CAM_W,CAM_H);
   printf("[cc] video codec %s\n", codec_ready?"ON (H.264 link)":"OFF (raw upscale)");
+
+  /* HUD render target: MSAA colour for smooth lines, resolved to hud_tex, glow-composited each frame. */
+  { GLint maxs=1; glGetIntegerv(GL_MAX_SAMPLES,&maxs); int hs=maxs<4?maxs:4; if(hs<1)hs=1;
+    glGenRenderbuffers(1,&hud_msaa_color); glBindRenderbuffer(GL_RENDERBUFFER,hud_msaa_color);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER,hs,GL_RGBA8,WIN_W,WIN_H);
+    glGenFramebuffers(1,&hud_msaa_fbo); glBindFramebuffer(GL_FRAMEBUFFER,hud_msaa_fbo);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_RENDERBUFFER,hud_msaa_color); }
+  hud_tex=0; glGenTextures(1,&hud_tex); glBindTexture(GL_TEXTURE_2D,hud_tex);
+  glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,WIN_W,WIN_H,0,GL_RGBA,GL_UNSIGNED_BYTE,0);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+  glGenFramebuffers(1,&hud_fbo); glBindFramebuffer(GL_FRAMEBUFFER,hud_fbo);
+  glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,hud_tex,0);
+  glBindFramebuffer(GL_FRAMEBUFFER,0);
+  hud_prog=w3_prog(HGVS,HGFS); hu_pos=glGetAttribLocation(hud_prog,"aPos"); hu_uv=glGetAttribLocation(hud_prog,"aUV");
+  hu_tex=glGetUniformLocation(hud_prog,"uHud"); hu_texel=glGetUniformLocation(hud_prog,"uTexel");
 }
 
 /* Open the telemetry/control WebSocket back to the server that served the page. */
