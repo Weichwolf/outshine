@@ -24,13 +24,7 @@
 #define W3_USE_OSM
 #include "world3d.h"
 
-/* WebGL2 / GLES3 functions for MSAA (not declared in the ES2 header) */
-#define GL_RGBA8 0x8058
-#define GL_MAX_SAMPLES 0x8D57
-#define GL_READ_FRAMEBUFFER 0x8CA8
-#define GL_DRAW_FRAMEBUFFER 0x8CA9
-extern void glRenderbufferStorageMultisample(GLenum,GLsizei,GLenum,GLsizei,GLsizei);
-extern void glBlitFramebuffer(GLint,GLint,GLint,GLint,GLint,GLint,GLint,GLint,GLbitfield,GLenum);
+#include "constants.h"   /* invariants: GL enums the ES2 header lacks + the MSAA entry points, FB_M_PER_DEG_LAT */
 
 /* wasm-dvd-gl approach: render + encode at the real CAMERA resolution (below the display),
  * then bilinear-upscale to the canvas. Our hardware camera is a Caddx Ratel 2 (1/1.8"
@@ -42,9 +36,6 @@ extern void glBlitFramebuffer(GLint,GLint,GLint,GLint,GLint,GLint,GLint,GLint,GL
 #define WIN_H 720
 #define CAM_W 848           /* "camera": NTSC 480-line, 16:9 */
 #define CAM_H 480
-/* Metres per degree of latitude (~111.32 km): the local flat-earth scale that turns the aircraft's
- * ENU telemetry offset back into lat/lon around the origin. Longitude scales by cos(lat). */
-#define FB_M_PER_DEG_LAT 111320.0
 
 /* ===================== WebCodecs H.264 encode -> decode ===================== */
 EM_JS(int, fb_codec_init, (int w, int h), {
@@ -233,9 +224,6 @@ static void gl_targets_init(void){
    * 200 km -- the distant terrain would z-fight into confetti. 24 bits give 0.3 m and 119 m, well
    * under the 68 m / 900 m quads that could fight. WebGL2 has DEPTH_COMPONENT24 in core; a WebGL1
    * context does not, so fall back rather than hand back an incomplete FBO. */
-  #ifndef GL_DEPTH_COMPONENT24
-  #define GL_DEPTH_COMPONENT24 0x81A6
-  #endif
   glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH_COMPONENT24,CAM_W,CAM_H);
   if(glGetError()!=GL_NO_ERROR) glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH_COMPONENT16,CAM_W,CAM_H);
   glGenFramebuffers(1,&vid_fbo); glBindFramebuffer(GL_FRAMEBUFFER,vid_fbo);
