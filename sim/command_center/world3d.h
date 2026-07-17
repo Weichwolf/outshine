@@ -127,10 +127,10 @@ static w3_tileGL w3_D[W3_BUDGET];
  * normals. Baking an albedo is not baking light.
  */
 enum { W3_GROUND_OSM = 0, W3_GROUND_PHOTO = 1 };
-static int w3_ground_mode = W3_GROUND_OSM;
-/* Set while any resident tile still lacks the albedo we want. Keeps world3d_stream from
- * declaring victory and going back to sleep until the next tile boundary. */
-static int w3_ground_dirty = 0;
+/* The ground albedo source (TAB flips it; an index into tex[mode]) and the "not done yet" flag:
+ * dirty is set while any resident tile still lacks the albedo we want, keeping world3d_stream from
+ * declaring victory and sleeping until the next tile boundary. */
+static struct { int mode; int dirty; } w3_ground = { .mode = W3_GROUND_OSM };
 /* Per-pass render/stream bookkeeping: counters reset or accumulated each stream pass, plus the two
  * running thrash/diagnostic totals the harness reads. One owner; world3d_stream_at resets the per-pass
  * fields at the top of a pass. The KEEPALIVE accessors in cc.c (cc_drawn/cc_visible/cc_mipmaps) expose
@@ -208,8 +208,8 @@ static void w3_ground_toggle(void){
    * flush, no network. Earlier versions re-baked here and the switch took about a minute, because
    * world3d_stream returns early once everything is loaded and only wakes when the aircraft
    * crosses a tile boundary (~1 min in a 1000 m orbit). The pictures were on disk the whole time. */
-  w3_ground_mode = (w3_ground_mode==W3_GROUND_OSM) ? W3_GROUND_PHOTO : W3_GROUND_OSM;
-  printf("[world3d] ground = %s\n", w3_ground_mode==W3_GROUND_PHOTO?"aerial photo":"OSM render");
+  w3_ground.mode = (w3_ground.mode==W3_GROUND_OSM) ? W3_GROUND_PHOTO : W3_GROUND_OSM;
+  printf("[world3d] ground = %s\n", w3_ground.mode==W3_GROUND_PHOTO?"aerial photo":"OSM render");
 }
 
 #include "hud.h"
@@ -334,7 +334,7 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
       if(!w3_aabb_visible(&fr,w3_D[i].bmin,w3_D[i].bmax)) continue;
       w3_frame.nvis++;
       /* THE ground switch, in full: an index. Both albedos are already on the GPU. */
-      GLuint _t=w3_D[i].tex[w3_ground_mode]; if(!_t)_t=w3_D[i].tex[W3_GROUND_OSM];
+      GLuint _t=w3_D[i].tex[w3_ground.mode]; if(!_t)_t=w3_D[i].tex[W3_GROUND_OSM];
       glBindTexture(GL_TEXTURE_2D,_t); glBindBuffer(GL_ARRAY_BUFFER,w3_D[i].vbo);
       glVertexAttribPointer(w3_gl.wtPos,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(pos));
       glVertexAttribPointer(w3_gl.wtUV,2,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(uv));

@@ -86,7 +86,7 @@ static void w3_walk(int z,long x,long y,double lat,double alt,double tx,double t
   int cc[4];
   double ctx=tx*2.0, cty=ty*2.0;
   if(!w3_children_ready(z,(uint32_t)x,(uint32_t)y,cc,lat,alt,ctx,cty)){
-    w3_frame.split_wait++; w3_ground_dirty=1;                 /* keep the streamer awake for them */
+    w3_frame.split_wait++; w3_ground.dirty=1;                 /* keep the streamer awake for them */
     w3_emit(ci,lod);                                    /* parent covers the ground meanwhile */
     return;
   }

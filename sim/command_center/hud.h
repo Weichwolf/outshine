@@ -53,7 +53,7 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
    * Which one you are on matters because the synthetic view is what you fall back to when the
    * sensor cannot deliver: signal lost, sensor dead, too dark, blinded. Not colour-coded as a
    * warning: right now it is a deliberate choice (TAB), not a failure. */
-  { int evs=(w3_ground_mode==W3_GROUND_PHOTO);
+  { int evs=(w3_ground.mode==W3_GROUND_PHOTO);
     w3_printf(W-176,94,3, evs?0.4f:0.5f, evs?1.0f:0.85f, evs?0.4f:1.0f, "VIS %s", evs?"EVS":"SVS"); }
   /* attitude + environment (bottom) */
   w3_printf(14,H-44,2,0.8f,0.8f,0.9f,"ROLL %4.0f   PITCH %4.0f",t->roll,t->pitch);

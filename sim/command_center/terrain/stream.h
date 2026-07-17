@@ -22,7 +22,7 @@ static void world3d_stream_at(double lat,double lon,double alt_agl){
   if(!moved && w3_stream_done && w3_frame.sharpen==0 && !W3_LOD_SPIN) return;   /* climb keeps us awake */
   w3_O.tx=tx; w3_O.ty=ty; w3_O.have_tile=1;
   int b0=w3_frame.cache_bakes, h0=w3_frame.cache_hits;
-  w3_ground_dirty=0;                     /* recomputed by the w3_cache_get calls below */
+  w3_ground.dirty=0;                     /* recomputed by the w3_cache_get calls below */
   unsigned mark=w3_touch+1;              /* everything the walk touches gets touch >= mark */
   w3_frame.pass_mark=mark;                     /* want_lod_max resets off this on a chunk's first touch */
 
@@ -49,7 +49,7 @@ static void world3d_stream_at(double lat,double lon,double alt_agl){
    * up the ramp (w3_frame.sharpen) is deliberately NOT here -- it keeps the streamer awake (the early-out
    * above) but must not hold the gate, or a moving camera forever mid-climb on a fresh 2048 would
    * never let "0 pending" latch. */
-  w3_stream_done = w3_frame.nD>0 && w3_frame.pending==0 && w3_frame.split_wait==0 && !w3_ground_dirty;
+  w3_stream_done = w3_frame.nD>0 && w3_frame.pending==0 && w3_frame.split_wait==0 && !w3_ground.dirty;
   /* Report on a transition, or when the sharpening count CHANGES (a step landed) -- not every frame
    * while it merely stays nonzero, which under motion would be every frame. */
   static int w3_last_sharpen=-1;

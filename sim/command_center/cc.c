@@ -189,7 +189,7 @@ static void frame(void){
    * fallback exactly what you reach for it for: a clean picture when the camera cannot give one.
    * Telemetry arrives over its own low-rate link and is already modelled (rssi/LNK). */
   int use_codec=0;
-  if(codec_ready && w3_ground_mode == W3_GROUND_PHOTO){
+  if(codec_ready && w3_ground.mode == W3_GROUND_PHOTO){
     glBindFramebuffer(GL_FRAMEBUFFER, vid_fbo);
     glReadPixels(0,0,CAM_W,CAM_H,GL_RGBA,GL_UNSIGNED_BYTE,readback);
     fb_codec_push((int)(intptr_t)readback, CAM_W, CAM_H, emscripten_get_now()*1000.0);  /* real-time µs timestamp */
