@@ -127,6 +127,25 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
     w3_text(axr-58,cy-30,1.4f,HG_R,HG_G,HG_B,"ASL");
     w3_printf(axr-63,cy+18,1.6f,HG_R,HG_G,HG_B,"AGL%4.0f",w3_agl);
     w3_printf(axr-63,cy+36,1.6f,HG_R,HG_G,HG_B,"VS%+4.0f",t->vs); }
+
+  /* ===== Bank arc (top): fixed tick scale at 0/10/20/30/45/60 deg each side, centred on the boresight;
+   * a sky-pointer triangle rides it at the current roll (points radially in). Roll sign matches the
+   * conformal horizon -- verify against a banked shot. ===== */
+  { float R=205.f; int bt[]={-60,-45,-30,-20,-10,10,20,30,45,60};
+    for(int i=0;i<10;i++){ float b=(float)bt[i]*RAD, ba=(bt[i]<0?-bt[i]:bt[i]);
+      float tk=(ba==30||ba==45||ba==60)?12.f:8.f;
+      w3_line(cx+R*sinf(b),cy-R*cosf(b), cx+(R-tk)*sinf(b),cy-(R-tk)*cosf(b), HG_R,HG_G,HG_B); }
+    w3_line(cx-7,cy-R-9,cx,cy-R,HG_R,HG_G,HG_B); w3_line(cx,cy-R,cx+7,cy-R-9,HG_R,HG_G,HG_B);   /* 0-deg top index */
+    float rb=t->roll*RAD, px=cx+R*sinf(rb), py=cy-R*cosf(rb);
+    float ivx=-sinf(rb),ivy=cosf(rb), pvx=cosf(rb),pvy=sinf(rb);      /* inward + perpendicular */
+    float apx=px+ivx*13,apy=py+ivy*13, c1x=px+pvx*7,c1y=py+pvy*7, c2x=px-pvx*7,c2y=py-pvy*7;
+    w3_qline(apx,apy,c1x,c1y,1.3f,HG_R,HG_G,HG_B); w3_qline(apx,apy,c2x,c2y,1.3f,HG_R,HG_G,HG_B); w3_qline(c1x,c1y,c2x,c2y,1.3f,HG_R,HG_G,HG_B); }
+
+  /* ===== Glideslope / steering cue (centre): a horizontal deviation bar. glideslope_err > 0 means
+   * ABOVE the ideal approach path, so the bar sits BELOW the boresight -- fly down to centre it on the
+   * waterline. README A7 instrument homing. ===== */
+  { float gsy=cy + t->glideslope_err*22.f; if(gsy<cy-120)gsy=cy-120; if(gsy>cy+120)gsy=cy+120;
+    w3_qline(cx-72,gsy,cx-28,gsy,1.1f,HG_R,HG_G,HG_B); w3_qline(cx+28,gsy,cx+72,gsy,1.1f,HG_R,HG_G,HG_B); }
   /* right column: navigation / power / link / mode */
   w3_printf(W-176,14,3,1,1,1,    "HOME %5.0f",t->home_dist);
   { float v=t->batt, r=0.4f,g=1,b=0.3f; if(v<10.0f){r=1;g=0.3f;b=0.2f;} else if(v<11.0f){r=1;g=0.85f;b=0.2f;}
