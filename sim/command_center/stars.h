@@ -29,6 +29,26 @@ typedef struct {
     int   above;     /* 0 = at or below the horizon — do not draw, do not trust e/n/u */
 } w3_stardir;
 
+/* ~45 brightest stars: right ascension (deg), declination (deg), visual magnitude.
+ * Rendered at their TRUE alt/az for the origin + wall-clock time, so the real
+ * constellations (Orion, Big Dipper, Cassiopeia, ...) appear where they actually are.
+ * Embedded: 528 B of natural constant, not an asset to fetch. */
+typedef struct { float ra, dec, mag; } w3_star;
+static const w3_star W3_STARS[] = {
+ {101.29f,-16.72f,-1.46f},{95.99f,-52.70f,-0.74f},{219.90f,-60.83f,-0.27f},{213.92f,19.18f,-0.05f},
+ {279.23f,38.78f,0.03f},{79.17f,46.00f,0.08f},{78.63f,-8.20f,0.13f},{114.83f,5.22f,0.34f},
+ {88.79f,7.41f,0.50f},{24.43f,-57.24f,0.46f},{210.96f,-60.37f,0.61f},{297.70f,8.87f,0.77f},
+ {186.65f,-63.10f,0.77f},{68.98f,16.51f,0.85f},{201.30f,-11.16f,0.98f},{247.35f,-26.43f,1.09f},
+ {116.33f,28.03f,1.14f},{344.41f,-29.62f,1.16f},{310.36f,45.28f,1.25f},{191.93f,-59.69f,1.25f},
+ {152.09f,11.97f,1.35f},{104.66f,-28.97f,1.50f},{113.65f,31.89f,1.58f},{263.40f,-37.10f,1.62f},
+ {81.28f,6.35f,1.64f},{81.57f,28.61f,1.65f},{84.05f,-1.20f,1.69f},{85.19f,-1.94f,1.77f},
+ {165.93f,61.75f,1.79f},{51.08f,49.86f,1.79f},{107.10f,-26.39f,1.83f},{276.04f,-34.38f,1.85f},
+ {206.89f,49.31f,1.86f},{89.88f,44.95f,1.90f},{99.43f,16.40f,1.93f},{37.95f,89.26f,1.98f},
+ {141.90f,-8.66f,1.98f},{154.99f,19.84f,2.08f},{31.79f,23.46f,2.00f},{17.43f,35.62f,2.07f},
+ {2.10f,29.09f,2.06f},{283.82f,-26.30f,2.05f},{211.67f,-36.37f,2.06f},{306.41f,-56.74f,1.94f}
+};
+#define W3_NSTARS ((int)(sizeof(W3_STARS)/sizeof(W3_STARS[0])))
+
 /* Greenwich mean sidereal time, degrees, from a Unix timestamp (seconds).
  * The two magic numbers are the standard IAU polynomial at J2000: 280.46061837 deg is GMST at the
  * epoch itself, 360.98564736629 is a sidereal day's worth of rotation per solar day — the ~4-minute
