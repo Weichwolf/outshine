@@ -28,8 +28,6 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-static double w3_olat=52.045, w3_olon=9.385;   /* origin, set on osmmesh open; drives star alt/az */
-
 /* mat4 / vec3 maths: GL-free, so it lives in gfx/mat4.h and is unit-tested directly. */
 /* stb_image: declarations only -- osmmesh/src/terrain.c owns the one implementation we link. */
 #include "../geo/osmmesh/src/3rdparty/stb_image.h"
@@ -91,11 +89,19 @@ static GLint w3_skPos,w3_skF,w3_skS,w3_skU,w3_skTan,w3_skAsp,w3_skSun,w3_skMoon,
  * into ONE orthographic texture per tile (no building geometry). The texture is
  * draped over the terrain heightfield. The vector features come from the Shortbread
  * PMTiles via osmmesh's MVT decoder; the terrain heightfield from osmmesh's terrain. */
-static osmmesh_ctx *w3_osm=0;          /* terrain heightfield meshes */
-static int w3_have_tile=0; static uint32_t w3_tx,w3_ty;
-static float w3_yoff=0; static int w3_yoff_set=0;   /* origin ground elevation (camera lift) */
+static osmmesh_ctx *w3_osm=0;          /* terrain heightfield meshes; the "world is open" gate */
+/* The origin (home) and everything anchored to it. ONE owner: cc.c sets lat/lon from /config.js
+ * once, everything else reads it -- the old g_olat/g_olon (cc.c) and w3_olat/w3_olon (here) were the
+ * same fact stored twice. lat/lon drive the star alt/az and the tile stream; yoff is the origin
+ * ground elevation (camera lift); tx/ty is the last-streamed centre tile. */
+typedef struct {
+  double lat, lon;
+  float  yoff; int yoff_set;
+  int have_tile; uint32_t tx, ty;
+} w3_origin;
+static w3_origin w3_O = { .lat = 52.045, .lon = 9.385 };   /* Hameln default until /config.js overrides */
 /* Seed the lift before any tile streams, so a fresh spawn is not rendered under the ground. */
-static void w3_seed_yoff(float y){ if(!w3_yoff_set){ w3_yoff=y; w3_yoff_set=1; } }
+static void w3_seed_yoff(float y){ if(!w3_O.yoff_set){ w3_O.yoff=y; w3_O.yoff_set=1; } }
 
 /* ONE draw list, built by the tree walk each stream pass. There used to be three of these
  * (w3_T/w3_TF/w3_TF2 with w3_nT/w3_nTF/w3_nTF2) -- the same code three times with suffixes,
@@ -156,12 +162,12 @@ static long w3_mipmaps=0;
  * this is what makes any origin on earth work. */
 static int world3d_tiles_open(const char*base,double lat,double lon){
   w3_tiles_init(base);
-  osmmesh_config cfg={ .origin_lat=(w3_olat=lat), .origin_lon=(w3_olon=lon),
+  osmmesh_config cfg={ .origin_lat=lat, .origin_lon=lon,
     .tile_provider=w3_tile_provider, .tile_provider_user=0,
     .provider_terrain_max_zoom=15,   /* Tilezen terrarium; no archive header to read */
     .enable_terrain=1, .enable_buildings=0, .enable_linears=0 };
   if(osmmesh_create(&cfg,&w3_osm)!=OSMMESH_OK){ printf("[world3d] osmmesh_create (streaming) failed\n"); w3_osm=0; return 0; }
-  w3_have_tile=0;
+  w3_O.have_tile=0;
   /* Spawn the tile worker with the SAME origin: the mesh it builds is ENU-relative to it. The main
    * thread's osmmesh ctx above is now only the "world is open" gate and osmmesh_geo_to_tile -- the
    * fetch/decode/mesh it used to do runs in the worker. */
@@ -243,11 +249,11 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
   glViewport(0,0,W,H); glEnable(GL_DEPTH_TEST); glClearColor(0.55f,0.70f,0.90f,1); glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
   float px=have?t->x:0, py=(have&&t->alt>2)?t->alt:120, pz=have?-t->y:0;
 #ifdef W3_USE_OSM
-  if(w3_nD>0) py=(have&&t->alt>1?t->alt:2)+w3_yoff;   /* AGL above the osmmesh ground */
+  if(w3_nD>0) py=(have&&t->alt>1?t->alt:2)+w3_O.yoff;   /* AGL above the osmmesh ground */
 #endif
   /* Basis and MVP from the attitude — pure maths, so it lives in camera.h and is testable there.
    * The roll sign is the one that once made a right bank look like a left bank; a screenshot
-   * cannot catch that, a test can. The eye position stays HERE because it needs w3_yoff, which
+   * cannot catch that, a test can. The eye position stays HERE because it needs w3_O.yoff, which
    * belongs to the tile side. The aliases keep every consumer below unchanged. */
   const float eye[3]={px,py,pz};
   const w3_cam C = w3_cam_from(have?t->yaw:0, have?t->pitch:0, have?t->roll:0,
@@ -279,10 +285,10 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
     /* The celestial maths is in stars.h because it is pure and therefore checkable — Polaris must
      * stand at the observer's latitude, due north, and nothing in a screenshot says whether it
      * does. The clock is passed IN rather than read there: an input, not a dependency. */
-    double lst=w3_lst_deg(w3_gmst_deg((double)time(NULL)), w3_olon);
+    double lst=w3_lst_deg(w3_gmst_deg((double)time(NULL)), w3_O.lon);
     static float sv[W3_NSTARS*4]; int ns=0;
     for(int i=0;i<W3_NSTARS;i++){
-      w3_stardir d=w3_star_dir(lst,w3_olat,W3_STARS[i].ra,W3_STARS[i].dec);
+      w3_stardir d=w3_star_dir(lst,w3_O.lat,W3_STARS[i].ra,W3_STARS[i].dec);
       if(!d.above) continue;
       sv[ns*4]=eye[0]+d.e*40000.f; sv[ns*4+1]=eye[1]+d.u*40000.f; sv[ns*4+2]=eye[2]-d.n*40000.f;
       sv[ns*4+3]=W3_STARS[i].mag; ns++;

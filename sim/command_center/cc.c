@@ -42,6 +42,9 @@ extern void glBlitFramebuffer(GLint,GLint,GLint,GLint,GLint,GLint,GLint,GLint,GL
 #define WIN_H 720
 #define CAM_W 848           /* "camera": NTSC 480-line, 16:9 */
 #define CAM_H 480
+/* Metres per degree of latitude (~111.32 km): the local flat-earth scale that turns the aircraft's
+ * ENU telemetry offset back into lat/lon around the origin. Longitude scales by cos(lat). */
+#define FB_M_PER_DEG_LAT 111320.0
 
 /* ===================== WebCodecs H.264 encode -> decode ===================== */
 EM_JS(int, fb_codec_init, (int w, int h), {
@@ -70,7 +73,7 @@ EM_JS(void, fb_codec_push, (int ptr, int w, int h, double ts), {
   try { S.encoder.encode(vf, { keyFrame:key }); } catch(e){}
   vf.close();
 })
-/* Sync XHR, startup only: one request before the render loop so w3_yoff is known at frame 0. */
+/* Sync XHR, startup only: one request before the render loop so w3_O.yoff is known at frame 0. */
 EM_JS(double, fb_fetch_elev, (double lat, double lon), {
   try {
     var base = window.FB_TILES_URL; if(!base) return -1e9;
@@ -94,7 +97,6 @@ static SDL_Window *win;
 static EMSCRIPTEN_WEBSOCKET_T ws; static int ws_open=0;
 static telem_packet_t telem; static int have_telem=0;
 static SDL_GameController *pad=NULL;
-static double g_olat=52.045, g_olon=9.385;
 static GLuint vid_fbo,vid_tex,vid_depth,codec_tex,pres_prog,quad_vbo;
 static GLuint msaa_fbo,msaa_color,msaa_depth;   /* multisample render target (antialiasing) */
 static GLint pr_pos,pr_uv,pr_tex,pr_flip;
@@ -163,8 +165,8 @@ static void frame(void){
    * 60 fps), so we just sample the LATEST pose each frame — smooth motion, zero added
    * latency (no interpolation delay). */
   if(have_telem){
-    double lat = g_olat + (double)telem.y/111320.0;
-    double lon = g_olon + (double)telem.x/(111320.0*cos(g_olat*M_PI/180.0));
+    double lat = w3_O.lat + (double)telem.y/FB_M_PER_DEG_LAT;
+    double lon = w3_O.lon + (double)telem.x/(FB_M_PER_DEG_LAT*cos(w3_O.lat*M_PI/180.0));
     /* Height above ground drives the LOD: it is the distance term for every chunk under the
      * aircraft, so a hardcoded guess would refine the ground wrongly at both 100 m and 4000 m. */
     world3d_stream_at(lat, lon, telem.alt > 1 ? telem.alt : 1.0);
@@ -207,9 +209,9 @@ int main(void){
    * a genuinely absent value (config.js never loaded) from 0; the old `!=0` snapped an equatorial
    * origin back to Hameln. Each result is consumed before the next call (reused buffer, see below). */
   const char*sl=emscripten_run_script_string("(typeof window.FB_ORIGIN_LAT==='number'?window.FB_ORIGIN_LAT:'').toString()");
-  if(sl&&*sl) g_olat=atof(sl);
+  if(sl&&*sl) w3_O.lat=atof(sl);
   const char*so=emscripten_run_script_string("(typeof window.FB_ORIGIN_LON==='number'?window.FB_ORIGIN_LON:'').toString()");
-  if(so&&*so) g_olon=atof(so);
+  if(so&&*so) w3_O.lon=atof(so);
   /* emscripten_run_script_string returns a REUSED buffer — copy before the next call, or both
    * pointers end up showing the last value (that bug once put the whole world at 9.385,9.385). */
   char tiles_url[160];
@@ -226,12 +228,12 @@ int main(void){
 
   emscripten_webgl_enable_extension(emscripten_webgl_get_current_context(),"EXT_texture_filter_anisotropic");
 
-  { double he=fb_fetch_elev(g_olat,g_olon);   /* seed camera lift before streaming; else spawn is underground */
+  { double he=fb_fetch_elev(w3_O.lat,w3_O.lon);   /* seed camera lift before streaming; else spawn is underground */
     if(he>-1e8){ w3_seed_yoff((float)he); printf("[cc] origin ground %.1f m (/elev), camera seeded\n",he); }
     else printf("[cc] /elev unreachable at startup — lift waits for the origin tile\n"); }
   /* Stream every tile on demand from fb-tiles — works at ANY origin on earth. */
-  if(tiles_url[0] && world3d_tiles_open(tiles_url,g_olat,g_olon))
-    printf("[cc] tiles: streaming from %s, origin %.4f/%.4f\n",tiles_url,g_olat,g_olon);
+  if(tiles_url[0] && world3d_tiles_open(tiles_url,w3_O.lat,w3_O.lon))
+    printf("[cc] tiles: streaming from %s, origin %.4f/%.4f\n",tiles_url,w3_O.lat,w3_O.lon);
   else printf("[cc] no tiles url or open failed — procedural fallback\n");
   world3d_init();
 

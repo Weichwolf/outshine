@@ -12,7 +12,7 @@
  * takes `grid`: a module that knows the renderer's configuration cannot be tested against anything
  * but the renderer's configuration. W3_FOV stays where it belongs — at the call site.
  *
- * The eye position is NOT computed here on purpose. It needs `w3_yoff` (the osmmesh ground) and
+ * The eye position is NOT computed here on purpose. It needs `w3_O.yoff` (the osmmesh ground) and
  * `w3_nD`, which belong to the tile side; taking them would drag this file into an ownership
  * question it does not have. Position in, basis out.
  *

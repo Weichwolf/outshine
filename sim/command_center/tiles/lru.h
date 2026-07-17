@@ -114,7 +114,7 @@ void w3_worker_mesh(int z,uint32_t x,uint32_t y,float*verts,int nverts,float err
     w3_cent*c=&w3_cache[i];
     if(c->state==W3_SLOT_WAIT && c->z==z && c->x==x && c->y==y){
       c->mverts=verts; c->mnverts=nverts; c->merr=err; c->state=W3_SLOT_MESH;
-      if(c->want_yoff && !w3_yoff_set){ w3_yoff=yoff; w3_yoff_set=1; }
+      if(c->want_yoff && !w3_O.yoff_set){ w3_O.yoff=yoff; w3_O.yoff_set=1; }
       return;
     }
   }
@@ -232,7 +232,7 @@ static int w3_cache_get(int z,uint32_t x,uint32_t y,int lod,int is_centre){
 #endif
     /* Preserve the original yoff condition EXACTLY (is_centre && z==W3_MAXZ && !set): the worker
      * computes the origin ground elevation only when asked, and w3_worker_mesh applies it. */
-    c->want_yoff = (is_centre && z==W3_MAXZ && !w3_yoff_set);
+    c->want_yoff = (is_centre && z==W3_MAXZ && !w3_O.yoff_set);
     w3_worker_post(z,(int)x,(int)y,W3_TERR,c->want_yoff);
     w3_pending++;
     return -1;

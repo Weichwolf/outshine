@@ -13,14 +13,14 @@ static int w3_stream_done=0;
 static void world3d_stream_at(double lat,double lon,double alt_agl){
   if(!w3_osm) return;
   uint32_t tx,ty; if(osmmesh_geo_to_tile(lon,lat,W3_MAXZ,&tx,&ty)!=0) return;
-  int moved = !w3_have_tile || tx!=w3_tx || ty!=w3_ty;
+  int moved = !w3_O.have_tile || tx!=w3_O.tx || ty!=w3_O.ty;
   /* W3_LOD_SPIN (proof only, 0 in production): defeat the "converged -> sleep" early-out so the
    * tree walk runs EVERY frame. That is the adversarial condition the LOD-slot proof needs -- the
    * old size-disagreement thrash was 256 mipmaps/frame precisely because the walk ran every frame;
    * once it sleeps, no design re-bakes. Spinning here lets the mipmap counter separate a design
    * that re-bakes under a persistent disagreement (NOKEY) from one that does not (the slots). */
   if(!moved && w3_stream_done && w3_sharpen==0 && !W3_LOD_SPIN) return;   /* climb keeps us awake */
-  w3_tx=tx; w3_ty=ty; w3_have_tile=1;
+  w3_O.tx=tx; w3_O.ty=ty; w3_O.have_tile=1;
   int b0=w3_cache_bakes, h0=w3_cache_hits;
   w3_ground_dirty=0;                     /* recomputed by the w3_cache_get calls below */
   unsigned mark=w3_touch+1;              /* everything the walk touches gets touch >= mark */
