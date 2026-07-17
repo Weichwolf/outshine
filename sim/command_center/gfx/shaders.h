@@ -93,8 +93,11 @@ static const char*W3_VSTAR=
  "  if(t<1.2) return mix(yellow,orange,(t-0.6)/0.6);"
  "  return mix(orange,red,(t-1.2)/0.6); }"
  "void main(){ gl_Position=uMVP*vec4(aPos,1.0);"
- "  float b=clamp(1.45-0.42*aMag,0.15,1.4);"          /* brighter (lower mag) -> bigger, brighter */
- "  gl_PointSize=1.0+2.4*b; vB=b; vCol=starColour(aBV); }";
+ /* Magnitude drives BRIGHTNESS, not size: a star is a point source. gl_PointSize stays small and is
+  * hard-capped (~1 px faint .. ~2.6 px for the very brightest) so bright stars read brighter, never
+  * as discs; the old 1.0+2.4*b let the brightest bloom into a 4 px blob. */
+ "  float b=clamp(1.45-0.42*aMag,0.12,1.5);"           /* brighter (lower magnitude) -> more intense */
+ "  gl_PointSize=clamp(1.0+1.05*b,1.0,2.6); vB=b; vCol=starColour(aBV); }";
 static const char*W3_FSTAR=
  "precision mediump float; varying float vB; varying vec3 vCol; uniform float uDay;"
  "void main(){ vec2 pc=gl_PointCoord-0.5; float d=dot(pc,pc);"
