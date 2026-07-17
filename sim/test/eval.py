@@ -30,6 +30,17 @@ G = 9.80665
 TELEM_DT  = 0.01   # s     xp_bridge.c main loop: `const double dt=0.01`, one telem packet and
                    #       one seq increment per tick. seq delta x this = the TRUE sample spacing.
 
+# telem.alt is ASL now (commit 7bbc362): the plane reports GPS/geodetic height and AGL is no longer
+# on the wire -- it stays FDM-internal (S.agl). The thresholds below that used to mean "height above
+# GROUND" therefore have to add the ground datum back in. GROUND_ASL is the origin's ground elevation
+# ASL: default 71.0 m matches xp_bridge.c's HOME_ELEV seed AND the fb-tiles DEM at Hameln (measured
+# 70.9 m in the container log). ASSUMPTION, valid because the physics traces orbit the HOME region:
+# the ground under the loitering aircraft barely varies from this value there. Over strongly varied
+# terrain a real per-position ground would be needed (eval.py could reconstruct AGL = alt - /elev the
+# way the base station does) -- deliberately not built; not needed for home traces. Env-overridable
+# for a foreign origin.
+GROUND_ASL = float(os.environ.get("HOME_ELEV", 71.0))   # m, origin ground elevation ASL
+
 # --- steadiness gate for the coordinated-turn checks (see coord_scan) -----------
 DWELL_W   = 0.6    # s     attitude must have been quiet for this whole trailing window
 DWELL_RR  = 12.0   # deg/s "quiet" threshold for the ROLL rate inside that window
@@ -336,7 +347,15 @@ def physics_invariants(S, tr, phase):
         a, b, V = s["a"], s["b"], s["V"]
         d_alt, d_pos = s["d_alt"], s["d_pos"]
 
-        # (3) VERTICAL-SPEED CONSISTENCY: reported vs must equal the actual dAlt/dt.
+        # (3) VERTICAL-SPEED CONSISTENCY: reported vs must equal the actual dAlt/dt. With alt=ASL
+        #     this is now structurally EXACT -- alt (S.elev) and vs (S.vy) are the same integration
+        #     (xp_bridge.c: S.elev+=climb*dt, S.vy=climb), so d(ASL)/dt == vs but for the trapezoidal
+        #     window error; under AGL the two diverged over sloping terrain by d(ground)/dt. Measured
+        #     on a home trace: |d_alt-vs| max 0.06 m/s over 742 samples (p99 0.06), ~19x inside this
+        #     floor. The tolerance is deliberately NOT tightened to that: this invariant is a
+        #     DIVERGENCE guard (a wrong unit, sign or integrand shows up as a gross mismatch, not
+        #     0.1 m/s), and 1.2/0.35 is the cross-airframe/weather margin -- one trace cannot
+        #     recalibrate what the 4x2 matrix must survive. See coord-turn-rate for the same lesson.
         vs = 0.5 * (a["vs"] + b["vs"])
         S.check("vs=dAlt/dt", abs(d_alt - vs) < max(1.2, 0.35 * abs(vs)),
                 "%s vs=%+.1f dAlt=%+.1f" % (phase, vs, d_alt))
@@ -350,9 +369,14 @@ def physics_invariants(S, tr, phase):
         S.check("vs<=airspeed", abs(vs) <= V + 2.0,
                 "%s vs=%+.1f V=%.1f" % (phase, vs, V))
 
-        # (6) ENVELOPE BOUNDS: no blow-up, physically plausible attitudes/speeds.
+        # (6) ENVELOPE BOUNDS: no blow-up, physically plausible attitudes/speeds. The altitude term
+        #     is a COARSE ASL FLOOR now, not the old AGL ground-penetration check: with alt=ASL and
+        #     AGL gone from the wire, "5 m below ground" is no longer reconstructable per sample, so
+        #     this can only catch a gross sink / integration blow-up (a NaN is caught by isfinite).
+        #     The aircraft never legitimately sits below the home ground (~71 m ASL); GROUND_ASL-30
+        #     clears DEM/seed slack and terrain a little below home while still biting on a blow-up.
         ok = (abs(b["roll"]) < 75 and abs(b["pitch"]) < 55 and 0 <= b["airspeed"] < 45
-              and b["alt"] > -5 and all(map(math.isfinite,
+              and b["alt"] > GROUND_ASL - 30 and all(map(math.isfinite,
                   (b["roll"], b["pitch"], b["yaw"], b["airspeed"], b["alt"]))))
         S.check("envelope-bounds", ok,
                 "%s roll=%.0f pitch=%.0f V=%.1f alt=%.0f" %
@@ -459,11 +483,12 @@ def main():
     S.one("auto-arm (senderless)", armed_at is not None, "t=%.1fs" % (armed_at or -1))
     S.one("airborne", flying_at is not None, "t=%.1fs" % (flying_at or -1))
 
-    # wait until established above 80 m so we're clearly flying
+    # wait until 80 m ABOVE GROUND so we're clearly flying, not still on climb-out. alt is ASL now:
+    # a bare alt>80 would be ~9 m AGL at Hameln and start the climb trace almost on the deck.
     t0 = time.time()
     while time.time() - t0 < 60:
         cc.poll()
-        if cc.telem and T(cc.telem)["alt"] > 80: break
+        if cc.telem and T(cc.telem)["alt"] > GROUND_ASL + 80: break
         time.sleep(0.1)
 
     # 3) PHYSICS on the autonomous CLIMB trace -------------------------------
@@ -595,8 +620,9 @@ def main():
         S.one("RC-loss -> link shows 0", any(x["rssi"] == 0 for x in fs))
         S.one("failsafe bounded", max(x["home"] for x in fs) < 1600,
               "max=%.0fm" % max(x["home"] for x in fs))
-        S.one("failsafe airborne", min(x["alt"] for x in fs) > 40,
-              "min=%.0fm" % min(x["alt"] for x in fs))
+        # airborne = still >= 40 m ABOVE GROUND (alt is ASL); a bare >40 would be true underground.
+        S.one("failsafe airborne", min(x["alt"] for x in fs) > GROUND_ASL + 40,
+              "min=%.0fm ASL" % min(x["alt"] for x in fs))
 
     # 9) Does the coordination gate still WORK? Inject the fault and demand a red. -----
     print("-- gate self-test (fault injection) --")
