@@ -32,9 +32,10 @@ podman volume exists fbtiles-cache 2>/dev/null || podman volume create fbtiles-c
 podman run -d --name "$IMG_T" --network "$NET" -v fbtiles-cache:/var/cache/fbtiles -p 8081:8081 "$IMG_T" >/dev/null
 podman run -d --name "$IMG_F" --network "$NET" -e AIRCRAFT_ADDR="$IMG_A" \
     -e ORIGIN_LAT="$OLAT" -e ORIGIN_LON="$OLON" -e TILES_URL="${TILES_URL:-http://localhost:8081}" \
+    -e SIM_UTC="${SIM_UTC:-0}" \
     -p 8080:8080 "$IMG_F"
 podman run -d --name "$IMG_A" --network "$NET" -e FLIGHTBOX_ADDR="$IMG_F" -e TILES_ADDR="$IMG_T:8081" \
-    -e ORIGIN_LAT="$OLAT" -e ORIGIN_LON="$OLON" -e FDM_MODEL="${FDM_MODEL:-1}" "$IMG_A"
+    -e ORIGIN_LAT="$OLAT" -e ORIGIN_LON="$OLON" -e FDM_MODEL="${FDM_MODEL:-1}" -e SIM_UTC="${SIM_UTC:-0}" "$IMG_A"
 
 echo
 echo "== running =="
