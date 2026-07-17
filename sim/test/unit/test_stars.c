@@ -157,4 +157,60 @@ void test_stars(void) {
         ck(l >= 0 && l < 360, "LST stays 0..360 when it would go negative");
         ck(fabs(l - 345.0) < 1e-9, "and wraps to the right place, not to 0");
     }
+
+    tsection("stars: decode is 6 bytes/star, little-endian <HhBB — the wire format is pinned");
+    {
+        /* The HYG bands arrive as a raw byte stream from fb-tiles and get decoded ONCE at startup.
+         * No screenshot can tell a byte-order or scale-factor mistake here from a correct one: the
+         * stars just stand in the wrong places, which is exactly what the sky is allowed to do to a
+         * human eye. So the formulas (stars.h:57-60) are pinned against hand-encoded bytes.
+         *
+         * Three stars, each 6 bytes LE: ra=u16/65536*360, dec=i16/32767*90, mag=u8/255*8-1.5,
+         * bv=u8/255*3-0.5. Chosen so a big-endian read or a swapped ra/dec would miss:
+         *   A: ra 90  (16384=00 40)  dec +90 (32767=FF 7F)  mag byte 0   bv byte 0
+         *   B: ra 180 (32768=00 80)  dec  0  (0    =00 00)  mag byte 255 bv byte 255
+         *   C: ra 270 (49152=00 C0)  dec -90 (-32767=01 80) mag byte 128 bv byte 64  */
+        const uint8_t buf[18] = {
+            0x00,0x40, 0xFF,0x7F, 0x00, 0x00,
+            0x00,0x80, 0x00,0x00, 0xFF, 0xFF,
+            0x00,0xC0, 0x01,0x80, 0x80, 0x40,
+        };
+        int n = w3_stars_load(buf, (int)sizeof buf);
+        ck(n == 3, "18 bytes -> 3 stars");
+        ck(w3_nstars == 3 && w3_stars != 0, "the global catalogue is filled");
+
+        ck_near(w3_stars[0].ra,   90.0, 1e-3, "star A ra = u16 16384/65536*360 = 90 (LE low byte first)");
+        ck_near(w3_stars[0].dec,  90.0, 1e-3, "star A dec = i16 32767/32767*90 = +90");
+        ck_near(w3_stars[0].mag, -1.5,  1e-3, "mag byte 0 -> -1.5 (the brightest end)");
+        ck_near(w3_stars[0].bv,  -0.5,  1e-3, "bv byte 0 -> -0.5 (bluest)");
+
+        ck_near(w3_stars[1].ra,  180.0, 1e-3, "star B ra = u16 32768/65536*360 = 180");
+        ck_near(w3_stars[1].dec,   0.0, 1e-3, "star B dec = 0");
+        ck_near(w3_stars[1].mag,   6.5, 1e-3, "mag byte 255 -> 6.5 (the faint limit)");
+        ck_near(w3_stars[1].bv,    2.5, 1e-3, "bv byte 255 -> 2.5 (reddest)");
+
+        ck_near(w3_stars[2].ra,  270.0,    1e-3, "star C ra = u16 49152/65536*360 = 270");
+        ck_near(w3_stars[2].dec, -90.0,    1e-3, "star C dec = i16 -32767 -> -90 (signed, not 65535 wrap)");
+        ck_near(w3_stars[2].mag,  2.51569, 1e-3, "mag byte 128 -> 128/255*8-1.5");
+        ck_near(w3_stars[2].bv,   0.25294, 1e-3, "bv byte 64 -> 64/255*3-0.5");
+
+        /* Decode preserves order — the bands are pre-sorted brightest-first, so a magnitude limit
+         * downstream is a prefix length. It must not reorder. */
+        ck(w3_stars[0].mag < w3_stars[1].mag, "order preserved: index follows the byte stream, not re-sorted");
+    }
+
+    tsection("stars: decode rejects an empty or truncated buffer");
+    {
+        /* n = nbytes/6; a partial star at the tail is DROPPED, never read past its end (a 6-byte
+         * read on 3 bytes would walk off the buffer). And an empty stream leaves the catalogue as
+         * it was — no null deref, no zero-length malloc. */
+        const uint8_t one[9] = { 0x00,0x40, 0xFF,0x7F, 0x00, 0x00,  0x11,0x22,0x33 };
+        int n = w3_stars_load(one, (int)sizeof one);
+        ck(n == 1, "9 bytes -> 1 star, the trailing 3 bytes (a partial star) are dropped");
+
+        ck(w3_stars_load(one, 0) == 0, "0 bytes -> 0 stars (n <= 0 short-circuit, no malloc)");
+        ck(w3_stars_load(one, 5) == 0, "5 bytes (< one star) -> 0 stars, never a partial read");
+        /* the failed decodes returned before touching the globals -> the last GOOD load still stands */
+        ck(w3_nstars == 1, "a rejected decode does not clobber the existing catalogue");
+    }
 }
