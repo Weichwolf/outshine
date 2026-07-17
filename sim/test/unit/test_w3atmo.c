@@ -9,10 +9,16 @@
  * welded to glUniform calls inside a 90-line render function. The failure mode is the reason it
  * matters: a wrong constant here does not crash and does not look broken. It looks like weather.
  *
- * One of these constants has already cost a night: `light = 0.20 + 0.80*day` dims the world to
- * 20 % after dusk, which is what made pngstat's daylight-calibrated threshold blind (a real night
- * world scored 1.1 %, an empty one 1.0 %). The 0.20 floor is pinned below — not because it is
- * sacred, but because changing it silently changes what every screenshot gate sees.
+ * SPEC CHANGE (commit 4cee44d), and why these pins moved. `day` used to exist THREE times — a CPU
+ * curve linear in degrees, the sky shader's own on sin(el), and the star cutoff — up to 13 points
+ * apart through twilight. They are now ONE physics-based curve, w3_daylight(sun_el): a smoothstep
+ * over [-9, +3] deg, so deep night (below nautical twilight, ~-9 deg) is genuinely DARK for EVS.
+ * With it the light floor dropped 0.20 -> 0.08 on purpose: 0.20 kept the night grey. This file
+ * FOLLOWS that spec — it does not hold the old numbers to keep the gate green (that would be
+ * forgery); it re-pins the new curve the renderer actually ships. The 0.20 floor once blinded
+ * pngstat's daylight-calibrated threshold (a night world scored 1.1 %, an empty one 1.0 %); that
+ * predicate now scales its margin with pixel brightness (e2d7dad), so 0.08 is checked below AND the
+ * night-screenshot separation is verified out-of-band — the constant no longer silently owns a gate.
  */
 #include "tassert.h"
 #include "../../command_center/atmo.h"
@@ -27,32 +33,57 @@ static telem_packet_t mk(float sun_el, float sun_az, float cloud) {
 }
 
 void test_w3atmo(void) {
-    tsection("w3_atmo: the day ramp is civil twilight, not sunset");
+    tsection("w3_daylight: the twilight smoothstep over [-9, +3] deg, dark by nautical twilight");
     {
-        /* -6..+6 deg is the ramp. Below it nothing gets darker; above it nothing gets brighter.
-         * Pinning the endpoints AND the midpoint catches an inverted or rescaled ramp, which a
-         * single sample cannot. */
-        telem_packet_t t = mk(-6.f, 0, 0);
-        ck_near(w3_atmo_from(&t, 1).day, 0.0f, 1e-6, "sun at -6 deg -> day = 0 (ramp starts)");
-        t = mk(6.f, 0, 0);
-        ck_near(w3_atmo_from(&t, 1).day, 1.0f, 1e-6, "sun at +6 deg -> day = 1 (ramp ends)");
-        t = mk(0.f, 0, 0);
-        ck_near(w3_atmo_from(&t, 1).day, 0.5f, 1e-6, "sun on the horizon -> day = 0.5 (midpoint)");
-        t = mk(-14.f, 0, 0);
-        ck_near(w3_atmo_from(&t, 1).day, 0.0f, 1e-6, "deep night clamps at 0, does not go negative");
-        t = mk(60.f, 0, 0);
-        ck_near(w3_atmo_from(&t, 1).day, 1.0f, 1e-6, "high noon clamps at 1, does not exceed");
+        /* The new spec: a smoothstep t*t*(3-2t), t = clamp((sun_el+9)/12, 0, 1). Center at -3 deg,
+         * half-width 6 deg. Ramp START -9 (nautical twilight, genuinely dark) and END +3 (full day)
+         * pin the offset; the -3 midpoint and the -6/0 shoulders pin the SHAPE. The shoulders are
+         * where the S-curve earns its keep: at sun_el -6 (t=0.25) smoothstep gives 0.15625, where a
+         * LINEAR ramp would give 0.25 — pinning that value is what catches a linear-vs-smoothstep
+         * regression, which endpoints alone cannot. Tested directly on w3_daylight (pure) AND through
+         * w3_atmo_from().day (they must agree — atmo reads the same curve). */
+        ck_near(w3_daylight(-9.f), 0.0f,     1e-6, "sun -9 deg (nautical twilight) -> day 0, ramp start");
+        ck_near(w3_daylight(-6.f), 0.15625f, 1e-6, "sun -6 deg -> 0.15625 (smoothstep shoulder, NOT linear 0.25)");
+        ck_near(w3_daylight(-3.f), 0.5f,     1e-6, "sun -3 deg -> 0.5 (curve centre)");
+        ck_near(w3_daylight( 0.f), 0.84375f, 1e-6, "sun on the horizon -> 0.84375 (upper shoulder)");
+        ck_near(w3_daylight( 3.f), 1.0f,     1e-6, "sun +3 deg -> day 1, ramp end");
+        ck_near(w3_daylight(-14.f), 0.0f,    1e-6, "deep night clamps at 0, does not go negative");
+        ck_near(w3_daylight(60.f),  1.0f,    1e-6, "high noon clamps at 1, does not exceed");
+        /* monotone non-decreasing across the whole ramp — no dip, no overshoot */
+        for (float e = -12.f; e <= 6.f; e += 0.5f)
+            ck(w3_daylight(e) <= w3_daylight(e + 0.5f) + 1e-6f, "w3_daylight is monotone in sun elevation");
+        /* atmo.day IS this curve, not a second copy */
+        telem_packet_t t = mk(0.f, 0, 0);
+        ck_near(w3_atmo_from(&t, 1).day, w3_daylight(0.f), 1e-6, "w3_atmo_from().day == w3_daylight(sun_el)");
     }
 
-    tsection("w3_atmo: the light floor is 0.20 — the number that blinded a gate");
+    tsection("w3_daylight: the <0.6 star cutoff (sky.h) sits in nautical twilight");
     {
+        /* The renderer draws stars only where day < 0.6 (sky.h: `if(A->day>=0.6f...) return;`). With
+         * this curve that boundary is sun_el ~ -2.2 deg (day(-2.2)=0.599, day(-2.0)=0.623), i.e.
+         * stars appear in nautical/late-civil twilight and are gone well before the horizon. Pinning
+         * the day value either side of 0.6 fixes WHEN the sky first shows stars — a thing no
+         * screenshot gate can see (pngstat scores ground). */
+        ck(w3_daylight(-3.f) < 0.6f,  "at sun -3 deg day<0.6 -> stars drawn (twilight sky)");
+        ck(w3_daylight(-2.f) >= 0.6f, "by sun -2 deg day>=0.6 -> stars suppressed");
+        ck(w3_daylight( 0.f) >= 0.6f, "at the horizon day>=0.6 -> no stars");
+    }
+
+    tsection("w3_atmo: the light floor is 0.08 — EVS night is genuinely dark now");
+    {
+        /* light = 0.08 + 0.92*day (was 0.20 + 0.80*day). The floor dropped so deep night actually
+         * goes dark for EVS; 0.08 is not zero (the world is dim, not absent). This is the constant
+         * the header warns about — verified against the night screenshot separately, not left to
+         * silently move a gate. */
         telem_packet_t t = mk(-14.f, 0, 0);
-        ck_near(w3_atmo_from(&t, 1).light, 0.20f, 1e-6,
-                "night light is 0.20, NOT 0 — the world is dim, not absent");
+        ck_near(w3_atmo_from(&t, 1).light, 0.08f, 1e-6,
+                "deep-night light is 0.08 (dark but not absent), NOT the old 0.20");
         t = mk(60.f, 0, 0);
         ck_near(w3_atmo_from(&t, 1).light, 1.00f, 1e-6, "full day -> light = 1.00");
         t = mk(0.f, 0, 0);
-        ck_near(w3_atmo_from(&t, 1).light, 0.60f, 1e-6, "horizon -> light = 0.20 + 0.80*0.5");
+        ck_near(w3_atmo_from(&t, 1).light, 0.85625f, 1e-5, "horizon -> 0.08 + 0.92*0.84375");
+        t = mk(-3.f, 0, 0);
+        ck_near(w3_atmo_from(&t, 1).light, 0.54f, 1e-5, "curve centre -> 0.08 + 0.92*0.5");
     }
 
     tsection("w3_atmo: sun direction is ENU (E=+X, up=+Y, N=-Z)");
