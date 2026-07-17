@@ -25,6 +25,13 @@ static void w3_text(float x,float y,float s,float r,float g,float b,const char*t
     for(int row=0;row<5;row++){ unsigned char m=W3_FONT[ix][row]; for(int c=0;c<3;c++) if(m&(4>>c)) w3_gpx(x+c*s,y+row*s,s,r,g,b);} x+=4*s; } }
 static void w3_printf(float x,float y,float s,float r,float g,float b,const char*fmt,...){ char bb[96]; va_list a; va_start(a,fmt); vsnprintf(bb,96,fmt,a); va_end(a); w3_text(x,y,s,r,g,b,bb); }
 
+/* Rotate (x,y) about (ox,oy) by a screen-space angle given as (ca=cos,sa=sin); y is DOWN. Banks the
+ * conformal horizon line with roll, its endpoints turned about the boresight. */
+static void w3_rot(float ox,float oy,float ca,float sa,float x,float y,float*rx,float*ry){
+  float dx=x-ox,dy=y-oy; *rx=ox+dx*ca-dy*sa; *ry=oy+dx*sa+dy*ca; }
+/* A line whose two endpoints are first rotated about (ox,oy) by (ca,sa). */
+static void w3_rline(float ox,float oy,float ca,float sa,float x0,float y0,float x1,float y1,float r,float g,float b){
+  float ax,ay,bx,by; w3_rot(ox,oy,ca,sa,x0,y0,&ax,&ay); w3_rot(ox,oy,ca,sa,x1,y1,&bx,&by); w3_line(ax,ay,bx,by,r,g,b); }
 /* Approximate a circle as `seg` chords -- the Flight-Path-Marker ring. */
 static void w3_circle(float cx,float cy,float rad,int seg,float r,float g,float b){
   float px=cx+rad,py=cy; for(int i=1;i<=seg;i++){ float a=(float)i/(float)seg*6.2831853f;
@@ -40,11 +47,10 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
   w3_line(cx-16,cy,cx,cy+9,HG_R,HG_G,HG_B);  w3_line(cx,cy+9,cx+16,cy,HG_R,HG_G,HG_B);
   if(!have){ w3_text(cx-60,30,3,1,0.8f,0.2f,"NO TELEMETRY"); return; }
 
-  /* ==== Primary attitude field: Flight-Path-Marker (MIL-STD-1787) ====
-   * The pitch/climb-dive ladder is deliberately OMITTED: the FPV video already shows the REAL,
-   * conformal horizon, so a drawn ladder would be redundant clutter. Pitch and bank read off the
-   * video horizon + the FPM position + (Phase 3) the bank arc. Conformal vertical scale K (from the
-   * 80 deg camera FOV) still places the FPM: an angle e above the boresight sits at cy - K*tan(e). */
+  /* ==== Primary attitude field: Flight-Path-Marker + 0-deg horizon line (MIL-STD-1787) ====
+   * Kept: waterline, FPM, and ONE conformal 0-deg horizon line. Dropped: the numbered climb-dive
+   * rungs (busy clutter -- the FPV video already shows the real ladder of terrain). Conformal vertical
+   * scale K (from the 80 deg camera FOV): an angle e above the boresight sits at cy - K*tan(e). */
   float K=(H*0.5f)/tanf(40.f*RAD), pitch=t->pitch;
   /* Flight-Path-Marker: where the velocity vector points. gamma = climb angle from vs/gs; AoA =
    * pitch - gamma sets it below the waterline. Horizontal drift is deliberately not modelled -> centred. */
@@ -53,6 +59,13 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
   if(fy<cy-H*0.45f)fy=cy-H*0.45f; if(fy>cy+H*0.45f)fy=cy+H*0.45f;
   w3_circle(fx,fy,7,10,HG_R,HG_G,HG_B);
   w3_line(fx-7,fy,fx-18,fy,HG_R,HG_G,HG_B); w3_line(fx+7,fy,fx+18,fy,HG_R,HG_G,HG_B); w3_line(fx,fy-7,fx,fy-15,HG_R,HG_G,HG_B);
+  /* Horizon line: the single 0-deg pitch reference, conformal (sits on the video horizon), a long bar
+   * with a central gap for the boresight, banked with roll. Only this 0-deg line stays -- the numbered
+   * climb-dive rungs are omitted as clutter. Roll sign verified against the terrain horizon at a shot. */
+  float ca=cosf(t->roll*RAD), sa=sinf(t->roll*RAD);
+  float horY=cy - K*tanf((0.f-pitch)*RAD);
+  w3_rline(cx,cy,ca,sa, cx-260,horY, cx-40,horY, HG_R,HG_G,HG_B);
+  w3_rline(cx,cy,ca,sa, cx+40,horY, cx+260,horY, HG_R,HG_G,HG_B);
   float hdg=t->yaw<0?t->yaw+360:t->yaw;
   /* left column: flight state */
   w3_printf(14, 14,3,1,1,1,      "ALT %5.0f",t->alt);
