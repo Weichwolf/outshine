@@ -17,6 +17,27 @@ cached on demand, never preloaded.
    will fly a physically impossible state if we feed one — it can't detect our modelling errors, the
    physics suite has to.
 
+## Standards — MIL-SPEC where sensible
+
+Adhere to recognised aviation/engineering standards; **prefer MIL-SPEC** where it governs, the
+appropriate civil standard (RTCA/SAE) where it does not. Don't invent what a standard already
+specifies — consult the standard first. This is a *simulated* browser system, so hardware-environment
+MIL standards (810 ruggedisation, 461 EMC) are N/A; the ones below govern *behaviour and symbology*,
+which the sim reproduces. Apply "where sensible and possible" — cite the standard in code, don't
+cargo-cult compliance the sim can't meaningfully have.
+
+| Domain | Standard | Applies to |
+|---|---|---|
+| HUD / OSD symbology | **MIL-STD-1787** (Aircraft Display Symbology) | `command_center/hud.h` — flight-path marker (velocity vector) + climb-dive ladder, airspeed LEFT / altitude RIGHT / heading tape TOP, bank arc, waterline/boresight |
+| SVS / EVS / CVS | **RTCA DO-315B** (EVS/SVS/CVS MASPS) | SVS (`osm`) = time-independent synthetic (const day, blue sky, no stars); EVS (`photo`) = real camera (day/night/stars). Garmin SVT / Honeywell conventions. Ext. point: TAWS terrain colouring |
+| Flight model / handling | **MIL-STD-1797A** (Flying Qualities; hist. MIL-F-8785C) | `physics_step` + aero — stability, control response, coordination realism (selig-fdm) |
+| Failsafe / autopilot / RTH | **MIL-STD-882** (System Safety) principles | arming, link-loss RTH/loiter, the two independent failure nets (inav-firmware) |
+| Data / telemetry link | MIL-STD-1553 (bus) / Link-16 — *reference only*, we run MSP + X-Plane UDP | protocol robustness philosophy, not literal compliance |
+| Tile-server reliability | Defensive-boundary discipline: retry+backoff, negative cache, artifact identity (see `fb-tiles`) | robustness at the upstream boundary (geo-mapdata) |
+| Performance | Real-time determinism: cache-aware layout, **no hot loop in the renderer**, measure before optimising | whole renderer + engine (verify-measure) |
+
+Data-source attribution lives in `README.md` (Datenquellen & Lizenzen), **not** the HUD.
+
 ## Inventory
 
 | Path | What |
