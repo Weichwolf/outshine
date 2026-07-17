@@ -52,8 +52,8 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
   w3_hudN=0; w3_hudTN=0; float cx=W/2,cy=H/2;
   const float RAD=(float)M_PI/180.f, HG_R=0.30f,HG_G=1.0f,HG_B=0.40f;   /* monochrome HUD green */
   /* Waterline / boresight: the FIXED aircraft reference (nose / longitudinal axis), screen-locked. */
-  w3_line(cx-46,cy,cx-16,cy,HG_R,HG_G,HG_B); w3_line(cx+16,cy,cx+46,cy,HG_R,HG_G,HG_B);
-  w3_line(cx-16,cy,cx,cy+9,HG_R,HG_G,HG_B);  w3_line(cx,cy+9,cx+16,cy,HG_R,HG_G,HG_B);
+  w3_line(cx-28,cy,cx-10,cy,HG_R,HG_G,HG_B); w3_line(cx+10,cy,cx+28,cy,HG_R,HG_G,HG_B);
+  w3_line(cx-10,cy,cx,cy+7,HG_R,HG_G,HG_B);  w3_line(cx,cy+7,cx+10,cy,HG_R,HG_G,HG_B);
   if(!have){ w3_text(cx-60,30,3,1,0.8f,0.2f,"NO TELEMETRY"); return; }
 
   /* ==== Primary attitude field: Flight-Path-Marker + 0-deg horizon line (MIL-STD-1787) ====
@@ -70,8 +70,10 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
   w3_line(fx-7,fy,fx-18,fy,HG_R,HG_G,HG_B); w3_line(fx+7,fy,fx+18,fy,HG_R,HG_G,HG_B); w3_line(fx,fy-7,fx,fy-15,HG_R,HG_G,HG_B);
   /* Compact attitude bar: a SHORT conformal horizon reference at the boresight -- the primary roll +
    * pitch cue now that the full-width horizon line and the bank arc are gone. Its centre and tilt come
-   * from the SAME camera projection as the scene (the verified-conformal sense), clipped to ~+/-70 px
-   * with a central gap for the waterline, thin AA. It TILTS with roll and rides the pitch offset --
+   * from the SAME camera projection as the scene (the verified-conformal sense). The segments are the
+   * same compact length but sit further out (gap ~+/-74 px, ends ~+/-124 px) so that at level + on-path
+   * -- when the bar, the steering cue and the waterline all fall on cy -- each stays in its own band and
+   * none touch: waterline (+/-28) | cue (+/-36..64) | bar (+/-74..124). Thin AA. It TILTS with roll and rides the pitch offset --
    * which is what tells it apart from the steering cue (that only slides vertically, never tilts).
    * Centre = the horizon point straight ahead (az=yaw); a second point at +20 deg gives the tilt. */
   { w3_cam HC=w3_cam_from(t->yaw,t->pitch,t->roll,(float[3]){0,0,0}, W3_FOV, (float)W/H, 1.f, 1000.f);
@@ -82,7 +84,7 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
       float zc=d[0]*HC.f[0] +d[1]*HC.f[1] +d[2]*HC.f[2]; if(zc<0.05f)zc=0.05f;
       p[k][0]=cx+Kc*xc/zc; p[k][1]=cy-Kc*yc/zc; }
     float ddx=p[1][0]-p[0][0],ddy=p[1][1]-p[0][1],LL=sqrtf(ddx*ddx+ddy*ddy);
-    if(LL>1.f){ float ux=ddx/LL,uy=ddy/LL, mx=p[0][0],my=p[0][1], half=70.f,gap=16.f;
+    if(LL>1.f){ float ux=ddx/LL,uy=ddy/LL, mx=p[0][0],my=p[0][1], half=124.f,gap=74.f;
       w3_qline(mx-ux*half,my-uy*half, mx-ux*gap,my-uy*gap, 1.0f, HG_R,HG_G,HG_B);
       w3_qline(mx+ux*gap,my+uy*gap, mx+ux*half,my+uy*half, 1.0f, HG_R,HG_G,HG_B); } }
   float hdg=t->yaw<0?t->yaw+360:t->yaw;
@@ -135,8 +137,8 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
    * means ABOVE the ideal approach path, so the bar sits BELOW the boresight -- fly down to centre it.
    * Always horizontal, only slides vertically. README A7 instrument homing. ===== */
   { float gsy=cy + t->glideslope_err*22.f; if(gsy<cy-120)gsy=cy-120; if(gsy>cy+120)gsy=cy+120;
-    w3_qline(cx-72,gsy,cx-28,gsy,1.1f,HG_R,HG_G,HG_B); w3_qline(cx+28,gsy,cx+72,gsy,1.1f,HG_R,HG_G,HG_B);
-    w3_qline(cx-28,gsy,cx-28,gsy+7,1.1f,HG_R,HG_G,HG_B); w3_qline(cx+28,gsy,cx+28,gsy+7,1.1f,HG_R,HG_G,HG_B); }
+    w3_qline(cx-64,gsy,cx-36,gsy,1.1f,HG_R,HG_G,HG_B); w3_qline(cx+36,gsy,cx+64,gsy,1.1f,HG_R,HG_G,HG_B);
+    w3_qline(cx-36,gsy,cx-36,gsy+7,1.1f,HG_R,HG_G,HG_B); w3_qline(cx+36,gsy,cx+36,gsy+7,1.1f,HG_R,HG_G,HG_B); }
   /* ===== Secondary data + annunciations at the EDGES (the primary attitude field stays clean).
    * Green monochrome; only battery/link CAUTION breaks to amber/red -- a safety convention MIL-STD
    * allows even on a mono HUD. The old home arrow (now the heading-tape pointer), the old white
