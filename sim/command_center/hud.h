@@ -146,36 +146,33 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
    * waterline. README A7 instrument homing. ===== */
   { float gsy=cy + t->glideslope_err*22.f; if(gsy<cy-120)gsy=cy-120; if(gsy>cy+120)gsy=cy+120;
     w3_qline(cx-72,gsy,cx-28,gsy,1.1f,HG_R,HG_G,HG_B); w3_qline(cx+28,gsy,cx+72,gsy,1.1f,HG_R,HG_G,HG_B); }
-  /* right column: navigation / power / link / mode */
-  w3_printf(W-176,14,3,1,1,1,    "HOME %5.0f",t->home_dist);
-  { float v=t->batt, r=0.4f,g=1,b=0.3f; if(v<10.0f){r=1;g=0.3f;b=0.2f;} else if(v<11.0f){r=1;g=0.85f;b=0.2f;}
-    w3_printf(W-176,34,3,r,g,b,  "BAT %4.1fV",v); }
-  { int q=t->rssi; float r=0.4f,g=1,b=0.3f; if(q<25){r=1;g=0.3f;b=0.2f;} else if(q<50){r=1;g=0.85f;b=0.2f;}
-    w3_printf(W-176,54,3,r,g,b,  "LNK %4d",q); }
-  { int rth=(t->state==5||t->state==3);
-    w3_printf(W-176,74,3,rth?1:0.4f,rth?0.85f:1,rth?0.2f:0.4f,"%s",W3_STN[t->state%6]); }
-  /* Vision source, in the avionics idiom:
-   *   EVS = Enhanced Vision System  -- a real sensor image (today the aerial photo; the real
-   *                                    camera feed is the point of the switch)
-   *   SVS = Synthetic Vision System -- terrain drawn from a database (our OSM render)
-   * Which one you are on matters because the synthetic view is what you fall back to when the
-   * sensor cannot deliver: signal lost, sensor dead, too dark, blinded. Not colour-coded as a
-   * warning: right now it is a deliberate choice (TAB), not a failure. */
-  { int evs=(w3_ground.mode==W3_GROUND_PHOTO);
-    w3_printf(W-176,94,3, evs?0.4f:0.5f, evs?1.0f:0.85f, evs?0.4f:1.0f, "VIS %s", evs?"EVS":"SVS"); }
-  /* attitude + environment (bottom) */
-  w3_printf(14,H-44,2,0.8f,0.8f,0.9f,"ROLL %4.0f   PITCH %4.0f",t->roll,t->pitch);
-  w3_printf(14,H-24,2,0.7f,0.85f,0.7f,"CLD %3.0f  VIS %4.1fKM  SUN %3.0f  MOON %3.0f",
-            t->cloud*100.f,t->vis/1000.f,t->sun_el,t->moon_phase*100.f);
-  /* home-direction arrow (top center) */
-  float a=t->home_bearing*(float)M_PI/180.f,hx=cx,hy=110,len=34,tx=hx+sinf(a)*len,ty=hy-cosf(a)*len;
-  w3_line(hx,hy,tx,ty,1,0.85f,0.2f); w3_line(tx,ty,tx+sinf(a+2.6f)*10,ty-cosf(a+2.6f)*10,1,0.85f,0.2f); w3_line(tx,ty,tx+sinf(a-2.6f)*10,ty-cosf(a-2.6f)*10,1,0.85f,0.2f);
-  w3_text(cx-10,hy+16,2,1,0.85f,0.2f,"HOME");
-  /* glideslope ladder (right of center) */
-  float gx=W-52,gy=cy; for(int i=-2;i<=2;i++) w3_line(gx-8,gy+i*26,gx+8,gy+i*26,1,1,1);
-  float dy=-t->glideslope_err*5; if(dy<-52)dy=-52; if(dy>52)dy=52;
-  w3_line(gx-6,gy+dy-5,gx+6,gy+dy-5,1,0.85f,0.2f); w3_line(gx+6,gy+dy-5,gx+6,gy+dy+5,1,0.85f,0.2f);
-  w3_line(gx+6,gy+dy+5,gx-6,gy+dy+5,1,0.85f,0.2f); w3_line(gx-6,gy+dy+5,gx-6,gy+dy-5,1,0.85f,0.2f);
+  /* ===== Secondary data + annunciations at the EDGES (the primary attitude field stays clean).
+   * Green monochrome; only battery/link CAUTION breaks to amber/red -- a safety convention MIL-STD
+   * allows even on a mono HUD. The old home arrow (now the heading-tape pointer), the old white
+   * glideslope ladder (now the centre steering cue) and the ROLL/PITCH text (read from horizon+FPM+
+   * bank arc) are gone. ===== */
+  /* Flight-mode annunciation, bottom-left, boxed; RTH/failsafe stands out in amber. */
+  { int st=t->state%6, rth=(st==5||st==3);
+    float mr=rth?1.f:HG_R, mg=rth?0.85f:HG_G, mb=rth?0.2f:HG_B;
+    w3_box(14,H-42,110,H-16, mr,mg,mb); w3_printf(20,H-37,3.f,mr,mg,mb,"%s",W3_STN[st]); }
+  /* Power + link, left edge above the mode box. Amber = caution, red = critical. */
+  { float v=t->batt, r=HG_R,g=HG_G,b=HG_B; if(v<10.f){r=1;g=0.3f;b=0.2f;} else if(v<11.f){r=1;g=0.8f;b=0.2f;}
+    w3_printf(14,H-66,2.f,r,g,b,"BAT %4.1fV",v); }
+  { int q=t->rssi; float r=HG_R,g=HG_G,b=HG_B; if(q<25){r=1;g=0.3f;b=0.2f;} else if(q<50){r=1;g=0.8f;b=0.2f;}
+    w3_printf(14,H-86,2.f,r,g,b,"LNK %3d",q); }
+  /* Weather + sun/moon ephemeris, small, above -- night-flight planning. */
+  w3_printf(14,H-108,1.6f,HG_R,HG_G,HG_B,"CLD %2.0f  VIS %3.1fKM",t->cloud*100.f,t->vis/1000.f);
+  w3_printf(14,H-126,1.5f,HG_R,HG_G,HG_B,"SUN E%+3.0f A%3.0f  MOON E%+3.0f A%3.0f P%2.0f",
+            t->sun_el,t->sun_az,t->moon_el,t->moon_az,t->moon_phase*100.f);
+  /* Vision source (SVS synthetic / EVS camera), top-right corner. */
+  { int evs=(w3_ground.mode==W3_GROUND_PHOTO); w3_box(W-70,10,W-14,34,HG_R,HG_G,HG_B); w3_printf(W-64,14,2.5f,HG_R,HG_G,HG_B,"%s",evs?"EVS":"SVS"); }
+  /* Waypoint block, bottom-right: placeholder wired to the HOME indicator (README A7 instrument
+   * homing) -- WP 00, bearing to home, distance. A real waypoint system slots into this frame later. */
+  { float bx=W-200, by=H-92;
+    w3_box(bx,by,W-14,H-14,HG_R,HG_G,HG_B);
+    w3_printf(bx+8,by+6,2.f,HG_R,HG_G,HG_B,"WP 00 HOME");
+    w3_printf(bx+8,by+26,2.f,HG_R,HG_G,HG_B,"BRG %+4.0f",t->home_bearing);
+    w3_printf(bx+8,by+46,2.f,HG_R,HG_G,HG_B,"DIST %5.0f",t->home_dist); }
 }
 /* Draw the 2D HUD (line overlay) into the bound framebuffer at W×H pixel coords. */
 static void world3d_render_hud(const telem_packet_t*t,int W,int H,int have){
