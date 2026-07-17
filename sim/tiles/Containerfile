@@ -22,8 +22,11 @@ COPY geo/osmmesh/ geo/osmmesh/
 # whole keeps the vendored tree byte-identical to upstream — no per-file cherry-picking to
 # drift out of sync.
 RUN gcc -O2 -Wall -Itiles -Igeo/osmmesh/include \
-        tiles/main.c tiles/elev.c tiles/cache.c tiles/route.c tiles/tilesrc.c tiles/prefetch.c tiles/raster.c tiles/bake.c tiles/tilemap.c geo/osmmesh/src/*.c \
+        tiles/main.c tiles/elev.c tiles/cache.c tiles/route.c tiles/tilesrc.c tiles/prefetch.c tiles/raster.c tiles/bake.c tiles/tilemap.c tiles/stars.c geo/osmmesh/src/*.c \
         -o /usr/local/bin/fb-tiles -lm -lpthread -lcurl \
     && mkdir -p /var/cache/fbtiles
+# Star catalogue: bounded 53 KB natural constant, baked by tiles/tools/build_stars.py and committed
+# (deterministic, offline image build -- no python/network in the build). Served from /t/stars/z/0/0.
+COPY tiles/stars/ /usr/local/share/fb-stars/
 EXPOSE 8081
 CMD ["/usr/local/bin/fb-tiles"]

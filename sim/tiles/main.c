@@ -4,6 +4,7 @@
 #include "route.h"
 #include "prefetch_api.h"
 #include "bake.h"
+#include "stars.h"
 #include "tilemap_api.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -100,6 +101,18 @@ static void handle(int fd, char *req) {
         return;
     }
 
+    if (!strncmp(path, "/t/stars/", 9)) {
+        /* z = magnitude band, x=y=0 (whole sky). Baked, in-memory, never 404 -> plain 200/404. */
+        int band; long sx = 0, sy = 0;
+        if (sscanf(path + 9, "%d/%ld/%ld", &band, &sx, &sy) < 1 || sx != 0 || sy != 0) {
+            reply(fd, "400 Bad Request", "text/plain", "want /t/stars/<band>/0/0\n"); return; }
+        const uint8_t *body; size_t n;
+        if (!fb_stars_band(band, &body, &n)) {
+            reply(fd, "404 Not Found", "text/plain", "no such band\n"); return; }
+        reply_bin(fd, "application/octet-stream", body, n);
+        return;
+    }
+
     {
         fb_tile_kind k; int z; long x, y;
         if (fb_route_tile(path, &k, &z, &x, &y)) {
@@ -152,6 +165,7 @@ int main(void) {
     const char *cache = getenv("TILES_CACHE") ? getenv("TILES_CACHE") : "/var/cache/fbtiles";
     fb_elev_init(cache);
     fb_bake_init(cache);
+    fb_stars_init(getenv("STARS_DIR") ? getenv("STARS_DIR") : "/usr/local/share/fb-stars");
     fb_pf_start();
 
     int lfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -160,7 +174,7 @@ int main(void) {
     a.sin_family = AF_INET; a.sin_addr.s_addr = INADDR_ANY; a.sin_port = htons(port);
     if (bind(lfd, (struct sockaddr *)&a, sizeof a) < 0) { perror("bind"); return 1; }
     listen(lfd, 16);
-    fprintf(stderr, "[fb-tiles] :%d  cache=%s  (/elev?lat=&lon= , /t/{terrain|vector|imagery}/z/x/y , /health)\n", port, cache);
+    fprintf(stderr, "[fb-tiles] :%d  cache=%s  (/elev?lat=&lon= , /t/{terrain|vector|imagery}/z/x/y , /t/stars/{band}/0/0 , /health)\n", port, cache);
 
     for (;;) {
         int c = accept(lfd, 0, 0);
