@@ -49,8 +49,7 @@ float  g_nz=1.0f;        /* normal load factor (g) -> iNav accelerometer, not ha
 static long   g_bad_dref=0;     /* out-of-range control DREFs rejected (iNav servo glitches) */
 /* live sun/moon ephemeris (filled ~1 Hz in main from real UTC + origin) */
 float  g_sun_el=45, g_sun_az=180, g_moon_el=-10, g_moon_az=0, g_moon_ph=0.5f;
-static int g_inject = 0;   /* XP_INJECT: force a fixed attitude to prove injection (read by physics_step) */
-int g_mode = ST_DISARMED;  /* bridge autopilot mode -> telemetry state (shared via sim_state.h) */
+int g_inject = 0;   /* XP_INJECT: force a fixed attitude to prove injection (read by physics_step) */
 
 /* --- RC flying-wing presets (real models, spread of weights) --- */
 typedef struct { const char *name; double m, b, S, Tmax; } fdm_model_t;

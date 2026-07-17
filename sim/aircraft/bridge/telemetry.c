@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include "telemetry.h"
 #include "msp.h"
+#include "autopilot.h"
 #include "protocol.h"
 #include "../sim_state.h"
 #include "../fdm/weather.h"

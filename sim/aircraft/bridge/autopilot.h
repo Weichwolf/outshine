@@ -4,6 +4,7 @@
 #define FB_AUTOPILOT_H
 #include <time.h>
 
+extern int    g_mode;             /* bridge autopilot mode -> telemetry state (autopilot writes) */
 extern double g_loalt, g_lorad;   /* loiter altitude (m AGL) + orbit radius (m), env-tunable */
 
 /* One autopilot tick: arm sequence, mission/manual/RTH mode select, RC to iNav.

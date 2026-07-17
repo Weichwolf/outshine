@@ -8,6 +8,7 @@
 #include "protocol.h"
 #include "../sim_state.h"
 
+int g_mode = ST_DISARMED;   /* bridge autopilot mode -> telemetry state */
 double g_loalt=500.0, g_lorad=1000.0;  /* autonomous loiter altitude (m AGL) + orbit radius (m), env-tunable */
 
 void autopilot_step(long tick, struct timespec t0, double dt,
