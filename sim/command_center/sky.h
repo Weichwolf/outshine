@@ -36,7 +36,7 @@ static void w3_draw_stars(const w3_cam *C, const w3_atmo *A, const float eye[3])
   static float *dir=0;          /* per visible star: e, u, n, mag -- celestial, eye-independent */
   static int    ndir=0;
   static double dir_at=-1e30;
-  double now=(double)time(NULL);
+  double now = w3_sim_utc>0 ? w3_sim_utc : (double)time(NULL);
   if(!dir || now-dir_at>20.0){
     if(!dir){ dir=(float*)malloc((size_t)w3_nstars*4*sizeof(float)); if(!dir) return; }
     double lst=w3_lst_deg(w3_gmst_deg(now), w3_O.lon);

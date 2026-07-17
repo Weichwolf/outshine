@@ -226,6 +226,9 @@ static void cfg_from_js(char *tiles_url, size_t n){
   if(sl&&*sl) w3_O.lat=atof(sl);
   const char*so=emscripten_run_script_string("(typeof window.FB_ORIGIN_LON==='number'?window.FB_ORIGIN_LON:'').toString()");
   if(so&&*so) w3_O.lon=atof(so);
+  /* Simulated-UTC override (Unix seconds; 0/unset = real time): pins a reproducible night/dusk sky. */
+  const char*su=emscripten_run_script_string("(typeof window.FB_SIM_UTC==='number'?window.FB_SIM_UTC:0).toString()");
+  w3_sim_utc=atof(su);
   snprintf(tiles_url,n,"%s",emscripten_run_script_string("(window.FB_TILES_URL||'').toString()"));
 }
 
