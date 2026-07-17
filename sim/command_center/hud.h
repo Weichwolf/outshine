@@ -36,6 +36,9 @@ static void w3_rline(float ox,float oy,float ca,float sa,float x0,float y0,float
 static void w3_circle(float cx,float cy,float rad,int seg,float r,float g,float b){
   float px=cx+rad,py=cy; for(int i=1;i<=seg;i++){ float a=(float)i/(float)seg*6.2831853f;
     float x=cx+rad*cosf(a),y=cy+rad*sinf(a); w3_line(px,py,x,y,r,g,b); px=x; py=y; } }
+/* A rectangle outline -- the boxed current value on a tape. */
+static void w3_box(float x0,float y0,float x1,float y1,float r,float g,float b){
+  w3_line(x0,y0,x1,y0,r,g,b); w3_line(x1,y0,x1,y1,r,g,b); w3_line(x1,y1,x0,y1,r,g,b); w3_line(x0,y1,x0,y0,r,g,b); }
 /* Full OSD: every telemetry field, computed/derived correctly. The bitmap font only
  * has [ 0-9 A-Z - . : / ], so no '%'/'+': percent is implied by the label, sign shown
  * via '-' plus colour (green=climb/good, amber=caution, red=warning). */
@@ -72,13 +75,34 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
     w3_rline(cx,cy,ca,sa, cx+40,horY+off, cx+260,horY+off, HG_R,HG_G,HG_B);
   }
   float hdg=t->yaw<0?t->yaw+360:t->yaw;
-  /* left column: flight state */
-  w3_printf(14, 14,3,1,1,1,      "ALT %5.0f",t->alt);
-  w3_printf(14, 34,3,0.7f,0.9f,1,"AS  %5.1f",t->airspeed);
-  w3_printf(14, 54,3,1,1,1,      "GS  %5.1f",t->gs);
-  { float v=t->vs, r=1,g=1,b=1; if(v>0.4f){r=0.4f;g=1;b=0.4f;} else if(v<-2.0f){r=1;g=0.7f;b=0.2f;}
-    w3_printf(14,74,3,r,g,b,     "VS  %5.1f",v); }
-  w3_printf(14, 94,3,1,1,1,      "HDG %5.0f",hdg);
+
+  /* ===== Heading tape (top): moving scale centred on heading, boxed value + up-caret, home pointer.
+   * Ticks every 5 deg, labels every 30 (N/03/06/E...). home_bearing is relative to the nose, so on a
+   * nose-centred tape the home marker sits at that offset from centre. ===== */
+  { float hpd=5.f, hy1=40;
+    for(int d=-45; d<=45; d+=5){
+      float sx=cx+(float)d*hpd; int hh=(((int)lroundf(hdg)+d)%360+360)%360;
+      float tk=(hh%30==0)?11.f:6.f; w3_line(sx,hy1,sx,hy1-tk,HG_R,HG_G,HG_B);
+      if(hh%30==0){ char nb[4]; const char*L=nb;
+        if(hh==0)L="N"; else if(hh==90)L="E"; else if(hh==180)L="S"; else if(hh==270)L="W"; else snprintf(nb,4,"%02d",hh/10);
+        w3_text(sx-(L[1]?7.f:3.f),hy1-tk-15,2.f,HG_R,HG_G,HG_B,L); } }
+    w3_line(cx-200,hy1,cx+200,hy1,HG_R,HG_G,HG_B);
+    w3_line(cx-7,hy1+7,cx,hy1,HG_R,HG_G,HG_B); w3_line(cx,hy1,cx+7,hy1+7,HG_R,HG_G,HG_B);       /* up-caret */
+    w3_box(cx-26,hy1+8,cx+26,hy1+30,HG_R,HG_G,HG_B); w3_printf(cx-22,hy1+13,2.f,HG_R,HG_G,HG_B,"%03.0f",hdg);
+    float hb=t->home_bearing; if(hb>44)hb=44; if(hb<-44)hb=-44; float hsx=cx+hb*hpd;
+    w3_line(hsx,hy1-1,hsx-6,hy1-11,HG_R,HG_G,HG_B); w3_line(hsx,hy1-1,hsx+6,hy1-11,HG_R,HG_G,HG_B); w3_line(hsx-6,hy1-11,hsx+6,hy1-11,HG_R,HG_G,HG_B);
+    w3_text(hsx-3,hy1-25,1.4f,HG_R,HG_G,HG_B,"H"); }
+
+  /* ===== Airspeed tape (left): moving vertical scale, boxed TAS + caret; GS secondary below ===== */
+  { float apx=5.f, ax=70.f, as=t->airspeed;
+    for(int d=-24; d<=24; d+=4){
+      float av=as+(float)d; if(av<0.f) continue; float sy=cy-(float)d*apx; int ai=(int)lroundf(av);
+      float tk=(ai%10==0)?11.f:6.f; w3_line(ax,sy,ax-tk,sy,HG_R,HG_G,HG_B);
+      if(ai%10==0) w3_printf(ax-tk-26,sy-4,1.7f,HG_R,HG_G,HG_B,"%3d",ai); }
+    w3_line(ax,cy-150,ax,cy+150,HG_R,HG_G,HG_B);
+    w3_box(ax+3,cy-11,ax+63,cy+11,HG_R,HG_G,HG_B); w3_printf(ax+9,cy-7,2.f,HG_R,HG_G,HG_B,"%3.0f",as);
+    w3_line(ax,cy,ax+3,cy-6,HG_R,HG_G,HG_B); w3_line(ax,cy,ax+3,cy+6,HG_R,HG_G,HG_B);           /* caret at the rail */
+    w3_text(ax+3,cy-30,1.4f,HG_R,HG_G,HG_B,"TAS"); w3_printf(ax+3,cy+18,1.7f,HG_R,HG_G,HG_B,"GS %2.0f",t->gs); }
   /* right column: navigation / power / link / mode */
   w3_printf(W-176,14,3,1,1,1,    "HOME %5.0f",t->home_dist);
   { float v=t->batt, r=0.4f,g=1,b=0.3f; if(v<10.0f){r=1;g=0.3f;b=0.2f;} else if(v<11.0f){r=1;g=0.85f;b=0.2f;}
