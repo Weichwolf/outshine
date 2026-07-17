@@ -202,10 +202,14 @@ static void frame(void){
 }
 
 int main(void){
-  const char*sl=emscripten_run_script_string("(window.FB_ORIGIN_LAT||0).toString()");
-  double la=atof(sl); if(la!=0) g_olat=la;
-  const char*so=emscripten_run_script_string("(window.FB_ORIGIN_LON||0).toString()");
-  double lo=atof(so); if(lo!=0) g_olon=lo;
+  /* Origin from /config.js. The server always emits a NUMBER (the Hameln default when ORIGIN_LAT is
+   * unset), so 0 is a REAL origin -- the equator / prime meridian -- not "missing". typeof separates
+   * a genuinely absent value (config.js never loaded) from 0; the old `!=0` snapped an equatorial
+   * origin back to Hameln. Each result is consumed before the next call (reused buffer, see below). */
+  const char*sl=emscripten_run_script_string("(typeof window.FB_ORIGIN_LAT==='number'?window.FB_ORIGIN_LAT:'').toString()");
+  if(sl&&*sl) g_olat=atof(sl);
+  const char*so=emscripten_run_script_string("(typeof window.FB_ORIGIN_LON==='number'?window.FB_ORIGIN_LON:'').toString()");
+  if(so&&*so) g_olon=atof(so);
   /* emscripten_run_script_string returns a REUSED buffer — copy before the next call, or both
    * pointers end up showing the last value (that bug once put the whole world at 9.385,9.385). */
   char tiles_url[160];
