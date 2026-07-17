@@ -70,10 +70,10 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
   w3_line(fx-7,fy,fx-18,fy,HG_R,HG_G,HG_B); w3_line(fx+7,fy,fx+18,fy,HG_R,HG_G,HG_B); w3_line(fx,fy-7,fx,fy-15,HG_R,HG_G,HG_B);
   /* Compact attitude bar: a SHORT conformal horizon reference at the boresight -- the primary roll +
    * pitch cue now that the full-width horizon line and the bank arc are gone. Its centre and tilt come
-   * from the SAME camera projection as the scene (the verified-conformal sense). The segments are the
-   * same compact length but sit further out (gap ~+/-74 px, ends ~+/-124 px) so the waterline/nose and
-   * FPM keep clear room in the centre -- the steering cue now lives on the far left, so the centre is
-   * just waterline + FPM + this bar. Thin AA. It TILTS with roll and rides the pitch offset --
+   * from the SAME camera projection as the scene (the verified-conformal sense). Two short segments
+   * (~50 px) FLANK the waterline directly, left and right, with just a small clearance gap (start ~+/-36
+   * px, end ~+/-86 px) -- the steering cue moved to the far left, so nothing else sits between them and
+   * the nose. Thin AA. It TILTS with roll and rides the pitch offset --
    * which is what tells it apart from the steering cue (that only slides vertically, never tilts).
    * Centre = the horizon point straight ahead (az=yaw); a second point at +20 deg gives the tilt. */
   { w3_cam HC=w3_cam_from(t->yaw,t->pitch,t->roll,(float[3]){0,0,0}, W3_FOV, (float)W/H, 1.f, 1000.f);
@@ -84,7 +84,7 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
       float zc=d[0]*HC.f[0] +d[1]*HC.f[1] +d[2]*HC.f[2]; if(zc<0.05f)zc=0.05f;
       p[k][0]=cx+Kc*xc/zc; p[k][1]=cy-Kc*yc/zc; }
     float ddx=p[1][0]-p[0][0],ddy=p[1][1]-p[0][1],LL=sqrtf(ddx*ddx+ddy*ddy);
-    if(LL>1.f){ float ux=ddx/LL,uy=ddy/LL, mx=p[0][0],my=p[0][1], half=124.f,gap=74.f;
+    if(LL>1.f){ float ux=ddx/LL,uy=ddy/LL, mx=p[0][0],my=p[0][1], half=86.f,gap=36.f;
       w3_qline(mx-ux*half,my-uy*half, mx-ux*gap,my-uy*gap, 1.0f, HG_R,HG_G,HG_B);
       w3_qline(mx+ux*gap,my+uy*gap, mx+ux*half,my+uy*half, 1.0f, HG_R,HG_G,HG_B); } }
   float hdg=t->yaw<0?t->yaw+360:t->yaw;
