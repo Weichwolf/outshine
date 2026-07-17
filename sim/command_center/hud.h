@@ -5,9 +5,10 @@
 /* ---- HUD (2D lines, pixel coords) ---- */
 /* Regenerated every frame (glBufferData DYNAMIC). Sized for the full OSD: the bitmap
  * font draws ~2 line segments per lit pixel, so all the text + arrows + ladders add up
- * to a few thousand segments. Too small a buffer silently drops the LAST-drawn elements
- * (home arrow, glideslope). 65536 floats = ~6500 segments, comfortably above the OSD. */
-static float w3_hud[65536]; static int w3_hudN;
+ * to a few thousand segments. Too small a buffer silently drops the LAST-drawn elements. The
+ * MIL-STD-1787 pitch ladder + its numbers pushed the count up, so this is sized well above it:
+ * 131072 floats = ~13000 segments. */
+static float w3_hud[131072]; static int w3_hudN;
 static const char*W3_CS=" 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-.:/";
 static const unsigned char W3_FONT[41][5]={
  {0,0,0,0,0},{7,5,5,5,7},{2,6,2,2,7},{7,1,7,4,7},{7,1,7,1,7},{5,5,7,1,1},{7,4,7,1,7},{7,4,7,5,7},{7,1,2,2,2},{7,5,7,5,7},{7,5,7,1,7},
@@ -15,7 +16,7 @@ static const unsigned char W3_FONT[41][5]={
  {5,7,7,5,5},{5,7,7,7,5},{7,5,5,5,7},{7,5,7,4,4},{7,5,5,7,1},{6,5,6,5,5},{7,4,7,1,7},{7,2,2,2,2},{5,5,5,5,7},{5,5,5,5,2},{5,5,7,7,5},{5,5,2,5,5},{5,5,2,2,2},{7,1,2,4,7},
  {0,0,7,0,0},{0,0,0,0,2},{0,2,0,2,0},{1,1,2,4,4}};
 static const char*W3_STN[]={"DISARM","ARMED","CLIMB","LOITER","MANUAL","RTH"};
-static void w3_line(float x0,float y0,float x1,float y1,float r,float g,float b){ if(w3_hudN>65516)return;
+static void w3_line(float x0,float y0,float x1,float y1,float r,float g,float b){ if(w3_hudN>131052)return;
   w3_hud[w3_hudN++]=x0;w3_hud[w3_hudN++]=y0;w3_hud[w3_hudN++]=r;w3_hud[w3_hudN++]=g;w3_hud[w3_hudN++]=b;
   w3_hud[w3_hudN++]=x1;w3_hud[w3_hudN++]=y1;w3_hud[w3_hudN++]=r;w3_hud[w3_hudN++]=g;w3_hud[w3_hudN++]=b; }
 static void w3_gpx(float x,float y,float s,float r,float g,float b){ w3_line(x,y,x+s,y,r,g,b); w3_line(x,y+s*0.5f,x+s,y+s*0.5f,r,g,b); }
@@ -23,13 +24,57 @@ static void w3_text(float x,float y,float s,float r,float g,float b,const char*t
   for(;*t;t++){ char u=*t; if(u>='a'&&u<='z')u-=32; const char*p=strchr(W3_CS,u); int ix=p?(int)(p-W3_CS):0;
     for(int row=0;row<5;row++){ unsigned char m=W3_FONT[ix][row]; for(int c=0;c<3;c++) if(m&(4>>c)) w3_gpx(x+c*s,y+row*s,s,r,g,b);} x+=4*s; } }
 static void w3_printf(float x,float y,float s,float r,float g,float b,const char*fmt,...){ char bb[96]; va_list a; va_start(a,fmt); vsnprintf(bb,96,fmt,a); va_end(a); w3_text(x,y,s,r,g,b,bb); }
+
+/* Rotate (x,y) about (ox,oy) by a screen-space angle given as (ca=cos,sa=sin); y is DOWN. Used to
+ * bank the pitch ladder with roll, all endpoints turned about the boresight. */
+static void w3_rot(float ox,float oy,float ca,float sa,float x,float y,float*rx,float*ry){
+  float dx=x-ox,dy=y-oy; *rx=ox+dx*ca-dy*sa; *ry=oy+dx*sa+dy*ca; }
+/* A line whose two endpoints are first rotated about (ox,oy) by (ca,sa). */
+static void w3_rline(float ox,float oy,float ca,float sa,float x0,float y0,float x1,float y1,float r,float g,float b){
+  float ax,ay,bx,by; w3_rot(ox,oy,ca,sa,x0,y0,&ax,&ay); w3_rot(ox,oy,ca,sa,x1,y1,&bx,&by); w3_line(ax,ay,bx,by,r,g,b); }
+/* Approximate a circle as `seg` chords -- the Flight-Path-Marker ring. */
+static void w3_circle(float cx,float cy,float rad,int seg,float r,float g,float b){
+  float px=cx+rad,py=cy; for(int i=1;i<=seg;i++){ float a=(float)i/(float)seg*6.2831853f;
+    float x=cx+rad*cosf(a),y=cy+rad*sinf(a); w3_line(px,py,x,y,r,g,b); px=x; py=y; } }
 /* Full OSD: every telemetry field, computed/derived correctly. The bitmap font only
  * has [ 0-9 A-Z - . : / ], so no '%'/'+': percent is implied by the label, sign shown
  * via '-' plus colour (green=climb/good, amber=caution, red=warning). */
 static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
   w3_hudN=0; float cx=W/2,cy=H/2;
-  w3_line(cx-24,cy,cx-8,cy,0.4f,1,0.4f); w3_line(cx+8,cy,cx+24,cy,0.4f,1,0.4f); w3_line(cx,cy-8,cx,cy+8,0.4f,1,0.4f);
+  const float RAD=(float)M_PI/180.f, HG_R=0.30f,HG_G=1.0f,HG_B=0.40f;   /* monochrome HUD green */
+  /* Waterline / boresight: the FIXED aircraft reference (nose / longitudinal axis), screen-locked. */
+  w3_line(cx-46,cy,cx-16,cy,HG_R,HG_G,HG_B); w3_line(cx+16,cy,cx+46,cy,HG_R,HG_G,HG_B);
+  w3_line(cx-16,cy,cx,cy+9,HG_R,HG_G,HG_B);  w3_line(cx,cy+9,cx+16,cy,HG_R,HG_G,HG_B);
   if(!have){ w3_text(cx-60,30,3,1,0.8f,0.2f,"NO TELEMETRY"); return; }
+
+  /* ==== Primary attitude field: Flight-Path-Marker + Climb-Dive/Pitch ladder (MIL-STD-1787) ====
+   * Conformal vertical scale: an angle e (deg) above the boresight sits at cy - K*tan(e), K from the
+   * camera's 80 deg vertical FOV, so the horizon rung lands on the real horizon in the video. */
+  float K=(H*0.5f)/tanf(40.f*RAD), pitch=t->pitch;
+  float ca=cosf(t->roll*RAD), sa=sinf(t->roll*RAD);   /* ladder banks with roll (sign checked at a banked shot) */
+  /* Flight-Path-Marker: where the velocity vector points. gamma = climb angle from vs/gs; AoA =
+   * pitch - gamma sets it below the waterline. Horizontal drift not modelled yet -> stays on centre. */
+  float gamma=atan2f(t->vs, t->gs>0.5f?t->gs:0.5f)/RAD;
+  float fx=cx, fy=cy - K*tanf((gamma-pitch)*RAD);
+  if(fy<cy-H*0.45f)fy=cy-H*0.45f; if(fy>cy+H*0.45f)fy=cy+H*0.45f;
+  w3_circle(fx,fy,7,10,HG_R,HG_G,HG_B);
+  w3_line(fx-7,fy,fx-18,fy,HG_R,HG_G,HG_B); w3_line(fx+7,fy,fx+18,fy,HG_R,HG_G,HG_B); w3_line(fx,fy-7,fx,fy-15,HG_R,HG_G,HG_B);
+  /* Pitch ladder: rungs every 5 deg, climb solid, dive dashed, numbered, banked about the boresight. */
+  for(int th=-90; th<=90; th+=5){
+    float e=(float)th-pitch; if(e<-46.f||e>46.f) continue;      /* outside the vertical FOV */
+    float y=cy - K*tanf(e*RAD);
+    if(th==0){ w3_rline(cx,cy,ca,sa, cx-260,y, cx-40,y, HG_R,HG_G,HG_B);
+               w3_rline(cx,cy,ca,sa, cx+40,y, cx+260,y, HG_R,HG_G,HG_B); continue; }
+    float GAP=45,LEN=70,tick=(th>0)?8.f:-8.f;                   /* climb tick toward horizon, dive away */
+    if(th>0){ w3_rline(cx,cy,ca,sa, cx-GAP-LEN,y, cx-GAP,y, HG_R,HG_G,HG_B);
+              w3_rline(cx,cy,ca,sa, cx+GAP,y, cx+GAP+LEN,y, HG_R,HG_G,HG_B); }
+    else    { for(float d=0; d<LEN-1; d+=14){ w3_rline(cx,cy,ca,sa, cx-GAP-d,y, cx-GAP-d-8,y, HG_R,HG_G,HG_B);
+                                              w3_rline(cx,cy,ca,sa, cx+GAP+d,y, cx+GAP+d+8,y, HG_R,HG_G,HG_B); } }
+    w3_rline(cx,cy,ca,sa, cx-GAP,y, cx-GAP,y+tick, HG_R,HG_G,HG_B);
+    w3_rline(cx,cy,ca,sa, cx+GAP,y, cx+GAP,y+tick, HG_R,HG_G,HG_B);
+    float lx,ly,rx2,ry2; w3_rot(cx,cy,ca,sa, cx-GAP-LEN-22,y-4,&lx,&ly); w3_rot(cx,cy,ca,sa, cx+GAP+LEN+4,y-4,&rx2,&ry2);
+    int av=th<0?-th:th; w3_printf(lx,ly,1.5f,HG_R,HG_G,HG_B,"%d",av); w3_printf(rx2,ry2,1.5f,HG_R,HG_G,HG_B,"%d",av);
+  }
   float hdg=t->yaw<0?t->yaw+360:t->yaw;
   /* left column: flight state */
   w3_printf(14, 14,3,1,1,1,      "ALT %5.0f",t->alt);
