@@ -203,40 +203,26 @@ static void frame(void){
   SDL_GL_SwapWindow(win);
 }
 
-int main(void){
-  /* Origin from /config.js. The server always emits a NUMBER (the Hameln default when ORIGIN_LAT is
-   * unset), so 0 is a REAL origin -- the equator / prime meridian -- not "missing". typeof separates
-   * a genuinely absent value (config.js never loaded) from 0; the old `!=0` snapped an equatorial
-   * origin back to Hameln. Each result is consumed before the next call (reused buffer, see below). */
+/* All runtime config /config.js puts on window: the origin (home) coords into w3_O, the fb-tiles
+ * base URL into the caller's buffer.
+ *
+ * The server always emits FB_ORIGIN_LAT/LON as a NUMBER (the Hameln default when the env is unset),
+ * so 0 is a REAL origin -- the equator / prime meridian -- not "missing". typeof separates a
+ * genuinely absent value (config.js never loaded) from 0; an earlier `!=0` snapped an equatorial
+ * origin back to Hameln. emscripten_run_script_string returns a REUSED buffer, so each result is
+ * consumed before the next call (holding two once put the whole world at 9.385,9.385). */
+static void cfg_from_js(char *tiles_url, size_t n){
   const char*sl=emscripten_run_script_string("(typeof window.FB_ORIGIN_LAT==='number'?window.FB_ORIGIN_LAT:'').toString()");
   if(sl&&*sl) w3_O.lat=atof(sl);
   const char*so=emscripten_run_script_string("(typeof window.FB_ORIGIN_LON==='number'?window.FB_ORIGIN_LON:'').toString()");
   if(so&&*so) w3_O.lon=atof(so);
-  /* emscripten_run_script_string returns a REUSED buffer — copy before the next call, or both
-   * pointers end up showing the last value (that bug once put the whole world at 9.385,9.385). */
-  char tiles_url[160];
-  snprintf(tiles_url,sizeof tiles_url,"%s",
-           emscripten_run_script_string("(window.FB_TILES_URL||'').toString()"));
+  snprintf(tiles_url,n,"%s",emscripten_run_script_string("(window.FB_TILES_URL||'').toString()"));
+}
 
-  SDL_Init(SDL_INIT_VIDEO|SDL_INIT_GAMECONTROLLER);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,SDL_GL_CONTEXT_PROFILE_ES);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION,3);   /* WebGL2 — VideoFrame texture upload */
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION,0);
-  SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE,16);
-  win=SDL_CreateWindow("FlightBox",0,0,WIN_W,WIN_H,SDL_WINDOW_OPENGL);
-  SDL_GL_CreateContext(win);
-
-  emscripten_webgl_enable_extension(emscripten_webgl_get_current_context(),"EXT_texture_filter_anisotropic");
-
-  { double he=fb_fetch_elev(w3_O.lat,w3_O.lon);   /* seed camera lift before streaming; else spawn is underground */
-    if(he>-1e8){ w3_seed_yoff((float)he); printf("[cc] origin ground %.1f m (/elev), camera seeded\n",he); }
-    else printf("[cc] /elev unreachable at startup — lift waits for the origin tile\n"); }
-  /* Stream every tile on demand from fb-tiles — works at ANY origin on earth. */
-  if(tiles_url[0] && world3d_tiles_open(tiles_url,w3_O.lat,w3_O.lon))
-    printf("[cc] tiles: streaming from %s, origin %.4f/%.4f\n",tiles_url,w3_O.lat,w3_O.lon);
-  else printf("[cc] no tiles url or open failed — procedural fallback\n");
-  world3d_init();
-
+/* All render targets and the present pipeline: the video FBO (colour+depth), the 4x MSAA FBO the
+ * scene renders into, the decoded-frame texture, the upscale shader + quad, the readback buffer and
+ * the WebCodecs encoder. Needs a live GL context (call after world3d_init). */
+static void gl_targets_init(void){
   /* video FBO (colour texture + depth), decoded-frame texture, present shader + quad */
   vid_tex = 0; glGenTextures(1,&vid_tex); glBindTexture(GL_TEXTURE_2D,vid_tex);
   glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,CAM_W,CAM_H,0,GL_RGBA,GL_UNSIGNED_BYTE,0);
@@ -279,13 +265,42 @@ int main(void){
   readback=(unsigned char*)malloc((size_t)CAM_W*CAM_H*4);
   codec_ready=fb_codec_init(CAM_W,CAM_H);
   printf("[cc] video codec %s\n", codec_ready?"ON (H.264 link)":"OFF (raw upscale)");
+}
 
+/* Open the telemetry/control WebSocket back to the server that served the page. */
+static void net_init(void){
   char url[256]; const char*host=emscripten_run_script_string("location.host");
   snprintf(url,sizeof url,"ws://%s/ws",host&&*host?host:"127.0.0.1:8080");
   EmscriptenWebSocketCreateAttributes attr={url,NULL,EM_TRUE}; ws=emscripten_websocket_new(&attr);
   emscripten_websocket_set_onopen_callback(ws,0,on_open);
   emscripten_websocket_set_onclose_callback(ws,0,on_close);
   emscripten_websocket_set_onmessage_callback(ws,0,on_msg);
+}
+
+int main(void){
+  char tiles_url[160];
+  cfg_from_js(tiles_url, sizeof tiles_url);
+
+  SDL_Init(SDL_INIT_VIDEO|SDL_INIT_GAMECONTROLLER);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,SDL_GL_CONTEXT_PROFILE_ES);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION,3);   /* WebGL2 — VideoFrame texture upload */
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION,0);
+  SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE,16);
+  win=SDL_CreateWindow("FlightBox",0,0,WIN_W,WIN_H,SDL_WINDOW_OPENGL);
+  SDL_GL_CreateContext(win);
+  emscripten_webgl_enable_extension(emscripten_webgl_get_current_context(),"EXT_texture_filter_anisotropic");
+
+  { double he=fb_fetch_elev(w3_O.lat,w3_O.lon);   /* seed camera lift before streaming; else spawn is underground */
+    if(he>-1e8){ w3_seed_yoff((float)he); printf("[cc] origin ground %.1f m (/elev), camera seeded\n",he); }
+    else printf("[cc] /elev unreachable at startup — lift waits for the origin tile\n"); }
+  /* Stream every tile on demand from fb-tiles — works at ANY origin on earth. */
+  if(tiles_url[0] && world3d_tiles_open(tiles_url,w3_O.lat,w3_O.lon))
+    printf("[cc] tiles: streaming from %s, origin %.4f/%.4f\n",tiles_url,w3_O.lat,w3_O.lon);
+  else printf("[cc] no tiles url or open failed — procedural fallback\n");
+  world3d_init();
+
+  gl_targets_init();
+  net_init();
   emscripten_set_main_loop(frame,0,1);
   return 0;
 }
