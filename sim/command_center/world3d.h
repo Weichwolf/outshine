@@ -253,50 +253,35 @@ static void world3d_init(void){
 #endif
   w3_build_procedural();
 }
-/* Render just the 3D world (the aircraft "camera image") into the bound framebuffer.
- * The HUD is drawn separately (world3d_render_hud) so it can be overlaid on top of the
- * decoded video, not encoded into it. */
-static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
-  float RAD=(float)M_PI/180.f;
-  glViewport(0,0,W,H); glEnable(GL_DEPTH_TEST); glClearColor(0.55f,0.70f,0.90f,1); glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-  float px=have?t->x:0, py=(have&&t->alt>2)?t->alt:120, pz=have?-t->y:0;
-#ifdef W3_USE_OSM
-  if(w3_frame.nD>0) py=(have&&t->alt>1?t->alt:2)+w3_O.yoff;   /* AGL above the osmmesh ground */
-#endif
-  /* Basis and MVP from the attitude — pure maths, so it lives in camera.h and is testable there.
-   * The roll sign is the one that once made a right bank look like a left bank; a screenshot
-   * cannot catch that, a test can. The eye position stays HERE because it needs w3_O.yoff, which
-   * belongs to the tile side. The aliases keep every consumer below unchanged. */
-  const float eye[3]={px,py,pz};
-  const w3_cam C = w3_cam_from(have?t->yaw:0, have?t->pitch:0, have?t->roll:0,
-                               eye, W3_FOV, (float)W/H, W3_NEAR, W3_FARPLANE);
-  const float *f=C.f, *sr=C.sr, *up=C.up, *mvp=C.mvp;
+/* ---- the render passes, one function each -------------------------------------------------
+ * world3d_render_scene was a monolith: sky, stars, terrain and the fallback all inline, sharing
+ * per-frame locals. Each pass is now its own function taking the frame's camera (w3_cam) and
+ * atmosphere (w3_atmo). Pure code move -- the GL state order is unchanged, and the day thresholds
+ * (atmo linear / sky-shader smoothstep / the <0.6 star cutoff below) are preserved EXACTLY; unifying
+ * them into one model is a separate visual decision, not this refactor. */
 
-  /* ---- environment: sun/moon direction, sky colour, light level ----
-   * The arithmetic lives in atmo.h because it is pure and therefore testable, and because these
-   * values are NOT the sky's: `haze`/`light`/`sun` are read by the terrain pass below and `haze`
-   * again by the buildings. They were locals that three passes happened to share -- per-frame
-   * state with no name and no owner. The names below are aliases so that every consumer stays
-   * exactly as it was; threading `A` through them is a separate step with its own proof. */
-  const w3_atmo A = w3_atmo_from(t, have);
-  const float *sun=A.sun, *moon=A.moon, *haze=A.haze;
-  const float day=A.day, light=A.light, cloud=A.cloud, moon_ph=A.moon_ph;
-  /* draw the sky first, depth writes off, so terrain paints over it */
+/* Sky dome: fullscreen quad, per-pixel ray from the camera basis; depth writes OFF so the terrain
+ * paints over it. `aspect` is the viewport W/H the projection used (not carried in w3_cam). */
+static void w3_draw_sky(const w3_cam *C, const w3_atmo *A, float aspect){
+  const float RAD=(float)M_PI/180.f;
   glDepthMask(GL_FALSE); glDisable(GL_DEPTH_TEST);
   glUseProgram(w3_gl.pSky);
-  glUniform3fv(w3_gl.skF,1,f); glUniform3fv(w3_gl.skS,1,sr); glUniform3fv(w3_gl.skU,1,up);
-  glUniform1f(w3_gl.skTan,tanf(W3_FOV*RAD*0.5f)); glUniform1f(w3_gl.skAsp,(float)W/H);
-  glUniform3fv(w3_gl.skSun,1,sun); glUniform3fv(w3_gl.skMoon,1,moon);
-  glUniform1f(w3_gl.skMoonPh,moon_ph); glUniform1f(w3_gl.skCloud,cloud);
+  glUniform3fv(w3_gl.skF,1,C->f); glUniform3fv(w3_gl.skS,1,C->sr); glUniform3fv(w3_gl.skU,1,C->up);
+  glUniform1f(w3_gl.skTan,tanf(W3_FOV*RAD*0.5f)); glUniform1f(w3_gl.skAsp,aspect);
+  glUniform3fv(w3_gl.skSun,1,A->sun); glUniform3fv(w3_gl.skMoon,1,A->moon);
+  glUniform1f(w3_gl.skMoonPh,A->moon_ph); glUniform1f(w3_gl.skCloud,A->cloud);
   glBindBuffer(GL_ARRAY_BUFFER,w3_gl.skyVBO); glEnableVertexAttribArray(w3_gl.skPos);
   glVertexAttribPointer(w3_gl.skPos,2,GL_FLOAT,GL_FALSE,0,0); glDrawArrays(GL_TRIANGLES,0,6);
   glDisableVertexAttribArray(w3_gl.skPos);
-  /* real stars: place each above-horizon catalogue star at its true alt/az (from wall-clock
-   * sidereal time + origin), far along that direction, additively blended, fading toward day. */
-  if(day<0.6f){
-    /* The celestial maths is in stars.h because it is pure and therefore checkable — Polaris must
-     * stand at the observer's latitude, due north, and nothing in a screenshot says whether it
-     * does. The clock is passed IN rather than read there: an input, not a dependency. */
+}
+
+/* Real stars: place each above-horizon catalogue star at its true alt/az (wall-clock sidereal time +
+ * origin), far along that direction, additively blended, fading toward day. Runs with the sky's
+ * depth-off state. The celestial maths is in stars.h because it is pure and therefore checkable --
+ * Polaris must stand at the observer's latitude, due north, and nothing in a screenshot says whether
+ * it does. The clock is passed IN rather than read there: an input, not a dependency. */
+static void w3_draw_stars(const w3_cam *C, const w3_atmo *A, const float eye[3]){
+  if(A->day<0.6f){
     double lst=w3_lst_deg(w3_gmst_deg((double)time(NULL)), w3_O.lon);
     static float sv[W3_NSTARS*4]; int ns=0;
     for(int i=0;i<W3_NSTARS;i++){
@@ -307,7 +292,7 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
     }
     if(ns>0){
       glEnable(GL_BLEND); glBlendFunc(GL_ONE,GL_ONE);
-      glUseProgram(w3_gl.pStar); glUniformMatrix4fv(w3_gl.stMVP,1,GL_FALSE,mvp); glUniform1f(w3_gl.stDay,day);
+      glUseProgram(w3_gl.pStar); glUniformMatrix4fv(w3_gl.stMVP,1,GL_FALSE,C->mvp); glUniform1f(w3_gl.stDay,A->day);
       glBindBuffer(GL_ARRAY_BUFFER,w3_gl.starVBO); glBufferData(GL_ARRAY_BUFFER,(size_t)ns*16,sv,GL_DYNAMIC_DRAW);
       glEnableVertexAttribArray(w3_gl.stPos); glEnableVertexAttribArray(w3_gl.stMag);
       glVertexAttribPointer(w3_gl.stPos,3,GL_FLOAT,GL_FALSE,16,0);
@@ -317,37 +302,70 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
       glDisable(GL_BLEND);
     }
   }
+}
+
+#ifdef W3_USE_OSM
+/* Textured terrain: one quadtree cut (w3_D), one draw per chunk, frustum-culled at DRAW time --
+ * rotation moves the frustum every frame while the walk sleeps, and keeping the walk view-independent
+ * is what holds tiles / picks LOD by distance alone. No polygon offset, no draw order: the chunks are
+ * a CUT through the tree, so they tile the ground without overlapping -- nothing to bias apart. */
+static void w3_draw_terrain(const w3_cam *C, const w3_atmo *A){
+  glUseProgram(w3_gl.pWT); glUniformMatrix4fv(w3_gl.wtMVP,1,GL_FALSE,C->mvp);
+  glUniform3fv(w3_gl.wtHaze,1,A->haze); glUniform1f(w3_gl.wtLight,A->light); glUniform3fv(w3_gl.wtSun,1,A->sun);
+  glActiveTexture(GL_TEXTURE0); glUniform1i(w3_gl.wtTex,0);
+  glEnableVertexAttribArray(w3_gl.wtPos); glEnableVertexAttribArray(w3_gl.wtUV); glEnableVertexAttribArray(w3_gl.wtNorm);
+  const w3_frustum fr=w3_frustum_from(C->mvp);
+  w3_frame.nvis=0;
+  for(int i=0;i<w3_frame.nD;i++){
+    if(!w3_aabb_visible(&fr,w3_D[i].bmin,w3_D[i].bmax)) continue;
+    w3_frame.nvis++;
+    /* THE ground switch, in full: an index. Both albedos are already on the GPU. */
+    GLuint _t=w3_D[i].tex[w3_ground.mode]; if(!_t)_t=w3_D[i].tex[W3_GROUND_OSM];
+    glBindTexture(GL_TEXTURE_2D,_t); glBindBuffer(GL_ARRAY_BUFFER,w3_D[i].vbo);
+    glVertexAttribPointer(w3_gl.wtPos,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(pos));
+    glVertexAttribPointer(w3_gl.wtUV,2,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(uv));
+    glVertexAttribPointer(w3_gl.wtNorm,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(norm));
+    glDrawArrays(GL_TRIANGLES,0,w3_D[i].nverts);
+  }
+  glDisableVertexAttribArray(w3_gl.wtUV); glDisableVertexAttribArray(w3_gl.wtNorm);
+}
+#endif
+
+/* Fallback ground: the procedural wire terrain + buildings, drawn when no OSM tiles are resident. */
+static void w3_draw_fallback(const w3_cam *C, const w3_atmo *A){
+  glUseProgram(w3_gl.pW); glUniformMatrix4fv(w3_gl.wMVP,1,GL_FALSE,C->mvp); glUniform3fv(w3_gl.wHaze,1,A->haze); glUniform1f(w3_gl.wLight,A->light); glEnableVertexAttribArray(w3_gl.wPos); glEnableVertexAttribArray(w3_gl.wCol);
+  glBindBuffer(GL_ARRAY_BUFFER,w3_gl.vTerr); glVertexAttribPointer(w3_gl.wPos,3,GL_FLOAT,GL_FALSE,24,0); glVertexAttribPointer(w3_gl.wCol,3,GL_FLOAT,GL_FALSE,24,(void*)12); glDrawArrays(GL_TRIANGLES,0,w3_gl.nTerr);
+  glBindBuffer(GL_ARRAY_BUFFER,w3_gl.vBld); glVertexAttribPointer(w3_gl.wPos,3,GL_FLOAT,GL_FALSE,24,0); glVertexAttribPointer(w3_gl.wCol,3,GL_FLOAT,GL_FALSE,24,(void*)12); glDrawArrays(GL_TRIANGLES,0,w3_gl.nBld);
+  glDisableVertexAttribArray(w3_gl.wCol);
+}
+
+/* Render just the 3D world (the aircraft "camera image") into the bound framebuffer -- the four
+ * passes in order, over the frame's camera + atmosphere. The HUD is drawn separately
+ * (world3d_render_hud) so it can be overlaid on top of the decoded video, not encoded into it. */
+static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
+  glViewport(0,0,W,H); glEnable(GL_DEPTH_TEST); glClearColor(0.55f,0.70f,0.90f,1); glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+  float px=have?t->x:0, py=(have&&t->alt>2)?t->alt:120, pz=have?-t->y:0;
+#ifdef W3_USE_OSM
+  if(w3_frame.nD>0) py=(have&&t->alt>1?t->alt:2)+w3_O.yoff;   /* AGL above the osmmesh ground */
+#endif
+  /* Basis and MVP from the attitude — pure maths, so it lives in camera.h and is testable there.
+   * The roll sign is the one that once made a right bank look like a left bank; a screenshot cannot
+   * catch that, a test can. The eye position stays HERE because it needs w3_O.yoff (tile side). */
+  const float eye[3]={px,py,pz};
+  const w3_cam C = w3_cam_from(have?t->yaw:0, have?t->pitch:0, have?t->roll:0,
+                               eye, W3_FOV, (float)W/H, W3_NEAR, W3_FARPLANE);
+  /* The frame's atmosphere (sun/moon/sky/light) lives in atmo.h because it is pure and testable;
+   * sky, stars and terrain all read it, so it is derived ONCE and threaded through as `A`. */
+  const w3_atmo A = w3_atmo_from(t, have);
+
+  w3_draw_sky(&C, &A, (float)W/H);
+  w3_draw_stars(&C, &A, eye);
   glDepthMask(GL_TRUE); glEnable(GL_DEPTH_TEST);
 #ifdef W3_USE_OSM
-  if(w3_frame.nD>0){                       /* textured terrain: one quadtree cut, one draw per chunk */
-    glUseProgram(w3_gl.pWT); glUniformMatrix4fv(w3_gl.wtMVP,1,GL_FALSE,mvp);
-    glUniform3fv(w3_gl.wtHaze,1,haze); glUniform1f(w3_gl.wtLight,light); glUniform3fv(w3_gl.wtSun,1,sun);
-    glActiveTexture(GL_TEXTURE0); glUniform1i(w3_gl.wtTex,0);
-    glEnableVertexAttribArray(w3_gl.wtPos); glEnableVertexAttribArray(w3_gl.wtUV); glEnableVertexAttribArray(w3_gl.wtNorm);
-    /* No polygon offset, no draw order, no coarse-to-fine: the chunks in w3_D are a CUT through
-     * the tree, so they tile the ground without overlapping. There is nothing to bias apart. */
-    /* Cull here, not in the walk: rotation moves the frustum every frame while the walk sleeps, and
-     * keeping the walk view-independent is what holds tiles / picks LOD by distance alone. */
-    const w3_frustum fr=w3_frustum_from(mvp);
-    w3_frame.nvis=0;
-    for(int i=0;i<w3_frame.nD;i++){
-      if(!w3_aabb_visible(&fr,w3_D[i].bmin,w3_D[i].bmax)) continue;
-      w3_frame.nvis++;
-      /* THE ground switch, in full: an index. Both albedos are already on the GPU. */
-      GLuint _t=w3_D[i].tex[w3_ground.mode]; if(!_t)_t=w3_D[i].tex[W3_GROUND_OSM];
-      glBindTexture(GL_TEXTURE_2D,_t); glBindBuffer(GL_ARRAY_BUFFER,w3_D[i].vbo);
-      glVertexAttribPointer(w3_gl.wtPos,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(pos));
-      glVertexAttribPointer(w3_gl.wtUV,2,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(uv));
-      glVertexAttribPointer(w3_gl.wtNorm,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(norm));
-      glDrawArrays(GL_TRIANGLES,0,w3_D[i].nverts);
-    }
-    glDisableVertexAttribArray(w3_gl.wtUV); glDisableVertexAttribArray(w3_gl.wtNorm);
-  } else
+  if(w3_frame.nD>0) w3_draw_terrain(&C, &A);
+  else
 #endif
-  { glUseProgram(w3_gl.pW); glUniformMatrix4fv(w3_gl.wMVP,1,GL_FALSE,mvp); glUniform3fv(w3_gl.wHaze,1,haze); glUniform1f(w3_gl.wLight,light); glEnableVertexAttribArray(w3_gl.wPos); glEnableVertexAttribArray(w3_gl.wCol);
-    glBindBuffer(GL_ARRAY_BUFFER,w3_gl.vTerr); glVertexAttribPointer(w3_gl.wPos,3,GL_FLOAT,GL_FALSE,24,0); glVertexAttribPointer(w3_gl.wCol,3,GL_FLOAT,GL_FALSE,24,(void*)12); glDrawArrays(GL_TRIANGLES,0,w3_gl.nTerr);
-    glBindBuffer(GL_ARRAY_BUFFER,w3_gl.vBld); glVertexAttribPointer(w3_gl.wPos,3,GL_FLOAT,GL_FALSE,24,0); glVertexAttribPointer(w3_gl.wCol,3,GL_FLOAT,GL_FALSE,24,(void*)12); glDrawArrays(GL_TRIANGLES,0,w3_gl.nBld);
-    glDisableVertexAttribArray(w3_gl.wCol); }
+    w3_draw_fallback(&C, &A);
 }
 /* There was a world3d_render() here that called scene+HUD back to back, "for the native offscreen
  * renderer". That renderer is gone (f36f147) and it was the last caller, so the function outlived
