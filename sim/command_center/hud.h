@@ -68,21 +68,23 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
   if(fy<cy-H*0.45f)fy=cy-H*0.45f; if(fy>cy+H*0.45f)fy=cy+H*0.45f;
   w3_circle(fx,fy,7,10,HG_R,HG_G,HG_B);
   w3_line(fx-7,fy,fx-18,fy,HG_R,HG_G,HG_B); w3_line(fx+7,fy,fx+18,fy,HG_R,HG_G,HG_B); w3_line(fx,fy-7,fx,fy-15,HG_R,HG_G,HG_B);
-  /* Conformal horizon: project two elevation-0 world directions through the SAME camera the scene
-   * uses (w3_cam_from), so the green line lies EXACTLY on the video terrain/sky edge at every pitch
-   * AND roll -- position and tilt both fall out of the projection, no separate rotate-about-boresight
-   * that could drift off. Drawn as a thin AA quad (w3_qline) with a central gap for the boresight. */
+  /* Compact attitude bar: a SHORT conformal horizon reference at the boresight -- the primary roll +
+   * pitch cue now that the full-width horizon line and the bank arc are gone. Its centre and tilt come
+   * from the SAME camera projection as the scene (the verified-conformal sense), clipped to ~+/-70 px
+   * with a central gap for the waterline, thin AA. It TILTS with roll and rides the pitch offset --
+   * which is what tells it apart from the steering cue (that only slides vertically, never tilts).
+   * Centre = the horizon point straight ahead (az=yaw); a second point at +20 deg gives the tilt. */
   { w3_cam HC=w3_cam_from(t->yaw,t->pitch,t->roll,(float[3]){0,0,0}, W3_FOV, (float)W/H, 1.f, 1000.f);
-    float Kc=(H*0.5f)/tanf(W3_FOV*0.5f*RAD), ex[2],ey[2];
-    for(int k=0;k<2;k++){ float az=(t->yaw+(k?55.f:-55.f))*RAD; float d[3]={sinf(az),0.f,-cosf(az)};
+    float Kc=(H*0.5f)/tanf(W3_FOV*0.5f*RAD), p[2][2];
+    for(int k=0;k<2;k++){ float az=(t->yaw+(k?20.f:0.f))*RAD; float d[3]={sinf(az),0.f,-cosf(az)};
       float xc=d[0]*HC.sr[0]+d[1]*HC.sr[1]+d[2]*HC.sr[2];
       float yc=d[0]*HC.up[0]+d[1]*HC.up[1]+d[2]*HC.up[2];
       float zc=d[0]*HC.f[0] +d[1]*HC.f[1] +d[2]*HC.f[2]; if(zc<0.05f)zc=0.05f;
-      ex[k]=cx+Kc*xc/zc; ey[k]=cy-Kc*yc/zc; }
-    float ddx=ex[1]-ex[0],ddy=ey[1]-ey[0],LL=sqrtf(ddx*ddx+ddy*ddy);
-    if(LL>1.f){ float ux=ddx/LL,uy=ddy/LL, mx=(ex[0]+ex[1])*0.5f,my=(ey[0]+ey[1])*0.5f, gap=40.f;
-      w3_qline(ex[0],ey[0], mx-ux*gap,my-uy*gap, 1.0f, HG_R,HG_G,HG_B);
-      w3_qline(mx+ux*gap,my+uy*gap, ex[1],ey[1], 1.0f, HG_R,HG_G,HG_B); } }
+      p[k][0]=cx+Kc*xc/zc; p[k][1]=cy-Kc*yc/zc; }
+    float ddx=p[1][0]-p[0][0],ddy=p[1][1]-p[0][1],LL=sqrtf(ddx*ddx+ddy*ddy);
+    if(LL>1.f){ float ux=ddx/LL,uy=ddy/LL, mx=p[0][0],my=p[0][1], half=70.f,gap=16.f;
+      w3_qline(mx-ux*half,my-uy*half, mx-ux*gap,my-uy*gap, 1.0f, HG_R,HG_G,HG_B);
+      w3_qline(mx+ux*gap,my+uy*gap, mx+ux*half,my+uy*half, 1.0f, HG_R,HG_G,HG_B); } }
   float hdg=t->yaw<0?t->yaw+360:t->yaw;
 
   /* ===== Heading tape (top): moving scale centred on heading, boxed value + up-caret, home pointer.
@@ -128,24 +130,13 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
     w3_printf(axr-63,cy+18,1.6f,HG_R,HG_G,HG_B,"AGL%4.0f",w3_agl);
     w3_printf(axr-63,cy+36,1.6f,HG_R,HG_G,HG_B,"VS%+4.0f",t->vs); }
 
-  /* ===== Bank arc (top): fixed tick scale at 0/10/20/30/45/60 deg each side, centred on the boresight;
-   * a sky-pointer triangle rides it at the current roll (points radially in). Roll sign matches the
-   * conformal horizon -- verify against a banked shot. ===== */
-  { float R=205.f; int bt[]={-60,-45,-30,-20,-10,10,20,30,45,60};
-    for(int i=0;i<10;i++){ float b=(float)bt[i]*RAD, ba=(bt[i]<0?-bt[i]:bt[i]);
-      float tk=(ba==30||ba==45||ba==60)?12.f:8.f;
-      w3_line(cx+R*sinf(b),cy-R*cosf(b), cx+(R-tk)*sinf(b),cy-(R-tk)*cosf(b), HG_R,HG_G,HG_B); }
-    w3_line(cx-7,cy-R-9,cx,cy-R,HG_R,HG_G,HG_B); w3_line(cx,cy-R,cx+7,cy-R-9,HG_R,HG_G,HG_B);   /* 0-deg top index */
-    float rb=t->roll*RAD, px=cx+R*sinf(rb), py=cy-R*cosf(rb);
-    float ivx=-sinf(rb),ivy=cosf(rb), pvx=cosf(rb),pvy=sinf(rb);      /* inward + perpendicular */
-    float apx=px+ivx*13,apy=py+ivy*13, c1x=px+pvx*7,c1y=py+pvy*7, c2x=px-pvx*7,c2y=py-pvy*7;
-    w3_qline(apx,apy,c1x,c1y,1.3f,HG_R,HG_G,HG_B); w3_qline(apx,apy,c2x,c2y,1.3f,HG_R,HG_G,HG_B); w3_qline(c1x,c1y,c2x,c2y,1.3f,HG_R,HG_G,HG_B); }
-
-  /* ===== Glideslope / steering cue (centre): a horizontal deviation bar. glideslope_err > 0 means
-   * ABOVE the ideal approach path, so the bar sits BELOW the boresight -- fly down to centre it on the
-   * waterline. README A7 instrument homing. ===== */
+  /* ===== Glideslope / steering cue (centre): a horizontal deviation bar with short inner down-ticks
+   * (a distinct "goal-post" shape, so it never reads like the tilting attitude bar). glideslope_err > 0
+   * means ABOVE the ideal approach path, so the bar sits BELOW the boresight -- fly down to centre it.
+   * Always horizontal, only slides vertically. README A7 instrument homing. ===== */
   { float gsy=cy + t->glideslope_err*22.f; if(gsy<cy-120)gsy=cy-120; if(gsy>cy+120)gsy=cy+120;
-    w3_qline(cx-72,gsy,cx-28,gsy,1.1f,HG_R,HG_G,HG_B); w3_qline(cx+28,gsy,cx+72,gsy,1.1f,HG_R,HG_G,HG_B); }
+    w3_qline(cx-72,gsy,cx-28,gsy,1.1f,HG_R,HG_G,HG_B); w3_qline(cx+28,gsy,cx+72,gsy,1.1f,HG_R,HG_G,HG_B);
+    w3_qline(cx-28,gsy,cx-28,gsy+7,1.1f,HG_R,HG_G,HG_B); w3_qline(cx+28,gsy,cx+28,gsy+7,1.1f,HG_R,HG_G,HG_B); }
   /* ===== Secondary data + annunciations at the EDGES (the primary attitude field stays clean).
    * Green monochrome; only battery/link CAUTION breaks to amber/red -- a safety convention MIL-STD
    * allows even on a mono HUD. The old home arrow (now the heading-tape pointer), the old white
