@@ -93,11 +93,16 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
    * Ticks every 5 deg, labels every 30 (N/03/06/E...). home_bearing is relative to the nose, so on a
    * nose-centred tape the home marker sits at that offset from centre. ===== */
   { float hpd=5.f, hy1=40;
-    for(int d=-45; d<=45; d+=5){
-      float sx=cx+(float)d*hpd; int hh=(((int)lroundf(hdg)+d)%360+360)%360;
-      float tk=(hh%30==0)?11.f:6.f; w3_line(sx,hy1,sx,hy1-tk,HG_R,HG_G,HG_B);
-      if(hh%30==0){ char nb[4]; const char*L=nb;
-        if(hh==0)L="N"; else if(hh==90)L="E"; else if(hh==180)L="S"; else if(hh==270)L="W"; else snprintf(nb,4,"%02d",hh/10);
+    /* Iterate the actual heading marks (mult of 5) in the visible window, each at its TRUE continuous
+     * position cx+(hh-hdg)*hpd. The old code snapped d to a tick grid relative to lroundf(hdg), so a
+     * 30-deg label only landed on a tick when the heading rounded to a mult of 5 -- it BLINKED on/off as
+     * the tape scrolled. Continuous positions -> labels always shown, and the scale scrolls smoothly. */
+    for(int hh=(int)floorf((hdg-45.f)/5.f)*5; hh<=(int)hdg+45; hh+=5){
+      float sx=cx+((float)hh-hdg)*hpd; if(sx<cx-202.f||sx>cx+202.f) continue;
+      int hn=((hh%360)+360)%360;
+      float tk=(hn%30==0)?11.f:6.f; w3_line(sx,hy1,sx,hy1-tk,HG_R,HG_G,HG_B);
+      if(hn%30==0){ char nb[4]; const char*L=nb;
+        if(hn==0)L="N"; else if(hn==90)L="E"; else if(hn==180)L="S"; else if(hn==270)L="W"; else snprintf(nb,4,"%02d",hn/10);
         w3_text(sx-(L[1]?7.f:3.f),hy1-tk-15,2.f,HG_R,HG_G,HG_B,L); } }
     w3_line(cx-200,hy1,cx+200,hy1,HG_R,HG_G,HG_B);
     w3_line(cx-7,hy1+7,cx,hy1,HG_R,HG_G,HG_B); w3_line(cx,hy1,cx+7,hy1+7,HG_R,HG_G,HG_B);       /* up-caret */
@@ -108,10 +113,12 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
 
   /* ===== Airspeed tape (left): moving vertical scale, boxed TAS + caret; GS secondary below ===== */
   { float apx=5.f, ax=70.f, as=t->airspeed;
-    for(int d=-24; d<=24; d+=4){
-      float av=as+(float)d; if(av<0.f) continue; float sy=cy-(float)d*apx; int ai=(int)lroundf(av);
-      float tk=(ai%10==0)?11.f:6.f; w3_line(ax,sy,ax-tk,sy,HG_R,HG_G,HG_B);
-      if(ai%10==0) w3_printf(ax-tk-26,sy-4,1.7f,HG_R,HG_G,HG_B,"%3d",ai); }
+    /* Real speed marks (mult of 5) in the window at continuous positions -- same anti-blink fix as the
+     * heading tape (the old value-snapped grid made the mult-of-10 labels flicker with the scroll). */
+    for(int av=(int)floorf((as-30.f)/5.f)*5; av<=(int)as+30; av+=5){
+      if(av<0) continue; float sy=cy-((float)av-as)*apx; if(sy<cy-150.f||sy>cy+150.f) continue;
+      float tk=(av%10==0)?11.f:6.f; w3_line(ax,sy,ax-tk,sy,HG_R,HG_G,HG_B);
+      if(av%10==0) w3_printf(ax-tk-26,sy-4,1.7f,HG_R,HG_G,HG_B,"%3d",av); }
     w3_line(ax,cy-150,ax,cy+150,HG_R,HG_G,HG_B);
     w3_box(ax+3,cy-11,ax+63,cy+11,HG_R,HG_G,HG_B); w3_printf(ax+9,cy-7,2.f,HG_R,HG_G,HG_B,"%3.0f",as);
     w3_line(ax,cy,ax+3,cy-6,HG_R,HG_G,HG_B); w3_line(ax,cy,ax+3,cy+6,HG_R,HG_G,HG_B);           /* caret at the rail */
@@ -121,10 +128,11 @@ static void w3_build_hud(const telem_packet_t*t,int W,int H,int have){
    * GPS) + '<' caret. AGL (height above ground, base-computed = ASL - DEM ground) as a smaller
    * secondary readout below -- the radar-alt slot -- then VS. ===== */
   { float mpx=1.5f, axr=W-70.f, asl=t->alt;
-    for(int d=-100; d<=100; d+=10){
-      float av=asl+(float)d; if(av<0.f) continue; float sy=cy-(float)d*mpx; int ai=(int)lroundf(av);
-      float tk=(ai%20==0)?11.f:6.f; w3_line(axr,sy,axr+tk,sy,HG_R,HG_G,HG_B);
-      if(ai%20==0) w3_printf(axr+tk+3,sy-4,1.6f,HG_R,HG_G,HG_B,"%3d",ai); }
+    /* Real altitude marks (mult of 10) in the window at continuous positions -- same anti-blink fix. */
+    for(int av=(int)floorf((asl-100.f)/10.f)*10; av<=(int)asl+100; av+=10){
+      if(av<0) continue; float sy=cy-((float)av-asl)*mpx; if(sy<cy-150.f||sy>cy+150.f) continue;
+      float tk=(av%20==0)?11.f:6.f; w3_line(axr,sy,axr+tk,sy,HG_R,HG_G,HG_B);
+      if(av%20==0) w3_printf(axr+tk+3,sy-4,1.6f,HG_R,HG_G,HG_B,"%3d",av); }
     w3_line(axr,cy-150,axr,cy+150,HG_R,HG_G,HG_B);
     w3_box(axr-63,cy-11,axr-3,cy+11,HG_R,HG_G,HG_B); w3_printf(axr-58,cy-7,2.f,HG_R,HG_G,HG_B,"%3.0f",asl);
     w3_line(axr,cy,axr-3,cy-6,HG_R,HG_G,HG_B); w3_line(axr,cy,axr-3,cy+6,HG_R,HG_G,HG_B);        /* < caret at the rail */
