@@ -29,4 +29,12 @@ extern double  HOME_LAT, HOME_LON, HOME_ELEV;
 extern fb_atmo ATM;
 extern float   g_nz;
 
+/* bridge autopilot mode (autopilot writes, telemetry + startup log read) */
+extern int   g_mode;
+/* live sun/moon ephemeris (orchestrator writes ~1 Hz, telemetry reads) */
+extern float g_sun_el, g_sun_az, g_moon_el, g_moon_az, g_moon_ph;
+
+/* Link-quality noise borrows the atmosphere's RNG stream (one deterministic sequence per run). */
+#define nrand() fb_atmo_nrand(&ATM)
+
 #endif /* FB_SIM_STATE_H */
