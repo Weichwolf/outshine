@@ -1,0 +1,143 @@
+{
+ "EDDF": {
+  "icao": "EDDF",
+  "runways": [
+   {
+    "ident": "07C",
+    "heading_deg": 69.6,
+    "lat": 50.0326,
+    "lon": 8.53463,
+    "elev_m": 100.3,
+    "length_m": 4000,
+    "surface": "ASP"
+   },
+   {
+    "ident": "25C",
+    "heading_deg": 249.6,
+    "lat": 50.045101,
+    "lon": 8.58698,
+    "elev_m": 110.9,
+    "length_m": 4000,
+    "surface": "ASP"
+   },
+   {
+    "ident": "07L",
+    "heading_deg": 69.6,
+    "lat": 50.037102,
+    "lon": 8.49708,
+    "elev_m": 93.0,
+    "length_m": 2800,
+    "surface": "CON"
+   },
+   {
+    "ident": "25R",
+    "heading_deg": 249.6,
+    "lat": 50.045799,
+    "lon": 8.53372,
+    "elev_m": 107.6,
+    "length_m": 2800,
+    "surface": "CON"
+   },
+   {
+    "ident": "07R",
+    "heading_deg": 69.6,
+    "lat": 50.0275,
+    "lon": 8.53417,
+    "elev_m": 100.0,
+    "length_m": 4000,
+    "surface": "CON"
+   },
+   {
+    "ident": "25L",
+    "heading_deg": 249.6,
+    "lat": 50.0401,
+    "lon": 8.58653,
+    "elev_m": 110.3,
+    "length_m": 4000,
+    "surface": "CON"
+   },
+   {
+    "ident": "18",
+    "heading_deg": 180.0,
+    "lat": 50.034154,
+    "lon": 8.525944,
+    "elev_m": 99.4,
+    "length_m": 4000,
+    "surface": "CON"
+   },
+   {
+    "ident": "36",
+    "heading_deg": 360.0,
+    "lat": 49.998493,
+    "lon": 8.526297,
+    "elev_m": 96.3,
+    "length_m": 4000,
+    "surface": "CON"
+   }
+  ]
+ },
+ "EDDH": {
+  "icao": "EDDH",
+  "runways": [
+   {
+    "ident": "05",
+    "heading_deg": 50.3,
+    "lat": 53.618301,
+    "lon": 9.96371,
+    "elev_m": 9.8,
+    "length_m": 3250,
+    "surface": "ASP"
+   },
+   {
+    "ident": "23",
+    "heading_deg": 230.3,
+    "lat": 53.6371,
+    "lon": 10.0018,
+    "elev_m": 13.1,
+    "length_m": 3250,
+    "surface": "ASP"
+   },
+   {
+    "ident": "15",
+    "heading_deg": 152.8,
+    "lat": 53.6544,
+    "lon": 9.97521,
+    "elev_m": 16.2,
+    "length_m": 3666,
+    "surface": "ASP"
+   },
+   {
+    "ident": "33",
+    "heading_deg": 332.8,
+    "lat": 53.625099,
+    "lon": 10.0005,
+    "elev_m": 10.7,
+    "length_m": 3666,
+    "surface": "ASP"
+   }
+  ]
+ },
+ "EDNY": {
+  "icao": "EDNY",
+  "runways": [
+   {
+    "ident": "06",
+    "heading_deg": 60.0,
+    "lat": 47.666,
+    "lon": 9.49789,
+    "elev_m": 406.6,
+    "length_m": 2356,
+    "surface": "ASP"
+   },
+   {
+    "ident": "24",
+    "heading_deg": 240.0,
+    "lat": 47.676601,
+    "lon": 9.52509,
+    "elev_m": 416.7,
+    "length_m": 2356,
+    "surface": "ASP"
+   }
+  ]
+ }
+}
