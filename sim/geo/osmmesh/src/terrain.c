@@ -82,7 +82,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 /* JPEG stays ENABLED (upstream disabled it): the command center decodes Esri aerial imagery,
  * which is JPEG, and this is the only image decoder we ship. Two stb_image implementations in
- * one link would collide, so the renderer shares this one. See VENDORED.md. */
+ * one link would collide, so the renderer shares this one. stb_image is the one genuinely
+ * third-party piece here (see src/3rdparty/README.md); osmmesh itself is FlightBox code. */
 #define STBI_NO_BMP
 #define STBI_NO_PSD
 #define STBI_NO_TGA

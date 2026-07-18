@@ -20,3 +20,7 @@ sim/aircraft/SITL.elf
 
 # --- windows download markers ---
 *Zone.Identifier
+
+# --- local Claude config (not tracked) ---
+CLAUDE.md
+.claude/
