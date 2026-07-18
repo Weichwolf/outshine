@@ -43,11 +43,13 @@ def spawn(aircraft, lat, lon, wps):
 
 
 def latest():
+    """(mode, alt, lat, lon, diverged) from the last bridge line. diverged=True if the FDM NaN'd
+    (pitch/airspd=nan) even though alt/pos may stay frozen at a finite value."""
     for ln in reversed(sh("podman logs --tail 30 fb-aircraft 2>&1").stdout.splitlines()):
         g = LINE.search(ln)
         if g:
             alt = float("nan") if g.group(2) == "nan" else float(g.group(2))
-            return g.group(1), alt, float(g.group(3)), float(g.group(4))
+            return g.group(1), alt, float(g.group(3)), float(g.group(4)), ("nan" in ln)
     return None
 
 
@@ -68,8 +70,8 @@ def run(mf):
         s = latest()
         if not s:
             continue
-        mode, alt, lat, lon = s
-        if alt != alt:
+        mode, alt, lat, lon, diverged = s
+        if alt != alt or diverged:          # FDM NaN — fail fast, don't burn the timeout
             nan = True
             break
         if mode != "DISARM":
