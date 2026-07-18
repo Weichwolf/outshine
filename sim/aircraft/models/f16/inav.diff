@@ -1,0 +1,13 @@
+# F-16 nav overlay (applied over inav-config.txt by make-eeprom.sh f16 -> models/f16/eeprom.bin).
+# The shared default is tuned for the 15 m/s motor-glider; the 150 m/s jet needs its own nav envelope.
+# Measured stall cause: iNav dropped throttle to 0.40 in the climb -> the jet decelerated -> departed.
+# Fix: keep the throttle floor high so a NAV climb can't bleed speed to a stall.
+set nav_fw_cruise_thr = 1800
+set nav_fw_min_thr = 1500
+set nav_fw_max_thr = 2000
+set nav_fw_pitch2thr = 0
+set nav_fw_loiter_radius = 80000
+set nav_fw_bank_angle = 45
+set nav_auto_climb_rate = 500
+set nav_rth_altitude = 60000
+save

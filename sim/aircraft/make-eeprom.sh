@@ -1,13 +1,23 @@
 #!/usr/bin/env bash
-# Regenerate eeprom.bin reproducibly from inav-config.txt by applying the CLI to a fresh
-# iNav SITL and saving. The SITL scheduler (and thus its CLI) only runs once X-Plane is
-# connected, so we run xp_bridge as a pure sensor responder (XP_NOMSP=1) to satisfy that,
-# which also leaves the MSP/CLI port (5760) free. Run from sim/aircraft/ (needs podman + python3).
+# Regenerate an eeprom reproducibly by applying the CLI to a fresh iNav SITL and saving.
+#   make-eeprom.sh            -> inav-config.txt                        -> eeprom.bin (shared default)
+#   make-eeprom.sh <aircraft> -> inav-config.txt + models/<ac>/inav.diff -> models/<ac>/eeprom.bin
+# The per-aircraft overlay (inav.diff) carries only what differs (nav_fw throttle/bank/loiter per the
+# airframe's speed) — one shared eeprom can't serve a 15 m/s glider and a 150 m/s jet. run.sh picks
+# models/<ac>/eeprom.bin when present. The SITL scheduler/CLI only runs once X-Plane connects, so we
+# run xp_bridge as a pure sensor responder (XP_NOMSP=1). Run from sim/aircraft/ (needs podman+python3).
 set -euo pipefail
 cd "$(dirname "$0")"
 IMG=fb-aircraft
 CN=eeprom-gen
 PORT=5762
+AC="${1:-}"
+CFGS=(inav-config.txt)
+OUT="eeprom.bin"
+if [ -n "$AC" ]; then
+  OUT="models/$AC/eeprom.bin"
+  [ -f "models/$AC/inav.diff" ] && CFGS+=("models/$AC/inav.diff")
+fi
 
 podman rm -f "$CN" >/dev/null 2>&1 || true
 podman run -d --name "$CN" -p ${PORT}:5760 --entrypoint /bin/sh "$IMG" -c '
@@ -25,14 +35,15 @@ for i in $(seq 1 20); do
 done
 sleep 2
 
-python3 - "$PORT" <<'PY'
+python3 - "$PORT" "${CFGS[@]}" <<'PY'
 import socket, sys, time
 port = int(sys.argv[1])
 lines = []
-for raw in open("inav-config.txt"):
-    s = raw.split("#")[0].split(";")[0].strip()
-    if s and s.lower() != "save":
-        lines.append(s)
+for cfg in sys.argv[2:]:
+    for raw in open(cfg):
+        s = raw.split("#")[0].split(";")[0].strip()
+        if s and s.lower() != "save":
+            lines.append(s)
 s = socket.create_connection(("127.0.0.1", port), timeout=5); s.settimeout(0.4)
 def drain():
     try:
@@ -50,6 +61,7 @@ print("applied %d config lines + save" % len(lines))
 PY
 
 sleep 3
-podman cp "$CN":/app/eeprom.bin ./eeprom.bin
+mkdir -p "$(dirname "$OUT")"
+podman cp "$CN":/app/eeprom.bin "$OUT"
 podman rm -f "$CN" >/dev/null 2>&1 || true
-echo "eeprom.bin regenerated ($(stat -c%s eeprom.bin) bytes)"
+echo "$OUT regenerated ($(stat -c%s "$OUT") bytes)${AC:+ [aircraft: $AC]}"
