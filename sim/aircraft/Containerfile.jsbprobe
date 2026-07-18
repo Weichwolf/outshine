@@ -20,8 +20,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends g++ libc6-dev \
 COPY --from=jsbsim /usr/local/include/JSBSim /usr/local/include/JSBSim
 COPY --from=jsbsim /usr/local/lib/ /usr/local/lib/
 WORKDIR /app
-COPY aircraft/fdm/jsb_probe.cpp .
+COPY aircraft/fdm/jsb_probe.cpp aircraft/fdm/jsbsim_adapter.h \
+     aircraft/fdm/jsbsim_adapter.cpp aircraft/fdm/jsb_adapter_test.cpp ./
 COPY aircraft/models/ models/
 RUN g++ -O2 -std=c++17 -I/usr/local/include/JSBSim jsb_probe.cpp \
-        -o /usr/local/bin/jsb_probe /usr/local/lib/libJSBSim.a
-CMD ["/usr/local/bin/jsb_probe", "minisgs_e"]
+        -o /usr/local/bin/jsb_probe /usr/local/lib/libJSBSim.a \
+ && g++ -O2 -std=c++17 -I/usr/local/include/JSBSim -I. \
+        jsb_adapter_test.cpp jsbsim_adapter.cpp \
+        -o /usr/local/bin/jsb_adapter_test /usr/local/lib/libJSBSim.a
+CMD ["/usr/local/bin/jsb_adapter_test", "minisgs_e"]
