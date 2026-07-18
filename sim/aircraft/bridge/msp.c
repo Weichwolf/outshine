@@ -15,7 +15,7 @@ float t_roll=0,t_pitch=0; static int t_yaw=0,t_fix=0,t_sats=0; int t_batt10=126;
 static int t_inav_dth=0,t_inav_dir=0;   /* iNav's own distance/direction to home (MSP_COMP_GPS) */
 static int t_estalt=0;                  /* iNav estimated altitude, cm (MSP_ALTITUDE) */
 static double t_inav_lat=0,t_inav_lon=0;
-uint32_t t_armflags=0; static uint32_t t_modeflags=0;
+uint32_t t_armflags=0; uint32_t t_modeflags=0;   /* MSP_STATUS flightModeFlags: iNavs bestätigte aktive Modi */
 static uint8_t boxids[64]; static int nboxids=0;
 int msp_connect(void){
     int fd=socket(AF_INET,SOCK_STREAM,0);

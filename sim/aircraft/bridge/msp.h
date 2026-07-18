@@ -7,6 +7,7 @@ extern int      msp_fd;            /* <0 until connected */
 extern float    t_roll, t_pitch;   /* iNav attitude, deg (MSP_ATTITUDE) */
 extern int      t_batt10;          /* battery voltage, tenths of a volt */
 extern uint32_t t_armflags;        /* MSP2_INAV_STATUS arming flags */
+extern uint32_t t_modeflags;       /* MSP_STATUS flightModeFlags: iNav confirmed active modes (bit0=ARM,1=ANGLE,2=NAV RTH per box order) */
 
 int  msp_connect(void);
 void msp1(uint8_t cmd, const uint8_t *p, uint8_t n);   /* MSPv1 request */
