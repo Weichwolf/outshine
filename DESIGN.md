@@ -191,26 +191,82 @@ aircraft/<name>/
 - **Grenze:** iNav-SITL ist ein Binary mit einem eeprom → Airframe-Wechsel = Config-Swap +
   Container-Neustart. Kein Live-Multi-Airframe; passt zur Container-Architektur.
 
-## 7. Autonomie/NAV — nativ in iNav
+## 7. Autopilot — Command Center kommandiert, iNav fliegt
 
-**Position: LAUNCH, RTH, Loiter, FW-Autoland, Waypoints laufen NATIV in iNav 9.1.0.** Der
-Companion-Nav-Loop (`autopilot.c:73-118` Vector-Field-Loiter, `:68-72` Alt-Hold, `:42` Climbout)
-wird **gelöscht**. Begründung: der Architekturzweck — echte Firmware, HW-übertragbar — ist
-unterminiert, wenn die Fluglogik in unserem Companion statt in iNav lebt. Auf der echten AR-Wing
-fliegt iNavs native NAV, nicht `autopilot.c`.
+**Position: Das Command Center gibt iNav nur High-Level-Missions-Kommandos; iNav führt sie NATIV
+aus.** LAUNCH, RTH, Loiter, FW-Autoland, Waypoints laufen nativ in iNav 9.1.0. Der Companion-Nav-Loop
+(Vector-Field-Loiter, Alt-Hold-PID, Climbout in `autopilot.c`) wird **gelöscht** — die Fluglogik darf
+nicht in unserem Companion statt in iNav leben, sonst ist „im Sim bewiesen" wertlos. Auf der echten
+Hardware fliegt iNavs native NAV, nicht `autopilot.c`.
+
+*Ist (dev/inav):* der Vector-Field-Loiter ist raus; der Autonom-Zweig engagiert jetzt **natives
+NAV RTH** (`aux 2 8 2` = AUX3, `nav_rth_climb_first=ON_FW_SPIRAL`, `nav_fw_loiter_radius`) als
+„keine-Mission"-Default + RC-Loss-Failsafe. Der frühere Bug (LOITER flog geradeaus von Home weg)
+war genau das Symptom des Nachbaus: das `gate` nullte die Heimwärts-Korrektur beim Radialflug.
 
 | Nativ in iNav (Gehirn) | Dünner Bridge-Glue (sim-legitim) | Gelöscht |
 |---|---|---|
-| LAUNCH/RTH/Loiter/Autoland/Failsafe (via `inav.diff` + AUX) | Senderless Auto-Arm-Edge (`autopilot.c:19-28`) — es gibt keinen Tx im Sim | Vector-Field-Loiter |
-| Waypoints via **MSP_SET_WP über CRSF-Tunnel** (§4) | Control-Uplink → CRSF-RC + Mode-AUX | Alt-Hold-PID, Climbout |
+| LAUNCH/RTH/Loiter/Autoland/Failsafe (via `inav.diff` + AUX) | Senderless Auto-Arm-Edge — kein Tx im Sim | Vector-Field-Loiter |
+| Waypoints via **MSP_SET_WP über CRSF-Tunnel** (§4) | Control-Uplink → CRSF-RC + Mode-AUX; Live-Sticks direkt | Alt-Hold-PID, Climbout |
 
-Die Band-Aids (Slew-Limiter, odir-Hysterese, die die ~200 deg/s Roll-Kicks töteten) entfallen —
-sie waren nötig, WEIL wir iNav diskontinuierliche ANGLE-Befehle fütterten. Erzeugt iNavs native
-FW-NAV in unserem FDM Kicks, ist das ein **echter Bug, den wir finden wollen** (er träfe HW auch).
-MIL-STD-882-konform: iNavs Failsafe ist das echte Sicherheitsnetz; kein verstecktes zweites Gehirn.
+Die Band-Aids (Slew-Limiter, odir-Hysterese gegen ~200 deg/s Roll-Kicks) entfallen — sie waren nötig,
+WEIL wir iNav diskontinuierliche ANGLE-Befehle fütterten. Erzeugt iNavs native FW-NAV in unserem FDM
+Kicks, ist das ein **echter Bug, den wir finden wollen** (er träfe HW auch). MIL-STD-882-konform:
+iNavs Failsafe ist das echte Sicherheitsnetz; kein verstecktes zweites Gehirn.
+
+### 7.1 Kommando-Modell
+
+Das CC spricht wenige High-Level-Befehle, alle → native iNav-NAV via MSP (§4). Nur **Live-Steuerung**
+geht direkt (RC über denselben Funk, iNav in ANGLE/ACRO):
+
+| Kommando | iNav-Mechanismus |
+|---|---|
+| `circle(x,y, radius, alt)` | POSHOLD / WP-HOLD-Loiter um x,y |
+| `goto(gps1→gps2, alt)` | Waypoint-Mission (`MSP_SET_WP`), NAV WP |
+| `land(airport, runway, heading)` | Anflug auf Bahnschwelle + FW-Autoland |
+| `hold` / `rth` | POSHOLD an Ort / NAV RTH heim + Loiter |
+
+### 7.2 AGL/ASL — Terrain lebt im Command Center
+
+**Nur das CC kennt Höhe über Grund** (DEM); iNav hat über GPS ausschließlich Höhe-über-Null (ASL).
+Jede AGL-Vorgabe rechnet das CC per **Bodenhöhe(Zielpunkt) → ASL** um, bevor sie als GPS-Höhe an iNav
+geht. Terrain-Wissen bleibt oben, iNav bekommt reine GPS-Kommandos. Das ist auch das reale
+HW-Analogon: der Companion-Computer trägt die Terrain-DB, der Flight-Controller nicht.
+
+### 7.3 Missionen als Config
+
+Eine **Mission** ist externalisierte Konfiguration (JSON), **identisch geladen von den E2E-Tests UND
+dem Command Center** — dieselbe Datei fliegt im Test und in der Bodenstation:
+
+```json
+{ "aircraft": "c172p",
+  "takeoff": { "airport": "<ICAO>", "runway": "<ident>" },
+  "waypoints": [ { "lat": .., "lon": .., "alt_agl": .. }, … ],
+  "land":     { "airport": "<ICAO>", "runway": "<ident>" } }
+```
+
+Das CC übersetzt sie in die §7.1-Kommandos (AGL→ASL je WP über §7.2) und lädt sie via MSP-over-CRSF
+in iNav. **Auswahl im Command Center per URL-Parameter** — `http://localhost:8080/?mission=<name>`,
+analog zum bestehenden `?ground=`; die E2E-Tests lesen dieselben Missions-Dateien direkt (ohne
+Browser). Eine Mission wählt implizit auch das Flugzeug und den Start-Origin (Takeoff-Flughafen).
+
+### 7.4 Flughafen-Datenbank
+
+Für Start-/Lande-Bahn + **Ausrichtung** braucht es eine Flughafen-DB. **Quelle: OurAirports**
+(Public Domain): `airports.csv` (ICAO/lat/lon/Elevation) + `runways.csv` (Schwellen-Koordinaten,
+`le_heading`/`he_heading`, Länge). Gefilterter statischer Auszug (befestigte Bahnen), **ein Datensatz
+für Tests und CC**. Liefert Bahn-Heading (Start-/Landerichtung) und Schwellen-GPS (Aufsetzpunkt).
 
 ## 8. Test & Verifikation
 
+- **Headless End-to-End-Missionstests (das Autopilot-Orakel):** kein Rendering, keine Bodenstation-
+  GUI. Jeder der drei Flieger (F-16, Cessna 172, Motorsegler) startet von **je einem eigenen
+  Flughafen**, fliegt seine Missions-Wegpunkte (§7.3) und landet wieder. Assertions: Abheben
+  (AGL > Schwelle), **jeder WP im Fangradius getroffen**, sauberer Touchdown nahe Ziel-Bahnschwelle
+  (geringe Sinkrate, Bahn-Heading). „So schnell wie die Simulation zulässt", nicht Echtzeit — wir
+  testen die Sim, nicht die Uhr. **Offene Machbarkeit (zuerst zu klären):** iNav-SITL läuft heute auf
+  einem Realtime-Scheduler; schneller-als-Realtime braucht ggf. Zeitskalierung. Fallback: realtime
+  (langsamer, aber vollautomatisch headless).
 - **Struktur-Invarianten bleiben und werden stärker als Wahrheit:** `coordination(sign)`,
   `coord-turn-rate ≈ g·tan(φ)/V`, `vs ≤ airspeed`, `gs = dPos/dt`, Nicht-Divergenz — Physikgesetze,
   denen JSBSim per Konstruktion gehorcht.
@@ -227,16 +283,21 @@ MIL-STD-882-konform: iNavs Failsafe ist das echte Sicherheitsnetz; kein versteck
 
 Reihenfolge (Fallback bleibt lauffähig, bis der neue Pfad grün ist):
 
-| # | Paket | Owner | Aufwand |
+| # | Paket | Domäne | Status / Aufwand |
 |---|---|---|---|
-| A | Render ECEF Schritt 2 (camera-relative) | renderer-gfx | M *(läuft)* |
-| B | Plugin-Layout + Loader (`aircraft/<name>/`, `run.sh`) + GPS-Fix-Dynamik | inav-firmware | S–M |
-| C | `radio_driver`-vtable (UDP) + MSP-over-CRSF Chunk/Reassembly | inav-firmware | M |
-| D | JSBSim linken + `jsbsim_adapter.cpp` (ein Modell, `FDM_ENGINE`-Switch) | selig-fdm | M |
-| E | EPP-Nurflügel-`physics.xml` authoren (F-16 frei), custom-FDM als A/B-Orakel | selig-fdm | **L** |
-| F | Atmosphäre/Wetter/Thermik auf JSBSim-Winds umrouten | selig-fdm | S |
-| G | eval.py gegen JSBSim neu verankern (Struktur behalten) | verify-measure | M |
-| H | NAV nativ in iNav (Companion ausdünnen) **+** truth-attitude→`--useimu` | inav-firmware **+** selig-fdm | M–L |
+| A | Render ECEF Schritt 2 (camera-relative) | Renderer | M *(Renderer entflochten: present/render/codec-Split, native Present-Auflösung)* |
+| B | Plugin-Layout + Loader + GPS-Fix-Dynamik | iNav/Config | S–M *(`profile.env`-Ansatz da; `manifest.json`/`inav.diff` offen)* |
+| C | `radio_driver`-vtable (UDP) + MSP-over-CRSF Chunk/Reassembly | iNav/Funk | M |
+| D | JSBSim linken + `jsbsim_adapter.cpp` | FDM | **✓ erledigt** — alle 3 Flieger fliegen via JSBSim (`FDM_ENGINE`-Switch) |
+| E | EPP-Nurflügel-`physics.xml` authoren, custom-FDM als A/B-Orakel | FDM | **L** |
+| F | Atmosphäre/Wetter/Thermik auf JSBSim-Winds umrouten | FDM | S |
+| G | eval.py gegen JSBSim neu verankern (Struktur behalten) | Verifikation | M |
+| H | NAV nativ in iNav (Companion ausdünnen) **+** truth-attitude→`--useimu` | iNav/FDM | **in Arbeit** — Vector-Field raus, NAV RTH engagiert (dev/inav); `--useimu` offen |
+| I | **SITL-Zeitfrage** klären (schneller-als-Realtime) | iNav/Test | S — **Gate für E2E** |
+| J | Flughafen-DB (OurAirports → statischer Auszug + Loader) | Daten | S–M |
+| K | Missions-Format + Loader (JSON, Tests **und** CC) | Command | S |
+| L | Command-Layer: `MSP_SET_WP` + AGL→ASL + Takeoff/Land | Command/iNav | M–L |
+| M | Headless E2E (3 Flieger/Flughäfen, Takeoff→WP→Land) | Test | M |
 
 **Cross-cutting (kein Solo-Change):** H koppelt hart — `--useimu` verlangt korrekte body-spezifische
 Kräfte aus dem 6-DOF (§3↔§5), und iNavs native NAV belastet das FDM realistisch (deckt Schwächen auf —
