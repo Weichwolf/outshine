@@ -18,6 +18,7 @@ import subprocess, sys, time, re, math, os
 from mission import load, resolve
 
 TAKEOFF_AGL = 50.0
+CRASH_AGL = 5.0            # m — back below this after takeoff = flew into the ground (crash)
 CAPTURE_RADIUS = 200.0     # m — nav_wp_radius (~100m default) + margin
 FLY_TIMEOUT = 300          # s per aircraft
 TILES = os.environ.get("TILES_URL", "http://localhost:8081")
@@ -62,7 +63,7 @@ def run(mf):
     spawn(r["aircraft"], t["lat"], t["lon"], wps)
     armed = took = False
     hit = [False] * len(wps)
-    nan = False
+    nan = crashed = False
     t0 = time.time()
     peak = 0.0
     while time.time() - t0 < FLY_TIMEOUT:
@@ -78,6 +79,9 @@ def run(mf):
         if (alt != alt or diverged) and took:   # divergence AFTER takeoff -> fail fast (ignore init transients)
             nan = True
             break
+        if took and alt == alt and alt < CRASH_AGL:   # was airborne, back at/below ground -> flew into the ground
+            crashed = True
+            break
         peak = max(peak, alt)
         for i, w in enumerate(wps):
             if not hit[i] and dist_m(lat, lon, w["lat"], w["lon"]) < CAPTURE_RADIUS:
@@ -85,9 +89,11 @@ def run(mf):
         if all(hit):
             break
     nhit = sum(hit)
-    ok = armed and took and all(hit) and not nan
+    ok = armed and took and all(hit) and not nan and not crashed
     print(f"  ARM       {'OK' if armed else 'FAIL'}")
     print(f"  TAKEOFF   {'OK (agl>%g)'%TAKEOFF_AGL if took else 'FAIL (peak %.0fm)'%peak}")
+    if crashed:
+        print(f"  CRASH     flew into the ground (peak {peak:.0f}m, then agl<{CRASH_AGL:g})")
     wp_line = f"  WAYPOINT  {nhit}/{len(wps)} captured (<{CAPTURE_RADIUS:g}m)"
     if nan:
         wp_line += "  [NaN/diverged]"
