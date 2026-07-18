@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<!--
+  minisgs_e electric motor (FGElectric).
+
+  Rated MECHANICAL shaft power, throttle-linear (FGElectric delivers <power>*throttle
+  to the propeller; the prop finds its own equilibrium RPM). Format mirrors the shipped
+  JSBSim reference engine/electric147kW.xml.
+
+  Sizing (5.02 kg / 42.23 ft^2 ultralight self-launch motorglider):
+    350 W shaft ~= 73 W/kg electrical-equivalent (@ ~0.82 motor+ESC) -> deliberately
+    gentle / not over-powered, per the FlightBox slow-flyer doctrine. With the 15" prop
+    below this gives static thrust/weight ~0.35 and an expected climb of ~3 m/s at a
+    ~9 m/s climb-out speed (hand-derived below; UNVERIFIED - see note in the aircraft
+    report, no jsbsim binary here). Climb is tuned by this single <power> value.
+-->
+<electric_engine name="minisgs_e_motor">
+  <power unit="WATTS"> 350.0 </power>
+</electric_engine>
