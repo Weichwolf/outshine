@@ -183,19 +183,35 @@ static int w3_tile_provider(void *user, osmmesh_tile_kind kind,
  * (load stutter) is already gone from moving the work off-thread at all (frame p95 752 -> 27 ms).
  * Full measurements and the real fix (bound the in-flight set by distance) are in CLAUDE.md Open
  * Work -- kept in ONE place so the two do not drift. */
+/* ONE build in flight at a time -- a load-bearing invariant, not a throttle. tw_build SUSPENDS on
+ * its synchronous fetch (ASYNCIFY unwind point), and ASYNCIFY has a SINGLE unwind buffer: a second
+ * tw_build entered while the first is mid-suspend corrupts that shared state. With -sASSERTIONS it
+ * trips "cannot start an async operation when one is already in flight"; in the production build
+ * (assertions off) it is a silent "memory access out of bounds" that kills the worker. It was
+ * invisible at Hameln (warm cache -> builds return 200 at once, little overlap) and fatal at a
+ * steep/cold origin, where extreme relief makes the walk request many tiles at once and cold tiles
+ * answer 202 (each build sleeps 50 ms/retry, staying suspended for seconds) -- so the burst of
+ * posts drove the worker's onmessage to dispatch handle() re-entrantly, two async tw_builds
+ * overlapping. The worker fetches sequentially anyway (single thread), so gating to one in flight
+ * costs no throughput; it only moves the queue from the worker's message loop (where the overlap
+ * lived) to here. Send one, wait for its 'built' reply, then send the next. */
 EM_JS(void, w3_worker_init, (const char *base, double lat, double lon), {
     var baseStr = UTF8ToString(base);   /* NOW -- the C pointer is not valid inside the callback */
-    var T = { w: new Worker('tileworker.js'), opened: false, q: [] };
+    var T = { w: new Worker('tileworker.js'), opened: false, q: [], busy: false };
     Module.__tw = T;
+    T.pump = function () {                 /* at most one build outstanding with the worker */
+        if (!T.opened || T.busy || T.q.length === 0) return;
+        T.busy = true; T.w.postMessage(T.q.shift());
+    };
     T.w.onmessage = function (e) {
         var d = e.data;
         if (d.type === 'ready') {
             T.w.postMessage({ cmd: 'open', base: baseStr, lat: lat, lon: lon });
         } else if (d.type === 'opened') {
             T.opened = true;
-            T.q.forEach(function (m) { T.w.postMessage(m); });
-            T.q = [];
+            T.pump();
         } else if (d.type === 'built') {
+            T.busy = false;                /* worker is idle again -> the next build may go */
             if (d.ok) {
                 var floats = d.nverts * 8;                 /* w3_vtx = 8 floats */
                 var ptr = _malloc(floats * 4);
@@ -204,16 +220,18 @@ EM_JS(void, w3_worker_init, (const char *base, double lat, double lon), {
             } else {
                 _w3_worker_fail(d.z, d.x, d.y);
             }
+            T.pump();
         }
     };
 })
-/* Ask the worker for one tile. Buffer the request until tw_open has finished (the worker replies
- * 'opened'): a build posted before open would find no world and fail, costing a wasted round trip
- * and a re-request. */
+/* Ask the worker for one tile. Queue it and pump: the request goes out only when the worker is open
+ * AND not mid-build, so a build posted before tw_open (no world yet) or during another build (the
+ * ASYNCIFY overlap above) waits its turn instead of racing. WAIT is the per-tile dedup (w3_cache_get
+ * never re-posts a slot), so the queue is bounded by the resident set, not by frames. */
 EM_JS(void, w3_worker_post, (int z, int x, int y, int grid, int want_yoff), {
     var T = Module.__tw; if (!T) return;
-    var msg = { cmd: 'build', z: z, x: x, y: y, grid: grid, want_yoff: want_yoff };
-    if (T.opened) T.w.postMessage(msg); else T.q.push(msg);
+    T.q.push({ cmd: 'build', z: z, x: x, y: y, grid: grid, want_yoff: want_yoff });
+    T.pump();
 })
 
 #endif /* W3_TILESRC_JS_H */

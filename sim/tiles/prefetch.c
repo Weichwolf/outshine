@@ -104,6 +104,18 @@ void fb_pf_warm_bakes(int z, long x, long y, int tex){
     pthread_mutex_unlock(&g_mx);
 }
 
+/* Enqueue ONE bake (the requested tile only). The cold /bake miss path uses this instead of the
+ * 3x3x2 ring warm: an uncached bake used to enqueue 18 jobs before the requested centre finished,
+ * so the tile the renderer is waiting on landed behind 8 neighbours it did not ask for yet. The
+ * ring look-ahead now runs only once the centre is on disk (the /bake HIT path). */
+void fb_pf_bake_one(int is_photo, int z, long x, long y, int tex){
+    if(!g_run || z < 0) return;
+    pthread_mutex_lock(&g_mx);
+    push_locked(is_photo ? FB_PF_BAKE_PHOTO : FB_PF_BAKE_OSM, z, x, y, tex);
+    pthread_cond_signal(&g_cv);
+    pthread_mutex_unlock(&g_mx);
+}
+
 void fb_pf_fetch(fb_tile_kind k, int z, long x, long y){
     if(!g_run || z < 0 || z > fb_src_max_zoom(k)) return;
     pthread_mutex_lock(&g_mx);

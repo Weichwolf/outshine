@@ -359,9 +359,9 @@ int main(void){
      * blocking lookup here is fine; after this the poller keeps it current off-thread. */
     { const char*ta=getenv("TILES_ADDR"); if(!ta)ta="fb-tiles:8081";
       double he;
-      if(fb_terrain_lookup(ta,HOME_LAT,HOME_LON,&he)){ HOME_ELEV=he;
+      if(fb_terrain_lookup_deadline(ta,HOME_LAT,HOME_LON,&he,30.0)){ HOME_ELEV=he;
           fprintf(stderr,"[xp_bridge] home ground elevation %.1f m (fb-tiles)\n",HOME_ELEV); }
-      else fprintf(stderr,"[xp_bridge] fb-tiles unreachable, seeding home elevation %.1f m\n",HOME_ELEV);
+      else fprintf(stderr,"[xp_bridge] no elevation from fb-tiles — seeding %.1f m (spawn/RTH may be off)\n",HOME_ELEV);
       fb_terrain_start(ta,HOME_ELEV); }
     S.lat=HOME_LAT; S.lon=HOME_LON; S.elev=HOME_ELEV+2.0; S.agl=2.0; S.yaw=0; S.speed=14.0; S.gs=14.0; S.vy=0;  /* launch 2 m above the ground */
     if(getenv("XP_INJECT")) g_inject=1;

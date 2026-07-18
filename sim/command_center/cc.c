@@ -69,7 +69,10 @@ EM_JS(double, fb_fetch_elev, (double lat, double lon), {
   try {
     var base = window.FB_TILES_URL; if(!base) return -1e9;
     var x = new XMLHttpRequest();
-    x.open('GET', base + '/elev?lat=' + lat + '&lon=' + lon, false);
+    /* block=1: wait for the origin DEM tile so yoff is the REAL ground on the first (only) call.
+     * Without it a cold origin returns 503 and the camera spawns underground until the worker's
+     * yoff lands many seconds later. Startup-only + sync, so the brief wait is off the frame loop. */
+    x.open('GET', base + '/elev?lat=' + lat + '&lon=' + lon + '&block=1', false);
     x.send(null);
     if(x.status>=200 && x.status<300){ var v=parseFloat(x.responseText); if(isFinite(v)) return v; }
   } catch(e){}

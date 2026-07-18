@@ -314,7 +314,16 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
   glViewport(0,0,W,H); glEnable(GL_DEPTH_TEST); glClearColor(0.55f,0.70f,0.90f,1); glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
   float px=have?t->x:0, py=(have&&t->alt>2)?t->alt:120, pz=have?-t->y:0;
 #ifdef W3_USE_OSM
-  if(w3_frame.nD>0) py=(have&&t->alt>1?t->alt:2)+w3_O.yoff;   /* AGL above the osmmesh ground */
+  /* The osmmesh terrain mesh carries ABSOLUTE elevation on its up-axis: terrain.c writes the raw
+   * Terrarium height (R*256+G+B/256-32768, metres ASL) straight into pos.z with no origin
+   * subtraction -- only the horizontal e/n are origin-relative. telem.alt is ASL too (cc.c derives
+   * AGL as telem.alt - ground). So the camera up-coordinate in the mesh frame IS telem.alt, full
+   * stop -- adding w3_O.yoff (the origin GROUND, also ASL) double-counts the ground and lifts the
+   * eye by one whole terrain elevation (71 m at Hameln, 3724 m at Aoraki -> the camera floats a
+   * mountain-height too high and the ground shrinks to a sliver). The +yoff was correct only while
+   * telem.alt was AGL; commit 570aac0 switched telem.alt AGL->ASL and left this line behind. No
+   * telemetry: sit 2 m over the origin ground (yoff is that ground, ASL). */
+  if(w3_frame.nD>0) py=(have&&t->alt>1)?t->alt:(w3_O.yoff+2.0f);
 #endif
   /* Basis and MVP from the attitude — pure maths, so it lives in camera.h and is testable there.
    * The roll sign is the one that once made a right bank look like a left bank; a screenshot cannot

@@ -67,9 +67,13 @@ static void handle(int fd, char *req) {
         if (!fb_query_double(qs, "lat", &lat) || !fb_query_double(qs, "lon", &lon)) {
             reply(fd, "400 Bad Request", "text/plain", "need lat & lon\n"); return;
         }
+        /* ?block=1: wait for the one DEM tile (startup seeds need the real ground on the first
+         * call, else they spawn at the wrong elevation). Bare /elev stays instant-503 for the
+         * aircraft's AGL poller, which must never block the single-threaded server. */
+        double bk = 0; int block = fb_query_double(qs, "block", &bk) && bk != 0.0;
         double m;
-        if (!fb_elev_at(lat, lon, &m)) {
-
+        int ok = block ? fb_elev_at_blocking(lat, lon, &m, 3000) : fb_elev_at(lat, lon, &m);
+        if (!ok) {
             reply(fd, "503 Service Unavailable", "text/plain", "no dem\n"); return;
         }
         char body[64]; snprintf(body, sizeof body, "%.2f\n", m);
@@ -90,14 +94,14 @@ static void handle(int fd, char *req) {
         uint8_t *body = 0; size_t n = 0;
 
         if (!fb_bake_ondisk(k, z, x, y, TS, &body, &n)) {
-            fb_pf_warm_bakes(z, x, y, TS);
+            fb_pf_bake_one(k == FB_ALBEDO_PHOTO, z, x, y, TS);   /* just the tile asked for */
             reply(fd, "202 Accepted", "text/plain", "baking\n");
             return;
         }
         reply_bin(fd, k == FB_ALBEDO_PHOTO ? "image/jpeg" : "image/png", body, n);
         free(body);
 
-        fb_pf_warm_bakes(z, x, y, TS);
+        fb_pf_warm_bakes(z, x, y, TS);   /* centre ready: now look ahead to the 3x3 neighbours */
         return;
     }
 

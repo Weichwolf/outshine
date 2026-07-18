@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #define FB_DEM_Z    13
 #define FB_MEM_TILES 24
@@ -58,6 +59,30 @@ int fb_elev_at(double lat, double lon, double *out) {
     double fy = (ty - (double)(long)ty) * (double)g->rows;
     *out = fb_bilinear(g->heights, g->cols, g->rows, fx, fy);
     return 1;
+}
+
+/* /elev is a POINT query: the caller wants THE answer, and the one DEM tile lands in <1 s
+ * (measured 0.27-0.79 s cold). fb_elev_at returns 503 the instant the tile is cold, which makes
+ * the aircraft- and renderer-startup seeds spawn at the wrong ground. This variant enqueues the
+ * fetch ONCE (via the first fb_elev_at miss) and then polls the disk until it lands or the deadline
+ * expires -- never re-enqueuing, so the prefetch pool dedups it against any concurrent /elev.
+ * ONLY the startup paths ask for this (?block=1); the aircraft's 250 ms AGL poller must not, or a
+ * flight into a cold region would stall the single-threaded server for the whole deadline. */
+int fb_elev_at_blocking(double lat, double lon, double *out, int deadline_ms) {
+    if (fb_elev_at(lat, lon, out)) return 1;          /* warm: done. cold: a fetch is now queued. */
+    double tx, ty;
+    fb_geo_to_tile(lat, lon, FB_DEM_Z, &tx, &ty);
+    long x = (long)tx, y = (long)ty;
+    if (!fb_tile_wrap(FB_DEM_Z, &x, &y)) return 0;
+    for (int waited = 0; waited < deadline_ms; waited += 50) {
+        usleep(50 * 1000);
+        uint8_t *png = 0; size_t n = 0;
+        if (fb_cache_ondisk(FB_TILE_TERRAIN, FB_DEM_Z, x, y, &png, &n)) {  /* disk check, no enqueue */
+            free(png);
+            return fb_elev_at(lat, lon, out);         /* on disk now: decode into the LRU and sample */
+        }
+    }
+    return 0;
 }
 
 void fb_elev_stats(long *hits, long *misses, long *fetch_fail) {

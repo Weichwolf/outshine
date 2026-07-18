@@ -30,6 +30,11 @@ double fb_terrain_ground(void);
  * Returns 1 and writes *out on success, 0 on failure. */
 int    fb_terrain_lookup(const char *addr, double lat, double lon, double *out);
 
+/* Blocking start-up lookup with retry up to deadline_s. Asks fb-tiles to wait for the (possibly
+ * cold) DEM tile (?block=1) and rides out the container boot race. Returns 1 and writes *out on
+ * success, 0 if the whole deadline elapsed. Use ONLY at start-up — never on the FDM hot path. */
+int    fb_terrain_lookup_deadline(const char *addr, double lat, double lon, double *out, double deadline_s);
+
 /* Diagnostics: successful updates and consecutive failures. */
 void   fb_terrain_stats(long *ok, long *fail);
 
