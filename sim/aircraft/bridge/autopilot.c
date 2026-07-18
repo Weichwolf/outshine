@@ -51,7 +51,7 @@ double g_loalt=500.0, g_lorad=1000.0;  /* autonomous loiter altitude (m AGL) + o
  * models/<aircraft>/profile.env, which exports these. autopilot.c only knows the setting NAMES.
  * The fallbacks below are a neutral, clearly-unconfigured safety net (logged), NOT any aircraft's
  * tuning: a real aircraft always ships its profile.env. */
-static struct { double cruise, climb_thr, climb_pitch, stall, bank_cruise, bank_climb, vr; int init; } P;
+static struct { double cruise, climb_thr, climb_pitch, stall, bank_cruise, bank_climb, vr, handoff; int init; } P;
 static double envd(const char*k, double def, int*missing){ const char*v=getenv(k);
     if(v&&*v) return atof(v); (*missing)++; return def; }
 static void profile_init(void){
@@ -65,6 +65,9 @@ static void profile_init(void){
     P.bank_climb  = envd("FB_BANK_CLIMB",  10.0, &miss);   /* deg max bank while climbing */
     P.vr          = envd("FB_VR",           0.0, &miss);   /* rotation speed (m/s): ground-roll level to Vr,
                                                             * then rotate. 0 = hand-launch (rotate immediately) */
+    P.handoff     = envd("FB_HANDOFF",    120.0, &miss);   /* AGL to hand the climb-out to native NAV. Fast
+                                                            * airframes: low (open-loop climb-out phugoids);
+                                                            * slow: high (a NAV turn too low stalls them) */
     if(miss) fprintf(stderr,"[autopilot] %d flight-profile settings unset — no models/<aircraft>/"
                             "profile.env loaded; using NEUTRAL fallbacks (not aircraft-tuned)\n", miss);
 }
@@ -96,7 +99,7 @@ void autopilot_step(long tick, struct timespec t0, double dt,
                    /* Launch climb-out (ANGLE) -> hand to NAV at 120m, LATCHED (one-way): NAV owns the
                     * aircraft from here, no bounce back to the climb-out. (Safe now that the rudder
                     * sign is fixed; while it was inverted, latching let NAV's yaw runaway diverge.) */
-                   static int airborne=0; if(S.agl>120.0) airborne=1;
+                   static int airborne=0; if(S.agl>P.handoff) airborne=1;
                    (void)launch_t;
                    static int wp_done=0;               /* upload the mission once, airborne with a GPS fix */
                    if(airborne && !wp_done){ upload_mission_wps(); wp_done=1; }
