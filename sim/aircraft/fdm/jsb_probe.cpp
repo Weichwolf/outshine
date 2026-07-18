@@ -39,6 +39,20 @@ int main(int argc, char** argv) {
     fdm.Setdt(0.01);                       /* 100 Hz, wie der Bridge-Loop */
     fdm.SetPropertyValue("fcs/throttle-cmd-norm", thr);
 
+    /* D2-Vorbereitung: die EXAKTEN Properties dumpen, die der Adapter auf state_t S mappt —
+     * bestätigt, dass jeder Name auflöst (kein stiller 0) und der Wert an bekannter IC sane ist. */
+    fdm.Run();
+    printf("--- property map check (IC: %.0f kts level, %.0f ft) ---\n", vc_kts, 2000.0);
+    const char* props[] = {
+        "attitude/phi-deg","attitude/theta-deg","attitude/psi-deg",
+        "velocities/p-rad_sec","velocities/q-rad_sec","velocities/r-rad_sec",
+        "position/lat-geod-deg","position/long-gc-deg","position/h-sl-ft","position/h-agl-ft",
+        "velocities/vt-fps","velocities/vg-fps",
+        "velocities/v-east-fps","velocities/v-north-fps","velocities/v-down-fps",
+        "accelerations/Nz","accelerations/a-pilot-z-ft_sec2", 0 };
+    for (int k = 0; props[k]; k++)
+        printf("  %-34s = %.5g\n", props[k], fdm.GetPropertyValue(props[k]));
+    printf("--- 5 s open-loop tick ---\n");
     printf("  t   phi   theta  psi    alt_ft   vc_kt  vt_fps   p     q     r    thr\n");
     for (int i = 0; i < 500; i++) {        /* 5 s */
         if (!fdm.Run()) { printf("Run() ended/failed at step %d\n", i); return 2; }
