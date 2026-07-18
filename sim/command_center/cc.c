@@ -25,45 +25,12 @@
 #include "world3d.h"
 
 #include "constants.h"   /* invariants: GL enums the ES2 header lacks + the MSAA entry points, FB_M_PER_DEG_LAT */
+#include "codec.h"       /* EVS video link: WebCodecs H.264 encode->decode (fb_codec_*) */
+#include "present.h"     /* render targets + present pipeline (SVS/EVS/HUD, dynamic display res) */
 
-/* wasm-dvd-gl approach: render + encode at the real CAMERA resolution (below the display),
- * then bilinear-upscale to the canvas. Our hardware camera is a Caddx Ratel 2 (1/1.8"
- * Starlight, 164° FOV, NTSC 16:9, 60 Hz) — analog composite ~480 lines, 16:9. We render
- * 16:9 at NTSC line count (480) and encode it (H.264 stands in for the analog link's
- * softness/artifacts); NTSC's 60 Hz matches a 60 fps render (smooth, no cadence judder).
- * MSAA cleans the edges at render res; the HUD is drawn crisp at full display res on top. */
-#define WIN_W 1280          /* display / canvas (720p, 16:9) */
+#define WIN_W 1280          /* initial canvas size; present.h re-syncs to the display each frame */
 #define WIN_H 720
-#define CAM_W 848           /* "camera": NTSC 480-line, 16:9 */
-#define CAM_H 480
 
-/* ===================== WebCodecs H.264 encode -> decode ===================== */
-EM_JS(int, fb_codec_init, (int w, int h), {
-  if (typeof VideoEncoder === 'undefined' || typeof VideoDecoder === 'undefined') {
-    console.warn('[fb] WebCodecs nicht verfuegbar — Rohbild ohne Video-Artefakte.'); return 0;
-  }
-  const S = { ready:false, frame:null, n:0 }; Module.__fb = S;
-  S.decoder = new VideoDecoder({ output:(f)=>{ if(S.frame) S.frame.close(); S.frame=f; },
-                                 error:(e)=>console.error('[fb] dec',e) });
-  S.encoder = new VideoEncoder({
-    output:(chunk,meta)=>{ if(meta && meta.decoderConfig && S.decoder.state==='unconfigured') S.decoder.configure(meta.decoderConfig);
-                           if(S.decoder.state==='configured') S.decoder.decode(chunk); },
-    error:(e)=>console.error('[fb] enc',e) });
-  try {
-    S.encoder.configure({ codec:'avc1.42001f', width:w, height:h,
-      bitrate: 1500000, framerate: 60, latencyMode:'realtime', avc:{format:'avc'} });
-  } catch(e){ console.error('[fb] enc.configure', e); return 0; }
-  S.ready = true; console.log('[fb] WebCodecs bereit', w+'x'+h); return 1;
-})
-EM_JS(void, fb_codec_push, (int ptr, int w, int h, double ts), {
-  const S = Module.__fb; if(!S||!S.ready) return;
-  if(S.encoder.encodeQueueSize > 2) return;                 /* backpressure */
-  let vf; try { vf = new VideoFrame(HEAPU8.subarray(ptr, ptr+w*h*4),
-    { format:'RGBA', codedWidth:w, codedHeight:h, timestamp:ts }); } catch(e){ return; }
-  const key = (S.n % 50) === 0; S.n++;
-  try { S.encoder.encode(vf, { keyFrame:key }); } catch(e){}
-  vf.close();
-})
 /* Sync XHR, startup only: one request before the render loop so w3_O.yoff is known at frame 0. */
 EM_JS(double, fb_fetch_elev, (double lat, double lon), {
   try {
@@ -110,45 +77,10 @@ EM_JS(int, fb_fetch_stars, (int band, uint8_t *dst, int maxbytes), {
   } catch(e){}
   return -1;
 })
-EM_JS(int, fb_codec_upload, (int texId), {
-  const S = Module.__fb; if(!S||!S.frame) return 0;
-  const tex = GL.textures[texId]; if(!tex) return 0;
-  GLctx.bindTexture(GLctx.TEXTURE_2D, tex);
-  try { GLctx.texImage2D(GLctx.TEXTURE_2D,0,GLctx.RGBA,GLctx.RGBA,GLctx.UNSIGNED_BYTE, S.frame); }
-  catch(e){ return 0; }
-  return 1;
-})
-
 static SDL_Window *win;
 static EMSCRIPTEN_WEBSOCKET_T ws; static int ws_open=0;
 static telem_packet_t telem; static int have_telem=0;
 static SDL_GameController *pad=NULL;
-static GLuint vid_fbo,vid_tex,vid_depth,codec_tex,pres_prog,quad_vbo;
-static GLuint msaa_fbo,msaa_color,msaa_depth;   /* multisample render target (antialiasing) */
-static GLint pr_pos,pr_uv,pr_tex,pr_flip;
-static unsigned char *readback; static int codec_ready=0;
-
-static const char*PVS="attribute vec2 aPos; attribute vec2 aUV; varying vec2 vUV;"
- "void main(){ gl_Position=vec4(aPos,0.0,1.0); vUV=aUV; }";
-static const char*PFS="precision mediump float; varying vec2 vUV; uniform sampler2D uTex; uniform float uFlip;"
- "void main(){ vec2 c=vec2(vUV.x, uFlip>0.5?1.0-vUV.y:vUV.y); gl_FragColor=texture2D(uTex,c); }";
-
-/* HUD post: the line overlay renders to an MSAA FBO (smooth, antialiased lines), resolves to a
- * texture, then a glow pass composites it over the video with a subtle green phosphor halo -- like a
- * real HUD/CRT. Deliberately light (glow weight 0.35, ~2 px radius); the crisp core stays sharp. */
-static GLuint hud_msaa_fbo,hud_msaa_color,hud_fbo,hud_tex,hud_prog;
-static GLint hu_pos,hu_uv,hu_tex,hu_texel;
-static const char*HGVS="attribute vec2 aPos; attribute vec2 aUV; varying vec2 vUV;"
- "void main(){ gl_Position=vec4(aPos,0.0,1.0); vUV=aUV; }";
-static const char*HGFS="precision mediump float; varying vec2 vUV; uniform sampler2D uHud; uniform vec2 uTexel;"
- "void main(){ vec4 c=texture2D(uHud,vUV); vec2 t=uTexel*1.4;"      /* tighter halo -> text stays crisp */
- "  vec4 g=texture2D(uHud,vUV+vec2(t.x,0.0))+texture2D(uHud,vUV+vec2(-t.x,0.0))"
- "        +texture2D(uHud,vUV+vec2(0.0,t.y))+texture2D(uHud,vUV+vec2(0.0,-t.y))"
- "        +texture2D(uHud,vUV+t)+texture2D(uHud,vUV-t)"
- "        +texture2D(uHud,vUV+vec2(t.x,-t.y))+texture2D(uHud,vUV+vec2(-t.x,t.y));"
- "  g*=0.125; float ga=g.a*0.18;"                     /* very light phosphor halo: lines glow, text sharp */
- "  vec3 col = c.a>0.01 ? c.rgb : g.rgb/max(g.a,0.001);"
- "  gl_FragColor=vec4(col, clamp(c.a+ga,0.0,1.0)); }";
 
 /* ---------------- websocket ---------------- */
 static EM_BOOL on_open(int t,const EmscriptenWebSocketOpenEvent*e,void*u){(void)t;(void)e;(void)u;ws_open=1;return 1;}
@@ -189,18 +121,6 @@ static void send_control(void){
   c.arm=armed_latch; c.seq=seq++; emscripten_websocket_send_binary(ws,&c,sizeof c);
 }
 
-/* present a texture full-canvas (upscale). flip=1 for the top-down decoded VideoFrame. */
-static void present(GLuint tex,float flip){
-  glBindFramebuffer(GL_FRAMEBUFFER,0);
-  glViewport(0,0,WIN_W,WIN_H); glDisable(GL_DEPTH_TEST);
-  glUseProgram(pres_prog);
-  glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D,tex); glUniform1i(pr_tex,0); glUniform1f(pr_flip,flip);
-  glBindBuffer(GL_ARRAY_BUFFER,quad_vbo);
-  glVertexAttribPointer(pr_pos,2,GL_FLOAT,GL_FALSE,16,0); glVertexAttribPointer(pr_uv,2,GL_FLOAT,GL_FALSE,16,(void*)8);
-  glEnableVertexAttribArray(pr_pos); glEnableVertexAttribArray(pr_uv);
-  glDrawArrays(GL_TRIANGLES,0,6);
-}
-
 static void frame(void){
   SDL_Event e; while(SDL_PollEvent(&e)) if(e.type==SDL_CONTROLLERDEVICEADDED&&!pad) pad=SDL_GameControllerOpen(e.cdevice.which);
   send_control();
@@ -222,51 +142,7 @@ static void frame(void){
     w3_agl = (float)agl;
     world3d_stream_at(lat, lon, agl);
   }
-  /* 1) render the aircraft camera into the MULTISAMPLE FBO (antialiased) */
-  glBindFramebuffer(GL_FRAMEBUFFER, msaa_fbo);
-  world3d_render_scene(&telem, CAM_W, CAM_H, have_telem);
-  /* 1b) resolve MSAA -> single-sample vid_fbo (vid_tex) */
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, msaa_fbo);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, vid_fbo);
-  glBlitFramebuffer(0,0,CAM_W,CAM_H, 0,0,CAM_W,CAM_H, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-  /* 2) encode -> decode (the lossy video link) -- but ONLY for what actually travels it.
-   *
-   * EVS is the aircraft's camera: it reaches the ground over 5.8 GHz, so the compression
-   * artifacts are part of the truth and belong here.
-   *
-   * SVS is not. A synthetic vision system is DRAWN BY THE GROUND STATION from telemetry and a
-   * terrain database -- the picture never crosses the video link, so putting it through the
-   * encoder would be simulating a transmission that does not happen. It also takes from the
-   * fallback exactly what you reach for it for: a clean picture when the camera cannot give one.
-   * Telemetry arrives over its own low-rate link and is already modelled (rssi/LNK). */
-  int use_codec=0;
-  if(codec_ready && w3_ground.mode == W3_GROUND_PHOTO){
-    glBindFramebuffer(GL_FRAMEBUFFER, vid_fbo);
-    glReadPixels(0,0,CAM_W,CAM_H,GL_RGBA,GL_UNSIGNED_BYTE,readback);
-    fb_codec_push((int)(intptr_t)readback, CAM_W, CAM_H, emscripten_get_now()*1000.0);  /* real-time µs timestamp */
-    if(fb_codec_upload((int)codec_tex)) use_codec=1;
-  }
-  /* 3) present the received video upscaled, then 4) HUD on top -- rendered into an MSAA FBO for
-   * smooth lines, resolved, then a glow pass composites it with a subtle phosphor halo.
-   * Both video paths are GL-bottom-up (the codec's readback->VideoFrame double-flip cancels). */
-  present(use_codec?codec_tex:vid_tex, 0.0f);
-  glBindFramebuffer(GL_FRAMEBUFFER, hud_msaa_fbo);
-  glViewport(0,0,WIN_W,WIN_H); glClearColor(0,0,0,0); glClear(GL_COLOR_BUFFER_BIT);
-  world3d_render_hud(&telem, WIN_W, WIN_H, have_telem);
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, hud_msaa_fbo);
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, hud_fbo);
-  glBlitFramebuffer(0,0,WIN_W,WIN_H, 0,0,WIN_W,WIN_H, GL_COLOR_BUFFER_BIT, GL_NEAREST);   /* resolve MSAA */
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  glViewport(0,0,WIN_W,WIN_H); glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glUseProgram(hud_prog);
-  glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, hud_tex); glUniform1i(hu_tex,0);
-  glUniform2f(hu_texel, 1.0f/WIN_W, 1.0f/WIN_H);
-  glBindBuffer(GL_ARRAY_BUFFER, quad_vbo);
-  glVertexAttribPointer(hu_pos,2,GL_FLOAT,GL_FALSE,16,0); glVertexAttribPointer(hu_uv,2,GL_FLOAT,GL_FALSE,16,(void*)8);
-  glEnableVertexAttribArray(hu_pos); glEnableVertexAttribArray(hu_uv);
-  glDrawArrays(GL_TRIANGLES,0,6);
-  glDisable(GL_BLEND);
-  SDL_GL_SwapWindow(win);
+  fb_present_frame(&telem, have_telem);
 }
 
 /* All runtime config /config.js puts on window: the origin (home) coords into w3_O, the fb-tiles
@@ -286,67 +162,6 @@ static void cfg_from_js(char *tiles_url, size_t n){
   const char*su=emscripten_run_script_string("(typeof window.FB_SIM_UTC==='number'?window.FB_SIM_UTC:0).toString()");
   w3_sim_utc=atof(su);
   snprintf(tiles_url,n,"%s",emscripten_run_script_string("(window.FB_TILES_URL||'').toString()"));
-}
-
-/* All render targets and the present pipeline: the video FBO (colour+depth), the 4x MSAA FBO the
- * scene renders into, the decoded-frame texture, the upscale shader + quad, the readback buffer and
- * the WebCodecs encoder. Needs a live GL context (call after world3d_init). */
-static void gl_targets_init(void){
-  /* video FBO (colour texture + depth), decoded-frame texture, present shader + quad */
-  vid_tex = 0; glGenTextures(1,&vid_tex); glBindTexture(GL_TEXTURE_2D,vid_tex);
-  glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,CAM_W,CAM_H,0,GL_RGBA,GL_UNSIGNED_BYTE,0);
-  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
-  glGenRenderbuffers(1,&vid_depth); glBindRenderbuffer(GL_RENDERBUFFER,vid_depth);
-  /* 24-bit depth. With the far plane at 240 km, 16 bits resolve ~760 m at 10 km and 30 km at
-   * 200 km -- the distant terrain would z-fight into confetti. 24 bits give 0.3 m and 119 m, well
-   * under the 68 m / 900 m quads that could fight. WebGL2 has DEPTH_COMPONENT24 in core; a WebGL1
-   * context does not, so fall back rather than hand back an incomplete FBO. */
-  glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH_COMPONENT24,CAM_W,CAM_H);
-  if(glGetError()!=GL_NO_ERROR) glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH_COMPONENT16,CAM_W,CAM_H);
-  glGenFramebuffers(1,&vid_fbo); glBindFramebuffer(GL_FRAMEBUFFER,vid_fbo);
-  glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,vid_tex,0);
-  glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_RENDERBUFFER,vid_depth);
-  glBindFramebuffer(GL_FRAMEBUFFER,0);
-  /* multisample render FBO (4x MSAA) — the scene renders here, then resolves to vid_fbo */
-  { GLint maxs=1; glGetIntegerv(GL_MAX_SAMPLES,&maxs); int samp=maxs<4?maxs:4; if(samp<1)samp=1;
-    glGenRenderbuffers(1,&msaa_color); glBindRenderbuffer(GL_RENDERBUFFER,msaa_color);
-    glRenderbufferStorageMultisample(GL_RENDERBUFFER,samp,GL_RGBA8,CAM_W,CAM_H);
-    glGenRenderbuffers(1,&msaa_depth); glBindRenderbuffer(GL_RENDERBUFFER,msaa_depth);
-    glRenderbufferStorageMultisample(GL_RENDERBUFFER,samp,GL_DEPTH_COMPONENT24,CAM_W,CAM_H);
-    if(glGetError()!=GL_NO_ERROR) glRenderbufferStorageMultisample(GL_RENDERBUFFER,samp,GL_DEPTH_COMPONENT16,CAM_W,CAM_H);
-    glGenFramebuffers(1,&msaa_fbo); glBindFramebuffer(GL_FRAMEBUFFER,msaa_fbo);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_RENDERBUFFER,msaa_color);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_ATTACHMENT,GL_RENDERBUFFER,msaa_depth);
-    glBindFramebuffer(GL_FRAMEBUFFER,0);
-    printf("[cc] MSAA %dx\n",samp); }
-  codec_tex=0; glGenTextures(1,&codec_tex); glBindTexture(GL_TEXTURE_2D,codec_tex);
-  glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,CAM_W,CAM_H,0,GL_RGBA,GL_UNSIGNED_BYTE,0);
-  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
-  pres_prog=w3_prog(PVS,PFS); pr_pos=glGetAttribLocation(pres_prog,"aPos"); pr_uv=glGetAttribLocation(pres_prog,"aUV");
-  pr_tex=glGetUniformLocation(pres_prog,"uTex"); pr_flip=glGetUniformLocation(pres_prog,"uFlip");
-  const float quad[]={ -1,-1, 0,0,  1,-1, 1,0,  1,1, 1,1,   -1,-1, 0,0,  1,1, 1,1,  -1,1, 0,1 };
-  glGenBuffers(1,&quad_vbo); glBindBuffer(GL_ARRAY_BUFFER,quad_vbo); glBufferData(GL_ARRAY_BUFFER,sizeof quad,quad,GL_STATIC_DRAW);
-  readback=(unsigned char*)malloc((size_t)CAM_W*CAM_H*4);
-  codec_ready=fb_codec_init(CAM_W,CAM_H);
-  printf("[cc] video codec %s\n", codec_ready?"ON (H.264 link)":"OFF (raw upscale)");
-
-  /* HUD render target: MSAA colour for smooth lines, resolved to hud_tex, glow-composited each frame. */
-  { GLint maxs=1; glGetIntegerv(GL_MAX_SAMPLES,&maxs); int hs=maxs<4?maxs:4; if(hs<1)hs=1;
-    glGenRenderbuffers(1,&hud_msaa_color); glBindRenderbuffer(GL_RENDERBUFFER,hud_msaa_color);
-    glRenderbufferStorageMultisample(GL_RENDERBUFFER,hs,GL_RGBA8,WIN_W,WIN_H);
-    glGenFramebuffers(1,&hud_msaa_fbo); glBindFramebuffer(GL_FRAMEBUFFER,hud_msaa_fbo);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_RENDERBUFFER,hud_msaa_color); }
-  hud_tex=0; glGenTextures(1,&hud_tex); glBindTexture(GL_TEXTURE_2D,hud_tex);
-  glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,WIN_W,WIN_H,0,GL_RGBA,GL_UNSIGNED_BYTE,0);
-  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE); glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
-  glGenFramebuffers(1,&hud_fbo); glBindFramebuffer(GL_FRAMEBUFFER,hud_fbo);
-  glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,hud_tex,0);
-  glBindFramebuffer(GL_FRAMEBUFFER,0);
-  hud_prog=w3_prog(HGVS,HGFS); hu_pos=glGetAttribLocation(hud_prog,"aPos"); hu_uv=glGetAttribLocation(hud_prog,"aUV");
-  hu_tex=glGetUniformLocation(hud_prog,"uHud"); hu_texel=glGetUniformLocation(hud_prog,"uTexel");
 }
 
 /* Open the telemetry/control WebSocket back to the server that served the page. */
@@ -398,7 +213,7 @@ int main(void){
   world3d_init();
   stars_load_from_tiles();
 
-  gl_targets_init();
+  fb_present_init(win);
   net_init();
   emscripten_set_main_loop(frame,0,1);
   return 0;
