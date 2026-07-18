@@ -42,6 +42,9 @@ set nav_fw_loiter_radius = 30000        ; 300 m orbit (tight enough to read as "
 set nav_min_rth_distance = 100          ; 1 m: don't treat launch-at-home as "already there"
 set nav_fw_cruise_thr = 1550
 set nav_auto_climb_rate = 150           ; 1.5 m/s gentle climb — 3 m/s stalled the weak motor-glider (porpoise)
+# NB (measured): nav_fw_bank_angle=22 + control_smoothness=6 did NOT stop the motor-glider NAV-WP
+# divergence — limiting bank made iNav lean HARDER on the rudder for the WP heading turn (yaw->0.996).
+# The motor-glider NAV-WP yaw authority is a per-aircraft tuning item; left at defaults.
 
 # --- modes: ARM=AUX1(pid0), ANGLE=AUX2(pid1), NAV RTH=AUX3(pid10), NAV WP=AUX4(pid28) ---
 # NB: aux uses iNav permanentId, NOT the box enum. pid 8 = CAMSTAB (no-op) was the bug;
