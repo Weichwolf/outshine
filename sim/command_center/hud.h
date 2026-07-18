@@ -4,15 +4,11 @@
  */
 #ifndef W3_HUD_H
 #define W3_HUD_H
-/* ---- HUD line primitives (2D, pixel coords) ---- */
-/* Regenerated every frame (glBufferData DYNAMIC). Now that text moved to the atlas, only line
- * segments land here (rails/ticks/carets/boxes) -- a few hundred, far under the cap. Kept generous;
- * a too-small buffer silently drops the LAST-drawn elements. */
-static float w3_hud[131072];
+/* HUD line primitives (2D pixel coords), regenerated every frame (glBufferData DYNAMIC). */
+static float w3_hud[131072]; /* line segments: rails/ticks/carets/boxes */
 static int w3_hudN;
-/* Second buffer: filled TRIANGLES (same x,y,r,g,b layout). Drawn under the lines; the MSAA HUD FBO
- * antialiases their edges, so a thin quad reads as a smooth thin line solid at ANY angle -- unlike
- * a 1px GL_LINE, which stair-steps and breaks apart when tilted. Used for the conformal horizon. */
+/* Filled TRIANGLES (same x,y,r,g,b): thin AA quads read as smooth lines at any angle (unlike GL_LINE,
+ * which stair-steps when tilted). Used for the conformal horizon. */
 static float w3_hudT[16384];
 static int w3_hudTN;
 static const char *W3_STN[] = {"DISARM", "ARMED", "CLIMB", "LOITER", "MANUAL", "RTH"};
@@ -29,9 +25,7 @@ static void w3_line(float x0, float y0, float x1, float y1, float r, float g, fl
   w3_hud[w3_hudN++] = g;
   w3_hud[w3_hudN++] = b;
 }
-/* Text is now tile blits from the MAX7456 font atlas (max7456.h), not vector lines -- kills the
- * per-glyph vertex explosion. Same (x,y,scale,rgb,str) contract as before, so no call site changes.
- */
+/* Text = tile blits from the MAX7456 font atlas (max7456.h). */
 static void w3_text(float x, float y, float s, float r, float g, float b, const char *t) {
   mx_text(x, y, s, r, g, b, t);
 }
@@ -85,9 +79,7 @@ static void w3_box(float x0, float y0, float x1, float y1, float r, float g, flo
   w3_line(x1, y1, x0, y1, r, g, b);
   w3_line(x0, y1, x0, y0, r, g, b);
 }
-/* Full OSD: every telemetry field, computed/derived correctly. The atlas font has [ 0-9 A-Z - . : /
- * + ° ], no '%': percent stays implied by the label; sign shown via '-'/'+' plus colour
- * (green=climb/good, amber=caution, red=warning). */
+/* Full OSD. Font has no '%' (implied by label); colour = green good / amber caution / red warning. */
 static void w3_build_hud(const telem_packet_t *t, int W, int H, int have) {
   w3_hudN = 0;
   w3_hudTN = 0;
@@ -106,15 +98,11 @@ static void w3_build_hud(const telem_packet_t *t, int W, int H, int have) {
     return;
   }
 
-  /* ==== Primary attitude field: Flight-Path-Marker + 0-deg horizon line (MIL-STD-1787) ====
-   * Kept: waterline, FPM, and ONE conformal 0-deg horizon line. Dropped: the numbered climb-dive
-   * rungs (busy clutter -- the FPV video already shows the real ladder of terrain). Conformal
-   * vertical scale K (from the 80 deg camera FOV): an angle e above the boresight sits at cy -
-   * K*tan(e). */
+  /* Primary attitude field (MIL-STD-1787): FPM + one conformal horizon segment. Conformal vertical
+   * scale K from the 80 deg FOV: an angle e above the boresight sits at cy - K*tan(e). */
   float K = (H * 0.5f) / tanf(40.f * RAD), pitch = t->pitch;
-  /* Flight-Path-Marker: where the velocity vector points. gamma = climb angle from vs/gs; AoA =
-   * pitch - gamma sets it below the waterline. Horizontal drift is deliberately not modelled ->
-   * centred. */
+  /* Flight-Path-Marker: gamma = climb angle from vs/gs; pitch - gamma sets it below the waterline.
+   * Horizontal drift not modelled -> centred. */
   float gamma = atan2f(t->vs, t->gs > 0.5f ? t->gs : 0.5f) / RAD;
   float fx = cx, fy = cy - K * tanf((gamma - pitch) * RAD);
   if (fy < cy - H * 0.45f) fy = cy - H * 0.45f;
@@ -123,15 +111,9 @@ static void w3_build_hud(const telem_packet_t *t, int W, int H, int have) {
   w3_line(fx - 7, fy, fx - 18, fy, HG_R, HG_G, HG_B);
   w3_line(fx + 7, fy, fx + 18, fy, HG_R, HG_G, HG_B);
   w3_line(fx, fy - 7, fx, fy - 15, HG_R, HG_G, HG_B);
-  /* Compact attitude bar: a SHORT conformal horizon reference at the boresight -- the primary roll
-   * + pitch cue now that the full-width horizon line and the bank arc are gone. Its centre and tilt
-   * come from the SAME camera projection as the scene (the verified-conformal sense). Two short
-   * segments
-   * (~50 px) FLANK the waterline directly, left and right, with just a small clearance gap (start
-   * ~+/-36 px, end ~+/-86 px) -- the steering cue moved to the far left, so nothing else sits
-   * between them and the nose. Thin AA. It TILTS with roll and rides the pitch offset -- which is
-   * what tells it apart from the steering cue (that only slides vertically, never tilts). Centre =
-   * the horizon point straight ahead (az=yaw); a second point at +20 deg gives the tilt. */
+  /* Compact attitude bar: two short conformal segments flanking the waterline (gap +/-36 px, end
+   * +/-86 px), tilting with roll from the SAME camera projection as the scene. Centre = horizon
+   * point straight ahead (az=yaw); a second point at +20 deg gives the tilt. */
   {
     w3_cam HC = w3_cam_from(t->yaw, t->pitch, t->roll, (float[3]){0, 0, 0}, W3_FOV, (float)W / H,
                             1.f, 1000.f);
@@ -162,11 +144,8 @@ static void w3_build_hud(const telem_packet_t *t, int W, int H, int have) {
    * nose, so on a nose-centred tape the home marker sits at that offset from centre. ===== */
   {
     float hpd = 5.f, hy1 = 40;
-    /* Iterate the actual heading marks (mult of 5) in the visible window, each at its TRUE
-     * continuous position cx+(hh-hdg)*hpd. The old code snapped d to a tick grid relative to
-     * lroundf(hdg), so a 30-deg label only landed on a tick when the heading rounded to a mult of 5
-     * -- it BLINKED on/off as the tape scrolled. Continuous positions -> labels always shown, and
-     * the scale scrolls smoothly. */
+    /* Marks at TRUE continuous positions cx+(hh-hdg)*hpd -- a value-snapped grid makes labels blink
+     * on/off as the tape scrolls. */
     for (int hh = (int)floorf((hdg - 45.f) / 5.f) * 5; hh <= (int)hdg + 45; hh += 5) {
       float sx = cx + ((float)hh - hdg) * hpd;
       if (sx < cx - 202.f || sx > cx + 202.f) continue;
@@ -208,10 +187,7 @@ static void w3_build_hud(const telem_packet_t *t, int W, int H, int have) {
    */
   {
     float apx = 5.f, ax = 70.f, as = t->airspeed;
-    /* Real speed marks (mult of 5) in the window at continuous positions -- same anti-blink fix as
-     * the heading tape (the old value-snapped grid made the mult-of-10 labels flicker with the
-     * scroll). */
-    for (int av = (int)floorf((as - 30.f) / 5.f) * 5; av <= (int)as + 30; av += 5) {
+    for (int av = (int)floorf((as - 30.f) / 5.f) * 5; av <= (int)as + 30; av += 5) { /* continuous marks */
       if (av < 0) continue;
       float sy = cy - ((float)av - as) * apx;
       if (sy < cy - 150.f || sy > cy + 150.f) continue;
@@ -228,14 +204,10 @@ static void w3_build_hud(const telem_packet_t *t, int W, int H, int have) {
     w3_printf(ax + 3, cy + 18, 1.7f, HG_R, HG_G, HG_B, "GS %2.0f", t->gs);
   }
 
-  /* ===== Altitude tape (right): moving vertical ASL scale (telem.alt = altitude above sea level
-   * from GPS) + '<' caret. AGL (height above ground, base-computed = ASL - DEM ground) as a smaller
-   * secondary readout below -- the radar-alt slot -- then VS. ===== */
+  /* ===== Altitude tape (right): ASL scale + '<' caret; AGL (ASL - DEM ground) and VS below. ===== */
   {
     float mpx = 1.5f, axr = W - 70.f, asl = t->alt;
-    /* Real altitude marks (mult of 10) in the window at continuous positions -- same anti-blink
-     * fix. */
-    for (int av = (int)floorf((asl - 100.f) / 10.f) * 10; av <= (int)asl + 100; av += 10) {
+    for (int av = (int)floorf((asl - 100.f) / 10.f) * 10; av <= (int)asl + 100; av += 10) { /* continuous marks */
       if (av < 0) continue;
       float sy = cy - ((float)av - asl) * mpx;
       if (sy < cy - 150.f || sy > cy + 150.f) continue;
@@ -253,10 +225,8 @@ static void w3_build_hud(const telem_packet_t *t, int W, int H, int have) {
     w3_printf(axr - 63, cy + 36, 1.6f, HG_R, HG_G, HG_B, "VS%+4.0f", t->vs);
   }
 
-  /* ===== Steering / glideslope cue -- far LEFT edge (F-16 style), OUT of the central attitude
-   * field: a compact ILS-like glidepath indicator. Short vertical scale, a caret from
-   * glideslope_err riding it; err > 0 (ABOVE the ideal path) puts the caret BELOW centre -- fly
-   * down to it. README A7. ===== */
+  /* ===== Steering/glideslope cue, far LEFT edge (F-16 ILS style): err > 0 (above ideal path) puts
+   * the caret BELOW centre -- fly down to it. README A7. ===== */
   {
     float gx = 26.f, gsy = cy + t->glideslope_err * 7.f;
     if (gsy < cy - 40) gsy = cy - 40;
@@ -269,11 +239,8 @@ static void w3_build_hud(const telem_packet_t *t, int W, int H, int have) {
     w3_qline(gx - 9, gsy + 5, gx - 9, gsy - 5, 1.2f, HG_R, HG_G, HG_B); /* caret -> scale */
     w3_text(gx - 8, cy + 48, 1.3f, HG_R, HG_G, HG_B, "GP");
   }
-  /* ===== Secondary data + annunciations at the EDGES (the primary attitude field stays clean).
-   * Green monochrome; only battery/link CAUTION breaks to amber/red -- a safety convention MIL-STD
-   * allows even on a mono HUD. The old home arrow (now the heading-tape pointer), the old white
-   * glideslope ladder (now the centre steering cue) and the ROLL/PITCH text (read from horizon+FPM+
-   * bank arc) are gone. ===== */
+  /* ===== Secondary data + annunciations at the EDGES; the primary attitude field stays clean.
+   * Green monochrome, only battery/link caution breaks to amber/red (MIL-STD allows it on mono). ===== */
   /* Flight-mode annunciation, bottom-left, boxed; RTH/failsafe stands out in amber. */
   {
     int st = t->state % 6, rth = (st == 5 || st == 3);
@@ -320,9 +287,8 @@ static void w3_build_hud(const telem_packet_t *t, int W, int H, int have) {
     w3_box(W - 70, 10, W - 14, 34, HG_R, HG_G, HG_B);
     w3_printf(W - 64, 14, 2.5f, HG_R, HG_G, HG_B, "%s", evs ? "EVS" : "SVS");
   }
-  /* Waypoint block, bottom-right: placeholder wired to the HOME indicator (README A7 instrument
-   * homing) -- WP 00, bearing to home, distance. A real waypoint system slots into this frame
-   * later. */
+  /* Waypoint block, bottom-right: placeholder wired to HOME (bearing + distance) until a real
+   * waypoint system slots in. README A7. */
   {
     float bx = W - 200, by = H - 92;
     w3_box(bx, by, W - 14, H - 14, HG_R, HG_G, HG_B);
