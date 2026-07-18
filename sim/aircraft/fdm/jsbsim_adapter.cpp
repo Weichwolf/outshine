@@ -51,7 +51,7 @@ extern "C" void fb_jsbsim_set_controls(double roll, double pitch, double yaw, do
   if (!g_fdm) return;
   g_fdm->SetPropertyValue("fcs/aileron-cmd-norm",  roll);
   g_fdm->SetPropertyValue("fcs/elevator-cmd-norm", -pitch);   /* JSBSim +elevator = nose DOWN; iNav +pitch = nose UP (D2 measured) */
-  g_fdm->SetPropertyValue("fcs/rudder-cmd-norm",   yaw);
+  g_fdm->SetPropertyValue("fcs/rudder-cmd-norm",   -yaw);   /* Cndr<0: JSBSim +rudder = nose LEFT; iNav +yaw = nose RIGHT (same inversion as elevator) */
   g_fdm->SetPropertyValue("fcs/throttle-cmd-norm", thr);
 }
 
