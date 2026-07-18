@@ -1,0 +1,11 @@
+{
+  "name": "F-16 — EDDF Ausflug",
+  "aircraft": "f16",
+  "takeoff": { "airport": "EDDF", "runway": "07C" },
+  "waypoints": [
+    { "lat": 50.0800, "lon": 8.6200, "alt_agl": 900 },
+    { "lat": 50.1000, "lon": 8.5500, "alt_agl": 1200 },
+    { "lat": 50.0500, "lon": 8.4800, "alt_agl": 700 }
+  ],
+  "land": { "airport": "EDDF", "runway": "25C" }
+}

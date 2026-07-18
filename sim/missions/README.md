@@ -26,12 +26,13 @@ vom **Command Center** (per URL: `http://localhost:8080/?mission=<name>`, `<name
 - **`waypoints[].alt_agl`** — Höhe **über Grund**. Nur das Command Center kennt AGL (DEM); es rechnet
   je WP `alt_agl + Bodenhöhe(lat,lon)` → ASL und gibt iNav reine GPS-Höhen (`MSP_SET_WP`).
 
-## Auswahl der 3 E2E-Flieger/Flughäfen (provisorisch, DB-validiert)
+## Die 3 E2E-Flieger/Flughäfen (gegen OurAirports validiert)
 
-| Flieger | Charakter | Flughafen (Vorschlag) | Grund |
-|---|---|---|---|
-| `f16` | schneller Jet | EDDF Frankfurt | lange Bahn |
-| `c172p` | GA-Prop | EDDH Hamburg | mittlere Bahn |
-| `minisgs_e` | Motorsegler | EDNY Friedrichshafen | kleiner/GA-Platz |
+| Flieger | Flughafen | Start-Bahn | Lande-Bahn | Bahnlänge |
+|---|---|---|---|---|
+| `f16` | EDDF Frankfurt | 07C (hdg 69.6°) | 25C (249.6°) | 13123 ft ASP |
+| `c172p` | EDDH Hamburg | 05 (hdg 50.3°) | 23 (230.3°) | 10663 ft ASP |
+| `minisgs_e` | EDNY Friedrichshafen | 06 (hdg 60°) | 24 (240°) | 7729 ft ASP |
 
-Runway-Idents/Headings werden gegen die Flughafen-DB validiert, sobald die (Paket J) steht.
+Headings aus `runways.csv` (`le/he_heading_degT`). Die Missions-Dateien referenzieren nur
+`airport`+`runway`; Koordinaten/Heading löst der DB-Loader (Paket J) auf.
