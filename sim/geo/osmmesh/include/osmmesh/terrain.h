@@ -75,6 +75,43 @@ int osmmesh_terrain_build_mesh(const osmmesh_terrain_grid *grid,
                                 const osmmesh_terrain_build_opts *opts,
                                 osmmesh_mesh *mesh);
 
+/* ------------------------------------------------------------------------
+ * ECEF terrain mesh (global-scale path, added ALONGSIDE build_mesh above).
+ *
+ * Same heightfield, same stride/normal/UV options, same triangle winding --
+ * but positions are WGS84 ECEF instead of flat-earth ENU, so the tile sits on
+ * the real curved ellipsoid and a mesh can be placed anywhere on the planet.
+ *
+ * Output contract (what the renderer consumes, step 2):
+ *   - origin_ecef_out[3]  : a per-tile local origin in ECEF meters (double).
+ *                           The tile CENTER, projected to the ellipsoid at the
+ *                           tile-center terrain height. Keep it as double.
+ *   - mesh->positions[]   : per-vertex offset FROM origin_ecef_out, in meters,
+ *                           on ECEF axes, stored float. Small (|offset| ~ half
+ *                           a tile diagonal + local relief, << 2 km at z14) so
+ *                           float holds them to sub-cm.
+ *   - mesh->normals[]     : unit ECEF-axis normals (roughly radial-outward plus
+ *                           relief; NOT world-up). NULL if compute_normals==0.
+ *   - mesh->uvs[]         : identical to the ENU path.
+ *   - mesh->indices[]     : identical winding to the ENU path (CCW seen from
+ *                           outside the ellipsoid -> normals point outward).
+ *
+ * Per frame the renderer computes cam_ecef (double) from the aircraft geodetic
+ * pose, then per tile trans = origin_ecef_out - cam_ecef (double subtract ->
+ * float) and draws with the camera at the origin. There is NO yoff lift here:
+ * the ENU path lifts the camera by the origin ground elevation because its
+ * vertices are relative to a ground-anchored plane; ECEF vertices are absolute
+ * on the ellipsoid, so the camera's own ECEF already carries its altitude.
+ *
+ * z/x/y select the slippy tile; per-vertex lon/lat come from
+ * osmmesh_tile_frac_to_geo (full precision), height from the grid.
+ * ------------------------------------------------------------------------ */
+int osmmesh_terrain_build_mesh_ecef(const osmmesh_terrain_grid *grid,
+                                     uint8_t z, uint32_t x, uint32_t y,
+                                     const osmmesh_terrain_build_opts *opts,
+                                     osmmesh_mesh *mesh,
+                                     double origin_ecef_out[3]);
+
 #define OSMMESH_TERRAIN_OK            0
 #define OSMMESH_TERRAIN_ERR_DECODE   -1   /* PNG broken / wrong channels */
 #define OSMMESH_TERRAIN_ERR_ARG      -2   /* NULL / stride-doesn't-divide */

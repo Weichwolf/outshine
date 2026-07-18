@@ -96,6 +96,58 @@ osmmesh_geo osmmesh_tile_local_to_geo(uint8_t z, uint32_t x, uint32_t y,
                                        uint32_t extent,
                                        int32_t local_x, int32_t local_y);
 
+/* Fractional-tile -> geographic. (fx, fy) are in [0..1] across the tile,
+ * origin TOP-LEFT (fy=0 = north edge, fy=1 = south edge). Full double
+ * precision -- unlike osmmesh_tile_local_to_geo this does NOT round the
+ * position onto an integer MVT lattice, so it is the canonical projector for
+ * the ECEF terrain path (a 0.5-lattice-unit rounding is ~0.18 m at z14, which
+ * would break the sub-cm offset guarantee). alt is left 0; the caller sets it.
+ * The Mercator inverse here is pinned equal to osmmesh_tile_local_to_geo at
+ * integer local coords by the test suite, so the two cannot drift. */
+osmmesh_geo osmmesh_tile_frac_to_geo(uint8_t z, uint32_t x, uint32_t y,
+                                      double fx, double fy);
+
+/* ========================================================================
+ *  WGS84 ECEF (Earth-Centered, Earth-Fixed)
+ *
+ *  Global-scale path added ALONGSIDE the flat-earth ENU model above (which is
+ *  correct only to ~20 km from its origin). ECEF places every vertex on the
+ *  WGS84 ellipsoid in one earth-fixed double-precision frame, so a mesh can
+ *  span the planet. The renderer draws it camera-relative: per tile it holds a
+ *  double ECEF origin, per frame subtracts the double camera-ECEF, and uploads
+ *  the small float difference (see terrain.h osmmesh_terrain_build_mesh_ecef).
+ *
+ *  Altitude convention: `alt`/`h` is treated as height above the WGS84
+ *  ELLIPSOID. Terrarium heights are orthometric (above the geoid); the geoid
+ *  undulation (up to ~85 m globally, ~45 m over central Europe) is ignored.
+ *  For rendering that is a slow, smooth vertical bias with no visible effect;
+ *  it is the same simplification the ENU path already makes (u = alt).
+ * ====================================================================== */
+
+/* WGS84 defining parameters. a = semi-major axis (== osmmesh_earth_radius_m),
+ * f = flattening. Exposed so tests cross-check without re-hardcoding. */
+extern const double osmmesh_wgs84_a;   /* 6378137.0 m */
+extern const double osmmesh_wgs84_f;   /* 1 / 298.257223563 */
+
+/* ECEF position in meters. X toward (lat 0, lon 0), Y toward (lat 0, lon 90E),
+ * Z toward the north pole. Right-handed. */
+typedef struct {
+    double x, y, z;
+} osmmesh_ecef;
+
+/* Geodetic (WGS84) -> ECEF. Closed form, no iteration:
+ *   N = a / sqrt(1 - e^2 sin^2 phi)
+ *   X = (N + h) cos phi cos lam
+ *   Y = (N + h) cos phi sin lam
+ *   Z = (N (1 - e^2) + h) sin phi
+ * Exact for any lat/lon/alt. */
+osmmesh_ecef osmmesh_geo_to_ecef(osmmesh_geo g);
+
+/* ECEF -> geodetic (WGS84). Bowring's closed-form inverse (sub-millimeter,
+ * no iteration). At the poles (x=y=0) lon is defined as 0. Inverse of
+ * osmmesh_geo_to_ecef to sub-mm over the whole ellipsoid. */
+osmmesh_geo osmmesh_ecef_to_geo(osmmesh_ecef p);
+
 /* ========================================================================
  *  ENU (local tangent plane)
  * ====================================================================== */

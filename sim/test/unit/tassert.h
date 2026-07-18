@@ -46,5 +46,7 @@ void test_draw(void);
 void test_w3atmo(void);
 void test_camera(void);
 void test_stars(void);
+void test_geo_ecef(void);
+void test_terrain_ecef(void);
 
 #endif /* FB_TASSERT_H */
