@@ -257,6 +257,20 @@ Für Start-/Lande-Bahn + **Ausrichtung** braucht es eine Flughafen-DB. **Quelle:
 `le_heading`/`he_heading`, Länge). Gefilterter statischer Auszug (befestigte Bahnen), **ein Datensatz
 für Tests und CC**. Liefert Bahn-Heading (Start-/Landerichtung) und Schwellen-GPS (Aufsetzpunkt).
 
+### 7.5 Kommando-Bestätigung & Mode-Annunciation (MIL-STD-1787)
+
+**iNav bestätigt jedes Kommando; das CC zeigt nur den bestätigten Zustand.** Der Mode-Annunciator im
+HUD spiegelt iNavs **echten** aktiven Mode (aus `MSP_STATUS` `flightModeFlags`), **nie** das
+optimistische Bridge-Label. Avionik-/MIL-STD-1787-Konvention:
+
+- **Bestätigt** (CC-Kommando ⇔ iNav-Flag gesetzt) → Annunciator **steht** (steady).
+- **Kommandiert, unbestätigt** (CC will z.B. LOITER, iNav-Flag noch nicht gesetzt/abgelehnt) →
+  Annunciator **blinkt**, bis iNav bestätigt (oder der Operator sieht: iNav hat abgelehnt).
+
+Das macht Diskrepanzen **sichtbar statt versteckt** — und ist zugleich der Diagnose-Hebel: der aktuelle
+„CC sagt LOITER, iNav ist real in ANGLE"-Bug wäre sofort als blinkender Annunciator aufgefallen.
+Datenquelle: `flightModeFlags` über den Telem-Downlink (Bridge exponiert `t_modeflags`, `msp.c`).
+
 ## 8. Test & Verifikation
 
 - **Headless End-to-End-Missionstests (das Autopilot-Orakel):** kein Rendering, keine Bodenstation-
