@@ -20,6 +20,9 @@ smix 2 3 2 100 0 -1
 # --- GPS (SITL fake driver, fed by the bridge's inav_xitl/gps datarefs) ---
 feature GPS
 set gps_provider = FAKE
+# NB: feature PITOT + pitot_hardware=FAKE (SITL fake pitot, fed by inav_xitl/sensors/airspeed) is
+# architecturally correct for fixed-wing NAV, but MEASURED to destabilise the marginal minisgs_e
+# launch (earlier NaN). Left OFF until the motor-glider envelope is sorted (FDM domain).
 set nav_extra_arming_safety = ALLOW_BYPASS   ; arm with YAW stick HIGH to bypass
 
 # --- failsafe -> RTH ---
