@@ -1,7 +1,8 @@
 /* FlightBox command center — invariants: numbers and declarations FIXED by physics, maths, or a
  * foreign API. Changing one makes the code WRONG, not merely different -- that is the test for what
  * belongs here. Tunables (knobs you can turn and it still runs correctly) do NOT live here; they
- * become runtime settings loaded from config. Requires a GL header (GLenum/GLsizei) already included. */
+ * become runtime settings loaded from config. Requires a GL header (GLenum/GLsizei) already
+ * included. */
 #ifndef FB_CONSTANTS_H
 #define FB_CONSTANTS_H
 
@@ -26,7 +27,8 @@
 #ifndef GL_DEPTH_COMPONENT24
 #define GL_DEPTH_COMPONENT24 0x81A6
 #endif
-extern void glRenderbufferStorageMultisample(GLenum,GLsizei,GLenum,GLsizei,GLsizei);
-extern void glBlitFramebuffer(GLint,GLint,GLint,GLint,GLint,GLint,GLint,GLint,GLbitfield,GLenum);
+extern void glRenderbufferStorageMultisample(GLenum, GLsizei, GLenum, GLsizei, GLsizei);
+extern void glBlitFramebuffer(GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLbitfield,
+                              GLenum);
 
 #endif

@@ -1,8 +1,10 @@
 #ifndef FB_CC_CODEC_H
 #define FB_CC_CODEC_H
 /* EVS video link: WebCodecs H.264 encode->decode, modelling the lossy 5.8 GHz downlink.
- * Include after <emscripten.h> and the GL headers. Returns 0 from init where WebCodecs is absent. */
+ * Include after <emscripten.h> and the GL headers. Returns 0 from init where WebCodecs is absent.
+ */
 
+// clang-format off
 EM_JS(int, fb_codec_init, (int w, int h), {
   if (typeof VideoEncoder === 'undefined' || typeof VideoDecoder === 'undefined') {
     console.warn('[fb] WebCodecs nicht verfuegbar — Rohbild ohne Video-Artefakte.'); return 0;
@@ -39,5 +41,6 @@ EM_JS(int, fb_codec_upload, (int texId), {
   catch(e){ return 0; }
   return 1;
 })
+  // clang-format on
 
 #endif

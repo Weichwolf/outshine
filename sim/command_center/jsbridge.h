@@ -1,7 +1,9 @@
 #ifndef FB_CC_JSBRIDGE_H
 #define FB_CC_JSBRIDGE_H
-/* Browser <-> fb-tiles fetches (EM_JS). window.FB_TILES_URL is the base. Include after <emscripten.h>. */
+/* Browser <-> fb-tiles fetches (EM_JS). window.FB_TILES_URL is the base. Include after
+ * <emscripten.h>. */
 
+// clang-format off
 /* Origin ground, startup only: sync so w3_O.yoff is the REAL ground on the first (only) frame.
  * block=1 waits for a cold origin DEM tile -- without it a 503 spawns the camera underground until
  * the worker's yoff lands seconds later. Sync + startup-only, so the wait is off the frame loop. */
@@ -46,5 +48,6 @@ EM_JS(int, fb_fetch_stars, (int band, uint8_t *dst, int maxbytes), {
   } catch(e){}
   return -1;
 })
+// clang-format on
 
 #endif

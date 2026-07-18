@@ -6,24 +6,25 @@
  * there is one renderer and nothing to keep in sync. Caller provides the GL context. */
 #ifndef WORLD3D_H
 #define WORLD3D_H
-#include <stdio.h>
-#include <string.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <math.h>
-#include <time.h>
-#include <GLES2/gl2.h>
+#include "constants.h" /* FB_M_PER_DEG_LAT (the ENU-offset <-> lat/lon scale, needed by the ECEF camera) */
 #include "protocol.h"
-#include "constants.h"   /* FB_M_PER_DEG_LAT (the ENU-offset <-> lat/lon scale, needed by the ECEF camera) */
+#include <GLES2/gl2.h>
+#include <math.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
 #ifdef W3_USE_OSM
-#include "camera.h"      /* attitude -> basis + MVP, pure */
-#include "stars.h"       /* catalogue coords + time + place -> direction, pure */
-#include "atmo.h"        /* the frame's sun/sky/light, pure — shared by sky, terrain and buildings */
-#include "tilesrc_js.h"   /* tile bytes from fb-tiles (async cache + osmmesh provider) */
+#include "atmo.h"       /* the frame's sun/sky/light, pure — shared by sky, terrain and buildings */
+#include "camera.h"     /* attitude -> basis + MVP, pure */
+#include "stars.h"      /* catalogue coords + time + place -> direction, pure */
+#include "tilesrc_js.h" /* tile bytes from fb-tiles (async cache + osmmesh provider) */
 #endif
 #ifndef W3_FOV
-#define W3_FOV 80.0f   /* vertical FOV (deg). Wide FPV cam (Caddx Ratel 2 ~164° diag ->
-                        * ~80° vertical / ~112° horizontal at 16:9). */
+#define W3_FOV                                                                                     \
+  80.0f /* vertical FOV (deg). Wide FPV cam (Caddx Ratel 2 ~164° diag ->                           \
+         * ~80° vertical / ~112° horizontal at 16:9). */
 #endif
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -46,11 +47,12 @@
  * draw passes. Grouped so a program and the locations that index into it live together instead of
  * as ~40 loose globals. */
 static struct {
-  GLuint pW,pH,pWT,pSky,pStar,vTerr,vBld,hVBO,skyVBO,starVBO; int nTerr,nBld;
-  GLint stPos,stMag,stBV,stMVP,stDay;
-  GLint wPos,wCol,wMVP,wHaze,wLight,hPos,hCol,hScale;
-  GLint wtPos,wtUV,wtMVP,wtTex,wtHaze,wtLight,wtNorm,wtSun,wtSunUp;
-  GLint skPos,skF,skS,skU,skTan,skAsp,skSun,skMoon,skMoonPh,skCloud,skSunDisc,skDayF;
+  GLuint pW, pH, pWT, pSky, pStar, vTerr, vBld, hVBO, skyVBO, starVBO;
+  int nTerr, nBld;
+  GLint stPos, stMag, stBV, stMVP, stDay;
+  GLint wPos, wCol, wMVP, wHaze, wLight, hPos, hCol, hScale;
+  GLint wtPos, wtUV, wtMVP, wtTex, wtHaze, wtLight, wtNorm, wtSun, wtSunUp;
+  GLint skPos, skF, skS, skU, skTan, skAsp, skSun, skMoon, skMoonPh, skCloud, skSunDisc, skDayF;
 } w3_gl;
 
 #include "procedural.h"
@@ -61,9 +63,9 @@ static struct {
  * static geometry — as the aircraft crosses a tile boundary the grid is re-fetched
  * and the terrain/building VBOs are rebuilt. Origin (lat/lon) is configurable. */
 #ifdef W3_USE_OSM
+#include "osmmesh/mvt.h"
 #include "osmmesh/osmmesh.h"
 #include "osmmesh/pmtiles.h"
-#include "osmmesh/mvt.h"
 /* ---- terrain LOD: a chunked quadtree (Ulrich 2002), not a stack of rings -------------------
  *
  * What was here before: three fixed 5x5 grids at z14/z11/z8, drawn coarse-to-fine with a polygon
@@ -89,41 +91,56 @@ static struct {
  * Refinement is by screen-space error, from each chunk's OWN measured geometric error:
  *     SSE = node.error * W3_SSE_K / distance      (pixels)
  *     split while SSE > W3_EPS
- * See chunkmesh_ecef.h (w3_chunk_build_ecef) for why the error must be measured per chunk, not tabulated per zoom. */
+ * See chunkmesh_ecef.h (w3_chunk_build_ecef) for why the error must be measured per chunk, not
+ * tabulated per zoom. */
 #include "terrain/lod.h"
 
 /* Old-flight-sim ground: OSM footprints/roads/rivers/rails + landcover are baked
  * into ONE orthographic texture per tile (no building geometry). The texture is
  * draped over the terrain heightfield. The vector features come from the Shortbread
  * PMTiles via osmmesh's MVT decoder; the terrain heightfield from osmmesh's terrain. */
-static osmmesh_ctx *w3_osm=0;          /* terrain heightfield meshes; the "world is open" gate */
+static osmmesh_ctx *w3_osm = 0; /* terrain heightfield meshes; the "world is open" gate */
 /* The origin (home) and everything anchored to it. ONE owner: cc.c sets lat/lon from /config.js
- * once, everything else reads it -- the old g_olat/g_olon (cc.c) and w3_olat/w3_olon (here) were the
- * same fact stored twice. lat/lon drive the star alt/az and the tile stream; yoff is the origin
+ * once, everything else reads it -- the old g_olat/g_olon (cc.c) and w3_olat/w3_olon (here) were
+ * the same fact stored twice. lat/lon drive the star alt/az and the tile stream; yoff is the origin
  * ground elevation, the AGL and no-telemetry-camera-height fallback until /elev answers (NOT a
- * camera lift any more -- ECEF vertices are absolute on the ellipsoid); tx/ty is the last centre tile. */
+ * camera lift any more -- ECEF vertices are absolute on the ellipsoid); tx/ty is the last centre
+ * tile. */
 typedef struct {
   double lat, lon;
-  float  yoff; int yoff_set;
-  int have_tile; uint32_t tx, ty;
+  float yoff;
+  int yoff_set;
+  int have_tile;
+  uint32_t tx, ty;
 } w3_origin;
-static w3_origin w3_O = { .lat = 52.045, .lon = 9.385 };   /* Hameln default until /config.js overrides */
-/* Simulated wall-clock override, Unix seconds; 0 = real time. Set from window.FB_SIM_UTC (cc.c) so a
- * night/dusk sky can be pinned reproducibly. The star sidereal time reads it; the aircraft honours the
- * matching SIM_UTC env for the sun, so visibility (sun) and star positions agree on the same instant. */
+static w3_origin w3_O = {.lat = 52.045,
+                         .lon = 9.385}; /* Hameln default until /config.js overrides */
+/* Simulated wall-clock override, Unix seconds; 0 = real time. Set from window.FB_SIM_UTC (cc.c) so
+ * a night/dusk sky can be pinned reproducibly. The star sidereal time reads it; the aircraft
+ * honours the matching SIM_UTC env for the sun, so visibility (sun) and star positions agree on the
+ * same instant. */
 static double w3_sim_utc = 0;
 /* Height above ground, metres, computed in cc.c each frame as telem.alt(ASL) - DEM ground under the
- * aircraft (async /elev, origin-ground fallback). Drives the HUD's AGL readout; the LOD gets it too. */
+ * aircraft (async /elev, origin-ground fallback). Drives the HUD's AGL readout; the LOD gets it
+ * too. */
 static float w3_agl = 0;
 /* Seed the origin ground before any tile streams, so AGL and the no-telemetry camera height are
  * sane at frame 0 (from /elev, before the centre tile's own probe lands). */
-static void w3_seed_yoff(float y){ if(!w3_O.yoff_set){ w3_O.yoff=y; w3_O.yoff_set=1; } }
+static void w3_seed_yoff(float y) {
+  if (!w3_O.yoff_set) {
+    w3_O.yoff = y;
+    w3_O.yoff_set = 1;
+  }
+}
 
 /* ONE draw list, built by the tree walk each stream pass. There used to be three of these
  * (w3_T/w3_TF/w3_TF2 with w3_nT/w3_nTF/w3_nTF2) -- the same code three times with suffixes,
  * which is how the overlap got written down as a fact and then lived on as one. */
-typedef struct { GLuint vbo, tex[2]; int nverts; float bmin[3], bmax[3];
-  double origin[3];   /* per-tile ECEF origin; the frame subtracts cam_ecef to get the translation */
+typedef struct {
+  GLuint vbo, tex[2];
+  int nverts;
+  float bmin[3], bmax[3];
+  double origin[3]; /* per-tile ECEF origin; the frame subtracts cam_ecef to get the translation */
 } w3_tileGL;
 static w3_tileGL w3_D[W3_BUDGET];
 
@@ -142,30 +159,37 @@ enum { W3_GROUND_OSM = 0, W3_GROUND_PHOTO = 1 };
 /* The ground albedo source (TAB flips it; an index into tex[mode]) and the "not done yet" flag:
  * dirty is set while any resident tile still lacks the albedo we want, keeping world3d_stream from
  * declaring victory and sleeping until the next tile boundary. */
-static struct { int mode; int dirty; } w3_ground = { .mode = W3_GROUND_OSM };
-/* Per-pass render/stream bookkeeping: counters reset or accumulated each stream pass, plus the two
- * running thrash/diagnostic totals the harness reads. One owner; world3d_stream_at resets the per-pass
- * fields at the top of a pass. The KEEPALIVE accessors in cc.c (cc_drawn/cc_visible/cc_mipmaps) expose
- * fields -- their names are unchanged, only their bodies now read w3_frame. */
 static struct {
-  int nD;                    /* draw-list length this pass (indexes w3_D) */
-  int nvis;                  /* of nD, how many last frame's frustum drew; proof the cull bites */
+  int mode;
+  int dirty;
+} w3_ground = {.mode = W3_GROUND_OSM};
+/* Per-pass render/stream bookkeeping: counters reset or accumulated each stream pass, plus the two
+ * running thrash/diagnostic totals the harness reads. One owner; world3d_stream_at resets the
+ * per-pass fields at the top of a pass. The KEEPALIVE accessors in cc.c
+ * (cc_drawn/cc_visible/cc_mipmaps) expose fields -- their names are unchanged, only their bodies
+ * now read w3_frame. */
+static struct {
+  int nD;   /* draw-list length this pass (indexes w3_D) */
+  int nvis; /* of nD, how many last frame's frustum drew; proof the cull bites */
   /* Chunks the tree asked for and did not get. The streamer may only sleep when this is 0:
    * "nothing is waiting" and "nothing was asked for" are different states, and conflating them let
    * the tree declare victory over an EMPTY world and never look again. */
   int pending;
   /* Chunks that ARE drawable (floor 256 present) but still below their SSE target -- climbing the
-   * ramp. Kept apart from pending on purpose: "shown" and "fully sharp" are different states, only the
-   * FIRST gates convergence. Keeps the streamer awake to climb, never blocks "0 pending" -- else a
-   * moving camera, always mid-climb on some near tile (a fresh 2048 is 7-20 s), would never latch. */
+   * ramp. Kept apart from pending on purpose: "shown" and "fully sharp" are different states, only
+   * the FIRST gates convergence. Keeps the streamer awake to climb, never blocks "0 pending" --
+   * else a moving camera, always mid-climb on some near tile (a fresh 2048 is 7-20 s), would never
+   * latch. */
   int sharpen;
-  unsigned pass_mark;        /* touch stamp at the start of THIS pass; want_lod_max resets off it, then max's */
-  /* Every glGenerateMipmap the tile path does -- a clean per-frame thrash counter (~0 warm, explodes
-   * if a tile re-bakes each frame). The whole proof of the side-by-side LOD slots; read via cc_mipmaps(). */
+  unsigned
+      pass_mark; /* touch stamp at the start of THIS pass; want_lod_max resets off it, then max's */
+  /* Every glGenerateMipmap the tile path does -- a clean per-frame thrash counter (~0 warm,
+   * explodes if a tile re-bakes each frame). The whole proof of the side-by-side LOD slots; read
+   * via cc_mipmaps(). */
   long mipmaps;
-  int split_want, split_wait;   /* chunks that wanted to split; couldn't (yet) */
-  int over;                     /* splits refused by the budget -> coarser ground */
-  int lvl[8];                   /* chunks drawn per level, W3_ROOTZ..W3_MAXZ */
+  int split_want, split_wait; /* chunks that wanted to split; couldn't (yet) */
+  int over;                   /* splits refused by the budget -> coarser ground */
+  int lvl[8];                 /* chunks drawn per level, W3_ROOTZ..W3_MAXZ */
   int cache_hits, cache_bakes, cache_evict;
 } w3_frame;
 
@@ -175,28 +199,37 @@ static struct {
  * READER's half of that contract -- they need GL types, so they stay here, but they derive from
  * the same struct, so a layout change breaks the build rather than the picture. */
 #define W3_VTX_STRIDE ((GLsizei)sizeof(w3_vtx))
-#define W3_VTX_OFF(f)  ((void*)offsetof(w3_vtx, f))
+#define W3_VTX_OFF(f) ((void *)offsetof(w3_vtx, f))
 
-/* w3_chunk_build_ecef (chunkmesh_ecef.h) -- decimation, smooth normals, the measured error, the skirt -- now
- * runs in the WORKER (tileworker.c), which hands back a finished w3_vtx[] array. All that is left
- * on the main thread is glBufferData, inline in w3_cache_get's MESH->READY transition. The GL
- * upload wrapper that used to live here (w3_terr_vbo) is gone with the synchronous path. */
+/* w3_chunk_build_ecef (chunkmesh_ecef.h) -- decimation, smooth normals, the measured error, the
+ * skirt -- now runs in the WORKER (tileworker.c), which hands back a finished w3_vtx[] array. All
+ * that is left on the main thread is glBufferData, inline in w3_cache_get's MESH->READY transition.
+ * The GL upload wrapper that used to live here (w3_terr_vbo) is gone with the synchronous path. */
 
 /* Stream tiles on demand from the fb-tiles service. Nothing is bundled, everything is fetched --
  * this is what makes any origin on earth work. */
-static int world3d_tiles_open(const char*base,double lat,double lon){
+static int world3d_tiles_open(const char *base, double lat, double lon) {
   w3_tiles_init(base);
-  osmmesh_config cfg={ .origin_lat=lat, .origin_lon=lon,
-    .tile_provider=w3_tile_provider, .tile_provider_user=0,
-    .provider_terrain_max_zoom=15,   /* Tilezen terrarium; no archive header to read */
-    .enable_terrain=1, .enable_buildings=0, .enable_linears=0 };
-  if(osmmesh_create(&cfg,&w3_osm)!=OSMMESH_OK){ printf("[world3d] osmmesh_create (streaming) failed\n"); w3_osm=0; return 0; }
-  w3_O.have_tile=0;
+  osmmesh_config cfg = {.origin_lat = lat,
+                        .origin_lon = lon,
+                        .tile_provider = w3_tile_provider,
+                        .tile_provider_user = 0,
+                        .provider_terrain_max_zoom =
+                            15, /* Tilezen terrarium; no archive header to read */
+                        .enable_terrain = 1,
+                        .enable_buildings = 0,
+                        .enable_linears = 0};
+  if (osmmesh_create(&cfg, &w3_osm) != OSMMESH_OK) {
+    printf("[world3d] osmmesh_create (streaming) failed\n");
+    w3_osm = 0;
+    return 0;
+  }
+  w3_O.have_tile = 0;
   /* Spawn the tile worker with the SAME origin: the mesh it builds is ENU-relative to it. The main
    * thread's osmmesh ctx above is now only the "world is open" gate and osmmesh_geo_to_tile -- the
    * fetch/decode/mesh it used to do runs in the worker. */
-  w3_worker_init(base,lat,lon);
-  printf("[world3d] streaming tiles from %s (origin %.4f/%.4f), worker spawned\n",base,lat,lon);
+  w3_worker_init(base, lat, lon);
+  printf("[world3d] streaming tiles from %s (origin %.4f/%.4f), worker spawned\n", base, lat, lon);
   return 1;
 }
 #include "tiles/lru.h"
@@ -215,170 +248,96 @@ static int world3d_tiles_open(const char*base,double lat,double lon){
  * re-baked -- which reads as "the switch takes forever" even though the tiles were already on the
  * server's disk in under a millisecond. A fallback view you reach for when the camera dies must
  * not begin by removing the view. */
-static void w3_ground_toggle(void){
+static void w3_ground_toggle(void) {
   /* Both textures are already resident, so this really is just an index flip -- no re-bake, no
    * flush, no network. Earlier versions re-baked here and the switch took about a minute, because
    * world3d_stream returns early once everything is loaded and only wakes when the aircraft
-   * crosses a tile boundary (~1 min in a 1000 m orbit). The pictures were on disk the whole time. */
-  w3_ground.mode = (w3_ground.mode==W3_GROUND_OSM) ? W3_GROUND_PHOTO : W3_GROUND_OSM;
-  printf("[world3d] ground = %s\n", w3_ground.mode==W3_GROUND_PHOTO?"aerial photo":"OSM render");
+   * crosses a tile boundary (~1 min in a 1000 m orbit). The pictures were on disk the whole time.
+   */
+  w3_ground.mode = (w3_ground.mode == W3_GROUND_OSM) ? W3_GROUND_PHOTO : W3_GROUND_OSM;
+  printf("[world3d] ground = %s\n",
+         w3_ground.mode == W3_GROUND_PHOTO ? "aerial photo" : "OSM render");
 }
 
-#include "max7456.h"
-#include "hud.h"
+#include "max7456.h" /* MAX7456 font atlas + glyph program */
+#include "hud.h"     /* HUD/OSD build + render (uses mx_*) */
 
 /* ---- init + render ----
  * Compiles shaders + HUD buffer. Geometry is provided by world3d_stream()
  * (live osmmesh) when an archive has been opened; otherwise a procedural world
  * is built as a standalone fallback. */
-static void world3d_init(void){
+static void world3d_init(void) {
   /* Trim the texture-LOD ramp to what this context can actually hold. WebGL2 guarantees >= 2048,
    * so normally all four steps survive; a spec-minimum context simply never asks for a size it
    * cannot bind, rather than failing the glTexImage2D silently at draw time. */
-  { GLint mx=2048; glGetIntegerv(GL_MAX_TEXTURE_SIZE,&mx);
-    int cap=0; while(cap<W3_NLOD && w3_lod_px[cap]<=(int)mx) cap++;
-    if(cap>W3_LOD_MAXSTEPS) cap=W3_LOD_MAXSTEPS;    /* policy ceiling: 2048 is gated (see table) */
-    if(cap<1) cap=1; w3_lod_cap=cap;
-    printf("[world3d] LOD ramp: %d steps, top %d px (MAX_TEXTURE_SIZE %d)\n",cap,w3_lod_px[cap-1],(int)mx); }
-  w3_gl.pW=w3_prog(W3_VSW,W3_FSW); w3_gl.wPos=glGetAttribLocation(w3_gl.pW,"aPos"); w3_gl.wCol=glGetAttribLocation(w3_gl.pW,"aCol"); w3_gl.wMVP=glGetUniformLocation(w3_gl.pW,"uMVP");
-  w3_gl.wHaze=glGetUniformLocation(w3_gl.pW,"uHaze"); w3_gl.wLight=glGetUniformLocation(w3_gl.pW,"uLight");
-  w3_gl.pH=w3_prog(W3_VSH,W3_FSH); w3_gl.hPos=glGetAttribLocation(w3_gl.pH,"aPos"); w3_gl.hCol=glGetAttribLocation(w3_gl.pH,"aCol"); w3_gl.hScale=glGetUniformLocation(w3_gl.pH,"uScale");
-  glGenBuffers(1,&w3_gl.hVBO);
-  mx_init();               /* MAX7456 font atlas + glyph program for the HUD text */
+  {
+    GLint mx = 2048;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &mx);
+    int cap = 0;
+    while (cap < W3_NLOD && w3_lod_px[cap] <= (int)mx)
+      cap++;
+    if (cap > W3_LOD_MAXSTEPS)
+      cap = W3_LOD_MAXSTEPS; /* policy ceiling: 2048 is gated (see table) */
+    if (cap < 1) cap = 1;
+    w3_lod_cap = cap;
+    printf("[world3d] LOD ramp: %d steps, top %d px (MAX_TEXTURE_SIZE %d)\n", cap,
+           w3_lod_px[cap - 1], (int)mx);
+  }
+  w3_gl.pW = w3_prog(W3_VSW, W3_FSW);
+  w3_gl.wPos = glGetAttribLocation(w3_gl.pW, "aPos");
+  w3_gl.wCol = glGetAttribLocation(w3_gl.pW, "aCol");
+  w3_gl.wMVP = glGetUniformLocation(w3_gl.pW, "uMVP");
+  w3_gl.wHaze = glGetUniformLocation(w3_gl.pW, "uHaze");
+  w3_gl.wLight = glGetUniformLocation(w3_gl.pW, "uLight");
+  w3_gl.pH = w3_prog(W3_VSH, W3_FSH);
+  w3_gl.hPos = glGetAttribLocation(w3_gl.pH, "aPos");
+  w3_gl.hCol = glGetAttribLocation(w3_gl.pH, "aCol");
+  w3_gl.hScale = glGetUniformLocation(w3_gl.pH, "uScale");
+  glGenBuffers(1, &w3_gl.hVBO);
+  mx_init(); /* MAX7456 font atlas + glyph program for the HUD text */
   /* sky dome program + a fullscreen quad (two triangles in NDC) */
-  w3_gl.pSky=w3_prog(W3_VSKY,W3_FSKY);
-  w3_gl.skPos=glGetAttribLocation(w3_gl.pSky,"aPos");
-  w3_gl.skF=glGetUniformLocation(w3_gl.pSky,"uF"); w3_gl.skS=glGetUniformLocation(w3_gl.pSky,"uS"); w3_gl.skU=glGetUniformLocation(w3_gl.pSky,"uU");
-  w3_gl.skTan=glGetUniformLocation(w3_gl.pSky,"uTan"); w3_gl.skAsp=glGetUniformLocation(w3_gl.pSky,"uAsp");
-  w3_gl.skSun=glGetUniformLocation(w3_gl.pSky,"uSun"); w3_gl.skMoon=glGetUniformLocation(w3_gl.pSky,"uMoon");
-  w3_gl.skMoonPh=glGetUniformLocation(w3_gl.pSky,"uMoonPh"); w3_gl.skCloud=glGetUniformLocation(w3_gl.pSky,"uCloud");
-  w3_gl.skSunDisc=glGetUniformLocation(w3_gl.pSky,"uSunDisc"); w3_gl.skDayF=glGetUniformLocation(w3_gl.pSky,"uDayF");
-  { float q[12]={-1,-1, 1,-1, -1,1,  -1,1, 1,-1, 1,1}; glGenBuffers(1,&w3_gl.skyVBO);
-    glBindBuffer(GL_ARRAY_BUFFER,w3_gl.skyVBO); glBufferData(GL_ARRAY_BUFFER,sizeof q,q,GL_STATIC_DRAW); }
-  w3_gl.pStar=w3_prog(W3_VSTAR,W3_FSTAR);
-  w3_gl.stPos=glGetAttribLocation(w3_gl.pStar,"aPos"); w3_gl.stMag=glGetAttribLocation(w3_gl.pStar,"aMag");
-  w3_gl.stBV=glGetAttribLocation(w3_gl.pStar,"aBV");
-  w3_gl.stMVP=glGetUniformLocation(w3_gl.pStar,"uMVP"); w3_gl.stDay=glGetUniformLocation(w3_gl.pStar,"uDay");
-  glGenBuffers(1,&w3_gl.starVBO);
+  w3_gl.pSky = w3_prog(W3_VSKY, W3_FSKY);
+  w3_gl.skPos = glGetAttribLocation(w3_gl.pSky, "aPos");
+  w3_gl.skF = glGetUniformLocation(w3_gl.pSky, "uF");
+  w3_gl.skS = glGetUniformLocation(w3_gl.pSky, "uS");
+  w3_gl.skU = glGetUniformLocation(w3_gl.pSky, "uU");
+  w3_gl.skTan = glGetUniformLocation(w3_gl.pSky, "uTan");
+  w3_gl.skAsp = glGetUniformLocation(w3_gl.pSky, "uAsp");
+  w3_gl.skSun = glGetUniformLocation(w3_gl.pSky, "uSun");
+  w3_gl.skMoon = glGetUniformLocation(w3_gl.pSky, "uMoon");
+  w3_gl.skMoonPh = glGetUniformLocation(w3_gl.pSky, "uMoonPh");
+  w3_gl.skCloud = glGetUniformLocation(w3_gl.pSky, "uCloud");
+  w3_gl.skSunDisc = glGetUniformLocation(w3_gl.pSky, "uSunDisc");
+  w3_gl.skDayF = glGetUniformLocation(w3_gl.pSky, "uDayF");
+  {
+    float q[12] = {-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1};
+    glGenBuffers(1, &w3_gl.skyVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, w3_gl.skyVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof q, q, GL_STATIC_DRAW);
+  }
+  w3_gl.pStar = w3_prog(W3_VSTAR, W3_FSTAR);
+  w3_gl.stPos = glGetAttribLocation(w3_gl.pStar, "aPos");
+  w3_gl.stMag = glGetAttribLocation(w3_gl.pStar, "aMag");
+  w3_gl.stBV = glGetAttribLocation(w3_gl.pStar, "aBV");
+  w3_gl.stMVP = glGetUniformLocation(w3_gl.pStar, "uMVP");
+  w3_gl.stDay = glGetUniformLocation(w3_gl.pStar, "uDay");
+  glGenBuffers(1, &w3_gl.starVBO);
 #ifdef W3_USE_OSM
-  w3_gl.pWT=w3_prog(W3_VSWT,W3_FSWT); w3_gl.wtPos=glGetAttribLocation(w3_gl.pWT,"aPos"); w3_gl.wtUV=glGetAttribLocation(w3_gl.pWT,"aUV");
-  w3_gl.wtMVP=glGetUniformLocation(w3_gl.pWT,"uMVP"); w3_gl.wtTex=glGetUniformLocation(w3_gl.pWT,"uTex");
-  w3_gl.wtHaze=glGetUniformLocation(w3_gl.pWT,"uHaze"); w3_gl.wtLight=glGetUniformLocation(w3_gl.pWT,"uLight");
-  w3_gl.wtNorm=glGetAttribLocation(w3_gl.pWT,"aNorm"); w3_gl.wtSun=glGetUniformLocation(w3_gl.pWT,"uSun");
-  w3_gl.wtSunUp=glGetUniformLocation(w3_gl.pWT,"uSunUp");
-  if(w3_osm) return;              /* geometry (textured tiles) comes from world3d_stream() */
+  w3_gl.pWT = w3_prog(W3_VSWT, W3_FSWT);
+  w3_gl.wtPos = glGetAttribLocation(w3_gl.pWT, "aPos");
+  w3_gl.wtUV = glGetAttribLocation(w3_gl.pWT, "aUV");
+  w3_gl.wtMVP = glGetUniformLocation(w3_gl.pWT, "uMVP");
+  w3_gl.wtTex = glGetUniformLocation(w3_gl.pWT, "uTex");
+  w3_gl.wtHaze = glGetUniformLocation(w3_gl.pWT, "uHaze");
+  w3_gl.wtLight = glGetUniformLocation(w3_gl.pWT, "uLight");
+  w3_gl.wtNorm = glGetAttribLocation(w3_gl.pWT, "aNorm");
+  w3_gl.wtSun = glGetUniformLocation(w3_gl.pWT, "uSun");
+  w3_gl.wtSunUp = glGetUniformLocation(w3_gl.pWT, "uSunUp");
+  if (w3_osm) return; /* geometry (textured tiles) comes from world3d_stream() */
 #endif
   w3_build_procedural();
 }
-/* ---- the render passes, one function each -------------------------------------------------
- * world3d_render_scene was a monolith: sky, stars, terrain and the fallback all inline, sharing
- * per-frame locals. Each pass is now its own function taking the frame's camera (w3_cam) and
- * atmosphere (w3_atmo). Sky + stars are in sky.h (the draw side of gfx/shaders.h); terrain +
- * fallback are below; world3d_render_scene composes them. Pure code move -- GL state order unchanged,
- * the three `day` thresholds preserved EXACTLY (unifying them is a separate visual decision). */
-#include "sky.h"
 
-#ifdef W3_USE_OSM
-/* Textured terrain: one quadtree cut (w3_D), one draw per chunk, frustum-culled at DRAW time --
- * rotation moves the frustum every frame while the walk sleeps, and keeping the walk view-independent
- * is what holds tiles / picks LOD by distance alone. No polygon offset, no draw order: the chunks are
- * a CUT through the tree, so they tile the ground without overlapping -- nothing to bias apart. */
-/* Bind one draw-list tile's texture (the ground switch is an index) + vertex arrays, then draw. The
- * MVP is already set by the caller (one for all tiles on the ENU path, per-tile on the ECEF path). */
-static void w3_draw_tile(int i){
-  GLuint _t=w3_D[i].tex[w3_ground.mode]; if(!_t)_t=w3_D[i].tex[W3_GROUND_OSM];
-  glBindTexture(GL_TEXTURE_2D,_t); glBindBuffer(GL_ARRAY_BUFFER,w3_D[i].vbo);
-  glVertexAttribPointer(w3_gl.wtPos,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(pos));
-  glVertexAttribPointer(w3_gl.wtUV,2,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(uv));
-  glVertexAttribPointer(w3_gl.wtNorm,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(norm));
-  glDrawArrays(GL_TRIANGLES,0,w3_D[i].nverts);
-}
-
-/* Camera-relative ECEF terrain: the view-projection C->mvp is computed with the camera at the ECEF
- * origin (w3_cam_ecef); each tile's model translation is trans = origin_ecef - cam_ecef (double
- * subtract -> float, best precision at the camera). The frustum is built once from the untranslated
- * viewproj and each tile's AABB is shifted by its own trans before the cull. uSun is the ECEF sun
- * direction; uSunUp = sin(sun elevation) so the terminator does not read a now-meaningless uSun.y. */
-static void w3_draw_terrain(const w3_cam *C, const w3_atmo *A,
-                            const double cam_ecef[3], const float sun_ecef[3], float sun_up){
-  glUseProgram(w3_gl.pWT);
-  glUniform3fv(w3_gl.wtHaze,1,A->haze); glUniform1f(w3_gl.wtLight,A->light);
-  glUniform3fv(w3_gl.wtSun,1,sun_ecef); glUniform1f(w3_gl.wtSunUp,sun_up);
-  glActiveTexture(GL_TEXTURE0); glUniform1i(w3_gl.wtTex,0);
-  glEnableVertexAttribArray(w3_gl.wtPos); glEnableVertexAttribArray(w3_gl.wtUV); glEnableVertexAttribArray(w3_gl.wtNorm);
-  const w3_frustum fr=w3_frustum_from(C->mvp);
-  w3_frame.nvis=0;
-  for(int i=0;i<w3_frame.nD;i++){
-    float trans[3]; for(int a=0;a<3;a++) trans[a]=(float)(w3_D[i].origin[a]-cam_ecef[a]);
-    float bmn[3],bmx[3]; for(int a=0;a<3;a++){ bmn[a]=w3_D[i].bmin[a]+trans[a]; bmx[a]=w3_D[i].bmax[a]+trans[a]; }
-    if(!w3_aabb_visible(&fr,bmn,bmx)) continue;
-    w3_frame.nvis++;
-    float mvpT[16]; w3_mvp_translate(mvpT,C->mvp,trans); glUniformMatrix4fv(w3_gl.wtMVP,1,GL_FALSE,mvpT);
-    w3_draw_tile(i);
-  }
-  glDisableVertexAttribArray(w3_gl.wtUV); glDisableVertexAttribArray(w3_gl.wtNorm);
-}
-#endif /* W3_USE_OSM */
-
-/* Fallback ground: the procedural wire terrain + buildings, drawn when no OSM tiles are resident. */
-static void w3_draw_fallback(const w3_cam *C, const w3_atmo *A){
-  glUseProgram(w3_gl.pW); glUniformMatrix4fv(w3_gl.wMVP,1,GL_FALSE,C->mvp); glUniform3fv(w3_gl.wHaze,1,A->haze); glUniform1f(w3_gl.wLight,A->light); glEnableVertexAttribArray(w3_gl.wPos); glEnableVertexAttribArray(w3_gl.wCol);
-  glBindBuffer(GL_ARRAY_BUFFER,w3_gl.vTerr); glVertexAttribPointer(w3_gl.wPos,3,GL_FLOAT,GL_FALSE,24,0); glVertexAttribPointer(w3_gl.wCol,3,GL_FLOAT,GL_FALSE,24,(void*)12); glDrawArrays(GL_TRIANGLES,0,w3_gl.nTerr);
-  glBindBuffer(GL_ARRAY_BUFFER,w3_gl.vBld); glVertexAttribPointer(w3_gl.wPos,3,GL_FLOAT,GL_FALSE,24,0); glVertexAttribPointer(w3_gl.wCol,3,GL_FLOAT,GL_FALSE,24,(void*)12); glDrawArrays(GL_TRIANGLES,0,w3_gl.nBld);
-  glDisableVertexAttribArray(w3_gl.wCol);
-}
-
-/* Render just the 3D world (the aircraft "camera image") into the bound framebuffer -- the four
- * passes in order, over the frame's camera + atmosphere. The HUD is drawn separately
- * (world3d_render_hud) so it can be overlaid on top of the decoded video, not encoded into it. */
-static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
-  glViewport(0,0,W,H); glEnable(GL_DEPTH_TEST); glClearColor(0.55f,0.70f,0.90f,1); glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-  /* Eye in render-ENU, for the sky/star infinity pass and the procedural fallback ONLY. The sky
-   * reads just the basis (a direction), the stars are placed eye-relative and re-projected so the
-   * eye cancels -- so its exact height is immaterial there. The ECEF terrain does NOT use this eye;
-   * it carries the camera as cam_ecef (double) below. The old origin-ground lift (+w3_O.yoff) lived
-   * here to raise the ENU-mesh eye; the ECEF vertices are absolute on the ellipsoid and the camera
-   * carries its own altitude, so the lift is gone. */
-  float px=have?t->x:0, py=(have&&t->alt>2)?t->alt:120, pz=have?-t->y:0;
-  const float eye[3]={px,py,pz};
-  const w3_cam C = w3_cam_from(have?t->yaw:0, have?t->pitch:0, have?t->roll:0,
-                               eye, W3_FOV, (float)W/H, W3_NEAR, W3_FARPLANE);
-  /* The frame's atmosphere, derived ONCE and threaded through as `A` (atmo.h, pure/testable) --
-   * but from two producers by view mode. SVS (OSM synthetic vision) is deliberately TIME-INDEPENDENT:
-   * a constant daylit database view for situational awareness, no day/night, no stars, no clouds.
-   * EVS (PHOTO, the real camera through the codec) keeps the true sun/sky/stars. */
-  const w3_atmo A = (w3_ground.mode==W3_GROUND_OSM) ? w3_atmo_synthetic() : w3_atmo_from(t, have);
-
-  /* Sky and stars stay in LOCAL render-ENU (up=+Y): they are at infinity, so their gradient and
-   * star field key off the local vertical, and the geometric horizon dip emerges naturally as the
-   * ECEF terrain (below) curves away BELOW this flat local horizon. Same camera as ever here. */
-  w3_draw_sky(&C, &A, (float)W/H);
-  if(w3_ground.mode==W3_GROUND_PHOTO) w3_draw_stars(&C, &A, eye);   /* real stars -> EVS only */
-  glDepthMask(GL_TRUE); glEnable(GL_DEPTH_TEST);
-#ifdef W3_USE_OSM
-  if(w3_frame.nD>0){
-    /* Camera geodetic -> ECEF (double); the aircraft ENU offset (t->x east, t->y north) back to
-     * lat/lon around the origin, alt = telem ASL treated as ellipsoidal height (geoid ignored, a
-     * slow smooth vertical bias with no visible effect). No telemetry: sit over the origin ground
-     * (w3_O.yoff, the origin ground elevation seeded from /elev). */
-    const double MPD=(double)FB_M_PER_DEG_LAT;
-    double clat = have ? w3_O.lat + (double)t->y/MPD : w3_O.lat;
-    double clon = have ? w3_O.lon + (double)t->x/(MPD*cos(w3_O.lat*M_PI/180.0)) : w3_O.lon;
-    double calt = (have && t->alt>1) ? (double)t->alt : (double)w3_O.yoff+2.0;
-    osmmesh_geo cg={clon,clat,calt}; osmmesh_ecef ce=osmmesh_geo_to_ecef(cg);
-    double cam_ecef[3]={ce.x,ce.y,ce.z};
-    const w3_cam Ce = w3_cam_ecef(have?t->yaw:0, have?t->pitch:0, have?t->roll:0,
-                                  clat, clon, W3_FOV, (float)W/H, W3_NEAR, W3_FARPLANE);
-    float sun_ecef[3]; w3_render_to_ecef(clat,clon,A.sun,sun_ecef);   /* topocentric sun -> ECEF axes */
-    w3_draw_terrain(&Ce, &A, cam_ecef, sun_ecef, A.sun[1]);
-  } else
-#endif
-    w3_draw_fallback(&C, &A);
-}
-/* There was a world3d_render() here that called scene+HUD back to back, "for the native offscreen
- * renderer". That renderer is gone (f36f147) and it was the last caller, so the function outlived
- * its only purpose. It is deliberately NOT replaced by a convenience wrapper: scene and HUD must
- * stay separate, because the video codec runs BETWEEN them (cc.c) -- the HUD is overlaid on the
- * decoded frame, never encoded into it. A wrapper would suggest a coupling whose absence is the
- * whole point of the video pipeline. */
+#include "sky.h"    /* sky + star passes */
+#include "render.h" /* terrain/fallback passes + world3d_render_scene */
 #endif

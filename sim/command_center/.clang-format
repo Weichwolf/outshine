@@ -1,0 +1,18 @@
+# FlightBox command_center: "als würde Tippen kosten" — minimal aber strukturiert.
+# One statement per line, 2-space indent, but short guarded ifs stay compact.
+BasedOnStyle: LLVM
+SortIncludes: Never   # header-only single-TU: include ORDER is load-bearing, never reorder
+IndentWidth: 2
+ColumnLimit: 100
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortEnumsOnASingleLine: true
+KeepEmptyLinesAtTheStartOfBlocks: false
+SpaceBeforeParens: ControlStatements
+PointerAlignment: Right
+ReflowComments: true
+BinPackArguments: true
+BinPackParameters: true
