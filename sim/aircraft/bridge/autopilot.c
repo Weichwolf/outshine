@@ -58,12 +58,10 @@ void autopilot_step(long tick, struct timespec t0, double dt,
                     *   3) manual: operator sticks -> ANGLE, hands back to loiter after 2 s
                     *   4) RC-loss: same NAV RTH loiter (failsafe) */
                    static double launch_t=-1; if(launch_t<0) launch_t=ts;
-                   /* WIP: NAV-RTH engagement below exposes a real FDM yaw/heading-feedback bug
-                    * (§5): iNav's native NAV commands a saturated yaw (0.8-1.0) that diverges the
-                    * slow motor-glider to NaN. Handoff at 120m (not 40m) avoids the instant crash;
-                    * NOT latched on purpose — the climb-out fallback is the only thing that keeps
-                    * resetting it before divergence. The real fix is the COG/heading sign, not this. */
-                   int airborne=(S.agl>120.0);
+                   /* Launch climb-out (ANGLE) -> hand to NAV at 120m, LATCHED (one-way): NAV owns the
+                    * aircraft from here, no bounce back to the climb-out. (Safe now that the rudder
+                    * sign is fixed; while it was inverted, latching let NAV's yaw runaway diverge.) */
+                   static int airborne=0; if(S.agl>120.0) airborne=1;
                    (void)launch_t;
                    int stick=(fabs(cr)>0.15||fabs(cp)>0.15||fabs(cy)>0.15);
                    static double last_input=-100; if(stick&&link_up) last_input=ts;

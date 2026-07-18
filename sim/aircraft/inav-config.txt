@@ -34,11 +34,11 @@ set failsafe_delay = 5
 set nav_rth_climb_first = ON_FW_SPIRAL   ; spiral-climb to RTH altitude over home, then loiter
 set nav_rth_allow_landing = NEVER
 set nav_rth_alt_mode = AT_LEAST         ; always climb to at least the RTH altitude
-set nav_rth_altitude = 50000            ; 500 m above home
-set nav_fw_loiter_radius = 100000       ; 1000 m orbit (iNav max raised via source patch)
+set nav_rth_altitude = 25000            ; 250 m above home — modest climb the motor-glider can hold
+set nav_fw_loiter_radius = 30000        ; 300 m orbit (tight enough to read as "circling home")
 set nav_min_rth_distance = 100          ; 1 m: don't treat launch-at-home as "already there"
 set nav_fw_cruise_thr = 1550
-set nav_auto_climb_rate = 300           ; 3 m/s climb toward RTH altitude
+set nav_auto_climb_rate = 150           ; 1.5 m/s gentle climb — 3 m/s stalled the weak motor-glider (porpoise)
 
 # --- modes: ARM=AUX1(pid0), ANGLE=AUX2(pid1), NAV RTH=AUX3(pid10) ---
 # NB: aux uses iNav permanentId, NOT the box enum. pid 8 = CAMSTAB (no-op) was the bug;
