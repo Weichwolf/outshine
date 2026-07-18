@@ -1,21 +1,8 @@
-/* FlightBox — Command Center (C -> WASM), 3D world camera (Teil B).
- * WebGL/GLES2, all in C.
- *
- * The "camera image" models the real FPV chain: the aircraft's camera (our live
- * osmmesh terrain, rendered from the telemetry pose) is rendered to a low-res FBO,
- * then run through the browser's H.264 VideoEncoder->VideoDecoder (WebCodecs) at a
- * low bitrate — the fixed-function video hardware. That produces REAL compression
- * artifacts (blocking, mosquito noise), standing in for the lossy analog 5.8 GHz
- * downlink. The decoded frame is upscaled onto the canvas and the F-16 HUD is drawn
- * CRISP on top — exactly as a ground station overlays telemetry on received video.
- * (Technique adapted from ~/Git/wasm-dvd-gl.) Without WebCodecs (e.g. Firefox) the
- * raw FBO is shown directly — soft upscale, no artifacts.
- *
- * All 3D + HUD live in world3d.h, of which this file is the ONLY consumer. That used to be
- * "so this browser view matches the native renderer" — there is no native renderer since
- * f36f147; the visual check is a headless browser on this very artifact (test/shot.sh).
- * Keys: arrows roll/pitch, A/D yaw, W/S throttle, ENTER arm, L drop link,
- * TAB ground = OSM render <-> aerial photo (F = fullscreen, both handled in index.html). */
+/* FlightBox Command Center (C -> WASM): the ground station. Samples the telemetry pose, drives the
+ * osmmesh world (world3d.h) and the present pipeline (present.h), sends control back. Thin main +
+ * input loop; the render targets, video link, fetches and socket live in their own headers.
+ * Keys: arrows roll/pitch, A/D yaw, W/S throttle, ENTER arm, L drop link (TAB ground, F fullscreen
+ * are handled in index.html -- the browser eats TAB for focus before SDL sees it). */
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengles2.h>
 #include <emscripten.h>
@@ -24,82 +11,23 @@
 #define W3_USE_OSM
 #include "world3d.h"
 
-#include "constants.h"   /* invariants: GL enums the ES2 header lacks + the MSAA entry points, FB_M_PER_DEG_LAT */
-#include "codec.h"       /* EVS video link: WebCodecs H.264 encode->decode (fb_codec_*) */
+#include "constants.h"   /* GL enums the ES2 header lacks + MSAA entry points, FB_M_PER_DEG_LAT */
+#include "codec.h"       /* EVS video link: WebCodecs H.264 (fb_codec_*) */
 #include "present.h"     /* render targets + present pipeline (SVS/EVS/HUD, dynamic display res) */
+#include "jsbridge.h"    /* fb-tiles fetches: /elev (origin + ground), /stars */
+#include "net.h"         /* telemetry/control WebSocket; owns `telem`/`have_telem` */
 
 #define WIN_W 1280          /* initial canvas size; present.h re-syncs to the display each frame */
 #define WIN_H 720
 
-/* Sync XHR, startup only: one request before the render loop so w3_O.yoff is known at frame 0. */
-EM_JS(double, fb_fetch_elev, (double lat, double lon), {
-  try {
-    var base = window.FB_TILES_URL; if(!base) return -1e9;
-    var x = new XMLHttpRequest();
-    /* block=1: wait for the origin DEM tile so yoff is the REAL ground on the first (only) call.
-     * Without it a cold origin returns 503 and the camera spawns underground until the worker's
-     * yoff lands many seconds later. Startup-only + sync, so the brief wait is off the frame loop. */
-    x.open('GET', base + '/elev?lat=' + lat + '&lon=' + lon + '&block=1', false);
-    x.send(null);
-    if(x.status>=200 && x.status<300){ var v=parseFloat(x.responseText); if(isFinite(v)) return v; }
-  } catch(e){}
-  return -1e9;
-})
-/* Ground elevation under the aircraft, fetched ASYNC so it never blocks the frame loop (unlike the
- * startup sync fb_fetch_elev): fb_ground_request kicks off a /elev fetch if none is in flight,
- * fb_ground_get returns the last resolved ASL ground (-1e9 until the first lands). The C side
- * throttles it by only requesting after ~30 m of travel. */
-EM_JS(void, fb_ground_request, (double lat, double lon), {
-  var G = Module.__fbGround || (Module.__fbGround = { val:-1e9, busy:false });
-  if(G.busy) return; var base = window.FB_TILES_URL; if(!base) return; G.busy=true;
-  fetch(base + '/elev?lat=' + lat + '&lon=' + lon)
-    .then(function(r){ return r.ok ? r.text() : null; })
-    .then(function(t){ if(t!==null){ var v=parseFloat(t); if(isFinite(v)) Module.__fbGround.val=v; } Module.__fbGround.busy=false; })
-    .catch(function(){ Module.__fbGround.busy=false; });
-})
-EM_JS(double, fb_ground_get, (void), { var G=Module.__fbGround; return G?G.val:-1e9; })
-/* Fetch one HYG star band synchronously into the WASM heap. Binary over a SYNC XHR needs the
- * x-user-defined charset trick (a sync XHR may not set responseType='arraybuffer'): each character
- * of responseText is then exactly one raw byte. Startup only, like fb_fetch_elev. Returns bytes or -1. */
-EM_JS(int, fb_fetch_stars, (int band, uint8_t *dst, int maxbytes), {
-  try {
-    var base = window.FB_TILES_URL; if(!base) return -1;
-    var x = new XMLHttpRequest();
-    x.open('GET', base + '/t/stars/' + band + '/0/0', false);
-    x.overrideMimeType('text/plain; charset=x-user-defined');
-    x.send(null);
-    if(x.status>=200 && x.status<300){
-      var s = x.responseText, n = s.length;
-      if(n > maxbytes) return -1;
-      for(var i=0;i<n;i++) HEAPU8[dst+i] = s.charCodeAt(i) & 0xff;
-      return n;
-    }
-  } catch(e){}
-  return -1;
-})
 static SDL_Window *win;
-static EMSCRIPTEN_WEBSOCKET_T ws; static int ws_open=0;
-static telem_packet_t telem; static int have_telem=0;
 static SDL_GameController *pad=NULL;
 
-/* ---------------- websocket ---------------- */
-static EM_BOOL on_open(int t,const EmscriptenWebSocketOpenEvent*e,void*u){(void)t;(void)e;(void)u;ws_open=1;return 1;}
-static EM_BOOL on_close(int t,const EmscriptenWebSocketCloseEvent*e,void*u){(void)t;(void)e;(void)u;ws_open=0;return 1;}
-static EM_BOOL on_msg(int t,const EmscriptenWebSocketMessageEvent*e,void*u){(void)t;(void)u;
-  if(e->numBytes<4) return 1; uint32_t mg; memcpy(&mg,e->data,4);
-  if(mg==FB_MAGIC_TELEM && e->numBytes==sizeof(telem_packet_t)){ memcpy(&telem,e->data,sizeof telem); have_telem=1; }
-  return 1;
-}
-/* TAB is handled in index.html, not by SDL: the browser uses Tab for focus traversal, so it has
- * to be preventDefault()ed at the DOM before SDL ever sees it. */
 EMSCRIPTEN_KEEPALIVE void cc_toggle_ground(void){ w3_ground_toggle(); }
-/* glGenerateMipmap count over the whole run -- the tile-cache thrash counter. Sampled per frame by
- * the LOD proof harness (per-frame delta -> p50); ~0 warm, explodes if a tile re-bakes each frame. */
+/* Harness counters (per-frame deltas): mipmaps = tile-cache thrash (~0 warm), texvram vs the 2 GB
+ * cap, visible<drawn = the frustum cull works. */
 EMSCRIPTEN_KEEPALIVE long cc_mipmaps(void){ return w3_frame.mipmaps; }
-/* Resident texture VRAM in bytes -- real, summed from the cache (world3d.h), for the ramp's VRAM
- * budget check. Sampled by the harness against the 2 GB cap. */
 EMSCRIPTEN_KEEPALIVE long cc_texvram(void){ return w3_texvram(); }
-/* Walk's draw list vs what the frustum actually drew: cc_visible < cc_drawn = the cull works. */
 EMSCRIPTEN_KEEPALIVE int cc_drawn(void){ return w3_frame.nD; }
 EMSCRIPTEN_KEEPALIVE int cc_visible(void){ return w3_frame.nvis; }
 
@@ -124,16 +52,12 @@ static void send_control(void){
 static void frame(void){
   SDL_Event e; while(SDL_PollEvent(&e)) if(e.type==SDL_CONTROLLERDEVICEADDED&&!pad) pad=SDL_GameControllerOpen(e.cdevice.which);
   send_control();
-  /* Game-engine style: telemetry (the state) arrives faster than we render (100 Hz vs
-   * 60 fps), so we just sample the LATEST pose each frame — smooth motion, zero added
-   * latency (no interpolation delay). */
+  /* Sample the LATEST pose each frame (telemetry 100 Hz > 60 fps render): smooth, zero added latency. */
   if(have_telem){
     double lat = w3_O.lat + (double)telem.y/FB_M_PER_DEG_LAT;
     double lon = w3_O.lon + (double)telem.x/(FB_M_PER_DEG_LAT*cos(w3_O.lat*M_PI/180.0));
-    /* telem.alt is ASL now; AGL (height above ground) drives the LOD and the HUD. Ground under the
-     * aircraft comes from an ASYNC /elev (never blocks the frame loop), re-requested only after ~30 m
-     * of travel; until the first sample lands we fall back to the origin ground so AGL is sane at
-     * frame 0. Height above ground is the distance term for every chunk under the aircraft -- feeding
+    /* AGL is the LOD/HUD distance term. Ground under the aircraft is an ASYNC /elev (off the frame
+     * loop, re-requested per ~30 m); fall back to origin ground until the first sample lands. Feeding
      * ASL would refine the ground for the wrong distance. */
     static double g_glat=1e9, g_glon=1e9;
     if(fabs(lat-g_glat)>3.0e-4 || fabs(lon-g_glon)>4.5e-4){ fb_ground_request(lat,lon); g_glat=lat; g_glon=lon; }
@@ -145,14 +69,9 @@ static void frame(void){
   fb_present_frame(&telem, have_telem);
 }
 
-/* All runtime config /config.js puts on window: the origin (home) coords into w3_O, the fb-tiles
- * base URL into the caller's buffer.
- *
- * The server always emits FB_ORIGIN_LAT/LON as a NUMBER (the Hameln default when the env is unset),
- * so 0 is a REAL origin -- the equator / prime meridian -- not "missing". typeof separates a
- * genuinely absent value (config.js never loaded) from 0; an earlier `!=0` snapped an equatorial
- * origin back to Hameln. emscripten_run_script_string returns a REUSED buffer, so each result is
- * consumed before the next call (holding two once put the whole world at 9.385,9.385). */
+/* Runtime config from window (/config.js): origin -> w3_O, tiles URL -> caller. `typeof` (not `!=0`)
+ * keeps a real 0 origin (equator/prime meridian) from snapping back to Hameln. run_script_string
+ * hands back a REUSED buffer, so each result is consumed before the next call. */
 static void cfg_from_js(char *tiles_url, size_t n){
   const char*sl=emscripten_run_script_string("(typeof window.FB_ORIGIN_LAT==='number'?window.FB_ORIGIN_LAT:'').toString()");
   if(sl&&*sl) w3_O.lat=atof(sl);
@@ -164,19 +83,8 @@ static void cfg_from_js(char *tiles_url, size_t n){
   snprintf(tiles_url,n,"%s",emscripten_run_script_string("(window.FB_TILES_URL||'').toString()"));
 }
 
-/* Open the telemetry/control WebSocket back to the server that served the page. */
-static void net_init(void){
-  char url[256]; const char*host=emscripten_run_script_string("location.host");
-  snprintf(url,sizeof url,"ws://%s/ws",host&&*host?host:"127.0.0.1:8080");
-  EmscriptenWebSocketCreateAttributes attr={url,NULL,EM_TRUE}; ws=emscripten_websocket_new(&attr);
-  emscripten_websocket_set_onopen_callback(ws,0,on_open);
-  emscripten_websocket_set_onclose_callback(ws,0,on_close);
-  emscripten_websocket_set_onmessage_callback(ws,0,on_msg);
-}
-
-/* Load the star catalogue once at startup: fetch the 4 HYG magnitude bands (~53 KB total, universal
- * and static) into one buffer -- concatenated they stay globally mag-sorted -- and decode into
- * w3_stars. A failed fetch leaves the catalogue empty (a blank night sky), never blocks startup. */
+/* 4 HYG magnitude bands (~53 KB, static) into one buffer -- concatenated they stay mag-sorted --
+ * decoded into w3_stars. A failed fetch leaves a blank night sky, never blocks startup. */
 static void stars_load_from_tiles(void){
   const int cap = 96*1024;
   uint8_t *buf = (uint8_t*)malloc((size_t)cap); if(!buf) return;
