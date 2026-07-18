@@ -51,7 +51,7 @@ double g_loalt=500.0, g_lorad=1000.0;  /* autonomous loiter altitude (m AGL) + o
  * models/<aircraft>/profile.env, which exports these. autopilot.c only knows the setting NAMES.
  * The fallbacks below are a neutral, clearly-unconfigured safety net (logged), NOT any aircraft's
  * tuning: a real aircraft always ships its profile.env. */
-static struct { double cruise, climb_thr, climb_pitch, stall, bank_cruise, bank_climb; int init; } P;
+static struct { double cruise, climb_thr, climb_pitch, stall, bank_cruise, bank_climb, vr; int init; } P;
 static double envd(const char*k, double def, int*missing){ const char*v=getenv(k);
     if(v&&*v) return atof(v); (*missing)++; return def; }
 static void profile_init(void){
@@ -63,6 +63,8 @@ static void profile_init(void){
     P.stall       = envd("FB_STALL",       10.0, &miss);   /* m/s below which climb pitch is backed off */
     P.bank_cruise = envd("FB_BANK",        10.0, &miss);   /* deg max bank in loiter */
     P.bank_climb  = envd("FB_BANK_CLIMB",  10.0, &miss);   /* deg max bank while climbing */
+    P.vr          = envd("FB_VR",           0.0, &miss);   /* rotation speed (m/s): ground-roll level to Vr,
+                                                            * then rotate. 0 = hand-launch (rotate immediately) */
     if(miss) fprintf(stderr,"[autopilot] %d flight-profile settings unset — no models/<aircraft>/"
                             "profile.env loaded; using NEUTRAL fallbacks (not aircraft-tuned)\n", miss);
 }
@@ -102,7 +104,10 @@ void autopilot_step(long tick, struct timespec t0, double dt,
                    static double last_input=-100; if(stick&&link_up) last_input=ts;
                    int manual=link_up&&(ts-last_input<2.0);
                    rc[4]=2000; rc[5]=2000;                            /* ARM + ANGLE (iNav stabilises) */
-                   if(!airborne){ g_mode=ST_CLIMB; rc[1]=1650; rc[2]=1000+(int)(P.climb_thr*1000); }  /* hand-launch climb-out */
+                   if(!airborne){ g_mode=ST_CLIMB;                    /* takeoff: ground-roll level to Vr, then rotate */
+                                  rc[2]=1000+(int)(P.climb_thr*1000);
+                                  int rot=1500+(int)(P.climb_pitch/30.0*500);  /* rotate to per-aircraft climb pitch */
+                                  rc[1]=(S.speed < P.vr) ? 1500 : rot; }       /* Vr=0 (hand-launch) -> rotate immediately */
                    else if(manual){ g_mode=ST_MANUAL;                 /* operator has the sticks */
                                     rc[0]=1500+(int)(cr*450); rc[1]=1500+(int)(cp*450); rc[3]=1500+(int)(cy*450);
                                     double thr=(cthr>=0)?cthr:0.70; rc[2]=1000+(int)(thr*1000); }
