@@ -320,6 +320,40 @@ static time_t fb_now(void){
     return sim>0 ? sim : time(NULL);
 }
 
+#include "fdm/jsbsim_adapter.h"
+static int g_jsbsim = 0;   /* FDM_ENGINE=jsbsim: JSBSim is the plant instead of physics_step */
+/* JSBSim plant step: feed iNav's controls + the real (fb-tiles) ground/wind, advance, write S.
+ * Same S the rest of the bridge reads -- the FDM swap is a filler swap, per DESIGN.md. */
+static void jsbsim_advance(void){
+    /* Held until armed — a hand-launched model is HELD in hand, not flying: present a level, still
+     * spawn state (like the selig FDM's disarmed hold) so iNav's accel-cal + arming preconditions
+     * are met, and do NOT advance JSBSim (an untrimmed glider departs open-loop before iNav could
+     * arm it). Once armed, JSBSim runs from its level IC and iNav's ANGLE loop keeps it there. */
+    if(g_mode==ST_DISARMED){
+        S.roll=0; S.pitch=0; S.yaw=0; S.p=S.q=S.r=0; g_nz=1.0f;
+        S.speed=0; S.gs=14.0; S.vx=0; S.vy=0; S.vz=0;
+        S.lat=HOME_LAT; S.lon=HOME_LON; S.elev=HOME_ELEV+2.0; S.agl=2.0;
+        fb_terrain_set_pos(S.lat,S.lon);
+        return;
+    }
+    fb_jsbsim_set_controls(S.in_roll, S.in_pitch, S.in_yaw, S.in_thr < 0 ? 0 : S.in_thr);
+    double g = fb_terrain_ground();
+    fb_jsbsim_set_ground(g);
+    fb_jsbsim_set_wind(ATM.windN, ATM.windE);
+    fb_fdm_state st; fb_jsbsim_step(&st);
+    S.roll=st.roll; S.pitch=st.pitch; S.yaw=st.yaw;
+    S.p=st.p; S.q=st.q; S.r=st.r;
+    S.lat=st.lat; S.lon=st.lon; S.elev=st.elev;
+    S.speed=st.speed; S.gs=st.gs;
+    S.vx=st.vx; S.vy=st.vy; S.vz=st.vz;
+    g_nz=(float)st.nz;
+    fb_terrain_set_pos(S.lat,S.lon);
+    S.agl = S.elev - g; if(S.agl<0) S.agl=0;               /* iNav AGL from real terrain, not JSBSim's */
+    if(!isfinite(S.lat)||fabs(S.lat-HOME_LAT)>2) S.lat=HOME_LAT;
+    if(!isfinite(S.lon)||fabs(S.lon-HOME_LON)>2) S.lon=HOME_LON;
+    if(!isfinite(S.agl)) S.agl=100;
+}
+
 int main(void){
     int port = getenv("XP_LISTEN_PORT")?atoi(getenv("XP_LISTEN_PORT")):49000;
     int fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -365,6 +399,17 @@ int main(void){
       fb_terrain_start(ta,HOME_ELEV); }
     S.lat=HOME_LAT; S.lon=HOME_LON; S.elev=HOME_ELEV+2.0; S.agl=2.0; S.yaw=0; S.speed=14.0; S.gs=14.0; S.vy=0;  /* launch 2 m above the ground */
     if(getenv("XP_INJECT")) g_inject=1;
+    /* JSBSim plant (Migrationspaket D): loads an aircraft plugin from MODELS_ROOT and becomes the
+     * FDM. Falls back to the custom selig FDM if init fails -- both write S (FDM_ENGINE-Orakel). */
+    if(getenv("FDM_ENGINE") && !strcmp(getenv("FDM_ENGINE"),"jsbsim")){
+        const char*ac=getenv("AIRCRAFT"); if(!ac||!*ac) ac="minisgs_e";
+        const char*mr=getenv("MODELS_ROOT"); if(!mr||!*mr) mr="/app/models";
+        int fbw = (strstr(ac,"f16")!=NULL);   /* F-16: iNav is the FLCS, bypass the aircraft's own */
+        double spawn_spd = getenv("SPAWN_SPEED")?atof(getenv("SPAWN_SPEED")):14.0;  /* jet: set ~120 */
+        if(fb_jsbsim_init(mr, ac, HOME_LAT, HOME_LON, HOME_ELEV, 2.0, spawn_spd, 0.0, fbw)==0){
+            g_jsbsim=1; fprintf(stderr,"[xp_bridge] FDM=JSBSim aircraft=%s (fbw_override=%d)\n", ac, fbw);
+        } else fprintf(stderr,"[xp_bridge] JSBSim init failed for '%s' — using selig FDM\n", ac);
+    }
     fprintf(stderr,"[xp_bridge] FDM=%s  X-Plane :%d  MSP->127.0.0.1:5760\n", MDL->name, port);
 
     /* flightbox UDP: recv control on FB_UP_PORT, send telem+video to FLIGHTBOX_ADDR:FB_DOWN_PORT */
@@ -400,7 +445,7 @@ int main(void){
                 else if(strstr(dr,"yoke_heading_ratio")) { if(fabsf(val)<=1.05f) S.in_yaw=val;   else g_bad_dref++; }
                 else if(strstr(dr,"throttle_ratio_all")) { if(val>=-0.05f&&val<=1.05f) S.in_thr=val; else g_bad_dref++; } }
         }
-        physics_step(dt);
+        if(g_jsbsim) jsbsim_advance(); else physics_step(dt);
         if(have_client && nsubs>0){ uint8_t out[5+128*8]; memcpy(out,"RREF",4); out[4]=0; int o=5;
             for(int i=0;i<nsubs;i++){ int32_t id=subs[i].id; float v=sensor_value(subs[i].dref); memcpy(out+o,&id,4); memcpy(out+o+4,&v,4); o+=8; }
             sendto(fd,out,o,0,(struct sockaddr*)&inav,il); }
