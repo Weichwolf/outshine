@@ -1,7 +1,7 @@
 # FlightBox
 
 A **global flight simulator** built on **X-Plane / MSFS / DCS-class technology**, to a **MIL-SPEC**
-engineering bar. It simulates **arbitrary aircraft** — an F-16 down to an EPP-foam flying-wing —
+engineering bar. It simulates **arbitrary aircraft** — an F-16, a Cessna 172, down to a foam motor-glider —
 anywhere on real-world global terrain, with **real iNav firmware in the loop**.
 
 One system, two uses:
@@ -11,10 +11,12 @@ One system, two uses:
    the physical model, so control laws, failsafe, autopilot and handling are **proven in simulation**
    before they fly.
 
-All C. The flight model speaks the X-Plane UDP protocol so real iNav SITL connects to it; a WASM
-browser **command center** renders global 3D terrain (real OSM + Copernicus DEM), live weather, and a
-MIL-STD-1787 HUD. Nothing is preloaded — every tile is fetched on demand, so **any point on Earth is
-a valid start**.
+The command center and flight bridge are C; the flight physics is **JSBSim** (industry-standard,
+behind a C-callable adapter), so aircraft are **plugins** — an iNav config plus a JSBSim model,
+nothing hand-written. The flight model speaks the X-Plane UDP protocol so real iNav SITL connects to
+it; a WASM browser **command center** renders global 3D terrain (real OSM + Copernicus DEM), live
+weather, and a MIL-STD-1787 HUD. Nothing is preloaded — every tile is fetched on demand, so **any
+point on Earth is a valid start**.
 
 ## Build & run
 
@@ -26,8 +28,8 @@ sim/test/verify.sh        # all gates: unit+coverage, builds, render, physics
 
 Set `ORIGIN_LAT` / `ORIGIN_LON` to start anywhere on Earth.
 
-Architecture, standards and the specialist-agent map are in [`CLAUDE.md`](CLAUDE.md). The reference
-flying-wing hardware target is in [`doc/flying-wing.md`](doc/flying-wing.md).
+The target architecture — physics engine, radio drivers (CRSF/MSP), aircraft plugins and native
+NAV — is in [`DESIGN.md`](DESIGN.md).
 
 ## Datenquellen & Lizenzen
 
