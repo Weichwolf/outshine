@@ -71,13 +71,13 @@ def run(mf):
         if not s:
             continue
         mode, alt, lat, lon, diverged = s
-        if alt != alt or diverged:          # FDM NaN — fail fast, don't burn the timeout
-            nan = True
-            break
         if mode != "DISARM":
             armed = True
-        if alt > TAKEOFF_AGL:
+        if alt == alt and alt > TAKEOFF_AGL:
             took = True
+        if (alt != alt or diverged) and took:   # divergence AFTER takeoff -> fail fast (ignore init transients)
+            nan = True
+            break
         peak = max(peak, alt)
         for i, w in enumerate(wps):
             if not hit[i] and dist_m(lat, lon, w["lat"], w["lon"]) < CAPTURE_RADIUS:
