@@ -40,7 +40,7 @@ static GLint hu_pos, hu_uv, hu_tex, hu_texel;
 static GLuint cam_msaa_fbo, cam_msaa_c, cam_msaa_d, cam_vid_fbo, cam_vid_tex, codec_tex;  /* EVS, fixed CAM */
 static unsigned char *readback;
 static int codec_ready = 0;
-static GLuint p_msaa_fbo, p_msaa_c, p_msaa_d;               /* SVS scene MSAA @ present size */
+static GLuint p_msaa_fbo, p_msaa_c, p_msaa_d, p_vid_fbo, p_vid_tex;  /* SVS scene MSAA + resolve @ present */
 static GLuint hud_msaa_fbo, hud_msaa_c, hud_fbo, hud_tex;   /* HUD MSAA + resolve @ present size */
 
 static GLuint pr_tex2d(int w, int h) {
@@ -72,11 +72,15 @@ static void pr_mk_scene(GLuint *fbo, GLuint *col, GLuint *dep, int w, int h) {
 static void pr_free_display(void) {
   if (!p_msaa_fbo) return;
   glDeleteFramebuffers(1, &p_msaa_fbo); glDeleteRenderbuffers(1, &p_msaa_c); glDeleteRenderbuffers(1, &p_msaa_d);
+  glDeleteFramebuffers(1, &p_vid_fbo); glDeleteTextures(1, &p_vid_tex);
   glDeleteFramebuffers(1, &hud_msaa_fbo); glDeleteRenderbuffers(1, &hud_msaa_c);
   glDeleteFramebuffers(1, &hud_fbo); glDeleteTextures(1, &hud_tex);
 }
 static void pr_alloc_display(int w, int h) {
   pr_mk_scene(&p_msaa_fbo, &p_msaa_c, &p_msaa_d, w, h);
+  p_vid_tex = pr_tex2d(w, h);
+  glGenFramebuffers(1, &p_vid_fbo); glBindFramebuffer(GL_FRAMEBUFFER, p_vid_fbo);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, p_vid_tex, 0);
   glGenRenderbuffers(1, &hud_msaa_c); glBindRenderbuffer(GL_RENDERBUFFER, hud_msaa_c);
   glRenderbufferStorageMultisample(GL_RENDERBUFFER, pr_samples, GL_RGBA8, w, h);
   glGenFramebuffers(1, &hud_msaa_fbo); glBindFramebuffer(GL_FRAMEBUFFER, hud_msaa_fbo);
@@ -104,6 +108,7 @@ static void pr_sync_size(void) {
   pw = w; ph = h;
   emscripten_set_canvas_element_size("#canvas", pw, ph);
   pr_free_display(); pr_alloc_display(pw, ph);
+  printf("[cc] present %dx%d (SVS+HUD render at this; EVS stays %dx%d)\n", pw, ph, CAM_W, CAM_H);
 }
 
 /* Draw tex full-canvas at present size (EVS upscale). flip=1 for the top-down decoded VideoFrame. */
@@ -164,8 +169,9 @@ static void fb_present_frame(const telem_packet_t *telem, int have) {
     glBindFramebuffer(GL_FRAMEBUFFER, p_msaa_fbo);
     world3d_render_scene(telem, pw, ph, have);          /* SVS at present size */
     glBindFramebuffer(GL_READ_FRAMEBUFFER, p_msaa_fbo);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    glBlitFramebuffer(0,0,pw,ph, 0,0,pw,ph, GL_COLOR_BUFFER_BIT, GL_NEAREST);   /* crisp 1:1 resolve */
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, p_vid_fbo);
+    glBlitFramebuffer(0,0,pw,ph, 0,0,pw,ph, GL_COLOR_BUFFER_BIT, GL_NEAREST);   /* resolve MSAA -> texture */
+    pr_present(p_vid_tex, 0.0f);                         /* 1:1 to canvas (the default FB may be MSAA -> no direct blit) */
   }
   glBindFramebuffer(GL_FRAMEBUFFER, hud_msaa_fbo);
   glViewport(0,0,pw,ph); glClearColor(0,0,0,0); glClear(GL_COLOR_BUFFER_BIT);

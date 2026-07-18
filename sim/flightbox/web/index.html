@@ -5,62 +5,48 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FlightBox — Command Center</title>
 <style>
-  html,body{margin:0;height:100%;background:#0a0a0e;color:#cfd;font:14px system-ui,sans-serif}
-  #wrap{display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px}
-  canvas{border:1px solid #234;image-rendering:pixelated;max-width:100%}
-  canvas:fullscreen{width:100vw;height:100vh;object-fit:contain;image-rendering:auto;border:0;background:#000}
-  #tip{opacity:.7;font-size:12px;text-align:center;max-width:640px}
+  html,body{margin:0;height:100%;overflow:hidden;background:#000;color:#cfd;font:14px system-ui,sans-serif}
+  /* Canvas FILLS the window: the drawing buffer (set in present.h to CSS-size x devicePixelRatio)
+     is then the real display resolution -- native/sharp windowed AND fullscreen, not a fixed 1280x720. */
+  #canvas{display:block;width:100vw;height:100vh;image-rendering:auto}
+  #tip{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);max-width:92vw;text-align:center;
+       font-size:12px;opacity:.65;pointer-events:none;text-shadow:0 1px 3px #000;transition:opacity 1s}
   kbd{background:#1a2330;border:1px solid #345;border-radius:3px;padding:0 4px}
 </style>
 </head>
 <body>
-<div id="wrap">
-  <h3 style="margin:4px">FlightBox — Command Center</h3>
-  <canvas id="canvas" width="1280" height="720" tabindex="1"></canvas>
-  <div id="tip">
-    Klick aufs Bild, dann steuern:
-    <kbd>←↑↓→</kbd> Roll/Pitch · <kbd>A</kbd>/<kbd>D</kbd> Yaw ·
-    <kbd>W</kbd>/<kbd>S</kbd> Gas · <kbd>Enter</kbd> Arm · <kbd>L</kbd> Link-Verlust (RTH testen) ·
-    <kbd>F</kbd> Vollbild. Gamepad wird automatisch erkannt.
-  </div>
+<canvas id="canvas" width="1280" height="720" tabindex="1"></canvas>
+<div id="tip">
+  Klick aufs Bild, dann steuern:
+  <kbd>←↑↓→</kbd> Roll/Pitch · <kbd>A</kbd>/<kbd>D</kbd> Yaw ·
+  <kbd>W</kbd>/<kbd>S</kbd> Gas · <kbd>Enter</kbd> Arm · <kbd>L</kbd> Link-Verlust (RTH testen) ·
+  <kbd>Tab</kbd> SVS/EVS · <kbd>F</kbd> Vollbild. Gamepad wird automatisch erkannt.
 </div>
 <script src="config.js"></script>
 <script>
-  var Module = { canvas: (function(){ return document.getElementById('canvas'); })() };
-  // F = fullscreen toggle. F is unused by the flight controls, so no conflict with the
-  // WASM's SDL key handling. The canvas keeps its 1280x720 render size; the browser
-  // CSS-scales it to the screen (object-fit:contain -> 16:9 letterbox), matching the
-  // "render low, upscale" pipeline.
-  // TAB = ground albedo: OSM render <-> aerial photo. Handled here rather than in the WASM's SDL
-  // key handling because the browser steals Tab for focus traversal; preventDefault must happen
-  // at the DOM. The point is not prettier ground: it is being able to fall back to a synthetic
-  // view when the camera cannot deliver one (lost, dead, dark, blinded).
+  var Module = { canvas: document.getElementById('canvas') };
+  setTimeout(function(){ var t=document.getElementById('tip'); if(t) t.style.opacity=0; }, 6000);
+  // TAB = ground albedo (SVS render <-> EVS aerial photo): a synthetic fallback when the camera
+  // can't deliver (lost, dead, dark, blinded). Handled here, not in SDL: the browser steals Tab for
+  // focus traversal, so preventDefault must happen at the DOM. F = fullscreen (unused by controls).
   window.addEventListener('keydown', function(e){
-    if(e.key==='Tab' && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey){
-      e.preventDefault();
-      if(Module && Module._cc_toggle_ground) Module._cc_toggle_ground();
-      return;
-    }
-    if((e.key==='f'||e.key==='F') && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey){
-      var c=document.getElementById('canvas');
+    if(e.ctrlKey||e.metaKey||e.altKey||e.repeat) return;
+    if(e.key==='Tab'){ e.preventDefault(); if(Module && Module._cc_toggle_ground) Module._cc_toggle_ground(); return; }
+    if(e.key==='f'||e.key==='F'){
+      e.preventDefault(); var c=document.getElementById('canvas');
       var req=c.requestFullscreen||c.webkitRequestFullscreen;
       if(!document.fullscreenElement && !document.webkitFullscreenElement){ if(req) req.call(c); }
       else { (document.exitFullscreen||document.webkitExitFullscreen).call(document); }
-      e.preventDefault();
     }
   });
-</script>
-<script>
-  // ?ground=photo|osm — the same switch TAB throws, reachable without a keypress. Exists so a
-  // headless browser can screenshot BOTH ground sources; a human just presses TAB.
+  // ?ground=photo|osm — the same switch TAB throws, reachable without a keypress, so a headless
+  // browser can screenshot BOTH ground sources. The renderer starts on OSM.
   (function(){
     var want=new URLSearchParams(location.search).get('ground');
     if(want!=='photo' && want!=='osm') return;
     var t=setInterval(function(){
       if(!(window.Module && Module._cc_toggle_ground && Module.calledRun)) return;
-      clearInterval(t);
-      // the renderer starts on OSM; only toggle if the caller wants the other one
-      if(want==='photo') Module._cc_toggle_ground();
+      clearInterval(t); if(want==='photo') Module._cc_toggle_ground();
     },100);
   })();
 </script>
