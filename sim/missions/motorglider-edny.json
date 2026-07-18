@@ -1,11 +1,11 @@
 {
-  "name": "Motorsegler — EDNY Platzrunde",
+  "name": "Motorsegler — EDNY kleine Platzrunde (flugbar: nahe WPs entlang Startrichtung, sanft)",
   "aircraft": "minisgs_e",
   "takeoff": { "airport": "EDNY", "runway": "06" },
   "waypoints": [
-    { "lat": 47.7000, "lon": 9.5600, "alt_agl": 300 },
-    { "lat": 47.7200, "lon": 9.5000, "alt_agl": 400 },
-    { "lat": 47.6950, "lon": 9.4600, "alt_agl": 250 }
+    { "lat": 47.6730, "lon": 9.5150, "alt_agl": 150 },
+    { "lat": 47.6770, "lon": 9.5270, "alt_agl": 200 },
+    { "lat": 47.6720, "lon": 9.5100, "alt_agl": 150 }
   ],
   "land": { "airport": "EDNY", "runway": "24" }
 }

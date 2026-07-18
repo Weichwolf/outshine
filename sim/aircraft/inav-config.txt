@@ -20,11 +20,9 @@ smix 2 3 2 100 0 -1
 # --- GPS (SITL fake driver, fed by the bridge's inav_xitl/gps datarefs) ---
 feature GPS
 set gps_provider = FAKE
-# Airspeed sensor (SITL fake pitot, fed by inav_xitl/sensors/airspeed): fixed-wing NAV needs it to
-# manage speed in the climb to a waypoint — without it iNav pitches up to the WP altitude and stalls
-# (measured: F-16 climbed to 248m under NAV WP, then bled 90->8 m/s and departed).
-feature PITOT
-set pitot_hardware = FAKE
+# Airspeed sensor OFF in the base (motor-glider default): measured to destabilise the slow minisgs_e
+# launch, and it did NOT rescue the F-16 climb-stall (that is a climb-energy problem). Aircraft that
+# want it enable feature PITOT + pitot_hardware=FAKE in their own models/<ac>/inav.diff (§6).
 set nav_extra_arming_safety = ALLOW_BYPASS   ; arm with YAW stick HIGH to bypass
 
 # --- failsafe -> RTH ---
