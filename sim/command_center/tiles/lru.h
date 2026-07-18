@@ -46,6 +46,7 @@ typedef struct { int z; uint32_t x,y; GLuint vbo,tex[2][W3_NLOD]; int nverts; un
                  float err;           /* measured geometric error, metres -- drives the LOD */
                  float bmin[3], bmax[3];  /* AABB, read only by the draw-time frustum cull */
                  float *mverts; int mnverts; float merr;  /* worker's mesh, awaiting GL upload */
+                 double origin[3];    /* per-tile ECEF origin; trans = origin - cam_ecef each frame */
 #if W3_LOD_NOKEY
                  int texpx[2];        /* proof control: the size stored in tex[mode][0], to detect
                                        * a size change and force the old re-bake */
@@ -108,11 +109,12 @@ static long w3_texvram(void){
  * WAIT slot to MESH; if the tree stopped asking and trim already freed the slot, there is nobody
  * to hand it to -- free it rather than leak. */
 EMSCRIPTEN_KEEPALIVE
-void w3_worker_mesh(int z,uint32_t x,uint32_t y,float*verts,int nverts,float err,float yoff){
+void w3_worker_mesh(int z,uint32_t x,uint32_t y,float*verts,int nverts,float err,float yoff,double*origin){
   for(int i=0;i<W3_CACHE;i++){
     w3_cent*c=&w3_cache[i];
     if(c->state==W3_SLOT_WAIT && c->z==z && c->x==x && c->y==y){
       c->mverts=verts; c->mnverts=nverts; c->merr=err; c->state=W3_SLOT_MESH;
+      c->origin[0]=origin[0]; c->origin[1]=origin[1]; c->origin[2]=origin[2];
       if(c->want_yoff && !w3_O.yoff_set){ w3_O.yoff=yoff; w3_O.yoff_set=1; }
       return;
     }

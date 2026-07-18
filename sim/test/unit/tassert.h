@@ -37,7 +37,7 @@ int test_tilesrc(void);
 int test_route(void);
 void test_atmosphere(void);
 void test_mat4(void);
-void test_chunkmesh(void);
+void test_chunkmesh_ecef(void);
 void test_style(void);
 void test_tilemap(void);
 void test_lru(void);

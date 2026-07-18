@@ -39,7 +39,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "osmmesh/osmmesh.h"
-#include "chunkmesh.h"
+#include "chunkmesh_ecef.h"
 
 static osmmesh_ctx *tw_osm = 0;
 static char tw_base[160] = "";
@@ -129,12 +129,14 @@ int tw_open(const char *base, double lat, double lon)
  * a struct because the JS side reads them through HEAP views; one tile is in flight at a time. */
 static w3_chunk tw_out;
 static float tw_yoff = 0.f;
+static double tw_origin[3] = {0,0,0};   /* per-tile ECEF origin, filled by w3_chunk_build_ecef */
 
-EMSCRIPTEN_KEEPALIVE float *tw_verts(void)  { return (float *)tw_out.verts; }
-EMSCRIPTEN_KEEPALIVE int    tw_nverts(void) { return tw_out.nverts; }
-EMSCRIPTEN_KEEPALIVE float  tw_err(void)    { return tw_out.err; }
-EMSCRIPTEN_KEEPALIVE float  tw_yoff_get(void) { return tw_yoff; }
-EMSCRIPTEN_KEEPALIVE void   tw_release(void) { w3_chunk_free(&tw_out); }
+EMSCRIPTEN_KEEPALIVE float  *tw_verts(void)   { return (float *)tw_out.verts; }
+EMSCRIPTEN_KEEPALIVE int     tw_nverts(void)  { return tw_out.nverts; }
+EMSCRIPTEN_KEEPALIVE float   tw_err(void)     { return tw_out.err; }
+EMSCRIPTEN_KEEPALIVE float   tw_yoff_get(void){ return tw_yoff; }
+EMSCRIPTEN_KEEPALIVE double *tw_origin_get(void){ return tw_origin; }   /* double[3], read via HEAPF64 */
+EMSCRIPTEN_KEEPALIVE void    tw_release(void) { w3_chunk_free(&tw_out); }
 
 /* Build one chunk: fetch (blocking), decode, mesh. Returns 1 on success.
  * `want_yoff` asks for the origin's ground elevation, which only the centre tile can answer. */
@@ -157,7 +159,7 @@ int tw_build(int z, int x, int y, int grid, int want_yoff)
         }
     }
 
-    int ok = w3_chunk_build(t.terrain, grid, &tw_out);
+    int ok = w3_chunk_build_ecef(t.terrain, z, (uint32_t)x, (uint32_t)y, grid, &tw_out, tw_origin);
     osmmesh_free_tile(&t);
     return ok;
 }

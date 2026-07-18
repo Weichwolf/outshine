@@ -12,6 +12,12 @@ cd "$(dirname "$0")"
 # shellcheck disable=SC1091
 source "$EMSDK_DIR/emsdk_env.sh" >/dev/null 2>&1
 
+# The renderer is global camera-relative WGS84-ECEF (X-Plane/MSFS/DCS-style): the planet on the
+# ellipsoid, the camera at the coordinate origin, per-tile double ECEF origins the frame subtracts.
+# The old flat-ENU tangent plane (correct only ~20 km from a fixed home, horizon never dipped) was
+# removed once ECEF was verified at Hameln AND a steep foreign origin (Aoraki). The worker carries
+# the per-tile ECEF origin back as 3 doubles, so HEAPF64 is exported below.
+
 # -Wall -Wextra: this build ran with NO warnings at all, and it cost real bugs. An unterminated
 # comment silently swallowed an `else` (the compiler says "/*" within comment -- nobody was
 # listening), and a later fix for that line then failed to match the mangled text and vanished
@@ -35,7 +41,7 @@ emcc command_center/cc.c geo/osmmesh/src/*.c \
     -o flightbox/web/cc.js
 echo "WASM -> flightbox/web/cc.js (+ cc.wasm) — no bundled region; tiles come from fb-tiles"
 
-# The tile worker: a SECOND wasm that runs osmmesh_fetch_tile + w3_chunk_build OFF the main thread,
+# The tile worker: a SECOND wasm that runs osmmesh_fetch_tile + w3_chunk_build_ecef OFF the main thread,
 # loaded with `new Worker` (tileworker.js glue). Built separately on purpose:
 #   - it carries NO SDL/WebGL -- it never touches the GPU, it hands back a vertex array;
 #   - ASYNCIFY lives HERE and not in cc.js, because only the worker blocks
@@ -48,6 +54,6 @@ emcc command_center/tileworker.c geo/osmmesh/src/*.c \
     -Icommon -Igeo/osmmesh/include -Icommand_center \
     -sFETCH -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=64MB -sEXIT_RUNTIME=0 \
     -sMODULARIZE=1 -sEXPORT_NAME=TileWorker -sENVIRONMENT=worker \
-    -sEXPORTED_RUNTIME_METHODS=ccall,HEAPF32 \
+    -sEXPORTED_RUNTIME_METHODS=ccall,HEAPF32,HEAPF64 \
     -o flightbox/web/tw.js
 echo "WASM -> flightbox/web/tw.js (+ tw.wasm) — off-thread tile fetch/decode/mesh"

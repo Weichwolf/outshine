@@ -216,7 +216,12 @@ EM_JS(void, w3_worker_init, (const char *base, double lat, double lon), {
                 var floats = d.nverts * 8;                 /* w3_vtx = 8 floats */
                 var ptr = _malloc(floats * 4);
                 HEAPF32.set(new Float32Array(d.verts), ptr >> 2);
-                _w3_worker_mesh(d.z, d.x, d.y, ptr, d.nverts, d.err, d.yoff);
+                /* Per-tile ECEF origin (3 doubles) travels alongside the mesh -- the frame subtracts
+                 * cam_ecef from it to place the tile. A tiny heap block, freed right after. */
+                var optr = _malloc(24);
+                HEAPF64.set(new Float64Array(d.origin || [0, 0, 0]), optr >> 3);
+                _w3_worker_mesh(d.z, d.x, d.y, ptr, d.nverts, d.err, d.yoff, optr);
+                _free(optr);
             } else {
                 _w3_worker_fail(d.z, d.x, d.y);
             }

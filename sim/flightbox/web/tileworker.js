@@ -56,9 +56,16 @@ async function handle(d) {
     const floats = nverts * 8;
     const out = new Float32Array(floats);
     out.set(mod.HEAPF32.subarray(ptr >> 2, (ptr >> 2) + floats));
+
+    /* Per-tile ECEF origin (3 doubles) -- the floating-point anchor the main thread subtracts the
+     * camera ECEF from. Read via HEAPF64; origin is a static, so tw_release (which only frees the
+     * vertex buffer) does not disturb it. */
+    const optr = mod.ccall('tw_origin_get', 'number', [], []);
+    const oi = optr >> 3;
+    const origin = [mod.HEAPF64[oi], mod.HEAPF64[oi + 1], mod.HEAPF64[oi + 2]];
     mod.ccall('tw_release', null, [], []);
 
     postMessage({ type: 'built', ok: 1, z: d.z, x: d.x, y: d.y, seq: d.seq,
-                  err, nverts, yoff, verts: out.buffer }, [out.buffer]);
+                  err, nverts, yoff, origin, verts: out.buffer }, [out.buffer]);
   }
 }

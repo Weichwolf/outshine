@@ -14,6 +14,7 @@
 #include <time.h>
 #include <GLES2/gl2.h>
 #include "protocol.h"
+#include "constants.h"   /* FB_M_PER_DEG_LAT (the ENU-offset <-> lat/lon scale, needed by the ECEF camera) */
 #ifdef W3_USE_OSM
 #include "camera.h"      /* attitude -> basis + MVP, pure */
 #include "stars.h"       /* catalogue coords + time + place -> direction, pure */
@@ -33,8 +34,8 @@
 #include "../geo/osmmesh/src/3rdparty/stb_image.h"
 #include "gfx/mat4.h"
 /* The main thread needs only the vertex LAYOUT (to set glVertexAttribPointer and size the VBO) --
- * the mesh BUILD (w3_chunk_build) runs in the tile worker now, so including chunkmesh.h here would
- * be a -Wunused-function error. The worker includes chunkmesh.h; both share chunkvtx.h. */
+ * the mesh BUILD (w3_chunk_build_ecef) runs in the tile worker now, so including chunkmesh_ecef.h
+ * here would be a -Wunused-function error. The worker includes it; both share chunkvtx.h. */
 #include "chunkvtx.h"
 
 /* ---- GL program helpers ---- */
@@ -48,7 +49,7 @@ static struct {
   GLuint pW,pH,pWT,pSky,pStar,vTerr,vBld,hVBO,skyVBO,starVBO; int nTerr,nBld;
   GLint stPos,stMag,stBV,stMVP,stDay;
   GLint wPos,wCol,wMVP,wHaze,wLight,hPos,hCol,hScale;
-  GLint wtPos,wtUV,wtMVP,wtTex,wtHaze,wtLight,wtNorm,wtSun;
+  GLint wtPos,wtUV,wtMVP,wtTex,wtHaze,wtLight,wtNorm,wtSun,wtSunUp;
   GLint skPos,skF,skS,skU,skTan,skAsp,skSun,skMoon,skMoonPh,skCloud,skSunDisc,skDayF;
 } w3_gl;
 
@@ -88,7 +89,7 @@ static struct {
  * Refinement is by screen-space error, from each chunk's OWN measured geometric error:
  *     SSE = node.error * W3_SSE_K / distance      (pixels)
  *     split while SSE > W3_EPS
- * See chunkmesh.h (w3_chunk_build) for why the error must be measured per chunk, not tabulated per zoom. */
+ * See chunkmesh_ecef.h (w3_chunk_build_ecef) for why the error must be measured per chunk, not tabulated per zoom. */
 #include "terrain/lod.h"
 
 /* Old-flight-sim ground: OSM footprints/roads/rivers/rails + landcover are baked
@@ -99,7 +100,8 @@ static osmmesh_ctx *w3_osm=0;          /* terrain heightfield meshes; the "world
 /* The origin (home) and everything anchored to it. ONE owner: cc.c sets lat/lon from /config.js
  * once, everything else reads it -- the old g_olat/g_olon (cc.c) and w3_olat/w3_olon (here) were the
  * same fact stored twice. lat/lon drive the star alt/az and the tile stream; yoff is the origin
- * ground elevation (camera lift); tx/ty is the last-streamed centre tile. */
+ * ground elevation, the AGL and no-telemetry-camera-height fallback until /elev answers (NOT a
+ * camera lift any more -- ECEF vertices are absolute on the ellipsoid); tx/ty is the last centre tile. */
 typedef struct {
   double lat, lon;
   float  yoff; int yoff_set;
@@ -113,13 +115,16 @@ static double w3_sim_utc = 0;
 /* Height above ground, metres, computed in cc.c each frame as telem.alt(ASL) - DEM ground under the
  * aircraft (async /elev, origin-ground fallback). Drives the HUD's AGL readout; the LOD gets it too. */
 static float w3_agl = 0;
-/* Seed the lift before any tile streams, so a fresh spawn is not rendered under the ground. */
+/* Seed the origin ground before any tile streams, so AGL and the no-telemetry camera height are
+ * sane at frame 0 (from /elev, before the centre tile's own probe lands). */
 static void w3_seed_yoff(float y){ if(!w3_O.yoff_set){ w3_O.yoff=y; w3_O.yoff_set=1; } }
 
 /* ONE draw list, built by the tree walk each stream pass. There used to be three of these
  * (w3_T/w3_TF/w3_TF2 with w3_nT/w3_nTF/w3_nTF2) -- the same code three times with suffixes,
  * which is how the overlap got written down as a fact and then lived on as one. */
-typedef struct { GLuint vbo, tex[2]; int nverts; float bmin[3], bmax[3]; } w3_tileGL;
+typedef struct { GLuint vbo, tex[2]; int nverts; float bmin[3], bmax[3];
+  double origin[3];   /* per-tile ECEF origin; the frame subtracts cam_ecef to get the translation */
+} w3_tileGL;
 static w3_tileGL w3_D[W3_BUDGET];
 
 /* ---- ground albedo: downloaded ready-made from fb-tiles ------------------------------------
@@ -166,13 +171,13 @@ static struct {
 
 #include "tiles/bake.h"
 
-/* The terrain vertex layout is defined by its WRITER, in chunkmesh.h. These two macros are the
+/* The terrain vertex layout is defined by its WRITER, in chunkmesh_ecef.h. These two macros are the
  * READER's half of that contract -- they need GL types, so they stay here, but they derive from
  * the same struct, so a layout change breaks the build rather than the picture. */
 #define W3_VTX_STRIDE ((GLsizei)sizeof(w3_vtx))
 #define W3_VTX_OFF(f)  ((void*)offsetof(w3_vtx, f))
 
-/* w3_chunk_build (chunkmesh.h) -- decimation, smooth normals, the measured error, the skirt -- now
+/* w3_chunk_build_ecef (chunkmesh_ecef.h) -- decimation, smooth normals, the measured error, the skirt -- now
  * runs in the WORKER (tileworker.c), which hands back a finished w3_vtx[] array. All that is left
  * on the main thread is glBufferData, inline in w3_cache_get's MESH->READY transition. The GL
  * upload wrapper that used to live here (w3_terr_vbo) is gone with the synchronous path. */
@@ -260,6 +265,7 @@ static void world3d_init(void){
   w3_gl.wtMVP=glGetUniformLocation(w3_gl.pWT,"uMVP"); w3_gl.wtTex=glGetUniformLocation(w3_gl.pWT,"uTex");
   w3_gl.wtHaze=glGetUniformLocation(w3_gl.pWT,"uHaze"); w3_gl.wtLight=glGetUniformLocation(w3_gl.pWT,"uLight");
   w3_gl.wtNorm=glGetAttribLocation(w3_gl.pWT,"aNorm"); w3_gl.wtSun=glGetUniformLocation(w3_gl.pWT,"uSun");
+  w3_gl.wtSunUp=glGetUniformLocation(w3_gl.pWT,"uSunUp");
   if(w3_osm) return;              /* geometry (textured tiles) comes from world3d_stream() */
 #endif
   w3_build_procedural();
@@ -277,27 +283,42 @@ static void world3d_init(void){
  * rotation moves the frustum every frame while the walk sleeps, and keeping the walk view-independent
  * is what holds tiles / picks LOD by distance alone. No polygon offset, no draw order: the chunks are
  * a CUT through the tree, so they tile the ground without overlapping -- nothing to bias apart. */
-static void w3_draw_terrain(const w3_cam *C, const w3_atmo *A){
-  glUseProgram(w3_gl.pWT); glUniformMatrix4fv(w3_gl.wtMVP,1,GL_FALSE,C->mvp);
-  glUniform3fv(w3_gl.wtHaze,1,A->haze); glUniform1f(w3_gl.wtLight,A->light); glUniform3fv(w3_gl.wtSun,1,A->sun);
+/* Bind one draw-list tile's texture (the ground switch is an index) + vertex arrays, then draw. The
+ * MVP is already set by the caller (one for all tiles on the ENU path, per-tile on the ECEF path). */
+static void w3_draw_tile(int i){
+  GLuint _t=w3_D[i].tex[w3_ground.mode]; if(!_t)_t=w3_D[i].tex[W3_GROUND_OSM];
+  glBindTexture(GL_TEXTURE_2D,_t); glBindBuffer(GL_ARRAY_BUFFER,w3_D[i].vbo);
+  glVertexAttribPointer(w3_gl.wtPos,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(pos));
+  glVertexAttribPointer(w3_gl.wtUV,2,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(uv));
+  glVertexAttribPointer(w3_gl.wtNorm,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(norm));
+  glDrawArrays(GL_TRIANGLES,0,w3_D[i].nverts);
+}
+
+/* Camera-relative ECEF terrain: the view-projection C->mvp is computed with the camera at the ECEF
+ * origin (w3_cam_ecef); each tile's model translation is trans = origin_ecef - cam_ecef (double
+ * subtract -> float, best precision at the camera). The frustum is built once from the untranslated
+ * viewproj and each tile's AABB is shifted by its own trans before the cull. uSun is the ECEF sun
+ * direction; uSunUp = sin(sun elevation) so the terminator does not read a now-meaningless uSun.y. */
+static void w3_draw_terrain(const w3_cam *C, const w3_atmo *A,
+                            const double cam_ecef[3], const float sun_ecef[3], float sun_up){
+  glUseProgram(w3_gl.pWT);
+  glUniform3fv(w3_gl.wtHaze,1,A->haze); glUniform1f(w3_gl.wtLight,A->light);
+  glUniform3fv(w3_gl.wtSun,1,sun_ecef); glUniform1f(w3_gl.wtSunUp,sun_up);
   glActiveTexture(GL_TEXTURE0); glUniform1i(w3_gl.wtTex,0);
   glEnableVertexAttribArray(w3_gl.wtPos); glEnableVertexAttribArray(w3_gl.wtUV); glEnableVertexAttribArray(w3_gl.wtNorm);
   const w3_frustum fr=w3_frustum_from(C->mvp);
   w3_frame.nvis=0;
   for(int i=0;i<w3_frame.nD;i++){
-    if(!w3_aabb_visible(&fr,w3_D[i].bmin,w3_D[i].bmax)) continue;
+    float trans[3]; for(int a=0;a<3;a++) trans[a]=(float)(w3_D[i].origin[a]-cam_ecef[a]);
+    float bmn[3],bmx[3]; for(int a=0;a<3;a++){ bmn[a]=w3_D[i].bmin[a]+trans[a]; bmx[a]=w3_D[i].bmax[a]+trans[a]; }
+    if(!w3_aabb_visible(&fr,bmn,bmx)) continue;
     w3_frame.nvis++;
-    /* THE ground switch, in full: an index. Both albedos are already on the GPU. */
-    GLuint _t=w3_D[i].tex[w3_ground.mode]; if(!_t)_t=w3_D[i].tex[W3_GROUND_OSM];
-    glBindTexture(GL_TEXTURE_2D,_t); glBindBuffer(GL_ARRAY_BUFFER,w3_D[i].vbo);
-    glVertexAttribPointer(w3_gl.wtPos,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(pos));
-    glVertexAttribPointer(w3_gl.wtUV,2,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(uv));
-    glVertexAttribPointer(w3_gl.wtNorm,3,GL_FLOAT,GL_FALSE,W3_VTX_STRIDE,W3_VTX_OFF(norm));
-    glDrawArrays(GL_TRIANGLES,0,w3_D[i].nverts);
+    float mvpT[16]; w3_mvp_translate(mvpT,C->mvp,trans); glUniformMatrix4fv(w3_gl.wtMVP,1,GL_FALSE,mvpT);
+    w3_draw_tile(i);
   }
   glDisableVertexAttribArray(w3_gl.wtUV); glDisableVertexAttribArray(w3_gl.wtNorm);
 }
-#endif
+#endif /* W3_USE_OSM */
 
 /* Fallback ground: the procedural wire terrain + buildings, drawn when no OSM tiles are resident. */
 static void w3_draw_fallback(const w3_cam *C, const w3_atmo *A){
@@ -312,22 +333,13 @@ static void w3_draw_fallback(const w3_cam *C, const w3_atmo *A){
  * (world3d_render_hud) so it can be overlaid on top of the decoded video, not encoded into it. */
 static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
   glViewport(0,0,W,H); glEnable(GL_DEPTH_TEST); glClearColor(0.55f,0.70f,0.90f,1); glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+  /* Eye in render-ENU, for the sky/star infinity pass and the procedural fallback ONLY. The sky
+   * reads just the basis (a direction), the stars are placed eye-relative and re-projected so the
+   * eye cancels -- so its exact height is immaterial there. The ECEF terrain does NOT use this eye;
+   * it carries the camera as cam_ecef (double) below. The old origin-ground lift (+w3_O.yoff) lived
+   * here to raise the ENU-mesh eye; the ECEF vertices are absolute on the ellipsoid and the camera
+   * carries its own altitude, so the lift is gone. */
   float px=have?t->x:0, py=(have&&t->alt>2)?t->alt:120, pz=have?-t->y:0;
-#ifdef W3_USE_OSM
-  /* The osmmesh terrain mesh carries ABSOLUTE elevation on its up-axis: terrain.c writes the raw
-   * Terrarium height (R*256+G+B/256-32768, metres ASL) straight into pos.z with no origin
-   * subtraction -- only the horizontal e/n are origin-relative. telem.alt is ASL too (cc.c derives
-   * AGL as telem.alt - ground). So the camera up-coordinate in the mesh frame IS telem.alt, full
-   * stop -- adding w3_O.yoff (the origin GROUND, also ASL) double-counts the ground and lifts the
-   * eye by one whole terrain elevation (71 m at Hameln, 3724 m at Aoraki -> the camera floats a
-   * mountain-height too high and the ground shrinks to a sliver). The +yoff was correct only while
-   * telem.alt was AGL; commit 570aac0 switched telem.alt AGL->ASL and left this line behind. No
-   * telemetry: sit 2 m over the origin ground (yoff is that ground, ASL). */
-  if(w3_frame.nD>0) py=(have&&t->alt>1)?t->alt:(w3_O.yoff+2.0f);
-#endif
-  /* Basis and MVP from the attitude — pure maths, so it lives in camera.h and is testable there.
-   * The roll sign is the one that once made a right bank look like a left bank; a screenshot cannot
-   * catch that, a test can. The eye position stays HERE because it needs w3_O.yoff (tile side). */
   const float eye[3]={px,py,pz};
   const w3_cam C = w3_cam_from(have?t->yaw:0, have?t->pitch:0, have?t->roll:0,
                                eye, W3_FOV, (float)W/H, W3_NEAR, W3_FARPLANE);
@@ -337,12 +349,29 @@ static void world3d_render_scene(const telem_packet_t*t,int W,int H,int have){
    * EVS (PHOTO, the real camera through the codec) keeps the true sun/sky/stars. */
   const w3_atmo A = (w3_ground.mode==W3_GROUND_OSM) ? w3_atmo_synthetic() : w3_atmo_from(t, have);
 
+  /* Sky and stars stay in LOCAL render-ENU (up=+Y): they are at infinity, so their gradient and
+   * star field key off the local vertical, and the geometric horizon dip emerges naturally as the
+   * ECEF terrain (below) curves away BELOW this flat local horizon. Same camera as ever here. */
   w3_draw_sky(&C, &A, (float)W/H);
   if(w3_ground.mode==W3_GROUND_PHOTO) w3_draw_stars(&C, &A, eye);   /* real stars -> EVS only */
   glDepthMask(GL_TRUE); glEnable(GL_DEPTH_TEST);
 #ifdef W3_USE_OSM
-  if(w3_frame.nD>0) w3_draw_terrain(&C, &A);
-  else
+  if(w3_frame.nD>0){
+    /* Camera geodetic -> ECEF (double); the aircraft ENU offset (t->x east, t->y north) back to
+     * lat/lon around the origin, alt = telem ASL treated as ellipsoidal height (geoid ignored, a
+     * slow smooth vertical bias with no visible effect). No telemetry: sit over the origin ground
+     * (w3_O.yoff, the origin ground elevation seeded from /elev). */
+    const double MPD=(double)FB_M_PER_DEG_LAT;
+    double clat = have ? w3_O.lat + (double)t->y/MPD : w3_O.lat;
+    double clon = have ? w3_O.lon + (double)t->x/(MPD*cos(w3_O.lat*M_PI/180.0)) : w3_O.lon;
+    double calt = (have && t->alt>1) ? (double)t->alt : (double)w3_O.yoff+2.0;
+    osmmesh_geo cg={clon,clat,calt}; osmmesh_ecef ce=osmmesh_geo_to_ecef(cg);
+    double cam_ecef[3]={ce.x,ce.y,ce.z};
+    const w3_cam Ce = w3_cam_ecef(have?t->yaw:0, have?t->pitch:0, have?t->roll:0,
+                                  clat, clon, W3_FOV, (float)W/H, W3_NEAR, W3_FARPLANE);
+    float sun_ecef[3]; w3_render_to_ecef(clat,clon,A.sun,sun_ecef);   /* topocentric sun -> ECEF axes */
+    w3_draw_terrain(&Ce, &A, cam_ecef, sun_ecef, A.sun[1]);
+  } else
 #endif
     w3_draw_fallback(&C, &A);
 }

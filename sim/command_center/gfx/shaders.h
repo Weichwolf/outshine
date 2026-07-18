@@ -26,8 +26,11 @@ static const char*W3_VSWT=
  * lighting baked into the texture. uLight carries the day->night level, uHaze the horizon. */
 static const char*W3_FSWT=
  "precision mediump float; varying vec2 vUV; varying float vFog; varying vec3 vNorm;"
- "uniform sampler2D uTex; uniform vec3 uHaze; uniform float uLight; uniform vec3 uSun;"
- "void main(){ vec3 N=normalize(vNorm); float sup=smoothstep(-0.05,0.12,uSun.y);"
+ "uniform sampler2D uTex; uniform vec3 uHaze; uniform float uLight; uniform vec3 uSun; uniform float uSunUp;"
+ /* uSunUp = sin(sun elevation), passed separately so the day/night terminator does not read it off
+  * uSun.y -- in the ECEF path uSun is an ECEF direction whose .y is not the local vertical. On the
+  * ENU path uSunUp == uSun.y, so this is numerically identical there. */
+ "void main(){ vec3 N=normalize(vNorm); float sup=smoothstep(-0.05,0.12,uSunUp);"
  "  float diff=max(0.0,dot(N,uSun))*sup;"
  "  float shade=0.55+0.65*diff;"                       /* 0.55 sky ambient .. +direct sun on lit slopes */
  "  vec3 c=texture2D(uTex,vUV).rgb*shade*uLight;"

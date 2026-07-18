@@ -52,7 +52,8 @@ static void w3_emit(int ci,int lod){
   w3_D[w3_frame.nD].vbo=w3_cache[ci].vbo; w3_D[w3_frame.nD].nverts=w3_cache[ci].nverts;
   w3_D[w3_frame.nD].tex[0]=w3_pick_lod(&w3_cache[ci],W3_GROUND_OSM,lod);
   w3_D[w3_frame.nD].tex[1]=w3_pick_lod(&w3_cache[ci],W3_GROUND_PHOTO,lod);
-  for(int a=0;a<3;a++){ w3_D[w3_frame.nD].bmin[a]=w3_cache[ci].bmin[a]; w3_D[w3_frame.nD].bmax[a]=w3_cache[ci].bmax[a]; }
+  for(int a=0;a<3;a++){ w3_D[w3_frame.nD].bmin[a]=w3_cache[ci].bmin[a]; w3_D[w3_frame.nD].bmax[a]=w3_cache[ci].bmax[a];
+                        w3_D[w3_frame.nD].origin[a]=w3_cache[ci].origin[a]; }
   w3_frame.nD++;
 }
 /* Recurse. (lat,lon,alt) = camera; (tx,ty) = camera's fractional tile coord at THIS level. */

@@ -10,7 +10,7 @@ int main(void) {
     test_route();
     test_atmosphere();
     test_mat4();
-    test_chunkmesh();
+    test_chunkmesh_ecef();
     test_style();
     test_tilemap();
     test_lru();
