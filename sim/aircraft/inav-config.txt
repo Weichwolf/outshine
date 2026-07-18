@@ -40,12 +40,13 @@ set nav_min_rth_distance = 100          ; 1 m: don't treat launch-at-home as "al
 set nav_fw_cruise_thr = 1550
 set nav_auto_climb_rate = 150           ; 1.5 m/s gentle climb — 3 m/s stalled the weak motor-glider (porpoise)
 
-# --- modes: ARM=AUX1(pid0), ANGLE=AUX2(pid1), NAV RTH=AUX3(pid10) ---
+# --- modes: ARM=AUX1(pid0), ANGLE=AUX2(pid1), NAV RTH=AUX3(pid10), NAV WP=AUX4(pid28) ---
 # NB: aux uses iNav permanentId, NOT the box enum. pid 8 = CAMSTAB (no-op) was the bug;
-# NAV RTH is pid 10 (fc_msp_box.c).
+# NAV RTH is pid 10, NAV WP is pid 28 (fc_msp_box.c).
 aux 0 0 0 1700 2100
 aux 1 1 1 1700 2100
 aux 2 10 2 1700 2100
+aux 3 28 3 1700 2100
 
 # --- test conveniences ---
 set small_angle = 180

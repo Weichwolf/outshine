@@ -495,9 +495,9 @@ int main(void){
              * COMMAND driving it." The rule was written down and the log still did not follow it.
              * Right now the elevator is suspected of sitting at neutral while the autopilot asks
              * for -8 deg; without in_pitch here that stays an inference forever. */
-            fprintf(stderr,"[xp_bridge] %s alt=%.0f pitch=%.1f roll=%.1f | airspd=%.1f gs=%.1f home=%.0f"
+            fprintf(stderr,"[xp_bridge] %s alt=%.0f pos=%.5f,%.5f pitch=%.1f roll=%.1f | airspd=%.1f gs=%.1f home=%.0f"
                            " | in: p=%+.3f r=%+.3f y=%+.3f thr=%.2f | iNav_modes=0x%x | badDREF=%ld\n",
-            MN[g_mode%6], S.agl, S.pitch, S.roll, S.speed, S.gs,
+            MN[g_mode%6], S.agl, S.lat, S.lon, S.pitch, S.roll, S.speed, S.gs,
             hypot((S.lat-HOME_LAT)*111320.0,(S.lon-HOME_LON)*111320.0*cos(HOME_LAT*RAD)),
             S.in_pitch, S.in_roll, S.in_yaw, S.in_thr, t_modeflags, g_bad_dref); }
         struct timespec tsp={0,(long)(dt*1e9)}; nanosleep(&tsp,NULL);

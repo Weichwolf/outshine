@@ -5,12 +5,45 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "autopilot.h"
 #include "msp.h"
 #include "protocol.h"
 #include "../sim_state.h"
 
 int g_mode = ST_DISARMED;   /* bridge autopilot mode -> telemetry state */
+
+/* Mission waypoints from the harness/CC: MISSION_WPS = "lat,lon,alt_asl;..." (alt already ASL, the
+ * CC did AGL->ASL via the DEM). Uploaded once to iNav via MSP_SET_WP (209); iNav then flies NAV WP.
+ * g_have_mission gates the autonomous mode: mission present -> NAV WP, else -> NAV RTH (loiter home). */
+int g_have_mission = 0;
+static void upload_mission_wps(void) {
+    const char *s = getenv("MISSION_WPS");
+    if (!s || !*s) return;
+    double la[48], lo[48], al[48];
+    int n = 0;
+    const char *p = s;
+    while (*p && n < 48) {
+        if (sscanf(p, "%lf,%lf,%lf", &la[n], &lo[n], &al[n]) == 3) n++;
+        const char *semi = strchr(p, ';');
+        if (!semi) break;
+        p = semi + 1;
+    }
+    for (int i = 0; i < n; i++) {
+        uint8_t b[21];
+        int32_t lat = (int32_t)(la[i] * 1e7), lon = (int32_t)(lo[i] * 1e7), alt = (int32_t)(al[i] * 100);
+        b[0] = i + 1;                 /* wp_no (1-based) */
+        b[1] = 1;                     /* NAV_WP_ACTION_WAYPOINT */
+        memcpy(b + 2, &lat, 4);
+        memcpy(b + 6, &lon, 4);
+        memcpy(b + 10, &alt, 4);      /* cm, ASL */
+        memset(b + 14, 0, 6);         /* p1/p2/p3 */
+        b[20] = (i == n - 1) ? 0xa5 : 0;   /* flag: last waypoint */
+        msp1(209, b, 21);             /* MSP_SET_WP */
+    }
+    g_have_mission = (n > 0);
+    fprintf(stderr, "[xp_bridge] mission: %d waypoints uploaded via MSP_SET_WP\n", n);
+}
 double g_loalt=500.0, g_lorad=1000.0;  /* autonomous loiter altitude (m AGL) + orbit radius (m), env-tunable */
 
 /* Per-aircraft flight profile. NO airframe tuning lives in this source — the outer nav loop is
@@ -63,6 +96,8 @@ void autopilot_step(long tick, struct timespec t0, double dt,
                     * sign is fixed; while it was inverted, latching let NAV's yaw runaway diverge.) */
                    static int airborne=0; if(S.agl>120.0) airborne=1;
                    (void)launch_t;
+                   static int wp_done=0;               /* upload the mission once, airborne with a GPS fix */
+                   if(airborne && !wp_done){ upload_mission_wps(); wp_done=1; }
                    int stick=(fabs(cr)>0.15||fabs(cp)>0.15||fabs(cy)>0.15);
                    static double last_input=-100; if(stick&&link_up) last_input=ts;
                    int manual=link_up&&(ts-last_input<2.0);
@@ -71,11 +106,11 @@ void autopilot_step(long tick, struct timespec t0, double dt,
                    else if(manual){ g_mode=ST_MANUAL;                 /* operator has the sticks */
                                     rc[0]=1500+(int)(cr*450); rc[1]=1500+(int)(cp*450); rc[3]=1500+(int)(cy*450);
                                     double thr=(cthr>=0)?cthr:0.70; rc[2]=1000+(int)(thr*1000); }
-                   else { /* autonomous + RC-loss: hand off to iNav NATIVE NAV RTH — spiral-climb to
-                           * nav_rth_altitude over home, then loiter at nav_fw_loiter_radius. The command
-                           * center commands, iNav flies; the bridge synthesises no attitude of its own. */
-                       g_mode = link_up ? ST_LOITER : ST_RTH;
-                       rc[6]=2000;                              /* AUX3 = NAV RTH */
+                   else { /* autonomous: iNav flies natively. Mission present -> NAV WP (fly the uploaded
+                           * waypoints); else -> NAV RTH (spiral-climb + loiter over home / RC-loss failsafe).
+                           * The command center commands, iNav flies; the bridge synthesises no attitude. */
+                       if(g_have_mission){ g_mode=ST_LOITER; rc[7]=2000; }   /* AUX4 = NAV WP */
+                       else { g_mode = link_up ? ST_LOITER : ST_RTH; rc[6]=2000; }  /* AUX3 = NAV RTH */
                        rc[0]=1500; rc[1]=1500; rc[3]=1500;      /* centre sticks — don't fight NAV */
                        rc[2]=1500;                              /* iNav owns throttle (nav_fw_cruise_thr) */
                    }
