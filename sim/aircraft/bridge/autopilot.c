@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <time.h>
 #include <math.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include "autopilot.h"
 #include "msp.h"
 #include "protocol.h"
@@ -11,8 +13,30 @@
 int g_mode = ST_DISARMED;   /* bridge autopilot mode -> telemetry state */
 double g_loalt=500.0, g_lorad=1000.0;  /* autonomous loiter altitude (m AGL) + orbit radius (m), env-tunable */
 
+/* Per-aircraft flight profile. NO airframe tuning lives in this source — the outer nav loop is
+ * airframe-agnostic and its parameters come from the AIRCRAFT MODEL: run.sh sources
+ * models/<aircraft>/profile.env, which exports these. autopilot.c only knows the setting NAMES.
+ * The fallbacks below are a neutral, clearly-unconfigured safety net (logged), NOT any aircraft's
+ * tuning: a real aircraft always ships its profile.env. */
+static struct { double cruise, climb_thr, climb_pitch, stall, bank_cruise, bank_climb; int init; } P;
+static double envd(const char*k, double def, int*missing){ const char*v=getenv(k);
+    if(v&&*v) return atof(v); (*missing)++; return def; }
+static void profile_init(void){
+    if(P.init) return; P.init=1;
+    int miss=0;
+    P.cruise      = envd("FB_CRUISE",      15.0, &miss);   /* m/s target cruise airspeed */
+    P.climb_thr   = envd("FB_CLIMB_THR",    0.8, &miss);   /* throttle during climb-out (0..1) */
+    P.climb_pitch = envd("FB_CLIMB_PITCH", 12.0, &miss);   /* deg climb pitch target */
+    P.stall       = envd("FB_STALL",       10.0, &miss);   /* m/s below which climb pitch is backed off */
+    P.bank_cruise = envd("FB_BANK",        10.0, &miss);   /* deg max bank in loiter */
+    P.bank_climb  = envd("FB_BANK_CLIMB",  10.0, &miss);   /* deg max bank while climbing */
+    if(miss) fprintf(stderr,"[autopilot] %d flight-profile settings unset — no models/<aircraft>/"
+                            "profile.env loaded; using NEUTRAL fallbacks (not aircraft-tuned)\n", miss);
+}
+
 void autopilot_step(long tick, struct timespec t0, double dt,
                     float cr, float cp, float cy, float cthr, int link_up){
+        profile_init();
         if(msp_fd>=0 && tick%2==0){
             struct timespec nw; clock_gettime(CLOCK_MONOTONIC,&nw);
             double ts=(nw.tv_sec-t0.tv_sec)+(nw.tv_nsec-t0.tv_nsec)/1e9;   /* real elapsed */
@@ -39,7 +63,7 @@ void autopilot_step(long tick, struct timespec t0, double dt,
                    static double last_input=-100; if(stick&&link_up) last_input=ts;
                    int manual=link_up&&(ts-last_input<2.0);
                    rc[4]=2000; rc[5]=2000;                            /* ARM + ANGLE (iNav stabilises) */
-                   if(!airborne){ g_mode=ST_CLIMB; rc[1]=1650; rc[2]=1000+(int)(0.95*1000); }  /* hand-launch climb-out */
+                   if(!airborne){ g_mode=ST_CLIMB; rc[1]=1650; rc[2]=1000+(int)(P.climb_thr*1000); }  /* hand-launch climb-out */
                    else if(manual){ g_mode=ST_MANUAL;                 /* operator has the sticks */
                                     rc[0]=1500+(int)(cr*450); rc[1]=1500+(int)(cp*450); rc[3]=1500+(int)(cy*450);
                                     double thr=(cthr>=0)?cthr:0.70; rc[2]=1000+(int)(thr*1000); }
@@ -51,7 +75,7 @@ void autopilot_step(long tick, struct timespec t0, double dt,
                         *   throttle-> hold airspeed (cruise), + a bit while climbing
                         *   roll   -> orbit home at g_lorad: coordinated-turn feed-forward + a
                         *             carrot-on-the-circle heading correction. */
-                       const double CRUISE_V=17.0;
+                       const double CRUISE_V=P.cruise;
                        double x=(S.lon-HOME_LON)*111320.0*cos(HOME_LAT*RAD), y=(S.lat-HOME_LAT)*111320.0;
                        static int climbing=1;                         /* hysteresis: climb to alt-12, hold until it sinks past alt-60 */
                        if(climbing && S.agl > g_loalt-12) climbing=0;
@@ -62,9 +86,9 @@ void autopilot_step(long tick, struct timespec t0, double dt,
                        g_mode = !link_up ? ST_RTH : (climbing ? ST_CLIMB : ST_LOITER);
                        double pitchT, thr;
                        if(climbing){ /* full power, steady climb pitch, backed off near stall speed */
-                              thr=0.95; pitchT=20.0;
-                              if(S.speed<14.0) pitchT = 20.0 - 3.0*(14.0-S.speed);   /* stall protection */
-                              if(pitchT<0)pitchT=0; if(pitchT>22)pitchT=22; }
+                              thr=P.climb_thr; pitchT=P.climb_pitch;
+                              if(S.speed<P.stall) pitchT = P.climb_pitch - 3.0*(P.stall-S.speed);   /* stall protection */
+                              if(pitchT<0)pitchT=0; if(pitchT>P.climb_pitch+2) pitchT=P.climb_pitch+2; }
                        else { static double alt_i=0; double aerr=g_loalt-S.agl;
                               alt_i+=aerr*0.0004; if(alt_i>3)alt_i=3; if(alt_i<-3)alt_i=-3; /* slow trim, anti-windup */
                               pitchT = 0.10*aerr - 1.3*S.vy + alt_i;                /* altitude hold (P + rate + I) */
@@ -108,7 +132,7 @@ void autopilot_step(long tick, struct timespec t0, double dt,
                         * can't slam the bank. The steady orbit bank still applies. */
                        double gate=fmin(1.0, fabs(crs)/0.30);
                        double rollT=-dir*bank_ff + 0.22*herr*gate;
-                       double rlim=climbing?12.0:10.0;
+                       double rlim=climbing?P.bank_climb:P.bank_cruise;
                        if(rollT>rlim)rollT=rlim; if(rollT<-rlim)rollT=-rlim;
                        /* Slew-limit the commanded bank: no guidance discontinuity (dir flip, mode
                         * change, gust) can make iNav snap the roll — this kills the ~200 deg/s roll

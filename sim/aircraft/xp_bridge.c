@@ -404,8 +404,8 @@ int main(void){
     if(getenv("FDM_ENGINE") && !strcmp(getenv("FDM_ENGINE"),"jsbsim")){
         const char*ac=getenv("AIRCRAFT"); if(!ac||!*ac) ac="minisgs_e";
         const char*mr=getenv("MODELS_ROOT"); if(!mr||!*mr) mr="/app/models";
-        int fbw = (strstr(ac,"f16")!=NULL);   /* F-16: iNav is the FLCS, bypass the aircraft's own */
-        double spawn_spd = getenv("SPAWN_SPEED")?atof(getenv("SPAWN_SPEED")):14.0;  /* jet: set ~120 */
+        int fbw = getenv("FBW")?atoi(getenv("FBW")):0;   /* from the aircraft profile: 1 = iNav is the FLCS */
+        double spawn_spd = getenv("SPAWN_SPEED")?atof(getenv("SPAWN_SPEED")):14.0;  /* from profile.env */
         if(fb_jsbsim_init(mr, ac, HOME_LAT, HOME_LON, HOME_ELEV, 2.0, spawn_spd, 0.0, fbw)==0){
             g_jsbsim=1; fprintf(stderr,"[xp_bridge] FDM=JSBSim aircraft=%s (fbw_override=%d)\n", ac, fbw);
         } else fprintf(stderr,"[xp_bridge] JSBSim init failed for '%s' — using selig FDM\n", ac);
