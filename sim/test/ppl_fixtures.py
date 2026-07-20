@@ -152,6 +152,10 @@ def check(fx, ac, trace):
                 v=dv
         elif mname=="armed":    v=1.0 if any(d.get("armed") for d in trace) else 0.0
         elif mname=="min_airspeed": v=min((d.get("gs",1e9) for d in trace), default=None)
+        elif mname.startswith("min_"):                  # min_<field> over the whole trace (e.g. min_gps_alt)
+            f=mname[4:]; xs=[d[f] for d in trace if f in d]; v=min(xs) if xs else None
+        elif mname.startswith("max_"):
+            f=mname[4:]; xs=[d[f] for d in trace if f in d]; v=max(xs) if xs else None
         else: v=metric(trace,mname,win)
         ok=True; why=""
         if v is None: ok=False; why="no data"

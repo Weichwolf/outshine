@@ -1,0 +1,83 @@
+{
+  "area": "11-stalling",
+  "title": "Ex11 Stalling (power idle, hold nose up, speed decays)",
+  "aircraft": [
+    "c172"
+  ],
+  "setup": {
+    "spawn_alt_agl": 500,
+    "speed": "cruise",
+    "hdg": 90
+  },
+  "arm": true,
+  "duration_s": 36,
+  "script": [
+    {
+      "t": 3,
+      "mode": "ANGLE",
+      "roll": 1500,
+      "pitch": 1750,
+      "thr": 1000
+    },
+    {
+      "t": 26,
+      "mode": "ANGLE",
+      "roll": 1500,
+      "pitch": 1500,
+      "thr": 1700
+    }
+  ],
+  "asserts": [
+    {
+      "metric": "armed",
+      "gt": 0.5,
+      "desc": "arms"
+    },
+    {
+      "metric": "min_airspeed",
+      "lt": 14,
+      "desc": "airspeed decays toward the stall"
+    },
+    {
+      "metric": "gps_alt",
+      "gt": 250,
+      "desc": "recovers with height to spare"
+    },
+    {
+      "metric": "fix",
+      "min": 2,
+      "desc": "GPS fix"
+    },
+    {
+      "metric": "gs",
+      "gt": 4,
+      "desc": "flying again after recovery"
+    },
+    {
+      "metric": "roll",
+      "abs_lt": 40,
+      "desc": "wing not fully dropped (recoverable)"
+    },
+    {
+      "metric": "vs",
+      "gt": -18,
+      "desc": "sink bounded (not a spin dive)"
+    },
+    {
+      "metric": "sats",
+      "min": 5,
+      "desc": "GPS sats"
+    },
+    {
+      "metric": "pitch",
+      "min": -40,
+      "max": 40,
+      "desc": "attitude recoverable"
+    },
+    {
+      "metric": "min_gps_alt",
+      "lt": 560,
+      "desc": "sank (lost height) during the stall"
+    }
+  ]
+}

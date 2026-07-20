@@ -1,0 +1,76 @@
+{
+  "area": "07-climbing",
+  "title": "Ex7 Climbing (ANGLE, nose-up + power)",
+  "aircraft": [
+    "c172"
+  ],
+  "setup": {
+    "spawn_alt_agl": 200,
+    "speed": "cruise",
+    "hdg": 90
+  },
+  "arm": true,
+  "duration_s": 32,
+  "script": [
+    {
+      "t": 3,
+      "mode": "ANGLE",
+      "roll": 1500,
+      "pitch": 1720,
+      "thr": 2000
+    }
+  ],
+  "asserts": [
+    {
+      "metric": "armed",
+      "gt": 0.5,
+      "desc": "arms"
+    },
+    {
+      "metric": "vs",
+      "gt": 0.5,
+      "desc": "positive climb rate (vs > 0.5 m/s)"
+    },
+    {
+      "metric": "gps_alt",
+      "gt": 271,
+      "desc": "gained altitude above spawn field"
+    },
+    {
+      "metric": "pitch",
+      "gt": 2,
+      "desc": "nose-up attitude"
+    },
+    {
+      "metric": "roll",
+      "abs_lt": 10,
+      "desc": "wings level in the climb"
+    },
+    {
+      "metric": "gs",
+      "gt": 6,
+      "desc": "maintains flying speed climbing"
+    },
+    {
+      "metric": "fix",
+      "min": 2,
+      "desc": "GPS fix"
+    },
+    {
+      "metric": "vs",
+      "lt": 30,
+      "desc": "climb not divergent"
+    },
+    {
+      "metric": "hdg_change",
+      "window": 10,
+      "abs_lt": 25,
+      "desc": "heading held in climb"
+    },
+    {
+      "metric": "pitch",
+      "lt": 35,
+      "desc": "pitch not a zoom-stall"
+    }
+  ]
+}
