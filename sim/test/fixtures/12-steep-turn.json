@@ -1,0 +1,77 @@
+{
+  "area": "12-steep-turn",
+  "title": "Ex15 Steep turn (full bank command, height held)",
+  "aircraft": [
+    "c172"
+  ],
+  "setup": {
+    "spawn_alt_agl": 350,
+    "speed": "cruise",
+    "hdg": 90
+  },
+  "arm": true,
+  "duration_s": 34,
+  "script": [
+    {
+      "t": 3,
+      "mode": "ANGLE",
+      "roll": 2000,
+      "pitch": 1560,
+      "thr": 1800
+    }
+  ],
+  "asserts": [
+    {
+      "metric": "armed",
+      "gt": 0.5,
+      "desc": "arms"
+    },
+    {
+      "metric": "roll",
+      "gt": 20,
+      "desc": "steep bank achieved (roll > 20 deg)"
+    },
+    {
+      "metric": "roll",
+      "lt": 65,
+      "desc": "bank within limit"
+    },
+    {
+      "metric": "hdg_change",
+      "window": 12,
+      "desc": "high turn rate (|heading sweep| fast)",
+      "abs_gt": 35
+    },
+    {
+      "metric": "gps_alt",
+      "gt": 200,
+      "desc": "stays airborne through steep turn"
+    },
+    {
+      "metric": "gs",
+      "gt": 6,
+      "desc": "maintains speed"
+    },
+    {
+      "metric": "vs",
+      "gt": -15,
+      "desc": "height roughly held (no big loss)"
+    },
+    {
+      "metric": "fix",
+      "min": 2,
+      "desc": "GPS fix"
+    },
+    {
+      "metric": "sats",
+      "min": 5,
+      "desc": "GPS sats"
+    },
+    {
+      "metric": "pitch",
+      "min": -20,
+      "max": 25,
+      "desc": "pitch bounded in the turn"
+    }
+  ]
+}

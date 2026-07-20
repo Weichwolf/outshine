@@ -161,6 +161,7 @@ def check(fx, ac, trace):
         if v is None: ok=False; why="no data"
         else:
             if "abs_lt" in a and not (abs(v)<a["abs_lt"]): ok=False
+            if "abs_gt" in a and not (abs(v)>a["abs_gt"]): ok=False
             if "gt"    in a and not (v>a["gt"]): ok=False
             if "lt"    in a and not (v<a["lt"]): ok=False
             if "min"   in a and not (v>=a["min"]): ok=False

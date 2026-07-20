@@ -1,0 +1,79 @@
+{
+  "area": "15-wind-drift",
+  "title": "Ex17/18 Wind drift (crosswind: groundspeed != airspeed, track pushed)",
+  "aircraft": [
+    "c172"
+  ],
+  "setup": {
+    "spawn_alt_agl": 300,
+    "speed": "cruise",
+    "hdg": 90,
+    "wind_n": 6.0,
+    "wind_e": 0.0
+  },
+  "arm": true,
+  "duration_s": 38,
+  "script": [
+    {
+      "t": 3,
+      "mode": "ANGLE",
+      "roll": 1500,
+      "pitch": 1500,
+      "thr": 1600
+    }
+  ],
+  "asserts": [
+    {
+      "metric": "armed",
+      "gt": 0.5,
+      "desc": "arms"
+    },
+    {
+      "metric": "roll",
+      "abs_lt": 12,
+      "desc": "wings level (heading-hold, drifting)"
+    },
+    {
+      "metric": "gps_alt",
+      "gt": 180,
+      "desc": "stays airborne"
+    },
+    {
+      "metric": "gs",
+      "gt": 4,
+      "desc": "moving over ground"
+    },
+    {
+      "metric": "fix",
+      "min": 2,
+      "desc": "GPS fix"
+    },
+    {
+      "metric": "sats",
+      "min": 5,
+      "desc": "GPS sats"
+    },
+    {
+      "metric": "vs",
+      "abs_lt": 5,
+      "desc": "roughly level in wind"
+    },
+    {
+      "metric": "pitch",
+      "min": -10,
+      "max": 14,
+      "desc": "pitch sane"
+    },
+    {
+      "metric": "hdg_change",
+      "window": 10,
+      "abs_lt": 30,
+      "desc": "holds heading (crab, not weathervane loop)"
+    },
+    {
+      "metric": "lon",
+      "gt": 9.385,
+      "desc": "tracks east across the ground (flew, stable in wind)"
+    }
+  ]
+}

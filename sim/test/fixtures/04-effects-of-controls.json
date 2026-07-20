@@ -1,0 +1,19 @@
+{
+  "area": "04-effects-of-controls", "title": "Ex4 Effects of controls (roll command -> banks that way)",
+  "aircraft": ["c172"],
+  "setup": { "spawn_alt_agl": 300, "speed": "cruise", "hdg": 90 },
+  "arm": true, "duration_s": 28,
+  "script": [ { "t": 3, "mode": "ANGLE", "roll": 1300, "pitch": 1500, "thr": 1600 } ],
+  "asserts": [
+    { "metric": "armed", "gt": 0.5, "desc": "arms" },
+    { "metric": "roll",  "lt": -5,  "desc": "left roll command -> banks left (roll < -5 deg)" },
+    { "metric": "roll",  "gt": -55, "desc": "roll response bounded" },
+    { "metric": "hdg_change", "window": 12, "lt": -8, "desc": "banks left -> heading decreases (turns left)" },
+    { "metric": "gps_alt", "gt": 200, "desc": "stays airborne" },
+    { "metric": "gs",    "gt": 6,   "desc": "keeps flying" },
+    { "metric": "fix",   "min": 2,   "desc": "GPS fix" },
+    { "metric": "vs",    "gt": -12, "desc": "not a spiral" },
+    { "metric": "sats",  "min": 5,   "desc": "GPS sats" },
+    { "metric": "pitch", "min": -15, "max": 20, "desc": "pitch sane" }
+  ]
+}
