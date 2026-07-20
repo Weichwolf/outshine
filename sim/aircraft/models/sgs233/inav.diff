@@ -21,7 +21,7 @@ set fw_reference_airspeed = 1700
 # controlled climb to 80 m ignoring WP-chasing, THEN hands to NAV WP — the clean takeoff a floaty glider
 # needs (manual RC establish either skimmed or flipped it at the spawn transition).
 set nav_fw_launch_velocity = 250
-set nav_fw_launch_accel = 1200
+set nav_fw_launch_accel = 1350
 set nav_fw_launch_max_angle = 45
 set nav_fw_launch_detect_time = 40
 set nav_fw_launch_climb_angle = 14

@@ -154,7 +154,9 @@ def main():
     stop=threading.Event(); state={}
     threading.Thread(target=cc_thread,args=(5761,wps,gear,angle_hold_alt,speedbrake,stop,state,climb_pitch),daemon=True).start()
 
-    armed=took=crashed=over=False; hit=[False]*len(wps); peak=0; t0=time.monotonic()
+    hold = bool(os.environ.get("FB_HOLD"))   # keep flying (loiter last WP) until timeout + leave the container up,
+                                              # so the live CC / Playwright agents have a persistent telemetry target
+    armed=took=crashed=over=False; hit=[False]*len(wps); peak=0; announced=False; t0=time.monotonic()
     while time.monotonic()-t0<secs:
         time.sleep(3)
         s=latest_flt()
@@ -167,9 +169,12 @@ def main():
         if agl>max_agl: over=True; break
         for i,w in enumerate(wps):
             if not hit[i] and dist(lat,lon,w['lat'],w['lon'])<cap: hit[i]=True
-        if all(hit): break
+        if all(hit):
+            if not hold: break
+            if not announced: print(f"== {ac} == all {len(wps)} WPs captured, HOLDING for the live CC", flush=True); announced=True
     stop.set()
-    subprocess.run("podman stop -t 2 fb-aircraft",shell=True,capture_output=True)
+    if not hold:
+        subprocess.run("podman stop -t 2 fb-aircraft",shell=True,capture_output=True)
 
     ok_arm=armed; ok_to=took; ok_wp=all(hit)
     abrt = ("CRASH(NaN)" if (crashed and on_nan) else "OVER-CLIMB" if over else None)
