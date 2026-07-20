@@ -5,19 +5,20 @@
 # takeoff; CC-commandable via the bridge MSP_SERVO aux path (pending). Speedbrake likewise (aux).
 mmix 0 1.000 0.000 0.000 0.000
 smix reset
-smix 0 1 0 100 0 -1                  ; S1 <- roll
-smix 1 2 1 100 0 -1                  ; S2 <- pitch
-smix 2 3 2 100 0 -1                  ; S3 <- yaw
+smix 0 1 0 55 0 -1                  ; S1 <- roll
+smix 1 2 1 55 0 -1                  ; S2 <- pitch
+smix 2 3 2 40 0 -1                  ; S3 <- yaw
 smix 3 4 15 100 0 -1                 ; S4 <- INPUT_RC_CH9 (AUX5) = GEAR; bridge reads MSP_SERVO[4] -> FDM
+smix 4 5 16 100 0 -1                 ; S5 <- INPUT_RC_CH10 (AUX6) = SPEEDBRAKE (AUXMAP=speedbrake:5)
                                      ; gear (AUXMAP=gear:4). CC: AUX5 low=down (default), high=retract.
 # ----- NAV tuning: fast model jet, cruise ~55 m/s -----
-set nav_fw_cruise_thr = 1350
-set nav_fw_min_thr = 1300
+set nav_fw_cruise_thr = 1450
+set nav_fw_min_thr = 1350
 set nav_fw_max_thr = 2000
-set nav_fw_climb_angle = 6
-set nav_fw_dive_angle = 15
-set nav_fw_bank_angle = 35
-set nav_fw_control_smoothness = 3
+set nav_fw_climb_angle = 5
+set nav_fw_dive_angle = 5
+set nav_fw_bank_angle = 22
+set nav_fw_control_smoothness = 9
 set nav_fw_loiter_radius = 25000     ; 250 m orbit (jet turn radius)
 set nav_rth_altitude = 16000         ; 160 m RTH climb
 set fw_reference_airspeed = 5500

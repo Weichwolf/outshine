@@ -21,12 +21,14 @@ int xpjsb_actuator_dref(const char *d, float v){
 }
 
 static float ap_roll=0, ap_pitch=0, ap_yaw=0;    /* slew-limited surface positions (real servo dynamics) */
+static float servo_slew=0;                        /* per-model via env SERVO_SLEW; fast jets want a quick servo */
 static float slew(float pos, float cmd){
-    float d = cmd - pos, s = XPJSB_SERVO_SLEW;
+    float s = servo_slew, d = cmd - pos;
     return pos + (d > s ? s : (d < -s ? -s : d));
 }
 void xpjsb_actuators_apply(double dt){
     (void)dt;                                    /* throttle slew lives in the adapter (ESC spin-up) */
+    if(servo_slew<=0){ const char*e=getenv("SERVO_SLEW"); servo_slew=e?(float)atof(e):XPJSB_SERVO_SLEW; if(servo_slew<=0)servo_slew=XPJSB_SERVO_SLEW; }
     ap_roll=slew(ap_roll,in_roll); ap_pitch=slew(ap_pitch,in_pitch); ap_yaw=slew(ap_yaw,in_yaw);
     S.in_roll=ap_roll; S.in_pitch=ap_pitch; S.in_yaw=ap_yaw; S.in_thr=in_thr;   /* mirror for the flight log */
     fb_jsbsim_set_controls(ap_roll, ap_pitch, ap_yaw, in_thr);

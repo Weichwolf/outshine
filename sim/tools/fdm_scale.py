@@ -38,8 +38,11 @@ MODELS = {
     # validated aero) scaled 1:5 -> 3.1 m / 2.2 kg, plus an emitted self-launch electric motor. Chosen
     # over the SGS 1-26 for its higher wing loading (less floaty in NAV). The vanilla `minisgs` was
     # dropped: its wingarea (42 ft^2) is ~9x its geometric area -> ~1/3 cruise speed, too floaty for NAV.
+    # wt_mult = ballast beyond Froude: a dynamically-scaled sailplane is too floaty for NAV (wing loading
+    # ~2.7 kg/m^2 -> no clean climb/cruise operating point, skims or over-rotates). Ballast raises the wing
+    # loading (real gliders carry water ballast) so it flies faster with authority and a robust margin.
     "sgs233": dict(src="sgs233", n=0.2, engine=dict(
-        kind="electric", power_W=("fixed", 350.0),
+        kind="electric", power_W=("fixed", 450.0),
         prop_in=("fixed", 13.0), prop_ixx=("fixed", 2.5e-4))),
 }
 
@@ -208,6 +211,15 @@ def build(key, out_root):
         sp = section(xml, tag)
         if sp:
             xml = xml[:sp[0]] + fn(xml[sp[0]:sp[1]], n) + xml[sp[1]:]
+
+    # --- optional ballast (wt_mult): raise mass + inertia beyond Froude for a robust wing loading ---
+    wt = cfg.get("wt_mult", 1.0)
+    if wt != 1.0:
+        sp = section(xml, "mass_balance")
+        body = xml[sp[0]:sp[1]]
+        for t in ("emptywt", "weight"): body = scale_tag(body, t, wt)
+        for t in ("ixx", "iyy", "izz", "ixy", "ixz", "iyz"): body = scale_tag(body, t, wt)
+        xml = xml[:sp[0]] + body + xml[sp[1]:]
 
     # --- emit the model powerplant, replace <propulsion> ---
     eng = cfg["engine"]

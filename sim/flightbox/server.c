@@ -201,6 +201,9 @@ static void msp_poll(void){
     if(msp_fd<0) return;
     ssize_t n;
     while((n=recv(msp_fd,msp_rx+msp_rxn,sizeof msp_rx-msp_rxn,0))>0){ msp_rxn+=n; if(msp_rxn>(int)sizeof msp_rx-800)msp_rxn=0; }
+    if(n==0 || (n<0 && errno!=EAGAIN && errno!=EWOULDBLOCK)){   /* aircraft went away (test restart) -> drop + reconnect */
+        close(msp_fd); msp_fd=-1; msp_rxn=0; return;
+    }
     int i=0;
     while(i+3<msp_rxn){
         if(msp_rx[i]=='$'&&msp_rx[i+1]=='M'&&msp_rx[i+2]=='>'){
@@ -208,8 +211,10 @@ static void msp_poll(void){
             int ln=msp_rx[i+3],cmd=msp_rx[i+4]; if(i+6+ln>msp_rxn) break;
             uint8_t*pl=msp_rx+i+5;
             if(cmd==108&&ln>=6){ mt_roll=(int16_t)(pl[0]|pl[1]<<8)/10.0f; mt_pitch=(int16_t)(pl[2]|pl[3]<<8)/10.0f; mt_yaw=(int16_t)(pl[4]|pl[5]<<8); }
-            else if(cmd==106&&ln>=16){ int32_t la,lo; memcpy(&la,pl+2,4); memcpy(&lo,pl+6,4); mt_lat=la/1e7; mt_lon=lo/1e7; mt_gs=(pl[12]|pl[13]<<8)/100.0f; }
-            else if(cmd==109&&ln>=6){ int32_t a; memcpy(&a,pl,4); mt_alt=a/100.0f; mt_vs=(int16_t)(pl[4]|pl[5]<<8)/100.0f; }
+            else if(cmd==106&&ln>=16){ int32_t la,lo; memcpy(&la,pl+2,4); memcpy(&lo,pl+6,4); mt_lat=la/1e7; mt_lon=lo/1e7;
+                mt_alt=(float)(int16_t)(pl[10]|pl[11]<<8);   /* GPS altitude ASL (m) — the HUD derives AGL = alt - terrain */
+                mt_gs=(pl[12]|pl[13]<<8)/100.0f; }
+            else if(cmd==109&&ln>=6){ mt_vs=(int16_t)(pl[4]|pl[5]<<8)/100.0f; }   /* vario only; alt comes from GPS (ASL) */
             else if(cmd==110&&ln>=1){ mt_batt=pl[0]/10.0f; }
             else if(cmd==107&&ln>=4){ mt_hdist=pl[0]|pl[1]<<8; mt_hdir=(int16_t)(pl[2]|pl[3]<<8); }
             else if(cmd==121&&ln>=1){ int ns=pl[1]; mt_state = ns>=3?ST_CLIMB:(mt_arm?ST_MANUAL:ST_ARMED); }

@@ -7,19 +7,19 @@
   },
   "waypoints": [
     {
-      "lat": 50.04356,
-      "lon": 8.58051,
-      "alt_agl": 350
+      "lat": 50.05139,
+      "lon": 8.61328,
+      "alt_agl": 600
     },
     {
-      "lat": 50.01041,
-      "lon": 8.59543,
-      "alt_agl": 350
+      "lat": 50.03329,
+      "lon": 8.68846,
+      "alt_agl": 600
     },
     {
-      "lat": 49.99902,
-      "lon": 8.54422,
-      "alt_agl": 350
+      "lat": 49.99637,
+      "lon": 8.75116,
+      "alt_agl": 600
     }
   ],
   "land": {
@@ -27,11 +27,14 @@
     "runway": "25C"
   },
   "procedure": {
-    "gear_retract": true
+    "gear_retract": true,
+    "speedbrake": true,
+    "angle_hold_alt": 580,
+    "angle_climb_pitch": 1580
   },
   "success": {
-    "takeoff_agl_m": 50,
-    "capture_radius_m": 700
+    "takeoff_agl_m": 55,
+    "capture_radius_m": 1500
   },
   "abort": {
     "timeout_s": 300,

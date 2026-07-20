@@ -11,7 +11,7 @@ if [ -n "${AIRCRAFT:-}" ] && [ -f "/app/models/$AIRCRAFT/profile.env" ]; then
     echo "[aircraft] profile: models/$AIRCRAFT/profile.env"
     . "/app/models/$AIRCRAFT/profile.env"
     [ -f "/app/models/$AIRCRAFT/eeprom.bin" ] && EEPROM="/app/models/$AIRCRAFT/eeprom.bin"
-    export AUXMAP FBW SPAWN_ALT SPAWN_SPEED FB_VR FB_HANDOFF FB_CRUISE FB_CLIMB_THR FB_CLIMB_PITCH FB_STALL FB_BANK FB_BANK_CLIMB \
+    export SERVO_SLEW AUXMAP FBW SPAWN_ALT SPAWN_SPEED FB_VR FB_HANDOFF FB_CRUISE FB_CLIMB_THR FB_CLIMB_PITCH FB_STALL FB_BANK FB_BANK_CLIMB \
            LOITER_ALT LOITER_RADIUS
 fi
 

@@ -69,22 +69,23 @@ class MSP:
             if c==cmd: return p
             if c is None: return None
 
-def cc_thread(port, wps, gear_retract, angle_hold, stop, state):
-    """thin CC: arm (edge + YAW_HI nav bypass) -> optional wings-level ANGLE establish -> NAV WP. iNav
-    flies natively. angle_hold: seconds of stabilized wings-level climb after arm before handing to NAV,
-    so a roll-twitchy airframe settles before NAV's first turn (a mission procedure, per aircraft)."""
-    m=MSP("127.0.0.1",port); t0=time.monotonic(); cal_done=-1; up=False; armed_at=-1
+def cc_thread(port, wps, gear_retract, angle_hold_alt, speedbrake, stop, state, climb_pitch=1500):
+    """thin CC: arm (edge + YAW_HI nav bypass) -> wings-level ANGLE climb to a target ALTITUDE -> NAV WP.
+    iNav flies natively. The climb-out is gated on altitude (read from MSP), NOT elapsed time, so a
+    marginal airframe always reaches a safe height before NAV's first turn regardless of the run-to-run
+    timing jitter of the async CC<->iNav link — the determinism-robustness that makes all three repeatable."""
+    m=MSP("127.0.0.1",port); t0=time.monotonic(); cal_done=-1; up=False; established=False
     while not stop.is_set():
         ts=time.monotonic()-t0
         st=m.req(0x2000); af=struct.unpack("<I",st[9:13])[0] if st and len(st)>=13 else 0
         armed=bool(af&0x4); state['armed']=armed
-        rc=[1500,1500,1000,1500,1000,1000,1000,1500,1000]     # roll pitch thr yaw AUX1..4 AUX5(gear:down)
+        al=m.req(109); agl=(struct.unpack("<i",al[0:4])[0]/100.0) if al and len(al)>=4 else 0   # MSP_ALTITUDE, home-rel m
+        rc=[1500,1500,1000,1500,1000,1000,1000,1500,1000,1000] # roll pitch thr yaw AUX1..4 AUX5(gear) AUX6(speedbrake)
         if cal_done<0 and not (af&(1<<9)) and ts>0.5: cal_done=ts
         if cal_done<0: pass
         elif not armed:
             if (ts-cal_done)%3.0>=1.5: rc[4]=2000; rc[3]=2000    # ARM + YAW_HI (bypass NAV_UNSAFE)
         else:
-            if armed_at<0: armed_at=ts
             if not up:
                 for i,w in enumerate(wps):
                     b=bytearray(21); b[0]=i+1; b[1]=1
@@ -92,12 +93,16 @@ def cc_thread(port, wps, gear_retract, angle_hold, stop, state):
                     b[10:14]=struct.pack("<i",int(round(w['alt_rel']*100))); b[20]=0xa5 if i==len(wps)-1 else 0
                     m.send(209,bytes(b))
                 up=True
-            if ts-armed_at < angle_hold:                        # wings-level ANGLE climb-out (neutral stick,
-                rc[4]=2000; rc[5]=2000; rc[2]=1600             # climb throttle) — reach altitude + speed before NAV
+            if agl>=angle_hold_alt: established=True             # latch: once at safe altitude, stay in NAV
+            if angle_hold_alt>0 and not established:            # wings-level ANGLE climb-out (pitch-up stick +
+                rc[4]=2000; rc[5]=2000; rc[2]=1600; rc[1]=climb_pitch   # climb throttle) until AGL reaches target;
+                if gear_retract: rc[8]=2000                    # a fast jet climbs the WHOLE way in stable ANGLE so
+                if speedbrake:   rc[9]=2000                    # NAV enters already at altitude -> no zoom overshoot
             else:
                 rc[4]=2000; rc[7]=2000                          # ARM + NAV WP -> iNav flies natively
                 if gear_retract: rc[8]=2000                     # AUX5 high -> retract gear (AUXMAP=gear)
-        m.send(200,struct.pack("<9H",*rc))
+                if speedbrake:   rc[9]=2000                     # AUX6 high -> deploy speedbrake (slow a fast jet)
+        m.send(200,struct.pack("<10H",*rc))
         time.sleep(0.033)
 
 def latest_flt():
@@ -122,7 +127,9 @@ def main():
     cap = succ.get("capture_radius_m", 200); to_agl = succ.get("takeoff_agl_m", 50)
     max_agl = abort.get("max_agl_m", 3000); on_nan = abort.get("on_nan", True)
     gear = M.get("procedure", {}).get("gear_retract", False)
-    angle_hold = M.get("procedure", {}).get("angle_hold_s", 0)
+    angle_hold_alt = M.get("procedure", {}).get("angle_hold_alt", 0)   # climb in ANGLE to this AGL before NAV
+    speedbrake = M.get("procedure", {}).get("speedbrake", False)
+    climb_pitch = M.get("procedure", {}).get("angle_climb_pitch", 1500)   # RC pitch during ANGLE climb (>1500 = nose-up)
     if any(w.get("alt_rel") is None for w in wps):
         print(f"FATAL: mission WPs unresolved (DEM/tiles at {TILES} unavailable)"); sys.exit(2)
     print(f"== mission '{M.get('name',arg)}' :: {ac} from {to['icao']}/{to['runway']} "
@@ -131,6 +138,7 @@ def main():
     subprocess.run("podman rm -f fb-aircraft",shell=True,capture_output=True)
     mdir=str(ROOT/"aircraft"/"models"/ac)
     mounts=f" -v {mdir}/profile.env:/app/models/{ac}/profile.env:ro"      # live profile (SPAWN_SPEED/FBW/AUXMAP), no rebuild
+    if os.path.exists(f"{mdir}/{ac}.xml"): mounts+=f" -v {mdir}/{ac}.xml:/app/models/{ac}/{ac}.xml:ro"   # live JSBSim model (FLCS/FBW tweaks), no rebuild
     if os.environ.get("MOUNT_EEPROM"): mounts+=f" -v {os.environ['MOUNT_EEPROM']}:/app/models/{ac}/eeprom.bin"
     subprocess.run(f"podman run -d --name fb-aircraft --network flightboxnet -p 5761:5761 {mounts} "
        f"-e AIRCRAFT={ac} -e TILES_ADDR=fb-tiles:8081 -e WX_LIVE=0 -e WIND_SPEED=0 -e TURB=0 "
@@ -144,7 +152,7 @@ def main():
             probe=MSP("127.0.0.1",5761); probe.req(0x2000); probe.f.close(); break
         except OSError: time.sleep(0.25)
     stop=threading.Event(); state={}
-    threading.Thread(target=cc_thread,args=(5761,wps,gear,angle_hold,stop,state),daemon=True).start()
+    threading.Thread(target=cc_thread,args=(5761,wps,gear,angle_hold_alt,speedbrake,stop,state,climb_pitch),daemon=True).start()
 
     armed=took=crashed=over=False; hit=[False]*len(wps); peak=0; t0=time.monotonic()
     while time.monotonic()-t0<secs:

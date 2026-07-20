@@ -28,11 +28,11 @@
   },
   "procedure": {
     "gear_retract": false,
-    "angle_hold_s": 45
+    "angle_hold_alt": 55
   },
   "success": {
     "takeoff_agl_m": 40,
-    "capture_radius_m": 250
+    "capture_radius_m": 300
   },
   "abort": {
     "timeout_s": 300,
