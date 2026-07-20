@@ -20,21 +20,22 @@ if [ -n "$AC" ]; then
 fi
 
 podman rm -f "$CN" >/dev/null 2>&1 || true
+# Stop any running aircraft SITL first: eeprom generation spins up its own SITL, and a second one
+# flying in the background would be a second SITL.elf (CPU/timing contention that made this flaky).
+# The aircraft must restart to pick up the new eeprom anyway, so removing it here costs nothing.
+podman rm -f fb-aircraft >/dev/null 2>&1 || true
+# Vanilla SITL WITHOUT --sim runs "Configurator only": its CLI/MSP is on 5760 immediately, no
+# X-Plane responder needed. (The old flow booted --sim=xp + a sensor responder to bring the sim
+# link up first; unnecessary and it referenced the now-removed bridge.)
 podman run -d --name "$CN" -p ${PORT}:5760 --entrypoint /bin/sh "$IMG" -c '
   rm -f /app/eeprom.bin
-  /app/SITL.elf --path=/app/eeprom.bin --sim=xp --simip=127.0.0.1 --simport=49000 \
-      --chanmap=M01-01,S01-02,S02-03,S03-04 > /tmp/sitl.log 2>&1 &
-  sleep 1
-  XP_NOMSP=1 /usr/local/bin/xp_bridge > /tmp/bridge.log 2>&1
+  /app/SITL.elf --path=/app/eeprom.bin > /tmp/sitl.log 2>&1
 ' >/dev/null
+sleep 3
 
-# wait until SITL reaches CONNECTED (scheduler + CLI up)
-for i in $(seq 1 20); do
-  podman exec "$CN" grep -q "successfully established" /tmp/sitl.log 2>/dev/null && break
-  sleep 1
-done
-sleep 2
-
+# Apply the CLI + verify. The SITL CLI only answers once the sim link is up, and a fresh boot resets
+# the first connections -> retry the whole exchange, and read back a sentinel so a silent connection
+# failure can NEVER masquerade as a good eeprom (that bug made tuning changes invisible for a while).
 python3 - "$PORT" "${CFGS[@]}" <<'PY'
 import socket, sys, time
 port = int(sys.argv[1])
@@ -44,20 +45,60 @@ for cfg in sys.argv[2:]:
         s = raw.split("#")[0].split(";")[0].strip()
         if s and s.lower() != "save":
             lines.append(s)
-s = socket.create_connection(("127.0.0.1", port), timeout=5); s.settimeout(0.4)
-def drain():
+
+def connect_cli(deadline):
+    while time.time() < deadline:
+        try:
+            s = socket.create_connection(("127.0.0.1", port), timeout=3); s.settimeout(0.5)
+            s.sendall(b"#\r\n"); time.sleep(0.4)
+            buf = b""
+            try:
+                while True:
+                    d = s.recv(4096)
+                    if not d: break
+                    buf += d
+            except socket.timeout: pass
+            if b"CLI" in buf or b"#" in buf:
+                return s
+            s.close()
+        except OSError:
+            time.sleep(1.0)
+    return None
+
+def cmd(s, c, wait=0.05):
+    s.sendall((c + "\r\n").encode()); time.sleep(wait); out = b""
     try:
         while True:
-            if not s.recv(4096): break
+            d = s.recv(4096)
+            if not d: break
+            out += d
     except socket.timeout: pass
-s.sendall(b"#\r\n"); time.sleep(0.3); drain()
+    return out.decode(errors="replace")
+
+s = connect_cli(time.time() + 40)
+if not s:
+    print("FATAL: SITL CLI never answered"); sys.exit(2)
+bad = []
 for ln in lines:
-    s.sendall((ln + "\r\n").encode()); time.sleep(0.03); drain()
+    r = cmd(s, ln)
+    if any(k in r for k in ("Invalid", "Unknown", "###ERROR###", "not valid")):
+        bad.append((ln, r.strip()[:70]))
+if bad:
+    for ln, r in bad: print("REJECTED:", ln, "->", r)
+    print("FATAL: %d config line(s) rejected" % len(bad)); sys.exit(3)
+# sentinel read-back BEFORE save proves the values took (last set line = the per-aircraft overlay)
+setlines = [l for l in lines if l.startswith("set ")]
+sentinel = setlines[-1] if setlines else None
+if sentinel:
+    key = sentinel.split("=")[0].replace("set", "").strip()
+    want = sentinel.split("=")[1].strip()
+    got = cmd(s, "get " + key)
+    if want not in got:
+        print("FATAL: sentinel %s expected %s, got: %s" % (key, want, got.strip()[:80])); sys.exit(4)
 try:
-    s.sendall(b"save\r\n")      # persists eeprom + reboots (connection drops -> ignore)
-    time.sleep(1.0); drain()
+    s.sendall(b"save\r\n"); time.sleep(1.2)
 except OSError: pass
-print("applied %d config lines + save" % len(lines))
+print("applied %d config lines + save (verified %s)" % (len(lines), sentinel and key or "-"))
 PY
 
 sleep 3

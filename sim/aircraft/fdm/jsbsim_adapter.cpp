@@ -3,6 +3,8 @@
 #include "FGFDMExec.h"
 #include "initialization/FGInitialCondition.h"
 #include "initialization/FGTrim.h"
+#include "models/FGPropulsion.h"
+#include "models/propulsion/FGEngine.h"
 #include "jsbsim_adapter.h"
 #include <cstdio>
 #include <string>
@@ -12,8 +14,15 @@ using namespace JSBSim;
 static const double FT   = 0.3048;              /* ft -> m */
 static const double R2D  = 57.29577951308232;   /* rad -> deg */
 static const double MS2KT = 1.9438444924406;    /* m/s -> knots */
+static const double SIM_STEP_S    = 0.01;       /* fb_jsbsim_step advances the FDM this much (100 Hz bridge loop) */
+static const double ESC_SPINUP_S  = 0.5;        /* the ESC ramps the motor over this; a throttle STEP blows the prop RPM up */
+static const double THROTTLE_SLEW = SIM_STEP_S / ESC_SPINUP_S;
 
 static FGFDMExec *g_fdm = nullptr;
+static double g_thr_applied = 0.0;   /* slew-limited throttle actually fed to the engine (see set_controls) */
+static double g_elev_trim = 0.0;     /* elevator trim (from DoTrim) biasing iNav's pitch -> neutral = level */
+
+JSBSim::FGFDMExec *fb_dbg_fdm() { return g_fdm; }   /* probe-only accessor (standalone_probe.cpp) */
 
 extern "C" int fb_jsbsim_init(const char *root, const char *ac,
                               double lat, double lon, double elev_m, double hoff_m,
@@ -33,26 +42,40 @@ extern "C" int fb_jsbsim_init(const char *root, const char *ac,
   ic->SetPsiDegIC(yaw_deg < 0 ? yaw_deg + 360.0 : yaw_deg);
   ic->SetFlightPathAngleDegIC(0.0);             /* level */
   g_fdm->RunIC();
+  g_thr_applied = 0.0;
+  /* fuel engines make no thrust until running; electric is skipped (InitRunning spikes a light prop's RPM). */
+  { auto pr = g_fdm->GetPropulsion();
+    for (unsigned i = 0; i < pr->GetNumEngines(); i++)
+      if (pr->GetEngine(i)->GetType() != FGEngine::etElectric) pr->InitRunning(i); }
   if (fbw_override) g_fdm->SetPropertyValue("fcs/fbw-override", 1.0);   /* iNav is the FLCS (F-16) */
-  g_fdm->Setdt(0.01);                            /* 100 Hz, the bridge loop rate */
-  /* Trim to steady level flight so the spawn is an equilibrium, not a big transient. tLongitudinal
-   * (pitch/throttle/alpha, wings level) is more robust than tFull for light/low-speed airframes;
-   * tFull often fails to converge on the motor-glider. */
+  g_fdm->Setdt(SIM_STEP_S);
+  /* tLongitudinal (pitch/throttle/alpha, wings level): more robust than tFull on light/slow airframes. */
+  bool trimmed = false;
   try {
     FGTrim trim(g_fdm, tLongitudinal);
-    if (!trim.DoTrim()) fprintf(stderr, "[jsbsim] longitudinal trim did not converge (flying untrimmed)\n");
-  } catch (...) { fprintf(stderr, "[jsbsim] trim threw (flying untrimmed)\n"); }
-  fprintf(stderr, "[jsbsim] %s loaded + trimmed at %.4f/%.4f %.0f m, %.1f m/s\n",
-          ac, lat, lon, elev_m + hoff_m, speed_ms);
+    trimmed = trim.DoTrim();
+  } catch (...) { trimmed = false; }
+  /* Capture the elevator the trimmer settled on = the ELEVATOR TRIM for level flight, and apply it as
+   * a bias to iNav's pitch command (set_controls). This is a real trim tab: iNav's neutral stick then
+   * holds LEVEL, not the airframe's nose-up-at-neutral. Without it a slow/floaty model departs on the
+   * first advance (neutral elevator -> +40 deg pitch -> stall) before iNav's AHRS can catch it. */
+  g_elev_trim = g_fdm->GetPropertyValue("fcs/elevator-cmd-norm");
+  g_fdm->RunIC();   /* clean, level IC (attitude+speed); the trim tab, not the perturbed search state, holds it */
+  fprintf(stderr, "[jsbsim] %s loaded, %.1f m/s, elevator trim %.3f%s\n",
+          ac, speed_ms, g_elev_trim, trimmed ? "" : " (trim search did not fully converge; using best-effort)");
   return 0;
 }
 
 extern "C" void fb_jsbsim_set_controls(double roll, double pitch, double yaw, double thr) {
   if (!g_fdm) return;
+  /* slew, don't step: a 0->0.95 throttle jump blows the light prop's RPM ODE up and departs the airframe. */
+  if      (thr > g_thr_applied + THROTTLE_SLEW) g_thr_applied += THROTTLE_SLEW;
+  else if (thr < g_thr_applied - THROTTLE_SLEW) g_thr_applied -= THROTTLE_SLEW;
+  else                                          g_thr_applied  = thr;
   g_fdm->SetPropertyValue("fcs/aileron-cmd-norm",  roll);
-  g_fdm->SetPropertyValue("fcs/elevator-cmd-norm", -pitch);   /* JSBSim +elevator = nose DOWN; iNav +pitch = nose UP (D2 measured) */
-  g_fdm->SetPropertyValue("fcs/rudder-cmd-norm",   -yaw);   /* Cndr<0: JSBSim +rudder = nose LEFT; iNav +yaw = nose RIGHT (same inversion as elevator) */
-  g_fdm->SetPropertyValue("fcs/throttle-cmd-norm", thr);
+  g_fdm->SetPropertyValue("fcs/elevator-cmd-norm", -pitch + g_elev_trim);   /* JSBSim +elevator = nose DOWN; iNav +pitch = nose UP; +trim tab = level at neutral */
+  g_fdm->SetPropertyValue("fcs/rudder-cmd-norm",   yaw);      /* +yaw coordinates the turn; -yaw slips it (measured, strong adverse yaw) */
+  g_fdm->SetPropertyValue("fcs/throttle-cmd-norm", g_thr_applied);
 }
 
 extern "C" void fb_jsbsim_set_wind(double wind_n, double wind_e) {
@@ -83,5 +106,7 @@ extern "C" void fb_jsbsim_step(fb_fdm_state *o) {
   o->vx    =  g_fdm->GetPropertyValue("velocities/v-east-fps")  * FT;   /* +x east */
   o->vy    = -g_fdm->GetPropertyValue("velocities/v-down-fps")  * FT;   /* +y up   */
   o->vz    = -g_fdm->GetPropertyValue("velocities/v-north-fps") * FT;   /* +z south */
-  o->nz    = g_fdm->GetPropertyValue("accelerations/Nz");
+  o->nx    = g_fdm->GetPropertyValue("accelerations/Nx");   /* body long g (forward+) */
+  o->ny    = g_fdm->GetPropertyValue("accelerations/Ny");   /* body lat g (right+) */
+  o->nz    = g_fdm->GetPropertyValue("accelerations/Nz");   /* body normal g (~+1 level) */
 }

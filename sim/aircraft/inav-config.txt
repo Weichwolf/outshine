@@ -9,6 +9,9 @@
 # --- platform + receiver ---
 set platform_type = AIRPLANE
 set receiver_type = MSP
+# Truth-attitude flies stable (attitude given, no AHRS lag); the mag need only be PRESENT so
+# navIsHeadingUsable=true (SENSOR_MAG path) -> native NAV works, vanilla iNav, no patch, no --useimu.
+set mag_hardware = FAKE
 
 # --- servo mixer: S1<-roll, S2<-pitch, S3<-yaw (chanmap maps to X-Plane yoke) ---
 mmix 0 1.000 0.000 0.000 0.000
@@ -41,7 +44,7 @@ set nav_rth_altitude = 25000            ; 250 m above home — modest climb the 
 set nav_fw_loiter_radius = 30000        ; 300 m orbit (tight enough to read as "circling home")
 set nav_min_rth_distance = 100          ; 1 m: don't treat launch-at-home as "already there"
 set nav_fw_cruise_thr = 1550
-set nav_auto_climb_rate = 150           ; 1.5 m/s gentle climb — 3 m/s stalled the weak motor-glider (porpoise)
+set nav_fw_auto_climb_rate = 150        ; 1.5 m/s gentle climb — 3 m/s stalled the weak motor-glider (porpoise)
 # NB (measured): nav_fw_bank_angle=22 + control_smoothness=6 did NOT stop the motor-glider NAV-WP
 # divergence — limiting bank made iNav lean HARDER on the rudder for the WP heading turn (yaw->0.996).
 # The motor-glider NAV-WP yaw authority is a per-aircraft tuning item; left at defaults.

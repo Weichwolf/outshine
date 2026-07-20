@@ -23,19 +23,23 @@ COPY --from=jsbsim /usr/local/include/JSBSim /usr/local/include/JSBSim
 COPY --from=jsbsim /usr/local/lib/ /usr/local/lib/
 WORKDIR /app
 COPY common/ common/
-COPY aircraft/xp_bridge.c aircraft/terrain.c aircraft/terrain.h aircraft/sim_state.h aircraft/
-# Sub-modules split out of the xp_bridge god-file. fdm/*.c is C; the .cpp (jsbsim_adapter, probes)
-# is compiled separately with g++ below and is NOT caught by the *.c glob.
+COPY aircraft/terrain.c aircraft/terrain.h aircraft/sim_state.h aircraft/
+# xpjsb = clean XP-JSBSim bridge (world/xplink/sensors/actuators/flightlog/main + constants.h).
+COPY aircraft/xpjsb/ aircraft/xpjsb/
 COPY aircraft/fdm/ aircraft/fdm/
 COPY aircraft/bridge/ aircraft/bridge/
+COPY aircraft/msp_bridge/fbclock.c aircraft/msp_bridge/
 COPY aircraft/models/ models/
 COPY aircraft/SITL.elf aircraft/eeprom.bin aircraft/run.sh ./
 # C bridge (gcc) + C++ JSBSim adapter (g++), linked with g++ against static libJSBSim.
-RUN gcc -O2 -Wall -Icommon -Iaircraft -c \
-        aircraft/xp_bridge.c aircraft/terrain.c aircraft/fdm/*.c aircraft/bridge/*.c \
+# libfbclock.so: LD_PRELOAD clock shim -> FB_TIME_SCALE runs the sim faster than real time without
+# touching iNav (the sim math is deterministic; real time is a waste — see msp_bridge/fbclock.c).
+RUN gcc -O2 -Wall -Icommon -Iaircraft -Iaircraft/xpjsb -c \
+        aircraft/xpjsb/*.c aircraft/terrain.c aircraft/fdm/atmosphere.c aircraft/bridge/msp.c \
  && g++ -O2 -std=c++17 -Icommon -Iaircraft -I/usr/local/include/JSBSim -c \
         aircraft/fdm/jsbsim_adapter.cpp \
- && g++ -O2 ./*.o /usr/local/lib/libJSBSim.a -o /usr/local/bin/xp_bridge -lm -lpthread \
+ && g++ -O2 ./*.o /usr/local/lib/libJSBSim.a -o /usr/local/bin/xpjsb -lm -lpthread \
+ && gcc -O2 -fPIC -shared aircraft/msp_bridge/fbclock.c -o /usr/local/lib/libfbclock.so -ldl \
  && rm -f ./*.o && chmod +x /app/SITL.elf /app/run.sh
 # FLIGHTBOX_ADDR + FDM_MODEL (selig) / FDM_ENGINE=jsbsim + AIRCRAFT set at run time
 CMD ["/app/run.sh"]

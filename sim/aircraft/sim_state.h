@@ -11,6 +11,7 @@
 #endif
 #define DEG (180.0/M_PI)
 #define RAD (M_PI/180.0)
+#define M_PER_DEG 111320.0   /* metres per degree of latitude (equirectangular local-tangent scale) */
 
 /* --- physics state (this IS the flight dynamics model) --- */
 typedef struct {
@@ -27,7 +28,7 @@ typedef struct {
 extern state_t S;
 extern double  HOME_LAT, HOME_LON, HOME_ELEV;
 extern fb_atmo ATM;
-extern float   g_nz;
+extern float   g_nx, g_ny, g_nz;
 extern int     g_inject;   /* XP_INJECT: force a fixed attitude (main sets, physics_step reads) */
 
 /* live sun/moon ephemeris (orchestrator writes ~1 Hz, telemetry reads) */

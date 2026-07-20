@@ -11,9 +11,9 @@
     injected?       no
 -->
 
-<turbine_engine name="F100">
-  <milthrust>   17800.0 </milthrust>
-  <maxthrust>   29000.0 </maxthrust>
+<turbine_engine name="f16_turbine">
+  <milthrust> 82.4074 </milthrust>
+  <maxthrust> 134.259 </maxthrust>
   <bypassratio>     0.4 </bypassratio>
   <tsfc>            0.74 </tsfc>
   <atsfc>           2.05 </atsfc>

@@ -14,7 +14,7 @@ typedef struct {
   double lat, lon, elev;     /* deg geodetic, deg, m ASL */
   double speed, gs;          /* true airspeed, groundspeed, m/s */
   double vx, vy, vz;         /* X-Plane local: +x east, +y up, +z south, m/s */
-  double nz;                 /* normal load factor, g */
+  double nx, ny, nz;         /* body load factors, g (long/lat/normal) — for --useimu accel feed */
 } fb_fdm_state;
 
 /* Load models_root/<ac>/<ac>.xml (+ its engine/ and Systems/), set a geodetic IC at

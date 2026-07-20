@@ -1,5 +1,6 @@
 /* FlightBox — MSP client to iNav SITL (TCP 5760): RC inject + telemetry read. See msp.h. */
 #define _GNU_SOURCE
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -11,11 +12,12 @@
 
 int msp_fd=-1;
 static uint8_t msp_rx[8192]; static int msp_rxn=0;
-float t_roll=0,t_pitch=0; static int t_yaw=0,t_fix=0,t_sats=0; int t_batt10=126;
-static int t_inav_dth=0,t_inav_dir=0;   /* iNav's own distance/direction to home (MSP_COMP_GPS) */
-static int t_estalt=0;                  /* iNav estimated altitude, cm (MSP_ALTITUDE) */
-static double t_inav_lat=0,t_inav_lon=0;
+float t_roll=0,t_pitch=0; int t_yaw=0,t_fix=0,t_sats=0; int t_batt10=126;
+int t_inav_dth=0,t_inav_dir=0;   /* iNav's own distance/direction to home (MSP_COMP_GPS) */
+int t_estalt=0;                  /* iNav estimated altitude, cm (MSP_ALTITUDE) */
+double t_inav_lat=0,t_inav_lon=0;
 uint32_t t_armflags=0; uint32_t t_modeflags=0;   /* MSP_STATUS flightModeFlags: iNavs bestätigte aktive Modi */
+int t_navstate=0, t_navwp=0, t_naverr=0;         /* MSP_NAV_STATUS: iNavs echter Nav-Zustand + aktiver WP */
 static uint8_t boxids[64]; static int nboxids=0;
 int msp_connect(void){
     int fd=socket(AF_INET,SOCK_STREAM,0);
@@ -48,6 +50,10 @@ void msp_poll(void){
             else if(cmd==109&&ln>=4){ int32_t a; memcpy(&a,pl,4); t_estalt=a; }   /* est alt cm */
             else if(cmd==110&&ln>=1){ t_batt10=pl[0]; }
             else if(cmd==101&&ln>=10) memcpy(&t_modeflags,pl+6,4);
+            else if(cmd==121&&ln>=5){ t_navstate=pl[1]; t_navwp=pl[3]; t_naverr=pl[4]; }   /* MSP_NAV_STATUS */
+            else if(cmd==118&&ln>=18){ int32_t la,lo,al; memcpy(&la,pl+2,4); memcpy(&lo,pl+6,4); memcpy(&al,pl+10,4);
+                fprintf(stderr,"[xp_bridge] iNav stored WP%d: %.5f,%.5f alt=%.0fm action=%d flag=0x%02x\n",
+                        pl[0], la/1e7, lo/1e7, al/100.0, pl[1], pl[ln-1]); }
             else if(cmd==119){ nboxids=ln<64?ln:64; memcpy(boxids,pl,nboxids); }
             i+=6+ln;
         } else if(msp_rx[i]=='$'&&msp_rx[i+1]=='X'&&msp_rx[i+2]=='>'){

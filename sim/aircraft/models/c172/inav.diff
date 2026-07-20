@@ -1,0 +1,10 @@
+# c172 (Froude n=0.20) NAV tuning. Probe (closed-loop ANGLE): level flight at thr 0.40 -> 19.5 m/s,
+# stall ~10 m/s. Throttle band set around that operating point; reference airspeed = measured cruise.
+set nav_fw_cruise_thr = 1400
+set nav_fw_min_thr = 1250
+set nav_fw_max_thr = 1900
+set nav_fw_climb_angle = 8
+set nav_fw_dive_angle = 12
+set nav_fw_bank_angle = 30
+set nav_fw_control_smoothness = 4
+set fw_reference_airspeed = 1950
