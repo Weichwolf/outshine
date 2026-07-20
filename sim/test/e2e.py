@@ -183,4 +183,5 @@ def main():
           f"WAYPOINT={sum(hit)}/{len(wps)}{' ABORT:'+abrt if abrt else ''} -> {verdict}")
     sys.exit(0 if verdict=="PASS" else 1)
 
-main()
+if __name__ == "__main__":   # importable (MSP/crc8/spawn) by cc_loiter.py + the PPL fixture harness
+    main()
