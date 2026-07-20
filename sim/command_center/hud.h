@@ -118,9 +118,10 @@ static void w3_build_hud(const telem_packet_t *t, int W, int H, int have) {
     w3_cam HC = w3_cam_from(t->yaw, t->pitch, t->roll, (float[3]){0, 0, 0}, W3_FOV, (float)W / H,
                             1.f, 1000.f);
     float Kc = (H * 0.5f) / tanf(W3_FOV * 0.5f * RAD), p[2][2];
+    float dip = w3_horizon_dip_rad(w3_agl), cd = cosf(dip), sd = sinf(dip);
     for (int k = 0; k < 2; k++) {
       float az = (t->yaw + (k ? 20.f : 0.f)) * RAD;
-      float d[3] = {sinf(az), 0.f, -cosf(az)};
+      float d[3] = {cd * sinf(az), -sd, -cd * cosf(az)}; /* horizon dipped below level by θ_dip */
       float xc = d[0] * HC.sr[0] + d[1] * HC.sr[1] + d[2] * HC.sr[2];
       float yc = d[0] * HC.up[0] + d[1] * HC.up[1] + d[2] * HC.up[2];
       float zc = d[0] * HC.f[0] + d[1] * HC.f[1] + d[2] * HC.f[2];
@@ -183,7 +184,10 @@ static void w3_build_hud(const telem_packet_t *t, int W, int H, int have) {
     w3_text(hsx - 3, hy1 - 25, 1.4f, HG_R, HG_G, HG_B, "H");
   }
 
-  /* ===== Airspeed tape (left): moving vertical scale, boxed TAS + caret; GS secondary below =====
+  /* ===== Groundspeed tape (left): moving vertical scale, boxed value + caret. Labelled GS, not TAS:
+   * vanilla iNav's SITL build defines only USE_PITOT_FAKE (not USE_PITOT), so MSP2_INAV_AIR_SPEED returns
+   * 0 and no true-airspeed reaches the ground station — the only speed the CC has over MSP is GPS
+   * groundspeed. Showing it honestly as GS (a headwind/tailwind then visibly is NOT reflected here). =====
    */
   {
     float apx = 5.f, ax = 70.f, as = t->airspeed;
@@ -200,8 +204,7 @@ static void w3_build_hud(const telem_packet_t *t, int W, int H, int have) {
     w3_printf(ax + 9, cy - 7, 2.f, HG_R, HG_G, HG_B, "%3.0f", as);
     w3_line(ax, cy, ax + 3, cy - 6, HG_R, HG_G, HG_B);
     w3_line(ax, cy, ax + 3, cy + 6, HG_R, HG_G, HG_B); /* caret at the rail */
-    w3_text(ax + 3, cy - 30, 1.4f, HG_R, HG_G, HG_B, "TAS");
-    w3_printf(ax + 3, cy + 18, 1.7f, HG_R, HG_G, HG_B, "GS %2.0f", t->gs);
+    w3_text(ax + 3, cy - 30, 1.4f, HG_R, HG_G, HG_B, "GS");   /* GPS groundspeed — no TAS available (SITL) */
   }
 
   /* ===== Altitude tape (right): ASL scale + '<' caret; AGL (ASL - DEM ground) and VS below. ===== */

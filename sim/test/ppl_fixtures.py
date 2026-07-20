@@ -41,6 +41,7 @@ def sample(m):
     if g and len(g) >= 16:
         d["fix"]=u8(g,0); d["sats"]=u8(g,1); d["lat"]=s32(g,2)/1e7; d["lon"]=s32(g,6)/1e7
         d["gps_alt"]=s16(g,10); d["gs"]=struct.unpack_from("<H",g,12)[0]/100.0
+        d["course"]=struct.unpack_from("<H",g,14)[0]/10.0   # ground track (decidegrees) — track != heading in wind
     st = m.req(0x2000)                                # MSP2_INAV_STATUS: armingFlags @9, modes bitmap later
     if st and len(st) >= 13: d["armflags"]=struct.unpack_from("<I",st,9)[0]; d["armed"]=bool(d["armflags"]&0x4)
     return d
@@ -168,6 +169,16 @@ def check(fx, ac, trace):
                 rate=abs(swept)/win; bank=sum(rl)/len(rl); V=sum(gs)/len(gs)
                 exp=math.degrees(9.80665*math.tan(math.radians(bank))/V) if V>1 and bank>1 else None
                 if exp and exp>0.1: v=rate/exp
+        elif mname=="crab":                             # crosswind crab: |ground-track (GPS course) - heading
+            tmax=trace[-1]["t"] if trace else 0          # (yaw)| over the tail. In a crosswind the nose points
+            seg=[d for d in trace if d.get("t",0)>=tmax-win and "course" in d and "yaw" in d]  # off the track.
+            diffs=[]
+            for d in seg:
+                dv=d["course"]-d["yaw"]
+                while dv>180:dv-=360
+                while dv<-180:dv+=360
+                diffs.append(abs(dv))
+            v=sum(diffs)/len(diffs) if diffs else None
         elif mname=="armed":    v=1.0 if any(d.get("armed") for d in trace) else 0.0
         elif mname=="min_airspeed": v=min((d.get("gs",1e9) for d in trace), default=None)
         elif mname.startswith("min_"):                  # min_<field> over the whole trace (e.g. min_gps_alt)

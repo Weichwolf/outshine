@@ -14,8 +14,13 @@ SHIM=/tmp/fb-libfbclock.so
 gcc -O2 -fPIC -shared aircraft/msp_bridge/fbclock.c -o "$SHIM" -ldl   # host build of the sim clock shim
 fail=0
 for ac in c172 sgs233 f16; do
-    echo "== flying $ac (${N}x) =="
-    if ! FB_TIME_SCALE="$N" LD_PRELOAD="$SHIM" MOUNT_EEPROM="$PWD/aircraft/models/$ac/eeprom.bin" \
+    # Per-aircraft time-scale ceiling, set HERE (shell) so the shim scales the host CC-thread AND the
+    # container identically. The F-16's 1 kHz FLCS trips iNav's SYSTEM_OVERLOADED arming block above ~1x
+    # under CPU contention, so its result would depend on wall-clock speed (violates Prinzip 5) — pin it
+    # to real time. c172/sgs233 (500 Hz) stay at the requested N.
+    acN="$N"; [ "$ac" = f16 ] && acN=1
+    echo "== flying $ac (${acN}x) =="
+    if ! FB_TIME_SCALE="$acN" LD_PRELOAD="$SHIM" MOUNT_EEPROM="$PWD/aircraft/models/$ac/eeprom.bin" \
          python3 test/e2e.py "$ac"; then fail=1; fi
 done
 echo; [ $fail -eq 0 ] && echo "== ALL THREE MISSIONS PASSED ==" || echo "== missions FAILED =="

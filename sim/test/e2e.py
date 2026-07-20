@@ -135,6 +135,13 @@ def main():
     print(f"== mission '{M.get('name',arg)}' :: {ac} from {to['icao']}/{to['runway']} "
           f"(hdg {to['heading_deg']:.0f}), {len(wps)} WPs, cap {cap:.0f}m ==")
 
+    # Time-scale must be set at the SHELL before this process starts: the clock shim (LD_PRELOAD) caches
+    # FB_TIME_SCALE at init and also scales THIS host process's clock, so it can't be re-capped here without
+    # desyncing the host CC-thread from the container sim. The F-16's 1 kHz FLCS hits iNav's
+    # SYSTEM_OVERLOADED arming block above ~1x under CPU contention -> run the f16 at FB_TIME_SCALE=1
+    # (mission-test.sh enforces this per aircraft). Warn if it was launched too fast.
+    ts=float(os.environ.get("FB_TIME_SCALE","1"))
+    if ac=="f16" and ts>1: print(f"[e2e] WARN f16 at {ts:g}x: 1 kHz FLCS may trip SYSTEM_OVERLOADED (non-deterministic); use FB_TIME_SCALE=1", flush=True)
     subprocess.run("podman rm -f fb-aircraft",shell=True,capture_output=True)
     mdir=str(ROOT/"aircraft"/"models"/ac)
     mounts=f" -v {mdir}/profile.env:/app/models/{ac}/profile.env:ro"      # live profile (SPAWN_SPEED/FBW/AUXMAP), no rebuild
@@ -142,7 +149,7 @@ def main():
     if os.environ.get("MOUNT_EEPROM"): mounts+=f" -v {os.environ['MOUNT_EEPROM']}:/app/models/{ac}/eeprom.bin"
     subprocess.run(f"podman run -d --name fb-aircraft --network flightboxnet -p 5761:5761 {mounts} "
        f"-e AIRCRAFT={ac} -e TILES_ADDR=fb-tiles:8081 -e WX_LIVE=0 -e WIND_SPEED=0 -e TURB=0 "
-       f"-e FB_TIME_SCALE={os.environ.get('FB_TIME_SCALE','1')} -e FLT_LOG_S=3 "
+       f"-e FB_TIME_SCALE={ts:g} -e FLT_LOG_S=3 "
        f"-e ORIGIN_LAT={to['lat']} -e ORIGIN_LON={to['lon']} -e ORIGIN_HDG={to['heading_deg']} fb-aircraft",
        shell=True,capture_output=True)
     # wait for iNav to actually answer MSP (robust at any FB_TIME_SCALE — a fixed sleep would be scaled

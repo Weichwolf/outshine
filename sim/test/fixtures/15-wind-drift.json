@@ -1,6 +1,6 @@
 {
   "area": "15-wind-drift",
-  "title": "Ex17/18 Wind drift (crosswind: groundspeed != airspeed, track pushed)",
+  "title": "Ex17/18 Wind drift \u2014 crosswind crab: ground track (GPS course) differs from heading",
   "aircraft": [
     "c172"
   ],
@@ -71,9 +71,11 @@
       "desc": "holds heading (crab, not weathervane loop)"
     },
     {
-      "metric": "lon",
-      "gt": 9.385,
-      "desc": "tracks east across the ground (flew, stable in wind)"
+      "metric": "crab",
+      "window": 12,
+      "min": 4,
+      "max": 45,
+      "desc": "crosswind produces a crab angle (|track - heading| 4-45 deg)"
     }
   ]
 }

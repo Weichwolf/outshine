@@ -33,4 +33,3 @@ set fw_p_roll = 3
 set fw_i_roll = 3
 set fw_ff_roll = 15
 set fw_p_yaw = 4
-aux 4 35 4 900 2100   ; TURN ASSIST -> coordinated turns
