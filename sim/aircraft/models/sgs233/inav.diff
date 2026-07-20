@@ -40,3 +40,5 @@ set fw_p_roll = 4
 set fw_i_roll = 5
 set fw_ff_roll = 20
 set fw_p_yaw = 5
+aux 4 35 4 900 2100   ; TURN ASSIST
+set fw_turn_assist_yaw_gain = 0.5

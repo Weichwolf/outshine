@@ -18,3 +18,4 @@ set nav_fw_control_smoothness = 4
 set nav_fw_loiter_radius = 14000     ; 140 m orbit
 set nav_rth_altitude = 8000          ; 80 m RTH climb
 set fw_reference_airspeed = 1950
+aux 4 35 4 900 2100   ; TURN ASSIST -> coordinated turns

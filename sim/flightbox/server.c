@@ -218,8 +218,14 @@ static void msp_poll(void){
             else if(cmd==109&&ln>=6){ mt_vs=(int16_t)(pl[4]|pl[5]<<8)/100.0f; }   /* vario only; alt comes from GPS (ASL) */
             else if(cmd==110&&ln>=1){ mt_batt=pl[0]/10.0f; }
             else if(cmd==107&&ln>=4){ mt_hdist=pl[0]|pl[1]<<8; mt_hdir=(int16_t)(pl[2]|pl[3]<<8); }
-            else if(cmd==121&&ln>=1){ int ns=pl[1];   /* MSP_NAV_STATUS nav-state: 1/2=RTH, 3/4=HOLD(loiter), >=5=WP enroute */
-                mt_state = (ns==1||ns==2)?ST_RTH : (ns==3||ns==4)?ST_LOITER : (ns>=5)?ST_CLIMB : (mt_arm?ST_MANUAL:ST_ARMED); }
+            else if(cmd==121&&ln>=1){ int ns=pl[1];   /* MSP_NAV_STATUS nav-state: 1/2=RTH, 3/4=HOLD, >=5=WP enroute */
+                /* Debounce nav_state==0: iNav reports a transient 0 between poll cycles, which used to
+                   strobe the annunciator CLIMB<->MANUAL ~6x/s. Hold the last confirmed mode until 0
+                   PERSISTS (genuinely manual/no-nav). Autonomous nav (hold OR WP-enroute) is LOITER, not
+                   CLIMB — a level WP-tracking loiter was wrongly labelled "CLIMB" the whole flight. */
+                static int zero_run=0;
+                if(ns==0){ if(++zero_run>=6) mt_state = mt_arm?ST_MANUAL:ST_ARMED; }
+                else { zero_run=0; mt_state = (ns==1||ns==2)?ST_RTH : ST_LOITER; } }
             i+=6+ln;
         } else if(msp_rx[i]=='$'&&msp_rx[i+1]=='X'&&msp_rx[i+2]=='>'){
             if(i+8>msp_rxn) break;

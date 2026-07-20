@@ -129,6 +129,18 @@ def run_fixture(fx, ac):
     return trace
 
 # --- assertion checks against the steady-state tail of the trace ---
+def heading_swept(ys):
+    """Net heading change (deg) across a yaw sequence, accumulating wrap-safe per-sample deltas so a
+    turn that sweeps past 360 deg is counted in full (not aliased into [-180,180])."""
+    if len(ys) < 2: return None
+    tot = 0.0
+    for i in range(1, len(ys)):
+        dv = ys[i]-ys[i-1]
+        while dv > 180: dv -= 360
+        while dv < -180: dv += 360
+        tot += dv
+    return tot
+
 def metric(trace, name, window=8):
     """Mean of `name` over the last `window` seconds of the trace (steady state)."""
     if not trace: return None
@@ -142,14 +154,20 @@ def check(fx, ac, trace):
         if aircraft and ac not in aircraft: continue
         mname=a["metric"]; win=a.get("window",8)
         if mname=="alt_gain":   v=(metric(trace,"alt",2) or 0)-(trace[0].get("alt",0) if trace else 0)
-        elif mname=="hdg_change":                       # heading change over the last `window` s (steady state,
-            tmax=trace[-1]["t"] if trace else 0          # excludes the spawn/arm transient)
-            ys=[d["yaw"] for d in trace if "yaw" in d and d.get("t",0)>=tmax-win]; v=None
-            if len(ys)>=2:
-                dv=ys[-1]-ys[0]
-                while dv>180:dv-=360
-                while dv<-180:dv+=360
-                v=dv
+        elif mname=="hdg_change":                       # net heading swept over the last `window` s (steady state).
+            tmax=trace[-1]["t"] if trace else 0          # ACCUMULATE per-sample deltas so a fast turn that sweeps
+            ys=[d["yaw"] for d in trace if "yaw" in d and d.get("t",0)>=tmax-win]   # >180 deg is counted correctly
+            v=heading_swept(ys)                          # (a single first->last delta wraps and under-counts)
+        elif mname=="turn_coord":                       # coordinated-turn check: measured yaw-rate divided by
+            tmax=trace[-1]["t"] if trace else 0          # the geometric rate g*tan(bank)/V. ~1.0 = coordinated;
+            seg=[d for d in trace if d.get("t",0)>=tmax-win]   # <1 = under-turning/slipping, >1 = skidding.
+            ys=[d["yaw"] for d in seg if "yaw" in d]; rl=[abs(d["roll"]) for d in seg if "roll" in d]
+            gs=[d["gs"] for d in seg if "gs" in d]; v=None
+            swept=heading_swept(ys)
+            if swept is not None and rl and gs:
+                rate=abs(swept)/win; bank=sum(rl)/len(rl); V=sum(gs)/len(gs)
+                exp=math.degrees(9.80665*math.tan(math.radians(bank))/V) if V>1 and bank>1 else None
+                if exp and exp>0.1: v=rate/exp
         elif mname=="armed":    v=1.0 if any(d.get("armed") for d in trace) else 0.0
         elif mname=="min_airspeed": v=min((d.get("gs",1e9) for d in trace), default=None)
         elif mname.startswith("min_"):                  # min_<field> over the whole trace (e.g. min_gps_alt)
