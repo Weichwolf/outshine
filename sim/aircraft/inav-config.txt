@@ -10,6 +10,8 @@
 # --- platform + receiver ---
 set platform_type = AIRPLANE
 set receiver_type = MSP
+# UART3 (TCP 5762) = a third MSP port so the CC renderer can watch while the bridge (5760) + test CC (5761) run
+serial 2 1 115200 57600 0 0
 
 # --- sensors: truth-attitude flies stable (attitude given, no AHRS lag); the mag need only be PRESENT
 #     so navIsHeadingUsable=true (SENSOR_MAG path) -> native NAV works, vanilla iNav, no patch, no --useimu.

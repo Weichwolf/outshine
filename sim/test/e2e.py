@@ -69,9 +69,11 @@ class MSP:
             if c==cmd: return p
             if c is None: return None
 
-def cc_thread(port, wps, gear_retract, stop, state):
-    """thin CC: arm (edge + YAW_HI nav bypass) -> upload waypoints -> NAV WP. iNav flies natively."""
-    m=MSP("127.0.0.1",port); t0=time.monotonic(); cal_done=-1; up=False
+def cc_thread(port, wps, gear_retract, angle_hold, stop, state):
+    """thin CC: arm (edge + YAW_HI nav bypass) -> optional wings-level ANGLE establish -> NAV WP. iNav
+    flies natively. angle_hold: seconds of stabilized wings-level climb after arm before handing to NAV,
+    so a roll-twitchy airframe settles before NAV's first turn (a mission procedure, per aircraft)."""
+    m=MSP("127.0.0.1",port); t0=time.monotonic(); cal_done=-1; up=False; armed_at=-1
     while not stop.is_set():
         ts=time.monotonic()-t0
         st=m.req(0x2000); af=struct.unpack("<I",st[9:13])[0] if st and len(st)>=13 else 0
@@ -82,6 +84,7 @@ def cc_thread(port, wps, gear_retract, stop, state):
         elif not armed:
             if (ts-cal_done)%3.0>=1.5: rc[4]=2000; rc[3]=2000    # ARM + YAW_HI (bypass NAV_UNSAFE)
         else:
+            if armed_at<0: armed_at=ts
             if not up:
                 for i,w in enumerate(wps):
                     b=bytearray(21); b[0]=i+1; b[1]=1
@@ -89,8 +92,11 @@ def cc_thread(port, wps, gear_retract, stop, state):
                     b[10:14]=struct.pack("<i",int(round(w['alt_rel']*100))); b[20]=0xa5 if i==len(wps)-1 else 0
                     m.send(209,bytes(b))
                 up=True
-            rc[4]=2000; rc[7]=2000                              # ARM + NAV WP -> iNav flies natively
-            if gear_retract: rc[8]=2000                         # AUX5 high -> retract gear (AUXMAP=gear models)
+            if ts-armed_at < angle_hold:                        # wings-level ANGLE climb-out (neutral stick,
+                rc[4]=2000; rc[5]=2000; rc[2]=1600             # climb throttle) — reach altitude + speed before NAV
+            else:
+                rc[4]=2000; rc[7]=2000                          # ARM + NAV WP -> iNav flies natively
+                if gear_retract: rc[8]=2000                     # AUX5 high -> retract gear (AUXMAP=gear)
         m.send(200,struct.pack("<9H",*rc))
         time.sleep(0.033)
 
@@ -116,13 +122,16 @@ def main():
     cap = succ.get("capture_radius_m", 200); to_agl = succ.get("takeoff_agl_m", 50)
     max_agl = abort.get("max_agl_m", 3000); on_nan = abort.get("on_nan", True)
     gear = M.get("procedure", {}).get("gear_retract", False)
+    angle_hold = M.get("procedure", {}).get("angle_hold_s", 0)
     if any(w.get("alt_rel") is None for w in wps):
         print(f"FATAL: mission WPs unresolved (DEM/tiles at {TILES} unavailable)"); sys.exit(2)
     print(f"== mission '{M.get('name',arg)}' :: {ac} from {to['icao']}/{to['runway']} "
           f"(hdg {to['heading_deg']:.0f}), {len(wps)} WPs, cap {cap:.0f}m ==")
 
     subprocess.run("podman rm -f fb-aircraft",shell=True,capture_output=True)
-    mounts=f" -v {os.environ['MOUNT_EEPROM']}:/app/models/{ac}/eeprom.bin" if os.environ.get("MOUNT_EEPROM") else ""
+    mdir=str(ROOT/"aircraft"/"models"/ac)
+    mounts=f" -v {mdir}/profile.env:/app/models/{ac}/profile.env:ro"      # live profile (SPAWN_SPEED/FBW/AUXMAP), no rebuild
+    if os.environ.get("MOUNT_EEPROM"): mounts+=f" -v {os.environ['MOUNT_EEPROM']}:/app/models/{ac}/eeprom.bin"
     subprocess.run(f"podman run -d --name fb-aircraft --network flightboxnet -p 5761:5761 {mounts} "
        f"-e AIRCRAFT={ac} -e TILES_ADDR=fb-tiles:8081 -e WX_LIVE=0 -e WIND_SPEED=0 -e TURB=0 "
        f"-e FB_TIME_SCALE={os.environ.get('FB_TIME_SCALE','1')} -e FLT_LOG_S=3 "
@@ -135,7 +144,7 @@ def main():
             probe=MSP("127.0.0.1",5761); probe.req(0x2000); probe.f.close(); break
         except OSError: time.sleep(0.25)
     stop=threading.Event(); state={}
-    threading.Thread(target=cc_thread,args=(5761,wps,gear,stop,state),daemon=True).start()
+    threading.Thread(target=cc_thread,args=(5761,wps,gear,angle_hold,stop,state),daemon=True).start()
 
     armed=took=crashed=over=False; hit=[False]*len(wps); peak=0; t0=time.monotonic()
     while time.monotonic()-t0<secs:

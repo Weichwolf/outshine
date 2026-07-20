@@ -9,17 +9,17 @@
     {
       "lat": 47.66982,
       "lon": 9.50771,
-      "alt_agl": 100
+      "alt_agl": 60
     },
     {
       "lat": 47.6649,
       "lon": 9.51649,
-      "alt_agl": 140
+      "alt_agl": 60
     },
     {
       "lat": 47.67339,
       "lon": 9.50423,
-      "alt_agl": 100
+      "alt_agl": 60
     }
   ],
   "land": {
@@ -27,7 +27,8 @@
     "runway": "24"
   },
   "procedure": {
-    "gear_retract": false
+    "gear_retract": false,
+    "angle_hold_s": 45
   },
   "success": {
     "takeoff_agl_m": 40,

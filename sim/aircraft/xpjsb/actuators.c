@@ -20,10 +20,16 @@ int xpjsb_actuator_dref(const char *d, float v){
     return 0;
 }
 
+static float ap_roll=0, ap_pitch=0, ap_yaw=0;    /* slew-limited surface positions (real servo dynamics) */
+static float slew(float pos, float cmd){
+    float d = cmd - pos, s = XPJSB_SERVO_SLEW;
+    return pos + (d > s ? s : (d < -s ? -s : d));
+}
 void xpjsb_actuators_apply(double dt){
     (void)dt;                                    /* throttle slew lives in the adapter (ESC spin-up) */
-    S.in_roll=in_roll; S.in_pitch=in_pitch; S.in_yaw=in_yaw; S.in_thr=in_thr;   /* mirror for the flight log */
-    fb_jsbsim_set_controls(in_roll, in_pitch, in_yaw, in_thr);
+    ap_roll=slew(ap_roll,in_roll); ap_pitch=slew(ap_pitch,in_pitch); ap_yaw=slew(ap_yaw,in_yaw);
+    S.in_roll=ap_roll; S.in_pitch=ap_pitch; S.in_yaw=ap_yaw; S.in_thr=in_thr;   /* mirror for the flight log */
+    fb_jsbsim_set_controls(ap_roll, ap_pitch, ap_yaw, in_thr);
 }
 
 long xpjsb_actuators_bad_count(void){ return bad; }

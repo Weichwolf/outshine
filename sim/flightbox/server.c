@@ -18,6 +18,7 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <netinet/in.h>
+#include <netdb.h>
 #include <netinet/tcp.h>
 #include "protocol.h"
 
@@ -164,12 +165,86 @@ static void ws_parse(client_t*c, void(*cb)(const uint8_t*,int)){
     if(off){ memmove(c->rx,c->rx+off,c->rxn-off); c->rxn-=off; }
 }
 
-/* control -> UDP to aircraft. The aircraft's address is learned from the
- * downlink packets it sends us (recvfrom src), so no DNS needed here. */
-static int udp_fd; static struct sockaddr_in up_addr; static int have_peer=0;
+/* ===================== MSP link to iNav — the CC's radio, MSP standard ============================
+ * The ground station speaks to the aircraft over iNav's own MSP protocol (TCP 5760): it POLLS telemetry
+ * (attitude/GPS/altitude/analog/comp-gps) and UPLINKS pilot RC as MSP_SET_RAW_RC. Same wire iNav uses on
+ * real hardware — no custom radio. Telemetry is packed into telem_packet_t for the browser HUD/3D view. */
+#include <netinet/tcp.h>
+#include <math.h>
+#define MSP_PORT 5762   /* iNav SITL UART3 (base 5760 + 2): a dedicated MSP link for the CC,
+                             * separate from the bridge (5760) and the headless test CC (5761) */
+static int msp_fd=-1; static uint8_t msp_rx[8192]; static int msp_rxn=0;
+static double ORIGIN_LAT=52.045, ORIGIN_LON=9.385;
+static float mt_roll,mt_pitch,mt_yaw,mt_alt,mt_vs,mt_gs,mt_batt=12;
+static double mt_lat,mt_lon; static int mt_hdist,mt_hdir, mt_state=ST_DISARMED, mt_arm=0;
+
+static int msp_connect(const char*host){
+    int fd=socket(AF_INET,SOCK_STREAM,0); if(fd<0)return -1;
+    struct sockaddr_in a={0}; a.sin_family=AF_INET; a.sin_port=htons(MSP_PORT);
+    if(inet_pton(AF_INET,host,&a.sin_addr)!=1){ struct hostent*he=gethostbyname(host); if(!he){close(fd);return -1;} memcpy(&a.sin_addr,he->h_addr,he->h_length); }
+    if(connect(fd,(struct sockaddr*)&a,sizeof a)<0){ close(fd); return -1; }
+    int one=1; setsockopt(fd,IPPROTO_TCP,TCP_NODELAY,&one,sizeof one); set_nonblock(fd);
+    return fd;
+}
+static void msp1(uint8_t cmd,const uint8_t*p,uint8_t n){
+    if(msp_fd<0) return;
+    uint8_t b[6+64]; b[0]='$';b[1]='M';b[2]='<';b[3]=n;b[4]=cmd; uint8_t k=n^cmd;
+    for(int i=0;i<n;i++){b[5+i]=p[i];k^=p[i];} b[5+n]=k; send(msp_fd,b,6+n,MSG_NOSIGNAL);
+}
+static uint8_t crc8s(const uint8_t*d,int n){ uint8_t c=0; for(int i=0;i<n;i++){c^=d[i]; for(int j=0;j<8;j++)c=(c&0x80)?((c<<1)^0xD5):(c<<1);} return c; }
+static void msp2(uint16_t fn){ if(msp_fd<0)return; uint8_t b[9]={'$','X','<',0,(uint8_t)fn,(uint8_t)(fn>>8),0,0,0}; b[8]=crc8s(b+3,5); send(msp_fd,b,9,MSG_NOSIGNAL); }
+static void msp_setrc(const uint16_t*rc,int n){
+    if(msp_fd<0) return;
+    uint8_t p[32]; for(int i=0;i<n;i++){p[2*i]=rc[i]&0xff;p[2*i+1]=rc[i]>>8;} msp1(200,p,2*n);
+}
+static void msp_poll(void){
+    if(msp_fd<0) return;
+    ssize_t n;
+    while((n=recv(msp_fd,msp_rx+msp_rxn,sizeof msp_rx-msp_rxn,0))>0){ msp_rxn+=n; if(msp_rxn>(int)sizeof msp_rx-800)msp_rxn=0; }
+    int i=0;
+    while(i+3<msp_rxn){
+        if(msp_rx[i]=='$'&&msp_rx[i+1]=='M'&&msp_rx[i+2]=='>'){
+            if(i+5>msp_rxn) break;
+            int ln=msp_rx[i+3],cmd=msp_rx[i+4]; if(i+6+ln>msp_rxn) break;
+            uint8_t*pl=msp_rx+i+5;
+            if(cmd==108&&ln>=6){ mt_roll=(int16_t)(pl[0]|pl[1]<<8)/10.0f; mt_pitch=(int16_t)(pl[2]|pl[3]<<8)/10.0f; mt_yaw=(int16_t)(pl[4]|pl[5]<<8); }
+            else if(cmd==106&&ln>=16){ int32_t la,lo; memcpy(&la,pl+2,4); memcpy(&lo,pl+6,4); mt_lat=la/1e7; mt_lon=lo/1e7; mt_gs=(pl[12]|pl[13]<<8)/100.0f; }
+            else if(cmd==109&&ln>=6){ int32_t a; memcpy(&a,pl,4); mt_alt=a/100.0f; mt_vs=(int16_t)(pl[4]|pl[5]<<8)/100.0f; }
+            else if(cmd==110&&ln>=1){ mt_batt=pl[0]/10.0f; }
+            else if(cmd==107&&ln>=4){ mt_hdist=pl[0]|pl[1]<<8; mt_hdir=(int16_t)(pl[2]|pl[3]<<8); }
+            else if(cmd==121&&ln>=1){ int ns=pl[1]; mt_state = ns>=3?ST_CLIMB:(mt_arm?ST_MANUAL:ST_ARMED); }
+            i+=6+ln;
+        } else if(msp_rx[i]=='$'&&msp_rx[i+1]=='X'&&msp_rx[i+2]=='>'){
+            if(i+8>msp_rxn) break;
+            int ln=msp_rx[i+6]|msp_rx[i+7]<<8,fn=msp_rx[i+4]|msp_rx[i+5]<<8; if(i+9+ln>msp_rxn) break;
+            if(fn==0x2000&&ln>=13){ uint32_t af; memcpy(&af,msp_rx+i+8+9,4); mt_arm=(af&0x4)!=0; if(!mt_arm)mt_state=ST_DISARMED; }
+            i+=9+ln;
+        } else i++;
+    }
+    if(i>0){ memmove(msp_rx,msp_rx+i,msp_rxn-i); msp_rxn-=i; }
+}
+static void msp_request_telemetry(void){ msp2(0x2000); msp1(108,0,0); msp1(106,0,0); msp1(109,0,0); msp1(110,0,0); msp1(107,0,0); msp1(121,0,0); }
+static void build_telem(telem_packet_t*t){
+    memset(t,0,sizeof *t); t->magic=FB_MAGIC_TELEM;
+    t->roll=mt_roll; t->pitch=mt_pitch; t->yaw=mt_yaw; t->alt=mt_alt; t->gs=mt_gs; t->vs=mt_vs; t->airspeed=mt_gs;
+    double clat=mt_lat?mt_lat:ORIGIN_LAT;
+    t->x=(float)((mt_lon-ORIGIN_LON)*111320.0*cos(clat*M_PI/180.0));   /* ENU east  */
+    t->y=(float)((mt_lat-ORIGIN_LAT)*111320.0);                        /* ENU north */
+    t->batt=mt_batt; t->home_dist=mt_hdist;
+    float rel=mt_hdir-mt_yaw; while(rel>180)rel-=360; while(rel<-180)rel+=360; t->home_bearing=rel;
+    t->cloud=0; t->vis=40000; t->sun_el=35; t->sun_az=160;             /* daylight sky for the SVS view */
+    t->state=(uint8_t)mt_state; t->rssi=100; static uint16_t sq; t->seq=sq++;
+}
+
+/* browser control -> RC uplink over MSP (MSP_SET_RAW_RC): the pilot flies via the standard radio. */
 static void on_client_msg(const uint8_t*p,int n){
-    if(have_peer && n==(int)sizeof(ctrl_packet_t) && ((ctrl_packet_t*)p)->magic==FB_MAGIC_CTRL)
-        sendto(udp_fd,p,n,0,(struct sockaddr*)&up_addr,sizeof up_addr);
+    if(n!=(int)sizeof(ctrl_packet_t) || ((ctrl_packet_t*)p)->magic!=FB_MAGIC_CTRL) return;
+    const ctrl_packet_t*c=(const ctrl_packet_t*)p;
+    uint16_t rc[8]={ (uint16_t)(1500+c->roll*500), (uint16_t)(1500+c->pitch*500),
+                     (uint16_t)(1000+c->throttle*1000), (uint16_t)(1500+c->yaw*500),
+                     (uint16_t)(c->arm?2000:1000), 2000, 1000, 1000 };  /* AUX1=ARM, AUX2=ANGLE */
+    for(int i=0;i<4;i++){ if(rc[i]<1000)rc[i]=1000; if(rc[i]>2000)rc[i]=2000; }
+    msp_setrc(rc,8);
 }
 
 int main(void){
@@ -178,11 +253,9 @@ int main(void){
     int port=getenv("HTTP_PORT")?atoi(getenv("HTTP_PORT")):8080;
 
     /* UDP: recv downlink, addr for uplink */
-    udp_fd=socket(AF_INET,SOCK_DGRAM,0);
-    struct sockaddr_in du={0}; du.sin_family=AF_INET; du.sin_addr.s_addr=INADDR_ANY; du.sin_port=htons(FB_DOWN_PORT);
-    if(bind(udp_fd,(struct sockaddr*)&du,sizeof du)<0){ perror("udp bind"); return 1; }
-    set_nonblock(udp_fd);
-    (void)ac;   /* aircraft addr is learned from incoming downlink packets */
+    if(getenv("ORIGIN_LAT")) ORIGIN_LAT=atof(getenv("ORIGIN_LAT"));
+    if(getenv("ORIGIN_LON")) ORIGIN_LON=atof(getenv("ORIGIN_LON"));
+    msp_fd=msp_connect(ac);   /* MSP link to iNav on the aircraft (retried below if the aircraft is not up yet) */
 
     /* TCP listen for HTTP/WS */
     int lfd=socket(AF_INET,SOCK_STREAM,0); int one=1; setsockopt(lfd,SOL_SOCKET,SO_REUSEADDR,&one,sizeof one);
@@ -191,12 +264,14 @@ int main(void){
     listen(lfd,8); set_nonblock(lfd);
     for(int i=0;i<MAX_CLIENTS;i++) cl[i].fd=-1;
 
-    fprintf(stderr,"[flightbox] http :%d  uplink->%s:%d  downlink<-:%d\n",port,ac,FB_UP_PORT,FB_DOWN_PORT);
+    fprintf(stderr,"[flightbox] http :%d  MSP<->%s:%d (telemetry downlink + RC/WP uplink)\n",port,ac,MSP_PORT);
 
+    long tick=0;
     for(;;){
-        fd_set rs; FD_ZERO(&rs); FD_SET(lfd,&rs); FD_SET(udp_fd,&rs); int mx=lfd>udp_fd?lfd:udp_fd;
+        fd_set rs; FD_ZERO(&rs); FD_SET(lfd,&rs); int mx=lfd;
+        if(msp_fd>=0){ FD_SET(msp_fd,&rs); if(msp_fd>mx)mx=msp_fd; }
         for(int i=0;i<MAX_CLIENTS;i++) if(cl[i].fd>=0){ FD_SET(cl[i].fd,&rs); if(cl[i].fd>mx)mx=cl[i].fd; }
-        struct timeval tv={1,0};
+        struct timeval tv={0,50000};   /* 50 ms tick -> ~20 Hz telemetry to the browser */
         if(select(mx+1,&rs,NULL,NULL,&tv)<0){ if(errno==EINTR)continue; perror("select"); break; }
 
         /* new connection */
@@ -206,17 +281,16 @@ int main(void){
                 if(i==MAX_CLIENTS) close(fd); }
         }
 
-        /* downlink from aircraft -> all WS clients */
-        if(FD_ISSET(udp_fd,&rs)){
-            static uint8_t buf[70000]; ssize_t n;
-            struct sockaddr_in src; socklen_t sl=sizeof src;
-            while((n=recvfrom(udp_fd,buf,sizeof buf,0,(struct sockaddr*)&src,&sl))>0){
-                uint32_t mg = (n>=4)?((uint32_t*)buf)[0]:0;
-                if(mg==FB_MAGIC_TELEM || mg==FB_MAGIC_VIDEO){
-                    up_addr=src; up_addr.sin_port=htons(FB_UP_PORT); have_peer=1;  /* learn aircraft addr */
-                    for(int i=0;i<MAX_CLIENTS;i++) if(cl[i].fd>=0&&cl[i].is_ws) ws_send(cl[i].fd,buf,n);
-                }
-            }
+        /* MSP replies from the aircraft */
+        if(msp_fd>=0 && FD_ISSET(msp_fd,&rs)) msp_poll();
+
+        /* ~20 Hz telemetry tick: (re)connect MSP, ask iNav for telemetry, pack it, push to WS clients */
+        tick++;
+        if(msp_fd<0 && tick%20==0){ msp_fd=msp_connect(ac); }   /* retry until the aircraft is up */
+        if(msp_fd>=0){
+            msp_request_telemetry(); msp_poll();
+            telem_packet_t t; build_telem(&t);
+            for(int i=0;i<MAX_CLIENTS;i++) if(cl[i].fd>=0&&cl[i].is_ws) ws_send(cl[i].fd,(uint8_t*)&t,sizeof t);
         }
 
         /* client data */

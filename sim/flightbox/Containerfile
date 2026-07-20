@@ -7,7 +7,7 @@ WORKDIR /app
 COPY common/ common/
 COPY flightbox/server.c flightbox/
 COPY flightbox/web/ flightbox/web/
-RUN gcc -O2 -Wall -Icommon flightbox/server.c -o /usr/local/bin/fbserver
+RUN gcc -O2 -Wall -Icommon flightbox/server.c -o /usr/local/bin/fbserver -lm
 WORKDIR /app/flightbox
 EXPOSE 8080
 # AIRCRAFT_ADDR is set at run time (podman network alias of the aircraft)

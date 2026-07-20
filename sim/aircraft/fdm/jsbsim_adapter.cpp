@@ -43,10 +43,11 @@ extern "C" int fb_jsbsim_init(const char *root, const char *ac,
   ic->SetFlightPathAngleDegIC(0.0);             /* level */
   g_fdm->RunIC();
   g_thr_applied = 0.0;
-  /* fuel engines make no thrust until running; electric is skipped (InitRunning spikes a light prop's RPM). */
+  /* Start ALL engines running before trim — incl. electric: without a running motor there is no thrust
+   * during FGTrim, so a powered airframe reports "udot not trimmable", the IC is no equilibrium, and the
+   * untrimmed airframe departs violently on the first advance (sgs233: pitch -57, inverted, at spawn). */
   { auto pr = g_fdm->GetPropulsion();
-    for (unsigned i = 0; i < pr->GetNumEngines(); i++)
-      if (pr->GetEngine(i)->GetType() != FGEngine::etElectric) pr->InitRunning(i); }
+    for (unsigned i = 0; i < pr->GetNumEngines(); i++) pr->InitRunning(i); }
   if (fbw_override) g_fdm->SetPropertyValue("fcs/fbw-override", 1.0);   /* iNav is the FLCS (F-16) */
   g_fdm->Setdt(SIM_STEP_S);
   /* tLongitudinal (pitch/throttle/alpha, wings level): more robust than tFull on light/slow airframes. */

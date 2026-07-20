@@ -11,13 +11,24 @@ smix 2 3 2 100 0 -1                  ; S3 <- yaw
 smix 3 4 15 100 0 -1                 ; S4 <- INPUT_RC_CH9 (AUX5) = GEAR; bridge reads MSP_SERVO[4] -> FDM
                                      ; gear (AUXMAP=gear:4). CC: AUX5 low=down (default), high=retract.
 # ----- NAV tuning: fast model jet, cruise ~55 m/s -----
-set nav_fw_cruise_thr = 1500
+set nav_fw_cruise_thr = 1350
 set nav_fw_min_thr = 1300
 set nav_fw_max_thr = 2000
-set nav_fw_climb_angle = 12
+set nav_fw_climb_angle = 6
 set nav_fw_dive_angle = 15
 set nav_fw_bank_angle = 35
 set nav_fw_control_smoothness = 3
 set nav_fw_loiter_radius = 25000     ; 250 m orbit (jet turn radius)
 set nav_rth_altitude = 16000         ; 160 m RTH climb
 set fw_reference_airspeed = 5500
+# ----- relaxed-stability jet: gentle inner-loop gains (high FF over-deflects at 55 m/s -> PIO) + a fast
+# control loop (override the shared 500 Hz) so iNav can stabilize the airframe it is the FLCS for.
+set looptime = 1000
+set fw_p_pitch = 3
+set fw_i_pitch = 3
+set fw_d_pitch = 0
+set fw_ff_pitch = 15
+set fw_p_roll = 3
+set fw_i_roll = 3
+set fw_ff_roll = 15
+set fw_p_yaw = 4

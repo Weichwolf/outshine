@@ -1,5 +1,5 @@
 {
-  "name": "PPL Nav \u2014 F-16, EDDF Platzrunde",
+  "name": "PPL Nav \u2014 F-16, EDDF (jet-scale, level circuit)",
   "aircraft": "f16",
   "takeoff": {
     "airport": "EDDF",
@@ -7,19 +7,19 @@
   },
   "waypoints": [
     {
-      "lat": 50.04199,
-      "lon": 8.57395,
-      "alt_agl": 250
-    },
-    {
-      "lat": 50.02173,
-      "lon": 8.59959,
+      "lat": 50.04356,
+      "lon": 8.58051,
       "alt_agl": 350
     },
     {
-      "lat": 50.05475,
-      "lon": 8.56316,
-      "alt_agl": 250
+      "lat": 50.01041,
+      "lon": 8.59543,
+      "alt_agl": 350
+    },
+    {
+      "lat": 49.99902,
+      "lon": 8.54422,
+      "alt_agl": 350
     }
   ],
   "land": {
@@ -31,11 +31,11 @@
   },
   "success": {
     "takeoff_agl_m": 50,
-    "capture_radius_m": 450
+    "capture_radius_m": 700
   },
   "abort": {
     "timeout_s": 300,
-    "max_agl_m": 2000,
+    "max_agl_m": 2500,
     "on_nan": true
   }
 }

@@ -33,6 +33,10 @@
 #define XPJSB_THR_MAX             1.05f
 #define XPJSB_PWM_MIN             1000   /* servo PWM range (us) for aux-actuator normalization */
 #define XPJSB_PWM_MAX             2000
+#define XPJSB_SERVO_SLEW          0.15f  /* max normalized surface change per 100 Hz step: a real servo's
+                                          * finite slew rate (~0.13 s full throw), not an instantaneous jump —
+                                          * softens iNav's step command at the arm transition so a floaty
+                                          * airframe does not diverge on the first advance. */
 
 /* --- GPS (fed to iNav; fix dynamics, not wire format) --- */
 #define XPJSB_GPS_FIX_3D          2      /* iNav enum: GPS_FIX_3D == 2, NOT 3 */
