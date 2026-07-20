@@ -1,0 +1,41 @@
+{
+  "name": "PPL Nav \u2014 Cessna 172, EDDH Platzrunde",
+  "aircraft": "c172",
+  "takeoff": {
+    "airport": "EDDH",
+    "runway": "05"
+  },
+  "waypoints": [
+    {
+      "lat": 53.62404,
+      "lon": 9.97536,
+      "alt_agl": 120
+    },
+    {
+      "lat": 53.61955,
+      "lon": 9.98937,
+      "alt_agl": 170
+    },
+    {
+      "lat": 53.62757,
+      "lon": 9.96949,
+      "alt_agl": 120
+    }
+  ],
+  "land": {
+    "airport": "EDDH",
+    "runway": "23"
+  },
+  "procedure": {
+    "gear_retract": false
+  },
+  "success": {
+    "takeoff_agl_m": 50,
+    "capture_radius_m": 250
+  },
+  "abort": {
+    "timeout_s": 300,
+    "max_agl_m": 900,
+    "on_nan": true
+  }
+}

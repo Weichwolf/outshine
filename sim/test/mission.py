@@ -43,11 +43,18 @@ def resolve(mission, tiles_url=None):
     """Mission dict -> resolved GPS/ASL plan. iNav never sees AGL: every altitude is ASL here."""
     to = runway(mission["takeoff"]["airport"], mission["takeoff"]["runway"])
     ld = runway(mission["land"]["airport"], mission["land"]["runway"])
+    # iNav waypoint altitude is RELATIVE to the GPS home (the takeoff point recorded at arm),
+    # NOT absolute MSL (navigation.c maps WPs with GEO_ALT_RELATIVE). So the CC converts an AGL
+    # target to "altitude above the takeoff field" = ground_elev(wp) + alt_agl - takeoff_elev.
+    # DEM knowledge still lives here; iNav only ever gets a home-relative number.
+    home = to["elev_m"]
     wps = []
     for w in mission["waypoints"]:
         g = ground_elev_m(w["lat"], w["lon"], tiles_url)
+        asl = (w["alt_agl"] + g) if g is not None else None
         wps.append({"lat": w["lat"], "lon": w["lon"], "alt_agl": w["alt_agl"],
-                    "ground_m": g, "alt_asl": (w["alt_agl"] + g) if g is not None else None})
+                    "ground_m": g, "alt_asl": asl,
+                    "alt_rel": (asl - home) if asl is not None else None})
     return {
         "aircraft": mission["aircraft"],
         "takeoff": {"icao": mission["takeoff"]["airport"], "runway": to["ident"],

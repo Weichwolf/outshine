@@ -32,4 +32,9 @@ aux 3 28 3 1700 2100
 # --- test convenience ---
 set small_angle = 180
 
+# --- headless-sim speed: a slower gyro loop (500 Hz vs 1 kHz) halves the SITL scheduler load, so the
+#     clock shim can run FB_TIME_SCALE higher before iNav flags SYSTEM_OVERLOADED (arming-disable).
+#     500 Hz is ample for a fixed-wing model; this changes sim throughput, not flight behaviour. ---
+set looptime = 2000
+
 save

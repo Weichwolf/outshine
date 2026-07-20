@@ -11,7 +11,7 @@
 
 /* --- the shared globals every bridge module reads; this TU owns them --- */
 state_t S;
-double  HOME_LAT = 52.045, HOME_LON = 9.385, HOME_ELEV = 71.0;
+double  HOME_LAT = 52.045, HOME_LON = 9.385, HOME_ELEV = 71.0, HOME_HDG = 0.0;
 fb_atmo ATM;
 float   g_nx = 0.0f, g_ny = 0.0f, g_nz = 1.0f;
 int     g_crashed = 0;
@@ -38,13 +38,14 @@ int world_init(void){
     fb_terrain_start(ta, HOME_ELEV);
 
     S.lat=HOME_LAT; S.lon=HOME_LON; S.elev=HOME_ELEV+2.0; S.agl=2.0;   /* 2 m above the exact ground */
-    S.yaw=0; S.speed=14.0; S.gs=14.0;
+    HOME_HDG=envd("ORIGIN_HDG", 0.0);
+    S.yaw=HOME_HDG; S.speed=14.0; S.gs=14.0;                           /* spawn aligned with the runway */
 
     const char *ac=getenv("AIRCRAFT"); if(!ac||!*ac) ac="c172";
     const char *mr=getenv("MODELS_ROOT"); if(!mr||!*mr) mr="/app/models";
     int fbw = (int)envd("FBW", 0);
     double spawn_spd = envd("SPAWN_SPEED", 14.0);
-    if(fb_jsbsim_init(mr, ac, HOME_LAT, HOME_LON, HOME_ELEV, 2.0, spawn_spd, 0.0, fbw)!=0){
+    if(fb_jsbsim_init(mr, ac, HOME_LAT, HOME_LON, HOME_ELEV, 2.0, spawn_spd, envd("ORIGIN_HDG",0.0), fbw)!=0){
         fprintf(stderr,"[xpjsb] FATAL: JSBSim init failed for '%s'\n", ac);
         return 1;
     }
@@ -57,7 +58,7 @@ void world_step(double dt, int armed){
     if(!armed){
         /* held: level, still, on the ground — iNav's accel-cal + arming preconditions met, but the
          * untrimmed airframe is NOT advanced (it would depart before iNav could catch it). */
-        S.roll=0; S.pitch=0; S.yaw=0; S.p=S.q=S.r=0; g_nx=0; g_ny=0; g_nz=1.0f;
+        S.roll=0; S.pitch=0; S.yaw=HOME_HDG; S.p=S.q=S.r=0; g_nx=0; g_ny=0; g_nz=1.0f;
         S.speed=0; S.gs=14.0; S.vx=0; S.vy=0; S.vz=0;
         S.lat=HOME_LAT; S.lon=HOME_LON; S.elev=HOME_ELEV+2.0; S.agl=2.0;
         fb_terrain_set_pos(S.lat, S.lon);

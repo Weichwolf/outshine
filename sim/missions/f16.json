@@ -1,0 +1,41 @@
+{
+  "name": "PPL Nav \u2014 F-16, EDDF Platzrunde",
+  "aircraft": "f16",
+  "takeoff": {
+    "airport": "EDDF",
+    "runway": "07C"
+  },
+  "waypoints": [
+    {
+      "lat": 50.04199,
+      "lon": 8.57395,
+      "alt_agl": 250
+    },
+    {
+      "lat": 50.02173,
+      "lon": 8.59959,
+      "alt_agl": 350
+    },
+    {
+      "lat": 50.05475,
+      "lon": 8.56316,
+      "alt_agl": 250
+    }
+  ],
+  "land": {
+    "airport": "EDDF",
+    "runway": "25C"
+  },
+  "procedure": {
+    "gear_retract": true
+  },
+  "success": {
+    "takeoff_agl_m": 50,
+    "capture_radius_m": 450
+  },
+  "abort": {
+    "timeout_s": 300,
+    "max_agl_m": 2000,
+    "on_nan": true
+  }
+}

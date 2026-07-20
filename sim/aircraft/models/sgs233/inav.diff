@@ -8,8 +8,8 @@ smix 0 1 0 100 0 -1                  ; S1 <- roll
 smix 1 2 1 100 0 -1                  ; S2 <- pitch
 smix 2 3 2 100 0 -1                  ; S3 <- yaw
 # ----- NAV tuning: probe (closed-loop ANGLE) level at thr 0.30 -> 22 m/s, slight descent, roll <1 -----
-set nav_fw_cruise_thr = 1300
-set nav_fw_min_thr = 1200
+set nav_fw_cruise_thr = 1500
+set nav_fw_min_thr = 1400
 set nav_fw_max_thr = 1800
 set nav_fw_climb_angle = 6
 set nav_fw_dive_angle = 12
