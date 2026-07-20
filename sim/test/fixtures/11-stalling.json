@@ -10,21 +10,28 @@
     "hdg": 90
   },
   "arm": true,
-  "duration_s": 36,
+  "duration_s": 34,
   "script": [
     {
       "t": 3,
       "mode": "ANGLE",
       "roll": 1500,
-      "pitch": 1750,
-      "thr": 1000
+      "pitch": 1680,
+      "thr": 1050
     },
     {
-      "t": 26,
+      "t": 16,
+      "mode": "ANGLE",
+      "roll": 1500,
+      "pitch": 1400,
+      "thr": 1200
+    },
+    {
+      "t": 22,
       "mode": "ANGLE",
       "roll": 1500,
       "pitch": 1500,
-      "thr": 1700
+      "thr": 1500
     }
   ],
   "asserts": [
@@ -54,30 +61,40 @@
       "desc": "flying again after recovery"
     },
     {
-      "metric": "roll",
-      "abs_lt": 40,
-      "desc": "wing not fully dropped (recoverable)"
-    },
-    {
-      "metric": "vs",
-      "gt": -18,
-      "desc": "sink bounded (not a spin dive)"
-    },
-    {
       "metric": "sats",
       "min": 5,
       "desc": "GPS sats"
     },
     {
-      "metric": "pitch",
-      "min": -40,
-      "max": 40,
-      "desc": "attitude recoverable"
-    },
-    {
       "metric": "min_gps_alt",
       "lt": 560,
       "desc": "sank (lost height) during the stall"
+    },
+    {
+      "metric": "min_roll",
+      "gt": -55,
+      "desc": "no wing-drop past ~55 deg (recoverable, whole trace)"
+    },
+    {
+      "metric": "max_roll",
+      "lt": 55,
+      "desc": "no wing-drop past ~55 deg other way (whole trace)"
+    },
+    {
+      "metric": "min_pitch",
+      "gt": -55,
+      "desc": "nose-drop within a realistic stall break (> -55 deg)"
+    },
+    {
+      "metric": "max_pitch",
+      "lt": 45,
+      "desc": "never zoomed past +45 deg (whole trace)"
+    },
+    {
+      "metric": "min_vs",
+      "gt": -16,
+      "desc": "sink bounded, not a spin dive (whole trace)"
     }
-  ]
+  ],
+  "_known_defect": "c172 rolls past inverted (~ -146 deg) at the stall break \u2014 prop-torque vs low-speed aileron authority of the Froude-scaled c172; a docile trainer should barely wing-drop. Open FDM defect (min_roll assert fails on purpose until fixed). See memory fdm-froude-scaler."
 }
