@@ -18,6 +18,7 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <netinet/in.h>
+#include <time.h>
 #include <netdb.h>
 #include <netinet/tcp.h>
 #include "protocol.h"
@@ -217,27 +218,58 @@ static void msp_poll(void){
             else if(cmd==109&&ln>=6){ mt_vs=(int16_t)(pl[4]|pl[5]<<8)/100.0f; }   /* vario only; alt comes from GPS (ASL) */
             else if(cmd==110&&ln>=1){ mt_batt=pl[0]/10.0f; }
             else if(cmd==107&&ln>=4){ mt_hdist=pl[0]|pl[1]<<8; mt_hdir=(int16_t)(pl[2]|pl[3]<<8); }
-            else if(cmd==121&&ln>=1){ int ns=pl[1]; mt_state = ns>=3?ST_CLIMB:(mt_arm?ST_MANUAL:ST_ARMED); }
+            else if(cmd==121&&ln>=1){ int ns=pl[1];   /* MSP_NAV_STATUS nav-state: 1/2=RTH, 3/4=HOLD(loiter), >=5=WP enroute */
+                mt_state = (ns==1||ns==2)?ST_RTH : (ns==3||ns==4)?ST_LOITER : (ns>=5)?ST_CLIMB : (mt_arm?ST_MANUAL:ST_ARMED); }
             i+=6+ln;
         } else if(msp_rx[i]=='$'&&msp_rx[i+1]=='X'&&msp_rx[i+2]=='>'){
             if(i+8>msp_rxn) break;
             int ln=msp_rx[i+6]|msp_rx[i+7]<<8,fn=msp_rx[i+4]|msp_rx[i+5]<<8; if(i+9+ln>msp_rxn) break;
             if(fn==0x2000&&ln>=13){ uint32_t af; memcpy(&af,msp_rx+i+8+9,4); mt_arm=(af&0x4)!=0; if(!mt_arm)mt_state=ST_DISARMED; }
+            /* MSP2_INAV_FULL_LOCAL_POSE: roll/pitch/yaw in DECIDEGREES (0.1 deg) — iNav's finest heading,
+               vs MSP_ATTITUDE which truncates yaw to whole degrees. */
+            else if(fn==0x2220&&ln>=6){ const uint8_t*pl=msp_rx+i+8;
+                mt_roll=(int16_t)(pl[0]|pl[1]<<8)/10.0f;
+                mt_pitch=(int16_t)(pl[2]|pl[3]<<8)/10.0f;
+                mt_yaw=(int16_t)(pl[4]|pl[5]<<8)/10.0f; if(mt_yaw<0)mt_yaw+=360; }
             i+=9+ln;
         } else i++;
     }
     if(i>0){ memmove(msp_rx,msp_rx+i,msp_rxn-i); msp_rxn-=i; }
 }
-static void msp_request_telemetry(void){ msp2(0x2000); msp1(108,0,0); msp1(106,0,0); msp1(109,0,0); msp1(110,0,0); msp1(107,0,0); msp1(121,0,0); }
+static void msp_request_telemetry(void){ msp2(0x2000); msp2(0x2220); msp1(106,0,0); msp1(109,0,0); msp1(110,0,0); msp1(107,0,0); msp1(121,0,0); }  /* 0x2220 = FULL_LOCAL_POSE: 0.1-deg attitude */
+
+static long mono_ms(void){ struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts); return ts.tv_sec*1000L+ts.tv_nsec/1000000L; }
+
+/* Real solar elevation/azimuth (deg) at (lat,lon) for a given UTC epoch — low-precision NOAA-style
+ * formulae (< ~0.5 deg), plenty for the SVS sky/lighting. Fixes the old hardcoded "always noon" sun:
+ * the sky now tracks the actual time of day, so 21:37 local shows a low/set sun, not a high one. */
+static void sun_pos(double lat, double lon, time_t utc, float*el, float*az){
+    double D2R=M_PI/180.0, jd=utc/86400.0+2440587.5, n=jd-2451545.0;
+    double L=fmod(280.460+0.9856474*n,360.0), g=fmod(357.528+0.9856003*n,360.0)*D2R;
+    double lam=(L+1.915*sin(g)+0.020*sin(2*g))*D2R, eps=(23.439-0.0000004*n)*D2R;
+    double dec=asin(sin(eps)*sin(lam)), ra=atan2(cos(eps)*sin(lam),cos(lam));
+    double gmst=fmod(18.697374558+24.06570982441908*n,24.0);
+    double lst=fmod(gmst*15.0+lon,360.0), ha=(lst-ra/D2R)*D2R, la=lat*D2R;
+    double sinel=sin(la)*sin(dec)+cos(la)*cos(dec)*cos(ha);
+    *el=(float)(asin(sinel)/D2R);
+    *az=(float)(fmod(atan2(-sin(ha),tan(dec)*cos(la)-sin(la)*cos(ha))/D2R+360.0,360.0));
+}
+
 static void build_telem(telem_packet_t*t){
     memset(t,0,sizeof *t); t->magic=FB_MAGIC_TELEM;
+    /* flightbox forwards RAW telemetry — the ground station is a relay. MSP_ATTITUDE quantizes yaw to
+     * whole degrees (roll/pitch 0.1 deg); the WASM CC de-quantizes it for display by frame-rate
+     * interpolation (client-side, as X-Plane/DCS do), not here. */
     t->roll=mt_roll; t->pitch=mt_pitch; t->yaw=mt_yaw; t->alt=mt_alt; t->gs=mt_gs; t->vs=mt_vs; t->airspeed=mt_gs;
     double clat=mt_lat?mt_lat:ORIGIN_LAT;
     t->x=(float)((mt_lon-ORIGIN_LON)*111320.0*cos(clat*M_PI/180.0));   /* ENU east  */
     t->y=(float)((mt_lat-ORIGIN_LAT)*111320.0);                        /* ENU north */
     t->batt=mt_batt; t->home_dist=mt_hdist;
     float rel=mt_hdir-mt_yaw; while(rel>180)rel-=360; while(rel<-180)rel+=360; t->home_bearing=rel;
-    t->cloud=0; t->vis=40000; t->sun_el=35; t->sun_az=160;             /* daylight sky for the SVS view */
+    t->cloud=0; t->vis=40000;
+    static time_t utc0=0; static long t0ms=0;                          /* sim clock: SIM_UTC epoch (0=use wall clock) */
+    if(!t0ms){ const char*su=getenv("SIM_UTC"); long s=su?atol(su):0; utc0=s>0?(time_t)s:time(NULL); t0ms=mono_ms(); }
+    sun_pos(ORIGIN_LAT, ORIGIN_LON, utc0+(mono_ms()-t0ms)/1000, &t->sun_el, &t->sun_az);
     t->state=(uint8_t)mt_state; t->rssi=100; static uint16_t sq; t->seq=sq++;
 }
 
@@ -271,12 +303,11 @@ int main(void){
 
     fprintf(stderr,"[flightbox] http :%d  MSP<->%s:%d (telemetry downlink + RC/WP uplink)\n",port,ac,MSP_PORT);
 
-    long tick=0;
     for(;;){
         fd_set rs; FD_ZERO(&rs); FD_SET(lfd,&rs); int mx=lfd;
         if(msp_fd>=0){ FD_SET(msp_fd,&rs); if(msp_fd>mx)mx=msp_fd; }
         for(int i=0;i<MAX_CLIENTS;i++) if(cl[i].fd>=0){ FD_SET(cl[i].fd,&rs); if(cl[i].fd>mx)mx=cl[i].fd; }
-        struct timeval tv={0,50000};   /* 50 ms tick -> ~20 Hz telemetry to the browser */
+        struct timeval tv={0,5000};    /* 5 ms select wake so the fixed-cadence telemetry timer below is smooth */
         if(select(mx+1,&rs,NULL,NULL,&tv)<0){ if(errno==EINTR)continue; perror("select"); break; }
 
         /* new connection */
@@ -289,10 +320,17 @@ int main(void){
         /* MSP replies from the aircraft */
         if(msp_fd>=0 && FD_ISSET(msp_fd,&rs)) msp_poll();
 
-        /* ~20 Hz telemetry tick: (re)connect MSP, ask iNav for telemetry, pack it, push to WS clients */
-        tick++;
-        if(msp_fd<0 && tick%20==0){ msp_fd=msp_connect(ac); }   /* retry until the aircraft is up */
-        if(msp_fd>=0){
+        /* Fixed-cadence telemetry: request + pack + push at a UNIFORM rate (env TELEM_HZ, default 50 Hz),
+         * gated on the monotonic clock — NOT once per loop iteration. The old per-iteration send both
+         * STUTTERED (the loop returns from select on any socket activity, so packets left in irregular
+         * bursts) and FLOODED iNav with hundreds of MSP request-sets/s — scheduler overload that itself
+         * degraded the flight (it forced the F-16 in-CC run to real-time). One request-set per period now. */
+        long now=mono_ms();
+        int hz=getenv("TELEM_HZ")?atoi(getenv("TELEM_HZ")):50; if(hz<1)hz=1; if(hz>200)hz=200;
+        static long last_telem=0, last_recon=0;
+        if(msp_fd<0 && now-last_recon>=1000){ last_recon=now; msp_fd=msp_connect(ac); }   /* retry ~1 Hz until up */
+        if(msp_fd>=0 && now-last_telem>=1000/hz){
+            last_telem=now;
             msp_request_telemetry(); msp_poll();
             telem_packet_t t; build_telem(&t);
             for(int i=0;i<MAX_CLIENTS;i++) if(cl[i].fd>=0&&cl[i].is_ws) ws_send(cl[i].fd,(uint8_t*)&t,sizeof t);
