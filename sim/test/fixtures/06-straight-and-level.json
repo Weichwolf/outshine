@@ -1,0 +1,82 @@
+{
+  "area": "06-straight-and-level",
+  "title": "Ex6 Straight & Level flight (ANGLE hold)",
+  "aircraft": [
+    "c172",
+    "sgs233",
+    "f16"
+  ],
+  "setup": {
+    "spawn_alt_agl": 300,
+    "speed": "cruise",
+    "hdg": 90
+  },
+  "arm": true,
+  "duration_s": 30,
+  "script": [
+    {
+      "t": 3,
+      "mode": "ANGLE",
+      "roll": 1500,
+      "pitch": 1500,
+      "thr": 1500
+    }
+  ],
+  "asserts": [
+    {
+      "metric": "armed",
+      "gt": 0.5,
+      "desc": "iNav arms from airborne hold"
+    },
+    {
+      "metric": "roll",
+      "abs_lt": 8,
+      "desc": "wings level (|roll| < 8 deg)"
+    },
+    {
+      "metric": "vs",
+      "abs_lt": 3,
+      "desc": "altitude roughly held (|vs| < 3 m/s)"
+    },
+    {
+      "metric": "pitch",
+      "min": -8,
+      "max": 14,
+      "desc": "pitch attitude sane"
+    },
+    {
+      "metric": "gs",
+      "gt": 8,
+      "desc": "maintains flying speed"
+    },
+    {
+      "metric": "gps_alt",
+      "gt": 300,
+      "desc": "stays airborne (GPS alt > 300 m ASL)"
+    },
+    {
+      "metric": "fix",
+      "min": 2,
+      "desc": "GPS 3D fix held"
+    },
+    {
+      "metric": "sats",
+      "min": 5,
+      "desc": "GPS satellites tracked"
+    },
+    {
+      "metric": "hdg_change",
+      "abs_lt": 18,
+      "desc": "heading roughly held wings-level",
+      "window": 10
+    },
+    {
+      "metric": "roll",
+      "abs_lt": 20,
+      "aircraft": [
+        "f16"
+      ],
+      "desc": "f16 wings level (looser)"
+    }
+  ]
+}
