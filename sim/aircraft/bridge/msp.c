@@ -18,6 +18,7 @@ int t_estalt=0;                  /* iNav estimated altitude, cm (MSP_ALTITUDE) *
 double t_inav_lat=0,t_inav_lon=0;
 uint32_t t_armflags=0; uint32_t t_modeflags=0;   /* MSP_STATUS flightModeFlags: iNavs bestätigte aktive Modi */
 int t_navstate=0, t_navwp=0, t_naverr=0;         /* MSP_NAV_STATUS: iNavs echter Nav-Zustand + aktiver WP */
+int t_servo[16]={0}, t_nservo=0;                 /* MSP_SERVO: iNavs Mixer-Servo-Ausgaenge (us) — Aux-Aktor-Tap */
 static uint8_t boxids[64]; static int nboxids=0;
 int msp_connect(void){
     int fd=socket(AF_INET,SOCK_STREAM,0);
@@ -51,6 +52,7 @@ void msp_poll(void){
             else if(cmd==110&&ln>=1){ t_batt10=pl[0]; }
             else if(cmd==101&&ln>=10) memcpy(&t_modeflags,pl+6,4);
             else if(cmd==121&&ln>=5){ t_navstate=pl[1]; t_navwp=pl[3]; t_naverr=pl[4]; }   /* MSP_NAV_STATUS */
+            else if(cmd==103){ int ns=ln/2; if(ns>16)ns=16; for(int s=0;s<ns;s++) t_servo[s]=pl[2*s]|pl[2*s+1]<<8; t_nservo=ns; }  /* MSP_SERVO */
             else if(cmd==118&&ln>=18){ int32_t la,lo,al; memcpy(&la,pl+2,4); memcpy(&lo,pl+6,4); memcpy(&al,pl+10,4);
                 fprintf(stderr,"[xp_bridge] iNav stored WP%d: %.5f,%.5f alt=%.0fm action=%d flag=0x%02x\n",
                         pl[0], la/1e7, lo/1e7, al/100.0, pl[1], pl[ln-1]); }

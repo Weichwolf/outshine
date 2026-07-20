@@ -28,6 +28,10 @@ int  fb_jsbsim_init(const char *models_root, const char *ac,
 /* iNav mixer outputs, normalized: roll/pitch/yaw in [-1,1], thr in [0,1]. */
 void fb_jsbsim_set_controls(double in_roll, double in_pitch, double in_yaw, double in_thr);
 
+/* Auxiliary actuators driven by iNav servos read over MSP (gear/flap/speedbrake), each in [0,1];
+ * pass a negative value to leave that control at the FDM default (control not mapped by the model). */
+void fb_jsbsim_set_aux(double gear, double flap, double speedbrake);
+
 /* Steady wind (m/s, north/east). */
 void fb_jsbsim_set_wind(double wind_n, double wind_e);
 

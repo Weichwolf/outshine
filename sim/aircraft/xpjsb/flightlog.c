@@ -18,8 +18,9 @@ void xpjsb_flightlog(long tick, double dt){
     /* nav state names (MSP_NAV_STATUS): 0 none,1 rth,2 poshold,3 wp,4 proc-land,5 wp-in-progress… — print raw+mode */
     fprintf(stderr,
         "[flt] t=%lds %.5f,%.5f alt%.0fg/%.0fa hdg%03.0f pit%+.1f rol%+.1f as%.1f gs%.1f vs%+.1f "
-        "| iNav navst=%d wp=%d home d%d dir%d | modes=0x%x thr%.2f fix%d/%d bad%ld\n",
+        "| iNav navst=%d wp=%d home d%d dir%d | modes=0x%x thr%.2f fix%d/%d bad%ld srv%d,%d,%d,%d,%d\n",
         tick/(long)lround(1.0/dt), S.lat, S.lon, S.agl, S.elev, hdg, S.pitch, S.roll,
         S.speed, S.gs, S.vy, t_navstate, t_navwp, t_inav_dth, t_inav_dir,
-        t_modeflags, S.in_thr, t_fix, t_sats, xpjsb_actuators_bad_count());
+        t_modeflags, S.in_thr, t_fix, t_sats, xpjsb_actuators_bad_count(),
+        t_servo[0], t_servo[1], t_servo[2], t_servo[3], t_servo[4]);
 }

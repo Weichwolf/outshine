@@ -1,68 +1,35 @@
-# iNav SITL config for the FlightBox X-Plane FDM bridge (CLI, over TCP 5760).
-# Apply once, `save`, then run SITL with --sim=xp + xp_bridge.
-#   SITL.elf --path=eeprom.bin --sim=xp --simip=127.0.0.1 --simport=49000 \
-#            --chanmap=M01-01,S01-02,S02-03,S03-04
+# iNav SITL SHARED BASE for the FlightBox X-Plane FDM bridge (CLI, over TCP 5760).
+# This file carries ONLY what every aircraft shares: sensors, receiver/protocol, arming safety,
+# failsafe, and the flight-mode channel map. Everything airframe-specific — servo/motor MIX, control
+# surfaces, flap/gear policy, and the NAV speed/climb/loiter tuning — lives in the model plugin
+# (models/<name>/inav.diff), applied on top by make-eeprom.sh. A jet and a glider share this base but
+# nothing of their control config. Apply order: inav-config.txt, then models/<ac>/inav.diff, then save.
 #
-# Verified (headless via MSP, iNav 9.1.0): arms, ANGLE holds attitude,
-# GPS 3D fix, RC-loss -> failsafe NAV-RTH returns to the home area + loiters.
+#   SITL.elf --path=eeprom.bin --sim=xp --simip=127.0.0.1 --simport=49000 --chanmap=<from profile.env>
 
 # --- platform + receiver ---
 set platform_type = AIRPLANE
 set receiver_type = MSP
-# Truth-attitude flies stable (attitude given, no AHRS lag); the mag need only be PRESENT so
-# navIsHeadingUsable=true (SENSOR_MAG path) -> native NAV works, vanilla iNav, no patch, no --useimu.
+
+# --- sensors: truth-attitude flies stable (attitude given, no AHRS lag); the mag need only be PRESENT
+#     so navIsHeadingUsable=true (SENSOR_MAG path) -> native NAV works, vanilla iNav, no patch, no --useimu.
 set mag_hardware = FAKE
-
-# --- servo mixer: S1<-roll, S2<-pitch, S3<-yaw (chanmap maps to X-Plane yoke) ---
-mmix 0 1.000 0.000 0.000 0.000
-smix reset
-smix 0 1 0 100 0 -1
-smix 1 2 1 100 0 -1
-smix 2 3 2 100 0 -1
-
-# --- GPS (SITL fake driver, fed by the bridge's inav_xitl/gps datarefs) ---
 feature GPS
 set gps_provider = FAKE
-# Airspeed sensor OFF in the base (motor-glider default): measured to destabilise the slow minisgs_e
-# launch, and it did NOT rescue the F-16 climb-stall (that is a climb-energy problem). Aircraft that
-# want it enable feature PITOT + pitot_hardware=FAKE in their own models/<ac>/inav.diff (§6).
-set nav_extra_arming_safety = ALLOW_BYPASS   ; arm with YAW stick HIGH to bypass
 
-# --- failsafe -> RTH ---
+# --- arming safety + failsafe (shared policy) ---
+set nav_extra_arming_safety = ALLOW_BYPASS   ; arm with YAW stick HIGH to bypass NAVIGATION_UNSAFE
 set failsafe_procedure = RTH
 set failsafe_delay = 5
 
-# --- Autonomous mission = NAV RTH used as "climb & loiter over home" ---
-# Default flight (no stick, and on RC-loss): climb to nav_rth_altitude and circle
-# over home at nav_fw_loiter_radius ("kreist über mir wie ein Vogel", inside the
-# ~1 km video/antenna cone). climb_first=OFF so it climbs while circling instead of
-# flying a straight climb-out our FDM can't finish. Loiter radius maxes at 300 m in iNav.
-set nav_rth_climb_first = ON_FW_SPIRAL   ; spiral-climb to RTH altitude over home, then loiter
-set nav_rth_allow_landing = NEVER
-set nav_rth_alt_mode = AT_LEAST         ; always climb to at least the RTH altitude
-set nav_rth_altitude = 25000            ; 250 m above home — modest climb the motor-glider can hold
-set nav_fw_loiter_radius = 30000        ; 300 m orbit (tight enough to read as "circling home")
-set nav_min_rth_distance = 100          ; 1 m: don't treat launch-at-home as "already there"
-set nav_fw_cruise_thr = 1550
-set nav_fw_auto_climb_rate = 150        ; 1.5 m/s gentle climb — 3 m/s stalled the weak motor-glider (porpoise)
-# NB (measured): nav_fw_bank_angle=22 + control_smoothness=6 did NOT stop the motor-glider NAV-WP
-# divergence — limiting bank made iNav lean HARDER on the rudder for the WP heading turn (yaw->0.996).
-# The motor-glider NAV-WP yaw authority is a per-aircraft tuning item; left at defaults.
-
-# --- modes: ARM=AUX1(pid0), ANGLE=AUX2(pid1), NAV RTH=AUX3(pid10), NAV WP=AUX4(pid28) ---
-# NB: aux uses iNav permanentId, NOT the box enum. pid 8 = CAMSTAB (no-op) was the bug;
-# NAV RTH is pid 10, NAV WP is pid 28 (fc_msp_box.c).
+# --- flight-mode channel map: ARM=AUX1(pid0), ANGLE=AUX2(pid1), NAV RTH=AUX3(pid10), NAV WP=AUX4(pid28).
+#     aux uses iNav permanentId, NOT the box enum (NAV RTH=10, NAV WP=28, fc_msp_box.c). Shared by all. ---
 aux 0 0 0 1700 2100
 aux 1 1 1 1700 2100
 aux 2 10 2 1700 2100
 aux 3 28 3 1700 2100
 
-# --- test conveniences ---
+# --- test convenience ---
 set small_angle = 180
 
 save
-
-# Arming sequence (MSP_SET_RAW_RC, AETR map, channels 0..):
-#   throttle(idx2)=1000 low, hold ~3s (gyro cal), then
-#   YAW(idx3)=2000 HIGH + AUX1(idx4)=2000  -> arms (nav bypass)
-#   then yaw->1500, AUX2(idx5)=2000 (ANGLE), throttle up = launch.

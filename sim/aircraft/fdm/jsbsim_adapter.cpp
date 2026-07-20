@@ -78,6 +78,13 @@ extern "C" void fb_jsbsim_set_controls(double roll, double pitch, double yaw, do
   g_fdm->SetPropertyValue("fcs/throttle-cmd-norm", g_thr_applied);
 }
 
+extern "C" void fb_jsbsim_set_aux(double gear, double flap, double speedbrake) {
+  if (!g_fdm) return;   /* negative = not mapped by this model -> leave the FDM default untouched */
+  if (gear       >= 0.0) g_fdm->SetPropertyValue("gear/gear-cmd-norm",     gear);        /* 1=down, 0=up */
+  if (flap       >= 0.0) g_fdm->SetPropertyValue("fcs/flap-cmd-norm",      flap);
+  if (speedbrake >= 0.0) g_fdm->SetPropertyValue("fcs/speedbrake-cmd-norm", speedbrake);
+}
+
 extern "C" void fb_jsbsim_set_wind(double wind_n, double wind_e) {
   if (!g_fdm) return;
   g_fdm->SetPropertyValue("atmosphere/wind-north-fps", wind_n / FT);

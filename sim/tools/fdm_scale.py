@@ -34,12 +34,13 @@ MODELS = {
         prop_in=("froude_len", 75.0), prop_ixx=("froude_i", 1.67))),
     "f16": dict(src="f16", n=1.0/6.0, engine=dict(
         kind="turbine", milthrust_lbf=("froude_f", 17800.0), maxthrust_lbf=("froude_f", 29000.0))),
-    # motor-glider slot: vanilla Schweizer SGS 1-26 sailplane (consistent geometry, AR 10, validated aero)
-    # scaled 1:5 -> 2.44 m / 1.6 kg, plus an emitted self-launch electric motor. The vanilla `minisgs` was
+    # motor-glider slot: vanilla Schweizer SGS 2-33 sailplane (2-seat trainer, consistent geometry,
+    # validated aero) scaled 1:5 -> 3.1 m / 2.2 kg, plus an emitted self-launch electric motor. Chosen
+    # over the SGS 1-26 for its higher wing loading (less floaty in NAV). The vanilla `minisgs` was
     # dropped: its wingarea (42 ft^2) is ~9x its geometric area -> ~1/3 cruise speed, too floaty for NAV.
-    "sgs126": dict(src="sgs126", n=0.2, engine=dict(
-        kind="electric", power_W=("fixed", 300.0),
-        prop_in=("fixed", 12.0), prop_ixx=("fixed", 2e-4))),
+    "sgs233": dict(src="sgs233", n=0.2, engine=dict(
+        kind="electric", power_W=("fixed", 350.0),
+        prop_in=("fixed", 13.0), prop_ixx=("fixed", 2.5e-4))),
 }
 
 # non-dimensional 2-blade fixed-pitch prop curve (validated JSBSim prop_generic2f, Ct/Cp vs advance

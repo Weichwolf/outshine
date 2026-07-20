@@ -11,6 +11,11 @@ int  xpjsb_actuator_dref(const char *dref, float value);
 /* Push the current held command into JSBSim (throttle slewed). Call once per world step. */
 void xpjsb_actuators_apply(double dt);
 
+/* Apply iNav's AUXILIARY servo outputs (read over MSP_SERVO) to the FDM per the model's AUXMAP env
+ * ("gear:<idx>,flap:<idx>,speedbrake:<idx>", servo index into MSP_SERVO). Gear polarity is inverted so
+ * an un-commanded channel = gear DOWN. The 3 primary surfaces stay on the fast --sim=xp path. */
+void xpjsb_aux_apply(void);
+
 /* Count of rejected out-of-range control samples (diagnostic). */
 long xpjsb_actuators_bad_count(void);
 

@@ -1,0 +1,20 @@
+# ===== sgs233 CONTROL CONFIG (model plugin) — Schweizer SGS 2-33 motor-glider, Froude n=0.20 =====
+# Channels (chanmap in profile.env): M01=motor(self-launch), S01=aileron(roll), S02=elevator(pitch), S03=rudder(yaw)
+# Surfaces: conventional 3-axis. Gear: FIXED (glider monowheel/skid). Spoilers/speedbrake exist in the
+# FDM (glide-path control); CC-commandable via the bridge MSP_SERVO aux path (pending).
+mmix 0 1.000 0.000 0.000 0.000
+smix reset
+smix 0 1 0 100 0 -1                  ; S1 <- roll
+smix 1 2 1 100 0 -1                  ; S2 <- pitch
+smix 2 3 2 100 0 -1                  ; S3 <- yaw
+# ----- NAV tuning: probe (closed-loop ANGLE) level at thr 0.30 -> 22 m/s, slight descent, roll <1 -----
+set nav_fw_cruise_thr = 1300
+set nav_fw_min_thr = 1200
+set nav_fw_max_thr = 1800
+set nav_fw_climb_angle = 6
+set nav_fw_dive_angle = 12
+set nav_fw_bank_angle = 22
+set nav_fw_control_smoothness = 5
+set nav_fw_loiter_radius = 13000     ; 130 m orbit
+set nav_rth_altitude = 9000          ; 90 m RTH climb
+set fw_reference_airspeed = 2200

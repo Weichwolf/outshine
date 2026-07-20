@@ -1,4 +1,16 @@
-# f16 (Froude n=0.167) NAV tuning. Fast model jet, cruise ~55 m/s. iNav is the FLCS (fbw override).
+# ===== f16 CONTROL CONFIG (model plugin) — General Dynamics F-16, Froude n=0.167 =====
+# Channels (chanmap in profile.env): M01=motor(turbine), S01=aileron(roll), S02=elevator(pitch), S03=rudder(yaw)
+# Surfaces: relaxed-stability, iNav is the FLCS (FBW override in JSBSim). Trailing-edge flaps AUTO-schedule
+# in the FDM below 250 kts (always deployed at model speed). Gear: RETRACTABLE — must retract after
+# takeoff; CC-commandable via the bridge MSP_SERVO aux path (pending). Speedbrake likewise (aux).
+mmix 0 1.000 0.000 0.000 0.000
+smix reset
+smix 0 1 0 100 0 -1                  ; S1 <- roll
+smix 1 2 1 100 0 -1                  ; S2 <- pitch
+smix 2 3 2 100 0 -1                  ; S3 <- yaw
+smix 3 4 15 100 0 -1                 ; S4 <- INPUT_RC_CH9 (AUX5) = GEAR; bridge reads MSP_SERVO[4] -> FDM
+                                     ; gear (AUXMAP=gear:4). CC: AUX5 low=down (default), high=retract.
+# ----- NAV tuning: fast model jet, cruise ~55 m/s -----
 set nav_fw_cruise_thr = 1500
 set nav_fw_min_thr = 1300
 set nav_fw_max_thr = 2000
@@ -6,4 +18,6 @@ set nav_fw_climb_angle = 12
 set nav_fw_dive_angle = 15
 set nav_fw_bank_angle = 35
 set nav_fw_control_smoothness = 3
+set nav_fw_loiter_radius = 25000     ; 250 m orbit (jet turn radius)
+set nav_rth_altitude = 16000         ; 160 m RTH climb
 set fw_reference_airspeed = 5500

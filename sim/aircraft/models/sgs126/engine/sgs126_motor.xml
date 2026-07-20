@@ -1,6 +1,0 @@
-<?xml version="1.0"?>
-<!-- sgs126 model electric motor. Froude-scaled shaft power = source_max * n^3.5 (n=0.2) = 300 W.
-     FGElectric delivers <power>*throttle to the prop; the prop finds its own equilibrium RPM. -->
-<electric_engine name="sgs126_motor">
-  <power unit="WATTS"> 300 </power>
-</electric_engine>

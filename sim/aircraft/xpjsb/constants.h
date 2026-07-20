@@ -31,6 +31,8 @@
 #define XPJSB_YOKE_MAX_ABS        1.05f  /* |roll/pitch/yaw ratio| above this is a glitch, not a command */
 #define XPJSB_THR_MIN            -0.05f
 #define XPJSB_THR_MAX             1.05f
+#define XPJSB_PWM_MIN             1000   /* servo PWM range (us) for aux-actuator normalization */
+#define XPJSB_PWM_MAX             2000
 
 /* --- GPS (fed to iNav; fix dynamics, not wire format) --- */
 #define XPJSB_GPS_FIX_3D          2      /* iNav enum: GPS_FIX_3D == 2, NOT 3 */

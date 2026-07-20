@@ -31,6 +31,7 @@ int main(void){
         xpjsb_xp_recv(xp);                               /* iNav's control DREFs -> actuators */
         int armed = (t_armflags & XPJSB_ARMED_FLAG) != 0;
         xpjsb_actuators_apply(dt);                       /* held command -> JSBSim inputs */
+        xpjsb_aux_apply();                               /* iNav aux servos (MSP_SERVO) -> FDM gear/flap/sb */
         world_step(dt, armed);                           /* advance physics (held until armed) */
         xpjsb_xp_send(xp);                               /* sensors -> iNav */
 
@@ -43,6 +44,7 @@ int main(void){
                 case 8:  msp1(121,0,0); break;           /* MSP_NAV_STATUS -> nav state / active wp */
                 case 12: msp1(107,0,0); break;           /* MSP_COMP_GPS -> dist/dir to home */
                 case 16: msp1(106,0,0); break;           /* MSP_RAW_GPS -> fix/sats */
+                case 2:  msp1(103,0,0); break;           /* MSP_SERVO -> aux-actuator servo outputs */
             }
         }
 
