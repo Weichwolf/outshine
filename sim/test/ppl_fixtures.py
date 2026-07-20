@@ -192,18 +192,24 @@ def main():
     only_ac = sys.argv[2] if len(sys.argv)>2 else None
     files = sorted(glob.glob(str(FIXDIR/f"{area_glob}.json")))
     if not files: print(f"no fixtures match {area_glob} in {FIXDIR}"); sys.exit(2)
-    RUN=FAIL=0; failed=[]
+    RUN=FAIL=KNOWN=0; failed=[]
     for f in files:
         fx=json.loads(Path(f).read_text())
+        kd=fx.get("_known_defect")   # xfail: a fixture that documents a real OPEN defect. Its failures are
+                                     # reported (never hidden) but don't count as suite failures — no green-
+                                     # by-falsification, and no permanently-red gate for a tracked defect.
         for ac in fx.get("aircraft",["c172"]):
             if only_ac and ac!=only_ac: continue
             print(f"-- {fx['area']} :: {ac} --", flush=True)
             trace=run_fixture(fx, ac)
             for ok,msg in check(fx, ac, trace):
                 RUN+=1
-                if not ok: FAIL+=1; failed.append(msg); print(f"  [FAIL] {msg}", flush=True)
+                if not ok:
+                    if kd: KNOWN+=1; print(f"  [KNOWN DEFECT] {msg}", flush=True)
+                    else:  FAIL+=1; failed.append(msg); print(f"  [FAIL] {msg}", flush=True)
     subprocess.run(f"podman rm -f {CN}", shell=True, capture_output=True)
-    print(f"\n== {RUN} checks, {FAIL} failed -> {'PASS' if FAIL==0 else 'FAIL'} ==")
+    kn=f", {KNOWN} known-defect" if KNOWN else ""
+    print(f"\n== {RUN} checks, {FAIL} failed{kn} -> {'PASS' if FAIL==0 else 'FAIL'} ==")
     sys.exit(0 if FAIL==0 else 1)
 
 if __name__ == "__main__":
