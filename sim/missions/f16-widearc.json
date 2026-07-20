@@ -1,0 +1,44 @@
+{
+  "name": "PPL Nav \u2014 F-16, EDDF weiter Bogen (wide arc)",
+  "aircraft": "f16",
+  "takeoff": {
+    "airport": "EDDF",
+    "runway": "07C"
+  },
+  "waypoints": [
+    {
+      "lat": 50.05295,
+      "lon": 8.61983,
+      "alt_agl": 600
+    },
+    {
+      "lat": 50.02395,
+      "lon": 8.70191,
+      "alt_agl": 600
+    },
+    {
+      "lat": 49.96903,
+      "lon": 8.75079,
+      "alt_agl": 600
+    }
+  ],
+  "land": {
+    "airport": "EDDF",
+    "runway": "07C"
+  },
+  "procedure": {
+    "gear_retract": true,
+    "speedbrake": true,
+    "angle_hold_alt": 580,
+    "angle_climb_pitch": 1580
+  },
+  "success": {
+    "takeoff_agl_m": 50,
+    "capture_radius_m": 1500
+  },
+  "abort": {
+    "timeout_s": 700,
+    "max_agl_m": 2600,
+    "on_nan": true
+  }
+}

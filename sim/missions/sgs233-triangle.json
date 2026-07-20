@@ -1,0 +1,42 @@
+{
+  "name": "PPL Nav \u2014 Motorsegler SGS 2-33, EDNY Dreieck",
+  "aircraft": "sgs233",
+  "takeoff": {
+    "airport": "EDNY",
+    "runway": "06"
+  },
+  "waypoints": [
+    {
+      "lat": 47.67946,
+      "lon": 9.54736,
+      "alt_agl": 90
+    },
+    {
+      "lat": 47.65437,
+      "lon": 9.56231,
+      "alt_agl": 110
+    },
+    {
+      "lat": 47.69175,
+      "lon": 9.52467,
+      "alt_agl": 80
+    }
+  ],
+  "land": {
+    "airport": "EDNY",
+    "runway": "24"
+  },
+  "procedure": {
+    "gear_retract": false,
+    "angle_hold_alt": 55
+  },
+  "success": {
+    "takeoff_agl_m": 50,
+    "capture_radius_m": 300
+  },
+  "abort": {
+    "timeout_s": 340,
+    "max_agl_m": 1000,
+    "on_nan": true
+  }
+}

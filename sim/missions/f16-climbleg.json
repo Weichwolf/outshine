@@ -1,0 +1,44 @@
+{
+  "name": "PPL Nav \u2014 F-16, EDDF sanfter Steilkurs (climb leg)",
+  "aircraft": "f16",
+  "takeoff": {
+    "airport": "EDDF",
+    "runway": "07C"
+  },
+  "waypoints": [
+    {
+      "lat": 50.05452,
+      "lon": 8.62638,
+      "alt_agl": 500
+    },
+    {
+      "lat": 50.03749,
+      "lon": 8.71627,
+      "alt_agl": 650
+    },
+    {
+      "lat": 49.98912,
+      "lon": 8.77708,
+      "alt_agl": 650
+    }
+  ],
+  "land": {
+    "airport": "EDDF",
+    "runway": "07C"
+  },
+  "procedure": {
+    "gear_retract": true,
+    "speedbrake": true,
+    "angle_hold_alt": 580,
+    "angle_climb_pitch": 1580
+  },
+  "success": {
+    "takeoff_agl_m": 50,
+    "capture_radius_m": 1600
+  },
+  "abort": {
+    "timeout_s": 720,
+    "max_agl_m": 2800,
+    "on_nan": true
+  }
+}

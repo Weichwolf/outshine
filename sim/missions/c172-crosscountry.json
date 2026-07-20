@@ -1,0 +1,41 @@
+{
+  "name": "PPL Nav \u2014 C172, EDDH \u00dcberland-Ausflug (out & back)",
+  "aircraft": "c172",
+  "takeoff": {
+    "airport": "EDDH",
+    "runway": "05"
+  },
+  "waypoints": [
+    {
+      "lat": 53.64898,
+      "lon": 10.03842,
+      "alt_agl": 200
+    },
+    {
+      "lat": 53.64555,
+      "lon": 10.09203,
+      "alt_agl": 220
+    },
+    {
+      "lat": 53.64055,
+      "lon": 10.02948,
+      "alt_agl": 160
+    }
+  ],
+  "land": {
+    "airport": "EDDH",
+    "runway": "05"
+  },
+  "procedure": {
+    "gear_retract": false
+  },
+  "success": {
+    "takeoff_agl_m": 50,
+    "capture_radius_m": 350
+  },
+  "abort": {
+    "timeout_s": 360,
+    "max_agl_m": 1200,
+    "on_nan": true
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "PPL Nav \u2014 C172, EDDH Dreieck (Triangle)",
+  "aircraft": "c172",
+  "takeoff": {
+    "airport": "EDDH",
+    "runway": "05"
+  },
+  "waypoints": [
+    {
+      "lat": 53.63833,
+      "lon": 10.02291,
+      "alt_agl": 150
+    },
+    {
+      "lat": 53.60526,
+      "lon": 10.04405,
+      "alt_agl": 180
+    },
+    {
+      "lat": 53.652,
+      "lon": 9.98473,
+      "alt_agl": 150
+    }
+  ],
+  "land": {
+    "airport": "EDDH",
+    "runway": "23"
+  },
+  "procedure": {
+    "gear_retract": false
+  },
+  "success": {
+    "takeoff_agl_m": 50,
+    "capture_radius_m": 300
+  },
+  "abort": {
+    "timeout_s": 320,
+    "max_agl_m": 1100,
+    "on_nan": true
+  }
+}

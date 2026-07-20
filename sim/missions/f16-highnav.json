@@ -1,0 +1,44 @@
+{
+  "name": "PPL Nav \u2014 F-16, EDDF Hochnavigation (high nav)",
+  "aircraft": "f16",
+  "takeoff": {
+    "airport": "EDDF",
+    "runway": "07C"
+  },
+  "waypoints": [
+    {
+      "lat": 50.05139,
+      "lon": 8.61328,
+      "alt_agl": 700
+    },
+    {
+      "lat": 50.0419,
+      "lon": 8.68778,
+      "alt_agl": 700
+    },
+    {
+      "lat": 50.00863,
+      "lon": 8.75525,
+      "alt_agl": 700
+    }
+  ],
+  "land": {
+    "airport": "EDDF",
+    "runway": "07C"
+  },
+  "procedure": {
+    "gear_retract": true,
+    "speedbrake": true,
+    "angle_hold_alt": 580,
+    "angle_climb_pitch": 1580
+  },
+  "success": {
+    "takeoff_agl_m": 50,
+    "capture_radius_m": 1500
+  },
+  "abort": {
+    "timeout_s": 700,
+    "max_agl_m": 2700,
+    "on_nan": true
+  }
+}
