@@ -36,7 +36,7 @@
     "capture_radius_m": 300
   },
   "abort": {
-    "timeout_s": 300,
+    "timeout_s": 700,
     "max_agl_m": 900,
     "on_nan": true
   }

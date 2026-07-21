@@ -91,7 +91,7 @@ typedef struct {
    from the EXTRACTED inav_core.h; the rate loop itself is too firmware-coupled to extract verbatim. iNav's
    low-P/high-FF gains (inav.diff) are what stabilise a relaxed-stability airframe. */
 #define PIDSUM_LIMIT 500.0                   /* fw_pidsum_limit default; roll/pitch servo saturates here */
-#define FW_RATE_DAMP 0.8                     /* intrinsic rate damping the extracted PID lacks vs iNav's real rate loop (see fw_inner) */
+#define FW_RATE_DAMP 0.55                     /* intrinsic rate damping the extracted PID lacks vs iNav's real rate loop (see fw_inner) */
 typedef struct { double iterm, lpf; int lpf_init; } FwAxis;
 static double fw_inner(FwAxis*s,double angle_cmd,double attitude,double gyro,double P,double I,double D,double FF,double pLevel,double iLevel,double maxRate,double dt){
     double angleErr=angle_cmd-attitude;
