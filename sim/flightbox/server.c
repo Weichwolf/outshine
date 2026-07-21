@@ -60,7 +60,7 @@ static void b64(const uint8_t*in,int n,char*out){
 }
 
 /* ---------- client state ---------- */
-typedef struct { int fd; int is_ws; uint8_t rx[8192]; int rxn; } client_t;
+typedef struct { int fd; int is_ws; int is_proxy; uint8_t rx[8192]; int rxn; } client_t;
 static client_t cl[MAX_CLIENTS];
 
 static void set_nonblock(int fd){ int f=fcntl(fd,F_GETFL,0); fcntl(fd,F_SETFL,f|O_NONBLOCK); }
@@ -201,7 +201,12 @@ static void msp_setrc(const uint16_t*rc,int n){
 static void msp_poll(void){
     if(msp_fd<0) return;
     ssize_t n;
-    while((n=recv(msp_fd,msp_rx+msp_rxn,sizeof msp_rx-msp_rxn,0))>0){ msp_rxn+=n; if(msp_rxn>(int)sizeof msp_rx-800)msp_rxn=0; }
+    while((n=recv(msp_fd,msp_rx+msp_rxn,sizeof msp_rx-msp_rxn,0))>0){
+        /* fan the RAW iNav downlink out to every connected headless-CC (MSP-proxy) client: the hub
+         * multiplexes one iNav link to arbitrarily many command centers, all reading the same stream. */
+        for(int c=0;c<MAX_CLIENTS;c++) if(cl[c].fd>=0&&cl[c].is_proxy) send(cl[c].fd,msp_rx+msp_rxn,n,MSG_NOSIGNAL);
+        msp_rxn+=n; if(msp_rxn>(int)sizeof msp_rx-800)msp_rxn=0;
+    }
     if(n==0 || (n<0 && errno!=EAGAIN && errno!=EWOULDBLOCK)){   /* aircraft went away (test restart) -> drop + reconnect */
         close(msp_fd); msp_fd=-1; msp_rxn=0; return;
     }
@@ -311,19 +316,29 @@ int main(void){
     listen(lfd,8); set_nonblock(lfd);
     for(int i=0;i<MAX_CLIENTS;i++) cl[i].fd=-1;
 
-    fprintf(stderr,"[flightbox] http :%d  MSP<->%s:%d (telemetry downlink + RC/WP uplink)\n",port,ac,MSP_PORT);
+    /* Raw-MSP proxy listen: headless CC clients (tests, CLI) connect here and speak MSP through the hub.
+     * The hub forwards their frames to iNav and fans iNav's downlink back to all of them -> N command
+     * centers share one iNav link. No fixed binding: a CC connects/leaves anytime while flightbox runs. */
+    int pport=getenv("MSP_PROXY_PORT")?atoi(getenv("MSP_PROXY_PORT")):5766;
+    int pfd=socket(AF_INET,SOCK_STREAM,0); setsockopt(pfd,SOL_SOCKET,SO_REUSEADDR,&one,sizeof one);
+    struct sockaddr_in pa={0}; pa.sin_family=AF_INET; pa.sin_addr.s_addr=INADDR_ANY; pa.sin_port=htons(pport);
+    if(bind(pfd,(struct sockaddr*)&pa,sizeof pa)<0){ perror("proxy bind"); return 1; }
+    listen(pfd,8); set_nonblock(pfd);
+
+    fprintf(stderr,"[flightbox] http :%d  msp-proxy :%d  MSP<->%s:%d (telemetry downlink + full command uplink)\n",port,pport,ac,MSP_PORT);
 
     for(;;){
-        fd_set rs; FD_ZERO(&rs); FD_SET(lfd,&rs); int mx=lfd;
+        fd_set rs; FD_ZERO(&rs); FD_SET(lfd,&rs); FD_SET(pfd,&rs); int mx=lfd>pfd?lfd:pfd;
         if(msp_fd>=0){ FD_SET(msp_fd,&rs); if(msp_fd>mx)mx=msp_fd; }
         for(int i=0;i<MAX_CLIENTS;i++) if(cl[i].fd>=0){ FD_SET(cl[i].fd,&rs); if(cl[i].fd>mx)mx=cl[i].fd; }
         struct timeval tv={0,5000};    /* 5 ms select wake so the fixed-cadence telemetry timer below is smooth */
         if(select(mx+1,&rs,NULL,NULL,&tv)<0){ if(errno==EINTR)continue; perror("select"); break; }
 
-        /* new connection */
-        if(FD_ISSET(lfd,&rs)){
-            int fd=accept(lfd,NULL,NULL);
-            if(fd>=0){ set_nonblock(fd); int i; for(i=0;i<MAX_CLIENTS;i++) if(cl[i].fd<0){ cl[i].fd=fd; cl[i].is_ws=0; cl[i].rxn=0; break; }
+        /* new connection (HTTP/WS on lfd, raw-MSP-proxy CC on pfd) */
+        for(int pass=0;pass<2;pass++){
+            int listenfd=pass?pfd:lfd; if(!FD_ISSET(listenfd,&rs)) continue;
+            int fd=accept(listenfd,NULL,NULL);
+            if(fd>=0){ set_nonblock(fd); int i; for(i=0;i<MAX_CLIENTS;i++) if(cl[i].fd<0){ cl[i].fd=fd; cl[i].is_ws=0; cl[i].is_proxy=pass; cl[i].rxn=0; break; }
                 if(i==MAX_CLIENTS) close(fd); }
         }
 
@@ -352,7 +367,8 @@ int main(void){
             ssize_t n=recv(cl[i].fd,cl[i].rx+cl[i].rxn,sizeof cl[i].rx-cl[i].rxn,0);
             if(n<=0){ close(cl[i].fd); cl[i].fd=-1; continue; }
             cl[i].rxn+=n;
-            if(!cl[i].is_ws){ int r=http_handle(&cl[i]); if(r<0){ close(cl[i].fd); cl[i].fd=-1; } }
+            if(cl[i].is_proxy){ if(msp_fd>=0) send(msp_fd,cl[i].rx,cl[i].rxn,MSG_NOSIGNAL); cl[i].rxn=0; }  /* CC MSP uplink -> iNav */
+            else if(!cl[i].is_ws){ int r=http_handle(&cl[i]); if(r<0){ close(cl[i].fd); cl[i].fd=-1; } }
             else ws_parse(&cl[i], on_client_msg);
         }
     }
