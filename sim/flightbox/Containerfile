@@ -45,6 +45,6 @@ RUN gcc -O2 -Wall -Icommon -Iaircraft -Iaircraft/xpjsb -c \
  && gcc -O2 -fPIC -shared aircraft/msp_bridge/fbclock.c -o /usr/local/lib/libfbclock.so -ldl \
  && gcc -O2 -Wall -Icommon flightbox/server.c -o /usr/local/bin/fbserver -lm \
  && rm -f ./*.o && chmod +x /app/SITL.elf /app/run.sh /app/start.sh
-EXPOSE 8080 5766
+EXPOSE 8080
 # start.sh brings up iNav SITL + xpjsb (background) then the hub (foreground, connects iNav on loopback).
 CMD ["/app/start.sh"]
