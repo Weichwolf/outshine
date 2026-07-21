@@ -39,7 +39,7 @@
 #define G 9.80665
 #define D2R (M_PI/180.0)
 #define R2D (180.0/M_PI)
-#define NAV_WP_RADIUS_M 15.0   /* iNav nav_wp_radius fallback: fixed-wing reaches a WP by the bearing-swing passby, so this small radius rarely fires — it just catches a WP overflown dead-centre in one discrete step */
+#define NAV_WP_RADIUS_M 1.0    /* iNav nav_wp_radius default (100 cm). Fixed-wing reaches a WP by the 100° bearing-swing passby (isWaypointReached), not this radius — so it near-never fires; kept iNav-exact. */
 #define MAXWP 32
 #define MAXGATE 512
 #define MAXTRAJ 200000
