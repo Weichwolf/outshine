@@ -26,7 +26,9 @@
     "airport": "EDNY",
     "runway": "06",
     "touchdown_cas_max_ms": 14.5,
-    "touchdown_cas_note": "SGS 2-33 motor-glider: no spoilers + motor idles at 0.45 min-throttle -> flies final near cruise, touches engine-off at ~1.8*Vs (still below its 17 m/s cruise). The 1.5*Vs default is textbook for spoiler-equipped aircraft."
+    "touchdown_cas_note": "SGS 2-33 motor-glider: no spoilers + motor idles at 0.45 min-throttle -> flies final near cruise, touches engine-off at ~1.8*Vs (still below its 17 m/s cruise). The 1.5*Vs default is textbook for spoiler-equipped aircraft.",
+    "align_tol_deg": 25,
+    "align_note": "Glider weathervanes in the engine-off, low-speed flare (little rudder authority, no nosewheel steering until rollout) -> touches slightly crabbed; straightens on the ground roll."
   },
   "procedure": {
     "gear_retract": false,
