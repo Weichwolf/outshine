@@ -100,9 +100,11 @@ export async function resolveMission(spec: string, tilesUrl = process.env.TILES_
     const [flat, flon] = destPoint(ld.lat, ld.lon, (ld.heading_deg + 180) % 360, FAF_DIST);
     waypoints.push({ lat: flat, lon: flon, altAgl: fafAgl, altRel: (ld.elev_m + fafAgl) - home, faf: true });   // pattern altitude referenced to the THRESHOLD (top of the glideslope)
   }
-  // iNav commands ≤ NAV_MAX_WAYPOINTS (15) — the FAF is a real MSP_SET_WP, so it counts. Fail-fast at the
-  // ceiling rather than silently overflow/clip on hardware (FORMAT.md §6). Author leaves room for the FAF.
-  const NAV_MAX_WAYPOINTS = 15;
+  // iNav commands ≤ NAV_MAX_WAYPOINTS — the FAF is a real MSP_SET_WP, so it counts. Fail-fast at the ceiling
+  // rather than silently overflow/clip (FORMAT.md §6). The value is what the RUNNING firmware reports via
+  // MSP_WP_GETINFO: the SITL builds with target/common.h's 120 (navigation.h's own 15 fallback is overridden),
+  // verified against fb-flightbox. A specific real-HW FC target could set it lower; keep missions well under.
+  const NAV_MAX_WAYPOINTS = 120;
   if (waypoints.length > NAV_MAX_WAYPOINTS)
     throw new Error(`mission '${m.name ?? spec}' resolves to ${waypoints.length} waypoints (incl. auto-appended FAF) > iNav's ${NAV_MAX_WAYPOINTS}-WP limit — remove ${waypoints.length - NAV_MAX_WAYPOINTS} task waypoint(s)`);
   const { vs, vc, vne, vmin } = vsVc(m.aircraft);

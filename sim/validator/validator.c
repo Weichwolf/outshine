@@ -384,7 +384,7 @@ int main(void){
         double sperr=vspeed-st.speed;
         double thr_us=m.cruise_thr + pitch_cmd*m.pitch2thr + (sperr>0? sperr*40.0 : (landing? sperr*12.0 : 0.0));  /* boost hard when slow; cut when fast ONLY on the approach — enroute let a jet fly at its natural cruise (its thrust/drag speed is well above the low iNav nav-reference airspeed; forcing it down to vc cuts power and mushes it). vne protection (below) still caps the top. */
         if(altErr_cm>3000.0) thr_us=fmax(thr_us, m.min_thr+0.7*(m.max_thr-m.min_thr));  /* sustained climb -> hold power up */
-        if(!landing && agl>30.0 && (jet||pitch_cmd>-3.0||fabs(bank_cmd)>4.0) && st.speed<m.vne*0.85) thr_us=fmax(thr_us,m.cruise_thr+0.4*(m.max_thr-m.cruise_thr)); /* airborne level/climb/turn (jet: always) below vne: hold power — a jet decays into departure at low power. NOT on the approach, where slowing is the goal. */
+        if(!landing && agl>30.0 && jet && st.speed<m.vne*0.85) thr_us=fmax(thr_us,m.cruise_thr+0.4*(m.max_thr-m.cruise_thr)); /* JETS ONLY: a relaxed-stability jet at low power decays into departure. Conventional aircraft fly iNav's real nav_fw_cruise_thr + pitch2thr law (no power floor) — the floor overpowered them ~30% above cruise and made the validator OVER-PREDICT vs real iNav/flightbox (sim-critic). */
         if(st.speed>m.vne*0.9) thr_us=fmin(thr_us,m.min_thr);          /* vne protection (the only speed ceiling) */
         thr_us=fmax(m.min_thr,fmin(m.max_thr,thr_us));
         double thr=(thr_us-1000.0)/1000.0;

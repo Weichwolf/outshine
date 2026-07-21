@@ -1,24 +1,92 @@
 {
-  "name": "Mittelland-Rundflug — C172, Grenchen LSZG (12 Wegpunkte)",
+  "name": "Mittelland-Rundflug — C172, Grenchen LSZG (12 WP, Aare-Ebene)",
   "aircraft": "c172",
-  "takeoff": { "airport": "LSZG", "runway": "06" },
+  "takeoff": {
+    "airport": "LSZG",
+    "runway": "06"
+  },
   "waypoints": [
-    { "lat": 47.185, "lon": 7.44, "alt_agl": 250 },
-    { "lat": 47.185, "lon": 7.48, "alt_agl": 250 },
-    { "lat": 47.17, "lon": 7.51, "alt_agl": 250 },
-    { "lat": 47.15, "lon": 7.51, "alt_agl": 250 },
-    { "lat": 47.135, "lon": 7.48, "alt_agl": 300 },
-    { "lat": 47.13, "lon": 7.44, "alt_agl": 300 },
-    { "lat": 47.13, "lon": 7.40, "alt_agl": 250 },
-    { "lat": 47.135, "lon": 7.36, "alt_agl": 250 },
-    { "lat": 47.15, "lon": 7.345, "alt_agl": 250 },
-    { "lat": 47.165, "lon": 7.35, "alt_agl": 250 },
-    { "lat": 47.175, "lon": 7.38, "alt_agl": 250 },
-    { "lat": 47.17, "lon": 7.43, "alt_agl": 250 }
+    {
+      "lat": 47.185,
+      "lon": 7.44,
+      "alt_agl": 200
+    },
+    {
+      "lat": 47.195,
+      "lon": 7.48,
+      "alt_agl": 200
+    },
+    {
+      "lat": 47.205,
+      "lon": 7.53,
+      "alt_agl": 200
+    },
+    {
+      "lat": 47.205,
+      "lon": 7.58,
+      "alt_agl": 200
+    },
+    {
+      "lat": 47.19,
+      "lon": 7.6,
+      "alt_agl": 200
+    },
+    {
+      "lat": 47.175,
+      "lon": 7.585,
+      "alt_agl": 200
+    },
+    {
+      "lat": 47.165,
+      "lon": 7.56,
+      "alt_agl": 200
+    },
+    {
+      "lat": 47.16,
+      "lon": 7.52,
+      "alt_agl": 200
+    },
+    {
+      "lat": 47.175,
+      "lon": 7.5,
+      "alt_agl": 200
+    },
+    {
+      "lat": 47.185,
+      "lon": 7.47,
+      "alt_agl": 200
+    },
+    {
+      "lat": 47.19,
+      "lon": 7.445,
+      "alt_agl": 200
+    },
+    {
+      "lat": 47.185,
+      "lon": 7.42,
+      "alt_agl": 200
+    }
   ],
-  "land": { "airport": "LSZG", "runway": "06" },
-  "procedure": { "gear_retract": false, "angle_hold_alt": 60, "angle_climb_pitch": 1700 },
-  "success": { "takeoff_agl_m": 40, "capture_radius_m": 300 },
-  "envelope": { "alt_floor_agl_m": 30, "alt_ceil_agl_m": 1200 },
-  "abort": { "timeout_s": 1800, "max_agl_m": 3000, "on_nan": true }
+  "land": {
+    "airport": "LSZG",
+    "runway": "06"
+  },
+  "procedure": {
+    "gear_retract": false,
+    "angle_hold_alt": 60,
+    "angle_climb_pitch": 1700
+  },
+  "success": {
+    "takeoff_agl_m": 40,
+    "capture_radius_m": 300
+  },
+  "envelope": {
+    "alt_floor_agl_m": 30,
+    "alt_ceil_agl_m": 1400
+  },
+  "abort": {
+    "timeout_s": 1800,
+    "max_agl_m": 3000,
+    "on_nan": true
+  }
 }

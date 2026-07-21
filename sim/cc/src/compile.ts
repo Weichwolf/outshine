@@ -11,7 +11,7 @@
 
 const D2R = Math.PI / 180;
 export const NAV = { WAYPOINT: 1, HOLD_TIME: 3, RTH: 4, JUMP: 6, LAND: 8 } as const;
-export const NAV_MAX_WAYPOINTS = 15;
+export const NAV_MAX_WAYPOINTS = 120;   // the running SITL firmware's real limit (target/common.h; MSP_WP_GETINFO reports 120), not navigation.h's overridden 15 fallback
 
 export interface INavWp { lat: number; lon: number; altRel: number; action: number; p1: number; p2: number; p3: number; }
 export interface CompileResult { wps: INavWp[]; truncations: string[]; }
