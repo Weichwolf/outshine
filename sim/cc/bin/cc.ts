@@ -33,7 +33,7 @@ async function vinput(spec: string): Promise<string> {
   L.push(`ld ${m.land.lat} ${m.land.lon} ${m.land.elevM} ${m.land.headingDeg}`);
   L.push(`nav ${p.climbAngle} ${p.diveAngle} ${p.bankAngle} ${p.cruise} ${p.approachLen} ${p.glideAngle}`);
   L.push(`thr ${p.cruiseThr} ${p.minThr} ${p.maxThr} ${p.pitch2thr}`);
-  L.push(`pid ${p.posZp} ${p.posZi} ${p.posZd} ${p.posZff} ${p.altResponse} ${p.maxClimbRate}`);
+  L.push(`pid ${p.posZp} ${p.posZi} ${p.posZd} ${p.posZff} ${p.altResponse} ${p.maxClimbRate} ${p.controlSmoothness}`);
   L.push(`spd ${m.vs} ${m.vc} ${m.vne} ${m.vmin}`);
   const captureR = m.raw.success?.capture_radius_m ?? 150;              // fast jets fly wide -> bigger fangradius
   const climbAlt = m.raw.procedure?.angle_hold_alt ?? 0;               // climb straight to here before WP nav (0 = brief)

@@ -62,7 +62,7 @@ typedef struct {
     RW to, ld;
     double climb,dive,bank,cruise,approach_len,glide;   /* iNav nav params */
     double cruise_thr,min_thr,max_thr,pitch2thr;        /* iNav nav.fw throttle model (us) */
-    double posZp,posZi,posZd,posZff,alt_response,max_climb_rate;  /* fw_alt PID (raw) + alt->rate cascade */
+    double posZp,posZi,posZd,posZff,alt_response,max_climb_rate,control_smoothness;  /* fw_alt PID + alt->rate cascade + pitch-cmd smoothing */
     double vs,vc,vne,vmin;                               /* speed envelope (vmin = min safe maneuvering) */
     double capture_r,climb_alt;                          /* mission: WP fangradius; climb-straight-to alt (AGL) */
     double kpR,kdR,kpP,kdP;                              /* inner attitude-tracker gains (legacy, unused when rate PID present) */
@@ -194,7 +194,7 @@ static int parse(Mission*m){
         else if(!strncmp(line,"ld ",3)) sscanf(line+3,"%lf %lf %lf %lf",&m->ld.lat,&m->ld.lon,&m->ld.elev,&m->ld.hdg);
         else if(!strncmp(line,"nav ",4)) sscanf(line+4,"%lf %lf %lf %lf %lf %lf",&m->climb,&m->dive,&m->bank,&m->cruise,&m->approach_len,&m->glide);
         else if(!strncmp(line,"thr ",4)) sscanf(line+4,"%lf %lf %lf %lf",&m->cruise_thr,&m->min_thr,&m->max_thr,&m->pitch2thr);
-        else if(!strncmp(line,"pid ",4)) sscanf(line+4,"%lf %lf %lf %lf %lf %lf",&m->posZp,&m->posZi,&m->posZd,&m->posZff,&m->alt_response,&m->max_climb_rate);
+        else if(!strncmp(line,"pid ",4)) sscanf(line+4,"%lf %lf %lf %lf %lf %lf %lf",&m->posZp,&m->posZi,&m->posZd,&m->posZff,&m->alt_response,&m->max_climb_rate,&m->control_smoothness);
         else if(!strncmp(line,"spd ",4)){ m->vmin=0; sscanf(line+4,"%lf %lf %lf %lf",&m->vs,&m->vc,&m->vne,&m->vmin); if(m->vmin<=0)m->vmin=1.2*m->vs; }
         else if(!strncmp(line,"cfg ",4)) sscanf(line+4,"%lf %lf",&m->capture_r,&m->climb_alt);
         else if(!strncmp(line,"gain ",5)) sscanf(line+5,"%lf %lf %lf %lf",&m->kpR,&m->kdR,&m->kpP,&m->kdP);
@@ -222,6 +222,8 @@ int main(void){
     NavPid pidAlt; navpid_init(&pidAlt, m.posZp/100.0, m.posZi/100.0, m.posZd/300.0, m.posZff/100.0, 10.0);  /* fw_alt (climb-rate branch) */
     double vtarget=fmax(m.cruise, m.vmin*1.2);       /* operating airspeed: sustainable at cruise power, above departure */
     int jet = m.vmin > 1.5*m.vs;                      /* relaxed-stability / high-min-speed airframe: must hold power always */
+    double pcut = 0.001*2.0*pow(10.0-m.control_smoothness,3.0)+0.1;  /* iNav pitch-cmd LPF cutoff (Hz) from control_smoothness */
+    double pitchLpf=0; int pitchLpfInit=0;
     int wp=0; int landing=0; int launched=0; int landed=0; int landphase=0; double t=0; const double dt=0.01, t_max=1200.0;
     double wp1rel = m.nwp? m.wp[0].alt_rel : 100;
     double wpmin[MAXWP]; for(int i=0;i<m.nwp;i++) wpmin[i]=1e9;
@@ -295,7 +297,11 @@ int main(void){
             desClimb=fmax(-m.max_climb_rate,fmin(m.max_climb_rate,desClimb));
             double actClimb=st.vy*100.0;                               /* cm/s, +up */
             double pitch_dd=navpid(&pidAlt,desClimb,actClimb,dt,-m.dive*10.0,m.climb*10.0);
-            pitch_cmd=pitch_dd/10.0;                                    /* deg */
+            /* iNav pitch-command LPF (control_smoothness), cutoff floored: iNav's heaviest smoothing (~0.1 Hz)
+               lags too far for this sim's phugoid and amplifies it, so clamp the cutoff to keep it a damper. */
+            double cut=fmax(pcut,0.8), rc=1.0/(2*M_PI*cut), a=dt/(rc+dt);
+            if(!pitchLpfInit){pitchLpf=pitch_dd;pitchLpfInit=1;} pitchLpf+=a*(pitch_dd-pitchLpf);
+            pitch_cmd=fmax(-m.dive,fmin(m.climb,pitchLpf/10.0));        /* deg, reconstrained */
         }
         /* energy management: never demand more climb than airspeed allows — below the min maneuvering speed
            trade climb for speed (nose down) so a low-excess-thrust / relaxed-stability airframe never bleeds
