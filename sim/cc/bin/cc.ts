@@ -39,6 +39,7 @@ async function vinput(spec: string): Promise<string> {
   const climbAlt = m.raw.procedure?.angle_hold_alt ?? 0;               // climb straight to here before WP nav (0 = brief)
   L.push(`cfg ${captureR} ${climbAlt}`);
   L.push(`gain ${g.kpR} ${g.kdR} ${g.kpP} ${g.kdP}`);
+  L.push(`rate ${p.fwPr} ${p.fwIr} ${p.fwDr} ${p.fwFfr} ${p.fwPp} ${p.fwIp} ${p.fwDp} ${p.fwFfp} ${p.pLevel} ${p.iLevel}`);
   for (const w of m.waypoints) L.push(`wp ${w.lat} ${w.lon} ${w.altRel ?? 0}`);
   return L.join('\n') + '\n';
 }

@@ -41,12 +41,17 @@ export interface NavParams {
   cruiseThr: number; minThr: number; maxThr: number; pitch2thr: number;       // nav.fw throttle model (us)
   posZp: number; posZi: number; posZd: number; posZff: number;                // fw_alt (POS_Z) PID, raw 0-255
   altResponse: number; maxClimbRate: number;                                  // alt->climbrate cascade (cm/s)
+  // fixed-wing inner loop (iNav ANGLE mode + rate PID), raw settings values
+  fwPr: number; fwIr: number; fwDr: number; fwFfr: number;                    // roll rate PID
+  fwPp: number; fwIp: number; fwDp: number; fwFfp: number;                    // pitch rate PID
+  pLevel: number; iLevel: number;                                            // ANGLE-mode strength + rate LPF Hz
 }
 export function inavParams(ac: string): NavParams {
   const p: NavParams = {
     climbAngle: 20, diveAngle: 15, bankAngle: 35, cruise: 15, approachLen: 350, glideAngle: 3,
     cruiseThr: 1400, minThr: 1200, maxThr: 1700, pitch2thr: 10,
     posZp: 30, posZi: 5, posZd: 10, posZff: 30, altResponse: 40, maxClimbRate: 500,
+    fwPr: 5, fwIr: 7, fwDr: 0, fwFfr: 50, fwPp: 5, fwIp: 7, fwDp: 0, fwFfp: 50, pLevel: 20, iLevel: 5,
   };
   const f = `${SIM}/aircraft/models/${ac}/inav.diff`;
   if (existsSync(f)) {
@@ -64,6 +69,9 @@ export function inavParams(ac: string): NavParams {
     p.posZp = g('nav_fw_pos_z_p', p.posZp); p.posZi = g('nav_fw_pos_z_i', p.posZi);
     p.posZd = g('nav_fw_pos_z_d', p.posZd); p.posZff = g('nav_fw_pos_z_ff', p.posZff);
     p.altResponse = g('nav_fw_alt_control_response', p.altResponse);
+    p.fwPr = g('fw_p_roll', p.fwPr); p.fwIr = g('fw_i_roll', p.fwIr); p.fwDr = g('fw_d_roll', p.fwDr); p.fwFfr = g('fw_ff_roll', p.fwFfr);
+    p.fwPp = g('fw_p_pitch', p.fwPp); p.fwIp = g('fw_i_pitch', p.fwIp); p.fwDp = g('fw_d_pitch', p.fwDp); p.fwFfp = g('fw_ff_pitch', p.fwFfp);
+    p.pLevel = g('fw_p_level', p.pLevel); p.iLevel = g('fw_i_level', p.iLevel);
   }
   return p;
 }

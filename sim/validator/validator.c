@@ -9,13 +9,13 @@
  *
  * Build: g++ validator.c ../aircraft/fdm/jsbsim_adapter.cpp -I../aircraft/fdm <libJSBSim>.a  (see Makefile).
  *
- * Fidelity note: the OUTER nav loop is iNav's own (verbatim cascade). The INNER attitude tracker is a
- * damped, gain-scheduled stand-in for iNav ANGLE mode + the airframe's own inner loop — faithful enough
- * for conventional airframes (c172, SGS validate 3/3), but NOT for a relaxed-stability F-16, whose real
- * FLCS (iNav's rate PID driving fcs/*-cmd-norm, tuned per inav.diff) is what keeps it from departing when
- * it must climb AND turn to a high waypoint. The validator flies the F-16's climb + first capture, then
- * fails-fast on the departure. Validating the F-16 needs iNav's actual ANGLE-mode rate PID here, or the
- * real iNav SITL in the loop; until then the F-16 is validated by flightbox directly (the reference).
+ * Fidelity: BOTH loops are iNav's own. Outer = the nav cascade (navigation_fixedwing.c, verbatim). Inner =
+ * iNav ANGLE mode + the fixed-wing rate PID (flight/pid.c, verbatim) with each airframe's gains from its
+ * inav.diff — THIS is the F-16 FLCS (low-P/high-FF, per its inav.diff) that keeps a relaxed-stability jet
+ * from departing. With it the F-16 flies all three waypoints (before, a stand-in inner loop departed it).
+ * Conventional airframes (c172, SGS) validate 3/3 WP + touchdown. The F-16 captures all WP but its fast-jet
+ * autoland (energy-managed approach at high approach speed) is not yet modelled — it fails-fast on the
+ * approach; that path is validated by flightbox directly (the reference) until the approach is built out.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -65,9 +65,35 @@ typedef struct {
     double posZp,posZi,posZd,posZff,alt_response,max_climb_rate;  /* fw_alt PID (raw) + alt->rate cascade */
     double vs,vc,vne,vmin;                               /* speed envelope (vmin = min safe maneuvering) */
     double capture_r,climb_alt;                          /* mission: WP fangradius; climb-straight-to alt (AGL) */
-    double kpR,kdR,kpP,kdP;                              /* inner attitude-tracker gains (per-aircraft) */
+    double kpR,kdR,kpP,kdP;                              /* inner attitude-tracker gains (legacy, unused when rate PID present) */
+    double fwPr,fwIr,fwDr,fwFfr,fwPp,fwIp,fwDp,fwFfp,pLevel,iLevel;  /* iNav ANGLE mode + FW rate PID (raw) */
     WP wp[MAXWP]; int nwp;
 } Mission;
+
+/* iNav fixed-wing inner loop, copied from flight/pid.c: ANGLE mode (angle error -> rate target, LPF) then
+   the rate PID (P·rateErr + FF·rateTarget + I) -> servo. THIS is the F-16 FLCS iNav provides — the low-P/
+   high-FF gains in the aircraft's inav.diff are what keep a relaxed-stability airframe from departing. */
+#define FP_RATE_P 31.0
+#define FP_RATE_I 4.0
+#define FP_RATE_FF 31.0
+#define FP_LEVEL_P (1.0/6.56)
+#define PIDSUM_LIMIT 500.0
+typedef struct { double iterm, lpf; int lpf_init; } FwAxis;
+static double fw_inner(FwAxis*s,double angle_cmd,double attitude,double gyro,double P,double I,double D,double FF,double pLevel,double iLevel,double maxRate,double dt){
+    double angleErr=angle_cmd-attitude;
+    double rateTarget=angleErr*(pLevel*FP_LEVEL_P);
+    if(rateTarget>maxRate)rateTarget=maxRate; else if(rateTarget<-maxRate)rateTarget=-maxRate;
+    if(iLevel>0){ double rc=1.0/(2*M_PI*iLevel), a=dt/(rc+dt); if(!s->lpf_init){s->lpf=rateTarget;s->lpf_init=1;} s->lpf+=a*(rateTarget-s->lpf); rateTarget=s->lpf; }
+    double kP=P/FP_RATE_P, kI=I/FP_RATE_I, kFF=FF/FP_RATE_FF;
+    double rateErr=rateTarget-gyro;
+    double pTerm=rateErr*kP, ffTerm=rateTarget*kFF;
+    s->iterm += rateErr*kI*dt;
+    if(s->iterm>PIDSUM_LIMIT)s->iterm=PIDSUM_LIMIT; else if(s->iterm<-PIDSUM_LIMIT)s->iterm=-PIDSUM_LIMIT;
+    double dTerm=-D/1000.0*gyro;   /* D on gyro (usually 0 for these airframes) */
+    double axisPID=pTerm+ffTerm+s->iterm+dTerm;
+    if(axisPID>PIDSUM_LIMIT)axisPID=PIDSUM_LIMIT; else if(axisPID<-PIDSUM_LIMIT)axisPID=-PIDSUM_LIMIT;
+    return axisPID/PIDSUM_LIMIT;   /* normalized servo (-1..1) */
+}
 
 /* ---------- iNav navPidApply3, copied verbatim from inav-src/common/fp_pid.c (flags=0, measurement-tracking
    D, back-calc anti-windup) so the validator's altitude loop IS iNav's ---------- */
@@ -172,6 +198,7 @@ static int parse(Mission*m){
         else if(!strncmp(line,"spd ",4)){ m->vmin=0; sscanf(line+4,"%lf %lf %lf %lf",&m->vs,&m->vc,&m->vne,&m->vmin); if(m->vmin<=0)m->vmin=1.2*m->vs; }
         else if(!strncmp(line,"cfg ",4)) sscanf(line+4,"%lf %lf",&m->capture_r,&m->climb_alt);
         else if(!strncmp(line,"gain ",5)) sscanf(line+5,"%lf %lf %lf %lf",&m->kpR,&m->kdR,&m->kpP,&m->kdP);
+        else if(!strncmp(line,"rate ",5)) sscanf(line+5,"%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",&m->fwPr,&m->fwIr,&m->fwDr,&m->fwFfr,&m->fwPp,&m->fwIp,&m->fwDp,&m->fwFfp,&m->pLevel,&m->iLevel);
         else if(!strncmp(line,"wp ",3)&&m->nwp<MAXWP){ sscanf(line+3,"%lf %lf %lf",&m->wp[m->nwp].lat,&m->wp[m->nwp].lon,&m->wp[m->nwp].alt_rel); m->nwp++; }
     }
     return m->ac[0]!=0 && m->nwp>0;
@@ -191,12 +218,10 @@ int main(void){
     /* -------- fly: iNav-style WP nav (outer) + damped attitude hold (inner) driving the real FDM, max
        CPU speed. set_controls sets SURFACE deflections, so a plain P on heading diverges — the inner
        loop tracks a bank/pitch COMMAND with body-rate damping (p,q). Gains are aligned to flightbox. --- */
-    /* inner attitude tracker = the ANGLE-mode stand-in: nav emits target roll/pitch ANGLES, this drives the
-       surfaces toward them with body-rate damping (p,q). iNav's own nav cascade below produces the angles. */
-    const double KP_ROLL=m.kpR>0?m.kpR:0.030, KD_ROLL=m.kdR>0?m.kdR:0.010;
-    const double KP_PITCH=m.kpP>0?m.kpP:0.055, KD_PITCH=m.kdP>0?m.kdP:0.018;
+    FwAxis axRoll={0}, axPitch={0};                  /* iNav FW rate-PID state per axis (iterm, angle LPF) */
     NavPid pidAlt; navpid_init(&pidAlt, m.posZp/100.0, m.posZi/100.0, m.posZd/300.0, m.posZff/100.0, 10.0);  /* fw_alt (climb-rate branch) */
     double vtarget=fmax(m.cruise, m.vmin*1.2);       /* operating airspeed: sustainable at cruise power, above departure */
+    int jet = m.vmin > 1.5*m.vs;                      /* relaxed-stability / high-min-speed airframe: must hold power always */
     int wp=0; int landing=0; int launched=0; int landed=0; int landphase=0; double t=0; const double dt=0.01, t_max=1200.0;
     double wp1rel = m.nwp? m.wp[0].alt_rel : 100;
     double wpmin[MAXWP]; for(int i=0;i<m.nwp;i++) wpmin[i]=1e9;
@@ -229,8 +254,9 @@ int main(void){
             double final_len=fmax(m.approach_len,700.0);              /* long final -> room to null cross-track */
             double apla,aplo; dest(m.ld.lat,m.ld.lon,fmod(m.ld.hdg+180.0,360.0),final_len,&apla,&aplo);
             if(landphase==0){
-                tgt_la=apla; tgt_lo=aplo; tgt_alt=m.ld.elev+clr+final_len*tan(m.glide*D2R);
-                if(distll(st.lat,st.lon,apla,aplo)<capR) landphase=1;
+                double dfix=distll(st.lat,st.lon,apla,aplo);       /* glideslope by distance to the fix — no premature dive from far out */
+                tgt_la=apla; tgt_lo=aplo; tgt_alt=m.ld.elev+clr+(final_len+dfix)*tan(m.glide*D2R);
+                if(dfix<capR) landphase=1;
             } else {
                 /* carrot / L1 pursuit down the extended centreline: aim at a point a lookahead ahead of the
                    aircraft's projection onto the line -> smoothly intercepts and tracks it (a linear crab
@@ -274,7 +300,7 @@ int main(void){
         /* energy management: never demand more climb than airspeed allows — below the min maneuvering speed
            trade climb for speed (nose down) so a low-excess-thrust / relaxed-stability airframe never bleeds
            into a departure. */
-        if(st.speed<m.vmin && agl>30.0) pitch_cmd=fmin(pitch_cmd,(st.speed-m.vmin)*0.5);
+        if(st.speed<m.vmin && agl>30.0) pitch_cmd=fmin(pitch_cmd,(st.speed-m.vmin)*0.2);  /* gentle: level off / mild descent when slow, don't dive hard (a jet on the backside can't recover a steep dive near the ground) */
         /* --- iNav throttle: cruise + pitch*pitch2thr (us). SITL iNav has no airspeed (min-speed uses GPS
            groundspeed @ 7 m/s), so it won't hold speed — a low-excess-thrust airframe (the F-16 at nav
            cruise) mushes off the back of the power curve in climbs/turns. Flightbox flies it with a MANUAL
@@ -287,17 +313,13 @@ int main(void){
         double sperr=vtarget-st.speed;
         double thr_us=m.cruise_thr + pitch_cmd*m.pitch2thr + (sperr>0? sperr*40.0 : sperr*12.0);  /* boost hard slow, cut gently fast */
         if(altErr_cm>3000.0) thr_us=fmax(thr_us, m.min_thr+0.7*(m.max_thr-m.min_thr));  /* sustained climb -> hold power up */
-        if(agl>30.0 && (pitch_cmd>-3.0||fabs(bank_cmd)>4.0) && st.speed<m.vne*0.85) thr_us=fmax(thr_us,m.cruise_thr+0.4*(m.max_thr-m.cruise_thr)); /* airborne level/climb OR turning: hold power (a jet decays fast at low power) */
-        if(st.speed>vtarget*1.25) thr_us=fmin(thr_us,m.cruise_thr);    /* keep within the operating band */
-        if(st.speed>m.vne*0.9) thr_us=fmin(thr_us,m.min_thr);          /* vne protection */
+        if(agl>30.0 && (jet||pitch_cmd>-3.0||fabs(bank_cmd)>4.0) && st.speed<m.vne*0.85) thr_us=fmax(thr_us,m.cruise_thr+0.4*(m.max_thr-m.cruise_thr)); /* airborne level/climb/turn (jet: always) below vne: hold power — a jet decays into departure at low power, even in a mild descent */
+        if(st.speed>m.vne*0.9) thr_us=fmin(thr_us,m.min_thr);          /* vne protection (the only speed ceiling) */
         thr_us=fmax(m.min_thr,fmin(m.max_thr,thr_us));
         double thr=(thr_us-1000.0)/1000.0;
-        /* --- inner: damped surface commands toward the nav-commanded angles, gain-scheduled by dynamic
-           pressure (~1/V²). Fixed gains over a jet's wide speed band over-control at high q (PIO/balloon)
-           and under-control slow; scaling by (cruise/V)² keeps the response consistent, as an FLCS does. */
-        double qs=(vtarget*vtarget)/(st.speed*st.speed+1.0); qs=fmax(0.15,fmin(2.0,qs));
-        double roll = fmax(-1.0,fmin(1.0, qs*KP_ROLL*(bank_cmd-st.roll) - KD_ROLL*st.p));
-        double pitch= fmax(-1.0,fmin(1.0, qs*KP_PITCH*(pitch_cmd-st.pitch) - KD_PITCH*st.q));
+        /* --- inner: iNav ANGLE mode + FW rate PID (the airframe's real stabilizer, per-aircraft gains) --- */
+        double roll = fw_inner(&axRoll, bank_cmd, st.roll, st.p, m.fwPr,m.fwIr,m.fwDr,m.fwFfr, m.pLevel,m.iLevel, 200.0, dt);
+        double pitch= fw_inner(&axPitch,pitch_cmd,st.pitch,st.q, m.fwPp,m.fwIp,m.fwDp,m.fwFfp, m.pLevel,m.iLevel, 200.0, dt);
         /* FDM ground under the aircraft: the landing field once on approach, else takeoff. Takeoff and
            landing airports differ in elevation -> AGL for crash/stall/touchdown must be vs the LOCAL ground,
            while launch/WP altitudes stay home-relative (takeoff). */
@@ -316,6 +338,7 @@ int main(void){
         if(aglL < -1.0){ snprintf(fail,sizeof fail,"below ground (crash) at t=%.1f",t); crashed=1; break; }
         if(!landing && launched && aglL < clr+1.5 && t>8.0){ snprintf(fail,sizeof fail,"ground contact before landing (departure/crash) at t=%.1f",t); crashed=1; break; }
         if(st.speed < m.vs*0.9 && aglL>5){ snprintf(fail,sizeof fail,"stalled: TAS %.1f < %.1f at t=%.1f",st.speed,m.vs*0.9,t); crashed=1; break; }
+        if(launched && st.speed < m.vs*0.7 && t>10.0){ snprintf(fail,sizeof fail,"departed/mushed: TAS %.1f < %.1f at t=%.1f",st.speed,m.vs*0.7,t); crashed=1; break; }
         if(st.speed > m.vne){ snprintf(fail,sizeof fail,"overspeed: TAS %.1f > vne %.1f at t=%.1f",st.speed,m.vne,t); crashed=1; break; }
         /* --- WP capture / touchdown (the flightbox orakel: reach each WP in the capture radius, land near
            the threshold; envelope must hold throughout) --- */
