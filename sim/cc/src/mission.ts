@@ -4,7 +4,7 @@
 // fb-tiles /elev endpoint) — "Terrain lebt im CC". iNav only ever gets home-relative GPS numbers. The
 // aircraft contributes its Vs/Vc (profile.env); the scenario speed envelope comes from speeds.ts.
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { scenarioSpeeds, vne as vneOfVc, type Scenario, type Band } from './speeds.js';
 
@@ -57,8 +57,10 @@ function vsVc(ac: string): { vs: number; vc: number; vne: number; vmin: number }
 
 /** Resolve a declarative mission (name or path under sim/) to a flyable GPS/ASL plan. */
 export async function resolveMission(spec: string, tilesUrl = process.env.TILES_URL ?? 'http://localhost:8081'): Promise<Mission> {
-  const path = spec.endsWith('.json') || spec.includes('/') ? spec : `missions/${spec}.json`;
-  const m = JSON.parse(readFileSync(resolve(SIM, path), 'utf8'));
+  const cands = [spec, `${spec}.json`, `missions/${spec}`, `missions/${spec}.json`];
+  const path = cands.map((c) => resolve(SIM, c)).find((p) => existsSync(p));
+  if (!path) throw new Error(`mission not found: ${spec} (tried missions/${spec}.json)`);
+  const m = JSON.parse(readFileSync(path, 'utf8'));
   const to = runway(m.takeoff.airport, m.takeoff.runway);
   const ld = runway(m.land.airport, m.land.runway);
   const home = to.elev_m;

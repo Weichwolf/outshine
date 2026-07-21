@@ -1,0 +1,52 @@
+{
+  "id": "yssy-sgs233-tier1",
+  "name": "Platzrunde — sgs233 @ YSSY (YSSY)",
+  "aircraft": "sgs233",
+  "envelope": {
+    "v_min_ms": 9.9,
+    "v_max_ms": 41.8,
+    "bank_max_deg": 45,
+    "pitch_max_deg": 30,
+    "alt_floor_agl_m": 10,
+    "alt_ceil_agl_m": 760,
+    "on_nan_abort": true,
+    "divergence_guards": true
+  },
+  "takeoff": {
+    "airport": "YSSY",
+    "runway": "16R",
+    "rotate_agl_m": 50
+  },
+  "waypoints": [
+    {
+      "lat": -33.955761,
+      "lon": 151.17875,
+      "alt_agl": 260
+    },
+    {
+      "lat": -33.960617,
+      "lon": 151.151207,
+      "alt_agl": 260
+    },
+    {
+      "lat": -33.920545,
+      "lon": 151.151922,
+      "alt_agl": 208
+    }
+  ],
+  "land": {
+    "airport": "YSSY",
+    "runway": "16R",
+    "touchdown_tol_m": 200,
+    "touchdown_gs_max_ms": 35
+  },
+  "success": {
+    "capture_radius_m": 300
+  },
+  "procedure": {},
+  "abort": {
+    "timeout_s": 900,
+    "on_nan": true,
+    "on_envelope_violation": true
+  }
+}

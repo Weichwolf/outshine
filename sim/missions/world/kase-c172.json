@@ -1,0 +1,52 @@
+{
+  "id": "kase-c172-tier1",
+  "name": "Platzrunde — c172 @ KASE (KASE)",
+  "aircraft": "c172",
+  "envelope": {
+    "v_min_ms": 9.9,
+    "v_max_ms": 38,
+    "bank_max_deg": 45,
+    "pitch_max_deg": 30,
+    "alt_floor_agl_m": 10,
+    "alt_ceil_agl_m": 760,
+    "on_nan_abort": true,
+    "divergence_guards": true
+  },
+  "takeoff": {
+    "airport": "KASE",
+    "runway": "15",
+    "rotate_agl_m": 50
+  },
+  "waypoints": [
+    {
+      "lat": 39.206876,
+      "lon": -106.861301,
+      "alt_agl": 260
+    },
+    {
+      "lat": 39.198888,
+      "lon": -106.889625,
+      "alt_agl": 260
+    },
+    {
+      "lat": 39.238652,
+      "lon": -106.896086,
+      "alt_agl": 208
+    }
+  ],
+  "land": {
+    "airport": "KASE",
+    "runway": "15",
+    "touchdown_tol_m": 200,
+    "touchdown_gs_max_ms": 35
+  },
+  "success": {
+    "capture_radius_m": 300
+  },
+  "procedure": {},
+  "abort": {
+    "timeout_s": 900,
+    "on_nan": true,
+    "on_envelope_violation": true
+  }
+}

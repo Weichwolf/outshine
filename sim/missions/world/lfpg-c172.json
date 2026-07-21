@@ -1,0 +1,52 @@
+{
+  "id": "lfpg-c172-tier1",
+  "name": "Platzrunde — c172 @ LFPG (LFPG)",
+  "aircraft": "c172",
+  "envelope": {
+    "v_min_ms": 9.9,
+    "v_max_ms": 38,
+    "bank_max_deg": 45,
+    "pitch_max_deg": 30,
+    "alt_floor_agl_m": 10,
+    "alt_ceil_agl_m": 760,
+    "on_nan_abort": true,
+    "divergence_guards": true
+  },
+  "takeoff": {
+    "airport": "LFPG",
+    "runway": "08L",
+    "rotate_agl_m": 50
+  },
+  "waypoints": [
+    {
+      "lat": 48.99805,
+      "lon": 2.593658,
+      "alt_agl": 260
+    },
+    {
+      "lat": 48.974783,
+      "lon": 2.59676,
+      "alt_agl": 260
+    },
+    {
+      "lat": 48.980248,
+      "lon": 2.536249,
+      "alt_agl": 208
+    }
+  ],
+  "land": {
+    "airport": "LFPG",
+    "runway": "08L",
+    "touchdown_tol_m": 200,
+    "touchdown_gs_max_ms": 35
+  },
+  "success": {
+    "capture_radius_m": 300
+  },
+  "procedure": {},
+  "abort": {
+    "timeout_s": 900,
+    "on_nan": true,
+    "on_envelope_violation": true
+  }
+}

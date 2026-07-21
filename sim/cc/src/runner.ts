@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
-import { resolveMission, type Mission } from './mission.js';
+import { resolveMission, groundElev, type Mission } from './mission.js';
 import { inavParams } from './ringtrack.js';
 import { CAPTURE, ALT_BAND, SPEED_BAND, type Sample, type Track, range, type Point } from './predicates.js';
 
@@ -52,6 +52,19 @@ export function flyValidator(vin: string): FlightResult {
   return { track, verdict, ok };
 }
 
+/** Terrain-correct AGL host-side (FORMAT.md §1: "Terrain lives in the CC"). The validator flies with a flat
+ *  ground (airport elev — correct for gear contact at the field; enroute the ground value is dynamics-moot),
+ *  and reports true GPS h_asl; AGL for the predicates = h_asl − DEM(lat,lon). DEM sampled on a ~110 m grid
+ *  (deduped) so a 10 Hz track over a 12 km path is ~100 lookups, not thousands. */
+async function fillAgl(track: Track, tilesUrl: string): Promise<void> {
+  const key = (s: { lat: number; lon: number }) => `${s.lat.toFixed(3)},${s.lon.toFixed(3)}`;
+  const uniq = new Map<string, { lat: number; lon: number }>();
+  for (const s of track) if (!uniq.has(key(s))) uniq.set(key(s), { lat: s.lat, lon: s.lon });
+  const dem = new Map<string, number | null>();
+  await Promise.all([...uniq].map(async ([k, p]) => dem.set(k, await groundElev(p.lat, p.lon, tilesUrl))));
+  for (const s of track) { const g = dem.get(key(s)); if (g != null) s.hAgl = s.hAsl - g; }
+}
+
 export interface Check { name: string; pass: boolean; detail: string; }
 export interface RunResult { mission: string; aircraft: string; pass: boolean; checks: Check[]; track: Track; verdict: string; }
 
@@ -70,12 +83,13 @@ function envelopeOf(m: Mission): Envelope {
 function checkEnvelope(track: Track, env: Envelope): Check {
   for (const s of track) {
     const airborne = s.hAgl > 8;
+    const enroute = s.phase === 'task';                    // floor/ceiling apply enroute, not during takeoff/landing
     if (airborne && s.ias < env.vMin) return { name: 'envelope:v_min', pass: false, detail: `IAS ${s.ias.toFixed(1)} < ${env.vMin} at t=${s.t.toFixed(0)}s` };
     if (s.ias > env.vMax) return { name: 'envelope:v_max', pass: false, detail: `IAS ${s.ias.toFixed(1)} > ${env.vMax} at t=${s.t.toFixed(0)}s` };
     if (airborne && Math.abs(s.roll) > env.bankMax) return { name: 'envelope:bank', pass: false, detail: `bank ${s.roll.toFixed(0)}° > ${env.bankMax}° at t=${s.t.toFixed(0)}s` };
     if (airborne && Math.abs(s.pitch) > env.pitchMax) return { name: 'envelope:pitch', pass: false, detail: `pitch ${s.pitch.toFixed(0)}° > ${env.pitchMax}° at t=${s.t.toFixed(0)}s` };
-    if (s.hAgl < env.altFloor) return { name: 'envelope:alt_floor', pass: false, detail: `AGL ${s.hAgl.toFixed(0)}m < ${env.altFloor}m at t=${s.t.toFixed(0)}s` };
-    if (s.hAgl > env.altCeil) return { name: 'envelope:alt_ceil', pass: false, detail: `AGL ${s.hAgl.toFixed(0)}m > ${env.altCeil}m at t=${s.t.toFixed(0)}s` };
+    if (enroute && s.hAgl < env.altFloor) return { name: 'envelope:alt_floor', pass: false, detail: `AGL ${s.hAgl.toFixed(0)}m < ${env.altFloor}m at t=${s.t.toFixed(0)}s (enroute)` };
+    if (enroute && s.hAgl > env.altCeil) return { name: 'envelope:alt_ceil', pass: false, detail: `AGL ${s.hAgl.toFixed(0)}m > ${env.altCeil}m at t=${s.t.toFixed(0)}s` };
   }
   return { name: 'envelope', pass: true, detail: 'never violated' };
 }
@@ -88,27 +102,30 @@ export async function runMission(spec: string): Promise<RunResult> {
   const push = (c: Check) => { checks.push(c); return c.pass; };
 
   if (!fr.track.length) { push({ name: 'flight', pass: false, detail: `no trajectory (${fr.verdict})` }); return done(); }
+  await fillAgl(fr.track, process.env.TILES_URL ?? 'http://localhost:8081');   // terrain-correct AGL from the DEM
 
   const env = envelopeOf(m);
   if (!push(checkEnvelope(fr.track, env))) return done();
 
-  // per-WP CAPTURE in order (the p2p core): each waypoint reached within the capture radius, in sequence
+  // per-WP CAPTURE in order (the p2p core): each waypoint reached within the capture radius, IN SEQUENCE,
+  // and — where the mission specifies a band — at the intended altitude/speed when captured (phase-local).
   const capR = m.raw.success?.capture_radius_m ?? m.raw.transit?.capture_radius_m ?? 150;
   let from = 0;
   for (let i = 0; i < m.waypoints.length; i++) {
     const w = m.waypoints[i]; const P: Point = { lat: w.lat, lon: w.lon };
-    const seg = fr.track.slice(from);
-    const r = CAPTURE(seg, P, capR);
+    const r = CAPTURE(fr.track.slice(from), P, capR);
     if (!push({ name: `capture:wp${i + 1}`, pass: r.pass, detail: r.detail })) return done();
-    from = fr.track.findIndex((s, idx) => idx >= from && range(P, s) <= capR);
-    if (from < 0) from = 0;
-  }
-
-  // per-leg altitude/speed bands where the mission specifies them (phase-local verification)
-  for (const [i, w] of m.waypoints.entries()) {
+    const capIdx = fr.track.findIndex((s, idx) => idx >= from && range(P, s) <= capR);
     const spec2 = (m.raw.waypoints?.[i]) ?? {};
-    if (spec2.speed_tgt_ms != null) { const r = SPEED_BAND(fr.track, spec2.speed_tgt_ms, spec2.speed_tol_ms ?? 6); if (!push({ name: `speed:wp${i + 1}`, pass: r.pass, detail: r.detail })) return done(); }
-    void w;
+    if (capIdx >= 0 && spec2.alt_tol_m != null) {   // altitude held at the fix (terrain-correct AGL)
+      const s = fr.track[capIdx]; const d = Math.abs(s.hAgl - w.altAgl);
+      if (!push({ name: `alt:wp${i + 1}`, pass: d <= spec2.alt_tol_m, detail: d <= spec2.alt_tol_m ? `AGL ${s.hAgl.toFixed(0)}m ~ ${w.altAgl}±${spec2.alt_tol_m}m at capture` : `AGL ${s.hAgl.toFixed(0)}m off ${w.altAgl}±${spec2.alt_tol_m}m at capture` })) return done();
+    }
+    if (capIdx >= 0 && spec2.speed_tgt_ms != null) {   // speed on the leg to this fix
+      const r2 = SPEED_BAND(fr.track.slice(from, capIdx + 1), spec2.speed_tgt_ms, spec2.speed_tol_ms ?? 6);
+      if (!push({ name: `speed:wp${i + 1}`, pass: r2.pass, detail: r2.detail })) return done();
+    }
+    from = capIdx >= 0 ? capIdx : from;
   }
 
   // touchdown: reached the landing threshold, on the ground, near the aim point

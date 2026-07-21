@@ -1,0 +1,52 @@
+{
+  "id": "sbgl-sgs233-tier1",
+  "name": "Platzrunde — sgs233 @ SBGL (SBGL)",
+  "aircraft": "sgs233",
+  "envelope": {
+    "v_min_ms": 9.9,
+    "v_max_ms": 41.8,
+    "bank_max_deg": 45,
+    "pitch_max_deg": 30,
+    "alt_floor_agl_m": 10,
+    "alt_ceil_agl_m": 760,
+    "on_nan_abort": true,
+    "divergence_guards": true
+  },
+  "takeoff": {
+    "airport": "SBGL",
+    "runway": "10",
+    "rotate_agl_m": 50
+  },
+  "waypoints": [
+    {
+      "lat": -22.794372,
+      "lon": -43.227098,
+      "alt_agl": 260
+    },
+    {
+      "lat": -22.816823,
+      "lon": -43.220114,
+      "alt_agl": 260
+    },
+    {
+      "lat": -22.819034,
+      "lon": -43.263522,
+      "alt_agl": 208
+    }
+  ],
+  "land": {
+    "airport": "SBGL",
+    "runway": "10",
+    "touchdown_tol_m": 200,
+    "touchdown_gs_max_ms": 35
+  },
+  "success": {
+    "capture_radius_m": 300
+  },
+  "procedure": {},
+  "abort": {
+    "timeout_s": 900,
+    "on_nan": true,
+    "on_envelope_violation": true
+  }
+}

@@ -223,7 +223,7 @@ int main(void){
     double vtarget=fmax(m.cruise, m.vmin*1.2);       /* operating airspeed: sustainable at cruise power, above departure */
     int jet = m.vmin > 1.5*m.vs;                      /* relaxed-stability / high-min-speed airframe: must hold power always */
     double pcut = 0.001*2.0*pow(10.0-m.control_smoothness,3.0)+0.1;  /* iNav pitch-cmd LPF cutoff (Hz) from control_smoothness */
-    double pitchLpf=0; int pitchLpfInit=0;
+    double pitchLpf=0; int pitchLpfInit=0; double rollLpf=0; int rollLpfInit=0;
     int wp=0; int landing=0; int launched=0; int landed=0; int landphase=0; double t=0; const double dt=0.01, t_max=1200.0;
     double wp1rel = m.nwp? m.wp[0].alt_rel : 100;
     double wpmin[MAXWP]; for(int i=0;i<m.nwp;i++) wpmin[i]=1e9;
@@ -277,9 +277,12 @@ int main(void){
            bleeds a relaxed-stability jet into a departure. Full nav bank once comfortably above vmin. */
         double smarg=(st.speed-m.vmin)/fmax(1.0,vtarget*1.3-m.vmin);   /* full bank only well above operating speed */
         double bankMax=m.bank*fmax(0.25,fmin(1.0,smarg));              /* gentle turns preserve a jet's energy */
+        if(!launched) bankMax=fmin(bankMax,20.0);                      /* near-wings-level climb-out (no steep bank low + slow) */
         /* heading->bank with heading-rate (yaw-rate) damping — a plain P on heading error overshoots into a
            roll/heading oscillation; the -Kd·r term settles it, like iNav's damped heading controller. */
         double bank_cmd=fmax(-bankMax,fmin(bankMax, herr*1.5 - 2.0*st.r));
+        { double cut=fmax(pcut,0.8), rc=1.0/(2*M_PI*cut), a=dt/(rc+dt);   /* iNav control_smoothness on the bank cmd */
+          if(!rollLpfInit){rollLpf=bank_cmd;rollLpfInit=1;} rollLpf+=a*(bank_cmd-rollLpf); bank_cmd=rollLpf; }
         (void)tgt_spd;
         /* --- iNav fixed-wing altitude cascade (navigation_fixedwing.c): altitude error -> desired climb rate
            (alt_control_response, capped at max_auto_climb_rate), then the fw_alt PID on climb-rate error ->
