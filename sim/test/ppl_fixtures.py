@@ -115,7 +115,10 @@ def run_fixture(fx, ac):
             if wps and not wps_up: upload_wps(m, wps); wps_up=True
             if cur:
                 for k,idx in (("roll",0),("pitch",1),("thr",2),("yaw",3)):
-                    if k in cur: rc[idx]=cur[k]
+                    if k in cur:
+                        val=cur[k]
+                        if isinstance(val,dict): val=val.get(ac, val.get("_",1500))   # per-aircraft override
+                        rc[idx]=val
                 mode = cur.get("mode","")
                 rc[4]=2000                                   # keep armed
                 if "ANGLE" in mode: rc[5]=2000
