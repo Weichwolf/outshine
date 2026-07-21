@@ -155,6 +155,8 @@ static int http_handle(client_t*c){
  * (ws://.../msp) sends MSP frames -> forward verbatim to iNav; the WASM CC (/ws) sends joystick control. */
 static int msp_fd;                                   /* defined below (= -1) — tentative decl for ws_parse */
 static void on_client_msg(const uint8_t*p,int n);    /* defined below */
+static long mono_ms(void);                           /* defined below */
+static long manual_until;                            /* defined below — WASM manual-takeover window */
 static void ws_parse(client_t*c){
     int off=0;
     while(c->rxn-off>=2){
@@ -165,7 +167,13 @@ static void ws_parse(client_t*c){
         uint8_t*mask=p+hn; uint8_t*pl=p+hn+(masked?4:0);
         if(masked) for(uint64_t i=0;i<len;i++) pl[i]^=mask[i&3];
         if(op==0x2 || op==0x1){
-            if(c->is_msp){ if(msp_fd>=0) send(msp_fd,pl,(int)len,MSG_NOSIGNAL); }   /* CC MSP uplink -> iNav */
+            if(c->is_msp){
+                /* one WS binary message = one MSP frame from the CC. Forward to iNav — but DROP its RC
+                 * (MSP_SET_RAW_RC=200) while a WASM manual takeover holds authority, so the autopilot RC
+                 * doesn't fight the stick. Mission upload / safehome / everything else always passes. */
+                int cmd = (len>=5 && pl[0]=='$') ? (pl[1]=='M' ? pl[4] : pl[1]=='X' ? (pl[4]|pl[5]<<8) : -1) : -1;
+                if(!(mono_ms()<manual_until && cmd==200) && msp_fd>=0) send(msp_fd,pl,(int)len,MSG_NOSIGNAL);
+            }
             else on_client_msg(pl,(int)len);                                        /* WASM joystick RC */
         }
         /* op 0x8 close, 0x9 ping ignored for brevity */
@@ -296,13 +304,25 @@ static void build_telem(telem_packet_t*t){
     t->state=(uint8_t)mt_state; t->rssi=100; static uint16_t sq; t->seq=sq++;
 }
 
-/* browser control -> RC uplink over MSP (MSP_SET_RAW_RC): the pilot flies via the standard radio. */
+/* When a WASM CC last actively steered — during this window the hub gives it manual authority and
+ * SUPPRESSES the mission CC's RC (below), so a takeover doesn't flap iNav in/out of NAV and reset the run. */
+static long manual_until=0;
+
+/* browser control -> RC uplink over MSP (MSP_SET_RAW_RC): the pilot flies via the standard radio. The WASM
+ * CC streams a ctrl_packet EVERY frame even while only watching (centred, arm-latch 0). Acting on those
+ * passive frames would fight the mission's RC and reset it — so command ONLY on genuine manual input, and
+ * keep an already-armed aircraft armed through the takeover (never disarm mid-mission from a watcher). */
 static void on_client_msg(const uint8_t*p,int n){
     if(n!=(int)sizeof(ctrl_packet_t) || ((ctrl_packet_t*)p)->magic!=FB_MAGIC_CTRL) return;
     const ctrl_packet_t*c=(const ctrl_packet_t*)p;
+    float dz=0.08f;
+    int active = fabsf(c->roll)>dz || fabsf(c->pitch)>dz || fabsf(c->yaw)>dz
+              || fabsf(c->throttle-0.5f)>0.15f || !c->link_up;
+    if(!active) return;                                  /* passive watcher: do not command */
+    manual_until = mono_ms() + 800;                      /* manual authority window */
     uint16_t rc[8]={ (uint16_t)(1500+c->roll*500), (uint16_t)(1500+c->pitch*500),
                      (uint16_t)(1000+c->throttle*1000), (uint16_t)(1500+c->yaw*500),
-                     (uint16_t)(c->arm?2000:1000), 2000, 1000, 1000 };  /* AUX1=ARM, AUX2=ANGLE */
+                     (uint16_t)((mt_arm||c->arm)?2000:1000), 2000, 1000, 1000 };  /* AUX1=ARM, AUX2=ANGLE */
     for(int i=0;i<4;i++){ if(rc[i]<1000)rc[i]=1000; if(rc[i]>2000)rc[i]=2000; }
     msp_setrc(rc,8);
 }
