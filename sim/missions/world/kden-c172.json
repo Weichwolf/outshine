@@ -3,8 +3,8 @@
   "name": "Envelope circuit — c172 @ KDEN (KDEN)",
   "aircraft": "c172",
   "envelope": {
-    "v_min_ms": 9.9,
-    "v_max_ms": 38,
+    "v_min_ms": 9.4,
+    "v_max_ms": 37,
     "bank_max_deg": 45,
     "pitch_max_deg": 30,
     "alt_floor_agl_m": 10,

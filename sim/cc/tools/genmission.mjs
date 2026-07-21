@@ -11,10 +11,20 @@ const SIM = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const DB = JSON.parse(readFileSync(`${SIM}/geo/airports.json`, 'utf8'));
 const D2R = Math.PI / 180;
 
-function env(ac, key, d) {
-  const t = readFileSync(`${SIM}/aircraft/models/${ac}/profile.env`, 'utf8');
-  const m = t.match(new RegExp(`^\\s*${key}\\s*=\\s*([0-9.]+)`, 'm'));
+// Speeds from the SAME model files flightbox flies (never profile.env): Vc = inav.diff fw_reference_airspeed,
+// Vs = 1g stall from {model}.xml physics (wing area + total weight, CLmax≈1.4).
+function inavGet(ac, key, d) {
+  const t = readFileSync(`${SIM}/aircraft/models/${ac}/inav.diff`, 'utf8');
+  const m = t.match(new RegExp(`set ${key}\\s*=\\s*(-?[0-9.]+)`));
   return m ? Number(m[1]) : d;
+}
+function stallFromXml(ac) {
+  const xml = readFileSync(`${SIM}/aircraft/models/${ac}/${ac}.xml`, 'utf8');
+  const sm = xml.match(/<wingarea[^>]*>\s*([0-9.]+)/i);
+  const S = sm ? Number(sm[1]) * 0.09290304 : 0;
+  const wLbs = [...xml.matchAll(/<(?:emptywt|weight)[^>]*>\s*([0-9.]+)/gi)].reduce((s, m) => s + Number(m[1]), 0);
+  const W = wLbs * 4.4482216;
+  return S > 0 && W > 0 ? Math.sqrt((2 * W) / (1.225 * S * 1.4)) : 11;
 }
 function dest(lat, lon, brg, dist) {
   const br = brg * D2R, clat = Math.cos(lat * D2R);
@@ -26,7 +36,7 @@ if (!icao || !ac) { console.error('usage: genmission.mjs <ICAO> <aircraft> [tier
 const ap = DB[icao]; if (!ap) { console.error(`airport ${icao} not in DB`); process.exit(2); }
 const rw = ap.runways.filter((r) => r.length_m > 900).sort((a, b) => b.length_m - a.length_m)[0] ?? ap.runways[0];
 
-const vs = env(ac, 'FB_STALL', 11), vc = env(ac, 'FB_CRUISE', 20);
+const vs = Math.round(stallFromXml(ac) * 10) / 10, vc = inavGet(ac, 'fw_reference_airspeed', 2000) / 100;
 const jet = ac === 'f16';
 // pattern scale: legs and altitudes grow with cruise speed (turn radius ∝ V²)
 const S = jet ? 3.2 : 1.0;                       // jets fly wider

@@ -7,6 +7,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { scenarioSpeeds, vne as vneOfVc, type Scenario, type Band } from './speeds.js';
+import { inavParams } from './ringtrack.js';
 
 const SIM = resolve(import.meta.dirname, '../../..');   // cc/dist/src -> sim/
 
@@ -43,16 +44,25 @@ export async function groundElev(lat: number, lon: number, tilesUrl: string): Pr
   } catch { return null; }
 }
 
-// Vs/Vc from the aircraft; Vne is the structural never-exceed — usually derived (≈1.9·Vc) but a per-aircraft
-// FB_VNE override wins where that ratio misfits (a fast jet whose FB_CRUISE is a nav reference, not its
-// throttle cruise). One honest number, not a re-materialised table (see speeds.ts).
+// Speeds derive from the SAME model files flightbox flies — never a hand-set profile.env value that could
+// diverge. Vc = iNav's nav reference airspeed (inav.diff fw_reference_airspeed). Vs = 1g stall from the
+// JSBSim physics: Vs = √(2·W / (ρ·S·CLmax)) with W (total weight) + S (wing area) parsed from {model}.xml
+// and CLmax a standard ~1.4. Vne/Vmin are structural/handling multiples of these.
+const G0 = 9.80665, RHO0 = 1.225, LBS_N = 4.4482216, FT2_M2 = 0.09290304, CL_MAX = 1.4;
+function stallFromXml(ac: string): number {
+  const xml = readFileSync(`${SIM}/aircraft/models/${ac}/${ac}.xml`, 'utf8');
+  const sm = xml.match(/<wingarea[^>]*>\s*([0-9.]+)/i);
+  const S = sm ? Number(sm[1]) * FT2_M2 : 0;
+  const wLbs = [...xml.matchAll(/<(?:emptywt|weight)[^>]*>\s*([0-9.]+)/gi)].reduce((s, m) => s + Number(m[1]), 0);
+  const W = wLbs * LBS_N;
+  return S > 0 && W > 0 ? Math.sqrt((2 * W) / (RHO0 * S * CL_MAX)) : 11;
+}
 function vsVc(ac: string): { vs: number; vc: number; vne: number; vmin: number } {
-  const txt = readFileSync(`${SIM}/aircraft/models/${ac}/profile.env`, 'utf8');
-  const g = (k: string, d: number) => { const m = txt.match(new RegExp(`^\\s*${k}\\s*=\\s*([0-9.]+)`, 'm')); return m ? Number(m[1]) : d; };
-  const vs = g('FB_STALL', 11), vc = g('FB_CRUISE', 20);
-  // vmin = minimum safe maneuvering speed. Most airframes fly to ~1.2·Vs; a relaxed-stability jet departs
-  // far above the 1g stall, so FB_VMIN overrides it (energy management holds the aircraft above this).
-  return { vs, vc, vne: g('FB_VNE', vneOfVc(vc)), vmin: g('FB_VMIN', 1.2 * vs) };
+  const vc = inavParams(ac).cruise;                 // fw_reference_airspeed (inav.diff)
+  const vs = Math.round(stallFromXml(ac) * 10) / 10; // 1g stall from {model}.xml physics
+  // Vne ≈ structural never-exceed; Vmin ≈ min safe maneuvering (~1.2·Vs). These bound the mission envelope;
+  // flightbox itself imposes no Vne (only non-divergence + stall), so they are advisory limits, not FDM gates.
+  return { vs, vc, vne: vneOfVc(vc), vmin: Math.round(1.2 * vs * 10) / 10 };
 }
 
 /** Resolve a declarative mission (name or path under sim/) to a flyable GPS/ASL plan. */
