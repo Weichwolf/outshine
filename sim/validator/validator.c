@@ -8,6 +8,14 @@
  * the nav driver is aligned to — only a validator-OK mission is worth a real flight.
  *
  * Build: g++ validator.c ../aircraft/fdm/jsbsim_adapter.cpp -I../aircraft/fdm <libJSBSim>.a  (see Makefile).
+ *
+ * Fidelity note: the OUTER nav loop is iNav's own (verbatim cascade). The INNER attitude tracker is a
+ * damped, gain-scheduled stand-in for iNav ANGLE mode + the airframe's own inner loop — faithful enough
+ * for conventional airframes (c172, SGS validate 3/3), but NOT for a relaxed-stability F-16, whose real
+ * FLCS (iNav's rate PID driving fcs/*-cmd-norm, tuned per inav.diff) is what keeps it from departing when
+ * it must climb AND turn to a high waypoint. The validator flies the F-16's climb + first capture, then
+ * fails-fast on the departure. Validating the F-16 needs iNav's actual ANGLE-mode rate PID here, or the
+ * real iNav SITL in the loop; until then the F-16 is validated by flightbox directly (the reference).
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -188,7 +196,7 @@ int main(void){
     const double KP_ROLL=m.kpR>0?m.kpR:0.030, KD_ROLL=m.kdR>0?m.kdR:0.010;
     const double KP_PITCH=m.kpP>0?m.kpP:0.055, KD_PITCH=m.kdP>0?m.kdP:0.018;
     NavPid pidAlt; navpid_init(&pidAlt, m.posZp/100.0, m.posZi/100.0, m.posZd/300.0, m.posZff/100.0, 10.0);  /* fw_alt (climb-rate branch) */
-    double vtarget=fmax(m.cruise, m.vmin*1.45);      /* operating airspeed (jet flies well above nav-ref cruise) */
+    double vtarget=fmax(m.cruise, m.vmin*1.2);       /* operating airspeed: sustainable at cruise power, above departure */
     int wp=0; int landing=0; int launched=0; int landed=0; int landphase=0; double t=0; const double dt=0.01, t_max=1200.0;
     double wp1rel = m.nwp? m.wp[0].alt_rel : 100;
     double wpmin[MAXWP]; for(int i=0;i<m.nwp;i++) wpmin[i]=1e9;
@@ -239,8 +247,8 @@ int main(void){
         double herr=wrap180(desH-st.yaw);
         /* gentle-dogleg: cap bank below the nav limit when energy-limited — a hard bank at low speed margin
            bleeds a relaxed-stability jet into a departure. Full nav bank once comfortably above vmin. */
-        double smarg=(st.speed-m.vmin)/fmax(1.0,vtarget-m.vmin);       /* 0 at vmin, 1 at operating speed */
-        double bankMax=m.bank*fmax(0.25,fmin(1.0,smarg));              /* gentle turns until comfortably fast */
+        double smarg=(st.speed-m.vmin)/fmax(1.0,vtarget*1.3-m.vmin);   /* full bank only well above operating speed */
+        double bankMax=m.bank*fmax(0.25,fmin(1.0,smarg));              /* gentle turns preserve a jet's energy */
         double bank_cmd=fmax(-bankMax,fmin(bankMax, herr*1.5));         /* course->bank, energy-capped */
         (void)tgt_spd;
         /* --- iNav fixed-wing altitude cascade (navigation_fixedwing.c): altitude error -> desired climb rate
@@ -279,8 +287,8 @@ int main(void){
         double sperr=vtarget-st.speed;
         double thr_us=m.cruise_thr + pitch_cmd*m.pitch2thr + (sperr>0? sperr*40.0 : sperr*12.0);  /* boost hard slow, cut gently fast */
         if(altErr_cm>3000.0) thr_us=fmax(thr_us, m.min_thr+0.7*(m.max_thr-m.min_thr));  /* sustained climb -> hold power up */
-        if(fabs(bank_cmd)>5.0) thr_us=fmax(thr_us, m.cruise_thr+0.35*(m.max_thr-m.cruise_thr)); /* power to hold speed in a turn */
-        if(st.speed>vtarget*1.25) thr_us=fmin(thr_us,m.cruise_thr);     /* don't run away above the operating band */
+        if(agl>30.0 && (pitch_cmd>-3.0||fabs(bank_cmd)>4.0) && st.speed<m.vne*0.85) thr_us=fmax(thr_us,m.cruise_thr+0.4*(m.max_thr-m.cruise_thr)); /* airborne level/climb OR turning: hold power (a jet decays fast at low power) */
+        if(st.speed>vtarget*1.25) thr_us=fmin(thr_us,m.cruise_thr);    /* keep within the operating band */
         if(st.speed>m.vne*0.9) thr_us=fmin(thr_us,m.min_thr);          /* vne protection */
         thr_us=fmax(m.min_thr,fmin(m.max_thr,thr_us));
         double thr=(thr_us-1000.0)/1000.0;
@@ -306,6 +314,7 @@ int main(void){
         agl=st.elev-m.to.elev;                                          /* home-relative (launch/WP datum) */
         double aglL=st.elev-ground;                                     /* local AGL (crash/stall/touchdown) */
         if(aglL < -1.0){ snprintf(fail,sizeof fail,"below ground (crash) at t=%.1f",t); crashed=1; break; }
+        if(!landing && launched && aglL < clr+1.5 && t>8.0){ snprintf(fail,sizeof fail,"ground contact before landing (departure/crash) at t=%.1f",t); crashed=1; break; }
         if(st.speed < m.vs*0.9 && aglL>5){ snprintf(fail,sizeof fail,"stalled: TAS %.1f < %.1f at t=%.1f",st.speed,m.vs*0.9,t); crashed=1; break; }
         if(st.speed > m.vne){ snprintf(fail,sizeof fail,"overspeed: TAS %.1f > vne %.1f at t=%.1f",st.speed,m.vne,t); crashed=1; break; }
         /* --- WP capture / touchdown (the flightbox orakel: reach each WP in the capture radius, land near
