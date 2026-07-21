@@ -60,7 +60,7 @@ static void b64(const uint8_t*in,int n,char*out){
 }
 
 /* ---------- client state ---------- */
-typedef struct { int fd; int is_ws; int is_proxy; uint8_t rx[8192]; int rxn; } client_t;
+typedef struct { int fd; int is_ws; int is_msp; uint8_t rx[8192]; int rxn; } client_t;
 static client_t cl[MAX_CLIENTS];
 
 static void set_nonblock(int fd){ int f=fcntl(fd,F_GETFL,0); fcntl(fd,F_SETFL,f|O_NONBLOCK); }
@@ -98,16 +98,18 @@ static int http_handle(client_t*c){
     char*req=(char*)c->rx;
     char*eoh=strstr(req,"\r\n\r\n"); if(!eoh) return 0;   /* wait for full headers */
 
-    /* WebSocket upgrade? */
+    /* WebSocket upgrade? Path selects the CC role: /ws = structured telemetry + joystick (WASM CC),
+     * /msp = raw MSP proxy (headless TS CC + tests). Both share the one iNav link the hub multiplexes. */
     char*key=strcasestr(req,"Sec-WebSocket-Key:");
-    if(strstr(req,"GET /ws") && key){
+    int msp_path=strstr(req,"GET /msp")!=NULL;
+    if((strstr(req,"GET /ws")||msp_path) && key){
         key+=18; while(*key==' ')key++; char k[128]; int i=0; while(*key!='\r'&&i<120) k[i++]=*key++; k[i]=0;
         char cat[200]; snprintf(cat,sizeof cat,"%s258EAFA5-E914-47DA-95CA-C5AB0DC85B11",k);
         sha1_t s; sha1_init(&s); sha1_upd(&s,(uint8_t*)cat,strlen(cat)); uint8_t dig[20]; sha1_fin(&s,dig);
         char acc[40]; b64(dig,20,acc);
         char resp[256]; int n=snprintf(resp,sizeof resp,
             "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: %s\r\n\r\n",acc);
-        send(c->fd,resp,n,MSG_NOSIGNAL); c->is_ws=1; c->rxn=0; return 1;
+        send(c->fd,resp,n,MSG_NOSIGNAL); c->is_ws=1; c->is_msp=msp_path; c->rxn=0; return 1;
     }
 
     /* static file GET */
@@ -149,8 +151,11 @@ static int http_handle(client_t*c){
     fclose(f); c->rxn=0; return -1;   /* -1 => close after serving */
 }
 
-/* parse WS frames from client buffer; call cb() for each binary payload */
-static void ws_parse(client_t*c, void(*cb)(const uint8_t*,int)){
+/* parse WS frames from a client buffer and route each binary payload by client kind: an MSP-proxy CC
+ * (ws://.../msp) sends MSP frames -> forward verbatim to iNav; the WASM CC (/ws) sends joystick control. */
+static int msp_fd;                                   /* defined below (= -1) — tentative decl for ws_parse */
+static void on_client_msg(const uint8_t*p,int n);    /* defined below */
+static void ws_parse(client_t*c){
     int off=0;
     while(c->rxn-off>=2){
         uint8_t*p=c->rx+off; uint8_t op=p[0]&0x0f; int masked=p[1]&0x80; uint64_t len=p[1]&0x7f; int hn=2;
@@ -159,7 +164,10 @@ static void ws_parse(client_t*c, void(*cb)(const uint8_t*,int)){
         int need=hn+(masked?4:0)+(int)len; if(c->rxn-off<need) break;
         uint8_t*mask=p+hn; uint8_t*pl=p+hn+(masked?4:0);
         if(masked) for(uint64_t i=0;i<len;i++) pl[i]^=mask[i&3];
-        if(op==0x2 || op==0x1){ cb(pl,(int)len); }        /* binary/text payload */
+        if(op==0x2 || op==0x1){
+            if(c->is_msp){ if(msp_fd>=0) send(msp_fd,pl,(int)len,MSG_NOSIGNAL); }   /* CC MSP uplink -> iNav */
+            else on_client_msg(pl,(int)len);                                        /* WASM joystick RC */
+        }
         /* op 0x8 close, 0x9 ping ignored for brevity */
         off+=need;
     }
@@ -202,9 +210,9 @@ static void msp_poll(void){
     if(msp_fd<0) return;
     ssize_t n;
     while((n=recv(msp_fd,msp_rx+msp_rxn,sizeof msp_rx-msp_rxn,0))>0){
-        /* fan the RAW iNav downlink out to every connected headless-CC (MSP-proxy) client: the hub
-         * multiplexes one iNav link to arbitrarily many command centers, all reading the same stream. */
-        for(int c=0;c<MAX_CLIENTS;c++) if(cl[c].fd>=0&&cl[c].is_proxy) send(cl[c].fd,msp_rx+msp_rxn,n,MSG_NOSIGNAL);
+        /* fan the RAW iNav downlink out to every connected MSP-proxy CC (ws://.../msp), as WS binary
+         * frames: the hub multiplexes one iNav link to arbitrarily many command centers over port 8080. */
+        for(int c=0;c<MAX_CLIENTS;c++) if(cl[c].fd>=0&&cl[c].is_msp) ws_send(cl[c].fd,msp_rx+msp_rxn,n);
         msp_rxn+=n; if(msp_rxn>(int)sizeof msp_rx-800)msp_rxn=0;
     }
     if(n==0 || (n<0 && errno!=EAGAIN && errno!=EWOULDBLOCK)){   /* aircraft went away (test restart) -> drop + reconnect */
@@ -316,29 +324,19 @@ int main(void){
     listen(lfd,8); set_nonblock(lfd);
     for(int i=0;i<MAX_CLIENTS;i++) cl[i].fd=-1;
 
-    /* Raw-MSP proxy listen: headless CC clients (tests, CLI) connect here and speak MSP through the hub.
-     * The hub forwards their frames to iNav and fans iNav's downlink back to all of them -> N command
-     * centers share one iNav link. No fixed binding: a CC connects/leaves anytime while flightbox runs. */
-    int pport=getenv("MSP_PROXY_PORT")?atoi(getenv("MSP_PROXY_PORT")):5766;
-    int pfd=socket(AF_INET,SOCK_STREAM,0); setsockopt(pfd,SOL_SOCKET,SO_REUSEADDR,&one,sizeof one);
-    struct sockaddr_in pa={0}; pa.sin_family=AF_INET; pa.sin_addr.s_addr=INADDR_ANY; pa.sin_port=htons(pport);
-    if(bind(pfd,(struct sockaddr*)&pa,sizeof pa)<0){ perror("proxy bind"); return 1; }
-    listen(pfd,8); set_nonblock(pfd);
-
-    fprintf(stderr,"[flightbox] http :%d  msp-proxy :%d  MSP<->%s:%d (telemetry downlink + full command uplink)\n",port,pport,ac,MSP_PORT);
+    fprintf(stderr,"[flightbox] http+ws :%d  MSP<->%s:%d (telemetry downlink + full command uplink; CC over ws://.../msp)\n",port,ac,MSP_PORT);
 
     for(;;){
-        fd_set rs; FD_ZERO(&rs); FD_SET(lfd,&rs); FD_SET(pfd,&rs); int mx=lfd>pfd?lfd:pfd;
+        fd_set rs; FD_ZERO(&rs); FD_SET(lfd,&rs); int mx=lfd;
         if(msp_fd>=0){ FD_SET(msp_fd,&rs); if(msp_fd>mx)mx=msp_fd; }
         for(int i=0;i<MAX_CLIENTS;i++) if(cl[i].fd>=0){ FD_SET(cl[i].fd,&rs); if(cl[i].fd>mx)mx=cl[i].fd; }
         struct timeval tv={0,5000};    /* 5 ms select wake so the fixed-cadence telemetry timer below is smooth */
         if(select(mx+1,&rs,NULL,NULL,&tv)<0){ if(errno==EINTR)continue; perror("select"); break; }
 
-        /* new connection (HTTP/WS on lfd, raw-MSP-proxy CC on pfd) */
-        for(int pass=0;pass<2;pass++){
-            int listenfd=pass?pfd:lfd; if(!FD_ISSET(listenfd,&rs)) continue;
-            int fd=accept(listenfd,NULL,NULL);
-            if(fd>=0){ set_nonblock(fd); int i; for(i=0;i<MAX_CLIENTS;i++) if(cl[i].fd<0){ cl[i].fd=fd; cl[i].is_ws=0; cl[i].is_proxy=pass; cl[i].rxn=0; break; }
+        /* new connection — HTTP; upgrades to WS in http_handle (path /ws = telemetry, /msp = MSP proxy) */
+        if(FD_ISSET(lfd,&rs)){
+            int fd=accept(lfd,NULL,NULL);
+            if(fd>=0){ set_nonblock(fd); int i; for(i=0;i<MAX_CLIENTS;i++) if(cl[i].fd<0){ cl[i].fd=fd; cl[i].is_ws=0; cl[i].is_msp=0; cl[i].rxn=0; break; }
                 if(i==MAX_CLIENTS) close(fd); }
         }
 
@@ -357,8 +355,8 @@ int main(void){
         if(msp_fd>=0 && now-last_telem>=1000/hz){
             last_telem=now;
             msp_request_telemetry(); msp_poll();
-            telem_packet_t t; build_telem(&t);
-            for(int i=0;i<MAX_CLIENTS;i++) if(cl[i].fd>=0&&cl[i].is_ws) ws_send(cl[i].fd,(uint8_t*)&t,sizeof t);
+            telem_packet_t t; build_telem(&t);   /* structured telemetry -> the WASM CC (/ws), not the MSP proxy */
+            for(int i=0;i<MAX_CLIENTS;i++) if(cl[i].fd>=0&&cl[i].is_ws&&!cl[i].is_msp) ws_send(cl[i].fd,(uint8_t*)&t,sizeof t);
         }
 
         /* client data */
@@ -367,9 +365,8 @@ int main(void){
             ssize_t n=recv(cl[i].fd,cl[i].rx+cl[i].rxn,sizeof cl[i].rx-cl[i].rxn,0);
             if(n<=0){ close(cl[i].fd); cl[i].fd=-1; continue; }
             cl[i].rxn+=n;
-            if(cl[i].is_proxy){ if(msp_fd>=0) send(msp_fd,cl[i].rx,cl[i].rxn,MSG_NOSIGNAL); cl[i].rxn=0; }  /* CC MSP uplink -> iNav */
-            else if(!cl[i].is_ws){ int r=http_handle(&cl[i]); if(r<0){ close(cl[i].fd); cl[i].fd=-1; } }
-            else ws_parse(&cl[i], on_client_msg);
+            if(!cl[i].is_ws){ int r=http_handle(&cl[i]); if(r<0){ close(cl[i].fd); cl[i].fd=-1; } }
+            else ws_parse(&cl[i]);   /* WS frames: /msp -> forward MSP to iNav, /ws -> joystick RC */
         }
     }
     return 0;

@@ -112,11 +112,12 @@ static int w3_lod_for_px(double px) {
   128 /* max chunks drawn/resident. 128 * 512^2 RGB * (mips) * 2                                   \
        * albedos ~ 268 MB -- about what the three rings cost. */
 #endif
-/* Camera near/far. near was 2 m: at that ratio a 16-bit depth buffer cannot resolve 700 m at
- * 10 km. Nothing is ever within 20 m of the camera -- it sits in the aircraft -- and moving the
- * near plane out is the single cheapest precision win there is (10x, for one number). */
+/* Camera near plane: 0.5 m so close foreground (the runway right under/ahead of the aircraft on the
+ * ground) is NOT clipped — the camera sits in the aircraft, and at 20 m the near ground vanished. The
+ * depth buffer is 24-bit (present.h), which carries this near:far far better than the old 16-bit; if
+ * far-field z-fighting shows up, the industry fix is reversed-Z float depth, not pushing near back out. */
 #ifndef W3_NEAR
-#define W3_NEAR 20.0f
+#define W3_NEAR 0.5f
 #endif
 #ifndef W3_FARPLANE
 #define W3_FARPLANE 240000.0f /* past the z8 ring; the horizon at 4000 m is 226 km */

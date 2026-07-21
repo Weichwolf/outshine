@@ -1,9 +1,13 @@
-// FlightBox headless Command Center CLI — a client of the running flightbox hub.
+// FlightBox headless Command Center CLI — a client of the running flightbox hub, over ws://.../msp.
 //   cc watch                     stream telemetry to stdout (any number can watch in parallel)
-//   cc arm                       arm and hold in ANGLE (hand-over to a human/other CC)
-// Connects to the hub's MSP-proxy port (CC_HOST/CC_PORT, default 127.0.0.1:5766).
+//   cc fly <mission|aircraft>    fly a mission against the running aircraft (arm -> WP -> land)
+// Connects to CC_URL (default ws://127.0.0.1:8080/msp).
 
 import { CC, sleep } from '../src/client.js';
+import { flyMission } from '../src/harness.js';
+import { resolveMission } from '../src/mission.js';
+
+const fmt = (v: number | undefined, d = 1) => (v === undefined ? '-' : v.toFixed(d));
 
 async function main() {
   const cmd = process.argv[2] ?? 'watch';
@@ -14,27 +18,35 @@ async function main() {
     for (;;) {
       await sleep(500);
       const t = cc.t;
-      const age = t.updated ? Date.now() - t.updated : Infinity;
-      const link = age < 2000 ? 'LIVE' : 'no-signal';
+      const link = t.updated && Date.now() - t.updated < 2000 ? 'LIVE' : 'no-signal';
       process.stdout.write(
         `[${link}] arm=${t.armed ?? '-'} nav=${t.navState ?? '-'} wp=${t.navWp ?? '-'} ` +
         `agl=${fmt(t.aglM)} pos=${fmt(t.lat, 5)},${fmt(t.lon, 5)} ` +
         `rpy=${fmt(t.roll)}/${fmt(t.pitch)}/${fmt(t.yaw)} gs=${fmt(t.gs)} fix=${t.fix ?? '-'}/${t.sats ?? '-'}\n`);
     }
-  } else if (cmd === 'arm') {
-    // steady RC at ~30 Hz: ARM (AUX1) + ANGLE, neutral sticks. iNav needs a continuous RC stream.
-    const t0 = Date.now();
-    for (;;) {
-      const ts = (Date.now() - t0) / 1000;
-      const armEdge = ts % 3 >= 1.5 ? 2000 : 1000;                 // pulse ARM until it takes
-      cc.rc([1500, 1500, 1000, 1500, cc.t.armed ? 2000 : armEdge, 2000, 1000, 1000]);
-      await sleep(33);
-    }
+  } else if (cmd === 'fly') {
+    const spec = process.argv[3] ?? 'c172';
+    const path = spec.endsWith('.json') ? spec : `missions/${spec}.json`;
+    const m = resolveMission(path);
+    process.stdout.write(`>> ${m.name || m.aircraft}: ${m.takeoff.icao}/${m.takeoff.runway} -> ${m.waypoints.length} WP -> ${m.land.icao}/${m.land.runway}\n`);
+    const proc = m.raw.procedure ?? {};
+    const secs = (m.raw.abort?.timeout_s ?? 600);
+    let last = '';
+    await flyMission(cc, m, secs * 1000, {
+      angleHoldAltM: proc.angle_hold_alt ?? 0,
+      climbPitch: proc.angle_climb_pitch ?? 1500,
+      autoland: true,
+      onTick: (t, phase) => {
+        const line = `${phase} arm=${t.armed} nav=${t.navState} wp=${t.navWp} agl=${fmt(t.aglM)} gs=${fmt(t.gs)}`;
+        if (line !== last) { process.stdout.write(line + '\n'); last = line; }
+      },
+    });
+    process.stdout.write('>> flight window ended\n');
+    cc.close();
   } else {
-    process.stderr.write(`unknown command ${JSON.stringify(cmd)}; try: watch | arm\n`);
+    process.stderr.write(`unknown command ${JSON.stringify(cmd)}; try: watch | fly <mission>\n`);
     process.exit(2);
   }
 }
 
-const fmt = (v: number | undefined, d = 1) => (v === undefined ? '-' : v.toFixed(d));
 main().catch((e) => { process.stderr.write(String(e?.message ?? e) + '\n'); process.exit(1); });

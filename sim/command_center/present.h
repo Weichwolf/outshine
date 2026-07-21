@@ -59,18 +59,19 @@ static GLuint pr_tex2d(int w, int h) {
   return t;
 }
 
-/* Multisample scene FBO (colour + depth). 24-bit depth: with the far plane at 240 km, 16 bits
- * z-fight the distant terrain into confetti (~760 m at 10 km); 24 give 0.3 m. WebGL1 lacks it ->
- * fall back. */
+/* Multisample scene FBO (colour + depth). With near at 0.5 m and the far plane at 240 km the depth
+ * range is huge, so use the highest precision the context offers: 32-bit float depth, falling back to
+ * 24-bit integer (never 16 — that z-fights distant terrain into confetti, ~760 m at 10 km). Both are
+ * WebGL2 core. 32F carries the small near best (and is the natural base for a later reversed-Z pass). */
 static void pr_mk_scene(GLuint *fbo, GLuint *col, GLuint *dep, int w, int h) {
   glGenRenderbuffers(1, col);
   glBindRenderbuffer(GL_RENDERBUFFER, *col);
   glRenderbufferStorageMultisample(GL_RENDERBUFFER, pr_samples, GL_RGBA8, w, h);
   glGenRenderbuffers(1, dep);
   glBindRenderbuffer(GL_RENDERBUFFER, *dep);
-  glRenderbufferStorageMultisample(GL_RENDERBUFFER, pr_samples, GL_DEPTH_COMPONENT24, w, h);
+  glRenderbufferStorageMultisample(GL_RENDERBUFFER, pr_samples, GL_DEPTH_COMPONENT32F, w, h);
   if (glGetError() != GL_NO_ERROR)
-    glRenderbufferStorageMultisample(GL_RENDERBUFFER, pr_samples, GL_DEPTH_COMPONENT16, w, h);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, pr_samples, GL_DEPTH_COMPONENT24, w, h);
   glGenFramebuffers(1, fbo);
   glBindFramebuffer(GL_FRAMEBUFFER, *fbo);
   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, *col);

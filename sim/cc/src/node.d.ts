@@ -26,8 +26,28 @@ declare module 'node:net' {
   export function connect(opts: { host: string; port: number }): Socket;
 }
 
+// The 'ws' WebSocket client (Debian node-ws). Only the members the CC uses.
+declare module 'ws' {
+  export class WebSocket {
+    constructor(url: string);
+    binaryType: string;
+    on(ev: 'open', cb: () => void): void;
+    on(ev: 'message', cb: (data: Uint8Array) => void): void;
+    on(ev: 'close', cb: () => void): void;
+    on(ev: 'error', cb: (e: unknown) => void): void;
+    send(data: Uint8Array): void;
+    close(): void;
+  }
+}
+
+interface ImportMeta { url: string; dirname: string; }
+declare module 'node:path' {
+  export function resolve(...parts: string[]): string;
+  export function join(...parts: string[]): string;
+}
+
 declare module 'node:child_process' {
-  export function execSync(cmd: string, opts?: { maxBuffer?: number; encoding?: 'utf8' }): string;
+  export function execSync(cmd: string, opts?: { cwd?: string; maxBuffer?: number; encoding?: 'utf8' }): string;
   export function spawnSync(cmd: string, args?: string[], opts?: { encoding?: 'utf8'; maxBuffer?: number }): {
     status: number | null; stdout: string; stderr: string;
   };

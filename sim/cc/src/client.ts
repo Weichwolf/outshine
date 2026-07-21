@@ -10,7 +10,7 @@
 // SENDS commands fire-and-forget (no request/response: the downlink is a shared broadcast, so a reply
 // can't be owned by one requester). iNav flies natively; the CC only commands.
 
-import { connect, type Socket } from 'node:net';
+import { WebSocket } from 'ws';
 import { encode, MspParser } from './msp.js';
 
 export interface Telem {
@@ -29,36 +29,37 @@ const rd = { i16: (p: Uint8Array, o: number) => (p[o] | (p[o + 1] << 8)) << 16 >
 
 export class CC {
   t: Telem = {};
-  private sock: Socket | null = null;
+  private ws: WebSocket | null = null;
   private parser = new MspParser();
   private closed = false;
 
-  constructor(private host = process.env.CC_HOST ?? '127.0.0.1',
-              private port = Number(process.env.CC_PORT ?? 5766)) {}
+  // Connect to the flightbox hub's MSP-proxy WebSocket (ws://.../msp) on the single HTTP port. The hub
+  // fans iNav's MSP downlink to every such CC and forwards each CC's frames up to iNav — one iNav link,
+  // many command centers, all over port 8080. (The WASM CC uses /ws for structured telemetry instead.)
+  constructor(private url = process.env.CC_URL ?? 'ws://127.0.0.1:8080/msp') {}
 
   async connect(timeoutMs = 40000): Promise<void> {
     const end = Date.now() + timeoutMs;
     for (;;) {
-      try { this.sock = await this.dial(); break; }
-      catch { if (Date.now() > end) throw new Error(`flightbox hub not reachable at ${this.host}:${this.port}`);
+      try { await this.dial(); break; }
+      catch { if (Date.now() > end) throw new Error(`flightbox hub not reachable at ${this.url}`);
               await sleep(250); }
     }
-    this.sock.on('data', (d) => { for (const f of this.parser.push(d)) this.decode(f); });
-    this.sock.on('close', () => { if (!this.closed) this.reconnect(); });
-    this.sock.on('error', () => {});
   }
 
-  private dial(): Promise<Socket> {
+  private dial(): Promise<void> {
     return new Promise((res, rej) => {
-      const s = connect({ host: this.host, port: this.port });
-      s.setNoDelay(true);
-      s.once('connect', () => res(s));
-      s.once('error', rej);
+      const ws = new WebSocket(this.url);
+      ws.binaryType = 'nodebuffer';
+      ws.on('open', () => { this.ws = ws; res(); });
+      ws.on('message', (d: Uint8Array) => { for (const f of this.parser.push(d)) this.decode(f); });
+      ws.on('close', () => { if (!this.closed) this.reconnect(); });
+      ws.on('error', (e: unknown) => rej(e));                 // pre-open: fails the dial; post-open: -> close
     });
   }
 
   private async reconnect() {
-    this.sock = null; this.parser = new MspParser();
+    this.ws = null; this.parser = new MspParser();
     try { await this.connect(10000); } catch { /* hub gone; caller times out on telemetry */ }
   }
 
@@ -74,7 +75,7 @@ export class CC {
     t.updated = Date.now();
   }
 
-  send(cmd: number, payload: Uint8Array = new Uint8Array(0)) { this.sock?.write(encode(cmd, payload)); }
+  send(cmd: number, payload: Uint8Array = new Uint8Array(0)) { this.ws?.send(encode(cmd, payload)); }
 
   rc(ch: number[]) { const b = new Uint8Array(ch.length * 2); const dv = new DataView(b.buffer); ch.forEach((v, i) => dv.setUint16(i * 2, v, true)); this.send(200, b); }
 
@@ -100,7 +101,7 @@ export class CC {
     }
   }
 
-  close() { this.closed = true; this.sock?.destroy(); }
+  close() { this.closed = true; this.ws?.close(); }
 }
 
 export const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
