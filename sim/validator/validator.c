@@ -59,7 +59,7 @@ static double distll(double la0,double lo0,double la1,double lo1){
 static double wrap180(double x){ while(x>180)x-=360; while(x<-180)x+=360; return x; }
 
 /* ---------- mission (resolved) ---------- */
-typedef struct { double lat,lon,elev,hdg; } RW;
+typedef struct { double lat,lon,elev,hdg,len; } RW;
 typedef struct { double lat,lon,alt_rel; } WP;
 typedef struct {
     char ac[32];
@@ -181,7 +181,7 @@ static int parse(Mission*m){
     while(fgets(line,sizeof line,stdin)){
         if(!strncmp(line,"ac ",3)) sscanf(line+3,"%31s",m->ac);
         else if(!strncmp(line,"to ",3)) sscanf(line+3,"%lf %lf %lf %lf",&m->to.lat,&m->to.lon,&m->to.elev,&m->to.hdg);
-        else if(!strncmp(line,"ld ",3)) sscanf(line+3,"%lf %lf %lf %lf",&m->ld.lat,&m->ld.lon,&m->ld.elev,&m->ld.hdg);
+        else if(!strncmp(line,"ld ",3)){ m->ld.len=1500; sscanf(line+3,"%lf %lf %lf %lf %lf",&m->ld.lat,&m->ld.lon,&m->ld.elev,&m->ld.hdg,&m->ld.len); }
         else if(!strncmp(line,"nav ",4)) sscanf(line+4,"%lf %lf %lf %lf %lf %lf",&m->climb,&m->dive,&m->bank,&m->cruise,&m->approach_len,&m->glide);
         else if(!strncmp(line,"thr ",4)) sscanf(line+4,"%lf %lf %lf %lf",&m->cruise_thr,&m->min_thr,&m->max_thr,&m->pitch2thr);
         else if(!strncmp(line,"pid ",4)) sscanf(line+4,"%lf %lf %lf %lf %lf %lf %lf",&m->posZp,&m->posZi,&m->posZd,&m->posZff,&m->alt_response,&m->max_climb_rate,&m->control_smoothness);
@@ -225,6 +225,10 @@ int main(void){
     double wp1rel = m.nwp? m.wp[0].alt_rel : 100;
     double wpmin[MAXWP]; for(int i=0;i<m.nwp;i++) wpmin[i]=1e9;
     double tdist=1e9;                                  /* closest horizontal approach to the landing threshold */
+    /* landing rollout: at touchdown the engine is cut + wheel brakes applied, and the ground roll is
+       simulated to a full STOP. td_* capture where/how it touched the runway; rollout is the distance from
+       touchdown to standstill; a real landing is ON the runway (aligned, on the strip) AND stops on it. */
+    int rolling=0; double td_along=0,td_xte=0,td_hdgerr=0,td_speed=0,rollout=0,td_lat=0,td_lon=0;
     char fail[128]=""; int crashed=0;
     fb_fdm_state st; memset(&st,0,sizeof st);
     st.lat=m.to.lat; st.lon=m.to.lon; st.elev=m.to.elev+clr; st.yaw=m.to.hdg; st.speed=m.cruise;   /* IC seed */
@@ -283,6 +287,7 @@ int main(void){
         double smarg=(st.speed-m.vmin)/fmax(1.0,vtarget*1.3-m.vmin);
         double bankMax=m.bank*fmax(0.25,fmin(1.0,smarg));
         if(!launched) bankMax=fmin(bankMax,10.0);
+        if(landing && (st.elev-m.ld.elev) < clr+20.0) bankMax=fmin(bankMax,6.0);  /* short final: wings-level for touchdown, don't cartwheel on a wingtip */
         bank_cmd=fmax(-bankMax,fmin(bankMax,bank_cmd));
         (void)tgt_spd;
         /* --- iNav fixed-wing altitude cascade (navigation_fixedwing.c): altitude error -> desired climb rate
@@ -346,7 +351,21 @@ int main(void){
            INAV_ACK_NOT_APPLIED) pending a faithful port — an honest gap, not a silent one. */
         double yaw = 0.0;
         (void)m.fwPy; (void)m.turnAssist;
+        /* ROLLOUT after touchdown: cut the engine, brake hard, and steer (nose-wheel via rudder) to hold the
+           runway centreline until the aircraft stops — a landing is not done at wheels-down, it is done at a
+           full stop ON the runway. */
+        double brake_cmd = 0.0;
+        if(rolling && (st.elev-ground) < clr+2.0){          /* hold the rollout override (wings-level + brakes)
+                                                               THROUGH small touchdown bounces — resuming the
+                                                               COG-based nav at bounce speed cartwheels it */
+            thr=0.0; brake_cmd=0.4; roll=0.0; pitch=0.10;   /* engine cut, brakes; slight nose-up = aero-braking + keep the nose light */
+            double hr=m.ld.hdg*D2R, fe=sin(hr), fn=cos(hr), e,n;
+            enu(st.lat,st.lon,m.ld.lat,m.ld.lon,&e,&n);
+            double xte=e*(-fn)+n*fe;
+            yaw=fmax(-1.0,fmin(1.0, -xte*0.05 - st.r*0.02));   /* steer to centreline + damp */
+        }
         fb_jsbsim_set_ground(ground);
+        fb_jsbsim_set_brake(brake_cmd);
         fb_jsbsim_set_controls(roll,pitch,yaw,thr);
         fb_jsbsim_step(&st);
         if(getenv("VTRACE") && ((int)(t/dt)%500==0))
@@ -362,22 +381,31 @@ int main(void){
         if(!(isfinite(st.lat)&&isfinite(st.lon)&&isfinite(st.elev))){ snprintf(fail,sizeof fail,"NaN/divergence at t=%.1f",t); crashed=1; break; }
         agl=st.elev-m.to.elev;                                          /* home-relative (launch/WP datum) */
         double aglL=st.elev-ground;                                     /* local AGL (crash/stall/touchdown) */
-        if(aglL < -1.0){ snprintf(fail,sizeof fail,"below ground (crash) at t=%.1f",t); crashed=1; break; }
+        if(aglL < (rolling? -3.0 : -1.0)){ snprintf(fail,sizeof fail,"below ground (crash) at t=%.1f",t); crashed=1; break; }  /* on the gear the CG dips with strut compression — more margin during rollout */
         if(!landing && launched && aglL < clr+1.5 && t>8.0){ snprintf(fail,sizeof fail,"ground contact before landing (departure/crash) at t=%.1f",t); crashed=1; break; }
-        if(st.speed < m.vs*0.9 && aglL>5){ snprintf(fail,sizeof fail,"stalled: TAS %.1f < %.1f at t=%.1f",st.speed,m.vs*0.9,t); crashed=1; break; }
-        if(launched && st.speed < m.vs*0.7 && t>10.0){ snprintf(fail,sizeof fail,"departed/mushed: TAS %.1f < %.1f at t=%.1f",st.speed,m.vs*0.7,t); crashed=1; break; }
-        if(st.speed > m.vne){ snprintf(fail,sizeof fail,"overspeed: TAS %.1f > vne %.1f at t=%.1f",st.speed,m.vne,t); crashed=1; break; }
+        if(!rolling && st.speed < m.vs*0.9 && aglL>5){ snprintf(fail,sizeof fail,"stalled: TAS %.1f < %.1f at t=%.1f",st.speed,m.vs*0.9,t); crashed=1; break; }
+        if(!rolling && launched && st.speed < m.vs*0.7 && t>10.0){ snprintf(fail,sizeof fail,"departed/mushed: TAS %.1f < %.1f at t=%.1f",st.speed,m.vs*0.7,t); crashed=1; break; }
+        if(!rolling && st.speed > m.vne){ snprintf(fail,sizeof fail,"overspeed: TAS %.1f > vne %.1f at t=%.1f",st.speed,m.vne,t); crashed=1; break; }  /* on the ground TAS spikes on contact — GS governs the rollout */
         /* --- WP capture / touchdown (the flightbox orakel: reach each WP in the capture radius, land near
            the threshold; envelope must hold throughout) --- */
         double capR = m.capture_r>0? m.capture_r : 150.0;
         if(launched && wp<m.nwp){ double dw=distll(st.lat,st.lon,tgt_la,tgt_lo); if(dw<wpmin[wp])wpmin[wp]=dw;
             if(dw<capR) wp++; }
         if(landing){ double dl=distll(st.lat,st.lon,m.ld.lat,m.ld.lon);
-            /* touchdown-to-threshold = closest approach WHILE near the runway (not the min in the air — an
-               overflight of the threshold at altitude is not a touchdown). Latch on firm ground contact
-               (a brakeless glider keeps rolling, so don't wait for it to stop). */
             if(aglL<clr+3.0 && dl<tdist) tdist=dl;
-            if(aglL<clr+1.5){ landed=1; break; } }
+            if(!rolling && aglL<clr+1.5){                  /* TOUCHDOWN — record how/where it met the runway */
+                rolling=1; td_lat=st.lat; td_lon=st.lon; td_speed=st.gs;
+                double hr=m.ld.hdg*D2R, fe=sin(hr), fn=cos(hr), e,n;
+                enu(st.lat,st.lon,m.ld.lat,m.ld.lon,&e,&n);
+                td_along=e*fe+n*fn;                        /* metres past the threshold along the runway */
+                td_xte=e*(-fn)+n*fe;                       /* cross-track from the centreline */
+                td_hdgerr=wrap180(st.yaw-m.ld.hdg);        /* heading vs runway (alignment) */
+            }
+            if(rolling){
+                rollout=distll(td_lat,td_lon,st.lat,st.lon);
+                if(st.gs<0.5){ landed=1; break; }          /* rolled to a full stop */
+                if(td_along+rollout > m.ld.len+150.0){ snprintf(fail,sizeof fail,"runway overrun: %.0fm past a %.0fm runway",td_along+rollout,m.ld.len); crashed=1; break; }
+            } }
         t+=dt;
     }
     int threaded,inorder; score(&threaded,&inorder);
@@ -391,17 +419,22 @@ int main(void){
             if(j>=0)idx=j; }
         fprintf(stderr,"--- traj n=%d, final pos %.5f,%.5f asl=%.0f ---\n",ntraj, ntraj?traj[ntraj-1].lat:0, ntraj?traj[ntraj-1].lon:0, ntraj?traj[ntraj-1].asl:0);
     }
-    /* verdict: flightbox orakel — launched, every WP captured, touched down near the threshold, envelope
-       never violated. The ring in-order run is a reported route-fidelity diagnostic, not the gate. */
+    /* machine-readable landing metrics for the TS runner to grade (on-runway? aligned? stopped within it?) */
+    printf("LAND %.1f %.1f %.1f %.1f %.1f %.1f %d\n", td_along, td_xte, td_hdgerr, td_speed, rollout, m.ld.len, landed);
+    /* verdict: launched, every WP captured, and a COMPLETE landing — touched down ON the runway (aligned,
+       on the strip) AND rolled to a full stop on it, envelope never violated. `stopped` = the rollout latched
+       (gs -> 0); the runner grades WHERE on the runway + alignment + rollout distance from the metrics below. */
     double wpworst=0; for(int i=0;i<m.nwp;i++) if(wpmin[i]>wpworst) wpworst=wpmin[i];
     if(!crashed){
         if(!launched) snprintf(fail,sizeof fail,"never launched");
         else if(wp<m.nwp) snprintf(fail,sizeof fail,"WP%d missed (closest %.0fm)",wp,wpmin[wp]);
-        else if(!landed) snprintf(fail,sizeof fail,"no touchdown (closest to threshold %.0fm)",tdist);
+        else if(!rolling) snprintf(fail,sizeof fail,"no touchdown (closest to threshold %.0fm)",tdist);
+        else if(!landed) snprintf(fail,sizeof fail,"never stopped on the runway (rolled %.0fm, still %.1f m/s)",rollout,st.gs);
     }
     int ok = !crashed && launched && wp>=m.nwp && landed;
-    printf("%s ac=%s wp=%d/%d worst-capture=%.0fm touchdown=%.0fm rings=%d/%d(io) t=%.0fs%s%s\n",
-           ok?"OK":"FAIL", m.ac, wp, m.nwp, wpworst, landed?tdist:-1, inorder, ngate, t,
+    /* landing line: along-track past threshold, cross-track, heading error, touchdown speed, rollout, runway */
+    printf("%s ac=%s wp=%d/%d worst-capture=%.0fm td[along=%.0f xte=%.0f hdg=%+.0f gs=%.0f]m rollout=%.0f/%.0fm rings=%d/%d(io) t=%.0fs%s%s\n",
+           ok?"OK":"FAIL", m.ac, wp, m.nwp, wpworst, td_along, td_xte, td_hdgerr, td_speed, rollout, m.ld.len, inorder, ngate, t,
            fail[0]?"  ":"", fail);
     return ok?0:1;
 }

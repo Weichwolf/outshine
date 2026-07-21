@@ -21,7 +21,7 @@ export function buildVinput(m: Mission): string {
   const L: string[] = [];
   L.push(`ac ${m.aircraft}`);
   L.push(`to ${m.takeoff.lat} ${m.takeoff.lon} ${m.takeoff.elevM} ${m.takeoff.headingDeg}`);
-  L.push(`ld ${m.land.lat} ${m.land.lon} ${m.land.elevM} ${m.land.headingDeg}`);
+  L.push(`ld ${m.land.lat} ${m.land.lon} ${m.land.elevM} ${m.land.headingDeg} ${m.land.lengthM}`);
   L.push(`nav ${p.climbAngle} ${p.diveAngle} ${p.bankAngle} ${p.cruise} ${p.approachLen} ${p.glideAngle}`);
   L.push(`thr ${p.cruiseThr} ${p.minThr} ${p.maxThr} ${p.pitch2thr}`);
   L.push(`pid ${p.posZp} ${p.posZi} ${p.posZd} ${p.posZff} ${p.altResponse} ${p.maxClimbRate} ${p.controlSmoothness}`);
@@ -39,21 +39,26 @@ export function buildVinput(m: Mission): string {
   return L.join('\n') + '\n';
 }
 
-export interface FlightResult { track: Track; verdict: string; ok: boolean; }
+/** Landing metrics from the validator's LAND line: touchdown along/cross-track from the runway threshold,
+ *  heading error vs the runway, touchdown groundspeed, rollout distance, runway length, and whether it
+ *  actually rolled to a full STOP on the runway. */
+export interface Landing { along: number; xte: number; hdgErr: number; gs: number; rollout: number; runwayLen: number; stopped: boolean; }
+export interface FlightResult { track: Track; verdict: string; ok: boolean; landing?: Landing; }
 
-/** Fly the vinput through the validator (VOUT trajectory). CSV lines -> Track; the OK/FAIL line -> verdict. */
+/** Fly the vinput through the validator (VOUT trajectory). CSV lines -> Track; LAND -> landing; OK/FAIL -> verdict. */
 export function flyValidator(vin: string): FlightResult {
   const r = spawnSync(VALIDATOR, [], { input: vin, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
     cwd: SIM, env: { ...process.env, MODELS_ROOT, VOUT: '1' } });
-  const track: Track = []; let verdict = '', ok = false;
+  const track: Track = []; let verdict = '', ok = false; let landing: Landing | undefined;
   for (const line of (r.stdout ?? '').split('\n')) {
     if (!line) continue;
+    if (line.startsWith('LAND ')) { const f = line.split(' '); landing = { along: +f[1], xte: +f[2], hdgErr: +f[3], gs: +f[4], rollout: +f[5], runwayLen: +f[6], stopped: f[7] === '1' }; continue; }
     if (line[0] === 'O' || line[0] === 'F') { verdict = line.trim(); ok = line.startsWith('OK'); continue; }
     const f = line.split(' '); if (f.length < 14 || !/^[0-9.]/.test(f[0])) continue;
     track.push({ t: +f[0], lat: +f[1], lon: +f[2], hAsl: +f[3], hAgl: +f[4], roll: +f[5], pitch: +f[6],
       yaw: +f[7], ias: +f[8], vs: +f[9], gs: +f[10], course: +f[11], wp: +f[12], phase: f[13] });
   }
-  return { track, verdict, ok };
+  return { track, verdict, ok, landing };
 }
 
 /** Terrain-correct AGL host-side (FORMAT.md §1: "Terrain lives in the CC"). The validator flies with a flat
@@ -132,19 +137,21 @@ export async function runMission(spec: string): Promise<RunResult> {
     from = capIdx >= 0 ? capIdx : from;
   }
 
-  // touchdown: reached the landing threshold, on the ground, near the aim point
-  const td = m.raw.land ?? {}; const tdTol = td.touchdown_tol_m ?? 200;
-  const P: Point = { lat: m.land.lat, lon: m.land.lon };
-  // touchdown = validator reached the ground near the threshold. At the field the ground IS the runway
-  // elevation (from the airport DB), not the coarse ~110 m DEM grid — so measure height above the RUNWAY
-  // (h_asl − land.elevM), not the enroute DEM-AGL, or a runway that sits above nearby terrain reads as high.
-  const onGround = fr.track.filter((s) => s.hAsl - m.land.elevM < 10 && s.phase === 'land');
-  let best = Infinity, bestS: Sample | undefined;
-  for (const s of onGround) { const r = range(P, s); if (r < best) { best = r; bestS = s; } }
-  if (!push({ name: 'touchdown', pass: fr.ok && best <= tdTol, detail: best <= tdTol ? `down ${best.toFixed(0)}m ≤ ${tdTol}m from threshold` : `no touchdown within ${tdTol}m (closest ${isFinite(best) ? best.toFixed(0) + 'm' : 'never on final'})` })) return done();
-  // touchdown speed — a fast/hard touchdown fails even if the position is on the numbers (FORMAT.md §2)
-  const gsMax = td.touchdown_gs_max_ms;
-  if (gsMax != null && bestS) push({ name: 'touchdown_gs', pass: bestS.gs <= gsMax, detail: bestS.gs <= gsMax ? `touchdown GS ${bestS.gs.toFixed(1)} ≤ ${gsMax} m/s` : `touchdown GS ${bestS.gs.toFixed(1)} > ${gsMax} m/s (hot/hard)` });
+  // LANDING — a real landing, not a wheels-down moment: touched down ON the runway (aligned, on the strip,
+  // in the touchdown zone), at an acceptable speed, and ROLLED TO A FULL STOP on the runway. (FORMAT.md §2)
+  const td = m.raw.land ?? {}; const L = fr.landing;
+  if (!L) { push({ name: 'landing', pass: false, detail: `no landing (${fr.verdict})` }); return done(); }
+  const halfWidth = td.runway_half_width_m ?? 25;       // touched down on the strip, not off to the side
+  const zoneEnd = L.runwayLen * (td.touchdown_zone_frac ?? 0.5);
+  const hdgTol = td.align_tol_deg ?? 20;                // aligned + correct direction
+  const gsMax = td.touchdown_gs_max_ms ?? m.vs * 2.2;   // not a hot/hard touchdown
+
+  if (!push({ name: 'touchdown:on-runway', pass: Math.abs(L.xte) <= halfWidth && L.along >= -30 && L.along <= zoneEnd,
+    detail: `along ${L.along.toFixed(0)}m (zone 0..${zoneEnd.toFixed(0)}), cross-track ${L.xte.toFixed(0)}m (±${halfWidth})` })) return done();
+  if (!push({ name: 'touchdown:aligned', pass: Math.abs(L.hdgErr) <= hdgTol, detail: `heading ${L.hdgErr.toFixed(0)}° off runway (±${hdgTol}°)` })) return done();
+  if (!push({ name: 'touchdown:speed', pass: L.gs <= gsMax, detail: `touchdown GS ${L.gs.toFixed(0)} ≤ ${gsMax.toFixed(0)} m/s` })) return done();
+  push({ name: 'rollout:stopped-on-runway', pass: L.stopped && (L.along + L.rollout) <= L.runwayLen,
+    detail: L.stopped ? `stopped after ${L.rollout.toFixed(0)}m rollout (touchdown ${L.along.toFixed(0)}m + roll ${L.rollout.toFixed(0)}m ≤ ${L.runwayLen.toFixed(0)}m runway)` : `never came to a stop on the runway (rolled ${L.rollout.toFixed(0)}m)` });
 
   return done();
 

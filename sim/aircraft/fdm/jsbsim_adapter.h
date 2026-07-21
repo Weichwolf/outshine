@@ -32,6 +32,9 @@ void fb_jsbsim_set_controls(double in_roll, double in_pitch, double in_yaw, doub
  * pass a negative value to leave that control at the FDM default (control not mapped by the model). */
 void fb_jsbsim_set_aux(double gear, double flap, double speedbrake);
 
+/* Wheel brakes [0,1] on both main-gear brake groups — for the landing rollout to a stop. */
+void fb_jsbsim_set_brake(double b);
+
 /* Steady wind (m/s, north/east). */
 void fb_jsbsim_set_wind(double wind_n, double wind_e);
 

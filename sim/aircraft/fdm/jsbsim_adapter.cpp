@@ -114,6 +114,15 @@ extern "C" void fb_jsbsim_set_aux(double gear, double flap, double speedbrake) {
   if (speedbrake >= 0.0) g_fdm->SetPropertyValue("fcs/speedbrake-cmd-norm", speedbrake);
 }
 
+/* Wheel brakes, normalized [0,1] on both main-gear brake groups — for the landing rollout. */
+extern "C" void fb_jsbsim_set_brake(double b) {
+  if (!g_fdm) return;
+  if (b < 0.0) b = 0.0; else if (b > 1.0) b = 1.0;
+  g_fdm->SetPropertyValue("fcs/left-brake-cmd-norm",   b);
+  g_fdm->SetPropertyValue("fcs/right-brake-cmd-norm",  b);
+  g_fdm->SetPropertyValue("fcs/center-brake-cmd-norm", b);
+}
+
 extern "C" void fb_jsbsim_set_wind(double wind_n, double wind_e) {
   if (!g_fdm) return;
   g_fdm->SetPropertyValue("atmosphere/wind-north-fps", wind_n / FT);

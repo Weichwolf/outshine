@@ -16,7 +16,7 @@ const AIRPORTS: Record<string, { icao: string; runways: RunwayRec[] }> =
   JSON.parse(readFileSync(`${SIM}/geo/airports.json`, 'utf8'));
 
 export interface Waypoint { lat: number; lon: number; altAgl: number; altRel: number | null; }
-export interface Runway { icao: string; runway: string; lat: number; lon: number; elevM: number; headingDeg: number; }
+export interface Runway { icao: string; runway: string; lat: number; lon: number; elevM: number; headingDeg: number; lengthM: number; }
 export interface Mission {
   name: string; aircraft: string;
   takeoff: Runway; land: Runway; waypoints: Waypoint[];
@@ -84,7 +84,7 @@ export async function resolveMission(spec: string, tilesUrl = process.env.TILES_
     waypoints.push({ lat: w.lat, lon: w.lon, altAgl: w.alt_agl, altRel: asl != null ? asl - home : null });
   }
   const { vs, vc, vne, vmin } = vsVc(m.aircraft);
-  const rw = (o: RunwayRec, icao: string): Runway => ({ icao, runway: o.ident, lat: o.lat, lon: o.lon, elevM: o.elev_m, headingDeg: o.heading_deg });
+  const rw = (o: RunwayRec, icao: string): Runway => ({ icao, runway: o.ident, lat: o.lat, lon: o.lon, elevM: o.elev_m, headingDeg: o.heading_deg, lengthM: o.length_m ?? 1500 });
   return {
     name: m.name ?? '', aircraft: m.aircraft,
     takeoff: rw(to, m.takeoff.airport), land: rw(ld, m.land.airport),

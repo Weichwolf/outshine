@@ -3,11 +3,11 @@
 //   cc fly <mission|aircraft>    fly a mission against the running aircraft (arm -> WP -> land)
 // Connects to CC_URL (default ws://127.0.0.1:8080/msp).
 
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { CC, sleep } from '../src/client.js';
 import { flyMission } from '../src/harness.js';
-import { resolveMission } from '../src/mission.js';
+import { resolveMission, runway } from '../src/mission.js';
 import { buildVinput, runMission } from '../src/runner.js';
 
 const fmt = (v: number | undefined, d = 1) => (v === undefined ? '-' : v.toFixed(d));
@@ -15,6 +15,14 @@ const fmt = (v: number | undefined, d = 1) => (v === undefined ? '-' : v.toFixed
 async function main() {
   const cmd = process.argv[2] ?? 'watch';
   if (cmd === 'vinput') { process.stdout.write(buildVinput(await resolveMission(process.argv[3] ?? 'c172'))); return; }
+  if (cmd === 'origin') {   // takeoff-runway "lat lon heading" for a mission (spawn origin; no DEM needed)
+    const SIM = resolve(import.meta.dirname, '../../..');
+    const spec = process.argv[3] ?? 'c172';
+    const m = JSON.parse(readFileSync(resolve(SIM, spec.includes('/') || spec.endsWith('.json') ? spec : `missions/${spec}.json`), 'utf8'));
+    const r = runway(m.takeoff.airport, m.takeoff.runway);
+    process.stdout.write(`${r.lat} ${r.lon} ${r.heading_deg}\n`);
+    return;
+  }
   if (cmd === 'run') {
     // fail-fast mission test through the fast validator: envelope + per-task verify predicates
     const r = await runMission(process.argv[3] ?? 'c172');

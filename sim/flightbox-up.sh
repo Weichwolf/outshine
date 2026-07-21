@@ -12,13 +12,8 @@ N="${FB_TIME_SCALE:-1}"
 NET=flightboxnet
 [ -f "aircraft/models/$AC/eeprom.bin" ] || { echo "no eeprom for $AC — run: make eeprom AC=$AC"; exit 1; }
 
-read -r OLAT OLON OHDG < <(python3 - "$AC" <<'PY'
-import sys, json; sys.path.insert(0, "test"); import mission
-m = json.load(open(f"missions/{sys.argv[1]}.json"))
-r = mission.runway(m["takeoff"]["airport"], m["takeoff"]["runway"])
-print(r["lat"], r["lon"], r["heading_deg"])
-PY
-)
+# takeoff-runway spawn origin via the native TS resolver (Python-free; MISSION overrides the default $AC.json)
+read -r OLAT OLON OHDG < <(node cc/dist/bin/cc.js origin "${MISSION:-$AC}")
 echo ">> $AC from $OLAT,$OLON hdg $OHDG  (time-scale ${N}x)"
 
 # iNav SITL opens its eeprom READ-WRITE -> give it a fresh writable COPY so the committed eeprom.bin
