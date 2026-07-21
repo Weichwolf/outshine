@@ -330,8 +330,13 @@ int main(void){
         /* FLARE latch: once low on final, COMMIT — sticky through any balloon/bounce until touchdown, so a
            bounce never re-arms the pursuit/throttle into a go-around that departs. Arrests sink (pitch, above),
            holds wings level, cuts the engine (below). */
-        double flare_h = clr + fmax(4.0, (st.speed - 1.2*m.vs)*0.8);            /* flare height scales with the speed to bleed: a fast approach (a motor-glider at cruise thrust) holds off higher/longer; a powered aircraft near approach speed flares low so it doesn't float */
-        if(landing && !rolling && (st.elev-m.ld.elev) < flare_h) flaring=1;
+        /* iNav's FW-AUTOLAND enters GLIDE at nav_fw_land_glide_alt (~2 m AGL) — NOT an active flare. With no
+           rangefinder (all three aircraft; sensors.c feeds -1) it never reaches FLARE, so it holds glidePitch
+           (default 0°, i.e. level) with the motor cut all the way to ground contact. We replicate exactly that
+           (see below): the touchdown sink is whatever the level-pitch, power-off glide gives — the real hardware
+           behaviour — not an invented nose-up hold-off. Latch it sticky so a bounce stays committed (no go-around). */
+        double glide_alt = clr + 3.0;                                           /* nav_fw_land_glide_alt ≈ 2 m + margin for the 100 Hz step */
+        if(landing && !rolling && (st.elev-m.ld.elev) < glide_alt) flaring=1;
         if(!launched) bankMax=fmin(bankMax,10.0);
         if(landing) bankMax=fmin(bankMax,25.0);                                  /* approach: gentle procedure-turn bank, stay well inside the bank envelope */
         if(flaring) bankMax=fmin(bankMax,6.0);                                   /* committed flare: wings-level for touchdown, don't cartwheel on a wingtip */
@@ -362,7 +367,7 @@ int main(void){
             if(!pitchLpfInit){pitchLpf=pitch_dd;pitchLpfInit=1;} pitchLpf+=a*(pitch_dd-pitchLpf);
             pitch_cmd=fmax(-m.dive,fmin(m.climb,pitchLpf/10.0));        /* deg, reconstrained */
         }
-        if(flaring) pitch_cmd = fmax(pitch_cmd, fmin(8.0, (0.4 - st.vy)*1.9));   /* hold off: arrest the sink and bleed speed for a slow touchdown (the sticky flare latch keeps a brief balloon wings-level + engine-off, so a firm hold-off is safe) */
+        if(flaring) pitch_cmd = 0.0;   /* iNav GLIDE: hold glidePitch (default 0° = level attitude), motor cut (below) — the real rangefinder-less autoland, NOT an active nose-up flare */
         /* energy management: never demand more climb than airspeed allows — below the min MANEUVERING speed
            trade climb for speed (nose down) so a low-excess-thrust / relaxed-stability airframe never bleeds
            into a departure. The floor is max(vmin, 0.85*vc): a jet climbing+turning to a WP bleeds fast and

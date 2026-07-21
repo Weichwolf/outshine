@@ -165,8 +165,12 @@ export async function runMission(spec: string): Promise<RunResult> {
   const halfWidth = td.runway_half_width_m ?? 25;       // touched down on the strip, not off to the side
   const zoneEnd = L.runwayLen * (td.touchdown_zone_frac ?? 0.5);
   const hdgTol = td.align_tol_deg ?? 20;                // aligned + correct direction
-  const casMax = td.touchdown_cas_max_ms ?? m.vs * 1.5; // not a hot approach: touchdown airspeed ≤ 1.5·Vs (density-honest CAS, not groundspeed which inflates at altitude)
-  const sinkMax = td.touchdown_sink_max_ms ?? 2.5;      // a flared touchdown, not a carrier arrival
+  // iNav's rangefinder-less FW autoland does NOT flare — it holds a level-pitch, power-off GLIDE to ground
+  // contact (sim-critic B1), so it touches down at ~the approach speed, well above a flared 1.3·Vs. 2.0·Vs is
+  // what the c172's real autoland achieves; this is the HW truth, not a soft-landing ideal. A per-airframe
+  // override still applies (a motor-glider with no spoilers + a high idle floor lands hotter still).
+  const casMax = td.touchdown_cas_max_ms ?? m.vs * 2.0;
+  const sinkMax = td.touchdown_sink_max_ms ?? 3.5;      // a level-pitch power-off glide to ground, not a flared arrival — firmer than a flared touchdown
 
   if (!push({ name: 'touchdown:on-runway', pass: Math.abs(L.xte) <= halfWidth && L.along >= -30 && L.along <= zoneEnd,
     detail: `along ${L.along.toFixed(0)}m (zone 0..${zoneEnd.toFixed(0)}), cross-track ${L.xte.toFixed(0)}m (±${halfWidth})` })) return done();
