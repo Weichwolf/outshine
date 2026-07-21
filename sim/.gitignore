@@ -11,3 +11,4 @@ command_center/render_native
 # python bytecode
 __pycache__/
 *.pyc
+validator/validator

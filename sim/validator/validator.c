@@ -277,7 +277,9 @@ int main(void){
            bleeds a relaxed-stability jet into a departure. Full nav bank once comfortably above vmin. */
         double smarg=(st.speed-m.vmin)/fmax(1.0,vtarget*1.3-m.vmin);   /* full bank only well above operating speed */
         double bankMax=m.bank*fmax(0.25,fmin(1.0,smarg));              /* gentle turns preserve a jet's energy */
-        double bank_cmd=fmax(-bankMax,fmin(bankMax, herr*1.5));         /* course->bank, energy-capped */
+        /* heading->bank with heading-rate (yaw-rate) damping — a plain P on heading error overshoots into a
+           roll/heading oscillation; the -Kd·r term settles it, like iNav's damped heading controller. */
+        double bank_cmd=fmax(-bankMax,fmin(bankMax, herr*1.5 - 2.0*st.r));
         (void)tgt_spd;
         /* --- iNav fixed-wing altitude cascade (navigation_fixedwing.c): altitude error -> desired climb rate
            (alt_control_response, capped at max_auto_climb_rate), then the fw_alt PID on climb-rate error ->
@@ -337,6 +339,11 @@ int main(void){
             fprintf(stderr,"t=%5.1f agl=%6.1f spd=%5.1f vz=%+5.1f roll=%+5.1f pitch=%+5.1f | bank_cmd=%+5.1f pit_cmd=%+5.1f thr=%.2f ph=%s%d wp=%d dth=%.0f tgtalt=%.0f\n",
                 t,agl,st.speed,st.vy,st.roll,st.pitch,bank_cmd,pitch_cmd,thr,!launched?"LNCH":landing?"LAND":"WP",landphase,wp,distll(st.lat,st.lon,m.ld.lat,m.ld.lon),tgt_alt-m.ld.elev);
         if(ntraj<MAXTRAJ){ traj[ntraj].lat=st.lat; traj[ntraj].lon=st.lon; traj[ntraj].asl=st.elev; ntraj++; }
+        if(getenv("VOUT") && ((int)(t/dt)%10==0)){       /* trajectory CSV @10 Hz for the TS predicate evaluator */
+            double course=atan2(st.vx,-st.vz)*R2D; if(course<0)course+=360;   /* X-Plane vx=E, vz=S -> track */
+            printf("%.2f %.7f %.7f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %d %s\n",
+                t,st.lat,st.lon,st.elev,st.elev-ground,st.roll,st.pitch,st.yaw,st.speed,st.vy,st.gs,course,
+                wp,!launched?"launch":landing?"land":"task"); }
         /* --- envelope guards (fail-fast) --- */
         if(!(isfinite(st.lat)&&isfinite(st.lon)&&isfinite(st.elev))){ snprintf(fail,sizeof fail,"NaN/divergence at t=%.1f",t); crashed=1; break; }
         agl=st.elev-m.to.elev;                                          /* home-relative (launch/WP datum) */

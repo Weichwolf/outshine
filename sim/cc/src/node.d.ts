@@ -48,7 +48,7 @@ declare module 'node:path' {
 
 declare module 'node:child_process' {
   export function execSync(cmd: string, opts?: { cwd?: string; maxBuffer?: number; encoding?: 'utf8' }): string;
-  export function spawnSync(cmd: string, args?: string[], opts?: { encoding?: 'utf8'; maxBuffer?: number }): {
+  export function spawnSync(cmd: string, args?: string[], opts?: { encoding?: 'utf8'; maxBuffer?: number; input?: string; cwd?: string; env?: Record<string, string | undefined>; timeout?: number }): {
     status: number | null; stdout: string; stderr: string;
   };
 }
