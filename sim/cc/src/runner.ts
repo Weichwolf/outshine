@@ -3,7 +3,7 @@
 // predicates over the flown track, aborting on the FIRST violation with the failing check + measured value.
 // A mission passes iff every phase completes, every predicate holds, and the envelope was never violated.
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { resolveMission, groundElev, type Mission } from './mission.js';
@@ -46,10 +46,16 @@ export function buildVinput(m: Mission): string {
 export interface Landing { along: number; xte: number; hdgErr: number; gs: number; rollout: number; runwayLen: number; stopped: boolean; cas: number; sinkRate: number; }
 export interface FlightResult { track: Track; verdict: string; ok: boolean; landing?: Landing; }
 
-/** Fly the vinput through the validator (VOUT trajectory). CSV lines -> Track; LAND -> landing; OK/FAIL -> verdict. */
+/** Fly the vinput through the validator (VOUT trajectory). CSV lines -> Track; LAND -> landing; OK/FAIL -> verdict.
+ *  Run under `setarch -R` (ASLR disabled): the sim math is deterministic (CLAUDE.md Prinzip 5), but JSBSim's
+ *  FGTrim takes an address-layout-dependent path when a trim does NOT converge (the SGS glider: "udot doesn't
+ *  appear to be trimmable"), which made the SAME mission flip PASS/FAIL near a grading boundary. Fixing FGTrim
+ *  is out (read-only submodule); pinning the layout makes the oracle reproducible, which is the requirement. */
 export function flyValidator(vin: string): FlightResult {
-  const r = spawnSync(VALIDATOR, [], { input: vin, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
-    cwd: SIM, env: { ...process.env, MODELS_ROOT, VOUT: '1' } });
+  const setarch = existsSync('/usr/bin/setarch');
+  const r = setarch
+    ? spawnSync('setarch', ['-R', VALIDATOR], { input: vin, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, cwd: SIM, env: { ...process.env, MODELS_ROOT, VOUT: '1' } })
+    : spawnSync(VALIDATOR, [], { input: vin, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, cwd: SIM, env: { ...process.env, MODELS_ROOT, VOUT: '1' } });
   const track: Track = []; let verdict = '', ok = false; let landing: Landing | undefined;
   for (const line of (r.stdout ?? '').split('\n')) {
     if (!line) continue;
