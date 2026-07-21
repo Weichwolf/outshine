@@ -1,0 +1,52 @@
+{
+  "note": "m/s TAS; derived from Vs=28 Vc=55 (profile.env) — see aircraft/build-speeds.mjs",
+  "stall_ms": 28,
+  "vne_ms": 104.5,
+  "scenarios": {
+    "stall": {
+      "min": 26.6,
+      "avg": 28,
+      "max": 30.8
+    },
+    "slow": {
+      "min": 30.8,
+      "avg": 33.6,
+      "max": 36.4
+    },
+    "takeoff": {
+      "min": 30.8,
+      "avg": 36.4,
+      "max": 42
+    },
+    "landing": {
+      "min": 32.2,
+      "avg": 36.4,
+      "max": 40.6
+    },
+    "scout": {
+      "min": 32.2,
+      "avg": 35,
+      "max": 39.2
+    },
+    "long_range": {
+      "min": 36.4,
+      "avg": 39.2,
+      "max": 43.4
+    },
+    "cruise": {
+      "min": 49.5,
+      "avg": 55,
+      "max": 63.2
+    },
+    "fast": {
+      "min": 66,
+      "avg": 77,
+      "max": 104.5
+    },
+    "intercept": {
+      "min": 71.5,
+      "avg": 85.3,
+      "max": 104.5
+    }
+  }
+}
