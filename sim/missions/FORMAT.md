@@ -16,6 +16,12 @@ A mission passes iff **every phase completes, every task's `verify` predicates h
 names the phase/task/predicate that failed with the measured value, and stops the run, so development
 iterates quickly instead of flying out a doomed mission to timeout.
 
+**Scope limit — one aircraft per flightbox.** Exactly one iNav-in-the-loop aircraft flies per instance. So
+`intercept`, `escort`, and any "target/friendly" is a **scripted entity** (a coordinate path evaluated in
+lockstep with the flown track), never a second live-flown aircraft. True multi-ship, formation/join-up, and
+live radar-vs-radar are out of scope until a multi-instance flightbox exists. The `ON_PLAN` predicate guards
+the scripted entity so a script glitch can't false-pass a pursuit.
+
 ---
 
 ## 1. Measurement model — what the runner can actually assert
@@ -68,6 +74,7 @@ envelope:                               # global, enforced ∀t (§5); never-vio
   v_min_ms: 14        v_max_ms: 62      # IAS band; default k_stall·Vs .. Vne per aircraft
   bank_max_deg: 45    pitch_max_deg: 30
   alt_floor_agl_m: 20 alt_ceil_agl_m: 900
+  wind_max_ms: 12     gust_max_ms: 6    # weather minima — JSBSim already models wind; set the condition + gate
   on_nan_abort: true  divergence_guards: true
 
 takeoff: { airport: EDDH, runway: "05", rotate_agl_m: 50 }
@@ -91,9 +98,12 @@ egress:                                 # from task area to landing (same shape 
   legs: []
 
 land: { airport: EDDH, runway: "05", touchdown_tol_m: 150, touchdown_gs_max_ms: 30 }
+alternate: { airport: EDHI, runway: "23" }   # diversion field if the primary becomes unreachable
 
 timing: { t_max_total_s: 600, tot_s: null, tot_window_s: null }
-abort:  { timeout_s: 600, on_nan: true, on_envelope_violation: true }
+abort:  { timeout_s: 600, on_nan: true, on_envelope_violation: true, divert_on_fail: false }
+        # divert_on_fail: true -> on a recoverable failure (weather/unreachable land), fly to `alternate`
+        # and land there instead of aborting; the run then passes iff the diversion itself completes
 ```
 
 Every leg / task may carry phase-local `speed_tgt_ms/speed_tol_ms` and `alt_agl_m/alt_tol_m`, so verification
@@ -126,6 +136,9 @@ Tasks compose these; the runner evaluates the named predicates. Nothing per-type
 | `LOS(P,tol)` | ∀t∈dwell: `angle(bearing(P,t), track±90) ≤ tol` (target inside gimbal envelope) |
 | `NO_GAP(pred,g_max)` | every interval where `pred` is false lasts ≤ `g_max` |
 | `RING_TRACK(frac)` | flew the dense directed-ring corridor in sequence ≥ `frac` (§4) |
+| `CLOSING(Tgt,rate_min,τ)` | mean `−d range(Tgt,t)/dt ≥ rate_min` (m/s, genuinely closing) over the `τ` s before capture — a lucky crossing without sustained closure does not count |
+| `ON_PLAN(entity,tol)` | ∀t: `range(entity(t), scripted_path(t)) ≤ tol` — the scripted target/friendly stayed on its own plan, so an entity-sim glitch can't false-pass an intercept/escort |
+| `FRECHET(track,pattern,W)` | discrete Fréchet distance between the flown ground track and the generated pattern polyline `≤ W` (grid step ≤ `W/4`), so it's the *right* search pattern, not random wandering |
 
 **Anti-cheese trilogy** for any dwell/orbit/patrol: **annulus + contiguity + laps**. A bare `range ≤ r`
 scores a fly-through as an orbit; `DWELL` (annulus, held contiguously) + `LAPS≥n` forces a real closed orbit.
@@ -135,8 +148,13 @@ scores a fly-through as an orbit; `DWELL` (annulus, held contiguously) + `LAPS�
 ## 4. Ring track — the geometric corridor scorer (exists today)
 
 `ringtrack.py` builds a dense **directed** ring track from iNav's own nav-math and scores the flown path:
-climb corridor at `nav_fw_climb_angle`, straight enroute legs joined at the coordinated turn radius
-`R=V²/(g·tan(bank))`, approach glideslope at the landing runway — ≥100 rings, radius default 150 m. A ring is
+climb corridor at `nav_fw_climb_angle`, **straight enroute legs** through the waypoints (iNav flies straight-
+to-WP then turns), approach glideslope at the landing runway — ≥100 rings, radius default 150 m. The
+coordinated turn radius `R=V²/(g·tan(bank))` sets the **ring pitch** (spacing), NOT a corner fillet: rings sit
+on the raw legs, so at a sharp vertex the real turn arc bows off the leg by up to `R(√2−1)` (a 90° turn) —
+~100 m at the f16 loiter radius, close to the 150 m ring radius, so a legitimately flown wide/sharp turn can
+miss the vertex ring (false RING_TRACK negative). Keep leg turns gentle or widen `ring_radius` at sharp
+vertices; true corner filleting (a radius-`R` arc at each vertex) is the fix if dense patterns need it. A ring is
 a hoop whose plane normal is the flight tangent; "passed" = **forward pierce** (backward doesn't count) with
 in-plane offset (cross-track + vertical) `< radius`. `score()` returns `(threaded, inorder)`; PASS needs the
 **in-sequence** fraction ≥ `ring_pass_frac`. This is the `RING_TRACK` predicate and is the backbone of the
@@ -163,7 +181,7 @@ iNav wire already supports them, the CC just doesn't emit them yet.
 | `escort` | station-keep on a moving friendly | frac of samples in `[r_min,r_max]`+rel-sector ≥ X + `NO_GAP` | staged WAYPOINTs tracking the entity |
 | `relay_station` | continuous presence over a point | `DWELL(0,r,T)` + `NO_GAP(in-radius,g_max)` | `HOLD_TIME(p1=T)` † or `JUMP` orbit † |
 | `perimeter` | patrol a closed boundary | `CORRIDOR(boundary,W)` + `COVERAGE` per lap + `LAPS(N)` | boundary WAYPOINTs + `JUMP` † |
-| `strike_pass` | timed run over a point on an axis | `CAPTURE(rel_pt,R)` + `TIME_WINDOW(TOT)` + run-in `χ±tol` (+dive `VS`/θ) | run-in WAYPOINT + `SET_HEAD` † + egress |
+| `strike_pass` | timed run over a point on an axis | `CAPTURE(rel_pt,R)` + `TIME_WINDOW(TOT)` + run-in `χ±tol` (+dive `VS`/θ) | run-in WAYPOINT leg on the release bearing + egress WAYPOINT (axis is the **leg geometry**, not a heading command) |
 | `tf_ingress` | low-level terrain-following ingress | `CORRIDOR(W)` + **tight** `ALT_BAND(agl)` | WAYPOINT legs, low `alt_rel` |
 | `sar_ladder` | SAR expanding-square/ladder | pattern-track match + `COVERAGE(X%)` + leg-growth monotone | generated pattern WAYPOINTs |
 
@@ -175,8 +193,14 @@ Everything else is expressible with today's WAYPOINT-only path + geometry predic
 
 ## 6. iNav constraints that bound the format (hard, from the firmware)
 
-- **≤ 15 commandable waypoints** (`NAV_MAX_WAYPOINTS`). The *ring track* can be arbitrarily dense (host-side
-  scoring), but the *route iNav flies* is ≤15 WPs. `JUMP` loops reuse WPs, so orbits/patrols cost few slots.
+- **≤ 15 commandable waypoints** — one **shared pool** across transit + tasks + egress + land
+  (`NAV_MAX_WAYPOINTS`, a single flat list). The *ring track* can be arbitrarily dense (host-side scoring),
+  but the *route iNav flies* is ≤15 WPs total. `JUMP` loops reuse WPs, so orbits/patrols cost few slots, but
+  dense area patterns are budget-bound: a 4-lane boustrophedon needs ~8 turn WPs, +1 transit +1 egress +1
+  LAND ⇒ ~11, so **≥5-lane recon/SAR/perimeter overflows 15**. Overflow rule for the compiler: reduce lane
+  count to fit (coarser `spacing`, accept lower `COVERAGE(X%)` and **log the truncation** — never silently),
+  or split into sequential sub-missions. A pattern that cannot meet its `COVERAGE` within 15 WPs must fail
+  the compile with the reason, not fly a silently-clipped search.
 - **Waypoint altitude datum = home-relative** (`GEO_ALT_RELATIVE`): `alt_rel = ground(wp)+alt_agl−takeoff_elev`.
   iNav never sees AGL or MSL. The DEM is entirely host-side (CC).
 - **Safehome ≤ 650 m from the arming point** (`safehome_max_distance` max 65000 cm). The autoland runway
@@ -187,9 +211,21 @@ Everything else is expressible with today's WAYPOINT-only path + geometry predic
   load; c172/sgs233 tolerate higher.
 - **Per-aircraft nav math** (`aircraft/models/*/inav.diff`) sets climb/dive/bank/ref-airspeed/loiter-radius →
   bounds ring spacing and how tight a leg join / orbit can be (c172 loiter 140 m, f16 250 m, sgs233 tight).
-- **The CC currently emits only `NAV_WP_ACTION_WAYPOINT`.** To compile the loiter/orbit/heading tasks, extend
-  `uploadMission` to emit `HOLD_TIME`(p1=seconds), `JUMP`(p1=target,p2=count), `SET_POI`, `SET_HEAD`(p1=cdeg),
-  `LAND`, `RTH` — the wire (`MSP_SET_WP` with nonzero action/p1/p2/p3) already supports them.
+- **The CC currently emits only `NAV_WP_ACTION_WAYPOINT`.** To compile the loiter/orbit tasks, extend
+  `uploadMission` to emit `HOLD_TIME`(p1=seconds), `JUMP`(p1=target,p2=count), `LAND`, `RTH` — the wire
+  (`MSP_SET_WP` with nonzero action/p1/p2) supports them and iNav acts on them for fixed-wing.
+- **`SET_HEAD`/`SET_POI` are NOT usable here.** iNav's handlers for both are gated on `STATE(MULTIROTOR)`
+  (`navigation.c:1998-2015`); for a fixed-wing airframe they store the WP and do nothing. All three FlightBox
+  aircraft are fixed-wing, so any task whose axis needs a heading command (`strike_pass` run-in, POI stare)
+  must express it as **WP leg geometry** (`χ±tol` on the leg bearing), never a firmware heading action.
+- **`orbit_dir` (cw/ccw) is only honoured by the JUMP-loop-polygon compilation** (direction comes from WP
+  ordering). The native/`HOLD_TIME` loiter takes its direction from the single global `fw_loiter_direction`
+  CLI setting — fixed for the whole flight, not per-task and not settable over the MSP/RC command surface. Two
+  orbits with opposite `orbit_dir` in one mission must both use the JUMP-loop path.
+- **Safehome distance is 200 m by default**, not 650 m: `safehome_max_distance` ships at 20000 cm and no
+  aircraft `inav.diff` raises it; 650 m (65000 cm) is only the settable ceiling. Reaching it requires
+  `set safehome_max_distance = 65000` in the config the eeprom is built from. Until then the autoland runway
+  threshold must be within **200 m** of the arming point.
 
 ---
 
