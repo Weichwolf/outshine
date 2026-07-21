@@ -11,7 +11,7 @@
 
 /* Sky dome: fullscreen quad, per-pixel ray from the camera basis; depth writes OFF so the terrain
  * paints over it. `aspect` is the viewport W/H the projection used (not carried in w3_cam). */
-static void w3_draw_sky(const w3_cam *C, const w3_atmo *A, float aspect) {
+static void w3_draw_sky(const w3_cam *C, const w3_atmo *A, float aspect, float dip_sin) {
   const float RAD = (float)M_PI / 180.f;
   glDepthMask(GL_FALSE);
   glDisable(GL_DEPTH_TEST);
@@ -27,6 +27,7 @@ static void w3_draw_sky(const w3_cam *C, const w3_atmo *A, float aspect) {
   glUniform1f(w3_gl.skCloud, A->cloud);
   glUniform1f(w3_gl.skSunDisc, A->sun_disc);
   glUniform1f(w3_gl.skDayF, A->day);
+  glUniform1f(w3_gl.skDipSin, dip_sin);
   glBindBuffer(GL_ARRAY_BUFFER, w3_gl.skyVBO);
   glEnableVertexAttribArray(w3_gl.skPos);
   glVertexAttribPointer(w3_gl.skPos, 2, GL_FLOAT, GL_FALSE, 0, 0);

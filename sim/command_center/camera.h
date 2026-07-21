@@ -31,6 +31,19 @@ typedef struct {
   float mvp[16]; /* projection * view, column-major, ready for glUniformMatrix4fv */
 } w3_cam;
 
+/* Earth mean radius (sphere), metres. The ECEF terrain uses the WGS84 ellipsoid; the horizon dip is
+ * a small-angle spherical result for which the mean radius is the standard value. */
+#define W3_EARTH_RADIUS_M 6371000.0f
+
+/* Horizon dip: from height h above the local surface the visible horizon of a sphere of radius R
+ * sinks acos(R/(R+h)) below the gravity-level horizontal (~sqrt(2h/R) for small h). A level HUD
+ * horizon and a level sky gradient both read too HIGH aloft — they must drop by THIS angle to
+ * overlay the real, curved-away horizon (MIL-STD-1787 conformal). h<=0 -> 0. */
+static float w3_horizon_dip_rad(float alt_m) {
+  if (alt_m <= 0.f) return 0.f;
+  return acosf(W3_EARTH_RADIUS_M / (W3_EARTH_RADIUS_M + alt_m));
+}
+
 /* The orthonormal camera basis from an attitude, in RENDER space (E=+X, up=+Y, N=-Z). Split out of
  * w3_cam_from so the ECEF path below reuses the EXACT same silent-mirror-critical logic (forward
  * from yaw/pitch, the +s roll sign) instead of a second copy that could drift from it. */

@@ -72,12 +72,15 @@ static const char *W3_VSKY =
     "gl_Position=vec4(aPos,0.999,1.0); }";
 static const char *W3_FSKY =
     "precision highp float; varying vec3 vRay;"
-    "uniform vec3 uSun,uMoon; uniform float uMoonPh,uCloud,uSunDisc,uDayF;"
+    "uniform vec3 uSun,uMoon; uniform float uMoonPh,uCloud,uSunDisc,uDayF,uDipSin;"
     "float h21(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }"
     "float vnoise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);"
     "  float a=h21(i),b=h21(i+vec2(1,0)),c=h21(i+vec2(0,1)),d=h21(i+vec2(1,1));"
     "  return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }"
-    "void main(){ vec3 r=normalize(vRay); float hgt=clamp(r.y,-0.15,1.0);"
+    /* uDipSin=sin(horizon dip): drop the horizon-referenced sky (gradient, dusk band, cloud deck)
+     * by the dip so it meets the curved-away terrain edge instead of the flat local level. The
+     * sun/moon discs stay on their true directions (r,uSun,uMoon), unshifted. */
+    "void main(){ vec3 r=normalize(vRay); float hgt=clamp(r.y+uDipSin,-0.15,1.0);"
     "  float sEl=uSun.y; float day=uDayF;" /* unified daylight from atmo.h (w3_daylight), not
                                               recomputed */
     "  float t=pow(clamp(hgt,0.0,1.0),0.55);"

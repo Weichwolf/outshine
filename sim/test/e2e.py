@@ -74,17 +74,21 @@ class MSP:
             if c==cmd: return p
             if c is None: return None
 
-def cc_thread(port, wps, gear_retract, angle_hold_alt, speedbrake, stop, state, climb_pitch=1500, land_wp=None):
-    """thin CC: arm (edge + YAW_HI nav bypass) -> wings-level ANGLE climb to a target ALTITUDE -> NAV WP.
-    iNav flies natively. The climb-out is gated on altitude (read from MSP), NOT elapsed time, so a
-    marginal airframe always reaches a safe height before NAV's first turn regardless of the run-to-run
-    timing jitter of the async CC<->iNav link — the determinism-robustness that makes all three repeatable."""
-    m=MSP("127.0.0.1",port); t0=time.monotonic(); cal_done=-1; up=False; established=False
+def cc_thread(port, wps, gear_retract, angle_hold_alt, speedbrake, stop, state, climb_pitch=1500, land=None):
+    """thin CC: arm (edge + YAW_HI nav bypass) -> wings-level ANGLE climb to a target ALTITUDE -> NAV WP ->
+    (after the last WP) NAV RTH into an FW autoland. iNav flies everything natively. The climb-out is gated
+    on altitude (read from MSP), NOT elapsed time, so a marginal airframe always reaches a safe height
+    before NAV's first turn regardless of the run-to-run timing jitter of the async CC<->iNav link.
+    Landing: the CC sets a safehome at the runway threshold + an FW approach (runway heading from the DB)
+    over MSP, then commands RTH once the mission WPs are flown -> iNav diverts to the safehome and flies the
+    runway-aligned glideslope. The CC only commands; it synthesises no attitude (real-HW-transferable)."""
+    m=MSP("127.0.0.1",port); t0=time.monotonic(); cal_done=-1; up=False; established=False; landing=False
     while not stop.is_set():
         ts=time.monotonic()-t0
         st=m.req(0x2000); af=struct.unpack("<I",st[9:13])[0] if st and len(st)>=13 else 0
         armed=bool(af&0x4); state['armed']=armed
         al=m.req(109); agl=(struct.unpack("<i",al[0:4])[0]/100.0) if al and len(al)>=4 else 0   # MSP_ALTITUDE, home-rel m
+        nv=m.req(121); nwp,nstate=(nv[3],nv[1]) if nv and len(nv)>=5 else (0,0)   # MSP_NAV_STATUS: wp#, nav_state
         rc=[1500,1500,1000,1500,1000,1000,1000,1500,1000,1000] # roll pitch thr yaw AUX1..4 AUX5(gear) AUX6(speedbrake)
         if cal_done<0 and not (af&(1<<9)) and ts>0.5: cal_done=ts
         if cal_done<0: pass
@@ -92,15 +96,15 @@ def cc_thread(port, wps, gear_retract, angle_hold_alt, speedbrake, stop, state, 
             if (ts-cal_done)%3.0>=1.5: rc[4]=2000; rc[3]=2000    # ARM + YAW_HI (bypass NAV_UNSAFE)
         else:
             if not up:
-                # nav waypoints (action 1) + optional final LAND waypoint (action 8 -> iNav descends and
-                # lands at the runway threshold; NAV_WP_ACTION_LAND switches to WAYPOINT_RTH_LAND natively).
-                seq=[(w['lat'],w['lon'],w['alt_rel'],1) for w in wps]
-                if land_wp: seq.append((land_wp['lat'],land_wp['lon'],land_wp['alt_rel'],8))
-                for i,(la,lo,ar,act) in enumerate(seq):
-                    b=bytearray(21); b[0]=i+1; b[1]=act
-                    b[2:6]=struct.pack("<i",int(la*1e7)); b[6:10]=struct.pack("<i",int(lo*1e7))
-                    b[10:14]=struct.pack("<i",int(round(ar*100))); b[20]=0xa5 if i==len(seq)-1 else 0
+                for i,w in enumerate(wps):                       # nav waypoints (action 1 = WAYPOINT)
+                    b=bytearray(21); b[0]=i+1; b[1]=1
+                    b[2:6]=struct.pack("<i",int(w['lat']*1e7)); b[6:10]=struct.pack("<i",int(w['lon']*1e7))
+                    b[10:14]=struct.pack("<i",int(round(w['alt_rel']*100))); b[20]=0xa5 if i==len(wps)-1 else 0
                     m.send(209,bytes(b))
+                if land:                                         # configure the landing runway for FW autoland
+                    m.send(0x2039,struct.pack("<BBii",0,1,int(land['lat']*1e7),int(land['lon']*1e7)))  # SET_SAFEHOME 0
+                    m.send(0x204B,struct.pack("<BiiBhhB",0,int(land['approach_alt']*100),int(land['land_alt']*100),
+                                              0,int(round(land['heading'])),0,0))                       # SET_FW_APPROACH 0
                 up=True
             if agl>=angle_hold_alt: established=True             # latch: once at safe altitude, stay in NAV
             if angle_hold_alt>0 and not established:            # wings-level ANGLE climb-out (pitch-up stick +
@@ -108,9 +112,14 @@ def cc_thread(port, wps, gear_retract, angle_hold_alt, speedbrake, stop, state, 
                 if gear_retract: rc[8]=2000                    # a fast jet climbs the WHOLE way in stable ANGLE so
                 if speedbrake:   rc[9]=2000                    # NAV enters already at altitude -> no zoom overshoot
             else:
-                rc[4]=2000; rc[7]=2000                          # ARM + NAV WP -> iNav flies natively
+                if land and nwp>=len(wps) and nstate in (3,4): landing=True   # last WP reached + holding -> land
+                if landing:
+                    rc[4]=2000; rc[6]=2000                      # ARM + NAV RTH (AUX3) -> safehome FW autoland
+                else:
+                    rc[4]=2000; rc[7]=2000                      # ARM + NAV WP -> iNav flies the mission natively
                 if gear_retract: rc[8]=2000                     # AUX5 high -> retract gear (AUXMAP=gear)
                 if speedbrake:   rc[9]=2000                     # AUX6 high -> deploy speedbrake (slow a fast jet)
+        state['landing']=landing
         m.send(200,struct.pack("<10H",*rc))
         time.sleep(0.033)
 
@@ -192,8 +201,11 @@ def main():
             probe=MSP("127.0.0.1",5761); probe.req(0x2000); probe.f.close(); break
         except OSError: time.sleep(0.25)
     stop=threading.Event(); state={}
-    ld=R["land"]; land_wp={"lat":ld["lat"],"lon":ld["lon"],"alt_rel":ld["elev_m"]-to["elev_m"]}   # threshold, home-relative
-    threading.Thread(target=cc_thread,args=(5761,wps,gear,angle_hold_alt,speedbrake,stop,state,climb_pitch,land_wp),daemon=True).start()
+    ld=R["land"]
+    land={"lat":ld["lat"],"lon":ld["lon"],"heading":ld["heading_deg"],
+          "approach_alt":120.0,                        # approach start height above home (m); iNav glides down from here
+          "land_alt":ld["elev_m"]-to["elev_m"]}        # threshold elevation, home-relative
+    threading.Thread(target=cc_thread,args=(5761,wps,gear,angle_hold_alt,speedbrake,stop,state,climb_pitch,land),daemon=True).start()
 
     hold = bool(os.environ.get("FB_HOLD"))   # keep flying (loiter last WP) until timeout + leave the container up,
                                               # so the live CC / Playwright agents have a persistent telemetry target

@@ -39,4 +39,12 @@ set small_angle = 180
 #     500 Hz is ample for a fixed-wing model; this changes sim throughput, not flight behaviour. ---
 set looptime = 2000
 
+# --- FW autoland via safehome: the CC sets a safehome at the landing runway threshold + an FW approach
+#     (heading from the airport DB) over MSP per mission, then commands RTH; iNav diverts to that safehome
+#     and flies the runway-aligned autoland glideslope natively. safehome_max_distance (max 650 m, iNav's
+#     ceiling) is measured from the ARMING point, so the landing threshold must lie within 650 m of takeoff
+#     -> a circuit lands on its DEPARTURE runway (the normal Platzrunde). Allow RTH to actually land. ---
+set safehome_max_distance = 65000
+set nav_rth_allow_landing = ALWAYS
+
 save
