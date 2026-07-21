@@ -1,22 +1,83 @@
 {
-  "area": "10-slow-flight", "title": "Ex10 Slow flight (ANGLE, nose-up, reduced power)",
-  "aircraft": ["c172"],
-  "setup": { "spawn_alt_agl": 350, "speed": "cruise", "hdg": 90 },
-  "arm": true, "duration_s": 34,
+  "area": "10-slow-flight",
+  "title": "Ex10 Slow flight (ANGLE, nose-up, reduced power)",
+  "aircraft": [
+    "c172"
+  ],
+  "setup": {
+    "spawn_alt_agl": 350,
+    "speed": "cruise",
+    "hdg": 90
+  },
+  "arm": true,
+  "duration_s": 34,
   "script": [
-    { "t": 3,  "mode": "ANGLE", "roll": 1500, "pitch": 1620, "thr": 1350 },
-    { "t": 22, "mode": "ANGLE", "roll": 1500, "pitch": 1620, "thr": 1350 }
+    {
+      "t": 3,
+      "mode": "ANGLE",
+      "roll": 1500,
+      "pitch": 1620,
+      "thr": 1350
+    },
+    {
+      "t": 22,
+      "mode": "ANGLE",
+      "roll": 1500,
+      "pitch": 1620,
+      "thr": 1350
+    }
   ],
   "asserts": [
-    { "metric": "armed", "gt": 0.5, "desc": "arms" },
-    { "metric": "gs",    "lt": 18,  "desc": "slowed below cruise (slow flight)" },
-    { "metric": "gs",    "gt": 2,   "desc": "still flying, not stopped" },
-    { "metric": "roll",  "abs_lt": 18, "desc": "wings roughly level in slow flight" },
-    { "metric": "gps_alt", "gt": 250, "desc": "stays airborne" },
-    { "metric": "pitch", "gt": 0,   "desc": "nose-up in slow flight" },
-    { "metric": "fix",   "min": 2,   "desc": "GPS fix" },
-    { "metric": "vs",    "gt": -12, "desc": "controlled, not falling out of the sky" },
-    { "metric": "hdg_change", "window": 10, "abs_lt": 45, "desc": "roughly holds heading" },
-    { "metric": "pitch", "lt": 30,  "desc": "not departed nose-high" }
+    {
+      "metric": "armed",
+      "gt": 0.5,
+      "desc": "arms"
+    },
+    {
+      "metric": "gs",
+      "lt": 18,
+      "desc": "slowed below cruise (slow flight)"
+    },
+    {
+      "metric": "gs",
+      "gt": 2,
+      "desc": "still flying, not stopped"
+    },
+    {
+      "metric": "roll",
+      "abs_lt": 18,
+      "desc": "wings roughly level in slow flight"
+    },
+    {
+      "metric": "gps_alt",
+      "gt": 250,
+      "desc": "stays airborne"
+    },
+    {
+      "metric": "pitch",
+      "gt": 0,
+      "desc": "nose-up in slow flight"
+    },
+    {
+      "metric": "fix",
+      "min": 2,
+      "desc": "GPS fix"
+    },
+    {
+      "metric": "vs",
+      "gt": -12,
+      "desc": "controlled, not falling out of the sky"
+    },
+    {
+      "metric": "hdg_change",
+      "window": 10,
+      "abs_lt": 45,
+      "desc": "roughly holds heading"
+    },
+    {
+      "metric": "pitch",
+      "lt": 30,
+      "desc": "not departed nose-high"
+    }
   ]
 }

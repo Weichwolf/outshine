@@ -2,9 +2,7 @@
   "area": "06-straight-and-level",
   "title": "Ex6 Straight & Level flight (ANGLE hold)",
   "aircraft": [
-    "c172",
-    "sgs233",
-    "f16"
+    "c172"
   ],
   "setup": {
     "spawn_alt_agl": 300,
