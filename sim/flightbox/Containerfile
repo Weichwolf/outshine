@@ -3,7 +3,7 @@
 # :5766) connect to it and come/go freely. The hub<->iNav MSP link is LOOPBACK inside the container — no
 # cross-container hop — while the sensor/radio boundaries (JSBSim<->iNav via --sim=xp, CC<->iNav via MSP)
 # stay process-to-process, so the architecture is unchanged; only the packaging is one box.
-# Build context = sim/. Ships the prebuilt SITL.elf (needs glibc >= 2.38 -> trixie).
+# Build context = sim/. iNav SITL + libJSBSim are built from the pinned submodules (needs trixie/glibc >= 2.38).
 
 # Stage 1: static libJSBSim from the PINNED submodule (sim/jsbsim @ v1.3.1) — NOT a fresh clone every
 # build. The submodule is the single source of truth (bit-identical to upstream, update-fähig).

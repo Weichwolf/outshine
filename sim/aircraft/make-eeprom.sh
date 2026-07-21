@@ -8,7 +8,7 @@
 # run xp_bridge as a pure sensor responder (XP_NOMSP=1). Run from sim/aircraft/ (needs podman+python3).
 set -euo pipefail
 cd "$(dirname "$0")"
-IMG=fb-aircraft
+IMG=fb-flightbox   # the merged sim image ships /app/SITL.elf (built from the inav-src submodule)
 CN=eeprom-gen
 PORT=5762
 AC="${1:-}"
