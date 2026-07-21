@@ -129,6 +129,9 @@ export async function runMission(spec: string): Promise<RunResult> {
   // not the same radius grading itself (which could never fail). The auto-appended FAF is labelled distinctly.
   // Between consecutive task waypoints the flight must also stay inside a CORRIDOR (no wandering off the leg).
   const capR = m.raw.success?.capture_radius_m ?? m.raw.transit?.capture_radius_m ?? 100;   // grading accuracy, not the nav advance trigger
+  // Corridor half-width between consecutive task WPs (~2.5× the scaled airframes' ~200 m turn radius): a normal
+  // turn stays inside it; it catches gross wandering, not turn geometry. NOT widened to paper over the SGS
+  // glider's residual inner-loop oscillation — that is a real validator replication gap (see below), left honest.
   const corridorW = m.raw.success?.corridor_width_m ?? m.raw.transit?.corridor_width_m ?? 500;
   let from = 0, prevTaskIdx = 0; let prevP: Point | null = null;
   for (let i = 0; i < m.waypoints.length; i++) {

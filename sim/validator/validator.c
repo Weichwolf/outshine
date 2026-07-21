@@ -91,7 +91,6 @@ typedef struct {
    from the EXTRACTED inav_core.h; the rate loop itself is too firmware-coupled to extract verbatim. iNav's
    low-P/high-FF gains (inav.diff) are what stabilise a relaxed-stability airframe. */
 #define PIDSUM_LIMIT 500.0                   /* fw_pidsum_limit default; roll/pitch servo saturates here */
-#define FW_RATE_DAMP 0.55                     /* intrinsic rate damping the extracted PID lacks vs iNav's real rate loop (see fw_inner) */
 typedef struct { double iterm, lpf; int lpf_init; } FwAxis;
 static double fw_inner(FwAxis*s,double angle_cmd,double attitude,double gyro,double P,double I,double D,double FF,double pLevel,double iLevel,double maxRate,double dt){
     double angleErr=angle_cmd-attitude;
@@ -99,17 +98,19 @@ static double fw_inner(FwAxis*s,double angle_cmd,double attitude,double gyro,dou
     if(rateTarget>maxRate)rateTarget=maxRate; else if(rateTarget<-maxRate)rateTarget=-maxRate;
     if(iLevel>0){ double rc=1.0/(2*M_PI*iLevel), a=dt/(rc+dt); if(!s->lpf_init){s->lpf=rateTarget;s->lpf_init=1;} s->lpf+=a*(rateTarget-s->lpf); rateTarget=s->lpf; }
     double kP=P/FP_PID_RATE_P_MULTIPLIER, kI=I/FP_PID_RATE_I_MULTIPLIER, kFF=FF/FP_PID_RATE_FF_MULTIPLIER;
+    /* iNav's ITerm-lock ATTENUATION (pid.c iTermLockApply + maths.c attenuation = a Gaussian): when |rateTarget|
+       is high — a hard command, the FF-driven regime — P/D/I are damped so they don't FIGHT the feedforward and
+       oscillate. σ = (maxRate·fwItermLockRateLimit/100)/2.35482 (default 40%). This is the real iNav mechanism
+       the earlier hand-rolled FW_RATE_DAMP crudely (and, the sim-critic showed, inertly) approximated — the
+       missing piece that let the low-roll-damping SGS glider self-oscillate in the replication. */
+    double sigma=(maxRate*0.40)/2.35482;
+    double aPD=exp(-(rateTarget*rateTarget)/(2.0*sigma*sigma));
     double rateErr=rateTarget-gyro;
-    double pTerm=rateErr*kP, ffTerm=rateTarget*kFF;
-    s->iterm += rateErr*kI*dt;
+    double pTerm=rateErr*kP*aPD, ffTerm=rateTarget*kFF;
+    s->iterm += rateErr*kI*dt*aPD;
     if(s->iterm>PIDSUM_LIMIT)s->iterm=PIDSUM_LIMIT; else if(s->iterm<-PIDSUM_LIMIT)s->iterm=-PIDSUM_LIMIT;
-    double dTerm=-D/1000.0*gyro;   /* D on gyro (0 for these airframes' fw_d_* gains) */
-    /* Baseline rate damping: the extracted PID is faithful but iNav's REAL FW rate loop
-       (pidApplyFixedWingRateController — too firmware-coupled to extract) has intrinsic gyro damping that this
-       replication lacks. Without it, a low-aerodynamic-roll-damping airframe (the SGS glider) PIOs on sharp
-       turns at iNav's true roll bandwidth (±40° about a ±22° command). This term supplies that missing damping
-       so the replication tracks like the real loop instead of oscillating; it is inert once the rate settles. */
-    double axisPID=pTerm+ffTerm+s->iterm+dTerm - FW_RATE_DAMP*gyro;
+    double dTerm=-D/1000.0*gyro*aPD;   /* D on gyro (0 for these airframes' fw_d_* gains) */
+    double axisPID=pTerm+ffTerm+s->iterm+dTerm;
     if(axisPID>PIDSUM_LIMIT)axisPID=PIDSUM_LIMIT; else if(axisPID<-PIDSUM_LIMIT)axisPID=-PIDSUM_LIMIT;
     return axisPID/PIDSUM_LIMIT;   /* normalized servo (-1..1) */
 }
