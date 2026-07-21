@@ -33,6 +33,12 @@ export function runway(icao: string, ident: string): RunwayRec {
   return rw;
 }
 
+/** Point `dist` m from (lat,lon) on bearing `brg` (deg) — flat local approximation (fine over a few km). */
+function destPoint(lat: number, lon: number, brg: number, dist: number): [number, number] {
+  const b = (brg * Math.PI) / 180;
+  return [lat + (dist * Math.cos(b)) / 111320, lon + (dist * Math.sin(b)) / (111320 * Math.cos((lat * Math.PI) / 180))];
+}
+
 /** DEM ground elevation (m ASL) at lat/lon via fb-tiles /elev, or null if unreachable. */
 export async function groundElev(lat: number, lon: number, tilesUrl: string): Promise<number | null> {
   if (!tilesUrl) return null;
@@ -82,6 +88,17 @@ export async function resolveMission(spec: string, tilesUrl = process.env.TILES_
     const g = await groundElev(w.lat, w.lon, tilesUrl);
     const asl = g != null ? w.alt_agl + g : null;
     waypoints.push({ lat: w.lat, lon: w.lon, altAgl: w.alt_agl, altRel: asl != null ? asl - home : null });
+  }
+  // Append a Final Approach Fix derived from the LANDING RUNWAY — iNav's autoland computes the approach from
+  // the runway, it is not hand-authored per mission (fwAutolandApproach). On the extended centreline, FAF_DIST
+  // behind the threshold, at pattern altitude (the top of the glideslope): every mission then ends with a
+  // stable, aligned straight-in final instead of overflying the runway and reversing course into a dive.
+  // Opt out with "no_faf": true for missions that already end on final.
+  if (!m.no_faf) {
+    const FAF_DIST = 2500, GLIDE = 3 * Math.PI / 180;
+    const fafAgl = Math.round(FAF_DIST * Math.tan(GLIDE));                 // ~131 m: glideslope height at the FAF
+    const [flat, flon] = destPoint(ld.lat, ld.lon, (ld.heading_deg + 180) % 360, FAF_DIST);
+    waypoints.push({ lat: flat, lon: flon, altAgl: fafAgl, altRel: (ld.elev_m + fafAgl) - home });   // pattern altitude referenced to the THRESHOLD (top of the glideslope)
   }
   const { vs, vc, vne, vmin } = vsVc(m.aircraft);
   const rw = (o: RunwayRec, icao: string): Runway => ({ icao, runway: o.ident, lat: o.lat, lon: o.lon, elevM: o.elev_m, headingDeg: o.heading_deg, lengthM: o.length_m ?? 1500 });

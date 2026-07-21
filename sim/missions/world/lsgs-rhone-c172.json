@@ -1,5 +1,5 @@
 {
-  "name": "Alpin-Talflug — C172, Rhônetal Sion→Martigny→Sion (LSGS)",
+  "name": "Alpin-Talflug — C172, Rhônetal Sion→Martigny (LSGS)",
   "aircraft": "c172",
   "takeoff": { "airport": "LSGS", "runway": "25" },
   "waypoints": [
@@ -8,12 +8,9 @@
     { "lat": 46.171, "lon": 7.222, "alt_agl": 450 },
     { "lat": 46.152, "lon": 7.178, "alt_agl": 500 },
     { "lat": 46.123, "lon": 7.132, "alt_agl": 500 },
-    { "lat": 46.103, "lon": 7.075, "alt_agl": 450 },
-    { "lat": 46.123, "lon": 7.132, "alt_agl": 500 },
-    { "lat": 46.152, "lon": 7.178, "alt_agl": 500 },
-    { "lat": 46.183, "lon": 7.246, "alt_agl": 450 }
+    { "lat": 46.103, "lon": 7.075, "alt_agl": 450 }
   ],
   "land": { "airport": "LSGS", "runway": "07" },
   "success": { "takeoff_agl_m": 40, "capture_radius_m": 300 },
-  "abort": { "timeout_s": 600, "max_agl_m": 3500, "on_nan": true }
+  "abort": { "timeout_s": 900, "max_agl_m": 3500, "on_nan": true }
 }

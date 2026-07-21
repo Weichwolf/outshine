@@ -222,7 +222,7 @@ int main(void){
     int jet = m.vmin > 1.5*m.vs;                      /* relaxed-stability / high-min-speed airframe: must hold power always */
     double pcut = 0.001*2.0*pow(10.0-m.control_smoothness,3.0)+0.1;  /* iNav pitch-cmd LPF cutoff (Hz) from control_smoothness */
     double pitchLpf=0; int pitchLpfInit=0; double rollLpf=0; int rollLpfInit=0;
-    int wp=0; int landing=0; int launched=0; int landed=0; int landphase=0; int committed=0; int flaring=0; double t=0; const double dt=0.01, t_max=1200.0;
+    int wp=0; int landing=0; int launched=0; int landed=0; int landphase=0; int committed=0; int flaring=0; double t=0; const double dt=0.01, t_max=2400.0;
     double wp1rel = m.nwp? m.wp[0].alt_rel : 100;
     double wpmin[MAXWP]; for(int i=0;i<m.nwp;i++) wpmin[i]=1e9;
     double tdist=1e9;                                  /* closest horizontal approach to the landing threshold */
