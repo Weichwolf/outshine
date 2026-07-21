@@ -5,16 +5,27 @@
 # stay process-to-process, so the architecture is unchanged; only the packaging is one box.
 # Build context = sim/. Ships the prebuilt SITL.elf (needs glibc >= 2.38 -> trixie).
 
-# Stage 1: static libJSBSim from source (cached while the version holds).
+# Stage 1: static libJSBSim from the PINNED submodule (sim/jsbsim @ v1.3.1) — NOT a fresh clone every
+# build. The submodule is the single source of truth (bit-identical to upstream, update-fähig).
 FROM docker.io/library/debian:trixie-slim AS jsbsim
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        g++ cmake make git ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends g++ cmake make \
     && rm -rf /var/lib/apt/lists/*
-WORKDIR /build
-RUN git clone --depth 1 https://github.com/JSBSim-Team/jsbsim.git
-WORKDIR /build/jsbsim/build
-RUN cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DBUILD_PYTHON_MODULE=OFF .. \
+WORKDIR /build/jsbsim
+COPY jsbsim/ .
+RUN mkdir -p build && cd build \
+    && cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DBUILD_PYTHON_MODULE=OFF .. \
     && make -j"$(nproc)" && make install
+
+# Stage 1b: iNav SITL firmware from the PINNED submodule (sim/inav-src) — built from source so the flying
+# firmware is bit-identical to the pinned commit, not a committed prebuilt binary that can drift from it.
+FROM docker.io/library/debian:trixie-slim AS inav-sitl
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        gcc g++ cmake ninja-build ruby \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /build/inav
+COPY inav-src/ .
+RUN cmake -DSITL=ON -GNinja -B build_SITL . && ninja -C build_SITL \
+    && cp build_SITL/inav_*_SITL /build/SITL.elf
 
 # Stage 2: the sim (World + Pilot + gateway)
 FROM docker.io/library/debian:trixie-slim
@@ -32,7 +43,8 @@ COPY aircraft/fdm/ aircraft/fdm/
 COPY aircraft/bridge/ aircraft/bridge/
 COPY aircraft/msp_bridge/fbclock.c aircraft/msp_bridge/
 COPY aircraft/models/ models/
-COPY aircraft/SITL.elf aircraft/eeprom.bin aircraft/run.sh ./
+COPY --from=inav-sitl /build/SITL.elf ./SITL.elf
+COPY aircraft/eeprom.bin aircraft/run.sh ./
 # --- flightbox hub (the CC gateway) + the WASM command center it serves ---
 COPY flightbox/server.c flightbox/
 COPY flightbox/web/ flightbox/web/

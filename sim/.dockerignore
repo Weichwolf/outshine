@@ -1,0 +1,8 @@
+# Keep the build context lean: the submodules ship their source, not their git dirs or build outputs.
+**/.git
+inav-src/build-sitl
+inav-src/build_SITL
+jsbsim/build
+cc/node_modules
+cc/dist
+flightbox/web/*.map

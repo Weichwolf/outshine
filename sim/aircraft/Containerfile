@@ -2,16 +2,14 @@
 # FDM = custom selig (default) ODER JSBSim (FDM_ENGINE=jsbsim, Migrationspaket D).
 # Build context = sim/. Ships the prebuilt SITL.elf (needs glibc >= 2.38 -> trixie).
 
-# Stage 1: libJSBSim statisch aus Quelle (gecacht, solange die Version steht).
+# Stage 1: static libJSBSim from the PINNED submodule (sim/jsbsim @ v1.3.1) — not a fresh clone.
 FROM docker.io/library/debian:trixie-slim AS jsbsim
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        g++ cmake make git ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends g++ cmake make \
     && rm -rf /var/lib/apt/lists/*
-WORKDIR /build
-# TODO(D): auf ein Release-Tag pinnen; master = dieselbe Quelle wie unsere Aircraft-Plugins.
-RUN git clone --depth 1 https://github.com/JSBSim-Team/jsbsim.git
-WORKDIR /build/jsbsim/build
-RUN cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DBUILD_PYTHON_MODULE=OFF .. \
+WORKDIR /build/jsbsim
+COPY jsbsim/ .
+RUN mkdir -p build && cd build \
+    && cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DBUILD_PYTHON_MODULE=OFF .. \
     && make -j"$(nproc)" && make install
 
 # Stage 2: aircraft
