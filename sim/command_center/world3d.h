@@ -40,7 +40,8 @@ static struct {
   GLint stPos, stMag, stBV, stMVP, stDay;
   GLint wPos, wCol, wMVP, wHaze, wLight, hPos, hCol, hScale;
   GLint wtPos, wtUV, wtMVP, wtTex, wtHaze, wtLight, wtNorm, wtSun, wtSunUp;
-  GLint skPos, skF, skS, skU, skTan, skAsp, skSun, skMoon, skMoonPh, skCloud, skSunDisc, skDayF;
+  GLint skPos, skF, skS, skU, skTan, skAsp, skSun, skMoon, skMoonPh, skCloud, skSunDisc, skDayF,
+      skDipSin;
 } w3_gl;
 
 #include "procedural.h"
@@ -81,6 +82,10 @@ static double w3_sim_utc = 0;
  * aircraft (async /elev, origin-ground fallback). Drives the HUD's AGL readout; the LOD gets it
  * too. */
 static float w3_agl = 0;
+/* Model belly (gear-up) clearance in metres, from /config.js (window.FB_GROUND_CLEAR, published by the
+ * bridge). The camera eye is clamped to never sink below ground+this — the aircraft's geometry-true
+ * lowest resting height over terrain — so a crash never puts the view under the surface. */
+static float w3_cam_clear = 0;
 /* Seed the origin ground before any tile streams, so AGL and the no-telemetry camera height are
  * sane at frame 0 (from /elev, before the centre tile's own probe lands). */
 static void w3_seed_yoff(float y) {
@@ -218,6 +223,7 @@ static void world3d_init(void) {
   w3_gl.skCloud = glGetUniformLocation(w3_gl.pSky, "uCloud");
   w3_gl.skSunDisc = glGetUniformLocation(w3_gl.pSky, "uSunDisc");
   w3_gl.skDayF = glGetUniformLocation(w3_gl.pSky, "uDayF");
+  w3_gl.skDipSin = glGetUniformLocation(w3_gl.pSky, "uDipSin");
   {
     float q[12] = {-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1};
     glGenBuffers(1, &w3_gl.skyVBO);

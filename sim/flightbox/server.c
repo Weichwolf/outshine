@@ -127,9 +127,12 @@ static int http_handle(client_t*c){
         /* SIM_UTC (Unix seconds; 0/unset = real time) pins a reproducible sky for night/dusk shots;
          * the aircraft honours the same env for the sun, so both agree on the instant. */
         const char*su=getenv("SIM_UTC");
+        /* Model belly clearance (m) written by the bridge — the camera never sinks below (ground+clearance),
+         * i.e. the eye rests at the aircraft's geometry-true lowest height over terrain, not on the dirt. */
+        double clr=0.0; { FILE*cf=fopen("/tmp/fb_clearance","r"); if(cf){ if(fscanf(cf,"%lf",&clr)!=1) clr=0; fclose(cf); } }
         char body[384]; int bn=snprintf(body,sizeof body,
-            "window.FB_ORIGIN_LAT=%s;window.FB_ORIGIN_LON=%s;window.FB_SIM_UTC=%s;window.FB_TILES_URL='%s';\n",
-            la&&*la?la:"52.045", lo&&*lo?lo:"9.385", su&&*su?su:"0", tu&&*tu?tu:"");
+            "window.FB_ORIGIN_LAT=%s;window.FB_ORIGIN_LON=%s;window.FB_SIM_UTC=%s;window.FB_TILES_URL='%s';window.FB_GROUND_CLEAR=%.3f;\n",
+            la&&*la?la:"52.045", lo&&*lo?lo:"9.385", su&&*su?su:"0", tu&&*tu?tu:"", clr);
         char hdr[192]; int hn=snprintf(hdr,sizeof hdr,
             "HTTP/1.1 200 OK\r\nContent-Type: application/javascript\r\nContent-Length: %d\r\nConnection: close\r\n\r\n",bn);
         send(c->fd,hdr,hn,MSG_NOSIGNAL); send(c->fd,body,bn,MSG_NOSIGNAL); c->rxn=0; return -1;

@@ -63,6 +63,9 @@ int world_init(void){
     S.elev=HOME_ELEV+HOME_ALT; S.agl=HOME_ALT;
     fprintf(stderr,"[xpjsb] FDM=JSBSim aircraft=%s (fbw_override=%d) spawn=%.1f m/s, ground clearance gear-down %.2f m / gear-up %.2f m -> spawn AGL %.2f m\n",
             ac, fbw, spawn_spd, HOME_CLEAR_DOWN, HOME_CLEAR_UP, HOME_ALT);
+    /* Publish the model belly (gear-up) clearance so the CC camera clamp rests the eye at the aircraft's
+     * geometry-true lowest height above terrain, not below the surface — read by the hub for /config.js. */
+    { FILE*cf=fopen("/tmp/fb_clearance","w"); if(cf){ fprintf(cf,"%.3f", HOME_CLEAR_UP); fclose(cf); } }
     return 0;
 }
 
@@ -78,7 +81,10 @@ void world_step(double dt, int armed){
         fb_terrain_set_pos(S.lat, S.lon);
         return;
     }
-    fb_jsbsim_set_controls(S.in_roll, S.in_pitch, S.in_yaw, S.in_thr<0?0:S.in_thr);
+    /* Crash = motor OFF; the simulation does the rest (JSBSim's ground reactions slide/tumble/settle the
+     * airframe on the surface — it never sinks through, so no freeze is needed). */
+    double thr = S.in_thr<0?0:S.in_thr; if(g_crashed) thr=0;
+    fb_jsbsim_set_controls(S.in_roll, S.in_pitch, S.in_yaw, thr);
     double g = fb_terrain_ground();
     fb_jsbsim_set_ground(g);
     fb_jsbsim_set_wind(ATM.windN, ATM.windE);

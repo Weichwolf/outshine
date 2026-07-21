@@ -95,7 +95,7 @@ static void world3d_render_scene(const telem_packet_t *t, int W, int H, int have
 
   /* Sky+stars stay in local render-ENU (up=+Y): at infinity, so they key off the local vertical and
    * the horizon dip emerges as the ECEF terrain curves away below the flat local horizon. */
-  w3_draw_sky(&C, &A, (float)W / H);
+  w3_draw_sky(&C, &A, (float)W / H, sinf(w3_horizon_dip_rad(w3_agl)));
   if (w3_ground.mode == W3_GROUND_PHOTO) w3_draw_stars(&C, &A, eye); /* real stars -> EVS only */
   glDepthMask(GL_TRUE);
   glEnable(GL_DEPTH_TEST);
@@ -108,6 +108,10 @@ static void world3d_render_scene(const telem_packet_t *t, int W, int H, int have
     double clat = have ? w3_O.lat + (double)t->y / MPD : w3_O.lat;
     double clon = have ? w3_O.lon + (double)t->x / (MPD * cos(w3_O.lat * M_PI / 180.0)) : w3_O.lon;
     double calt = (have && t->alt > 1) ? (double)t->alt : (double)w3_O.yoff + 2.0;
+    /* The eye must NEVER sink below the surface. Clamp to the aircraft's geometry-true floor: the DEM
+     * ground under it (ground = ASL − AGL) plus the model belly clearance — where the airframe physically
+     * rests on terrain. So on a crash the view stops at that height, never under the ground. */
+    if (have) { double floor = (double)t->alt - (double)w3_agl + (double)w3_cam_clear; if (calt < floor) calt = floor; }
     osmmesh_geo cg = {clon, clat, calt};
     osmmesh_ecef ce = osmmesh_geo_to_ecef(cg);
     double cam_ecef[3] = {ce.x, ce.y, ce.z};

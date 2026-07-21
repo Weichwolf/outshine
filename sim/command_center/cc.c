@@ -103,9 +103,8 @@ static void frame(void) {
     double ground = fb_ground_get();
     if (ground <= -1e8) ground = w3_O.yoff;
     double agl = (double)telem.alt - ground;
-    if (agl < 1.0) agl = 1.0;
-    w3_agl = (float)agl;
-    world3d_stream_at(lat, lon, agl);
+    w3_agl = (float)agl;                                       /* TRUE AGL — negative = below terrain, never hide it */
+    world3d_stream_at(lat, lon, agl < 1.0 ? 1.0 : agl);       /* streaming LOD still needs a positive height */
   }
   fb_present_frame(&telem, have_telem);
 }
@@ -125,6 +124,9 @@ static void cfg_from_js(char *tiles_url, size_t n) {
   const char *su = emscripten_run_script_string(
       "(typeof window.FB_SIM_UTC==='number'?window.FB_SIM_UTC:0).toString()");
   w3_sim_utc = atof(su);
+  const char *gc = emscripten_run_script_string(
+      "(typeof window.FB_GROUND_CLEAR==='number'?window.FB_GROUND_CLEAR:0).toString()");
+  w3_cam_clear = (float)atof(gc);
   snprintf(tiles_url, n, "%s",
            emscripten_run_script_string("(window.FB_TILES_URL||'').toString()"));
 }
