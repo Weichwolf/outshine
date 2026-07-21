@@ -34,9 +34,20 @@ const distLL = (a: [number, number], b: [number, number]): number => {
   const [e, n] = enuOff(b[0], b[1], a[0], a[1]); return Math.hypot(e, n);
 };
 
-export interface NavParams { climbAngle: number; diveAngle: number; bankAngle: number; cruise: number; approachLen: number; glideAngle: number; }
+// iNav fixed-wing nav params (defaults = iNav settings.yaml default_value; overridden per aircraft by
+// inav.diff). The C validator flies iNav's OWN control cascade from these, so its trajectory is iNav's.
+export interface NavParams {
+  climbAngle: number; diveAngle: number; bankAngle: number; cruise: number; approachLen: number; glideAngle: number;
+  cruiseThr: number; minThr: number; maxThr: number; pitch2thr: number;       // nav.fw throttle model (us)
+  posZp: number; posZi: number; posZd: number; posZff: number;                // fw_alt (POS_Z) PID, raw 0-255
+  altResponse: number; maxClimbRate: number;                                  // alt->climbrate cascade (cm/s)
+}
 export function inavParams(ac: string): NavParams {
-  const p: NavParams = { climbAngle: 6, diveAngle: 6, bankAngle: 20, cruise: 15, approachLen: 350, glideAngle: 3 };
+  const p: NavParams = {
+    climbAngle: 20, diveAngle: 15, bankAngle: 35, cruise: 15, approachLen: 350, glideAngle: 3,
+    cruiseThr: 1400, minThr: 1200, maxThr: 1700, pitch2thr: 10,
+    posZp: 30, posZi: 5, posZd: 10, posZff: 30, altResponse: 40, maxClimbRate: 500,
+  };
   const f = `${SIM}/aircraft/models/${ac}/inav.diff`;
   if (existsSync(f)) {
     const t = readFileSync(f, 'utf8');
@@ -46,6 +57,13 @@ export function inavParams(ac: string): NavParams {
     p.bankAngle = g('nav_fw_bank_angle', p.bankAngle);
     p.cruise = g('fw_reference_airspeed', p.cruise * 100) / 100;
     p.approachLen = g('nav_fw_land_approach_length', p.approachLen * 100) / 100;
+    p.cruiseThr = g('nav_fw_cruise_thr', p.cruiseThr);
+    p.minThr = g('nav_fw_min_thr', p.minThr);
+    p.maxThr = g('nav_fw_max_thr', p.maxThr);
+    p.pitch2thr = g('nav_fw_pitch2thr', p.pitch2thr);
+    p.posZp = g('nav_fw_pos_z_p', p.posZp); p.posZi = g('nav_fw_pos_z_i', p.posZi);
+    p.posZd = g('nav_fw_pos_z_d', p.posZd); p.posZff = g('nav_fw_pos_z_ff', p.posZff);
+    p.altResponse = g('nav_fw_alt_control_response', p.altResponse);
   }
   return p;
 }

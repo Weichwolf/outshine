@@ -3,14 +3,49 @@
 //   cc fly <mission|aircraft>    fly a mission against the running aircraft (arm -> WP -> land)
 // Connects to CC_URL (default ws://127.0.0.1:8080/msp).
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { CC, sleep } from '../src/client.js';
 import { flyMission } from '../src/harness.js';
 import { resolveMission } from '../src/mission.js';
+import { inavParams } from '../src/ringtrack.js';
+
 
 const fmt = (v: number | undefined, d = 1) => (v === undefined ? '-' : v.toFixed(d));
 
+/** Compact resolved-mission text for the C validator (stdin): runways, iNav nav params, speed envelope, WPs. */
+function gains(ac: string): { kpR: number; kdR: number; kpP: number; kdP: number } {
+  // inner attitude-tracker gains (surface per deg attitude-err / per deg/s body-rate). A relaxed-stability
+  // FLCS airframe (F-16) needs gentle P + heavy damping or it over-rotates into a departure; profile.env
+  // overrides the light-aircraft defaults.
+  const txt = readFileSync(`${resolve(import.meta.dirname, '../../..')}/aircraft/models/${ac}/profile.env`, 'utf8');
+  const g = (k: string, d: number) => { const m = txt.match(new RegExp(`^\\s*${k}\\s*=\\s*([0-9.]+)`, 'm')); return m ? Number(m[1]) : d; };
+  return { kpR: g('FB_KP_ROLL', 0.03), kdR: g('FB_KD_ROLL', 0.01), kpP: g('FB_KP_PITCH', 0.055), kdP: g('FB_KD_PITCH', 0.018) };
+}
+
+async function vinput(spec: string): Promise<string> {
+  const m = await resolveMission(spec);
+  const p = inavParams(m.aircraft);
+  const g = gains(m.aircraft);
+  const L: string[] = [];
+  L.push(`ac ${m.aircraft}`);
+  L.push(`to ${m.takeoff.lat} ${m.takeoff.lon} ${m.takeoff.elevM} ${m.takeoff.headingDeg}`);
+  L.push(`ld ${m.land.lat} ${m.land.lon} ${m.land.elevM} ${m.land.headingDeg}`);
+  L.push(`nav ${p.climbAngle} ${p.diveAngle} ${p.bankAngle} ${p.cruise} ${p.approachLen} ${p.glideAngle}`);
+  L.push(`thr ${p.cruiseThr} ${p.minThr} ${p.maxThr} ${p.pitch2thr}`);
+  L.push(`pid ${p.posZp} ${p.posZi} ${p.posZd} ${p.posZff} ${p.altResponse} ${p.maxClimbRate}`);
+  L.push(`spd ${m.vs} ${m.vc} ${m.vne} ${m.vmin}`);
+  const captureR = m.raw.success?.capture_radius_m ?? 150;              // fast jets fly wide -> bigger fangradius
+  const climbAlt = m.raw.procedure?.angle_hold_alt ?? 0;               // climb straight to here before WP nav (0 = brief)
+  L.push(`cfg ${captureR} ${climbAlt}`);
+  L.push(`gain ${g.kpR} ${g.kdR} ${g.kpP} ${g.kdP}`);
+  for (const w of m.waypoints) L.push(`wp ${w.lat} ${w.lon} ${w.altRel ?? 0}`);
+  return L.join('\n') + '\n';
+}
+
 async function main() {
   const cmd = process.argv[2] ?? 'watch';
+  if (cmd === 'vinput') { process.stdout.write(await vinput(process.argv[3] ?? 'c172')); return; }
   const cc = new CC();
   await cc.connect();
 

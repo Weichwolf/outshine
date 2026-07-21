@@ -6,7 +6,7 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { scenarioSpeeds, type Scenario, type Band } from './speeds.js';
+import { scenarioSpeeds, vne as vneOfVc, type Scenario, type Band } from './speeds.js';
 
 const SIM = resolve(import.meta.dirname, '../../..');   // cc/dist/src -> sim/
 
@@ -19,8 +19,8 @@ export interface Runway { icao: string; runway: string; lat: number; lon: number
 export interface Mission {
   name: string; aircraft: string;
   takeoff: Runway; land: Runway; waypoints: Waypoint[];
-  vs: number; vc: number; speeds: Record<Scenario, Band>;   // aircraft speed envelope
-  raw: any;                                                 // the declarative spec, verbatim
+  vs: number; vc: number; vne: number; vmin: number; speeds: Record<Scenario, Band>;   // aircraft speed envelope
+  raw: any;                                                                             // the declarative spec, verbatim
 }
 
 /** Runway threshold record by airport ICAO + runway ident, from the world DB. */
@@ -43,10 +43,16 @@ export async function groundElev(lat: number, lon: number, tilesUrl: string): Pr
   } catch { return null; }
 }
 
-function vsVc(ac: string): { vs: number; vc: number } {
+// Vs/Vc from the aircraft; Vne is the structural never-exceed — usually derived (≈1.9·Vc) but a per-aircraft
+// FB_VNE override wins where that ratio misfits (a fast jet whose FB_CRUISE is a nav reference, not its
+// throttle cruise). One honest number, not a re-materialised table (see speeds.ts).
+function vsVc(ac: string): { vs: number; vc: number; vne: number; vmin: number } {
   const txt = readFileSync(`${SIM}/aircraft/models/${ac}/profile.env`, 'utf8');
   const g = (k: string, d: number) => { const m = txt.match(new RegExp(`^\\s*${k}\\s*=\\s*([0-9.]+)`, 'm')); return m ? Number(m[1]) : d; };
-  return { vs: g('FB_STALL', 11), vc: g('FB_CRUISE', 20) };
+  const vs = g('FB_STALL', 11), vc = g('FB_CRUISE', 20);
+  // vmin = minimum safe maneuvering speed. Most airframes fly to ~1.2·Vs; a relaxed-stability jet departs
+  // far above the 1g stall, so FB_VMIN overrides it (energy management holds the aircraft above this).
+  return { vs, vc, vne: g('FB_VNE', vneOfVc(vc)), vmin: g('FB_VMIN', 1.2 * vs) };
 }
 
 /** Resolve a declarative mission (name or path under sim/) to a flyable GPS/ASL plan. */
@@ -62,11 +68,11 @@ export async function resolveMission(spec: string, tilesUrl = process.env.TILES_
     const asl = g != null ? w.alt_agl + g : null;
     waypoints.push({ lat: w.lat, lon: w.lon, altAgl: w.alt_agl, altRel: asl != null ? asl - home : null });
   }
-  const { vs, vc } = vsVc(m.aircraft);
+  const { vs, vc, vne, vmin } = vsVc(m.aircraft);
   const rw = (o: RunwayRec, icao: string): Runway => ({ icao, runway: o.ident, lat: o.lat, lon: o.lon, elevM: o.elev_m, headingDeg: o.heading_deg });
   return {
     name: m.name ?? '', aircraft: m.aircraft,
     takeoff: rw(to, m.takeoff.airport), land: rw(ld, m.land.airport),
-    waypoints, vs, vc, speeds: scenarioSpeeds(vs, vc), raw: m,
+    waypoints, vs, vc, vne, vmin, speeds: scenarioSpeeds(vs, vc), raw: m,
   };
 }
