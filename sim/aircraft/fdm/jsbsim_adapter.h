@@ -41,6 +41,10 @@ void fb_jsbsim_set_ground(double ground_m);
 /* Advance one fixed 100 Hz step, then read the resulting state. */
 void fb_jsbsim_step(fb_fdm_state *out);
 
+/* Model ground clearance (m): CG height above ground when the lowest active contact touches, level.
+ * gear_down=1 -> wheels on struts; gear_down=0 -> only fixed structure (belly). Query after init. */
+double fb_jsbsim_ground_clearance(int gear_down);
+
 #ifdef __cplusplus
 }
 #endif

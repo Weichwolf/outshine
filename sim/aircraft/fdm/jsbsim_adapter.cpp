@@ -5,6 +5,8 @@
 #include "initialization/FGTrim.h"
 #include "models/FGPropulsion.h"
 #include "models/propulsion/FGEngine.h"
+#include "models/FGGroundReactions.h"
+#include "models/FGLGear.h"
 #include "jsbsim_adapter.h"
 #include <cstdio>
 #include <string>
@@ -37,11 +39,18 @@ extern "C" int fb_jsbsim_init(const char *root, const char *ac,
   auto ic = g_fdm->GetIC();
   ic->SetGeodLatitudeDegIC(lat);                /* GEODETIC — matches GPS/HOME_LAT (D2 probe caught this) */
   ic->SetLongitudeDegIC(lon);
-  ic->SetAltitudeASLFtIC((elev_m + hoff_m) / FT);
+  double prov = (hoff_m > 0.0) ? hoff_m : 3.0;  /* provisional AGL (explicit spawn, or a safe airborne value) */
+  ic->SetAltitudeASLFtIC((elev_m + prov) / FT);
   ic->SetVcalibratedKtsIC(speed_ms * MS2KT);
   ic->SetPsiDegIC(yaw_deg < 0 ? yaw_deg + 360.0 : yaw_deg);
   ic->SetFlightPathAngleDegIC(0.0);             /* level */
   g_fdm->RunIC();
+  /* hoff_m < 0 = "sit on the gear": now the CG is valid, re-place at the model gear-down clearance so the
+   * spawn/held altitude equals the geometry-true wheel height (no held->armed jump). */
+  if (hoff_m < 0.0) {
+    double gc = fb_jsbsim_ground_clearance(1);
+    if (gc > 0.1) { ic->SetAltitudeASLFtIC((elev_m + gc) / FT); g_fdm->RunIC(); }
+  }
   g_thr_applied = 0.0;
   /* Start ALL engines running before trim — incl. electric: without a running motor there is no thrust
    * during FGTrim, so a powered airframe reports "udot not trimmable", the IC is no equilibrium, and the
@@ -65,6 +74,25 @@ extern "C" int fb_jsbsim_init(const char *root, const char *ac,
   fprintf(stderr, "[jsbsim] %s loaded, %.1f m/s, elevator trim %.3f%s\n",
           ac, speed_ms, g_elev_trim, trimmed ? "" : " (trim search did not fully converge; using best-effort)");
   return 0;
+}
+
+/* Ground clearance from the aircraft MODEL, not a fixed 2 m: the height of the CG above the ground when
+ * the lowest active contact point touches, at level attitude. gear_down=1 uses all contacts (wheels on
+ * their struts); gear_down=0 uses only the NON-retractable ones (belly/skid) — how far the airframe sits
+ * off the ground with the gear up. Per-model + gear-state, so takeoff/touchdown/crash and the camera eye
+ * height are geometry-true. Returns metres; 0 if the model has no matching contact (query after LoadModel). */
+extern "C" double fb_jsbsim_ground_clearance(int gear_down) {
+  if (!g_fdm) return 0.0;
+  auto gr = g_fdm->GetGroundReactions();
+  double maxz = 0.0;
+  for (int i = 0; i < gr->GetNumGearUnits(); i++) {
+    auto lg = gr->GetGearUnit(i);
+    if (!lg) continue;
+    if (!gear_down && lg->GetRetractable()) continue;   /* gear up: only fixed structure touches */
+    double z = lg->GetBodyLocation(3);                   /* body z (down+), ft below the CG */
+    if (z > maxz) maxz = z;
+  }
+  return maxz * FT;
 }
 
 extern "C" void fb_jsbsim_set_controls(double roll, double pitch, double yaw, double thr) {

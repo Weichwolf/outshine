@@ -12,6 +12,7 @@
 /* --- the shared globals every bridge module reads; this TU owns them --- */
 state_t S;
 double  HOME_LAT = 52.045, HOME_LON = 9.385, HOME_ELEV = 71.0, HOME_HDG = 0.0, HOME_SPD = 14.0, HOME_ALT = 2.0;
+double  HOME_CLEAR_DOWN = 2.0, HOME_CLEAR_UP = 0.5;   /* model gear-down / gear-up CG-above-ground (m), set at init */
 fb_atmo ATM;
 float   g_nx = 0.0f, g_ny = 0.0f, g_nz = 1.0f;
 int     g_crashed = 0;
@@ -37,8 +38,9 @@ int world_init(void){
     fprintf(stderr,"[xpjsb] home ground elevation %.2f m (exact, fb-tiles)\n", HOME_ELEV);
     fb_terrain_start(ta, HOME_ELEV);
 
-    HOME_ALT=envd("SPAWN_ALT", 2.0);
-    S.lat=HOME_LAT; S.lon=HOME_LON; S.elev=HOME_ELEV+HOME_ALT; S.agl=HOME_ALT;  /* spawn AGL (floaty gliders need clearance) */
+    const char *spawn_alt_env = getenv("SPAWN_ALT");   /* explicit only for an airborne spawn (e.g. gliders) */
+    HOME_ALT = spawn_alt_env ? atof(spawn_alt_env) : 2.0;   /* provisional; replaced by the model gear height below */
+    S.lat=HOME_LAT; S.lon=HOME_LON; S.elev=HOME_ELEV+HOME_ALT; S.agl=HOME_ALT;
     HOME_HDG=envd("ORIGIN_HDG", 0.0);
     S.yaw=HOME_HDG; S.speed=14.0; S.gs=14.0;                           /* spawn aligned with the runway */
 
@@ -46,11 +48,21 @@ int world_init(void){
     const char *mr=getenv("MODELS_ROOT"); if(!mr||!*mr) mr="/app/models";
     int fbw = (int)envd("FBW", 0);
     double spawn_spd = envd("SPAWN_SPEED", 14.0); HOME_SPD = spawn_spd;
-    if(fb_jsbsim_init(mr, ac, HOME_LAT, HOME_LON, HOME_ELEV, HOME_ALT, spawn_spd, envd("ORIGIN_HDG",0.0), fbw)!=0){
+    /* hoff = −1 -> JSBSim sits the aircraft on its gear (model geometry); explicit SPAWN_ALT spawns airborne. */
+    double hoff = spawn_alt_env ? atof(spawn_alt_env) : -1.0;
+    if(fb_jsbsim_init(mr, ac, HOME_LAT, HOME_LON, HOME_ELEV, hoff, spawn_spd, envd("ORIGIN_HDG",0.0), fbw)!=0){
         fprintf(stderr,"[xpjsb] FATAL: JSBSim init failed for '%s'\n", ac);
         return 1;
     }
-    fprintf(stderr,"[xpjsb] FDM=JSBSim aircraft=%s (fbw_override=%d) spawn=%.1f m/s\n", ac, fbw, spawn_spd);
+    /* HOME_ALT = the model's gear-down CG height above ground, not a fixed 2 m — the held/parked camera eye
+     * and the takeoff/touchdown reference are geometry-true, and match JSBSim's on-gear IC (no arm jump).
+     * gear-up clearance is the belly line for gear-up touchdown/crash. */
+    HOME_CLEAR_DOWN = fb_jsbsim_ground_clearance(1);
+    HOME_CLEAR_UP   = fb_jsbsim_ground_clearance(0);
+    HOME_ALT = spawn_alt_env ? atof(spawn_alt_env) : (HOME_CLEAR_DOWN > 0.1 ? HOME_CLEAR_DOWN : 2.0);
+    S.elev=HOME_ELEV+HOME_ALT; S.agl=HOME_ALT;
+    fprintf(stderr,"[xpjsb] FDM=JSBSim aircraft=%s (fbw_override=%d) spawn=%.1f m/s, ground clearance gear-down %.2f m / gear-up %.2f m -> spawn AGL %.2f m\n",
+            ac, fbw, spawn_spd, HOME_CLEAR_DOWN, HOME_CLEAR_UP, HOME_ALT);
     return 0;
 }
 
