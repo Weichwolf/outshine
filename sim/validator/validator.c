@@ -9,25 +9,28 @@
  *
  * Build: g++ validator.c ../aircraft/fdm/jsbsim_adapter.cpp -I../aircraft/fdm <libJSBSim>.a  (see Makefile).
  *
- * Fidelity: BOTH loops are iNav's own. Outer = the nav cascade (navigation_fixedwing.c, verbatim). Inner =
- * iNav ANGLE mode + the fixed-wing rate PID (flight/pid.c, verbatim) with each airframe's gains from its
- * inav.diff — THIS is the F-16 FLCS (low-P/high-FF, per its inav.diff) that keeps a relaxed-stability jet
- * from departing. With it the F-16 flies all three waypoints (before, a stand-in inner loop departed it).
- * Conventional airframes (c172, SGS) validate 3/3 WP + touchdown. The F-16 captures all WP but its fast-jet
- * autoland (energy-managed approach at high approach speed) is not yet modelled — it fails-fast on the
- * approach; that path is validated by flightbox directly (the reference) until the approach is built out.
+ * Fidelity — precise about what is iNav's code vs a replication:
+ *   - NAV controllers (fw_alt altitude cascade, fw_nav heading->roll) call iNav's OWN navPidApply2/navPidInit,
+ *     EXTRACTED verbatim into generated/inav_core.h by extract_inav.mjs (re-run on an inav-src bump).
+ *   - The FW rate loop (pidApplyFixedWingRateController) is too firmware-coupled to extract standalone, so
+ *     fw_inner() is a documented FAITHFUL REPLICATION of its P·rateErr + FF·rateTarget + I core (with iNav's
+ *     extracted scaling multipliers) — not a verbatim copy. iNav's low-P/high-FF gains stabilise a jet.
+ *   - Aircraft params come only from the model files flightbox flies: all {model}*.xml (physics, via
+ *     libJSBSim) + inav.diff (control, every setting accounted — see ringtrack.ts assertInavCoverage).
+ * Conventional airframes (c172, SGS) validate 3/3 WP + touchdown worldwide. The F-16 captures all WP but its
+ * fast-jet autoland is not modelled (fails-fast on the approach) — validated by flightbox directly for now.
  */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include "jsbsim_adapter.h"
+#include "generated/inav_core.h"   /* iNav's numeric control core, extracted verbatim (extract_inav.mjs) */
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 #define G 9.80665
-#define TURN_ASSIST_SCALE 0.0   /* rudder coordination gain (0 = disabled while isolating its effect) */
 #define D2R (M_PI/180.0)
 #define R2D (180.0/M_PI)
 #define MAXWP 32
@@ -64,6 +67,7 @@ typedef struct {
     double climb,dive,bank,cruise,approach_len,glide;   /* iNav nav params */
     double cruise_thr,min_thr,max_thr,pitch2thr;        /* iNav nav.fw throttle model (us) */
     double posZp,posZi,posZd,posZff,alt_response,max_climb_rate,control_smoothness;  /* fw_alt PID + alt->rate cascade + pitch-cmd smoothing */
+    double posXYp,posXYi,posXYd;                        /* fw_nav (heading->roll) PID, raw */
     double vs,vc,vne,vmin;                               /* speed envelope (vmin = min safe maneuvering) */
     double capture_r,climb_alt;                          /* mission: WP fangradius; climb-straight-to alt (AGL) */
     double kpR,kdR,kpP,kdP;                              /* inner attitude-tracker gains (legacy, unused when rate PID present) */
@@ -74,51 +78,33 @@ typedef struct {
     WP wp[MAXWP]; int nwp;
 } Mission;
 
-/* iNav fixed-wing inner loop, copied from flight/pid.c: ANGLE mode (angle error -> rate target, LPF) then
-   the rate PID (P·rateErr + FF·rateTarget + I) -> servo. THIS is the F-16 FLCS iNav provides — the low-P/
-   high-FF gains in the aircraft's inav.diff are what keep a relaxed-stability airframe from departing. */
-#define FP_RATE_P 31.0
-#define FP_RATE_I 4.0
-#define FP_RATE_FF 31.0
-#define FP_LEVEL_P (1.0/6.56)
-#define PIDSUM_LIMIT 500.0
+/* iNav fixed-wing inner loop — a faithful REPLICATION of ANGLE mode (pidLevel: angle error -> rate target
+   via fw_p_level, LPF'd) + the FW rate PID (pidApplyFixedWingRateController: P·rateErr + FF·rateTarget + I,
+   clamped to pidSumLimit). The scaling multipliers (FP_PID_*_MULTIPLIER) and getSmoothnessCutoffFreq come
+   from the EXTRACTED inav_core.h; the rate loop itself is too firmware-coupled to extract verbatim. iNav's
+   low-P/high-FF gains (inav.diff) are what stabilise a relaxed-stability airframe. */
+#define PIDSUM_LIMIT 500.0                   /* fw_pidsum_limit default; roll/pitch servo saturates here */
 typedef struct { double iterm, lpf; int lpf_init; } FwAxis;
 static double fw_inner(FwAxis*s,double angle_cmd,double attitude,double gyro,double P,double I,double D,double FF,double pLevel,double iLevel,double maxRate,double dt){
     double angleErr=angle_cmd-attitude;
-    double rateTarget=angleErr*(pLevel*FP_LEVEL_P);
+    double rateTarget=angleErr*(pLevel*FP_PID_LEVEL_P_MULTIPLIER);
     if(rateTarget>maxRate)rateTarget=maxRate; else if(rateTarget<-maxRate)rateTarget=-maxRate;
     if(iLevel>0){ double rc=1.0/(2*M_PI*iLevel), a=dt/(rc+dt); if(!s->lpf_init){s->lpf=rateTarget;s->lpf_init=1;} s->lpf+=a*(rateTarget-s->lpf); rateTarget=s->lpf; }
-    double kP=P/FP_RATE_P, kI=I/FP_RATE_I, kFF=FF/FP_RATE_FF;
+    double kP=P/FP_PID_RATE_P_MULTIPLIER, kI=I/FP_PID_RATE_I_MULTIPLIER, kFF=FF/FP_PID_RATE_FF_MULTIPLIER;
     double rateErr=rateTarget-gyro;
     double pTerm=rateErr*kP, ffTerm=rateTarget*kFF;
     s->iterm += rateErr*kI*dt;
     if(s->iterm>PIDSUM_LIMIT)s->iterm=PIDSUM_LIMIT; else if(s->iterm<-PIDSUM_LIMIT)s->iterm=-PIDSUM_LIMIT;
-    double dTerm=-D/1000.0*gyro;   /* D on gyro (usually 0 for these airframes) */
+    double dTerm=-D/1000.0*gyro;   /* D on gyro (0 for these airframes' fw_d_* gains) */
     double axisPID=pTerm+ffTerm+s->iterm+dTerm;
     if(axisPID>PIDSUM_LIMIT)axisPID=PIDSUM_LIMIT; else if(axisPID<-PIDSUM_LIMIT)axisPID=-PIDSUM_LIMIT;
     return axisPID/PIDSUM_LIMIT;   /* normalized servo (-1..1) */
 }
 
-/* ---------- iNav navPidApply3, copied verbatim from inav-src/common/fp_pid.c (flags=0, measurement-tracking
-   D, back-calc anti-windup) so the validator's altitude loop IS iNav's ---------- */
-typedef struct { double kP,kI,kD,kFF,kT, integrator, last_input, dTermLpf; int reset, has_last; double dfilt; } NavPid;
-static void navpid_init(NavPid*p,double kP,double kI,double kD,double kFF,double dLpf){
-    memset(p,0,sizeof*p); p->kP=kP;p->kI=kI;p->kD=kD;p->kFF=kFF;p->dTermLpf=dLpf; p->reset=1;
-    if(kI>1e-6&&kP>1e-6){ double Ti=kP/kI,Td=kD/kP; p->kT=2.0/(Ti+Td); }
-}
-static double navpid(NavPid*p,double setpoint,double meas,double dt,double outMin,double outMax){
-    double error=setpoint-meas;
-    double P=error*p->kP;
-    if(p->reset){ p->last_input=meas; p->reset=0; }
-    double deriv=-(meas-p->last_input)/dt; p->last_input=meas;
-    if(p->dTermLpf>0){ double rc=1.0/(2*M_PI*p->dTermLpf), a=dt/(rc+dt); p->dfilt+=a*(deriv-p->dfilt); deriv=p->dfilt; }
-    double D=p->kD*deriv, FF=setpoint*p->kFF;
-    double out=P+p->integrator+D+FF;
-    double outC=out<outMin?outMin:out>outMax?outMax:out;
-    double back=outC-out; if((back>0)==(p->integrator>0)) back=0;   /* shrink-only anti-windup */
-    p->integrator += error*p->kI*dt + back*p->kT*dt;
-    return outC;
-}
+/* The NAV controllers (fw_alt altitude cascade, fw_nav heading) call iNav's OWN navPidApply2/navPidInit
+   from the extracted inav_core.h — not a re-implementation. (The FW rate loop, pidApplyFixedWingRateController,
+   is too firmware-coupled to extract standalone — navConfig/pidProfile/FLIGHT_MODE/autotune — so fw_inner
+   below is a documented faithful replication of its P·rateErr + FF·rateTarget + I core, NOT a verbatim copy.) */
 
 /* ---------- gates ---------- */
 typedef struct { double lat,lon,asl,r,brg; int ring; int kind; } Gate;  /* ring=1 directed, 0 sphere; kind 0 climb 1 route 2 approach */
@@ -199,6 +185,7 @@ static int parse(Mission*m){
         else if(!strncmp(line,"nav ",4)) sscanf(line+4,"%lf %lf %lf %lf %lf %lf",&m->climb,&m->dive,&m->bank,&m->cruise,&m->approach_len,&m->glide);
         else if(!strncmp(line,"thr ",4)) sscanf(line+4,"%lf %lf %lf %lf",&m->cruise_thr,&m->min_thr,&m->max_thr,&m->pitch2thr);
         else if(!strncmp(line,"pid ",4)) sscanf(line+4,"%lf %lf %lf %lf %lf %lf %lf",&m->posZp,&m->posZi,&m->posZd,&m->posZff,&m->alt_response,&m->max_climb_rate,&m->control_smoothness);
+        else if(!strncmp(line,"posxy ",6)) sscanf(line+6,"%lf %lf %lf",&m->posXYp,&m->posXYi,&m->posXYd);
         else if(!strncmp(line,"spd ",4)){ m->vmin=0; sscanf(line+4,"%lf %lf %lf %lf",&m->vs,&m->vc,&m->vne,&m->vmin); if(m->vmin<=0)m->vmin=1.2*m->vs; }
         else if(!strncmp(line,"cfg ",4)) sscanf(line+4,"%lf %lf",&m->capture_r,&m->climb_alt);
         else if(!strncmp(line,"gain ",5)) sscanf(line+5,"%lf %lf %lf %lf",&m->kpR,&m->kdR,&m->kpP,&m->kdP);
@@ -226,7 +213,10 @@ int main(void){
        CPU speed. set_controls sets SURFACE deflections, so a plain P on heading diverges — the inner
        loop tracks a bank/pitch COMMAND with body-rate damping (p,q). Gains are aligned to flightbox. --- */
     FwAxis axRoll={0}, axPitch={0};                  /* iNav FW rate-PID state per axis (iterm, angle LPF) */
-    NavPid pidAlt; navpid_init(&pidAlt, m.posZp/100.0, m.posZi/100.0, m.posZd/300.0, m.posZff/100.0, 10.0);  /* fw_alt (climb-rate branch) */
+    /* fw_alt (climb-rate branch) + fw_nav (heading) = iNav's OWN navPidApply2 from inav_core.h. Gains scaled
+       exactly as navigation.c inits them: fw_alt = pos_z P/100,I/100,D/300,FF/100; fw_nav = pos_xy P,I,D /100. */
+    pidController_t pidAlt; navPidInit(&pidAlt, m.posZp/100.0f, m.posZi/100.0f, m.posZd/300.0f, m.posZff/100.0f, NAV_DTERM_CUT_HZ, 0.0f);
+    pidController_t pidNav; navPidInit(&pidNav, m.posXYp/100.0f, m.posXYi/100.0f, m.posXYd/100.0f, 0.0f, NAV_DTERM_CUT_HZ, 0.0f);
     double vtarget=fmax(m.cruise, m.vmin*1.2);       /* operating airspeed: sustainable at cruise power, above departure */
     int jet = m.vmin > 1.5*m.vs;                      /* relaxed-stability / high-min-speed airframe: must hold power always */
     double pcut = 0.001*2.0*pow(10.0-m.control_smoothness,3.0)+0.1;  /* iNav pitch-cmd LPF cutoff (Hz) from control_smoothness */
@@ -278,18 +268,22 @@ int main(void){
                 tgt_alt=m.ld.elev+clr+fmax(0.0,-along)*tan(m.glide*D2R);
             }
         }
-        double desH = desHdg>-900.0? desHdg : bearing(st.lat,st.lon,tgt_la,tgt_lo);
-        double herr=wrap180(desH-st.yaw);
-        /* gentle-dogleg: cap bank below the nav limit when energy-limited — a hard bank at low speed margin
-           bleeds a relaxed-stability jet into a departure. Full nav bank once comfortably above vmin. */
-        double smarg=(st.speed-m.vmin)/fmax(1.0,vtarget*1.3-m.vmin);   /* full bank only well above operating speed */
-        double bankMax=m.bank*fmax(0.25,fmin(1.0,smarg));              /* gentle turns preserve a jet's energy */
-        if(!launched) bankMax=fmin(bankMax,10.0);                      /* wings-level climb-out: no steep bank low + slow (the rate loop overshoots the command, so cap it well below the envelope limit) */
-        /* heading->bank with heading-rate (yaw-rate) damping — a plain P on heading error overshoots into a
-           roll/heading oscillation; the -Kd·r term settles it, like iNav's damped heading controller. */
-        double bank_cmd=fmax(-bankMax,fmin(bankMax, herr*1.5 - 2.0*st.r));
-        { double cut=fmax(pcut,0.8), rc=1.0/(2*M_PI*cut), a=dt/(rc+dt);   /* iNav control_smoothness on the bank cmd */
+        /* iNav fw_nav heading->roll (navigation_fixedwing.c updatePositionHeadingController_FW): a PID
+           (fw_nav = pos_xy gains, D from error) on the COURSE error — measured over the GROUND track (COG,
+           wind-robust), not yaw — outputs the roll angle, clamped to ±bank, then the control_smoothness roll
+           LPF. navPidApply2 is iNav's OWN extracted function. cog+err vs cog cancels to error=headErr. */
+        double desCourse = desHdg>-900.0? desHdg : bearing(st.lat,st.lon,tgt_la,tgt_lo);
+        double cog = atan2(st.vx,-st.vz)*R2D; if(cog<0)cog+=360;       /* course over ground (X-Plane vx=E, vz=S) */
+        double headErr = wrap180(desCourse-cog);
+        double bank_cmd = navPidApply2(&pidNav, headErr*100.0, 0.0, dt, -m.bank*100.0, m.bank*100.0, PID_DTERM_FROM_ERROR) / 100.0;
+        { double cut=fmax(pcut,0.8), rc=1.0/(2*M_PI*cut), a=dt/(rc+dt);   /* iNav control_smoothness on the roll cmd (NAV_FW_BASE_ROLL_CUTOFF) */
           if(!rollLpfInit){rollLpf=bank_cmd;rollLpfInit=1;} rollLpf+=a*(bank_cmd-rollLpf); bank_cmd=rollLpf; }
+        /* energy/launch bank caps (validator additions, applied ON TOP of iNav's ±bank clamp): a hard bank at
+           low speed-margin bleeds a relaxed-stability jet into a departure; climb-out stays wings-level. */
+        double smarg=(st.speed-m.vmin)/fmax(1.0,vtarget*1.3-m.vmin);
+        double bankMax=m.bank*fmax(0.25,fmin(1.0,smarg));
+        if(!launched) bankMax=fmin(bankMax,10.0);
+        bank_cmd=fmax(-bankMax,fmin(bankMax,bank_cmd));
         (void)tgt_spd;
         /* --- iNav fixed-wing altitude cascade (navigation_fixedwing.c): altitude error -> desired climb rate
            (alt_control_response, capped at max_auto_climb_rate), then the fw_alt PID on climb-rate error ->
@@ -309,7 +303,7 @@ int main(void){
             double desClimb=m.alt_response*altErr_cm/100.0;             /* cm/s */
             desClimb=fmax(-m.max_climb_rate,fmin(m.max_climb_rate,desClimb));
             double actClimb=st.vy*100.0;                               /* cm/s, +up */
-            double pitch_dd=navpid(&pidAlt,desClimb,actClimb,dt,-m.dive*10.0,m.climb*10.0);
+            double pitch_dd=navPidApply2(&pidAlt,desClimb,actClimb,dt,-m.dive*10.0,m.climb*10.0,0);
             /* iNav pitch-command LPF (control_smoothness), cutoff floored: iNav's heaviest smoothing (~0.1 Hz)
                lags too far for this sim's phugoid and amplifies it, so clamp the cutoff to keep it a damper. */
             double cut=fmax(pcut,0.8), rc=1.0/(2*M_PI*cut), a=dt/(rc+dt);
@@ -329,10 +323,13 @@ int main(void){
            hold speed; flightbox flies the jet with a throttle hand that keeps it in its controllable band
            (above departure, below the high-q PIO regime). vtarget sits at the airframe's real operating
            speed (nav-reference cruise, or above the departure margin for a relaxed-stability jet). */
-        double sperr=vtarget-st.speed;
+        /* speed target: operating speed enroute; on the approach BLEED to ~1.3·Vs (textbook approach speed,
+           not below the min-maneuvering vmin) so touchdown is at approach speed, not a cruise-speed float. */
+        double vspeed = landing ? fmax(m.vs*1.3, m.vmin) : vtarget;
+        double sperr=vspeed-st.speed;
         double thr_us=m.cruise_thr + pitch_cmd*m.pitch2thr + (sperr>0? sperr*40.0 : sperr*12.0);  /* boost hard slow, cut gently fast */
         if(altErr_cm>3000.0) thr_us=fmax(thr_us, m.min_thr+0.7*(m.max_thr-m.min_thr));  /* sustained climb -> hold power up */
-        if(agl>30.0 && (jet||pitch_cmd>-3.0||fabs(bank_cmd)>4.0) && st.speed<m.vne*0.85) thr_us=fmax(thr_us,m.cruise_thr+0.4*(m.max_thr-m.cruise_thr)); /* airborne level/climb/turn (jet: always) below vne: hold power — a jet decays into departure at low power, even in a mild descent */
+        if(!landing && agl>30.0 && (jet||pitch_cmd>-3.0||fabs(bank_cmd)>4.0) && st.speed<m.vne*0.85) thr_us=fmax(thr_us,m.cruise_thr+0.4*(m.max_thr-m.cruise_thr)); /* airborne level/climb/turn (jet: always) below vne: hold power — a jet decays into departure at low power. NOT on the approach, where slowing is the goal. */
         if(st.speed>m.vne*0.9) thr_us=fmin(thr_us,m.min_thr);          /* vne protection (the only speed ceiling) */
         thr_us=fmax(m.min_thr,fmin(m.max_thr,thr_us));
         double thr=(thr_us-1000.0)/1000.0;
@@ -343,11 +340,12 @@ int main(void){
            landing airports differ in elevation -> AGL for crash/stall/touchdown must be vs the LOCAL ground,
            while launch/WP altitudes stay home-relative (takeoff). */
         double ground = landing ? m.ld.elev : m.to.elev;
-        /* turn assist (iNav fw_turn_assist): rudder toward the COORDINATED turn rate g·tan(phi)/V so the turn
-           is coordinated (zero-sideslip), damping the adverse-yaw that otherwise couples into a roll/heading
-           oscillation. Gain from fw_p_yaw · fw_turn_assist_yaw_gain. */
-        double coordYawRate = (G*tan(st.roll*D2R)/fmax(10.0,st.speed))*R2D;   /* deg/s */
-        double yaw = fmax(-1.0,fmin(1.0, (m.fwPy/31.0)*(m.turnAssist/20.0)*(coordYawRate-st.r)*TURN_ASSIST_SCALE));
+        /* rudder = 0: iNav's TURN_ASSIST (fw_p_yaw/fw_turn_assist_yaw_gain) rotates the rate SETPOINTS into
+           the earth frame; a naive coordinating rudder destabilises the FDM. The models' natural yaw coupling
+           already tracks the coordinated turn rate within ~5-15%, so rudder is left at 0 (see ringtrack.ts
+           INAV_ACK_NOT_APPLIED) pending a faithful port — an honest gap, not a silent one. */
+        double yaw = 0.0;
+        (void)m.fwPy; (void)m.turnAssist;
         fb_jsbsim_set_ground(ground);
         fb_jsbsim_set_controls(roll,pitch,yaw,thr);
         fb_jsbsim_step(&st);

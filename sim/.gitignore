@@ -12,3 +12,4 @@ command_center/render_native
 __pycache__/
 *.pyc
 validator/validator
+validator/build/

@@ -25,6 +25,7 @@ export function buildVinput(m: Mission): string {
   L.push(`nav ${p.climbAngle} ${p.diveAngle} ${p.bankAngle} ${p.cruise} ${p.approachLen} ${p.glideAngle}`);
   L.push(`thr ${p.cruiseThr} ${p.minThr} ${p.maxThr} ${p.pitch2thr}`);
   L.push(`pid ${p.posZp} ${p.posZi} ${p.posZd} ${p.posZff} ${p.altResponse} ${p.maxClimbRate} ${p.controlSmoothness}`);
+  L.push(`posxy ${p.posXYp} ${p.posXYi} ${p.posXYd}`);                     // fw_nav heading->roll PID gains
   L.push(`spd ${m.vs} ${m.vc} ${m.vne} ${m.vmin}`);
   const captureR = m.raw.success?.capture_radius_m ?? m.raw.transit?.capture_radius_m ?? 150;
   const climbAlt = m.raw.procedure?.angle_hold_alt ?? 0;
@@ -138,8 +139,12 @@ export async function runMission(spec: string): Promise<RunResult> {
   // elevation (from the airport DB), not the coarse ~110 m DEM grid — so measure height above the RUNWAY
   // (h_asl − land.elevM), not the enroute DEM-AGL, or a runway that sits above nearby terrain reads as high.
   const onGround = fr.track.filter((s) => s.hAsl - m.land.elevM < 10 && s.phase === 'land');
-  const best = onGround.reduce((b, s) => Math.min(b, range(P, s)), Infinity);
-  push({ name: 'touchdown', pass: fr.ok && best <= tdTol, detail: best <= tdTol ? `down ${best.toFixed(0)}m ≤ ${tdTol}m from threshold` : `no touchdown within ${tdTol}m (closest ${isFinite(best) ? best.toFixed(0) + 'm' : 'never on final'})` });
+  let best = Infinity, bestS: Sample | undefined;
+  for (const s of onGround) { const r = range(P, s); if (r < best) { best = r; bestS = s; } }
+  if (!push({ name: 'touchdown', pass: fr.ok && best <= tdTol, detail: best <= tdTol ? `down ${best.toFixed(0)}m ≤ ${tdTol}m from threshold` : `no touchdown within ${tdTol}m (closest ${isFinite(best) ? best.toFixed(0) + 'm' : 'never on final'})` })) return done();
+  // touchdown speed — a fast/hard touchdown fails even if the position is on the numbers (FORMAT.md §2)
+  const gsMax = td.touchdown_gs_max_ms;
+  if (gsMax != null && bestS) push({ name: 'touchdown_gs', pass: bestS.gs <= gsMax, detail: bestS.gs <= gsMax ? `touchdown GS ${bestS.gs.toFixed(1)} ≤ ${gsMax} m/s` : `touchdown GS ${bestS.gs.toFixed(1)} > ${gsMax} m/s (hot/hard)` });
 
   return done();
 

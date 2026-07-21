@@ -3,6 +3,8 @@
 //   cc fly <mission|aircraft>    fly a mission against the running aircraft (arm -> WP -> land)
 // Connects to CC_URL (default ws://127.0.0.1:8080/msp).
 
+import { readdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { CC, sleep } from '../src/client.js';
 import { flyMission } from '../src/harness.js';
 import { resolveMission } from '../src/mission.js';
@@ -19,6 +21,27 @@ async function main() {
     process.stdout.write(`\n>> ${r.pass ? 'PASS' : 'FAIL'}  ${r.mission}  [${r.aircraft}]  (${r.verdict})\n`);
     for (const c of r.checks) process.stdout.write(`   ${c.pass ? '✓' : '✗'} ${c.name}: ${c.detail}\n`);
     process.exit(r.pass ? 0 : 1);
+  }
+  if (cmd === 'run-all') {
+    // batch: fly every declarative mission (missions/ + missions/world/) through the validator, fail-fast each
+    const SIM = resolve(import.meta.dirname, '../../..');
+    const base = readdirSync(`${SIM}/missions`).filter((f) => f.endsWith('.json')).map((f) => f.replace(/\.json$/, ''));
+    let world: string[] = [];
+    try { world = readdirSync(`${SIM}/missions/world`).filter((f) => f.endsWith('.json')).map((f) => `world/${f.replace(/\.json$/, '')}`); } catch { /* no world dir */ }
+    const specs = process.argv[3] ? [process.argv[3]] : [...base.sort(), ...world.sort()];
+    let pass = 0;
+    const rows: string[] = [];
+    for (const spec of specs) {
+      try {
+        const r = await runMission(spec);
+        if (r.pass) pass++;
+        const failed = r.checks.filter((c) => !c.pass).map((c) => c.name).join(',');
+        rows.push(`${r.pass ? 'PASS' : 'FAIL'}  ${spec.padEnd(24)} [${r.aircraft}]${r.pass ? '' : '  ✗ ' + failed}`);
+      } catch (e) { rows.push(`ERROR ${spec.padEnd(24)} ${(e as Error).message}`); }
+    }
+    for (const row of rows) process.stdout.write(row + '\n');
+    process.stdout.write(`\n== ${pass}/${specs.length} PASS ==\n`);
+    process.exit(pass === specs.length ? 0 : 1);
   }
   const cc = new CC();
   await cc.connect();

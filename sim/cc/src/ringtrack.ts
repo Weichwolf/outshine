@@ -40,6 +40,7 @@ export interface NavParams {
   climbAngle: number; diveAngle: number; bankAngle: number; cruise: number; approachLen: number; glideAngle: number;
   cruiseThr: number; minThr: number; maxThr: number; pitch2thr: number;       // nav.fw throttle model (us)
   posZp: number; posZi: number; posZd: number; posZff: number;                // fw_alt (POS_Z) PID, raw 0-255
+  posXYp: number; posXYi: number; posXYd: number;                             // fw_nav (POS_XY, heading->roll) PID
   altResponse: number; maxClimbRate: number;                                  // alt->climbrate cascade (cm/s)
   controlSmoothness: number;                                                  // nav_fw_control_smoothness (pitch-cmd LPF)
   fwPr: number; fwIr: number; fwDr: number; fwFfr: number;                    // roll rate PID
@@ -56,9 +57,18 @@ const INAV_USED = new Set([
   'nav_fw_climb_angle', 'nav_fw_dive_angle', 'nav_fw_bank_angle', 'fw_reference_airspeed', 'nav_fw_land_approach_length',
   'nav_fw_cruise_thr', 'nav_fw_min_thr', 'nav_fw_max_thr', 'nav_fw_pitch2thr',
   'nav_fw_pos_z_p', 'nav_fw_pos_z_i', 'nav_fw_pos_z_d', 'nav_fw_pos_z_ff', 'nav_fw_alt_control_response', 'nav_fw_auto_climb_rate',
+  'nav_fw_pos_xy_p', 'nav_fw_pos_xy_i', 'nav_fw_pos_xy_d',
   'nav_fw_control_smoothness', 'fw_p_roll', 'fw_i_roll', 'fw_d_roll', 'fw_ff_roll',
-  'fw_p_pitch', 'fw_i_pitch', 'fw_d_pitch', 'fw_ff_pitch', 'fw_p_yaw', 'fw_turn_assist_yaw_gain',
+  'fw_p_pitch', 'fw_i_pitch', 'fw_d_pitch', 'fw_ff_pitch',
   'fw_p_level', 'fw_i_level', 'nav_fw_loiter_radius', 'nav_rth_altitude',
+]);
+// Read + passed to the validator, but NOT (yet) applied to the flown control — an honest middle category so
+// the coverage check is not a false positive.
+const INAV_ACK_NOT_APPLIED = new Set([
+  // Turn assist / yaw: iNav's real TURN_ASSIST rotates the rate SETPOINTS into the earth frame; a naive
+  // coordinating rudder destabilises the FDM (measured). The models' natural yaw coupling already tracks the
+  // coordinated turn rate g·tan(φ)/V within ~5-15%, so rudder is left at 0 pending a faithful port.
+  'fw_p_yaw', 'fw_turn_assist_yaw_gain',
 ]);
 const INAV_SIM_IRRELEVANT = new Set([
   'looptime',                          // FC scheduler period — the validator steps the FDM at a fixed rate
@@ -73,14 +83,14 @@ export function assertInavCoverage(ac: string): void {
   const f = `${SIM}/aircraft/models/${ac}/inav.diff`;
   if (!existsSync(f)) return;
   const unaccounted = [...readFileSync(f, 'utf8').matchAll(/^set\s+([a-z_0-9]+)\s*=/gm)]
-    .map((m) => m[1]).filter((s) => !INAV_USED.has(s) && !INAV_SIM_IRRELEVANT.has(s));
+    .map((m) => m[1]).filter((s) => !INAV_USED.has(s) && !INAV_ACK_NOT_APPLIED.has(s) && !INAV_SIM_IRRELEVANT.has(s));
   if (unaccounted.length) throw new Error(`inav.diff(${ac}): settings not covered by the validator: ${[...new Set(unaccounted)].join(', ')}`);
 }
 export function inavParams(ac: string): NavParams {
   const p: NavParams = {
     climbAngle: 20, diveAngle: 15, bankAngle: 35, cruise: 15, approachLen: 350, glideAngle: 3,
     cruiseThr: 1400, minThr: 1200, maxThr: 1700, pitch2thr: 10,
-    posZp: 30, posZi: 5, posZd: 10, posZff: 30, altResponse: 40, maxClimbRate: 500, controlSmoothness: 0,
+    posZp: 30, posZi: 5, posZd: 10, posZff: 30, posXYp: 75, posXYi: 5, posXYd: 8, altResponse: 40, maxClimbRate: 500, controlSmoothness: 0,
     fwPr: 5, fwIr: 7, fwDr: 0, fwFfr: 50, fwPp: 5, fwIp: 7, fwDp: 0, fwFfp: 50, fwPy: 6, turnAssist: 20,
     pLevel: 20, iLevel: 5, loiterRadius: 7500, rthAltitude: 10000,
     launchClimbAngle: 18, launchVelocity: 0, launchTimeout: 5000,
@@ -100,6 +110,7 @@ export function inavParams(ac: string): NavParams {
     p.pitch2thr = g('nav_fw_pitch2thr', p.pitch2thr);
     p.posZp = g('nav_fw_pos_z_p', p.posZp); p.posZi = g('nav_fw_pos_z_i', p.posZi);
     p.posZd = g('nav_fw_pos_z_d', p.posZd); p.posZff = g('nav_fw_pos_z_ff', p.posZff);
+    p.posXYp = g('nav_fw_pos_xy_p', p.posXYp); p.posXYi = g('nav_fw_pos_xy_i', p.posXYi); p.posXYd = g('nav_fw_pos_xy_d', p.posXYd);
     p.altResponse = g('nav_fw_alt_control_response', p.altResponse);
     p.maxClimbRate = g('nav_fw_auto_climb_rate', p.maxClimbRate);
     p.controlSmoothness = g('nav_fw_control_smoothness', p.controlSmoothness);

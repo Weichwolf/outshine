@@ -48,7 +48,10 @@ export async function groundElev(lat: number, lon: number, tilesUrl: string): Pr
 // diverge. Vc = iNav's nav reference airspeed (inav.diff fw_reference_airspeed). Vs = 1g stall from the
 // JSBSim physics: Vs = √(2·W / (ρ·S·CLmax)) with W (total weight) + S (wing area) parsed from {model}.xml
 // and CLmax a standard ~1.4. Vne/Vmin are structural/handling multiples of these.
-const G0 = 9.80665, RHO0 = 1.225, LBS_N = 4.4482216, FT2_M2 = 0.09290304, CL_MAX = 1.4;
+// CLmax at MODEL Reynolds (~5e4–2e5), not the textbook full-scale ~1.4 — low-Re airfoils reach a lower
+// CLmax, so the true stall speed is HIGHER than a 1.4 estimate. 1.1 is a conservative low-Re value; the
+// resulting Vs sets the envelope floor + the validator's stall/departure guards, so erring high is safe.
+const G0 = 9.80665, RHO0 = 1.225, LBS_N = 4.4482216, FT2_M2 = 0.09290304, CL_MAX = 1.1;
 function stallFromXml(ac: string): number {
   const xml = readFileSync(`${SIM}/aircraft/models/${ac}/${ac}.xml`, 'utf8');
   const sm = xml.match(/<wingarea[^>]*>\s*([0-9.]+)/i);

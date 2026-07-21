@@ -24,7 +24,7 @@ function stallFromXml(ac) {
   const S = sm ? Number(sm[1]) * 0.09290304 : 0;
   const wLbs = [...xml.matchAll(/<(?:emptywt|weight)[^>]*>\s*([0-9.]+)/gi)].reduce((s, m) => s + Number(m[1]), 0);
   const W = wLbs * 4.4482216;
-  return S > 0 && W > 0 ? Math.sqrt((2 * W) / (1.225 * S * 1.4)) : 11;
+  return S > 0 && W > 0 ? Math.sqrt((2 * W) / (1.225 * S * 1.1)) : 11;
 }
 function dest(lat, lon, brg, dist) {
   const br = brg * D2R, clat = Math.cos(lat * D2R);

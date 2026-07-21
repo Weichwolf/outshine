@@ -60,8 +60,11 @@ restart: down up     ## stop and start the sim container
 watch: client        ## stream telemetry from the running hub (a read-only command center)
 	node cc/dist/bin/cc.js watch
 
-tests: client        ## run the declarative mission tests against the running stack
-	node cc/dist/bin/harness.js $(SPEC)
+tests: client validator  ## fail-fast fly every declarative mission through the fast validator
+	node cc/dist/bin/cc.js run-all $(SPEC)
+
+validator:           ## build the host-native fast mission validator (libJSBSim + extracted iNav control)
+	@bash validator/build.sh
 
 clean:               ## remove build artifacts (WASM + TS dist)
 	rm -f flightbox/web/cc.js flightbox/web/cc.wasm flightbox/web/tw.js flightbox/web/tw.wasm
