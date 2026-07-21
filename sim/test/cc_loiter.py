@@ -25,16 +25,17 @@ SECS   = float(os.environ.get("LOITER_SECS", "100000"))          # run ~forever 
 CRUISE = {"c172": 22.0, "sgs233": 18.0, "f16": 55.0}.get(AC, 22.0)
 
 def ring():
-    """N waypoints on the circle of RADIUS around (LAT,LON). No JUMP waypoint — iNav's JUMP left the
-    mission in an invalid end-state (nav_state oscillated NONE<->WP, the aircraft loitered a single WP
-    off-centre and drifted). Instead the runner re-uploads this ring when the lap finishes (below),
-    which restarts NAV cleanly at WP1 -> a continuous, centred circle."""
+    """N waypoints on the circle of RADIUS around (LAT,LON), closed by a JUMP waypoint back to WP1 with an
+    INFINITE repeat (p1 = 0-based target index, p2 = -1). iNav then flies the circle forever NATIVELY — no
+    re-upload, no gap where it flew straight off. The earlier 'invalid end-state' was a mis-encoded JUMP
+    (wrong p1/p2); p1=0,p2=-1 loops cleanly. p3 is iNav's volatile jump counter — seed it from p2."""
     wps = []
     for i in range(N):
         a = 2*math.pi*i/N
         dlat = RADIUS*math.cos(a)/111320.0
         dlon = RADIUS*math.sin(a)/(111320.0*math.cos(math.radians(LAT)))
         wps.append((LAT+dlat, LON+dlon, 0.0, 1, 0, 0))            # action 1 = WAYPOINT, alt_rel 0 (= arm altitude)
+    wps.append((LAT, LON, 0.0, 6, 0, -1))                        # action 6 = JUMP -> WP index 0, infinite
     return wps
 
 def nav_status(m):
@@ -57,18 +58,19 @@ def spawn():
         f"-e SPAWN_ALT={ALT:.0f} -e SPAWN_SPEED={CRUISE:.0f} fb-aircraft",
         shell=True, capture_output=True)
 
-def send_wp(m, i, w):
+def send_wp(m, i, w, last):
     lat, lon, alt, act, p1, p2 = w
     b = bytearray(21); b[0] = i+1; b[1] = act
     b[2:6]  = struct.pack("<i", int(lat*1e7)); b[6:10] = struct.pack("<i", int(lon*1e7))
     b[10:14]= struct.pack("<i", int(round(alt*100)))
     b[14:16]= struct.pack("<h", p1)
     b[16:18]= struct.pack("<h", p2)
-    b[20]   = 0xa5 if i == N-1 else 0                            # last-WP flag on the final ring point
+    b[18:20]= struct.pack("<h", p2 if act == 6 else 0)          # p3 = volatile jump counter, seeded from p2
+    b[20]   = 0xa5 if last else 0                               # last-WP flag on the final (JUMP) point
     m.send(209, bytes(b))
 
 def main():
-    print(f"[loiter] {AC} circling {RADIUS:.0f} m @ {ALT:.0f} m over {LAT:.4f},{LON:.4f} ({N} WPs, re-upload cycling)")
+    print(f"[loiter] {AC} circling {RADIUS:.0f} m @ {ALT:.0f} m over {LAT:.4f},{LON:.4f} ({N} WPs + JUMP loop)")
     spawn()
     def connect():
         for _ in range(400):
@@ -77,7 +79,7 @@ def main():
             except OSError: time.sleep(0.25)
         raise SystemExit("iNav MSP never came up on 5761")
     m = connect(); wps = ring(); t0 = time.monotonic()
-    cal_done = -1; up = False; hold_since = None; loops = 0; af = 0; armed = False
+    cal_done = -1; up = False; loops = 0; af = 0; armed = False
     while time.monotonic()-t0 < SECS:
         ts = time.monotonic()-t0; loops += 1
         # Blocking MSP reqs are kept OFF the RC hot path: iNav's MSP receiver fails safe (-> RTH) if RC
@@ -97,16 +99,10 @@ def main():
             if (ts-cal_done) % 3.0 >= 1.5: rc[4] = 2000; rc[3] = 2000       # ARM + YAW_HI (bypass NAV_UNSAFE)
         else:
             if not up:
-                for i, w in enumerate(wps): send_wp(m, i, w)
-                up = True; hold_since = None
-            rc[4] = 2000; rc[7] = 2000                                       # ARM + NAV WP -> iNav circles natively
-            if loops % 30 == 0:                                             # lap done (iNav holds last WP) ->
-                wp, nst = nav_status(m)                                      # re-upload -> NAV restarts at WP1
-                if nst in (3, 4):
-                    hold_since = hold_since or ts
-                    if ts - hold_since > 1.5: up = False
-                else:
-                    hold_since = None
+                for i, w in enumerate(wps): send_wp(m, i, w, i == len(wps)-1)
+                up = True
+            rc[4] = 2000; rc[7] = 2000                                       # ARM + NAV WP -> iNav orbits natively
+                                                                            # (JUMP loop; no re-upload cycling)
         try:
             m.send(200, struct.pack("<10H", *rc))
         except OSError:

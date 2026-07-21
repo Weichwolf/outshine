@@ -11,7 +11,7 @@ static int w3_hudN;
  * which stair-steps when tilted). Used for the conformal horizon. */
 static float w3_hudT[16384];
 static int w3_hudTN;
-static const char *W3_STN[] = {"DISARM", "ARMED", "CLIMB", "LOITER", "MANUAL", "RTH"};
+static const char *W3_STN[] = {"DISARM", "ARMED", "CLIMB", "LOITER", "MANUAL", "RTH", "AUTO"};
 static void w3_line(float x0, float y0, float x1, float y1, float r, float g, float b) {
   if (w3_hudN > 131052) return;
   w3_hud[w3_hudN++] = x0;

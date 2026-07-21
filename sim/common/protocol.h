@@ -20,7 +20,7 @@
 #define FB_MAGIC_VIDEO  0x31444956u  /* 'VID1' */
 
 /* flight states (see README §2.4) */
-enum { ST_DISARMED = 0, ST_ARMED, ST_CLIMB, ST_LOITER, ST_MANUAL, ST_RTH };
+enum { ST_DISARMED = 0, ST_ARMED, ST_CLIMB, ST_LOITER, ST_MANUAL, ST_RTH, ST_AUTO };
 
 #pragma pack(push, 1)
 

@@ -16,6 +16,7 @@ import socket, struct, subprocess, sys, threading, time, math, os, json
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mission as MISSION
+import ringtrack as RT
 
 ROOT = Path(__file__).resolve().parents[1]
 TILES = os.environ.get("TILES_HOST", "http://localhost:8081")   # host-reachable DEM (container uses fb-tiles:8081)
@@ -36,11 +37,15 @@ def crc8(c,b):
 
 class MSP:
     def __init__(s,h,p):
-        s.f=socket.create_connection((h,p),timeout=3); s.f.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1); s.f.settimeout(0.4)
+        s.h=h; s.p=p; s._open()
+    def _open(s):
+        s.f=socket.create_connection((s.h,s.p),timeout=3); s.f.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1); s.f.settimeout(0.4)
     def send(s,cmd,pl=b""):
         h=bytes([0x24,0x58,0x3C,0,cmd&0xff,cmd>>8,len(pl)&0xff,len(pl)>>8]); c=0
         for b in h[3:]+pl: c=crc8(c,b)
-        s.f.sendall(h+pl+bytes([c]))
+        try: s.f.sendall(h+pl+bytes([c]))
+        except OSError:                      # iNav closed the socket (overload/idle) -> reconnect, don't die
+            s._open(); s.f.sendall(h+pl+bytes([c]))
     def recv(s):
         st=0;n=0;got=0;cmd=0;pl=bytearray()
         try:
@@ -69,7 +74,7 @@ class MSP:
             if c==cmd: return p
             if c is None: return None
 
-def cc_thread(port, wps, gear_retract, angle_hold_alt, speedbrake, stop, state, climb_pitch=1500):
+def cc_thread(port, wps, gear_retract, angle_hold_alt, speedbrake, stop, state, climb_pitch=1500, land_wp=None):
     """thin CC: arm (edge + YAW_HI nav bypass) -> wings-level ANGLE climb to a target ALTITUDE -> NAV WP.
     iNav flies natively. The climb-out is gated on altitude (read from MSP), NOT elapsed time, so a
     marginal airframe always reaches a safe height before NAV's first turn regardless of the run-to-run
@@ -87,10 +92,14 @@ def cc_thread(port, wps, gear_retract, angle_hold_alt, speedbrake, stop, state, 
             if (ts-cal_done)%3.0>=1.5: rc[4]=2000; rc[3]=2000    # ARM + YAW_HI (bypass NAV_UNSAFE)
         else:
             if not up:
-                for i,w in enumerate(wps):
-                    b=bytearray(21); b[0]=i+1; b[1]=1
-                    b[2:6]=struct.pack("<i",int(w['lat']*1e7)); b[6:10]=struct.pack("<i",int(w['lon']*1e7))
-                    b[10:14]=struct.pack("<i",int(round(w['alt_rel']*100))); b[20]=0xa5 if i==len(wps)-1 else 0
+                # nav waypoints (action 1) + optional final LAND waypoint (action 8 -> iNav descends and
+                # lands at the runway threshold; NAV_WP_ACTION_LAND switches to WAYPOINT_RTH_LAND natively).
+                seq=[(w['lat'],w['lon'],w['alt_rel'],1) for w in wps]
+                if land_wp: seq.append((land_wp['lat'],land_wp['lon'],land_wp['alt_rel'],8))
+                for i,(la,lo,ar,act) in enumerate(seq):
+                    b=bytearray(21); b[0]=i+1; b[1]=act
+                    b[2:6]=struct.pack("<i",int(la*1e7)); b[6:10]=struct.pack("<i",int(lo*1e7))
+                    b[10:14]=struct.pack("<i",int(round(ar*100))); b[20]=0xa5 if i==len(seq)-1 else 0
                     m.send(209,bytes(b))
                 up=True
             if agl>=angle_hold_alt: established=True             # latch: once at safe altitude, stay in NAV
@@ -118,6 +127,20 @@ def latest_flt():
 
 def dist(a,b,c,d): return math.hypot((c-a)*111320,(d-b)*111320*math.cos(math.radians(a)))
 
+def read_trajectory():
+    """FULL flight path as [(lat,lon,alt_asl,is_nan)] from every [flt] line — the real 3D track, not just
+    the latest sample, so a fast fly-through between coarse polls isn't missed."""
+    r=subprocess.run("podman logs fb-aircraft 2>&1",shell=True,capture_output=True,text=True)
+    tj=[]
+    for ln in r.stdout.splitlines():
+        if not ln.startswith("[flt]"): continue
+        try:
+            lat,lon=map(float,ln.split()[2].split(","))
+            asl=float(ln.split("alt")[1].split("a")[0].split("/")[1])   # ".../<asl>a"
+            tj.append((lat,lon,asl,"nan" in ln))
+        except: pass
+    return tj
+
 def main():
     arg = sys.argv[1] if len(sys.argv)>1 else "c172"
     M = load_mission(arg); R = M["_resolved"]
@@ -132,8 +155,18 @@ def main():
     climb_pitch = M.get("procedure", {}).get("angle_climb_pitch", 1500)   # RC pitch during ANGLE climb (>1500 = nose-up)
     if any(w.get("alt_rel") is None for w in wps):
         print(f"FATAL: mission WPs unresolved (DEM/tiles at {TILES} unavailable)"); sys.exit(2)
+    # The mission is a DENSE directed ring track computed from iNav's own nav math (climb-out at
+    # nav_fw_climb_angle, a Catmull-Rom spline through the WPs rounded at the coordinated turn radius, an
+    # approach glideslope aligned with the landing runway) — >=100 rings. Flying the mission = threading the
+    # hoops in sequence from the correct side; clipping a 2D sphere near a point is NOT enough. ringtrack.py
+    # generates the identical track for the CC route render, so the user watches the plane thread these gates.
+    ring_r = succ.get("ring_radius_m", None)
+    rings = RT.build_track(R, ac, **({"ring_radius": ring_r} if ring_r else {}))
+    pass_frac = succ.get("ring_pass_frac", 0.90)                           # in-order fraction required to PASS
+    need_rings = math.ceil(len(rings)*pass_frac)
     print(f"== mission '{M.get('name',arg)}' :: {ac} from {to['icao']}/{to['runway']} "
-          f"(hdg {to['heading_deg']:.0f}), {len(wps)} WPs, cap {cap:.0f}m ==")
+          f"(hdg {to['heading_deg']:.0f}), {len(wps)} WPs, {len(rings)} rings (r={rings[0]['r']:.0f}m), "
+          f"need {need_rings} in-order ==")
 
     # Time-scale must be set at the SHELL before this process starts: the clock shim (LD_PRELOAD) caches
     # FB_TIME_SCALE at init and also scales THIS host process's clock, so it can't be re-capped here without
@@ -149,7 +182,7 @@ def main():
     if os.environ.get("MOUNT_EEPROM"): mounts+=f" -v {os.environ['MOUNT_EEPROM']}:/app/models/{ac}/eeprom.bin"
     subprocess.run(f"podman run -d --name fb-aircraft --network flightboxnet -p 5761:5761 {mounts} "
        f"-e AIRCRAFT={ac} -e TILES_ADDR=fb-tiles:8081 -e WX_LIVE=0 -e WIND_SPEED=0 -e TURB=0 "
-       f"-e FB_TIME_SCALE={ts:g} -e FLT_LOG_S=3 "
+       f"-e FB_TIME_SCALE={ts:g} -e FLT_LOG_S={os.environ.get('FLT_LOG_S','1')} "  # 1s track: finer than the ring pitch so pierces aren't missed
        f"-e ORIGIN_LAT={to['lat']} -e ORIGIN_LON={to['lon']} -e ORIGIN_HDG={to['heading_deg']} fb-aircraft",
        shell=True,capture_output=True)
     # wait for iNav to actually answer MSP (robust at any FB_TIME_SCALE — a fixed sleep would be scaled
@@ -159,11 +192,12 @@ def main():
             probe=MSP("127.0.0.1",5761); probe.req(0x2000); probe.f.close(); break
         except OSError: time.sleep(0.25)
     stop=threading.Event(); state={}
-    threading.Thread(target=cc_thread,args=(5761,wps,gear,angle_hold_alt,speedbrake,stop,state,climb_pitch),daemon=True).start()
+    ld=R["land"]; land_wp={"lat":ld["lat"],"lon":ld["lon"],"alt_rel":ld["elev_m"]-to["elev_m"]}   # threshold, home-relative
+    threading.Thread(target=cc_thread,args=(5761,wps,gear,angle_hold_alt,speedbrake,stop,state,climb_pitch,land_wp),daemon=True).start()
 
     hold = bool(os.environ.get("FB_HOLD"))   # keep flying (loiter last WP) until timeout + leave the container up,
                                               # so the live CC / Playwright agents have a persistent telemetry target
-    armed=took=crashed=over=False; hit=[False]*len(wps); peak=0; announced=False; t0=time.monotonic()
+    armed=took=crashed=over=False; threaded=inorder=0; peak=0; announced=False; t0=time.monotonic()
     while time.monotonic()-t0<secs:
         time.sleep(3)
         s=latest_flt()
@@ -174,20 +208,21 @@ def main():
         peak=max(peak,agl)
         if nan and took: crashed=True; break
         if agl>max_agl: over=True; break
-        for i,w in enumerate(wps):
-            if not hit[i] and dist(lat,lon,w['lat'],w['lon'])<cap: hit[i]=True
-        if all(hit):
+        tj3=[(a,b,c) for (a,b,c,_) in read_trajectory()]      # the FULL 3D path so far (lat,lon,asl)
+        threaded,inorder = RT.score(tj3, rings)
+        if inorder>=need_rings:
             if not hold: break
-            if not announced: print(f"== {ac} == all {len(wps)} WPs captured, HOLDING for the live CC", flush=True); announced=True
+            if not announced: print(f"== {ac} == {inorder}/{len(rings)} rings in sequence, HOLDING for the live CC", flush=True); announced=True
     stop.set()
     if not hold:
         subprocess.run("podman stop -t 2 fb-aircraft",shell=True,capture_output=True)
 
-    ok_arm=armed; ok_to=took; ok_wp=all(hit)
+    ok_arm=armed; ok_to=took; ok_rings=inorder>=need_rings
     abrt = ("CRASH(NaN)" if (crashed and on_nan) else "OVER-CLIMB" if over else None)
-    verdict = "PASS" if (ok_arm and ok_to and ok_wp and not abrt) else "FAIL"
+    verdict = "PASS" if (ok_arm and ok_to and ok_rings and not abrt) else "FAIL"
     print(f"== {ac} == ARM={'OK' if ok_arm else 'FAIL'} TAKEOFF={'OK' if ok_to else f'FAIL(peak {peak:.0f})'} "
-          f"WAYPOINT={sum(hit)}/{len(wps)}{' ABORT:'+abrt if abrt else ''} -> {verdict}")
+          f"RINGS={inorder}/{len(rings)} in-order ({threaded} threaded, need {need_rings})"
+          f"{' ABORT:'+abrt if abrt else ''} -> {verdict}")
     sys.exit(0 if verdict=="PASS" else 1)
 
 if __name__ == "__main__":   # importable (MSP/crc8/spawn) by cc_loiter.py + the PPL fixture harness
