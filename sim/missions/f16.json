@@ -34,7 +34,7 @@
   },
   "success": {
     "takeoff_agl_m": 55,
-    "capture_radius_m": 1500
+    "capture_radius_m": 2000
   },
   "abort": {
     "timeout_s": 300,
