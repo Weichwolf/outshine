@@ -17,8 +17,14 @@
  *     extracted scaling multipliers) — not a verbatim copy. iNav's low-P/high-FF gains stabilise a jet.
  *   - Aircraft params come only from the model files flightbox flies: all {model}*.xml (physics, via
  *     libJSBSim) + inav.diff (control, every setting accounted — see ringtrack.ts assertInavCoverage).
- * Conventional airframes (c172, SGS) validate 3/3 WP + touchdown worldwide. The F-16 captures all WP but its
- * fast-jet autoland is not modelled (fails-fast on the approach) — validated by flightbox directly for now.
+ * SCOPE: this validator is a pre-filter for CONVENTIONAL airframes (c172, SGS 2-33) — they validate WP capture
+ * + a full aligned touchdown-and-rollout worldwide. The FAST-JET F-16 is NOT validated here and is validated by
+ * FLIGHTBOX directly (the authoritative reference — it flies the real iNav). The validator's simplified
+ * fixed-wing energy/throttle model cannot fly the F-16 enroute: its natural cruise (~90 m/s) is far above the
+ * low iNav nav-reference airspeed (fw_reference_airspeed -> vc≈55), so altitude-hold at a WP commands nose-up
+ * that the jet's thin thrust margin can't sustain -> it bleeds speed and mushes. Modelling that faithfully needs
+ * the jet's drag polar + the manual full-ANGLE-climb throttle hand flightbox flies it with — an honest gap, not
+ * a silent one. (The maneuver-speed floor + enroute throttle handling below improve it but don't close the gap.)
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -344,10 +350,13 @@ int main(void){
             pitch_cmd=fmax(-m.dive,fmin(m.climb,pitchLpf/10.0));        /* deg, reconstrained */
         }
         if(flaring) pitch_cmd = fmax(pitch_cmd, fmin(7.0, (0.3 - st.vy)*1.6));   /* hold off: arrest the sink and bleed speed for a slow touchdown (the sticky flare latch keeps a brief balloon wings-level + engine-off, so a firm hold-off is safe) */
-        /* energy management: never demand more climb than airspeed allows — below the min maneuvering speed
+        /* energy management: never demand more climb than airspeed allows — below the min MANEUVERING speed
            trade climb for speed (nose down) so a low-excess-thrust / relaxed-stability airframe never bleeds
-           into a departure. */
-        if(st.speed<m.vmin && agl>30.0) pitch_cmd=fmin(pitch_cmd,(st.speed-m.vmin)*0.2);  /* gentle: level off / mild descent when slow, don't dive hard (a jet on the backside can't recover a steep dive near the ground) */
+           into a departure. The floor is max(vmin, 0.85*vc): a jet climbing+turning to a WP bleeds fast and
+           mushes long before 1.2*Vs, so it must protect a near-cruise speed (a Cessna never gets that slow
+           enroute, so this is inert for it). */
+        double vmaneuver = fmax(m.vmin, 0.85*m.cruise);
+        if(st.speed<vmaneuver && agl>30.0) pitch_cmd=fmin(pitch_cmd,(st.speed-vmaneuver)*0.2);  /* gentle: level off / mild descent when slow, don't dive hard (a jet on the backside can't recover a steep dive near the ground) */
         /* --- iNav throttle: cruise + pitch*pitch2thr (us). SITL iNav has no airspeed (min-speed uses GPS
            groundspeed @ 7 m/s), so it won't hold speed — a low-excess-thrust airframe (the F-16 at nav
            cruise) mushes off the back of the power curve in climbs/turns. Flightbox flies it with a MANUAL
@@ -361,7 +370,7 @@ int main(void){
            not below the min-maneuvering vmin) so touchdown is at approach speed, not a cruise-speed float. */
         double vspeed = landing ? fmax(m.vs*1.3, m.vmin) : vtarget;
         double sperr=vspeed-st.speed;
-        double thr_us=m.cruise_thr + pitch_cmd*m.pitch2thr + (sperr>0? sperr*40.0 : sperr*12.0);  /* boost hard slow, cut gently fast */
+        double thr_us=m.cruise_thr + pitch_cmd*m.pitch2thr + (sperr>0? sperr*40.0 : (landing? sperr*12.0 : 0.0));  /* boost hard when slow; cut when fast ONLY on the approach — enroute let a jet fly at its natural cruise (its thrust/drag speed is well above the low iNav nav-reference airspeed; forcing it down to vc cuts power and mushes it). vne protection (below) still caps the top. */
         if(altErr_cm>3000.0) thr_us=fmax(thr_us, m.min_thr+0.7*(m.max_thr-m.min_thr));  /* sustained climb -> hold power up */
         if(!landing && agl>30.0 && (jet||pitch_cmd>-3.0||fabs(bank_cmd)>4.0) && st.speed<m.vne*0.85) thr_us=fmax(thr_us,m.cruise_thr+0.4*(m.max_thr-m.cruise_thr)); /* airborne level/climb/turn (jet: always) below vne: hold power — a jet decays into departure at low power. NOT on the approach, where slowing is the goal. */
         if(st.speed>m.vne*0.9) thr_us=fmin(thr_us,m.min_thr);          /* vne protection (the only speed ceiling) */
