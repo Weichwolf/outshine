@@ -3,7 +3,7 @@
 //   cc fly <mission|aircraft>    fly a mission against the running aircraft (arm -> WP -> land)
 // Connects to CC_URL (default ws://127.0.0.1:8080/msp).
 
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { CC, sleep } from '../src/client.js';
 import { flyMission } from '../src/harness.js';
@@ -18,7 +18,12 @@ async function main() {
   if (cmd === 'origin') {   // takeoff-runway "lat lon heading" for a mission (spawn origin; no DEM needed)
     const SIM = resolve(import.meta.dirname, '../../..');
     const spec = process.argv[3] ?? 'c172';
-    const m = JSON.parse(readFileSync(resolve(SIM, spec.includes('/') || spec.endsWith('.json') ? spec : `missions/${spec}.json`), 'utf8'));
+    // SAME candidate resolution as resolveMission() — so flightbox spawns at exactly the runway the validator
+    // and tests use (single source; a mismatch here would desync the spawn origin from the mission).
+    const path = [spec, `${spec}.json`, `missions/${spec}`, `missions/${spec}.json`]
+      .map((c) => resolve(SIM, c)).find((p) => existsSync(p));
+    if (!path) throw new Error(`mission not found: ${spec}`);
+    const m = JSON.parse(readFileSync(path, 'utf8'));
     const r = runway(m.takeoff.airport, m.takeoff.runway);
     process.stdout.write(`${r.lat} ${r.lon} ${r.heading_deg}\n`);
     return;
