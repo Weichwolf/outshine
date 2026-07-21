@@ -31,6 +31,9 @@ export function buildVinput(m: Mission): string {
   L.push(`cfg ${captureR} ${climbAlt}`);
   L.push(`gain ${p.fwPr ? 0 : 0} 0 0 0`);   // legacy gain slot (unused; inner loop uses rate PID)
   L.push(`rate ${p.fwPr} ${p.fwIr} ${p.fwDr} ${p.fwFfr} ${p.fwPp} ${p.fwIp} ${p.fwDp} ${p.fwFfp} ${p.pLevel} ${p.iLevel}`);
+  L.push(`yaw ${p.fwPy} ${p.turnAssist}`);                                // yaw rate PID + turn-assist (coordinated turns)
+  L.push(`launch ${p.launchClimbAngle} ${p.launchTimeout}`);             // NAV LAUNCH climb angle + timeout
+  L.push(`loiter ${p.loiterRadius / 100} ${p.rthAltitude / 100}`);       // loiter radius (m) + RTH altitude (m)
   for (const w of m.waypoints) L.push(`wp ${w.lat} ${w.lon} ${w.altRel ?? 0}`);
   return L.join('\n') + '\n';
 }
@@ -131,9 +134,10 @@ export async function runMission(spec: string): Promise<RunResult> {
   // touchdown: reached the landing threshold, on the ground, near the aim point
   const td = m.raw.land ?? {}; const tdTol = td.touchdown_tol_m ?? 200;
   const P: Point = { lat: m.land.lat, lon: m.land.lon };
-  // touchdown = validator reached the ground near the threshold; VOUT samples @10 Hz so the very last
-  // low-AGL land-phase sample is the flare, within a few m of the deck (< 10 m AGL).
-  const onGround = fr.track.filter((s) => s.hAgl < 10 && s.phase === 'land');
+  // touchdown = validator reached the ground near the threshold. At the field the ground IS the runway
+  // elevation (from the airport DB), not the coarse ~110 m DEM grid — so measure height above the RUNWAY
+  // (h_asl − land.elevM), not the enroute DEM-AGL, or a runway that sits above nearby terrain reads as high.
+  const onGround = fr.track.filter((s) => s.hAsl - m.land.elevM < 10 && s.phase === 'land');
   const best = onGround.reduce((b, s) => Math.min(b, range(P, s)), Infinity);
   push({ name: 'touchdown', pass: fr.ok && best <= tdTol, detail: best <= tdTol ? `down ${best.toFixed(0)}m ≤ ${tdTol}m from threshold` : `no touchdown within ${tdTol}m (closest ${isFinite(best) ? best.toFixed(0) + 'm' : 'never on final'})` });
 

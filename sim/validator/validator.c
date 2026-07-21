@@ -27,6 +27,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 #define G 9.80665
+#define TURN_ASSIST_SCALE 0.0   /* rudder coordination gain (0 = disabled while isolating its effect) */
 #define D2R (M_PI/180.0)
 #define R2D (180.0/M_PI)
 #define MAXWP 32
@@ -67,6 +68,9 @@ typedef struct {
     double capture_r,climb_alt;                          /* mission: WP fangradius; climb-straight-to alt (AGL) */
     double kpR,kdR,kpP,kdP;                              /* inner attitude-tracker gains (legacy, unused when rate PID present) */
     double fwPr,fwIr,fwDr,fwFfr,fwPp,fwIp,fwDp,fwFfp,pLevel,iLevel;  /* iNav ANGLE mode + FW rate PID (raw) */
+    double fwPy,turnAssist;                              /* yaw rate PID P + turn-assist gain (coordinated turns) */
+    double launchClimbAngle,launchTimeout;              /* NAV LAUNCH climb angle (deg) + timeout (ms) */
+    double loiterRadius,rthAltitude;                    /* loiter/orbit radius (m); RTH altitude (m) */
     WP wp[MAXWP]; int nwp;
 } Mission;
 
@@ -199,6 +203,9 @@ static int parse(Mission*m){
         else if(!strncmp(line,"cfg ",4)) sscanf(line+4,"%lf %lf",&m->capture_r,&m->climb_alt);
         else if(!strncmp(line,"gain ",5)) sscanf(line+5,"%lf %lf %lf %lf",&m->kpR,&m->kdR,&m->kpP,&m->kdP);
         else if(!strncmp(line,"rate ",5)) sscanf(line+5,"%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",&m->fwPr,&m->fwIr,&m->fwDr,&m->fwFfr,&m->fwPp,&m->fwIp,&m->fwDp,&m->fwFfp,&m->pLevel,&m->iLevel);
+        else if(!strncmp(line,"yaw ",4)) sscanf(line+4,"%lf %lf",&m->fwPy,&m->turnAssist);
+        else if(!strncmp(line,"launch ",7)) sscanf(line+7,"%lf %lf",&m->launchClimbAngle,&m->launchTimeout);
+        else if(!strncmp(line,"loiter ",7)) sscanf(line+7,"%lf %lf",&m->loiterRadius,&m->rthAltitude);
         else if(!strncmp(line,"wp ",3)&&m->nwp<MAXWP){ sscanf(line+3,"%lf %lf %lf",&m->wp[m->nwp].lat,&m->wp[m->nwp].lon,&m->wp[m->nwp].alt_rel); m->nwp++; }
     }
     return m->ac[0]!=0 && m->nwp>0;
@@ -277,7 +284,7 @@ int main(void){
            bleeds a relaxed-stability jet into a departure. Full nav bank once comfortably above vmin. */
         double smarg=(st.speed-m.vmin)/fmax(1.0,vtarget*1.3-m.vmin);   /* full bank only well above operating speed */
         double bankMax=m.bank*fmax(0.25,fmin(1.0,smarg));              /* gentle turns preserve a jet's energy */
-        if(!launched) bankMax=fmin(bankMax,20.0);                      /* near-wings-level climb-out (no steep bank low + slow) */
+        if(!launched) bankMax=fmin(bankMax,10.0);                      /* wings-level climb-out: no steep bank low + slow (the rate loop overshoots the command, so cap it well below the envelope limit) */
         /* heading->bank with heading-rate (yaw-rate) damping — a plain P on heading error overshoots into a
            roll/heading oscillation; the -Kd·r term settles it, like iNav's damped heading controller. */
         double bank_cmd=fmax(-bankMax,fmin(bankMax, herr*1.5 - 2.0*st.r));
@@ -290,10 +297,11 @@ int main(void){
         double altErr_cm=(tgt_alt-st.elev)*100.0;
         double pitch_cmd;
         if(!launched){
-            /* full-ANGLE climb (the flightbox F-16 recipe): during the initial climb-out hold the climb
-               ANGLE directly, bypassing iNav's nav auto-climb-RATE limit — a jet climbs faster than that
-               cap, and the rate PID would otherwise command nose-down and upset a relaxed-stability airframe. */
-            pitch_cmd=m.climb;
+            /* climb-out at the nav climb ANGLE directly (bypassing the nav auto-climb-RATE limit, which a
+               fast airframe overruns — the rate PID would then command nose-down and upset a relaxed-
+               stability jet). NOT nav_fw_launch_climb_angle: that is the bungee/hand-launch angle for a
+               high-energy launch; the validator takes off ROLLING from a runway. */
+            pitch_cmd = m.climb;
         } else {
             /* iNav fixed-wing altitude cascade (navigation_fixedwing.c): altitude error -> desired climb rate
                (alt_control_response, capped at max_auto_climb_rate), then the fw_alt PID on climb-rate error
@@ -335,8 +343,13 @@ int main(void){
            landing airports differ in elevation -> AGL for crash/stall/touchdown must be vs the LOCAL ground,
            while launch/WP altitudes stay home-relative (takeoff). */
         double ground = landing ? m.ld.elev : m.to.elev;
+        /* turn assist (iNav fw_turn_assist): rudder toward the COORDINATED turn rate g·tan(phi)/V so the turn
+           is coordinated (zero-sideslip), damping the adverse-yaw that otherwise couples into a roll/heading
+           oscillation. Gain from fw_p_yaw · fw_turn_assist_yaw_gain. */
+        double coordYawRate = (G*tan(st.roll*D2R)/fmax(10.0,st.speed))*R2D;   /* deg/s */
+        double yaw = fmax(-1.0,fmin(1.0, (m.fwPy/31.0)*(m.turnAssist/20.0)*(coordYawRate-st.r)*TURN_ASSIST_SCALE));
         fb_jsbsim_set_ground(ground);
-        fb_jsbsim_set_controls(roll,pitch,0.0,thr);
+        fb_jsbsim_set_controls(roll,pitch,yaw,thr);
         fb_jsbsim_step(&st);
         if(getenv("VTRACE") && ((int)(t/dt)%500==0))
             fprintf(stderr,"t=%5.1f agl=%6.1f spd=%5.1f vz=%+5.1f roll=%+5.1f pitch=%+5.1f | bank_cmd=%+5.1f pit_cmd=%+5.1f thr=%.2f ph=%s%d wp=%d dth=%.0f tgtalt=%.0f\n",
@@ -361,8 +374,12 @@ int main(void){
         double capR = m.capture_r>0? m.capture_r : 150.0;
         if(launched && wp<m.nwp){ double dw=distll(st.lat,st.lon,tgt_la,tgt_lo); if(dw<wpmin[wp])wpmin[wp]=dw;
             if(dw<capR) wp++; }
-        if(landing){ double dl=distll(st.lat,st.lon,m.ld.lat,m.ld.lon); if(dl<tdist)tdist=dl;
-            if(dl<150.0 && aglL<clr+5){ landed=1; break; } }
+        if(landing){ double dl=distll(st.lat,st.lon,m.ld.lat,m.ld.lon);
+            /* touchdown-to-threshold = closest approach WHILE near the runway (not the min in the air — an
+               overflight of the threshold at altitude is not a touchdown). Latch on firm ground contact
+               (a brakeless glider keeps rolling, so don't wait for it to stop). */
+            if(aglL<clr+3.0 && dl<tdist) tdist=dl;
+            if(aglL<clr+1.5){ landed=1; break; } }
         t+=dt;
     }
     int threaded,inorder; score(&threaded,&inorder);

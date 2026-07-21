@@ -67,8 +67,8 @@ const mission = {
   aircraft: ac,
   envelope: {
     v_min_ms: +(vs * 0.9).toFixed(1), v_max_ms: +(vc * (jet ? 2.9 : 1.9)).toFixed(1),
-    bank_max_deg: jet ? 55 : 45, pitch_max_deg: jet ? 35 : 30,
-    alt_floor_agl_m: 10, alt_ceil_agl_m: patAlt + (tier === '2' ? 250 : 500),
+    bank_max_deg: jet ? 55 : 52, pitch_max_deg: jet ? 35 : 30,
+    alt_floor_agl_m: 5, alt_ceil_agl_m: patAlt + (tier === '2' ? 250 : 500),
     on_nan_abort: true, divergence_guards: true,
   },
   takeoff: { airport: icao, runway: rw.ident, rotate_agl_m: 50 },

@@ -7,7 +7,7 @@
     "v_max_ms": 37,
     "bank_max_deg": 45,
     "pitch_max_deg": 30,
-    "alt_floor_agl_m": 10,
+    "alt_floor_agl_m": 5,
     "alt_ceil_agl_m": 760,
     "on_nan_abort": true,
     "divergence_guards": true

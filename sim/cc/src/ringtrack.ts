@@ -42,17 +42,48 @@ export interface NavParams {
   posZp: number; posZi: number; posZd: number; posZff: number;                // fw_alt (POS_Z) PID, raw 0-255
   altResponse: number; maxClimbRate: number;                                  // alt->climbrate cascade (cm/s)
   controlSmoothness: number;                                                  // nav_fw_control_smoothness (pitch-cmd LPF)
-  // fixed-wing inner loop (iNav ANGLE mode + rate PID), raw settings values
   fwPr: number; fwIr: number; fwDr: number; fwFfr: number;                    // roll rate PID
   fwPp: number; fwIp: number; fwDp: number; fwFfp: number;                    // pitch rate PID
+  fwPy: number; turnAssist: number;                                          // yaw rate PID P + turn-assist gain
   pLevel: number; iLevel: number;                                            // ANGLE-mode strength + rate LPF Hz
+  loiterRadius: number; rthAltitude: number;                                 // loiter/orbit radius (cm); RTH alt (cm)
+  launchClimbAngle: number; launchVelocity: number; launchTimeout: number;   // NAV LAUNCH sequence
+}
+// Every setting an aircraft's inav.diff may carry, and how the validator accounts for it. A setting must be
+// USED (read into a NavParams field the control law consumes) or explicitly ACK'd as sim-irrelevant — the
+// coverage check below fails if an inav.diff carries any setting not on one of these lists.
+const INAV_USED = new Set([
+  'nav_fw_climb_angle', 'nav_fw_dive_angle', 'nav_fw_bank_angle', 'fw_reference_airspeed', 'nav_fw_land_approach_length',
+  'nav_fw_cruise_thr', 'nav_fw_min_thr', 'nav_fw_max_thr', 'nav_fw_pitch2thr',
+  'nav_fw_pos_z_p', 'nav_fw_pos_z_i', 'nav_fw_pos_z_d', 'nav_fw_pos_z_ff', 'nav_fw_alt_control_response', 'nav_fw_auto_climb_rate',
+  'nav_fw_control_smoothness', 'fw_p_roll', 'fw_i_roll', 'fw_d_roll', 'fw_ff_roll',
+  'fw_p_pitch', 'fw_i_pitch', 'fw_d_pitch', 'fw_ff_pitch', 'fw_p_yaw', 'fw_turn_assist_yaw_gain',
+  'fw_p_level', 'fw_i_level', 'nav_fw_loiter_radius', 'nav_rth_altitude',
+]);
+const INAV_SIM_IRRELEVANT = new Set([
+  'looptime',                          // FC scheduler period — the validator steps the FDM at a fixed rate
+  // NAV LAUNCH is a bungee/hand launch (high initial energy); the validator takes off ROLLING from a runway,
+  // so the whole launch group — detection, spin-up, and the steep launch climb angle — does not apply.
+  'nav_fw_launch_accel', 'nav_fw_launch_detect_time', 'nav_fw_launch_max_altitude', 'nav_fw_launch_max_angle',
+  'nav_fw_launch_min_time', 'nav_fw_launch_motor_delay', 'nav_fw_launch_spinup_time',
+  'nav_fw_launch_climb_angle', 'nav_fw_launch_velocity', 'nav_fw_launch_timeout',
+]);
+/** Assert every setting in an inav.diff is accounted for; throws naming any unaccounted setting. */
+export function assertInavCoverage(ac: string): void {
+  const f = `${SIM}/aircraft/models/${ac}/inav.diff`;
+  if (!existsSync(f)) return;
+  const unaccounted = [...readFileSync(f, 'utf8').matchAll(/^set\s+([a-z_0-9]+)\s*=/gm)]
+    .map((m) => m[1]).filter((s) => !INAV_USED.has(s) && !INAV_SIM_IRRELEVANT.has(s));
+  if (unaccounted.length) throw new Error(`inav.diff(${ac}): settings not covered by the validator: ${[...new Set(unaccounted)].join(', ')}`);
 }
 export function inavParams(ac: string): NavParams {
   const p: NavParams = {
     climbAngle: 20, diveAngle: 15, bankAngle: 35, cruise: 15, approachLen: 350, glideAngle: 3,
     cruiseThr: 1400, minThr: 1200, maxThr: 1700, pitch2thr: 10,
     posZp: 30, posZi: 5, posZd: 10, posZff: 30, altResponse: 40, maxClimbRate: 500, controlSmoothness: 0,
-    fwPr: 5, fwIr: 7, fwDr: 0, fwFfr: 50, fwPp: 5, fwIp: 7, fwDp: 0, fwFfp: 50, pLevel: 20, iLevel: 5,
+    fwPr: 5, fwIr: 7, fwDr: 0, fwFfr: 50, fwPp: 5, fwIp: 7, fwDp: 0, fwFfp: 50, fwPy: 6, turnAssist: 20,
+    pLevel: 20, iLevel: 5, loiterRadius: 7500, rthAltitude: 10000,
+    launchClimbAngle: 18, launchVelocity: 0, launchTimeout: 5000,
   };
   const f = `${SIM}/aircraft/models/${ac}/inav.diff`;
   if (existsSync(f)) {
@@ -70,10 +101,17 @@ export function inavParams(ac: string): NavParams {
     p.posZp = g('nav_fw_pos_z_p', p.posZp); p.posZi = g('nav_fw_pos_z_i', p.posZi);
     p.posZd = g('nav_fw_pos_z_d', p.posZd); p.posZff = g('nav_fw_pos_z_ff', p.posZff);
     p.altResponse = g('nav_fw_alt_control_response', p.altResponse);
+    p.maxClimbRate = g('nav_fw_auto_climb_rate', p.maxClimbRate);
     p.controlSmoothness = g('nav_fw_control_smoothness', p.controlSmoothness);
     p.fwPr = g('fw_p_roll', p.fwPr); p.fwIr = g('fw_i_roll', p.fwIr); p.fwDr = g('fw_d_roll', p.fwDr); p.fwFfr = g('fw_ff_roll', p.fwFfr);
     p.fwPp = g('fw_p_pitch', p.fwPp); p.fwIp = g('fw_i_pitch', p.fwIp); p.fwDp = g('fw_d_pitch', p.fwDp); p.fwFfp = g('fw_ff_pitch', p.fwFfp);
+    p.fwPy = g('fw_p_yaw', p.fwPy); p.turnAssist = g('fw_turn_assist_yaw_gain', p.turnAssist);
     p.pLevel = g('fw_p_level', p.pLevel); p.iLevel = g('fw_i_level', p.iLevel);
+    p.loiterRadius = g('nav_fw_loiter_radius', p.loiterRadius);
+    p.rthAltitude = g('nav_rth_altitude', p.rthAltitude);
+    p.launchClimbAngle = g('nav_fw_launch_climb_angle', p.launchClimbAngle);
+    p.launchVelocity = g('nav_fw_launch_velocity', p.launchVelocity);
+    p.launchTimeout = g('nav_fw_launch_timeout', p.launchTimeout);
   }
   return p;
 }
