@@ -226,7 +226,8 @@ int main(void){
     pidController_t pidNav; navPidInit(&pidNav, m.posXYp/100.0f, m.posXYi/100.0f, m.posXYd/100.0f, 0.0f, NAV_DTERM_CUT_HZ, 0.0f);
     double vtarget=fmax(m.cruise, m.vmin*1.2);       /* operating airspeed: sustainable at cruise power, above departure */
     int jet = m.vmin > 1.5*m.vs;                      /* relaxed-stability / high-min-speed airframe: must hold power always */
-    double pcut = getSmoothnessCutoffFreq(NAV_FW_BASE_PITCH_CUTOFF_FREQUENCY_HZ, (int)m.control_smoothness);  /* iNav pitch-cmd LPF cutoff (Hz), iNav's OWN extracted function (base = pitch cutoff freq) */
+    double pcut  = getSmoothnessCutoffFreq(NAV_FW_BASE_PITCH_CUTOFF_FREQUENCY_HZ, (int)m.control_smoothness);  /* iNav pitch-cmd LPF cutoff (Hz), iNav's OWN extracted fn */
+    double rcut  = getSmoothnessCutoffFreq(NAV_FW_BASE_ROLL_CUTOFF_FREQUENCY_HZ,  (int)m.control_smoothness);  /* iNav roll-cmd LPF cutoff — DIFFERENT base (roll bandwidth ≫ pitch): c172 cs4 -> 2.26 Hz, not the pitch 0.53 */
     double pitchLpf=0; int pitchLpfInit=0; double rollLpf=0; int rollLpfInit=0;
     int wp=0; int landing=0; int launched=0; int landed=0; int landphase=0; int committed=0; int flaring=0; double t=0; const double dt=0.01, t_max=2400.0;
     double wp1rel = m.nwp? m.wp[0].alt_rel : 100;
@@ -304,7 +305,7 @@ int main(void){
         double cog = atan2(st.vx,-st.vz)*R2D; if(cog<0)cog+=360;       /* course over ground (X-Plane vx=E, vz=S) */
         double headErr = wrap180(desCourse-cog);
         double bank_cmd = navPidApply2(&pidNav, headErr*100.0, 0.0, dt, -m.bank*100.0, m.bank*100.0, PID_DTERM_FROM_ERROR) / 100.0;
-        { double cut=fmax(pcut,0.8), rc=1.0/(2*M_PI*cut), a=dt/(rc+dt);   /* iNav control_smoothness on the roll cmd (NAV_FW_BASE_ROLL_CUTOFF) */
+        { double cut=rcut, rc=1.0/(2*M_PI*cut), a=dt/(rc+dt);   /* iNav control_smoothness on the roll cmd (NAV_FW_BASE_ROLL_CUTOFF, base 10) */
           if(!rollLpfInit){rollLpf=bank_cmd;rollLpfInit=1;} rollLpf+=a*(bank_cmd-rollLpf); bank_cmd=rollLpf; }
         /* energy/launch bank caps (validator additions, applied ON TOP of iNav's ±bank clamp): a hard bank at
            low speed-margin bleeds a relaxed-stability jet into a departure; climb-out stays wings-level. */
