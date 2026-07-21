@@ -44,7 +44,10 @@
   "success": {
     "capture_radius_m": 300
   },
-  "procedure": {},
+  "procedure": {
+    "angle_hold_alt": 60,
+    "angle_climb_pitch": 1700
+  },
   "abort": {
     "timeout_s": 900,
     "on_nan": true,

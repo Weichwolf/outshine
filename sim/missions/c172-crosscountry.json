@@ -1,5 +1,5 @@
 {
-  "name": "PPL Nav \u2014 C172, EDDH \u00dcberland-Ausflug (out & back)",
+  "name": "PPL Nav — C172, EDDH Überland-Ausflug (out & back)",
   "aircraft": "c172",
   "takeoff": {
     "airport": "EDDH",
@@ -27,7 +27,9 @@
     "runway": "05"
   },
   "procedure": {
-    "gear_retract": false
+    "gear_retract": false,
+    "angle_hold_alt": 60,
+    "angle_climb_pitch": 1700
   },
   "success": {
     "takeoff_agl_m": 50,

@@ -53,5 +53,9 @@
   "envelope": {
     "alt_floor_agl_m": 30,
     "alt_ceil_agl_m": 1200
+  },
+  "procedure": {
+    "angle_hold_alt": 60,
+    "angle_climb_pitch": 1700
   }
 }
