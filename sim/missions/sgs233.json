@@ -1,26 +1,15 @@
 {
-  "name": "PPL Nav \u2014 Motorsegler SGS 2-33, EDNY Platzrunde",
+  "name": "PPL Nav — Motorsegler SGS 2-33, EDNY Platzrunde (Anflug 24)",
   "aircraft": "sgs233",
   "takeoff": {
     "airport": "EDNY",
     "runway": "06"
   },
   "waypoints": [
-    {
-      "lat": 47.66982,
-      "lon": 9.50771,
-      "alt_agl": 60
-    },
-    {
-      "lat": 47.6649,
-      "lon": 9.51649,
-      "alt_agl": 60
-    },
-    {
-      "lat": 47.67339,
-      "lon": 9.50423,
-      "alt_agl": 60
-    }
+    { "lat": 47.685, "lon": 9.535, "alt_agl": 250 },
+    { "lat": 47.700, "lon": 9.560, "alt_agl": 300 },
+    { "lat": 47.6968, "lon": 9.5771, "alt_agl": 280 },
+    { "lat": 47.6892, "lon": 9.5574, "alt_agl": 200 }
   ],
   "land": {
     "airport": "EDNY",
@@ -35,7 +24,7 @@
     "capture_radius_m": 300
   },
   "abort": {
-    "timeout_s": 300,
+    "timeout_s": 400,
     "max_agl_m": 800,
     "on_nan": true
   }

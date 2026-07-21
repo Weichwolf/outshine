@@ -111,7 +111,8 @@ typedef struct { double lat,lon,asl,r,brg; int ring; int kind; } Gate;  /* ring=
 static Gate gate[MAXGATE]; static int ngate;
 
 static void add_ring(double lat,double lon,double asl,double brg,double r,int kind){
-    if(ngate>=MAXGATE)return; gate[ngate++]=(Gate){lat,lon,asl,r,brg,1,kind};
+    if(ngate>=MAXGATE) return;
+    gate[ngate++]=(Gate){lat,lon,asl,r,brg,1,kind};
 }
 static double turn_radius(double V,double bank){ return V*V/(G*tan(fmax(5.0,bank)*D2R)); }
 
@@ -221,7 +222,7 @@ int main(void){
     int jet = m.vmin > 1.5*m.vs;                      /* relaxed-stability / high-min-speed airframe: must hold power always */
     double pcut = 0.001*2.0*pow(10.0-m.control_smoothness,3.0)+0.1;  /* iNav pitch-cmd LPF cutoff (Hz) from control_smoothness */
     double pitchLpf=0; int pitchLpfInit=0; double rollLpf=0; int rollLpfInit=0;
-    int wp=0; int landing=0; int launched=0; int landed=0; int landphase=0; double t=0; const double dt=0.01, t_max=1200.0;
+    int wp=0; int landing=0; int launched=0; int landed=0; int landphase=0; int committed=0; int flaring=0; double t=0; const double dt=0.01, t_max=1200.0;
     double wp1rel = m.nwp? m.wp[0].alt_rel : 100;
     double wpmin[MAXWP]; for(int i=0;i<m.nwp;i++) wpmin[i]=1e9;
     double tdist=1e9;                                  /* closest horizontal approach to the landing threshold */
@@ -252,24 +253,45 @@ int main(void){
                landing heading, correct cross-track to the extended centreline, descend the glideslope by
                ALONG-track distance. A straight, aligned final crosses the threshold at ground level; homing
                to the threshold point just orbits it (turn radius > touchdown radius) and never lands. */
-            landing=1; tgt_spd=m.vs*1.3;
-            double Rt=m.cruise*m.cruise/(G*tan(fmax(5.0,m.bank)*D2R)), capR=fmax(200.0,2.2*Rt);
-            double final_len=fmax(m.approach_len,700.0);              /* long final -> room to null cross-track */
-            double apla,aplo; dest(m.ld.lat,m.ld.lon,fmod(m.ld.hdg+180.0,360.0),final_len,&apla,&aplo);
+            landing=1;
+            double final_len=fmax(m.approach_len,2500.0);            /* FAF distance behind the threshold */
+            double hr=m.ld.hdg*D2R, fe=sin(hr), fn=cos(hr);          /* runway forward = landing direction (E,N) */
+            double e,n; enu(st.lat,st.lon,m.ld.lat,m.ld.lon,&e,&n);
+            double along=e*fe+n*fn;                                  /* <0 approach side (behind threshold), >0 past it */
+            double xte=e*(-fn)+n*fe;                                 /* cross-track, +right of the centreline */
+            double cg=atan2(st.vx,-st.vz)*R2D; if(cg<0)cg+=360;
+            int aligned = fabs(wrap180(cg-m.ld.hdg)) < 40.0;
+            int established = fabs(xte) < 250.0 && aligned;
+            double pattern_alt=m.ld.elev+clr+final_len*tan(m.glide*D2R);
+            /* latched: 0 GET BEHIND the threshold (wrong-side entries only) -> 1 FINAL. No heading-control
+               intercept phase — that hits a 180° singularity when the join leaves the aircraft outbound; a
+               sliding-carrot pure pursuit (bearing to a point, never 180°-ambiguous) turns final cleanly. */
+            if(landphase==0 && along < -400.0) landphase=1;
             if(landphase==0){
-                double dfix=distll(st.lat,st.lon,apla,aplo);       /* glideslope by distance to the fix — no premature dive from far out */
-                tgt_la=apla; tgt_lo=aplo; tgt_alt=m.ld.elev+clr+(final_len+dfix)*tan(m.glide*D2R);
-                if(dfix<capR) landphase=1;
+                /* GET BEHIND: fly to the FAF (final_len behind the threshold on the centreline). Only runs when
+                   the task left the aircraft ahead of/abeam the threshold; exits at along<-400 (before it can
+                   orbit the fix). Hold pattern altitude. */
+                dest(m.ld.lat,m.ld.lon,fmod(m.ld.hdg+180.0,360.0),final_len,&tgt_la,&tgt_lo);
+                tgt_alt=pattern_alt;
             } else {
-                /* carrot / L1 pursuit down the extended centreline: aim at a point a lookahead ahead of the
-                   aircraft's projection onto the line -> smoothly intercepts and tracks it (a linear crab
-                   oscillates). Glideslope by along-track distance to the threshold. */
-                double hr=m.ld.hdg*D2R, fe=sin(hr), fn=cos(hr);      /* forward = landing direction (E,N) */
-                double e,n; enu(st.lat,st.lon,m.ld.lat,m.ld.lon,&e,&n);
-                double along=e*fe+n*fn;                              /* <0 approach side, >0 past threshold */
-                double s_aim=along+300.0;                            /* carrot 300 m ahead toward the threshold */
+                /* FINAL: sliding-carrot pure pursuit down the extended centreline toward (and past) the
+                   threshold — captures the centreline AND flies the course reversal (the carrot is a point
+                   ahead on the line, so the bearing gives a definite turn direction). Descend the glideslope
+                   by along-track ONLY once established (on the localizer, aligned) so it doesn't dive mid-turn. */
+                double L=fmax(200.0,2.5*turn_radius(m.cruise,m.bank));
+                double s_aim=along+L;
                 offll(m.ld.lat,m.ld.lon,s_aim*fe,s_aim*fn,&tgt_la,&tgt_lo);
-                tgt_alt=m.ld.elev+clr+fmax(0.0,-along)*tan(m.glide*D2R);
+                double gslope=m.ld.elev+clr+fmax(0.0,-along)*tan(m.glide*D2R);
+                /* descend the glideslope by along-track once behind the threshold and heading inbound — the
+                   lateral pursuit centres the aircraft CONCURRENTLY, so it arrives on-slope AND centred instead
+                   of holding pattern altitude until aligned late and then diving (a steep, fast, bouncing
+                   touchdown). COMMIT once into short final: keep descending, never revert to pattern altitude
+                   (a flicker in `established` at the flare would command a full-throttle go-around -> balloon). */
+                int onapproach = along < -100.0;   /* behind the threshold: descend the glideslope by along-track
+                   from far out, with the lateral pursuit centring CONCURRENTLY — so it arrives on-slope AND
+                   centred instead of holding pattern altitude until aligned late and then diving (fast, steep). */
+                if(onapproach && (st.elev-m.ld.elev) < clr+40.0) committed=1;
+                tgt_alt = (onapproach||committed) ? gslope : pattern_alt;
             }
         }
         /* iNav fw_nav heading->roll (navigation_fixedwing.c updatePositionHeadingController_FW): a PID
@@ -286,8 +308,14 @@ int main(void){
            low speed-margin bleeds a relaxed-stability jet into a departure; climb-out stays wings-level. */
         double smarg=(st.speed-m.vmin)/fmax(1.0,vtarget*1.3-m.vmin);
         double bankMax=m.bank*fmax(0.25,fmin(1.0,smarg));
+        /* FLARE latch: once low on final, COMMIT — sticky through any balloon/bounce until touchdown, so a
+           bounce never re-arms the pursuit/throttle into a go-around that departs. Arrests sink (pitch, above),
+           holds wings level, cuts the engine (below). */
+        double flare_h = clr + fmax(3.0, (st.speed - 1.3*m.vs)*0.6);            /* flare height scales with the speed to bleed: a fast approach (a motor-glider at cruise thrust) holds off higher/longer; a powered aircraft near approach speed flares low so it doesn't float */
+        if(landing && !rolling && (st.elev-m.ld.elev) < flare_h) flaring=1;
         if(!launched) bankMax=fmin(bankMax,10.0);
-        if(landing && (st.elev-m.ld.elev) < clr+20.0) bankMax=fmin(bankMax,6.0);  /* short final: wings-level for touchdown, don't cartwheel on a wingtip */
+        if(landing) bankMax=fmin(bankMax,25.0);                                  /* approach: gentle procedure-turn bank, stay well inside the bank envelope */
+        if(flaring) bankMax=fmin(bankMax,6.0);                                   /* committed flare: wings-level for touchdown, don't cartwheel on a wingtip */
         bank_cmd=fmax(-bankMax,fmin(bankMax,bank_cmd));
         (void)tgt_spd;
         /* --- iNav fixed-wing altitude cascade (navigation_fixedwing.c): altitude error -> desired climb rate
@@ -315,6 +343,7 @@ int main(void){
             if(!pitchLpfInit){pitchLpf=pitch_dd;pitchLpfInit=1;} pitchLpf+=a*(pitch_dd-pitchLpf);
             pitch_cmd=fmax(-m.dive,fmin(m.climb,pitchLpf/10.0));        /* deg, reconstrained */
         }
+        if(flaring) pitch_cmd = fmax(pitch_cmd, fmin(7.0, (0.3 - st.vy)*1.6));   /* hold off: arrest the sink and bleed speed for a slow touchdown (the sticky flare latch keeps a brief balloon wings-level + engine-off, so a firm hold-off is safe) */
         /* energy management: never demand more climb than airspeed allows — below the min maneuvering speed
            trade climb for speed (nose down) so a low-excess-thrust / relaxed-stability airframe never bleeds
            into a departure. */
@@ -338,6 +367,7 @@ int main(void){
         if(st.speed>m.vne*0.9) thr_us=fmin(thr_us,m.min_thr);          /* vne protection (the only speed ceiling) */
         thr_us=fmax(m.min_thr,fmin(m.max_thr,thr_us));
         double thr=(thr_us-1000.0)/1000.0;
+        if(flaring) thr=0.0;                                           /* engine OFF in the committed flare (bypasses the in-flight idle floor min_thr) — settle onto the runway, and let a motor-glider bleed to touchdown speed instead of idling in at cruise thrust */
         /* --- inner: iNav ANGLE mode + FW rate PID (the airframe's real stabilizer, per-aircraft gains) --- */
         double roll = fw_inner(&axRoll, bank_cmd, st.roll, st.p, m.fwPr,m.fwIr,m.fwDr,m.fwFfr, m.pLevel,m.iLevel, 200.0, dt);
         double pitch= fw_inner(&axPitch,pitch_cmd,st.pitch,st.q, m.fwPp,m.fwIp,m.fwDp,m.fwFfp, m.pLevel,m.iLevel, 200.0, dt);
@@ -393,7 +423,7 @@ int main(void){
             if(dw<capR) wp++; }
         if(landing){ double dl=distll(st.lat,st.lon,m.ld.lat,m.ld.lon);
             if(aglL<clr+3.0 && dl<tdist) tdist=dl;
-            if(!rolling && aglL<clr+1.5){                  /* TOUCHDOWN — record how/where it met the runway */
+            if(!rolling && aglL<clr+2.0){                  /* TOUCHDOWN — record how/where it met the runway (latch a touch above the wheels so a small bounce can't skip past the trigger and go around) */
                 rolling=1; td_lat=st.lat; td_lon=st.lon; td_speed=st.gs;
                 double hr=m.ld.hdg*D2R, fe=sin(hr), fn=cos(hr), e,n;
                 enu(st.lat,st.lon,m.ld.lat,m.ld.lon,&e,&n);
