@@ -1,3 +1,8 @@
+// WIRING STATUS: tier-1 (p2p) uses CAPTURE, CORRIDOR, SPEED_BAND, ALT_BAND (see runner.ts). The anti-cheese
+// trilogy (DWELL/LAPS/COVERAGE) and the geometry predicates (LOS/NO_GAP/CLOSING/ON_PLAN/FRECHET/TIME_WINDOW)
+// are the verify library for the task-based missions of tiers ≥2 (overwatch/loiter/patrol/recon/…) — defined
+// here, invoked once those tiers are built. Not dead code to delete; forward scaffolding for the declared tiers.
+//
 // Fail-fast predicate evaluator — the VERIFIABLE half of the mission format (FORMAT.md §3). Predicates are
 // defined over the sampled flight track S (one tuple/tick). A mission passes iff every phase completes,
 // every task's verify predicates hold, and the envelope was never violated; the runner aborts on the first

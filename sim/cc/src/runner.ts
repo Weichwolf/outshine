@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { resolveMission, groundElev, type Mission } from './mission.js';
 import { inavParams, assertInavCoverage } from './ringtrack.js';
-import { CAPTURE, ALT_BAND, SPEED_BAND, type Sample, type Track, range, type Point } from './predicates.js';
+import { CAPTURE, CORRIDOR, ALT_BAND, SPEED_BAND, type Sample, type Track, range, type Point } from './predicates.js';
 
 const SIM = resolve(import.meta.dirname, '../../..');
 const VALIDATOR = process.env.VALIDATOR ?? `${SIM}/validator/validator`;
@@ -43,7 +43,7 @@ export function buildVinput(m: Mission): string {
 /** Landing metrics from the validator's LAND line: touchdown along/cross-track from the runway threshold,
  *  heading error vs the runway, touchdown groundspeed, rollout distance, runway length, and whether it
  *  actually rolled to a full STOP on the runway. */
-export interface Landing { along: number; xte: number; hdgErr: number; gs: number; rollout: number; runwayLen: number; stopped: boolean; }
+export interface Landing { along: number; xte: number; hdgErr: number; gs: number; rollout: number; runwayLen: number; stopped: boolean; cas: number; sinkRate: number; }
 export interface FlightResult { track: Track; verdict: string; ok: boolean; landing?: Landing; }
 
 /** Fly the vinput through the validator (VOUT trajectory). CSV lines -> Track; LAND -> landing; OK/FAIL -> verdict. */
@@ -53,7 +53,7 @@ export function flyValidator(vin: string): FlightResult {
   const track: Track = []; let verdict = '', ok = false; let landing: Landing | undefined;
   for (const line of (r.stdout ?? '').split('\n')) {
     if (!line) continue;
-    if (line.startsWith('LAND ')) { const f = line.split(' '); landing = { along: +f[1], xte: +f[2], hdgErr: +f[3], gs: +f[4], rollout: +f[5], runwayLen: +f[6], stopped: f[7] === '1' }; continue; }
+    if (line.startsWith('LAND ')) { const f = line.split(' '); landing = { along: +f[1], xte: +f[2], hdgErr: +f[3], gs: +f[4], rollout: +f[5], runwayLen: +f[6], stopped: f[7] === '1', cas: +f[8], sinkRate: +f[9] }; continue; }
     if (line[0] === 'O' || line[0] === 'F') { verdict = line.trim(); ok = line.startsWith('OK'); continue; }
     const f = line.split(' '); if (f.length < 14 || !/^[0-9.]/.test(f[0])) continue;
     track.push({ t: +f[0], lat: +f[1], lon: +f[2], hAsl: +f[3], hAgl: +f[4], roll: +f[5], pitch: +f[6],
@@ -117,15 +117,26 @@ export async function runMission(spec: string): Promise<RunResult> {
   const env = envelopeOf(m);
   if (!push(checkEnvelope(fr.track, env))) return done();
 
-  // per-WP CAPTURE in order (the p2p core): each waypoint reached within the capture radius, IN SEQUENCE,
-  // and — where the mission specifies a band — at the intended altitude/speed when captured (phase-local).
-  const capR = m.raw.success?.capture_radius_m ?? m.raw.transit?.capture_radius_m ?? 150;
-  let from = 0;
+  // per-WP CAPTURE in order (the p2p core): each waypoint reached within the grading tolerance, IN SEQUENCE.
+  // The tolerance is DECOUPLED from how the validator advances legs — the validator uses iNav's own
+  // isWaypointReached (bearing-swing passby, navigation.c), so this is an INDEPENDENT accuracy measurement,
+  // not the same radius grading itself (which could never fail). The auto-appended FAF is labelled distinctly.
+  // Between consecutive task waypoints the flight must also stay inside a CORRIDOR (no wandering off the leg).
+  const capR = m.raw.success?.capture_radius_m ?? m.raw.transit?.capture_radius_m ?? 100;   // grading accuracy, not the nav advance trigger
+  const corridorW = m.raw.success?.corridor_width_m ?? m.raw.transit?.corridor_width_m ?? 500;
+  let from = 0, prevTaskIdx = 0; let prevP: Point | null = null;
   for (let i = 0; i < m.waypoints.length; i++) {
     const w = m.waypoints[i]; const P: Point = { lat: w.lat, lon: w.lon };
+    const tag = w.faf ? 'FAF' : `wp${i + 1}`;                            // system-injected approach fix vs authored task WP
     const r = CAPTURE(fr.track.slice(from), P, capR);
-    if (!push({ name: `capture:wp${i + 1}`, pass: r.pass, detail: r.detail })) return done();
+    if (!push({ name: `capture:${tag}`, pass: r.pass, detail: r.detail })) return done();
     const capIdx = fr.track.findIndex((s, idx) => idx >= from && range(P, s) <= capR);
+    // CORRIDOR: the leg from the previous TASK waypoint to this one stayed within the corridor (not the
+    // approach leg to the FAF, which follows the localizer/glideslope geometry, not a straight task line).
+    if (prevP && !w.faf && capIdx > prevTaskIdx) {
+      const c = CORRIDOR(fr.track.slice(prevTaskIdx, capIdx + 1), prevP, P, corridorW);
+      if (!push({ name: `corridor:wp${i + 1}`, pass: c.pass, detail: c.detail })) return done();
+    }
     const spec2 = (m.raw.waypoints?.[i]) ?? {};
     if (capIdx >= 0 && spec2.alt_tol_m != null) {   // altitude held at the fix (terrain-correct AGL)
       const s = fr.track[capIdx]; const d = Math.abs(s.hAgl - w.altAgl);
@@ -135,7 +146,7 @@ export async function runMission(spec: string): Promise<RunResult> {
       const r2 = SPEED_BAND(fr.track.slice(from, capIdx + 1), spec2.speed_tgt_ms, spec2.speed_tol_ms ?? 6);
       if (!push({ name: `speed:wp${i + 1}`, pass: r2.pass, detail: r2.detail })) return done();
     }
-    from = capIdx >= 0 ? capIdx : from;
+    if (capIdx >= 0) { from = capIdx; if (!w.faf) { prevTaskIdx = capIdx; prevP = P; } }
   }
 
   // LANDING — a real landing, not a wheels-down moment: touched down ON the runway (aligned, on the strip,
@@ -145,12 +156,14 @@ export async function runMission(spec: string): Promise<RunResult> {
   const halfWidth = td.runway_half_width_m ?? 25;       // touched down on the strip, not off to the side
   const zoneEnd = L.runwayLen * (td.touchdown_zone_frac ?? 0.5);
   const hdgTol = td.align_tol_deg ?? 20;                // aligned + correct direction
-  const gsMax = td.touchdown_gs_max_ms ?? m.vs * 2.2;   // not a hot/hard touchdown
+  const casMax = td.touchdown_cas_max_ms ?? m.vs * 1.5; // not a hot approach: touchdown airspeed ≤ 1.5·Vs (density-honest CAS, not groundspeed which inflates at altitude)
+  const sinkMax = td.touchdown_sink_max_ms ?? 2.5;      // a flared touchdown, not a carrier arrival
 
   if (!push({ name: 'touchdown:on-runway', pass: Math.abs(L.xte) <= halfWidth && L.along >= -30 && L.along <= zoneEnd,
     detail: `along ${L.along.toFixed(0)}m (zone 0..${zoneEnd.toFixed(0)}), cross-track ${L.xte.toFixed(0)}m (±${halfWidth})` })) return done();
   if (!push({ name: 'touchdown:aligned', pass: Math.abs(L.hdgErr) <= hdgTol, detail: `heading ${L.hdgErr.toFixed(0)}° off runway (±${hdgTol}°)` })) return done();
-  if (!push({ name: 'touchdown:speed', pass: L.gs <= gsMax, detail: `touchdown GS ${L.gs.toFixed(0)} ≤ ${gsMax.toFixed(0)} m/s` })) return done();
+  if (!push({ name: 'touchdown:speed', pass: L.cas <= casMax, detail: `touchdown CAS ${L.cas.toFixed(1)} ≤ ${casMax.toFixed(1)} m/s (Vs ${m.vs.toFixed(1)}); GS ${L.gs.toFixed(1)}` })) return done();
+  if (!push({ name: 'touchdown:soft', pass: L.sinkRate <= sinkMax, detail: `sink rate ${L.sinkRate.toFixed(1)} ≤ ${sinkMax.toFixed(1)} m/s at touchdown` })) return done();
   push({ name: 'rollout:stopped-on-runway', pass: L.stopped && (L.along + L.rollout) <= L.runwayLen,
     detail: L.stopped ? `stopped after ${L.rollout.toFixed(0)}m rollout (touchdown ${L.along.toFixed(0)}m + roll ${L.rollout.toFixed(0)}m ≤ ${L.runwayLen.toFixed(0)}m runway)` : `never came to a stop on the runway (rolled ${L.rollout.toFixed(0)}m)` });
 

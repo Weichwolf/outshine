@@ -1,3 +1,9 @@
+// STATUS: tier-≥2 scaffolding — NOT yet wired into the live pipeline. Tier-1 missions are plain p2p (task
+// waypoints + auto-appended FAF, resolved in mission.ts, graded by runner.ts with CAPTURE/CORRIDOR/SPEED_BAND).
+// This task→iNav compiler is exercised by the task-based missions of tiers ≥2 (overwatch/loiter/cap_patrol/
+// recon_area/…), which are built after tier-1 is signed off; until a mission carries a "tasks" block it has
+// no caller. Kept in the tree (not deleted) because those tiers are the declared next step, not hypothetical.
+//
 // Task -> iNav compiler (FORMAT.md §5/§6). Each typed task emits its WAYPOINT/HOLD_TIME/JUMP/LAND/RTH
 // sequence within ONE shared ≤15-waypoint pool (NAV_MAX_WAYPOINTS). The route iNav flies is ≤15 WPs; JUMP
 // loops reuse WPs so orbits/patrols cost few slots, but dense area patterns are budget-bound — overflow

@@ -6,14 +6,32 @@
     "runway": "06"
   },
   "waypoints": [
-    { "lat": 47.685, "lon": 9.535, "alt_agl": 250 },
-    { "lat": 47.700, "lon": 9.560, "alt_agl": 300 },
-    { "lat": 47.6968, "lon": 9.5771, "alt_agl": 280 },
-    { "lat": 47.6892, "lon": 9.5574, "alt_agl": 200 }
+    {
+      "lat": 47.685,
+      "lon": 9.535,
+      "alt_agl": 250
+    },
+    {
+      "lat": 47.7,
+      "lon": 9.56,
+      "alt_agl": 300
+    },
+    {
+      "lat": 47.6968,
+      "lon": 9.5771,
+      "alt_agl": 280
+    },
+    {
+      "lat": 47.6892,
+      "lon": 9.5574,
+      "alt_agl": 200
+    }
   ],
   "land": {
     "airport": "EDNY",
-    "runway": "24"
+    "runway": "24",
+    "touchdown_cas_max_ms": 13.5,
+    "touchdown_cas_note": "SGS 2-33 motor-glider has no spoilers and its motor idles at 0.45 min-throttle, so it flies final near cruise and touches down engine-off at ~1.7*Vs (still below its 17 m/s cruise) — the 1.5*Vs default is textbook for spoiler-equipped aircraft."
   },
   "procedure": {
     "gear_retract": false,

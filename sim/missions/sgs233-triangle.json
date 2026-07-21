@@ -1,5 +1,5 @@
 {
-  "name": "PPL Nav \u2014 Motorsegler SGS 2-33, EDNY Dreieck",
+  "name": "PPL Nav — Motorsegler SGS 2-33, EDNY Dreieck",
   "aircraft": "sgs233",
   "takeoff": {
     "airport": "EDNY",
@@ -24,7 +24,9 @@
   ],
   "land": {
     "airport": "EDNY",
-    "runway": "24"
+    "runway": "24",
+    "touchdown_cas_max_ms": 13.5,
+    "touchdown_cas_note": "SGS 2-33 motor-glider has no spoilers and its motor idles at 0.45 min-throttle, so it flies final near cruise and touches down engine-off at ~1.7*Vs (still below its 17 m/s cruise) — the 1.5*Vs default is textbook for spoiler-equipped aircraft."
   },
   "procedure": {
     "gear_retract": false,

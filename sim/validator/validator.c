@@ -39,6 +39,7 @@
 #define G 9.80665
 #define D2R (M_PI/180.0)
 #define R2D (180.0/M_PI)
+#define NAV_WP_RADIUS_M 15.0   /* iNav nav_wp_radius fallback: fixed-wing reaches a WP by the bearing-swing passby, so this small radius rarely fires — it just catches a WP overflown dead-centre in one discrete step */
 #define MAXWP 32
 #define MAXGATE 512
 #define MAXTRAJ 200000
@@ -236,7 +237,9 @@ int main(void){
     /* landing rollout: at touchdown the engine is cut + wheel brakes applied, and the ground roll is
        simulated to a full STOP. td_* capture where/how it touched the runway; rollout is the distance from
        touchdown to standstill; a real landing is ON the runway (aligned, on the strip) AND stops on it. */
-    int rolling=0; double td_along=0,td_xte=0,td_hdgerr=0,td_speed=0,rollout=0,td_lat=0,td_lon=0;
+    int rolling=0; double td_along=0,td_xte=0,td_hdgerr=0,td_speed=0,td_cas=0,td_vz=0,rollout=0,td_lat=0,td_lon=0;
+    int wpBrgSet=-1; double wpInitBrg=0;   /* iNav isWaypointReached: initial bearing to the active WP (bearing-swing detects passing it) */
+    double prevHeadErr=0, monTimer=0; int errDecr=0;   /* iNav fw_nav 2 Hz error-monitoring (PID_SHRINK_INTEGRATOR when converging) */
     char fail[128]=""; int crashed=0;
     fb_fdm_state st; memset(&st,0,sizeof st);
     st.lat=m.to.lat; st.lon=m.to.lon; st.elev=m.to.elev+clr; st.yaw=m.to.hdg; st.speed=m.cruise;   /* IC seed */
@@ -304,7 +307,13 @@ int main(void){
         double desCourse = desHdg>-900.0? desHdg : bearing(st.lat,st.lon,tgt_la,tgt_lo);
         double cog = atan2(st.vx,-st.vz)*R2D; if(cog<0)cog+=360;       /* course over ground (X-Plane vx=E, vz=S) */
         double headErr = wrap180(desCourse-cog);
-        double bank_cmd = navPidApply2(&pidNav, headErr*100.0, 0.0, dt, -m.bank*100.0, m.bank*100.0, PID_DTERM_FROM_ERROR) / 100.0;
+        /* iNav applies PID_SHRINK_INTEGRATOR while the heading error is CONVERGING (anti-windup on turn-in),
+           evaluated at iNav's 2 Hz monitoring rate (navigation_fixedwing.c:534). Replicate it so the fw_nav
+           integrator behaves like the real call site, not just the extracted PID function. */
+        monTimer += dt;
+        if(monTimer >= 0.5){ errDecr = fabs(prevHeadErr) > fabs(headErr); prevHeadErr = headErr; monTimer = 0.0; }
+        int navFlags = PID_DTERM_FROM_ERROR | (errDecr ? PID_SHRINK_INTEGRATOR : 0);
+        double bank_cmd = navPidApply2(&pidNav, headErr*100.0, 0.0, dt, -m.bank*100.0, m.bank*100.0, navFlags) / 100.0;
         { double cut=rcut, rc=1.0/(2*M_PI*cut), a=dt/(rc+dt);   /* iNav control_smoothness on the roll cmd (NAV_FW_BASE_ROLL_CUTOFF, base 10) */
           if(!rollLpfInit){rollLpf=bank_cmd;rollLpfInit=1;} rollLpf+=a*(bank_cmd-rollLpf); bank_cmd=rollLpf; }
         /* energy/launch bank caps (validator additions, applied ON TOP of iNav's ±bank clamp): a hard bank at
@@ -314,7 +323,7 @@ int main(void){
         /* FLARE latch: once low on final, COMMIT — sticky through any balloon/bounce until touchdown, so a
            bounce never re-arms the pursuit/throttle into a go-around that departs. Arrests sink (pitch, above),
            holds wings level, cuts the engine (below). */
-        double flare_h = clr + fmax(3.0, (st.speed - 1.3*m.vs)*0.6);            /* flare height scales with the speed to bleed: a fast approach (a motor-glider at cruise thrust) holds off higher/longer; a powered aircraft near approach speed flares low so it doesn't float */
+        double flare_h = clr + fmax(4.0, (st.speed - 1.2*m.vs)*0.8);            /* flare height scales with the speed to bleed: a fast approach (a motor-glider at cruise thrust) holds off higher/longer; a powered aircraft near approach speed flares low so it doesn't float */
         if(landing && !rolling && (st.elev-m.ld.elev) < flare_h) flaring=1;
         if(!launched) bankMax=fmin(bankMax,10.0);
         if(landing) bankMax=fmin(bankMax,25.0);                                  /* approach: gentle procedure-turn bank, stay well inside the bank envelope */
@@ -346,7 +355,7 @@ int main(void){
             if(!pitchLpfInit){pitchLpf=pitch_dd;pitchLpfInit=1;} pitchLpf+=a*(pitch_dd-pitchLpf);
             pitch_cmd=fmax(-m.dive,fmin(m.climb,pitchLpf/10.0));        /* deg, reconstrained */
         }
-        if(flaring) pitch_cmd = fmax(pitch_cmd, fmin(7.0, (0.3 - st.vy)*1.6));   /* hold off: arrest the sink and bleed speed for a slow touchdown (the sticky flare latch keeps a brief balloon wings-level + engine-off, so a firm hold-off is safe) */
+        if(flaring) pitch_cmd = fmax(pitch_cmd, fmin(8.0, (0.4 - st.vy)*1.9));   /* hold off: arrest the sink and bleed speed for a slow touchdown (the sticky flare latch keeps a brief balloon wings-level + engine-off, so a firm hold-off is safe) */
         /* energy management: never demand more climb than airspeed allows — below the min MANEUVERING speed
            trade climb for speed (nose down) so a low-excess-thrust / relaxed-stability airframe never bleeds
            into a departure. The floor is max(vmin, 0.85*vc): a jet climbing+turning to a WP bleeds fast and
@@ -424,13 +433,22 @@ int main(void){
         if(!rolling && st.speed > m.vne){ snprintf(fail,sizeof fail,"overspeed: TAS %.1f > vne %.1f at t=%.1f",st.speed,m.vne,t); crashed=1; break; }  /* on the ground TAS spikes on contact — GS governs the rollout */
         /* --- WP capture / touchdown (the flightbox orakel: reach each WP in the capture radius, land near
            the threshold; envelope must hold throughout) --- */
-        double capR = m.capture_r>0? m.capture_r : 150.0;
-        if(launched && wp<m.nwp){ double dw=distll(st.lat,st.lon,tgt_la,tgt_lo); if(dw<wpmin[wp])wpmin[wp]=dw;
-            if(dw<capR) wp++; }
+        /* iNav's REAL fixed-wing waypoint-reached (navigation.c isWaypointReached): the WP is reached when the
+           bearing to it swings >100° past the bearing held when the leg became active (the aircraft has PASSED
+           the waypoint), OR it comes within nav_wp_radius. This is DECOUPLED from the grading tolerance — the
+           nav advances on iNav's own criterion, and wpmin[] is then an INDEPENDENT measurement of how close the
+           flight actually passed (the runner grades that against a realistic accuracy tolerance, not this). */
+        if(launched && wp<m.nwp){
+            double dw=distll(st.lat,st.lon,tgt_la,tgt_lo); if(dw<wpmin[wp])wpmin[wp]=dw;
+            double brg=bearing(st.lat,st.lon,tgt_la,tgt_lo);
+            if(wpBrgSet!=wp){ wpInitBrg=brg; wpBrgSet=wp; }
+            int passed = fabs(wrap180(brg-wpInitBrg)) > 100.0;   /* relativeBearingTargetAngle = 100° (iNav default) */
+            if(dw < NAV_WP_RADIUS_M || passed) wp++;
+        }
         if(landing){ double dl=distll(st.lat,st.lon,m.ld.lat,m.ld.lon);
             if(aglL<clr+3.0 && dl<tdist) tdist=dl;
             if(!rolling && aglL<clr+2.0){                  /* TOUCHDOWN — record how/where it met the runway (latch a touch above the wheels so a small bounce can't skip past the trigger and go around) */
-                rolling=1; td_lat=st.lat; td_lon=st.lon; td_speed=st.gs;
+                rolling=1; td_lat=st.lat; td_lon=st.lon; td_speed=st.gs; td_cas=st.cas; td_vz=st.vy;
                 double hr=m.ld.hdg*D2R, fe=sin(hr), fn=cos(hr), e,n;
                 enu(st.lat,st.lon,m.ld.lat,m.ld.lon,&e,&n);
                 td_along=e*fe+n*fn;                        /* metres past the threshold along the runway */
@@ -455,8 +473,9 @@ int main(void){
             if(j>=0)idx=j; }
         fprintf(stderr,"--- traj n=%d, final pos %.5f,%.5f asl=%.0f ---\n",ntraj, ntraj?traj[ntraj-1].lat:0, ntraj?traj[ntraj-1].lon:0, ntraj?traj[ntraj-1].asl:0);
     }
-    /* machine-readable landing metrics for the TS runner to grade (on-runway? aligned? stopped within it?) */
-    printf("LAND %.1f %.1f %.1f %.1f %.1f %.1f %d\n", td_along, td_xte, td_hdgerr, td_speed, rollout, m.ld.len, landed);
+    /* machine-readable landing metrics for the TS runner to grade (on-runway? aligned? soft? not hot? stopped?):
+       along, cross-track, heading-error, groundspeed, rollout, runway-len, stopped, calibrated-airspeed, sink-rate */
+    printf("LAND %.1f %.1f %.1f %.1f %.1f %.1f %d %.1f %.2f\n", td_along, td_xte, td_hdgerr, td_speed, rollout, m.ld.len, landed, td_cas, -td_vz);
     /* verdict: launched, every WP captured, and a COMPLETE landing — touched down ON the runway (aligned,
        on the strip) AND rolled to a full stop on it, envelope never violated. `stopped` = the rollout latched
        (gs -> 0); the runner grades WHERE on the runway + alignment + rollout distance from the metrics below. */

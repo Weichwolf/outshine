@@ -38,7 +38,9 @@
     "airport": "SBGL",
     "runway": "10",
     "touchdown_tol_m": 200,
-    "touchdown_gs_max_ms": 35
+    "touchdown_gs_max_ms": 35,
+    "touchdown_cas_max_ms": 13.5,
+    "touchdown_cas_note": "SGS 2-33 motor-glider has no spoilers and its motor idles at 0.45 min-throttle, so it flies final near cruise and touches down engine-off at ~1.7*Vs (still below its 17 m/s cruise) — the 1.5*Vs default is textbook for spoiler-equipped aircraft."
   },
   "success": {
     "capture_radius_m": 300

@@ -15,7 +15,7 @@ interface RunwayRec { ident: string; heading_deg: number; lat: number; lon: numb
 const AIRPORTS: Record<string, { icao: string; runways: RunwayRec[] }> =
   JSON.parse(readFileSync(`${SIM}/geo/airports.json`, 'utf8'));
 
-export interface Waypoint { lat: number; lon: number; altAgl: number; altRel: number | null; }
+export interface Waypoint { lat: number; lon: number; altAgl: number; altRel: number | null; faf?: boolean; }
 export interface Runway { icao: string; runway: string; lat: number; lon: number; elevM: number; headingDeg: number; lengthM: number; }
 export interface Mission {
   name: string; aircraft: string;
@@ -98,8 +98,13 @@ export async function resolveMission(spec: string, tilesUrl = process.env.TILES_
     const FAF_DIST = 2500, GLIDE = 3 * Math.PI / 180;
     const fafAgl = Math.round(FAF_DIST * Math.tan(GLIDE));                 // ~131 m: glideslope height at the FAF
     const [flat, flon] = destPoint(ld.lat, ld.lon, (ld.heading_deg + 180) % 360, FAF_DIST);
-    waypoints.push({ lat: flat, lon: flon, altAgl: fafAgl, altRel: (ld.elev_m + fafAgl) - home });   // pattern altitude referenced to the THRESHOLD (top of the glideslope)
+    waypoints.push({ lat: flat, lon: flon, altAgl: fafAgl, altRel: (ld.elev_m + fafAgl) - home, faf: true });   // pattern altitude referenced to the THRESHOLD (top of the glideslope)
   }
+  // iNav commands ≤ NAV_MAX_WAYPOINTS (15) — the FAF is a real MSP_SET_WP, so it counts. Fail-fast at the
+  // ceiling rather than silently overflow/clip on hardware (FORMAT.md §6). Author leaves room for the FAF.
+  const NAV_MAX_WAYPOINTS = 15;
+  if (waypoints.length > NAV_MAX_WAYPOINTS)
+    throw new Error(`mission '${m.name ?? spec}' resolves to ${waypoints.length} waypoints (incl. auto-appended FAF) > iNav's ${NAV_MAX_WAYPOINTS}-WP limit — remove ${waypoints.length - NAV_MAX_WAYPOINTS} task waypoint(s)`);
   const { vs, vc, vne, vmin } = vsVc(m.aircraft);
   const rw = (o: RunwayRec, icao: string): Runway => ({ icao, runway: o.ident, lat: o.lat, lon: o.lon, elevM: o.elev_m, headingDeg: o.heading_deg, lengthM: o.length_m ?? 1500 });
   return {
