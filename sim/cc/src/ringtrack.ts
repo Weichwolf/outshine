@@ -1,0 +1,143 @@
+// Ring-track generator + scorer, native TypeScript. From a resolved mission this builds the dense DIRECTED
+// corridor the aircraft must thread, from iNav's OWN nav math (climb-out at nav_fw_climb_angle, straight
+// enroute legs joined at the coordinated turn radius, an approach glideslope aligned to the landing runway).
+//
+// Two gate kinds — pick by whether DIRECTION matters:
+//   * ring   — a directed hoop (plane normal = flight tangent). "Passed" = the track pierces the plane
+//              from the correct side within the radius. Use where the crossing DIRECTION is relevant
+//              (climb corridor, straight legs, glideslope).
+//   * sphere — a position ball. "Passed" = the track's closest approach comes within the radius, ANY
+//              direction. Use where only REACHING the position matters (a waypoint to visit, a target).
+
+import { readFileSync, existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import type { Mission } from './mission.js';
+
+const G = 9.80665;
+const SIM = resolve(import.meta.dirname, '../../..');
+const D2R = Math.PI / 180, R2D = 180 / Math.PI;
+
+const clat = (lat: number) => Math.cos(lat * D2R);
+const enuOff = (lat: number, lon: number, clat0: number, clon0: number): [number, number] =>
+  [(lon - clon0) * 111320 * clat(clat0), (lat - clat0) * 111320];
+const offLL = (clat0: number, clon0: number, e: number, n: number): [number, number] =>
+  [clat0 + n / 111320, clon0 + e / (111320 * clat(clat0))];
+export function bearing(a: number, b: number, c: number, d: number): number {
+  const y = Math.sin((d - b) * D2R) * Math.cos(c * D2R);
+  const x = Math.cos(a * D2R) * Math.sin(c * D2R) - Math.sin(a * D2R) * Math.cos(c * D2R) * Math.cos((d - b) * D2R);
+  return (Math.atan2(y, x) * R2D + 360) % 360;
+}
+const dest = (lat: number, lon: number, brg: number, dist: number): [number, number] => {
+  const br = brg * D2R; return offLL(lat, lon, Math.sin(br) * dist, Math.cos(br) * dist);
+};
+const distLL = (a: [number, number], b: [number, number]): number => {
+  const [e, n] = enuOff(b[0], b[1], a[0], a[1]); return Math.hypot(e, n);
+};
+
+export interface NavParams { climbAngle: number; diveAngle: number; bankAngle: number; cruise: number; approachLen: number; glideAngle: number; }
+export function inavParams(ac: string): NavParams {
+  const p: NavParams = { climbAngle: 6, diveAngle: 6, bankAngle: 20, cruise: 15, approachLen: 350, glideAngle: 3 };
+  const f = `${SIM}/aircraft/models/${ac}/inav.diff`;
+  if (existsSync(f)) {
+    const t = readFileSync(f, 'utf8');
+    const g = (name: string, d: number, scale = 1) => { const m = t.match(new RegExp(`set ${name}\\s*=\\s*(-?\\d+(?:\\.\\d+)?)`)); return m ? Number(m[1]) * scale : d; };
+    p.climbAngle = g('nav_fw_climb_angle', p.climbAngle);
+    p.diveAngle = g('nav_fw_dive_angle', p.diveAngle);
+    p.bankAngle = g('nav_fw_bank_angle', p.bankAngle);
+    p.cruise = g('fw_reference_airspeed', p.cruise * 100) / 100;
+    p.approachLen = g('nav_fw_land_approach_length', p.approachLen * 100) / 100;
+  }
+  return p;
+}
+export const turnRadius = (V: number, bankDeg: number) => (V * V) / (G * Math.tan(Math.max(5, bankDeg) * D2R));
+
+export type GateKind = 'climb' | 'route' | 'approach' | 'point';
+export interface Gate { lat: number; lon: number; asl: number; r: number; kind: GateKind; gate: 'ring' | 'sphere'; brg?: number; }
+export type Pt = [number, number, number];   // lat, lon, asl
+
+/** Sphere gate: reach the position within radius, direction irrelevant. */
+export const sphere = (lat: number, lon: number, asl: number, r: number, kind: GateKind = 'point'): Gate =>
+  ({ lat, lon, asl, r, kind, gate: 'sphere' });
+
+/** The directed ring corridor for a mission: climb-out + straight enroute legs + approach glideslope. */
+export function buildTrack(m: Mission, opts: { ringRadius?: number; nClimb?: number; nApproach?: number } = {}): Gate[] {
+  const ringRadius = opts.ringRadius ?? 150, nClimb = opts.nClimb ?? 12, nApproach = opts.nApproach ?? 12;
+  const P = inavParams(m.aircraft);
+  const to = m.takeoff, ld = m.land, wps = m.waypoints;
+  const V = P.cruise, spacing = Math.max(120, turnRadius(V, P.bankAngle) * 0.9);
+  const toElev = to.elevM;
+  const gates: Gate[] = [];
+  const ring = (lat: number, lon: number, asl: number, brg: number, kind: GateKind): Gate =>
+    ({ lat, lon, asl, brg, r: ringRadius, kind, gate: 'ring' });
+
+  // climb-out: rise at nav_fw_climb_angle along the departure runway heading
+  const tanC = Math.tan(P.climbAngle * D2R);
+  const wp1asl = toElev + (wps[0]?.altRel ?? 100);
+  const climbLen = Math.max(spacing * nClimb, (wp1asl - toElev) / Math.max(tanC, 0.02));
+  for (let i = 1; i <= nClimb; i++) {
+    const d = climbLen * i / nClimb; const [la, lo] = dest(to.lat, to.lon, to.headingDeg, d);
+    gates.push(ring(la, lo, toElev + d * tanC, to.headingDeg, 'climb'));
+  }
+  // enroute: straight legs through the waypoints (iNav flies straight-to-WP then turns)
+  const appAlt = ld.elevM + P.approachLen * Math.tan(P.glideAngle * D2R);
+  const [appLat, appLon] = dest(ld.lat, ld.lon, (ld.headingDeg + 180) % 360, P.approachLen);
+  const last = gates[gates.length - 1];
+  const rpts: Pt[] = [[last.lat, last.lon, last.asl]];
+  for (const w of wps) rpts.push([w.lat, w.lon, toElev + (w.altRel ?? 0)]);
+  rpts.push([appLat, appLon, appAlt]);
+  let length = 0;
+  for (let i = 0; i < rpts.length - 1; i++) length += distLL([rpts[i][0], rpts[i][1]], [rpts[i + 1][0], rpts[i + 1][1]]);
+  const needRoute = Math.max(1, 100 - nClimb - nApproach) + rpts.length;
+  const rspacing = Math.min(spacing, length / needRoute);
+  for (let i = 0; i < rpts.length - 1; i++) {
+    const [la0, lo0, z0] = rpts[i]; const [la1, lo1, z1] = rpts[i + 1];
+    const seg = distLL([la0, lo0], [la1, lo1]); const br = bearing(la0, lo0, la1, lo1);
+    const k = Math.max(1, Math.floor(seg / rspacing));
+    for (let j = 0; j < k; j++) { const f = j / k; gates.push(ring(la0 + (la1 - la0) * f, lo0 + (lo1 - lo0) * f, z0 + (z1 - z0) * f, br, 'route')); }
+  }
+  // approach: glideslope on the landing runway centreline into the threshold
+  const tanG = Math.tan(P.glideAngle * D2R);
+  for (let i = nApproach; i >= 1; i--) {
+    const d = P.approachLen * i / nApproach; const [la, lo] = dest(ld.lat, ld.lon, (ld.headingDeg + 180) % 360, d);
+    gates.push(ring(la, lo, ld.elevM + d * tanG, ld.headingDeg, 'approach'));
+  }
+  return gates;
+}
+
+/** Index of the first pass of gate `g` at/after `start`; else -1. */
+export function pierceIndex(tj: Pt[], g: Gate, start = 0): number {
+  const casl = g.asl, r = g.r;
+  if (g.gate === 'sphere') {
+    let prev: [number, number, number] | null = null;
+    for (let idx = start; idx < tj.length; idx++) {
+      const [e, n] = enuOff(tj[idx][0], tj[idx][1], g.lat, g.lon); const u = tj[idx][2] - casl;
+      if (Math.hypot(e, n, u) < r) return idx;
+      if (prev) {                                             // closest approach on the segment (fast fly-through)
+        const [pe, pn, pu] = prev; const de = e - pe, dn = n - pn, du = u - pu; const L2 = de * de + dn * dn + du * du;
+        if (L2 > 1e-9) { let t = -(pe * de + pn * dn + pu * du) / L2; t = Math.max(0, Math.min(1, t));
+          if (Math.hypot(pe + t * de, pn + t * dn, pu + t * du) < r) return idx; }
+      }
+      prev = [e, n, u];
+    }
+    return -1;
+  }
+  const br = (g.brg ?? 0) * D2R, ne = Math.sin(br), nn = Math.cos(br);   // ring: forward pierce of the plane
+  let prev: [number, number, number, number] | null = null;
+  for (let idx = start; idx < tj.length; idx++) {
+    const [e, n] = enuOff(tj[idx][0], tj[idx][1], g.lat, g.lon); const u = tj[idx][2] - casl; const s = e * ne + n * nn;
+    if (prev) { const [pe, pn, pu, ps] = prev;
+      if (ps < 0 && s >= 0) { const t = ps / (ps - s);
+        const ct = (pe + t * (e - pe)) * (-nn) + (pn + t * (n - pn)) * ne; const cu = pu + t * (u - pu);
+        if (Math.hypot(ct, cu) < r) return idx; } }
+    prev = [e, n, u, s];
+  }
+  return -1;
+}
+
+/** (threaded, inorder): gates passed at all, and the longest run passed IN SEQUENCE. */
+export function score(tj: Pt[], gates: Gate[]): { threaded: number; inorder: number } {
+  let threaded = 0; for (const g of gates) if (pierceIndex(tj, g) >= 0) threaded++;
+  let inorder = 0, cur = 0, i = 0;
+  for (const g of gates) { const j = pierceIndex(tj, g, i); if (j >= 0) { cur++; i = j; inorder = Math.max(inorder, cur); } else cur = 0; }
+  return { threaded, inorder };
+}

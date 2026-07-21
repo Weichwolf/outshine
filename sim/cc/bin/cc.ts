@@ -26,8 +26,7 @@ async function main() {
     }
   } else if (cmd === 'fly') {
     const spec = process.argv[3] ?? 'c172';
-    const path = spec.endsWith('.json') ? spec : `missions/${spec}.json`;
-    const m = resolveMission(path);
+    const m = await resolveMission(spec);
     process.stdout.write(`>> ${m.name || m.aircraft}: ${m.takeoff.icao}/${m.takeoff.runway} -> ${m.waypoints.length} WP -> ${m.land.icao}/${m.land.runway}\n`);
     const proc = m.raw.procedure ?? {};
     const secs = (m.raw.abort?.timeout_s ?? 600);

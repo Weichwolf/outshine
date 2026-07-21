@@ -1,43 +1,72 @@
-// Declarative mission -> resolved geometry. A mission is data (JSON/YAML): takeoff + waypoints (AGL) +
-// land + speeds. Resolving it means: runway threshold lat/lon + heading from the airport DB, and each
-// waypoint's home-relative altitude from the DEM (ground elevation) — "Terrain lebt im CC". The DEM/DB
-// lookups already exist in test/mission.py (one source of truth for E2E and CC); we call it as a pure
-// resolver here rather than re-porting the tile decode. The mission stays declarative; this is compute.
+// Declarative mission -> resolved geometry, NATIVE TypeScript (no Python). A mission is data: takeoff +
+// waypoints (AGL) + land. Resolving it: runway threshold lat/lon + heading from the OurAirports world DB
+// (geo/airports.json), and each waypoint's home-relative altitude from the DEM (ground elevation via the
+// fb-tiles /elev endpoint) — "Terrain lebt im CC". iNav only ever gets home-relative GPS numbers. The
+// aircraft contributes its Vs/Vc (profile.env); the scenario speed envelope comes from speeds.ts.
 
-import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-
-export interface Waypoint { lat: number; lon: number; altAgl: number; altRel: number; }
-export interface Runway { icao: string; runway: string; lat: number; lon: number; elevM: number; headingDeg: number; }
-export interface Speeds { cruiseMs: number; climbMs: number; approachMs: number; stallMs: number; }
-export interface Mission {
-  name: string; aircraft: string;
-  takeoff: Runway; land: Runway; waypoints: Waypoint[];
-  speeds: Speeds;
-  raw: any;                                    // the declarative spec, verbatim (success/abort criteria etc.)
-}
+import { scenarioSpeeds, type Scenario, type Band } from './speeds.js';
 
 const SIM = resolve(import.meta.dirname, '../../..');   // cc/dist/src -> sim/
 
-/** Resolve a declarative mission file (path relative to sim/, e.g. "missions/c172.json") to geometry. */
-export function resolveMission(specPath: string): Mission {
-  // single line (semicolons): a `python3 -c` argument can carry no real newlines through execSync
-  const py = `import sys,json; sys.path.insert(0,'test'); import mission; ` +
-    `m=json.load(open(sys.argv[1])); R=mission.resolve(m,tiles_url='http://localhost:8081'); ` +
-    `print(json.dumps({"name":m.get("name",""),"aircraft":R["aircraft"],"takeoff":R["takeoff"],"land":R["land"],"waypoints":R["waypoints"],"raw":m}))`;
-  const out = execSync(`python3 -c ${JSON.stringify(py)} ${JSON.stringify(specPath)}`,
-                       { cwd: SIM, encoding: 'utf8', maxBuffer: 8 << 20 });
-  const R = JSON.parse(out);
-  const rw = (o: any): Runway => ({ icao: o.icao, runway: o.runway, lat: o.lat, lon: o.lon, elevM: o.elev_m, headingDeg: o.heading_deg });
-  const sp = R.raw.speeds ?? {};
-  return {
-    name: R.name, aircraft: R.aircraft,
-    takeoff: rw(R.takeoff), land: rw(R.land),
-    waypoints: R.waypoints.map((w: any) => ({ lat: w.lat, lon: w.lon, altAgl: w.alt_agl, altRel: w.alt_rel })),
-    speeds: { cruiseMs: sp.cruise_ms ?? 20, climbMs: sp.climb_ms ?? 18, approachMs: sp.approach_ms ?? 16, stallMs: sp.stall_ms ?? 11 },
-    raw: R.raw,
-  };
+interface RunwayRec { ident: string; heading_deg: number; lat: number; lon: number; elev_m: number; length_m: number | null; surface: string; }
+const AIRPORTS: Record<string, { icao: string; runways: RunwayRec[] }> =
+  JSON.parse(readFileSync(`${SIM}/geo/airports.json`, 'utf8'));
+
+export interface Waypoint { lat: number; lon: number; altAgl: number; altRel: number | null; }
+export interface Runway { icao: string; runway: string; lat: number; lon: number; elevM: number; headingDeg: number; }
+export interface Mission {
+  name: string; aircraft: string;
+  takeoff: Runway; land: Runway; waypoints: Waypoint[];
+  vs: number; vc: number; speeds: Record<Scenario, Band>;   // aircraft speed envelope
+  raw: any;                                                 // the declarative spec, verbatim
 }
 
-export function readJson(path: string): any { return JSON.parse(readFileSync(path, 'utf8')); }
+/** Runway threshold record by airport ICAO + runway ident, from the world DB. */
+export function runway(icao: string, ident: string): RunwayRec {
+  const ap = AIRPORTS[icao];
+  if (!ap) throw new Error(`airport ${icao} not in DB`);
+  const rw = ap.runways.find((r) => r.ident === ident);
+  if (!rw) throw new Error(`runway ${ident} not at ${icao} (have ${ap.runways.map((r) => r.ident).join(',')})`);
+  return rw;
+}
+
+/** DEM ground elevation (m ASL) at lat/lon via fb-tiles /elev, or null if unreachable. */
+export async function groundElev(lat: number, lon: number, tilesUrl: string): Promise<number | null> {
+  if (!tilesUrl) return null;
+  try {
+    const r = await fetch(`${tilesUrl}/elev?lat=${lat}&lon=${lon}&block=1`);
+    if (!r.ok) return null;
+    const v = Number((await r.text()).trim());
+    return Number.isFinite(v) && v > -1e8 ? v : null;
+  } catch { return null; }
+}
+
+function vsVc(ac: string): { vs: number; vc: number } {
+  const txt = readFileSync(`${SIM}/aircraft/models/${ac}/profile.env`, 'utf8');
+  const g = (k: string, d: number) => { const m = txt.match(new RegExp(`^\\s*${k}\\s*=\\s*([0-9.]+)`, 'm')); return m ? Number(m[1]) : d; };
+  return { vs: g('FB_STALL', 11), vc: g('FB_CRUISE', 20) };
+}
+
+/** Resolve a declarative mission (name or path under sim/) to a flyable GPS/ASL plan. */
+export async function resolveMission(spec: string, tilesUrl = process.env.TILES_URL ?? 'http://localhost:8081'): Promise<Mission> {
+  const path = spec.endsWith('.json') || spec.includes('/') ? spec : `missions/${spec}.json`;
+  const m = JSON.parse(readFileSync(resolve(SIM, path), 'utf8'));
+  const to = runway(m.takeoff.airport, m.takeoff.runway);
+  const ld = runway(m.land.airport, m.land.runway);
+  const home = to.elev_m;
+  const waypoints: Waypoint[] = [];
+  for (const w of m.waypoints ?? []) {
+    const g = await groundElev(w.lat, w.lon, tilesUrl);
+    const asl = g != null ? w.alt_agl + g : null;
+    waypoints.push({ lat: w.lat, lon: w.lon, altAgl: w.alt_agl, altRel: asl != null ? asl - home : null });
+  }
+  const { vs, vc } = vsVc(m.aircraft);
+  const rw = (o: RunwayRec, icao: string): Runway => ({ icao, runway: o.ident, lat: o.lat, lon: o.lon, elevM: o.elev_m, headingDeg: o.heading_deg });
+  return {
+    name: m.name ?? '', aircraft: m.aircraft,
+    takeoff: rw(to, m.takeoff.airport), land: rw(ld, m.land.airport),
+    waypoints, vs, vc, speeds: scenarioSpeeds(vs, vc), raw: m,
+  };
+}

@@ -41,7 +41,7 @@ export async function flyMission(cc: CC, m: Mission, timeoutMs: number, opts: Fl
       if ((Date.now() - t0) % 3000 >= 1500) { rc[4] = 2000; rc[3] = 2000; }   // pulse ARM + YAW_HI (bypass NAV_UNSAFE)
       phase = 'arming';
     } else {
-      if (!uploaded) { cc.uploadMission(m.waypoints.map((w) => ({ lat: w.lat, lon: w.lon, altRel: w.altRel })), land); uploaded = true; }
+      if (!uploaded) { cc.uploadMission(m.waypoints.map((w) => ({ lat: w.lat, lon: w.lon, altRel: w.altRel ?? 0 })), land); uploaded = true; }
       const agl = t.aglM ?? 0;
       if (agl >= angleHold) established = true;                               // latch: once safe, stay in NAV
       if (angleHold > 0 && !established) {
