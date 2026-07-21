@@ -226,7 +226,7 @@ int main(void){
     pidController_t pidNav; navPidInit(&pidNav, m.posXYp/100.0f, m.posXYi/100.0f, m.posXYd/100.0f, 0.0f, NAV_DTERM_CUT_HZ, 0.0f);
     double vtarget=fmax(m.cruise, m.vmin*1.2);       /* operating airspeed: sustainable at cruise power, above departure */
     int jet = m.vmin > 1.5*m.vs;                      /* relaxed-stability / high-min-speed airframe: must hold power always */
-    double pcut = 0.001*2.0*pow(10.0-m.control_smoothness,3.0)+0.1;  /* iNav pitch-cmd LPF cutoff (Hz) from control_smoothness */
+    double pcut = getSmoothnessCutoffFreq(NAV_FW_BASE_PITCH_CUTOFF_FREQUENCY_HZ, (int)m.control_smoothness);  /* iNav pitch-cmd LPF cutoff (Hz), iNav's OWN extracted function (base = pitch cutoff freq) */
     double pitchLpf=0; int pitchLpfInit=0; double rollLpf=0; int rollLpfInit=0;
     int wp=0; int landing=0; int launched=0; int landed=0; int landphase=0; int committed=0; int flaring=0; double t=0; const double dt=0.01, t_max=2400.0;
     double wp1rel = m.nwp? m.wp[0].alt_rel : 100;
@@ -264,10 +264,6 @@ int main(void){
             double hr=m.ld.hdg*D2R, fe=sin(hr), fn=cos(hr);          /* runway forward = landing direction (E,N) */
             double e,n; enu(st.lat,st.lon,m.ld.lat,m.ld.lon,&e,&n);
             double along=e*fe+n*fn;                                  /* <0 approach side (behind threshold), >0 past it */
-            double xte=e*(-fn)+n*fe;                                 /* cross-track, +right of the centreline */
-            double cg=atan2(st.vx,-st.vz)*R2D; if(cg<0)cg+=360;
-            int aligned = fabs(wrap180(cg-m.ld.hdg)) < 40.0;
-            int established = fabs(xte) < 250.0 && aligned;
             double pattern_alt=m.ld.elev+clr+final_len*tan(m.glide*D2R);
             /* latched: 0 GET BEHIND the threshold (wrong-side entries only) -> 1 FINAL. No heading-control
                intercept phase — that hits a 180° singularity when the join leaves the aircraft outbound; a

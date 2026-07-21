@@ -1,0 +1,13 @@
+{
+  "name": "Alpin-Talflug — C172, Inntal Innsbruck→Wattens (LOWI)",
+  "aircraft": "c172",
+  "takeoff": { "airport": "LOWI", "runway": "08" },
+  "waypoints": [
+    { "lat": 47.263, "lon": 11.42, "alt_agl": 400 },
+    { "lat": 47.28, "lon": 11.51, "alt_agl": 450 },
+    { "lat": 47.305, "lon": 11.60, "alt_agl": 450 }
+  ],
+  "land": { "airport": "LOWI", "runway": "26" },
+  "success": { "takeoff_agl_m": 40, "capture_radius_m": 300 },
+  "abort": { "timeout_s": 900, "max_agl_m": 3000, "on_nan": true }
+}

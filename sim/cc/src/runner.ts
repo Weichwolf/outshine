@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { resolveMission, groundElev, type Mission } from './mission.js';
-import { inavParams } from './ringtrack.js';
+import { inavParams, assertInavCoverage } from './ringtrack.js';
 import { CAPTURE, ALT_BAND, SPEED_BAND, type Sample, type Track, range, type Point } from './predicates.js';
 
 const SIM = resolve(import.meta.dirname, '../../..');
@@ -17,6 +17,7 @@ const MODELS_ROOT = process.env.MODELS_ROOT ?? 'aircraft/models';
 /** Compact resolved-mission text the C validator reads on stdin (runways, iNav nav/throttle/PID/rate params,
  *  speed envelope, config, waypoints). Single source used by `cc vinput` and the runner. */
 export function buildVinput(m: Mission): string {
+  assertInavCoverage(m.aircraft);   // fail-fast if the aircraft's inav.diff has a setting the validator doesn't account for
   const p = inavParams(m.aircraft);
   const L: string[] = [];
   L.push(`ac ${m.aircraft}`);
