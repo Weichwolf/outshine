@@ -52,7 +52,8 @@
   },
   "envelope": {
     "alt_floor_agl_m": 30,
-    "alt_ceil_agl_m": 1200
+    "alt_ceil_agl_m": 1200,
+    "alt_floor_note": "Terrain-Following wird über die terrain-korrigierten WP-Höhen validiert (jeder WP alt_agl über seiner DEM-Höhe -> der Flieger folgt dem Talboden). alt_floor_agl_m ist ein Sicherheits-Envelope: er fängt eine fehl-authored Mission die in ansteigendes Terrain fliegen würde; für dieses gut-authored flache Rhônetal ist er nicht bindend (der Flug bleibt weit darüber). Ein floor-BINDENDER Test (Pass-Überquerung über ansteigendes Terrain) ist separate Arbeit."
   },
   "procedure": {
     "angle_hold_alt": 60,
