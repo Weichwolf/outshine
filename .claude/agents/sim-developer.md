@@ -42,10 +42,9 @@ You are a senior simulator/graphics engineer on FlightBox. Working dir: `/home/c
   sampler); rg11b10ufloat has NO alpha (premultiplied blends need rgba16float); 3D noise textures
   need explicit mip chains + footprint-derived LOD or you get stable grazing moiré no jitter can
   average away.
-- emdawnwebgpu interop: the WASM device is created ASYNC — `getJsObject(handle)` is unusable until
-  after main() yields; resolve JS-side objects lazily in the first live frame. JS-side mapAsync
-  trips the external-instance guard — do readbacks in C++ (the instance pumps its own callbacks).
-  timestampWrites: never leave a sentinel index on a used pass (validated as real index).
+- No JS↔WebGPU interop in the tree today (removed with the codec loop). If a task reintroduces it:
+  the WASM device resolves ASYNC (getJsObject only after main() yields), readbacks belong in C++,
+  timestampWrites never with sentinel indices — details in the memory/reports before building.
 - Submission: per-tile draws live in a RenderBundle, re-recorded only on structural change (FNV
   signature); per-frame data stays in WriteBuffer updates the bundle references. Keep it that way.
 - Two-phase commit invariant: nothing draws before its GPU upload completed (`notReadyDraws` must
