@@ -86,6 +86,7 @@ public:
    * photo layer yet draws OSM (silent fallback), so the flip is never a hole. */
   void SetGroundMode(int photo);
   int  GetGroundMode(void) const { return GroundPhoto ? 1 : 0; }
+  int  DrawCount(void) const { return Streaming ? (int)DrawList.size() : NTiles; }   /* tile draws/frame (TileBuf = n*32 B) */
 
   /* Boot default = the EAGER base albedo (uploaded with each tile). The OTHER mode is the lazy overlay
    * (DynTile.PhotoLayer, fetched on first switch). 1 = EVS/photo base (Esri first), 0 = OSM base. */
@@ -180,6 +181,12 @@ private:
   wgpu::RenderPipeline TerrainPipe, TonemapPipe, TonemapPlainPipe;   /* Plain = tonemap without the cloud composite */
   wgpu::Buffer Vtx, Uni, TileBuf;
   wgpu::BindGroup Bind, TonemapBind, TonemapBindH[2], TonemapBindPlain;   /* TonemapBindH[k] composites CloudHist[k]; Plain = no cloud */
+  /* Terrain draws (~172/frame) recorded once into a RenderBundle, replayed per frame; re-recorded only
+   * when the draw-list STRUCTURE changes (tile set / per-tile Vtx / NVerts / the Bind after an array
+   * grow) — TileBuf/uniform CONTENTS stay per-frame buffer writes the bundle references by handle. */
+  wgpu::RenderBundle TerrainBundle;
+  uint64_t TerrainBundleSig = 0;     /* FNV of the structure; 0 = none recorded yet */
+  long TerrainBundleRecords = 0;     /* re-record count (telemetry: ~few/s in a loiter, ~0 when parked) */
   bool CloudsOn = false;   /* FB_CLOUDS=1 arms the whole volumetric+dome cloud path; default off (build the pass, skip it) */
   wgpu::Sampler Samp;
   wgpu::Texture Albedo, DepthTex, HdrTex;

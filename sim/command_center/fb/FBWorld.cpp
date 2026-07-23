@@ -366,6 +366,7 @@ void FBWorld::Update(double camLat, double camLon, const double eyeEcef[3], cons
         nd.albedo.clear();
         nd.readyPass = Pass;   /* 2-phase: drawable next pass, once the upload is submitted */
         upload--;
+        Built++;   /* build completion (thrash: builds/min ~0 in a converged loiter, climbs if evict-rebuild) */
       }
     }
   }
@@ -434,11 +435,16 @@ void FBWorld::Update(double camLat, double camLon, const double eyeEcef[3], cons
   }
 
   if (nowMs - LastLog >= 1000.0) {
+    double dtMin = (nowMs - LastLog) / 60000.0;   /* interval in minutes for the per-minute rates */
     LastLog = nowMs;
     long albVram = (long)DrawnReady * TS * TS * 4;
     double vramMB = (double)(MeshVram + albVram) / 1.0e6;
-    printf("[fbworld] leaves=%d drawn=%d pending=%d evicted=%ld vramMB=%.1f nodes=%d lights=%d\n", Leaves,
-           DrawnReady, Pending, Evicted, vramMB, (int)Nodes.size(), LightsResident);
+    double buildsMin = dtMin > 0 ? (Built - PrevBuilt) / dtMin : 0.0;      /* STREAMING-THRASH probe: in a
+                                    converged stationary loiter both rates -> ~0; steady climb = evict-rebuild churn */
+    double evictMin = dtMin > 0 ? (Evicted - PrevEvicted) / dtMin : 0.0;
+    PrevBuilt = Built; PrevEvicted = Evicted;
+    printf("[fbworld] leaves=%d drawn=%d pending=%d evicted=%ld vramMB=%.1f nodes=%d lights=%d | builds/min=%.0f evict/min=%.0f (built=%ld)\n",
+           Leaves, DrawnReady, Pending, Evicted, vramMB, (int)Nodes.size(), LightsResident, buildsMin, evictMin, Built);
     fflush(stdout);   /* progress must show live in piped/background native runs */
   }
 }

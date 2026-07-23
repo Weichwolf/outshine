@@ -104,6 +104,8 @@ private:
   std::vector<uint8_t> Scratch;
   unsigned Pass;
   long Evicted;
+  long Built = 0;                    /* cumulative tile uploads (build completions) — thrash diagnosis */
+  long PrevBuilt = 0, PrevEvicted = 0;   /* deltas for the builds/min + evictions/min rate on [fbworld] */
   double LastLog;
   int Leaves, DrawnReady, Pending;   /* per-pass counters */
   int TargetTot, TargetRdy;          /* geometry target-cut: total leaves / GPU-ready (LoadProgress) */

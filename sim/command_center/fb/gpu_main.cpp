@@ -138,22 +138,30 @@ static void frame(void) {
     return;
   }
 
+  /* [cpuprof] (branch performance): wall-clock ms per main-loop section, 1 Hz summary. WebGPU GPU work is
+   * async, so RenderFrame's time here is CPU-side command RECORDING + submit, not the GPU render itself. */
+  double cp_a = emscripten_get_now();
+
   /* FDM ground floor = the SAME DEM the renderer draws (crash contract): feed JSBSim the terrain ASL
    * under the aircraft BEFORE stepping, so gear/contact/crash collide against real terrain (~430 m at
    * Grenchen), not init-ASL 0. Only push REAL /elev samples; a cold reply leaves the last good value. */
   double ground = fb_stream_ground(St.lat, St.lon);
   if (ground > -1e8) fb_jsbsim_set_ground(ground);
+  double cp_b = emscripten_get_now();   /* end: ground/bridges */
 
   /* Advance the F-16: guidance -> FLCS-command -> JSBSim, fixed 100 Hz substeps (spiral guard). */
   AccS += dt;
   FBGuidance g{};
+  int nSub = 0;
   for (int k = 0; AccS >= 0.01 && k < 12; k++) {
     g = AP.Run(St);
     FBControls c = FC.Run(g, St);
     fb_jsbsim_set_controls(c.Roll, c.Pitch, c.Yaw, c.Thr);
     fb_jsbsim_step(&St);
     AccS -= 0.01;
+    nSub++;
   }
+  double cp_c = emscripten_get_now();   /* end: jsbsim substeps */
 
   /* HUD AGL (ASL - DEM ground); until the first /elev lands, fall back to the config ground so the
    * tape shows a plausible number rather than ASL. 1 Hz telemetry from THIS sim tick (device-loss-proof). */
@@ -196,10 +204,31 @@ static void frame(void) {
   R.SetSkyClock((double)utc);
   R.SetHud(hs, true);
 
+  double cp_d = emscripten_get_now();   /* end: pose/HUD/ephemeris */
+
   W.SetNightLights(R.GetGroundMode() && hs.sun_el < -3.0f);   /* EVS night -> stream /t/lights */
   W.Update(St.lat, St.lon, eye, fwd, now);   /* multi-LOD quadtree around the live flight */
+  double cp_e = emscripten_get_now();   /* end: FBWorld update (quadtree + gain + lights poll) */
 
   R.RenderFrame();
+  double cp_f = emscripten_get_now();   /* end: render (CPU-side record + submit) */
+
+  { static double aGround = 0, aJsbsim = 0, aPose = 0, aWorld = 0, aRender = 0, aPeriod = 0, acc = 0;
+    static long nF = 0, sSub = 0;
+    aGround += cp_b - cp_a; aJsbsim += cp_c - cp_b; aPose += cp_d - cp_c;
+    aWorld += cp_e - cp_d; aRender += cp_f - cp_e; aPeriod += dt * 1000.0;
+    sSub += nSub; nF++; acc += dt;
+    if (acc >= 1.0) {
+      double loop = aGround + aJsbsim + aPose + aWorld + aRender;
+      double per = aPeriod / nF;   /* mean rAF period (ms) — the 1/refresh budget */
+      printf("[cpuprof] loop=%.2f ms/f (%.0f%% of %.1fms rAF) | ground=%.2f jsbsim=%.2f pose=%.2f world=%.2f render=%.2f (ms/f) | draws=%d tilebuf=%dB substeps=%.1f/f frames=%ld\n",
+             loop / nF, per > 0 ? 100.0 * (loop / nF) / per : 0.0, per,
+             aGround / nF, aJsbsim / nF, aPose / nF, aWorld / nF, aRender / nF,
+             R.DrawCount(), R.DrawCount() * 32, (double)sSub / nF, nF);
+      fflush(stdout);
+      aGround = aJsbsim = aPose = aWorld = aRender = aPeriod = acc = 0; nF = 0; sSub = 0;
+    }
+  }
 }
 
 int main() {

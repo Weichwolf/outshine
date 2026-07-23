@@ -114,6 +114,28 @@ void FBRenderer::StartAdapterRequest(void) {
 
 void FBRenderer::OnAdapter(wgpu::Adapter a) {
   Adapter = a;
+  /* CPU-load diagnosis (branch performance): print WHAT WebGPU actually runs on. adapterType==CPU means
+   * the ENTIRE pipeline is software rasterization (SwiftShader/lavapipe/WARP) — then the high CPU is the
+   * browser, not our code, and the fix is browser-side (chrome://gpu, Firefox WebGPU/Vulkan flags). */
+  { wgpu::AdapterInfo info{};
+    a.GetInfo(&info);
+    const bool soft = (info.adapterType == wgpu::AdapterType::CPU);
+    const char *at = info.adapterType == wgpu::AdapterType::DiscreteGPU   ? "discrete-GPU"
+                   : info.adapterType == wgpu::AdapterType::IntegratedGPU ? "integrated-GPU"
+                   : info.adapterType == wgpu::AdapterType::CPU           ? "CPU-SOFTWARE"
+                                                                          : "unknown";
+    wgpu::Limits lim{};
+    a.GetLimits(&lim);
+    printf("[gpu] adapter: vendor='%.*s' arch='%.*s' device='%.*s' desc='%.*s'\n",
+           (int)info.vendor.length, info.vendor.data, (int)info.architecture.length, info.architecture.data,
+           (int)info.device.length, info.device.data, (int)info.description.length, info.description.data);
+    printf("[gpu] adapter: type=%s backend=%d fallback=%d %s | limits: maxTexArrayLayers=%u maxBufferSize=%lluMB maxTexDim2D=%u\n",
+           at, (int)info.backendType, soft ? 1 : 0,
+           soft ? "<-- SOFTWARE RENDERING: 100% CPU, fix is browser-side (chrome://gpu / FF flags), not our code"
+                : "(hardware)",
+           (unsigned)lim.maxTextureArrayLayers, (unsigned long long)(lim.maxBufferSize >> 20), (unsigned)lim.maxTextureDimension2D);
+    fflush(stdout);
+  }
   /* HDR scene target = rgba16float: the volumetric cloud pass blends premultiplied-alpha over it, and
    * rg11b10ufloat has NO alpha channel + no guaranteed blend support (the earlier bandwidth pick broke
    * cloud compositing). 16F is the standard blendable HDR format; the extra 4 B/px at 720p is nothing. */
@@ -2712,6 +2734,41 @@ void FBRenderer::RenderFrame(void) {
   }
   if (nDraw > 0) Queue.WriteBuffer(TileBuf, 0, off.data(), off.size() * sizeof(float));
 
+  /* RenderBundle: bake the ~nDraw per-tile terrain draws once, replay every frame. Signature = the draw
+   * STRUCTURE (count, Bind after an array grow, each tile's Vtx handle + NVerts); TileBuf/uniform CONTENTS
+   * change per frame but the bundle references those buffers by handle, so only structure triggers a
+   * re-record (~few/s in a loiter as tiles stream, 0 when parked). Cuts ~nDraw CPU draw-encodes to one
+   * ExecuteBundles. */
+  if (Streaming && nDraw > 0) {
+    uint64_t sig = 1469598103934665603ULL;
+    auto mix = [&sig](uint64_t v) { sig ^= v; sig *= 1099511628211ULL; };
+    mix((uint64_t)nDraw);
+    mix((uint64_t)(uintptr_t)Bind.Get());
+    for (int i = 0; i < nDraw; i++) {
+      const DynTile &d = DynTiles[DrawList[i]];
+      mix((uint64_t)(uintptr_t)d.Vtx.Get());
+      mix((uint64_t)d.NVerts);
+    }
+    if (sig != TerrainBundleSig || !TerrainBundle) {
+      wgpu::TextureFormat cf = HdrFormat;
+      wgpu::RenderBundleEncoderDescriptor rbd{};
+      rbd.colorFormatCount = 1;
+      rbd.colorFormats = &cf;
+      rbd.depthStencilFormat = wgpu::TextureFormat::Depth32Float;
+      wgpu::RenderBundleEncoder rbe = Device.CreateRenderBundleEncoder(&rbd);
+      rbe.SetPipeline(TerrainPipe);
+      rbe.SetBindGroup(0, Bind);
+      for (int i = 0; i < nDraw; i++) {
+        const DynTile &d = DynTiles[DrawList[i]];
+        rbe.SetVertexBuffer(0, d.Vtx);
+        rbe.Draw(d.NVerts, 1, 0, (uint32_t)i);
+      }
+      TerrainBundle = rbe.Finish();
+      TerrainBundleSig = sig;
+      TerrainBundleRecords++;
+    }
+  }
+
   float u[20];
   MvpCamRel(u, right, camUp, fwd, Width, Height);
   /* Sun drives BOTH the terrain diffuse and the physically-based atmosphere, so sky and ground agree.
@@ -2800,15 +2857,11 @@ void FBRenderer::RenderFrame(void) {
     scene.Draw(6, (uint32_t)NStarVis);
   }
 
-  scene.SetPipeline(TerrainPipe);
-  scene.SetBindGroup(0, Bind);
-  if (Streaming) {   /* per-tile buffers; firstInstance = draw index -> its storage entry (offset+layer) */
-    for (int i = 0; i < nDraw; i++) {
-      const DynTile &d = DynTiles[DrawList[i]];
-      scene.SetVertexBuffer(0, d.Vtx);
-      scene.Draw(d.NVerts, 1, 0, (uint32_t)i);
-    }
+  if (Streaming) {   /* per-tile buffers baked into TerrainBundle; firstInstance = draw index -> storage entry */
+    if (TerrainBundle && nDraw > 0) scene.ExecuteBundles(1, &TerrainBundle);
   } else {
+    scene.SetPipeline(TerrainPipe);
+    scene.SetBindGroup(0, Bind);
     scene.SetVertexBuffer(0, Vtx);
     for (int i = 0; i < NTiles; i++)   /* firstInstance = i -> instance_index picks tile i's offset */
       scene.Draw(TileCnt[i], 1, TileOff[i], (uint32_t)i);
@@ -3000,8 +3053,8 @@ void FBRenderer::RenderFrame(void) {
 
   /* 2-phase-commit assertion (once/sec): no frame should ever have drawn an uncommitted layer. */
   if (Streaming && FrameNo % 60 == 0) {
-    printf("[present] notReadyDraws=%ld (2-phase invariant: 0)%s\n", NotReadyDraws,
-           NotReadyDraws ? "  <-- VIOLATION" : "");
+    printf("[present] notReadyDraws=%ld (2-phase invariant: 0)%s | bundleRecords=%ld\n", NotReadyDraws,
+           NotReadyDraws ? "  <-- VIOLATION" : "", TerrainBundleRecords);
     fflush(stdout);
   }
 }
