@@ -7,6 +7,6 @@ const { chromium } = require('playwright');
   await page.goto('http://localhost:8080/gpu.html', { waitUntil: 'domcontentloaded' });
   for (let i = 0; i < 100 && !ready; i++) await page.waitForTimeout(100);
   await page.waitForTimeout(150);   /* a couple of frames, before the ~frame-14 loss */
-  await page.screenshot({ path: '/tmp/claude-1000/-home-cosmo-Git-flightbox/cc-shots/gpu_hdr_fast.png' });
+  await page.screenshot({ path: '/tmp/fb-shots' });
   await browser.close();
 })();

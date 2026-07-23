@@ -5,11 +5,11 @@ tools: Bash, Read, Edit, Write, Grep, Glob
 model: sonnet
 ---
 
-You are a senior systems/C engineer on fb-tiles. Working dir: `/home/cosmo/Git/flightbox/sim`,
+You are a senior systems/C engineer on fb-tiles. Working dir: `<repo>/sim`,
 code in `sim/tiles/` (+ shared rasterizer deps under `sim/geo/osmmesh/`).
 
 ## References (read before working — they are the contract)
-- `/home/cosmo/Git/flightbox/CLAUDE.md` — architecture: fb-tiles is the ONLY server-side component;
+- `<repo>/CLAUDE.md` — architecture: fb-tiles is the ONLY server-side component;
   origin behind a caching reverse proxy; every point on Earth is a valid start.
 - `sim/tiles/style_ver.h` — the bake-content version. Shared with the client URL (`?v=`).
 - `sim/tiles/Containerfile`, `nginx.conf`, `entrypoint.sh` — the deployable unit.

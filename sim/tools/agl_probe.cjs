@@ -16,6 +16,6 @@ const { chromium } = require('playwright');
   for (const l of lines) console.log(l.t, l.text);
   console.log('=== ERRS/WARN sample ('+errs.length+') ===');
   for (const e of errs.slice(0,40)) console.log(e);
-  await page.screenshot({ path: '/tmp/claude-1000/-home-cosmo-Git-flightbox/e92a0e60-89cf-452e-8a81-dddb8658aa1c/scratchpad/cc-shots/main.png' });
+  await page.screenshot({ path: '/tmp/fb-shots' });
   await browser.close();
 })();

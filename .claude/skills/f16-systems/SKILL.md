@@ -5,7 +5,7 @@ description: F-16C systems knowledge for FlightBox — complete rebuild spec dis
 
 # F-16C Systems Reference
 
-The knowledge base lives in `/home/cosmo/Git/flightbox/doc/f16/` — 15 subsystem files, each with a
+The knowledge base lives in `<repo>/doc/f16/` — 15 subsystem files, each with a
 guide distillate (facts/tables/steps, page-cited) plus a `Technical depth (researched — for rebuild)`
 section (engineering sources, confidence-flagged). Start at `INDEX.md`; coverage map in `PROGRESS.md`.
 

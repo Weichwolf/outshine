@@ -17,7 +17,7 @@ const fs = require('fs');
 const SECS  = parseFloat(process.argv[2] || '30');
 const LABEL = process.argv[3] || 'probe';
 const URL   = process.argv[4] || 'http://localhost:8080/';
-const OUT   = `/tmp/claude-1000/-home-cosmo-Git-flightbox/cc-shots`;
+const OUT   = `/tmp/fb-shots`;
 const ST = ['DISARMED','ARMED','CLIMB','LOITER','MANUAL','RTH'];
 
 (async () => {
