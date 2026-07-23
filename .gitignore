@@ -20,6 +20,6 @@ sim/aircraft/SITL.elf
 # --- windows download markers ---
 *Zone.Identifier
 
-# --- local Claude config (not tracked) ---
-CLAUDE.md
-.claude/
+# --- Claude runtime artifacts (config itself IS tracked) ---
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
