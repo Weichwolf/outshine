@@ -22,7 +22,7 @@
 #ifndef W3_ATMO_H
 #define W3_ATMO_H
 
-#include "protocol.h"
+#include "fb/FBState.h"
 #include <math.h>
 
 typedef struct {
@@ -52,7 +52,7 @@ static float w3_daylight(float sun_el_deg) {
 /* `have` = 0 means no telemetry yet; the defaults are the ones the renderer has always used for
  * that case (afternoon sun, some cloud) so a fresh page is not black. Keep them: they are what a
  * browser shows in the second before the first packet arrives. */
-static w3_atmo w3_atmo_from(const telem_packet_t *t, int have) {
+static w3_atmo w3_atmo_from(const FlightBox::FBState *t, int have) {
   const float RAD = (float)M_PI / 180.f;
   w3_atmo a;
 

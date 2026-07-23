@@ -8,8 +8,19 @@ flightbox/web/tw.wasm
 command_center/render_native
 *.rgb
 
+# native Dawn (WebGPU) checkout + build — fetched fresh by vendor/build_dawn_native.sh
+vendor/dawn/
+vendor/.compat-headers/
+
 # python bytecode
 __pycache__/
 *.pyc
 validator/validator
 validator/build/
+
+# WebGPU engine build artifacts (make webgpu / webgpu-worker) + tool deps
+flightbox/web/gpu.js
+flightbox/web/gpu.wasm
+flightbox/web/fbtileworker.js
+flightbox/web/fbtileworker.wasm
+tools/node_modules/

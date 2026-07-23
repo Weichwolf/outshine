@@ -3,6 +3,7 @@
 #include "prefetch_api.h"
 #include "cache.h"
 #include "bake.h"
+#include "lights.h"
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -46,7 +47,9 @@ static void *worker(void *arg){
 
         uint8_t *b = 0; size_t n = 0;
         int ok, absent = 0;
-        if(j.kind >= FB_PF_BAKE_OSM)
+        if(j.kind == FB_PF_LIGHTS)
+            ok = fb_lights_get(j.z, j.x, j.y, &b, &n);
+        else if(j.kind >= FB_PF_BAKE_OSM)
             ok = fb_bake_get(j.kind==FB_PF_BAKE_PHOTO ? FB_ALBEDO_PHOTO : FB_ALBEDO_OSM,
                              j.z, j.x, j.y, j.tex, &b, &n);
         else {
@@ -112,6 +115,14 @@ void fb_pf_bake_one(int is_photo, int z, long x, long y, int tex){
     if(!g_run || z < 0) return;
     pthread_mutex_lock(&g_mx);
     push_locked(is_photo ? FB_PF_BAKE_PHOTO : FB_PF_BAKE_OSM, z, x, y, tex);
+    pthread_cond_signal(&g_cv);
+    pthread_mutex_unlock(&g_mx);
+}
+
+void fb_pf_lights_one(int z, long x, long y){
+    if(!g_run || z < 0) return;
+    pthread_mutex_lock(&g_mx);
+    push_locked(FB_PF_LIGHTS, z, x, y, 0);
     pthread_cond_signal(&g_cv);
     pthread_mutex_unlock(&g_mx);
 }

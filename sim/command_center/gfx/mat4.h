@@ -31,14 +31,20 @@ static void m_mul(float *o, const float *a, const float *b) {
 }
 
 /* Right-handed perspective, looking down -z, mapping the frustum to clip space. */
+/* REVERSED-Z perspective: near maps to NDC z=+1 (window depth 1.0), far to -1 (window 0.0) — the
+ * standard zn<->zf swap in the z-row. Paired with glClearDepthf(0) + glDepthFunc(GL_GEQUAL) and the
+ * 32-bit float depth buffer (present.h), the projection's 1/z curve cancels the float mantissa's
+ * distribution, giving near-uniform precision across a 0.01 m..240 km range where plain depth
+ * z-fights distant terrain into flicker (lod.h). x/y (m[0],m[5]) and w (m[11]) are unchanged, so
+ * screen projection, the HUD's manual projection, and frustum extraction are unaffected. */
 static void m_persp(float *m, float fovy, float asp, float zn, float zf) {
   float f = 1.f / tanf(fovy * 0.5f);
   memset(m, 0, 64);
   m[0] = f / asp;
   m[5] = f;
-  m[10] = (zf + zn) / (zn - zf);
+  m[10] = (zn + zf) / (zf - zn);
   m[11] = -1;
-  m[14] = (2 * zf * zn) / (zn - zf);
+  m[14] = (2 * zn * zf) / (zf - zn);
 }
 
 static void v_norm(float *v) {

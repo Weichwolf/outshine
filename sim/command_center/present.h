@@ -69,9 +69,13 @@ static void pr_mk_scene(GLuint *fbo, GLuint *col, GLuint *dep, int w, int h) {
   glRenderbufferStorageMultisample(GL_RENDERBUFFER, pr_samples, GL_RGBA8, w, h);
   glGenRenderbuffers(1, dep);
   glBindRenderbuffer(GL_RENDERBUFFER, *dep);
+  while (glGetError() != GL_NO_ERROR) { }   /* drain stale errors — they would fake a 32F failure */
   glRenderbufferStorageMultisample(GL_RENDERBUFFER, pr_samples, GL_DEPTH_COMPONENT32F, w, h);
-  if (glGetError() != GL_NO_ERROR)
+  if (glGetError() != GL_NO_ERROR) {
     glRenderbufferStorageMultisample(GL_RENDERBUFFER, pr_samples, GL_DEPTH_COMPONENT24, w, h);
+    printf("[present] WARNING depth 32F unavailable at %dx MSAA -> 24-bit integer (far terrain will z-fight; reversed-Z needs float)\n", pr_samples);
+  } else
+    printf("[present] scene depth: 32F float, %dx MSAA\n", pr_samples);
   glGenFramebuffers(1, fbo);
   glBindFramebuffer(GL_FRAMEBUFFER, *fbo);
   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, *col);
@@ -199,7 +203,7 @@ static void fb_present_init(SDL_Window *win) {
   pr_sync_size(); /* first display alloc */
 }
 
-static void fb_present_frame(const telem_packet_t *telem, int have) {
+static void fb_present_frame(const FlightBox::FBState *telem, int have) {
   pr_sync_size();
   int evs = codec_ready && (w3_ground.mode == W3_GROUND_PHOTO);
   if (evs) {

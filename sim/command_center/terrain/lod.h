@@ -93,9 +93,9 @@ static int w3_lod_for_px(double px) {
 #define W3_EPS 2.0f /* the ONLY quality knob: allowed screen-space error, pixels. */
 #endif
 #ifndef W3_REACH
-#define W3_REACH                                                                                   \
-  240000.0f /* how far the ground is drawn. Just a parameter -- the tree                           \
-             * covers whatever it is given; the horizon at 4000 m is 226 km. */
+static float w3_view_m = 240000.0f; /* VIEW DISTANCE — a runtime SETTING (FB_VIEW_KM), not a cap.
+                                       * Buffers (frontier/draw list/cache) scale with it on demand. */
+#define W3_REACH w3_view_m
 #endif
 #ifndef W3_VIEWH
 #define W3_VIEWH 480 /* the height SSE is measured in: the camera FBO (NTSC 480). */
@@ -109,8 +109,10 @@ static int w3_lod_for_px(double px) {
  * away. So: cap the resident set and spend it on the worst error first. */
 #ifndef W3_BUDGET
 #define W3_BUDGET                                                                                  \
-  128 /* max chunks drawn/resident. 128 * 512^2 RGB * (mips) * 2                                   \
-       * albedos ~ 268 MB -- about what the three rings cost. */
+  192 /* max chunks drawn/resident. Raised 128->192: at long view over the Alps the 128 cap cut    \
+       * through the visible far field EVERY frame (21-27 "over budget"), so split/coarsen         \
+       * flickered at the boundary = visible LOD popping ("tiles verschwinden"). 192 puts the      \
+       * boundary past the worst measured demand; the draw-call cost is the WebGPU port's job. */
 #endif
 /* Camera near plane: 1 cm. The aircraft eye sits only ~0.3 m over the runway (model gear height), so the
  * near ground right under/ahead must not clip — 0.5 m was still too coarse there. The depth buffer is 32-bit

@@ -4,7 +4,7 @@
 #ifndef WORLD3D_H
 #define WORLD3D_H
 #include "constants.h" /* FB_M_PER_DEG_LAT (the ENU-offset <-> lat/lon scale, needed by the ECEF camera) */
-#include "protocol.h"
+#include "fb/FBState.h"
 #include <GLES2/gl2.h>
 #include <math.h>
 #include <stdarg.h>
@@ -71,8 +71,7 @@ typedef struct {
   int have_tile;
   uint32_t tx, ty;
 } w3_origin;
-static w3_origin w3_O = {.lat = 52.045,
-                         .lon = 9.385}; /* Hameln default until /config.js overrides */
+static w3_origin w3_O = {52.045, 9.385, 0, 0, 0, 0, 0}; /* lat, lon (Hameln default until /config.js overrides), yoff, yoff_set, have_tile, tx, ty */
 /* Simulated wall-clock override, Unix seconds; 0 = real time. Set from window.FB_SIM_UTC (cc.c) so
  * a night/dusk sky can be pinned reproducibly. The star sidereal time reads it; the aircraft
  * honours the matching SIM_UTC env for the sun, so visibility (sun) and star positions agree on the
@@ -82,9 +81,11 @@ static double w3_sim_utc = 0;
  * aircraft (async /elev, origin-ground fallback). Drives the HUD's AGL readout; the LOD gets it
  * too. */
 static float w3_agl = 0;
-/* Model belly (gear-up) clearance in metres, from /config.js (window.FB_GROUND_CLEAR, published by the
- * bridge). The camera eye is clamped to never sink below ground+this — the aircraft's geometry-true
- * lowest resting height over terrain — so a crash never puts the view under the surface. */
+/* Model belly (gear-up) clearance in metres. The camera eye is clamped to never sink below
+ * ground+this — the aircraft's geometry-true lowest resting height over terrain — so a crash never
+ * puts the view under the surface. Filled in-process by flightsim_init (fb_jsbsim_ground_clearance
+ * on the loaded model); window.FB_GROUND_CLEAR (cc.cpp cfg_from_js) is only a test OVERRIDE now —
+ * the old xpjsb-bridge IPC channel this used to read from (/tmp/fb_clearance) is retired. */
 static float w3_cam_clear = 0;
 /* Seed the origin ground before any tile streams, so AGL and the no-telemetry camera height are
  * sane at frame 0 (from /elev, before the centre tile's own probe lands). */
@@ -102,7 +103,8 @@ typedef struct {
   float bmin[3], bmax[3];
   double origin[3]; /* per-tile ECEF origin; the frame subtracts cam_ecef to get the translation */
 } w3_tileGL;
-static w3_tileGL w3_D[W3_BUDGET];
+static w3_tileGL *w3_D = 0;   /* dynamic draw list — scales with the view-distance setting */
+static int w3_D_cap = 0;
 
 /* Ground albedo is baked view-independent by fb-tiles (what the ground IS); lighting stays here,
  * per-pixel, from our own sun + DEM normals. */
@@ -112,7 +114,7 @@ enum { W3_GROUND_OSM = 0, W3_GROUND_PHOTO = 1 };
 static struct {
   int mode;
   int dirty;
-} w3_ground = {.mode = W3_GROUND_OSM};
+} w3_ground = {W3_GROUND_OSM, 0};
 /* Per-pass render/stream bookkeeping, single owner; world3d_stream_at resets the per-pass fields at
  * the top of a pass. cc.c's KEEPALIVE accessors (cc_drawn/cc_visible/cc_mipmaps) read these. */
 static struct {
@@ -141,15 +143,13 @@ static struct {
 /* Open the tile stream from fb-tiles. Nothing is bundled -- this is what makes any origin work. */
 static int world3d_tiles_open(const char *base, double lat, double lon) {
   w3_tiles_init(base);
-  osmmesh_config cfg = {.origin_lat = lat,
-                        .origin_lon = lon,
-                        .tile_provider = w3_tile_provider,
-                        .tile_provider_user = 0,
-                        .provider_terrain_max_zoom =
-                            15, /* Tilezen terrarium; no archive header to read */
-                        .enable_terrain = 1,
-                        .enable_buildings = 0,
-                        .enable_linears = 0};
+  osmmesh_config cfg;
+  memset(&cfg, 0, sizeof cfg);
+  cfg.tile_provider = w3_tile_provider;
+  cfg.provider_terrain_max_zoom = 15; /* Tilezen terrarium; no archive header to read */
+  cfg.origin_lat = lat;
+  cfg.origin_lon = lon;
+  cfg.enable_terrain = 1;
   if (osmmesh_create(&cfg, &w3_osm) != OSMMESH_OK) {
     printf("[world3d] osmmesh_create (streaming) failed\n");
     w3_osm = 0;

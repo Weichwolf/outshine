@@ -23,7 +23,9 @@ EM_JS(double, fb_fetch_elev, (double lat, double lon), {
 EM_JS(void, fb_ground_request, (double lat, double lon), {
   var G = Module.__fbGround || (Module.__fbGround = { val:-1e9, busy:false });
   if(G.busy) return; var base = window.FB_TILES_URL; if(!base) return; G.busy=true;
-  fetch(base + '/elev?lat=' + lat + '&lon=' + lon)
+  fetch(base + '/elev?lat=' + lat + '&lon=' + lon)  /* non-blocking BY DESIGN (tiles/elev.c:69): cold
+      tiles answer 503 (not published), warm answer the DEM read; the poller must never hold a server
+      connection open */
     .then(function(r){ return r.ok ? r.text() : null; })
     .then(function(t){ if(t!==null){ var v=parseFloat(t); if(isFinite(v)) Module.__fbGround.val=v; } Module.__fbGround.busy=false; })
     .catch(function(){ Module.__fbGround.busy=false; });

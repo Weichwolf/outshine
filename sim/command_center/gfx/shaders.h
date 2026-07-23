@@ -28,7 +28,7 @@ static GLuint w3_prog(const char *vs, const char *fs) {
 static const char *W3_VSW = "attribute vec3 aPos; attribute vec3 aCol; uniform mat4 uMVP; varying "
                             "vec3 vCol; varying float vFog;"
                             "void main(){ vec4 p=uMVP*vec4(aPos,1.0); gl_Position=p; vCol=aCol; "
-                            "vFog=clamp(p.z/6000.0,0.0,1.0); }";
+                            "vFog=clamp(p.w/6000.0,0.0,1.0); }";  /* p.w = view distance (reversed-Z safe) */
 static const char *W3_FSW =
     "precision mediump float; varying vec3 vCol; varying float vFog; uniform vec3 uHaze; uniform "
     "float uLight;"

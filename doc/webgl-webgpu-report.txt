@@ -1,0 +1,138 @@
+WebGL & WebGPU Report
+Generated 7/22/2026, 10:08:00 AM - app.cinevva.com/tools/webgl-webgpu-checker
+
+You're ready for modern web 3D
+Both WebGPU and WebGL 2 work in this browser, on your GPU.
+
+GPU: ANGLE (Intel, Intel(R) HD Graphics Direct3D11 vs_5_0 ps_5_0), or similar (Google Inc. (Intel))
+Live render: WebGPU at ~60 FPS
+
+SUPPORT
+  [x] WebGPU
+  [x] WebGL 2
+  [ ] WebGL 1
+
+TEXTURE COMPRESSION
+  [x] BC / S3TC (desktop)
+  [ ] ETC2 (Android/mobile)
+  [ ] ASTC (mobile)
+  [x] BC sliced 3D
+  [ ] ASTC sliced 3D
+
+WEBGPU ADAPTER
+  isFallbackAdapter: undefined
+
+WEBGPU CAPABILITIES
+ Texture compression
+  [x] BC / S3TC (desktop)
+  [ ] ETC2 (Android)
+  [ ] ASTC (mobile)
+ Shaders & compute
+  [x] 16-bit floats in shaders (f16)
+  [ ] Subgroups
+  [x] Filterable float32 textures
+ Rendering & blending
+  [ ] Blendable float32 targets
+  [x] Renderable rg11b10ufloat
+  [x] BGRA8 storage textures
+  [ ] Dual-source blending
+ Depth & clipping
+  [x] Depth clip control
+  [x] 32-bit depth + stencil8
+  [ ] Clip distances
+ Profiling & core
+  [x] Timestamp queries (profiling)
+  [x] Indirect first instance
+  [x] Core features & limits
+
+ALL WEBGPU FEATURES (11 OF 22)
+  [x] core-features-and-limits
+  [x] depth-clip-control
+  [x] depth32float-stencil8
+  [x] texture-compression-bc
+  [x] texture-compression-bc-sliced-3d
+  [ ] texture-compression-etc2
+  [ ] texture-compression-astc
+  [ ] texture-compression-astc-sliced-3d
+  [x] timestamp-query
+  [x] indirect-first-instance
+  [x] shader-f16
+  [x] rg11b10ufloat-renderable
+  [x] bgra8unorm-storage
+  [x] float32-filterable
+  [ ] float32-blendable
+  [ ] clip-distances
+  [ ] dual-source-blending
+  [ ] subgroups
+  [ ] primitive-index
+  [ ] texture-component-swizzle
+  [ ] texture-formats-tier1
+  [ ] texture-formats-tier2
+
+WEBGPU LIMITS
+ Textures
+  maxTextureDimension1D: 16384
+  maxTextureDimension2D: 16384
+  maxTextureDimension3D: 2048
+  maxTextureArrayLayers: 2048
+  maxSampledTexturesPerShaderStage: 64
+  maxSamplersPerShaderStage: 64
+  maxStorageTexturesPerShaderStage: 64
+ Buffers
+  maxBufferSize: 1 GB
+  maxUniformBufferBindingSize: 64 KB
+  maxStorageBufferBindingSize: 1 GB
+  maxUniformBuffersPerShaderStage: 64
+  maxStorageBuffersPerShaderStage: 64
+  maxDynamicUniformBuffersPerPipelineLayout: 8
+  maxDynamicStorageBuffersPerPipelineLayout: 4
+  minUniformBufferOffsetAlignment: 256 B
+  minStorageBufferOffsetAlignment: 32 B
+ Bind groups
+  maxBindGroups: 8
+  maxBindGroupsPlusVertexBuffers: 24
+  maxBindingsPerBindGroup: 4294967295
+ Vertex stage
+  maxVertexBuffers: 16
+  maxVertexAttributes: 30
+  maxVertexBufferArrayStride: 2048
+  maxInterStageShaderVariables: 31
+ Color attachments
+  maxColorAttachments: 8
+  maxColorAttachmentBytesPerSample: 128 B
+ Compute
+  maxComputeWorkgroupStorageSize: 32 KB
+  maxComputeInvocationsPerWorkgroup: 1024
+  maxComputeWorkgroupSizeX: 1024
+  maxComputeWorkgroupSizeY: 1024
+  maxComputeWorkgroupSizeZ: 64
+  maxComputeWorkgroupsPerDimension: 65535
+
+WGSL LANGUAGE FEATURES
+  [x] Read-write storage textures
+  [x] Packed 4x8 integer dot product (DP4a)
+  [ ] Unrestricted pointer parameters
+  [x] Pointer composite access
+
+MISC
+  Preferred canvas format: bgra8unorm
+  Fallback (CPU) adapter: available
+
+WEBGL 2
+  GPU vendor: Google Inc. (Intel)
+  GPU renderer: ANGLE (Intel, Intel(R) HD Graphics Direct3D11 vs_5_0 ps_5_0), or similar
+  Version: WebGL 2.0
+  Shading language: WebGL GLSL ES 3.00
+  Max texture size: 16384 px
+  Max cubemap size: 16384 px
+  Max render buffer: 16384 px
+  Max vertex attribs: 16
+  Max texture units: 32
+
+DEVICE
+  Device pixel ratio: 1
+  Logical CPU cores: 4
+  Screen: 2560 x 1440
+  Touch points: 0
+
+Standard WebGPU feature names per the W3C WebGPU spec. Generated locally; nothing uploaded.

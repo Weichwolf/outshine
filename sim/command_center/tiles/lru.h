@@ -8,14 +8,43 @@
  * freeze every ~44 s in a 1000 m orbit (the video froze then jumped = the "kick"). But an
  * orbit flies over the SAME tiles again and again, so we keep baked VBO+texture around and
  * only bake genuinely new ones. Sized to hold a full orbit -> after the first lap nothing
- * is re-baked at all. Eviction is least-recently-used. */
+ * is re-baked at all. Eviction is stalest-first, gated on VRAM pressure (see w3_vram_budget below). */
 /* The cache holds every chunk the tree may draw, plus room for the ones it is refining INTO.
  * A chunk that is still being replaced by its children must stay resident -- that is what lets the
  * parent keep drawing until all four children have landed, instead of a hole appearing.
- * Eviction is by "the tree did not ask for it this pass", which is strictly better than either LRU
- * or a radius: the tree already knows exactly what it wants. Flying straight for an hour, the
- * chunks behind you are the NEWEST in the cache and the most useless; an LRU would keep them. */
-#define W3_CACHE (2 * W3_BUDGET)
+ * Eviction is "the tree stopped asking" -- but with a GRACE PERIOD, not instantly. At the far-field
+ * margin (Alps at the horizon) the SSE/budget split decisions flicker frame to frame, so the asked
+ * set's boundary oscillates; instant eviction destroyed resident tiles on a 1-frame flicker and the
+ * refetch takes seconds -> visible holes + permanent re-fetch churn ("waiting on fb-tiles" forever).
+ * Eviction is instant, refetch is not -- the asymmetry demands hysteresis. A chunk must go unasked
+ * W3_TRIM_GRACE consecutive passes before it is even ELIGIBLE for trim -- whether trim actually
+ * frees it is a second, independent question, answered by VRAM pressure (w3_vram_budget below).
+ * A working set that fits the budget never evicts past GRACE; one that does not grows the cache
+ * (dynamic, demand-scaled) until it either fits or pressure starts recycling the stalest slots. */
+/* DYNAMIC cache: grows on demand (doubling realloc) — the tile buffer scales with the view-distance
+ * setting and the terrain's actual demand, never a compile-time cap. */
+static int w3_cache_n = 0;
+#define W3_TRIM_GRACE 900 /* ~15 s at 60 passes/s -- far longer than any split-decision flicker;
+                            * the FLICKER minimum, not the eviction trigger -- see w3_vram_budget. */
+/* Eviction budget (bytes): a grace-expired chunk stays warm as long as VRAM is under this. Default
+ * 1.5 GiB; FB_VRAM_MB overrides (cc.cpp cfg_from_js), same pattern as FB_VIEW_KM/w3_view_m. A closed
+ * orbit/loiter ring revisits every chunk well within one lap; GRACE alone (~15 s) is shorter than a
+ * slow ring's period (Alps-loiter measured ~225 s), so time-only eviction aged out the ring's far
+ * side every lap and re-fetched/re-baked it -- the re-bakes cost more passes, which age chunks
+ * faster, which re-bakes more (soak test: cache_bakes 0.37->2.14/s, texvram 585->950 MB, no
+ * plateau). Gating eviction on real pressure (not just elapsed passes) lets a ring that fits the
+ * budget converge to zero re-bakes after the first lap. */
+static long w3_vram_budget = 1610612736L; /* 1.5 GiB = 1.5 * 1024^3 */
+
+/* Per-pass GPU upload budget: caps how many w3_bake calls (stbi decode + glTexImage2D +
+ * glGenerateMipmap, all synchronous) run before the rest wait a frame. Amortized uploads are
+ * standard streaming-texture pacing -- without a cap, several worker deliveries landing in the
+ * SAME frame multiply frame time (measured: median 102ms -> 390ms, max 652ms at baked>=6 bakes/
+ * frame; sim-critic v14). A bake that misses the budget is not lost: the slot stays MESH (or READY
+ * at its current, coarser step) and w3_ensure_tex is simply asked again next pass -- the same
+ * "retry, never block" contract w3_cache_get already gives the rest of the pipeline. */
+#define W3_BAKE_PER_FRAME 2
+static int w3_bake_budget = 0; /* reset each pass in world3d_stream_at (terrain/stream.h) */
 
 /* tex[mode][lod] holds BOTH albedos at EVERY size the tree has asked for. [mode] is the ground
  * source: [W3_GROUND_OSM] = the OSM render, [W3_GROUND_PHOTO] = the aerial photo -- both baked
@@ -46,6 +75,7 @@ typedef struct {
   GLuint vbo, tex[2][W3_NLOD];
   int nverts;
   unsigned touch;
+  int stale;              /* consecutive trim passes the walk did NOT ask for this chunk */
   int state;
   int photo_none;         /* the server has no photo here, ever (size-independent) */
   int want_lod_max;       /* highest ramp step this chunk justifies THIS pass (its SSE
@@ -63,7 +93,17 @@ typedef struct {
 #endif
   int want_yoff;
 } w3_cent; /* this WAIT was the origin-elevation probe */
-static w3_cent w3_cache[W3_CACHE];
+static w3_cent *w3_cache = 0;
+static int w3_cache_grow(void) {   /* returns index of the first NEW (FREE) slot, or -1 on OOM */
+  int nn = w3_cache_n ? w3_cache_n * 2 : 512;
+  w3_cent *nc = (w3_cent *)realloc(w3_cache, (size_t)nn * sizeof(w3_cent));
+  if (!nc) return -1;
+  memset(nc + w3_cache_n, 0, (size_t)(nn - w3_cache_n) * sizeof(w3_cent));
+  int first = w3_cache_n;
+  w3_cache = nc;
+  w3_cache_n = nn;
+  return first;
+}
 static unsigned w3_touch = 0;
 
 /* The ONE place a resident texture or VBO is freed, in both directions:
@@ -80,11 +120,35 @@ static unsigned w3_touch = 0;
  * still be in flight; when the reply lands, w3_worker_mesh finds no matching WAIT slot (this freed
  * it) and frees the verts there. A MESH slot owns heap verts the worker delivered and the GPU
  * never received. A READY slot owns GL objects. Miss one and it leaks silently. */
+/* Bytes a single READY slot holds on the GPU -- both albedos, every resident ramp step. Shared by
+ * w3_texvram (the total) and the eviction loop (the delta a chosen victim frees). */
+static long w3_slot_bytes(const w3_cent *c) {
+  long b = 0;
+  for (int m = 0; m < 2; m++)
+    for (int l = 0; l < W3_NLOD; l++)
+      if (c->tex[m][l]) {
+        long s = w3_lod_px[l];
+        b += s * s * 3 * 4 / 3;
+      }
+  return b;
+}
+
+/* Real resident texture VRAM in bytes -- summed from what is actually on the GPU, not estimated.
+ * This is the number w3_cache_trim compares against w3_vram_budget to decide whether eviction runs
+ * at all. */
+static long w3_texvram(void) {
+  long b = 0;
+  for (int i = 0; i < w3_cache_n; i++)
+    if (w3_cache[i].state == W3_SLOT_READY) b += w3_slot_bytes(&w3_cache[i]);
+  return b;
+}
+
 static void w3_cache_trim(unsigned mark) {
-  for (int i = 0; i < W3_CACHE; i++) {
+  for (int i = 0; i < w3_cache_n; i++) {
     w3_cent *c = &w3_cache[i];
     if (c->state == W3_SLOT_FREE) continue;
     if (c->touch >= mark) {
+      c->stale = 0;
       /* touched: keep the chunk, but release ramp steps finer than it now justifies */
       if (c->state == W3_SLOT_READY)
         for (int m = 0; m < 2; m++)
@@ -95,7 +159,29 @@ static void w3_cache_trim(unsigned mark) {
             }
       continue;
     }
+    c->stale++; /* unasked this pass -- eligible for eviction once > GRACE, see below */
+  }
+
+  /* Eviction is PRESSURE-driven, not time-driven: a chunk past GRACE stays resident as long as VRAM
+   * is under budget -- a closed loiter ring then converges to zero re-bakes after the first lap
+   * (every ring-side chunk ages past GRACE every lap, but nothing evicts while under budget). Only
+   * real pressure frees anything, and it frees the STALEST chunk first, one at a time, stopping the
+   * moment the budget is met again -- never the whole expired set in one pass. */
+  long vram = w3_texvram();
+  while (vram > w3_vram_budget) {
+    int victim = -1, victim_stale = W3_TRIM_GRACE;
+    for (int i = 0; i < w3_cache_n; i++) {
+      w3_cent *c = &w3_cache[i];
+      if (c->state == W3_SLOT_FREE || c->stale <= W3_TRIM_GRACE) continue;
+      if (c->stale > victim_stale) {
+        victim_stale = c->stale;
+        victim = i;
+      }
+    }
+    if (victim < 0) break; /* nothing past GRACE left -- over budget, but nothing evictable */
+    w3_cent *c = &w3_cache[victim];
     if (c->state == W3_SLOT_READY) {
+      vram -= w3_slot_bytes(c);
       glDeleteBuffers(1, &c->vbo);
       for (int m = 0; m < 2; m++)
         for (int l = 0; l < W3_NLOD; l++)
@@ -109,31 +195,14 @@ static void w3_cache_trim(unsigned mark) {
   }
 }
 
-/* Real resident texture VRAM in bytes -- summed from what is actually on the GPU, not estimated.
- * Each texture is size^2 RGB (3 B) plus its mipmap chain (+1/3), both albedos, every held step.
- * This is the number that decides whether the top of the ramp fits the 2 GB budget, not a guess. */
-static long w3_texvram(void) {
-  long b = 0;
-  for (int i = 0; i < W3_CACHE; i++) {
-    if (w3_cache[i].state != W3_SLOT_READY) continue;
-    for (int m = 0; m < 2; m++)
-      for (int l = 0; l < W3_NLOD; l++)
-        if (w3_cache[i].tex[m][l]) {
-          long s = w3_lod_px[l];
-          b += s * s * 3 * 4 / 3;
-        }
-  }
-  return b;
-}
-
 /* The worker delivered a finished mesh for (z,x,y). Called from JS (the worker's onmessage copied
  * the transferred vertex buffer into `verts`, a main-heap malloc we now OWN). Move the matching
  * WAIT slot to MESH; if the tree stopped asking and trim already freed the slot, there is nobody
  * to hand it to -- free it rather than leak. */
-EMSCRIPTEN_KEEPALIVE
+extern "C" EMSCRIPTEN_KEEPALIVE   /* called by NAME from the JS worker glue -> must not mangle */
 void w3_worker_mesh(int z, uint32_t x, uint32_t y, float *verts, int nverts, float err, float yoff,
                     double *origin) {
-  for (int i = 0; i < W3_CACHE; i++) {
+  for (int i = 0; i < w3_cache_n; i++) {
     w3_cent *c = &w3_cache[i];
     if (c->state == W3_SLOT_WAIT && c->z == z && c->x == x && c->y == y) {
       c->mverts = verts;
@@ -155,9 +224,9 @@ void w3_worker_mesh(int z, uint32_t x, uint32_t y, float *verts, int nverts, flo
 /* The worker could not build (a real 204 hole, or it gave up after retries). Free the WAIT slot so
  * the tree either re-asks next frame or leaves it absent -- the same "retry, never silently hole"
  * the sync path had. */
-EMSCRIPTEN_KEEPALIVE
+extern "C" EMSCRIPTEN_KEEPALIVE
 void w3_worker_fail(int z, uint32_t x, uint32_t y) {
-  for (int i = 0; i < W3_CACHE; i++) {
+  for (int i = 0; i < w3_cache_n; i++) {
     w3_cent *c = &w3_cache[i];
     if (c->state == W3_SLOT_WAIT && c->z == z && c->x == x && c->y == y) {
       c->state = W3_SLOT_FREE;
@@ -186,8 +255,10 @@ static int w3_ensure_tex(w3_cent *c, int mode, int z, uint32_t x, uint32_t y, in
   int n = w3_bake_size(mode == W3_GROUND_PHOTO, (int)z, (int)x, (int)y, TS);
   if (n < 0) return -1;
   if (n == 0) return 0;
+  if (w3_bake_budget <= 0) return -1; /* data is ready, but this frame's upload budget is spent */
   GLuint t = w3_bake(z, x, y, TS, mode);
   if (!t) return -1; /* undecodable: treat as in flight, keep asking */
+  w3_bake_budget--;
   c->tex[mode][idx] = t;
 #if W3_LOD_NOKEY
   c->texpx[mode] = TS;
@@ -261,7 +332,7 @@ static int w3_climb(w3_cent *c, int z, uint32_t x, uint32_t y, int target) {
  * trim can release steps above it once the chunk recedes. */
 static int w3_cache_get(int z, uint32_t x, uint32_t y, int lod, int is_centre) {
   int slot = -1;
-  for (int i = 0; i < W3_CACHE; i++)
+  for (int i = 0; i < w3_cache_n; i++)
     if (w3_cache[i].state != W3_SLOT_FREE && w3_cache[i].z == z && w3_cache[i].x == x &&
         w3_cache[i].y == y) {
       slot = i;
@@ -269,14 +340,19 @@ static int w3_cache_get(int z, uint32_t x, uint32_t y, int lod, int is_centre) {
     }
 
   if (slot < 0) {
-    /* Not resident: claim a free slot and ask the worker. A free slot always exists -- W3_CACHE is
-     * twice the budget and trim drops everything unreached -- but if a pass ever fills it, treat it
-     * as pending rather than thrash. */
-    for (int i = 0; i < W3_CACHE; i++)
+    /* Not resident: claim a FREE slot (grace-expired slots recycle each pass) or grow the cache. */
+    for (int i = 0; i < w3_cache_n; i++)
       if (w3_cache[i].state == W3_SLOT_FREE) {
         slot = i;
         break;
       }
+    if (slot < 0) {
+      /* No FREE slot: steal the stalest READY chunk the walk is not using this pass (stale>0).
+       * This is the LRU bound that keeps a long straight flight from pinning the cache full of
+       * grace-period chunks behind the aircraft. Never steal WAIT (worker in flight) or MESH
+       * (delivery in hand) -- both are transient and about to matter. */
+      slot = w3_cache_grow();   /* demand-scaled: no free slot means the working set grew */
+    }
     if (slot < 0) {
       w3_frame.pending++;
       return -1;
@@ -287,6 +363,7 @@ static int w3_cache_get(int z, uint32_t x, uint32_t y, int lod, int is_centre) {
     c->y = y;
     c->state = W3_SLOT_WAIT;
     c->touch = ++w3_touch;
+    c->stale = 0;
     c->want_lod_max = lod;
     c->photo_none = 0;
     memset(c->tex, 0, sizeof c->tex);

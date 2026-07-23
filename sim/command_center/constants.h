@@ -30,8 +30,14 @@
 #ifndef GL_DEPTH_COMPONENT24
 #define GL_DEPTH_COMPONENT24 0x81A6
 #endif
+#ifdef __cplusplus
+extern "C" {
+#endif
 extern void glRenderbufferStorageMultisample(GLenum, GLsizei, GLenum, GLsizei, GLsizei);
 extern void glBlitFramebuffer(GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLbitfield,
                               GLenum);
+#ifdef __cplusplus
+}
+#endif
 
 #endif

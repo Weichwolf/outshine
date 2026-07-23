@@ -71,7 +71,7 @@ int fb_cache_ondisk(fb_tile_kind k, int z, long x, long y, uint8_t **out, size_t
     if (stat(path, &st) != 0 || st.st_size <= 0) return 0;
     *out = read_file(path, n);
     if (!*out) return 0;
-    g_hits++;
+    __atomic_fetch_add(&g_hits, 1, __ATOMIC_RELAXED);
     return 1;
 }
 
@@ -82,18 +82,19 @@ int fb_cache_get(fb_tile_kind k, int z, long x, long y, uint8_t **out, size_t *n
     if (is_absent(k, z, x, y)) return 0;
 
     if (k == FB_TILE_IMAGERY && fb_tm_has(z, x, y) == 0) {
-        g_absent++; mark_absent(k, z, x, y);
+        __atomic_fetch_add(&g_absent, 1, __ATOMIC_RELAXED); mark_absent(k, z, x, y);
         return 0;
     }
     char url[600];
-    if (!fb_src_url(k, z, x, y, url, sizeof url)) { g_fail++; return 0; }
+    if (!fb_src_url(k, z, x, y, url, sizeof url)) { __atomic_fetch_add(&g_fail, 1, __ATOMIC_RELAXED); return 0; }
 
     uint8_t *body = 0; size_t bn = 0;
     long code = fb_http_get(url, &body, &bn);
     if (code != 200 || bn == 0) {
         free(body);
 
-        if (code == 404) { g_absent++; mark_absent(k, z, x, y); } else g_fail++;
+        if (code == 404) { __atomic_fetch_add(&g_absent, 1, __ATOMIC_RELAXED); mark_absent(k, z, x, y); }
+        else __atomic_fetch_add(&g_fail, 1, __ATOMIC_RELAXED);
         return 0;
     }
 
@@ -101,12 +102,19 @@ int fb_cache_get(fb_tile_kind k, int z, long x, long y, uint8_t **out, size_t *n
     cache_path(k, z, x, y, path, sizeof path);
     snprintf(tmp, sizeof tmp, "%s.%lu.tmp", path, (unsigned long)pthread_self());
     FILE *f = fopen(tmp, "wb");
-    if (!f || fwrite(body, 1, bn, f) != bn) { if (f) fclose(f); remove(tmp); free(body); g_fail++; return 0; }
+    if (!f || fwrite(body, 1, bn, f) != bn) {
+        if (f) fclose(f);
+        remove(tmp); free(body);
+        __atomic_fetch_add(&g_fail, 1, __ATOMIC_RELAXED); return 0;
+    }
     fclose(f);
-    if (rename(tmp, path) != 0) { remove(tmp); free(body); g_fail++; return 0; }
+    if (rename(tmp, path) != 0) {
+        remove(tmp); free(body);
+        __atomic_fetch_add(&g_fail, 1, __ATOMIC_RELAXED); return 0;
+    }
 
     *out = body; *n = bn;
-    g_fetch++;
+    __atomic_fetch_add(&g_fetch, 1, __ATOMIC_RELAXED);
     return 1;
 }
 
@@ -119,10 +127,10 @@ fb_tile_state fb_cache_state(fb_tile_kind k, int z, long x, long y, uint8_t **ou
 }
 
 void fb_cache_stats(long *hits, long *fetches, long *fails) {
-    if (hits) *hits = g_hits;
-    if (fetches) *fetches = g_fetch;
-    if (fails) *fails = g_fail;
+    if (hits) *hits = __atomic_load_n(&g_hits, __ATOMIC_RELAXED);
+    if (fetches) *fetches = __atomic_load_n(&g_fetch, __ATOMIC_RELAXED);
+    if (fails) *fails = __atomic_load_n(&g_fail, __ATOMIC_RELAXED);
 }
 
-long fb_cache_absent(void) { return g_absent; }
+long fb_cache_absent(void) { return __atomic_load_n(&g_absent, __ATOMIC_RELAXED); }
 long fb_cache_absent_ttl(void) { return g_absent_ttl; }

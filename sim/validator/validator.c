@@ -386,11 +386,19 @@ int main(void){
            speed (nav-reference cruise, or above the departure margin for a relaxed-stability jet). */
         /* speed target: operating speed enroute; on the approach BLEED to ~1.3·Vs (textbook approach speed,
            not below the min-maneuvering vmin) so touchdown is at approach speed, not a cruise-speed float. */
-        double vspeed = landing ? fmax(m.vs*1.3, m.vmin) : vtarget;
-        double sperr=vspeed-st.speed;
-        double thr_us=m.cruise_thr + pitch_cmd*m.pitch2thr + (sperr>0? sperr*40.0 : (landing? sperr*12.0 : 0.0));  /* boost hard when slow; cut when fast ONLY on the approach — enroute let a jet fly at its natural cruise (its thrust/drag speed is well above the low iNav nav-reference airspeed; forcing it down to vc cuts power and mushes it). vne protection (below) still caps the top. */
-        if(altErr_cm>3000.0) thr_us=fmax(thr_us, m.min_thr+0.7*(m.max_thr-m.min_thr));  /* sustained climb -> hold power up */
-        if(!landing && agl>30.0 && jet && st.speed<m.vne*0.85) thr_us=fmax(thr_us,m.cruise_thr+0.4*(m.max_thr-m.cruise_thr)); /* JETS ONLY: a relaxed-stability jet at low power decays into departure. Conventional aircraft fly iNav's real nav_fw_cruise_thr + pitch2thr law (no power floor) — the floor overpowered them ~30% above cruise and made the validator OVER-PREDICT vs real iNav/flightbox (sim-critic). */
+        double thr_us=m.cruise_thr + pitch_cmd*m.pitch2thr;   /* iNav's REAL fixed-wing law (navigation_fixedwing.c): nav_fw_cruise_thr + pitchToThrottleCorrection. Nothing else — a conventional prop aircraft flies exactly this. */
+        if(jet){
+            /* JETS ONLY: flightbox flies the fast jet with a MANUAL throttle hand (the "full-ANGLE climb"
+               recipe) — SITL iNav has no airspeed and a low-excess-thrust jet mushes off the back of the power
+               curve in climbs/turns. We model that hand. A prop aircraft gets NONE of this: applying it to all
+               airframes over-predicted throttle ~30% above cruise and lands the c172 unfaithfully hot vs real
+               iNav (both sim-critic seals). vtarget = operating speed enroute; approach bleeds to ~1.3·Vs. */
+            double vspeed = landing ? fmax(m.vs*1.3, m.vmin) : vtarget;
+            double sperr = vspeed - st.speed;
+            thr_us += (sperr>0 ? sperr*40.0 : (landing ? sperr*12.0 : 0.0));
+            if(altErr_cm>3000.0) thr_us=fmax(thr_us, m.min_thr+0.7*(m.max_thr-m.min_thr));  /* sustained climb -> hold power up */
+            if(!landing && agl>30.0 && st.speed<m.vne*0.85) thr_us=fmax(thr_us,m.cruise_thr+0.4*(m.max_thr-m.cruise_thr)); /* low-power relaxed-stability jet decays into departure */
+        }
         if(st.speed>m.vne*0.9) thr_us=fmin(thr_us,m.min_thr);          /* vne protection (the only speed ceiling) */
         thr_us=fmax(m.min_thr,fmin(m.max_thr,thr_us));
         double thr=(thr_us-1000.0)/1000.0;

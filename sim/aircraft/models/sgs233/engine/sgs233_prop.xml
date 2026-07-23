@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <!-- sgs233 model propeller. Non-dimensional Ct/Cp(J) from validated JSBSim prop_generic2f (any diameter).
-     diameter = source * n = 13 in ; ixx = source * n^5 = 0.00025 slug*ft^2. -->
+     diameter = source * n = 60 in ; ixx = source * n^5 = 0.8 slug*ft^2. -->
 <propeller name="sgs233_prop">
-  <ixx> 0.00025 </ixx>
-  <diameter unit="IN"> 13 </diameter>
+  <ixx> 0.8 </ixx>
+  <diameter unit="IN"> 60 </diameter>
   <numblades> 2 </numblades>
   <minpitch> 23 </minpitch>
   <maxpitch> 23 </maxpitch>

@@ -41,6 +41,10 @@ void fb_jsbsim_set_wind(double wind_n, double wind_e);
 /* Real ground elevation under the aircraft (m ASL) so gear/contact use fb-tiles terrain. */
 void fb_jsbsim_set_ground(double ground_m);
 
+/* Read back the ground elevation (m ASL) the FDM is CURRENTLY colliding against -- lets a caller
+ * prove the DEM value actually reached JSBSim, not just that the setter was called. */
+double fb_jsbsim_get_ground(void);
+
 /* Advance one fixed 100 Hz step, then read the resulting state. */
 void fb_jsbsim_step(fb_fdm_state *out);
 

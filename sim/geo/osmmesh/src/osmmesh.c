@@ -56,6 +56,17 @@ static const float OSMMESH_NOTCH_DEPTH_M         = 0.20f;
  *  Context
  * ====================================================================== */
 
+/* Decoded-DEM LRU. fetch_terrain_grid_raw is hit ~15x per OUTPUT tile (self + 4 stitch neighbours, at
+ * a few call sites) and neighbouring output tiles re-request the same shared DEM tiles; the Terrarium
+ * PNG decode (~2 ms each) dominated cold boot (measured ~82% of it). This caches the DECODED, cropped
+ * grid per (z,x,y). Callers always receive a private CLONE (they own/mutate/free it exactly as before),
+ * so the cached master is never mutated or freed by a caller — immutability by construction, no
+ * ownership or API change. Per-ctx (a worker-pool instance would carry its own; minor cross-instance
+ * redundancy accepted). Cap = entry count; a grid is rows*cols float32 (~256 KB for a 256^2 DEM tile),
+ * so 128 entries ~= 32 MB worst case. */
+#define OM_DEM_LRU_CAP 128
+typedef struct { uint64_t seq; int used; uint8_t z; uint32_t x, y; osmmesh_terrain_grid g; } om_dem_ent;
+
 struct osmmesh_ctx {
     osmmesh_pmtiles *vec_pm;   /* vector archive, required */
     osmmesh_pmtiles *ter_pm;   /* terrain archive, optional (NULL if none) */
@@ -80,6 +91,9 @@ struct osmmesh_ctx {
     int enable_terrain;
     int enable_buildings;
     int enable_linears;
+
+    om_dem_ent dem_lru[OM_DEM_LRU_CAP];   /* decoded-DEM cache (see om_dem_ent) */
+    uint64_t   dem_seq;                    /* LRU clock */
 };
 
 /* ========================================================================
@@ -307,6 +321,8 @@ void osmmesh_destroy(osmmesh_ctx *ctx)
     if (!ctx) return;
     if (ctx->vec_pm) osmmesh_pmtiles_close(ctx->vec_pm);
     if (ctx->ter_pm) osmmesh_pmtiles_close(ctx->ter_pm);
+    for (int i = 0; i < OM_DEM_LRU_CAP; i++)
+        if (ctx->dem_lru[i].used) osmmesh_terrain_grid_free(&ctx->dem_lru[i].g);
     free(ctx);
 }
 
@@ -423,16 +439,71 @@ static int build_linears(osmmesh_ctx *ctx,
     return OSMMESH_OK;
 }
 
+/* Decoded-DEM LRU (see om_dem_ent). get: hand back a private CLONE of the cached grid for (z,x,y) into
+ * out (caller owns it), or 0 on miss. put: store a CLONE of grid under (z,x,y), evicting the LRU victim;
+ * the cache owns its copy, `grid` stays the caller's. Clone-OOM is treated as a cache miss/skip so the
+ * decode path still produces a correct grid — the cache is a pure accelerator, never load-bearing. */
+/* Escape hatch / A-B regression: FB_NODEMCACHE=1 disables the cache (every request decodes), so the
+ * same binary can render cache-on vs cache-off from the identical streaming order — a bit-exact diff
+ * proves the cache is correctness-neutral. Cached once. */
+static int om_dem_cache_off(void)
+{
+    static int v = -1;
+    if (v < 0) { const char *e = getenv("FB_NODEMCACHE"); v = (e && e[0] && e[0] != '0') ? 1 : 0; }
+    return v;
+}
+static int om_dem_lru_get(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
+                          osmmesh_terrain_grid *out)
+{
+    if (om_dem_cache_off()) return 0;
+    for (int i = 0; i < OM_DEM_LRU_CAP; i++) {
+        om_dem_ent *e = &ctx->dem_lru[i];
+        if (!e->used || e->z != z || e->x != x || e->y != y) continue;
+        e->seq = ++ctx->dem_seq;                         /* touch */
+        size_t n = (size_t)e->g.rows * e->g.cols;
+        out->rows = e->g.rows; out->cols = e->g.cols; out->heights = NULL;
+        if (n) {
+            out->heights = (float *)malloc(n * sizeof(float));
+            if (!out->heights) { memset(out, 0, sizeof *out); return 0; }   /* clone OOM -> miss */
+            memcpy(out->heights, e->g.heights, n * sizeof(float));
+        }
+        return 1;
+    }
+    return 0;
+}
+static void om_dem_lru_put(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
+                           const osmmesh_terrain_grid *grid)
+{
+    if (om_dem_cache_off()) return;
+    if (!grid->heights || grid->rows < 1 || grid->cols < 1) return;
+    int vict = -1; uint64_t oldest = UINT64_MAX;
+    for (int i = 0; i < OM_DEM_LRU_CAP; i++) {
+        if (!ctx->dem_lru[i].used) { vict = i; break; }
+        if (ctx->dem_lru[i].seq < oldest) { oldest = ctx->dem_lru[i].seq; vict = i; }
+    }
+    size_t n = (size_t)grid->rows * grid->cols;
+    float *h = (float *)malloc(n * sizeof(float));
+    if (!h) return;                                      /* can't cache -> skip, correctness unaffected */
+    memcpy(h, grid->heights, n * sizeof(float));
+    om_dem_ent *e = &ctx->dem_lru[vict];
+    if (e->used) osmmesh_terrain_grid_free(&e->g);       /* evict */
+    e->used = 1; e->z = z; e->x = x; e->y = y;
+    e->g.heights = h; e->g.rows = grid->rows; e->g.cols = grid->cols;
+    e->seq = ++ctx->dem_seq;
+}
+
 /* Fetch + decode + crop the terrain tile for (z, x, y) into an owned grid,
  * WITHOUT any neighbour-edge stitching. Used both for the primary fetch
  * (then wrapped by fetch_terrain_grid which adds stitching) and for the
  * stitching pass itself reading the four neighbours. Splitting the two
- * avoids unbounded recursion. */
+ * avoids unbounded recursion. A decoded-DEM LRU short-circuits the PNG decode
+ * for tiles already seen this session (the dominant cold-boot cost). */
 static int fetch_terrain_grid_raw(osmmesh_ctx *ctx,
                                    uint8_t z, uint32_t x, uint32_t y,
                                    osmmesh_terrain_grid *out_grid)
 {
     memset(out_grid, 0, sizeof *out_grid);
+    if (om_dem_lru_get(ctx, z, x, y, out_grid)) return OSMMESH_OK;
     /* A provider supplies terrain without any archive, so ter_pm being NULL is only
      * "no terrain" when there is no provider either. */
     if (!ctx->ter_pm && !ctx->tile_provider) return OSMMESH_OK;
@@ -500,6 +571,7 @@ static int fetch_terrain_grid_raw(osmmesh_ctx *ctx,
         grid.cols = out_cols;
     }
 
+    om_dem_lru_put(ctx, z, x, y, &grid);   /* cache a clone; `grid` stays ours to hand back */
     *out_grid = grid;
     return OSMMESH_OK;
 }

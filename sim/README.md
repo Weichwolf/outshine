@@ -1,62 +1,40 @@
-# FlightBox — Simulation (alles in C)
+# FlightBox — Simulation
 
-Zwei-Container-Simulation des ganzen Systems. Die **„Funkverbindung" ist UDP**
-zwischen den Containern; der Browser spricht mit der Flightbox über HTTP+WebSocket.
+**JSBSim-Frontend.** Ein DCS-World-artiger Flugsimulator: die Physik ist JSBSim, direkt ins Command
+Center kompiliert. Physik + Regelung + Rendering laufen als **ein** Prozess (WASM im Browser, native
+im CLI). Server-seitig läuft **nur** der Kachel-Server `fb-tiles`.
 
 ```
-  [ aircraft ]  --UDP downlink (Telemetrie + Video/Kunsthorizont)-->  [ flightbox ]
-   (C-Sim:      <--UDP uplink (Steuerung) ------------------------     (C: HTTP-Server
-    Dynamik,                                                            + WASM-App
-    FBW, GPS,                                                          + WS-Bridge
-    Kamera)                                                            + UDP-Radio)
-                                                                             |
-                                                              HTTP + WebSocket (WPA2 im Real)
-                                                                             v
-                                                            [ Browser: Command Center (C->WASM) ]
-                                                             Video + HUD-Overlay + Gamepad/Tastatur
+  fb-tiles (Server)                    Command Center (Client, ein Prozess)
+  weltweit DEM/OSM/Luftbild  ──HTTP──▶  libJSBSim  ─▶ FBW ─▶ Loiter-AP
+  auf :8081                             │                        │
+                                        └────── ECEF-Renderer + MIL-STD-1787-HUD ◀── liest JSBSim-Zustand direkt
 ```
 
 ## Komponenten
-- `common/protocol.h` — gemeinsame UDP/WS-Wire-Structs (Control, Telemetrie, Video).
-- `aircraft/aircraft.c` — simuliert den kompletten Flieger: FBW-Dynamik, Zustands-
-  automat (ARMED→CLIMB→LOITER/MANUAL/RTH), Sensoren, GPS, Akku und die „Kamera"
-  = künstlicher Horizont (oben blau, unten grün, kippt mit der Lage).
-- `flightbox/server.c` — HTTP-Server (serviert die WASM-App aus `web/`), WebSocket-
-  Bridge (Video/Telemetrie→Browser, Steuerung←Browser), UDP-Radio zum Flieger.
-- `command_center/cc.c` — C→WASM (Emscripten + SDL2): zeigt Video, rendert das HUD
-  aus der Telemetrie, liest Gamepad **oder Tastatur**, sendet Steuerung über WS.
+- `aircraft/fdm/jsbsim_adapter.*` — C-aufrufbarer Adapter um libJSBSim (Load/Step/Trim, Controls,
+  Ground-Clearance aus der Fahrwerks-Geometrie). Die einzige Naht zwischen unserem Code und JSBSim.
+- `aircraft/models/<name>/` — Flugzeug-Plugins: JSBSim-Modell (XML + engine/), `profile.env` (Vs/Vc,
+  Spawn). F-16 bis EPP-Nurflügel.
+- Steuerung: schlanker **Fly-by-Wire** (Raten-/Attitude-PID auf `fcs/*-cmd-norm`) + kleiner
+  **Autopilot** (`manual`, `loiter(lat,lon,alt,radius)`). Kein iNav.
+- `command_center/` — der Client: `cc.c` (Emscripten/SDL2) + der WGS84-ECEF-Renderer (`world3d.h`,
+  `render.h`, Reversed-Z-Depth), osmmesh-Terrain in per-Tile-ECEF, HUD (`hud.h`, MAX7456-Font).
+- `tiles/` — der `fb-tiles`-Server: weltweit DEM/OSM/Luftbild on-demand.
+- `geo/osmmesh/` — unsere Terrain-Vermaschung (nicht vendored).
 
 ## Bauen & Starten
-
-**In Podman-Containern (Zielbetrieb):**
 ```bash
-./build-wasm.sh      # C -> WASM (nutzt ~/Git/emsdk); einmal, dann bei cc.c-Änderungen
-./run-podman.sh      # baut beide Images, startet sie, published :8080
-# Browser: http://localhost:8080
-# Stop: podman rm -f fb-aircraft fb-flightbox
+make tiles            # fb-tiles-Image bauen
+make up-tiles         # fb-tiles starten -> :8081
+make controlcenter    # WASM-CC (JSBSim + Renderer) -> flightbox/web/  (nutzt ~/Git/emsdk)
+# CC im Browser öffnen; per lat/lon/alt/radius weltweit loitern und rendern
 ```
+Der native CLI-Build (dieselbe Physik + Renderer, headless) fährt die weltweiten Screenshot-Läufe zum
+Härten des Renderers.
 
-**Nativ (schnelles Iterieren, ohne Container, UDP über loopback):**
-```bash
-./build-wasm.sh
-./run-native.sh      # Ctrl-C zum Stoppen
-# Browser: http://localhost:8080
-```
-
-## Steuerung im Command Center
-Ins Bild klicken, dann:
-- **←↑↓→** Roll/Pitch · **A/D** Yaw · **W/S** Gas · **Enter** Arm · **L** (halten) Link-Verlust → RTH.
-- Ein angeschlossenes **Gamepad** wird automatisch erkannt (rechter Stick Roll/Pitch,
-  linker Stick Yaw/Gas, A = Arm, B = Link-Verlust).
-
-## Status
-Verifiziert (nativ **und** in Containern): HTTP/WASM-Serving, WebSocket-Handshake
-(eigener SHA1/Base64 in C), UDP-Radio in beide Richtungen, Video-Frames (~20 fps),
-Telemetrie, und Failsafe (Link-Drop → RTH). Das Browser-Rendering (SDL2/WASM)
-kompiliert; visuell im Browser prüfen.
-
-## Bezug zur Spec
-Entspricht **Phase 1** aus `../README.md` (§2.12): Flightbox = Herzstück
-(Webserver + WASM + „Sender"/„Video-RX"), Command Center = WASM, Flieger-Logik.
-Statt echtem ELRS/5,8-GHz/WebRTC hier UDP + WebSocket-Frames — dieselbe
-Architektur, simulierte Funkstrecke.
+## Status / Pivot (2026-07-21)
+Früher: zwei Container (aircraft + flightbox) mit iNav in der Schleife, UDP/MSP-„Funk". **Retired.**
+Jetzt: JSBSim direkt im Client, nur `fb-tiles` server-seitig. iNav (`inav-src`), `flightbox/`-Hub,
+`msp_bridge`, das TS-Missions-/Validator-Testsystem und `test/` sind **superseded** und werden entfernt,
+sobald der JSBSim-in-CC-Pfad steht. Renderer + Aircraft-Plugins + `jsbsim_adapter` bleiben.

@@ -197,11 +197,32 @@ static int w3_tile_provider(void *user, osmmesh_tile_kind kind,
  * lived) to here. Send one, wait for its 'built' reply, then send the next. */
 EM_JS(void, w3_worker_init, (const char *base, double lat, double lon), {
     var baseStr = UTF8ToString(base);   /* NOW -- the C pointer is not valid inside the callback */
-    var T = { w: new Worker('tileworker.js'), opened: false, q: [], busy: false };
+    var T = { w: new Worker('tileworker.js'), opened: false, q: [], busy: false,
+              camLat: lat, camLon: lon };  /* live camera (w3_worker_campos); seeded with the origin */
     Module.__tw = T;
+    /* Drain the queue NEAREST-CAMERA-FIRST, not FIFO. The walk posts tiles in spatial-scan order and
+     * they accumulate across frames, so a moving camera leaves stale FAR tiles ahead of the newly
+     * visible foreground -- with one build in flight that starves the ground under the aircraft while
+     * the horizon bakes. Picking the queued tile whose slippy-centre is closest to the camera each
+     * pump makes the visible foreground load first (missing-tiles fix + "tiles um die Kamera
+     * priorisiert"). O(queue) per build is trivial next to a tile fetch+mesh. */
     T.pump = function () {                 /* at most one build outstanding with the worker */
         if (!T.opened || T.busy || T.q.length === 0) return;
-        T.busy = true; T.w.postMessage(T.q.shift());
+        var bi = 0;
+        if (T.q.length > 1) {
+            var cosL = Math.cos(T.camLat * Math.PI / 180), best = Infinity;
+            for (var i = 0; i < T.q.length; i++) {
+                var it = T.q[i], n = Math.pow(2, it.z);
+                var tlon = (it.x + 0.5) / n * 360 - 180;
+                var tlat = Math.atan(Math.sinh(Math.PI * (1 - 2 * (it.y + 0.5) / n))) * 180 / Math.PI;
+                var dlat = tlat - T.camLat, dlon = tlon - T.camLon;
+                if (dlon > 180) dlon -= 360; else if (dlon < -180) dlon += 360;   /* antimeridian: nearest-across, not +360 away */
+                dlon *= cosL;
+                var d2 = dlat * dlat + dlon * dlon;
+                if (d2 < best) { best = d2; bi = i; }
+            }
+        }
+        T.busy = true; T.w.postMessage(T.q.splice(bi, 1)[0]);
     };
     T.w.onmessage = function (e) {
         var d = e.data;
@@ -237,6 +258,12 @@ EM_JS(void, w3_worker_post, (int z, int x, int y, int grid, int want_yoff), {
     var T = Module.__tw; if (!T) return;
     T.q.push({ cmd: 'build', z: z, x: x, y: y, grid: grid, want_yoff: want_yoff });
     T.pump();
+})
+
+/* Push the live camera position each frame -> the pump prioritises the nearest queued tile. */
+EM_JS(void, w3_worker_campos, (double lat, double lon), {
+    var T = Module.__tw; if (!T) return;
+    T.camLat = lat; T.camLon = lon;
 })
 
 #endif /* W3_TILESRC_JS_H */

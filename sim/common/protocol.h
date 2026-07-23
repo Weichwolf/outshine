@@ -46,7 +46,8 @@ typedef struct {
     float    batt;               /* volts */
     float    home_dist;          /* m */
     float    home_bearing;       /* deg, relative to nose (-180..180) */
-    float    glideslope_err;     /* deg; + = above the ideal approach path */
+    float    glideslope_err;     /* deg; + = above the ideal approach path; |err| >= 90 = NO VALID SOURCE
+                                  * (sentinel — no approach mode active, HUD must declutter the cue) */
     float    cloud;              /* 0..1 total cloud cover (live weather) */
     float    vis;                /* horizontal visibility, m (live weather -> haze) */
     float    sun_el;             /* sun elevation, deg (+ = above horizon) */

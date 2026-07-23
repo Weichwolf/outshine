@@ -35,6 +35,10 @@ static void w3_draw_terrain(const w3_cam *C, const w3_atmo *A, const double cam_
   glEnableVertexAttribArray(w3_gl.wtUV);
   glEnableVertexAttribArray(w3_gl.wtNorm);
   const w3_frustum fr = w3_frustum_from(C->mvp);
+  /* publish this frame's frustum+camera for the NEXT stream pass's view-prioritised refinement */
+  w3_cull_fr = fr;
+  for (int a = 0; a < 3; a++) w3_cull_cam[a] = cam_ecef[a];
+  w3_cull_valid = 1;
   w3_frame.nvis = 0;
   for (int i = 0; i < w3_frame.nD; i++) {
     float trans[3];
@@ -77,17 +81,27 @@ static void w3_draw_fallback(const w3_cam *C, const w3_atmo *A) {
 }
 
 /* The aircraft camera image: sky + stars + terrain, in order, into the bound framebuffer. */
-static void world3d_render_scene(const telem_packet_t *t, int W, int H, int have) {
+static void world3d_render_scene(const FlightBox::FBState *t, int W, int H, int have) {
   glViewport(0, 0, W, H);
   glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_GEQUAL);      /* reversed-Z: keep the FARTHER-from-0 (nearer) fragment (m_persp) */
+  glClearDepthf(0.0f);         /* clear to the reversed far value (0 = far); terrain writes toward 1 */
   glClearColor(0.55f, 0.70f, 0.90f, 1);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  /* DYNAMIC near plane: scale with AGL. Reversed-Z in WebGL's [-1,1] clip loses its far-field win to
+   * float cancellation at NDC -1 (no glClipControl) — the surviving depth resolution scales LINEARLY
+   * with the near plane. At loiter height nothing is near the camera, so lifting near from 0.01 m to
+   * ~8 m buys ~800x far-field separation (Alps stop z-fighting); on the runway (eye ~0.3 m) it stays
+   * small so the ground under the nose still draws. WebGPU's [0,1] clip removes this trade entirely. */
+  float znear = w3_agl > 0 ? 0.05f * w3_agl : W3_NEAR;
+  if (znear < W3_NEAR) znear = W3_NEAR;
+  if (znear > 24.0f) znear = 24.0f;   /* 3x more far-field depth separation than the first 8 m cap; nothing is within 24 m of a cruising eye */
   /* Eye in render-ENU for the sky/star infinity pass + procedural fallback ONLY; the ECEF terrain
    * carries its own cam_ecef (double) below, so this eye's exact height is immaterial. */
   float px = have ? t->x : 0, py = (have && t->alt > 2) ? t->alt : 120, pz = have ? -t->y : 0;
   const float eye[3] = {px, py, pz};
   const w3_cam C = w3_cam_from(have ? t->yaw : 0, have ? t->pitch : 0, have ? t->roll : 0, eye,
-                               W3_FOV, (float)W / H, W3_NEAR, W3_FARPLANE);
+                               W3_FOV, (float)W / H, znear, W3_FARPLANE);
   /* Atmosphere derived once (atmo.h, pure). SVS (OSM) is deliberately TIME-INDEPENDENT -- a
    * constant daylit database view, no day/night/stars/clouds; EVS (photo) keeps the real
    * sun/sky/stars. */
@@ -95,7 +109,9 @@ static void world3d_render_scene(const telem_packet_t *t, int W, int H, int have
 
   /* Sky+stars stay in local render-ENU (up=+Y): at infinity, so they key off the local vertical and
    * the horizon dip emerges as the ECEF terrain curves away below the flat local horizon. */
-  w3_draw_sky(&C, &A, (float)W / H, sinf(w3_horizon_dip_rad(w3_agl)));
+  /* Dip depends on height above the curvature reference (ellipsoid/ASL), NOT local ground
+   * clearance -- AGL made the horizon breathe with terrain relief during a level loiter. */
+  w3_draw_sky(&C, &A, (float)W / H, sinf(w3_horizon_dip_rad(have && t->alt > 1 ? t->alt : w3_agl)));
   if (w3_ground.mode == W3_GROUND_PHOTO) w3_draw_stars(&C, &A, eye); /* real stars -> EVS only */
   glDepthMask(GL_TRUE);
   glEnable(GL_DEPTH_TEST);
@@ -116,7 +132,7 @@ static void world3d_render_scene(const telem_packet_t *t, int W, int H, int have
     osmmesh_ecef ce = osmmesh_geo_to_ecef(cg);
     double cam_ecef[3] = {ce.x, ce.y, ce.z};
     const w3_cam Ce = w3_cam_ecef(have ? t->yaw : 0, have ? t->pitch : 0, have ? t->roll : 0, clat,
-                                  clon, W3_FOV, (float)W / H, W3_NEAR, W3_FARPLANE);
+                                  clon, W3_FOV, (float)W / H, znear, W3_FARPLANE);
     float sun_ecef[3];
     w3_render_to_ecef(clat, clon, A.sun, sun_ecef); /* topocentric sun -> ECEF axes */
     w3_draw_terrain(&Ce, &A, cam_ecef, sun_ecef, A.sun[1]);

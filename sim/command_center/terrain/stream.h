@@ -12,6 +12,7 @@
 static int w3_stream_done = 0;
 static void world3d_stream_at(double lat, double lon, double alt_agl) {
   if (!w3_osm) return;
+  w3_worker_campos(lat, lon);   /* prioritise the tile queue around the current camera */
   uint32_t tx, ty;
   if (osmmesh_geo_to_tile(lon, lat, W3_MAXZ, &tx, &ty) != 0) return;
   int moved = !w3_O.have_tile || tx != w3_O.tx || ty != w3_O.ty;
@@ -29,6 +30,7 @@ static void world3d_stream_at(double lat, double lon, double alt_agl) {
   w3_ground.dirty = 0;          /* recomputed by the w3_cache_get calls below */
   unsigned mark = w3_touch + 1; /* everything the walk touches gets touch >= mark */
   w3_frame.pass_mark = mark;    /* want_lod_max resets off this on a chunk's first touch */
+  w3_bake_budget = W3_BAKE_PER_FRAME; /* per-pass GPU-upload budget (lru.h): caps bake cost/frame */
 
   w3_frame.nD = 0;
   w3_frame.split_want = 0;
@@ -40,11 +42,14 @@ static void world3d_stream_at(double lat, double lon, double alt_agl) {
     w3_frame.lvl[i] = 0;
   double rtx, rty;
   w3_geo_to_tile_f(lat, lon, W3_ROOTZ, &rtx, &rty);
-  /* Roots: enough W3_ROOTZ chunks to cover W3_REACH. The tree prunes the rest immediately. */
+  /* Seed the frontier with the root ring covering the view distance, then refine by priority:
+   * highest frustum-weighted SSE splits first (walk.h) — view-aware, worst-error-first. */
   int rad = (int)ceil(W3_REACH / w3_tile_span(W3_ROOTZ, lat)) + 1;
+  w3_fr_n = 0;
   for (int dy = -rad; dy <= rad; dy++)
     for (int dx = -rad; dx <= rad; dx++)
-      w3_walk(W3_ROOTZ, (long)rtx + dx, (long)rty + dy, lat, alt_agl, rtx, rty);
+      w3_leaf_push(W3_ROOTZ, (long)rtx + dx, (long)rty + dy, rtx, rty, lat, alt_agl);
+  w3_refine(lat, alt_agl);
 
   w3_cache_trim(mark); /* whatever the walk did not ask for is unreachable */
 
@@ -68,10 +73,10 @@ static void world3d_stream_at(double lat, double lon, double alt_agl) {
   static int w3_last_sharpen = -1;
   if (moved || (w3_stream_done && !was_done) || w3_frame.sharpen != w3_last_sharpen || W3_TRACE) {
     w3_last_sharpen = w3_frame.sharpen;
-    printf("[world3d] quadtree: %d chunks drawn (budget %d), %d wanted split, %d waiting,"
+    printf("[world3d] quadtree: %d chunks drawn (leaves %d), %d wanted split, %d waiting,"
            " %d pending, %d sharpening, %d over budget | levels %d/%d/%d/%d/%d/%d/%d | baked %d, "
            "cached %d, evicted %d, vram %ldMB%s\n",
-           w3_frame.nD, W3_BUDGET, w3_frame.split_want, w3_frame.split_wait, w3_frame.pending,
+           w3_frame.nD, w3_fr_n, w3_frame.split_want, w3_frame.split_wait, w3_frame.pending,
            w3_frame.sharpen, w3_frame.over, w3_frame.lvl[0], w3_frame.lvl[1], w3_frame.lvl[2],
            w3_frame.lvl[3], w3_frame.lvl[4], w3_frame.lvl[5], w3_frame.lvl[6],
            w3_frame.cache_bakes - b0, w3_frame.cache_hits - h0, w3_frame.cache_evict,

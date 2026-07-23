@@ -28,6 +28,7 @@ podman rm -f fb-flightbox >/dev/null 2>&1 || true
 PORTS="-p 8080:8080"; [ "${CC_DEBUG:-0}" = 1 ] && PORTS="$PORTS -p 5761:5761"
 podman run -d --name fb-flightbox --network "$NET" $PORTS \
   -v "$WEEPROM:/app/models/$AC/eeprom.bin" \
+  -v "$PWD/flightbox/web:/app/flightbox/web:ro" \
   -v "$PWD/aircraft/models/$AC/profile.env:/app/models/$AC/profile.env:ro" \
   $([ -f "aircraft/models/$AC/$AC.xml" ] && echo "-v $PWD/aircraft/models/$AC/$AC.xml:/app/models/$AC/$AC.xml:ro") \
   -e AIRCRAFT="$AC" -e TILES_ADDR=fb-tiles:8081 -e TILES_URL="http://localhost:8081" \

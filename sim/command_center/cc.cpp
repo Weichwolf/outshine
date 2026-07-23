@@ -14,7 +14,7 @@
 #include "codec.h"     /* EVS video link: WebCodecs H.264 (fb_codec_*) */
 #include "constants.h" /* GL enums the ES2 header lacks + MSAA entry points, FB_M_PER_DEG_LAT */
 #include "jsbridge.h"  /* fb-tiles fetches: /elev (origin + ground), /stars */
-#include "net.h"       /* telemetry/control WebSocket; owns `telem`/`have_telem` */
+#include "flightsim.h" /* LOCAL JSBSim + FBW/loiter; owns `telem`/`have_telem` (replaces net.h) */
 #include "present.h"   /* render targets + present pipeline (SVS/EVS/HUD, dynamic display res) */
 
 #define WIN_W 1280 /* initial canvas size; present.h re-syncs to the display each frame */
@@ -23,71 +23,30 @@
 static SDL_Window *win;
 static SDL_GameController *pad = NULL;
 
-EMSCRIPTEN_KEEPALIVE void cc_toggle_ground(void) {
+extern "C" EMSCRIPTEN_KEEPALIVE void cc_toggle_ground(void) {
   w3_ground_toggle();
 }
-/* Harness counters (per-frame deltas): mipmaps = tile-cache thrash (~0 warm), texvram vs the 2 GB
- * cap, visible<drawn = the frustum cull works. */
-EMSCRIPTEN_KEEPALIVE long cc_mipmaps(void) {
+/* Harness counters (per-frame deltas): mipmaps = tile-cache thrash (~0 warm), texvram vs
+ * w3_vram_budget (default 1.5 GiB, FB_VRAM_MB), visible<drawn = the frustum cull works. */
+extern "C" EMSCRIPTEN_KEEPALIVE long cc_mipmaps(void) {
   return w3_frame.mipmaps;
 }
-EMSCRIPTEN_KEEPALIVE long cc_texvram(void) {
+extern "C" EMSCRIPTEN_KEEPALIVE long cc_texvram(void) {
   return w3_texvram();
 }
-EMSCRIPTEN_KEEPALIVE int cc_drawn(void) {
+extern "C" EMSCRIPTEN_KEEPALIVE int cc_drawn(void) {
   return w3_frame.nD;
 }
-EMSCRIPTEN_KEEPALIVE int cc_visible(void) {
+extern "C" EMSCRIPTEN_KEEPALIVE int cc_visible(void) {
   return w3_frame.nvis;
-}
-
-static int armed_latch = 0, prev_enter = 0;
-static uint16_t seq = 0;
-static void send_control(void) {
-  if (!ws_open) return;
-  ctrl_packet_t c;
-  memset(&c, 0, sizeof c);
-  c.magic = FB_MAGIC_CTRL;
-  c.link_up = 1;
-  c.throttle = 0.5f;
-  const Uint8 *k = SDL_GetKeyboardState(0);
-  if (k[SDL_SCANCODE_RIGHT]) c.roll += 1;
-  if (k[SDL_SCANCODE_LEFT]) c.roll -= 1;
-  if (k[SDL_SCANCODE_UP]) c.pitch += 1;
-  if (k[SDL_SCANCODE_DOWN]) c.pitch -= 1;
-  if (k[SDL_SCANCODE_D]) c.yaw += 1;
-  if (k[SDL_SCANCODE_A]) c.yaw -= 1;
-  if (k[SDL_SCANCODE_W]) c.throttle = 1;
-  if (k[SDL_SCANCODE_S]) c.throttle = 0;
-  if (k[SDL_SCANCODE_L]) c.link_up = 0;
-  int en = k[SDL_SCANCODE_RETURN] || k[SDL_SCANCODE_SPACE];
-  if (en && !prev_enter) armed_latch = 1;
-  prev_enter = en;
-  if (pad) {
-    float rx = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_RIGHTX) / 32767.f,
-          ry = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_RIGHTY) / 32767.f;
-    float lx = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTX) / 32767.f,
-          ly = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTY) / 32767.f;
-    c.roll += rx;
-    c.pitch += ry;
-    c.yaw += lx;
-    if (ly < -0.1f) c.throttle = -ly;
-    (void)lx;
-    if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_A)) armed_latch = 1;
-    if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_B)) c.link_up = 0;
-  }
-  c.arm = armed_latch;
-  c.seq = seq++;
-  emscripten_websocket_send_binary(ws, &c, sizeof c);
 }
 
 static void frame(void) {
   SDL_Event e;
   while (SDL_PollEvent(&e))
     if (e.type == SDL_CONTROLLERDEVICEADDED && !pad) pad = SDL_GameControllerOpen(e.cdevice.which);
-  send_control();
-  /* Sample the LATEST pose each frame (telemetry 100 Hz > 60 fps render): smooth, zero added
-   * latency. */
+  flightsim_step(1.0 / 60.0);   /* advance the in-process F-16 (JSBSim + FBW/loiter), publish -> telem */
+  /* Sample the LATEST pose each frame (physics 100 Hz > 60 fps render): smooth, zero added latency. */
   if (have_telem) {
     double lat = w3_O.lat + (double)telem.y / FB_M_PER_DEG_LAT;
     double lon = w3_O.lon + (double)telem.x / (FB_M_PER_DEG_LAT * cos(w3_O.lat * M_PI / 180.0));
@@ -100,10 +59,22 @@ static void frame(void) {
       g_glat = lat;
       g_glon = lon;
     }
-    double ground = fb_ground_get();
-    if (ground <= -1e8) ground = w3_O.yoff;
+    double ground_raw = fb_ground_get();
+    double ground = ground_raw > -1e8 ? ground_raw : w3_O.yoff;
     double agl = (double)telem.alt - ground;
-    w3_agl = (float)agl;                                       /* TRUE AGL — negative = below terrain, never hide it */
+    w3_agl = (float)agl;
+    /* JSBSim's collision floor = the SAME DEM the HUD/renderer use (CLAUDE.md crash contract): a
+     * gear-down touchdown or a crash must happen against the real terrain under the aircraft, not
+     * ASL 0 (the Jura here is ~1000-1300 m -- ground reactions would be blind without this). Only
+     * push REAL /elev samples (ground_raw, not the w3_O.yoff fallback) -- a cold/unknown sample
+     * leaves JSBSim at its last good value (set once at spawn in flightsim_init) instead of
+     * snapping to a possibly-stale default. One frame of lag (physics 100 Hz, this runs at 60 fps)
+     * is fine -- xpjsb (the retired IPC bridge) only ever updated it periodically too. */
+    if (ground_raw > -1e8) fb_jsbsim_set_ground(ground_raw);
+    { /* AGL/ground invariant log @1 Hz: ground = alt - agl must stay plausible (sim-critic run 3) */
+      static int inv_n = 0;
+      if (++inv_n >= 60) { inv_n = 0; printf("[agl] alt=%.0f agl=%.0f ground=%.0f fdmGnd=%.0f\n", (double)telem.alt, agl, ground, fb_jsbsim_get_ground()); }
+    }                                       /* TRUE AGL — negative = below terrain, never hide it */
     world3d_stream_at(lat, lon, agl < 1.0 ? 1.0 : agl);       /* streaming LOD still needs a positive height */
   }
   fb_present_frame(&telem, have_telem);
@@ -124,9 +95,20 @@ static void cfg_from_js(char *tiles_url, size_t n) {
   const char *su = emscripten_run_script_string(
       "(typeof window.FB_SIM_UTC==='number'?window.FB_SIM_UTC:0).toString()");
   w3_sim_utc = atof(su);
+  /* Test OVERRIDE only: the normal case is flightsim_init filling w3_cam_clear from the loaded
+   * model's own geometry (fb_jsbsim_ground_clearance, in-process) -- the xpjsb-bridge IPC channel
+   * this used to read from is retired. 0/unset leaves that geometry-true default alone. */
   const char *gc = emscripten_run_script_string(
       "(typeof window.FB_GROUND_CLEAR==='number'?window.FB_GROUND_CLEAR:0).toString()");
-  w3_cam_clear = (float)atof(gc);
+  if (atof(gc) > 0) w3_cam_clear = (float)atof(gc);
+  /* View distance is a SETTING (km); tile/texture buffers scale with it on demand. */
+  const char *vk = emscripten_run_script_string(
+      "(typeof window.FB_VIEW_KM==='number'?window.FB_VIEW_KM:0).toString()");
+  if (atof(vk) > 0) w3_view_m = (float)(atof(vk) * 1000.0);
+  /* Tile-cache eviction budget (MB); default stays 1.5 GiB (w3_vram_budget's compiled-in value). */
+  const char *vm = emscripten_run_script_string(
+      "(typeof window.FB_VRAM_MB==='number'?window.FB_VRAM_MB:0).toString()");
+  if (atof(vm) > 0) w3_vram_budget = (long)(atof(vm) * 1024.0 * 1024.0);
   snprintf(tiles_url, n, "%s",
            emscripten_run_script_string("(window.FB_TILES_URL||'').toString()"));
 }
@@ -186,7 +168,12 @@ int main(void) {
   stars_load_from_tiles();
 
   fb_present_init(win);
-  net_init();
+  {
+    double gnd = fb_fetch_elev(w3_O.lat, w3_O.lon);
+    flightsim_init(w3_O.lat, w3_O.lon, (gnd > -1e8 ? gnd : 0.0) + 1500.0, 8000.0, gnd);
+    printf("[cc] F-16 loitering at %.4f/%.4f, alt %.0f m, R 8 km (JSBSim in-process)\n",
+           w3_O.lat, w3_O.lon, (gnd > -1e8 ? gnd : 0.0) + 1500.0);
+  }
   emscripten_set_main_loop(frame, 0, 1);
   return 0;
 }

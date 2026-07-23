@@ -10,6 +10,7 @@
 #include "jsbsim_adapter.h"
 #include <cstdio>
 #include <string>
+#include <sys/stat.h>
 
 using namespace JSBSim;
 
@@ -32,8 +33,17 @@ extern "C" int fb_jsbsim_init(const char *root, const char *ac,
   g_fdm = new FGFDMExec();
   g_fdm->SetDebugLevel(0);
   std::string r = root, d = r + "/" + ac;
-  if (!g_fdm->LoadModel(SGPath(r), SGPath(d + "/engine"), SGPath(d + "/Systems"), ac)) {
-    fprintf(stderr, "[jsbsim] LoadModel(%s) failed\n", ac);
+  /* Engine/Systems paths: our bundled models carry their own <ac>/engine + <ac>/Systems; the vanilla
+   * JSBSim models (e.g. the full-scale f16) share JSBSim's standard <root>/../engine and keep Systems
+   * under <ac>/Systems. Fall back to the shared layout so a vanilla model loads with no duplication. */
+  auto exists = [](const std::string &p) { struct stat st; return ::stat(p.c_str(), &st) == 0; };
+  /* Parent by truncation, NOT "..": emscripten's virtual FS does not normalize ".." in a path, so a
+   * "<root>/../engine" fallback resolves fine natively but not in WASM. */
+  std::string parent = r.substr(0, r.find_last_of('/'));
+  std::string eng = exists(d + "/engine") ? d + "/engine" : parent + "/engine";
+  std::string sys = exists(d + "/Systems") ? d + "/Systems" : parent + "/systems";
+  if (!g_fdm->LoadModel(SGPath(r), SGPath(eng), SGPath(sys), ac)) {
+    fprintf(stderr, "[jsbsim] LoadModel(%s) failed (aircraft=%s engine=%s)\n", ac, r.c_str(), eng.c_str());
     return 1;
   }
   auto ic = g_fdm->GetIC();
@@ -132,6 +142,11 @@ extern "C" void fb_jsbsim_set_wind(double wind_n, double wind_e) {
 extern "C" void fb_jsbsim_set_ground(double ground_m) {
   if (!g_fdm) return;
   g_fdm->SetPropertyValue("position/terrain-elevation-asl-ft", ground_m / FT);
+}
+
+extern "C" double fb_jsbsim_get_ground(void) {
+  if (!g_fdm) return 0.0;
+  return g_fdm->GetPropertyValue("position/terrain-elevation-asl-ft") * FT;
 }
 
 extern "C" void fb_jsbsim_step(fb_fdm_state *o) {

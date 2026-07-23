@@ -80,7 +80,7 @@ static void w3_box(float x0, float y0, float x1, float y1, float r, float g, flo
   w3_line(x0, y1, x0, y0, r, g, b);
 }
 /* Full OSD. Font has no '%' (implied by label); colour = green good / amber caution / red warning. */
-static void w3_build_hud(const telem_packet_t *t, int W, int H, int have) {
+static void w3_build_hud(const FlightBox::FBState *t, int W, int H, int have) {
   w3_hudN = 0;
   w3_hudTN = 0;
   mx_reset();
@@ -115,10 +115,12 @@ static void w3_build_hud(const telem_packet_t *t, int W, int H, int have) {
    * +/-86 px), tilting with roll from the SAME camera projection as the scene. Centre = horizon
    * point straight ahead (az=yaw); a second point at +20 deg gives the tilt. */
   {
-    w3_cam HC = w3_cam_from(t->yaw, t->pitch, t->roll, (float[3]){0, 0, 0}, W3_FOV, (float)W / H,
-                            1.f, 1000.f);
+    static const float HC0[3] = {0, 0, 0};
+    w3_cam HC = w3_cam_from(t->yaw, t->pitch, t->roll, HC0, W3_FOV, (float)W / H, 1.f, 1000.f);
     float Kc = (H * 0.5f) / tanf(W3_FOV * 0.5f * RAD), p[2][2];
-    float dip = w3_horizon_dip_rad(w3_agl), cd = cosf(dip), sd = sinf(dip);
+    /* Dip depends on height above the curvature reference (ellipsoid/ASL), NOT local ground
+     * clearance -- AGL made the horizon breathe with terrain relief during a level loiter. */
+    float dip = w3_horizon_dip_rad(t->alt > 1 ? t->alt : w3_agl), cd = cosf(dip), sd = sinf(dip);
     for (int k = 0; k < 2; k++) {
       float az = (t->yaw + (k ? 20.f : 0.f)) * RAD;
       float d[3] = {cd * sinf(az), -sd, -cd * cosf(az)}; /* horizon dipped below level by θ_dip */
@@ -184,13 +186,12 @@ static void w3_build_hud(const telem_packet_t *t, int W, int H, int have) {
     w3_text(hsx - 3, hy1 - 25, 1.4f, HG_R, HG_G, HG_B, "H");
   }
 
-  /* ===== Groundspeed tape (left): moving vertical scale, boxed value + caret. Labelled GS, not TAS:
-   * vanilla iNav's SITL build defines only USE_PITOT_FAKE (not USE_PITOT), so MSP2_INAV_AIR_SPEED returns
-   * 0 and no true-airspeed reaches the ground station — the only speed the CC has over MSP is GPS
-   * groundspeed. Showing it honestly as GS (a headwind/tailwind then visibly is NOT reflected here). =====
+  /* ===== Groundspeed tape (left): moving vertical scale, boxed value + caret.
+   * TODO(doc/f16/hud-symbology.md): future stage switches this tape to CAS in knots; t->airspeed
+   * (TAS) is already available in-process, unused here only because the tape's label is GS. =====
    */
   {
-    float apx = 5.f, ax = 70.f, as = t->airspeed;
+    float apx = 5.f, ax = 70.f, as = t->gs;
     for (int av = (int)floorf((as - 30.f) / 5.f) * 5; av <= (int)as + 30; av += 5) { /* continuous marks */
       if (av < 0) continue;
       float sy = cy - ((float)av - as) * apx;
@@ -204,7 +205,7 @@ static void w3_build_hud(const telem_packet_t *t, int W, int H, int have) {
     w3_printf(ax + 9, cy - 7, 2.f, HG_R, HG_G, HG_B, "%3.0f", as);
     w3_line(ax, cy, ax + 3, cy - 6, HG_R, HG_G, HG_B);
     w3_line(ax, cy, ax + 3, cy + 6, HG_R, HG_G, HG_B); /* caret at the rail */
-    w3_text(ax + 3, cy - 30, 1.4f, HG_R, HG_G, HG_B, "GS");   /* GPS groundspeed — no TAS available (SITL) */
+    w3_text(ax + 3, cy - 30, 1.4f, HG_R, HG_G, HG_B, "GS");
   }
 
   /* ===== Altitude tape (right): ASL scale + '<' caret; AGL (ASL - DEM ground) and VS below. ===== */
@@ -229,8 +230,9 @@ static void w3_build_hud(const telem_packet_t *t, int W, int H, int have) {
   }
 
   /* ===== Steering/glideslope cue, far LEFT edge (F-16 ILS style): err > 0 (above ideal path) puts
-   * the caret BELOW centre -- fly down to it. README A7. ===== */
-  {
+   * the caret BELOW centre -- fly down to it. README A7. |err| >= 90 = no approach mode active
+   * (protocol.h sentinel) -> whole cue removed, not faked at centre (MIL-STD-1787). ===== */
+  if (fabsf(t->glideslope_err) < 90.f) {
     float gx = 26.f, gsy = cy + t->glideslope_err * 7.f;
     if (gsy < cy - 40) gsy = cy - 40;
     if (gsy > cy + 40) gsy = cy + 40;
@@ -244,9 +246,11 @@ static void w3_build_hud(const telem_packet_t *t, int W, int H, int have) {
   }
   /* ===== Secondary data + annunciations at the EDGES; the primary attitude field stays clean.
    * Green monochrome, only battery/link caution breaks to amber/red (MIL-STD allows it on mono). ===== */
-  /* Flight-mode annunciation, bottom-left, boxed; RTH/failsafe stands out in amber. */
+  /* Flight-mode annunciation, bottom-left, boxed; LOITER (the only "away from pilot" mode this
+   * autopilot has today) stands out in amber, same as RTH/failsafe would. */
   {
-    int st = t->state % 6, rth = (st == 5 || st == 3);
+    int st = t->state == FlightBox::FBMode::Loiter ? 3 : 4;   /* W3_STN index (protocol.h ST_LOITER/ST_MANUAL) */
+    int rth = (st == 3);
     float mr = rth ? 1.f : HG_R, mg = rth ? 0.85f : HG_G, mb = rth ? 0.2f : HG_B;
     w3_box(14, H - 42, 110, H - 16, mr, mg, mb);
     w3_printf(20, H - 37, 3.f, mr, mg, mb, "%s", W3_STN[st]);
@@ -301,7 +305,7 @@ static void w3_build_hud(const telem_packet_t *t, int W, int H, int have) {
   }
 }
 /* Draw the 2D HUD (line overlay) into the bound framebuffer at W×H pixel coords. */
-static void world3d_render_hud(const telem_packet_t *t, int W, int H, int have) {
+static void world3d_render_hud(const FlightBox::FBState *t, int W, int H, int have) {
   glViewport(0, 0, W, H);
   glDisable(GL_DEPTH_TEST);
   w3_build_hud(t, W, H, have);

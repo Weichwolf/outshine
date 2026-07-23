@@ -36,14 +36,14 @@ MODELS = {
         kind="turbine", milthrust_lbf=("froude_f", 17800.0), maxthrust_lbf=("froude_f", 29000.0))),
     # motor-glider slot: vanilla Schweizer SGS 2-33 sailplane (2-seat trainer, consistent geometry,
     # validated aero) scaled 1:5 -> 3.1 m / 2.2 kg, plus an emitted self-launch electric motor. Chosen
-    # over the SGS 1-26 for its higher wing loading (less floaty in NAV). The vanilla `minisgs` was
-    # dropped: its wingarea (42 ft^2) is ~9x its geometric area -> ~1/3 cruise speed, too floaty for NAV.
-    # wt_mult = ballast beyond Froude: a dynamically-scaled sailplane is too floaty for NAV (wing loading
-    # ~2.7 kg/m^2 -> no clean climb/cruise operating point, skims or over-rotates). Ballast raises the wing
-    # loading (real gliders carry water ballast) so it flies faster with authority and a robust margin.
-    "sgs233": dict(src="sgs233", n=0.2, engine=dict(
-        kind="electric", power_W=("fixed", 450.0),
-        prop_in=("fixed", 13.0), prop_ixx=("fixed", 2.5e-4))),
+    # ORIGINAL SCALE (n=1.0): the real Schweizer SGS 2-33 (span 15.5 m, ~440 kg, wing loading ~21 kg/m^2,
+    # cruise ~20 m/s — well inside iNav's fw_reference_airspeed 60 m/s ceiling). Full scale gives the REAL
+    # inertia (calm attitude, no 100 Hz inner-loop self-oscillation) and the REAL wing loading (not floaty —
+    # so no ballast hack). Only the F-16 (~250 m/s > iNav's 60 m/s nav-reference limit) still needs Froude
+    # scaling. A self-launch electric motor (~30 kW, real motor-glider) is emitted so it can take off.
+    "sgs233": dict(src="sgs233", n=1.0, engine=dict(
+        kind="electric", power_W=("fixed", 45000.0),
+        prop_in=("fixed", 60.0), prop_ixx=("fixed", 0.8))),
 }
 
 # non-dimensional 2-blade fixed-pitch prop curve (validated JSBSim prop_generic2f, Ct/Cp vs advance

@@ -23,7 +23,7 @@ static void w3_upload_buildings(const float *v, int nverts) {
 }
 
 static void w3_build_procedural(void) {
-  float *v = malloc(W3_GRID * W3_GRID * 6 * 6 * sizeof(float));
+  float *v = (float *)malloc(W3_GRID * W3_GRID * 6 * 6 * sizeof(float));
   if (!v) return;
   int o = 0;
   for (int j = 0; j < W3_GRID; j++)
@@ -50,7 +50,7 @@ static void w3_build_procedural(void) {
     }
   w3_upload_terrain(v, o / 6);
   free(v);
-  float *b = malloc(600 * 36 * 6 * sizeof(float));
+  float *b = (float *)malloc(600 * 36 * 6 * sizeof(float));
   if (!b) return;
   int bo = 0;
   unsigned s = 12345;

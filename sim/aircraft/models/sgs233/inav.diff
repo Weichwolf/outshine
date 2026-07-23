@@ -16,7 +16,7 @@ set nav_fw_control_smoothness = 5
 set nav_fw_auto_climb_rate = 200
 set nav_fw_loiter_radius = 13000
 set nav_rth_altitude = 9000
-set fw_reference_airspeed = 1700
+set fw_reference_airspeed = 2000
 # ----- NAV LAUNCH: iNav's dedicated wings-level climb-out. Triggers on the spawn forward motion, holds a
 # controlled climb to 80 m ignoring WP-chasing, THEN hands to NAV WP — the clean takeoff a floaty glider
 # needs (manual RC establish either skimmed or flipped it at the spawn transition).

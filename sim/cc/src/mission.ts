@@ -57,8 +57,13 @@ export async function groundElev(lat: number, lon: number, tilesUrl: string): Pr
 // CLmax at MODEL Reynolds (~5e4–2e5), not the textbook full-scale ~1.4 — low-Re airfoils reach a lower
 // CLmax, so the true stall speed is HIGHER than a 1.4 estimate. 1.1 is a conservative low-Re value; the
 // resulting Vs sets the envelope floor + the validator's stall/departure guards, so erring high is safe.
-const G0 = 9.80665, RHO0 = 1.225, LBS_N = 4.4482216, FT2_M2 = 0.09290304, CL_MAX = 1.1;
+const G0 = 9.80665, RHO0 = 1.225, LBS_N = 4.4482216, FT2_M2 = 0.09290304;
+// CLmax is Reynolds-dependent (= scale-dependent). Full-scale airframes (high Re) reach a textbook CLmax
+// ~1.4; Froude-scaled models (low Re ~5e4–2e5) reach less (~1.1). Per airframe, not a global constant.
+const CL_MAX_BY_AC: Record<string, number> = { sgs233: 1.4 /* original scale, high Re */ };
+const CL_MAX_SCALED = 1.1;   // c172, f16 — Froude-scaled, low-Re
 function stallFromXml(ac: string): number {
+  const CL_MAX = CL_MAX_BY_AC[ac] ?? CL_MAX_SCALED;
   const xml = readFileSync(`${SIM}/aircraft/models/${ac}/${ac}.xml`, 'utf8');
   const sm = xml.match(/<wingarea[^>]*>\s*([0-9.]+)/i);
   const S = sm ? Number(sm[1]) * FT2_M2 : 0;
