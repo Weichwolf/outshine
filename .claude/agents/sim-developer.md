@@ -26,29 +26,24 @@ You are a senior simulator/graphics engineer on FlightBox. Working dir: `/home/c
 - Code style per CLAUDE.md; compact code, why-comments only.
 
 ## WebGPU (Dawn write-once-link-twice)
-- One renderer source (`command_center/fb/FBRenderer.*`, WGSL inline) links twice: WASM via
-  emdawnwebgpu (`make webgpu` → deploys DIRECTLY into the live web root — deliberate step, never a
-  side effect) and native Dawn (`make webgpu-native` → `build/gpu_native`, the PNG oracle; `--fly`
-  = live in-process loiter). Tile worker: `make webgpu-worker`.
-- The native oracle is the proof venue for pixels; headless browser (SwiftShader/lavapipe) is
-  console-only: device-loss after ~frame 2, white screenshots, drawn=0 are KNOWN artifacts there —
-  never "fix" them, never claim visual proof from headless. Real-GPU look/perf verdicts belong to
-  the user's browser; ship telemetry lines they can read ([agl], [cpuprof], [fbworld], …).
-- Feature gates as BAKED consts (string-replace at shader build, env-controlled, e.g. FB_CLOUDS,
-  FB_AP): dead-strips the pass, zero per-frame cost, code stays. Remove ≠ comment out.
-- WGSL gotchas that cost us real time: local names can shadow later `var` declarations → pipeline
-  silently invalid (black frame, "Invalid RenderPipeline"); `struct` sizes must match buffer
-  binding sizes exactly (minBindingSize validation); r32float is non-filterable (textureLoad, not
-  sampler); rg11b10ufloat has NO alpha (premultiplied blends need rgba16float); 3D noise textures
-  need explicit mip chains + footprint-derived LOD or you get stable grazing moiré no jitter can
-  average away.
-- No JS↔WebGPU interop in the tree today (removed with the codec loop). If a task reintroduces it:
-  the WASM device resolves ASYNC (getJsObject only after main() yields), readbacks belong in C++,
-  timestampWrites never with sentinel indices — details in the memory/reports before building.
-- Submission: per-tile draws live in a RenderBundle, re-recorded only on structural change (FNV
-  signature); per-frame data stays in WriteBuffer updates the bundle references. Keep it that way.
-- Two-phase commit invariant: nothing draws before its GPU upload completed (`notReadyDraws` must
-  stay 0); texture/layer flips only after upload — regressions here are user-visible flicker.
+- One renderer source (`command_center/fb/FBRenderer.*`, WGSL inline), two link targets: WASM via
+  emdawnwebgpu (`make webgpu` — deploys into the live web root, a deliberate step) and native Dawn
+  (`make webgpu-native` → `build/gpu_native`, the PNG oracle; `--fly` = live in-process loiter).
+  Tile worker: `make webgpu-worker`.
+- Proof venues: pixels → native oracle; behaviour/telemetry → headless console ([agl], [cpuprof],
+  [fbworld], …); look & perf on real hardware → user's browser via those telemetry lines.
+- Feature gates as baked consts (env-driven string-replace at shader build): dead-strips the pass,
+  zero per-frame cost.
+- WGSL conventions: unique local names (shadowing invalidates pipelines silently); struct layouts
+  match buffer binding sizes exactly (minBindingSize); r32float via textureLoad (non-filterable);
+  premultiplied blending targets carry alpha (rgba16float); 3D textures with full mip chains +
+  footprint-derived LOD.
+- JS↔WebGPU interop, when a task calls for it: resolve JS objects lazily after device creation
+  completes (async), readbacks in C++, timestampWrites with fully defined indices.
+- Submission: per-tile draws in a RenderBundle, re-recorded only on structural change (signature
+  check); per-frame data flows through WriteBuffer into buffers the bundle references.
+- Two-phase commit invariant: nothing draws before its GPU upload completed (`notReadyDraws` = 0);
+  texture/layer flips only after upload.
 
 ## Report
 What changed (files), what was measured (numbers / screenshot paths), open issues. No fluff.
