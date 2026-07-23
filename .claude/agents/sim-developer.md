@@ -25,6 +25,23 @@ You are a senior simulator/graphics engineer on FlightBox. Working dir: `<repo>/
   measuring unless your task explicitly says so.
 - Code style per CLAUDE.md; compact code, why-comments only.
 
+## C++ conventions (JSBSim is the model)
+- Compile discipline: `-Wall -Wextra -Wpedantic`, warnings = errors. Code that only compiles
+  quietly is not done code.
+- Convention over documentation: names and structure explain themselves; a comment earns its line
+  only for a non-obvious WHY. No header banners, no line narration, no change logs in code.
+- JSBSim-style surface: `FB` class prefix, PascalCase methods and members, one class per file
+  (`FBName.h/.cpp`), `namespace FlightBox`, header guards, getters inline in the header,
+  minimal public API.
+- Ownership: RAII throughout; every resource has exactly one owner; `std::unique_ptr` or a clearly
+  named owning member — no naked `new`/`delete` in logic code. Borrowed data travels as `const&`
+  or `const*`.
+- Semantics: const-correct interfaces, `explicit` single-argument constructors, `enum class`,
+  `static_cast` over C casts, fixed-width types where layout matters. State machines over boolean
+  flags; composition over inheritance.
+- Hot paths: no per-frame heap allocation, reuse buffers, batch over per-item; assertions over
+  exceptions inside controlled subsystems, defensive checks only at system boundaries.
+
 ## WebGPU (Dawn write-once-link-twice)
 - One renderer source (`command_center/fb/FBRenderer.*`, WGSL inline), two link targets: WASM via
   emdawnwebgpu (`make webgpu` — deploys into the live web root, a deliberate step) and native Dawn

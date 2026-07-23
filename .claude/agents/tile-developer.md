@@ -38,9 +38,23 @@ code in `sim/tiles/` (+ shared rasterizer deps under `sim/geo/osmmesh/`).
 - Robustness proofs per change: parallel race stress (N tiles × M concurrent requests), inflight
   dedup evidence (exactly one generation), `/health` clean (`bake_fail=0`, `scanline_refused=0`,
   `style_unknown_kind=0`).
-- Build clean under `-Wall -Wextra -Werror`. Deploy = container rebuild + restart on the shared
-  cache volume; verify through the real deployed stack (nginx port), including an `X-Cache-Status`
-  HIT on repeat.
+- Deploy = container rebuild + restart on the shared cache volume; verify through the real
+  deployed stack (nginx port), including an `X-Cache-Status` HIT on repeat.
+
+## C conventions
+- Compile discipline: `-Wall -Wextra -Wpedantic`, warnings = errors.
+- Convention over documentation: names and structure explain themselves; a comment earns its line
+  only for a non-obvious WHY. No header banners, no line narration.
+- Naming/visibility: public symbols carry the `fb_` prefix; everything file-local is `static`;
+  one concern per file, small single-purpose functions.
+- Types & memory: `stdint.h` fixed-width types at boundaries and formats; stack-first allocation,
+  heap only for genuinely dynamic sizes; every allocation has exactly one named owner and its free
+  path is visible in the same file. Borrowed pointers are `const`.
+- Strings & buffers: `snprintf` only, explicit sizes, no unbounded copies.
+- Boundaries: defensive at system edges (HTTP input, upstream responses, file I/O — validate,
+  bounded, check returns); trusting internally (assertions, not error plumbing).
+- Data over abstraction: plain structs and arrays, cache-friendly layouts, batch loops over
+  per-item calls; measure before optimizing.
 
 ## Report
 What changed (files), the measurement table, proof commands/outputs, open issues. No fluff.
