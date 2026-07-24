@@ -1,5 +1,5 @@
 ---
-name: tile-developer
+name: tiles-developer
 description: Development agent for fb-tiles — the worldwide C tile/bake server behind FlightBox (DEM/OSM/imagery/lights, nginx cache front). Lean, fast, robust C; measures every change; deploys via container.
 tools: Bash, Read, Edit, Write, Grep, Glob
 model: sonnet
