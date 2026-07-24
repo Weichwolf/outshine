@@ -65,6 +65,8 @@ private:
     int haveMesh, haveAlbedo;
     int alt;               /* the NON-base overlay albedo: 0 unfetched, 1 attached, -1 none/give-up */
     unsigned readyPass;    /* pass the GPU upload was issued; drawable only in a LATER pass (2-phase) */
+    unsigned altPass;      /* pass the OVERLAY upload was issued (2-phase on the overlay axis) */
+    unsigned emitPass;     /* last pass this tile was drawn — lets a mode switch keep it (old mode) vs re-coarsen */
     float *verts;
     int nverts;
     double origin[3];      /* tile-centre ECEF (from the mesh, once built) */
@@ -80,6 +82,22 @@ private:
   /* Two-phase commit: a tile is drawable/splittable only ONE pass after its GPU upload was issued, so
    * the WriteTexture is submitted+visible before any draw references the layer (no empty-layer frame). */
   bool Ready(const Node &n) const { return Uploaded(n) && Pass > n.readyPass; }
+  /* Mode-aware readiness: drawable IN THE CURRENT DISPLAY MODE. When viewing the base mode, base-ready is
+   * enough; when viewing the overlay mode, the overlay must be resolved too (attached + 2-phase-committed,
+   * or a genuine hole = the base is the only + stable option). Drives the refine/cover decisions so a fine
+   * tile is never shown in the WRONG mode while its overlay streams — the coarser right-mode parent holds. */
+  bool ReadyMode(const Node &n) const {
+    if (!Ready(n)) return false;
+    if (Photo == DefaultPhoto) return true;
+    /* +1 matches the renderer's overlay 2-phase (FrameNo > PhotoUpTick+1) so FBWorld only refines to a
+     * tile on the frame the renderer actually draws its overlay layer — no 1-frame wrong-mode gap. */
+    return n.alt == -1 || (n.alt == 1 && Pass > n.altPass + 1);
+  }
+  /* Coverage for the refine/hold decision: a fine tile counts as covering iff it is mode-ready (draw the
+   * right mode) OR it was already drawn last pass (a TAB switch KEEPS the resident fine tile in the old
+   * mode until its new-mode overlay lands — no re-coarsen, no flash). A NEW streaming tile (never drawn)
+   * only counts once mode-ready, so it never POPS in the wrong mode. */
+  bool CoversInMode(const Node &n) const { return ReadyMode(n) || (Ready(n) && n.emitPass + 1 >= Pass); }
   bool Viable(int z, long x, long y, const double eye[3]) const;  /* map bounds + view (pure) */
   bool WantSplit(int z, long x, long y, const double eye[3]) const;   /* geometry-only refine test */
   int  Find(int z, long x, long y) const;                            /* node idx or -1 (no create) */

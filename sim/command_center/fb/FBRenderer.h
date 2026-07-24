@@ -295,6 +295,8 @@ private:
   struct DynTile { wgpu::Buffer Vtx; uint32_t NVerts; double Origin[3]; int Layer; int PhotoLayer;
                    unsigned PhotoUpTick; bool Used; };
   long NotReadyDraws;                   /* 2-phase-commit assertion: draws of an uncommitted layer (must stay 0) */
+  long WrongModeDraws = 0;              /* SVS<->EVS bleed: drew the other mode's layer (must stay 0) */
+  long BlackDraws = 0;                  /* drew with no committed layer -> black tile (must stay 0) */
   bool Streaming;                       /* dynamic terrain source (FBWorld) instead of SetTerrain */
   bool GroundPhoto;                     /* SetGroundMode: the currently VIEWED mode (TAB) */
   int  BaseMode;                        /* boot default: which mode is the eager base layer (0 osm, 1 photo) */

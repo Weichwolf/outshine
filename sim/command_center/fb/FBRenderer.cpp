@@ -495,7 +495,12 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f, @location
   // in.gain lifts the dark low-zoom Esri photo composite toward the bright orthophoto level (per-tile,
   // linear; 1.0 for OSM/bright tiles) — SVS unaffected (its layers all carry gain 1.0).
   let base = textureSampleBias(albedo, samp, in.uv, i32(in.layer), gbias).rgb * in.gain;
-  let diff = max(dot(nrmN, normalize(u.sun.xyz)), 0.0);
+  // Direct-sun diffuse, GATED by the daylight factor in EVS: with the sun below the horizon (night)
+  // there is no direct sunlight, so diff -> 0. Without the gate, steep/aliased normals (more numerous on
+  // coarse LOD tiles) catch the below-horizon sun via (0.4+3*diff) -> a bright brightness-step at LOD
+  // seams. SVS is a constant daylit database view -> full diff. (Day EVS: skyExtra.x~1 -> unchanged.)
+  let diffGate = select(1.0, A.skyExtra.x, A.skyExtra.y > 0.5);
+  let diff = max(dot(nrmN, normalize(u.sun.xyz)), 0.0) * diffGate;
   // EVS ground tracks the real light level (atmo.h: 0.08 night floor .. 1 day) so night is genuinely
   // dark under the star field; SVS (OSM) stays a constant daylit database view.
   let light = select(1.0, 0.08 + 0.92 * A.skyExtra.x, A.skyExtra.y > 0.5);
@@ -2711,15 +2716,20 @@ void FBRenderer::RenderFrame(void) {
       off[i * 8 + 0] = (float)(d.Origin[0] - eye[0]);
       off[i * 8 + 1] = (float)(d.Origin[1] - eye[1]);
       off[i * 8 + 2] = (float)(d.Origin[2] - eye[2]);
-      /* Viewed mode == the eager base -> the base layer (FBWorld already committed it). Otherwise the
-       * OTHER mode's overlay, but only once ITS upload is committed (2-phase: FrameNo past the tick);
-       * until then it falls back to the base layer — a per-tile fallback, never an empty frame. */
+      /* Layer for the CURRENTLY displayed mode. Viewed mode == the eager base -> the base layer. Otherwise
+       * the OTHER mode's overlay, once ITS upload is committed (2-phase). The `layerMode` records which
+       * ground mode the chosen layer actually IS, so the mode-strictness invariant can be measured:
+       * wrongModeDraws (drew the other mode — the SVS<->EVS bleed) + blackDraws (no committed layer). */
       int want = GroundPhoto ? 1 : 0;
-      int layer = (want == BaseMode) ? d.Layer
-                : (d.PhotoLayer >= 0 && FrameNo > d.PhotoUpTick + 1) ? d.PhotoLayer : d.Layer;
+      bool overlayReady = (d.PhotoLayer >= 0 && FrameNo > d.PhotoUpTick + 1);
+      int layer, layerMode;
+      if (want == BaseMode) { layer = d.Layer; layerMode = BaseMode; }
+      else if (overlayReady) { layer = d.PhotoLayer; layerMode = want; }   /* overlay layer == the wanted mode */
+      else { layer = d.Layer; layerMode = BaseMode; }                       /* fallback = the base = wrong mode */
       off[i * 8 + 3] = (float)layer;
       off[i * 8 + 4] = (layer >= 0 && layer < (int)Gains.size()) ? Gains[layer] : 1.0f;   /* photo brightness gain */
-      if (layer < 0) NotReadyDraws++;   /* base is always committed by draw time — must never fire */
+      if (layer < 0) { NotReadyDraws++; BlackDraws++; }
+      else if (layerMode != want) WrongModeDraws++;   /* SVS showing EVS or vice-versa (mode bleed) */
     }
   } else {
     nDraw = NTiles;
@@ -3053,8 +3063,9 @@ void FBRenderer::RenderFrame(void) {
 
   /* 2-phase-commit assertion (once/sec): no frame should ever have drawn an uncommitted layer. */
   if (Streaming && FrameNo % 60 == 0) {
-    printf("[present] notReadyDraws=%ld (2-phase invariant: 0)%s | bundleRecords=%ld\n", NotReadyDraws,
-           NotReadyDraws ? "  <-- VIOLATION" : "", TerrainBundleRecords);
+    printf("[present] notReadyDraws=%ld wrongModeDraws=%ld blackDraws=%ld (invariants: 0)%s | bundleRecords=%ld\n",
+           NotReadyDraws, WrongModeDraws, BlackDraws,
+           (NotReadyDraws || WrongModeDraws || BlackDraws) ? "  <-- VIOLATION" : "", TerrainBundleRecords);
     fflush(stdout);
   }
 }

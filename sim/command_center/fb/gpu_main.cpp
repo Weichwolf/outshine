@@ -11,6 +11,8 @@
 #include "FBWorld.h"
 #include "FBAutopilot.h"
 #include "FBFlightControl.h"
+#include "FBTerrainField.h"
+#include "FBPathPlan.h"
 #include "FBEphemeris.h"
 #include "fb_terrain.h"
 #include "fb_telemetry.h"
@@ -29,6 +31,12 @@ static FBRenderer R;
 static FBWorld W;
 static FBAutopilot AP;
 static FBFlightControl FC;
+static FBTerrainField gTerrain(13);   /* LOWLEVEL look-ahead field (z13 = /elev resolution) */
+static FBTerrainField gPlanField(9);  /* planner cost field (coarse z9) */
+static FBPathPlan *gPlan = nullptr;   /* lateral wander planner (nullptr in fixed-heading / loiter) */
+static bool gLowLevel = false;        /* boot mode: LOWLEVEL (default) vs loiter (?ap=loiter) */
+static bool gPlannerMode = false;     /* LOWLEVEL with the A* wander planner (?plan=1) */
+static bool gFanMode = false;         /* LOWLEVEL with the reactive terrain fan (default) */
 static fb_fdm_state St;
 static double Ground = 430.0;            /* config default; refined from the terrain if available */
 static double AccS = 0.0, LastMs = 0.0;
@@ -149,6 +157,34 @@ static void frame(void) {
   if (ground > -1e8) fb_jsbsim_set_ground(ground);
   double cp_b = emscripten_get_now();   /* end: ground/bridges */
 
+  /* LOWLEVEL wander planner: pure-pursuit steers the AGL-hold heading down the valley waypoints. The
+   * z9 cost tiles stream in async, so the boot plan is coarse (near-straight) and a PERIODIC re-plan
+   * refines it into valley-following as tiles land — cheap A* (measured below), and a replan is rare
+   * (arrival / refresh), so it never sits in the per-frame path. */
+  if (gPlannerMode && gPlan) {
+    static double lastReplan = 0.0;
+    static long lastDecodes = -1;
+    gPlan->Update(St.lat, St.lon);   /* advance waypoints / replan on goal arrival (cheap capture check) */
+    /* Refresh the route only when NEW z9 cost tiles have landed (the async DEM makes the boot plan coarse;
+     * it refines as tiles stream, then decodes stabilise and re-planning STOPS — so the ~1-frame A* cost
+     * hits a handful of times at boot, never in steady cruise). */
+    const char *rs = getenv("FB_LL_REPLAN_S");
+    double refreshS = rs ? atof(rs) : 6.0;
+    long dec = gPlanField.Decodes();
+    if (now - lastReplan > refreshS * 1000.0 && dec != lastDecodes) {
+      lastReplan = now; lastDecodes = dec;
+      double t0 = emscripten_get_now();
+      gPlan->Reroute(St.lat, St.lon);
+      double planMs = emscripten_get_now() - t0;
+      printf("[plan-perf] replan %.1f ms | expanded=%ld wp=%d planDecodes=%ld goalDist=%.0fkm\n",
+             planMs, gPlan->LastExpanded(), gPlan->RouteSize(), dec, gPlan->GoalDistM(St.lat, St.lon) / 1000.0);
+      fflush(stdout);
+    }
+    AP.SetLowLevelHeading(gPlan->DesiredTrackDeg(St.lat, St.lon));
+  } else if (gFanMode) {
+    AP.UpdateLowLevelSteering(St, dt);   /* reactive terrain fan (default): choose the valley heading, once/frame */
+  }
+
   /* Advance the F-16: guidance -> FLCS-command -> JSBSim, fixed 100 Hz substeps (spiral guard). */
   AccS += dt;
   FBGuidance g{};
@@ -196,6 +232,17 @@ static void frame(void) {
     if (accLog >= 1.0) { accLog = 0.0;
       FlightBox::FBLogAgl(St, g, gForHud, fb_jsbsim_get_ground());
       printf("[home] dist=%.0f brg=%.0f hdg=%.0f lon=%.4f\n", hs.home_dist, hs.home_bearing, St.yaw, St.lon);
+      if (gLowLevel)
+        printf("[lowlevel] agl=%.0f tgtAgl=%.0f gndHere=%.0f gndAhead=%.0f tgtVs=%.1f vs=%.1f alt=%.0f demZ=%d decodes=%ld\n",
+               St.elev - AP.LlGroundHere(), AP.LlTargetAgl(), AP.LlGroundHere(), AP.LlGroundAhead(),
+               AP.LlTargetVs(), St.vy, St.elev, gTerrain.Zoom(), gTerrain.Decodes());
+      if (gFanMode)
+        printf("[fan] hdg=%.0f tgtHdg=%.0f bank=%.1f cost min/mid/max=%.0f/%.0f/%.0f chosen=%d\n",
+               St.yaw, AP.LlHeading(), St.roll, AP.FanMinCost(), AP.FanMidCost(), AP.FanMaxCost(), AP.FanChosen());
+      if (gPlannerMode && gPlan)
+        printf("[plan] goal=%.4f/%.4f goalDist=%.0fkm wp=%d/%d desTrk=%.0f replans=%ld expanded=%ld planDecodes=%ld\n",
+               gPlan->GoalLat(), gPlan->GoalLon(), gPlan->GoalDistM(St.lat, St.lon) / 1000.0, gPlan->ActiveWp(),
+               gPlan->RouteSize(), gPlan->DesiredTrackDeg(St.lat, St.lon), gPlan->Replans(), gPlan->LastExpanded(), gPlanField.Decodes());
       fflush(stdout); } }
   /* Real ephemeris sun + moon for EVS (the renderer uses them only in photo mode; SVS = constant day). */
   time_t utc = SimUtc ? SimUtc : time(nullptr);
@@ -252,18 +299,60 @@ int main() {
   const char *vk = getenv("FB_VIEW_KM");
   double viewM = (vk && atof(vk) > 0.0) ? atof(vk) * 1000.0 : 240000.0;   /* far view like the old engine */
 
-  /* Spawn on the ring due north of the origin, heading east (CW loiter) — mirrors flightsim.h. */
-  double altAsl = Ground + kAglM;
-  double slat = olat + kRadiusM / kMPerDeg, slon = olon;
-  if (fb_jsbsim_init("/jsbsim/aircraft", "f16", slat, slon, altAsl, 0.0, kSpeedMs, 90.0, 0) != 0) {
+  /* Boot autopilot mode: LOWLEVEL is the DEFAULT (terrain-following AGL-hold); ?ap=loiter selects the
+   * old bank-to-circle. ?hdg= sets the LOWLEVEL heading (Stage 1 = fixed heading; the planner steers it
+   * once wired). "loiter"/"lowlevel" share the "lo" prefix -> discriminate on the 3rd char. */
+  const char *jap = emscripten_run_script_string("(new URLSearchParams(location.search).get('ap')||'lowlevel')");
+  gLowLevel = !(jap && jap[0] == 'l' && jap[1] == 'o' && jap[2] == 'i');
+  /* LOWLEVEL lateral: DEFAULT = the reactive terrain FAN. ?hdg= -> fixed heading. ?plan=1 -> the A*
+   * far-planner (opt-in; the fan is the shipped default). */
+  const char *jhdg = emscripten_run_script_string("(new URLSearchParams(location.search).get('hdg')||'')");
+  bool haveHdg = jhdg && jhdg[0];
+  double llHdg = haveHdg ? atof(jhdg) : 180.0;
+  const char *jplan = emscripten_run_script_string("(new URLSearchParams(location.search).get('plan')||'')");
+  bool wantPlan = jplan && jplan[0];
+  gPlannerMode = gLowLevel && !haveHdg && wantPlan;
+  gFanMode = gLowLevel && !haveHdg && !wantPlan;
+  const char *jseed = emscripten_run_script_string("(new URLSearchParams(location.search).get('seed')||'1')");
+  unsigned llSeed = (jseed && jseed[0]) ? (unsigned)atol(jseed) : 1u;
+  const double kLlAgl = 150.0, kLlSpeed = 230.0;
+
+  double spawnAgl = gLowLevel ? kLlAgl : kAglM;
+  double altAsl = Ground + spawnAgl;
+  /* Loiter spawns 8 km due N heading E; LOWLEVEL spawns AT the origin on the commanded heading. */
+  double slat = gLowLevel ? olat : olat + kRadiusM / kMPerDeg, slon = olon;
+  double spawnHdg = gLowLevel ? llHdg : 90.0;
+  double spawnSpd = gLowLevel ? kLlSpeed : kSpeedMs;
+  if (fb_jsbsim_init("/jsbsim/aircraft", "f16", slat, slon, altAsl, 0.0, spawnSpd, spawnHdg, 0) != 0) {
     printf("[gpu] JSBSim init FAILED\n");
     return 1;
   }
-  AP.SetLoiter(olat, olon, altAsl, kRadiusM, 1, kSpeedMs);
+  if (gLowLevel) {
+    AP.SetTerrain(&gTerrain, fb_stream_ground);
+    AP.SetLowLevel(kLlAgl, kLlSpeed, llHdg);
+    AP.SetFence(olat, olon, 500000.0);
+    if (gPlannerMode) {
+      static FBPathPlan planObj(&gPlanField, olat, olon, 500000.0, llSeed);
+      gPlan = &planObj;
+      gPlan->CellM = 2500;         /* coarser than native (1500): keeps a browser re-plan under one frame */
+      gPlan->MaxExpand = 120000;
+      gPlan->Update(slat, slon);   /* initial plan (coarse until z9 tiles stream in — see the frame re-plan) */
+      printf("[gpu] LOWLEVEL+PLAN agl=%.0f m, %.0f m/s, fence 500 km, seed %u, DEM z=%d/plan z=%d | goal %.4f/%.4f wp=%d\n",
+             kLlAgl, kLlSpeed, llSeed, gTerrain.Zoom(), gPlanField.Zoom(), gPlan->GoalLat(), gPlan->GoalLon(), gPlan->RouteSize());
+    } else if (gFanMode) {
+      printf("[gpu] LOWLEVEL+FAN agl=%.0f m, %.0f m/s, DEM z=%d, fence 500 km (reactive terrain fan, wings-level; ?hdg=N fixed, ?plan=1 A*, ?ap=loiter ring)\n",
+             kLlAgl, kLlSpeed, gTerrain.Zoom());
+    } else {
+      AP.SetLowLevelHeading(llHdg);   /* fan off */
+      printf("[gpu] LOWLEVEL agl=%.0f m, %.0f m/s, FIXED hdg=%.0f, DEM z=%d\n", kLlAgl, kLlSpeed, llHdg, gTerrain.Zoom());
+    }
+  } else {
+    AP.SetLoiter(olat, olon, altAsl, kRadiusM, 1, kSpeedMs);
+    printf("[gpu] JSBSim F-16 loitering %.4f/%.4f, alt %.0f m ASL, R %.0f m, %.0f m/s\n", olat, olon,
+           altAsl, kRadiusM, kSpeedMs);
+  }
   FC = FBFlightControl::F16();
   fb_jsbsim_step(&St);   /* prime St before the first guidance step */
-  printf("[gpu] JSBSim F-16 loitering %.4f/%.4f, alt %.0f m ASL, R %.0f m, %.0f m/s\n", olat, olon,
-         altAsl, kRadiusM, kSpeedMs);
 
   R.SetStreaming(512);
   /* Boot ground mode: default EVS/photo (Esri is the first thing shown; OSM becomes the lazy overlay).

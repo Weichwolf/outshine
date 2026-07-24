@@ -11,7 +11,7 @@ static int w3_hudN;
  * which stair-steps when tilted). Used for the conformal horizon. */
 static float w3_hudT[16384];
 static int w3_hudTN;
-static const char *W3_STN[] = {"DISARM", "ARMED", "CLIMB", "LOITER", "MANUAL", "RTH", "AUTO"};
+static const char *W3_STN[] = {"DISARM", "ARMED", "CLIMB", "LOITER", "MANUAL", "RTH", "AUTO", "LOWLEVEL"};
 static void w3_line(float x0, float y0, float x1, float y1, float r, float g, float b) {
   if (w3_hudN > 131052) return;
   w3_hud[w3_hudN++] = x0;
@@ -249,8 +249,9 @@ static void w3_build_hud(const FlightBox::FBState *t, int W, int H, int have) {
   /* Flight-mode annunciation, bottom-left, boxed; LOITER (the only "away from pilot" mode this
    * autopilot has today) stands out in amber, same as RTH/failsafe would. */
   {
-    int st = t->state == FlightBox::FBMode::Loiter ? 3 : 4;   /* W3_STN index (protocol.h ST_LOITER/ST_MANUAL) */
-    int rth = (st == 3);
+    int st = t->state == FlightBox::FBMode::Loiter ? 3
+           : t->state == FlightBox::FBMode::LowLevel ? 7 : 4;   /* W3_STN index (LOITER/LOWLEVEL/MANUAL) */
+    int rth = (st == 3 || st == 7);   /* auto modes annunciate amber (away-from-pilot) */
     float mr = rth ? 1.f : HG_R, mg = rth ? 0.85f : HG_G, mb = rth ? 0.2f : HG_B;
     w3_box(14, H - 42, 110, H - 16, mr, mg, mb);
     w3_printf(20, H - 37, 3.f, mr, mg, mb, "%s", W3_STN[st]);

@@ -48,6 +48,13 @@ void fb_stream_close(void);
  * ~tile-cell so a moving aircraft only refetches when it has moved appreciably. */
 double fb_stream_ground(double lat, double lon);
 
+/* Raw Terrarium DEM tile bytes for the autopilot terrain field (FBTerrainField — coarse-zoom height
+ * sampling for LOWLEVEL look-ahead + path planning, NOT the render mesh). Sets the bytes+len out-params
+ * to the cached PNG payload (owned by the byte cache — do NOT free). Returns 1 = bytes ready, 0 = PENDING
+ * (WASM async fetch in flight — retry, do NOT treat as a hole), -1 = a real hole/error. Native is
+ * synchronous (never pends: 1 or -1); WASM is a non-blocking main-thread fetch cache. */
+int fb_stream_dem(int z, int x, int y, const uint8_t **bytes, int *len);
+
 /* Night-light list for one tile from fb-tiles /t/lights/z/x/y (see tiles/lights.c wire format:
  * {u16 count,u16 res=0} then count*{u16 x,u16 y (tile-local 0..65535), u8 class, u8 intensity}).
  * Copies up to `cap` bytes into dst; returns bytes written (>=4, the header even when count=0),

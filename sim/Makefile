@@ -4,8 +4,9 @@
 # number of command centers (the WASM browser CC, the headless TS CC, tests) connect to the hub in
 # parallel. Host tools: podman, emscripten (WASM CC), tsc (TS CC), python3 (mission resolve).
 #
-#   make containers      build the container images (aircraft, flightbox hub, tiles)
-#   make controlcenter   build the WASM browser Command Center  (-> flightbox/web/)
+#   make webgpu          build the WASM browser Command Center (F-16 sim + renderer) -> flightbox/web/
+#   make webgpu-worker   build the off-thread tile worker                            -> flightbox/web/
+#   make webgpu-native   build the native headless WebGPU CLI (oracle)               -> build/gpu_native
 #   make client          build the headless TypeScript CC        (-> cc/dist/)
 #   make up AC=c172      run the ONE persistent flightbox + aircraft (c172|sgs233|f16)
 #   make watch           stream telemetry from the running hub (a read-only CC)
@@ -18,44 +19,14 @@ AC ?= c172
 FB_TIME_SCALE ?= 1
 EMCC_WARN := -Wall -Wextra -Wpedantic -Werror -Wno-unused-parameter
 
-.PHONY: help containers controlcenter webgpu webgpu-worker webgpu-native client up down restart watch tests eeprom clean
+.PHONY: help containers webgpu webgpu-worker webgpu-native client up down restart watch tests eeprom clean
 
 help:                ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
 
-containers: controlcenter  ## build the images: the sim (JSBSim+iNav+hub) + tiles (needs the WASM CC first)
-	podman build -f flightbox/Containerfile -t fb-flightbox .
+containers:          ## build the server-side container images (tiles; fb-web via web-up.sh)
 	podman build -f tiles/Containerfile     -t fb-tiles     .
 
-# _free MUST stay in EXPORTED_FUNCTIONS: the tilesrc_js.h worker glue calls _malloc/_free as JS globals;
-# since the libJSBSim link emcc no longer exports _free by default -> ReferenceError killed the tile pump.
-controlcenter:       ## build the WASM browser Command Center (cc.wasm + tile worker) -> flightbox/web/
-	@source "$(EMSDK_DIR)/emsdk_env.sh" >/dev/null 2>&1; set -e; \
-	  test -f validator/build/jsbsim-wasm/src/libJSBSim.a || { echo "libJSBSim.a (WASM) missing — run: bash validator/build_jsbsim_wasm.sh"; exit 1; }; \
-	  mkdir -p build/osmmesh-wasm; \
-	  for f in geo/osmmesh/src/*.c; do o=build/osmmesh-wasm/$$(basename $$f .c).o; \
-	    [ "$$o" -nt "$$f" ] || emcc "$$f" -O2 $(EMCC_WARN) -Igeo/osmmesh/include -c -o "$$o"; done; \
-	  emcc command_center/cc.cpp aircraft/fdm/jsbsim_adapter.cpp \
-	    command_center/fb/FBAutopilot.cpp command_center/fb/FBFlightControl.cpp \
-	    build/osmmesh-wasm/*.o \
-	    validator/build/jsbsim-wasm/src/libJSBSim.a \
-	    -std=c++17 -O2 $(EMCC_WARN) -Icommon -Igeo/osmmesh/include -Ijsbsim/src -Iaircraft/fdm -Icommand_center \
-	    -fexceptions -include aircraft/fdm/em_compat.h \
-	    -sUSE_SDL=2 -lwebsocket.js -sFULL_ES2 -sMAX_WEBGL_VERSION=2 -sMIN_WEBGL_VERSION=1 \
-	    -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=256MB -sSTACK_SIZE=4MB -sEXIT_RUNTIME=0 \
-	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free \
-	    --embed-file jsbsim/aircraft/f16@/jsbsim/aircraft/f16 \
-	    --embed-file jsbsim/engine/F100-PW-229.xml@/jsbsim/engine/F100-PW-229.xml \
-	    --embed-file jsbsim/engine/direct.xml@/jsbsim/engine/direct.xml \
-	    -o flightbox/web/cc.js; \
-	  echo "WASM -> flightbox/web/cc.js (+ cc.wasm)"; \
-	  emcc command_center/tileworker.c geo/osmmesh/src/*.c \
-	    -O2 $(EMCC_WARN) -Icommon -Igeo/osmmesh/include -Icommand_center \
-	    -sFETCH -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=64MB -sEXIT_RUNTIME=0 \
-	    -sMODULARIZE=1 -sEXPORT_NAME=TileWorker -sENVIRONMENT=worker \
-	    -sEXPORTED_RUNTIME_METHODS=ccall,HEAPF32,HEAPF64 \
-	    -o flightbox/web/tw.js; \
-	  echo "WASM -> flightbox/web/tw.js (+ tw.wasm)"
 
 webgpu:              ## build the WebGPU demo page (real F-16 sim + streamed terrain) -> flightbox/web/gpu.js
 	@source "$(EMSDK_DIR)/emsdk_env.sh" >/dev/null 2>&1; set -e; \
@@ -67,10 +38,14 @@ webgpu:              ## build the WebGPU demo page (real F-16 sim + streamed ter
 	    -Icommand_center/fb -Icommand_center -Igeo/osmmesh/include -c -o build/osmmesh-wasm/fb_terrain.o; \
 	  emcc aircraft/fdm/jsbsim_adapter.cpp -std=c++17 -O2 $(EMCC_WARN) -fexceptions \
 	    -include aircraft/fdm/em_compat.h -Icommon -Ijsbsim/src -Iaircraft/fdm -c -o build/osmmesh-wasm/jsbsim_adapter.o; \
-	  emcc command_center/fb/FBAutopilot.cpp -std=c++17 -O2 -Wall -Werror -Iaircraft/fdm -Icommand_center/fb \
+	  emcc command_center/fb/FBAutopilot.cpp -std=c++17 -O2 -Wall -Werror -Iaircraft/fdm -Icommand_center/fb -Igeo/osmmesh/include \
 	    -c -o build/osmmesh-wasm/FBAutopilot.o; \
 	  emcc command_center/fb/FBFlightControl.cpp -std=c++17 -O2 -Wall -Werror -Iaircraft/fdm -Icommand_center/fb \
 	    -c -o build/osmmesh-wasm/FBFlightControl.o; \
+	  emcc command_center/fb/FBTerrainField.cpp -std=c++17 -O2 -Wall -Werror -Iaircraft/fdm -Icommand_center/fb -Igeo/osmmesh/include \
+	    -c -o build/osmmesh-wasm/FBTerrainField.o; \
+	  emcc command_center/fb/FBPathPlan.cpp -std=c++17 -O2 -Wall -Werror -Iaircraft/fdm -Icommand_center/fb -Igeo/osmmesh/include \
+	    -c -o build/osmmesh-wasm/FBPathPlan.o; \
 	  emcc build/osmmesh-wasm/*.o validator/build/jsbsim-wasm/src/libJSBSim.a \
 	    command_center/fb/gpu_main.cpp command_center/fb/FBRenderer.cpp command_center/fb/FBWorld.cpp \
 	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O1 -Wall -Werror -fexceptions \
@@ -82,7 +57,7 @@ webgpu:              ## build the WebGPU demo page (real F-16 sim + streamed ter
 	    --embed-file jsbsim/engine/direct.xml@/jsbsim/engine/direct.xml \
 	    --embed-file flightbox/web/moon.jpg@/moon.jpg \
 	    -o flightbox/web/gpu.js; \
-	  echo "WASM -> flightbox/web/gpu.js (open /gpu.html)"
+	  echo "WASM -> flightbox/web/gpu.js (served at /)"
 
 webgpu-worker:       ## build the off-thread tile worker (fetch/decode/mesh/mips) -> flightbox/web/fbtileworker.js
 	@source "$(EMSDK_DIR)/emsdk_env.sh" >/dev/null 2>&1; set -e; \
@@ -117,10 +92,14 @@ webgpu-native:       ## build the native headless WebGPU CLI (Dawn + real fb-til
 	  c++ aircraft/fdm/jsbsim_adapter.cpp -std=c++17 -O2 -Wall \
 	    -Iaircraft/fdm -isystem $(JSB_HOST)/include/JSBSim \
 	    -c -o build/osmmesh-native/jsbsim_adapter.o; \
-	  c++ command_center/fb/FBAutopilot.cpp -std=c++17 -O2 -Wall -Werror -Iaircraft/fdm -Icommand_center/fb \
+	  c++ command_center/fb/FBAutopilot.cpp -std=c++17 -O2 -Wall -Werror -Iaircraft/fdm -Icommand_center/fb -Igeo/osmmesh/include \
 	    -c -o build/osmmesh-native/FBAutopilot.o; \
 	  c++ command_center/fb/FBFlightControl.cpp -std=c++17 -O2 -Wall -Werror -Iaircraft/fdm -Icommand_center/fb \
 	    -c -o build/osmmesh-native/FBFlightControl.o; \
+	  c++ command_center/fb/FBTerrainField.cpp -std=c++17 -O2 -Wall -Werror -Iaircraft/fdm -Icommand_center/fb -Igeo/osmmesh/include \
+	    -c -o build/osmmesh-native/FBTerrainField.o; \
+	  c++ command_center/fb/FBPathPlan.cpp -std=c++17 -O2 -Wall -Werror -Iaircraft/fdm -Icommand_center/fb -Igeo/osmmesh/include \
+	    -c -o build/osmmesh-native/FBPathPlan.o; \
 	  c++ command_center/fb/gpu_native.cpp command_center/fb/FBRenderer.cpp command_center/fb/FBWorld.cpp \
 	    build/osmmesh-native/*.o $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++20 -O2 -Wall -Wextra -Werror \
@@ -154,6 +133,7 @@ tests: client validator  ## fail-fast fly every declarative mission through the 
 validator:           ## build the host-native fast mission validator (libJSBSim + extracted iNav control)
 	@bash validator/build.sh
 
-clean:               ## remove build artifacts (WASM + TS dist)
-	rm -f flightbox/web/cc.js flightbox/web/cc.wasm flightbox/web/tw.js flightbox/web/tw.wasm build/gpu_native
+clean:               ## remove build artifacts (WASM + native + TS dist)
+	rm -f flightbox/web/gpu.js flightbox/web/gpu.wasm flightbox/web/fbtileworker.js flightbox/web/fbtileworker.wasm build/gpu_native
+	rm -rf build/osmmesh-wasm build/osmmesh-native build/osmmesh-worker
 	rm -rf cc/dist

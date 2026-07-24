@@ -26,7 +26,7 @@ JSBSim-Propulsion-Tabellen sind die Implementierung.
 
 ## Mess-Konventionen
 
-- **Artefakt-Hash-Lock:** `md5sum flightbox/web/cc.js cc.wasm` vor/nach jedem Messlauf; bei Änderung
+- **Artefakt-Hash-Lock:** `md5sum flightbox/web/gpu.js gpu.wasm` vor/nach jedem Messlauf; bei Änderung
   Lauf verwerfen. Während eines Critic-Laufs wird nicht rebuildet.
 - **AGL/Boden numerisch, nie HUD-OCR:** die 1-Hz-Konsole `[agl] alt=… agl=… ground=…` ist die
   Wahrheit (OCR von HUD-Crops hat nachweislich Ziffern halluziniert).
@@ -55,4 +55,4 @@ validator/build/jsbsim-host/lib/libJSBSim.a -I validator/build/jsbsim-host/inclu
 -I aircraft/fdm -I command_center -lm` (cwd `sim/`).
 Headless-Probe: Playwright aus `sim/tools/node_modules`, Chromium-Args
 `--no-sandbox --enable-unsafe-webgpu --enable-features=Vulkan`, Seite `http://localhost:8080/`
-(bzw. `/gpu.html`).
+(die Seite unter `/`).

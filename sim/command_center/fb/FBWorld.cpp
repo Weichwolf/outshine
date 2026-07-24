@@ -134,6 +134,7 @@ void FBWorld::Emit(int idx) {
   Leaves++;
   Node &n = Nodes[idx];
   if (Ready(n)) {   /* committed on the GPU (uploaded + one pass elapsed) — safe to draw */
+    n.emitPass = Pass;   /* drawn this pass -> a mode switch may keep showing it (old mode) until the overlay lands */
     DrawnReady++;
     MeshVram += (long)n.nverts * 32;
     DrawSlots.push_back(n.slot);
@@ -213,7 +214,7 @@ bool FBWorld::CanCover(int z, long x, long y, const double eye[3]) const {
     if (anyV && allC) return true;
   }
   int idx = Find(z, x, y);
-  return idx >= 0 && Ready(Nodes[idx]);
+  return idx >= 0 && CoversInMode(Nodes[idx]);   /* mode-aware: right mode ready, or already-drawn (keep old at TAB) */
 }
 
 /* Cascade the REQUEST to the target leaves — geometry picks the depth, no data needed. Intermediate
@@ -275,10 +276,12 @@ int FBWorld::Descend(int z, long x, long y, const double eye[3], const double fw
       return 0;
     }
   }
-  /* target leaf (or a tile with no viable children — fully beyond ViewM): request + emit */
+  /* target leaf (or a tile with no viable children — fully beyond ViewM): request + emit. Covered (in
+   * mode) only if ReadyMode — a base-resident but overlay-pending leaf still emits (never a hole/blank;
+   * FBRenderer holds the old mode) but reports NOT mode-covered so an ancestor keeps holding. */
   if (!Uploaded(Nodes[idx])) AddWork(idx, z, x, y, eye, fwd);
   Emit(idx);
-  return Ready(Nodes[idx]) ? 1 : 0;
+  return CoversInMode(Nodes[idx]) ? 1 : 0;
 }
 
 /* Walk the geometry target cut (no side effects), counting total leaves and GPU-ready ones — the
@@ -383,6 +386,7 @@ void FBWorld::Update(double camLat, double camLon, const double eyeEcef[3], cons
       int r = fb_stream_pyramid(nd.z, (uint32_t)nd.x, (uint32_t)nd.y, altMode, TS, Scratch.data());
       if (r > 0) {
         nd.alt = R->UploadTilePhoto(nd.slot, Scratch.data(), TS, nd.z) ? 1 : -1;
+        nd.altPass = Pass;   /* 2-phase on the overlay axis: drawable a later pass */
         altBudget--;
       } else if (r < 0) {
         nd.alt = -1;   /* no overlay on the server here — keep the base for good */

@@ -10,6 +10,8 @@
 #include "FBEphemeris.h"
 #include "FBAutopilot.h"
 #include "FBFlightControl.h"
+#include "FBTerrainField.h"
+#include "FBPathPlan.h"
 #include "fb_terrain.h"
 #include "fb_telemetry.h"
 #include "jsbsim_adapter.h"
@@ -17,6 +19,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <ctime>
 #include <string>
 #include <vector>
@@ -261,19 +264,72 @@ int RunFly(double lat, double lon, double ground0, double aglM, double viewKm, t
   { float sel = 0, saz = 0; FlightBox::SunPos(lat, lon, clk, &sel, &saz);
     W.SetNightLights(groundPhoto && sel < -3.0f); }
 
+  /* LOWLEVEL autopilot (FB_AP_MODE=lowlevel): terrain-following AGL-hold + look-ahead. Stage 1 flies a
+   * fixed heading (default south, toward the Alps) low over the terrain. Env knobs override the defaults. */
+  /* LOWLEVEL is the DEFAULT (matches the browser); loiter-based recipes (gate/[home] checks) set
+   * FB_AP_MODE=loiter explicitly. */
+  const char *apMode = getenv("FB_AP_MODE");
+  bool lowlevel = !(apMode && std::strcmp(apMode, "loiter") == 0);
+  double llAgl    = getenv("FB_LL_AGL")     ? atof(getenv("FB_LL_AGL"))     : 150.0;
+  double llSpeed  = getenv("FB_LL_SPEED")   ? atof(getenv("FB_LL_SPEED"))   : 230.0;
+  double llHdg    = getenv("FB_LL_HEADING") ? atof(getenv("FB_LL_HEADING")) : 180.0;
+  int    llDemZ   = getenv("FB_LL_DEM_Z")   ? atoi(getenv("FB_LL_DEM_Z"))   : 13;   /* match /elev (FB_DEM_Z=13) so the look-ahead sees the same peaks the AGL metric does */
+
   /* Seed the FDM ground at the origin BEFORE init so the trim/IC floor is the real terrain, not 0. */
   double gSeed = fb_stream_ground(lat, lon);
   double ground = gSeed > -1e8 ? gSeed : ground0;
-  double altAsl = ground + aglM;
-  double slat = lat + kRadiusM / 111320.0, slon = lon;   /* spawn due N, heading E (CW loiter) */
-  if (fb_jsbsim_init("jsbsim/aircraft", "f16", slat, slon, altAsl, 0.0, kSpeedMs, 90.0, 0) != 0) {
+  double spawnAgl = lowlevel ? llAgl : aglM;
+  double altAsl = ground + spawnAgl;
+  /* Loiter spawns 8 km due N heading E; LOWLEVEL spawns AT the origin already on the commanded heading. */
+  double slat = lowlevel ? lat : lat + kRadiusM / 111320.0, slon = lon;
+  double spawnHdg = lowlevel ? llHdg : 90.0;
+  double spawnSpd = lowlevel ? llSpeed : kSpeedMs;
+  if (fb_jsbsim_init("jsbsim/aircraft", "f16", slat, slon, altAsl, 0.0, spawnSpd, spawnHdg, 0) != 0) {
     fprintf(stderr, "gpu_native --fly: JSBSim init FAILED\n");
     return 1;
   }
   if (gSeed > -1e8) fb_jsbsim_set_ground(gSeed);
 
   FlightBox::FBAutopilot AP;
-  AP.SetLoiter(lat, lon, altAsl, kRadiusM, 1, kSpeedMs);
+  FlightBox::FBTerrainField terrainField(llDemZ);
+  /* Planner terrain field is COARSER (z9) — a 500 km A* only needs valley/pass structure, and coarse
+   * keeps the tile count tiny. Separate instance from the z12 vertical look-ahead field. */
+  int llPlanZ  = getenv("FB_LL_PLAN_Z")  ? atoi(getenv("FB_LL_PLAN_Z"))  : 9;
+  double llRadKm = getenv("FB_LL_RADIUS_KM") ? atof(getenv("FB_LL_RADIUS_KM")) : 500.0;
+  unsigned llSeed = getenv("FB_LL_SEED") ? (unsigned)atol(getenv("FB_LL_SEED")) : 1u;
+  FlightBox::FBTerrainField planField(llPlanZ);
+  FlightBox::FBPathPlan plan(&planField, lat, lon, llRadKm * 1000.0, llSeed);
+  bool llPlanned = lowlevel && getenv("FB_LL_PLANNER") != nullptr;   /* A* far-planner: opt-in (fan is default) */
+  bool llFixHdg  = lowlevel && getenv("FB_LL_FIXHDG") != nullptr;    /* fixed heading, fan off (Stage-1 recipe) */
+  const bool noRender = getenv("FB_NORENDER") != nullptr;   /* flight/planner oracle without the flaky render */
+  if (lowlevel) {
+    AP.SetTerrain(&terrainField, fb_stream_ground);
+    AP.SetLowLevel(llAgl, llSpeed, llHdg);           /* enables the reactive fan by default */
+    AP.SetFence(lat, lon, llRadKm * 1000.0);
+    if (const char *e = getenv("FB_FAN_N"))     AP.FanN = atoi(e);
+    if (const char *e = getenv("FB_FAN_ARC"))   AP.FanArcDeg = atof(e);
+    if (const char *e = getenv("FB_FAN_RANGE")) AP.FanRangeM = atof(e);
+    if (const char *e = getenv("FB_FAN_BIAS"))  AP.FanStraightBias = atof(e);
+    if (const char *e = getenv("FB_FAN_EASE"))  AP.FanEase = atof(e);
+    if (const char *e = getenv("FB_FAN_TURNDB")) AP.FanTurnDeadbandDeg = atof(e);
+    if (llPlanned) {
+      if (getenv("FB_LL_GOAL_LAT") && getenv("FB_LL_GOAL_LON"))
+        plan.SetFixedGoal(atof(getenv("FB_LL_GOAL_LAT")), atof(getenv("FB_LL_GOAL_LON")));
+      plan.Update(slat, slon);   /* initial plan at the spawn */
+      printf("gpu_native --fly: LOWLEVEL+PLAN agl=%.0f m, %.0f m/s, DEM z=%d, plan z=%d, fence %.0f km, seed %u | goal %.4f/%.4f route %d wp (expanded %ld)\n",
+             llAgl, llSpeed, terrainField.Zoom(), planField.Zoom(), llRadKm, llSeed, plan.GoalLat(), plan.GoalLon(), plan.RouteSize(), plan.LastExpanded());
+      for (auto &wp : plan.Waypoints()) printf("[route] %.5f %.5f\n", wp.first, wp.second);
+      fflush(stdout);
+    } else if (llFixHdg) {
+      AP.SetLowLevelHeading(llHdg);   /* fan off */
+      printf("gpu_native --fly: LOWLEVEL agl=%.0f m, %.0f m/s, FIXED hdg=%.0f, DEM z=%d\n", llAgl, llSpeed, llHdg, terrainField.Zoom());
+    } else {
+      printf("gpu_native --fly: LOWLEVEL+FAN agl=%.0f m, %.0f m/s, DEM z=%d, fence %.0f km (reactive terrain fan, wings-level)\n",
+             llAgl, llSpeed, terrainField.Zoom(), llRadKm);
+    }
+  } else {
+    AP.SetLoiter(lat, lon, altAsl, kRadiusM, 1, kSpeedMs);
+  }
   FlightBox::FBFlightControl FC = FlightBox::FBFlightControl::F16();
   fb_fdm_state St;
   fb_jsbsim_step(&St);
@@ -296,12 +352,13 @@ int RunFly(double lat, double lon, double ground0, double aglM, double viewKm, t
     const char *toe = getenv("FB_LOAD_TIMEOUT"); int tmax = toe ? atoi(toe) : 1500;
     int lshot = 0;
     for (int lf = 0; lf < tmax; lf++) {
+      if (noRender && lf >= 1) break;   /* oracle: no render -> no need to wait for tile streaming */
       W.Update(St.lat, St.lon, leye, lfwd, (double)lf * 1000.0 / fps);
       float pct = W.LoadProgress();
       R.SetLoadingScreen(true, pct, W.TargetReadyN(), W.TargetTotal());
-      R.RenderFrame();
+      if (!noRender) R.RenderFrame();
       if (lf % 20 == 0) { printf("[loading] %.0f%% (%d/%d tiles)\n", pct * 100.0f, W.TargetReadyN(), W.TargetTotal()); fflush(stdout); }
-      if (interval > 0.0 && (lf == 6 || lf == 30)) {   /* boot-sequence proof: a couple of loading frames */
+      if (!noRender && interval > 0.0 && (lf == 6 || lf == 30)) {   /* boot-sequence proof: a couple of loading frames */
         std::vector<uint8_t> rgba;
         if (R.ReadPixels(rgba)) { char p[512]; snprintf(p, sizeof p, "%s/loading_%04d.png", outDir.c_str(), lshot++);
           if (stbi_write_png(p, width, height, 4, rgba.data(), width * 4)) printf("gpu_native --fly: wrote %s\n", p); }
@@ -318,9 +375,30 @@ int RunFly(double lat, double lon, double ground0, double aglM, double viewKm, t
   double acc = 0.0, accLog = 0.0;
   FlightBox::FBGuidance g{};
   for (int f = 0; f < totalFrames; f++) {
+    /* FB_TOGGLE_S: flip the DISPLAY ground mode (SVS<->EVS, the TAB switch) every N sim-seconds — the
+     * SVS/EVS-strictness repro. The base stays the boot mode; the overlay is lazy, so the transition
+     * exercises the mode-aware readiness gate. */
+    if (const char *tg = getenv("FB_TOGGLE_S")) {
+      double period = atof(tg);
+      static double accTg = 0; accTg += dt;
+      static bool once = getenv("FB_TOGGLE_ONCE") != nullptr; static bool did = false;
+      if (period > 0 && accTg >= period && !(once && did)) { accTg = 0; did = true;
+        int m = !R.GetGroundMode(); R.SetGroundMode(m); W.SetGroundMode(m);
+        printf("[toggle] display -> %s\n", m ? "EVS/photo" : "SVS/osm"); fflush(stdout);
+      }
+    }
     /* FDM ground floor = the live DEM under the aircraft (crash contract), fed BEFORE stepping. */
     double gnd = fb_stream_ground(St.lat, St.lon);
     if (gnd > -1e8) { ground = gnd; fb_jsbsim_set_ground(gnd); }
+
+    /* LOWLEVEL lateral: DEFAULT = the reactive terrain fan (chooses the heading toward the lowest valley,
+     * wings-level). FB_LL_PLANNER: the A* far-planner steers by pure-pursuit instead. FB_LL_FIXHDG: neither. */
+    if (lowlevel && llPlanned) {
+      plan.Update(St.lat, St.lon);
+      AP.SetLowLevelHeading(plan.DesiredTrackDeg(St.lat, St.lon));
+    } else if (lowlevel && !llFixHdg) {
+      AP.UpdateLowLevelSteering(St, dt);   /* reactive fan, once per frame */
+    }
 
     acc += dt;
     for (int k = 0; acc >= 0.01 && k < 12; k++) {
@@ -357,15 +435,34 @@ int RunFly(double lat, double lon, double ground0, double aglM, double viewKm, t
     R.SetAgl((float)(St.elev - ground));
 
     W.Update(St.lat, St.lon, eye, fwd, (double)f * 1000.0 / fps);
-    R.RenderFrame();
+    /* FB_NORENDER: autopilot/flight oracle without the (flaky, lavapipe-stalling) render — sim + planner
+     * + telemetry run free, so a long terrain-following track completes deterministically. */
+    if (!noRender) R.RenderFrame();
 
     accLog += dt;
     if (accLog >= 1.0) { accLog = 0.0; FlightBox::FBLogAgl(St, g, ground, fb_jsbsim_get_ground());
-      printf("[home] dist=%.0f brg=%.0f hdg=%.0f lon=%.4f\n", hs.home_dist, hs.home_bearing, St.yaw, St.lon); fflush(stdout); }
+      printf("[home] dist=%.0f brg=%.0f hdg=%.0f lon=%.4f\n", hs.home_dist, hs.home_bearing, St.yaw, St.lon);
+      if (lowlevel)
+        printf("[lowlevel] agl=%.0f tgtAgl=%.0f gndHere=%.0f gndAhead=%.0f tgtVs=%.1f vs=%.1f alt=%.0f demZ=%d decodes=%ld\n",
+               St.elev - AP.LlGroundHere(), AP.LlTargetAgl(), AP.LlGroundHere(), AP.LlGroundAhead(),
+               AP.LlTargetVs(), St.vy, St.elev, terrainField.Zoom(), terrainField.Decodes());
+      if (lowlevel && !llPlanned && !llFixHdg)
+        printf("[fan] acPos=%.5f/%.5f hdg=%.0f tgtHdg=%.0f bank=%.1f cost min/mid/max=%.0f/%.0f/%.0f chosen=%d\n",
+               St.lat, St.lon, St.yaw, AP.LlHeading(), St.roll, AP.FanMinCost(), AP.FanMidCost(), AP.FanMaxCost(), AP.FanChosen());
+      if (lowlevel && llPlanned) {
+        printf("[plan] acPos=%.5f/%.5f goal=%.4f/%.4f goalDist=%.0fkm wp=%d/%d desTrk=%.0f replans=%ld expanded=%ld planDecodes=%ld\n",
+               St.lat, St.lon, plan.GoalLat(), plan.GoalLon(), plan.GoalDistM(St.lat, St.lon) / 1000.0, plan.ActiveWp(),
+               plan.RouteSize(), plan.DesiredTrackDeg(St.lat, St.lon), plan.Replans(), plan.LastExpanded(), planField.Decodes());
+        static long lastRep = -1;
+        if (plan.Replans() != lastRep) { lastRep = plan.Replans();
+          for (auto &wp : plan.Waypoints()) printf("[route] %.5f %.5f\n", wp.first, wp.second); }
+      }
+      fflush(stdout); }
 
     bool last = (f == totalFrames - 1);
     bool due = everyFrames > 0 && (f % everyFrames) == (everyFrames - 1);
     if (!due && !(everyFrames == 0 && last)) continue;
+    if (noRender) continue;   /* oracle: telemetry only, no frame capture */
     std::vector<uint8_t> rgba;
     if (!R.ReadPixels(rgba)) continue;   /* device may be lost late in a long run — telemetry lives on */
     char path[512];

@@ -3,7 +3,7 @@
  * w3_vtx pos3+uv2+norm3, camera-relative ECEF), and merges them into one vertex array for the GPU.
  *
  * This is the tileworker.c pipeline (SYNCHRONOUS emscripten_fetch under ASYNCIFY -> osmmesh_fetch_tile
- * -> w3_chunk_build_ecef) but run inline on the demo's main thread: gpu.html has no tile worker, and a
+ * -> w3_chunk_build_ecef) but run inline on the demo's main thread: the native path has no tile worker, and a
  * one-shot blocking load before the render loop is the simplest correct thing. Not for cc.js (there the
  * worker exists for the measured frame-time reason documented in tileworker.c). */
 #include "fb_terrain.h"
@@ -32,7 +32,7 @@ static char fb_base[160] = "";
 
 #ifdef __EMSCRIPTEN__
 /* Synchronous byte fetch. NOTE: emscripten_fetch's SYNCHRONOUS mode is a Web-Worker-only facility
- * (returns NULL on a page's main thread — that is why tileworker.c runs in a worker). The gpu.html
+ * (returns NULL on a page's main thread — that is why tileworker.c runs in a worker). The browser
  * demo has no worker, so the correct main-thread primitive is a blocking XHR; binary comes back via
  * the x-user-defined charset trick (each response char is one byte). Returns the HTTP status, or -1
  * on a JS exception; on 200 hands over a malloc'd buffer. */
@@ -430,6 +430,38 @@ double fb_stream_ground(double lat, double lon) {
   return v < -1e8 ? v : (v < 0.0 ? 0.0 : v);
 }
 
+/* WASM: async main-thread DEM-tile cache (mirrors fbw_lights_poll). Non-blocking — kicks a fetch on a
+ * miss and returns 0 (pending) until the bytes land, then copies them into a WASM buffer. FBTerrainField
+ * decodes immediately, so a single static buffer is safe. Contract: 1 = bytes ready (buf/len set),
+ * 0 = pending (retry — do NOT cache as a hole), -1 = real hole/error. */
+EM_JS(int, fbw_dem_poll, (int z, int x, int y, uint8_t *dst, int cap), {
+  var D = Module.__fbD || (Module.__fbD = { done: new Map(), req: new Set(), inflight: 0 });
+  var k = z + '/' + x + '/' + y;
+  if (D.done.has(k)) {
+    var b = D.done.get(k);
+    if (b === null || b.length > cap) return -1;
+    HEAPU8.set(b, dst);
+    return b.length;
+  }
+  if (!D.req.has(k) && D.inflight < 4) {
+    var base = window.FB_TILES_URL;
+    if (!base) return 0;
+    D.req.add(k); D.inflight++;
+    fetch(base + '/t/terrain/' + z + '/' + x + '/' + y)
+      .then(function (r) { return r.ok ? r.arrayBuffer() : null; })
+      .then(function (ab) { D.done.set(k, ab ? new Uint8Array(ab) : null); D.inflight--; })
+      .catch(function () { D.done.set(k, null); D.inflight--; });
+  }
+  return 0;
+})
+int fb_stream_dem(int z, int x, int y, const uint8_t **bytes, int *len) {
+  static uint8_t buf[262144];   /* a z12/13 Terrarium PNG is ~50-160 KB */
+  int n = fbw_dem_poll(z, x, y, buf, (int)sizeof buf);
+  if (n <= 0) { *bytes = 0; *len = 0; return n; }   /* 0 pending, -1 hole */
+  *bytes = buf; *len = n;
+  return 1;
+}
+
 /* Night-light tile, ASYNC main-thread fetch (lowest priority — the caller only polls a few per frame).
  * In-flight-capped so it never floods the connection or stalls the render loop. Cached per tile key. */
 EM_JS(int, fbw_lights_poll, (int z, int x, int y, uint8_t *dst, int cap), {
@@ -660,6 +692,18 @@ double fb_stream_ground(double lat, double lon) {
     free(buf);
   }
   return cval;
+}
+
+/* Native: raw Terrarium DEM tile bytes behind the byte cache (fbs_size caches by path). The pointer is
+ * into the cache — valid until evicted; FBTerrainField decodes immediately and never holds it. */
+int fb_stream_dem(int z, int x, int y, const uint8_t **bytes, int *len) {
+  char path[96];
+  snprintf(path, sizeof path, "/t/terrain/%d/%d/%d", z, x, y);
+  int n = fbs_size(path);   /* synchronous: never pending -> bytes or a real hole */
+  struct fbs_ent *e = n > 0 ? fbs_find(path) : 0;
+  if (!e || !e->data) { *bytes = 0; *len = 0; return -1; }
+  *bytes = e->data; *len = e->len;
+  return 1;
 }
 
 /* Native night-light tile: synchronous fetch behind the byte cache (fbs_size caches by path). Returns

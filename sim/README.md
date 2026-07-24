@@ -27,7 +27,7 @@ im CLI). Server-seitig läuft **nur** der Kachel-Server `fb-tiles`.
 ```bash
 make tiles            # fb-tiles-Image bauen
 make up-tiles         # fb-tiles starten -> :8081
-make controlcenter    # WASM-CC (JSBSim + Renderer) -> flightbox/web/  (nutzt ~/Git/emsdk)
+make webgpu           # WASM-CC (JSBSim + WebGPU-Renderer) -> flightbox/web/  (nutzt ~/Git/emsdk)
 # CC im Browser öffnen; per lat/lon/alt/radius weltweit loitern und rendern
 ```
 Der native CLI-Build (dieselbe Physik + Renderer, headless) fährt die weltweiten Screenshot-Läufe zum

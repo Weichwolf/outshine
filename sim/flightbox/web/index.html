@@ -9,12 +9,11 @@
 </head>
 <body>
 <canvas id="gpu" width="1280" height="720"></canvas>
-<!-- FlightBox: WebGPU engine (JSBSim in-process + FBWorld + Hillaire + MIL-STD-1787 HUD).
-     Legacy WebGL2 engine: cc-legacy.html (stirbt im Aufräum-Commit). -->
+<!-- FlightBox: WebGPU engine (JSBSim in-process + FBWorld + Hillaire + MIL-STD-1787 HUD). -->
 <script src="config.js"></script>
 <script>
   // TAB = ground albedo (SVS OSM render <-> EVS aerial photo). Handled here, not in the WASM: the
-  // browser steals Tab for focus traversal, so preventDefault must happen at the DOM (cc-legacy.html
+  // browser steals Tab for focus traversal, so preventDefault must happen at the DOM (Legacy-
   // pattern). fb_toggle_ground is EMSCRIPTEN_KEEPALIVE in gpu_main.cpp.
   window.addEventListener('keydown', function(e){
     if(e.ctrlKey||e.metaKey||e.altKey||e.repeat) return;

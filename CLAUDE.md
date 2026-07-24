@@ -94,7 +94,7 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
 
 ## Engineering-Konventionen
 
-- **Build nur über Make-Targets** (`make controlcenter`, `make webgpu`, `make client`, …) — Rezepte
+- **Build nur über Make-Targets** (`make webgpu`, `make webgpu-worker`, `make webgpu-native`, …) — Rezepte
   leben im Makefile, nicht in Agenten-Köpfen.
 - **`extern "C"` für jede von JS namentlich gerufene Funktion** (EMSCRIPTEN_KEEPALIVE reicht nicht —
   Mangling bricht Exporte still).
