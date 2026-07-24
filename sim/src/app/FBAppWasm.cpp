@@ -6,9 +6,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
+#include <memory>
 #include <emscripten.h>
 #include "FBRenderer.h"
 #include "FBWorld.h"
+#include "FBModule.h"
 #include "FBF16Module.h"
 #include "FBTerrainField.h"
 #include "FBPathPlan.h"
@@ -28,7 +30,13 @@ static const double kSpeedMs = 220.0;
 
 static FBRenderer R;
 static FBWorld W;
-static FBF16Module F16;               /* the one registered FBModule: owns FBAutopilot + FBFlightControl */
+/* The App holds its module POLYMORPHICALLY: gActiveModule is the runtime-selected FBModule (today
+ * always the F-16, but every per-frame call below goes through the base interface, not the concrete
+ * type — the mechanism a future Ka-52/F-18 module plugs into, not a shortcut around it). gF16 is the
+ * concrete handle the boot/config code below needs for F-16-specific setup (Autopilot/FlightControl
+ * gains, PathPlan) that isn't part of the generic FBModule contract. */
+static std::unique_ptr<FBF16Module> gF16 = std::make_unique<FBF16Module>();
+static FBModule *gActiveModule = gF16.get();
 static FBTerrainField gTerrain(13);   /* LOWLEVEL look-ahead field (z13 = /elev resolution) */
 static FBTerrainField gPlanField(9);  /* planner cost field (coarse z9) */
 static FBPathPlan *gPlan = nullptr;   /* lateral wander planner (nullptr in fixed-heading / loiter) */
@@ -178,15 +186,16 @@ static void frame(void) {
              planMs, gPlan->LastExpanded(), gPlan->RouteSize(), dec, gPlan->GoalDistM(St.lat, St.lon) / 1000.0);
       fflush(stdout);
     }
-    F16.Autopilot().SetLowLevelHeading(gPlan->DesiredTrackDeg(St.lat, St.lon));
+    gF16->Autopilot().SetLowLevelHeading(gPlan->DesiredTrackDeg(St.lat, St.lon));
   } else if (gFanMode) {
-    F16.Autopilot().UpdateLowLevelSteering(St, dt);   /* reactive terrain fan (default): choose the valley heading, once/frame */
+    gF16->Autopilot().UpdateLowLevelSteering(St, dt);   /* reactive terrain fan (default): choose the valley heading, once/frame */
   }
 
-  /* Advance the F-16: guidance -> FLCS-command -> JSBSim, fixed 100 Hz substeps (spiral guard). */
-  F16.Run(St, dt);
-  FBGuidance g = F16.LastGuidance();
-  int nSub = F16.LastSubsteps();
+  /* Advance the active module: guidance -> FLCS-command -> JSBSim, fixed 100 Hz substeps (spiral
+   * guard), plus its own system slots at their own rates — through the polymorphic FBModule handle. */
+  gActiveModule->Run(St, dt, &W);
+  FBGuidance g = gF16->LastGuidance();
+  int nSub = gF16->LastSubsteps();
   double cp_c = emscripten_get_now();   /* end: jsbsim substeps */
 
   /* HUD AGL (ASL - DEM ground); until the first /elev lands, fall back to the config ground so the
@@ -215,7 +224,7 @@ static void frame(void) {
   while (rel > 180) rel -= 360;
   while (rel < -180) rel += 360;
   hs.home_bearing = (float)rel;
-  hs.state = F16.Autopilot().GetMode();
+  hs.state = gF16->Autopilot().GetMode();
   /* 1 Hz flight telemetry from the sim tick (device-loss-proof): [agl] + [home] (the HUD home BRG/DIST,
    * antimeridian-safe — the gate's measurement convention). */
   { static double accLog = 0.0; accLog += dt;
@@ -224,12 +233,12 @@ static void frame(void) {
       printf("[home] dist=%.0f brg=%.0f hdg=%.0f lon=%.4f\n", hs.home_dist, hs.home_bearing, St.yaw, St.lon);
       if (gLowLevel)
         printf("[lowlevel] agl=%.0f tgtAgl=%.0f gndHere=%.0f gndAhead=%.0f tgtVs=%.1f vs=%.1f alt=%.0f demZ=%d decodes=%ld\n",
-               St.elev - F16.Autopilot().LlGroundHere(), F16.Autopilot().LlTargetAgl(), F16.Autopilot().LlGroundHere(),
-               F16.Autopilot().LlGroundAhead(), F16.Autopilot().LlTargetVs(), St.vy, St.elev, gTerrain.Zoom(), gTerrain.Decodes());
+               St.elev - gF16->Autopilot().LlGroundHere(), gF16->Autopilot().LlTargetAgl(), gF16->Autopilot().LlGroundHere(),
+               gF16->Autopilot().LlGroundAhead(), gF16->Autopilot().LlTargetVs(), St.vy, St.elev, gTerrain.Zoom(), gTerrain.Decodes());
       if (gFanMode)
         printf("[fan] hdg=%.0f tgtHdg=%.0f bank=%.1f cost min/mid/max=%.0f/%.0f/%.0f chosen=%d\n",
-               St.yaw, F16.Autopilot().LlHeading(), St.roll, F16.Autopilot().FanMinCost(),
-               F16.Autopilot().FanMidCost(), F16.Autopilot().FanMaxCost(), F16.Autopilot().FanChosen());
+               St.yaw, gF16->Autopilot().LlHeading(), St.roll, gF16->Autopilot().FanMinCost(),
+               gF16->Autopilot().FanMidCost(), gF16->Autopilot().FanMaxCost(), gF16->Autopilot().FanChosen());
       if (gPlannerMode && gPlan)
         printf("[plan] goal=%.4f/%.4f goalDist=%.0fkm wp=%d/%d desTrk=%.0f replans=%ld expanded=%ld planDecodes=%ld\n",
                gPlan->GoalLat(), gPlan->GoalLon(), gPlan->GoalDistM(St.lat, St.lon) / 1000.0, gPlan->ActiveWp(),
@@ -319,12 +328,12 @@ int main() {
     return 1;
   }
   if (gLowLevel) {
-    F16.Autopilot().SetTerrain(&gTerrain, fb_stream_ground);
-    F16.Autopilot().SetLowLevel(kLlAgl, kLlSpeed, llHdg);
-    F16.Autopilot().SetFence(olat, olon, 500000.0);
+    gF16->Autopilot().SetTerrain(&gTerrain, fb_stream_ground);
+    gF16->Autopilot().SetLowLevel(kLlAgl, kLlSpeed, llHdg);
+    gF16->Autopilot().SetFence(olat, olon, 500000.0);
     if (gPlannerMode) {
-      static FBPathPlan planObj(&gPlanField, olat, olon, 500000.0, llSeed);
-      gPlan = &planObj;
+      gF16->ConfigurePathPlan(&gPlanField, olat, olon, 500000.0, llSeed);   /* the module OWNS the planner */
+      gPlan = gF16->PathPlan();
       gPlan->CellM = 2500;         /* coarser than native (1500): keeps a browser re-plan under one frame */
       gPlan->MaxExpand = 120000;
       gPlan->Update(slat, slon);   /* initial plan (coarse until z9 tiles stream in — see the frame re-plan) */
@@ -334,11 +343,11 @@ int main() {
       printf("[gpu] LOWLEVEL+FAN agl=%.0f m, %.0f m/s, DEM z=%d, fence 500 km (reactive terrain fan, wings-level; ?hdg=N fixed, ?plan=1 A*, ?ap=loiter ring)\n",
              kLlAgl, kLlSpeed, gTerrain.Zoom());
     } else {
-      F16.Autopilot().SetLowLevelHeading(llHdg);   /* fan off */
+      gF16->Autopilot().SetLowLevelHeading(llHdg);   /* fan off */
       printf("[gpu] LOWLEVEL agl=%.0f m, %.0f m/s, FIXED hdg=%.0f, DEM z=%d\n", kLlAgl, kLlSpeed, llHdg, gTerrain.Zoom());
     }
   } else {
-    F16.Autopilot().SetLoiter(olat, olon, altAsl, kRadiusM, 1, kSpeedMs);
+    gF16->Autopilot().SetLoiter(olat, olon, altAsl, kRadiusM, 1, kSpeedMs);
     printf("[gpu] JSBSim F-16 loitering %.4f/%.4f, alt %.0f m ASL, R %.0f m, %.0f m/s\n", olat, olon,
            altAsl, kRadiusM, kSpeedMs);
   }

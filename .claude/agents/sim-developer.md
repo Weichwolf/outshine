@@ -6,14 +6,19 @@ model: sonnet
 ---
 
 You are a senior simulator/graphics engineer on FlightBox. Working dir: `<repo>/sim` — the
-self-contained `fb-sim` project: C++ source under `sim/src/` in a DCS-like module layout
-(`app/` entry points, `core/` shared state incl. `FBMode`, `math/` value types, `render/`, `world/`,
-`terrain/` lean terrain library, `fdm/` JSBSim adapter, `systems/` the generic airframe-agnostic
-DEFAULT guidance/FCS/planner (`FBAutopilot`/`FBFlightControl`/`FBPathPlan` — `FBAutopilot::Run()` is
-the one virtual override point for a module whose guidance genuinely behaves differently), `modules/`
-FBModule base + `modules/f16/` the F-16 (composes `systems/` defaults + its gain preset) incl.
-`displays/` HUD), and the vendored toolchain under `sim/vendor` (the pinned `sim/vendor/jsbsim`
-submodule, Dawn, emdawnwebgpu, stb, build scripts). Makefile + Dockerfile at the `sim/` root.
+self-contained `fb-sim` project: C++ source under `sim/src/` in a DCS-like module layout, modules held
+POLYMORPHICALLY behind `FBModule*` at runtime (today the F-16 is the one registered instance, but the
+dispatch is the real mechanism). `app/` entry points, `core/` shared state incl. `FBMode`/
+`FBMasterMode`, `math/` value types, `render/`, `world/`, `terrain/` lean terrain library, `fdm/`
+JSBSim adapter, `systems/` the generic, airframe-agnostic system slots every module composes — the
+three REAL ones (`FBAutopilot`/`FBFlightControl`/`FBPathPlan`, each with one virtual override point for
+a module whose behavior genuinely differs, not just its tuning) plus `FBSystemSlots.h`'s NoOp
+interface+default pairs for the rest of a full airframe's inventory (Input/HOTAS, Propulsion,
+Displays, Sensors, Weapons, Defensive, Comms — see `doc/f16/`) — `modules/` the `FBModule` base +
+`modules/f16/` the F-16 (`FBF16Module` composes `systems/` defaults + its gain preset, cycles every
+slot at its own rate) incl. `displays/` HUD, and the vendored toolchain under `sim/vendor` (the pinned
+`sim/vendor/jsbsim` submodule, Dawn, emdawnwebgpu, stb, build scripts). Makefile + Dockerfile at the
+`sim/` root.
 
 ## References (read before working — they are the contract)
 - `<repo>/CLAUDE.md` — architecture, principles, coding style (FB classes,

@@ -84,32 +84,44 @@ aircraft/models/<name>/
 Ownership, minimale public API.
 
 **Verzeichnisstruktur** (`sim/src/`) bildet eine DCS-World-artige Modul-Architektur ab: der Simulator
-lädt beliebig viele **steuerbare Module** (heute die F-16; künftig Ka-52, F-18, …), jedes mit eigenen
-Systemen (Anzeigen/HUD, Steuerung/FCS, Sensoren, Aktoren). Der Engine-Kern ist modul-agnostisch, und
-die Regelungs-/Guidance-Systeme selbst sind es auch — **FBCore → Interface → Default-Implementation →
-modul-spezifischer Override**, nicht "gehört der F-16":
+lädt beliebig viele **steuerbare Module** (heute die F-16; künftig Ka-52, F-18, …) zur LAUFZEIT — die
+App hält jedes Modul polymorph hinter `FBModule*` (die Auswahl/der Dispatch ist der Mechanismus, nicht
+eine Abkürzung zur einen heutigen F-16-Instanz). Jedes Modul trägt dieselben Systemkategorien (ein
+reales F-16-Inventar: Steuerung/HOTAS, Flight Control, Antrieb, Anzeigen, Sensoren, Waffen, Defensiv,
+Comms/Datalink, plus Guidance/Pfadplanung — `doc/f16/` INDEX.md), unterscheidet sich aber im VERHALTEN,
+nicht nur in Zahlen. Deshalb: **FBCore → Interface → Default-Implementation → modul-spezifischer
+Override**, nicht "gehört der F-16":
 
 ```
 sim/src/
   app/       Einstiegspunkte + App-Lifecycle (FBAppWasm, FBAppNative, FBSimHost, FBTileWorkerMain)
-  core/      FBState, FBMode, FBTelemetry, gemeinsame Basistypen — zeigt NIE nach systems/ oder modules/
+  core/      FBState, FBMode, FBMasterMode, FBTelemetry, gemeinsame Basistypen — zeigt NIE nach
+             systems/ oder modules/
   math/      Value-Math (FBMat4 — Value-Types, Operatoren inline im Header)
   render/    FBRenderer, FBCamera, FBMips, FBChunkMesh/FBChunkVtx, FBEphemeris
   world/     FBWorld, FBTerrainField, FBTerrainLoader (Tile-Streaming/Worker-Anbindung)
-  systems/   die generischen, airframe-agnostischen DEFAULT-Systeme: FBFlightControl
-             (FBW-Innenschleife; FLCS-command vs. Raw ist ein Laufzeit-Flag, keine Subklasse),
-             FBAutopilot (Guidance; `Run()` ist der EINE virtuelle Override-Punkt — ein Modul,
-             dessen Guidance sich wirklich anders VERHÄLT, überschreibt Run(), nicht nur Zahlen),
-             FBPathPlan (A*-Wanderplaner). Presets (z.B. `FBFlightControl::F16()`) sind Factories,
-             keine leeren Ableitungen — Composition over Inheritance.
+  systems/   die generischen, airframe-agnostischen System-Slots eines Moduls — Interface + Default
+             in EINER Klasse, ein Modul überschreibt per Ableitung (Zahlen-Tuning bleibt Preset/
+             Config, keine leere Ableitung dafür):
+               FBAutopilot (Guidance), FBFlightControl (FBW-Innenschleife), FBPathPlan (Wanderplaner)
+               — die drei heute REAL implementierten Systeme, `Run()`/`Update()` virtuell;
+               FBSystemSlots.h — Input/HOTAS, Propulsion, Displays, Sensors, Weapons, Defensive, Comms:
+               Interface + NoOp-Default für die restlichen F-16-Systemkategorien, ein Modul füllt sie
+               bei Bedarf per Ableitung. Sensoren SCHREIBEN/Displays LESEN den geteilten FBState;
+               Sensoren/Waffen/Defensiv erhalten eine geborgte FBWorld-Referenz (nie global).
   terrain/   leane Terrain-Lib (geo/mesh/osmmesh), flat
   fdm/       der C-aufrufbare JSBSim-Adapter (jsbsim_adapter.*), flat
-  modules/   FBModule-Basisklasse (ein Run(fb_fdm_state&, dt)-Zyklus pro Modul, vom App-Loop gecycelt;
+  modules/   FBModule-Basisschnittstelle (`Run(fb_fdm_state&, dt, const FBWorld*)`, App hält jedes
+             Modul dahinter polymorph; ein Modul cycelt seine Systeme intern, jedes im eigenen Takt —
              Peers rufen sich nie gegenseitig)
-  modules/f16/           das F-16-Modul: FBF16Module komponiert die systems/-DEFAULTS (FBAutopilot
-                         unverändert) mit dem F-16-Gain-Preset (FBFlightControl::F16())
+  modules/f16/           das F-16-Modul: FBF16Module komponiert die systems/-DEFAULTS (FBAutopilot/
+                         FBFlightControl unverändert) mit dem F-16-Gain-Preset
+                         (FBFlightControl::F16()), besitzt den optionalen FBPathPlan und cycelt alle
+                         Systemslots — der Ort, an dem künftiges F-16-spezifisches Verhalten
+                         (echtes Radar, echtes HOTAS-Binding, …) als Ableitung eingehängt wird
   modules/f16/displays/  HUD (MIL-STD-1787): FBHud (WebGPU-Backend-Shim), FBHudSymbology (Geometrie),
-                         FBMax7456 (Font-Atlas-Daten)
+                         FBMax7456 (Font-Atlas-Daten) — das bestehende Rendering, noch nicht über
+                         den generischen Displays-Systemslot geführt
 ```
 
 Ein zukünftiges `units/` mit einer `FBUnit`-Basisschnittstelle für nicht steuerbare KI-Einheiten

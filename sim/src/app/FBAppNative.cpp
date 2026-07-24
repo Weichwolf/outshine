@@ -8,6 +8,7 @@
 #include "FBRenderer.h"
 #include "FBWorld.h"
 #include "FBEphemeris.h"
+#include "FBModule.h"
 #include "FBF16Module.h"
 #include "FBTerrainField.h"
 #include "FBPathPlan.h"
@@ -20,6 +21,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <memory>
 #include <string>
 #include <vector>
 #include <sys/stat.h>
@@ -289,8 +291,13 @@ int RunFly(double lat, double lon, double ground0, double aglM, double viewKm, t
   }
   if (gSeed > -1e8) fb_jsbsim_set_ground(gSeed);
 
-  FlightBox::FBF16Module F16;   /* the one registered FBModule: owns FBAutopilot + FBFlightControl */
-  FlightBox::FBAutopilot &AP = F16.Autopilot();
+  /* Polymorphic handle: activeModule is what Run() is called through below (the real dispatch
+   * mechanism, not a shortcut around it); F16 is the concrete handle this scope needs for
+   * F-16-specific setup (Autopilot/FlightControl gains, PathPlan) outside the generic FBModule
+   * contract. */
+  auto F16 = std::make_unique<FlightBox::FBF16Module>();
+  FlightBox::FBModule *activeModule = F16.get();
+  FlightBox::FBAutopilot &AP = F16->Autopilot();
   FlightBox::FBTerrainField terrainField(llDemZ);
   /* Planner terrain field is COARSER (z9) — a 500 km A* only needs valley/pass structure, and coarse
    * keeps the tile count tiny. Separate instance from the z12 vertical look-ahead field. */
@@ -298,7 +305,8 @@ int RunFly(double lat, double lon, double ground0, double aglM, double viewKm, t
   double llRadKm = getenv("FB_LL_RADIUS_KM") ? atof(getenv("FB_LL_RADIUS_KM")) : 500.0;
   unsigned llSeed = getenv("FB_LL_SEED") ? (unsigned)atol(getenv("FB_LL_SEED")) : 1u;
   FlightBox::FBTerrainField planField(llPlanZ);
-  FlightBox::FBPathPlan plan(&planField, lat, lon, llRadKm * 1000.0, llSeed);
+  F16->ConfigurePathPlan(&planField, lat, lon, llRadKm * 1000.0, llSeed);   /* the module OWNS the planner */
+  FlightBox::FBPathPlan &plan = *F16->PathPlan();
   bool llPlanned = lowlevel && getenv("FB_LL_PLANNER") != nullptr;   /* A* far-planner: opt-in (fan is default) */
   bool llFixHdg  = lowlevel && getenv("FB_LL_FIXHDG") != nullptr;    /* fixed heading, fan off (Stage-1 recipe) */
   const bool noRender = getenv("FB_NORENDER") != nullptr;   /* flight/planner oracle without the flaky render */
@@ -399,8 +407,8 @@ int RunFly(double lat, double lon, double ground0, double aglM, double viewKm, t
       AP.UpdateLowLevelSteering(St, dt);   /* reactive fan, once per frame */
     }
 
-    F16.Run(St, dt);
-    g = F16.LastGuidance();
+    activeModule->Run(St, dt, &W);
+    g = F16->LastGuidance();
 
     double eye[3], fwd[3], right[3], up[3];
     GeoToEcef(St.lat, St.lon, St.elev, eye);

@@ -5,7 +5,11 @@
  * around home; on arrival the next goal is planned -> perpetual flight. The grid path is simplified to a
  * flyable waypoint chain; the app steers the autopilot's heading by pure-pursuit to the active waypoint.
  * Planning is synchronous here (the native oracle): a replan is a one-off per goal, and the sim is
- * wall-clock-free, so a sub-second A* does not perturb the flight result. */
+ * wall-clock-free, so a sub-second A* does not perturb the flight result.
+ *
+ * Update() is virtual: the DEFAULT here is airframe-agnostic wander/valley-following; a module with a
+ * genuinely different planning law (not just different cell size/weights, which are the public
+ * tunables below) overrides it. */
 #ifndef FBPATHPLAN_H
 #define FBPATHPLAN_H
 
@@ -20,12 +24,14 @@ class FBTerrainField;
 class FBPathPlan {
 public:
   FBPathPlan(FBTerrainField *field, double centerLat, double centerLon, double fenceRadiusM, unsigned seed);
+  virtual ~FBPathPlan() = default;
 
   void SetFixedGoal(double lat, double lon);   /* proof override: one fixed goal instead of random wander */
 
   /* Call each frame with the live position: on first call / on goal arrival it (re)plans, and it advances
-   * the active waypoint as the aircraft passes. Cheap when the route is stable (just a capture check). */
-  void Update(double lat, double lon);
+   * the active waypoint as the aircraft passes. Cheap when the route is stable (just a capture check).
+   * The one override point (see the class banner). */
+  virtual void Update(double lat, double lon);
 
   bool   HasRoute(void) const { return Route.size() >= 2; }
   void   Reroute(double lat, double lon) { Plan(lat, lon); }   /* force a re-plan to the current goal (refresh) */
