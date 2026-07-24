@@ -10,7 +10,8 @@ Produkt ist die F-16; andere Modelle sind Nebensache, nicht das Ziel.
 
 ```
 fb-tiles (Server: weltweit DEM/OSM/Luftbild)  ──HTTP──▶  Command Center (Client)
-                                                          = JSBSim + FBW + Loiter-AP + ECEF-Renderer + HUD
+                                                          = JSBSim + FBW + Autopilot (LOWLEVEL|Loiter)
+                                                            + WebGPU-ECEF-Renderer + HUD
                                                             als EIN Prozess (WASM-Browser | native CLI)
 ```
 
@@ -40,42 +41,37 @@ ein gültiger Start**.
    die Maschine kann. Gibt das Tempo das Ergebnis, ist die Kopplung nicht-deterministisch = ein Bug.
 5. **F-16 zuerst, full-scale, vanilla JSBSim-Modell.** Die F-16 ist die **vanilla JSBSim-F-16**
    (`jsbsim/aircraft/f16`, full-scale, echte FLCS) — **Referenz ist das MODELL selbst**, nicht der
-   absolute echte Jet (Entscheidung 2026-07-22). Das Modell ist gepinnt/vanilla; seine validierte
+   absolute echte Jet. Das Modell ist gepinnt/vanilla; seine validierte
    Charakteristik ist die Wahrheit (z.B. Rollrate ~190 °/s = Modell-Eigenschaft, akzeptiert). FlightBox
    muss das Modell **treu fliegen** — der FBW/Loiter kommandiert die echte FLCS, verzerrt sie nicht; kein
    künstliches Departure aus Spawn/Trim, keine Divergenz. Bewertet werden **korrekte Integration +
    Rendering**, nicht Modell-vs-echter-Jet. Flugzeuge sind **Plugins**; die F-16 ist das Produkt.
 
-## Steuerung — Fly-by-Wire + kleiner Autopilot
+## Steuerung — Fly-by-Wire + Autopilot
 
-Kein iNav. Ein **schlanker Fly-by-Wire-Layer** stabilisiert die Fluglage (Raten-/Attitude-PID auf die
+Ein **schlanker Fly-by-Wire-Layer** stabilisiert die Fluglage (Raten-/Attitude-PID auf die
 JSBSim-`fcs/*-cmd-norm`-Eingänge; die F-16 hat eine eigene FLCS → `fcs/fbw-override=1` überbrückt sie,
-direktes Ruder). Darüber ein **kleiner Autopilot**, aktueller Kern:
+direktes Ruder). Darüber der Autopilot — generische Guidance in `systems/FBAutopilot`, Verhalten
+modul-überschreibbar:
 
 | Modus | Mechanismus |
 |---|---|
 | `manual` | direkter Stick (Gamepad/Tastatur) durch den FBW |
-| `loiter(lat, lon, alt, radius)` | Bank-to-Circle: halte einen Kreis um das Zentrum in Zielhöhe/-radius |
+| `lowlevel` (Boot-Default) | 450 kt @ 500 ft AGL: reaktiver Terrain-Fächer wählt das Tal, Wings-Level-Disziplin, Fence um den Spawn; optionaler A*-Wanderplaner (`?plan=1`) — `doc/lowlevel.md` |
+| `loiter(lat, lon, alt, radius)` (`?ap=loiter`) | Bank-to-Circle: halte einen Kreis um das Zentrum in Zielhöhe/-radius |
 
-Der Loiter-AP ist die **Kamera-Plattform**: er positioniert das Flugzeug über beliebigen realen Orten,
-um weltweit Screenshots zu erzeugen und den Renderer zu härten. Weitere Modi (goto/route, hold, RTH,
-Anflug/Landung) folgen — Richtung DCS-artige Missionen, aber inkrementell und ohne Fremd-Firmware.
+Der Loiter-AP ist die **Kamera-Plattform** für weltweite Screenshots; LOWLEVEL ist der Missions-Kern.
+Weitere Modi (goto/route, hold, RTH, Anflug/Landung) folgen — Richtung DCS-artige Missionen.
 
-Der FBW-PID-Kern und der `jsbsim_adapter` sind der Startpunkt (aus dem alten Validator übernommen,
-von der iNav-Nachbildung befreit).
+## Flugzeug = Modul + JSBSim-Modell
 
-## Flugzeug = Plugin
-
-```
-aircraft/models/<name>/
-  profile.env / manifest   # Kanäle, Vs/Vc (FB_STALL/FB_CRUISE), Spawn
-  <name>.xml + engine/     # JSBSim: metrics/mass_balance/propulsion/flight_control(ELEVON!)/aero
-```
+Ein steuerbares Flugzeug besteht aus zwei Teilen: dem **Code-Modul** (`FBModule`-Ableitung unter
+`sim/src/modules/<name>/` — Systeme, Presets, Displays) und dem **JSBSim-Modell** (Verzeichnis mit
+Aero/Masse/Antrieb + Engine-Daten). Die F-16 fliegt das vanilla Modell aus dem gepinnten Submodul
+(`sim/vendor/jsbsim/aircraft/f16`); im WASM-Build reist es in Emscriptens virtuellem FS.
 
 - **F-16-Kante:** die JSBSim-F-16 ist eine echte FLCS (`*-cmd-norm` = Raten-Sollwerte). FBW-Override
   überbrückt sie, sonst zwei genestete Rate-Loops.
-- **Nurflügel-Stabilität ist Config-Assertion:** ein `physics.xml` ohne echte Richtungsstabilität
-  (`Cnβ`/`Cnr`, Dihedral `Clβ`) fliegt unkoordiniert — das steht im XML, nicht im Code.
 - Aircraft-XML trägt EIGENE Lizenz (F-16 = GPL; die meisten LGPL) — Attribution per Datei.
 
 ## Sprache & Struktur
@@ -145,20 +141,18 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
 - **Fidelity-Baseline + Mess-Konventionen:** `doc/fidelity-baseline.md` (Hash-Lock, [agl]-Log,
   Bare-Model-Vergleich, akzeptierte Modell-Eigenschaften). Ziel-GPU-Fähigkeiten:
   `doc/webgl-webgpu-report.txt`.
-- JSBSim (`temp/jsbsim`) und das f16-Modell sind read-only; Warnings = Errors.
+- JSBSim (`sim/vendor/jsbsim`) und das f16-Modell sind read-only; Warnings = Errors.
 
 ## Rendering (das Herzstück)
 
-**Ziel-API: WebGPU** (Chrome/Firefox/Safari shippen es; WebGL2 ist Wartungsmodus). Konkrete Gewinne:
-natives [0,1]-Clip → volle Reversed-Z-Präzision ohne glClipControl (in WebGL frisst die [−1,1]→[0,1]-
-Transformation die Mantisse — deshalb dort dynamisches Near als Brücke), Compute für Atmosphären-LUTs,
-Bind-Groups/Instancing gegen die 128-Draws-pro-Frame-Submission. Renderer-Audit (2026-07-22): Backbone
-(camera-relative ECEF, SSE-Quadtree, Skirts, Sternkatalog) ist modern und bleibt; die Lücken sind
-Shading (linear/sRGB-Pipeline, HDR+Tonemap, physikalische Atmosphäre/Aerial Perspective — Hillaire-LUTs)
-und Submission (indexed statt Triangle-Soup, Basis/KTX2-Texturkompression, Batching). Diese definieren
-den WebGPU-Port.
+**API: WebGPU** — ein Renderer-Quelltext (`sim/src/render/`, WGSL inline), zwei Link-Ziele:
+WASM via emdawnwebgpu (Browser) und natives Dawn (`gpu_native`, das Headless-PNG-Orakel für
+Frame-Beweise). Natives [0,1]-Clip → volle Reversed-Z-Präzision; Compute für Atmosphären-LUTs
+(Hillaire); HDR + ACES-Tonemap; RenderBundle-Submission (Re-Record nur bei Strukturänderung).
+Feature-Gates sind gebackene Konstanten (env-getriebener String-Replace am Shader-Build) —
+tote Pässe kosten nichts.
 
-Zielbild = globaler Standard: **WGS84-ECEF, camera-relative**; Horizont-Dip aus der Krümmung.
+Globaler Standard: **WGS84-ECEF, camera-relative**; Horizont-Dip aus der Krümmung.
 **Reversed-Z-Depth-Buffer** (32F) gegen z-Fighting fernen Geländes (near 0.01 m / far 240 km). osmmesh
 liefert Terrain in per-Tile-ECEF (unser Code, nicht vendored). Reale Daten on-demand von `fb-tiles`
 (OSM/Copernicus-DEM/Luftbild) — jeder Punkt der Erde gültig. HUD = MIL-STD-1787 (MAX7456-OSD-Font).
@@ -169,10 +163,8 @@ Kachel-Streaming ist **kamera-priorisiert** (nächste zuerst).
 Crash-Erkennung. Die Kamera geht **nie unter die Oberfläche** (Clamp auf Grund + Modell-Bauch-Clearance).
 **Crash → Motor aus**, den Rest macht JSBSims Ground-Reactions, kein Freeze.
 
-## Was gestrichen wurde (Pivot 2026-07-21)
+## temp/ — Migrationsgut
 
-Die frühere Prämisse — vanilla iNav-Firmware in der Schleife als Beweis-Rig für echte RC-Hardware — ist
-**retired**. Damit entfallen: iNav (`temp/inav-src`), MSP/CRSF, der `--sim=xp`-Sensorpfad, der
-`flightbox`-Hub, die `msp_bridge`-iNav-Kopplung, das TS-Missions-/Validator-Testsystem und `temp/test/`.
-Diese Teile sind **superseded** und werden entfernt, sobald der JSBSim-in-CC-Pfad steht (Ersatz zuerst,
-dann Löschen). Bis dahin nicht als lebende Architektur behandeln.
+`temp/` hält das Material der Vor-Architektur (Validator, TS-Testsystem, skalierte Aircraft-Modelle,
+Original-osmmesh/geo). Read-only-Steinbruch, keine lebende Architektur — Teile entfallen ersatzlos,
+sobald ihr Nachfolger im `sim/`- oder `tiles/`-Baum steht.

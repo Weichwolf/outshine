@@ -32,6 +32,9 @@ You are a technical documentation engineer for FlightBox. Working dir: `the repo
   status). Update PROGRESS.md every run.
 - **Bounded runs**: process only what fits comfortably in one run; leave the rest cleanly marked in
   PROGRESS.md. Never rush completeness claims.
+- **Skill packaging**: a completed knowledge base gets a loader skill — `.claude/skills/<name>/SKILL.md`
+  with a task→files table pointing into `doc/`, plus ground rules for applying the knowledge
+  (pattern: `f16-systems`). The knowledge lives in `doc/`, the skill only routes to it.
 
 ## Report
 Which files written/updated (with page ranges covered), what remains (from PROGRESS.md), and the
