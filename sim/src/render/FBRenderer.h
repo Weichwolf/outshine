@@ -29,6 +29,13 @@
 #include "stages/FBSkyViewStage.h"
 #include "stages/FBSkyStage.h"
 #include "stages/FBTilesStage.h"
+#include "stages/FBCloudMipDownStage.h"
+#include "stages/FBCloudBaseBakeStage.h"
+#include "stages/FBCloudDetailBakeStage.h"
+#include "stages/FBCloudCellBakeStage.h"
+#include "stages/FBCloudMarchStage.h"
+#include "stages/FBCloudResolveStage.h"
+#include "stages/FBTonemapStage.h"
 
 namespace FlightBox {
 
@@ -53,7 +60,7 @@ public:
   /* Offscreen mode only: read the last-rendered frame back as tightly packed W*H*4 RGBA8 (already
    * sRGB-encoded by the tonemap pass) -> ready for stb_image_write. */
   bool ReadPixels(std::vector<uint8_t> &rgba);
-  void ShapeStats(float cover, float low, float high);   /* numeric histogram of the base shape/density field over the shell */
+  void ShapeStats(float cover, float low, float high) { BaseBake->ShapeStats(cover, low, high); }   /* numeric histogram of the base shape/density field over the shell */
 
   /* Hand the renderer a merged camera-relative ECEF terrain mesh + per-tile double origins (from
    * FBTerrainLoader, or synthesized — see FBAppNative.cpp). Call before Init/InitOffscreen (or before
@@ -118,16 +125,16 @@ public:
 
   /* Volumetric cloud raymarch quality (FB_CLOUD_QUALITY): scales step counts. 1 = best (default),
    * lower trades detail for FPS. 0 disables the cloud pass. */
-  void SetCloudQuality(double q) { CloudQuality = q; }
+  void SetCloudQuality(double q) { Cloud->SetQuality(q); }
 
   /* Cloud-lab override: force the material params (coverage, density, extinction, sun intensity, detail
    * strength) for the parameter-sweep rig, bypassing the weather-derived values. */
   void SetCloudLab(float cover, float density, float extinct, float sunI, float detail) {
-    CloudLab = true; LabCover = cover; LabDensity = density; LabExtinct = extinct; LabSunI = sunI; LabDetail = detail;
+    Cloud->SetCloudLab(cover, density, extinct, sunI, detail);
   }
   /* Discard the temporal history (lab: reset accumulation before each parameter cell). */
-  void ResetCloudHistory(void) { HistValid = false; AccumN = 0; }
-  void SetAccumMode(bool on) { AccumMode = on; }   /* lab proof: true 1/N average instead of exponential blend */
+  void ResetCloudHistory(void) { Resolve->ResetHistory(); }
+  void SetAccumMode(bool on) { Resolve->SetAccumMode(on); }   /* lab proof: true 1/N average instead of exponential blend */
 
   /* HYG star catalogue bytes (6 B/star, mag-sorted; the /t/stars bands concatenated). Call before
    * Init; the renderer decodes + places them at true alt/az for the given origin. */
@@ -166,8 +173,7 @@ private:
   void UpdateAtmosphere(const double eye[3], const double sunDir[3], const double right[3],
                         const double camUp[3], const double fwd[3], const double moonDir[3],
                         double dayF, double moonPh, double cloud);    /* per-frame atmosphere uniform */
-  void CreateClouds(void);            /* Perlin-Worley 3D noise (compute) + the volumetric raymarch pass */
-  void UpdateClouds(const double eye[3], const double sunDir[3], const double up[3], double nowSec);
+  void CreateClouds(void);            /* bakes the 3 noise volumes, Configure()s March + Resolve (dependency order) */
 
   void StartAdapterRequest(void);
   void OnAdapter(wgpu::Adapter a);
@@ -183,8 +189,7 @@ private:
   wgpu::Texture OffscreenTex;   /* Target::Offscreen final color target: RGBA8UnormSrgb, RenderAttachment|CopySrc */
   wgpu::TextureFormat SurfaceFormat;
   wgpu::TextureFormat HdrFormat;   /* offscreen scene target: rg11b10ufloat where renderable, else rgba16float */
-  wgpu::RenderPipeline TonemapPipe, TonemapPlainPipe;   /* Plain = tonemap without the cloud composite */
-  wgpu::BindGroup TonemapBind, TonemapBindH[2], TonemapBindPlain;   /* TonemapBindH[k] composites CloudHist[k]; Plain = no cloud */
+  std::unique_ptr<FBTonemapStage> Tonemap = std::make_unique<FBTonemapStage>();
   bool CloudsOn = false;   /* FB_CLOUDS=1 arms the whole volumetric+dome cloud path; default off (build the pass, skip it) */
   wgpu::Sampler Samp;              /* shared linear sampler: FBTilesStage's albedo, tonemap's HdrTex read */
   wgpu::Texture DepthTex, HdrTex;  /* shared scene targets: FBTilesStage/FBSkyStage draw into them, clouds sample DepthTex */
@@ -225,41 +230,17 @@ private:
   std::unique_ptr<FBUnitsStage> Units = std::make_unique<FBUnitsStage>();
   std::unique_ptr<FBSpritesStage> Sprites = std::make_unique<FBSpritesStage>();
 
-  /* Volumetric clouds (Nubis/MSFS-class): a Perlin-Worley 3D base + a Worley detail volume (compute-
-   * generated once), raymarched through a WGS84 spherical shell into the HDR scene, depth-clipped by
-   * the terrain. EVS-only; SVS leaves it off. */
-  wgpu::Texture CloudBaseTex, CloudDetailTex;     /* 128^3 RGBA8 (perlin-worley + worley octaves), 32^3 RGB */
-  wgpu::Texture CloudCellTex;                     /* 512² 2D F1-round cell field (B mode: vertical puffs) */
-  wgpu::Texture CloudLowTex;                       /* QUARTER-RES march target (Width/4 x Height/4) rgba16float */
-  wgpu::RenderPipeline CloudPipe;
-  wgpu::BindGroup CloudBind;
-  wgpu::Buffer CloudUni;
-  wgpu::Sampler CloudSamp;                        /* 3D linear, repeat */
-  int CloudW, CloudH;                             /* quarter-res dims */
-  double CloudQuality;
-  /* Temporal reprojection: a ping-pong history at quarter-res + an exponential-blend resolve pass.
-   * The fresh jittered march accumulates into the history (reprojected by camera motion at the cloud
-   * mid-shell), killing the per-frame "static" (05-temporal-reprojection.md). */
-  wgpu::Texture CloudHist[2];                      /* rgba16float ping-pong (accumulated cloud) */
-  wgpu::RenderPipeline CloudResolvePipe;
-  wgpu::BindGroup CloudResolveBind[2];            /* [k] binds CloudHist[k] as the PREV history */
-  wgpu::Buffer ResolveUni;
-  float PrevVP[16] = {0};                          /* previous frame's MvpCamRel (reprojection) */
-  double PrevEye[3] = {0, 0, 0};                   /* previous frame's ECEF eye (metres) */
-  int HistCur = 0;
-  bool HistValid = false;
-  bool AccumMode = false;                          /* lab proof mode: weighted-splat running average */
-  int AccumN = 0;                                  /* frames since reset */
-  wgpu::Texture CloudWSum[2];                      /* accumulated splat weight per full-res pixel (r32float) */
-  double CloudMidR = 6.362;                        /* cloud mid-shell radius Mm (reprojection depth) */
-  /* GPU timestamp: brackets the cloud march + resolve; avg logged every 120 frames (real iGPU ms in WASM). */
-  wgpu::QuerySet TsQuery;
-  wgpu::Buffer TsResolveBuf, TsReadBuf;
-  bool HasTimestamp = false, TsMapPending = false;
-  double TsAccumMs = 0.0;
-  int TsCount = 0;
-  bool CloudLab = false;                          /* cloud-lab param override active */
-  float LabCover = 0.5f, LabDensity = 5.0f, LabExtinct = 0.06f, LabSunI = 18.0f, LabDetail = 1.3f;
+  /* Volumetric clouds (Nubis/MSFS-class): a Perlin-Worley 3D base + a Worley detail volume + a 512²
+   * cell field (compute-baked once, one class per shader), raymarched through a WGS84 spherical shell
+   * into the quarter-res CloudLowTex, temporally upsampled by FBCloudResolveStage, then composited by
+   * FBTonemapStage. EVS-only; SVS leaves it off (CloudsOn stays false, none of this is built). */
+  std::unique_ptr<FBCloudMipDownStage> CloudMipDown = std::make_unique<FBCloudMipDownStage>();
+  std::unique_ptr<FBCloudBaseBakeStage> BaseBake = std::make_unique<FBCloudBaseBakeStage>();
+  std::unique_ptr<FBCloudDetailBakeStage> DetailBake = std::make_unique<FBCloudDetailBakeStage>();
+  std::unique_ptr<FBCloudCellBakeStage> CellBake = std::make_unique<FBCloudCellBakeStage>();
+  std::unique_ptr<FBCloudMarchStage> Cloud = std::make_unique<FBCloudMarchStage>();
+  std::unique_ptr<FBCloudResolveStage> Resolve = std::make_unique<FBCloudResolveStage>();
+  bool HasTimestamp = false;   /* device feature (OnAdapter) — passed into Cloud->Configure() */
 
   /* HUD overlay (Stage 8): dynamic per-frame geometry, drawn after the tonemap. FBHudStage is the
    * WebGPU backend (MAX7456 atlas + solid/line/text pipelines); FBRenderer keeps the telemetry pose

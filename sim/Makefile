@@ -72,6 +72,10 @@ wasm:            ## build the WASM browser Command Center (F-16 sim + renderer) 
 	    src/render/stages/FBHudStage.cpp src/render/stages/FBUpscaleStage.cpp \
 	    src/render/stages/FBTransmittanceStage.cpp src/render/stages/FBSkyViewStage.cpp \
 	    src/render/stages/FBSkyStage.cpp src/render/stages/FBTilesStage.cpp \
+	    src/render/stages/FBCloudMipDownStage.cpp src/render/stages/FBCloudBaseBakeStage.cpp \
+	    src/render/stages/FBCloudDetailBakeStage.cpp src/render/stages/FBCloudCellBakeStage.cpp \
+	    src/render/stages/FBCloudMarchStage.cpp src/render/stages/FBCloudResolveStage.cpp \
+	    src/render/stages/FBTonemapStage.cpp \
 	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O1 -Wall -Werror -fexceptions \
 	    $(INC_WASM) \
 	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=256MB -sSTACK_SIZE=4MB -sEXIT_RUNTIME=0 \
@@ -123,6 +127,10 @@ native:          ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	    src/render/stages/FBHudStage.cpp src/render/stages/FBUpscaleStage.cpp \
 	    src/render/stages/FBTransmittanceStage.cpp src/render/stages/FBSkyViewStage.cpp \
 	    src/render/stages/FBSkyStage.cpp src/render/stages/FBTilesStage.cpp \
+	    src/render/stages/FBCloudMipDownStage.cpp src/render/stages/FBCloudBaseBakeStage.cpp \
+	    src/render/stages/FBCloudDetailBakeStage.cpp src/render/stages/FBCloudCellBakeStage.cpp \
+	    src/render/stages/FBCloudMarchStage.cpp src/render/stages/FBCloudResolveStage.cpp \
+	    src/render/stages/FBTonemapStage.cpp \
 	    build/obj-native/*.o $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++20 -O2 -Wall -Wextra -Werror \
 	    $(INC_NATIVE) \

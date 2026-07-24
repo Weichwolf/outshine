@@ -106,9 +106,15 @@ sim/src/
              Array, RenderBundle/2-Phasen-Streaming-Zustand, Invarianten-Zähler), FBStarsStage,
              FBTileLightsStage, FBHudStage (WebGPU-Backend; die Symbologie-LOGIK bleibt vorerst in
              FBHud.h/FBHudSymbology.h, s.o.), FBUpscaleStage, FBUnitsStage/FBSpritesStage (NoOp, aber
-             in der Encode-Ordnung verdrahtet: Units nach Terrain, Sprites vor HUD) — Wolken (March/
-             Resolve/Noise-Bake/Mip-Bake) + Tonemap folgen als eigene Stages (Tonemap zusammen mit
-             Wolken wegen der CloudHist-Index-Kopplung)
+             in der Encode-Ordnung verdrahtet: Units nach Terrain, Sprites vor HUD); Wolken als 6
+             Klassen (FBCloudMipDownStage teilt den Box-Downsample-Helfer, FBCloudBaseBakeStage/
+             FBCloudDetailBakeStage/FBCloudCellBakeStage backen die 3 Noise-Volumes je einmal,
+             FBCloudMarchStage marcht die WGS84-Kugelschale ins Viertel-Res-Ziel, FBCloudResolveStage
+             löst temporal auf); FBTonemapStage (EIN Shader-Quellcode, zwei Pipelines — mit/ohne
+             Wolken-Composite, analog HUD Solid/Line). FBRenderer.cpp führt keinen Inline-Shader mehr
+             (jedes `R"(`-WGSL lebt in genau einer stages/-Datei, `grep -c 'R"(' FBRenderer.cpp` == 0);
+             der Sonne/Mond-Split AUS FBSkyStage in eigene Draws bleibt eigener Folgeauftrag mit
+             Pixel-Beweis
   world/     FBWorld, FBTerrainField, FBTerrainLoader (Tile-Streaming/Worker-Anbindung)
   systems/   die generischen, airframe-agnostischen System-Slots eines Moduls — Interface + Default
              in EINER Klasse, ein Modul überschreibt per Ableitung (Zahlen-Tuning bleibt Preset/
