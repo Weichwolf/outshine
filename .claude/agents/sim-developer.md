@@ -29,7 +29,7 @@ at the `sim/` root.
   measuring unless your task explicitly says so.
 - Code style per CLAUDE.md; compact code, why-comments only.
 
-## C++ conventions (JSBSim is the model)
+## C++ conventions (JSBSim is the structural model — its class cut, not its surface mechanics)
 - Compile discipline: `-Wall -Wextra -Wpedantic`, warnings = errors. Code that only compiles
   quietly is not done code.
 - Convention over documentation: names and structure explain themselves; a comment earns its line
@@ -37,6 +37,11 @@ at the `sim/` root.
 - JSBSim-style surface: `FB` class prefix, PascalCase methods and members, one class per file
   (`FBName.h/.cpp`), `namespace FlightBox`, header guards, getters inline in the header,
   minimal public API.
+- Subsystem architecture (the `FGModel`/`FGFDMExec` cut): each subsystem is a class with one
+  per-frame `Run()`; the App owns the subsystems (`std::unique_ptr`) and cycles them in a fixed
+  order — no subsystem calls another's `Run()`. Peers are borrowed (`const&`/`*`), never owned.
+  Shared per-frame state travels through one plain typed struct (`FBState`) — direct typed access,
+  no string-keyed runtime property tree.
 - Ownership: RAII throughout; every resource has exactly one owner; `std::unique_ptr` or a clearly
   named owning member — no naked `new`/`delete` in logic code. Borrowed data travels as `const&`
   or `const*`.
@@ -45,6 +50,10 @@ at the `sim/` root.
   flags; composition over inheritance.
 - Hot paths: no per-frame heap allocation, reuse buffers, batch over per-item; assertions over
   exceptions inside controlled subsystems, defensive checks only at system boundaries.
+- Small math types (vectors/matrices/quaternions) are value types: plain-array storage, operators
+  inline in the header, bounds via assertions rather than per-access branches. Overload by arity
+  for call-site flexibility (`GetValue(x)` / `(x,y)` / `(x,y,z)`).
+- No static mutable global state — configuration lives in members or baked constants.
 
 ## WebGPU (Dawn write-once-link-twice)
 - One renderer source (`sim/src/FBRenderer.*`, WGSL inline), two link targets: WASM via
