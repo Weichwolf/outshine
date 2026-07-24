@@ -78,14 +78,36 @@ aircraft/models/<name>/
   (`Cnβ`/`Cnr`, Dihedral `Clβ`) fliegt unkoordiniert — das steht im XML, nicht im Code.
 - Aircraft-XML trägt EIGENE Lizenz (F-16 = GPL; die meisten LGPL) — Attribution per Datei.
 
-## Sprache & Struktur (Richtungsentscheid 2026-07-22)
+## Sprache & Struktur
 
-**C++ (C++17, wie JSBSim), nicht C.** Das Command Center wird vollständig in **ordentliche Klassen**
-nach C++-Best-Practice restrukturiert — RAII, klare Ownership, minimale public API. Alle
-F-16-Subsysteme werden Klassen (FlightControl/FBW, Autopilot/Loiter, Airframe/Adapter, World/Tiles,
-Renderer, Hud, App). Die bisherigen static-Funktions-Header (`world3d.h` etc.) sind das Migrationsgut,
-nicht das Zielbild. Kein Rewrite-Big-Bang: erst alles als C++ kompilieren, dann Modul für Modul
-klassifizieren — Renderer-Klassifizierung fällt mit dem WebGPU-Port zusammen (ein Umbau, nicht zwei).
+**C++ (C++17, wie JSBSim), nicht C.** Ordentliche Klassen nach C++-Best-Practice — RAII, klare
+Ownership, minimale public API.
+
+**Verzeichnisstruktur** (`sim/src/`) bildet eine DCS-World-artige Modul-Architektur ab: der Simulator
+lädt beliebig viele **steuerbare Module** (heute die F-16; künftig Ka-52, F-18, …), jedes mit eigenen
+Systemen (Anzeigen/HUD, Steuerung/FCS, Sensoren, Aktoren). Der Engine-Kern ist modul-agnostisch:
+
+```
+sim/src/
+  app/       Einstiegspunkte + App-Lifecycle (FBAppWasm, FBAppNative, FBSimHost, FBTileWorkerMain)
+  core/      FBState, FBTelemetry, gemeinsame Basistypen
+  math/      Value-Math (FBMat4 — Value-Types, Operatoren inline im Header)
+  render/    FBRenderer, FBCamera, FBMips, FBChunkMesh/FBChunkVtx, FBEphemeris
+  world/     FBWorld, FBTerrainField, FBTerrainLoader (Tile-Streaming/Worker-Anbindung)
+  terrain/   leane Terrain-Lib (geo/mesh/osmmesh), flat
+  fdm/       der C-aufrufbare JSBSim-Adapter (jsbsim_adapter.*), flat
+  modules/   FBModule-Basisklasse (ein Run(fb_fdm_state&, dt)-Zyklus pro Modul, vom App-Loop gecycelt;
+             Peers rufen sich nie gegenseitig)
+  modules/f16/           das F-16-Modul: FBFlightControl (FBW-Innenschleife), FBAutopilot
+                         (LOWLEVEL/Loiter-Guidance), FBPathPlan (A*-Wanderplaner), FBF16Module
+                         (bündelt FCS+Autopilot zum registrierten FBModule)
+  modules/f16/displays/  HUD (MIL-STD-1787): FBHud (WebGPU-Backend-Shim), FBHudSymbology (Geometrie),
+                         FBMax7456 (Font-Atlas-Daten)
+```
+
+Ein zukünftiges `units/` mit einer `FBUnit`-Basisschnittstelle für nicht steuerbare KI-Einheiten
+(freundlich/feindlich/neutral) entsteht erst, sobald reale Einheiten existieren — keine leeren
+Gerüst-Ordner ohne Inhalt.
 
 **Coding-Style: an JSBSim orientiert** (unser Code fügt sich in dessen Ökosystem): Klassen `FB`-Präfix
 (analog `FG` — `FBFlightControl`, `FBRenderer`), PascalCase-Methoden (`Run()`, `GetLoadFactor()`),

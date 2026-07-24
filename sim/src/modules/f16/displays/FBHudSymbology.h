@@ -1,9 +1,9 @@
 /* FlightBox renderer — the HUD/OSD: regenerated every frame and drawn on top of the decoded video
- * (never encoded into it). Text is tile blits from the MAX7456 font atlas (max7456.h); the geometry
+ * (never encoded into it). Text is tile blits from the MAX7456 font atlas (FBMax7456.h); the geometry
  * here is only the LINE primitives (tape rails, ticks, carets, boxes, FPM ring, conformal horizon).
  */
-#ifndef W3_HUD_H
-#define W3_HUD_H
+#ifndef FBHUDSYMBOLOGY_H
+#define FBHUDSYMBOLOGY_H
 /* HUD line primitives (2D pixel coords), regenerated every frame (glBufferData DYNAMIC). */
 static float w3_hud[131072]; /* line segments: rails/ticks/carets/boxes */
 static int w3_hudN;
@@ -25,7 +25,7 @@ static void w3_line(float x0, float y0, float x1, float y1, float r, float g, fl
   w3_hud[w3_hudN++] = g;
   w3_hud[w3_hudN++] = b;
 }
-/* Text = tile blits from the MAX7456 font atlas (max7456.h). */
+/* Text = tile blits from the MAX7456 font atlas (FBMax7456.h). */
 static void w3_text(float x, float y, float s, float r, float g, float b, const char *t) {
   mx_text(x, y, s, r, g, b, t);
 }
@@ -327,4 +327,4 @@ static void world3d_render_hud(const FlightBox::FBState *t, int W, int H, int ha
   glDrawArrays(GL_LINES, 0, w3_hudN / 5);
   mx_render(W, H); /* tile-blit text on top of the line primitives, same FBO */
 }
-#endif
+#endif /* FBHUDSYMBOLOGY_H */

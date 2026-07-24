@@ -8,8 +8,8 @@
  * Column-major, matching glUniformMatrix4fv(..., GL_FALSE, m): element m[c*4+r] is column c,
  * row r. Multiplying by a column vector v gives m*v.
  */
-#ifndef W3_MAT4_H
-#define W3_MAT4_H
+#ifndef FBMAT4_H
+#define FBMAT4_H
 #include <math.h>
 #include <string.h>
 
@@ -86,4 +86,4 @@ static void m_lookat(float *m, const float *eye, const float *ctr, const float *
   m[14] = (f[0] * eye[0] + f[1] * eye[1] + f[2] * eye[2]);
 }
 
-#endif /* W3_MAT4_H */
+#endif /* FBMAT4_H */

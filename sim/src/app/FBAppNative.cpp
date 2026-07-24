@@ -1,19 +1,18 @@
 /* Native headless WebGPU harness (Dawn, not WASM/emdawnwebgpu): drives FBRenderer's OFFSCREEN mode
- * through the same HDR+ACES-tonemap pipeline gpu_main.cpp exercises in-browser, dumping PNG frames.
+ * through the same HDR+ACES-tonemap pipeline FBAppWasm.cpp exercises in-browser, dumping PNG frames.
  * This is the verification path a headless-browser SwiftShader can't give us: native Dawn actually
- * renders. Terrain streams from FBWorld's multi-LOD quadtree (Stage 7) — the SAME code gpu_main.cpp
+ * renders. Terrain streams from FBWorld's multi-LOD quadtree (Stage 7) — the SAME code FBAppWasm.cpp
  * runs in-browser, fetched via libcurl (fb_terrain.c's native branch) since there is no browser event
  * loop. Camera sits at ~1500 m AGL looking to the horizon so the far LOD gradient is visible.
  * stb_image_write (public domain, geo/osmmesh/src/3rdparty/stb_image_write.h) writes the PNGs. */
 #include "FBRenderer.h"
 #include "FBWorld.h"
 #include "FBEphemeris.h"
-#include "FBAutopilot.h"
-#include "FBFlightControl.h"
+#include "FBF16Module.h"
 #include "FBTerrainField.h"
 #include "FBPathPlan.h"
-#include "fb_terrain.h"
-#include "fb_telemetry.h"
+#include "FBTerrainLoader.h"
+#include "FBTelemetry.h"
 #include "jsbsim_adapter.h"
 #include <cerrno>
 #include <cmath>
@@ -38,7 +37,7 @@ static void GeoToEcef(double latDeg, double lonDeg, double alt, double out[3]) {
   out[2] = (N * (1.0 - e2) + alt) * sl;
 }
 
-/* Aircraft attitude -> ECEF camera basis (mirrors gpu_main.cpp cameraBasis: render-space yaw/pitch/
+/* Aircraft attitude -> ECEF camera basis (mirrors FBAppWasm.cpp cameraBasis: render-space yaw/pitch/
  * roll, then rotated into ECEF at lat/lon). Kept in sync so the oracle frames the flight exactly as
  * the browser does. */
 static void EnuAxes(double latDeg, double lonDeg, double E[3], double N[3], double U[3]) {
@@ -226,7 +225,7 @@ int RunCloudLab(double lat, double lon, time_t utc, double cloudQ, double ground
 }
 
 /* --fly: the REAL in-process loiter (JSBSim + FBFlightControl F16 FLCS + FBAutopilot LOITER) drives
- * the oracle exactly as gpu_main.cpp drives the browser — camera is the aircraft eye, HUD reads the
+ * the oracle exactly as FBAppWasm.cpp drives the browser — camera is the aircraft eye, HUD reads the
  * live state, terrain streams around the live position, and the FDM ground floor tracks the real DEM
  * (fb_stream_ground -> fb_jsbsim_set_ground). Deterministic fixed timestep (Prinzip 4). Renders PNGs
  * every `interval` s and emits the 1 Hz [agl] telemetry from the sim tick. */
@@ -290,7 +289,8 @@ int RunFly(double lat, double lon, double ground0, double aglM, double viewKm, t
   }
   if (gSeed > -1e8) fb_jsbsim_set_ground(gSeed);
 
-  FlightBox::FBAutopilot AP;
+  FlightBox::FBF16Module F16;   /* the one registered FBModule: owns FBAutopilot + FBFlightControl */
+  FlightBox::FBAutopilot &AP = F16.Autopilot();
   FlightBox::FBTerrainField terrainField(llDemZ);
   /* Planner terrain field is COARSER (z9) — a 500 km A* only needs valley/pass structure, and coarse
    * keeps the tile count tiny. Separate instance from the z12 vertical look-ahead field. */
@@ -330,7 +330,6 @@ int RunFly(double lat, double lon, double ground0, double aglM, double viewKm, t
   } else {
     AP.SetLoiter(lat, lon, altAsl, kRadiusM, 1, kSpeedMs);
   }
-  FlightBox::FBFlightControl FC = FlightBox::FBFlightControl::F16();
   fb_fdm_state St;
   fb_jsbsim_step(&St);
   printf("gpu_native --fly: F-16 loiter %.4f/%.4f alt %.0f m ASL (ground %.0f), R %.0f m, %.0f m/s\n",
@@ -372,7 +371,7 @@ int RunFly(double lat, double lon, double ground0, double aglM, double viewKm, t
   const int totalFrames = (int)(seconds * fps + 0.5);
   const int everyFrames = interval > 0.0 ? (int)(interval * fps + 0.5) : 0;
   int shot = 0;
-  double acc = 0.0, accLog = 0.0;
+  double accLog = 0.0;
   FlightBox::FBGuidance g{};
   for (int f = 0; f < totalFrames; f++) {
     /* FB_TOGGLE_S: flip the DISPLAY ground mode (SVS<->EVS, the TAB switch) every N sim-seconds — the
@@ -400,14 +399,8 @@ int RunFly(double lat, double lon, double ground0, double aglM, double viewKm, t
       AP.UpdateLowLevelSteering(St, dt);   /* reactive fan, once per frame */
     }
 
-    acc += dt;
-    for (int k = 0; acc >= 0.01 && k < 12; k++) {
-      g = AP.Run(St);
-      FlightBox::FBControls c = FC.Run(g, St);
-      fb_jsbsim_set_controls(c.Roll, c.Pitch, c.Yaw, c.Thr);
-      fb_jsbsim_step(&St);
-      acc -= 0.01;
-    }
+    F16.Run(St, dt);
+    g = F16.LastGuidance();
 
     double eye[3], fwd[3], right[3], up[3];
     GeoToEcef(St.lat, St.lon, St.elev, eye);

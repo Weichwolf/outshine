@@ -6,10 +6,10 @@
  * -> w3_chunk_build_ecef) but run inline on the demo's main thread: the native path has no tile worker, and a
  * one-shot blocking load before the render loop is the simplest correct thing. Not for cc.js (there the
  * worker exists for the measured frame-time reason documented in tileworker.c). */
-#include "fb_terrain.h"
-#include "fb_mips.h"
+#include "FBTerrainLoader.h"
+#include "FBMips.h"
 #include "style_ver.h"
-#include "chunkmesh_ecef.h"
+#include "FBChunkMesh.h"
 #include "geo.h"
 #include "osmmesh.h"
 #include <stdio.h>

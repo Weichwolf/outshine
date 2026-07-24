@@ -1,7 +1,7 @@
 #include "FBWorld.h"
 #include "FBRenderer.h"
-#include "fb_terrain.h"
-#include "fb_mips.h"        /* fb_pyramid_bytes — the albedo scratch now holds a whole mip pyramid */
+#include "FBTerrainLoader.h"
+#include "FBMips.h"         /* fb_pyramid_bytes — the albedo scratch now holds a whole mip pyramid */
 #include "geo.h"
 #include <algorithm>
 #include <cmath>

@@ -1,5 +1,5 @@
 #include "FBTerrainField.h"
-#include "fb_terrain.h"
+#include "FBTerrainLoader.h"
 #include <cmath>
 #include <cstring>
 

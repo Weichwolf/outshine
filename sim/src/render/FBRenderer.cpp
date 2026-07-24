@@ -1,6 +1,6 @@
 #include "FBRenderer.h"
-#include "fb_hud.h"        /* reused HUD symbology (w3_build_hud) + MAX7456 atlas; GL backend stubbed */
-#include "fb_mips.h"       /* fb_mip_count / fb_build_pyramid — the ONE sRGB mip source */
+#include "FBHud.h"         /* reused HUD symbology (w3_build_hud) + MAX7456 atlas; GL backend stubbed */
+#include "FBMips.h"        /* fb_mip_count / fb_build_pyramid — the ONE sRGB mip source */
 #include <cstdint>
 #include <algorithm>
 #include <cstdio>
@@ -36,7 +36,7 @@ void FBRenderer::SetHud(const FBState &s, bool have) {
   HudEnabled = true;
 }
 
-void FBRenderer::SetAgl(float agl) { w3_agl = agl; }   /* fb_hud.h global, this TU's copy = the one w3_build_hud reads */
+void FBRenderer::SetAgl(float agl) { w3_agl = agl; }   /* FBHud.h global, this TU's copy = the one w3_build_hud reads */
 
 void FBRenderer::SetAlbedoArray(const uint8_t *rgba, int ts, int layers) {
   AlbedoTS = ts;
@@ -620,7 +620,7 @@ void FBRenderer::CreateTerrainPipeline(void) {
 
 /* Albedo mip levels are built OFF this thread now: the worker (or the native synchronous path) hands
  * a finished sRGB pyramid via fb_stream_pyramid; the renderer only uploads levels. The pyramid math
- * lives once in fb_mips.h (ONE source — oracle and browser render identical pixels). */
+ * lives once in FBMips.h (ONE source — oracle and browser render identical pixels). */
 static int MipCountFor(int ts) { return fb_mip_count(ts); }
 
 void FBRenderer::CreateTileTexture(void) {
@@ -1243,7 +1243,7 @@ void FBRenderer::UpdateStars(const double eye[3], const double up[3], double now
 
   double lst = std::fmod(GmstDeg(nowSec) + StarLon, 360.0);
   if (lst < 0) lst += 360.0;
-  /* ENU basis at the origin, in ECEF (camera.h w3_enu_axes). Star ENU -> ECEF via these axes. */
+  /* ENU basis at the origin, in ECEF (FBCamera.h w3_enu_axes). Star ENU -> ECEF via these axes. */
   const double RAD = 3.14159265358979 / 180.0;
   double P = StarLat * RAD, L = StarLon * RAD;
   double sP = std::sin(P), cP = std::cos(P), sL = std::sin(L), cL = std::cos(L);
@@ -2311,7 +2311,7 @@ void FBRenderer::UpdateAtmosphere(const double eye[3], const double sunDir[3], c
 }
 
 /* ============================================================================================
- * HUD overlay (Stage 8). Geometry comes from the REUSED symbology (fb_hud.h -> w3_build_hud), which
+ * HUD overlay (Stage 8). Geometry comes from the REUSED symbology (FBHud.h -> w3_build_hud), which
  * fills w3_hud (lines, x,y,r,g,b), w3_hudT (AA triangles), and mx_v (textured glyphs, x,y,u,v,r,g,b)
  * in 2D pixel coords. Three pipelines share the pixel->NDC map; the fragment linearises the colour so
  * the sRGB swapchain view re-encodes it to the intended display green. TODO: the 8-tap present.h glow.

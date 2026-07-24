@@ -1,7 +1,8 @@
-/* FlightBox WebGPU demo — real-terrain loader (see fb_terrain.c). One blocking call fills a merged
- * camera-relative ECEF mesh (w3_vtx) plus per-tile ECEF origins the renderer subtracts each frame. */
-#ifndef FB_TERRAIN_H
-#define FB_TERRAIN_H
+/* FlightBox WebGPU demo — real-terrain loader (see FBTerrainLoader.cpp). One blocking call fills a
+ * merged camera-relative ECEF mesh (w3_vtx) plus per-tile ECEF origins the renderer subtracts each
+ * frame. */
+#ifndef FBTERRAINLOADER_H
+#define FBTERRAINLOADER_H
 #include <stdint.h>
 
 #ifdef __cplusplus

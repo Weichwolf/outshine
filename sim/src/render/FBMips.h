@@ -1,9 +1,10 @@
-/* FlightBox — sRGB mip-pyramid builder, shared by the native terrain path (fb_terrain.c) and the
- * off-thread tile worker (fbtileworker.c). Colour is averaged in LINEAR light (decode -> average ->
- * re-encode) so the distance doesn't darken; alpha is already linear, averaged directly. The pyramid
- * is packed CONTIGUOUS: level 0 (ts*ts), level 1 ((ts/2)^2), ... down to 1x1, RGBA8 throughout. */
-#ifndef FB_MIPS_H
-#define FB_MIPS_H
+/* FlightBox — sRGB mip-pyramid builder, shared by the native terrain path (FBTerrainLoader.cpp) and
+ * the off-thread tile worker (FBTileWorkerMain.cpp). Colour is averaged in LINEAR light (decode ->
+ * average -> re-encode) so the distance doesn't darken; alpha is already linear, averaged directly.
+ * The pyramid is packed CONTIGUOUS: level 0 (ts*ts), level 1 ((ts/2)^2), ... down to 1x1, RGBA8
+ * throughout. */
+#ifndef FBMIPS_H
+#define FBMIPS_H
 #include <stdint.h>
 #include <string.h>
 #include <math.h>
@@ -62,4 +63,4 @@ static inline void fb_build_pyramid(const uint8_t *rgba, int ts, uint8_t *dst) {
   }
 }
 
-#endif /* FB_MIPS_H */
+#endif /* FBMIPS_H */

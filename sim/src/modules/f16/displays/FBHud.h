@@ -4,10 +4,10 @@
  * the real camera math, and reuse the MIL-STD-1787 symbology VERBATIM. FBRenderer's WebGPU backend
  * reads the filled buffers (w3_hud lines, w3_hudT triangles, mx_v textured glyphs) each frame.
  *
- * This is the "adapt the backend, not the symbology" split: the WebGL cc keeps hud.h/max7456.h with
- * their real GL draws (via world3d.h); the WebGPU port includes THIS shim instead. */
-#ifndef FB_HUD_H
-#define FB_HUD_H
+ * This is the "adapt the backend, not the symbology" split: the WebGL cc keeps FBHudSymbology.h/
+ * FBMax7456.h with their real GL draws (via world3d.h); the WebGPU port includes THIS shim instead. */
+#ifndef FBHUD_H
+#define FBHUD_H
 
 #include "FBAutopilot.h"   /* FlightBox::FBMode */
 #include "FBState.h"
@@ -61,9 +61,9 @@ static float w3_agl = 0.0f;
 enum { W3_GROUND_OSM = 0, W3_GROUND_PHOTO = 1 };
 static struct { int mode; } w3_ground = {W3_GROUND_OSM};
 
-#include "camera.h"        /* real: w3_cam_from / w3_horizon_dip_rad (pure math) */
-#include "max7456.h"       /* reuse: MX_FONT atlas + mx_reset/mx_text (fills mx_v) */
-#include "hud.h"           /* reuse: w3_build_hud symbology (fills w3_hud / w3_hudT) */
+#include "FBCamera.h"        /* real: w3_cam_from / w3_horizon_dip_rad (pure math) */
+#include "FBMax7456.h"       /* reuse: MX_FONT atlas + mx_reset/mx_text (fills mx_v) */
+#include "FBHudSymbology.h"  /* reuse: w3_build_hud symbology (fills w3_hud / w3_hudT) */
 #pragma GCC diagnostic pop
 
-#endif /* FB_HUD_H */
+#endif /* FBHUD_H */

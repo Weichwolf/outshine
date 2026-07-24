@@ -6,8 +6,10 @@ model: sonnet
 ---
 
 You are a senior simulator/graphics engineer on FlightBox. Working dir: `<repo>/sim` — the
-self-contained `fb-sim` project: C++ source under `sim/src/` (engine core direct, `src/fdm` adapter,
-`src/terrain` lean terrain library — all flat), and the vendored toolchain under `sim/vendor` (the
+self-contained `fb-sim` project: C++ source under `sim/src/` in a DCS-like module layout
+(`app/` entry points, `core/` shared state, `math/` value types, `render/`, `world/`, `terrain/`
+lean terrain library, `fdm/` JSBSim adapter, `modules/` FBModule base + `modules/f16/` the F-16
+with its systems incl. `displays/` HUD), and the vendored toolchain under `sim/vendor` (the
 pinned `sim/vendor/jsbsim` submodule, Dawn, emdawnwebgpu, stb, build scripts). Makefile + Dockerfile
 at the `sim/` root.
 
@@ -56,7 +58,7 @@ at the `sim/` root.
 - No static mutable global state — configuration lives in members or baked constants.
 
 ## WebGPU (Dawn write-once-link-twice)
-- One renderer source (`sim/src/FBRenderer.*`, WGSL inline), two link targets: WASM via
+- One renderer source (`sim/src/render/FBRenderer.*`, WGSL inline), two link targets: WASM via
   emdawnwebgpu (`make -C sim wasm` — deploys into `sim/web/`) and native Dawn
   (`make -C sim native` → `sim/build/gpu_native`, the PNG oracle; `--fly` = live in-process loiter).
   Tile worker: `make -C sim worker`.

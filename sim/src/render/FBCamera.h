@@ -6,7 +6,7 @@
  * plain words: "The previous -s inverted it: a right bank looked like a left bank." Nothing
  * crashed, nothing looked broken — the world simply rolled the wrong way, and a screenshot cannot
  * tell you, because a banked horizon looks like a banked horizon either way. That class of bug is
- * exactly why mat4.h has tests, and this is the layer above it that had none.
+ * exactly why FBMat4.h has tests, and this is the layer above it that had none.
  *
  * fov / aspect / near / far are PARAMETERS, not the renderer's constants. Same reason chunkmesh
  * takes `grid`: a module that knows the renderer's configuration cannot be tested against anything
@@ -18,10 +18,10 @@
  *
  * Render space is ENU: E=+X, up=+Y, N=-Z. Angles in degrees, as they arrive on the wire.
  */
-#ifndef W3_CAMERA_H
-#define W3_CAMERA_H
+#ifndef FBCAMERA_H
+#define FBCAMERA_H
 
-#include "mat4.h"
+#include "FBMat4.h"
 #include <math.h>
 
 typedef struct {
@@ -200,4 +200,4 @@ static int w3_aabb_visible(const w3_frustum *fr, const float bmin[3], const floa
   return 1;
 }
 
-#endif /* W3_CAMERA_H */
+#endif /* FBCAMERA_H */

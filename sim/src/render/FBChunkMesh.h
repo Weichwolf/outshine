@@ -22,9 +22,9 @@
  * normal via cross products of neighbour offsets (east x north = radial-out), so it carries the
  * tile's own curvature for free. Returns 1 on success, 0 on failure (out zeroed).
  */
-#ifndef W3_CHUNKMESH_ECEF_H
-#define W3_CHUNKMESH_ECEF_H
-#include "chunkvtx.h" /* w3_vtx, w3_chunk, w3_chunk_free -- no dependency on the ENU builder */
+#ifndef FBCHUNKMESH_H
+#define FBCHUNKMESH_H
+#include "FBChunkVtx.h" /* w3_vtx, w3_chunk, w3_chunk_free -- no dependency on the ENU builder */
 #include <math.h>
 #include "geo.h"
 #include "mesh.h"
@@ -253,4 +253,4 @@ static int w3_chunk_build_ecef(const osmmesh_mesh *m, int z, uint32_t x, uint32_
   return 1;
 }
 
-#endif /* W3_CHUNKMESH_ECEF_H */
+#endif /* FBCHUNKMESH_H */

@@ -9,8 +9,8 @@
  * the bytes below are its output, so there is no transcription drift. NEAREST sampling + alpha-test
  * discard keeps the glyphs crisp and blocky (authentic chip look), and they resolve inside the same
  * HUD MSAA FBO as the line primitives, so the glow composite is unchanged. */
-#ifndef W3_MAX7456_H
-#define W3_MAX7456_H
+#ifndef FBMAX7456_H
+#define FBMAX7456_H
 
 /* Font tile ROM: 8x8 tiles, one row per byte, bit7 = leftmost column. Charset order below. */
 static const char *MX_CS = " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-.:/+\xb0";

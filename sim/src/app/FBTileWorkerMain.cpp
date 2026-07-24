@@ -14,9 +14,9 @@
 #include <string.h>
 #include "osmmesh.h"
 #include "geo.h"
-#include "chunkmesh_ecef.h"
+#include "FBChunkMesh.h"
 #include "style_ver.h"
-#include "fb_mips.h"
+#include "FBMips.h"
 
 /* stb_image lives in osmmesh's terrain.cpp (non-static, shared across the link). Declare, don't
  * re-impl. C linkage: stb wraps its API in extern "C" under C++. */

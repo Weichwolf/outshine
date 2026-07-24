@@ -5,7 +5,7 @@
  * under a physically-based Hillaire-2020 sky (compute LUTs + fullscreen sky pass + aerial perspective),
  * drawn into an HDR target, then an ACES tonemap pass to the swapchain ([0,1] reversed-Z depth on the
  * scene pass), and a MIL-STD-1787 HUD overlay pass on top (reusing the WebGL engine's w3_build_hud
- * symbology via fb_hud.h). */
+ * symbology via FBHud.h). */
 #ifndef FBRENDERER_H
 #define FBRENDERER_H
 
@@ -40,7 +40,7 @@ public:
   void ShapeStats(float cover, float low, float high);   /* numeric histogram of the base shape/density field over the shell */
 
   /* Hand the renderer a merged camera-relative ECEF terrain mesh + per-tile double origins (from
-   * fb_terrain, or synthesized — see gpu_native.cpp). Call before Init/InitOffscreen (or before the
+   * FBTerrainLoader, or synthesized — see FBAppNative.cpp). Call before Init/InitOffscreen (or before the
    * device is ready); CreateTerrainPipeline uploads it. */
   void SetTerrain(const float *verts, uint32_t nverts, int ntiles, const uint32_t *voff,
                   const uint32_t *vcnt, const double *origins, const double *center);
@@ -162,7 +162,7 @@ private:
   void UpdateStars(const double eye[3], const double up[3], double nowSec);  /* rebuild visible set */
   void CreateClouds(void);            /* Perlin-Worley 3D noise (compute) + the volumetric raymarch pass */
   void UpdateClouds(const double eye[3], const double sunDir[3], const double up[3], double nowSec);
-  void CreateHud(void);               /* MAX7456 atlas + solid/line/text pipelines (fb_hud.h reuse) */
+  void CreateHud(void);               /* MAX7456 atlas + solid/line/text pipelines (FBHud.h reuse) */
 
   void StartAdapterRequest(void);
   void OnAdapter(wgpu::Adapter a);
@@ -268,7 +268,7 @@ private:
   float LabCover = 0.5f, LabDensity = 5.0f, LabExtinct = 0.06f, LabSunI = 18.0f, LabDetail = 1.3f;
 
   /* HUD overlay (Stage 8): MAX7456 font atlas + dynamic per-frame geometry, drawn after the tonemap.
-   * Symbology comes from fb_hud.h (w3_build_hud); this is only the WebGPU backend. */
+   * Symbology comes from FBHud.h (w3_build_hud); this is only the WebGPU backend. */
   wgpu::RenderPipeline HudSolidPipe, HudLinePipe, HudTextPipe;   /* tris / lines / textured glyphs */
   wgpu::BindGroup HudSolidBind, HudTextBind;
   wgpu::Buffer HudUni, HudTriVtx, HudLineVtx, HudTextVtx;

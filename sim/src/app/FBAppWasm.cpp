@@ -1,6 +1,6 @@
 /* FBRenderer demo page (Stage 6): the REAL in-process F-16 flies the WebGPU engine. libJSBSim +
  * FBAutopilot (LOITER) + FBFlightControl (F-16 FLCS-command) run here each frame; the camera is the
- * aircraft's eye (position + attitude -> ECEF basis, camera.h pattern), FBWorld streams z14 fb-tiles
+ * aircraft's eye (position + attitude -> ECEF basis, FBCamera.h pattern), FBWorld streams z14 fb-tiles
  * around the live flight position. Origin from config.js (FB_ORIGIN_LAT/LON). */
 #include <cmath>
 #include <cstdio>
@@ -9,13 +9,12 @@
 #include <emscripten.h>
 #include "FBRenderer.h"
 #include "FBWorld.h"
-#include "FBAutopilot.h"
-#include "FBFlightControl.h"
+#include "FBF16Module.h"
 #include "FBTerrainField.h"
 #include "FBPathPlan.h"
 #include "FBEphemeris.h"
-#include "fb_terrain.h"
-#include "fb_telemetry.h"
+#include "FBTerrainLoader.h"
+#include "FBTelemetry.h"
 #include "jsbsim_adapter.h"
 #include <cstdint>
 
@@ -29,8 +28,7 @@ static const double kSpeedMs = 220.0;
 
 static FBRenderer R;
 static FBWorld W;
-static FBAutopilot AP;
-static FBFlightControl FC;
+static FBF16Module F16;               /* the one registered FBModule: owns FBAutopilot + FBFlightControl */
 static FBTerrainField gTerrain(13);   /* LOWLEVEL look-ahead field (z13 = /elev resolution) */
 static FBTerrainField gPlanField(9);  /* planner cost field (coarse z9) */
 static FBPathPlan *gPlan = nullptr;   /* lateral wander planner (nullptr in fixed-heading / loiter) */
@@ -39,7 +37,7 @@ static bool gPlannerMode = false;     /* LOWLEVEL with the A* wander planner (?p
 static bool gFanMode = false;         /* LOWLEVEL with the reactive terrain fan (default) */
 static fb_fdm_state St;
 static double Ground = 430.0;            /* config default; refined from the terrain if available */
-static double AccS = 0.0, LastMs = 0.0;
+static double LastMs = 0.0;
 static double Olat = 47.179846, Olon = 7.411427;   /* ENU/home origin (config.js) */
 static time_t SimUtc = 0;                /* FB_SIM_UTC override; 0 = real wall clock (live sky) */
 
@@ -76,7 +74,7 @@ static void norm(double v[3]) {
   v[0] /= l; v[1] /= l; v[2] /= l;
 }
 
-/* ENU basis in ECEF at (lat,lon) — camera.h w3_enu_axes_ecef. */
+/* ENU basis in ECEF at (lat,lon) — FBCamera.h w3_enu_axes_ecef. */
 static void enuAxes(double latDeg, double lonDeg, double E[3], double N[3], double U[3]) {
   double P = latDeg * kPi / 180.0, L = lonDeg * kPi / 180.0;
   double sP = std::sin(P), cP = std::cos(P), sL = std::sin(L), cL = std::cos(L);
@@ -85,7 +83,7 @@ static void enuAxes(double latDeg, double lonDeg, double E[3], double N[3], doub
   U[0] = cP * cL;  U[1] = cP * sL;  U[2] = sP;
 }
 
-/* Aircraft attitude -> ECEF camera basis. Render-ENU basis from yaw/pitch/roll (camera.h
+/* Aircraft attitude -> ECEF camera basis. Render-ENU basis from yaw/pitch/roll (FBCamera.h
  * w3_basis_from: +s roll sign, silent-mirror-critical), then rotated into ECEF at (lat,lon). */
 static void cameraBasis(double yawDeg, double pitchDeg, double rollDeg, double latDeg, double lonDeg,
                         double fwd[3], double right[3], double up[3]) {
@@ -180,23 +178,15 @@ static void frame(void) {
              planMs, gPlan->LastExpanded(), gPlan->RouteSize(), dec, gPlan->GoalDistM(St.lat, St.lon) / 1000.0);
       fflush(stdout);
     }
-    AP.SetLowLevelHeading(gPlan->DesiredTrackDeg(St.lat, St.lon));
+    F16.Autopilot().SetLowLevelHeading(gPlan->DesiredTrackDeg(St.lat, St.lon));
   } else if (gFanMode) {
-    AP.UpdateLowLevelSteering(St, dt);   /* reactive terrain fan (default): choose the valley heading, once/frame */
+    F16.Autopilot().UpdateLowLevelSteering(St, dt);   /* reactive terrain fan (default): choose the valley heading, once/frame */
   }
 
   /* Advance the F-16: guidance -> FLCS-command -> JSBSim, fixed 100 Hz substeps (spiral guard). */
-  AccS += dt;
-  FBGuidance g{};
-  int nSub = 0;
-  for (int k = 0; AccS >= 0.01 && k < 12; k++) {
-    g = AP.Run(St);
-    FBControls c = FC.Run(g, St);
-    fb_jsbsim_set_controls(c.Roll, c.Pitch, c.Yaw, c.Thr);
-    fb_jsbsim_step(&St);
-    AccS -= 0.01;
-    nSub++;
-  }
+  F16.Run(St, dt);
+  FBGuidance g = F16.LastGuidance();
+  int nSub = F16.LastSubsteps();
   double cp_c = emscripten_get_now();   /* end: jsbsim substeps */
 
   /* HUD AGL (ASL - DEM ground); until the first /elev lands, fall back to the config ground so the
@@ -225,7 +215,7 @@ static void frame(void) {
   while (rel > 180) rel -= 360;
   while (rel < -180) rel += 360;
   hs.home_bearing = (float)rel;
-  hs.state = AP.GetMode();
+  hs.state = F16.Autopilot().GetMode();
   /* 1 Hz flight telemetry from the sim tick (device-loss-proof): [agl] + [home] (the HUD home BRG/DIST,
    * antimeridian-safe — the gate's measurement convention). */
   { static double accLog = 0.0; accLog += dt;
@@ -234,11 +224,12 @@ static void frame(void) {
       printf("[home] dist=%.0f brg=%.0f hdg=%.0f lon=%.4f\n", hs.home_dist, hs.home_bearing, St.yaw, St.lon);
       if (gLowLevel)
         printf("[lowlevel] agl=%.0f tgtAgl=%.0f gndHere=%.0f gndAhead=%.0f tgtVs=%.1f vs=%.1f alt=%.0f demZ=%d decodes=%ld\n",
-               St.elev - AP.LlGroundHere(), AP.LlTargetAgl(), AP.LlGroundHere(), AP.LlGroundAhead(),
-               AP.LlTargetVs(), St.vy, St.elev, gTerrain.Zoom(), gTerrain.Decodes());
+               St.elev - F16.Autopilot().LlGroundHere(), F16.Autopilot().LlTargetAgl(), F16.Autopilot().LlGroundHere(),
+               F16.Autopilot().LlGroundAhead(), F16.Autopilot().LlTargetVs(), St.vy, St.elev, gTerrain.Zoom(), gTerrain.Decodes());
       if (gFanMode)
         printf("[fan] hdg=%.0f tgtHdg=%.0f bank=%.1f cost min/mid/max=%.0f/%.0f/%.0f chosen=%d\n",
-               St.yaw, AP.LlHeading(), St.roll, AP.FanMinCost(), AP.FanMidCost(), AP.FanMaxCost(), AP.FanChosen());
+               St.yaw, F16.Autopilot().LlHeading(), St.roll, F16.Autopilot().FanMinCost(),
+               F16.Autopilot().FanMidCost(), F16.Autopilot().FanMaxCost(), F16.Autopilot().FanChosen());
       if (gPlannerMode && gPlan)
         printf("[plan] goal=%.4f/%.4f goalDist=%.0fkm wp=%d/%d desTrk=%.0f replans=%ld expanded=%ld planDecodes=%ld\n",
                gPlan->GoalLat(), gPlan->GoalLon(), gPlan->GoalDistM(St.lat, St.lon) / 1000.0, gPlan->ActiveWp(),
@@ -328,9 +319,9 @@ int main() {
     return 1;
   }
   if (gLowLevel) {
-    AP.SetTerrain(&gTerrain, fb_stream_ground);
-    AP.SetLowLevel(kLlAgl, kLlSpeed, llHdg);
-    AP.SetFence(olat, olon, 500000.0);
+    F16.Autopilot().SetTerrain(&gTerrain, fb_stream_ground);
+    F16.Autopilot().SetLowLevel(kLlAgl, kLlSpeed, llHdg);
+    F16.Autopilot().SetFence(olat, olon, 500000.0);
     if (gPlannerMode) {
       static FBPathPlan planObj(&gPlanField, olat, olon, 500000.0, llSeed);
       gPlan = &planObj;
@@ -343,15 +334,14 @@ int main() {
       printf("[gpu] LOWLEVEL+FAN agl=%.0f m, %.0f m/s, DEM z=%d, fence 500 km (reactive terrain fan, wings-level; ?hdg=N fixed, ?plan=1 A*, ?ap=loiter ring)\n",
              kLlAgl, kLlSpeed, gTerrain.Zoom());
     } else {
-      AP.SetLowLevelHeading(llHdg);   /* fan off */
+      F16.Autopilot().SetLowLevelHeading(llHdg);   /* fan off */
       printf("[gpu] LOWLEVEL agl=%.0f m, %.0f m/s, FIXED hdg=%.0f, DEM z=%d\n", kLlAgl, kLlSpeed, llHdg, gTerrain.Zoom());
     }
   } else {
-    AP.SetLoiter(olat, olon, altAsl, kRadiusM, 1, kSpeedMs);
+    F16.Autopilot().SetLoiter(olat, olon, altAsl, kRadiusM, 1, kSpeedMs);
     printf("[gpu] JSBSim F-16 loitering %.4f/%.4f, alt %.0f m ASL, R %.0f m, %.0f m/s\n", olat, olon,
            altAsl, kRadiusM, kSpeedMs);
   }
-  FC = FBFlightControl::F16();
   fb_jsbsim_step(&St);   /* prime St before the first guidance step */
 
   R.SetStreaming(512);
