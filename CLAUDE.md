@@ -101,20 +101,21 @@ sim/src/
              (Interface: ein Shader + seine Pipeline(s)/Bind-Group(s)/Draws, zeichnet in den
              GELIEHENEN Encoder — nie eigene Pass-Grenzen)
   render/stages/  Klasse pro Shader: FBTransmittanceStage/FBSkyViewStage/FBSkyStage (Hillaire-
-             Atmosphäre — Sonne/Mond noch IM Sky-Fragment-Shader, ihr Split in eigene geblendete
-             Draws ist ein eigener Folgeauftrag mit Pixel-Beweis), FBTilesStage (Terrain: Albedo-
-             Array, RenderBundle/2-Phasen-Streaming-Zustand, Invarianten-Zähler), FBStarsStage,
-             FBTileLightsStage, FBHudStage (WebGPU-Backend; die Symbologie-LOGIK bleibt vorerst in
-             FBHud.h/FBHudSymbology.h, s.o.), FBUpscaleStage, FBUnitsStage/FBSpritesStage (NoOp, aber
-             in der Encode-Ordnung verdrahtet: Units nach Terrain, Sprites vor HUD); Wolken als 6
-             Klassen (FBCloudMipDownStage teilt den Box-Downsample-Helfer, FBCloudBaseBakeStage/
+             Atmosphäre + die Wolkendecke-Value-Noise-Sheet auf der Dome), FBSunStage/FBMoonStage
+             (Sonnenscheibe+Glow bzw. Mond-als-belichtete-Kugel — additive Draws, direkt nach FBSkyStage
+             in derselben Scene-Pass, gleiche Blend-Reihenfolge wie der frühere Ein-Shader-Composite;
+             FBMoonStage besitzt die NASA-LROC-Albedo-Textur als alleinige Konsumentin), FBTilesStage
+             (Terrain: Albedo-Array, RenderBundle/2-Phasen-Streaming-Zustand, Invarianten-Zähler),
+             FBStarsStage, FBTileLightsStage, FBHudStage (WebGPU-Backend; die Symbologie-LOGIK bleibt
+             vorerst in FBHud.h/FBHudSymbology.h, s.o.), FBUpscaleStage, FBUnitsStage/FBSpritesStage
+             (NoOp, aber in der Encode-Ordnung verdrahtet: Units nach Terrain, Sprites vor HUD); Wolken
+             als 6 Klassen (FBCloudMipDownStage teilt den Box-Downsample-Helfer, FBCloudBaseBakeStage/
              FBCloudDetailBakeStage/FBCloudCellBakeStage backen die 3 Noise-Volumes je einmal,
              FBCloudMarchStage marcht die WGS84-Kugelschale ins Viertel-Res-Ziel, FBCloudResolveStage
              löst temporal auf); FBTonemapStage (EIN Shader-Quellcode, zwei Pipelines — mit/ohne
              Wolken-Composite, analog HUD Solid/Line). FBRenderer.cpp führt keinen Inline-Shader mehr
-             (jedes `R"(`-WGSL lebt in genau einer stages/-Datei, `grep -c 'R"(' FBRenderer.cpp` == 0);
-             der Sonne/Mond-Split AUS FBSkyStage in eigene Draws bleibt eigener Folgeauftrag mit
-             Pixel-Beweis
+             (jedes `R"(`-WGSL lebt in genau einer stages/-Datei, `grep -c 'R"(' FBRenderer.cpp` == 0)
+             — der Render-Stage-Split ist damit abgeschlossen.
   world/     FBWorld, FBTerrainField, FBTerrainLoader (Tile-Streaming/Worker-Anbindung)
   systems/   die generischen, airframe-agnostischen System-Slots eines Moduls — Interface + Default
              in EINER Klasse, ein Modul überschreibt per Ableitung (Zahlen-Tuning bleibt Preset/

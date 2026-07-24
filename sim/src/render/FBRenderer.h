@@ -28,6 +28,8 @@
 #include "stages/FBTransmittanceStage.h"
 #include "stages/FBSkyViewStage.h"
 #include "stages/FBSkyStage.h"
+#include "stages/FBSunStage.h"
+#include "stages/FBMoonStage.h"
 #include "stages/FBTilesStage.h"
 #include "stages/FBCloudMipDownStage.h"
 #include "stages/FBCloudBaseBakeStage.h"
@@ -212,9 +214,12 @@ private:
   std::unique_ptr<FBSkyViewStage> SkyView = std::make_unique<FBSkyViewStage>();
   std::unique_ptr<FBSkyStage> Sky = std::make_unique<FBSkyStage>();
 
-  /* Real sky extras (EVS only): NASA moon albedo sampled as a lit sphere in the sky pass; a HYG star
-   * field as an instanced additive quad pass. Both time-driven from the ephemeris the app feeds. */
-  wgpu::Texture MoonTex;                          /* equirect RGBA8; 1x1 grey fallback if unset */
+  /* Sun disc/glow + moon-as-lit-sphere: additive draws encoded directly after Sky in the scene pass
+   * (same blend order as the original single-shader composite). FBMoonStage owns the NASA LROC albedo
+   * texture (the sole consumer after the split) — FBRenderer keeps only the raw bytes the app feeds
+   * via SetMoonTexture, staged here until CreateAtmosphere() hands them to Moon->Configure(). */
+  std::unique_ptr<FBSunStage> Sun = std::make_unique<FBSunStage>();
+  std::unique_ptr<FBMoonStage> Moon = std::make_unique<FBMoonStage>();
   std::vector<uint8_t> MoonData;
   int MoonW, MoonH;
   double MoonScale;                               /* FB_MOON_SCALE (default 1 = true angular size) */

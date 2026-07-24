@@ -280,32 +280,20 @@ void FBRenderer::CreateAtmosphere(void) {
   bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
   AtmoBuf = Device.CreateBuffer(&bd);
 
-  {   /* NASA moon albedo (SetMoonTexture), or a 1x1 mid-grey fallback so the sky bind is always valid */
-    int mw = MoonW > 0 ? MoonW : 1, mh = MoonH > 0 ? MoonH : 1;
-    wgpu::TextureDescriptor td{};
-    td.size = {(uint32_t)mw, (uint32_t)mh, 1};
-    td.format = wgpu::TextureFormat::RGBA8UnormSrgb;
-    td.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
-    MoonTex = Device.CreateTexture(&td);
-    static const uint8_t grey[4] = {150, 150, 150, 255};
-    const uint8_t *src = MoonData.size() >= (size_t)mw * mh * 4 ? MoonData.data() : grey;
-    wgpu::TexelCopyTextureInfo dst{}; dst.texture = MoonTex;
-    wgpu::TexelCopyBufferLayout lay{}; lay.bytesPerRow = (uint32_t)mw * 4; lay.rowsPerImage = (uint32_t)mh;
-    wgpu::Extent3D ext{(uint32_t)mw, (uint32_t)mh, 1};
-    Queue.WriteTexture(&dst, src, (size_t)mw * mh * 4, &lay, &ext);
-  }
-
-  /* Init-order CONTRACT: the three atmosphere stages are Configure()d here, in THIS order, because
-   * each later one's bind group is built from an EARLIER one's already-created texture view (WebGPU
-   * bind groups pin a specific view at creation — there is no "rebind later"). Transmittance owns
-   * TransLUT; SkyView reads TransLUT (injected) and writes SkyLUT; Sky reads BOTH LUTs (injected) +
-   * MoonTex + the shared AtmoBuf. FBTilesStage (created after this method returns — see OnDevice)
-   * likewise receives TransLUT/SkyLUT views injected at ITS Configure(), for the terrain's aerial
-   * perspective — this is the reason CreateAtmosphere runs before CreateTerrainPipeline. */
+  /* Init-order CONTRACT: the atmosphere stages are Configure()d here, in THIS order, because each
+   * later one's bind group is built from an EARLIER one's already-created texture view (WebGPU bind
+   * groups pin a specific view at creation — there is no "rebind later"). Transmittance owns TransLUT;
+   * SkyView reads TransLUT (injected) and writes SkyLUT; Sky reads SkyLUT (injected) + AtmoBuf; Sun
+   * reads TransLUT (injected, solar colour) + AtmoBuf; Moon builds its own albedo texture from the
+   * raw bytes SetMoonTexture staged + reads AtmoBuf. FBTilesStage (created after this method returns —
+   * see OnDevice) likewise receives TransLUT/SkyLUT views injected at ITS Configure(), for the
+   * terrain's aerial perspective — this is why CreateAtmosphere runs before CreateTerrainPipeline. */
   FBGpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
   Transmittance->Configure(gpu, TransLUT.CreateView());
   SkyView->Configure(gpu, SkyLUT.CreateView(), TransLUT.CreateView(), LutSamp, AtmoBuf);
-  Sky->Configure(gpu, SkyLUT.CreateView(), LutSamp, TransLUT.CreateView(), AtmoBuf, MoonTex.CreateView());
+  Sky->Configure(gpu, SkyLUT.CreateView(), LutSamp, AtmoBuf);
+  Sun->Configure(gpu, AtmoBuf, LutSamp, TransLUT.CreateView());
+  Moon->Configure(gpu, AtmoBuf, LutSamp, MoonData.data(), MoonData.size(), MoonW, MoonH);
 }
 
 void FBRenderer::SetMoonTexture(const uint8_t *rgba, int w, int h) {
@@ -665,6 +653,11 @@ void FBRenderer::RenderFrame(void) {
   wgpu::RenderPassEncoder scene = enc.BeginRenderPass(&sp);
   passCount++;
   Sky->Encode(ctx, scene);                 /* physically-based sky background, first in the pass */
+
+  /* Sun disc/glow + moon-as-lit-sphere: additive draws (One/One blend), same slot the original single
+   * kSkyWGSL shader composited them into — encoded right after Sky so the result is pixel-equivalent. */
+  Sun->Encode(ctx, scene);
+  Moon->Encode(ctx, scene);
 
   /* Real stars (EVS night): additive instanced quads at their true alt/az, over the sky, under the
    * terrain. FBStarsStage self-gates (SVS / daylight / none visible -> no draw). */

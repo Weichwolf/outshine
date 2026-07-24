@@ -71,7 +71,8 @@ wasm:            ## build the WASM browser Command Center (F-16 sim + renderer) 
 	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \
 	    src/render/stages/FBHudStage.cpp src/render/stages/FBUpscaleStage.cpp \
 	    src/render/stages/FBTransmittanceStage.cpp src/render/stages/FBSkyViewStage.cpp \
-	    src/render/stages/FBSkyStage.cpp src/render/stages/FBTilesStage.cpp \
+	    src/render/stages/FBSkyStage.cpp src/render/stages/FBSunStage.cpp src/render/stages/FBMoonStage.cpp \
+	    src/render/stages/FBTilesStage.cpp \
 	    src/render/stages/FBCloudMipDownStage.cpp src/render/stages/FBCloudBaseBakeStage.cpp \
 	    src/render/stages/FBCloudDetailBakeStage.cpp src/render/stages/FBCloudCellBakeStage.cpp \
 	    src/render/stages/FBCloudMarchStage.cpp src/render/stages/FBCloudResolveStage.cpp \
@@ -126,7 +127,8 @@ native:          ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \
 	    src/render/stages/FBHudStage.cpp src/render/stages/FBUpscaleStage.cpp \
 	    src/render/stages/FBTransmittanceStage.cpp src/render/stages/FBSkyViewStage.cpp \
-	    src/render/stages/FBSkyStage.cpp src/render/stages/FBTilesStage.cpp \
+	    src/render/stages/FBSkyStage.cpp src/render/stages/FBSunStage.cpp src/render/stages/FBMoonStage.cpp \
+	    src/render/stages/FBTilesStage.cpp \
 	    src/render/stages/FBCloudMipDownStage.cpp src/render/stages/FBCloudBaseBakeStage.cpp \
 	    src/render/stages/FBCloudDetailBakeStage.cpp src/render/stages/FBCloudCellBakeStage.cpp \
 	    src/render/stages/FBCloudMarchStage.cpp src/render/stages/FBCloudResolveStage.cpp \
