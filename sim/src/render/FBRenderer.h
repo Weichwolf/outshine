@@ -1,18 +1,30 @@
 /* FlightBox — FBRenderer: the WebGPU rendering system (Dawn header family; emdawnwebgpu on the web,
- * native Dawn for the CLI — write once, link twice). Owns instance/adapter/device/surface and the
- * frame loop's render passes. Bring-up stage: device init + a field of REAL fb-tiles terrain (osmmesh
- * ECEF meshes, camera-relative), textured with real per-tile OSM albedos (a texture_2d_array), lit
- * under a physically-based Hillaire-2020 sky (compute LUTs + fullscreen sky pass + aerial perspective),
- * drawn into an HDR target, then an ACES tonemap pass to the swapchain ([0,1] reversed-Z depth on the
- * scene pass), and a MIL-STD-1787 HUD overlay pass on top (reusing the WebGL engine's w3_build_hud
- * symbology via FBHud.h). */
+ * native Dawn for the CLI — write once, link twice). Orchestrator: owns instance/adapter/device/
+ * surface/targets and EVERY Begin/EndRenderPass boundary (the pass topology + encode order); DRAWING
+ * itself is delegated to FBDrawStage-derived classes (render/stages/) it holds and cycles in a fixed
+ * order — a stage never begins/ends a pass, it records into the encoder FBRenderer already opened.
+ * Bring-up stage: device init + a field of REAL fb-tiles terrain (osmmesh ECEF meshes, camera-
+ * relative), textured with real per-tile OSM albedos (a texture_2d_array), lit under a physically-
+ * based Hillaire-2020 sky (compute LUTs + fullscreen sky pass + aerial perspective), drawn into an HDR
+ * target, then an ACES tonemap pass to the swapchain ([0,1] reversed-Z depth on the scene pass), and a
+ * MIL-STD-1787 HUD overlay pass on top (FBHudStage; reuses the WebGL engine's w3_build_hud symbology
+ * via FBHud.h). */
 #ifndef FBRENDERER_H
 #define FBRENDERER_H
 
 #include <cstdint>
+#include <memory>
 #include <vector>
 #include <webgpu/webgpu_cpp.h>
 #include "FBState.h"
+#include "FBGpu.h"
+#include "FBFrameContext.h"
+#include "stages/FBStarsStage.h"
+#include "stages/FBTileLightsStage.h"
+#include "stages/FBUnitsStage.h"
+#include "stages/FBSpritesStage.h"
+#include "stages/FBHudStage.h"
+#include "stages/FBUpscaleStage.h"
 
 namespace FlightBox {
 
@@ -77,8 +89,8 @@ public:
   void SetLoadingScreen(bool on, float pct, int ready, int total) { LoadingScreen = on; LoadPct = pct; LoadReady = ready; LoadTotal = total; }
 
   /* True AGL (m, ASL - DEM ground under the aircraft) for the HUD altitude tape + horizon dip. The
-   * caller owns the DEM lookup (fb_stream_ground); w3_agl is a per-TU global so only the renderer's
-   * copy — read by w3_build_hud here — matters. Negative = below terrain, never hidden. */
+   * caller owns the DEM lookup (fb_stream_ground); forwarded to FBHudStage (w3_agl is its FBHud.h
+   * global, only reachable from there now). Negative = below terrain, never hidden. */
   void SetAgl(float agl);
 
   /* Ground albedo source (TAB): 0 = OSM render (SVS, a constant-daylight database view), 1 = aerial
@@ -124,8 +136,8 @@ public:
    * ECEF, and uploads here. `inst` = count * 7 floats [posRelAnchor.xyz, worldRadiusM, colorPremul.rgb].
    * SetLightAnchor gives the ECEF the positions are relative to (the world origin) — set once. The pass
    * subtracts (eye - anchor) per frame, so it stays camera-relative without a per-frame re-upload. */
-  void SetLightAnchor(const double anchor[3]) { for (int i = 0; i < 3; i++) LightAnchor[i] = anchor[i]; }
-  void SetLights(const float *inst, int count);
+  void SetLightAnchor(const double anchor[3]) { TileLights->SetAnchor(anchor); }
+  void SetLights(const float *inst, int count) { TileLights->SetLights(inst, count); }
 
   /* Scripted camera: eye + look-at target in ECEF (double); up is derived radial (no roll). */
   void SetCamera(const double eye[3], const double target[3]);
@@ -157,12 +169,8 @@ private:
   void UpdateAtmosphere(const double eye[3], const double sunDir[3], const double right[3],
                         const double camUp[3], const double fwd[3], const double moonDir[3],
                         double dayF, double moonPh, double cloud);    /* per-frame atmosphere uniform */
-  void CreateStars(void);             /* HYG instanced-quad pipeline (EVS night point field) */
-  void CreateLights(void);            /* night-light instanced additive-sprite pipeline */
-  void UpdateStars(const double eye[3], const double up[3], double nowSec);  /* rebuild visible set */
   void CreateClouds(void);            /* Perlin-Worley 3D noise (compute) + the volumetric raymarch pass */
   void UpdateClouds(const double eye[3], const double sunDir[3], const double up[3], double nowSec);
-  void CreateHud(void);               /* MAX7456 atlas + solid/line/text pipelines (FBHud.h reuse) */
 
   void StartAdapterRequest(void);
   void OnAdapter(wgpu::Adapter a);
@@ -194,9 +202,7 @@ private:
   /* Present path: the whole frame (scene + tonemap + HUD) lands in a FIXED 720p FrameTex; one upscale
    * pass then samples it onto the swapchain at the live display resolution (canvas clientSize x DPR). */
   wgpu::Texture FrameTex;
-  wgpu::RenderPipeline UpscalePipe;
-  wgpu::BindGroup UpscaleBind;
-  wgpu::Sampler UpscaleSamp;
+  std::unique_ptr<FBUpscaleStage> Upscale = std::make_unique<FBUpscaleStage>();
   int SwapW, SwapH;                   /* live swapchain (display) size; scene stays Width x Height */
 
   /* Hillaire-2020 atmosphere (Stage 5): two compute LUTs + a fullscreen sky pass; the transmittance
@@ -214,22 +220,17 @@ private:
   std::vector<uint8_t> MoonData;
   int MoonW, MoonH;
   double MoonScale;                               /* FB_MOON_SCALE (default 1 = true angular size) */
-  wgpu::RenderPipeline StarPipe;
-  wgpu::Buffer StarInst, StarUni;                 /* per-star instance data + MVP/day uniform */
-  wgpu::BindGroup StarBind;
-  std::vector<float> StarCat;                     /* catalogue: ra,dec,mag,bv per star (4 floats) */
-  std::vector<float> StarDir;                     /* cached visible: e,u,n,bright,r,g,b (7 floats) */
-  double StarLat, StarLon, StarDirAt, SkyClock;
-  float StarDayFade;
-  int NStars, NStarVis, StarInstCap;
+  double SkyClock;
+  std::unique_ptr<FBStarsStage> Stars = std::make_unique<FBStarsStage>();
 
   /* Night-light field (EVS night): instanced additive sprites at ground level, camera-anchor-relative
    * ECEF, class-coloured. Streamed + placed by FBWorld; drawn after terrain (depth-tested for occlusion). */
-  wgpu::RenderPipeline LightPipe;
-  wgpu::Buffer LightInst, LightUni;
-  wgpu::BindGroup LightBind;
-  double LightAnchor[3];
-  int NLights, LightInstCap;
+  std::unique_ptr<FBTileLightsStage> TileLights = std::make_unique<FBTileLightsStage>();
+
+  /* Draw slots wired into the encode order but not yet real systems (see CLAUDE.md's units/ and the
+   * F-16 display-system deferrals): Units draws right after terrain, Sprites right before the HUD pass. */
+  std::unique_ptr<FBUnitsStage> Units = std::make_unique<FBUnitsStage>();
+  std::unique_ptr<FBSpritesStage> Sprites = std::make_unique<FBSpritesStage>();
 
   /* Volumetric clouds (Nubis/MSFS-class): a Perlin-Worley 3D base + a Worley detail volume (compute-
    * generated once), raymarched through a WGS84 spherical shell into the HDR scene, depth-clipped by
@@ -267,13 +268,10 @@ private:
   bool CloudLab = false;                          /* cloud-lab param override active */
   float LabCover = 0.5f, LabDensity = 5.0f, LabExtinct = 0.06f, LabSunI = 18.0f, LabDetail = 1.3f;
 
-  /* HUD overlay (Stage 8): MAX7456 font atlas + dynamic per-frame geometry, drawn after the tonemap.
-   * Symbology comes from FBHud.h (w3_build_hud); this is only the WebGPU backend. */
-  wgpu::RenderPipeline HudSolidPipe, HudLinePipe, HudTextPipe;   /* tris / lines / textured glyphs */
-  wgpu::BindGroup HudSolidBind, HudTextBind;
-  wgpu::Buffer HudUni, HudTriVtx, HudLineVtx, HudTextVtx;
-  wgpu::Texture HudAtlas;
-  wgpu::Sampler HudSamp;
+  /* HUD overlay (Stage 8): dynamic per-frame geometry, drawn after the tonemap. FBHudStage is the
+   * WebGPU backend (MAX7456 atlas + solid/line/text pipelines); FBRenderer keeps the telemetry pose
+   * itself too — sun/moon/cloud drive its OWN lighting math, not just the HUD. */
+  std::unique_ptr<FBHudStage> Hud = std::make_unique<FBHudStage>();
   FBState HudState;
   bool HudEnabled, HudHave;
   bool LoadingScreen = false; float LoadPct = 0.0f; int LoadReady = 0, LoadTotal = 0;   /* boot loading screen */

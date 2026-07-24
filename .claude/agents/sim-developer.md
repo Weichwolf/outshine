@@ -65,12 +65,18 @@ slot at its own rate) incl. `displays/` HUD, and the vendored toolchain under `s
 - No static mutable global state — configuration lives in members or baked constants.
 
 ## WebGPU (Dawn write-once-link-twice)
-- One renderer source (`sim/src/render/FBRenderer.*`, WGSL inline), two link targets: WASM via
-  emdawnwebgpu (`make -C sim wasm` — deploys into `sim/web/`) and native Dawn
+- `sim/src/render/`: FBRenderer is the ORCHESTRATOR — owns device/swapchain/targets and EVERY
+  Begin/EndRenderPass boundary + the encode order; drawing itself lives in `FBDrawStage`-derived
+  classes (`render/stages/`, one class per shader — FBStarsStage, FBTileLightsStage, FBHudStage,
+  FBUpscaleStage, FBUnitsStage/FBSpritesStage today) that record into the BORROWED encoder FBRenderer
+  already opened. A stage never begins/ends a pass itself; a stage split must never change the
+  Begin*Pass COUNT per frame (log it, diff against the prior count — the acceptance test). Two link
+  targets: WASM via emdawnwebgpu (`make -C sim wasm` — deploys into `sim/web/`) and native Dawn
   (`make -C sim native` → `sim/build/gpu_native`, the PNG oracle; `--fly` = live in-process loiter).
   Tile worker: `make -C sim worker`.
-- Proof venues: pixels → native oracle; behaviour/telemetry → headless console ([agl], [cpuprof],
-  [fbworld], …); look & perf on real hardware → user's browser via those telemetry lines.
+- Proof venues: pixels → native oracle (PNG hash against a baseline where the frame is deterministic,
+  e.g. the SVS path with a pinned `--utc`); behaviour/telemetry → headless console ([agl], [cpuprof],
+  [fbworld], [passcount], …); look & perf on real hardware → user's browser via those telemetry lines.
 - Feature gates as baked consts (env-driven string-replace at shader build): dead-strips the pass,
   zero per-frame cost.
 - WGSL conventions: unique local names (shadowing invalidates pipelines silently); struct layouts

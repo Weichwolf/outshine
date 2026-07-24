@@ -68,6 +68,8 @@ wasm:            ## build the WASM browser Command Center (F-16 sim + renderer) 
 	    -c -o build/obj-wasm/FBF16Module.o; \
 	  emcc build/obj-wasm/*.o $(JSB_WASM)/src/libJSBSim.a \
 	    src/app/FBAppWasm.cpp src/render/FBRenderer.cpp src/world/FBWorld.cpp \
+	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \
+	    src/render/stages/FBHudStage.cpp src/render/stages/FBUpscaleStage.cpp \
 	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O1 -Wall -Werror -fexceptions \
 	    $(INC_WASM) \
 	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=256MB -sSTACK_SIZE=4MB -sEXIT_RUNTIME=0 \
@@ -115,6 +117,8 @@ native:          ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	  c++ src/modules/f16/FBF16Module.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBF16Module.o; \
 	  c++ src/app/FBAppNative.cpp src/render/FBRenderer.cpp src/world/FBWorld.cpp \
+	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \
+	    src/render/stages/FBHudStage.cpp src/render/stages/FBUpscaleStage.cpp \
 	    build/obj-native/*.o $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++20 -O2 -Wall -Wextra -Werror \
 	    $(INC_NATIVE) \

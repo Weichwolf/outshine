@@ -94,7 +94,16 @@ sim/src/
   core/      FBState, FBMode, FBMasterMode, FBTelemetry, gemeinsame Basistypen — zeigt NIE nach
              systems/ oder modules/
   math/      Value-Math (FBMat4 — Value-Types, Operatoren inline im Header)
-  render/    FBRenderer, FBCamera, FBMips, FBChunkMesh/FBChunkVtx, FBEphemeris
+  render/    FBRenderer (Orchestrator: Device/Swapchain/Targets, JEDE Begin/EndRenderPass-Grenze,
+             die Encode-Reihenfolge — Pass-Topologie ist ein Vertrag, kein Stage-Split darf sie
+             vermehren), FBCamera, FBMips, FBChunkMesh/FBChunkVtx, FBEphemeris, FBGpu/FBFrameContext
+             (Device-Handle bzw. geteilter Frame-Zustand, den jede Stage bekommt), FBDrawStage
+             (Interface: ein Shader + seine Pipeline(s)/Bind-Group(s)/Draws, zeichnet in den
+             GELIEHENEN Encoder — nie eigene Pass-Grenzen)
+  render/stages/  Klasse pro Shader: FBStarsStage, FBTileLightsStage, FBHudStage (WebGPU-Backend;
+             die Symbologie-LOGIK bleibt vorerst in FBHud.h/FBHudSymbology.h, s.o.), FBUpscaleStage,
+             FBUnitsStage/FBSpritesStage (NoOp, aber in der Encode-Ordnung verdrahtet: Units nach
+             Terrain, Sprites vor HUD) — Atmosphäre/Terrain/Wolken/Sonne+Mond folgen als eigene Stages
   world/     FBWorld, FBTerrainField, FBTerrainLoader (Tile-Streaming/Worker-Anbindung)
   systems/   die generischen, airframe-agnostischen System-Slots eines Moduls — Interface + Default
              in EINER Klasse, ein Modul überschreibt per Ableitung (Zahlen-Tuning bleibt Preset/

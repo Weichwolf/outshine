@@ -1,5 +1,4 @@
 #include "FBRenderer.h"
-#include "FBHud.h"         /* reused HUD symbology (w3_build_hud) + MAX7456 atlas; GL backend stubbed */
 #include "FBMips.h"        /* fb_mip_count / fb_build_pyramid — the ONE sRGB mip source */
 #include <cstdint>
 #include <algorithm>
@@ -21,8 +20,7 @@ static void Norm3(double v[3]);
 FBRenderer::FBRenderer()
   : SurfaceFormat(wgpu::TextureFormat::Undefined), HdrFormat(wgpu::TextureFormat::RGBA16Float),
     SwapW(0), SwapH(0),
-    MoonW(0), MoonH(0), MoonScale(1.0), StarLat(0), StarLon(0), StarDirAt(-1e30), SkyClock(0), StarDayFade(1.0f),
-    NStars(0), NStarVis(0), StarInstCap(0), LightAnchor{0, 0, 0}, NLights(0), LightInstCap(0),
+    MoonW(0), MoonH(0), MoonScale(1.0), SkyClock(0),
     CloudW(0), CloudH(0), CloudQuality(1.0),
     HudState{}, HudEnabled(false), HudHave(false),
     Center{0, 0, 0}, TerrainNVerts(0), NTiles(0), AlbedoTS(0), NotReadyDraws(0), Streaming(false), GroundPhoto(false), BaseMode(0), LayerCap(0),
@@ -36,7 +34,7 @@ void FBRenderer::SetHud(const FBState &s, bool have) {
   HudEnabled = true;
 }
 
-void FBRenderer::SetAgl(float agl) { w3_agl = agl; }   /* FBHud.h global, this TU's copy = the one w3_build_hud reads */
+void FBRenderer::SetAgl(float agl) { Hud->SetAgl(agl); }
 
 void FBRenderer::SetAlbedoArray(const uint8_t *rgba, int ts, int layers) {
   AlbedoTS = ts;
@@ -182,14 +180,17 @@ void FBRenderer::OnDevice(wgpu::Device d) {
   if (Mode == Target::Surface) ConfigureSurface(); else CreateOffscreenTarget();
   CreateTileTexture();
   CreateAtmosphere();      /* before the terrain pipeline: terrain AP samples the transmittance LUT */
-  CreateStars();
-  CreateLights();
+  FBGpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
+  Stars->Init(gpu);
+  TileLights->Init(gpu);
+  Units->Init(gpu);
+  Sprites->Init(gpu);
   CreateTerrainPipeline();   /* creates DepthTex, which the cloud pass samples */
   { const char *e = getenv("FB_CLOUDS"); CloudsOn = e && atoi(e) != 0; }   /* default off — user judgment 2026-07-23 */
   if (CloudsOn) CreateClouds();   /* skip the noise-volume gen + cloud pipelines entirely when off (no boot/VRAM cost) */
   CreateTonemapPipeline();
-  CreatePresent();
-  CreateHud();
+  CreatePresent();          /* also Init()s Upscale (needs FrameTex, created here) */
+  Hud->Init(gpu);
   DeviceReady = true;
   printf("[FBRenderer] WebGPU device ready, target %dx%d (%s), hdr=%s\n", Width, Height,
          Mode == Target::Surface ? "surface" : "offscreen",
@@ -874,7 +875,7 @@ int FBRenderer::UploadTilePhoto(int slot, const uint8_t *photo, int ts, int z) {
 
 void FBRenderer::SetGroundMode(int photo) {
   GroundPhoto = photo != 0;
-  w3_ground.mode = GroundPhoto ? W3_GROUND_PHOTO : W3_GROUND_OSM;   /* HUD SVS/EVS annunciator */
+  Hud->SetGroundMode(photo);   /* HUD SVS/EVS annunciator */
 }
 
 void FBRenderer::ReleaseTile(int slot) {
@@ -1000,26 +1001,6 @@ void FBRenderer::CreateTonemapPipeline(void) {
   }
 }
 
-/* Upscale/present: a fullscreen triangle sampling the fixed-720p FrameTex (linear) onto the swapchain
- * at the display resolution. First stage = bilinear; TODO bicubic/sharpen. SVS goes straight through;
- * the EVS WebCodecs link (video loop) swaps the sampled source for the decoded frame. */
-static const char *kUpscaleWGSL = R"(
-@group(0) @binding(0) var samp : sampler;
-@group(0) @binding(1) var frame : texture_2d<f32>;
-struct VO { @builtin(position) pos : vec4f, @location(0) uv : vec2f };
-@vertex fn vs(@builtin(vertex_index) i : u32) -> VO {
-  var c = array<vec2f, 3>(vec2f(-1.0, -1.0), vec2f(3.0, -1.0), vec2f(-1.0, 3.0));
-  var o : VO;
-  let p = c[i];
-  o.pos = vec4f(p, 0.0, 1.0);
-  o.uv = vec2f((p.x + 1.0) * 0.5, (1.0 - p.y) * 0.5);   /* flip Y: NDC up -> texture down */
-  return o;
-}
-@fragment fn fs(in : VO) -> @location(0) vec4f {
-  return vec4f(textureSampleLevel(frame, samp, in.uv, 0.0).rgb, 1.0);
-}
-)";
-
 void FBRenderer::CreatePresent(void) {
   wgpu::TextureDescriptor td{};   /* fixed 720p; scene + tonemap + HUD all land here */
   td.size = {(uint32_t)Width, (uint32_t)Height, 1};
@@ -1028,37 +1009,8 @@ void FBRenderer::CreatePresent(void) {
              wgpu::TextureUsage::CopySrc;
   FrameTex = Device.CreateTexture(&td);
 
-  wgpu::SamplerDescriptor sd{};
-  sd.addressModeU = wgpu::AddressMode::ClampToEdge;
-  sd.addressModeV = wgpu::AddressMode::ClampToEdge;
-  sd.magFilter = wgpu::FilterMode::Linear;
-  sd.minFilter = wgpu::FilterMode::Linear;
-  UpscaleSamp = Device.CreateSampler(&sd);
-
-  wgpu::ShaderSourceWGSL wgsl{};
-  wgsl.code = kUpscaleWGSL;
-  wgpu::ShaderModuleDescriptor smd{};
-  smd.nextInChain = &wgsl;
-  wgpu::ShaderModule sm = Device.CreateShaderModule(&smd);
-  wgpu::ColorTargetState ct{};
-  ct.format = SurfaceFormat;
-  wgpu::RenderPipelineDescriptor rp{};
-  rp.vertex.module = sm;
-  wgpu::FragmentState fs{};
-  fs.module = sm;
-  fs.targetCount = 1;
-  fs.targets = &ct;
-  rp.fragment = &fs;
-  UpscalePipe = Device.CreateRenderPipeline(&rp);
-
-  wgpu::BindGroupEntry be[2] = {};
-  be[0].binding = 0; be[0].sampler = UpscaleSamp;
-  be[1].binding = 1; be[1].textureView = FrameTex.CreateView();
-  wgpu::BindGroupDescriptor bgd{};
-  bgd.layout = UpscalePipe.GetBindGroupLayout(0);
-  bgd.entryCount = 2;
-  bgd.entries = be;
-  UpscaleBind = Device.CreateBindGroup(&bgd);
+  FBGpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
+  Upscale->Configure(gpu, FrameTex.CreateView());
 }
 
 void FBRenderer::CreateAtmosphere(void) {
@@ -1177,295 +1129,8 @@ void FBRenderer::SetMoonTexture(const uint8_t *rgba, int w, int h) {
   MoonData.assign(rgba, rgba + (size_t)w * h * 4);
 }
 
-/* ---- HYG star field (EVS night) --------------------------------------------------------------
- * Catalogue decode + celestial placement mirror command_center/stars.h (Polaris-pinned there). The
- * math is pure; the three helpers below are ports, not new physics. */
-static double GmstDeg(double unixSec) {   /* Greenwich mean sidereal time, deg (IAU J2000 polynomial) */
-  double jd = unixSec / 86400.0 + 2440587.5, dd = jd - 2451545.0;
-  double g = std::fmod(280.46061837 + 360.98564736629 * dd, 360.0);
-  return g < 0 ? g + 360.0 : g;
-}
-/* Catalogue RA/dec + local sidereal time + latitude -> ENU direction; returns 0 if at/below horizon. */
-static int StarEnu(double lstDeg, double latDeg, double raDeg, double decDeg, double out[3]) {
-  const double RAD = 3.14159265358979 / 180.0;
-  double H = (lstDeg - raDeg) * RAD, dec = decDeg * RAD;
-  double sl = std::sin(latDeg * RAD), cl = std::cos(latDeg * RAD);
-  double sinAlt = sl * std::sin(dec) + cl * std::cos(dec) * std::cos(H);
-  if (sinAlt <= 0.03) return 0;   /* ~1.7deg margin: refraction + terrain (stars.h) */
-  double az = std::atan2(-std::cos(dec) * std::sin(H), std::sin(dec) * cl - std::cos(dec) * sl * std::cos(H));
-  double ca = std::sqrt(std::max(0.0, 1.0 - sinAlt * sinAlt));
-  out[0] = ca * std::sin(az);   /* east */
-  out[1] = ca * std::cos(az);   /* north */
-  out[2] = sinAlt;              /* up */
-  return 1;
-}
-/* B-V colour index -> spectral tint (shaders.h W3_VSTAR starColour, verbatim). */
-static void StarColour(float bv, float out[3]) {
-  float t = bv < -0.4f ? -0.4f : bv > 1.8f ? 1.8f : bv;
-  const float blue[3] = {0.61f, 0.70f, 1.0f}, white[3] = {1, 1, 1}, yellow[3] = {1.0f, 0.96f, 0.84f};
-  const float orange[3] = {1.0f, 0.80f, 0.55f}, red[3] = {1.0f, 0.62f, 0.42f};
-  auto lerp = [&](const float a[3], const float b[3], float f) {
-    for (int i = 0; i < 3; i++) out[i] = a[i] + (b[i] - a[i]) * f;
-  };
-  if (t < 0.0f) lerp(blue, white, (t + 0.4f) / 0.4f);
-  else if (t < 0.6f) lerp(white, yellow, t / 0.6f);
-  else if (t < 1.2f) lerp(yellow, orange, (t - 0.6f) / 0.6f);
-  else lerp(orange, red, (t - 1.2f) / 0.6f);
-}
-
 void FBRenderer::SetStars(const uint8_t *hyg, int nbytes, double originLat, double originLon) {
-  int n = nbytes / 6;
-  StarCat.clear();
-  StarLat = originLat;
-  StarLon = originLon;
-  if (n <= 0) { NStars = 0; return; }
-  StarCat.reserve((size_t)n * 4);
-  for (int i = 0; i < n; i++) {
-    const uint8_t *p = hyg + i * 6;
-    uint16_t ra = (uint16_t)(p[0] | (p[1] << 8));
-    int16_t dec = (int16_t)(p[2] | (p[3] << 8));
-    StarCat.push_back((float)ra / 65536.0f * 360.0f);
-    StarCat.push_back((float)dec / 32767.0f * 90.0f);
-    StarCat.push_back((float)p[4] / 255.0f * 8.0f - 1.5f);
-    StarCat.push_back((float)p[5] / 255.0f * 3.0f - 0.5f);
-  }
-  NStars = n;
-  StarDirAt = -1e30;   /* force a rebuild on the next UpdateStars */
-}
-
-/* Rebuild the visible-star instance buffer at most every 20 s (sidereal drift ~15"/s stays sub-pixel).
- * Positions are camera-relative ECEF at "infinity" (dir * R) — eye-independent, so no per-frame rebuild;
- * the per-frame camera rotation is the shared MVP applied in the shader. */
-void FBRenderer::UpdateStars(const double eye[3], const double up[3], double nowSec) {
-  (void)eye; (void)up;
-  if (NStars <= 0 || !DeviceUsable()) return;
-  if (StarDirAt > -1e29 && nowSec - StarDirAt < 20.0) return;
-
-  double lst = std::fmod(GmstDeg(nowSec) + StarLon, 360.0);
-  if (lst < 0) lst += 360.0;
-  /* ENU basis at the origin, in ECEF (FBCamera.h w3_enu_axes). Star ENU -> ECEF via these axes. */
-  const double RAD = 3.14159265358979 / 180.0;
-  double P = StarLat * RAD, L = StarLon * RAD;
-  double sP = std::sin(P), cP = std::cos(P), sL = std::sin(L), cL = std::cos(L);
-  double E[3] = {-sL, cL, 0.0}, N[3] = {-sP * cL, -sP * sL, cP}, U[3] = {cP * cL, cP * sL, sP};
-  const double R = 40000.0;
-
-  StarDir.clear();
-  int vis = 0;
-  for (int i = 0; i < NStars; i++) {
-    double enu[3];
-    if (!StarEnu(lst, StarLat, StarCat[i * 4], StarCat[i * 4 + 1], enu)) continue;
-    double ec[3];
-    for (int a = 0; a < 3; a++) ec[a] = (E[a] * enu[0] + N[a] * enu[1] + U[a] * enu[2]) * R;
-    float mag = StarCat[i * 4 + 2], bv = StarCat[i * 4 + 3];
-    float bright = 1.45f - 0.42f * mag;   /* shaders.h: brighter (lower mag) -> more intense */
-    bright = bright < 0.12f ? 0.12f : bright > 1.5f ? 1.5f : bright;
-    float col[3]; StarColour(bv, col);
-    StarDir.push_back((float)ec[0]); StarDir.push_back((float)ec[1]); StarDir.push_back((float)ec[2]);
-    StarDir.push_back(bright); StarDir.push_back(col[0]); StarDir.push_back(col[1]); StarDir.push_back(col[2]);
-    vis++;
-  }
-  NStarVis = vis;
-  StarDirAt = nowSec;
-  if (vis <= 0) return;
-
-  size_t bytes = (size_t)vis * 7 * sizeof(float);
-  if (StarInstCap < vis) {
-    wgpu::BufferDescriptor bd{};
-    bd.size = bytes;
-    bd.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
-    StarInst = Device.CreateBuffer(&bd);
-    StarInstCap = vis;
-  }
-  Queue.WriteBuffer(StarInst, 0, StarDir.data(), bytes);
-}
-
-static const char *kStarWGSL = R"(
-struct SU { mvp : mat4x4f, p : vec4f };   /* p = (dayFade, sizeScale, viewportW, viewportH) */
-@group(0) @binding(0) var<uniform> su : SU;
-struct VOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f,
-              @location(1) bright : f32, @location(2) col : vec3f };
-@vertex fn vs(@builtin(vertex_index) vi : u32, @location(0) ipos : vec3f,
-              @location(1) ibr : f32, @location(2) icol : vec3f) -> VOut {
-  var q = array<vec2f, 6>(vec2f(-1.0, -1.0), vec2f(1.0, -1.0), vec2f(-1.0, 1.0),
-                          vec2f(-1.0, 1.0), vec2f(1.0, -1.0), vec2f(1.0, 1.0));
-  let corner = q[vi];
-  var clip = su.mvp * vec4f(ipos, 1.0);
-  /* Stars are POINT sources: radius is hard-capped ~2px and barely tracks brightness — brightness goes
-   * into HDR intensity + a tight glow halo (below), NOT the disk diameter, so bright stars don't bloat. */
-  let px = clamp(1.2 + 0.4 * ibr, 1.2, 1.9) * su.p.y;
-  clip.x = clip.x + corner.x * (2.0 * px / su.p.z) * clip.w;
-  clip.y = clip.y + corner.y * (2.0 * px / su.p.w) * clip.w;
-  var o : VOut;
-  o.pos = clip; o.uv = corner; o.bright = ibr; o.col = icol;
-  return o;
-}
-@fragment fn fs(in : VOut) -> @location(0) vec4f {
-  let r = sqrt(dot(in.uv, in.uv));
-  let core = smoothstep(0.55, 0.0, r);           /* tight ~1px core — the point itself */
-  let halo = smoothstep(1.0, 0.15, r) * 0.3;     /* faint wide glow — lets Venus/Sirius shine, dim stars stay points */
-  let a = (core + halo) * in.bright * (1.0 - su.p.x);
-  return vec4f(in.col * a, a);
-}
-)";
-
-void FBRenderer::CreateStars(void) {
-  wgpu::ShaderSourceWGSL wsl{};
-  wsl.code = kStarWGSL;
-  wgpu::ShaderModuleDescriptor smd{};
-  smd.nextInChain = &wsl;
-  wgpu::ShaderModule m = Device.CreateShaderModule(&smd);
-
-  wgpu::VertexAttribute attr[3] = {};
-  attr[0].format = wgpu::VertexFormat::Float32x3; attr[0].offset = 0;  attr[0].shaderLocation = 0;
-  attr[1].format = wgpu::VertexFormat::Float32;   attr[1].offset = 12; attr[1].shaderLocation = 1;
-  attr[2].format = wgpu::VertexFormat::Float32x3; attr[2].offset = 16; attr[2].shaderLocation = 2;
-  wgpu::VertexBufferLayout vbl{};
-  vbl.arrayStride = 7 * sizeof(float);
-  vbl.stepMode = wgpu::VertexStepMode::Instance;   /* one entry per star, 6 verts per instance */
-  vbl.attributeCount = 3;
-  vbl.attributes = attr;
-
-  wgpu::BlendState blend{};                        /* additive: stars accumulate, never darken */
-  blend.color.srcFactor = wgpu::BlendFactor::One;  blend.color.dstFactor = wgpu::BlendFactor::One;
-  blend.alpha.srcFactor = wgpu::BlendFactor::One;  blend.alpha.dstFactor = wgpu::BlendFactor::One;
-  wgpu::ColorTargetState ct{};
-  ct.format = HdrFormat;
-  ct.blend = &blend;
-
-  wgpu::DepthStencilState ds{};
-  ds.format = wgpu::TextureFormat::Depth32Float;
-  ds.depthWriteEnabled = false;
-  ds.depthCompare = wgpu::CompareFunction::Always;   /* at infinity; terrain paints over them */
-
-  wgpu::RenderPipelineDescriptor rp{};
-  rp.vertex.module = m;
-  rp.vertex.bufferCount = 1;
-  rp.vertex.buffers = &vbl;
-  wgpu::FragmentState fs{};
-  fs.module = m;
-  fs.targetCount = 1;
-  fs.targets = &ct;
-  rp.fragment = &fs;
-  rp.depthStencil = &ds;
-  StarPipe = Device.CreateRenderPipeline(&rp);
-
-  wgpu::BufferDescriptor bd{};
-  bd.size = 20 * sizeof(float);   /* mat4 + vec4 */
-  bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
-  StarUni = Device.CreateBuffer(&bd);
-
-  wgpu::BindGroupEntry be{};
-  be.binding = 0; be.buffer = StarUni; be.size = 20 * sizeof(float);
-  wgpu::BindGroupDescriptor bg{};
-  bg.layout = StarPipe.GetBindGroupLayout(0);
-  bg.entryCount = 1;
-  bg.entries = &be;
-  StarBind = Device.CreateBindGroup(&bg);
-}
-
-/* ---- Night-light field (EVS night) ------------------------------------------------------------
- * Instanced additive sprites at ground level. Each instance is camera-ANCHOR-relative ECEF (posRel),
- * a per-class world radius (m), and a premultiplied class colour. The vs subtracts (eye - anchor) so
- * the field is camera-relative without a per-frame CPU re-upload; the sprite shrinks with distance
- * (clamped to a tight point range). Depth-tested (reversed-Z, Greater, no write): terrain in front
- * occludes far lights, but a light does not write depth so it never occludes another. */
-static const char *kLightWGSL = R"(
-struct LU { mvp : mat4x4f, p : vec4f, eye : vec4f };   /* p = (dayFade, vpW, vpH, focal); eye.xyz = eye-anchor (m) */
-@group(0) @binding(0) var<uniform> lu : LU;
-struct VOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f, @location(1) col : vec3f };
-@vertex fn vs(@builtin(vertex_index) vi : u32, @location(0) ipos : vec3f,
-              @location(1) irad : f32, @location(2) icol : vec3f) -> VOut {
-  var q = array<vec2f, 6>(vec2f(-1.0, -1.0), vec2f(1.0, -1.0), vec2f(-1.0, 1.0),
-                          vec2f(-1.0, 1.0), vec2f(1.0, -1.0), vec2f(1.0, 1.0));
-  let corner = q[vi];
-  let rel = ipos - lu.eye.xyz;                 /* camera-relative ECEF (m) */
-  var clip = lu.mvp * vec4f(rel, 1.0);
-  let dist = max(length(rel), 1.0);
-  let px = clamp(irad * (0.5 * lu.p.z * lu.p.w) / dist, 1.3, 4.0);   /* world radius -> screen px; ≥1.3 px
-     floor defeats the sub-pixel collapse that makes a point light vanish at range (the star lesson) */
-  clip.x = clip.x + corner.x * (2.0 * px / lu.p.y) * clip.w;
-  clip.y = clip.y + corner.y * (2.0 * px / lu.p.z) * clip.w;
-  var o : VOut;
-  o.pos = clip; o.uv = corner; o.col = icol;
-  return o;
-}
-@fragment fn fs(in : VOut) -> @location(0) vec4f {
-  let r = length(in.uv);
-  let core = smoothstep(1.0, 0.0, r);          /* soft round point */
-  let a = core * (1.0 - lu.p.x);               /* fade out toward day */
-  return vec4f(in.col * a, a);
-}
-)";
-
-void FBRenderer::CreateLights(void) {
-  wgpu::ShaderSourceWGSL wsl{};
-  wsl.code = kLightWGSL;
-  wgpu::ShaderModuleDescriptor smd{};
-  smd.nextInChain = &wsl;
-  wgpu::ShaderModule m = Device.CreateShaderModule(&smd);
-
-  wgpu::VertexAttribute attr[3] = {};
-  attr[0].format = wgpu::VertexFormat::Float32x3; attr[0].offset = 0;  attr[0].shaderLocation = 0;
-  attr[1].format = wgpu::VertexFormat::Float32;   attr[1].offset = 12; attr[1].shaderLocation = 1;
-  attr[2].format = wgpu::VertexFormat::Float32x3; attr[2].offset = 16; attr[2].shaderLocation = 2;
-  wgpu::VertexBufferLayout vbl{};
-  vbl.arrayStride = 7 * sizeof(float);
-  vbl.stepMode = wgpu::VertexStepMode::Instance;
-  vbl.attributeCount = 3;
-  vbl.attributes = attr;
-
-  wgpu::BlendState blend{};                        /* additive: lights accumulate */
-  blend.color.srcFactor = wgpu::BlendFactor::One;  blend.color.dstFactor = wgpu::BlendFactor::One;
-  blend.alpha.srcFactor = wgpu::BlendFactor::One;  blend.alpha.dstFactor = wgpu::BlendFactor::One;
-  wgpu::ColorTargetState ct{};
-  ct.format = HdrFormat;
-  ct.blend = &blend;
-
-  wgpu::DepthStencilState ds{};
-  ds.format = wgpu::TextureFormat::Depth32Float;
-  ds.depthWriteEnabled = false;
-  ds.depthCompare = wgpu::CompareFunction::GreaterEqual;   /* reversed-Z: terrain in FRONT occludes; a light
-     co-planar with its own ground tile (equal depth) still shows — Greater alone drops it on the tie */
-
-  wgpu::RenderPipelineDescriptor rp{};
-  rp.vertex.module = m;
-  rp.vertex.bufferCount = 1;
-  rp.vertex.buffers = &vbl;
-  wgpu::FragmentState fs{};
-  fs.module = m;
-  fs.targetCount = 1;
-  fs.targets = &ct;
-  rp.fragment = &fs;
-  rp.depthStencil = &ds;
-  LightPipe = Device.CreateRenderPipeline(&rp);
-
-  wgpu::BufferDescriptor bd{};
-  bd.size = 24 * sizeof(float);   /* mat4 + p + eye */
-  bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
-  LightUni = Device.CreateBuffer(&bd);
-
-  wgpu::BindGroupEntry be{};
-  be.binding = 0; be.buffer = LightUni; be.size = 24 * sizeof(float);
-  wgpu::BindGroupDescriptor bg{};
-  bg.layout = LightPipe.GetBindGroupLayout(0);
-  bg.entryCount = 1;
-  bg.entries = &be;
-  LightBind = Device.CreateBindGroup(&bg);
-}
-
-void FBRenderer::SetLights(const float *inst, int count) {
-  NLights = count;
-  if (count <= 0) return;
-  size_t bytes = (size_t)count * 7 * sizeof(float);
-  if (LightInstCap < count) {
-    wgpu::BufferDescriptor bd{};
-    bd.size = bytes;
-    bd.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
-    LightInst = Device.CreateBuffer(&bd);
-    LightInstCap = count;
-  }
-  Queue.WriteBuffer(LightInst, 0, inst, bytes);
+  Stars->SetCatalogue(hyg, nbytes, originLat, originLon);
 }
 
 /* ============================================================================================
@@ -2310,183 +1975,6 @@ void FBRenderer::UpdateAtmosphere(const double eye[3], const double sunDir[3], c
   Queue.WriteBuffer(AtmoBuf, 0, a, sizeof a);
 }
 
-/* ============================================================================================
- * HUD overlay (Stage 8). Geometry comes from the REUSED symbology (FBHud.h -> w3_build_hud), which
- * fills w3_hud (lines, x,y,r,g,b), w3_hudT (AA triangles), and mx_v (textured glyphs, x,y,u,v,r,g,b)
- * in 2D pixel coords. Three pipelines share the pixel->NDC map; the fragment linearises the colour so
- * the sRGB swapchain view re-encodes it to the intended display green. TODO: the 8-tap present.h glow.
- * ========================================================================================== */
-static const char *kHudSolidWGSL = R"(
-struct HU { scale : vec4f };
-@group(0) @binding(0) var<uniform> h : HU;
-struct VO { @builtin(position) pos : vec4f, @location(0) col : vec3f };
-@vertex fn vs(@location(0) p : vec2f, @location(1) c : vec3f) -> VO {
-  var o : VO;
-  o.pos = vec4f(p.x * h.scale.x - 1.0, 1.0 - p.y * h.scale.y, 0.0, 1.0);
-  o.col = c;
-  return o;
-}
-@fragment fn fs(in : VO) -> @location(0) vec4f { return vec4f(pow(in.col, vec3f(2.2)), 1.0); }
-)";
-static const char *kHudTextWGSL = R"(
-struct HU { scale : vec4f };
-@group(0) @binding(0) var<uniform> h : HU;
-@group(0) @binding(1) var samp : sampler;
-@group(0) @binding(2) var atlas : texture_2d<f32>;
-struct VO { @builtin(position) pos : vec4f, @location(0) uv : vec2f, @location(1) col : vec3f };
-@vertex fn vs(@location(0) p : vec2f, @location(1) uv : vec2f, @location(2) c : vec3f) -> VO {
-  var o : VO;
-  o.pos = vec4f(p.x * h.scale.x - 1.0, 1.0 - p.y * h.scale.y, 0.0, 1.0);
-  o.uv = uv;
-  o.col = c;
-  return o;
-}
-@fragment fn fs(in : VO) -> @location(0) vec4f {
-  if (textureSampleLevel(atlas, samp, in.uv, 0.0).r < 0.5) { discard; }
-  return vec4f(pow(in.col, vec3f(2.2)), 1.0);
-}
-)";
-
-void FBRenderer::CreateHud(void) {
-  /* MAX7456 font atlas: MX_NGLYPH tiles of 8x8, one byte per row, bit7 = leftmost. r8unorm, NEAREST
-   * (crisp blocky chip look). Built from the SAME MX_FONT ROM the WebGL path uses. */
-  const uint32_t AW = (uint32_t)MX_ATLAS_W, AH = (uint32_t)MX_TILE;
-  std::vector<uint8_t> atlas((size_t)AW * AH, 0);
-  for (int gi = 0; gi < MX_NGLYPH; gi++)
-    for (int row = 0; row < MX_TILE; row++)
-      for (int c = 0; c < MX_TILE; c++)
-        atlas[(size_t)row * AW + gi * MX_TILE + c] = (MX_FONT[gi][row] & (0x80 >> c)) ? 255 : 0;
-  wgpu::TextureDescriptor td{};
-  td.size = {AW, AH, 1};
-  td.format = wgpu::TextureFormat::R8Unorm;
-  td.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
-  HudAtlas = Device.CreateTexture(&td);
-  wgpu::TexelCopyTextureInfo dst{};
-  dst.texture = HudAtlas;
-  wgpu::TexelCopyBufferLayout lay{};
-  lay.bytesPerRow = AW;
-  lay.rowsPerImage = AH;
-  wgpu::Extent3D ext{AW, AH, 1};
-  Queue.WriteTexture(&dst, atlas.data(), atlas.size(), &lay, &ext);
-
-  wgpu::SamplerDescriptor sd{};
-  sd.addressModeU = wgpu::AddressMode::ClampToEdge;
-  sd.addressModeV = wgpu::AddressMode::ClampToEdge;
-  sd.magFilter = wgpu::FilterMode::Nearest;
-  sd.minFilter = wgpu::FilterMode::Nearest;
-  HudSamp = Device.CreateSampler(&sd);
-
-  wgpu::BufferDescriptor bd{};
-  bd.size = 16;   /* vec4 scale (xy used) */
-  bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
-  HudUni = Device.CreateBuffer(&bd);
-  float scale[4] = {2.0f / Width, 2.0f / Height, 0, 0};
-  Queue.WriteBuffer(HudUni, 0, scale, sizeof scale);
-
-  bd.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
-  bd.size = sizeof w3_hud;   /* line verts (x,y,r,g,b) */
-  HudLineVtx = Device.CreateBuffer(&bd);
-  bd.size = sizeof w3_hudT;  /* AA triangle verts */
-  HudTriVtx = Device.CreateBuffer(&bd);
-  bd.size = sizeof mx_v;     /* glyph verts (x,y,u,v,r,g,b) */
-  HudTextVtx = Device.CreateBuffer(&bd);
-
-  wgpu::BlendState blend{};
-  blend.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
-  blend.color.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
-  blend.alpha.srcFactor = wgpu::BlendFactor::One;
-  blend.alpha.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
-  wgpu::ColorTargetState ct{};
-  ct.format = SurfaceFormat;
-  ct.blend = &blend;
-
-  auto mkmod = [&](const char *code) {
-    wgpu::ShaderSourceWGSL w{};
-    w.code = code;
-    wgpu::ShaderModuleDescriptor smd{};
-    smd.nextInChain = &w;
-    return Device.CreateShaderModule(&smd);
-  };
-
-  /* solid pipeline (pos2+col3, stride 20) — one module, two topologies (tris + lines). An EXPLICIT
-   * shared layout so one bind group serves both pipelines (auto layouts are per-pipeline objects). */
-  {
-    wgpu::ShaderModule sm = mkmod(kHudSolidWGSL);
-    wgpu::BindGroupLayoutEntry ble{};
-    ble.binding = 0;
-    ble.visibility = wgpu::ShaderStage::Vertex;
-    ble.buffer.type = wgpu::BufferBindingType::Uniform;
-    wgpu::BindGroupLayoutDescriptor bld{};
-    bld.entryCount = 1;
-    bld.entries = &ble;
-    wgpu::BindGroupLayout bgl = Device.CreateBindGroupLayout(&bld);
-    wgpu::PipelineLayoutDescriptor pld{};
-    pld.bindGroupLayoutCount = 1;
-    pld.bindGroupLayouts = &bgl;
-    wgpu::PipelineLayout pl = Device.CreatePipelineLayout(&pld);
-    wgpu::VertexAttribute attrs[2] = {};
-    attrs[0].format = wgpu::VertexFormat::Float32x2; attrs[0].offset = 0; attrs[0].shaderLocation = 0;
-    attrs[1].format = wgpu::VertexFormat::Float32x3; attrs[1].offset = 8; attrs[1].shaderLocation = 1;
-    wgpu::VertexBufferLayout vbl{};
-    vbl.arrayStride = 20;
-    vbl.attributeCount = 2;
-    vbl.attributes = attrs;
-    wgpu::RenderPipelineDescriptor rp{};
-    rp.layout = pl;
-    rp.vertex.module = sm;
-    rp.vertex.bufferCount = 1;
-    rp.vertex.buffers = &vbl;
-    wgpu::FragmentState fs{};
-    fs.module = sm;
-    fs.targetCount = 1;
-    fs.targets = &ct;
-    rp.fragment = &fs;
-    rp.primitive.topology = wgpu::PrimitiveTopology::TriangleList;
-    HudSolidPipe = Device.CreateRenderPipeline(&rp);
-    rp.primitive.topology = wgpu::PrimitiveTopology::LineList;
-    HudLinePipe = Device.CreateRenderPipeline(&rp);
-    wgpu::BindGroupEntry be{};
-    be.binding = 0; be.buffer = HudUni; be.size = 16;
-    wgpu::BindGroupDescriptor bg{};
-    bg.layout = bgl;
-    bg.entryCount = 1;
-    bg.entries = &be;
-    HudSolidBind = Device.CreateBindGroup(&bg);
-  }
-  /* text pipeline (pos2+uv2+col3, stride 28) — samples the atlas, alpha-tests. */
-  {
-    wgpu::ShaderModule sm = mkmod(kHudTextWGSL);
-    wgpu::VertexAttribute attrs[3] = {};
-    attrs[0].format = wgpu::VertexFormat::Float32x2; attrs[0].offset = 0;  attrs[0].shaderLocation = 0;
-    attrs[1].format = wgpu::VertexFormat::Float32x2; attrs[1].offset = 8;  attrs[1].shaderLocation = 1;
-    attrs[2].format = wgpu::VertexFormat::Float32x3; attrs[2].offset = 16; attrs[2].shaderLocation = 2;
-    wgpu::VertexBufferLayout vbl{};
-    vbl.arrayStride = 28;
-    vbl.attributeCount = 3;
-    vbl.attributes = attrs;
-    wgpu::RenderPipelineDescriptor rp{};
-    rp.vertex.module = sm;
-    rp.vertex.bufferCount = 1;
-    rp.vertex.buffers = &vbl;
-    wgpu::FragmentState fs{};
-    fs.module = sm;
-    fs.targetCount = 1;
-    fs.targets = &ct;
-    rp.fragment = &fs;
-    rp.primitive.topology = wgpu::PrimitiveTopology::TriangleList;
-    HudTextPipe = Device.CreateRenderPipeline(&rp);
-    wgpu::BindGroupEntry be[3] = {};
-    be[0].binding = 0; be[0].buffer = HudUni; be[0].size = 16;
-    be[1].binding = 1; be[1].sampler = HudSamp;
-    be[2].binding = 2; be[2].textureView = HudAtlas.CreateView();
-    wgpu::BindGroupDescriptor bg{};
-    bg.layout = HudTextPipe.GetBindGroupLayout(0);
-    bg.entryCount = 3;
-    bg.entries = be;
-    HudTextBind = Device.CreateBindGroup(&bg);
-  }
-}
-
 /* Camera-RELATIVE [0,1] reversed-Z projection * view. Vertices arrive pre-translated by (origin-cam),
  * so the eye is at the ORIGIN and the view is pure rotation from the ECEF camera basis (right, up,
  * -fwd). This is the port's global-precision convention: no giant absolute ECEF coords reach float. */
@@ -2635,17 +2123,8 @@ void FBRenderer::RenderFrame(void) {
    * frame is already full-resolution (no low-res ladder). Reuses the HUD-text + upscale pipelines only. */
   if (LoadingScreen) {
     FrameNo++;
-    mx_reset();
-    char msg[64], cnt[64];
-    snprintf(msg, sizeof msg, "LOADING TERRAIN %d PCT", (int)(LoadPct * 100.0f + 0.5f));
-    snprintf(cnt, sizeof cnt, "%d / %d TILES", LoadReady, LoadTotal);
-    float s = 4.0f;
-    mx_text((float)Width * 0.5f - (float)strlen(msg) * MX_ADV * s * 0.5f, (float)Height * 0.5f - MX_QS * s,
-            s, 0.20f, 1.00f, 0.40f, msg);
-    float cs = s * 0.6f;
-    mx_text((float)Width * 0.5f - (float)strlen(cnt) * MX_ADV * cs * 0.5f, (float)Height * 0.5f + MX_QS * s * 1.4f,
-            cs, 0.45f, 0.80f, 0.50f, cnt);
-    if (mx_vN > 0) Queue.WriteBuffer(HudTextVtx, 0, mx_v, (size_t)mx_vN * sizeof(float));
+    FBFrameContext lctx{};   /* Upscale::Encode ignores ctx today; kept for interface uniformity */
+    lctx.Width = Width; lctx.Height = Height;
     wgpu::CommandEncoder lenc = Device.CreateCommandEncoder();
     {
       wgpu::RenderPassColorAttachment ca{};
@@ -2653,10 +2132,7 @@ void FBRenderer::RenderFrame(void) {
       ca.clearValue = {0, 0, 0, 1};
       wgpu::RenderPassDescriptor rp{}; rp.colorAttachmentCount = 1; rp.colorAttachments = &ca;
       wgpu::RenderPassEncoder pass = lenc.BeginRenderPass(&rp);
-      if (mx_vN > 0) {
-        pass.SetPipeline(HudTextPipe); pass.SetBindGroup(0, HudTextBind);
-        pass.SetVertexBuffer(0, HudTextVtx); pass.Draw((uint32_t)(mx_vN / 7));
-      }
+      Hud->EncodeLoadingText(pass, Width, Height, LoadPct, LoadReady, LoadTotal);
       pass.End();
     }
     {
@@ -2665,9 +2141,11 @@ void FBRenderer::RenderFrame(void) {
       uca.clearValue = {0, 0, 0, 1};
       wgpu::RenderPassDescriptor upd{}; upd.colorAttachmentCount = 1; upd.colorAttachments = &uca;
       wgpu::RenderPassEncoder up = lenc.BeginRenderPass(&upd);
-      up.SetPipeline(UpscalePipe); up.SetBindGroup(0, UpscaleBind); up.Draw(3); up.End();
+      Upscale->Encode(lctx, up);
+      up.End();
     }
     wgpu::CommandBuffer lcmd = lenc.Finish(); Queue.Submit(1, &lcmd);
+    if (FrameNo == 1) printf("[passcount] 2 passes/frame (loading screen: text + upscale)\n");
     return;
   }
 
@@ -2811,15 +2289,30 @@ void FBRenderer::RenderFrame(void) {
    * volumetric march — the whole cloud look is off by default. */
   double cloud = (CloudsOn && GroundPhoto) ? std::max(0.0, std::min(1.0, (double)HudState.cloud)) : 0.0;
   UpdateAtmosphere(eye, sun, right, camUp, fwd, moon, dayF, HudState.moon_phase, cloud);
-  StarDayFade = (float)dayF;
-  UpdateStars(eye, up, SkyClock);
+  Stars->Update(SkyClock);
   if (CloudsOn) UpdateClouds(eye, sun, up, SkyClock > 0 ? SkyClock : (double)FrameNo / 60.0);
 
+  /* Shared per-frame state every draw stage's Encode() reads (FBRenderer still decides WHEN each is
+   * called — the pass topology/order below is unchanged from before the stage split). */
+  FBFrameContext ctx{};
+  for (int a = 0; a < 3; a++) { ctx.Eye[a] = eye[a]; ctx.Fwd[a] = fwd[a]; ctx.Right[a] = right[a]; ctx.CamUp[a] = camUp[a]; }
+  for (int i = 0; i < 20; i++) ctx.Mvp20[i] = u[i];
+  for (int a = 0; a < 3; a++) { ctx.SunDir[a] = sun[a]; ctx.MoonDir[a] = moon[a]; }
+  ctx.DayFactor = dayF; ctx.MoonPhase = HudState.moon_phase; ctx.Cloud = cloud;
+  ctx.GroundPhoto = GroundPhoto; ctx.SkyClock = SkyClock; ctx.DayFade = (float)dayF;
+  ctx.FrameNo = FrameNo; ctx.Width = Width; ctx.Height = Height;
+
   wgpu::CommandEncoder enc = Device.CreateCommandEncoder();
+
+  /* Pass-count proof (render/ stage-split acceptance criterion): the split into FBDrawStage classes
+   * must not change the number of Begin*Pass calls/frame — count them here and log periodically so a
+   * before/after diff is directly readable from the telemetry. */
+  int passCount = 0;
 
   /* Atmosphere LUTs (compute, once per frame — TODO cache while the sun is static). */
   {
     wgpu::ComputePassEncoder cp = enc.BeginComputePass();
+    passCount++;
     cp.SetPipeline(TransPipe);
     cp.SetBindGroup(0, TransBind);
     cp.DispatchWorkgroups(32, 8, 1);   /* 256x64 / 8x8 */
@@ -2827,6 +2320,7 @@ void FBRenderer::RenderFrame(void) {
   }
   {
     wgpu::ComputePassEncoder cp = enc.BeginComputePass();
+    passCount++;
     cp.SetPipeline(SkyLUTPipe);
     cp.SetBindGroup(0, SkyLUTBind);
     cp.DispatchWorkgroups(24, 14, 1);  /* 192x108 / 8x8 (ceil) */
@@ -2850,22 +2344,14 @@ void FBRenderer::RenderFrame(void) {
   sp.colorAttachments = &ca;
   sp.depthStencilAttachment = &da;
   wgpu::RenderPassEncoder scene = enc.BeginRenderPass(&sp);
+  passCount++;
   scene.SetPipeline(SkyPipe);
   scene.SetBindGroup(0, SkyBind);
   scene.Draw(3);                           /* physically-based sky background */
 
   /* Real stars (EVS night): additive instanced quads at their true alt/az, over the sky, under the
-   * terrain. Skipped in SVS and whenever it's bright enough that the (1-day) fade would kill them. */
-  if (GroundPhoto && StarDayFade < 0.6f && NStarVis > 0) {
-    float su[20];
-    for (int i = 0; i < 16; i++) su[i] = u[i];   /* same camera-relative MVP as the terrain */
-    su[16] = StarDayFade; su[17] = 1.0f; su[18] = (float)Width; su[19] = (float)Height;
-    Queue.WriteBuffer(StarUni, 0, su, sizeof su);
-    scene.SetPipeline(StarPipe);
-    scene.SetBindGroup(0, StarBind);
-    scene.SetVertexBuffer(0, StarInst);
-    scene.Draw(6, (uint32_t)NStarVis);
-  }
+   * terrain. FBStarsStage self-gates (SVS / daylight / none visible -> no draw). */
+  Stars->Encode(ctx, scene);
 
   if (Streaming) {   /* per-tile buffers baked into TerrainBundle; firstInstance = draw index -> storage entry */
     if (TerrainBundle && nDraw > 0) scene.ExecuteBundles(1, &TerrainBundle);
@@ -2877,20 +2363,13 @@ void FBRenderer::RenderFrame(void) {
       scene.Draw(TileCnt[i], 1, TileOff[i], (uint32_t)i);
   }
 
+  Units->Encode(ctx, scene);   /* AI units draw slot (NoOp today) */
+
   /* Night lights (EVS night): additive sprites over the terrain, depth-tested so hills occlude far
-   * ones. Same fade window as the stars; skipped in SVS / daylight / when FBWorld has streamed none. */
-  if (GroundPhoto && StarDayFade < 0.6f && NLights > 0) {
-    float lu[24];
-    for (int i = 0; i < 16; i++) lu[i] = u[i];   /* same camera-relative MVP as the terrain */
-    lu[16] = StarDayFade; lu[17] = (float)Width; lu[18] = (float)Height; lu[19] = 1.7320508f;   /* focal = 1/tan(30°) */
-    lu[20] = (float)(eye[0] - LightAnchor[0]); lu[21] = (float)(eye[1] - LightAnchor[1]);
-    lu[22] = (float)(eye[2] - LightAnchor[2]); lu[23] = 0.0f;
-    Queue.WriteBuffer(LightUni, 0, lu, sizeof lu);
-    scene.SetPipeline(LightPipe);
-    scene.SetBindGroup(0, LightBind);
-    scene.SetVertexBuffer(0, LightInst);
-    scene.Draw(6, (uint32_t)NLights);
-  }
+   * ones. FBTileLightsStage self-gates (same fade window as the stars). */
+  TileLights->Encode(ctx, scene);
+
+  Sprites->Encode(ctx, scene);   /* future effect-billboard draw slot (NoOp today) */
   scene.End();
 
   /* Volumetric cloud pass -> the QUARTER-RES target (premultiplied cloud). SEPARATE pass so it can
@@ -2912,6 +2391,7 @@ void FBRenderer::RenderFrame(void) {
        one index at kQuerySetIndexUndefined trips this Dawn build's validation -> rejects every command buffer. */
     if (HasTimestamp) { tw.querySet = TsQuery; tw.beginningOfPassWriteIndex = 0; tw.endOfPassWriteIndex = 1; cp.timestampWrites = &tw; }
     wgpu::RenderPassEncoder cl = enc.BeginRenderPass(&cp);
+    passCount++;
     if (CloudQuality > 0.0) {
       cl.SetPipeline(CloudPipe);
       cl.SetBindGroup(0, CloudBind);
@@ -2949,6 +2429,7 @@ void FBRenderer::RenderFrame(void) {
     rp2.colorAttachments = rca;
     /* no timestampWrites on the resolve pass — both timestamps live on the cloud-march pass above */
     wgpu::RenderPassEncoder rz = enc.BeginRenderPass(&rp2);
+    passCount++;
     rz.SetPipeline(CloudResolvePipe);
     rz.SetBindGroup(0, CloudResolveBind[hprev]);
     rz.Draw(3);
@@ -2966,6 +2447,7 @@ void FBRenderer::RenderFrame(void) {
   tp.colorAttachmentCount = 1;
   tp.colorAttachments = &tca;
   wgpu::RenderPassEncoder tone = enc.BeginRenderPass(&tp);
+  passCount++;
   if (CloudsOn) {
     tone.SetPipeline(TonemapPipe);
     tone.SetBindGroup(0, TonemapBindH[hcur]);   /* composite the temporally-accumulated cloud */
@@ -2980,11 +2462,7 @@ void FBRenderer::RenderFrame(void) {
    * is the reused symbology, rebuilt + uploaded each frame. Triangles (AA horizon) first, then the
    * line primitives, then the textured glyphs. */
   if (HudEnabled) {
-    w3_build_hud(&HudState, Width, Height, HudHave ? 1 : 0);
-    if (w3_hudTN > 0) Queue.WriteBuffer(HudTriVtx, 0, w3_hudT, (size_t)w3_hudTN * sizeof(float));
-    if (w3_hudN > 0) Queue.WriteBuffer(HudLineVtx, 0, w3_hud, (size_t)w3_hudN * sizeof(float));
-    if (mx_vN > 0) Queue.WriteBuffer(HudTextVtx, 0, mx_v, (size_t)mx_vN * sizeof(float));
-
+    Hud->SetState(HudState, HudHave);
     wgpu::RenderPassColorAttachment hca{};
     hca.view = frameView;
     hca.loadOp = wgpu::LoadOp::Load;
@@ -2993,24 +2471,8 @@ void FBRenderer::RenderFrame(void) {
     hp.colorAttachmentCount = 1;
     hp.colorAttachments = &hca;
     wgpu::RenderPassEncoder hud = enc.BeginRenderPass(&hp);
-    if (w3_hudTN > 0) {
-      hud.SetPipeline(HudSolidPipe);
-      hud.SetBindGroup(0, HudSolidBind);
-      hud.SetVertexBuffer(0, HudTriVtx);
-      hud.Draw((uint32_t)(w3_hudTN / 5));
-    }
-    if (w3_hudN > 0) {
-      hud.SetPipeline(HudLinePipe);
-      hud.SetBindGroup(0, HudSolidBind);
-      hud.SetVertexBuffer(0, HudLineVtx);
-      hud.Draw((uint32_t)(w3_hudN / 5));
-    }
-    if (mx_vN > 0) {
-      hud.SetPipeline(HudTextPipe);
-      hud.SetBindGroup(0, HudTextBind);
-      hud.SetVertexBuffer(0, HudTextVtx);
-      hud.Draw((uint32_t)(mx_vN / 7));
-    }
+    passCount++;
+    Hud->Encode(ctx, hud);
     hud.End();
   }
 
@@ -3026,10 +2488,19 @@ void FBRenderer::RenderFrame(void) {
   upd.colorAttachmentCount = 1;
   upd.colorAttachments = &uca;
   wgpu::RenderPassEncoder upscale = enc.BeginRenderPass(&upd);
-  upscale.SetPipeline(UpscalePipe);
-  upscale.SetBindGroup(0, UpscaleBind);
-  upscale.Draw(3);
+  passCount++;
+  Upscale->Encode(ctx, upscale);
   upscale.End();
+
+  /* Pass-count proof: log once on the first SCENE frame (not FrameNo==1, which is usually consumed by
+   * the loading screen — a short native-oracle run must still capture this) and periodically after.
+   * Expected today: 6 without clouds (2 compute + scene/tonemap/hud/upscale), 8 with FB_CLOUDS=1
+   * (+ march + resolve); 5 if HudEnabled is off (cloud lab). */
+  static bool loggedFirstPassCount = false;
+  if (!loggedFirstPassCount || FrameNo % 300 == 0) {
+    loggedFirstPassCount = true;
+    printf("[passcount] %d passes/frame (clouds=%d hud=%d)\n", passCount, CloudsOn ? 1 : 0, HudEnabled ? 1 : 0);
+  }
 
   if (HasTimestamp && CloudsOn) {   /* resolve the 2 timestamps; copy to the readback buffer only when it's free */
     enc.ResolveQuerySet(TsQuery, 0, 2, TsResolveBuf, 0);
