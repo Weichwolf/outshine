@@ -1,8 +1,4 @@
-[submodule "sim/inav-src"]
-	path = sim/inav-src
-	url = https://github.com/iNavFlight/inav.git
-	branch = master
 [submodule "sim/jsbsim"]
-	path = sim/jsbsim
+	path = sim/vendor/jsbsim
 	url = https://github.com/JSBSim-Team/jsbsim.git
 	branch = v1.3.1

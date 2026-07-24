@@ -1,0 +1,7 @@
+# fb-sim image needs only the host source. Everything else (jsbsim, vendor, build, the WASM app in
+# web/, the engine sources) is irrelevant to the container and would bloat the build context.
+# (A file cannot be re-included while its parent dir stays excluded, so un-ignore src/ first.)
+*
+!src
+src/*
+!src/fb_sim.cpp

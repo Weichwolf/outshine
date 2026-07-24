@@ -5,7 +5,11 @@ tools: Bash, Read, Edit, Write, Grep, Glob
 model: sonnet
 ---
 
-You are a senior simulator/graphics engineer on FlightBox. Working dir: `<repo>/sim`.
+You are a senior simulator/graphics engineer on FlightBox. Working dir: `<repo>/sim` — the
+self-contained `fb-sim` project: C++ source under `sim/src/` (engine core direct, `src/fdm` adapter,
+`src/terrain` lean terrain library — all flat), and the vendored toolchain under `sim/vendor` (the
+pinned `sim/vendor/jsbsim` submodule, Dawn, emdawnwebgpu, stb, build scripts). Makefile + Dockerfile
+at the `sim/` root.
 
 ## References (read before working — they are the contract)
 - `<repo>/CLAUDE.md` — architecture, principles, coding style (FB classes,
@@ -43,10 +47,10 @@ You are a senior simulator/graphics engineer on FlightBox. Working dir: `<repo>/
   exceptions inside controlled subsystems, defensive checks only at system boundaries.
 
 ## WebGPU (Dawn write-once-link-twice)
-- One renderer source (`command_center/fb/FBRenderer.*`, WGSL inline), two link targets: WASM via
-  emdawnwebgpu (`make webgpu` — deploys into the live web root, a deliberate step) and native Dawn
-  (`make webgpu-native` → `build/gpu_native`, the PNG oracle; `--fly` = live in-process loiter).
-  Tile worker: `make webgpu-worker`.
+- One renderer source (`sim/src/FBRenderer.*`, WGSL inline), two link targets: WASM via
+  emdawnwebgpu (`make -C sim wasm` — deploys into `sim/web/`) and native Dawn
+  (`make -C sim native` → `sim/build/gpu_native`, the PNG oracle; `--fly` = live in-process loiter).
+  Tile worker: `make -C sim worker`.
 - Proof venues: pixels → native oracle; behaviour/telemetry → headless console ([agl], [cpuprof],
   [fbworld], …); look & perf on real hardware → user's browser via those telemetry lines.
 - Feature gates as baked consts (env-driven string-replace at shader build): dead-strips the pass,

@@ -23,24 +23,24 @@ physics is bit-identical to the pinned commit and update-safe.
 
 ## Build & run
 
-From `sim/`:
+Two self-contained projects: **`sim/`** (the `fb-sim` Command Center — WASM app, native oracle, and web
+host) and **`tiles/`** (the `fb-tiles` world-data server). Each carries its own Makefile, Dockerfile and
+source.
 
 ```bash
-make tiles                # build the fb-tiles server image (worldwide DEM / OSM / imagery)
-make controlcenter        # build the WASM command center (JSBSim + renderer) -> flightbox/web/
-make up-tiles             # run the ONE server-side container -> :8081
-# open the command center in a browser; loiter anywhere on Earth by lat/lon/alt/radius
+make -C tiles image        # build the fb-tiles server (worldwide DEM / OSM / imagery)
+make -C tiles run          # run it -> :8081
+make -C sim wasm           # build the WASM Command Center (JSBSim + renderer) -> sim/web/
+make -C sim worker         # build the off-thread tile worker
+make -C sim up             # run the fb-sim web host -> http://localhost:8080
+# open the Command Center in a browser; loiter anywhere on Earth by lat/lon/alt/radius
 ```
 
-The native CLI build (same JSBSim + renderer, headless) drives worldwide screenshot runs to harden the
-renderer.
+The native oracle (`make -C sim native` → `sim/build/gpu_native`, same JSBSim + renderer, headless)
+drives worldwide screenshot runs and in-process `--fly` flight to harden the renderer.
 
-The architecture — JSBSim-in-the-client, the fly-by-wire + loiter autopilot, aircraft plugins, and the
-ECEF renderer — is in [`CLAUDE.md`](CLAUDE.md).
-
-> **Note (2026-07-21 pivot):** FlightBox was previously an *iNav-in-the-loop* rig (a validation harness
-> for real RC firmware). That premise is retired — the project is now a JSBSim frontend. iNav, MSP, the
-> flightbox hub and the mission/validator test system are superseded and being removed.
+The architecture — JSBSim-in-the-client, the fly-by-wire + loiter/low-level autopilot, aircraft plugins,
+and the ECEF renderer — is in [`CLAUDE.md`](CLAUDE.md).
 
 ## Datenquellen & Lizenzen
 
@@ -54,4 +54,4 @@ Der Simulator lädt reale Welt-Daten on-demand. Attributionspflicht der Quellen:
 - **Sternkatalog:** [HYG Database](https://github.com/astronexus/HYG-Database) (Hipparcos-abgeleitet)
   — lizenziert unter CC-BY-SA 4.0.
 - **Mondtextur:** NASA/GSFC Scientific Visualization Studio, CGI Moon Kit (LROC WAC Albedo,
-  `flightbox/web/moon.jpg`) — public domain.
+  `sim/web/moon.jpg`) — public domain.

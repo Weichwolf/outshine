@@ -1,0 +1,318 @@
+#include "osmmesh.h"
+
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* Decoded-DEM LRU. fetch_terrain_grid_raw is hit ~15x per output tile (self + 4 stitch neighbours,
+ * each of those re-stitching), so caching the decoded heightgrid short-circuits the dominant
+ * cold-boot cost (the PNG decode) for tiles already seen this session. */
+#define OM_DEM_LRU_CAP 128
+typedef struct { uint64_t seq; int used; uint8_t z; uint32_t x, y; osmmesh_terrain_grid g; } om_dem_ent;
+
+struct osmmesh_ctx {
+    osmmesh_enu_ctx enu;      /* origin frame for all ENU conversions */
+
+    osmmesh_tile_provider tile_provider;
+    void                 *tile_provider_user;
+    int                   provider_terrain_max_zoom;
+
+    osmmesh_terrain_build_opts terrain_opts;
+    int                        has_terrain_opts;
+    int                        enable_terrain;
+
+    om_dem_ent dem_lru[OM_DEM_LRU_CAP];
+    uint64_t   dem_seq;
+};
+
+/* Ask the host for one tile's raw bytes. Absent / not-yet-fetched => 0. */
+static int om_tile_bytes(osmmesh_ctx *ctx, osmmesh_tile_kind kind,
+                         uint32_t z, uint32_t x, uint32_t y, uint8_t **out, size_t *len)
+{
+    *out = NULL; *len = 0;
+    if (!ctx->tile_provider) return 0;
+    return ctx->tile_provider(ctx->tile_provider_user, kind, z, x, y, out, len) ? 1 : 0;
+}
+
+/* ---- decoded-DEM LRU ---------------------------------------------------- */
+
+static int om_dem_cache_off(void)
+{
+    static int v = -1;
+    if (v < 0) { const char *e = getenv("FB_NODEMCACHE"); v = (e && e[0] && e[0] != '0') ? 1 : 0; }
+    return v;
+}
+static int om_dem_lru_get(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
+                          osmmesh_terrain_grid *out)
+{
+    if (om_dem_cache_off()) return 0;
+    for (int i = 0; i < OM_DEM_LRU_CAP; i++) {
+        om_dem_ent *e = &ctx->dem_lru[i];
+        if (!e->used || e->z != z || e->x != x || e->y != y) continue;
+        e->seq = ++ctx->dem_seq;                         /* touch */
+        size_t n = (size_t)e->g.rows * e->g.cols;
+        out->rows = e->g.rows; out->cols = e->g.cols; out->heights = NULL;
+        if (n) {
+            out->heights = (float *)malloc(n * sizeof(float));
+            if (!out->heights) { memset(out, 0, sizeof *out); return 0; }   /* clone OOM -> miss */
+            memcpy(out->heights, e->g.heights, n * sizeof(float));
+        }
+        return 1;
+    }
+    return 0;
+}
+static void om_dem_lru_put(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
+                           const osmmesh_terrain_grid *grid)
+{
+    if (om_dem_cache_off()) return;
+    if (!grid->heights || grid->rows < 1 || grid->cols < 1) return;
+    int vict = -1; uint64_t oldest = UINT64_MAX;
+    for (int i = 0; i < OM_DEM_LRU_CAP; i++) {
+        if (!ctx->dem_lru[i].used) { vict = i; break; }
+        if (ctx->dem_lru[i].seq < oldest) { oldest = ctx->dem_lru[i].seq; vict = i; }
+    }
+    size_t n = (size_t)grid->rows * grid->cols;
+    float *h = (float *)malloc(n * sizeof(float));
+    if (!h) return;                                      /* can't cache -> skip, correctness unaffected */
+    memcpy(h, grid->heights, n * sizeof(float));
+    om_dem_ent *e = &ctx->dem_lru[vict];
+    if (e->used) osmmesh_terrain_grid_free(&e->g);       /* evict */
+    e->used = 1; e->z = z; e->x = x; e->y = y;
+    e->g.heights = h; e->g.rows = grid->rows; e->g.cols = grid->cols;
+    e->seq = ++ctx->dem_seq;
+}
+
+/* ---- terrain grid fetch (raw + neighbour-edge stitch) ------------------- */
+
+/* Fetch + decode + crop the terrain tile for (z, x, y) into an owned grid,
+ * WITHOUT any neighbour-edge stitching. Splitting raw from stitched avoids
+ * unbounded recursion (the stitch pass reads the four neighbours raw). */
+static int fetch_terrain_grid_raw(osmmesh_ctx *ctx,
+                                  uint8_t z, uint32_t x, uint32_t y,
+                                  osmmesh_terrain_grid *out_grid)
+{
+    memset(out_grid, 0, sizeof *out_grid);
+    if (om_dem_lru_get(ctx, z, x, y, out_grid)) return OSMMESH_OK;
+    if (!ctx->tile_provider) return OSMMESH_OK;
+
+    /* If request z exceeds the provider's max zoom, step up to the parent tile and crop the decoded
+     * heightmap to the sub-tile region (a tile server has no header stating its max zoom, so the
+     * host declares it in the config). */
+    uint8_t ter_z = z;
+    uint32_t ter_x = x, ter_y = y;
+    uint32_t sub_x = 0, sub_y = 0, sub_div = 1;
+    int src_maxz = (ctx->provider_terrain_max_zoom > 0) ? ctx->provider_terrain_max_zoom : -1;
+    if (src_maxz >= 0 && z > src_maxz) {
+        uint8_t dz = (uint8_t)(z - src_maxz);
+        if (dz > 16) return OSMMESH_OK; /* absurd gap; give up silently */
+        ter_z = (uint8_t)src_maxz;
+        sub_div = 1u << dz;
+        ter_x = x >> dz;
+        ter_y = y >> dz;
+        sub_x = x & (sub_div - 1);
+        sub_y = y & (sub_div - 1);
+    }
+
+    uint8_t *png = NULL; size_t png_len = 0;
+    if (!om_tile_bytes(ctx, OSMMESH_TILE_TERRAIN, ter_z, ter_x, ter_y, &png, &png_len) ||
+        !png || png_len == 0) {
+        free(png);
+        return OSMMESH_OK;   /* absent / not yet fetched */
+    }
+
+    osmmesh_terrain_grid grid = {};
+    int drc = osmmesh_terrain_decode_png(png, png_len, &grid);
+    free(png);
+    if (drc != OSMMESH_TERRAIN_OK) return OSMMESH_ERR_DECODE;
+
+    if (sub_div > 1) {
+        uint32_t crop_cols = grid.cols / sub_div;
+        uint32_t crop_rows = grid.rows / sub_div;
+        if (crop_cols < 2 || crop_rows < 2) {
+            osmmesh_terrain_grid_free(&grid);
+            return OSMMESH_OK;
+        }
+        uint32_t src_x0 = sub_x * crop_cols;
+        uint32_t src_y0 = sub_y * crop_rows;
+        uint32_t out_cols = crop_cols + 1;
+        uint32_t out_rows = crop_rows + 1;
+        if (src_x0 + out_cols > grid.cols) out_cols = grid.cols - src_x0;
+        if (src_y0 + out_rows > grid.rows) out_rows = grid.rows - src_y0;
+        float *crop = (float *)malloc((size_t)out_rows * out_cols * sizeof(float));
+        if (!crop) {
+            osmmesh_terrain_grid_free(&grid);
+            return OSMMESH_ERR_OOM;
+        }
+        for (uint32_t r = 0; r < out_rows; r++) {
+            memcpy(crop + (size_t)r * out_cols,
+                   grid.heights + (size_t)(src_y0 + r) * grid.cols + src_x0,
+                   (size_t)out_cols * sizeof(float));
+        }
+        free(grid.heights);
+        grid.heights = crop;
+        grid.rows = out_rows;
+        grid.cols = out_cols;
+    }
+
+    om_dem_lru_put(ctx, z, x, y, &grid);   /* cache a clone; `grid` stays ours to hand back */
+    *out_grid = grid;
+    return OSMMESH_OK;
+}
+
+/* Average our edge column/row with the neighbour tile's matching column/row.
+ * Symmetric: both sides land on the same midpoint, so the heights line up
+ * exactly at the seam. Side codes: 0=W (col 0), 1=E (col cols-1), 2=N (row 0),
+ * 3=S (row rows-1). Tolerates dimension mismatches (parent-edge cropping can
+ * shave a row/column); only the overlapping range is averaged. */
+static void stitch_edge(osmmesh_ctx *ctx, osmmesh_terrain_grid *self,
+                        uint8_t z, uint32_t nx, uint32_t ny, int side)
+{
+    osmmesh_terrain_grid n = {};
+    if (fetch_terrain_grid_raw(ctx, z, nx, ny, &n) != OSMMESH_OK ||
+        !n.heights || n.rows < 2 || n.cols < 2) {
+        osmmesh_terrain_grid_free(&n);
+        return;
+    }
+
+    if (side == 0 || side == 1) { /* W or E: column average over rows */
+        uint32_t self_col = (side == 0) ? 0 : (self->cols - 1);
+        uint32_t neig_col = (side == 0) ? (n.cols - 1) : 0;
+        uint32_t rows = (self->rows < n.rows) ? self->rows : n.rows;
+        for (uint32_t r = 0; r < rows; r++) {
+            float a = self->heights[(size_t)r * self->cols + self_col];
+            float b = n.heights[(size_t)r * n.cols + neig_col];
+            self->heights[(size_t)r * self->cols + self_col] = 0.5f * (a + b);
+        }
+    } else {                       /* N or S: row average over cols */
+        uint32_t self_row = (side == 2) ? 0 : (self->rows - 1);
+        uint32_t neig_row = (side == 2) ? (n.rows - 1) : 0;
+        uint32_t cols = (self->cols < n.cols) ? self->cols : n.cols;
+        for (uint32_t c = 0; c < cols; c++) {
+            float a = self->heights[(size_t)self_row * self->cols + c];
+            float b = n.heights[(size_t)neig_row * n.cols + c];
+            self->heights[(size_t)self_row * self->cols + c] = 0.5f * (a + b);
+        }
+    }
+
+    osmmesh_terrain_grid_free(&n);
+}
+
+/* Wrap the raw fetch with neighbour-edge averaging (4 independent sides). */
+static int fetch_terrain_grid(osmmesh_ctx *ctx,
+                              uint8_t z, uint32_t x, uint32_t y,
+                              osmmesh_terrain_grid *out_grid)
+{
+    int rc = fetch_terrain_grid_raw(ctx, z, x, y, out_grid);
+    if (rc != OSMMESH_OK || !out_grid->heights) return rc;
+
+    if (x > 0) stitch_edge(ctx, out_grid, z, x - 1, y, 0); /* W */
+    stitch_edge(ctx, out_grid, z, x + 1, y, 1);            /* E (absent neighbour drops silently) */
+    if (y > 0) stitch_edge(ctx, out_grid, z, x, y - 1, 2); /* N */
+    stitch_edge(ctx, out_grid, z, x, y + 1, 3);            /* S */
+    return OSMMESH_OK;
+}
+
+/* Build a terrain mesh (ENU meters) from an already-decoded heightgrid. */
+static int build_terrain_mesh_from_grid(osmmesh_ctx *ctx,
+                                        const osmmesh_terrain_grid *grid,
+                                        const osmmesh_tile_enu_map *map,
+                                        osmmesh_mesh **out_mesh)
+{
+    *out_mesh = NULL;
+    if (!grid || !grid->heights || grid->rows < 2 || grid->cols < 2)
+        return OSMMESH_OK;
+
+    osmmesh_terrain_build_opts opts;
+    opts.stride          = 1;
+    opts.compute_normals = 1;
+    opts.add_skirt       = 0;
+    opts.skirt_depth_m   = 0.0f;
+    if (ctx->has_terrain_opts) opts = ctx->terrain_opts;
+    if (opts.stride == 0) opts.stride = 1;
+
+    osmmesh_mesh *m = (osmmesh_mesh *)calloc(1, sizeof(*m));
+    if (!m) return OSMMESH_ERR_OOM;
+
+    int brc = osmmesh_terrain_build_mesh(grid, map, &opts, m);
+    if (brc != OSMMESH_TERRAIN_OK) {
+        free(m);
+        return (brc == OSMMESH_TERRAIN_ERR_OOM) ? OSMMESH_ERR_OOM : OSMMESH_ERR_DECODE;
+    }
+    *out_mesh = m;
+    return OSMMESH_OK;
+}
+
+/* ---- public API --------------------------------------------------------- */
+
+int osmmesh_create(const osmmesh_config *cfg, osmmesh_ctx **out)
+{
+    if (!cfg || !out) return OSMMESH_ERR_ARG;
+    *out = NULL;
+    if (!cfg->tile_provider) return OSMMESH_ERR_CONFIG;
+
+    osmmesh_ctx *ctx = (osmmesh_ctx *)calloc(1, sizeof(*ctx));
+    if (!ctx) return OSMMESH_ERR_OOM;
+
+    if (osmmesh_enu_init(&ctx->enu, cfg->origin_lat, cfg->origin_lon) != OSMMESH_GEO_OK) {
+        free(ctx);
+        return OSMMESH_ERR_CONFIG;
+    }
+
+    if (cfg->terrain_opts) {
+        ctx->terrain_opts     = *cfg->terrain_opts;
+        ctx->has_terrain_opts = 1;
+    }
+
+    ctx->tile_provider             = cfg->tile_provider;
+    ctx->tile_provider_user        = cfg->tile_provider_user;
+    ctx->provider_terrain_max_zoom = cfg->provider_terrain_max_zoom;
+    ctx->enable_terrain            = cfg->enable_terrain ? 1 : 0;
+
+    *out = ctx;
+    return OSMMESH_OK;
+}
+
+void osmmesh_destroy(osmmesh_ctx *ctx)
+{
+    if (!ctx) return;
+    for (int i = 0; i < OM_DEM_LRU_CAP; i++)
+        if (ctx->dem_lru[i].used) osmmesh_terrain_grid_free(&ctx->dem_lru[i].g);
+    free(ctx);
+}
+
+int osmmesh_fetch_tile(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
+                       osmmesh_tile *out)
+{
+    if (!ctx || !out) return OSMMESH_ERR_ARG;
+
+    memset(out, 0, sizeof *out);
+    out->z = z; out->x = x; out->y = y;
+    if (!ctx->enable_terrain) return OSMMESH_OK;
+
+    osmmesh_terrain_grid grid = {};
+    int trc = fetch_terrain_grid(ctx, z, x, y, &grid);
+    if (trc != OSMMESH_OK) return trc;
+
+    if (grid.heights && grid.rows >= 2 && grid.cols >= 2) {
+        osmmesh_tile_enu_map map;
+        osmmesh_tile_enu_map_init(&map, &ctx->enu, z, x, y, 4096);
+        int brc = build_terrain_mesh_from_grid(ctx, &grid, &map, &out->terrain);
+        if (brc != OSMMESH_OK) {
+            osmmesh_terrain_grid_free(&grid);
+            return brc;
+        }
+    }
+
+    osmmesh_terrain_grid_free(&grid);
+    return OSMMESH_OK;
+}
+
+void osmmesh_free_tile(osmmesh_tile *tile)
+{
+    if (!tile) return;
+    if (tile->terrain) {
+        osmmesh_mesh_free(tile->terrain);
+        free(tile->terrain);
+    }
+    memset(tile, 0, sizeof *tile);
+}

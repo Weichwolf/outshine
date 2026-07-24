@@ -23,18 +23,18 @@ ein gültiger Start**.
 ## Prinzipien (nicht verhandelbar)
 
 1. **Physik nicht neu schreiben.** JSBSim (LGPL, NASA/FlightGear-erprobt) ist die Wahrheit. Eigener
-   Code nur an den Nähten: der C-aufrufbare Adapter (`aircraft/fdm/jsbsim_adapter.*`), die Regelung,
-   der Renderer. **JSBSim ist ein gepinntes, read-only Git-Submodul** (`sim/jsbsim`) — nie gepatcht;
+   Code nur an den Nähten: der C-aufrufbare Adapter (`sim/src/fdm/jsbsim_adapter.*`), die Regelung,
+   der Renderer. **JSBSim ist ein gepinntes, read-only Git-Submodul** (`sim/vendor/jsbsim`) — nie gepatcht;
    der Build baut libJSBSim aus dem Submodul, so ist die Physik bit-identisch zum gepinnten Commit
    und update-fähig.
 2. **JSBSim läuft IM Client.** libJSBSim linkt in die CC — WASM via Emscripten, native fürs CLI. Die
    Modell-XML + Engine-/Tabellendaten reisen in Emscriptens virtuellem FS (embed/preload). Keine
    Telemetrie-Grenze zwischen Physik und Bild — sie sind derselbe Prozess. Gäbe es einen Wire
    dazwischen, wäre es die alte Architektur; der Sinn des Pivots ist, ihn zu streichen.
-3. **Server-seitig nur zwei schlanke, unabhängige Container:** `fb-tiles` (:8081, reine Tile-API —
-   weltweit DEM/OSM/Luftbild) und `fb-web` (:8080, reiner Web-Host: fbserver serviert die WASM-App +
-   env-config; `web-up.sh`). **Alles andere ist Client** — Physik, FBW, Autopilot, Renderer, HUD.
-   Kein SITL, kein World-Prozess, kein Hub mehr (Cutover 2026-07-22).
+3. **Server-seitig nur zwei schlanke, unabhängige Container:** `fb-tiles` (`tiles/`, :8081, reine
+   Tile-API — weltweit DEM/OSM/Luftbild) und `fb-sim` (`sim/`, :8080, reiner Web-Host: serviert die
+   WASM-App + env-config; `sim/up.sh`). **Alles andere ist Client** — Physik, FBW, Autopilot, Renderer,
+   HUD. Kein SITL, kein World-Prozess, kein Hub.
 4. **Sim läuft so schnell wie sinnvoll.** Die Sim-Mathematik ist deterministisch; Wall-Clock-Tempo
    ändert das Ergebnis nicht. Live-Flug im Browser = Echtzeit; Batch/Screenshot/Headless = so schnell
    die Maschine kann. Gibt das Tempo das Ergebnis, ist die Kopplung nicht-deterministisch = ein Bug.
@@ -94,8 +94,9 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
 
 ## Engineering-Konventionen
 
-- **Build nur über Make-Targets** (`make webgpu`, `make webgpu-worker`, `make webgpu-native`, …) — Rezepte
-  leben im Makefile, nicht in Agenten-Köpfen.
+- **Build nur über Make-Targets** — jedes Projekt trägt sein eigenes Makefile: `sim/` baut die CC
+  (`make -C sim wasm` | `worker` | `native` | `image` | `up`), `tiles/` den Tile-Server
+  (`make -C tiles build` | `image` | `run`). Rezepte leben im Makefile, nicht in Agenten-Köpfen.
 - **`extern "C"` für jede von JS namentlich gerufene Funktion** (EMSCRIPTEN_KEEPALIVE reicht nicht —
   Mangling bricht Exporte still).
 - **Frame-Beweis-Pflicht:** build-wirksame Änderungen gelten erst mit gerendertem Frame oder
@@ -103,7 +104,7 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
 - **Fidelity-Baseline + Mess-Konventionen:** `doc/fidelity-baseline.md` (Hash-Lock, [agl]-Log,
   Bare-Model-Vergleich, akzeptierte Modell-Eigenschaften). Ziel-GPU-Fähigkeiten:
   `doc/webgl-webgpu-report.txt`.
-- JSBSim (`sim/jsbsim`) und das f16-Modell sind read-only; Warnings = Errors.
+- JSBSim (`temp/jsbsim`) und das f16-Modell sind read-only; Warnings = Errors.
 
 ## Rendering (das Herzstück)
 
@@ -130,7 +131,7 @@ Crash-Erkennung. Die Kamera geht **nie unter die Oberfläche** (Clamp auf Grund 
 ## Was gestrichen wurde (Pivot 2026-07-21)
 
 Die frühere Prämisse — vanilla iNav-Firmware in der Schleife als Beweis-Rig für echte RC-Hardware — ist
-**retired**. Damit entfallen: iNav (`sim/inav-src`), MSP/CRSF, der `--sim=xp`-Sensorpfad, der
-`flightbox`-Hub, die `msp_bridge`-iNav-Kopplung, das TS-Missions-/Validator-Testsystem und `sim/test/`.
+**retired**. Damit entfallen: iNav (`temp/inav-src`), MSP/CRSF, der `--sim=xp`-Sensorpfad, der
+`flightbox`-Hub, die `msp_bridge`-iNav-Kopplung, das TS-Missions-/Validator-Testsystem und `temp/test/`.
 Diese Teile sind **superseded** und werden entfernt, sobald der JSBSim-in-CC-Pfad steht (Ersatz zuerst,
 dann Löschen). Bis dahin nicht als lebende Architektur behandeln.

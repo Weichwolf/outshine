@@ -52,7 +52,7 @@ JSBSim-Propulsion-Tabellen sind die Implementierung.
 bit-identisch zu flightctl.h verifiziert (beide Branches); flightctl.h bleibt nur für native Harnesse.
 Native Harness: `g++ -O2 -std=c++17 <harness> aircraft/fdm/jsbsim_adapter.cpp
 validator/build/jsbsim-host/lib/libJSBSim.a -I validator/build/jsbsim-host/include/JSBSim
--I aircraft/fdm -I command_center -lm` (cwd `sim/`).
-Headless-Probe: Playwright aus `sim/tools/node_modules`, Chromium-Args
+-I aircraft/fdm -I command_center -lm` (cwd `temp/`).
+Headless-Probe: Playwright aus `temp/tools/node_modules`, Chromium-Args
 `--no-sandbox --enable-unsafe-webgpu --enable-features=Vulkan`, Seite `http://localhost:8080/`
 (die Seite unter `/`).

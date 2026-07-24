@@ -1,17 +1,19 @@
 # --- build outputs ---
-sim/build/
-sim/flightbox/web/cc.js
-sim/flightbox/web/cc.wasm
-sim/flightbox/web/tw.js
-sim/flightbox/web/tw.wasm
-sim/flightbox/web/cc.data
+temp/build/
+tiles/fb-tiles
+tiles/cache/
+temp/flightbox/web/cc.js
+temp/flightbox/web/cc.wasm
+temp/flightbox/web/tw.js
+temp/flightbox/web/tw.wasm
+temp/flightbox/web/cc.data
 *.o
 *.elf
 
 
 # --- vendored / generated (recreated by build scripts) ---
-sim/inav-sitl/
-sim/aircraft/SITL.elf
+temp/inav-sitl/
+temp/aircraft/SITL.elf
 **/eeprom.bin
 
 # --- logs & temp ---
@@ -23,3 +25,4 @@ sim/aircraft/SITL.elf
 # --- Claude runtime artifacts (config itself IS tracked) ---
 .claude/scheduled_tasks.lock
 .claude/settings.local.json
+temp/inav-src/
