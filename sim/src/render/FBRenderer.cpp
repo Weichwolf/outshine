@@ -1,5 +1,6 @@
 #include "FBRenderer.h"
-#include "FBMips.h"        /* fb_mip_count / fb_build_pyramid — the ONE sRGB mip source */
+#include "stages/FBAtmoCommon.h"   /* kAtmoCommon: still needed here for the cloud shaders' splice */
+#include "stages/FBAtmoSample.h"   /* kAtmoSample: same, clouds */
 #include <cstdint>
 #include <algorithm>
 #include <cstdio>
@@ -23,8 +24,7 @@ FBRenderer::FBRenderer()
     MoonW(0), MoonH(0), MoonScale(1.0), SkyClock(0),
     CloudW(0), CloudH(0), CloudQuality(1.0),
     HudState{}, HudEnabled(false), HudHave(false),
-    Center{0, 0, 0}, TerrainNVerts(0), NTiles(0), AlbedoTS(0), NotReadyDraws(0), Streaming(false), GroundPhoto(false), BaseMode(0), LayerCap(0),
-    LayerUsed(0), MaxLayers(256), HaveCamera(false), CameraFull(false), Eye{0, 0, 0}, LookTarget{0, 0, 0},
+    Center{0, 0, 0}, GroundPhoto(false), HaveCamera(false), CameraFull(false), Eye{0, 0, 0}, LookTarget{0, 0, 0},
     Fwd{0, 0, 0}, Right{0, 0, 0}, Up{0, 0, 0}, Width(0), Height(0), DeviceReady(false),
     DeviceLost(false), Mode(Target::Surface), Blocking(false), Selector(nullptr), FrameNo(0) {}
 
@@ -37,13 +37,7 @@ void FBRenderer::SetHud(const FBState &s, bool have) {
 void FBRenderer::SetAgl(float agl) { Hud->SetAgl(agl); }
 
 void FBRenderer::SetAlbedoArray(const uint8_t *rgba, int ts, int layers) {
-  AlbedoTS = ts;
-  AlbedoData.assign(rgba, rgba + (size_t)layers * ts * ts * 4);
-}
-
-void FBRenderer::SetStreaming(int albedoTS) {
-  Streaming = true;
-  AlbedoTS = albedoTS;
+  Tiles->SetAlbedoArray(rgba, ts, layers);
 }
 
 void FBRenderer::SetCamera(const double eye[3], const double target[3]) {
@@ -59,12 +53,7 @@ void FBRenderer::SetCameraBasis(const double eye[3], const double fwd[3], const 
 
 void FBRenderer::SetTerrain(const float *verts, uint32_t nverts, int ntiles, const uint32_t *voff,
                             const uint32_t *vcnt, const double *origins, const double *center) {
-  TerrainVerts.assign(verts, verts + (size_t)nverts * 8);
-  TerrainNVerts = nverts;
-  NTiles = ntiles;
-  TileOff.assign(voff, voff + ntiles);
-  TileCnt.assign(vcnt, vcnt + ntiles);
-  TileOrigin.assign(origins, origins + (size_t)ntiles * 3);
+  Tiles->SetStaticMesh(verts, nverts, ntiles, voff, vcnt, origins);
   for (int a = 0; a < 3; a++) Center[a] = center[a];
 }
 
@@ -197,418 +186,17 @@ void FBRenderer::OnDevice(wgpu::Device d) {
          HdrFormat == wgpu::TextureFormat::RG11B10Ufloat ? "rg11b10ufloat" : "rgba16float");
 }
 
-/* ============================================================================================
- * Hillaire-2020 physically-based sky+atmosphere. Standard Earth params (Rground 6360 km, Ratmo
- * 6460 km, Rayleigh/Mie/ozone from the paper), work in MEGAMETRES like the reference. Two compute
- * LUTs (transmittance, sky-view) + a fullscreen sky pass; the transmittance LUT also drives the
- * terrain's aerial perspective. Single scattering this stage — multiscatter LUT + the 32^3 AP LUT
- * are marked TODO. All outputs are LINEAR radiance feeding the existing ACES tonemap.
- * ========================================================================================== */
-static const char *kAtmoCommon = R"(
-const PI = 3.14159265358979;
-const groundRadiusMM = 6.360;
-const atmosphereRadiusMM = 6.460;
-const rayleighScatteringBase = vec3f(5.802, 13.558, 33.1);
-const mieScatteringBase = 3.996;
-const mieAbsorptionBase = 4.4;
-const ozoneAbsorptionBase = vec3f(0.650, 1.881, 0.085);
-struct Atmo {
-  camPosMm : vec4f, sunDir : vec4f, up : vec4f, sunTan : vec4f, side : vec4f,
-  camRight : vec4f, camUp : vec4f, camFwd : vec4f, params : vec4f,
-  moonDir : vec4f,   /* xyz = ECEF dir to moon, w = illuminated phase fraction */
-  skyExtra : vec4f,  /* x = daylight factor (0 night..1 day), y = EVS gate (1=photo), z = cloud, w = spare */
-};
-struct ScatterVals { rayleigh : vec3f, mie : f32, extinction : vec3f };
-fn getScatteringValues(pos : vec3f) -> ScatterVals {
-  let altitudeKM = (length(pos) - groundRadiusMM) * 1000.0;
-  let rayleighDensity = exp(-altitudeKM / 8.0);
-  let mieDensity = exp(-altitudeKM / 1.2);
-  var s : ScatterVals;
-  s.rayleigh = rayleighScatteringBase * rayleighDensity;
-  s.mie = mieScatteringBase * mieDensity;
-  let mieAbs = mieAbsorptionBase * mieDensity;
-  let ozone = ozoneAbsorptionBase * max(0.0, 1.0 - abs(altitudeKM - 25.0) / 15.0);
-  s.extinction = s.rayleigh + vec3f(s.mie + mieAbs) + ozone;
-  return s;
-}
-fn rayIntersectSphere(ro : vec3f, rd : vec3f, rad : f32) -> f32 {
-  let b = dot(ro, rd);
-  let c = dot(ro, ro) - rad * rad;
-  if (c > 0.0 && b > 0.0) { return -1.0; }
-  let disc = b * b - c;
-  if (disc < 0.0) { return -1.0; }
-  if (disc > b * b) { return -b + sqrt(disc); }
-  return -b - sqrt(disc);
-}
-fn getMiePhase(cosTheta : f32) -> f32 {
-  let g = 0.8;
-  let num = (1.0 - g * g) * (1.0 + cosTheta * cosTheta);
-  let denom = (2.0 + g * g) * pow(1.0 + g * g - 2.0 * g * cosTheta, 1.5);
-  return (3.0 / (8.0 * PI)) * num / denom;
-}
-fn getRayleighPhase(cosTheta : f32) -> f32 { return (3.0 / (16.0 * PI)) * (1.0 + cosTheta * cosTheta); }
-fn tLUTuv(pos : vec3f, sunDir : vec3f) -> vec2f {
-  let height = length(pos);
-  let up = pos / height;
-  return vec2f(clamp(0.5 + 0.5 * dot(sunDir, up), 0.0, 1.0),
-               clamp((height - groundRadiusMM) / (atmosphereRadiusMM - groundRadiusMM), 0.0, 1.0));
-}
-)";
-
-static const char *kTransmittanceCS = R"(
-@group(0) @binding(0) var tOut : texture_storage_2d<rgba16float, write>;
-fn getSunTransmittance(pos : vec3f, sunDir : vec3f) -> vec3f {
-  if (rayIntersectSphere(pos, sunDir, groundRadiusMM) > 0.0) { return vec3f(0.0); }
-  let atmoDist = rayIntersectSphere(pos, sunDir, atmosphereRadiusMM);
-  let steps = 40.0;
-  var t = 0.0;
-  var transmittance = vec3f(1.0);
-  for (var i = 0.0; i < steps; i = i + 1.0) {
-    let newT = ((i + 0.3) / steps) * atmoDist;
-    let dt = newT - t;
-    t = newT;
-    let sv = getScatteringValues(pos + t * sunDir);
-    transmittance = transmittance * exp(-dt * sv.extinction);
-  }
-  return transmittance;
-}
-@compute @workgroup_size(8, 8, 1)
-fn cs(@builtin(global_invocation_id) id : vec3u) {
-  if (id.x >= 256u || id.y >= 64u) { return; }
-  let uv = (vec2f(f32(id.x), f32(id.y)) + 0.5) / vec2f(256.0, 64.0);
-  let sunCosTheta = 2.0 * uv.x - 1.0;
-  let sunTheta = acos(clamp(sunCosTheta, -1.0, 1.0));
-  let height = mix(groundRadiusMM, atmosphereRadiusMM, uv.y);
-  let pos = vec3f(0.0, height, 0.0);
-  let sunDir = normalize(vec3f(0.0, sunCosTheta, -sin(sunTheta)));
-  textureStore(tOut, vec2i(i32(id.x), i32(id.y)), vec4f(getSunTransmittance(pos, sunDir), 1.0));
-}
-)";
-
-static const char *kSkyViewCS = R"(
-@group(0) @binding(0) var svOut : texture_storage_2d<rgba16float, write>;
-@group(0) @binding(1) var tLUT : texture_2d<f32>;
-@group(0) @binding(2) var lsamp : sampler;
-@group(0) @binding(3) var<uniform> A : Atmo;
-fn getValFromTLUT(pos : vec3f, sunDir : vec3f) -> vec3f {
-  return textureSampleLevel(tLUT, lsamp, tLUTuv(pos, sunDir), 0.0).rgb;
-}
-fn raymarchScattering(pos0 : vec3f, rayDir : vec3f, sunDir : vec3f, steps : f32) -> vec3f {
-  let cosTheta = dot(rayDir, sunDir);
-  let miePhase = getMiePhase(cosTheta);
-  let rayleighPhase = getRayleighPhase(-cosTheta);
-  var lum = vec3f(0.0);
-  var transmittance = vec3f(1.0);
-  var t = 0.0;
-  let atmoDist = rayIntersectSphere(pos0, rayDir, atmosphereRadiusMM);
-  let groundDist = rayIntersectSphere(pos0, rayDir, groundRadiusMM);
-  var maxDist = atmoDist;
-  if (groundDist > 0.0) { maxDist = groundDist; }
-  for (var i = 0.0; i < steps; i = i + 1.0) {
-    let newT = ((i + 0.3) / steps) * maxDist;
-    let dt = newT - t;
-    t = newT;
-    let newPos = pos0 + t * rayDir;
-    let sv = getScatteringValues(newPos);
-    let sampleTransmittance = exp(-dt * sv.extinction);
-    let sunTransmittance = getValFromTLUT(newPos, sunDir);
-    let inScattering = (sv.rayleigh * rayleighPhase + vec3f(sv.mie * miePhase)) * sunTransmittance;
-    let scatteringIntegral = (inScattering - inScattering * sampleTransmittance) / sv.extinction;
-    lum = lum + scatteringIntegral * transmittance;
-    transmittance = transmittance * sampleTransmittance;
-  }
-  return lum;
-}
-@compute @workgroup_size(8, 8, 1)
-fn cs(@builtin(global_invocation_id) id : vec3u) {
-  if (id.x >= 192u || id.y >= 108u) { return; }
-  let uv = (vec2f(f32(id.x), f32(id.y)) + 0.5) / vec2f(192.0, 108.0);
-  let azimuth = 2.0 * PI * uv.x;
-  let coord = 2.0 * uv.y - 1.0;
-  let altitude = sign(coord) * (PI * 0.5) * coord * coord;   /* horizon-dense mapping */
-  let ca = cos(altitude);
-  let rayDir = A.up.xyz * sin(altitude) + (A.sunTan.xyz * cos(azimuth) + A.side.xyz * sin(azimuth)) * ca;
-  let lum = raymarchScattering(A.camPosMm.xyz, rayDir, A.sunDir.xyz, 32.0);
-  textureStore(svOut, vec2i(i32(id.x), i32(id.y)), vec4f(lum, 1.0));
-}
-)";
-
-/* Sky-view sampling + exposure, shared verbatim by the sky pass and the terrain aerial perspective. */
-static const char *kAtmoSample = R"(
-const kSkyExposure = 8.0;
-fn skyViewSample(svLUT : texture_2d<f32>, lsamp : sampler, A : Atmo, dir : vec3f) -> vec3f {
-  let alt = asin(clamp(dot(dir, A.up.xyz), -1.0, 1.0));
-  var az = atan2(dot(dir, A.side.xyz), dot(dir, A.sunTan.xyz));
-  if (az < 0.0) { az = az + 2.0 * PI; }
-  let coord = sign(alt) * sqrt(abs(alt) / (PI * 0.5));
-  let uv = vec2f(az / (2.0 * PI), (coord + 1.0) * 0.5);
-  return textureSampleLevel(svLUT, lsamp, uv, 0.0).rgb * kSkyExposure;
-}
-)";
-
-static const char *kSkyWGSL = R"(
-@group(0) @binding(0) var svLUT : texture_2d<f32>;
-@group(0) @binding(1) var lsamp : sampler;
-@group(0) @binding(2) var tLUT : texture_2d<f32>;
-@group(0) @binding(3) var<uniform> A : Atmo;
-@group(0) @binding(4) var moonTex : texture_2d<f32>;   /* NASA LROC equirect albedo */
-struct VOut { @builtin(position) pos : vec4f, @location(0) ndc : vec2f };
-@vertex fn vs(@builtin(vertex_index) i : u32) -> VOut {
-  var c = array<vec2f, 3>(vec2f(-1.0, -1.0), vec2f(3.0, -1.0), vec2f(-1.0, 3.0));
-  var o : VOut;
-  let p = c[i];
-  o.pos = vec4f(p, 0.0, 1.0);
-  o.ndc = p;
-  return o;
-}
-fn h21(p : vec2f) -> f32 { return fract(sin(dot(p, vec2f(127.1, 311.7))) * 43758.5453); }
-fn vnoise(p : vec2f) -> f32 {
-  let i = floor(p); var f = fract(p); f = f * f * (3.0 - 2.0 * f);
-  let a = h21(i); let b = h21(i + vec2f(1.0, 0.0));
-  let c = h21(i + vec2f(0.0, 1.0)); let d = h21(i + vec2f(1.0, 1.0));
-  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-}
-@fragment fn fs(in : VOut) -> @location(0) vec4f {
-  let dir = normalize(A.camFwd.xyz + in.ndc.x * A.params.x * A.params.y * A.camRight.xyz
-                                   + in.ndc.y * A.params.x * A.camUp.xyz);
-  var col = skyViewSample(svLUT, lsamp, A, dir);   /* physically-based scattering: day/dusk/night */
-
-  let evs = A.skyExtra.y;        /* SVS (OSM) suppresses every real-sky extra below (constant day) */
-  let day = A.skyExtra.x;
-  let hgt = dot(dir, A.up.xyz);  /* sin(view elevation) */
-
-  /* Clouds: value-noise sheet on the dome, lit by day, dark occluders by night (stars read through). */
-  let cloud = A.skyExtra.z;
-  if (evs > 0.5 && cloud > 0.01 && hgt > 0.04) {
-    let side = normalize(cross(A.up.xyz, A.camFwd.xyz));
-    let fwd = normalize(cross(side, A.up.xyz));
-    let cuv = vec2f(dot(dir, side), dot(dir, fwd)) / (hgt + 0.25) * 1.6;
-    let n = 0.55 * vnoise(cuv) + 0.35 * vnoise(cuv * 2.3) + 0.15 * vnoise(cuv * 4.7);
-    let cl = smoothstep(1.0 - cloud, 1.0 - cloud * 0.35, n) * smoothstep(0.04, 0.22, hgt);
-    let cc = mix(vec3f(0.03, 0.04, 0.06), vec3f(0.95, 0.96, 1.0), day) * kSkyExposure;
-    col = mix(col, cc, cl * 0.85);
-  }
-
-  /* Moon as a lit sphere: within its angular radius, reconstruct the front-hemisphere normal, sample
-   * the NASA albedo, and light it with the REAL sun direction — phase/terminator emerge physically. */
-  let moonUp = A.moonDir.xyz;
-  if (evs > 0.5 && dot(moonUp, A.up.xyz) > -0.03) {   /* moon at/above the local horizon */
-    let mr = A.skyExtra.w;               /* moon angular radius: 0.0045 rad (real) x FB_MOON_SCALE */
-    let cosA = dot(dir, moonUp);
-    if (cosA > cos(mr * 3.0)) {
-      let mRight = normalize(cross(A.up.xyz, moonUp));
-      let mUp = normalize(cross(moonUp, mRight));
-      let toObs = -moonUp;                 /* moon centre -> observer */
-      let u = dot(dir, mRight) / mr;
-      let v = dot(dir, mUp) / mr;
-      let r2 = u * u + v * v;
-      if (r2 < 1.0) {
-        let nrm = mRight * u + mUp * v + toObs * -sqrt(1.0 - r2);   /* sphere normal, front hemi */
-        let lon = atan2(dot(nrm, mRight), dot(nrm, -toObs));
-        let lat = asin(clamp(dot(nrm, mUp), -1.0, 1.0));
-        let muv = vec2f(0.5 + lon / (2.0 * 3.14159265), 0.5 - lat / 3.14159265);
-        let alb = textureSampleLevel(moonTex, lsamp, muv, 0.0).rgb;
-        let lit = max(dot(nrm, A.sunDir.xyz), 0.0);
-        let earth = 0.06 * A.moonDir.w;    /* faint earthshine on the dark limb */
-        let moonCol = alb * (lit + earth) * 12.0 * (1.0 - 0.6 * day);
-        col = col + moonCol;
-      }
-    }
-  }
-
-  /* Sun disc + glow (EVS, sun above horizon). Disc = solar transmittance; glow = soft forward halo. */
-  if (evs > 0.5) {
-    let sa = acos(clamp(dot(dir, A.sunDir.xyz), -1.0, 1.0));
-    let sup = smoothstep(-0.06, 0.0, A.sunDir.y * 0.0 + dot(A.sunDir.xyz, A.up.xyz));
-    let disc = select(0.0, 1.0, dot(dir, A.sunDir.xyz) > A.params.z);
-    let sunT = textureSampleLevel(tLUT, lsamp, tLUTuv(A.camPosMm.xyz, A.sunDir.xyz), 0.0).rgb;
-    let glow = (exp(-sa * 7.0) * 0.35 + exp(-sa * 1.5) * 0.12 * day) * kSkyExposure;
-    col = col + (disc * sunT * A.params.w + glow * vec3f(1.0, 0.80, 0.55)) * sup;
-  }
-  return vec4f(col, 1.0);
-}
-)";
-
-/* Bring-up terrain pipeline. Establishes the port's structural patterns from day one:
- *   - INDEXED geometry (never triangle soup), 32 B w3_vtx-compatible layout (pos3+uv2+norm3)
- *   - per-draw transforms in a UNIFORM/STORAGE buffer via one bind group (batched submission)
- *   - Depth32Float with [0,1] REVERSED-Z: clear 0.0, compare Greater — full float precision,
- *     no [-1,1] mantissa loss (the WebGL limitation this port removes)
- *   - sRGB render target view: light in linear, encode on write
- * Geometry: a procedural 32x32 height-field grid standing in for a terrain tile. */
-static const char *kTerrainWGSL = R"(
-struct U { mvp : mat4x4f, sun : vec4f };
-@group(0) @binding(0) var<uniform> u : U;
-// per-draw storage entry: a.xyz = camera-relative ECEF offset (origin_ecef - cam_ecef, float),
-// a.w = albedo array LAYER; b.x = per-tile PHOTO brightness GAIN (1.0 for OSM / bright tiles). The draw
-// selects entry i via firstInstance, so instance_index == draw index.
-struct Tile { a : vec4f, b : vec4f };
-@group(0) @binding(1) var<storage, read> tiles : array<Tile>;
-@group(0) @binding(2) var samp : sampler;
-@group(0) @binding(3) var albedo : texture_2d_array<f32>;
-@group(0) @binding(4) var tLUT : texture_2d<f32>;
-@group(0) @binding(5) var svLUT : texture_2d<f32>;
-@group(0) @binding(6) var<uniform> A : Atmo;
-/* Terrain aerial-perspective switch, baked at shader build from env FB_AP (CreateTerrainPipeline):
- * 0.0 = OFF (default, user directive 2026-07-23) — terrain is lit albedo pure, full brightness to the
- * horizon, the whole tLUT/inscatter/glow block dead-strips (no per-pixel cost). FB_AP=1 arms it (Lab/
- * A-B; code stays intact, same mechanism as FB_CLOUDS). The SKY pass is unaffected either way. */
-const AP_ON : f32 = 0.0;
-struct VOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f, @location(1) nrm : vec3f,
-              @location(2) @interpolate(flat) layer : u32, @location(3) wpos : vec3f,
-              @location(4) @interpolate(flat) gain : f32 };
-@vertex fn vs(@builtin(instance_index) inst : u32,
-              @location(0) p : vec3f, @location(1) uv : vec2f, @location(2) n : vec3f) -> VOut {
-  var o : VOut;
-  let t = tiles[inst];
-  let rel = p + t.a.xyz;                    // camera-relative ECEF (metres); a.xyz = origin - cam
-  o.pos = u.mvp * vec4f(rel, 1.0);
-  o.uv = uv;
-  o.nrm = n;
-  o.layer = u32(t.a.w);
-  o.wpos = rel;
-  o.gain = t.b.x;
-  return o;
-}
-@fragment fn fs(in : VOut) -> @location(0) vec4f {
-  let nrmN = normalize(in.nrm);
-  // At grazing the uv FOOTPRINT anisotropy exceeds the 16:1 HW aniso cap; the sampler under-filters the
-  // major axis -> VERTICAL STREAKS. Clamp the effective anisotropy to 16:1 with a mip bias derived from
-  // the ACTUAL screen-space uv derivatives (dpdx/dpdy) — not the surface normal, which mis-reads on
-  // camera-facing slopes. bias = log2(aniso/16), so only the >16:1 tail coarsens; near/overhead (aniso
-  // ~1) gets bias 0 and stays fully sharp. Cap 4 so the far band can't blur to mush.
-  // Grazing view -> the albedo footprint elongates along the depth axis past the 16:1 HW aniso cap ->
-  // the major axis under-filters into VERTICAL STREAKS. Coarsen the mip by the view GRAZING (the view
-  // ray vs the radial up — a robust screen-projection signal; the per-tile uv derivatives underestimate
-  // it because far tiles carry a coarse mesh, and the surface normal mis-reads on camera-facing slopes).
-  // grazeV = downward component of the view ray; bias climbs as it shallows, 0 above ~30° depression so
-  // near/steep terrain stays fully sharp, ~2.8 at the horizon band. Cap 3.5 so the far band can't mush.
-  let vdir = normalize(in.wpos);
-  let upR = normalize(A.camPosMm.xyz);
-  let grazeV = max(-dot(vdir, upR), 0.01);
-  // SHARPNESS PRIORITY (user finding 2026-07-23 overrides the critic's streak finding): the old
-  // cap 4 (16x blur) bought a streak-free far band with MUSH. Retuned — onset only below ~10°
-  // depression (2^-2.5) so near+mid+most of the far field stay FULLY sharp, cap 1.2 (~2.3x footprint)
-  // so the extreme-grazing horizon band gets a light coarsen, not a smear. Residual streaks in that
-  // last band are ACCEPTED (sharp > streak-free, by explicit user preference).
-  let gbias = clamp(1.0 * (-log2(grazeV) - 2.5), 0.0, 1.2);
-  // rgba8unorm-srgb layer -> sampling decodes to LINEAR (no manual pow); uv is 0..1 across the tile.
-  // in.gain lifts the dark low-zoom Esri photo composite toward the bright orthophoto level (per-tile,
-  // linear; 1.0 for OSM/bright tiles) — SVS unaffected (its layers all carry gain 1.0).
-  let base = textureSampleBias(albedo, samp, in.uv, i32(in.layer), gbias).rgb * in.gain;
-  // Direct-sun diffuse, GATED by the daylight factor in EVS: with the sun below the horizon (night)
-  // there is no direct sunlight, so diff -> 0. Without the gate, steep/aliased normals (more numerous on
-  // coarse LOD tiles) catch the below-horizon sun via (0.4+3*diff) -> a bright brightness-step at LOD
-  // seams. SVS is a constant daylit database view -> full diff. (Day EVS: skyExtra.x~1 -> unchanged.)
-  let diffGate = select(1.0, A.skyExtra.x, A.skyExtra.y > 0.5);
-  let diff = max(dot(nrmN, normalize(u.sun.xyz)), 0.0) * diffGate;
-  // EVS ground tracks the real light level (atmo.h: 0.08 night floor .. 1 day) so night is genuinely
-  // dark under the star field; SVS (OSM) stays a constant daylit database view.
-  let light = select(1.0, 0.08 + 0.92 * A.skyExtra.x, A.skyExtra.y > 0.5);
-  var c = base * (0.4 + 3.0 * diff) * light;   // scene RADIANCE in linear — the tonemap compresses
-  if (AP_ON > 0.5) {
-  // Aerial perspective (analytic first stage): view-ray transmittance from the LUT ratio + sky-view
-  // inscatter. The Hillaire transmittance LUT is parametrised by the RAY's cos-zenith to space, so it
-  // is only valid on its UPWARD branch — a downward view dir hits the "ray into the ground" edge
-  // (T~0) and blacks out near terrain. Sample with the upward direction (-dir) and take the ratio
-  // T(cam->frag) = T(frag->space) / T(cam->space) along it (frag is lower -> ratio < 1 = the segment
-  // transmittance). TODO: the full 32^3 aerial-perspective LUT.
-  let viewDist = length(in.wpos);
-  let dir = in.wpos / max(viewDist, 1.0);    // camera -> fragment (often below the horizon)
-  let upDir = -dir;                          // fragment -> camera -> space: the LUT's valid branch
-  let camPos = A.camPosMm.xyz;
-  let fragPos = camPos + in.wpos / 1e6;      // Mm
-  let tCamU = textureSampleLevel(tLUT, samp, tLUTuv(camPos, upDir), 0.0).rgb;
-  let tFragU = textureSampleLevel(tLUT, samp, tLUTuv(fragPos, upDir), 0.0).rgb;
-  let viewTrans = clamp(tFragU / max(tCamU, vec3f(1e-4)), vec3f(0.0), vec3f(1.0));
-  // Inscatter must converge to the SAME colour the sky pass paints, or the farthest terrain (viewTrans
-  // ->0) lands on a different colour than the sky just above the ridge = the ~5px horizon-edge band.
-  // The sky pass is skyViewSample + a warm sun-glow halo (exp forward-scatter, tint 1,0.80,0.55); the
-  // terrain inscatter had only skyViewSample, so the far band stayed cooler/bluer than the sky = the
-  // blue rim. Add the identical glow term so terrain -> sky as viewTrans->0 (seamless); it scales with
-  // (1-viewTrans) like the rest of the inscatter, so near/steep terrain (viewTrans~=1) is unaffected.
-  let sa = acos(clamp(dot(dir, A.sunDir.xyz), -1.0, 1.0));
-  let sup = smoothstep(-0.06, 0.0, dot(A.sunDir.xyz, A.up.xyz));
-  let glow = (exp(-sa * 7.0) * 0.35 + exp(-sa * 1.5) * 0.12 * A.skyExtra.x) * kSkyExposure;
-  let skyCol = skyViewSample(svLUT, samp, A, dir) + glow * vec3f(1.0, 0.80, 0.55) * sup;
-  let inscat = skyCol * (1.0 - viewTrans);
-  c = c * viewTrans + inscat;
-  }   // end if (AP_ON) — off by default: lit albedo pure to the horizon
-  return vec4f(c, 1.0);
-}
-)";
-
-/* Max per-frame draws in streaming mode — the storage buffer + draw loop bound (a multi-LOD cut to
- * 240 km stays under this; the streamer's leaves are frustum/grace-bounded). */
-static const int kMaxDraws = 4096;
-
+/* Hillaire-2020 physically-based sky+atmosphere: three shader classes (FBTransmittanceStage,
+ * FBSkyViewStage, FBSkyStage), one per shader — CreateAtmosphere below only creates the shared
+ * resources (textures/sampler/uniform 3+ consumers read, incl. FBTilesStage terrain aerial
+ * perspective) and wires the three stages via explicit dependency injection at Configure(). */
+/* Terrain draw (kTerrainWGSL) + the albedo texture_2d_array + RenderBundle/DynTile streaming state
+ * all live in FBTilesStage now (render/stages/FBTilesStage.*) — this method only creates the scene's
+ * SHARED targets (DepthTex/HdrTex: FBSkyStage and FBTilesStage both draw into them, the cloud pass
+ * samples DepthTex) and hands FBTilesStage its dependencies (the shared sampler, both atmosphere
+ * LUTs, AtmoBuf) via explicit Configure() — same Init-order contract as CreateAtmosphere: this must
+ * run AFTER it, since Tiles' bind group pins the LUT views CreateAtmosphere already created. */
 void FBRenderer::CreateTerrainPipeline(void) {
-  /* Static (SetTerrain / native): upload the merged mesh once. Streaming: no merged Vtx — per-tile
-   * buffers live in the DynTiles table (UploadTile). osmmesh emits a triangle SOUP (6 verts/quad),
-   * so both draw non-indexed; an index buffer would halve the traffic. TODO: weld+index on upload. */
-  wgpu::BufferDescriptor bd{};
-  if (!Streaming) {
-    bd.size = (uint64_t)TerrainNVerts * 8 * sizeof(float);
-    bd.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
-    Vtx = Device.CreateBuffer(&bd);
-    Queue.WriteBuffer(Vtx, 0, TerrainVerts.data(), (size_t)TerrainNVerts * 8 * sizeof(float));
-  }
-
-  bd.size = 80; /* mat4 + vec4 */
-  bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
-  Uni = Device.CreateBuffer(&bd);
-
-  /* Two vec4 per draw (struct Tile): a = camera-relative ECEF origin (xyz) + albedo layer (w),
-   * b.x = per-tile photo brightness gain. Rewritten every frame. Storage, not uniform — scales past
-   * the 64 KB uniform limit. Streaming sizes to the draw ceiling. */
-  int entries = Streaming ? kMaxDraws : (NTiles > 0 ? NTiles : 1);
-  bd.size = (uint64_t)entries * 8 * sizeof(float);
-  bd.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
-  TileBuf = Device.CreateBuffer(&bd);
-
-  std::string terrSrc = std::string(kAtmoCommon) + kAtmoSample + kTerrainWGSL;   /* AP helpers + struct */
-  if (const char *e = getenv("FB_AP"); e && atoi(e) != 0) {   /* arm the aerial-perspective path (default off) */
-    const std::string from = "const AP_ON : f32 = 0.0;", to = "const AP_ON : f32 = 1.0;";
-    auto p = terrSrc.find(from); if (p != std::string::npos) terrSrc.replace(p, from.size(), to);
-  }
-  wgpu::ShaderSourceWGSL wgsl{};
-  wgsl.code = terrSrc.c_str();
-  wgpu::ShaderModuleDescriptor smd{};
-  smd.nextInChain = &wgsl;
-  wgpu::ShaderModule sm = Device.CreateShaderModule(&smd);
-
-  wgpu::VertexAttribute attrs[3] = {};
-  attrs[0].format = wgpu::VertexFormat::Float32x3; attrs[0].offset = 0;  attrs[0].shaderLocation = 0;
-  attrs[1].format = wgpu::VertexFormat::Float32x2; attrs[1].offset = 12; attrs[1].shaderLocation = 1;
-  attrs[2].format = wgpu::VertexFormat::Float32x3; attrs[2].offset = 20; attrs[2].shaderLocation = 2;
-  wgpu::VertexBufferLayout vbl{};
-  vbl.arrayStride = 32;
-  vbl.attributeCount = 3;
-  vbl.attributes = attrs;
-
-  wgpu::DepthStencilState ds{};
-  ds.format = wgpu::TextureFormat::Depth32Float;
-  ds.depthWriteEnabled = true;
-  ds.depthCompare = wgpu::CompareFunction::Greater;  /* [0,1] reversed-Z: nearer = larger */
-
-  wgpu::ColorTargetState ct{};
-  ct.format = HdrFormat;   /* scene renders into the offscreen HDR target, not the swapchain */
-
-  wgpu::RenderPipelineDescriptor rp{};
-  rp.vertex.module = sm;
-  rp.vertex.bufferCount = 1;
-  rp.vertex.buffers = &vbl;
-  wgpu::FragmentState fs{};
-  fs.module = sm;
-  fs.targetCount = 1;
-  fs.targets = &ct;
-  rp.fragment = &fs;
-  rp.depthStencil = &ds;
-  rp.primitive.cullMode = wgpu::CullMode::None;  /* TODO: cull once the ECEF soup winding is pinned */
-  TerrainPipe = Device.CreateRenderPipeline(&rp);
-
-  RebuildTerrainBind();
-
   wgpu::TextureDescriptor td{};
   td.size = {(uint32_t)Width, (uint32_t)Height, 1};
   td.format = wgpu::TextureFormat::Depth32Float;
@@ -617,12 +205,10 @@ void FBRenderer::CreateTerrainPipeline(void) {
   td.format = HdrFormat;
   td.usage = wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding;
   HdrTex = Device.CreateTexture(&td);
-}
 
-/* Albedo mip levels are built OFF this thread now: the worker (or the native synchronous path) hands
- * a finished sRGB pyramid via fb_stream_pyramid; the renderer only uploads levels. The pyramid math
- * lives once in FBMips.h (ONE source — oracle and browser render identical pixels). */
-static int MipCountFor(int ts) { return fb_mip_count(ts); }
+  FBGpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
+  Tiles->Configure(gpu, Samp, TransLUT.CreateView(), SkyLUT.CreateView(), AtmoBuf, MaxLayers);
+}
 
 void FBRenderer::CreateTileTexture(void) {
   wgpu::SamplerDescriptor sd{};
@@ -633,244 +219,17 @@ void FBRenderer::CreateTileTexture(void) {
   sd.mipmapFilter = wgpu::MipmapFilterMode::Linear;   /* trilinear across the new mip chain */
   sd.maxAnisotropy = 16;   /* target GPU allows it; the grazing-mip bias in the terrain fs handles the >16:1 tail */
   Samp = Device.CreateSampler(&sd);
-
-  if (Streaming) {   /* dynamic: an empty growable array; FBWorld fills/recycles layers at runtime */
-    LayerCap = 64;
-    LayerUsed = 0;
-    wgpu::TextureDescriptor td{};
-    td.size = {(uint32_t)AlbedoTS, (uint32_t)AlbedoTS, (uint32_t)LayerCap};
-    td.mipLevelCount = (uint32_t)MipCountFor(AlbedoTS);
-    td.format = wgpu::TextureFormat::RGBA8UnormSrgb;
-    td.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::CopySrc;
-    Albedo = Device.CreateTexture(&td);
-    return;
-  }
-
-  /* One layer per tile. Real bakes arrive via SetAlbedoArray (rgba8unorm-srgb: sampling decodes to
-   * linear, lighting stays linear). Without them, every layer is a procedural checker. TODO: mips. */
-  const uint32_t TS = AlbedoData.empty() ? 256u : (uint32_t)AlbedoTS;
-  const uint32_t layers = (uint32_t)(NTiles > 0 ? NTiles : 1);
-
-  wgpu::TextureDescriptor td{};
-  td.size = {TS, TS, layers};
-  td.mipLevelCount = (uint32_t)MipCountFor((int)TS);
-  td.format = wgpu::TextureFormat::RGBA8UnormSrgb;
-  td.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
-  Albedo = Device.CreateTexture(&td);
-
-  std::vector<uint8_t> pyr(fb_pyramid_bytes((int)TS));   /* static path builds its own pyramid (unused live) */
-  auto uploadLayer = [&](uint32_t layer, const uint8_t *data) {
-    fb_build_pyramid(data, (int)TS, pyr.data());
-    WriteAlbedoLayer((int)layer, pyr.data(), (int)TS);
-  };
-
-  std::vector<uint8_t> checker;   /* built lazily for missing/absent layers */
-  auto makeChecker = [&]() {
-    checker.resize((size_t)TS * TS * 4);
-    for (uint32_t y = 0; y < TS; y++)
-      for (uint32_t x = 0; x < TS; x++) {
-        bool c = ((x >> 5) ^ (y >> 5)) & 1u;
-        uint8_t *o = &checker[(y * TS + x) * 4];
-        o[0] = c ? 200 : 40; o[1] = c ? 20 : 40; o[2] = c ? 200 : 40; o[3] = 255;
-      }
-  };
-
-  const size_t layerBytes = (size_t)TS * TS * 4;
-  for (uint32_t i = 0; i < layers; i++) {
-    if (AlbedoData.size() >= (size_t)(i + 1) * layerBytes)
-      uploadLayer(i, AlbedoData.data() + (size_t)i * layerBytes);
-    else {
-      if (checker.empty()) makeChecker();
-      uploadLayer(i, checker.data());
-    }
-  }
-}
-
-/* Grow the albedo array to hold `need` layers: recreate at a larger cap (×2, capped 2048) and copy
- * the resident layers over. Rare — only when the working set outgrows the current cap. */
-void FBRenderer::EnsureAlbedoCap(int need) {
-  if (need <= LayerCap) return;
-  int cap = LayerCap ? LayerCap : 64;
-  while (cap < need) cap *= 2;
-  if (cap > MaxLayers) cap = MaxLayers;
-  if (need > cap) return;   /* at the device array-layer ceiling — caller handles the -1 */
-
-  const int mips = MipCountFor(AlbedoTS);
-  wgpu::TextureDescriptor td{};
-  td.size = {(uint32_t)AlbedoTS, (uint32_t)AlbedoTS, (uint32_t)cap};
-  td.mipLevelCount = (uint32_t)mips;
-  td.format = wgpu::TextureFormat::RGBA8UnormSrgb;
-  td.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::CopySrc;
-  wgpu::Texture grown = Device.CreateTexture(&td);
-
-  if (Albedo && LayerCap > 0) {   /* carry every resident layer AND its whole mip chain across */
-    wgpu::CommandEncoder enc = Device.CreateCommandEncoder();
-    for (int lv = 0; lv < mips; lv++) {
-      uint32_t d = (uint32_t)(AlbedoTS >> lv); if (d == 0) d = 1;
-      wgpu::TexelCopyTextureInfo src{}, dst{};
-      src.texture = Albedo; src.mipLevel = (uint32_t)lv;
-      dst.texture = grown;  dst.mipLevel = (uint32_t)lv;
-      wgpu::Extent3D ext{d, d, (uint32_t)LayerCap};
-      enc.CopyTextureToTexture(&src, &dst, &ext);
-    }
-    wgpu::CommandBuffer cmd = enc.Finish();
-    Queue.Submit(1, &cmd);
-  }
-  Albedo = grown;
-  LayerCap = cap;
-  RebuildTerrainBind();
-}
-
-/* (Re)create the terrain bind group. Called once after the pipeline is built and again whenever the
- * albedo array texture is swapped out (EnsureAlbedoCap) — the group pins a specific texture view. */
-void FBRenderer::RebuildTerrainBind(void) {
-  wgpu::TextureViewDescriptor avd{};
-  avd.dimension = wgpu::TextureViewDimension::e2DArray;
-  wgpu::BindGroupEntry be[7] = {};
-  be[0].binding = 0; be[0].buffer = Uni; be[0].size = 80;
-  be[1].binding = 1; be[1].buffer = TileBuf; be[1].size = TileBuf.GetSize();
-  be[2].binding = 2; be[2].sampler = Samp;
-  be[3].binding = 3; be[3].textureView = Albedo.CreateView(&avd);
-  be[4].binding = 4; be[4].textureView = TransLUT.CreateView();   /* aerial perspective */
-  be[5].binding = 5; be[5].textureView = SkyLUT.CreateView();
-  be[6].binding = 6; be[6].buffer = AtmoBuf; be[6].size = 11 * 4 * sizeof(float);
-  wgpu::BindGroupDescriptor bgd{};
-  bgd.layout = TerrainPipe.GetBindGroupLayout(0);
-  bgd.entryCount = 7;
-  bgd.entries = be;
-  Bind = Device.CreateBindGroup(&bgd);
-}
-
-/* One free albedo-array layer: a recycled slot, or a freshly grown one. -1 at the device ceiling. */
-int FBRenderer::AllocLayer(void) {
-  if (!FreeLayers.empty()) { int l = FreeLayers.back(); FreeLayers.pop_back(); return l; }
-  EnsureAlbedoCap(LayerUsed + 1);
-  if (LayerUsed >= LayerCap) return -1;   /* 2048 ceiling */
-  return LayerUsed++;
-}
-
-/* Upload a finished sRGB mip PYRAMID (level 0..N packed contiguous, from fb_stream_pyramid) into array
- * layer `layer`. No mip building here — that ran off-thread (worker) or synchronously (native). */
-void FBRenderer::WriteAlbedoLayer(int layer, const uint8_t *pyramid, int ts) {
-  const uint8_t *p = pyramid;
-  int w = ts, level = 0;
-  for (;;) {
-    wgpu::TexelCopyTextureInfo dst{};
-    dst.texture = Albedo;
-    dst.mipLevel = (uint32_t)level;
-    dst.origin = {0, 0, (uint32_t)layer};
-    wgpu::TexelCopyBufferLayout lay{};
-    lay.bytesPerRow = (uint32_t)w * 4;
-    lay.rowsPerImage = (uint32_t)w;
-    wgpu::Extent3D ext{(uint32_t)w, (uint32_t)w, 1};
-    Queue.WriteTexture(&dst, p, (size_t)w * w * 4, &lay, &ext);
-    if (w == 1) break;
-    p += (size_t)w * w * 4;
-    w >>= 1;
-    level++;
-  }
-}
-
-/* Photo brightness normalisation (user directive 2026-07-23): Esri's imagery product changes with zoom
- * — low-zoom = a dark satellite composite, high-zoom = bright orthophoto — so the EVS far field reads
- * darker/more saturated than near. Lift dark low-zoom PHOTO tiles toward the bright orthophoto mean via
- * a per-tile gain = clamp(Ytarget/Ytile, 1, maxGain); Ytile = LINEAR luminance of the tile MEAN, which
- * is the 1x1 mip top — free from the finished pyramid. PHOTO only, only below the product boundary,
- * never darkens. Ytarget is ADAPTIVE (UpdatePhotoGains): the EMA-smoothed mean of resident NEAR photo
- * tiles (zoom >= boundary), so the far field is matched to whatever the near orthophoto currently is —
- * no near tile yet -> gain 1 (never guess). Knobs: FB_PHOTO_MAXGAIN, FB_PHOTO_ZMAX, FB_PHOTO_EMA. */
-static int fbPhotoZmax(void) { const char *e = getenv("FB_PHOTO_ZMAX"); return e ? atoi(e) : 11; }
-static float fbTileYlin(const uint8_t *pyramid, int ts) {
-  const uint8_t *top = pyramid + (fb_pyramid_bytes(ts) - 4);   /* 1x1 mip = the tile MEAN (sRGB bytes) */
-  fb_srgb_lut_();
-  return 0.2126f * fb_srgb_lin_[top[0]] + 0.7152f * fb_srgb_lin_[top[1]] + 0.0722f * fb_srgb_lin_[top[2]];
-}
-
-void FBRenderer::SetLayerPhoto(int layer, float ylin, int z) {
-  if (layer < 0) return;
-  if (layer >= (int)LayerKind.size()) { LayerKind.resize((size_t)layer + 1, 0); LayerYlin.resize((size_t)layer + 1, 0.0f); }
-  if (layer >= (int)Gains.size()) Gains.resize((size_t)layer + 1, 1.0f);
-  LayerYlin[layer] = ylin;
-  LayerKind[layer] = (int8_t)(z < fbPhotoZmax() ? 1 : 2);   /* 1 = far (gets gain), 2 = near (Ytarget ref) */
-}
-
-void FBRenderer::ClearLayer(int layer) {
-  if (layer < 0 || layer >= (int)LayerKind.size()) return;
-  LayerKind[layer] = 0;
-  if (layer < (int)Gains.size()) Gains[layer] = 1.0f;
-}
-
-/* Per-frame: refresh the adaptive brightness reference from the resident NEAR photo tiles, then rebuild
- * every far tile's gain toward it. EMA-smoothed so the far field doesn't flicker as tiles stream/evict. */
-void FBRenderer::UpdatePhotoGains(void) {
-  double sum = 0.0; int n = 0;
-  for (size_t l = 0; l < LayerKind.size(); l++)
-    if (LayerKind[l] == 2 && LayerYlin[l] > 1e-4f) { sum += LayerYlin[l]; n++; }
-  if (n > 0) {
-    double mean = sum / n;
-    const char *ae = getenv("FB_PHOTO_EMA"); double a = ae ? atof(ae) : 0.08;   /* smoothing rate/frame */
-    PhotoYTarget = PhotoYValid ? PhotoYTarget * (1.0 - a) + mean * a : mean;
-    PhotoYValid = true;
-  }
-  const char *ge = getenv("FB_PHOTO_MAXGAIN"); float maxg = ge ? (float)atof(ge) : 2.5f;
-  int nfar = 0; double gsum = 0;
-  for (size_t l = 0; l < LayerKind.size(); l++) {
-    float g = 1.0f;
-    if (LayerKind[l] == 1 && PhotoYValid && LayerYlin[l] > 1e-4f) {
-      g = (float)(PhotoYTarget / LayerYlin[l]);
-      if (g < 1.0f) g = 1.0f; else if (g > maxg) g = maxg;
-      nfar++; gsum += g;
-    }
-    if (l < Gains.size()) Gains[l] = g;
-  }
-  if (getenv("FB_PHOTO_LOG") && (FrameNo % 60) == 0)
-    printf("[photogain] Ytarget=%.4f (near=%d) far=%d avgGain=%.3f\n", PhotoYTarget, n, nfar, nfar ? gsum / nfar : 1.0);
 }
 
 int FBRenderer::UploadTile(const float *verts, uint32_t nverts, const double origin[3],
                            const uint8_t *albedo, int ts, int z) {
   if (!DeviceUsable()) return -1;
-  AlbedoTS = ts;
-
-  int layer = AllocLayer();
-  if (layer < 0) return -1;
-  WriteAlbedoLayer(layer, albedo, ts);
-  if (BaseMode == 1) SetLayerPhoto(layer, fbTileYlin(albedo, ts), z);   /* base is photo -> tracked for gain */
-  else ClearLayer(layer);                                               /* OSM base -> no gain */
-
-  int slot = -1;
-  for (int i = 0; i < (int)DynTiles.size(); i++)
-    if (!DynTiles[i].Used) { slot = i; break; }
-  if (slot < 0) { slot = (int)DynTiles.size(); DynTiles.push_back(DynTile{}); }
-
-  DynTile &d = DynTiles[slot];
-  wgpu::BufferDescriptor bd{};
-  bd.size = (uint64_t)nverts * 8 * sizeof(float);
-  bd.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
-  d.Vtx = Device.CreateBuffer(&bd);
-  Queue.WriteBuffer(d.Vtx, 0, verts, (size_t)nverts * 8 * sizeof(float));
-  d.NVerts = nverts;
-  for (int a = 0; a < 3; a++) d.Origin[a] = origin[a];
-  d.Layer = layer;
-  d.PhotoLayer = -1;   /* fetched lazily on the first EVS toggle (UploadTilePhoto) */
-  d.PhotoUpTick = 0;
-  d.Used = true;
-  return slot;
+  return Tiles->UploadTile(verts, nverts, origin, albedo, ts, z);
 }
 
 int FBRenderer::UploadTilePhoto(int slot, const uint8_t *photo, int ts, int z) {
   if (!DeviceUsable()) return 0;
-  if (slot < 0 || slot >= (int)DynTiles.size() || !DynTiles[slot].Used) return 0;
-  DynTile &d = DynTiles[slot];
-  if (d.PhotoLayer >= 0) return 1;   /* already attached */
-  int layer = AllocLayer();
-  if (layer < 0) return 0;            /* array full — caller stops retrying, tile stays OSM */
-  WriteAlbedoLayer(layer, photo, ts);
-  if (BaseMode == 0) SetLayerPhoto(layer, fbTileYlin(photo, ts), z);   /* overlay is photo when base is OSM */
-  else ClearLayer(layer);
-  d.PhotoLayer = layer;
-  d.PhotoUpTick = FrameNo;   /* 2-phase: draw the photo layer only once its upload is committed */
-  return 1;
+  return Tiles->UploadTilePhoto(slot, photo, ts, z, FrameNo);
 }
 
 void FBRenderer::SetGroundMode(int photo) {
@@ -878,23 +237,6 @@ void FBRenderer::SetGroundMode(int photo) {
   Hud->SetGroundMode(photo);   /* HUD SVS/EVS annunciator */
 }
 
-void FBRenderer::ReleaseTile(int slot) {
-  if (slot < 0 || slot >= (int)DynTiles.size() || !DynTiles[slot].Used) return;
-  DynTile &d = DynTiles[slot];
-  d.Vtx = nullptr;   /* drop the ref -> buffer freed */
-  d.Used = false;
-  ClearLayer(d.Layer);
-  FreeLayers.push_back(d.Layer);
-  if (d.PhotoLayer >= 0) { ClearLayer(d.PhotoLayer); FreeLayers.push_back(d.PhotoLayer); d.PhotoLayer = -1; }
-}
-
-void FBRenderer::SetDrawList(const int *slots, int n) {
-  DrawList.assign(slots, slots + n);
-}
-
-long FBRenderer::AlbedoVramBytes(void) const {
-  return (long)(LayerUsed - (int)FreeLayers.size()) * AlbedoTS * AlbedoTS * 4;
-}
 
 /* Fullscreen ACES-approx tonemap: reads the HDR scene target, encodes to the (sRGB) swapchain.
  * Lighting stays linear upstream; this is the only place display encoding happens. */
@@ -1052,75 +394,17 @@ void FBRenderer::CreateAtmosphere(void) {
     Queue.WriteTexture(&dst, src, (size_t)mw * mh * 4, &lay, &ext);
   }
 
-  auto mkmod = [&](const std::string &code) {
-    wgpu::ShaderSourceWGSL w{};
-    w.code = code.c_str();
-    wgpu::ShaderModuleDescriptor smd{};
-    smd.nextInChain = &w;
-    return Device.CreateShaderModule(&smd);
-  };
-
-  {   /* transmittance LUT compute — self-contained (no camera/sun uniform) */
-    wgpu::ShaderModule m = mkmod(std::string(kAtmoCommon) + kTransmittanceCS);
-    wgpu::ComputePipelineDescriptor cp{};
-    cp.compute.module = m;
-    cp.compute.entryPoint = "cs";
-    TransPipe = Device.CreateComputePipeline(&cp);
-    wgpu::BindGroupEntry be[1] = {};
-    be[0].binding = 0;
-    be[0].textureView = TransLUT.CreateView();
-    wgpu::BindGroupDescriptor bg{};
-    bg.layout = TransPipe.GetBindGroupLayout(0);
-    bg.entryCount = 1;
-    bg.entries = be;
-    TransBind = Device.CreateBindGroup(&bg);
-  }
-  {   /* sky-view LUT compute — raymarch single scattering, sun transmittance from the LUT */
-    wgpu::ShaderModule m = mkmod(std::string(kAtmoCommon) + kSkyViewCS);
-    wgpu::ComputePipelineDescriptor cp{};
-    cp.compute.module = m;
-    cp.compute.entryPoint = "cs";
-    SkyLUTPipe = Device.CreateComputePipeline(&cp);
-    wgpu::BindGroupEntry be[4] = {};
-    be[0].binding = 0; be[0].textureView = SkyLUT.CreateView();
-    be[1].binding = 1; be[1].textureView = TransLUT.CreateView();
-    be[2].binding = 2; be[2].sampler = LutSamp;
-    be[3].binding = 3; be[3].buffer = AtmoBuf; be[3].size = 11 * 4 * sizeof(float);
-    wgpu::BindGroupDescriptor bg{};
-    bg.layout = SkyLUTPipe.GetBindGroupLayout(0);
-    bg.entryCount = 4;
-    bg.entries = be;
-    SkyLUTBind = Device.CreateBindGroup(&bg);
-  }
-  {   /* fullscreen sky render pass -> HDR, depth Always/no-write so terrain draws over */
-    wgpu::ShaderModule m = mkmod(std::string(kAtmoCommon) + kAtmoSample + kSkyWGSL);
-    wgpu::DepthStencilState ds{};
-    ds.format = wgpu::TextureFormat::Depth32Float;
-    ds.depthWriteEnabled = false;
-    ds.depthCompare = wgpu::CompareFunction::Always;
-    wgpu::ColorTargetState ct{};
-    ct.format = HdrFormat;
-    wgpu::RenderPipelineDescriptor rp{};
-    rp.vertex.module = m;
-    wgpu::FragmentState fs{};
-    fs.module = m;
-    fs.targetCount = 1;
-    fs.targets = &ct;
-    rp.fragment = &fs;
-    rp.depthStencil = &ds;
-    SkyPipe = Device.CreateRenderPipeline(&rp);
-    wgpu::BindGroupEntry be[5] = {};
-    be[0].binding = 0; be[0].textureView = SkyLUT.CreateView();
-    be[1].binding = 1; be[1].sampler = LutSamp;
-    be[2].binding = 2; be[2].textureView = TransLUT.CreateView();
-    be[3].binding = 3; be[3].buffer = AtmoBuf; be[3].size = 11 * 4 * sizeof(float);
-    be[4].binding = 4; be[4].textureView = MoonTex.CreateView();
-    wgpu::BindGroupDescriptor bg{};
-    bg.layout = SkyPipe.GetBindGroupLayout(0);
-    bg.entryCount = 5;
-    bg.entries = be;
-    SkyBind = Device.CreateBindGroup(&bg);
-  }
+  /* Init-order CONTRACT: the three atmosphere stages are Configure()d here, in THIS order, because
+   * each later one's bind group is built from an EARLIER one's already-created texture view (WebGPU
+   * bind groups pin a specific view at creation — there is no "rebind later"). Transmittance owns
+   * TransLUT; SkyView reads TransLUT (injected) and writes SkyLUT; Sky reads BOTH LUTs (injected) +
+   * MoonTex + the shared AtmoBuf. FBTilesStage (created after this method returns — see OnDevice)
+   * likewise receives TransLUT/SkyLUT views injected at ITS Configure(), for the terrain's aerial
+   * perspective — this is the reason CreateAtmosphere runs before CreateTerrainPipeline. */
+  FBGpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
+  Transmittance->Configure(gpu, TransLUT.CreateView());
+  SkyView->Configure(gpu, SkyLUT.CreateView(), TransLUT.CreateView(), LutSamp, AtmoBuf);
+  Sky->Configure(gpu, SkyLUT.CreateView(), LutSamp, TransLUT.CreateView(), AtmoBuf, MoonTex.CreateView());
 }
 
 void FBRenderer::SetMoonTexture(const uint8_t *rgba, int w, int h) {
@@ -2181,82 +1465,6 @@ void FBRenderer::RenderFrame(void) {
   Norm3(up);
   Cross3(zax, up, east); Norm3(east); Cross3(up, east, north);
 
-  /* Per-draw storage: xyz = origin - eye (DOUBLE subtract, float out, render.h:42), w = albedo layer. */
-  UpdatePhotoGains();   /* adaptive Ytarget from near photo tiles -> per-frame far-tile gains */
-  static std::vector<float> off;
-  int nDraw;
-  if (Streaming) {
-    nDraw = (int)DrawList.size();
-    if (nDraw > kMaxDraws) nDraw = kMaxDraws;
-    off.assign((size_t)nDraw * 8, 0.0f);
-    for (int i = 0; i < nDraw; i++) {
-      const DynTile &d = DynTiles[DrawList[i]];
-      off[i * 8 + 0] = (float)(d.Origin[0] - eye[0]);
-      off[i * 8 + 1] = (float)(d.Origin[1] - eye[1]);
-      off[i * 8 + 2] = (float)(d.Origin[2] - eye[2]);
-      /* Layer for the CURRENTLY displayed mode. Viewed mode == the eager base -> the base layer. Otherwise
-       * the OTHER mode's overlay, once ITS upload is committed (2-phase). The `layerMode` records which
-       * ground mode the chosen layer actually IS, so the mode-strictness invariant can be measured:
-       * wrongModeDraws (drew the other mode — the SVS<->EVS bleed) + blackDraws (no committed layer). */
-      int want = GroundPhoto ? 1 : 0;
-      bool overlayReady = (d.PhotoLayer >= 0 && FrameNo > d.PhotoUpTick + 1);
-      int layer, layerMode;
-      if (want == BaseMode) { layer = d.Layer; layerMode = BaseMode; }
-      else if (overlayReady) { layer = d.PhotoLayer; layerMode = want; }   /* overlay layer == the wanted mode */
-      else { layer = d.Layer; layerMode = BaseMode; }                       /* fallback = the base = wrong mode */
-      off[i * 8 + 3] = (float)layer;
-      off[i * 8 + 4] = (layer >= 0 && layer < (int)Gains.size()) ? Gains[layer] : 1.0f;   /* photo brightness gain */
-      if (layer < 0) { NotReadyDraws++; BlackDraws++; }
-      else if (layerMode != want) WrongModeDraws++;   /* SVS showing EVS or vice-versa (mode bleed) */
-    }
-  } else {
-    nDraw = NTiles;
-    off.assign((size_t)nDraw * 8, 0.0f);
-    for (int i = 0; i < nDraw; i++) {
-      off[i * 8 + 0] = (float)(TileOrigin[i * 3 + 0] - eye[0]);
-      off[i * 8 + 1] = (float)(TileOrigin[i * 3 + 1] - eye[1]);
-      off[i * 8 + 2] = (float)(TileOrigin[i * 3 + 2] - eye[2]);
-      off[i * 8 + 3] = (float)i;   /* static: albedo layer == tile index */
-      off[i * 8 + 4] = 1.0f;
-    }
-  }
-  if (nDraw > 0) Queue.WriteBuffer(TileBuf, 0, off.data(), off.size() * sizeof(float));
-
-  /* RenderBundle: bake the ~nDraw per-tile terrain draws once, replay every frame. Signature = the draw
-   * STRUCTURE (count, Bind after an array grow, each tile's Vtx handle + NVerts); TileBuf/uniform CONTENTS
-   * change per frame but the bundle references those buffers by handle, so only structure triggers a
-   * re-record (~few/s in a loiter as tiles stream, 0 when parked). Cuts ~nDraw CPU draw-encodes to one
-   * ExecuteBundles. */
-  if (Streaming && nDraw > 0) {
-    uint64_t sig = 1469598103934665603ULL;
-    auto mix = [&sig](uint64_t v) { sig ^= v; sig *= 1099511628211ULL; };
-    mix((uint64_t)nDraw);
-    mix((uint64_t)(uintptr_t)Bind.Get());
-    for (int i = 0; i < nDraw; i++) {
-      const DynTile &d = DynTiles[DrawList[i]];
-      mix((uint64_t)(uintptr_t)d.Vtx.Get());
-      mix((uint64_t)d.NVerts);
-    }
-    if (sig != TerrainBundleSig || !TerrainBundle) {
-      wgpu::TextureFormat cf = HdrFormat;
-      wgpu::RenderBundleEncoderDescriptor rbd{};
-      rbd.colorFormatCount = 1;
-      rbd.colorFormats = &cf;
-      rbd.depthStencilFormat = wgpu::TextureFormat::Depth32Float;
-      wgpu::RenderBundleEncoder rbe = Device.CreateRenderBundleEncoder(&rbd);
-      rbe.SetPipeline(TerrainPipe);
-      rbe.SetBindGroup(0, Bind);
-      for (int i = 0; i < nDraw; i++) {
-        const DynTile &d = DynTiles[DrawList[i]];
-        rbe.SetVertexBuffer(0, d.Vtx);
-        rbe.Draw(d.NVerts, 1, 0, (uint32_t)i);
-      }
-      TerrainBundle = rbe.Finish();
-      TerrainBundleSig = sig;
-      TerrainBundleRecords++;
-    }
-  }
-
   float u[20];
   MvpCamRel(u, right, camUp, fwd, Width, Height);
   /* Sun drives BOTH the terrain diffuse and the physically-based atmosphere, so sky and ground agree.
@@ -2271,7 +1479,8 @@ void FBRenderer::RenderFrame(void) {
   for (int a = 0; a < 3; a++) sun[a] = up[a] * se + (north[a] * caz + east[a] * saz) * ce;
   Norm3(sun);
   u[16] = (float)sun[0]; u[17] = (float)sun[1]; u[18] = (float)sun[2]; u[19] = 0;
-  Queue.WriteBuffer(Uni, 0, u, sizeof u);
+  /* FBTilesStage::Encode() writes this into its own Uni buffer from ctx.Mvp20 (built below) — same
+   * values, just written at draw time instead of here (both precede the single Queue.Submit). */
 
   /* Moon direction + real-sky factors (EVS only; SVS pins day=1 and the sky pass gates the extras
    * off). Daylight is w3_daylight(sun_el): full day above ~+3°, dark by ~-9° (nautical twilight). */
@@ -2313,17 +1522,13 @@ void FBRenderer::RenderFrame(void) {
   {
     wgpu::ComputePassEncoder cp = enc.BeginComputePass();
     passCount++;
-    cp.SetPipeline(TransPipe);
-    cp.SetBindGroup(0, TransBind);
-    cp.DispatchWorkgroups(32, 8, 1);   /* 256x64 / 8x8 */
+    Transmittance->EncodeCompute(ctx, cp);
     cp.End();
   }
   {
     wgpu::ComputePassEncoder cp = enc.BeginComputePass();
     passCount++;
-    cp.SetPipeline(SkyLUTPipe);
-    cp.SetBindGroup(0, SkyLUTBind);
-    cp.DispatchWorkgroups(24, 14, 1);  /* 192x108 / 8x8 (ceil) */
+    SkyView->EncodeCompute(ctx, cp);
     cp.End();
   }
 
@@ -2345,23 +1550,13 @@ void FBRenderer::RenderFrame(void) {
   sp.depthStencilAttachment = &da;
   wgpu::RenderPassEncoder scene = enc.BeginRenderPass(&sp);
   passCount++;
-  scene.SetPipeline(SkyPipe);
-  scene.SetBindGroup(0, SkyBind);
-  scene.Draw(3);                           /* physically-based sky background */
+  Sky->Encode(ctx, scene);                 /* physically-based sky background, first in the pass */
 
   /* Real stars (EVS night): additive instanced quads at their true alt/az, over the sky, under the
    * terrain. FBStarsStage self-gates (SVS / daylight / none visible -> no draw). */
   Stars->Encode(ctx, scene);
 
-  if (Streaming) {   /* per-tile buffers baked into TerrainBundle; firstInstance = draw index -> storage entry */
-    if (TerrainBundle && nDraw > 0) scene.ExecuteBundles(1, &TerrainBundle);
-  } else {
-    scene.SetPipeline(TerrainPipe);
-    scene.SetBindGroup(0, Bind);
-    scene.SetVertexBuffer(0, Vtx);
-    for (int i = 0; i < NTiles; i++)   /* firstInstance = i -> instance_index picks tile i's offset */
-      scene.Draw(TileCnt[i], 1, TileOff[i], (uint32_t)i);
-  }
+  Tiles->Encode(ctx, scene);   /* terrain: RenderBundle (streaming) or direct per-tile draws (static) */
 
   Units->Encode(ctx, scene);   /* AI units draw slot (NoOp today) */
 
@@ -2533,10 +1728,11 @@ void FBRenderer::RenderFrame(void) {
   HistValid = true;
 
   /* 2-phase-commit assertion (once/sec): no frame should ever have drawn an uncommitted layer. */
-  if (Streaming && FrameNo % 60 == 0) {
+  if (Tiles->IsStreaming() && FrameNo % 60 == 0) {
+    long notReady = Tiles->GetNotReadyDraws(), wrongMode = Tiles->GetWrongModeDraws(), black = Tiles->GetBlackDraws();
     printf("[present] notReadyDraws=%ld wrongModeDraws=%ld blackDraws=%ld (invariants: 0)%s | bundleRecords=%ld\n",
-           NotReadyDraws, WrongModeDraws, BlackDraws,
-           (NotReadyDraws || WrongModeDraws || BlackDraws) ? "  <-- VIOLATION" : "", TerrainBundleRecords);
+           notReady, wrongMode, black,
+           (notReady || wrongMode || black) ? "  <-- VIOLATION" : "", Tiles->GetBundleRecords());
     fflush(stdout);
   }
 }

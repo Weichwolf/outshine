@@ -100,10 +100,15 @@ sim/src/
              (Device-Handle bzw. geteilter Frame-Zustand, den jede Stage bekommt), FBDrawStage
              (Interface: ein Shader + seine Pipeline(s)/Bind-Group(s)/Draws, zeichnet in den
              GELIEHENEN Encoder — nie eigene Pass-Grenzen)
-  render/stages/  Klasse pro Shader: FBStarsStage, FBTileLightsStage, FBHudStage (WebGPU-Backend;
-             die Symbologie-LOGIK bleibt vorerst in FBHud.h/FBHudSymbology.h, s.o.), FBUpscaleStage,
-             FBUnitsStage/FBSpritesStage (NoOp, aber in der Encode-Ordnung verdrahtet: Units nach
-             Terrain, Sprites vor HUD) — Atmosphäre/Terrain/Wolken/Sonne+Mond folgen als eigene Stages
+  render/stages/  Klasse pro Shader: FBTransmittanceStage/FBSkyViewStage/FBSkyStage (Hillaire-
+             Atmosphäre — Sonne/Mond noch IM Sky-Fragment-Shader, ihr Split in eigene geblendete
+             Draws ist ein eigener Folgeauftrag mit Pixel-Beweis), FBTilesStage (Terrain: Albedo-
+             Array, RenderBundle/2-Phasen-Streaming-Zustand, Invarianten-Zähler), FBStarsStage,
+             FBTileLightsStage, FBHudStage (WebGPU-Backend; die Symbologie-LOGIK bleibt vorerst in
+             FBHud.h/FBHudSymbology.h, s.o.), FBUpscaleStage, FBUnitsStage/FBSpritesStage (NoOp, aber
+             in der Encode-Ordnung verdrahtet: Units nach Terrain, Sprites vor HUD) — Wolken (March/
+             Resolve/Noise-Bake/Mip-Bake) + Tonemap folgen als eigene Stages (Tonemap zusammen mit
+             Wolken wegen der CloudHist-Index-Kopplung)
   world/     FBWorld, FBTerrainField, FBTerrainLoader (Tile-Streaming/Worker-Anbindung)
   systems/   die generischen, airframe-agnostischen System-Slots eines Moduls — Interface + Default
              in EINER Klasse, ein Modul überschreibt per Ableitung (Zahlen-Tuning bleibt Preset/

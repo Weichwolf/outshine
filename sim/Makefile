@@ -70,6 +70,8 @@ wasm:            ## build the WASM browser Command Center (F-16 sim + renderer) 
 	    src/app/FBAppWasm.cpp src/render/FBRenderer.cpp src/world/FBWorld.cpp \
 	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \
 	    src/render/stages/FBHudStage.cpp src/render/stages/FBUpscaleStage.cpp \
+	    src/render/stages/FBTransmittanceStage.cpp src/render/stages/FBSkyViewStage.cpp \
+	    src/render/stages/FBSkyStage.cpp src/render/stages/FBTilesStage.cpp \
 	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O1 -Wall -Werror -fexceptions \
 	    $(INC_WASM) \
 	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=256MB -sSTACK_SIZE=4MB -sEXIT_RUNTIME=0 \
@@ -119,6 +121,8 @@ native:          ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	  c++ src/app/FBAppNative.cpp src/render/FBRenderer.cpp src/world/FBWorld.cpp \
 	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \
 	    src/render/stages/FBHudStage.cpp src/render/stages/FBUpscaleStage.cpp \
+	    src/render/stages/FBTransmittanceStage.cpp src/render/stages/FBSkyViewStage.cpp \
+	    src/render/stages/FBSkyStage.cpp src/render/stages/FBTilesStage.cpp \
 	    build/obj-native/*.o $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++20 -O2 -Wall -Wextra -Werror \
 	    $(INC_NATIVE) \

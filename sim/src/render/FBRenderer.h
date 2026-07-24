@@ -25,6 +25,10 @@
 #include "stages/FBSpritesStage.h"
 #include "stages/FBHudStage.h"
 #include "stages/FBUpscaleStage.h"
+#include "stages/FBTransmittanceStage.h"
+#include "stages/FBSkyViewStage.h"
+#include "stages/FBSkyStage.h"
+#include "stages/FBTilesStage.h"
 
 namespace FlightBox {
 
@@ -52,19 +56,19 @@ public:
   void ShapeStats(float cover, float low, float high);   /* numeric histogram of the base shape/density field over the shell */
 
   /* Hand the renderer a merged camera-relative ECEF terrain mesh + per-tile double origins (from
-   * FBTerrainLoader, or synthesized — see FBAppNative.cpp). Call before Init/InitOffscreen (or before the
-   * device is ready); CreateTerrainPipeline uploads it. */
+   * FBTerrainLoader, or synthesized — see FBAppNative.cpp). Call before Init/InitOffscreen (or before
+   * the device is ready); FBTilesStage uploads it at Configure(). */
   void SetTerrain(const float *verts, uint32_t nverts, int ntiles, const uint32_t *voff,
                   const uint32_t *vcnt, const double *origins, const double *center);
 
   /* Real per-tile albedos: `layers` images of ts*ts RGBA8 (sRGB), layer i = tile i. Uploaded as a
-   * texture_2d_array in CreateTileTexture. Optional — without it, layers are procedural checkers. */
+   * texture_2d_array by FBTilesStage. Optional — without it, layers are procedural checkers. */
   void SetAlbedoArray(const uint8_t *rgba, int ts, int layers);
 
   /* ---- dynamic streaming (Stage 4): FBWorld drives a mutable tile table ----------------------
    * Enable before Init: the terrain source becomes per-tile GPU buffers + a growable albedo array
    * (layers recycled, grows to 2048), not the static SetTerrain mesh. */
-  void SetStreaming(int albedoTS);
+  void SetStreaming(int albedoTS) { Tiles->EnableStreaming(albedoTS); }
   bool DeviceUsable(void) const { return DeviceReady && !DeviceLost; }
 
   /* Upload one streamed tile (mesh + its RGBA8-sRGB albedo). Returns a table slot id, or -1 if the
@@ -76,9 +80,9 @@ public:
    * a SECOND array layer for `slot`. 1 = attached (or already had one), 0 = device gone / array full
    * (caller stops retrying -> the tile keeps drawing OSM). */
   int  UploadTilePhoto(int slot, const uint8_t *photo, int ts, int z);
-  void ReleaseTile(int slot);                 /* free the buffer, recycle BOTH albedo layers */
-  void SetDrawList(const int *slots, int n);  /* the tiles to draw this frame (FBWorld's leaves) */
-  long AlbedoVramBytes(void) const;           /* resident albedo VRAM (layers in use * ts^2 * 4) */
+  void ReleaseTile(int slot) { Tiles->ReleaseTile(slot); }         /* free the buffer, recycle BOTH albedo layers */
+  void SetDrawList(const int *slots, int n) { Tiles->SetDrawList(slots, n); }  /* the tiles to draw this frame (FBWorld's leaves) */
+  long AlbedoVramBytes(void) const { return Tiles->AlbedoVramBytes(); }  /* resident albedo VRAM (layers in use * ts^2 * 4) */
 
   /* MIL-STD-1787 HUD overlay: the live pose the symbology reads. `have` false -> "NO TELEMETRY".
    * Call each frame; without it the HUD pass is skipped. */
@@ -98,11 +102,11 @@ public:
    * photo layer yet draws OSM (silent fallback), so the flip is never a hole. */
   void SetGroundMode(int photo);
   int  GetGroundMode(void) const { return GroundPhoto ? 1 : 0; }
-  int  DrawCount(void) const { return Streaming ? (int)DrawList.size() : NTiles; }   /* tile draws/frame (TileBuf = n*32 B) */
+  int  DrawCount(void) const { return Tiles->DrawCount(); }   /* tile draws/frame (TileBuf = n*32 B) */
 
   /* Boot default = the EAGER base albedo (uploaded with each tile). The OTHER mode is the lazy overlay
    * (DynTile.PhotoLayer, fetched on first switch). 1 = EVS/photo base (Esri first), 0 = OSM base. */
-  void SetDefaultMode(int photo) { BaseMode = photo ? 1 : 0; }
+  void SetDefaultMode(int photo) { Tiles->SetDefaultMode(photo); }
 
   /* NASA LROC equirect moon albedo (RGBA8, w x h). Call before Init; the sky pass lights it as a
    * sphere by the real sun. Without it the moon disc falls back to a flat grey. */
@@ -153,19 +157,12 @@ public:
 private:
   enum class Target { Surface, Offscreen };
 
-  void CreateTerrainPipeline(void);   /* scene: per-tile draws, [0,1] reversed-Z, textured, HDR out */
+  void CreateTerrainPipeline(void);   /* DepthTex/HdrTex (shared scene targets) + Tiles->Configure() */
   void CreateTonemapPipeline(void);   /* fullscreen ACES tonemap: HDR -> sRGB swapchain */
   void CreatePresent(void);           /* fixed-720p frame target + the display upscale pass */
   void SyncSwapSize(void);            /* Surface mode: match the swapchain to canvas clientSize x DPR */
-  void CreateTileTexture(void);       /* per-tile albedo texture_2d_array (real bake or procedural) */
-  void EnsureAlbedoCap(int need);     /* grow the albedo array (recreate+copy) up to 2048 layers */
-  int  AllocLayer(void);              /* one free albedo-array layer (recycled or grown), -1 if full */
-  void WriteAlbedoLayer(int layer, const uint8_t *rgba, int ts);   /* upload one ts^2 sRGB image */
-  void SetLayerPhoto(int layer, float ylin, int z);   /* record a photo layer's mean-Y + near/far kind */
-  void ClearLayer(int layer);                          /* on release: drop the layer's photo bookkeeping */
-  void UpdatePhotoGains(void);         /* EMA the near-tile mean into Ytarget, recompute far-tile gains */
-  void RebuildTerrainBind(void);      /* (re)make the terrain bind group after an albedo-array swap */
-  void CreateAtmosphere(void);        /* Hillaire LUTs (compute) + the sky render pipeline (+ moon) */
+  void CreateTileTexture(void);       /* the shared linear sampler (terrain albedo + tonemap's HdrTex read) */
+  void CreateAtmosphere(void);        /* Hillaire LUT/uniform/moon resources + Configure()s the 3 atmosphere stages */
   void UpdateAtmosphere(const double eye[3], const double sunDir[3], const double right[3],
                         const double camUp[3], const double fwd[3], const double moonDir[3],
                         double dayF, double moonPh, double cloud);    /* per-frame atmosphere uniform */
@@ -186,18 +183,12 @@ private:
   wgpu::Texture OffscreenTex;   /* Target::Offscreen final color target: RGBA8UnormSrgb, RenderAttachment|CopySrc */
   wgpu::TextureFormat SurfaceFormat;
   wgpu::TextureFormat HdrFormat;   /* offscreen scene target: rg11b10ufloat where renderable, else rgba16float */
-  wgpu::RenderPipeline TerrainPipe, TonemapPipe, TonemapPlainPipe;   /* Plain = tonemap without the cloud composite */
-  wgpu::Buffer Vtx, Uni, TileBuf;
-  wgpu::BindGroup Bind, TonemapBind, TonemapBindH[2], TonemapBindPlain;   /* TonemapBindH[k] composites CloudHist[k]; Plain = no cloud */
-  /* Terrain draws (~172/frame) recorded once into a RenderBundle, replayed per frame; re-recorded only
-   * when the draw-list STRUCTURE changes (tile set / per-tile Vtx / NVerts / the Bind after an array
-   * grow) — TileBuf/uniform CONTENTS stay per-frame buffer writes the bundle references by handle. */
-  wgpu::RenderBundle TerrainBundle;
-  uint64_t TerrainBundleSig = 0;     /* FNV of the structure; 0 = none recorded yet */
-  long TerrainBundleRecords = 0;     /* re-record count (telemetry: ~few/s in a loiter, ~0 when parked) */
+  wgpu::RenderPipeline TonemapPipe, TonemapPlainPipe;   /* Plain = tonemap without the cloud composite */
+  wgpu::BindGroup TonemapBind, TonemapBindH[2], TonemapBindPlain;   /* TonemapBindH[k] composites CloudHist[k]; Plain = no cloud */
   bool CloudsOn = false;   /* FB_CLOUDS=1 arms the whole volumetric+dome cloud path; default off (build the pass, skip it) */
-  wgpu::Sampler Samp;
-  wgpu::Texture Albedo, DepthTex, HdrTex;
+  wgpu::Sampler Samp;              /* shared linear sampler: FBTilesStage's albedo, tonemap's HdrTex read */
+  wgpu::Texture DepthTex, HdrTex;  /* shared scene targets: FBTilesStage/FBSkyStage draw into them, clouds sample DepthTex */
+  std::unique_ptr<FBTilesStage> Tiles = std::make_unique<FBTilesStage>();
 
   /* Present path: the whole frame (scene + tonemap + HUD) lands in a FIXED 720p FrameTex; one upscale
    * pass then samples it onto the swapchain at the live display resolution (canvas clientSize x DPR). */
@@ -206,13 +197,15 @@ private:
   int SwapW, SwapH;                   /* live swapchain (display) size; scene stays Width x Height */
 
   /* Hillaire-2020 atmosphere (Stage 5): two compute LUTs + a fullscreen sky pass; the transmittance
-   * LUT also drives the terrain's aerial perspective. All linear radiance into the HDR chain. */
+   * LUT also drives the terrain's aerial perspective. All linear radiance into the HDR chain. These
+   * resources stay FBRenderer-owned (like FrameTex) because 3+ consumers read them — the three stage
+   * classes below hold only the pipeline/bind group built from views injected at Configure(). */
   wgpu::Texture TransLUT, SkyLUT;                 /* 256x64, 192x108 rgba16float (storage + sampled) */
-  wgpu::ComputePipeline TransPipe, SkyLUTPipe;
-  wgpu::RenderPipeline SkyPipe;
-  wgpu::BindGroup TransBind, SkyLUTBind, SkyBind;
   wgpu::Sampler LutSamp;                          /* linear, U-repeat (azimuth wraps), V-clamp */
   wgpu::Buffer AtmoBuf;                           /* shared atmosphere uniform (sun, camera basis) */
+  std::unique_ptr<FBTransmittanceStage> Transmittance = std::make_unique<FBTransmittanceStage>();
+  std::unique_ptr<FBSkyViewStage> SkyView = std::make_unique<FBSkyViewStage>();
+  std::unique_ptr<FBSkyStage> Sky = std::make_unique<FBSkyStage>();
 
   /* Real sky extras (EVS only): NASA moon albedo sampled as a lit sphere in the sky pass; a HYG star
    * field as an instanced additive quad pass. Both time-driven from the ephemeris the app feeds. */
@@ -276,37 +269,9 @@ private:
   bool HudEnabled, HudHave;
   bool LoadingScreen = false; float LoadPct = 0.0f; int LoadReady = 0, LoadTotal = 0;   /* boot loading screen */
 
-  /* Terrain (set via SetTerrain, uploaded in CreateTerrainPipeline). Origins stay in DOUBLE: the
-   * per-frame camera-relative offset origin-cam is computed on the CPU and streamed as float. */
-  std::vector<float> TerrainVerts;      /* nverts*8 */
-  std::vector<uint32_t> TileOff, TileCnt;
-  std::vector<double> TileOrigin;       /* ntiles*3 */
-  std::vector<uint8_t> AlbedoData;      /* NTiles layers of AlbedoTS^2 RGBA8 sRGB; empty -> procedural */
-  double Center[3];
-  uint32_t TerrainNVerts;
-  int NTiles;
-  int AlbedoTS;
-
-  /* Dynamic streaming (Stage 4): a mutable per-tile GPU table + a growable albedo array. */
-  /* Layer = the tile's eager BASE albedo (BaseMode); PhotoLayer = the OTHER mode's lazy OVERLAY. The
-   * draw picks base when the viewed mode == BaseMode, else the committed overlay (fallback to base). */
-  struct DynTile { wgpu::Buffer Vtx; uint32_t NVerts; double Origin[3]; int Layer; int PhotoLayer;
-                   unsigned PhotoUpTick; bool Used; };
-  long NotReadyDraws;                   /* 2-phase-commit assertion: draws of an uncommitted layer (must stay 0) */
-  long WrongModeDraws = 0;              /* SVS<->EVS bleed: drew the other mode's layer (must stay 0) */
-  long BlackDraws = 0;                  /* drew with no committed layer -> black tile (must stay 0) */
-  bool Streaming;                       /* dynamic terrain source (FBWorld) instead of SetTerrain */
-  bool GroundPhoto;                     /* SetGroundMode: the currently VIEWED mode (TAB) */
-  int  BaseMode;                        /* boot default: which mode is the eager base layer (0 osm, 1 photo) */
-  int LayerCap, LayerUsed, MaxLayers;   /* albedo array: allocated / high-water / device hard cap */
-  std::vector<DynTile> DynTiles;        /* per-tile GPU buffers; free slots reused */
-  std::vector<int> FreeLayers;          /* recycled albedo layer indices */
-  std::vector<float> Gains;             /* per-albedo-layer photo brightness gain (1.0 = none) */
-  std::vector<float> LayerYlin;         /* per-layer linear luminance of the tile MEAN (photo layers) */
-  std::vector<int8_t> LayerKind;        /* 0 = none/OSM, 1 = far photo (gets gain), 2 = near photo (Ytarget ref) */
-  double PhotoYTarget = 0.0;            /* adaptive brightness reference = EMA of resident near photo tiles */
-  bool PhotoYValid = false;             /* false until a near photo tile has been seen (gain=1 fallback) */
-  std::vector<int> DrawList;            /* slots to draw this frame */
+  double Center[3];   /* terrain field centre — the default orbit camera's fallback target only */
+  bool GroundPhoto;   /* SetGroundMode: the currently VIEWED mode (TAB); drives sun/moon/cloud selection too */
+  int MaxLayers = 256;   /* device's real texture-array-layer cap (OnAdapter); handed to Tiles->Configure() */
   bool HaveCamera;                      /* SetCamera used (scripted path) vs the default orbit */
   bool CameraFull;                      /* SetCameraBasis used (full rolled basis) — wins over both */
   double Eye[3], LookTarget[3];
