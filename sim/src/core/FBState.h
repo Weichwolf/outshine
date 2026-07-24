@@ -4,7 +4,7 @@
  * value yet. */
 #ifndef FB_FBSTATE_H
 #define FB_FBSTATE_H
-#include "FBAutopilot.h"   /* FBMode: this autopilot's only two live states */
+#include "FBMode.h"
 
 namespace FlightBox {
 

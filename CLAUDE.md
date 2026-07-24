@@ -85,22 +85,29 @@ Ownership, minimale public API.
 
 **Verzeichnisstruktur** (`sim/src/`) bildet eine DCS-World-artige Modul-Architektur ab: der Simulator
 lädt beliebig viele **steuerbare Module** (heute die F-16; künftig Ka-52, F-18, …), jedes mit eigenen
-Systemen (Anzeigen/HUD, Steuerung/FCS, Sensoren, Aktoren). Der Engine-Kern ist modul-agnostisch:
+Systemen (Anzeigen/HUD, Steuerung/FCS, Sensoren, Aktoren). Der Engine-Kern ist modul-agnostisch, und
+die Regelungs-/Guidance-Systeme selbst sind es auch — **FBCore → Interface → Default-Implementation →
+modul-spezifischer Override**, nicht "gehört der F-16":
 
 ```
 sim/src/
   app/       Einstiegspunkte + App-Lifecycle (FBAppWasm, FBAppNative, FBSimHost, FBTileWorkerMain)
-  core/      FBState, FBTelemetry, gemeinsame Basistypen
+  core/      FBState, FBMode, FBTelemetry, gemeinsame Basistypen — zeigt NIE nach systems/ oder modules/
   math/      Value-Math (FBMat4 — Value-Types, Operatoren inline im Header)
   render/    FBRenderer, FBCamera, FBMips, FBChunkMesh/FBChunkVtx, FBEphemeris
   world/     FBWorld, FBTerrainField, FBTerrainLoader (Tile-Streaming/Worker-Anbindung)
+  systems/   die generischen, airframe-agnostischen DEFAULT-Systeme: FBFlightControl
+             (FBW-Innenschleife; FLCS-command vs. Raw ist ein Laufzeit-Flag, keine Subklasse),
+             FBAutopilot (Guidance; `Run()` ist der EINE virtuelle Override-Punkt — ein Modul,
+             dessen Guidance sich wirklich anders VERHÄLT, überschreibt Run(), nicht nur Zahlen),
+             FBPathPlan (A*-Wanderplaner). Presets (z.B. `FBFlightControl::F16()`) sind Factories,
+             keine leeren Ableitungen — Composition over Inheritance.
   terrain/   leane Terrain-Lib (geo/mesh/osmmesh), flat
   fdm/       der C-aufrufbare JSBSim-Adapter (jsbsim_adapter.*), flat
   modules/   FBModule-Basisklasse (ein Run(fb_fdm_state&, dt)-Zyklus pro Modul, vom App-Loop gecycelt;
              Peers rufen sich nie gegenseitig)
-  modules/f16/           das F-16-Modul: FBFlightControl (FBW-Innenschleife), FBAutopilot
-                         (LOWLEVEL/Loiter-Guidance), FBPathPlan (A*-Wanderplaner), FBF16Module
-                         (bündelt FCS+Autopilot zum registrierten FBModule)
+  modules/f16/           das F-16-Modul: FBF16Module komponiert die systems/-DEFAULTS (FBAutopilot
+                         unverändert) mit dem F-16-Gain-Preset (FBFlightControl::F16())
   modules/f16/displays/  HUD (MIL-STD-1787): FBHud (WebGPU-Backend-Shim), FBHudSymbology (Geometrie),
                          FBMax7456 (Font-Atlas-Daten)
 ```

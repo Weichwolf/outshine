@@ -2,15 +2,16 @@
 
 namespace FlightBox {
 
-FBF16Module::FBF16Module() : FC(FBFlightControl::F16()) {}
+FBF16Module::FBF16Module() : AP(std::make_unique<FBAutopilot>()), FC(FBFlightControl::F16()) {}
 
 /* Fixed 100 Hz substeps with a spiral guard (<=12/frame): guidance -> FLCS-command -> JSBSim in
- * lockstep. */
+ * lockstep. AP->Run() is the one virtual dispatch per substep (the guidance override point); the
+ * rest of the loop is concrete. */
 void FBF16Module::Run(fb_fdm_state &st, double dt) {
   AccS += dt;
   LastSub = 0;
   for (int k = 0; AccS >= 0.01 && k < 12; k++) {
-    LastG = AP.Run(st);
+    LastG = AP->Run(st);
     FBControls c = FC.Run(LastG, st);
     fb_jsbsim_set_controls(c.Roll, c.Pitch, c.Yaw, c.Thr);
     fb_jsbsim_step(&st);

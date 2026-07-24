@@ -9,7 +9,7 @@
 #ifndef FBHUD_H
 #define FBHUD_H
 
-#include "FBAutopilot.h"   /* FlightBox::FBMode */
+#include "FBMode.h"
 #include "FBState.h"
 #include <cmath>
 #include <cstdarg>

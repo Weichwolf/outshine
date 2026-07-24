@@ -220,7 +220,7 @@ static void frame(void) {
    * antimeridian-safe — the gate's measurement convention). */
   { static double accLog = 0.0; accLog += dt;
     if (accLog >= 1.0) { accLog = 0.0;
-      FlightBox::FBLogAgl(St, g, gForHud, fb_jsbsim_get_ground());
+      FlightBox::FBLogAgl(St, g.Mode, g.RingDistM, gForHud, fb_jsbsim_get_ground());
       printf("[home] dist=%.0f brg=%.0f hdg=%.0f lon=%.4f\n", hs.home_dist, hs.home_bearing, St.yaw, St.lon);
       if (gLowLevel)
         printf("[lowlevel] agl=%.0f tgtAgl=%.0f gndHere=%.0f gndAhead=%.0f tgtVs=%.1f vs=%.1f alt=%.0f demZ=%d decodes=%ld\n",

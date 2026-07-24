@@ -1,16 +1,21 @@
-/* FlightBox — FBAutopilot: outer guidance. Modes (MANUAL pass-through, LOITER bank-to-circle around
- * a geo centre at target altitude/radius) -> a guidance command the inner FBW (FBFlightControl)
- * tracks. Port of flightctl.h's outer loop; numerics preserved verbatim (equivalence-tested). */
+/* FlightBox — FBAutopilot: outer guidance, the DEFAULT implementation of a module's guidance system.
+ * Modes (MANUAL pass-through, LOITER bank-to-circle around a geo centre at target altitude/radius,
+ * LOWLEVEL terrain-following) -> a guidance command the inner FBW (FBFlightControl) tracks. Port of
+ * flightctl.h's outer loop; numerics preserved verbatim (equivalence-tested).
+ *
+ * Run() is the one override point: a module whose guidance genuinely behaves differently (not just
+ * different gains — e.g. a rotorcraft's station-keeping loiter) subclasses FBAutopilot and overrides
+ * Run(); FBF16Module composes this DEFAULT unmodified. Config differences (F-16 gains, LOWLEVEL
+ * tuning) stay data on this class, not a subclass. */
 #ifndef FBAUTOPILOT_H
 #define FBAUTOPILOT_H
 
 #include "jsbsim_adapter.h"
+#include "FBMode.h"
 
 namespace FlightBox {
 
 class FBTerrainField;   /* coarse-DEM look-ahead oracle (LOWLEVEL); wired by the app */
-
-enum class FBMode { Manual, Loiter, LowLevel };
 
 struct FBGuidance {
   FBMode Mode;
@@ -26,6 +31,7 @@ struct FBGuidance {
 class FBAutopilot {
 public:
   FBAutopilot();
+  virtual ~FBAutopilot() = default;
 
   /* Loiter target: circle centre (deg), altitude (m ASL), radius (m), dir +1 CW / -1 CCW, speed. */
   void SetLoiter(double lat, double lon, double altM, double radiusM, int dir, double speedMs);
@@ -49,7 +55,9 @@ public:
    * FanSteer + a terrain field. The per-substep Run() then flies the chosen heading wings-level. */
   void UpdateLowLevelSteering(const fb_fdm_state &s, double dt);
 
-  FBGuidance Run(const fb_fdm_state &s);
+  /* The guidance override point (see the class banner) — everything else here is config/telemetry,
+   * shared verbatim by any override. */
+  virtual FBGuidance Run(const fb_fdm_state &s);
 
   FBMode GetMode(void) const { return Mode; }
   double GetTargetAlt(void) const { return AltM; }

@@ -30,11 +30,13 @@ JSB_WASM     := build/jsbsim-wasm
 JSB_HOST     := build/jsbsim-host
 
 # Shared include roots (flat -I per module dir; #include stays bare-filename). core = FBState/
-# telemetry; math = value-math (FBMat4); render = FBRenderer + camera/mips/chunkmesh/ephemeris;
-# world = FBWorld/FBTerrainField/tile streaming; modules(/f16(/displays)) = the pluggable-aircraft
-# base + the F-16's FCS/autopilot/planner/HUD; fdm = the JSBSim C adapter; terrain = the lean terrain
-# API (flat); vendor/jsbsim/src = the JSBSim headers.
-INC_MODULES := -Isrc/core -Isrc/math -Isrc/render -Isrc/world -Isrc/modules -Isrc/modules/f16 -Isrc/modules/f16/displays
+# FBMode/telemetry; math = value-math (FBMat4); render = FBRenderer + camera/mips/chunkmesh/ephemeris;
+# world = FBWorld/FBTerrainField/tile streaming; systems = the DEFAULT, airframe-agnostic guidance/
+# FCS/planner (FBAutopilot/FBFlightControl/FBPathPlan) modules compose and may override; modules(/f16
+# (/displays)) = the pluggable-aircraft base + the F-16's module (composes systems/ + its gain preset)
+# and HUD; fdm = the JSBSim C adapter; terrain = the lean terrain API (flat); vendor/jsbsim/src = the
+# JSBSim headers.
+INC_MODULES := -Isrc/core -Isrc/math -Isrc/render -Isrc/world -Isrc/systems -Isrc/modules -Isrc/modules/f16 -Isrc/modules/f16/displays
 INC_WASM   := $(INC_MODULES) -Isrc/fdm -Isrc/terrain -I$(JSBSIM)/src
 INC_NATIVE := $(INC_MODULES) -Isrc/fdm -Isrc/terrain
 INC_TILES := -I../tiles/src
@@ -54,13 +56,13 @@ wasm:            ## build the WASM browser Command Center (F-16 sim + renderer) 
 	    -c -o build/obj-wasm/FBTerrainLoader.o; \
 	  emcc src/fdm/jsbsim_adapter.cpp -std=c++17 -O2 $(EMCC_WARN) -fexceptions \
 	    -include src/fdm/em_compat.h -I$(JSBSIM)/src -Isrc/fdm -c -o build/obj-wasm/jsbsim_adapter.o; \
-	  emcc src/modules/f16/FBAutopilot.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) -Isrc/terrain \
+	  emcc src/systems/FBAutopilot.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) -Isrc/terrain \
 	    -c -o build/obj-wasm/FBAutopilot.o; \
-	  emcc src/modules/f16/FBFlightControl.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) \
+	  emcc src/systems/FBFlightControl.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) \
 	    -c -o build/obj-wasm/FBFlightControl.o; \
 	  emcc src/world/FBTerrainField.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) -Isrc/terrain \
 	    -c -o build/obj-wasm/FBTerrainField.o; \
-	  emcc src/modules/f16/FBPathPlan.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) -Isrc/terrain \
+	  emcc src/systems/FBPathPlan.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) -Isrc/terrain \
 	    -c -o build/obj-wasm/FBPathPlan.o; \
 	  emcc src/modules/f16/FBF16Module.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) \
 	    -c -o build/obj-wasm/FBF16Module.o; \
@@ -102,13 +104,13 @@ native:          ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	    -isystem $(CURL_COMPAT) -c -o build/obj-native/FBTerrainLoader.o; \
 	  c++ src/fdm/jsbsim_adapter.cpp -std=c++17 -O2 -Wall \
 	    -Isrc/fdm -isystem $(JSB_HOST)/include/JSBSim -c -o build/obj-native/jsbsim_adapter.o; \
-	  c++ src/modules/f16/FBAutopilot.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
+	  c++ src/systems/FBAutopilot.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBAutopilot.o; \
-	  c++ src/modules/f16/FBFlightControl.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
+	  c++ src/systems/FBFlightControl.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBFlightControl.o; \
 	  c++ src/world/FBTerrainField.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBTerrainField.o; \
-	  c++ src/modules/f16/FBPathPlan.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
+	  c++ src/systems/FBPathPlan.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBPathPlan.o; \
 	  c++ src/modules/f16/FBF16Module.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBF16Module.o; \
