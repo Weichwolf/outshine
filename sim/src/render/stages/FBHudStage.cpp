@@ -56,17 +56,16 @@ void FBHudStage::Init(const FBGpu &gpu) {
   Device = gpu.Device;
   Queue = gpu.Queue;
 
-  /* HUD font atlas: kFontGlyphs tiles of kFontTilePad (8x8 bitmap + 1-texel transparent
-   * gutter on every side), one byte per row, bit7 = leftmost. r8unorm, LINEAR (the fragment shader
-   * turns that into coverage AA, see kHudTextWGSL). Built from the ROM in FBHudFont.h; the gutter
+  /* HUD font atlas: kFontGlyphs tiles of kFontTilePad (kFontTile x kFontTile 8-bit COVERAGE bitmap,
+   * baked from B612 Mono -- see FBHudFontRom.h -- plus a 1-texel transparent gutter on every side).
+   * r8unorm, LINEAR (the fragment shader turns that into coverage AA, see kHudTextWGSL). The gutter
    * texels stay at their zero-init value. */
   const uint32_t AW = (uint32_t)kFontAtlasW, AH = (uint32_t)kFontAtlasH;
   std::vector<uint8_t> atlas((size_t)AW * AH, 0);
   for (int gi = 0; gi < kFontGlyphs; gi++)
     for (int row = 0; row < kFontTile; row++)
       for (int c = 0; c < kFontTile; c++)
-        atlas[(size_t)(row + 1) * AW + gi * kFontTilePad + 1 + c] =
-            (kFontGlyphRom[gi][row] & (0x80 >> c)) ? 255 : 0;
+        atlas[(size_t)(row + 1) * AW + gi * kFontTilePad + 1 + c] = kFontGlyphRom[gi][row][c];
   wgpu::TextureDescriptor td{};
   td.size = {AW, AH, 1};
   td.format = wgpu::TextureFormat::R8Unorm;

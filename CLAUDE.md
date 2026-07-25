@@ -101,12 +101,18 @@ sim/src/
              (Interface: ein Shader + seine Pipeline(s)/Bind-Group(s)/Draws, zeichnet in den
              GELIEHENEN Encoder — nie eigene Pass-Grenzen), FBHudGeometry (der HUD-Geometriepuffer —
              Lines/Tris/Glyphs als wiederverwendete Vektoren, von FBDisplaySystem gefüllt), FBHudFont
-             (das generische, airframe-agnostische Bitmap-Font-Rendering-System — Font-ROM, gegutterter
-             Atlas-Layout und Glyph-Quad-Builder mit Quad-Überstand, reine Backend-Ressource ohne
-             Globals; FBHudStage sampelt LINEAR und rekonstruiert daraus per Screen-Footprint-Coverage
-             ("sharp bilinear") echtes Antialiasing statt hartem NEAREST-Alpha-Test. Chip-SPEZIFISCHE
-             Eigenheiten — MAX7456-Artefakte o.ä. — gehören NICHT hierher, sondern in einen modul-
-             eigenen Hook, s. modules/f16/FBF16Max7456)
+             (das generische, airframe-agnostische Bitmap-Font-Rendering-System — 16x16-Zellen mit
+             ECHTER 8-Bit-FLÄCHEN-Coverage statt 1bpp-Maske, gebaked aus B612 Mono [SIL OFL 1.1,
+             Airbus-Cockpit-Typeface] via `sim/tools/bake_hud_font.py` [Pillow, 8x supersampled +
+             Box-Filter runter auf 16x16; KEINE Build-Abhängigkeit, läuft nur bei Font-/Charset-
+             Wechsel] in das GENERIERTE `FBHudFontRom.h` — `FBHudFont.h` selbst bleibt handgepflegt:
+             gegutterter Atlas-Layout und Glyph-Quad-Builder mit Quad-Überstand, reine Backend-Ressource
+             ohne Globals; kFontAdvance/kFontQuadSize sind die öffentlichen Screen-Pixel-Einheiten aller
+             Aufrufer und bleiben unverändert, nur die interne Rasterauflösung wuchs 8x8 → 16x16.
+             FBHudStage sampelt LINEAR und rekonstruiert daraus per Screen-Footprint-Coverage
+             ("sharp bilinear") echtes Antialiasing statt hartem NEAREST-Alpha-Test — coverage-agnostisch,
+             unverändert seit der 8x8-1bpp-Ära. Chip-SPEZIFISCHE Eigenheiten — MAX7456-Artefakte o.ä. —
+             gehören NICHT hierher, sondern in einen moduleigenen Hook, s. modules/f16/FBF16Max7456)
   render/stages/  Klasse pro Shader: FBTransmittanceStage/FBSkyViewStage/FBSkyStage (Hillaire-
              Atmosphäre + die Wolkendecke-Value-Noise-Sheet auf der Dome), FBSunStage/FBMoonStage
              (Sonnenscheibe+Glow bzw. Mond-als-belichtete-Kugel — additive Draws, direkt nach FBSkyStage
