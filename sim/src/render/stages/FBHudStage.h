@@ -1,10 +1,10 @@
 /* FlightBox — FBHudStage: the MIL-STD-1787 HUD's WebGPU backend. Pure backend now: it owns pipelines/
  * buffers/atlas and, once per Encode(), asks the borrowed FBDisplaySystem to fill an FBHudGeometry —
- * the symbology LOGIC lives there (systems/FBDisplaySystem), not here. Three pipelines share one
- * pixel->NDC map: Solid (AA triangles, the conformal horizon), Line (rails/ticks/carets — the SAME
- * shader as Solid, a second pipeline over the same bind group, just a different primitive topology),
- * Text (MAX7456 atlas glyph quads, alpha-tested). Also owns the boot/teleport loading-screen text draw
- * (a second, unrelated use of the Text pipeline).
+ * the symbology LOGIC lives there (systems/FBDisplaySystem), not here. Two pipelines share one
+ * pixel->NDC map: Stroke (every straight segment -- rails/ticks/carets/boxes/the conformal horizon --
+ * as an analytic-coverage AA quad, replacing the old hard LineList + separate AA-triangle pipeline),
+ * Text (bitmap-font atlas glyph quads, coverage-AA). Also owns the boot/teleport loading-screen text
+ * draw (a second, unrelated use of the Text pipeline).
  *
  * FBRenderer keeps the actual telemetry pose (FBState) itself — sun/moon/cloud drive its OWN lighting
  * math too, not just the HUD — and pushes a fresh copy into SetState() right before each Encode(); the
@@ -41,9 +41,9 @@ public:
 private:
   wgpu::Device Device;
   wgpu::Queue Queue;
-  wgpu::RenderPipeline SolidPipe, LinePipe, TextPipe;
-  wgpu::BindGroup SolidBind, TextBind;
-  wgpu::Buffer Uni, TriVtx, LineVtx, TextVtx;
+  wgpu::RenderPipeline StrokePipe, TextPipe;
+  wgpu::BindGroup StrokeBind, TextBind;
+  wgpu::Buffer Uni, StrokeVtx, TextVtx;
   wgpu::Texture Atlas;
   wgpu::Sampler Samp;
   FBState State{};

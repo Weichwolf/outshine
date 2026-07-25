@@ -6,20 +6,32 @@
 namespace FlightBox {
 
 /* HUD overlay: geometry comes from the wired FBDisplaySystem's BuildHud() into a reused FBHudGeometry
- * (lines x,y,r,g,b / AA triangles / textured glyphs x,y,u,v,r,g,b) in 2D pixel coords. Three pipelines
+ * (stroke quads x,y,d,hw,r,g,b / textured glyphs x,y,u,v,r,g,b) in 2D pixel coords. Two pipelines
  * share the pixel->NDC map; the fragment linearises the colour so the sRGB swapchain view re-encodes
  * it to the intended display green. TODO: the 8-tap present.h glow. */
-static const char *kHudSolidWGSL = R"(
+static const char *kHudStrokeWGSL = R"(
 struct HU { scale : vec4f };
 @group(0) @binding(0) var<uniform> h : HU;
-struct VO { @builtin(position) pos : vec4f, @location(0) col : vec3f };
-@vertex fn vs(@location(0) p : vec2f, @location(1) c : vec3f) -> VO {
+struct VO { @builtin(position) pos : vec4f, @location(0) d : f32, @location(1) hw : f32,
+            @location(2) col : vec3f };
+@vertex fn vs(@location(0) p : vec2f, @location(1) d : f32, @location(2) hw : f32,
+              @location(3) c : vec3f) -> VO {
   var o : VO;
   o.pos = vec4f(p.x * h.scale.x - 1.0, 1.0 - p.y * h.scale.y, 0.0, 1.0);
+  o.d = d;
+  o.hw = hw;
   o.col = c;
   return o;
 }
-@fragment fn fs(in : VO) -> @location(0) vec4f { return vec4f(pow(in.col, vec3f(2.2)), 1.0); }
+/* Analytic box-filter coverage across the stroke's width: 1 at the centreline, ramping to 0 over the
+ * 1px band straddling the nominal edge |d|==hw (see FBHudGeometry.cpp's AppendStroke). A pixel-aligned
+ * 1px line (hw=0.5) renders exactly as the old hard LineList did; any other angle/width gets a smooth
+ * edge instead of a staircase. Caps are the quad's own (butt) ends -- no separate longitudinal term. */
+@fragment fn fs(in : VO) -> @location(0) vec4f {
+  let alpha = clamp(in.hw + 0.5 - abs(in.d), 0.0, 1.0);
+  if (alpha <= 0.0) { discard; }
+  return vec4f(pow(in.col, vec3f(2.2)), alpha);
+}
 )";
 static const char *kHudTextWGSL = R"(
 struct HU { scale : vec4f };
@@ -94,10 +106,8 @@ void FBHudStage::Init(const FBGpu &gpu) {
   Queue.WriteBuffer(Uni, 0, scale, sizeof scale);
 
   bd.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
-  bd.size = kHudMaxLineFloats * sizeof(float);   /* line verts (x,y,r,g,b) */
-  LineVtx = Device.CreateBuffer(&bd);
-  bd.size = kHudMaxTriFloats * sizeof(float);    /* AA triangle verts */
-  TriVtx = Device.CreateBuffer(&bd);
+  bd.size = kHudMaxStrokeFloats * sizeof(float);   /* stroke verts (x,y,d,hw,r,g,b) */
+  StrokeVtx = Device.CreateBuffer(&bd);
   bd.size = kHudMaxTextFloats * sizeof(float);   /* glyph verts (x,y,u,v,r,g,b) */
   TextVtx = Device.CreateBuffer(&bd);
   LoadingGlyphs.reserve(kHudMaxTextFloats);
@@ -119,31 +129,20 @@ void FBHudStage::Init(const FBGpu &gpu) {
     return Device.CreateShaderModule(&smd);
   };
 
-  /* solid pipeline (pos2+col3, stride 20) — one module, two topologies (tris + lines). An EXPLICIT
-   * shared layout so one bind group serves both pipelines (auto layouts are per-pipeline objects). */
+  /* stroke pipeline (pos2+d1+hw1+col3, stride 28) — replaces the old solid/line pair: every straight
+   * segment is now one analytic-coverage AA quad (TriangleList only, no more LineList topology). */
   {
-    wgpu::ShaderModule sm = mkmod(kHudSolidWGSL);
-    wgpu::BindGroupLayoutEntry ble{};
-    ble.binding = 0;
-    ble.visibility = wgpu::ShaderStage::Vertex;
-    ble.buffer.type = wgpu::BufferBindingType::Uniform;
-    wgpu::BindGroupLayoutDescriptor bld{};
-    bld.entryCount = 1;
-    bld.entries = &ble;
-    wgpu::BindGroupLayout bgl = Device.CreateBindGroupLayout(&bld);
-    wgpu::PipelineLayoutDescriptor pld{};
-    pld.bindGroupLayoutCount = 1;
-    pld.bindGroupLayouts = &bgl;
-    wgpu::PipelineLayout pl = Device.CreatePipelineLayout(&pld);
-    wgpu::VertexAttribute attrs[2] = {};
-    attrs[0].format = wgpu::VertexFormat::Float32x2; attrs[0].offset = 0; attrs[0].shaderLocation = 0;
-    attrs[1].format = wgpu::VertexFormat::Float32x3; attrs[1].offset = 8; attrs[1].shaderLocation = 1;
+    wgpu::ShaderModule sm = mkmod(kHudStrokeWGSL);
+    wgpu::VertexAttribute attrs[4] = {};
+    attrs[0].format = wgpu::VertexFormat::Float32x2; attrs[0].offset = 0;  attrs[0].shaderLocation = 0;
+    attrs[1].format = wgpu::VertexFormat::Float32;   attrs[1].offset = 8;  attrs[1].shaderLocation = 1;
+    attrs[2].format = wgpu::VertexFormat::Float32;   attrs[2].offset = 12; attrs[2].shaderLocation = 2;
+    attrs[3].format = wgpu::VertexFormat::Float32x3; attrs[3].offset = 16; attrs[3].shaderLocation = 3;
     wgpu::VertexBufferLayout vbl{};
-    vbl.arrayStride = 20;
-    vbl.attributeCount = 2;
+    vbl.arrayStride = 28;
+    vbl.attributeCount = 4;
     vbl.attributes = attrs;
     wgpu::RenderPipelineDescriptor rp{};
-    rp.layout = pl;
     rp.vertex.module = sm;
     rp.vertex.bufferCount = 1;
     rp.vertex.buffers = &vbl;
@@ -153,16 +152,14 @@ void FBHudStage::Init(const FBGpu &gpu) {
     fs.targets = &ct;
     rp.fragment = &fs;
     rp.primitive.topology = wgpu::PrimitiveTopology::TriangleList;
-    SolidPipe = Device.CreateRenderPipeline(&rp);
-    rp.primitive.topology = wgpu::PrimitiveTopology::LineList;
-    LinePipe = Device.CreateRenderPipeline(&rp);
+    StrokePipe = Device.CreateRenderPipeline(&rp);
     wgpu::BindGroupEntry be{};
     be.binding = 0; be.buffer = Uni; be.size = 16;
     wgpu::BindGroupDescriptor bg{};
-    bg.layout = bgl;
+    bg.layout = StrokePipe.GetBindGroupLayout(0);
     bg.entryCount = 1;
     bg.entries = &be;
-    SolidBind = Device.CreateBindGroup(&bg);
+    StrokeBind = Device.CreateBindGroup(&bg);
   }
   /* text pipeline (pos2+uv2+col3, stride 28) — samples the atlas, alpha-tests. */
   {
@@ -204,25 +201,17 @@ void FBHudStage::Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pass
     FBHudEnv env{ctx.Width, ctx.Height, Agl, Have};
     Disp->BuildHud(State, env, Geometry);
   }
-  const std::vector<float> &lines = Geometry.Lines();
-  const std::vector<float> &tris = Geometry.Tris();
+  const std::vector<float> &strokes = Geometry.Strokes();
   const std::vector<float> &glyphs = Geometry.Glyphs();
 
-  if (!tris.empty()) Queue.WriteBuffer(TriVtx, 0, tris.data(), tris.size() * sizeof(float));
-  if (!lines.empty()) Queue.WriteBuffer(LineVtx, 0, lines.data(), lines.size() * sizeof(float));
+  if (!strokes.empty()) Queue.WriteBuffer(StrokeVtx, 0, strokes.data(), strokes.size() * sizeof(float));
   if (!glyphs.empty()) Queue.WriteBuffer(TextVtx, 0, glyphs.data(), glyphs.size() * sizeof(float));
 
-  if (!tris.empty()) {
-    pass.SetPipeline(SolidPipe);
-    pass.SetBindGroup(0, SolidBind);
-    pass.SetVertexBuffer(0, TriVtx);
-    pass.Draw((uint32_t)(tris.size() / 5));
-  }
-  if (!lines.empty()) {
-    pass.SetPipeline(LinePipe);
-    pass.SetBindGroup(0, SolidBind);
-    pass.SetVertexBuffer(0, LineVtx);
-    pass.Draw((uint32_t)(lines.size() / 5));
+  if (!strokes.empty()) {
+    pass.SetPipeline(StrokePipe);
+    pass.SetBindGroup(0, StrokeBind);
+    pass.SetVertexBuffer(0, StrokeVtx);
+    pass.Draw((uint32_t)(strokes.size() / 7));
   }
   if (!glyphs.empty()) {
     pass.SetPipeline(TextPipe);

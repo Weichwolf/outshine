@@ -6,30 +6,52 @@
 
 namespace FlightBox {
 
+namespace {
+/* Half of the 1px box-filter band FBHudStage's fragment shader ramps coverage over -- see its banner.
+ * A stroke's rasterised half-extent is hw + kLineFeather, so alpha == 0 exactly at the quad edge. */
+constexpr float kLineFeather = 0.5f;
+} // namespace
+
 FBHudGeometry::FBHudGeometry() {
-  LineV.reserve(kHudMaxLineFloats);
-  TriV.reserve(kHudMaxTriFloats);
+  StrokeV.reserve(kHudMaxStrokeFloats);
   TextV.reserve(kHudMaxTextFloats);
 }
 
 void FBHudGeometry::Reset() {
-  LineV.clear();
-  TriV.clear();
+  StrokeV.clear();
   TextV.clear();
 }
 
+/* Emits one stroke's 2 triangles (6 verts) as a quad expanded hw+kLineFeather to each side of the
+ * centreline; d is that vertex's signed perpendicular distance, interpolated exactly across the quad
+ * since it's an affine function of position on a rectangle. Caps are BUTT, at the segment's own
+ * endpoints (not feathered/extended) -- deliberately: HUD strokes are short (ticks/rails/box edges/
+ * horizon-bar halves), the visible aliasing this whole change targets is the SIDE edge running along a
+ * tilted stroke's length (the horizon bar, the waterline chevron, tick diagonals at extreme roll), not
+ * the short end cut across it; adding a second longitudinal distance channel to feather that cut too
+ * would double the shader/vertex-format complexity for an edge that's already just 1px of hard cut
+ * regardless of angle. */
+static void AppendStroke(std::vector<float> &out, float x0, float y0, float x1, float y1, float hw,
+                          float r, float g, float b) {
+  float dx = x1 - x0, dy = y1 - y0, len = sqrtf(dx * dx + dy * dy);
+  if (len < 1e-4f) return;
+  float ext = hw + kLineFeather;
+  float nx = -dy / len * ext, ny = dx / len * ext;
+  auto vert = [&](float px, float py, float d) { out.insert(out.end(), {px, py, d, hw, r, g, b}); };
+  vert(x0 + nx, y0 + ny, ext);
+  vert(x1 + nx, y1 + ny, ext);
+  vert(x1 - nx, y1 - ny, -ext);
+  vert(x0 + nx, y0 + ny, ext);
+  vert(x1 - nx, y1 - ny, -ext);
+  vert(x0 - nx, y0 - ny, -ext);
+}
+
 void FBHudGeometry::Line(float x0, float y0, float x1, float y1, float r, float g, float b) {
-  LineV.insert(LineV.end(), {x0, y0, r, g, b, x1, y1, r, g, b});
+  AppendStroke(StrokeV, x0, y0, x1, y1, 0.5f, r, g, b);
 }
 
 void FBHudGeometry::QLine(float x0, float y0, float x1, float y1, float hw, float r, float g, float b) {
-  float dx = x1 - x0, dy = y1 - y0, L = sqrtf(dx * dx + dy * dy);
-  if (L < 1e-3f) return;
-  float px = -dy / L * hw, py = dx / L * hw;
-  float ax = x0 + px, ay = y0 + py, bx = x1 + px, by = y1 + py, cx2 = x1 - px, cy2 = y1 - py,
-        dx2 = x0 - px, dy2 = y0 - py;
-  TriV.insert(TriV.end(), {ax, ay, r, g, b, bx, by, r, g, b, cx2, cy2, r, g, b,
-                           ax, ay, r, g, b, cx2, cy2, r, g, b, dx2, dy2, r, g, b});
+  AppendStroke(StrokeV, x0, y0, x1, y1, hw, r, g, b);
 }
 
 void FBHudGeometry::Circle(float cx, float cy, float radius, int segments, float r, float g, float b) {
