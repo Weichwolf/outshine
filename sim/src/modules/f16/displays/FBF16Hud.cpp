@@ -21,6 +21,20 @@ constexpr float kHudFovDeg = 80.0f;
 constexpr float kApertureHalfWidthDeg = 12.5f;                                    /* TFOV/2 */
 constexpr float kApertureIfovH = 20.0f, kApertureIfovV = 13.5f;                   /* IFOV, for the ratio only */
 constexpr float kApertureHalfHeightDeg = kApertureHalfWidthDeg * (kApertureIfovV / kApertureIfovH);
+/* Combiner is rendered enlarged for 720p on-screen legibility -- the physical aperture ANGLE above is
+ * untouched (still the real TFOV/IFOV spec the conformal projector uses), only the drawn window and
+ * every fixed-pixel symbol/text size in it grow by this factor. Picked so the ~190x127px aperture lands
+ * at ~358x239px -- inside a 3x3 720p grid's ~427x240 middle cell (doc/f16/hud-symbology.md's box math). */
+constexpr float kHudMagnify = 1.88f;
+/* Text-scale FLOORS the magnify multiplies from. The old aperture's own text constants (0.6-0.7 for the
+ * boxed readouts, 0.62-0.65 for tick labels/status blocks) were shrunk to fit a window less than half
+ * this size and stayed well under B612's own legibility ratio (ink ~= 0.75 * 6 * s) even after
+ * kHudMagnify -- so the readouts/secondary text get raised to a common base FIRST, matching the
+ * ~0.9-1.0 scale the ladder/G-load text already used, before the one central factor multiplies
+ * everything: kHudReadoutScale*kHudMagnify ~= 2.16 (quad ~13, ink ~9.7px, clears the >=9px main-readout
+ * floor); kHudSecondaryScale*kHudMagnify ~= 2.03 (quad ~12.2, ink ~9.1px, clears the >=8px secondary
+ * floor with margin). Every other fixed size (boxes, ticks, symbols, insets) scales by kHudMagnify alone. */
+constexpr float kHudReadoutScale = 1.15f, kHudSecondaryScale = 1.08f;
 constexpr float kHgR = 0.30f, kHgG = 1.0f, kHgB = 0.40f;
 constexpr float kMToFt = 3.280839895f;
 
@@ -81,7 +95,7 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
   out.Reset();
   float cx = 0.5f * (float)env.Width, cy = 0.5f * (float)env.Height;
   if (!env.Have) {
-    out.Text(cx - 60, 30, 3, 1, 0.8f, 0.2f, "NO TELEMETRY");
+    out.Text(cx - 60 * kHudMagnify, 30 * kHudMagnify, 3 * kHudMagnify, 1, 0.8f, 0.2f, "NO TELEMETRY");
     return;
   }
 
@@ -102,7 +116,11 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
 
   Aperture ap;
   ap.cx = cx; ap.cy = cy;
-  float winHalfW = Kc * tanf(kApertureHalfWidthDeg * kRad), winHalfH = Kc * tanf(kApertureHalfHeightDeg * kRad);
+  /* Kc itself stays the real scene-FOV projector (Project() below is untouched -- horizon/ladder/FPM/
+   * diamond positions stay conformal); kHudMagnify only inflates the WINDOW those positions get cropped
+   * to, so the already-conformal picture simply shows more of itself, larger. */
+  float winHalfW = Kc * tanf(kApertureHalfWidthDeg * kRad) * kHudMagnify;
+  float winHalfH = Kc * tanf(kApertureHalfHeightDeg * kRad) * kHudMagnify;
   ap.x0 = cx - winHalfW; ap.x1 = cx + winHalfW;
   ap.y0 = cy - winHalfH; ap.y1 = cy + winHalfH;
 
@@ -115,7 +133,8 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
     Proj p0 = Project(state.yaw, -dip), p1 = Project(state.yaw + 20.f, -dip);
     float ddx = p1.sx - p0.sx, ddy = p1.sy - p0.sy, LL = sqrtf(ddx * ddx + ddy * ddy);
     if (LL > 1.f) {
-      float ux = ddx / LL, uy = ddy / LL, mx = p0.sx, my = p0.sy, half = 200.f, gap = 12.f;
+      float ux = ddx / LL, uy = ddy / LL, mx = p0.sx, my = p0.sy;
+      float half = 200.f * kHudMagnify, gap = 12.f * kHudMagnify;
       out.QLine(mx - ux * half, my - uy * half, mx - ux * gap, my - uy * gap, 1.0f, kHgR, kHgG, kHgB);
       out.QLine(mx + ux * gap, my + uy * gap, mx + ux * half, my + uy * half, 1.0f, kHgR, kHgG, kHgB);
     }
@@ -127,7 +146,10 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
    * SetClip above still crops whatever pokes past it in elevation (task's expected effect: at 5deg
    * spacing, only ~1-3 rungs visible through an 8.4deg half-height window). ----- */
   {
-    const float gapDeg = 1.0f, outerDeg = 4.5f, tickLen = 3.f;
+    /* gapDeg/outerDeg are stylistic azimuth spread (not a physical quantity -- only Ldeg's elevation
+     * carries real pitch), so kHudMagnify scales them directly as the "screen size" of the ladder bar,
+     * exactly like tickLen (an already-literal screen length). */
+    const float gapDeg = 1.0f * kHudMagnify, outerDeg = 4.5f * kHudMagnify, tickLen = 3.f * kHudMagnify;
     for (int Ldeg = -30; Ldeg <= 30; Ldeg += 5) {
       if (Ldeg == 0) continue;
       bool dashed = Ldeg < 0;
@@ -144,7 +166,8 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
           float ux = tdx / tl, uy = tdy / tl;
           out.Line(outer.sx, outer.sy, outer.sx + ux * tickLen, outer.sy + uy * tickLen, kHgR, kHgG, kHgB);
         }
-        out.Printf(outer.sx + (side > 0 ? 2.f : -12.f), outer.sy - 3.f, 0.9f, kHgR, kHgG, kHgB, "%d", Ldeg > 0 ? Ldeg : -Ldeg);
+        out.Printf(outer.sx + (side > 0 ? 2.f : -12.f) * kHudMagnify, outer.sy - 3.f * kHudMagnify,
+                   kHudSecondaryScale * kHudMagnify, kHgR, kHgG, kHgB, "%d", Ldeg > 0 ? Ldeg : -Ldeg);
       }
     }
   }
@@ -155,11 +178,11 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
    * anchor -- Project() itself is a pure function, unaffected by clip state. ----- */
   Proj fpm = Project(state.trackDeg, state.fpaDeg);
   {
-    float fx = fpm.sx, fy = fpm.sy;
-    out.Circle(fx, fy, 4.f, 16, kHgR, kHgG, kHgB);
-    out.Line(fx - 10, fy, fx - 4, fy, kHgR, kHgG, kHgB);
-    out.Line(fx + 4, fy, fx + 10, fy, kHgR, kHgG, kHgB);
-    out.Line(fx, fy + 4, fx, fy + 8, kHgR, kHgG, kHgB);
+    float fx = fpm.sx, fy = fpm.sy, mg = kHudMagnify;
+    out.Circle(fx, fy, 4.f * mg, 16, kHgR, kHgG, kHgB);
+    out.Line(fx - 10 * mg, fy, fx - 4 * mg, fy, kHgR, kHgG, kHgB);
+    out.Line(fx + 4 * mg, fy, fx + 10 * mg, fy, kHgR, kHgG, kHgB);
+    out.Line(fx, fy + 4 * mg, fx, fy + 8 * mg, kHgR, kHgG, kHgB);
   }
 
   out.ClearClip();
@@ -172,15 +195,17 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
    * (toward the FPM/ladder), labels sit below the rail -- mirror image of the old top-of-scale layout,
    * value box still straddles the rail. ----- */
   {
+    float mg = kHudMagnify;
     float hdg = state.yaw - state.magVarDeg;
     hdg = hdg < 0 ? hdg + 360.f : (hdg >= 360.f ? hdg - 360.f : hdg);
-    float hy1 = ap.y0 + 15.f;                       /* rail y, near the aperture's top edge */
-    float halfSpan = winHalfW - 12.f, hpd = 3.2f;   /* px/deg -- how much heading range the tape shows */
+    float hy1 = ap.y0 + 15.f * mg;                       /* rail y, near the aperture's top edge */
+    float halfSpan = winHalfW - 12.f * mg, hpd = 3.2f * mg;   /* px/deg -- how much heading range the tape shows */
     for (int hh = (int)floorf((hdg - halfSpan / hpd) / 5.f) * 5; hh <= (int)(hdg + halfSpan / hpd); hh += 5) {
       float sx = cx + ((float)hh - hdg) * hpd;
       if (sx < ap.x0 || sx > ap.x1) continue;
       int hn = ((hh % 360) + 360) % 360;
       float tk = (hn % 10 == 0) ? 5.f : 3.f;
+      tk *= mg;
       out.Line(sx, hy1, sx, hy1 + tk, kHgR, kHgG, kHgB);
       if (hn % 30 == 0) {
         char nb[4];
@@ -190,12 +215,12 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
         else if (hn == 180) label = "S";
         else if (hn == 270) label = "W";
         else snprintf(nb, sizeof nb, "%02d", hn / 10);
-        out.Text(sx - (label[1] ? 5.f : 2.f), hy1 + tk + 2.f, 0.65f, kHgR, kHgG, kHgB, label);
+        out.Text(sx - (label[1] ? 5.f : 2.f) * mg, hy1 + tk + 2.f * mg, kHudSecondaryScale * mg, kHgR, kHgG, kHgB, label);
       }
     }
     out.Line(cx - halfSpan, hy1, cx + halfSpan, hy1, kHgR, kHgG, kHgB);
-    out.Box(cx - 13, hy1 - 4, cx + 13, hy1 + 4, kHgR, kHgG, kHgB);
-    out.Printf(cx - 10, hy1 - 3, 0.7f, kHgR, kHgG, kHgB, "%03.0f", hdg);
+    out.Box(cx - 13 * mg, hy1 - 4 * mg, cx + 13 * mg, hy1 + 4 * mg, kHgR, kHgG, kHgB);
+    out.Printf(cx - 10 * mg, hy1 - 3 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, "%03.0f", hdg);
   }
 
   /* ----- Bank-angle scale (below the FPM): fixed ticks at 0/10/20/30/45deg + a pointer rotating with
@@ -204,7 +229,10 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
    * radius; scaled onto our own half-aperture-height (winHalfH) instead of jammed at the aperture's
    * physical floor. ----- */
   {
-    float bx = cx, by = cy + 0.192f * winHalfH, R = 0.385f * winHalfH, tk = 4.f;
+    float mg = kHudMagnify;
+    /* R/by are already fractions of winHalfH, which itself carries kHudMagnify -- only the literal
+     * tick length (tk) needs its own explicit scale. */
+    float bx = cx, by = cy + 0.192f * winHalfH, R = 0.385f * winHalfH, tk = 4.f * mg;
     static const float marks[] = {0, 10, 20, -10, -20};
     static const float longMarks[] = {30, -30, 45, -45};
     for (float m : marks) {
@@ -218,12 +246,12 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
     float roll = state.roll < -45.f ? -45.f : (state.roll > 45.f ? 45.f : state.roll), a = -roll * kRad;
     float px = bx + sinf(a) * R, py = by - cosf(a) * R;
     float nx = sinf(a), ny = -cosf(a), tx = -ny, ty = nx;
-    out.Line(px, py, px + nx * 5.f + tx * 2.5f, py + ny * 5.f + ty * 2.5f, kHgR, kHgG, kHgB);
-    out.Line(px, py, px + nx * 5.f - tx * 2.5f, py + ny * 5.f - ty * 2.5f, kHgR, kHgG, kHgB);
+    out.Line(px, py, px + (nx * 5.f + tx * 2.5f) * mg, py + (ny * 5.f + ty * 2.5f) * mg, kHgR, kHgG, kHgB);
+    out.Line(px, py, px + (nx * 5.f - tx * 2.5f) * mg, py + (ny * 5.f - ty * 2.5f) * mg, kHgR, kHgG, kHgB);
   }
 
   /* ----- G-load (top-left of the aperture) ----- */
-  out.Printf(ap.x0 + 2.f, ap.y0 + 2.f, 1.0f, kHgR, kHgG, kHgB, "%.1f", state.gLoad);
+  out.Printf(ap.x0 + 2.f * kHudMagnify, ap.y0 + 2.f * kHudMagnify, kHudSecondaryScale * kHudMagnify, kHgR, kHgG, kHgB, "%.1f", state.gLoad);
 
   /* ----- Left status block (LEFT edge, just past vertical centre -- not jammed in the bottom corner):
    * master mode (NAV) FIRST, then Mach, Peak-G, ARM/SIM, bullseye bearing/distance. Both the vertical
@@ -233,7 +261,7 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
    * its stack); ARM/SIM has no FG-window counterpart at this position (kept, 4th row -- a documented
    * addition, not a repositioning). ----- */
   {
-    float lx = ap.x0 + 2.f, ls = 8.f, s = 0.62f;
+    float lx = ap.x0 + 2.f * kHudMagnify, ls = 8.f * kHudMagnify, s = kHudSecondaryScale * kHudMagnify;
     float ly = cy + 0.136f * winHalfH;
     out.Text(lx, ly, s, kHgR, kHgG, kHgB, "NAV");
     out.Printf(lx, ly + ls, s, kHgR, kHgG, kHgB, "%.2f", state.mach);
@@ -249,7 +277,7 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
    * altitude) has no FG-window counterpart here (FG gives it its own dedicated "radalt" text elsewhere)
    * but stays as an extra lead row -- a documented addition. ----- */
   {
-    float rx = ap.x1 - 46.f, ls = 8.f, s = 0.62f;
+    float rx = ap.x1 - 46.f * kHudMagnify, ls = 8.f * kHudMagnify, s = kHudSecondaryScale * kHudMagnify;
     float ry = cy + 0.136f * winHalfH;
     out.Printf(rx, ry, s, kHgR, kHgG, kHgB, "R%4.0f", state.radarAltFt);
     out.Printf(rx, ry + ls, s, kHgR, kHgG, kHgB, "AL%3.0f", state.alowFt);
@@ -266,33 +294,38 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
    * Numeric tick labels dropped (no room at this scale) -- the box carries the exact value, same
    * simplification the altitude tape below makes. ----- */
   {
-    float ax = ap.x0 + 0.08f * (ap.x1 - ap.x0), as = state.casKts, tapeHalf = 20.f, pxPerKt = 0.55f;
+    float mg = kHudMagnify;
+    float ax = ap.x0 + 0.08f * (ap.x1 - ap.x0), as = state.casKts;
+    float tapeHalf = 20.f * mg, pxPerKt = 0.55f * mg;
     for (int av = (int)floorf((as - tapeHalf / pxPerKt) / 20.f) * 20; av <= (int)(as + tapeHalf / pxPerKt); av += 20) {
       if (av < 0) continue;
       float sy = cy - ((float)av - as) * pxPerKt;
       if (sy < cy - tapeHalf || sy > cy + tapeHalf) continue;
       float tk = (av % 100 == 0) ? 5.f : 3.f;
-      out.Line(ax, sy, ax + tk, sy, kHgR, kHgG, kHgB);
+      out.Line(ax, sy, ax + tk * mg, sy, kHgR, kHgG, kHgB);
     }
     out.Line(ax, cy - tapeHalf, ax, cy + tapeHalf, kHgR, kHgG, kHgB);
-    out.Box(ax + 2, cy - 5, ax + 24, cy + 5, kHgR, kHgG, kHgB);
-    out.Printf(ax + 4, cy - 3, 0.68f, kHgR, kHgG, kHgB, "%3.0f", as);
+    out.Box(ax + 2 * mg, cy - 5 * mg, ax + 24 * mg, cy + 5 * mg, kHgR, kHgG, kHgB);
+    out.Printf(ax + 4 * mg, cy - 3 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, "%3.0f", as);
   }
 
   /* ----- Altitude tape (RIGHT side, barometric ASL): minor ticks every 100ft, boxed exact value,
    * thousands-comma'd ("6,020" ft), inset from the aperture edge to mirror the CAS tape (FG's alt_frame
    * anchors at ~0.80*sx*uv_used, the same ~8% margin from its edge). ----- */
   {
-    float axr = ap.x1 - 0.08f * (ap.x1 - ap.x0), asl = state.alt * kMToFt, tapeHalf = 20.f, pxPerFt = 0.03f;
+    float mg = kHudMagnify;
+    float axr = ap.x1 - 0.08f * (ap.x1 - ap.x0), asl = state.alt * kMToFt;
+    float tapeHalf = 20.f * mg, pxPerFt = 0.03f * mg;
     for (int av = (int)floorf((asl - tapeHalf / pxPerFt) / 100.f) * 100; av <= (int)(asl + tapeHalf / pxPerFt); av += 100) {
       float sy = cy - ((float)av - asl) * pxPerFt;
       if (sy < cy - tapeHalf || sy > cy + tapeHalf) continue;
       float tk = (av % 500 == 0) ? 5.f : 3.f;
-      out.Line(axr, sy, axr - tk, sy, kHgR, kHgG, kHgB);
+      out.Line(axr, sy, axr - tk * mg, sy, kHgR, kHgG, kHgB);
     }
     out.Line(axr, cy - tapeHalf, axr, cy + tapeHalf, kHgR, kHgG, kHgB);
-    out.Box(axr - 26, cy - 5, axr - 2, cy + 5, kHgR, kHgG, kHgB);
-    PrintThousands(out, axr - 24, cy - 3, 0.6f, kHgR, kHgG, kHgB, (int)asl);
+    /* box wide enough for a 6-char "10,020"-style readout: 6 * advance(4 * 2.162) ~= 52px < 32*mg */
+    out.Box(axr - 34 * mg, cy - 5 * mg, axr - 2 * mg, cy + 5 * mg, kHgR, kHgG, kHgB);
+    PrintThousands(out, axr - 32 * mg, cy - 3 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, (int)asl);
   }
 
   /* ===== Steerpoint diamond + tadpole -- back under the aperture clip (task: these stay conformal). The
@@ -302,7 +335,7 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
   {
     Proj sp = Project(state.steerBearingDeg, state.steerElevAngleDeg);
     bool outOfFov = sp.zc < 0.05f || sp.sx < ap.x0 || sp.sx > ap.x1 || sp.sy < ap.y0 || sp.sy > ap.y1;
-    float dw = 5.f, dh = 4.5f;
+    float dw = 5.f * kHudMagnify, dh = 4.5f * kHudMagnify;
     float px = sp.sx, py = sp.sy;
     if (outOfFov) ClampToRect(ap, sp.sx, sp.sy, dw, dh, px, py);
     out.Line(px - dw, py, px, py - dh, kHgR, kHgG, kHgB);
@@ -317,16 +350,17 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
     /* Tadpole: near the FPM, X clamped to the aperture's own half-width (scaled down from the old
      * screen-width-fraction clamp), rotated so it points UP when the steerpoint is ahead of track,
      * DOWN when behind (doc/f16/hud-symbology.md). */
+    float mg = kHudMagnify;
     float relBrg = Wrap180(state.steerBearingDeg - state.trackDeg);
-    float clampX = winHalfW - 12.f;
-    float tx = relBrg * 1.2f;
+    float clampX = winHalfW - 12.f * mg;
+    float tx = relBrg * 1.2f * mg;
     tx = tx < -clampX ? -clampX : (tx > clampX ? clampX : tx);
     float tpx = fpm.sx + tx, tpy = fpm.sy;
     float ar = relBrg * kRad, sA = sinf(ar), cA = cosf(ar);
     auto Rot = [&](float lx, float ly, float &ox, float &oy) { ox = tpx + lx * cA - ly * sA; oy = tpy + lx * sA + ly * cA; };
     float tipx, tipy, basex, basey, lhx, lhy, rhx, rhy;
-    Rot(0, -6, tipx, tipy); Rot(0, 4, basex, basey);
-    Rot(-2.5f, -2.5f, lhx, lhy); Rot(2.5f, -2.5f, rhx, rhy);
+    Rot(0, -6 * mg, tipx, tipy); Rot(0, 4 * mg, basex, basey);
+    Rot(-2.5f * mg, -2.5f * mg, lhx, lhy); Rot(2.5f * mg, -2.5f * mg, rhx, rhy);
     out.Line(basex, basey, tipx, tipy, kHgR, kHgG, kHgB);
     out.Line(tipx, tipy, lhx, lhy, kHgR, kHgG, kHgB);
     out.Line(tipx, tipy, rhx, rhy, kHgR, kHgG, kHgB);
