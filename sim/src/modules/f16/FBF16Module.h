@@ -11,7 +11,9 @@
  *   Input/HOTAS, Propulsion                  ~frame     once per Run() call (the coarsest sim tick)
  *   Displays                                 20 Hz       accumulator-throttled inside Run()
  *   Weapons                                  20 Hz       accumulator-throttled inside Run()
- *   Sensors                                  10 Hz       accumulator-throttled inside Run()
+ *   Sensors, AirData, RadarAlt, Nav,          10 Hz       accumulator-throttled inside Run(), ONE group
+ *   FireControl, Ufc, Sms                                (the HUD's telemetry chain updates together —
+ *                                                          FireControl reads Nav's SAME-tick output)
  *   Defensive                                5 Hz        accumulator-throttled inside Run()
  *   Comms                                    1 Hz        accumulator-throttled inside Run()
  *   PathPlan                                 App-owned cadence (see FBF16Module.cpp banner) — the one
@@ -27,10 +29,16 @@
 
 #include <memory>
 #include "FBModule.h"
+#include "FBAirDataSystem.h"
 #include "FBAutopilot.h"
+#include "FBF16FireControl.h"
 #include "FBF16Max7456.h"
+#include "FBF16Sms.h"
+#include "FBF16Ufc.h"
 #include "FBFlightControl.h"
+#include "FBNavSystem.h"
 #include "FBPathPlan.h"
+#include "FBRadarAltimeter.h"
 #include "FBSystemSlots.h"
 #include "FBMasterMode.h"
 
@@ -44,12 +52,25 @@ public:
 
   void Run(fb_fdm_state &st, double dt, const FBWorld *world = nullptr) override;
 
+  /* The HUD's telemetry chain writes HERE (SharedState), not into the App's own FBState — the App must
+   * seed its per-frame FBState from this BEFORE overwriting the fields it computes itself (pose/sun/
+   * moon/...), e.g. `FBState hs = F16->Telemetry(); hs.roll = ...;`, so BuildHud sees both. */
+  const FBState &Telemetry() const { return SharedState; }
+
   FBAutopilot &Autopilot() { return *AP; }
   FBFlightControl &FlightControl() { return *FC; }
   FBDisplaySystem &Displays() { return *Disp; }   /* wire into FBRenderer::SetHudDisplay */
   FBF16Max7456 &Max7456() { return *Chip; }       /* the MAX7456-chip-specific hook, see its banner */
+  FBNavSystem &Nav() { return *NavSys; }          /* steerpoint/bullseye setup (SetSteerpoint/SetBullseye) */
+  FBF16Ufc &Ufc() { return *UfcSys; }             /* ALOW/selected-steerpoint placeholder setup */
+  FBF16Sms &Sms() { return *SmsSys; }             /* master-arm placeholder setup */
   const FBGuidance &LastGuidance() const { return LastG; }
   int LastSubsteps() const { return LastSub; }
+
+  /* Ground ASL (m) under the aircraft, the SAME DEM sample the App already resolved for
+   * FBRenderer::SetAgl (fb_stream_ground) — call before Run() each frame; FBRadarAltimeter reuses it
+   * rather than re-querying terrain. */
+  void SetGroundAsl(float m) { GroundAslM = m; }
 
   /* LOWLEVEL wander planner: the module owns the instance once the App configures one (opt-in — not
    * every boot mode plans). nullptr until configured. */
@@ -79,6 +100,16 @@ private:
   std::unique_ptr<FBWeaponSystem> Weapons;
   std::unique_ptr<FBDefensiveSystem> Defensive;
   std::unique_ptr<FBCommsSystem> Comms;
+
+  /* The HUD's telemetry chain (see the rate table): generic systems/ defaults + the two F-16-specific
+   * placeholders (FireControl's 'B' slant range, Ufc/Sms). */
+  std::unique_ptr<FBAirDataSystem> AirData;
+  std::unique_ptr<FBRadarAltimeter> RadarAlt;
+  std::unique_ptr<FBNavSystem> NavSys;
+  std::unique_ptr<FBF16FireControl> FireCtrl;
+  std::unique_ptr<FBF16Ufc> UfcSys;
+  std::unique_ptr<FBF16Sms> SmsSys;
+  float GroundAslM = 0.0f;
 
   FBMasterMode Mode = FBMasterMode::Nav;
   FBState SharedState{};   /* Sensors WRITE, Displays READ — no display queries a sensor directly */

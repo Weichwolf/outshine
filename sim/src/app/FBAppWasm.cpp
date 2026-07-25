@@ -161,6 +161,11 @@ static void frame(void) {
    * Grenchen), not init-ASL 0. Only push REAL /elev samples; a cold reply leaves the last good value. */
   double ground = fb_stream_ground(St.lat, St.lon);
   if (ground > -1e8) fb_jsbsim_set_ground(ground);
+  /* Until the first /elev lands, fall back to the config ground so AGL/radar-alt show a plausible
+   * number rather than raw ASL — the SAME fallback SetAgl already used, now shared with
+   * FBRadarAltimeter (FBF16Module::SetGroundAsl) so both read one value, not two DEM paths. */
+  double gForHud = ground > -1e8 ? ground : Ground;
+  gF16->SetGroundAsl((float)gForHud);
   double cp_b = emscripten_get_now();   /* end: ground/bridges */
 
   /* LOWLEVEL wander planner: pure-pursuit steers the AGL-hold heading down the valley waypoints. The
@@ -198,9 +203,8 @@ static void frame(void) {
   int nSub = gF16->LastSubsteps();
   double cp_c = emscripten_get_now();   /* end: jsbsim substeps */
 
-  /* HUD AGL (ASL - DEM ground); until the first /elev lands, fall back to the config ground so the
-   * tape shows a plausible number rather than ASL. 1 Hz telemetry from THIS sim tick (device-loss-proof). */
-  double gForHud = ground > -1e8 ? ground : Ground;
+  /* HUD AGL (ASL - DEM ground) — gForHud computed above, before Run(), so FBRadarAltimeter and this
+   * read the same sample. 1 Hz telemetry from THIS sim tick (device-loss-proof). */
   R.SetAgl((float)(St.elev - gForHud));
 
   /* Camera = the aircraft eye. */
@@ -209,8 +213,10 @@ static void frame(void) {
   cameraBasis(St.yaw, St.pitch, St.roll, St.lat, St.lon, fwd, right, up);
   R.SetCameraBasis(eye, fwd, right, up);
 
-  /* HUD pose from the live sim (ENU offset + home vector, MIL-STD-1787 relative bearing). */
-  FBState hs{};
+  /* HUD pose from the live sim (ENU offset + home vector, MIL-STD-1787 relative bearing). Seeded from
+   * the module's own telemetry chain (FBAirDataSystem/FBRadarAltimeter/FBNavSystem/...), then the
+   * App-computed pose/sun/moon fields below overwrite their slice. */
+  FBState hs = gF16->Telemetry();
   hs.roll = (float)St.roll; hs.pitch = (float)St.pitch; hs.yaw = (float)St.yaw;
   hs.alt = (float)St.elev; hs.gs = (float)St.gs; hs.airspeed = (float)St.speed; hs.vs = (float)St.vy;
   double coslat = std::cos(Olat * kPi / 180.0);
@@ -352,6 +358,18 @@ int main() {
            altAsl, kRadiusM, kSpeedMs);
   }
   fb_jsbsim_step(&St);   /* prime St before the first guidance step */
+
+  /* HUD nav placeholder: one steerpoint 8 nm bearing 060 from the origin, bullseye AT the origin —
+   * matches gpu_native --fly's setup (see its banner: both in-FOV and crossed-out diamond occur as the
+   * relative bearing sweeps over a loiter turn / LOWLEVEL fan steering). */
+  {
+    const double kStptBrgDeg = 60.0, kStptRangeNm = 8.0;
+    double brgRad = kStptBrgDeg * kPi / 180.0, rangeM = kStptRangeNm * 1852.0;
+    double stptLat = olat + (rangeM * std::cos(brgRad)) / kMPerDeg;
+    double stptLon = olon + (rangeM * std::sin(brgRad)) / (kMPerDeg * std::cos(olat * kPi / 180.0));
+    gF16->Nav().SetSteerpoint(stptLat, stptLon, Ground / 0.3048 + 50.0);
+    gF16->Nav().SetBullseye(olat, olon);
+  }
 
   R.SetStreaming(512);
   /* Boot ground mode: default EVS/photo (Esri is the first thing shown; OSM becomes the lazy overlay).

@@ -33,6 +33,16 @@ public:
 
   void Reset();
 
+  /* Scissor state for conformal symbology (the HUD combiner aperture): while active, every stroke is
+   * cut to the rect (Liang-Barsky segment clip -- partial strokes emit only their visible portion, a
+   * fully-outside stroke emits nothing) and every glyph is dropped whole unless its content box
+   * overlaps the rect (glyphs are opaque quads, not further sub-divisible without a shader change --
+   * see the class banner and FBF16Hud's aperture clip). SetClip/ClearClip bracket a BuildHud section;
+   * geometry emitted outside any SetClip/ClearClip pair (tapes, text blocks -- already laid out inside
+   * the aperture) is unaffected. */
+  void SetClip(float x0, float y0, float x1, float y1);
+  void ClearClip();
+
   /* A hairline (half-width 0.5px -- the AA band alone is the line's visible width, matching the old
    * 1px hard LineList's weight) straight segment. */
   void Line(float x0, float y0, float x1, float y1, float r, float g, float b);
@@ -50,6 +60,8 @@ public:
 
 private:
   std::vector<float> StrokeV, TextV;
+  bool ClipOn = false;
+  float ClipX0 = 0, ClipY0 = 0, ClipX1 = 0, ClipY1 = 0;
 };
 
 } // namespace FlightBox

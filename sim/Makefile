@@ -36,7 +36,7 @@ JSB_HOST     := build/jsbsim-host
 # (FBAutopilot/FBFlightControl/FBPathPlan/FBDisplaySystem) modules compose and may override; modules/f16
 # = the F-16's module (composes systems/ + its gain preset); fdm = the JSBSim C adapter; terrain = the
 # lean terrain API (flat); vendor/jsbsim/src = the JSBSim headers.
-INC_MODULES := -Isrc/core -Isrc/math -Isrc/render -Isrc/world -Isrc/systems -Isrc/modules -Isrc/modules/f16
+INC_MODULES := -Isrc/core -Isrc/math -Isrc/render -Isrc/world -Isrc/systems -Isrc/modules -Isrc/modules/f16 -Isrc/modules/f16/displays
 INC_WASM   := $(INC_MODULES) -Isrc/fdm -Isrc/terrain -I$(JSBSIM)/src
 INC_NATIVE := $(INC_MODULES) -Isrc/fdm -Isrc/terrain
 INC_TILES := -I../tiles/src
@@ -70,6 +70,20 @@ wasm:            ## build the WASM browser Command Center (F-16 sim + renderer) 
 	    -c -o build/obj-wasm/FBF16Module.o; \
 	  emcc src/systems/FBDisplaySystem.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
 	    -c -o build/obj-wasm/FBDisplaySystem.o; \
+	  emcc src/systems/FBAirDataSystem.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
+	    -c -o build/obj-wasm/FBAirDataSystem.o; \
+	  emcc src/systems/FBRadarAltimeter.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
+	    -c -o build/obj-wasm/FBRadarAltimeter.o; \
+	  emcc src/systems/FBNavSystem.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
+	    -c -o build/obj-wasm/FBNavSystem.o; \
+	  emcc src/modules/f16/FBF16FireControl.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
+	    -c -o build/obj-wasm/FBF16FireControl.o; \
+	  emcc src/modules/f16/FBF16Ufc.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
+	    -c -o build/obj-wasm/FBF16Ufc.o; \
+	  emcc src/modules/f16/FBF16Sms.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
+	    -c -o build/obj-wasm/FBF16Sms.o; \
+	  emcc src/modules/f16/displays/FBF16Hud.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
+	    -c -o build/obj-wasm/FBF16Hud.o; \
 	  emcc build/obj-wasm/*.o $(JSB_WASM)/src/libJSBSim.a \
 	    src/app/FBAppWasm.cpp src/render/FBRenderer.cpp src/render/FBHudGeometry.cpp src/world/FBWorld.cpp \
 	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \
@@ -135,6 +149,20 @@ native:          ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	    -c -o build/obj-native/FBF16Module.o; \
 	  c++ src/systems/FBDisplaySystem.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBDisplaySystem.o; \
+	  c++ src/systems/FBAirDataSystem.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
+	    -c -o build/obj-native/FBAirDataSystem.o; \
+	  c++ src/systems/FBRadarAltimeter.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
+	    -c -o build/obj-native/FBRadarAltimeter.o; \
+	  c++ src/systems/FBNavSystem.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
+	    -c -o build/obj-native/FBNavSystem.o; \
+	  c++ src/modules/f16/FBF16FireControl.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
+	    -c -o build/obj-native/FBF16FireControl.o; \
+	  c++ src/modules/f16/FBF16Ufc.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
+	    -c -o build/obj-native/FBF16Ufc.o; \
+	  c++ src/modules/f16/FBF16Sms.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
+	    -c -o build/obj-native/FBF16Sms.o; \
+	  c++ src/modules/f16/displays/FBF16Hud.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
+	    -c -o build/obj-native/FBF16Hud.o; \
 	  c++ src/app/FBAppNative.cpp src/render/FBRenderer.cpp src/render/FBHudGeometry.cpp src/world/FBWorld.cpp \
 	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \
 	    src/render/stages/FBHudStage.cpp src/render/stages/FBUpscaleStage.cpp \

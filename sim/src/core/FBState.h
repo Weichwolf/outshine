@@ -1,9 +1,15 @@
 /* FlightBox — FBState: the live telemetry pose the renderer/HUD read each frame. Holds exactly what an
  * in-process sim (no wire) fills. Atmosphere fields (sun/moon/cloud/vis) — hud.h/atmo.h read them as
  * the SVS/EVS light inputs. batt/rssi stay too (HUD BAT/LNK lines) though nothing feeds them a real
- * value yet. */
+ * value yet.
+ *
+ * The F16-HUD block below is written by the new systems/ + modules/f16/ placeholder systems
+ * (FBAirDataSystem, FBRadarAltimeter, FBNavSystem, FBF16FireControl, FBF16Ufc, FBF16Sms) — each writes
+ * its own slice, none of them read another's write back out of FBState (Peers rufen sich nie
+ * gegenseitig); FBF16Hud (modules/f16/displays) only READS. */
 #ifndef FB_FBSTATE_H
 #define FB_FBSTATE_H
+#include "FBArmState.h"
 #include "FBMode.h"
 
 namespace FlightBox {
@@ -27,6 +33,36 @@ struct FBState {
   float  sun_el, sun_az;    /* sun elevation/azimuth, deg (+ = above horizon, 0=N 90=E) */
   float  moon_el, moon_az;  /* deg */
   float  moon_phase;        /* illuminated fraction 0=new .. 1=full */
+
+  /* ---- FBAirDataSystem: ADC-class air data + the FPM's world-referenced direction ---- */
+  float casKts, mach;       /* calibrated airspeed (kt), Mach number */
+  float gLoad, gLoadPeak;   /* body normal load factor (g), running peak since boot */
+  float trackDeg;           /* ground track, true, deg 0..360 (from the velocity vector) */
+  float fpaDeg;             /* flight-path angle, deg (+ = climbing) — FPM's elevation vs. level */
+
+  /* ---- FBRadarAltimeter ---- */
+  float radarAltFt;         /* AGL, ft (elev - DEM ground, the same source SetAgl already gets) */
+
+  /* ---- FBNavSystem: one active steerpoint + the bullseye reference, planar-approx geodesy ---- */
+  float steerBearingDeg;    /* true bearing aircraft -> steerpoint, deg 0..360 */
+  float steerElevAngleDeg;  /* elevation angle aircraft -> steerpoint, deg (+ = above) */
+  float steerDistNm;        /* horizontal distance to the steerpoint, nm */
+  float steerElevFt;        /* steerpoint ground elevation, ft ASL (FBF16FireControl's slant input) */
+  float steerTtgS;          /* time-to-go to the steerpoint at current groundspeed, s */
+  float bullBearingDeg;     /* bearing FROM the bullseye TO the aircraft, deg 0..360 */
+  float bullDistNm;         /* distance from the bullseye, nm */
+  float magVarDeg;          /* magnetic variation, deg (placeholder: 0) */
+
+  /* ---- FBF16FireControl: the "B" (baro/steerpoint-elevation) slant-range method ---- */
+  float steerSlantNm;       /* slant range to the steerpoint, nm */
+  char  rangeProvider;      /* range-provider letter, 'B' = baro-computed (see FBF16FireControl) */
+
+  /* ---- FBF16Ufc: ICP/DED placeholders ---- */
+  int   steerNum;           /* selected steerpoint number */
+  float alowFt;             /* ALOW floor, ft */
+
+  /* ---- FBF16Sms: master-arm placeholder ---- */
+  FBArmState armState;
 };
 
 } // namespace FlightBox

@@ -164,6 +164,7 @@ extern "C" void fb_jsbsim_step(fb_fdm_state *o) {
   o->speed = g_fdm->GetPropertyValue("velocities/vt-fps") * FT;
   o->gs    = g_fdm->GetPropertyValue("velocities/vg-fps") * FT;
   o->cas   = g_fdm->GetPropertyValue("velocities/vc-fps") * FT;   /* calibrated airspeed — density-corrected, the honest "how close to stall" metric at any field elevation */
+  o->mach  = g_fdm->GetPropertyValue("velocities/mach");
   o->vx    =  g_fdm->GetPropertyValue("velocities/v-east-fps")  * FT;   /* +x east */
   o->vy    = -g_fdm->GetPropertyValue("velocities/v-down-fps")  * FT;   /* +y up   */
   o->vz    = -g_fdm->GetPropertyValue("velocities/v-north-fps") * FT;   /* +z south */

@@ -10,7 +10,36 @@ namespace {
 /* Half of the 1px box-filter band FBHudStage's fragment shader ramps coverage over -- see its banner.
  * A stroke's rasterised half-extent is hw + kLineFeather, so alpha == 0 exactly at the quad edge. */
 constexpr float kLineFeather = 0.5f;
+
+/* Liang-Barsky segment clip against an axis-aligned rect: shrinks [t0,t1] along the segment by each of
+ * the 4 half-plane tests, returns false (segment wholly outside, caller emits nothing) iff the interval
+ * collapses. p/q per Liang-Barsky: p<0 entering, p>0 leaving, p==0 parallel (reject iff already outside
+ * that boundary). */
+bool ClipSegment(float &x0, float &y0, float &x1, float &y1, float cx0, float cy0, float cx1, float cy1) {
+  float dx = x1 - x0, dy = y1 - y0, t0 = 0.f, t1 = 1.f;
+  float p[4] = {-dx, dx, -dy, dy};
+  float q[4] = {x0 - cx0, cx1 - x0, y0 - cy0, cy1 - y0};
+  for (int i = 0; i < 4; i++) {
+    if (p[i] == 0.f) {
+      if (q[i] < 0.f) return false;
+      continue;
+    }
+    float r = q[i] / p[i];
+    if (p[i] < 0.f) { if (r > t1) return false; if (r > t0) t0 = r; }
+    else { if (r < t0) return false; if (r < t1) t1 = r; }
+  }
+  float nx0 = x0 + t0 * dx, ny0 = y0 + t0 * dy, nx1 = x0 + t1 * dx, ny1 = y0 + t1 * dy;
+  x0 = nx0; y0 = ny0; x1 = nx1; y1 = ny1;
+  return true;
+}
 } // namespace
+
+void FBHudGeometry::SetClip(float x0, float y0, float x1, float y1) {
+  ClipOn = true;
+  ClipX0 = x0; ClipY0 = y0; ClipX1 = x1; ClipY1 = y1;
+}
+
+void FBHudGeometry::ClearClip() { ClipOn = false; }
 
 FBHudGeometry::FBHudGeometry() {
   StrokeV.reserve(kHudMaxStrokeFloats);
@@ -47,10 +76,12 @@ static void AppendStroke(std::vector<float> &out, float x0, float y0, float x1, 
 }
 
 void FBHudGeometry::Line(float x0, float y0, float x1, float y1, float r, float g, float b) {
+  if (ClipOn && !ClipSegment(x0, y0, x1, y1, ClipX0, ClipY0, ClipX1, ClipY1)) return;
   AppendStroke(StrokeV, x0, y0, x1, y1, 0.5f, r, g, b);
 }
 
 void FBHudGeometry::QLine(float x0, float y0, float x1, float y1, float hw, float r, float g, float b) {
+  if (ClipOn && !ClipSegment(x0, y0, x1, y1, ClipX0, ClipY0, ClipX1, ClipY1)) return;
   AppendStroke(StrokeV, x0, y0, x1, y1, hw, r, g, b);
 }
 
@@ -72,8 +103,22 @@ void FBHudGeometry::Box(float x0, float y0, float x1, float y1, float r, float g
   Line(x0, y1, x0, y0, r, g, b);
 }
 
+/* Glyphs are opaque atlas quads (no sub-character geometry to clip a straight edge through), so under
+ * an active aperture clip a character is an all-or-nothing decision: drawn iff its content box
+ * overlaps the clip rect at all, dropped whole otherwise -- x still advances so surviving characters
+ * of a string straddling the aperture edge stay correctly spaced. */
 void FBHudGeometry::Text(float x, float y, float s, float r, float g, float b, const char *text) {
-  FBHudFontAppendText(TextV, x, y, s, r, g, b, text);
+  if (!ClipOn) { FBHudFontAppendText(TextV, x, y, s, r, g, b, text); return; }
+  float adv = kFontAdvance * s, qs = kFontQuadSize * s;
+  for (; *text; text++) {
+    char u = *text;
+    if (u >= 'a' && u <= 'z') u -= 32;
+    const char *p = strchr(kFontCharset, u);
+    int gi = p ? (int)(p - kFontCharset) : 0;
+    if (gi > 0 && x + qs >= ClipX0 && x <= ClipX1 && y + qs >= ClipY0 && y <= ClipY1)
+      FBHudFontAppendGlyph(TextV, x, y, qs, gi, r, g, b);
+    x += adv;
+  }
 }
 
 void FBHudGeometry::Printf(float x, float y, float s, float r, float g, float b, const char *fmt, ...) {

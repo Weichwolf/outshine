@@ -344,6 +344,18 @@ int RunFly(double lat, double lon, double ground0, double aglM, double viewKm, t
   printf("gpu_native --fly: F-16 loiter %.4f/%.4f alt %.0f m ASL (ground %.0f), R %.0f m, %.0f m/s\n",
          lat, lon, altAsl, ground, kRadiusM, kSpeedMs);
 
+  /* HUD nav placeholder: one steerpoint 8 nm bearing 060 from the origin, bullseye AT the origin — a
+   * concrete, moving relative bearing so the guide's "diamond in FOV" and "crossed-out" cases both
+   * occur across a run (loiter's own turn, or LOWLEVEL's fan steering, sweep the relative bearing). */
+  {
+    const double kStptBrgDeg = 60.0, kStptRangeNm = 8.0;
+    double brgRad = kStptBrgDeg * kPi / 180.0, rangeM = kStptRangeNm * 1852.0;
+    double stptLat = lat + (rangeM * std::cos(brgRad)) / 111320.0;
+    double stptLon = lon + (rangeM * std::sin(brgRad)) / (111320.0 * std::cos(lat * kPi / 180.0));
+    F16->Nav().SetSteerpoint(stptLat, stptLon, ground / 0.3048 + 50.0);
+    F16->Nav().SetBullseye(lat, lon);
+  }
+
   R.InitOffscreen(width, height);
   if (!R.Ready()) { fprintf(stderr, "gpu_native --fly: WebGPU device init failed\n"); return 1; }
 
@@ -398,6 +410,7 @@ int RunFly(double lat, double lon, double ground0, double aglM, double viewKm, t
     /* FDM ground floor = the live DEM under the aircraft (crash contract), fed BEFORE stepping. */
     double gnd = fb_stream_ground(St.lat, St.lon);
     if (gnd > -1e8) { ground = gnd; fb_jsbsim_set_ground(gnd); }
+    F16->SetGroundAsl((float)ground);   /* FBRadarAltimeter reuses this SAME sample, see its banner */
 
     /* LOWLEVEL lateral: DEFAULT = the reactive terrain fan (chooses the heading toward the lowest valley,
      * wings-level). FB_LL_PLANNER: the A* far-planner steers by pure-pursuit instead. FB_LL_FIXHDG: neither. */
@@ -416,7 +429,7 @@ int RunFly(double lat, double lon, double ground0, double aglM, double viewKm, t
     CameraBasis(St.yaw, St.pitch, St.roll, St.lat, St.lon, fwd, right, up);
     R.SetCameraBasis(eye, fwd, right, up);
 
-    FlightBox::FBState hs{};
+    FlightBox::FBState hs = F16->Telemetry();   /* seed: FBAirDataSystem/FBRadarAltimeter/FBNavSystem/... */
     hs.roll = (float)St.roll; hs.pitch = (float)St.pitch; hs.yaw = (float)St.yaw;
     hs.alt = (float)St.elev; hs.gs = (float)St.gs; hs.airspeed = (float)St.speed; hs.vs = (float)St.vy;
     double coslat = std::cos(lat * kPi / 180.0);

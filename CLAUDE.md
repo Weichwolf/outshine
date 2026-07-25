@@ -134,8 +134,13 @@ sim/src/
   systems/   die generischen, airframe-agnostischen System-Slots eines Moduls — Interface + Default
              in EINER Klasse, ein Modul überschreibt per Ableitung (Zahlen-Tuning bleibt Preset/
              Config, keine leere Ableitung dafür):
-               FBAutopilot (Guidance), FBFlightControl (FBW-Innenschleife), FBPathPlan (Wanderplaner)
-               — die drei heute REAL implementierten Systeme, `Run()`/`Update()` virtuell;
+               FBAutopilot (Guidance), FBFlightControl (FBW-Innenschleife), FBPathPlan (Wanderplaner),
+               FBAirDataSystem (CAS/Mach/G-Last, FPM-Richtung als Ground-Track/Flightpath-Angle aus dem
+               ENU-Geschwindigkeitsvektor), FBRadarAltimeter (AGL aus DER SELBEN DEM-Quelle, die die App
+               schon für `SetAgl` auflöst — keine zweite Terrain-Abfrage), FBNavSystem (ein Steerpoint +
+               Bullseye, planare ENU-Geodäsie wie `home_bearing`/`home_dist`) — die heute REAL
+               implementierten Systeme, `Run()`/`Update()` virtuell, dem Sensoren-SCHREIBEN-FBState-
+               Muster folgend;
                FBDisplaySystem (eigene Datei, `FBDisplaySystem.h/.cpp`): das generische Default-HUD
                (MIL-STD-1787-artig — Waterline, konformer Horizont, Heading-/GS-/Alt-Tapes mit
                Steerpoint-Marker, NO-TELEMETRY-Fallback) als `BuildHud(state, FBHudEnv, FBHudGeometry&)`, der eine
@@ -152,14 +157,33 @@ sim/src/
              Modul dahinter polymorph; ein Modul cycelt seine Systeme intern, jedes im eigenen Takt —
              Peers rufen sich nie gegenseitig)
   modules/f16/           das F-16-Modul: FBF16Module komponiert die systems/-DEFAULTS (FBAutopilot/
-                         FBFlightControl/FBDisplaySystem unverändert) mit dem F-16-Gain-Preset
-                         (FBFlightControl::F16()), besitzt den optionalen FBPathPlan und cycelt alle
-                         Systemslots — der Ort, an dem künftiges F-16-spezifisches Verhalten (ein
-                         eigenes HUD-Override, echtes Radar, echtes HOTAS-Binding, …) als Ableitung
-                         eingehängt wird. FBF16Max7456 (eigene Datei, `.h/.cpp`): der MAX7456-CHIP-
-                         spezifische Hook (Interlace-Jitter, Helligkeitskurve, Sync-Artefakte, …) —
-                         heute ein echter, von FBF16Module gehaltener NoOp-Override-Punkt, getrennt
-                         vom generischen Font-System in render/FBHudFont.h
+                         FBFlightControl/FBAirDataSystem/FBRadarAltimeter/FBNavSystem unverändert) mit
+                         dem F-16-Gain-Preset (FBFlightControl::F16()), besitzt den optionalen
+                         FBPathPlan und cycelt alle Systemslots — der Ort, an dem künftiges
+                         F-16-spezifisches Verhalten (echtes Radar, echtes HOTAS-Binding, …) als
+                         Ableitung eingehängt wird. Trägt drei F-16-eigene HUD-Platzhalter (eigene
+                         `.h/.cpp`, kein genereller Systemslot, da airframe-spezifisch): FBF16FireControl
+                         (der "B"-Range-Provider — Slant-Range aus Distanz + Höhendifferenz zur
+                         Steerpoint-Elevation, Pythagoras), FBF16Ufc (ALOW-Floor + gewählte
+                         Steerpoint-Nummer), FBF16Sms (Master-Arm-Status). FBF16Max7456 (eigene Datei,
+                         `.h/.cpp`): der MAX7456-CHIP-spezifische Hook (Interlace-Jitter,
+                         Helligkeitskurve, Sync-Artefakte, …) — heute ein echter, von FBF16Module
+                         gehaltener NoOp-Override-Punkt, getrennt vom generischen Font-System in
+                         render/FBHudFont.h
+  modules/f16/displays/  FBF16Hud (`FBF16Hud.h/.cpp`): die F-16-eigene MIL-STD-1787-Symbologie — FPM,
+                         konforme Pitch-Ladder, Heading-/CAS-/Alt-Tapes, Bank-Winkel-Skala, G-Last,
+                         der ARM/Mach/Peak-G/NAV/Bullseye-Block, der R/AL/B/TTG/Dist>STPT-Block sowie
+                         Steerpoint-Diamond (crossed-out jenseits der echten F-16C-TFOV/2) + Tadpole.
+                         Überschreibt FBDisplaySystem::BuildHud (der Override-Punkt, s.o.), liest nur
+                         FBState — geschrieben von FBAirDataSystem/FBRadarAltimeter/FBNavSystem/
+                         FBF16FireControl/FBF16Ufc/FBF16Sms. Positionen/Formate gegen den DCS F-16C
+                         Viper Guide (Part 16, p.706) UND den GPL-2.0 FlightGear-F-16-Mod
+                         (github.com/NikolaiVChr/f16, Nasal/HUD — Fakten zitiert, kein Code kopiert)
+                         abgeglichen. Alles sitzt in der echten Combiner-APERTURE (kApertureHalfWidthDeg/
+                         -HeightDeg, ~25°xIFOV-Seitenverhältnis) statt am Bildschirmrand — Tapes/Blöcke an
+                         deren Kanten/Ecken, die konforme Symbologie (Ladder/Horizont/FPM/Diamond/Tadpole)
+                         am Fensterrand gescissort (`FBHudGeometry::SetClip`), der Diamond-Clamp fällt mit
+                         dem Fensterrand zusammen.
 ```
 
 Ein zukünftiges `units/` mit einer `FBUnit`-Basisschnittstelle für nicht steuerbare KI-Einheiten

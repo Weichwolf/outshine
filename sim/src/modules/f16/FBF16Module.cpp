@@ -1,4 +1,5 @@
 #include "FBF16Module.h"
+#include "FBF16Hud.h"
 
 namespace FlightBox {
 
@@ -7,12 +8,18 @@ FBF16Module::FBF16Module()
       FC(std::make_unique<FBFlightControl>(FBFlightControl::F16())),
       Input(std::make_unique<FBInputSystem>()),
       Propulsion(std::make_unique<FBPropulsionSystem>()),
-      Disp(std::make_unique<FBDisplaySystem>()),
+      Disp(std::make_unique<FBF16Hud>()),   /* the F-16's own HUD symbology, not the generic default */
       Chip(std::make_unique<FBF16Max7456>()),
       Sensors(std::make_unique<FBSensorSystem>()),
       Weapons(std::make_unique<FBWeaponSystem>()),
       Defensive(std::make_unique<FBDefensiveSystem>()),
-      Comms(std::make_unique<FBCommsSystem>()) {}
+      Comms(std::make_unique<FBCommsSystem>()),
+      AirData(std::make_unique<FBAirDataSystem>()),
+      RadarAlt(std::make_unique<FBRadarAltimeter>()),
+      NavSys(std::make_unique<FBNavSystem>()),
+      FireCtrl(std::make_unique<FBF16FireControl>()),
+      UfcSys(std::make_unique<FBF16Ufc>()),
+      SmsSys(std::make_unique<FBF16Sms>()) {}
 
 bool FBF16Module::Due(double &accS, double dt, double hz) {
   accS += dt;
@@ -30,7 +37,18 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBWorld *world) {
   Input->Run(Mode, dt);            /* HOTAS/ICP: once per Run() call, the coarsest sim tick */
   Propulsion->Run(st, dt);         /* engine-system logic above the raw FDM: same cadence */
 
-  if (Due(SensorAccS, dt, 10.0)) Sensors->Run(SharedState, world, dt);
+  if (Due(SensorAccS, dt, 10.0)) {
+    Sensors->Run(SharedState, world, dt);
+    /* The HUD's telemetry chain, one throttle group so FireControl always reads Nav's SAME-tick output
+     * (see the header's rate table) — `st` is the FDM state as of the END of the PREVIOUS Run() call,
+     * same one-tick lag every other Sensor-cadence write already has. */
+    AirData->Run(SharedState, st, dt);
+    RadarAlt->Run(SharedState, (float)st.elev, GroundAslM);
+    NavSys->Run(SharedState, st, dt);
+    FireCtrl->Run(SharedState, dt);
+    UfcSys->Run(SharedState, dt);
+    SmsSys->Run(SharedState, dt);
+  }
   if (Due(DisplayAccS, dt, 20.0)) Disp->Run(SharedState, Mode, dt);
   if (Due(WeaponAccS, dt, 20.0)) Weapons->Run(Mode, world, dt);
   if (Due(DefensiveAccS, dt, 5.0)) Defensive->Run(world, dt);
