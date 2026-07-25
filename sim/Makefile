@@ -31,7 +31,7 @@ JSB_HOST     := build/jsbsim-host
 
 # Shared include roots (flat -I per module dir; #include stays bare-filename). core = FBState/
 # FBMode/telemetry; math = value-math (FBMat4); render = FBRenderer + camera/mips/chunkmesh/ephemeris/
-# the HUD's WebGPU-backend resources (FBHudGeometry, FBMax7456 font ROM); world = FBWorld/
+# the HUD's WebGPU-backend resources (FBHudGeometry, FBHudFont ROM); world = FBWorld/
 # FBTerrainField/tile streaming; systems = the DEFAULT, airframe-agnostic guidance/FCS/planner/displays
 # (FBAutopilot/FBFlightControl/FBPathPlan/FBDisplaySystem) modules compose and may override; modules/f16
 # = the F-16's module (composes systems/ + its gain preset); fdm = the JSBSim C adapter; terrain = the
@@ -64,6 +64,8 @@ wasm:            ## build the WASM browser Command Center (F-16 sim + renderer) 
 	    -c -o build/obj-wasm/FBTerrainField.o; \
 	  emcc src/systems/FBPathPlan.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) -Isrc/terrain \
 	    -c -o build/obj-wasm/FBPathPlan.o; \
+	  emcc src/modules/f16/FBF16Max7456.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) \
+	    -c -o build/obj-wasm/FBF16Max7456.o; \
 	  emcc src/modules/f16/FBF16Module.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) \
 	    -c -o build/obj-wasm/FBF16Module.o; \
 	  emcc src/systems/FBDisplaySystem.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) \
@@ -127,6 +129,8 @@ native:          ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	    -c -o build/obj-native/FBTerrainField.o; \
 	  c++ src/systems/FBPathPlan.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBPathPlan.o; \
+	  c++ src/modules/f16/FBF16Max7456.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
+	    -c -o build/obj-native/FBF16Max7456.o; \
 	  c++ src/modules/f16/FBF16Module.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBF16Module.o; \
 	  c++ src/systems/FBDisplaySystem.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \

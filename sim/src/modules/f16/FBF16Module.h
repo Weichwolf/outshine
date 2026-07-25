@@ -28,6 +28,7 @@
 #include <memory>
 #include "FBModule.h"
 #include "FBAutopilot.h"
+#include "FBF16Max7456.h"
 #include "FBFlightControl.h"
 #include "FBPathPlan.h"
 #include "FBSystemSlots.h"
@@ -46,6 +47,7 @@ public:
   FBAutopilot &Autopilot() { return *AP; }
   FBFlightControl &FlightControl() { return *FC; }
   FBDisplaySystem &Displays() { return *Disp; }   /* wire into FBRenderer::SetHudDisplay */
+  FBF16Max7456 &Max7456() { return *Chip; }       /* the MAX7456-chip-specific hook, see its banner */
   const FBGuidance &LastGuidance() const { return LastG; }
   int LastSubsteps() const { return LastSub; }
 
@@ -72,6 +74,7 @@ private:
   std::unique_ptr<FBInputSystem> Input;
   std::unique_ptr<FBPropulsionSystem> Propulsion;
   std::unique_ptr<FBDisplaySystem> Disp;
+  std::unique_ptr<FBF16Max7456> Chip;   /* MAX7456-chip-specific hook, see FBF16Max7456's banner */
   std::unique_ptr<FBSensorSystem> Sensors;
   std::unique_ptr<FBWeaponSystem> Weapons;
   std::unique_ptr<FBDefensiveSystem> Defensive;

@@ -1,5 +1,5 @@
 #include "FBHudStage.h"
-#include "FBMax7456.h"
+#include "FBHudFont.h"
 #include <cstdio>
 #include <cstring>
 
@@ -34,9 +34,21 @@ struct VO { @builtin(position) pos : vec4f, @location(0) uv : vec2f, @location(1
   o.col = c;
   return o;
 }
+/* Coverage antialiasing: reconstruct the ROM bit's true screen-pixel coverage via a "sharp bilinear"
+ * warp of the sample point (texel-space fraction rescaled to the fwidth() footprint, then clamped) --
+ * a box-filter approximation of the ideal analytic edge, not a smoothing blur. At footprint == 1 texel
+ * this is the identity (plain bilinear); magnified, it snaps flat except for a ~1-screen-pixel-wide
+ * ramp right at each bit edge (the atlas gutter guarantees that ramp only ever sees this glyph's own
+ * data). Straight alpha out -- no more hard alpha-test discard. */
 @fragment fn fs(in : VO) -> @location(0) vec4f {
-  if (textureSampleLevel(atlas, samp, in.uv, 0.0).r < 0.5) { discard; }
-  return vec4f(pow(in.col, vec3f(2.2)), 1.0);
+  let texSize = vec2f(textureDimensions(atlas));
+  let t = in.uv * texSize;
+  let fw = max(fwidth(t), vec2f(1e-4));
+  let c = floor(t - 0.5) + 0.5;
+  let f = clamp((t - c - 0.5) / fw + 0.5, vec2f(0.0), vec2f(1.0));
+  let coverage = textureSampleLevel(atlas, samp, (c + f) / texSize, 0.0).r;
+  if (coverage <= 0.0) { discard; }
+  return vec4f(pow(in.col, vec3f(2.2)), coverage);
 }
 )";
 
@@ -44,14 +56,17 @@ void FBHudStage::Init(const FBGpu &gpu) {
   Device = gpu.Device;
   Queue = gpu.Queue;
 
-  /* MAX7456 font atlas: kMax7456Glyphs tiles of 8x8, one byte per row, bit7 = leftmost. r8unorm,
-   * NEAREST (crisp blocky chip look). Built from the ROM in FBMax7456.h. */
-  const uint32_t AW = (uint32_t)kMax7456AtlasW, AH = (uint32_t)kMax7456Tile;
+  /* HUD font atlas: kFontGlyphs tiles of kFontTilePad (8x8 bitmap + 1-texel transparent
+   * gutter on every side), one byte per row, bit7 = leftmost. r8unorm, LINEAR (the fragment shader
+   * turns that into coverage AA, see kHudTextWGSL). Built from the ROM in FBHudFont.h; the gutter
+   * texels stay at their zero-init value. */
+  const uint32_t AW = (uint32_t)kFontAtlasW, AH = (uint32_t)kFontAtlasH;
   std::vector<uint8_t> atlas((size_t)AW * AH, 0);
-  for (int gi = 0; gi < kMax7456Glyphs; gi++)
-    for (int row = 0; row < kMax7456Tile; row++)
-      for (int c = 0; c < kMax7456Tile; c++)
-        atlas[(size_t)row * AW + gi * kMax7456Tile + c] = (kMax7456Font[gi][row] & (0x80 >> c)) ? 255 : 0;
+  for (int gi = 0; gi < kFontGlyphs; gi++)
+    for (int row = 0; row < kFontTile; row++)
+      for (int c = 0; c < kFontTile; c++)
+        atlas[(size_t)(row + 1) * AW + gi * kFontTilePad + 1 + c] =
+            (kFontGlyphRom[gi][row] & (0x80 >> c)) ? 255 : 0;
   wgpu::TextureDescriptor td{};
   td.size = {AW, AH, 1};
   td.format = wgpu::TextureFormat::R8Unorm;
@@ -68,8 +83,8 @@ void FBHudStage::Init(const FBGpu &gpu) {
   wgpu::SamplerDescriptor sd{};
   sd.addressModeU = wgpu::AddressMode::ClampToEdge;
   sd.addressModeV = wgpu::AddressMode::ClampToEdge;
-  sd.magFilter = wgpu::FilterMode::Nearest;
-  sd.minFilter = wgpu::FilterMode::Nearest;
+  sd.magFilter = wgpu::FilterMode::Linear;
+  sd.minFilter = wgpu::FilterMode::Linear;
   Samp = Device.CreateSampler(&sd);
 
   wgpu::BufferDescriptor bd{};
@@ -225,11 +240,11 @@ void FBHudStage::EncodeLoadingText(wgpu::RenderPassEncoder &pass, int width, int
   snprintf(msg, sizeof msg, "LOADING TERRAIN %d PCT", (int)(pct * 100.0f + 0.5f));
   snprintf(cnt, sizeof cnt, "%d / %d TILES", ready, total);
   float s = 4.0f;
-  Max7456AppendText(LoadingGlyphs, (float)width * 0.5f - (float)strlen(msg) * kMax7456Advance * s * 0.5f,
-                     (float)height * 0.5f - kMax7456QuadSize * s, s, 0.20f, 1.00f, 0.40f, msg);
+  FBHudFontAppendText(LoadingGlyphs, (float)width * 0.5f - (float)strlen(msg) * kFontAdvance * s * 0.5f,
+                     (float)height * 0.5f - kFontQuadSize * s, s, 0.20f, 1.00f, 0.40f, msg);
   float cs = s * 0.6f;
-  Max7456AppendText(LoadingGlyphs, (float)width * 0.5f - (float)strlen(cnt) * kMax7456Advance * cs * 0.5f,
-                     (float)height * 0.5f + kMax7456QuadSize * s * 1.4f, cs, 0.45f, 0.80f, 0.50f, cnt);
+  FBHudFontAppendText(LoadingGlyphs, (float)width * 0.5f - (float)strlen(cnt) * kFontAdvance * cs * 0.5f,
+                     (float)height * 0.5f + kFontQuadSize * s * 1.4f, cs, 0.45f, 0.80f, 0.50f, cnt);
   if (!LoadingGlyphs.empty()) {
     Queue.WriteBuffer(TextVtx, 0, LoadingGlyphs.data(), LoadingGlyphs.size() * sizeof(float));
     pass.SetPipeline(TextPipe);

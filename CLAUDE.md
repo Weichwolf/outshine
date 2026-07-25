@@ -100,8 +100,13 @@ sim/src/
              (Device-Handle bzw. geteilter Frame-Zustand, den jede Stage bekommt), FBDrawStage
              (Interface: ein Shader + seine Pipeline(s)/Bind-Group(s)/Draws, zeichnet in den
              GELIEHENEN Encoder — nie eigene Pass-Grenzen), FBHudGeometry (der HUD-Geometriepuffer —
-             Lines/Tris/Glyphs als wiederverwendete Vektoren, von FBDisplaySystem gefüllt), FBMax7456
-             (MAX7456-Font-ROM + Glyph-Quad-Builder, reine Backend-Ressource ohne Globals)
+             Lines/Tris/Glyphs als wiederverwendete Vektoren, von FBDisplaySystem gefüllt), FBHudFont
+             (das generische, airframe-agnostische Bitmap-Font-Rendering-System — Font-ROM, gegutterter
+             Atlas-Layout und Glyph-Quad-Builder mit Quad-Überstand, reine Backend-Ressource ohne
+             Globals; FBHudStage sampelt LINEAR und rekonstruiert daraus per Screen-Footprint-Coverage
+             ("sharp bilinear") echtes Antialiasing statt hartem NEAREST-Alpha-Test. Chip-SPEZIFISCHE
+             Eigenheiten — MAX7456-Artefakte o.ä. — gehören NICHT hierher, sondern in einen modul-
+             eigenen Hook, s. modules/f16/FBF16Max7456)
   render/stages/  Klasse pro Shader: FBTransmittanceStage/FBSkyViewStage/FBSkyStage (Hillaire-
              Atmosphäre + die Wolkendecke-Value-Noise-Sheet auf der Dome), FBSunStage/FBMoonStage
              (Sonnenscheibe+Glow bzw. Mond-als-belichtete-Kugel — additive Draws, direkt nach FBSkyStage
@@ -145,7 +150,10 @@ sim/src/
                          (FBFlightControl::F16()), besitzt den optionalen FBPathPlan und cycelt alle
                          Systemslots — der Ort, an dem künftiges F-16-spezifisches Verhalten (ein
                          eigenes HUD-Override, echtes Radar, echtes HOTAS-Binding, …) als Ableitung
-                         eingehängt wird
+                         eingehängt wird. FBF16Max7456 (eigene Datei, `.h/.cpp`): der MAX7456-CHIP-
+                         spezifische Hook (Interlace-Jitter, Helligkeitskurve, Sync-Artefakte, …) —
+                         heute ein echter, von FBF16Module gehaltener NoOp-Override-Punkt, getrennt
+                         vom generischen Font-System in render/FBHudFont.h
 ```
 
 Ein zukünftiges `units/` mit einer `FBUnit`-Basisschnittstelle für nicht steuerbare KI-Einheiten

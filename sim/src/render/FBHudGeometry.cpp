@@ -1,5 +1,5 @@
 #include "FBHudGeometry.h"
-#include "FBMax7456.h"
+#include "FBHudFont.h"
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
@@ -51,7 +51,7 @@ void FBHudGeometry::Box(float x0, float y0, float x1, float y1, float r, float g
 }
 
 void FBHudGeometry::Text(float x, float y, float s, float r, float g, float b, const char *text) {
-  Max7456AppendText(TextV, x, y, s, r, g, b, text);
+  FBHudFontAppendText(TextV, x, y, s, r, g, b, text);
 }
 
 void FBHudGeometry::Printf(float x, float y, float s, float r, float g, float b, const char *fmt, ...) {

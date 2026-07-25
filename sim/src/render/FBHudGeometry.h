@@ -7,7 +7,7 @@
  *   Lines  (x,y,r,g,b) x2/segment  -- rails, ticks, carets, boxes (GL_LINE-equivalent LineList)
  *   Tris   (x,y,r,g,b) x6/segment  -- thin AA quads for lines that must stay smooth at any angle
  *          (the conformal horizon), built from two triangles per QLine call
- *   Glyphs (x,y,u,v,r,g,b) x6/char -- MAX7456 tile-atlas blits (FBMax7456.h)
+ *   Glyphs (x,y,u,v,r,g,b) x6/char -- generic bitmap-font tile-atlas blits (FBHudFont.h)
  * Vectors, not fixed arrays: Reset() clears without releasing capacity, so after the first frame's
  * geometry settles (bounded, deterministic symbology) nothing reallocates. */
 #ifndef FBHUDGEOMETRY_H

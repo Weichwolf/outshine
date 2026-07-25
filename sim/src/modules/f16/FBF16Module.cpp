@@ -8,6 +8,7 @@ FBF16Module::FBF16Module()
       Input(std::make_unique<FBInputSystem>()),
       Propulsion(std::make_unique<FBPropulsionSystem>()),
       Disp(std::make_unique<FBDisplaySystem>()),
+      Chip(std::make_unique<FBF16Max7456>()),
       Sensors(std::make_unique<FBSensorSystem>()),
       Weapons(std::make_unique<FBWeaponSystem>()),
       Defensive(std::make_unique<FBDefensiveSystem>()),
