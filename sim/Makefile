@@ -56,19 +56,19 @@ wasm:            ## build the WASM browser Command Center (F-16 sim + renderer) 
 	    -c -o build/obj-wasm/FBTerrainLoader.o; \
 	  emcc src/fdm/jsbsim_adapter.cpp -std=c++17 -O2 $(EMCC_WARN) -fexceptions \
 	    -include src/fdm/em_compat.h -I$(JSBSIM)/src -Isrc/fdm -c -o build/obj-wasm/jsbsim_adapter.o; \
-	  emcc src/systems/FBAutopilot.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) -Isrc/terrain \
+	  emcc src/systems/FBAutopilot.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) -Isrc/terrain \
 	    -c -o build/obj-wasm/FBAutopilot.o; \
-	  emcc src/systems/FBFlightControl.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) \
+	  emcc src/systems/FBFlightControl.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
 	    -c -o build/obj-wasm/FBFlightControl.o; \
-	  emcc src/world/FBTerrainField.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) -Isrc/terrain \
+	  emcc src/world/FBTerrainField.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) -Isrc/terrain \
 	    -c -o build/obj-wasm/FBTerrainField.o; \
-	  emcc src/systems/FBPathPlan.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) -Isrc/terrain \
+	  emcc src/systems/FBPathPlan.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) -Isrc/terrain \
 	    -c -o build/obj-wasm/FBPathPlan.o; \
-	  emcc src/modules/f16/FBF16Max7456.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) \
+	  emcc src/modules/f16/FBF16Max7456.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
 	    -c -o build/obj-wasm/FBF16Max7456.o; \
-	  emcc src/modules/f16/FBF16Module.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) \
+	  emcc src/modules/f16/FBF16Module.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
 	    -c -o build/obj-wasm/FBF16Module.o; \
-	  emcc src/systems/FBDisplaySystem.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) \
+	  emcc src/systems/FBDisplaySystem.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
 	    -c -o build/obj-wasm/FBDisplaySystem.o; \
 	  emcc build/obj-wasm/*.o $(JSB_WASM)/src/libJSBSim.a \
 	    src/app/FBAppWasm.cpp src/render/FBRenderer.cpp src/render/FBHudGeometry.cpp src/world/FBWorld.cpp \
@@ -81,7 +81,7 @@ wasm:            ## build the WASM browser Command Center (F-16 sim + renderer) 
 	    src/render/stages/FBCloudDetailBakeStage.cpp src/render/stages/FBCloudCellBakeStage.cpp \
 	    src/render/stages/FBCloudMarchStage.cpp src/render/stages/FBCloudResolveStage.cpp \
 	    src/render/stages/FBTonemapStage.cpp \
-	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O1 -Wall -Werror -fexceptions \
+	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O1 $(EMCC_WARN) -fexceptions \
 	    $(INC_WASM) \
 	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=256MB -sSTACK_SIZE=4MB -sEXIT_RUNTIME=0 \
 	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_fb_toggle_ground,_fb_set_ground \
@@ -119,21 +119,21 @@ native:          ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	    [ "$$o" -nt "$$f" ] || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) -Isrc/terrain -isystem vendor -c -o "$$o"; done; \
 	  c++ src/world/FBTerrainLoader.cpp $(CXXSTD) -O2 $(CXX_WARN) $(INC_NATIVE) $(INC_TILES) \
 	    -isystem $(CURL_COMPAT) -c -o build/obj-native/FBTerrainLoader.o; \
-	  c++ src/fdm/jsbsim_adapter.cpp -std=c++17 -O2 -Wall \
+	  c++ src/fdm/jsbsim_adapter.cpp -std=c++17 -O2 $(CXX_WARN) \
 	    -Isrc/fdm -isystem $(JSB_HOST)/include/JSBSim -c -o build/obj-native/jsbsim_adapter.o; \
-	  c++ src/systems/FBAutopilot.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
+	  c++ src/systems/FBAutopilot.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBAutopilot.o; \
-	  c++ src/systems/FBFlightControl.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
+	  c++ src/systems/FBFlightControl.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBFlightControl.o; \
-	  c++ src/world/FBTerrainField.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
+	  c++ src/world/FBTerrainField.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBTerrainField.o; \
-	  c++ src/systems/FBPathPlan.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
+	  c++ src/systems/FBPathPlan.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBPathPlan.o; \
-	  c++ src/modules/f16/FBF16Max7456.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
+	  c++ src/modules/f16/FBF16Max7456.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBF16Max7456.o; \
-	  c++ src/modules/f16/FBF16Module.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
+	  c++ src/modules/f16/FBF16Module.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBF16Module.o; \
-	  c++ src/systems/FBDisplaySystem.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
+	  c++ src/systems/FBDisplaySystem.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBDisplaySystem.o; \
 	  c++ src/app/FBAppNative.cpp src/render/FBRenderer.cpp src/render/FBHudGeometry.cpp src/world/FBWorld.cpp \
 	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \
@@ -146,7 +146,7 @@ native:          ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	    src/render/stages/FBCloudMarchStage.cpp src/render/stages/FBCloudResolveStage.cpp \
 	    src/render/stages/FBTonemapStage.cpp \
 	    build/obj-native/*.o $(JSB_HOST)/lib/libJSBSim.a \
-	    -std=c++20 -O2 -Wall -Wextra -Werror \
+	    -std=c++20 -O2 $(CXX_WARN) \
 	    $(INC_NATIVE) \
 	    -isystem $(DAWN_OUT)/gen/include -isystem vendor/dawn/include -isystem vendor \
 	    -isystem $(CURL_COMPAT) -isystem $(JSB_HOST)/include/JSBSim \

@@ -17,7 +17,7 @@ constexpr float kHgR = 0.30f, kHgG = 1.0f, kHgB = 0.40f;
  * FBHudSymbology.h w3_build_hud (equivalence intent: same pixel layout for the elements kept). */
 void FBDisplaySystem::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry &out) const {
   out.Reset();
-  float cx = (float)(env.Width / 2), cy = (float)(env.Height / 2);
+  float cx = 0.5f * (float)env.Width, cy = 0.5f * (float)env.Height;
 
   /* Waterline / boresight: the FIXED aircraft reference (nose / longitudinal axis), screen-locked. */
   out.Line(cx - 28, cy, cx - 10, cy, kHgR, kHgG, kHgB);
