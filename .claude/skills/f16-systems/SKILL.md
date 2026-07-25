@@ -25,3 +25,13 @@ Ground rules when applying this knowledge: the operative artifact is the vanilla
 (reference chain NASA TP-1538 → JSBSim → FlightBox, see `doc/fidelity-baseline.md`); researched
 real-jet values are DESIGN TARGETS, not defect criteria. Confidence flags in the files are honest —
 do not present medium-confidence numbers as certainties.
+
+## Reference implementation
+
+**FlightGear F-16 by NikolaiVChr — https://github.com/NikolaiVChr/f16** — the one open-source
+F-16 built on the SAME stack as FlightBox: a JSBSim FDM with a fully modelled FLCS (control laws,
+limiters, gain schedules as JSBSim `<system>` XML), plus HUD symbology, avionics, and systems logic
+(Nasal/XML). Consult it when designing FLCS/autopilot behavior, HUD element dynamics, or system
+interactions — it shows how each concept maps onto JSBSim in practice. License is **GPL-2.0**: read
+it to understand approaches and cross-check numbers; do NOT copy code/XML into FlightBox's
+differently-licensed tree.
