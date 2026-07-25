@@ -30,13 +30,13 @@ JSB_WASM     := build/jsbsim-wasm
 JSB_HOST     := build/jsbsim-host
 
 # Shared include roots (flat -I per module dir; #include stays bare-filename). core = FBState/
-# FBMode/telemetry; math = value-math (FBMat4); render = FBRenderer + camera/mips/chunkmesh/ephemeris;
-# world = FBWorld/FBTerrainField/tile streaming; systems = the DEFAULT, airframe-agnostic guidance/
-# FCS/planner (FBAutopilot/FBFlightControl/FBPathPlan) modules compose and may override; modules(/f16
-# (/displays)) = the pluggable-aircraft base + the F-16's module (composes systems/ + its gain preset)
-# and HUD; fdm = the JSBSim C adapter; terrain = the lean terrain API (flat); vendor/jsbsim/src = the
-# JSBSim headers.
-INC_MODULES := -Isrc/core -Isrc/math -Isrc/render -Isrc/world -Isrc/systems -Isrc/modules -Isrc/modules/f16 -Isrc/modules/f16/displays
+# FBMode/telemetry; math = value-math (FBMat4); render = FBRenderer + camera/mips/chunkmesh/ephemeris/
+# the HUD's WebGPU-backend resources (FBHudGeometry, FBMax7456 font ROM); world = FBWorld/
+# FBTerrainField/tile streaming; systems = the DEFAULT, airframe-agnostic guidance/FCS/planner/displays
+# (FBAutopilot/FBFlightControl/FBPathPlan/FBDisplaySystem) modules compose and may override; modules/f16
+# = the F-16's module (composes systems/ + its gain preset); fdm = the JSBSim C adapter; terrain = the
+# lean terrain API (flat); vendor/jsbsim/src = the JSBSim headers.
+INC_MODULES := -Isrc/core -Isrc/math -Isrc/render -Isrc/world -Isrc/systems -Isrc/modules -Isrc/modules/f16
 INC_WASM   := $(INC_MODULES) -Isrc/fdm -Isrc/terrain -I$(JSBSIM)/src
 INC_NATIVE := $(INC_MODULES) -Isrc/fdm -Isrc/terrain
 INC_TILES := -I../tiles/src
@@ -66,8 +66,10 @@ wasm:            ## build the WASM browser Command Center (F-16 sim + renderer) 
 	    -c -o build/obj-wasm/FBPathPlan.o; \
 	  emcc src/modules/f16/FBF16Module.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) \
 	    -c -o build/obj-wasm/FBF16Module.o; \
+	  emcc src/systems/FBDisplaySystem.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_MODULES) \
+	    -c -o build/obj-wasm/FBDisplaySystem.o; \
 	  emcc build/obj-wasm/*.o $(JSB_WASM)/src/libJSBSim.a \
-	    src/app/FBAppWasm.cpp src/render/FBRenderer.cpp src/world/FBWorld.cpp \
+	    src/app/FBAppWasm.cpp src/render/FBRenderer.cpp src/render/FBHudGeometry.cpp src/world/FBWorld.cpp \
 	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \
 	    src/render/stages/FBHudStage.cpp src/render/stages/FBUpscaleStage.cpp \
 	    src/render/stages/FBTransmittanceStage.cpp src/render/stages/FBSkyViewStage.cpp \
@@ -103,6 +105,10 @@ worker:          ## build the off-thread tile worker (fetch/decode/mesh/mips) ->
 
 native:          ## build the native headless WebGPU oracle (Dawn + real fb-tiles terrain + in-process F-16 for --fly) -> build/gpu_native
 	@cd $(SELF_DIR); set -e; \
+	  PLATFORM_LIBS=""; \
+	  if [ "$$(uname -s)" = "Darwin" ]; then \
+	    PLATFORM_LIBS="-framework Cocoa -framework IOKit -framework Foundation -framework IOSurface -framework QuartzCore -framework Metal"; \
+	  fi; \
 	  test -f $(DAWN_LIBDIR)/libwebgpu_dawn.a || bash vendor/build_dawn_native.sh; \
 	  test -f $(CURL_COMPAT)/curl/curl.h || bash vendor/fetch_curl_compat.sh; \
 	  test -f $(JSB_HOST)/lib/libJSBSim.a || bash vendor/build_jsbsim_host.sh; \
@@ -123,7 +129,9 @@ native:          ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	    -c -o build/obj-native/FBPathPlan.o; \
 	  c++ src/modules/f16/FBF16Module.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBF16Module.o; \
-	  c++ src/app/FBAppNative.cpp src/render/FBRenderer.cpp src/world/FBWorld.cpp \
+	  c++ src/systems/FBDisplaySystem.cpp -std=c++17 -O2 -Wall -Werror -Isrc/fdm $(INC_NATIVE) \
+	    -c -o build/obj-native/FBDisplaySystem.o; \
+	  c++ src/app/FBAppNative.cpp src/render/FBRenderer.cpp src/render/FBHudGeometry.cpp src/world/FBWorld.cpp \
 	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \
 	    src/render/stages/FBHudStage.cpp src/render/stages/FBUpscaleStage.cpp \
 	    src/render/stages/FBTransmittanceStage.cpp src/render/stages/FBSkyViewStage.cpp \
@@ -138,7 +146,7 @@ native:          ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	    $(INC_NATIVE) \
 	    -isystem $(DAWN_OUT)/gen/include -isystem vendor/dawn/include -isystem vendor \
 	    -isystem $(CURL_COMPAT) -isystem $(JSB_HOST)/include/JSBSim \
-	    -L$(DAWN_LIBDIR) -lwebgpu_dawn -L$(CURL_COMPAT)/lib -lcurl -lpthread -ldl -lm \
+	    -L$(DAWN_LIBDIR) -lwebgpu_dawn -L$(CURL_COMPAT)/lib -lcurl -lpthread -ldl -lm $$PLATFORM_LIBS \
 	    -o build/gpu_native; \
 	  echo "native -> build/gpu_native"
 

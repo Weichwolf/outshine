@@ -1,10 +1,10 @@
-/* FlightBox — FBHudStage: the MIL-STD-1787 HUD's WebGPU backend. THE stage that reuses the WebGL
- * symbology (FBHud.h -> w3_build_hud) — the only translation unit that includes FBHud.h (its globals
- * are file-static; a second TU including it would silently get its OWN empty copy). Three pipelines
- * share one pixel->NDC map: Solid (AA triangles, the conformal horizon), Line (rails/ticks/carets —
- * the SAME shader as Solid, a second pipeline over the same bind group, just a different primitive
- * topology), Text (MAX7456 atlas glyph quads, alpha-tested). Also owns the boot/teleport loading-
- * screen text draw (a second, unrelated use of the Text pipeline).
+/* FlightBox — FBHudStage: the MIL-STD-1787 HUD's WebGPU backend. Pure backend now: it owns pipelines/
+ * buffers/atlas and, once per Encode(), asks the borrowed FBDisplaySystem to fill an FBHudGeometry —
+ * the symbology LOGIC lives there (systems/FBDisplaySystem), not here. Three pipelines share one
+ * pixel->NDC map: Solid (AA triangles, the conformal horizon), Line (rails/ticks/carets — the SAME
+ * shader as Solid, a second pipeline over the same bind group, just a different primitive topology),
+ * Text (MAX7456 atlas glyph quads, alpha-tested). Also owns the boot/teleport loading-screen text draw
+ * (a second, unrelated use of the Text pipeline).
  *
  * FBRenderer keeps the actual telemetry pose (FBState) itself — sun/moon/cloud drive its OWN lighting
  * math too, not just the HUD — and pushes a fresh copy into SetState() right before each Encode(); the
@@ -13,8 +13,11 @@
 #ifndef FBHUDSTAGE_H
 #define FBHUDSTAGE_H
 
+#include "FBDisplaySystem.h"
 #include "FBDrawStage.h"
+#include "FBHudGeometry.h"
 #include "FBState.h"
+#include <vector>
 
 namespace FlightBox {
 
@@ -23,8 +26,10 @@ public:
   void Init(const FBGpu &gpu) override;
 
   void SetState(const FBState &s, bool have) { State = s; Have = have; }
-  void SetGroundMode(int photo);   /* SVS/EVS annunciator (w3_ground, an FBHud.h global) */
-  void SetAgl(float agl);          /* w3_agl (an FBHud.h global), for the horizon-dip calc */
+  /* The Displays system slot that owns the symbology (see the class banner) — borrowed, never owned;
+   * the App wires it from the active module (e.g. FBF16Module::Displays()). nullptr -> empty HUD. */
+  void SetDisplaySystem(const FBDisplaySystem *disp) { Disp = disp; }
+  void SetAgl(float agl) { Agl = agl; }   /* feeds FBHudEnv, for the horizon-dip calc + AGL readout */
 
   /* Regenerates the symbology geometry for THIS frame's State and draws all three pipelines. */
   void Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pass) override;
@@ -43,6 +48,10 @@ private:
   wgpu::Sampler Samp;
   FBState State{};
   bool Have = false;
+  float Agl = 0.0f;
+  const FBDisplaySystem *Disp = nullptr;
+  FBHudGeometry Geometry;
+  std::vector<float> LoadingGlyphs;
 };
 
 } // namespace FlightBox

@@ -45,6 +45,7 @@ public:
 
   FBAutopilot &Autopilot() { return *AP; }
   FBFlightControl &FlightControl() { return *FC; }
+  FBDisplaySystem &Displays() { return *Disp; }   /* wire into FBRenderer::SetHudDisplay */
   const FBGuidance &LastGuidance() const { return LastG; }
   int LastSubsteps() const { return LastSub; }
 
@@ -70,7 +71,7 @@ private:
 
   std::unique_ptr<FBInputSystem> Input;
   std::unique_ptr<FBPropulsionSystem> Propulsion;
-  std::unique_ptr<FBDisplaySystem> Displays;
+  std::unique_ptr<FBDisplaySystem> Disp;
   std::unique_ptr<FBSensorSystem> Sensors;
   std::unique_ptr<FBWeaponSystem> Weapons;
   std::unique_ptr<FBDefensiveSystem> Defensive;

@@ -229,10 +229,7 @@ int FBRenderer::UploadTilePhoto(int slot, const uint8_t *photo, int ts, int z) {
   return Tiles->UploadTilePhoto(slot, photo, ts, z, FrameNo);
 }
 
-void FBRenderer::SetGroundMode(int photo) {
-  GroundPhoto = photo != 0;
-  Hud->SetGroundMode(photo);   /* HUD SVS/EVS annunciator */
-}
+void FBRenderer::SetGroundMode(int photo) { GroundPhoto = photo != 0; }
 
 
 /* Fullscreen ACES-approx tonemap (kTonemapWGSL/kTonemapPlainWGSL, FBTonemapStage): reads the HDR scene

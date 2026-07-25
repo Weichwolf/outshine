@@ -298,6 +298,7 @@ int RunFly(double lat, double lon, double ground0, double aglM, double viewKm, t
   auto F16 = std::make_unique<FlightBox::FBF16Module>();
   FlightBox::FBModule *activeModule = F16.get();
   FlightBox::FBAutopilot &AP = F16->Autopilot();
+  R.SetHudDisplay(&F16->Displays());   /* HUD symbology: the module's Displays slot (default HUD) */
   FlightBox::FBTerrainField terrainField(llDemZ);
   /* Planner terrain field is COARSER (z9) — a 500 km A* only needs valley/pass structure, and coarse
    * keeps the tile count tiny. Separate instance from the z12 vertical look-ahead field. */
@@ -581,6 +582,8 @@ int main(int argc, char **argv) {
   }
   R.SetCamera(eye, target);
   R.SetHud(hs, true);
+  static FlightBox::FBDisplaySystem hudDisplay;   /* no live module here — the generic default HUD */
+  R.SetHudDisplay(&hudDisplay);
   R.InitOffscreen(width, height);
   if (!R.Ready()) { fprintf(stderr, "gpu_native: WebGPU device init failed\n"); return 1; }
 

@@ -99,15 +99,18 @@ sim/src/
              vermehren), FBCamera, FBMips, FBChunkMesh/FBChunkVtx, FBEphemeris, FBGpu/FBFrameContext
              (Device-Handle bzw. geteilter Frame-Zustand, den jede Stage bekommt), FBDrawStage
              (Interface: ein Shader + seine Pipeline(s)/Bind-Group(s)/Draws, zeichnet in den
-             GELIEHENEN Encoder — nie eigene Pass-Grenzen)
+             GELIEHENEN Encoder — nie eigene Pass-Grenzen), FBHudGeometry (der HUD-Geometriepuffer —
+             Lines/Tris/Glyphs als wiederverwendete Vektoren, von FBDisplaySystem gefüllt), FBMax7456
+             (MAX7456-Font-ROM + Glyph-Quad-Builder, reine Backend-Ressource ohne Globals)
   render/stages/  Klasse pro Shader: FBTransmittanceStage/FBSkyViewStage/FBSkyStage (Hillaire-
              Atmosphäre + die Wolkendecke-Value-Noise-Sheet auf der Dome), FBSunStage/FBMoonStage
              (Sonnenscheibe+Glow bzw. Mond-als-belichtete-Kugel — additive Draws, direkt nach FBSkyStage
              in derselben Scene-Pass, gleiche Blend-Reihenfolge wie der frühere Ein-Shader-Composite;
              FBMoonStage besitzt die NASA-LROC-Albedo-Textur als alleinige Konsumentin), FBTilesStage
              (Terrain: Albedo-Array, RenderBundle/2-Phasen-Streaming-Zustand, Invarianten-Zähler),
-             FBStarsStage, FBTileLightsStage, FBHudStage (WebGPU-Backend; die Symbologie-LOGIK bleibt
-             vorerst in FBHud.h/FBHudSymbology.h, s.o.), FBUpscaleStage, FBUnitsStage/FBSpritesStage
+             FBStarsStage, FBTileLightsStage, FBHudStage (reines WebGPU-Backend: Pipelines/Buffer/
+             Atlas; ruft pro Frame das geliehene FBDisplaySystem::BuildHud() für die Geometrie — die
+             Symbologie-LOGIK lebt in systems/FBDisplaySystem, s.u.), FBUpscaleStage, FBUnitsStage/FBSpritesStage
              (NoOp, aber in der Encode-Ordnung verdrahtet: Units nach Terrain, Sprites vor HUD); Wolken
              als 6 Klassen (FBCloudMipDownStage teilt den Box-Downsample-Helfer, FBCloudBaseBakeStage/
              FBCloudDetailBakeStage/FBCloudCellBakeStage backen die 3 Noise-Volumes je einmal,
@@ -122,23 +125,27 @@ sim/src/
              Config, keine leere Ableitung dafür):
                FBAutopilot (Guidance), FBFlightControl (FBW-Innenschleife), FBPathPlan (Wanderplaner)
                — die drei heute REAL implementierten Systeme, `Run()`/`Update()` virtuell;
-               FBSystemSlots.h — Input/HOTAS, Propulsion, Displays, Sensors, Weapons, Defensive, Comms:
-               Interface + NoOp-Default für die restlichen F-16-Systemkategorien, ein Modul füllt sie
-               bei Bedarf per Ableitung. Sensoren SCHREIBEN/Displays LESEN den geteilten FBState;
-               Sensoren/Waffen/Defensiv erhalten eine geborgte FBWorld-Referenz (nie global).
+               FBDisplaySystem (eigene Datei, `FBDisplaySystem.h/.cpp`): das generische Default-HUD
+               (MIL-STD-1787-artig — Waterline, konformer Horizont, Heading-/GS-/Alt-Tapes mit
+               Steerpoint-Marker, NO-TELEMETRY-Fallback) als `BuildHud(state, FBHudEnv, FBHudGeometry&)`, der eine
+               Override-Punkt (analog `FBAutopilot::Run`); FBHudEnv trägt Viewport/AGL/Have-Telemetry,
+               FBHudGeometry (render/) ist der wiederverwendete Geometriepuffer, den FBHudStage pro
+               Frame ausliest;
+               FBSystemSlots.h — Input/HOTAS, Propulsion, Sensors, Weapons, Defensive, Comms: Interface
+               + NoOp-Default für die restlichen F-16-Systemkategorien, ein Modul füllt sie bei Bedarf
+               per Ableitung. Sensoren SCHREIBEN/Displays LESEN den geteilten FBState; Sensoren/Waffen/
+               Defensiv erhalten eine geborgte FBWorld-Referenz (nie global).
   terrain/   leane Terrain-Lib (geo/mesh/osmmesh), flat
   fdm/       der C-aufrufbare JSBSim-Adapter (jsbsim_adapter.*), flat
   modules/   FBModule-Basisschnittstelle (`Run(fb_fdm_state&, dt, const FBWorld*)`, App hält jedes
              Modul dahinter polymorph; ein Modul cycelt seine Systeme intern, jedes im eigenen Takt —
              Peers rufen sich nie gegenseitig)
   modules/f16/           das F-16-Modul: FBF16Module komponiert die systems/-DEFAULTS (FBAutopilot/
-                         FBFlightControl unverändert) mit dem F-16-Gain-Preset
+                         FBFlightControl/FBDisplaySystem unverändert) mit dem F-16-Gain-Preset
                          (FBFlightControl::F16()), besitzt den optionalen FBPathPlan und cycelt alle
-                         Systemslots — der Ort, an dem künftiges F-16-spezifisches Verhalten
-                         (echtes Radar, echtes HOTAS-Binding, …) als Ableitung eingehängt wird
-  modules/f16/displays/  HUD (MIL-STD-1787): FBHud (WebGPU-Backend-Shim), FBHudSymbology (Geometrie),
-                         FBMax7456 (Font-Atlas-Daten) — das bestehende Rendering, noch nicht über
-                         den generischen Displays-Systemslot geführt
+                         Systemslots — der Ort, an dem künftiges F-16-spezifisches Verhalten (ein
+                         eigenes HUD-Override, echtes Radar, echtes HOTAS-Binding, …) als Ableitung
+                         eingehängt wird
 ```
 
 Ein zukünftiges `units/` mit einer `FBUnit`-Basisschnittstelle für nicht steuerbare KI-Einheiten

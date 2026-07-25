@@ -140,7 +140,10 @@ static void w3_render_to_ecef(double lat_deg, double lon_deg, const float rv[3],
  * c.mvp is the VIEW-PROJECTION only (proj * view(eye=0)); the per-tile model translation
  * (origin_ecef - cam_ecef, as float) is post-multiplied at draw time (w3_mvp_translate) so a tile's
  * small local offsets never mix with the large ECEF magnitudes. c.f/sr/up are the ECEF basis. */
-static w3_cam w3_cam_ecef(float yaw_deg, float pitch_deg, float roll_deg, double cam_lat,
+/* [[maybe_unused]]: header-only, `static` (internal linkage) — every TU that includes this file gets
+ * its own copy, and not every consumer needs the ECEF/frustum group below (e.g. systems/
+ * FBDisplaySystem only needs the local-basis functions above for the HUD's conformal horizon). */
+[[maybe_unused]] static w3_cam w3_cam_ecef(float yaw_deg, float pitch_deg, float roll_deg, double cam_lat,
                           double cam_lon, float fov_deg, float aspect, float znear, float zfar) {
   const float RAD = (float)M_PI / 180.f;
   float fR[3], sR[3], uR[3]; /* render-space basis (local ENU orientation) */
@@ -162,7 +165,7 @@ static w3_cam w3_cam_ecef(float yaw_deg, float pitch_deg, float roll_deg, double
 
 /* out = viewproj * translate(t). translate touches only the last column, so columns 0..2 pass
  * through and column 3 = VP*(t,1). Column-major (m[col*4+row]). Cheap: no full 4x4 multiply. */
-static void w3_mvp_translate(float out[16], const float vp[16], const float t[3]) {
+[[maybe_unused]] static void w3_mvp_translate(float out[16], const float vp[16], const float t[3]) {
   for (int i = 0; i < 12; i++)
     out[i] = vp[i];
   for (int r = 0; r < 4; r++)
@@ -177,7 +180,7 @@ typedef struct {
   float p[6][4];
 } w3_frustum; /* mvp is column-major: mvp[col*4+row] */
 
-static w3_frustum w3_frustum_from(const float mvp[16]) {
+[[maybe_unused]] static w3_frustum w3_frustum_from(const float mvp[16]) {
   w3_frustum fr;
   for (int a = 0; a < 3; a++) /* a: 0 L/R, 1 B/T, 2 N/F -- clip row a and row w */
     for (int j = 0; j < 4; j++) {
@@ -190,7 +193,7 @@ static w3_frustum w3_frustum_from(const float mvp[16]) {
 
 /* AABB at least partially inside? Positive-vertex test. Errs toward keeping (a false positive is
  * one wasted draw; a false negative would be a hole) -- the safe asymmetry for culling. */
-static int w3_aabb_visible(const w3_frustum *fr, const float bmin[3], const float bmax[3]) {
+[[maybe_unused]] static int w3_aabb_visible(const w3_frustum *fr, const float bmin[3], const float bmax[3]) {
   for (int k = 0; k < 6; k++) {
     const float *pl = fr->p[k];
     float d = pl[3] + pl[0] * (pl[0] >= 0 ? bmax[0] : bmin[0]) +

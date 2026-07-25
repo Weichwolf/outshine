@@ -7,8 +7,8 @@
  * relative), textured with real per-tile OSM albedos (a texture_2d_array), lit under a physically-
  * based Hillaire-2020 sky (compute LUTs + fullscreen sky pass + aerial perspective), drawn into an HDR
  * target, then an ACES tonemap pass to the swapchain ([0,1] reversed-Z depth on the scene pass), and a
- * MIL-STD-1787 HUD overlay pass on top (FBHudStage; reuses the WebGL engine's w3_build_hud symbology
- * via FBHud.h). */
+ * MIL-STD-1787 HUD overlay pass on top (FBHudStage; a pure WebGPU backend, symbology owned by the
+ * wired systems/FBDisplaySystem — see SetHudDisplay). */
 #ifndef FBRENDERER_H
 #define FBRENDERER_H
 
@@ -97,13 +97,16 @@ public:
    * Call each frame; without it the HUD pass is skipped. */
   void SetHud(const FBState &s, bool have);
   void SetHudEnabled(bool e) { HudEnabled = e; }   /* draw the HUD overlay (off for the cloud lab) */
+  /* The Displays system slot that owns the HUD symbology — borrowed, forwarded to FBHudStage. Wire it
+   * once from the active module (e.g. R.SetHudDisplay(&f16->Displays())); nullptr draws an empty HUD. */
+  void SetHudDisplay(const FBDisplaySystem *disp) { Hud->SetDisplaySystem(disp); }
   /* Boot/teleport loading screen: while on, RenderFrame draws a black screen with a MAX7456-style
    * "LOADING TERRAIN x%" + tile counter (no scene/sky), and the app keeps JSBSim frozen. Off -> normal. */
   void SetLoadingScreen(bool on, float pct, int ready, int total) { LoadingScreen = on; LoadPct = pct; LoadReady = ready; LoadTotal = total; }
 
   /* True AGL (m, ASL - DEM ground under the aircraft) for the HUD altitude tape + horizon dip. The
-   * caller owns the DEM lookup (fb_stream_ground); forwarded to FBHudStage (w3_agl is its FBHud.h
-   * global, only reachable from there now). Negative = below terrain, never hidden. */
+   * caller owns the DEM lookup (fb_stream_ground); forwarded to FBHudStage's FBHudEnv each Encode().
+   * Negative = below terrain, never hidden. */
   void SetAgl(float agl);
 
   /* Ground albedo source (TAB): 0 = OSM render (SVS, a constant-daylight database view), 1 = aerial
@@ -230,8 +233,8 @@ private:
    * ECEF, class-coloured. Streamed + placed by FBWorld; drawn after terrain (depth-tested for occlusion). */
   std::unique_ptr<FBTileLightsStage> TileLights = std::make_unique<FBTileLightsStage>();
 
-  /* Draw slots wired into the encode order but not yet real systems (see CLAUDE.md's units/ and the
-   * F-16 display-system deferrals): Units draws right after terrain, Sprites right before the HUD pass. */
+  /* Draw slots wired into the encode order but not yet real systems (see CLAUDE.md's future units/):
+   * Units draws right after terrain, Sprites right before the HUD pass. */
   std::unique_ptr<FBUnitsStage> Units = std::make_unique<FBUnitsStage>();
   std::unique_ptr<FBSpritesStage> Sprites = std::make_unique<FBSpritesStage>();
 

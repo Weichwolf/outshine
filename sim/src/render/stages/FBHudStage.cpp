@@ -1,15 +1,14 @@
 #include "FBHudStage.h"
-#include "FBHud.h"   /* reused HUD symbology (w3_build_hud) + MAX7456 atlas; GL backend stubbed. THE
-                      * one TU that includes this — see the header banner. */
+#include "FBMax7456.h"
 #include <cstdio>
 #include <cstring>
 
 namespace FlightBox {
 
-/* HUD overlay: geometry comes from the REUSED symbology (FBHud.h -> w3_build_hud), which fills
- * w3_hud (lines, x,y,r,g,b), w3_hudT (AA triangles), and mx_v (textured glyphs, x,y,u,v,r,g,b) in 2D
- * pixel coords. Three pipelines share the pixel->NDC map; the fragment linearises the colour so the
- * sRGB swapchain view re-encodes it to the intended display green. TODO: the 8-tap present.h glow. */
+/* HUD overlay: geometry comes from the wired FBDisplaySystem's BuildHud() into a reused FBHudGeometry
+ * (lines x,y,r,g,b / AA triangles / textured glyphs x,y,u,v,r,g,b) in 2D pixel coords. Three pipelines
+ * share the pixel->NDC map; the fragment linearises the colour so the sRGB swapchain view re-encodes
+ * it to the intended display green. TODO: the 8-tap present.h glow. */
 static const char *kHudSolidWGSL = R"(
 struct HU { scale : vec4f };
 @group(0) @binding(0) var<uniform> h : HU;
@@ -45,14 +44,14 @@ void FBHudStage::Init(const FBGpu &gpu) {
   Device = gpu.Device;
   Queue = gpu.Queue;
 
-  /* MAX7456 font atlas: MX_NGLYPH tiles of 8x8, one byte per row, bit7 = leftmost. r8unorm, NEAREST
-   * (crisp blocky chip look). Built from the SAME MX_FONT ROM the WebGL path uses. */
-  const uint32_t AW = (uint32_t)MX_ATLAS_W, AH = (uint32_t)MX_TILE;
+  /* MAX7456 font atlas: kMax7456Glyphs tiles of 8x8, one byte per row, bit7 = leftmost. r8unorm,
+   * NEAREST (crisp blocky chip look). Built from the ROM in FBMax7456.h. */
+  const uint32_t AW = (uint32_t)kMax7456AtlasW, AH = (uint32_t)kMax7456Tile;
   std::vector<uint8_t> atlas((size_t)AW * AH, 0);
-  for (int gi = 0; gi < MX_NGLYPH; gi++)
-    for (int row = 0; row < MX_TILE; row++)
-      for (int c = 0; c < MX_TILE; c++)
-        atlas[(size_t)row * AW + gi * MX_TILE + c] = (MX_FONT[gi][row] & (0x80 >> c)) ? 255 : 0;
+  for (int gi = 0; gi < kMax7456Glyphs; gi++)
+    for (int row = 0; row < kMax7456Tile; row++)
+      for (int c = 0; c < kMax7456Tile; c++)
+        atlas[(size_t)row * AW + gi * kMax7456Tile + c] = (kMax7456Font[gi][row] & (0x80 >> c)) ? 255 : 0;
   wgpu::TextureDescriptor td{};
   td.size = {AW, AH, 1};
   td.format = wgpu::TextureFormat::R8Unorm;
@@ -81,12 +80,13 @@ void FBHudStage::Init(const FBGpu &gpu) {
   Queue.WriteBuffer(Uni, 0, scale, sizeof scale);
 
   bd.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
-  bd.size = sizeof w3_hud;   /* line verts (x,y,r,g,b) */
+  bd.size = kHudMaxLineFloats * sizeof(float);   /* line verts (x,y,r,g,b) */
   LineVtx = Device.CreateBuffer(&bd);
-  bd.size = sizeof w3_hudT;  /* AA triangle verts */
+  bd.size = kHudMaxTriFloats * sizeof(float);    /* AA triangle verts */
   TriVtx = Device.CreateBuffer(&bd);
-  bd.size = sizeof mx_v;     /* glyph verts (x,y,u,v,r,g,b) */
+  bd.size = kHudMaxTextFloats * sizeof(float);   /* glyph verts (x,y,u,v,r,g,b) */
   TextVtx = Device.CreateBuffer(&bd);
+  LoadingGlyphs.reserve(kHudMaxTextFloats);
 
   wgpu::BlendState blend{};
   blend.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
@@ -184,56 +184,58 @@ void FBHudStage::Init(const FBGpu &gpu) {
   }
 }
 
-void FBHudStage::SetGroundMode(int photo) {
-  w3_ground.mode = photo ? W3_GROUND_PHOTO : W3_GROUND_OSM;
-}
-
-void FBHudStage::SetAgl(float agl) { w3_agl = agl; }
-
 void FBHudStage::Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pass) {
-  w3_build_hud(&State, ctx.Width, ctx.Height, Have ? 1 : 0);
-  if (w3_hudTN > 0) Queue.WriteBuffer(TriVtx, 0, w3_hudT, (size_t)w3_hudTN * sizeof(float));
-  if (w3_hudN > 0) Queue.WriteBuffer(LineVtx, 0, w3_hud, (size_t)w3_hudN * sizeof(float));
-  if (mx_vN > 0) Queue.WriteBuffer(TextVtx, 0, mx_v, (size_t)mx_vN * sizeof(float));
+  Geometry.Reset();
+  if (Disp) {
+    FBHudEnv env{ctx.Width, ctx.Height, Agl, Have};
+    Disp->BuildHud(State, env, Geometry);
+  }
+  const std::vector<float> &lines = Geometry.Lines();
+  const std::vector<float> &tris = Geometry.Tris();
+  const std::vector<float> &glyphs = Geometry.Glyphs();
 
-  if (w3_hudTN > 0) {
+  if (!tris.empty()) Queue.WriteBuffer(TriVtx, 0, tris.data(), tris.size() * sizeof(float));
+  if (!lines.empty()) Queue.WriteBuffer(LineVtx, 0, lines.data(), lines.size() * sizeof(float));
+  if (!glyphs.empty()) Queue.WriteBuffer(TextVtx, 0, glyphs.data(), glyphs.size() * sizeof(float));
+
+  if (!tris.empty()) {
     pass.SetPipeline(SolidPipe);
     pass.SetBindGroup(0, SolidBind);
     pass.SetVertexBuffer(0, TriVtx);
-    pass.Draw((uint32_t)(w3_hudTN / 5));
+    pass.Draw((uint32_t)(tris.size() / 5));
   }
-  if (w3_hudN > 0) {
+  if (!lines.empty()) {
     pass.SetPipeline(LinePipe);
     pass.SetBindGroup(0, SolidBind);
     pass.SetVertexBuffer(0, LineVtx);
-    pass.Draw((uint32_t)(w3_hudN / 5));
+    pass.Draw((uint32_t)(lines.size() / 5));
   }
-  if (mx_vN > 0) {
+  if (!glyphs.empty()) {
     pass.SetPipeline(TextPipe);
     pass.SetBindGroup(0, TextBind);
     pass.SetVertexBuffer(0, TextVtx);
-    pass.Draw((uint32_t)(mx_vN / 7));
+    pass.Draw((uint32_t)(glyphs.size() / 7));
   }
 }
 
 void FBHudStage::EncodeLoadingText(wgpu::RenderPassEncoder &pass, int width, int height, float pct,
                                    int ready, int total) {
-  mx_reset();
+  LoadingGlyphs.clear();
   char msg[64], cnt[64];
   snprintf(msg, sizeof msg, "LOADING TERRAIN %d PCT", (int)(pct * 100.0f + 0.5f));
   snprintf(cnt, sizeof cnt, "%d / %d TILES", ready, total);
   float s = 4.0f;
-  mx_text((float)width * 0.5f - (float)strlen(msg) * MX_ADV * s * 0.5f, (float)height * 0.5f - MX_QS * s,
-          s, 0.20f, 1.00f, 0.40f, msg);
+  Max7456AppendText(LoadingGlyphs, (float)width * 0.5f - (float)strlen(msg) * kMax7456Advance * s * 0.5f,
+                     (float)height * 0.5f - kMax7456QuadSize * s, s, 0.20f, 1.00f, 0.40f, msg);
   float cs = s * 0.6f;
-  mx_text((float)width * 0.5f - (float)strlen(cnt) * MX_ADV * cs * 0.5f, (float)height * 0.5f + MX_QS * s * 1.4f,
-          cs, 0.45f, 0.80f, 0.50f, cnt);
-  if (mx_vN > 0) Queue.WriteBuffer(TextVtx, 0, mx_v, (size_t)mx_vN * sizeof(float));
-  if (mx_vN > 0) {
+  Max7456AppendText(LoadingGlyphs, (float)width * 0.5f - (float)strlen(cnt) * kMax7456Advance * cs * 0.5f,
+                     (float)height * 0.5f + kMax7456QuadSize * s * 1.4f, cs, 0.45f, 0.80f, 0.50f, cnt);
+  if (!LoadingGlyphs.empty()) {
+    Queue.WriteBuffer(TextVtx, 0, LoadingGlyphs.data(), LoadingGlyphs.size() * sizeof(float));
     pass.SetPipeline(TextPipe);
     pass.SetBindGroup(0, TextBind);
     pass.SetVertexBuffer(0, TextVtx);
-    pass.Draw((uint32_t)(mx_vN / 7));
+    pass.Draw((uint32_t)(LoadingGlyphs.size() / 7));
   }
 }
 

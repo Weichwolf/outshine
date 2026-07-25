@@ -7,7 +7,7 @@ FBF16Module::FBF16Module()
       FC(std::make_unique<FBFlightControl>(FBFlightControl::F16())),
       Input(std::make_unique<FBInputSystem>()),
       Propulsion(std::make_unique<FBPropulsionSystem>()),
-      Displays(std::make_unique<FBDisplaySystem>()),
+      Disp(std::make_unique<FBDisplaySystem>()),
       Sensors(std::make_unique<FBSensorSystem>()),
       Weapons(std::make_unique<FBWeaponSystem>()),
       Defensive(std::make_unique<FBDefensiveSystem>()),
@@ -30,7 +30,7 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBWorld *world) {
   Propulsion->Run(st, dt);         /* engine-system logic above the raw FDM: same cadence */
 
   if (Due(SensorAccS, dt, 10.0)) Sensors->Run(SharedState, world, dt);
-  if (Due(DisplayAccS, dt, 20.0)) Displays->Run(SharedState, Mode, dt);
+  if (Due(DisplayAccS, dt, 20.0)) Disp->Run(SharedState, Mode, dt);
   if (Due(WeaponAccS, dt, 20.0)) Weapons->Run(Mode, world, dt);
   if (Due(DefensiveAccS, dt, 5.0)) Defensive->Run(world, dt);
   if (Due(CommsAccS, dt, 1.0)) Comms->Run(dt);

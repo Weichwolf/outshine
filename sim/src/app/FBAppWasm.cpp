@@ -380,6 +380,7 @@ int main() {
     if (sn > 0) { R.SetStars(stars, sn, olat, olon); printf("[gpu] star catalogue %d bytes (%d stars)\n", sn, sn / 6); }
     else printf("[gpu] star catalogue unreachable (%s/t/stars) — blank night sky\n", base);
   }
+  R.SetHudDisplay(&gF16->Displays());   /* HUD symbology: the module's Displays slot (default HUD) */
   R.Init("#gpu", 1280, 720);
   if (!W.Open(&R, base, olat, olon, 32, viewM, 512)) {
     printf("[gpu] FBWorld open FAILED — is fb-tiles reachable at %s ?\n", base);
