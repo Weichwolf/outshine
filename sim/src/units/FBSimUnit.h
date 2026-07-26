@@ -73,10 +73,14 @@ public:
   /* The PUBLISHED pose (FBUnit's snapshot contract): what every other unit and every client sees is the
    * last completed tick, made visible by PublishPose() after ALL units have run. */
   FBUnitPose GetPose() const override { return Pose_; }
-  void Run(double dt, const FBWorld *world) override;   /* the module cycles its own FDM + systems */
+  /* Published together with the pose, at the same barrier: what this unit RADIATES (FBUnit.h's
+   * FBUnitSignature) — today its datalink transmitter, read by every OTHER unit's terminal. */
+  FBUnitSignature GetSignature() const override { return Sig_; }
+  /* The module cycles its own FDM + systems; `units` reaches only its sensor slots. */
+  void Run(double dt, const FBUnitRegistry *units, const FBWorld *world) override;
 
-  /* The tick barrier: copies this unit's freshly integrated state into the published pose. A client
-   * calls it for EVERY unit only once every unit has run — that ordering, not this function, is what
+  /* The tick barrier: copies this unit's freshly integrated state into the published pose + signature.
+   * A client calls it for EVERY unit only once every unit has run — that ordering, not this function, is what
    * makes a multi-unit tick order-independent. */
   void PublishPose();
 
@@ -136,6 +140,7 @@ private:
   std::unique_ptr<FBModule> Module_;
   fb_fdm_state St_;
   FBUnitPose Pose_;                    /* the published (last completed tick) pose — see GetPose() */
+  FBUnitSignature Sig_;                /* published with it — see GetSignature() */
   std::string LogLabel_;
   double GroundAslM_;
   FBFdmTelemetrySource FdmSrc_;        /* borrows Fdm_/St_/GroundAslM_ — all declared above it */

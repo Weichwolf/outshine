@@ -137,8 +137,9 @@ struct FBActorTelemetry {
  * job, which is also the only per-tick state this object carries. */
 class FBActorStepJob : public FBTickJob {
 public:
-  FBActorStepJob(FBActorList &actors, std::vector<FBBufferedLogSink> &logs, double dt)
-      : Actors_(actors), Logs_(logs), Dt_(dt) {}
+  FBActorStepJob(FBActorList &actors, const FBUnitRegistry &units,
+                 std::vector<FBBufferedLogSink> &logs, double dt)
+      : Actors_(actors), Units_(units), Logs_(logs), Dt_(dt) {}
 
   void SetTime(double simT) { TimeS_ = simT; }
 
@@ -146,11 +147,12 @@ public:
     FBLog::SetTime(TimeS_);
     FBLogThreadSinkScope capture(&Logs_[i]);
     FBLogUnitScope us(Actors_[i]->LogLabel());
-    Actors_[i]->Run(Dt_, nullptr);
+    Actors_[i]->Run(Dt_, &Units_, nullptr);
   }
 
 private:
   FBActorList &Actors_;
+  const FBUnitRegistry &Units_;
   std::vector<FBBufferedLogSink> &Logs_;
   double Dt_;
   double TimeS_ = 0.0;
@@ -237,7 +239,13 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     Actors.push_back(std::move(unit));
   }
 
-  if (hook) hook->OnMissionStart(mission.Units.front().Spawn, Actors);
+  /* The run's ONE unit registry (units/FBUnitRegistry): the whole cast, in mission-declaration order,
+   * filled once now that every actor exists and borrowed by everything that observes units — the
+   * modules' sensors through the step job below, and (native only) the hook's FBWorld for drawing. */
+  FBUnitRegistry UnitReg;
+  for (const auto &a : Actors) UnitReg.Register(a.get());
+
+  if (hook) hook->OnMissionStart(mission.Units.front().Spawn, Actors, UnitReg);
 
   std::vector<FBActorTelemetry> ActorTelemetry(Actors.size());
   for (size_t i = 0; i < Actors.size(); i++) {
@@ -269,7 +277,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   if (threads < 1) threads = 1;
   if (threads > Actors.size()) threads = Actors.size();
   std::vector<FBBufferedLogSink> actorLogs(Actors.size());
-  FBActorStepJob stepJob(Actors, actorLogs, dt);
+  FBActorStepJob stepJob(Actors, UnitReg, actorLogs, dt);
   FBTickPool pool(threads);
 
   /* The run ends on the first physical K.O. of ANY actor, the first mission FAILURE of any judged

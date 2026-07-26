@@ -1,0 +1,38 @@
+name payerne-pair-datalink-1
+runway 46.84335 6.91523 441.0 228.0 2889     # Payerne RWY23 -- mission-wide off-runway-touchdown check
+timeout 600                                  # sim-seconds until TIMEOUT
+
+# THE DATALINK CASE: two friendly F-16s that start a nautical mile apart and then fly APART, so the
+# cooperative net (systems/FBDatalinkSystem, doc/f16/datalink-iff.md) can be watched doing all three of
+# the things that make it a simulated system rather than a peek at the world:
+#   - each jet carries the other as a TRACK whose position is the last 1 Hz network message, not the
+#     other jet's live position (telemetry dl_near/dl_age),
+#   - that track's AGE cycles between 0 and one network period,
+#   - and once they are further apart than the terminal can reach, the track ages out and is DROPPED
+#     (events.log TRACK_LOST) instead of quietly following them.
+# Both terminals are deliberately configured down to 6 nm (`datalink_range_nm`) -- MIDS' real ~300 nm
+# reach would need a mission the size of a continent to prove the same thing.
+#
+# The divergence is built into the SPAWN, not into a turn: LEAD starts on 048 and keeps it, TWO starts
+# on 138 (90 degrees off) and keeps that, so the pair separates at ~2x300 kt of crossing speed and
+# neither pilot has to fly a reversal for the geometry to happen.
+
+unit lead
+  module f16
+  team friendly
+  spawn 46.73800 6.72200 2500 48.0 300
+  set gear up
+  set fuel_pct 60
+  set datalink_range_nm 6                    # the whole point: a reach the mission can actually cross
+  wp 46.84335 6.91523 2900 320               # over the field, climbing NE
+  wp 46.95000 7.05000 3200 320
+
+unit two
+  module f16
+  team friendly
+  spawn 46.72600 6.73900 2500 138.0 300      # ~1 nm southeast of lead, heading 90 deg off its track
+  set gear up
+  set fuel_pct 60
+  set datalink_range_nm 6
+  wp 46.63000 6.87000 3000 300               # southeast into the Gruyere valley, away from lead
+  wp 46.55000 7.00000 3000 300

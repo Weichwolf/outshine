@@ -18,6 +18,7 @@
 #include "FBAirDataSystem.h"
 #include "FBAirframeControls.h"
 #include "FBAutopilot.h"
+#include "FBDatalinkSystem.h"
 #include "FBDisplaySystem.h"
 #include "FBFlightControl.h"
 #include "FBFlightPlan.h"
@@ -29,7 +30,8 @@
 
 namespace FlightBox {
 
-class FBWorld;   /* borrowed only — sensors/weapons/defensive query it, the module never owns it */
+class FBWorld;          /* borrowed only — sensors/weapons/defensive query it, the module never owns it */
+class FBUnitRegistry;   /* likewise: the cast of the world, for the module's SENSORS only */
 
 class FBModule {
 public:
@@ -50,10 +52,19 @@ public:
    * path (FBMissionBoot.h) asks for it instead of reusing the registry name as a directory name. */
   virtual const char *FdmModelName() const = 0;
 
+  /* WHO this module is flying, from the unit that owns it (units/FBSimUnit's constructor) — wiring,
+   * once, like AttachFdm. A module needs its own identity the moment it carries a system that observes
+   * OTHER units: the datalink has to recognise its own PPLI in the registry and know whose net it is
+   * on. Default: nothing to identify. */
+  virtual void SetUnitIdentity(int unitId, FBUnitTeam team) { (void)unitId; (void)team; }
+
   /* Advances the module's FDM at its own fixed substep rate for `dt` wall-seconds. `st` is the
-   * shared live FDM state the caller (App) reads back for camera/HUD/telemetry. `world` is a borrowed
-   * reference (nullptr where a module has no world-facing systems yet) — never global access. */
-  virtual void Run(fb_fdm_state &st, double dt, const FBWorld *world = nullptr) = 0;
+   * shared live FDM state the caller (App) reads back for camera/HUD/telemetry. `units` is the borrowed
+   * unit registry (units/FBUnitRegistry — the last completed tick's snapshots, for SENSORS only),
+   * `world` the borrowed terrain side; both may be null in a client that has none — never global
+   * access, and the module hands each one only to the slots entitled to it. */
+  virtual void Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units = nullptr,
+                   const FBWorld *world = nullptr) = 0;
 
   /* Guidance / FCS / the mission-level pilot brain — the three REAL system slots (CLAUDE.md), each
    * with its one module-overridable point; PilotSystem() returns the base FBPilot& (a concrete module
@@ -69,6 +80,9 @@ public:
   virtual FBDisplaySystem &Displays() = 0;
   virtual FBAirDataSystem &AirDataSystem() = 0;
   virtual FBNavSystem &NavSystem() = 0;
+  /* The Comms/Datalink slot: the client registers its telemetry and publishes its transmit state into
+   * the unit's snapshot (units/FBSimUnit) — both generic, both true of any module with a terminal. */
+  virtual FBDatalinkSystem &Datalink() = 0;
   virtual const FBState &Telemetry() const = 0;
 
   /* The two OUTPUTS of the Run() contract above, surfaced for the client's flight/cpuprof telemetry:

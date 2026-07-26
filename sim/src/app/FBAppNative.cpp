@@ -195,7 +195,8 @@ public:
   FBNativeMissionHook(std::string base, std::string outDir, double intervalS, int width = 1280, int height = 720)
       : Base(std::move(base)), OutDir(std::move(outDir)), IntervalS(intervalS), Width(width), Height(height) {}
 
-  void OnMissionStart(const FlightBox::FBSpawn &spawn, const FlightBox::FBActorList &actors) override {
+  void OnMissionStart(const FlightBox::FBSpawn &spawn, const FlightBox::FBActorList &actors,
+                      const FlightBox::FBUnitRegistry &units) override {
     const FlightBox::FBSimUnit &primary = *actors.front();   /* the camera's actor (FBMissionRunner.h) */
     R = std::make_unique<FlightBox::FBRenderer>();
     R->SetDefaultMode(0);
@@ -218,9 +219,9 @@ public:
       R.reset(); W.reset();
       return;
     }
-    /* The WHOLE cast as world entities: FBWorld's registry borrows every FBUnit, exactly as the browser
-     * client registers its own — one registration path for every client that has a world at all. */
-    for (const auto &a : actors) W->RegisterUnit(a.get());
+    /* The world BORROWS the run's one unit registry (units/FBUnitRegistry, owned by the runner) — the
+     * renderer's view of the cast, never a second list of its own. */
+    W->SetUnits(&units);
     /* Warm the terrain cut around the spawn before the first PNG — same 60-tick pre-roll RunMission
      * always did (the jet is stationary this round, an approximate cut is enough for a proof frame). */
     double altAsl0 = primary.GroundAslM() + (spawn.Ground ? 2.0 : (spawn.AltM - primary.GroundAslM()));

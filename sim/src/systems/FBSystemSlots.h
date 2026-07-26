@@ -3,8 +3,9 @@
  * comms/datalink. Each is an INTERFACE + trivial DEFAULT (NoOp) in one class, one class per slot (no
  * interface/default file split for a body this small) — a module overrides Run() once it implements
  * the real system; until then FBF16Module composes these DEFAULTS unmodified, same pattern as
- * FBAutopilot/FBFlightControl. Displays is the one slot with a REAL default (the generic
- * HUD symbology) big enough to earn its own file — see FBDisplaySystem.h.
+ * FBAutopilot/FBFlightControl. Two slots have outgrown this file because their default is REAL rather
+ * than NoOp: Displays (the generic HUD symbology — FBDisplaySystem.h) and Comms/Datalink (the
+ * cooperative MIDS/Link-16 net — FBDatalinkSystem.h, which is why no FBCommsSystem stub remains here).
  *
  * Signatures encode the two contract rules from the doc/f16/ distillate: Sensors WRITE the shared
  * FBState, Displays only READ it (no display queries a sensor directly); anything that needs to see
@@ -14,6 +15,7 @@
 #ifndef FBSYSTEMSLOTS_H
 #define FBSYSTEMSLOTS_H
 
+#include "FBDatalinkSystem.h"
 #include "FBDisplaySystem.h"
 #include "FBMasterMode.h"
 #include "FBState.h"
@@ -61,13 +63,6 @@ class FBDefensiveSystem {
 public:
   virtual ~FBDefensiveSystem() = default;
   virtual void Run(const FBWorld *world, double dt) { (void)world; (void)dt; }
-};
-
-/* Link-16, IFF, COM1/2: no world/state dependency today. NoOp. */
-class FBCommsSystem {
-public:
-  virtual ~FBCommsSystem() = default;
-  virtual void Run(double dt) { (void)dt; }
 };
 
 } // namespace FlightBox

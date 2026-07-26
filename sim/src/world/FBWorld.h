@@ -22,19 +22,19 @@
 namespace FlightBox {
 
 class FBRenderer;
-class FBUnit;
+class FBUnitRegistry;
 
 class FBWorld {
 public:
   FBWorld();
 
-  /* Unit registry: BORROWED, READ-ONLY pointers — FBWorld never owns a unit and never advances one
-   * (each one's lifetime and its Run() belong to whoever constructed it: both App clients own their
-   * units/FBSimUnit list). Every client with a world registers its actors at boot; Sensors/Weapons/
-   * Defensive walk this through the const FBWorld* every slot already receives (FBSystemSlots.h) —
-   * observation only, no world-mutation path, which is why the pointer is const. */
-  void RegisterUnit(const FBUnit *unit) { UnitList.push_back(unit); }
-  const std::vector<const FBUnit *> &Units() const { return UnitList; }
+  /* The cast of the world, BORROWED: the registry itself lives in the core library (units/
+   * FBUnitRegistry — see its banner for why it moved out of this class) and is owned by the client that
+   * owns the units. FBWorld only carries a pointer to it, for the drawing side (unit markers,
+   * render/stages/FBUnitsStage) — a renderer needs to know what is out there, but it is not where that
+   * knowledge belongs, and fb-gym must have the same registry without linking any of world/. */
+  void SetUnits(const FBUnitRegistry *units) { Units_ = units; }
+  const FBUnitRegistry *Units() const { return Units_; }
 
   /* Open the streamer. `viewMeters` is the view radius (FB_VIEW_KM * 1000, the old w3_view_m). */
   bool Open(FBRenderer *renderer, const char *tilesBase, double lat, double lon, int grid,
@@ -120,7 +120,7 @@ private:
   double SpanM(int z) const;
   void BuildLights(int idx);   /* fetch + decode /t/lights for node idx into its lightInst (rel Anchor) */
 
-  std::vector<const FBUnit *> UnitList;   /* borrowed, see RegisterUnit's banner */
+  const FBUnitRegistry *Units_ = nullptr;   /* borrowed, see SetUnits' banner */
 
   FBRenderer *R;
   bool Photo;            /* currently viewed mode (SetGroundMode) */

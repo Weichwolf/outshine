@@ -13,6 +13,7 @@
 namespace FlightBox {
 
 class FBWorld;
+class FBUnitRegistry;
 
 enum class FBUnitKind { Aircraft };
 
@@ -21,6 +22,15 @@ struct FBUnitPose {
   double RollDeg = 0.0, PitchDeg = 0.0, YawDeg = 0.0;
   double SpeedMs = 0.0;      /* true airspeed/ground speed as the unit type defines it */
   double HeadingDeg = 0.0;   /* ground track, true, deg 0..360 */
+};
+
+/* What this unit RADIATES — the part of its system state another unit's sensors may legitimately
+ * notice. A cooperative datalink track exists because the sender's terminal is transmitting, so that
+ * switch is not private to the sender's module: it is observable, and therefore published at the same
+ * barrier as the pose (no receiver ever reads a transmitter state mid-tick). Emitters that only make
+ * sense once the matching sensor exists (radar illumination, jammer, IFF replies) join here. */
+struct FBUnitSignature {
+  bool DatalinkXmt = false;   /* MIDS terminal powered AND transmitting (XMT ON) */
 };
 
 class FBUnit {
@@ -42,10 +52,20 @@ public:
    * parallelisation instead of a redesign. */
   virtual FBUnitPose GetPose() const = 0;
 
+  /* The published emission signature, under the SAME snapshot contract as GetPose (see above): a unit
+   * that switched its transmitter off during this tick still reads as it was at the last barrier. A
+   * unit type with no emitters keeps the silent default. */
+  virtual FBUnitSignature GetSignature() const { return {}; }
+
   /* Per-frame update at whatever rate the owner drives it; NoOp default (a unit whose motion is driven
    * entirely by something else has nothing to do here — FBSimUnit forwards it to the module, which
-   * cycles the FDM and its own systems). */
-  virtual void Run(double dt, const FBWorld *world) { (void)dt; (void)world; }
+   * cycles the FDM and its own systems). `units` is the cast of the world as simulated SENSORS may
+   * observe it (units/FBUnitRegistry — every entry a last-completed-tick snapshot, including this unit
+   * itself), `world` the terrain/streaming side a sensor may need on top of it; both are borrowed and
+   * either may be null in a client that has none. */
+  virtual void Run(double dt, const FBUnitRegistry *units, const FBWorld *world) {
+    (void)dt; (void)units; (void)world;
+  }
 
 private:
   int Id;

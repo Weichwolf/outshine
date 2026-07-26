@@ -14,7 +14,12 @@
  *   FireControl, Ufc, Sms                                (the HUD's telemetry chain updates together —
  *                                                          FireControl reads Nav's SAME-tick output)
  *   Defensive                                5 Hz        accumulator-throttled inside Run()
- *   Comms                                    1 Hz        accumulator-throttled inside Run()
+ *   Comms/Datalink (FBF16Datalink)           5 Hz        accumulator-throttled inside Run(); the NET
+ *                                                        itself cycles at 1 Hz inside the system
+ *                                                        (FBDatalinkSystem::kNetPeriodS) — the slot is
+ *                                                        entered faster than that only so a held track's
+ *                                                        AGE is observable between net cycles, never to
+ *                                                        refresh the picture sooner
  *   Pilot (FBPilot, the mission-level brain ABOVE  10 Hz  accumulator-throttled inside Run(); its
  *   Guidance/FlightControl — core/ architecture           FBPilotCommands are applied to Autopilot()/
  *   banner)                                                Controls() only where a field is actually
@@ -33,6 +38,7 @@
 #include "FBAirDataSystem.h"
 #include "FBAirframeControls.h"
 #include "FBAutopilot.h"
+#include "FBF16Datalink.h"
 #include "FBF16FireControl.h"
 #include "FBF16Max7456.h"
 #include "FBF16Pilot.h"
@@ -63,7 +69,8 @@ public:
    * derived from the registry name: the two happen to coincide today, they are not the same thing. */
   const char *FdmModelName() const override { return "f16"; }
 
-  void Run(fb_fdm_state &st, double dt, const FBWorld *world = nullptr) override;
+  void Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units = nullptr,
+           const FBWorld *world = nullptr) override;
 
   /* The HUD's telemetry chain writes HERE (SharedState), not into the App's own FBState — the App must
    * seed its per-frame FBState from this BEFORE overwriting the fields it computes itself (pose/sun/
@@ -75,6 +82,7 @@ public:
   FBDisplaySystem &Displays() override { return *Disp; }   /* wire into FBRenderer::SetHudDisplay */
   FBF16Max7456 &Max7456() { return *Chip; }       /* the MAX7456-chip-specific hook, see its banner */
   FBNavSystem &NavSystem() override { return *NavSys; }   /* steerpoint/bullseye (SetSteerpoint/SetBullseye) */
+  FBDatalinkSystem &Datalink() override { return *Datalink_; }   /* the F-16's TNDL terminal */
   FBF16Ufc &Ufc() { return *UfcSys; }             /* ALOW/selected-steerpoint placeholder setup */
   FBF16Sms &Sms() { return *SmsSys; }             /* master-arm placeholder setup */
   const FBGuidance &LastGuidance() const override { return LastG; }
@@ -84,6 +92,10 @@ public:
    * FBRenderer::SetAgl (fb_stream_ground) — call before Run() each frame; FBRadarAltimeter reuses it
    * rather than re-querying terrain. */
   void SetGroundAsl(float m) override { GroundAslM = m; }
+
+  /* Identity for the systems that observe other units (FBModule::SetUnitIdentity) — today the
+   * terminal, tomorrow the radar. */
+  void SetUnitIdentity(int unitId, FBUnitTeam team) override { Datalink_->SetIdentity(unitId, team); }
 
   FBMasterMode GetMasterMode() const { return Mode; }
   void SetMasterMode(FBMasterMode m) { Mode = m; }
@@ -97,7 +109,9 @@ public:
   FBFlightPlan &FlightPlan() override { return Plan_; }
   void SetRunway(const FBRunway &rwy) override { Rwy_ = rwy; HaveRunway_ = true; }
 
-  /* `gear` (up/down — an air start spawns retracted), `fuel_lbs`, `fuel_pct` (0..100) — see
+  /* `gear` (up/down — an air start spawns retracted), `fuel_lbs`, `fuel_pct` (0..100), and the
+   * terminal's four switches — `datalink` (on/off: power), `datalink_xmt` (on/off: XMT/EMCON),
+   * `datalink_filter` (fr/fl/off: the HSD contact filter), `datalink_range_nm` — see
    * doc/mission-format.md. An unknown key OR an unparsable/out-of-range value returns false (Runner-level
    * mission FAIL): a mission that declares a state this airframe cannot take must not start silently in
    * some other state. */
@@ -119,7 +133,7 @@ private:
   std::unique_ptr<FBSensorSystem> Sensors;
   std::unique_ptr<FBWeaponSystem> Weapons;
   std::unique_ptr<FBDefensiveSystem> Defensive;
-  std::unique_ptr<FBCommsSystem> Comms;
+  std::unique_ptr<FBF16Datalink> Datalink_;   /* the Comms slot, filled with the F-16's own terminal */
 
   /* The HUD's telemetry chain (see the rate table): generic systems/ defaults + the two F-16-specific
    * placeholders (FireControl's 'B' slant range, Ufc/Sms). */
@@ -147,6 +161,9 @@ private:
   double AccS = 0.0;
   int LastSub = 0;
   double DisplayAccS = 0.0, SensorAccS = 0.0, WeaponAccS = 0.0, DefensiveAccS = 0.0, CommsAccS = 0.0;
+  /* The module's own sim clock (accumulated dt): the datalink stamps and ages its messages in absolute
+   * sim seconds, so its picture cannot depend on how often this module happens to cycle the slot. */
+  double SimTimeS = 0.0;
 };
 
 } // namespace FlightBox

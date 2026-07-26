@@ -1,0 +1,35 @@
+/* FlightBox — FBDatalinkTrack: one contact as a COOPERATIVE datalink reports it (MIDS/Link-16, DCS'
+ * TNDL — doc/f16/datalink-iff.md). Not a sensor return: the sender broadcasts its own INS/GPS position
+ * and its own identity, so callsign and team come for free and accuracy is the SENDER's navigation
+ * accuracy, not the receiver's. What a receiver adds is only WHEN it heard it — ReportTimeS, and the
+ * AgeS derived from it, which is why a track is never "live": it is the last message that arrived.
+ *
+ * Fixed capacity, no heap: FBState carries the whole list inline (kMaxDatalinkTracks entries + a count),
+ * so a tick that rebuilds the picture allocates nothing and a display reads a plain array. Eight is a
+ * four-ship plus its package — enough for the missions this simulator flies, and the number that bounds
+ * the per-frame FBState copy the HUD path already makes. */
+#ifndef FB_FBDATALINKTRACK_H
+#define FB_FBDATALINKTRACK_H
+
+#include "FBTeam.h"
+
+namespace FlightBox {
+
+constexpr int kMaxDatalinkTracks = 8;
+constexpr int kDatalinkCallsignLen = 25;   /* .fbm callsigns are 1..24 chars + NUL (doc/mission-format.md) */
+
+struct FBDatalinkTrack {
+  int    UnitId = 0;                          /* the sender's unit id — the track's identity key */
+  char   Callsign[kDatalinkCallsignLen] = {}; /* the sender's own name, NUL-terminated */
+  FBUnitTeam Team = FBUnitTeam::Friendly;
+  double LatDeg = 0.0, LonDeg = 0.0;          /* as REPORTED (the sender's own position fix) */
+  float  AltM = 0.0f;
+  float  HeadingDeg = 0.0f, SpeedMs = 0.0f;   /* the reported velocity vector, polar form */
+  float  RangeM = 0.0f;                       /* receiver-computed: own position -> reported position */
+  float  BearingDeg = 0.0f;                   /* true bearing to the reported position */
+  float  ReportTimeS = 0.0f;                  /* sim time of the message this track still stands on */
+  float  AgeS = 0.0f;                         /* now - ReportTimeS; 0 only in the tick it arrived */
+};
+
+} // namespace FlightBox
+#endif /* FB_FBDATALINKTRACK_H */

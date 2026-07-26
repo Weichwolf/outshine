@@ -21,6 +21,7 @@
 #include "FBGeodesy.h"
 #include "FBTerrainLoader.h"
 #include "FBSimUnit.h"
+#include "FBUnitRegistry.h"
 #include "FBLog.h"
 #include "FBLogSinks.h"
 #include "FBFdm.h"
@@ -62,6 +63,9 @@ static FBWorld W;
  * gOwnship is the FIRST actor and only that: the browser has ONE eye and ONE HUD, so the camera and the
  * HUD ride actors[0] while every other actor is stepped alongside it in the same frame loop. */
 static FBActorList gActors;
+/* The browser's unit registry (units/FBUnitRegistry): the same one object the headless runner builds —
+ * filled once at boot, borrowed by every actor's sensors AND by FBWorld's drawing side. */
+static FBUnitRegistry gUnits;
 static FBSimUnit *gOwnship = nullptr;
 /* This loop's monotonic sim-clock, for the monitors' sustain timers (LOC/deep-stall): the browser has no
  * discrete 10 Hz mission tick like the runner, it integrates whatever the rAF period gives it. */
@@ -144,7 +148,7 @@ static void frame(void) {
    * 10 Hz) — through the polymorphic FBModule handle the unit holds. The pose barrier after the loop is
    * the same snapshot discipline the headless runner uses (FBUnit::GetPose's contract): every actor
    * integrates against the previous frame's world, so tick order cannot change the outcome. */
-  for (auto &a : gActors) { FBLogUnitScope us(a->LogLabel()); a->Run(dt, &W); }
+  for (auto &a : gActors) { FBLogUnitScope us(a->LogLabel()); a->Run(dt, &gUnits, &W); }
   for (auto &a : gActors) a->PublishPose();
   const fb_fdm_state &St = gOwnship->State();
   FBGuidance g = gOwnship->Module().LastGuidance();
@@ -395,7 +399,8 @@ int main() {
     FBLog::Error("gpu", "world_open_failed", {{"base", std::string(base)}});
     return 1;
   }
-  for (auto &a : gActors) W.RegisterUnit(a.get());   /* the App owns the units; FBWorld only borrows */
+  for (auto &a : gActors) gUnits.Register(a.get());   /* the App owns the units; everyone else borrows */
+  W.SetUnits(&gUnits);
   FBLog::Info("gpu", "world_ready", {{"viewKm", viewM / 1000.0}});
 
   emscripten_set_main_loop(frame, 0, 1);

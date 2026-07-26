@@ -23,6 +23,8 @@ FBSimUnit::FBSimUnit(int id, std::string name, FBUnitTeam team, std::unique_ptr<
       GroundAslM_(groundAslM),
       FdmSrc_(RequireFdm(Fdm_), St_, GroundAslM_) {
   assert(Module_ && "FBSimUnit needs the module that flies the airframe");
+  Module_->SetUnitIdentity(GetId(), GetTeam());   /* before the first Run: the terminal's own callsign
+                                                   * on the net (FBModule::SetUnitIdentity) */
   PublishPose();   /* the declarative spawn is already a valid pose — nobody ever reads an empty one */
 }
 
@@ -31,9 +33,12 @@ void FBSimUnit::PublishPose() {
   Pose_.RollDeg = St_.roll; Pose_.PitchDeg = St_.pitch; Pose_.YawDeg = St_.yaw;
   Pose_.SpeedMs = St_.speed;
   Pose_.HeadingDeg = St_.yaw;   /* no ground-track field on fb_fdm_state; yaw is the flown heading */
+  Sig_.DatalinkXmt = Module_->Datalink().Transmitting();
 }
 
-void FBSimUnit::Run(double dt, const FBWorld *world) { Module_->Run(St_, dt, world); }
+void FBSimUnit::Run(double dt, const FBUnitRegistry *units, const FBWorld *world) {
+  Module_->Run(St_, dt, units, world);
+}
 
 void FBSimUnit::UpdateGroundAsl(double sampleM) {
   if (FBElevationResolved(sampleM)) GroundAslM_ = sampleM;
@@ -84,6 +89,7 @@ void FBSimUnit::StartTelemetry(FBTelemetrySink *sink) {
   Bus_.Register(&Module_->PilotSystem());
   Bus_.Register(&Module_->FlightControl());
   Bus_.Register(&Module_->Controls());
+  Bus_.Register(&Module_->Datalink());   /* LAST: a new sensor appends columns, it never shifts old ones */
   Bus_.SetSink(sink);
   Bus_.Start();
 }

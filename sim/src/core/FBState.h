@@ -11,6 +11,7 @@
 #ifndef FB_FBSTATE_H
 #define FB_FBSTATE_H
 #include "FBArmState.h"
+#include "FBDatalinkTrack.h"
 #include "FBMode.h"
 
 namespace FlightBox {
@@ -64,6 +65,15 @@ struct FBState {
 
   /* ---- FBF16Sms: master-arm placeholder ---- */
   FBArmState armState;
+
+  /* ---- FBDatalinkSystem: the cooperative-net picture (MIDS/Link-16, doc/f16/datalink-iff.md) ----
+   * The ONLY way anything above the sensors — pilot, HUD, HSD — ever learns that another unit exists.
+   * Inline, fixed capacity: rebuilding it allocates nothing (core/FBDatalinkTrack.h). Entries
+   * 0..dlTrackCount-1 are valid, in mission-declaration order. */
+  bool dlOn;                /* terminal powered (receiving) */
+  bool dlXmt;               /* terminal transmitting (XMT ON) — what other units can hear */
+  int  dlTrackCount;
+  FBDatalinkTrack dlTracks[kMaxDatalinkTracks];
 };
 
 } // namespace FlightBox

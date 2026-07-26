@@ -73,8 +73,7 @@ double FBPilot::PitchHoldStick(double targetDeg, double pitchDeg, double qDegS, 
 
 FBPilotCommands FBPilot::Run(const FBState &state, const FBAirframeControls &airframe,
                              const fb_fdm_state &st, const FBFlightPlan &plan, const FBRunway *runway,
-                             const FBWorld *world, double dt) {
-  (void)world;
+                             double dt) {
   PhaseElapsedS += dt;
   FBPilotCommands c{};
 

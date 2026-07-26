@@ -47,8 +47,6 @@
 
 namespace FlightBox {
 
-class FBWorld;
-
 /* The guidance the pilot hands to FBAutopilot. None = "don't touch the AP" — the module only calls the
  * matching FBAutopilot setter (SetManual/SetDirect/SetCourse) when a concrete mode is requested, so a
  * None-guidance tick changes nothing about whatever guidance is already running. */
@@ -94,10 +92,17 @@ public:
    * out of. The pilot never touches an FDM — it neither knows nor can reach one, which is what keeps
    * this generic layer both airframe-agnostic and instance-agnostic (multi-unit). A module composes its
    * pilot long before any airframe exists, so the handle travels per tick with the rest of the sensed
-   * world (`st`, `plan`, `runway`, `world`) rather than being bound at construction. */
+   * world (`st`, `plan`, `runway`) rather than being bound at construction.
+   *
+   * NOTHING ELSE IS IN THIS SIGNATURE, and that is the point (CLAUDE.md "Kein Cheaten"): a pilot flies
+   * on instruments. It reads FBState — which is what the simulated SENSORS wrote, the datalink's tracks
+   * included — plus its own airframe's readings, and has no path to the world or to the unit registry
+   * to check what is really out there. The `const FBWorld *` that used to sit here (unused, `(void)
+   * world`) was exactly such a path waiting to be taken, so it is gone: a pilot that cannot be handed
+   * ground truth cannot accidentally be flown on it. */
   virtual FBPilotCommands Run(const FBState &state, const FBAirframeControls &airframe,
                               const fb_fdm_state &st, const FBFlightPlan &plan, const FBRunway *runway,
-                              const FBWorld *world, double dt);
+                              double dt);
 
   const char *TelemetryName() const override { return "pilot"; }
   void DeclareTelemetry(FBTelemetrySchema &schema) const override;

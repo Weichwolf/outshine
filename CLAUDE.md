@@ -244,7 +244,8 @@ sim/src/
              des Ticks parallelisieren — nur von FBMissionRunner.cpp inkludiert, nicht in der Core-Lib,
              nie im WASM-Build, s.o. "Etappe 4"), FBLogSinks/FBTelemetrySinks (die
              I/O-Sink-Implementierungen, inkl. FBBufferedLogSink = der Pro-Einheit-Logpuffer)
-  core/      FBState, FBMode, FBMasterMode, FBFlightPlan/FBRunway/FBSpawn (Wegpunkt-/Runway-/
+  core/      FBState (inkl. der Datalink-Trackliste fester Kapazität), FBDatalinkTrack, FBMode,
+             FBMasterMode, FBFlightPlan/FBRunway/FBSpawn (Wegpunkt-/Runway-/
              deklarativer-Spawn-Value-Types für FBPilot/den Orchestrator), FBTeam (`FBUnitTeam` —
              die Fraktion, im core/, weil sie BEIDES ist: Missionsdaten und Welt-Identität), FBMissionFile
              (`.fbm`-Parser: missionsweite Daten + eine LISTE von `FBMissionUnit`-Blöcken, je
@@ -313,9 +314,11 @@ sim/src/
              (jedes `R"(`-WGSL lebt in genau einer stages/-Datei, `grep -c 'R"(' FBRenderer.cpp` == 0)
              — der Render-Stage-Split ist damit abgeschlossen.
   world/     FBWorld, FBTerrainLoader (Tile-Streaming/Worker-Anbindung; FBWorld hält
-             zusätzlich die geborgte, NUR-LESENDE FBUnit-Registry — `const FBUnit*`, s.u. units/), FBTilesElevation (der
-             Elevation-Hook-Provider auf fb_stream_ground, s.o. — NICHT Teil der Core-Lib)
-  units/     FBUnit-Basisschnittstelle + FBSimUnit (Details s.u., nach dem Verzeichnisbaum)
+             zusätzlich die von der Core-Lib GEBORGTE Unit-Registry — `SetUnits`, s.u. units/),
+             FBTilesElevation (der Elevation-Hook-Provider auf fb_stream_ground, s.o. — NICHT
+             Teil der Core-Lib)
+  units/     FBUnit-Basisschnittstelle + FBSimUnit + FBUnitRegistry (Details s.u., nach dem
+             Verzeichnisbaum)
   systems/   die generischen, airframe-agnostischen System-Slots eines Moduls — Interface + Default
              in EINER Klasse, ein Modul überschreibt per Ableitung (Zahlen-Tuning bleibt Preset/
              Config, keine leere Ableitung dafür):
@@ -334,9 +337,23 @@ sim/src/
                Override-Punkt (analog `FBAutopilot::Run`); FBHudEnv trägt Viewport/AGL/Have-Telemetry,
                FBHudGeometry (render/) ist der wiederverwendete Geometriepuffer, den FBHudStage pro
                Frame ausliest;
-               FBSystemSlots.h — Input/HOTAS, Propulsion, Sensors, Weapons, Defensive, Comms: Interface
+               FBDatalinkSystem (eigene Datei, `FBDatalinkSystem.h/.cpp`): der Comms/Datalink-Slot —
+               das generische KOOPERATIVE Netz (MIDS/Link-16, `doc/f16/datalink-iff.md`) und die erste
+               echte Cross-Unit-Wahrnehmung. Kein Sensor im Suchsinn: jeder Teilnehmer sendet seine
+               EIGENE Navigationslösung + Identität, jeder in Reichweite empfängt sie. Der Default liest
+               die geborgte `units/FBUnitRegistry` (nur dort und im künftigen Radar landet sie), filtert
+               nach Fraktion, verlangt einen SENDENDEN Absender (dessen `FBUnitSignature`, im
+               Tick-Barriere-Snapshot publiziert), begrenzt auf min(Terminal-Reichweite, Funkhorizont der
+               beiden Höhen), aktualisiert das Bild nur im 1-Hz-NETZZYKLUS (`kNetPeriodS`) und hält einen
+               nicht mehr empfangenen Track 3 Zyklen, bevor er fällt. Ergebnis sind
+               `core/FBDatalinkTrack`s fester Kapazität IN FBState — mit Alter, nie „live". Zwei
+               Schalter, weil das echte Terminal zwei hat: POWER (`SetPowered`, aus = blind UND stumm)
+               und XMT (`SetTransmit`, aus = EMCON: empfängt weiter, wird nur nicht mehr gehört).
+               `AcceptContact` ist der Override-Punkt (F-16: `modules/f16/FBF16Datalink`);
+               FBSystemSlots.h — Input/HOTAS, Propulsion, Sensors, Weapons, Defensive: Interface
                + NoOp-Default für die restlichen F-16-Systemkategorien, ein Modul füllt sie bei Bedarf
-               per Ableitung. Sensoren SCHREIBEN/Displays LESEN den geteilten FBState; Sensoren/Waffen/
+               per Ableitung (Comms/Datalink ist wie Displays aus dieser Datei herausgewachsen, s.o.).
+               Sensoren SCHREIBEN/Displays LESEN den geteilten FBState; Sensoren/Waffen/
                Defensiv erhalten eine geborgte FBWorld-Referenz (nie global).
                FBPilot (`FBPilot.h/.cpp`): die Missions-Ebene ÜBER Guidance/FlightControl — FBAutopilot
                (Manöver) und FBFlightControl (100 Hz, die Hände) bleiben unangetastet; FBPilot entscheidet
@@ -386,7 +403,9 @@ sim/src/
              Tank-Verdrahtung (FGPropulsion: `Get/SetFuel*`, je Tank oder Gesamtsumme/-prozent,
              proportional auf die modelleigenen Tankkapazitäten verteilt) — Spritmangel selbst simuliert
              JSBSim nativ (Triebwerk stirbt in der Physik), der Adapter macht es nur beobachtbar/setzbar.
-  modules/   FBModule-Basisschnittstelle (`Run(fb_fdm_state&, dt, const FBWorld*)` PLUS die generischen
+  modules/   FBModule-Basisschnittstelle (`Run(fb_fdm_state&, dt, const FBUnitRegistry*, const FBWorld*)`
+             + `SetUnitIdentity(id,team)` [Boot-Wiring: wer die Einheit IST, für Systeme die andere
+             Einheiten beobachten] PLUS die generischen
              System-Accessoren UND `ApplySetup(key,value)` — das Modul interpretiert seine eigenen
              `set`-Mission-Schlüssel, s.o. "Der Missions-Runner ist reiner Orchestrator"; App hält
              jedes Modul dahinter polymorph; ein Modul cycelt seine Systeme intern, jedes im eigenen
@@ -405,7 +424,12 @@ sim/src/
                          Gewichtstabelle (doc/f16/procedures-takeoff-taxi.md) und der 11°-AoA-Anflug
                          (doc/f16/procedures-landing.md). Der Ort, an dem künftiges
                          F-16-spezifisches Verhalten (echtes Radar, echtes HOTAS-Binding, …) als
-                         Ableitung eingehängt wird. Trägt drei F-16-eigene HUD-Platzhalter (eigene
+                         Ableitung eingehängt wird. FBF16Datalink (`.h`) ist die erste solche Ableitung
+                         mit echtem Inhalt: das MIDS-LVT-Terminal — Link-16-Reichweite (~300 nm LOS)
+                         statt des generischen Platzhalters und der TNDL-Kontaktfilter der HSD
+                         (FR ON = alle Freundlichen / FL ON = nur Flight Leads / FR OFF) als Override von
+                         `FBDatalinkSystem::AcceptContact`; Missions-Schalter `datalink`,
+                         `datalink_xmt`, `datalink_filter`, `datalink_range_nm`. Trägt drei F-16-eigene HUD-Platzhalter (eigene
                          `.h/.cpp`, kein genereller Systemslot, da airframe-spezifisch): FBF16FireControl
                          (der "B"-Range-Provider — Slant-Range aus Distanz + Höhendifferenz zur
                          Steerpoint-Elevation, Pythagoras), FBF16Ufc (ALOW-Floor + gewählte
@@ -431,8 +455,10 @@ sim/src/
 ```
 
 `units/` (`sim/src/units/`) trägt die Welt-Entitäten-Basisschnittstelle: `FBUnit` (Identität — Id/
-Callsign/Kind-Enum `Aircraft/…`/`FBUnitTeam` aus `core/FBTeam.h` —, geodätische Pose, `virtual void
-Run(dt, const FBWorld*)`) und, darauf aufbauend, **`FBSimUnit` — EINE simulierte Einheit als EIN
+Callsign/Kind-Enum `Aircraft/…`/`FBUnitTeam` aus `core/FBTeam.h` —, geodätische Pose, publizierte
+Emissions-Signatur `FBUnitSignature` [heute: sendet das Datalink-Terminal — was FREMDE Sensoren an dieser
+Einheit wahrnehmen dürfen], `virtual void Run(dt, const FBUnitRegistry*, const FBWorld*)`) und, darauf
+aufbauend, **`FBSimUnit` — EINE simulierte Einheit als EIN
 Objekt**: sie BESITZT ihre `FBFdm` und das `FBModule`, das sie fliegt (in dieser Deklarationsreihenfolge,
 damit die Zelle das Modul überlebt, das sie nur borgt), hält den geteilten `fb_fdm_state`, die
 aufgelöste Boden-ASL, die Telemetrie-Source + den eigenen `FBTelemetryBus` und BEIDE unbestechlichen
@@ -447,11 +473,17 @@ auf `fb_fdm_state`) geht darin auf, es gibt keinen zweiten Unit-Begriff mehr. **
 bleibt:** ein FBSimUnit lässt sich nur aus einer bereits gespawnten `FBFdm` bauen, und die gibt es nur
 über `fdm/FBFdmBoot` (app/-only) — `grep -rn 'FBSimUnit\|FBFlightMonitor\|FBMissionMonitor' src/systems
 src/modules` bleibt ohne Treffer, das Modul sieht die Richter nach wie vor nicht (es wird von IHNEN
-beobachtet). FBWorld hält eine reine BORGTE, NUR-LESENDE Registry (`RegisterUnit`/`Units()`,
-`std::vector<const FBUnit*>`, keine Ownership, kein Welt-Mutationspfad) — jeder Client mit Welt
-registriert seine Akteure beim Boot (Browser wie natives Frame-Orakel), Sensoren/Waffen lesen sie über
-die geborgte FBWorld-Referenz, die jeder Systemslot schon erhält. KI-Einheiten (freundlich/feindlich/
-neutral) hängen sich später an dieselbe Schnittstelle, sobald sie real existieren.
+beobachtet). **`FBUnitRegistry`** ist die Liste „wer existiert" selbst: geborgte `const FBUnit*` in
+Registrierungs- = Missions-Deklarationsreihenfolge, keine Ownership, kein Welt-Mutationspfad. Sie lag
+früher als Member in `world/FBWorld` — also auf der RENDERER-Seite des Lib/Client-Splits, weshalb
+`fb-gym` (linkt kein `world/`) jedem Modul `world = nullptr` reichte und ein simulierter Sensor im
+einzigen Client, der die Missionsschleife wirklich fährt, nie eine andere Einheit hätte sehen können.
+Die Besetzung ist Simulationszustand, keine Rendering-Sache: sie steht deshalb in der Core-Lib, der
+Client (Runner wie Browser) besitzt genau EINE und reicht sie beim Tick durch (`FBSimUnit::Run` →
+`FBModule::Run` → Sensor-Slot); `FBWorld` BORGT sie nur noch (`SetUnits`/`Units()`) für die Zeichenseite.
+Der `const FBWorld*` bleibt getrennt daneben: er ist die TERRAIN-Seite, die ein Sensor braucht
+(Maskierung), nicht die Einheiten-Seite. KI-Einheiten (freundlich/feindlich/neutral) hängen sich später
+an dieselbe Schnittstelle, sobald sie real existieren.
 
 **Telemetrie bei N>1:** eine CSV je Einheit, feste Spaltenzahl — der PRIMÄRE Akteur behält den
 kanonischen Namen `telemetry.csv`, jeder weitere bekommt `telemetry_<callsign>.csv` (das Callsign der
@@ -520,6 +552,14 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
   `?ap=manual` und dedizierte Test-Harnesses). Die IC-Abschottung ist STRUKTURELL, nicht bloß
   grep-belegt (s. `fdm/`-Absatz: privater Lade-Konstruktor, Friend `FBFdmBoot`, eigener Header) —
   `systems/` und `modules/` erreichen die IC nicht und sehen `FBFlightMonitor`/`FBMissionMonitor` nie.
+  Und die Gegenrichtung, seit es Cross-Unit-Wahrnehmung gibt: Piloten **sehen** nur über simulierte
+  SENSOREN. Die Einheiten-Registry (`units/FBUnitRegistry`, die Welt-Wahrheit „wer existiert wo") reicht
+  ausschließlich bis zum Sensor-Slot des Moduls — heute `systems/FBDatalinkSystem`, künftig das Radar;
+  sie steht in KEINER Pilot-Signatur (`FBPilot::Run` trägt seit dieser Etappe auch keinen
+  `const FBWorld*` mehr, den nie jemand las) und in keinem Member. Was ein Pilot über andere Einheiten
+  weiß, steht in `FBState` — das, was die Sensoren dort HINEINGESCHRIEBEN haben, mit ihrer Reichweite,
+  ihrem Netzzyklus und ihrem Alter. Grep-Beleg: `FBUnitRegistry` erscheint in `src/systems`/`src/modules`
+  nur in `FBDatalinkSystem.*` und der Weiterreichung `FBModule::Run` → `FBF16Module::Run`.
   Der PILOT liest die Zelle ausschließlich über `FBAirframeControls` (WOW/Gear/Gewicht/Engine-Running),
   nie an dieser Schnittstelle vorbei in ein FDM — so bleibt `systems/` airframe- UND instanz-agnostisch.
 

@@ -18,7 +18,7 @@ FBF16Module::FBF16Module()
       Sensors(std::make_unique<FBSensorSystem>()),
       Weapons(std::make_unique<FBWeaponSystem>()),
       Defensive(std::make_unique<FBDefensiveSystem>()),
-      Comms(std::make_unique<FBCommsSystem>()),
+      Datalink_(std::make_unique<FBF16Datalink>()),
       AirData(std::make_unique<FBAirDataSystem>()),
       RadarAlt(std::make_unique<FBRadarAltimeter>()),
       NavSys(std::make_unique<FBNavSystem>()),
@@ -45,9 +45,10 @@ bool FBF16Module::Due(double &accS, double dt, double hz) {
  * fixed 100 Hz FDM substeps (spiral guard, <=12/frame): guidance -> FLCS-command -> JSBSim in
  * lockstep. AP->Run() / FC->Run() are the only virtual dispatch INSIDE that inner loop (one call
  * each per substep); every other slot below is throttled OUTSIDE it, at most once per Run(). */
-void FBF16Module::Run(fb_fdm_state &st, double dt, const FBWorld *world) {
+void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, const FBWorld *world) {
   if (!Fdm_) return;               /* no airframe attached (FBModule::AttachFdm) — nothing to fly */
   FBFdm &fdm = *Fdm_;
+  SimTimeS += dt;                  /* the module's own clock — the datalink's message timestamps */
   Input->Run(Mode, dt);            /* HOTAS/ICP: once per Run() call, the coarsest sim tick */
   Propulsion->Run(st, dt);         /* engine-system logic above the raw FDM: same cadence */
 
@@ -66,7 +67,10 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBWorld *world) {
   if (Due(DisplayAccS, dt, 20.0)) Disp->Run(SharedState, Mode, dt);
   if (Due(WeaponAccS, dt, 20.0)) Weapons->Run(Mode, world, dt);
   if (Due(DefensiveAccS, dt, 5.0)) Defensive->Run(world, dt);
-  if (Due(CommsAccS, dt, 1.0)) Comms->Run(dt);
+  /* Comms/Datalink: the ONE slot that sees the other units at all (systems/FBDatalinkSystem's banner —
+   * `units`, the registry of published snapshots, stops here and reaches nothing else). It writes tracks
+   * into SharedState; whatever reads them — HUD today, pilot later — reads them as instrument data. */
+  if (Due(CommsAccS, dt, 5.0)) Datalink_->Run(SharedState, st, units, SimTimeS);
   /* Pilot: the mission brain above Guidance/FlightControl (rate table). Idle (nobody called SetPhase)
    * returns a neutral FBPilotCommands, so ApplyPilotCommands is a no-op until the App starts the phase
    * machine — once it does, this is the takeoff/climb/route chain actually flying the jet. Waypoint
@@ -76,7 +80,7 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBWorld *world) {
    * independent judgement the caller owns (core/, not this file). */
   if (Due(PilotAccS, dt, 10.0)) {
     ApplyPilotCommands(PilotSys->Run(SharedState, *AirframeCtrl, st, Plan_, HaveRunway_ ? &Rwy_ : nullptr,
-                                     world, dt));
+                                     dt));
     NavSys->AdvanceWaypoint(Plan_, st.lat, st.lon);
   }
 
@@ -146,6 +150,28 @@ bool RejectSetup(const char *reason, const std::string &key, const std::string &
 
 bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
   if (!Fdm_) return false;   /* setup lines describe the airframe's state — none to apply without one */
+  /* The MIDS terminal's switches (doc/f16/datalink-iff.md, systems/FBDatalinkSystem's banner): POWER and
+   * XMT are two switches because the real terminal has two — powering it down blinds this jet, XMT OFF
+   * only stops it being heard by the others. */
+  if (key == "datalink" || key == "datalink_xmt") {
+    if (value != "on" && value != "off") return RejectSetup("want on|off", key, value);
+    if (key == "datalink") Datalink_->SetPowered(value == "on");
+    else Datalink_->SetTransmit(value == "on");
+    return true;
+  }
+  if (key == "datalink_filter") {
+    FBF16ContactFilter f;
+    if (!FBF16ContactFilterFromString(value.c_str(), f)) return RejectSetup("want fr|fl|off", key, value);
+    Datalink_->SetContactFilter(f);
+    return true;
+  }
+  if (key == "datalink_range_nm") {
+    double nm = 0.0;
+    if (!ParseDouble(value, nm)) return RejectSetup("not a number", key, value);
+    if (nm <= 0.0) return RejectSetup("range must be positive", key, value);
+    Datalink_->SetMaxRangeM(nm * kNmToM);
+    return true;
+  }
   if (key == "gear") {
     if (value != "up" && value != "down") return RejectSetup("want up|down", key, value);
     AirframeCtrl->SetGear(value == "down");

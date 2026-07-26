@@ -22,6 +22,7 @@
 #include "FBElevationProvider.h"
 #include "FBSpawn.h"
 #include "FBSimUnit.h"
+#include "FBUnitRegistry.h"
 
 namespace FlightBox {
 
@@ -42,9 +43,12 @@ public:
    * this takes the list and not just the primary). `spawn` is the primary actor's declarative IC;
    * `actors` is read-only and valid for the whole run: everything a renderer hook needs (pose,
    * ground/AGL, HUD state, the module's Displays slot for FBRenderer::SetHudDisplay) hangs off its
-   * entries, which is why this interface stays GPU-type-free. */
-  virtual void OnMissionStart(const FBSpawn &spawn, const FBActorList &actors) {
-    (void)spawn; (void)actors;
+   * entries, which is why this interface stays GPU-type-free. `units` is the run's ONE unit registry
+   * (units/FBUnitRegistry), already filled with the whole cast and alive for the whole run — the hook
+   * hands it to its FBWorld (FBWorld::SetUnits) instead of building a second list of its own. */
+  virtual void OnMissionStart(const FBSpawn &spawn, const FBActorList &actors,
+                              const FBUnitRegistry &units) {
+    (void)spawn; (void)actors; (void)units;
   }
 
   /* Called once per 10 Hz decision tick, after the pose-publish barrier and this tick's telemetry Bus

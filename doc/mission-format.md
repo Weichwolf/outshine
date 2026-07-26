@@ -77,7 +77,7 @@ unit two
 | Akteur  | `module`  | Rest der Zeile | Modulname, per `FBModuleRegistry` aufgelöst (heute nur `f16` registriert) — bestimmt sowohl das `FBModule` als auch den JSBSim-Aircraft-Ordnernamen (`vendor/jsbsim/aircraft/<module>`). Pflicht je Block. |
 | Akteur  | `team`    | `friendly`\|`hostile`\|`neutral` | Fraktion (`FBUnitTeam`, `core/FBTeam.h`) — landet in der `FBWorld`-Unit-Registry, die Sensoren/Waffen künftig lesen. Optional, Default `friendly`. |
 | Akteur  | `spawn`   | `<lat lon \| threshold>` `<altM \| ground>` `hdgDeg` `speedKt` | Pflicht, genau einmal je Block: die deklarative IC dieser Einheit — Position, Höhe-ODER-Boden, Kurs, Speed. `threshold` übernimmt lat/lon der missionsweiten `runway`-Zeile (reine Schreib-Convenience, keine zweite Positions-Syntax). `ground` löst die Höhe aus Gelände + Fahrwerksgeometrie auf; ein numerischer Wert ist eine LITERALE ASL-Höhe (ein Luftstart). Beide Fälle durchlaufen dieselbe eine JSBSim-IC-Anwendung. |
-| Akteur  | `set`     | `key value...` | Systemzustand als Missionsdaten — der Runner parst nur die KV-Liste und reicht sie im Spawn-IC-Fenster an `FBModule::ApplySetup(key, value)` DIESER Einheit; das MODUL interpretiert seine eigenen Schlüssel. Ein unbekannter Schlüssel ist ein Laufzeit-FAIL (Exit 1, `SET_REJECTED`-Event), kein Parse-Fehler. F-16 kennt heute: `gear` (`up`/`down`), `fuel_lbs` (absolute Tankmenge, lb), `fuel_pct` (0..100, Anteil der modelleigenen Gesamtkapazität). |
+| Akteur  | `set`     | `key value...` | Systemzustand als Missionsdaten — der Runner parst nur die KV-Liste und reicht sie im Spawn-IC-Fenster an `FBModule::ApplySetup(key, value)` DIESER Einheit; das MODUL interpretiert seine eigenen Schlüssel. Ein unbekannter Schlüssel ist ein Laufzeit-FAIL (Exit 1, `SET_REJECTED`-Event), kein Parse-Fehler. F-16 kennt heute: `gear` (`up`/`down`), `fuel_lbs` (absolute Tankmenge, lb), `fuel_pct` (0..100, Anteil der modelleigenen Gesamtkapazität) sowie die vier Schalter des MIDS-Terminals — `datalink` (`on`/`off`, Geräte-Strom), `datalink_xmt` (`on`/`off`, XMT/EMCON), `datalink_filter` (`fr`/`fl`/`off`, HSD-Kontaktfilter), `datalink_range_nm` (Terminal-Reichweite, nm). |
 | Akteur  | `wp`      | lat lon altM speedKt | `FBWaypoint` vom Typ `Enroute`, im Flugplan DIESER Einheit |
 | Akteur  | `land`    | — | `FBWaypoint` vom Typ `Land` AN der Runway-Schwelle (braucht die missionsweite `runway`-Zeile) |
 
@@ -164,6 +164,33 @@ Quer-Marge). Ein bloßes Überfliegen der Schwelle in Fluggeschwindigkeit ist no
 `systems/FBPilot`s Phasenmaschine liefert dazu die Flugführung — `Approach` (`FBAutopilot::Course`,
 `doc/f16/navigation-ils.md`) → `Flare` → `Rollout` —, aber das URTEIL bleibt beim Monitor.
 
+## Datalink — was eine Einheit von den anderen sieht
+
+Eine Einheit nimmt andere Einheiten AUSSCHLIESSLICH über simulierte Systeme wahr (CLAUDE.md „Kein
+Cheaten"). Heute ist das genau eines: das kooperative Netz `systems/FBDatalinkSystem` (MIDS/Link-16,
+`doc/f16/datalink-iff.md`), F-16-Ableitung `modules/f16/FBF16Datalink`. Es liest die Einheiten-Registry
+(`units/FBUnitRegistry` — die Snapshots des zuletzt abgeschlossenen Ticks) und schreibt daraus
+`FBDatalinkTrack`s in `FBState`; der Pilot liest nur FBState, nie die Registry.
+
+Regeln, die eine Mission beim Bauen kennen muss:
+
+- **nur die eigene Fraktion** (`team`) — ein kooperatives Netz kennt keine Gegner. Feindaufklärung ist
+  Radar (Etappe 6), nicht das hier.
+- **der ABSENDER muss senden.** `set datalink off` schaltet das Terminal aus: die Einheit ist blind UND
+  stumm. `set datalink_xmt off` ist EMCON: sie EMPFÄNGT weiter das ganze Bild, wird aber von niemandem
+  mehr geführt (der Regelfall im Übungsluftkampf).
+- **Reichweite** = min(Terminal-Reichweite, Funkhorizont beider Höhen ≈ 1,23·(√h₁[ft]+√h₂[ft]) nm).
+  F-16-Default 300 nm (MIDS-LVT/Link-16 LOS); `set datalink_range_nm` konfiguriert sie (eine Mission,
+  die den Reichweitenverlust zeigen will, setzt sie klein — `missions/payerne-pair-datalink.fbm`).
+- **1-Hz-Netzzyklus, kein Live-Bild.** Zwischen zwei Zyklen steht die gemeldete Position still und ihr
+  ALTER läuft hoch (0..1 s); ein nicht mehr empfangener Track wird 3 Zyklen gehalten und dann gelöscht.
+- **Kontaktfilter** (F-16, HSD): `fr` alle Freundlichen (Default), `fl` nur Flight Leads (mangels
+  echter Verbandsstruktur: die ERSTE `unit` dieser Fraktion in der Datei), `off` keine.
+
+Beobachtbar ist der Datalink in beiden Kanälen: `events.log` trägt `datalink TRACK_GAINED` /
+`TRACK_LOST` (diskrete Ereignisse), `telemetry.csv` die fünf Spalten `dl_on`, `dl_xmt`, `dl_tracks`,
+`dl_near` (nm zum nächsten Track), `dl_age` (s seit dessen Meldung).
+
 ## Ausgabe je Lauf (`--out DIR`)
 
 - `telemetry.csv` — der primäre Akteur (Index 0). Kanonischer Name, unverändert.
@@ -195,6 +222,10 @@ die Einheit, deren Urteil den Lauf BEENDET hat (bei SUCCESS keine). Die abschlie
 - `sim/missions/payerne-takeoff-only.fbm`, `sim/missions/payerne-takeoff.fbm` — Payerne (LSMP) Runway
   23, Bodenstart; Schwellen-Koordinaten und -Länge gegen `fb-tiles`' `/elev`-Endpunkt geprüft (DEM
   ~441 m an der Schwelle).
+- `sim/missions/payerne-pair-datalink.fbm` — zwei Freundliche, die auseinanderfliegen, Terminals auf
+  6 nm konfiguriert: zeigt Latenz (`dl_age`), Netzzyklus und den Reichweitenverlust (`TRACK_LOST`).
+- `sim/missions/payerne-flight-datalink.fbm` — fünf Freundliche in Reichweite, jede mit anderer
+  Terminal-Konfiguration: die Schalter-Matrix (POWER/XMT/Filter) in einem Lauf.
 - `sim/missions/payerne-airstart.fbm` — derselbe Luftraum, aber ein reiner Luftstart (~10 nm SW von
   Payerne, 2500 m ASL, 300 kt, Fahrwerk eingefahren, 60% Tankfüllung) — keine `runway`-Zeile, kein
   Taxi/Rollout.
