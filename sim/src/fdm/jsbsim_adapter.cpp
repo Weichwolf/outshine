@@ -5,6 +5,7 @@
 #include "initialization/FGTrim.h"
 #include "models/FGPropulsion.h"
 #include "models/propulsion/FGEngine.h"
+#include "models/propulsion/FGTank.h"
 #include "models/FGGroundReactions.h"
 #include "models/FGLGear.h"
 #include "jsbsim_adapter.h"
@@ -280,6 +281,62 @@ double fb_jsbsim_get_speedbrake_pos(void) {
 double fb_jsbsim_get_weight_lbs(void) {
   if (!g_fdm) return 0.0;
   return g_fdm->GetPropertyValue("inertia/weight-lbs");
+}
+
+int fb_jsbsim_get_fuel_tank_count(void) {
+  if (!g_fdm) return 0;
+  return (int)g_fdm->GetPropulsion()->GetNumTanks();
+}
+
+double fb_jsbsim_get_fuel_tank_lbs(int idx) {
+  if (!g_fdm) return 0.0;
+  auto pr = g_fdm->GetPropulsion();
+  if (idx < 0 || (size_t)idx >= pr->GetNumTanks()) return 0.0;
+  return pr->GetTank((unsigned)idx)->GetContents();
+}
+
+double fb_jsbsim_get_fuel_total_lbs(void) {
+  if (!g_fdm) return 0.0;
+  auto pr = g_fdm->GetPropulsion();
+  double sum = 0.0;
+  for (unsigned i = 0; i < pr->GetNumTanks(); i++) sum += pr->GetTank(i)->GetContents();
+  return sum;
+}
+
+double fb_jsbsim_get_fuel_capacity_lbs(void) {
+  if (!g_fdm) return 0.0;
+  auto pr = g_fdm->GetPropulsion();
+  double sum = 0.0;
+  for (unsigned i = 0; i < pr->GetNumTanks(); i++) sum += pr->GetTank(i)->GetCapacity();
+  return sum;
+}
+
+void fb_jsbsim_set_fuel_tank_lbs(int idx, double lbs) {
+  if (!g_fdm) return;
+  auto pr = g_fdm->GetPropulsion();
+  if (idx < 0 || (size_t)idx >= pr->GetNumTanks()) return;
+  if (lbs < 0.0) lbs = 0.0;
+  pr->GetTank((unsigned)idx)->SetContents(lbs);
+}
+
+/* Distributes `lbs` across every tank proportional to ITS OWN declared capacity share — matches how a
+ * real fuel-load briefing figure fills the jet (every tank the same fraction full), not a
+ * first-tank-first dump. */
+void fb_jsbsim_set_fuel_total_lbs(double lbs) {
+  if (!g_fdm) return;
+  auto pr = g_fdm->GetPropulsion();
+  double capacity = fb_jsbsim_get_fuel_capacity_lbs();
+  if (capacity <= 0.0) return;
+  double frac = lbs / capacity;
+  if (frac < 0.0) frac = 0.0; else if (frac > 1.0) frac = 1.0;
+  for (unsigned i = 0; i < pr->GetNumTanks(); i++) {
+    auto tank = pr->GetTank(i);
+    tank->SetContents(tank->GetCapacity() * frac);
+  }
+}
+
+void fb_jsbsim_set_fuel_pct(double pct) {
+  fb_jsbsim_set_fuel_total_lbs(fb_jsbsim_get_fuel_capacity_lbs() * (pct / 100.0));
 }
 
 } // namespace FlightBox

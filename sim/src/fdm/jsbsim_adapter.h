@@ -123,5 +123,19 @@ double fb_jsbsim_get_speedbrake_pos(void);
  * table is indexed by weight, not a fixed number. */
 double fb_jsbsim_get_weight_lbs(void);
 
+/* ---- Fuel — FGPropulsion's own tank inventory (generic: enumerates by tank index, never assumes how
+ * many an aircraft.xml declares). A mission's `set fuel_lbs`/`set fuel_pct` line (FBModule::ApplySetup)
+ * writes here during the spawn IC window; running dry starves the engine NATIVELY inside JSBSim's own
+ * FGEngine model (CLAUDE.md "Kein Cheaten" — this adapter never simulates fuel exhaustion itself, only
+ * reads/writes the tanks JSBSim already models). fb_jsbsim_get_fuel_total_lbs is the sum
+ * FBFdmTelemetrySource's fuelLbs column reports every tick. ---- */
+int    fb_jsbsim_get_fuel_tank_count(void);
+double fb_jsbsim_get_fuel_tank_lbs(int idx);
+double fb_jsbsim_get_fuel_total_lbs(void);
+double fb_jsbsim_get_fuel_capacity_lbs(void);        /* sum of every tank's own declared capacity */
+void   fb_jsbsim_set_fuel_tank_lbs(int idx, double lbs);
+void   fb_jsbsim_set_fuel_total_lbs(double lbs);     /* distributed across tanks proportional to EACH tank's own capacity share */
+void   fb_jsbsim_set_fuel_pct(double pct);           /* 0..100 of total declared capacity, same distribution */
+
 } // namespace FlightBox
 #endif

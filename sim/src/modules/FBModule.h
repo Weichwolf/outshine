@@ -14,6 +14,7 @@
 #ifndef FBMODULE_H
 #define FBMODULE_H
 
+#include <string>
 #include "FBAirDataSystem.h"
 #include "FBAirframeControls.h"
 #include "FBAutopilot.h"
@@ -60,6 +61,13 @@ public:
   /* Ground ASL (m) under the aircraft — the App's elevation-hook sample (FBElevationProvider),
    * forwarded so e.g. FBRadarAltimeter doesn't re-query terrain itself. */
   virtual void SetGroundAsl(float m) = 0;
+
+  /* Applies one `set <key> <value>` mission line (doc/mission-format.md) during the spawn IC window,
+   * after the FDM IC is established and before the pilot's first tick — the MODULE interprets its own
+   * keys (the Runner/Boot only parses the flat KV list, FBMissionBoot.h). Returns false iff `key` is
+   * unrecognized by this module, which the caller turns into a mission FAIL (exit 1), never a silent
+   * no-op. */
+  virtual bool ApplySetup(const std::string &key, const std::string &value) = 0;
 };
 
 } // namespace FlightBox

@@ -238,7 +238,7 @@ public:
   FBNativeMissionHook(std::string base, std::string outDir, double intervalS, int width = 1280, int height = 720)
       : Base(std::move(base)), OutDir(std::move(outDir)), IntervalS(intervalS), Width(width), Height(height) {}
 
-  void OnMissionStart(const FlightBox::FBRunway &rwy, double groundAsl, const FlightBox::FBDisplaySystem &displays) override {
+  void OnMissionStart(const FlightBox::FBSpawn &spawn, double groundAsl, const FlightBox::FBDisplaySystem &displays) override {
     R = std::make_unique<FlightBox::FBRenderer>();
     R->SetDefaultMode(0);
     R->SetGroundMode(0);
@@ -248,7 +248,7 @@ public:
     { uint8_t *moon = 0; int mw = 0, mh = 0;
       if (fb_load_image_file("flightbox/web/moon.jpg", &moon, &mw, &mh)) { R->SetMoonTexture(moon, mw, mh); free(moon); } }
     W = std::make_unique<FlightBox::FBWorld>();
-    if (!W->Open(R.get(), Base.c_str(), rwy.ThresholdLatDeg, rwy.ThresholdLonDeg, 32, 30000.0, 512)) {
+    if (!W->Open(R.get(), Base.c_str(), spawn.LatDeg, spawn.LonDeg, 32, 30000.0, 512)) {
       FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "world open"}});
       R.reset(); W.reset();
       return;
@@ -262,10 +262,11 @@ public:
     }
     /* Warm the terrain cut around the spawn before the first PNG — same 60-tick pre-roll RunMission
      * always did (the jet is stationary this round, an approximate cut is enough for a proof frame). */
+    double altAsl0 = groundAsl + (spawn.Ground ? 2.0 : (spawn.AltM - groundAsl));
     double eye0[3], fwd0[3], right0[3], up0[3];
-    GeoToEcef(rwy.ThresholdLatDeg, rwy.ThresholdLonDeg, groundAsl + 2.0, eye0);
-    CameraBasis(rwy.TrueHeadingDeg, -2.0, 0.0, rwy.ThresholdLatDeg, rwy.ThresholdLonDeg, fwd0, right0, up0);
-    for (int i = 0; i < 60; i++) W->Update(rwy.ThresholdLatDeg, rwy.ThresholdLonDeg, eye0, fwd0, (double)i * 1000.0 / 15.0);
+    GeoToEcef(spawn.LatDeg, spawn.LonDeg, altAsl0, eye0);
+    CameraBasis(spawn.HeadingDeg, -2.0, 0.0, spawn.LatDeg, spawn.LonDeg, fwd0, right0, up0);
+    for (int i = 0; i < 60; i++) W->Update(spawn.LatDeg, spawn.LonDeg, eye0, fwd0, (double)i * 1000.0 / 15.0);
   }
 
   void OnTick(const fb_fdm_state &st, double simT, double groundAsl, double aglM,

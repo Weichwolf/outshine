@@ -12,6 +12,7 @@
 #ifndef FBNAVSYSTEM_H
 #define FBNAVSYSTEM_H
 
+#include "FBFlightPlan.h"
 #include "FBState.h"
 #include "jsbsim_adapter.h"
 
@@ -26,6 +27,12 @@ public:
   void SetBullseye(double lat, double lon) { BullLat = lat; BullLon = lon; HaveBull = true; }
 
   virtual void Run(FBState &state, const fb_fdm_state &fdm, double dt);
+
+  /* Waypoint-advance: Akteurs-Verhalten (this system already knows steerpoints/distances, doc/mission-
+   * format.md), not Runner bookkeeping — the module calls this itself (guidance's own capture), not the
+   * mission orchestrator. Advances `plan`'s active waypoint once within `captureM` of it, logging
+   * WP_REACHED. Returns the just-reached waypoint's plan index, or -1 if none was captured this call. */
+  int AdvanceWaypoint(FBFlightPlan &plan, double lat, double lon, double captureM = 500.0);
 
 private:
   double StLat = 0.0, StLon = 0.0, StElevFt = 0.0;

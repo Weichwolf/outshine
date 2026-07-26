@@ -60,6 +60,7 @@ CORE_LIB_SRCS := \
   src/fdm/jsbsim_adapter.cpp src/fdm/FBFdmTelemetrySource.cpp \
   src/core/FBLog.cpp src/core/FBTelemetry.cpp src/core/FBMissionFile.cpp \
   src/core/FBRunwayPlateauElevation.cpp src/core/FBBakedDemElevation.cpp src/core/FBFlightMonitor.cpp \
+  src/core/FBMissionMonitor.cpp \
   src/systems/FBAutopilot.cpp src/systems/FBFlightControl.cpp src/systems/FBDisplaySystem.cpp \
   src/systems/FBAirDataSystem.cpp src/systems/FBRadarAltimeter.cpp src/systems/FBNavSystem.cpp \
   src/systems/FBAirframeControls.cpp src/systems/FBPilot.cpp \
@@ -128,6 +129,8 @@ wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,w
 	    -c -o build/obj-wasm/FBMissionFile.o; \
 	  emcc src/core/FBFlightMonitor.cpp -std=c++17 -O2 $(EMCC_WARN) $(INC_MODULES) \
 	    -c -o build/obj-wasm/FBFlightMonitor.o; \
+	  emcc src/core/FBMissionMonitor.cpp -std=c++17 -O2 $(EMCC_WARN) $(INC_MODULES) \
+	    -c -o build/obj-wasm/FBMissionMonitor.o; \
 	  emcc build/obj-wasm/*.o $(JSB_WASM)/src/libJSBSim.a \
 	    src/app/FBAppWasm.cpp src/app/FBLogSinks.cpp src/render/FBRenderer.cpp src/render/FBHudGeometry.cpp src/world/FBWorld.cpp \
 	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \

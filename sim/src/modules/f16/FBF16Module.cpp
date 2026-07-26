@@ -1,5 +1,6 @@
 #include "FBF16Module.h"
 #include "FBF16Hud.h"
+#include <cstdlib>
 
 namespace FlightBox {
 
@@ -57,8 +58,15 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBWorld *world) {
   if (Due(CommsAccS, dt, 1.0)) Comms->Run(dt);
   /* Pilot: the mission brain above Guidance/FlightControl (rate table). Idle (nobody called SetPhase)
    * returns a neutral FBPilotCommands, so ApplyPilotCommands is a no-op until the App starts the phase
-   * machine — once it does, this is the takeoff/climb/route chain actually flying the jet. */
-  if (Due(PilotAccS, dt, 10.0)) ApplyPilotCommands(PilotSys->Run(SharedState, st, Plan_, HaveRunway_ ? &Rwy_ : nullptr, world, dt));
+   * machine — once it does, this is the takeoff/climb/route chain actually flying the jet. Waypoint
+   * capture (Akteurs-Verhalten, FBNavSystem's own job — doc/mission-format.md) runs right after, same
+   * cadence: THIS tick's Pilot::Run() flew toward the pre-capture active waypoint. This module never
+   * sees whether the mission itself concluded from that same capture — that verdict is a separate,
+   * independent judgement the caller owns (core/, not this file). */
+  if (Due(PilotAccS, dt, 10.0)) {
+    ApplyPilotCommands(PilotSys->Run(SharedState, st, Plan_, HaveRunway_ ? &Rwy_ : nullptr, world, dt));
+    NavSys->AdvanceWaypoint(Plan_, st.lat, st.lon);
+  }
 
   AccS += dt;
   LastSub = 0;
@@ -94,6 +102,37 @@ void FBF16Module::ApplyPilotCommands(const FBPilotCommands &c) {
     AirframeCtrl->SetWheelBrakes(c.WheelBrakeLeft.value_or(0.0), c.WheelBrakeRight.value_or(0.0));
   if (c.NosewheelSteer) AirframeCtrl->SetNosewheelSteer(*c.NosewheelSteer);
   if (c.EngineStart) *c.EngineStart ? AirframeCtrl->EngineStart() : AirframeCtrl->EngineCutoff();
+}
+
+/* Boundary input (mission-file text, defensive checks per CLAUDE.md's C++ conventions) — a value that
+ * doesn't parse as a number is treated as 0.0 rather than crashing/throwing on this system-boundary. */
+namespace {
+double ParseDouble(const std::string &s) {
+  char *end = nullptr;
+  double v = std::strtod(s.c_str(), &end);
+  return (end && end != s.c_str()) ? v : 0.0;
+}
+} // namespace
+
+bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
+  if (key == "gear") {
+    if (value != "up" && value != "down") return false;
+    AirframeCtrl->SetGear(value == "down");
+    return true;
+  }
+  if (key == "fuel_lbs") {
+    double lbs = ParseDouble(value);
+    if (lbs < 0.0) lbs = 0.0;
+    fb_jsbsim_set_fuel_total_lbs(lbs);
+    return true;
+  }
+  if (key == "fuel_pct") {
+    double pct = ParseDouble(value);
+    if (pct < 0.0) pct = 0.0; else if (pct > 100.0) pct = 100.0;
+    fb_jsbsim_set_fuel_pct(pct);
+    return true;
+  }
+  return false;
 }
 
 } // namespace FlightBox

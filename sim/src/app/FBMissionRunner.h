@@ -1,18 +1,22 @@
-/* FlightBox — FBMissionRunner: the headless mission-loop core BOTH the native --mission runner and the
- * fb-gym client drive — ground-spawn (FBMissionBoot.h) + FBPilot's phase machine stepped at a fixed
- * 10 Hz decision tick until SUCCESS/CRASH/TIMEOUT/FAIL, telemetry.csv + events.log written throughout.
- * Ground truth comes from an injected FBElevationProvider (the elevation hook), not a hard fb-tiles
- * wire, so this file has NO renderer/world/Dawn dependency and is part of the core library gym links.
- * A caller that wants MORE than headless telemetry (the native frame-oracle's --interval PNGs) supplies
- * an FBMissionTickHook — its interface is deliberately GPU-type-free so this header stays linkable into
- * fb-gym; FBAppNative.cpp implements the concrete hook that owns FBRenderer/FBWorld in ITS OWN
- * translation unit, never in this one. */
+/* FlightBox — FBMissionRunner: the mission ORCHESTRATOR both the native --mission runner and the fb-gym
+ * client drive — exactly four steps, no mission specifics of its own: (1) load the mission file, (2)
+ * set up the world with its actors (elevation-resolve the declarative spawn, ground-spawn the module,
+ * wire telemetry), (3) execute the actors (step the module + feed both monitors at a fixed 10 Hz
+ * decision tick), (4) validate the world (the monitors' verdicts become the exit code). ALL judgement —
+ * physical K.O. (core/FBFlightMonitor) and mission verdict (core/FBMissionMonitor: waypoints/off-runway/
+ * timeout) — lives in those two core/ classes, never inline here. Ground truth comes from an injected
+ * FBElevationProvider (the elevation hook), not a hard fb-tiles wire, so this file has NO renderer/
+ * world/Dawn dependency and is part of the core library gym links. A caller that wants MORE than
+ * headless telemetry (the native frame-oracle's --interval PNGs) supplies an FBMissionTickHook — its
+ * interface is deliberately GPU-type-free so this header stays linkable into fb-gym; FBAppNative.cpp
+ * implements the concrete hook that owns FBRenderer/FBWorld in ITS OWN translation unit, never in this
+ * one. */
 #ifndef FBMISSIONRUNNER_H
 #define FBMISSIONRUNNER_H
 #include <string>
 #include "FBDisplaySystem.h"
 #include "FBElevationProvider.h"
-#include "FBRunway.h"
+#include "FBSpawn.h"
 #include "FBState.h"
 #include "jsbsim_adapter.h"
 
@@ -28,12 +32,13 @@ class FBMissionTickHook {
 public:
   virtual ~FBMissionTickHook() = default;
 
-  /* Called once, right after ground-spawn succeeds and before the tick loop starts — the hook's chance
-   * to set up whatever it wants (native: GPU device + terrain streaming, warmed at `rwy`/`groundAsl`).
+  /* Called once, right after the spawn succeeds and before the tick loop starts — the hook's chance to
+   * set up whatever it wants (native: GPU device + terrain streaming, warmed at `spawn`/`groundAsl` —
+   * the declarative IC, not a runway assumption: an airborne-only mission has no runway at all).
    * `displays` is the module's Displays system slot (core/systems, not GPU) — a renderer hook wires it
    * once via FBRenderer::SetHudDisplay; it stays valid for the whole run. */
-  virtual void OnMissionStart(const FBRunway &rwy, double groundAsl, const FBDisplaySystem &displays) {
-    (void)rwy; (void)groundAsl; (void)displays;
+  virtual void OnMissionStart(const FBSpawn &spawn, double groundAsl, const FBDisplaySystem &displays) {
+    (void)spawn; (void)groundAsl; (void)displays;
   }
 
   /* Called once per 10 Hz decision tick, after this tick's telemetry Bus sample. `telemetry` is the

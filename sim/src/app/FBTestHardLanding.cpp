@@ -35,7 +35,7 @@ int main() {
   const double speedMs = 40.0;      /* a mild forward glide (~78 kt) — not hovering, not a dive */
 
   /* hoff_m>0: an explicit airborne IC (adapter banner) — NOT the ground-spawn-on-gear path
-   * (FBMissionGroundSpawn uses hoff_m=-1); fbw_override=1 so our own FBW (a flat Manual command below),
+   * (FBMissionApplySpawn's ground case uses hoff_m=-1); fbw_override=1 so our own FBW (a flat Manual command below),
    * not the F-16's own FLCS, is what's driving — same override every other client uses. */
   if (fb_jsbsim_init("vendor/jsbsim/aircraft", "f16", lat, lon, groundAsl, spawnAglM, speedMs, 0.0, 1) != 0) {
     FBLog::Error("test", "RESULT", {{"result", "SETUP_FAILED"}, {"reason", "jsbsim init"}});

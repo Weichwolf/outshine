@@ -14,6 +14,7 @@
 #include "FBWorld.h"
 #include "FBF16Module.h"
 #include "FBMissionBoot.h"
+#include "FBMissionMonitor.h"
 #include "FBEphemeris.h"
 #include "FBTerrainLoader.h"
 #include "FBOwnshipUnit.h"
@@ -29,7 +30,6 @@ static const double kMPerDeg = 111320.0;
 static const double kRadiusM = 8000.0;   /* ?ap=manual spawn offset */
 static const double kAglM = 1500.0;      /* ?ap=manual spawn height above ground */
 static const double kSpeedMs = 220.0;    /* ?ap=manual spawn speed */
-static const double kWpCaptureM = 500.0; /* generic waypoint capture radius (matches FBAppNative.cpp) */
 static const char *kDefaultMissionUrl = "/missions/payerne-takeoff-only.fbm";   /* served from sim/web/
     missions/ by fb-sim's own web/ mount (up.sh) — editable without a WASM rebuild */
 
@@ -54,6 +54,11 @@ static double Ground = 430.0;            /* config default; refined from the ter
  * monotonic sim-clock for its sustain timers (LOC/deep-stall), since WASM has no discrete mission "tick"
  * counter like the 10 Hz runner. */
 static FBFlightMonitor gMonitor;
+/* The mission-level verdict (core/FBMissionMonitor — FBFlightMonitor's sibling, "Gilt in ALLEN
+ * Clients"): waypoints/off-runway/timeout, sourced from the mission's OWN plan, never the module's live
+ * state. Only present when the browser actually booted a .fbm mission (?ap=manual has no mission plan
+ * to judge). A trip just logs RESULT to the console — the browser has no process exit. */
+static std::unique_ptr<FBMissionMonitor> gMissionMonitor;
 static double gSimT = 0.0;
 static double LastMs = 0.0;
 static double Olat = 47.179846, Olon = 7.411427;   /* ENU/home origin (config.js) */
@@ -187,18 +192,22 @@ static void frame(void) {
   gActiveModule->Run(St, dt, &W);
   FBGuidance g = gF16->LastGuidance();
   int nSub = gF16->LastSubsteps();
-  /* Mission waypoint sequencing: the mechanical half FBPilot::Run relies on but does not itself do
-   * (its Climb/Route phases just fly whatever ActiveWaypoint() returns) — a no-op on an empty
-   * FlightPlan (?ap=manual boot never sets one). */
-  FBMissionAdvanceWaypoint(gF16->FlightPlan(), St.lat, St.lon, kWpCaptureM);
+  /* Waypoint sequencing (Akteurs-Verhalten, FBNavSystem's own job — doc/mission-format.md) already ran
+   * INSIDE Run() above, module-internal; the App orchestrates nothing mission-specific here. */
   double cp_c = emscripten_get_now();   /* end: jsbsim substeps */
 
-  /* The K.O. authority, fed every frame (same class/thresholds as FBMissionRunner.cpp's gym/native
-   * loop — see FBFlightMonitor.h's banner). A trip logs its own FBLog::Error (browser console) and cuts
-   * the engine here; JSBSim's own ground reactions keep running afterwards (CLAUDE.md: "Crash -> Motor
-   * aus, kein Freeze"), so the render loop below does not stop or special-case anything. */
+  /* The two incorruptible judges (CLAUDE.md "Kein Cheaten"), fed every frame — same classes/thresholds
+   * FBMissionRunner.cpp's gym/native loop uses (core/FBFlightMonitor + core/FBMissionMonitor's own
+   * banners): physical K.O. (a trip logs its own FBLog::Error and cuts the engine here; JSBSim's own
+   * ground reactions keep running afterwards, "Crash -> Motor aus, kein Freeze") and, only when a
+   * mission was actually booted (?ap=manual has none), the mission verdict (self-logs RESULT; a
+   * touchdown off the assigned runway also cuts the engine). Neither stops or special-cases the render
+   * loop below — "Konsolen-RESULT genügt" in the browser, there is no process exit here. */
   gSimT += dt;
   if (gMonitor.Tick(FBBuildFlightMonitorSample(St, gForHud), gSimT))
+    gF16->Controls().EngineCutoff();
+  else if (gMissionMonitor && gMissionMonitor->Tick({St.lat, St.lon, fb_jsbsim_get_wow(-1) != 0}, gSimT) &&
+          gMissionMonitor->Verdict() == FBMissionVerdict::Fail)
     gF16->Controls().EngineCutoff();
 
   /* HUD AGL (ASL - DEM ground) — gForHud computed above, before Run(), so FBRadarAltimeter and this
@@ -304,12 +313,13 @@ int main() {
 
   /* Boot mode: default = MISSION WITH PILOT — fetch the default .fbm from fb-sim's own web/missions/
    * (a plain HTTP GET against this page's own origin, not fb-tiles; sim/web/ is up.sh's live mount, so
-   * editing the mission needs no rebuild), ground-spawn on its runway via the SAME FBMissionGroundSpawn
-   * the native --mission runner uses (FBMissionBoot.h — no duplicated spawn logic), and arm FBPilot at
-   * Preflight; FBF16Module::Run() already cycles PilotSys every tick, so that alone flies the takeoff/
-   * climb/route chain. ?ap=manual keeps a direct-stick sandbox airborne near the config origin instead
-   * (no live HOTAS binding yet — FBInputSystem is still the NoOp default, systems/FBSystemSlots.h; this
-   * is the same pass-through FBAutopilot::Manual has always offered). */
+   * editing the mission needs no rebuild), spawn its declarative FBSpawn via the SAME FBMissionApplySpawn
+   * the native --mission runner uses (FBMissionBoot.h — no duplicated spawn logic), which arms FBPilot at
+   * the phase matching the spawn (Preflight for a ground start, Route directly for an airborne one);
+   * FBF16Module::Run() already cycles PilotSys every tick, so that alone flies the mission. ?ap=manual
+   * keeps a direct-stick sandbox airborne near the config origin instead (no live HOTAS binding yet —
+   * FBInputSystem is still the NoOp default, systems/FBSystemSlots.h; this is the same pass-through
+   * FBAutopilot::Manual has always offered). */
   const char *jap = emscripten_run_script_string("(new URLSearchParams(location.search).get('ap')||'')");
   bool manualMode = jap && jap[0] == 'm';   /* only 'manual' is a recognised value */
 
@@ -332,24 +342,25 @@ int main() {
           {"reason", n <= 0 ? std::string("fetch (is fb-sim serving web/missions/?)") : perr}});
       return 1;
     }
-    const FBRunway &rwy = mission.Runway;
-    /* Resolve the REAL DEM ground under the runway threshold before the sat-on-gear IC — a bounded
-     * blocking wait (fb_stream_ground is async in WASM; ASYNCIFY already yields main() below for the
-     * star-catalogue fetch, same pattern), falling back to the config default on a slow/dead fb-tiles
-     * rather than hanging boot. */
+    const FBSpawn &sp = mission.Spawn;
+    /* Resolve the REAL DEM ground under the spawn point before the IC — a bounded blocking wait
+     * (fb_stream_ground is async in WASM; ASYNCIFY already yields main() below for the star-catalogue
+     * fetch, same pattern), falling back to the config default on a slow/dead fb-tiles rather than
+     * hanging boot. */
     double groundAsl = Ground;
     for (int i = 0; i < 40; i++) {
-      double g = fb_stream_ground(rwy.ThresholdLatDeg, rwy.ThresholdLonDeg);
+      double g = fb_stream_ground(sp.LatDeg, sp.LonDeg);
       if (g > -1e8) { groundAsl = g; break; }
       emscripten_sleep(50);
     }
-    if (!FBMissionGroundSpawn("/jsbsim/aircraft", mission, groundAsl, *gF16, St)) {
+    if (!FBMissionApplySpawn("/jsbsim/aircraft", mission, groundAsl, *gF16, St)) {
       FBLog::Error("gpu", "jsbsim_init_failed");
       return 1;
     }
-    FBLog::Info("gpu", "mission_boot", {{"name", mission.Name}, {"hdg", rwy.TrueHeadingDeg},
-        {"lat", rwy.ThresholdLatDeg}, {"lon", rwy.ThresholdLonDeg}, {"groundM", groundAsl},
-        {"waypoints", mission.Plan.Size()}});
+    gMissionMonitor = std::make_unique<FBMissionMonitor>(mission.Plan, mission.Runway, mission.HaveRunway,
+                                                          mission.TimeoutS);
+    FBLog::Info("gpu", "mission_boot", {{"name", mission.Name}, {"hdg", sp.HeadingDeg},
+        {"lat", sp.LatDeg}, {"lon", sp.LonDeg}, {"groundM", groundAsl}, {"waypoints", mission.Plan.Size()}});
   }
   fb_jsbsim_step(&St);   /* prime St before the first guidance step */
 

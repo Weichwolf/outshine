@@ -1,6 +1,7 @@
 #include "FBMissionRunner.h"
 #include "FBMissionFile.h"
 #include "FBMissionBoot.h"
+#include "FBMissionMonitor.h"
 #include "FBModuleRegistry.h"
 #include "FBTelemetry.h"
 #include "FBTelemetrySinks.h"
@@ -18,28 +19,6 @@
 #include <sys/stat.h>
 
 namespace FlightBox {
-
-namespace {
-constexpr double kPi = 3.14159265358979323846;
-constexpr double kMPerDeg = 111320.0;
-
-/* "off the runway" test — a MISSION judgement (this file, not core/FBFlightMonitor: see its banner),
- * unchanged geometry from the pre-monitor crash gate this replaces for FAIL: project (lat,lon) onto the
- * runway's along/across-track axes (centreline from the threshold on TrueHeadingDeg) — on the runway
- * iff within its length (+ marginAlongM before/after) and half-width (+ marginAcrossM either side).
- * WidthM <= 1 (the mission format leaves it unset) falls back to a generous 60 m generic-runway
- * half-width. */
-bool OnRunway(const FBRunway &rwy, double lat, double lon, double marginAlongM, double marginAcrossM) {
-  double hdg = rwy.TrueHeadingDeg * kPi / 180.0;
-  double coslat = std::cos(rwy.ThresholdLatDeg * kPi / 180.0);
-  double dy = (lat - rwy.ThresholdLatDeg) * kMPerDeg;
-  double dx = (lon - rwy.ThresholdLonDeg) * kMPerDeg * coslat;
-  double along = dx * std::sin(hdg) + dy * std::cos(hdg);
-  double across = dx * std::cos(hdg) - dy * std::sin(hdg);
-  double halfW = (rwy.WidthM > 1.0 ? rwy.WidthM : 60.0) * 0.5 + marginAcrossM;
-  return along >= -marginAlongM && along <= rwy.LengthM + marginAlongM && std::fabs(across) <= halfW;
-}
-} // namespace
 
 const char *FBMissionResultStr(FBMissionResult r) {
   switch (r) {
@@ -65,6 +44,21 @@ bool FBEnsureDir(const std::string &dir) {
   return true;
 }
 
+namespace {
+/* FBMissionVerdict + FBFlightMonitor's FBKoReason -> the ONE FBMissionResult this Runner returns —
+ * both monitors run independently (see the file banner); this is the one place their two verdicts
+ * combine into a single exit code, not a third judgement of its own. */
+FBMissionResult ToMissionResult(FBMissionVerdict v) {
+  switch (v) {
+    case FBMissionVerdict::Success: return FBMissionResult::Success;
+    case FBMissionVerdict::Fail: return FBMissionResult::Fail;
+    case FBMissionVerdict::Timeout: return FBMissionResult::Timeout;
+    case FBMissionVerdict::None: break;
+  }
+  return FBMissionResult::Timeout;   /* unreachable in practice: only called once Concluded() */
+}
+} // namespace
+
 int FBRunMission(const std::string &missionPath, double timeoutOverride, const std::string &outDir,
                  const std::string &aircraftPath, FBElevationProvider &elevation,
                  FBMissionTickHook *hook) {
@@ -80,6 +74,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   FBLog::SetSink(&logSink);
   FBLog::SetTime(0.0);
 
+  /* ---- Step 1: load the mission ---- */
   std::ifstream in(missionPath);
   if (!in) {
     FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "cannot open " + missionPath}});
@@ -95,22 +90,29 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     fclose(evf);
     return 1;
   }
-
   double timeoutS = timeoutOverride > 0.0 ? timeoutOverride : mission.TimeoutS;
-  const FBRunway &rwy = mission.Runway;
-  FBLog::Info("mission", "MISSION_START", {{"name", mission.Name}, {"runway_hdg", rwy.TrueHeadingDeg},
-                                           {"timeout", timeoutS}});
+  FBLog::Info("mission", "MISSION_START", {{"name", mission.Name}, {"timeout", timeoutS}});
 
-  double groundAsl = elevation.GroundElevM(rwy.ThresholdLatDeg, rwy.ThresholdLonDeg);
+  /* ---- Step 2: set up the world with its actors ---- */
+  const FBSpawn &sp = mission.Spawn;
+  double groundAsl = elevation.GroundElevM(sp.LatDeg, sp.LonDeg);
   if (groundAsl <= -1e8) {
     FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "elevation unresolved at spawn"}});
     fclose(evf);
     return 1;
   }
-  FBLog::Info("mission", "SPAWN", {{"name", mission.Name}, {"lat", rwy.ThresholdLatDeg},
-                                   {"lon", rwy.ThresholdLonDeg}, {"groundM", groundAsl},
-                                   {"fileElevM", rwy.ThresholdElevM}, {"hdg", rwy.TrueHeadingDeg},
-                                   {"lenM", rwy.LengthM}});
+  /* Consistency validation (declarative-spawn contract, doc/mission-format.md): an explicit altitude
+   * placed below the resolved terrain is a genuine contradiction, not a legal (if unusual) declaration —
+   * a 1 m margin absorbs elevation-source rounding, not real penetration. */
+  if (!sp.Ground && sp.AltM < groundAsl - 1.0) {
+    FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "spawn altitude is below ground"},
+        {"altM", sp.AltM}, {"groundM", groundAsl}});
+    fclose(evf);
+    return 1;
+  }
+  FBLog::Info("mission", "SPAWN", {{"name", mission.Name}, {"lat", sp.LatDeg}, {"lon", sp.LonDeg},
+      {"ground", sp.Ground}, {"altM", sp.Ground ? groundAsl : sp.AltM}, {"groundAsl", groundAsl},
+      {"hdg", sp.HeadingDeg}, {"speedKt", sp.SpeedKt}});
 
   FBRegisterBuiltinModules();
   std::unique_ptr<FBModule> ModulePtr = FBModuleRegistry::Create(mission.ModuleName);
@@ -122,13 +124,13 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   FBModule &Module = *ModulePtr;
 
   fb_fdm_state St{};
-  if (!FBMissionGroundSpawn(aircraftPath.c_str(), mission, groundAsl, Module, St)) {
-    FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "jsbsim init"}});
+  if (!FBMissionApplySpawn(aircraftPath.c_str(), mission, groundAsl, Module, St)) {
+    FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "spawn failed (jsbsim init or an unknown 'set' key)"}});
     fclose(evf);
     return 1;
   }
 
-  if (hook) hook->OnMissionStart(rwy, groundAsl, Module.Displays());
+  if (hook) hook->OnMissionStart(mission.Spawn, groundAsl, Module.Displays());
 
   FILE *csv = fopen(csvPath.c_str(), "w");
   if (!csv) {
@@ -148,22 +150,21 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   bus.SetSink(&csvSink);
   bus.Start();
 
+  /* The two incorruptible judges (CLAUDE.md "Kein Cheaten"), fed read-only every tick below, never
+   * given to Module/Pilot: FBFlightMonitor asks "did the airframe survive" (physics only, no mission
+   * knowledge); FBMissionMonitor asks "did the MISSION succeed" (its own copy of the mission's plan/
+   * runway/timeout, never the module's live state — see its own banner). Two instances, two questions,
+   * never conflated. */
+  FBFlightMonitor flightMonitor;
+  FBMissionMonitor missionMonitor(mission.Plan, mission.Runway, mission.HaveRunway, timeoutS);
+
+  /* ---- Step 3: execute the actors ---- */
   const double dt = 0.1;
-  const double kWpCaptureM = 500.0;
   double simT = 0.0;
-  FBMissionResult result = FBMissionResult::Timeout;
-  std::string reason = "sim time exceeded the mission timeout";
-  auto lastPhase = Module.PilotSystem().GetPhase();
   bool warnedStall = false, warnedOverspeed = false, warnedSink = false;
   clock_t wallStart = clock();
 
-  /* The PHYSICAL K.O. authority (CLAUDE.md "Kein Cheaten"): fed read-only every tick below, never given
-   * to Module/Pilot. Knows nothing about this mission's runway — see FBFlightMonitor.h's banner; a
-   * ground contact off the runway is judged separately, right below, as a MISSION verdict (FAIL, not
-   * CRASH), by this same Runner. */
-  FBFlightMonitor monitor;
-
-  while (simT < timeoutS) {
+  while (!flightMonitor.Tripped() && !missionMonitor.Concluded()) {
     double gnd = elevation.GroundElevM(St.lat, St.lon);
     if (gnd > -1e8) groundAsl = gnd;
     Module.SetGroundAsl((float)groundAsl);
@@ -173,25 +174,8 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     simT += dt;
     FBLog::SetTime(simT);
 
-    auto phase = Module.PilotSystem().GetPhase();
-    if (phase != lastPhase) {
-      FBLog::Info("pilot", "PHASE", {{"from", FBPilot::PhaseName(lastPhase)}, {"to", FBPilot::PhaseName(phase)}});
-      lastPhase = phase;
-    }
-
-    FBFlightPlan &plan = Module.FlightPlan();
-    double distToWpM = -1.0;
-    if (const FBWaypoint *wp = plan.ActiveWaypoint()) {
-      double dy = (St.lat - wp->LatDeg) * 111320.0, dx = (St.lon - wp->LonDeg) * 111320.0 * std::cos(St.lat * kPi / 180.0);
-      distToWpM = std::sqrt(dx * dx + dy * dy);
-    }
-    int reachedWp = FBMissionAdvanceWaypoint(plan, St.lat, St.lon, kWpCaptureM);
-    if (reachedWp >= 0) {
-      const FBWaypoint &wp = plan.At(reachedWp);
-      FBLog::Info("pilot", "WP_REACHED", {{"idx", reachedWp}, {"lat", wp.LatDeg}, {"lon", wp.LonDeg}, {"distM", distToWpM}});
-    }
-
-    /* AoA is numerically undefined at near-zero airspeed — see FBAppNative.cpp's original banner for
+    /* Generic flight-envelope diagnostics (not mission specifics — every module has these quantities):
+     * AoA is numerically undefined at near-zero airspeed, see the historical FBAppNative.cpp banner for
      * the measured settle-transient this gate avoids. */
     bool haveAirspeed = St.cas > 15.0;
     if (haveAirspeed && St.alphaDeg > 25.0 && !warnedStall) {
@@ -208,38 +192,29 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
       warnedSink = true;
     } else if (St.vy > -5.0) warnedSink = false;
 
-    if (monitor.Tick(FBBuildFlightMonitorSample(St, groundAsl), simT)) {
-      result = monitor.Reason() == FBKoReason::Loc ? FBMissionResult::Loc : FBMissionResult::Crash;
-      reason = monitor.Detail();
-      Module.Controls().EngineCutoff();   /* Crash -> Motor aus, JSBSim's own ground reactions do the rest — no freeze */
-      break;
-    }
-
-    /* Mission-level verdict (this Runner, not the physics-only monitor above — its own banner): a
-     * ground contact the physical monitor accepted (survivable, gear down, sane sink/attitude) but
-     * which landed away from the assigned runway missed the mission's objective — FAIL, not CRASH. */
-    bool wow = fb_jsbsim_get_wow(-1) != 0;
-    if (wow && mission.HaveRunway && !OnRunway(rwy, St.lat, St.lon, 50.0, 30.0)) {
-      result = FBMissionResult::Fail;
-      reason = "touchdown off the assigned runway";
-      Module.Controls().EngineCutoff();
-      break;
-    }
+    if (flightMonitor.Tick(FBBuildFlightMonitorSample(St, groundAsl), simT))
+      Module.Controls().EngineCutoff();   /* Crash/LOC -> Motor aus, JSBSim's own ground reactions do the rest — no freeze */
+    else if (missionMonitor.Tick({St.lat, St.lon, fb_jsbsim_get_wow(-1) != 0}, simT) &&
+            missionMonitor.Verdict() == FBMissionVerdict::Fail)
+      Module.Controls().EngineCutoff();   /* touched down off the assigned runway */
 
     bus.Tick(simT);
     if (hook) hook->OnTick(St, simT, groundAsl, aglM, Module.Telemetry());
-
-    if (phase == FBPilot::Phase::Shutdown) { result = FBMissionResult::Success; reason = "mission phases complete"; break; }
   }
+
+  /* ---- Step 4: validate the world — the monitors already did; translate their verdict ---- */
+  FBMissionResult result = flightMonitor.Tripped()
+      ? (flightMonitor.Reason() == FBKoReason::Loc ? FBMissionResult::Loc : FBMissionResult::Crash)
+      : ToMissionResult(missionMonitor.Verdict());
+  std::string reason = flightMonitor.Tripped() ? flightMonitor.Detail() : missionMonitor.Detail();
 
   double wallS = (double)(clock() - wallStart) / CLOCKS_PER_SEC;
   FBLog::SetTime(simT);
   FBLog::Info("mission", "RESULT", {{"result", FBMissionResultStr(result)}, {"reason", reason},
-      {"phase", FBPilot::PhaseName(Module.PilotSystem().GetPhase())}, {"lat", St.lat}, {"lon", St.lon},
-      {"altM", St.elev}, {"durationS", simT}});
+      {"lat", St.lat}, {"lon", St.lon}, {"altM", St.elev}, {"durationS", simT}});
   FBLog::Info("mission", "SUMMARY", {{"result", FBMissionResultStr(result)}, {"durationS", simT},
       {"wallS", wallS}, {"speedup", wallS > 0.0 ? simT / wallS : 0.0},
-      {"phase", FBPilot::PhaseName(Module.PilotSystem().GetPhase())}, {"lat", St.lat}, {"lon", St.lon}, {"altM", St.elev}});
+      {"lat", St.lat}, {"lon", St.lon}, {"altM", St.elev}});
   FBLog::SetSink(nullptr);
   fclose(evf);
   fclose(csv);

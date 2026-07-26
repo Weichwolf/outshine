@@ -88,6 +88,10 @@ public:
   FBFlightPlan &FlightPlan() override { return Plan_; }
   void SetRunway(const FBRunway &rwy) override { Rwy_ = rwy; HaveRunway_ = true; }
 
+  /* `gear` (up/down — an air start spawns retracted), `fuel_lbs`, `fuel_pct` (0..100) — see
+   * doc/mission-format.md. Any other key returns false (Runner-level mission FAIL). */
+  bool ApplySetup(const std::string &key, const std::string &value) override;
+
 private:
   void ApplyPilotCommands(const FBPilotCommands &c);
   static bool Due(double &accS, double dt, double hz);   /* throttle helper for the slower slots */

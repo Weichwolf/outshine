@@ -1,7 +1,7 @@
 name test-cfit-mountain-1
 module f16                                  # FBModuleRegistry key -> FBF16Module
 runway 46.84335 6.91523 441.0 228.0 2889   # Payerne threshold (same as payerne-takeoff-only.fbm)
-takeoff
+spawn threshold ground 228.0 0             # sat on gear at the runway threshold, runway heading, v=0
 wp 46.75 6.80 2500 350                      # climb-out toward the Prealps (matches payerne-takeoff.fbm)
 wp 46.5461 7.0189 1200 350                  # Moleson (Fribourg Prealps) at 1200 m ASL -- well below the
                                              # ~1876 m summit/flank elevation there (--elev swiss), so

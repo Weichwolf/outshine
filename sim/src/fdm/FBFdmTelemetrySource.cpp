@@ -11,6 +11,7 @@ void FBFdmTelemetrySource::DeclareTelemetry(FBTelemetrySchema &schema) const {
   schema.Add("pitchDeg", "deg");
   schema.Add("rollDeg", "deg");
   schema.Add("hdgDeg", "deg");
+  schema.Add("fuelLbs", "lb");
 }
 
 void FBFdmTelemetrySource::SampleTelemetry(FBTelemetryRow &row) const {
@@ -22,6 +23,7 @@ void FBFdmTelemetrySource::SampleTelemetry(FBTelemetryRow &row) const {
   row.Push(Fdm.pitch);
   row.Push(Fdm.roll);
   row.Push(Fdm.yaw);
+  row.Push(fb_jsbsim_get_fuel_total_lbs());
 }
 
 } // namespace FlightBox

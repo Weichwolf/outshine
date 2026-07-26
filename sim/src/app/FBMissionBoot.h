@@ -1,51 +1,69 @@
-/* FlightBox — FBMissionBoot: the ground-spawn + waypoint-advance BOTH entry points need to start a
- * mission-with-pilot run (the native --mission runner and the WASM app's default boot), factored once
- * so neither App duplicates JSBSim IC / FBPilot-arming / FBFlightPlan mechanics. Generic over FBModule
- * (mission.ModuleName picks the concrete module via FBModuleRegistry — see FBMissionRunner.cpp), not
- * hardcoded to the F-16: this header itself never names a concrete module type. Header-only: every
- * caller already links FBMissionFile.cpp + the module registry, so no new Makefile translation unit is
- * needed for this. */
+/* FlightBox — FBMissionBoot: the declarative spawn BOTH entry points need to start a mission-with-pilot
+ * run (the native --mission runner and the WASM app's default boot), factored once so neither App
+ * duplicates JSBSim IC / FBPilot-arming mechanics. Generic over FBModule (mission.ModuleName picks the
+ * concrete module via FBModuleRegistry — see FBMissionRunner.cpp), not hardcoded to the F-16: this
+ * header itself never names a concrete module type. Header-only: every caller already links
+ * FBMissionFile.cpp + the module registry, so no new Makefile translation unit is needed for this.
+ *
+ * ONE IC application (CLAUDE.md's declarative-spawn contract): fb_jsbsim_init already applies position/
+ * attitude/velocity together for BOTH a ground sit (hoff_m<0) and an explicit airborne altitude
+ * (hoff_m>0, the offset above the resolved ground) — FBSpawn.Ground picks which, there is no second,
+ * separate airborne code path here. */
 #ifndef FBMISSIONBOOT_H
 #define FBMISSIONBOOT_H
 
 #include <cmath>
+#include <string>
 #include "FBFlightMonitor.h"
+#include "FBLog.h"
 #include "FBMissionFile.h"
 #include "FBModule.h"
 #include "jsbsim_adapter.h"
 
 namespace FlightBox {
 
-/* Ground-spawns `mission`'s module on its runway threshold: JSBSim IC sat-on-gear at `groundAsl`
- * (hoff_m=-1, see the adapter banner) for the JSBSim aircraft named `mission.ModuleName` (module name
- * == JSBSim aircraft directory name, e.g. "f16"), FBAutopilot neutral Manual (idle stick/throttle — a
- * real-FLCS airframe like the F-16 holds wings-level on its own) so FBPilot::Preflight's brief hold has
- * something stable to sit in, gear down + both wheel brakes set, the mission's FlightPlan/Runway wired
- * onto the module, FBPilot armed at Preflight. `aircraftPath` differs per link target (native/gym:
+/* Applies `mission`'s declarative FBSpawn to `module`/`st`: ONE fb_jsbsim_init IC call (ground-sit or
+ * literal-altitude airborne, see the file banner), FBAutopilot neutral Manual (idle stick/throttle — a
+ * real-FLCS airframe like the F-16 holds wings-level on its own) so a ground spawn's Preflight hold has
+ * something stable to sit in, gear DOWN + both wheel brakes set as the real-world baseline (a mission's
+ * own `set gear up` line below overrides it for an air start), the mission's FlightPlan/Runway wired
+ * onto the module, FBPilot armed at the phase matching the spawn (Preflight for a ground sit — the
+ * existing WOW-gated hold+takeoff-roll machinery; Route directly for an airborne spawn — already
+ * established in flight, no taxi/rotate to simulate), then every `set <key> <value>` mission line
+ * applied via FBModule::ApplySetup (an unrecognized key fails the spawn — the caller turns that into a
+ * mission FAIL, exit 1, per doc/mission-format.md). `aircraftPath` differs per link target (native/gym:
  * "vendor/jsbsim/aircraft", WASM: the embedded FS path "/jsbsim/aircraft"). Returns false (JSBSim init
- * failed) without touching module/st. */
-inline bool FBMissionGroundSpawn(const char *aircraftPath, const FBMission &mission, double groundAsl,
-                                 FBModule &module, fb_fdm_state &st) {
-  const FBRunway &rwy = mission.Runway;
-  if (fb_jsbsim_init(aircraftPath, mission.ModuleName.c_str(), rwy.ThresholdLatDeg, rwy.ThresholdLonDeg,
-                     groundAsl, -1.0, 0.0, rwy.TrueHeadingDeg, 0) != 0)
+ * failed, or an unknown `set` key) without leaving module/st in a usable state. */
+inline bool FBMissionApplySpawn(const char *aircraftPath, const FBMission &mission, double groundAsl,
+                                FBModule &module, fb_fdm_state &st) {
+  constexpr double kKtToMs = 0.51444444444;
+  const FBSpawn &sp = mission.Spawn;
+  double hoffM = sp.Ground ? -1.0 : (sp.AltM - groundAsl);
+  if (fb_jsbsim_init(aircraftPath, mission.ModuleName.c_str(), sp.LatDeg, sp.LonDeg, groundAsl, hoffM,
+                     sp.SpeedKt * kKtToMs, sp.HeadingDeg, 0) != 0)
     return false;
   fb_jsbsim_set_ground(groundAsl);
-  module.SetRunway(rwy);
+  if (mission.HaveRunway) module.SetRunway(mission.Runway);
   module.FlightPlan() = mission.Plan;
   module.Autopilot().SetManual(0.0, 0.0, 0.0, 0.0);
   module.Controls().SetGear(true);
   module.Controls().SetWheelBrakes(1.0, 1.0);
-  module.PilotSystem().SetPhase(FBPilot::Phase::Preflight);
+  module.PilotSystem().SetPhase(sp.Ground ? FBPilot::Phase::Preflight : FBPilot::Phase::Route);
+  for (const auto &kv : mission.SetKV) {
+    if (!module.ApplySetup(kv.first, kv.second)) {
+      FBLog::Error("mission", "SET_UNKNOWN_KEY", {{"key", kv.first}, {"value", kv.second}});
+      return false;
+    }
+  }
   st = fb_fdm_state{};
-  st.lat = rwy.ThresholdLatDeg; st.lon = rwy.ThresholdLonDeg; st.elev = groundAsl;
+  st.lat = sp.LatDeg; st.lon = sp.LonDeg; st.elev = sp.Ground ? groundAsl : sp.AltM;
   return true;
 }
 
-/* fb_fdm_state -> FBFlightMonitorSample: the one place that bridges the FDM's own POD state into
- * core/FBFlightMonitor's narrow, fdm-decoupled input (FBFlightMonitor.h's banner) — header-only so
- * BOTH entry points that own a FBFlightMonitor (FBMissionRunner.cpp for gym/native, FBAppWasm.cpp for
- * the browser) feed it identically without either linking the other's translation unit. */
+/* fb_fdm_state -> core/FBFlightMonitor's narrow, fdm-decoupled input (FBFlightMonitor.h's banner) —
+ * header-only so BOTH entry points that own a FBFlightMonitor (FBMissionRunner.cpp for gym/native,
+ * FBAppWasm.cpp for the browser) feed it identically without either linking the other's translation
+ * unit. */
 inline FBFlightMonitorSample FBBuildFlightMonitorSample(const fb_fdm_state &st, double groundAsl) {
   FBFlightMonitorSample s;
   s.LatDeg = st.lat; s.LonDeg = st.lon;
@@ -59,21 +77,6 @@ inline FBFlightMonitorSample FBBuildFlightMonitorSample(const fb_fdm_state &st, 
   s.AnyWow = fb_jsbsim_get_wow(-1) != 0;
   s.StructureContact = fb_jsbsim_get_structure_contact() != 0;
   return s;
-}
-
-/* Advances `plan`'s active waypoint once the aircraft is within `captureM` of it — the mechanical half
- * of waypoint sequencing FBPilot::Run relies on but does not itself perform (its Climb/Route phases
- * just fly whatever ActiveWaypoint() returns). Returns the just-reached waypoint's index, or -1 if
- * none was captured this call. */
-inline int FBMissionAdvanceWaypoint(FBFlightPlan &plan, double lat, double lon, double captureM) {
-  const FBWaypoint *wp = plan.ActiveWaypoint();
-  if (!wp) return -1;
-  double coslat = std::cos(lat * 3.14159265358979323846 / 180.0);
-  double dy = (lat - wp->LatDeg) * 111320.0, dx = (lon - wp->LonDeg) * 111320.0 * coslat;
-  if (std::sqrt(dx * dx + dy * dy) > captureM) return -1;
-  int idx = plan.ActiveIndex();
-  plan.SetActiveIndex(idx + 1);
-  return idx;
 }
 
 } // namespace FlightBox

@@ -1,4 +1,5 @@
 #include "FBNavSystem.h"
+#include "FBLog.h"
 #include <cmath>
 
 namespace FlightBox {
@@ -45,6 +46,18 @@ void FBNavSystem::Run(FBState &state, const fb_fdm_state &fdm, double dt) {
     state.bullBearingDeg = (float)brg;
     state.bullDistNm = (float)(distM * kMToNm);
   }
+}
+
+int FBNavSystem::AdvanceWaypoint(FBFlightPlan &plan, double lat, double lon, double captureM) {
+  const FBWaypoint *wp = plan.ActiveWaypoint();
+  if (!wp) return -1;
+  double coslat = std::cos(lat * kD2R);
+  double dy = (lat - wp->LatDeg) * kMPerDeg, dx = (lon - wp->LonDeg) * kMPerDeg * coslat;
+  if (std::sqrt(dx * dx + dy * dy) > captureM) return -1;
+  int idx = plan.ActiveIndex();
+  plan.SetActiveIndex(idx + 1);
+  FBLog::Info("nav", "WP_REACHED", {{"idx", idx}, {"lat", wp->LatDeg}, {"lon", wp->LonDeg}});
+  return idx;
 }
 
 } // namespace FlightBox
