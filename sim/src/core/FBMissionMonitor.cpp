@@ -1,25 +1,19 @@
 #include "FBMissionMonitor.h"
+#include "FBGeodesy.h"
 #include "FBLog.h"
 #include <cmath>
 
 namespace FlightBox {
 
 namespace {
-constexpr double kPi = 3.14159265358979323846;
-constexpr double kMPerDeg = 111320.0;
-
 /* "off the runway" — unchanged geometry from the pre-orchestrator crash gate this replaces (formerly
  * FBMissionRunner.cpp's own OnRunway): project (lat,lon) onto the runway's along/across-track axes
  * (centreline from the threshold on TrueHeadingDeg) — on the runway iff within its length (+
  * marginAlongM before/after) and half-width (+ marginAcrossM either side). WidthM <= 1 (the mission
  * format leaves it unset) falls back to a generous 60 m generic-runway half-width. */
 bool OnRunway(const FBRunway &rwy, double lat, double lon, double marginAlongM, double marginAcrossM) {
-  double hdg = rwy.TrueHeadingDeg * kPi / 180.0;
-  double coslat = std::cos(rwy.ThresholdLatDeg * kPi / 180.0);
-  double dy = (lat - rwy.ThresholdLatDeg) * kMPerDeg;
-  double dx = (lon - rwy.ThresholdLonDeg) * kMPerDeg * coslat;
-  double along = dx * std::sin(hdg) + dy * std::cos(hdg);
-  double across = dx * std::cos(hdg) - dy * std::sin(hdg);
+  double along, across;
+  FBTrackProjectM(rwy.ThresholdLatDeg, rwy.ThresholdLonDeg, rwy.TrueHeadingDeg, lat, lon, along, across);
   double halfW = (rwy.WidthM > 1.0 ? rwy.WidthM : 60.0) * 0.5 + marginAcrossM;
   return along >= -marginAlongM && along <= rwy.LengthM + marginAlongM && std::fabs(across) <= halfW;
 }
@@ -75,9 +69,8 @@ bool FBMissionMonitor::Tick(const FBMissionMonitorSample &s, double simTimeS) {
           OnRunway(Runway_, s.LatDeg, s.LonDeg, 0.0, 15.0))
         return Conclude(FBMissionVerdict::Success, "stopped on the runway");
     } else {
-      double coslat = std::cos(s.LatDeg * kPi / 180.0);
-      double dy = (s.LatDeg - wp.LatDeg) * kMPerDeg, dx = (s.LonDeg - wp.LonDeg) * kMPerDeg * coslat;
-      if (std::sqrt(dx * dx + dy * dy) <= WpCaptureM_) {
+      /* Reference = the aircraft (its latitude scales the longitude), the historical convention here. */
+      if (FBPlanarDistM(s.LatDeg, s.LonDeg, wp.LatDeg, wp.LonDeg) <= WpCaptureM_) {
         FBLog::Info("mission", "WP_REACHED", {{"idx", ActiveIdx_}, {"lat", wp.LatDeg}, {"lon", wp.LonDeg}});
         ActiveIdx_++;
         if (ActiveIdx_ >= Plan_.Size())

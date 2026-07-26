@@ -21,6 +21,7 @@
 #include "FBDisplaySystem.h"
 #include "FBFlightControl.h"
 #include "FBFlightPlan.h"
+#include "FBNavSystem.h"
 #include "FBPilot.h"
 #include "FBRunway.h"
 #include "FBState.h"
@@ -43,6 +44,12 @@ public:
    * systems whose association to an airframe IS fixed (FBJsbsimAirframeControls). */
   virtual void AttachFdm(FBFdm &fdm) = 0;
 
+  /* The JSBSim model directory/XML this module flies ("Flugzeug = Modul + JSBSim-Modell", CLAUDE.md —
+   * two parts, so the mission's `module <name>` line stays a pure REGISTRY key). Owned by the module
+   * because only the module knows which aircraft.xml its systems/gains were written against; the boot
+   * path (FBMissionBoot.h) asks for it instead of reusing the registry name as a directory name. */
+  virtual const char *FdmModelName() const = 0;
+
   /* Advances the module's FDM at its own fixed substep rate for `dt` wall-seconds. `st` is the
    * shared live FDM state the caller (App) reads back for camera/HUD/telemetry. `world` is a borrowed
    * reference (nullptr where a module has no world-facing systems yet) — never global access. */
@@ -61,7 +68,16 @@ public:
   virtual FBAirframeControls &Controls() = 0;
   virtual FBDisplaySystem &Displays() = 0;
   virtual FBAirDataSystem &AirDataSystem() = 0;
+  virtual FBNavSystem &NavSystem() = 0;
   virtual const FBState &Telemetry() const = 0;
+
+  /* The two OUTPUTS of the Run() contract above, surfaced for the client's flight/cpuprof telemetry:
+   * the guidance command this module last issued, and how many fixed FDM substeps its last Run()
+   * actually executed. Every module produces both by construction (it cycles guidance and steps an
+   * FDM) — they are diagnostics of the interface, not of one airframe, which is why the browser client
+   * can log them without ever naming a concrete module. */
+  virtual const FBGuidance &LastGuidance() const = 0;
+  virtual int LastSubsteps() const = 0;
 
   /* Mission boot: the flight plan a ground-spawn assigns and the runway it takes off from/lands on. */
   virtual FBFlightPlan &FlightPlan() = 0;

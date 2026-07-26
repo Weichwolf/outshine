@@ -1,0 +1,74 @@
+/* FlightBox — FBGeodesy: the ONE planar-ENU geodesy the simulator measures with. Header-only, no
+ * translation unit.
+ *
+ * Why this file exists: the identical five-line "dlat*111320, dlon*111320*cos(lat)" block stood in six
+ * places (core/FBMissionMonitor, core/FBRunwayPlateauElevation, systems/FBPilot, systems/FBNavSystem,
+ * systems/FBAutopilot, app/FBAppWasm) — and only some of them wrapped the longitude difference into
+ * [-180,180]. The unwrapped copies read a ~360 deg delta across the antimeridian, i.e. a distance of
+ * ~38,000 km to a point a metre away: at 180 deg longitude the mission monitor's waypoint capture, the
+ * runway-plateau elevation and the HUD's home distance were all simply wrong. Wrapping is now part of
+ * the primitive, not something each caller has to remember.
+ *
+ * CONVENTION: the reference point comes FIRST and owns the cosine. FBEnuOffsetM(ref, p) returns p's
+ * offset FROM ref, with the longitude scaling taken at the REFERENCE latitude — one rule, so a bearing
+ * and a distance computed by two different subsystems agree. A caller that only needs a distance may
+ * pass either point as the reference (the offsets differ only in sign, the magnitude is identical).
+ *
+ * SCOPE: deliberately planar/small-angle, matching what every call site already did — steerpoints,
+ * runway axes and waypoint captures are tens of nautical miles out, not intercontinental. Real geodesic
+ * math belongs to whatever needs it, not to this file's callers. */
+#ifndef FBGEODESY_H
+#define FBGEODESY_H
+
+#include <cmath>
+#include "FBUnits.h"
+
+namespace FlightBox {
+
+/* Angle difference folded into [-180,180]. The loop form (not fmod) is the one every existing call site
+ * used; it is exact for the one-or-two-wrap deltas that actually occur. */
+inline double FBWrap180(double deg) {
+  while (deg > 180.0) deg -= 360.0;
+  while (deg < -180.0) deg += 360.0;
+  return deg;
+}
+
+/* (lat,lon)'s planar offset from (refLat,refLon): +east / +north, metres. */
+inline void FBEnuOffsetM(double refLat, double refLon, double lat, double lon,
+                         double &eastM, double &northM) {
+  double coslat = std::cos(refLat * kDeg2Rad);
+  northM = (lat - refLat) * kMPerDeg;
+  eastM = FBWrap180(lon - refLon) * kMPerDeg * coslat;
+}
+
+/* Horizontal distance (m) between two points — sign-free, so either point may be the reference. */
+inline double FBPlanarDistM(double refLat, double refLon, double lat, double lon) {
+  double e, n;
+  FBEnuOffsetM(refLat, refLon, lat, lon, e, n);
+  return std::sqrt(e * e + n * n);
+}
+
+/* True bearing (deg, 0..360) FROM (refLat,refLon) TO (lat,lon). */
+inline double FBBearingDeg(double refLat, double refLon, double lat, double lon) {
+  double e, n;
+  FBEnuOffsetM(refLat, refLon, lat, lon, e, n);
+  double brg = std::atan2(e, n) * kRad2Deg;
+  return brg < 0.0 ? brg + 360.0 : brg;
+}
+
+/* Along/across-track projection of (lat,lon) onto the line through (refLat,refLon) on true heading
+ * `courseDeg`: +along down the course from the reference, +across to its right. The runway-axis
+ * primitive FBMissionMonitor's on-runway gate, FBRunwayPlateauElevation's footprint, FBPilot's
+ * centreline steering and FBAutopilot's localizer all need — one definition, so "on the line" means the
+ * same thing to the pilot flying it and to the monitor judging it. */
+inline void FBTrackProjectM(double refLat, double refLon, double courseDeg, double lat, double lon,
+                            double &alongM, double &acrossM) {
+  double e, n;
+  FBEnuOffsetM(refLat, refLon, lat, lon, e, n);
+  double c = courseDeg * kDeg2Rad;
+  alongM = e * std::sin(c) + n * std::cos(c);
+  acrossM = e * std::cos(c) - n * std::sin(c);
+}
+
+} // namespace FlightBox
+#endif

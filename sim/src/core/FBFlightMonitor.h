@@ -62,10 +62,18 @@ struct FBFlightMonitorSample {
                                       * declared STRUCTURE point — airframe geometry, e.g. wingtip/tail/
                                       * intake/radome on today's F-16 model; whatever an aircraft.xml
                                       * declares beyond its wheeled gear) */
+  bool   FdmFault = false;           /* the integrator itself gave up this tick (JSBSim raised, e.g.
+                                      * FGJSBBase's FloatingPointException out of a table lookup) — a
+                                      * plain bool so the monitor stays fdm-decoupled; the caller reads
+                                      * FBFdm::Faulted() */
 };
 
-enum class FBKoReason { None, StructureContact, CfitPenetration, GearUpContact, HardLanding,
-                        AttitudeContact, Loc };
+/* NumericalDivergence: the sample is not a number any more (NaN/Inf anywhere in the pose/rates/speeds)
+ * or the FDM itself faulted. Kept FIRST among the real reasons in Tick() because every OTHER check is a
+ * COMPARISON — and every comparison against NaN is false, so without this the monitor would silently
+ * never trip and the run would end as an unexplained TIMEOUT. */
+enum class FBKoReason { None, NumericalDivergence, StructureContact, CfitPenetration, GearUpContact,
+                        HardLanding, AttitudeContact, Loc };
 const char *FBKoReasonStr(FBKoReason r);
 
 class FBFlightMonitor {

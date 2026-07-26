@@ -80,11 +80,29 @@ constexpr double kStallSustainS = 4.0;
  * artifact, far too short to matter for a genuine, sustained structural/gear-up contact (which stays
  * true for seconds, not a fraction of one). */
 constexpr double kContactConfirmS = 0.2;
+
+/* First non-finite quantity in the sample, or nullptr when everything is a number. Every OTHER check in
+ * Tick() is a comparison, and IEEE-754 makes every comparison against NaN false — a diverged FDM would
+ * therefore sail past all of them and the run would end as an unexplained TIMEOUT. Checked on the RAW
+ * inputs (not on aglM or the derived flight-path angle) so the divergence is caught at its entry point,
+ * before it has propagated into anything else. */
+const char *FirstNonFinite(const FBFlightMonitorSample &s) {
+  const struct { const char *Name; double Value; } fields[] = {
+      {"lat", s.LatDeg}, {"lon", s.LonDeg}, {"elevM", s.ElevM}, {"groundAslM", s.GroundAslM},
+      {"roll", s.RollDeg}, {"pitch", s.PitchDeg},
+      {"p", s.PDegS}, {"q", s.QDegS}, {"r", s.RDegS},
+      {"vsMs", s.VsMs}, {"tasMs", s.TasMs},
+      {"gearPos", s.GearPosNorm}, {"gearForceLbs", s.GearForceLbs}, {"weightLbs", s.WeightLbs}};
+  for (const auto &f : fields)
+    if (!std::isfinite(f.Value)) return f.Name;
+  return nullptr;
+}
 } // namespace
 
 const char *FBKoReasonStr(FBKoReason r) {
   switch (r) {
     case FBKoReason::None: return "NONE";
+    case FBKoReason::NumericalDivergence: return "NUMERICAL_DIVERGENCE";
     case FBKoReason::StructureContact: return "STRUCTURE_CONTACT";
     case FBKoReason::CfitPenetration: return "CFIT";
     case FBKoReason::GearUpContact: return "GEAR_UP_CONTACT";
@@ -111,6 +129,14 @@ bool FBFlightMonitor::Tick(const FBFlightMonitorSample &s, double simTimeS) {
 
   double dt = LastSimTimeS_ < 0.0 ? 0.0 : simTimeS - LastSimTimeS_;
   LastSimTimeS_ = simTimeS;
+
+  /* 0. Numerical divergence — BEFORE every other check, because every other check is a comparison and
+   * comparisons against NaN are all false (see FirstNonFinite's banner + FBKoReason's). Single-tick
+   * trigger: a non-finite state never recovers, and waiting only lets the garbage propagate. */
+  if (s.FdmFault)
+    return Trip(FBKoReason::NumericalDivergence, "fdm integrator faulted", s);
+  if (const char *bad = FirstNonFinite(s))
+    return Trip(FBKoReason::NumericalDivergence, std::string("non-finite state: ") + bad, s);
 
   /* 1. Terrain penetration (CFIT) — checked before the contact-confirmation group below since its own
    * -3 m margin already absorbs a single-tick terrain-feed step; a genuine hole-through-the-mesh CFIT

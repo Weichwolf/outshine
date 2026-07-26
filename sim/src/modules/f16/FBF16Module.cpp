@@ -1,5 +1,9 @@
 #include "FBF16Module.h"
 #include "FBF16Hud.h"
+#include "FBLog.h"
+#include "FBUnits.h"
+#include <cerrno>
+#include <cmath>
 #include <cstdlib>
 
 namespace FlightBox {
@@ -93,7 +97,6 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBWorld *world) {
  * which is what keeps an un-started pilot (Phase::Idle) bit-identical to not having one (see Run()'s
  * banner). */
 void FBF16Module::ApplyPilotCommands(const FBPilotCommands &c) {
-  constexpr double kKtToMs = 0.5144444444;
   switch (c.Guidance) {
     case FBPilotGuidance::Manual:
       AP->SetManual(c.ManualRoll, c.ManualPitch, c.ManualYaw, c.ManualThr);
@@ -116,36 +119,53 @@ void FBF16Module::ApplyPilotCommands(const FBPilotCommands &c) {
   if (c.EngineStart) *c.EngineStart ? AirframeCtrl->EngineStart() : AirframeCtrl->EngineCutoff();
 }
 
-/* Boundary input (mission-file text, defensive checks per CLAUDE.md's C++ conventions) — a value that
- * doesn't parse as a number is treated as 0.0 rather than crashing/throwing on this system-boundary. */
+/* Boundary input (mission-file text, defensive checks per CLAUDE.md's C++ conventions). STRICT: the whole
+ * value must be one finite number and nothing else. A silent 0.0 default here is worse than a hard
+ * failure — `set fuel_lbs FULL` or a thousands separator would spawn the jet with an empty tank, report
+ * success, and JSBSim would kill the engine minutes later in the air with nothing in events.log naming
+ * the cause. The parser is FBMissionFile's Trim'ed value, so no leading/trailing space is expected. */
 namespace {
-double ParseDouble(const std::string &s) {
+bool ParseDouble(const std::string &s, double &out) {
+  if (s.empty()) return false;
   char *end = nullptr;
+  errno = 0;
   double v = std::strtod(s.c_str(), &end);
-  return (end && end != s.c_str()) ? v : 0.0;
+  if (end != s.c_str() + s.size()) return false;   /* trailing garbage: "3,000", "120kt", "FULL" */
+  if (errno == ERANGE || !std::isfinite(v)) return false;
+  out = v;
+  return true;
+}
+
+/* One rejection, one greppable event naming BOTH the key and the raw text — the caller turns the false
+ * into a mission FAIL (FBMissionBoot.h), so this is the only place the actual value is still known. */
+bool RejectSetup(const char *reason, const std::string &key, const std::string &value) {
+  FBLog::Error("module", "SET_INVALID_VALUE", {{"key", key}, {"value", value}, {"reason", reason}});
+  return false;
 }
 } // namespace
 
 bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
   if (!Fdm_) return false;   /* setup lines describe the airframe's state — none to apply without one */
   if (key == "gear") {
-    if (value != "up" && value != "down") return false;
+    if (value != "up" && value != "down") return RejectSetup("want up|down", key, value);
     AirframeCtrl->SetGear(value == "down");
     return true;
   }
   if (key == "fuel_lbs") {
-    double lbs = ParseDouble(value);
-    if (lbs < 0.0) lbs = 0.0;
+    double lbs = 0.0;
+    if (!ParseDouble(value, lbs)) return RejectSetup("not a number", key, value);
+    if (lbs < 0.0) return RejectSetup("negative fuel load", key, value);
     Fdm_->SetFuelTotalLbs(lbs);
     return true;
   }
   if (key == "fuel_pct") {
-    double pct = ParseDouble(value);
-    if (pct < 0.0) pct = 0.0; else if (pct > 100.0) pct = 100.0;
+    double pct = 0.0;
+    if (!ParseDouble(value, pct)) return RejectSetup("not a number", key, value);
+    if (pct < 0.0 || pct > 100.0) return RejectSetup("outside 0..100", key, value);
     Fdm_->SetFuelPct(pct);
     return true;
   }
-  return false;
+  return false;   /* unknown key: FBMissionBoot.h logs SET_UNKNOWN_KEY with the key AND value */
 }
 
 } // namespace FlightBox

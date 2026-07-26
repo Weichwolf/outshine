@@ -19,6 +19,7 @@
 #include "FBFlightMonitor.h"
 #include "FBLog.h"
 #include "FBMissionFile.h"
+#include "FBUnits.h"
 #include "FBModule.h"
 #include "FBFdmBoot.h"
 #include <memory>
@@ -40,11 +41,11 @@ namespace FlightBox {
  * init failed, or an unknown `set` key), in which case module/st are not in a usable state. */
 inline std::unique_ptr<FBFdm> FBMissionApplySpawn(const char *aircraftPath, const FBMission &mission,
                                                   double groundAsl, FBModule &module, fb_fdm_state &st) {
-  constexpr double kKtToMs = 0.51444444444;
   const FBSpawn &sp = mission.Spawn;
   FBFdmSpawn ic;
   ic.ModelsRoot = aircraftPath;
-  ic.Aircraft = mission.ModuleName;   /* the module name doubles as the JSBSim model directory */
+  ic.Aircraft = module.FdmModelName();   /* the MODULE names its JSBSim model; `module <name>` in the
+                                          * .fbm stays a pure registry key (FBModule::FdmModelName) */
   ic.LatDeg = sp.LatDeg;
   ic.LonDeg = sp.LonDeg;
   ic.GroundElevM = groundAsl;
@@ -62,8 +63,10 @@ inline std::unique_ptr<FBFdm> FBMissionApplySpawn(const char *aircraftPath, cons
   module.Controls().SetWheelBrakes(1.0, 1.0);
   module.PilotSystem().SetPhase(sp.Ground ? FBPilot::Phase::Preflight : FBPilot::Phase::Route);
   for (const auto &kv : mission.SetKV) {
+    /* The module already logged WHY (unknown key vs. unparsable/out-of-range value — only it knows its
+     * own keys); this is the boot-level "the spawn is void because of this line". */
     if (!module.ApplySetup(kv.first, kv.second)) {
-      FBLog::Error("mission", "SET_UNKNOWN_KEY", {{"key", kv.first}, {"value", kv.second}});
+      FBLog::Error("mission", "SET_REJECTED", {{"key", kv.first}, {"value", kv.second}});
       return nullptr;
     }
   }
@@ -89,6 +92,7 @@ inline FBFlightMonitorSample FBBuildFlightMonitorSample(const FBFdm &fdm, const 
   s.WeightLbs = fdm.GetWeightLbs();
   s.AnyWow = fdm.GetWow();
   s.StructureContact = fdm.GetStructureContact();
+  s.FdmFault = fdm.Faulted();
   return s;
 }
 

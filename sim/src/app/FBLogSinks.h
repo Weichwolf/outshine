@@ -6,6 +6,7 @@
 #ifndef FBLOGSINKS_H
 #define FBLOGSINKS_H
 #include <cstdio>
+#include <memory>
 #include <vector>
 #include "FBLog.h"
 
@@ -41,6 +42,26 @@ public:
 private:
   std::vector<FBLogSink *> Children;
 };
+
+/* RAII scope for FBLog's process-wide sink pointer. FBLog::SetSink takes a BORROWED pointer, so every
+ * path out of the scope that owns the sink objects — including the early returns a mission-load failure
+ * takes — must unset it, or the next log call writes through a dangling pointer into an already-fclose'd
+ * FILE*. Manual cleanup on the success path only is the classic version of that bug; this makes it
+ * structural. Declare it AFTER the sinks it installs so it is destroyed FIRST (reverse declaration
+ * order), i.e. the sink pointer is gone before the objects are. */
+class FBLogSinkScope {
+public:
+  explicit FBLogSinkScope(FBLogSink *sink) { FBLog::SetSink(sink); }
+  ~FBLogSinkScope() { FBLog::SetSink(nullptr); }
+  FBLogSinkScope(const FBLogSinkScope &) = delete;
+  FBLogSinkScope &operator=(const FBLogSinkScope &) = delete;
+};
+
+/* Owning FILE* handle for the same reason (every early return below used to need its own fclose). */
+using FBFileHandle = std::unique_ptr<FILE, int (*)(FILE *)>;
+inline FBFileHandle FBOpenFile(const char *path, const char *mode) {
+  return FBFileHandle(fopen(path, mode), &fclose);
+}
 
 } // namespace FlightBox
 #endif /* FBLOGSINKS_H */

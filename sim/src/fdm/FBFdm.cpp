@@ -22,6 +22,7 @@
 #include "FBFdm.h"
 #include "FBFdmBoot.h"
 #include "FBLog.h"
+#include "FBUnits.h"
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -32,9 +33,9 @@ using namespace JSBSim;
 namespace FlightBox {
 
 namespace {
-constexpr double kFt    = 0.3048;              /* ft -> m */
-constexpr double kR2D   = 57.29577951308232;   /* rad -> deg */
-constexpr double kMs2Kt = 1.9438444924406;     /* m/s -> knots */
+constexpr double kFt    = kFtToM;              /* ft -> m */
+constexpr double kR2D   = kRad2Deg;            /* rad -> deg */
+constexpr double kMs2Kt = kMsToKt;             /* m/s -> knots */
 constexpr double kEscSpinupS  = 0.5;           /* the spool ramps over this; a throttle STEP blows the
                                                 * engine's own RPM ODE up */
 constexpr double kThrottleSlew = FBFdm::kStepS / kEscSpinupS;
@@ -51,7 +52,27 @@ struct FBFdm::Impl {
 FBFdm::FBFdm() : P(std::make_unique<Impl>()) { P->Exec.SetDebugLevel(0); }
 FBFdm::~FBFdm() = default;
 
+/* The exception firewall (see FBFdm.h): JSBSim throws JSBSim::BaseException (a std::runtime_error) out of
+ * XML parsing and FGJSBBase::FloatingPointException out of table evaluation — uncaught, a broken
+ * aircraft.xml kills the process with std::terminate and the mission loop never gets a RESULT line to
+ * branch on. Caught by std::exception (JSBSim's hierarchy derives from it) plus a catch-all, so no JSBSim
+ * type has to be named here. Works identically in WASM: the vendored libJSBSim, this TU and the final
+ * link all carry -fexceptions (vendor/build_jsbsim_wasm.sh, the wasm make target) — the ONE place
+ * exceptions are enabled, and the firewall sits inside it. */
 bool FBFdm::Load(const FBFdmSpawn &spawn) {
+  try {
+    return LoadUnguarded(spawn);
+  } catch (const std::exception &e) {
+    FBLog::Error("fdm", "load_exception", {{"aircraft", spawn.Aircraft}, {"root", spawn.ModelsRoot},
+                                           {"what", std::string(e.what())}});
+  } catch (...) {
+    FBLog::Error("fdm", "load_exception", {{"aircraft", spawn.Aircraft}, {"root", spawn.ModelsRoot},
+                                           {"what", "non-standard exception"}});
+  }
+  return false;
+}
+
+bool FBFdm::LoadUnguarded(const FBFdmSpawn &spawn) {
   FGFDMExec &ex = P->Exec;
   const std::string r = spawn.ModelsRoot, d = r + "/" + spawn.Aircraft;
   /* Engine/Systems paths: our bundled models carry their own <ac>/engine + <ac>/Systems; the vanilla
@@ -116,7 +137,23 @@ bool FBFdm::Load(const FBFdmSpawn &spawn) {
   return true;
 }
 
+/* Same firewall as Load (see its banner), latching: once the integrator has raised, this airframe's
+ * physics is over — every later Step is a no-op and `o` keeps its last good values, so the caller reads
+ * a frozen but FINITE state while FBFlightMonitor turns Faulted() into the NumericalDivergence K.O. */
 void FBFdm::Step(fb_fdm_state &o) {
+  if (Faulted_) return;
+  try {
+    StepUnguarded(o);
+    return;
+  } catch (const std::exception &e) {
+    FBLog::Error("fdm", "step_exception", {{"what", std::string(e.what())}});
+  } catch (...) {
+    FBLog::Error("fdm", "step_exception", {{"what", "non-standard exception"}});
+  }
+  Faulted_ = true;
+}
+
+void FBFdm::StepUnguarded(fb_fdm_state &o) {
   FGFDMExec &ex = P->Exec;
   ex.Run();
   o.roll  = ex.GetPropertyValue("attitude/phi-deg");

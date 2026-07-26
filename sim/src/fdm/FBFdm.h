@@ -53,8 +53,16 @@ public:
    * substep accumulator and the test harnesses read it here rather than repeating 0.01. */
   static constexpr double kStepS = 0.01;
 
-  /* Advance one fixed kStepS step, then read the resulting state into `out`. */
+  /* Advance one fixed kStepS step, then read the resulting state into `out`. JSBSim raises on a genuinely
+   * broken integration (FGJSBBase's FloatingPointException out of a table lookup, a model exception out of
+   * FGFDMExec::Run) — that is caught HERE, latched into Faulted(), and `out` is left at its last good
+   * value rather than half-written. The step never throws into the module's substep loop. */
   void Step(fb_fdm_state &out);
+
+  /* Latched: the engine raised at some point and this airframe's physics is no longer advancing. The
+   * app-level judge (core/FBFlightMonitor, via FBFlightMonitorSample::FdmFault) turns it into a
+   * NumericalDivergence K.O.; the module never sees it. */
+  bool Faulted() const { return Faulted_; }
 
   /* ---- Commanded inputs: the ONLY way anything above this class influences the physics (the simulated
    * control surface — CLAUDE.md "Kein Cheaten"). ---- */
@@ -140,10 +148,17 @@ public:
 private:
   friend class FBFdmBoot;   /* the ONE producer of a loaded instance (fdm/FBFdmBoot.h) */
   FBFdm();
+  /* Load = the exception FIREWALL around LoadUnguarded (XML parsing, IC, trim, engine start — every one
+   * of which JSBSim may throw out of); Step likewise around StepUnguarded. Everything above this seam
+   * sees a bool / a latched Faulted_, never an exception: a broken aircraft.xml must end as a logged
+   * mission FAIL, not as std::terminate with no RESULT line for the loop to branch on. */
   bool Load(const FBFdmSpawn &spawn);
+  bool LoadUnguarded(const FBFdmSpawn &spawn);
+  void StepUnguarded(fb_fdm_state &out);
 
   struct Impl;
   std::unique_ptr<Impl> P;
+  bool Faulted_ = false;
 };
 
 } // namespace FlightBox

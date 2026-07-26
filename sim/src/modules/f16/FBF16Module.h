@@ -59,6 +59,10 @@ public:
    * fly. */
   void AttachFdm(FBFdm &fdm) override;
 
+  /* vendor/jsbsim/aircraft/f16 — the vanilla full-scale model (CLAUDE.md Prinzip 5). Deliberately NOT
+   * derived from the registry name: the two happen to coincide today, they are not the same thing. */
+  const char *FdmModelName() const override { return "f16"; }
+
   void Run(fb_fdm_state &st, double dt, const FBWorld *world = nullptr) override;
 
   /* The HUD's telemetry chain writes HERE (SharedState), not into the App's own FBState — the App must
@@ -70,11 +74,11 @@ public:
   FBFlightControl &FlightControl() override { return *FC; }
   FBDisplaySystem &Displays() override { return *Disp; }   /* wire into FBRenderer::SetHudDisplay */
   FBF16Max7456 &Max7456() { return *Chip; }       /* the MAX7456-chip-specific hook, see its banner */
-  FBNavSystem &Nav() { return *NavSys; }          /* steerpoint/bullseye setup (SetSteerpoint/SetBullseye) */
+  FBNavSystem &NavSystem() override { return *NavSys; }   /* steerpoint/bullseye (SetSteerpoint/SetBullseye) */
   FBF16Ufc &Ufc() { return *UfcSys; }             /* ALOW/selected-steerpoint placeholder setup */
   FBF16Sms &Sms() { return *SmsSys; }             /* master-arm placeholder setup */
-  const FBGuidance &LastGuidance() const { return LastG; }
-  int LastSubsteps() const { return LastSub; }
+  const FBGuidance &LastGuidance() const override { return LastG; }
+  int LastSubsteps() const override { return LastSub; }
 
   /* Ground ASL (m) under the aircraft, the SAME DEM sample the App already resolved for
    * FBRenderer::SetAgl (fb_stream_ground) — call before Run() each frame; FBRadarAltimeter reuses it
@@ -94,7 +98,9 @@ public:
   void SetRunway(const FBRunway &rwy) override { Rwy_ = rwy; HaveRunway_ = true; }
 
   /* `gear` (up/down — an air start spawns retracted), `fuel_lbs`, `fuel_pct` (0..100) — see
-   * doc/mission-format.md. Any other key returns false (Runner-level mission FAIL). */
+   * doc/mission-format.md. An unknown key OR an unparsable/out-of-range value returns false (Runner-level
+   * mission FAIL): a mission that declares a state this airframe cannot take must not start silently in
+   * some other state. */
   bool ApplySetup(const std::string &key, const std::string &value) override;
 
 private:

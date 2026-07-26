@@ -1,13 +1,10 @@
 #include "FBAutopilot.h"
+#include "FBGeodesy.h"
 #include <cmath>
 
 namespace FlightBox {
 
-static const double MPD = 111320.0;   /* metres per degree latitude (spherical approx) */
-static const double R2D = 57.29577951308232;
-
 static double Clamp(double v, double lo, double hi) { return v < lo ? lo : v > hi ? hi : v; }
-static double Wrap180(double a) { while (a > 180) a -= 360; while (a < -180) a += 360; return a; }
 
 FBAutopilot::FBAutopilot()
   : BankMaxDeg(60), KHdg(0.8), KAlt(0.08), KXt(0.08), CourseInterceptMaxDeg(45.0), ApproachVsCapMs(8.0),
@@ -44,14 +41,11 @@ FBGuidance FBAutopilot::Run(const fb_fdm_state &s) {
      * along/across-track coordinates on the line through (LatDeg,LonDeg) heading CourseDeg (same
      * along=0-at-reference-point, +across=right-of-course convention as FBPilot's runway centerline law
      * and FBMissionMonitor's OnRunway, so all three agree on "on the line"). */
-    double dy = (s.lat - LatDeg) * MPD;
-    double dx = Wrap180(s.lon - LonDeg) * MPD * std::cos(LatDeg * M_PI / 180.0);
-    double crs = CourseDeg * M_PI / 180.0;
-    double along = dx * std::sin(crs) + dy * std::cos(crs);
-    double across = dx * std::cos(crs) - dy * std::sin(crs);
+    double along, across;
+    FBTrackProjectM(LatDeg, LonDeg, CourseDeg, s.lat, s.lon, along, across);
     double distToGoM = -along;   /* + before the reference point (the usual case, final approach) */
     double intercept = Clamp(-KXt * across, -CourseInterceptMaxDeg, CourseInterceptMaxDeg);
-    double hdgErr = Wrap180(CourseDeg + intercept - s.yaw);
+    double hdgErr = FBWrap180(CourseDeg + intercept - s.yaw);
     g.BankCmdDeg = Clamp(KHdg * hdgErr, -BankMaxDeg, BankMaxDeg);
     /* Glidepath: height above the reference point's elevation grows linearly with distance-to-go —
      * a straight 3-deg-class descent, not a fixed altitude. Past the reference point (distToGoM<=0,
@@ -62,7 +56,7 @@ FBGuidance FBAutopilot::Run(const fb_fdm_state &s) {
      * default, i.e. touching down deep into the runway instead of near the threshold): feedforward the
      * target's own descent rate (tan(glidepath) * closure speed) so KAlt's P term only has to correct
      * the DEVIATION from the beam, not track its slope from scratch. */
-    double tanGp = std::tan(GlidepathDeg * M_PI / 180.0);
+    double tanGp = std::tan(GlidepathDeg * kDeg2Rad);
     double targetAlt = RefElevM + tanGp * std::fmax(distToGoM, 0.0);
     g.AltErrM = targetAlt - s.elev;
     double vsFeedforward = -tanGp * s.gs;
@@ -74,10 +68,10 @@ FBGuidance FBAutopilot::Run(const fb_fdm_state &s) {
    * correction would need: Direct also drives FBPilot's post-liftoff climb-out where the error is the
    * WHOLE climb (thousands of m) — uncapped the FLCS's own alpha scheduling still keeps AoA safe, but
    * the resulting near-30 deg pitch-up is a needlessly aggressive climb angle for a controlled climb-out. */
-  double n = (LatDeg - s.lat) * MPD;
-  double e = Wrap180(LonDeg - s.lon) * MPD * std::cos(s.lat * M_PI / 180.0);
-  double brg = std::atan2(e, n) * R2D;
-  double hdgErr = Wrap180(brg - s.yaw);
+  double n, e;
+  FBEnuOffsetM(s.lat, s.lon, LatDeg, LonDeg, e, n);
+  double brg = std::atan2(e, n) * kRad2Deg;
+  double hdgErr = FBWrap180(brg - s.yaw);
   g.BankCmdDeg = Clamp(KHdg * hdgErr, -BankMaxDeg, BankMaxDeg);
   g.AltErrM = AltM - s.elev;
   g.TargetVsMs = Clamp(KAlt * g.AltErrM, -25.0, 25.0);

@@ -254,7 +254,13 @@ private:
    * WebGPU backend (MAX7456 atlas + solid/line/text pipelines); FBRenderer keeps the telemetry pose
    * itself too — sun/moon/cloud drive its OWN lighting math, not just the HUD. */
   std::unique_ptr<FBHudStage> Hud = std::make_unique<FBHudStage>();
-  FBState HudState;
+  /* Value-initialised at the DECLARATION, not only in the one constructor's init list: RenderFrame reads
+   * HudState's weather fields (cloud_low/mid/high/base) whether or not SetHud has ever been called, so
+   * "the constructor happens to cover it" is a guarantee that a second constructor would silently drop.
+   * The zeros are a defined state, not a missing one — FBCloudMarchStage treats cover<=0 / base==0 as
+   * "no weather report" and applies its own default deck (see its Update banner); no open-meteo source
+   * is wired yet, so zero IS the honest value. */
+  FBState HudState{};
   bool HudEnabled, HudHave;
   bool LoadingScreen = false; float LoadPct = 0.0f; int LoadReady = 0, LoadTotal = 0;   /* boot loading screen */
 

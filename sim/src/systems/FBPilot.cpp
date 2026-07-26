@@ -1,12 +1,10 @@
 #include "FBPilot.h"
+#include "FBGeodesy.h"
 #include <cmath>
 
 namespace FlightBox {
 
 namespace {
-const double kDeg2Rad = 3.14159265358979323846 / 180.0;
-const double kMPerDeg = 111320.0;      /* metres per degree latitude (spherical approx, matches FBAutopilot) */
-const double kMsToKt  = 1.9438444924406;
 const double kPreflightHoldS = 2.0;    /* brief preflight pause before the roll (class banner) */
 
 /* Centerline steering law gains (generic — the regulated quantity is cross-track/heading error to the
@@ -37,7 +35,6 @@ const double kGearUpAglFt = 10.0;        /* + a firm AGL margin: JSBSim's FGLGea
                                           * not after a long climb-away). */
 
 double Clamp(double v, double lo, double hi) { return v < lo ? lo : v > hi ? hi : v; }
-double Wrap180(double a) { while (a > 180.0) a -= 360.0; while (a < -180.0) a += 360.0; return a; }
 } // namespace
 
 const char *FBPilot::PhaseName(Phase p) {
@@ -59,19 +56,14 @@ const char *FBPilot::PhaseName(Phase p) {
  * convention FBMissionMonitor::OnRunway and FBAutopilot::SetCourse use (class banner), so Takeoff's
  * ground steering, Rollout's reuse of it, and the mission verdict all agree on "on the line". */
 void FBPilot::RunwayAxis(const FBRunway &rwy, double lat, double lon, double &alongM, double &acrossM) {
-  double hdgRad = rwy.TrueHeadingDeg * kDeg2Rad;
-  double coslat = std::cos(rwy.ThresholdLatDeg * kDeg2Rad);
-  double dy = (lat - rwy.ThresholdLatDeg) * kMPerDeg;
-  double dx = Wrap180(lon - rwy.ThresholdLonDeg) * kMPerDeg * coslat;
-  alongM = dx * std::sin(hdgRad) + dy * std::cos(hdgRad);
-  acrossM = dx * std::cos(hdgRad) - dy * std::sin(hdgRad);
+  FBTrackProjectM(rwy.ThresholdLatDeg, rwy.ThresholdLonDeg, rwy.TrueHeadingDeg, lat, lon, alongM, acrossM);
 }
 
 double FBPilot::NosewheelSteerCmd(const FBRunway &rwy, double lat, double lon, double yawDeg) const {
   double along, across;
   RunwayAxis(rwy, lat, lon, along, across);
   (void)along;
-  double hdgErr = Wrap180(yawDeg - rwy.TrueHeadingDeg);
+  double hdgErr = FBWrap180(yawDeg - rwy.TrueHeadingDeg);
   return Clamp(-(kSteerXtGainPerM * across + kSteerHdgGainPerDeg * hdgErr), -kSteerCmdMax, kSteerCmdMax);
 }
 
@@ -91,8 +83,7 @@ FBPilotCommands FBPilot::Run(const FBState &state, const FBAirframeControls &air
   ActiveWpCache = plan.ActiveIndex();
   DistToWpCache = -1.0;
   if (const FBWaypoint *awp = plan.ActiveWaypoint()) {
-    double dy = (st.lat - awp->LatDeg) * kMPerDeg, dx = (st.lon - awp->LonDeg) * kMPerDeg * std::cos(st.lat * kDeg2Rad);
-    DistToWpCache = std::sqrt(dx * dx + dy * dy);
+    DistToWpCache = FBPlanarDistM(st.lat, st.lon, awp->LatDeg, awp->LonDeg);
   }
 
   switch (CurPhase) {

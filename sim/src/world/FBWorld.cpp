@@ -3,6 +3,7 @@
 #include "FBTerrainLoader.h"
 #include "FBMips.h"         /* fb_pyramid_bytes — the albedo scratch now holds a whole mip pyramid */
 #include "FBLog.h"
+#include "FBUnits.h"
 #include "geo.h"
 #include <algorithm>
 #include <cmath>
@@ -16,7 +17,6 @@ static const int kRootZ = 8;
 static const int kMaxZ = 14;
 static const int kGrace = 180;                 /* passes unasked before eviction (lru.h hysteresis) */
 static const double kEarthCirc = 40075016.686;
-static const double kPi = 3.14159265358979323846;
 /* LOD is PURELY DISTANCE-BASED (2026-07-23, user directive): split when a tile's projected EDGE LENGTH
  * (ground span / distance, FOV-normalised to a 720-px/60deg viewport) exceeds kEdgeTau pixels. Height
  * variance is deliberately NOT in the decision — a flat near tile must refine to the same level a rugged

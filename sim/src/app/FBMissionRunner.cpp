@@ -7,6 +7,7 @@
 #include "FBTelemetrySinks.h"
 #include "FBFdmTelemetrySource.h"
 #include "FBFlightMonitor.h"
+#include "FBUnits.h"
 #include "FBLog.h"
 #include "FBLogSinks.h"
 #include <cerrno>
@@ -45,8 +46,6 @@ bool FBEnsureDir(const std::string &dir) {
 }
 
 namespace {
-constexpr double kMsToKt = 1.9438444924406;
-
 /* FBMissionVerdict + FBFlightMonitor's FBKoReason -> the ONE FBMissionResult this Runner returns —
  * both monitors run independently (see the file banner); this is the one place their two verdicts
  * combine into a single exit code, not a third judgement of its own. */
@@ -65,22 +64,25 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
                  const std::string &aircraftPath, FBElevationProvider &elevation,
                  FBMissionTickHook *hook) {
   std::string csvPath = outDir + "/telemetry.csv", evPath = outDir + "/events.log";
-  FILE *evf = fopen(evPath.c_str(), "w");
+  FBFileHandle evf = FBOpenFile(evPath.c_str(), "w");
   if (!evf) { fprintf(stderr, "mission: cannot open %s for writing\n", evPath.c_str()); return 1; }
 
-  FBFileLogSink fileSink(evf);
+  /* Declaration order IS the cleanup contract (FBLogSinkScope's banner): the scope is declared last, so
+   * it is destroyed first and FBLog's sink pointer is cleared before the sinks and the FILE* behind them
+   * go away — on EVERY return below, not just the successful one. A second mission in the same process
+   * (the planned pilot tournaments) would otherwise log through a dangling, already-closed sink. */
+  FBFileLogSink fileSink(evf.get());
   FBStdoutLogSink stdoutSink;
   FBCompositeLogSink logSink;
   logSink.Add(&fileSink);
   logSink.Add(&stdoutSink);
-  FBLog::SetSink(&logSink);
+  FBLogSinkScope logScope(&logSink);
   FBLog::SetTime(0.0);
 
   /* ---- Step 1: load the mission ---- */
   std::ifstream in(missionPath);
   if (!in) {
     FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "cannot open " + missionPath}});
-    fclose(evf);
     return 1;
   }
   std::stringstream buf;
@@ -89,7 +91,6 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   std::string perr;
   if (!FBParseMissionFile(buf.str(), mission, &perr)) {
     FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "parse: " + perr}});
-    fclose(evf);
     return 1;
   }
   double timeoutS = timeoutOverride > 0.0 ? timeoutOverride : mission.TimeoutS;
@@ -100,7 +101,6 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   double groundAsl = elevation.GroundElevM(sp.LatDeg, sp.LonDeg);
   if (groundAsl <= -1e8) {
     FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "elevation unresolved at spawn"}});
-    fclose(evf);
     return 1;
   }
   /* Consistency validation (declarative-spawn contract, doc/mission-format.md): an explicit altitude
@@ -109,7 +109,6 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   if (!sp.Ground && sp.AltM < groundAsl - 1.0) {
     FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "spawn altitude is below ground"},
         {"altM", sp.AltM}, {"groundM", groundAsl}});
-    fclose(evf);
     return 1;
   }
   FBLog::Info("mission", "SPAWN", {{"name", mission.Name}, {"lat", sp.LatDeg}, {"lon", sp.LonDeg},
@@ -126,7 +125,6 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   std::unique_ptr<FBModule> ModulePtr = FBModuleRegistry::Create(mission.ModuleName);
   if (!ModulePtr) {
     FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "unknown module '" + mission.ModuleName + "'"}});
-    fclose(evf);
     return 1;
   }
   FBModule &Module = *ModulePtr;
@@ -134,24 +132,22 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   fb_fdm_state St{};
   FdmPtr = FBMissionApplySpawn(aircraftPath.c_str(), mission, groundAsl, Module, St);
   if (!FdmPtr) {
-    FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "spawn failed (jsbsim init or an unknown 'set' key)"}});
-    fclose(evf);
+    FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "spawn failed (jsbsim init, a bad model, or a rejected 'set' line)"}});
     return 1;
   }
 
   if (hook) hook->OnMissionStart(mission.Spawn, groundAsl, Module.Displays());
 
-  FILE *csv = fopen(csvPath.c_str(), "w");
+  FBFileHandle csv = FBOpenFile(csvPath.c_str(), "w");
   if (!csv) {
     FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "cannot open telemetry.csv"}});
-    fclose(evf);
     return 1;
   }
 
   FBFdm &Fdm = *FdmPtr;
 
   FBFdmTelemetrySource fdmSrc(Fdm, St, groundAsl);
-  FBCsvTelemetrySink csvSink(csv);
+  FBCsvTelemetrySink csvSink(csv.get());
   FBTelemetryBus bus;
   bus.Register(&fdmSrc);
   bus.Register(&Module.AirDataSystem());
@@ -226,10 +222,6 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   FBLog::Info("mission", "SUMMARY", {{"result", FBMissionResultStr(result)}, {"durationS", simT},
       {"wallS", wallS}, {"speedup", wallS > 0.0 ? simT / wallS : 0.0},
       {"lat", St.lat}, {"lon", St.lon}, {"altM", St.elev}});
-  FBLog::SetSink(nullptr);
-  fclose(evf);
-  fclose(csv);
-
   switch (result) {
     case FBMissionResult::Success: return 0;
     case FBMissionResult::Fail: return 1;

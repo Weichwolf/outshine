@@ -8,6 +8,7 @@
 #include "FBRenderer.h"
 #include "FBWorld.h"
 #include "FBEphemeris.h"
+#include "FBUnits.h"
 #include "FBMissionRunner.h"
 #include "FBTerrainLoader.h"
 #include "FBTilesElevation.h"
@@ -30,8 +31,6 @@
 #include "stb_image_write.h"
 
 using namespace FlightBox;
-
-static const double kPi = 3.14159265358979323846;
 static void GeoToEcef(double latDeg, double lonDeg, double alt, double out[3]) {
   const double a = 6378137.0, e2 = 6.69437999014e-3;
   double lat = latDeg * kPi / 180.0, lon = lonDeg * kPi / 180.0;
@@ -113,7 +112,7 @@ int RunCloudLab(double lat, double lon, time_t utc, double cloudQ, double ground
                 float den0 = 5.0f, float det0 = 1.3f, double pitchOverrideDeg = -999.0,
                 double camBelowM = -5000.0, double bankKm = 12.0, int frames = 24) {   /* default: view the deck from ABOVE (AC7 vantage) */
   const int W = 1280, H = 720;
-  const double kPi2 = 3.14159265358979;
+  const double kPi2 = kPi;   /* was a 15-digit truncation of the same pi (core/FBUnits.h) */
   /* FRONTAL framing: place the camera below the deck base and aim at a bank ~12 km ahead at the deck's
    * mid-height, so the silhouette/underside structure reads face-on instead of grazing the deck edge-on
    * at the horizon. Deck geometry mirrors the shader default (base 1500 AGL, top ~4100 AGL). aglM is

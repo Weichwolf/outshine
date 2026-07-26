@@ -422,7 +422,13 @@ EM_JS(double, fbw_ground_poll, (double lat, double lon), {
       G.busy = true;
       fetch(base + '/elev?lat=' + lat + '&lon=' + lon)
         .then(function (r) { return r.ok ? r.text() : null; })
-        .then(function (t) { if (t !== null) { var v = parseFloat(t); if (isFinite(v)) G.val = v; } G.busy = false; })
+        /* Number(), not parseFloat(): parseFloat stops at the first non-numeric character, so an error
+         * page or a "442 m" body would parse to a plausible-looking elevation. Number("") is 0, hence the
+         * explicit empty-body guard. An invalid body leaves G.val untouched — never cached. */
+        .then(function (t) { if (t !== null) { var s = t.trim();
+                               var v = s.length ? Number(s) : NaN;
+                               if (isFinite(v)) G.val = v; }
+                             G.busy = false; })
         .catch(function () { G.busy = false; });
     }
   }
@@ -672,6 +678,25 @@ int fb_stream_pyramid(int z, uint32_t x, uint32_t y, int mode, int ts, uint8_t *
   return fb_pyramid_bytes(ts);
 }
 
+/* Strict "the whole body is one finite number" parse of an /elev reply. atof() alone returns 0.0 for an
+ * HTML error page, a proxy notice or a truncated body — 0.0 passes the >-1e8 validity test, gets CACHED,
+ * and from then on poisons AGL, radar altitude and the crash check with "sea level" wherever the aircraft
+ * is. Leading/trailing whitespace is fine (the server ends the body with a newline); anything else is
+ * not a measurement. */
+static int fbs_parse_elev(const char *text, double *out) {
+  const char *p = text;
+  while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+  if (!*p) return 0;
+  char *end = 0;
+  double v = strtod(p, &end);
+  if (end == p) return 0;
+  while (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n') end++;
+  if (*end) return 0;
+  if (!(v > -1e30 && v < 1e30)) return 0;   /* NaN/Inf: the comparison is false for NaN by construction */
+  *out = v;
+  return 1;
+}
+
 /* Native /elev: synchronous curl (block=1 waits for a cold origin DEM), cached per ~tile-cell (≈33 m)
  * so a moving aircraft only refetches after appreciable travel — a static camera fetches once. */
 double fb_stream_ground(double lat, double lon) {
@@ -692,7 +717,11 @@ double fb_stream_ground(double lat, double lon) {
     memcpy(tmp, buf, k);
     tmp[k] = 0;
     free(buf);
-    double v = atof(tmp);
+    double v = 0.0;
+    if (!fbs_parse_elev(tmp, &v)) {
+      FlightBox::FBLog::Warn("world", "elev_reply_invalid", {{"lat", lat}, {"lon", lon}, {"body", std::string(tmp)}});
+      return cval;   /* NOT cached: a bad reply must not become this cell's permanent ground truth */
+    }
     /* Clamp REAL samples to sea level: open-ocean bathymetry is negative (ETOPO seabed), but the water
      * surface — the ground reference + JSBSim floor — is 0. Sentinel -1e9 stays untouched. */
     if (v > -1e8) { if (v < 0.0) v = 0.0; clat = lat; clon = lon; cval = v; return v; }

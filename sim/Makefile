@@ -10,7 +10,8 @@
 #   make core-lib build the FlightBox core library (sim+missions+FDM, no render/world) -> build/libfbcore.a
 #   make native   build the native headless WebGPU oracle (Dawn + --mission)  -> build/gpu_native
 #   make gym      build the headless mission client (no GPU/render link)     -> build/fb-gym
-#   make test-monitor  build FBFlightMonitor's gear-force negative-proof harness -> build/fb-test-hard-landing
+#   make test-monitor  build FBFlightMonitors negative-proof harnesses (hard landing, LOC departure,
+#                 numerical divergence) -> build/fb-test-{hard-landing,loc-departure,nan-divergence}
 #   make test-fdm  build the two-instance FDM coexistence proof   -> build/fb-test-two-fdm
 #   make image    build the deployable fb-sim web container (podman)
 #   make up       run the web host container (serves the WASM app on :8080)
@@ -59,6 +60,12 @@ INC_WASM   := $(INC_MODULES) -Isrc/fdm -Isrc/terrain -I$(JSBSIM)/src
 INC_NATIVE := $(INC_MODULES) -Isrc/fdm -Isrc/terrain
 INC_TILES := -I../tiles/src
 
+# EVERY WebGPU render stage, one class per shader (CLAUDE.md render/stages). A wildcard, not a hand list:
+# the wasm and native link lines used to carry two byte-identical copies of it, so adding a stage meant
+# remembering both and a browser-only link error was the failure mode. Now a new file in the directory is
+# a new stage in BOTH targets, by construction.
+RENDER_STAGE_SRCS := $(wildcard src/render/stages/*.cpp)
+
 # The FlightBox core library (Auftrag "Lib/Client-Split"): core/ + fdm/ + systems/ + modules/f16/ +
 # units/ + libJSBSim, EVERYTHING a headless mission run needs and NOTHING render/world-streaming-
 # specific (CLAUDE.md: "render/ und world/-Streaming gehoeren NICHT zur Core-Lib"). ONE exception:
@@ -66,8 +73,13 @@ INC_TILES := -I../tiles/src
 # include, verified), the one render/ file systems/FBDisplaySystem.cpp structurally depends on to build
 # the HUD's vertex buffers; core-lib links it so fb-gym can, without pulling in any Dawn symbol (see the
 # gym target's own nm check). This library is a NATIVE-TOOLCHAIN archive (build/libfbcore.a) shared by
-# native + gym; the WASM client is a different toolchain entirely (emcc/wasm32) and necessarily keeps
-# compiling the SAME source list itself in the wasm target below — cross-compilation, not duplication.
+# native + gym; the WASM client is a different toolchain entirely (emcc/wasm32) and necessarily
+# RE-COMPILES this same list itself in the wasm target below — cross-compilation, not duplication.
+# ONE LIST, LITERALLY: the wasm target loops over THIS variable. It used to keep a hand-written copy that
+# had silently drifted by five translation units (FBModuleRegistry, FBF16ModuleRegistration,
+# FBFdmTelemetrySource, FBRunwayPlateauElevation, FBBakedDemElevation were core-lib-only), i.e. the
+# browser was built from a different simulator than fb-gym. Per-TU FLAGS may differ per toolchain (FBFdm
+# needs -fexceptions + em_compat.h under emcc); the LIST cannot.
 CORE_LIB_SRCS := \
   src/fdm/FBFdm.cpp src/fdm/FBFdmBoot.cpp src/fdm/FBFdmTelemetrySource.cpp \
   src/core/FBLog.cpp src/core/FBTelemetry.cpp src/core/FBMissionFile.cpp \
@@ -98,65 +110,16 @@ wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,w
 	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/terrain -Isrc/core -Ivendor -c -o "$$o"; done; \
 	  emcc src/world/FBTerrainLoader.cpp $(CXXSTD) -O1 $(EMCC_WARN) $(INC_MODULES) -Isrc/terrain $(INC_TILES) \
 	    -c -o build/obj-wasm/FBTerrainLoader.o; \
-	  emcc src/fdm/FBFdm.cpp -std=c++17 -O2 $(EMCC_WARN) -fexceptions \
-	    -include src/fdm/em_compat.h -I$(JSBSIM)/src -Isrc/fdm -Isrc/core -c -o build/obj-wasm/FBFdm.o; \
-	  emcc src/fdm/FBFdmBoot.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm -Isrc/core \
-	    -c -o build/obj-wasm/FBFdmBoot.o; \
-	  emcc src/core/FBLog.cpp -std=c++17 -O2 $(EMCC_WARN) $(INC_MODULES) \
-	    -c -o build/obj-wasm/FBLog.o; \
-	  emcc src/core/FBTelemetry.cpp -std=c++17 -O2 $(EMCC_WARN) $(INC_MODULES) \
-	    -c -o build/obj-wasm/FBTelemetry.o; \
-	  emcc src/systems/FBAutopilot.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) -Isrc/terrain \
-	    -c -o build/obj-wasm/FBAutopilot.o; \
-	  emcc src/systems/FBFlightControl.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
-	    -c -o build/obj-wasm/FBFlightControl.o; \
-	  emcc src/world/FBTerrainField.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) -Isrc/terrain \
-	    -c -o build/obj-wasm/FBTerrainField.o; \
-	  emcc src/modules/f16/FBF16Max7456.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
-	    -c -o build/obj-wasm/FBF16Max7456.o; \
-	  emcc src/modules/f16/FBF16Module.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
-	    -c -o build/obj-wasm/FBF16Module.o; \
-	  emcc src/systems/FBDisplaySystem.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
-	    -c -o build/obj-wasm/FBDisplaySystem.o; \
-	  emcc src/systems/FBAirDataSystem.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
-	    -c -o build/obj-wasm/FBAirDataSystem.o; \
-	  emcc src/systems/FBRadarAltimeter.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
-	    -c -o build/obj-wasm/FBRadarAltimeter.o; \
-	  emcc src/systems/FBNavSystem.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
-	    -c -o build/obj-wasm/FBNavSystem.o; \
-	  emcc src/modules/f16/FBF16FireControl.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
-	    -c -o build/obj-wasm/FBF16FireControl.o; \
-	  emcc src/modules/f16/FBF16Ufc.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
-	    -c -o build/obj-wasm/FBF16Ufc.o; \
-	  emcc src/modules/f16/FBF16Sms.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
-	    -c -o build/obj-wasm/FBF16Sms.o; \
-	  emcc src/modules/f16/displays/FBF16Hud.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
-	    -c -o build/obj-wasm/FBF16Hud.o; \
-	  emcc src/units/FBOwnshipUnit.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
-	    -c -o build/obj-wasm/FBOwnshipUnit.o; \
-	  emcc src/systems/FBAirframeControls.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
-	    -c -o build/obj-wasm/FBAirframeControls.o; \
-	  emcc src/systems/FBPilot.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
-	    -c -o build/obj-wasm/FBPilot.o; \
-	  emcc src/modules/f16/FBF16Pilot.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
-	    -c -o build/obj-wasm/FBF16Pilot.o; \
-	  emcc src/core/FBMissionFile.cpp -std=c++17 -O2 $(EMCC_WARN) $(INC_MODULES) \
-	    -c -o build/obj-wasm/FBMissionFile.o; \
-	  emcc src/core/FBFlightMonitor.cpp -std=c++17 -O2 $(EMCC_WARN) $(INC_MODULES) \
-	    -c -o build/obj-wasm/FBFlightMonitor.o; \
-	  emcc src/core/FBMissionMonitor.cpp -std=c++17 -O2 $(EMCC_WARN) $(INC_MODULES) \
-	    -c -o build/obj-wasm/FBMissionMonitor.o; \
+	  o=build/obj-wasm/FBFdm.o; f=src/fdm/FBFdm.cpp; \
+	  fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -fexceptions \
+	    -include src/fdm/em_compat.h -I$(JSBSIM)/src -Isrc/fdm -Isrc/core -c -o "$$o"; \
+	  for f in $(filter-out src/fdm/FBFdm.cpp,$(CORE_LIB_SRCS)); do \
+	    o=build/obj-wasm/$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/fdm $(INC_MODULES) -Isrc/terrain -c -o "$$o"; \
+	  done; \
 	  emcc build/obj-wasm/*.o $(JSB_WASM)/src/libJSBSim.a \
-	    src/app/FBAppWasm.cpp src/app/FBLogSinks.cpp src/render/FBRenderer.cpp src/render/FBHudGeometry.cpp src/world/FBWorld.cpp \
-	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \
-	    src/render/stages/FBHudStage.cpp src/render/stages/FBUpscaleStage.cpp \
-	    src/render/stages/FBTransmittanceStage.cpp src/render/stages/FBSkyViewStage.cpp \
-	    src/render/stages/FBSkyStage.cpp src/render/stages/FBSunStage.cpp src/render/stages/FBMoonStage.cpp \
-	    src/render/stages/FBTilesStage.cpp \
-	    src/render/stages/FBCloudMipDownStage.cpp src/render/stages/FBCloudBaseBakeStage.cpp \
-	    src/render/stages/FBCloudDetailBakeStage.cpp src/render/stages/FBCloudCellBakeStage.cpp \
-	    src/render/stages/FBCloudMarchStage.cpp src/render/stages/FBCloudResolveStage.cpp \
-	    src/render/stages/FBTonemapStage.cpp \
+	    src/app/FBAppWasm.cpp src/app/FBLogSinks.cpp src/render/FBRenderer.cpp src/world/FBWorld.cpp \
+	    $(RENDER_STAGE_SRCS) \
 	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O1 $(EMCC_WARN) -fexceptions \
 	    $(INC_WASM) \
 	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=256MB -sSTACK_SIZE=4MB -sEXIT_RUNTIME=0 \
@@ -213,19 +176,9 @@ native: core-lib ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/terrain -Isrc/core -isystem vendor -c -o "$$o"; done; \
 	  c++ src/world/FBTerrainLoader.cpp $(CXXSTD) -O2 $(CXX_WARN) $(INC_NATIVE) $(INC_TILES) \
 	    -isystem $(CURL_COMPAT) -c -o build/obj-native/FBTerrainLoader.o; \
-	  c++ src/world/FBTerrainField.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
-	    -c -o build/obj-native/FBTerrainField.o; \
 	  c++ src/app/FBAppNative.cpp src/app/FBMissionRunner.cpp src/app/FBLogSinks.cpp src/app/FBTelemetrySinks.cpp \
 	    src/render/FBRenderer.cpp src/world/FBWorld.cpp \
-	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \
-	    src/render/stages/FBHudStage.cpp src/render/stages/FBUpscaleStage.cpp \
-	    src/render/stages/FBTransmittanceStage.cpp src/render/stages/FBSkyViewStage.cpp \
-	    src/render/stages/FBSkyStage.cpp src/render/stages/FBSunStage.cpp src/render/stages/FBMoonStage.cpp \
-	    src/render/stages/FBTilesStage.cpp \
-	    src/render/stages/FBCloudMipDownStage.cpp src/render/stages/FBCloudBaseBakeStage.cpp \
-	    src/render/stages/FBCloudDetailBakeStage.cpp src/render/stages/FBCloudCellBakeStage.cpp \
-	    src/render/stages/FBCloudMarchStage.cpp src/render/stages/FBCloudResolveStage.cpp \
-	    src/render/stages/FBTonemapStage.cpp \
+	    $(RENDER_STAGE_SRCS) \
 	    build/obj-native/*.o build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++20 -O2 $(CXX_WARN) \
 	    $(INC_NATIVE) \
@@ -235,6 +188,9 @@ native: core-lib ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	    -o build/gpu_native; \
 	  echo "native -> build/gpu_native"
 
+# The GPU-freeness claim in CLAUDE.md and in FBAppGym.cpp's banner is ENFORCED here, not asserted: the
+# link is followed by an nm scan of the defined external symbols, and any wgpu*/dawn*/webgpu* match
+# deletes the binary and fails the build. Without it, "verifiziert per nm" was a comment.
 gym: core-lib    ## build the headless mission client (Mission in, Telemetrie raus; NO GPU/render link) -> build/fb-gym
 	@cd $(SELF_DIR); set -e; \
 	  $(FB_UPTODATE) \
@@ -250,7 +206,13 @@ gym: core-lib    ## build the headless mission client (Mission in, Telemetrie ra
 	    $(INC_NATIVE) -isystem $(CURL_COMPAT) -isystem $(JSB_HOST)/include/JSBSim \
 	    -L$(CURL_COMPAT)/lib -lcurl -lpthread -ldl -lm \
 	    -o build/fb-gym; \
-	  echo "gym -> build/fb-gym"
+	  gpusyms=$$(nm -gU build/fb-gym 2>/dev/null | grep -Eic '(^|[^a-z])(wgpu|dawn)[A-Za-z_]|webgpu' || true); \
+	  if [ "$$gpusyms" != "0" ]; then \
+	    nm -gU build/fb-gym | grep -Ei '(^|[^a-z])(wgpu|dawn)[A-Za-z_]|webgpu' | head -20; \
+	    rm -f build/fb-gym; \
+	    echo "gym: FAILED — $$gpusyms Dawn/WebGPU symbol(s) leaked into the headless client" >&2; exit 1; \
+	  fi; \
+	  echo "gym -> build/fb-gym (GPU-free: 0 Dawn/WebGPU symbols)"
 
 test-monitor: core-lib   ## build FBFlightMonitor's negative-proof harnesses -> build/fb-test-hard-landing, build/fb-test-loc-departure
 	@cd $(SELF_DIR); set -e; \
@@ -266,7 +228,13 @@ test-monitor: core-lib   ## build FBFlightMonitor's negative-proof harnesses -> 
 	    $(INC_NATIVE) -isystem $(JSB_HOST)/include/JSBSim \
 	    -lpthread -ldl -lm \
 	    -o build/fb-test-loc-departure; \
-	  echo "test-monitor -> build/fb-test-hard-landing build/fb-test-loc-departure"
+	  c++ src/app/FBTestNanDivergence.cpp src/app/FBLogSinks.cpp \
+	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
+	    -std=c++17 -O2 $(CXX_WARN) \
+	    $(INC_NATIVE) -isystem $(JSB_HOST)/include/JSBSim \
+	    -lpthread -ldl -lm \
+	    -o build/fb-test-nan-divergence; \
+	  echo "test-monitor -> build/fb-test-hard-landing build/fb-test-loc-departure build/fb-test-nan-divergence"
 
 test-fdm: core-lib       ## build the two-instance FDM coexistence proof (multi-unit stage 1) -> build/fb-test-two-fdm
 	@cd $(SELF_DIR); set -e; \
