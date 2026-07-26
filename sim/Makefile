@@ -151,7 +151,8 @@ wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,w
 	    --embed-file $(JSBSIM)/engine/direct.xml@/jsbsim/engine/direct.xml \
 	    --embed-file web/moon.jpg@/moon.jpg \
 	    -o web/gpu.js; \
-	  echo "WASM -> web/gpu.js + web/fbtileworker.js (served at /)"
+	  mkdir -p web/missions; cp missions/*.fbm web/missions/; \
+	  echo "WASM -> web/gpu.js + web/fbtileworker.js + web/missions/ (served at /)"
 
 worker:          ## build the off-thread tile worker (fetch/decode/mesh/mips) -> web/fbtileworker.js
 	@cd $(SELF_DIR); source "$(EMSDK_DIR)/emsdk_env.sh" >/dev/null 2>&1; set -e; \

@@ -42,8 +42,9 @@ static const char *ModeLabel(FBMode m) {
 static const double kRadiusM = 8000.0;   /* ?ap=manual spawn offset */
 static const double kAglM = 1500.0;      /* ?ap=manual spawn height above ground */
 static const double kSpeedMs = 220.0;    /* ?ap=manual spawn speed */
-static const char *kDefaultMissionUrl = "/missions/payerne-takeoff-only.fbm";   /* served from sim/web/
-    missions/ by fb-sim's own web/ mount (up.sh) — editable without a WASM rebuild */
+static const char *kDefaultMissionUrl = "/missions/payerne-full.fbm";   /* the full autonomous sortie:
+    ground start, waypoint loop, landing to a full stop. web/missions/ is a build-time copy of
+    sim/missions/ (make wasm) served by fb-sim's web/ mount — editable without a WASM rebuild */
 
 static FBRenderer R;
 static FBWorld W;
