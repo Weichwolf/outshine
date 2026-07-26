@@ -1,0 +1,53 @@
+name bfm-basic-1
+timeout 300                                  # sim-seconds until TIMEOUT
+
+# BFM, THE TRAIL SETUP: two friendly F-16s fly a practice engagement. VIPER, the pursuer, works its way
+# into the control position behind BANDIT — on radar contacts ALONE. The datalink is off in BOTH jets
+# (`set datalink off`), which is what makes this a sensor-limited fight rather than a cheat: without the
+# net, the only thing viper's pilot ever learns about bandit is what its own APG-68 echoes back
+# (systems/FBBfmTrack builds the target's motion out of those echoes and nothing else).
+#
+# THE DEFENDER FLIES A DEFINED, REPRODUCIBLE MANOEUVRE, not a second BFM brain: a SUSTAINED MAX-RATE
+# LEVEL LEFT TURN, declared as a single waypoint at 46.700/6.900 — the CENTRE of the turn, a point
+# FBAutopilot's Direct guidance cannot reach. Chasing a point inside its own turn circle, the defender
+# settles into a perfectly steady orbit around it, and that orbit IS the manoeuvre: measured, bandit
+# holds 58.9 deg of bank, 248 KCAS and 4,000 m for the whole run, 4.7 deg/s, ~1,880 m radius, from
+# t=20 s to the end of the mission. Deliberate, for three reasons:
+#   - it is the textbook BFM setup (a defender in a steady break turn), so the pursuer's angle problem is
+#     the classic one and its solution is interpretable rather than an artefact of a duel;
+#   - it is CONSTANT and at the guidance's own bank limit, so bandit turns as hard as it can, at the same
+#     rate, for the whole run — every degree of angle viper gains is viper's, not a gift from a defender
+#     that eased off;
+#   - it is one line of mission data with no tuning in it.
+# The evolutionary round will replace it with a second BFM pilot; this round needs a fixed target to
+# measure a pilot against.
+#
+# THE RUN THEREFORE ENDS AT ITS TIMEOUT, exit 3, BY DESIGN. A fight has no waypoint to arrive at: the
+# defender is judged on a waypoint it is never meant to reach and the pursuer declares no objectives at
+# all, so core/FBMissionMonitor has nothing to call SUCCESS and says TIMEOUT — correctly. The verdict of
+# the fight is read from the telemetry instead: bfm_aspect / bfm_rng / bfm_es over time, and the three
+# integrals bfm_engaged / bfm_lock_s / bfm_ctrl_s at the last row (systems/FBBfmTrack).
+#
+# GEOMETRY AT T=0: viper sits 2 nm dead astern of bandit, co-altitude, nose on, at its measured corner
+# speed (380 KCAS, `make test-corner`). That is the FAVOURABLE start — bfm-offset.fbm is the same fight
+# from a beam position with a 90 deg angle disadvantage.
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.67485 6.85148 4000 90.0 380       # 2 nm in trail, co-altitude, corner speed
+  set gear up
+  set fuel_pct 60
+  set datalink off                           # no net: the fight is flown on the radar alone
+  set fcr_mode acm_hud                       # the 30x20 auto-locking ACM box
+  set task bfm                               # FBPilot's fight phase instead of a waypoint route
+
+unit bandit
+  module f16
+  team friendly
+  spawn 46.67485 6.90000 4000 90.0 300       # on the circle's south point, heading east
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode off                           # the defender is a target, it does not look
+  wp 46.70000 6.90000 4000 300               # the CENTRE of its turn — see the header

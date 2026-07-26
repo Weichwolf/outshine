@@ -152,12 +152,14 @@ protected:
    * knows nothing about the mode that found it. */
   virtual int ModeOrdinal() const { return 0; }
 
-  /* Slant range + true bearing + BODY-referenced azimuth/elevation from `own` to a geodetic point. Body-
-   * referenced means the full roll/pitch/yaw rotation is applied, so the angles are what the antenna
-   * sees, not what a map would show. Protected + static: an override that wants its own geometry (a
-   * gimbal limit, a HUD-window test) computes it the one way this file does. */
+  /* Slant range + the WORLD-referenced pair (true bearing, elevation angle above the local horizontal)
+   * + the BODY-referenced azimuth/elevation from `own` to a geodetic point. Body-referenced means the
+   * full roll/pitch/yaw rotation is applied, so those angles are what the antenna sees, not what a map
+   * would show. Protected + static: an override that wants its own geometry (a gimbal limit, a HUD-window
+   * test) computes it the one way this file does. */
   static void RelativeLos(const fb_fdm_state &own, double tgtLatDeg, double tgtLonDeg, double tgtAltM,
-                          double &rangeM, double &bearingDeg, double &azDeg, double &elDeg);
+                          double &rangeM, double &bearingDeg, double &elevAngleDeg, double &azDeg,
+                          double &elDeg);
 
 private:
   /* One internal track file. UnitId is the look-to-look correlation key and NEVER leaves this object
@@ -165,7 +167,7 @@ private:
   struct Track {
     int    UnitId = 0;
     int    TrackNum = 0;
-    double RangeM = 0.0, BearingDeg = 0.0, AzDeg = 0.0, ElDeg = 0.0;
+    double RangeM = 0.0, BearingDeg = 0.0, ElevAngleDeg = 0.0, AzDeg = 0.0, ElDeg = 0.0;
     double ClosureMs = 0.0;
     double LastLookS = 0.0;     /* sim time of the last real detection */
     double PrevRangeM = 0.0, PrevLookS = 0.0;   /* the pair the range rate is differenced from */

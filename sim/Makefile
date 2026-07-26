@@ -13,6 +13,8 @@
 #   make test-monitor  build FBFlightMonitors negative-proof harnesses (hard landing, LOC departure,
 #                 numerical divergence) -> build/fb-test-{hard-landing,loc-departure,nan-divergence}
 #   make test-fdm  build the two-instance FDM coexistence proof   -> build/fb-test-two-fdm
+#   make test-corner  measure the vanilla model's corner speed (BFM energy reference)
+#                 -> build/fb-test-corner-speed
 #   make image    build the deployable fb-sim web container (podman)
 #   make up       run the web host container (serves the WASM app on :8080)
 #   make clean    remove build artifacts
@@ -88,7 +90,7 @@ CORE_LIB_SRCS := \
   src/systems/FBAutopilot.cpp src/systems/FBFlightControl.cpp src/systems/FBDisplaySystem.cpp \
   src/systems/FBAirDataSystem.cpp src/systems/FBRadarAltimeter.cpp src/systems/FBNavSystem.cpp \
   src/systems/FBAirframeControls.cpp src/systems/FBPilot.cpp src/systems/FBDatalinkSystem.cpp \
-  src/systems/FBRadarSystem.cpp \
+  src/systems/FBRadarSystem.cpp src/systems/FBBfmTrack.cpp \
   src/modules/FBModuleRegistry.cpp \
   src/modules/f16/FBF16Fcr.cpp \
   src/modules/f16/FBF16Max7456.cpp src/modules/f16/FBF16Module.cpp src/modules/f16/FBF16FireControl.cpp \
@@ -98,7 +100,7 @@ CORE_LIB_SRCS := \
   src/units/FBSimUnit.cpp \
   src/render/FBHudGeometry.cpp
 
-.PHONY: help wasm worker core-lib native gym test-monitor test-fdm image up down restart clean
+.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner image up down restart clean
 
 help:            ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
@@ -247,6 +249,16 @@ test-fdm: core-lib       ## build the two-instance FDM coexistence proof (multi-
 	    -lpthread -ldl -lm \
 	    -o build/fb-test-two-fdm; \
 	  echo "test-fdm -> build/fb-test-two-fdm"
+
+test-corner: core-lib    ## measure the vanilla model's corner speed (BFM energy reference) -> build/fb-test-corner-speed
+	@cd $(SELF_DIR); set -e; \
+	  c++ src/app/FBTestCornerSpeed.cpp src/app/FBLogSinks.cpp \
+	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
+	    -std=c++17 -O2 $(CXX_WARN) \
+	    $(INC_NATIVE) -isystem $(JSB_HOST)/include/JSBSim \
+	    -lpthread -ldl -lm \
+	    -o build/fb-test-corner-speed; \
+	  echo "test-corner -> build/fb-test-corner-speed"
 
 image:           ## build the deployable fb-sim web container (context = sim/, trimmed by .containerignore)
 	cd $(SELF_DIR) && podman build -f Dockerfile -t fb-sim .

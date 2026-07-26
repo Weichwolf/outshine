@@ -77,7 +77,7 @@ unit two
 | Akteur  | `module`  | Rest der Zeile | Modulname, per `FBModuleRegistry` aufgelöst (heute nur `f16` registriert) — bestimmt sowohl das `FBModule` als auch den JSBSim-Aircraft-Ordnernamen (`vendor/jsbsim/aircraft/<module>`). Pflicht je Block. |
 | Akteur  | `team`    | `friendly`\|`hostile`\|`neutral` | Fraktion (`FBUnitTeam`, `core/FBTeam.h`) — landet in der `FBWorld`-Unit-Registry, die Sensoren/Waffen künftig lesen. Optional, Default `friendly`. |
 | Akteur  | `spawn`   | `<lat lon \| threshold>` `<altM \| ground>` `hdgDeg` `speedKt` | Pflicht, genau einmal je Block: die deklarative IC dieser Einheit — Position, Höhe-ODER-Boden, Kurs, Speed. `threshold` übernimmt lat/lon der missionsweiten `runway`-Zeile (reine Schreib-Convenience, keine zweite Positions-Syntax). `ground` löst die Höhe aus Gelände + Fahrwerksgeometrie auf; ein numerischer Wert ist eine LITERALE ASL-Höhe (ein Luftstart). Beide Fälle durchlaufen dieselbe eine JSBSim-IC-Anwendung. |
-| Akteur  | `set`     | `key value...` | Systemzustand als Missionsdaten — der Runner parst nur die KV-Liste und reicht sie im Spawn-IC-Fenster an `FBModule::ApplySetup(key, value)` DIESER Einheit; das MODUL interpretiert seine eigenen Schlüssel. Ein unbekannter Schlüssel ist ein Laufzeit-FAIL (Exit 1, `SET_REJECTED`-Event), kein Parse-Fehler. F-16 kennt heute: `gear` (`up`/`down`), `fuel_lbs` (absolute Tankmenge, lb), `fuel_pct` (0..100, Anteil der modelleigenen Gesamtkapazität), die vier Schalter des MIDS-Terminals — `datalink` (`on`/`off`, Geräte-Strom), `datalink_xmt` (`on`/`off`, XMT/EMCON), `datalink_filter` (`fr`/`fl`/`off`, HSD-Kontaktfilter), `datalink_range_nm` (Terminal-Reichweite, nm) — sowie FCR/IFF: `fcr_mode` (`off`/`crm`/`acm_hud`/`acm_bore`/`acm_vert`/`acm_slew`), `fcr_range_nm` (überschreibt die Reichweite JEDES Modus), `fcr_slew_az`/`fcr_slew_el` (Cursor der Slewable-Box, Grad), `iff_xpdr` (`on`/`off`, eigener Transponder), `iff_interrogator` (`on`/`off`, eigener Abfrager). |
+| Akteur  | `set`     | `key value...` | Systemzustand als Missionsdaten — der Runner parst nur die KV-Liste und reicht sie im Spawn-IC-Fenster an `FBModule::ApplySetup(key, value)` DIESER Einheit; das MODUL interpretiert seine eigenen Schlüssel. Ein unbekannter Schlüssel ist ein Laufzeit-FAIL (Exit 1, `SET_REJECTED`-Event), kein Parse-Fehler. F-16 kennt heute: `gear` (`up`/`down`), `fuel_lbs` (absolute Tankmenge, lb), `fuel_pct` (0..100, Anteil der modelleigenen Gesamtkapazität), die vier Schalter des MIDS-Terminals — `datalink` (`on`/`off`, Geräte-Strom), `datalink_xmt` (`on`/`off`, XMT/EMCON), `datalink_filter` (`fr`/`fl`/`off`, HSD-Kontaktfilter), `datalink_range_nm` (Terminal-Reichweite, nm) — sowie FCR/IFF: `fcr_mode` (`off`/`crm`/`acm_hud`/`acm_bore`/`acm_vert`/`acm_slew`), `fcr_range_nm` (überschreibt die Reichweite JEDES Modus), `fcr_slew_az`/`fcr_slew_el` (Cursor der Slewable-Box, Grad), `iff_xpdr` (`on`/`off`, eigener Transponder), `iff_interrogator` (`on`/`off`, eigener Abfrager); dazu `task` (`route`/`bfm`) — die FBPilot-Phase, in der diese Einheit startet (Default = das, was der Spawn vorgibt: `route` in der Luft, `preflight` am Boden). |
 | Akteur  | `wp`      | lat lon altM speedKt | `FBWaypoint` vom Typ `Enroute`, im Flugplan DIESER Einheit |
 | Akteur  | `land`    | — | `FBWaypoint` vom Typ `Land` AN der Runway-Schwelle (braucht die missionsweite `runway`-Zeile) |
 
@@ -219,8 +219,12 @@ das Radar bekommt ein Echo — die Regeln, die eine Mission kennen muss:
 - **ACM lockt selbst.** Jeder ACM-Sub-Modus lockt den NÄCHSTEN festen Track ohne Bedienung — das ist der
   Zweck der Modi. Der Lock ist STT: die Antenne verlässt die kleine Box, folgt dem Ziel bis an die
   Gimbal-Grenze (±60°) und sieht dabei NUR noch dieses eine Ziel (alle anderen Trackfiles laufen aus).
-- **Ein Kontakt ist ANONYM.** `FBRadarContact` (core/) trägt Range/Bearing/Az/El/Closure/Track-Nummer —
-  keine Id, kein Callsign, kein Team. Das ist die Fidelity-Grenze und zugleich der Anti-Cheat-Punkt.
+- **Ein Kontakt ist ANONYM.** `FBRadarContact` (core/) trägt Range/Bearing/Elevationswinkel/Az/El/
+  Closure/Track-Nummer — keine Id, kein Callsign, kein Team. Das ist die Fidelity-Grenze und zugleich der
+  Anti-Cheat-Punkt. (Bearing + Elevationswinkel sind WELT-bezogen und stehen neben dem körperfesten
+  Az/El-Paar: das Radar kennt seine eigene Lage im Moment des Looks, sein Konsument nicht — ohne das
+  müsste jeder Verbraucher einen look-alten Körpervektor durch eine jetzt-aktuelle Fluglage zurückdrehen
+  und würde die eigene Rollbewegung in die Zielgeometrie schmieren.)
 - **IFF ist die EINZIGE Identitätsquelle** (Mode 4, `doc/f16/datalink-iff.md`): gültiger Reply =
   `friendly`; KEIN Reply = **unbekannt**, niemals „hostile". Ein Reply ist nur gültig, wenn der
   Transponder des Ziels an ist UND das Ziel derselben Fraktion angehört (Krypto). Ein Feind mit
@@ -241,6 +245,38 @@ annähernd), `fcr_lock_age` (s seit dem letzten Look — > 0 heißt Coast), `fcr
 **Keine HUD-Symbologie:** `doc/f16/hud-symbology.md` dokumentiert weder eine Target-Designator-Box noch
 ein Locked-Target-Symbol (der radarnahe Eintrag, HMC, ist ein Markpoint-Cursor). Der Lock bleibt deshalb
 in FBState/Telemetrie/Events, bis die Symbologie-Referenz ihn abdeckt — erfunden wird nichts.
+
+## Kampf-Missionen (`set task bfm`)
+
+Eine Einheit mit `set task bfm` fliegt keine Wegpunkte, sondern **BFM** (`systems/FBPilot`s Bfm-Phase):
+sie regelt gegen den **gelockten Radarkontakt** und gegen nichts sonst. Alles, was sie über den Gegner
+weiß, baut `systems/FBBfmTrack` aus aufeinanderfolgenden Kontakten (Position + geschätzter
+Geschwindigkeitsvektor); Registry, Weltwahrheit und Datalink-Tracks sind für den Piloten unerreichbar.
+Deshalb gehört in eine BFM-Mission zwingend `set datalink off` (sonst wäre die Sensor-Beschränkung nur
+behauptet) und ein Auto-Lock-Modus (`set fcr_mode acm_hud` o.ä. — CRM lockt nicht von selbst).
+
+Beispiele: `sim/missions/bfm-basic.fbm` (Verfolger 2 nm hinten), `bfm-offset.fbm` (Verfolger seitlich
+versetzt, Aspekt ~90° = Winkelnachteil), `bfm-merge.fbm` (Head-on-Merge, Aspekt 180°), `bfm-blind.fbm`
+(versetzter Merge — der Vorbeiflug REISST DEN LOCK ab und zeigt Extrapolation + Suche + Wiedererfassung).
+
+**Ein Kampf hat kein Wegpunkt-Ziel — solche Missionen enden per TIMEOUT (Exit 3), und zwar
+absichtlich.** Der Verfolger deklariert keine Objectives (kein `wp`), der Gegner fliegt sein definiertes
+Manöver (in den vier Missionen: ein einziger Wegpunkt im ZENTRUM seiner Kurve, den die Direct-Guidance
+nicht erreichen kann → stabiler Dauerkurvenflug am Bank-Limit). `core/FBMissionMonitor` hat damit nichts
+zu urteilen und sagt korrekt TIMEOUT; das Urteil über den Kampf liest die Auswertung aus der Telemetrie
+(`bfm_*`-Spalten unten).
+
+Zusätzliche Telemetrie-Spalten (Quelle `systems/FBBfmTrack`, ganz hinten angehängt — bestehende Spalten
+verschieben sich nie): `bfm_pursuit` (`none`/`search`/`lead`/`pure`/`lag`), `bfm_valid` (Schätzung jung
+genug zum Verfolgen), `bfm_locked` (Radar hält ihn JETZT), `bfm_age` (s seit dem letzten echten Look),
+`bfm_rng` (nm), `bfm_ata` (Grad off nose, + = rechts), `bfm_aspect` (Grad AM ZIEL: 0 = genau in seinem
+Rücken, 180 = frontal), `bfm_hca` (Kursdifferenz), `bfm_clos` (kt, + = annähernd), `bfm_es` (eigene
+Energiehöhe = Höhe + v²/2g, ft — die einzige Energiezahl, die aus EIGENEN Instrumenten kommt),
+`bfm_gcmd` (kommandiertes g), `bfm_ctrl` (Kontrollposition JETZT), sowie die drei Integrale
+`bfm_engaged` / `bfm_lock_s` / `bfm_ctrl_s` (s) — Lock-Haltequote und Zeit in der Kontrollposition sind
+damit aus der LETZTEN Zeile ablesbar. Jede dieser Größen ist aus der Perspektive der Einheit selbst
+berechenbar; alles, was die Weltwahrheit braucht (z.B. der WAHRE Aspektwinkel), gehört in die
+Auswertung, nicht in den Piloten.
 
 ## Ausgabe je Lauf (`--out DIR`)
 

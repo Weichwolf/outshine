@@ -125,7 +125,8 @@ public:
    * four switches — `datalink` (on/off: power), `datalink_xmt` (on/off: XMT/EMCON), `datalink_filter`
    * (fr/fl/off: the HSD contact filter), `datalink_range_nm` — and the FCR/IFF set: `fcr_mode`
    * (off/crm/acm_hud/acm_bore/acm_vert/acm_slew), `fcr_range_nm`, `fcr_slew_az`/`fcr_slew_el` (the
-   * slewable box's cursor), `iff_xpdr` and `iff_interrogator` (on/off) — see
+   * slewable box's cursor), `iff_xpdr` and `iff_interrogator` (on/off) — plus `task` (route/bfm: which FBPilot phase this
+   * jet starts in) — see
    * doc/mission-format.md. An unknown key OR an unparsable/out-of-range value returns false (Runner-level
    * mission FAIL): a mission that declares a state this airframe cannot take must not start silently in
    * some other state. */

@@ -65,6 +65,7 @@ modul-überschreibbar:
 |---|---|
 | `manual` (`?ap=manual`) | direkter Stick (Gamepad/Tastatur) durch den FBW |
 | `pilot` (Boot-Default) | FBF16Pilot (`systems/FBPilot`, F-16-Override `modules/f16/FBF16Pilot`) fliegt eine `.fbm`-Mission als Phasenmaschine, deren START-Phase die deklarative `spawn`-Zeile bestimmt (Boden: Preflight → Takeoff → Climb → Route → …; Luftstart: direkt Route — kein Taxi/Rotate zu simulieren), kommandiert je Phase `FBAutopilot::Direct` (Punkt-zu-Punkt Kurs/Höhe/Speed) — `doc/mission-format.md` |
+| `bfm` (`set task bfm`) | dieselbe Phasenmaschine in ihrer Kampf-Phase: KEIN Autopilot-Modus, sondern ein eigenes Regelgesetz auf Manual-Stick, das gegen den GELOCKTEN Radarkontakt fliegt (systems/FBBfmTrack) — Lead/Pure/Lag aus Aspekt, Peilung und Annäherungsrate, Energie gegen die gemessene Corner-Speed, und bei Kontaktverlust Extrapolation + Suchmuster. Missionen: `sim/missions/bfm-*.fbm` |
 
 `FBAutopilot::Direct` ist das interne Guidance-Primitiv, das der Pilot je Phase kommandiert — keine
 eigene Flugmodus-Wahl, nur die Ausführung dessen, was der Pilot verlangt. Die Pilot-Phasen + ihr
@@ -390,7 +391,26 @@ sim/src/
                unangetastet lassen") plus optionale (`std::optional`) Airframe-Kommandos an
                FBAirframeControls. Die Phasen-Zustandsmaschine (Idle/Preflight/Takeoff/Climb/Route/
                Approach/Flare/Rollout/Shutdown, doc/f16/procedures-*.md) ist das Prozedur-Gerüst; Run()
-               ist der Override-Punkt (analog FBAutopilot::Run). FBAirframeControls (`.h/.cpp`): das
+               ist der Override-Punkt (analog FBAutopilot::Run). Die Phase **Bfm** (Missionsdaten:
+               `set task bfm`) ist die einzige mit EIGENEM Regelgesetz statt eines Autopilot-Modus: sie
+               fliegt Manual-Stick (wie Takeoff/Flare/Rollout), rollt den Auftriebsvektor auf einen
+               Zielpunkt und zieht das g, das den Geschwindigkeitsvektor in kBfmTurnTimeS auf ihn dreht
+               (+ dem Gravitationsanteil ENTLANG der Auftriebsachse, cos(roll)cos(pitch) — NICHT
+               1/cos(roll): eine 90°-Schräglage kostet nur ihr eigenes Kurven-g, die Nase fällt, und
+               genau das macht den Energiekampf möglich). Verfolgungsart aus der Geometrie: Lead
+               (Winkel gewinnen), Lag (Overshoot verhindern — Aimpunkt hinter UND über ihm, der High
+               Yo-Yo), Pure dazwischen; Reichweiten-/Energie-Management über einen Closure-FAHRPLAN
+               (gewünschte Annäherungsrate ∝ Restentfernung) plus Speed-Matching auf die GESCHÄTZTE
+               Zielgeschwindigkeit. Alle Zahlen sind virtuelle Hooks (F-16: Corner-Speed 380 KCAS,
+               gemessen via `make -C sim test-corner`).
+               FBBfmTrack (`FBBfmTrack.h/.cpp`): das Bild, gegen das diese Phase regelt — ausschließlich
+               aus `FBState::fcrContacts`/`fcrLockIndex` gebaut (kein FBWorld, keine Registry, kein
+               Datalink-Track im Include-Baum): geschätzte Zielposition + Geschwindigkeitsvektor aus
+               aufeinanderfolgenden Looks, extrapoliert solange ein Lock fehlt, danach nur noch das
+               zuletzt GEMESSENE Datum. Zugleich FBTelemetrySource "bfm" (Aspekt/ATA/Range/Closure/
+               eigene Energiehöhe + die Integrale Lock-Sekunden und Kontrollpositions-Sekunden) — die
+               Fitness-Kanäle der späteren evolutionären Runde, alle aus EIGENER Perspektive
+               berechenbar. FBAirframeControls (`.h/.cpp`): das
                Interface, das der Pilot bedient (Gear/Speedbrake/Radbremsen L+R/Bugradsteuerung/Engine-
                Start-Cutoff + WOW-/Gear-Positions-Getter) — Interface+NoOp-Default in einer Klasse wie
                FBSystemSlots.h, `FBJsbsimAirframeControls` daneben ist die reale, airframe-agnostische
@@ -540,7 +560,8 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
 ## Engineering-Konventionen
 
 - **Build nur über Make-Targets** — jedes Projekt trägt sein eigenes Makefile: `sim/` baut die CC
-  (`make -C sim wasm` | `worker` | `core-lib` | `native` | `gym` | `image` | `up`), `tiles/` den
+  (`make -C sim wasm` | `worker` | `core-lib` | `native` | `gym` | `test-monitor` | `test-fdm` |
+  `test-corner` | `image` | `up`), `tiles/` den
   Tile-Server (`make -C tiles build` | `image` | `run`). Rezepte leben im Makefile, nicht in
   Agenten-Köpfen.
 - **`extern "C"` für jede von JS namentlich gerufene Funktion** (EMSCRIPTEN_KEEPALIVE reicht nicht —

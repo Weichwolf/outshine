@@ -91,7 +91,11 @@ void FBSimUnit::StartTelemetry(FBTelemetrySink *sink) {
   Bus_.Register(&Module_->FlightControl());
   Bus_.Register(&Module_->Controls());
   Bus_.Register(&Module_->Datalink());
-  Bus_.Register(&Module_->Radar());   /* LAST: a new sensor appends columns, it never shifts old ones */
+  Bus_.Register(&Module_->Radar());
+  /* LAST: a new source appends columns, it never shifts old ones. The pilot's BFM picture/scoreboard is
+   * its own source rather than more of the pilot's channels for exactly that reason (systems/FBBfmTrack
+   * — the pilot's own channels sit in the middle of every telemetry.csv ever measured). */
+  Bus_.Register(&Module_->PilotSystem().BfmTrack());
   Bus_.SetSink(sink);
   Bus_.Start();
 }

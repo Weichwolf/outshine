@@ -1,0 +1,44 @@
+name bfm-blind-1
+timeout 300                                  # sim-seconds until TIMEOUT (by design — see bfm-basic.fbm)
+
+# THE SENSOR-LIMITATION CASE. Same defender and same defined manoeuvre as bfm-basic.fbm (a sustained
+# max-rate left turn around one unreachable waypoint), same datalink-off radar-only pursuer. What changes
+# is the entry: viper starts 2 nm ahead of bandit and 300 m off his track, pointing back at him, so the
+# two pass each other CLOSE ABEAM at some 800 kt of combined speed.
+#
+# That pass BREAKS THE RADAR LOCK, and no amount of piloting can prevent it: at a few hundred metres the
+# line of sight swings through 180 deg in about a second, so the target leaves the antenna's +/-60 deg STT
+# gimbal envelope whatever the nose is doing. It is not a defect and not a mission switch turning the
+# radar off — it is what an active sensor on a gimbal does, and it is the reason "keep the radar on him"
+# is a manoeuvre goal in its own right in systems/FBPilot's BFM phase.
+#
+# What this mission is here to show, in events.log + the bfm_* telemetry columns:
+#   1. RADAR_LOST at the pass;
+#   2. the pilot does NOT go blind — systems/FBBfmTrack keeps propagating the last known vector, bfm_valid
+#      stays 1 while bfm_age counts up, and the nose keeps following the prediction;
+#   3. once the prediction is older than the pilot's BfmScanAfterS the scan weaves, and once it is older
+#      than FBBfmTrack::kMaxExtrapolateS the pilot stops believing it and flies back towards the BEARING
+#      and ALTITUDE it last saw him at, scanning (bfm_pursuit = search);
+#   4. RADAR_LOCK again, and the fight resumes into the control position.
+# The blind interval between (1) and (4) is the honest cost of having no eyes, and it is long: this pilot
+# needs the better part of a minute to find a manoeuvring target it lost at the merge.
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.67755 6.94854 4000 270.0 380      # 2 nm ahead of bandit, 300 m off his track, pointing at him
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode acm_hud
+  set task bfm
+
+unit bandit
+  module f16
+  team friendly
+  spawn 46.67485 6.90000 4000 90.0 300
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode off
+  wp 46.70000 6.90000 4000 300               # the CENTRE of its turn — see bfm-basic.fbm's header

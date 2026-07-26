@@ -33,6 +33,11 @@ struct FBRadarContact {
   int   TrackNum = 0;       /* the radar's own track file number, 1.. — never a unit id */
   float RangeM = 0.0f;      /* SLANT range as of the last look (LookAgeS ago) */
   float BearingDeg = 0.0f;  /* true bearing own -> contact, deg 0..360 */
+  float ElevAngleDeg = 0.0f;/* elevation of the contact above the local horizontal, deg (+ = above) —
+                             * the WORLD-referenced partner of BearingDeg, so a consumer can place the
+                             * echo in space without un-rotating a look-old body vector through a
+                             * now-current attitude (see FBRadarSystem::RelativeLos). Still pure
+                             * geometry: it names a direction, never an identity. */
   float AzDeg = 0.0f;       /* azimuth off the NOSE, deg -180..180 (+ = right), body-referenced */
   float ElDeg = 0.0f;       /* elevation off the boresight plane, deg (+ = above), body-referenced */
   float ClosureMs = 0.0f;   /* range rate, m/s, + = closing */

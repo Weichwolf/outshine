@@ -7,30 +7,25 @@
 
 namespace FlightBox {
 
-/* ENU offset -> slant range + true bearing + body-frame az/el. The body rotation is the standard
- * NED->body Euler sequence Rx(roll)*Ry(pitch)*Rz(yaw); writing it out beats building a matrix type for
- * one call site, and it is the only place in the simulator that needs the aircraft's full attitude
- * applied to a line of sight. */
+/* ENU offset -> slant range + true bearing + world-referenced elevation angle + body-frame az/el. The
+ * body rotation is core/FBGeodesy.h's FBEnuToBodyLos (the one definition, shared with the pilot's BFM
+ * steering, which needs its exact inverse).
+ *
+ * The world-referenced pair (bearing, elevation angle) is what a set can publish about WHERE a return
+ * is without its consumer having to un-rotate a look-old body vector through a now-current attitude: the
+ * radar knows its own attitude at the instant of the look, the consumer does not. Body az/el stays the
+ * antenna's own quantity (the scan volume is body-referenced); the world pair is the reported position. */
 void FBRadarSystem::RelativeLos(const fb_fdm_state &own, double tgtLatDeg, double tgtLonDeg,
-                                double tgtAltM, double &rangeM, double &bearingDeg, double &azDeg,
-                                double &elDeg) {
+                                double tgtAltM, double &rangeM, double &bearingDeg, double &elevAngleDeg,
+                                double &azDeg, double &elDeg) {
   double e = 0.0, n = 0.0;
   FBEnuOffsetM(own.lat, own.lon, tgtLatDeg, tgtLonDeg, e, n);
   double u = tgtAltM - own.elev;
   rangeM = std::sqrt(e * e + n * n + u * u);
   bearingDeg = std::atan2(e, n) * kRad2Deg;
   if (bearingDeg < 0.0) bearingDeg += 360.0;
-
-  double N = n, E = e, D = -u;
-  double ph = own.roll * kDeg2Rad, th = own.pitch * kDeg2Rad, ps = own.yaw * kDeg2Rad;
-  double cph = std::cos(ph), sph = std::sin(ph);
-  double cth = std::cos(th), sth = std::sin(th);
-  double cps = std::cos(ps), sps = std::sin(ps);
-  double xb = cth * cps * N + cth * sps * E - sth * D;
-  double yb = (sph * sth * cps - cph * sps) * N + (sph * sth * sps + cph * cps) * E + sph * cth * D;
-  double zb = (cph * sth * cps + sph * sps) * N + (cph * sth * sps - sph * cps) * E + cph * cth * D;
-  azDeg = std::atan2(yb, xb) * kRad2Deg;
-  elDeg = -std::atan2(zb, std::sqrt(xb * xb + yb * yb)) * kRad2Deg;
+  elevAngleDeg = std::atan2(u, std::sqrt(e * e + n * n)) * kRad2Deg;
+  FBEnuToBodyLos(own.roll, own.pitch, own.yaw, e, n, u, azDeg, elDeg);
 }
 
 void FBRadarSystem::SetPowered(bool on) {
@@ -65,8 +60,8 @@ void FBRadarSystem::ScanFrame(const fb_fdm_state &st, const FBUnitRegistry &net,
       if (sttOnly && (slot < 0 || Tracks_[slot].TrackNum != LockedNum_)) continue;
 
       FBUnitPose p = u->GetPose();
-      double rangeM = 0.0, bearingDeg = 0.0, azDeg = 0.0, elDeg = 0.0;
-      RelativeLos(st, p.LatDeg, p.LonDeg, p.ElevM, rangeM, bearingDeg, azDeg, elDeg);
+      double rangeM = 0.0, bearingDeg = 0.0, elevAngleDeg = 0.0, azDeg = 0.0, elDeg = 0.0;
+      RelativeLos(st, p.LatDeg, p.LonDeg, p.ElevM, rangeM, bearingDeg, elevAngleDeg, azDeg, elDeg);
 
       bool inVolume = rangeM <= v.RangeM &&
                       std::fabs(FBWrap180(azDeg - v.AzCenterDeg)) <= v.AzHalfDeg &&
@@ -103,6 +98,7 @@ void FBRadarSystem::ScanFrame(const fb_fdm_state &st, const FBUnitRegistry &net,
 
       t.RangeM = rangeM;
       t.BearingDeg = bearingDeg;
+      t.ElevAngleDeg = elevAngleDeg;
       t.AzDeg = azDeg;
       t.ElDeg = elDeg;
       t.LastLookS = simTimeS;
@@ -227,6 +223,7 @@ void FBRadarSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegi
     c.TrackNum = t.TrackNum;
     c.RangeM = (float)t.RangeM;
     c.BearingDeg = (float)t.BearingDeg;
+    c.ElevAngleDeg = (float)t.ElevAngleDeg;
     c.AzDeg = (float)t.AzDeg;
     c.ElDeg = (float)t.ElDeg;
     c.ClosureMs = (float)t.ClosureMs;

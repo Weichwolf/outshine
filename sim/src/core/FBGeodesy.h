@@ -79,6 +79,41 @@ inline double FBBearingDeg(double refLat, double refLon, double lat, double lon)
   return brg < 0.0 ? brg + 360.0 : brg;
 }
 
+/* Line of sight <-> body frame, the pair the sensors and the pilot share. ENU in, body-referenced
+ * azimuth/elevation out (+az = right of the nose, +el = above the boresight plane) — the standard
+ * NED->body Euler sequence Rx(roll)*Ry(pitch)*Rz(yaw) applied to the offset, i.e. WHAT THE ANTENNA SEES
+ * rather than what a map would show. systems/FBRadarSystem::RelativeLos is the one caller of the forward
+ * direction; systems/FBPilot's BFM steering is the one caller of the inverse, and they must agree
+ * exactly or the pilot would steer at a point the radar reports elsewhere. */
+inline void FBEnuToBodyLos(double rollDeg, double pitchDeg, double yawDeg, double eastM, double northM,
+                           double upM, double &azDeg, double &elDeg) {
+  double N = northM, E = eastM, D = -upM;
+  double ph = rollDeg * kDeg2Rad, th = pitchDeg * kDeg2Rad, ps = yawDeg * kDeg2Rad;
+  double cph = std::cos(ph), sph = std::sin(ph);
+  double cth = std::cos(th), sth = std::sin(th);
+  double cps = std::cos(ps), sps = std::sin(ps);
+  double xb = cth * cps * N + cth * sps * E - sth * D;
+  double yb = (sph * sth * cps - cph * sps) * N + (sph * sth * sps + cph * cps) * E + sph * cth * D;
+  double zb = (cph * sth * cps + sph * sps) * N + (cph * sth * sps - sph * cps) * E + cph * cth * D;
+  azDeg = std::atan2(yb, xb) * kRad2Deg;
+  elDeg = -std::atan2(zb, std::sqrt(xb * xb + yb * yb)) * kRad2Deg;
+}
+
+/* The exact inverse: a body-referenced direction back into local ENU, unit length. */
+inline void FBBodyLosToEnu(double rollDeg, double pitchDeg, double yawDeg, double azDeg, double elDeg,
+                           double &eastM, double &northM, double &upM) {
+  double ph = rollDeg * kDeg2Rad, th = pitchDeg * kDeg2Rad, ps = yawDeg * kDeg2Rad;
+  double cph = std::cos(ph), sph = std::sin(ph);
+  double cth = std::cos(th), sth = std::sin(th);
+  double cps = std::cos(ps), sps = std::sin(ps);
+  double ca = std::cos(azDeg * kDeg2Rad), sa = std::sin(azDeg * kDeg2Rad);
+  double ce = std::cos(elDeg * kDeg2Rad), se = std::sin(elDeg * kDeg2Rad);
+  double xb = ce * ca, yb = ce * sa, zb = -se;
+  northM = cth * cps * xb + (sph * sth * cps - cph * sps) * yb + (cph * sth * cps + sph * sps) * zb;
+  eastM = cth * sps * xb + (sph * sth * sps + cph * cps) * yb + (cph * sth * sps - sph * cps) * zb;
+  upM = -(-sth * xb + sph * cth * yb + cph * cth * zb);
+}
+
 /* Along/across-track projection of (lat,lon) onto the line through (refLat,refLon) on true heading
  * `courseDeg`: +along down the course from the reference, +across to its right. The runway-axis
  * primitive FBMissionMonitor's on-runway gate, FBRunwayPlateauElevation's footprint, FBPilot's

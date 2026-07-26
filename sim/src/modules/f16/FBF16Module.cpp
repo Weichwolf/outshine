@@ -210,6 +210,17 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
     else Fcr_->SetIffInterrogator(value == "on");
     return true;
   }
+  /* The pilot's TASK: which phase of systems/FBPilot's machine this jet starts in. `route` is what a
+   * mission gets without the line (FBMissionBoot's spawn already arms it); `bfm` puts the pilot into the
+   * fight, where it flies its radar picture instead of a waypoint chain. Declared as mission data rather
+   * than inferred from the loadout because two jets with identical setup lines can have opposite jobs —
+   * one manoeuvres against the other, the other flies its brief. */
+  if (key == "task") {
+    if (value == "route") PilotSys->SetPhase(FBPilot::Phase::Route);
+    else if (value == "bfm") PilotSys->SetPhase(FBPilot::Phase::Bfm);
+    else return RejectSetup("want route|bfm", key, value);
+    return true;
+  }
   if (key == "gear") {
     if (value != "up" && value != "down") return RejectSetup("want up|down", key, value);
     AirframeCtrl->SetGear(value == "down");

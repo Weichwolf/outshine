@@ -25,6 +25,15 @@
  * while wheel brakes + the Takeoff phase's own centerline nosewheel-steering law bring it to a stop; the
  * mission's FBMissionMonitor, not this class, judges "stopped on the runway" as SUCCESS).
  *
+ * Phase BFM (the fight): the one phase with no waypoint and no autopilot mode behind it. It regulates
+ * against the LOCKED RADAR CONTACT — systems/FBBfmTrack turns successive contacts into an estimated
+ * target position/velocity, and everything the fight needs (aspect, angle off the nose, closure, and the
+ * extrapolation that survives a lost lock) comes out of that estimate. The pursuit curve follows the
+ * geometry: lead to take angles away, lag to kill an overshoot and keep energy, pure in between; the
+ * lift vector is rolled onto the resulting aim point and the pull is bounded by the g the current speed
+ * can actually buy (BfmCornerSpeedKt & co. below). See Run()'s BFM section for the full derivation. It
+ * is entered by mission declaration, not by sequencing, and it never leaves by itself.
+ *
  * The airframe-specific NUMBERS (rotation speed by weight, rotation pitch, gear-up limit, climb speed,
  * takeoff throttle, approach speed/glidepath, flare/rollout pitch targets and speeds) are the class's
  * virtual hooks below, not hardcoded here — FBF16Pilot supplies the F-16's; the defaults here are a
@@ -39,6 +48,7 @@
 
 #include <optional>
 #include "FBAirframeControls.h"
+#include "FBBfmTrack.h"
 #include "FBFlightPlan.h"
 #include "FBRunway.h"
 #include "FBState.h"
@@ -73,7 +83,10 @@ struct FBPilotCommands {
 
 class FBPilot : public FBTelemetrySource {
 public:
-  enum class Phase { Idle, Preflight, Takeoff, Climb, Route, Approach, Flare, Rollout, Shutdown };
+  /* Bfm is a TERMINAL phase in the sense the others are not: it is entered by mission declaration
+   * (`set task bfm`, the module's own key) and left only by the run ending — a fight has no waypoint to
+   * sequence to. It appends after Shutdown so no existing phase's telemetry string moves. */
+  enum class Phase { Idle, Preflight, Takeoff, Climb, Route, Approach, Flare, Rollout, Shutdown, Bfm };
   static const char *PhaseName(Phase p);
 
   FBPilot() = default;
@@ -108,6 +121,12 @@ public:
   void DeclareTelemetry(FBTelemetrySchema &schema) const override;
   void SampleTelemetry(FBTelemetryRow &row) const override;
 
+  /* The BFM picture + its scoreboard (systems/FBBfmTrack). Exposed because it is a SECOND telemetry
+   * source the client registers on the bus — deliberately not folded into this class's own channels,
+   * which sit in the middle of every existing telemetry.csv and must not move. */
+  FBBfmTrack &BfmTrack() { return Bfm_; }
+  const FBBfmTrack &BfmTrack() const { return Bfm_; }
+
 protected:
   /* The airframe's own numbers (class banner) — generic placeholders here, FBF16Pilot overrides every
    * one of them from doc/f16/procedures-takeoff-taxi.md. Not the Run() override point: these are config
@@ -133,7 +152,50 @@ protected:
   virtual double AerobrakeSpeedKt() const { return 100.0; }     /* nose-down below this */
   virtual double RolloutBrakeNorm() const { return 0.8; }       /* wheel-brake command once derotated */
 
+  /* ---- BFM (the Bfm phase, see Run()'s BFM section) — the airframe's fight numbers ----
+   * Generic placeholders again, and again NOT the override point: FBF16Pilot supplies the F-16's, every
+   * one of them either measured against the vanilla model (`make test-corner`) or read off doc/f16/.
+   * ENERGY. CornerSpeedKt is the speed the pilot manages TOWARD: the slowest speed that still buys the
+   * airframe's best turn rate. CornerG is the load factor the airframe actually reaches there, and the
+   * available-g estimate is CornerG scaled by (V/Vcorner)^2 (lift grows with dynamic pressure) capped at
+   * MaxG — so the pull demanded is one the jet can produce, and the g loop never winds up asking for a
+   * turn that is not on offer. Below MinSpeedKt the pilot is out of energy: the pull is cut to UnloadG
+   * and the lift vector is biased below the target (trade height for speed), which is the one thing that
+   * gets a slow fighter back into the fight. */
+  virtual double BfmCornerSpeedKt() const { return 300.0; }
+  virtual double BfmCornerG() const { return 4.0; }
+  virtual double BfmMaxG() const { return 6.0; }
+  virtual double BfmMinSpeedKt() const { return 220.0; }
+  virtual double BfmUnloadG() const { return 3.0; }
+  /* GEOMETRY. The control position: behind him, close, nose on, lock held. */
+  virtual double BfmControlMinNm() const { return 0.5; }
+  virtual double BfmControlMaxNm() const { return 1.5; }
+  virtual double BfmControlAspectDeg() const { return 30.0; }
+  virtual double BfmControlAtaDeg() const { return 30.0; }
+  /* PURSUIT SELECTION. Lag when the overtake would throw the nose out in front (inside LagRangeNm with
+   * more than MaxClosureKt of closure, or simply too close); lead while the angles are still the
+   * problem (aspect beyond LeadAspectDeg, or further out than LeadRangeNm); pure in between. */
+  virtual double BfmClosureGainKtPerNm() const { return 120.0; }   /* the closure SCHEDULE's slope */
+  virtual double BfmMaxClosureKt() const { return 200.0; }
+  virtual double BfmLeadAspectDeg() const { return 45.0; }
+  virtual double BfmLeadRangeNm() const { return 3.0; }
+  virtual double BfmLeadMaxS() const { return 4.0; }     /* cap on the collision-course lead time */
+  virtual double BfmLagTimeS() const { return 2.5; }     /* how far behind him the lag point sits */
+  virtual double BfmYoYoHeightM() const { return 400.0; }/* the high yo-yo's height at full excess closure */
+  /* SEARCH. How long a coasting track is chased with the nose alone before the scan starts weaving, and
+   * the weave itself — the pattern that walks the (body-fixed) radar box across the uncertainty. */
+  virtual double BfmScanAfterS() const { return 3.0; }
+  /* The weave has to stay GENTLE: its own heading rate (2*pi*A/T) is a steering error like any other, so
+   * a fast, wide scan would have the pilot flying a hard turn chasing its own search pattern instead of
+   * looking. A/T here is a few deg/s — a lazy S, which is what a scan is. */
+  virtual double BfmScanAmplitudeDeg() const { return 8.0; }
+  virtual double BfmScanPeriodS() const { return 30.0; }
+  virtual double BfmFloorFt() const { return 2000.0; }   /* AGL below which the pull is biased up */
+
 private:
+  /* The Bfm phase's body — one decision tick of the fight (see Run()'s BFM section). Separate because
+   * it is the only phase with an inner control law of its own rather than a target for the autopilot. */
+  FBPilotCommands BfmCommands(const FBState &state, const fb_fdm_state &st, double dt);
   void Transition(Phase p) { CurPhase = p; PhaseElapsedS = 0.0; }
 
   /* Runway-relative along/across-track (m), the SAME axis convention FBMissionMonitor::OnRunway and
@@ -147,6 +209,13 @@ private:
   double PhaseElapsedS = 0.0;
   int ActiveWpCache = -1;         /* telemetry cache, set in Run() (class banner) */
   double DistToWpCache = -1.0;
+
+  FBBfmTrack Bfm_;                /* the fight's picture + scoreboard; inert outside the Bfm phase */
+  double TimeS_ = 0.0;            /* the pilot's own clock — the tracker stamps looks in absolute time */
+  double BfmGIterm_ = 0.0;        /* the g loop's integrator (see BfmCommands) */
+  double BfmSearchHdgDeg_ = 0.0;  /* the cold search's anchored heading + altitude (see BfmCommands) */
+  double BfmSearchAltM_ = 0.0;
+  bool   BfmSearchAnchored_ = false;
 };
 
 } // namespace FlightBox

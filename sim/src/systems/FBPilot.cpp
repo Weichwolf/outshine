@@ -34,6 +34,51 @@ const double kGearUpAglFt = 10.0;        /* + a firm AGL margin: JSBSim's FGLGea
                                           * (gear up within a couple of seconds of a positive-rate liftoff,
                                           * not after a long climb-away). */
 
+/* BFM inner loop (the Bfm phase). Two axes, two laws, both commanding the airframe's OWN flight control
+ * system through the stick — this phase hand-flies (Guidance::Manual) exactly as Takeoff/Flare/Rollout
+ * do, and for the same reason: FBAutopilot's Direct/Course are navigation modes whose 60-deg bank cap
+ * and deliberately gentle roll-in (FBFlightControl::F16's RollStickMax = 0.15, a cruise number) are
+ * structurally wrong for a fight, and re-tuning them would move every existing mission's numbers.
+ *
+ * THE LAW, in one paragraph. An aircraft can only accelerate along its own lift axis (belly to canopy),
+ * so a turn is first a ROLL that puts that axis where the acceleration is wanted and then a PULL. What
+ * the pilot wants is (a) to bend the velocity vector towards the aim point at a rate that takes the
+ * steering error out in about kBfmTurnTimeS seconds — a_turn = V * err / t — and (b) to keep gravity
+ * from bending it somewhere else meanwhile. Both are vectors in the plane perpendicular to the velocity,
+ * so add them: the lift the pilot needs is
+ *      L = a_turn * (sin phi, cos phi) + (-g sin(roll) cos(pitch), +g cos(roll) cos(pitch))
+ * in body (right, up) axes, where phi is the direction of the steering error in those same axes. The
+ * roll command is then simply "put body-up along L" and the load factor is |L|/g. Nothing else is
+ * needed, and three behaviours fall out of that one expression rather than being coded as cases:
+ *   - zero error at any bank -> L is straight up in the WORLD -> the jet rolls wings level and holds 1 g
+ *     (the tracking solution, with no separate tracking mode);
+ *   - a pure azimuth error in level flight -> roll = atan(a_turn/g) and n = 1/cos(roll), which IS the
+ *     coordinated-turn relation, arrived at rather than assumed;
+ *   - a hard turn at 90 deg of bank -> gravity has no component along the lift axis at all, so the turn
+ *     costs only its own g and the nose falls. That is correct, and it is what makes an energy fight
+ *     possible — a law that insisted on level flight would silently spend 5.7 g holding an altitude
+ *     nobody asked for.
+ * The pull is capped by the g the CURRENT speed can actually buy and tracked by a PI on the load-factor
+ * error (an FLCS's stick-to-g authority varies with speed). Deliberately asymmetric — full stick to
+ * pull, a capped push: a fighter pulls and unloads, it does not bunt. The roll axis needs no damping
+ * term: an FLCS airframe's lateral stick IS a rate command (f16.xml differences fcs/aileron-cmd-norm
+ * against the measured roll rate), so a proportional law on the roll ANGLE error is already one. */
+const double kBfmRollFullDeg = 60.0;      /* roll error that earns full lateral stick */
+const double kBfmTurnTimeS = 2.0;         /* how quickly the pilot wants the steering error gone */
+const double kBfmGKp = 0.25, kBfmGKi = 0.5, kBfmGIMax = 0.6;
+const double kBfmPushMax = 0.3;           /* the push half of the stick (see above) */
+const double kBfmSearchRangeM = 5556.0;   /* 3 nm: where a cold search aims, purely to have a point */
+/* A search climbs firmly and descends gently, and the asymmetry is the point (see below): pulling UP is
+ * an upright pull at any angle, while a steep DOWN demand is what makes the lift-vector law roll
+ * inverted. Height lost in a bank is given back by climbing, not by diving after it. */
+const double kBfmSearchUpMaxDeg = 20.0, kBfmSearchDownMaxDeg = 5.0;
+const double kBfmFloorPullDeg = 30.0;     /* full nose-up bias when the AGL floor is reached */
+const double kBfmG0 = 9.80665;
+const double kBfmClosureDeadKt = 40.0;    /* how far off the closure schedule is worth reacting to */
+const double kBfmOverspeedFrac = 1.15;    /* above this multiple of corner speed the throttle comes back */
+const double kBfmThrTrim = 0.6, kBfmThrKpPerKt = 0.006;   /* +-67 kt of speed error = idle..full */
+const double kBfmSpeedbrakeKt = 40.0;     /* boards out only when the throttle alone cannot do it */
+
 double Clamp(double v, double lo, double hi) { return v < lo ? lo : v > hi ? hi : v; }
 } // namespace
 
@@ -48,6 +93,7 @@ const char *FBPilot::PhaseName(Phase p) {
     case Phase::Flare: return "Flare";
     case Phase::Rollout: return "Rollout";
     case Phase::Shutdown: return "Shutdown";
+    case Phase::Bfm: return "Bfm";
   }
   return "?";
 }
@@ -71,10 +117,197 @@ double FBPilot::PitchHoldStick(double targetDeg, double pitchDeg, double qDegS, 
   return Clamp(kRotateKp * (targetDeg - pitchDeg) - kRotateKd * qDegS, -stickMax, stickMax);
 }
 
+/* ONE decision tick of the fight. The whole phase is "look at the picture, decide what kind of pursuit
+ * this geometry calls for, aim at the point that pursuit implies, and fly the jet there with the energy
+ * still available" — everything below is those four steps in order.
+ *
+ * THE PICTURE IS A RADAR TRACK AND NOTHING ELSE (systems/FBBfmTrack, CLAUDE.md "Kein Cheaten"): the
+ * pilot never learns where the other jet IS, only where its own estimate says it should be. Losing the
+ * lock therefore does not blind the pilot instantly, it starts a clock — the estimate keeps moving on
+ * its last known vector and the nose keeps following it, and only once the coast has run long enough for
+ * that prediction to be worth less than a look does the scan start weaving to walk the (body-fixed)
+ * radar box across the uncertainty. Getting the target back into the scan volume is itself a manoeuvre
+ * goal here, which is exactly what flying without eyes means. */
+FBPilotCommands FBPilot::BfmCommands(const FBState &state, const fb_fdm_state &st, double dt) {
+  Bfm_.Update(state, st, TimeS_);
+  const FBBfmGeometry &g = Bfm_.Geometry();
+  FBPilotCommands c{};
+  c.Guidance = FBPilotGuidance::Manual;
+  c.ManualYaw = 0.0;
+
+  double casKt = st.cas * kMsToKt;
+  double rngNm = g.RangeM * kMToNm;
+  double closKt = g.ClosureMs * kMsToKt;
+  double tgtSpeedMs = std::sqrt(g.VelE * g.VelE + g.VelN * g.VelN + g.VelU * g.VelU);
+
+  /* OUT OF ENERGY is a relative statement, not an absolute one. Below the minimum manoeuvring speed the
+   * jet has to stop spending height and start rebuilding speed — UNLESS the whole fight is being flown
+   * that slowly, i.e. the target itself is slower still. A pursuer sitting in the control position behind
+   * a defender in a hard, decelerating turn IS below its own corner band, and that is not a mistake to be
+   * corrected with full afterburner: doing so throws the jet straight out in front of him (measured — the
+   * absolute rule cost 250 of 268 seconds of control position). */
+  bool lowEnergy = casKt < BfmMinSpeedKt() && (!g.Valid || tgtSpeedMs > st.speed);
+
+  /* ---- 1. what kind of pursuit does this geometry call for? ----
+   * The overtake is a SCHEDULE, not a threshold: the closure a pursuer wants is proportional to how far
+   * it still has to go, so it arrives at the control range with the range rate already killed. More
+   * closure than the schedule allows is an overshoot in the making, and an overshoot hands the fight to
+   * the defender — so it buys LAG (aim behind him), which both stops the nose going out in front and
+   * costs nothing in energy. LEAD (aim where he will be) while the ANGLES are still the problem: a high
+   * aspect means this jet is not on his tail yet and cutting the corner is what fixes that. PURE (aim at
+   * him) in between, which is also the tracking solution once the control position is reached. */
+  double ctrlMidNm = 0.5 * (BfmControlMinNm() + BfmControlMaxNm());
+  double schedKt = Clamp((rngNm - ctrlMidNm) * BfmClosureGainKtPerNm(), -BfmMaxClosureKt(),
+                         BfmMaxClosureKt());
+  bool overtaking = g.Valid && closKt > schedKt + kBfmClosureDeadKt;
+
+  FBBfmPursuit mode;
+  if (!g.Valid) mode = FBBfmPursuit::Search;
+  else if (rngNm < BfmControlMinNm() || overtaking) mode = FBBfmPursuit::Lag;
+  else if (g.AspectDeg > BfmLeadAspectDeg() || rngNm > BfmLeadRangeNm()) mode = FBBfmPursuit::Lead;
+  else mode = FBBfmPursuit::Pure;
+
+  /* ---- 2. the aim point, as an offset from own position ---- */
+  double aimE = g.EastM, aimN = g.NorthM, aimU = g.UpM;
+  if (mode == FBBfmPursuit::Lead) {
+    /* Collision-course lead: where he will be by the time this jet could be there. A TIME, not a fixed
+     * angle, so the lead shrinks as the range closes and never asks for a turn into empty sky. */
+    double tLead = Clamp(g.RangeM / std::fmax(st.speed, 1.0), 0.0, BfmLeadMaxS());
+    aimE += g.VelE * tLead; aimN += g.VelN * tLead; aimU += g.VelU * tLead;
+  } else if (mode == FBBfmPursuit::Lag) {
+    /* Lag is two displacements, not one. BEHIND him along his own flight path is what stops the nose
+     * going out in front; ABOVE him is what actually kills the overtake — pulling up out of his turn
+     * plane trades the excess speed into height instead of burning it off with drag the jet does not
+     * have, and hands it straight back on the way down. That is the high yo-yo, and it is the only
+     * answer to a 100-kt overtake inside a mile that does not throw the fight away. The height scales
+     * with how far over the closure schedule this jet actually is, so it unwinds by itself. */
+    double excess = Clamp((closKt - schedKt) / std::fmax(BfmMaxClosureKt(), 1.0), 0.0, 1.0);
+    aimE -= g.VelE * BfmLagTimeS(); aimN -= g.VelN * BfmLagTimeS(); aimU -= g.VelU * BfmLagTimeS();
+    aimU += BfmYoYoHeightM() * excess;
+  } else if (mode == FBBfmPursuit::Search) {
+    /* SEARCH is flown as a DIRECTION and an ALTITUDE, never as a point. The estimate is too old to steer
+     * a pursuit at, so what is left is "he was over there, at about that height": turn back onto the
+     * bearing, hold the height, hold corner speed, and let the weave below walk the box across the
+     * uncertainty. Aiming at the stale POINT instead would have the jet diving or zooming at a place the
+     * target left long ago (measured: a 1500 m dive to a datum whose owner had flown a quarter of a turn
+     * circle away from it), and leaving the altitude unreferenced would let the search spiral into the
+     * ground — this law deliberately does not hold altitude in a bank (see the file's BFM banner), so
+     * during a long search the aim point is the only thing that can.
+     * With nothing ever seen there is no bearing either, so heading AND altitude are ANCHORED at the
+     * moment the cold search begins and never re-read from the jet afterwards: aiming at "wherever my
+     * nose points right now" is a control loop with no reference at all, and it does exactly what such a
+     * loop does — the weave starts a roll, the roll turns the jet, the aim follows the turn, and the
+     * search settles into a steady 80-deg-banked orbit that searches nothing (measured, before this). */
+    double brgDeg;
+    if (g.Have) {
+      brgDeg = std::atan2(g.EastM, g.NorthM) * kRad2Deg;
+      aimU = g.UpM;
+    } else {
+      if (!BfmSearchAnchored_ && st.speed > 1.0) {
+        BfmSearchHdgDeg_ = st.yaw;
+        BfmSearchAltM_ = st.elev;
+        BfmSearchAnchored_ = true;
+      }
+      brgDeg = BfmSearchAnchored_ ? BfmSearchHdgDeg_ : st.yaw;
+      aimU = BfmSearchAnchored_ ? BfmSearchAltM_ - st.elev : 0.0;
+    }
+    double brg = brgDeg * kDeg2Rad;
+    aimE = kBfmSearchRangeM * std::sin(brg);
+    aimN = kBfmSearchRangeM * std::cos(brg);
+    /* A search is flown UPRIGHT. Left unclamped, a datum a few hundred metres below the jet is a
+     * steep-enough demand that the lift-vector law answers it the way it answers any large downward
+     * demand — roll inverted and pull, a split-S — and a rolling jet searches nothing (measured: 2,000 m
+     * of zoom and roll, with the target sitting at the datum's altitude in plain view of nobody). Capping
+     * the demand at kBfmSearchElMaxDeg keeps the required turn under 1 g, which the law then flies as a
+     * gentle upright climb or descent. */
+    aimU = Clamp(aimU, -std::tan(kBfmSearchDownMaxDeg * kDeg2Rad) * kBfmSearchRangeM,
+                 std::tan(kBfmSearchUpMaxDeg * kDeg2Rad) * kBfmSearchRangeM);
+  }
+
+  if (g.Have) BfmSearchAnchored_ = false;   /* a datum exists again: the next cold search re-anchors */
+
+  /* THE SCAN. Once the picture is older than BfmScanAfterS the aim DIRECTION is swept about the vertical
+   * — the radar's volume is bolted to the nose, so walking the nose across the uncertainty is the only
+   * way to search more of the sky than the mode's own box covers. Rotating the aim point in the world
+   * rather than adding degrees to the body-frame azimuth keeps the steering error a coherent direction
+   * whatever bank the jet is in. The weave must stay GENTLE: its own heading rate (2*pi*A/T) is a
+   * steering error like any other, and a fast wide scan simply has the pilot flying a hard turn chasing
+   * its own search pattern — measured, a 20 deg / 10 s weave settled the jet into a permanent 77 deg
+   * banked orbit and acquired nothing at all. */
+  if (!g.Valid || g.AgeS > BfmScanAfterS()) {
+    double w = BfmScanAmplitudeDeg() * std::sin(2.0 * kPi * TimeS_ / BfmScanPeriodS()) * kDeg2Rad;
+    double cw = std::cos(w), sw = std::sin(w);
+    double e = aimE * cw + aimN * sw, n = -aimE * sw + aimN * cw;
+    aimE = e; aimN = n;
+  }
+
+  /* ENERGY, expressed in the aim point rather than as a mode of its own: below the minimum manoeuvring
+   * speed the fight does not go uphill any more — the aim point is dropped to the horizon so height stops
+   * being bought with speed the jet no longer has. Deliberately a CLAMP and not a nose-down bias: a
+   * negative elevation demand rolls the lift vector INVERTED (this law points the LIFT axis at the aim
+   * point, and "below" means 180 deg of roll), which is a split-S, not an unload — measured, and it
+   * dumped the jet 2,900 m while the pilot was only trying to regain 50 kt. */
+  if (lowEnergy && aimU > 0.0) aimU = 0.0;
+
+  double azErr = 0.0, elErr = 0.0;
+  FBEnuToBodyLos(st.roll, st.pitch, st.yaw, aimE, aimN, aimU, azErr, elErr);
+
+  /* The AGL floor outranks everything above it: a fight flown into the ground is not a fight won. */
+  if (BfmFloorFt() > 0.0 && state.radarAltFt < BfmFloorFt())
+    elErr += kBfmFloorPullDeg * Clamp(1.0 - state.radarAltFt / BfmFloorFt(), 0.0, 1.0);
+
+  /* ---- 4. fly it: one lift vector, one load factor (see the file's BFM banner for the derivation) ---- */
+  double errMag = std::sqrt(azErr * azErr + elErr * elErr);
+  double vRatio = casKt / std::fmax(BfmCornerSpeedKt(), 1.0);
+  double gAvail = Clamp(BfmCornerG() * vRatio * vRatio, 1.0, BfmMaxG());
+  double aTurn = std::fmin(st.speed * (errMag * kDeg2Rad) / kBfmTurnTimeS, gAvail * kBfmG0);
+  double dirRight = errMag > 1e-6 ? azErr / errMag : 0.0;
+  double dirUp = errMag > 1e-6 ? elErr / errMag : 1.0;
+  double gravRight = -kBfmG0 * std::sin(st.roll * kDeg2Rad) * std::cos(st.pitch * kDeg2Rad);
+  double gravUp = kBfmG0 * std::cos(st.roll * kDeg2Rad) * std::cos(st.pitch * kDeg2Rad);
+  double liftRight = aTurn * dirRight + gravRight;
+  double liftUp = aTurn * dirUp + gravUp;
+
+  double phiCmd = std::atan2(liftRight, liftUp) * kRad2Deg;
+  c.ManualRoll = Clamp(phiCmd / kBfmRollFullDeg, -1.0, 1.0);
+
+  double gCmd = Clamp(std::sqrt(liftRight * liftRight + liftUp * liftUp) / kBfmG0, 0.0, gAvail);
+  if (lowEnergy) gCmd = std::fmin(gCmd, BfmUnloadG());
+
+  double gErr = gCmd - st.nz;
+  BfmGIterm_ = Clamp(BfmGIterm_ + kBfmGKi * gErr * dt, -kBfmGIMax, kBfmGIMax);
+  c.ManualPitch = Clamp(kBfmGKp * gErr + BfmGIterm_, -kBfmPushMax, 1.0);
+
+  /* THROTTLE IS THE OTHER HALF OF THE CLOSURE PROBLEM. Aiming behind him stops the nose going out in
+   * front; it does not stop a jet that is simply 100 kt faster than the one it is trying to sit behind
+   * — that one swings out of the control zone every time, however well it is aiming. So the pilot flies
+   * the SPEED the geometry wants: the target's own speed (the track estimate knows it — that is what a
+   * velocity estimate is for) plus exactly the overtake the closure schedule allows at this range, which
+   * goes NEGATIVE inside the control zone. With no picture at all there is nothing to match, so the
+   * pilot parks the jet at corner speed, where any fight it might find is best entered. */
+  double speedErrKt;
+  if (g.Valid) {
+    speedErrKt = (tgtSpeedMs - st.speed) * kMsToKt + schedKt;
+  } else {
+    speedErrKt = BfmCornerSpeedKt() - casKt;
+  }
+  c.ManualThr = Clamp(kBfmThrTrim + kBfmThrKpPerKt * speedErrKt, 0.0, 1.0);
+  if (lowEnergy) c.ManualThr = 1.0;   /* out of energy outranks the geometry (see lowEnergy above) */
+  if (casKt > BfmCornerSpeedKt() * kBfmOverspeedFrac)
+    c.ManualThr = std::fmin(c.ManualThr, kBfmThrTrim);   /* past corner the extra knots buy no turn rate */
+  c.Speedbrake = speedErrKt < -kBfmSpeedbrakeKt ? 1.0 : 0.0;
+
+  bool inControl = g.Valid && g.Locked && rngNm >= BfmControlMinNm() && rngNm <= BfmControlMaxNm() &&
+                   g.AspectDeg <= BfmControlAspectDeg() && std::fabs(g.AzDeg) <= BfmControlAtaDeg();
+  Bfm_.Report(mode, inControl, gCmd, dt);
+  return c;
+}
+
 FBPilotCommands FBPilot::Run(const FBState &state, const FBAirframeControls &airframe,
                              const fb_fdm_state &st, const FBFlightPlan &plan, const FBRunway *runway,
                              double dt) {
   PhaseElapsedS += dt;
+  TimeS_ += dt;
   FBPilotCommands c{};
 
   /* Mission waypoint bookkeeping (telemetry cache — class banner): the same active-waypoint distance
@@ -204,6 +437,9 @@ FBPilotCommands FBPilot::Run(const FBState &state, const FBAirframeControls &air
       c.WheelBrakeLeft = brake; c.WheelBrakeRight = brake;
       return c;
     }
+
+    case Phase::Bfm:
+      return BfmCommands(state, st, dt);
 
     case Phase::Shutdown:
     default:
