@@ -24,8 +24,9 @@ ein gültiger Start**.
 ## Prinzipien (nicht verhandelbar)
 
 1. **Physik nicht neu schreiben.** JSBSim (LGPL, NASA/FlightGear-erprobt) ist die Wahrheit. Eigener
-   Code nur an den Nähten: der C-aufrufbare Adapter (`sim/src/fdm/jsbsim_adapter.*`), die Regelung,
-   der Renderer. **JSBSim ist ein gepinntes, read-only Git-Submodul** (`sim/vendor/jsbsim`) — nie gepatcht;
+   Code nur an den Nähten: der Adapter (`sim/src/fdm/jsbsim_adapter.*`, die EINE Übersetzungseinheit mit
+   JSBSim-Headern — Details `sim/src/fdm/`-Absatz unten), die Regelung, der Renderer. **JSBSim ist ein
+   gepinntes, read-only Git-Submodul** (`sim/vendor/jsbsim`) — nie gepatcht;
    der Build baut libJSBSim aus dem Submodul, so ist die Physik bit-identisch zum gepinnten Commit
    und update-fähig.
 2. **JSBSim läuft IM Client.** libJSBSim linkt in die CC — WASM via Emscripten, native fürs CLI. Die
@@ -91,8 +92,8 @@ Override**, nicht "gehört der F-16":
 ```
 sim/src/
   app/       Einstiegspunkte + App-Lifecycle (FBAppWasm, FBAppNative, FBSimHost, FBTileWorkerMain)
-  core/      FBState, FBMode, FBMasterMode, FBTelemetry, gemeinsame Basistypen — zeigt NIE nach
-             systems/ oder modules/
+  core/      FBState, FBMode, FBMasterMode, FBTelemetry, FBFlightPlan/FBRunway (Wegpunkt-/Runway-
+             Value-Types für FBPilot), gemeinsame Basistypen — zeigt NIE nach systems/ oder modules/
   math/      Value-Math (FBMat4 — Value-Types, Operatoren inline im Header)
   render/    FBRenderer (Orchestrator: Device/Swapchain/Targets, JEDE Begin/EndRenderPass-Grenze,
              die Encode-Reihenfolge — Pass-Topologie ist ein Vertrag, kein Stage-Split darf sie
@@ -130,7 +131,9 @@ sim/src/
              Wolken-Composite, analog HUD Solid/Line). FBRenderer.cpp führt keinen Inline-Shader mehr
              (jedes `R"(`-WGSL lebt in genau einer stages/-Datei, `grep -c 'R"(' FBRenderer.cpp` == 0)
              — der Render-Stage-Split ist damit abgeschlossen.
-  world/     FBWorld, FBTerrainField, FBTerrainLoader (Tile-Streaming/Worker-Anbindung)
+  world/     FBWorld, FBTerrainField, FBTerrainLoader (Tile-Streaming/Worker-Anbindung; FBWorld hält
+             zusätzlich die geborgte FBUnit-Registry, s.u. units/)
+  units/     FBUnit-Basisschnittstelle + FBOwnshipUnit (Details s.u., nach dem Verzeichnisbaum)
   systems/   die generischen, airframe-agnostischen System-Slots eines Moduls — Interface + Default
              in EINER Klasse, ein Modul überschreibt per Ableitung (Zahlen-Tuning bleibt Preset/
              Config, keine leere Ableitung dafür):
@@ -151,15 +154,42 @@ sim/src/
                + NoOp-Default für die restlichen F-16-Systemkategorien, ein Modul füllt sie bei Bedarf
                per Ableitung. Sensoren SCHREIBEN/Displays LESEN den geteilten FBState; Sensoren/Waffen/
                Defensiv erhalten eine geborgte FBWorld-Referenz (nie global).
+               FBPilot (`FBPilot.h/.cpp`): die Missions-Ebene ÜBER Guidance/FlightControl — FBAutopilot
+               (Manöver) und FBFlightControl (100 Hz, die Hände) bleiben unangetastet; FBPilot entscheidet
+               WOHIN (FBFlightPlan-Wegpunkte, optionale FBRunway) und gibt das im ~10-Hz-Entscheidungstakt
+               (vom Modul gedrosselt wie jeder andere Slot) als `FBPilotCommands` aus: eine Guidance-
+               Anfrage an FBAutopilot (`FBPilotGuidance::None/Manual/Loiter/LowLevel` — None = "AP
+               unangetastet lassen") plus optionale (`std::optional`) Airframe-Kommandos an
+               FBAirframeControls. Die Phasen-Zustandsmaschine (Idle/Preflight/Takeoff/Climb/Route/
+               Approach/Flare/Rollout/Shutdown, doc/f16/procedures-*.md) ist das Prozedur-Gerüst; Run()
+               ist der Override-Punkt (analog FBAutopilot::Run). FBAirframeControls (`.h/.cpp`): das
+               Interface, das der Pilot bedient (Gear/Speedbrake/Radbremsen L+R/Bugradsteuerung/Engine-
+               Start-Cutoff + WOW-/Gear-Positions-Getter) — Interface+NoOp-Default in einer Klasse wie
+               FBSystemSlots.h, `FBJsbsimAirframeControls` daneben ist die reale, airframe-agnostische
+               Ownship-Implementierung (forwarded auf den fdm/-Adapter).
   terrain/   leane Terrain-Lib (geo/mesh/osmmesh), flat
-  fdm/       der C-aufrufbare JSBSim-Adapter (jsbsim_adapter.*), flat
+  fdm/       der JSBSim-Adapter (jsbsim_adapter.*), flat — die EINE Übersetzungseinheit, die einen
+             JSBSim-Header inkludiert (die Ein-TU-Naht: jeder Aufrufer sieht nur den flachen POD-Zustand
+             `fb_fdm_state` + die inventarisierten Property-Zugriffsfunktionen, nie `FGFDMExec` direkt).
+             `namespace FlightBox` wie der Rest des Baums — kein `extern "C"` mehr: das war für die
+             längst gelöschte `xp_bridge.c` der Vor-Pivot-Architektur, niemand ruft den Adapter heute aus
+             C oder aus JS (der WASM-Export ist ausschließlich `fb_toggle_ground`/`fb_set_ground` in
+             `FBAppWasm.cpp`); `extern "C"`/`EMSCRIPTEN_KEEPALIVE` bleibt Konvention einzig für von JS
+             NAMENTLICH gerufene Symbole.
   modules/   FBModule-Basisschnittstelle (`Run(fb_fdm_state&, dt, const FBWorld*)`, App hält jedes
              Modul dahinter polymorph; ein Modul cycelt seine Systeme intern, jedes im eigenen Takt —
              Peers rufen sich nie gegenseitig)
   modules/f16/           das F-16-Modul: FBF16Module komponiert die systems/-DEFAULTS (FBAutopilot/
                          FBFlightControl/FBAirDataSystem/FBRadarAltimeter/FBNavSystem unverändert) mit
                          dem F-16-Gain-Preset (FBFlightControl::F16()), besitzt den optionalen
-                         FBPathPlan und cycelt alle Systemslots — der Ort, an dem künftiges
+                         FBPathPlan, den Piloten (FBF16Pilot, `.h/.cpp`) und die Ownship-Airframe-
+                         Controls (FBJsbsimAirframeControls) und cycelt alle Systemslots inkl. Piloten
+                         (10 Hz) — solange dessen Phase Idle bleibt, ändert das NICHTS am bestehenden
+                         Verhalten (FBPilotCommands bleibt neutral). FBF16Pilot ist heute ein dünnes
+                         Skeleton (übernimmt das FBPilot-Default-Verhalten unverändert) — hier landen
+                         künftig die F-16-eigenen Zahlen/Prozeduren: die Abhebegeschwindigkeit nach
+                         Gewichtstabelle (doc/f16/procedures-takeoff-taxi.md) und der 11°-AoA-Anflug
+                         (doc/f16/procedures-landing.md). Der Ort, an dem künftiges
                          F-16-spezifisches Verhalten (echtes Radar, echtes HOTAS-Binding, …) als
                          Ableitung eingehängt wird. Trägt drei F-16-eigene HUD-Platzhalter (eigene
                          `.h/.cpp`, kein genereller Systemslot, da airframe-spezifisch): FBF16FireControl
@@ -186,9 +216,15 @@ sim/src/
                          dem Fensterrand zusammen.
 ```
 
-Ein zukünftiges `units/` mit einer `FBUnit`-Basisschnittstelle für nicht steuerbare KI-Einheiten
-(freundlich/feindlich/neutral) entsteht erst, sobald reale Einheiten existieren — keine leeren
-Gerüst-Ordner ohne Inhalt.
+`units/` (`sim/src/units/`) trägt die Welt-Entitäten-Basisschnittstelle: `FBUnit` (Identität — Id/
+Kind-Enum `Aircraft/…`/Team-Enum `Friendly/Hostile/Neutral` —, geodätische Pose, `virtual void
+Run(dt, const FBWorld*)`). `FBOwnshipUnit` ist die erste reale Einheit: der eigene Jet als FBUnit,
+BORGT das App-eigene `fb_fdm_state` (keine Kopie der Wahrheit) und leitet die Pose daraus ab; `Run()`
+bleibt leer, weil das Modul sein FDM/seine Systeme bereits selbst cycelt. FBWorld hält eine reine
+BORGTE Registry (`RegisterUnit`/`Units()`, `std::vector<FBUnit*>`, keine Ownership) — die App
+registriert das Ownship beim Boot, Sensoren/Waffen lesen sie über die geborgte FBWorld-Referenz, die
+jeder Systemslot schon erhält. KI-Einheiten (freundlich/feindlich/neutral) hängen sich später an
+dieselbe Schnittstelle, sobald sie real existieren.
 
 **Coding-Style: an JSBSim orientiert** (unser Code fügt sich in dessen Ökosystem): Klassen `FB`-Präfix
 (analog `FG` — `FBFlightControl`, `FBRenderer`), PascalCase-Methoden (`Run()`, `GetLoadFactor()`),

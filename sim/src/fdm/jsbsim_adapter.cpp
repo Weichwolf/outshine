@@ -1,5 +1,5 @@
-/* FlightBox — JSBSim <-> bridge adapter (Migrationspaket D2). See jsbsim_adapter.h.
- * Replaces physics_step when FDM_ENGINE=jsbsim: JSBSim is the plant, state_t S the interface. */
+/* FlightBox — JSBSim adapter implementation. See jsbsim_adapter.h's banner: this is the ONE translation
+ * unit that includes JSBSim headers; every property name this file touches is listed there. */
 #include "FGFDMExec.h"
 #include "initialization/FGInitialCondition.h"
 #include "initialization/FGTrim.h"
@@ -14,6 +14,8 @@
 
 using namespace JSBSim;
 
+namespace FlightBox {
+
 static const double FT   = 0.3048;              /* ft -> m */
 static const double R2D  = 57.29577951308232;   /* rad -> deg */
 static const double MS2KT = 1.9438444924406;    /* m/s -> knots */
@@ -23,13 +25,13 @@ static const double THROTTLE_SLEW = SIM_STEP_S / ESC_SPINUP_S;
 
 static FGFDMExec *g_fdm = nullptr;
 static double g_thr_applied = 0.0;   /* slew-limited throttle actually fed to the engine (see set_controls) */
-static double g_elev_trim = 0.0;     /* elevator trim (from DoTrim) biasing iNav's pitch -> neutral = level */
+static double g_elev_trim = 0.0;     /* elevator trim (from DoTrim) biasing the FCS's pitch -> neutral = level */
 
 JSBSim::FGFDMExec *fb_dbg_fdm() { return g_fdm; }   /* probe-only accessor (standalone_probe.cpp) */
 
-extern "C" int fb_jsbsim_init(const char *root, const char *ac,
-                              double lat, double lon, double elev_m, double hoff_m,
-                              double speed_ms, double yaw_deg, int fbw_override) {
+int fb_jsbsim_init(const char *root, const char *ac,
+                   double lat, double lon, double elev_m, double hoff_m,
+                   double speed_ms, double yaw_deg, int fbw_override) {
   g_fdm = new FGFDMExec();
   g_fdm->SetDebugLevel(0);
   std::string r = root, d = r + "/" + ac;
@@ -67,7 +69,7 @@ extern "C" int fb_jsbsim_init(const char *root, const char *ac,
    * untrimmed airframe departs violently on the first advance (sgs233: pitch -57, inverted, at spawn). */
   { auto pr = g_fdm->GetPropulsion();
     for (unsigned i = 0; i < pr->GetNumEngines(); i++) pr->InitRunning(i); }
-  if (fbw_override) g_fdm->SetPropertyValue("fcs/fbw-override", 1.0);   /* iNav is the FLCS (F-16) */
+  if (fbw_override) g_fdm->SetPropertyValue("fcs/fbw-override", 1.0);   /* our FCS is the FLCS (F-16) */
   g_fdm->Setdt(SIM_STEP_S);
   /* tLongitudinal (pitch/throttle/alpha, wings level): more robust than tFull on light/slow airframes. */
   bool trimmed = false;
@@ -76,9 +78,9 @@ extern "C" int fb_jsbsim_init(const char *root, const char *ac,
     trimmed = trim.DoTrim();
   } catch (...) { trimmed = false; }
   /* Capture the elevator the trimmer settled on = the ELEVATOR TRIM for level flight, and apply it as
-   * a bias to iNav's pitch command (set_controls). This is a real trim tab: iNav's neutral stick then
+   * a bias to the FCS's pitch command (set_controls). This is a real trim tab: neutral stick then
    * holds LEVEL, not the airframe's nose-up-at-neutral. Without it a slow/floaty model departs on the
-   * first advance (neutral elevator -> +40 deg pitch -> stall) before iNav's AHRS can catch it. */
+   * first advance (neutral elevator -> +40 deg pitch -> stall) before the FCS's AHRS can catch it. */
   g_elev_trim = g_fdm->GetPropertyValue("fcs/elevator-cmd-norm");
   g_fdm->RunIC();   /* clean, level IC (attitude+speed); the trim tab, not the perturbed search state, holds it */
   fprintf(stderr, "[jsbsim] %s loaded, %.1f m/s, elevator trim %.3f%s\n",
@@ -91,7 +93,7 @@ extern "C" int fb_jsbsim_init(const char *root, const char *ac,
  * their struts); gear_down=0 uses only the NON-retractable ones (belly/skid) — how far the airframe sits
  * off the ground with the gear up. Per-model + gear-state, so takeoff/touchdown/crash and the camera eye
  * height are geometry-true. Returns metres; 0 if the model has no matching contact (query after LoadModel). */
-extern "C" double fb_jsbsim_ground_clearance(int gear_down) {
+double fb_jsbsim_ground_clearance(int gear_down) {
   if (!g_fdm) return 0.0;
   auto gr = g_fdm->GetGroundReactions();
   double maxz = 0.0;
@@ -105,19 +107,19 @@ extern "C" double fb_jsbsim_ground_clearance(int gear_down) {
   return maxz * FT;
 }
 
-extern "C" void fb_jsbsim_set_controls(double roll, double pitch, double yaw, double thr) {
+void fb_jsbsim_set_controls(double roll, double pitch, double yaw, double thr) {
   if (!g_fdm) return;
   /* slew, don't step: a 0->0.95 throttle jump blows the light prop's RPM ODE up and departs the airframe. */
   if      (thr > g_thr_applied + THROTTLE_SLEW) g_thr_applied += THROTTLE_SLEW;
   else if (thr < g_thr_applied - THROTTLE_SLEW) g_thr_applied -= THROTTLE_SLEW;
   else                                          g_thr_applied  = thr;
   g_fdm->SetPropertyValue("fcs/aileron-cmd-norm",  roll);
-  g_fdm->SetPropertyValue("fcs/elevator-cmd-norm", -pitch + g_elev_trim);   /* JSBSim +elevator = nose DOWN; iNav +pitch = nose UP; +trim tab = level at neutral */
+  g_fdm->SetPropertyValue("fcs/elevator-cmd-norm", -pitch + g_elev_trim);   /* JSBSim +elevator = nose DOWN; our FCS +pitch = nose UP; +trim tab = level at neutral */
   g_fdm->SetPropertyValue("fcs/rudder-cmd-norm",   yaw);      /* +yaw coordinates the turn; -yaw slips it (measured, strong adverse yaw) */
   g_fdm->SetPropertyValue("fcs/throttle-cmd-norm", g_thr_applied);
 }
 
-extern "C" void fb_jsbsim_set_aux(double gear, double flap, double speedbrake) {
+void fb_jsbsim_set_aux(double gear, double flap, double speedbrake) {
   if (!g_fdm) return;   /* negative = not mapped by this model -> leave the FDM default untouched */
   if (gear       >= 0.0) g_fdm->SetPropertyValue("gear/gear-cmd-norm",     gear);        /* 1=down, 0=up */
   if (flap       >= 0.0) g_fdm->SetPropertyValue("fcs/flap-cmd-norm",      flap);
@@ -125,7 +127,7 @@ extern "C" void fb_jsbsim_set_aux(double gear, double flap, double speedbrake) {
 }
 
 /* Wheel brakes, normalized [0,1] on both main-gear brake groups — for the landing rollout. */
-extern "C" void fb_jsbsim_set_brake(double b) {
+void fb_jsbsim_set_brake(double b) {
   if (!g_fdm) return;
   if (b < 0.0) b = 0.0; else if (b > 1.0) b = 1.0;
   g_fdm->SetPropertyValue("fcs/left-brake-cmd-norm",   b);
@@ -133,23 +135,78 @@ extern "C" void fb_jsbsim_set_brake(double b) {
   g_fdm->SetPropertyValue("fcs/center-brake-cmd-norm", b);
 }
 
-extern "C" void fb_jsbsim_set_wind(double wind_n, double wind_e) {
+void fb_jsbsim_set_gear(double cmd) {
+  if (!g_fdm) return;
+  g_fdm->SetPropertyValue("gear/gear-cmd-norm", cmd);
+}
+
+double fb_jsbsim_get_gear_pos(void) {
+  if (!g_fdm) return 0.0;
+  return g_fdm->GetPropertyValue("gear/gear-pos-norm");
+}
+
+void fb_jsbsim_set_speedbrake(double cmd) {
+  if (!g_fdm) return;
+  g_fdm->SetPropertyValue("fcs/speedbrake-cmd-norm", cmd);
+}
+
+void fb_jsbsim_set_wheel_brakes(double left, double right) {
+  if (!g_fdm) return;
+  if (left < 0.0) left = 0.0; else if (left > 1.0) left = 1.0;
+  if (right < 0.0) right = 0.0; else if (right > 1.0) right = 1.0;
+  g_fdm->SetPropertyValue("fcs/left-brake-cmd-norm", left);
+  g_fdm->SetPropertyValue("fcs/right-brake-cmd-norm", right);
+}
+
+void fb_jsbsim_set_nosewheel_steer(double cmd) {
+  if (!g_fdm) return;
+  g_fdm->SetPropertyValue("fcs/steer-cmd-norm", cmd);
+}
+
+int fb_jsbsim_get_wow(int unit) {
+  if (!g_fdm) return 0;
+  if (unit < 0) return g_fdm->GetPropertyValue("gear/wow") != 0.0 ? 1 : 0;
+  char buf[32];
+  snprintf(buf, sizeof buf, "gear/unit[%d]/WOW", unit);
+  return g_fdm->GetPropertyValue(buf) != 0.0 ? 1 : 0;
+}
+
+void fb_jsbsim_engine_start(void) {
+  if (!g_fdm) return;
+  g_fdm->SetPropertyValue("propulsion/cutoff_cmd", 0.0);
+  g_fdm->SetPropertyValue("propulsion/starter_cmd", 1.0);
+}
+
+void fb_jsbsim_engine_cutoff(void) {
+  if (!g_fdm) return;
+  g_fdm->SetPropertyValue("propulsion/starter_cmd", 0.0);
+  g_fdm->SetPropertyValue("propulsion/cutoff_cmd", 1.0);
+}
+
+int fb_jsbsim_engine_running(int engine_index) {
+  if (!g_fdm) return 0;
+  char buf[48];
+  snprintf(buf, sizeof buf, "propulsion/engine[%d]/set-running", engine_index);
+  return g_fdm->GetPropertyValue(buf) != 0.0 ? 1 : 0;
+}
+
+void fb_jsbsim_set_wind(double wind_n, double wind_e) {
   if (!g_fdm) return;
   g_fdm->SetPropertyValue("atmosphere/wind-north-fps", wind_n / FT);
   g_fdm->SetPropertyValue("atmosphere/wind-east-fps",  wind_e / FT);
 }
 
-extern "C" void fb_jsbsim_set_ground(double ground_m) {
+void fb_jsbsim_set_ground(double ground_m) {
   if (!g_fdm) return;
   g_fdm->SetPropertyValue("position/terrain-elevation-asl-ft", ground_m / FT);
 }
 
-extern "C" double fb_jsbsim_get_ground(void) {
+double fb_jsbsim_get_ground(void) {
   if (!g_fdm) return 0.0;
   return g_fdm->GetPropertyValue("position/terrain-elevation-asl-ft") * FT;
 }
 
-extern "C" void fb_jsbsim_step(fb_fdm_state *o) {
+void fb_jsbsim_step(fb_fdm_state *o) {
   if (!g_fdm) return;
   g_fdm->Run();
   o->roll  = g_fdm->GetPropertyValue("attitude/phi-deg");
@@ -172,3 +229,5 @@ extern "C" void fb_jsbsim_step(fb_fdm_state *o) {
   o->ny    = g_fdm->GetPropertyValue("accelerations/Ny");   /* body lat g (right+) */
   o->nz    = g_fdm->GetPropertyValue("accelerations/Nz");   /* body normal g (~+1 level) */
 }
+
+} // namespace FlightBox

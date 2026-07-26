@@ -14,6 +14,7 @@
 #include "FBPathPlan.h"
 #include "FBTerrainLoader.h"
 #include "FBTelemetry.h"
+#include "FBOwnshipUnit.h"
 #include "jsbsim_adapter.h"
 #include <cerrno>
 #include <cmath>
@@ -27,6 +28,11 @@
 #include <sys/stat.h>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
+
+/* jsbsim_adapter's fb_jsbsim_ functions and fb_fdm_state now live in namespace FlightBox (no longer a
+ * C ABI — see jsbsim_adapter.h's banner); this file calls them unqualified throughout (matches
+ * FBAppWasm.cpp). */
+using namespace FlightBox;
 
 static const double kPi = 3.14159265358979323846;
 static void GeoToEcef(double latDeg, double lonDeg, double alt, double out[3]) {
@@ -97,7 +103,9 @@ void Usage(const char *argv0) {
           "  --cloudlab [--labx PARAM] [--laby PARAM]  render an N x M cloud-parameter grid to ONE PNG.\n"
           "    PARAM in {coverage,density,extinct,suni,detail}; fixed cloud-bank camera, no terrain.\n"
           "  --fly   in-process F-16 loiter (JSBSim+FLCS+autopilot) at --lat/--lon; camera = the eye,\n"
-          "    live HUD + real DEM ground floor; PNGs every --interval s + 1 Hz [agl] telemetry.\n",
+          "    live HUD + real DEM ground floor; PNGs every --interval s + 1 Hz [agl] telemetry.\n"
+          "  --pilot (with --fly)  thread FBF16Pilot's phase machine in (Round A: structural only,\n"
+          "    guidance/controls stay untouched) -> 1 Hz [pilot] telemetry.\n",
           argv0);
 }
 
@@ -233,7 +241,7 @@ int RunCloudLab(double lat, double lon, time_t utc, double cloudQ, double ground
  * every `interval` s and emits the 1 Hz [agl] telemetry from the sim tick. */
 int RunFly(double lat, double lon, double ground0, double aglM, double viewKm, time_t utc,
            int groundPhoto, double moonScale, const std::string &moonPath, const std::string &base,
-           double seconds, double interval, const std::string &outDir) {
+           double seconds, double interval, const std::string &outDir, bool pilotMode) {
   const int width = 1280, height = 720, fps = 15;   /* render cadence; sim substeps stay 100 Hz, so
                                                        lowering it only cuts native render count, not
                                                        flight fidelity (Prinzip 4: wall-clock-free) */
@@ -343,6 +351,16 @@ int RunFly(double lat, double lon, double ground0, double aglM, double viewKm, t
   fb_jsbsim_step(&St);
   printf("gpu_native --fly: F-16 loiter %.4f/%.4f alt %.0f m ASL (ground %.0f), R %.0f m, %.0f m/s\n",
          lat, lon, altAsl, ground, kRadiusM, kSpeedMs);
+
+  /* Ownship as an FBUnit — borrows St (see FBOwnshipUnit's banner); the App owns both, FBWorld only
+   * borrows the pointer (its own RegisterUnit banner). --pilot reaches FBF16Pilot's phase machine, same
+   * structural proof as ?ap=pilot in the WASM app — Run() stays Idle-neutral this round either way. */
+  FlightBox::FBOwnshipUnit ownship(1, St);
+  W.RegisterUnit(&ownship);
+  if (pilotMode) {
+    F16->PilotSystem().SetPhase(FlightBox::FBPilot::Phase::Preflight);
+    printf("[pilot] --pilot: FBF16Pilot phase -> Preflight (guidance/controls untouched this round)\n");
+  }
 
   /* HUD nav placeholder: one steerpoint 8 nm bearing 060 from the origin, bullseye AT the origin — a
    * concrete, moving relative bearing so the guide's "diamond in FOV" and "crossed-out" cases both
@@ -472,6 +490,8 @@ int RunFly(double lat, double lon, double ground0, double aglM, double viewKm, t
         if (plan.Replans() != lastRep) { lastRep = plan.Replans();
           for (auto &wp : plan.Waypoints()) printf("[route] %.5f %.5f\n", wp.first, wp.second); }
       }
+      if (pilotMode)   /* structural proof: the module cycles FBF16Pilot every Run() (10 Hz, throttled) */
+        printf("[pilot] phase=%d\n", (int)F16->PilotSystem().GetPhase());
       fflush(stdout); }
 
     bool last = (f == totalFrames - 1);
@@ -493,7 +513,7 @@ int RunFly(double lat, double lon, double ground0, double aglM, double viewKm, t
 int main(int argc, char **argv) {
   double lat = 47.18, lon = 7.41, seconds = 3.0, interval = 1.0;
   double ground = 430.0, aglM = 1500.0, viewKm = 240.0, yawDeg = 0.0, pitchDeg = -3.0, cloudCover = 0.0, moonScale = 1.0, cloudQ = 1.0;
-  int groundPhoto = 0, cloudLab = 0, cloudCell = 0, fly = 0;
+  int groundPhoto = 0, cloudLab = 0, cloudCell = 0, fly = 0, pilotMode = 0;
   float cellCov = 0.6f, cellDen = 5.0f, cellDet = 1.3f;
   double cellPitch = -999.0, cellBelow = -5000.0, cellBank = 12.0;   /* default: above the deck (AC7 vantage) */
   int cellFrames = 24;
@@ -513,6 +533,7 @@ int main(int argc, char **argv) {
     else if (a == "--cloudq" && i + 1 < argc) cloudQ = atof(argv[++i]);
     else if (a == "--cloudlab") cloudLab = 1;
     else if (a == "--fly") fly = 1;
+    else if (a == "--pilot") pilotMode = 1;   /* threads FBF16Pilot's phase machine into --fly (structural proof) */
     else if (a == "--cell" && i + 3 < argc) { cloudCell = 1; cellCov = atof(argv[++i]); cellDen = atof(argv[++i]); cellDet = atof(argv[++i]); }
     else if (a == "--cellpitch" && i + 1 < argc) cellPitch = atof(argv[++i]);
     else if (a == "--cellbelow" && i + 1 < argc) cellBelow = atof(argv[++i]);
@@ -534,7 +555,7 @@ int main(int argc, char **argv) {
 
   if (fly)
     return RunFly(lat, lon, ground, aglM, viewKm, utc, groundPhoto, moonScale, moonPath, base,
-                  seconds, interval, outDir);
+                  seconds, interval, outDir, pilotMode != 0);
   if (cloudLab)
     return RunCloudLab(lat, lon, utc ? utc : time(nullptr), cloudQ, ground, aglM, labx, laby, moonPath, outDir);
   if (cloudCell)

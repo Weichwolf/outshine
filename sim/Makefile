@@ -30,13 +30,15 @@ JSB_WASM     := build/jsbsim-wasm
 JSB_HOST     := build/jsbsim-host
 
 # Shared include roots (flat -I per module dir; #include stays bare-filename). core = FBState/
-# FBMode/telemetry; math = value-math (FBMat4); render = FBRenderer + camera/mips/chunkmesh/ephemeris/
-# the HUD's WebGPU-backend resources (FBHudGeometry, FBHudFont ROM); world = FBWorld/
-# FBTerrainField/tile streaming; systems = the DEFAULT, airframe-agnostic guidance/FCS/planner/displays
-# (FBAutopilot/FBFlightControl/FBPathPlan/FBDisplaySystem) modules compose and may override; modules/f16
-# = the F-16's module (composes systems/ + its gain preset); fdm = the JSBSim C adapter; terrain = the
-# lean terrain API (flat); vendor/jsbsim/src = the JSBSim headers.
-INC_MODULES := -Isrc/core -Isrc/math -Isrc/render -Isrc/world -Isrc/systems -Isrc/modules -Isrc/modules/f16 -Isrc/modules/f16/displays
+# FBMode/telemetry/FBFlightPlan/FBRunway; math = value-math (FBMat4); render = FBRenderer + camera/mips/
+# chunkmesh/ephemeris/the HUD's WebGPU-backend resources (FBHudGeometry, FBHudFont ROM); world = FBWorld/
+# FBTerrainField/tile streaming; units = FBUnit/FBOwnshipUnit (world-entity identity/pose); systems = the
+# DEFAULT, airframe-agnostic guidance/FCS/planner/displays/pilot/airframe-controls (FBAutopilot/
+# FBFlightControl/FBPathPlan/FBDisplaySystem/FBPilot/FBAirframeControls) modules compose and may
+# override; modules/f16 = the F-16's module (composes systems/ + its gain preset); fdm = the JSBSim
+# adapter (namespace FlightBox, ONE-TU JSBSim seam — see fdm/jsbsim_adapter.h); terrain = the lean
+# terrain API (flat); vendor/jsbsim/src = the JSBSim headers.
+INC_MODULES := -Isrc/core -Isrc/math -Isrc/render -Isrc/world -Isrc/units -Isrc/systems -Isrc/modules -Isrc/modules/f16 -Isrc/modules/f16/displays
 INC_WASM   := $(INC_MODULES) -Isrc/fdm -Isrc/terrain -I$(JSBSIM)/src
 INC_NATIVE := $(INC_MODULES) -Isrc/fdm -Isrc/terrain
 INC_TILES := -I../tiles/src
@@ -84,6 +86,14 @@ wasm:            ## build the WASM browser Command Center (F-16 sim + renderer) 
 	    -c -o build/obj-wasm/FBF16Sms.o; \
 	  emcc src/modules/f16/displays/FBF16Hud.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
 	    -c -o build/obj-wasm/FBF16Hud.o; \
+	  emcc src/units/FBOwnshipUnit.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
+	    -c -o build/obj-wasm/FBOwnshipUnit.o; \
+	  emcc src/systems/FBAirframeControls.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
+	    -c -o build/obj-wasm/FBAirframeControls.o; \
+	  emcc src/systems/FBPilot.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
+	    -c -o build/obj-wasm/FBPilot.o; \
+	  emcc src/modules/f16/FBF16Pilot.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
+	    -c -o build/obj-wasm/FBF16Pilot.o; \
 	  emcc build/obj-wasm/*.o $(JSB_WASM)/src/libJSBSim.a \
 	    src/app/FBAppWasm.cpp src/render/FBRenderer.cpp src/render/FBHudGeometry.cpp src/world/FBWorld.cpp \
 	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \
@@ -163,6 +173,14 @@ native:          ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	    -c -o build/obj-native/FBF16Sms.o; \
 	  c++ src/modules/f16/displays/FBF16Hud.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBF16Hud.o; \
+	  c++ src/units/FBOwnshipUnit.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
+	    -c -o build/obj-native/FBOwnshipUnit.o; \
+	  c++ src/systems/FBAirframeControls.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
+	    -c -o build/obj-native/FBAirframeControls.o; \
+	  c++ src/systems/FBPilot.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
+	    -c -o build/obj-native/FBPilot.o; \
+	  c++ src/modules/f16/FBF16Pilot.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
+	    -c -o build/obj-native/FBF16Pilot.o; \
 	  c++ src/app/FBAppNative.cpp src/render/FBRenderer.cpp src/render/FBHudGeometry.cpp src/world/FBWorld.cpp \
 	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \
 	    src/render/stages/FBHudStage.cpp src/render/stages/FBUpscaleStage.cpp \

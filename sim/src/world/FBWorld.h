@@ -22,10 +22,18 @@
 namespace FlightBox {
 
 class FBRenderer;
+class FBUnit;
 
 class FBWorld {
 public:
   FBWorld();
+
+  /* Unit registry: BORROWED pointers only — FBWorld never owns a unit (each one's lifetime belongs to
+   * whoever constructed it, e.g. FBAppNative/FBAppWasm owns the FBOwnshipUnit alongside its FBF16Module).
+   * The App registers Ownship once at boot; Sensors/Weapons/Defensive walk this read-only through the
+   * const FBWorld* every slot already receives (FBSystemSlots.h) — no separate world-mutation path. */
+  void RegisterUnit(FBUnit *unit) { UnitList.push_back(unit); }
+  const std::vector<FBUnit *> &Units() const { return UnitList; }
 
   /* Open the streamer. `viewMeters` is the view radius (FB_VIEW_KM * 1000, the old w3_view_m). */
   bool Open(FBRenderer *renderer, const char *tilesBase, double lat, double lon, int grid,
@@ -110,6 +118,8 @@ private:
   void Center(int z, long x, long y, double out[3]) const;
   double SpanM(int z) const;
   void BuildLights(int idx);   /* fetch + decode /t/lights for node idx into its lightInst (rel Anchor) */
+
+  std::vector<FBUnit *> UnitList;   /* borrowed, see RegisterUnit's banner */
 
   FBRenderer *R;
   bool Photo;            /* currently viewed mode (SetGroundMode) */

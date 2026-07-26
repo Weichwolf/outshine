@@ -17,6 +17,7 @@
 #include "FBEphemeris.h"
 #include "FBTerrainLoader.h"
 #include "FBTelemetry.h"
+#include "FBOwnshipUnit.h"
 #include "jsbsim_adapter.h"
 #include <cstdint>
 
@@ -43,7 +44,13 @@ static FBPathPlan *gPlan = nullptr;   /* lateral wander planner (nullptr in fixe
 static bool gLowLevel = false;        /* boot mode: LOWLEVEL (default) vs loiter (?ap=loiter) */
 static bool gPlannerMode = false;     /* LOWLEVEL with the A* wander planner (?plan=1) */
 static bool gFanMode = false;         /* LOWLEVEL with the reactive terrain fan (default) */
+static bool gPilotMode = false;       /* ?ap=pilot: flies the SAME LOWLEVEL default physics, additionally
+                                        * threads FBF16Pilot's phase machine (Round A: still Idle-neutral
+                                        * — see FBF16Module::ApplyPilotCommands) */
 static fb_fdm_state St;
+static FBOwnshipUnit gOwnship(1, St);    /* the ownship as an FBUnit — borrows St (see its own banner);
+                                          * safe: St has static storage + no dynamic initializer, so its
+                                          * zero-init precedes gOwnship's dynamic init regardless of order */
 static double Ground = 430.0;            /* config default; refined from the terrain if available */
 static double LastMs = 0.0;
 static double Olat = 47.179846, Olon = 7.411427;   /* ENU/home origin (config.js) */
@@ -249,6 +256,8 @@ static void frame(void) {
         printf("[plan] goal=%.4f/%.4f goalDist=%.0fkm wp=%d/%d desTrk=%.0f replans=%ld expanded=%ld planDecodes=%ld\n",
                gPlan->GoalLat(), gPlan->GoalLon(), gPlan->GoalDistM(St.lat, St.lon) / 1000.0, gPlan->ActiveWp(),
                gPlan->RouteSize(), gPlan->DesiredTrackDeg(St.lat, St.lon), gPlan->Replans(), gPlan->LastExpanded(), gPlanField.Decodes());
+      if (gPilotMode)   /* structural proof: the module cycles FBF16Pilot every Run() (10 Hz, throttled) */
+        printf("[pilot] phase=%d\n", (int)gF16->PilotSystem().GetPhase());
       fflush(stdout); } }
   /* Real ephemeris sun + moon for EVS (the renderer uses them only in photo mode; SVS = constant day). */
   time_t utc = SimUtc ? SimUtc : time(nullptr);
@@ -310,6 +319,7 @@ int main() {
    * once wired). "loiter"/"lowlevel" share the "lo" prefix -> discriminate on the 3rd char. */
   const char *jap = emscripten_run_script_string("(new URLSearchParams(location.search).get('ap')||'lowlevel')");
   gLowLevel = !(jap && jap[0] == 'l' && jap[1] == 'o' && jap[2] == 'i');
+  gPilotMode = jap && jap[0] == 'p';   /* ?ap=pilot: LOWLEVEL physics (gLowLevel stays true), Pilot phase-machine on */
   /* LOWLEVEL lateral: DEFAULT = the reactive terrain FAN. ?hdg= -> fixed heading. ?plan=1 -> the A*
    * far-planner (opt-in; the fan is the shipped default). */
   const char *jhdg = emscripten_run_script_string("(new URLSearchParams(location.search).get('hdg')||'')");
@@ -371,6 +381,13 @@ int main() {
     gF16->Nav().SetBullseye(olat, olon);
   }
 
+  /* ?ap=pilot: reach FBF16Pilot's phase machine (structural proof only — Run() stays Idle-neutral this
+   * round, see FBF16Module::ApplyPilotCommands; the LOWLEVEL physics above is unaffected either way). */
+  if (gPilotMode) {
+    gF16->PilotSystem().SetPhase(FBPilot::Phase::Preflight);
+    printf("[pilot] ap=pilot: FBF16Pilot phase -> Preflight (guidance/controls untouched this round)\n");
+  }
+
   R.SetStreaming(512);
   /* Boot ground mode: default EVS/photo (Esri is the first thing shown; OSM becomes the lazy overlay).
    * ?ground=osm|photo overrides. The chosen mode is BOTH the eager base and the initial view. */
@@ -404,6 +421,7 @@ int main() {
     printf("[gpu] FBWorld open FAILED — is fb-tiles reachable at %s ?\n", base);
     return 1;
   }
+  W.RegisterUnit(&gOwnship);   /* the App owns gOwnship; FBWorld only borrows the pointer (its own banner) */
   printf("[gpu] multi-LOD quadtree around the live flight, view %.1f km\n", viewM / 1000.0);
 
   emscripten_set_main_loop(frame, 0, 1);

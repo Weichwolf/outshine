@@ -19,7 +19,9 @@ FBF16Module::FBF16Module()
       NavSys(std::make_unique<FBNavSystem>()),
       FireCtrl(std::make_unique<FBF16FireControl>()),
       UfcSys(std::make_unique<FBF16Ufc>()),
-      SmsSys(std::make_unique<FBF16Sms>()) {}
+      SmsSys(std::make_unique<FBF16Sms>()),
+      PilotSys(std::make_unique<FBF16Pilot>()),
+      AirframeCtrl(std::make_unique<FBJsbsimAirframeControls>()) {}
 
 bool FBF16Module::Due(double &accS, double dt, double hz) {
   accS += dt;
@@ -53,6 +55,11 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBWorld *world) {
   if (Due(WeaponAccS, dt, 20.0)) Weapons->Run(Mode, world, dt);
   if (Due(DefensiveAccS, dt, 5.0)) Defensive->Run(world, dt);
   if (Due(CommsAccS, dt, 1.0)) Comms->Run(dt);
+  /* Pilot: the mission brain above Guidance/FlightControl (rate table). Round A's Idle default always
+   * returns a neutral FBPilotCommands, so ApplyPilotCommands is unconditionally a no-op today — cycling
+   * it here is real (a future phase's commands reach Autopilot()/Controls() the instant it fills them
+   * in), not a stub call. */
+  if (Due(PilotAccS, dt, 10.0)) ApplyPilotCommands(PilotSys->Run(SharedState, st, Plan_, HaveRunway_ ? &Rwy_ : nullptr, world, dt));
 
   AccS += dt;
   LastSub = 0;
@@ -64,6 +71,33 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBWorld *world) {
     AccS -= 0.01;
     LastSub++;
   }
+}
+
+/* Applies only the fields FBPilotCommands actually set (Guidance != None, each std::optional present) —
+ * an Idle-phase neutral FBPilotCommands (every field default/unset) reaches here and calls NOTHING,
+ * which is what keeps composing the pilot bit-identical to not having one (see Run()'s banner). */
+void FBF16Module::ApplyPilotCommands(const FBPilotCommands &c) {
+  constexpr double kKtToMs = 0.5144444444;
+  switch (c.Guidance) {
+    case FBPilotGuidance::Loiter:
+      AP->SetLoiter(c.LoiterLatDeg, c.LoiterLonDeg, c.TargetAltM, c.LoiterRadiusM, c.LoiterDir,
+                    c.TargetSpeedKt * kKtToMs);
+      break;
+    case FBPilotGuidance::LowLevel:
+      AP->SetLowLevel(c.TargetAltM, c.TargetSpeedKt * kKtToMs, c.TargetHeadingDeg);
+      break;
+    case FBPilotGuidance::Manual:
+      AP->SetManual(c.ManualRoll, c.ManualPitch, c.ManualYaw, c.ManualThr);
+      break;
+    case FBPilotGuidance::None:
+      break;   /* leave whatever guidance is already running untouched */
+  }
+  if (c.GearDown) AirframeCtrl->SetGear(*c.GearDown);
+  if (c.Speedbrake) AirframeCtrl->SetSpeedbrake(*c.Speedbrake);
+  if (c.WheelBrakeLeft || c.WheelBrakeRight)
+    AirframeCtrl->SetWheelBrakes(c.WheelBrakeLeft.value_or(0.0), c.WheelBrakeRight.value_or(0.0));
+  if (c.NosewheelSteer) AirframeCtrl->SetNosewheelSteer(*c.NosewheelSteer);
+  if (c.EngineStart) *c.EngineStart ? AirframeCtrl->EngineStart() : AirframeCtrl->EngineCutoff();
 }
 
 } // namespace FlightBox

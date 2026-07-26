@@ -16,6 +16,13 @@
  *                                                          FireControl reads Nav's SAME-tick output)
  *   Defensive                                5 Hz        accumulator-throttled inside Run()
  *   Comms                                    1 Hz        accumulator-throttled inside Run()
+ *   Pilot (FBPilot, the mission-level brain ABOVE  10 Hz  accumulator-throttled inside Run(); its
+ *   Guidance/FlightControl — core/ architecture           FBPilotCommands are applied to Autopilot()/
+ *   banner)                                                Controls() only where a field is actually
+ *                                                          set (std::optional/Guidance::None = "leave
+ *                                                          it") — Round A's default Idle phase always
+ *                                                          returns a neutral FBPilotCommands, so cycling
+ *                                                          it here changes NOTHING about existing flight.
  *   PathPlan                                 App-owned cadence (see FBF16Module.cpp banner) — the one
  *                                             exception; App-side planner-vs-fan-vs-fixed dispatch
  *                                             differs between the WASM and native oracle today, so it
@@ -28,17 +35,22 @@
 #define FBF16MODULE_H
 
 #include <memory>
-#include "FBModule.h"
 #include "FBAirDataSystem.h"
+#include "FBAirframeControls.h"
 #include "FBAutopilot.h"
 #include "FBF16FireControl.h"
 #include "FBF16Max7456.h"
+#include "FBF16Pilot.h"
 #include "FBF16Sms.h"
 #include "FBF16Ufc.h"
 #include "FBFlightControl.h"
+#include "FBFlightPlan.h"
+#include "FBModule.h"
 #include "FBNavSystem.h"
 #include "FBPathPlan.h"
+#include "FBPilot.h"
 #include "FBRadarAltimeter.h"
+#include "FBRunway.h"
 #include "FBSystemSlots.h"
 #include "FBMasterMode.h"
 
@@ -83,7 +95,16 @@ public:
   FBMasterMode GetMasterMode() const { return Mode; }
   void SetMasterMode(FBMasterMode m) { Mode = m; }
 
+  /* The pilot (see the rate table) + what it flies/lands on: FlightPlan/Runway are simple accessors the
+   * App fills at boot (mission setup, not a per-frame write); PilotSys is the F-16 skeleton (currently
+   * the unmodified FBPilot default) exposed for boot/test phase-machine access (e.g. ?ap=pilot). */
+  FBF16Pilot &PilotSystem() { return *PilotSys; }
+  FBAirframeControls &Controls() { return *AirframeCtrl; }
+  FBFlightPlan &FlightPlan() { return Plan_; }
+  void SetRunway(const FBRunway &rwy) { Rwy_ = rwy; HaveRunway_ = true; }
+
 private:
+  void ApplyPilotCommands(const FBPilotCommands &c);
   static bool Due(double &accS, double dt, double hz);   /* throttle helper for the slower slots */
 
   /* Owned through base pointers (not value members) so a future module can substitute an override
@@ -110,6 +131,14 @@ private:
   std::unique_ptr<FBF16Ufc> UfcSys;
   std::unique_ptr<FBF16Sms> SmsSys;
   float GroundAslM = 0.0f;
+
+  /* The pilot + what it commands beyond the FDM (see the rate table + FlightPlan()/SetRunway()). */
+  std::unique_ptr<FBF16Pilot> PilotSys;
+  std::unique_ptr<FBAirframeControls> AirframeCtrl;
+  FBFlightPlan Plan_;
+  FBRunway Rwy_;
+  bool HaveRunway_ = false;
+  double PilotAccS = 0.0;
 
   FBMasterMode Mode = FBMasterMode::Nav;
   FBState SharedState{};   /* Sensors WRITE, Displays READ — no display queries a sensor directly */
