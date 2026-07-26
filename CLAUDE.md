@@ -124,7 +124,13 @@ am Barrier gemerged.
 **Der Missions-Runner ist reiner Orchestrator, genau vier Schritte, KEIN Missions-Wissen im Code:**
 Mission laden → Welt mit ihren Akteuren aufsetzen (Elevation für die deklarative `spawn`-Zeile auflösen,
 Modul über `modules/FBModuleRegistry` spawnen) → Akteure ausführen (Modul takten, beide Monitore
-füttern) → Welt validieren (die Monitore haben's längst entschieden). Eine `.fbm`-Zeile `module <name>`
+füttern) → Welt validieren (die Monitore haben's längst entschieden). Ein AKTEUR ist EIN Objekt
+(`units/FBSimUnit`, s.u.), und die Schritte 2-4 sind SCHLEIFEN über eine `std::vector`-Liste davon —
+heute mit genau einem Element, weil die `.fbm` genau einen Akteursblock beschreibt, nicht weil der
+Runner es könnte. Gesamturteil: ein Physik-K.O. IRGENDEINER Einheit beendet den Lauf (die konservative
+Lesart — kein Wrack integriert im Hintergrund weiter), das MISSIONS-Urteil kommt vom ERSTEN Akteur
+(dessen Plan/Runway die Datei beschreibt); Etappe 3 (jede Einheit mit eigenen Zielen) erweitert die
+zweite Hälfte, ohne die Schleifenform zu ändern. Eine `.fbm`-Zeile `module <name>`
 (Pflichtfeld, `doc/mission-format.md`) wählt das Modul über die Registry (Name → Factory,
 `std::unique_ptr<FBModule>`; heute registriert nur `modules/f16/FBF16ModuleRegistration.cpp` den Namen
 `"f16"`). `FBMissionRunner.cpp`/`FBAppGym.cpp` inkludieren NIE einen konkreten Modul-Header — sie halten
@@ -134,7 +140,7 @@ alles über `FBModule`s generische Accessoren (`Autopilot()`/`FlightControl()`/`
 Interface → Default → Override" jetzt auch für den Modul-ZUGRIFF, nicht nur dessen Verhalten). Der
 Anfangszustand einer Unit ist reine Daten-Deklaration (`FBSpawn`: Position, Höhe-ODER-Boden, Kurs,
 Speed) — KEINE getrennten Boden-/Luft-Codepfade, eine EINZIGE IC-Anwendung
-(`FBMissionBoot.h::FBMissionApplySpawn`); `set <key> <value>`-Zeilen tragen Systemzustand als
+(`FBMissionBoot.h::FBMissionSpawnActor`, das den fertigen Akteur liefert); `set <key> <value>`-Zeilen tragen Systemzustand als
 Missionsdaten, der Runner reicht die rohe KV-Liste nur durch, das MODUL interpretiert seine eigenen
 Schlüssel (`FBModule::ApplySetup`, unbekannter Schlüssel = Laufzeit-FAIL). Wegpunkt-Sequenzierung ist
 Akteurs-Verhalten, nicht Runner-Buchhaltung: `systems/FBNavSystem::AdvanceWaypoint` sitzt im Modul.
@@ -181,8 +187,10 @@ sim/src/
              Gym-Client, s.o.), FBSimHost, FBTileWorkerMain; FBMissionRunner.h/.cpp (der geteilte,
              GPU-freie Missions-ORCHESTRATOR, vier Schritte, keine Missions-Spezifika — FBRunMission,
              FBMissionTickHook — den FBAppNative UND FBAppGym treiben, s.o.), FBMissionBoot.h
-             (`FBMissionApplySpawn`: die EINE deklarative IC-Anwendung, Boden ODER Luft, generisch
-             über FBModule&, kein konkreter Modultyp), FBLogSinks/FBTelemetrySinks (die
+             (`FBMissionSpawnActor`: die EINE deklarative IC-Anwendung, Boden ODER Luft, generisch über
+             FBModuleRegistry, kein konkreter Modultyp — liefert den fertigen `units/FBSimUnit` inkl.
+             eigenem FBMissionMonitor; da nur DIESER Header `fdm/FBFdmBoot.h` nennen darf, ist er auch
+             der einzige Produzent eines vollständigen Akteurs), FBLogSinks/FBTelemetrySinks (die
              I/O-Sink-Implementierungen)
   core/      FBState, FBMode, FBMasterMode, FBFlightPlan/FBRunway/FBSpawn (Wegpunkt-/Runway-/
              deklarativer-Spawn-Value-Types für FBPilot/den Orchestrator), FBMissionFile
@@ -209,7 +217,9 @@ sim/src/
   render/    FBRenderer (Orchestrator: Device/Swapchain/Targets, JEDE Begin/EndRenderPass-Grenze,
              die Encode-Reihenfolge — Pass-Topologie ist ein Vertrag, kein Stage-Split darf sie
              vermehren), FBCamera, FBMips, FBChunkMesh/FBChunkVtx, FBEphemeris, FBGpu/FBFrameContext
-             (Device-Handle bzw. geteilter Frame-Zustand, den jede Stage bekommt), FBDrawStage
+             (Device-Handle bzw. geteilter Frame-Zustand, den jede Stage bekommt; FBCamera trägt
+             zusätzlich `FBCameraBasisEcef` — die EINE Lage→ECEF-Basis, die native und WASM teilen,
+             auf `core/FBGeodesy.h`s `FBGeoToEcef`/`FBEnuAxesEcef`), FBDrawStage
              (Interface: ein Shader + seine Pipeline(s)/Bind-Group(s)/Draws, zeichnet in den
              GELIEHENEN Encoder — nie eigene Pass-Grenzen), FBHudGeometry (der HUD-Geometriepuffer —
              Lines/Tris/Glyphs als wiederverwendete Vektoren, von FBDisplaySystem gefüllt), FBHudFont
@@ -243,9 +253,9 @@ sim/src/
              (jedes `R"(`-WGSL lebt in genau einer stages/-Datei, `grep -c 'R"(' FBRenderer.cpp` == 0)
              — der Render-Stage-Split ist damit abgeschlossen.
   world/     FBWorld, FBTerrainLoader (Tile-Streaming/Worker-Anbindung; FBWorld hält
-             zusätzlich die geborgte FBUnit-Registry, s.u. units/), FBTilesElevation (der
+             zusätzlich die geborgte, NUR-LESENDE FBUnit-Registry — `const FBUnit*`, s.u. units/), FBTilesElevation (der
              Elevation-Hook-Provider auf fb_stream_ground, s.o. — NICHT Teil der Core-Lib)
-  units/     FBUnit-Basisschnittstelle + FBOwnshipUnit (Details s.u., nach dem Verzeichnisbaum)
+  units/     FBUnit-Basisschnittstelle + FBSimUnit (Details s.u., nach dem Verzeichnisbaum)
   systems/   die generischen, airframe-agnostischen System-Slots eines Moduls — Interface + Default
              in EINER Klasse, ein Modul überschreibt per Ableitung (Zahlen-Tuning bleibt Preset/
              Config, keine leere Ableitung dafür):
@@ -293,7 +303,7 @@ sim/src/
              alle), der eine globale Logger (`JSBSim::SetLogger`) und die im Konstruktor gelesenen
              `JSBSIM_DEBUG`/`JSBSIM_DISPERSE`-Env-Variablen.
              **OWNERSHIP:** wer die Einheit besitzt, besitzt ihre FBFdm — heute die App/der Missions-
-             Runner (ein `std::unique_ptr<FBFdm>` pro Lauf), perspektivisch `units/FBUnit`. Module und
+             Runner, gehalten von `units/FBSimUnit` (ein `std::unique_ptr<FBFdm>` pro Einheit). Module und
              Systeme BORGEN sie: `FBFdm&` zum Kommandieren, `const FBFdm&` zum Lesen — jede Kommando-
              Methode ist nicht-const, jeder Readback const, ein Lese-Handle kann also nicht schreiben.
              Das MODUL bekommt sie einmalig über `FBModule::AttachFdm` (die Registry baut Module
@@ -362,13 +372,30 @@ sim/src/
 
 `units/` (`sim/src/units/`) trägt die Welt-Entitäten-Basisschnittstelle: `FBUnit` (Identität — Id/
 Kind-Enum `Aircraft/…`/Team-Enum `Friendly/Hostile/Neutral` —, geodätische Pose, `virtual void
-Run(dt, const FBWorld*)`). `FBOwnshipUnit` ist die erste reale Einheit: der eigene Jet als FBUnit,
-BORGT das App-eigene `fb_fdm_state` (keine Kopie der Wahrheit) und leitet die Pose daraus ab; `Run()`
-bleibt leer, weil das Modul sein FDM/seine Systeme bereits selbst cycelt. FBWorld hält eine reine
-BORGTE Registry (`RegisterUnit`/`Units()`, `std::vector<FBUnit*>`, keine Ownership) — die App
-registriert das Ownship beim Boot, Sensoren/Waffen lesen sie über die geborgte FBWorld-Referenz, die
-jeder Systemslot schon erhält. KI-Einheiten (freundlich/feindlich/neutral) hängen sich später an
-dieselbe Schnittstelle, sobald sie real existieren.
+Run(dt, const FBWorld*)`) und, darauf aufbauend, **`FBSimUnit` — EINE simulierte Einheit als EIN
+Objekt**: sie BESITZT ihre `FBFdm` und das `FBModule`, das sie fliegt (in dieser Deklarationsreihenfolge,
+damit die Zelle das Modul überlebt, das sie nur borgt), hält den geteilten `fb_fdm_state`, die
+aufgelöste Boden-ASL, die Telemetrie-Source + den eigenen `FBTelemetryBus` und BEIDE unbestechlichen
+Richter (`core/FBFlightMonitor` + optional `core/FBMissionMonitor`). Die Pose leitet sie bei jedem
+Lesen aus dem Zustand ab (nie eine Schattenkopie), `Run(dt, world)` taktet das Modul, das seinerseits
+FDM und Systemslots cycelt. Das ersetzt das, was vorher als verstreute Locals im Missions-Runner und
+als acht file-scope Statics im Browser-Client stand — der frühere `FBOwnshipUnit` (nur eine Pose-Sicht
+auf `fb_fdm_state`) geht darin auf, es gibt keinen zweiten Unit-Begriff mehr. **Die Anti-Cheat-Struktur
+bleibt:** ein FBSimUnit lässt sich nur aus einer bereits gespawnten `FBFdm` bauen, und die gibt es nur
+über `fdm/FBFdmBoot` (app/-only) — `grep -rn 'FBSimUnit\|FBFlightMonitor\|FBMissionMonitor' src/systems
+src/modules` bleibt ohne Treffer, das Modul sieht die Richter nach wie vor nicht (es wird von IHNEN
+beobachtet). FBWorld hält eine reine BORGTE, NUR-LESENDE Registry (`RegisterUnit`/`Units()`,
+`std::vector<const FBUnit*>`, keine Ownership, kein Welt-Mutationspfad) — jeder Client mit Welt
+registriert seine Akteure beim Boot (Browser wie natives Frame-Orakel), Sensoren/Waffen lesen sie über
+die geborgte FBWorld-Referenz, die jeder Systemslot schon erhält. KI-Einheiten (freundlich/feindlich/
+neutral) hängen sich später an dieselbe Schnittstelle, sobald sie real existieren.
+
+**Telemetrie bei N>1:** eine CSV je Einheit, feste Spaltenzahl — der PRIMÄRE Akteur behält den
+kanonischen Namen `telemetry.csv`, jeder weitere bekommt `telemetry_u<id>.csv`. Eine breite Zeile mit
+Präfix-Spalten scheidet aus: das Spaltenset eines Akteurs folgt SEINEM Modul, eine geteilte Zeile
+würde entweder alle Module in ein Schema zwingen oder den Header von der Besetzung der Mission
+abhängig machen; die Datei-je-Einheit braucht bei N=1 keinen Sonderfall (die Zeilen bleiben
+byte-identisch).
 
 **Coding-Style: an JSBSim orientiert** (unser Code fügt sich in dessen Ökosystem): Klassen `FB`-Präfix
 (analog `FG` — `FBFlightControl`, `FBRenderer`), PascalCase-Methoden (`Run()`, `GetLoadFactor()`),
@@ -423,7 +450,7 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
   Piloten/Module wirken NUR über die simulierten Systeme (`fcs/*-cmd-norm` via FBFlightControl/
   FBAutopilot, FBAirframeControls für Gear/Brakes/Steer/Speedbrake/Engine, Throttle, Tank-Füllstand via
   `FBFdm::SetFuel*`) — der einzige State-Schreiber (JSBSim-IC/Trim) ist der App-eigene Boot-Spawn
-  (`FBMissionBoot.h::FBMissionApplySpawn`, plus die gleichrangigen App-Boot-Pfade `FBAppWasm.cpp`s
+  (`FBMissionBoot.h::FBMissionSpawnActor`, plus die gleichrangigen App-Boot-Pfade `FBAppWasm.cpp`s
   `?ap=manual` und dedizierte Test-Harnesses). Die IC-Abschottung ist STRUKTURELL, nicht bloß
   grep-belegt (s. `fdm/`-Absatz: privater Lade-Konstruktor, Friend `FBFdmBoot`, eigener Header) —
   `systems/` und `modules/` erreichen die IC nicht und sehen `FBFlightMonitor`/`FBMissionMonitor` nie.

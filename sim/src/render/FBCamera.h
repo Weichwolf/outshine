@@ -22,6 +22,8 @@
 #define FBCAMERA_H
 
 #include "FBMat4.h"
+#include "FBGeodesy.h"
+#include <cmath>
 #include <math.h>
 
 typedef struct {
@@ -39,7 +41,7 @@ typedef struct {
  * sinks acos(R/(R+h)) below the gravity-level horizontal (~sqrt(2h/R) for small h). A level HUD
  * horizon and a level sky gradient both read too HIGH aloft — they must drop by THIS angle to
  * overlay the real, curved-away horizon (MIL-STD-1787 conformal). h<=0 -> 0. */
-static float w3_horizon_dip_rad(float alt_m) {
+[[maybe_unused]] static float w3_horizon_dip_rad(float alt_m) {
   if (alt_m <= 0.f) return 0.f;
   return acosf(W3_EARTH_RADIUS_M / (W3_EARTH_RADIUS_M + alt_m));
 }
@@ -47,7 +49,7 @@ static float w3_horizon_dip_rad(float alt_m) {
 /* The orthonormal camera basis from an attitude, in RENDER space (E=+X, up=+Y, N=-Z). Split out of
  * w3_cam_from so the ECEF path below reuses the EXACT same silent-mirror-critical logic (forward
  * from yaw/pitch, the +s roll sign) instead of a second copy that could drift from it. */
-static void w3_basis_from(float yaw_deg, float pitch_deg, float roll_deg, float f[3], float sr[3],
+[[maybe_unused]] static void w3_basis_from(float yaw_deg, float pitch_deg, float roll_deg, float f[3], float sr[3],
                           float up[3]) {
   const float RAD = (float)M_PI / 180.f;
   float yaw = yaw_deg * RAD, pitch = pitch_deg * RAD, roll = roll_deg * RAD;
@@ -77,7 +79,7 @@ static void w3_basis_from(float yaw_deg, float pitch_deg, float roll_deg, float 
   }
 }
 
-static w3_cam w3_cam_from(float yaw_deg, float pitch_deg, float roll_deg, const float eye[3],
+[[maybe_unused]] static w3_cam w3_cam_from(float yaw_deg, float pitch_deg, float roll_deg, const float eye[3],
                           float fov_deg, float aspect, float znear, float zfar) {
   const float RAD = (float)M_PI / 180.f;
   w3_cam c;
@@ -104,64 +106,56 @@ static w3_cam w3_cam_from(float yaw_deg, float pitch_deg, float roll_deg, const 
  * wrong — a wrong-tilted horizon still looks like a horizon. Pinned in test_camera.c against the
  * closed-form ENU axes (Polaris-class checks: at (0,0) up is +X, east is +Y, north is +Z, etc.). */
 
-/* ENU basis vectors expressed in ECEF at geodetic (lat,lon) in degrees. These are the columns of
- * the ENU->ECEF rotation:
+/* ENU basis vectors expressed in ECEF at geodetic (lat,lon) are core/FBGeodesy.h's FBEnuAxesEcef —
  *   East  = (-sinL,        cosL,       0   )
  *   North = (-sinP cosL,  -sinP sinL,  cosP)
  *   Up    = ( cosP cosL,   cosP sinL,  sinP)
- * Closed form, right-handed, det +1 (a proper rotation) — so it preserves triangle winding. */
-static void w3_enu_axes_ecef(double lat_deg, double lon_deg, double E[3], double N[3],
-                             double U[3]) {
-  const double RAD = M_PI / 180.0;
-  double P = lat_deg * RAD, L = lon_deg * RAD;
-  double sP = sin(P), cP = cos(P), sL = sin(L), cL = cos(L);
-  E[0] = -sL;
-  E[1] = cL;
-  E[2] = 0.0;
-  N[0] = -sP * cL;
-  N[1] = -sP * sL;
-  N[2] = cP;
-  U[0] = cP * cL;
-  U[1] = cP * sL;
-  U[2] = sP;
-}
+ * closed form, right-handed, det +1 (a proper rotation), so it preserves triangle winding. It used to
+ * stand here a fourth time (a float-out `w3_enu_axes_ecef` + `w3_render_to_ecef` + `w3_cam_ecef`, none
+ * of which had a single caller left anywhere in the tree — the live path is the double-precision basis
+ * below, which both App clients now share instead of carrying a copy each). */
 
-/* Rotate a RENDER-space vector (E=+X, up=+Y, N=-Z) into ECEF axes at (lat,lon). The render->ENU
- * remap is (e,n,u) = (x, -z, y); then v_ecef = E*e + N*n + U*u. */
-static void w3_render_to_ecef(double lat_deg, double lon_deg, const float rv[3], float out[3]) {
+namespace FlightBox {
+
+/* The ECEF camera basis for a camera sitting on an aircraft: the render-space forward/right/up from
+ * yaw/pitch/roll (w3_basis_from's logic above, including the silent-mirror-critical +s roll sign),
+ * rotated into the local ENU frame at (lat,lon) — render->ENU is (e,n,u) = (x,-z,y).
+ *
+ * Doubles, not floats: the eye is an ECEF position in the 6.4e6 m range and this basis is derived
+ * alongside it each frame. This exact function stood twice, character for character, in
+ * FBAppNative.cpp and FBAppWasm.cpp, each with a comment asking the reader to keep it identical to the
+ * other — i.e. the oracle's frames and the browser's frames were "the same camera" only by hand. */
+inline void FBCameraBasisEcef(double yawDeg, double pitchDeg, double rollDeg, double latDeg,
+                              double lonDeg, double fwd[3], double right[3], double up[3]) {
+  double yaw = yawDeg * kDeg2Rad, pitch = pitchDeg * kDeg2Rad, roll = rollDeg * kDeg2Rad;
+  double fR[3] = {std::cos(pitch) * std::sin(yaw), std::sin(pitch), -std::cos(pitch) * std::cos(yaw)};
+  double wup[3] = {0, 1, 0}, s[3], u[3];
+  s[0] = fR[1] * wup[2] - fR[2] * wup[1];
+  s[1] = fR[2] * wup[0] - fR[0] * wup[2];
+  s[2] = fR[0] * wup[1] - fR[1] * wup[0];
+  { double l = std::sqrt(s[0] * s[0] + s[1] * s[1] + s[2] * s[2]);
+    if (l < 1e-12) l = 1.0;
+    s[0] /= l; s[1] /= l; s[2] /= l; }
+  u[0] = s[1] * fR[2] - s[2] * fR[1];
+  u[1] = s[2] * fR[0] - s[0] * fR[2];
+  u[2] = s[0] * fR[1] - s[1] * fR[0];
+  double upR[3], srR[3];
+  for (int i = 0; i < 3; i++) {
+    upR[i] = u[i] * std::cos(roll) + s[i] * std::sin(roll);
+    srR[i] = s[i] * std::cos(roll) - u[i] * std::sin(roll);
+  }
   double E[3], N[3], U[3];
-  w3_enu_axes_ecef(lat_deg, lon_deg, E, N, U);
-  double e = rv[0], u = rv[1], n = -rv[2];
-  for (int i = 0; i < 3; i++)
-    out[i] = (float)(E[i] * e + N[i] * n + U[i] * u);
+  FBEnuAxesEcef(latDeg, lonDeg, E, N, U);
+  auto toEcef = [&](const double rv[3], double out[3]) {
+    double e = rv[0], uu = rv[1], nn = -rv[2];
+    for (int i = 0; i < 3; i++) out[i] = E[i] * e + N[i] * nn + U[i] * uu;
+  };
+  toEcef(fR, fwd);
+  toEcef(srR, right);
+  toEcef(upR, up);
 }
 
-/* Camera for the ECEF path: eye at the origin (0,0,0), the attitude basis rotated into ECEF axes.
- * c.mvp is the VIEW-PROJECTION only (proj * view(eye=0)); the per-tile model translation
- * (origin_ecef - cam_ecef, as float) is post-multiplied at draw time (w3_mvp_translate) so a tile's
- * small local offsets never mix with the large ECEF magnitudes. c.f/sr/up are the ECEF basis. */
-/* [[maybe_unused]]: header-only, `static` (internal linkage) — every TU that includes this file gets
- * its own copy, and not every consumer needs the ECEF/frustum group below (e.g. systems/
- * FBDisplaySystem only needs the local-basis functions above for the HUD's conformal horizon). */
-[[maybe_unused]] static w3_cam w3_cam_ecef(float yaw_deg, float pitch_deg, float roll_deg, double cam_lat,
-                          double cam_lon, float fov_deg, float aspect, float znear, float zfar) {
-  const float RAD = (float)M_PI / 180.f;
-  float fR[3], sR[3], uR[3]; /* render-space basis (local ENU orientation) */
-  w3_basis_from(yaw_deg, pitch_deg, roll_deg, fR, sR, uR);
-
-  w3_cam c;
-  w3_render_to_ecef(cam_lat, cam_lon, fR, c.f);
-  w3_render_to_ecef(cam_lat, cam_lon, sR, c.sr);
-  w3_render_to_ecef(cam_lat, cam_lon, uR, c.up);
-
-  const float eye[3] = {0, 0, 0};
-  float ctr[3] = {c.f[0], c.f[1], c.f[2]};
-  float view[16], proj[16];
-  m_lookat(view, eye, ctr, c.up);
-  m_persp(proj, fov_deg * RAD, aspect, znear, zfar);
-  m_mul(c.mvp, proj, view);
-  return c;
-}
+} // namespace FlightBox
 
 /* out = viewproj * translate(t). translate touches only the last column, so columns 0..2 pass
  * through and column 3 = VP*(t,1). Column-major (m[col*4+row]). Cheap: no full 4x4 multiply. */

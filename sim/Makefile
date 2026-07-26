@@ -49,7 +49,7 @@ JSB_HOST     := build/jsbsim-host
 # Shared include roots (flat -I per module dir; #include stays bare-filename). core = FBState/
 # FBMode/telemetry/FBFlightPlan/FBRunway; math = value-math (FBMat4); render = FBRenderer + camera/mips/
 # chunkmesh/ephemeris/the HUD's WebGPU-backend resources (FBHudGeometry, FBHudFont ROM); world = FBWorld/
-# FBTerrainField/tile streaming; units = FBUnit/FBOwnshipUnit (world-entity identity/pose); systems = the
+# tile streaming; units = FBUnit/FBSimUnit (world-entity identity/pose + the whole flown unit); systems = the
 # DEFAULT, airframe-agnostic guidance/FCS/displays/pilot/airframe-controls (FBAutopilot/
 # FBFlightControl/FBDisplaySystem/FBPilot/FBAirframeControls) modules compose and may
 # override; modules/f16 = the F-16's module (composes systems/ + its gain preset); fdm = the JSBSim
@@ -93,7 +93,7 @@ CORE_LIB_SRCS := \
   src/modules/f16/FBF16Ufc.cpp src/modules/f16/FBF16Sms.cpp src/modules/f16/FBF16Pilot.cpp \
   src/modules/f16/FBF16ModuleRegistration.cpp \
   src/modules/f16/displays/FBF16Hud.cpp \
-  src/units/FBOwnshipUnit.cpp \
+  src/units/FBSimUnit.cpp \
   src/render/FBHudGeometry.cpp
 
 .PHONY: help wasm worker core-lib native gym test-monitor test-fdm image up down restart clean

@@ -16,7 +16,7 @@
 #include "FBFlightMonitor.h"
 #include "FBLog.h"
 #include "FBLogSinks.h"
-#include "FBMissionBoot.h"
+#include "FBSimUnit.h"   /* FBBuildFlightMonitorSample: the same monitor input a real unit feeds */
 #include "FBFdmBoot.h"
 #include <cstdio>
 #include <memory>
@@ -36,7 +36,7 @@ int main() {
   const double speedMs = 40.0;      /* a mild forward glide (~78 kt) — not hovering, not a dive */
 
   /* HeightOffsetM>0: an explicit airborne IC (FBFdmBoot.h) — NOT the ground-spawn-on-gear path
-   * (FBMissionApplySpawn's ground case uses <0); FbwOverride so our own FBW (a flat Manual command
+   * (FBMissionSpawnActor's ground case uses <0); FbwOverride so our own FBW (a flat Manual command
    * below), not the F-16's own FLCS, is what's driving — same override every other client uses. */
   FBFdmSpawn ic;
   ic.ModelsRoot = "vendor/jsbsim/aircraft"; ic.Aircraft = "f16";

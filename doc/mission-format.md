@@ -9,7 +9,7 @@ Missions-Spezifika: Mission laden → Welt mit ihren Akteuren aufsetzen (Elevati
 spawnen) → Akteure ausführen (Modul takten, beide Monitore füttern) → Welt validieren (die Monitore
 haben das Urteil längst gefällt). Der Anfangszustand einer Unit ist reine Daten-Deklaration — kein
 Boden-/Luft-Sonderfall im Code: `spawn` trägt Position + Höhe(-oder-Boden) + Kurs + Speed, eine EINZIGE
-IC-Anwendung (`FBMissionBoot.h`s `FBMissionApplySpawn`) für beide Fälle.
+IC-Anwendung (`FBMissionBoot.h`s `FBMissionSpawnActor`) für beide Fälle.
 
 ## Syntax
 
@@ -76,7 +76,7 @@ an ALLES nur über die generischen `FBModule`-Accessoren (`Autopilot()`/`FlightC
 `PilotSystem()`/`Controls()`/`Displays()`/`AirDataSystem()`/`FlightPlan()`/`Telemetry()`/
 `ApplySetup()`) — der Runner selbst nennt nie einen konkreten Modultyp und enthält keinen
 missions-spezifischen Code (kein Runway-Schwellen-Spawn, kein Wegpunkt-Advance — beides sitzt in
-`FBMissionBoot.h::FBMissionApplySpawn` bzw. `systems/FBNavSystem::AdvanceWaypoint`, dem Modul selbst).
+`FBMissionBoot.h::FBMissionSpawnActor` bzw. `systems/FBNavSystem::AdvanceWaypoint`, dem Modul selbst).
 Die Bodenhöhe für einen `ground`-Spawn kommt aus dem injizierten `FBElevationProvider` (der
 Elevation-Hook: `--elev tiles|const|swiss`, siehe `sim/src/core/FBElevationProvider.h`) — die
 Datei-Elevation der `runway`-Zeile ist nur Doku/Fallback.

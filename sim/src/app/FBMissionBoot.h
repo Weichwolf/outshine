@@ -1,51 +1,64 @@
 /* FlightBox — FBMissionBoot: the declarative spawn BOTH entry points need to start a mission-with-pilot
- * run (the native --mission runner and the WASM app's default boot), factored once so neither App
+ * run (the native/gym mission runner and the WASM app's default boot), factored once so neither App
  * duplicates JSBSim IC / FBPilot-arming mechanics. Generic over FBModule (mission.ModuleName picks the
- * concrete module via FBModuleRegistry — see FBMissionRunner.cpp), not hardcoded to the F-16: this
- * header itself never names a concrete module type. Header-only: every caller already links
- * FBMissionFile.cpp + the module registry, so no new Makefile translation unit is needed for this.
+ * concrete module via FBModuleRegistry), not hardcoded to the F-16: this header itself never names a
+ * concrete module type. Header-only: every caller already links FBMissionFile.cpp + the module registry,
+ * so no new Makefile translation unit is needed for this.
  *
  * ONE IC application (CLAUDE.md's declarative-spawn contract): FBFdmBoot::Spawn applies position/
  * attitude/velocity together for BOTH a ground sit (HeightOffsetM<0) and an explicit airborne altitude
  * (the offset above the resolved ground) — FBSpawn.Ground picks which, there is no second, separate
  * airborne code path here. This header is also the app-side half of the IC gate: it includes
  * fdm/FBFdmBoot.h, the ONLY way to produce an FBFdm, which is why no file under systems/ or modules/
- * can spawn, re-place or re-trim an airframe (FBFdmBoot.h's banner). */
+ * can spawn, re-place or re-trim an airframe (FBFdmBoot.h's banner) — and, since an FBSimUnit can only
+ * be built FROM a spawned airframe, why this header is also the only producer of a complete actor. */
 #ifndef FBMISSIONBOOT_H
 #define FBMISSIONBOOT_H
 
-#include <cmath>
+#include <memory>
 #include <string>
-#include "FBFlightMonitor.h"
 #include "FBLog.h"
 #include "FBMissionFile.h"
+#include "FBMissionMonitor.h"
+#include "FBModuleRegistry.h"
+#include "FBSimUnit.h"
 #include "FBUnits.h"
-#include "FBModule.h"
 #include "FBFdmBoot.h"
-#include <memory>
 
 namespace FlightBox {
 
-/* Applies `mission`'s declarative FBSpawn to `module`/`st`: ONE FBFdmBoot::Spawn IC call (ground-sit or
- * literal-altitude airborne, see the file banner), FBAutopilot neutral Manual (idle stick/throttle — a
- * real-FLCS airframe like the F-16 holds wings-level on its own) so a ground spawn's Preflight hold has
- * something stable to sit in, gear DOWN + both wheel brakes set as the real-world baseline (a mission's
- * own `set gear up` line below overrides it for an air start), the mission's FlightPlan/Runway wired
- * onto the module, FBPilot armed at the phase matching the spawn (Preflight for a ground sit — the
- * existing WOW-gated hold+takeoff-roll machinery; Route directly for an airborne spawn — already
- * established in flight, no taxi/rotate to simulate), then every `set <key> <value>` mission line
- * applied via FBModule::ApplySetup (an unrecognized key fails the spawn — the caller turns that into a
- * mission FAIL, exit 1, per doc/mission-format.md). `aircraftPath` differs per link target (native/gym:
- * "vendor/jsbsim/aircraft", WASM: the embedded FS path "/jsbsim/aircraft"). Returns the spawned,
- * module-attached FBFdm — the CALLER owns it (it outlives the module it flies) — or nullptr (JSBSim
- * init failed, or an unknown `set` key), in which case module/st are not in a usable state. */
-inline std::unique_ptr<FBFdm> FBMissionApplySpawn(const char *aircraftPath, const FBMission &mission,
-                                                  double groundAsl, FBModule &module, fb_fdm_state &st) {
+/* Spawns ONE mission actor: resolves `mission.ModuleName` through FBModuleRegistry, applies the
+ * mission's declarative FBSpawn as a single FBFdmBoot::Spawn IC call (ground-sit or literal-altitude
+ * airborne, see the file banner), wires the airframe to the module (FBModule::AttachFdm) and then the
+ * mission's own data onto it — FlightPlan/Runway, FBAutopilot neutral Manual (idle stick/throttle: a
+ * real-FLCS airframe like the F-16 holds wings-level on its own, so a ground spawn's Preflight hold has
+ * something stable to sit in), gear DOWN + both wheel brakes as the real-world baseline (a mission's own
+ * `set gear up` line overrides it for an air start), FBPilot armed at the phase matching the spawn
+ * (Preflight for a ground sit — the WOW-gated hold+takeoff-roll machinery; Route directly for an
+ * airborne spawn, already established in flight), and every `set <key> <value>` line via
+ * FBModule::ApplySetup (an unrecognized key voids the spawn — the caller turns that into a mission FAIL,
+ * doc/mission-format.md). The finished unit carries its own FBMissionMonitor, built from the mission
+ * FILE's plan/runway (never the module's live, mutated copy) with `timeoutS` — the caller's resolved
+ * timeout, which may override the file's own.
+ *
+ * `aircraftPath` differs per link target (native/gym: "vendor/jsbsim/aircraft", WASM: the embedded FS
+ * path "/jsbsim/aircraft"). Returns nullptr with a human reason in *err (unknown module, JSBSim init,
+ * rejected `set` line); on success the caller owns the actor and everything in it. */
+inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const char *aircraftPath, const FBMission &mission,
+                                                      double groundAsl, double timeoutS, int id,
+                                                      std::string *err) {
+  auto fail = [err](std::string reason) -> std::unique_ptr<FBSimUnit> {
+    if (err) *err = std::move(reason);
+    return nullptr;
+  };
+  std::unique_ptr<FBModule> module = FBModuleRegistry::Create(mission.ModuleName);
+  if (!module) return fail("unknown module '" + mission.ModuleName + "'");
+
   const FBSpawn &sp = mission.Spawn;
   FBFdmSpawn ic;
   ic.ModelsRoot = aircraftPath;
-  ic.Aircraft = module.FdmModelName();   /* the MODULE names its JSBSim model; `module <name>` in the
-                                          * .fbm stays a pure registry key (FBModule::FdmModelName) */
+  ic.Aircraft = module->FdmModelName();   /* the MODULE names its JSBSim model; `module <name>` in the
+                                           * .fbm stays a pure registry key (FBModule::FdmModelName) */
   ic.LatDeg = sp.LatDeg;
   ic.LonDeg = sp.LonDeg;
   ic.GroundElevM = groundAsl;
@@ -53,47 +66,31 @@ inline std::unique_ptr<FBFdm> FBMissionApplySpawn(const char *aircraftPath, cons
   ic.SpeedMs = sp.SpeedKt * kKtToMs;
   ic.HeadingDeg = sp.HeadingDeg;
   std::unique_ptr<FBFdm> fdm = FBFdmBoot::Spawn(ic);
-  if (!fdm) return nullptr;
+  if (!fdm) return fail("spawn failed (jsbsim init, a bad model, or a rejected 'set' line)");
   fdm->SetGroundElevM(groundAsl);
-  module.AttachFdm(*fdm);   /* before any Controls()/ApplySetup call below reaches the airframe */
-  if (mission.HaveRunway) module.SetRunway(mission.Runway);
-  module.FlightPlan() = mission.Plan;
-  module.Autopilot().SetManual(0.0, 0.0, 0.0, 0.0);
-  module.Controls().SetGear(true);
-  module.Controls().SetWheelBrakes(1.0, 1.0);
-  module.PilotSystem().SetPhase(sp.Ground ? FBPilot::Phase::Preflight : FBPilot::Phase::Route);
+  module->AttachFdm(*fdm);   /* before any Controls()/ApplySetup call below reaches the airframe */
+  if (mission.HaveRunway) module->SetRunway(mission.Runway);
+  module->FlightPlan() = mission.Plan;
+  module->Autopilot().SetManual(0.0, 0.0, 0.0, 0.0);
+  module->Controls().SetGear(true);
+  module->Controls().SetWheelBrakes(1.0, 1.0);
+  module->PilotSystem().SetPhase(sp.Ground ? FBPilot::Phase::Preflight : FBPilot::Phase::Route);
   for (const auto &kv : mission.SetKV) {
     /* The module already logged WHY (unknown key vs. unparsable/out-of-range value — only it knows its
      * own keys); this is the boot-level "the spawn is void because of this line". */
-    if (!module.ApplySetup(kv.first, kv.second)) {
+    if (!module->ApplySetup(kv.first, kv.second)) {
       FBLog::Error("mission", "SET_REJECTED", {{"key", kv.first}, {"value", kv.second}});
-      return nullptr;
+      return fail("spawn failed (jsbsim init, a bad model, or a rejected 'set' line)");
     }
   }
-  st = fb_fdm_state{};
+  fb_fdm_state st{};
   st.lat = sp.LatDeg; st.lon = sp.LonDeg; st.elev = sp.Ground ? groundAsl : sp.AltM;
-  return fdm;
-}
 
-/* fb_fdm_state -> core/FBFlightMonitor's narrow, fdm-decoupled input (FBFlightMonitor.h's banner) —
- * header-only so BOTH entry points that own a FBFlightMonitor (FBMissionRunner.cpp for gym/native,
- * FBAppWasm.cpp for the browser) feed it identically without either linking the other's translation
- * unit. */
-inline FBFlightMonitorSample FBBuildFlightMonitorSample(const FBFdm &fdm, const fb_fdm_state &st,
-                                                        double groundAsl) {
-  FBFlightMonitorSample s;
-  s.LatDeg = st.lat; s.LonDeg = st.lon;
-  s.ElevM = st.elev; s.GroundAslM = groundAsl;
-  s.RollDeg = st.roll; s.PitchDeg = st.pitch;
-  s.PDegS = st.p; s.QDegS = st.q; s.RDegS = st.r;
-  s.VsMs = st.vy; s.TasMs = st.speed;
-  s.GearPosNorm = fdm.GetGearPos();
-  s.GearForceLbs = fdm.GetMaxGearForceLbs();
-  s.WeightLbs = fdm.GetWeightLbs();
-  s.AnyWow = fdm.GetWow();
-  s.StructureContact = fdm.GetStructureContact();
-  s.FdmFault = fdm.Faulted();
-  return s;
+  auto unit = std::make_unique<FBSimUnit>(id, FBUnitTeam::Friendly, std::move(fdm), std::move(module),
+                                          st, groundAsl);
+  unit->SetMissionMonitor(std::make_unique<FBMissionMonitor>(mission.Plan, mission.Runway,
+                                                             mission.HaveRunway, timeoutS));
+  return unit;
 }
 
 } // namespace FlightBox

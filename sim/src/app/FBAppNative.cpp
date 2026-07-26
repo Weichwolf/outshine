@@ -7,7 +7,9 @@
  * stb_image_write (public domain, geo/osmmesh/src/3rdparty/stb_image_write.h) writes the PNGs. */
 #include "FBRenderer.h"
 #include "FBWorld.h"
+#include "FBCamera.h"
 #include "FBEphemeris.h"
+#include "FBGeodesy.h"
 #include "FBUnits.h"
 #include "FBMissionRunner.h"
 #include "FBTerrainLoader.h"
@@ -31,50 +33,10 @@
 #include "stb_image_write.h"
 
 using namespace FlightBox;
-static void GeoToEcef(double latDeg, double lonDeg, double alt, double out[3]) {
-  const double a = 6378137.0, e2 = 6.69437999014e-3;
-  double lat = latDeg * kPi / 180.0, lon = lonDeg * kPi / 180.0;
-  double sl = std::sin(lat), cl = std::cos(lat);
-  double N = a / std::sqrt(1.0 - e2 * sl * sl);
-  out[0] = (N + alt) * cl * std::cos(lon);
-  out[1] = (N + alt) * cl * std::sin(lon);
-  out[2] = (N * (1.0 - e2) + alt) * sl;
-}
 
-/* Aircraft attitude -> ECEF camera basis (mirrors FBAppWasm.cpp cameraBasis: render-space yaw/pitch/
- * roll, then rotated into ECEF at lat/lon). Kept in sync so the oracle frames the flight exactly as
- * the browser does. */
-static void EnuAxes(double latDeg, double lonDeg, double E[3], double N[3], double U[3]) {
-  double P = latDeg * kPi / 180.0, L = lonDeg * kPi / 180.0;
-  double sP = std::sin(P), cP = std::cos(P), sL = std::sin(L), cL = std::cos(L);
-  E[0] = -sL;      E[1] = cL;       E[2] = 0.0;
-  N[0] = -sP * cL; N[1] = -sP * sL; N[2] = cP;
-  U[0] = cP * cL;  U[1] = cP * sL;  U[2] = sP;
-}
-static void CrossN(const double a[3], const double b[3], double o[3]) {
-  o[0] = a[1] * b[2] - a[2] * b[1]; o[1] = a[2] * b[0] - a[0] * b[2]; o[2] = a[0] * b[1] - a[1] * b[0];
-}
-static void CameraBasis(double yawDeg, double pitchDeg, double rollDeg, double latDeg, double lonDeg,
-                        double fwd[3], double right[3], double up[3]) {
-  double yaw = yawDeg * kPi / 180.0, pitch = pitchDeg * kPi / 180.0, roll = rollDeg * kPi / 180.0;
-  double fR[3] = {std::cos(pitch) * std::sin(yaw), std::sin(pitch), -std::cos(pitch) * std::cos(yaw)};
-  double wup[3] = {0, 1, 0}, s[3], u[3];
-  CrossN(fR, wup, s);
-  { double l = std::sqrt(s[0]*s[0]+s[1]*s[1]+s[2]*s[2]); if (l < 1e-12) l = 1.0; s[0]/=l; s[1]/=l; s[2]/=l; }
-  CrossN(s, fR, u);
-  double upR[3], srR[3];
-  for (int i = 0; i < 3; i++) {
-    upR[i] = u[i] * std::cos(roll) + s[i] * std::sin(roll);
-    srR[i] = s[i] * std::cos(roll) - u[i] * std::sin(roll);
-  }
-  double E[3], N[3], U[3];
-  EnuAxes(latDeg, lonDeg, E, N, U);
-  auto toEcef = [&](const double rv[3], double out[3]) {
-    double e = rv[0], uu = rv[1], nn = -rv[2];
-    for (int i = 0; i < 3; i++) out[i] = E[i] * e + N[i] * nn + U[i] * uu;
-  };
-  toEcef(fR, fwd); toEcef(srR, right); toEcef(upR, up);
-}
+/* Camera/geodesy math is shared, not per-App: FBGeoToEcef/FBEnuAxesEcef (core/FBGeodesy.h) and
+ * FBCameraBasisEcef (render/FBCamera.h). This file used to carry its own copies of all three, with a
+ * comment asking the reader to keep them identical to the browser's. */
 
 namespace {
 
@@ -122,14 +84,13 @@ int RunCloudLab(double lat, double lon, time_t utc, double cloudQ, double ground
   (void)aglM;
   double altMSL = ground + camAGL;
   double eye[3];
-  GeoToEcef(lat, lon, altMSL, eye);
+  FBGeoToEcef(lat, lon, altMSL, eye);
   FlightBox::FBState hs{};
   hs.alt = (float)altMSL; hs.gs = 220.f; hs.airspeed = 220.f; hs.state = FlightBox::FBMode::Manual;
   FlightBox::SunPos(lat, lon, utc, &hs.sun_el, &hs.sun_az);
   FlightBox::MoonPos(lat, lon, utc, &hs.moon_el, &hs.moon_az, &hs.moon_phase);
-  double P = lat * kPi2 / 180.0, L = lon * kPi2 / 180.0;
-  double sP = std::sin(P), cP = std::cos(P), sL = std::sin(L), cL = std::cos(L);
-  double E3[3] = {-sL, cL, 0}, N3[3] = {-sP * cL, -sP * sL, cP}, U3[3] = {cP * cL, cP * sL, sP};
+  double E3[3], N3[3], U3[3];
+  FBEnuAxesEcef(lat, lon, E3, N3, U3);
   /* Aim 42 deg OFF the sun azimuth so the deck is side-lit (edge light + self-shadow visible), not
    * blinded by the sun disc. Pitch follows from the deck-relative aim point, not a fixed angle. */
   double yawDeg = hs.sun_az + 42.0, yaw = yawDeg * kPi2 / 180.0;
@@ -234,7 +195,7 @@ public:
   FBNativeMissionHook(std::string base, std::string outDir, double intervalS, int width = 1280, int height = 720)
       : Base(std::move(base)), OutDir(std::move(outDir)), IntervalS(intervalS), Width(width), Height(height) {}
 
-  void OnMissionStart(const FlightBox::FBSpawn &spawn, double groundAsl, const FlightBox::FBDisplaySystem &displays) override {
+  void OnMissionStart(const FlightBox::FBSpawn &spawn, const FlightBox::FBSimUnit &primary) override {
     R = std::make_unique<FlightBox::FBRenderer>();
     R->SetDefaultMode(0);
     R->SetGroundMode(0);
@@ -249,41 +210,42 @@ public:
       R.reset(); W.reset();
       return;
     }
-    R->SetHudDisplay(&displays);
+    R->SetHudDisplay(&primary.Displays());
     R->InitOffscreen(Width, Height);
     if (!R->Ready()) {
       FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "gpu init"}});
       R.reset(); W.reset();
       return;
     }
+    /* The actor as a world entity: FBWorld's registry borrows the FBUnit, exactly as the browser client
+     * registers its own — one registration path for every client that has a world at all. */
+    W->RegisterUnit(&primary);
     /* Warm the terrain cut around the spawn before the first PNG — same 60-tick pre-roll RunMission
      * always did (the jet is stationary this round, an approximate cut is enough for a proof frame). */
-    double altAsl0 = groundAsl + (spawn.Ground ? 2.0 : (spawn.AltM - groundAsl));
+    double altAsl0 = primary.GroundAslM() + (spawn.Ground ? 2.0 : (spawn.AltM - primary.GroundAslM()));
     double eye0[3], fwd0[3], right0[3], up0[3];
-    GeoToEcef(spawn.LatDeg, spawn.LonDeg, altAsl0, eye0);
-    CameraBasis(spawn.HeadingDeg, -2.0, 0.0, spawn.LatDeg, spawn.LonDeg, fwd0, right0, up0);
+    FBGeoToEcef(spawn.LatDeg, spawn.LonDeg, altAsl0, eye0);
+    FBCameraBasisEcef(spawn.HeadingDeg, -2.0, 0.0, spawn.LatDeg, spawn.LonDeg, fwd0, right0, up0);
     for (int i = 0; i < 60; i++) W->Update(spawn.LatDeg, spawn.LonDeg, eye0, fwd0, (double)i * 1000.0 / 15.0);
   }
 
-  void OnTick(const fb_fdm_state &st, double simT, double groundAsl, double aglM,
-             const FlightBox::FBState &telemetry) override {
+  void OnTick(const FlightBox::FBSimUnit &primary, double simT) override {
     if (!R || !W) return;   /* OnMissionStart already logged the failure */
     Acc += 0.1;   /* dt = the runner's fixed 10 Hz decision tick, see FBMissionRunner.cpp */
     if (Acc < IntervalS) return;
     Acc = 0.0;
+    FlightBox::FBUnitPose p = primary.GetPose();   /* the camera rides the unit, not a raw FDM POD */
     double eye[3], fwd[3], right[3], up[3];
-    GeoToEcef(st.lat, st.lon, st.elev, eye);
-    CameraBasis(st.yaw, st.pitch, st.roll, st.lat, st.lon, fwd, right, up);
+    FBGeoToEcef(p.LatDeg, p.LonDeg, p.ElevM, eye);
+    FBCameraBasisEcef(p.YawDeg, p.PitchDeg, p.RollDeg, p.LatDeg, p.LonDeg, fwd, right, up);
     R->SetCameraBasis(eye, fwd, right, up);
-    FlightBox::FBState hs = telemetry;
-    hs.roll = (float)st.roll; hs.pitch = (float)st.pitch; hs.yaw = (float)st.yaw;
-    hs.alt = (float)st.elev; hs.gs = (float)st.gs; hs.airspeed = (float)st.speed; hs.vs = (float)st.vy;
+    FlightBox::FBState hs = primary.HudState();   /* module telemetry + this tick's live pose */
     hs.state = FlightBox::FBMode::Manual;
-    FlightBox::SunPos(st.lat, st.lon, time(nullptr), &hs.sun_el, &hs.sun_az);
-    FlightBox::MoonPos(st.lat, st.lon, time(nullptr), &hs.moon_el, &hs.moon_az, &hs.moon_phase);
+    FlightBox::SunPos(p.LatDeg, p.LonDeg, time(nullptr), &hs.sun_el, &hs.sun_az);
+    FlightBox::MoonPos(p.LatDeg, p.LonDeg, time(nullptr), &hs.moon_el, &hs.moon_az, &hs.moon_phase);
     R->SetHud(hs, true);
-    R->SetAgl((float)aglM);
-    W->Update(st.lat, st.lon, eye, fwd, simT * 1000.0);
+    R->SetAgl((float)primary.AglM());
+    W->Update(p.LatDeg, p.LonDeg, eye, fwd, simT * 1000.0);
     R->RenderFrame();
     std::vector<uint8_t> rgba;
     if (R->ReadPixels(rgba)) {
@@ -387,13 +349,9 @@ int main(int argc, char **argv) {
   /* Camera: eye at ~aglM above ground, aimed along (yaw, pitch). Default pitch aims at the horizon;
    * --pitch DEG (+ = up) lets a shot frame the sky (moon/stars). Built in the eye's ENU frame. */
   double eye[3], target[3];
-  GeoToEcef(lat, lon, ground + aglM, eye);
+  FBGeoToEcef(lat, lon, ground + aglM, eye);
   double E3[3], N3[3], U3[3];
-  { double P = lat * kPi / 180.0, L = lon * kPi / 180.0;
-    double sP = std::sin(P), cP = std::cos(P), sL = std::sin(L), cL = std::cos(L);
-    E3[0] = -sL; E3[1] = cL; E3[2] = 0.0;
-    N3[0] = -sP * cL; N3[1] = -sP * sL; N3[2] = cP;
-    U3[0] = cP * cL; U3[1] = cP * sL; U3[2] = sP; }
+  FBEnuAxesEcef(lat, lon, E3, N3, U3);
   double look = yawDeg * kPi / 180.0, pitch = pitchDeg * kPi / 180.0;
   double cp = std::cos(pitch);
   double fwd[3];

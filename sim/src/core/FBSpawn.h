@@ -2,7 +2,7 @@
  * position, heading, speed, and whether altitude resolves from the ground (gear-down sit) or is a
  * literal ASL value. Pure data, no modes/phases (core/ architecture banner): the Runner/Boot turns this
  * into exactly ONE JSBSim IC application (FBFdmBoot::Spawn already applies position+attitude+velocity
- * together — see FBMissionBoot.h's FBMissionApplySpawn) plus the module's own starting FBPilot phase.
+ * together — see FBMissionBoot.h's FBMissionSpawnActor) plus the module's own starting FBPilot phase.
  * There is no separate ground/air code path here beyond this one bool. */
 #ifndef FBSPAWN_H
 #define FBSPAWN_H

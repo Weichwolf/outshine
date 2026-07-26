@@ -25,6 +25,29 @@
 
 namespace FlightBox {
 
+/* WGS84 geodetic -> ECEF (m). The planar helpers below are small-angle by design; this one is not — it
+ * is the exact ellipsoid conversion the renderer's camera-relative ECEF world is built on. It stood
+ * character-identical in both App entry points (FBAppNative.cpp, FBAppWasm.cpp) before it moved here. */
+inline void FBGeoToEcef(double latDeg, double lonDeg, double altM, double out[3]) {
+  const double a = 6378137.0, e2 = 6.69437999014e-3;
+  double lat = latDeg * kDeg2Rad, lon = lonDeg * kDeg2Rad;
+  double sl = std::sin(lat), cl = std::cos(lat);
+  double N = a / std::sqrt(1.0 - e2 * sl * sl);
+  out[0] = (N + altM) * cl * std::cos(lon);
+  out[1] = (N + altM) * cl * std::sin(lon);
+  out[2] = (N * (1.0 - e2) + altM) * sl;
+}
+
+/* The local ENU axes at (lat,lon), expressed in ECEF — the rotation every ECEF-space camera/vector
+ * conversion starts from (render/FBCamera.h's FBCameraBasisEcef, the App screenshot paths). */
+inline void FBEnuAxesEcef(double latDeg, double lonDeg, double E[3], double N[3], double U[3]) {
+  double P = latDeg * kDeg2Rad, L = lonDeg * kDeg2Rad;
+  double sP = std::sin(P), cP = std::cos(P), sL = std::sin(L), cL = std::cos(L);
+  E[0] = -sL;      E[1] = cL;       E[2] = 0.0;
+  N[0] = -sP * cL; N[1] = -sP * sL; N[2] = cP;
+  U[0] = cP * cL;  U[1] = cP * sL;  U[2] = sP;
+}
+
 /* Angle difference folded into [-180,180]. The loop form (not fmod) is the one every existing call site
  * used; it is exact for the one-or-two-wrap deltas that actually occur. */
 inline double FBWrap180(double deg) {

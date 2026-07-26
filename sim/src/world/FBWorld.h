@@ -28,12 +28,13 @@ class FBWorld {
 public:
   FBWorld();
 
-  /* Unit registry: BORROWED pointers only — FBWorld never owns a unit (each one's lifetime belongs to
-   * whoever constructed it, e.g. FBAppNative/FBAppWasm owns the FBOwnshipUnit alongside its FBF16Module).
-   * The App registers Ownship once at boot; Sensors/Weapons/Defensive walk this read-only through the
-   * const FBWorld* every slot already receives (FBSystemSlots.h) — no separate world-mutation path. */
-  void RegisterUnit(FBUnit *unit) { UnitList.push_back(unit); }
-  const std::vector<FBUnit *> &Units() const { return UnitList; }
+  /* Unit registry: BORROWED, READ-ONLY pointers — FBWorld never owns a unit and never advances one
+   * (each one's lifetime and its Run() belong to whoever constructed it: both App clients own their
+   * units/FBSimUnit list). Every client with a world registers its actors at boot; Sensors/Weapons/
+   * Defensive walk this through the const FBWorld* every slot already receives (FBSystemSlots.h) —
+   * observation only, no world-mutation path, which is why the pointer is const. */
+  void RegisterUnit(const FBUnit *unit) { UnitList.push_back(unit); }
+  const std::vector<const FBUnit *> &Units() const { return UnitList; }
 
   /* Open the streamer. `viewMeters` is the view radius (FB_VIEW_KM * 1000, the old w3_view_m). */
   bool Open(FBRenderer *renderer, const char *tilesBase, double lat, double lon, int grid,
@@ -119,7 +120,7 @@ private:
   double SpanM(int z) const;
   void BuildLights(int idx);   /* fetch + decode /t/lights for node idx into its lightInst (rel Anchor) */
 
-  std::vector<FBUnit *> UnitList;   /* borrowed, see RegisterUnit's banner */
+  std::vector<const FBUnit *> UnitList;   /* borrowed, see RegisterUnit's banner */
 
   FBRenderer *R;
   bool Photo;            /* currently viewed mode (SetGroundMode) */

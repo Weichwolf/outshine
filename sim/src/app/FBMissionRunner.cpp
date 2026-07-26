@@ -5,19 +5,16 @@
 #include "FBModuleRegistry.h"
 #include "FBTelemetry.h"
 #include "FBTelemetrySinks.h"
-#include "FBFdmTelemetrySource.h"
-#include "FBFlightMonitor.h"
-#include "FBUnits.h"
 #include "FBLog.h"
 #include "FBLogSinks.h"
 #include <cerrno>
-#include <cmath>
 #include <cstdio>
 #include <ctime>
 #include <fstream>
 #include <memory>
 #include <sstream>
 #include <sys/stat.h>
+#include <vector>
 
 namespace FlightBox {
 
@@ -58,12 +55,43 @@ FBMissionResult ToMissionResult(FBMissionVerdict v) {
   }
   return FBMissionResult::Timeout;   /* unreachable in practice: only called once Concluded() */
 }
+
+using FBActorList = std::vector<std::unique_ptr<FBSimUnit>>;
+
+/* A physical K.O. of ANY actor ends the run — today's ownship-is-the-run rule, generalised, and
+ * deliberately the conservative reading: with several actors one departing airframe still stops the
+ * loop rather than leaving a wreck integrating in the background. WHOSE K.O. it was decides the RESULT
+ * line, which is why this returns the unit and not a bool. */
+const FBSimUnit *FirstFlightKo(const FBActorList &actors) {
+  for (const auto &a : actors)
+    if (a->FlightMonitor().Tripped()) return a.get();
+  return nullptr;
+}
+
+/* telemetry.csv per actor: the PRIMARY keeps the canonical name (every existing tool and every
+ * regression hash reads outDir/telemetry.csv), each further actor gets its own file with the same fixed
+ * schema. One file per unit rather than one wide row: an actor's column set follows ITS module, so a
+ * shared row would either force every module into one schema or make the header depend on the mission's
+ * cast — and a per-unit file needs no special case at N=1. */
+std::string TelemetryPath(const std::string &outDir, size_t index, const FBSimUnit &unit) {
+  if (index == 0) return outDir + "/telemetry.csv";
+  char suffix[32];
+  snprintf(suffix, sizeof suffix, "/telemetry_u%d.csv", unit.GetId());
+  return outDir + suffix;
+}
+
+/* The file + sink behind one actor's telemetry bus. app/ owns the I/O (core/ stays I/O-free), the unit
+ * owns the bus — this pairs them for the run's lifetime, one entry per actor. */
+struct FBActorTelemetry {
+  FBFileHandle File{nullptr, &fclose};
+  std::unique_ptr<FBCsvTelemetrySink> Sink;
+};
 } // namespace
 
 int FBRunMission(const std::string &missionPath, double timeoutOverride, const std::string &outDir,
                  const std::string &aircraftPath, FBElevationProvider &elevation,
                  FBMissionTickHook *hook) {
-  std::string csvPath = outDir + "/telemetry.csv", evPath = outDir + "/events.log";
+  std::string evPath = outDir + "/events.log";
   FBFileHandle evf = FBOpenFile(evPath.c_str(), "w");
   if (!evf) { fprintf(stderr, "mission: cannot open %s for writing\n", evPath.c_str()); return 1; }
 
@@ -96,132 +124,92 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   double timeoutS = timeoutOverride > 0.0 ? timeoutOverride : mission.TimeoutS;
   FBLog::Info("mission", "MISSION_START", {{"name", mission.Name}, {"timeout", timeoutS}});
 
-  /* ---- Step 2: set up the world with its actors ---- */
-  const FBSpawn &sp = mission.Spawn;
-  double groundAsl = elevation.GroundElevM(sp.LatDeg, sp.LonDeg);
-  if (groundAsl <= -1e8) {
-    FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "elevation unresolved at spawn"}});
-    return 1;
-  }
-  /* Consistency validation (declarative-spawn contract, doc/mission-format.md): an explicit altitude
-   * placed below the resolved terrain is a genuine contradiction, not a legal (if unusual) declaration —
-   * a 1 m margin absorbs elevation-source rounding, not real penetration. */
-  if (!sp.Ground && sp.AltM < groundAsl - 1.0) {
-    FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "spawn altitude is below ground"},
-        {"altM", sp.AltM}, {"groundM", groundAsl}});
-    return 1;
-  }
-  FBLog::Info("mission", "SPAWN", {{"name", mission.Name}, {"lat", sp.LatDeg}, {"lon", sp.LonDeg},
-      {"ground", sp.Ground}, {"altM", sp.Ground ? groundAsl : sp.AltM}, {"groundAsl", groundAsl},
-      {"hdg", sp.HeadingDeg}, {"speedKt", sp.SpeedKt}});
-
-  /* The Runner OWNS the airframe (it owns the run); the module and its systems only BORROW it — see
-   * FBModule::AttachFdm. Declared before the module so it outlives it (a module holds a borrowed
-   * FBFdm*, never an owning one). A future multi-unit mission owns one of these per unit — which is
-   * exactly why the FDM is an object here and not a process-wide singleton. */
-  std::unique_ptr<FBFdm> FdmPtr;
-
+  /* ---- Step 2: set up the world with its actors ----
+   * One block per actor the mission declares; today's .fbm declares exactly one (see the header
+   * banner). Everything an actor needs — elevation-resolved spawn, airframe, module, both monitors,
+   * telemetry — is produced here and owned by the list from then on. */
   FBRegisterBuiltinModules();
-  std::unique_ptr<FBModule> ModulePtr = FBModuleRegistry::Create(mission.ModuleName);
-  if (!ModulePtr) {
-    FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "unknown module '" + mission.ModuleName + "'"}});
-    return 1;
+  FBActorList Actors;
+  {
+    const FBSpawn &sp = mission.Spawn;
+    double groundAsl = elevation.GroundElevM(sp.LatDeg, sp.LonDeg);
+    if (!FBElevationResolved(groundAsl)) {
+      FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "elevation unresolved at spawn"}});
+      return 1;
+    }
+    /* Consistency validation (declarative-spawn contract, doc/mission-format.md): an explicit altitude
+     * placed below the resolved terrain is a genuine contradiction, not a legal (if unusual)
+     * declaration — a 1 m margin absorbs elevation-source rounding, not real penetration. */
+    if (!sp.Ground && sp.AltM < groundAsl - 1.0) {
+      FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "spawn altitude is below ground"},
+          {"altM", sp.AltM}, {"groundM", groundAsl}});
+      return 1;
+    }
+    FBLog::Info("mission", "SPAWN", {{"name", mission.Name}, {"lat", sp.LatDeg}, {"lon", sp.LonDeg},
+        {"ground", sp.Ground}, {"altM", sp.Ground ? groundAsl : sp.AltM}, {"groundAsl", groundAsl},
+        {"hdg", sp.HeadingDeg}, {"speedKt", sp.SpeedKt}});
+
+    std::string serr;
+    std::unique_ptr<FBSimUnit> unit = FBMissionSpawnActor(aircraftPath.c_str(), mission, groundAsl,
+                                                          timeoutS, (int)Actors.size() + 1, &serr);
+    if (!unit) {
+      FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", serr}});
+      return 1;
+    }
+    Actors.push_back(std::move(unit));
   }
-  FBModule &Module = *ModulePtr;
 
-  fb_fdm_state St{};
-  FdmPtr = FBMissionApplySpawn(aircraftPath.c_str(), mission, groundAsl, Module, St);
-  if (!FdmPtr) {
-    FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "spawn failed (jsbsim init, a bad model, or a rejected 'set' line)"}});
-    return 1;
+  if (hook) hook->OnMissionStart(mission.Spawn, *Actors.front());
+
+  std::vector<FBActorTelemetry> ActorTelemetry(Actors.size());
+  for (size_t i = 0; i < Actors.size(); i++) {
+    std::string path = TelemetryPath(outDir, i, *Actors[i]);
+    ActorTelemetry[i].File = FBOpenFile(path.c_str(), "w");
+    if (!ActorTelemetry[i].File) {
+      FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "cannot open telemetry.csv"}});
+      return 1;
+    }
+    ActorTelemetry[i].Sink = std::make_unique<FBCsvTelemetrySink>(ActorTelemetry[i].File.get());
+    Actors[i]->StartTelemetry(ActorTelemetry[i].Sink.get());
   }
-
-  if (hook) hook->OnMissionStart(mission.Spawn, groundAsl, Module.Displays());
-
-  FBFileHandle csv = FBOpenFile(csvPath.c_str(), "w");
-  if (!csv) {
-    FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "cannot open telemetry.csv"}});
-    return 1;
-  }
-
-  FBFdm &Fdm = *FdmPtr;
-
-  FBFdmTelemetrySource fdmSrc(Fdm, St, groundAsl);
-  FBCsvTelemetrySink csvSink(csv.get());
-  FBTelemetryBus bus;
-  bus.Register(&fdmSrc);
-  bus.Register(&Module.AirDataSystem());
-  bus.Register(&Module.PilotSystem());
-  bus.Register(&Module.FlightControl());
-  bus.Register(&Module.Controls());
-  bus.SetSink(&csvSink);
-  bus.Start();
-
-  /* The two incorruptible judges (CLAUDE.md "Kein Cheaten"), fed read-only every tick below, never
-   * given to Module/Pilot: FBFlightMonitor asks "did the airframe survive" (physics only, no mission
-   * knowledge); FBMissionMonitor asks "did the MISSION succeed" (its own copy of the mission's plan/
-   * runway/timeout, never the module's live state — see its own banner). Two instances, two questions,
-   * never conflated. */
-  FBFlightMonitor flightMonitor;
-  FBMissionMonitor missionMonitor(mission.Plan, mission.Runway, mission.HaveRunway, timeoutS);
 
   /* ---- Step 3: execute the actors ---- */
   const double dt = 0.1;
   double simT = 0.0;
-  bool warnedStall = false, warnedOverspeed = false, warnedSink = false;
   clock_t wallStart = clock();
 
-  while (!flightMonitor.Tripped() && !missionMonitor.Concluded()) {
-    double gnd = elevation.GroundElevM(St.lat, St.lon);
-    if (gnd > -1e8) groundAsl = gnd;
-    Module.SetGroundAsl((float)groundAsl);
-    Fdm.SetGroundElevM(groundAsl);
-
-    Module.Run(St, dt, nullptr);
+  /* The MISSION verdict is the primary actor's (the .fbm's plan/runway describe that one); the PHYSICAL
+   * K.O. is anyone's. Etappe 3, where every unit carries its own objectives, extends the first half —
+   * the loop shape stays as it is. */
+  while (!FirstFlightKo(Actors) && !Actors.front()->MissionConcluded()) {
+    for (auto &a : Actors) a->UpdateGroundAsl(elevation.GroundElevM(a->State().lat, a->State().lon));
+    for (auto &a : Actors) a->Run(dt, nullptr);
     simT += dt;
     FBLog::SetTime(simT);
-
-    /* Generic flight-envelope diagnostics (not mission specifics — every module has these quantities):
-     * AoA is numerically undefined at near-zero airspeed, see the historical FBAppNative.cpp banner for
-     * the measured settle-transient this gate avoids. */
-    bool haveAirspeed = St.cas > 15.0;
-    if (haveAirspeed && St.alphaDeg > 25.0 && !warnedStall) {
-      FBLog::Warn("pilot", "WARN", {{"kind", "stall"}, {"aoaDeg", St.alphaDeg}});
-      warnedStall = true;
-    } else if (!haveAirspeed || St.alphaDeg < 20.0) warnedStall = false;
-    if (St.mach > 1.2 && !warnedOverspeed) {
-      FBLog::Warn("pilot", "WARN", {{"kind", "overspeed"}, {"mach", St.mach}});
-      warnedOverspeed = true;
-    } else if (St.mach < 1.1) warnedOverspeed = false;
-    double aglM = St.elev - groundAsl;
-    if (aglM < 150.0 && St.vy < -15.0 && !warnedSink) {
-      FBLog::Warn("pilot", "WARN", {{"kind", "sink"}, {"vsMs", St.vy}, {"aglM", aglM}});
-      warnedSink = true;
-    } else if (St.vy > -5.0) warnedSink = false;
-
-    if (flightMonitor.Tick(FBBuildFlightMonitorSample(Fdm, St, groundAsl), simT))
-      Module.Controls().EngineCutoff();   /* Crash/LOC -> Motor aus, JSBSim's own ground reactions do the rest — no freeze */
-    else if (missionMonitor.Tick({St.lat, St.lon, Fdm.GetWow(), St.gs * kMsToKt}, simT) &&
-            missionMonitor.Verdict() == FBMissionVerdict::Fail)
-      Module.Controls().EngineCutoff();   /* touched down off the assigned runway */
-
-    bus.Tick(simT);
-    if (hook) hook->OnTick(St, simT, groundAsl, aglM, Module.Telemetry());
+    for (auto &a : Actors) {
+      a->CheckEnvelope();   /* generic envelope diagnostics — per actor, not per run */
+      a->RunMonitors(simT);
+    }
+    for (auto &a : Actors) a->SampleTelemetry(simT);
+    if (hook) hook->OnTick(*Actors.front(), simT);
   }
 
   /* ---- Step 4: validate the world — the monitors already did; translate their verdict ---- */
-  FBMissionResult result = flightMonitor.Tripped()
-      ? (flightMonitor.Reason() == FBKoReason::Loc ? FBMissionResult::Loc : FBMissionResult::Crash)
-      : ToMissionResult(missionMonitor.Verdict());
-  std::string reason = flightMonitor.Tripped() ? flightMonitor.Detail() : missionMonitor.Detail();
+  const FBSimUnit &primary = *Actors.front();
+  const FBSimUnit *ko = FirstFlightKo(Actors);
+  FBMissionResult result = ko
+      ? (ko->FlightMonitor().Reason() == FBKoReason::Loc ? FBMissionResult::Loc : FBMissionResult::Crash)
+      : ToMissionResult(primary.MissionMonitor()->Verdict());
+  std::string reason = ko ? ko->FlightMonitor().Detail() : primary.MissionMonitor()->Detail();
+  const fb_fdm_state &st = primary.State();
 
   double wallS = (double)(clock() - wallStart) / CLOCKS_PER_SEC;
   FBLog::SetTime(simT);
   FBLog::Info("mission", "RESULT", {{"result", FBMissionResultStr(result)}, {"reason", reason},
-      {"lat", St.lat}, {"lon", St.lon}, {"altM", St.elev}, {"durationS", simT}});
+      {"lat", st.lat}, {"lon", st.lon}, {"altM", st.elev}, {"durationS", simT}});
   FBLog::Info("mission", "SUMMARY", {{"result", FBMissionResultStr(result)}, {"durationS", simT},
       {"wallS", wallS}, {"speedup", wallS > 0.0 ? simT / wallS : 0.0},
-      {"lat", St.lat}, {"lon", St.lon}, {"altM", St.elev}});
+      {"lat", st.lat}, {"lon", st.lon}, {"altM", st.elev}});
   switch (result) {
     case FBMissionResult::Success: return 0;
     case FBMissionResult::Fail: return 1;

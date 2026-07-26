@@ -16,7 +16,7 @@
 #include "FBFlightMonitor.h"
 #include "FBLog.h"
 #include "FBLogSinks.h"
-#include "FBMissionBoot.h"
+#include "FBSimUnit.h"   /* FBBuildFlightMonitorSample: the same monitor input a real unit feeds */
 #include "FBFdmBoot.h"
 #include <cstdio>
 #include <memory>

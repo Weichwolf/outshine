@@ -36,7 +36,9 @@ constexpr float kHudMagnify = 1.88f;
  * floor with margin). Every other fixed size (boxes, ticks, symbols, insets) scales by kHudMagnify alone. */
 constexpr float kHudReadoutScale = 1.15f, kHudSecondaryScale = 1.08f;
 constexpr float kHgR = 0.30f, kHgG = 1.0f, kHgB = 0.40f;
-constexpr float kMToFt = 3.280839895f;
+/* Feet per metre comes from core/FBUnits.h — the local float copy of it shadowed the shared constant
+ * (same value to the last float bit, but exactly the drift FBUnits.h exists to prevent). */
+constexpr float kMToFtF = (float)kMToFt;
 
 struct Proj { float sx, sy, zc; };   /* zc = cos(angle from boresight); zc<=0 = behind */
 
@@ -314,7 +316,7 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
    * anchors at ~0.80*sx*uv_used, the same ~8% margin from its edge). ----- */
   {
     float mg = kHudMagnify;
-    float axr = ap.x1 - 0.08f * (ap.x1 - ap.x0), asl = state.alt * kMToFt;
+    float axr = ap.x1 - 0.08f * (ap.x1 - ap.x0), asl = state.alt * kMToFtF;
     float tapeHalf = 20.f * mg, pxPerFt = 0.03f * mg;
     for (int av = (int)floorf((asl - tapeHalf / pxPerFt) / 100.f) * 100; av <= (int)(asl + tapeHalf / pxPerFt); av += 100) {
       float sy = cy - ((float)av - asl) * pxPerFt;

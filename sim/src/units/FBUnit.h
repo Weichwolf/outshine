@@ -3,7 +3,7 @@
  * concrete type — Ownship today, AI aircraft/ground units later, same shape, so nothing above this
  * layer has to know whose aircraft it's looking at. Identity (Id/Kind/Team) is set once at
  * construction; Pose is read fresh each query (a Unit is a VIEW onto whatever owns the ground truth,
- * see FBOwnshipUnit's banner — never a duplicated copy that can drift out of sync). */
+ * see FBSimUnit's banner — never a duplicated copy that can drift out of sync). */
 #ifndef FBUNIT_H
 #define FBUNIT_H
 
@@ -33,7 +33,8 @@ public:
   virtual FBUnitPose GetPose() const = 0;
 
   /* Per-frame update at whatever rate the owner drives it; NoOp default (a unit whose motion is driven
-   * entirely by something else, like Ownship's FDM, has nothing to do here — see FBOwnshipUnit). */
+   * entirely by something else has nothing to do here — FBSimUnit forwards it to the module, which
+   * cycles the FDM and its own systems). */
   virtual void Run(double dt, const FBWorld *world) { (void)dt; (void)world; }
 
 private:

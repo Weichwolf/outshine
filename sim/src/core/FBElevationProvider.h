@@ -16,6 +16,10 @@ namespace FlightBox {
  * both are unconditionally available the instant they're constructed. */
 constexpr double kFBElevationUnresolved = -1e9;
 
+/* The one "is this sample usable" test. Every caller wrote `sample > -1e8` by hand — the same magic
+ * threshold in the runner, the browser loop and the boot path; a named predicate keeps them one rule. */
+inline bool FBElevationResolved(double m) { return m > -1e8; }
+
 class FBElevationProvider {
 public:
   virtual ~FBElevationProvider() = default;
