@@ -20,13 +20,14 @@ JSBSim F-16 itself (CLAUDE.md Prinzip 5). These files are a reference for system
 | [flight-controls-flcs.md](flight-controls-flcs.md) | **FLCS architecture, gains, CAT I/III limiters, AoA/G envelope, ARI, MPO, autopilot modes** + ED autopilot addendum (command-authority numbers, disengage-condition cross-check) | Chuck Part 15, 662–672; ED p.128–131 |
 | [aerodynamics-performance.md](aerodynamics-performance.md) | Airspeed/G/weight limits, envelope, ALOW, VMS warnings | Chuck Part 8, 153–157 |
 | [hud-symbology.md](hud-symbology.md) | Every HUD element (position + meaning), control switches, AOA bracket, steering/ILS symbology — **now with ED's exact scale/geometry numbers (TFOV 25°/10.5°, all tick spacings), full Slant-Range letter table, Master Mode text tags, Great Circle Steering Cue mechanism, and a "Was der Pilot wirklich sieht" instrumentation checklist** | Chuck Parts 3/6/8/16; ED p.89–96, 225–226 |
-| [cockpit-displays.md](cockpit-displays.md) | ICP/UFC, DED pages, MFD/OSB, instruments, caution/warning lights — **+ ED analog-gauge detail (AoA Indicator 11.1°/13.9° bands, VVI, full ADI, full Caution Light Panel trigger table); UFC/DED (p.97–120) and MFD (p.121–127) chapters still NOT processed — biggest remaining gap** | Chuck Part 3, 13–83; ED p.43–81 (partial) |
+| [cockpit-displays.md](cockpit-displays.md) | ICP/UFC, DED pages, MFD/OSB, instruments, caution/warning lights — **now FULL on ICP/UFC/DED (every DED page's fields + the propose/commit/reject edit protocol) and MFD (OSB layout, Format Selection Master Menu, DTE upload partitions)**, plus the earlier ED analog-gauge detail (AoA Indicator 11.1°/13.9° bands, VVI, full ADI, full Caution Light Panel trigger table); Aux/Left/Right Console subsections remain the residual gap | Chuck Part 3, 13–83; ED p.43–81 (partial), p.97–127 (full) |
+| [controls-commands.md](controls-commands.md) | **The pilot command list** — every discrete command a pilot can issue (ICP/DED, MFD, HOTAS, autopilot mode switches) as trigger→precondition→effect→feedback→failure rows, re-cut across all panels for the avionics command-block model; the DED propose/commit/reject cycle as the canonical command pattern; a derived HOTAS-vs-DED command-rate/latency-class analysis; a collected list of every documented rejection/precondition pattern | re-cut of cockpit-displays.md + hotas.md, no new pages |
 | [procedures-startup.md](procedures-startup.md) | 81-step start-up (phases A–I) + engine idle params + INS align — **+ ED FLCS-BIT/DBU/TRIM/MPO/air-refuel/EPU ground-check detail + full INS alignment type/timing/CEP-scale mechanism** | Chuck Part 4, 84–118; ED p.132–139, 165–176 |
 | [procedures-takeoff-taxi.md](procedures-takeoff-taxi.md) | Taxi + takeoff steps, **takeoff-speed vs weight table** (cross-validated exact vs ED) — **+ NWS-gain-vs-groundspeed principle, exact CAT I/III loadout logic, crosswind-takeoff technique** | Chuck Part 5, 119–125; ED p.140–146 |
 | [procedures-landing.md](procedures-landing.md) | Overhead pattern (7 phases), speeds, AoA, flare, roll-out — **+ AoA range refinement (11–13°), base-turn bank angles, aerobraking Roll-Indicator technique, crosswind landing, go-around rule, ALOW/decision-height link; ⚠️ flags a break-G discrepancy (Chuck 3–4G vs ED ~3G)** | Chuck Part 6, 126–133; ED p.147–156 |
 | [engine-fuel.md](engine-fuel.md) | F110 engine, limits, throttle, PRI/SEC, EPU, relight, fuel system, BINGO/JOKER | Chuck Part 7, 134–152 |
 | [navigation-ils.md](navigation-ils.md) | EHSI, HSD, steerpoints, TACAN, bullseye, INS drift/fix, **ILS approach** — **now FULL against ED**: nav-solution blending (300 ft threshold), System Altitude/ACAL/DTS-TRN mechanics, cursor-slew vs. position-fix vs. altitude-cal distinction, full TACAN/ILS quantitative facts incl. glideslope intercept-altitude/descent-rate tables and Decision Height mechanics; ⚠️ flags two discrepancies (steerpoint-count 99 vs 127, ADI glideslope-scale 0.7° vs 2.5°/dot) | Chuck Part 16, 673–777; ED p.163–246 |
-| [hotas.md](hotas.md) | Full stick (SSC) + throttle (TQS) control mapping | Chuck Part 9, 158–160 |
+| [hotas.md](hotas.md) | Full stick (SSC) + throttle (TQS) control mapping — **now cross-checked against ED's Hands-On Controls chapter**: exact SOI-dependent TMS/DMS/CMS/EXP-FOV action matrices, 0.5 s/1.0 s press-duration thresholds, speedbrake 60°/43° deflection limits — no contradiction found, only added precision | Chuck Part 9, 158–160; ED p.82–88 |
 | [radar-sensors.md](radar-sensors.md) | FCR A-A/A-G/A-Sea modes, TGP, HMCS — **now with exact ED scan geometry/timing/thresholds** (ACM sub-mode angles, CRM sub-mode state machine, TWS/SAM/STT transitions, NCTR gates, GM/GMT/SEA/MTR parameters, TGP zoom/track modes) | Chuck Part 10, 161–312; ED p.342–523 |
 | [weapons.md](weapons.md) | **FULL**: SMS/SPI/cursor logic, station/carriage data, A-A employment (gun EEGS levels, AIM-9 DLZ, AIM-120 DLZ+guidance handover), A-G delivery-mode computation (CCIP/CCRP/DTOS/LGB/JDAM/JSOW/WCMD/HARM/Maverick), munition specs, gun/bomb ballistics research+derivation | Chuck Part 11, 313–573; ED p.34–42, 303–341, 524–632, 703–704 |
 | [defence-rwr-cm.md](defence-rwr-cm.md) | **FULL**: RWR antenna geometry/blind spot/priority logic, CMDS mode×CMS×ECM-XMIT interaction state machine, per-program chaff/flare parameter schema (burst/salvo qty/interval), ECM jamming types/burnthrough | Chuck Part 12, 574–599; ED p.633–649, 680–683 |
@@ -48,21 +49,32 @@ cross-checked against ED**, and `cockpit-displays.md` gained the analog-instrume
 VVI, Caution Light Panel) detail. `air-refueling.md` also picked up its ED chapter as a low-effort
 bonus since the text was already extracted alongside Procedures.
 
+A fourth "Bedienlogik" pass (see PROGRESS.md Pass 4) closed exactly the gap Pass 3 named as its biggest
+remaining one: `cockpit-displays.md`'s ICP/UFC/DED and MFD chapters are now **FULL** (every DED page's
+fields, the propose/commit/reject edit protocol, MFD OSB layout + Format Selection Master Menu + DTE
+upload partitions), `hotas.md` picked up its ED Hands-On Controls cross-check (no contradictions, added
+precision), and a new **[`controls-commands.md`](controls-commands.md)** re-cuts all of it into a
+single command list — the direct template for the avionics command-block model FlightBox is building
+next.
+
 ## Not separately distilled
 - Part 1 (Introduction — history), Part 2 (DCS controls setup), Part 18 (Other Resources) — Chuck.
 - Part 14 (Radio Tutorial) — Chuck: comms basics folded where relevant (COM1/COM2 in
   `cockpit-displays.md`, tanker/ATC contact in `air-refueling.md`).
-- ED EA Guide chapters still not touched: **Upfront Controls (UFC/ICP/DED, p.97–120) and
-  Multi-Function Displays (MFD, p.121–127)** — the single biggest remaining gap, explicitly targeted by
-  the pilot-KI pass's priority 3 but not reached; Hands-On Controls (p.82–88, ED cross-check of the
-  already-FULL `hotas.md`); Left/Right Auxiliary Console + Left/Right Console subsections of Cockpit
-  Overview (p.43–81, partially covered — analog gauges + Caution Light Panel only); Radio
+- ED EA Guide chapters still not touched: Left/Right Auxiliary Console + Left/Right Console subsections
+  of Cockpit Overview (p.43–81, partially covered — analog gauges + Caution Light Panel only); Radio
   Communications (p.247–260); remaining HTS/HMCS WPN-format detail (p.492–523, noted as a gap in
   `radar-sensors.md`); IFF procedure detail (noted as a gap in `datalink-iff.md`); Appendices A/D/E/F
   (checklists/HOTAS quick-refs/glossary — mostly UX, low rebuild value; Appendix F formulas already
   folded into `weapons.md`). See PROGRESS.md for the full unprocessed-page ledger.
 
 ## FlightBox relevance
+- `controls-commands.md` is the **direct template for the upcoming avionics command-block model**: the
+  DED's propose→commit/reject cycle is the reference pattern for command blocks with acknowledgment +
+  rejection reasons, and the file's §6 collects every documented precondition/rejection case found
+  across the source guides. The pilot-KI is meant to drive avionics through exactly this command
+  vocabulary — no shortcuts. Its §5 derives a HOTAS-vs-DED command-latency-class split (sub-second
+  switch actions vs. multi-second head-down DED edits) as a concrete bound on pilot-KI command rate.
 - `flight-controls-flcs.md` is the **highest-value** file: our FBW (`fcs/fbw-override`) commands this FLCS;
   the limiter/gain/autopilot spec is what FBW must reproduce or cleanly bypass.
 - `hud-symbology.md` is the reference our MIL-STD-1787 HUD is built against — now also the home of the

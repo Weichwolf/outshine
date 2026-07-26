@@ -5,14 +5,14 @@ description: F-16C systems knowledge for FlightBox — complete rebuild spec dis
 
 # F-16C Systems Reference
 
-The knowledge base lives in `<repo>/doc/f16/` — 15 subsystem files, each with a Chuck's-Guide
-distillate (facts/tables/steps, page-cited) plus a `Technical depth (researched — for rebuild)`
-section (engineering sources, confidence-flagged). **Four files additionally carry an ED EA Guide
-section** (official Eagle Dynamics module manual, `doc/DCS F-16C Early Access Guide EN.pdf`) — cite
-tags are always `Chuck p.NN` vs `ED EA Guide p.NN` so you can tell which source backs which claim.
-Where the two disagree, both values are kept and the conflict is flagged explicitly (see
-`flight-controls-flcs.md`'s autopilot bank-angle-limit discrepancy for the pattern). Start at
-`INDEX.md`; coverage map + exact unprocessed-page ledger in `PROGRESS.md`.
+The knowledge base lives in `<repo>/doc/f16/` — 16 files (15 subsystem files + 1 cross-cutting command
+list), each with a Chuck's-Guide distillate (facts/tables/steps, page-cited) plus a `Technical depth
+(researched — for rebuild)` section (engineering sources, confidence-flagged). **Most files
+additionally carry an ED EA Guide section** (official Eagle Dynamics module manual, `doc/DCS F-16C
+Early Access Guide EN.pdf`) — cite tags are always `Chuck p.NN` vs `ED EA Guide p.NN` so you can tell
+which source backs which claim. Where the two disagree, both values are kept and the conflict is
+flagged explicitly (see `flight-controls-flcs.md`'s autopilot bank-angle-limit discrepancy for the
+pattern). Start at `INDEX.md`; coverage map + exact unprocessed-page ledger in `PROGRESS.md`.
 
 Read the files relevant to the task at hand:
 
@@ -20,7 +20,8 @@ Read the files relevant to the task at hand:
 |---|---|
 | FBW / control laws / autopilot | `flight-controls-flcs.md` (FULL: signal flow, g/AoA blend, limiters, gains, actuators, sensors, FLCC; **+ ED autopilot addendum** with quantified command-authority numbers and a flagged Chuck/ED bank-limit discrepancy) |
 | FDM validation / envelope | `aerodynamics-performance.md` (FULL: TP-1538 provenance, limits, deep stall) |
-| HUD implementation / judging | `hud-symbology.md` (FULL: every element + exact scale numbers from ED + MIL-STD-1787 conventions + a **"Was der Pilot wirklich sieht"** instrumentation-ground-truth checklist), `cockpit-displays.md` (+ ED analog-gauge detail: AoA indicator bands, ADI, VVI, full Caution Light Panel trigger table; **UFC/DED and MFD chapters still unprocessed — biggest remaining gap**) |
+| HUD implementation / judging | `hud-symbology.md` (FULL: every element + exact scale numbers from ED + MIL-STD-1787 conventions + a **"Was der Pilot wirklich sieht"** instrumentation-ground-truth checklist), `cockpit-displays.md` (FULL on ICP/UFC/DED — every DED page's fields + the propose/commit/reject edit protocol — and MFD — OSB layout, Format Selection Master Menu, DTE upload partitions; + ED analog-gauge detail: AoA indicator bands, ADI, VVI, full Caution Light Panel trigger table; Aux/Left/Right Console subsections remain the residual gap) |
+| **Avionics command-block model (next FlightBox build phase)** | `controls-commands.md` — the pilot command list re-cut across ICP/DED, MFD, HOTAS, and autopilot mode switches as trigger→precondition→effect→feedback→failure rows; the DED's propose/commit/reject cycle as the reference command pattern; a collected rejection/precondition taxonomy for the reject-reason design; a derived HOTAS-vs-DED command-latency-class split (0.5 s/1.0 s switch timing vs. multi-second DED edits) as a sourced upper bound on pilot-KI command rate. **The pilot-KI must drive avionics through this same command vocabulary a human uses — no state shortcuts.** |
 | Engine modelling | `engine-fuel.md` (FULL: F110 ratings, spool dynamics, DEEC) |
 | **Approach / ILS / nav modes / autonomous-approach guidance** | `navigation-ils.md` — **FULL against ED**: INS alignment mechanism, nav-solution blending (300 ft GPS/INS threshold), System Altitude/ACAL/DTS-TRN, cursor-slew vs. position-fix vs. altitude-cal, TACAN facts, and a full ILS chapter incl. **glideslope-intercept-altitude and descent-rate tables directly usable as `FBAutopilot::Direct` guidance inputs**; ⚠️ flags 2 discrepancies (steerpoint count 99 vs 127, ADI glideslope scale 0.7° vs 2.5°/dot) |
 | **Takeoff/landing speeds & procedures / pilot-AI approach law** | `procedures-takeoff-taxi.md`, `procedures-landing.md` (now gives an **11–13° AoA range**, not flat 11°, for base-turn-through-rollout — a candidate refinement for `FBF16Pilot`; ⚠️ flags a break-G discrepancy 3–4G vs ~3G), `procedures-startup.md` (+ full INS-alignment-type/timing/CEP-scale mechanism) |

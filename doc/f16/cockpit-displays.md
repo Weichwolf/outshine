@@ -5,10 +5,19 @@ HUD covered separately in `hud-symbology.md`; EHSI/HSD detail in `navigation-ils
 `engine-fuel.md`; AOA indexer in `hud-symbology.md`.
 
 Plus `doc/DCS F-16C Early Access Guide EN.pdf` (ED EA Guide, official) — **Cockpit Overview /
-Instrument Panel** chapter, p.43–81 (**partial pass this round**: Instrument Panel analog gauges +
-Caution Light Panel fully extracted below; Left/Right Auxiliary Console, Left/Right Console, and the
-**Upfront Controls (UFC/DED) p.97–120 and Multi-Function Displays (MFD) p.121–127 chapters were NOT
-processed this pass** — remaining gap, see `PROGRESS.md`). Cite tags `Chuck p.NN` vs `ED EA Guide p.NN`.
+Instrument Panel** chapter, p.43–81 (**partial pass**: Instrument Panel analog gauges + Caution Light
+Panel extracted below; Left/Right Auxiliary Console, Left/Right Console **still not processed**, see
+`PROGRESS.md`) — **plus, this round, the Upfront Controls (UFC/ICP/DED) chapter, p.97–120, and the
+Multi-Function Displays (MFD) chapter, p.121–127, both now FULL** (closes the biggest gap flagged at
+the end of Pass 3). Cite tags `Chuck p.NN` vs `ED EA Guide p.NN`.
+
+**Pilot-KI relevance (why this pass exists):** FlightBox's upcoming avionics command-block model has
+the pilot AI drive every system through the **same command path a human uses in the cockpit** — no
+magic state jumps. The ICP/DED and MFD sections below are the field-by-field reference for what those
+commands actually are (which button, which precondition, which DED/MFD field changes, what feedback the
+pilot gets, whether/how input can be rejected). The consolidated, deduplicated **command list** derived
+from this material (plus `hotas.md`) lives in **[`controls-commands.md`](controls-commands.md)** — see
+that file's header for why it's separate.
 
 ## ICP / UFC (Integrated Control Panel = Upfront Control)
 
@@ -58,6 +67,268 @@ HTS (if HTS pod), HARM (A-G mode), VRP.
 - Access a page: press a DA OSB, then pick the page from the Main Menu.
 - **Same page cannot display on both MFDs simultaneously** — selecting it on one removes it from the other.
 - Available pages: FCR, SMS/WPN, HSD, TGP, FLCS, ENG, TEST, DTE, etc.
+
+---
+
+## ED EA Guide addendum — Integrated Control Panel (ICP) & Data Entry Display (DED), FULL (official, p.97–120)
+
+The **Upfront Controls (UFC)** = ICP (keypad/knobs/switches) + DED (the readout). Active when the
+**C&I knob** (IFF control panel) is set to **UFC**; **BACK UP** position hands UHF radio + IFF to
+dedicated backup panels instead (ICP/DED failure reversion — the MASTER knob on the IFF panel still
+gates the APX-113 IFF system regardless of C&I knob position). *ED EA Guide p.97.*
+
+### ICP physical controls (14 numbered items, ED p.98–99)
+| # | Control | Function |
+|---|---|---|
+| 1 | **Override Buttons** (COM1/COM2/IFF/LIST) | Jump directly to that DED page from ANY page; **2nd press returns to the previous page** (a one-level undo stack, not RTN-to-CNI) |
+| 2 | **Master Mode Buttons** (A-A / A-G) | Select master mode; pressing the button of the **already-active** mode returns to **NAV** |
+| 3 | **SYM knob** | HUD symbology brightness, rotary |
+| 4 | **RET DEPR knob** | Depressible-reticle angle for MAN bombing, **0–260 mrad** |
+| 5 | **Priority Function / Data-Entry Keypad** | From CNI page: jumps to one of 8 priority DED pages (below); on any other page: numeric/alpha data entry for the highlighted field |
+| 6 | **RCL button** | **1st press**: backspace one digit of newly-typed data. **2nd press** (with nothing new typed since): rejects all new input, restores the field's original value |
+| 7 | **ENTR button** | Commits the highlighted field's new value |
+| 8 | **BRT knob** | HUD raster intensity — **no function on Block 50** |
+| 9 | **CONT knob** | HUD raster contrast — **no function on Block 50** |
+| 10 | **0/M-SEL button** | Cycles modes/settings on the current DED page; also used to key a **negative value** or a **zero** on numeric fields (page-specific — see below) |
+| 11 | **DED Increment/Decrement rocker** | Inc/dec the value of the field currently under the DCS asterisks (only fields with up/down-arrow glyphs are adjustable this way) |
+| 12 | **DCS / "Dobber" switch** | 5-way (U/D/L/R + depress-equivalents RTN/SEQ) — moves the field-select asterisks, sequences between sub-pages, **RTN = jump straight back to CNI** |
+| 13 | **DRIFT C/O & WARN RESET switch** | 3-position: **DRIFT C/O** (cages FPM to HUD center + Attitude Bars to boresight — for crosswind/INS-attitude-mode drift) · **NORM** (spring-loaded return, free drift) · **WARN RESET** (clears HUD warning text/voice, resets Max-G indicator to 1.0) |
+| 14 | **TFR/FLIR controls** (TFR WX button, FLIR Inc/Dec, FLIR GAIN/LVL/AUTO) | **No function on Block 50** |
+
+### DED interaction model (generic — applies to every page below)
+1. **DCS (Dobber) LEFT = RTN**: return to CNI page. **Any unaccepted edit on the current page is
+   discarded** on RTN (ED explicit, p.100).
+2. **DCS UP/DOWN**: move the asterisks (field-select cursor) to the previous/next data field.
+3. **DCS RIGHT = SEQ**: sequence to the next sub-page within a multi-page group (e.g. CRUS TOS → RNG →
+   HOME → EDR → back to TOS).
+4. **Modify a field**: put the asterisks on it (DCS U/D), type digits on the keypad (or use the
+   Inc/Dec rocker for arrow-marked fields) — the field **highlights** to show "typed but not yet
+   committed."
+5. **ENTR**: commits the highlighted value; field returns to normal (non-highlighted) display.
+6. **RCL**: 1st press = backspace one digit; 2nd press = reject the whole edit, restore prior value,
+   field returns to normal display.
+7. **0/M-SEL**: page-specific — usually toggles/enables a boolean field (e.g. CRUS mode ON/OFF) or
+   enters a negative/zero numeric value.
+8. **Override buttons (COM1/COM2/IFF/LIST) always work** regardless of what page is showing; 2nd press
+   of the *same* override button undoes to the prior page (not necessarily CNI).
+
+This is the **exact state machine** a command-block model needs to reproduce: every DED "write" is
+(a) select field → (b) type/toggle → (c) **ENTR to commit or RCL/RTN to discard** — a real
+propose/commit/reject cycle, never an instant field-level set.
+
+### DED page map (button → page)
+**Priority Function pages** (keypad 1–9, 0, visible only from CNI):
+
+| Key | Page | Detail location |
+|---|---|---|
+| 1 | **T-ILS** (TACAN & ILS) | `navigation-ils.md` |
+| 2 | **ALOW** (altitude-low warnings) | below |
+| 3 | *(unused — no priority page)* | — |
+| 4 | **STPT** (steerpoint) | `navigation-ils.md` |
+| 5 | **CRUS** (cruise: TOS/RNG/HOME/EDR, 4 sub-pages via SEQ) | below |
+| 6 | **TIME** (system time, Hack, Delta-TOS) | below |
+| 7 | **MARK** (markpoints) | not extracted this pass — TODO, likely in ED's Navigation chapter |
+| 8 | **FIX** (navigation fix) | `navigation-ils.md` |
+| 9 | **A-CAL** (altitude calibration) | `navigation-ils.md` |
+| 0 | **M-SEL** — *not a page*, the 0/M-SEL keypad key itself | — |
+
+**Override pages** (dedicated buttons, work from any page): **COM1** (UHF), **COM2** (VHF), **IFF**
+(page **not implemented** in DCS), **LIST**.
+
+**LIST sub-pages** (keypad 1–9,0 while LIST shown): 1 DEST, 2 BNGO, 3 VIP, R(=RCL) INTG **(N/I)**, 4
+NAV, 5 MAN, 6 INS, E(=ENTR) DLNK, 7 CMDS, 8 MODE, 9 VRP, 0 → **MISC** sub-menu.
+
+**MISC sub-pages** (from LIST→0): 1 CORR **(N/I)**, 2 MAGV, 3 OFP **(N/I)**, R HMCS, 4 INSM **(N/I)**,
+5 LASR, 6 GPS **(N/I)**, E HTS, 7 DRNG **(N/I)**, 8 BULL, 0 HARM.
+
+Pages documented elsewhere in this doc set (not repeated here): **DEST/NAV/BULL** →
+`navigation-ils.md`; **INS** (alignment) → `procedures-startup.md`; **DLNK** →
+`datalink-iff.md`; **CMDS** → `defence-rwr-cm.md`; **VIP/VRP** → `weapons.md` / `navigation-ils.md`;
+**HMCS/LASR/HTS** → `radar-sensors.md`; **HARM** → `weapons.md`. **N/I** = "not implemented" per ED
+itself (DCS module limitation, not a doc gap).
+
+### CNI DED page (the "home" page — default at power-up, reached via DCS RTN from anywhere)
+| Field | Content | DCS-adjacent action |
+|---|---|---|
+| Active UHF ch/freq | ARC-164 tuned channel/frequency | Inc/Dec cycles preset channel (if on a preset) |
+| UHF status | blank=UFC-controlled · **GRD**=on GUARD 243.0 · **BUP**=UHF Backup panel · **OFF** | — |
+| Active VHF ch/freq | ARC-222 tuned channel/frequency | Inc/Dec cycles preset channel |
+| VHF status | blank=UFC-controlled · **GRD**=on GUARD 121.5 · **BUP** (view-only in backup) · **OFF** | — |
+| IFF/transponder modes | **N/I** | — |
+| Mode 3 code | **N/I** | — |
+| IFF status | blank=UFC-controlled · **BUP**=IFF control panel | — |
+| Selected steerpoint | current STPT number | Inc/Dec cycles steerpoint **only** when asterisks are on this field |
+| Wind dir/speed | CADC-computed magnetic wind; **DFLT** prefix if CADC can't compute | DCS depress-equivalent toggles display on/off |
+| System time | 24 h Zulu, auto from GPS | edit on TIME page |
+| Hack time | from TIME page, hidden if zeroized | — |
+| TACAN channel/band | REC/T/R mode: channel+X/Y band; A-A T/R mode: 00.1–99.9 NM or blank if no lock | — |
+
+### ALOW DED page (keypad 2, from CNI)
+| Field | Meaning | Edit |
+|---|---|---|
+| **CARA ALOW** | AGL altitude (ft) at which the radar altimeter triggers low-altitude warning | Asterisks on field → type altitude (ft) → **ENTR** |
+| **MSL FLOOR** | MSL altitude (ft) at which the baro altimeter triggers low-altitude warning | Asterisks → type altitude → ENTR |
+| Selected steerpoint | for reference/cycling only, Inc/Dec | — |
+
+**System effect / feedback**: below CARA ALOW → HUD "Altitude…altitude" **voice message** +
+flashing altitude-low text (**inhibited if gear is down**); below MSL FLOOR → "Altitude…altitude"
+voice only (no gear inhibit stated). Requires radar altimeter **powered and transmitting** for the
+CARA ALOW warning to function at all — a documented **failure precondition**, not just a threshold.
+
+### CRUS DED pages (keypad 5, from CNI; 4 sub-pages, DCS SEQ cycles TOS→RNG→HOME→EDR→TOS)
+Mutually exclusive: **enabling any one CRUS mode auto-disables whichever other CRUS mode was active.**
+Enable/disable = asterisks on the "Mode Select" field + **0/M-SEL** (toggles highlight = enabled).
+
+| Sub-page | Fields | Effect when enabled | HUD feedback |
+|---|---|---|---|
+| **TOS** | Desired Time-Over-Steerpoint (editable, HHMMSS), ETA (computed, read-only), Required GS (computed) | Aircraft should reach selected steerpoint at the DES TOS | HUD Velocity Scale gets a **speed caret**; HUD Time-To-Go field replaced by ETA; gear-down removes caret |
+| **RNG** | Fuel-remaining-at-steerpoint (computed), wind (computed) | none commanded — informational | Speed caret = **max-range speed**; gear-down removes caret |
+| **HOME** | Home Point (editable — Inc/Dec **or** keypad+ENTR to set the steerpoint number), Fuel-at-home (computed), Optimum Cruise Altitude (computed) | Home steerpoint becomes selected steerpoint | Speed **and altitude** carets = min-fuel-return profile (climb at MIL, cruise-climb as fuel burns, idle descent to 5,000 ft over home); fuel-at-home also shown on HUD below Master Mode; gear-down removes carets |
+| **EDR** | Time-to-Bingo (computed, uses BNGO page's Bingo value), Optimum Mach (computed) | none commanded — informational | Speed caret = **max-endurance Mach** |
+| — | Selected steerpoint (all 4 pages) | Inc/Dec cycles it | — |
+
+Gear-down freezes all computed (non-editable) CRUS fields at their **last calculated value** rather
+than updating live — a modeled staleness behavior, not just "hidden."
+
+### TIME DED page (keypad 6, from CNI)
+| Field | Meaning | Edit |
+|---|---|---|
+| System Time | 24 h Zulu; auto from GPS ("GPS SYSTEM" label) or manual (HHMMSS+ENTR, "SYSTEM" label) | keypad + ENTR |
+| **Hack Time** | independent stopwatch reference | keypad HHMMSS+ENTR to set; **Inc-rocker** = start-from-zero / freeze-unfreeze display (continues counting in background while frozen); **Dec-rocker** = zeroize to 0 |
+| **Delta TOS** | applies one delta (±23:59:59, HHMMSS) to **every** steerpoint's TOS simultaneously — **0/M-SEL enters the minus sign** for a negative delta | keypad + ENTR; **cumulative while this page stays open**, but the DELTA field itself zeroes if you navigate away (the TOS *adjustments already applied* persist) |
+| System Date | auto from GPS, read-only | — |
+
+### BNGO DED page (LIST → 2)
+| Field | Meaning | Edit |
+|---|---|---|
+| **Bingo Setting** | fuel quantity (lb) that triggers the FUEL warning | keypad + ENTR |
+| Total Fuel | current total onboard incl. external tanks, read-only | — |
+| Selected steerpoint | reference/cycling only | Inc/Dec |
+
+**Feedback / trigger condition**: fuel below Bingo → **"FUEL" advisory** (HUD lower-left) + **"Bingo…
+bingo" voice** + flashing **"FUEL" warning** center-HUD, acknowledged via **DRIFT C/O switch → WARN
+RESET**. Trigger fires on **combined fuselage tanks OR total fuel**, whichever crosses Bingo first.
+**Ceiling caveat** (documented failure-adjacent quirk): if Bingo is set above **~6,070 lb** (FUEL QTY
+SEL knob = NORM) or **6,667 lb** (any other knob position), the warning fires anyway at that ceiling —
+an implicit clamp on how high Bingo can usefully be set.
+
+### MAN DED page (LIST → 5)
+Manual ballistics backup for weapons without an SMS profile / EEGS passive-ranging input.
+| Field | Meaning | Edit |
+|---|---|---|
+| **Wingspan** | target aircraft wingspan (ft) fed to the **EEGS Level II funnel** (passive-ranging gunnery, no FCR solution) | keypad + ENTR |
+| Range | free-fall weapon range | **N/I** |
+| Time-of-Fall | free-fall weapon impact time | **N/I** |
+| Selected steerpoint | reference/cycling only | Inc/Dec |
+
+### MODE DED page (LIST → 8) — backup master-mode selector
+Backs up the ICP's physical A-A/A-G buttons if they fail.
+| Field | Behavior |
+|---|---|
+| **Mode Select** | shows the mode ("A-A" or "A-G") that **would** be entered if 0/M-SEL is pressed now; **DCS SEQ or any keypad button toggles which mode is shown** (A-A ↔ A-G); if the shown mode == the actual current master mode, the text is **highlighted** |
+| 0/M-SEL | commits the shown mode; **pressing it while the field is already highlighted (i.e. shown mode == current mode) sets NAV instead** — a "press again to cancel back to NAV" semantic, same as the physical buttons |
+
+**Precondition / failure mode**: **inoperative** whenever the throttle **DOG FIGHT switch** is out of
+center (DOGFIGHT or MISSILE OVERRIDE) — those hardware overrides take priority and this software path
+is locked out. A concrete example of a **documented command-rejection precondition**.
+
+---
+
+## ED EA Guide addendum — Multi-Function Displays (MFD), FULL (official, p.121–127)
+
+Two **4×4 inch color LCD MFDs**. Each is ringed by **20 OSBs (Option Select Buttons)** — pressing an
+OSB "selects" whatever text is currently printed next to it; **highlighted OSB text = that option is
+active / that command is in progress.** Plus 4 rockers (GAIN/SYM/BRT/CON) for display appearance.
+
+### OSB numbering (non-obvious — asymmetric between top/bottom rows)
+| Edge | Numbering |
+|---|---|
+| **Top row** | OSB **1→5**, left to right |
+| **Right column** | OSB **6→10**, top to bottom |
+| **Bottom row** | OSB **11→15**, starting at the **far right**, ending at the **far left** (i.e. reversed vs. the top row — OSB 11 is bottom-right, OSB 15 is bottom-left) |
+| **Left column** | OSB **16→20**, bottom to top |
+
+This asymmetry is a real HUD/MFD-rendering-layout hazard if a FlightBox MFD is ever built naively by
+mirroring the top row's L→R convention onto the bottom row.
+
+### Rockers
+| Rocker | Effect | Mode-dependent variants |
+|---|---|---|
+| **GAIN** | sensor-video intensity, independent of symbology/brightness/contrast; holds continuously ramp to min/max | FCR format + GM/SEA mode → radar map-underlay intensity; FCR format + GMT mode → **Moving Target Indicator gain**, independently of the map; TGP format + FLIR Gain Control = **MGC** (Manual Gain Control, OSB 18 on TGP CNTL page) → FLIR thermal gain |
+| **SYM** | MFD symbology intensity only | — |
+| **BRT** | overall display brightness | — |
+| **CON** | overall display contrast | — |
+
+### Format Selection Master Menu (reached via the bottom-row **Format Select buttons** = OSB 13/14/15
+— these are the "3 lower OSBs" `hotas.md`/Chuck call the **Direct Access (DA)** buttons; same physical
+buttons, ED's official term is "Format Select buttons")
+14 assignable formats + BLANK + a RESET-MENU meta-page:
+
+| Format | Purpose | Detail location / status |
+|---|---|---|
+| BLANK | removes the format from that FS button's slot **and** from the DMS-cycle rotation | — |
+| **HAD** | HARM Attack Display — operate the ASQ-213 HTS pod | `radar-sensors.md` |
+| RCCE | Reconnaissance | **not functional in DCS F-16C** |
+| RESET MENU | reset MFD symbology/brightness/contrast to defaults | **N/I** |
+| **FCR** | operate the APG-68 radar (A-A/A-G/Sea) | `radar-sensors.md` |
+| **TGP** | operate the AAQ-33 targeting pod | `radar-sensors.md` |
+| **WPN** | relay AGM-65/AGM-88 seeker video + targeting control | `weapons.md` |
+| TFR | Terrain-Following Radar | **not functional in DCS F-16C** |
+| FLIR | (separate from TGP) | **not functional in DCS F-16C** |
+| **SMS** | select munitions, release profiles, fuzing, terminal params | `weapons.md` |
+| **HSD** | top-down tactical picture, nav + threats + datalink fusion | `navigation-ils.md` / `datalink-iff.md` |
+| **DTE** | upload mission data from the Data Transfer Cartridge | below |
+| TEST | Maintenance Fault List / BIT | **N/I** |
+| FLCS | FLCC diagnostic data display | **N/I** |
+
+**Reassignment procedure** (per master mode — each of the **7 avionics master modes**: Navigation,
+Air-to-Air, Air-to-Ground, Missile Override, Dogfight, Selective Jettison, Emergency Jettison — has its
+**own** pre-configured FS-button↔format map, independently re-editable):
+1. Press the target Format-Select OSB **once** to highlight its current label (if not already
+   highlighted); press it a **2nd time** to open the Master Menu. (If already highlighted, one press
+   opens the Menu directly.)
+2. Press the OSB next to the desired format in the Menu → MFD exits the Menu and shows that format.
+   Selecting the **same** format that was already assigned, or pressing any Format-Select button
+   itself, **exits without changing anything**.
+3. **Constraint**: an MFD format (other than BLANK) can be assigned to **only one** FS button across
+   **both** MFDs at a time, per master mode. Assigning a format that's already in use elsewhere
+   **auto-evicts** it from its old slot (which becomes BLANK) and moves it to the new one. BLANK itself
+   has no such uniqueness limit.
+
+**Swap button** (OSB 15 label context — Chuck's "DMS LEFT/RIGHT cycles format"): swaps the *currently
+displayed* formats between left and right MFD, **and** swaps their underlying FS-button assignments
+too (not just a visual swap).
+
+**Declutter button**: removes OSB label *text* only; the underlying commands remain live if pressed
+(**N/I** in DCS — flagged as such by ED itself).
+
+### DTE (Data Transfer Equipment) format — MFD page detail (p.126–127)
+Interfaces the cockpit **DTU** (Data Transfer Unit) to a removable **DTC** (Data Transfer Cartridge)
+for bulk-loading mission data into the MMC.
+
+| OSB | Field | Action |
+|---|---|---|
+| — | DTE Power status | display only |
+| — | CLSD (Classified Data) | **N/I** |
+| **LOAD** | Load All Data | sequentially uploads **every** partition below in one command |
+| **FCR** | Fire Control Radar settings | default FCR config + FCR CNTL-page settings |
+| — | DTC file identification | display only (loaded file's name) |
+| **MPD** | Mission Planning Data | steerpoints, nav route, VIP/VRP, ATDT ROE, CMDS programs, TACAN/ILS/BINGO settings — **precondition: CMDS MODE knob must be STBY** before uploading MPD, else erroneous CMDS data entry (a real documented failure mode for this command) |
+| **COMM** | Communications | ARC-164 UHF + ARC-222 VHF preset frequencies |
+| **INV** | Stores Inventory | external stores config → SMS |
+| **PROF** | Weapon Profiles | default weapon-delivery settings → SMS |
+| **MSMD** | Master Mode Initialization | default MFD formats, FCR/TGP modes, HSD/HAD CNTL-page settings, per master mode |
+| **ELINT** | Electronic Intelligence | ALR-56 RWR threat tables, HARM threat tables, HTS threat classes |
+| SMDL | Secure Modem Datalink | **N/I** |
+| **TNDL** | Tactical Net Datalink | network config, ownship settings, Flight/Team member + Donor STN data |
+| NCTR | Non-Cooperative Target Recognition data | **N/I** |
+| **GPS** | GPS receiver data | — |
+| **COLR** | Color Symbology | MFD symbology/text/OSB-label colors |
+| — | Page Sequence | cycles DTE Page 1 ↔ Page 2 |
+| — | Aircraft Reference Symbol | steering line vs. steerpoint/SPI/release-solution course, left/right of watermark = turn direction needed |
+| — | DTE Advisory Messages | upload-error/status text |
+
+---
 
 ## Primary flight instruments (analog standby)
 - **ADI** (Attitude Director Indicator): attitude + ILS localizer/glideslope steering bars.
@@ -176,15 +447,17 @@ ever expands.
 - **Mechanical clock**: 8-day wind-up backup timepiece — no functional relevance to FlightBox beyond
   completeness.
 
-### Remaining gap this pass
+### Remaining gap (this file, cumulative)
 Left/Right Auxiliary Console (Landing Gear Panel, CMDS Control Panel, HMCS Control Panel, Magnetic
 Compass, Fuel Quantity Indicator, PFLD), Left/Right Console (FLT CONTROL panel, EPU Control Panel, ELEC
 Control Panel, ENG CONT switch, MANUAL PITCH Override switch — cross-referenced already from
-`flight-controls-flcs.md`/`procedures-startup.md` but not independently re-extracted from this chapter),
-and critically the **Upfront Controls (UFC/ICP/DED) p.97–120** and **Multi-Function Displays (MFD)
-p.121–127** chapters were **not processed this pass** — these are the biggest remaining gap for a
-`cockpit-displays.md` full-depth pass (DED page field-by-field detail, MFD OSB/format-menu logic).
-Flagged honestly in `PROGRESS.md`, not silently left out.
+`flight-controls-flcs.md`/`procedures-startup.md` but not independently re-extracted from this chapter)
+remain **not processed**. The **Upfront Controls (UFC/ICP/DED) p.97–120** and **Multi-Function
+Displays (MFD) p.121–127** chapters — previously the biggest gap — are now **FULL** (see the two new
+sections above this one). One small residual gap within that new material: the **MARK DED page**
+(priority key 7) was not found within p.97–120 despite the chapter's own cross-reference table
+implying it should be there — likely lives in ED's Navigation chapter (p.163–246) instead; not
+independently re-extracted this pass, marked TODO above.
 
 ---
 
@@ -217,5 +490,6 @@ Avionics computer/display architecture (LRUs) behind the panel. Sources cited in
 - Wikipedia *AN/APG-68*; general F-16 avionics references — 1553 bus, LRU display architecture.
 - `doc/DCS F-16C Early Access Guide EN.pdf` (ED EA Guide, official) — Cockpit Overview/Instrument Panel
   p.43–81 (**partial**: AoA Indicator p.83, VVI p.85, ADI p.87–88, Caution Light Panel p.58–59, misc
-  gauges — extracted; Aux Consoles/Left-Right Console/UFC p.97–120/MFD p.121–127 NOT processed this
-  pass, see `PROGRESS.md`).
+  gauges — extracted; Aux Consoles/Left-Right Console still NOT processed) — **plus, this round:
+  Upfront Controls (UFC/ICP/DED) p.97–120 and Multi-Function Displays (MFD) p.121–127, both now FULL**,
+  see `PROGRESS.md`.

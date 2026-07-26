@@ -368,3 +368,82 @@ was extracted alongside Procedures in the same bounded pdftotext range and folde
 refueling emitter checklists, director-light color coding, the weight-effect trim note, and the formal
 breakaway procedure) — a small bonus beyond this round's stated priority list since the text was
 already in hand.
+
+---
+
+## Pass 4 — ED EA Guide, Bedienlogik (UFC/ICP/DED, MFD, HOTAS cross-check + command list)
+
+Goal per this round's task: close the single biggest gap flagged at the end of Pass 3 — the
+**Upfront Controls (UFC/ICP/DED, p.97–120)** and **Multi-Function Displays (MFD, p.121–127)** chapters
+— because FlightBox's next build phase is an **avionics command-block model** (typed output blocks +
+typed command blocks with ack/rejection, the 1553-bus idea without addresses) that the pilot-KI must
+drive through the **same command path a human uses**, no magic state jumps. `pdftotext -f <first> -l
+<last>` (same bounded-range method as prior passes) confirmed clean on all pages extracted this pass —
+no visual/image-based pages needed; both chapters are real text+table layout, well-suited to the
+existing extraction method.
+
+### Pages processed this pass
+| ED chapter | Pages | Status | Target file(s) |
+|---|---|---|---|
+| **Upfront Controls (UFC/ICP/DED)** | 97–120 | **FULL** — entire chapter extracted and distilled: ICP's 14 physical controls, the DED's generic propose/commit/reject edit protocol, the full page map (Priority/LIST/MISC), and field-by-field tables for CNI/ALOW/CRUS(×4)/TIME/BNGO/MAN/MODE pages | `cockpit-displays.md` (new "ED EA Guide addendum — ICP & DED" section) |
+| **Multi-Function Displays (MFD)** | 121–127 | **FULL** — OSB numbering (incl. the non-obvious bottom-row-reversed quirk), GAIN/SYM/BRT/CON rockers (+ GAIN's format/mode-dependent meaning), the full 14-format Format Selection Master Menu + reassignment procedure + uniqueness/eviction rule, Swap/Declutter buttons, full DTE format field table (14 upload partitions incl. the CMDS-STBY precondition gotcha) | `cockpit-displays.md` (new "ED EA Guide addendum — MFD" section) |
+| **Hands-On Controls (HOTAS)** | 82–88 | **FULL cross-check** of the already-FULL Chuck-sourced `hotas.md` — no contradiction found; added the exact SOI-dependent TMS/DMS/CMS/EXP-FOV action matrices, 0.5 s/1.0 s press-duration thresholds, MSL STEP's 3-context table, and quantitative facts Chuck's table omitted entirely (speedbrake 60°/43° deflection limits, RET DEPR 0–260 mrad range, DOG FIGHT switch's "overrides everything except Emergency Jettison" precedence) | `hotas.md` (new "ED EA Guide addendum" section) |
+| MARK DED page (priority key 7) | — | **not found** within p.97–120 despite the chapter's own cross-reference table implying it should be there | flagged TODO in `cockpit-displays.md`; likely lives in ED's Navigation chapter (p.163–246), not independently re-checked this pass |
+| Left/Right Auxiliary Console, Left/Right Console (Cockpit Overview p.43–81 remainder) | — | still not processed (unchanged from Pass 3) | `cockpit-displays.md` (unchanged gap) |
+| Appendix D (HOTAS quick-ref diagrams) | 686–692 | still not processed (redundant with per-chapter HOTAS notes already folded in, per Pass-2 call) | — (unchanged) |
+
+### New file: `controls-commands.md`
+Per this round's "besonderer Auftrag": a compact, machine-readable list of **every discrete pilot
+command**, re-cut across ICP/DED, MFD, HOTAS (SSC+throttle), and autopilot mode switches — one row per
+command with trigger/precondition/effect/feedback/failure columns. Chosen as a **new, separate file**
+(not folded into `cockpit-displays.md` or `hotas.md`) because it reorganizes by *command* across all
+physical panels, which is the shape the avionics command-block model needs, vs. the source files'
+by-panel organization — reasoning stated explicitly in the file's own header. Contents:
+- The DED's **propose → commit/reject** cycle documented as the canonical, reusable command pattern
+  (select field → type/toggle → ENTR commits / RCL or RTN rejects) — directly maps onto "Kommandoblöcke
+  mit Quittierung und Ablehnungsgründen."
+- ~45 discrete commands tabulated across 4 sections (ICP/DED navigation + field-edit + page-specific +
+  hardware; MFD; HOTAS SSC + throttle; autopilot mode switches).
+- §5 **derives** (not sourced — explicitly marked `abgeleitet`) a HOTAS-vs-DED command-latency-class
+  split from the only two quantitative timing facts either guide gives (0.5 s / 1.0 s press-duration
+  discriminators): HOTAS commands are sub-second and usable while maneuvering, DED commands are
+  multi-second/head-down/administrative. No book source states a numeric command-rate figure directly.
+- §6 collects **every** documented precondition/rejection pattern found across both source guides (8
+  distinct cases, from explicit pilot-reject to hardware-precedence-lockout to silent-no-op to
+  value-clamp) — this is the closest thing to an "Ablehnungsgründe" taxonomy the source material
+  supports, and is flagged as the direct design input for the command-block architecture's reject-reason
+  enum.
+- Explicitly flags the biggest genuine gap found: **neither guide documents per-field numeric
+  range-validation** for any DED field — every documented "failure" is a pilot self-reject or an
+  unrelated-control precondition, never a bounds-check on the field itself. A FlightBox command-block
+  model will need its own validation policy here; the source material gives no number to copy.
+
+### Discrepancies found this pass
+**None.** The Hands-On Controls cross-check confirmed Chuck's `hotas.md` table is accurate but coarse
+— ED adds precision (SOI matrices, timing thresholds, deflection angles) without contradicting anything
+already stated. No numeric or logical conflicts found in the ICP/DED or MFD material either (both are
+first-pass extractions from ED only, nothing in Chuck's guide covered this depth to conflict with).
+
+### What this pass directly gives the command-block architecture
+- The propose/commit/reject cycle (§ above) as the literal reference pattern for a command block's
+  ack/reject semantics.
+- A concrete, sourced example of **effect-side vs. command-side** precondition failure (CARA ALOW: the
+  *set-threshold* command always succeeds; the *warning* only fires if the radar altimeter is powered) —
+  a useful distinction for whether "reject" belongs on the command or on a downstream system state.
+- A concrete example of "gear-down freezes value, doesn't invalidate it" (CRUS page computed fields) —
+  a design note for how the output-block "Gültigkeitsflag" should behave under a similar staleness
+  condition (hold-last-value vs. flag-invalid are different design choices; the real jet does the
+  former).
+- The DOG FIGHT throttle switch's explicit "overrides every mode except Emergency Jettison" precedence
+  statement — the closest thing in the whole source set to a formal command-priority ordering, useful if
+  the command-block model needs one.
+
+### COVERAGE (Pass 4): the pages this round's task named as priority 1–3 are all processed
+Priority 1 (UFC/ICP/DED, p.97–120): **FULL**. Priority 2 (MFD, p.121–127): **FULL**. Priority 3
+(Hands-On Controls cross-check, p.82–88): **FULL**. Priority 4 ("wenn Zeit bleibt" — remaining
+Aux/Left/Right Console subsections, IFF procedure detail) was **not reached** this pass (bounded-run
+discipline — the priority-1/2/3 material plus the command-list deliverable filled the run). The MARK
+DED page gap (above) is new information from this pass, not a pre-existing one. Everything else
+unprocessed from Pass 2/3 (Radio Communications p.247–260, HTS/HMCS p.492–523, IFF procedure detail,
+Appendices, Aux/Left/Right Console) remains **unchanged** — see Pass 2/3 sections above for the full
+ledger, still current.
