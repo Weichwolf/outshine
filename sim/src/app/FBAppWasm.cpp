@@ -185,14 +185,14 @@ static void frame(void) {
   double homeE, homeN;   /* FBEnuOffsetM wraps the longitude: without it the antimeridian gives a
                           * ~360 deg delta -> HUD DIST 38,171,944 (core/FBGeodesy.h) */
   FBEnuOffsetM(Olat, Olon, St.lat, St.lon, homeE, homeN);
-  hs.x = (float)homeE;
-  hs.y = (float)homeN;
-  hs.home_dist = (float)std::sqrt((double)hs.x * hs.x + (double)hs.y * hs.y);
-  double absBrg = std::atan2(-(double)hs.x, -(double)hs.y) * 180.0 / kPi, rel = absBrg - St.yaw;
+  hs.Platform.EastM = (float)homeE;
+  hs.Platform.NorthM = (float)homeN;
+  hs.Platform.HomeDistM = (float)std::sqrt((double)hs.Platform.EastM * hs.Platform.EastM + (double)hs.Platform.NorthM * hs.Platform.NorthM);
+  double absBrg = std::atan2(-(double)hs.Platform.EastM, -(double)hs.Platform.NorthM) * 180.0 / kPi, rel = absBrg - St.yaw;
   while (rel > 180) rel -= 360;
   while (rel < -180) rel += 360;
-  hs.home_bearing = (float)rel;
-  hs.state = gOwnship->Module().Autopilot().GetMode();
+  hs.Platform.HomeBearingDeg = (float)rel;
+  hs.Platform.Mode = gOwnship->Module().Autopilot().GetMode();
   /* 1 Hz flight telemetry from the sim tick (device-loss-proof): [agl] + [home] (the HUD home BRG/DIST,
    * antimeridian-safe — the gate's measurement convention). */
   { static double accLog = 0.0; accLog += dt;
@@ -201,20 +201,20 @@ static void frame(void) {
           {"fdmGnd", gOwnship->Fdm().GetGroundElevM()}, {"spd", St.speed}, {"cas", St.cas}, {"bank", St.roll},
           {"hdg", St.yaw}, {"vs", St.vy}, {"ringDist", g.RingDistM},
           {"mode", ModeLabel(g.Mode)}});
-      FBLog::Info("flight", "home", {{"dist", (double)hs.home_dist}, {"brg", (double)hs.home_bearing},
+      FBLog::Info("flight", "home", {{"dist", (double)hs.Platform.HomeDistM}, {"brg", (double)hs.Platform.HomeBearingDeg},
           {"hdg", St.yaw}, {"lon", St.lon}});
       FBLog::Info("pilot", "phase", {{"phase", FBPilot::PhaseName(gOwnship->Module().PilotSystem().GetPhase())}});
     } }
   /* Real ephemeris sun + moon for EVS (the renderer uses them only in photo mode; SVS = constant day). */
   time_t utc = SimUtc ? SimUtc : time(nullptr);
-  SunPos(St.lat, St.lon, utc, &hs.sun_el, &hs.sun_az);
-  MoonPos(St.lat, St.lon, utc, &hs.moon_el, &hs.moon_az, &hs.moon_phase);
+  SunPos(St.lat, St.lon, utc, &hs.Env.SunElDeg, &hs.Env.SunAzDeg);
+  MoonPos(St.lat, St.lon, utc, &hs.Env.MoonElDeg, &hs.Env.MoonAzDeg, &hs.Env.MoonPhase);
   R.SetSkyClock((double)utc);
   R.SetHud(hs, true);
 
   double cp_d = emscripten_get_now();   /* end: pose/HUD/ephemeris */
 
-  W.SetNightLights(R.GetGroundMode() && hs.sun_el < -3.0f);   /* EVS night -> stream /t/lights */
+  W.SetNightLights(R.GetGroundMode() && hs.Env.SunElDeg < -3.0f);   /* EVS night -> stream /t/lights */
   W.Update(p.LatDeg, p.LonDeg, eye, fwd, now);   /* multi-LOD quadtree around the live flight */
   double cp_e = emscripten_get_now();   /* end: FBWorld update (quadtree + gain + lights poll) */
 

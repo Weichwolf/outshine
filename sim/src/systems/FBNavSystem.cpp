@@ -19,24 +19,35 @@ void BearingDist(double lat0, double lon0, double lat1, double lon1, double &bea
 
 void FBNavSystem::Run(FBState &state, const fb_fdm_state &fdm, double dt) {
   (void)dt;
-  state.magVarDeg = 0.0f;   /* placeholder — no declination model yet */
+  FBNavBlock &b = state.Nav;
+  b.MagVarDeg = 0.0f;   /* placeholder — no declination model yet */
 
   if (Have) {
     double brg, distM;
     BearingDist(fdm.lat, fdm.lon, StLat, StLon, brg, distM);
     double altDiffM = StElevFt * kFtToM - fdm.elev;
-    state.steerBearingDeg = (float)brg;
-    state.steerElevAngleDeg = (float)(std::atan2(altDiffM, distM > 1.0 ? distM : 1.0) * kRad2Deg);
-    state.steerDistNm = (float)(distM * kMToNm);
-    state.steerElevFt = (float)StElevFt;
-    state.steerTtgS = (float)(distM / (fdm.gs > 1.0 ? fdm.gs : 1.0));
+    b.SteerBearingDeg = (float)brg;
+    b.SteerElevAngleDeg = (float)(std::atan2(altDiffM, distM > 1.0 ? distM : 1.0) * kRad2Deg);
+    b.SteerDistNm = (float)(distM * kMToNm);
+    b.SteerElevFt = (float)StElevFt;
+    /* The CRUS-page computed field, on its own head: with the gear down the real jet FREEZES it rather
+     * than blanking it (doc/f16/controls-commands.md CRUS table), so it stops being republished and the
+     * head goes Held — last value, last stamp, no new arithmetic. */
+    bool gearDown = state.Airframe.H.Readable() && state.Airframe.GearPosition > 0.5f;
+    if (gearDown) {
+      state.Cruise.H.Hold();
+    } else {
+      state.Cruise.SteerTtgS = (float)(distM / (fdm.gs > 1.0 ? fdm.gs : 1.0));
+      state.Cruise.H.Publish(state.NowS);
+    }
   }
   if (HaveBull) {
     double brg, distM;
     BearingDist(BullLat, BullLon, fdm.lat, fdm.lon, brg, distM);   /* FROM bullseye TO aircraft */
-    state.bullBearingDeg = (float)brg;
-    state.bullDistNm = (float)(distM * kMToNm);
+    b.BullBearingDeg = (float)brg;
+    b.BullDistNm = (float)(distM * kMToNm);
   }
+  if (Have || HaveBull) b.H.Publish(state.NowS);
 }
 
 int FBNavSystem::AdvanceWaypoint(FBFlightPlan &plan, double lat, double lon, double captureM) {

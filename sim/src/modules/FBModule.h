@@ -18,13 +18,16 @@
 #include "FBAirDataSystem.h"
 #include "FBAirframeControls.h"
 #include "FBAutopilot.h"
+#include "FBCommandBus.h"
 #include "FBDatalinkSystem.h"
 #include "FBDisplaySystem.h"
 #include "FBFlightControl.h"
 #include "FBFlightPlan.h"
 #include "FBNavSystem.h"
 #include "FBPilot.h"
+#include "FBRadarAltimeter.h"
 #include "FBRadarSystem.h"
+#include "FBWarningSystem.h"
 #include "FBRunway.h"
 #include "FBState.h"
 #include "FBFdm.h"
@@ -81,6 +84,16 @@ public:
   virtual FBDisplaySystem &Displays() = 0;
   virtual FBAirDataSystem &AirDataSystem() = 0;
   virtual FBNavSystem &NavSystem() = 0;
+  /* The warning set (systems/FBWarningSystem) and the radar altimeter: surfaced on the base for the
+   * same generic reason the terminal and the radar are — the client registers the one's telemetry and
+   * a mission's setup line switches the other's power, and neither needs to know the concrete module. */
+  virtual FBWarningSystem &WarningSystem() = 0;
+  virtual FBRadarAltimeter &RadarAltimeter() = 0;
+
+  /* The module's avionics COMMAND bus (core/FBCommandBus.h) — the one path from a pilot's intent to a
+   * box in this jet, surfaced on the base because the client registers its telemetry (the command
+   * stream) exactly as it registers the state-bus sources, knowing nothing about the module. */
+  virtual FBCommandBus &Commands() = 0;
   /* The Comms/Datalink slot: the client registers its telemetry and publishes its transmit state into
    * the unit's snapshot (units/FBSimUnit) — both generic, both true of any module with a terminal. */
   virtual FBDatalinkSystem &Datalink() = 0;

@@ -4,7 +4,8 @@ namespace FlightBox {
 
 void FBF16Sms::Run(FBState &state, double dt) {
   (void)dt;
-  state.armState = State;
+  state.Stores.Arm = State;
+  state.Stores.H.Publish(state.NowS);
 }
 
 } // namespace FlightBox

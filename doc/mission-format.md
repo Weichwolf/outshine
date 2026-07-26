@@ -246,6 +246,66 @@ annähernd), `fcr_lock_age` (s seit dem letzten Look — > 0 heißt Coast), `fcr
 ein Locked-Target-Symbol (der radarnahe Eintrag, HMC, ist ein Markpoint-Cursor). Der Lock bleibt deshalb
 in FBState/Telemetrie/Events, bis die Symbologie-Referenz ihn abdeckt — erfunden wird nichts.
 
+## Der Avionik-Bus — Gültigkeit, Kommandos, Brief
+
+**Der geteilte Zustand ist ein Satz typisierter BLÖCKE**, nicht mehr eine flache Feldliste
+(`core/FBState.h` + `core/FBAvionicsBlocks.h`). Jeder Block hat GENAU EINEN Schreiber (das Quellsystem)
+und einen Kopf `{StampS, Status}` (`core/FBBlockStatus.h`) mit **drei** Zuständen — die Semantik eines
+Multiplexbus-Jets, nicht seine Adressen:
+
+| Status | Bedeutung | wer erzeugt ihn heute |
+|---|---|---|
+| `invalid` (0) | Die Zahlen bedeuten nichts: nie geschrieben, oder das Quellsystem ist aus/ausgefallen | `set radalt off` (CARA ohne Strom), Radar/Datalink abgeschaltet, Nav ohne Steerpoint |
+| `valid` (1) | Vom eigenen Schreiber zum Zeitpunkt `StampS` aktualisiert | Normalbetrieb |
+| `held` (2) | ABSICHTLICH eingefroren: letzte gute Werte, letzter Zeitstempel, keine neue Rechnung | Radarbild zwischen zwei Sweeps, Datalink zwischen zwei Netz-Zyklen, BFM-Schätzung jenseits ihres Extrapolationsfensters, CRUS-Rechenfelder (TTG) bei ausgefahrenem Fahrwerk (`doc/f16/controls-commands.md`) |
+
+`held` ist keine Feinheit, sondern belegtes Verhalten: der echte Jet FRIERT mehrere Reiseflug-Rechenfelder
+bei ausgefahrenem Fahrwerk EIN, statt sie ungültig zu machen. Konsumenten unterscheiden das: das HUD
+zeichnet einen gehaltenen Wert weiter (er ist gültig, nur alt) und ersetzt einen ungültigen durch
+Striche (`R----`, `B---.-`, `---:--`); `systems/FBWarningSystem` meldet eine Warnung, deren Quelle
+ungültig ist, als **inhibited** statt als „keine Warnung"; `systems/FBPilot` handelt nicht auf einer
+Höhe, die es nicht messen kann (kein Fahrwerk-Einfahren, keine Flare, kein BFM-Boden-Pull ohne gültigen
+Radarhöhenmesser).
+
+Jeder Block-Status steht in `telemetry.csv` als eigene Spalte (`blk_platform`, `blk_env`, `blk_airdata`,
+`blk_radalt`, `blk_nav`, `blk_cruise`, `blk_firecontrol`, `blk_ufc`, `blk_stores`, `blk_airframe`,
+`blk_warn`, `blk_radar`, `blk_datalink`, `blk_bfm`; Werte 0/1/2 wie oben) — plus `warn_active` und
+`warn_inhibited` als Bitmasken (`1` = ALOW, `2` = BINGO, `4` = Fahrwerk unsicher).
+
+**Kommandos: der EINZIGE Weg vom Piloten zu einer Box.** Ein Kommando ist `{Ziel, Vorschlagswert}`, die
+Quittung `{Ergebnis, Grund}` — das dokumentierte DED-Muster Vorschlagen → Bestätigen/Verwerfen
+(`doc/f16/controls-commands.md`). Zwei Latenzklassen: **HOTAS** (Schalter/Taste, 0,5 s, im Manöver
+benutzbar) und **DED** (Feldeingabe, 4 s, Kopf nach unten) — eine DED-Eingabe wird oberhalb von 1,5 g
+abgelehnt, damit keine KI im Kurvenkampf Steuerpunkte eintippt. Ergebnisse: `accepted`, `clamped`
+(übernommen, aber eine dokumentierte System-Obergrenze regiert — z. B. BNGO über 6.070 lb), `inhibited`
+(übernommen, Wirkung gesperrt — z. B. ALOW ohne Radarhöhenmesser), `rejected`. Ablehnungsgründe sind der
+Katalog aus `doc/f16/controls-commands.md` §6 plus zwei EIGENE Modell-Entscheidungen: `out_of_range`
+(die Quellen dokumentieren KEINE Bereichsprüfung — FlightBox lehnt ab und sagt es, statt still zu
+klemmen) und `channel_busy` (Hand/Kopf sind schon beschäftigt).
+
+Der Kommandostrom ist beobachtbar: `events.log` trägt `cmd CMD_ISSUE` / `CMD_ACK` / `CMD_REJECT` (mit
+Ziel, Wert, Klasse, Ergebnis, Grund, gemessener Latenz), `telemetry.csv` die neun Spalten
+`cmd_issued`, `cmd_accepted`, `cmd_rejected`, `cmd_clamped`, `cmd_inhibited`, `cmd_pending`,
+`cmd_last`, `cmd_last_outcome`, `cmd_last_reason`.
+
+**Der BRIEF (`brief_*`-Zeilen): was der Pilot IM FLUG selbst eingibt.** Normale `set`-Zeilen richten das
+Flugzeug im Spawn-Fenster ein (vor dem ersten Piloten-Tick, siehe oben). Eine `brief_*`-Zeile richtet
+NICHTS ein — sie sagt dem Piloten, was er nach dem Abheben über den Kommandopfad eingeben soll, in der
+Latenzklasse seiner Bedienung, mit dem Risiko, abgelehnt zu werden. Ohne `brief_*`-Zeile bedient der
+Pilot überhaupt nichts (er tippt keine Zahlen ein, die ihm niemand gegeben hat).
+
+| Zeile | Klasse | Wirkung |
+|---|---|---|
+| `set brief_alow_ft <ft>` | DED | ALOW-Boden eingeben (0…50.000 ft, sonst `out_of_range`) |
+| `set brief_bingo_lbs <lb>` | DED | BNGO-Schwelle eingeben (0…20.000 lb; über 6.070 lb → `clamped`) |
+| `set brief_master_arm arm\|sim` | HOTAS | Master-Arm setzen |
+| `set brief_weapon gun\|aim9\|aim120` | HOTAS | Waffenwahl — heute `rejected/not_implemented` |
+| `set radalt on\|off` | (Spawn) | CARA-Strom; `off` macht den Radarhöhen-Block für den ganzen Lauf `invalid` |
+
+`sim/missions/cmd-avionics.fbm` fährt genau diese Fälle in einem Lauf durch (Annahme, Klemmung,
+Wirkungssperre, „nicht implementiert", Kanal belegt, Manöver-Sperre) und schaltet zusätzlich den
+Radarhöhenmesser ab — der Referenzlauf für Kommandostrom UND Gültigkeitszustände.
+
 ## Kampf-Missionen (`set task bfm`)
 
 Eine Einheit mit `set task bfm` fliegt keine Wegpunkte, sondern **BFM** (`systems/FBPilot`s Bfm-Phase):
@@ -338,3 +398,6 @@ die Einheit, deren Urteil den Lauf BEENDET hat (bei SUCCESS keine). Die abschlie
 - `sim/missions/payerne-radar-iff.fbm` — ein Abfrager, drei nacheinander die Nase kreuzende Ziele:
   Freund mit Transponder (friendly), Freund ohne (unbekannt), Feind MIT Transponder (unbekannt — nicht
   hostile).
+- `sim/missions/cmd-avionics.fbm` — der Avionik-Kommando-/Gültigkeits-Demonstrator (kein Flugtest):
+  briefte Eingaben in beiden Latenzklassen, alle vier Quittungsergebnisse, beide Eigen-Policy-Gründe,
+  dazu ein abgeschalteter Radarhöhenmesser (`invalid`) neben dem ohnehin gehaltenen Radarbild (`held`).

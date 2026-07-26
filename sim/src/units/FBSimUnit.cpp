@@ -21,7 +21,8 @@ FBSimUnit::FBSimUnit(int id, std::string name, FBUnitTeam team, std::unique_ptr<
       Module_(std::move(module)),
       St_(initialState),
       GroundAslM_(groundAslM),
-      FdmSrc_(RequireFdm(Fdm_), St_, GroundAslM_) {
+      FdmSrc_(RequireFdm(Fdm_), St_, GroundAslM_),
+      BusSrc_(Module_->Telemetry()) {
   assert(Module_ && "FBSimUnit needs the module that flies the airframe");
   Module_->SetUnitIdentity(GetId(), GetTeam());   /* before the first Run: the terminal's own callsign
                                                    * on the net (FBModule::SetUnitIdentity) */
@@ -47,10 +48,15 @@ void FBSimUnit::UpdateGroundAsl(double sampleM) {
   Fdm_->SetGroundElevM(GroundAslM_);
 }
 
+/* The module's bus with THIS frame's pose folded in: the module publishes the platform block at its own
+ * slot cadence, the client re-publishes it at frame rate so the conformal HUD is drawn against the pose
+ * actually being rendered. Same block, same writer role — not a second copy of the truth. */
 FBState FBSimUnit::HudState() const {
   FBState hs = Module_->Telemetry();
-  hs.roll = (float)St_.roll; hs.pitch = (float)St_.pitch; hs.yaw = (float)St_.yaw;
-  hs.alt = (float)St_.elev; hs.gs = (float)St_.gs; hs.airspeed = (float)St_.speed; hs.vs = (float)St_.vy;
+  FBPlatformBlock &p = hs.Platform;
+  p.RollDeg = (float)St_.roll; p.PitchDeg = (float)St_.pitch; p.YawDeg = (float)St_.yaw;
+  p.AltM = (float)St_.elev; p.GsMs = (float)St_.gs; p.TasMs = (float)St_.speed; p.VsMs = (float)St_.vy;
+  p.H.Publish(hs.NowS);
   return hs;
 }
 
@@ -96,6 +102,13 @@ void FBSimUnit::StartTelemetry(FBTelemetrySink *sink) {
    * its own source rather than more of the pilot's channels for exactly that reason (systems/FBBfmTrack
    * — the pilot's own channels sit in the middle of every telemetry.csv ever measured). */
   Bus_.Register(&Module_->PilotSystem().BfmTrack());
+  /* Then the two channels this round adds, in this order and after everything above for the same
+   * reason: the warning set (what the jet is annunciating, including what it CANNOT evaluate because a
+   * source block is invalid) and the command stream (what the pilot operated, and what the jet said
+   * back). Appending is what keeps every column ever measured where it was. */
+  Bus_.Register(&Module_->WarningSystem());
+  Bus_.Register(&Module_->Commands());
+  Bus_.Register(&BusSrc_);
   Bus_.SetSink(sink);
   Bus_.Start();
 }

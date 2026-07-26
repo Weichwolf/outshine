@@ -88,8 +88,9 @@ void FBDatalinkSystem::Cycle(const fb_fdm_state &st, const FBUnitRegistry &net, 
 
 void FBDatalinkSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegistry *net,
                            double simTimeS) {
-  state.dlOn = Powered_;
-  state.dlXmt = Transmitting();
+  FBDatalinkBlock &b = state.Datalink;
+  b.Powered = Powered_;
+  b.Transmitting = Transmitting();
 
   if (!Powered_ || !net) {
     /* Terminal off (or no net at all): the receiver goes blind — see the header on XMT vs. POWER. */
@@ -98,14 +99,18 @@ void FBDatalinkSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitR
         FBLog::Info("datalink", "TRACK_LOST", {{"id", Tracks_[i].UnitId},
             {"callsign", std::string(Tracks_[i].Callsign)}, {"reason", "terminal off"}});
     TrackCount_ = 0;
-    state.dlTrackCount = 0;
+    b.TrackCount = 0;
+    /* A powered-down terminal receives nothing — the net picture is not "empty", it is absent. */
+    b.H.Invalidate();
     NearestNm_ = NearestAgeS_ = -1.0f;
     return;
   }
 
+  bool cycled = false;
   while (NextCycleS_ <= simTimeS) {
     Cycle(st, *net, simTimeS);
     NextCycleS_ += kNetPeriodS;
+    cycled = true;
   }
 
   /* Between cycles the picture stands still and only its age moves — range/bearing are recomputed
@@ -119,11 +124,15 @@ void FBDatalinkSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitR
     t.AgeS = std::max(0.0f, (float)(simTimeS - t.ReportTimeS));
     t.RangeM = (float)FBPlanarDistM(st.lat, st.lon, t.LatDeg, t.LonDeg);
     t.BearingDeg = (float)FBBearingDeg(st.lat, st.lon, t.LatDeg, t.LonDeg);
-    state.dlTracks[i] = t;
+    b.Tracks[i] = t;
     float nm = t.RangeM * (float)kMToNm;
     if (NearestNm_ < 0.0f || nm < NearestNm_) { NearestNm_ = nm; NearestAgeS_ = t.AgeS; }
   }
-  state.dlTrackCount = TrackCount_;
+  b.TrackCount = TrackCount_;
+  /* Between net cycles the picture stands still and only its age moves (class banner) — Held, with the
+   * stamp still naming the last cycle that actually delivered messages. */
+  if (cycled) b.H.Publish(simTimeS);
+  else b.H.Hold();
 }
 
 void FBDatalinkSystem::DeclareTelemetry(FBTelemetrySchema &schema) const {

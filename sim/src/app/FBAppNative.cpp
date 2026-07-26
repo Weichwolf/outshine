@@ -86,17 +86,17 @@ int RunCloudLab(double lat, double lon, time_t utc, double cloudQ, double ground
   double eye[3];
   FBGeoToEcef(lat, lon, altMSL, eye);
   FlightBox::FBState hs{};
-  hs.alt = (float)altMSL; hs.gs = 220.f; hs.airspeed = 220.f; hs.state = FlightBox::FBMode::Manual;
-  FlightBox::SunPos(lat, lon, utc, &hs.sun_el, &hs.sun_az);
-  FlightBox::MoonPos(lat, lon, utc, &hs.moon_el, &hs.moon_az, &hs.moon_phase);
+  hs.Platform.AltM = (float)altMSL; hs.Platform.GsMs = 220.f; hs.Platform.TasMs = 220.f; hs.Platform.Mode = FlightBox::FBMode::Manual;
+  FlightBox::SunPos(lat, lon, utc, &hs.Env.SunElDeg, &hs.Env.SunAzDeg);
+  FlightBox::MoonPos(lat, lon, utc, &hs.Env.MoonElDeg, &hs.Env.MoonAzDeg, &hs.Env.MoonPhase);
   double E3[3], N3[3], U3[3];
   FBEnuAxesEcef(lat, lon, E3, N3, U3);
   /* Aim 42 deg OFF the sun azimuth so the deck is side-lit (edge light + self-shadow visible), not
    * blinded by the sun disc. Pitch follows from the deck-relative aim point, not a fixed angle. */
-  double yawDeg = hs.sun_az + 42.0, yaw = yawDeg * kPi2 / 180.0;
+  double yawDeg = hs.Env.SunAzDeg + 42.0, yaw = yawDeg * kPi2 / 180.0;
   double riseM = (pitchOverrideDeg > -900.0) ? bankDistM * std::tan(pitchOverrideDeg * kPi2 / 180.0)
                                              : deckMidAGL - camAGL;
-  hs.yaw = (float)yawDeg; hs.pitch = (float)(std::atan2(riseM, bankDistM) * 180.0 / kPi2);
+  hs.Platform.YawDeg = (float)yawDeg; hs.Platform.PitchDeg = (float)(std::atan2(riseM, bankDistM) * 180.0 / kPi2);
   double hdir[3], target[3];
   for (int a = 0; a < 3; a++) hdir[a] = N3[a] * std::cos(yaw) + E3[a] * std::sin(yaw);
   for (int a = 0; a < 3; a++) target[a] = eye[a] + hdir[a] * bankDistM + U3[a] * riseM;
@@ -130,11 +130,11 @@ int RunCloudLab(double lat, double lon, time_t utc, double cloudQ, double ground
     if (!R.ReadPixels(img)) { FlightBox::FBLog::Error("cloudlab", "readback_failed"); return 1; }
     char cpath[512];
     snprintf(cpath, sizeof cpath, "%s/cloudcell_cov%.2f_den%.1f_det%.1f_p%.1f.png",
-             outDir.c_str(), cov0, den0, det0, (double)hs.pitch);
+             outDir.c_str(), cov0, den0, det0, (double)hs.Platform.PitchDeg);
     stbi_write_png(cpath, W, H, 4, img.data(), W * 4);
     FlightBox::FBLog::Info("cloudlab", "wrote_cell", {{"path", cpath}, {"w", W}, {"h", H}, {"cov", (double)cov0},
-        {"den", (double)den0}, {"det", (double)det0}, {"pitch", (double)hs.pitch}, {"camBelow", camBelowM},
-        {"bankKm", bankKm}, {"sunEl", (double)hs.sun_el}});
+        {"den", (double)den0}, {"det", (double)det0}, {"pitch", (double)hs.Platform.PitchDeg}, {"camBelow", camBelowM},
+        {"bankKm", bankKm}, {"sunEl", (double)hs.Env.SunElDeg}});
     return 0;
   }
   const int cols = 4, rows = 3, cw = W / 4, ch = H / 4, gw = cols * cw, gh = rows * ch;
@@ -143,7 +143,7 @@ int RunCloudLab(double lat, double lon, time_t utc, double cloudQ, double ground
   LabRange(labx, lox, hix);
   LabRange(laby, loy, hiy);
   FlightBox::FBLog::Info("cloudlab", "grid", {{"cols", cols}, {"rows", rows}, {"labx", labx}, {"lox", (double)lox},
-      {"hix", (double)hix}, {"laby", laby}, {"loy", (double)loy}, {"hiy", (double)hiy}, {"sunEl", (double)hs.sun_el}});
+      {"hix", (double)hix}, {"laby", laby}, {"loy", (double)loy}, {"hiy", (double)hiy}, {"sunEl", (double)hs.Env.SunElDeg}});
   for (int r = 0; r < rows; r++)
     for (int c = 0; c < cols; c++) {
       float cov = 0.55f, den = 5.0f, ext = 0.06f, sun = 18.0f, det = 1.3f;
@@ -243,9 +243,9 @@ public:
     FBCameraBasisEcef(p.YawDeg, p.PitchDeg, p.RollDeg, p.LatDeg, p.LonDeg, fwd, right, up);
     R->SetCameraBasis(eye, fwd, right, up);
     FlightBox::FBState hs = primary.HudState();   /* module telemetry + this tick's live pose */
-    hs.state = FlightBox::FBMode::Manual;
-    FlightBox::SunPos(p.LatDeg, p.LonDeg, time(nullptr), &hs.sun_el, &hs.sun_az);
-    FlightBox::MoonPos(p.LatDeg, p.LonDeg, time(nullptr), &hs.moon_el, &hs.moon_az, &hs.moon_phase);
+    hs.Platform.Mode = FlightBox::FBMode::Manual;
+    FlightBox::SunPos(p.LatDeg, p.LonDeg, time(nullptr), &hs.Env.SunElDeg, &hs.Env.SunAzDeg);
+    FlightBox::MoonPos(p.LatDeg, p.LonDeg, time(nullptr), &hs.Env.MoonElDeg, &hs.Env.MoonAzDeg, &hs.Env.MoonPhase);
     R->SetHud(hs, true);
     R->SetAgl((float)primary.AglM());
     W->Update(p.LatDeg, p.LonDeg, eye, fwd, simT * 1000.0);
@@ -365,18 +365,18 @@ int main(int argc, char **argv) {
 
   /* Plausible HUD pose (no live sim here): level flight on the camera heading, loitering. */
   FlightBox::FBState hs{};
-  hs.roll = 0.f; hs.pitch = (float)pitchDeg; hs.yaw = (float)yawDeg;
-  hs.alt = (float)(ground + aglM); hs.gs = 220.f; hs.airspeed = 220.f; hs.vs = 0.f;
-  hs.home_dist = 8000.f; hs.home_bearing = 45.f;
-  hs.state = FlightBox::FBMode::Manual;
-  hs.cloud = (float)cloudCover;
+  hs.Platform.RollDeg = 0.f; hs.Platform.PitchDeg = (float)pitchDeg; hs.Platform.YawDeg = (float)yawDeg;
+  hs.Platform.AltM = (float)(ground + aglM); hs.Platform.GsMs = 220.f; hs.Platform.TasMs = 220.f; hs.Platform.VsMs = 0.f;
+  hs.Platform.HomeDistM = 8000.f; hs.Platform.HomeBearingDeg = 45.f;
+  hs.Platform.Mode = FlightBox::FBMode::Manual;
+  hs.Env.CloudCover = (float)cloudCover;
   /* Real ephemeris sun + moon (EVS only; SVS renders a constant day regardless). */
   time_t clk = utc ? utc : time(nullptr);
-  FlightBox::SunPos(lat, lon, clk, &hs.sun_el, &hs.sun_az);
-  FlightBox::MoonPos(lat, lon, clk, &hs.moon_el, &hs.moon_az, &hs.moon_phase);
-  FlightBox::FBLog::Info("gpu", "ephemeris", {{"utc", (int)clk}, {"sunEl", (double)hs.sun_el},
-      {"sunAz", (double)hs.sun_az}, {"moonEl", (double)hs.moon_el}, {"moonAz", (double)hs.moon_az},
-      {"moonPhase", (double)hs.moon_phase}});
+  FlightBox::SunPos(lat, lon, clk, &hs.Env.SunElDeg, &hs.Env.SunAzDeg);
+  FlightBox::MoonPos(lat, lon, clk, &hs.Env.MoonElDeg, &hs.Env.MoonAzDeg, &hs.Env.MoonPhase);
+  FlightBox::FBLog::Info("gpu", "ephemeris", {{"utc", (int)clk}, {"sunEl", (double)hs.Env.SunElDeg},
+      {"sunAz", (double)hs.Env.SunAzDeg}, {"moonEl", (double)hs.Env.MoonElDeg}, {"moonAz", (double)hs.Env.MoonAzDeg},
+      {"moonPhase", (double)hs.Env.MoonPhase}});
 
   FlightBox::FBRenderer R;
   R.SetStreaming(512);
@@ -410,9 +410,9 @@ int main(int argc, char **argv) {
   }
   W.SetDefaultMode(groundPhoto);
   W.SetGroundMode(groundPhoto);
-  W.SetNightLights(groundPhoto && hs.sun_el < -3.0f);   /* EVS night -> stream /t/lights */
+  W.SetNightLights(groundPhoto && hs.Env.SunElDeg < -3.0f);   /* EVS night -> stream /t/lights */
   FlightBox::FBLog::Info("gpu", "streaming_quadtree", {{"lat", lat}, {"lon", lon}, {"aglM", aglM},
-      {"viewKm", viewKm}, {"albedo", groundPhoto ? "photo" : "osm"}, {"night", groundPhoto && hs.sun_el < -3.0f}});
+      {"viewKm", viewKm}, {"albedo", groundPhoto ? "photo" : "osm"}, {"night", groundPhoto && hs.Env.SunElDeg < -3.0f}});
 
   const int totalFrames = (int)(seconds * fps + 0.5);
   const int everyFrames = interval > 0.0 ? (int)(interval * fps + 0.5) : 0;

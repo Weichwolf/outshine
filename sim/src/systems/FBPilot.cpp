@@ -130,7 +130,12 @@ double FBPilot::PitchHoldStick(double targetDeg, double pitchDeg, double qDegS, 
  * goal here, which is exactly what flying without eyes means. */
 FBPilotCommands FBPilot::BfmCommands(const FBState &state, const fb_fdm_state &st, double dt) {
   Bfm_.Update(state, st, TimeS_);
-  const FBBfmGeometry &g = Bfm_.Geometry();
+  const FBBfmBlock &g = Bfm_.Block();
+  /* The head answers the two questions this whole law branches on: is there anything at all (Readable)
+   * and is it young enough to lead on (IsValid); Held = the frozen last measured datum, which is worth
+   * turning back toward but not worth pulling lead on. */
+  const bool haveTrack = g.H.Readable(), validTrack = g.H.IsValid();
+  const double trackAgeS = haveTrack ? TimeS_ - g.H.StampS : 0.0;
   FBPilotCommands c{};
   c.Guidance = FBPilotGuidance::Manual;
   c.ManualYaw = 0.0;
@@ -146,7 +151,7 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, const fb_fdm_state &s
    * a defender in a hard, decelerating turn IS below its own corner band, and that is not a mistake to be
    * corrected with full afterburner: doing so throws the jet straight out in front of him (measured — the
    * absolute rule cost 250 of 268 seconds of control position). */
-  bool lowEnergy = casKt < BfmMinSpeedKt() && (!g.Valid || tgtSpeedMs > st.speed);
+  bool lowEnergy = casKt < BfmMinSpeedKt() && (!validTrack || tgtSpeedMs > st.speed);
 
   /* ---- 1. what kind of pursuit does this geometry call for? ----
    * The overtake is a SCHEDULE, not a threshold: the closure a pursuer wants is proportional to how far
@@ -159,10 +164,10 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, const fb_fdm_state &s
   double ctrlMidNm = 0.5 * (BfmControlMinNm() + BfmControlMaxNm());
   double schedKt = Clamp((rngNm - ctrlMidNm) * BfmClosureGainKtPerNm(), -BfmMaxClosureKt(),
                          BfmMaxClosureKt());
-  bool overtaking = g.Valid && closKt > schedKt + kBfmClosureDeadKt;
+  bool overtaking = validTrack && closKt > schedKt + kBfmClosureDeadKt;
 
   FBBfmPursuit mode;
-  if (!g.Valid) mode = FBBfmPursuit::Search;
+  if (!validTrack) mode = FBBfmPursuit::Search;
   else if (rngNm < BfmControlMinNm() || overtaking) mode = FBBfmPursuit::Lag;
   else if (g.AspectDeg > BfmLeadAspectDeg() || rngNm > BfmLeadRangeNm()) mode = FBBfmPursuit::Lead;
   else mode = FBBfmPursuit::Pure;
@@ -199,7 +204,7 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, const fb_fdm_state &s
      * loop does — the weave starts a roll, the roll turns the jet, the aim follows the turn, and the
      * search settles into a steady 80-deg-banked orbit that searches nothing (measured, before this). */
     double brgDeg;
-    if (g.Have) {
+    if (haveTrack) {
       brgDeg = std::atan2(g.EastM, g.NorthM) * kRad2Deg;
       aimU = g.UpM;
     } else {
@@ -224,7 +229,7 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, const fb_fdm_state &s
                  std::tan(kBfmSearchUpMaxDeg * kDeg2Rad) * kBfmSearchRangeM);
   }
 
-  if (g.Have) BfmSearchAnchored_ = false;   /* a datum exists again: the next cold search re-anchors */
+  if (haveTrack) BfmSearchAnchored_ = false;   /* a datum exists again: the next cold search re-anchors */
 
   /* THE SCAN. Once the picture is older than BfmScanAfterS the aim DIRECTION is swept about the vertical
    * — the radar's volume is bolted to the nose, so walking the nose across the uncertainty is the only
@@ -234,7 +239,7 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, const fb_fdm_state &s
    * steering error like any other, and a fast wide scan simply has the pilot flying a hard turn chasing
    * its own search pattern — measured, a 20 deg / 10 s weave settled the jet into a permanent 77 deg
    * banked orbit and acquired nothing at all. */
-  if (!g.Valid || g.AgeS > BfmScanAfterS()) {
+  if (!validTrack || trackAgeS > BfmScanAfterS()) {
     double w = BfmScanAmplitudeDeg() * std::sin(2.0 * kPi * TimeS_ / BfmScanPeriodS()) * kDeg2Rad;
     double cw = std::cos(w), sw = std::sin(w);
     double e = aimE * cw + aimN * sw, n = -aimE * sw + aimN * cw;
@@ -253,8 +258,9 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, const fb_fdm_state &s
   FBEnuToBodyLos(st.roll, st.pitch, st.yaw, aimE, aimN, aimU, azErr, elErr);
 
   /* The AGL floor outranks everything above it: a fight flown into the ground is not a fight won. */
-  if (BfmFloorFt() > 0.0 && state.radarAltFt < BfmFloorFt())
-    elErr += kBfmFloorPullDeg * Clamp(1.0 - state.radarAltFt / BfmFloorFt(), 0.0, 1.0);
+  const FBRadarAltBlock &ra = state.RadarAlt;
+  if (BfmFloorFt() > 0.0 && ra.H.Readable() && ra.AglFt < BfmFloorFt())
+    elErr += kBfmFloorPullDeg * Clamp(1.0 - ra.AglFt / BfmFloorFt(), 0.0, 1.0);
 
   /* ---- 4. fly it: one lift vector, one load factor (see the file's BFM banner for the derivation) ---- */
   double errMag = std::sqrt(azErr * azErr + elErr * elErr);
@@ -286,7 +292,7 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, const fb_fdm_state &s
    * goes NEGATIVE inside the control zone. With no picture at all there is nothing to match, so the
    * pilot parks the jet at corner speed, where any fight it might find is best entered. */
   double speedErrKt;
-  if (g.Valid) {
+  if (validTrack) {
     speedErrKt = (tgtSpeedMs - st.speed) * kMsToKt + schedKt;
   } else {
     speedErrKt = BfmCornerSpeedKt() - casKt;
@@ -297,18 +303,52 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, const fb_fdm_state &s
     c.ManualThr = std::fmin(c.ManualThr, kBfmThrTrim);   /* past corner the extra knots buy no turn rate */
   c.Speedbrake = speedErrKt < -kBfmSpeedbrakeKt ? 1.0 : 0.0;
 
-  bool inControl = g.Valid && g.Locked && rngNm >= BfmControlMinNm() && rngNm <= BfmControlMaxNm() &&
+  bool inControl = validTrack && g.Locked && rngNm >= BfmControlMinNm() && rngNm <= BfmControlMaxNm() &&
                    g.AspectDeg <= BfmControlAspectDeg() && std::fabs(g.AzDeg) <= BfmControlAtaDeg();
   Bfm_.Report(mode, inControl, gCmd, dt);
   return c;
 }
 
-FBPilotCommands FBPilot::Run(const FBState &state, const FBAirframeControls &airframe,
-                             const fb_fdm_state &st, const FBFlightPlan &plan, const FBRunway *runway,
-                             double dt) {
+/* The cockpit half of a decision tick (see the header's brief block). One post per tick, in a fixed
+ * order, so the stream is deterministic and so the pilot behaves like a pilot: it works one control at
+ * a time. Everything here goes through the same bus a human's hands would drive — there is no other
+ * path from this class to an avionics box, by construction (the pilot holds no system pointers). */
+void FBPilot::EnterBriefedItems(FBCommandBus &avionics) {
+  if (TimeS_ < BriefNextTryS_) return;
+  BriefNextTryS_ = TimeS_ + kBriefRetryS;
+  if (BriefAlowPending_) {
+    if (avionics.Post(FBCommandTarget::AlowFt, BriefAlowFt_, TimeS_).Outcome != FBCommandOutcome::Rejected)
+      BriefAlowPending_ = false;
+    return;
+  }
+  if (BriefBingoPending_) {
+    if (avionics.Post(FBCommandTarget::BingoLbs, BriefBingoLbs_, TimeS_).Outcome != FBCommandOutcome::Rejected)
+      BriefBingoPending_ = false;
+    return;
+  }
+  if (BriefArmPending_) {
+    if (avionics.Post(FBCommandTarget::MasterArm, BriefArm_ ? 1.0 : 0.0, TimeS_).Outcome != FBCommandOutcome::Rejected)
+      BriefArmPending_ = false;
+    return;
+  }
+  if (BriefWeaponPending_) {
+    if (avionics.Post(FBCommandTarget::WeaponSelect, BriefWeapon_, TimeS_).Outcome != FBCommandOutcome::Rejected)
+      BriefWeaponPending_ = false;
+    return;
+  }
+}
+
+FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
+                             const FBAirframeControls &airframe, const fb_fdm_state &st,
+                             const FBFlightPlan &plan, const FBRunway *runway, double dt) {
   PhaseElapsedS += dt;
   TimeS_ += dt;
   FBPilotCommands c{};
+
+  /* Cockpit work happens once the jet is flying itself — not while the phase machine is Idle (nobody
+   * is in the seat yet) and not with weight on the wheels, where the real checklist order puts these
+   * entries before engine start, outside this class's phases entirely. */
+  if (CurPhase != Phase::Idle && !airframe.GetWeightOnWheels()) EnterBriefedItems(avionics);
 
   /* Mission waypoint bookkeeping (telemetry cache — class banner): the same active-waypoint distance
    * the mission runner used to compute itself from the outside. */
@@ -366,7 +406,12 @@ FBPilotCommands FBPilot::Run(const FBState &state, const FBAirframeControls &air
       /* Positive rate + a confirmed AGL margin (kGearUpAglFt) + below the gear-transit speed limit ->
        * gear up; otherwise leave GearDown unset (it is still commanded down from Takeoff, the safe
        * default) rather than force a retraction. */
-      if (st.vy > kPositiveRateMs && state.radarAltFt > kGearUpAglFt && st.cas * kMsToKt < GearUpLimitKt())
+      /* Every AGL gate below asks the radar-altitude block's HEAD first. Without a valid one the
+       * pilot cannot confirm the height and does NOT act on a number it has no reason to trust — the
+       * gear stays down, the flare does not trigger, the BFM floor stops pulling (doc/f16/
+       * controls-commands.md §6.4: the sensor gates the effect, not the command). */
+      if (st.vy > kPositiveRateMs && state.RadarAlt.H.Readable() &&
+          state.RadarAlt.AglFt > kGearUpAglFt && st.cas * kMsToKt < GearUpLimitKt())
         c.GearDown = false;
       if (airframe.GetGearPosition() <= 0.02) Transition(Phase::Route);
       return c;
@@ -400,7 +445,8 @@ FBPilotCommands FBPilot::Run(const FBState &state, const FBAirframeControls &air
       c.Speedbrake = ApproachSpeedbrakeNorm();
       if (st.cas * kMsToKt < GearUpLimitKt()) c.GearDown = true;
 
-      if (state.radarAltFt <= FlareStartAglFt()) Transition(Phase::Flare);
+      if (state.RadarAlt.H.Readable() && state.RadarAlt.AglFt <= FlareStartAglFt())
+        Transition(Phase::Flare);
       return c;
     }
 

@@ -175,6 +175,11 @@ diese zwei Dateien, nachweisbar per Grep (s.u. „Kein Cheaten"). Der Pilot nutz
 es schreibt ausschließlich `FBState`, weshalb alle bestehenden Missionen spaltengenau unverändert
 fliegen (die elf `fcr_*`/`iff_xpdr`-Spalten hängen hinten an).
 
+**Etappe 8 GEBAUT — das Avionik-Datenmodell:** `FBState` ist der typisierte BLOCK-Bus mit
+Dreizustands-Gültigkeit, und der Pilot bedient Avionik nur noch über einen Kommando-/Quittungs-Pfad mit
+zwei Latenzklassen (s.u. `core/`). Reines Refactoring plus zwei neue Kanäle: alle Bestandsmissionen
+bleiben auf ihren bisherigen Spalten byte-identisch.
+
 **Der Missions-Runner ist reiner Orchestrator, genau vier Schritte, KEIN Missions-Wissen im Code:**
 Mission laden → Welt mit ihren Akteuren aufsetzen (Elevation für die deklarative `spawn`-Zeile auflösen,
 Modul über `modules/FBModuleRegistry` spawnen) → Akteure ausführen (Modul takten, beide Monitore
@@ -254,8 +259,30 @@ sim/src/
              des Ticks parallelisieren — nur von FBMissionRunner.cpp inkludiert, nicht in der Core-Lib,
              nie im WASM-Build, s.o. "Etappe 4"), FBLogSinks/FBTelemetrySinks (die
              I/O-Sink-Implementierungen, inkl. FBBufferedLogSink = der Pro-Einheit-Logpuffer)
-  core/      FBState (inkl. der Datalink-Trackliste UND der Radar-Kontaktliste, beide fester
-             Kapazität), FBDatalinkTrack, FBRadarContact (der ANONYME Radarkontakt + FBIffReply — der
+  core/      FBState — der AVIONIK-BUS: kein flaches Feldbündel mehr, sondern ein Satz typisierter
+             AUSGABEBLÖCKE (`FBAvionicsBlocks.h`: Platform, Env, AirData, RadarAlt, Nav, Cruise,
+             FireControl, Ufc, Stores, Airframe, Warnings, Radar, Datalink, Bfm), je Block GENAU EIN
+             Schreibersystem (im Blockkommentar benannt) und ein Kopf `{StampS, Status}`
+             (`FBBlockStatus.h`) mit DREI Zuständen: `Invalid` (Zahlen bedeuten nichts — nie
+             geschrieben oder Quellsystem aus/ausgefallen), `Valid`, `Held` (ABSICHTLICH eingefroren,
+             letzte Werte + Zeitstempel der letzten echten Aktualisierung). Der dritte Zustand ist
+             belegt, nicht erfunden: der echte Jet FRIERT mehrere CRUS-Rechenfelder bei ausgefahrenem
+             Fahrwerk EIN, statt sie ungültig zu machen (`doc/f16/controls-commands.md`) — heute
+             gleichermaßen das Radarbild zwischen zwei Sweeps, das Netzbild zwischen zwei Zyklen und
+             die BFM-Schätzung jenseits ihres Extrapolationsfensters. Übernommen ist die SEMANTIK
+             eines Multiplexbus-Jets (definierte Datengruppen, ein Erzeuger, Gültigkeitsflag), NICHT
+             seine Adressierung/Wortpackung — der Transport bleibt eine typisierte Struktur per
+             Referenz in EINEM Adressraum, kein string-indizierter Property-Tree. `FBStateBusTelemetry`
+             veröffentlicht jeden Blockstatus als eigene Telemetriespalte (`blk_*`), weil ein
+             gehaltener Wert sonst wie ein frischer aussieht. Dazu die KOMMANDOSEITE:
+             `FBAvionicsCommand.h` (Ziel/Vorschlagswert → Quittung {Ergebnis, Grund}, die zwei
+             Latenzklassen HOTAS/DED und der Ablehnungskatalog aus `doc/f16/controls-commands.md` §6
+             plus zwei ausdrücklich EIGENE Gründe: `OutOfRange` — die Quellen dokumentieren keine
+             Bereichsprüfung, FlightBox lehnt ab statt still zu klemmen — und `ChannelBusy`) und
+             `FBCommandBus.h/.cpp` (feste Kapazität, keine Allokation: erzwingt Latenz, Kanalbelegung
+             und die Manöver-Sperre für Kopf-nach-unten-Eingaben; zugleich FBTelemetrySource "cmd" und
+             FBLog-Quelle `CMD_ISSUE`/`CMD_ACK`/`CMD_REJECT`). FBDatalinkTrack,
+             FBRadarContact (der ANONYME Radarkontakt + FBIffReply — der
              bewusste Gegenentwurf zum Datalink-Track, s.u. "Kein Cheaten"), FBMode,
              FBMasterMode, FBFlightPlan/FBRunway/FBSpawn (Wegpunkt-/Runway-/
              deklarativer-Spawn-Value-Types für FBPilot/den Orchestrator), FBTeam (`FBUnitTeam` —
@@ -337,7 +364,12 @@ sim/src/
                FBAutopilot (Guidance), FBFlightControl (FBW-Innenschleife),
                FBAirDataSystem (CAS/Mach/G-Last, FPM-Richtung als Ground-Track/Flightpath-Angle aus dem
                ENU-Geschwindigkeitsvektor), FBRadarAltimeter (AGL aus DER SELBEN DEM-Quelle, die die App
-               schon für `SetAgl` auflöst — keine zweite Terrain-Abfrage), FBNavSystem (ein Steerpoint +
+               schon für `SetAgl` auflöst — keine zweite Terrain-Abfrage; zugleich der REFERENZFALL für
+               `Invalid`: stromlos publiziert die Box keine 0 ft, sie macht ihren Block ungültig, und
+               jeder Konsument muss sagen, was er ohne sie tut — belegt in `doc/f16/controls-commands.md`
+               §6.4), FBWarningSystem (der Warnsatz als Bitmaske; macht die Gültigkeitsköpfe
+               konsequent: eine Warnung, deren Quellblock ungültig ist, meldet sich als INHIBITED statt
+               als „keine Warnung"), FBNavSystem (ein Steerpoint +
                Bullseye, planare ENU-Geodäsie wie `home_bearing`/`home_dist`; `AdvanceWaypoint` ist die
                Wegpunkt-Sequenzierung — Akteurs-Verhalten, das Modul ruft es selbst, nicht der Runner) —
                die heute REAL
@@ -389,7 +421,11 @@ sim/src/
                (vom Modul gedrosselt wie jeder andere Slot) als `FBPilotCommands` aus: eine Guidance-
                Anfrage an FBAutopilot (`FBPilotGuidance::None/Manual/Direct` — None = "AP
                unangetastet lassen") plus optionale (`std::optional`) Airframe-Kommandos an
-               FBAirframeControls. Die Phasen-Zustandsmaschine (Idle/Preflight/Takeoff/Climb/Route/
+               FBAirframeControls. Avionik bedient der Pilot AUSSCHLIESSLICH über den Kommandobus
+               (`core/FBCommandBus`) — er hält keine Systemzeiger; was er im Flug eingibt, ist sein
+               BRIEF (`brief_*`-Missionszeilen, `doc/mission-format.md`), Eingabe für Eingabe, in der
+               Latenzklasse der jeweiligen Bedienung und mit dem Risiko, abgelehnt zu werden. Ohne
+               Brief bedient er nichts. Die Phasen-Zustandsmaschine (Idle/Preflight/Takeoff/Climb/Route/
                Approach/Flare/Rollout/Shutdown, doc/f16/procedures-*.md) ist das Prozedur-Gerüst; Run()
                ist der Override-Punkt (analog FBAutopilot::Run). Die Phase **Bfm** (Missionsdaten:
                `set task bfm`) ist die einzige mit EIGENEM Regelgesetz statt eines Autopilot-Modus: sie
@@ -404,7 +440,7 @@ sim/src/
                Zielgeschwindigkeit. Alle Zahlen sind virtuelle Hooks (F-16: Corner-Speed 380 KCAS,
                gemessen via `make -C sim test-corner`).
                FBBfmTrack (`FBBfmTrack.h/.cpp`): das Bild, gegen das diese Phase regelt — ausschließlich
-               aus `FBState::fcrContacts`/`fcrLockIndex` gebaut (kein FBWorld, keine Registry, kein
+               aus dem Radar-BLOCK des FBState (Kontakte + Lock-Index, Kopf zuerst) gebaut (kein FBWorld, keine Registry, kein
                Datalink-Track im Include-Baum): geschätzte Zielposition + Geschwindigkeitsvektor aus
                aufeinanderfolgenden Looks, extrapoliert solange ein Lock fehlt, danach nur noch das
                zuletzt GEMESSENE Datum. Zugleich FBTelemetrySource "bfm" (Aspekt/ATA/Range/Closure/
@@ -591,8 +627,11 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
   (Renderer bleibt Bolt-on, nie Abhängigkeit der Physik-/Terminierungs-Logik). Terminierung
   SUCCESS/FAIL/CRASH/TIMEOUT → Exit-Codes 0/1/2/3 (beide Monitore, s.u. "Kein Cheaten", kombiniert),
   worauf der Regelkreis branch. Telemetrie je Lauf in `--out/`: `telemetry.csv` (10 Hz, feste
-  Spaltenzahl, inkl. `fuelLbs` — FGPropulsion-Tanksumme) + `events.log` (`t=SEK EVENT key=val`,
-  greppbar) — das Analyse-Werkzeug für die Pilot-KI, kein Produktionspfad.
+  Spaltenzahl, inkl. `fuelLbs` — FGPropulsion-Tanksumme, der Blockgültigkeit `blk_*`, dem Warnsatz
+  `warn_*` und dem Kommandostrom `cmd_*`) + `events.log` (`t=SEK EVENT key=val`, greppbar, inkl.
+  `cmd CMD_ISSUE`/`CMD_ACK`/`CMD_REJECT`) — das Analyse-Werkzeug für die Pilot-KI, kein Produktionspfad.
+  Neue Quellen werden IMMER hinten angehängt (`units/FBSimUnit::StartTelemetry`), damit keine je
+  gemessene Spalte ihre Position verliert.
 - **Kein Cheaten:** ZWEI unbestechliche, Runner-/App-eigene Instanzen, nie vom Modul gesehen, nie
   vermischt — zwei Fragen, nicht eine. `core/FBFlightMonitor` entscheidet K.O. (Absturz/LOC): rein
   physikalisch, modul-agnostisch (kennt keine Flugzeug-Typen, keine deklarierten Zahlen; Struktur-/

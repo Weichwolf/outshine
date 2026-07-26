@@ -569,7 +569,7 @@ void FBRenderer::RenderFrame(void) {
    * the real camera -> the live ephemeris sun the app fed via SetHud (sun_el/sun_az, deg, az 0=N 90=E),
    * so dawn/dusk/night match the aerial imagery. az/el -> ECEF via the eye's radial ENU frame. */
   double elDeg = 45.0, azDeg = 180.0;
-  if (GroundPhoto) { elDeg = HudState.sun_el; azDeg = HudState.sun_az; }
+  if (GroundPhoto) { elDeg = HudState.Env.SunElDeg; azDeg = HudState.Env.SunAzDeg; }
   const double el = elDeg * 3.14159265 / 180.0, az = azDeg * 3.14159265 / 180.0;
   const double ce = std::cos(el), se = std::sin(el), caz = std::cos(az), saz = std::sin(az);
   double sun[3];
@@ -585,7 +585,7 @@ void FBRenderer::RenderFrame(void) {
   double dayF = GroundPhoto ? DaylightFactor(sunElDeg) : 1.0;
   double moon[3];
   {
-    double mel = HudState.moon_el * 3.14159265 / 180.0, maz = HudState.moon_az * 3.14159265 / 180.0;
+    double mel = HudState.Env.MoonElDeg * 3.14159265 / 180.0, maz = HudState.Env.MoonAzDeg * 3.14159265 / 180.0;
     double cme = std::cos(mel);
     for (int a = 0; a < 3; a++)
       moon[a] = up[a] * std::sin(mel) + (north[a] * std::cos(maz) + east[a] * std::sin(maz)) * cme;
@@ -593,8 +593,8 @@ void FBRenderer::RenderFrame(void) {
   }
   /* cloud=0 unless the path is armed: kills the sky-dome value-noise sheet (skyExtra.z) too, not just the
    * volumetric march — the whole cloud look is off by default. */
-  double cloud = (CloudsOn && GroundPhoto) ? std::max(0.0, std::min(1.0, (double)HudState.cloud)) : 0.0;
-  UpdateAtmosphere(eye, sun, right, camUp, fwd, moon, dayF, HudState.moon_phase, cloud);
+  double cloud = (CloudsOn && GroundPhoto) ? std::max(0.0, std::min(1.0, (double)HudState.Env.CloudCover)) : 0.0;
+  UpdateAtmosphere(eye, sun, right, camUp, fwd, moon, dayF, HudState.Env.MoonPhase, cloud);
   Stars->Update(SkyClock);
 
   /* Shared per-frame state every draw stage's Encode() reads (FBRenderer still decides WHEN each is
@@ -604,11 +604,11 @@ void FBRenderer::RenderFrame(void) {
   for (int a = 0; a < 3; a++) { ctx.Eye[a] = eye[a]; ctx.Fwd[a] = fwd[a]; ctx.Right[a] = right[a]; ctx.CamUp[a] = camUp[a]; ctx.Up[a] = up[a]; }
   for (int i = 0; i < 20; i++) ctx.Mvp20[i] = u[i];
   for (int a = 0; a < 3; a++) { ctx.SunDir[a] = sun[a]; ctx.MoonDir[a] = moon[a]; }
-  ctx.DayFactor = dayF; ctx.MoonPhase = HudState.moon_phase; ctx.Cloud = cloud;
+  ctx.DayFactor = dayF; ctx.MoonPhase = HudState.Env.MoonPhase; ctx.Cloud = cloud;
   ctx.GroundPhoto = GroundPhoto; ctx.SkyClock = SkyClock; ctx.DayFade = (float)dayF;
-  ctx.CloudCover = HudState.cloud;
-  ctx.CloudLow = HudState.cloud_low; ctx.CloudMid = HudState.cloud_mid; ctx.CloudHigh = HudState.cloud_high;
-  ctx.CloudBaseAGL = HudState.cloud_base; ctx.AltM = HudState.alt;
+  ctx.CloudCover = HudState.Env.CloudCover;
+  ctx.CloudLow = HudState.Env.CloudLow; ctx.CloudMid = HudState.Env.CloudMid; ctx.CloudHigh = HudState.Env.CloudHigh;
+  ctx.CloudBaseAGL = HudState.Env.CloudBaseAglM; ctx.AltM = HudState.Platform.AltM;
   ctx.FrameNo = FrameNo; ctx.Width = Width; ctx.Height = Height;
 
   if (CloudsOn) Cloud->Update(ctx);

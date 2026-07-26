@@ -4,8 +4,11 @@ namespace FlightBox {
 
 void FBF16Ufc::Run(FBState &state, double dt) {
   (void)dt;
-  state.alowFt = AlowFt;
-  state.steerNum = StNum;
+  state.Ufc.AlowFt = AlowFt;
+  state.Ufc.BingoLbs = BingoLbs;
+  state.Ufc.BingoEffectiveLbs = EffectiveBingo();
+  state.Ufc.SteerNum = StNum;
+  state.Ufc.H.Publish(state.NowS);
 }
 
 } // namespace FlightBox

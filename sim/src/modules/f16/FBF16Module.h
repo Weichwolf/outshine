@@ -59,6 +59,7 @@
 #include "FBRadarAltimeter.h"
 #include "FBRunway.h"
 #include "FBSystemSlots.h"
+#include "FBWarningSystem.h"
 #include "FBMasterMode.h"
 
 namespace FlightBox {
@@ -118,6 +119,9 @@ public:
   FBF16Pilot &PilotSystem() override { return *PilotSys; }   /* covariant: FBModule::PilotSystem() returns FBPilot& */
   FBAirframeControls &Controls() override { return *AirframeCtrl; }
   FBAirDataSystem &AirDataSystem() override { return *AirData; }   /* the ADC telemetry source (mission-runner Bus) */
+  FBWarningSystem &WarningSystem() override { return *Warn_; }
+  FBCommandBus &Commands() override { return Cmds_; }
+  FBRadarAltimeter &RadarAltimeter() override { return *RadarAlt; }
   FBFlightPlan &FlightPlan() override { return Plan_; }
   void SetRunway(const FBRunway &rwy) override { Rwy_ = rwy; HaveRunway_ = true; }
 
@@ -134,6 +138,12 @@ public:
 
 private:
   void ApplyPilotCommands(const FBPilotCommands &c);
+  void PublishPlatform(const fb_fdm_state &st);   /* the module's own two bus blocks (see Run()) */
+  void PublishAirframe();
+  /* Command dispatch: hands every DUE command of one group to the system that owns it, in that
+   * system's own slot tick, and answers with the outcome/reason the box itself decided. */
+  void ServiceCommands(FBCommandGroup group);
+  void ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &outcome, FBCommandReason &reason);
   static bool Due(double &accS, double dt, double hz);   /* throttle helper for the slower slots */
 
   /* Owned through base pointers (not value members) so a future module can substitute an override
@@ -158,6 +168,7 @@ private:
   std::unique_ptr<FBF16FireControl> FireCtrl;
   std::unique_ptr<FBF16Ufc> UfcSys;
   std::unique_ptr<FBF16Sms> SmsSys;
+  std::unique_ptr<FBWarningSystem> Warn_;
   float GroundAslM = 0.0f;
 
   /* The pilot + what it commands beyond the FDM (see the rate table + FlightPlan()/SetRunway()). */
@@ -169,6 +180,7 @@ private:
   bool HaveRunway_ = false;
   double PilotAccS = 0.0;
 
+  FBCommandBus Cmds_;   /* the pilot's only path to this jet's boxes (FBModule::Commands) */
   FBMasterMode Mode = FBMasterMode::Nav;
   FBState SharedState{};   /* Sensors WRITE, Displays READ — no display queries a sensor directly */
 

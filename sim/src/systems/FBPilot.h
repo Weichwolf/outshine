@@ -49,6 +49,7 @@
 #include <optional>
 #include "FBAirframeControls.h"
 #include "FBBfmTrack.h"
+#include "FBCommandBus.h"
 #include "FBFlightPlan.h"
 #include "FBRunway.h"
 #include "FBState.h"
@@ -113,9 +114,27 @@ public:
    * to check what is really out there. The `const FBWorld *` that used to sit here (unused, `(void)
    * world`) was exactly such a path waiting to be taken, so it is gone: a pilot that cannot be handed
    * ground truth cannot accidentally be flown on it. */
-  virtual FBPilotCommands Run(const FBState &state, const FBAirframeControls &airframe,
-                              const fb_fdm_state &st, const FBFlightPlan &plan, const FBRunway *runway,
-                              double dt);
+  virtual FBPilotCommands Run(const FBState &state, FBCommandBus &avionics,
+                              const FBAirframeControls &airframe, const fb_fdm_state &st,
+                              const FBFlightPlan &plan, const FBRunway *runway, double dt);
+
+  /* ---- THE BRIEF: what this pilot was told to set up in the jet, and the ONLY thing it ever operates
+   * an avionics box for. A value set here is not applied — it is something the pilot will go and ENTER
+   * through the command bus once airborne, at the latency class of the control that carries it, and
+   * which the jet may refuse. Unbriefed items are never touched, which is also why a mission that
+   * briefs nothing issues no commands at all: a pilot does not retype numbers it was not given.
+   * (Boot-time `set` lines that configure the airframe directly stay what they are — the spawn window,
+   * before the pilot exists. What changed is that nothing may be reconfigured IN FLIGHT except through
+   * the commands below.) */
+  /* How long the pilot waits before trying a refused entry again. A rejected DED entry is a hand that
+   * has to come off the stick and a head that has to go down again — retrying at the decision rate
+   * (10 Hz) is not a pilot, it is a keyboard macro, and it would bury the command stream in noise. */
+  static constexpr double kBriefRetryS = 2.0;
+
+  void BriefAlowFt(double ft) { BriefAlowFt_ = ft; BriefAlowPending_ = true; }
+  void BriefBingoLbs(double lbs) { BriefBingoLbs_ = lbs; BriefBingoPending_ = true; }
+  void BriefMasterArm(bool arm) { BriefArm_ = arm; BriefArmPending_ = true; }
+  void BriefWeapon(double sel) { BriefWeapon_ = sel; BriefWeaponPending_ = true; }
 
   const char *TelemetryName() const override { return "pilot"; }
   void DeclareTelemetry(FBTelemetrySchema &schema) const override;
@@ -193,6 +212,12 @@ protected:
   virtual double BfmFloorFt() const { return 2000.0; }   /* AGL below which the pull is biased up */
 
 private:
+  /* One decision tick of cockpit work: posts the next briefed item that still needs entering. A
+   * bus-level rejection (channel busy, or the manoeuvre gate — the pilot is flying, not typing) leaves
+   * the item pending and it is retried; anything that reaches the owning box is final, because a pilot
+   * who was told "no" by the jet does not retype the same entry forever. */
+  void EnterBriefedItems(FBCommandBus &avionics);
+
   /* The Bfm phase's body — one decision tick of the fight (see Run()'s BFM section). Separate because
    * it is the only phase with an inner control law of its own rather than a target for the autopilot. */
   FBPilotCommands BfmCommands(const FBState &state, const fb_fdm_state &st, double dt);
@@ -216,6 +241,12 @@ private:
   double BfmSearchHdgDeg_ = 0.0;  /* the cold search's anchored heading + altitude (see BfmCommands) */
   double BfmSearchAltM_ = 0.0;
   bool   BfmSearchAnchored_ = false;
+
+  double BriefAlowFt_ = 0.0, BriefBingoLbs_ = 0.0, BriefWeapon_ = 0.0;
+  bool   BriefArm_ = true;
+  bool   BriefAlowPending_ = false, BriefBingoPending_ = false;
+  bool   BriefArmPending_ = false, BriefWeaponPending_ = false;
+  double BriefNextTryS_ = 0.0;
 };
 
 } // namespace FlightBox

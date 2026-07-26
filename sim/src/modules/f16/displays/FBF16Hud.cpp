@@ -102,7 +102,7 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
   }
 
   static const float kEyeOrigin[3] = {0, 0, 0};
-  w3_cam cam = w3_cam_from(state.yaw, state.pitch, state.roll, kEyeOrigin, kHudFovDeg,
+  w3_cam cam = w3_cam_from(state.Platform.YawDeg, state.Platform.PitchDeg, state.Platform.RollDeg, kEyeOrigin, kHudFovDeg,
                            (float)env.Width / (float)env.Height, 1.f, 1000.f);
   float Kc = ((float)env.Height * 0.5f) / tanf(kHudFovDeg * 0.5f * kRad);
 
@@ -131,8 +131,8 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
 
   /* ----- Horizon: two segments flanking the boresight, gap for the FPM/ladder. ----- */
   {
-    float dip = w3_horizon_dip_rad(state.alt > 1 ? state.alt : env.Agl) * kR2D;
-    Proj p0 = Project(state.yaw, -dip), p1 = Project(state.yaw + 20.f, -dip);
+    float dip = w3_horizon_dip_rad(state.Platform.AltM > 1 ? state.Platform.AltM : env.Agl) * kR2D;
+    Proj p0 = Project(state.Platform.YawDeg, -dip), p1 = Project(state.Platform.YawDeg + 20.f, -dip);
     float ddx = p1.sx - p0.sx, ddy = p1.sy - p0.sy, LL = sqrtf(ddx * ddx + ddy * ddy);
     if (LL > 1.f) {
       float ux = ddx / LL, uy = ddy / LL, mx = p0.sx, my = p0.sy;
@@ -157,12 +157,12 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
       bool dashed = Ldeg < 0;
       float towardHorizonDeg = Ldeg > 0 ? (float)Ldeg - 2.f : (float)Ldeg + 2.f;
       for (int side = -1; side <= 1; side += 2) {
-        Proj inner = Project(state.yaw + (float)side * gapDeg, (float)Ldeg);
-        Proj outer = Project(state.yaw + (float)side * outerDeg, (float)Ldeg);
+        Proj inner = Project(state.Platform.YawDeg + (float)side * gapDeg, (float)Ldeg);
+        Proj outer = Project(state.Platform.YawDeg + (float)side * outerDeg, (float)Ldeg);
         if (dashed) DashedLine(out, inner.sx, inner.sy, outer.sx, outer.sy, 3, kHgR, kHgG, kHgB);
         else out.Line(inner.sx, inner.sy, outer.sx, outer.sy, kHgR, kHgG, kHgB);
 
-        Proj toward = Project(state.yaw + (float)side * outerDeg, towardHorizonDeg);
+        Proj toward = Project(state.Platform.YawDeg + (float)side * outerDeg, towardHorizonDeg);
         float tdx = toward.sx - outer.sx, tdy = toward.sy - outer.sy, tl = sqrtf(tdx * tdx + tdy * tdy);
         if (tl > 0.5f) {
           float ux = tdx / tl, uy = tdy / tl;
@@ -178,7 +178,7 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
    * circle + wings + tail, at the velocity vector's true ground track/flight-path angle. Computed
    * (not just drawn) inside the clip section since the tadpole below re-uses fpm.sx/sy as its own
    * anchor -- Project() itself is a pure function, unaffected by clip state. ----- */
-  Proj fpm = Project(state.trackDeg, state.fpaDeg);
+  Proj fpm = Project(state.AirData.TrackDeg, state.AirData.FpaDeg);
   {
     float fx = fpm.sx, fy = fpm.sy, mg = kHudMagnify;
     out.Circle(fx, fy, 4.f * mg, 16, kHgR, kHgG, kHgB);
@@ -189,7 +189,7 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
 
   out.ClearClip();
 
-  /* ----- Heading tape (TOP of the APERTURE): magnetic (state.yaw - magVarDeg; magVarDeg is a 0deg
+  /* ----- Heading tape (TOP of the APERTURE): magnetic (state.Platform.YawDeg - magVarDeg; magVarDeg is a 0deg
    * placeholder until a declination model exists). MOVED here from the aperture floor -- both our own
    * doc/f16/hud-symbology.md ("Heading tape | Top") and the FlightGear mod's HUD_main.nas
    * (head_mask/head_frame/head_curr all anchor at `sy*0.1`, i.e. ~10% down from the canvas TOP) agree;
@@ -198,7 +198,7 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
    * value box still straddles the rail. ----- */
   {
     float mg = kHudMagnify;
-    float hdg = state.yaw - state.magVarDeg;
+    float hdg = state.Platform.YawDeg - state.Nav.MagVarDeg;
     hdg = hdg < 0 ? hdg + 360.f : (hdg >= 360.f ? hdg - 360.f : hdg);
     float hy1 = ap.y0 + 15.f * mg;                       /* rail y, near the aperture's top edge */
     float halfSpan = winHalfW - 12.f * mg, hpd = 3.2f * mg;   /* px/deg -- how much heading range the tape shows */
@@ -245,7 +245,7 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
       float a = m * kRad;
       out.Line(bx + sinf(a) * R, by - cosf(a) * R, bx + sinf(a) * (R + tk), by - cosf(a) * (R + tk), kHgR, kHgG, kHgB);
     }
-    float roll = state.roll < -45.f ? -45.f : (state.roll > 45.f ? 45.f : state.roll), a = -roll * kRad;
+    float roll = state.Platform.RollDeg < -45.f ? -45.f : (state.Platform.RollDeg > 45.f ? 45.f : state.Platform.RollDeg), a = -roll * kRad;
     float px = bx + sinf(a) * R, py = by - cosf(a) * R;
     float nx = sinf(a), ny = -cosf(a), tx = -ny, ty = nx;
     out.Line(px, py, px + (nx * 5.f + tx * 2.5f) * mg, py + (ny * 5.f + ty * 2.5f) * mg, kHgR, kHgG, kHgB);
@@ -253,7 +253,7 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
   }
 
   /* ----- G-load (top-left of the aperture) ----- */
-  out.Printf(ap.x0 + 2.f * kHudMagnify, ap.y0 + 2.f * kHudMagnify, kHudSecondaryScale * kHudMagnify, kHgR, kHgG, kHgB, "%.1f", state.gLoad);
+  out.Printf(ap.x0 + 2.f * kHudMagnify, ap.y0 + 2.f * kHudMagnify, kHudSecondaryScale * kHudMagnify, kHgR, kHgG, kHgB, "%.1f", state.AirData.GLoad);
 
   /* ----- Left status block (LEFT edge, just past vertical centre -- not jammed in the bottom corner):
    * master mode (NAV) FIRST, then Mach, Peak-G, ARM/SIM, bullseye bearing/distance. Both the vertical
@@ -266,11 +266,11 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
     float lx = ap.x0 + 2.f * kHudMagnify, ls = 8.f * kHudMagnify, s = kHudSecondaryScale * kHudMagnify;
     float ly = cy + 0.136f * winHalfH;
     out.Text(lx, ly, s, kHgR, kHgG, kHgB, "NAV");
-    out.Printf(lx, ly + ls, s, kHgR, kHgG, kHgB, "%.2f", state.mach);
-    out.Printf(lx, ly + 2 * ls, s, kHgR, kHgG, kHgB, "%.1f", state.gLoadPeak);
-    out.Text(lx, ly + 3 * ls, s, kHgR, kHgG, kHgB, state.armState == FBArmState::Arm ? "ARM" : "SIM");
+    out.Printf(lx, ly + ls, s, kHgR, kHgG, kHgB, "%.2f", state.AirData.Mach);
+    out.Printf(lx, ly + 2 * ls, s, kHgR, kHgG, kHgB, "%.1f", state.AirData.GLoadPeak);
+    out.Text(lx, ly + 3 * ls, s, kHgR, kHgG, kHgB, state.Stores.Arm == FBArmState::Arm ? "ARM" : "SIM");
     out.Printf(lx, ly + 4 * ls, s, kHgR, kHgG, kHgB, "%03d %02.0f",
-              ((int)(state.bullBearingDeg + 0.5f) % 360 + 360) % 360, state.bullDistNm);
+              ((int)(state.Nav.BullBearingDeg + 0.5f) % 360 + 360) % 360, state.Nav.BullDistNm);
   }
 
   /* ----- Right status block (RIGHT edge, same vertical band as the left block): radar altitude (R),
@@ -281,13 +281,27 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
   {
     float rx = ap.x1 - 46.f * kHudMagnify, ls = 8.f * kHudMagnify, s = kHudSecondaryScale * kHudMagnify;
     float ry = cy + 0.136f * winHalfH;
-    out.Printf(rx, ry, s, kHgR, kHgG, kHgB, "R%4.0f", state.radarAltFt);
-    out.Printf(rx, ry + ls, s, kHgR, kHgG, kHgB, "AL%3.0f", state.alowFt);
-    out.Printf(rx, ry + 2 * ls, s, kHgR, kHgG, kHgB, "%c%05.1f",
-              state.rangeProvider ? state.rangeProvider : 'B', state.steerSlantNm);
-    int ttgM = (int)(state.steerTtgS / 60.f), ttgS = (int)state.steerTtgS % 60;
-    out.Printf(rx, ry + 3 * ls, s, kHgR, kHgG, kHgB, "%03d:%02d", ttgM, ttgS);
-    out.Printf(rx, ry + 4 * ls, s, kHgR, kHgG, kHgB, "%03.0f>%02d", state.steerDistNm, state.steerNum);
+    /* EVERY readout in this block asks its source block's head first. A dead box gets DASHES, not its
+     * last number in the same font as a live one — that is the whole reason the head exists
+     * (core/FBBlockStatus.h), and it is why the F-16's own manual insists the pilot can tell a failed
+     * sensor from a quiet one. A HELD block still shows its value: it is deliberately frozen, not
+     * broken, and blanking it would throw away information the pilot is entitled to. */
+    if (state.RadarAlt.H.Readable()) out.Printf(rx, ry, s, kHgR, kHgG, kHgB, "R%4.0f", state.RadarAlt.AglFt);
+    else out.Text(rx, ry, s, kHgR, kHgG, kHgB, "R----");
+    if (state.Ufc.H.Readable()) out.Printf(rx, ry + ls, s, kHgR, kHgG, kHgB, "AL%3.0f", state.Ufc.AlowFt);
+    else out.Text(rx, ry + ls, s, kHgR, kHgG, kHgB, "AL---");
+    if (state.FireControl.H.Readable())
+      out.Printf(rx, ry + 2 * ls, s, kHgR, kHgG, kHgB, "%c%05.1f",
+                 state.FireControl.RangeProvider ? state.FireControl.RangeProvider : 'B',
+                 state.FireControl.SteerSlantNm);
+    else out.Text(rx, ry + 2 * ls, s, kHgR, kHgG, kHgB, "B---.-");
+    if (state.Cruise.H.Readable()) {
+      int ttgM = (int)(state.Cruise.SteerTtgS / 60.f), ttgS = (int)state.Cruise.SteerTtgS % 60;
+      out.Printf(rx, ry + 3 * ls, s, kHgR, kHgG, kHgB, "%03d:%02d", ttgM, ttgS);
+    } else out.Text(rx, ry + 3 * ls, s, kHgR, kHgG, kHgB, "---:--");
+    if (state.Nav.H.Readable())
+      out.Printf(rx, ry + 4 * ls, s, kHgR, kHgG, kHgB, "%03.0f>%02d", state.Nav.SteerDistNm, state.Ufc.SteerNum);
+    else out.Text(rx, ry + 4 * ls, s, kHgR, kHgG, kHgB, "---> --");
   }
 
   /* ----- Airspeed tape (LEFT side, CAS): minor ticks every 20kt, boxed exact value + "C" CAS tag,
@@ -297,7 +311,7 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
    * simplification the altitude tape below makes. ----- */
   {
     float mg = kHudMagnify;
-    float ax = ap.x0 + 0.08f * (ap.x1 - ap.x0), as = state.casKts;
+    float ax = ap.x0 + 0.08f * (ap.x1 - ap.x0), as = state.AirData.CasKt;
     float tapeHalf = 20.f * mg, pxPerKt = 0.55f * mg;
     for (int av = (int)floorf((as - tapeHalf / pxPerKt) / 20.f) * 20; av <= (int)(as + tapeHalf / pxPerKt); av += 20) {
       if (av < 0) continue;
@@ -316,7 +330,7 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
    * anchors at ~0.80*sx*uv_used, the same ~8% margin from its edge). ----- */
   {
     float mg = kHudMagnify;
-    float axr = ap.x1 - 0.08f * (ap.x1 - ap.x0), asl = state.alt * kMToFtF;
+    float axr = ap.x1 - 0.08f * (ap.x1 - ap.x0), asl = state.Platform.AltM * kMToFtF;
     float tapeHalf = 20.f * mg, pxPerFt = 0.03f * mg;
     for (int av = (int)floorf((asl - tapeHalf / pxPerFt) / 100.f) * 100; av <= (int)(asl + tapeHalf / pxPerFt); av += 100) {
       float sy = cy - ((float)av - asl) * pxPerFt;
@@ -334,8 +348,11 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
    * cross-out gate and the clamp position both use the RECTANGULAR aperture now, not a separate circular
    * ring, so the crossed-out diamond always sits exactly ON the window's own edge (task 4). ===== */
   out.SetClip(ap.x0, ap.y0, ap.x1, ap.y1);
-  {
-    Proj sp = Project(state.steerBearingDeg, state.steerElevAngleDeg);
+  /* No nav solution, no steering symbology: a diamond drawn from an unwritten block would point the
+   * pilot at a steerpoint that does not exist (MIL-STD-1787's declutter rule, and the reason the block
+   * has a head at all). A BFM mission with no waypoints is exactly this case. */
+  if (state.Nav.H.Readable()) {
+    Proj sp = Project(state.Nav.SteerBearingDeg, state.Nav.SteerElevAngleDeg);
     bool outOfFov = sp.zc < 0.05f || sp.sx < ap.x0 || sp.sx > ap.x1 || sp.sy < ap.y0 || sp.sy > ap.y1;
     float dw = 5.f * kHudMagnify, dh = 4.5f * kHudMagnify;
     float px = sp.sx, py = sp.sy;
@@ -353,7 +370,7 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
      * screen-width-fraction clamp), rotated so it points UP when the steerpoint is ahead of track,
      * DOWN when behind (doc/f16/hud-symbology.md). */
     float mg = kHudMagnify;
-    float relBrg = Wrap180(state.steerBearingDeg - state.trackDeg);
+    float relBrg = Wrap180(state.Nav.SteerBearingDeg - state.AirData.TrackDeg);
     float clampX = winHalfW - 12.f * mg;
     float tx = relBrg * 1.2f * mg;
     tx = tx < -clampX ? -clampX : (tx > clampX ? clampX : tx);

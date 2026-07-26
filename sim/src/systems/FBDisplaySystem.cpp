@@ -36,12 +36,12 @@ void FBDisplaySystem::BuildHud(const FBState &state, const FBHudEnv &env, FBHudG
    * relief during a level loiter. */
   {
     static const float kEyeOrigin[3] = {0, 0, 0};
-    w3_cam cam = w3_cam_from(state.yaw, state.pitch, state.roll, kEyeOrigin, kHudFovDeg,
+    w3_cam cam = w3_cam_from(state.Platform.YawDeg, state.Platform.PitchDeg, state.Platform.RollDeg, kEyeOrigin, kHudFovDeg,
                              (float)env.Width / (float)env.Height, 1.f, 1000.f);
     float Kc = ((float)env.Height * 0.5f) / tanf(kHudFovDeg * 0.5f * kRad), p[2][2];
-    float dip = w3_horizon_dip_rad(state.alt > 1 ? state.alt : env.Agl), cd = cosf(dip), sd = sinf(dip);
+    float dip = w3_horizon_dip_rad(state.Platform.AltM > 1 ? state.Platform.AltM : env.Agl), cd = cosf(dip), sd = sinf(dip);
     for (int k = 0; k < 2; k++) {
-      float az = (state.yaw + (k ? 20.f : 0.f)) * kRad;
+      float az = (state.Platform.YawDeg + (k ? 20.f : 0.f)) * kRad;
       float d[3] = {cd * sinf(az), -sd, -cd * cosf(az)};
       float xc = d[0] * cam.sr[0] + d[1] * cam.sr[1] + d[2] * cam.sr[2];
       float yc = d[0] * cam.up[0] + d[1] * cam.up[1] + d[2] * cam.up[2];
@@ -57,10 +57,10 @@ void FBDisplaySystem::BuildHud(const FBState &state, const FBHudEnv &env, FBHudG
       out.QLine(mx + ux * gap, my + uy * gap, mx + ux * half, my + uy * half, 1.0f, kHgR, kHgG, kHgB);
     }
   }
-  float hdg = state.yaw < 0 ? state.yaw + 360 : state.yaw;
+  float hdg = state.Platform.YawDeg < 0 ? state.Platform.YawDeg + 360 : state.Platform.YawDeg;
 
   /* ===== Heading tape (top): moving scale centred on heading, boxed value + up-caret, steerpoint
-   * pointer. Ticks every 5 deg, labels every 30 (N/03/06/E...). home_bearing is relative to the nose,
+   * pointer. Ticks every 5 deg, labels every 30 (N/03/06/E...). the platform block's home bearing is relative to the nose,
    * so on a nose-centred tape the steerpoint marker sits at that offset from centre. ===== */
   {
     float hpd = 5.f, hy1 = 40;
@@ -86,7 +86,7 @@ void FBDisplaySystem::BuildHud(const FBState &state, const FBHudEnv &env, FBHudG
     out.Line(cx, hy1, cx + 7, hy1 + 7, kHgR, kHgG, kHgB); /* up-caret */
     out.Box(cx - 26, hy1 + 8, cx + 26, hy1 + 30, kHgR, kHgG, kHgB);
     out.Printf(cx - 22, hy1 + 13, 2.f, kHgR, kHgG, kHgB, "%03.0f", hdg);
-    float hb = state.home_bearing;
+    float hb = state.Platform.HomeBearingDeg;
     if (hb > 44) hb = 44;
     if (hb < -44) hb = -44;
     float hsx = cx + hb * hpd;
@@ -98,7 +98,7 @@ void FBDisplaySystem::BuildHud(const FBState &state, const FBHudEnv &env, FBHudG
 
   /* ===== Groundspeed tape (left): moving vertical scale, boxed value + caret. ===== */
   {
-    float apx = 5.f, ax = 70.f, as = state.gs;
+    float apx = 5.f, ax = 70.f, as = state.Platform.GsMs;
     for (int av = (int)floorf((as - 30.f) / 5.f) * 5; av <= (int)as + 30; av += 5) {
       if (av < 0) continue;
       float sy = cy - ((float)av - as) * apx;
@@ -117,7 +117,7 @@ void FBDisplaySystem::BuildHud(const FBState &state, const FBHudEnv &env, FBHudG
 
   /* ===== Altitude tape (right): ASL scale + '<' caret; AGL (ASL - DEM ground) and VS below. ===== */
   {
-    float mpx = 1.5f, axr = (float)env.Width - 70.f, asl = state.alt;
+    float mpx = 1.5f, axr = (float)env.Width - 70.f, asl = state.Platform.AltM;
     for (int av = (int)floorf((asl - 100.f) / 10.f) * 10; av <= (int)asl + 100; av += 10) {
       if (av < 0) continue;
       float sy = cy - ((float)av - asl) * mpx;
@@ -133,7 +133,7 @@ void FBDisplaySystem::BuildHud(const FBState &state, const FBHudEnv &env, FBHudG
     out.Line(axr, cy, axr - 3, cy + 6, kHgR, kHgG, kHgB); /* < caret at the rail */
     out.Text(axr - 58, cy - 30, 1.4f, kHgR, kHgG, kHgB, "ASL");
     out.Printf(axr - 63, cy + 18, 1.6f, kHgR, kHgG, kHgB, "AGL%4.0f", env.Agl);
-    out.Printf(axr - 63, cy + 36, 1.6f, kHgR, kHgG, kHgB, "VS%+4.0f", state.vs);
+    out.Printf(axr - 63, cy + 36, 1.6f, kHgR, kHgG, kHgB, "VS%+4.0f", state.Platform.VsMs);
   }
 }
 

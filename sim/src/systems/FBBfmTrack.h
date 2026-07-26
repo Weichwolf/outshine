@@ -12,11 +12,11 @@
  * not be differenced into a zero velocity) and EXTRAPOLATED forward the rest of the time.
  *
  * That extrapolation is not a convenience — it is the whole sensor-limitation story. A dropped lock does
- * not delete what the pilot knows; it starts a clock. Geometry() keeps answering from the predicted
+ * not delete what the pilot knows; it starts a clock. Block() keeps answering from the predicted
  * position while AgeS counts up, and stops being Valid only past kMaxExtrapolateS, when the prediction
  * has outlived its usefulness and the pilot has to go looking (FBPilot's search pattern).
  *
- * WHAT IT MAY READ: FBState's fcrContacts/fcrLockIndex and the pilot's own fb_fdm_state. There is no
+ * WHAT IT MAY READ: FBState's radar block (contacts + lock index) and the pilot's own fb_fdm_state. There is no
  * FBWorld, no unit registry and no datalink track in this file's includes, and that is the anti-cheat
  * property the BFM proof rests on (CLAUDE.md "Kein Cheaten"): the position it reports is a computed
  * estimate that can be — and in the mission analysis IS — compared against the truth it never saw.
@@ -41,22 +41,15 @@ namespace FlightBox {
 enum class FBBfmPursuit { None, Search, Lead, Pure, Lag };
 const char *FBBfmPursuitStr(FBBfmPursuit p);
 
-/* This tick's derived geometry, all from the ESTIMATE (fresh or extrapolated) so the pilot's steering
- * never needs a "do I have a live contact" branch of its own — AgeS/Locked say how much to trust it. */
-struct FBBfmGeometry {
-  bool   Have = false;       /* this target has been seen at least once — the fields below mean something */
-  bool   Valid = false;      /* ... and the estimate is young enough to LEAD on / steer a pursuit at */
-  bool   Locked = false;     /* the radar is holding this target RIGHT NOW (STT) */
-  double AgeS = 0.0;         /* sim seconds since the last real look */
-  double RangeM = 0.0;       /* to the estimated position */
-  double AzDeg = 0.0;        /* body-referenced bearing to the estimate, + = right of the nose (ATA) */
-  double ElDeg = 0.0;        /* body-referenced elevation to the estimate */
-  double ClosureMs = 0.0;    /* + = closing (the radar's own range rate while locked, else derived) */
-  double AspectDeg = 0.0;    /* at the TARGET: 0 = own jet is on his tail, 180 = head-on */
-  double HcaDeg = 0.0;       /* heading crossing angle, own heading - his estimated heading */
-  double EastM = 0.0, NorthM = 0.0, UpM = 0.0;   /* estimated offset from own position */
-  double VelE = 0.0, VelN = 0.0, VelU = 0.0;     /* estimated target velocity (ENU, m/s) */
-};
+/* The fused picture is published as core/FBAvionicsBlocks.h's FBBfmBlock — a bus block like any other
+ * sensor product, so the pilot's steering never needs a "do I have a live contact" branch of its own:
+ * the head says it. The three states map onto the fusion's own three, which is why they exist:
+ *   Invalid — never seen. Nothing to steer at.
+ *   Valid   — measured, or extrapolated within the credible window: young enough to LEAD on.
+ *   Held    — past kMaxExtrapolateS. The estimate reverts to the last MEASURED position and the block
+ *             freezes there (where he WAS beats where a stale velocity says he would be) — the same
+ *             freeze-at-last-value the CRUS page does, arrived at from a completely different problem.
+ * The stamp is the LOOK the estimate stands on, so age is age since the sensor last saw him. */
 
 class FBBfmTrack : public FBTelemetrySource {
 public:
@@ -87,7 +80,7 @@ public:
   /* Leaving BFM (or never entering it) must not leave a stale picture behind. */
   void Reset();
 
-  const FBBfmGeometry &Geometry() const { return Geo_; }
+  const FBBfmBlock &Block() const { return Blk_; }
   bool Engaged() const { return EngagedS_ > 0.0; }
   double LockHeldFrac() const { return EngagedS_ > 0.0 ? LockS_ / EngagedS_ : 0.0; }
   double ControlS() const { return ControlS_; }
@@ -99,7 +92,7 @@ public:
 private:
   void Predict(const fb_fdm_state &own, double nowS);
 
-  FBBfmGeometry Geo_{};
+  FBBfmBlock Blk_{};
   bool   Have_ = false;          /* at least one look has been folded in */
   double LastLookS_ = -1e9;      /* sim time of the look the estimate stands on */
   double PosLatDeg_ = 0.0, PosLonDeg_ = 0.0, PosAltM_ = 0.0;   /* estimated target position */
@@ -109,6 +102,7 @@ private:
   FBBfmPursuit Pursuit_ = FBBfmPursuit::None;
   bool   InControl_ = false;
   double GCmd_ = 0.0;
+  double AgeS_ = 0.0;            /* telemetry's copy of the head's age (SampleTelemetry has no clock) */
   double EsFt_ = 0.0;
   double EngagedS_ = 0.0, LockS_ = 0.0, ControlS_ = 0.0;
 };

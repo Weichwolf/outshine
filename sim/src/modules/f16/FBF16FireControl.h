@@ -7,8 +7,12 @@
  * source for the FORMULA only — no code copied).
  *
  * F-16-specific (not a generic systems/ slot): the 'B' provider letter and this exact computation are
- * this airframe's fire-control convention, not every module's. Reads FBState (steerDistNm, steerElevFt,
- * alt), writes FBState (steerSlantNm, rangeProvider) — never touches another system directly. */
+ * this airframe's fire-control convention, not every module's. READS the nav block (steerpoint distance
+ * and elevation) and the platform block (own altitude), WRITES the fire-control block — a documented
+ * fusion of two source blocks, which is why it checks both heads: with either one Invalid there is no
+ * slant range to publish, and 'B' with a garbage number next to it is worse than a decluttered readout.
+ * (The flat FBState hid a real instance of exactly that: this class read an altitude field the module
+ * never filled, so the published slant range was computed against 0 m ASL for every flight.) */
 #ifndef FBF16FIRECONTROL_H
 #define FBF16FIRECONTROL_H
 

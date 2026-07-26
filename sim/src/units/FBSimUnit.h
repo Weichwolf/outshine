@@ -34,6 +34,7 @@
 #include "FBMissionMonitor.h"
 #include "FBModule.h"
 #include "FBState.h"
+#include "FBStateBusTelemetry.h"
 #include "FBTelemetry.h"
 #include "FBUnit.h"
 
@@ -144,6 +145,7 @@ private:
   std::string LogLabel_;
   double GroundAslM_;
   FBFdmTelemetrySource FdmSrc_;        /* borrows Fdm_/St_/GroundAslM_ — all declared above it */
+  FBStateBusTelemetry BusSrc_;         /* borrows the module's own state bus (validity per block) */
   FBTelemetryBus Bus_;
   FBFlightMonitor Flight_;
   std::unique_ptr<FBMissionMonitor> Mission_;   /* absent for a unit with no mission to judge */

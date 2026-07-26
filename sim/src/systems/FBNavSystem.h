@@ -4,8 +4,8 @@
  * module starts with). Writes bearing/elevation-angle/distance/TTG to the steerpoint and bearing/
  * distance FROM the bullseye into FBState every Run(); FBF16Hud only reads them.
  *
- * Geodesy is the SAME planar ENU approximation FBAppNative/FBAppWasm already use for home_bearing/
- * home_dist (dlat/dlon * 111320 m/deg, cos-scaled) — steerpoints are tens of nm out, not intercontinental,
+ * Geodesy is the SAME planar ENU approximation FBAppNative/FBAppWasm already use for the platform block's
+ * home bearing/distance (dlat/dlon * 111320 m/deg, cos-scaled) — steerpoints are tens of nm out, not intercontinental,
  * so the flat-earth error is negligible and this stays consistent with the rest of the codebase rather
  * than introducing a second geodesy convention. Run() is the override point for a module whose nav
  * solution genuinely differs (e.g. one that fuses a real INS drift model). */

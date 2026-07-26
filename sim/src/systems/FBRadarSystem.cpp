@@ -187,14 +187,18 @@ void FBRadarSystem::DropAllTracks(const char *reason, double simTimeS) {
 void FBRadarSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegistry *net,
                         double simTimeS) {
   const FBRadarScanVolume &v = ActiveVolume();
-  state.fcrOn = Powered_ && v.Active;
-  state.fcrMode = ModeOrdinal();
-  state.iffXpdr = IffXpdr_;
+  FBRadarBlock &b = state.Radar;
+  b.Radiating = Powered_ && v.Active;
+  b.ModeOrdinal = ModeOrdinal();
+  b.IffTransponder = IffXpdr_;
 
-  if (!state.fcrOn || !net) {
+  if (!b.Radiating || !net) {
     if (TrackCount_ > 0 || LockedNum_ != 0) DropAllTracks(Powered_ ? "radar standby" : "radar off", simTimeS);
-    state.fcrContactCount = 0;
-    state.fcrLockIndex = -1;
+    b.ContactCount = 0;
+    b.LockIndex = -1;
+    /* A set that is not radiating has no picture — not an empty one. Invalid, so a consumer cannot
+     * mistake "nothing found" for "not looking" (core/FBBlockStatus.h). */
+    b.H.Invalidate();
     ContactCount_ = 0;
     LockNm_ = -1.0f; LockAzDeg_ = LockElDeg_ = LockClosureKt_ = LockAgeS_ = 0.0f; LockIff_ = 0;
     return;
@@ -205,7 +209,9 @@ void FBRadarSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegi
    * frame time this grid advances by. The guard bounds the catch-up a pathological FrameS could ask for
    * and RESYNCS the grid rather than falling further behind every call. */
   int guard = 0;
+  bool swept = false;
   while (NextScanS_ <= simTimeS && guard++ < 64) {
+    swept = true;
     ScanFrame(st, *net, simTimeS);
     UpdateLock(simTimeS, ActiveVolume().AutoAcquire);
     NextScanS_ += ActiveVolume().FrameS;
@@ -214,12 +220,12 @@ void FBRadarSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegi
 
   /* Between looks nothing about a contact's geometry moves — only its age. */
   int n = 0;
-  state.fcrLockIndex = -1;
+  b.LockIndex = -1;
   LockNm_ = -1.0f; LockAzDeg_ = LockElDeg_ = LockClosureKt_ = LockAgeS_ = 0.0f; LockIff_ = 0;
   for (int i = 0; i < TrackCount_ && n < kMaxRadarContacts; i++) {
     const Track &t = Tracks_[i];
     if (!t.Firm) continue;
-    FBRadarContact &c = state.fcrContacts[n];
+    FBRadarContact &c = b.Contacts[n];
     c.TrackNum = t.TrackNum;
     c.RangeM = (float)t.RangeM;
     c.BearingDeg = (float)t.BearingDeg;
@@ -231,7 +237,7 @@ void FBRadarSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegi
     c.Coasting = c.LookAgeS > (float)ActiveVolume().FrameS;
     c.Iff = t.Iff;
     if (t.TrackNum == LockedNum_) {
-      state.fcrLockIndex = n;
+      b.LockIndex = n;
       LockNm_ = (float)(t.RangeM * kMToNm);
       LockAzDeg_ = (float)t.AzDeg;
       LockElDeg_ = (float)t.ElDeg;
@@ -241,8 +247,13 @@ void FBRadarSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegi
     }
     n++;
   }
-  state.fcrContactCount = n;
+  b.ContactCount = n;
   ContactCount_ = n;
+  /* Between sweeps the geometry stands still and only the per-contact age moves (class banner) —
+   * freeze-at-last-value, which is exactly what Held means. The stamp keeps naming the last completed
+   * sweep, so a consumer can ask how old the picture is. */
+  if (swept) b.H.Publish(simTimeS);
+  else b.H.Hold();
 }
 
 void FBRadarSystem::DeclareTelemetry(FBTelemetrySchema &schema) const {

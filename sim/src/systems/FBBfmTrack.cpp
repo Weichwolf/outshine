@@ -21,7 +21,7 @@ const char *FBBfmPursuitStr(FBBfmPursuit p) {
 }
 
 void FBBfmTrack::Reset() {
-  Geo_ = FBBfmGeometry{};
+  Blk_ = FBBfmBlock{};
   Have_ = false;
   LastLookS_ = -1e9;
   VelE_ = VelN_ = VelU_ = 0.0;
@@ -31,9 +31,12 @@ void FBBfmTrack::Reset() {
 }
 
 void FBBfmTrack::Update(const FBState &state, const fb_fdm_state &own, double nowS) {
+  const FBRadarBlock &fcr = state.Radar;
   const FBRadarContact *c = nullptr;
-  if (state.fcrLockIndex >= 0 && state.fcrLockIndex < state.fcrContactCount)
-    c = &state.fcrContacts[state.fcrLockIndex];
+  /* Head first: an Invalid radar block is a set that is not looking, and its contact array means
+   * nothing — reading it would be exactly the stale-picture bug the head exists to prevent. */
+  if (fcr.H.Readable() && fcr.LockIndex >= 0 && fcr.LockIndex < fcr.ContactCount)
+    c = &fcr.Contacts[fcr.LockIndex];
 
   if (c) {
     /* The look this contact stands on. A contact re-read between looks carries the SAME frozen geometry,
@@ -75,8 +78,8 @@ void FBBfmTrack::Update(const FBState &state, const fb_fdm_state &own, double no
    * than useless — it is actively misleading: a merge ends with several hundred knots of closure on
    * record, and a pilot still reading that number would keep flying an overshoot that is long over
    * instead of turning back in. Coasting therefore takes the range rate from the estimate itself. */
-  if (c) Geo_.ClosureMs = c->ClosureMs;
-  Geo_.Locked = c != nullptr;
+  if (c) Blk_.ClosureMs = c->ClosureMs;
+  Blk_.Locked = c != nullptr;
 
   /* Own specific energy — energy height, the one energy number a pilot can read off his own instruments
    * (altitude + true airspeed). It is what makes "did he bleed himself dry winning those angles?"
@@ -89,7 +92,7 @@ void FBBfmTrack::Update(const FBState &state, const fb_fdm_state &own, double no
  * simply the measurement; while it is lost the same code keeps the target moving on its last known
  * vector, which IS the extrapolation the sensor limitation demands. */
 void FBBfmTrack::Predict(const fb_fdm_state &own, double nowS) {
-  if (!Have_) { Geo_ = FBBfmGeometry{}; return; }
+  if (!Have_) { Blk_ = FBBfmBlock{}; AgeS_ = 0.0; return; }
   double age = nowS - LastLookS_;
   /* Past kMaxExtrapolateS the prediction has outlived its own credibility: propagating a velocity that
    * old would send the pilot chasing a point in empty sky, and the honest datum is the last position
@@ -107,31 +110,33 @@ void FBBfmTrack::Predict(const fb_fdm_state &own, double nowS) {
   double e, n;
   FBEnuOffsetM(own.lat, own.lon, lat, lon, e, n);
   double u = alt - own.elev;
-  Geo_.EastM = e; Geo_.NorthM = n; Geo_.UpM = u;
-  Geo_.VelE = VelE_; Geo_.VelN = VelN_; Geo_.VelU = VelU_;
-  Geo_.RangeM = std::sqrt(e * e + n * n + u * u);
-  FBEnuToBodyLos(own.roll, own.pitch, own.yaw, e, n, u, Geo_.AzDeg, Geo_.ElDeg);
-  Geo_.AgeS = age;
-  Geo_.Have = true;
-  Geo_.Valid = extrapolate;
+  Blk_.EastM = e; Blk_.NorthM = n; Blk_.UpM = u;
+  Blk_.VelE = VelE_; Blk_.VelN = VelN_; Blk_.VelU = VelU_;
+  Blk_.RangeM = std::sqrt(e * e + n * n + u * u);
+  FBEnuToBodyLos(own.roll, own.pitch, own.yaw, e, n, u, Blk_.AzDeg, Blk_.ElDeg);
+  AgeS_ = age;
+  /* The stamp is the LOOK, not now: age asked of the head is age since the sensor saw him. Past the
+   * credible extrapolation window the block freezes rather than blanking — Held (class banner). */
+  Blk_.H.StampS = LastLookS_;
+  Blk_.H.Status = extrapolate ? FBBlockStatus::Valid : FBBlockStatus::Held;
 
   /* Range rate from the estimate + own velocity (fb_fdm_state's X-Plane-local axes: +x east, +y up,
    * +z south). Overwritten by the radar's own measurement while locked — see Update(). */
   double ownE = own.vx, ownN = -own.vz, ownU = own.vy;
   double relE = VelE_ - ownE, relN = VelN_ - ownN, relU = VelU_ - ownU;
-  Geo_.ClosureMs = -(e * relE + n * relN + u * relU) / std::fmax(Geo_.RangeM, 1.0);
+  Blk_.ClosureMs = -(e * relE + n * relN + u * relU) / std::fmax(Blk_.RangeM, 1.0);
 
   /* Aspect: the angle AT THE TARGET between its tail and the line of sight to us — 0 means the pursuer
    * sits directly behind him. With L the unit vector own->target and T his unit velocity, the vector
    * target->us is -L and his tail points along -T, so cos(aspect) = (-T).(-L) = T.L. Undefined while his
    * estimated speed is too small to define a direction; the last value then simply stands. */
   double vh = std::sqrt(VelE_ * VelE_ + VelN_ * VelN_ + VelU_ * VelU_);
-  if (vh > kMinTrackSpeedMs && Geo_.RangeM > 1.0) {
-    double dot = (VelE_ * e + VelN_ * n + VelU_ * u) / (vh * Geo_.RangeM);
+  if (vh > kMinTrackSpeedMs && Blk_.RangeM > 1.0) {
+    double dot = (VelE_ * e + VelN_ * n + VelU_ * u) / (vh * Blk_.RangeM);
     dot = dot < -1.0 ? -1.0 : dot > 1.0 ? 1.0 : dot;
-    Geo_.AspectDeg = std::acos(dot) * kRad2Deg;
+    Blk_.AspectDeg = std::acos(dot) * kRad2Deg;
     double tgtHdg = std::atan2(VelE_, VelN_) * kRad2Deg;
-    Geo_.HcaDeg = FBWrap180(own.yaw - tgtHdg);
+    Blk_.HcaDeg = FBWrap180(own.yaw - tgtHdg);
   }
 }
 
@@ -140,7 +145,7 @@ void FBBfmTrack::Report(FBBfmPursuit pursuit, bool inControl, double gCmd, doubl
   InControl_ = inControl;
   GCmd_ = gCmd;
   EngagedS_ += dt;
-  if (Geo_.Locked) LockS_ += dt;
+  if (Blk_.Locked) LockS_ += dt;
   if (inControl) ControlS_ += dt;
 }
 
@@ -163,15 +168,16 @@ void FBBfmTrack::DeclareTelemetry(FBTelemetrySchema &schema) const {
 }
 
 void FBBfmTrack::SampleTelemetry(FBTelemetryRow &row) const {
+  bool valid = Blk_.H.IsValid();
   row.Push(std::string(FBBfmPursuitStr(Pursuit_)));
-  row.Push(Geo_.Valid);
-  row.Push(Geo_.Locked);
-  row.Push(Geo_.Valid ? Geo_.AgeS : -1.0);
-  row.Push(Geo_.Valid ? Geo_.RangeM * kMToNm : -1.0);
-  row.Push(Geo_.Valid ? Geo_.AzDeg : 0.0);
-  row.Push(Geo_.Valid ? Geo_.AspectDeg : -1.0);
-  row.Push(Geo_.Valid ? Geo_.HcaDeg : 0.0);
-  row.Push(Geo_.Valid ? Geo_.ClosureMs * kMsToKt : 0.0);
+  row.Push(valid);
+  row.Push(Blk_.Locked);
+  row.Push(valid ? AgeS_ : -1.0);
+  row.Push(valid ? Blk_.RangeM * kMToNm : -1.0);
+  row.Push(valid ? Blk_.AzDeg : 0.0);
+  row.Push(valid ? Blk_.AspectDeg : -1.0);
+  row.Push(valid ? Blk_.HcaDeg : 0.0);
+  row.Push(valid ? Blk_.ClosureMs * kMsToKt : 0.0);
   row.Push(EsFt_);
   row.Push(GCmd_);
   row.Push(InControl_);
