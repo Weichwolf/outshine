@@ -148,6 +148,46 @@ Any one of:
 - **NORM**: stick trims energized, autopilot possible.
 - **DISC**: stick trims and autopilot inhibited.
 
+### ED EA Guide addendum — autopilot (official, pp.128–131) — includes a genuine numeric discrepancy
+`doc/DCS F-16C Early Access Guide EN.pdf` p.128–131 documents the same 2×2 PITCH/ROLL switch autopilot
+(ALT HOLD/ATT HOLD × HDG SEL/ATT HOLD/STRG SEL, a pitch mode required for any roll mode — matches Chuck
+exactly) but adds **quantified command-authority and disengage-condition figures Chuck does not give**,
+and **one figure that conflicts with Chuck's** — flagged explicitly, not silently resolved:
+
+- **Command authority while engaged** (ED, new numbers not in Chuck): pitch command rate **+3.0 G to
+  −1.0 G**, roll rate **≤ 20°/s**, **bank angle limited to ±30°**.
+  ⚠️ **Discrepancy**: Chuck (§ above, "Modes" table) states HDG SEL/STRG SEL are **"bank limited to
+  45°"**; ED states the autopilot's overall bank-angle limit is **±30°**. Both values are stated as
+  hard limits in their respective source, for what reads as the same mechanism (autopilot roll-axis
+  authority) — **ED EA Guide is the more belastbar (authoritative) source** per this task's source
+  hierarchy (official ED module manual vs. Chuck's third-party tutorial guide), so **treat ±30° as
+  primary and 45° as Chuck's figure to be re-verified**, not silently overwritten. If a FlightBox
+  autopilot implementation needs one number, use ED's ±30°; if behavior diverges from either, that's
+  worth a targeted DCS-behavior check before trusting either guide over the vanilla-JSBSim reference
+  model (CLAUDE.md Prinzip 5 — the model, not either guide, is ground truth for FlightBox).
+- **Auto-disengage conditions** — ED's list (verbatim sense) vs. Chuck's list (§ above) overlap almost
+  entirely but each has items the other doesn't:
+  | Condition | Chuck | ED |
+  |---|---|---|
+  | Paddle switch pressed | listed (but see Chuck's own asterisk: doesn't actually disengage in HDG SEL/STRG SEL) | **not listed** |
+  | TRIM/AP DISC → DISC | yes | yes |
+  | Gear down/locked | yes ("DOWN") | yes ("extended **and locked**" — more precise: transit ≠ disengage trigger) |
+  | Air-refuel door open | yes | yes ("AIR REFUEL switch → OPEN") |
+  | ALT FLAPS → EXTEND | yes (unconditional) | yes, **qualified: "below 400 knots"** — ED is more precise here |
+  | AoA > 15° | yes | yes (matches exactly) |
+  | Bank angle > 60° | **not listed** (Chuck instead caps ATT-HOLD *capture* at ±60°, a different mechanism) | **yes, explicit disengage trigger** |
+  | DBU engaged | yes ("DBU engaged") | yes ("FLCS operating on Digital Backup software") |
+  | MPO switch OVRD | yes | yes ("MANUAL PITCH switch → OVRD") |
+  | AP/FLCS failure | yes | yes |
+  | Stall horn / low-speed warning | yes ("Stall horn active") | yes ("Low speed audio warning is triggered") |
+
+  Net effect: ED's **gear-lock qualifier** and **ALT-FLAPS speed qualifier** are genuine added precision
+  (not contradictions); the **bank>60° disengage** is new information Chuck doesn't carry at all
+  (distinct from Chuck's ATT-HOLD ±60° *capture-limit* concept, which ED doesn't restate); the
+  **paddle-switch** discrepancy is likely not a real contradiction — Chuck's own asterisked footnote
+  already says paddle **doesn't** disengage in HDG SEL/STRG SEL, so ED simply omitting it from the
+  unconditional-disengage list is consistent with Chuck's own caveat, not opposed to it.
+
 ---
 
 # Technical depth (researched — for rebuild)
