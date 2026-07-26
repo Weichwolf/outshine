@@ -47,6 +47,14 @@ static FBOwnshipUnit gOwnship(1, St);    /* the ownship as an FBUnit — borrows
                                           * safe: St has static storage + no dynamic initializer, so its
                                           * zero-init precedes gOwnship's dynamic init regardless of order */
 static double Ground = 430.0;            /* config default; refined from the terrain if available */
+/* The flight-integrity K.O. authority (CLAUDE.md "Kein Cheaten") — the SAME core/FBFlightMonitor class
+ * FBMissionRunner.cpp drives for gym/native, fed here from the browser's own frame loop so the WASM
+ * client has no second, parallel crash/LOC definition. Physics-only (FBFlightMonitor.h's banner: no
+ * runway/mission knowledge), so one instance suffices regardless of boot mode. gSimT is this loop's own
+ * monotonic sim-clock for its sustain timers (LOC/deep-stall), since WASM has no discrete mission "tick"
+ * counter like the 10 Hz runner. */
+static FBFlightMonitor gMonitor;
+static double gSimT = 0.0;
 static double LastMs = 0.0;
 static double Olat = 47.179846, Olon = 7.411427;   /* ENU/home origin (config.js) */
 static time_t SimUtc = 0;                /* FB_SIM_UTC override; 0 = real wall clock (live sky) */
@@ -184,6 +192,14 @@ static void frame(void) {
    * FlightPlan (?ap=manual boot never sets one). */
   FBMissionAdvanceWaypoint(gF16->FlightPlan(), St.lat, St.lon, kWpCaptureM);
   double cp_c = emscripten_get_now();   /* end: jsbsim substeps */
+
+  /* The K.O. authority, fed every frame (same class/thresholds as FBMissionRunner.cpp's gym/native
+   * loop — see FBFlightMonitor.h's banner). A trip logs its own FBLog::Error (browser console) and cuts
+   * the engine here; JSBSim's own ground reactions keep running afterwards (CLAUDE.md: "Crash -> Motor
+   * aus, kein Freeze"), so the render loop below does not stop or special-case anything. */
+  gSimT += dt;
+  if (gMonitor.Tick(FBBuildFlightMonitorSample(St, gForHud), gSimT))
+    gF16->Controls().EngineCutoff();
 
   /* HUD AGL (ASL - DEM ground) — gForHud computed above, before Run(), so FBRadarAltimeter and this
    * read the same sample. 1 Hz telemetry from THIS sim tick (device-loss-proof). */

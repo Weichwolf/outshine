@@ -5,6 +5,7 @@
 #include "FBTelemetry.h"
 #include "FBTelemetrySinks.h"
 #include "FBFdmTelemetrySource.h"
+#include "FBFlightMonitor.h"
 #include "FBLog.h"
 #include "FBLogSinks.h"
 #include <cerrno>
@@ -20,16 +21,19 @@ namespace FlightBox {
 
 namespace {
 constexpr double kPi = 3.14159265358979323846;
+constexpr double kMPerDeg = 111320.0;
 
-/* "off the runway" test for the crash gate: project (lat,lon) onto the runway's along/across-track
- * axes (centreline from the threshold on TrueHeadingDeg) — on the runway iff within its length (+
- * marginAlongM before/after) and half-width (+ marginAcrossM either side). WidthM <= 1 (the mission
- * format leaves it unset) falls back to a generous 60 m generic-runway half-width. */
+/* "off the runway" test — a MISSION judgement (this file, not core/FBFlightMonitor: see its banner),
+ * unchanged geometry from the pre-monitor crash gate this replaces for FAIL: project (lat,lon) onto the
+ * runway's along/across-track axes (centreline from the threshold on TrueHeadingDeg) — on the runway
+ * iff within its length (+ marginAlongM before/after) and half-width (+ marginAcrossM either side).
+ * WidthM <= 1 (the mission format leaves it unset) falls back to a generous 60 m generic-runway
+ * half-width. */
 bool OnRunway(const FBRunway &rwy, double lat, double lon, double marginAlongM, double marginAcrossM) {
   double hdg = rwy.TrueHeadingDeg * kPi / 180.0;
   double coslat = std::cos(rwy.ThresholdLatDeg * kPi / 180.0);
-  double dy = (lat - rwy.ThresholdLatDeg) * 111320.0;
-  double dx = (lon - rwy.ThresholdLonDeg) * 111320.0 * coslat;
+  double dy = (lat - rwy.ThresholdLatDeg) * kMPerDeg;
+  double dx = (lon - rwy.ThresholdLonDeg) * kMPerDeg * coslat;
   double along = dx * std::sin(hdg) + dy * std::cos(hdg);
   double across = dx * std::cos(hdg) - dy * std::sin(hdg);
   double halfW = (rwy.WidthM > 1.0 ? rwy.WidthM : 60.0) * 0.5 + marginAcrossM;
@@ -42,6 +46,7 @@ const char *FBMissionResultStr(FBMissionResult r) {
     case FBMissionResult::Success: return "SUCCESS";
     case FBMissionResult::Fail: return "FAIL";
     case FBMissionResult::Crash: return "CRASH";
+    case FBMissionResult::Loc: return "LOC";
     case FBMissionResult::Timeout: return "TIMEOUT";
   }
   return "?";
@@ -152,6 +157,12 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   bool warnedStall = false, warnedOverspeed = false, warnedSink = false;
   clock_t wallStart = clock();
 
+  /* The PHYSICAL K.O. authority (CLAUDE.md "Kein Cheaten"): fed read-only every tick below, never given
+   * to Module/Pilot. Knows nothing about this mission's runway — see FBFlightMonitor.h's banner; a
+   * ground contact off the runway is judged separately, right below, as a MISSION verdict (FAIL, not
+   * CRASH), by this same Runner. */
+  FBFlightMonitor monitor;
+
   while (simT < timeoutS) {
     double gnd = elevation.GroundElevM(St.lat, St.lon);
     if (gnd > -1e8) groundAsl = gnd;
@@ -197,14 +208,21 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
       warnedSink = true;
     } else if (St.vy > -5.0) warnedSink = false;
 
+    if (monitor.Tick(FBBuildFlightMonitorSample(St, groundAsl), simT)) {
+      result = monitor.Reason() == FBKoReason::Loc ? FBMissionResult::Loc : FBMissionResult::Crash;
+      reason = monitor.Detail();
+      Module.Controls().EngineCutoff();   /* Crash -> Motor aus, JSBSim's own ground reactions do the rest — no freeze */
+      break;
+    }
+
+    /* Mission-level verdict (this Runner, not the physics-only monitor above — its own banner): a
+     * ground contact the physical monitor accepted (survivable, gear down, sane sink/attitude) but
+     * which landed away from the assigned runway missed the mission's objective — FAIL, not CRASH. */
     bool wow = fb_jsbsim_get_wow(-1) != 0;
-    bool penetration = aglM < -3.0;
-    bool offRunwayContact = wow && !OnRunway(rwy, St.lat, St.lon, 50.0, 30.0);
-    if (penetration || offRunwayContact) {
-      result = FBMissionResult::Crash;
-      reason = penetration ? "ground penetration" : "hard contact off the runway";
+    if (wow && mission.HaveRunway && !OnRunway(rwy, St.lat, St.lon, 50.0, 30.0)) {
+      result = FBMissionResult::Fail;
+      reason = "touchdown off the assigned runway";
       Module.Controls().EngineCutoff();
-      FBLog::Warn("pilot", "WARN", {{"kind", "crash"}, {"detail", reason}, {"lat", St.lat}, {"lon", St.lon}, {"aglM", aglM}});
       break;
     }
 
@@ -230,6 +248,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     case FBMissionResult::Success: return 0;
     case FBMissionResult::Fail: return 1;
     case FBMissionResult::Crash: return 2;
+    case FBMissionResult::Loc: return 2;   /* shares Crash's exit code — see FBMissionResult's banner */
     case FBMissionResult::Timeout: return 3;
   }
   return 1;

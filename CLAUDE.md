@@ -363,6 +363,19 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
   → Exit-Codes 0/1/2/3, worauf der Regelkreis branch. Telemetrie je Lauf in `--out/`: `telemetry.csv`
   (10 Hz, feste Spaltenzahl) + `events.log` (`t=SEK EVENT key=val`, greppbar) — das Analyse-Werkzeug
   für die Pilot-KI, kein Produktionspfad.
+- **Kein Cheaten:** K.O. (Absturz/LOC) entscheidet ausschließlich `core/FBFlightMonitor` — eine
+  Runner-/App-eigene, physikalische, modul-agnostische Instanz (kennt keine Flugzeug-Typen, keine
+  deklarierten Zahlen; Struktur-/Gear-Wahrheit kommt aus dem gepinnten JSBSim-Modell selbst). Sie wird
+  von JEDEM Client gefüttert, der eine Sim-Schleife fährt — `FBMissionRunner` (fb-gym/gpu_native
+  `--mission`) genauso wie der WASM-App-eigene Frame-Loop (`FBAppWasm.cpp`) — eine Definition von
+  "K.O.", kein zweiter Paralleltest. Ob ein Bodenkontakt zusätzlich das MISSIONSZIEL verfehlt (abseits
+  der Runway, außerhalb Takeoff/Landung) ist ein getrenntes, ebenso Runner-eigenes Urteil (RESULT FAIL,
+  nicht CRASH) — Physik-K.O. und Missions-Urteil bleiben zwei Instanzen, nie vermischt. Piloten/Module
+  wirken NUR über die simulierten Systeme (`fcs/*-cmd-norm` via FBFlightControl/FBAutopilot,
+  FBAirframeControls für Gear/Brakes/Steer/Speedbrake/Engine, Throttle) — der einzige State-Schreiber
+  (JSBSim-IC/Trim) ist der App-eigene Boot-Spawn (`FBMissionBoot.h`, plus die gleichrangigen App-Boot-
+  Pfade `FBAppWasm.cpp`s `?ap=manual` und dedizierte Test-Harnesses); `systems/` und `modules/` rufen
+  `fb_jsbsim_init` nie und sehen `FBFlightMonitor` nie (grep-verifizierbar).
 
 ## Rendering (das Herzstück)
 

@@ -3,10 +3,11 @@
  * the SVS/EVS light inputs. batt/rssi stay too (HUD BAT/LNK lines) though nothing feeds them a real
  * value yet.
  *
- * The F16-HUD block below is written by the new systems/ + modules/f16/ placeholder systems
- * (FBAirDataSystem, FBRadarAltimeter, FBNavSystem, FBF16FireControl, FBF16Ufc, FBF16Sms) — each writes
- * its own slice, none of them read another's write back out of FBState (Peers rufen sich nie
- * gegenseitig); FBF16Hud (modules/f16/displays) only READS. */
+ * The HUD-telemetry block below is written by the generic systems/ slots + today's one module's own
+ * placeholder systems (FBAirDataSystem, FBRadarAltimeter, FBNavSystem, and modules/f16/'s
+ * FBF16FireControl/FBF16Ufc/FBF16Sms) — each writes its own slice, none of them read another's write
+ * back out of FBState (Peers rufen sich nie gegenseitig); the HUD display (modules/f16/displays'
+ * FBF16Hud today) only READS. */
 #ifndef FB_FBSTATE_H
 #define FB_FBSTATE_H
 #include "FBArmState.h"

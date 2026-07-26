@@ -9,6 +9,7 @@
 #define FBMISSIONBOOT_H
 
 #include <cmath>
+#include "FBFlightMonitor.h"
 #include "FBMissionFile.h"
 #include "FBModule.h"
 #include "jsbsim_adapter.h"
@@ -39,6 +40,25 @@ inline bool FBMissionGroundSpawn(const char *aircraftPath, const FBMission &miss
   st = fb_fdm_state{};
   st.lat = rwy.ThresholdLatDeg; st.lon = rwy.ThresholdLonDeg; st.elev = groundAsl;
   return true;
+}
+
+/* fb_fdm_state -> FBFlightMonitorSample: the one place that bridges the FDM's own POD state into
+ * core/FBFlightMonitor's narrow, fdm-decoupled input (FBFlightMonitor.h's banner) — header-only so
+ * BOTH entry points that own a FBFlightMonitor (FBMissionRunner.cpp for gym/native, FBAppWasm.cpp for
+ * the browser) feed it identically without either linking the other's translation unit. */
+inline FBFlightMonitorSample FBBuildFlightMonitorSample(const fb_fdm_state &st, double groundAsl) {
+  FBFlightMonitorSample s;
+  s.LatDeg = st.lat; s.LonDeg = st.lon;
+  s.ElevM = st.elev; s.GroundAslM = groundAsl;
+  s.RollDeg = st.roll; s.PitchDeg = st.pitch;
+  s.PDegS = st.p; s.QDegS = st.q; s.RDegS = st.r;
+  s.VsMs = st.vy; s.TasMs = st.speed;
+  s.GearPosNorm = fb_jsbsim_get_gear_pos();
+  s.GearForceLbs = fb_jsbsim_get_max_gear_force_lbs();
+  s.WeightLbs = fb_jsbsim_get_weight_lbs();
+  s.AnyWow = fb_jsbsim_get_wow(-1) != 0;
+  s.StructureContact = fb_jsbsim_get_structure_contact() != 0;
+  return s;
 }
 
 /* Advances `plan`'s active waypoint once the aircraft is within `captureM` of it — the mechanical half

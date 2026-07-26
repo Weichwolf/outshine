@@ -18,7 +18,10 @@
 
 namespace FlightBox {
 
-enum class FBMissionResult { Success, Fail, Crash, Timeout };
+/* Loc shares Crash's exit code (2) in FBRunMission below — both are FBFlightMonitor K.O. terminations,
+ * distinguished by the RESULT log line's `result` field (LOC vs CRASH), not by exit code; a caller that
+ * only branches on exit != 0 (the documented contract) sees no difference. */
+enum class FBMissionResult { Success, Fail, Crash, Loc, Timeout };
 const char *FBMissionResultStr(FBMissionResult r);
 
 class FBMissionTickHook {
@@ -45,7 +48,7 @@ public:
 /* mkdir -p `dir` (creates every missing path component). Shared by every app main() that takes --out. */
 bool FBEnsureDir(const std::string &dir);
 
-/* Ground-spawns `missionPath`'s F-16 (elevation from `elevation`, aircraft data at `aircraftPath` —
+/* Ground-spawns `missionPath`'s module (elevation from `elevation`, aircraft data at `aircraftPath` —
  * native: "vendor/jsbsim/aircraft") and steps it headless at 10 Hz until SUCCESS/CRASH/TIMEOUT/FAIL,
  * writing outDir/telemetry.csv + outDir/events.log (installs its own FBLog sink: file + stdout).
  * `timeoutOverride` > 0 overrides the mission file's own timeout. `hook` (optional) is polled once at

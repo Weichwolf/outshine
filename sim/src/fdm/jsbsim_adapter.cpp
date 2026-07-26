@@ -9,6 +9,7 @@
 #include "models/FGLGear.h"
 #include "jsbsim_adapter.h"
 #include "FBLog.h"
+#include <cmath>
 #include <cstdio>
 #include <string>
 #include <sys/stat.h>
@@ -70,7 +71,7 @@ int fb_jsbsim_init(const char *root, const char *ac,
    * untrimmed airframe departs violently on the first advance (sgs233: pitch -57, inverted, at spawn). */
   { auto pr = g_fdm->GetPropulsion();
     for (unsigned i = 0; i < pr->GetNumEngines(); i++) pr->InitRunning(i); }
-  if (fbw_override) g_fdm->SetPropertyValue("fcs/fbw-override", 1.0);   /* our FCS is the FLCS (F-16) */
+  if (fbw_override) g_fdm->SetPropertyValue("fcs/fbw-override", 1.0);   /* our FCS is the flight-control system */
   g_fdm->Setdt(SIM_STEP_S);
   /* A V=0 ground start (speed_ms<=0, e.g. a runway spawn ahead of the takeoff roll) has no aerodynamic
    * trim solution to search for — zero airspeed means zero aero force/moment, so udot/qdot can't be
@@ -181,6 +182,29 @@ int fb_jsbsim_get_wow(int unit) {
   char buf[32];
   snprintf(buf, sizeof buf, "gear/unit[%d]/WOW", unit);
   return g_fdm->GetPropertyValue(buf) != 0.0 ? 1 : 0;
+}
+
+int fb_jsbsim_get_structure_contact(void) {
+  if (!g_fdm) return 0;
+  auto gr = g_fdm->GetGroundReactions();
+  for (int i = 0; i < gr->GetNumGearUnits(); i++) {
+    auto lg = gr->GetGearUnit(i);
+    if (lg && !lg->IsBogey() && lg->GetWOW()) return 1;
+  }
+  return 0;
+}
+
+double fb_jsbsim_get_max_gear_force_lbs(void) {
+  if (!g_fdm) return 0.0;
+  auto gr = g_fdm->GetGroundReactions();
+  double maxF = 0.0;
+  for (int i = 0; i < gr->GetNumGearUnits(); i++) {
+    auto lg = gr->GetGearUnit(i);
+    if (!lg || !lg->IsBogey()) continue;
+    double f = std::fabs(lg->GetCompForce());
+    if (f > maxF) maxF = f;
+  }
+  return maxF;
 }
 
 void fb_jsbsim_engine_start(void) {

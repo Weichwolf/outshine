@@ -27,8 +27,8 @@ struct fb_fdm_state {
 
 /* Load models_root/<ac>/<ac>.xml (+ its engine/ and Systems/), set a geodetic IC at
  * (lat,lon, elev+hoff), speed_ms level on heading yaw_deg, TRIM, and (if fbw) engage
- * fcs/fbw-override so FlightBox's own FCS — not the aircraft's own FLCS — is the controller (F-16).
- * Returns 0 on success. */
+ * fcs/fbw-override so FlightBox's own FCS — not the aircraft's own flight-control system — is the
+ * controller. Returns 0 on success. */
 int  fb_jsbsim_init(const char *models_root, const char *ac,
                     double lat, double lon, double elev_m, double hoff_m,
                     double speed_ms, double yaw_deg, int fbw_override);
@@ -62,12 +62,13 @@ double fb_jsbsim_ground_clearance(int gear_down);
 
 /* ---- Airframe-controls surface (FBJsbsimAirframeControls) — generic FGFCS/FGGroundReactions/
  * FGPropulsion-tied properties, verified against vendor/jsbsim (src/models/FGFCS.cpp,
- * FGGroundReactions.cpp, FGPropulsion.cpp) and aircraft/f16/f16.xml's own use of them; none of this is
- * F-16-specific plumbing, only the f16.xml gear-kinematic/steer-gain SCHEDULES that consume it are. ---- */
+ * FGGroundReactions.cpp, FGPropulsion.cpp); this is plain JSBSim property plumbing every aircraft.xml
+ * shares, not tied to any one loaded model — only the gear-kinematic/steer-gain SCHEDULES a particular
+ * aircraft.xml declares are model-specific, and this adapter never assumes their numbers. ---- */
 
 /* Gear command [0,1] (1=down) and its lagged position readback [0,1] (gear/gear-cmd-norm,
- * gear/gear-pos-norm — the F-16's flight_control channel drives a 5 s kinematic transit through this
- * SAME property; fb_jsbsim_set_aux's `gear` argument writes the identical property). */
+ * gear/gear-pos-norm — the loaded model's own flight_control channel drives a kinematic transit through
+ * this SAME property; fb_jsbsim_set_aux's `gear` argument writes the identical property). */
 void   fb_jsbsim_set_gear(double cmd);
 double fb_jsbsim_get_gear_pos(void);
 
@@ -80,15 +81,30 @@ void fb_jsbsim_set_speedbrake(double cmd);
  * differential braking/steering assist. */
 void fb_jsbsim_set_wheel_brakes(double left, double right);
 
-/* Nosewheel steering command [-1,1] (fcs/steer-cmd-norm, tied generically in FGGroundReactions; the
- * F-16's own scheduled-gain block maps it to a speed-dependent deflection — 80 deg at taxi speed down
- * to 2 deg at 150 fps, aircraft/f16/f16.xml). The adapter only asserts the pilot's command. */
+/* Nosewheel steering command [-1,1] (fcs/steer-cmd-norm, tied generically in FGGroundReactions; a
+ * particular loaded model's own scheduled-gain block maps it to whatever speed-dependent deflection its
+ * aircraft.xml declares). The adapter only asserts the pilot's command. */
 void fb_jsbsim_set_nosewheel_steer(double cmd);
 
-/* Weight-on-wheels. unit 0/1/2 = nose/left-main/right-main (aircraft/f16/f16.xml contact declaration
- * order) reads gear/unit[N]/WOW; unit<0 reads the model-wide gear/wow (true if ANY bogey is
- * compressed, FGGroundReactions::GetWOW). Returns 0/1. */
+/* Weight-on-wheels. unit N reads gear/unit[N]/WOW (the loaded model's own contact declaration order —
+ * this adapter never assumes what unit N physically is); unit<0 reads the model-wide gear/wow (true if
+ * ANY bogey is compressed, FGGroundReactions::GetWOW). Returns 0/1. */
 int fb_jsbsim_get_wow(int unit);
+
+/* True (1) iff any declared STRUCTURE-type ground-reaction contact point (JSBSim's ctSTRUCTURE — a
+ * non-wheeled airframe-geometry point an aircraft.xml may declare beyond its wheeled BOGEY gear) is
+ * currently compressed. Generic over the loaded model — enumerates contact TYPE, never a hardcoded
+ * index or aircraft name, so a model with no STRUCTURE points simply always reads 0.
+ * core/FBFlightMonitor's structural-contact K.O. check consumes this. */
+int fb_jsbsim_get_structure_contact(void);
+
+/* Peak strut compression force (lbf, unsigned magnitude) across every wheeled BOGEY gear this tick —
+ * JSBSim's own spring/damper reaction to ground contact (FGLGear::GetCompForce), the model's actual
+ * physical response, not a derived sink-rate heuristic. Generic over the loaded model: enumerates by
+ * contact TYPE, never a hardcoded index/aircraft name. core/FBFlightMonitor compares this against the
+ * model's own static weight (fb_jsbsim_get_weight_lbs) to judge a hard landing purely from the model's
+ * physics. */
+double fb_jsbsim_get_max_gear_force_lbs(void);
 
 /* Engine starter/cutoff — propulsion-wide starter_cmd/cutoff_cmd properties (FGPropulsion::SetStarter/
  * SetCutoff default to ALL engines); running-state readback per engine index

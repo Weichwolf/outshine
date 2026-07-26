@@ -10,6 +10,7 @@
 #   make core-lib build the FlightBox core library (sim+missions+FDM, no render/world) -> build/libfbcore.a
 #   make native   build the native headless WebGPU oracle (Dawn + --mission)  -> build/gpu_native
 #   make gym      build the headless mission client (no GPU/render link)     -> build/fb-gym
+#   make test-monitor  build FBFlightMonitor's gear-force negative-proof harness -> build/fb-test-hard-landing
 #   make image    build the deployable fb-sim web container (podman)
 #   make up       run the web host container (serves the WASM app on :8080)
 #   make clean    remove build artifacts
@@ -58,7 +59,7 @@ INC_TILES := -I../tiles/src
 CORE_LIB_SRCS := \
   src/fdm/jsbsim_adapter.cpp src/fdm/FBFdmTelemetrySource.cpp \
   src/core/FBLog.cpp src/core/FBTelemetry.cpp src/core/FBMissionFile.cpp \
-  src/core/FBRunwayPlateauElevation.cpp src/core/FBBakedDemElevation.cpp \
+  src/core/FBRunwayPlateauElevation.cpp src/core/FBBakedDemElevation.cpp src/core/FBFlightMonitor.cpp \
   src/systems/FBAutopilot.cpp src/systems/FBFlightControl.cpp src/systems/FBDisplaySystem.cpp \
   src/systems/FBAirDataSystem.cpp src/systems/FBRadarAltimeter.cpp src/systems/FBNavSystem.cpp \
   src/systems/FBAirframeControls.cpp src/systems/FBPilot.cpp \
@@ -125,6 +126,8 @@ wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,w
 	    -c -o build/obj-wasm/FBF16Pilot.o; \
 	  emcc src/core/FBMissionFile.cpp -std=c++17 -O2 $(EMCC_WARN) $(INC_MODULES) \
 	    -c -o build/obj-wasm/FBMissionFile.o; \
+	  emcc src/core/FBFlightMonitor.cpp -std=c++17 -O2 $(EMCC_WARN) $(INC_MODULES) \
+	    -c -o build/obj-wasm/FBFlightMonitor.o; \
 	  emcc build/obj-wasm/*.o $(JSB_WASM)/src/libJSBSim.a \
 	    src/app/FBAppWasm.cpp src/app/FBLogSinks.cpp src/render/FBRenderer.cpp src/render/FBHudGeometry.cpp src/world/FBWorld.cpp \
 	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \
@@ -225,6 +228,22 @@ gym: core-lib    ## build the headless mission client (Mission in, Telemetrie ra
 	    -L$(CURL_COMPAT)/lib -lcurl -lpthread -ldl -lm \
 	    -o build/fb-gym; \
 	  echo "gym -> build/fb-gym"
+
+test-monitor: core-lib   ## build FBFlightMonitor's negative-proof harnesses -> build/fb-test-hard-landing, build/fb-test-loc-departure
+	@cd $(SELF_DIR); set -e; \
+	  c++ src/app/FBTestHardLanding.cpp src/app/FBLogSinks.cpp \
+	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
+	    -std=c++17 -O2 $(CXX_WARN) \
+	    $(INC_NATIVE) -isystem $(JSB_HOST)/include/JSBSim \
+	    -lpthread -ldl -lm \
+	    -o build/fb-test-hard-landing; \
+	  c++ src/app/FBTestLocDeparture.cpp src/app/FBLogSinks.cpp \
+	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
+	    -std=c++17 -O2 $(CXX_WARN) \
+	    $(INC_NATIVE) -isystem $(JSB_HOST)/include/JSBSim \
+	    -lpthread -ldl -lm \
+	    -o build/fb-test-loc-departure; \
+	  echo "test-monitor -> build/fb-test-hard-landing build/fb-test-loc-departure"
 
 image:           ## build the deployable fb-sim web container (context = sim/, trimmed by .containerignore)
 	cd $(SELF_DIR) && podman build -f Dockerfile -t fb-sim .
