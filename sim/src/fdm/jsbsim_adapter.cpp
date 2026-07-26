@@ -228,6 +228,17 @@ void fb_jsbsim_step(fb_fdm_state *o) {
   o->nx    = g_fdm->GetPropertyValue("accelerations/Nx");   /* body long g (forward+) */
   o->ny    = g_fdm->GetPropertyValue("accelerations/Ny");   /* body lat g (right+) */
   o->nz    = g_fdm->GetPropertyValue("accelerations/Nz");   /* body normal g (~+1 level) */
+  o->alphaDeg = g_fdm->GetPropertyValue("aero/alpha-deg");
+}
+
+double fb_jsbsim_get_throttle(void) {
+  if (!g_fdm) return 0.0;
+  return g_fdm->GetPropertyValue("fcs/throttle-cmd-norm");
+}
+
+double fb_jsbsim_get_speedbrake_pos(void) {
+  if (!g_fdm) return 0.0;
+  return g_fdm->GetPropertyValue("fcs/speedbrake-pos-norm");
 }
 
 } // namespace FlightBox

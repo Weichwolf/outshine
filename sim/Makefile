@@ -94,6 +94,8 @@ wasm:            ## build the WASM browser Command Center (F-16 sim + renderer) 
 	    -c -o build/obj-wasm/FBPilot.o; \
 	  emcc src/modules/f16/FBF16Pilot.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
 	    -c -o build/obj-wasm/FBF16Pilot.o; \
+	  emcc src/core/FBMissionFile.cpp -std=c++17 -O2 $(EMCC_WARN) $(INC_MODULES) \
+	    -c -o build/obj-wasm/FBMissionFile.o; \
 	  emcc build/obj-wasm/*.o $(JSB_WASM)/src/libJSBSim.a \
 	    src/app/FBAppWasm.cpp src/render/FBRenderer.cpp src/render/FBHudGeometry.cpp src/world/FBWorld.cpp \
 	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \
@@ -181,6 +183,8 @@ native:          ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	    -c -o build/obj-native/FBPilot.o; \
 	  c++ src/modules/f16/FBF16Pilot.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBF16Pilot.o; \
+	  c++ src/core/FBMissionFile.cpp -std=c++17 -O2 $(CXX_WARN) $(INC_NATIVE) \
+	    -c -o build/obj-native/FBMissionFile.o; \
 	  c++ src/app/FBAppNative.cpp src/render/FBRenderer.cpp src/render/FBHudGeometry.cpp src/world/FBWorld.cpp \
 	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \
 	    src/render/stages/FBHudStage.cpp src/render/stages/FBUpscaleStage.cpp \

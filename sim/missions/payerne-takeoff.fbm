@@ -1,0 +1,7 @@
+name payerne-takeoff-1
+runway 46.84335 6.91523 441.0 228.0 2889   # lat lon elevM trueHdgDeg lengthM (DEM-checked: fb-tiles /elev ~441 m at the threshold)
+takeoff
+wp 46.75 6.80 2500 350                     # lat lon altM speedKt (enroute, toward the Jura)
+wp 46.90 7.05 3000 350                     # enroute, toward the Alps
+land                                        # back onto the runway declared above
+timeout 600                                 # sim-seconds until TIMEOUT

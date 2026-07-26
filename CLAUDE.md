@@ -244,6 +244,17 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
   Bare-Model-Vergleich, akzeptierte Modell-Eigenschaften). Ziel-GPU-Fähigkeiten:
   `doc/webgl-webgpu-report.txt`.
 - JSBSim (`sim/vendor/jsbsim`) und das f16-Modell sind read-only; Warnings = Errors.
+- **Missions-Regelkreis (Pilot-KI-Entwicklung):** Mission definieren → headless bis Abschluss/Fehler/
+  Crash simulieren → Telemetrie maschinell analysieren → Korrektur → Loop. Format: `.fbm`
+  (zeilenbasiert, zero-dependency, `doc/mission-format.md`), geparst von `core/FBMissionFile.h`
+  (reine Text→`FBMission`-Funktion, kein File-I/O — das macht die App). Runner: `gpu_native --mission
+  FILE` (`FBAppNative`, nativ-only) spawnt am Boden auf der Runway-Schwelle (DEM-Elevation, WOW=1,
+  Triebwerk läuft) und treibt die Sim-Sekunden so schnell wie möglich (Prinzip 4) — der Default-Pfad
+  ist reines JSBSim+`FBTerrainField`, KEIN Renderer/GPU-Gerät; `--interval` schaltet periodische
+  Beweis-Frames dazu (Renderer bleibt Bolt-on, nie Abhängigkeit der Physik-/Terminierungs-Logik).
+  Terminierung SUCCESS/FAIL/CRASH/TIMEOUT → Exit-Codes 0/1/2/3, worauf der Regelkreis branch. Telemetrie
+  je Lauf in `--out/`: `telemetry.csv` (10 Hz, feste Spaltenzahl) + `events.log`
+  (`t=SEK EVENT key=val`, greppbar) — das Analyse-Werkzeug für die Pilot-KI, kein Produktionspfad.
 
 ## Rendering (das Herzstück)
 

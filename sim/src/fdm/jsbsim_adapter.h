@@ -22,6 +22,7 @@ struct fb_fdm_state {
   double mach;               /* Mach number (dimensionless) */
   double vx, vy, vz;         /* X-Plane local: +x east, +y up, +z south, m/s */
   double nx, ny, nz;         /* body load factors, g (long/lat/normal) — for --useimu accel feed */
+  double alphaDeg;           /* angle of attack, deg (aero/alpha-deg) — mission telemetry's stall check */
 };
 
 /* Load models_root/<ac>/<ac>.xml (+ its engine/ and Systems/), set a geodetic IC at
@@ -95,6 +96,12 @@ int fb_jsbsim_get_wow(int unit);
 void fb_jsbsim_engine_start(void);
 void fb_jsbsim_engine_cutoff(void);
 int  fb_jsbsim_engine_running(int engine_index);
+
+/* Throttle actually applied (fcs/throttle-cmd-norm, post slew — see fb_jsbsim_set_controls) and the
+ * speedbrake's lagged position (fcs/speedbrake-pos-norm, both generic FGFCS ties) — mission telemetry's
+ * throttleNorm/speedbrake columns, readbacks rather than the last-commanded value. */
+double fb_jsbsim_get_throttle(void);
+double fb_jsbsim_get_speedbrake_pos(void);
 
 } // namespace FlightBox
 #endif
