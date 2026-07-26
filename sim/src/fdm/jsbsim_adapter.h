@@ -103,5 +103,9 @@ int  fb_jsbsim_engine_running(int engine_index);
 double fb_jsbsim_get_throttle(void);
 double fb_jsbsim_get_speedbrake_pos(void);
 
+/* Current gross weight, lb (inertia/weight-lbs, generic FGMassBalance tie) — FBPilot's rotation-speed
+ * table is indexed by weight, not a fixed number. */
+double fb_jsbsim_get_weight_lbs(void);
+
 } // namespace FlightBox
 #endif

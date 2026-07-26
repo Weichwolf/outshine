@@ -240,9 +240,9 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
   Mangling bricht Exporte still).
 - **Frame-Beweis-Pflicht:** build-wirksame Änderungen gelten erst mit gerendertem Frame oder
   numerischer Messung als verifiziert.
-- **Fidelity-Baseline + Mess-Konventionen:** `doc/fidelity-baseline.md` (Hash-Lock, [agl]-Log,
-  Bare-Model-Vergleich, akzeptierte Modell-Eigenschaften). Ziel-GPU-Fähigkeiten:
-  `doc/webgl-webgpu-report.txt`.
+- **Mess-Disziplin:** akzeptierte Modell-Eigenschaften der vanilla JSBSim-F-16 sind die Wahrheit,
+  keine Defekte (Prinzip 5); Messungen laufen über den Missions-Regelkreis (Telemetrie), nicht über
+  Einzelbeobachtungen. Ziel-GPU-Fähigkeiten: `doc/webgl-webgpu-report.txt`.
 - JSBSim (`sim/vendor/jsbsim`) und das f16-Modell sind read-only; Warnings = Errors.
 - **Missions-Regelkreis (Pilot-KI-Entwicklung):** Mission definieren → headless bis Abschluss/Fehler/
   Crash simulieren → Telemetrie maschinell analysieren → Korrektur → Loop. Format: `.fbm`
@@ -281,3 +281,16 @@ Crash-Erkennung. Die Kamera geht **nie unter die Oberfläche** (Clamp auf Grund 
 `temp/` hält das Material der Vor-Architektur (Validator, TS-Testsystem, skalierte Aircraft-Modelle,
 Original-osmmesh/geo). Read-only-Steinbruch, keine lebende Architektur — Teile entfallen ersatzlos,
 sobald ihr Nachfolger im `sim/`- oder `tiles/`-Baum steht.
+
+## Host & Betrieb (dieser Rechner) — transparentes Projektwissen, kein Agenten-Memory
+
+Agenten führen KEIN verstecktes Memory; alles Betriebswissen steht hier:
+
+- **emsdk** liegt in `~/Git/emsdk`; ein `nproc`-Shim liegt in `~/.local/bin` (macOS hat kein nproc).
+- **Container:** Podman-VM zuerst (`podman machine start`), dann `tiles/up.sh` (fb-tiles, :8081) und
+  `sim/up.sh` (fb-sim, :8080). fb-sim mountet `sim/web` LIVE — `make wasm`/`worker` wirken per Refresh.
+- **WASM-Artefakte sind gitignored.** Der Browser lädt erst, wenn BEIDE gebaut sind:
+  `make -C sim wasm` (gpu.js/gpu.wasm) UND `make -C sim worker` (fbtileworker.js/.wasm) — fehlt der
+  Tile-Worker, hängt die App still beim Start (404 im Worker).
+- **Git:** Commit-Mail ist der GitHub-noreply-Alias (nicht github@outshine.de); Push läuft per
+  SSH-insteadOf. Native Builds brauchen `sim/vendor/.compat-headers` (gitignored, host-lokal).

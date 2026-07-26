@@ -55,10 +55,9 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBWorld *world) {
   if (Due(WeaponAccS, dt, 20.0)) Weapons->Run(Mode, world, dt);
   if (Due(DefensiveAccS, dt, 5.0)) Defensive->Run(world, dt);
   if (Due(CommsAccS, dt, 1.0)) Comms->Run(dt);
-  /* Pilot: the mission brain above Guidance/FlightControl (rate table). Round A's Idle default always
-   * returns a neutral FBPilotCommands, so ApplyPilotCommands is unconditionally a no-op today — cycling
-   * it here is real (a future phase's commands reach Autopilot()/Controls() the instant it fills them
-   * in), not a stub call. */
+  /* Pilot: the mission brain above Guidance/FlightControl (rate table). Idle (nobody called SetPhase)
+   * returns a neutral FBPilotCommands, so ApplyPilotCommands is a no-op until the App starts the phase
+   * machine — once it does, this is the takeoff/climb/route chain actually flying the jet. */
   if (Due(PilotAccS, dt, 10.0)) ApplyPilotCommands(PilotSys->Run(SharedState, st, Plan_, HaveRunway_ ? &Rwy_ : nullptr, world, dt));
 
   AccS += dt;
@@ -75,7 +74,8 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBWorld *world) {
 
 /* Applies only the fields FBPilotCommands actually set (Guidance != None, each std::optional present) —
  * an Idle-phase neutral FBPilotCommands (every field default/unset) reaches here and calls NOTHING,
- * which is what keeps composing the pilot bit-identical to not having one (see Run()'s banner). */
+ * which is what keeps an un-started pilot (Phase::Idle) bit-identical to not having one (see Run()'s
+ * banner). */
 void FBF16Module::ApplyPilotCommands(const FBPilotCommands &c) {
   constexpr double kKtToMs = 0.5144444444;
   switch (c.Guidance) {
@@ -88,6 +88,9 @@ void FBF16Module::ApplyPilotCommands(const FBPilotCommands &c) {
       break;
     case FBPilotGuidance::Manual:
       AP->SetManual(c.ManualRoll, c.ManualPitch, c.ManualYaw, c.ManualThr);
+      break;
+    case FBPilotGuidance::Direct:
+      AP->SetDirect(c.TargetLatDeg, c.TargetLonDeg, c.TargetAltM, c.TargetSpeedKt * kKtToMs);
       break;
     case FBPilotGuidance::None:
       break;   /* leave whatever guidance is already running untouched */

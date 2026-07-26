@@ -20,9 +20,11 @@
  *   Guidance/FlightControl — core/ architecture           FBPilotCommands are applied to Autopilot()/
  *   banner)                                                Controls() only where a field is actually
  *                                                          set (std::optional/Guidance::None = "leave
- *                                                          it") — Round A's default Idle phase always
- *                                                          returns a neutral FBPilotCommands, so cycling
- *                                                          it here changes NOTHING about existing flight.
+ *                                                          it") — Idle (the phase-machine's boot state)
+ *                                                          stays neutral, so composing the pilot changes
+ *                                                          NOTHING until the App actually starts it
+ *                                                          (SetPhase(Preflight), see FBAppNative.cpp
+ *                                                          RunMission/--pilot).
  *   PathPlan                                 App-owned cadence (see FBF16Module.cpp banner) — the one
  *                                             exception; App-side planner-vs-fan-vs-fixed dispatch
  *                                             differs between the WASM and native oracle today, so it

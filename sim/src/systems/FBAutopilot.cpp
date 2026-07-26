@@ -35,6 +35,11 @@ void FBAutopilot::SetManual(double roll, double pitch, double yaw, double thr) {
   MRoll = roll; MPitch = pitch; MYaw = yaw; MThr = thr;
 }
 
+void FBAutopilot::SetDirect(double lat, double lon, double altM, double speedMs) {
+  Mode = FBMode::Direct;
+  LatDeg = lat; LonDeg = lon; AltM = altM; SpeedMs = speedMs;
+}
+
 void FBAutopilot::SetLowLevel(double aglM, double speedMs, double headingDeg) {
   Mode = FBMode::LowLevel;
   AglM = aglM; SpeedMs = speedMs; HeadingDeg = headingDeg;
@@ -201,6 +206,23 @@ FBGuidance FBAutopilot::Run(const fb_fdm_state &s) {
     g.BankCmdDeg = Clamp(KHdg * eff, -BankCapDeg, BankCapDeg);
     g.RingDistM = 0.0;
     LastGroundHere = groundHere; LastGroundAhead = groundAhead; LastTargetVs = g.TargetVsMs;
+    return g;
+  }
+  if (Mode == FBMode::Direct) {
+    /* Bearing-to-point + altitude hold, no ring — the Loiter tangent law below minus the circle (same
+     * heading gains, so a module tuned for one turns the same way in the other). The VS cap is tighter
+     * than Loiter's (25 vs 50 m/s): Loiter's error is a cruise-altitude correction (tens/hundreds of m),
+     * Direct also drives FBPilot's post-liftoff climb-out where the error is the WHOLE climb (thousands
+     * of m) — uncapped at 50 m/s the FLCS's own alpha scheduling still keeps AoA safe, but the resulting
+     * near-30 deg pitch-up is a needlessly aggressive climb angle for a controlled climb-out. */
+    double n = (LatDeg - s.lat) * MPD;
+    double e = Wrap180(LonDeg - s.lon) * MPD * std::cos(s.lat * M_PI / 180.0);
+    double brg = std::atan2(e, n) * R2D;
+    double hdgErr = Wrap180(brg - s.yaw);
+    g.BankCmdDeg = Clamp(KHdg * hdgErr, -BankMaxDeg, BankMaxDeg);
+    g.AltErrM = AltM - s.elev;
+    g.TargetVsMs = Clamp(KAlt * g.AltErrM, -25.0, 25.0);
+    g.RingDistM = std::hypot(n, e);   /* diagnostics: distance to the target point */
     return g;
   }
   /* Tangent + feedforward-bank + cross-track capture (P + slow I). On the ring in steady state the

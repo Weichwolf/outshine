@@ -1,7 +1,9 @@
 /* FlightBox — FBAutopilot: outer guidance, the DEFAULT implementation of a module's guidance system.
  * Modes (MANUAL pass-through, LOITER bank-to-circle around a geo centre at target altitude/radius,
- * LOWLEVEL terrain-following) -> a guidance command the inner FBW (FBFlightControl) tracks. Port of
- * flightctl.h's outer loop; numerics preserved verbatim (equivalence-tested).
+ * LOWLEVEL terrain-following, DIRECT point-to-point bearing+altitude hold to one lat/lon — FBPilot's
+ * climb-out/route guidance, reusing Loiter's own lat/lon/alt/speed target fields and KHdg/BankMaxDeg/
+ * KAlt gains, just without the circling) -> a guidance command the inner FBW (FBFlightControl) tracks.
+ * Port of flightctl.h's outer loop; numerics preserved verbatim (equivalence-tested).
  *
  * Run() is the one override point: a module whose guidance genuinely behaves differently (not just
  * different gains — e.g. a rotorcraft's station-keeping loiter) subclasses FBAutopilot and overrides
@@ -36,6 +38,10 @@ public:
   /* Loiter target: circle centre (deg), altitude (m ASL), radius (m), dir +1 CW / -1 CCW, speed. */
   void SetLoiter(double lat, double lon, double altM, double radiusM, int dir, double speedMs);
   void SetManual(double roll, double pitch, double yaw, double thr);
+
+  /* DIRECT: fly the bearing to (lat, lon), holding altM/speedMs — a point, not a circle (see the class
+   * banner). FBPilot's climb-out/route guidance. */
+  void SetDirect(double lat, double lon, double altM, double speedMs);
 
   /* LOWLEVEL: terrain-following AGL-hold with look-ahead. Stage 1 flies a fixed heading; the vertical
    * law holds `aglM` above the terrain, pulling up early for ridges in the look-ahead corridor and never

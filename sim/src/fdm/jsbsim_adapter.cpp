@@ -71,20 +71,31 @@ int fb_jsbsim_init(const char *root, const char *ac,
     for (unsigned i = 0; i < pr->GetNumEngines(); i++) pr->InitRunning(i); }
   if (fbw_override) g_fdm->SetPropertyValue("fcs/fbw-override", 1.0);   /* our FCS is the FLCS (F-16) */
   g_fdm->Setdt(SIM_STEP_S);
-  /* tLongitudinal (pitch/throttle/alpha, wings level): more robust than tFull on light/slow airframes. */
+  /* A V=0 ground start (speed_ms<=0, e.g. a runway spawn ahead of the takeoff roll) has no aerodynamic
+   * trim solution to search for — zero airspeed means zero aero force/moment, so udot/qdot can't be
+   * zeroed by any elevator position. FGTrim used to run anyway and report "not trimmable", which just
+   * left g_elev_trim at whatever the failed search's last iterate was (effectively noise, though usually
+   * near 0) — skip the search and set the neutral trim directly, matching a real jet's untrimmed-stick
+   * state before the roll. Airborne/rolling ICs (speed_ms>0) still get the real search. */
   bool trimmed = false;
-  try {
-    FGTrim trim(g_fdm, tLongitudinal);
-    trimmed = trim.DoTrim();
-  } catch (...) { trimmed = false; }
+  if (speed_ms > 0.0) {
+    /* tLongitudinal (pitch/throttle/alpha, wings level): more robust than tFull on light/slow airframes. */
+    try {
+      FGTrim trim(g_fdm, tLongitudinal);
+      trimmed = trim.DoTrim();
+    } catch (...) { trimmed = false; }
+  }
   /* Capture the elevator the trimmer settled on = the ELEVATOR TRIM for level flight, and apply it as
    * a bias to the FCS's pitch command (set_controls). This is a real trim tab: neutral stick then
    * holds LEVEL, not the airframe's nose-up-at-neutral. Without it a slow/floaty model departs on the
    * first advance (neutral elevator -> +40 deg pitch -> stall) before the FCS's AHRS can catch it. */
-  g_elev_trim = g_fdm->GetPropertyValue("fcs/elevator-cmd-norm");
+  g_elev_trim = speed_ms > 0.0 ? g_fdm->GetPropertyValue("fcs/elevator-cmd-norm") : 0.0;
   g_fdm->RunIC();   /* clean, level IC (attitude+speed); the trim tab, not the perturbed search state, holds it */
-  fprintf(stderr, "[jsbsim] %s loaded, %.1f m/s, elevator trim %.3f%s\n",
-          ac, speed_ms, g_elev_trim, trimmed ? "" : " (trim search did not fully converge; using best-effort)");
+  if (speed_ms > 0.0)
+    fprintf(stderr, "[jsbsim] %s loaded, %.1f m/s, elevator trim %.3f%s\n",
+            ac, speed_ms, g_elev_trim, trimmed ? "" : " (trim search did not fully converge; using best-effort)");
+  else
+    fprintf(stderr, "[jsbsim] %s loaded, V=0 ground start, no aero trim to search — elevator trim 0.000\n", ac);
   return 0;
 }
 
@@ -239,6 +250,11 @@ double fb_jsbsim_get_throttle(void) {
 double fb_jsbsim_get_speedbrake_pos(void) {
   if (!g_fdm) return 0.0;
   return g_fdm->GetPropertyValue("fcs/speedbrake-pos-norm");
+}
+
+double fb_jsbsim_get_weight_lbs(void) {
+  if (!g_fdm) return 0.0;
+  return g_fdm->GetPropertyValue("inertia/weight-lbs");
 }
 
 } // namespace FlightBox

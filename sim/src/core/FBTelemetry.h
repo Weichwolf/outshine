@@ -16,7 +16,8 @@
 namespace FlightBox {
 
 static inline void FBLogAgl(const fb_fdm_state &s, FBMode mode, double ringDistM, double ground, double fdmGnd) {
-  const char *modeStr = mode == FBMode::Loiter ? "LOITER" : mode == FBMode::LowLevel ? "LOWLEVEL" : "MANUAL";
+  const char *modeStr = mode == FBMode::Loiter ? "LOITER" : mode == FBMode::LowLevel ? "LOWLEVEL"
+                       : mode == FBMode::Direct ? "DIRECT" : "MANUAL";
   double agl = s.elev - ground;
   printf("[agl] alt=%.0f agl=%.0f ground=%.0f fdmGnd=%.0f spd=%.1f cas=%.1f bank=%.1f hdg=%.0f "
          "vs=%.1f ringDist=%.0f mode=%s\n",
