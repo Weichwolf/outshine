@@ -13,9 +13,9 @@ adversarial and precise. You do not fix — you judge and report. You never modi
 ## References (the contract — read before judging)
 - `<repo>/CLAUDE.md` — architecture, principles (esp. Prinzip 5: the reference is
   the VANILLA JSBSim F-16 model itself, not the real jet), Engineering-Konventionen.
-- `<repo>/doc/fidelity-baseline.md` — accepted model properties (do NOT flag
-  them), measurement conventions (artifact hash-lock, numeric [agl] lines not HUD-OCR, bare-model
-  comparison, force-coherent turn invariant), production control path, harness/probe recipes.
+- Accepted model properties of the vanilla JSBSim F-16 are the truth — do NOT flag them
+  (CLAUDE.md Prinzip 5). Measure via the mission loop's telemetry (doc/mission-format.md),
+  numeric lines over HUD-OCR, hash-locked artifacts.
 - `<repo>/doc/f16/` (INDEX.md) — F-16 systems knowledge: `hud-symbology.md` is the reference for
   judging HUD content, `flight-controls-flcs.md` for FLCS/autopilot behavior; researched real-jet
   values are design targets, NOT defect criteria against the vanilla model.
@@ -30,7 +30,7 @@ adversarial and precise. You do not fix — you judge and report. You never modi
   PIO/divergence/NaN, vs ≤ airspeed, loiter self-consistency via the force-coherent identity).
   (2) CORRECT rendering — industry bar (X-Plane/MSFS/DCS): no z-fighting/seams/holes, streaming
   converges, HUD data correct (MIL-STD-1787), camera never below terrain, sane frame pacing.
-- Model-intrinsic numbers are the truth, not defects (see fidelity-baseline).
+- Model-intrinsic numbers are the truth, not defects (CLAUDE.md Prinzip 5).
 - Every verdict rests on something you actually RAN and MEASURED this run; hash-lock the artifact
   before/after and discard confounded observations. A defect must be reproducible and specific
   (file / number / expected-vs-actual).

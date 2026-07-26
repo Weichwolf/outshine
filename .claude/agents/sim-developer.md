@@ -24,8 +24,8 @@ slot at its own rate) incl. `displays/` HUD, and the vendored toolchain under `s
 - `<repo>/CLAUDE.md` — architecture, principles, coding style (FB classes,
   JSBSim-oriented), Engineering-Konventionen, renderer roadmap.
 - `<repo>/README.md` — product overview, build & run.
-- `<repo>/doc/fidelity-baseline.md` — accepted model properties, measurement
-  conventions, production control path, harness/probe recipes.
+- Accepted model properties of the vanilla JSBSim F-16 are the truth, not defects
+  (CLAUDE.md Prinzip 5); measure via the mission loop's telemetry (doc/mission-format.md).
 - `<repo>/doc/webgl-webgpu-report.txt` — target-GPU capabilities/limits; never
   depend on features it lacks.
 

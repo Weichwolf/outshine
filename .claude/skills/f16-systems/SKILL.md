@@ -22,7 +22,7 @@ Read the files relevant to the task at hand:
 | Combat systems (out of current scope) | `radar-sensors.md`, `weapons.md`, `defence-rwr-cm.md`, `datalink-iff.md` (SHALLOW-marked) |
 
 Ground rules when applying this knowledge: the operative artifact is the vanilla JSBSim F-16 model
-(reference chain NASA TP-1538 → JSBSim → FlightBox, see `doc/fidelity-baseline.md`); researched
+(reference chain NASA TP-1538 → JSBSim → FlightBox, CLAUDE.md Prinzip 5); researched
 real-jet values are DESIGN TARGETS, not defect criteria. Confidence flags in the files are honest —
 do not present medium-confidence numbers as certainties.
 
