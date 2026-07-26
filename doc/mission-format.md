@@ -77,7 +77,7 @@ unit two
 | Akteur  | `module`  | Rest der Zeile | Modulname, per `FBModuleRegistry` aufgelöst (heute nur `f16` registriert) — bestimmt sowohl das `FBModule` als auch den JSBSim-Aircraft-Ordnernamen (`vendor/jsbsim/aircraft/<module>`). Pflicht je Block. |
 | Akteur  | `team`    | `friendly`\|`hostile`\|`neutral` | Fraktion (`FBUnitTeam`, `core/FBTeam.h`) — landet in der `FBWorld`-Unit-Registry, die Sensoren/Waffen künftig lesen. Optional, Default `friendly`. |
 | Akteur  | `spawn`   | `<lat lon \| threshold>` `<altM \| ground>` `hdgDeg` `speedKt` | Pflicht, genau einmal je Block: die deklarative IC dieser Einheit — Position, Höhe-ODER-Boden, Kurs, Speed. `threshold` übernimmt lat/lon der missionsweiten `runway`-Zeile (reine Schreib-Convenience, keine zweite Positions-Syntax). `ground` löst die Höhe aus Gelände + Fahrwerksgeometrie auf; ein numerischer Wert ist eine LITERALE ASL-Höhe (ein Luftstart). Beide Fälle durchlaufen dieselbe eine JSBSim-IC-Anwendung. |
-| Akteur  | `set`     | `key value...` | Systemzustand als Missionsdaten — der Runner parst nur die KV-Liste und reicht sie im Spawn-IC-Fenster an `FBModule::ApplySetup(key, value)` DIESER Einheit; das MODUL interpretiert seine eigenen Schlüssel. Ein unbekannter Schlüssel ist ein Laufzeit-FAIL (Exit 1, `SET_REJECTED`-Event), kein Parse-Fehler. F-16 kennt heute: `gear` (`up`/`down`), `fuel_lbs` (absolute Tankmenge, lb), `fuel_pct` (0..100, Anteil der modelleigenen Gesamtkapazität) sowie die vier Schalter des MIDS-Terminals — `datalink` (`on`/`off`, Geräte-Strom), `datalink_xmt` (`on`/`off`, XMT/EMCON), `datalink_filter` (`fr`/`fl`/`off`, HSD-Kontaktfilter), `datalink_range_nm` (Terminal-Reichweite, nm). |
+| Akteur  | `set`     | `key value...` | Systemzustand als Missionsdaten — der Runner parst nur die KV-Liste und reicht sie im Spawn-IC-Fenster an `FBModule::ApplySetup(key, value)` DIESER Einheit; das MODUL interpretiert seine eigenen Schlüssel. Ein unbekannter Schlüssel ist ein Laufzeit-FAIL (Exit 1, `SET_REJECTED`-Event), kein Parse-Fehler. F-16 kennt heute: `gear` (`up`/`down`), `fuel_lbs` (absolute Tankmenge, lb), `fuel_pct` (0..100, Anteil der modelleigenen Gesamtkapazität), die vier Schalter des MIDS-Terminals — `datalink` (`on`/`off`, Geräte-Strom), `datalink_xmt` (`on`/`off`, XMT/EMCON), `datalink_filter` (`fr`/`fl`/`off`, HSD-Kontaktfilter), `datalink_range_nm` (Terminal-Reichweite, nm) — sowie FCR/IFF: `fcr_mode` (`off`/`crm`/`acm_hud`/`acm_bore`/`acm_vert`/`acm_slew`), `fcr_range_nm` (überschreibt die Reichweite JEDES Modus), `fcr_slew_az`/`fcr_slew_el` (Cursor der Slewable-Box, Grad), `iff_xpdr` (`on`/`off`, eigener Transponder), `iff_interrogator` (`on`/`off`, eigener Abfrager). |
 | Akteur  | `wp`      | lat lon altM speedKt | `FBWaypoint` vom Typ `Enroute`, im Flugplan DIESER Einheit |
 | Akteur  | `land`    | — | `FBWaypoint` vom Typ `Land` AN der Runway-Schwelle (braucht die missionsweite `runway`-Zeile) |
 
@@ -167,15 +167,16 @@ Quer-Marge). Ein bloßes Überfliegen der Schwelle in Fluggeschwindigkeit ist no
 ## Datalink — was eine Einheit von den anderen sieht
 
 Eine Einheit nimmt andere Einheiten AUSSCHLIESSLICH über simulierte Systeme wahr (CLAUDE.md „Kein
-Cheaten"). Heute ist das genau eines: das kooperative Netz `systems/FBDatalinkSystem` (MIDS/Link-16,
-`doc/f16/datalink-iff.md`), F-16-Ableitung `modules/f16/FBF16Datalink`. Es liest die Einheiten-Registry
-(`units/FBUnitRegistry` — die Snapshots des zuletzt abgeschlossenen Ticks) und schreibt daraus
-`FBDatalinkTrack`s in `FBState`; der Pilot liest nur FBState, nie die Registry.
+Cheaten"). Heute sind das genau ZWEI: das kooperative Netz `systems/FBDatalinkSystem` (MIDS/Link-16,
+`doc/f16/datalink-iff.md`, F-16-Ableitung `modules/f16/FBF16Datalink`) und das aktive Radar
+`systems/FBRadarSystem` (unten). Beide lesen die Einheiten-Registry (`units/FBUnitRegistry` — die
+Snapshots des zuletzt abgeschlossenen Ticks) und schreiben daraus Kontakte in `FBState`; der Pilot liest
+nur FBState, nie die Registry.
 
 Regeln, die eine Mission beim Bauen kennen muss:
 
 - **nur die eigene Fraktion** (`team`) — ein kooperatives Netz kennt keine Gegner. Feindaufklärung ist
-  Radar (Etappe 6), nicht das hier.
+  Radar, nicht das hier.
 - **der ABSENDER muss senden.** `set datalink off` schaltet das Terminal aus: die Einheit ist blind UND
   stumm. `set datalink_xmt off` ist EMCON: sie EMPFÄNGT weiter das ganze Bild, wird aber von niemandem
   mehr geführt (der Regelfall im Übungsluftkampf).
@@ -190,6 +191,56 @@ Regeln, die eine Mission beim Bauen kennen muss:
 Beobachtbar ist der Datalink in beiden Kanälen: `events.log` trägt `datalink TRACK_GAINED` /
 `TRACK_LOST` (diskrete Ereignisse), `telemetry.csv` die fünf Spalten `dl_on`, `dl_xmt`, `dl_tracks`,
 `dl_near` (nm zum nächsten Track), `dl_age` (s seit dessen Meldung).
+
+## Radar (FCR) & IFF — was eine Einheit selbst FINDET
+
+Das aktive Gegenstück zum Datalink: `systems/FBRadarSystem` (generischer Default), F-16-Ableitung
+`modules/f16/FBF16Fcr` (AN/APG-68, `doc/f16/radar-sensors.md`). Der Datalink bekommt Identität geschenkt,
+das Radar bekommt ein Echo — die Regeln, die eine Mission kennen muss:
+
+- **Scanvolumen statt Reichweite.** Ein Kontakt entsteht nur, wenn das Ziel im Volumen des aktiven Modus
+  liegt: Azimut × Elevation RELATIV ZUR NASE (das Volumen rollt und nickt mit dem Jet) plus ein
+  Entfernungstor. Modus-Tabelle (`set fcr_mode`):
+
+  | Modus | Azimut | Elevation | Reichweite | Frame | Auto-Lock |
+  |---|---|---|---|---|---|
+  | `off` | — | — | — | — | — (strahlt nicht) |
+  | `crm` (Default, Power-up) | ±60° | ±10,5° | 40 nm | 4,0 s | nein |
+  | `acm_hud` (30×20-Box) | ±15° | ±10° | 10 nm | 1,0 s | ja |
+  | `acm_bore` (~10°-Kegel) | ±5° | ±5° | 10 nm | 0,3 s | ja |
+  | `acm_vert` (schmal-hoch) | ±5° | −13°…+47° | 10 nm | 1,2 s | ja |
+  | `acm_slew` (20×20, `fcr_slew_*`) | ±10° um Cursor | ±10° um Cursor | 10 nm | 0,8 s | ja |
+  | (gelockt = STT) | ±60° | ±60° | 40 nm | 0,1 s | Single-Target |
+
+- **Kontakte entstehen und vergehen in ZEIT.** Zwei aufeinanderfolgende Looks (`kHitsToFirm`) machen aus
+  einem Echo einen Track — die Aufbauzeit ist also ein Frame lang. Ein Track, der nicht mehr gesehen
+  wird, wird `max(1 s, 3 Frames)` lang gehalten (Coast, gefrorene Geometrie, `fcr_lock_age` läuft hoch)
+  und dann gelöscht.
+- **ACM lockt selbst.** Jeder ACM-Sub-Modus lockt den NÄCHSTEN festen Track ohne Bedienung — das ist der
+  Zweck der Modi. Der Lock ist STT: die Antenne verlässt die kleine Box, folgt dem Ziel bis an die
+  Gimbal-Grenze (±60°) und sieht dabei NUR noch dieses eine Ziel (alle anderen Trackfiles laufen aus).
+- **Ein Kontakt ist ANONYM.** `FBRadarContact` (core/) trägt Range/Bearing/Az/El/Closure/Track-Nummer —
+  keine Id, kein Callsign, kein Team. Das ist die Fidelity-Grenze und zugleich der Anti-Cheat-Punkt.
+- **IFF ist die EINZIGE Identitätsquelle** (Mode 4, `doc/f16/datalink-iff.md`): gültiger Reply =
+  `friendly`; KEIN Reply = **unbekannt**, niemals „hostile". Ein Reply ist nur gültig, wenn der
+  Transponder des Ziels an ist UND das Ziel derselben Fraktion angehört (Krypto). Ein Feind mit
+  eingeschaltetem Transponder und ein Freund mit ausgeschaltetem liefern dasselbe Ergebnis: unbekannt.
+  Schalter: `set iff_xpdr` (was ANDERE von mir zurückbekommen, im Emissions-Snapshot der Unit) und
+  `set iff_interrogator` (ob ich selbst frage).
+- **Terrain-Maskierung ist NICHT modelliert** (bewusst, im Header dokumentiert): für Luft-Luft zwischen
+  zwei fliegenden Einheiten entscheiden Volumen und Reichweite; Maskierung braucht einen DEM-Raymarch je
+  Kontakt und je Look.
+
+Beobachtbar in beiden Kanälen: `events.log` trägt `radar RADAR_CONTACT` / `RADAR_DROP` (Track-Aufbau und
+-Löschung), `radar RADAR_LOCK` / `RADAR_LOST` (STT) und `radar IFF_REPLY`; `telemetry.csv` die elf
+Spalten `fcr_on`, `fcr_mode` (Ordinalzahl der Tabelle oben), `fcr_contacts`, `fcr_lock`
+(Track-Nummer, 0 = kein Lock), `fcr_lock_nm`, `fcr_lock_az`, `fcr_lock_el`, `fcr_lock_clos` (kt, + =
+annähernd), `fcr_lock_age` (s seit dem letzten Look — > 0 heißt Coast), `fcr_iff` (0 = nicht abgefragt,
+1 = unbekannt, 2 = friendly), `iff_xpdr`.
+
+**Keine HUD-Symbologie:** `doc/f16/hud-symbology.md` dokumentiert weder eine Target-Designator-Box noch
+ein Locked-Target-Symbol (der radarnahe Eintrag, HMC, ist ein Markpoint-Cursor). Der Lock bleibt deshalb
+in FBState/Telemetrie/Events, bis die Symbologie-Referenz ihn abdeckt — erfunden wird nichts.
 
 ## Ausgabe je Lauf (`--out DIR`)
 
@@ -242,3 +293,12 @@ die Einheit, deren Urteil den Lauf BEENDET hat (bei SUCCESS keine). Die abschlie
   Höhenblock: der Skalierungsfall für `fb-gym --threads` (vier annähernd gleich teure Airframes).
 - `sim/missions/payerne-mixed.fbm` — bewusst ungleiche Last: `roller` startet am Boden auf der Schwelle,
   `cruiser` ist bereits im Reiseflug — der Stresstest der Lockstep-Barriere.
+- `sim/missions/payerne-radar-acm.fbm` — die Radar-Referenzgeometrie: zwei Jets auf senkrechten,
+  geraden, gleich hohen Beinen. Das Ziel startet außerhalb jeder ACM-Box, schwenkt durch die Nase und
+  verlässt schließlich die Antennenreichweite — kein Kontakt → Aufbau → Lock → Coast → Verlust in EINEM
+  Lauf.
+- `sim/missions/payerne-radar-bore.fbm` — dieselbe Datei mit EINEM geänderten Wort (`acm_bore` statt
+  `acm_hud`): gleiche Geometrie, engeres Volumen, messbar spätere Erfassung.
+- `sim/missions/payerne-radar-iff.fbm` — ein Abfrager, drei nacheinander die Nase kreuzende Ziele:
+  Freund mit Transponder (friendly), Freund ohne (unbekannt), Feind MIT Transponder (unbekannt — nicht
+  hostile).

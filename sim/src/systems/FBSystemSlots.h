@@ -3,9 +3,10 @@
  * comms/datalink. Each is an INTERFACE + trivial DEFAULT (NoOp) in one class, one class per slot (no
  * interface/default file split for a body this small) — a module overrides Run() once it implements
  * the real system; until then FBF16Module composes these DEFAULTS unmodified, same pattern as
- * FBAutopilot/FBFlightControl. Two slots have outgrown this file because their default is REAL rather
- * than NoOp: Displays (the generic HUD symbology — FBDisplaySystem.h) and Comms/Datalink (the
- * cooperative MIDS/Link-16 net — FBDatalinkSystem.h, which is why no FBCommsSystem stub remains here).
+ * FBAutopilot/FBFlightControl. Three slots have outgrown this file because their default is REAL rather
+ * than NoOp: Displays (the generic HUD symbology — FBDisplaySystem.h), Comms/Datalink (the cooperative
+ * MIDS/Link-16 net — FBDatalinkSystem.h) and Sensors (the active air-to-air radar — FBRadarSystem.h),
+ * which is why neither an FBCommsSystem nor an FBSensorSystem stub remains here.
  *
  * Signatures encode the two contract rules from the doc/f16/ distillate: Sensors WRITE the shared
  * FBState, Displays only READ it (no display queries a sensor directly); anything that needs to see
@@ -17,6 +18,7 @@
 
 #include "FBDatalinkSystem.h"
 #include "FBDisplaySystem.h"
+#include "FBRadarSystem.h"
 #include "FBMasterMode.h"
 #include "FBState.h"
 #include "FBFdm.h"
@@ -39,14 +41,6 @@ class FBPropulsionSystem {
 public:
   virtual ~FBPropulsionSystem() = default;
   virtual void Run(const fb_fdm_state &s, double dt) { (void)s; (void)dt; }
-};
-
-/* FCR radar (A-A/A-G), TGP, HMCS, INS (with align/drift), TACAN, ILS: WRITES FBState for displays,
- * reads the world (terrain masking, other units) through a borrowed pointer. NoOp. */
-class FBSensorSystem {
-public:
-  virtual ~FBSensorSystem() = default;
-  virtual void Run(FBState &state, const FBWorld *world, double dt) { (void)state; (void)world; (void)dt; }
 };
 
 /* SMS/Stores, CCIP/CCRP/DTOS, gun: mode-gated. Takes the same borrowed, READ-ONLY world pointer every

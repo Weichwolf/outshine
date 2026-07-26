@@ -1,0 +1,59 @@
+name payerne-radar-iff-1
+timeout 400                                  # sim-seconds until TIMEOUT
+
+# THE IFF PROOF: one interrogator, three targets, three different answers to the SAME question.
+#
+# viper flies the same due-east leg as payerne-radar-acm.fbm in ACM HUD Scan. Three targets cross its
+# nose one after the other, ~36 s apart, each at about 2 nm -- staggered by their starting latitude, so
+# only one is ever inside the scan volume and the auto-lock can only ever mean one of them:
+#
+#   unit     team      transponder   expected reply   telemetry fcr_iff
+#   wingman  friendly  ON            valid Mode 4     2 = friendly
+#   silent   friendly  OFF           none             1 = unknown
+#   bandit   hostile   ON            none             1 = unknown   <-- NOT 2, and NOT "hostile"
+#
+# BANDIT IS THE POINT (doc/f16/datalink-iff.md): its transponder is switched ON and it still produces no
+# valid reply, because Mode 4 is CRYPTOGRAPHIC -- an interrogator only gets an answer from a box holding
+# its own coalition's key. And SILENT is the other half of the point: a friendly with a dead transponder
+# is indistinguishable from the enemy. A valid reply proves friendly; the absence of one proves nothing,
+# which is why FBIffReply has no hostile value for the radar to write.
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.70000 6.80000 3000 90.0 300
+  set gear up
+  set fuel_pct 60
+  set fcr_mode acm_hud
+  set iff_interrogator on                    # the challenging half of the APX-113
+  wp 46.70000 7.25000 3000 300
+
+unit wingman
+  module f16
+  team friendly
+  spawn 46.63000 6.95060 3000 0.0 300        # crosses the viper's nose first (~t=50 s)
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set iff_xpdr on                            # answering: a valid Mode-4 reply
+  wp 46.83000 6.95060 3000 300
+
+unit silent
+  module f16
+  team friendly
+  spawn 46.58000 7.02350 3000 0.0 300        # second (~t=87 s)
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set iff_xpdr off                           # a friend who cannot answer -- stays UNKNOWN
+  wp 46.80000 7.02350 3000 300
+
+unit bandit
+  module f16
+  team hostile
+  spawn 46.53000 7.09660 3000 0.0 300        # third (~t=123 s)
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set iff_xpdr on                            # answering -- but with the wrong coalition's crypto
+  wp 46.78000 7.09660 3000 300

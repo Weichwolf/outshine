@@ -15,7 +15,7 @@ FBF16Module::FBF16Module()
       Propulsion(std::make_unique<FBPropulsionSystem>()),
       Disp(std::make_unique<FBF16Hud>()),   /* the F-16's own HUD symbology, not the generic default */
       Chip(std::make_unique<FBF16Max7456>()),
-      Sensors(std::make_unique<FBSensorSystem>()),
+      Fcr_(std::make_unique<FBF16Fcr>()),   /* the F-16's own APG-68, not a generic search set */
       Weapons(std::make_unique<FBWeaponSystem>()),
       Defensive(std::make_unique<FBDefensiveSystem>()),
       Datalink_(std::make_unique<FBF16Datalink>()),
@@ -53,7 +53,10 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, 
   Propulsion->Run(st, dt);         /* engine-system logic above the raw FDM: same cadence */
 
   if (Due(SensorAccS, dt, 10.0)) {
-    Sensors->Run(SharedState, world, dt);
+    /* The Sensors slot: the SECOND (and last) system that sees the other units at all — the ACTIVE one,
+     * next to the cooperative terminal below (systems/FBRadarSystem's banner). `units` stops here too;
+     * what leaves is an anonymous contact list in SharedState. */
+    Fcr_->Run(SharedState, st, units, SimTimeS);
     /* The HUD's telemetry chain, one throttle group so FireControl always reads Nav's SAME-tick output
      * (see the header's rate table) — `st` is the FDM state as of the END of the PREVIOUS Run() call,
      * same one-tick lag every other Sensor-cadence write already has. */
@@ -67,9 +70,10 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, 
   if (Due(DisplayAccS, dt, 20.0)) Disp->Run(SharedState, Mode, dt);
   if (Due(WeaponAccS, dt, 20.0)) Weapons->Run(Mode, world, dt);
   if (Due(DefensiveAccS, dt, 5.0)) Defensive->Run(world, dt);
-  /* Comms/Datalink: the ONE slot that sees the other units at all (systems/FBDatalinkSystem's banner —
-   * `units`, the registry of published snapshots, stops here and reaches nothing else). It writes tracks
-   * into SharedState; whatever reads them — HUD today, pilot later — reads them as instrument data. */
+  /* Comms/Datalink: the COOPERATIVE half of what this module knows about other units
+   * (systems/FBDatalinkSystem's banner — `units`, the registry of published snapshots, reaches this slot
+   * and the Sensors slot above, and nothing else). It writes tracks into SharedState; whatever reads
+   * them — HUD today, pilot later — reads them as instrument data. */
   if (Due(CommsAccS, dt, 5.0)) Datalink_->Run(SharedState, st, units, SimTimeS);
   /* Pilot: the mission brain above Guidance/FlightControl (rate table). Idle (nobody called SetPhase)
    * returns a neutral FBPilotCommands, so ApplyPilotCommands is a no-op until the App starts the phase
@@ -170,6 +174,40 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
     if (!ParseDouble(value, nm)) return RejectSetup("not a number", key, value);
     if (nm <= 0.0) return RejectSetup("range must be positive", key, value);
     Datalink_->SetMaxRangeM(nm * kNmToM);
+    return true;
+  }
+  /* The FCR + IFF set (doc/f16/radar-sensors.md, doc/f16/datalink-iff.md; modules/f16/FBF16Fcr's mode
+   * table). `fcr_mode` is the ACM/CRM sub-mode selection the pilot would make on the HOTAS; `iff_xpdr`
+   * and `iff_interrogator` are the two halves of the APX-113, separately switchable because they answer
+   * two different questions — whether OTHERS can identify this jet, and whether this jet can identify
+   * others. */
+  if (key == "fcr_mode") {
+    FBF16FcrMode m;
+    if (!FBF16FcrModeFromString(value.c_str(), m))
+      return RejectSetup("want off|crm|acm_hud|acm_bore|acm_vert|acm_slew", key, value);
+    Fcr_->SetMode(m);
+    return true;
+  }
+  if (key == "fcr_range_nm") {
+    double nm = 0.0;
+    if (!ParseDouble(value, nm)) return RejectSetup("not a number", key, value);
+    if (nm <= 0.0) return RejectSetup("range must be positive", key, value);
+    Fcr_->SetRangeOverrideNm(nm);
+    return true;
+  }
+  if (key == "fcr_slew_az" || key == "fcr_slew_el") {
+    double deg = 0.0;
+    if (!ParseDouble(value, deg)) return RejectSetup("not a number", key, value);
+    if (deg < -FBF16Fcr::kGimbalAzDeg || deg > FBF16Fcr::kGimbalAzDeg)
+      return RejectSetup("outside the antenna gimbal limits", key, value);
+    if (key == "fcr_slew_az") Fcr_->SetSlewAz(deg);
+    else Fcr_->SetSlewEl(deg);
+    return true;
+  }
+  if (key == "iff_xpdr" || key == "iff_interrogator") {
+    if (value != "on" && value != "off") return RejectSetup("want on|off", key, value);
+    if (key == "iff_xpdr") Fcr_->SetIffTransponder(value == "on");
+    else Fcr_->SetIffInterrogator(value == "on");
     return true;
   }
   if (key == "gear") {

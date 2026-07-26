@@ -10,9 +10,15 @@
  *   Input/HOTAS, Propulsion                  ~frame     once per Run() call (the coarsest sim tick)
  *   Displays                                 20 Hz       accumulator-throttled inside Run()
  *   Weapons                                  20 Hz       accumulator-throttled inside Run()
- *   Sensors, AirData, RadarAlt, Nav,          10 Hz       accumulator-throttled inside Run(), ONE group
- *   FireControl, Ufc, Sms                                (the HUD's telemetry chain updates together —
- *                                                          FireControl reads Nav's SAME-tick output)
+ *   Sensors (FBF16Fcr), AirData, RadarAlt,   10 Hz       accumulator-throttled inside Run(), ONE group
+ *   Nav, FireControl, Ufc, Sms                           (the HUD's telemetry chain updates together —
+ *                                                          FireControl reads Nav's SAME-tick output).
+ *                                                        Like the datalink, the FCR's own ANTENNA grid
+ *                                                        runs on absolute sim time inside the system
+ *                                                        (FBRadarScanVolume::FrameS, 0.1..4 s by mode);
+ *                                                        the slot is entered faster than that only so a
+ *                                                        coasting contact's age is observable between
+ *                                                        looks, never to make the beam sweep sooner
  *   Defensive                                5 Hz        accumulator-throttled inside Run()
  *   Comms/Datalink (FBF16Datalink)           5 Hz        accumulator-throttled inside Run(); the NET
  *                                                        itself cycles at 1 Hz inside the system
@@ -39,6 +45,7 @@
 #include "FBAirframeControls.h"
 #include "FBAutopilot.h"
 #include "FBF16Datalink.h"
+#include "FBF16Fcr.h"
 #include "FBF16FireControl.h"
 #include "FBF16Max7456.h"
 #include "FBF16Pilot.h"
@@ -83,6 +90,7 @@ public:
   FBF16Max7456 &Max7456() { return *Chip; }       /* the MAX7456-chip-specific hook, see its banner */
   FBNavSystem &NavSystem() override { return *NavSys; }   /* steerpoint/bullseye (SetSteerpoint/SetBullseye) */
   FBDatalinkSystem &Datalink() override { return *Datalink_; }   /* the F-16's TNDL terminal */
+  FBF16Fcr &Radar() override { return *Fcr_; }   /* covariant: FBModule::Radar() returns FBRadarSystem& */
   FBF16Ufc &Ufc() { return *UfcSys; }             /* ALOW/selected-steerpoint placeholder setup */
   FBF16Sms &Sms() { return *SmsSys; }             /* master-arm placeholder setup */
   const FBGuidance &LastGuidance() const override { return LastG; }
@@ -93,9 +101,13 @@ public:
    * rather than re-querying terrain. */
   void SetGroundAsl(float m) override { GroundAslM = m; }
 
-  /* Identity for the systems that observe other units (FBModule::SetUnitIdentity) — today the
-   * terminal, tomorrow the radar. */
-  void SetUnitIdentity(int unitId, FBUnitTeam team) override { Datalink_->SetIdentity(unitId, team); }
+  /* Identity for the two systems that observe other units (FBModule::SetUnitIdentity): the terminal
+   * needs it to skip its own PPLI and know whose net it is on, the radar to skip its own echo and know
+   * whose IFF crypto it holds. */
+  void SetUnitIdentity(int unitId, FBUnitTeam team) override {
+    Datalink_->SetIdentity(unitId, team);
+    Fcr_->SetIdentity(unitId, team);
+  }
 
   FBMasterMode GetMasterMode() const { return Mode; }
   void SetMasterMode(FBMasterMode m) { Mode = m; }
@@ -109,9 +121,11 @@ public:
   FBFlightPlan &FlightPlan() override { return Plan_; }
   void SetRunway(const FBRunway &rwy) override { Rwy_ = rwy; HaveRunway_ = true; }
 
-  /* `gear` (up/down — an air start spawns retracted), `fuel_lbs`, `fuel_pct` (0..100), and the
-   * terminal's four switches — `datalink` (on/off: power), `datalink_xmt` (on/off: XMT/EMCON),
-   * `datalink_filter` (fr/fl/off: the HSD contact filter), `datalink_range_nm` — see
+  /* `gear` (up/down — an air start spawns retracted), `fuel_lbs`, `fuel_pct` (0..100), the terminal's
+   * four switches — `datalink` (on/off: power), `datalink_xmt` (on/off: XMT/EMCON), `datalink_filter`
+   * (fr/fl/off: the HSD contact filter), `datalink_range_nm` — and the FCR/IFF set: `fcr_mode`
+   * (off/crm/acm_hud/acm_bore/acm_vert/acm_slew), `fcr_range_nm`, `fcr_slew_az`/`fcr_slew_el` (the
+   * slewable box's cursor), `iff_xpdr` and `iff_interrogator` (on/off) — see
    * doc/mission-format.md. An unknown key OR an unparsable/out-of-range value returns false (Runner-level
    * mission FAIL): a mission that declares a state this airframe cannot take must not start silently in
    * some other state. */
@@ -130,7 +144,7 @@ private:
   std::unique_ptr<FBPropulsionSystem> Propulsion;
   std::unique_ptr<FBDisplaySystem> Disp;
   std::unique_ptr<FBF16Max7456> Chip;   /* MAX7456-chip-specific hook, see FBF16Max7456's banner */
-  std::unique_ptr<FBSensorSystem> Sensors;
+  std::unique_ptr<FBF16Fcr> Fcr_;       /* the Sensors slot, filled with the F-16's own APG-68 */
   std::unique_ptr<FBWeaponSystem> Weapons;
   std::unique_ptr<FBDefensiveSystem> Defensive;
   std::unique_ptr<FBF16Datalink> Datalink_;   /* the Comms slot, filled with the F-16's own terminal */

@@ -24,6 +24,7 @@
 #include "FBFlightPlan.h"
 #include "FBNavSystem.h"
 #include "FBPilot.h"
+#include "FBRadarSystem.h"
 #include "FBRunway.h"
 #include "FBState.h"
 #include "FBFdm.h"
@@ -83,6 +84,11 @@ public:
   /* The Comms/Datalink slot: the client registers its telemetry and publishes its transmit state into
    * the unit's snapshot (units/FBSimUnit) — both generic, both true of any module with a terminal. */
   virtual FBDatalinkSystem &Datalink() = 0;
+  /* The Sensors slot: the active radar. Surfaced on the base for exactly the same two generic reasons
+   * the terminal is — the client registers its telemetry and publishes its IFF transponder state into
+   * the unit's emission snapshot (units/FBSimUnit) — and for neither of them does the client need to
+   * know which set it is. */
+  virtual FBRadarSystem &Radar() = 0;
   virtual const FBState &Telemetry() const = 0;
 
   /* The two OUTPUTS of the Run() contract above, surfaced for the client's flight/cpuprof telemetry:

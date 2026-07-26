@@ -34,6 +34,7 @@ void FBSimUnit::PublishPose() {
   Pose_.SpeedMs = St_.speed;
   Pose_.HeadingDeg = St_.yaw;   /* no ground-track field on fb_fdm_state; yaw is the flown heading */
   Sig_.DatalinkXmt = Module_->Datalink().Transmitting();
+  Sig_.IffXpdr = Module_->Radar().IffTransponder();   /* what another jet's interrogator can get back */
 }
 
 void FBSimUnit::Run(double dt, const FBUnitRegistry *units, const FBWorld *world) {
@@ -89,7 +90,8 @@ void FBSimUnit::StartTelemetry(FBTelemetrySink *sink) {
   Bus_.Register(&Module_->PilotSystem());
   Bus_.Register(&Module_->FlightControl());
   Bus_.Register(&Module_->Controls());
-  Bus_.Register(&Module_->Datalink());   /* LAST: a new sensor appends columns, it never shifts old ones */
+  Bus_.Register(&Module_->Datalink());
+  Bus_.Register(&Module_->Radar());   /* LAST: a new sensor appends columns, it never shifts old ones */
   Bus_.SetSink(sink);
   Bus_.Start();
 }

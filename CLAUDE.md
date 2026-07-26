@@ -165,6 +165,15 @@ Als `wallS`/`speedup` der `SUMMARY`-Zeile misst der Runner seither `steady_clock
 letzteres summiert bei mehreren Threads die CPU-Zeit und hätte einen schnelleren Lauf als langsameren
 gemeldet.
 
+**Etappe 5 GEBAUT — Einheiten sehen einander, aber nur über ein System:** der kooperative Datalink
+(`systems/FBDatalinkSystem` + `modules/f16/FBF16Datalink`, s.u.). **Etappe 6 GEBAUT — das FCR-Radar:**
+`systems/FBRadarSystem` + `modules/f16/FBF16Fcr` (s.u.) sind der AKTIVE Sensor daneben — Scanvolumen
+statt Reichweite, Kontaktaufbau und -verlust in Zeit, ANONYME Kontakte und IFF Mode 4 als einzige
+Identitätsquelle. Damit ist die Registry-Konsumentenliste in `systems/`+`modules/` vollständig: genau
+diese zwei Dateien, nachweisbar per Grep (s.u. „Kein Cheaten"). Der Pilot nutzt das Radar noch NICHT —
+es schreibt ausschließlich `FBState`, weshalb alle bestehenden Missionen spaltengenau unverändert
+fliegen (die elf `fcr_*`/`iff_xpdr`-Spalten hängen hinten an).
+
 **Der Missions-Runner ist reiner Orchestrator, genau vier Schritte, KEIN Missions-Wissen im Code:**
 Mission laden → Welt mit ihren Akteuren aufsetzen (Elevation für die deklarative `spawn`-Zeile auflösen,
 Modul über `modules/FBModuleRegistry` spawnen) → Akteure ausführen (Modul takten, beide Monitore
@@ -244,7 +253,9 @@ sim/src/
              des Ticks parallelisieren — nur von FBMissionRunner.cpp inkludiert, nicht in der Core-Lib,
              nie im WASM-Build, s.o. "Etappe 4"), FBLogSinks/FBTelemetrySinks (die
              I/O-Sink-Implementierungen, inkl. FBBufferedLogSink = der Pro-Einheit-Logpuffer)
-  core/      FBState (inkl. der Datalink-Trackliste fester Kapazität), FBDatalinkTrack, FBMode,
+  core/      FBState (inkl. der Datalink-Trackliste UND der Radar-Kontaktliste, beide fester
+             Kapazität), FBDatalinkTrack, FBRadarContact (der ANONYME Radarkontakt + FBIffReply — der
+             bewusste Gegenentwurf zum Datalink-Track, s.u. "Kein Cheaten"), FBMode,
              FBMasterMode, FBFlightPlan/FBRunway/FBSpawn (Wegpunkt-/Runway-/
              deklarativer-Spawn-Value-Types für FBPilot/den Orchestrator), FBTeam (`FBUnitTeam` —
              die Fraktion, im core/, weil sie BEIDES ist: Missionsdaten und Welt-Identität), FBMissionFile
@@ -350,10 +361,26 @@ sim/src/
                Schalter, weil das echte Terminal zwei hat: POWER (`SetPowered`, aus = blind UND stumm)
                und XMT (`SetTransmit`, aus = EMCON: empfängt weiter, wird nur nicht mehr gehört).
                `AcceptContact` ist der Override-Punkt (F-16: `modules/f16/FBF16Datalink`);
-               FBSystemSlots.h — Input/HOTAS, Propulsion, Sensors, Weapons, Defensive: Interface
+               FBRadarSystem (eigene Datei, `FBRadarSystem.h/.cpp`): der Sensors-Slot — das generische
+               AKTIVE Luft-Luft-Radar, das bewusste Gegenstück zum Datalink (kooperativ = Identität
+               geschenkt, aktiv = nur ein Echo). Ein `FBRadarScanVolume` (Azimut- und Elevations-Fenster
+               RELATIV ZUR NASE — volle Roll/Pitch/Yaw-Rotation, das Volumen kippt mit dem Jet —,
+               Entfernungstor, Frame-Zeit, Auto-Lock- und Single-Target-Flags) IST der Modus; ein Ziel
+               wird erst nach `kHitsToFirm` aufeinanderfolgenden Looks zum Track (Aufbau kostet ZEIT) und
+               nach dem Verlassen des Volumens noch `max(kMinCoastS, kCoastFrames·FrameS)` gehalten
+               (Coast: eingefrorene Geometrie, hochlaufendes `LookAgeS`), bevor er fällt. Ergebnis sind
+               `core/FBRadarContact`s fester Kapazität IN FBState — ANONYM (s.u. „Kein Cheaten"), Identität
+               nur über IFF Mode 4 (`FBIffReply`: friendly | no-reply | not-interrogated, kein „hostile";
+               die APX-113-Transponderhälfte wird in `FBUnitSignature` publiziert wie XMT). Terrain-
+               Maskierung ist BEWUSST NICHT modelliert (im Header dokumentiert): Luft-Luft-Sichtlinie ist
+               frei, Maskierung bräuchte einen DEM-Raymarch je Kontakt je Look. `ActiveVolume()` ist DER
+               Override-Punkt — ein ganzer Modus-Satz ist nichts als eine Auswahl unter Volumina, und ein
+               Lock nichts als ein anderes Volumen (F-16: `modules/f16/FBF16Fcr`);
+               FBSystemSlots.h — Input/HOTAS, Propulsion, Weapons, Defensive: Interface
                + NoOp-Default für die restlichen F-16-Systemkategorien, ein Modul füllt sie bei Bedarf
-               per Ableitung (Comms/Datalink ist wie Displays aus dieser Datei herausgewachsen, s.o.).
-               Sensoren SCHREIBEN/Displays LESEN den geteilten FBState; Sensoren/Waffen/
+               per Ableitung (Comms/Datalink und Sensors sind wie Displays aus dieser Datei
+               herausgewachsen, s.o.).
+               Sensoren SCHREIBEN/Displays LESEN den geteilten FBState; Waffen/
                Defensiv erhalten eine geborgte FBWorld-Referenz (nie global).
                FBPilot (`FBPilot.h/.cpp`): die Missions-Ebene ÜBER Guidance/FlightControl — FBAutopilot
                (Manöver) und FBFlightControl (100 Hz, die Hände) bleiben unangetastet; FBPilot entscheidet
@@ -429,7 +456,19 @@ sim/src/
                          statt des generischen Platzhalters und der TNDL-Kontaktfilter der HSD
                          (FR ON = alle Freundlichen / FL ON = nur Flight Leads / FR OFF) als Override von
                          `FBDatalinkSystem::AcceptContact`; Missions-Schalter `datalink`,
-                         `datalink_xmt`, `datalink_filter`, `datalink_range_nm`. Trägt drei F-16-eigene HUD-Platzhalter (eigene
+                         `datalink_xmt`, `datalink_filter`, `datalink_range_nm`. FBF16Fcr (`.h/.cpp`)
+                         ist die zweite: der AN/APG-68 als MODUS-SATZ über `FBRadarSystem::ActiveVolume`
+                         — CRM (Power-up-Suche, ±60°/±10,5°, 40 nm, kein Auto-Lock) plus die vier
+                         ACM-Sub-Modi (HUD Scan ±15°/±10°, Boresight ±5°-Kegel, Vertical Scan
+                         ±5°/−13°…+47°, Slewable ±10° um den Cursor; alle 10 nm, alle mit Auto-Lock des
+                         NÄCHSTEN festen Tracks) und STT als eigenes Volumen (Gimbal ±60°, 0,1 s Frame,
+                         Single-Target: der Lock kostet jedes andere Trackfile). Missions-Schalter
+                         `fcr_mode`, `fcr_range_nm`, `fcr_slew_az`/`_el`, `iff_xpdr`,
+                         `iff_interrogator`. Die Winkel/Frames sind DEKLARIERTE Modellparameter (die
+                         doc/f16/-Quelle gibt die Taxonomie, keine Zahlen) — im Header als solche
+                         ausgewiesen, nicht als Zitat verkleidet. KEINE HUD-Symbologie: `doc/f16/hud-
+                         symbology.md` kennt weder TD-Box noch Locked-Target-Symbol, also wird keine
+                         erfunden. Trägt drei F-16-eigene HUD-Platzhalter (eigene
                          `.h/.cpp`, kein genereller Systemslot, da airframe-spezifisch): FBF16FireControl
                          (der "B"-Range-Provider — Slant-Range aus Distanz + Höhendifferenz zur
                          Steerpoint-Elevation, Pythagoras), FBF16Ufc (ALOW-Floor + gewählte
@@ -456,8 +495,8 @@ sim/src/
 
 `units/` (`sim/src/units/`) trägt die Welt-Entitäten-Basisschnittstelle: `FBUnit` (Identität — Id/
 Callsign/Kind-Enum `Aircraft/…`/`FBUnitTeam` aus `core/FBTeam.h` —, geodätische Pose, publizierte
-Emissions-Signatur `FBUnitSignature` [heute: sendet das Datalink-Terminal — was FREMDE Sensoren an dieser
-Einheit wahrnehmen dürfen], `virtual void Run(dt, const FBUnitRegistry*, const FBWorld*)`) und, darauf
+Emissions-Signatur `FBUnitSignature` [heute: sendet das Datalink-Terminal, antwortet der IFF-Transponder
+— was FREMDE Sensoren an dieser Einheit wahrnehmen dürfen], `virtual void Run(dt, const FBUnitRegistry*, const FBWorld*)`) und, darauf
 aufbauend, **`FBSimUnit` — EINE simulierte Einheit als EIN
 Objekt**: sie BESITZT ihre `FBFdm` und das `FBModule`, das sie fliegt (in dieser Deklarationsreihenfolge,
 damit die Zelle das Modul überlebt, das sie nur borgt), hält den geteilten `fb_fdm_state`, die
@@ -554,12 +593,19 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
   `systems/` und `modules/` erreichen die IC nicht und sehen `FBFlightMonitor`/`FBMissionMonitor` nie.
   Und die Gegenrichtung, seit es Cross-Unit-Wahrnehmung gibt: Piloten **sehen** nur über simulierte
   SENSOREN. Die Einheiten-Registry (`units/FBUnitRegistry`, die Welt-Wahrheit „wer existiert wo") reicht
-  ausschließlich bis zum Sensor-Slot des Moduls — heute `systems/FBDatalinkSystem`, künftig das Radar;
+  ausschließlich bis zu den SENSOR-Slots des Moduls — heute genau zwei, `systems/FBDatalinkSystem`
+  (kooperativ) und `systems/FBRadarSystem` (aktiv);
   sie steht in KEINER Pilot-Signatur (`FBPilot::Run` trägt seit dieser Etappe auch keinen
   `const FBWorld*` mehr, den nie jemand las) und in keinem Member. Was ein Pilot über andere Einheiten
   weiß, steht in `FBState` — das, was die Sensoren dort HINEINGESCHRIEBEN haben, mit ihrer Reichweite,
-  ihrem Netzzyklus und ihrem Alter. Grep-Beleg: `FBUnitRegistry` erscheint in `src/systems`/`src/modules`
-  nur in `FBDatalinkSystem.*` und der Weiterreichung `FBModule::Run` → `FBF16Module::Run`.
+  ihrem Scanvolumen, ihrem Netzzyklus und ihrem Alter. Grep-Beleg: `#include "FBUnitRegistry.h"` und
+  `.Units()` erscheinen in `src/systems`/`src/modules` in GENAU ZWEI Dateien (`FBDatalinkSystem.cpp`,
+  `FBRadarSystem.cpp`); sonst kommt der Typ dort nur als Vorwärtsdeklaration/Parameter vor
+  (`FBModule::Run` → `FBF16Module::Run`). Die zweite Hälfte dieser Grenze ist der Kontakt SELBST:
+  `core/FBRadarContact` trägt Range/Bearing/Az/El/Closure und eine radar-eigene Tracknummer — **keine
+  Unit-Id, kein Callsign, kein Team**. Die Registry weiß, wer da fliegt; das Radar darf es nicht
+  durchreichen. Die einzige legitime Identitätsquelle ist IFF Mode 4, und sie ist ZWEIWERTIG (gültiger
+  Reply = friendly, kein Reply = unbekannt) — `FBIffReply` hat gar keinen Wert „hostile".
   Der PILOT liest die Zelle ausschließlich über `FBAirframeControls` (WOW/Gear/Gewicht/Engine-Running),
   nie an dieser Schnittstelle vorbei in ein FDM — so bleibt `systems/` airframe- UND instanz-agnostisch.
 

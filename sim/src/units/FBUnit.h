@@ -31,6 +31,10 @@ struct FBUnitPose {
  * sense once the matching sensor exists (radar illumination, jammer, IFF replies) join here. */
 struct FBUnitSignature {
   bool DatalinkXmt = false;   /* MIDS terminal powered AND transmitting (XMT ON) */
+  /* IFF transponder answering (AN/APX-113, doc/f16/datalink-iff.md). Published for the same reason
+   * DatalinkXmt is: a reply is a RADIATED signal, so whether this aircraft answers a Mode-4 challenge is
+   * observable by another unit's interrogator (systems/FBRadarSystem) and not private to its module. */
+  bool IffXpdr = false;
 };
 
 class FBUnit {

@@ -13,6 +13,7 @@
 #include "FBArmState.h"
 #include "FBDatalinkTrack.h"
 #include "FBMode.h"
+#include "FBRadarContact.h"
 
 namespace FlightBox {
 
@@ -74,6 +75,18 @@ struct FBState {
   bool dlXmt;               /* terminal transmitting (XMT ON) — what other units can hear */
   int  dlTrackCount;
   FBDatalinkTrack dlTracks[kMaxDatalinkTracks];
+
+  /* ---- FBRadarSystem: the ACTIVE sensor picture (FCR, doc/f16/radar-sensors.md) ----
+   * The datalink block above is what the net TELLS this jet; this is what the jet FINDS by itself.
+   * Contacts are anonymous by construction (core/FBRadarContact.h) — the only identity here is the
+   * per-contact IFF reply, and it can say "friendly" or "no reply", never "hostile". Entries
+   * 0..fcrContactCount-1 are valid; fcrLockIndex points into that range or is -1. */
+  bool fcrOn;               /* set powered AND radiating (a mode of OFF/standby reads false) */
+  int  fcrMode;             /* the module's own mode ordinal (0 = generic search) — label, not logic */
+  int  fcrContactCount;
+  int  fcrLockIndex;        /* index into fcrContacts of the locked (STT) contact; -1 = no lock */
+  FBRadarContact fcrContacts[kMaxRadarContacts];
+  bool iffXpdr;             /* own IFF transponder answering (what other interrogators can get back) */
 };
 
 } // namespace FlightBox
