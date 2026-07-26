@@ -48,6 +48,10 @@ void FBSimUnit::PublishPose() {
   Pose_.HeadingDeg = St_.yaw;   /* no ground-track field on fb_fdm_state; yaw is the flown heading */
   Sig_.DatalinkXmt = Module_->Datalink().Transmitting();
   Sig_.IffXpdr = Module_->Radar().IffTransponder();   /* what another jet's interrogator can get back */
+  /* The midcourse guidance uplink to a round this unit launched (systems/FBStoresSystem::Uplink) — an
+   * emission like the two above, published at the same barrier so no missile ever reads its launcher's
+   * transmitter half-way through a tick. */
+  Sig_.Uplink = Module_->Stores().Uplink();
 }
 
 void FBSimUnit::Run(double dt, const FBUnitRegistry *units, const FBWorld *world) {

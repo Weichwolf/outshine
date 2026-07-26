@@ -1,0 +1,62 @@
+<?xml version="1.0"?>
+<!-- FlightBox — AIM-120 boost-sustain solid rocket motor (WPU-6/B class).
+
+     THIS IS FLIGHTBOX'S OWN MODEL, not a vendored one: the pinned JSBSim submodule carries no AMRAAM
+     (CLAUDE.md Prinzip 1 keeps vendor/ read-only), so the motor lives here and every number carries its
+     own provenance. Confidence tags, used throughout this model:
+       [T-ED]     quoted in doc/f16/weapons.md from the ED EA Guide (the module-level primary source)
+       [T3]       public, multiply corroborated (weapons.md §4.4's source list)
+       [DERIVED]  computed HERE from a [T-ED]/[T3] figure by the stated formula
+       [SET]      a FlightBox engineering choice; no public figure exists. Named as such.
+
+     THE ONE MEASURED ANCHOR is ED's own "max speed ~Mach 4" (weapons.md §3) [T-ED]. Everything about
+     the energy of this motor is derived backwards from it:
+
+       total impulse    I  = m_p * Isp * g            (definition of specific impulse)
+       burnout speed    dV = Isp * g * ln(m0/m1)      (Tsiolkovsky, drag/gravity losses on top)
+
+     with a launch at M 0.9 (~270 m/s at 6 km) and a burnout at M 4 (~1200 m/s at 6 km) the required
+     ideal dV is ~930 m/s + ~70 m/s of drag loss over the burn = ~1000 m/s. Isp 235 s [SET — the
+     textbook value for a modern reduced-smoke HTPB solid; no AMRAAM figure is public] gives
+     ve = 2305 m/s, so m0/m1 = exp(1000/2305) = 1.543 and, at the [T3] launch mass of 335 lb,
+     m_p = 335 * (1 - 1/1.543) = 118 lb. Rounded to 115 lb [DERIVED], which is also the figure the
+     propellant tank in aim120.xml carries — one number, two places, same derivation.
+
+     THE SPLIT between boost and sustain is [SET]: the public record says "boost-sustain" and nothing
+     quantitative. 60% of the impulse in a 3 s boost and the rest in a ~7.7 s sustain reproduces the two
+     behaviours the employment doctrine in weapons.md §2.5 depends on — a launch acceleration that puts
+     the missile supersonic before the target can react, and a sustain that keeps it accelerating out to
+     the Raero the DLZ is computed against. The thrust table below is what the sim actually integrates;
+     the derived quantities in the comment are the arithmetic behind it.
+
+       boost   5,400 lbf x 3.00 s -> 16,200 lbf*s, burning 16200/235 = 68.9 lb
+       sustain 1,400 lbf x 7.70 s -> 10,780 lbf*s, burning 10780/235 = 45.9 lb
+       total                        26,980 lbf*s = 120,000 N*s over 10.7 s, 114.8 lb of propellant
+
+     JSBSim's solid-rocket contract (FGRocket::Calculate): the table is indexed by PROPELLANT BURNED
+     (lb) and yields VACUUM thrust (lbf); the engine consumes wdot = thrust/Isp itself, so burn TIME is
+     an outcome of the table and the mass flow, never a number this file states. Ignition is throttle ==
+     1.0 and the motor then burns to depletion regardless of throttle — a solid motor cannot be
+     throttled or shut down, which is exactly the property the guidance has to fly with.
+-->
+<rocket_engine name="AIM-120 WPU-6 (FlightBox)">
+
+  <isp> 235 </isp>
+
+  <!-- Ignition transient: thrust ramps as sin(t/T * pi/2) over this. [SET] — 60 ms is the order a
+       solid motor's chamber takes to come up to pressure; it exists so the first integration step of a
+       24 kN motor is not a step input into the airframe's rotational ODE. -->
+  <builduptime> 0.06 </builduptime>
+
+  <thrust_table name="propulsion/thrust_prop_remain" type="internal">
+    <tableData><!--
+      propellant burned (lb)   vacuum thrust (lbf) -->
+       0.00    5400.0
+      68.80    5400.0
+      69.00    1400.0
+     114.70    1400.0
+     115.00       0.0
+    </tableData>
+  </thrust_table>
+
+</rocket_engine>

@@ -15,6 +15,8 @@
 #   make test-fdm  build the two-instance FDM coexistence proof   -> build/fb-test-two-fdm
 #   make test-corner  measure the vanilla model's corner speed (BFM energy reference)
 #                 -> build/fb-test-corner-speed
+#   make test-missile  fly the FlightBox AIM-120 model open-loop (motor/drag/trim proof)
+#                 -> build/fb-test-missile-airframe
 #   make image    build the deployable fb-sim web container (podman)
 #   make up       run the web host container (serves the WASM app on :8080)
 #   make clean    remove build artifacts
@@ -56,8 +58,9 @@ JSB_HOST     := build/jsbsim-host
 # FBFlightControl/FBDisplaySystem/FBPilot/FBAirframeControls) modules compose and may
 # override; modules/f16 = the F-16's module (composes systems/ + its gain preset); fdm = the JSBSim
 # adapter (namespace FlightBox, ONE-TU JSBSim seam, one FBFdm per airframe — see fdm/FBFdm.h); terrain = the lean
-# terrain API (flat); vendor/jsbsim/src = the JSBSim headers.
-INC_MODULES := -Isrc/core -Isrc/math -Isrc/render -Isrc/world -Isrc/units -Isrc/systems -Isrc/modules -Isrc/modules/f16 -Isrc/modules/f16/displays -Isrc/modules/stores
+# terrain API (flat); modules/missile = the guided-weapon module (seeker/guidance/uplink);
+# vendor/jsbsim/src = the JSBSim headers.
+INC_MODULES := -Isrc/core -Isrc/math -Isrc/render -Isrc/world -Isrc/units -Isrc/systems -Isrc/modules -Isrc/modules/f16 -Isrc/modules/f16/displays -Isrc/modules/stores -Isrc/modules/missile
 INC_WASM   := $(INC_MODULES) -Isrc/fdm -Isrc/terrain -I$(JSBSIM)/src
 INC_NATIVE := $(INC_MODULES) -Isrc/fdm -Isrc/terrain
 INC_TILES := -I../tiles/src
@@ -98,11 +101,14 @@ CORE_LIB_SRCS := \
   src/modules/f16/FBF16Ufc.cpp src/modules/f16/FBF16Sms.cpp src/modules/f16/FBF16Pilot.cpp \
   src/modules/f16/FBF16ModuleRegistration.cpp \
   src/modules/stores/FBStoreModule.cpp src/modules/stores/FBStoreModuleRegistration.cpp \
+  src/modules/missile/FBMissileModule.cpp src/modules/missile/FBMissileModuleRegistration.cpp \
+  src/modules/missile/FBMissileSeeker.cpp src/modules/missile/FBMissileGuidance.cpp \
+  src/modules/missile/FBMissileUplink.cpp \
   src/modules/f16/displays/FBF16Hud.cpp \
   src/units/FBSimUnit.cpp \
   src/render/FBHudGeometry.cpp
 
-.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner image up down restart clean
+.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile image up down restart clean
 
 help:            ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
@@ -132,6 +138,7 @@ wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,w
 	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_fb_toggle_ground,_fb_set_ground \
 	    --embed-file $(JSBSIM)/aircraft/f16@/jsbsim/aircraft/f16 \
 	    --embed-file $(JSBSIM)/aircraft/mk82@/jsbsim/aircraft/mk82 \
+	    --embed-file assets/aircraft/aim120@/fb/aircraft/aim120 \
 	    --embed-file $(JSBSIM)/engine/F100-PW-229.xml@/jsbsim/engine/F100-PW-229.xml \
 	    --embed-file $(JSBSIM)/engine/direct.xml@/jsbsim/engine/direct.xml \
 	    --embed-file web/moon.jpg@/moon.jpg \
@@ -263,7 +270,17 @@ test-corner: core-lib    ## measure the vanilla model's corner speed (BFM energy
 	    -o build/fb-test-corner-speed; \
 	  echo "test-corner -> build/fb-test-corner-speed"
 
-image:           ## build the deployable fb-sim web container (context = sim/, trimmed by .containerignore)
+test-missile: core-lib   ## fly the FlightBox AIM-120 model open-loop (motor/drag/trim proof) -> build/fb-test-missile-airframe
+	@cd $(SELF_DIR); set -e; \
+	  c++ src/app/FBTestMissileAirframe.cpp src/app/FBLogSinks.cpp \
+	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
+	    -std=c++17 -O2 $(CXX_WARN) \
+	    $(INC_NATIVE) -isystem $(JSB_HOST)/include/JSBSim \
+	    -lpthread -ldl -lm \
+	    -o build/fb-test-missile-airframe; \
+	  echo "test-missile -> build/fb-test-missile-airframe"
+
+image:          ## build the deployable fb-sim web container (context = sim/, trimmed by .containerignore)
 	cd $(SELF_DIR) && podman build -f Dockerfile -t fb-sim .
 
 up:              ## run the web host container (fb-sim, :8080; sim runs IN the browser)

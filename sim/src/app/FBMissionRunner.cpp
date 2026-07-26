@@ -8,6 +8,7 @@
 #include "FBLog.h"
 #include "FBLogSinks.h"
 #include "FBTickPool.h"
+#include "FBGeodesy.h"
 #include "FBStore.h"
 #include "FBUnits.h"
 #include <cerrno>
@@ -119,7 +120,58 @@ struct FBStoreTrack {
   size_t Index = 0;      /* into the actor list */
   double SpawnS = 0.0;
   double DeadlineS = 0.0;   /* SpawnS + the store's own MaxFlightS (core/FBStore.h) */
+  const FBStoreSpec *Spec = nullptr;
+  int    LauncherId = 0;
+  /* Closest this store came to any aircraft OTHER THAN THE ONE THAT LAUNCHED IT — the number that says
+   * how the shot went. The launcher is excluded from the REPORT and not from the fuze (below): a round
+   * separating from a pylon passes its own carrier at tens of metres, which is a fact about geometry and
+   * not about aim. */
+  double MinMissM = 1e18;
+  int    MinMissUnit = 0;
 };
+
+/* ---- The proximity fuze: WAS THIS A HIT? ----
+ * A guided round's flight ends where it passes a unit closer than its own fuze radius (core/FBStore.h).
+ * That verdict belongs HERE, to the owner of the simulation, for exactly the reason the two monitors do:
+ * the missile's own seeker says where it THINKS the target is, and letting the weapon score itself on
+ * its own estimate would be the purest form of cheating. This is measured on the published poses, i.e.
+ * on the truth, like FBFlightMonitor's ground contact.
+ *
+ * WHY A CLOSEST-APPROACH COMPUTATION AND NOT A DISTANCE TEST. The run's tick is 0.1 s and a head-on
+ * closure can exceed 1,500 m/s, so consecutive samples are 150 m apart: a plain per-tick distance test
+ * against a 10 m fuze radius would miss nearly every real hit. So the miss distance is the minimum over
+ * the SEGMENT between the last tick's relative position and this one's — the standard CPA formula on
+ * p(t) = p0 + t*(p1-p0), t in [0,1]. The straight-line assumption inside one tick is worth about a
+ * metre of curvature at 20 g, which is stated here rather than hidden.
+ *
+ * THE ARMING DELAY IS WHAT KEEPS A LAUNCH FROM DETONATING ON ITS OWN LAUNCHER: for the first ArmingS
+ * seconds the fuze is not live, which is both real and the reason a round leaving a pylon 3 m from the
+ * jet that carried it does not count as a hit on it. */
+struct FBCpa {
+  double MissM = 1e18;
+  double ClosureMs = 0.0;
+  double FracT = 0.0;   /* where inside the tick the burst happened, 0..1 — reported, so the event's
+                         * time is the sub-tick one and not the sample it was found in */
+};
+
+FBCpa ClosestApproach(const FBUnitPose &a0, const FBUnitPose &b0, const FBUnitPose &a1,
+                      const FBUnitPose &b1, double dt) {
+  double p0e = 0.0, p0n = 0.0, p1e = 0.0, p1n = 0.0;
+  FBEnuOffsetM(b0.LatDeg, b0.LonDeg, a0.LatDeg, a0.LonDeg, p0e, p0n);
+  FBEnuOffsetM(b1.LatDeg, b1.LonDeg, a1.LatDeg, a1.LonDeg, p1e, p1n);
+  double p0u = a0.ElevM - b0.ElevM, p1u = a1.ElevM - b1.ElevM;
+  double de = p1e - p0e, dn = p1n - p0n, du = p1u - p0u;
+  double denom = de * de + dn * dn + du * du;
+  double t = denom > 1e-9 ? -(p0e * de + p0n * dn + p0u * du) / denom : 0.0;
+  if (t < 0.0) t = 0.0;
+  if (t > 1.0) t = 1.0;
+  double me = p0e + t * de, mn = p0n + t * dn, mu = p0u + t * du;
+  FBCpa c;
+  c.MissM = std::sqrt(me * me + mn * mn + mu * mu);
+  c.ClosureMs = dt > 0.0 ? std::sqrt(denom) / dt : 0.0;
+  c.FracT = t;
+  return c;
+}
 
 /* The impact report: what the store was doing at the moment its own FBFlightMonitor said it hit
  * something. Everything here is OBSERVED — position and velocity out of the FDM state, the reason out
@@ -211,7 +263,7 @@ private:
 } // namespace
 
 int FBRunMission(const std::string &missionPath, double timeoutOverride, const std::string &outDir,
-                 const std::string &aircraftPath, FBElevationProvider &elevation,
+                 const FBModelRoots &models, FBElevationProvider &elevation,
                  FBMissionTickHook *hook, size_t threads) {
   std::string evPath = outDir + "/events.log";
   FBFileHandle evf = FBOpenFile(evPath.c_str(), "w");
@@ -286,8 +338,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
         {"hdg", sp.HeadingDeg}, {"speedKt", sp.SpeedKt}});
 
     std::string serr;
-    std::unique_ptr<FBSimUnit> unit = FBMissionSpawnActor(aircraftPath.c_str(), mission, i, groundAsl,
-                                                          timeoutS, &serr);
+    std::unique_ptr<FBSimUnit> unit = FBMissionSpawnActor(models, mission, i, groundAsl, timeoutS, &serr);
     if (!unit) {
       FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", serr}});
       return 1;
@@ -302,6 +353,12 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   Actors.reserve(maxActors);
   std::vector<FBStoreTrack> StoreTracks;
   StoreTracks.reserve(maxActors - Actors.size());
+  /* LAST TICK'S poses, for the fuze's closest-approach computation (see ClosestApproach's banner). Sized
+   * for the ceiling so a store joining the list mid-run never reallocates it, and captured at the very
+   * end of every tick — including for a store that only just appeared, whose spawn pose is already
+   * published (units/FBSimUnit's constructor). */
+  std::vector<FBUnitPose> PrevPose(maxActors);
+  bool HavePrevPose = false;
 
   /* The run's ONE unit registry (units/FBUnitRegistry): the whole cast, in mission-declaration order,
    * filled once now that every actor exists and borrowed by everything that observes units — the
@@ -394,12 +451,46 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
       FBSimUnit &store = *Actors[t.Index];
       if (!store.Active()) continue;
       FBLogUnitScope us(store.LogLabel());
+      /* The proximity fuze first (see ClosestApproach's banner): a round that passed inside its fuze
+       * radius during this tick detonated there, whatever it does afterwards. Only for a store that HAS
+       * one, only once armed, and only against aircraft — the truth, on the published poses. */
+      bool detonated = false;
+      if (t.Spec && t.Spec->FuzeRadiusM > 0.0 && HavePrevPose &&
+          simT - t.SpawnS >= t.Spec->Perf.ArmingS) {
+        for (size_t k = 0; k < Actors.size(); k++) {
+          const FBSimUnit &tgt = *Actors[k];
+          if (k == t.Index || tgt.GetKind() != FBUnitKind::Aircraft || !tgt.Active()) continue;
+          FBCpa c = ClosestApproach(PrevPose[t.Index], PrevPose[k], store.GetPose(), tgt.GetPose(), dt);
+          if (c.MissM < t.MinMissM && tgt.GetId() != t.LauncherId) {
+            t.MinMissM = c.MissM;
+            t.MinMissUnit = tgt.GetId();
+          }
+          if (c.MissM > t.Spec->FuzeRadiusM) continue;
+          /* Geometry at the burst, all observed: how far off it was, how fast the two were closing, and
+           * from where. What a hit DOES is deliberately not modelled yet — this is the event, not a
+           * damage verdict. */
+          const fb_fdm_state &ms = store.State();
+          double aspect = FBWrap180(tgt.GetPose().YawDeg - ms.yaw);
+          FBLog::Info("stores", "DETONATION", {{"target", tgt.GetName()},
+              {"missM", c.MissM}, {"fuzeM", t.Spec->FuzeRadiusM}, {"closureMs", c.ClosureMs},
+              {"tofS", simT - t.SpawnS + (c.FracT - 1.0) * dt}, {"aspectDeg", aspect}, {"altM", ms.elev},
+              {"speedMs", ms.speed}, {"tgtAltM", tgt.GetPose().ElevM},
+              {"tgtSpeedMs", tgt.GetPose().SpeedMs}});
+          store.Retire();
+          detonated = true;
+          break;
+        }
+      }
+      if (detonated) continue;
       if (store.FlightMonitor().Tripped()) {
         LogStoreImpact(store, t, simT);
+        if (t.MinMissM < 1e17)
+          FBLog::Info("stores", "MISS", {{"closestM", t.MinMissM}, {"unitId", t.MinMissUnit},
+                                         {"fuzeM", t.Spec ? t.Spec->FuzeRadiusM : 0.0}});
         store.Retire();
       } else if (simT >= t.DeadlineS) {
         FBLog::Warn("stores", "EXPIRED", {{"tofS", simT - t.SpawnS}, {"altM", store.State().elev},
-            {"aglM", store.AglM()}});
+            {"aglM", store.AglM()}, {"closestM", t.MinMissM < 1e17 ? t.MinMissM : -1.0}});
         store.Retire();
       }
     }
@@ -422,7 +513,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
                  (int)StoreTracks.size() + 1);
         std::string serr;
         std::unique_ptr<FBSimUnit> store =
-            FBMissionSpawnStore(aircraftPath.c_str(), rel, carrier.State(), carrier.GroundAslM(),
+            FBMissionSpawnStore(models, rel, carrier.State(), carrier.GroundAslM(),
                                 (int)Actors.size() + 1, name, carrier.GetTeam(), &serr);
         if (!store) {
           FBLogUnitScope us(carrier.LogLabel());
@@ -439,11 +530,17 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
         } else {
           store->StartTelemetry(nullptr);   /* it still flies; only its trace is missing */
         }
-        StoreTracks.push_back({Actors.size(), simT, simT + spec->MaxFlightS});
+        StoreTracks.push_back({Actors.size(), simT, simT + spec->MaxFlightS, spec, carrier.GetId(),
+                               1e18, 0});
         UnitReg.Register(store.get());
         Actors.push_back(std::move(store));
       }
     }
+
+    /* The tick's last act: remember where everything was. One capture point, after the growth above, so
+     * every actor in the list — including one that appeared this tick — has an entry from now on. */
+    for (size_t i = 0; i < Actors.size(); i++) PrevPose[i] = Actors[i]->GetPose();
+    HavePrevPose = true;
   }
 
   /* ---- Step 4: validate the world — the monitors already did; combine their verdicts ---- */

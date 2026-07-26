@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<!-- FlightBox — the AIM-120 motor's nozzle. JSBSim subtracts ambient pressure * exit area from the
+     vacuum thrust the engine table gives (FGNozzle::Calculate), which is what makes the motor weaker at
+     sea level than at altitude — a real effect that costs nothing to model correctly here.
+
+     area = 0.143 FT2 [DERIVED from a 5.1 in exit diameter — a nozzle that fits inside the 7 in airframe
+     with room for the boattail; the exit diameter itself is [SET], no public figure]. At sea level that
+     is 2116 psf * 0.143 = 303 lbf off the 5,400 lbf boost (5.6%), which is the right order for a solid
+     motor's pressure loss and vanishes above ~40 kft. -->
+<nozzle name="AIM-120 nozzle (FlightBox)">
+  <area unit="FT2"> 0.143 </area>
+</nozzle>

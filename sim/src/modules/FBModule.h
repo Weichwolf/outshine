@@ -57,6 +57,14 @@ public:
    * path (FBMissionBoot.h) asks for it instead of reusing the registry name as a directory name. */
   virtual const char *FdmModelName() const = 0;
 
+  /* WHICH model root FdmModelName lives under. true (the default, and every aircraft in this tree) =
+   * the pinned, read-only JSBSim submodule; false = FlightBox's own model assets, which is where a model
+   * has to live when the submodule carries none and may not be added to (CLAUDE.md Prinzip 1 — the
+   * AIM-120 is the first). The MODULE states it for the same reason it states the model name: only the
+   * module knows which model its systems were written against, and the boot path (app/FBModelRoots.h)
+   * turns the answer into a path per link target. */
+  virtual bool FdmModelVendored() const { return true; }
+
   /* WHO this module is flying, from the unit that owns it (units/FBSimUnit's constructor) — wiring,
    * once, like AttachFdm. A module needs its own identity the moment it carries a system that observes
    * OTHER units: the datalink has to recognise its own PPLI in the registry and know whose net it is
@@ -125,6 +133,13 @@ public:
   /* Ground ASL (m) under the aircraft — the App's elevation-hook sample (FBElevationProvider),
    * forwarded so e.g. FBRadarAltimeter doesn't re-query terrain itself. */
   virtual void SetGroundAsl(float m) = 0;
+
+  /* THE LAUNCH PROGRAMMING a released store is handed at separation (core/FBStore.h's FBStoreRelease):
+   * which unit let it go, at what mission time, and — for a guided round — what that unit's fire control
+   * had made of the target. Called once by the spawn path (app/FBMissionBoot.h) before the first tick,
+   * generically, so the runner never names a weapon type. Default: an unguided store has nothing to
+   * program, and the record is simply the reason it exists. */
+  virtual void ProgramRelease(const FBStoreRelease &rel) { (void)rel; }
 
   /* Applies one `set <key> <value>` mission line (doc/mission-format.md) during the spawn IC window,
    * after the FDM IC is established and before the pilot's first tick — the MODULE interprets its own

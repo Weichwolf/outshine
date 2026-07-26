@@ -119,6 +119,25 @@ bool FBStoresSystem::Release(double nowS, FBCommandOutcome &outcome, FBCommandRe
   if (PendingCount_ >= kMaxPendingReleases)
     return refuse(FBCommandReason::ChannelBusy, "release queue not drained");
 
+  /* The WEAPON-SPECIFIC interlocks, after the two hardware ones and before anything leaves the rail. A
+   * guided round is not a bomb: it needs a target to be programmed with and a launch zone to be inside,
+   * and both are the fire control's answer (cached in Run from the bus block it publishes), not the
+   * SMS's opinion. Refusing here rather than launching a round that cannot arrive is the same
+   * valid-command-wrong-context case an unselected station is (doc/f16/controls-commands.md §6.5). */
+  const FBStoreSpec *rspec = FBStoreSpecOf(Stations_[i].Kind);
+  if (rspec && rspec->RequiresLock) {
+    if (!RadarLocked_ || !Target_.Valid)
+      return refuse(FBCommandReason::OutOfContext, "no fire-control lock");
+    if (!HaveZone_)
+      return refuse(FBCommandReason::OutOfContext, "no launch-zone solution");
+    if (!InZone_) {
+      FBLog::Warn("sms", "LAUNCH_OUT_OF_ZONE", {{"rangeM", ZoneRangeM_}, {"rminM", ZoneMinM_},
+                                                {"raeroM", ZoneMaxM_}});
+      return refuse(FBCommandReason::OutOfContext,
+                    ZoneRangeM_ > ZoneMaxM_ ? "target beyond Raero" : "target inside Rmin");
+    }
+  }
+
   Station &s = Stations_[i];
   FBStoreRelease &rel = Pending_[PendingCount_++];
   rel.Station = Selected_;
@@ -133,6 +152,14 @@ bool FBStoresSystem::Release(double nowS, FBCommandOutcome &outcome, FBCommandRe
   rel.OffFwdM = (cgXIn - s.XIn) * kInToM;
   rel.OffRightM = s.YIn * kInToM;
   rel.OffDownM = -s.ZIn * kInToM;
+  /* The launch programming (core/FBStore.h's FBStoreRelease): a guided round leaves the rail knowing
+   * where the shooter's fire control last saw the target and whose uplink to listen to for corrections.
+   * An unguided store carries an invalid target and launcher 0, which is what it is. */
+  if (rspec && rspec->Guided) {
+    rel.LauncherId = SelfId_;
+    rel.Target = Target_;
+    GuidedInFlight_++;
+  }
 
   /* The gross weight AT the release, i.e. before this change reaches the engine: FGMassBalance sums the
    * point masses in its own Run, so the new weight exists one step later and is read from the telemetry
@@ -153,6 +180,16 @@ bool FBStoresSystem::Release(double nowS, FBCommandOutcome &outcome, FBCommandRe
       {"storeLbs", rel.MassLbs}, {"gwLbs", gwLbs},
       {"storesLbsBefore", storesBefore}, {"storesLbsAfter", LoadedMassLbs()},
       {"remaining", LoadedCount()}, {"nextStation", Selected_}});
+  /* A guided round's launch record carries the SOLUTION it was fired on — the fire control's own launch
+   * zone and its two countdowns, at the moment of launch. It is a separate line rather than more fields
+   * on RELEASE because it exists only for a guided round, and because it is the prediction the flown
+   * result is later measured against (the DLZ's error is a real property, not a bug to hide). */
+  if (rspec && rspec->Guided)
+    FBLog::Info("sms", "LAUNCH_SOLUTION", {{"store", spec ? spec->Key : "?"},
+        {"rangeM", ZoneRangeM_}, {"rminM", ZoneMinM_}, {"raeroM", ZoneMaxM_}, {"rtrM", ZoneRtrM_},
+        {"ttaS", ZoneTtaS_}, {"ttiS", ZoneTtiS_},
+        {"tgtLat", Target_.LatDeg}, {"tgtLon", Target_.LonDeg}, {"tgtAltM", Target_.AltM},
+        {"tgtAgeS", nowS - Target_.StampS}});
   return true;
 }
 
@@ -169,6 +206,30 @@ void FBStoresSystem::Run(FBState &state, double dt) {
   /* The weight-on-wheels interlock reads the airframe block like any other consumer — an unpublished
    * one leaves the last known value rather than inventing "airborne". */
   if (state.Airframe.H.Readable()) Wow_ = state.Airframe.WeightOnWheels;
+
+  /* The fire control's answer, cached for the pickle (which arrives from the command bus between ticks,
+   * not inside one) — read like any other consumer reads a block, head first. */
+  RadarLocked_ = state.Radar.H.Readable() && state.Radar.LockIndex >= 0;
+  HaveZone_ = state.FireControl.H.Readable() && state.FireControl.DlzValid;
+  if (HaveZone_) {
+    InZone_ = state.FireControl.InZone;
+    ZoneRangeM_ = state.FireControl.TargetRangeM;
+    ZoneMinM_ = state.FireControl.RminM;
+    ZoneMaxM_ = state.FireControl.RaeroM;
+    ZoneRtrM_ = state.FireControl.RtrM;
+    ZoneTtaS_ = state.FireControl.TimeToActiveS;
+    ZoneTtiS_ = state.FireControl.TimeToImpactS;
+  } else {
+    InZone_ = false;
+  }
+
+  /* WHAT THIS AIRCRAFT RADIATES to a round in flight. A launcher supports its shot for exactly as long
+   * as its fire control still holds the target: lose the lock and the uplink stops mid-flight, which is
+   * the case the whole midcourse/terminal split exists for. Nothing here decides what the missile then
+   * does — the missile does (modules/missile/FBMissileGuidance). */
+  Uplink_.Active = GuidedInFlight_ > 0 && Target_.Valid;
+  Uplink_.LauncherId = SelfId_;
+  Uplink_.Target = Target_;
   FBStoresBlock &b = state.Stores;
   b.Arm = Arm_;
   b.StationCount = Count_;

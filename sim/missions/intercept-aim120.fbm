@@ -1,0 +1,53 @@
+name intercept-aim120-1
+timeout 280
+
+# THE INTERCEPT: the first shot with a guided weapon, end to end and measurable at every step.
+#
+# Two jets, head-on, co-altitude, level and constant-speed, so the true geometry is a straight line the
+# analysis can recompute from the two telemetry files alone (the same discipline as the radar missions):
+#
+#   viper   flies due EAST  from 46.900/6.600 at 8,000 m -- the shooter. ACM HUD scan with the range
+#           gate opened to the full 40 nm, so the auto-lock happens on the first sweeps and the whole run
+#           is about the WEAPON rather than about acquiring.
+#   bandit  flies due WEST  from 46.900/7.300 at 8,000 m -- the target. Radar OFF: it contributes a
+#           radar cross-section and nothing else, and it does not manoeuvre, so the miss distance is a
+#           property of the guidance and not of the target's evasion.
+#
+# They start 53 km apart and close at roughly 630 m/s (both true-airspeed ~315 m/s at this altitude).
+#
+# THE SHOT is a briefed pickle at t=20 s, i.e. at ~40 km / 22 nm: comfortably inside Raero and far
+# outside Rmin, so the SMS accepts it and the launch record (events.log "LAUNCH_SOLUTION") carries the
+# whole launch zone the fire control computed. What has to be visible in the missile's own telemetry
+# afterwards is the entire flight of the round:
+#   - the boost (msl_* columns beside a rising speed in the FDM columns), the sustain, then the coast
+#   - msl_phase INERTIAL -> MIDCOURSE (the launcher's uplink arriving) -> TERMINAL (its own seeker)
+#   - msl_seeker 0 -> 1 at the activation range -> 2 when it locks
+#   - msl_losrate: proportional navigation driving the line-of-sight rate toward zero
+#   - the DETONATION event with the miss distance, the closing speed and the geometry
+#
+# Both jets have a waypoint at the end of their leg, so the run ends SUCCESS when they have FLOWN THOSE
+# LEGS, not when the missile arrives: a weapon's flight is an EVENT inside a mission, never the mission's
+# verdict (and there is no damage model yet, so the bandit flies on through its own detonation).
+
+unit viper
+  team friendly
+  module f16
+  spawn 46.90000 6.60000 8000 90.0 400
+  set gear up
+  set fuel_pct 60
+  set fcr_mode acm_hud
+  set fcr_range_nm 40                      # the ACM box, range gate opened to the search figure
+  set store 3 aim120                       # left wing pylon
+  set store 7 aim120                       # its mirror on the right wing
+  set brief_master_arm arm
+  set brief_release_s 20                   # ~22 nm, head-on: inside the launch zone
+  wp 46.90000 7.15000 8000 400          # 42 km east: reached at ~205 s, so the run ends SUCCESS
+
+unit bandit
+  team hostile
+  module f16
+  spawn 46.90000 7.30000 8000 270.0 400
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  wp 46.90000 6.75000 8000 400          # its mirror leg west

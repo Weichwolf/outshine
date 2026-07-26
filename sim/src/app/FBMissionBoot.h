@@ -26,6 +26,7 @@
 #include "FBStore.h"
 #include "FBUnits.h"
 #include "FBFdmBoot.h"
+#include "FBModelRoots.h"
 
 namespace FlightBox {
 
@@ -46,10 +47,10 @@ namespace FlightBox {
  * mission gave no waypoints has nothing to succeed or fail at and carries no monitor, so it never
  * appears in the mission verdict.
  *
- * `aircraftPath` differs per link target (native/gym: "vendor/jsbsim/aircraft", WASM: the embedded FS
- * path "/jsbsim/aircraft"). Returns nullptr with a human reason in *err (unknown module, JSBSim init,
+ * `models` is the client's pair of model roots (app/FBModelRoots.h — they differ per link target, and
+ * WHICH of the two a module's model comes from is the module's own statement). Returns nullptr with a human reason in *err (unknown module, JSBSim init,
  * rejected `set` line); on success the caller owns the actor and everything in it. */
-inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const char *aircraftPath, const FBMission &mission,
+inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const FBModelRoots &models, const FBMission &mission,
                                                       size_t unitIdx, double groundAsl, double timeoutS,
                                                       std::string *err) {
   auto fail = [err](std::string reason) -> std::unique_ptr<FBSimUnit> {
@@ -62,9 +63,10 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const char *aircraftPath, 
 
   const FBSpawn &sp = block.Spawn;
   FBFdmSpawn ic;
-  ic.ModelsRoot = aircraftPath;
-  ic.Aircraft = module->FdmModelName();   /* the MODULE names its JSBSim model; `module <name>` in the
-                                           * .fbm stays a pure registry key (FBModule::FdmModelName) */
+  /* The MODULE names its JSBSim model AND which root it lives under; `module <name>` in the .fbm stays
+   * a pure registry key (FBModule::FdmModelName/FdmModelVendored, app/FBModelRoots.h). */
+  ic.ModelsRoot = models.Of(module->FdmModelVendored());
+  ic.Aircraft = module->FdmModelName();
   ic.LatDeg = sp.LatDeg;
   ic.LonDeg = sp.LonDeg;
   ic.GroundElevM = groundAsl;
@@ -127,7 +129,7 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const char *aircraftPath, 
  *
  * `groundAsl` is the terrain under the release point (the carrier's own current sample — the store is
  * within metres of it). Returns nullptr with a reason in *err. */
-inline std::unique_ptr<FBSimUnit> FBMissionSpawnStore(const char *aircraftPath, const FBStoreRelease &rel,
+inline std::unique_ptr<FBSimUnit> FBMissionSpawnStore(const FBModelRoots &models, const FBStoreRelease &rel,
                                                       const fb_fdm_state &carrier, double groundAsl,
                                                       int unitId, const std::string &name,
                                                       FBUnitTeam team, std::string *err) {
@@ -153,7 +155,7 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnStore(const char *aircraftPath, 
 
   double coslat = std::cos(carrier.lat * kDeg2Rad);
   FBFdmSpawn ic;
-  ic.ModelsRoot = aircraftPath;
+  ic.ModelsRoot = models.Of(module->FdmModelVendored());
   ic.Aircraft = module->FdmModelName();
   ic.LatDeg = carrier.lat + offN / kMPerDeg;
   ic.LonDeg = carrier.lon + (coslat > 1e-6 ? offE / (kMPerDeg * coslat) : 0.0);
@@ -174,6 +176,9 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnStore(const char *aircraftPath, 
   if (!fdm) return fail(std::string("store spawn failed (jsbsim init or a bad model: ") + ic.Aircraft + ")");
   fdm->SetGroundElevM(groundAsl);
   module->AttachFdm(*fdm);
+  /* The launch programming, generically (FBModule::ProgramRelease): a bomb ignores it, a guided round
+   * takes its launcher's id and its target estimate from it. This file names no weapon type. */
+  module->ProgramRelease(rel);
 
   fb_fdm_state st{};
   st.lat = ic.LatDeg; st.lon = ic.LonDeg; st.elev = groundAsl + ic.HeightOffsetM;

@@ -30,6 +30,7 @@ public:
 
   void AttachFdm(FBFdm &fdm) override { Fdm_ = &fdm; }
   const char *FdmModelName() const override { return Spec_.FdmModel; }
+  bool FdmModelVendored() const override { return Spec_.Vendored; }
 
   /* The whole behaviour of a released store: fixed 100 Hz substeps of its own FDM, no command written
    * to any control channel. Same substep accumulator and spiral guard as every other module, so a

@@ -271,7 +271,10 @@ sim/src/
              Header `fdm/FBFdmBoot.h` nennen darf, ist er auch der einzige Produzent eines
              vollständigen Akteurs), FBTickPool.h/.cpp (die GYM-ONLY Lockstep-Worker, die die STEP-Phase
              des Ticks parallelisieren — nur von FBMissionRunner.cpp inkludiert, nicht in der Core-Lib,
-             nie im WASM-Build, s.o. "Etappe 4"), FBLogSinks/FBTelemetrySinks (die
+             nie im WASM-Build, s.o. "Etappe 4"), FBModelRoots.h (die ZWEI JSBSim-Modellwurzeln eines
+             Clients — das gepinnte read-only Submodul und FlightBox' eigene Assets, weil ein Modell, das
+             das Submodul nicht hat, dort auch nicht liegen darf; WELCHE ein Modul braucht, sagt das
+             Modul selbst, `FBModule::FdmModelVendored`), FBLogSinks/FBTelemetrySinks (die
              I/O-Sink-Implementierungen, inkl. FBBufferedLogSink = der Pro-Einheit-Logpuffer)
   core/      FBStore.h — der STORE-KATALOG als reine Daten (Kind/Schlüssel/JSBSim-Modell/Masse/
              Widerstandsfläche/Lebensdauer) plus `FBStoreRelease`: jede Zahl darin stammt aus dem
@@ -333,6 +336,11 @@ sim/src/
                `FBTelemetrySink` (z. B. `FBCsvTelemetrySink`, app/). FBAirDataSystem/FBPilot/
                FBFlightControl/FBAirframeControls implementieren `FBTelemetrySource` direkt;
                FBFdmTelemetrySource (fdm/, s.u.) trägt die rohe FDM-Pose bei.
+             FBWeaponUplink (die Lenkfunk-Werttypen: was ein Schütze einer von ihm gestarteten Waffe
+             sendet — eine SCHÄTZUNG seines eigenen Radars mit deren Alter, nie eine Wahrheit),
+             FBAtmosphere (ISA-Dichte/Staudruck, header-only — für die zwei Stellen, die über Luft
+             rechnen müssen, in der sie gerade nicht fliegen: die Startbereichs-Integration und der
+             Verstärkungsplan des Raketen-Autopiloten)
   math/      Value-Math (FBMat4 — Value-Types, Operatoren inline im Header)
   render/    FBRenderer (Orchestrator: Device/Swapchain/Targets, JEDE Begin/EndRenderPass-Grenze,
              die Encode-Reihenfolge — Pass-Topologie ist ein Vertrag, kein Stage-Split darf sie
@@ -570,8 +578,17 @@ sim/src/
                          symbology.md` kennt weder TD-Box noch Locked-Target-Symbol, also wird keine
                          erfunden. Trägt drei F-16-eigene HUD-Platzhalter (eigene
                          `.h/.cpp`, kein genereller Systemslot, da airframe-spezifisch): FBF16FireControl
-                         (der "B"-Range-Provider — Slant-Range aus Distanz + Höhendifferenz zur
-                         Steerpoint-Elevation, Pythagoras), FBF16Ufc (ALOW-Floor + gewählte
+                         (das FEUERLEITSYSTEM: der "B"-Range-Provider — Slant-Range aus Distanz +
+                         Höhendifferenz zur Steerpoint-Elevation, Pythagoras — PLUS der
+                         Luft-Luft-STARTBEREICH der gewählten Waffe, aus einer Vorwärtsintegration ihrer
+                         Leistungstabelle [core/FBStore.h's FBWeaponPerf, bewusst eine GRÖBERE Kopie
+                         dessen, was das Waffenmodell wirklich tut — ein Feuerleitrechner rechnet aus
+                         einer gespeicherten Tabelle, und der Fehler dieser Vorhersage ist eine echte
+                         Eigenschaft jedes Schusses, die die Abfangmission misst] gegen die aktuelle
+                         Radargeometrie: Raero/Rtr/Rmin + Zeit bis Suchereinschaltung und bis Einschlag,
+                         alles im FireControl-Block; dazu ein EIGENER systems/FBBfmTrack, der aus dem
+                         gelockten Kontakt die Zielschätzung baut, mit der der SMS eine Runde programmiert
+                         und die er danach als Lenkfunk aussendet), FBF16Ufc (ALOW-Floor + gewählte
                          Steerpoint-Nummer), FBF16Sms (der SMS: NUR die Pylon-Geometrie dieses Musters
                          — neun Stationen, verankert an den Referenzen, die das Modell selbst hergibt
                          [Tank-Butt-Line ±65 in für 4/6, halbe Spannweite 180 in für die Spitzen,
@@ -587,9 +604,32 @@ sim/src/
                          Anzeigen) und dessen Run() genau eines tut: das eigene FDM in 100-Hz-Substeps
                          integrieren, ohne je einen Steuerkanal zu schreiben. Damit ist die Flugbahn die
                          Aerodynamik des gepinnten Modells plus Schwerkraft und sonst nichts. EINE
-                         Klasse, N Registry-Namen: jeder Katalogeintrag aus core/FBStore.h registriert
-                         sie unter seinem eigenen Schlüssel (heute `mk82`), Modellname = der des Stores.
-                         Eine GELENKTE Waffe wäre ein anderes Modul, kein Flag auf diesem.
+                         Klasse, N Registry-Namen: jeder UNGELENKTE Katalogeintrag aus core/FBStore.h
+                         registriert sie unter seinem eigenen Schlüssel (heute `mk82`), Modellname = der
+                         des Stores. Eine GELENKTE Waffe ist ein anderes Modul (modules/missile, s.u.),
+                         kein Flag auf diesem — welche der beiden ein Eintrag ist, sagt sein `Guided`-Flag,
+                         gelesen an genau je einer Stelle in den beiden Registrierungsdateien.
+  modules/missile/       Das Gegenstück für einen LENKFLUGKÖRPER, heute die AIM-120 (`aim120`):
+                         FBMissileModule (`.h/.cpp`) + FBMissileModuleRegistration.cpp, plus die drei
+                         Slots, die eine Bombe nicht hat und die hier ECHTE Systeme sind:
+                         FBMissileSeeker (`.h/.cpp`, eine systems/FBRadarSystem — eigenes aktives Radar,
+                         ±10° geschwenktes Sichtfeld, ±45°-Gimbal nach dem Lock, aus bis die Lenkung es
+                         bei der Aktivierungsentfernung einschaltet; das EINZIGE hier, das die
+                         Unit-Registry sieht), FBMissileGuidance (`.h/.cpp`, eine systems/FBPilot-
+                         Ableitung — Proportionalnavigation N=4 mit Herleitung im Header, darunter zwei
+                         staudruck-geplante Querbeschleunigungs-Regelkreise auf Beschleunigungsmesser +
+                         Kreisel, Ausgabe = RUDERKOMMANDOS durch FBAutopilot(Manual)/FBFlightControl in
+                         FBFdm::SetControls; eigene Telemetriespalten `msl_*`, da der Bus pro Einheit
+                         aufgebaut wird und ein Jet-Trace sich dadurch um keine Spalte ändert) und
+                         FBMissileUplink (`.h/.cpp`, eine systems/FBDatalinkSystem — empfängt die
+                         Lenkfunk-Aussendung SEINES Schützen aus dessen units/FBUnit-Signatur und
+                         veröffentlicht sie als den einen Datalink-Track auf seinem eigenen Bus).
+                         Drei Phasen (INERTIAL/MIDCOURSE/TERMINAL), Übergang durch ERFASSUNG, nicht durch
+                         Timer; verliert der Schütze den Lock, fliegt die Runde auf ihrer letzten
+                         Information weiter. Ihr JSBSim-Modell ist FlightBox-EIGEN
+                         (`sim/assets/aircraft/aim120` — das gepinnte Submodul hat keine AMRAAM und ist
+                         read-only, Prinzip 1), erreicht über `FBModule::FdmModelVendored() == false`
+                         und app/FBModelRoots.h.
   modules/f16/displays/  FBF16Hud (`FBF16Hud.h/.cpp`): die F-16-eigene MIL-STD-1787-Symbologie — FPM,
                          konforme Pitch-Ladder, Heading-/CAS-/Alt-Tapes, Bank-Winkel-Skala, G-Last,
                          der ARM/Mach/Peak-G/NAV/Bullseye-Block, der R/AL/B/TTG/Dist>STPT-Block sowie

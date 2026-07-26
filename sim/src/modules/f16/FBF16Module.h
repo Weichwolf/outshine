@@ -109,6 +109,9 @@ public:
   void SetUnitIdentity(int unitId, FBUnitTeam team) override {
     Datalink_->SetIdentity(unitId, team);
     Fcr_->SetIdentity(unitId, team);
+    /* ...and the SMS, so a round it launches knows whose midcourse uplink to listen to
+     * (systems/FBStoresSystem::SetUnitId -> FBWeaponUplink::LauncherId). */
+    SmsSys->SetUnitId(unitId);
   }
 
   FBMasterMode GetMasterMode() const { return Mode; }

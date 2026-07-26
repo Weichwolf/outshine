@@ -111,6 +111,6 @@ int main(int argc, char **argv) {
    * mission's unit count. */
   FBLog::Info("gym", "step_threads", {{"requested", (int)threads}});
 
-  return FBRunMission(missionPath, timeout, outDir, "vendor/jsbsim/aircraft", *elevation, nullptr,
+  return FBRunMission(missionPath, timeout, outDir, FBNativeModelRoots(), *elevation, nullptr,
                       (size_t)threads);
 }

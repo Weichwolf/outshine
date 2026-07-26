@@ -94,12 +94,29 @@ struct FBCruiseBlock {
   float SteerTtgS = 0.0f;   /* time-to-go to the steerpoint at the current groundspeed */
 };
 
-/* ---- Fire control: the 'B' (baro/steerpoint-elevation) slant-range method.
- * WRITER: modules/f16/FBF16FireControl. */
+/* ---- Fire control: the 'B' (baro/steerpoint-elevation) slant-range method, PLUS the air-to-air launch
+ * zone for the selected weapon. WRITER: modules/f16/FBF16FireControl.
+ *
+ * The DLZ half is the block's second message in all but name (doc/f16/weapons.md §2.5's DLZ table:
+ * Raero, Rtr, the activation range and the two post-launch countdowns). It shares the head with the
+ * slant range because both are the same box's output and both go invalid together when the sources they
+ * fuse do; DlzValid says whether there is a SOLUTION on top of that — a fire control with no locked
+ * target publishes its block and reports no launch zone, which is a different fact from an unpublished
+ * block. Every field is metres/seconds (the bus is SI; only displays convert to nm). */
 struct FBFireControlBlock {
   FBBlockHeader H;
   float SteerSlantNm = 0.0f;
   char  RangeProvider = 'B';   /* range-provider letter shown next to the number */
+
+  bool  DlzValid = false;      /* a locked target AND a weapon selected that has a launch zone */
+  float TargetRangeM = 0.0f;   /* the locked target's slant range — what the limits below bracket */
+  float ClosureMs = 0.0f;      /* + = closing */
+  float RaeroM = 0.0f;         /* max kinematic range against a NON-manoeuvring target */
+  float RtrM = 0.0f;           /* turn-and-run: a hit even if the target reverses at launch */
+  float RminM = 0.0f;          /* closest range that still allows arm + terminal homing */
+  float TimeToActiveS = 0.0f;  /* predicted seconds from launch to the seeker going active */
+  float TimeToImpactS = 0.0f;  /* predicted total time of flight; < 0 = no intercept from here */
+  bool  InZone = false;        /* Rmin <= range <= Raero — what the SMS's launch interlock reads */
 };
 
 /* ---- UFC/DED entered values: what the pilot typed into the control head and the jet committed.

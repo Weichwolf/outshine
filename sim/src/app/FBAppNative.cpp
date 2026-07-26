@@ -279,9 +279,9 @@ int RunMission(const std::string &missionPath, double timeoutOverride, double re
   FlightBox::FBTilesElevation elevation(base.c_str());
   if (renderIntervalS > 0.0) {
     FBNativeMissionHook hook(base, outDir, renderIntervalS);
-    return FlightBox::FBRunMission(missionPath, timeoutOverride, outDir, "vendor/jsbsim/aircraft", elevation, &hook);
+    return FlightBox::FBRunMission(missionPath, timeoutOverride, outDir, FlightBox::FBNativeModelRoots(), elevation, &hook);
   }
-  return FlightBox::FBRunMission(missionPath, timeoutOverride, outDir, "vendor/jsbsim/aircraft", elevation, nullptr);
+  return FlightBox::FBRunMission(missionPath, timeoutOverride, outDir, FlightBox::FBNativeModelRoots(), elevation, nullptr);
 }
 
 }  // namespace

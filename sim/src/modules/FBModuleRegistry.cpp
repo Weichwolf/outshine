@@ -26,6 +26,7 @@ std::unique_ptr<FBModule> FBModuleRegistry::Create(const std::string &name) {
 void FBRegisterBuiltinModules() {
   FBRegisterF16Module();
   FBRegisterStoreModules();
+  FBRegisterMissileModules();
 }
 
 } // namespace FlightBox

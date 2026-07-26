@@ -310,10 +310,17 @@ Radarhöhenmesser ab — der Referenzlauf für Kommandostrom UND Gültigkeitszus
 
 **Eine abgefeuerte Waffe ist eine EINHEIT wie jede andere.** Kein Sonderpfad, keine eigene
 Ballistikformel: ein Store, der die Station verlässt, ist ein `units/FBSimUnit` mit eigener
-JSBSim-Instanz auf seinem eigenen gepinnten Modell (`vendor/jsbsim/aircraft/mk82`), eigenem
-`FBModule` (`modules/stores/FBStoreModule` — alle Systemslots Default/NoOp, denn eine Mk-82 hat weder
-Autopilot noch Pilot noch Anzeigen), eigener Telemetriedatei und denselben zwei Monitoren. Seine
-Flugbahn ist die Aerodynamik des Modells plus Schwerkraft, nichts sonst.
+JSBSim-Instanz auf seinem eigenen Modell, eigenem `FBModule`, eigener Telemetriedatei und denselben zwei
+Monitoren. Seine Flugbahn ist die Aerodynamik des Modells plus Schwerkraft (und, bei einem Lenkflugkörper,
+sein eigener Schub und seine eigenen Ruder), nichts sonst.
+
+Zwei Store-Klassen, ein Mechanismus — welche Klasse ein Katalogeintrag ist, sagt sein `Guided`-Flag
+(`core/FBStore.h`), und danach registriert sich sein Modul selbst:
+
+| Klasse | Modell | Modul | Verhalten im Flug |
+|---|---|---|---|
+| ungelenkt (`mk82`) | `vendor/jsbsim/aircraft/mk82` (gepinntes Submodul) | `modules/stores/FBStoreModule` (alle Slots Default/NoOp) | integrieren, sonst nichts |
+| gelenkt (`aim120`) | `sim/assets/aircraft/aim120` — FlightBox-EIGEN, weil das gepinnte Submodul keine AMRAAM hat und read-only ist (Prinzip 1) | `modules/missile/FBMissileModule` (Sucher + Lenkung + Uplink-Empfänger) | Sucher erfasst, Lenkgesetz kommandiert die simulierten Ruder |
 
 ### Zuladung deklarieren
 
@@ -329,8 +336,8 @@ unit lead
 ```
 
 `store <station> <typ>`: Station = die Pylonnummer DIESES Musters (F-16: 1..9, 1/9 Flügelspitze,
-5 Mittellinie — `modules/f16/FBF16Sms`), Typ = ein Katalogschlüssel (`core/FBStore.h`; heute nur
-`mk82`). Unbekannte Station, doppelt belegte Station oder unbekannter Typ = Laufzeit-FAIL beim Spawn,
+5 Mittellinie — `modules/f16/FBF16Sms`), Typ = ein Katalogschlüssel (`core/FBStore.h`; heute `mk82` und
+`aim120`). Unbekannte Station, doppelt belegte Station oder unbekannter Typ = Laufzeit-FAIL beim Spawn,
 kein stiller Leerflug.
 
 **Was die Zuladung mit dem Flugzeug macht** (`systems/FBStoresSystem`): jede belegte Station ist eine
@@ -389,11 +396,63 @@ Getrimmt wird nicht: eine Bombe hat kein Ruder.
   divergieren bei 150 m/s Einschlag innerhalb eines Schritts, es bliebe kein Aufschlagzustand zu melden.
   Eine Bombe federt nicht, sie detoniert; wo der Aufschlag ist, entscheidet weiterhin der Richter.
 
+### Der Lenkflugkörper (AIM-120)
+
+Ein gelenkter Store hat drei Dinge mehr als eine Bombe, und alle drei sind simulierte Systeme, keine
+Formeln:
+
+- **Sucher** (`modules/missile/FBMissileSeeker`, eine `systems/FBRadarSystem`): eigenes aktives Radar,
+  ±10° Sichtfeld, auf die aktuelle Zielschätzung geschwenkt, Reichweite und Aktivierungsentfernung aus
+  dem Katalog. Er ist AUS, bis die Lenkung ihn einschaltet, und erfasst wie jedes andere Radar (mehrere
+  Blicke bis „firm", danach Gimbal-Verfolgung ±45°). Kein IFF: eine Rakete kann nicht fragen, wer das ist.
+- **Lenkgesetz** (`modules/missile/FBMissileGuidance`, eine `systems/FBPilot`-Ableitung):
+  Proportionalnavigation `a = N · Vc · (Ω × r̂)` mit N = 4, Schwerkraftkompensation, darunter zwei
+  Querbeschleunigungs-Regelkreise (Beschleunigungsmesser + Kreisel, Verstärkung nach Staudruck
+  geplant) → **Ruderkommandos** über `FBAutopilot`(Manual) → `FBFlightControl` → `FBFdm::SetControls`.
+  Nichts setzt Position, Kurs oder Lage.
+- **Uplink-Empfänger** (`modules/missile/FBMissileUplink`, eine `systems/FBDatalinkSystem`): hört die
+  Lenkfunk-Aussendung SEINES Schützen ab (dessen `units/FBUnit`-Signatur, wie XMT und IFF eine
+  beobachtbare Emission) und veröffentlicht sie als den einen Datalink-Track auf seinem eigenen Bus.
+
+**Drei Lenkphasen** (`msl_phase`): `INERTIAL` (0) — die Startprogrammierung, konstant extrapoliert;
+`MIDCOURSE` (1) — der Schütze korrigiert über den Uplink, solange er seinen Lock hält; `TERMINAL` (2) —
+der eigene Sucher hat erfasst. Der Übergang ist ein EREIGNIS, kein Timer: der Sucher geht bei der
+Aktivierungsentfernung an, die Phase wechselt erst, wenn er wirklich erfasst — was nur gelingt, wenn die
+Midcourse-Lenkung ihn nah genug ausgerichtet hat. **Verliert der Schütze seinen Lock, stoppt der Uplink**,
+die Phase fällt auf `INERTIAL` zurück und die Rakete fliegt auf ihrer letzten Information weiter
+(`missions/intercept-lostlock.fbm` trifft damit noch, `missions/intercept-defeated.fbm` nicht mehr).
+
+**Startbereich (DLZ)**, gerechnet im Feuerleitsystem (`modules/f16/FBF16FireControl`) aus einer
+Vorwärtsintegration der Waffenleistungstabelle gegen die aktuelle Radargeometrie: `Raero` (maximale
+kinematische Reichweite), `Rtr` (Treffer auch wenn das Ziel beim Start abdreht), `Rmin`
+(`Verschlusszeit · Schärfzeit + Wendezuschlag`), plus die Zeitmarken bis Suchereinschaltung und bis
+Einschlag. Der SMS verweigert einen Start **ohne Lock**, **ohne Lösung** oder **außerhalb** des
+Bereichs — zusätzlich zu den Hardware-Sperren (Master Arm, Bodenkontakt).
+`missions/intercept-dlz.fbm` fährt alle drei Antworten in einem Lauf.
+
+**Treffer**: ein Store mit Annäherungszünder (`FuzeRadiusM`, AIM-120: 10 m) detoniert, wenn er eine
+Einheit näher passiert als dieser Radius. Gemessen wird die **dichteste Annäherung innerhalb des Ticks**
+(Segment-CPA zwischen zwei Posen — bei 1.500 m/s Annäherung liegen zwei 10-Hz-Proben 150 m auseinander,
+ein reiner Abstandstest würde jeden echten Treffer verpassen), auf der WAHRHEIT (veröffentlichte Posen),
+nicht auf der Schätzung der Rakete. Vor Ablauf der Schärfzeit zündet nichts — deshalb detoniert eine
+Rakete nicht am eigenen Träger. Was ein Treffer BEWIRKT, ist noch nicht modelliert: es gibt ein Ereignis
+mit Abstand, Annäherungsgeschwindigkeit und Geometrie, kein Schadensmodell.
+
 ### Beobachtbar
 
 - `events.log`: `sms RELEASE` (Station, Typ, Massenbilanz), `sms RELEASE_REJECTED` (Grund + Detail),
   `stores SEPARATION` (die vollständige Startbedingung), `stores IMPACT` (`mode=ground|lost`, Position,
   Bodenhöhe, Flugzeit, Geschwindigkeit, **Aufschlagwinkel**, Lage), `stores EXPIRED`.
+- Für gelenkte Runden zusätzlich: `sms LAUNCH_SOLUTION` (der komplette Startbereich im Moment des
+  Starts), `sms LAUNCH_OUT_OF_ZONE`, `missile PROGRAMMED` (die Startprogrammierung), `missile PHASE`
+  (jeder Phasenwechsel mit Grund, Flugzeit, Entfernung), `missile SEEKER_ACTIVE`, `stores DETONATION`
+  (Ziel, **Fehlabstand**, Annäherungsgeschwindigkeit, Flugzeit, Aspekt) und `stores MISS`/`EXPIRED`
+  (`closestM` = dichteste Annäherung an eine ANDERE Einheit als den Schützen).
+- Die Telemetriedatei einer gelenkten Runde hat EIGENE Spalten (der Bus wird pro Einheit aufgebaut, ein
+  Jet-Trace ändert sich dadurch um keine Spalte): `msl_phase`, `msl_range`, `msl_closure`,
+  `msl_losrate` (was die Proportionalnavigation gegen null treibt), `msl_los_az`/`msl_los_el`,
+  `msl_nz_cmd`/`msl_ny_cmd`, `msl_fin_pitch`/`msl_fin_yaw`, `msl_seeker` (0 aus / 1 aktiv / 2 erfasst),
+  `msl_tgt_age` (Alter der letzten echten Messung — die Zahl, die den Lock-Verlust sichtbar macht).
 - `telemetry.csv`, sechs am Ende angehängte Spalten (bestehende verschieben sich nie): `sms_arm`,
   `sms_station` (gewählte Station, −1 = keine), `sms_loaded`, `sms_lbs` (getragene Storemasse),
   `sms_released`, `sms_gw_lbs` (Startmasse des Flugzeugs — der Massensprung beim Abwurf steht damit in

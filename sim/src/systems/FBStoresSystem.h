@@ -57,6 +57,25 @@ public:
 
   void SetMasterArm(FBArmState s) { Arm_ = s; }
   FBArmState MasterArm() const { return Arm_; }
+
+  /* ---- guided rounds ----
+   * WHAT THE FIRE CONTROL HANDS THE SMS, once per tick: its current estimate of the target it has
+   * solved for (core/FBWeaponUplink.h). The SMS neither computes nor second-guesses it — it copies it
+   * onto a round at launch (the launch programming) and radiates it as the midcourse uplink afterwards.
+   * Which BOX produced it is the module's business (the F-16's is modules/f16/FBF16FireControl), which
+   * is why it arrives as data instead of this generic slot reaching for a concrete system. */
+  void SetTargetState(const FBWeaponTargetState &t) { Target_ = t; }
+  /* Who this aircraft is, so a launched round knows whose uplink to listen to (FBModule::SetUnitIdentity
+   * -> the module wires it, exactly like the radar's and the terminal's identity). */
+  void SetUnitId(int id) { SelfId_ = id; }
+
+  /* What this aircraft is RADIATING to a round it launched (units/FBUnit's FBUnitSignature). Active
+   * only while a lock-requiring store has actually been launched AND the fire control still has a
+   * target: the moment the lock is lost the uplink stops, which is the whole tactical point of the
+   * midcourse phase. It does NOT stop when the round's flight ends — nothing tells the launcher that,
+   * and nothing tells the real one either; the transmitter goes quiet when the pilot stops supporting
+   * the shot, which here means when the track is gone. */
+  const FBWeaponUplink &Uplink() const { return Uplink_; }
   bool SelectStation(int station);   /* false: unknown or empty station */
   int  SelectedStation() const { return Selected_; }
 
@@ -96,6 +115,18 @@ private:
   int Selected_ = -1;
   bool Wow_ = true;                    /* until air data says otherwise, assume on the ground */
   FBFdm *Fdm_ = nullptr;               /* borrowed, never owned (AttachFdm) */
+
+  /* The guided-round state (see SetTargetState/Uplink above). LaunchZone_ is the last fire-control
+   * solution the bus carried, cached in Run() so Release() — which is reached from the command bus, not
+   * from a tick — can refuse a shot outside it without reaching for the bus itself. */
+  int SelfId_ = 0;
+  FBWeaponTargetState Target_{};
+  FBWeaponUplink Uplink_{};
+  bool   HaveZone_ = false, InZone_ = false;
+  double ZoneRangeM_ = 0.0, ZoneMinM_ = 0.0, ZoneMaxM_ = 0.0, ZoneRtrM_ = 0.0;
+  double ZoneTtaS_ = -1.0, ZoneTtiS_ = -1.0;
+  bool   RadarLocked_ = false;
+  int    GuidedInFlight_ = 0;          /* lock-requiring rounds this jet has launched this sortie */
 
   FBStoreRelease Pending_[kMaxPendingReleases]{};
   int PendingCount_ = 0;

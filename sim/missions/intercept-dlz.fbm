@@ -1,0 +1,48 @@
+name intercept-dlz-1
+timeout 280
+
+# THE LAUNCH ZONE, BOTH SIDES OF IT. The same head-on geometry as intercept-aim120.fbm, with the pickle
+# briefed THREE times so one command is answered each way and the answers are in events.log:
+#
+#   t = 20 s   ~40 km, well inside Raero and far outside Rmin  -> ACCEPTED. The "LAUNCH_SOLUTION" line
+#              carries the whole zone the fire control computed at that instant (range, Rmin, Raero, Rtr
+#              and the two countdowns), so the shot can be read against the geometry it was taken in.
+#   t = 118 s  the two jets are a few hundred metres apart at the merge, i.e. INSIDE Rmin: the round
+#              could not separate, light, arm
+#              and still turn onto a target that close, so the SMS refuses with "target inside Rmin"
+#              ("LAUNCH_OUT_OF_ZONE" + "RELEASE_REJECTED out_of_context"). This is the interlock that
+#              only exists for a guided weapon — the master-arm and weight-on-wheels ones are hardware
+#              and are proved by mk82-safe.fbm.
+#   t = 130 s  the merge is past and the bandit is BEHIND the viper, so the radar has no lock at all and
+#              the refusal is the earlier one in the chain: "no fire-control lock". A guided round is not
+#              a bomb; without a solution there is nothing to shoot at.
+#
+# Rmin is closure-dependent (closure * arming time + a turn allowance), so the middle refusal is not a
+# fixed number in a mission file: it is whatever the geometry made it at that second, and the events.log
+# line prints all three figures side by side.
+
+unit viper
+  team friendly
+  module f16
+  spawn 46.90000 6.60000 8000 90.0 400
+  set gear up
+  set fuel_pct 60
+  set fcr_mode acm_hud
+  set fcr_range_nm 40
+  set store 3 aim120
+  set store 4 aim120                       # three rounds, so a refusal is about the ZONE and never
+  set store 7 aim120                       # about an empty jet
+  set brief_master_arm arm
+  set brief_release_s 20                   # ~42 km: inside the zone -> accepted
+  set brief_release_s 118                  # ~0.5 km at the merge: inside Rmin -> refused
+  set brief_release_s 130                  # past the merge, target behind: no lock -> refused
+  wp 46.90000 7.15000 8000 400
+
+unit bandit
+  team hostile
+  module f16
+  spawn 46.90000 7.30000 8000 270.0 400
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  wp 46.90000 6.75000 8000 400

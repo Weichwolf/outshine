@@ -24,9 +24,11 @@ public:
 
 /* One entry point per module FAMILY, each defined in that family's OWN directory — the only files
  * allowed to name a concrete module type (modules/f16/FBF16ModuleRegistration.cpp,
- * modules/stores/FBStoreModuleRegistration.cpp). */
+ * modules/stores/FBStoreModuleRegistration.cpp, modules/missile/FBMissileModuleRegistration.cpp — the
+ * catalogue's Guided flag decides which of the last two claims an entry, read in one place each). */
 void FBRegisterF16Module();
 void FBRegisterStoreModules();
+void FBRegisterMissileModules();
 
 /* Registers every module this link target was built with: the flyable aircraft AND the released
  * stores, which are modules in exactly the same sense (they are their own FDM + FBModule, spawned

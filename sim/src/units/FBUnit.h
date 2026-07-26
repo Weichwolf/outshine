@@ -9,6 +9,7 @@
 
 #include <string>
 #include "FBTeam.h"
+#include "FBWeaponUplink.h"
 
 namespace FlightBox {
 
@@ -35,6 +36,12 @@ struct FBUnitPose {
  * sense once the matching sensor exists (radar illumination, jammer, IFF replies) join here. */
 struct FBUnitSignature {
   bool DatalinkXmt = false;   /* MIDS terminal powered AND transmitting (XMT ON) */
+  /* The midcourse guidance uplink this unit is radiating to a weapon it launched (core/FBWeaponUplink.h,
+   * doc/f16/weapons.md §2.5's datalink->active handover). Published here for the same reason the two
+   * switches below are: a guidance transmission is an emission, so the missile receives it through its
+   * own comms slot instead of being handed its shooter's private state. Inactive on any unit that is
+   * not supporting a shot, which is every unit most of the time. */
+  FBWeaponUplink Uplink;
   /* IFF transponder answering (AN/APX-113, doc/f16/datalink-iff.md). Published for the same reason
    * DatalinkXmt is: a reply is a RADIATED signal, so whether this aircraft answers a Mode-4 challenge is
    * observable by another unit's interrogator (systems/FBRadarSystem) and not private to its module. */

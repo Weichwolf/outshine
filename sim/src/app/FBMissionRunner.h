@@ -20,6 +20,7 @@
 #define FBMISSIONRUNNER_H
 #include <string>
 #include "FBElevationProvider.h"
+#include "FBModelRoots.h"
 #include "FBSpawn.h"
 #include "FBSimUnit.h"
 #include "FBUnitRegistry.h"
@@ -62,8 +63,8 @@ public:
 /* mkdir -p `dir` (creates every missing path component). Shared by every app main() that takes --out. */
 bool FBEnsureDir(const std::string &dir);
 
-/* Ground-spawns `missionPath`'s module (elevation from `elevation`, aircraft data at `aircraftPath` —
- * native: "vendor/jsbsim/aircraft") and steps it headless at 10 Hz until SUCCESS/CRASH/TIMEOUT/FAIL,
+/* Ground-spawns `missionPath`'s module (elevation from `elevation`, JSBSim models from the client's two
+ * roots `models` — app/FBModelRoots.h) and steps it headless at 10 Hz until SUCCESS/CRASH/TIMEOUT/FAIL,
  * writing outDir/telemetry.csv + outDir/events.log (installs its own FBLog sink: file + stdout).
  * `timeoutOverride` > 0 overrides the mission file's own timeout. `hook` (optional) is polled once at
  * spawn and once per tick — see FBMissionTickHook above. Returns 0/1/2/3 = Success/Fail/Crash/Timeout.
@@ -74,7 +75,7 @@ bool FBEnsureDir(const std::string &dir);
  * cross-actor reach stays sequential and log output is replayed in actor order at the barrier. It is
  * clamped to the mission's actor count (more threads than actors is idle threads, not speed). */
 int FBRunMission(const std::string &missionPath, double timeoutOverride, const std::string &outDir,
-                 const std::string &aircraftPath, FBElevationProvider &elevation,
+                 const FBModelRoots &models, FBElevationProvider &elevation,
                  FBMissionTickHook *hook = nullptr, size_t threads = 1);
 
 } // namespace FlightBox

@@ -100,7 +100,13 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, 
     if (const FBWaypoint *swp = Plan_.ActiveWaypoint())
       NavSys->SetSteerpoint(swp->LatDeg, swp->LonDeg, GroundAslM * kMToFt);
     NavSys->Run(SharedState, st, dt);
-    FireCtrl->Run(SharedState, dt);
+    /* The fire control gets the SELECTED station's round: the launch zone it computes is for the weapon
+     * that would actually leave the jet if the pilot pickled now (modules/f16/FBF16FireControl). */
+    FireCtrl->Run(SharedState, st, FBStoreSpecOf(SmsSys->StoreAt(SmsSys->SelectedStation())), SimTimeS,
+                  dt);
+    /* ...and hands the SMS its target estimate, which the SMS copies onto a launched round and then
+     * radiates as that round's midcourse uplink (systems/FBStoresSystem::SetTargetState). */
+    SmsSys->SetTargetState(FireCtrl->TargetState());
     UfcSys->Run(SharedState, dt);
     SmsSys->Run(SharedState, dt);
     /* LAST in the group: the warning set is a pure consumer of everything published above it, including

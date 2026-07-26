@@ -162,9 +162,19 @@ bool FBFdm::LoadUnguarded(const FBFdmSpawn &spawn) {
   P->ThrottleApplied = 0.0;
   /* Start ALL engines running before trim: without a running engine there is no thrust during FGTrim,
    * so a powered airframe reports "udot not trimmable", the IC is no equilibrium, and the untrimmed
-   * airframe departs violently on the first advance. */
-  { auto pr = ex.GetPropulsion();
-    for (unsigned i = 0; i < pr->GetNumEngines(); i++) pr->InitRunning(i); }
+   * airframe departs violently on the first advance.
+   *
+   * NOT for a released store (Ballistic). Nothing leaves a pylon with its motor already burning: a
+   * store separates first and lights (if it lights at all) when its own module commands it. The
+   * distinction is not cosmetic — FGPropulsion::InitRunning slams the throttle to 1 and then time-
+   * marches the engine to a steady state, which for a SOLID rocket (FGRocket: ignition is throttle ==
+   * 1, and once lit it burns to depletion regardless) means the motor would already be lit at the
+   * initial condition and no command could hold it. An unpowered store has no engines, so this is
+   * bit-identical for every store that ever flew before the first missile. */
+  if (!spawn.Ballistic) {
+    auto pr = ex.GetPropulsion();
+    for (unsigned i = 0; i < pr->GetNumEngines(); i++) pr->InitRunning(i);
+  }
   if (spawn.FbwOverride) ex.SetPropertyValue("fcs/fbw-override", 1.0);
   ex.Setdt(kStepS);
   /* A V=0 ground start (SpeedMs<=0, e.g. a runway spawn ahead of the takeoff roll) has no aerodynamic
