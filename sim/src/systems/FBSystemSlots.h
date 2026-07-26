@@ -17,7 +17,7 @@
 #include "FBDisplaySystem.h"
 #include "FBMasterMode.h"
 #include "FBState.h"
-#include "jsbsim_adapter.h"
+#include "FBFdm.h"
 
 namespace FlightBox {
 

@@ -54,6 +54,11 @@ class FBF16Module : public FBModule {
 public:
   FBF16Module();
 
+  /* Borrows the airframe and swaps the NoOp airframe-controls default for the real, FDM-bound one —
+   * see FBModule::AttachFdm. Until it is called the module has no airframe and Run() has nothing to
+   * fly. */
+  void AttachFdm(FBFdm &fdm) override;
+
   void Run(fb_fdm_state &st, double dt, const FBWorld *world = nullptr) override;
 
   /* The HUD's telemetry chain writes HERE (SharedState), not into the App's own FBState — the App must
@@ -122,7 +127,8 @@ private:
 
   /* The pilot + what it commands beyond the FDM (see the rate table + FlightPlan()/SetRunway()). */
   std::unique_ptr<FBF16Pilot> PilotSys;
-  std::unique_ptr<FBAirframeControls> AirframeCtrl;
+  std::unique_ptr<FBAirframeControls> AirframeCtrl;   /* NoOp until AttachFdm, FBJsbsimAirframeControls after */
+  FBFdm *Fdm_ = nullptr;                              /* borrowed, never owned (AttachFdm) */
   FBFlightPlan Plan_;
   FBRunway Rwy_;
   bool HaveRunway_ = false;

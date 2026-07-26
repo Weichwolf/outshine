@@ -22,7 +22,12 @@ FBF16Module::FBF16Module()
       UfcSys(std::make_unique<FBF16Ufc>()),
       SmsSys(std::make_unique<FBF16Sms>()),
       PilotSys(std::make_unique<FBF16Pilot>()),
-      AirframeCtrl(std::make_unique<FBJsbsimAirframeControls>()) {}
+      AirframeCtrl(std::make_unique<FBAirframeControls>()) {}   /* NoOp until an airframe is attached */
+
+void FBF16Module::AttachFdm(FBFdm &fdm) {
+  Fdm_ = &fdm;
+  AirframeCtrl = std::make_unique<FBJsbsimAirframeControls>(fdm);
+}
 
 bool FBF16Module::Due(double &accS, double dt, double hz) {
   accS += dt;
@@ -37,6 +42,8 @@ bool FBF16Module::Due(double &accS, double dt, double hz) {
  * lockstep. AP->Run() / FC->Run() are the only virtual dispatch INSIDE that inner loop (one call
  * each per substep); every other slot below is throttled OUTSIDE it, at most once per Run(). */
 void FBF16Module::Run(fb_fdm_state &st, double dt, const FBWorld *world) {
+  if (!Fdm_) return;               /* no airframe attached (FBModule::AttachFdm) — nothing to fly */
+  FBFdm &fdm = *Fdm_;
   Input->Run(Mode, dt);            /* HOTAS/ICP: once per Run() call, the coarsest sim tick */
   Propulsion->Run(st, dt);         /* engine-system logic above the raw FDM: same cadence */
 
@@ -64,18 +71,19 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBWorld *world) {
    * sees whether the mission itself concluded from that same capture — that verdict is a separate,
    * independent judgement the caller owns (core/, not this file). */
   if (Due(PilotAccS, dt, 10.0)) {
-    ApplyPilotCommands(PilotSys->Run(SharedState, st, Plan_, HaveRunway_ ? &Rwy_ : nullptr, world, dt));
+    ApplyPilotCommands(PilotSys->Run(SharedState, *AirframeCtrl, st, Plan_, HaveRunway_ ? &Rwy_ : nullptr,
+                                     world, dt));
     NavSys->AdvanceWaypoint(Plan_, st.lat, st.lon);
   }
 
   AccS += dt;
   LastSub = 0;
-  for (int k = 0; AccS >= 0.01 && k < 12; k++) {
+  for (int k = 0; AccS >= FBFdm::kStepS && k < 12; k++) {
     LastG = AP->Run(st);
     FBControls c = FC->Run(LastG, st);
-    fb_jsbsim_set_controls(c.Roll, c.Pitch, c.Yaw, c.Thr);
-    fb_jsbsim_step(&st);
-    AccS -= 0.01;
+    fdm.SetControls(c.Roll, c.Pitch, c.Yaw, c.Thr);
+    fdm.Step(st);
+    AccS -= FBFdm::kStepS;
     LastSub++;
   }
 }
@@ -119,6 +127,7 @@ double ParseDouble(const std::string &s) {
 } // namespace
 
 bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
+  if (!Fdm_) return false;   /* setup lines describe the airframe's state — none to apply without one */
   if (key == "gear") {
     if (value != "up" && value != "down") return false;
     AirframeCtrl->SetGear(value == "down");
@@ -127,13 +136,13 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
   if (key == "fuel_lbs") {
     double lbs = ParseDouble(value);
     if (lbs < 0.0) lbs = 0.0;
-    fb_jsbsim_set_fuel_total_lbs(lbs);
+    Fdm_->SetFuelTotalLbs(lbs);
     return true;
   }
   if (key == "fuel_pct") {
     double pct = ParseDouble(value);
     if (pct < 0.0) pct = 0.0; else if (pct > 100.0) pct = 100.0;
-    fb_jsbsim_set_fuel_pct(pct);
+    Fdm_->SetFuelPct(pct);
     return true;
   }
   return false;

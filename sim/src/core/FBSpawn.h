@@ -1,7 +1,7 @@
 /* FlightBox — FBSpawn: a unit's declarative initial condition (doc/mission-format.md's `spawn` line) —
  * position, heading, speed, and whether altitude resolves from the ground (gear-down sit) or is a
  * literal ASL value. Pure data, no modes/phases (core/ architecture banner): the Runner/Boot turns this
- * into exactly ONE JSBSim IC application (fb_jsbsim_init already applies position+attitude+velocity
+ * into exactly ONE JSBSim IC application (FBFdmBoot::Spawn already applies position+attitude+velocity
  * together — see FBMissionBoot.h's FBMissionApplySpawn) plus the module's own starting FBPilot phase.
  * There is no separate ground/air code path here beyond this one bool. */
 #ifndef FBSPAWN_H

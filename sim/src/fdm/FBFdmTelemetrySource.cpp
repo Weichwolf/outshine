@@ -19,17 +19,17 @@ void FBFdmTelemetrySource::DeclareTelemetry(FBTelemetrySchema &schema) const {
 }
 
 void FBFdmTelemetrySource::SampleTelemetry(FBTelemetryRow &row) const {
-  row.Push(Fdm.lat);
-  row.Push(Fdm.lon);
-  row.Push(Fdm.elev);
-  row.Push(Fdm.elev - GroundAslM);
-  row.Push(Fdm.vy);
-  row.Push(Fdm.pitch);
-  row.Push(Fdm.roll);
-  row.Push(Fdm.yaw);
-  row.Push(fb_jsbsim_get_fuel_total_lbs());
-  double weightLbs = fb_jsbsim_get_weight_lbs();
-  row.Push(weightLbs > 0.0 ? fb_jsbsim_get_max_gear_force_lbs() / weightLbs : 0.0);
+  row.Push(St.lat);
+  row.Push(St.lon);
+  row.Push(St.elev);
+  row.Push(St.elev - GroundAslM);
+  row.Push(St.vy);
+  row.Push(St.pitch);
+  row.Push(St.roll);
+  row.Push(St.yaw);
+  row.Push(Fdm.GetFuelTotalLbs());
+  double weightLbs = Fdm.GetWeightLbs();
+  row.Push(weightLbs > 0.0 ? Fdm.GetMaxGearForceLbs() / weightLbs : 0.0);
 }
 
 } // namespace FlightBox

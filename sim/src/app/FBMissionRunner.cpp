@@ -116,6 +116,12 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
       {"ground", sp.Ground}, {"altM", sp.Ground ? groundAsl : sp.AltM}, {"groundAsl", groundAsl},
       {"hdg", sp.HeadingDeg}, {"speedKt", sp.SpeedKt}});
 
+  /* The Runner OWNS the airframe (it owns the run); the module and its systems only BORROW it — see
+   * FBModule::AttachFdm. Declared before the module so it outlives it (a module holds a borrowed
+   * FBFdm*, never an owning one). A future multi-unit mission owns one of these per unit — which is
+   * exactly why the FDM is an object here and not a process-wide singleton. */
+  std::unique_ptr<FBFdm> FdmPtr;
+
   FBRegisterBuiltinModules();
   std::unique_ptr<FBModule> ModulePtr = FBModuleRegistry::Create(mission.ModuleName);
   if (!ModulePtr) {
@@ -126,7 +132,8 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   FBModule &Module = *ModulePtr;
 
   fb_fdm_state St{};
-  if (!FBMissionApplySpawn(aircraftPath.c_str(), mission, groundAsl, Module, St)) {
+  FdmPtr = FBMissionApplySpawn(aircraftPath.c_str(), mission, groundAsl, Module, St);
+  if (!FdmPtr) {
     FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "spawn failed (jsbsim init or an unknown 'set' key)"}});
     fclose(evf);
     return 1;
@@ -141,7 +148,9 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     return 1;
   }
 
-  FBFdmTelemetrySource fdmSrc(St, groundAsl);
+  FBFdm &Fdm = *FdmPtr;
+
+  FBFdmTelemetrySource fdmSrc(Fdm, St, groundAsl);
   FBCsvTelemetrySink csvSink(csv);
   FBTelemetryBus bus;
   bus.Register(&fdmSrc);
@@ -170,7 +179,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     double gnd = elevation.GroundElevM(St.lat, St.lon);
     if (gnd > -1e8) groundAsl = gnd;
     Module.SetGroundAsl((float)groundAsl);
-    fb_jsbsim_set_ground(groundAsl);
+    Fdm.SetGroundElevM(groundAsl);
 
     Module.Run(St, dt, nullptr);
     simT += dt;
@@ -194,9 +203,9 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
       warnedSink = true;
     } else if (St.vy > -5.0) warnedSink = false;
 
-    if (flightMonitor.Tick(FBBuildFlightMonitorSample(St, groundAsl), simT))
+    if (flightMonitor.Tick(FBBuildFlightMonitorSample(Fdm, St, groundAsl), simT))
       Module.Controls().EngineCutoff();   /* Crash/LOC -> Motor aus, JSBSim's own ground reactions do the rest — no freeze */
-    else if (missionMonitor.Tick({St.lat, St.lon, fb_jsbsim_get_wow(-1) != 0, St.gs * kMsToKt}, simT) &&
+    else if (missionMonitor.Tick({St.lat, St.lon, Fdm.GetWow(), St.gs * kMsToKt}, simT) &&
             missionMonitor.Verdict() == FBMissionVerdict::Fail)
       Module.Controls().EngineCutoff();   /* touched down off the assigned runway */
 

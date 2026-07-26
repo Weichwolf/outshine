@@ -12,7 +12,7 @@
 #ifndef FBAUTOPILOT_H
 #define FBAUTOPILOT_H
 
-#include "jsbsim_adapter.h"
+#include "FBFdm.h"
 #include "FBMode.h"
 
 namespace FlightBox {

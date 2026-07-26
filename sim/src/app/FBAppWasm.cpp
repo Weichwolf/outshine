@@ -20,7 +20,7 @@
 #include "FBOwnshipUnit.h"
 #include "FBLog.h"
 #include "FBLogSinks.h"
-#include "jsbsim_adapter.h"
+#include "FBFdm.h"
 #include <cstdint>
 
 using namespace FlightBox;
@@ -53,6 +53,10 @@ static FBWorld W;
  * type — the mechanism a future Ka-52/F-18 module plugs into, not a shortcut around it). gF16 is the
  * concrete handle the boot/config code below needs for F-16-specific setup (Autopilot/FlightControl
  * gains, mission spawn) that isn't part of the generic FBModule contract. */
+/* The App OWNS the airframe (fdm/FBFdm.h): one instance, spawned in main() through the one IC entry
+ * (fdm/FBFdmBoot.h) and attached to the module, which only BORROWS it. Declared before the module so it
+ * outlives it. `St` stays the App-owned POD the module fills and the camera/HUD/monitors read. */
+static std::unique_ptr<FBFdm> gFdm;
 static std::unique_ptr<FBF16Module> gF16 = std::make_unique<FBF16Module>();
 static FBModule *gActiveModule = gF16.get();
 static fb_fdm_state St;
@@ -191,7 +195,7 @@ static void frame(void) {
    * under the aircraft BEFORE stepping, so gear/contact/crash collide against real terrain (~430 m at
    * Grenchen), not init-ASL 0. Only push REAL /elev samples; a cold reply leaves the last good value. */
   double ground = fb_stream_ground(St.lat, St.lon);
-  if (ground > -1e8) fb_jsbsim_set_ground(ground);
+  if (ground > -1e8) gFdm->SetGroundElevM(ground);
   /* Until the first /elev lands, fall back to the config ground so AGL/radar-alt show a plausible
    * number rather than raw ASL — the SAME fallback SetAgl already used, now shared with
    * FBRadarAltimeter (FBF16Module::SetGroundAsl) so both read one value, not two DEM paths. */
@@ -217,10 +221,10 @@ static void frame(void) {
    * touchdown off the assigned runway also cuts the engine). Neither stops or special-cases the render
    * loop below — "Konsolen-RESULT genügt" in the browser, there is no process exit here. */
   gSimT += dt;
-  if (gMonitor.Tick(FBBuildFlightMonitorSample(St, gForHud), gSimT))
+  if (gMonitor.Tick(FBBuildFlightMonitorSample(*gFdm, St, gForHud), gSimT))
     gF16->Controls().EngineCutoff();
   else if (gMissionMonitor &&
-          gMissionMonitor->Tick({St.lat, St.lon, fb_jsbsim_get_wow(-1) != 0, St.gs * kMsToKt}, gSimT) &&
+          gMissionMonitor->Tick({St.lat, St.lon, gFdm->GetWow(), St.gs * kMsToKt}, gSimT) &&
           gMissionMonitor->Verdict() == FBMissionVerdict::Fail)
     gF16->Controls().EngineCutoff();
 
@@ -258,7 +262,7 @@ static void frame(void) {
     if (accLog >= 1.0) { accLog = 0.0;
       double agl = St.elev - gForHud;
       FBLog::Info("flight", "agl", {{"alt", St.elev}, {"agl", agl}, {"ground", gForHud},
-          {"fdmGnd", fb_jsbsim_get_ground()}, {"spd", St.speed}, {"cas", St.cas}, {"bank", St.roll},
+          {"fdmGnd", gFdm->GetGroundElevM()}, {"spd", St.speed}, {"cas", St.cas}, {"bank", St.roll},
           {"hdg", St.yaw}, {"vs", St.vy}, {"ringDist", g.RingDistM},
           {"mode", ModeLabel(g.Mode)}});
       FBLog::Info("flight", "home", {{"dist", (double)hs.home_dist}, {"brg", (double)hs.home_bearing},
@@ -340,10 +344,17 @@ int main() {
   if (manualMode) {
     double altAsl = Ground + kAglM;
     double slat = olat + kRadiusM / kMPerDeg, slon = olon;   /* 8 km due N, heading E */
-    if (fb_jsbsim_init("/jsbsim/aircraft", "f16", slat, slon, altAsl, 0.0, kSpeedMs, 90.0, 0) != 0) {
+    FBFdmSpawn ic;
+    ic.ModelsRoot = "/jsbsim/aircraft"; ic.Aircraft = "f16";
+    ic.LatDeg = slat; ic.LonDeg = slon; ic.GroundElevM = altAsl;
+    ic.HeightOffsetM = 0.0;   /* airborne, no explicit offset — the IC's own provisional margin applies */
+    ic.SpeedMs = kSpeedMs; ic.HeadingDeg = 90.0;
+    gFdm = FBFdmBoot::Spawn(ic);
+    if (!gFdm) {
       FBLog::Error("gpu", "jsbsim_init_failed");
       return 1;
     }
+    gF16->AttachFdm(*gFdm);
     gF16->Autopilot().SetManual(0.0, 0.0, 0.0, 0.85);
     FBLog::Info("gpu", "manual_boot", {{"lat", olat}, {"lon", olon}, {"altM", altAsl}, {"speedMs", kSpeedMs}});
   } else {
@@ -367,7 +378,8 @@ int main() {
       if (g > -1e8) { groundAsl = g; break; }
       emscripten_sleep(50);
     }
-    if (!FBMissionApplySpawn("/jsbsim/aircraft", mission, groundAsl, *gF16, St)) {
+    gFdm = FBMissionApplySpawn("/jsbsim/aircraft", mission, groundAsl, *gF16, St);
+    if (!gFdm) {
       FBLog::Error("gpu", "jsbsim_init_failed");
       return 1;
     }
@@ -376,7 +388,7 @@ int main() {
     FBLog::Info("gpu", "mission_boot", {{"name", mission.Name}, {"hdg", sp.HeadingDeg},
         {"lat", sp.LatDeg}, {"lon", sp.LonDeg}, {"groundM", groundAsl}, {"waypoints", mission.Plan.Size()}});
   }
-  fb_jsbsim_step(&St);   /* prime St before the first guidance step */
+  gFdm->Step(St);   /* prime St before the first guidance step */
 
   /* HUD nav placeholder: one steerpoint 8 nm bearing 060 from the config origin, bullseye AT the origin
    * — a concrete, moving relative bearing so the guide's "diamond in FOV" and "crossed-out" cases both

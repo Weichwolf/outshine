@@ -8,7 +8,7 @@
 #define FBOWNSHIPUNIT_H
 
 #include "FBUnit.h"
-#include "jsbsim_adapter.h"
+#include "FBFdm.h"
 
 namespace FlightBox {
 

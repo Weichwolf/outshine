@@ -24,7 +24,7 @@
 #include "FBPilot.h"
 #include "FBRunway.h"
 #include "FBState.h"
-#include "jsbsim_adapter.h"
+#include "FBFdm.h"
 
 namespace FlightBox {
 
@@ -33,6 +33,15 @@ class FBWorld;   /* borrowed only — sensors/weapons/defensive query it, the mo
 class FBModule {
 public:
   virtual ~FBModule() = default;
+
+  /* Binds the module to the airframe it flies — called ONCE by the owner (App/mission runner today,
+   * units/FBUnit later) right after the FDM is spawned and before the first Run(). The FDM is BORROWED
+   * and outlives the module; the module never owns or spawns one (it cannot: the IC lives behind
+   * fdm/FBFdmBoot.h, which no module includes). Modules are produced by FBModuleRegistry's name->factory
+   * with no arguments, so this is the module's equivalent of constructor injection: one wiring call,
+   * permanent for the module's life, and the point at which the module can hand a real `FBFdm&` to the
+   * systems whose association to an airframe IS fixed (FBJsbsimAirframeControls). */
+  virtual void AttachFdm(FBFdm &fdm) = 0;
 
   /* Advances the module's FDM at its own fixed substep rate for `dt` wall-seconds. `st` is the
    * shared live FDM state the caller (App) reads back for camera/HUD/telemetry. `world` is a borrowed

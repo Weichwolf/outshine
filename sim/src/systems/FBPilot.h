@@ -38,11 +38,12 @@
 #define FBPILOT_H
 
 #include <optional>
+#include "FBAirframeControls.h"
 #include "FBFlightPlan.h"
 #include "FBRunway.h"
 #include "FBState.h"
 #include "FBTelemetry.h"
-#include "jsbsim_adapter.h"
+#include "FBFdm.h"
 
 namespace FlightBox {
 
@@ -86,9 +87,17 @@ public:
   /* The one override point (see the class banner). `plan` is the mission's waypoint chain, `runway`
    * the assigned runway for takeoff/landing phases (nullptr while none is assigned). Caches
    * ActiveWpCache/DistToWpCache for SampleTelemetry — the mission-level waypoint bookkeeping this class
-   * already needs internally, not a duplicate computation kept only for telemetry. */
-  virtual FBPilotCommands Run(const FBState &state, const fb_fdm_state &fdm, const FBFlightPlan &plan,
-                             const FBRunway *runway, const FBWorld *world, double dt);
+   * already needs internally, not a duplicate computation kept only for telemetry.
+   *
+   * `airframe` is the jet the pilot is flying, borrowed CONST: instrument readings only (WOW, gear
+   * position, gross weight, engine running) through the SAME interface the pilot's commands come back
+   * out of. The pilot never touches an FDM — it neither knows nor can reach one, which is what keeps
+   * this generic layer both airframe-agnostic and instance-agnostic (multi-unit). A module composes its
+   * pilot long before any airframe exists, so the handle travels per tick with the rest of the sensed
+   * world (`st`, `plan`, `runway`, `world`) rather than being bound at construction. */
+  virtual FBPilotCommands Run(const FBState &state, const FBAirframeControls &airframe,
+                              const fb_fdm_state &st, const FBFlightPlan &plan, const FBRunway *runway,
+                              const FBWorld *world, double dt);
 
   const char *TelemetryName() const override { return "pilot"; }
   void DeclareTelemetry(FBTelemetrySchema &schema) const override;

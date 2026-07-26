@@ -41,7 +41,7 @@ namespace FlightBox {
  * and FBAppWasm.cpp both do this identically via FBBuildFlightMonitorSample, FBMissionBoot.h). Every
  * field here is a generic JSBSim/FDM quantity every model exposes, not an airframe-specific one.
  * GroundAslM is the SAME per-tick sample the caller already pulled from its injected
- * FBElevationProvider (the value it also feeds JSBSim's ground floor, fb_jsbsim_set_ground) — passed as
+ * FBElevationProvider (the value it also feeds JSBSim's ground floor, FBFdm::SetGroundElevM) — passed as
  * a plain double rather than the provider itself so the monitor stays a flat, dependency-free value
  * consumer. */
 struct FBFlightMonitorSample {
@@ -55,8 +55,8 @@ struct FBFlightMonitorSample {
                               * used ONLY to derive the flight-path angle below, never as an aero
                               * coefficient/AoA-limit surrogate */
   double GearPosNorm = 0.0;  /* 0=up..1=down, the model's own lagged gear position */
-  double GearForceLbs = 0.0; /* peak wheeled-gear strut compression force this tick (fb_jsbsim_get_max_gear_force_lbs) */
-  double WeightLbs = 0.0;    /* the model's own current static weight (fb_jsbsim_get_weight_lbs) */
+  double GearForceLbs = 0.0; /* peak wheeled-gear strut compression force this tick (FBFdm::GetMaxGearForceLbs) */
+  double WeightLbs = 0.0;    /* the model's own current static weight (FBFdm::GetWeightLbs) */
   bool   AnyWow = false;             /* any BOGEY (wheeled) contact compressed */
   bool   StructureContact = false;   /* any non-wheeled ground-reaction contact point compressed (a
                                       * declared STRUCTURE point — airframe geometry, e.g. wingtip/tail/

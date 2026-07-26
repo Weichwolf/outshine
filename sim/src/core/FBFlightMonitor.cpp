@@ -20,9 +20,9 @@ constexpr double kPenetrationMarginM = -3.0;
 constexpr double kGearDownThreshold = 0.5;
 
 /* Hard landing, from the model's OWN gear physics rather than a declared sink-rate number: JSBSim's
- * strut spring/damper reaction (fb_jsbsim_get_max_gear_force_lbs) IS the aircraft's real, physically
+ * strut spring/damper reaction (FBFdm::GetMaxGearForceLbs) IS the aircraft's real, physically
  * simulated touchdown load — comparing it against the model's own static weight
- * (fb_jsbsim_get_weight_lbs) needs exactly one core-owned, airframe-agnostic bound: a load factor no
+ * (FBFdm::GetWeightLbs) needs exactly one core-owned, airframe-agnostic bound: a load factor no
  * landing gear of this CLASS is designed past. Generic gear-design practice sizes a limit/hard landing
  * around a low-single-digit "g" reaction at the CG; concentrated on a SINGLE strut (this check takes the
  * peak, not a sum) a properly executed landing routinely spikes past 1x total weight on one main gear

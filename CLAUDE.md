@@ -30,7 +30,7 @@ ein gültiger Start**.
 ## Prinzipien (nicht verhandelbar)
 
 1. **Physik nicht neu schreiben.** JSBSim (LGPL, NASA/FlightGear-erprobt) ist die Wahrheit. Eigener
-   Code nur an den Nähten: der Adapter (`sim/src/fdm/jsbsim_adapter.*`, die EINE Übersetzungseinheit mit
+   Code nur an den Nähten: der FDM-Adapter (`sim/src/fdm/FBFdm.*`, die EINE Übersetzungseinheit mit
    JSBSim-Headern — Details `sim/src/fdm/`-Absatz unten), die Regelung, der Renderer. **JSBSim ist ein
    gepinntes, read-only Git-Submodul** (`sim/vendor/jsbsim`) — nie gepatcht;
    der Build baut libJSBSim aus dem Submodul, so ist die Physik bit-identisch zum gepinnten Commit
@@ -113,9 +113,13 @@ F-16 vs. MiG-29 im Gym; evolutionäre Piloten-Turniere über Telemetrie-Fitness)
 **Multi-Threading ist ein reines GYM-Feature** — Thread pro Unit mit EIGENER JSBSim-Instanz, Lockstep-
 Barrier pro Tick, Cross-Unit-Lesezugriffe (Sensoren/Waffen) nur auf den SNAPSHOT des letzten Ticks →
 bit-reproduzierbar (Prinzip 4). native/wasm bleiben Single-Thread im Sim-Loop (Echtzeit braucht keine
-Parallelphysik; der Browser erspart sich den pthreads/SharedArrayBuffer-Build). Voraussetzung: der
-fdm/-Adapter wird instanzfähig (ein FBFdm-Objekt pro Unit statt der heutigen einen globalen Instanz);
-Telemetrie-/Log-Sinks dann per-Thread gepuffert und am Barrier gemerged.
+Parallelphysik; der Browser erspart sich den pthreads/SharedArrayBuffer-Build). **Etappe 1 ist GEBAUT:**
+der fdm/-Adapter ist instanzfähig — `FBFdm` ist ein Objekt pro Airframe (keine globale Instanz, keine
+statischen mutablen Globals mehr), mehrere koexistieren im selben Prozess mit unabhängiger Physik
+(Beweis: `make -C sim test-fdm` → `build/fb-test-two-fdm`, drei gleichzeitige F-16-Instanzen, eigene
+IC/Boden/Tankfüllung, gegenläufig gesteuert; die Zwillings-Instanz reproduziert die erste bit-genau).
+Noch offen: Thread-pro-Unit + Barrier, Unit-Listen, und Telemetrie-/Log-Sinks per-Thread gepuffert und
+am Barrier gemerged.
 
 **Der Missions-Runner ist reiner Orchestrator, genau vier Schritte, KEIN Missions-Wissen im Code:**
 Mission laden → Welt mit ihren Akteuren aufsetzen (Elevation für die deklarative `spawn`-Zeile auflösen,
@@ -278,20 +282,40 @@ sim/src/
                FBSystemSlots.h, `FBJsbsimAirframeControls` daneben ist die reale, airframe-agnostische
                Ownship-Implementierung (forwarded auf den fdm/-Adapter).
   terrain/   leane Terrain-Lib (geo/mesh/osmmesh), flat
-  fdm/       der JSBSim-Adapter (jsbsim_adapter.*), flat — die EINE Übersetzungseinheit, die einen
-             JSBSim-Header inkludiert (die Ein-TU-Naht: jeder Aufrufer sieht nur den flachen POD-Zustand
-             `fb_fdm_state` + die inventarisierten Property-Zugriffsfunktionen, nie `FGFDMExec` direkt).
-             `namespace FlightBox` wie der Rest des Baums — kein `extern "C"` mehr: das war für die
-             längst gelöschte `xp_bridge.c` der Vor-Pivot-Architektur, niemand ruft den Adapter heute aus
-             C oder aus JS (der WASM-Export ist ausschließlich `fb_toggle_ground`/`fb_set_ground` in
+  fdm/       der JSBSim-Adapter, flat, INSTANZFÄHIG: `FBFdm` (`.h/.cpp`) ist EIN simuliertes Flugzeug —
+             eine FGFDMExec-Instanz plus deren Zustand hinter einem pimpl; `FBFdm.cpp` ist die EINE
+             Übersetzungseinheit, die einen JSBSim-Header inkludiert (die Ein-TU-Naht: jeder Aufrufer
+             sieht nur den flachen POD-Zustand `fb_fdm_state` + die Methoden von `FBFdm`, nie
+             `FGFDMExec`). KEINE statischen mutablen Globals mehr (grep-verifizierbar) — beliebig viele
+             FBFdm koexistieren im selben Prozess mit unabhängiger Physik (jede FGFDMExec baut ihren
+             eigenen Property-Root). Prozessweit bleibt in JSBSim SELBST nur, was keine Physik trägt und
+             in `FBFdm.cpp` dokumentiert ist: `FGJSBBase::debug_lvl` (statisch, `SetDebugLevel` wirkt für
+             alle), der eine globale Logger (`JSBSim::SetLogger`) und die im Konstruktor gelesenen
+             `JSBSIM_DEBUG`/`JSBSIM_DISPERSE`-Env-Variablen.
+             **OWNERSHIP:** wer die Einheit besitzt, besitzt ihre FBFdm — heute die App/der Missions-
+             Runner (ein `std::unique_ptr<FBFdm>` pro Lauf), perspektivisch `units/FBUnit`. Module und
+             Systeme BORGEN sie: `FBFdm&` zum Kommandieren, `const FBFdm&` zum Lesen — jede Kommando-
+             Methode ist nicht-const, jeder Readback const, ein Lese-Handle kann also nicht schreiben.
+             Das MODUL bekommt sie einmalig über `FBModule::AttachFdm` (die Registry baut Module
+             argumentlos, also ist das der Konstruktor-Injektions-Ersatz) und reicht sie an die Systeme
+             weiter, deren Zuordnung fix ist (`FBJsbsimAirframeControls`, konstruktor-injiziert).
+             **IC-ABSCHOTTUNG (strukturell, nicht per Konvention):** der ladende Konstruktor von FBFdm ist
+             privat, einziger Friend ist `FBFdmBoot` (`FBFdmBoot.h/.cpp`) — `FBFdmBoot::Spawn(FBFdmSpawn)`
+             ist der EINE Weg, eine geladene, getrimmte Instanz zu erzeugen, und es gibt kein Re-Init/
+             Reset auf FBFdm. Wer `FBFdm.h` inkludiert (jedes Modul/System, für die Referenz), erreicht
+             damit KEINE IC; wer IC will, muss `FBFdmBoot.h` nennen — und das tun nur `app/`-Dateien
+             (`FBMissionBoot.h`, `FBAppWasm.cpp`, die Test-Harnesses).
+             `namespace FlightBox` wie der Rest des Baums — kein `extern "C"`: das war für die längst
+             gelöschte `xp_bridge.c` der Vor-Pivot-Architektur, niemand ruft den Adapter heute aus C oder
+             aus JS (der WASM-Export ist ausschließlich `fb_toggle_ground`/`fb_set_ground` in
              `FBAppWasm.cpp`); `extern "C"`/`EMSCRIPTEN_KEEPALIVE` bleibt Konvention einzig für von JS
              NAMENTLICH gerufene Symbole. FBFdmTelemetrySource (`.h/.cpp`) ist die Telemetrie-Source
              für die rohe FDM-Pose (lat/lon/alt/AGL/Lage/`fuelLbs`) — an der Adapter-Naht, weil
-             `fb_fdm_state` dessen eigenes POD ist; borgt den FDM-Zustand + die vom Aufrufer aufgelöste
-             Boden-ASL. Der Adapter trägt außerdem die generische Tank-Verdrahtung (FGPropulsion:
-             `fb_jsbsim_get/set_fuel_*`, je Tank oder Gesamtsumme/-prozent, proportional auf die
-             modelleigenen Tankkapazitäten verteilt) — Spritmangel selbst simuliert JSBSim nativ
-             (Triebwerk stirbt in der Physik), dieser Adapter macht es nur beobachtbar/setzbar.
+             `fb_fdm_state` dessen eigenes POD ist; borgt (konstruktor-injiziert) die `const FBFdm&`, den
+             FDM-Zustand und die vom Aufrufer aufgelöste Boden-ASL. FBFdm trägt außerdem die generische
+             Tank-Verdrahtung (FGPropulsion: `Get/SetFuel*`, je Tank oder Gesamtsumme/-prozent,
+             proportional auf die modelleigenen Tankkapazitäten verteilt) — Spritmangel selbst simuliert
+             JSBSim nativ (Triebwerk stirbt in der Physik), der Adapter macht es nur beobachtbar/setzbar.
   modules/   FBModule-Basisschnittstelle (`Run(fb_fdm_state&, dt, const FBWorld*)` PLUS die generischen
              System-Accessoren UND `ApplySetup(key,value)` — das Modul interpretiert seine eigenen
              `set`-Mission-Schlüssel, s.o. "Der Missions-Runner ist reiner Orchestrator"; App hält
@@ -398,10 +422,13 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
   WASM-App-eigene Frame-Loop (`FBAppWasm.cpp`) — je EINE Definition, kein zweiter Paralleltest.
   Piloten/Module wirken NUR über die simulierten Systeme (`fcs/*-cmd-norm` via FBFlightControl/
   FBAutopilot, FBAirframeControls für Gear/Brakes/Steer/Speedbrake/Engine, Throttle, Tank-Füllstand via
-  `fb_jsbsim_set_fuel_*`) — der einzige State-Schreiber (JSBSim-IC/Trim/Fuel) ist der App-eigene
-  Boot-Spawn (`FBMissionBoot.h::FBMissionApplySpawn`, plus die gleichrangigen App-Boot-Pfade
-  `FBAppWasm.cpp`s `?ap=manual` und dedizierte Test-Harnesses); `systems/` und `modules/` rufen
-  `fb_jsbsim_init` nie und sehen `FBFlightMonitor`/`FBMissionMonitor` nie (grep-verifizierbar).
+  `FBFdm::SetFuel*`) — der einzige State-Schreiber (JSBSim-IC/Trim) ist der App-eigene Boot-Spawn
+  (`FBMissionBoot.h::FBMissionApplySpawn`, plus die gleichrangigen App-Boot-Pfade `FBAppWasm.cpp`s
+  `?ap=manual` und dedizierte Test-Harnesses). Die IC-Abschottung ist STRUKTURELL, nicht bloß
+  grep-belegt (s. `fdm/`-Absatz: privater Lade-Konstruktor, Friend `FBFdmBoot`, eigener Header) —
+  `systems/` und `modules/` erreichen die IC nicht und sehen `FBFlightMonitor`/`FBMissionMonitor` nie.
+  Der PILOT liest die Zelle ausschließlich über `FBAirframeControls` (WOW/Gear/Gewicht/Engine-Running),
+  nie an dieser Schnittstelle vorbei in ein FDM — so bleibt `systems/` airframe- UND instanz-agnostisch.
 
 ## Rendering (das Herzstück)
 
@@ -419,7 +446,7 @@ liefert Terrain in per-Tile-ECEF (unser Code, nicht vendored). Reale Daten on-de
 Kachel-Streaming ist **kamera-priorisiert** (nächste zuerst).
 
 **Bodenwahrheit aus der Modell-Geometrie.** Die Augenhöhe am Boden kommt aus JSBSims Fahrwerks-Geometrie
-(`fb_jsbsim_ground_clearance`, gear-down/up), nicht aus einer fixen Zahl — essenziell für Start/Aufsetzen/
+(`FBFdm::GetGroundClearanceM`, gear-down/up), nicht aus einer fixen Zahl — essenziell für Start/Aufsetzen/
 Crash-Erkennung. Die Kamera geht **nie unter die Oberfläche** (Clamp auf Grund + Modell-Bauch-Clearance).
 **Crash → Motor aus**, den Rest macht JSBSims Ground-Reactions, kein Freeze.
 

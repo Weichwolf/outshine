@@ -18,7 +18,7 @@
 #include "FBElevationProvider.h"
 #include "FBSpawn.h"
 #include "FBState.h"
-#include "jsbsim_adapter.h"
+#include "FBFdm.h"
 
 namespace FlightBox {
 

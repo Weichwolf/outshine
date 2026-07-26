@@ -13,7 +13,7 @@
 #include "FBTilesElevation.h"
 #include "FBLog.h"
 #include "FBLogSinks.h"
-#include "jsbsim_adapter.h"
+#include "FBFdm.h"
 #include <cerrno>
 #include <cmath>
 #include <cstdio>
@@ -29,9 +29,6 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-/* jsbsim_adapter's fb_jsbsim_ functions and fb_fdm_state now live in namespace FlightBox (no longer a
- * C ABI — see jsbsim_adapter.h's banner); this file calls them unqualified throughout (matches
- * FBAppWasm.cpp). */
 using namespace FlightBox;
 
 static const double kPi = 3.14159265358979323846;
