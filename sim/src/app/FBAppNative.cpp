@@ -8,14 +8,11 @@
 #include "FBRenderer.h"
 #include "FBWorld.h"
 #include "FBEphemeris.h"
-#include "FBModule.h"
 #include "FBF16Module.h"
 #include "FBMissionFile.h"
-#include "FBTerrainField.h"
-#include "FBPathPlan.h"
+#include "FBMissionBoot.h"
 #include "FBTerrainLoader.h"
 #include "FBTelemetry.h"
-#include "FBOwnshipUnit.h"
 #include "jsbsim_adapter.h"
 #include <cerrno>
 #include <cmath>
@@ -106,14 +103,12 @@ void Usage(const char *argv0) {
           "          [--base URL] [--seconds N] [--interval M] [--out DIR]\n"
           "  --cloudlab [--labx PARAM] [--laby PARAM]  render an N x M cloud-parameter grid to ONE PNG.\n"
           "    PARAM in {coverage,density,extinct,suni,detail}; fixed cloud-bank camera, no terrain.\n"
-          "  --fly   in-process F-16 loiter (JSBSim+FLCS+autopilot) at --lat/--lon; camera = the eye,\n"
-          "    live HUD + real DEM ground floor; PNGs every --interval s + 1 Hz [agl] telemetry.\n"
-          "  --pilot (with --fly)  thread FBF16Pilot's phase machine in (Round A: structural only,\n"
-          "    guidance/controls stay untouched) -> 1 Hz [pilot] telemetry.\n"
           "  --mission FILE [--timeout N] [--interval S]  ground-spawn a .fbm mission (doc/mission-format.md)\n"
-          "    on its runway threshold and run headless (JSBSim+FBTerrainField only, NO renderer/GPU\n"
-          "    device unless --interval > 0) until SUCCESS/CRASH/TIMEOUT/FAIL; writes --out/telemetry.csv\n"
-          "    + --out/events.log, exit code 0/1/2/3. --timeout overrides the mission file's own value.\n",
+          "    on its runway threshold and run headless (JSBSim + FBF16Pilot's phase machine, NO renderer/\n"
+          "    GPU device unless --interval > 0, in which case PNGs are written every --interval sim-\n"
+          "    seconds -- this is the flying-frame oracle, the --fly replacement) until SUCCESS/CRASH/\n"
+          "    TIMEOUT/FAIL; writes --out/telemetry.csv + --out/events.log, exit code 0/1/2/3. --timeout\n"
+          "    overrides the mission file's own value.\n",
           argv0);
 }
 
@@ -147,7 +142,7 @@ int RunCloudLab(double lat, double lon, time_t utc, double cloudQ, double ground
   double eye[3];
   GeoToEcef(lat, lon, altMSL, eye);
   FlightBox::FBState hs{};
-  hs.alt = (float)altMSL; hs.gs = 220.f; hs.airspeed = 220.f; hs.state = FlightBox::FBMode::Loiter;
+  hs.alt = (float)altMSL; hs.gs = 220.f; hs.airspeed = 220.f; hs.state = FlightBox::FBMode::Manual;
   FlightBox::SunPos(lat, lon, utc, &hs.sun_el, &hs.sun_az);
   FlightBox::MoonPos(lat, lon, utc, &hs.moon_el, &hs.moon_az, &hs.moon_phase);
   double P = lat * kPi2 / 180.0, L = lon * kPi2 / 180.0;
@@ -242,280 +237,6 @@ int RunCloudLab(double lat, double lon, time_t utc, double cloudQ, double ground
   return 0;
 }
 
-/* --fly: the REAL in-process loiter (JSBSim + FBFlightControl F16 FLCS + FBAutopilot LOITER) drives
- * the oracle exactly as FBAppWasm.cpp drives the browser — camera is the aircraft eye, HUD reads the
- * live state, terrain streams around the live position, and the FDM ground floor tracks the real DEM
- * (fb_stream_ground -> fb_jsbsim_set_ground). Deterministic fixed timestep (Prinzip 4). Renders PNGs
- * every `interval` s and emits the 1 Hz [agl] telemetry from the sim tick. */
-int RunFly(double lat, double lon, double ground0, double aglM, double viewKm, time_t utc,
-           int groundPhoto, double moonScale, const std::string &moonPath, const std::string &base,
-           double seconds, double interval, const std::string &outDir, bool pilotMode) {
-  const int width = 1280, height = 720, fps = 15;   /* render cadence; sim substeps stay 100 Hz, so
-                                                       lowering it only cuts native render count, not
-                                                       flight fidelity (Prinzip 4: wall-clock-free) */
-  const double kRadiusM = 8000.0, kSpeedMs = 220.0;
-
-  FlightBox::FBRenderer R;
-  R.SetDefaultMode(groundPhoto);
-  R.SetGroundMode(groundPhoto);
-  R.SetStreaming(512);
-  R.SetMoonScale(moonScale);
-  time_t clk = utc ? utc : time(nullptr);
-  R.SetSkyClock((double)clk);
-  {   /* real-sky assets (EVS): NASA moon albedo + HYG stars — optional, degrade gracefully */
-    uint8_t *moon = 0; int mw = 0, mh = 0;
-    if (fb_load_image_file(moonPath.c_str(), &moon, &mw, &mh)) { R.SetMoonTexture(moon, mw, mh); free(moon); }
-    static uint8_t stars[262144];
-    int sn = fb_fetch_stars(base.c_str(), stars, (int)sizeof stars);
-    if (sn > 0) R.SetStars(stars, sn, lat, lon);
-  }
-
-  /* Open the streamer FIRST: fb_stream_ground needs fb_base set (fb_stream_open -> fbs_init). */
-  FlightBox::FBWorld W;
-  if (!W.Open(&R, base.c_str(), lat, lon, 32, viewKm * 1000.0, 512)) {
-    fprintf(stderr, "gpu_native --fly: FBWorld open FAILED — is fb-tiles reachable at %s ?\n", base.c_str());
-    return 1;
-  }
-  W.SetDefaultMode(groundPhoto);
-  W.SetGroundMode(groundPhoto);
-  { float sel = 0, saz = 0; FlightBox::SunPos(lat, lon, clk, &sel, &saz);
-    W.SetNightLights(groundPhoto && sel < -3.0f); }
-
-  /* LOWLEVEL autopilot (FB_AP_MODE=lowlevel): terrain-following AGL-hold + look-ahead. Stage 1 flies a
-   * fixed heading (default south, toward the Alps) low over the terrain. Env knobs override the defaults. */
-  /* LOWLEVEL is the DEFAULT (matches the browser); loiter-based recipes (gate/[home] checks) set
-   * FB_AP_MODE=loiter explicitly. */
-  const char *apMode = getenv("FB_AP_MODE");
-  bool lowlevel = !(apMode && std::strcmp(apMode, "loiter") == 0);
-  double llAgl    = getenv("FB_LL_AGL")     ? atof(getenv("FB_LL_AGL"))     : 150.0;
-  double llSpeed  = getenv("FB_LL_SPEED")   ? atof(getenv("FB_LL_SPEED"))   : 230.0;
-  double llHdg    = getenv("FB_LL_HEADING") ? atof(getenv("FB_LL_HEADING")) : 180.0;
-  int    llDemZ   = getenv("FB_LL_DEM_Z")   ? atoi(getenv("FB_LL_DEM_Z"))   : 13;   /* match /elev (FB_DEM_Z=13) so the look-ahead sees the same peaks the AGL metric does */
-
-  /* Seed the FDM ground at the origin BEFORE init so the trim/IC floor is the real terrain, not 0. */
-  double gSeed = fb_stream_ground(lat, lon);
-  double ground = gSeed > -1e8 ? gSeed : ground0;
-  double spawnAgl = lowlevel ? llAgl : aglM;
-  double altAsl = ground + spawnAgl;
-  /* Loiter spawns 8 km due N heading E; LOWLEVEL spawns AT the origin already on the commanded heading. */
-  double slat = lowlevel ? lat : lat + kRadiusM / 111320.0, slon = lon;
-  double spawnHdg = lowlevel ? llHdg : 90.0;
-  double spawnSpd = lowlevel ? llSpeed : kSpeedMs;
-  if (fb_jsbsim_init("vendor/jsbsim/aircraft", "f16", slat, slon, altAsl, 0.0, spawnSpd, spawnHdg, 0) != 0) {
-    fprintf(stderr, "gpu_native --fly: JSBSim init FAILED\n");
-    return 1;
-  }
-  if (gSeed > -1e8) fb_jsbsim_set_ground(gSeed);
-
-  /* Polymorphic handle: activeModule is what Run() is called through below (the real dispatch
-   * mechanism, not a shortcut around it); F16 is the concrete handle this scope needs for
-   * F-16-specific setup (Autopilot/FlightControl gains, PathPlan) outside the generic FBModule
-   * contract. */
-  auto F16 = std::make_unique<FlightBox::FBF16Module>();
-  FlightBox::FBModule *activeModule = F16.get();
-  FlightBox::FBAutopilot &AP = F16->Autopilot();
-  R.SetHudDisplay(&F16->Displays());   /* HUD symbology: the module's Displays slot (default HUD) */
-  FlightBox::FBTerrainField terrainField(llDemZ);
-  /* Planner terrain field is COARSER (z9) — a 500 km A* only needs valley/pass structure, and coarse
-   * keeps the tile count tiny. Separate instance from the z12 vertical look-ahead field. */
-  int llPlanZ  = getenv("FB_LL_PLAN_Z")  ? atoi(getenv("FB_LL_PLAN_Z"))  : 9;
-  double llRadKm = getenv("FB_LL_RADIUS_KM") ? atof(getenv("FB_LL_RADIUS_KM")) : 500.0;
-  unsigned llSeed = getenv("FB_LL_SEED") ? (unsigned)atol(getenv("FB_LL_SEED")) : 1u;
-  FlightBox::FBTerrainField planField(llPlanZ);
-  F16->ConfigurePathPlan(&planField, lat, lon, llRadKm * 1000.0, llSeed);   /* the module OWNS the planner */
-  FlightBox::FBPathPlan &plan = *F16->PathPlan();
-  bool llPlanned = lowlevel && getenv("FB_LL_PLANNER") != nullptr;   /* A* far-planner: opt-in (fan is default) */
-  bool llFixHdg  = lowlevel && getenv("FB_LL_FIXHDG") != nullptr;    /* fixed heading, fan off (Stage-1 recipe) */
-  const bool noRender = getenv("FB_NORENDER") != nullptr;   /* flight/planner oracle without the flaky render */
-  if (lowlevel) {
-    AP.SetTerrain(&terrainField, fb_stream_ground);
-    AP.SetLowLevel(llAgl, llSpeed, llHdg);           /* enables the reactive fan by default */
-    AP.SetFence(lat, lon, llRadKm * 1000.0);
-    if (const char *e = getenv("FB_FAN_N"))     AP.FanN = atoi(e);
-    if (const char *e = getenv("FB_FAN_ARC"))   AP.FanArcDeg = atof(e);
-    if (const char *e = getenv("FB_FAN_RANGE")) AP.FanRangeM = atof(e);
-    if (const char *e = getenv("FB_FAN_BIAS"))  AP.FanStraightBias = atof(e);
-    if (const char *e = getenv("FB_FAN_EASE"))  AP.FanEase = atof(e);
-    if (const char *e = getenv("FB_FAN_TURNDB")) AP.FanTurnDeadbandDeg = atof(e);
-    if (llPlanned) {
-      if (getenv("FB_LL_GOAL_LAT") && getenv("FB_LL_GOAL_LON"))
-        plan.SetFixedGoal(atof(getenv("FB_LL_GOAL_LAT")), atof(getenv("FB_LL_GOAL_LON")));
-      plan.Update(slat, slon);   /* initial plan at the spawn */
-      printf("gpu_native --fly: LOWLEVEL+PLAN agl=%.0f m, %.0f m/s, DEM z=%d, plan z=%d, fence %.0f km, seed %u | goal %.4f/%.4f route %d wp (expanded %ld)\n",
-             llAgl, llSpeed, terrainField.Zoom(), planField.Zoom(), llRadKm, llSeed, plan.GoalLat(), plan.GoalLon(), plan.RouteSize(), plan.LastExpanded());
-      for (auto &wp : plan.Waypoints()) printf("[route] %.5f %.5f\n", wp.first, wp.second);
-      fflush(stdout);
-    } else if (llFixHdg) {
-      AP.SetLowLevelHeading(llHdg);   /* fan off */
-      printf("gpu_native --fly: LOWLEVEL agl=%.0f m, %.0f m/s, FIXED hdg=%.0f, DEM z=%d\n", llAgl, llSpeed, llHdg, terrainField.Zoom());
-    } else {
-      printf("gpu_native --fly: LOWLEVEL+FAN agl=%.0f m, %.0f m/s, DEM z=%d, fence %.0f km (reactive terrain fan, wings-level)\n",
-             llAgl, llSpeed, terrainField.Zoom(), llRadKm);
-    }
-  } else {
-    AP.SetLoiter(lat, lon, altAsl, kRadiusM, 1, kSpeedMs);
-  }
-  fb_fdm_state St;
-  fb_jsbsim_step(&St);
-  printf("gpu_native --fly: F-16 loiter %.4f/%.4f alt %.0f m ASL (ground %.0f), R %.0f m, %.0f m/s\n",
-         lat, lon, altAsl, ground, kRadiusM, kSpeedMs);
-
-  /* Ownship as an FBUnit — borrows St (see FBOwnshipUnit's banner); the App owns both, FBWorld only
-   * borrows the pointer (its own RegisterUnit banner). --pilot reaches FBF16Pilot's phase machine, same
-   * structural proof as ?ap=pilot in the WASM app — Run() stays Idle-neutral this round either way. */
-  FlightBox::FBOwnshipUnit ownship(1, St);
-  W.RegisterUnit(&ownship);
-  if (pilotMode) {
-    F16->PilotSystem().SetPhase(FlightBox::FBPilot::Phase::Preflight);
-    printf("[pilot] --pilot: FBF16Pilot phase -> Preflight (guidance/controls untouched this round)\n");
-  }
-
-  /* HUD nav placeholder: one steerpoint 8 nm bearing 060 from the origin, bullseye AT the origin — a
-   * concrete, moving relative bearing so the guide's "diamond in FOV" and "crossed-out" cases both
-   * occur across a run (loiter's own turn, or LOWLEVEL's fan steering, sweep the relative bearing). */
-  {
-    const double kStptBrgDeg = 60.0, kStptRangeNm = 8.0;
-    double brgRad = kStptBrgDeg * kPi / 180.0, rangeM = kStptRangeNm * 1852.0;
-    double stptLat = lat + (rangeM * std::cos(brgRad)) / 111320.0;
-    double stptLon = lon + (rangeM * std::sin(brgRad)) / (111320.0 * std::cos(lat * kPi / 180.0));
-    F16->Nav().SetSteerpoint(stptLat, stptLon, ground / 0.3048 + 50.0);
-    F16->Nav().SetBullseye(lat, lon);
-  }
-
-  R.InitOffscreen(width, height);
-  if (!R.Ready()) { fprintf(stderr, "gpu_native --fly: WebGPU device init failed\n"); return 1; }
-
-  /* BOOT LOADING PHASE: stream the target cut at the SPAWN camera and show the loading screen while
-   * JSBSim stays FROZEN (no step above the one init tick, no [agl]). Only when the visible target cut
-   * is resident does the scene turn on and the sim begin — so the first scene frame is full-resolution
-   * and the spawn DEM ground is guaranteed loaded. */
-  {
-    double leye[3], lfwd[3], lright[3], lup[3];
-    GeoToEcef(St.lat, St.lon, St.elev, leye);
-    CameraBasis(St.yaw, St.pitch, St.roll, St.lat, St.lon, lfwd, lright, lup);
-    R.SetCameraBasis(leye, lfwd, lright, lup);
-    const char *te = getenv("FB_LOAD_THRESH"); float thresh = te ? (float)atof(te) : 0.95f;
-    const char *toe = getenv("FB_LOAD_TIMEOUT"); int tmax = toe ? atoi(toe) : 1500;
-    int lshot = 0;
-    for (int lf = 0; lf < tmax; lf++) {
-      if (noRender && lf >= 1) break;   /* oracle: no render -> no need to wait for tile streaming */
-      W.Update(St.lat, St.lon, leye, lfwd, (double)lf * 1000.0 / fps);
-      float pct = W.LoadProgress();
-      R.SetLoadingScreen(true, pct, W.TargetReadyN(), W.TargetTotal());
-      if (!noRender) R.RenderFrame();
-      if (lf % 20 == 0) { printf("[loading] %.0f%% (%d/%d tiles)\n", pct * 100.0f, W.TargetReadyN(), W.TargetTotal()); fflush(stdout); }
-      if (!noRender && interval > 0.0 && (lf == 6 || lf == 30)) {   /* boot-sequence proof: a couple of loading frames */
-        std::vector<uint8_t> rgba;
-        if (R.ReadPixels(rgba)) { char p[512]; snprintf(p, sizeof p, "%s/loading_%04d.png", outDir.c_str(), lshot++);
-          if (stbi_write_png(p, width, height, 4, rgba.data(), width * 4)) printf("gpu_native --fly: wrote %s\n", p); }
-      }
-      if (W.TargetTotal() > 0 && pct >= thresh) { printf("[loading] converged %.0f%% -> scene on, sim start\n", pct * 100.0f); fflush(stdout); break; }
-    }
-    R.SetLoadingScreen(false, 1.0f, 0, 0);
-  }
-
-  const double dt = 1.0 / fps;
-  const int totalFrames = (int)(seconds * fps + 0.5);
-  const int everyFrames = interval > 0.0 ? (int)(interval * fps + 0.5) : 0;
-  int shot = 0;
-  double accLog = 0.0;
-  FlightBox::FBGuidance g{};
-  for (int f = 0; f < totalFrames; f++) {
-    /* FB_TOGGLE_S: flip the DISPLAY ground mode (SVS<->EVS, the TAB switch) every N sim-seconds — the
-     * SVS/EVS-strictness repro. The base stays the boot mode; the overlay is lazy, so the transition
-     * exercises the mode-aware readiness gate. */
-    if (const char *tg = getenv("FB_TOGGLE_S")) {
-      double period = atof(tg);
-      static double accTg = 0; accTg += dt;
-      static bool once = getenv("FB_TOGGLE_ONCE") != nullptr; static bool did = false;
-      if (period > 0 && accTg >= period && !(once && did)) { accTg = 0; did = true;
-        int m = !R.GetGroundMode(); R.SetGroundMode(m); W.SetGroundMode(m);
-        printf("[toggle] display -> %s\n", m ? "EVS/photo" : "SVS/osm"); fflush(stdout);
-      }
-    }
-    /* FDM ground floor = the live DEM under the aircraft (crash contract), fed BEFORE stepping. */
-    double gnd = fb_stream_ground(St.lat, St.lon);
-    if (gnd > -1e8) { ground = gnd; fb_jsbsim_set_ground(gnd); }
-    F16->SetGroundAsl((float)ground);   /* FBRadarAltimeter reuses this SAME sample, see its banner */
-
-    /* LOWLEVEL lateral: DEFAULT = the reactive terrain fan (chooses the heading toward the lowest valley,
-     * wings-level). FB_LL_PLANNER: the A* far-planner steers by pure-pursuit instead. FB_LL_FIXHDG: neither. */
-    if (lowlevel && llPlanned) {
-      plan.Update(St.lat, St.lon);
-      AP.SetLowLevelHeading(plan.DesiredTrackDeg(St.lat, St.lon));
-    } else if (lowlevel && !llFixHdg) {
-      AP.UpdateLowLevelSteering(St, dt);   /* reactive fan, once per frame */
-    }
-
-    activeModule->Run(St, dt, &W);
-    g = F16->LastGuidance();
-
-    double eye[3], fwd[3], right[3], up[3];
-    GeoToEcef(St.lat, St.lon, St.elev, eye);
-    CameraBasis(St.yaw, St.pitch, St.roll, St.lat, St.lon, fwd, right, up);
-    R.SetCameraBasis(eye, fwd, right, up);
-
-    FlightBox::FBState hs = F16->Telemetry();   /* seed: FBAirDataSystem/FBRadarAltimeter/FBNavSystem/... */
-    hs.roll = (float)St.roll; hs.pitch = (float)St.pitch; hs.yaw = (float)St.yaw;
-    hs.alt = (float)St.elev; hs.gs = (float)St.gs; hs.airspeed = (float)St.speed; hs.vs = (float)St.vy;
-    double coslat = std::cos(lat * kPi / 180.0);
-    double dlon = St.lon - lon;   /* Wrap180: without it the antimeridian gives a ~360° delta -> HUD DIST 38,171,944 */
-    while (dlon > 180.0) dlon -= 360.0;
-    while (dlon < -180.0) dlon += 360.0;
-    hs.y = (float)((St.lat - lat) * 111320.0);
-    hs.x = (float)(dlon * 111320.0 * coslat);
-    hs.home_dist = (float)std::sqrt((double)hs.x * hs.x + (double)hs.y * hs.y);
-    double absBrg = std::atan2(-(double)hs.x, -(double)hs.y) * 180.0 / kPi, rel = absBrg - St.yaw;
-    while (rel > 180) rel -= 360;
-    while (rel < -180) rel += 360;
-    hs.home_bearing = (float)rel;
-    hs.state = AP.GetMode();
-    FlightBox::SunPos(St.lat, St.lon, clk, &hs.sun_el, &hs.sun_az);
-    FlightBox::MoonPos(St.lat, St.lon, clk, &hs.moon_el, &hs.moon_az, &hs.moon_phase);
-    R.SetHud(hs, true);
-    R.SetAgl((float)(St.elev - ground));
-
-    W.Update(St.lat, St.lon, eye, fwd, (double)f * 1000.0 / fps);
-    /* FB_NORENDER: autopilot/flight oracle without the (flaky, lavapipe-stalling) render — sim + planner
-     * + telemetry run free, so a long terrain-following track completes deterministically. */
-    if (!noRender) R.RenderFrame();
-
-    accLog += dt;
-    if (accLog >= 1.0) { accLog = 0.0; FlightBox::FBLogAgl(St, g.Mode, g.RingDistM, ground, fb_jsbsim_get_ground());
-      printf("[home] dist=%.0f brg=%.0f hdg=%.0f lon=%.4f\n", hs.home_dist, hs.home_bearing, St.yaw, St.lon);
-      if (lowlevel)
-        printf("[lowlevel] agl=%.0f tgtAgl=%.0f gndHere=%.0f gndAhead=%.0f tgtVs=%.1f vs=%.1f alt=%.0f demZ=%d decodes=%ld\n",
-               St.elev - AP.LlGroundHere(), AP.LlTargetAgl(), AP.LlGroundHere(), AP.LlGroundAhead(),
-               AP.LlTargetVs(), St.vy, St.elev, terrainField.Zoom(), terrainField.Decodes());
-      if (lowlevel && !llPlanned && !llFixHdg)
-        printf("[fan] acPos=%.5f/%.5f hdg=%.0f tgtHdg=%.0f bank=%.1f cost min/mid/max=%.0f/%.0f/%.0f chosen=%d\n",
-               St.lat, St.lon, St.yaw, AP.LlHeading(), St.roll, AP.FanMinCost(), AP.FanMidCost(), AP.FanMaxCost(), AP.FanChosen());
-      if (lowlevel && llPlanned) {
-        printf("[plan] acPos=%.5f/%.5f goal=%.4f/%.4f goalDist=%.0fkm wp=%d/%d desTrk=%.0f replans=%ld expanded=%ld planDecodes=%ld\n",
-               St.lat, St.lon, plan.GoalLat(), plan.GoalLon(), plan.GoalDistM(St.lat, St.lon) / 1000.0, plan.ActiveWp(),
-               plan.RouteSize(), plan.DesiredTrackDeg(St.lat, St.lon), plan.Replans(), plan.LastExpanded(), planField.Decodes());
-        static long lastRep = -1;
-        if (plan.Replans() != lastRep) { lastRep = plan.Replans();
-          for (auto &wp : plan.Waypoints()) printf("[route] %.5f %.5f\n", wp.first, wp.second); }
-      }
-      if (pilotMode)   /* structural proof: the module cycles FBF16Pilot every Run() (10 Hz, throttled) */
-        printf("[pilot] phase=%d\n", (int)F16->PilotSystem().GetPhase());
-      fflush(stdout); }
-
-    bool last = (f == totalFrames - 1);
-    bool due = everyFrames > 0 && (f % everyFrames) == (everyFrames - 1);
-    if (!due && !(everyFrames == 0 && last)) continue;
-    if (noRender) continue;   /* oracle: telemetry only, no frame capture */
-    std::vector<uint8_t> rgba;
-    if (!R.ReadPixels(rgba)) continue;   /* device may be lost late in a long run — telemetry lives on */
-    char path[512];
-    snprintf(path, sizeof path, "%s/fly_%04d.png", outDir.c_str(), shot++);
-    if (stbi_write_png(path, width, height, 4, rgba.data(), width * 4))
-      printf("gpu_native --fly: wrote %s\n", path);
-  }
-  return 0;
-}
-
 const char *PhaseStr(FlightBox::FBPilot::Phase p) {
   switch (p) {
     case FlightBox::FBPilot::Phase::Idle: return "Idle";
@@ -570,11 +291,12 @@ void WriteCsvRow(FILE *f, double t, FlightBox::FBPilot::Phase phase, const fb_fd
           s.pitch, s.roll, s.yaw, s.alphaDeg, s.nz, throttleNorm, gearPos, wow, speedbrake, activeWp, distToWpM);
 }
 
-/* --mission: ground-spawns the mission's F-16 on its runway threshold (WOW=1, engines running, wheel
- * brakes set, FBAutopilot in neutral Manual so the FLCS holds wings-level/idle-throttle — the Pilot
- * phase machine stays Idle/Preflight this round, see systems/FBPilot's banner) and steps it headless
- * until SUCCESS/CRASH/TIMEOUT/FAIL. Default loop is CPU-only (JSBSim + FBTerrainField/fb_stream_ground
- * for the DEM floor) — no FBRenderer/FBWorld construction, hence no WebGPU/Dawn device init, unless
+/* --mission: ground-spawns the mission's F-16 on its runway threshold via FBMissionGroundSpawn (WOW=1,
+ * engines running, wheel brakes set, FBAutopilot in neutral Manual so the FLCS holds wings-level/
+ * idle-throttle until FBPilot's Preflight hold ends) and steps it headless — FBPilot's phase machine
+ * (systems/FBPilot.h) actually flies the takeoff/climb/route chain — until SUCCESS/CRASH/TIMEOUT/FAIL.
+ * Default loop is CPU-only (JSBSim + fb_stream_ground for the DEM floor) — no FBRenderer/FBWorld
+ * construction, hence no WebGPU/Dawn device init, unless
  * `renderIntervalS > 0` opts into periodic proof-frame PNGs (rendering is then a bolt-on inside the
  * loop, never a dependency of the physics/telemetry/termination logic above it). Deterministic fixed
  * 10 Hz decision tick (Prinzip 4: sim-seconds, not wall-clock) — FBF16Module substeps the FDM 100 Hz
@@ -634,38 +356,19 @@ int RunMission(const std::string &missionPath, double timeoutOverride, double re
          mission.Name.c_str(), rwy.ThresholdLatDeg, rwy.ThresholdLonDeg, groundAsl, rwy.ThresholdElevM,
          rwy.TrueHeadingDeg, rwy.LengthM);
 
+  auto F16 = std::make_unique<FlightBox::FBF16Module>();
+  fb_fdm_state St{};
   /* hoff_m < 0 = "sit on the gear" (see the adapter banner): re-places the CG at the model's true
    * gear-down clearance after IC, so the spawn altitude is geometry-true, not an assumed offset.
-   * speed_ms=0, fbw_override=0 (matches --fly: the F-16's OWN FLCS stays the controller, our FCS just
-   * commands it, per CLAUDE.md's F-16 edge). */
-  if (fb_jsbsim_init("vendor/jsbsim/aircraft", "f16", rwy.ThresholdLatDeg, rwy.ThresholdLonDeg,
-                     groundAsl, -1.0, 0.0, rwy.TrueHeadingDeg, 0) != 0) {
+   * speed_ms=0, fbw_override=0 (the F-16's OWN FLCS stays the controller, our FCS just commands it, per
+   * CLAUDE.md's F-16 edge). FBMissionGroundSpawn also arms FBPilot at Preflight — the SAME ground-hold
+   * setup FBAppWasm.cpp's mission boot uses (FBMissionBoot.h: no duplicated spawn logic). */
+  if (!FlightBox::FBMissionGroundSpawn("vendor/jsbsim/aircraft", mission, groundAsl, *F16, St)) {
     fprintf(stderr, "mission: JSBSim init FAILED\n");
     logEvent(tLog0, "RESULT result=FAIL reason=\"jsbsim init\"");
     fclose(evf);
     return 1;
   }
-  fb_jsbsim_set_ground(groundAsl);
-
-  auto F16 = std::make_unique<FlightBox::FBF16Module>();
-  F16->SetRunway(rwy);
-  F16->FlightPlan() = mission.Plan;
-  /* Round A: the Pilot stays Idle/neutral (systems/FBPilot's banner) — WE hold the ground spawn stable
-   * directly: neutral Manual guidance (zero stick, zero throttle) so FBFlightControl commands nothing,
-   * gear down, both wheel brakes set. Set once; Idle's neutral FBPilotCommands never touches any of
-   * this (Guidance::None / every optional unset), so it holds for the whole run. */
-  F16->Autopilot().SetManual(0.0, 0.0, 0.0, 0.0);
-  F16->Controls().SetGear(true);
-  F16->Controls().SetWheelBrakes(1.0, 1.0);
-  F16->PilotSystem().SetPhase(FlightBox::FBPilot::Phase::Preflight);
-
-  /* Zero-init (Manual mode's first substep doesn't read St at all — see FBAutopilot::Run/
-   * FBFlightControl::Run's early Manual return), EXCEPT lat/lon: the loop's very first fb_stream_ground
-   * query runs before the first Run() call has placed St, so an all-zero St would query Null Island
-   * (0,0) instead of the spawn — seed it with the runway threshold so that first DEM query, and the
-   * first CSV row's aglM, are already correct. */
-  fb_fdm_state St{};
-  St.lat = rwy.ThresholdLatDeg; St.lon = rwy.ThresholdLonDeg; St.elev = groundAsl;
 
   const bool wantRender = renderIntervalS > 0.0;
   std::unique_ptr<FlightBox::FBRenderer> R;
@@ -740,10 +443,11 @@ int RunMission(const std::string &missionPath, double timeoutOverride, double re
     if (const FlightBox::FBWaypoint *wp = plan.ActiveWaypoint()) {
       double dy = (St.lat - wp->LatDeg) * 111320.0, dx = (St.lon - wp->LonDeg) * 111320.0 * std::cos(St.lat * kPi / 180.0);
       distToWpM = std::sqrt(dx * dx + dy * dy);
-      if (distToWpM <= kWpCaptureM) {
-        logEvent(simT, "WP_REACHED idx=%d lat=%.5f lon=%.5f distM=%.0f", activeWp, wp->LatDeg, wp->LonDeg, distToWpM);
-        plan.SetActiveIndex(activeWp + 1);
-      }
+    }
+    int reachedWp = FlightBox::FBMissionAdvanceWaypoint(plan, St.lat, St.lon, kWpCaptureM);
+    if (reachedWp >= 0) {
+      const FlightBox::FBWaypoint &wp = plan.At(reachedWp);
+      logEvent(simT, "WP_REACHED idx=%d lat=%.5f lon=%.5f distM=%.0f", reachedWp, wp.LatDeg, wp.LonDeg, distToWpM);
     }
 
     /* AoA is numerically undefined at near-zero airspeed (atan2 of two near-zero velocity components) —
@@ -830,7 +534,7 @@ int RunMission(const std::string &missionPath, double timeoutOverride, double re
 int main(int argc, char **argv) {
   double lat = 47.18, lon = 7.41, seconds = 3.0, interval = 1.0;
   double ground = 430.0, aglM = 1500.0, viewKm = 240.0, yawDeg = 0.0, pitchDeg = -3.0, cloudCover = 0.0, moonScale = 1.0, cloudQ = 1.0;
-  int groundPhoto = 0, cloudLab = 0, cloudCell = 0, fly = 0, pilotMode = 0;
+  int groundPhoto = 0, cloudLab = 0, cloudCell = 0;
   float cellCov = 0.6f, cellDen = 5.0f, cellDet = 1.3f;
   double cellPitch = -999.0, cellBelow = -5000.0, cellBank = 12.0;   /* default: above the deck (AC7 vantage) */
   int cellFrames = 24;
@@ -852,8 +556,6 @@ int main(int argc, char **argv) {
     else if (a == "--moonscale" && i + 1 < argc) moonScale = atof(argv[++i]);
     else if (a == "--cloudq" && i + 1 < argc) cloudQ = atof(argv[++i]);
     else if (a == "--cloudlab") cloudLab = 1;
-    else if (a == "--fly") fly = 1;
-    else if (a == "--pilot") pilotMode = 1;   /* threads FBF16Pilot's phase machine into --fly (structural proof) */
     else if (a == "--cell" && i + 3 < argc) { cloudCell = 1; cellCov = atof(argv[++i]); cellDen = atof(argv[++i]); cellDet = atof(argv[++i]); }
     else if (a == "--cellpitch" && i + 1 < argc) cellPitch = atof(argv[++i]);
     else if (a == "--cellbelow" && i + 1 < argc) cellBelow = atof(argv[++i]);
@@ -877,9 +579,6 @@ int main(int argc, char **argv) {
 
   if (!missionPath.empty())
     return RunMission(missionPath, missionTimeout, intervalSet ? interval : 0.0, base, outDir);
-  if (fly)
-    return RunFly(lat, lon, ground, aglM, viewKm, utc, groundPhoto, moonScale, moonPath, base,
-                  seconds, interval, outDir, pilotMode != 0);
   if (cloudLab)
     return RunCloudLab(lat, lon, utc ? utc : time(nullptr), cloudQ, ground, aglM, labx, laby, moonPath, outDir);
   if (cloudCell)
@@ -911,7 +610,7 @@ int main(int argc, char **argv) {
   hs.roll = 0.f; hs.pitch = (float)pitchDeg; hs.yaw = (float)yawDeg;
   hs.alt = (float)(ground + aglM); hs.gs = 220.f; hs.airspeed = 220.f; hs.vs = 0.f;
   hs.home_dist = 8000.f; hs.home_bearing = 45.f;
-  hs.state = FlightBox::FBMode::Loiter;
+  hs.state = FlightBox::FBMode::Manual;
   hs.cloud = (float)cloudCover;
   /* Real ephemeris sun + moon (EVS only; SVS renders a constant day regardless). */
   time_t clk = utc ? utc : time(nullptr);

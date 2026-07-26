@@ -79,13 +79,6 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBWorld *world) {
 void FBF16Module::ApplyPilotCommands(const FBPilotCommands &c) {
   constexpr double kKtToMs = 0.5144444444;
   switch (c.Guidance) {
-    case FBPilotGuidance::Loiter:
-      AP->SetLoiter(c.LoiterLatDeg, c.LoiterLonDeg, c.TargetAltM, c.LoiterRadiusM, c.LoiterDir,
-                    c.TargetSpeedKt * kKtToMs);
-      break;
-    case FBPilotGuidance::LowLevel:
-      AP->SetLowLevel(c.TargetAltM, c.TargetSpeedKt * kKtToMs, c.TargetHeadingDeg);
-      break;
     case FBPilotGuidance::Manual:
       AP->SetManual(c.ManualRoll, c.ManualPitch, c.ManualYaw, c.ManualThr);
       break;

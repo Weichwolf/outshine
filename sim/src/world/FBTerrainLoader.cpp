@@ -767,3 +767,14 @@ int fb_fetch_stars(const char *base, uint8_t *dst, int cap) {
   }
   return off;
 }
+
+int fb_fetch_text(const char *url, char *dst, int cap) {
+  uint8_t *buf = 0;
+  size_t n = 0;
+  if (!fb_get(url, &buf, &n)) return 0;
+  int wrote = (int)(n < (size_t)(cap - 1) ? n : (size_t)(cap - 1));
+  memcpy(dst, buf, (size_t)wrote);
+  dst[wrote] = '\0';
+  free(buf);
+  return wrote;
+}

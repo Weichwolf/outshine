@@ -4,9 +4,10 @@
 # vendor/jsbsim submodule; the only cross-directory reference is fb-tiles' public bake-version header
 # (../tiles/src/style_ver.h).
 #
-#   make wasm     build the WASM browser Command Center (F-16 sim + renderer) -> web/gpu.js
-#   make worker   build the off-thread tile worker (fetch/decode/mesh/mips)   -> web/fbtileworker.js
-#   make native   build the native headless WebGPU oracle (Dawn + --fly)      -> build/gpu_native
+#   make wasm     build the WASM Command Center (F-16 sim + renderer) + tile worker (depends on worker,
+#                 so a browser boot never hangs on a missing worker) -> web/gpu.js + web/fbtileworker.js
+#   make worker   build the off-thread tile worker (fetch/decode/mesh/mips) alone -> web/fbtileworker.js
+#   make native   build the native headless WebGPU oracle (Dawn + --mission)  -> build/gpu_native
 #   make image    build the deployable fb-sim web container (podman)
 #   make up       run the web host container (serves the WASM app on :8080)
 #   make clean    remove build artifacts
@@ -33,8 +34,8 @@ JSB_HOST     := build/jsbsim-host
 # FBMode/telemetry/FBFlightPlan/FBRunway; math = value-math (FBMat4); render = FBRenderer + camera/mips/
 # chunkmesh/ephemeris/the HUD's WebGPU-backend resources (FBHudGeometry, FBHudFont ROM); world = FBWorld/
 # FBTerrainField/tile streaming; units = FBUnit/FBOwnshipUnit (world-entity identity/pose); systems = the
-# DEFAULT, airframe-agnostic guidance/FCS/planner/displays/pilot/airframe-controls (FBAutopilot/
-# FBFlightControl/FBPathPlan/FBDisplaySystem/FBPilot/FBAirframeControls) modules compose and may
+# DEFAULT, airframe-agnostic guidance/FCS/displays/pilot/airframe-controls (FBAutopilot/
+# FBFlightControl/FBDisplaySystem/FBPilot/FBAirframeControls) modules compose and may
 # override; modules/f16 = the F-16's module (composes systems/ + its gain preset); fdm = the JSBSim
 # adapter (namespace FlightBox, ONE-TU JSBSim seam — see fdm/jsbsim_adapter.h); terrain = the lean
 # terrain API (flat); vendor/jsbsim/src = the JSBSim headers.
@@ -48,7 +49,7 @@ INC_TILES := -I../tiles/src
 help:            ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
 
-wasm:            ## build the WASM browser Command Center (F-16 sim + renderer) -> web/gpu.js
+wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,wasm} + web/fbtileworker.{js,wasm}
 	@cd $(SELF_DIR); source "$(EMSDK_DIR)/emsdk_env.sh" >/dev/null 2>&1; set -e; \
 	  test -f $(JSB_WASM)/src/libJSBSim.a || bash vendor/build_jsbsim_wasm.sh; \
 	  mkdir -p build/obj-wasm; \
@@ -64,8 +65,6 @@ wasm:            ## build the WASM browser Command Center (F-16 sim + renderer) 
 	    -c -o build/obj-wasm/FBFlightControl.o; \
 	  emcc src/world/FBTerrainField.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) -Isrc/terrain \
 	    -c -o build/obj-wasm/FBTerrainField.o; \
-	  emcc src/systems/FBPathPlan.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) -Isrc/terrain \
-	    -c -o build/obj-wasm/FBPathPlan.o; \
 	  emcc src/modules/f16/FBF16Max7456.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
 	    -c -o build/obj-wasm/FBF16Max7456.o; \
 	  emcc src/modules/f16/FBF16Module.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
@@ -116,7 +115,7 @@ wasm:            ## build the WASM browser Command Center (F-16 sim + renderer) 
 	    --embed-file $(JSBSIM)/engine/direct.xml@/jsbsim/engine/direct.xml \
 	    --embed-file web/moon.jpg@/moon.jpg \
 	    -o web/gpu.js; \
-	  echo "WASM -> web/gpu.js (served at /)"
+	  echo "WASM -> web/gpu.js + web/fbtileworker.js (served at /)"
 
 worker:          ## build the off-thread tile worker (fetch/decode/mesh/mips) -> web/fbtileworker.js
 	@cd $(SELF_DIR); source "$(EMSDK_DIR)/emsdk_env.sh" >/dev/null 2>&1; set -e; \
@@ -153,8 +152,6 @@ native:          ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	    -c -o build/obj-native/FBFlightControl.o; \
 	  c++ src/world/FBTerrainField.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBTerrainField.o; \
-	  c++ src/systems/FBPathPlan.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
-	    -c -o build/obj-native/FBPathPlan.o; \
 	  c++ src/modules/f16/FBF16Max7456.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBF16Max7456.o; \
 	  c++ src/modules/f16/FBF16Module.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \

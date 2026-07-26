@@ -11,7 +11,7 @@ POLYMORPHICALLY behind `FBModule*` at runtime (today the F-16 is the one registe
 dispatch is the real mechanism). `app/` entry points, `core/` shared state incl. `FBMode`/
 `FBMasterMode`, `math/` value types, `render/`, `world/`, `terrain/` lean terrain library, `fdm/`
 JSBSim adapter, `systems/` the generic, airframe-agnostic system slots every module composes — the
-three REAL ones (`FBAutopilot`/`FBFlightControl`/`FBPathPlan`, each with one virtual override point for
+three REAL ones (`FBAutopilot`/`FBFlightControl`/`FBPilot`, each with one virtual override point for
 a module whose behavior genuinely differs, not just its tuning) plus `FBSystemSlots.h`'s NoOp
 interface+default pairs for the rest of a full airframe's inventory (Input/HOTAS, Propulsion,
 Displays, Sensors, Weapons, Defensive, Comms — see `doc/f16/`) — `modules/` the `FBModule` base +
@@ -72,7 +72,8 @@ slot at its own rate) incl. `displays/` HUD, and the vendored toolchain under `s
   already opened. A stage never begins/ends a pass itself; a stage split must never change the
   Begin*Pass COUNT per frame (log it, diff against the prior count — the acceptance test). Two link
   targets: WASM via emdawnwebgpu (`make -C sim wasm` — deploys into `sim/web/`) and native Dawn
-  (`make -C sim native` → `sim/build/gpu_native`, the PNG oracle; `--fly` = live in-process loiter).
+  (`make -C sim native` → `sim/build/gpu_native`, the PNG oracle; `--mission FILE --interval S` = the
+  flying-frame oracle, a live in-process F-16 flying a mission).
   Tile worker: `make -C sim worker`.
 - Proof venues: pixels → native oracle (PNG hash against a baseline where the frame is deterministic,
   e.g. the SVS path with a pinned `--utc`); behaviour/telemetry → headless console ([agl], [cpuprof],

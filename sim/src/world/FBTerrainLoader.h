@@ -49,8 +49,8 @@ void fb_stream_close(void);
  * ~tile-cell so a moving aircraft only refetches when it has moved appreciably. */
 double fb_stream_ground(double lat, double lon);
 
-/* Raw Terrarium DEM tile bytes for the autopilot terrain field (FBTerrainField — coarse-zoom height
- * sampling for LOWLEVEL look-ahead + path planning, NOT the render mesh). Sets the bytes+len out-params
+/* Raw Terrarium DEM tile bytes for the terrain-height oracle (FBTerrainField — coarse-zoom height
+ * sampling for terrain-aware guidance, NOT the render mesh). Sets the bytes+len out-params
  * to the cached PNG payload (owned by the byte cache — do NOT free). Returns 1 = bytes ready, 0 = PENDING
  * (WASM async fetch in flight — retry, do NOT treat as a hole), -1 = a real hole/error. Native is
  * synchronous (never pends: 1 or -1); WASM is a non-blocking main-thread fetch cache. */
@@ -70,6 +70,11 @@ int  fb_load_image_file(const char *path, uint8_t **rgba, int *w, int *h);
 /* Fetch the concatenated HYG star bands from fb-tiles (`base`/t/stars/{0..}/0/0) into dst (cap bytes,
  * blocking startup fetch). Returns total bytes, 0 if unreachable. */
 int  fb_fetch_stars(const char *base, uint8_t *dst, int cap);
+/* Blocking GET of a plain-text resource (`url`, absolute or origin-relative — e.g. a WASM boot mission
+ * file served by fb-sim's OWN web/ mount, not fb-tiles) into a NUL-terminated dst (cap bytes incl. the
+ * terminator). Same fb_get retry contract as fb_fetch_stars. Returns bytes written (excl. terminator),
+ * 0 if unreachable. */
+int  fb_fetch_text(const char *url, char *dst, int cap);
 
 #ifdef __cplusplus
 }

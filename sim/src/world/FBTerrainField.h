@@ -1,10 +1,9 @@
-/* FlightBox — FBTerrainField: a coarse-DEM terrain-height oracle for the LOWLEVEL autopilot. Samples
- * Terrarium DEM tiles at a fixed zoom (default 11 ~ 50 m/px) via fb_stream_dem, decodes them to float
- * height grids (osmmesh), keeps a small count-capped LRU of decoded grids, and answers HeightAt(lat,lon)
- * by bilinear interpolation. This is the shared terrain source for the vertical AGL-hold look-ahead and
- * (Stage 2) the lateral path planner — NOT the render mesh path (that stays in FBWorld/osmmesh). Cheap
- * after the first decode: a moving corridor re-hits the same 1-2 cached grids. Decode failures / DEM
- * holes read as sea level (0 m). */
+/* FlightBox — FBTerrainField: a coarse-DEM terrain-height oracle, sampled ahead of the ownship for
+ * terrain-aware guidance. Samples Terrarium DEM tiles at a fixed zoom (default 11 ~ 50 m/px) via
+ * fb_stream_dem, decodes them to float height grids (osmmesh), keeps a small count-capped LRU of
+ * decoded grids, and answers HeightAt(lat,lon) by bilinear interpolation — NOT the render mesh path
+ * (that stays in FBWorld/osmmesh). Cheap after the first decode: a moving corridor re-hits the same
+ * 1-2 cached grids. Decode failures / DEM holes read as sea level (0 m). */
 #ifndef FBTERRAINFIELD_H
 #define FBTERRAINFIELD_H
 

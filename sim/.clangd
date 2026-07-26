@@ -39,6 +39,8 @@ CompileFlags:
     - -I/Users/cosmo/Git/flightbox/sim/src/systems
     - -I/Users/cosmo/Git/flightbox/sim/src/modules
     - -I/Users/cosmo/Git/flightbox/sim/src/modules/f16
+    - -I/Users/cosmo/Git/flightbox/sim/src/modules/f16/displays
+    - -I/Users/cosmo/Git/flightbox/sim/src/units
     - -I/Users/cosmo/Git/flightbox/sim/src/fdm
     - -I/Users/cosmo/Git/flightbox/sim/src/terrain
     - -I/Users/cosmo/Git/flightbox/tiles/src

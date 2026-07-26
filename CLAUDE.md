@@ -10,7 +10,7 @@ Produkt ist die F-16; andere Modelle sind Nebensache, nicht das Ziel.
 
 ```
 fb-tiles (Server: weltweit DEM/OSM/Luftbild)  ──HTTP──▶  Command Center (Client)
-                                                          = JSBSim + FBW + Autopilot (LOWLEVEL|Loiter)
+                                                          = JSBSim + FBW + Autopilot (Pilot/Mission|Manual)
                                                             + WebGPU-ECEF-Renderer + HUD
                                                             als EIN Prozess (WASM-Browser | native CLI)
 ```
@@ -44,7 +44,7 @@ ein gültiger Start**.
    (`jsbsim/aircraft/f16`, full-scale, echte FLCS) — **Referenz ist das MODELL selbst**, nicht der
    absolute echte Jet. Das Modell ist gepinnt/vanilla; seine validierte
    Charakteristik ist die Wahrheit (z.B. Rollrate ~190 °/s = Modell-Eigenschaft, akzeptiert). FlightBox
-   muss das Modell **treu fliegen** — der FBW/Loiter kommandiert die echte FLCS, verzerrt sie nicht; kein
+   muss das Modell **treu fliegen** — der FBW/Autopilot kommandiert die echte FLCS, verzerrt sie nicht; kein
    künstliches Departure aus Spawn/Trim, keine Divergenz. Bewertet werden **korrekte Integration +
    Rendering**, nicht Modell-vs-echter-Jet. Flugzeuge sind **Plugins**; die F-16 ist das Produkt.
 
@@ -57,12 +57,15 @@ modul-überschreibbar:
 
 | Modus | Mechanismus |
 |---|---|
-| `manual` | direkter Stick (Gamepad/Tastatur) durch den FBW |
-| `lowlevel` (Boot-Default) | 450 kt @ 500 ft AGL: reaktiver Terrain-Fächer wählt das Tal, Wings-Level-Disziplin, Fence um den Spawn; optionaler A*-Wanderplaner (`?plan=1`) — `doc/lowlevel.md` |
-| `loiter(lat, lon, alt, radius)` (`?ap=loiter`) | Bank-to-Circle: halte einen Kreis um das Zentrum in Zielhöhe/-radius |
+| `manual` (`?ap=manual`) | direkter Stick (Gamepad/Tastatur) durch den FBW |
+| `pilot` (Boot-Default) | FBF16Pilot (`systems/FBPilot`, F-16-Override `modules/f16/FBF16Pilot`) fliegt eine `.fbm`-Mission als Phasenmaschine (Preflight → Takeoff → Climb → Route → …), kommandiert je Phase `FBAutopilot::Direct` (Punkt-zu-Punkt Kurs/Höhe/Speed) — `doc/mission-format.md` |
 
-Der Loiter-AP ist die **Kamera-Plattform** für weltweite Screenshots; LOWLEVEL ist der Missions-Kern.
-Weitere Modi (goto/route, hold, RTH, Anflug/Landung) folgen — Richtung DCS-artige Missionen.
+`FBAutopilot::Direct` ist das interne Guidance-Primitiv, das der Pilot je Phase kommandiert — keine
+eigene Flugmodus-Wahl, nur die Ausführung dessen, was der Pilot verlangt. Die Pilot-Phasen + ihr
+Regelkreis (FBPilot → FBAutopilot::Direct → FBFlightControl → JSBSim, 10 Hz Entscheidung über 100 Hz
+FDM-Substeps) sind der **Missions-Kern**; `manual` bleibt als direkter Stick-Sandkasten (noch ohne
+gebundenes HOTAS — `FBInputSystem` ist weiterhin der NoOp-Default). Weitere Phasen (Anflug/Landung)
+folgen — Richtung DCS-artige Missionen.
 
 ## Flugzeug = Modul + JSBSim-Modell
 
@@ -137,7 +140,7 @@ sim/src/
   systems/   die generischen, airframe-agnostischen System-Slots eines Moduls — Interface + Default
              in EINER Klasse, ein Modul überschreibt per Ableitung (Zahlen-Tuning bleibt Preset/
              Config, keine leere Ableitung dafür):
-               FBAutopilot (Guidance), FBFlightControl (FBW-Innenschleife), FBPathPlan (Wanderplaner),
+               FBAutopilot (Guidance), FBFlightControl (FBW-Innenschleife),
                FBAirDataSystem (CAS/Mach/G-Last, FPM-Richtung als Ground-Track/Flightpath-Angle aus dem
                ENU-Geschwindigkeitsvektor), FBRadarAltimeter (AGL aus DER SELBEN DEM-Quelle, die die App
                schon für `SetAgl` auflöst — keine zweite Terrain-Abfrage), FBNavSystem (ein Steerpoint +
@@ -158,7 +161,7 @@ sim/src/
                (Manöver) und FBFlightControl (100 Hz, die Hände) bleiben unangetastet; FBPilot entscheidet
                WOHIN (FBFlightPlan-Wegpunkte, optionale FBRunway) und gibt das im ~10-Hz-Entscheidungstakt
                (vom Modul gedrosselt wie jeder andere Slot) als `FBPilotCommands` aus: eine Guidance-
-               Anfrage an FBAutopilot (`FBPilotGuidance::None/Manual/Loiter/LowLevel` — None = "AP
+               Anfrage an FBAutopilot (`FBPilotGuidance::None/Manual/Direct` — None = "AP
                unangetastet lassen") plus optionale (`std::optional`) Airframe-Kommandos an
                FBAirframeControls. Die Phasen-Zustandsmaschine (Idle/Preflight/Takeoff/Climb/Route/
                Approach/Flare/Rollout/Shutdown, doc/f16/procedures-*.md) ist das Prozedur-Gerüst; Run()
@@ -181,9 +184,9 @@ sim/src/
              Peers rufen sich nie gegenseitig)
   modules/f16/           das F-16-Modul: FBF16Module komponiert die systems/-DEFAULTS (FBAutopilot/
                          FBFlightControl/FBAirDataSystem/FBRadarAltimeter/FBNavSystem unverändert) mit
-                         dem F-16-Gain-Preset (FBFlightControl::F16()), besitzt den optionalen
-                         FBPathPlan, den Piloten (FBF16Pilot, `.h/.cpp`) und die Ownship-Airframe-
-                         Controls (FBJsbsimAirframeControls) und cycelt alle Systemslots inkl. Piloten
+                         dem F-16-Gain-Preset (FBFlightControl::F16()), besitzt den Piloten (FBF16Pilot,
+                         `.h/.cpp`) und die Ownship-Airframe-Controls (FBJsbsimAirframeControls) und
+                         cycelt alle Systemslots inkl. Piloten
                          (10 Hz) — solange dessen Phase Idle bleibt, ändert das NICHTS am bestehenden
                          Verhalten (FBPilotCommands bleibt neutral). FBF16Pilot ist heute ein dünnes
                          Skeleton (übernimmt das FBPilot-Default-Verhalten unverändert) — hier landen
@@ -288,9 +291,10 @@ Agenten führen KEIN verstecktes Memory; alles Betriebswissen steht hier:
 
 - **emsdk** liegt in `~/Git/emsdk`; ein `nproc`-Shim liegt in `~/.local/bin` (macOS hat kein nproc).
 - **Container:** Podman-VM zuerst (`podman machine start`), dann `tiles/up.sh` (fb-tiles, :8081) und
-  `sim/up.sh` (fb-sim, :8080). fb-sim mountet `sim/web` LIVE — `make wasm`/`worker` wirken per Refresh.
-- **WASM-Artefakte sind gitignored.** Der Browser lädt erst, wenn BEIDE gebaut sind:
-  `make -C sim wasm` (gpu.js/gpu.wasm) UND `make -C sim worker` (fbtileworker.js/.wasm) — fehlt der
-  Tile-Worker, hängt die App still beim Start (404 im Worker).
+  `sim/up.sh` (fb-sim, :8080). fb-sim mountet `sim/web` LIVE — `make wasm` wirkt per Refresh.
+- **WASM-Artefakte sind gitignored.** `make -C sim wasm` genügt — das `wasm`-Target hängt vom
+  `worker`-Target ab und baut IMMER beide (gpu.js/gpu.wasm + fbtileworker.js/.wasm); `make -C sim
+  worker` bleibt einzeln aufrufbar. Fehlt der Tile-Worker, hängt die App still beim Start (404 im
+  Worker) — daher die feste Abhängigkeit, nicht zwei getrennt zu merkende Targets.
 - **Git:** Commit-Mail ist der GitHub-noreply-Alias (nicht github@outshine.de); Push läuft per
   SSH-insteadOf. Native Builds brauchen `sim/vendor/.compat-headers` (gitignored, host-lokal).

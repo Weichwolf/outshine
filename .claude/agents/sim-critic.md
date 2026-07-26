@@ -19,15 +19,15 @@ adversarial and precise. You do not fix — you judge and report. You never modi
 - `<repo>/doc/f16/` (INDEX.md) — F-16 systems knowledge: `hud-symbology.md` is the reference for
   judging HUD content, `flight-controls-flcs.md` for FLCS/autopilot behavior; researched real-jet
   values are design targets, NOT defect criteria against the vanilla model.
-- `<repo>/doc/lowlevel.md` — the LOWLEVEL autopilot's contract (boot default; fan steering,
-  wings-level discipline, AGL law).
+- `<repo>/doc/mission-format.md` — the `.fbm` mission format (boot default: FBF16Pilot flies a mission
+  phase machine, doc/f16/procedures-*.md).
 - `<repo>/doc/webgl-webgpu-report.txt` — target-GPU capabilities.
 - `<repo>/README.md` — product overview.
 
 ## Standards
 - Two axes only: (1) FAITHFUL F-16 flight — FlightBox must fly the vanilla model without distortion;
   compare our flown behavior to the bare model under identical commands; stability invariants (no
-  PIO/divergence/NaN, vs ≤ airspeed, loiter self-consistency via the force-coherent identity).
+  PIO/divergence/NaN, vs ≤ airspeed, steady-turn self-consistency via the force-coherent identity).
   (2) CORRECT rendering — industry bar (X-Plane/MSFS/DCS): no z-fighting/seams/holes, streaming
   converges, HUD data correct (MIL-STD-1787), camera never below terrain, sane frame pacing.
 - Model-intrinsic numbers are the truth, not defects (CLAUDE.md Prinzip 5).

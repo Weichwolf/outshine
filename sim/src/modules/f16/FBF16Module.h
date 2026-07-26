@@ -1,7 +1,6 @@
 /* FlightBox — FBF16Module: the F-16, today's one registered FBModule. Composes the DEFAULT systems
  * (systems/FBAutopilot, systems/FBFlightControl — unmodified) with the F-16 gain preset
- * (FBFlightControl::F16()), owns the LOWLEVEL wander planner (systems/FBPathPlan) once the App
- * configures one, and cycles the full system-slot set the doc/f16/ inventory names — Guidance/FCS,
+ * (FBFlightControl::F16()), and cycles the full system-slot set the doc/f16/ inventory names — Guidance/FCS,
  * Input/HOTAS, Propulsion, Displays, Sensors, Weapons, Defensive, Comms — each at its own rate. This
  * is the ONE place F-16 behavior lives; it is also the place a future F-16-specific override (a real
  * radar model, a real HOTAS binding, ...) gets hung, by replacing one slot's default with a subclass.
@@ -24,13 +23,7 @@
  *                                                          stays neutral, so composing the pilot changes
  *                                                          NOTHING until the App actually starts it
  *                                                          (SetPhase(Preflight), see FBAppNative.cpp
- *                                                          RunMission/--pilot).
- *   PathPlan                                 App-owned cadence (see FBF16Module.cpp banner) — the one
- *                                             exception; App-side planner-vs-fan-vs-fixed dispatch
- *                                             differs between the WASM and native oracle today, so it
- *                                             is not unified into this Run() (would change either
- *                                             app's behavior). The module still OWNS the FBPathPlan
- *                                             instance (ConfigurePathPlan/PathPlan()), not the App.
+ *                                                          RunMission / FBAppWasm.cpp's mission boot).
  * All NoOp defaults cost one throttle comparison when not due, and nothing when they are (empty
  * virtual call) — no per-frame heap allocation, no dispatch inside the 100 Hz substep's inner math. */
 #ifndef FBF16MODULE_H
@@ -49,7 +42,6 @@
 #include "FBFlightPlan.h"
 #include "FBModule.h"
 #include "FBNavSystem.h"
-#include "FBPathPlan.h"
 #include "FBPilot.h"
 #include "FBRadarAltimeter.h"
 #include "FBRunway.h"
@@ -57,8 +49,6 @@
 #include "FBMasterMode.h"
 
 namespace FlightBox {
-
-class FBTerrainField;
 
 class FBF16Module : public FBModule {
 public:
@@ -86,20 +76,12 @@ public:
    * rather than re-querying terrain. */
   void SetGroundAsl(float m) { GroundAslM = m; }
 
-  /* LOWLEVEL wander planner: the module owns the instance once the App configures one (opt-in — not
-   * every boot mode plans). nullptr until configured. */
-  void ConfigurePathPlan(FBTerrainField *field, double centerLat, double centerLon, double fenceRadiusM,
-                         unsigned seed) {
-    Plan = std::make_unique<FBPathPlan>(field, centerLat, centerLon, fenceRadiusM, seed);
-  }
-  FBPathPlan *PathPlan() { return Plan.get(); }
-
   FBMasterMode GetMasterMode() const { return Mode; }
   void SetMasterMode(FBMasterMode m) { Mode = m; }
 
   /* The pilot (see the rate table) + what it flies/lands on: FlightPlan/Runway are simple accessors the
    * App fills at boot (mission setup, not a per-frame write); PilotSys is the F-16 skeleton (currently
-   * the unmodified FBPilot default) exposed for boot/test phase-machine access (e.g. ?ap=pilot). */
+   * the unmodified FBPilot default) exposed for boot/test phase-machine access (mission boot). */
   FBF16Pilot &PilotSystem() { return *PilotSys; }
   FBAirframeControls &Controls() { return *AirframeCtrl; }
   FBFlightPlan &FlightPlan() { return Plan_; }
@@ -113,7 +95,6 @@ private:
    * without slicing; the F-16 composes the unmodified DEFAULTS. */
   std::unique_ptr<FBAutopilot> AP;
   std::unique_ptr<FBFlightControl> FC;
-  std::unique_ptr<FBPathPlan> Plan;   /* nullptr unless ConfigurePathPlan was called */
 
   std::unique_ptr<FBInputSystem> Input;
   std::unique_ptr<FBPropulsionSystem> Propulsion;

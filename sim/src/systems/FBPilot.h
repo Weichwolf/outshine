@@ -35,9 +35,9 @@ namespace FlightBox {
 class FBWorld;
 
 /* The guidance the pilot hands to FBAutopilot. None = "don't touch the AP" — the module only calls the
- * matching FBAutopilot setter (SetLoiter/SetLowLevel/SetManual/SetDirect) when a concrete mode is
- * requested, so a None-guidance tick changes nothing about whatever guidance is already running. */
-enum class FBPilotGuidance { None, Manual, Loiter, LowLevel, Direct };
+ * matching FBAutopilot setter (SetManual/SetDirect) when a concrete mode is requested, so a
+ * None-guidance tick changes nothing about whatever guidance is already running. */
+enum class FBPilotGuidance { None, Manual, Direct };
 
 /* One decision tick's output. Every airframe demand is std::optional: unset = "the pilot isn't
  * touching this control right now" (most ticks touch none of them), exactly mirroring a real pilot's
@@ -45,9 +45,7 @@ enum class FBPilotGuidance { None, Manual, Loiter, LowLevel, Direct };
 struct FBPilotCommands {
   FBPilotGuidance Guidance = FBPilotGuidance::None;
 
-  double TargetHeadingDeg = 0.0, TargetAltM = 0.0, TargetSpeedKt = 0.0;   /* LowLevel: heading/AGL/speed */
-  double LoiterLatDeg = 0.0, LoiterLonDeg = 0.0, LoiterRadiusM = 0.0;     /* Loiter target */
-  int    LoiterDir = 1;
+  double TargetAltM = 0.0, TargetSpeedKt = 0.0;
   double TargetLatDeg = 0.0, TargetLonDeg = 0.0;   /* Direct target point (with TargetAltM/TargetSpeedKt) */
   double ManualRoll = 0.0, ManualPitch = 0.0, ManualYaw = 0.0, ManualThr = 0.0;   /* Manual pass-through */
 

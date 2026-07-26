@@ -1,19 +1,19 @@
 /* FBRenderer demo page (Stage 6): the REAL in-process F-16 flies the WebGPU engine. libJSBSim +
- * FBAutopilot (LOITER) + FBFlightControl (F-16 FLCS-command) run here each frame; the camera is the
- * aircraft's eye (position + attitude -> ECEF basis, FBCamera.h pattern), FBWorld streams z14 fb-tiles
- * around the live flight position. Origin from config.js (FB_ORIGIN_LAT/LON). */
+ * FBF16Pilot (mission phase machine) + FBAutopilot/FBFlightControl (F-16 FLCS-command) run here each
+ * frame; the camera is the aircraft's eye (position + attitude -> ECEF basis, FBCamera.h pattern),
+ * FBWorld streams z14 fb-tiles around the live flight position. Origin from config.js
+ * (FB_ORIGIN_LAT/LON); default boot mission from web/missions/ (see main()'s banner). */
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
 #include <memory>
+#include <string>
 #include <emscripten.h>
 #include "FBRenderer.h"
 #include "FBWorld.h"
-#include "FBModule.h"
 #include "FBF16Module.h"
-#include "FBTerrainField.h"
-#include "FBPathPlan.h"
+#include "FBMissionBoot.h"
 #include "FBEphemeris.h"
 #include "FBTerrainLoader.h"
 #include "FBTelemetry.h"
@@ -25,9 +25,12 @@ using namespace FlightBox;
 
 static const double kPi = 3.14159265358979323846;
 static const double kMPerDeg = 111320.0;
-static const double kRadiusM = 8000.0;   /* loiter ring */
-static const double kAglM = 1500.0;      /* spawn height above ground */
-static const double kSpeedMs = 220.0;
+static const double kRadiusM = 8000.0;   /* ?ap=manual spawn offset */
+static const double kAglM = 1500.0;      /* ?ap=manual spawn height above ground */
+static const double kSpeedMs = 220.0;    /* ?ap=manual spawn speed */
+static const double kWpCaptureM = 500.0; /* generic waypoint capture radius (matches FBAppNative.cpp) */
+static const char *kDefaultMissionUrl = "/missions/payerne-takeoff-only.fbm";   /* served from sim/web/
+    missions/ by fb-sim's own web/ mount (up.sh) — editable without a WASM rebuild */
 
 static FBRenderer R;
 static FBWorld W;
@@ -35,18 +38,9 @@ static FBWorld W;
  * always the F-16, but every per-frame call below goes through the base interface, not the concrete
  * type — the mechanism a future Ka-52/F-18 module plugs into, not a shortcut around it). gF16 is the
  * concrete handle the boot/config code below needs for F-16-specific setup (Autopilot/FlightControl
- * gains, PathPlan) that isn't part of the generic FBModule contract. */
+ * gains, mission spawn) that isn't part of the generic FBModule contract. */
 static std::unique_ptr<FBF16Module> gF16 = std::make_unique<FBF16Module>();
 static FBModule *gActiveModule = gF16.get();
-static FBTerrainField gTerrain(13);   /* LOWLEVEL look-ahead field (z13 = /elev resolution) */
-static FBTerrainField gPlanField(9);  /* planner cost field (coarse z9) */
-static FBPathPlan *gPlan = nullptr;   /* lateral wander planner (nullptr in fixed-heading / loiter) */
-static bool gLowLevel = false;        /* boot mode: LOWLEVEL (default) vs loiter (?ap=loiter) */
-static bool gPlannerMode = false;     /* LOWLEVEL with the A* wander planner (?plan=1) */
-static bool gFanMode = false;         /* LOWLEVEL with the reactive terrain fan (default) */
-static bool gPilotMode = false;       /* ?ap=pilot: flies the SAME LOWLEVEL default physics, additionally
-                                        * threads FBF16Pilot's phase machine (Round A: still Idle-neutral
-                                        * — see FBF16Module::ApplyPilotCommands) */
 static fb_fdm_state St;
 static FBOwnshipUnit gOwnship(1, St);    /* the ownship as an FBUnit — borrows St (see its own banner);
                                           * safe: St has static storage + no dynamic initializer, so its
@@ -175,39 +169,16 @@ static void frame(void) {
   gF16->SetGroundAsl((float)gForHud);
   double cp_b = emscripten_get_now();   /* end: ground/bridges */
 
-  /* LOWLEVEL wander planner: pure-pursuit steers the AGL-hold heading down the valley waypoints. The
-   * z9 cost tiles stream in async, so the boot plan is coarse (near-straight) and a PERIODIC re-plan
-   * refines it into valley-following as tiles land — cheap A* (measured below), and a replan is rare
-   * (arrival / refresh), so it never sits in the per-frame path. */
-  if (gPlannerMode && gPlan) {
-    static double lastReplan = 0.0;
-    static long lastDecodes = -1;
-    gPlan->Update(St.lat, St.lon);   /* advance waypoints / replan on goal arrival (cheap capture check) */
-    /* Refresh the route only when NEW z9 cost tiles have landed (the async DEM makes the boot plan coarse;
-     * it refines as tiles stream, then decodes stabilise and re-planning STOPS — so the ~1-frame A* cost
-     * hits a handful of times at boot, never in steady cruise). */
-    const char *rs = getenv("FB_LL_REPLAN_S");
-    double refreshS = rs ? atof(rs) : 6.0;
-    long dec = gPlanField.Decodes();
-    if (now - lastReplan > refreshS * 1000.0 && dec != lastDecodes) {
-      lastReplan = now; lastDecodes = dec;
-      double t0 = emscripten_get_now();
-      gPlan->Reroute(St.lat, St.lon);
-      double planMs = emscripten_get_now() - t0;
-      printf("[plan-perf] replan %.1f ms | expanded=%ld wp=%d planDecodes=%ld goalDist=%.0fkm\n",
-             planMs, gPlan->LastExpanded(), gPlan->RouteSize(), dec, gPlan->GoalDistM(St.lat, St.lon) / 1000.0);
-      fflush(stdout);
-    }
-    gF16->Autopilot().SetLowLevelHeading(gPlan->DesiredTrackDeg(St.lat, St.lon));
-  } else if (gFanMode) {
-    gF16->Autopilot().UpdateLowLevelSteering(St, dt);   /* reactive terrain fan (default): choose the valley heading, once/frame */
-  }
-
   /* Advance the active module: guidance -> FLCS-command -> JSBSim, fixed 100 Hz substeps (spiral
-   * guard), plus its own system slots at their own rates — through the polymorphic FBModule handle. */
+   * guard), plus its own system slots at their own rates (incl. FBPilot, 10 Hz) — through the
+   * polymorphic FBModule handle. */
   gActiveModule->Run(St, dt, &W);
   FBGuidance g = gF16->LastGuidance();
   int nSub = gF16->LastSubsteps();
+  /* Mission waypoint sequencing: the mechanical half FBPilot::Run relies on but does not itself do
+   * (its Climb/Route phases just fly whatever ActiveWaypoint() returns) — a no-op on an empty
+   * FlightPlan (?ap=manual boot never sets one). */
+  FBMissionAdvanceWaypoint(gF16->FlightPlan(), St.lat, St.lon, kWpCaptureM);
   double cp_c = emscripten_get_now();   /* end: jsbsim substeps */
 
   /* HUD AGL (ASL - DEM ground) — gForHud computed above, before Run(), so FBRadarAltimeter and this
@@ -244,20 +215,7 @@ static void frame(void) {
     if (accLog >= 1.0) { accLog = 0.0;
       FlightBox::FBLogAgl(St, g.Mode, g.RingDistM, gForHud, fb_jsbsim_get_ground());
       printf("[home] dist=%.0f brg=%.0f hdg=%.0f lon=%.4f\n", hs.home_dist, hs.home_bearing, St.yaw, St.lon);
-      if (gLowLevel)
-        printf("[lowlevel] agl=%.0f tgtAgl=%.0f gndHere=%.0f gndAhead=%.0f tgtVs=%.1f vs=%.1f alt=%.0f demZ=%d decodes=%ld\n",
-               St.elev - gF16->Autopilot().LlGroundHere(), gF16->Autopilot().LlTargetAgl(), gF16->Autopilot().LlGroundHere(),
-               gF16->Autopilot().LlGroundAhead(), gF16->Autopilot().LlTargetVs(), St.vy, St.elev, gTerrain.Zoom(), gTerrain.Decodes());
-      if (gFanMode)
-        printf("[fan] hdg=%.0f tgtHdg=%.0f bank=%.1f cost min/mid/max=%.0f/%.0f/%.0f chosen=%d\n",
-               St.yaw, gF16->Autopilot().LlHeading(), St.roll, gF16->Autopilot().FanMinCost(),
-               gF16->Autopilot().FanMidCost(), gF16->Autopilot().FanMaxCost(), gF16->Autopilot().FanChosen());
-      if (gPlannerMode && gPlan)
-        printf("[plan] goal=%.4f/%.4f goalDist=%.0fkm wp=%d/%d desTrk=%.0f replans=%ld expanded=%ld planDecodes=%ld\n",
-               gPlan->GoalLat(), gPlan->GoalLon(), gPlan->GoalDistM(St.lat, St.lon) / 1000.0, gPlan->ActiveWp(),
-               gPlan->RouteSize(), gPlan->DesiredTrackDeg(St.lat, St.lon), gPlan->Replans(), gPlan->LastExpanded(), gPlanField.Decodes());
-      if (gPilotMode)   /* structural proof: the module cycles FBF16Pilot every Run() (10 Hz, throttled) */
-        printf("[pilot] phase=%d\n", (int)gF16->PilotSystem().GetPhase());
+      printf("[pilot] phase=%d\n", (int)gF16->PilotSystem().GetPhase());   /* Idle in ?ap=manual, else the mission phase machine */
       fflush(stdout); } }
   /* Real ephemeris sun + moon for EVS (the renderer uses them only in photo mode; SVS = constant day). */
   time_t utc = SimUtc ? SimUtc : time(nullptr);
@@ -314,64 +272,59 @@ int main() {
   const char *vk = getenv("FB_VIEW_KM");
   double viewM = (vk && atof(vk) > 0.0) ? atof(vk) * 1000.0 : 240000.0;   /* far view like the old engine */
 
-  /* Boot autopilot mode: LOWLEVEL is the DEFAULT (terrain-following AGL-hold); ?ap=loiter selects the
-   * old bank-to-circle. ?hdg= sets the LOWLEVEL heading (Stage 1 = fixed heading; the planner steers it
-   * once wired). "loiter"/"lowlevel" share the "lo" prefix -> discriminate on the 3rd char. */
-  const char *jap = emscripten_run_script_string("(new URLSearchParams(location.search).get('ap')||'lowlevel')");
-  gLowLevel = !(jap && jap[0] == 'l' && jap[1] == 'o' && jap[2] == 'i');
-  gPilotMode = jap && jap[0] == 'p';   /* ?ap=pilot: LOWLEVEL physics (gLowLevel stays true), Pilot phase-machine on */
-  /* LOWLEVEL lateral: DEFAULT = the reactive terrain FAN. ?hdg= -> fixed heading. ?plan=1 -> the A*
-   * far-planner (opt-in; the fan is the shipped default). */
-  const char *jhdg = emscripten_run_script_string("(new URLSearchParams(location.search).get('hdg')||'')");
-  bool haveHdg = jhdg && jhdg[0];
-  double llHdg = haveHdg ? atof(jhdg) : 180.0;
-  const char *jplan = emscripten_run_script_string("(new URLSearchParams(location.search).get('plan')||'')");
-  bool wantPlan = jplan && jplan[0];
-  gPlannerMode = gLowLevel && !haveHdg && wantPlan;
-  gFanMode = gLowLevel && !haveHdg && !wantPlan;
-  const char *jseed = emscripten_run_script_string("(new URLSearchParams(location.search).get('seed')||'1')");
-  unsigned llSeed = (jseed && jseed[0]) ? (unsigned)atol(jseed) : 1u;
-  const double kLlAgl = 150.0, kLlSpeed = 230.0;
+  /* Boot mode: default = MISSION WITH PILOT — fetch the default .fbm from fb-sim's own web/missions/
+   * (a plain HTTP GET against this page's own origin, not fb-tiles; sim/web/ is up.sh's live mount, so
+   * editing the mission needs no rebuild), ground-spawn on its runway via the SAME FBMissionGroundSpawn
+   * the native --mission runner uses (FBMissionBoot.h — no duplicated spawn logic), and arm FBPilot at
+   * Preflight; FBF16Module::Run() already cycles PilotSys every tick, so that alone flies the takeoff/
+   * climb/route chain. ?ap=manual keeps a direct-stick sandbox airborne near the config origin instead
+   * (no live HOTAS binding yet — FBInputSystem is still the NoOp default, systems/FBSystemSlots.h; this
+   * is the same pass-through FBAutopilot::Manual has always offered). */
+  const char *jap = emscripten_run_script_string("(new URLSearchParams(location.search).get('ap')||'')");
+  bool manualMode = jap && jap[0] == 'm';   /* only 'manual' is a recognised value */
 
-  double spawnAgl = gLowLevel ? kLlAgl : kAglM;
-  double altAsl = Ground + spawnAgl;
-  /* Loiter spawns 8 km due N heading E; LOWLEVEL spawns AT the origin on the commanded heading. */
-  double slat = gLowLevel ? olat : olat + kRadiusM / kMPerDeg, slon = olon;
-  double spawnHdg = gLowLevel ? llHdg : 90.0;
-  double spawnSpd = gLowLevel ? kLlSpeed : kSpeedMs;
-  if (fb_jsbsim_init("/jsbsim/aircraft", "f16", slat, slon, altAsl, 0.0, spawnSpd, spawnHdg, 0) != 0) {
-    printf("[gpu] JSBSim init FAILED\n");
-    return 1;
-  }
-  if (gLowLevel) {
-    gF16->Autopilot().SetTerrain(&gTerrain, fb_stream_ground);
-    gF16->Autopilot().SetLowLevel(kLlAgl, kLlSpeed, llHdg);
-    gF16->Autopilot().SetFence(olat, olon, 500000.0);
-    if (gPlannerMode) {
-      gF16->ConfigurePathPlan(&gPlanField, olat, olon, 500000.0, llSeed);   /* the module OWNS the planner */
-      gPlan = gF16->PathPlan();
-      gPlan->CellM = 2500;         /* coarser than native (1500): keeps a browser re-plan under one frame */
-      gPlan->MaxExpand = 120000;
-      gPlan->Update(slat, slon);   /* initial plan (coarse until z9 tiles stream in — see the frame re-plan) */
-      printf("[gpu] LOWLEVEL+PLAN agl=%.0f m, %.0f m/s, fence 500 km, seed %u, DEM z=%d/plan z=%d | goal %.4f/%.4f wp=%d\n",
-             kLlAgl, kLlSpeed, llSeed, gTerrain.Zoom(), gPlanField.Zoom(), gPlan->GoalLat(), gPlan->GoalLon(), gPlan->RouteSize());
-    } else if (gFanMode) {
-      printf("[gpu] LOWLEVEL+FAN agl=%.0f m, %.0f m/s, DEM z=%d, fence 500 km (reactive terrain fan, wings-level; ?hdg=N fixed, ?plan=1 A*, ?ap=loiter ring)\n",
-             kLlAgl, kLlSpeed, gTerrain.Zoom());
-    } else {
-      gF16->Autopilot().SetLowLevelHeading(llHdg);   /* fan off */
-      printf("[gpu] LOWLEVEL agl=%.0f m, %.0f m/s, FIXED hdg=%.0f, DEM z=%d\n", kLlAgl, kLlSpeed, llHdg, gTerrain.Zoom());
+  if (manualMode) {
+    double altAsl = Ground + kAglM;
+    double slat = olat + kRadiusM / kMPerDeg, slon = olon;   /* 8 km due N, heading E */
+    if (fb_jsbsim_init("/jsbsim/aircraft", "f16", slat, slon, altAsl, 0.0, kSpeedMs, 90.0, 0) != 0) {
+      printf("[gpu] JSBSim init FAILED\n");
+      return 1;
     }
+    gF16->Autopilot().SetManual(0.0, 0.0, 0.0, 0.85);
+    printf("[gpu] JSBSim F-16 manual %.4f/%.4f, alt %.0f m ASL, %.0f m/s (direct stick pass-through, no HOTAS bound yet)\n",
+           olat, olon, altAsl, kSpeedMs);
   } else {
-    gF16->Autopilot().SetLoiter(olat, olon, altAsl, kRadiusM, 1, kSpeedMs);
-    printf("[gpu] JSBSim F-16 loitering %.4f/%.4f, alt %.0f m ASL, R %.0f m, %.0f m/s\n", olat, olon,
-           altAsl, kRadiusM, kSpeedMs);
+    static char missionText[8192];
+    int n = fb_fetch_text(kDefaultMissionUrl, missionText, sizeof missionText);
+    FlightBox::FBMission mission;
+    std::string perr;
+    if (n <= 0 || !FBParseMissionFile(missionText, mission, &perr)) {
+      printf("[gpu] mission boot FAILED (%s): %s\n", kDefaultMissionUrl, n <= 0 ? "fetch (is fb-sim serving web/missions/?)" : perr.c_str());
+      return 1;
+    }
+    const FBRunway &rwy = mission.Runway;
+    /* Resolve the REAL DEM ground under the runway threshold before the sat-on-gear IC — a bounded
+     * blocking wait (fb_stream_ground is async in WASM; ASYNCIFY already yields main() below for the
+     * star-catalogue fetch, same pattern), falling back to the config default on a slow/dead fb-tiles
+     * rather than hanging boot. */
+    double groundAsl = Ground;
+    for (int i = 0; i < 40; i++) {
+      double g = fb_stream_ground(rwy.ThresholdLatDeg, rwy.ThresholdLonDeg);
+      if (g > -1e8) { groundAsl = g; break; }
+      emscripten_sleep(50);
+    }
+    if (!FBMissionGroundSpawn("/jsbsim/aircraft", mission, groundAsl, *gF16, St)) {
+      printf("[gpu] JSBSim init FAILED\n");
+      return 1;
+    }
+    printf("[gpu] mission '%s': ground-spawned hdg=%.0f @ %.5f/%.5f, DEM ground=%.0f m, %d waypoints, FBPilot -> Preflight\n",
+           mission.Name.c_str(), rwy.TrueHeadingDeg, rwy.ThresholdLatDeg, rwy.ThresholdLonDeg, groundAsl, mission.Plan.Size());
   }
   fb_jsbsim_step(&St);   /* prime St before the first guidance step */
 
-  /* HUD nav placeholder: one steerpoint 8 nm bearing 060 from the origin, bullseye AT the origin —
-   * matches gpu_native --fly's setup (see its banner: both in-FOV and crossed-out diamond occur as the
-   * relative bearing sweeps over a loiter turn / LOWLEVEL fan steering). */
+  /* HUD nav placeholder: one steerpoint 8 nm bearing 060 from the config origin, bullseye AT the origin
+   * — a concrete, moving relative bearing so the guide's "diamond in FOV" and "crossed-out" cases both
+   * occur across a run. */
   {
     const double kStptBrgDeg = 60.0, kStptRangeNm = 8.0;
     double brgRad = kStptBrgDeg * kPi / 180.0, rangeM = kStptRangeNm * 1852.0;
@@ -379,13 +332,6 @@ int main() {
     double stptLon = olon + (rangeM * std::sin(brgRad)) / (kMPerDeg * std::cos(olat * kPi / 180.0));
     gF16->Nav().SetSteerpoint(stptLat, stptLon, Ground / 0.3048 + 50.0);
     gF16->Nav().SetBullseye(olat, olon);
-  }
-
-  /* ?ap=pilot: reach FBF16Pilot's phase machine (structural proof only — Run() stays Idle-neutral this
-   * round, see FBF16Module::ApplyPilotCommands; the LOWLEVEL physics above is unaffected either way). */
-  if (gPilotMode) {
-    gF16->PilotSystem().SetPhase(FBPilot::Phase::Preflight);
-    printf("[pilot] ap=pilot: FBF16Pilot phase -> Preflight (guidance/controls untouched this round)\n");
   }
 
   R.SetStreaming(512);

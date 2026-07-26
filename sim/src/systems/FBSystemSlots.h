@@ -3,7 +3,7 @@
  * comms/datalink. Each is an INTERFACE + trivial DEFAULT (NoOp) in one class, one class per slot (no
  * interface/default file split for a body this small) — a module overrides Run() once it implements
  * the real system; until then FBF16Module composes these DEFAULTS unmodified, same pattern as
- * FBAutopilot/FBFlightControl/FBPathPlan. Displays is the one slot with a REAL default (the generic
+ * FBAutopilot/FBFlightControl. Displays is the one slot with a REAL default (the generic
  * HUD symbology) big enough to earn its own file — see FBDisplaySystem.h.
  *
  * Signatures encode the two contract rules from the doc/f16/ distillate: Sensors WRITE the shared
