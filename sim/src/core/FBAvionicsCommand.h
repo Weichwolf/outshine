@@ -23,6 +23,11 @@ enum class FBCommandTarget : uint8_t {
   DatalinkPower, DatalinkTransmit, DatalinkFilter, DatalinkRangeNm,
   MasterMode, MasterArm, AlowFt, BingoLbs, SteerpointNum,
   WeaponSelect, Designate,
+  /* The stores pair. StationSelect steps the SMS to a pylon; WeaponRelease is the pickle — the ONE way
+   * a store leaves the aircraft, so that a release can be refused, takes a hand's worth of time and
+   * leaves a receipt like every other cockpit action (this file's banner). Appended, never inserted:
+   * the ordinals above are telemetry-visible in every run ever measured. */
+  StationSelect, WeaponRelease,
 };
 
 const char *FBCommandTargetStr(FBCommandTarget t);
@@ -40,7 +45,7 @@ FBCommandClass FBCommandClassOf(FBCommandTarget t);
 
 /* WHICH system owns the target — the module dispatches a due command to the slot that owns it, in that
  * slot's own tick, so a command is consumed at the cadence of the box that answers it. */
-enum class FBCommandGroup : uint8_t { Sensors, Comms, Avionics };
+enum class FBCommandGroup : uint8_t { Sensors, Comms, Avionics, Stores };
 
 FBCommandGroup FBCommandGroupOf(FBCommandTarget t);
 

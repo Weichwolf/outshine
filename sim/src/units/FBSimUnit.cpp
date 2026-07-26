@@ -7,16 +7,28 @@
 namespace FlightBox {
 
 namespace {
+/* A WEAPON's airframe is deliberately given no ground to collide with. JSBSim's ground reactions model
+ * an object RESTING on a surface — the mk82 model's two STRUCTURE contacts are a 10,000 lbf/ft spring
+ * with 200,000 lbf/ft/s damping, which is what keeps a parked store from sinking into the tarmac and
+ * which, met at 150 m/s, is a stiff ODE that diverges inside a single step (measured: the integration
+ * blows up on the contact step, so there is no impact state left to report). A store does not bounce:
+ * it detonates. So its flight is pure aero and gravity from release to impact, and WHERE that impact is
+ * stays the judge's call — core/FBFlightMonitor tests the same real elevation sample against the same
+ * penetration rule it applies to every other unit (CLAUDE.md "Kein Cheaten": the module never decides
+ * that its own flight is over). Far below any trajectory, and finite, so nothing downstream sees an
+ * infinity. */
+constexpr double kWeaponNoGroundElevM = -100000.0;
+
 FBFdm &RequireFdm(const std::unique_ptr<FBFdm> &fdm) {
   assert(fdm && "FBSimUnit needs a spawned airframe (FBFdmBoot::Spawn)");
   return *fdm;
 }
 } // namespace
 
-FBSimUnit::FBSimUnit(int id, std::string name, FBUnitTeam team, std::unique_ptr<FBFdm> fdm,
-                     std::unique_ptr<FBModule> module, const fb_fdm_state &initialState,
-                     double groundAslM)
-    : FBUnit(id, std::move(name), FBUnitKind::Aircraft, team),
+FBSimUnit::FBSimUnit(int id, std::string name, FBUnitKind kind, FBUnitTeam team,
+                     std::unique_ptr<FBFdm> fdm, std::unique_ptr<FBModule> module,
+                     const fb_fdm_state &initialState, double groundAslM)
+    : FBUnit(id, std::move(name), kind, team),
       Fdm_(std::move(fdm)),
       Module_(std::move(module)),
       St_(initialState),
@@ -45,7 +57,7 @@ void FBSimUnit::Run(double dt, const FBUnitRegistry *units, const FBWorld *world
 void FBSimUnit::UpdateGroundAsl(double sampleM) {
   if (FBElevationResolved(sampleM)) GroundAslM_ = sampleM;
   Module_->SetGroundAsl((float)GroundAslM_);
-  Fdm_->SetGroundElevM(GroundAslM_);
+  Fdm_->SetGroundElevM(GetKind() == FBUnitKind::Weapon ? kWeaponNoGroundElevM : GroundAslM_);
 }
 
 /* The module's bus with THIS frame's pose folded in: the module publishes the platform block at its own
@@ -109,6 +121,9 @@ void FBSimUnit::StartTelemetry(FBTelemetrySink *sink) {
   Bus_.Register(&Module_->WarningSystem());
   Bus_.Register(&Module_->Commands());
   Bus_.Register(&BusSrc_);
+  /* LAST again, and for the same appending rule: the stores books (systems/FBStoresSystem) — what is
+   * loaded, what was released, and the gross weight that follows from it. */
+  Bus_.Register(&Module_->Stores());
   Bus_.SetSink(sink);
   Bus_.Start();
 }

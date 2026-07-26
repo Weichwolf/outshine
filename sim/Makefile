@@ -57,7 +57,7 @@ JSB_HOST     := build/jsbsim-host
 # override; modules/f16 = the F-16's module (composes systems/ + its gain preset); fdm = the JSBSim
 # adapter (namespace FlightBox, ONE-TU JSBSim seam, one FBFdm per airframe — see fdm/FBFdm.h); terrain = the lean
 # terrain API (flat); vendor/jsbsim/src = the JSBSim headers.
-INC_MODULES := -Isrc/core -Isrc/math -Isrc/render -Isrc/world -Isrc/units -Isrc/systems -Isrc/modules -Isrc/modules/f16 -Isrc/modules/f16/displays
+INC_MODULES := -Isrc/core -Isrc/math -Isrc/render -Isrc/world -Isrc/units -Isrc/systems -Isrc/modules -Isrc/modules/f16 -Isrc/modules/f16/displays -Isrc/modules/stores
 INC_WASM   := $(INC_MODULES) -Isrc/fdm -Isrc/terrain -I$(JSBSIM)/src
 INC_NATIVE := $(INC_MODULES) -Isrc/fdm -Isrc/terrain
 INC_TILES := -I../tiles/src
@@ -91,11 +91,13 @@ CORE_LIB_SRCS := \
   src/systems/FBAirDataSystem.cpp src/systems/FBRadarAltimeter.cpp src/systems/FBNavSystem.cpp \
   src/systems/FBAirframeControls.cpp src/systems/FBPilot.cpp src/systems/FBDatalinkSystem.cpp \
   src/systems/FBRadarSystem.cpp src/systems/FBBfmTrack.cpp src/systems/FBWarningSystem.cpp \
+  src/systems/FBStoresSystem.cpp \
   src/modules/FBModuleRegistry.cpp \
   src/modules/f16/FBF16Fcr.cpp \
   src/modules/f16/FBF16Max7456.cpp src/modules/f16/FBF16Module.cpp src/modules/f16/FBF16FireControl.cpp \
   src/modules/f16/FBF16Ufc.cpp src/modules/f16/FBF16Sms.cpp src/modules/f16/FBF16Pilot.cpp \
   src/modules/f16/FBF16ModuleRegistration.cpp \
+  src/modules/stores/FBStoreModule.cpp src/modules/stores/FBStoreModuleRegistration.cpp \
   src/modules/f16/displays/FBF16Hud.cpp \
   src/units/FBSimUnit.cpp \
   src/render/FBHudGeometry.cpp
@@ -129,6 +131,7 @@ wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,w
 	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=256MB -sSTACK_SIZE=4MB -sEXIT_RUNTIME=0 \
 	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_fb_toggle_ground,_fb_set_ground \
 	    --embed-file $(JSBSIM)/aircraft/f16@/jsbsim/aircraft/f16 \
+	    --embed-file $(JSBSIM)/aircraft/mk82@/jsbsim/aircraft/mk82 \
 	    --embed-file $(JSBSIM)/engine/F100-PW-229.xml@/jsbsim/engine/F100-PW-229.xml \
 	    --embed-file $(JSBSIM)/engine/direct.xml@/jsbsim/engine/direct.xml \
 	    --embed-file web/moon.jpg@/moon.jpg \

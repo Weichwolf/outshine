@@ -338,6 +338,23 @@ void FBPilot::EnterBriefedItems(FBCommandBus &avionics) {
   }
 }
 
+bool FBPilot::BriefRelease(double atS) {
+  if (ReleaseCount_ >= kMaxBriefedReleases) return false;
+  ReleaseAtS_[ReleaseCount_++] = atS;
+  return true;
+}
+
+/* The pickle, when the brief says so: ONE command, posted once, never retried (see BriefRelease). The
+ * station is the SMS's own selection — this stage has no aiming and therefore no reason for the pilot
+ * to prefer a pylon; what it does have is the rest of the chain (master arm, the interlocks, the
+ * receipt), which is exactly what a release over the bus is here to exercise. */
+void FBPilot::ReleaseBriefedStores(FBCommandBus &avionics) {
+  while (ReleaseNext_ < ReleaseCount_ && TimeS_ >= ReleaseAtS_[ReleaseNext_]) {
+    ReleaseNext_++;
+    avionics.Post(FBCommandTarget::WeaponRelease, 1.0, TimeS_);
+  }
+}
+
 FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
                              const FBAirframeControls &airframe, const fb_fdm_state &st,
                              const FBFlightPlan &plan, const FBRunway *runway, double dt) {
@@ -348,7 +365,10 @@ FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
   /* Cockpit work happens once the jet is flying itself — not while the phase machine is Idle (nobody
    * is in the seat yet) and not with weight on the wheels, where the real checklist order puts these
    * entries before engine start, outside this class's phases entirely. */
-  if (CurPhase != Phase::Idle && !airframe.GetWeightOnWheels()) EnterBriefedItems(avionics);
+  if (CurPhase != Phase::Idle && !airframe.GetWeightOnWheels()) {
+    EnterBriefedItems(avionics);
+    ReleaseBriefedStores(avionics);
+  }
 
   /* Mission waypoint bookkeeping (telemetry cache — class banner): the same active-waypoint distance
    * the mission runner used to compute itself from the outside. */

@@ -1,0 +1,48 @@
+name mk82-drop-1
+timeout 320
+
+# THE BALLISTICS MISSION: a two-ship drops four Mk-82s from a DEFINED state, so that each trajectory can
+# be checked against an independent calculation (doc/f16/weapons.md §4.2's drag-free fall time) and the
+# release path itself — master arm, the interlocks, the command receipt, the store becoming its own
+# unit — is exercised end to end.
+#
+# Run it with `--elev const` for the measurement: with no `runway` line that provider is a flat 0 m base
+# everywhere (core/FBRunwayPlateauElevation), so the release altitude IS the release AGL and the impact
+# point is a number rather than a hillside. With the default swiss DEM it still flies; the bomb then
+# hits terrain, which is the same physics against a different floor.
+#
+# A PAIR, not a single jet, for three reasons: the drops happen at four different moments, so the actor
+# list grows four times at four different ticks; both jets have the other one on radar throughout, which
+# is what shows that a falling store does NOT become an air contact; and it makes `--threads 2` a real
+# parallel run whose result must still be identical to the sequential one.
+#
+# LEAD PICKLES THREE TIMES with two stores loaded. The third is the point: an empty jet refuses the
+# release and says why (RELEASE_REJECTED out_of_context), which is what makes the command path a command
+# path rather than a function call. mk82-safe.fbm is the other refusal — the master-arm interlock.
+
+unit lead
+  module f16
+  spawn 46.90000 6.90000 2500 90.0 450       # 2,500 m ASL over the Swiss plateau, due east, 450 KCAS
+  set gear up
+  set fuel_pct 60
+  set store 3 mk82                           # left wing pylon
+  set store 7 mk82                           # its mirror on the right wing
+  set brief_master_arm arm                   # entered over the bus once airborne, like every brief item
+  set brief_release_s 30
+  set brief_release_s 60
+  set brief_release_s 90                     # nothing left to drop -> refused, with a reason
+  wp 46.90000 7.25000 2500 450               # straight and level east; SUCCESS = both waypoints reached
+  wp 46.90000 7.55000 2500 450
+
+unit two
+  module f16
+  spawn 46.89000 6.90000 2500 90.0 450       # ~1.1 km south of lead, line abreast, same state
+  set gear up
+  set fuel_pct 60
+  set store 3 mk82
+  set store 7 mk82
+  set brief_master_arm arm
+  set brief_release_s 45                     # offset from lead's, so the four releases are four ticks
+  set brief_release_s 75
+  wp 46.89000 7.25000 2500 450
+  wp 46.89000 7.55000 2500 450

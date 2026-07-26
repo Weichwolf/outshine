@@ -5,6 +5,7 @@
 #include <cerrno>
 #include <cmath>
 #include <cstdlib>
+#include <sstream>
 
 namespace FlightBox {
 
@@ -32,6 +33,9 @@ FBF16Module::FBF16Module()
 void FBF16Module::AttachFdm(FBFdm &fdm) {
   Fdm_ = &fdm;
   AirframeCtrl = std::make_unique<FBJsbsimAirframeControls>(fdm);
+  /* The SMS's pylons become real point masses on THIS airframe (systems/FBStoresSystem::AttachFdm) —
+   * every station empty until a mission loads one, so an unloaded jet is unchanged. */
+  SmsSys->AttachFdm(fdm);
 }
 
 bool FBF16Module::Due(double &accS, double dt, double hz) {
@@ -71,6 +75,10 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, 
      * takes effect on the next sweep, not the one after it. */
     ServiceCommands(FBCommandGroup::Sensors);
     ServiceCommands(FBCommandGroup::Avionics);
+    /* The pickle's group, serviced here with the others and immediately before the SMS's own tick
+     * below, so a release is answered by the box that owns it and the stores block it republishes in
+     * the same tick already reflects what left the jet. */
+    ServiceCommands(FBCommandGroup::Stores);
     /* The Sensors slot: the SECOND (and last) system that sees the other units at all — the ACTIVE one,
      * next to the cooperative terminal below (systems/FBRadarSystem's banner). `units` stops here too;
      * what leaves is an anonymous contact list in SharedState. */
@@ -80,6 +88,17 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, 
      * same one-tick lag every other Sensor-cadence write already has. */
     AirData->Run(SharedState, st, dt);
     RadarAlt->Run(SharedState, (float)st.elev, GroundAslM);
+    /* WHAT the nav system computes against: this module's own flight plan, republished every sensor
+     * tick because the active waypoint advances during the run (NavSys->AdvanceWaypoint below). Only
+     * the browser client ever set a steerpoint before, so in every .fbm run FBNavSystem had nothing to
+     * publish and the whole readout chain that hangs off it (nav, cruise, fire-control) stayed Invalid.
+     * The steerpoint's own GROUND elevation is not part of a `wp` line (doc/mission-format.md — a
+     * waypoint declares the altitude to FLY, not the terrain under it), so the module supplies the only
+     * terrain figure it has: this tick's elevation sample under the aircraft, the same one the radar
+     * altimeter reads. Over the gentle terrain a route waypoint sits in that IS its elevation; a
+     * declared per-waypoint elevation is mission-format work, not a number to invent here. */
+    if (const FBWaypoint *swp = Plan_.ActiveWaypoint())
+      NavSys->SetSteerpoint(swp->LatDeg, swp->LonDeg, GroundAslM * kMToFt);
     NavSys->Run(SharedState, st, dt);
     FireCtrl->Run(SharedState, dt);
     UfcSys->Run(SharedState, dt);
@@ -209,7 +228,18 @@ void FBF16Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &out
       return;
     }
     case FBCommandTarget::MasterArm:
-      SmsSys->SetArmState(c.Value != 0.0 ? FBArmState::Arm : FBArmState::Sim);
+      SmsSys->SetMasterArm(c.Value != 0.0 ? FBArmState::Arm : FBArmState::Sim);
+      return;
+    /* The two stores commands. The SMS itself answers the release (systems/FBStoresSystem::Release
+     * decides and says why); this module only routes, exactly as it does for every other box. */
+    case FBCommandTarget::StationSelect:
+      if (!SmsSys->SelectStation((int)c.Value)) {
+        outcome = FBCommandOutcome::Rejected;
+        reason = FBCommandReason::OutOfContext;
+      }
+      return;
+    case FBCommandTarget::WeaponRelease:
+      SmsSys->Release(SimTimeS, outcome, reason);
       return;
     case FBCommandTarget::AlowFt:
       if (!FBF16Ufc::AlowInRange((float)c.Value)) { outcome = FBCommandOutcome::Rejected; reason = FBCommandReason::OutOfRange; return; }
@@ -396,6 +426,33 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
   if (key == "gear") {
     if (value != "up" && value != "down") return RejectSetup("want up|down", key, value);
     AirframeCtrl->SetGear(value == "down");
+    return true;
+  }
+  /* THE LOADOUT, as mission data: `set store <station> <type>` (doc/mission-format.md). One line per
+   * pylon, because that is how a jet is loaded — station by station, with the type on it. The station
+   * numbers are this airframe's own (1..9, modules/f16/FBF16Sms), the type names are the catalogue's
+   * (core/FBStore.h); an unknown either way is a mission FAIL rather than a jet that quietly takes off
+   * with an empty rack. */
+  if (key == "store") {
+    std::istringstream in(value);
+    int station = 0;
+    std::string type;
+    if (!(in >> station) || !(in >> type)) return RejectSetup("want '<station> <type>'", key, value);
+    const FBStoreSpec *spec = FBFindStore(type.c_str());
+    if (!spec) return RejectSetup("unknown store type", key, value);
+    if (!SmsSys->Load(station, *spec)) return RejectSetup("no such station, or already loaded", key, value);
+    return true;
+  }
+  /* WHEN the pilot pickles, as mission data: `set brief_release_s <t>`, repeatable — one line per store
+   * the brief calls for, in mission-elapsed seconds. Deliberately a TIME and not a target: this stage
+   * has no release solution (no CCIP/CCRP), so a mission that wants a bomb dropped from a defined state
+   * says exactly that and nothing pretends to have aimed it. Like every other brief item it goes through
+   * the command bus when the moment comes, and may be refused. */
+  if (key == "brief_release_s") {
+    double t = 0.0;
+    if (!ParseDouble(value, t)) return RejectSetup("not a number", key, value);
+    if (t < 0.0) return RejectSetup("negative time", key, value);
+    if (!PilotSys->BriefRelease(t)) return RejectSetup("too many briefed releases", key, value);
     return true;
   }
   if (key == "fuel_lbs") {

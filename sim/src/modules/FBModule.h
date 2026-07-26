@@ -27,6 +27,7 @@
 #include "FBPilot.h"
 #include "FBRadarAltimeter.h"
 #include "FBRadarSystem.h"
+#include "FBStoresSystem.h"
 #include "FBWarningSystem.h"
 #include "FBRunway.h"
 #include "FBState.h"
@@ -102,6 +103,11 @@ public:
    * the unit's emission snapshot (units/FBSimUnit) — and for neither of them does the client need to
    * know which set it is. */
   virtual FBRadarSystem &Radar() = 0;
+  /* The Stores slot: what this module carries and the queue of what it has let go of. Surfaced on the
+   * base because the client both registers its telemetry AND drains its releases — the released store
+   * becomes a unit of the world, which only the client can create (fdm/FBFdmBoot.h), and it must be
+   * able to do that without knowing which module dropped it. */
+  virtual FBStoresSystem &Stores() = 0;
   virtual const FBState &Telemetry() const = 0;
 
   /* The two OUTPUTS of the Run() contract above, surfaced for the client's flight/cpuprof telemetry:

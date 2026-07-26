@@ -1,0 +1,27 @@
+name mk82-carriage-clean-1
+timeout 180
+
+# THE CARRIAGE-EFFECT MISSION, clean half. Identical to mk82-carriage-loaded.fbm in every line except
+# — four Mk-82s are four JSBSim point masses (2,000 lb, off the centreline) plus their drag area on the
+# airframe's external-force channel (systems/FBStoresSystem) — so the difference between the two runs'
+# telemetry IS the carriage penalty, measured rather than declared.
+#
+# The waypoint demands a speed the jet cannot reach, at the altitude it is already at: the autopilot
+# therefore holds level and firewalls the throttle for the whole run, and what the telemetry records is
+# a LEVEL ACCELERATION at full power — thrust minus drag against mass, i.e. exactly the two things a
+# loadout changes, with the guidance identical in both runs.
+#
+# A CLIMB comparison is deliberately NOT what this mission measures: FBAutopilot::Direct commands a
+# fixed 25 m/s climb, which both configurations deliver exactly (measured: 25.00 m/s in both), so a
+# climb here measures the guidance rather than the airframe. Acceleration and top speed do not have
+# that problem — nothing about them is commanded, they are what is left over.
+#
+# MEASURED, the two runs against each other: +2,000 lb gross weight, Mach 1.0 after 25.8 s instead of
+# 22.6 s, Mach 1.2 after 51.5 s instead of 41.1 s, top speed Mach 1.364 instead of 1.416.
+
+unit viper
+  module f16
+  spawn 46.90000 6.75000 3000 90.0 300       # 3,000 m ASL over the Swiss plateau, due east, 300 KCAS
+  set gear up
+  set fuel_pct 60
+  wp 46.90000 9.00000 3000 900               # unreachable speed: full throttle, level, the whole run

@@ -24,8 +24,12 @@
 #include "FGFDMExec.h"
 #include "initialization/FGInitialCondition.h"
 #include "initialization/FGTrim.h"
+#include "input_output/FGPropertyManager.h"
+#include "input_output/FGXMLElement.h"
+#include "models/FGExternalReactions.h"
 #include "models/FGGroundReactions.h"
 #include "models/FGLGear.h"
+#include "models/FGMassBalance.h"
 #include "models/FGPropulsion.h"
 #include "models/propulsion/FGEngine.h"
 #include "models/propulsion/FGTank.h"
@@ -51,12 +55,43 @@ constexpr double kEscSpinupS  = 0.5;           /* the spool ramps over this; a t
 constexpr double kThrottleSlew = FBFdm::kStepS / kEscSpinupS;
 
 double Clamp01(double v) { return v < 0.0 ? 0.0 : v > 1.0 ? 1.0 : v; }
+
+/* The external-stores force channel we ADD to whatever the loaded model already declares (see
+ * EnsureStoresForce below). Its own name, so nothing about it can be confused with a force the
+ * aircraft.xml declared for its own purposes. */
+constexpr const char *kStoresForce = "fb-stores";
+
+/* One numeric leaf `<name unit="U">v</name>`, built in memory — JSBSim's Element is a plain public
+ * class, so the model APIs that take one (FGMassBalance::AddPointMass, FGExternalReactions::Load) can
+ * be driven without a file and without touching the read-only model tree. */
+Element *ValueElement(const char *name, const char *unit, double v) {
+  Element *e = new Element(name);
+  if (unit) e->AddAttribute("unit", unit);
+  char buf[32];
+  snprintf(buf, sizeof buf, "%.6f", v);
+  e->AddData(buf);
+  return e;
+}
+void AddChild(Element *parent, Element *child) {
+  child->SetParent(parent);
+  parent->AddChildElement(child);
+}
+Element *LocationElement(double xIn, double yIn, double zIn) {
+  Element *loc = new Element("location");
+  loc->AddAttribute("unit", "IN");
+  AddChild(loc, ValueElement("x", nullptr, xIn));
+  AddChild(loc, ValueElement("y", nullptr, yIn));
+  AddChild(loc, ValueElement("z", nullptr, zIn));
+  return loc;
+}
 } // namespace
 
 struct FBFdm::Impl {
   FGFDMExec Exec;
   double ThrottleApplied = 0.0;   /* slew-limited throttle actually fed to the engine (SetControls) */
   double ElevTrim = 0.0;          /* elevator trim (from DoTrim) biasing the FCS's pitch -> neutral = level */
+  double StoresCdA = 0.0;         /* carriage drag area of everything loaded (SetStoresDrag) */
+  bool   StoresForce = false;     /* the fb-stores external force exists on this instance */
 };
 
 FBFdm::FBFdm() : P(std::make_unique<Impl>()) { P->Exec.SetDebugLevel(0); }
@@ -103,9 +138,20 @@ bool FBFdm::LoadUnguarded(const FBFdmSpawn &spawn) {
   ic->SetLongitudeDegIC(spawn.LonDeg);
   double prov = (spawn.HeightOffsetM > 0.0) ? spawn.HeightOffsetM : 3.0;   /* explicit AGL, or a safe airborne value */
   ic->SetAltitudeASLFtIC((spawn.GroundElevM + prov) / kFt);
-  ic->SetVcalibratedKtsIC(spawn.SpeedMs * kMs2Kt);
   ic->SetPsiDegIC(spawn.HeadingDeg < 0 ? spawn.HeadingDeg + 360.0 : spawn.HeadingDeg);
-  ic->SetFlightPathAngleDegIC(0.0);   /* level */
+  if (spawn.Ballistic) {
+    /* A store leaving a pylon: attitude and the full velocity VECTOR come from the carrier, so they are
+     * set directly rather than derived from a calibrated speed and a level flight path. Same single IC
+     * application as every other spawn (FBFdmBoot.h's contract) — only the fields differ. */
+    ic->SetThetaDegIC(spawn.PitchDeg);
+    ic->SetPhiDegIC(spawn.RollDeg);
+    ic->SetVNorthFpsIC(spawn.VelNorthMs / kFt);
+    ic->SetVEastFpsIC(spawn.VelEastMs / kFt);
+    ic->SetVDownFpsIC(spawn.VelDownMs / kFt);
+  } else {
+    ic->SetVcalibratedKtsIC(spawn.SpeedMs * kMs2Kt);
+    ic->SetFlightPathAngleDegIC(0.0);   /* level */
+  }
   ex.RunIC();
   /* HeightOffsetM < 0 = "sit on the gear": now the CG is valid, re-place at the model gear-down
    * clearance so the spawn altitude equals the geometry-true wheel height (no held->armed jump). */
@@ -127,7 +173,9 @@ bool FBFdm::LoadUnguarded(const FBFdmSpawn &spawn) {
    * failed search's last iterate (noise) — set the neutral trim directly instead, matching a real jet's
    * untrimmed stick before the roll. Airborne/rolling ICs still get the real search. */
   bool trimmed = false;
-  if (spawn.SpeedMs > 0.0) {
+  /* A released store has neither a control surface to trim with nor an engine to balance against — the
+   * IC above IS its flight state, and a trim search would only perturb it. */
+  if (spawn.SpeedMs > 0.0 && !spawn.Ballistic) {
     /* tLongitudinal (pitch/throttle/alpha, wings level): more robust than tFull on light/slow airframes. */
     try {
       FGTrim trim(&ex, tLongitudinal);
@@ -139,7 +187,12 @@ bool FBFdm::LoadUnguarded(const FBFdmSpawn &spawn) {
    * airframe's nose-up-at-neutral. */
   P->ElevTrim = spawn.SpeedMs > 0.0 ? ex.GetPropertyValue("fcs/elevator-cmd-norm") : 0.0;
   ex.RunIC();   /* clean, level IC (attitude+speed); the trim tab, not the perturbed search state, holds it */
-  if (spawn.SpeedMs > 0.0)
+  if (spawn.Ballistic)
+    FBLog::Info("fdm", "loaded", {{"aircraft", spawn.Aircraft}, {"ballistic", true},
+                                  {"pitchDeg", spawn.PitchDeg}, {"rollDeg", spawn.RollDeg},
+                                  {"vNorthMs", spawn.VelNorthMs}, {"vEastMs", spawn.VelEastMs},
+                                  {"vDownMs", spawn.VelDownMs}});
+  else if (spawn.SpeedMs > 0.0)
     FBLog::Info("fdm", "loaded", {{"aircraft", spawn.Aircraft}, {"speedMs", spawn.SpeedMs},
                                   {"elevTrim", P->ElevTrim}, {"trimConverged", trimmed}});
   else
@@ -165,6 +218,11 @@ void FBFdm::Step(fb_fdm_state &o) {
 
 void FBFdm::StepUnguarded(fb_fdm_state &o) {
   FGFDMExec &ex = P->Exec;
+  /* The carriage drag of what is loaded, at THIS step's dynamic pressure — the one per-step write the
+   * stores add, and only on an airframe that actually carries something (SetStoresDrag). */
+  if (P->StoresForce && P->StoresCdA > 0.0)
+    ex.SetPropertyValue(std::string("external_reactions/") + kStoresForce + "/magnitude",
+                        P->StoresCdA * ex.GetPropertyValue("aero/qbar-psf"));
   ex.Run();
   o.roll  = ex.GetPropertyValue("attitude/phi-deg");
   o.pitch = ex.GetPropertyValue("attitude/theta-deg");
@@ -242,6 +300,75 @@ void FBFdm::SetFuelTotalLbs(double lbs) {
 }
 
 void FBFdm::SetFuelPct(double pct) { SetFuelTotalLbs(GetFuelCapacityLbs() * (pct / 100.0)); }
+
+/* JSBSim's own pointmass mechanism, driven from C++ instead of from XML (see FBFdm.h). The index is
+ * discovered from the property tree rather than counted here: the model may already declare pointmasses
+ * of its own (the F-16 declares its pilot), and after AddPointMass ours is the last one — so the first
+ * index whose weight property does NOT exist is the count, and count-1 is us. Generic over any model,
+ * no assumption about how many pointmasses an aircraft.xml brought along. */
+int FBFdm::AddStorePointMass(const char *name, double xIn, double yIn, double zIn) {
+  FGFDMExec &ex = P->Exec;
+  auto mb = ex.GetMassBalance();
+  if (!mb) return -1;
+  Element_ptr pm(new Element("pointmass"));   /* refcounted: never a raw stack Element into JSBSim */
+  pm->AddAttribute("name", name ? name : "store");
+  AddChild(pm.ptr(), ValueElement("weight", "LBS", 0.0));
+  AddChild(pm.ptr(), LocationElement(xIn, yIn, zIn));
+  mb->AddPointMass(pm.ptr());
+  auto props = ex.GetPropertyManager();
+  int n = 0;
+  while (props->GetNode("inertia/pointmass-weight-lbs[" + std::to_string(n) + "]", false)) n++;
+  return n - 1;
+}
+
+void FBFdm::SetStorePointMassLbs(int index, double lbs) {
+  if (index < 0) return;
+  P->Exec.SetPropertyValue("inertia/pointmass-weight-lbs[" + std::to_string(index) + "]",
+                           lbs < 0.0 ? 0.0 : lbs);
+}
+
+/* Creates the fb-stores external force on first use. FGExternalReactions::Load APPENDS forces and then
+ * re-binds its six aggregate output properties — which the loaded model already bound if IT declared
+ * any external force, and a duplicate tie would log an error per property. So the aggregates are untied
+ * first and Load re-ties them to the same object: no output, no model file touched, and the aircraft
+ * keeps every force it declared plus ours. */
+void FBFdm::SetStoresDrag(double cdaFt2, double xIn, double yIn, double zIn) {
+  FGFDMExec &ex = P->Exec;
+  P->StoresCdA = cdaFt2 > 0.0 ? cdaFt2 : 0.0;
+  if (P->StoresCdA <= 0.0 && !P->StoresForce) return;   /* nothing loaded, nothing ever created */
+  if (!P->StoresForce) {
+    auto er = ex.GetExternalReactions();
+    if (!er) return;
+    auto props = ex.GetPropertyManager();
+    for (const char *agg : {"moments/l-external-lbsft", "moments/m-external-lbsft",
+                            "moments/n-external-lbsft", "forces/fbx-external-lbs",
+                            "forces/fby-external-lbs", "forces/fbz-external-lbs"}) {
+      SGPropertyNode *node = props->GetNode(agg, false);
+      if (node && node->isTied()) props->Untie(node);
+    }
+    Element_ptr root(new Element("external_reactions"));
+    Element *force = new Element("force");
+    force->AddAttribute("name", kStoresForce);
+    force->AddAttribute("frame", "BODY");
+    AddChild(force, LocationElement(xIn, yIn, zIn));
+    Element *dir = new Element("direction");
+    AddChild(dir, ValueElement("x", nullptr, -1.0));   /* body -x = aft: the magnitude IS drag, positive */
+    AddChild(dir, ValueElement("y", nullptr, 0.0));
+    AddChild(dir, ValueElement("z", nullptr, 0.0));
+    AddChild(force, dir);
+    AddChild(root.ptr(), force);
+    if (!er->Load(root.ptr())) return;
+    P->StoresForce = true;
+  }
+  std::string base = std::string("external_reactions/") + kStoresForce;
+  ex.SetPropertyValue(base + "/location-x-in", xIn);
+  ex.SetPropertyValue(base + "/location-y-in", yIn);
+  ex.SetPropertyValue(base + "/location-z-in", zIn);
+  if (P->StoresCdA <= 0.0) ex.SetPropertyValue(base + "/magnitude", 0.0);
+}
+
+double FBFdm::GetQbarPsf() const { return P->Exec.GetPropertyValue("aero/qbar-psf"); }
+double FBFdm::GetCgXIn() const { return P->Exec.GetPropertyValue("inertia/cg-x-in"); }
 
 void FBFdm::SetGroundElevM(double m) {
   P->Exec.SetPropertyValue("position/terrain-elevation-asl-ft", m / kFt);

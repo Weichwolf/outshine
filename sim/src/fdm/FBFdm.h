@@ -99,6 +99,31 @@ public:
   void SetFuelTotalLbs(double lbs);
   void SetFuelPct(double pct);          /* 0..100 of total declared capacity */
 
+  /* ---- External stores: the carriage effect, through JSBSim's own mass and external-force models.
+   * A carried store is a POINT MASS (FGMassBalance) — mass, centre of gravity and the r^2 inertia
+   * contribution all move, and they move again the moment its weight goes to zero at release, which is
+   * what makes a loaded jet fly differently from a clean one and a released one differently from both.
+   * AddStorePointMass() is the model's own AddPointMass API (the aircraft.xml `<pointmass>` mechanism,
+   * of which the F-16 declares one: the pilot) driven from here instead of from XML, because
+   * vendor/jsbsim is read-only (CLAUDE.md Prinzip 1) — no model file gains a station it did not have.
+   * Locations are in the loaded model's own STRUCTURAL frame (inches), the frame its aircraft.xml
+   * already places the pilot, the gear and the tanks in. Returns the index to address the mass with,
+   * or -1 if the engine refused it. */
+  int  AddStorePointMass(const char *name, double xIn, double yIn, double zIn);
+  void SetStorePointMassLbs(int index, double lbs);
+
+  /* The carriage DRAG of everything currently loaded, as a drag AREA (CdA, ft^2) acting at the loaded
+   * stations' centroid (structural inches, same frame as above): the force CdA * qbar is applied along
+   * the body -x axis every step through JSBSim's own <external_reactions> mechanism — an "fb-stores"
+   * force this class ADDS to the loaded model at runtime (again: no model file is patched), so the
+   * moment an off-centre load produces comes out of the same physics as the force. Call it once per
+   * loadout CHANGE, not per frame. cdaFt2 <= 0 (the default) means no stores force is ever created and
+   * a clean airframe is bit-identical to one that never heard of stores. */
+  void SetStoresDrag(double cdaFt2, double xIn, double yIn, double zIn);
+
+  double GetQbarPsf() const;      /* dynamic pressure — what the drag above is measured against */
+  double GetCgXIn() const;        /* structural CG station: the carriage effect on BALANCE, observable */
+
   /* Real ground elevation under the aircraft (m ASL) so gear/contact use the App's elevation hook
    * (FBElevationProvider) rather than a flat default. World truth, fed by whoever owns the world. */
   void SetGroundElevM(double m);

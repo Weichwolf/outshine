@@ -22,9 +22,17 @@ public:
   static std::unique_ptr<FBModule> Create(const std::string &name);
 };
 
-/* Registers every module this link target was built with (today: "f16" only). Idempotent (re-
- * registering just overwrites the map entry) — safe to call once per run before the first
- * FBModuleRegistry::Create, from any App main() or FBMissionRunner itself. */
+/* One entry point per module FAMILY, each defined in that family's OWN directory — the only files
+ * allowed to name a concrete module type (modules/f16/FBF16ModuleRegistration.cpp,
+ * modules/stores/FBStoreModuleRegistration.cpp). */
+void FBRegisterF16Module();
+void FBRegisterStoreModules();
+
+/* Registers every module this link target was built with: the flyable aircraft AND the released
+ * stores, which are modules in exactly the same sense (they are their own FDM + FBModule, spawned
+ * through the same registry by name). Idempotent (re-registering just overwrites the map entry) —
+ * safe to call once per run before the first FBModuleRegistry::Create, from any App main() or
+ * FBMissionRunner itself. */
 void FBRegisterBuiltinModules();
 
 } // namespace FlightBox

@@ -15,7 +15,11 @@ namespace FlightBox {
 class FBWorld;
 class FBUnitRegistry;
 
-enum class FBUnitKind { Aircraft };
+/* Weapon = a store in free flight after release: its own FDM, its own module, stepped and judged like
+ * any other unit (units/FBSimUnit) — the KIND exists because two things about it differ and both are
+ * the owner's business, not the unit's: its physical K.O. is a detonation rather than the end of the
+ * run, and it is not something another unit's air-to-air sensors are looking for. */
+enum class FBUnitKind { Aircraft, Weapon };
 
 struct FBUnitPose {
   double LatDeg = 0.0, LonDeg = 0.0, ElevM = 0.0;   /* geodetic, m ASL */

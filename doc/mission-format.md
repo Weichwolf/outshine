@@ -77,7 +77,7 @@ unit two
 | Akteur  | `module`  | Rest der Zeile | Modulname, per `FBModuleRegistry` aufgelöst (heute nur `f16` registriert) — bestimmt sowohl das `FBModule` als auch den JSBSim-Aircraft-Ordnernamen (`vendor/jsbsim/aircraft/<module>`). Pflicht je Block. |
 | Akteur  | `team`    | `friendly`\|`hostile`\|`neutral` | Fraktion (`FBUnitTeam`, `core/FBTeam.h`) — landet in der `FBWorld`-Unit-Registry, die Sensoren/Waffen künftig lesen. Optional, Default `friendly`. |
 | Akteur  | `spawn`   | `<lat lon \| threshold>` `<altM \| ground>` `hdgDeg` `speedKt` | Pflicht, genau einmal je Block: die deklarative IC dieser Einheit — Position, Höhe-ODER-Boden, Kurs, Speed. `threshold` übernimmt lat/lon der missionsweiten `runway`-Zeile (reine Schreib-Convenience, keine zweite Positions-Syntax). `ground` löst die Höhe aus Gelände + Fahrwerksgeometrie auf; ein numerischer Wert ist eine LITERALE ASL-Höhe (ein Luftstart). Beide Fälle durchlaufen dieselbe eine JSBSim-IC-Anwendung. |
-| Akteur  | `set`     | `key value...` | Systemzustand als Missionsdaten — der Runner parst nur die KV-Liste und reicht sie im Spawn-IC-Fenster an `FBModule::ApplySetup(key, value)` DIESER Einheit; das MODUL interpretiert seine eigenen Schlüssel. Ein unbekannter Schlüssel ist ein Laufzeit-FAIL (Exit 1, `SET_REJECTED`-Event), kein Parse-Fehler. F-16 kennt heute: `gear` (`up`/`down`), `fuel_lbs` (absolute Tankmenge, lb), `fuel_pct` (0..100, Anteil der modelleigenen Gesamtkapazität), die vier Schalter des MIDS-Terminals — `datalink` (`on`/`off`, Geräte-Strom), `datalink_xmt` (`on`/`off`, XMT/EMCON), `datalink_filter` (`fr`/`fl`/`off`, HSD-Kontaktfilter), `datalink_range_nm` (Terminal-Reichweite, nm) — sowie FCR/IFF: `fcr_mode` (`off`/`crm`/`acm_hud`/`acm_bore`/`acm_vert`/`acm_slew`), `fcr_range_nm` (überschreibt die Reichweite JEDES Modus), `fcr_slew_az`/`fcr_slew_el` (Cursor der Slewable-Box, Grad), `iff_xpdr` (`on`/`off`, eigener Transponder), `iff_interrogator` (`on`/`off`, eigener Abfrager); dazu `task` (`route`/`bfm`) — die FBPilot-Phase, in der diese Einheit startet (Default = das, was der Spawn vorgibt: `route` in der Luft, `preflight` am Boden). |
+| Akteur  | `set`     | `key value...` | Systemzustand als Missionsdaten — der Runner parst nur die KV-Liste und reicht sie im Spawn-IC-Fenster an `FBModule::ApplySetup(key, value)` DIESER Einheit; das MODUL interpretiert seine eigenen Schlüssel. Ein unbekannter Schlüssel ist ein Laufzeit-FAIL (Exit 1, `SET_REJECTED`-Event), kein Parse-Fehler. F-16 kennt heute: `gear` (`up`/`down`), `fuel_lbs` (absolute Tankmenge, lb), `fuel_pct` (0..100, Anteil der modelleigenen Gesamtkapazität), die vier Schalter des MIDS-Terminals — `datalink` (`on`/`off`, Geräte-Strom), `datalink_xmt` (`on`/`off`, XMT/EMCON), `datalink_filter` (`fr`/`fl`/`off`, HSD-Kontaktfilter), `datalink_range_nm` (Terminal-Reichweite, nm) — sowie FCR/IFF: `fcr_mode` (`off`/`crm`/`acm_hud`/`acm_bore`/`acm_vert`/`acm_slew`), `fcr_range_nm` (überschreibt die Reichweite JEDES Modus), `fcr_slew_az`/`fcr_slew_el` (Cursor der Slewable-Box, Grad), `iff_xpdr` (`on`/`off`, eigener Transponder), `iff_interrogator` (`on`/`off`, eigener Abfrager); dazu `task` (`route`/`bfm`) — die FBPilot-Phase, in der diese Einheit startet (Default = das, was der Spawn vorgibt: `route` in der Luft, `preflight` am Boden); sowie die Zuladung `store <station> <typ>` (eine Zeile je Pylon, F-16-Stationen 1..9, Typ aus dem Katalog `core/FBStore.h` — heute `mk82`) und `brief_release_s <t>` (wiederholbar: wann der Pilot pickelt, Sim-Sekunden). |
 | Akteur  | `wp`      | lat lon altM speedKt | `FBWaypoint` vom Typ `Enroute`, im Flugplan DIESER Einheit |
 | Akteur  | `land`    | — | `FBWaypoint` vom Typ `Land` AN der Runway-Schwelle (braucht die missionsweite `runway`-Zeile) |
 
@@ -305,6 +305,119 @@ Pilot überhaupt nichts (er tippt keine Zahlen ein, die ihm niemand gegeben hat)
 `sim/missions/cmd-avionics.fbm` fährt genau diese Fälle in einem Lauf durch (Annahme, Klemmung,
 Wirkungssperre, „nicht implementiert", Kanal belegt, Manöver-Sperre) und schaltet zusätzlich den
 Radarhöhenmesser ab — der Referenzlauf für Kommandostrom UND Gültigkeitszustände.
+
+## Waffen — Zuladung, Abwurf, Aufschlag
+
+**Eine abgefeuerte Waffe ist eine EINHEIT wie jede andere.** Kein Sonderpfad, keine eigene
+Ballistikformel: ein Store, der die Station verlässt, ist ein `units/FBSimUnit` mit eigener
+JSBSim-Instanz auf seinem eigenen gepinnten Modell (`vendor/jsbsim/aircraft/mk82`), eigenem
+`FBModule` (`modules/stores/FBStoreModule` — alle Systemslots Default/NoOp, denn eine Mk-82 hat weder
+Autopilot noch Pilot noch Anzeigen), eigener Telemetriedatei und denselben zwei Monitoren. Seine
+Flugbahn ist die Aerodynamik des Modells plus Schwerkraft, nichts sonst.
+
+### Zuladung deklarieren
+
+```
+unit lead
+  module f16
+  spawn 46.60000 6.60000 1524 90.0 450
+  set store 3 mk82            # eine Zeile je Pylon
+  set store 7 mk82
+  set brief_master_arm arm    # ohne ARM verweigert der SMS den Abwurf
+  set brief_release_s 30      # wiederholbar: ein Pickle je Zeile
+  set brief_release_s 60
+```
+
+`store <station> <typ>`: Station = die Pylonnummer DIESES Musters (F-16: 1..9, 1/9 Flügelspitze,
+5 Mittellinie — `modules/f16/FBF16Sms`), Typ = ein Katalogschlüssel (`core/FBStore.h`; heute nur
+`mk82`). Unbekannte Station, doppelt belegte Station oder unbekannter Typ = Laufzeit-FAIL beim Spawn,
+kein stiller Leerflug.
+
+**Was die Zuladung mit dem Flugzeug macht** (`systems/FBStoresSystem`): jede belegte Station ist eine
+JSBSim-**Punktmasse** auf dem Trägerflugzeug (Masse, Schwerpunkt und Trägheitsmomente kommen damit aus
+`FGMassBalance`, nicht aus eigener Rechnung), und die Summe der Widerstandsflächen wirkt als
+JSBSim-**External-Force** (`CdA·qbar`, körperfeste −x-Richtung) am Schwerpunkt der belegten Stationen.
+Beim Abwurf geht die Punktmasse im selben Tick auf 0 — das Flugzeug wird sofort leichter und sauberer,
+als Physik. Gemessen (`missions/mk82-carriage-{loaded,clean}.fbm`, identisch bis auf vier
+`set store`-Zeilen, beide level bei vollem Schub): 4× Mk-82 = **+2.000 lb** Startmasse, Zeit auf Mach 1,0
+**25,8 s statt 22,6 s**, auf Mach 1,2 **51,5 s statt 41,1 s**, Spitzen-Mach **1,364 statt 1,416**.
+
+### Abwurf
+
+Der Abwurf läuft über den **Kommandobus** wie jede andere Bedienhandlung (`WeaponRelease`, HOTAS-Klasse,
+0,5 s), nicht über einen Direktaufruf, und kann abgelehnt werden. Der SMS entscheidet:
+
+| Bedingung | Ergebnis | Grund |
+|---|---|---|
+| Master Arm nicht ARM | `rejected` | `hardware_precedence` (§6.2: ein physischer Schalter sperrt den Softwarepfad) |
+| Gewicht auf dem Fahrwerk | `rejected` | `hardware_precedence` (Bodenverriegelung) |
+| keine belegte Station gewählt | `rejected` | `out_of_context` (§6.5: gültiges Kommando, falscher Kontext) |
+| sonst | `accepted` | — |
+
+Nach jedem Abwurf schaltet der SMS selbst auf die nächste belegte Station (Station-Step), so wie es ein
+echter SMS tut. `missions/mk82-safe.fbm` ist der Referenzlauf für die Ablehnung (Master Arm nie
+scharfgeschaltet), `missions/mk82-drop.fbm` fährt beide Fälle: vier Abwürfe und ein Pickle auf einen
+leeren Jet.
+
+### Startbedingung des Stores
+
+Position, Lage und Geschwindigkeitsvektor kommen aus dem TRÄGER, über die eine deklarative
+IC-Anwendung, die auch jeden Jet spawnt (`fdm/FBFdmBoot` mit `FBFdmSpawn::Ballistic`): Position =
+Trägerposition + Stationsversatz (körperfest, mit der Trägerlage gedreht), Lage = Trägerlage, Velocity =
+Trägergeschwindigkeit **an dieser Station** (CG-Geschwindigkeit + ω × r, damit ein Abwurf im Roll stimmt).
+Es gibt bewusst KEINEN Ejektor-Impuls — für dessen Größe existiert keine belegbare Quelle
+(`doc/f16/weapons.md` §4.5), also erbt der Store die Bewegung des Flugzeugs und nichts Erfundenes.
+Getrimmt wird nicht: eine Bombe hat kein Ruder.
+
+### Lebenszyklus, Tick-Semantik, Determinismus
+
+- **Besitzer** ist der Runner, wie bei jedem Akteur (`FBActorList`). Das Modul kann keine Einheit
+  erzeugen (die IC liegt hinter `fdm/FBFdmBoot.h`, das kein `systems/`- oder `modules/`-File inkludiert);
+  der SMS legt nur einen `FBStoreRelease`-Datensatz in eine Warteschlange, die der Runner leert.
+- **Entstehung**: am ENDE des Ticks, in dem der Abwurf kommandiert wurde — der Store wird also erst im
+  NÄCHSTEN Tick gerechnet. Das ist der Determinismus-Grund: die Step-Phase verteilt Akteursindizes über
+  Threads, ein mitten in der Phase auftauchender Akteur würde das Ergebnis von der Reihenfolge abhängig
+  machen. Die Kapazität der Akteursliste ist vorreserviert (eine Zeile je belegte Station), es wird im
+  Tick-Pfad nichts allokiert.
+- **Ende**: der Aufschlag, entschieden von `core/FBFlightMonitor` — derselbe Richter wie für jeden Jet,
+  gegen dieselbe Elevationsquelle. Für eine Waffe ist das die Detonation statt eines Absturzes: der
+  Runner beendet den LAUF deswegen nicht (`UNIT_RESULT` nennt sie `IMPACT`), sondern stellt die Einheit
+  still. Ein Store, der weder aufschlägt noch divergiert, wird nach der Lebensdauer seines
+  Katalogeintrags (Mk-82: 300 s) verworfen.
+- Der Store-FDM bekommt bewusst KEINEN Boden (`units/FBSimUnit`): JSBSims Ground-Reactions beschreiben
+  ein RUHENDES Objekt — die Feder/Dämpfer-Werte des mk82-Modells (10.000 lbf/ft, 200.000 lbf/ft/s)
+  divergieren bei 150 m/s Einschlag innerhalb eines Schritts, es bliebe kein Aufschlagzustand zu melden.
+  Eine Bombe federt nicht, sie detoniert; wo der Aufschlag ist, entscheidet weiterhin der Richter.
+
+### Beobachtbar
+
+- `events.log`: `sms RELEASE` (Station, Typ, Massenbilanz), `sms RELEASE_REJECTED` (Grund + Detail),
+  `stores SEPARATION` (die vollständige Startbedingung), `stores IMPACT` (`mode=ground|lost`, Position,
+  Bodenhöhe, Flugzeit, Geschwindigkeit, **Aufschlagwinkel**, Lage), `stores EXPIRED`.
+- `telemetry.csv`, sechs am Ende angehängte Spalten (bestehende verschieben sich nie): `sms_arm`,
+  `sms_station` (gewählte Station, −1 = keine), `sms_loaded`, `sms_lbs` (getragene Storemasse),
+  `sms_released`, `sms_gw_lbs` (Startmasse des Flugzeugs — der Massensprung beim Abwurf steht damit in
+  derselben Zeile wie die Buchführung).
+- eine eigene `telemetry_<callsign>_<typ>_<n>.csv` je Store: dieselbe Schemabreite wie ein Jet, mit der
+  vollen Flugbahn (10 Hz) bis zur Aufschlagzeile.
+
+### Gegenprobe zur unabhängigen Rechnung
+
+`missions/mk82-drop.fbm` mit `--elev const` (flache 0-m-Basis, also Abwurfhöhe = Abwurf-AGL). Gemessen
+gegen die widerstandsfreie Herleitung aus `doc/f16/weapons.md` §4.2 (`t=√(2h/g)`, Reichweite `v·t`):
+
+| Größe | JSBSim-mk82 | widerstandsfrei | Differenz |
+|---|---|---|---|
+| Fallzeit aus 2.499 m | 24,10 s | 22,58 s | **+6,8 %** |
+| Fortbewegung bei 231 m/s | 4.600 m | 5.221 m | **−11,9 %** |
+| Vertikalgeschwindigkeit beim Aufschlag | 190,8 m/s | 221,4 m/s | **−13,8 %** |
+
+(alle vier Stores desselben Laufs innerhalb von 0,01 s / 8 m identisch — die Streuung ist der
+Unterschied ihrer Abwurfzustände, nicht Rauschen)
+
+Beide Vorzeichen sind die erwarteten: Widerstand verlängert den Fall und bremst zugleich die
+Horizontalkomponente stärker, als er den Fall verlängert. Die Herleitung ist genau das, was ihre eigene
+Quelle behauptet, eine **untere Schranke** — sie ist kein Zielwert und wird nicht weggerechnet.
 
 ## Kampf-Missionen (`set task bfm`)
 

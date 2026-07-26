@@ -53,6 +53,10 @@ void FBRadarSystem::ScanFrame(const fb_fdm_state &st, const FBUnitRegistry &net,
   if (v.Active) {
     for (const FBUnit *u : net.Units()) {
       if (!u || u->GetId() == SelfId_) continue;   /* the set does not paint itself */
+      /* An air-to-air set searches for AIRCRAFT. A store in free flight is a unit of the world like any
+       * other, but it is not what this radar's detection model describes, and painting one as a contact
+       * would be an invention rather than a simulation. */
+      if (u->GetKind() != FBUnitKind::Aircraft) continue;
 
       int slot = -1;
       for (int i = 0; i < TrackCount_; i++)

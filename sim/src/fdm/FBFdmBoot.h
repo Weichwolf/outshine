@@ -33,6 +33,17 @@ struct FBFdmSpawn {
   double HeadingDeg = 0.0;
   bool   FbwOverride = false;  /* engage fcs/fbw-override so FlightBox's own FCS, not the aircraft's own
                                 * flight-control system, is the controller */
+
+  /* ---- The RELEASE initial condition (Ballistic = true): a store leaving a pylon, not an aircraft
+   * being placed. Same one IC application as every other spawn — this is not a second code path, it is
+   * the same call with the fields a released object needs: the carrier's ATTITUDE and its full VELOCITY
+   * VECTOR instead of a heading and a calibrated speed. There is nothing to trim (a bomb has no control
+   * to trim with and no engine to balance), so the trim search is skipped and the state stands exactly
+   * as handed in. Ignored entirely when Ballistic is false, so an aircraft spawn behaves as it always
+   * did. ---- */
+  bool   Ballistic = false;
+  double PitchDeg = 0.0, RollDeg = 0.0;              /* attitude at separation (yaw = HeadingDeg) */
+  double VelNorthMs = 0.0, VelEastMs = 0.0, VelDownMs = 0.0;   /* NED velocity at separation */
 };
 
 class FBFdmBoot {

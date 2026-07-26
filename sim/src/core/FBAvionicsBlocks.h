@@ -115,13 +115,22 @@ struct FBUfcBlock {
   int   SteerNum = 0;       /* selected steerpoint number */
 };
 
-/* ---- Stores/SMS placeholder. WRITER: modules/f16/FBF16Sms. Stations are declared but empty: a real
- * SMS fills them without moving the block contract. */
+/* ---- Stores/SMS: the loadout, station by station. WRITER: systems/FBStoresSystem (the F-16 fills the
+ * slot with modules/f16/FBF16Sms, which only adds this airframe's pylon geometry).
+ * `Station[i]` carries the FBStoreKind ordinal on station i+1 — 0 = empty — rather than a pointer or a
+ * name, for the same reason every other block carries plain numbers: a bus message is data, and the
+ * catalogue behind the ordinal (core/FBStore.h) is a compile-time table both writer and reader share. */
+constexpr int kMaxStoreStations = 12;
+
 struct FBStoresBlock {
   FBBlockHeader H;
   FBArmState Arm = FBArmState::Arm;
   int   StationCount = 0;
-  int   SelectedStation = -1;
+  int   SelectedStation = -1;      /* 1-based station number; -1 = nothing selected */
+  uint8_t Station[kMaxStoreStations]{};
+  int   LoadedCount = 0;
+  float LoadedLbs = 0.0f;          /* total carried store weight */
+  int   ReleasedCount = 0;         /* stores this jet has let go of this sortie */
 };
 
 /* ---- Airframe/propulsion: gear + weight-on-wheels + the fuel state, the readbacks OTHER systems

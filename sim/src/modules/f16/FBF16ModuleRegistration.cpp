@@ -6,7 +6,7 @@
 
 namespace FlightBox {
 
-void FBRegisterBuiltinModules() {
+void FBRegisterF16Module() {
   FBModuleRegistry::Register("f16", [] { return std::make_unique<FBF16Module>(); });
 }
 

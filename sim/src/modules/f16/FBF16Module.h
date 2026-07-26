@@ -93,7 +93,8 @@ public:
   FBDatalinkSystem &Datalink() override { return *Datalink_; }   /* the F-16's TNDL terminal */
   FBF16Fcr &Radar() override { return *Fcr_; }   /* covariant: FBModule::Radar() returns FBRadarSystem& */
   FBF16Ufc &Ufc() { return *UfcSys; }             /* ALOW/selected-steerpoint placeholder setup */
-  FBF16Sms &Sms() { return *SmsSys; }             /* master-arm placeholder setup */
+  FBF16Sms &Sms() { return *SmsSys; }             /* the SMS: loadout, master arm, release */
+  FBStoresSystem &Stores() override { return *SmsSys; }   /* the generic Stores slot, filled by it */
   const FBGuidance &LastGuidance() const override { return LastG; }
   int LastSubsteps() const override { return LastSub; }
 
@@ -123,7 +124,14 @@ public:
   FBCommandBus &Commands() override { return Cmds_; }
   FBRadarAltimeter &RadarAltimeter() override { return *RadarAlt; }
   FBFlightPlan &FlightPlan() override { return Plan_; }
-  void SetRunway(const FBRunway &rwy) override { Rwy_ = rwy; HaveRunway_ = true; }
+  /* The assigned runway doubles as the mission's BULLSEYE reference: a .fbm declares no bullseye, and
+   * the runway is the one briefed geographic point every unit of a mission shares — the same role the
+   * browser client's home point plays. A mission without a runway simply has no bullseye and the HUD's
+   * bearing/range pair stays at the origin default. */
+  void SetRunway(const FBRunway &rwy) override {
+    Rwy_ = rwy; HaveRunway_ = true;
+    NavSys->SetBullseye(rwy.ThresholdLatDeg, rwy.ThresholdLonDeg);
+  }
 
   /* `gear` (up/down — an air start spawns retracted), `fuel_lbs`, `fuel_pct` (0..100), the terminal's
    * four switches — `datalink` (on/off: power), `datalink_xmt` (on/off: XMT/EMCON), `datalink_filter`

@@ -212,6 +212,20 @@ Akteurs-Verhalten, nicht Runner-Buchhaltung: `systems/FBNavSystem::AdvanceWaypoi
 (Callsign, Modul, `FBUnitTeam`, `FBSpawn`, `set`-KV, eigener `FBFlightPlan`) — ein Einzelflug ist der
 Sonderfall „ein Block", kein zweiter Dialekt.
 
+**Die Akteursliste WÄCHST zur Laufzeit — an genau einer Stelle: ein abgeworfener Store.** Er ist
+strukturell dieselbe Einheit wie ein Jet (eigene FDM-Instanz auf seinem eigenen gepinnten Modell, eigenes
+Modul aus derselben Registry, eigene Telemetriedatei, dieselben zwei Monitore), also gibt es keinen
+zweiten Codepfad: `FBMissionBoot.h::FBMissionSpawnStore` ist derselbe Vier-Schritt-Spawn, dessen IC aus
+dem TRÄGERZUSTAND kommt statt aus einer Missionsdatei (`FBFdmSpawn::Ballistic`: Position + Stationsversatz,
+Trägerlage, Trägergeschwindigkeit an dieser Station inkl. ω × r; kein Trimm, kein erfundener Ejektor-
+Impuls). Die Tick-Semantik ist die Bedingung dafür, dass das deterministisch bleibt: eine neue Einheit
+wird am ENDE des Ticks angehängt, in dem der Abwurf kommandiert wurde, und erst im NÄCHSTEN gerechnet —
+sonst hinge das Ergebnis davon ab, wann in der (threadverteilten) Step-Phase sie aufgetaucht ist. Die
+Kapazität ist vorreserviert (eine je belegte Station), im Tick-Pfad wird nichts allokiert. Das ENDE einer
+Waffe entscheidet derselbe `FBFlightMonitor` wie bei jedem Jet — für sie ist das die Detonation statt
+eines Absturzes: der Lauf endet deswegen nicht, die Einheit wird stillgelegt (nicht aus der Liste
+gelöscht: das würde Indizes verschieben), `UNIT_RESULT` nennt sie `IMPACT`.
+
 **Elevation-Hook:** jeder Core-Konsument von Bodenhöhe (Missions-Ground-Spawn, AGL/Radar-Alt,
 Crash-Erkennung) läuft über `FBElevationProvider` (`core/FBElevationProvider.h`,
 `GroundElevM(lat,lon)` + eine `GroundElevPatch`-Flächenabfrage fürs künftige Terrain-Sampling), nie über
@@ -259,7 +273,13 @@ sim/src/
              des Ticks parallelisieren — nur von FBMissionRunner.cpp inkludiert, nicht in der Core-Lib,
              nie im WASM-Build, s.o. "Etappe 4"), FBLogSinks/FBTelemetrySinks (die
              I/O-Sink-Implementierungen, inkl. FBBufferedLogSink = der Pro-Einheit-Logpuffer)
-  core/      FBState — der AVIONIK-BUS: kein flaches Feldbündel mehr, sondern ein Satz typisierter
+  core/      FBStore.h — der STORE-KATALOG als reine Daten (Kind/Schlüssel/JSBSim-Modell/Masse/
+             Widerstandsfläche/Lebensdauer) plus `FBStoreRelease`: jede Zahl darin stammt aus dem
+             eigenen gepinnten Modell des Stores oder ist per genannter Formel daraus abgeleitet (Mk-82:
+             Masse = dessen `<emptywt>`, CdA = dessen eigene CDmin-Tabelle × dessen Flügelfläche) — eine
+             Waffe hat am Pylon kein Verhalten, nur Masse, Widerstand und einen Modellnamen, ihr
+             Verhalten IST das FDM, das sie beim Abwurf wird.
+             FBState — der AVIONIK-BUS: kein flaches Feldbündel mehr, sondern ein Satz typisierter
              AUSGABEBLÖCKE (`FBAvionicsBlocks.h`: Platform, Env, AirData, RadarAlt, Nav, Cruise,
              FireControl, Ufc, Stores, Airframe, Warnings, Radar, Datalink, Bfm), je Block GENAU EIN
              Schreibersystem (im Blockkommentar benannt) und ein Kopf `{StampS, Status}`
@@ -357,7 +377,11 @@ sim/src/
              FBTilesElevation (der Elevation-Hook-Provider auf fb_stream_ground, s.o. — NICHT
              Teil der Core-Lib)
   units/     FBUnit-Basisschnittstelle + FBSimUnit + FBUnitRegistry (Details s.u., nach dem
-             Verzeichnisbaum)
+             Verzeichnisbaum). `FBUnitKind` unterscheidet Aircraft und Weapon: eine abgefeuerte Waffe
+             ist strukturell dieselbe Einheit (eigene FDM-Instanz, eigenes Modul, gleiche Monitore) —
+             die KIND-Unterscheidung existiert nur für die zwei Dinge, die dem BESITZER gehören: ihr
+             physikalisches K.O. ist eine Detonation und beendet den Lauf nicht, und Luft-Luft-Sensoren
+             suchen keine Bomben.
   systems/   die generischen, airframe-agnostischen System-Slots eines Moduls — Interface + Default
              in EINER Klasse, ein Modul überschreibt per Ableitung (Zahlen-Tuning bleibt Preset/
              Config, keine leere Ableitung dafür):
@@ -409,6 +433,17 @@ sim/src/
                frei, Maskierung bräuchte einen DEM-Raymarch je Kontakt je Look. `ActiveVolume()` ist DER
                Override-Punkt — ein ganzer Modus-Satz ist nichts als eine Auswahl unter Volumina, und ein
                Lock nichts als ein anderes Volumen (F-16: `modules/f16/FBF16Fcr`);
+               FBStoresSystem (`.h/.cpp`): der Stores/SMS-Slot — Stationsinventar, Master-Arm-
+               Verriegelung, der EINE Abwurfpfad. Eine belegte Station ist eine JSBSim-PUNKTMASSE auf dem
+               Trägerflugzeug und die Summe der Widerstandsflächen eine JSBSim-EXTERNAL-FORCE, d.h.
+               Masse/Schwerpunkt/Trägheit und Zusatzwiderstand einer Zuladung sind Physik der Engine,
+               nicht Rechnung dieser Klasse (vendor bleibt read-only: beide Mechanismen werden über die
+               Modell-eigenen APIs zur Laufzeit bestückt, kein Modell-XML wird gepatcht). Sie SPAWNT
+               nichts — ein Abwurf legt einen `FBStoreRelease` (core/FBStore.h) in eine Warteschlange,
+               die der Besitzer leert, weil das Erzeugen eines FDM hinter fdm/FBFdmBoot.h liegt.
+               Ausgelöst wird ausschließlich über den Kommandobus (`WeaponRelease`), also ablehnbar:
+               Master Arm nicht ARM / Gewicht auf dem Fahrwerk = hardware_precedence, keine belegte
+               Station = out_of_context;
                FBSystemSlots.h — Input/HOTAS, Propulsion, Weapons, Defensive: Interface
                + NoOp-Default für die restlichen F-16-Systemkategorien, ein Modul füllt sie bei Bedarf
                per Ableitung (Comms/Datalink und Sensors sind wie Displays aus dieser Datei
@@ -475,6 +510,15 @@ sim/src/
              Reset auf FBFdm. Wer `FBFdm.h` inkludiert (jedes Modul/System, für die Referenz), erreicht
              damit KEINE IC; wer IC will, muss `FBFdmBoot.h` nennen — und das tun nur `app/`-Dateien
              (`FBMissionBoot.h`, `FBAppWasm.cpp`, die Test-Harnesses).
+             **AUSSENLASTEN** laufen über zwei Modell-eigene JSBSim-Mechanismen, die dieser Adapter zur
+             LAUFZEIT bestückt statt ein Modell-XML zu patchen (vendor bleibt read-only, Prinzip 1):
+             `AddStorePointMass`/`SetStorePointMassLbs` treibt FGMassBalances eigene AddPointMass-API (die
+             `<pointmass>`-Mechanik, von der die F-16 genau eine deklariert — ihren Piloten), also kommen
+             Masse, Schwerpunkt UND Trägheitsmomente einer Zuladung aus der Engine; `SetStoresDrag` legt
+             eine EIGENE, `fb-stores` benannte `<external_reactions>`-Kraft an (CdA·qbar entgegen der
+             Körper-x-Achse, am Schwerpunkt der belegten Stationen), statt eine vom Modell für einen
+             anderen Zweck deklarierte Kraft umzudeuten. Ohne Zuladung wird keins von beidem je angelegt —
+             ein sauberer Jet ist bit-identisch zu einem, der nie von Stores gehört hat.
              `namespace FlightBox` wie der Rest des Baums — kein `extern "C"`: das war für die längst
              gelöschte `xp_bridge.c` der Vor-Pivot-Architektur, niemand ruft den Adapter heute aus C oder
              aus JS (der WASM-Export ist ausschließlich `fb_toggle_ground`/`fb_set_ground` in
@@ -528,11 +572,24 @@ sim/src/
                          `.h/.cpp`, kein genereller Systemslot, da airframe-spezifisch): FBF16FireControl
                          (der "B"-Range-Provider — Slant-Range aus Distanz + Höhendifferenz zur
                          Steerpoint-Elevation, Pythagoras), FBF16Ufc (ALOW-Floor + gewählte
-                         Steerpoint-Nummer), FBF16Sms (Master-Arm-Status). FBF16Max7456 (eigene Datei,
+                         Steerpoint-Nummer), FBF16Sms (der SMS: NUR die Pylon-Geometrie dieses Musters
+                         — neun Stationen, verankert an den Referenzen, die das Modell selbst hergibt
+                         [Tank-Butt-Line ±65 in für 4/6, halbe Spannweite 180 in für die Spitzen,
+                         CG-Station längs, weil doc/f16/weapons.md §4.5 die Stationsdaten selbst als T4
+                         markiert] — alles Verhalten ist systems/FBStoresSystem). FBF16Max7456 (eigene Datei,
                          `.h/.cpp`): der MAX7456-CHIP-spezifische Hook (Interlace-Jitter,
                          Helligkeitskurve, Sync-Artefakte, …) — heute ein echter, von FBF16Module
                          gehaltener NoOp-Override-Punkt, getrennt vom generischen Font-System in
                          render/FBHudFont.h
+  modules/stores/        FBStoreModule (`.h/.cpp`) + FBStoreModuleRegistration.cpp: das Modul, mit dem
+                         ein ABGEWORFENER Store fliegt — ein vollwertiges FBModule, dessen Systemslots
+                         alle Default/NoOp sind (eine Mk-82 hat weder Autopilot noch Pilot noch
+                         Anzeigen) und dessen Run() genau eines tut: das eigene FDM in 100-Hz-Substeps
+                         integrieren, ohne je einen Steuerkanal zu schreiben. Damit ist die Flugbahn die
+                         Aerodynamik des gepinnten Modells plus Schwerkraft und sonst nichts. EINE
+                         Klasse, N Registry-Namen: jeder Katalogeintrag aus core/FBStore.h registriert
+                         sie unter seinem eigenen Schlüssel (heute `mk82`), Modellname = der des Stores.
+                         Eine GELENKTE Waffe wäre ein anderes Modul, kein Flag auf diesem.
   modules/f16/displays/  FBF16Hud (`FBF16Hud.h/.cpp`): die F-16-eigene MIL-STD-1787-Symbologie — FPM,
                          konforme Pitch-Ladder, Heading-/CAS-/Alt-Tapes, Bank-Winkel-Skala, G-Last,
                          der ARM/Mach/Peak-G/NAV/Bullseye-Block, der R/AL/B/TTG/Dist>STPT-Block sowie
@@ -646,9 +703,12 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
   Gesamturteil eine reine Kombination im Runner — s.o.), nie einen geteilten Richter für die Besetzung.
   Piloten/Module wirken NUR über die simulierten Systeme (`fcs/*-cmd-norm` via FBFlightControl/
   FBAutopilot, FBAirframeControls für Gear/Brakes/Steer/Speedbrake/Engine, Throttle, Tank-Füllstand via
-  `FBFdm::SetFuel*`) — der einzige State-Schreiber (JSBSim-IC/Trim) ist der App-eigene Boot-Spawn
-  (`FBMissionBoot.h::FBMissionSpawnActor`, plus die gleichrangigen App-Boot-Pfade `FBAppWasm.cpp`s
-  `?ap=manual` und dedizierte Test-Harnesses). Die IC-Abschottung ist STRUKTURELL, nicht bloß
+  `FBFdm::SetFuel*`, Waffenauslösung via Kommandobus -> `FBStoresSystem::Release`) — der einzige
+  State-Schreiber (JSBSim-IC/Trim) ist der App-eigene Boot-Spawn (`FBMissionBoot.h::FBMissionSpawnActor`
+  und, für einen abgeworfenen Store, `FBMissionSpawnStore` im selben Header, plus die gleichrangigen
+  App-Boot-Pfade `FBAppWasm.cpp`s `?ap=manual` und dedizierte Test-Harnesses). Auch eine Waffe kann sich
+  deshalb nicht selbst in die Welt setzen: das Modul legt einen Datensatz in eine Warteschlange, der
+  BESITZER spawnt. Die IC-Abschottung ist STRUKTURELL, nicht bloß
   grep-belegt (s. `fdm/`-Absatz: privater Lade-Konstruktor, Friend `FBFdmBoot`, eigener Header) —
   `systems/` und `modules/` erreichen die IC nicht und sehen `FBFlightMonitor`/`FBMissionMonitor` nie.
   Und die Gegenrichtung, seit es Cross-Unit-Wahrnehmung gibt: Piloten **sehen** nur über simulierte

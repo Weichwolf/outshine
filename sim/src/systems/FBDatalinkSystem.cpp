@@ -35,6 +35,10 @@ void FBDatalinkSystem::Cycle(const fb_fdm_state &st, const FBUnitRegistry &net, 
 
   for (const FBUnit *u : net.Units()) {
     if (!u || u->GetTeam() != SelfTeam_) continue;   /* a cooperative net carries its own faction only */
+    /* The net is a net of PARTICIPANTS: a released store belongs to the same faction but carries no
+     * terminal, so it is not a member — and skipping it BEFORE the ordinal below matters, because the
+     * flight index is what the FR/FL contact filter selects on. */
+    if (u->GetKind() != FBUnitKind::Aircraft) continue;
     flightIndex++;                                   /* ordinal within the flight, self included */
     if (u->GetId() == SelfId_) continue;             /* own PPLI is not a track on own display */
     if (!AcceptContact(*u, flightIndex)) continue;   /* receiver-side contact filter (TNDL FR/FL) */

@@ -67,7 +67,7 @@ public:
    * AttachFdm'd module flying it — the boot sequence that produces both lives in app/FBMissionBoot.h,
    * the one place allowed to name the IC header. `initialState` is the state that boot left behind
    * (the declarative spawn position, before the first step). */
-  FBSimUnit(int id, std::string name, FBUnitTeam team, std::unique_ptr<FBFdm> fdm,
+  FBSimUnit(int id, std::string name, FBUnitKind kind, FBUnitTeam team, std::unique_ptr<FBFdm> fdm,
             std::unique_ptr<FBModule> module, const fb_fdm_state &initialState, double groundAslM);
 
   /* ---- FBUnit ---- */
@@ -89,6 +89,17 @@ public:
    * whose lines need no disambiguation. Set once at boot (app/FBMissionBoot.h), never per tick. */
   void SetLogAttribution(bool on) { LogLabel_ = on ? GetName() : std::string(); }
   const std::string &LogLabel() const { return LogLabel_; }
+
+  /* ---- lifetime ----
+   * A unit is ACTIVE until its owner retires it. Retiring stops the stepping and the telemetry, and
+   * nothing else: the object stays alive for the rest of the run, because the unit registry borrows
+   * raw pointers and everything that has already been written about it (its telemetry file, its lines
+   * in events.log) must stay valid. It is how a released store leaves the simulation once it has hit
+   * the ground — the trajectory ends, the record does not. Deliberately NOT erasure from the actor
+   * list: that would move every later actor's index and make a run's tick order depend on when a bomb
+   * happened to land. */
+  bool Active() const { return Active_; }
+  void Retire() { Active_ = false; }
 
   /* ---- state + ground truth ---- */
   const fb_fdm_state &State() const { return St_; }
@@ -150,6 +161,7 @@ private:
   FBFlightMonitor Flight_;
   std::unique_ptr<FBMissionMonitor> Mission_;   /* absent for a unit with no mission to judge */
   bool WarnedStall_ = false, WarnedOverspeed_ = false, WarnedSink_ = false;
+  bool Active_ = true;
 };
 
 /* A mission's cast, in declaration order — one entry per `unit` block (core/FBMissionFile.h). Index 0

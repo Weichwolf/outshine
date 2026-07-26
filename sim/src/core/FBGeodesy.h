@@ -114,6 +114,21 @@ inline void FBBodyLosToEnu(double rollDeg, double pitchDeg, double yawDeg, doubl
   upM = -(-sth * xb + sph * cth * yb + cph * cth * zb);
 }
 
+/* A BODY-frame vector (+forward/+right/+down, any unit) expressed in local ENU, same unit. Built on
+ * FBBodyLosToEnu rather than on a second copy of the Euler sequence — two spellings of the same
+ * rotation drifting apart is precisely the class of bug this file exists to prevent. The one caller is
+ * the store-release geometry (app/FBMissionBoot.h): a pylon offset and the rotational velocity at that
+ * pylon are both body vectors that have to land in the world's frame. */
+inline void FBBodyVecToEnu(double rollDeg, double pitchDeg, double yawDeg, double fwd, double right,
+                           double down, double &eastM, double &northM, double &upM) {
+  double mag = std::sqrt(fwd * fwd + right * right + down * down);
+  if (mag <= 0.0) { eastM = northM = upM = 0.0; return; }
+  double azDeg = std::atan2(right, fwd) * kRad2Deg;
+  double elDeg = -std::atan2(down, std::sqrt(fwd * fwd + right * right)) * kRad2Deg;
+  FBBodyLosToEnu(rollDeg, pitchDeg, yawDeg, azDeg, elDeg, eastM, northM, upM);
+  eastM *= mag; northM *= mag; upM *= mag;
+}
+
 /* Along/across-track projection of (lat,lon) onto the line through (refLat,refLon) on true heading
  * `courseDeg`: +along down the course from the reference, +across to its right. The runway-axis
  * primitive FBMissionMonitor's on-runway gate, FBRunwayPlateauElevation's footprint, FBPilot's

@@ -307,7 +307,7 @@ int main() {
     }
     module->AttachFdm(*fdm);
     module->Autopilot().SetManual(0.0, 0.0, 0.0, 0.85);
-    gActors.push_back(std::make_unique<FBSimUnit>(1, "sandbox", FBUnitTeam::Friendly, std::move(fdm),
+    gActors.push_back(std::make_unique<FBSimUnit>(1, "sandbox", FBUnitKind::Aircraft, FBUnitTeam::Friendly, std::move(fdm),
                                                   std::move(module), fb_fdm_state{}, altAsl));
     FBLog::Info("gpu", "manual_boot", {{"lat", olat}, {"lon", olon}, {"altM", altAsl}, {"speedMs", kSpeedMs}});
   } else {

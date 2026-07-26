@@ -24,6 +24,8 @@ const char *FBCommandTargetStr(FBCommandTarget t) {
     case FBCommandTarget::SteerpointNum: return "steerpoint";
     case FBCommandTarget::WeaponSelect: return "weapon_select";
     case FBCommandTarget::Designate: return "designate";
+    case FBCommandTarget::StationSelect: return "station_select";
+    case FBCommandTarget::WeaponRelease: return "weapon_release";
   }
   return "?";
 }
@@ -58,6 +60,11 @@ FBCommandGroup FBCommandGroupOf(FBCommandTarget t) {
     case FBCommandTarget::DatalinkFilter:
     case FBCommandTarget::DatalinkRangeNm:
       return FBCommandGroup::Comms;
+    /* The SMS owns both, and it is cycled with the module's weapons slot — a pickle is answered by the
+     * box that actually lets go of the store, at that box's own rate. */
+    case FBCommandTarget::StationSelect:
+    case FBCommandTarget::WeaponRelease:
+      return FBCommandGroup::Stores;
     default:
       return FBCommandGroup::Avionics;
   }

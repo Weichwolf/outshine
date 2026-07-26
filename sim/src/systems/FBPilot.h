@@ -135,6 +135,14 @@ public:
   void BriefBingoLbs(double lbs) { BriefBingoLbs_ = lbs; BriefBingoPending_ = true; }
   void BriefMasterArm(bool arm) { BriefArm_ = arm; BriefArmPending_ = true; }
   void BriefWeapon(double sel) { BriefWeapon_ = sel; BriefWeaponPending_ = true; }
+  /* THE RELEASE BRIEF: pickle at `atS` mission-elapsed seconds, one entry per store the brief calls
+   * for, kept in the order they were briefed. Unlike the entries above this is not a value to enter
+   * once and forget — it is an ACTION at a moment, so it carries its own time and is posted when that
+   * moment arrives (Run()). Returns false if the brief is full (fixed capacity: no allocation in a
+   * pilot). A refused release is NOT retried: the jet said no, and a pilot who keeps mashing the pickle
+   * button is not flying the brief. */
+  static constexpr int kMaxBriefedReleases = 8;
+  bool BriefRelease(double atS);
 
   const char *TelemetryName() const override { return "pilot"; }
   void DeclareTelemetry(FBTelemetrySchema &schema) const override;
@@ -218,6 +226,9 @@ private:
    * who was told "no" by the jet does not retype the same entry forever. */
   void EnterBriefedItems(FBCommandBus &avionics);
 
+  /* Posts every briefed release whose moment has come (see BriefRelease). */
+  void ReleaseBriefedStores(FBCommandBus &avionics);
+
   /* The Bfm phase's body — one decision tick of the fight (see Run()'s BFM section). Separate because
    * it is the only phase with an inner control law of its own rather than a target for the autopilot. */
   FBPilotCommands BfmCommands(const FBState &state, const fb_fdm_state &st, double dt);
@@ -241,6 +252,11 @@ private:
   double BfmSearchHdgDeg_ = 0.0;  /* the cold search's anchored heading + altitude (see BfmCommands) */
   double BfmSearchAltM_ = 0.0;
   bool   BfmSearchAnchored_ = false;
+
+  /* The briefed releases, in brief order, consumed front to back — ReleaseNext_ is how many have been
+   * pickled, so the array is never rewritten and the sequence is exactly what the mission declared. */
+  double ReleaseAtS_[kMaxBriefedReleases]{};
+  int    ReleaseCount_ = 0, ReleaseNext_ = 0;
 
   double BriefAlowFt_ = 0.0, BriefBingoLbs_ = 0.0, BriefWeapon_ = 0.0;
   bool   BriefArm_ = true;

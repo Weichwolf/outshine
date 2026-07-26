@@ -8,12 +8,15 @@
 #include "FBLog.h"
 #include "FBLogSinks.h"
 #include "FBTickPool.h"
+#include "FBStore.h"
+#include "FBUnits.h"
 #include <cerrno>
 #include <chrono>
 #include <cstdio>
 #include <fstream>
 #include <memory>
 #include <sstream>
+#include <cmath>
 #include <sys/stat.h>
 #include <vector>
 
@@ -62,8 +65,14 @@ FBMissionResult ToMissionResult(FBMissionVerdict v) {
  * loop rather than leaving a wreck integrating in the background. WHOSE K.O. it was decides the RESULT
  * line, which is why this returns the unit and not a bool. */
 const FBSimUnit *FirstFlightKo(const FBActorList &actors) {
-  for (const auto &a : actors)
+  for (const auto &a : actors) {
+    /* A weapon's K.O. is its IMPACT — the event the mission was flown for, not the end of it. It is
+     * judged by the very same FBFlightMonitor as every other unit (the ground contact, the speed, the
+     * attitude are the same physics); only the CONSEQUENCE differs, and that consequence belongs to the
+     * owner of the simulation, which is this file. See RetireImpactedStores below. */
+    if (a->GetKind() == FBUnitKind::Weapon) continue;
     if (a->FlightMonitor().Tripped()) return a.get();
+  }
   return nullptr;
 }
 
@@ -96,6 +105,43 @@ const FBSimUnit *FirstJudged(const FBActorList &actors) {
   return nullptr;
 }
 
+
+/* ---- Released stores: the actor list's ONE runtime growth path ----
+ * A store becomes a unit at the END of the tick its release was commanded in, so it is only stepped
+ * from the NEXT tick onwards. That is not a convenience: the step phase runs one job per actor index
+ * (app/FBTickPool.h), and an actor appearing mid-phase would make a run's outcome depend on WHEN in the
+ * phase it appeared. Appending at the barrier keeps the whole tick a snapshot, exactly like every pose.
+ *
+ * The order is deterministic all the way down: actors are drained in list order, each actor's own
+ * release queue is FIFO, and every new actor is appended in that order — so the list, the tick order
+ * and the unit ids are identical in a 1-thread and an N-thread run. */
+struct FBStoreTrack {
+  size_t Index = 0;      /* into the actor list */
+  double SpawnS = 0.0;
+  double DeadlineS = 0.0;   /* SpawnS + the store's own MaxFlightS (core/FBStore.h) */
+};
+
+/* The impact report: what the store was doing at the moment its own FBFlightMonitor said it hit
+ * something. Everything here is OBSERVED — position and velocity out of the FDM state, the reason out
+ * of the judge — so a detonation is measured, never scripted. `mode` separates the two ways a store's
+ * flight can end: a ground contact (the detonation) and everything else (a lost weapon), because the
+ * monitor can also trip on a tumbling store or a diverged integration and calling that an impact would
+ * be a lie in the telemetry. */
+void LogStoreImpact(const FBSimUnit &store, const FBStoreTrack &track, double simT) {
+  const fb_fdm_state &st = store.State();
+  double horizMs = std::sqrt(st.vx * st.vx + st.vz * st.vz);
+  double angleDeg = std::atan2(-st.vy, horizMs > 1e-6 ? horizMs : 1e-6) * kRad2Deg;
+  FBKoReason r = store.FlightMonitor().Reason();
+  bool ground = r == FBKoReason::StructureContact || r == FBKoReason::CfitPenetration ||
+                r == FBKoReason::GearUpContact || r == FBKoReason::HardLanding ||
+                r == FBKoReason::AttitudeContact;
+  FBLog::Info("stores", "IMPACT", {{"mode", ground ? "ground" : "lost"},
+      {"reason", FBKoReasonStr(r)}, {"lat", st.lat}, {"lon", st.lon}, {"altM", st.elev},
+      {"groundAslM", store.GroundAslM()}, {"tofS", simT - track.SpawnS},
+      {"speedMs", st.speed}, {"vsMs", st.vy}, {"impactAngleDeg", angleDeg},
+      {"pitchDeg", st.pitch}, {"rollDeg", st.roll}, {"trackDeg", st.yaw}});
+}
+
 /* telemetry.csv per actor: the PRIMARY keeps the canonical name (every existing tool and every
  * regression hash reads outDir/telemetry.csv), each further actor gets a file named after its callsign
  * (validated filename-safe by the parser) with the same fixed schema. One file per unit rather than one
@@ -110,6 +156,10 @@ std::string TelemetryPath(const std::string &outDir, size_t index, const FBSimUn
 /* This actor's own result string for the per-unit breakdown: the physical judge outranks the mission
  * judge (a wreck has no mission verdict worth quoting), an actor without objectives reports NONE. */
 const char *ActorResultStr(const FBSimUnit &a) {
+  /* A store's physical K.O. is the outcome it was released for, so it is named as such rather than as a
+   * crash — same judge, same verdict, different word for a different kind of unit. */
+  if (a.GetKind() == FBUnitKind::Weapon)
+    return a.FlightMonitor().Tripped() ? "IMPACT" : "IN_FLIGHT";
   if (a.FlightMonitor().Tripped())
     return a.FlightMonitor().Reason() == FBKoReason::Loc ? "LOC" : "CRASH";
   const FBMissionMonitor *m = a.MissionMonitor();
@@ -144,6 +194,7 @@ public:
   void SetTime(double simT) { TimeS_ = simT; }
 
   void RunIndex(size_t i) override {
+    if (!Actors_[i]->Active()) return;   /* an impacted store integrates no further (FBSimUnit::Retire) */
     FBLog::SetTime(TimeS_);
     FBLogThreadSinkScope capture(&Logs_[i]);
     FBLogUnitScope us(Actors_[i]->LogLabel());
@@ -202,6 +253,11 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
    * order for the whole run. */
   FBRegisterBuiltinModules();
   FBActorList Actors;
+  /* Capacity for the whole cast INCLUDING every store the mission could release: the list is the one
+   * thing in the tick path allowed to grow at runtime (see FBStoreTrack above), and reserving it here
+   * means that growth never reallocates while the run is under way. The loaded count is known only
+   * after the actors exist, so the reserve is done in two steps — this one for the declared units, the
+   * exact one right after the spawn loop. */
   Actors.reserve(mission.Units.size());
   for (size_t i = 0; i < mission.Units.size(); i++) {
     const FBMissionUnit &block = mission.Units[i];
@@ -239,6 +295,14 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     Actors.push_back(std::move(unit));
   }
 
+  /* The exact ceiling, now that every module's loadout is applied: one further actor per loaded
+   * station, and not one more — a store can be released once. */
+  size_t maxActors = Actors.size();
+  for (const auto &a : Actors) maxActors += (size_t)a->Module().Stores().LoadedCount();
+  Actors.reserve(maxActors);
+  std::vector<FBStoreTrack> StoreTracks;
+  StoreTracks.reserve(maxActors - Actors.size());
+
   /* The run's ONE unit registry (units/FBUnitRegistry): the whole cast, in mission-declaration order,
    * filled once now that every actor exists and borrowed by everything that observes units — the
    * modules' sensors through the step job below, and (native only) the hook's FBWorld for drawing. */
@@ -247,7 +311,9 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
 
   if (hook) hook->OnMissionStart(mission.Units.front().Spawn, Actors, UnitReg);
 
-  std::vector<FBActorTelemetry> ActorTelemetry(Actors.size());
+  std::vector<FBActorTelemetry> ActorTelemetry;
+  ActorTelemetry.reserve(maxActors);
+  ActorTelemetry.resize(Actors.size());
   for (size_t i = 0; i < Actors.size(); i++) {
     std::string path = TelemetryPath(outDir, i, *Actors[i]);
     ActorTelemetry[i].File = FBOpenFile(path.c_str(), "w");
@@ -276,7 +342,9 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
    * job they were handed are still alive. */
   if (threads < 1) threads = 1;
   if (threads > Actors.size()) threads = Actors.size();
-  std::vector<FBBufferedLogSink> actorLogs(Actors.size());
+  /* Sized for the CEILING, not for today's cast: the job indexes this vector by actor index, and a
+   * store joining the list mid-run must not resize a buffer a worker thread is holding a reference to. */
+  std::vector<FBBufferedLogSink> actorLogs(maxActors);
   FBActorStepJob stepJob(Actors, UnitReg, actorLogs, dt);
   FBTickPool pool(threads);
 
@@ -301,20 +369,81 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
    * sequential loop wrote it in. */
   while (!FirstFlightKo(Actors) && !FirstMissionFailure(Actors) && !AllObjectivesMet(Actors) &&
          simT < timeoutS) {
-    for (auto &a : Actors) a->UpdateGroundAsl(elevation.GroundElevM(a->State().lat, a->State().lon));
+    for (auto &a : Actors)
+      if (a->Active()) a->UpdateGroundAsl(elevation.GroundElevM(a->State().lat, a->State().lon));
     stepJob.SetTime(simT);
     pool.RunTick(stepJob, Actors.size());
     for (auto &l : actorLogs) l.Drain(logSink);
-    for (auto &a : Actors) a->PublishPose();   /* the barrier: new poses become visible together */
+    for (auto &a : Actors)
+      if (a->Active()) a->PublishPose();   /* the barrier: new poses become visible together */
     simT += dt;
     FBLog::SetTime(simT);
     for (auto &a : Actors) {
+      if (!a->Active()) continue;
       FBLogUnitScope us(a->LogLabel());
       a->CheckEnvelope();   /* generic envelope diagnostics — per actor, not per run */
       a->RunMonitors(simT);
     }
-    for (auto &a : Actors) a->SampleTelemetry(simT);
+    for (auto &a : Actors)
+      if (a->Active()) a->SampleTelemetry(simT);
+    /* A store's flight ends where its own judge says it does: an impact (the detonation) or the
+     * lifetime cap its catalogue entry declares. Retiring is all that happens to the RUN — see
+     * FirstFlightKo. In actor order, like every other verdict pass, and AFTER this tick's telemetry
+     * sample so the impact tick is the last ROW of the store's trace and not a gap in it. */
+    for (auto &t : StoreTracks) {
+      FBSimUnit &store = *Actors[t.Index];
+      if (!store.Active()) continue;
+      FBLogUnitScope us(store.LogLabel());
+      if (store.FlightMonitor().Tripped()) {
+        LogStoreImpact(store, t, simT);
+        store.Retire();
+      } else if (simT >= t.DeadlineS) {
+        FBLog::Warn("stores", "EXPIRED", {{"tofS", simT - t.SpawnS}, {"altM", store.State().elev},
+            {"aglM", store.AglM()}});
+        store.Retire();
+      }
+    }
     if (hook) hook->OnTick(Actors, simT);
+
+    /* THE ACTOR LIST'S ONE GROWTH POINT (FBStoreTrack's banner): every store the modules released
+     * during this tick becomes a unit now, at the end of it, and is therefore first stepped in the NEXT
+     * one. Drained in actor order, each module's queue in FIFO order, so the new actors' order — and
+     * with it their ids, their telemetry files and their tick order — is identical no matter how many
+     * threads stepped the tick. */
+    size_t declaredActors = Actors.size();
+    for (size_t i = 0; i < declaredActors; i++) {
+      FBSimUnit &carrier = *Actors[i];
+      FBStoreRelease rel;
+      while (carrier.Module().Stores().TakeRelease(rel)) {
+        const FBStoreSpec *spec = FBStoreSpecOf(rel.Kind);
+        if (!spec) continue;
+        char name[64];
+        snprintf(name, sizeof name, "%s_%s_%d", carrier.GetName().c_str(), spec->Key,
+                 (int)StoreTracks.size() + 1);
+        std::string serr;
+        std::unique_ptr<FBSimUnit> store =
+            FBMissionSpawnStore(aircraftPath.c_str(), rel, carrier.State(), carrier.GroundAslM(),
+                                (int)Actors.size() + 1, name, carrier.GetTeam(), &serr);
+        if (!store) {
+          FBLogUnitScope us(carrier.LogLabel());
+          FBLog::Error("stores", "SEPARATION_FAILED", {{"station", rel.Station}, {"reason", serr}});
+          continue;
+        }
+        std::string path = TelemetryPath(outDir, Actors.size(), *store);
+        ActorTelemetry.emplace_back();
+        FBActorTelemetry &tel = ActorTelemetry.back();
+        tel.File = FBOpenFile(path.c_str(), "w");
+        if (tel.File) {
+          tel.Sink = std::make_unique<FBCsvTelemetrySink>(tel.File.get());
+          store->StartTelemetry(tel.Sink.get());
+        } else {
+          store->StartTelemetry(nullptr);   /* it still flies; only its trace is missing */
+        }
+        StoreTracks.push_back({Actors.size(), simT, simT + spec->MaxFlightS});
+        UnitReg.Register(store.get());
+        Actors.push_back(std::move(store));
+      }
+    }
   }
 
   /* ---- Step 4: validate the world — the monitors already did; combine their verdicts ---- */
