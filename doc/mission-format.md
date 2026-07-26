@@ -207,3 +207,7 @@ die Einheit, deren Urteil den Lauf BEENDET hat (bei SUCCESS keine). Die abschlie
 - `sim/missions/payerne-pair-fail.fbm` — dieselbe Paarung mit einem für `two` unerreichbaren Wegpunkt
   bei knappem Timeout: `lead` erreicht seine Ziele, das Gesamturteil ist trotzdem negativ und nennt
   `two` als die Einheit, die es entschieden hat.
+- `sim/missions/payerne-four.fbm` — eine Viererrotte im Luftstart, jede Einheit in ihrem eigenen
+  Höhenblock: der Skalierungsfall für `fb-gym --threads` (vier annähernd gleich teure Airframes).
+- `sim/missions/payerne-mixed.fbm` — bewusst ungleiche Last: `roller` startet am Boden auf der Schwelle,
+  `cruiser` ist bereits im Reiseflug — der Stresstest der Lockstep-Barriere.

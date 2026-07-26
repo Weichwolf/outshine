@@ -41,4 +41,14 @@ void FBCompositeLogSink::Write(double simTimeS, FBLogLevel level, const char *ta
   for (auto *c : Children) c->Write(simTimeS, level, tag, event, fields);
 }
 
+void FBBufferedLogSink::Write(double simTimeS, FBLogLevel level, const char *tag, const char *event,
+                              const std::vector<FBLogField> &fields) {
+  Lines.push_back({simTimeS, level, tag, event, fields});
+}
+
+void FBBufferedLogSink::Drain(FBLogSink &out) {
+  for (const auto &l : Lines) out.Write(l.TimeS, l.Level, l.Tag.c_str(), l.Event.c_str(), l.Fields);
+  Lines.clear();
+}
+
 } // namespace FlightBox

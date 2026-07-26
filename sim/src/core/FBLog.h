@@ -7,7 +7,16 @@
  * core/systems/render/world/fdm never touch a FILE pointer or fstream, only format field values (allowed —
  * "Core bleibt I/O-frei", CLAUDE.md). No sink set = free (one pointer check, no formatting work).
  * Concrete sinks (stdout/file/fan-out) live in app/ (FBLogSinks.h) — the one place raw stdio is
- * allowed, per CLAUDE.md's Engineering-Konventionen exception. */
+ * allowed, per CLAUDE.md's Engineering-Konventionen exception.
+ *
+ * THREADING (fb-gym's one-thread-per-unit mission loop, app/FBTickPool.h): the facade's CONFIGURATION —
+ * the installed sink and the level — is process-wide and set once at boot, so it stays static. Its
+ * CONTEXT — which sim second and which unit the caller is currently inside, plus an optional per-thread
+ * capture buffer — is thread_local: a thread that is stepping unit `two` is not in the same context as
+ * one stepping `lead`, and that is exactly what a thread-local means. The alternative (a context object
+ * threaded through every Run() signature) is the one thing this facade exists to avoid, and it would
+ * touch the whole call graph for no behavioral gain. Single-threaded clients (native, wasm) see
+ * identical behaviour: one thread, one context. */
 #ifndef FBLOG_H
 #define FBLOG_H
 #include <initializer_list>
@@ -54,6 +63,12 @@ public:
    * byte-identical to every pre-multi-unit regression baseline. */
   static void SetUnit(const char *label);
 
+  /* Redirects THIS thread's output into `sink` (null = back to the process sink). The mission runner
+   * points every worker at the buffer belonging to the UNIT it is stepping, never at the shared
+   * events.log: a worker that wrote straight through would make line order a function of the scheduler.
+   * The buffers are replayed in unit order at the tick barrier (app/FBLogSinks.h's FBBufferedLogSink). */
+  static void SetThreadSink(FBLogSink *sink) { ThreadSink_ = sink; }
+
   static void Debug(const char *tag, const char *event, std::initializer_list<FBLogField> fields = {}) {
     Emit(FBLogLevel::Debug, tag, event, fields);
   }
@@ -71,10 +86,11 @@ private:
   static void Emit(FBLogLevel level, const char *tag, const char *event,
                    std::initializer_list<FBLogField> fields);
 
-  static FBLogSink *Sink_;
+  static FBLogSink *Sink_;         /* boot configuration — process-wide on purpose */
   static FBLogLevel Level_;
-  static double TimeS_;
-  static char Unit_[32];   /* fixed buffer: attribution changes per actor per tick, never allocates */
+  static thread_local FBLogSink *ThreadSink_;   /* emitting context — see the banner */
+  static thread_local double TimeS_;
+  static thread_local char Unit_[32];   /* fixed buffer: changes per actor per tick, never allocates */
 };
 
 /* Scopes FBLog's unit attribution to one actor and clears it again on exit — so a client loop reads
@@ -86,6 +102,17 @@ public:
   ~FBLogUnitScope() { FBLog::SetUnit(nullptr); }
   FBLogUnitScope(const FBLogUnitScope &) = delete;
   FBLogUnitScope &operator=(const FBLogUnitScope &) = delete;
+};
+
+/* The same RAII discipline for SetThreadSink: a worker that returned from a unit's step without clearing
+ * its capture buffer would keep writing into it on the next tick — including into a buffer belonging to
+ * a different unit. */
+class FBLogThreadSinkScope {
+public:
+  explicit FBLogThreadSinkScope(FBLogSink *sink) { FBLog::SetThreadSink(sink); }
+  ~FBLogThreadSinkScope() { FBLog::SetThreadSink(nullptr); }
+  FBLogThreadSinkScope(const FBLogThreadSinkScope &) = delete;
+  FBLogThreadSinkScope &operator=(const FBLogThreadSinkScope &) = delete;
 };
 
 } // namespace FlightBox

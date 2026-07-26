@@ -1,0 +1,45 @@
+name payerne-four-1
+runway 46.84335 6.91523 441.0 228.0 2889     # Payerne RWY23 -- mission-wide off-runway-touchdown check
+timeout 600                                  # sim-seconds until TIMEOUT
+
+# A four-ship on an air start ~10 nm SW of Payerne, echelon to the southeast, all on 048 at 300 kt.
+# The scaling case for the gym's per-unit threading (fb-gym --threads, app/FBTickPool.h): four
+# independent airframes of near-equal cost, so wall clock at --threads 4 vs 1 measures the pool and
+# nothing else. Each ship owns its waypoints and its own altitude block (500 m apart, no conflicts);
+# SUCCESS needs all four to reach all of theirs.
+
+unit lead
+  module f16
+  team friendly
+  spawn 46.73800 6.72200 3000 48.0 300
+  set gear up
+  set fuel_pct 60
+  wp 46.84335 6.91523 3200 320
+  wp 46.95000 7.05000 3400 320
+
+unit two
+  module f16
+  team friendly
+  spawn 46.72600 6.73900 2500 48.0 300
+  set gear up
+  set fuel_pct 60
+  wp 46.81000 6.95000 2700 300
+  wp 46.90000 7.12000 2900 300
+
+unit three
+  module f16
+  team friendly
+  spawn 46.71400 6.75600 2000 48.0 300
+  set gear up
+  set fuel_pct 60
+  wp 46.78000 6.98000 2200 300
+  wp 46.86000 7.16000 2400 300
+
+unit four
+  module f16
+  team friendly
+  spawn 46.70200 6.77300 1500 48.0 300
+  set gear up
+  set fuel_pct 60
+  wp 46.75000 7.01000 1700 300
+  wp 46.82000 7.20000 1900 300

@@ -29,11 +29,15 @@ const char *kDefaultSwissDem = "assets/swiss-dem-90m.bin";
 
 void Usage(const char *argv0) {
   fprintf(stderr,
-          "usage: %s --mission FILE [--out DIR] [--timeout N] [--elev tiles|const|swiss] [--base URL]\n"
+          "usage: %s --mission FILE [--out DIR] [--timeout N] [--threads N] [--elev tiles|const|swiss] [--base URL]\n"
           "  --mission FILE   ground-spawn a .fbm mission (doc/mission-format.md) on its runway threshold\n"
           "                   and run headless (JSBSim + the module's FBPilot phase machine) until SUCCESS/CRASH/\n"
           "                   TIMEOUT/FAIL; writes --out/telemetry.csv + --out/events.log, exit 0/1/2/3.\n"
           "  --timeout N      overrides the mission file's own timeout (sim-seconds)\n"
+          "  --threads N      threads that step the mission's units, the main thread included (default 1 =\n"
+          "                   the sequential reference path; clamped to the unit count). Parallelises the\n"
+          "                   per-unit STEP only — verdicts, telemetry and log order stay sequential, so a\n"
+          "                   run's outputs are byte-identical whatever N is. GYM ONLY, by design.\n"
           "  --elev tiles|const|swiss  ground-elevation source (default: swiss if %s exists, else const):\n"
           "                   tiles  = live fb-tiles /elev (--base, default http://localhost:8081)\n"
           "                   const  = the mission's own runway(s) on a flat base (FBRunwayPlateauElevation,\n"
@@ -53,9 +57,11 @@ bool FileExists(const std::string &path) {
 int main(int argc, char **argv) {
   std::string missionPath, outDir = ".", base = "http://localhost:8081", elevMode, swissDemPath = kDefaultSwissDem;
   double timeout = 0.0;
+  long threads = 1;
   for (int i = 1; i < argc; i++) {
     std::string a = argv[i];
-    if (a == "--mission" && i + 1 < argc) missionPath = argv[++i];
+    if (a == "--threads" && i + 1 < argc) threads = atol(argv[++i]);
+    else if (a == "--mission" && i + 1 < argc) missionPath = argv[++i];
     else if (a == "--out" && i + 1 < argc) outDir = argv[++i];
     else if (a == "--timeout" && i + 1 < argc) timeout = atof(argv[++i]);
     else if (a == "--elev" && i + 1 < argc) elevMode = argv[++i];
@@ -64,6 +70,7 @@ int main(int argc, char **argv) {
     else { Usage(argv[0]); return 1; }
   }
   if (missionPath.empty()) { Usage(argv[0]); return 1; }
+  if (threads < 1) { fprintf(stderr, "fb-gym: --threads must be >= 1\n"); return 1; }
   if (!FBEnsureDir(outDir)) { fprintf(stderr, "fb-gym: cannot create --out %s\n", outDir.c_str()); return 1; }
 
   static FBStdoutLogSink gStdoutSink;
@@ -98,6 +105,12 @@ int main(int argc, char **argv) {
     return 1;
   }
   FBLog::Info("gym", "elevation_provider", {{"mode", elevMode}});
+  /* Announced HERE, on the gym's own boot sink, and never inside the run: FBRunMission installs the
+   * mission's events.log sink below, and a thread-count line there would be the single byte of
+   * difference between a sequential and a parallel run's log. The runner clamps the value to the
+   * mission's unit count. */
+  FBLog::Info("gym", "step_threads", {{"requested", (int)threads}});
 
-  return FBRunMission(missionPath, timeout, outDir, "vendor/jsbsim/aircraft", *elevation, nullptr);
+  return FBRunMission(missionPath, timeout, outDir, "vendor/jsbsim/aircraft", *elevation, nullptr,
+                      (size_t)threads);
 }

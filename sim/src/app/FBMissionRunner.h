@@ -62,10 +62,16 @@ bool FBEnsureDir(const std::string &dir);
  * native: "vendor/jsbsim/aircraft") and steps it headless at 10 Hz until SUCCESS/CRASH/TIMEOUT/FAIL,
  * writing outDir/telemetry.csv + outDir/events.log (installs its own FBLog sink: file + stdout).
  * `timeoutOverride` > 0 overrides the mission file's own timeout. `hook` (optional) is polled once at
- * spawn and once per tick — see FBMissionTickHook above. Returns 0/1/2/3 = Success/Fail/Crash/Timeout. */
+ * spawn and once per tick — see FBMissionTickHook above. Returns 0/1/2/3 = Success/Fail/Crash/Timeout.
+ *
+ * `threads` is the size of the pool that executes the per-actor STEP phase (app/FBTickPool.h), the
+ * calling thread included — 1 (the default every caller but fb-gym's `--threads` uses) is the sequential
+ * reference path, and no caller can get a different RESULT out of a larger one: everything with a
+ * cross-actor reach stays sequential and log output is replayed in actor order at the barrier. It is
+ * clamped to the mission's actor count (more threads than actors is idle threads, not speed). */
 int FBRunMission(const std::string &missionPath, double timeoutOverride, const std::string &outDir,
                  const std::string &aircraftPath, FBElevationProvider &elevation,
-                 FBMissionTickHook *hook = nullptr);
+                 FBMissionTickHook *hook = nullptr, size_t threads = 1);
 
 } // namespace FlightBox
 #endif

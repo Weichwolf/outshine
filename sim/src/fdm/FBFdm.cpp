@@ -5,12 +5,22 @@
  * else, including the whole property tree, is per instance because FGFDMExec(nullptr) allocates its own
  * SGPropertyNode root and its own FDM counter):
  *   - FGJSBBase::debug_lvl is a static shared by ALL instances; SetDebugLevel() is process-wide in
- *     effect. Every FBFdm sets it to 0, so no instance can surprise another.
- *   - JSBSim::SetLogger/GetLogger (input_output/FGLog.cpp) hold ONE process-global logger; per-instance
- *     log routing is impossible. FlightBox never sets it — JSBSim's own output stays off at debug 0.
+ *     effect. Every FBFdm sets it to 0, so no instance can surprise another. It is written only from a
+ *     ctor and from FGFDMExec's child-FDM trim path (which FlightBox does not use), and read-only for
+ *     the whole of Run().
+ *   - JSBSim::SetLogger/GetLogger (input_output/FGLog.cpp) hold ONE logger, and it is `thread_local` at
+ *     the pinned commit — so per-INSTANCE log routing is impossible, but two threads never share a
+ *     logger. FlightBox never sets it; JSBSim's own output stays off at debug 0.
+ *   - Element::convert (input_output/FGXMLElement.cpp) is a static unit-conversion map, lazily filled
+ *     from the Element ctor and read with operator[] (which can INSERT) while parsing model XML. It is
+ *     touched only while LOADING an aircraft — which is why fb-gym's parallel step phase spawns its
+ *     units sequentially and only STEPS them in parallel (app/FBTickPool.h).
  *   - The ctor reads the JSBSIM_DEBUG / JSBSIM_DISPERSE environment variables into that shared static,
  *     i.e. they apply to the whole process, not to one airframe.
- * None of these carry physics state, so N airframes integrate independently. */
+ * None of these carry physics state, so N airframes integrate independently — and none of them is
+ * reachable from Step(), so N airframes may integrate CONCURRENTLY, one thread each. Reference counting
+ * inside the engine (SGReferenced) is NOT atomic, which is fine for exactly that reason: every property
+ * node and every Element hangs off one FGFDMExec's own root and is never shared across instances. */
 #include "FGFDMExec.h"
 #include "initialization/FGInitialCondition.h"
 #include "initialization/FGTrim.h"

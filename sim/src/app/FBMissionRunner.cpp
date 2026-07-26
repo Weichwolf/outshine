@@ -7,9 +7,10 @@
 #include "FBTelemetrySinks.h"
 #include "FBLog.h"
 #include "FBLogSinks.h"
+#include "FBTickPool.h"
 #include <cerrno>
+#include <chrono>
 #include <cstdio>
-#include <ctime>
 #include <fstream>
 #include <memory>
 #include <sstream>
@@ -127,11 +128,38 @@ struct FBActorTelemetry {
   FBFileHandle File{nullptr, &fclose};
   std::unique_ptr<FBCsvTelemetrySink> Sink;
 };
+
+/* The tick's STEP phase as one job (app/FBTickPool.h): index i is actor i stepping its own airframe and
+ * module for `dt`, nothing else. Everything the step could otherwise share is kept out of it — the world
+ * pointer is null here exactly as it always was, so no actor reaches the unit registry, and log output
+ * goes into the actor's OWN buffer rather than the run's sink. The sim time is stamped inside RunIndex
+ * because FBLog's clock is thread-local (core/FBLog.h): each worker learns the tick it is in from the
+ * job, which is also the only per-tick state this object carries. */
+class FBActorStepJob : public FBTickJob {
+public:
+  FBActorStepJob(FBActorList &actors, std::vector<FBBufferedLogSink> &logs, double dt)
+      : Actors_(actors), Logs_(logs), Dt_(dt) {}
+
+  void SetTime(double simT) { TimeS_ = simT; }
+
+  void RunIndex(size_t i) override {
+    FBLog::SetTime(TimeS_);
+    FBLogThreadSinkScope capture(&Logs_[i]);
+    FBLogUnitScope us(Actors_[i]->LogLabel());
+    Actors_[i]->Run(Dt_, nullptr);
+  }
+
+private:
+  FBActorList &Actors_;
+  std::vector<FBBufferedLogSink> &Logs_;
+  double Dt_;
+  double TimeS_ = 0.0;
+};
 } // namespace
 
 int FBRunMission(const std::string &missionPath, double timeoutOverride, const std::string &outDir,
                  const std::string &aircraftPath, FBElevationProvider &elevation,
-                 FBMissionTickHook *hook) {
+                 FBMissionTickHook *hook, size_t threads) {
   std::string evPath = outDir + "/events.log";
   FBFileHandle evf = FBOpenFile(evPath.c_str(), "w");
   if (!evf) { fprintf(stderr, "mission: cannot open %s for writing\n", evPath.c_str()); return 1; }
@@ -226,22 +254,49 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   /* ---- Step 3: execute the actors ---- */
   const double dt = 0.1;
   double simT = 0.0;
-  clock_t wallStart = clock();
+  /* steady_clock, not clock(): with a worker thread per actor clock() reports the SUM of every thread's
+   * CPU time, so the SUMMARY's `wallS`/`speedup` would get worse the faster the run actually got. */
+  auto wallStart = std::chrono::steady_clock::now();
+
+  /* The STEP phase's execution resources. The pool is sized here rather than taken as the caller's raw
+   * wish: threads beyond the cast size would only park on the barrier. One capture buffer per actor,
+   * alive for the whole run so a steady-state tick allocates nothing. Nothing about the pool is LOGGED —
+   * how many threads stepped the cast is a property of the client, not an event of the mission, and a
+   * line about it would be the one difference between a sequential and a parallel events.log.
+   * The pool is declared LAST for the same reason FBLogSinkScope is (see its banner): reverse
+   * declaration order means it is destroyed FIRST, so its threads are joined while the buffers and the
+   * job they were handed are still alive. */
+  if (threads < 1) threads = 1;
+  if (threads > Actors.size()) threads = Actors.size();
+  std::vector<FBBufferedLogSink> actorLogs(Actors.size());
+  FBActorStepJob stepJob(Actors, actorLogs, dt);
+  FBTickPool pool(threads);
 
   /* The run ends on the first physical K.O. of ANY actor, the first mission FAILURE of any judged
    * actor, or once EVERY judged actor has met its own objectives (see the helpers above). The trailing
    * timeout guard is the backstop for a cast with no objectives at all — every judged actor's own
    * FBMissionMonitor concludes TIMEOUT at exactly this sim time, so it never preempts one.
    *
-   * SNAPSHOT DISCIPLINE (FBUnit::GetPose's contract): the four per-actor passes are separate loops on
+   * SNAPSHOT DISCIPLINE (FBUnit::GetPose's contract): the per-actor passes are separate loops on
    * purpose — every actor integrates against the poses of the LAST completed tick, and only the barrier
    * after all of them publishes the new ones. No actor can therefore see a neighbour that has already
-   * stepped this tick, so tick ORDER cannot influence the result — which is what will let Etappe 4
-   * replace the Run() loop with one thread per actor plus a barrier, and nothing else. */
+   * stepped this tick, so tick ORDER cannot influence the result — which is what lets the STEP pass run
+   * one thread per actor (app/FBTickPool.h) while EVERY other pass stays a plain sequential loop in
+   * actor order:
+   *   - elevation sampling, because the provider is the client's one shared object (FBTilesElevation
+   *     drives the tile streamer) and a per-tick point query is far too cheap to be worth the question;
+   *   - pose publication, which IS the barrier;
+   *   - monitors + envelope checks, so the verdict that ends a run and the lines it emits are read in
+   *     actor order, never in finishing order;
+   *   - telemetry sampling and the tick hook (the native oracle's renderer), single-threaded by decision.
+   * The step pass's own log output is captured per actor and replayed here, in the same actor order the
+   * sequential loop wrote it in. */
   while (!FirstFlightKo(Actors) && !FirstMissionFailure(Actors) && !AllObjectivesMet(Actors) &&
          simT < timeoutS) {
     for (auto &a : Actors) a->UpdateGroundAsl(elevation.GroundElevM(a->State().lat, a->State().lon));
-    for (auto &a : Actors) { FBLogUnitScope us(a->LogLabel()); a->Run(dt, nullptr); }
+    stepJob.SetTime(simT);
+    pool.RunTick(stepJob, Actors.size());
+    for (auto &l : actorLogs) l.Drain(logSink);
     for (auto &a : Actors) a->PublishPose();   /* the barrier: new poses become visible together */
     simT += dt;
     FBLog::SetTime(simT);
@@ -295,7 +350,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     }
   }
 
-  double wallS = (double)(clock() - wallStart) / CLOCKS_PER_SEC;
+  double wallS = std::chrono::duration<double>(std::chrono::steady_clock::now() - wallStart).count();
   FBLog::SetTime(simT);
   /* The combined verdict, attributed to the actor that decided it — with one actor the label is empty
    * and the line reads exactly as it always did. */

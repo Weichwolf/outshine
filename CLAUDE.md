@@ -97,7 +97,8 @@ Duplikation der Architektur).
 Drei Clients linken/kompilieren dagegen:
 
 - **`fb-gym`** (`app/FBAppGym.cpp` + `app/FBMissionRunner.cpp`, `make -C sim gym` →
-  `build/fb-gym`) — headless: `--mission FILE [--out DIR] [--timeout N] [--elev tiles|const|swiss]`.
+  `build/fb-gym`) — headless: `--mission FILE [--out DIR] [--timeout N] [--threads N]
+  [--elev tiles|const|swiss]`. `--threads` ist GYM-ONLY (s.u. "Etappe 4").
   KEIN Dawn-/wgpu-Symbol im Binary (verifiziert per `nm`). Der Missions-Kern (Prinzip 4: so schnell wie
   die Maschine kann).
 - **`gpu_native`** (`app/FBAppNative.cpp`, `make -C sim native`) — der Referenz-Renderer/Frame-Orakel:
@@ -119,13 +120,50 @@ und das Missions-Urteil fällt PRO EINHEIT (Details unten + `doc/mission-format.
 **Snapshot-Disziplin steht ab jetzt**, obwohl noch niemand cross-unit liest: pro Tick rechnen ERST alle
 Einheiten, DANN macht eine Barriere (`FBSimUnit::PublishPose`) die neuen Posen gemeinsam sichtbar —
 `FBUnit::GetPose()` (das, was die `FBWorld`-Registry zeigt) liefert immer den Stand des zuletzt
-ABGESCHLOSSENEN Ticks, also kann die Tick-Reihenfolge kein Ergebnis beeinflussen. Dafür festgelegt und
-noch offen (Etappe 4): **Multi-Threading ist ein reines GYM-Feature** — Thread pro Unit mit eigener
-JSBSim-Instanz, Lockstep-Barrier pro Tick, Cross-Unit-Lesezugriffe nur auf den Snapshot → dann eine
-reine Parallelisierung dieser Schleifen, kein Umbau. native/wasm bleiben Single-Thread im Sim-Loop
-(Echtzeit braucht keine Parallelphysik; der Browser erspart sich den pthreads/SharedArrayBuffer-Build).
-Ebenfalls offen: Telemetrie-/Log-Sinks per-Thread gepuffert und am Barrier gemerged (`FBLog`s
-Zeit-/Unit-Attribution ist heute eine statische Fassade und damit Thread-Arbeit für Etappe 4).
+ABGESCHLOSSENEN Ticks, also kann die Tick-Reihenfolge kein Ergebnis beeinflussen.
+
+**Etappe 4 GEBAUT — Thread pro Einheit, aber NUR im Gym.** `fb-gym --threads N` (Default 1 = der
+sequenzielle Referenzpfad) parallelisiert GENAU eine Phase des Ticks: den STEP jeder Einheit (Modul +
+eigene `FBFdm`). native und wasm bleiben Single-Thread im Sim-Loop — Echtzeit braucht keine
+Parallelphysik, und der Browser erspart sich den pthreads/SharedArrayBuffer-Build; `app/FBTickPool.h/
+.cpp` wird ausschließlich von `FBMissionRunner.cpp` inkludiert, ist NICHT Teil der Core-Lib und erreicht
+den WASM-Build nie.
+
+- **Pool + Barriere** (`app/FBTickPool`, C++17-Eigenbau — `std::barrier` ist C++20): N-1 Worker werden
+  EINMAL für den Lauf erzeugt (bei 10 Hz über Tausende Ticks wäre ein Thread pro Tick reiner Overhead)
+  und parken auf einer Condition-Variable. `RunTick(job, count)` verteilt die Indizes über einen
+  ATOMAREN Zähler — wer frei ist, nimmt die nächste Einheit (dynamischer Plan, für ungleiche Last) —
+  und kehrt erst zurück, wenn jeder Index fertig ist: dieses Return IST die Lockstep-Barriere. Der
+  aufrufende Thread arbeitet mit, `--threads 1` erzeugt gar keinen Thread und die Schleife läuft inline.
+- **Sequenziell bleibt** (und zwar in Akteurs-Reihenfolge): das Laden/Spawnen der Modelle (JSBSims
+  statische `Element::convert`-Einheitentabelle wird beim XML-Parsen per `operator[]` MUTIERT), das
+  Elevation-Sampling (der Provider ist das EINE geteilte Objekt des Clients — `FBTilesElevation` fährt
+  den Tile-Streamer), `PublishPose` (das IST die Barriere), beide Monitore + die Envelope-Checks,
+  Telemetrie-Sampling und der `FBMissionTickHook` (der Renderer des nativen Orakels).
+- **Log/Telemetrie ohne Determinismus-Verlust:** Telemetrie ist längst pro Einheit (eigener Bus, eigene
+  Datei) und wird in der sequenziellen Phase gesampelt. Für `FBLog` wurde die statische Fassade
+  BEHALTEN, aber ihr KONTEXT thread-lokal: `Sink_`/`Level_` sind Boot-Konfiguration und bleiben
+  prozessweit, `TimeS_`/`Unit_` plus ein neuer `ThreadSink_` sind `thread_local` — ein Thread, der
+  Einheit `two` rechnet, IST in einem anderen Kontext als einer, der `lead` rechnet (die Alternative,
+  ein Kontext-Objekt durch jede `Run()`-Signatur zu fädeln, ist genau das, was diese Fassade vermeidet).
+  Kein Worker schreibt je direkt in einen gemeinsamen Sink: der Runner zeigt jeden Worker auf den
+  `FBBufferedLogSink` (`app/FBLogSinks.h`) DER EINHEIT, die er rechnet, und dräniert die Puffer an der
+  Barriere in Einheiten-Reihenfolge in den echten Sink. Zeilenposition hängt damit nie am Scheduler.
+- **Bewiesen:** `payerne-pair`/`payerne-pair-fail`/`payerne-four`/`payerne-mixed` liefern über
+  `--threads 1..4` und je 5 Wiederholungen EINEN einzigen Fingerabdruck (SHA-256 aller `telemetry*.csv`
+  + normalisierter `events.log` + Exit-Code, inkl. `decisive=`-Attribution); die 7 Einzel-Missionen ×
+  const/swiss sind mit dem Default byte-identisch zum Stand vor Etappe 4.
+- **Skalierung, ehrlich:** ein F-16-Step kostet ~95-100 µs und ist praktisch phasenunabhängig (Bodenroll
+  vs. Reiseflug ≤7 % Unterschied) — eine Mission kann über Flugphasen also kaum Ungleichlast erzeugen.
+  Gemessen (Apple A18 Pro, 2 P- + 4 E-Kerne): 2 Einheiten 1.29–1.41x bei 2 Threads, 4 Einheiten
+  1.49x/1.53x/1.77x bei 2/3/4 Threads. Die Decke ist die MASCHINE, nicht die Barriere: zwei
+  UNABHÄNGIGE `fb-gym`-Prozesse skalieren genauso schlecht (0.42 s allein → 0.58 s je, = 1.45x), und
+  eine Spin-vor-Park-Variante der Barriere bewegte nichts. Threading lohnt ab ~4 Einheiten auf echten
+  Performance-Kernen; darunter ist es ein Faktor <1.5.
+
+Als `wallS`/`speedup` der `SUMMARY`-Zeile misst der Runner seither `steady_clock` statt `clock()` —
+letzteres summiert bei mehreren Threads die CPU-Zeit und hätte einen schnelleren Lauf als langsameren
+gemeldet.
 
 **Der Missions-Runner ist reiner Orchestrator, genau vier Schritte, KEIN Missions-Wissen im Code:**
 Mission laden → Welt mit ihren Akteuren aufsetzen (Elevation für die deklarative `spawn`-Zeile auflösen,
@@ -202,8 +240,10 @@ sim/src/
              Luft, generisch über FBModuleRegistry, kein konkreter Modultyp — liefert den fertigen
              `units/FBSimUnit` inkl. eigenem FBMissionMonitor, sofern der Block Ziele hat; da nur DIESER
              Header `fdm/FBFdmBoot.h` nennen darf, ist er auch der einzige Produzent eines
-             vollständigen Akteurs), FBLogSinks/FBTelemetrySinks (die
-             I/O-Sink-Implementierungen)
+             vollständigen Akteurs), FBTickPool.h/.cpp (die GYM-ONLY Lockstep-Worker, die die STEP-Phase
+             des Ticks parallelisieren — nur von FBMissionRunner.cpp inkludiert, nicht in der Core-Lib,
+             nie im WASM-Build, s.o. "Etappe 4"), FBLogSinks/FBTelemetrySinks (die
+             I/O-Sink-Implementierungen, inkl. FBBufferedLogSink = der Pro-Einheit-Logpuffer)
   core/      FBState, FBMode, FBMasterMode, FBFlightPlan/FBRunway/FBSpawn (Wegpunkt-/Runway-/
              deklarativer-Spawn-Value-Types für FBPilot/den Orchestrator), FBTeam (`FBUnitTeam` —
              die Fraktion, im core/, weil sie BEIDES ist: Missionsdaten und Welt-Identität), FBMissionFile
@@ -223,6 +263,9 @@ sim/src/
                Zeit trägt die Fassade die UNIT-Attribution (`FBLog::SetUnit`/`FBLogUnitScope`, vom
                Client um den akteursbezogenen Teil seiner Schleife gelegt): ist sie gesetzt, führt jede
                Zeile `unit=<callsign>` als erstes Feld — leer bei einer Einzel-Einheit, s.o.
+               Der KONTEXT der Fassade (Zeit, Unit-Label, ein optionaler `ThreadSink_`) ist
+               `thread_local`, die KONFIGURATION (Sink, Level) prozessweit — das macht sie im
+               Gym-Parallelpfad thread-fest, ohne die Fassade aufzugeben (s.o. "Etappe 4").
                FBTelemetry (`FBTelemetry.h/.cpp`) — periodisch gesampelter Zustand (Zeitreihe, Schema).
                Klassen DEKLARIEREN sich als `FBTelemetrySource` (`DeclareTelemetry`/`SampleTelemetry`);
                der EINE `FBTelemetryBus` sampelt jede registrierte Source pro Tick in genau eine Zeile

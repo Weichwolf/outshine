@@ -43,6 +43,30 @@ private:
   std::vector<FBLogSink *> Children;
 };
 
+/* Captures lines instead of writing them — one buffer per UNIT in the mission runner's parallel Run()
+ * phase, which points each worker thread at the buffer of the unit it is stepping (FBLog::SetThreadSink)
+ * and Drain()s all of them into the real sink at the tick barrier, in unit order. That indirection is
+ * what keeps events.log byte-identical between `--threads 1` and `--threads N`: no line's position
+ * depends on which thread got there first. Reused across ticks — Drain() empties the vector but keeps
+ * its capacity, so a steady-state tick that logs nothing allocates nothing.
+ * `tag`/`event` are copied rather than kept as the caller's const char*: a buffered line outlives the
+ * Emit() call, and only string literals would survive that by accident. */
+class FBBufferedLogSink : public FBLogSink {
+public:
+  void Write(double simTimeS, FBLogLevel level, const char *tag, const char *event,
+            const std::vector<FBLogField> &fields) override;
+  void Drain(FBLogSink &out);
+
+private:
+  struct FBBufferedLine {
+    double TimeS;
+    FBLogLevel Level;
+    std::string Tag, Event;
+    std::vector<FBLogField> Fields;
+  };
+  std::vector<FBBufferedLine> Lines;
+};
+
 /* RAII scope for FBLog's process-wide sink pointer. FBLog::SetSink takes a BORROWED pointer, so every
  * path out of the scope that owns the sink objects — including the early returns a mission-load failure
  * takes — must unset it, or the next log call writes through a dangling pointer into an already-fclose'd

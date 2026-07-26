@@ -176,7 +176,7 @@ native: core-lib ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/terrain -Isrc/core -isystem vendor -c -o "$$o"; done; \
 	  c++ src/world/FBTerrainLoader.cpp $(CXXSTD) -O2 $(CXX_WARN) $(INC_NATIVE) $(INC_TILES) \
 	    -isystem $(CURL_COMPAT) -c -o build/obj-native/FBTerrainLoader.o; \
-	  c++ src/app/FBAppNative.cpp src/app/FBMissionRunner.cpp src/app/FBLogSinks.cpp src/app/FBTelemetrySinks.cpp \
+	  c++ src/app/FBAppNative.cpp src/app/FBMissionRunner.cpp src/app/FBTickPool.cpp src/app/FBLogSinks.cpp src/app/FBTelemetrySinks.cpp \
 	    src/render/FBRenderer.cpp src/world/FBWorld.cpp \
 	    $(RENDER_STAGE_SRCS) \
 	    build/obj-native/*.o build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
@@ -200,7 +200,7 @@ gym: core-lib    ## build the headless mission client (Mission in, Telemetrie ra
 	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/terrain -Isrc/core -isystem vendor -c -o "$$o"; done; \
 	  c++ src/world/FBTerrainLoader.cpp $(CXXSTD) -O2 $(CXX_WARN) $(INC_NATIVE) $(INC_TILES) \
 	    -isystem $(CURL_COMPAT) -c -o build/obj-gym/FBTerrainLoader.o; \
-	  c++ src/app/FBAppGym.cpp src/app/FBMissionRunner.cpp src/app/FBLogSinks.cpp src/app/FBTelemetrySinks.cpp \
+	  c++ src/app/FBAppGym.cpp src/app/FBMissionRunner.cpp src/app/FBTickPool.cpp src/app/FBLogSinks.cpp src/app/FBTelemetrySinks.cpp \
 	    build/obj-gym/*.o build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
 	    $(INC_NATIVE) -isystem $(CURL_COMPAT) -isystem $(JSB_HOST)/include/JSBSim \

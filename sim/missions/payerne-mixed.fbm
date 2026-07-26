@@ -1,0 +1,26 @@
+name payerne-mixed-1
+runway 46.84335 6.91523 441.0 228.0 2889     # Payerne RWY23 -- ROLLER's departure runway
+timeout 600                                  # sim-seconds until TIMEOUT
+
+# DELIBERATELY UNEVEN LOAD, the barrier's stress case (app/FBTickPool.h): ROLLER sits on its gear at the
+# threshold and spends the first minute in preflight/takeoff roll -- three gear in contact, i.e. JSBSim's
+# ground-reaction path every substep -- while CRUISER is already at 2500 m in clean cruise. The two units
+# therefore cost visibly different amounts of CPU per tick, which is exactly what the pool's shared index
+# counter (whoever is free takes the next unit) is for, and what proves the lockstep barrier waits rather
+# than starves.
+
+unit roller
+  module f16
+  team friendly
+  spawn threshold ground 228.0 0             # on gear at the runway threshold, runway heading, v=0
+  wp 46.74293 6.75267 2500 350               # ~9 nm SW on the runway heading, climbing out
+  wp 46.66467 6.62666 3000 350               # ~16 nm SW, higher
+
+unit cruiser
+  module f16
+  team friendly
+  spawn 46.73202 6.73455 2500 48.0 300       # already airborne SW of the field, heading back in
+  set gear up
+  set fuel_pct 60
+  wp 46.84335 6.91523 2500 300
+  wp 46.95000 7.05000 2800 300
