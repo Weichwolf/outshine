@@ -19,19 +19,19 @@ JSBSim F-16 itself (CLAUDE.md Prinzip 5). These files are a reference for system
 |---|---|---|
 | [flight-controls-flcs.md](flight-controls-flcs.md) | **FLCS architecture, gains, CAT I/III limiters, AoA/G envelope, ARI, MPO, autopilot modes** + ED autopilot addendum (command-authority numbers, disengage-condition cross-check) | Chuck Part 15, 662–672; ED p.128–131 |
 | [aerodynamics-performance.md](aerodynamics-performance.md) | Airspeed/G/weight limits, envelope, ALOW, VMS warnings | Chuck Part 8, 153–157 |
-| [hud-symbology.md](hud-symbology.md) | Every HUD element (position + meaning), control switches, AOA bracket, steering/ILS symbology | Chuck Parts 3/6/8/16 |
-| [cockpit-displays.md](cockpit-displays.md) | ICP/UFC, DED pages, MFD/OSB, instruments, caution/warning lights | Chuck Part 3, 13–83 |
-| [procedures-startup.md](procedures-startup.md) | 81-step start-up (phases A–I) + engine idle params + INS align | Chuck Part 4, 84–118 |
-| [procedures-takeoff-taxi.md](procedures-takeoff-taxi.md) | Taxi + takeoff steps, **takeoff-speed vs weight table** | Chuck Part 5, 119–125 |
-| [procedures-landing.md](procedures-landing.md) | Overhead pattern (7 phases), speeds, AoA, flare, roll-out | Chuck Part 6, 126–133 |
+| [hud-symbology.md](hud-symbology.md) | Every HUD element (position + meaning), control switches, AOA bracket, steering/ILS symbology — **now with ED's exact scale/geometry numbers (TFOV 25°/10.5°, all tick spacings), full Slant-Range letter table, Master Mode text tags, Great Circle Steering Cue mechanism, and a "Was der Pilot wirklich sieht" instrumentation checklist** | Chuck Parts 3/6/8/16; ED p.89–96, 225–226 |
+| [cockpit-displays.md](cockpit-displays.md) | ICP/UFC, DED pages, MFD/OSB, instruments, caution/warning lights — **+ ED analog-gauge detail (AoA Indicator 11.1°/13.9° bands, VVI, full ADI, full Caution Light Panel trigger table); UFC/DED (p.97–120) and MFD (p.121–127) chapters still NOT processed — biggest remaining gap** | Chuck Part 3, 13–83; ED p.43–81 (partial) |
+| [procedures-startup.md](procedures-startup.md) | 81-step start-up (phases A–I) + engine idle params + INS align — **+ ED FLCS-BIT/DBU/TRIM/MPO/air-refuel/EPU ground-check detail + full INS alignment type/timing/CEP-scale mechanism** | Chuck Part 4, 84–118; ED p.132–139, 165–176 |
+| [procedures-takeoff-taxi.md](procedures-takeoff-taxi.md) | Taxi + takeoff steps, **takeoff-speed vs weight table** (cross-validated exact vs ED) — **+ NWS-gain-vs-groundspeed principle, exact CAT I/III loadout logic, crosswind-takeoff technique** | Chuck Part 5, 119–125; ED p.140–146 |
+| [procedures-landing.md](procedures-landing.md) | Overhead pattern (7 phases), speeds, AoA, flare, roll-out — **+ AoA range refinement (11–13°), base-turn bank angles, aerobraking Roll-Indicator technique, crosswind landing, go-around rule, ALOW/decision-height link; ⚠️ flags a break-G discrepancy (Chuck 3–4G vs ED ~3G)** | Chuck Part 6, 126–133; ED p.147–156 |
 | [engine-fuel.md](engine-fuel.md) | F110 engine, limits, throttle, PRI/SEC, EPU, relight, fuel system, BINGO/JOKER | Chuck Part 7, 134–152 |
-| [navigation-ils.md](navigation-ils.md) | EHSI, HSD, steerpoints, TACAN, bullseye, INS drift/fix, **ILS approach** | Chuck Part 16, 673–777 |
+| [navigation-ils.md](navigation-ils.md) | EHSI, HSD, steerpoints, TACAN, bullseye, INS drift/fix, **ILS approach** — **now FULL against ED**: nav-solution blending (300 ft threshold), System Altitude/ACAL/DTS-TRN mechanics, cursor-slew vs. position-fix vs. altitude-cal distinction, full TACAN/ILS quantitative facts incl. glideslope intercept-altitude/descent-rate tables and Decision Height mechanics; ⚠️ flags two discrepancies (steerpoint-count 99 vs 127, ADI glideslope-scale 0.7° vs 2.5°/dot) | Chuck Part 16, 673–777; ED p.163–246 |
 | [hotas.md](hotas.md) | Full stick (SSC) + throttle (TQS) control mapping | Chuck Part 9, 158–160 |
 | [radar-sensors.md](radar-sensors.md) | FCR A-A/A-G/A-Sea modes, TGP, HMCS — **now with exact ED scan geometry/timing/thresholds** (ACM sub-mode angles, CRM sub-mode state machine, TWS/SAM/STT transitions, NCTR gates, GM/GMT/SEA/MTR parameters, TGP zoom/track modes) | Chuck Part 10, 161–312; ED p.342–523 |
 | [weapons.md](weapons.md) | **FULL**: SMS/SPI/cursor logic, station/carriage data, A-A employment (gun EEGS levels, AIM-9 DLZ, AIM-120 DLZ+guidance handover), A-G delivery-mode computation (CCIP/CCRP/DTOS/LGB/JDAM/JSOW/WCMD/HARM/Maverick), munition specs, gun/bomb ballistics research+derivation | Chuck Part 11, 313–573; ED p.34–42, 303–341, 524–632, 703–704 |
 | [defence-rwr-cm.md](defence-rwr-cm.md) | **FULL**: RWR antenna geometry/blind spot/priority logic, CMDS mode×CMS×ECM-XMIT interaction state machine, per-program chaff/flare parameter schema (burst/salvo qty/interval), ECM jamming types/burnthrough | Chuck Part 12, 574–599; ED p.633–649, 680–683 |
 | [datalink-iff.md](datalink-iff.md) | TNDL now **FULL** (TDMA/STN mechanism, 3-channel model, message-trigger table, System Track File correlation+staleness); IFF procedure still at Chuck depth (gap noted) | Chuck Part 13, 600–648; ED p.419–452 |
-| [air-refueling.md](air-refueling.md) | Boom refueling procedure, PDI lights, disconnect | Chuck Part 17, 778–791 |
+| [air-refueling.md](air-refueling.md) | Boom refueling procedure, PDI/director lights, disconnect — **+ ED pre/post-refueling emitter checklists, director-light color coding, weight-effect trim note, formal breakaway procedure** | Chuck Part 17, 778–791; ED p.157–162 |
 
 ## Priority (per lead) — highest first
 FLCS/autopilot → aero/performance → HUD → procedures+speeds → engine/fuel → navigation → rest.
@@ -42,23 +42,38 @@ because FlightBox's next build phase is weapon-system JSBSim instances), **deepe
 additively** (parallel FCR development in progress, additive-only per instruction), and **deepened
 datalink-iff.md's TNDL section to FULL** (IFF procedure itself remains at Chuck depth).
 
+A later "pilot-KI" pass (see PROGRESS.md Pass 3) targeted exactly the ED chapters most directly
+translatable into autonomous-pilot flight behavior — **Procedures, Navigation, and HUD are now fully
+cross-checked against ED**, and `cockpit-displays.md` gained the analog-instrument (AoA indicator, ADI,
+VVI, Caution Light Panel) detail. `air-refueling.md` also picked up its ED chapter as a low-effort
+bonus since the text was already extracted alongside Procedures.
+
 ## Not separately distilled
 - Part 1 (Introduction — history), Part 2 (DCS controls setup), Part 18 (Other Resources) — Chuck.
 - Part 14 (Radio Tutorial) — Chuck: comms basics folded where relevant (COM1/COM2 in
   `cockpit-displays.md`, tanker/ATC contact in `air-refueling.md`).
-- ED EA Guide chapters not yet touched: Cockpit Overview/Instrument Panel (p.43–127, overlaps
-  `cockpit-displays.md`/`hud-symbology.md`/`hotas.md`), Procedures (p.132–162, overlaps
-  `procedures-*.md`), Navigation (p.163–246, overlaps `navigation-ils.md`), Radio Communications
-  (p.247–260), remaining HTS/HMCS WPN-format detail (p.492–523, noted as a gap in
-  `radar-sensors.md`), IFF procedure detail (noted as a gap in `datalink-iff.md`), Appendices A/D/E/F
+- ED EA Guide chapters still not touched: **Upfront Controls (UFC/ICP/DED, p.97–120) and
+  Multi-Function Displays (MFD, p.121–127)** — the single biggest remaining gap, explicitly targeted by
+  the pilot-KI pass's priority 3 but not reached; Hands-On Controls (p.82–88, ED cross-check of the
+  already-FULL `hotas.md`); Left/Right Auxiliary Console + Left/Right Console subsections of Cockpit
+  Overview (p.43–81, partially covered — analog gauges + Caution Light Panel only); Radio
+  Communications (p.247–260); remaining HTS/HMCS WPN-format detail (p.492–523, noted as a gap in
+  `radar-sensors.md`); IFF procedure detail (noted as a gap in `datalink-iff.md`); Appendices A/D/E/F
   (checklists/HOTAS quick-refs/glossary — mostly UX, low rebuild value; Appendix F formulas already
   folded into `weapons.md`). See PROGRESS.md for the full unprocessed-page ledger.
 
 ## FlightBox relevance
 - `flight-controls-flcs.md` is the **highest-value** file: our FBW (`fcs/fbw-override`) commands this FLCS;
   the limiter/gain/autopilot spec is what FBW must reproduce or cleanly bypass.
-- `hud-symbology.md` is the reference our MIL-STD-1787 HUD is built against.
-- `aerodynamics-performance.md` + `procedures-*` give speeds/limits for envelope/mission checks.
+- `hud-symbology.md` is the reference our MIL-STD-1787 HUD is built against — now also the home of the
+  **"Was der Pilot wirklich sieht"** checklist: the instrumentation ground-truth a pilot module should
+  be validated against (what quantities are actually displayed, at what resolution/format).
+- `aerodynamics-performance.md` + `procedures-*` give speeds/limits for envelope/mission checks;
+  `procedures-landing.md` now gives an **AoA target range (11–13°, not flat 11°)** for the base-turn-
+  through-rollout segments — a concrete candidate refinement for `FBF16Pilot`'s approach law.
+- `navigation-ils.md` now carries the **glideslope-intercept-altitude and glideslope-descent-rate
+  tables** — directly usable inputs for a future ILS-coupled `FBAutopilot::Direct` approach mode, plus
+  the CARA-ALOW-as-missed-approach-trigger pattern (reuses the already-simulated ALOW system).
 - `weapons.md` is now the reference for the **upcoming weapon-JSBSim-instance phase**: SMS/SPI logic,
   release-computation logic (CCIP/CCRP/DTOS/LGB/JDAM/HARM/Maverick), station/carriage data, and
   researched+derived ballistics/fuzing numbers — see its "Technical depth" §4 for what's measurable in

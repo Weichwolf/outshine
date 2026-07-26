@@ -45,6 +45,46 @@ window +4/0 symmetric, +2/0 asymmetric.
 
 ---
 
+## ED EA Guide addendum — official procedure detail (pp.140–146)
+
+**Takeoff-speed-vs-weight table cross-validated identical** to Chuck's table above — ED's own table
+(pp.145) reproduces the exact same seven points (20,000→128 kt … 44,000→198 kt). Rotation technique
+also matches exactly: 10 kt below Vr for MIL / 15 kt below Vr for AB, 8–12° takeoff attitude, gear-up
+on positive rate, retract before 300 KCAS. **No discrepancy** — strong cross-source confidence on this
+table.
+
+### Nosewheel steering — quantitative principle not in Chuck
+ED states explicitly: **"Nosewheel steering gain is proportional to ground speed. As speed increases,
+the nosewheel steering will become less sensitive for a given pedal input."** (p.140) — this is a
+concrete FBW/ground-handling design target: NWS command authority should be a decreasing function of
+groundspeed, not a fixed gain. ED also flags the F-16's **narrow main-gear track ("footprint")** as a
+rollover/wingtip-strike risk during high-speed ground turns — brake to a lower speed before turning at
+high taxi speed. Directly informs a taxi-phase AI's max-commanded-turn-rate-vs-groundspeed schedule.
+
+### CAT I/III determination — exact loadout logic (ED p.143, refines flight-controls-flcs.md's table)
+ED gives the precise loadout rule for the STORES CONFIG switch (Chuck/`flight-controls-flcs.md` only
+summarize CAT I="A-A/light", CAT III="A-G/heavy"):
+- **CAT I**: air-to-air loadouts *without* external wing tanks, **or** a 6-missile air-to-air loadout
+  *with* external wing tanks but **no centerline tank and no AIM-120s**.
+- **CAT III**: any air-to-ground loadout; any loadout with external wing tanks **and** a centerline
+  tank; **or** a 6-missile air-to-air loadout with AIM-120s **and** external wing tanks.
+
+This is the exact boolean rule a rebuild's loadout→CAT-switch auto-detect should encode — the guide's
+prose is precise enough to implement directly (not just descriptive).
+
+### Crosswind takeoff technique (ED p.146 — not covered in Chuck's takeoff file at all)
+1. Apply stick pressure **against** the wind (opposite roll direction) to keep wings level against the
+   crosswind's weathervane-induced roll.
+2. Apply rudder **with** the wind to keep the aircraft tracking the runway centerline.
+3. During rotation, **smoothly remove** the countering rudder to let the nose weathervane into the wind
+   and establish the correct crab angle — at liftoff, the FPM (not the nose) should be aligned down the
+   runway.
+
+This is the FBW-relevant sequencing detail: rudder-then-release-during-rotation, not simultaneous
+stick+rudder held through liftoff.
+
+---
+
 # Technical depth (researched — shallow pass — deepen when in scope)
 
 ## Components (LRUs)
@@ -63,3 +103,6 @@ weight (guide table) because rotation is lift-limited at the takeoff AoA.
 ## Sources
 - Wikipedia *General Dynamics F-16* (NWS, gear); DCS guide Part 5 — cross-referenced above.
 - FLCS gain modes: `flight-controls-flcs.md`.
+- `doc/DCS F-16C Early Access Guide EN.pdf` (ED EA Guide, official) — Taxi/Takeoff/Crosswind Takeoff
+  p.140–146 (NWS gain-vs-groundspeed, CAT I/III loadout logic, crosswind technique, cross-validated
+  takeoff-speed table).

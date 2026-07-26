@@ -48,6 +48,57 @@ Source: DCS F-16C Viper Guide (Chuck's Guide), Part 17 — Air-to-Air Refueling,
 
 ---
 
+## ED EA Guide addendum — official procedure detail (pp.157–162)
+
+ED's own AAR chapter cross-validates Chuck's procedure closely and adds the pre/post-refueling emitter-
+management checklist and the formal breakaway procedure Chuck's tutorial-style guide doesn't spell out
+as a discrete emergency maneuver.
+
+### Approach and rendezvous
+- Approach the tanker **from behind and below**; establish altitude separation before entering the AAR
+  track; visual or radar contact required before starting the rendezvous. Progressively reduce closure
+  rate — other receivers may be working the same tanker simultaneously.
+
+### Pre-refueling checklist (emitter/weapon safing — new structured list, not in Chuck)
+`MASTER ARM → OFF` · `LASER ARM → OFF` · `CMDS MODE → STBY` · `FCR → STBY` · `ECM PWR → STBY` ·
+`TACAN → REC mode` · `RDR ALT → STBY` — **all emitters disabled before reaching Pre-contact position**.
+Then: `AIR REFUEL → OPEN` (ED: **3–5 minutes** prior if external tanks fitted, to depressurize them —
+Chuck's guide gives **5–6 minutes**; both are the same "several minutes ahead of contact" guidance, not
+treated as a hard discrepancy, just slightly different numbers from two tutorial-style sources).
+`HOT MIC/CIPHER → HOT MIC`.
+
+### Contact position — director lights (ED's naming vs. Chuck's "PDI")
+ED calls the same tanker-belly light array **"Longitudinal Director Lights"** (right row) and
+**"Vertical Director Lights"** (left row) rather than Chuck's "PDI" (Pilot Director Indicator) — same
+physical system, different name in the two sources. ED adds a **color** dimension Chuck's guide doesn't
+mention: **green = slight correction needed, red = at the limits of boom travel** — this is
+*additional* information (color-coded severity) alongside Chuck's flash-state description (steady =
+substantial, flashing = small), not a contradiction; a faithful director-light model likely needs both
+dimensions (color for severity, flash-state possibly for correction magnitude) if DCS implements both.
+Arrow/dash biasing: `D`/`U` (down/up, corrected with stick) and `F`/`A` (forward/aft, corrected with
+throttle) — matches Chuck's D/U/A/F scheme exactly.
+
+### Weight-effect note (new physical detail, not in Chuck)
+ED explicitly notes: as the receiver takes on fuel, gross weight increases, the aircraft **"drops away"**
+from the tanker (requiring a pitch-attitude correction to hold altitude), which **increases AoA**,
+requiring a **throttle increase** to counter the added drag and hold airspeed — a real, continuously-
+changing trim condition during the entire refueling contact, not a one-time setup.
+
+### Breakaway procedure (new — formal emergency maneuver, absent from Chuck's tutorial)
+On the call **"Breakaway, breakaway"** from the boom operator (collision-risk closure/distance):
+1. Immediately apply **forward stick** to descend away from the tanker.
+2. **Retard throttle** to reduce airspeed and gain separation.
+3. Deliberate and expeditious, but **not aggressive** — this is a separation maneuver, not an emergency
+   dive.
+Boom operator clears the receiver back to Pre-contact position before resuming, if refueling continues.
+
+### Post-refueling checklist
+Reverse of pre-refueling: `AIR REFUEL → CLOSE` · `HOT MIC/CIPHER → OFF` · verify fuel quantity/transfer/
+balance · confirm all AR Status lights off · restore emitters (`FCR`/`ECM`/`TACAN`/`RDR ALT`) and
+`MASTER ARM`/`LASER ARM` as required for the next mission phase.
+
+---
+
 # Technical depth (researched — shallow pass — deepen when in scope)
 
 ## Components (LRUs)
@@ -67,3 +118,6 @@ hand-flown.
 ## Sources
 - USPTO aerial-refueling patents / general references — UARRSI, boom receptacle.
 - DCS guide Part 17 (procedure, PDI lights) — cross-referenced above.
+- `doc/DCS F-16C Early Access Guide EN.pdf` (ED EA Guide, official) — Aerial Refueling chapter p.157–162
+  (pre/post-refueling checklists, director-light color coding, weight-effect trim note, breakaway
+  procedure).

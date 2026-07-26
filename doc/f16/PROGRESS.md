@@ -227,10 +227,144 @@ Large chapters (FCR 342–418, A-G weapons 549–632) were extracted in ≤40-pa
   systems reference for whatever aircraft face the F-16 in a mission — MiG-29 is the most likely first
   adversary given the manuals already sitting in `doc/`.
 
-## COVERAGE: PARTIAL — see "Priority-4 sweep" above for exactly what's left
+## COVERAGE (end of Pass 2): PARTIAL — see "Priority-4 sweep" above for exactly what's left
 Pass-1 (Chuck's Guide) coverage remains COMPLETE. Pass-2 (ED EA Guide) coverage is complete for its
 stated priority order (weapons.md → radar-sensors.md → defence-rwr-cm.md → datalink-iff.md → one
 flight-controls-flcs.md addendum) but explicitly NOT complete for the broader "check every file
 against ED" sweep, nor for the ED chapters listed as "not processed this pass" in the page map above
 (Cockpit/HUD/UFC/MFD, Procedures, Navigation, Radio, HTS/HMCS detail, IFF procedure detail, Appendix
 C threat tables, the full Appendix B ALIC/RWR table transcription).
+
+---
+
+## Pass 3 — ED EA Guide, pilot-KI priority chapters (Procedures / Navigation / Cockpit-HUD)
+
+Goal per this round's task: pick up exactly the ED chapters Pass 2 flagged as "not processed" that are
+**most directly translatable into flight-AI behavior** — Procedures, Navigation, then Cockpit/HUD/UFC/
+MFD, in that order. `pdftotext -f <first> -l <last>` (same bounded-range method) confirmed clean again
+on all pages extracted this pass; no visual/image-based pages needed.
+
+### Pages processed this pass
+| ED chapter | Pages | Status | Target file(s) |
+|---|---|---|---|
+| **Procedures** (Aircraft Start → Taxi → Takeoff → Crosswind Takeoff → Landing → Overhead Break → Crosswind Landing → Shutdown → Aerial Refueling) | 132–162 | **FULL — entire chapter extracted and distilled** | `procedures-startup.md`, `procedures-takeoff-taxi.md`, `procedures-landing.md`, `air-refueling.md` |
+| **Navigation** (Navigational Sensors, INS, Nav Solutions/System Altitude/DTS, Nav Updates, Nav Database/Steerpoints, Nav by Steerpoints, TACAN, ILS) | 163–246 | **FULL — entire chapter extracted and distilled** | `navigation-ils.md`, `procedures-startup.md` (INS alignment), `hud-symbology.md` (Great Circle Steering Cue) |
+| **Head-Up Display (HUD)** | 89–96 | **FULL** | `hud-symbology.md` |
+| **Cockpit Overview / Instrument Panel** (analog gauges: AoA Indicator, VVI, ADI, Caution Light Panel, misc gauges) | 43–81 | **PARTIAL** — Instrument Panel's analog-gauge subsection extracted (the parts overlapping HUD/AoA/attitude/warning-light fidelity); Left/Right Auxiliary Console and Left/Right Console subsections **not** independently re-extracted (their content is largely switch positions already cross-referenced from `flight-controls-flcs.md`/`procedures-startup.md`/`engine-fuel.md`) | `cockpit-displays.md` |
+| Hands-On Controls (HOTAS) | 82–88 | not processed this pass (Chuck's `hotas.md` already FULL; ED cross-check remains a gap) | — |
+| Upfront Controls (UFC/ICP/DED) | 97–120 | **not processed this pass** — the single biggest remaining gap from this round's stated priority 3 | `cockpit-displays.md` (future) |
+| Multi-Function Displays (MFD) | 121–127 | **not processed this pass** | `cockpit-displays.md` (future) |
+| Data Transfer Equipment (DTE) | 126 (within MFD chapter) | not processed | — |
+| HTS/HMCS (p.492–523) | — | still not processed (priority 4, out of budget this pass) | `radar-sensors.md` (flagged gap, unchanged) |
+| Appendices | — | still not processed (unchanged from Pass 2) | — |
+
+### Files raised this pass
+- **procedures-startup.md**: added an "ED EA Guide addendum" — cross-validates every Chuck-sourced
+  quantitative milestone exactly (JFS spool %, idle parameters), then adds procedure detail Chuck
+  omits: FLCS PWR TEST (battery-only pre-engine-start relay check), FLCS BIT (~45 s), DBU/TRIM/MPO/
+  air-refuel/EPU ground checks (the air-refuel check explicitly confirms AIR REFUEL OPEN triggers
+  FLCS Takeoff&Landing gains — closes an inferred-vs-stated gap in `flight-controls-flcs.md`), and the
+  full INS alignment mechanism (3 alignment types with exact timing, the 99→10 status/CEP scale, RDY/
+  ALIGN flash logic).
+- **procedures-takeoff-taxi.md**: cross-validates the takeoff-speed-vs-weight table exactly (no
+  discrepancy — real confidence gain). Adds: NWS gain proportional to groundspeed (a quantifiable FBW
+  design target, not previously stated), the exact CAT I/III loadout boolean logic (refines
+  `flight-controls-flcs.md`'s summary table with ED's precise rule), and the crosswind-takeoff
+  stick/rudder sequencing technique (new, not in Chuck's file at all).
+- **procedures-landing.md**: cross-validates most numbers, refines the AoA target from a flat 11° to an
+  **11–13° range** for base/final/rollout (with an explicit note on what this means/doesn't mean for
+  our measured 165 kt/11°-AoA on-speed CAS — see below), adds base-turn bank-angle numbers (30–45°,
+  absent from Chuck entirely), the Roll-Indicator aerobraking cross-check technique, a full crosswind-
+  landing procedure (missing from Chuck's landing file), the explicit go-around-before-flare rule, and
+  the CARA ALOW/MSL FLOOR → ILS-decision-height automation link. **Flags one genuine numeric
+  discrepancy**: overhead-break G-loading, Chuck "3–4 G" vs ED "~3 G" (both kept, ED marked primary
+  per this task-set's source-hierarchy convention, same pattern as `flight-controls-flcs.md`'s existing
+  bank-angle-limit discrepancy).
+- **navigation-ils.md**: by far the largest addition this pass — the entire ED Navigation chapter
+  distilled into a new "ED EA Guide addendum" covering: navigational sensor inventory; the three
+  navigation solutions (INS-only/GPS-only/Blended) and the **300 ft Kalman-correction threshold**;
+  System Altitude (SALT) source-priority + the master-mode-dependent AUTO ACAL accuracy thresholds
+  (A-G <50 ft GPS/<20 ft DTS vs. all-other-modes <100 ft — genuinely useful for a future weapon-release-
+  altitude-accuracy model); DTS/Terrain-Referenced-Nav mechanics (150–640 kt groundspeed window, CARA
+  50,000 ft/±60° limits); the cursor-slew vs. position-fix vs. altitude-calibration three-way mechanism
+  distinction (with ED's own worked 72 ft delta example); the Great Circle Steering Cue (ED's name for
+  Chuck's "Tadpole", now with its actual great-circle bearing computation documented, not just its
+  visual behavior); full TACAN quantitative facts (252 channels, 130 nm reliable range); and the full
+  ILS chapter — marker-beacon tone/Morse specs, the **glideslope-intercept-altitude table** and
+  **glideslope-descent-rate table** (both directly usable as an autopilot ILS-guidance reference/
+  sanity-check), Decision Height/Missed-Approach-Point mechanics, and the Command Steering Symbol's
+  bank-angle/vertical-velocity control-law framing. **Flags two genuine discrepancies**: (1) the
+  steerpoint database size/partition structure — Chuck's 99-steerpoint/8-range scheme vs. ED's official
+  127-steerpoint/7-partition scheme, with the datalink-markpoint numbering (71–80 vs. 500+) an outright
+  disagreement, not just a precision difference; (2) the ADI glideslope-deviation scale — ED's official
+  F-16 ADI figure of **2.5°/dot (±5° top/bottom)** vs. this file's pre-existing generic-ILS-standard
+  figure of **±0.7°/0.14°-per-dot** sourced from pilotscafe/code7700/PPRuNe — an ~18× discrepancy left
+  explicitly unresolved (both plausible readings discussed, neither confirmed from a primary F-16
+  flight manual; ED's number kept primary for the cockpit-instrument visual, the industry-standard
+  figure kept as the best available guess for the underlying beam-angle physics until a better source
+  turns up).
+- **hud-symbology.md**: added the full ED HUD-chapter element list with exact scale numbers (velocity
+  60–900 kt/50-10 kt ticks, altitude 500/100 ft ticks, heading 10°/5° ticks, attitude bars 5°/10°,
+  G ±9.9, roll/bank-angle indicator mark sets, Manual Bombing Reticle mil dimensions), the full
+  Slant-Range source-letter table (B/R/F/L/M — Chuck's file only had "B"), the Master Mode Status HUD
+  text-tag list (useful as a literal string lookup table for a HUD-mode-label implementation), and the
+  exact HUD Control Panel per-position switch behavior. **Resolves a previously-open confidence gap**:
+  TFOV is now an **official, high-confidence 25° diameter, extending 10.5° below field-of-view center**
+  (was "typ. ~20–25°, not firmly public" in the Technical-depth section — that note is now updated to
+  point here). Added the required **"Was der Pilot wirklich sieht"** section (task mandate) — a
+  two-table checklist (HUD-displayed quantities with their exact resolution/format vs. DED/EHSI/
+  instrument-panel-displayed quantities) plus an explicit architectural note: our `FBF16Pilot`'s
+  AoA-based approach law targets a **numeric** AoA value, which the real HUD does **not** display
+  (only the bracket cue) — the numeric source is the separate analog AoA indicator. Documented as a
+  deliberate, now-explicit simplification, not a silently-assumed one.
+- **cockpit-displays.md**: partial pass — added the AoA Indicator's exact band edges (**11.1°/13.9°**,
+  refining `hud-symbology.md`'s AOA-indexer table, cross-linked both ways), VVI scale (±6,000 fpm,
+  500/100 fpm ticks — finer than the HUD's own VV scale), the full ADI instrument (attitude sphere,
+  bank-angle scales, slip ball, rate-of-turn indicator with the "standard rate 3°/s" convention), and
+  — the single highest-value addition — the **full Caution Light Panel trigger-condition table** (ED
+  gives exact physical trigger conditions Chuck's guide only lists as light *names*: ANTI SKID >5 kt
+  groundspeed, CABIN PRESS >27,000 ft, FWD/AFT FUEL LOW <400/<250 lb, OBOGS <10 PSI, etc.) — flagged as
+  a ready-made trigger table for a future caution/warning-light simulation layer, currently out of
+  `FBFlightMonitor`'s scope. **Explicitly left unprocessed this pass** (flagged, not silently skipped):
+  Left/Right Auxiliary Console, Left/Right Console subsections, and — the biggest remaining gap for
+  this file specifically — the **Upfront Controls (UFC/ICP/DED) chapter (p.97–120)** and the
+  **Multi-Function Displays (MFD) chapter (p.121–127)**. These are exactly the pages this round's task
+  named as priority 3 that didn't get processed; next pass should start here.
+
+### On the "165 kt / 11° AoA" measurement question (explicit task ask)
+Neither Chuck's guide nor the ED EA Guide states an approach CAS by weight anywhere in the Procedures
+or Navigation chapters processed this pass. Both sources are consistently **AoA-referenced**: the
+FLCS's takeoff/landing gain set is a pitch-rate/AoA command law (`flight-controls-flcs.md`), and the
+guide's own approach doctrine is "control AoA with throttle, not pitch trim." **Nothing found this pass
+confirms or contradicts our FBF16Pilot's measured 165 kt on-speed CAS at 11° AoA** — it remains a
+JSBSim-model measurement (CLAUDE.md Prinzip 5), not a documentation fact, exactly as flagged before this
+pass. What ED **does** newly support is broadening the AoA target from a flat 11° to an **11–13° range**
+for the base-turn-through-rollout segments (11° remains the downwind-trim target) — see
+`procedures-landing.md`'s ED addendum for the phase-by-phase table. This is a legitimate candidate
+change for `FBF16Pilot`'s AoA setpoint schedule (tighten toward 13° approaching flare rather than a
+constant 11°), though the 165 kt CAS-at-11°-AoA figure itself is unaffected since the model relationship
+between CAS and AoA is JSBSim's, not the guide's.
+
+### Concrete numbers this pass gives that `FBF16Pilot`/`FBAutopilot` could use directly
+- AoA target band 11–13° (not flat 11°) through base/final/rollout, downwind stays 11° (`procedures-landing.md`).
+- NWS gain should decrease with groundspeed (`procedures-takeoff-taxi.md`) — currently unquantified
+  beyond "proportional", a JSBSim-model tuning question, not a book-value one.
+- Overhead-break commanded G: **3 G** (ED, supersedes the 3–4 G range) if a break-turn AI needs a single number.
+- Glideslope-intercept-altitude and glideslope-descent-rate tables (`navigation-ils.md`) — directly
+  computable guidance-law inputs for a future ILS-coupled `FBAutopilot::Direct` approach mode.
+- CARA ALOW = Decision Height as the missed-approach trigger mechanism (`navigation-ils.md`/
+  `procedures-landing.md`) — reuses the already-simulated ALOW system rather than needing a new one.
+
+### COVERAGE (Pass 3): PARTIAL
+Procedures (p.132–162) and Navigation (p.163–246) chapters: **fully processed**, per this round's
+priority 1–2. HUD chapter (p.89–96): **fully processed**, per priority 3. Cockpit Overview/Instrument
+Panel (p.43–81): **partially processed** (analog gauges + Caution Light Panel only). **Not processed
+this pass**: Hands-On Controls p.82–88 (ED cross-check of the already-FULL `hotas.md`), Upfront
+Controls p.97–120, Multi-Function Displays p.121–127, Data Transfer Equipment p.126, Radio
+Communications p.247–260 (unchanged from Pass 2's "low priority" call), HTS/HMCS p.492–523 (unchanged
+gap), IFF procedure detail (unchanged gap), all Appendices except the already-folded Appendix F
+formulas. `air-refueling.md` **was** additionally updated (ED's Aerial Refueling chapter, p.157–162,
+was extracted alongside Procedures in the same bounded pdftotext range and folded in: pre/post-
+refueling emitter checklists, director-light color coding, the weight-effect trim note, and the formal
+breakaway procedure) — a small bonus beyond this round's stated priority list since the text was
+already in hand.
