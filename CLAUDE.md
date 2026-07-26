@@ -242,7 +242,7 @@ sim/src/
              Wolken-Composite, analog HUD Solid/Line). FBRenderer.cpp führt keinen Inline-Shader mehr
              (jedes `R"(`-WGSL lebt in genau einer stages/-Datei, `grep -c 'R"(' FBRenderer.cpp` == 0)
              — der Render-Stage-Split ist damit abgeschlossen.
-  world/     FBWorld, FBTerrainField, FBTerrainLoader (Tile-Streaming/Worker-Anbindung; FBWorld hält
+  world/     FBWorld, FBTerrainLoader (Tile-Streaming/Worker-Anbindung; FBWorld hält
              zusätzlich die geborgte FBUnit-Registry, s.u. units/), FBTilesElevation (der
              Elevation-Hook-Provider auf fb_stream_ground, s.o. — NICHT Teil der Core-Lib)
   units/     FBUnit-Basisschnittstelle + FBOwnshipUnit (Details s.u., nach dem Verzeichnisbaum)
