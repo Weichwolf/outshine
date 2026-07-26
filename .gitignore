@@ -26,3 +26,4 @@ temp/aircraft/SITL.elf
 .claude/scheduled_tasks.lock
 .claude/settings.local.json
 temp/inav-src/
+.DS_Store
