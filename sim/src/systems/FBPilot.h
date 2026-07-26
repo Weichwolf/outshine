@@ -28,6 +28,7 @@
 #include "FBFlightPlan.h"
 #include "FBRunway.h"
 #include "FBState.h"
+#include "FBTelemetry.h"
 #include "jsbsim_adapter.h"
 
 namespace FlightBox {
@@ -56,9 +57,10 @@ struct FBPilotCommands {
   std::optional<bool>   EngineStart;                       /* true = start commanded, false = cutoff */
 };
 
-class FBPilot {
+class FBPilot : public FBTelemetrySource {
 public:
   enum class Phase { Idle, Preflight, Takeoff, Climb, Route, Approach, Flare, Rollout, Shutdown };
+  static const char *PhaseName(Phase p);
 
   FBPilot() = default;
   virtual ~FBPilot() = default;
@@ -67,9 +69,15 @@ public:
   void  SetPhase(Phase p) { CurPhase = p; PhaseElapsedS = 0.0; }
 
   /* The one override point (see the class banner). `plan` is the mission's waypoint chain, `runway`
-   * the assigned runway for takeoff/landing phases (nullptr while none is assigned). */
+   * the assigned runway for takeoff/landing phases (nullptr while none is assigned). Caches
+   * ActiveWpCache/DistToWpCache for SampleTelemetry — the mission-level waypoint bookkeeping this class
+   * already needs internally, not a duplicate computation kept only for telemetry. */
   virtual FBPilotCommands Run(const FBState &state, const fb_fdm_state &fdm, const FBFlightPlan &plan,
                              const FBRunway *runway, const FBWorld *world, double dt);
+
+  const char *TelemetryName() const override { return "pilot"; }
+  void DeclareTelemetry(FBTelemetrySchema &schema) const override;
+  void SampleTelemetry(FBTelemetryRow &row) const override;
 
 protected:
   /* The airframe's own numbers (class banner) — generic placeholders here, FBF16Pilot overrides every
@@ -88,6 +96,8 @@ private:
 
   Phase CurPhase = Phase::Idle;
   double PhaseElapsedS = 0.0;
+  int ActiveWpCache = -1;         /* telemetry cache, set in Run() (class banner) */
+  double DistToWpCache = -1.0;
 };
 
 } // namespace FlightBox

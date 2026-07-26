@@ -15,19 +15,25 @@
 #define FBFLIGHTCONTROL_H
 
 #include "FBAutopilot.h"
+#include "FBTelemetry.h"
 
 namespace FlightBox {
 
 struct FBControls { double Roll, Pitch, Yaw, Thr; };
 
-class FBFlightControl {
+class FBFlightControl : public FBTelemetrySource {
 public:
   FBFlightControl();
   virtual ~FBFlightControl() = default;
 
   /* One 100 Hz step: guidance + state -> stick/throttle. Mutates the loop integrators. The one
-   * override point (see the class banner). */
+   * override point (see the class banner). Caches the returned FBControls for SampleTelemetry — at
+   * 100 Hz the telemetry bus (10 Hz mission cadence) always reads the latest one. */
   virtual FBControls Run(const FBGuidance &g, const fb_fdm_state &s);
+
+  const char *TelemetryName() const override { return "flightcontrol"; }
+  void DeclareTelemetry(FBTelemetrySchema &schema) const override;
+  void SampleTelemetry(FBTelemetryRow &row) const override;
 
   void Reset(void);                      /* zero all integrator state (new flight) */
   static FBFlightControl F16(void);      /* the flown F-16 preset (FLCS-command inner) */
@@ -44,6 +50,7 @@ public:
 
 private:
   double GIterm, VsIterm, NyIterm, ThrIterm, NzPrev;
+  FBControls LastControls_{0.0, 0.0, 0.0, 0.0};
 };
 
 } // namespace FlightBox

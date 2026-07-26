@@ -2,6 +2,7 @@
 #include "FBRenderer.h"
 #include "FBTerrainLoader.h"
 #include "FBMips.h"         /* fb_pyramid_bytes — the albedo scratch now holds a whole mip pyramid */
+#include "FBLog.h"
 #include "geo.h"
 #include <algorithm>
 #include <cmath>
@@ -447,9 +448,10 @@ void FBWorld::Update(double camLat, double camLon, const double eyeEcef[3], cons
                                     converged stationary loiter both rates -> ~0; steady climb = evict-rebuild churn */
     double evictMin = dtMin > 0 ? (Evicted - PrevEvicted) / dtMin : 0.0;
     PrevBuilt = Built; PrevEvicted = Evicted;
-    printf("[fbworld] leaves=%d drawn=%d pending=%d evicted=%ld vramMB=%.1f nodes=%d lights=%d | builds/min=%.0f evict/min=%.0f (built=%ld)\n",
-           Leaves, DrawnReady, Pending, Evicted, vramMB, (int)Nodes.size(), LightsResident, buildsMin, evictMin, Built);
-    fflush(stdout);   /* progress must show live in piped/background native runs */
+    FBLog::Debug("world", "fbworld", {{"leaves", Leaves}, {"drawn", DrawnReady}, {"pending", Pending},
+                                      {"evicted", (int)Evicted}, {"vramMB", vramMB}, {"nodes", (int)Nodes.size()},
+                                      {"lights", LightsResident}, {"buildsPerMin", buildsMin},
+                                      {"evictPerMin", evictMin}, {"built", (int)Built}});
   }
 }
 

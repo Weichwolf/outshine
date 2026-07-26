@@ -1,28 +1,80 @@
-/* FlightBox — one-line flight telemetry, shared by the WASM app (FBAppWasm) and the native oracle
- * (FBAppNative --mission --interval). Emitted from the SIM TICK (not the render pass): a headless run
- * loses the render device after ~frame 2, but the sim loop lives on, so this is the only flight-fidelity
- * signal that survives. Format is the fidelity-baseline.md [agl] line, extended with the Direct-guidance
- * fields (speed/bank/heading/vs/target-point distance) so altitude/speed hold + bank command are
- * checkable from the log alone. `ground` = the DEM ASL fed to JSBSim; `fdmGnd` = what the FDM is
- * actually colliding against (proves fb_jsbsim_set_ground reached the engine, not just that it was
- * called). Takes `mode`/`ringDistM` as scalars, not a whole FBGuidance — core/ stays independent of the
- * guidance systems (systems/FBAutopilot); the caller already has both off its FBGuidance result. */
+/* FlightBox — telemetry: periodically sampled state, a time series with a schema (see FBLog.h for the
+ * discrete-event counterpart). Classes DECLARE they carry telemetry (FBTelemetrySource — the
+ * Serializable analogue); emission is CENTRAL (FBTelemetryBus, the one caller of every source's
+ * Sample). FBTelemetrySource lives in core/ so systems/render/world/fdm can implement it without
+ * depending on app/ — the concrete sink (CSV file, …) is injected from app/, same split as FBLog.
+ *
+ * A row is built by CONCATENATION: each source pushes exactly as many string fields as it declared
+ * channels, in the same order, so declaration/registration order IS column order — no string-keyed
+ * lookup at sample time. */
 #ifndef FBTELEMETRY_H
 #define FBTELEMETRY_H
-#include <cstdio>
-#include "jsbsim_adapter.h"
-#include "FBMode.h"
+#include <string>
+#include <vector>
 
 namespace FlightBox {
 
-static inline void FBLogAgl(const fb_fdm_state &s, FBMode mode, double ringDistM, double ground, double fdmGnd) {
-  const char *modeStr = mode == FBMode::Direct ? "DIRECT" : "MANUAL";
-  double agl = s.elev - ground;
-  printf("[agl] alt=%.0f agl=%.0f ground=%.0f fdmGnd=%.0f spd=%.1f cas=%.1f bank=%.1f hdg=%.0f "
-         "vs=%.1f ringDist=%.0f mode=%s\n",
-         s.elev, agl, ground, fdmGnd, s.speed, s.cas, s.roll, s.yaw, s.vy, ringDistM, modeStr);
-  fflush(stdout);
-}
+struct FBTelemetryChannel {
+  std::string Name;
+  std::string Unit;
+};
+
+class FBTelemetrySchema {
+public:
+  void Add(const std::string &name, const std::string &unit = "") { Channels_.push_back({name, unit}); }
+  const std::vector<FBTelemetryChannel> &Channels() const { return Channels_; }
+
+private:
+  std::vector<FBTelemetryChannel> Channels_;
+};
+
+class FBTelemetryRow {
+public:
+  void Push(double v);
+  void Push(int v);
+  void Push(bool v);
+  void Push(const std::string &v);
+  const std::vector<std::string> &Fields() const { return Fields_; }
+  void Clear() { Fields_.clear(); }
+
+private:
+  std::vector<std::string> Fields_;
+};
+
+class FBTelemetrySource {
+public:
+  virtual ~FBTelemetrySource() = default;
+  virtual const char *TelemetryName() const = 0;
+  virtual void DeclareTelemetry(FBTelemetrySchema &schema) const = 0;   /* once, at Bus::Start() */
+  virtual void SampleTelemetry(FBTelemetryRow &row) const = 0;          /* once per Bus::Tick() */
+};
+
+class FBTelemetrySink {
+public:
+  virtual ~FBTelemetrySink() = default;
+  virtual void Header(const std::vector<std::string> &columns) = 0;
+  virtual void Row(const std::vector<std::string> &fields) = 0;
+};
+
+/* The one emitter. Sources register once (borrowed pointers — the bus never owns a system, mirrors
+ * FBWorld's unit registration). Start() builds the schema (a leading "t" channel, then every source in
+ * registration order) and pushes the header; Tick(simTime) samples every source into one row. A null
+ * sink makes Tick() a cheap no-op — the WASM boot leaves it unset (CLAUDE.md: "Bus läuft, Sink null =
+ * billig"). */
+class FBTelemetryBus {
+public:
+  void Register(FBTelemetrySource *src) { Sources_.push_back(src); }
+  void SetSink(FBTelemetrySink *sink) { Sink_ = sink; }
+  void Start();
+  void Tick(double simTimeS);
+
+private:
+  std::vector<FBTelemetrySource *> Sources_;
+  FBTelemetrySchema Schema_;
+  FBTelemetryRow Row_;
+  FBTelemetrySink *Sink_ = nullptr;
+  bool Started_ = false;
+};
 
 } // namespace FlightBox
 #endif /* FBTELEMETRY_H */

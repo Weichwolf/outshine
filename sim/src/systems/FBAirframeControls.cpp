@@ -14,5 +14,6 @@ void FBJsbsimAirframeControls::EngineCutoff() { fb_jsbsim_engine_cutoff(); }
  * yes/no question, not which gear; a per-gear breakdown belongs to a future landing-gear system. */
 bool FBJsbsimAirframeControls::GetWeightOnWheels() const { return fb_jsbsim_get_wow(-1) != 0; }
 double FBJsbsimAirframeControls::GetGearPosition() const { return fb_jsbsim_get_gear_pos(); }
+double FBJsbsimAirframeControls::GetSpeedbrake() const { return fb_jsbsim_get_speedbrake_pos(); }
 
 } // namespace FlightBox

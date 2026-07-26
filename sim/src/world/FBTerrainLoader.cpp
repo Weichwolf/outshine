@@ -12,6 +12,7 @@
 #include "FBChunkMesh.h"
 #include "geo.h"
 #include "osmmesh.h"
+#include "FBLog.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -171,7 +172,7 @@ int fb_terrain_load(const char *base, double lat, double lon, int z, int grid, f
 
   uint32_t cx = 0, cy = 0;
   if (osmmesh_geo_to_tile(lon, lat, (uint8_t)z, &cx, &cy) != 0) {
-    printf("[fbterrain] geo_to_tile failed for %.4f/%.4f z%d\n", lat, lon, z);
+    FlightBox::FBLog::Error("world", "geo_to_tile_failed", {{"lat", lat}, {"lon", lon}, {"z", z}});
     return 0;
   }
 
@@ -183,7 +184,7 @@ int fb_terrain_load(const char *base, double lat, double lon, int z, int grid, f
   cfg.enable_terrain = 1;
   osmmesh_ctx *ctx = 0;
   if (osmmesh_create(&cfg, &ctx) != OSMMESH_OK || !ctx) {
-    printf("[fbterrain] osmmesh_create failed\n");
+    FlightBox::FBLog::Error("world", "osmmesh_create_failed");
     return 0;
   }
 
@@ -203,7 +204,7 @@ int fb_terrain_load(const char *base, double lat, double lon, int z, int grid, f
       uint32_t tx = cx + (uint32_t)dx, ty = cy + (uint32_t)dy;
       osmmesh_tile t = {};
       if (osmmesh_fetch_tile(ctx, (uint8_t)z, tx, ty, &t) != OSMMESH_OK || !t.terrain) {
-        printf("[fbterrain] tile z%d/%u/%u: no terrain (skip)\n", z, tx, ty);
+        FlightBox::FBLog::Debug("world", "tile_no_terrain", {{"z", z}, {"x", (int)tx}, {"y", (int)ty}});
         osmmesh_free_tile(&t);
         continue;
       }
@@ -219,7 +220,7 @@ int fb_terrain_load(const char *base, double lat, double lon, int z, int grid, f
       int ok = w3_chunk_build_ecef(t.terrain, z, tx, ty, grid, &chunk, origin);
       osmmesh_free_tile(&t);
       if (!ok || chunk.nverts <= 0) {
-        printf("[fbterrain] tile z%d/%u/%u: mesh build failed\n", z, tx, ty);
+        FlightBox::FBLog::Warn("world", "mesh_build_failed", {{"z", z}, {"x", (int)tx}, {"y", (int)ty}});
         w3_chunk_free(&chunk);
         continue;
       }
@@ -235,15 +236,18 @@ int fb_terrain_load(const char *base, double lat, double lon, int z, int grid, f
       out->origin[idx][2] = origin[2];
       total += (uint32_t)chunk.nverts;
       out->ntiles = idx + 1;
-      printf("[fbterrain] tile z%d/%u/%u: nverts=%d err=%.1fm\n", z, tx, ty, chunk.nverts, (double)chunk.err);
+      FlightBox::FBLog::Debug("world", "tile_meshed", {{"z", z}, {"x", (int)tx}, {"y", (int)ty},
+                                                       {"nverts", chunk.nverts}, {"errM", (double)chunk.err}});
       w3_chunk_free(&chunk);
 
       uint8_t *lay = out->albedo + (size_t)idx * layerBytes;
       if (fb_load_albedo(z, tx, ty, TS, lay))
-        printf("[fbterrain] tile z%d/%u/%u: albedo layer=%d %dx%d src=/bake/osm\n", z, tx, ty, idx, TS, TS);
+        FlightBox::FBLog::Debug("world", "tile_albedo", {{"z", z}, {"x", (int)tx}, {"y", (int)ty},
+                                                         {"layer", idx}, {"ts", TS}, {"src", "/bake/osm"}});
       else {
         fb_albedo_fallback(TS, lay);
-        printf("[fbterrain] tile z%d/%u/%u: albedo layer=%d FALLBACK (procedural checker)\n", z, tx, ty, idx);
+        FlightBox::FBLog::Debug("world", "tile_albedo", {{"z", z}, {"x", (int)tx}, {"y", (int)ty},
+                                                         {"layer", idx}, {"src", "fallback_checker"}});
       }
     }
 
@@ -262,8 +266,9 @@ int fb_terrain_load(const char *base, double lat, double lon, int z, int grid, f
   out->center[2] = ce.z;
   out->verts = merged;
   out->nverts = total;
-  printf("[fbterrain] loaded %d tiles, %u verts, ground %.0fm, centre ECEF %.0f/%.0f/%.0f\n",
-         out->ntiles, total, have_ground ? ground : 0.0, ce.x, ce.y, ce.z);
+  FlightBox::FBLog::Info("world", "terrain_loaded", {{"tiles", out->ntiles}, {"verts", (int)total},
+                                                     {"groundM", have_ground ? ground : 0.0},
+                                                     {"ecefX", ce.x}, {"ecefY", ce.y}, {"ecefZ", ce.z}});
   return 1;
 }
 
@@ -522,17 +527,17 @@ static void fbtp_report(void) {
   double wall = fbtp_ms() - fbtp_t0_;
   long m = fbtp_.nmesh ? fbtp_.nmesh : 1, p = fbtp_.npyr ? fbtp_.npyr : 1;
   double demInternal = fbtp_.demfetch - fbtp_.provfetch;   /* osmmesh work minus the HTTP it triggered */
-  printf("[tileperf] wall=%.0fms meshTiles=%ld pyrTiles=%ld holes=%ld | "
-         "osmFetchTile=%.0fms(%.2f/t) [provHTTP=%.0fms(%.2f/t, calls=%ld vec/ter/img=%ld/%ld/%ld) osmInternal=%.0fms(%.2f/t)] mesh=%.0fms(%.2f/t) | "
-         "albfetch=%.0fms(%.2f/t) decode=%.0fms(%.2f/t) mips=%.0fms(%.2f/t) | "
-         "cpuSum=%.0fms\n",
-         wall, fbtp_.nmesh, fbtp_.npyr, fbtp_.holes,
-         fbtp_.demfetch, fbtp_.demfetch / m,
-         fbtp_.provfetch, fbtp_.provfetch / m, fbtp_.provcalls, fbtp_.provkind[0], fbtp_.provkind[1], fbtp_.provkind[2],
-         demInternal, demInternal / m, fbtp_.mesh, fbtp_.mesh / m,
-         fbtp_.albfetch, fbtp_.albfetch / p, fbtp_.decode, fbtp_.decode / p, fbtp_.mips, fbtp_.mips / p,
-         fbtp_.demfetch + fbtp_.mesh + fbtp_.albfetch + fbtp_.decode + fbtp_.mips);
-  fflush(stdout);
+  FlightBox::FBLog::Debug("world", "tileperf",
+      {{"wallMs", wall}, {"meshTiles", (int)fbtp_.nmesh}, {"pyrTiles", (int)fbtp_.npyr}, {"holes", (int)fbtp_.holes},
+       {"demFetchMs", fbtp_.demfetch}, {"demFetchMsPerTile", fbtp_.demfetch / m},
+       {"provHttpMs", fbtp_.provfetch}, {"provHttpMsPerTile", fbtp_.provfetch / m}, {"provCalls", (int)fbtp_.provcalls},
+       {"provVec", (int)fbtp_.provkind[0]}, {"provTer", (int)fbtp_.provkind[1]}, {"provImg", (int)fbtp_.provkind[2]},
+       {"osmInternalMs", demInternal}, {"osmInternalMsPerTile", demInternal / m},
+       {"meshMs", fbtp_.mesh}, {"meshMsPerTile", fbtp_.mesh / m},
+       {"albFetchMs", fbtp_.albfetch}, {"albFetchMsPerTile", fbtp_.albfetch / p},
+       {"decodeMs", fbtp_.decode}, {"decodeMsPerTile", fbtp_.decode / p},
+       {"mipsMs", fbtp_.mips}, {"mipsMsPerTile", fbtp_.mips / p},
+       {"cpuSumMs", fbtp_.demfetch + fbtp_.mesh + fbtp_.albfetch + fbtp_.decode + fbtp_.mips}});
 }
 
 static void fbs_init(const char *base) {

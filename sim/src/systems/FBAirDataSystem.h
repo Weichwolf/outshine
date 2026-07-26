@@ -10,18 +10,26 @@
 #define FBAIRDATASYSTEM_H
 
 #include "FBState.h"
+#include "FBTelemetry.h"
 #include "jsbsim_adapter.h"
 
 namespace FlightBox {
 
-class FBAirDataSystem {
+class FBAirDataSystem : public FBTelemetrySource {
 public:
   virtual ~FBAirDataSystem() = default;
 
   virtual void Run(FBState &state, const fb_fdm_state &fdm, double dt);
 
+  const char *TelemetryName() const override { return "airdata"; }
+  void DeclareTelemetry(FBTelemetrySchema &schema) const override;
+  void SampleTelemetry(FBTelemetryRow &row) const override;
+
 private:
   float PeakG = 1.0f;   /* running max Nz since boot — the HUD's peak-G readout */
+  /* Telemetry cache: mirrors what Run() just wrote into FBState, so SampleTelemetry (no FBState in its
+   * signature — sources sample their OWN last result, core/ architecture banner) has something to read. */
+  float CasKt = 0.0f, Mach = 0.0f, Nz = 0.0f, AoaDeg = 0.0f;
 };
 
 } // namespace FlightBox

@@ -1,4 +1,5 @@
 #include "FBRenderer.h"
+#include "FBLog.h"
 #include <cstdint>
 #include <algorithm>
 #include <cstdio>
@@ -15,6 +16,10 @@ namespace FlightBox {
 
 static void Cross3(const double a[3], const double b[3], double o[3]);   /* defined below */
 static void Norm3(double v[3]);
+
+/* wgpu::StringView -> std::string for FBLog fields (Dawn callback messages are non-null-terminated
+ * views, not C strings). */
+static std::string SvToStr(wgpu::StringView v) { return std::string(v.data, v.length); }
 
 FBRenderer::FBRenderer()
   : SurfaceFormat(wgpu::TextureFormat::Undefined), HdrFormat(wgpu::TextureFormat::RGBA16Float),
@@ -85,7 +90,7 @@ void FBRenderer::StartAdapterRequest(void) {
   wgpu::RequestAdapterOptions opts{};
   auto onAdapter = [this](wgpu::RequestAdapterStatus st, wgpu::Adapter a, wgpu::StringView msg) {
     if (st != wgpu::RequestAdapterStatus::Success) {
-      printf("[FBRenderer] no WebGPU adapter (%.*s)\n", (int)msg.length, msg.data);
+      FBLog::Error("render", "no_adapter", {{"msg", SvToStr(msg)}});
       return;
     }
     OnAdapter(a);
@@ -110,15 +115,12 @@ void FBRenderer::OnAdapter(wgpu::Adapter a) {
                                                                           : "unknown";
     wgpu::Limits lim{};
     a.GetLimits(&lim);
-    printf("[gpu] adapter: vendor='%.*s' arch='%.*s' device='%.*s' desc='%.*s'\n",
-           (int)info.vendor.length, info.vendor.data, (int)info.architecture.length, info.architecture.data,
-           (int)info.device.length, info.device.data, (int)info.description.length, info.description.data);
-    printf("[gpu] adapter: type=%s backend=%d fallback=%d %s | limits: maxTexArrayLayers=%u maxBufferSize=%lluMB maxTexDim2D=%u\n",
-           at, (int)info.backendType, soft ? 1 : 0,
-           soft ? "<-- SOFTWARE RENDERING: 100% CPU, fix is browser-side (chrome://gpu / FF flags), not our code"
-                : "(hardware)",
-           (unsigned)lim.maxTextureArrayLayers, (unsigned long long)(lim.maxBufferSize >> 20), (unsigned)lim.maxTextureDimension2D);
-    fflush(stdout);
+    FBLog::Info("render", "adapter", {{"vendor", SvToStr(info.vendor)}, {"arch", SvToStr(info.architecture)},
+                                      {"device", SvToStr(info.device)}, {"desc", SvToStr(info.description)},
+                                      {"type", at}, {"backend", (int)info.backendType}, {"software", soft},
+                                      {"maxTexArrayLayers", (int)lim.maxTextureArrayLayers},
+                                      {"maxBufferSizeMB", (double)(lim.maxBufferSize >> 20)},
+                                      {"maxTexDim2D", (int)lim.maxTextureDimension2D}});
   }
   /* HDR scene target = rgba16float: the volumetric cloud pass blends premultiplied-alpha over it, and
    * rg11b10ufloat has NO alpha channel + no guaranteed blend support (the earlier bandwidth pick broke
@@ -140,16 +142,16 @@ void FBRenderer::OnAdapter(wgpu::Adapter a) {
   reqLimits.maxTextureArrayLayers = adapterLimits.maxTextureArrayLayers;
   dd.requiredLimits = &reqLimits;
   dd.SetUncapturedErrorCallback([](const wgpu::Device &, wgpu::ErrorType t, wgpu::StringView m) {
-    printf("[FBRenderer] GPU ERROR type=%d: %.*s\n", (int)t, (int)m.length, m.data);
+    FBLog::Error("render", "gpu_error", {{"type", (int)t}, {"msg", SvToStr(m)}});
   });
   dd.SetDeviceLostCallback(wgpu::CallbackMode::AllowSpontaneous,
       [this](const wgpu::Device &, wgpu::DeviceLostReason r, wgpu::StringView m) {
         DeviceLost = true;   /* guard GPU ops; the CPU streaming loop keeps running (counters live) */
-        printf("[FBRenderer] DEVICE LOST reason=%d: %.*s\n", (int)r, (int)m.length, m.data);
+        FBLog::Error("render", "device_lost", {{"reason", (int)r}, {"msg", SvToStr(m)}});
       });
   auto onDevice = [this](wgpu::RequestDeviceStatus st, wgpu::Device d, wgpu::StringView msg) {
     if (st != wgpu::RequestDeviceStatus::Success) {
-      printf("[FBRenderer] no WebGPU device (%.*s)\n", (int)msg.length, msg.data);
+      FBLog::Error("render", "no_device", {{"msg", SvToStr(msg)}});
       return;
     }
     OnDevice(d);
@@ -178,9 +180,10 @@ void FBRenderer::OnDevice(wgpu::Device d) {
   CreatePresent();          /* also Init()s Upscale (needs FrameTex, created here) */
   Hud->Init(gpu);
   DeviceReady = true;
-  printf("[FBRenderer] WebGPU device ready, target %dx%d (%s), hdr=%s\n", Width, Height,
-         Mode == Target::Surface ? "surface" : "offscreen",
-         HdrFormat == wgpu::TextureFormat::RG11B10Ufloat ? "rg11b10ufloat" : "rgba16float");
+  FBLog::Info("render", "device_ready", {{"width", Width}, {"height", Height},
+                                         {"target", Mode == Target::Surface ? "surface" : "offscreen"},
+                                         {"hdr", HdrFormat == wgpu::TextureFormat::RG11B10Ufloat
+                                                     ? "rg11b10ufloat" : "rgba16float"}});
 }
 
 /* Hillaire-2020 physically-based sky+atmosphere: three shader classes (FBTransmittanceStage,
@@ -453,7 +456,7 @@ void FBRenderer::SyncSwapSize(void) {
   cfg.width = (uint32_t)SwapW;
   cfg.height = (uint32_t)SwapH;
   Surface.Configure(&cfg);
-  printf("[FBRenderer] swapchain -> %dx%d (scene stays %dx%d)\n", SwapW, SwapH, Width, Height);
+  FBLog::Info("render", "swapchain", {{"swapW", SwapW}, {"swapH", SwapH}, {"width", Width}, {"height", Height}});
 #endif
 }
 
@@ -480,8 +483,8 @@ void FBRenderer::RenderFrame(void) {
     wgpu::SurfaceTexture st{};
     Surface.GetCurrentTexture(&st);
     if (FrameNo < 3 || !st.texture)
-      printf("[FBRenderer] frame %u: surf status=%d tex=%s\n", FrameNo, (int)st.status,
-             st.texture ? "ok" : "NULL");
+      FBLog::Debug("render", "surface_texture", {{"frame", (int)FrameNo}, {"status", (int)st.status},
+                                                  {"texture", st.texture ? "ok" : "NULL"}});
     if (!st.texture) return;
     finalView = st.texture.CreateView();
   } else {
@@ -523,7 +526,7 @@ void FBRenderer::RenderFrame(void) {
       up.End();
     }
     wgpu::CommandBuffer lcmd = lenc.Finish(); Queue.Submit(1, &lcmd);
-    if (FrameNo == 1) printf("[passcount] 2 passes/frame (loading screen: text + upscale)\n");
+    if (FrameNo == 1) FBLog::Debug("render", "passcount", {{"passes", 2}, {"loading_screen", true}});
     return;
   }
 
@@ -773,7 +776,7 @@ void FBRenderer::RenderFrame(void) {
   static bool loggedFirstPassCount = false;
   if (!loggedFirstPassCount || FrameNo % 300 == 0) {
     loggedFirstPassCount = true;
-    printf("[passcount] %d passes/frame (clouds=%d hud=%d)\n", passCount, CloudsOn ? 1 : 0, HudEnabled ? 1 : 0);
+    FBLog::Debug("render", "passcount", {{"passes", passCount}, {"clouds", CloudsOn}, {"hud", HudEnabled}});
   }
 
   if (CloudsOn) Cloud->ResolveTimestamps(enc);   /* resolve the 2 timestamps; copy to the readback buffer only when it's free */
@@ -788,10 +791,10 @@ void FBRenderer::RenderFrame(void) {
   /* 2-phase-commit assertion (once/sec): no frame should ever have drawn an uncommitted layer. */
   if (Tiles->IsStreaming() && FrameNo % 60 == 0) {
     long notReady = Tiles->GetNotReadyDraws(), wrongMode = Tiles->GetWrongModeDraws(), black = Tiles->GetBlackDraws();
-    printf("[present] notReadyDraws=%ld wrongModeDraws=%ld blackDraws=%ld (invariants: 0)%s | bundleRecords=%ld\n",
-           notReady, wrongMode, black,
-           (notReady || wrongMode || black) ? "  <-- VIOLATION" : "", Tiles->GetBundleRecords());
-    fflush(stdout);
+    bool violation = notReady || wrongMode || black;
+    FBLog::Debug("render", "present", {{"notReadyDraws", (int)notReady}, {"wrongModeDraws", (int)wrongMode},
+                                       {"blackDraws", (int)black}, {"violation", violation},
+                                       {"bundleRecords", (int)Tiles->GetBundleRecords()}});
   }
 }
 
@@ -827,7 +830,7 @@ bool FBRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
       staging.MapAsync(wgpu::MapMode::Read, 0, bufSize, wgpu::CallbackMode::WaitAnyOnly,
           [&ok](wgpu::MapAsyncStatus st, wgpu::StringView msg) {
             ok = (st == wgpu::MapAsyncStatus::Success);
-            if (!ok) printf("[FBRenderer] buffer map failed: %.*s\n", (int)msg.length, msg.data);
+            if (!ok) FBLog::Error("render", "buffer_map_failed", {{"msg", SvToStr(msg)}});
           }),
       UINT64_MAX);
   if (!ok) return false;

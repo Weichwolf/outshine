@@ -38,11 +38,35 @@ double Clamp(double v, double lo, double hi) { return v < lo ? lo : v > hi ? hi 
 double Wrap180(double a) { while (a > 180.0) a -= 360.0; while (a < -180.0) a += 360.0; return a; }
 } // namespace
 
+const char *FBPilot::PhaseName(Phase p) {
+  switch (p) {
+    case Phase::Idle: return "Idle";
+    case Phase::Preflight: return "Preflight";
+    case Phase::Takeoff: return "Takeoff";
+    case Phase::Climb: return "Climb";
+    case Phase::Route: return "Route";
+    case Phase::Approach: return "Approach";
+    case Phase::Flare: return "Flare";
+    case Phase::Rollout: return "Rollout";
+    case Phase::Shutdown: return "Shutdown";
+  }
+  return "?";
+}
+
 FBPilotCommands FBPilot::Run(const FBState &state, const fb_fdm_state &fdm, const FBFlightPlan &plan,
                              const FBRunway *runway, const FBWorld *world, double dt) {
   (void)world;
   PhaseElapsedS += dt;
   FBPilotCommands c{};
+
+  /* Mission waypoint bookkeeping (telemetry cache — class banner): the same active-waypoint distance
+   * the mission runner used to compute itself from the outside. */
+  ActiveWpCache = plan.ActiveIndex();
+  DistToWpCache = -1.0;
+  if (const FBWaypoint *awp = plan.ActiveWaypoint()) {
+    double dy = (fdm.lat - awp->LatDeg) * kMPerDeg, dx = (fdm.lon - awp->LonDeg) * kMPerDeg * std::cos(fdm.lat * kDeg2Rad);
+    DistToWpCache = std::sqrt(dx * dx + dy * dy);
+  }
 
   switch (CurPhase) {
     case Phase::Idle:
@@ -127,6 +151,18 @@ FBPilotCommands FBPilot::Run(const FBState &state, const fb_fdm_state &fdm, cons
     default:
       return c;   /* Phase 3 (landing) */
   }
+}
+
+void FBPilot::DeclareTelemetry(FBTelemetrySchema &schema) const {
+  schema.Add("phase");
+  schema.Add("activeWp");
+  schema.Add("distToWpM", "m");
+}
+
+void FBPilot::SampleTelemetry(FBTelemetryRow &row) const {
+  row.Push(std::string(PhaseName(CurPhase)));
+  row.Push(ActiveWpCache);
+  row.Push(DistToWpCache);
 }
 
 } // namespace FlightBox

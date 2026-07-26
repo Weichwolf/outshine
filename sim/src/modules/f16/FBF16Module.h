@@ -84,6 +84,7 @@ public:
    * the unmodified FBPilot default) exposed for boot/test phase-machine access (mission boot). */
   FBF16Pilot &PilotSystem() { return *PilotSys; }
   FBAirframeControls &Controls() { return *AirframeCtrl; }
+  FBAirDataSystem &AirDataSystem() { return *AirData; }   /* the ADC telemetry source (mission-runner Bus) */
   FBFlightPlan &FlightPlan() { return Plan_; }
   void SetRunway(const FBRunway &rwy) { Rwy_ = rwy; HaveRunway_ = true; }
 

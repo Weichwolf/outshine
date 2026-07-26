@@ -12,9 +12,11 @@
 #ifndef FBAIRFRAMECONTROLS_H
 #define FBAIRFRAMECONTROLS_H
 
+#include "FBTelemetry.h"
+
 namespace FlightBox {
 
-class FBAirframeControls {
+class FBAirframeControls : public FBTelemetrySource {
 public:
   virtual ~FBAirframeControls() = default;
 
@@ -27,6 +29,17 @@ public:
 
   virtual bool   GetWeightOnWheels() const { return false; }
   virtual double GetGearPosition() const { return 0.0; }   /* 0=up .. 1=down, kinematic-lagged */
+  virtual double GetSpeedbrake() const { return 0.0; }     /* 0..1, lagged readback */
+
+  /* Telemetry via the same virtual getters every caller already uses — works unmodified for both the
+   * NoOp default and FBJsbsimAirframeControls (no telemetry override needed in either). */
+  const char *TelemetryName() const override { return "airframe"; }
+  void DeclareTelemetry(FBTelemetrySchema &schema) const override {
+    schema.Add("gearPos"); schema.Add("wow"); schema.Add("speedbrake");
+  }
+  void SampleTelemetry(FBTelemetryRow &row) const override {
+    row.Push(GetGearPosition()); row.Push(GetWeightOnWheels()); row.Push(GetSpeedbrake());
+  }
 };
 
 class FBJsbsimAirframeControls : public FBAirframeControls {
@@ -40,6 +53,7 @@ public:
 
   bool   GetWeightOnWheels() const override;
   double GetGearPosition() const override;
+  double GetSpeedbrake() const override;
 };
 
 } // namespace FlightBox

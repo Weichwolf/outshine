@@ -17,6 +17,8 @@
 #include "FBChunkMesh.h"
 #include "style_ver.h"
 #include "FBMips.h"
+#include "FBLog.h"
+#include "FBLogSinks.h"
 
 /* stb_image lives in osmmesh's terrain.cpp (non-static, shared across the link). Declare, don't
  * re-impl. C linkage: stb wraps its API in extern "C" under C++. */
@@ -46,16 +48,21 @@ static char tw_base[160] = "";
 
 /* [tileperf-worker] — browser-side cold-boot timing (the venue the DEM cache actually runs in; native
  * headless can't reach drawn>0, so this is where the cache win is measured live). Per-stage ms + a
- * summary every 32 pyramids. Emitted to the worker console; the last line before the field converges is
- * the cold-boot pipeline total. Cheap (a few printfs per boot). */
+ * summary every 32 pyramids. Emitted via FBLog::Debug (tag "worker") to the worker's own stdout sink
+ * (fbtw_open); the last line before the field converges is the cold-boot pipeline total. Cheap (a few
+ * log lines per boot). */
 static double twp_osmfetch = 0, twp_mesh = 0, twp_albfetch = 0, twp_decode = 0, twp_mips = 0, twp_t0 = 0;
 static long twp_nmesh = 0, twp_npyr = 0;
 static void twp_report(void) {
   double wall = emscripten_get_now() - twp_t0;
   long m = twp_nmesh ? twp_nmesh : 1, p = twp_npyr ? twp_npyr : 1;
-  printf("[tileperf-worker] wall=%.0fms meshTiles=%ld pyrTiles=%ld | osmFetchTile(DEM fetch+decode+cache)=%.0fms(%.2f/t) mesh=%.0fms(%.2f/t) | albfetch=%.0fms(%.2f/t) decode=%.0fms(%.2f/t) mips=%.0fms(%.2f/t)\n",
-         wall, twp_nmesh, twp_npyr, twp_osmfetch, twp_osmfetch / m, twp_mesh, twp_mesh / m,
-         twp_albfetch, twp_albfetch / p, twp_decode, twp_decode / p, twp_mips, twp_mips / p);
+  FlightBox::FBLog::Debug("worker", "tileperf",
+      {{"wallMs", wall}, {"meshTiles", (int)twp_nmesh}, {"pyrTiles", (int)twp_npyr},
+       {"osmFetchMs", twp_osmfetch}, {"osmFetchMsPerTile", twp_osmfetch / m},
+       {"meshMs", twp_mesh}, {"meshMsPerTile", twp_mesh / m},
+       {"albFetchMs", twp_albfetch}, {"albFetchMsPerTile", twp_albfetch / p},
+       {"decodeMs", twp_decode}, {"decodeMsPerTile", twp_decode / p},
+       {"mipsMs", twp_mips}, {"mipsMsPerTile", twp_mips / p}});
 }
 
 /* Synchronous byte fetch — a worker MAY block. 200 = bytes, 204 = a real hole, 202/404/5xx = queued or
@@ -97,6 +104,9 @@ static int tw_provider(void *user, osmmesh_tile_kind kind, uint32_t z, uint32_t 
 
 EMSCRIPTEN_KEEPALIVE
 int fbtw_open(const char *base, double lat, double lon) {
+  static FlightBox::FBStdoutLogSink twLogSink;
+  FlightBox::FBLog::SetSink(&twLogSink);
+  FlightBox::FBLog::SetLevel(FlightBox::FBLogLevel::Debug);   /* the worker console used to print unconditionally */
   snprintf(tw_base, sizeof tw_base, "%s", base ? base : "");
   osmmesh_config cfg;
   memset(&cfg, 0, sizeof cfg);

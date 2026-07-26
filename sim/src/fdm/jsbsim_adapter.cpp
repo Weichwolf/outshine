@@ -8,6 +8,7 @@
 #include "models/FGGroundReactions.h"
 #include "models/FGLGear.h"
 #include "jsbsim_adapter.h"
+#include "FBLog.h"
 #include <cstdio>
 #include <string>
 #include <sys/stat.h>
@@ -45,7 +46,7 @@ int fb_jsbsim_init(const char *root, const char *ac,
   std::string eng = exists(d + "/engine") ? d + "/engine" : parent + "/engine";
   std::string sys = exists(d + "/Systems") ? d + "/Systems" : parent + "/systems";
   if (!g_fdm->LoadModel(SGPath(r), SGPath(eng), SGPath(sys), ac)) {
-    fprintf(stderr, "[jsbsim] LoadModel(%s) failed (aircraft=%s engine=%s)\n", ac, r.c_str(), eng.c_str());
+    FBLog::Error("fdm", "LoadModel_failed", {{"aircraft", ac}, {"root", r}, {"engine", eng}});
     return 1;
   }
   auto ic = g_fdm->GetIC();
@@ -92,10 +93,10 @@ int fb_jsbsim_init(const char *root, const char *ac,
   g_elev_trim = speed_ms > 0.0 ? g_fdm->GetPropertyValue("fcs/elevator-cmd-norm") : 0.0;
   g_fdm->RunIC();   /* clean, level IC (attitude+speed); the trim tab, not the perturbed search state, holds it */
   if (speed_ms > 0.0)
-    fprintf(stderr, "[jsbsim] %s loaded, %.1f m/s, elevator trim %.3f%s\n",
-            ac, speed_ms, g_elev_trim, trimmed ? "" : " (trim search did not fully converge; using best-effort)");
+    FBLog::Info("fdm", "loaded", {{"aircraft", ac}, {"speedMs", speed_ms}, {"elevTrim", g_elev_trim},
+                                  {"trimConverged", trimmed}});
   else
-    fprintf(stderr, "[jsbsim] %s loaded, V=0 ground start, no aero trim to search — elevator trim 0.000\n", ac);
+    FBLog::Info("fdm", "loaded", {{"aircraft", ac}, {"groundStart", true}, {"elevTrim", 0.0}});
   return 0;
 }
 

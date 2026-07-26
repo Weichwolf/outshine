@@ -95,8 +95,22 @@ Override**, nicht "gehört der F-16":
 ```
 sim/src/
   app/       Einstiegspunkte + App-Lifecycle (FBAppWasm, FBAppNative, FBSimHost, FBTileWorkerMain)
-  core/      FBState, FBMode, FBMasterMode, FBTelemetry, FBFlightPlan/FBRunway (Wegpunkt-/Runway-
-             Value-Types für FBPilot), gemeinsame Basistypen — zeigt NIE nach systems/ oder modules/
+  core/      FBState, FBMode, FBMasterMode, FBFlightPlan/FBRunway (Wegpunkt-/Runway-Value-Types für
+             FBPilot), gemeinsame Basistypen — zeigt NIE nach systems/ oder modules/. Zwei getrennte
+             Kanäle für alles, was sonst verstreutes printf/fprintf wäre:
+               FBLog (`FBLog.h/.cpp`) — diskrete, geleveled Ereignisse (Debug/Info/Warn/Error), ein
+               `tag` + `event` + strukturierte key=val-Felder (`FBLog::Warn("pilot", "sink_rate_high",
+               {{"vs", -12.3}})`). Statische Fassade (Cross-Cutting-Infrastruktur, kein FBLog& durch
+               jedes `Run()`), aber I/O-frei: emittiert wird nur, wenn ein `FBLogSink` injiziert ist
+               (`FBLog::SetSink`) — die Sink-Implementierungen (stdout/Datei/Fan-out) leben in `app/`
+               (`FBLogSinks.h/.cpp`), core/systems/render/world/fdm rufen nur die Fassade.
+               FBTelemetry (`FBTelemetry.h/.cpp`) — periodisch gesampelter Zustand (Zeitreihe, Schema).
+               Klassen DEKLARIEREN sich als `FBTelemetrySource` (`DeclareTelemetry`/`SampleTelemetry`);
+               der EINE `FBTelemetryBus` sampelt jede registrierte Source pro Tick in genau eine Zeile
+               (Registrierungsreihenfolge = Spaltenreihenfolge) und reicht sie an einen injizierten
+               `FBTelemetrySink` (z. B. `FBCsvTelemetrySink`, app/). FBAirDataSystem/FBPilot/
+               FBFlightControl/FBAirframeControls implementieren `FBTelemetrySource` direkt;
+               FBFdmTelemetrySource (fdm/, s.u.) trägt die rohe FDM-Pose bei.
   math/      Value-Math (FBMat4 — Value-Types, Operatoren inline im Header)
   render/    FBRenderer (Orchestrator: Device/Swapchain/Targets, JEDE Begin/EndRenderPass-Grenze,
              die Encode-Reihenfolge — Pass-Topologie ist ein Vertrag, kein Stage-Split darf sie
@@ -178,7 +192,9 @@ sim/src/
              längst gelöschte `xp_bridge.c` der Vor-Pivot-Architektur, niemand ruft den Adapter heute aus
              C oder aus JS (der WASM-Export ist ausschließlich `fb_toggle_ground`/`fb_set_ground` in
              `FBAppWasm.cpp`); `extern "C"`/`EMSCRIPTEN_KEEPALIVE` bleibt Konvention einzig für von JS
-             NAMENTLICH gerufene Symbole.
+             NAMENTLICH gerufene Symbole. FBFdmTelemetrySource (`.h/.cpp`) ist die Telemetrie-Source
+             für die rohe FDM-Pose (lat/lon/alt/AGL/Lage) — an der Adapter-Naht, weil `fb_fdm_state`
+             dessen eigenes POD ist; borgt den FDM-Zustand + die vom Aufrufer aufgelöste Boden-ASL.
   modules/   FBModule-Basisschnittstelle (`Run(fb_fdm_state&, dt, const FBWorld*)`, App hält jedes
              Modul dahinter polymorph; ein Modul cycelt seine Systeme intern, jedes im eigenen Takt —
              Peers rufen sich nie gegenseitig)
@@ -247,6 +263,12 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
   keine Defekte (Prinzip 5); Messungen laufen über den Missions-Regelkreis (Telemetrie), nicht über
   Einzelbeobachtungen. Ziel-GPU-Fähigkeiten: `doc/webgl-webgpu-report.txt`.
 - JSBSim (`sim/vendor/jsbsim`) und das f16-Modell sind read-only; Warnings = Errors.
+- **Keine verstreuten printf/fprintf/std::cout/std::cerr:** core/systems/modules/render/world/fdm/
+  units emittieren NIE direkt — Ereignisse laufen über `FBLog` (core/FBLog.h), periodischer Zustand
+  über `FBTelemetryBus` (core/FBTelemetry.h). Ausnahmen NUR: die Sink-Implementierungen selbst
+  (`app/FBLogSinks.*`, `app/FBTelemetrySinks.*`) und CLI-UX in `app/` (Usage/Hilfe/argv-Fehler,
+  Bootstrap-Fehler vor Sink-Aufbau). Core bleibt I/O-frei, aber nicht formatierungsfrei — `snprintf`
+  in einen lokalen Puffer ist überall erlaubt (kein `FILE*`/`fstream`).
 - **Missions-Regelkreis (Pilot-KI-Entwicklung):** Mission definieren → headless bis Abschluss/Fehler/
   Crash simulieren → Telemetrie maschinell analysieren → Korrektur → Loop. Format: `.fbm`
   (zeilenbasiert, zero-dependency, `doc/mission-format.md`), geparst von `core/FBMissionFile.h`

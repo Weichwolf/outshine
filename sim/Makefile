@@ -54,11 +54,15 @@ wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,w
 	  test -f $(JSB_WASM)/src/libJSBSim.a || bash vendor/build_jsbsim_wasm.sh; \
 	  mkdir -p build/obj-wasm; \
 	  for f in src/terrain/*.cpp; do o=build/obj-wasm/$$(basename $$f .cpp).o; \
-	    [ "$$o" -nt "$$f" ] || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) -Isrc/terrain -Ivendor -c -o "$$o"; done; \
+	    [ "$$o" -nt "$$f" ] || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) -Isrc/terrain -Isrc/core -Ivendor -c -o "$$o"; done; \
 	  emcc src/world/FBTerrainLoader.cpp $(CXXSTD) -O1 $(EMCC_WARN) $(INC_MODULES) -Isrc/terrain $(INC_TILES) \
 	    -c -o build/obj-wasm/FBTerrainLoader.o; \
 	  emcc src/fdm/jsbsim_adapter.cpp -std=c++17 -O2 $(EMCC_WARN) -fexceptions \
-	    -include src/fdm/em_compat.h -I$(JSBSIM)/src -Isrc/fdm -c -o build/obj-wasm/jsbsim_adapter.o; \
+	    -include src/fdm/em_compat.h -I$(JSBSIM)/src -Isrc/fdm -Isrc/core -c -o build/obj-wasm/jsbsim_adapter.o; \
+	  emcc src/core/FBLog.cpp -std=c++17 -O2 $(EMCC_WARN) $(INC_MODULES) \
+	    -c -o build/obj-wasm/FBLog.o; \
+	  emcc src/core/FBTelemetry.cpp -std=c++17 -O2 $(EMCC_WARN) $(INC_MODULES) \
+	    -c -o build/obj-wasm/FBTelemetry.o; \
 	  emcc src/systems/FBAutopilot.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) -Isrc/terrain \
 	    -c -o build/obj-wasm/FBAutopilot.o; \
 	  emcc src/systems/FBFlightControl.cpp -std=c++17 -O2 $(EMCC_WARN) -Isrc/fdm $(INC_MODULES) \
@@ -96,7 +100,7 @@ wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,w
 	  emcc src/core/FBMissionFile.cpp -std=c++17 -O2 $(EMCC_WARN) $(INC_MODULES) \
 	    -c -o build/obj-wasm/FBMissionFile.o; \
 	  emcc build/obj-wasm/*.o $(JSB_WASM)/src/libJSBSim.a \
-	    src/app/FBAppWasm.cpp src/render/FBRenderer.cpp src/render/FBHudGeometry.cpp src/world/FBWorld.cpp \
+	    src/app/FBAppWasm.cpp src/app/FBLogSinks.cpp src/render/FBRenderer.cpp src/render/FBHudGeometry.cpp src/world/FBWorld.cpp \
 	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \
 	    src/render/stages/FBHudStage.cpp src/render/stages/FBUpscaleStage.cpp \
 	    src/render/stages/FBTransmittanceStage.cpp src/render/stages/FBSkyViewStage.cpp \
@@ -121,9 +125,10 @@ worker:          ## build the off-thread tile worker (fetch/decode/mesh/mips) ->
 	@cd $(SELF_DIR); source "$(EMSDK_DIR)/emsdk_env.sh" >/dev/null 2>&1; set -e; \
 	  mkdir -p build/obj-worker; \
 	  for f in src/terrain/*.cpp; do o=build/obj-worker/$$(basename $$f .cpp).o; \
-	    [ "$$o" -nt "$$f" ] || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) -Isrc/terrain -Ivendor -c -o "$$o"; done; \
-	  emcc build/obj-worker/*.o src/app/FBTileWorkerMain.cpp $(CXXSTD) -O2 $(EMCC_WARN) \
-	    -Isrc/render -Isrc/terrain $(INC_TILES) \
+	    [ "$$o" -nt "$$f" ] || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) -Isrc/terrain -Isrc/core -Ivendor -c -o "$$o"; done; \
+	  emcc src/core/FBLog.cpp $(CXXSTD) -O2 $(EMCC_WARN) -Isrc/core -c -o build/obj-worker/FBLog.o; \
+	  emcc build/obj-worker/*.o src/app/FBTileWorkerMain.cpp src/app/FBLogSinks.cpp $(CXXSTD) -O2 $(EMCC_WARN) \
+	    -Isrc/render -Isrc/terrain -Isrc/core $(INC_TILES) \
 	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=64MB -sEXIT_RUNTIME=0 -sFETCH \
 	    -sEXPORTED_FUNCTIONS=_malloc,_free,_fbtw_open,_fbtw_build,_fbtw_verts,_fbtw_nverts,_fbtw_err,_fbtw_origin,_fbtw_mips,_fbtw_mipbytes,_fbtw_ts,_fbtw_release \
 	    -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,HEAPU8,HEAPF32,HEAPF64 \
@@ -141,11 +146,17 @@ native:          ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	  test -f $(JSB_HOST)/lib/libJSBSim.a || bash vendor/build_jsbsim_host.sh; \
 	  mkdir -p build/obj-native; \
 	  for f in src/terrain/*.cpp; do o=build/obj-native/$$(basename $$f .cpp).o; \
-	    [ "$$o" -nt "$$f" ] || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) -Isrc/terrain -isystem vendor -c -o "$$o"; done; \
+	    [ "$$o" -nt "$$f" ] || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) -Isrc/terrain -Isrc/core -isystem vendor -c -o "$$o"; done; \
 	  c++ src/world/FBTerrainLoader.cpp $(CXXSTD) -O2 $(CXX_WARN) $(INC_NATIVE) $(INC_TILES) \
 	    -isystem $(CURL_COMPAT) -c -o build/obj-native/FBTerrainLoader.o; \
 	  c++ src/fdm/jsbsim_adapter.cpp -std=c++17 -O2 $(CXX_WARN) \
-	    -Isrc/fdm -isystem $(JSB_HOST)/include/JSBSim -c -o build/obj-native/jsbsim_adapter.o; \
+	    -Isrc/fdm -Isrc/core -isystem $(JSB_HOST)/include/JSBSim -c -o build/obj-native/jsbsim_adapter.o; \
+	  c++ src/fdm/FBFdmTelemetrySource.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
+	    -c -o build/obj-native/FBFdmTelemetrySource.o; \
+	  c++ src/core/FBLog.cpp -std=c++17 -O2 $(CXX_WARN) $(INC_NATIVE) \
+	    -c -o build/obj-native/FBLog.o; \
+	  c++ src/core/FBTelemetry.cpp -std=c++17 -O2 $(CXX_WARN) $(INC_NATIVE) \
+	    -c -o build/obj-native/FBTelemetry.o; \
 	  c++ src/systems/FBAutopilot.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
 	    -c -o build/obj-native/FBAutopilot.o; \
 	  c++ src/systems/FBFlightControl.cpp -std=c++17 -O2 $(CXX_WARN) -Isrc/fdm $(INC_NATIVE) \
@@ -182,7 +193,8 @@ native:          ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	    -c -o build/obj-native/FBF16Pilot.o; \
 	  c++ src/core/FBMissionFile.cpp -std=c++17 -O2 $(CXX_WARN) $(INC_NATIVE) \
 	    -c -o build/obj-native/FBMissionFile.o; \
-	  c++ src/app/FBAppNative.cpp src/render/FBRenderer.cpp src/render/FBHudGeometry.cpp src/world/FBWorld.cpp \
+	  c++ src/app/FBAppNative.cpp src/app/FBLogSinks.cpp src/app/FBTelemetrySinks.cpp \
+	    src/render/FBRenderer.cpp src/render/FBHudGeometry.cpp src/world/FBWorld.cpp \
 	    src/render/stages/FBStarsStage.cpp src/render/stages/FBTileLightsStage.cpp \
 	    src/render/stages/FBHudStage.cpp src/render/stages/FBUpscaleStage.cpp \
 	    src/render/stages/FBTransmittanceStage.cpp src/render/stages/FBSkyViewStage.cpp \

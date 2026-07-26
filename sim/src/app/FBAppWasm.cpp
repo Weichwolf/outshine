@@ -16,8 +16,9 @@
 #include "FBMissionBoot.h"
 #include "FBEphemeris.h"
 #include "FBTerrainLoader.h"
-#include "FBTelemetry.h"
 #include "FBOwnshipUnit.h"
+#include "FBLog.h"
+#include "FBLogSinks.h"
 #include "jsbsim_adapter.h"
 #include <cstdint>
 
@@ -55,8 +56,7 @@ static time_t SimUtc = 0;                /* FB_SIM_UTC override; 0 = real wall c
 static void GroundSet(int photo) {
   R.SetGroundMode(photo);
   W.SetGroundMode(photo);
-  printf("[gpu] ground = %s\n", photo ? "aerial photo (EVS)" : "OSM render (SVS)");
-  fflush(stdout);
+  FBLog::Info("gpu", "ground_mode", {{"mode", photo ? "photo" : "osm"}});
 }
 extern "C" EMSCRIPTEN_KEEPALIVE void fb_toggle_ground(void) { GroundSet(!R.GetGroundMode()); }
 extern "C" EMSCRIPTEN_KEEPALIVE void fb_set_ground(int photo) { GroundSet(photo); }
@@ -123,6 +123,7 @@ static void frame(void) {
   double dt = LastMs > 0.0 ? (now - LastMs) / 1000.0 : 0.0;
   LastMs = now;
   if (dt > 0.1) dt = 0.1;   /* clamp a stall/tab-switch so the sim doesn't lurch */
+  FBLog::SetTime(now / 1000.0);   /* wall-clock seconds since page load — correlates every log line this frame */
 
   /* BOOT LOADING GATE: until the target cut around the SPAWN is resident, stream + show the loading
    * screen and keep JSBSim FROZEN (no step, no [agl]). Then the scene turns on and the sim begins — so
@@ -141,14 +142,17 @@ static void frame(void) {
     R.RenderFrame();
     const char *te = getenv("FB_LOAD_THRESH"); float thresh = te ? (float)atof(te) : 0.95f;
     static double lastLoadLog = 0;
-    if (now - lastLoadLog > 500.0) { lastLoadLog = now; printf("[loading] %.0f pct (%d/%d tiles)\n", pct * 100.0f, W.TargetReadyN(), W.TargetTotal()); fflush(stdout); }
+    if (now - lastLoadLog > 500.0) {
+      lastLoadLog = now;
+      FBLog::Info("loading", "progress", {{"pct", (double)(pct * 100.0f)}, {"ready", W.TargetReadyN()}, {"total", W.TargetTotal()}});
+    }
     const char *toe = getenv("FB_LOAD_TIMEOUT_MS"); double tmo = toe ? atof(toe) : 30000.0;
     bool done = (W.TargetTotal() > 0 && pct >= thresh);
     bool timedOut = (now - gLoadStart > tmo);   /* don't hang if a few tiles 204/miss (or headless never commits) */
     if (done || timedOut) {
       gLoading = false;
       R.SetLoadingScreen(false, 1.0f, 0, 0);
-      printf("[loading] %s %.0f pct -> scene on, sim start\n", timedOut ? "TIMEOUT" : "converged", pct * 100.0f); fflush(stdout);
+      FBLog::Info("loading", "done", {{"result", timedOut ? "TIMEOUT" : "converged"}, {"pct", (double)(pct * 100.0f)}});
     }
     return;
   }
@@ -213,10 +217,15 @@ static void frame(void) {
    * antimeridian-safe — the gate's measurement convention). */
   { static double accLog = 0.0; accLog += dt;
     if (accLog >= 1.0) { accLog = 0.0;
-      FlightBox::FBLogAgl(St, g.Mode, g.RingDistM, gForHud, fb_jsbsim_get_ground());
-      printf("[home] dist=%.0f brg=%.0f hdg=%.0f lon=%.4f\n", hs.home_dist, hs.home_bearing, St.yaw, St.lon);
-      printf("[pilot] phase=%d\n", (int)gF16->PilotSystem().GetPhase());   /* Idle in ?ap=manual, else the mission phase machine */
-      fflush(stdout); } }
+      double agl = St.elev - gForHud;
+      FBLog::Info("flight", "agl", {{"alt", St.elev}, {"agl", agl}, {"ground", gForHud},
+          {"fdmGnd", fb_jsbsim_get_ground()}, {"spd", St.speed}, {"cas", St.cas}, {"bank", St.roll},
+          {"hdg", St.yaw}, {"vs", St.vy}, {"ringDist", g.RingDistM},
+          {"mode", g.Mode == FBMode::Direct ? "DIRECT" : "MANUAL"}});
+      FBLog::Info("flight", "home", {{"dist", (double)hs.home_dist}, {"brg", (double)hs.home_bearing},
+          {"hdg", St.yaw}, {"lon", St.lon}});
+      FBLog::Info("pilot", "phase", {{"phase", FBPilot::PhaseName(gF16->PilotSystem().GetPhase())}});
+    } }
   /* Real ephemeris sun + moon for EVS (the renderer uses them only in photo mode; SVS = constant day). */
   time_t utc = SimUtc ? SimUtc : time(nullptr);
   SunPos(St.lat, St.lon, utc, &hs.sun_el, &hs.sun_az);
@@ -241,17 +250,22 @@ static void frame(void) {
     if (acc >= 1.0) {
       double loop = aGround + aJsbsim + aPose + aWorld + aRender;
       double per = aPeriod / nF;   /* mean rAF period (ms) — the 1/refresh budget */
-      printf("[cpuprof] loop=%.2f ms/f (%.0f%% of %.1fms rAF) | ground=%.2f jsbsim=%.2f pose=%.2f world=%.2f render=%.2f (ms/f) | draws=%d tilebuf=%dB substeps=%.1f/f frames=%ld\n",
-             loop / nF, per > 0 ? 100.0 * (loop / nF) / per : 0.0, per,
-             aGround / nF, aJsbsim / nF, aPose / nF, aWorld / nF, aRender / nF,
-             R.DrawCount(), R.DrawCount() * 32, (double)sSub / nF, nF);
-      fflush(stdout);
+      FBLog::Debug("cpuprof", "summary", {{"loopMs", loop / nF}, {"pctOfRaf", per > 0 ? 100.0 * (loop / nF) / per : 0.0},
+          {"rafMs", per}, {"groundMs", aGround / nF}, {"jsbsimMs", aJsbsim / nF}, {"poseMs", aPose / nF},
+          {"worldMs", aWorld / nF}, {"renderMs", aRender / nF}, {"draws", R.DrawCount()},
+          {"tilebufB", R.DrawCount() * 32}, {"substepsPerFrame", (double)sSub / nF}, {"frames", (int)nF}});
       aGround = aJsbsim = aPose = aWorld = aRender = aPeriod = acc = 0; nF = 0; sSub = 0;
     }
   }
 }
 
 int main() {
+  /* Log-Sink = stdout, level Debug (CLAUDE.md: the browser console must not visibly change — every
+   * migrated call site used to print unconditionally). */
+  static FBStdoutLogSink gLogSink;
+  FBLog::SetSink(&gLogSink);
+  FBLog::SetLevel(FBLogLevel::Debug);
+
   static char base[192];
   const char *ju = emscripten_run_script_string("(window.FB_TILES_URL||'http://localhost:8081').toString()");
   snprintf(base, sizeof base, "%s", ju && ju[0] ? ju : "http://localhost:8081");
@@ -287,19 +301,19 @@ int main() {
     double altAsl = Ground + kAglM;
     double slat = olat + kRadiusM / kMPerDeg, slon = olon;   /* 8 km due N, heading E */
     if (fb_jsbsim_init("/jsbsim/aircraft", "f16", slat, slon, altAsl, 0.0, kSpeedMs, 90.0, 0) != 0) {
-      printf("[gpu] JSBSim init FAILED\n");
+      FBLog::Error("gpu", "jsbsim_init_failed");
       return 1;
     }
     gF16->Autopilot().SetManual(0.0, 0.0, 0.0, 0.85);
-    printf("[gpu] JSBSim F-16 manual %.4f/%.4f, alt %.0f m ASL, %.0f m/s (direct stick pass-through, no HOTAS bound yet)\n",
-           olat, olon, altAsl, kSpeedMs);
+    FBLog::Info("gpu", "manual_boot", {{"lat", olat}, {"lon", olon}, {"altM", altAsl}, {"speedMs", kSpeedMs}});
   } else {
     static char missionText[8192];
     int n = fb_fetch_text(kDefaultMissionUrl, missionText, sizeof missionText);
     FlightBox::FBMission mission;
     std::string perr;
     if (n <= 0 || !FBParseMissionFile(missionText, mission, &perr)) {
-      printf("[gpu] mission boot FAILED (%s): %s\n", kDefaultMissionUrl, n <= 0 ? "fetch (is fb-sim serving web/missions/?)" : perr.c_str());
+      FBLog::Error("gpu", "mission_boot_failed", {{"url", kDefaultMissionUrl},
+          {"reason", n <= 0 ? std::string("fetch (is fb-sim serving web/missions/?)") : perr}});
       return 1;
     }
     const FBRunway &rwy = mission.Runway;
@@ -314,11 +328,12 @@ int main() {
       emscripten_sleep(50);
     }
     if (!FBMissionGroundSpawn("/jsbsim/aircraft", mission, groundAsl, *gF16, St)) {
-      printf("[gpu] JSBSim init FAILED\n");
+      FBLog::Error("gpu", "jsbsim_init_failed");
       return 1;
     }
-    printf("[gpu] mission '%s': ground-spawned hdg=%.0f @ %.5f/%.5f, DEM ground=%.0f m, %d waypoints, FBPilot -> Preflight\n",
-           mission.Name.c_str(), rwy.TrueHeadingDeg, rwy.ThresholdLatDeg, rwy.ThresholdLonDeg, groundAsl, mission.Plan.Size());
+    FBLog::Info("gpu", "mission_boot", {{"name", mission.Name}, {"hdg", rwy.TrueHeadingDeg},
+        {"lat", rwy.ThresholdLatDeg}, {"lon", rwy.ThresholdLonDeg}, {"groundM", groundAsl},
+        {"waypoints", mission.Plan.Size()}});
   }
   fb_jsbsim_step(&St);   /* prime St before the first guidance step */
 
@@ -345,7 +360,7 @@ int main() {
   const char *jms = emscripten_run_script_string(
       "(typeof window.FB_MOON_SCALE==='number'?window.FB_MOON_SCALE:1).toString()");
   if (jms && jms[0]) R.SetMoonScale(atof(jms));
-  printf("[gpu] boot ground = %s (eager base + view)\n", bootPhoto ? "photo/EVS" : "osm/SVS");
+  FBLog::Info("gpu", "boot_ground", {{"mode", bootPhoto ? "photo/EVS" : "osm/SVS"}});
   /* Real-sky assets (EVS): NASA/GSFC CGI-Moon-Kit LROC albedo (public domain, embedded at /moon.jpg)
    * + the HYG star catalogue from fb-tiles. Optional — a miss leaves a grey moon / no stars, never
    * blocks startup. */
@@ -354,21 +369,21 @@ int main() {
     if (fb_load_image_file("/moon.jpg", &moon, &mw, &mh)) {
       R.SetMoonTexture(moon, mw, mh);
       free(moon);
-      printf("[gpu] moon texture %dx%d\n", mw, mh);
-    } else printf("[gpu] moon texture missing (/moon.jpg) — grey fallback\n");
+      FBLog::Info("gpu", "moon_texture", {{"w", mw}, {"h", mh}});
+    } else FBLog::Warn("gpu", "moon_texture_missing", {{"path", "/moon.jpg"}});
     static uint8_t stars[262144];
     int sn = fb_fetch_stars(base, stars, (int)sizeof stars);
-    if (sn > 0) { R.SetStars(stars, sn, olat, olon); printf("[gpu] star catalogue %d bytes (%d stars)\n", sn, sn / 6); }
-    else printf("[gpu] star catalogue unreachable (%s/t/stars) — blank night sky\n", base);
+    if (sn > 0) { R.SetStars(stars, sn, olat, olon); FBLog::Info("gpu", "star_catalogue", {{"bytes", sn}, {"stars", sn / 6}}); }
+    else FBLog::Warn("gpu", "star_catalogue_unreachable", {{"base", std::string(base)}});
   }
   R.SetHudDisplay(&gF16->Displays());   /* HUD symbology: the module's Displays slot (default HUD) */
   R.Init("#gpu", 1280, 720);
   if (!W.Open(&R, base, olat, olon, 32, viewM, 512)) {
-    printf("[gpu] FBWorld open FAILED — is fb-tiles reachable at %s ?\n", base);
+    FBLog::Error("gpu", "world_open_failed", {{"base", std::string(base)}});
     return 1;
   }
   W.RegisterUnit(&gOwnship);   /* the App owns gOwnship; FBWorld only borrows the pointer (its own banner) */
-  printf("[gpu] multi-LOD quadtree around the live flight, view %.1f km\n", viewM / 1000.0);
+  FBLog::Info("gpu", "world_ready", {{"viewKm", viewM / 1000.0}});
 
   emscripten_set_main_loop(frame, 0, 1);
   return 0;

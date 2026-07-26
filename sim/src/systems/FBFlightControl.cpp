@@ -28,7 +28,7 @@ FBControls FBFlightControl::Run(const FBGuidance &g, const fb_fdm_state &s) {
   FBControls o{};
   if (g.Mode == FBMode::Manual) {
     o.Roll = g.ManualRoll; o.Pitch = g.ManualPitch; o.Yaw = g.ManualYaw; o.Thr = g.ManualThr;
-    return o;
+    return LastControls_ = o;
   }
   if (Flcs) {
     /* Turn-g feedforward from the ACTUAL bank (the g a turn needs NOW depends on the bank NOW), the
@@ -66,7 +66,21 @@ FBControls FBFlightControl::Run(const FBGuidance &g, const fb_fdm_state &s) {
   double spdErr = g.TargetSpeedMs - s.speed;
   ThrIterm = Clamp(ThrIterm + KTi * spdErr * 0.01, -ThrTrim, 1.0 - ThrTrim);   /* physical range from trim */
   o.Thr = Clamp(ThrTrim + KpSpd * spdErr + ThrIterm, 0.0, 1.0);
-  return o;
+  return LastControls_ = o;
+}
+
+void FBFlightControl::DeclareTelemetry(FBTelemetrySchema &schema) const {
+  schema.Add("rollCmd");
+  schema.Add("pitchCmd");
+  schema.Add("yawCmd");
+  schema.Add("throttleNorm");
+}
+
+void FBFlightControl::SampleTelemetry(FBTelemetryRow &row) const {
+  row.Push(LastControls_.Roll);
+  row.Push(LastControls_.Pitch);
+  row.Push(LastControls_.Yaw);
+  row.Push(LastControls_.Thr);
 }
 
 } // namespace FlightBox

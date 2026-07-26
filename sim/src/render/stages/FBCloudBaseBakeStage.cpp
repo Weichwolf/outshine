@@ -1,5 +1,6 @@
 #include "FBCloudBaseBakeStage.h"
 #include "FBCloudNoiseCommon.h"
+#include "FBLog.h"
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -218,7 +219,7 @@ fn cs(@builtin(global_invocation_id) id : vec3u) {
   Instance.WaitAny(readb.MapAsync(wgpu::MapMode::Read, 0, (uint64_t)N * sizeof(float),
       wgpu::CallbackMode::WaitAnyOnly, [&ok](wgpu::MapAsyncStatus st, wgpu::StringView) { ok = (st == wgpu::MapAsyncStatus::Success); }),
       UINT64_MAX);
-  if (!ok) { printf("[shapehist] readback failed\n"); return; }
+  if (!ok) { FBLog::Error("render", "shapehist_readback_failed"); return; }
   const float *v = static_cast<const float *>(readb.GetConstMappedRange(0, (uint64_t)N * sizeof(float)));
   std::vector<float> s(v, v + N);
   readb.Unmap();
@@ -229,11 +230,10 @@ fn cs(@builtin(global_invocation_id) id : vec3u) {
   /* percentiles over CLOUD voxels (d>0) — the whole-grid median is ~0 since most of the shell is clear */
   size_t c0 = N - cloud;
   auto cpct = [&](double p) { return s[c0 + (size_t)(p * (cloud > 0 ? cloud - 1 : 0))]; };
-  printf("[shapehist] cov=%.2f low=%.2f high=%.2f  N=%u (post-dome density d, no detail erosion)\n", cover, low, high, N);
-  printf("[shapehist] d over CLOUD voxels: p10=%.3f median=%.3f p90=%.3f max=%.3f\n",
-         cpct(0.10), cpct(0.50), cpct(0.90), s.back());
-  printf("[shapehist] cloud voxels (d>0): %.1f%%  |  SOLID cores (d>0.9): %.2f%%\n",
-         100.0 * cloud / N, 100.0 * solid / N);
+  FBLog::Debug("render", "shapehist", {{"cov", (double)cover}, {"low", (double)low}, {"high", (double)high},
+                                       {"n", (int)N}, {"p10", cpct(0.10)}, {"median", cpct(0.50)},
+                                       {"p90", cpct(0.90)}, {"max", (double)s.back()},
+                                       {"cloudPct", 100.0 * cloud / N}, {"solidPct", 100.0 * solid / N}});
   (void)pct;
 }
 

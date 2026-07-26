@@ -13,10 +13,13 @@
 #include "FBMissionBoot.h"
 #include "FBTerrainLoader.h"
 #include "FBTelemetry.h"
+#include "FBTelemetrySinks.h"
+#include "FBFdmTelemetrySource.h"
+#include "FBLog.h"
+#include "FBLogSinks.h"
 #include "jsbsim_adapter.h"
 #include <cerrno>
 #include <cmath>
-#include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -170,7 +173,7 @@ int RunCloudLab(double lat, double lon, time_t utc, double cloudQ, double ground
   R.SetHud(hs, true);
   R.SetHudEnabled(false);   /* no HUD clutter in the lab cells */
   R.InitOffscreen(W, H);
-  if (!R.Ready()) { fprintf(stderr, "cloudlab: device init failed\n"); return 1; }
+  if (!R.Ready()) { FlightBox::FBLog::Error("cloudlab", "device_init_failed"); return 1; }
 
   if (getenv("FB_SHAPEHIST")) {   /* numeric base-shape histogram, then exit (numbers, not eyes) */
     R.SetCloudLab(cov0, den0, 0.06f, 18.0f, det0);
@@ -184,13 +187,14 @@ int RunCloudLab(double lat, double lon, time_t utc, double cloudQ, double ground
     R.ResetCloudHistory();
     for (int f = 0; f < frames; f++) R.RenderFrame();
     std::vector<uint8_t> img;
-    if (!R.ReadPixels(img)) { fprintf(stderr, "cloudcell: readback failed\n"); return 1; }
+    if (!R.ReadPixels(img)) { FlightBox::FBLog::Error("cloudlab", "readback_failed"); return 1; }
     char cpath[512];
     snprintf(cpath, sizeof cpath, "%s/cloudcell_cov%.2f_den%.1f_det%.1f_p%.1f.png",
              outDir.c_str(), cov0, den0, det0, (double)hs.pitch);
     stbi_write_png(cpath, W, H, 4, img.data(), W * 4);
-    printf("[cloudcell] wrote %s (%dx%d) cov=%.2f den=%.1f det=%.1f pitch=%.1f camBelow=%.0f bank=%.0fkm sun_el=%.1f\n",
-           cpath, W, H, cov0, den0, det0, (double)hs.pitch, camBelowM, bankKm, hs.sun_el);
+    FlightBox::FBLog::Info("cloudlab", "wrote_cell", {{"path", cpath}, {"w", W}, {"h", H}, {"cov", (double)cov0},
+        {"den", (double)den0}, {"det", (double)det0}, {"pitch", (double)hs.pitch}, {"camBelow", camBelowM},
+        {"bankKm", bankKm}, {"sunEl", (double)hs.sun_el}});
     return 0;
   }
   const int cols = 4, rows = 3, cw = W / 4, ch = H / 4, gw = cols * cw, gh = rows * ch;
@@ -198,8 +202,8 @@ int RunCloudLab(double lat, double lon, time_t utc, double cloudQ, double ground
   float lox, hix, loy, hiy;
   LabRange(labx, lox, hix);
   LabRange(laby, loy, hiy);
-  printf("[cloudlab] grid %dx%d cells, columns=%s [%.3f..%.3f], rows=%s [%.3f..%.3f], sun el=%.1f\n",
-         cols, rows, labx.c_str(), lox, hix, laby.c_str(), loy, hiy, hs.sun_el);
+  FlightBox::FBLog::Info("cloudlab", "grid", {{"cols", cols}, {"rows", rows}, {"labx", labx}, {"lox", (double)lox},
+      {"hix", (double)hix}, {"laby", laby}, {"loy", (double)loy}, {"hiy", (double)hiy}, {"sunEl", (double)hs.sun_el}});
   for (int r = 0; r < rows; r++)
     for (int c = 0; c < cols; c++) {
       float cov = 0.55f, den = 5.0f, ext = 0.06f, sun = 18.0f, det = 1.3f;
@@ -214,7 +218,7 @@ int RunCloudLab(double lat, double lon, time_t utc, double cloudQ, double ground
       R.ResetCloudHistory();                 /* fresh accumulation per cell */
       for (int f = 0; f < 24; f++) R.RenderFrame();   /* let the temporal history converge */
       std::vector<uint8_t> img;
-      if (!R.ReadPixels(img)) { fprintf(stderr, "cloudlab: readback failed\n"); return 1; }
+      if (!R.ReadPixels(img)) { FlightBox::FBLog::Error("cloudlab", "readback_failed"); return 1; }
       for (int y = 0; y < ch; y++)
         for (int x = 0; x < cw; x++) {   /* 4x4 box downscale W*H -> cw*ch */
           int sr = 0, sg = 0, sb = 0;
@@ -226,31 +230,19 @@ int RunCloudLab(double lat, double lon, time_t utc, double cloudQ, double ground
           uint8_t *d = &grid[(((size_t)(r * ch + y) * gw) + c * cw + x) * 4];
           d[0] = (uint8_t)(sr / 16); d[1] = (uint8_t)(sg / 16); d[2] = (uint8_t)(sb / 16); d[3] = 255;
         }
-      printf("[cloudlab] cell col=%d row=%d  %s=%.3f  %s=%.3f\n", c, r, labx.c_str(), vx, laby.c_str(), vy);
+      FlightBox::FBLog::Debug("cloudlab", "cell", {{"col", c}, {"row", r}, {"labx", labx}, {"vx", (double)vx},
+                                                   {"laby", laby}, {"vy", (double)vy}});
     }
   char path[512];
   snprintf(path, sizeof path, "%s/cloudlab_%s_x_%s.png", outDir.c_str(), labx.c_str(), laby.c_str());
   stbi_write_png(path, gw, gh, 4, grid.data(), gw * 4);
-  printf("[cloudlab] wrote %s (%dx%d)\n", path, gw, gh);
-  printf("[cloudlab] REF: cauliflower silhouette | flat-ish base | self-shadow (dark base, lit top) | "
-         "sun-side edge light | NO straight edges >20px\n");
+  FlightBox::FBLog::Info("cloudlab", "wrote_grid", {{"path", path}, {"w", gw}, {"h", gh},
+      {"ref", "cauliflower silhouette, flat-ish base, self-shadow, sun-side edge light, no straight edges >20px"}});
   return 0;
 }
 
-const char *PhaseStr(FlightBox::FBPilot::Phase p) {
-  switch (p) {
-    case FlightBox::FBPilot::Phase::Idle: return "Idle";
-    case FlightBox::FBPilot::Phase::Preflight: return "Preflight";
-    case FlightBox::FBPilot::Phase::Takeoff: return "Takeoff";
-    case FlightBox::FBPilot::Phase::Climb: return "Climb";
-    case FlightBox::FBPilot::Phase::Route: return "Route";
-    case FlightBox::FBPilot::Phase::Approach: return "Approach";
-    case FlightBox::FBPilot::Phase::Flare: return "Flare";
-    case FlightBox::FBPilot::Phase::Rollout: return "Rollout";
-    case FlightBox::FBPilot::Phase::Shutdown: return "Shutdown";
-  }
-  return "?";
-}
+/* Phase name: FlightBox::FBPilot::PhaseName (systems/FBPilot.h) — one definition, shared with the
+ * telemetry Bus's "phase" channel instead of a second local switch here. */
 
 enum class FBMissionResult { Success, Fail, Crash, Timeout };
 const char *ResultStr(FBMissionResult r) {
@@ -278,19 +270,6 @@ bool OnRunway(const FlightBox::FBRunway &rwy, double lat, double lon, double mar
   return along >= -marginAlongM && along <= rwy.LengthM + marginAlongM && std::fabs(across) <= halfW;
 }
 
-void WriteCsvHeader(FILE *f) {
-  fprintf(f, "t,phase,lat,lon,altM,aglM,casKt,mach,vsMs,pitchDeg,rollDeg,hdgDeg,aoaDeg,nz,throttleNorm,"
-             "gearPos,wow,speedbrake,activeWp,distToWpM\n");
-}
-
-void WriteCsvRow(FILE *f, double t, FlightBox::FBPilot::Phase phase, const fb_fdm_state &s, double groundAsl,
-                 double throttleNorm, double gearPos, int wow, double speedbrake, int activeWp, double distToWpM) {
-  const double kMsToKt = 1.9438444924406;
-  fprintf(f, "%.2f,%s,%.6f,%.6f,%.1f,%.1f,%.2f,%.4f,%.2f,%.2f,%.2f,%.1f,%.2f,%.3f,%.3f,%.3f,%d,%.3f,%d,%.0f\n",
-          t, PhaseStr(phase), s.lat, s.lon, s.elev, s.elev - groundAsl, s.cas * kMsToKt, s.mach, s.vy,
-          s.pitch, s.roll, s.yaw, s.alphaDeg, s.nz, throttleNorm, gearPos, wow, speedbrake, activeWp, distToWpM);
-}
-
 /* --mission: ground-spawns the mission's F-16 on its runway threshold via FBMissionGroundSpawn (WOW=1,
  * engines running, wheel brakes set, FBAutopilot in neutral Manual so the FLCS holds wings-level/
  * idle-throttle until FBPilot's Preflight hold ends) and steps it headless — FBPilot's phase machine
@@ -306,17 +285,22 @@ int RunMission(const std::string &missionPath, double timeoutOverride, double re
   std::string csvPath = outDir + "/telemetry.csv", evPath = outDir + "/events.log";
   FILE *evf = fopen(evPath.c_str(), "w");
   if (!evf) { fprintf(stderr, "mission: cannot open %s for writing\n", evPath.c_str()); return 1; }
-  double tLog0 = 0.0;
-  auto logEvent = [&](double t, const char *fmt, ...) {
-    fprintf(evf, "t=%.1f ", t);
-    va_list ap; va_start(ap, fmt); vfprintf(evf, fmt, ap); va_end(ap);
-    fprintf(evf, "\n"); fflush(evf);
-  };
+
+  /* FBLog wiring for the whole runner: events.log (the file sink) + stdout (console visibility during
+   * an interactive dev run) — every FBLog call site anywhere in the program (fdm/render/world/systems)
+   * lands in both from here on. FBLog::SetTime(simT) below keeps every line's t= correlated with the
+   * telemetry CSV's own t column. */
+  FlightBox::FBFileLogSink fileSink(evf);
+  FlightBox::FBStdoutLogSink stdoutSink;
+  FlightBox::FBCompositeLogSink logSink;
+  logSink.Add(&fileSink);
+  logSink.Add(&stdoutSink);
+  FlightBox::FBLog::SetSink(&logSink);
+  FlightBox::FBLog::SetTime(0.0);
 
   std::ifstream in(missionPath);
   if (!in) {
-    fprintf(stderr, "mission: cannot open %s\n", missionPath.c_str());
-    logEvent(tLog0, "RESULT result=FAIL reason=\"cannot open %s\"", missionPath.c_str());
+    FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "cannot open " + missionPath}});
     fclose(evf);
     return 1;
   }
@@ -325,36 +309,34 @@ int RunMission(const std::string &missionPath, double timeoutOverride, double re
   FlightBox::FBMission mission;
   std::string perr;
   if (!FlightBox::FBParseMissionFile(buf.str(), mission, &perr)) {
-    fprintf(stderr, "mission: parse FAILED: %s\n", perr.c_str());
-    logEvent(tLog0, "RESULT result=FAIL reason=\"parse: %s\"", perr.c_str());
+    FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "parse: " + perr}});
     fclose(evf);
     return 1;
   }
 
   double timeoutS = timeoutOverride > 0.0 ? timeoutOverride : mission.TimeoutS;
   const FlightBox::FBRunway &rwy = mission.Runway;
-  logEvent(tLog0, "MISSION_START name=%s runway_hdg=%.0f timeout=%.0f", mission.Name.c_str(),
-           rwy.TrueHeadingDeg, timeoutS);
+  FlightBox::FBLog::Info("mission", "MISSION_START", {{"name", mission.Name}, {"runway_hdg", rwy.TrueHeadingDeg},
+                                                      {"timeout", timeoutS}});
 
   /* fb_stream_ground (and, later, FBWorld::Open) need fb_base set first — fb_stream_open does that
    * (FBTerrainLoader.h banner); the default no-render path never constructs an FBWorld, so it must be
    * called here directly instead of relying on FBWorld::Open to do it. */
   if (!fb_stream_open(base.c_str(), rwy.ThresholdLatDeg, rwy.ThresholdLonDeg, 8)) {
-    fprintf(stderr, "mission: fb_stream_open FAILED (%s)\n", base.c_str());
-    logEvent(tLog0, "RESULT result=FAIL reason=\"stream open\"");
+    FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "stream open"}});
     fclose(evf);
     return 1;
   }
   double groundAsl = fb_stream_ground(rwy.ThresholdLatDeg, rwy.ThresholdLonDeg);
   if (groundAsl <= -1e8) {
-    fprintf(stderr, "mission: fb-tiles unreachable at spawn (%s) — is fb-tiles up?\n", base.c_str());
-    logEvent(tLog0, "RESULT result=FAIL reason=\"tiles unreachable at spawn\"");
+    FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "tiles unreachable at spawn"}});
     fclose(evf);
     return 1;
   }
-  printf("mission: %s spawn %.5f/%.5f DEM ground=%.1f m (mission file elev %.1f m) hdg=%.1f len=%.0f m\n",
-         mission.Name.c_str(), rwy.ThresholdLatDeg, rwy.ThresholdLonDeg, groundAsl, rwy.ThresholdElevM,
-         rwy.TrueHeadingDeg, rwy.LengthM);
+  FlightBox::FBLog::Info("mission", "SPAWN", {{"name", mission.Name}, {"lat", rwy.ThresholdLatDeg},
+                                              {"lon", rwy.ThresholdLonDeg}, {"groundM", groundAsl},
+                                              {"fileElevM", rwy.ThresholdElevM}, {"hdg", rwy.TrueHeadingDeg},
+                                              {"lenM", rwy.LengthM}});
 
   auto F16 = std::make_unique<FlightBox::FBF16Module>();
   fb_fdm_state St{};
@@ -364,8 +346,7 @@ int RunMission(const std::string &missionPath, double timeoutOverride, double re
    * CLAUDE.md's F-16 edge). FBMissionGroundSpawn also arms FBPilot at Preflight — the SAME ground-hold
    * setup FBAppWasm.cpp's mission boot uses (FBMissionBoot.h: no duplicated spawn logic). */
   if (!FlightBox::FBMissionGroundSpawn("vendor/jsbsim/aircraft", mission, groundAsl, *F16, St)) {
-    fprintf(stderr, "mission: JSBSim init FAILED\n");
-    logEvent(tLog0, "RESULT result=FAIL reason=\"jsbsim init\"");
+    FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "jsbsim init"}});
     fclose(evf);
     return 1;
   }
@@ -386,16 +367,14 @@ int RunMission(const std::string &missionPath, double timeoutOverride, double re
       if (fb_load_image_file("flightbox/web/moon.jpg", &moon, &mw, &mh)) { R->SetMoonTexture(moon, mw, mh); free(moon); } }
     W = std::make_unique<FlightBox::FBWorld>();
     if (!W->Open(R.get(), base.c_str(), rwy.ThresholdLatDeg, rwy.ThresholdLonDeg, 32, 30000.0, 512)) {
-      fprintf(stderr, "mission: FBWorld open FAILED — is fb-tiles reachable at %s ?\n", base.c_str());
-      logEvent(tLog0, "RESULT result=FAIL reason=\"world open\"");
+      FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "world open"}});
       fclose(evf);
       return 1;
     }
     R->SetHudDisplay(&F16->Displays());
     R->InitOffscreen(width, height);
     if (!R->Ready()) {
-      fprintf(stderr, "mission: WebGPU device init failed\n");
-      logEvent(tLog0, "RESULT result=FAIL reason=\"gpu init\"");
+      FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "gpu init"}});
       fclose(evf);
       return 1;
     }
@@ -409,12 +388,24 @@ int RunMission(const std::string &missionPath, double timeoutOverride, double re
 
   FILE *csv = fopen(csvPath.c_str(), "w");
   if (!csv) {
-    fprintf(stderr, "mission: cannot open %s for writing\n", csvPath.c_str());
-    logEvent(tLog0, "RESULT result=FAIL reason=\"cannot open telemetry.csv\"");
+    FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "cannot open telemetry.csv"}});
     fclose(evf);
     return 1;
   }
-  WriteCsvHeader(csv);
+
+  /* Telemetry Bus: every source registers once, in the order that becomes the CSV column order (core/
+   * architecture banner). FBFdmTelemetrySource borrows St + groundAsl by reference — both mutate in
+   * place across the loop below, never reallocated, so the borrow stays valid for the Bus's lifetime. */
+  FlightBox::FBFdmTelemetrySource fdmSrc(St, groundAsl);
+  FlightBox::FBCsvTelemetrySink csvSink(csv);
+  FlightBox::FBTelemetryBus bus;
+  bus.Register(&fdmSrc);
+  bus.Register(&F16->AirDataSystem());
+  bus.Register(&F16->PilotSystem());
+  bus.Register(&F16->FlightControl());
+  bus.Register(&F16->Controls());
+  bus.SetSink(&csvSink);
+  bus.Start();
 
   const double dt = 0.1;             /* 10 Hz decision tick == FBF16Module's Sensor/Pilot cadence */
   const double kWpCaptureM = 500.0;  /* generic waypoint capture radius */
@@ -433,12 +424,16 @@ int RunMission(const std::string &missionPath, double timeoutOverride, double re
 
     F16->Run(St, dt, nullptr);   /* world=nullptr: no world-facing system is real yet (FBSystemSlots.h NoOp) */
     simT += dt;
+    FlightBox::FBLog::SetTime(simT);
 
     auto phase = F16->PilotSystem().GetPhase();
-    if (phase != lastPhase) { logEvent(simT, "PHASE from=%s to=%s", PhaseStr(lastPhase), PhaseStr(phase)); lastPhase = phase; }
+    if (phase != lastPhase) {
+      FlightBox::FBLog::Info("pilot", "PHASE", {{"from", FlightBox::FBPilot::PhaseName(lastPhase)},
+                                                {"to", FlightBox::FBPilot::PhaseName(phase)}});
+      lastPhase = phase;
+    }
 
     FlightBox::FBFlightPlan &plan = F16->FlightPlan();
-    int activeWp = plan.ActiveIndex();
     double distToWpM = -1.0;
     if (const FlightBox::FBWaypoint *wp = plan.ActiveWaypoint()) {
       double dy = (St.lat - wp->LatDeg) * 111320.0, dx = (St.lon - wp->LonDeg) * 111320.0 * std::cos(St.lat * kPi / 180.0);
@@ -447,7 +442,8 @@ int RunMission(const std::string &missionPath, double timeoutOverride, double re
     int reachedWp = FlightBox::FBMissionAdvanceWaypoint(plan, St.lat, St.lon, kWpCaptureM);
     if (reachedWp >= 0) {
       const FlightBox::FBWaypoint &wp = plan.At(reachedWp);
-      logEvent(simT, "WP_REACHED idx=%d lat=%.5f lon=%.5f distM=%.0f", reachedWp, wp.LatDeg, wp.LonDeg, distToWpM);
+      FlightBox::FBLog::Info("pilot", "WP_REACHED", {{"idx", reachedWp}, {"lat", wp.LatDeg}, {"lon", wp.LonDeg},
+                                                     {"distM", distToWpM}});
     }
 
     /* AoA is numerically undefined at near-zero airspeed (atan2 of two near-zero velocity components) —
@@ -455,13 +451,19 @@ int RunMission(const std::string &missionPath, double timeoutOverride, double re
      * up to ~168 deg for <2s after a ground spawn, see the mission-format proof run); gate both checks on
      * a real airspeed the same way a real AoA/Mach indicator is unreliable/inhibited near zero. */
     bool haveAirspeed = St.cas > 15.0;   /* ~30 kt */
-    if (haveAirspeed && St.alphaDeg > 25.0 && !warnedStall) { logEvent(simT, "WARN kind=stall aoaDeg=%.1f", St.alphaDeg); warnedStall = true; }
-    else if (!haveAirspeed || St.alphaDeg < 20.0) warnedStall = false;
-    if (St.mach > 1.2 && !warnedOverspeed) { logEvent(simT, "WARN kind=overspeed mach=%.2f", St.mach); warnedOverspeed = true; }
-    else if (St.mach < 1.1) warnedOverspeed = false;
+    if (haveAirspeed && St.alphaDeg > 25.0 && !warnedStall) {
+      FlightBox::FBLog::Warn("pilot", "WARN", {{"kind", "stall"}, {"aoaDeg", St.alphaDeg}});
+      warnedStall = true;
+    } else if (!haveAirspeed || St.alphaDeg < 20.0) warnedStall = false;
+    if (St.mach > 1.2 && !warnedOverspeed) {
+      FlightBox::FBLog::Warn("pilot", "WARN", {{"kind", "overspeed"}, {"mach", St.mach}});
+      warnedOverspeed = true;
+    } else if (St.mach < 1.1) warnedOverspeed = false;
     double aglM = St.elev - groundAsl;
-    if (aglM < 150.0 && St.vy < -15.0 && !warnedSink) { logEvent(simT, "WARN kind=sink vsMs=%.1f aglM=%.0f", St.vy, aglM); warnedSink = true; }
-    else if (St.vy > -5.0) warnedSink = false;
+    if (aglM < 150.0 && St.vy < -15.0 && !warnedSink) {
+      FlightBox::FBLog::Warn("pilot", "WARN", {{"kind", "sink"}, {"vsMs", St.vy}, {"aglM", aglM}});
+      warnedSink = true;
+    } else if (St.vy > -5.0) warnedSink = false;
 
     bool wow = fb_jsbsim_get_wow(-1) != 0;
     bool penetration = aglM < -3.0;
@@ -470,14 +472,12 @@ int RunMission(const std::string &missionPath, double timeoutOverride, double re
       result = FBMissionResult::Crash;
       reason = penetration ? "ground penetration" : "hard contact off the runway";
       F16->Controls().EngineCutoff();   /* CLAUDE.md: crash -> motor aus, ground reactions do the rest */
-      logEvent(simT, "WARN kind=crash detail=\"%s\" lat=%.5f lon=%.5f aglM=%.1f", reason.c_str(), St.lat, St.lon, aglM);
+      FlightBox::FBLog::Warn("pilot", "WARN", {{"kind", "crash"}, {"detail", reason}, {"lat", St.lat},
+                                               {"lon", St.lon}, {"aglM", aglM}});
       break;
     }
 
-    double throttle = fb_jsbsim_get_throttle();
-    double gearPos = fb_jsbsim_get_gear_pos();
-    double speedbrake = fb_jsbsim_get_speedbrake_pos();
-    WriteCsvRow(csv, simT, phase, St, groundAsl, throttle, gearPos, wow ? 1 : 0, speedbrake, activeWp, distToWpM);
+    bus.Tick(simT);
 
     if (wantRender) {
       renderAcc += dt;
@@ -502,7 +502,7 @@ int RunMission(const std::string &missionPath, double timeoutOverride, double re
           char path[512];
           snprintf(path, sizeof path, "%s/mission_%04d.png", outDir.c_str(), shot++);
           if (stbi_write_png(path, width, height, 4, rgba.data(), width * 4))
-            printf("gpu_native --mission: wrote %s\n", path);
+            FlightBox::FBLog::Debug("mission", "frame_written", {{"path", path}});
         }
       }
     }
@@ -511,14 +511,17 @@ int RunMission(const std::string &missionPath, double timeoutOverride, double re
   }
 
   double wallS = (double)(clock() - wallStart) / CLOCKS_PER_SEC;
-  logEvent(simT, "RESULT result=%s reason=\"%s\" phase=%s lat=%.5f lon=%.5f altM=%.1f durationS=%.1f",
-           ResultStr(result), reason.c_str(), PhaseStr(F16->PilotSystem().GetPhase()), St.lat, St.lon, St.elev, simT);
+  FlightBox::FBLog::SetTime(simT);
+  FlightBox::FBLog::Info("mission", "RESULT", {{"result", ResultStr(result)}, {"reason", reason},
+      {"phase", FlightBox::FBPilot::PhaseName(F16->PilotSystem().GetPhase())}, {"lat", St.lat}, {"lon", St.lon},
+      {"altM", St.elev}, {"durationS", simT}});
+  FlightBox::FBLog::Info("mission", "SUMMARY", {{"result", ResultStr(result)}, {"durationS", simT},
+      {"wallS", wallS}, {"speedup", wallS > 0.0 ? simT / wallS : 0.0},
+      {"phase", FlightBox::FBPilot::PhaseName(F16->PilotSystem().GetPhase())}, {"lat", St.lat}, {"lon", St.lon},
+      {"altM", St.elev}});
+  FlightBox::FBLog::SetSink(nullptr);   /* evf is about to close — no FBLog call may reach it after this */
   fclose(evf);
   fclose(csv);
-
-  printf("summary result=%s durationS=%.1f wallS=%.2f speedup=%.0fx phase=%s lat=%.5f lon=%.5f altM=%.1f\n",
-         ResultStr(result), simT, wallS, wallS > 0.0 ? simT / wallS : 0.0,
-         PhaseStr(F16->PilotSystem().GetPhase()), St.lat, St.lon, St.elev);
 
   switch (result) {
     case FBMissionResult::Success: return 0;
@@ -577,6 +580,13 @@ int main(int argc, char **argv) {
   }
   if (!EnsureDir(outDir)) { fprintf(stderr, "gpu_native: cannot create --out %s\n", outDir.c_str()); return 1; }
 
+  /* RunMission installs its OWN sink (events.log + stdout) — everything else here (cloudlab/cloudcell/
+   * the plain screenshot path) just wants console visibility. Debug: nothing used to be filtered
+   * (every migrated call site printed unconditionally before this change). */
+  static FlightBox::FBStdoutLogSink gStdoutSink;
+  FlightBox::FBLog::SetSink(&gStdoutSink);
+  FlightBox::FBLog::SetLevel(FlightBox::FBLogLevel::Debug);
+
   if (!missionPath.empty())
     return RunMission(missionPath, missionTimeout, intervalSet ? interval : 0.0, base, outDir);
   if (cloudLab)
@@ -616,8 +626,9 @@ int main(int argc, char **argv) {
   time_t clk = utc ? utc : time(nullptr);
   FlightBox::SunPos(lat, lon, clk, &hs.sun_el, &hs.sun_az);
   FlightBox::MoonPos(lat, lon, clk, &hs.moon_el, &hs.moon_az, &hs.moon_phase);
-  printf("gpu_native: utc=%ld sun el=%.1f az=%.1f | moon el=%.1f az=%.1f phase=%.2f\n",
-         (long)clk, hs.sun_el, hs.sun_az, hs.moon_el, hs.moon_az, hs.moon_phase);
+  FlightBox::FBLog::Info("gpu", "ephemeris", {{"utc", (int)clk}, {"sunEl", (double)hs.sun_el},
+      {"sunAz", (double)hs.sun_az}, {"moonEl", (double)hs.moon_el}, {"moonAz", (double)hs.moon_az},
+      {"moonPhase", (double)hs.moon_phase}});
 
   FlightBox::FBRenderer R;
   R.SetStreaming(512);
@@ -630,30 +641,30 @@ int main(int argc, char **argv) {
     uint8_t *moon = 0; int mw = 0, mh = 0;
     if (fb_load_image_file(moonPath.c_str(), &moon, &mw, &mh)) {
       R.SetMoonTexture(moon, mw, mh); free(moon);
-      printf("gpu_native: moon texture %dx%d (%s)\n", mw, mh, moonPath.c_str());
-    } else printf("gpu_native: moon texture missing (%s) — grey fallback\n", moonPath.c_str());
+      FlightBox::FBLog::Info("gpu", "moon_texture", {{"w", mw}, {"h", mh}, {"path", moonPath}});
+    } else FlightBox::FBLog::Warn("gpu", "moon_texture_missing", {{"path", moonPath}});
     static uint8_t stars[262144];
     int sn = fb_fetch_stars(base.c_str(), stars, (int)sizeof stars);
-    if (sn > 0) { R.SetStars(stars, sn, lat, lon); printf("gpu_native: star catalogue %d bytes (%d stars)\n", sn, sn / 6); }
-    else printf("gpu_native: star catalogue unreachable (%s/t/stars)\n", base.c_str());
+    if (sn > 0) { R.SetStars(stars, sn, lat, lon); FlightBox::FBLog::Info("gpu", "star_catalogue", {{"bytes", sn}, {"stars", sn / 6}}); }
+    else FlightBox::FBLog::Warn("gpu", "star_catalogue_unreachable", {{"base", base}});
   }
   R.SetCamera(eye, target);
   R.SetHud(hs, true);
   static FlightBox::FBDisplaySystem hudDisplay;   /* no live module here — the generic default HUD */
   R.SetHudDisplay(&hudDisplay);
   R.InitOffscreen(width, height);
-  if (!R.Ready()) { fprintf(stderr, "gpu_native: WebGPU device init failed\n"); return 1; }
+  if (!R.Ready()) { FlightBox::FBLog::Error("gpu", "device_init_failed"); return 1; }
 
   FlightBox::FBWorld W;
   if (!W.Open(&R, base.c_str(), lat, lon, 32, viewKm * 1000.0, 512)) {
-    fprintf(stderr, "gpu_native: FBWorld open FAILED — is fb-tiles reachable at %s ?\n", base.c_str());
+    FlightBox::FBLog::Error("gpu", "world_open_failed", {{"base", base}});
     return 1;
   }
   W.SetDefaultMode(groundPhoto);
   W.SetGroundMode(groundPhoto);
   W.SetNightLights(groundPhoto && hs.sun_el < -3.0f);   /* EVS night -> stream /t/lights */
-  printf("gpu_native: streaming quadtree at %.4f/%.4f, %.0f m AGL, view %.0f km, albedo=%s, night=%d\n", lat, lon,
-         aglM, viewKm, groundPhoto ? "photo" : "osm", (groundPhoto && hs.sun_el < -3.0f) ? 1 : 0);
+  FlightBox::FBLog::Info("gpu", "streaming_quadtree", {{"lat", lat}, {"lon", lon}, {"aglM", aglM},
+      {"viewKm", viewKm}, {"albedo", groundPhoto ? "photo" : "osm"}, {"night", groundPhoto && hs.sun_el < -3.0f}});
 
   const int totalFrames = (int)(seconds * fps + 0.5);
   const int everyFrames = interval > 0.0 ? (int)(interval * fps + 0.5) : 0;
@@ -665,14 +676,14 @@ int main(int argc, char **argv) {
     bool due = everyFrames > 0 && (f % everyFrames) == (everyFrames - 1);
     if (!due && !(everyFrames == 0 && last)) continue;
     std::vector<uint8_t> rgba;
-    if (!R.ReadPixels(rgba)) { fprintf(stderr, "gpu_native: readback failed at frame %d\n", f); return 1; }
+    if (!R.ReadPixels(rgba)) { FlightBox::FBLog::Error("gpu", "readback_failed", {{"frame", f}}); return 1; }
     char path[512];
     snprintf(path, sizeof path, "%s/frame_%04d.png", outDir.c_str(), shot++);
     if (!stbi_write_png(path, width, height, 4, rgba.data(), width * 4)) {
-      fprintf(stderr, "gpu_native: PNG write failed: %s\n", path);
+      FlightBox::FBLog::Error("gpu", "png_write_failed", {{"path", path}});
       return 1;
     }
-    printf("gpu_native: wrote %s\n", path);
+    FlightBox::FBLog::Info("gpu", "frame_written", {{"path", path}});
   }
   return 0;
 }

@@ -2,6 +2,7 @@
 #include "FBMips.h"
 #include "FBAtmoCommon.h"
 #include "FBAtmoSample.h"
+#include "FBLog.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -403,7 +404,8 @@ void FBTilesStage::UpdatePhotoGains(void) {
                                  * for a diagnostic (not a correctness-sensitive value) */
   frameNoDbg++;
   if (getenv("FB_PHOTO_LOG") && (frameNoDbg % 60) == 0)
-    printf("[photogain] Ytarget=%.4f (near=%d) far=%d avgGain=%.3f\n", PhotoYTarget, n, nfar, nfar ? gsum / nfar : 1.0);
+    FBLog::Debug("render", "photogain", {{"Ytarget", (double)PhotoYTarget}, {"near", n}, {"far", nfar},
+                                         {"avgGain", nfar ? gsum / nfar : 1.0}});
 }
 
 int FBTilesStage::UploadTile(const float *verts, uint32_t nverts, const double origin[3],

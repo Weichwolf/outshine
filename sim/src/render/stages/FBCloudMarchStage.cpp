@@ -2,6 +2,7 @@
 #include "FBAtmoCommon.h"
 #include "FBAtmoSample.h"
 #include "FBCloudNoiseCommon.h"
+#include "FBLog.h"
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -462,9 +463,8 @@ void FBCloudMarchStage::PollTimestamps(void) {
           if (ts && ts[1] > ts[0]) { TsAccumMs += (double)(ts[1] - ts[0]) / 1.0e6; TsCount++; }
           TsReadBuf.Unmap();
           if (TsCount >= 120) {
-            printf("[cloud-perf] avg cloud march pass = %.3f ms/frame over %d frames (real GPU time)\n",
-                   TsAccumMs / TsCount, TsCount);
-            fflush(stdout); TsAccumMs = 0.0; TsCount = 0;
+            FBLog::Debug("render", "cloud_march_perf", {{"msPerFrame", TsAccumMs / TsCount}, {"frames", TsCount}});
+            TsAccumMs = 0.0; TsCount = 0;
           }
         }
         TsMapPending = false;
