@@ -42,6 +42,11 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
       std::getline(ls, rest);
       out.Name = Trim(rest);
       if (out.Name.empty()) return fail("'name' needs a value");
+    } else if (kw == "module") {
+      std::string rest;
+      std::getline(ls, rest);
+      out.ModuleName = Trim(rest);
+      if (out.ModuleName.empty()) return fail("'module' needs a value (e.g. 'module f16')");
     } else if (kw == "runway") {
       double lat, lon, elev, hdg, len;
       if (!(ls >> lat >> lon >> elev >> hdg >> len)) return fail("'runway' needs lat lon elevM hdgDeg lengthM");
@@ -70,6 +75,7 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
   }
 
   if (out.Name.empty()) return fail("mission has no 'name'");
+  if (out.ModuleName.empty()) return fail("mission has no 'module'");
   if (!out.HaveRunway) return fail("mission has no 'runway'");
   if (!haveTimeout) return fail("mission has no 'timeout'");
   return true;

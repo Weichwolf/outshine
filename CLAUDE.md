@@ -15,6 +15,12 @@ fb-tiles (Server: weltweit DEM/OSM/Luftbild)  ──HTTP──▶  Command Cente
                                                             als EIN Prozess (WASM-Browser | native CLI)
 ```
 
+FlightBox Core (JSBSim-Sim + Module + Missionen + KI) ist eine **reine Bibliothek** (`sim/`s
+`core-lib`-Target, `build/libfbcore.a`); drei **Clients** linken dagegen: **gym** (headless, Mission
+rein → Telemetrie raus, KEIN Renderer/GPU), **native** (der Referenz-Renderer/Frame-Orakel — Dawn,
+`--mission --interval`, Screenshot-Modi) und **wasm** (der Browser). Details: `## Core-Lib + Clients`
+unten.
+
 **libJSBSim kompiliert DIREKT ins Command Center** — WASM (Browser, via Emscripten) und native CLI.
 Physik, Regelung und Rendering teilen **einen** Adressraum: die Kamera liest den JSBSim-Zustand
 direkt. **Kein iNav, kein Wire-Protokoll, kein separater World-Prozess, kein Hub.** Server-seitig
@@ -78,6 +84,70 @@ Aero/Masse/Antrieb + Engine-Daten). Die F-16 fliegt das vanilla Modell aus dem g
   überbrückt sie, sonst zwei genestete Rate-Loops.
 - Aircraft-XML trägt EIGENE Lizenz (F-16 = GPL; die meisten LGPL) — Attribution per Datei.
 
+## Core-Lib + Clients (gym/native/wasm)
+
+**Lib/Client-Split:** `sim/`s `core-lib`-Target baut den Simulator selbst — `core/` + `fdm/` +
+`systems/` + `modules/` (inkl. F-16) + `units/` + den `.fbm`-Parser + libJSBSim, EINMAL, als natives
+Archiv `build/libfbcore.a` — zu **einer** Bibliothek. `render/` und das `world/`-Tile-Streaming gehören
+NICHT dazu (eine Ausnahme: `render/FBHudGeometry.cpp`, reine CPU-Vertexlisten-Mathematik ohne WebGPU/
+Dawn-Include, die `systems/FBDisplaySystem` strukturell braucht). WASM ist ein ANDERES Toolchain-Target
+(emcc/wasm32) und kompiliert dieselbe Quelldatei-Liste zwangsläufig selbst nach (Cross-Compile, keine
+Duplikation der Architektur).
+
+Drei Clients linken/kompilieren dagegen:
+
+- **`fb-gym`** (`app/FBAppGym.cpp` + `app/FBMissionRunner.cpp`, `make -C sim gym` →
+  `build/fb-gym`) — headless: `--mission FILE [--out DIR] [--timeout N] [--elev tiles|const|swiss]`.
+  KEIN Dawn-/wgpu-Symbol im Binary (verifiziert per `nm`). Der Missions-Kern (Prinzip 4: so schnell wie
+  die Maschine kann).
+- **`gpu_native`** (`app/FBAppNative.cpp`, `make -C sim native`) — der Referenz-Renderer/Frame-Orakel:
+  `--mission --interval` (PNG-Beweisframes on top of derselben `FBRunMission`-Schleife, über einen
+  GPU-freien `FBMissionTickHook`, den nur `FBAppNative.cpp` mit einem echten `FBRenderer`/`FBWorld`
+  implementiert) + der No-Module-Screenshot-Modus. `--mission` OHNE `--interval` bleibt headless (`wie
+  bisher`, Regressions-Kennzahlen unverändert).
+- **wasm** (`app/FBAppWasm.cpp`, `make -C sim wasm`) — der Browser, Verhalten unverändert.
+
+**Ausblick Multi-Unit (beschlossen, noch nicht gebaut):** Missionen beschreiben künftig einen VERBAND
+mehrerer Einheiten/Module verschiedener Fraktionen (je Unit: Modul, Fraktion, Flightplan/Ziele — z.B.
+F-16 vs. MiG-29 im Gym; evolutionäre Piloten-Turniere über Telemetrie-Fitness). Dafür festgelegt:
+**Multi-Threading ist ein reines GYM-Feature** — Thread pro Unit mit EIGENER JSBSim-Instanz, Lockstep-
+Barrier pro Tick, Cross-Unit-Lesezugriffe (Sensoren/Waffen) nur auf den SNAPSHOT des letzten Ticks →
+bit-reproduzierbar (Prinzip 4). native/wasm bleiben Single-Thread im Sim-Loop (Echtzeit braucht keine
+Parallelphysik; der Browser erspart sich den pthreads/SharedArrayBuffer-Build). Voraussetzung: der
+fdm/-Adapter wird instanzfähig (ein FBFdm-Objekt pro Unit statt der heutigen einen globalen Instanz);
+Telemetrie-/Log-Sinks dann per-Thread gepuffert und am Barrier gemerged.
+
+**Der Missions-Runner kennt KEIN Flugzeug — nur `FBModule` + dessen `FBPilot`.** Eine `.fbm`-Zeile
+`module <name>` (Pflichtfeld, `doc/mission-format.md`) wählt das Modul über `modules/FBModuleRegistry`
+(Name → Factory, `std::unique_ptr<FBModule>`; heute registriert nur `modules/f16/
+FBF16ModuleRegistration.cpp` den Namen `"f16"`). `FBMissionRunner.cpp`/`FBAppGym.cpp` inkludieren NIE
+einen konkreten Modul-Header — sie halten alles über `FBModule`s generische Accessoren
+(`Autopilot()`/`FlightControl()`/`PilotSystem()`/`Controls()`/`Displays()`/`AirDataSystem()`/
+`FlightPlan()`/`Telemetry()`/`SetRunway()`/`SetGroundAsl()`, auf der Basisklasse selbst deklariert —
+CLAUDE.md's "FBCore → Interface → Default → Override" jetzt auch für den Modul-ZUGRIFF, nicht nur
+dessen Verhalten). Eine `.fbm`-Datei beschreibt heute genau EIN Modul — eine Eigenschaft des
+Runners, keine Grenze des Datenmodells: eine künftige Mehr-Einheiten-Mission (ein Verband aus mehreren
+Modulen/Fraktionen) ist `FBMission` mit einer LISTE solcher Pro-Einheit-Blöcke, keine Neukonstruktion.
+
+**Elevation-Hook:** jeder Core-Konsument von Bodenhöhe (Missions-Ground-Spawn, AGL/Radar-Alt,
+Crash-Erkennung) läuft über `FBElevationProvider` (`core/FBElevationProvider.h`,
+`GroundElevM(lat,lon)` + eine `GroundElevPatch`-Flächenabfrage fürs künftige Terrain-Sampling), nie über
+einen hartverdrahteten fb-tiles-Wire. Drei Implementierungen:
+
+- `FBConstantElevation` (`core/`) — das primitive Fundament, eine feste Höhe überall.
+- `FBRunwayPlateauElevation` (`core/`, Gym-Default `--elev const`) — eine Mission kann MEHRERE Runways
+  bei unterschiedlicher Höhe haben (Start + künftiges `dest_runway`); dieser Provider hält alle
+  Runways der Mission und liefert je Punkt: innerhalb Footprint+~5 km Marge die Runway-eigene Höhe,
+  dann ~10 km Smoothstep-Falloff auf eine flache 0-m-Basis (überlappende Plateaus folgen der
+  NÄHEREN Runway — die einfachste stetige Wahl). Kein Netz, kein Daten-Asset nötig.
+- `FBTilesElevation` (`world/FBTilesElevation.h`, native+WASM) — dünner Pass-through auf das
+  bestehende `fb_stream_ground`/`fb_stream_open` (unverändert, gleiche Zahlen).
+- `FBBakedDemElevation` (`core/`, Gym `--elev swiss`) — lädt ein eingebackenes DEM-Raster
+  (`sim/assets/swiss-dem-90m.bin`, `sim/tools/bake_swiss_dem.py` — Insel-Bbox 5.96–10.49°E/
+  45.82–47.81°N, 90 m, ~18,9 MB, außerhalb/am Rand [~15 km Blend] 0 m), bilinear; außerhalb der Box
+  0 m. Gym-Default: `swiss` wenn das Asset vorhanden ist, sonst `const` — ein bare `fb-gym --mission
+  FILE` läuft immer, Netz oder nicht.
+
 ## Sprache & Struktur
 
 **C++ (C++17, wie JSBSim), nicht C.** Ordentliche Klassen nach C++-Best-Practice — RAII, klare
@@ -94,9 +164,15 @@ Override**, nicht "gehört der F-16":
 
 ```
 sim/src/
-  app/       Einstiegspunkte + App-Lifecycle (FBAppWasm, FBAppNative, FBSimHost, FBTileWorkerMain)
+  app/       Einstiegspunkte + App-Lifecycle: FBAppWasm, FBAppNative (native, s.o.), FBAppGym (der
+             Gym-Client, s.o.), FBSimHost, FBTileWorkerMain; FBMissionRunner.h/.cpp (der geteilte,
+             GPU-freie Missions-Kern — FBRunMission, FBMissionTickHook — den FBAppNative UND
+             FBAppGym treiben, s.o.), FBMissionBoot.h (Ground-Spawn, generisch über FBModule&, kein
+             konkreter Modultyp), FBLogSinks/FBTelemetrySinks (die I/O-Sink-Implementierungen)
   core/      FBState, FBMode, FBMasterMode, FBFlightPlan/FBRunway (Wegpunkt-/Runway-Value-Types für
-             FBPilot), gemeinsame Basistypen — zeigt NIE nach systems/ oder modules/. Zwei getrennte
+             FBPilot), FBMissionFile (`.fbm`-Parser, trägt jetzt `ModuleName`), der Elevation-Hook
+             (FBElevationProvider/FBConstantElevation/FBRunwayPlateauElevation/FBBakedDemElevation,
+             s.o.), gemeinsame Basistypen — zeigt NIE nach systems/ oder modules/. Zwei getrennte
              Kanäle für alles, was sonst verstreutes printf/fprintf wäre:
                FBLog (`FBLog.h/.cpp`) — diskrete, geleveled Ereignisse (Debug/Info/Warn/Error), ein
                `tag` + `event` + strukturierte key=val-Felder (`FBLog::Warn("pilot", "sink_rate_high",
@@ -149,7 +225,8 @@ sim/src/
              (jedes `R"(`-WGSL lebt in genau einer stages/-Datei, `grep -c 'R"(' FBRenderer.cpp` == 0)
              — der Render-Stage-Split ist damit abgeschlossen.
   world/     FBWorld, FBTerrainField, FBTerrainLoader (Tile-Streaming/Worker-Anbindung; FBWorld hält
-             zusätzlich die geborgte FBUnit-Registry, s.u. units/)
+             zusätzlich die geborgte FBUnit-Registry, s.u. units/), FBTilesElevation (der
+             Elevation-Hook-Provider auf fb_stream_ground, s.o. — NICHT Teil der Core-Lib)
   units/     FBUnit-Basisschnittstelle + FBOwnshipUnit (Details s.u., nach dem Verzeichnisbaum)
   systems/   die generischen, airframe-agnostischen System-Slots eines Moduls — Interface + Default
              in EINER Klasse, ein Modul überschreibt per Ableitung (Zahlen-Tuning bleibt Preset/
@@ -195,10 +272,13 @@ sim/src/
              NAMENTLICH gerufene Symbole. FBFdmTelemetrySource (`.h/.cpp`) ist die Telemetrie-Source
              für die rohe FDM-Pose (lat/lon/alt/AGL/Lage) — an der Adapter-Naht, weil `fb_fdm_state`
              dessen eigenes POD ist; borgt den FDM-Zustand + die vom Aufrufer aufgelöste Boden-ASL.
-  modules/   FBModule-Basisschnittstelle (`Run(fb_fdm_state&, dt, const FBWorld*)`, App hält jedes
-             Modul dahinter polymorph; ein Modul cycelt seine Systeme intern, jedes im eigenen Takt —
-             Peers rufen sich nie gegenseitig)
-  modules/f16/           das F-16-Modul: FBF16Module komponiert die systems/-DEFAULTS (FBAutopilot/
+  modules/   FBModule-Basisschnittstelle (`Run(fb_fdm_state&, dt, const FBWorld*)` PLUS die generischen
+             System-Accessoren, s.o. "Der Missions-Runner kennt kein Flugzeug"; App hält jedes Modul
+             dahinter polymorph; ein Modul cycelt seine Systeme intern, jedes im eigenen Takt — Peers
+             rufen sich nie gegenseitig), FBModuleRegistry.h/.cpp (Name→Factory, s.o.)
+  modules/f16/           FBF16ModuleRegistration.cpp registriert `"f16"` bei FBModuleRegistry (s.o.) —
+                         die EINE Datei außerhalb der Registry selbst, die FBF16Module.h nennt.
+                         das F-16-Modul: FBF16Module komponiert die systems/-DEFAULTS (FBAutopilot/
                          FBFlightControl/FBAirDataSystem/FBRadarAltimeter/FBNavSystem unverändert) mit
                          dem F-16-Gain-Preset (FBFlightControl::F16()), besitzt den Piloten (FBF16Pilot,
                          `.h/.cpp`) und die Ownship-Airframe-Controls (FBJsbsimAirframeControls) und
@@ -253,8 +333,9 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
 ## Engineering-Konventionen
 
 - **Build nur über Make-Targets** — jedes Projekt trägt sein eigenes Makefile: `sim/` baut die CC
-  (`make -C sim wasm` | `worker` | `native` | `image` | `up`), `tiles/` den Tile-Server
-  (`make -C tiles build` | `image` | `run`). Rezepte leben im Makefile, nicht in Agenten-Köpfen.
+  (`make -C sim wasm` | `worker` | `core-lib` | `native` | `gym` | `image` | `up`), `tiles/` den
+  Tile-Server (`make -C tiles build` | `image` | `run`). Rezepte leben im Makefile, nicht in
+  Agenten-Köpfen.
 - **`extern "C"` für jede von JS namentlich gerufene Funktion** (EMSCRIPTEN_KEEPALIVE reicht nicht —
   Mangling bricht Exporte still).
 - **Frame-Beweis-Pflicht:** build-wirksame Änderungen gelten erst mit gerendertem Frame oder
@@ -271,15 +352,17 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
   in einen lokalen Puffer ist überall erlaubt (kein `FILE*`/`fstream`).
 - **Missions-Regelkreis (Pilot-KI-Entwicklung):** Mission definieren → headless bis Abschluss/Fehler/
   Crash simulieren → Telemetrie maschinell analysieren → Korrektur → Loop. Format: `.fbm`
-  (zeilenbasiert, zero-dependency, `doc/mission-format.md`), geparst von `core/FBMissionFile.h`
-  (reine Text→`FBMission`-Funktion, kein File-I/O — das macht die App). Runner: `gpu_native --mission
-  FILE` (`FBAppNative`, nativ-only) spawnt am Boden auf der Runway-Schwelle (DEM-Elevation, WOW=1,
-  Triebwerk läuft) und treibt die Sim-Sekunden so schnell wie möglich (Prinzip 4) — der Default-Pfad
-  ist reines JSBSim+`FBTerrainField`, KEIN Renderer/GPU-Gerät; `--interval` schaltet periodische
-  Beweis-Frames dazu (Renderer bleibt Bolt-on, nie Abhängigkeit der Physik-/Terminierungs-Logik).
-  Terminierung SUCCESS/FAIL/CRASH/TIMEOUT → Exit-Codes 0/1/2/3, worauf der Regelkreis branch. Telemetrie
-  je Lauf in `--out/`: `telemetry.csv` (10 Hz, feste Spaltenzahl) + `events.log`
-  (`t=SEK EVENT key=val`, greppbar) — das Analyse-Werkzeug für die Pilot-KI, kein Produktionspfad.
+  (zeilenbasiert, zero-dependency, `doc/mission-format.md` — `name`/`module`/`runway`/`timeout` sind
+  Pflicht), geparst von `core/FBMissionFile.h` (reine Text→`FBMission`-Funktion, kein File-I/O — das
+  macht die App). Runner: `FBRunMission` (`app/FBMissionRunner.cpp`, geteilt von `fb-gym` und
+  `gpu_native --mission`) löst `module` über `FBModuleRegistry` auf, spawnt am Boden auf der
+  Runway-Schwelle (Elevation-Hook, s.o., WOW=1, Triebwerk läuft) und treibt die Sim-Sekunden so
+  schnell wie möglich (Prinzip 4) — `fb-gym` ist reines JSBSim, KEIN Renderer/GPU-Gerät; native
+  `--interval` schaltet periodische Beweis-Frames über einen GPU-freien Hook dazu (Renderer bleibt
+  Bolt-on, nie Abhängigkeit der Physik-/Terminierungs-Logik). Terminierung SUCCESS/FAIL/CRASH/TIMEOUT
+  → Exit-Codes 0/1/2/3, worauf der Regelkreis branch. Telemetrie je Lauf in `--out/`: `telemetry.csv`
+  (10 Hz, feste Spaltenzahl) + `events.log` (`t=SEK EVENT key=val`, greppbar) — das Analyse-Werkzeug
+  für die Pilot-KI, kein Produktionspfad.
 
 ## Rendering (das Herzstück)
 

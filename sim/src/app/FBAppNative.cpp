@@ -8,13 +8,9 @@
 #include "FBRenderer.h"
 #include "FBWorld.h"
 #include "FBEphemeris.h"
-#include "FBF16Module.h"
-#include "FBMissionFile.h"
-#include "FBMissionBoot.h"
+#include "FBMissionRunner.h"
 #include "FBTerrainLoader.h"
-#include "FBTelemetry.h"
-#include "FBTelemetrySinks.h"
-#include "FBFdmTelemetrySource.h"
+#include "FBTilesElevation.h"
 #include "FBLog.h"
 #include "FBLogSinks.h"
 #include "jsbsim_adapter.h"
@@ -86,19 +82,6 @@ static void CameraBasis(double yawDeg, double pitchDeg, double rollDeg, double l
 
 namespace {
 
-bool EnsureDir(const std::string &dir) {
-  std::string cur;
-  for (size_t i = 0; i <= dir.size(); i++) {
-    if (i == dir.size() || dir[i] == '/') {
-      if (!cur.empty() && mkdir(cur.c_str(), 0755) != 0 && errno != EEXIST) return false;
-      if (i < dir.size()) cur += '/';
-    } else {
-      cur += dir[i];
-    }
-  }
-  return true;
-}
-
 void Usage(const char *argv0) {
   fprintf(stderr,
           "usage: %s [--lat D] [--lon D] [--ground M] [--agl M] [--view KM] [--yaw DEG] [--pitch DEG]\n"
@@ -107,7 +90,7 @@ void Usage(const char *argv0) {
           "  --cloudlab [--labx PARAM] [--laby PARAM]  render an N x M cloud-parameter grid to ONE PNG.\n"
           "    PARAM in {coverage,density,extinct,suni,detail}; fixed cloud-bank camera, no terrain.\n"
           "  --mission FILE [--timeout N] [--interval S]  ground-spawn a .fbm mission (doc/mission-format.md)\n"
-          "    on its runway threshold and run headless (JSBSim + FBF16Pilot's phase machine, NO renderer/\n"
+          "    on its runway threshold and run headless (JSBSim + the module's FBPilot phase machine, NO renderer/\n"
           "    GPU device unless --interval > 0, in which case PNGs are written every --interval sim-\n"
           "    seconds -- this is the flying-frame oracle, the --fly replacement) until SUCCESS/CRASH/\n"
           "    TIMEOUT/FAIL; writes --out/telemetry.csv + --out/events.log, exit code 0/1/2/3. --timeout\n"
@@ -244,119 +227,18 @@ int RunCloudLab(double lat, double lon, time_t utc, double cloudQ, double ground
 /* Phase name: FlightBox::FBPilot::PhaseName (systems/FBPilot.h) — one definition, shared with the
  * telemetry Bus's "phase" channel instead of a second local switch here. */
 
-enum class FBMissionResult { Success, Fail, Crash, Timeout };
-const char *ResultStr(FBMissionResult r) {
-  switch (r) {
-    case FBMissionResult::Success: return "SUCCESS";
-    case FBMissionResult::Fail: return "FAIL";
-    case FBMissionResult::Crash: return "CRASH";
-    case FBMissionResult::Timeout: return "TIMEOUT";
-  }
-  return "?";
-}
+/* FBNativeMissionHook: the concrete FBMissionTickHook only THIS translation unit (which already links
+ * FBRenderer/FBWorld/Dawn) implements — FBMissionRunner.h/.cpp itself never sees these types, which is
+ * what keeps fb-gym's link GPU-free while still sharing the one mission-loop implementation. Mirrors
+ * the render/PNG-dump behaviour the old inline RunMission's `wantRender` branch had byte-for-byte: GPU
+ * device + FBWorld quadtree built once at spawn (60-tile warm-up around the runway), then a PNG every
+ * `intervalS` sim-seconds inside OnTick. */
+class FBNativeMissionHook : public FlightBox::FBMissionTickHook {
+public:
+  FBNativeMissionHook(std::string base, std::string outDir, double intervalS, int width = 1280, int height = 720)
+      : Base(std::move(base)), OutDir(std::move(outDir)), IntervalS(intervalS), Width(width), Height(height) {}
 
-/* "abseits der Runway" test for the CRASH gate: project (lat,lon) onto the runway's along/across-track
- * axes (centreline from the threshold on TrueHeadingDeg) — on the runway iff within its length (+
- * marginAlongM before/after) and half-width (+ marginAcrossM either side). WidthM <= 1 (the mission
- * format leaves it unset) falls back to a generous 60 m generic-runway half-width. */
-bool OnRunway(const FlightBox::FBRunway &rwy, double lat, double lon, double marginAlongM, double marginAcrossM) {
-  double hdg = rwy.TrueHeadingDeg * kPi / 180.0;
-  double coslat = std::cos(rwy.ThresholdLatDeg * kPi / 180.0);
-  double dy = (lat - rwy.ThresholdLatDeg) * 111320.0;
-  double dx = (lon - rwy.ThresholdLonDeg) * 111320.0 * coslat;
-  double along = dx * std::sin(hdg) + dy * std::cos(hdg);
-  double across = dx * std::cos(hdg) - dy * std::sin(hdg);
-  double halfW = (rwy.WidthM > 1.0 ? rwy.WidthM : 60.0) * 0.5 + marginAcrossM;
-  return along >= -marginAlongM && along <= rwy.LengthM + marginAlongM && std::fabs(across) <= halfW;
-}
-
-/* --mission: ground-spawns the mission's F-16 on its runway threshold via FBMissionGroundSpawn (WOW=1,
- * engines running, wheel brakes set, FBAutopilot in neutral Manual so the FLCS holds wings-level/
- * idle-throttle until FBPilot's Preflight hold ends) and steps it headless — FBPilot's phase machine
- * (systems/FBPilot.h) actually flies the takeoff/climb/route chain — until SUCCESS/CRASH/TIMEOUT/FAIL.
- * Default loop is CPU-only (JSBSim + fb_stream_ground for the DEM floor) — no FBRenderer/FBWorld
- * construction, hence no WebGPU/Dawn device init, unless
- * `renderIntervalS > 0` opts into periodic proof-frame PNGs (rendering is then a bolt-on inside the
- * loop, never a dependency of the physics/telemetry/termination logic above it). Deterministic fixed
- * 10 Hz decision tick (Prinzip 4: sim-seconds, not wall-clock) — FBF16Module substeps the FDM 100 Hz
- * internally per Run() call. */
-int RunMission(const std::string &missionPath, double timeoutOverride, double renderIntervalS,
-              const std::string &base, const std::string &outDir) {
-  std::string csvPath = outDir + "/telemetry.csv", evPath = outDir + "/events.log";
-  FILE *evf = fopen(evPath.c_str(), "w");
-  if (!evf) { fprintf(stderr, "mission: cannot open %s for writing\n", evPath.c_str()); return 1; }
-
-  /* FBLog wiring for the whole runner: events.log (the file sink) + stdout (console visibility during
-   * an interactive dev run) — every FBLog call site anywhere in the program (fdm/render/world/systems)
-   * lands in both from here on. FBLog::SetTime(simT) below keeps every line's t= correlated with the
-   * telemetry CSV's own t column. */
-  FlightBox::FBFileLogSink fileSink(evf);
-  FlightBox::FBStdoutLogSink stdoutSink;
-  FlightBox::FBCompositeLogSink logSink;
-  logSink.Add(&fileSink);
-  logSink.Add(&stdoutSink);
-  FlightBox::FBLog::SetSink(&logSink);
-  FlightBox::FBLog::SetTime(0.0);
-
-  std::ifstream in(missionPath);
-  if (!in) {
-    FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "cannot open " + missionPath}});
-    fclose(evf);
-    return 1;
-  }
-  std::stringstream buf;
-  buf << in.rdbuf();
-  FlightBox::FBMission mission;
-  std::string perr;
-  if (!FlightBox::FBParseMissionFile(buf.str(), mission, &perr)) {
-    FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "parse: " + perr}});
-    fclose(evf);
-    return 1;
-  }
-
-  double timeoutS = timeoutOverride > 0.0 ? timeoutOverride : mission.TimeoutS;
-  const FlightBox::FBRunway &rwy = mission.Runway;
-  FlightBox::FBLog::Info("mission", "MISSION_START", {{"name", mission.Name}, {"runway_hdg", rwy.TrueHeadingDeg},
-                                                      {"timeout", timeoutS}});
-
-  /* fb_stream_ground (and, later, FBWorld::Open) need fb_base set first — fb_stream_open does that
-   * (FBTerrainLoader.h banner); the default no-render path never constructs an FBWorld, so it must be
-   * called here directly instead of relying on FBWorld::Open to do it. */
-  if (!fb_stream_open(base.c_str(), rwy.ThresholdLatDeg, rwy.ThresholdLonDeg, 8)) {
-    FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "stream open"}});
-    fclose(evf);
-    return 1;
-  }
-  double groundAsl = fb_stream_ground(rwy.ThresholdLatDeg, rwy.ThresholdLonDeg);
-  if (groundAsl <= -1e8) {
-    FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "tiles unreachable at spawn"}});
-    fclose(evf);
-    return 1;
-  }
-  FlightBox::FBLog::Info("mission", "SPAWN", {{"name", mission.Name}, {"lat", rwy.ThresholdLatDeg},
-                                              {"lon", rwy.ThresholdLonDeg}, {"groundM", groundAsl},
-                                              {"fileElevM", rwy.ThresholdElevM}, {"hdg", rwy.TrueHeadingDeg},
-                                              {"lenM", rwy.LengthM}});
-
-  auto F16 = std::make_unique<FlightBox::FBF16Module>();
-  fb_fdm_state St{};
-  /* hoff_m < 0 = "sit on the gear" (see the adapter banner): re-places the CG at the model's true
-   * gear-down clearance after IC, so the spawn altitude is geometry-true, not an assumed offset.
-   * speed_ms=0, fbw_override=0 (the F-16's OWN FLCS stays the controller, our FCS just commands it, per
-   * CLAUDE.md's F-16 edge). FBMissionGroundSpawn also arms FBPilot at Preflight — the SAME ground-hold
-   * setup FBAppWasm.cpp's mission boot uses (FBMissionBoot.h: no duplicated spawn logic). */
-  if (!FlightBox::FBMissionGroundSpawn("vendor/jsbsim/aircraft", mission, groundAsl, *F16, St)) {
-    FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "jsbsim init"}});
-    fclose(evf);
-    return 1;
-  }
-
-  const bool wantRender = renderIntervalS > 0.0;
-  std::unique_ptr<FlightBox::FBRenderer> R;
-  std::unique_ptr<FlightBox::FBWorld> W;
-  const int width = 1280, height = 720;
-  int shot = 0;
-  if (wantRender) {
+  void OnMissionStart(const FlightBox::FBRunway &rwy, double groundAsl, const FlightBox::FBDisplaySystem &displays) override {
     R = std::make_unique<FlightBox::FBRenderer>();
     R->SetDefaultMode(0);
     R->SetGroundMode(0);
@@ -366,170 +248,78 @@ int RunMission(const std::string &missionPath, double timeoutOverride, double re
     { uint8_t *moon = 0; int mw = 0, mh = 0;
       if (fb_load_image_file("flightbox/web/moon.jpg", &moon, &mw, &mh)) { R->SetMoonTexture(moon, mw, mh); free(moon); } }
     W = std::make_unique<FlightBox::FBWorld>();
-    if (!W->Open(R.get(), base.c_str(), rwy.ThresholdLatDeg, rwy.ThresholdLonDeg, 32, 30000.0, 512)) {
+    if (!W->Open(R.get(), Base.c_str(), rwy.ThresholdLatDeg, rwy.ThresholdLonDeg, 32, 30000.0, 512)) {
       FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "world open"}});
-      fclose(evf);
-      return 1;
+      R.reset(); W.reset();
+      return;
     }
-    R->SetHudDisplay(&F16->Displays());
-    R->InitOffscreen(width, height);
+    R->SetHudDisplay(&displays);
+    R->InitOffscreen(Width, Height);
     if (!R->Ready()) {
       FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "gpu init"}});
-      fclose(evf);
-      return 1;
+      R.reset(); W.reset();
+      return;
     }
-    /* Warm the terrain cut around the spawn before the first PNG (no full loading-screen gate here —
-     * the jet is stationary this round, an approximate cut is enough for the proof frame). */
+    /* Warm the terrain cut around the spawn before the first PNG — same 60-tick pre-roll RunMission
+     * always did (the jet is stationary this round, an approximate cut is enough for a proof frame). */
     double eye0[3], fwd0[3], right0[3], up0[3];
     GeoToEcef(rwy.ThresholdLatDeg, rwy.ThresholdLonDeg, groundAsl + 2.0, eye0);
     CameraBasis(rwy.TrueHeadingDeg, -2.0, 0.0, rwy.ThresholdLatDeg, rwy.ThresholdLonDeg, fwd0, right0, up0);
     for (int i = 0; i < 60; i++) W->Update(rwy.ThresholdLatDeg, rwy.ThresholdLonDeg, eye0, fwd0, (double)i * 1000.0 / 15.0);
   }
 
-  FILE *csv = fopen(csvPath.c_str(), "w");
-  if (!csv) {
-    FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "cannot open telemetry.csv"}});
-    fclose(evf);
-    return 1;
+  void OnTick(const fb_fdm_state &st, double simT, double groundAsl, double aglM,
+             const FlightBox::FBState &telemetry) override {
+    if (!R || !W) return;   /* OnMissionStart already logged the failure */
+    Acc += 0.1;   /* dt = the runner's fixed 10 Hz decision tick, see FBMissionRunner.cpp */
+    if (Acc < IntervalS) return;
+    Acc = 0.0;
+    double eye[3], fwd[3], right[3], up[3];
+    GeoToEcef(st.lat, st.lon, st.elev, eye);
+    CameraBasis(st.yaw, st.pitch, st.roll, st.lat, st.lon, fwd, right, up);
+    R->SetCameraBasis(eye, fwd, right, up);
+    FlightBox::FBState hs = telemetry;
+    hs.roll = (float)st.roll; hs.pitch = (float)st.pitch; hs.yaw = (float)st.yaw;
+    hs.alt = (float)st.elev; hs.gs = (float)st.gs; hs.airspeed = (float)st.speed; hs.vs = (float)st.vy;
+    hs.state = FlightBox::FBMode::Manual;
+    FlightBox::SunPos(st.lat, st.lon, time(nullptr), &hs.sun_el, &hs.sun_az);
+    FlightBox::MoonPos(st.lat, st.lon, time(nullptr), &hs.moon_el, &hs.moon_az, &hs.moon_phase);
+    R->SetHud(hs, true);
+    R->SetAgl((float)aglM);
+    W->Update(st.lat, st.lon, eye, fwd, simT * 1000.0);
+    R->RenderFrame();
+    std::vector<uint8_t> rgba;
+    if (R->ReadPixels(rgba)) {
+      char path[512];
+      snprintf(path, sizeof path, "%s/mission_%04d.png", OutDir.c_str(), Shot++);
+      if (stbi_write_png(path, Width, Height, 4, rgba.data(), Width * 4))
+        FlightBox::FBLog::Debug("mission", "frame_written", {{"path", path}});
+    }
   }
 
-  /* Telemetry Bus: every source registers once, in the order that becomes the CSV column order (core/
-   * architecture banner). FBFdmTelemetrySource borrows St + groundAsl by reference — both mutate in
-   * place across the loop below, never reallocated, so the borrow stays valid for the Bus's lifetime. */
-  FlightBox::FBFdmTelemetrySource fdmSrc(St, groundAsl);
-  FlightBox::FBCsvTelemetrySink csvSink(csv);
-  FlightBox::FBTelemetryBus bus;
-  bus.Register(&fdmSrc);
-  bus.Register(&F16->AirDataSystem());
-  bus.Register(&F16->PilotSystem());
-  bus.Register(&F16->FlightControl());
-  bus.Register(&F16->Controls());
-  bus.SetSink(&csvSink);
-  bus.Start();
+private:
+  std::string Base, OutDir;
+  double IntervalS;
+  int Width, Height;
+  std::unique_ptr<FlightBox::FBRenderer> R;
+  std::unique_ptr<FlightBox::FBWorld> W;
+  double Acc = 0.0;
+  int Shot = 0;
+};
 
-  const double dt = 0.1;             /* 10 Hz decision tick == FBF16Module's Sensor/Pilot cadence */
-  const double kWpCaptureM = 500.0;  /* generic waypoint capture radius */
-  double simT = 0.0, renderAcc = 0.0;
-  FBMissionResult result = FBMissionResult::Timeout;
-  std::string reason = "sim time exceeded the mission timeout";
-  auto lastPhase = F16->PilotSystem().GetPhase();
-  bool warnedStall = false, warnedOverspeed = false, warnedSink = false;
-  clock_t wallStart = clock();
-
-  while (simT < timeoutS) {
-    double gnd = fb_stream_ground(St.lat, St.lon);
-    if (gnd > -1e8) groundAsl = gnd;
-    F16->SetGroundAsl((float)groundAsl);
-    fb_jsbsim_set_ground(groundAsl);
-
-    F16->Run(St, dt, nullptr);   /* world=nullptr: no world-facing system is real yet (FBSystemSlots.h NoOp) */
-    simT += dt;
-    FlightBox::FBLog::SetTime(simT);
-
-    auto phase = F16->PilotSystem().GetPhase();
-    if (phase != lastPhase) {
-      FlightBox::FBLog::Info("pilot", "PHASE", {{"from", FlightBox::FBPilot::PhaseName(lastPhase)},
-                                                {"to", FlightBox::FBPilot::PhaseName(phase)}});
-      lastPhase = phase;
-    }
-
-    FlightBox::FBFlightPlan &plan = F16->FlightPlan();
-    double distToWpM = -1.0;
-    if (const FlightBox::FBWaypoint *wp = plan.ActiveWaypoint()) {
-      double dy = (St.lat - wp->LatDeg) * 111320.0, dx = (St.lon - wp->LonDeg) * 111320.0 * std::cos(St.lat * kPi / 180.0);
-      distToWpM = std::sqrt(dx * dx + dy * dy);
-    }
-    int reachedWp = FlightBox::FBMissionAdvanceWaypoint(plan, St.lat, St.lon, kWpCaptureM);
-    if (reachedWp >= 0) {
-      const FlightBox::FBWaypoint &wp = plan.At(reachedWp);
-      FlightBox::FBLog::Info("pilot", "WP_REACHED", {{"idx", reachedWp}, {"lat", wp.LatDeg}, {"lon", wp.LonDeg},
-                                                     {"distM", distToWpM}});
-    }
-
-    /* AoA is numerically undefined at near-zero airspeed (atan2 of two near-zero velocity components) —
-     * a stationary/taxiing jet reads tens of noise degrees on the FIRST settle-transient ticks (measured:
-     * up to ~168 deg for <2s after a ground spawn, see the mission-format proof run); gate both checks on
-     * a real airspeed the same way a real AoA/Mach indicator is unreliable/inhibited near zero. */
-    bool haveAirspeed = St.cas > 15.0;   /* ~30 kt */
-    if (haveAirspeed && St.alphaDeg > 25.0 && !warnedStall) {
-      FlightBox::FBLog::Warn("pilot", "WARN", {{"kind", "stall"}, {"aoaDeg", St.alphaDeg}});
-      warnedStall = true;
-    } else if (!haveAirspeed || St.alphaDeg < 20.0) warnedStall = false;
-    if (St.mach > 1.2 && !warnedOverspeed) {
-      FlightBox::FBLog::Warn("pilot", "WARN", {{"kind", "overspeed"}, {"mach", St.mach}});
-      warnedOverspeed = true;
-    } else if (St.mach < 1.1) warnedOverspeed = false;
-    double aglM = St.elev - groundAsl;
-    if (aglM < 150.0 && St.vy < -15.0 && !warnedSink) {
-      FlightBox::FBLog::Warn("pilot", "WARN", {{"kind", "sink"}, {"vsMs", St.vy}, {"aglM", aglM}});
-      warnedSink = true;
-    } else if (St.vy > -5.0) warnedSink = false;
-
-    bool wow = fb_jsbsim_get_wow(-1) != 0;
-    bool penetration = aglM < -3.0;
-    bool offRunwayContact = wow && !OnRunway(rwy, St.lat, St.lon, 50.0, 30.0);
-    if (penetration || offRunwayContact) {
-      result = FBMissionResult::Crash;
-      reason = penetration ? "ground penetration" : "hard contact off the runway";
-      F16->Controls().EngineCutoff();   /* CLAUDE.md: crash -> motor aus, ground reactions do the rest */
-      FlightBox::FBLog::Warn("pilot", "WARN", {{"kind", "crash"}, {"detail", reason}, {"lat", St.lat},
-                                               {"lon", St.lon}, {"aglM", aglM}});
-      break;
-    }
-
-    bus.Tick(simT);
-
-    if (wantRender) {
-      renderAcc += dt;
-      if (renderAcc >= renderIntervalS) {
-        renderAcc = 0.0;
-        double eye[3], fwd[3], right[3], up[3];
-        GeoToEcef(St.lat, St.lon, St.elev, eye);
-        CameraBasis(St.yaw, St.pitch, St.roll, St.lat, St.lon, fwd, right, up);
-        R->SetCameraBasis(eye, fwd, right, up);
-        FlightBox::FBState hs = F16->Telemetry();
-        hs.roll = (float)St.roll; hs.pitch = (float)St.pitch; hs.yaw = (float)St.yaw;
-        hs.alt = (float)St.elev; hs.gs = (float)St.gs; hs.airspeed = (float)St.speed; hs.vs = (float)St.vy;
-        hs.state = FlightBox::FBMode::Manual;
-        FlightBox::SunPos(St.lat, St.lon, time(nullptr), &hs.sun_el, &hs.sun_az);
-        FlightBox::MoonPos(St.lat, St.lon, time(nullptr), &hs.moon_el, &hs.moon_az, &hs.moon_phase);
-        R->SetHud(hs, true);
-        R->SetAgl((float)aglM);
-        W->Update(St.lat, St.lon, eye, fwd, simT * 1000.0);
-        R->RenderFrame();
-        std::vector<uint8_t> rgba;
-        if (R->ReadPixels(rgba)) {
-          char path[512];
-          snprintf(path, sizeof path, "%s/mission_%04d.png", outDir.c_str(), shot++);
-          if (stbi_write_png(path, width, height, 4, rgba.data(), width * 4))
-            FlightBox::FBLog::Debug("mission", "frame_written", {{"path", path}});
-        }
-      }
-    }
-
-    if (phase == FlightBox::FBPilot::Phase::Shutdown) { result = FBMissionResult::Success; reason = "mission phases complete"; break; }
+/* --mission: ground-spawns the mission's F-16 on its runway threshold (FBMissionRunner.h, shared with
+ * fb-gym) and steps it headless via FBMissionRunner::FBRunMission until SUCCESS/CRASH/TIMEOUT/FAIL.
+ * Ground truth = FBTilesElevation (the SAME fb_stream_ground this runner always used — the elevation
+ * hook is a pure pass-through here, no numbers change). No FBRenderer/FBWorld/GPU device unless
+ * `renderIntervalS > 0`, in which case FBNativeMissionHook (above) is the frame-oracle bolt-on. */
+int RunMission(const std::string &missionPath, double timeoutOverride, double renderIntervalS,
+              const std::string &base, const std::string &outDir) {
+  FlightBox::FBTilesElevation elevation(base.c_str());
+  if (renderIntervalS > 0.0) {
+    FBNativeMissionHook hook(base, outDir, renderIntervalS);
+    return FlightBox::FBRunMission(missionPath, timeoutOverride, outDir, "vendor/jsbsim/aircraft", elevation, &hook);
   }
-
-  double wallS = (double)(clock() - wallStart) / CLOCKS_PER_SEC;
-  FlightBox::FBLog::SetTime(simT);
-  FlightBox::FBLog::Info("mission", "RESULT", {{"result", ResultStr(result)}, {"reason", reason},
-      {"phase", FlightBox::FBPilot::PhaseName(F16->PilotSystem().GetPhase())}, {"lat", St.lat}, {"lon", St.lon},
-      {"altM", St.elev}, {"durationS", simT}});
-  FlightBox::FBLog::Info("mission", "SUMMARY", {{"result", ResultStr(result)}, {"durationS", simT},
-      {"wallS", wallS}, {"speedup", wallS > 0.0 ? simT / wallS : 0.0},
-      {"phase", FlightBox::FBPilot::PhaseName(F16->PilotSystem().GetPhase())}, {"lat", St.lat}, {"lon", St.lon},
-      {"altM", St.elev}});
-  FlightBox::FBLog::SetSink(nullptr);   /* evf is about to close — no FBLog call may reach it after this */
-  fclose(evf);
-  fclose(csv);
-
-  switch (result) {
-    case FBMissionResult::Success: return 0;
-    case FBMissionResult::Fail: return 1;
-    case FBMissionResult::Crash: return 2;
-    case FBMissionResult::Timeout: return 3;
-  }
-  return 1;
+  return FlightBox::FBRunMission(missionPath, timeoutOverride, outDir, "vendor/jsbsim/aircraft", elevation, nullptr);
 }
 
 }  // namespace
@@ -578,7 +368,7 @@ int main(int argc, char **argv) {
     else if (a == "--timeout" && i + 1 < argc) missionTimeout = atof(argv[++i]);   /* --mission: overrides the .fbm's own timeout */
     else { Usage(argv[0]); return 1; }
   }
-  if (!EnsureDir(outDir)) { fprintf(stderr, "gpu_native: cannot create --out %s\n", outDir.c_str()); return 1; }
+  if (!FlightBox::FBEnsureDir(outDir)) { fprintf(stderr, "gpu_native: cannot create --out %s\n", outDir.c_str()); return 1; }
 
   /* RunMission installs its OWN sink (events.log + stdout) — everything else here (cloudlab/cloudcell/
    * the plain screenshot path) just wants console visibility. Debug: nothing used to be filtered

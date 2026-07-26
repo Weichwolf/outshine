@@ -59,11 +59,11 @@ public:
   /* The HUD's telemetry chain writes HERE (SharedState), not into the App's own FBState — the App must
    * seed its per-frame FBState from this BEFORE overwriting the fields it computes itself (pose/sun/
    * moon/...), e.g. `FBState hs = F16->Telemetry(); hs.roll = ...;`, so BuildHud sees both. */
-  const FBState &Telemetry() const { return SharedState; }
+  const FBState &Telemetry() const override { return SharedState; }
 
-  FBAutopilot &Autopilot() { return *AP; }
-  FBFlightControl &FlightControl() { return *FC; }
-  FBDisplaySystem &Displays() { return *Disp; }   /* wire into FBRenderer::SetHudDisplay */
+  FBAutopilot &Autopilot() override { return *AP; }
+  FBFlightControl &FlightControl() override { return *FC; }
+  FBDisplaySystem &Displays() override { return *Disp; }   /* wire into FBRenderer::SetHudDisplay */
   FBF16Max7456 &Max7456() { return *Chip; }       /* the MAX7456-chip-specific hook, see its banner */
   FBNavSystem &Nav() { return *NavSys; }          /* steerpoint/bullseye setup (SetSteerpoint/SetBullseye) */
   FBF16Ufc &Ufc() { return *UfcSys; }             /* ALOW/selected-steerpoint placeholder setup */
@@ -74,7 +74,7 @@ public:
   /* Ground ASL (m) under the aircraft, the SAME DEM sample the App already resolved for
    * FBRenderer::SetAgl (fb_stream_ground) — call before Run() each frame; FBRadarAltimeter reuses it
    * rather than re-querying terrain. */
-  void SetGroundAsl(float m) { GroundAslM = m; }
+  void SetGroundAsl(float m) override { GroundAslM = m; }
 
   FBMasterMode GetMasterMode() const { return Mode; }
   void SetMasterMode(FBMasterMode m) { Mode = m; }
@@ -82,11 +82,11 @@ public:
   /* The pilot (see the rate table) + what it flies/lands on: FlightPlan/Runway are simple accessors the
    * App fills at boot (mission setup, not a per-frame write); PilotSys is the F-16 skeleton (currently
    * the unmodified FBPilot default) exposed for boot/test phase-machine access (mission boot). */
-  FBF16Pilot &PilotSystem() { return *PilotSys; }
-  FBAirframeControls &Controls() { return *AirframeCtrl; }
-  FBAirDataSystem &AirDataSystem() { return *AirData; }   /* the ADC telemetry source (mission-runner Bus) */
-  FBFlightPlan &FlightPlan() { return Plan_; }
-  void SetRunway(const FBRunway &rwy) { Rwy_ = rwy; HaveRunway_ = true; }
+  FBF16Pilot &PilotSystem() override { return *PilotSys; }   /* covariant: FBModule::PilotSystem() returns FBPilot& */
+  FBAirframeControls &Controls() override { return *AirframeCtrl; }
+  FBAirDataSystem &AirDataSystem() override { return *AirData; }   /* the ADC telemetry source (mission-runner Bus) */
+  FBFlightPlan &FlightPlan() override { return Plan_; }
+  void SetRunway(const FBRunway &rwy) override { Rwy_ = rwy; HaveRunway_ = true; }
 
 private:
   void ApplyPilotCommands(const FBPilotCommands &c);

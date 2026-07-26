@@ -1,3 +1,2 @@
-# large reference PDFs (distilled into doc/f16/ + doc/clouds/) — too big for the repo
-DCS F-16C Viper Guide.pdf
-DCS Ka-50 Guide.pdf
+# large reference PDFs (distilled into doc/f16/ + doc/clouds/) — too big / copyrighted for the repo
+*.pdf

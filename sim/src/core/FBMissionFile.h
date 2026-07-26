@@ -13,8 +13,14 @@
 
 namespace FlightBox {
 
+/* Today's FBMission describes ONE controllable unit (module + runway + flight plan) — a real
+ * constraint of today's mission runner (FBMissionRunner.h), not a data-model dead end: a future
+ * multi-unit mission (a flight of several modules/factions, e.g. an F-16 vs. a MiG-29) is a Mission
+ * holding a LIST of these per-unit blocks, not a redesign of this one. Nothing here assumes "exactly
+ * one module" beyond what this round's runner itself does. */
 struct FBMission {
   std::string  Name;
+  std::string  ModuleName;   /* `module <name>` — resolved via FBModuleRegistry, e.g. "f16" */
   FBRunway     Runway;
   bool         HaveRunway = false;
   FBFlightPlan Plan;
