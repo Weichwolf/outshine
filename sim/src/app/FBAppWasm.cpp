@@ -50,16 +50,19 @@ static const char *kDefaultMissionUrl = "/missions/payerne-full.fbm";   /* the f
 
 static FBRenderer R;
 static FBWorld W;
-/* ONE object for the flown unit (units/FBSimUnit): the airframe it owns, the module it is flown by
- * (produced by NAME through FBModuleRegistry — the mission's own `module` line, or kSandboxModule for
- * the ?ap=manual sandbox — and held polymorphically, so this file still names no concrete module type),
- * the live fb_fdm_state, the ground truth under it, and BOTH incorruptible judges (core/FBFlightMonitor
- * for the physical K.O., core/FBMissionMonitor for the mission verdict when a .fbm was actually booted;
- * ?ap=manual has no plan to judge). This replaced eight separate file-scope statics whose construction
- * order and mutual references the reader had to hold in their head; the judges are still App-owned and
- * still invisible to the module (FBSimUnit's own banner). A mission trip just logs RESULT to the console
- * — the browser has no process exit. */
-static std::unique_ptr<FBSimUnit> gUnit;
+/* The mission's whole cast (units/FBSimUnit), one entry per `unit` block the .fbm declares: each owns
+ * its airframe and the module it is flown by (produced by NAME through FBModuleRegistry — that block's
+ * own `module` line, or kSandboxModule for the ?ap=manual sandbox — and held polymorphically, so this
+ * file still names no concrete module type), its live fb_fdm_state, the ground truth under it, and BOTH
+ * incorruptible judges (core/FBFlightMonitor for the physical K.O., core/FBMissionMonitor for the
+ * mission verdict when the block had objectives; ?ap=manual has no plan to judge). The judges are still
+ * App-owned and still invisible to the module (FBSimUnit's own banner). A mission trip just logs RESULT
+ * to the console — the browser has no process exit.
+ *
+ * gOwnship is the FIRST actor and only that: the browser has ONE eye and ONE HUD, so the camera and the
+ * HUD ride actors[0] while every other actor is stepped alongside it in the same frame loop. */
+static FBActorList gActors;
+static FBSimUnit *gOwnship = nullptr;
 /* This loop's monotonic sim-clock, for the monitors' sustain timers (LOC/deep-stall): the browser has no
  * discrete 10 Hz mission tick like the runner, it integrates whatever the rAF period gives it. */
 static double gSimT = 0.0;
@@ -96,7 +99,7 @@ static void frame(void) {
   static double gLoadStart = 0.0;
   if (gLoading) {
     if (gLoadStart == 0.0) gLoadStart = now;
-    FBUnitPose lp = gUnit->GetPose();
+    FBUnitPose lp = gOwnship->GetPose();
     double leye[3], lfwd[3], lright[3], lup[3];
     FBGeoToEcef(lp.LatDeg, lp.LonDeg, lp.ElevM, leye);
     FBCameraBasisEcef(lp.YawDeg, lp.PitchDeg, lp.RollDeg, lp.LatDeg, lp.LonDeg, lfwd, lright, lup);
@@ -132,17 +135,20 @@ static void frame(void) {
    * HUD/radar-alt path too (FBSimUnit::UpdateGroundAsl): the browser used to fall back to the config
    * constant for the module while the FDM kept the last real sample, so the two disagreed about where
    * the ground was the moment a fetch missed over real terrain. */
-  gUnit->UpdateGroundAsl(fb_stream_ground(gUnit->State().lat, gUnit->State().lon));
-  double gForHud = gUnit->GroundAslM();
+  for (auto &a : gActors) a->UpdateGroundAsl(fb_stream_ground(a->State().lat, a->State().lon));
+  double gForHud = gOwnship->GroundAslM();
   double cp_b = emscripten_get_now();   /* end: ground/bridges */
 
-  /* Advance the active unit: its module drives guidance -> FLCS-command -> JSBSim at fixed 100 Hz
-   * substeps (spiral guard) plus its own system slots at their own rates (incl. FBPilot, 10 Hz) —
-   * through the polymorphic FBModule handle the unit holds. */
-  gUnit->Run(dt, &W);
-  const fb_fdm_state &St = gUnit->State();
-  FBGuidance g = gUnit->Module().LastGuidance();
-  int nSub = gUnit->Module().LastSubsteps();
+  /* Advance EVERY actor in mission order: each module drives guidance -> FLCS-command -> JSBSim at
+   * fixed 100 Hz substeps (spiral guard) plus its own system slots at their own rates (incl. FBPilot,
+   * 10 Hz) — through the polymorphic FBModule handle the unit holds. The pose barrier after the loop is
+   * the same snapshot discipline the headless runner uses (FBUnit::GetPose's contract): every actor
+   * integrates against the previous frame's world, so tick order cannot change the outcome. */
+  for (auto &a : gActors) { FBLogUnitScope us(a->LogLabel()); a->Run(dt, &W); }
+  for (auto &a : gActors) a->PublishPose();
+  const fb_fdm_state &St = gOwnship->State();
+  FBGuidance g = gOwnship->Module().LastGuidance();
+  int nSub = gOwnship->Module().LastSubsteps();
   /* Waypoint sequencing (Akteurs-Verhalten, FBNavSystem's own job — doc/mission-format.md) already ran
    * INSIDE Run() above, module-internal; the App orchestrates nothing mission-specific here. */
   double cp_c = emscripten_get_now();   /* end: jsbsim substeps */
@@ -155,14 +161,14 @@ static void frame(void) {
    * touchdown off the assigned runway also cuts the engine). Neither stops or special-cases the render
    * loop below — "Konsolen-RESULT genügt" in the browser, there is no process exit here. */
   gSimT += dt;
-  gUnit->RunMonitors(gSimT);
+  for (auto &a : gActors) { FBLogUnitScope us(a->LogLabel()); a->RunMonitors(gSimT); }
 
   /* HUD AGL (ASL - DEM ground) — the unit's own AGL, from the one ground sample above, so
    * FBRadarAltimeter and this read the same number. 1 Hz telemetry from THIS sim tick. */
-  R.SetAgl((float)gUnit->AglM());
+  R.SetAgl((float)gOwnship->AglM());
 
   /* Camera = the aircraft eye. */
-  FBUnitPose p = gUnit->GetPose();
+  FBUnitPose p = gOwnship->GetPose();
   double eye[3], fwd[3], right[3], up[3];
   FBGeoToEcef(p.LatDeg, p.LonDeg, p.ElevM, eye);
   FBCameraBasisEcef(p.YawDeg, p.PitchDeg, p.RollDeg, p.LatDeg, p.LonDeg, fwd, right, up);
@@ -171,7 +177,7 @@ static void frame(void) {
   /* HUD pose from the live sim (ENU offset + home vector, MIL-STD-1787 relative bearing): the unit's
    * module telemetry (FBAirDataSystem/FBRadarAltimeter/FBNavSystem/...) with this tick's pose folded
    * in, then the browser-only home/mode/ephemeris fields below. */
-  FBState hs = gUnit->HudState();
+  FBState hs = gOwnship->HudState();
   double homeE, homeN;   /* FBEnuOffsetM wraps the longitude: without it the antimeridian gives a
                           * ~360 deg delta -> HUD DIST 38,171,944 (core/FBGeodesy.h) */
   FBEnuOffsetM(Olat, Olon, St.lat, St.lon, homeE, homeN);
@@ -182,18 +188,18 @@ static void frame(void) {
   while (rel > 180) rel -= 360;
   while (rel < -180) rel += 360;
   hs.home_bearing = (float)rel;
-  hs.state = gUnit->Module().Autopilot().GetMode();
+  hs.state = gOwnship->Module().Autopilot().GetMode();
   /* 1 Hz flight telemetry from the sim tick (device-loss-proof): [agl] + [home] (the HUD home BRG/DIST,
    * antimeridian-safe — the gate's measurement convention). */
   { static double accLog = 0.0; accLog += dt;
     if (accLog >= 1.0) { accLog = 0.0;
-      FBLog::Info("flight", "agl", {{"alt", St.elev}, {"agl", gUnit->AglM()}, {"ground", gForHud},
-          {"fdmGnd", gUnit->Fdm().GetGroundElevM()}, {"spd", St.speed}, {"cas", St.cas}, {"bank", St.roll},
+      FBLog::Info("flight", "agl", {{"alt", St.elev}, {"agl", gOwnship->AglM()}, {"ground", gForHud},
+          {"fdmGnd", gOwnship->Fdm().GetGroundElevM()}, {"spd", St.speed}, {"cas", St.cas}, {"bank", St.roll},
           {"hdg", St.yaw}, {"vs", St.vy}, {"ringDist", g.RingDistM},
           {"mode", ModeLabel(g.Mode)}});
       FBLog::Info("flight", "home", {{"dist", (double)hs.home_dist}, {"brg", (double)hs.home_bearing},
           {"hdg", St.yaw}, {"lon", St.lon}});
-      FBLog::Info("pilot", "phase", {{"phase", FBPilot::PhaseName(gUnit->Module().PilotSystem().GetPhase())}});
+      FBLog::Info("pilot", "phase", {{"phase", FBPilot::PhaseName(gOwnship->Module().PilotSystem().GetPhase())}});
     } }
   /* Real ephemeris sun + moon for EVS (the renderer uses them only in photo mode; SVS = constant day). */
   time_t utc = SimUtc ? SimUtc : time(nullptr);
@@ -297,8 +303,8 @@ int main() {
     }
     module->AttachFdm(*fdm);
     module->Autopilot().SetManual(0.0, 0.0, 0.0, 0.85);
-    gUnit = std::make_unique<FBSimUnit>(1, FBUnitTeam::Friendly, std::move(fdm), std::move(module),
-                                        fb_fdm_state{}, altAsl);
+    gActors.push_back(std::make_unique<FBSimUnit>(1, "sandbox", FBUnitTeam::Friendly, std::move(fdm),
+                                                  std::move(module), fb_fdm_state{}, altAsl));
     FBLog::Info("gpu", "manual_boot", {{"lat", olat}, {"lon", olon}, {"altM", altAsl}, {"speedMs", kSpeedMs}});
   } else {
     static char missionText[8192];
@@ -310,30 +316,39 @@ int main() {
           {"reason", n <= 0 ? std::string("fetch (is fb-sim serving web/missions/?)") : perr}});
       return 1;
     }
-    const FBSpawn &sp = mission.Spawn;
-    /* Resolve the REAL DEM ground under the spawn point before the IC — a bounded blocking wait
-     * (fb_stream_ground is async in WASM; ASYNCIFY already yields main() below for the star-catalogue
-     * fetch, same pattern), falling back to the config default on a slow/dead fb-tiles rather than
-     * hanging boot. */
-    double groundAsl = kConfigGroundM;
-    for (int i = 0; i < 40; i++) {
-      double g = fb_stream_ground(sp.LatDeg, sp.LonDeg);
-      if (FBElevationResolved(g)) { groundAsl = g; break; }
-      emscripten_sleep(50);
+    /* Every `unit` block the mission declares becomes an actor here, in file order — the browser flies
+     * the FIRST one (camera/HUD) and steps the rest alongside it, exactly like the headless runner. */
+    for (size_t i = 0; i < mission.Units.size(); i++) {
+      const FBSpawn &sp = mission.Units[i].Spawn;
+      FBLogUnitScope us(mission.Units.size() > 1 ? mission.Units[i].Id : std::string());
+      /* Resolve the REAL DEM ground under the spawn point before the IC — a bounded blocking wait
+       * (fb_stream_ground is async in WASM; ASYNCIFY already yields main() below for the star-catalogue
+       * fetch, same pattern), falling back to the config default on a slow/dead fb-tiles rather than
+       * hanging boot. */
+      double groundAsl = kConfigGroundM;
+      for (int t = 0; t < 40; t++) {
+        double g = fb_stream_ground(sp.LatDeg, sp.LonDeg);
+        if (FBElevationResolved(g)) { groundAsl = g; break; }
+        emscripten_sleep(50);
+      }
+      /* The SAME actor spawn the headless runner performs (app/FBMissionBoot.h) — module by registry
+       * name, one IC, mission data wired on, its own FBMissionMonitor — so the browser cannot drift
+       * from fb-gym's notion of what a mission start IS. */
+      std::string serr;
+      std::unique_ptr<FBSimUnit> unit =
+          FBMissionSpawnActor("/jsbsim/aircraft", mission, i, groundAsl, mission.TimeoutS, &serr);
+      if (!unit) {
+        FBLog::Error("gpu", "mission_boot_failed", {{"url", kDefaultMissionUrl}, {"reason", serr}});
+        return 1;
+      }
+      FBLog::Info("gpu", "mission_boot", {{"name", mission.Name}, {"hdg", sp.HeadingDeg},
+          {"lat", sp.LatDeg}, {"lon", sp.LonDeg}, {"groundM", groundAsl},
+          {"waypoints", mission.Units[i].Plan.Size()}});
+      gActors.push_back(std::move(unit));
     }
-    /* The SAME actor spawn the headless runner performs (app/FBMissionBoot.h) — module by registry
-     * name, one IC, mission data wired on, its own FBMissionMonitor — so the browser cannot drift from
-     * fb-gym's notion of what a mission start IS. */
-    std::string serr;
-    gUnit = FBMissionSpawnActor("/jsbsim/aircraft", mission, groundAsl, mission.TimeoutS, 1, &serr);
-    if (!gUnit) {
-      FBLog::Error("gpu", "mission_boot_failed", {{"url", kDefaultMissionUrl}, {"reason", serr}});
-      return 1;
-    }
-    FBLog::Info("gpu", "mission_boot", {{"name", mission.Name}, {"hdg", sp.HeadingDeg},
-        {"lat", sp.LatDeg}, {"lon", sp.LonDeg}, {"groundM", groundAsl}, {"waypoints", mission.Plan.Size()}});
   }
-  gUnit->PrimeState();   /* one step to fill the shared state before the first guidance step */
+  gOwnship = gActors.front().get();
+  for (auto &a : gActors) a->PrimeState();   /* one step each to fill state before the first guidance step */
 
   /* HUD nav placeholder: one steerpoint 8 nm bearing 060 from the config origin, bullseye AT the origin
    * — a concrete, moving relative bearing so the guide's "diamond in FOV" and "crossed-out" cases both
@@ -343,8 +358,8 @@ int main() {
     double brgRad = kStptBrgDeg * kDeg2Rad, rangeM = kStptRangeNm * kNmToM;
     double stptLat = olat + (rangeM * std::cos(brgRad)) / kMPerDeg;
     double stptLon = olon + (rangeM * std::sin(brgRad)) / (kMPerDeg * std::cos(olat * kPi / 180.0));
-    gUnit->Module().NavSystem().SetSteerpoint(stptLat, stptLon, kConfigGroundM * kMToFt + 50.0);
-    gUnit->Module().NavSystem().SetBullseye(olat, olon);
+    gOwnship->Module().NavSystem().SetSteerpoint(stptLat, stptLon, kConfigGroundM * kMToFt + 50.0);
+    gOwnship->Module().NavSystem().SetBullseye(olat, olon);
   }
 
   R.SetStreaming(512);
@@ -374,13 +389,13 @@ int main() {
     if (sn > 0) { R.SetStars(stars, sn, olat, olon); FBLog::Info("gpu", "star_catalogue", {{"bytes", sn}, {"stars", sn / 6}}); }
     else FBLog::Warn("gpu", "star_catalogue_unreachable", {{"base", std::string(base)}});
   }
-  R.SetHudDisplay(&gUnit->Displays());   /* HUD symbology: the module's Displays slot (default HUD) */
+  R.SetHudDisplay(&gOwnship->Displays());   /* HUD symbology: the module's Displays slot (default HUD) */
   R.Init("#gpu", 1280, 720);
   if (!W.Open(&R, base, olat, olon, 32, viewM, 512)) {
     FBLog::Error("gpu", "world_open_failed", {{"base", std::string(base)}});
     return 1;
   }
-  W.RegisterUnit(gUnit.get());   /* the App owns the unit; FBWorld only borrows the pointer (its banner) */
+  for (auto &a : gActors) W.RegisterUnit(a.get());   /* the App owns the units; FBWorld only borrows */
   FBLog::Info("gpu", "world_ready", {{"viewKm", viewM / 1000.0}});
 
   emscripten_set_main_loop(frame, 0, 1);

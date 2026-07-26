@@ -1,14 +1,14 @@
 /* FlightBox — FBSimUnit: ONE simulated unit, whole. Everything that used to be a scattered per-run
  * local in the mission runner (an FBFdm, a module from the registry, the shared fb_fdm_state, the
  * resolved ground ASL, the telemetry source/bus, the two judges) and a parallel set of file-scope
- * statics in the browser client is HERE, as one object with one owner. A client holds a LIST of these;
- * today every list has exactly one element, which is a property of today's mission file (one actor
- * block), not of this type.
+ * statics in the browser client is HERE, as one object with one owner. A client holds a LIST of these
+ * — one per `unit` block the mission declares (core/FBMissionFile.h), stepped in list order.
  *
- * It IS an FBUnit — the world-entity identity (Id/Kind/Team) and Pose the FBWorld registry hands to
- * sensors/weapons, derived on read from the live state (never a shadow copy that can drift). There is
- * deliberately no separate "ownship view" unit type beside it: one concept, so nothing above this layer
- * has to ask which kind of unit it is looking at.
+ * It IS an FBUnit — the world-entity identity (Id/Name/Kind/Team) and Pose the FBWorld registry hands to
+ * sensors/weapons — PUBLISHED once per tick from the live state (FBUnit's snapshot contract: cross-unit
+ * reads see the last completed tick, never a half-integrated one), which is the one place a copy of the
+ * truth is legitimate. There is deliberately no separate "ownship view" unit type beside it: one
+ * concept, so nothing above this layer has to ask which kind of unit it is looking at.
  *
  * OWNERSHIP: the unit owns its airframe (unique_ptr<FBFdm>) and the module that flies it
  * (unique_ptr<FBModule>) — declared in that order so the airframe outlives the module that borrows it.
@@ -26,6 +26,8 @@
 #define FBSIMUNIT_H
 
 #include <memory>
+#include <string>
+#include <vector>
 #include "FBFdm.h"
 #include "FBFdmTelemetrySource.h"
 #include "FBFlightMonitor.h"
@@ -64,12 +66,24 @@ public:
    * AttachFdm'd module flying it — the boot sequence that produces both lives in app/FBMissionBoot.h,
    * the one place allowed to name the IC header. `initialState` is the state that boot left behind
    * (the declarative spawn position, before the first step). */
-  FBSimUnit(int id, FBUnitTeam team, std::unique_ptr<FBFdm> fdm, std::unique_ptr<FBModule> module,
-            const fb_fdm_state &initialState, double groundAslM);
+  FBSimUnit(int id, std::string name, FBUnitTeam team, std::unique_ptr<FBFdm> fdm,
+            std::unique_ptr<FBModule> module, const fb_fdm_state &initialState, double groundAslM);
 
   /* ---- FBUnit ---- */
-  FBUnitPose GetPose() const override;
+  /* The PUBLISHED pose (FBUnit's snapshot contract): what every other unit and every client sees is the
+   * last completed tick, made visible by PublishPose() after ALL units have run. */
+  FBUnitPose GetPose() const override { return Pose_; }
   void Run(double dt, const FBWorld *world) override;   /* the module cycles its own FDM + systems */
+
+  /* The tick barrier: copies this unit's freshly integrated state into the published pose. A client
+   * calls it for EVERY unit only once every unit has run — that ordering, not this function, is what
+   * makes a multi-unit tick order-independent. */
+  void PublishPose();
+
+  /* This unit's FBLog attribution (core/FBLogUnitScope) — empty when the mission has a single actor,
+   * whose lines need no disambiguation. Set once at boot (app/FBMissionBoot.h), never per tick. */
+  void SetLogAttribution(bool on) { LogLabel_ = on ? GetName() : std::string(); }
+  const std::string &LogLabel() const { return LogLabel_; }
 
   /* ---- state + ground truth ---- */
   const fb_fdm_state &State() const { return St_; }
@@ -95,13 +109,12 @@ public:
 
   /* One FDM step to fill the shared state before the first frame reads pose/HUD (boot only; the module
    * drives every step after that). */
-  void PrimeState() { Fdm_->Step(St_); }
+  void PrimeState() { Fdm_->Step(St_); PublishPose(); }
 
   /* ---- the two incorruptible judges (fed here, never handed to the module) ---- */
   void SetMissionMonitor(std::unique_ptr<FBMissionMonitor> monitor) { Mission_ = std::move(monitor); }
   const FBFlightMonitor &FlightMonitor() const { return Flight_; }
-  const FBMissionMonitor *MissionMonitor() const { return Mission_.get(); }
-  bool MissionConcluded() const { return Mission_ && Mission_->Concluded(); }
+  const FBMissionMonitor *MissionMonitor() const { return Mission_.get(); }   /* null: no objectives */
 
   /* Feeds both judges this tick's observed truth and applies the ONE consequence a trip has on the
    * airframe (engine cutoff — JSBSim's own ground reactions do the rest, no freeze). Returns true if
@@ -122,6 +135,8 @@ private:
   std::unique_ptr<FBFdm> Fdm_;         /* owned; outlives Module_, which only borrows it */
   std::unique_ptr<FBModule> Module_;
   fb_fdm_state St_;
+  FBUnitPose Pose_;                    /* the published (last completed tick) pose — see GetPose() */
+  std::string LogLabel_;
   double GroundAslM_;
   FBFdmTelemetrySource FdmSrc_;        /* borrows Fdm_/St_/GroundAslM_ — all declared above it */
   FBTelemetryBus Bus_;
@@ -129,6 +144,12 @@ private:
   std::unique_ptr<FBMissionMonitor> Mission_;   /* absent for a unit with no mission to judge */
   bool WarnedStall_ = false, WarnedOverspeed_ = false, WarnedSink_ = false;
 };
+
+/* A mission's cast, in declaration order — one entry per `unit` block (core/FBMissionFile.h). Index 0
+ * is the PRIMARY actor: its telemetry keeps the canonical file name and its eye is the camera's. The
+ * order is also the fixed tick order, which together with the pose barrier (GetPose's contract) is what
+ * makes a multi-actor run reproducible. Every client that runs a sim loop owns one of these. */
+using FBActorList = std::vector<std::unique_ptr<FBSimUnit>>;
 
 } // namespace FlightBox
 #endif

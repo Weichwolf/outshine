@@ -1,13 +1,15 @@
 name test-hard-landing-1
-module f16                                  # FBModuleRegistry key -> FBF16Module
-runway 46.84335 6.91523 441.0 228.0 2889   # Payerne threshold (same as payerne-takeoff-only.fbm)
-spawn threshold ground 228.0 0             # sat on gear at the runway threshold, runway heading, v=0
-wp 46.83614 6.90352 471 300                 # a low hop ~1.2 km down the runway heading, ~30 m AGL —
+runway 46.84335 6.91523 441.0 228.0 2889     # Payerne threshold (same as payerne-takeoff-only.fbm)
+timeout 200
+
+unit viper
+  module f16                                 # FBModuleRegistry key -> FBF16Module
+  spawn threshold ground 228.0 0             # sat on gear at the runway threshold, runway heading, v=0
+  wp 46.83614 6.90352 471 300                # a low hop ~1.2 km down the runway heading, ~30 m AGL —
                                              # far enough that capture doesn't fire before the takeoff
                                              # roll, low enough the aircraft is still close to the ground
                                              # when guidance re-targets the threshold below
-wp 46.84335 6.91523 441 300                 # back at the threshold, AT ground elevation, still fast —
+  wp 46.84335 6.91523 441 300                # back at the threshold, AT ground elevation, still fast —
                                              # no flare (FBPilot's Approach/Flare/Rollout are still the
                                              # Phase-3 neutral placeholder), so guidance rides its capped
                                              # -25 m/s descent command straight into the runway
-timeout 200

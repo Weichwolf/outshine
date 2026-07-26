@@ -7,12 +7,14 @@
 #ifndef FBUNIT_H
 #define FBUNIT_H
 
+#include <string>
+#include "FBTeam.h"
+
 namespace FlightBox {
 
 class FBWorld;
 
 enum class FBUnitKind { Aircraft };
-enum class FBUnitTeam { Friendly, Hostile, Neutral };
 
 struct FBUnitPose {
   double LatDeg = 0.0, LonDeg = 0.0, ElevM = 0.0;   /* geodetic, m ASL */
@@ -23,13 +25,21 @@ struct FBUnitPose {
 
 class FBUnit {
 public:
-  FBUnit(int id, FBUnitKind kind, FBUnitTeam team) : Id(id), Kind(kind), Team(team) {}
+  FBUnit(int id, std::string name, FBUnitKind kind, FBUnitTeam team)
+      : Id(id), Name(std::move(name)), Kind(kind), Team(team) {}
   virtual ~FBUnit() = default;
 
   int GetId() const { return Id; }
+  const std::string &GetName() const { return Name; }   /* callsign — the .fbm `unit <id>` token */
   FBUnitKind GetKind() const { return Kind; }
   FBUnitTeam GetTeam() const { return Team; }
 
+  /* SNAPSHOT CONTRACT (multi-unit): what this returns is the pose of the LAST COMPLETED tick, never a
+   * half-integrated one. The client steps every unit first and only then publishes the new poses (the
+   * barrier in FBMissionRunner.cpp / the WASM frame loop), so a unit reading another unit through the
+   * FBWorld registry always sees a consistent world state and never depends on tick ORDER — which is
+   * exactly what makes the planned per-unit threading (CLAUDE.md "Ausblick Multi-Unit") a pure
+   * parallelisation instead of a redesign. */
   virtual FBUnitPose GetPose() const = 0;
 
   /* Per-frame update at whatever rate the owner drives it; NoOp default (a unit whose motion is driven
@@ -39,6 +49,7 @@ public:
 
 private:
   int Id;
+  std::string Name;
   FBUnitKind Kind;
   FBUnitTeam Team;
 };

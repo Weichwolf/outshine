@@ -13,25 +13,24 @@ FBFdm &RequireFdm(const std::unique_ptr<FBFdm> &fdm) {
 }
 } // namespace
 
-FBSimUnit::FBSimUnit(int id, FBUnitTeam team, std::unique_ptr<FBFdm> fdm,
+FBSimUnit::FBSimUnit(int id, std::string name, FBUnitTeam team, std::unique_ptr<FBFdm> fdm,
                      std::unique_ptr<FBModule> module, const fb_fdm_state &initialState,
                      double groundAslM)
-    : FBUnit(id, FBUnitKind::Aircraft, team),
+    : FBUnit(id, std::move(name), FBUnitKind::Aircraft, team),
       Fdm_(std::move(fdm)),
       Module_(std::move(module)),
       St_(initialState),
       GroundAslM_(groundAslM),
       FdmSrc_(RequireFdm(Fdm_), St_, GroundAslM_) {
   assert(Module_ && "FBSimUnit needs the module that flies the airframe");
+  PublishPose();   /* the declarative spawn is already a valid pose — nobody ever reads an empty one */
 }
 
-FBUnitPose FBSimUnit::GetPose() const {
-  FBUnitPose p;
-  p.LatDeg = St_.lat; p.LonDeg = St_.lon; p.ElevM = St_.elev;
-  p.RollDeg = St_.roll; p.PitchDeg = St_.pitch; p.YawDeg = St_.yaw;
-  p.SpeedMs = St_.speed;
-  p.HeadingDeg = St_.yaw;   /* no separate ground-track field on fb_fdm_state; yaw is the flown heading */
-  return p;
+void FBSimUnit::PublishPose() {
+  Pose_.LatDeg = St_.lat; Pose_.LonDeg = St_.lon; Pose_.ElevM = St_.elev;
+  Pose_.RollDeg = St_.roll; Pose_.PitchDeg = St_.pitch; Pose_.YawDeg = St_.yaw;
+  Pose_.SpeedMs = St_.speed;
+  Pose_.HeadingDeg = St_.yaw;   /* no ground-track field on fb_fdm_state; yaw is the flown heading */
 }
 
 void FBSimUnit::Run(double dt, const FBWorld *world) { Module_->Run(St_, dt, world); }

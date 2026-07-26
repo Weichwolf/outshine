@@ -1,0 +1,26 @@
+name payerne-pair-fail-1
+runway 46.84335 6.91523 441.0 228.0 2889     # Payerne RWY23 -- mission-wide, as in payerne-pair.fbm
+timeout 260                                  # deliberately short: enough for LEAD, not for TWO
+
+# The per-unit verdict proof (negative case): identical spawn pair as payerne-pair.fbm, but TWO is sent
+# to a waypoint ~90 nm east that it cannot reach inside the mission timeout. LEAD reaches both of its own
+# waypoints well before the clock runs out; the mission still ends FAIL/TIMEOUT and the log names WHICH
+# unit missed its objectives -- proof that the verdict is per unit, not per mission-as-a-whole.
+
+unit lead
+  module f16
+  team friendly
+  spawn 46.73800 6.72200 2500 48.0 300
+  set gear up
+  set fuel_pct 60
+  wp 46.84335 6.91523 2900 320
+  wp 46.95000 7.05000 3200 320
+
+unit two
+  module f16
+  team friendly
+  spawn 46.72600 6.73900 2500 48.0 300
+  set gear up
+  set fuel_pct 60
+  wp 46.81000 6.95000 2100 300               # this one it reaches
+  wp 47.30000 9.60000 2400 300               # ~90 nm east (Bodensee) -- unreachable before the timeout

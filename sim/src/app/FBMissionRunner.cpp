@@ -56,8 +56,6 @@ FBMissionResult ToMissionResult(FBMissionVerdict v) {
   return FBMissionResult::Timeout;   /* unreachable in practice: only called once Concluded() */
 }
 
-using FBActorList = std::vector<std::unique_ptr<FBSimUnit>>;
-
 /* A physical K.O. of ANY actor ends the run — today's ownship-is-the-run rule, generalised, and
  * deliberately the conservative reading: with several actors one departing airframe still stops the
  * loop rather than leaving a wreck integrating in the background. WHOSE K.O. it was decides the RESULT
@@ -68,16 +66,59 @@ const FBSimUnit *FirstFlightKo(const FBActorList &actors) {
   return nullptr;
 }
 
+/* The MISSION verdict is per actor and combined here, nowhere else: an actor is JUDGED iff the mission
+ * gave it objectives (it then carries an FBMissionMonitor, app/FBMissionBoot.h). The run is over the
+ * moment ONE judged actor fails or times out (there is nothing left to prove), and it succeeds only
+ * once EVERY judged actor has reached its own verdict of Success. */
+const FBSimUnit *FirstMissionFailure(const FBActorList &actors) {
+  for (const auto &a : actors) {
+    const FBMissionMonitor *m = a->MissionMonitor();
+    if (m && m->Concluded() && m->Verdict() != FBMissionVerdict::Success) return a.get();
+  }
+  return nullptr;
+}
+bool AllObjectivesMet(const FBActorList &actors) {
+  bool anyJudged = false;
+  for (const auto &a : actors) {
+    const FBMissionMonitor *m = a->MissionMonitor();
+    if (!m) continue;
+    anyJudged = true;
+    if (m->Verdict() != FBMissionVerdict::Success) return false;
+  }
+  return anyJudged;
+}
+/* The judged actor whose verdict/detail the combined RESULT quotes on SUCCESS — the first one, matching
+ * the single-actor case exactly (there the primary IS the only judged actor). */
+const FBSimUnit *FirstJudged(const FBActorList &actors) {
+  for (const auto &a : actors)
+    if (a->MissionMonitor()) return a.get();
+  return nullptr;
+}
+
 /* telemetry.csv per actor: the PRIMARY keeps the canonical name (every existing tool and every
- * regression hash reads outDir/telemetry.csv), each further actor gets its own file with the same fixed
- * schema. One file per unit rather than one wide row: an actor's column set follows ITS module, so a
- * shared row would either force every module into one schema or make the header depend on the mission's
- * cast — and a per-unit file needs no special case at N=1. */
+ * regression hash reads outDir/telemetry.csv), each further actor gets a file named after its callsign
+ * (validated filename-safe by the parser) with the same fixed schema. One file per unit rather than one
+ * wide row: an actor's column set follows ITS module, so a shared row would either force every module
+ * into one schema or make the header depend on the mission's cast — and a per-unit file needs no
+ * special case at N=1. */
 std::string TelemetryPath(const std::string &outDir, size_t index, const FBSimUnit &unit) {
   if (index == 0) return outDir + "/telemetry.csv";
-  char suffix[32];
-  snprintf(suffix, sizeof suffix, "/telemetry_u%d.csv", unit.GetId());
-  return outDir + suffix;
+  return outDir + "/telemetry_" + unit.GetName() + ".csv";
+}
+
+/* This actor's own result string for the per-unit breakdown: the physical judge outranks the mission
+ * judge (a wreck has no mission verdict worth quoting), an actor without objectives reports NONE. */
+const char *ActorResultStr(const FBSimUnit &a) {
+  if (a.FlightMonitor().Tripped())
+    return a.FlightMonitor().Reason() == FBKoReason::Loc ? "LOC" : "CRASH";
+  const FBMissionMonitor *m = a.MissionMonitor();
+  return m ? FBMissionVerdictStr(m->Verdict()) : "NONE";
+}
+std::string ActorReason(const FBSimUnit &a) {
+  if (a.FlightMonitor().Tripped()) return a.FlightMonitor().Detail();
+  const FBMissionMonitor *m = a.MissionMonitor();
+  if (!m) return "no objectives";
+  return m->Concluded() ? m->Detail() : "still under way when the run ended";
 }
 
 /* The file + sink behind one actor's telemetry bus. app/ owns the I/O (core/ stays I/O-free), the unit
@@ -125,13 +166,20 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   FBLog::Info("mission", "MISSION_START", {{"name", mission.Name}, {"timeout", timeoutS}});
 
   /* ---- Step 2: set up the world with its actors ----
-   * One block per actor the mission declares; today's .fbm declares exactly one (see the header
-   * banner). Everything an actor needs — elevation-resolved spawn, airframe, module, both monitors,
-   * telemetry — is produced here and owned by the list from then on. */
+   * One block per actor the mission declares (core/FBMissionFile.h). Everything an actor needs —
+   * elevation-resolved spawn, airframe, module, its own monitors, telemetry — is produced here and
+   * owned by the list from then on; the list's ORDER is the mission file's order and stays the tick
+   * order for the whole run. */
   FBRegisterBuiltinModules();
   FBActorList Actors;
-  {
-    const FBSpawn &sp = mission.Spawn;
+  Actors.reserve(mission.Units.size());
+  for (size_t i = 0; i < mission.Units.size(); i++) {
+    const FBMissionUnit &block = mission.Units[i];
+    const FBSpawn &sp = block.Spawn;
+    /* Attribution for everything this actor's spawn emits — empty label for a single-actor mission
+     * (core/FBLog.h). The unit itself does not exist yet, so the rule is read from the mission here and
+     * from the unit (FBSimUnit::LogLabel) in every loop below. */
+    FBLogUnitScope us(mission.Units.size() > 1 ? block.Id : std::string());
     double groundAsl = elevation.GroundElevM(sp.LatDeg, sp.LonDeg);
     if (!FBElevationResolved(groundAsl)) {
       FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "elevation unresolved at spawn"}});
@@ -145,13 +193,15 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
           {"altM", sp.AltM}, {"groundM", groundAsl}});
       return 1;
     }
+    /* WHICH actor this spawn is comes from the scope's `unit=` attribution above, not from a second
+     * name field — `name` stays the MISSION's, exactly as it always read. */
     FBLog::Info("mission", "SPAWN", {{"name", mission.Name}, {"lat", sp.LatDeg}, {"lon", sp.LonDeg},
         {"ground", sp.Ground}, {"altM", sp.Ground ? groundAsl : sp.AltM}, {"groundAsl", groundAsl},
         {"hdg", sp.HeadingDeg}, {"speedKt", sp.SpeedKt}});
 
     std::string serr;
-    std::unique_ptr<FBSimUnit> unit = FBMissionSpawnActor(aircraftPath.c_str(), mission, groundAsl,
-                                                          timeoutS, (int)Actors.size() + 1, &serr);
+    std::unique_ptr<FBSimUnit> unit = FBMissionSpawnActor(aircraftPath.c_str(), mission, i, groundAsl,
+                                                          timeoutS, &serr);
     if (!unit) {
       FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", serr}});
       return 1;
@@ -159,7 +209,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     Actors.push_back(std::move(unit));
   }
 
-  if (hook) hook->OnMissionStart(mission.Spawn, *Actors.front());
+  if (hook) hook->OnMissionStart(mission.Units.front().Spawn, Actors);
 
   std::vector<FBActorTelemetry> ActorTelemetry(Actors.size());
   for (size_t i = 0; i < Actors.size(); i++) {
@@ -178,33 +228,78 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   double simT = 0.0;
   clock_t wallStart = clock();
 
-  /* The MISSION verdict is the primary actor's (the .fbm's plan/runway describe that one); the PHYSICAL
-   * K.O. is anyone's. Etappe 3, where every unit carries its own objectives, extends the first half —
-   * the loop shape stays as it is. */
-  while (!FirstFlightKo(Actors) && !Actors.front()->MissionConcluded()) {
+  /* The run ends on the first physical K.O. of ANY actor, the first mission FAILURE of any judged
+   * actor, or once EVERY judged actor has met its own objectives (see the helpers above). The trailing
+   * timeout guard is the backstop for a cast with no objectives at all — every judged actor's own
+   * FBMissionMonitor concludes TIMEOUT at exactly this sim time, so it never preempts one.
+   *
+   * SNAPSHOT DISCIPLINE (FBUnit::GetPose's contract): the four per-actor passes are separate loops on
+   * purpose — every actor integrates against the poses of the LAST completed tick, and only the barrier
+   * after all of them publishes the new ones. No actor can therefore see a neighbour that has already
+   * stepped this tick, so tick ORDER cannot influence the result — which is what will let Etappe 4
+   * replace the Run() loop with one thread per actor plus a barrier, and nothing else. */
+  while (!FirstFlightKo(Actors) && !FirstMissionFailure(Actors) && !AllObjectivesMet(Actors) &&
+         simT < timeoutS) {
     for (auto &a : Actors) a->UpdateGroundAsl(elevation.GroundElevM(a->State().lat, a->State().lon));
-    for (auto &a : Actors) a->Run(dt, nullptr);
+    for (auto &a : Actors) { FBLogUnitScope us(a->LogLabel()); a->Run(dt, nullptr); }
+    for (auto &a : Actors) a->PublishPose();   /* the barrier: new poses become visible together */
     simT += dt;
     FBLog::SetTime(simT);
     for (auto &a : Actors) {
+      FBLogUnitScope us(a->LogLabel());
       a->CheckEnvelope();   /* generic envelope diagnostics — per actor, not per run */
       a->RunMonitors(simT);
     }
     for (auto &a : Actors) a->SampleTelemetry(simT);
-    if (hook) hook->OnTick(*Actors.front(), simT);
+    if (hook) hook->OnTick(Actors, simT);
   }
 
-  /* ---- Step 4: validate the world — the monitors already did; translate their verdict ---- */
+  /* ---- Step 4: validate the world — the monitors already did; combine their verdicts ---- */
   const FBSimUnit &primary = *Actors.front();
   const FBSimUnit *ko = FirstFlightKo(Actors);
-  FBMissionResult result = ko
-      ? (ko->FlightMonitor().Reason() == FBKoReason::Loc ? FBMissionResult::Loc : FBMissionResult::Crash)
-      : ToMissionResult(primary.MissionMonitor()->Verdict());
-  std::string reason = ko ? ko->FlightMonitor().Detail() : primary.MissionMonitor()->Detail();
+  const FBSimUnit *failed = ko ? nullptr : FirstMissionFailure(Actors);
+  /* The actor whose verdict ENDED the run — a K.O. or the first mission failure. On a clean success
+   * nobody decided anything alone (every judged actor met its own objectives), so this stays null and
+   * the combined RESULT carries no unit attribution. */
+  const FBSimUnit *deciding = ko ? ko : failed;
+  const FBSimUnit *judged = FirstJudged(Actors);
+  FBMissionResult result;
+  std::string reason;
+  if (ko) {
+    result = ko->FlightMonitor().Reason() == FBKoReason::Loc ? FBMissionResult::Loc : FBMissionResult::Crash;
+    reason = ko->FlightMonitor().Detail();
+  } else if (failed) {
+    result = ToMissionResult(failed->MissionMonitor()->Verdict());
+    reason = failed->MissionMonitor()->Detail();
+  } else if (judged) {
+    result = ToMissionResult(judged->MissionMonitor()->Verdict());
+    reason = judged->MissionMonitor()->Detail();
+  } else {
+    result = FBMissionResult::Timeout;   /* no actor carried objectives — only the clock could end this */
+    reason = "sim time exceeded the mission timeout";
+  }
   const fb_fdm_state &st = primary.State();
+
+  /* Per-actor breakdown before the combined verdict: one machine-readable line per actor with its own
+   * result, its own reason, where it ended up and which telemetry file holds its trace. Emitted only
+   * for a real flight — with a single actor the RESULT line below IS that actor's verdict and a
+   * breakdown would just repeat it (the same rule that leaves single-actor logs unattributed). */
+  if (Actors.size() > 1) {
+    for (size_t i = 0; i < Actors.size(); i++) {
+      const FBSimUnit &a = *Actors[i];
+      FBLogUnitScope us(a.LogLabel());
+      FBLog::Info("mission", "UNIT_RESULT", {{"result", ActorResultStr(a)}, {"reason", ActorReason(a)},
+          {"team", FBUnitTeamStr(a.GetTeam())}, {"decisive", &a == deciding},
+          {"lat", a.State().lat}, {"lon", a.State().lon}, {"altM", a.State().elev},
+          {"telemetry", TelemetryPath(outDir, i, a)}});
+    }
+  }
 
   double wallS = (double)(clock() - wallStart) / CLOCKS_PER_SEC;
   FBLog::SetTime(simT);
+  /* The combined verdict, attributed to the actor that decided it — with one actor the label is empty
+   * and the line reads exactly as it always did. */
+  FBLogUnitScope us(deciding ? deciding->LogLabel() : std::string());
   FBLog::Info("mission", "RESULT", {{"result", FBMissionResultStr(result)}, {"reason", reason},
       {"lat", st.lat}, {"lon", st.lon}, {"altM", st.elev}, {"durationS", simT}});
   FBLog::Info("mission", "SUMMARY", {{"result", FBMissionResultStr(result)}, {"durationS", simT},

@@ -107,31 +107,42 @@ Drei Clients linken/kompilieren dagegen:
   bisher`, Regressions-Kennzahlen unverändert).
 - **wasm** (`app/FBAppWasm.cpp`, `make -C sim wasm`) — der Browser, Verhalten unverändert.
 
-**Ausblick Multi-Unit (beschlossen, noch nicht gebaut):** Missionen beschreiben künftig einen VERBAND
-mehrerer Einheiten/Module verschiedener Fraktionen (je Unit: Modul, Fraktion, Flightplan/Ziele — z.B.
-F-16 vs. MiG-29 im Gym; evolutionäre Piloten-Turniere über Telemetrie-Fitness). Dafür festgelegt:
-**Multi-Threading ist ein reines GYM-Feature** — Thread pro Unit mit EIGENER JSBSim-Instanz, Lockstep-
-Barrier pro Tick, Cross-Unit-Lesezugriffe (Sensoren/Waffen) nur auf den SNAPSHOT des letzten Ticks →
-bit-reproduzierbar (Prinzip 4). native/wasm bleiben Single-Thread im Sim-Loop (Echtzeit braucht keine
-Parallelphysik; der Browser erspart sich den pthreads/SharedArrayBuffer-Build). **Etappe 1 ist GEBAUT:**
-der fdm/-Adapter ist instanzfähig — `FBFdm` ist ein Objekt pro Airframe (keine globale Instanz, keine
-statischen mutablen Globals mehr), mehrere koexistieren im selben Prozess mit unabhängiger Physik
-(Beweis: `make -C sim test-fdm` → `build/fb-test-two-fdm`, drei gleichzeitige F-16-Instanzen, eigene
-IC/Boden/Tankfüllung, gegenläufig gesteuert; die Zwillings-Instanz reproduziert die erste bit-genau).
-Noch offen: Thread-pro-Unit + Barrier, Unit-Listen, und Telemetrie-/Log-Sinks per-Thread gepuffert und
-am Barrier gemerged.
+**Multi-Unit:** eine Mission beschreibt einen VERBAND mehrerer Einheiten/Module verschiedener Fraktionen
+(je Unit: Modul, Fraktion, Spawn, Flightplan/Ziele — z.B. F-16 vs. MiG-29 im Gym; evolutionäre
+Piloten-Turniere über Telemetrie-Fitness). **Etappe 1 GEBAUT:** der fdm/-Adapter ist instanzfähig —
+`FBFdm` ist ein Objekt pro Airframe (keine globale Instanz, keine statischen mutablen Globals mehr),
+mehrere koexistieren im selben Prozess mit unabhängiger Physik (Beweis: `make -C sim test-fdm` →
+`build/fb-test-two-fdm`). **Etappe 2 GEBAUT:** der Akteur ist EIN Objekt (`units/FBSimUnit`).
+**Etappe 3 GEBAUT:** der Verband ist MISSIONSDATEN — `.fbm` trägt eine Liste von `unit`-Blöcken, jeder
+Client hält eine `FBActorList`, jede Einheit bekommt eigene `FBFdm`/`FBModule`/Monitore/Telemetriedatei,
+und das Missions-Urteil fällt PRO EINHEIT (Details unten + `doc/mission-format.md`). Die
+**Snapshot-Disziplin steht ab jetzt**, obwohl noch niemand cross-unit liest: pro Tick rechnen ERST alle
+Einheiten, DANN macht eine Barriere (`FBSimUnit::PublishPose`) die neuen Posen gemeinsam sichtbar —
+`FBUnit::GetPose()` (das, was die `FBWorld`-Registry zeigt) liefert immer den Stand des zuletzt
+ABGESCHLOSSENEN Ticks, also kann die Tick-Reihenfolge kein Ergebnis beeinflussen. Dafür festgelegt und
+noch offen (Etappe 4): **Multi-Threading ist ein reines GYM-Feature** — Thread pro Unit mit eigener
+JSBSim-Instanz, Lockstep-Barrier pro Tick, Cross-Unit-Lesezugriffe nur auf den Snapshot → dann eine
+reine Parallelisierung dieser Schleifen, kein Umbau. native/wasm bleiben Single-Thread im Sim-Loop
+(Echtzeit braucht keine Parallelphysik; der Browser erspart sich den pthreads/SharedArrayBuffer-Build).
+Ebenfalls offen: Telemetrie-/Log-Sinks per-Thread gepuffert und am Barrier gemerged (`FBLog`s
+Zeit-/Unit-Attribution ist heute eine statische Fassade und damit Thread-Arbeit für Etappe 4).
 
 **Der Missions-Runner ist reiner Orchestrator, genau vier Schritte, KEIN Missions-Wissen im Code:**
 Mission laden → Welt mit ihren Akteuren aufsetzen (Elevation für die deklarative `spawn`-Zeile auflösen,
 Modul über `modules/FBModuleRegistry` spawnen) → Akteure ausführen (Modul takten, beide Monitore
 füttern) → Welt validieren (die Monitore haben's längst entschieden). Ein AKTEUR ist EIN Objekt
-(`units/FBSimUnit`, s.u.), und die Schritte 2-4 sind SCHLEIFEN über eine `std::vector`-Liste davon —
-heute mit genau einem Element, weil die `.fbm` genau einen Akteursblock beschreibt, nicht weil der
-Runner es könnte. Gesamturteil: ein Physik-K.O. IRGENDEINER Einheit beendet den Lauf (die konservative
-Lesart — kein Wrack integriert im Hintergrund weiter), das MISSIONS-Urteil kommt vom ERSTEN Akteur
-(dessen Plan/Runway die Datei beschreibt); Etappe 3 (jede Einheit mit eigenen Zielen) erweitert die
-zweite Hälfte, ohne die Schleifenform zu ändern. Eine `.fbm`-Zeile `module <name>`
-(Pflichtfeld, `doc/mission-format.md`) wählt das Modul über die Registry (Name → Factory,
+(`units/FBSimUnit`, s.u.), und die Schritte 2-4 sind SCHLEIFEN über eine `FBActorList` davon — ein
+Eintrag je `unit`-Block der Missionsdatei, in Dateireihenfolge (Index 0 = primärer Akteur: kanonische
+`telemetry.csv`, Kamera-Auge). Gesamturteil: ein Physik-K.O. IRGENDEINER Einheit beendet den Lauf (die
+konservative Lesart — kein Wrack integriert im Hintergrund weiter), und das MISSIONS-Urteil fällt PRO
+EINHEIT — jede Einheit MIT Zielen trägt ihren eigenen `FBMissionMonitor`; SUCCESS erst, wenn ALLE ihre
+Ziele erreicht haben, FAIL/TIMEOUT sobald eine scheitert. Der Runner ist die einzige Stelle, die aus N
+Urteilen eines macht; er fällt keines selbst. Je Akteur emittiert er eine maschinenlesbare
+`UNIT_RESULT`-Zeile (Teilergebnis + Grund + Telemetriepfad), und bei mehr als einer Einheit trägt JEDE
+akteursbezogene Log-Zeile (auch die modulinternen) als erstes Feld `unit=<callsign>` — bei genau einer
+Einheit entfällt beides, weil es nichts zu unterscheiden gibt (und alte Regressions-Baselines
+byte-identisch bleiben). Eine `.fbm`-Zeile `module <name>`
+(Pflichtfeld je Block, `doc/mission-format.md`) wählt das Modul über die Registry (Name → Factory,
 `std::unique_ptr<FBModule>`; heute registriert nur `modules/f16/FBF16ModuleRegistration.cpp` den Namen
 `"f16"`). `FBMissionRunner.cpp`/`FBAppGym.cpp` inkludieren NIE einen konkreten Modul-Header — sie halten
 alles über `FBModule`s generische Accessoren (`Autopilot()`/`FlightControl()`/`PilotSystem()`/
@@ -144,9 +155,9 @@ Speed) — KEINE getrennten Boden-/Luft-Codepfade, eine EINZIGE IC-Anwendung
 Missionsdaten, der Runner reicht die rohe KV-Liste nur durch, das MODUL interpretiert seine eigenen
 Schlüssel (`FBModule::ApplySetup`, unbekannter Schlüssel = Laufzeit-FAIL). Wegpunkt-Sequenzierung ist
 Akteurs-Verhalten, nicht Runner-Buchhaltung: `systems/FBNavSystem::AdvanceWaypoint` sitzt im Modul.
-Eine `.fbm`-Datei beschreibt heute genau EIN Modul — eine Eigenschaft des Runners, keine Grenze des
-Datenmodells: eine künftige Mehr-Einheiten-Mission (ein Verband aus mehreren Modulen/Fraktionen) ist
-`FBMission` mit einer LISTE solcher Pro-Einheit-Blöcke, keine Neukonstruktion.
+`FBMission` ist missionsweite Daten (`name`/`runway`/`timeout`) plus eine LISTE von `FBMissionUnit`
+(Callsign, Modul, `FBUnitTeam`, `FBSpawn`, `set`-KV, eigener `FBFlightPlan`) — ein Einzelflug ist der
+Sonderfall „ein Block", kein zweiter Dialekt.
 
 **Elevation-Hook:** jeder Core-Konsument von Bodenhöhe (Missions-Ground-Spawn, AGL/Radar-Alt,
 Crash-Erkennung) läuft über `FBElevationProvider` (`core/FBElevationProvider.h`,
@@ -187,14 +198,17 @@ sim/src/
              Gym-Client, s.o.), FBSimHost, FBTileWorkerMain; FBMissionRunner.h/.cpp (der geteilte,
              GPU-freie Missions-ORCHESTRATOR, vier Schritte, keine Missions-Spezifika — FBRunMission,
              FBMissionTickHook — den FBAppNative UND FBAppGym treiben, s.o.), FBMissionBoot.h
-             (`FBMissionSpawnActor`: die EINE deklarative IC-Anwendung, Boden ODER Luft, generisch über
-             FBModuleRegistry, kein konkreter Modultyp — liefert den fertigen `units/FBSimUnit` inkl.
-             eigenem FBMissionMonitor; da nur DIESER Header `fdm/FBFdmBoot.h` nennen darf, ist er auch
-             der einzige Produzent eines vollständigen Akteurs), FBLogSinks/FBTelemetrySinks (die
+             (`FBMissionSpawnActor`: die EINE deklarative IC-Anwendung für EINEN `unit`-Block, Boden ODER
+             Luft, generisch über FBModuleRegistry, kein konkreter Modultyp — liefert den fertigen
+             `units/FBSimUnit` inkl. eigenem FBMissionMonitor, sofern der Block Ziele hat; da nur DIESER
+             Header `fdm/FBFdmBoot.h` nennen darf, ist er auch der einzige Produzent eines
+             vollständigen Akteurs), FBLogSinks/FBTelemetrySinks (die
              I/O-Sink-Implementierungen)
   core/      FBState, FBMode, FBMasterMode, FBFlightPlan/FBRunway/FBSpawn (Wegpunkt-/Runway-/
-             deklarativer-Spawn-Value-Types für FBPilot/den Orchestrator), FBMissionFile
-             (`.fbm`-Parser, trägt `ModuleName`/`FBSpawn`/`SetKV`), FBMissionMonitor
+             deklarativer-Spawn-Value-Types für FBPilot/den Orchestrator), FBTeam (`FBUnitTeam` —
+             die Fraktion, im core/, weil sie BEIDES ist: Missionsdaten und Welt-Identität), FBMissionFile
+             (`.fbm`-Parser: missionsweite Daten + eine LISTE von `FBMissionUnit`-Blöcken, je
+             Callsign/`ModuleName`/`FBUnitTeam`/`FBSpawn`/`SetKV`/`FBFlightPlan`), FBMissionMonitor
              (FBFlightMonitor-Geschwister: das MISSIONS-Urteil — Wegpunkte/Off-Runway/Timeout — aus
              der eigenen, unveränderlichen Plan-Kopie, nie dem Modul-eigenen Zustand), der
              Elevation-Hook (FBElevationProvider/FBConstantElevation/FBRunwayPlateauElevation/
@@ -205,7 +219,10 @@ sim/src/
                {{"vs", -12.3}})`). Statische Fassade (Cross-Cutting-Infrastruktur, kein FBLog& durch
                jedes `Run()`), aber I/O-frei: emittiert wird nur, wenn ein `FBLogSink` injiziert ist
                (`FBLog::SetSink`) — die Sink-Implementierungen (stdout/Datei/Fan-out) leben in `app/`
-               (`FBLogSinks.h/.cpp`), core/systems/render/world/fdm rufen nur die Fassade.
+               (`FBLogSinks.h/.cpp`), core/systems/render/world/fdm rufen nur die Fassade. Neben der
+               Zeit trägt die Fassade die UNIT-Attribution (`FBLog::SetUnit`/`FBLogUnitScope`, vom
+               Client um den akteursbezogenen Teil seiner Schleife gelegt): ist sie gesetzt, führt jede
+               Zeile `unit=<callsign>` als erstes Feld — leer bei einer Einzel-Einheit, s.o.
                FBTelemetry (`FBTelemetry.h/.cpp`) — periodisch gesampelter Zustand (Zeitreihe, Schema).
                Klassen DEKLARIEREN sich als `FBTelemetrySource` (`DeclareTelemetry`/`SampleTelemetry`);
                der EINE `FBTelemetryBus` sampelt jede registrierte Source pro Tick in genau eine Zeile
@@ -371,14 +388,17 @@ sim/src/
 ```
 
 `units/` (`sim/src/units/`) trägt die Welt-Entitäten-Basisschnittstelle: `FBUnit` (Identität — Id/
-Kind-Enum `Aircraft/…`/Team-Enum `Friendly/Hostile/Neutral` —, geodätische Pose, `virtual void
+Callsign/Kind-Enum `Aircraft/…`/`FBUnitTeam` aus `core/FBTeam.h` —, geodätische Pose, `virtual void
 Run(dt, const FBWorld*)`) und, darauf aufbauend, **`FBSimUnit` — EINE simulierte Einheit als EIN
 Objekt**: sie BESITZT ihre `FBFdm` und das `FBModule`, das sie fliegt (in dieser Deklarationsreihenfolge,
 damit die Zelle das Modul überlebt, das sie nur borgt), hält den geteilten `fb_fdm_state`, die
 aufgelöste Boden-ASL, die Telemetrie-Source + den eigenen `FBTelemetryBus` und BEIDE unbestechlichen
-Richter (`core/FBFlightMonitor` + optional `core/FBMissionMonitor`). Die Pose leitet sie bei jedem
-Lesen aus dem Zustand ab (nie eine Schattenkopie), `Run(dt, world)` taktet das Modul, das seinerseits
-FDM und Systemslots cycelt. Das ersetzt das, was vorher als verstreute Locals im Missions-Runner und
+Richter (`core/FBFlightMonitor` + optional `core/FBMissionMonitor` — letzterer nur, wenn die Mission
+dieser Einheit Ziele gegeben hat). `Run(dt, world)` taktet das Modul, das seinerseits FDM und
+Systemslots cycelt; die Pose wird einmal pro Tick PUBLIZIERT (`PublishPose`, die Barriere nach allen
+`Run()`s) — `GetPose()` zeigt damit immer den zuletzt ABGESCHLOSSENEN Tick, die Snapshot-Regel für
+cross-unit-Lesezugriffe. Eine `FBActorList` (`std::vector<std::unique_ptr<FBSimUnit>>`) ist die
+Besetzung einer Mission, die jeder Client hält. Das ersetzt das, was vorher als verstreute Locals im Missions-Runner und
 als acht file-scope Statics im Browser-Client stand — der frühere `FBOwnshipUnit` (nur eine Pose-Sicht
 auf `fb_fdm_state`) geht darin auf, es gibt keinen zweiten Unit-Begriff mehr. **Die Anti-Cheat-Struktur
 bleibt:** ein FBSimUnit lässt sich nur aus einer bereits gespawnten `FBFdm` bauen, und die gibt es nur
@@ -391,7 +411,8 @@ die geborgte FBWorld-Referenz, die jeder Systemslot schon erhält. KI-Einheiten 
 neutral) hängen sich später an dieselbe Schnittstelle, sobald sie real existieren.
 
 **Telemetrie bei N>1:** eine CSV je Einheit, feste Spaltenzahl — der PRIMÄRE Akteur behält den
-kanonischen Namen `telemetry.csv`, jeder weitere bekommt `telemetry_u<id>.csv`. Eine breite Zeile mit
+kanonischen Namen `telemetry.csv`, jeder weitere bekommt `telemetry_<callsign>.csv` (das Callsign der
+`unit`-Zeile, vom Parser auf `[A-Za-z0-9_-]` beschränkt, damit es dateisicher ist). Eine breite Zeile mit
 Präfix-Spalten scheidet aus: das Spaltenset eines Akteurs folgt SEINEM Modul, eine geteilte Zeile
 würde entweder alle Module in ein Schema zwingen oder den Header von der Besetzung der Mission
 abhängig machen; die Datei-je-Einheit braucht bei N=1 keinen Sonderfall (die Zeilen bleiben
@@ -424,8 +445,8 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
   in einen lokalen Puffer ist überall erlaubt (kein `FILE*`/`fstream`).
 - **Missions-Regelkreis (Pilot-KI-Entwicklung):** Mission definieren → headless bis Abschluss/Fehler/
   Crash simulieren → Telemetrie maschinell analysieren → Korrektur → Loop. Format: `.fbm`
-  (zeilenbasiert, zero-dependency, `doc/mission-format.md` — `name`/`module`/`spawn`/`timeout` sind
-  Pflicht, `runway` optional), geparst von `core/FBMissionFile.h` (reine Text→`FBMission`-Funktion,
+  (zeilenbasiert, zero-dependency, `doc/mission-format.md` — missionsweit sind `name`/`timeout` Pflicht
+  und `runway` optional, je `unit`-Block `module`/`spawn` Pflicht), geparst von `core/FBMissionFile.h` (reine Text→`FBMission`-Funktion,
   kein File-I/O — das macht die App). Orchestrator: `FBRunMission` (`app/FBMissionRunner.cpp`, geteilt
   von `fb-gym` und `gpu_native --mission`) — vier Schritte, keine Missions-Spezifika im Code (s.o.
   "Der Missions-Runner ist reiner Orchestrator") — löst `module` über `FBModuleRegistry` auf, spawnt
@@ -446,7 +467,9 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
   mutierte Exemplar — reine Positions-Beobachtung, keine Modul-Selbstauskunft), Bodenkontakt abseits
   der zugewiesenen Runway (RESULT FAIL, nicht CRASH), Timeout. Beide werden von JEDEM Client gefüttert,
   der eine Sim-Schleife fährt — `FBMissionRunner` (fb-gym/gpu_native `--mission`) genauso wie der
-  WASM-App-eigene Frame-Loop (`FBAppWasm.cpp`) — je EINE Definition, kein zweiter Paralleltest.
+  WASM-App-eigene Frame-Loop (`FBAppWasm.cpp`) — je EINE Definition, kein zweiter Paralleltest. Bei
+  mehreren Einheiten gibt es je Einheit ein eigenes Paar (das MISSIONS-Urteil ist per Akteur, das
+  Gesamturteil eine reine Kombination im Runner — s.o.), nie einen geteilten Richter für die Besetzung.
   Piloten/Module wirken NUR über die simulierten Systeme (`fcs/*-cmd-norm` via FBFlightControl/
   FBAutopilot, FBAirframeControls für Gear/Brakes/Steer/Speedbrake/Engine, Throttle, Tank-Füllstand via
   `FBFdm::SetFuel*`) — der einzige State-Schreiber (JSBSim-IC/Trim) ist der App-eigene Boot-Spawn

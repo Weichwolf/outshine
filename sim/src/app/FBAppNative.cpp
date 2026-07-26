@@ -195,7 +195,8 @@ public:
   FBNativeMissionHook(std::string base, std::string outDir, double intervalS, int width = 1280, int height = 720)
       : Base(std::move(base)), OutDir(std::move(outDir)), IntervalS(intervalS), Width(width), Height(height) {}
 
-  void OnMissionStart(const FlightBox::FBSpawn &spawn, const FlightBox::FBSimUnit &primary) override {
+  void OnMissionStart(const FlightBox::FBSpawn &spawn, const FlightBox::FBActorList &actors) override {
+    const FlightBox::FBSimUnit &primary = *actors.front();   /* the camera's actor (FBMissionRunner.h) */
     R = std::make_unique<FlightBox::FBRenderer>();
     R->SetDefaultMode(0);
     R->SetGroundMode(0);
@@ -217,9 +218,9 @@ public:
       R.reset(); W.reset();
       return;
     }
-    /* The actor as a world entity: FBWorld's registry borrows the FBUnit, exactly as the browser client
-     * registers its own — one registration path for every client that has a world at all. */
-    W->RegisterUnit(&primary);
+    /* The WHOLE cast as world entities: FBWorld's registry borrows every FBUnit, exactly as the browser
+     * client registers its own — one registration path for every client that has a world at all. */
+    for (const auto &a : actors) W->RegisterUnit(a.get());
     /* Warm the terrain cut around the spawn before the first PNG — same 60-tick pre-roll RunMission
      * always did (the jet is stationary this round, an approximate cut is enough for a proof frame). */
     double altAsl0 = primary.GroundAslM() + (spawn.Ground ? 2.0 : (spawn.AltM - primary.GroundAslM()));
@@ -229,11 +230,12 @@ public:
     for (int i = 0; i < 60; i++) W->Update(spawn.LatDeg, spawn.LonDeg, eye0, fwd0, (double)i * 1000.0 / 15.0);
   }
 
-  void OnTick(const FlightBox::FBSimUnit &primary, double simT) override {
+  void OnTick(const FlightBox::FBActorList &actors, double simT) override {
     if (!R || !W) return;   /* OnMissionStart already logged the failure */
     Acc += 0.1;   /* dt = the runner's fixed 10 Hz decision tick, see FBMissionRunner.cpp */
     if (Acc < IntervalS) return;
     Acc = 0.0;
+    const FlightBox::FBSimUnit &primary = *actors.front();
     FlightBox::FBUnitPose p = primary.GetPose();   /* the camera rides the unit, not a raw FDM POD */
     double eye[3], fwd[3], right[3], up[3];
     FBGeoToEcef(p.LatDeg, p.LonDeg, p.ElevM, eye);
