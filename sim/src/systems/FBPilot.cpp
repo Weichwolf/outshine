@@ -17,11 +17,13 @@ const double kSteerXtGainPerM   = 0.01;
 const double kSteerHdgGainPerDeg = 0.02;
 const double kSteerCmdMax = 0.6;
 
-/* Rotation pitch-rate stick: a simple PD to the rotate-attitude target (mirrors FBFlightControl's own
- * Raw-path pitch PD). Full-authority stick (kRotateStickMax=1.0, a real rotation pull, not a gentle
- * in-flight roll-in) — the FLCS's own alpha/g scheduling (f16.xml's elevator-scheduler/alpha-limiter)
- * is what actually keeps AoA safe, same as a real pilot commanding hard aft stick on the roll. */
+/* Pitch-attitude-hold stick: a simple PD to a target pitch (mirrors flightctl.h's own Raw-path pitch
+ * PD) — Takeoff's rotation pull, Flare's touchdown flare, and Rollout's aerobrake/derotate all reduce to
+ * "hold this pitch attitude", just with a different target/stick-authority cap per phase (kRotateStickMax
+ * below is Takeoff/Rollout's full-authority pull; Flare uses a gentler cap, see kFlareStickMax). */
 const double kRotateKp = 0.15, kRotateKd = 0.02, kRotateStickMax = 1.0;
+const double kFlareStickMax = 0.6;      /* gentler near the ground — the flare is a soft correction, not
+                                          * a rotation pull */
 const double kPositiveRateMs = 0.5;      /* liftoff-to-gear-up guard: a real climb, not ground noise */
 const double kGearUpAglFt = 10.0;        /* + a firm AGL margin: JSBSim's FGLGear freezes WOW the instant
                                           * gear-pos-norm first drops <=0.99 (no gear-up branch recomputes
@@ -51,6 +53,30 @@ const char *FBPilot::PhaseName(Phase p) {
     case Phase::Shutdown: return "Shutdown";
   }
   return "?";
+}
+
+/* along=0 at the threshold, +down the runway heading; +across = right of the runway axis — the SAME
+ * convention FBMissionMonitor::OnRunway and FBAutopilot::SetCourse use (class banner), so Takeoff's
+ * ground steering, Rollout's reuse of it, and the mission verdict all agree on "on the line". */
+void FBPilot::RunwayAxis(const FBRunway &rwy, double lat, double lon, double &alongM, double &acrossM) {
+  double hdgRad = rwy.TrueHeadingDeg * kDeg2Rad;
+  double coslat = std::cos(rwy.ThresholdLatDeg * kDeg2Rad);
+  double dy = (lat - rwy.ThresholdLatDeg) * kMPerDeg;
+  double dx = Wrap180(lon - rwy.ThresholdLonDeg) * kMPerDeg * coslat;
+  alongM = dx * std::sin(hdgRad) + dy * std::cos(hdgRad);
+  acrossM = dx * std::cos(hdgRad) - dy * std::sin(hdgRad);
+}
+
+double FBPilot::NosewheelSteerCmd(const FBRunway &rwy, double lat, double lon, double yawDeg) const {
+  double along, across;
+  RunwayAxis(rwy, lat, lon, along, across);
+  (void)along;
+  double hdgErr = Wrap180(yawDeg - rwy.TrueHeadingDeg);
+  return Clamp(-(kSteerXtGainPerM * across + kSteerHdgGainPerDeg * hdgErr), -kSteerCmdMax, kSteerCmdMax);
+}
+
+double FBPilot::PitchHoldStick(double targetDeg, double pitchDeg, double qDegS, double stickMax) const {
+  return Clamp(kRotateKp * (targetDeg - pitchDeg) - kRotateKd * qDegS, -stickMax, stickMax);
 }
 
 FBPilotCommands FBPilot::Run(const FBState &state, const fb_fdm_state &fdm, const FBFlightPlan &plan,
@@ -93,26 +119,14 @@ FBPilotCommands FBPilot::Run(const FBState &state, const fb_fdm_state &fdm, cons
       c.ManualThr = TakeoffThrottleNorm();
       c.ManualRoll = 0.0; c.ManualYaw = 0.0;
 
-      if (runway) {   /* centerline tracking: cross-track + heading error to the runway axis */
-        double hdgRad = runway->TrueHeadingDeg * kDeg2Rad;
-        double coslat = std::cos(runway->ThresholdLatDeg * kDeg2Rad);
-        double dy = (fdm.lat - runway->ThresholdLatDeg) * kMPerDeg;
-        double dx = Wrap180(fdm.lon - runway->ThresholdLonDeg) * kMPerDeg * coslat;
-        double across = dx * std::cos(hdgRad) - dy * std::sin(hdgRad);   /* + = right of centerline */
-        double hdgErr = Wrap180(fdm.yaw - runway->TrueHeadingDeg);       /* + = nose right of the axis */
-        c.NosewheelSteer = Clamp(-(kSteerXtGainPerM * across + kSteerHdgGainPerDeg * hdgErr),
-                                 -kSteerCmdMax, kSteerCmdMax);
-      }
+      if (runway) c.NosewheelSteer = NosewheelSteerCmd(*runway, fdm.lat, fdm.lon, fdm.yaw);
 
       double vr = RotationSpeedKt(fb_jsbsim_get_weight_lbs());
       double casKt = fdm.cas * kMsToKt;
-      if (casKt >= vr - RotationLeadKt()) {
-        double target = RotationPitchDeg();
-        c.ManualPitch = Clamp(kRotateKp * (target - fdm.pitch) - kRotateKd * fdm.q,
-                              -kRotateStickMax, kRotateStickMax);
-      } else {
+      if (casKt >= vr - RotationLeadKt())
+        c.ManualPitch = PitchHoldStick(RotationPitchDeg(), fdm.pitch, fdm.q, kRotateStickMax);
+      else
         c.ManualPitch = 0.0;   /* stick neutral until the rotate call */
-      }
 
       if (fb_jsbsim_get_wow(-1) == 0) Transition(Phase::Climb);
       return c;
@@ -137,6 +151,7 @@ FBPilotCommands FBPilot::Run(const FBState &state, const fb_fdm_state &fdm, cons
     case Phase::Route: {
       const FBWaypoint *wp = plan.ActiveWaypoint();
       if (!wp) { Transition(Phase::Shutdown); return c; }   /* no waypoints left -> the mission SUCCESS gate */
+      if (wp->Type == FBWaypointType::Land) { Transition(Phase::Approach); return c; }
       c.Guidance = FBPilotGuidance::Direct;
       c.TargetLatDeg = wp->LatDeg; c.TargetLonDeg = wp->LonDeg;
       c.TargetAltM = wp->AltM;
@@ -144,12 +159,64 @@ FBPilotCommands FBPilot::Run(const FBState &state, const fb_fdm_state &fdm, cons
       return c;
     }
 
-    case Phase::Approach:
-    case Phase::Flare:
-    case Phase::Rollout:
+    case Phase::Approach: {
+      /* No assigned runway -> nothing sane to land on; stay neutral rather than guess (mirrors
+       * Preflight's own "nothing to do" contract). */
+      if (!runway) { Transition(Phase::Shutdown); return c; }
+      /* Touched down before FlareStartAglFt tripped (a short/high-sink final) — Rollout still handles
+       * it correctly (aerobrake-or-derotate is purely a CAS schedule, not conditioned on having flared). */
+      if (fb_jsbsim_get_wow(-1) != 0) { Transition(Phase::Rollout); return c; }
+
+      c.Guidance = FBPilotGuidance::Course;
+      c.TargetLatDeg = runway->ThresholdLatDeg; c.TargetLonDeg = runway->ThresholdLonDeg;
+      c.CourseDeg = runway->TrueHeadingDeg;
+      c.TargetAltM = runway->ThresholdElevM;
+      c.GlidepathDeg = GlidepathAngleDeg();
+      c.TargetSpeedKt = ApproachSpeedKt();
+      c.Speedbrake = ApproachSpeedbrakeNorm();
+      if (fdm.cas * kMsToKt < GearUpLimitKt()) c.GearDown = true;
+
+      if (state.radarAltFt <= FlareStartAglFt()) Transition(Phase::Flare);
+      return c;
+    }
+
+    case Phase::Flare: {
+      if (fb_jsbsim_get_wow(-1) != 0) { Transition(Phase::Rollout); return c; }
+      c.Guidance = FBPilotGuidance::Manual;
+      c.ManualThr = 0.0;      /* throttle to idle (doc/f16/procedures-landing.md's Short Final) */
+      c.ManualRoll = 0.0; c.ManualYaw = 0.0;
+      c.ManualPitch = PitchHoldStick(FlareTargetPitchDeg(), fdm.pitch, fdm.q, kFlareStickMax);
+      c.Speedbrake = ApproachSpeedbrakeNorm();
+      return c;
+    }
+
+    case Phase::Rollout: {
+      c.Guidance = FBPilotGuidance::Manual;
+      c.ManualThr = 0.0;
+      c.ManualRoll = 0.0; c.ManualYaw = 0.0;
+      c.Speedbrake = 1.0;   /* fully open (doc/f16/procedures-landing.md's Roll-Out) */
+
+      /* Two-point aerodynamic braking above AerobrakeSpeedKt (target held at AerobrakePitchDeg, well
+       * under FBFlightMonitor's 15-deg attitude-contact K.O.), a proportional derotate to nose-wheel-down
+       * below it — same PD as Takeoff's rotate/Flare's flare, just a speed-scheduled target. */
+      double casKt = fdm.cas * kMsToKt;
+      double brakeKt = AerobrakeSpeedKt();
+      double targetPitch = casKt > brakeKt ? AerobrakePitchDeg()
+                                            : AerobrakePitchDeg() * Clamp(casKt / brakeKt, 0.0, 1.0);
+      c.ManualPitch = PitchHoldStick(targetPitch, fdm.pitch, fdm.q, kRotateStickMax);
+
+      if (runway) c.NosewheelSteer = NosewheelSteerCmd(*runway, fdm.lat, fdm.lon, fdm.yaw);
+
+      /* Wheel brakes: negligible while the nose is still held up (two-point stance, doc: "F-16 wheel
+       * brakes are weak" — aerobrake does the work), moderate-heavy once derotating toward the nosewheel. */
+      double brake = casKt <= brakeKt ? RolloutBrakeNorm() : 0.0;
+      c.WheelBrakeLeft = brake; c.WheelBrakeRight = brake;
+      return c;
+    }
+
     case Phase::Shutdown:
     default:
-      return c;   /* Phase 3 (landing) */
+      return c;
   }
 }
 

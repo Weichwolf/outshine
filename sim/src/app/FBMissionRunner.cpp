@@ -45,6 +45,8 @@ bool FBEnsureDir(const std::string &dir) {
 }
 
 namespace {
+constexpr double kMsToKt = 1.9438444924406;
+
 /* FBMissionVerdict + FBFlightMonitor's FBKoReason -> the ONE FBMissionResult this Runner returns —
  * both monitors run independently (see the file banner); this is the one place their two verdicts
  * combine into a single exit code, not a third judgement of its own. */
@@ -194,7 +196,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
 
     if (flightMonitor.Tick(FBBuildFlightMonitorSample(St, groundAsl), simT))
       Module.Controls().EngineCutoff();   /* Crash/LOC -> Motor aus, JSBSim's own ground reactions do the rest — no freeze */
-    else if (missionMonitor.Tick({St.lat, St.lon, fb_jsbsim_get_wow(-1) != 0}, simT) &&
+    else if (missionMonitor.Tick({St.lat, St.lon, fb_jsbsim_get_wow(-1) != 0, St.gs * kMsToKt}, simT) &&
             missionMonitor.Verdict() == FBMissionVerdict::Fail)
       Module.Controls().EngineCutoff();   /* touched down off the assigned runway */
 

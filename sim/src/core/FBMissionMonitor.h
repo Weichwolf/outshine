@@ -3,9 +3,13 @@
  * never sees or holds a reference to an instance), but a DIFFERENT question. FBFlightMonitor asks "did
  * the airframe survive" (physics only, no runway/mission knowledge, untouched by this class). This one
  * asks "did the MISSION succeed" — waypoints reached, ground contact outside the assigned runway,
- * timeout, and (future) landing on the destination runway — sourced from the MISSION FILE, not from
- * whatever a module/pilot claims about itself: waypoint progress is tracked against a PRIVATE COPY of
- * the mission's own FBFlightPlan taken at construction (never the module's live, module-mutated
+ * timeout, and, when the mission's own FBFlightPlan ends in a `land` waypoint (FBWaypointType::Land,
+ * always the runway threshold, doc/mission-format.md), SUCCESS is redefined from "reached that point" to
+ * "came to a stop ON the runway" (weight-on-wheels, groundspeed under kStillstandKt, position inside the
+ * runway footprint) — a mission that only clips the threshold at flying speed has not landed. Sourced
+ * from the MISSION FILE, not from whatever a module/pilot claims about itself: waypoint progress is
+ * tracked against a PRIVATE COPY of the mission's own FBFlightPlan taken at construction (never the
+ * module's live, module-mutated
  * FBFlightPlan — FBNavSystem's own waypoint-advance drives GUIDANCE, this one drives the VERDICT) purely
  * from the aircraft's observed position, so a module cannot self-report its way to SUCCESS.
  *
@@ -28,6 +32,7 @@ const char *FBMissionVerdictStr(FBMissionVerdict v);
 struct FBMissionMonitorSample {
   double LatDeg = 0.0, LonDeg = 0.0;
   bool   AnyWow = false;
+  double GroundSpeedKt = 0.0;   /* the stillstand-on-the-runway SUCCESS gate (Land waypoint, class banner) */
 };
 
 class FBMissionMonitor {

@@ -6,7 +6,7 @@
 
 namespace FlightBox {
 
-enum class FBMode { Manual, Direct };
+enum class FBMode { Manual, Direct, Course };
 
 } // namespace FlightBox
 #endif

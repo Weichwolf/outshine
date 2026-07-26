@@ -81,14 +81,25 @@ Die Bodenhöhe für einen `ground`-Spawn kommt aus dem injizierten `FBElevationP
 Elevation-Hook: `--elev tiles|const|swiss`, siehe `sim/src/core/FBElevationProvider.h`) — die
 Datei-Elevation der `runway`-Zeile ist nur Doku/Fallback.
 
-Das Missions-URTEIL (Wegpunkte erreicht, Bodenkontakt abseits der Runway, Timeout — künftig Landung auf
-der Ziel-Runway) fällt `core/FBMissionMonitor`, das FBFlightMonitor-Geschwister: dieselbe unbestechliche
+Das Missions-URTEIL (Wegpunkte erreicht, Bodenkontakt abseits der Runway, Timeout, Landung auf der
+Ziel-Runway) fällt `core/FBMissionMonitor`, das FBFlightMonitor-Geschwister: dieselbe unbestechliche
 Struktur (Runner-/App-eigen, ein Modul sieht ihn nie), aber die MISSIONS-Frage statt der physikalischen.
 Er trägt seine EIGENE Kopie von `FBFlightPlan`/`FBRunway` (aus der Missionsdatei, nie das Modul-eigene,
 live mutierte Exemplar) und liest Fortschritt nur aus beobachteter Position — ein Modul kann sich nicht
 per Selbstauskunft zu SUCCESS melden. `core/FBFlightMonitor` bleibt daneben unverändert die physikalische
 K.O.-Instanz (Absturz/LOC) — zwei Instanzen, zwei Fragen, nie vermischt; beide laufen in JEDEM Client
 (Runner UND der WASM-App-eigene Frame-Loop).
+
+Endet der Flugplan auf einer `land`-Zeile (`FBWaypointType::Land`, immer die Runway-Schwelle), gilt für
+DIESEN letzten Wegpunkt eine andere SUCCESS-Regel als für `wp`: kein einfaches Capture-und-weiter, sondern
+**Stillstand auf der zugewiesenen Runway** — Fahrwerk mit Bodenkontakt, Groundspeed unter ~2 kt, Position
+innerhalb des Runway-Footprints (0 m Längs-, 15 m Quer-Marge). Ein bloßes Überfliegen der Schwelle in
+Fluggeschwindigkeit ist noch keine Landung. `systems/FBPilot`s Phasenmaschine liefert dazu die
+Flugführung — `Approach` (`FBAutopilot::Course`, ein Lokalizer/Glidepath-artiges Linienverfolgen der
+verlängerten Runway-Achse, `doc/f16/navigation-ils.md`) → `Flare` (Sinkrate kurz vor der Schwelle
+brechen) → `Rollout` (Aerobrake-Haltung bis zur Ausroll-Geschwindigkeit, dann Bugrad runter, Bremsen +
+Bugrad-Lenkung bis zum Stillstand) — aber das URTEIL bleibt beim Monitor, nicht beim Piloten: ein Modul
+kann sich auch hier nicht per Selbstauskunft zu SUCCESS melden.
 
 Heute beschreibt EINE `.fbm`-Datei genau EIN steuerbares Modul (ein `module`/ein `spawn`/ein
 `FBFlightPlan`). Das ist eine Eigenschaft des heutigen Runners, keine feste Grenze des Datenmodells:
@@ -105,3 +116,9 @@ Annahmen wie "genau ein Modul" tief im Parser/Runner verbaut.
 - `sim/missions/payerne-airstart.fbm` — derselbe Luftraum, aber ein reiner Luftstart (~10 nm SW von
   Payerne, 2500 m ASL, 300 kt, Fahrwerk eingefahren, 60% Tankfüllung) — keine `runway`-Zeile, kein
   Taxi/Rollout.
+- `sim/missions/payerne-landing.fbm` — das Landetrainingsgelände (Phase 3): Luftstart ~9 nm auf
+  RWY23-Endanflug ausgerichtet, ~500 m AGL (unter dem nominellen 3°-Glidepath — ein realistischer
+  Glidepath-Capture-von-unten-Fall), dann `land` — SUCCESS = Stillstand auf der Runway.
+- `sim/missions/payerne-full.fbm` — die Ziel-Mission: Bodenstart Payerne → drei Wegpunkte (SW-Climb-out,
+  Schleife über die Broye/Jura-Vorberge, Rückkehr auf RWY23-Endanflug) → `land` auf derselben Runway wie
+  der Start.

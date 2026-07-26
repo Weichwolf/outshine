@@ -23,6 +23,11 @@ bool OnRunway(const FBRunway &rwy, double lat, double lon, double marginAlongM, 
   double halfW = (rwy.WidthM > 1.0 ? rwy.WidthM : 60.0) * 0.5 + marginAcrossM;
   return along >= -marginAlongM && along <= rwy.LengthM + marginAlongM && std::fabs(across) <= halfW;
 }
+
+/* Stillstand-on-the-runway SUCCESS gate (class banner): a taxi-speed threshold, not a full stop — a
+ * rolling-to-a-stop aircraft still has a few kt of groundspeed for several ticks, and the mission
+ * objective ("landed and stopped") is met well before the literal last knot bleeds off. */
+constexpr double kStillstandKt = 2.0;
 } // namespace
 
 const char *FBMissionVerdictStr(FBMissionVerdict v) {
@@ -58,16 +63,26 @@ bool FBMissionMonitor::Tick(const FBMissionMonitorSample &s, double simTimeS) {
   if (HaveRunway_ && s.AnyWow && !OnRunway(Runway_, s.LatDeg, s.LonDeg, 50.0, 30.0))
     return Conclude(FBMissionVerdict::Fail, "touchdown off the assigned runway");
 
-  /* Waypoint progress against the mission's OWN plan, purely from observed position (class banner). */
+  /* Waypoint progress against the mission's OWN plan, purely from observed position (class banner). A
+   * Land waypoint (always the LAST one, doc/mission-format.md's 'land' keyword) does not capture-and-
+   * advance like an Enroute one — it needs the aircraft to actually STOP on the runway, not merely fly
+   * over the threshold, so SUCCESS there is a standalone condition, never reached via ActiveIdx_ falling
+   * off the end of the plan. */
   if (ActiveIdx_ >= 0 && ActiveIdx_ < Plan_.Size()) {
     const FBWaypoint &wp = Plan_.At(ActiveIdx_);
-    double coslat = std::cos(s.LatDeg * kPi / 180.0);
-    double dy = (s.LatDeg - wp.LatDeg) * kMPerDeg, dx = (s.LonDeg - wp.LonDeg) * kMPerDeg * coslat;
-    if (std::sqrt(dx * dx + dy * dy) <= WpCaptureM_) {
-      FBLog::Info("mission", "WP_REACHED", {{"idx", ActiveIdx_}, {"lat", wp.LatDeg}, {"lon", wp.LonDeg}});
-      ActiveIdx_++;
-      if (ActiveIdx_ >= Plan_.Size())
-        return Conclude(FBMissionVerdict::Success, "all waypoints reached");
+    if (wp.Type == FBWaypointType::Land) {
+      if (HaveRunway_ && s.AnyWow && s.GroundSpeedKt < kStillstandKt &&
+          OnRunway(Runway_, s.LatDeg, s.LonDeg, 0.0, 15.0))
+        return Conclude(FBMissionVerdict::Success, "stopped on the runway");
+    } else {
+      double coslat = std::cos(s.LatDeg * kPi / 180.0);
+      double dy = (s.LatDeg - wp.LatDeg) * kMPerDeg, dx = (s.LonDeg - wp.LonDeg) * kMPerDeg * coslat;
+      if (std::sqrt(dx * dx + dy * dy) <= WpCaptureM_) {
+        FBLog::Info("mission", "WP_REACHED", {{"idx", ActiveIdx_}, {"lat", wp.LatDeg}, {"lon", wp.LonDeg}});
+        ActiveIdx_++;
+        if (ActiveIdx_ >= Plan_.Size())
+          return Conclude(FBMissionVerdict::Success, "all waypoints reached");
+      }
     }
   }
 

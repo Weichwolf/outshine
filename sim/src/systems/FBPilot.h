@@ -10,12 +10,25 @@
  * WOW==0) -> Climb (FBAutopilot::Direct guidance to the active FBFlightPlan waypoint, gear retracted once
  * a positive rate is established below the gear-up speed limit) -> Route (Direct guidance to the active
  * waypoint at ITS own alt/speed; FBFlightPlan's own WP_REACHED sequencing, driven by the caller, advances
- * the active waypoint — Route just keeps flying whatever is active; no waypoints left -> Shutdown, the
- * mission runner's SUCCESS gate). Approach/Flare/Rollout stay the Round-A neutral placeholder (Phase 3).
+ * the active waypoint — Route just keeps flying whatever is active; the active waypoint turning
+ * FBWaypointType::Land hands off to Approach below; no waypoints left -> Shutdown, the mission runner's
+ * pre-landing SUCCESS gate).
+ *
+ * Phase 3 (the landing, doc/f16/procedures-landing.md): Approach (FBAutopilot::Course tracks the
+ * assigned runway's extended centerline + a GlidepathAngleDeg descent to the threshold, throttle holds
+ * ApproachSpeedKt — the F-16 flies AoA via throttle, not pitch trim, so an on-speed CAS number stands in
+ * for a closed AoA loop, see FBF16Pilot's banner for the measured on-speed CAS) -> Flare (below
+ * FlareStartAglFt: guidance drops to Manual, throttle to idle, a pitch-rate PD (mirrors Takeoff's rotate
+ * law) pulls to FlareTargetPitchDeg to arrest the sink rate for a soft touchdown) -> Rollout (on WOW:
+ * hold AerobrakePitchDeg two-point aerodynamic braking — the same pitch-rate PD, target held well under
+ * FBFlightMonitor's 15-deg attitude-contact K.O. — until AerobrakeSpeedKt, then derotate the nose down
+ * while wheel brakes + the Takeoff phase's own centerline nosewheel-steering law bring it to a stop; the
+ * mission's FBMissionMonitor, not this class, judges "stopped on the runway" as SUCCESS).
+ *
  * The airframe-specific NUMBERS (rotation speed by weight, rotation pitch, gear-up limit, climb speed,
- * takeoff throttle) are the class's virtual hooks below, not hardcoded here — FBF16Pilot supplies the
- * F-16's (doc/f16/procedures-takeoff-taxi.md); the defaults here are a generic placeholder, not a real
- * airframe's numbers.
+ * takeoff throttle, approach speed/glidepath, flare/rollout pitch targets and speeds) are the class's
+ * virtual hooks below, not hardcoded here — FBF16Pilot supplies the F-16's; the defaults here are a
+ * generic placeholder, not a real airframe's numbers.
  *
  * Run() is the one override point: a module whose pilot genuinely differs (not just different
  * procedure numbers — a module with its own decision logic) overrides it, same override-point pattern
@@ -36,9 +49,9 @@ namespace FlightBox {
 class FBWorld;
 
 /* The guidance the pilot hands to FBAutopilot. None = "don't touch the AP" — the module only calls the
- * matching FBAutopilot setter (SetManual/SetDirect) when a concrete mode is requested, so a
+ * matching FBAutopilot setter (SetManual/SetDirect/SetCourse) when a concrete mode is requested, so a
  * None-guidance tick changes nothing about whatever guidance is already running. */
-enum class FBPilotGuidance { None, Manual, Direct };
+enum class FBPilotGuidance { None, Manual, Direct, Course };
 
 /* One decision tick's output. Every airframe demand is std::optional: unset = "the pilot isn't
  * touching this control right now" (most ticks touch none of them), exactly mirroring a real pilot's
@@ -47,7 +60,9 @@ struct FBPilotCommands {
   FBPilotGuidance Guidance = FBPilotGuidance::None;
 
   double TargetAltM = 0.0, TargetSpeedKt = 0.0;
-  double TargetLatDeg = 0.0, TargetLonDeg = 0.0;   /* Direct target point (with TargetAltM/TargetSpeedKt) */
+  double TargetLatDeg = 0.0, TargetLonDeg = 0.0;   /* Direct target point / Course reference point */
+  double CourseDeg = 0.0, GlidepathDeg = 0.0;      /* Course-only: track heading + descent angle
+                                                      (TargetAltM doubles as Course's threshold elevM) */
   double ManualRoll = 0.0, ManualPitch = 0.0, ManualYaw = 0.0, ManualThr = 0.0;   /* Manual pass-through */
 
   std::optional<bool>   GearDown;
@@ -91,8 +106,28 @@ protected:
   virtual double ClimbSpeedKt() const { return 100.0; }
   virtual double TakeoffThrottleNorm() const { return 1.0; }
 
+  /* Phase 3 (the landing, class banner) — generic placeholders, FBF16Pilot overrides every one from
+   * doc/f16/procedures-landing.md (or, where the doc gives no number, a measured on-speed CAS against
+   * the vanilla model, see FBF16Pilot's own banner). */
+  virtual double ApproachSpeedKt() const { return 90.0; }
+  virtual double GlidepathAngleDeg() const { return 3.0; }
+  virtual double ApproachSpeedbrakeNorm() const { return 0.5; }
+  virtual double FlareStartAglFt() const { return 50.0; }
+  virtual double FlareTargetPitchDeg() const { return 8.0; }
+  virtual double AerobrakePitchDeg() const { return 10.0; }     /* stays well under FBFlightMonitor's
+                                                                   15-deg attitude-contact K.O. (margin) */
+  virtual double AerobrakeSpeedKt() const { return 100.0; }     /* nose-down below this */
+  virtual double RolloutBrakeNorm() const { return 0.8; }       /* wheel-brake command once derotated */
+
 private:
   void Transition(Phase p) { CurPhase = p; PhaseElapsedS = 0.0; }
+
+  /* Runway-relative along/across-track (m), the SAME axis convention FBMissionMonitor::OnRunway and
+   * FBAutopilot::SetCourse use (along=0 at the threshold, +down the runway; +across = right of course) —
+   * shared by Takeoff's ground-steering law and Rollout's reuse of it below. */
+  static void RunwayAxis(const FBRunway &rwy, double lat, double lon, double &alongM, double &acrossM);
+  double NosewheelSteerCmd(const FBRunway &rwy, double lat, double lon, double yawDeg) const;
+  double PitchHoldStick(double targetDeg, double pitchDeg, double qDegS, double stickMax) const;
 
   Phase CurPhase = Phase::Idle;
   double PhaseElapsedS = 0.0;

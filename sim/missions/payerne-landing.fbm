@@ -1,0 +1,12 @@
+name payerne-landing-1
+module f16                                  # FBModuleRegistry key -> FBF16Module (doc/mission-format.md)
+runway 46.84335 6.91523 441.0 228.0 2889   # Payerne threshold RWY23 (DEM-checked, matches payerne-takeoff-only.fbm)
+spawn 46.94354 7.07791 941.0 228.0 250     # ~9 nm out on RWY23's extended final, aligned on the runway
+                                             # heading, ~500 m AGL -- below the nominal 3 deg glidepath at
+                                             # this range (doc/f16/navigation-ils.md), a realistic
+                                             # glideslope-capture-from-below case for FBPilot's Approach
+                                             # phase (FBAutopilot::Course), not a spawn-on-rails freebie
+set gear up                                 # a real air start has no taxi/gear-down yet
+set fuel_pct 40                             # light enough for a normal landing weight
+land                                        # Approach -> Flare -> Rollout to a stop on the runway above
+timeout 400                                 # sim-seconds until TIMEOUT

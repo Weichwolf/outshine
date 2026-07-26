@@ -27,6 +27,18 @@ using namespace FlightBox;
 
 static const double kPi = 3.14159265358979323846;
 static const double kMPerDeg = 111320.0;
+static const double kMsToKt = 1.9438444924406;
+
+/* FBGuidance's mode as a short HUD/log label — one Manual/Direct/Course switch, shared by every caller
+ * that logs g.Mode (the [flight] agl line below) rather than each re-deriving its own ternary. */
+static const char *ModeLabel(FBMode m) {
+  switch (m) {
+    case FBMode::Manual: return "MANUAL";
+    case FBMode::Direct: return "DIRECT";
+    case FBMode::Course: return "COURSE";
+  }
+  return "?";
+}
 static const double kRadiusM = 8000.0;   /* ?ap=manual spawn offset */
 static const double kAglM = 1500.0;      /* ?ap=manual spawn height above ground */
 static const double kSpeedMs = 220.0;    /* ?ap=manual spawn speed */
@@ -206,7 +218,8 @@ static void frame(void) {
   gSimT += dt;
   if (gMonitor.Tick(FBBuildFlightMonitorSample(St, gForHud), gSimT))
     gF16->Controls().EngineCutoff();
-  else if (gMissionMonitor && gMissionMonitor->Tick({St.lat, St.lon, fb_jsbsim_get_wow(-1) != 0}, gSimT) &&
+  else if (gMissionMonitor &&
+          gMissionMonitor->Tick({St.lat, St.lon, fb_jsbsim_get_wow(-1) != 0, St.gs * kMsToKt}, gSimT) &&
           gMissionMonitor->Verdict() == FBMissionVerdict::Fail)
     gF16->Controls().EngineCutoff();
 
@@ -246,7 +259,7 @@ static void frame(void) {
       FBLog::Info("flight", "agl", {{"alt", St.elev}, {"agl", agl}, {"ground", gForHud},
           {"fdmGnd", fb_jsbsim_get_ground()}, {"spd", St.speed}, {"cas", St.cas}, {"bank", St.roll},
           {"hdg", St.yaw}, {"vs", St.vy}, {"ringDist", g.RingDistM},
-          {"mode", g.Mode == FBMode::Direct ? "DIRECT" : "MANUAL"}});
+          {"mode", ModeLabel(g.Mode)}});
       FBLog::Info("flight", "home", {{"dist", (double)hs.home_dist}, {"brg", (double)hs.home_bearing},
           {"hdg", St.yaw}, {"lon", St.lon}});
       FBLog::Info("pilot", "phase", {{"phase", FBPilot::PhaseName(gF16->PilotSystem().GetPhase())}});

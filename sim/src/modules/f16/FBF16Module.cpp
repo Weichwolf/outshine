@@ -93,6 +93,10 @@ void FBF16Module::ApplyPilotCommands(const FBPilotCommands &c) {
     case FBPilotGuidance::Direct:
       AP->SetDirect(c.TargetLatDeg, c.TargetLonDeg, c.TargetAltM, c.TargetSpeedKt * kKtToMs);
       break;
+    case FBPilotGuidance::Course:
+      AP->SetCourse(c.TargetLatDeg, c.TargetLonDeg, c.CourseDeg, c.TargetAltM, c.GlidepathDeg,
+                    c.TargetSpeedKt * kKtToMs);
+      break;
     case FBPilotGuidance::None:
       break;   /* leave whatever guidance is already running untouched */
   }
