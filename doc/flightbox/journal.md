@@ -198,3 +198,63 @@ German deliberately — they appear identically in code and three doc trees; ren
 a coordinated sweep. Remaining German: `world-and-terrain.md` (splits into `world/` in phase 3 of
 the mirror refactor) and the pre-refactor `sim/src` paths inside the seven translated files (also
 phase 3).
+
+### 2026-07-28 — the first model delta, and the landing that follows from it (this round)
+
+**D1 — the flaperon mixer** (`sim/assets/MODEL-DELTAS.md`, the delta rule's first live entry, and its
+first practical test: the emitted block collided with the verifier's own HTML-comment stripping, so
+`tools/verify_models.py` now protects the inside of a ```diff fence — otherwise a delta that touches an
+XML comment would be undeclarable). `f16.xml`'s flaperon summer carried the flap command
+DIFFERENTIALLY and the roll command SYMMETRICALLY, so `fcs/tef-control` cancelled out of
+`fcs/flaperon-mix-rad` and twice the aileron command took its place. The correct mixing is derived from
+the model's own consumer structure — the mixer's only two consumers, `CLDflaps` and `CDDflaps`, are
+symmetric per-radian force coefficients, while the rolling moment travels through `fcs/aileron-pos-rad`
+— and the evidence is a physical impossibility the model produced: **+6,420 lbf of forward "drag"** on
+a right roll at 350 KCAS. Measured before → after: `flaperon-mix-rad` under a pure roll step
+−1.28 → **0.0000**; Nz peak in the roll-in −1.54 g (right) / +3.46 g (left) → **+0.97 / +0.97**; flaps
+fully out 0.0002 → **0.349 rad** = the 20° the Flaps channel commands, ΔCL **0.122**, ΔCD **0.028**;
+roll rate at 400 KCAS +187.8/−132.3 → **+156.4/−156.6 °/s**, direction asymmetry across 250–600 KCAS
+from **55.5 → ≤ 0.2 °/s**.
+
+**Hook cascade, each one re-measured rather than assumed:** corner SPEED unchanged at 380 KCAS, the g
+at it 5.6 → **5.4** (`BfmCornerG`), best rate 16.22 → 16.37 °/s (peak moves to 400); 11°-AoA trim speed
+165 → **154 KCAS** (`ApproachSpeedKt`). Unmoved and reported as such: `BfmBrakeMs2` (2.531 → 2.527 m/s²
+— the flaps only deploy below 250 KCAS, that hook is measured at 325–400) and the ~0.2° cruise
+asymmetry (median |φ| on settled route legs 0.186° → 0.185° over 60,900 samples — it is the roll PID's
+steady-state residue, not the mixer's; the hypothesis that D1 would fix it is **falsified**).
+
+**The long landing roll.** The deceleration budget named the cause and it was not the model's µ:
+JSBSim brakes on `static_friction` (0.8, upper end of dry-runway values), and the measured brake
+deceleration is 3.3–3.8 m/s², working correctly. The loss sat between the two-point attitude and the
+brake gate. In the aerobrake the wings carry the whole aircraft (wheel normal load **0 lbf** at 12°),
+so no brake can bite and the 5,295 lbf of aero drag is the entire budget; the moment the nose falls,
+drag collapses to 1,477 lbf. The pilot gated the brakes on `AerobrakeSpeedKt` (100 kt) while the
+elevator actually loses the attitude at ~106 KCAS — a **361 m / 6.7 s coast at 0.45 m/s²** in between.
+The gate now hangs on the fact instead of the speed: `FBAirframeControls::GetNoseWheelOnGround()`
+(the forwardmost bogey's WOW, selected by geometry, `FBFdm::GetNoseGearOnGround`), latched for the
+roll-out, exactly as `procedures-landing.md` sequences it. Landing roll at Payerne RWY23:
+**1,597 → 785 m** (`payerne-landing`, −51 %) and **1,341 → 928 m** (`payerne-full`, −31 %). Attributed:
+D1 plus the new approach speed does 1,597 → 1,039 m and 1,341 → 909 m (the flaps finally give the
+two-point attitude real drag), the gate does 1,039 → 785 m on `payerne-landing` and is NEUTRAL on
+`payerne-full` (909 → 928 m) — there the nose happens to fall at 99.6 KCAS, so old gate and new gate
+fire at the same instant. That neutrality is the point: the gate does not brake EARLIER, it brakes when
+the aerobrake is over, whenever that is.
+
+**The approach speed is the honest one, and it costs distance.** With the pre-D1 165 kt the same build
+rolls 642 m / 578 m and greases the touchdown (126.7 kt, 0.29 m/s sink) — but it flies final at 9.2° AoA
+and floats 38 kt before touching. At the measured 154 kt it flies final at 11.0° AoA and touches at
+12.8° AoA, both exactly as `procedures-landing.md` prescribes, at 142.9 kt and 2.96 m/s of sink (peak
+gear load 2.05 W against the monitor's 3.0 knockout). The extra 143 m is the price of a procedurally
+correct approach instead of a float. What this exposed and did NOT fix: the flare law targets a pitch
+ATTITUDE 1.7° above the approach attitude and therefore barely arrests the sink — it had been masked by
+11 kt of excess approach speed for as long as the flaps did not work.
+
+**Re-baseline:** 53 missions, 48 verdicts unchanged, five changed and all five explained rather than
+papered over — `attack-ccip`/`attack-ccrp`/`wx-ccrp-wind` (the release vertical velocity flips sign
+because a roll-in no longer produces a lift step, and the FCC's own table-vs-aero prediction error of
+53–64 m stopped cancelling the aim error instead of adding to it: aim error 28 → 80 m), `gun-bfm` and
+`bvr-duel-decided` (the BFM/launch geometry rides on the roll behaviour that changed). No mission file
+was edited to make any of them green. Determinism 1/2/4 threads identical on five multi-unit missions;
+eight harnesses, `verify-models` (green WITH exactly one declared delta, and its negative directions
+re-checked), `verify-layers`, WASM + smoke (the corrected gain is in `gpu.wasm`, the old one is not)
+all pass.

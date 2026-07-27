@@ -442,8 +442,8 @@
    </scheduled_gain>
 
    <summer name="fcs/left-flaperon-norm">
-    <input>-fcs/tef-control</input>
-    <input>-fcs/aileron-speed-compensated</input>
+    <input>fcs/tef-control</input>
+    <input>fcs/aileron-speed-compensated</input>
     <clipto>
      <min>-1.0</min>
      <max>1.0</max>
@@ -466,7 +466,7 @@
 
    <pure_gain name="fcs/flaperon-mix-rad">
     <input>fcs/flaperon-summer</input>
-    <gain>1.4324</gain>
+    <gain>0.1745329</gain>
    </pure_gain>
 
    <aerosurface_scale name="fcs/left-aileron-control">

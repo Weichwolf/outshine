@@ -248,7 +248,7 @@ private:
   /* Der Versatz des Such-Webens, verankert am Suchbeginn statt an der Missionsuhr, und auf die
    * Unsicherheitsbreite des Datums geweitet. */
   double SearchWeaveDeg(const FBTrackDatum &datum, bool searching);
-  void Transition(Phase p) { CurPhase = p; PhaseElapsedS = 0.0; }
+  void Transition(Phase p) { CurPhase = p; PhaseElapsedS = 0.0; RolloutNoseDown_ = false; }
 
   /* DIE EINLAUFENDE BAHN des aktiven Wegpunkts, falls die Mission eine deklariert hat. Ein Bein sind
    * zwei DEKLARIERTE Fixe und sonst nichts: zum ERSTEN Wegpunkt gibt es keine Bahn, und eine aus der
@@ -263,6 +263,7 @@ private:
 
   Phase CurPhase = Phase::Idle;
   double PhaseElapsedS = 0.0;
+  bool RolloutNoseDown_ = false;  /* gelatcht: die Zwei-Punkt-Lage ist vorbei, Radbremsen frei */
   int ActiveWpCache = -1;         /* Telemetriecache, in Run() gesetzt */
   double DistToWpCache = -1.0;
 

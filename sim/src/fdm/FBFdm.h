@@ -100,6 +100,11 @@ public:
    * aircraft name, so a model without such points simply always reads false. */
   bool GetStructureContact() const;
 
+  /* True iff the FORWARDMOST bogey is compressed — "the nose is down". Selected by GEOMETRY, never by
+   * an index or a gear name, so a taildragger simply reports its tailwheel and a model without a
+   * nosewheel reports its only bogey. */
+  bool GetNoseGearOnGround() const;
+
   /* Peak strut compression force (lbf) this tick — the model's own spring/damper reaction, not a
    * derived sink-rate heuristic. */
   double GetMaxGearForceLbs() const;

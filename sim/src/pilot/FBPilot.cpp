@@ -1031,9 +1031,14 @@ FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
 
       if (runway) c.NosewheelSteer = NosewheelSteerCmd(*runway, st.lat, st.lon, st.yaw);
 
-      /* Radbremsen erst nach dem Absenken: in der Zwei-Punkt-Lage macht die Aerobrake die Arbeit
-       * (doc/f16/procedures-landing.md: die Radbremsen der F-16 sind schwach). */
-      double brake = casKt <= brakeKt ? RolloutBrakeNorm() : 0.0;
+      /* Radbremsen erst nach dem Absenken (doc/f16/procedures-landing.md, Roll-Out) — und das ist die
+       * NASE AM BODEN, nicht AerobrakeSpeedKt: in der Zwei-Punkt-Lage tragen die Fluegel das Flugzeug,
+       * die Haupraeder sind also unbelastet und eine Bremse hat gar nichts zu greifen. Die Prozedur
+       * nennt die ~100 kt als ERWARTUNG, wann die Nase faellt; faellt sie frueher, weil das
+       * Hoehenruder die Lage nicht mehr haelt, ist die Aerobrake dort zu Ende und die Bremsen gehoeren
+       * dorthin. Gelatcht, damit ein Aufsetz-Huepfer sie nicht wieder loest. */
+      if (airframe.GetNoseWheelOnGround()) RolloutNoseDown_ = true;
+      double brake = RolloutNoseDown_ ? RolloutBrakeNorm() : 0.0;
       c.WheelBrakeLeft = brake; c.WheelBrakeRight = brake;
       return c;
     }

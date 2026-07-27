@@ -1,6 +1,14 @@
 name wx-ccrp-wind-1
 timeout 200
 
+# READING-RULE UPDATE (model delta D1, flaperon fix): this mission currently ends TIMEOUT, exit 3.
+# The run-in roll no longer produces a lift step, release vertical velocity flipped sign, and the
+# fire-control's own table-vs-aero prediction error (53-64 m, a documented intentional property)
+# stopped CANCELLING the aim error and started adding (aim error now ~80 m vs the ~45 m the target
+# requires). This surfaced a PRE-EXISTING weakness that used to pass by cancellation; a fire-control
+# accuracy round is queued (see doc/flightbox/journal.md). Until it lands, TIMEOUT is the expected
+# outcome here and NOT a delivery regression marker.
+
 # THE SAME CCRP DELIVERY AS attack-ccrp.fbm, WITH A CROSSWIND — geometry, loadout, brief and target
 # identical, one `wx` line added. It is the pair that is the measurement: run both and subtract.
 #

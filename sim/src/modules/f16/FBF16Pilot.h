@@ -18,7 +18,9 @@ protected:
   double ClimbSpeedKt() const override { return 350.0; }
   double TakeoffThrottleNorm() const override { return 1.0; }
 
-  double ApproachSpeedKt() const override { return 165.0; }
+  /* [MESS] trimmed level, gear down, 40 % fuel: 11.0 deg AoA sits at 154 KCAS on this model (165 KCAS
+   * before assets/MODEL-DELTAS.md D1 made the trailing edge flaps carry). */
+  double ApproachSpeedKt() const override { return 154.0; }
   double GlidepathAngleDeg() const override { return 3.0; }
   double ApproachSpeedbrakeNorm() const override { return 0.5; }
   double FlareStartAglFt() const override { return 50.0; }
@@ -27,9 +29,11 @@ protected:
   double AerobrakeSpeedKt() const override { return 100.0; }
   double RolloutBrakeNorm() const override { return 0.8; }
 
-  /* Corner speed and its g are [MESS] against the vanilla model (`make -C sim test-corner`). */
+  /* Corner speed and its g are [MESS] against the flown model (`make -C sim test-corner`); re-measured
+   * after assets/MODEL-DELTAS.md D1 — the speed is unchanged, the g at it fell from 5.6 to 5.4 because
+   * a roll-in no longer comes with a spurious lift jump. */
   double BfmCornerSpeedKt() const override { return 380.0; }
-  double BfmCornerG() const override { return 5.6; }
+  double BfmCornerG() const override { return 5.4; }
   double BfmMaxG() const override { return 9.0; }
   double BfmMinSpeedKt() const override { return 300.0; }
   double BfmUnloadG() const override { return 3.0; }
@@ -39,8 +43,10 @@ protected:
   double BfmControlAtaDeg() const override { return 30.0; }
   double BfmClosureGainKtPerNm() const override { return 120.0; }
   double BfmMaxClosureKt() const override { return 200.0; }
-  /* [MESS] median of 238 idle/speedbrake-out samples; the MEDIAN, not the conservative p10, because
-   * every knot the schedule gives away at range is one the pursuer must make up in the merge. */
+  /* [MESS] median of idle/speedbrake-out samples between 325 and 400 KCAS; the MEDIAN, not the
+   * conservative p10, because every knot the schedule gives away at range is one the pursuer must make
+   * up in the merge. Unmoved by MODEL-DELTAS.md D1 (2.531 -> 2.527 m/s^2 re-measured): the flaps only
+   * deploy below 250 KCAS, so this band never sees them. */
   double BfmBrakeMs2() const override { return 2.4; }
   double BfmLeadAspectDeg() const override { return 45.0; }
   double BfmLeadRangeNm() const override { return 3.0; }

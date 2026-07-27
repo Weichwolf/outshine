@@ -11,6 +11,7 @@ void FBJsbsimAirframeControls::EngineCutoff() { Fdm.EngineCutoff(); }
 
 /* Modellweites WOW: eine Ja/Nein-Frage, keine Aufschluesselung je Fahrwerk. */
 bool FBJsbsimAirframeControls::GetWeightOnWheels() const { return Fdm.GetWow(); }
+bool FBJsbsimAirframeControls::GetNoseWheelOnGround() const { return Fdm.GetNoseGearOnGround(); }
 double FBJsbsimAirframeControls::GetGearPosition() const { return Fdm.GetGearPos(); }
 double FBJsbsimAirframeControls::GetSpeedbrake() const { return Fdm.GetSpeedbrakePos(); }
 double FBJsbsimAirframeControls::GetGrossWeightLbs() const { return Fdm.GetWeightLbs(); }
