@@ -1,5 +1,5 @@
 name bvr-duel-1
-timeout 320
+timeout 700
 
 # THE DUEL: two intercept pilots, the same code, pointed at each other. Nothing is scripted on either
 # side — no briefed release, no briefed chaff, no briefed manoeuvre. Each jet is given what a controller
@@ -37,9 +37,19 @@ timeout 320
 # A HIT NOW COUNTS (core/FBDamageModel): a burst inside the fuze radius takes systems out, and a jet
 # that loses its engine, its flight controls or its structure is combat-ineffective, which its own
 # mission monitor concludes as FAIL. That is what would end this run early — and as measured, it does
-# not: neither round has ever got inside the fuze radius here (both are defeated in the notch), so the
-# duel still ends at its timeout (exit 3) with both jets alive. The verdict is therefore still read from
-# the miss distances and the two timelines, and it is still a draw — now for a reason that can change.
+# not: no round has yet got inside the fuze radius here (all are defeated in the notch), so the duel
+# still ends at its timeout (exit 3) with both jets alive. The verdict is therefore still read from the
+# miss distances and the two timelines, and it is still a draw — now for a reason that can change.
+#
+# THE TIMEOUT IS 700 s BECAUSE THE FIGHT NO LONGER ENDS WITH THE FIRST EXCHANGE. It used to: both jets
+# beamed the incoming round, both survived, and both then flew their briefed vector — which points PAST
+# the other one — until the clock ran out with a missile still on each rack. Measured at 320 s and again
+# at 700, that was 474 seconds of two fighters flying away from each other. Since the pilot keeps a
+# datum (systems/FBBfmTrack's FBTrackDatum) and resumes toward it once the threat is over
+# (systems/FBPilot's re-attack decision), both turn back instead: measured, separation peaks at 55.6 km
+# around t=280 and closes again, both re-enter CLOSING at t~355 and ATTACK at t~365, bandit takes its
+# second shot at t=527 (miss 43.6 m, notched like the first), and a third pass is developing when the
+# clock stops. 320 s would now cut the run off in the middle of the turn back.
 
 unit viper
   team friendly

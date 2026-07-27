@@ -26,10 +26,14 @@ timeout 400
 #                                minutes is 0.574 nm). 0.15-0.40 nm puts the same pursuit law's target
 #                                position inside the funnel. Nothing else about the fight changes —
 #                                same law, same gains, one declared band (systems/FBPilotTuning).
-# THE RUN ENDS AT ITS TIMEOUT, exit 3, BY DESIGN — bfm-basic's rule, for bfm-basic's reason: a fight has
-# no waypoint to arrive at, and NINE 20 mm rounds through a forward fuselage are not an airframe kill
-# (they are what the damage lines below show them to be: the avionics gone and the structure hurt). The
-# verdict is read from the events and the telemetry, not from the exit code.
+# THE RUN NOW ENDS IN A KILL, exit 1 at t=167 — and that is a CHANGE, recorded here because the reason
+# is the whole point of the file. It used to run to its timeout: the funnel was entered, the trigger was
+# squeezed, and the rounds went where the solution had been rather than where it was going. Since the
+# gun tracking loop carries the solution's own RATE as a control term (systems/FBPilot), the same pass
+# puts nine rounds through the forward fuselage, the flight controls and the structure fail together,
+# and the defender's own mission monitor concludes FAIL ("combat ineffective"). exit 1 is therefore the
+# PASSING outcome here — a run that ends at its timeout again means the shooter stopped hitting. The
+# detail is still read from the events and the telemetry, not from the exit code.
 #
 # THE DEFENDER is bfm-basic's, unchanged and deliberately not a second gunfighter: a sustained max-rate
 # level left turn around a waypoint at the centre of its own turn circle, declared as one mission line

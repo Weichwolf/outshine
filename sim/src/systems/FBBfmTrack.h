@@ -51,6 +51,37 @@ const char *FBBfmPursuitStr(FBBfmPursuit p);
  *             freeze-at-last-value the CRUS page does, arrived at from a completely different problem.
  * The stamp is the LOOK the estimate stands on, so age is age since the sensor last saw him. */
 
+/* THE DATUM: where a target that is no longer being seen COULD be now, and how big "could" has become.
+ *
+ * The block above answers "where is he" and stops answering it honestly past kMaxExtrapolateS, when it
+ * freezes on the last measured position. That freeze is right for STEERING A PURSUIT — a pilot must not
+ * pull lead on a guess — and useless for the other thing a pilot does with a lost target, which is go
+ * back and look for him. Looking needs two numbers the block does not carry: a POINT to fly to and the
+ * WIDTH of the region around it, because that width is what says how far the nose has to be swept.
+ *
+ * BOTH COME OUT OF THE SAME ESTIMATE, with one assumption added: that the other jet can turn about as
+ * hard as this one (FBPilot::CornerTurnRateDegS, derived from its own measured corner numbers). A target
+ * last seen at speed V, turning at rate w, is after t seconds displaced from the straight-line
+ * prediction by (V/w)*sqrt((wt - sin wt)^2 + (1 - cos wt)^2), which for the times that matter is
+ * 0.5*V*w*t^2 — and it can never be further than V*t from where it was actually seen, whatever it did.
+ * So the uncertainty radius is min(0.5*V*w*t^2, V*t), and the two halves cross at t = 2/w: BEFORE that
+ * the prediction is worth more than the last look, AFTER it the turn could have gone anywhere and the
+ * honest centre stops moving. That crossing is derived, not chosen, and for this simulator's F-16 it
+ * lands at ~7 s — which is where kMaxExtrapolateS above was independently put at 8 s.
+ *
+ * HalfWidthDeg is that radius seen from here: the half-angle a search has to cover, which is what makes
+ * a scan pattern a consequence of what the pilot knows instead of a fixed weave. */
+struct FBTrackDatum {
+  bool   Valid = false;         /* something was measured at some point; nothing to go back to if not */
+  double AgeS = 0.0;            /* since the LOOK the estimate stands on */
+  double EastM = 0.0, NorthM = 0.0, UpM = 0.0;   /* own-relative offset of the region's centre */
+  double RangeM = 0.0;
+  double BearingDeg = 0.0;      /* true bearing to it */
+  double AltM = 0.0;            /* the centre's altitude, m ASL */
+  double RadiusM = 0.0;         /* how big the region has grown */
+  double HalfWidthDeg = 0.0;    /* ...as an angle from here */
+};
+
 class FBBfmTrack : public FBTelemetrySource {
 public:
   /* Velocity is differenced between CONSECUTIVE looks and filtered, not measured over a longer baseline.
@@ -79,6 +110,10 @@ public:
 
   /* Leaving BFM (or never entering it) must not leave a stale picture behind. */
   void Reset();
+
+  /* The last known state as something to go LOOK for (see FBTrackDatum). `turnRateDegS` is how hard the
+   * pilot assumes the target can turn — its own airframe's number, since this class knows no airframe. */
+  FBTrackDatum Datum(const fb_fdm_state &own, double nowS, double turnRateDegS) const;
 
   const FBBfmBlock &Block() const { return Blk_; }
   bool Engaged() const { return EngagedS_ > 0.0; }

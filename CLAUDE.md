@@ -660,12 +660,29 @@ sim/src/
                Yo-Yo), Pure dazwischen; Reichweiten-/Energie-Management über einen Closure-FAHRPLAN
                (gewünschte Annäherungsrate ∝ Restentfernung) plus Speed-Matching auf die GESCHÄTZTE
                Zielgeschwindigkeit. Alle Zahlen sind virtuelle Hooks (F-16: Corner-Speed 380 KCAS,
-               gemessen via `make -C sim test-corner`).
+               gemessen via `make -C sim test-corner`). Drei Regelanteile darin sind KEINE Zahlen, sondern
+               Gesetze: (a) die KANONEN-Nachführung im Trichter regelt nicht nur den Fehler, sondern auch
+               dessen RATE — die geforderte Rohrrichtung wird in die WELT gedreht, dort differenziert und
+               um eine Zeitkonstante vorausgesagt (kein Eigenanteil im Signal), plus ein Integrator mit
+               ζ = 0,707 gegen den Restversatz; (b) die SUCHE fliegt das Datum (s. FBBfmTrack) und webt mit
+               dessen Unsicherheitsbreite, phasenverankert am Suchbeginn statt an der Missionsuhr — und
+               nur solange sie außerhalb des Gebiets ist, denn im Inneren ist die Peilung zum Mittelpunkt
+               keine Information mehr; (c) ein ROLLRATEN-Regler begrenzt die Eigenrolle (skaliert das
+               Kommando, das die gemessene Rate erzeugt hat) — ohne ihn beantwortet das Gesetz einen
+               180°-Lenkfehler mit Vollausschlag und der Monitor sieht ein Departure.
                FBBfmTrack (`FBBfmTrack.h/.cpp`): das Bild, gegen das diese Phase regelt — ausschließlich
                aus dem Radar-BLOCK des FBState (Kontakte + Lock-Index, Kopf zuerst) gebaut (kein FBWorld, keine Registry, kein
                Datalink-Track im Include-Baum): geschätzte Zielposition + Geschwindigkeitsvektor aus
                aufeinanderfolgenden Looks, extrapoliert solange ein Lock fehlt, danach nur noch das
-               zuletzt GEMESSENE Datum. Zugleich FBTelemetrySource "bfm" (Aspekt/ATA/Range/Closure/
+               zuletzt GEMESSENE Datum. Daraus zusätzlich `FBTrackDatum` (`Datum(own, now, turnRate)`) —
+               das GEDÄCHTNIS des Piloten für einen verlorenen Gegner: der Mittelpunkt des Gebiets, in dem
+               er jetzt sein KANN (letzter Vektor fortgeschrieben, aber nur bis 2/ω — dort ist der
+               Kurvenfehler so groß wie die ganze Verschiebung), sein Radius `min(0.5·V·ω·t², V·t)` und
+               dessen Winkelbreite von hier aus. ω ist die Annahme, der Gegner kurve wie man selbst
+               (`FBPilot::CornerTurnRateDegS`, aus den eigenen Corner-Hooks hergeleitet: F-16 15,8 °/s
+               gegen 16,2 °/s aus `make -C sim test-corner`). Der Block bleibt für die VERFOLGUNG
+               eingefroren (man zieht keine Vorhaltung auf eine Vermutung), das Datum ist das, worauf man
+               SUCHT — Bfm und Intercept teilen es sich. Zugleich FBTelemetrySource "bfm" (Aspekt/ATA/Range/Closure/
                eigene Energiehöhe + die Integrale Lock-Sekunden und Kontrollpositions-Sekunden) — die
                Fitness-Kanäle der späteren evolutionären Runde, alle aus EIGENER Perspektive
                berechenbar.
@@ -683,9 +700,15 @@ sim/src/
                Doppler-Notch der Gegenseite offen, plus Täuschkörper — beides erst nach
                kInterceptReactionS), Abort. Die Kernregel: eine Verfolgungswarnung verlangt eine
                Antwort erst, wenn der EIGENE Angriff nichts mehr zu gewinnen hat; ein Suchkopf auf dem
-               eigenen Flugzeug immer. Alle Zahlen sind Hooks (F-16: Lock ab 16 nm, Crank auf 45° =
-               Gimbal 60° minus Reserve); Reaktionszeit und Bedien-Takt sind KEINE Hooks, weil sie den
-               Piloten und nicht das Flugzeug beschreiben.
+               eigenen Flugzeug immer. WIEDERAUFNAHME NACH DER VERTEIDIGUNG: ist die Bedrohung vorbei,
+               entscheidet `FBPilot::CanPressOn` — Waffen auf den Trägern, kein BINGO im Warnblock, ein
+               strahlendes Radar; fehlt eines davon, löst sich der Pilot (Abort). Sonst Search, und die
+               sucht dann NICHT mehr den gebrieften Vektor ab (der zeigt am Gegner vorbei, gemessen: 474 s
+               auseinanderfliegen), sondern das DATUM — Kurs, Höhenband, Antennenhöhe und Webbreite kommen
+               alle daraus. Ohne je gesehenen Gegner ist das Datum ungültig und alles bleibt exakt der
+               gebriefte Vektor (byte-identisch nachgemessen). Alle Zahlen sind Hooks (F-16: Lock ab
+               16 nm, Crank auf 45° = Gimbal 60° minus Reserve); Reaktionszeit und Bedien-Takt sind KEINE
+               Hooks, weil sie den Piloten und nicht das Flugzeug beschreiben.
                FBPilotTuning (`FBPilotTuning.h/.cpp`): die PILOTEN-VARIANTE als Missionsdaten — eine
                dünne, feste Tabelle {gesetzt?, Wert} über genau die zwölf Entscheidungszahlen des
                Abfangs (Lock-Entfernung, Rtr-Faktor, Schusskegel/-abstand, Crank, Abbruch, Beam,

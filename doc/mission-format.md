@@ -570,10 +570,22 @@ Aufschlaggeschwindigkeit und Streuung berechnet statt aus einer Splittermasse �
 Zone, weil ein Feuerstoß ein durchgehender Strom ist, den der Tick nur in Bündel zerschneidet (sonst
 hinge der Schaden an der Tickrate). Ein Gefechtskopf summiert nicht: eine Detonation ist EIN Ereignis.
 
-**Beweismission**: `missions/gun-bfm.fbm` (Zielverfolgungspass gegen einen geradeaus fliegenden Gegner)
-— endet planmäßig im TIMEOUT (Exit 3), das Urteil steht in den Ereignissen. Die Zahlen der Waffe selbst
-(Streuungs-Fit gegen MIL-DTL-45500/1A, Flugzeit, Trichter-Geometrie, Vorhaltelösung gegen die geflogene
-Bahn, Munitionsverbrauch, Ablehnung bei leerer Trommel) prüft `make -C sim test-gun`.
+**Beweismissionen**: `missions/gun-bfm.fbm` (Zielverfolgungspass gegen einen GERADEAUS fliegenden
+Gegner) und `missions/gun-turning.fbm` (derselbe Schütze gegen bfm-basics DAUERKURVENDEN Verteidiger —
+die harte Prüfung, weil dort die Trichterlösung durch den Trichter WANDERT). Beide enden mit einem Kill
+(Exit 1 = FAIL für den Getroffenen); das Urteil steht in den Ereignissen (`gun HIT`, `damage SYSTEM`,
+`damage KILL`) und in `gun_sol_err`/`gun_in_funnel`. Die Zahlen der Waffe selbst (Streuungs-Fit gegen
+MIL-DTL-45500/1A, Flugzeit, Trichter-Geometrie, Vorhaltelösung gegen die geflogene Bahn,
+Munitionsverbrauch, Ablehnung bei leerer Trommel) prüft `make -C sim test-gun`.
+
+**Die Nachführung ist eine Regelung, kein Zielen** (`systems/FBPilot`, Abschnitt 3c): das Gesetz
+kommandiert eine Drehrate ∝ Fehler, und gegen einen kurvenden Gegner ist die geforderte Rohrrichtung
+eine RAMPE — ein reiner P-Anteil bleibt dann konstant um (Rampenrate × Zeitkonstante) zurück (gemessen:
+Fehler nie unter 4,6° bei ~1°-Trichtertoleranz, zwei Feuerstöße, 70 Schuss, kein Treffer). Deshalb sind
+FEHLERRATE und Integral eigene Regelanteile. Vorher/nachher über je acht Anflüge pro Verteidiger:
+Trichterzeit 3,2 s → 20,7 s (geradeaus) bzw. 0,0 s → 21,6 s (kurvend), Schuss auf dem Ziel 11,9 → 111,2
+bzw. 0,0 → 120,4 Patronen, Abschüsse 0 → 5 bzw. 0 → 7 von je acht Läufen, mittlerer Nachführfehler
+10,5° → 6,9° bzw. 11,9° → 4,1°.
 
 ### Startbedingung des Stores
 
@@ -832,6 +844,15 @@ Beispiele: `sim/missions/bfm-basic.fbm` (Verfolger 2 nm hinten), `bfm-offset.fbm
 versetzt, Aspekt ~90° = Winkelnachteil), `bfm-merge.fbm` (Head-on-Merge, Aspekt 180°), `bfm-blind.fbm`
 (versetzter Merge — der Vorbeiflug REISST DEN LOCK ab und zeigt Extrapolation + Suche + Wiedererfassung).
 
+**Die Suche ist zielbewegungs-bewusst.** Sie fliegt nicht die zuletzt GEMESSENE Position an (dort ist er
+längst nicht mehr), sondern das DATUM aus `systems/FBBfmTrack::Datum`: letzter Vektor fortgeschrieben,
+solange diese Vorhersage mehr wert ist als der letzte Look (bis 2/ω), Unsicherheitsradius
+`min(0,5·V·ω·t², V·t)`, und die Webbreite ist genau dessen Winkelbreite von hier aus. Die Webphase
+beginnt beim SUCHBEGINN statt an der Missionsuhr — sonst entscheidet der Zufallszeitpunkt des
+Kontaktverlusts über den Erfolg. Gemessen über 16 Merges derselben Geometrie (Sweep über die
+Verlustzeit): vorher wurden 6 von 11 Kontaktverlusten wieder erfasst (34/80/81/86/170/240 s, fünfmal
+nie), nachher 11 von 11 (10…141 s, Median 39 s).
+
 **Ein Kampf hat kein Wegpunkt-Ziel — solche Missionen enden per TIMEOUT (Exit 3), und zwar
 absichtlich.** Der Verfolger deklariert keine Objectives (kein `wp`), der Gegner fliegt sein definiertes
 Manöver (in den vier Missionen: ein einziger Wegpunkt im ZENTRUM seiner Kurve, den die Direct-Guidance
@@ -872,6 +893,18 @@ Flugzeug (RWR-Modus `missile`) immer; ein bloß VERFOLGENDES Radar (`track`) ers
 nichts mehr zu gewinnen hat — der Schuss ist weg und braucht keine Führung mehr, oder es gab nie einen
 zu schießen. Sonst verliert man das Gefecht, indem man vor dem eigenen Schuss abdreht.
 
+**Und wann sie wieder aufgenommen wird.** Ist die Bedrohung vorbei (kein Sucher mehr, Haltezeit
+abgelaufen), fragt der Pilot genau drei Instrumente: Waffen auf den Trägern (Stores-Block), kein BINGO
+im Warnblock, ein strahlendes Radar. Fehlt eines, löst er sich (`abort`) — das ist die ehrliche
+Abbruchbedingung. Sonst geht er zurück in `search`, und die sucht dann das DATUM des zuletzt gesehenen
+Gegners statt des gebrieften Vektors: Kurs, Höhenband, Antennenelevation und Webbreite kommen alle aus
+`systems/FBBfmTrack::Datum`. Hat er nie etwas gesehen, ist das Datum ungültig und alles bleibt exakt der
+gebriefte Vektor. Gemessen an `bvr-duel.fbm`: vorher flogen beide nach dem Abwehrmanöver ihren Vektor
+weiter und trennten sich 474 s lang bis 70,7 km, jeder mit einer Rakete an Bord; jetzt kehren beide um
+(größte Trennung 55,6 km bei t≈280 s), gehen bei t≈355 s wieder in `closing` und bei t≈365 s in
+`attack`, und der zweite Schuss fällt bei t=527 s (43,6 m Fehlabstand, im Notch abgewehrt wie der
+erste).
+
 Die Zahlen sind Modul-Sache (`modules/f16/FBF16Pilot`): Lock ab 16 nm, Schuss bei Rtr, Crank auf 45°
 (APG-68-Kardanwinkel 60° minus Reserve), Abbruch unter 5 nm, Suchmodus = CRM. Generisch (Piloten-, nicht
 Flugzeug-Eigenschaft) bleiben die 1,0 s Reaktionszeit und die 0,5 s zwischen zwei Bedienhandlungen —
@@ -896,7 +929,9 @@ hat kein Wegpunkt-Ziel. Das Urteil steht in der LETZTEN ZEILE der `eng_*`-Spalte
 
 Beispiele: `sim/missions/bvr-intercept.fbm` (einseitig: nicht schießendes Ziel, ganze Kette Suche →
 Erfassung → Schuss → Führung → Treffer), `bvr-duel.fbm` (**beidseitig**: zwei KI-Jets, beide bewaffnet,
-beide mit RWR und Gegenmaßnahmen — nahezu spiegelbildlich und deshalb ein Patt), `bvr-duel-decided.fbm`
+beide mit RWR und Gegenmaßnahmen — nahezu spiegelbildlich und deshalb ein Patt; seit der Pilot nach der
+Verteidigung zum Datum zurückkehrt, ist es ein Patt MIT zweitem und drittem Anlauf statt zweier
+auseinanderfliegender Jets, weshalb der Timeout dort 700 s ist), `bvr-duel-decided.fbm`
 (dasselbe Paar, ENTSCHIEDEN: 6.000 m und 150 kt Energieunterschied, sonst identisch — der Höhere/
 Schnellere hat das größere Rtr, schießt zuerst, der andere kommt nie zum Schuss; SUCCESS gegen FAIL),
 `bvr-defend.fbm` + `bvr-defend-blind.fbm` (das Verteidigungs-Paar:

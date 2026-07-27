@@ -140,6 +140,37 @@ void FBBfmTrack::Predict(const fb_fdm_state &own, double nowS) {
   }
 }
 
+/* The last known state, turned into a place to go and a width to sweep — the whole derivation is in the
+ * header's FBTrackDatum banner. Deliberately NOT derived from Block(): the block reverts to the last
+ * MEASURED position past the credible window and freezes, which is the right answer for a pursuit and
+ * the wrong one for a search, so this recomputes from the same stored estimate with its own propagation
+ * rule. Const and allocation-free — it is asked for once per decision tick. */
+FBTrackDatum FBBfmTrack::Datum(const fb_fdm_state &own, double nowS, double turnRateDegS) const {
+  FBTrackDatum d;
+  if (!Have_) return d;
+  d.Valid = true;
+  d.AgeS = std::fmax(nowS - LastLookS_, 0.0);
+
+  double v = std::sqrt(VelE_ * VelE_ + VelN_ * VelN_ + VelU_ * VelU_);
+  double w = std::fmax(turnRateDegS, 1.0) * kDeg2Rad;
+  double tProp = std::fmin(d.AgeS, 2.0 / w);   /* past 2/w the turn could have gone anywhere: stop */
+
+  double coslat = std::cos(PosLatDeg_ * kDeg2Rad);
+  double lat = PosLatDeg_ + VelN_ * tProp / kMPerDeg;
+  double lon = PosLonDeg_ + VelE_ * tProp / (kMPerDeg * (std::fabs(coslat) > 1e-6 ? coslat : 1e-6));
+  d.AltM = PosAltM_ + VelU_ * tProp;
+
+  double e, n;
+  FBEnuOffsetM(own.lat, own.lon, lat, lon, e, n);
+  d.EastM = e; d.NorthM = n; d.UpM = d.AltM - own.elev;
+  double horiz = std::sqrt(e * e + n * n);
+  d.RangeM = std::sqrt(horiz * horiz + d.UpM * d.UpM);
+  d.BearingDeg = std::atan2(e, n) * kRad2Deg;
+  d.RadiusM = std::fmin(0.5 * v * w * d.AgeS * d.AgeS, v * d.AgeS);
+  d.HalfWidthDeg = std::atan2(d.RadiusM, std::fmax(horiz, 1.0)) * kRad2Deg;
+  return d;
+}
+
 void FBBfmTrack::Report(FBBfmPursuit pursuit, bool inControl, double gCmd, double dt) {
   Pursuit_ = pursuit;
   InControl_ = inControl;

@@ -242,6 +242,14 @@ public:
   bool ApplyTuning(const std::string &key, double value) { return Tune_.Set(key, value); }
 
 protected:
+  /* The turn rate this airframe's own BFM numbers imply — g*sqrt(n^2-1)/V at corner. DERIVED ONCE AND
+   * USED TWICE, which is why it is a method rather than two constants: it is the fastest this jet can
+   * swing its nose after a moving gun solution, and it is also what the pilot assumes the OTHER jet can
+   * do when it works out where a target it lost could have got to (FBTrackDatum). For the F-16's
+   * measured corner (380 kt / 5.6 g) it comes out at 15.8 deg/s against the 16.2 deg/s `make
+   * test-corner` measures directly — the derivation checks out against the model. */
+  double CornerTurnRateDegS() const;
+
   /* The one reader the decision code uses: this variant's value for `p` if the mission set one, else
    * the number the caller passed in — which is always this pilot's own hook, so the airframe's numbers
    * stay in the airframe's class and the override stays sparse and visible at the point of use. */
@@ -413,6 +421,14 @@ private:
    * mode. Returns true if something was posted. */
   bool InterceptCockpit(const FBState &state, FBCommandBus &avionics, int designateTrack, bool wantShot,
                         bool wantChaff, double wantElDeg);
+  /* IS THERE STILL A FIGHT IN THIS JET? The honest half of the re-attack decision (see the Intercept
+   * section of Run()): weapons on the racks, fuel above the committed threshold, and a sensor that can
+   * find him again. Any of the three missing and turning back is not courage, it is a jet with nothing
+   * to do arriving inside somebody else's launch zone. Reads only blocks — stores, warnings, radar. */
+  bool CanPressOn(const FBState &state) const;
+  /* The search weave's own offset, in degrees, anchored to the moment the search started rather than to
+   * absolute sim time (see Run()'s BFM section) and widened to whatever the datum's uncertainty demands. */
+  double SearchWeaveDeg(const FBTrackDatum &datum, bool searching);
   void Transition(Phase p) { CurPhase = p; PhaseElapsedS = 0.0; }
 
   /* Runway-relative along/across-track (m), the SAME axis convention FBMissionMonitor::OnRunway and
@@ -453,9 +469,12 @@ private:
   bool   IntHaveCrankSign_ = false;
   double TimeS_ = 0.0;            /* the pilot's own clock — the tracker stamps looks in absolute time */
   double BfmGIterm_ = 0.0;        /* the g loop's integrator (see BfmCommands) */
+  double BfmRollCmdPrev_ = 0.0;   /* the roll governor's own last command (see BfmCommands) */
   double BfmSearchHdgDeg_ = 0.0;  /* the cold search's anchored heading + altitude (see BfmCommands) */
   double BfmSearchAltM_ = 0.0;
   bool   BfmSearchAnchored_ = false;
+  double ScanSinceS_ = 0.0;       /* when the current scan started — the weave's phase zero */
+  bool   ScanRunning_ = false;
   /* ---- the Attack phase's own memory ---- */
   FBDeliveryMode AtkMode_ = FBDeliveryMode::Ccip;
   bool   AtkReleased_ = false;    /* the pass is spent: one pickle per declared attack */
@@ -467,6 +486,13 @@ private:
   bool   GunTracking_ = false;    /* flying the funnel (see BfmCommands) — logged on the transition */
   double GunPrevErrDeg_ = 0.0, GunPrevS_ = 0.0;   /* the aiming error's rate (see BfmGunfire's lead) */
   bool   GunHaveErr_ = false;
+  /* The gun TRACKING loop's rate term (see BfmCommands): the required bore as a WORLD direction, and
+   * that direction's own rate of turn, differenced across decision ticks and filtered. World-referenced
+   * on purpose — a body-referenced difference would be measuring this jet's pull, not the solution's. */
+  double GunLeadPrevE_ = 0.0, GunLeadPrevN_ = 0.0, GunLeadPrevU_ = 0.0, GunLeadPrevS_ = 0.0;
+  double GunLeadRateE_ = 0.0, GunLeadRateN_ = 0.0, GunLeadRateU_ = 0.0;
+  double GunTrackIAz_ = 0.0, GunTrackIEl_ = 0.0;   /* the tracking loop's integrator, per axis */
+  bool   GunHaveLead_ = false;
 
   /* The briefed releases, in brief order, consumed front to back — ReleaseNext_ is how many have been
    * pickled, so the array is never rewritten and the sequence is exactly what the mission declared. */

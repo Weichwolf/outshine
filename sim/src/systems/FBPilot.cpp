@@ -66,9 +66,45 @@ const double kGearUpAglFt = 10.0;        /* + a firm AGL margin: JSBSim's FGLGea
  * against the measured roll rate), so a proportional law on the roll ANGLE error is already one. */
 const double kBfmRollFullDeg = 60.0;      /* roll error that earns full lateral stick */
 const double kBfmTurnTimeS = 2.0;         /* how quickly the pilot wants the steering error gone */
+/* A ROLL RATE THE PILOT CAN STOP. The lift-vector command above is an ANGLE error and the F-16's lateral
+ * stick is a rate command, so a large error means full stick for as long as it takes — and the largest
+ * error this law can ever produce is 180 deg (it always takes the short way round). Held at full stick
+ * that is a snap roll: measured, a re-acquisition at 3.7 nm demanded 230 deg of roll, the jet answered
+ * with 150 deg/s for three seconds, and the flight monitor called it what it looks like from outside —
+ * a departure. So the pilot governs itself. The ORDER of the number comes from the law it serves: the
+ * roll exists to establish a turn whose own time constant is kBfmTurnTimeS, so even the worst case has
+ * to be flown in about that time — tens of degrees per second, not hundreds. The VALUE is measured
+ * across sixteen gun engagements against two defenders: ungoverned and at 90 deg/s the fight departed in
+ * six of them, at 60 deg/s in none, and the gunnery was best there too. The governor only ever REDUCES a
+ * command, so it can never add stick. */
+const double kBfmRollRateMaxDegS = 120.0 / kBfmTurnTimeS;
 const double kBfmGKp = 0.25, kBfmGKi = 0.5, kBfmGIMax = 0.6;
 const double kBfmPushMax = 0.3;           /* the push half of the stick (see above) */
 const double kBfmSearchRangeM = 5556.0;   /* 3 nm: where a cold search aims, purely to have a point */
+/* THE GUN TRACKING LOOP's rate term (see BfmCommands' section 3c). The estimate is a difference of one
+ * published float across two 10-Hz decision ticks, so it is filtered — the same first-order filter and
+ * for the same reason the track's own velocity is (systems/FBBfmTrack::kVelAlpha): fast enough to follow
+ * a reversal, slow enough that a single noisy look cannot swing the nose. */
+const double kBfmLeadRateAlpha = 0.4;
+/* ...and its integral. Feed-forward alone leaves whatever the RATE ESTIMATE itself got wrong: a filter
+ * has lag, and the required bore's motion depends weakly on own velocity, so the estimate is a little
+ * short and the loop settles a little behind — measured, a steady 1.45 deg with the solution's own
+ * tolerance near 0.4 deg. A constant offset in a loop that already has proportional and rate terms is
+ * exactly what an integrator is for, and here it converges on a specific number: at equilibrium the
+ * error is zero and the integrator holds precisely the feed-forward's own shortfall.
+ * ITS GAIN IS NOT A TASTE. With the law commanding a turn RATE of (e + I)/T against an angle, the loop
+ * closes as s^2 + s/T + Ki/T = 0, i.e. a damping ratio of 1/(2*sqrt(Ki*T)) — so Ki = 1/(2T) is exactly
+ * 0.707, the textbook "settles without ringing" root, and nothing else has to be chosen. Twice that was
+ * tried first (zeta 0.5) and it showed: against a defender in a break turn it was a clear win, against
+ * one flying straight the loop rang and the funnel time collapsed. The clamp bounds wind-up while the
+ * geometry is being captured; the funnel breaking resets it outright. */
+const double kBfmTrackKi = 0.5 / kBfmTurnTimeS, kBfmTrackIMaxDeg = 10.0;
+/* A SEARCH IS A SCAN, NOT A TURN. The weave's own heading rate is 2*pi*A/T, and the pilot's declared
+ * amplitude/period (BfmScanAmplitudeDeg/BfmScanPeriodS) fix it — so when the uncertainty demands a WIDER
+ * sweep the period grows with it and the rate stays what the airframe's own hooks say it should be.
+ * Wider than this and the weave stops being a search pattern and becomes a reversal, at which point what
+ * the pilot is looking at is not the datum any more. */
+const double kBfmScanMaxAmpDeg = 45.0;
 /* A search climbs firmly and descends gently, and the asymmetry is the point (see below): pulling UP is
  * an upright pull at any angle, while a steep DOWN demand is what makes the lift-vector law roll
  * inverted. Height lost in a bank is given back by climbing, not by diving after it. */
@@ -173,6 +209,44 @@ double FBPilot::PitchHoldStick(double targetDeg, double pitchDeg, double qDegS, 
   return Clamp(kRotateKp * (targetDeg - pitchDeg) - kRotateKd * qDegS, -stickMax, stickMax);
 }
 
+/* The airframe's own corner numbers, read as a turn rate (header). n and V are this pilot's hooks, so a
+ * module that flies a different jet gets a different assumption for free. */
+double FBPilot::CornerTurnRateDegS() const {
+  double v = std::fmax(BfmCornerSpeedKt() * kKtToMs, 1.0);
+  double n = std::fmax(BfmCornerG(), 1.001);
+  return kBfmG0 * std::sqrt(n * n - 1.0) / v * kRad2Deg;
+}
+
+/* THE WEAVE. Two patterns, and which one is flown depends on whether the pilot is looking for SOMEWHERE
+ * or for anywhere at all.
+ *
+ * WITH NO DATUM there is nothing to centre a pattern on — nothing has ever been seen — so this stays the
+ * pattern it always was: the airframe's declared amplitude and period, phased on the mission clock, a
+ * lazy S across whatever heading the cold search anchored itself on.
+ *
+ * WITH A DATUM the pattern acquires a centre, and both of its numbers then follow from that centre:
+ *   ITS PHASE IS ANCHORED TO THE MOMENT THE SEARCH STARTS, so the sweep BEGINS on the datum bearing —
+ *   the most likely bearing there is — and walks outward symmetrically from it. Phased on the mission
+ *   clock instead, the pilot enters every search at whatever point of the sine the clock happens to be
+ *   at, and the same merge two seconds earlier is a different search: measured across sixteen merges of
+ *   one geometry, reacquisition ranged from 34 s to never again, on nothing but that phase.
+ *   ITS WIDTH IS WHAT THE PILOT DOES NOT KNOW. A fixed amplitude sweeps the same few degrees whether he
+ *   was lost a second ago or a minute ago; the datum's half-width (systems/FBBfmTrack's FBTrackDatum) is
+ *   exactly the angle the uncertainty subtends from here, so that is the sweep. The PERIOD grows with it
+ *   so the weave's own heading rate stays the gentle number the airframe's hooks declare — a wider
+ *   search takes longer, it does not turn harder. */
+double FBPilot::SearchWeaveDeg(const FBTrackDatum &datum, bool searching) {
+  double base = std::fmax(BfmScanAmplitudeDeg(), 1e-3);
+  if (!searching || !datum.Valid) {
+    ScanRunning_ = false;
+    return searching ? base * std::sin(2.0 * kPi * TimeS_ / BfmScanPeriodS()) : 0.0;
+  }
+  if (!ScanRunning_) { ScanSinceS_ = TimeS_; ScanRunning_ = true; }
+  double amp = Clamp(datum.HalfWidthDeg, base, kBfmScanMaxAmpDeg);
+  double period = std::fmax(BfmScanPeriodS() * amp / base, 1e-3);
+  return amp * std::sin(2.0 * kPi * (TimeS_ - ScanSinceS_) / period);
+}
+
 /* ONE decision tick of the fight. The whole phase is "look at the picture, decide what kind of pursuit
  * this geometry calls for, aim at the point that pursuit implies, and fly the jet there with the energy
  * still available" — everything below is those four steps in order.
@@ -193,6 +267,11 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
    * turning back toward but not worth pulling lead on. */
   const bool haveTrack = g.H.Readable(), validTrack = g.H.IsValid();
   const double trackAgeS = haveTrack ? TimeS_ - g.H.StampS : 0.0;
+  /* WHAT THE PILOT STILL KNOWS once the picture goes stale: where the target could be by now and how
+   * wide "could" has become (systems/FBBfmTrack's FBTrackDatum). Asked for every tick, used only while
+   * searching — computing it unconditionally keeps the search's reference the same object the whole
+   * time rather than something that appears when the pursuit gives up. */
+  const FBTrackDatum datum = Bfm_.Datum(st, TimeS_, CornerTurnRateDegS());
   FBPilotCommands c{};
   c.Guidance = FBPilotGuidance::Manual;
   c.ManualYaw = 0.0;
@@ -255,13 +334,17 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
     aimE -= g.VelE * BfmLagTimeS(); aimN -= g.VelN * BfmLagTimeS(); aimU -= g.VelU * BfmLagTimeS();
     aimU += BfmYoYoHeightM() * excess;
   } else if (mode == FBBfmPursuit::Search) {
-    /* SEARCH is flown as a DIRECTION and an ALTITUDE, never as a point. The estimate is too old to steer
-     * a pursuit at, so what is left is "he was over there, at about that height": turn back onto the
-     * bearing, hold the height, hold corner speed, and let the weave below walk the box across the
-     * uncertainty. Aiming at the stale POINT instead would have the jet diving or zooming at a place the
-     * target left long ago (measured: a 1500 m dive to a datum whose owner had flown a quarter of a turn
-     * circle away from it), and leaving the altitude unreferenced would let the search spiral into the
-     * ground — this law deliberately does not hold altitude in a bank (see the file's BFM banner), so
+    /* SEARCH is flown as a DIRECTION and an ALTITUDE, never as a point, and it is flown at the DATUM
+     * rather than at the frozen last-seen position. Those are two different places and the difference is
+     * this round's finding: the block reverts to where he was actually MEASURED, and a defender in a
+     * break turn has flown a quarter of his circle away from there by the time the search starts.
+     * systems/FBBfmTrack's FBTrackDatum propagates the last known VECTOR for as long as that prediction
+     * is worth more than the last look (2/w, derived) and reports how wide the region has grown since,
+     * so what is left is "he could be over there, at about that height, within about so much": turn back
+     * onto the bearing, hold the height, hold corner speed, and let the weave below cover the width.
+     * Aiming at the stale POINT instead had the jet diving or zooming at a place the target left long ago
+     * (measured: a 1500 m dive to a datum whose owner had flown a quarter of a turn circle away from it),
+     * and leaving the altitude unreferenced would let the search spiral into the ground — this law deliberately does not hold altitude in a bank (see the file's BFM banner), so
      * during a long search the aim point is the only thing that can.
      * With nothing ever seen there is no bearing either, so heading AND altitude are ANCHORED at the
      * moment the cold search begins and never re-read from the jet afterwards: aiming at "wherever my
@@ -269,9 +352,14 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
      * loop does — the weave starts a roll, the roll turns the jet, the aim follows the turn, and the
      * search settles into a steady 80-deg-banked orbit that searches nothing (measured, before this). */
     double brgDeg;
-    if (haveTrack) {
-      brgDeg = std::atan2(g.EastM, g.NorthM) * kRad2Deg;
-      aimU = g.UpM;
+    /* ...while it is still a PLACE. Once this jet is INSIDE the region the datum describes, the bearing
+     * to its centre is not information any more — he is as likely to be behind as ahead — and steering
+     * at it does what steering at a point one is sitting on always does: the bearing swings through 180
+     * degrees, the law answers with a maximum-rate reversal, and the search turns into an orbit. Inside
+     * it, the honest search is the cold one: hold a heading and a height and let the scan work. */
+    if (datum.Valid && datum.RangeM > datum.RadiusM) {
+      brgDeg = datum.BearingDeg;
+      aimU = datum.UpM;
     } else {
       if (!BfmSearchAnchored_ && st.speed > 1.0) {
         BfmSearchHdgDeg_ = st.yaw;
@@ -304,12 +392,10 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
    * steering error like any other, and a fast wide scan simply has the pilot flying a hard turn chasing
    * its own search pattern — measured, a 20 deg / 10 s weave settled the jet into a permanent 77 deg
    * banked orbit and acquired nothing at all. */
-  if (!validTrack || trackAgeS > BfmScanAfterS()) {
-    double w = BfmScanAmplitudeDeg() * std::sin(2.0 * kPi * TimeS_ / BfmScanPeriodS()) * kDeg2Rad;
-    double cw = std::cos(w), sw = std::sin(w);
-    double e = aimE * cw + aimN * sw, n = -aimE * sw + aimN * cw;
-    aimE = e; aimN = n;
-  }
+  double w = SearchWeaveDeg(datum, !validTrack || trackAgeS > BfmScanAfterS()) * kDeg2Rad;
+  double cw = std::cos(w), sw = std::sin(w);
+  double weaveE = aimE * cw + aimN * sw, weaveN = -aimE * sw + aimN * cw;
+  aimE = weaveE; aimN = weaveN;
 
   /* ENERGY, expressed in the aim point rather than as a mode of its own: below the minimum manoeuvring
    * speed the fight does not go uphill any more — the aim point is dropped to the horizon so height stops
@@ -350,9 +436,68 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
                   std::fabs(g.AzDeg) <= BfmControlAtaDeg() &&
                   fc.GunAimErrorDeg <= BfmGunTrackMaxErrDeg();
   if (gunTrack) {
-    azErr = fc.GunLeadAzDeg;
-    elErr = fc.GunLeadElDeg;
+    /* ---- 3c. THE TRACKING LOOP: the solution's own MOTION is a control term of its own ----
+     * The law below regulates a steering ERROR: it commands a turn rate of err/kBfmTurnTimeS. Against a
+     * target that is turning, the required bore is not a point but a RAMP — it sweeps through the funnel
+     * — and a loop that answers a ramp with proportional gain alone settles at a constant lag of exactly
+     * (ramp rate) x (its own time constant). Measured against a defender in a max-rate break: the
+     * solution moves ~1 deg/s, the time constant is 2 s, and the aiming error never got below 4.6 deg
+     * against a funnel tolerance near 1 deg — two squeezes, seventy rounds, no hits. That is not a
+     * gunnery problem, it is a control-type problem, and the fix is to give the loop the rate.
+     *
+     * WHAT RATE, exactly — and this is where the obvious implementation is the wrong one. The published
+     * lead is BODY-referenced, so differencing it measures the jet's own pull as much as the target's
+     * motion, and in steady state (which is precisely the lag being removed) that derivative is nearly
+     * zero while the solution is sweeping through the sky as fast as ever. Subtracting own rate gyros
+     * back out is arithmetic on top of a quantity that already mixed them. So the rate is taken where
+     * own attitude does not appear at all: the required bore is rotated into the WORLD, differenced
+     * there, and the result is where the bore will point kBfmTurnTimeS from now, rotated back into the
+     * body. Nothing about own roll, pitch or yaw survives that round trip, which is the point.
+     *
+     * Feeding THAT as the steering error hands the existing law a turn command of err/T + w: the
+     * proportional term still takes the error out, and the rate term is what holds the nose on a
+     * solution that will not stand still. Bounded by what the jet can actually turn
+     * (CornerTurnRateDegS): a solution sweeping faster than that is not a tracking problem any more, and
+     * asking for it would only throw the lift vector at a point the airframe cannot reach. */
+    double az = fc.GunLeadAzDeg, el = fc.GunLeadElDeg;
+    double be, bn, bu;
+    FBBodyLosToEnu(st.roll, st.pitch, st.yaw, az, el, be, bn, bu);
+    if (GunHaveLead_ && TimeS_ > GunLeadPrevS_) {
+      double dtl = TimeS_ - GunLeadPrevS_;
+      GunLeadRateE_ += kBfmLeadRateAlpha * ((be - GunLeadPrevE_) / dtl - GunLeadRateE_);
+      GunLeadRateN_ += kBfmLeadRateAlpha * ((bn - GunLeadPrevN_) / dtl - GunLeadRateN_);
+      GunLeadRateU_ += kBfmLeadRateAlpha * ((bu - GunLeadPrevU_) / dtl - GunLeadRateU_);
+    }
+    GunLeadPrevE_ = be; GunLeadPrevN_ = bn; GunLeadPrevU_ = bu;
+    GunLeadPrevS_ = TimeS_; GunHaveLead_ = true;
+
+    /* The lead's own angular step over one time constant, capped at the airframe's turn rate: a unit
+     * direction's rate has magnitude equal to its angular rate, so the cap is one scalar. */
+    double rate = std::sqrt(GunLeadRateE_ * GunLeadRateE_ + GunLeadRateN_ * GunLeadRateN_ +
+                            GunLeadRateU_ * GunLeadRateU_);
+    double rateMax = CornerTurnRateDegS() * kDeg2Rad;
+    double k = kBfmTurnTimeS * (rate > rateMax ? rateMax / std::fmax(rate, 1e-9) : 1.0);
+    FBEnuToBodyLos(st.roll, st.pitch, st.yaw, be + k * GunLeadRateE_, bn + k * GunLeadRateN_,
+                   bu + k * GunLeadRateU_, azErr, elErr);
+    GunTrackIAz_ = Clamp(GunTrackIAz_ + kBfmTrackKi * az * dt, -kBfmTrackIMaxDeg, kBfmTrackIMaxDeg);
+    GunTrackIEl_ = Clamp(GunTrackIEl_ + kBfmTrackKi * el * dt, -kBfmTrackIMaxDeg, kBfmTrackIMaxDeg);
+    azErr += GunTrackIAz_;
+    elErr += GunTrackIEl_;
+    /* AND IT MAY NEVER ASK FOR MORE THAN THE GATE THAT LET IT IN. The three terms above can add up to a
+     * demand far larger than the aiming error itself — rate and integral are both angles here — and this
+     * law is only entitled to the TRACKING problem: BfmGunTrackMaxErrDeg is the boundary past which the
+     * pursuit law owns the geometry, so it bounds what the funnel law may demand as well. Without it the
+     * combined demand reached sixty degrees at point-blank range and the jet answered it the way it
+     * answers any sixty-degree demand — full stick, both axes — and departed (measured: an LOC K.O. at
+     * 150 deg/s of roll rate). */
+    double mag = std::sqrt(azErr * azErr + elErr * elErr);
+    double lim = BfmGunTrackMaxErrDeg();
+    if (mag > lim) { azErr *= lim / mag; elErr *= lim / mag; }
     mode = FBBfmPursuit::Lead;   /* it IS lead pursuit, and the scoreboard should say so */
+  } else {
+    GunHaveLead_ = false;
+    GunLeadRateE_ = GunLeadRateN_ = GunLeadRateU_ = 0.0;
+    GunTrackIAz_ = GunTrackIEl_ = 0.0;
   }
   if (gunTrack != GunTracking_) {
     GunTracking_ = gunTrack;
@@ -381,7 +526,18 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
   double liftUp = aTurn * dirUp + gravUp;
 
   double phiCmd = std::atan2(liftRight, liftUp) * kRad2Deg;
-  c.ManualRoll = Clamp(phiCmd / kBfmRollFullDeg, -1.0, 1.0);
+  double rollCmd = Clamp(phiCmd / kBfmRollFullDeg, -1.0, 1.0);
+  if (std::fabs(st.p) > kBfmRollRateMaxDegS && st.p * rollCmd > 0.0 && BfmRollCmdPrev_ != 0.0) {
+    /* Scale the command THAT PRODUCED the measured rate, not the raw one: on a rate-command stick the
+     * two are proportional, so cmd_prev * cap/rate is the command that would have produced the cap, and
+     * the fixed point of that recursion is the cap itself. Scaling the raw (saturated) command instead
+     * settles on the geometric mean of the cap and the airframe's full-stick rate — measured, a 45 deg/s
+     * governor held 85 deg/s and the jet rolled right through 360 degrees. */
+    double lim = std::fabs(BfmRollCmdPrev_) * kBfmRollRateMaxDegS / std::fabs(st.p);
+    if (std::fabs(rollCmd) > lim) rollCmd = rollCmd > 0.0 ? lim : -lim;
+  }
+  BfmRollCmdPrev_ = rollCmd;
+  c.ManualRoll = rollCmd;
 
   double gCmd = Clamp(std::sqrt(liftRight * liftRight + liftUp * liftUp) / kBfmG0, 0.0, gAvail);
   if (lowEnergy) gCmd = std::fmin(gCmd, BfmUnloadG());
@@ -571,6 +727,18 @@ bool FBPilot::InterceptCockpit(const FBState &state, FBCommandBus &avionics, int
   return false;
 }
 
+/* THE HONEST HALF OF THE RE-ATTACK DECISION (header). Three instruments, three reasons to go home, and
+ * every one of them read off the bus rather than known: a jet with empty racks cannot kill him, a jet at
+ * bingo cannot get home afterwards, and a jet whose set is not radiating cannot even find him. The
+ * warning block is what carries the fuel judgement, because BINGO is a number the PILOT committed to
+ * (systems/FBWarningSystem against the briefed threshold), not a fraction this class gets to invent. */
+bool FBPilot::CanPressOn(const FBState &state) const {
+  bool weapons = state.Stores.H.Readable() && state.Stores.LoadedCount > 0;
+  bool bingo = state.Warnings.H.Readable() && (state.Warnings.Active & FBWarnBingo) != 0;
+  bool sensor = state.Radar.H.Readable() && state.Radar.Radiating;
+  return weapons && !bingo && sensor;
+}
+
 /* ONE decision tick of an intercept. The order below is the order a pilot's attention runs in: what can
  * I see, who can see me, what state does that put me in, where do I point the jet, and only then which
  * switch do I touch.
@@ -587,6 +755,10 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
    * the correct answer to "where is he going" when nobody is tracking him. */
   Bfm_.Update(state, st, TimeS_);
   const FBBfmBlock &fused = Bfm_.Block();
+  /* ...and what is left of it once nobody is tracking him any more: the place to go back to and how big
+   * the doubt has grown (systems/FBBfmTrack's FBTrackDatum). Invalid until something has actually been
+   * locked, which is what keeps every intercept that never made contact on its briefed vector. */
+  const FBTrackDatum datum = Bfm_.Datum(st, TimeS_, CornerTurnRateDegS());
 
   /* ---- 1. the picture: which return is being worked ---- */
   const FBRadarBlock &fcr = state.Radar;
@@ -707,8 +879,10 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
   } else if (EngState_ == FBEngageState::Defend && TimeS_ - IntThreatLastS_ >= Tuned(FBPilotParam::DefendHoldS, InterceptDefendHoldS())) {
     /* THE RE-ATTACK DECISION. The threat has stopped demanding an answer; whether that was the notch
      * working or the shooter going away is not something this aircraft can know. What it can answer is
-     * whether it still has anything to come back with. */
-    EngState_ = weapons ? FBEngageState::Search : FBEngageState::Abort;
+     * whether it still has anything to come back WITH — a weapon, the fuel to get home after using it,
+     * and a set that can find him again (CanPressOn). Search is then not "fly the brief" any more but
+     * "go back to where he was", because the datum below is what the search steers at. */
+    EngState_ = CanPressOn(state) ? FBEngageState::Search : FBEngageState::Abort;
   } else if (EngState_ == FBEngageState::Support) {
     /* HOW LONG THE CRANK IS HELD. Not "until the seeker takes over": that is when the round stops
      * needing the UPLINK, not when the shot is over. Between the seeker going active and the round
@@ -740,6 +914,12 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
   }
 
   /* ---- 6. where the jet is pointed ---- */
+  /* The weave runs only while this phase is actually searching, and its phase zero is the moment the
+   * search started (SearchWeaveDeg) — asked for here rather than inside the case so that leaving Search
+   * for any reason ends the pattern instead of leaving it half-swept for the next one. */
+  bool searching = EngState_ == FBEngageState::Search || EngState_ == FBEngageState::Idle;
+  double searchWeaveDeg = SearchWeaveDeg(datum, searching);
+
   FBPilotCommands c{};
   c.Guidance = FBPilotGuidance::Direct;
   c.TargetSpeedKt = Tuned(FBPilotParam::InterceptSpeedKt, InterceptSpeedKt());
@@ -757,8 +937,22 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
        * until a return says otherwise. Own PITCH is what makes this a command rather than a constant:
        * the pattern is bolted to the nose, so a climbing jet's radar looks up and out of the band it is
        * supposed to be sweeping unless the antenna is pushed back down by exactly that angle. */
+      double bandAltM = IntBriefAltM_;
       double distM = std::fmax(kInterceptAimM * 0.25, 1000.0);
-      wantElDeg = std::atan2(IntBriefAltM_ - st.elev, distM) * kRad2Deg - st.pitch;
+      /* ...UNLESS THIS AIRCRAFT HAS ALREADY SEEN HIM. Then the brief is out of date and the datum is
+       * not: a fighter that broke off to defend and survived does not resume a controller's vector as
+       * if nothing had happened, it goes back to the last place it knew he was. The heading, the
+       * altitude band and the antenna all come off the same datum, and the weave widens to whatever the
+       * uncertainty has grown to (SearchWeaveDeg). With nothing ever seen the datum is invalid and every
+       * number below is the briefed one, byte for byte — which is why an intercept that never made
+       * contact is unaffected by any of this. */
+      if (datum.Valid) {
+        bandAltM = datum.AltM;
+        distM = std::fmax(std::sqrt(datum.EastM * datum.EastM + datum.NorthM * datum.NorthM), 1000.0);
+        aimHdgDeg = datum.BearingDeg + searchWeaveDeg;
+        c.TargetAltM = datum.AltM;
+      }
+      wantElDeg = std::atan2(bandAltM - st.elev, distM) * kRad2Deg - st.pitch;
       break;
     }
     case FBEngageState::Closing:
