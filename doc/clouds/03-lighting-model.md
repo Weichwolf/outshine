@@ -1,5 +1,7 @@
 # C — Lighting Model: Beer-Lambert, Dual-Lobe HG, Powder, Multi-Scatter, Ambient, Light March
 
+> **Legacy studies of the demolished FBCloud* chain; kept for the noise/raymarch groundwork, see [../flightbox/render/clouds.md](../flightbox/render/clouds.md).**
+
 Source: Schneider & Vos, SIGGRAPH 2015 (slides 48–87, EXACT quotes below); Hillaire, SIGGRAPH 2016
 Frostbite course (slides 27–43, 54–62, EXACT `g`-values below); Wrenninge's multi-octave scheme is
 cited by Hillaire (slide 61 `[Wrenninge10]`) but the per-octave multiplier constants are not published

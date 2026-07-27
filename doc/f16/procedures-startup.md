@@ -3,20 +3,22 @@
 Source: DCS F-16C Viper Guide (Chuck's Guide), Part 4 — Start-Up Procedure, pp. 84–118.
 81 numbered steps in phases A–I. Condensed to the operationally load-bearing steps + parameters.
 
-## Pre-power (battery)
+## Spec
+
+### Pre-power (battery)
 1. Ejection Seat Lever — DOWN & ARMED (usually done just before takeoff).
 2. Test FLCS functions on battery power only.
 3. MAIN PWR switch — MAIN PWR/FWD.
 
-## A — Provide aircraft power (steps 4–5)
+### A — Provide aircraft power (steps 4–5)
 - MAIN PWR readies engine-mounted generator (no electrical power yet until engine running).
 - On EPU panel, verify **EPU GEN** and **EPU PMG** indications.
 
-## B — Pre-start setup (steps 6–9)
+### B — Pre-start setup (steps 6–9)
 - Parking Brake / Anti-Skid — **PARKING BRAKE (UP)**.
 - Close & lock canopy (CANOPY light extinguished).
 
-## C — Engine start (steps 10–22)
+### C — Engine start (steps 10–22)
 1. Verify throttle at **OFF** detent.
 2. JFS (Jet Fuel Starter) switch — **START2**.
 3. JFS reaches IDLE RPM within ~30 s → JFS RUN light on, FLCS RLY/PMG lights out, TO FLCS light on.
@@ -37,7 +39,7 @@ Source: DCS F-16C Viper Guide (Chuck's Guide), Part 4 — Start-Up Procedure, pp
 | FTIT | ≤ 650 °C |
 | Hydraulic pressure (A & B) | 2850–3250 psi |
 
-## D — Set up avionics (steps 23–38)
+### D — Set up avionics (steps 23–38)
 - Power ON: MMC, ST STA (store stations), MFD, UFC, GPS receiver. (DL/MAP left OFF — no function on F-16C.)
 - BITs run as systems power up.
 - LEFT/RIGHT HDPT power ON if HTS/targeting pod fitted.
@@ -47,15 +49,15 @@ Source: DCS F-16C Viper Guide (Chuck's Guide), Part 4 — Start-Up Procedure, pp
 - Turn on HUD via SYM intensity wheel.
 - C&I switch — **UFC** (enables upfront control of comms).
 
-## E — INS alignment (steps 39–43)
+### E — INS alignment (steps 39–43)
 - INS selector — **ALIGN NORM** (normal) or stored-heading.
 - Alignment status on DED; enter/confirm aircraft coordinates.
 - Complete when status reaches **"10 RDY"**.
 - Then INS selector — **NAV**.
 
-## F — Datalink (steps 44–45) — only after INS aligned. G — IFF (steps 46–48) — IFF Master → NORM.
+### F — Datalink (steps 44–45) — only after INS aligned. G — IFF (steps 46–48) — IFF Master → NORM.
 
-## H — Complete aircraft setup (steps 49–70)
+### H — Complete aircraft setup (steps 49–70)
 - Uncage SAI (standby attitude indicator).
 - Set FBW control mode via **STORES CONFIG** switch (CAT I / CAT III per loadout).
 - Oxygen: Supply ON, Emergency NORMAL, Diluter NORMAL; pressure green; flow blinks.
@@ -64,13 +66,13 @@ Source: DCS F-16C Viper Guide (Chuck's Guide), Part 4 — Start-Up Procedure, pp
   reference cross (steps 66–68 — see `hud-symbology.md`).
 - Load DTC via DTE page; clear avionic faults on TEST page.
 
-## I — Post-start checks (steps 71–81) — all optional
+### I — Post-start checks (steps 71–81) — all optional
 Pitot heater, fire/overheat detection, malfunction lights, SEC engine control, FLCS op check, fuel
 quantity, **DBU**, trim, **MPO**, EPU system.
 
 ---
 
-## ED EA Guide addendum — official procedure detail (pp.132–139)
+### ED EA Guide addendum — official procedure detail (pp.132–139)
 
 The ED EA Guide's own start sequence (Aircraft Start → Before/After Engine Start) **cross-validates
 every quantitative milestone in Chuck's guide above exactly**: JFS spins the core to 20–25% RPM before
@@ -107,7 +109,7 @@ load-bearing for a start-state machine:
   then off, FLCS PWR A/B/C/D remain on — ground-validates the emergency-power reversion path
   (`engine-fuel.md`'s EPU).
 
-### INS alignment — exact types, timing, and status/CEP scale (ED EA Guide p.165–176)
+#### INS alignment — exact types, timing, and status/CEP scale (ED EA Guide p.165–176)
 Chuck's guide states only "complete when status reaches 10 RDY" (§E above); ED gives the full mechanism:
 
 **Three alignment types** (selected on the INS knob, AVIONICS POWER panel):
@@ -142,11 +144,49 @@ pilot actually sees"):
   on start point (parking vs. runway), ECM OFF (needs 3-min warm-up before use). A mission starting
   cold requires the full `ALIGN NORM → NAV` sequence before taxi.
 
----
+## State
 
-# Technical depth (researched — shallow pass — deepen when in scope)
+**FlightBox has no start-up procedure — and does not need one to be honest about it.** A mission spawns a
+trimmed aircraft through the single guarded IC path (`FBFdmBoot::Spawn`, the only writer of JSBSim initial
+conditions); everything this file's phases D–H set by hand is *declared* instead, as `set` lines in the
+`.fbm` mission file.
 
-## Components (LRUs)
+| Item of this reference | FlightBox | Where |
+|---|---|---|
+| Phases A–C (power, JFS, engine start) | **not implemented** — the spawn starts with the engine running; `FBAirframeControls` does carry an engine start/cutoff channel, nobody sequences it | [`../flightbox/sim/systems.md`](../flightbox/sim/systems.md) §9 |
+| Phases D, F, G (avionics / datalink / IFF set-up) | **replaced by mission data** — `set fcr_mode`, `datalink`, `datalink_xmt`, `datalink_filter`, `iff_xpdr`, `iff_interrogator`, `cmds_mode`, `cmds_program`, … each interpreted by the module's own `ApplySetup` | [`../flightbox/aircraft/f16.md`](../flightbox/aircraft/f16.md) §2.6 |
+| Phase E (INS alignment, stored heading, CEP) | **not implemented** — navigation has no alignment state and no drift; position is exact | [`../flightbox/sim/systems.md`](../flightbox/sim/systems.md) §7 |
+| BIT / FLCS PWR TEST / DBU / MPO / EPU ground checks | **not implemented** | — |
+| Pre-flight avionics entered by the pilot in flight (ALOW, BNGO, master arm, weapon select) | **built, but as a flown brief** — `brief_*` mission lines, issued input by input over the command bus with its latency classes and rejection reasons | [`../flightbox/sim/pilot-ai.md`](../flightbox/sim/pilot-ai.md) §2 |
+| A pilot phase named `Preflight` | **exists** in the phase machine; it is a hold-and-configure state, not the 81-step checklist | [`../flightbox/sim/pilot-ai.md`](../flightbox/sim/pilot-ai.md) §3 |
+
+**The ED "already-running spawn state" note above is the directly usable part:** it is the reference
+against which FlightBox's declarative spawn defaults (radar on, RWR powered, CMDS mode) can be judged.
+
+## Gaps
+
+**Source gaps** (this file vs. its sources)
+- The `## Knowledge` section is an explicitly **SHALLOW** research pass (LRUs + a short principle),
+  marked "deepen when in scope".
+- Chuck Part 4 (pp.84–118) and ED pp.132–139 + 165–176 are processed; the remaining ED cockpit
+  chapters that a full cold start would need (Left/Right Console, p.43–81 remainder) are **not
+  processed** — see PROGRESS.md.
+
+**Implementation gaps** (this reference vs. FlightBox)
+- *Modelled:* nothing of the sequence itself.
+- *Partially:* the **end state** of the procedure is modelled — as declarative mission data plus an
+  in-flight pilot brief over the command bus, which is a deliberate substitution, not a start-up.
+- *Not at all:* electrical/JFS/engine-start chain, INS alignment and its CEP/timing, all BITs, EPU and
+  DBU checks, canopy/seat/ground-crew interactions.
+
+## Knowledge
+
+**Technical depth (researched — shallow pass — deepen when in scope)**
+
+*Researched engineering depth. Kept separate from the guide distillation in `## Spec`; sources cited at
+the end. This pass is explicitly **shallow** — deepen when the subsystem is in scope.*
+
+### Components (LRUs)
 - **JFS** (Jet Fuel Starter): a small **hydraulic accumulator-driven turbine** in the Accessory Drive
   Gearbox; spins the engine core via the PTO shaft for start.
 - **EPU** (Emergency Power Unit): **hydrazine (H-70) monopropellant** turbine — emergency hydraulic +
@@ -154,14 +194,14 @@ pilot actually sees"):
 - **INS/EGI**: ring-laser-gyro INS (LN-39/93 / H-423) or EGI (see `navigation-ils.md`); needs a
   gyrocompass alignment before NAV.
 
-## Functional principle
+### Functional principle
 Start sequence is a dependency chain: battery/MAIN PWR → JFS (accumulator energy spins the core to
 ~20–25% RPM) → introduce fuel at IDLE → light-off → generators come online as RPM rises → avionics BIT →
 INS alignment (RLG gyrocompassing to "10 RDY") → sensors/EW/HMCS. Each numbered step in the guide gates the
 next on a measured parameter (RPM, FTIT, gen lights, align status), which is exactly what a start-state
 machine in the sim would encode. The EPU and DBU checks at the end validate the emergency-reversion paths.
 
-## Sources
+### Sources
 - Wikipedia *General Dynamics F-16* (JFS, EPU hydrazine); airforce-technology.com F-16 — INS types.
 - DCS guide Part 4 (81-step sequence) — cross-referenced above.
 - `doc/DCS F-16C Early Access Guide EN.pdf` (ED EA Guide, official) — Aircraft Start/Before/After

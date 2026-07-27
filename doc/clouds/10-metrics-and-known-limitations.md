@@ -1,5 +1,7 @@
 # Cloud Metrics & Known Limitations (2026-07-23)
 
+> **Legacy studies of the demolished FBCloud* chain; kept for the noise/raymarch groundwork, see [../flightbox/render/clouds.md](../flightbox/render/clouds.md).**
+
 State of the volumetric cloud pass after the research-driven convergence loop. Deployed state = **(A)**:
 soft S-curve base + opacity-from-extinction decoupling + `pow(d_eroded, 2.5)` post-erosion edge
 sharpening. Passes the far/mid field of the triple regression (high-sun, AC7-sunset, undercast).

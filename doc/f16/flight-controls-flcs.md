@@ -10,7 +10,9 @@ Cross-refs: limiter G/AoA numbers also appear in Part 8 (pp. 153–157, see `aer
 > This file is the spec that FBW must reproduce or bypass cleanly. The `*-cmd-norm` outputs are
 > rate setpoints into this inner loop.
 
-## Architecture
+## Spec
+
+### Architecture
 
 - Digital **four-channel** fly-by-wire; nicknamed "Flickiss". Hydraulically positions surfaces.
 - Pilot commands intent; **control laws** compute surface deflections. Computer can also inject
@@ -24,17 +26,17 @@ Cross-refs: limiter G/AoA numbers also appear in Part 8 (pp. 153–157, see `aer
 - **ARI** (Aileron–Rudder Interconnection) provides roll coordination.
   - ARI **disabled** when main-gear wheel speed > 60 kts **or** AoA > 35°.
 
-### Control surfaces
+#### Control surfaces
 - Rudder
 - Leading-Edge Flap (LEF)
 - Horizontal Tail Stabilator (stabilizer/elevator)
 - Trailing-Edge Flaperon (TEF) — combined flap + aileron
 
-### LEF / TEF scheduling
+#### LEF / TEF scheduling
 - **LEF**: scheduled by the FLCS as a function of **Mach number and AoA**.
 - **TEF**: scheduled as a function of **landing-gear handle position, ALT FLAPS switch position, and airspeed**.
 
-## FLCC inputs (Flight Control Computer)
+### FLCC inputs (Flight Control Computer)
 
 Gains are scheduled by air-data; sideslip angle & rate computed from INS.
 
@@ -48,7 +50,7 @@ Gains are scheduled by air-data; sideslip angle & rate computed from INS.
 
 Outputs: L/R horizontal tail (stabilator), L/R flaperon, rudder.
 
-## Operational modes (gains)
+### Operational modes (gains)
 
 Three gain sets modify how the FBW moves surfaces:
 
@@ -58,11 +60,11 @@ Three gain sets modify how the FBW moves surfaces:
 | **Takeoff & Landing Gains** | Below **400 kts** AND (gear down OR ALT FLAPS = EXTEND OR air-refuel trap door open) |
 | **Standby Gains** | FLCC has detected an FLCS failure |
 
-### Gear-down pitch behavior (Note 2)
+#### Gear-down pitch behavior (Note 2)
 - Gear deployed → FLCS is a **pitch-rate command** system up to 10° AoA.
 - Above 10° AoA → **pitch-rate / AoA command** system.
 
-## Configuration modes & limiters (CAT I / CAT III)
+### Configuration modes & limiters (CAT I / CAT III)
 
 Aircraft auto-detects required CONFIG from weapon + external-tank loadout. **STORES CONFIG** caution =
 the CAT switch (gear panel) does not match the loadout.
@@ -79,32 +81,32 @@ function of AoA and airspeed.
 | Roll rate | Full | **−40%** vs CAT I (roll-coupled departure resistance) |
 | Rudder deflection fade | Starts ~**14°** AoA, zero at **26°** AoA | Starts **3°** AoA, zero at **15°** AoA |
 
-### Anti-spin / departure logic
+#### Anti-spin / departure logic
 - **Note 3**: Above **35° AoA**, the yaw-rate limiter provides roll & yaw anti-spin inputs and **cuts out
   stick roll commands**.
 - **Note 4**: Below **−5° AoA and < 170 kts**, the yaw-rate limiter provides anti-spin rudder inputs.
 
-### Gun compensation
+#### Gun compensation
 - FLCS auto-compensates off-center gun firing + gun-gas effects by moving rudder & flaperons.
 - Optimized for **0.7–0.9 Mach**; firing outside this band can cause adverse effects.
 
-## Deep-stall recovery — Manual Pitch Override (MPO)
+### Deep-stall recovery — Manual Pitch Override (MPO)
 
 - **MPO switch → OVRD** (held): commands greater stabilator authority to pitch the nose down out of a
   deep-stall departure, to regain airspeed for controlled flight.
 - **DBU** (Digital Backup) switch: pilot manually selects a backup FLCS software state.
 
-## Autopilot ("relief modes")
+### Autopilot ("relief modes")
 
 Pitch and roll modes are independent and **combinable** (e.g. STRG SEL + ALT HOLD = follow steerpoint at
 held altitude).
 
-### Switches
+#### Switches
 - **Roll Mode switch**: HDG SEL / ATT HOLD / STRG SEL
 - **Pitch Mode switch**: ALT HOLD / A/P OFF / ATT HOLD
 - A **pitch mode must be active** for any roll mode to engage.
 
-### Modes
+#### Modes
 | Mode | Behavior |
 |---|---|
 | PITCH ATT HOLD | Holds current pitch attitude; will not capture beyond **±60°** pitch |
@@ -113,22 +115,22 @@ held altitude).
 | HDG SEL | Turns to & flies the EHSI heading bug; **bank limited to 45°** |
 | STRG SEL | Turns to & flies the active steerpoint; **bank limited to 45°** |
 
-### ALT HOLD detail
+#### ALT HOLD detail
 - Engaging captures current altitude as the **reference altitude**; holds ±100 ft.
 - Vertical velocity **> +2000 ft/min or < −2000 ft/min prevents capture**.
 - Reset reference in flight: hold **Paddle** (disengages while held), fly to new altitude, release →
   new actual altitude becomes reference.
 
-### ATT HOLD detail (pitch & roll)
+#### ATT HOLD detail (pitch & roll)
 - Any stick input while engaged **re-captures** the new attitude and holds it.
 
-### STRG SEL detail
+#### STRG SEL detail
 - Select steerpoint on CNI page (Dobber LEFT = RTN) via DED inc/dec, or STPT(4) → number → ENTR.
 - **AUTOMATIC** sequencing: on reaching a steerpoint, steers to the next automatically.
 - **MANUAL** sequencing: on reaching a steerpoint, **circles it at 30° bank**.
 - Toggle MAN/AUTO: Dobber DOWN to MAN/AUTO field, M-SEL(0) to toggle.
 
-### Autopilot auto-disengage conditions
+#### Autopilot auto-disengage conditions
 Any one of:
 - Paddle switch (stick) pressed *
 - TRIM A/P Disc switch → DISC
@@ -144,11 +146,11 @@ Any one of:
 \* Paddle **overrides** (while held) in ATT/ALT modes but **does not disengage** autopilot while in
 **HDG SEL or STRG SEL** — use Pitch Mode → A/P OFF to disengage those.
 
-### TRIM / A/P Disc switch
+#### TRIM / A/P Disc switch
 - **NORM**: stick trims energized, autopilot possible.
 - **DISC**: stick trims and autopilot inhibited.
 
-### ED EA Guide addendum — autopilot (official, pp.128–131) — includes a genuine numeric discrepancy
+#### ED EA Guide addendum — autopilot (official, pp.128–131) — includes a genuine numeric discrepancy
 `doc/DCS F-16C Early Access Guide EN.pdf` p.128–131 documents the same 2×2 PITCH/ROLL switch autopilot
 (ALT HOLD/ATT HOLD × HDG SEL/ATT HOLD/STRG SEL, a pitch mode required for any roll mode — matches Chuck
 exactly) but adds **quantified command-authority and disengage-condition figures Chuck does not give**,
@@ -188,9 +190,52 @@ and **one figure that conflicts with Chuck's** — flagged explicitly, not silen
   already says paddle **doesn't** disengage in HDG SEL/STRG SEL, so ED simply omitting it from the
   unconditional-disengage list is consistent with Chuck's own caveat, not opposed to it.
 
----
+## State
 
-# Technical depth (researched — for rebuild)
+**FlightBox does not rebuild this FLCS — it commands the one inside the pinned model.** The model's own
+`<flight_control>` XML *is* the flight control system (11 channels, 58 components, every gain converted
+in [`flight-model.md`](flight-model.md) §7); FlightBox adds an outer loop on top of `fcs/*-cmd-norm`.
+
+| Item of this reference | FlightBox | Where |
+|---|---|---|
+| The FLCS itself (pitch/roll/yaw laws, LEF/TEF schedule, gear-down gains) | **the model's**, documented channel by channel | [`flight-model.md`](flight-model.md) §7.1–§7.8 |
+| FBW outer loop (rate/attitude PIDs onto `*-cmd-norm`), F-16 gain preset | **built** — `FBFlightControl` + `FBFlightControl::F16()` | [`../flightbox/sim/systems.md`](../flightbox/sim/systems.md) §3 |
+| `fcs/fbw-override` | **built, and honest about its reach**: it bypasses the **pitch** channel only | [`flight-model.md`](flight-model.md) §7.10 |
+| Autopilot "relief modes" (ALT HOLD, ATT HOLD, STRG SEL, HDG SEL) | **not implemented as these modes**. FlightBox has its own guidance primitives — `Direct` (point-to-point course/altitude/speed), `Course` (a flown, measured localizer-style law) and `Manual` — which the pilot phase machine commands | [`../flightbox/sim/systems.md`](../flightbox/sim/systems.md) §2 |
+| Autopilot auto-disengage conditions, TRIM/AP DISC switch | **not implemented** — there is no engage state to lose | — |
+| CAT I / CAT III limiter switching, ARI, anti-spin logic, gun compensation, MPO | **not implemented** in FlightBox; whatever the model's XML does is what happens | [`flight-model.md`](flight-model.md) §7.11 (the model-vs-real-FLCS deviation table) |
+| Damage on the FLCS | **built as authority, not as law**: a degraded FLCS scales the commanded deflections (one of two hydraulic systems), a failed one removes them — the FLCS keeps commanding, the aircraft stops answering | [`../flightbox/sim/weapons-and-damage.md`](../flightbox/sim/weapons-and-damage.md) §8 |
+
+**The deviation table is the load-bearing link:** [`flight-model.md`](flight-model.md) §7.11 compares
+the model's FLCS against the real one described here, item by item. Read it before treating any number
+in this file as something FlightBox should reproduce.
+
+## Gaps
+
+**Source gaps** (this file vs. its sources)
+- **The ED/Chuck autopilot bank-limit discrepancy stays open**: Chuck "bank limited to 45°" vs. ED's
+  command-authority numbers (pitch +3.0/−1.0 G, roll ≤20 °/s, bank ±30°) for HDG SEL/STRG SEL. Both are
+  kept in the addendum above; ED is marked the more reliable source, and the JSBSim model remains the
+  actual ground truth per Prinzip 5.
+- Only the ED **autopilot** chapter (pp.128–131) was folded in; the rest of this file is Chuck plus
+  research.
+
+**Implementation gaps** (this reference vs. FlightBox)
+- *Modelled:* the inner loop (as the model's FLCS) plus an outer FBW loop with an F-16 gain preset;
+  damage as loss of control authority.
+- *Partially:* the autopilot — FlightBox has guidance modes, but not *these* modes, and none of the
+  engagement/disengagement logic. `FBFlightControl::Run` also hard-wires `0.01` instead of `dt`, which
+  silently binds the outer loop to 100 Hz ([`../flightbox/sim/systems.md`](../flightbox/sim/systems.md)
+  Gaps).
+- *Not at all:* CAT I/III switching, ARI, anti-spin and deep-stall logic, MPO, gun compensation,
+  FLCC channel voting/BIT, hydraulic system modelling, trim.
+
+## Knowledge
+
+**Technical depth (researched — for rebuild)**
+
+*Researched engineering depth (public engineering sources, cited at the end). Kept separate from the
+guide distillation in `## Spec` — every fact here is researched, not taken from the DCS guides.*
 
 Everything above is the pilot-guide view. This section is engineering reference for reconstructing the
 FLCS control laws. Sources cited inline; confidence flagged where the public record is indirect.
@@ -200,7 +245,7 @@ FLCS control laws. Sources cited inline; confidence flagged where the public rec
 > commands rate/`*-cmd-norm` setpoints into this inner loop, so the command-shaping and limiter structure
 > below is exactly what FBW must reproduce or cleanly override.
 
-## Control-law architecture (signal flow)
+### Control-law architecture (signal flow)
 
 The FLCS is a **command-augmentation** system, not a rate damper bolted onto a stable airframe: the F-16A
 was built with **relaxed static stability** (~ −5% MAC subsonic), so the pitch loop is load-bearing —
@@ -222,7 +267,7 @@ Per-axis response type (Kim, Ji & Kim, *Adv. Mech. Eng.* 2020; ryanporto FLCS no
 - **ARI** (Aileron–Rudder Interconnect): feeds roll command into rudder for turn coordination; guide
   gives the cutouts (gear wheel-speed > 60 kt, AoA > 35°).
 
-## Limiter logic (the envelope protection)
+### Limiter logic (the envelope protection)
 
 The CAT-I numbers in the guide are the limiter outputs. Structurally (falcon-bms FLCS reverse-engineering;
 ryanporto; guide Part 15):
@@ -237,7 +282,7 @@ ryanporto; guide Part 15):
   gain tables for the real jet are not fully public — treat the guide numbers as the authority and the
   JSBSim model as the implementation.
 
-## Canonical model constants (Stevens & Lewis / NASA)
+### Canonical model constants (Stevens & Lewis / NASA)
 
 The standard open F-16 model (Nguyen et al., **NASA TP-1538**, 1979; Stevens, Lewis & Johnson, *Aircraft
 Control and Simulation*; coded in Bak's **AeroBenchVVPython** and JSBSim) — the reference our FDM inherits:
@@ -269,7 +314,7 @@ an α-driven schedule with a lag; keeps the wing at favorable camber and delays 
 - Commanded quantities (the FBW-relevant setpoints): **Nz, stability-axis roll rate Ps, and Ny+r**
   (coordinated-turn sideslip term). This is the exact triple our FBW should drive.
 
-## FLCC computer architecture (analog → digital)
+### FLCC computer architecture (analog → digital)
 
 - **F-16A/B (Block 1–15/25)**: **analog** FLCS — a quad-redundant analog stability-augmentation computer.
   The pitch/roll/yaw laws are hardwired analog networks; gains scheduled by an air-data gain-changer.
@@ -286,7 +331,7 @@ an α-driven schedule with a lag; keeps the wing at favorable camber and delays 
   the AFTI is a research variant; production rate is commonly cited in the ~64–100 Hz band but not firmly
   public. For our fixed-step sim this is the design target for the inner-loop rate.
 
-## Actuators & hydraulics
+### Actuators & hydraulics
 
 - **Integrated Servoactuators (ISA)**: each primary surface (2 stabilators, 2 flaperons, 1 rudder) is
   driven by a hydraulic ISA that fuses the electro-hydraulic servo-valve + ram + position feedback; the
@@ -298,7 +343,7 @@ an α-driven schedule with a lag; keeps the wing at favorable camber and delays 
 - **Rates/limits (canonical model)**: stabilator ±25°, flaperon ±21.5°, rudder ±30° (position); rate
   limits ~60/80/120°/s per the Stevens-Lewis actuator model (medium confidence — see table above).
 
-## Sensors feeding the FLCC
+### Sensors feeding the FLCC
 - Triaxial **rate gyros** (p, q, r).
 - **Normal + lateral accelerometers** (Nz at the accelerometer station **15 ft ahead of CG**; Ny).
 - **Angle-of-attack probes** (AoA cone/vane transducers, redundant) — primary for the AoA limiter & blend.
@@ -307,7 +352,7 @@ an α-driven schedule with a lag; keeps the wing at favorable camber and delays 
   original F-16 stick was rigid; small motion added later) — command is a force gradient, not a deflection.
 - Sideslip angle/rate is **computed from INS**, not directly sensed (guide FLCC diagram).
 
-## Sources
+### Sources
 - Droste & Walker, *The General Dynamics Case Study on the F-16 Fly-By-Wire Flight Control System*, AIAA, 1980.
 - Nguyen et al., *Simulator Study of Stall/Post-Stall Characteristics…* (relaxed static stability), NASA TP-1538, 1979.
 - Stevens, Lewis & Johnson, *Aircraft Control and Simulation*, 3rd ed. — F-16 model.

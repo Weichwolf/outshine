@@ -1,5 +1,7 @@
 # Real-Time Volumetric Clouds + Haze — Research Index
 
+> **Legacy studies of the demolished FBCloud* chain; kept for the noise/raymarch groundwork, see [../flightbox/render/clouds.md](../flightbox/render/clouds.md).**
+
 Implementation-ready distillation of the state of the art for real-time volumetric cloud and
 haze/aerial-perspective rendering on a weak iGPU (target: Intel Iris Xe, ~1.5–2.2 TFLOPS FP32,
 ~50 GB/s shared memory — see [07-igpu-performance-budget.md](07-igpu-performance-budget.md) for the

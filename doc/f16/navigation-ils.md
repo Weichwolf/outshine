@@ -5,12 +5,14 @@ Plus `doc/DCS F-16C Early Access Guide EN.pdf` (ED EA Guide, official) — **NAV
 p.163–246 (INS, navigation database/steerpoints, TACAN, ILS) — see the "ED EA Guide addendum" section
 below the guide distillation. Cite tags `Chuck p.NN` vs `ED EA Guide p.NN`.
 
-## Navigation sources
+## Spec
+
+### Navigation sources
 Navigation via **HSD** (Horizontal Situation Display), **EHSI**, **HUD**, and **ADI** localizer/glideslope
 bars. Standby magnetic compass = backup. DED/ICP consult & edit nav data; FCR page also shows steerpoints.
 **TACAN and ILS supported; NDB/ADF navigation is not.**
 
-## Navigation point types
+### Navigation point types
 | Type | Purpose |
 |---|---|
 | **Steerpoints** (waypoints) | Pre-planned route reference points; create/edit/build flight plans |
@@ -18,7 +20,7 @@ bars. Standby magnetic compass = backup. DED/ICP consult & edit nav data; FCR pa
 | **Anchor Point / Bullseye** | Common geographic reference shared by friendly forces |
 | **Reference points** | VIP, VRP, PUP, OAP (offset targeting) |
 
-## Steerpoint database (99 total)
+### Steerpoint database (99 total)
 | # | Function |
 |---|---|
 | 1–24 | Navigation route / flight planning |
@@ -33,12 +35,12 @@ bars. Standby magnetic compass = backup. DED/ICP consult & edit nav data; FCR pa
 DED pages: **STPT** (ICP STPT/4, edits steerpoint, affects HSD) · **DEST** (LIST→1, edit without affecting
 HSD; UTM→DIR→OA1/2 via Dobber SEQ) · **BULLSEYE** (LIST→0 MISC→8 BULL).
 
-### Steerpoint navigation (HUD)
+#### Steerpoint navigation (HUD)
 - Align the **Steerpoint Tadpole with the FPM**; tadpole UP = ahead, DOWN = behind.
 - **Steerpoint Diamond** points at steerpoint; crossed-out = out of HUD FoV.
 - HUD shows distance (nm), TTG, direction. See `hud-symbology.md`.
 
-## EHSI (Electronic Horizontal Situation Indicator)
+### EHSI (Electronic Horizontal Situation Indicator)
 Primary gauge for steerpoint + TACAN navigation (extra data not on HUD/DED; battle-damage backup).
 
 Elements: current heading (lubber line), aircraft symbol, course pointer + setting, course deviation
@@ -47,7 +49,7 @@ scale/line (CDI), bearing pointer, heading bug, range indicator (nm), MRK BCN li
 **Mode Selector ("M" button)** cycles: **NAV** · **PLS/NAV** (ILS + nav) · **TCN** (TACAN) · **PLS/TCN**
 (ILS + TACAN). Course knob OUT = set course; pressed IN = brightness.
 
-## HSD (Horizontal Situation Display)
+### HSD (Horizontal Situation Display)
 Plan-view tactical picture: ownship, steerpoints, flight plan, range rings, datalink contacts, threats.
 - **Range rings**: outer = display range, middle = ⅔, inner = ⅓.
 - **SOI** via DMS DOWN → cursor bearing/range from selected steerpoint (or bullseye if active) to cursor.
@@ -57,24 +59,24 @@ Plan-view tactical picture: ownship, steerpoints, flight plan, range rings, data
 - CNTL pages toggle overlays: AIFF, PRE, FCR ghost cursor, NAV1–3 routes, LINE1–4 map lines, RINGS,
   A/G TGTS, A SURV, G FRND, SAM (+ threat rings), LAR, SHIP, PDLT RNG. Datalink XMT: OFF / TNDL.
 
-## TACAN
+### TACAN
 Directional + distance (airdromes, tankers, carriers; VORTAC = collocated VOR+TACAN).
 1. MIDS LVT knob ON (TACAN is part of MIDS). 2. CNI page (Dobber LEFT/RTN). 3. ICP **T-ILS(1)** →
 TACAN-ILS DED page. 4. Dobber DOWN to CHAN, keypad channel (e.g. 44), ENTR. 5. M-SEL(0)+ENTR toggles
 band X/Y. 6. Dobber RIGHT (SEQ) to **TCN T/R**. EHSI mode → TCN.
 
-## Bullseye (anchor point, default steerpoint 25)
+### Bullseye (anchor point, default steerpoint 25)
 - Bearing + range from bullseye to aircraft shown on HUD, FCR, HSD.
 - Activate: LIST → 0 (MISC) → 8 (BULLS) → M-SEL(0) to toggle active.
 - Reassign: BULL DED page → Dobber DOWN to BULL field → inc/dec or steerpoint number + ENTR.
 
-## Reference points
+### Reference points
 - **VIP** (Visual Initial Point), **VRP** (Visual Reference Point), **PUP** (Pull-Up Point) — A-G attack geometry.
 - **OAP** (Offset Aimpoint): a steerpoint offset by true bearing + range (ft) + separate elevation; up to
   two per steerpoint (OA1/OA2), stored on DEST OA1/OA2 pages, move with their parent steerpoint. Shown as
   a HUD triangle in A-G mode with CCRP + OA1 sighting on the TGP.
 
-## INS drift & navigation fix
+### INS drift & navigation fix
 INS drifts over time. A **nav fix** re-aligns it by designating a known steerpoint's true location:
 1. Master Mode NAV; CNI page; select steerpoint via DED inc/dec.
 2. Designate with a sensor (TGP/FCR/HUD/OFLY). TGP method: SOI the TGP (DMS DOWN), slew reticle to the
@@ -82,10 +84,10 @@ INS drifts over time. A **nav fix** re-aligns it by designating a known steerpoi
 3. ICP **8 (FIX)** → FIX DED page; Dobber RIGHT (SEQ) selects fix method. DELTA field = position drift.
 4. Within **10 nm** of the steerpoint, TMS UP freezes DELTA → ENTR performs the fix (returns to CNI).
 
-## ILS approach tutorial (example: Batumi RWY 13)
+### ILS approach tutorial (example: Batumi RWY 13)
 Example data: ILS freq **110.30**, runway heading **120 mag / 126 true**.
 
-### Tune
+#### Tune
 1. RADAR ALTIMETER — ON (FWD); adjust ILS audio.
 2. CNI page (Dobber LEFT/RTN).
 3. ICP **T-ILS(1)** → TACAN-ILS DED page.
@@ -95,7 +97,7 @@ Example data: ILS freq **110.30**, runway heading **120 mag / 126 true**.
 7. EHSI mode "M" → **PLS/NAV** (slaves EHSI to ILS).
 8. Verify **NAV** Master Mode on HUD (A-A/A-G ICP button reverts to NAV).
 
-### Fly
+#### Fly
 9. Align with runway using EHSI bearing pointer, CDI, ADI localizer bar, and **HUD localizer steering bar**.
 10. Close enough → **Glide Slope Fail Flag** disappears; vertical guidance for a **3° glideslope**.
 11. Fly to glideslope: center the **Glide Slope Steering Bar** + **Localizer Steering Bar** into a perfect
@@ -108,14 +110,14 @@ Example data: ILS freq **110.30**, runway heading **120 mag / 126 true**.
 
 ---
 
-## ED EA Guide addendum — official navigation system detail (pp.163–246)
+### ED EA Guide addendum — official navigation system detail (pp.163–246)
 
 The ED EA Guide's Navigation chapter is architecturally much deeper than Chuck's tutorial-style guide:
 it documents the **sensor inputs, solution-blending logic, and update mechanisms** behind the
 steerpoint/TACAN/ILS *procedures* Chuck already covers. This section is organized by system, not by
 page order.
 
-### Navigational sensors (ED p.164)
+#### Navigational sensors (ED p.164)
 | Sensor | Feeds | Provides |
 |---|---|---|
 | Nose pitot probe | CADC + FLCC | Static/total pressure → analog Altimeter, Airspeed/Mach indicator |
@@ -127,7 +129,7 @@ page order.
 | GPS antenna (top fuselage) | GPS receiver | Satellite position/timing |
 | Upper/lower TACAN antennas | MIDS LVT | TACAN bearing/range |
 
-### Three navigation solutions + the GPS/INS blend threshold (ED p.165, 177)
+#### Three navigation solutions + the GPS/INS blend threshold (ED p.165, 177)
 The MMC (Modular Mission Computer) maintains **three separately-tracked navigation solutions**:
 1. **INS-only** — pure inertial (accelerometers + gyros), drifts over time.
 2. **GPS-only** — pure satellite position/timing.
@@ -155,13 +157,13 @@ threshold-snap behavior (apply GPS correction only when disagreement >300 ft; ot
 and let it drift) is a much simpler state machine that reproduces the documented pilot-visible behavior
 (HIGH/MED/LOW display + occasional visible "jumps" in steerpoint symbology when a correction snaps in).
 
-### INS alignment — see `procedures-startup.md`'s ED addendum
+#### INS alignment — see `procedures-startup.md`'s ED addendum
 Full alignment-type/timing/status-CEP-scale table lives there (Normal Gyrocompass ~8 min, Stored
 Heading ~90 s, In-Flight requires GPS or manual heading input; status 99→10 scale with CEP multiplier).
 Not duplicated here — this file cross-references it because INS alignment is precisely the navigation
 system's bootstrap step.
 
-### System Altitude (SALT) — source priority + ACAL thresholds (ED p.179–184)
+#### System Altitude (SALT) — source priority + ACAL thresholds (ED p.179–184)
 The MMC's system altitude (used for HUD/HMCS symbology and weapon-release geometry) is derived from
 one of three sources, **in ascending priority** (highest available wins):
 1. **CADC altitude** (raw external air-pressure data) — fallback of last resort.
@@ -189,7 +191,7 @@ altitude/position aid, independent of GPS:
   terrain → tighter fix) — a physically real effect a terrain-correlation model would need to
   reproduce, not obviously worth FlightBox's current scope but noted for completeness.
 
-### Navigation update mechanisms — cursor slew vs. position fix vs. altitude calibration (ED p.185–189)
+#### Navigation update mechanisms — cursor slew vs. position fix vs. altitude calibration (ED p.185–189)
 Three distinct correction mechanisms, **not interchangeable**:
 | Mechanism | Effect | Persistence |
 |---|---|---|
@@ -205,7 +207,7 @@ known reference point, then apply it as an additive correction) generalizes dire
 INS-drift model: drift accumulates as an additive offset; a "fix" zeros that offset at a known-position
 event.
 
-### Steerpoint database — ⚠️ discrepancy: Chuck's 99 vs. ED's 127
+#### Steerpoint database — ⚠️ discrepancy: Chuck's 99 vs. ED's 127
 - **Chuck** (`procedures`/original table above): **99 total steerpoints**, ranges 1–24 nav / 25
   bullseye / 26–30 markpoints / 31–54 HSD lines / 56–70 threats / 71–80 datalink markpoints / 81–89
   open / 90–99 Harpoon.
@@ -225,21 +227,21 @@ consistent with ED being the newer, TNDL-aware source). **Treat ED's 127/7-parti
 primary** for a rebuild's steerpoint-database sizing; Chuck's 1–70 range numbers remain useful
 cross-checks since they agree where both sources overlap.
 
-### Steerpoint symbols (ED p.202–203, refines Chuck's HUD-only symbol list)
+#### Steerpoint symbols (ED p.202–203, refines Chuck's HUD-only symbol list)
 Steerpoint sub-type shapes (shown on HSD/HAD, not HUD): **circle** = navigation steerpoint (STPT),
 **square** = Initial Point (IP), **triangle** = Target (TGT). Selected = solid white; unselected active
 route = hollow white; unselected inactive route = hollow gray. Markpoints = yellow X (ownship) or large
 white X (datalink-received). Pre-planned threats = yellow text+ring (white/red text+ring if ownship is
 inside the ring — i.e. **expect engagement**). SEAD targets = yellow text with a slash.
 
-### Navigation by steerpoints — HUD/HSD/EHSI element cross-reference
+#### Navigation by steerpoints — HUD/HSD/EHSI element cross-reference
 The **Great Circle Steering Cue** (ED's name for Chuck's "Tadpole") and its great-circle bearing
 computation, plus the **HSD Azimuth Steering Line**, are fully documented in `hud-symbology.md`'s ED
 addendum — not duplicated here. Key nav-specific fact: the **Diamond Symbol** shows the steerpoint's
 full 3-D position (position + altitude, not just azimuth) — an X is superimposed when it's outside the
 HUD field of view (same clamp philosophy as the Great Circle Steering Cue's edge-pin, `hud-symbology.md`).
 
-### EHSI — course logic detail (ED p.227–231, 2396–2433 region)
+#### EHSI — course logic detail (ED p.227–231, 2396–2433 region)
 - **NAV mode**: Bearing Pointer + Course Deviation Indicator reference the selected steerpoint;
   standard fly-to-center CDI logic (turn toward the CDI needle until centered on the course line).
 - **TCN mode**: same instrument, referenced to the tuned TACAN station instead.
@@ -251,7 +253,7 @@ HUD field of view (same clamp philosophy as the Great Circle Steering Cue's edge
   implementation (bearing needle and CDI needle can be referenced to *different* sources simultaneously
   in PLS mode).
 
-### Tactical Air Navigation (TACAN) — quantitative facts (ED p.232–237)
+#### Tactical Air Navigation (TACAN) — quantitative facts (ED p.232–237)
 - **126 channels × 2 bands (X/Y) = 252 usable navigation channels.**
 - Three modes: **REC** (bearing only) / **T/R** (bearing + DME range) / **A/A T/R** (air-to-air distance
   between two TACAN-equipped aircraft, 00.1–99.9 nm resolution).
@@ -264,13 +266,13 @@ HUD field of view (same clamp philosophy as the Great Circle Steering Cue's edge
 
 ---
 
-## ED EA Guide addendum — ILS (pp.238–246)
+### ED EA Guide addendum — ILS (pp.238–246)
 
 This supersedes/refines the generic-ILS-standard "Technical depth" numbers already in this file below
 (pilotscafe/code7700/PPRuNe-sourced) with the **F-16C's own documented ILS behavior** — flagged where
 they conflict.
 
-### Localizer/glideslope hardware and frequency plan
+#### Localizer/glideslope hardware and frequency plan
 - Localizer transmitter: opposite end of runway from approach direction, **VHF, 108.00–111.95 MHz**,
   **40 channels at 5 kHz spacing, only "odd" kHz values used** (108.10, 108.15, 108.30, 108.35, … up to
   111.95). Glideslope frequency is auto-paired to the tuned localizer frequency (UHF, not
@@ -278,7 +280,7 @@ they conflict.
 - Standard glidepath angle: **3°**, explicitly noted as **variable** (ED gives worked tables at 2.5°,
   3.0°, and 3.5° — see below), matching this file's existing generic-ILS "varies with terrain" note.
 
-### Marker beacons (new — not in Chuck's file, and not in the prior generic-ILS technical-depth section)
+#### Marker beacons (new — not in Chuck's file, and not in the prior generic-ILS technical-depth section)
 | Marker | Tone | Morse pattern | Typical use |
 |---|---|---|---|
 | **Outer** | 400 Hz | dash-dash-dash (▬▬▬) | Glideslope-intercept / descent-initiation point |
@@ -288,7 +290,7 @@ they conflict.
 All three illuminate the same Marker Beacon light beside the EHSI; distinguishing them in the sim
 requires audio-tone or explicit-marker-type modeling, not just a boolean "over a marker" flag.
 
-### Glideslope intercept altitude — worked table (ED p.241, directly usable for autopilot ILS guidance)
+#### Glideslope intercept altitude — worked table (ED p.241, directly usable for autopilot ILS guidance)
 Altitude **above runway elevation** (ft, rounded to nearest 100) at which the glideslope is intercepted,
 by slant distance and glideslope angle:
 | Slant dist (nm) | GS 3.5° | GS 3.0° | GS 2.5° |
@@ -308,7 +310,7 @@ by slant distance and glideslope angle:
 (This is just `altitude = slant_distance_ft × tan(glideslope_angle)` — a derivable table, but having
 ED's own rounded reference values is a useful sanity-check for a guidance implementation.)
 
-### Glideslope descent-rate — worked table (ED p.242, directly usable for autopilot ILS guidance)
+#### Glideslope descent-rate — worked table (ED p.242, directly usable for autopilot ILS guidance)
 Descent rate (fpm, rounded to nearest 10) required to hold glideslope, by ground speed and angle:
 | GS (kt) | GS 3.5° | GS 3.0° | GS 2.5° |
 |---|---|---|---|
@@ -329,7 +331,7 @@ ED's tabulated 750 fpm, a ~6% difference likely from ED's own rounding/approxima
 ED's table as the DCS-F-16-behavior reference, the trig formula as the physically-exact fallback** if
 building a continuous (non-tabulated) guidance law.)
 
-### Decision Height (DH) and Missed Approach Point (MAP)
+#### Decision Height (DH) and Missed Approach Point (MAP)
 - DH typically **no lower than ~200 ft AGL** above the touchdown-zone runway elevation (matches the
   Middle Marker's documented role above).
 - At DH, if the approach lighting system or runway is not visually acquired, **execute a missed
@@ -342,7 +344,7 @@ building a continuous (non-tabulated) guidance law.)
   not a separate mechanism. (Duplicated briefly in `procedures-landing.md`'s ED addendum since it's
   landing-relevant; documented here as the ILS-specific configuration.)
 
-### ⚠️ Discrepancy: ADI glideslope deviation scale vs. this file's prior generic-ILS numbers
+#### ⚠️ Discrepancy: ADI glideslope deviation scale vs. this file's prior generic-ILS numbers
 - **This file's existing "Technical depth" section below** (pilotscafe/code7700/PPRuNe-sourced generic
   ILS standard): glideslope full-scale deflection **±0.7°** (1.4° beam width), **0.14°/dot**.
 - **ED EA Guide** (p.244, F-16C ADI, official): **"Each white dot corresponds with a 2.5° vertical
@@ -368,7 +370,7 @@ building a continuous (non-tabulated) guidance law.)
   remains a genuine gap in the ED source itself, not just our extraction; the generic ±2.5° full-scale
   localizer figure below is the only quantified source we have for it.
 
-### Command Steering Symbol — control-law framing (ED p.245, sharper than this file's prior "flight-
+#### Command Steering Symbol — control-law framing (ED p.245, sharper than this file's prior "flight-
 director law" note)
 - **Lateral displacement** of the Command Steering Symbol corresponds to the **bank angle required** to
   achieve the localizer-intercept turn rate — i.e. it's a bank-angle command, not a raw deviation
@@ -382,19 +384,61 @@ note below: the ED source explicitly frames it as **bank-angle command (lateral)
 command (vertical)** — the exact two control-law outputs `FBAutopilot::Direct` would need to compute
 for a faithful ILS-coupled approach mode.
 
-### HUD decluttering during approach (MAN RNG/UNCAGE, ED p.245–246, new — not in Chuck)
+#### HUD decluttering during approach (MAN RNG/UNCAGE, ED p.245–246, new — not in Chuck)
 Pressing MAN RNG/UNCAGE to UNCAGE during approach (or after Decision Height) removes the Heading Tape
 from its normal position (moves it to the top), removes the Roll Indicator, and removes the ILS
 localizer/glideslope deviation bars — but **the Command Steering Symbol remains**. A deliberate
 decluttering step separate from Chuck's "if desired" note in the overhead-pattern section.
 
----
+## State
 
-# Technical depth (researched — for rebuild)
+FlightBox navigates by **one steerpoint and a bullseye**, computed in planar ENU geodesy. None of the
+radio navigation in this file exists: no TACAN, no ILS, no EHSI/HSD, no INS with alignment or drift.
+
+| Item of this reference | FlightBox | Where |
+|---|---|---|
+| Steerpoint navigation (active point, bearing, distance, TTG) | **built** — `FBNavSystem`, published in the Nav block and read by the HUD | [`../flightbox/sim/systems.md`](../flightbox/sim/systems.md) §7 |
+| Waypoint sequencing | **built and owned by the actor** — `FBNavSystem::AdvanceWaypoint`, called by the module, never by the mission runner | same |
+| Bullseye | **built** as an anchor point with bearing/range | same |
+| Steerpoint database (99 vs. 127 points, types, MARK points, offsets) | **not implemented** — the flight plan is mission data (`.fbm`), a plain waypoint list | [`../flightbox/sim/units-and-missions.md`](../flightbox/sim/units-and-missions.md) |
+| Steerpoint elevation | **approximated** — the module uses the elevation sample **under the aircraft** this tick; a declared waypoint elevation is mission-format work. Correct over gentle terrain, wrong over mountains | [`../flightbox/aircraft/f16.md`](../flightbox/aircraft/f16.md) Gaps 11 |
+| Magnetic variation | **not implemented** — `MagVarDeg` is hard 0, so every "magnetic" label currently shows true | [`../flightbox/sim/systems.md`](../flightbox/sim/systems.md) Gaps 8 |
+| INS: alignment, drift, position fix, ACAL, SALT source priority, GPS/INS blending | **not implemented** — position is exact, always | — |
+| TACAN (A/A and A/G, channels, ranging) | **not implemented** | — |
+| ILS: localizer/glideslope, marker beacons, DH, MAP, command steering | **not implemented**. The approach is flown by the pilot phase machine on `FBAutopilot` COURSE guidance against the mission's runway, not against a beam | [`../flightbox/sim/systems.md`](../flightbox/sim/systems.md) §2 |
+| EHSI / HSD as displays | **not implemented** — no cockpit displays at all; only the HUD is drawn | [`../flightbox/clients/clients.md`](../flightbox/clients/clients.md) |
+
+**Directly usable, still unused:** the glideslope-intercept-altitude and glideslope-descent-rate tables
+and the CARA-ALOW-as-decision-height mechanism above are computable inputs for a future ILS-coupled
+approach mode; ALOW already exists as a system.
+
+## Gaps
+
+**Source gaps** (this file vs. its sources)
+- **Two discrepancies stay open and flagged** — steerpoint count Chuck 99 vs. ED 127, and the ADI
+  glideslope deviation scale 0.7° vs. 2.5°/dot. Both values are kept above; neither is resolved.
+- ED's Radio Communications chapter (pp.247–260) is **not processed** (PROGRESS.md, low-priority call).
+- The MARK DED page was **not found** in the UFC chapter and is suspected to live in this chapter's ED
+  pages; not independently re-checked — see `cockpit-displays.md`.
+
+**Implementation gaps** (this reference vs. FlightBox)
+- *Modelled:* steerpoint steering and sequencing, bullseye, distance/bearing/TTG.
+- *Partially:* the navigation *solution* — exact by construction, so everything this file says about
+  blending, drift, fixes and altitude sources has no counterpart; and steerpoint elevation is a sample
+  under the aircraft rather than a database value.
+- *Not at all:* TACAN, ILS and its whole approach apparatus, INS alignment/drift, magnetic variation,
+  EHSI/HSD, steerpoint database semantics (types, MARK, offset points).
+
+## Knowledge
+
+**Technical depth (researched — for rebuild)**
+
+*Researched engineering depth (public engineering sources, cited at the end). Kept separate from the
+guide distillation in `## Spec` — every fact here is researched, not taken from the DCS guides.*
 
 ILS geometry and deviation scaling for a faithful localizer/glideslope model. Sources cited inline.
 
-## ILS beam geometry & deviation scaling
+### ILS beam geometry & deviation scaling
 | Element | Value |
 |---|---|
 | Standard glidepath angle | **3°** (varies with terrain) |
@@ -405,7 +449,7 @@ ILS geometry and deviation scaling for a faithful localizer/glideslope model. So
 
 Sources: pilotscafe / code7700 / PPRuNe tech-log — standard HSI/CDI ILS scaling.
 
-## Modeling implications
+### Modeling implications
 - The **HUD localizer/glideslope steering bars** and the **EHSI CDI** should both be driven from the same
   angular deviations: lateral = angle off the localizer centerline (saturating at ±2.5°), vertical = angle
   off the 3° glidepath (saturating at ±0.7°). This gives the correct "bar sensitivity increases as you
@@ -417,7 +461,7 @@ Sources: pilotscafe / code7700 / PPRuNe tech-log — standard HSI/CDI ILS scalin
 - On the F-16, ILS is tuned as **frequency** (e.g. 110.30) via the DED **T-ILS** page and the EHSI is
   slaved with **PLS/NAV** — the receiver provides the angular deviations above to both HUD and EHSI/ADI.
 
-## Navigation system context
+### Navigation system context
 - Steerpoint navigation is **INS + GPS** based (the FLCS/FCC use INS for sideslip and steering); TACAN
   provides bearing/range to a ground station; ILS provides the precision-approach angular guidance. NDB/ADF
   is not supported (guide). A rebuild needs: INS position (drifting, correctable via nav-fix), GPS
@@ -426,7 +470,7 @@ Sources: pilotscafe / code7700 / PPRuNe tech-log — standard HSI/CDI ILS scalin
   HUD) of a known steerpoint computes a DELTA and re-aligns — model INS as slowly-drifting truth with
   discrete fix corrections.
 
-## Hardware (LRUs, for context)
+### Hardware (LRUs, for context)
 - **Radar altimeter (CARA)**: **AN/APN-232** Combined Altitude Radar Altimeter (Gould) — feeds the ALOW
   system and HUD radar altitude; must be ON for ALOW (guide). Typical usable range to ~5000 ft AGL.
 - **INS**: ring-laser-gyro INS — **Litton LN-39 / LN-93**, or **Honeywell H-423**; later blocks use an
@@ -437,7 +481,7 @@ Sources: pilotscafe / code7700 / PPRuNe tech-log — standard HSI/CDI ILS scalin
 - **FCR**: **AN/APG-68** mechanically-scanned radar (4 LRUs) also displays steerpoints (see
   `radar-sensors.md`).
 
-## Sources
+### Sources
 - pilotscafe.com *Understanding ILS*; code7700.com *ILS*; PPRuNe tech-log *Full-scale deflection on CDI* —
   localizer ±2.5°, glideslope ±0.7°/1.4° beam, 0.14°/dot, 3° glidepath, 700 ft course width.
 - airforce-technology.com F-16; Wikipedia *AN/APG-68* — AN/APN-232 CARA, LN-39/93 / H-423 INS, EGI/GPS, APG-68.

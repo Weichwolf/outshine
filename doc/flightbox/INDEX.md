@@ -26,9 +26,9 @@ Two exceptions, both deliberate: the **meta files** (this index, `vision.md`, `r
 history and the rules. And `world-and-terrain.md` is being rewritten in the weather round, so it keeps
 its old shape and its old path until that lands.
 
-**Language:** new material is English. Files whose body is still the German distillation carry a
-`> Body still in German — translation pass pending` note under their title; the translation is
-roadmap R10.
+**Language:** English throughout. The bodies that were still the German distillation were translated in
+the roadmap R10 wave; `world-and-terrain.md` is the one exception and stays German until the weather
+round splits it.
 
 ## Start here
 

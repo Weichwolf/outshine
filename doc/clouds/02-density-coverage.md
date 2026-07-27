@@ -1,5 +1,7 @@
 # B — Density Model: Coverage, Type, Height Gradient, Absolute Extinction
 
+> **Legacy studies of the demolished FBCloud* chain; kept for the noise/raymarch groundwork, see [../flightbox/render/clouds.md](../flightbox/render/clouds.md).**
+
 Source: Schneider & Vos, SIGGRAPH 2015 (slides 33–46); Schneider, Nubis³ 2023 (slides 15–25); physical
 extinction values are standard atmospheric-optics figures (cited inline, not from the game talks —
 the game talks deliberately use *unitless* density, not physical σ).

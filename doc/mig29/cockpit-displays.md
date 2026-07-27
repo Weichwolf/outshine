@@ -23,7 +23,9 @@ coordinates. This is the biggest gap in the file (§7).
 
 ---
 
-## 1. Front instrument panel — flight instruments
+## Spec
+
+### 1. Front instrument panel — flight instruments
 
 | Instrument | Designation | Range / graduation | Notes | Source |
 |---|---|---|---|---|
@@ -60,7 +62,7 @@ shared with the Su-27.
 
 ---
 
-## 2. Unified Indication System (SEI-31): HUD + HDD
+### 2. Unified Indication System (SEI-31): HUD + HDD
 
 `DCS-EA p.65`. The **unified display system** integrates target acquisition, navigation and mission data
 from the WCS. It comprises **HUD**, **HDD** (the "direct vision indicator") and power/image-generation
@@ -87,12 +89,12 @@ The **GRID / RETICLE** position is operationally important: it is the fallback a
 WCS fails (`radar-sensors.md` §5) and must be selected manually if the electronic crosshair is missing
 in BS mode (`DCS-EA p.94`).
 
-### 2.1 Base HUD symbol set (`DCS-EA p.66`)
+#### 2.1 Base HUD symbol set (`DCS-EA p.66`)
 1. Indicated airspeed · 2. Heading reference · 3. **Baro alt or Rad alt** · 4. Pitch angle ·
 5. Bank angle · 6. **Nav range** · 7. Artificial horizon · 8. **Steering circle** ·
 9. Aircraft symbol · 10. **IAS trend indexer**.
 
-### 2.2 FC3 base HUD set, with behaviour (`DCS-FM p.40–41`) — richer on *meaning*
+#### 2.2 FC3 base HUD set, with behaviour (`DCS-FM p.40–41`) — richer on *meaning*
 | # | Element | Behaviour |
 |---|---|---|
 | 1 | **Required speed** | assigned airspeed for the current flight mode / route leg, shown **above** the current IAS |
@@ -112,7 +114,7 @@ in BS mode (`DCS-EA p.94`).
 no F-16 equivalent. Note the FC3 manual gives it in metres while `DCS-EA` is an English/feet cockpit —
 the 9-12 module presents **feet and knots**; the underlying jet is metric. Flag every unit conversion.
 
-### 2.3 Combat HUD formats
+#### 2.3 Combat HUD formats
 The full per-mode symbol lists (scan, lock, IR, helmet, gun, air-to-ground, TOSS) are in
 `radar-sensors.md` §3–5 and (for release cues) `weapons.md`. Only the cross-cutting cue vocabulary
 belongs here:
@@ -133,20 +135,20 @@ Attack-symbol dynamics: after missile launch the attack symbol **flashes at 2 Hz
 
 ---
 
-## 3. Warning chain: TLP → MASTER CAUTION → AEKRAN → VIWAS (**FULL**)
+### 3. Warning chain: TLP → MASTER CAUTION → AEKRAN → VIWAS (**FULL**)
 
 Four cooperating devices. Reproducing the *chain* matters more than any individual lamp.
 
-### 3.1 TLP (Telelight Panel / annunciator) — `DCS-EA p.40`
+#### 3.1 TLP (Telelight Panel / annunciator) — `DCS-EA p.40`
 **Red lights = critical events; green lights = normal-state conditions.** Normal behaviour: a
 malfunction **flashes** a red TLP light **together with a flashing MASTER CAUTION**; after MASTER
 CAUTION is reset the TLP light goes **steady** until the problem is resolved.
 
-### 3.2 MASTER CAUTION lamp-button — `DCS-EA p.18`
+#### 3.2 MASTER CAUTION lamp-button — `DCS-EA p.18`
 Flashes whenever any TLP red light illuminates **or** an AEKRAN warning is displayed. Pressing it
 extinguishes itself and switches the corresponding TLP displays **from flashing to steady or off**.
 
-### 3.3 AEKRAN (ЭКРАН) built-in monitoring and warning system — `DCS-EA p.31–32`
+#### 3.3 AEKRAN (ЭКРАН) built-in monitoring and warning system — `DCS-EA p.31–32`
 The MiG-29's equivalent of a maintenance-grade fault display *plus* an in-flight message queue.
 
 | Property | Behaviour |
@@ -162,12 +164,12 @@ The MiG-29's equivalent of a maintenance-grade fault display *plus* an in-flight
 | ⚠️ Interlock | *"If self-test is not performed before starting the engine, **AEKRAN will fail**."* |
 | Failure signature | FAILURE light appears and/or no/distorted messages within 15 s; **if it fails in flight, continue the mission and rely on VIWAS alone** |
 
-### 3.4 VIWAS — Voice Information and Warning System — `DCS-EA p.43`
+#### 3.4 VIWAS — Voice Information and Warning System — `DCS-EA p.43`
 Powers up with the battery. Two buttons on the right console: **CHECK VOICE WARN** (self-test) and
 **REPEAT VOICE WARN** (repeats the last message). **Multiple malfunctions are queued by priority.**
 Self-test response: **"BINGO BINGO"** (`DCS-EA p.73`).
 
-### 3.5 Voice message catalogue (`DCS-FM p.104–105`) — FC3, but the message *set* is informative
+#### 3.5 Voice message catalogue (`DCS-FM p.104–105`) — FC3, but the message *set* is informative
 | Trigger | Message |
 |---|---|
 | Right / left engine fire | "Engine fire right" / "Engine fire left" |
@@ -190,7 +192,7 @@ acknowledgement per message**, i.e. a warning system that is *itself* a command/
 
 ---
 
-## 4. Right console — `DCS-EA p.38–51`
+### 4. Right console — `DCS-EA p.38–51`
 | # | Panel | Notes |
 |---|---|---|
 | 1 | **TLP annunciator panel** | §3.1 |
@@ -215,7 +217,7 @@ acknowledgement per message**, i.e. a warning system that is *itself* a command/
 
 ---
 
-## 5. Left console — `DCS-EA p.52–64`
+### 5. Left console — `DCS-EA p.52–64`
 | # | Item | Notes |
 |---|---|---|
 | 1–3 | Oxygen valve, suit-ventilation knob, **oxygen system panel** | 100 %/MIXT · emergency O₂ · helmet ventilation, all under guards. **100 % oxygen is mandatory on combat flights regardless of altitude**, and in case of smoke; emergency O₂ raises consumption **2–3×** (`DCS-EA p.53–54`) |
@@ -238,7 +240,7 @@ acknowledgement per message**, i.e. a warning system that is *itself* a command/
 
 ---
 
-## 6. Communications — R-862 (`DCS-EA p.56`)
+### 6. Communications — R-862 (`DCS-EA p.56`)
 | Property | Value |
 |---|---|
 | Bands | **VHF 100–149.975 MHz**, **UHF 220–399.975 MHz** |
@@ -260,7 +262,7 @@ in an emergency (`DCS-FM p.13`).
 
 ---
 
-## 7. HOTAS inventory
+### 7. HOTAS inventory
 
 **Control stick** (`DCS-EA p.68–69`):
 1. Four-position **trim** hat · 2. **AFCS MODES OFF** · 3. **Target acquisition symbol control (KU-31)**
@@ -284,17 +286,49 @@ modes before the full press (`DCS-EA p.95, 99, 101`).
 
 ---
 
-## 8. Technical depth (researched)
-Little research was needed for this file — both manuals are dense on the cockpit. Two items:
-- **SEI-31** as the designation of the indication system, and **C100** as the digital mission computer,
-  come from `DCS-FM p.12` (source-internal, not research).
-- **Shchel-3UM** HMD hardware detail: see `radar-sensors.md` §6.5. No public source was found for the
-  HMD's **symbol set** beyond "aiming ring + ПР + X"; the monocle is a **right-eye reflector**
-  (`DCS-FM p.56`, `DCS-EA p.92`).
+### 10. Variant notes
+- `DCS-FM p.21`: **MiG-29A and MiG-29S cockpit instruments are identical**; most instruments are also
+  shared with the Su-27. So this file is valid for 9-13 as-is.
+- **MiG-29SMT/MiG-35**: glass cockpit (MFDs), nothing here carries over except the HOTAS philosophy.
 
 ---
 
-## 9. Open gaps (honest)
+## State
+
+**Nothing in this file is implemented.** FlightBox has no MiG-29 module, no
+`sim/src/modules/mig29/` and no JSBSim MiG-29 model. The airframe exists only as a **spec-first
+contract** — [`../flightbox/aircraft/mig29.md`](../flightbox/aircraft/mig29.md), whose own status
+line reads *"spec only. Nothing is built."* Everything below is therefore a **forward commitment**,
+not a description of code.
+
+| Roadmap stage | What it will take from this file |
+|---|---|
+| **R3** — knowledge base | *running*: this file is the R3 deliverable for cockpit, displays and the warning chain |
+| **R6** — asymmetric weapons | nothing directly |
+| **R7** — enemy units at BVR scale | the AEKRAN queue is a natural fit for the existing command/acknowledge pattern — per-message pilot acknowledgement is *a command bus transaction*, not a display detail; the HOTAS inventory (§7) is the switch set a MiG-29 pilot object may address |
+| **R8** — JSBSim model | instrument ranges and graduations (§1) are what a future MiG-29 HUD/HDD would read; **HUD geometry cannot be built from this file** — the manuals give FOV but no symbol positions, and nothing is to be invented (§9) |
+
+**The scale caveat that governs every row** (from the module file): the MiG-29 is a
+**BVR-scale** opponent — what has to be right is what he can reach, how fast he gets there, what he
+can see and what he can shoot. A failing knife-fight comparison is not a defect of the model; a wrong
+envelope is.
+
+Roadmap chain: [`../flightbox/roadmap.md`](../flightbox/roadmap.md) — **R3** (this knowledge base,
+running) → **R6** (asymmetric weapons + RCS) → **R7** (enemy units, MiG-29 at BVR scale) → **R8**
+(the JSBSim MiG-29 model). Nothing after R3 has begun.
+
+---
+
+## Gaps
+
+**Source gaps** — the file's own itemised list follows, section number unchanged. The
+largest single one is **HUD symbol geometry**: both manuals enumerate the symbols but neither gives
+positions, sizes or spacings. The **GAF T.O. 1F-MIG29-1** is the candidate T1 closer
+(`PROGRESS.md`).
+
+**Implementation gaps** — none statable yet: nothing is built (see State).
+
+### 9. Open gaps (honest)
 1. **HUD symbol geometry** — no positions, sizes, spacings, tape scale intervals or clipping rules
    anywhere in either manual. Every DCS figure carries numeric callouts *without* coordinates. A
    FlightBox MiG-29 HUD cannot be built to the standard of `doc/f16/hud-symbology.md` from these
@@ -315,7 +349,16 @@ Little research was needed for this file — both manuals are dense on the cockp
 
 ---
 
-## 10. Variant notes
-- `DCS-FM p.21`: **MiG-29A and MiG-29S cockpit instruments are identical**; most instruments are also
-  shared with the Su-27. So this file is valid for 9-13 as-is.
-- **MiG-29SMT/MiG-35**: glass cockpit (MFDs), nothing here carries over except the HOTAS philosophy.
+---
+
+## Knowledge
+
+### 8. Technical depth (researched)
+Little research was needed for this file — both manuals are dense on the cockpit. Two items:
+- **SEI-31** as the designation of the indication system, and **C100** as the digital mission computer,
+  come from `DCS-FM p.12` (source-internal, not research).
+- **Shchel-3UM** HMD hardware detail: see `radar-sensors.md` §6.5. No public source was found for the
+  HMD's **symbol set** beyond "aiming ring + ПР + X"; the monocle is a **right-eye reflector**
+  (`DCS-FM p.56`, `DCS-EA p.92`).
+
+---

@@ -1,5 +1,7 @@
 # G — Iris Xe Performance Budget
 
+> **Legacy studies of the demolished FBCloud* chain; kept for the noise/raymarch groundwork, see [../flightbox/render/clouds.md](../flightbox/render/clouds.md).**
+
 Source: Hillaire, SIGGRAPH 2016 Frostbite course (slide 44, EXACT — Xbox One measured costs); Nubis³
 2023 (slides 46–50, EXACT — PS4/PS5 measured costs); Schneider 2015 (slide 92, EXACT — PS4 target);
 hardware TFLOPS figures from GPU spec aggregators (GadgetVersus/CPU-Monkey/NeoGAF-sourced console

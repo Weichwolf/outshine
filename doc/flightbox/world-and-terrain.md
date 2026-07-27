@@ -858,17 +858,23 @@ wx_served=N wx_built=N wx_disk_hits=N wx_fetch_fail=N wx_decode_fail=N wx_stale_
 und auf den vorigen zurückgefallen wurde — der Normalfall in den ~4 h nach einer Analysezeit, kein
 Fehler. `wx_fetch_fail` und `wx_decode_fail` sind die echten Fehlerzähler.
 
-### 9.10 Was der Simulator daraus baut (noch offen)
+### 9.10 Was der Simulator daraus baut (gebaut, Commit 43b82b5)
 
-Der Endpunkt existiert, der Konsument nicht. Die nächste Sim-Runde hängt daran:
-
-* `FBElevationProvider`-Geschwister im Core: ein `FBWeatherProvider` (`WindAt(lat,lon,alt)` als
-  Vertikalinterpolation über die vier Druckflächen + 10 m AGL, `CloudAt`, `VisibilityAt`), mit einer
-  konstanten und einer blob-gestützten Implementierung, damit `fb-gym` ohne Netz läuft.
-* JSBSim-Verdrahtung über `FGWinds` (`fdm/FBFdm`) — der Adapter hat heute keinen Windkanal.
-* Wolken-Stages: `TCDC`/`LCDC`/`MCDC`/`HCDC` als Bedeckungs-Modulation, `CLOUD_CEIL` als
-  Basishöhe der Deckschicht.
-* Die Fixture oben als feste Gym-Wetterlage.
+Der Konsument existiert. `core/FBWeatherProvider` ist das Geschwister von `FBElevationProvider` —
+`WindNedMs(lat,lon,altM)` (linear zwischen den Druckflächen über deren eigenes Geopotential;
+unterhalb des 10-m-Niveaus das 10-m-Feld, oberhalb von 250 hPa hält die oberste Fläche),
+`CloudLayers(lat,lon)`, `VisibilityM(lat,lon)`. Vier Implementierungen: `FBCalmWeather` (Default,
+Windstille), `FBConstantWindWeather` (ein Vektor überall — ein Messinstrument, kein Wetter),
+`FBFixedWeather` (der FBWX-Blob, aus DATEI für das Gym und aus SPEICHER für den Browser) und, als
+reine Konfiguration statt als fünfte Klasse, der Live-Pfad: der Browser holt `/wx` einmal pro
+Sitzung und konstruiert dieselbe `FBFixedWeather`. Der SPIEGEL des Formats liegt in
+`sim/src/core/FBWxFormat.h` (core/ darf nicht nach tiles/ zeigen); gegen Drift steht
+`build/fb-test-weather`, das die Fixture parst und §9.7s ecCodes-Stichwerte mit der
+Quantisierungsstufe des jeweiligen Feldes als Toleranz nachrechnet. Die 10-m-Fläche wird bei
+10 m ASL verankert statt über Grund — die eine Näherung, dokumentiert im Provider; ein
+geländeabhängiger Grenzschichtwind bräuchte den Elevation-Hook als zweiten Eingang.
+Terrain-Maskierung, Zeitachse (nur f000) und Wolken-Rendering bleiben offen; das Wolken-Rendering
+konsumiert den Provider über `FBWorld::SetWeather/Weather()` (geborgt, wie die Unit-Registry).
 
 Server-seitig offen und bewusst so gelassen: nur der **Analyseschritt f000**, keine Vorhersage
 (`fXXX`) — eine Sitzung länger als der Lauf sieht dieselbe Atmosphäre, bis nginx den nächsten Lauf

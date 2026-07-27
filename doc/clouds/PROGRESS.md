@@ -1,5 +1,7 @@
 # Cloud/Haze Research — PROGRESS
 
+> **Legacy studies of the demolished FBCloud* chain; kept for the noise/raymarch groundwork, see [../flightbox/render/clouds.md](../flightbox/render/clouds.md).**
+
 Task: distill real-time volumetric cloud + haze/atmosphere state of the art into implementation-ready
 doc under `doc/clouds/`, cross-referenced against FlightBox's current cloud pass
 (`command_center/fb/FBRenderer.cpp`). See [INDEX.md](INDEX.md) for the source list.

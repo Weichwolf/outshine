@@ -1,19 +1,17 @@
-# FlightBox — Generische Systemslots (`sim/src/systems/`)
+# FlightBox — Generic system slots (`sim/src/systems/`)
 
-> Body still in German — translation pass pending (see [roadmap](../roadmap.md)).
+Sources of this file: the comment banners of the source files under `sim/src/systems/` (state: branch
+`systems`, commit `8cd3a74`) plus CLAUDE.md's `systems/` section. Every derivation, every measured number
+and every setting is taken from there; nothing is extrapolated. Where code and CLAUDE.md diverge, it is
+recorded under "Gaps".
 
-Quellen dieser Datei: die Kommentar-Banner der Quelldateien unter `sim/src/systems/` (Stand: Branch
-`systems`, Commit `8cd3a74`) plus CLAUDE.mds `systems/`-Abschnitt. Jede Herleitung, jede Messzahl und
-jede Setzung ist von dort übernommen; nichts ist extrapoliert. Wo Code und CLAUDE.md auseinandergehen,
-steht es unter „Offene Punkte".
+**Scope:** the airframe-agnostic system slots WITHOUT sensors, pilot and weapons.
 
-**Geltungsbereich:** die airframe-agnostischen Systemslots OHNE Sensorik, Pilot und Waffen.
-
-| Nicht hier | Sondern |
+| Not here | But in |
 |---|---|
 | `FBDatalinkSystem`, `FBRadarSystem`, `FBRwrSystem`, `FBCountermeasureSystem` | `sensors.md` |
 | `FBPilot`, `FBPilotTuning`, `FBBfmTrack`, `FBEngagement` | `pilot-ai.md` |
-| `FBStoresSystem`, `FBGunSystem`, Schadensmodell | `weapons-and-damage.md` |
+| `FBStoresSystem`, `FBGunSystem`, damage model | `weapons-and-damage.md` |
 
 ---
 
@@ -56,224 +54,222 @@ airframe controls. Sensors, pilot and weapons slots are documented in their own 
 | `systems/FBDisplaySystem` | includes `render/FBCamera.h`: a **second** core-lib exception, only `FBHudGeometry.cpp` was documented |
 | `systems/FBWeaponSystem` | vestigial — a NoOp stub ticked at 20 Hz while stores and gun are real; its banner describes a superseded state |
 
-### Inventory (German, from the previous `Offene Punkte` section)
+### Inventory (from the previous `Offene Punkte` section)
 
-1. **`FBWeaponSystem` ist vestigial.** `systems/FBSystemSlots.h` deklariert ihn weiter als NoOp und
-   `FBF16Module` taktet ihn mit 20 Hz (`Weapons->Run(Mode, world, dt)`), obwohl die reale Waffenarbeit
-   längst in `FBStoresSystem` (10-Hz-Gruppe) und `FBGunSystem` (jeder Tick) liegt. Sein Banner-Text
-   („SMS/Stores, CCIP/CCRP, gun: mode-gated … not built speculatively") beschreibt einen Zustand, der
-   nicht mehr gilt. Zu klären: löschen oder mit Zweck füllen.
-2. **`FBSystemSlots.h`s Herausgewachsen-Liste ist unvollständig.** Der Banner nennt drei
-   herausgewachsene Slots (Displays, Comms, Sensors); real sind es sechs (zusätzlich Defensiv, Stores,
-   Gun). Reine Dokumentationslücke im Code.
-3. **`FBFlightControl::Run` hat `0.01` fest verdrahtet** statt `FBFdm::kStepS` oder eines `dt`-Arguments
-   (Integratoren, Slew-Limit). Das bindet die Innenschleife stillschweigend an genau 100 Hz; ein
-   anderer Substep-Takt würde alle Integratorverstärkungen still verschieben. Verhalten heute korrekt,
-   weil das Modul ausschließlich mit `FBFdm::kStepS` taktet.
-4. **Asymmetrie Bodenkurs vs. Nase.** Das Leg-Gesetz regelt gegen den BODENKURS (`atan2(vx,−vz)`) und
-   begründet das ausführlich; COURSE regelt mit demselben `TrackBankCmd` gegen die NASE (`s.yaw`).
-   Der Code sagt dazu nur, dass COURSE „auf seinen eigenen zwei Zahlen" bleibt, weil es ein geflogener,
-   gemessener Anflug ist. Ob der Drift-Einwand für den Localizer nicht gleichermaßen gilt, ist offen.
-5. **COURSE nutzt `KHdg` als `k_dir`.** Dieselbe Zahl (0,8) bedient in DIRECT die Peilungs-P-Verstärkung
-   und in COURSE die Richtungsfehler-Verstärkung der Kaskade — im Header nicht als Doppelrolle
-   ausgewiesen. Ein Modul, das `KHdg` für DIRECT tunt, verstellt damit unbemerkt den Localizer.
-6. **`FBAirDataSystem` publiziert `aoaDeg` nur in die Telemetrie, nicht in den Block.** Ein Konsument
-   auf dem Bus (Pilot, HUD) kommt an das AoA nicht heran, obwohl der ADC es hat; `FBF16Pilot`s
-   11°-AoA-Anflug wird das brauchen.
-7. **`GLoadPeak` wird nie zurückgesetzt** („running max since boot"). Für eine mehrphasige Mission
-   (Start → Kampf → Rückflug) gibt es kein Peak-je-Abschnitt und keine Reset-API.
-8. **`FBNavSystem::MagVarDeg` ist hart 0** — kein Deklinationsmodell. Jede Anzeige, die „magnetisch"
-   beschriftet ist, zeigt derzeit rechtweisend.
-9. **`FBRadarAltimeter` kennt kein `dt` und keine Sichtlinien-/Geländeneigungs-Modellierung** — es ist
-   ein reiner Differenzrechner auf dem DEM-Sample unter dem Flugzeug (kein Kegelfußabdruck, keine
-   Grenzhöhe, keine Verzögerung). Bei Rückenlage/steilen Lagen liefert die echte CARA nichts; hier
-   liefert sie weiter.
-10. **CLAUDE.md nennt bei `FBNavSystem` „planare ENU-Geodäsie wie `home_bearing`/`home_dist`"** — im
-    Code ist `home_bearing`/`home_dist` inzwischen ein Feld des Platform-Blocks, das der Client bzw.
-    das Modul schreibt, nicht `FBNavSystem`. Keine Verhaltensdifferenz, nur eine veraltete Verweiskette.
-11. **`FBDisplaySystem`s Default-HUD nutzt `render/FBCamera.h` (`w3_cam_from`, `w3_horizon_dip_rad`)**
-    — ein `systems/`-Slot inkludiert damit einen `render/`-Header. Das ist die einzige Stelle dieser
-    Art in den hier dokumentierten Slots und passt nur deshalb in die Core-Lib, weil diese Mathematik
-    CPU-seitig und WebGPU-frei ist (dieselbe Ausnahme, die CLAUDE.md für `render/FBHudGeometry.cpp`
-    ausdrücklich einräumt — `FBCamera` nennt sie NICHT).
-12. **Kein Guidance-/FCS-Schadens-Gate im Modul.** `FBSystemId::FlightControls` wirkt nur physisch über
-    `FBFdm::SetControlAuthority`; die Slots selbst laufen weiter und publizieren weiter. Konsistent mit
-    der Absicht („die FLCS kommandiert unverändert, das Flugzeug antwortet nicht"), aber die
-    Block-Invalidierungsregel der anderen Slots gilt hier bewusst nicht — im Code nirgends notiert.
+1. **`FBWeaponSystem` is vestigial.** `systems/FBSystemSlots.h` still declares it as a NoOp and
+   `FBF16Module` ticks it at 20 Hz (`Weapons->Run(Mode, world, dt)`), although the real weapons work has
+   long been in `FBStoresSystem` (10 Hz group) and `FBGunSystem` (every tick). Its banner text
+   ("SMS/Stores, CCIP/CCRP, gun: mode-gated … not built speculatively") describes a state that no longer
+   holds. To be clarified: delete it or fill it with a purpose.
+2. **`FBSystemSlots.h`'s grown-out list is incomplete.** The banner names three grown-out slots (Displays,
+   Comms, Sensors); in reality there are six (additionally defensive, stores, gun). A pure documentation
+   gap in the code.
+3. **`FBFlightControl::Run` has `0.01` hard-wired** instead of `FBFdm::kStepS` or a `dt` argument
+   (integrators, slew limit). That tacitly binds the inner loop to exactly 100 Hz; a different substep
+   rate would silently shift all integrator gains. Behaviour correct today, because the module ticks
+   exclusively with `FBFdm::kStepS`.
+4. **Asymmetry ground track vs. nose.** The leg law controls against the GROUND TRACK (`atan2(vx,−vz)`)
+   and justifies that at length; COURSE controls with the same `TrackBankCmd` against the NOSE (`s.yaw`).
+   The code only says about this that COURSE stays "on its own two numbers", because it is a flown,
+   measured approach. Whether the drift objection does not apply to the localizer equally is open.
+5. **COURSE uses `KHdg` as `k_dir`.** The same number (0.8) serves the bearing P gain in DIRECT and the
+   direction error gain of the cascade in COURSE — not flagged as a double role in the header. A module
+   that tunes `KHdg` for DIRECT thereby unnoticeably detunes the localizer.
+6. **`FBAirDataSystem` publishes `aoaDeg` only into the telemetry, not into the block.** A consumer on
+   the bus (pilot, HUD) cannot get at the AoA although the ADC has it; `FBF16Pilot`'s 11° AoA approach
+   will need it.
+7. **`GLoadPeak` is never reset** ("running max since boot"). For a multi-phase mission (take-off →
+   combat → return flight) there is no peak per segment and no reset API.
+8. **`FBNavSystem::MagVarDeg` is hard 0** — no declination model. Every display labelled "magnetic"
+   currently shows true.
+9. **`FBRadarAltimeter` knows no `dt` and no line-of-sight/terrain-slope modelling** — it is a pure
+   difference calculator on the DEM sample beneath the aircraft (no cone footprint, no limit altitude, no
+   delay). In inverted/steep attitudes the real CARA delivers nothing; here it keeps delivering.
+10. **CLAUDE.md names for `FBNavSystem` "planar ENU geodesy like `home_bearing`/`home_dist`"** — in the
+    code, `home_bearing`/`home_dist` has meanwhile become a field of the Platform block written by the
+    client resp. the module, not by `FBNavSystem`. No behavioural difference, only an outdated reference
+    chain.
+11. **`FBDisplaySystem`'s default HUD uses `render/FBCamera.h` (`w3_cam_from`, `w3_horizon_dip_rad`)** —
+    a `systems/` slot thereby includes a `render/` header. That is the only place of this kind in the
+    slots documented here, and it fits into the core lib only because this maths is CPU-side and
+    WebGPU-free (the same exception that CLAUDE.md expressly grants for `render/FBHudGeometry.cpp` —
+    which does NOT name `FBCamera`).
+12. **No guidance/FCS damage gate in the module.** `FBSystemId::FlightControls` acts only physically via
+    `FBFdm::SetControlAuthority`; the slots themselves keep running and keep publishing. Consistent with
+    the intent ("the FLCS commands unchanged, the aircraft does not answer"), but the block invalidation
+    rule of the other slots deliberately does not apply here — noted nowhere in the code.
 
 
 ## Knowledge
 
 Derivations, formulas and measured constants — the distilled body of this file.
 
-### 1. Das Slot-Muster
+### 1. The slot pattern
 
-#### 1.1 Die Regel
+#### 1.1 The rule
 
-CLAUDE.md: **FBCore → Interface → Default-Implementation → modul-spezifischer Override.**
-In `systems/` heißt das konkret:
+CLAUDE.md: **FBCore → interface → default implementation → module-specific override.**
+In `systems/` that concretely means:
 
-1. **Interface und Default sind EINE Klasse.** Kein `IFoo`/`FooImpl`-Split. Die Klasse ist direkt
-   instanziierbar und liefert das generische Verhalten.
-2. **Genau EIN Override-Punkt je Slot** — fast immer `Run()`, bei `FBDisplaySystem` zusätzlich
-   `BuildHud()`. Ein Modul, dessen System sich *im Verhalten* unterscheidet, leitet ab und
-   überschreibt diesen einen Punkt.
-3. **Zahlen-Tuning ist KEINE Ableitung.** Gains/Konfiguration sind public Datenfelder auf der
-   Basisklasse oder eine statische Preset-Factory (`FBFlightControl::F16()`). Eine leere Ableitung,
-   die nur Konstanten ändert, existiert nicht.
-4. **Der Default ist entweder ECHT oder NoOp.** Beides ist zulässig; ein NoOp-Default kostet eine
-   Throttle-Vergleichsoperation und einen leeren virtuellen Aufruf.
-5. **Das Modul KOMPONIERT die Slots** (`std::unique_ptr<Base>`, nicht Wertmember — sonst Slicing beim
-   Austausch), besitzt sie und taktet jeden im eigenen Rhythmus. Slots rufen sich nie gegenseitig.
+1. **Interface and default are ONE class.** No `IFoo`/`FooImpl` split. The class is directly
+   instantiable and delivers the generic behaviour.
+2. **Exactly ONE override point per slot** — almost always `Run()`, for `FBDisplaySystem` additionally
+   `BuildHud()`. A module whose system differs *in behaviour* derives and overrides that one point.
+3. **Number tuning is NOT a derivation.** Gains/configuration are public data fields on the base class or
+   a static preset factory (`FBFlightControl::F16()`). An empty derivation that only changes constants
+   does not exist.
+4. **The default is either REAL or NoOp.** Both are permitted; a NoOp default costs one throttle
+   comparison and one empty virtual call.
+5. **The module COMPOSES the slots** (`std::unique_ptr<Base>`, not value members — otherwise slicing on
+   exchange), owns them and ticks each at its own rate. Slots never call each other.
 
-#### 1.2 Der Slot-Bestand
+#### 1.2 The slot inventory
 
-| Slot | Datei | Default | Override-Punkt | Zustand |
+| Slot | File | Default | Override point | State |
 |---|---|---|---|---|
-| Guidance | `systems/FBAutopilot.h/.cpp` | ECHT | `Run(const fb_fdm_state&) → FBGuidance` | voll |
-| Flight Control | `systems/FBFlightControl.h/.cpp` | ECHT | `Run(const FBGuidance&, const fb_fdm_state&) → FBControls` | voll |
-| Air Data | `systems/FBAirDataSystem.h/.cpp` | ECHT | `Run(FBState&, const fb_fdm_state&, dt)` | voll |
-| Radarhöhenmesser | `systems/FBRadarAltimeter.h/.cpp` | ECHT | `Run(FBState&, elevAslM, groundAslM)` | voll |
-| Warnungen | `systems/FBWarningSystem.h/.cpp` | ECHT | `Run(FBState&, dt)` | 3 Bits |
-| Navigation | `systems/FBNavSystem.h/.cpp` | ECHT | `Run(FBState&, const fb_fdm_state&, dt)` | 1 Steerpoint + Bullseye |
-| Displays | `systems/FBDisplaySystem.h/.cpp` | ECHT | `BuildHud()` (+ `Run()`) | generisches HUD |
-| Airframe-Controls | `systems/FBAirframeControls.h/.cpp` | NoOp + reale Ableitung | jede virtuelle Methode | voll (`FBJsbsimAirframeControls`) |
-| Input/HOTAS | `systems/FBSystemSlots.h` (`FBInputSystem`) | NoOp | `Run(FBMasterMode, dt)` | leer |
-| Propulsion | `systems/FBSystemSlots.h` (`FBPropulsionSystem`) | NoOp | `Run(const fb_fdm_state&, dt)` | leer |
-| Weapons (Alt-Stub) | `systems/FBSystemSlots.h` (`FBWeaponSystem`) | NoOp | `Run(FBMasterMode, const FBWorld*, dt)` | vestigial, s. Offene Punkte |
+| Guidance | `systems/FBAutopilot.h/.cpp` | REAL | `Run(const fb_fdm_state&) → FBGuidance` | full |
+| Flight control | `systems/FBFlightControl.h/.cpp` | REAL | `Run(const FBGuidance&, const fb_fdm_state&) → FBControls` | full |
+| Air data | `systems/FBAirDataSystem.h/.cpp` | REAL | `Run(FBState&, const fb_fdm_state&, dt)` | full |
+| Radar altimeter | `systems/FBRadarAltimeter.h/.cpp` | REAL | `Run(FBState&, elevAslM, groundAslM)` | full |
+| Warnings | `systems/FBWarningSystem.h/.cpp` | REAL | `Run(FBState&, dt)` | 3 bits |
+| Navigation | `systems/FBNavSystem.h/.cpp` | REAL | `Run(FBState&, const fb_fdm_state&, dt)` | 1 steerpoint + bullseye |
+| Displays | `systems/FBDisplaySystem.h/.cpp` | REAL | `BuildHud()` (+ `Run()`) | generic HUD |
+| Airframe controls | `systems/FBAirframeControls.h/.cpp` | NoOp + real derivation | every virtual method | full (`FBJsbsimAirframeControls`) |
+| Input/HOTAS | `systems/FBSystemSlots.h` (`FBInputSystem`) | NoOp | `Run(FBMasterMode, dt)` | empty |
+| Propulsion | `systems/FBSystemSlots.h` (`FBPropulsionSystem`) | NoOp | `Run(const fb_fdm_state&, dt)` | empty |
+| Weapons (legacy stub) | `systems/FBSystemSlots.h` (`FBWeaponSystem`) | NoOp | `Run(FBMasterMode, const FBWorld*, dt)` | vestigial, see Gaps |
 
-**Was aus `FBSystemSlots.h` HERAUSGEWACHSEN ist** — weil sein Default REAL statt NoOp wurde, bekam es
-eine eigene Datei: Displays (`FBDisplaySystem.h`), Comms/Datalink (`FBDatalinkSystem.h`), Sensors
-(`FBRadarSystem.h`), Defensiv (`FBRwrSystem.h` + `FBCountermeasureSystem.h`), Stores
-(`FBStoresSystem.h`), Gun (`FBGunSystem.h`). Deshalb steht in `FBSystemSlots.h` weder ein
-`FBCommsSystem`- noch ein `FBSensorSystem`-Stub.
+**What has GROWN OUT of `FBSystemSlots.h`** — because its default became REAL instead of NoOp, it got a
+file of its own: Displays (`FBDisplaySystem.h`), Comms/datalink (`FBDatalinkSystem.h`), Sensors
+(`FBRadarSystem.h`), Defensive (`FBRwrSystem.h` + `FBCountermeasureSystem.h`), Stores
+(`FBStoresSystem.h`), Gun (`FBGunSystem.h`). That is why `FBSystemSlots.h` contains neither an
+`FBCommsSystem` nor an `FBSensorSystem` stub.
 
-#### 1.3 Die Kommunikationsregeln (im Signaturtyp kodiert)
+#### 1.3 The communication rules (encoded in the signature type)
 
-| Regel | Mechanik |
+| Rule | Mechanics |
 |---|---|
-| Sensoren SCHREIBEN `FBState`, Displays LESEN | Sensor-Slots nehmen `FBState&`, `FBDisplaySystem::BuildHud` nimmt `const FBState&` und ist selbst `const` |
-| Ein Block, ein Schreiber | jeder Block in `core/FBAvionicsBlocks.h` nennt sein Schreibersystem im Kommentar; Leser konsultieren erst den Gültigkeitskopf |
-| Kein Peer-Aufruf | kein Slot hält einen Zeiger auf einen anderen; die Kopplung läuft ausschließlich über `FBState` |
-| Welt nur geborgt | wer andere Einheiten/Terrain braucht, bekommt `const FBUnitRegistry*` / `const FBWorld*` pro Tick, nie global, nie als Member |
-| Genau EINE Fusion-Ausnahme, dokumentiert | Feuerleitung liest Nav + Platform; `FBWarningSystem` liest RadarAlt + Ufc + Airframe — beides steht im jeweiligen Blockkommentar |
+| Sensors WRITE `FBState`, displays READ | sensor slots take `FBState&`, `FBDisplaySystem::BuildHud` takes `const FBState&` and is itself `const` |
+| One block, one writer | every block in `core/FBAvionicsBlocks.h` names its writer system in the comment; readers consult the validity header first |
+| No peer call | no slot holds a pointer to another; the coupling runs exclusively through `FBState` |
+| The world only borrowed | whoever needs other units/terrain gets `const FBUnitRegistry*` / `const FBWorld*` per tick, never global, never as a member |
+| Exactly ONE fusion exception, documented | fire control reads Nav + Platform; `FBWarningSystem` reads RadarAlt + Ufc + Airframe — both are stated in the respective block comment |
 
-#### 1.4 Takt (wie `FBF16Module` die Slots cycelt)
+#### 1.4 Rate (how `FBF16Module` cycles the slots)
 
-`modules/f16/FBF16Module.cpp::Run()` ist der einzige Ort, an dem diese Slots getaktet werden. `Due()`
-ist ein Akkumulator-Throttle (`accS += dt; if (accS < 1/hz) return false; accS -= 1/hz;`).
+`modules/f16/FBF16Module.cpp::Run()` is the only place where these slots are ticked. `Due()` is an
+accumulator throttle (`accS += dt; if (accS < 1/hz) return false; accS -= 1/hz;`).
 
-| Gruppe | Rate | Inhalt (in Reihenfolge) |
+| Group | Rate | Content (in order) |
 |---|---|---|
-| Input, Propulsion | pro `Run()` (gröbster Sim-Tick) | `Input->Run`, `Propulsion->Run` |
-| „Sensor-Gruppe" | 10 Hz | `PublishPlatform` → `PublishAirframe` → Kommandos (Sensors/Avionics/Stores) → Radar → **AirData** → **RadarAlt** → Steerpoint setzen → **Nav** → FireControl → Ufc → Sms → **Warnings** (letzter: reiner Konsument) |
-| Displays | 20 Hz | `Disp->Run` (die Anzeigenlogik, NICHT `BuildHud`) |
-| Weapons (Stub) | 20 Hz | `Weapons->Run` |
-| Gun | pro `Run()`, volles `dt` | Rundenzahl wird integriert — Throttling würde Schüsse erfinden/verschlucken |
-| Defensiv | 10 Hz | RWR → Kommandos → CMDS |
-| Comms | 5 Hz | Kommandos → Datalink |
+| Input, propulsion | per `Run()` (coarsest sim tick) | `Input->Run`, `Propulsion->Run` |
+| "sensor group" | 10 Hz | `PublishPlatform` → `PublishAirframe` → commands (sensors/avionics/stores) → radar → **AirData** → **RadarAlt** → set steerpoint → **Nav** → FireControl → Ufc → Sms → **Warnings** (last: pure consumer) |
+| Displays | 20 Hz | `Disp->Run` (the display logic, NOT `BuildHud`) |
+| Weapons (stub) | 20 Hz | `Weapons->Run` |
+| Gun | per `Run()`, full `dt` | the round count is integrated — throttling would invent/swallow shots |
+| Defensive | 10 Hz | RWR → commands → CMDS |
+| Comms | 5 Hz | commands → datalink |
 | Pilot | 10 Hz | `PilotSys->Run` → `SharedState.Bfm` → `NavSys->AdvanceWaypoint` |
-| **Guidance + FlightControl** | **100 Hz** | fester Substep-Loop, Spiralschutz ≤ 12 Substeps/Frame |
+| **Guidance + flight control** | **100 Hz** | fixed substep loop, spiral protection ≤ 12 substeps/frame |
 
-Der innere Loop, wörtlich die Regelkette:
+The inner loop, literally the control chain:
 
 ```
 for (k=0; AccS >= FBFdm::kStepS && k < 12; k++) {
   LastG = AP->Run(st);                 // Guidance
-  FBControls c = FC->Run(LastG, st);   // FBW-Innenschleife
+  FBControls c = FC->Run(LastG, st);   // FBW inner loop
   fdm.SetControls(c.Roll, c.Pitch, c.Yaw, c.Thr);
   fdm.Step(st);                        // JSBSim, 0.01 s
   AccS -= FBFdm::kStepS; LastSub++;
 }
 ```
 
-`AP->Run()`/`FC->Run()` sind die EINZIGEN virtuellen Dispatches innerhalb dieses Loops (je einer pro
-Substep). Alles andere ist außerhalb und höchstens einmal pro `Run()`.
+`AP->Run()`/`FC->Run()` are the ONLY virtual dispatches inside this loop (one each per substep).
+Everything else is outside it and happens at most once per `Run()`.
 
-**Reihenfolge-Begründungen (aus dem Modul-Banner):**
-- Platform/Airframe werden ZUERST publiziert, weil die Systeme darunter sie lesen — „ein Schreiber pro
-  Block" bleibt nur so wahr (früher las die Feuerleitung ein Höhenfeld, das niemand füllte).
-- Kommandos einer Gruppe werden VOR den Boxen dieser Gruppe abgearbeitet: ein geworfener Schalter wirkt
-  auf den nächsten Sweep, nicht auf den übernächsten.
-- AirData/RadarAlt/Nav/FireControl/Ufc/Sms sind EINE Throttle-Gruppe, damit FireControl Navs
-  Ausgabe DESSELBEN Ticks liest.
-- Warnungen zuletzt: reiner Konsument, inklusive der Gültigkeitsköpfe.
+**Ordering justifications (from the module banner):**
+- Platform/Airframe are published FIRST, because the systems below them read them — "one writer per
+  block" only stays true that way (previously the fire control read an altitude field that nobody
+  filled).
+- The commands of a group are processed BEFORE the boxes of that group: a switch thrown acts on the next
+  sweep, not on the one after.
+- AirData/RadarAlt/Nav/FireControl/Ufc/Sms are ONE throttle group, so that FireControl reads Nav's output
+  of the SAME tick.
+- Warnings last: pure consumer, including the validity headers.
 
-#### 1.5 Schadens-Gate (`core/FBSystemHealth`, nur lesend)
+#### 1.5 Damage gate (`core/FBSystemHealth`, read-only)
 
-Das Modul entscheidet je Slot vor dem Takt:
+The module decides per slot before ticking:
 
-| Zustand | Folge |
+| State | Consequence |
 |---|---|
-| `Intact` | Slot läuft normal |
-| `Degraded` | Slot läuft, mit modellierter Einschränkung (nur wo ABLEITBAR — z. B. Radarreichweite ×0,707) |
-| `Failed` | Slot wird **gar nicht getaktet**, sein Block wird `Invalid` |
+| `Intact` | slot runs normally |
+| `Degraded` | slot runs, with a modelled restriction (only where DERIVABLE — e.g. radar range ×0.707) |
+| `Failed` | slot is **not ticked at all**, its block goes `Invalid` |
 
-Für die hier dokumentierten Slots: `FBSystemId::AirData` → AirData-Block, `RadarAlt` → RadarAlt-Block,
-`Nav` → Nav- UND Cruise-Block (dieselbe Box publiziert beide Nachrichten). Guidance/FlightControl haben
-KEIN Gate im Modul — Steuerungsschaden wirkt physisch über `FBFdm::SetControlAuthority`, d. h. die FLCS
-kommandiert unverändert weiter und das Flugzeug antwortet nur nicht mehr.
+For the slots documented here: `FBSystemId::AirData` → AirData block, `RadarAlt` → RadarAlt block, `Nav`
+→ Nav AND Cruise block (the same box publishes both messages). Guidance/flight control have NO gate in
+the module — control damage acts physically via `FBFdm::SetControlAuthority`, i.e. the FLCS keeps
+commanding unchanged and the aircraft merely no longer answers.
 
 ---
 
-### 2. `FBAutopilot` — die Guidance
+### 2. `FBAutopilot` — the guidance
 
-`systems/FBAutopilot.h`, `systems/FBAutopilot.cpp`. Portiert aus `flightctl.h`s äußerer Schleife,
-Numerik verbatim übernommen (äquivalenzgetestet); COURSE ist neu (Phase 3, die Landung) und sitzt auf
-derselben Ebene wie DIRECT, nicht als Subklassen-Override.
+`systems/FBAutopilot.h`, `systems/FBAutopilot.cpp`. Ported from `flightctl.h`'s outer loop, numerics
+taken over verbatim (equivalence-tested); COURSE is new (phase 3, the landing) and sits on the same
+level as DIRECT, not as a subclass override.
 
-#### 2.1 Ausgabe: `FBGuidance`
+#### 2.1 Output: `FBGuidance`
 
-| Feld | Bedeutung |
+| Field | Meaning |
 |---|---|
 | `Mode` | `FBMode::Manual` / `Direct` / `Course` (`core/FBMode.h`) |
-| `BankCmdDeg` | kommandierte Schräglage, deg |
-| `AltErrM` | Ziel-Höhe − Ist-Höhe, m, UNGECLAMPT (Rohmaterial für die Innenschleife) |
-| `TargetVsMs` | gewünschte Vertikalgeschwindigkeit aus der Höhenschleife, m/s |
-| `TargetSpeedMs` | zu haltende Fahrt, m/s |
-| `ManualRoll/Pitch/Yaw/Thr` | Durchgriff in MANUAL |
-| `RingDistM` | Diagnose: Entfernung zum Direct-Zielpunkt (in COURSE: Distance-to-go) |
+| `BankCmdDeg` | commanded bank angle, deg |
+| `AltErrM` | target altitude − actual altitude, m, UNCLAMPED (raw material for the inner loop) |
+| `TargetVsMs` | desired vertical speed from the altitude loop, m/s |
+| `TargetSpeedMs` | speed to be held, m/s |
+| `ManualRoll/Pitch/Yaw/Thr` | pass-through in MANUAL |
+| `RingDistM` | diagnostic: distance to the direct target point (in COURSE: distance to go) |
 
-#### 2.2 Modi und ihre Setter
+#### 2.2 Modes and their setters
 
-| Modus | Setter | Was geregelt wird |
+| Mode | Setter | What is controlled |
 |---|---|---|
-| MANUAL | `SetManual(roll,pitch,yaw,thr)` | nichts — Durchgriff bis in die Innenschleife |
-| DIRECT (Punkt) | `SetDirect(lat,lon,altM,speedMs)` | Peilung zum Punkt + Höhenhaltung |
-| DIRECT (Bahn) | `SetDirectLeg(fromLat,fromLon,lat,lon,altM,speedMs)` | die TRACK-Linie von→nach + Höhenhaltung |
-| COURSE | `SetCourse(refLat,refLon,courseDeg,refElevM,glidepathDeg,speedMs)` | unendliche Linie durch den Referenzpunkt + gerader Gleitpfad |
+| MANUAL | `SetManual(roll,pitch,yaw,thr)` | nothing — pass-through into the inner loop |
+| DIRECT (point) | `SetDirect(lat,lon,altM,speedMs)` | bearing to the point + altitude hold |
+| DIRECT (path) | `SetDirectLeg(fromLat,fromLon,lat,lon,altM,speedMs)` | the TRACK line from→to + altitude hold |
+| COURSE | `SetCourse(refLat,refLon,courseDeg,refElevM,glidepathDeg,speedMs)` | infinite line through the reference point + straight glide path |
 
-`SetDirectLeg` ruft intern `SetDirect` und setzt danach `HaveLeg` — **derselbe Modus mit optionalem
-Bahnursprung**, kein zweiter Modus.
+`SetDirectLeg` internally calls `SetDirect` and then sets `HaveLeg` — **the same mode with an optional
+path origin**, not a second mode.
 
-#### 2.3 „Ein Punkt ist keine Bahn" — warum EIN Modus mit optionalem Ursprung
+#### 2.3 "A point is not a path" — why ONE mode with an optional origin
 
-Aus dem Klassen-Banner:
+From the class banner:
 
-- Peilungsverfolgung (pure pursuit) ist das RICHTIGE Gesetz, wenn ein Punkt alles ist, was existiert:
-  Abfang, Kurvenkampf, Suche — dort gibt es keine Linie, auf der man sein müsste.
-- Sie ist das FALSCHE Gesetz, sobald eine Bahn existiert, und zwar aus einer Eigenschaft der pure
-  pursuit, nicht aus Tuning: **ihre Positionssteifigkeit fällt mit 1/R**, auf Entfernung kann sie eine
-  Linie also gar nicht halten.
-- **Messung:** auf dem 19 km langen CCRP-Run-in trieb eine Schräglagen-Asymmetrie von 0,2° den Jet
-  **31 m** von seiner eigenen Angriffsbahn ab, während die Schleife mit 0,2° Schräglage antwortete.
-- Konsequenz: `SetDirectLeg` — gleicher Modus, gleiche Höhen-/Speed-Hälfte, die Bahn als DATEN vom
-  Aufrufer. **Keine Bahn = keine Linie = das Peilungsgesetz, unverändert.**
-- Genau deshalb umkreist ein Verteidiger, dem ein Punkt INNERHALB seines eigenen Kurvenradius befohlen
-  wird, diesen Punkt für immer (`sim/missions/bfm-basic.fbm`) — gemessen: 58,9° Schräglage, 248 KCAS,
-  4.000 m, 4,7 °/s, ~1.880 m Radius, konstant von t=20 s bis Missionsende.
-- Ein zweiter Modus wäre falsch, weil er die Höhen-, Speed-, Capture- und Telemetriehälfte duplizieren
-  und jeden Aufrufer, jeden Override und `FBMode` selbst ein drittes Wort für dasselbe Manöver lehren
-  würde.
+- Bearing pursuit (pure pursuit) is the RIGHT law when a point is all that exists: intercept, turning
+  fight, search — there is no line one would have to be on there.
+- It is the WRONG law as soon as a path exists, and that follows from a property of pure pursuit, not
+  from tuning: **its position stiffness falls off as 1/R**, so at distance it cannot hold a line at all.
+- **Measurement:** on the 19 km CCRP run-in a bank asymmetry of 0.2° drove the jet **31 m** off its own
+  attack path, while the loop answered with 0.2° of bank.
+- Consequence: `SetDirectLeg` — same mode, same altitude/speed half, the path as DATA from the caller.
+  **No path = no line = the bearing law, unchanged.**
+- Precisely for that reason a defender commanded to a point INSIDE its own turn radius circles that point
+  forever (`sim/missions/bfm-basic.fbm`) — measured: 58.9° bank, 248 KCAS, 4,000 m, 4.7 °/s, ~1,880 m
+  radius, constant from t=20 s to the end of the mission.
+- A second mode would be wrong, because it would duplicate the altitude, speed, capture and telemetry
+  half and teach every caller, every override and `FBMode` itself a third word for the same manoeuvre.
 
-`kMinLegM = 100.0` m: kürzer als das ist eine „Bahn" ein Koordinatenpaar und keine Richtung — die
-Peilung zwischen ihren Enden verliert ihre Bedeutung lange bevor das Flugzeug sie fliegen könnte.
-`SetDirectLeg` fällt dann still auf das Peilungsgesetz zurück. Zwei Missionsfixes liegen Kilometer
-auseinander; die Schranke fängt also nur eine degenerierte Deklaration.
+`kMinLegM = 100.0` m: shorter than that, a "path" is a coordinate pair and not a direction — the bearing
+between its ends loses its meaning long before the aircraft could fly it. `SetDirectLeg` then falls back
+silently to the bearing law. Two mission fixes lie kilometres apart; the barrier therefore only catches a
+degenerate declaration.
 
-#### 2.4 Das Bahnfolge-Gesetz — vollständige Herleitung
+#### 2.4 The path-following law — complete derivation
 
-**Struktur (`TrackBankCmd`, eine Definition, zwei Nutzer — Localizer und Route/Run-in-Leg):**
+**Structure (`TrackBankCmd`, one definition, two users — localizer and route/run-in leg):**
 
 ```
 intercept = clamp(-k_xt * across, ±interceptMax)
@@ -281,197 +277,195 @@ dirErr    = wrap180(course + intercept - dir)
 bank      = clamp(k_dir * dirErr, ±bankMax)
 ```
 
-Kaskadiert statt summiert, mit Absicht: **der Cap begrenzt den Anfangswinkel, den ein großer Versatz
-fordern darf**. Ein Jet zehn Kilometer neben seiner Bahn fliegt einen stetigen Winkel auf sie zu statt
-einer momentanen Rechtwinkeldrehung. Für kleine Fehler IST die Kaskade die Zweizustands-Rückführung
-`bank = −(k_xt·k_dir·y + k_dir·Δχ)` — und genau daraus sind die Wurzeln unten gerechnet.
+Cascaded instead of summed, on purpose: **the cap limits the initial angle a large offset may demand**.
+A jet ten kilometres beside its path flies a steady angle towards it instead of an instantaneous
+right-angle turn. For small errors the cascade IS the two-state feedback
+`bank = −(k_xt·k_dir·y + k_dir·Δχ)` — and exactly from that the roots below are computed.
 
-**Die Strecke ist zweiter Ordnung.** Koordinierte Kurve, Kleinwinkel, `y` = Querablage, `Δχ` =
-Bahnwinkel-Fehler, `φ` = Schräglage:
+**The plant is second order.** Coordinated turn, small angles, `y` = cross-track offset, `Δχ` =
+track angle error, `φ` = bank angle:
 
 ```
-y'   = V · Δχ            (die Ablage wandert mit der Geschwindigkeit mal dem BAHN-Fehler)
-Δχ'  = (g/V) · φ         (der Geschwindigkeitsvektor dreht mit der Schräglage)
+y'   = V · Δχ            (the offset moves with the speed times the TRACK error)
+Δχ'  = (g/V) · φ         (the velocity vector turns with the bank angle)
 ```
 
-Rückführung beider Zustände, `φ = −(k_y·y + k_χ·Δχ)`, schließt die Strecke als
+Feedback of both states, `φ = −(k_y·y + k_χ·Δχ)`, closes the plant as
 
 ```
 y'' + (g·k_χ/V)·y' + (g·k_y)·y = 0
 ωn = √(g·k_y)          ζ = k_χ·√(g/k_y) / (2V)
 ```
 
-**Zwei Unbekannte → genau zwei Aussagen, nicht mehr:**
+**Two unknowns → exactly two statements, no more:**
 
-| # | Aussage | Begründung |
+| # | Statement | Justification |
 |---|---|---|
-| (1) DÄMPFUNG | `ζ = 1/√2` | dieselbe Lehrbuchwurzel „einschwingen ohne Überschwingen", auf die auch die Kanonen-Nachführung geschlossen ist (`FBPilot::kBfmTrackKi`). Nichts an einem Streckenabschnitt spricht für eine andere. |
-| (2) AUTORITÄT | der Querablage-Term allein erreicht die Schräglagen-GRENZE bei einem Versatz von genau EINEM Kurvenradius, `R = V²/(g·tan φmax)` | die einzige selbstbezügliche Aussage, die hier verfügbar ist: ein Versatz, den das Flugzeug innerhalb seiner engsten Kurve nicht schließen könnte, ist genau der Versatz, für den die engste Kurve die richtige Antwort ist — alles darüber ist gesättigt, weil es nichts mehr zu kommandieren gibt. |
+| (1) DAMPING | `ζ = 1/√2` | the same textbook root "settle without overshoot" on which the gun tracking is also closed (`FBPilot::kBfmTrackKi`). Nothing about a route segment argues for a different one. |
+| (2) AUTHORITY | the cross-track term alone reaches the bank LIMIT at an offset of exactly ONE turn radius, `R = V²/(g·tan φmax)` | the only self-referential statement available here: an offset the aircraft could not close inside its tightest turn is exactly the offset for which the tightest turn is the right answer — everything beyond that is saturated, because there is nothing left to command. |
 
-**Auflösung.** Aus (2): `k_y = φmax / R(V) = φmax·g·tan(φmax) / V²`. Einsetzen in ζ liefert das
-Bemerkenswerte — `k_χ` fällt UNABHÄNGIG von Geschwindigkeit UND Erdbeschleunigung heraus:
+**Solution.** From (2): `k_y = φmax / R(V) = φmax·g·tan(φmax) / V²`. Substituting into ζ yields the
+remarkable part — `k_χ` falls out INDEPENDENTLY of speed AND gravity:
 
 ```
-k_χ = 2·ζ·√(φmax · tan φmax)      [deg Schräglage je deg Bahnfehler]
-k_y = φmax / R(V)                 [deg Schräglage je Meter]
+k_χ = 2·ζ·√(φmax · tan φmax)      [deg of bank per deg of track error]
+k_y = φmax / R(V)                 [deg of bank per metre]
 ```
 
-Das ganze Gesetz ist damit durch `BankMaxDeg` festgelegt; **nur die Querablage-Hälfte ist gescheduled,
-und zwar mit 1/V²** — genau das hält die Dämpfung bei 1/√2 über jede Geschwindigkeit, die derselbe Jet
-fliegt. In der Kaskade ist die Querablage-Verstärkung `k_y/k_χ` und der Intercept-Cap `φmax/k_χ` (der
-Winkel, bei dem der Querablage-Term allein bereits alles fordert, was die Schräglagengrenze hergibt) —
-beide fallen aus denselben zwei Aussagen, statt gewählt zu werden.
+The whole law is thereby fixed by `BankMaxDeg`; **only the cross-track half is scheduled, and with 1/V²**
+— exactly that keeps the damping at 1/√2 across every speed the same jet flies. In the cascade the
+cross-track gain is `k_y/k_χ` and the intercept cap is `φmax/k_χ` (the angle at which the cross-track
+term alone already demands everything the bank limit allows) — both fall out of the same two statements
+instead of being chosen.
 
-**Zahlen bei `BankMaxDeg = 60°`** (φmax = 1,0472 rad; die Wurzel wird im BOGENMASS gebildet, weil sie
-ein Winkelverhältnis ist, während `k_y` in deg/m ausgegeben wird):
+**Numbers at `BankMaxDeg = 60°`** (φmax = 1.0472 rad; the root is formed in RADIANS, because it is an
+angle ratio, while `k_y` is output in deg/m):
 
-| Größe | Wert |
+| Quantity | Value |
 |---|---|
-| `k_χ` (= `kDir`) | 2·0,7071·√(1,0472·1,7321) = **1,905** deg/deg |
-| Intercept-Cap | 60 / 1,905 = **31,5°** |
-| `R` bei 85 m/s | 85² / (9,80665·1,7321) = **425 m** |
-| `k_xt` bei 85 m/s | 60 / (1,905·425) = **0,074 deg/m** |
-| `R` bei 231 m/s (450 kt) | **3.141 m** |
+| `k_χ` (= `kDir`) | 2·0.7071·√(1.0472·1.7321) = **1.905** deg/deg |
+| Intercept cap | 60 / 1.905 = **31.5°** |
+| `R` at 85 m/s | 85² / (9.80665·1.7321) = **425 m** |
+| `k_xt` at 85 m/s | 60 / (1.905·425) = **0.074 deg/m** |
+| `R` at 231 m/s (450 kt) | **3,141 m** |
 
-**Kreuzprobe — und der Grund, warum die Herleitung überhaupt geglaubt wird:** bei der geflogenen
-F-16-Anfluggeschwindigkeit (165 KCAS ≈ 85 m/s) liefert der Schedule 0,074 deg/m gegen die 0,08 deg/m,
-die der Localizer (`KXt`) seit Phase 3 von Hand fliegt, und 31,5° Intercept-Cap gegen dessen 45°. Das
-sind **8 %** Abweichung von einer Verstärkung, die unabhängig gefunden wurde, auf einem Flugzeug, das
-dreimal langsamer ist als das, an dem das Bahngesetz gemessen wurde — das ist die Aussage, dass der
-Schedule das FLUGZEUG beschreibt und nicht einen Fall fittet. COURSE bleibt dennoch auf seinen eigenen
-zwei Zahlen: das ist ein geflogener, gemessener Anflug, und diese Runde ging nicht um die Landung.
+**Cross-check — and the reason the derivation is believed at all:** at the flown F-16 approach speed
+(165 KCAS ≈ 85 m/s) the schedule delivers 0.074 deg/m against the 0.08 deg/m that the localizer (`KXt`)
+has been flying by hand since phase 3, and a 31.5° intercept cap against its 45°. That is **8 %**
+deviation from a gain that was found independently, on an aircraft three times slower than the one on
+which the path law was measured — that is the statement that the schedule describes the AIRCRAFT and
+does not fit one case. COURSE nevertheless stays on its own two numbers: that is a flown, measured
+approach, and this round was not about the landing.
 
-**Warum gegen den BODENKURS und nicht gegen die Nase** (`FBAutopilot.cpp`, Direct/Leg-Zweig):
-die Querablage ist das Integral davon, wo das Flugzeug TATSÄCHLICH hinfliegt. Regelt man stattdessen
-den Steuerkurs, bleibt jeder Schiebe- oder Vorhaltewinkel zwischen beiden als **permanente Driftrate**
-stehen, die keine Querablage-Verstärkung je sehen kann. Der Bahnwinkel kommt daher aus dem
-Geschwindigkeitsvektor: `trackDeg = atan2(vx, −vz)` (X-Plane-lokal: +x Ost, +z Süd, also Nord = −z).
-Unterhalb `kLegMinSpeedMs = 30.0` m/s hat der Geschwindigkeitsvektor keine regelungswürdige Richtung
-(Jet am Boden, Strömungsabriss) — dann liest das Gesetz die Nase (`s.yaw`). Diese Schwelle liegt weit
-unter jeder Geschwindigkeit, bei der eine Bahn geflogen wird.
+**Why against the GROUND TRACK and not against the nose** (`FBAutopilot.cpp`, direct/leg branch): the
+cross-track offset is the integral of where the aircraft ACTUALLY flies. If one controls the heading
+instead, any sideslip or crab angle between the two remains as a **permanent drift rate** that no
+cross-track gain can ever see. The track angle therefore comes from the velocity vector:
+`trackDeg = atan2(vx, −vz)` (X-Plane-local: +x east, +z south, hence north = −z). Below
+`kLegMinSpeedMs = 30.0` m/s the velocity vector has no direction worth controlling (jet on the ground,
+stall) — then the law reads the nose (`s.yaw`). That threshold lies far below any speed at which a path
+is flown.
 
-**Die statische Restablage — und warum kein Integrator.** Gegen eine KONSTANTE Querstörung (eine Zelle,
-die 0,2° Schräglage braucht, um geradeaus zu fliegen — die des Vanilla-Modells) hält eine
-Zweizustands-Rückführung eine bleibende Ablage von `φ_d / k_y`. Das ist Absicht:
+**The static residual offset — and why no integrator.** Against a CONSTANT lateral disturbance (an
+airframe that needs 0.2° of bank to fly straight — that of the vanilla model) a two-state feedback holds
+a standing offset of `φ_d / k_y`. That is intentional:
 
-| Argument | Zahl |
+| Argument | Number |
 |---|---|
-| Ein Integrator auf einer Bahn, die an jedem Wegpunkt geschaltet, neu verankert und verworfen wird, ist ein Wind-up-Problem | — |
-| Restablage, die er entfernen würde, bei 450 kt | ~**10 m** (0,2° / 0,0191 deg/m) |
-| Ablage, die das PEILUNGSGESETZ dort ohnehin stehen lässt | ~**30 m** |
+| An integrator on a path that is switched, re-anchored and discarded at every waypoint is a wind-up problem | — |
+| Residual offset it would remove, at 450 kt | ~**10 m** (0.2° / 0.0191 deg/m) |
+| Offset that the BEARING LAW leaves standing there anyway | ~**30 m** |
 
-Es ist also ein **begrenzter, geschwindigkeits-gescheduleter** Versatz statt eines unbegrenzten,
-entfernungsgetriebenen.
+So it is a **bounded, speed-scheduled** offset instead of an unbounded, distance-driven one.
 
-`(void)along;` im Leg-Zweig ist eine Feststellung: die Längskoordinate ist Sache der SEQUENZIERUNG
-(`FBNavSystem::AdvanceWaypoint`), nicht des Fliegens.
+`(void)along;` in the leg branch is a statement of fact: the along-track coordinate is a matter of
+SEQUENCING (`FBNavSystem::AdvanceWaypoint`), not of flying.
 
-#### 2.5 DIRECT — Höhen- und Peilungshälfte
+#### 2.5 DIRECT — altitude and bearing half
 
-| Element | Gesetz | Zahl |
+| Element | Law | Number |
 |---|---|---|
-| Peilung (ohne Bahn) | `bank = clamp(KHdg · wrap180(brg − yaw), ±BankMaxDeg)` | `KHdg` = 0,8 deg/deg |
-| Höhe | `TargetVsMs = clamp(KAlt · AltErrM, ±25 m/s)` | `KAlt` = 0,08 (m/s)/m |
-| `RingDistM` | `hypot(n,e)` — Diagnose, kein Regelanteil | — |
+| Bearing (without a path) | `bank = clamp(KHdg · wrap180(brg − yaw), ±BankMaxDeg)` | `KHdg` = 0.8 deg/deg |
+| Altitude | `TargetVsMs = clamp(KAlt · AltErrM, ±25 m/s)` | `KAlt` = 0.08 (m/s)/m |
+| `RingDistM` | `hypot(n,e)` — diagnostic, not part of the control | — |
 
-Der VS-Cap von 25 m/s ist enger, als eine Reiseflug-Höhenkorrektur bräuchte: DIRECT treibt auch den
-Steigflug nach dem Abheben, wo der Fehler der GANZE Steigflug ist (Tausende Meter). Ungecappt hielte
-die FLCS mit ihrem eigenen Alpha-Schedule das AoA zwar sicher, aber die resultierenden fast 30°
-Anstellung sind ein unnötig aggressiver Steigwinkel für einen kontrollierten Climb-out.
+The VS cap of 25 m/s is tighter than a cruise altitude correction would need: DIRECT also drives the
+climb after take-off, where the error is the WHOLE climb (thousands of metres). Uncapped, the FLCS with
+its own alpha schedule would keep the AoA safe, but the resulting almost 30° of pitch is an unnecessarily
+aggressive climb angle for a controlled climb-out.
 
-#### 2.6 COURSE — Localizer + Gleitpfad
+#### 2.6 COURSE — localizer + glide path
 
-Trackt die unendliche Linie durch `(refLat,refLon)` auf Rechtweisend `courseDeg` und sinkt dabei auf
-einem geraden Gleitpfad `glidepathDeg` auf `refElevM` AM Referenzpunkt. Generisch darüber, was der
-Referenzpunkt BEDEUTET — der Aufrufer (`FBPilot`) liefert Schwelle + Pistenrichtung.
+Tracks the infinite line through `(refLat,refLon)` on true `courseDeg` and descends on a straight glide
+path `glidepathDeg` onto `refElevM` AT the reference point. Generic over what the reference point MEANS —
+the caller (`FBPilot`) supplies threshold + runway direction.
 
-| Element | Gesetz |
+| Element | Law |
 |---|---|
-| Projektion | `FBTrackProjectM` → `along`/`across`; `distToGo = −along` (positiv VOR dem Referenzpunkt) |
+| Projection | `FBTrackProjectM` → `along`/`across`; `distToGo = −along` (positive BEFORE the reference point) |
 | Lateral | `TrackBankCmd(CourseDeg, across, s.yaw, KXt, CourseInterceptMaxDeg, KHdg, BankMaxDeg)` |
-| Zielhöhe | `RefElevM + tan(glidepath) · max(distToGo, 0)` |
-| Vertikal | `TargetVsMs = clamp(−tan(gp)·gs + KAlt·AltErrM, ±ApproachVsCapMs)` |
+| Target altitude | `RefElevM + tan(glidepath) · max(distToGo, 0)` |
+| Vertical | `TargetVsMs = clamp(−tan(gp)·gs + KAlt·AltErrM, ±ApproachVsCapMs)` |
 
-**Das Feedforward und warum es existiert:** eine reine P-Korrektur auf den Höhenfehler hat gegen dieses
-RAMPENDE Ziel einen bleibenden Schleppfehler (klassischer Typ-1-Servo-Lag, `e_ss = Zielrate / KAlt`).
-**Gemessen: ~56 m zu hoch an der Schwelle auf einem 9-nm-Final** beim Default-`KAlt` — also Aufsetzen
-tief in der Piste statt nahe der Schwelle. Das Feedforward der Zielsinkrate (`tan(glidepath) ×
-Annäherungsgeschwindigkeit`) lässt dem P-Term nur noch die ABWEICHUNG vom Leitstrahl, nicht das
-Nachfahren seiner Steigung.
+**The feedforward and why it exists:** a pure P correction on the altitude error has a standing lag error
+against this RAMPING target (classic type-1 servo lag, `e_ss = target rate / KAlt`). **Measured: ~56 m too
+high at the threshold on a 9 nm final** with the default `KAlt` — i.e. touchdown deep in the runway
+instead of near the threshold. The feedforward of the target sink rate (`tan(glidepath) × approach
+speed`) leaves the P term only the DEVIATION from the beam, not the tracking of its slope.
 
-Hinter dem Referenzpunkt (`distToGo ≤ 0`, z. B. wenn `FBPilot` längst an Flare übergeben hat und ein
-`Run()` noch hier landet) hält das Ziel schlicht `RefElevM`, statt darunter zu tauchen.
+Behind the reference point (`distToGo ≤ 0`, e.g. when `FBPilot` has long handed over to flare and a
+`Run()` still lands here) the target simply holds `RefElevM` instead of diving below it.
 
-Die Projektionskonvention (`along=0` am Referenzpunkt, `+across` = rechts vom Kurs) ist DIESELBE wie in
-`FBPilot`s Centerline-Gesetz und `FBMissionMonitor::OnRunway` — alle drei sind sich darüber einig, was
-„auf der Linie" heißt.
+The projection convention (`along=0` at the reference point, `+across` = right of the course) is the SAME
+as in `FBPilot`'s centreline law and `FBMissionMonitor::OnRunway` — all three agree about what "on the
+line" means.
 
-#### 2.7 Gains (public Config-Block, Defaults = geflogenes F-16-Preset)
+#### 2.7 Gains (public config block, defaults = the flown F-16 preset)
 
-| Feld | Default | Bedeutung |
+| Field | Default | Meaning |
 |---|---|---|
-| `BankMaxDeg` | 60 | Schräglagengrenze; **legt in DIRECT-Leg das gesamte Gesetz fest** |
-| `KHdg` | 0,8 | Richtungsfehler → Schräglage (DIRECT-Peilung und COURSE; in DIRECT-Leg ERSETZT durch das hergeleitete `k_χ`) |
-| `KAlt` | 0,08 | Höhenfehler → Vertikalgeschwindigkeit |
-| `KXt` | 0,08 | COURSE: Querablage (m) → Intercept-Winkel-Offset (deg) |
-| `CourseInterceptMaxDeg` | 45 | COURSE: Cap dieses Winkels |
-| `ApproachVsCapMs` | 8 | COURSE-VS-Cap (ein geflogener Gleitpfad, kein Sturz) |
-| `kMinLegM` | 100 (constexpr) | Mindestlänge einer Bahn |
-| `kLegZeta` | 1/√2 (Datei-Konstante) | Dämpfung des Bahngesetzes |
-| `kLegG0` | 9,80665 | g |
-| `kLegMinSpeedMs` | 30 | unterhalb: Nase statt Bahnwinkel |
+| `BankMaxDeg` | 60 | bank limit; **fixes the entire law in DIRECT leg** |
+| `KHdg` | 0.8 | direction error → bank (DIRECT bearing and COURSE; in DIRECT leg REPLACED by the derived `k_χ`) |
+| `KAlt` | 0.08 | altitude error → vertical speed |
+| `KXt` | 0.08 | COURSE: cross-track offset (m) → intercept angle offset (deg) |
+| `CourseInterceptMaxDeg` | 45 | COURSE: cap of that angle |
+| `ApproachVsCapMs` | 8 | COURSE VS cap (a flown glide path, not a dive) |
+| `kMinLegM` | 100 (constexpr) | minimum length of a path |
+| `kLegZeta` | 1/√2 (file constant) | damping of the path law |
+| `kLegG0` | 9.80665 | g |
+| `kLegMinSpeedMs` | 30 | below: nose instead of track angle |
 
-**`Run()` ist der EINE Override-Punkt.** Ein Modul, dessen Guidance sich wirklich anders verhält (nicht
-nur andere Gains), leitet ab und überschreibt `Run()`; `FBF16Module` komponiert diesen Default
-UNVERÄNDERT. Konfigurationsunterschiede (F-16-Gains) bleiben Daten auf dieser Klasse, keine Subklasse.
+**`Run()` is the ONE override point.** A module whose guidance really behaves differently (not just
+different gains) derives and overrides `Run()`; `FBF16Module` composes this default UNCHANGED.
+Configuration differences (F-16 gains) stay data on this class, not a subclass.
 
 ---
 
-### 3. `FBFlightControl` — die FBW-Innenschleife
+### 3. `FBFlightControl` — the FBW inner loop
 
-`systems/FBFlightControl.h`, `systems/FBFlightControl.cpp`. Konsumiert `FBGuidance` + JSBSim-Zustand,
-emittiert normierte Stick-/Throttle-Werte (`FBControls{Roll,Pitch,Yaw,Thr}`). Portiert aus
-`flightctl.h`s innerer Schleife, Numerik verbatim.
+`systems/FBFlightControl.h`, `systems/FBFlightControl.cpp`. Consumes `FBGuidance` + JSBSim state, emits
+normalised stick/throttle values (`FBControls{Roll,Pitch,Yaw,Thr}`). Ported from `flightctl.h`'s inner
+loop, numerics verbatim.
 
-#### 3.1 Zwei innere Arten, EIN Flag
+#### 3.1 Two inner kinds, ONE flag
 
-`Flcs` ist **Konfiguration, keine Subklasse** — es ist Tuning, kein Verhalten:
+`Flcs` is **configuration, not a subclass** — it is tuning, not behaviour:
 
-| `Flcs` | Art | Vorgehen |
+| `Flcs` | Kind | Approach |
 |---|---|---|
-| 1 | **FLCS** | eine echte FLCS wie ein Pilot kommandieren (F-16): Schräglagenfehler → Rollraten-Stick, g-Kommando-PI mit 1/cos(bank)-Kurven-Feedforward + VS-Fehler-Bias/Integral → Pitch-Stick, Quer-g-Nullung → Pedale, PI-Throttle. **Die FLCS der Zelle ist der Stabilisator; wir kommandieren sie.** |
-| 0 | **Raw** | Attitude-Hold-PD direkt auf die Ruder (Modelle OHNE FLCS, der c172-Pfad) |
+| 1 | **FLCS** | command a real FLCS like a pilot (F-16): bank error → roll-rate stick, g-command PI with 1/cos(bank) turn feedforward + VS error bias/integral → pitch stick, lateral-g nulling → pedals, PI throttle. **The airframe's FLCS is the stabiliser; we command it.** |
+| 0 | **Raw** | attitude-hold PD directly on the control surfaces (models WITHOUT an FLCS, the c172 path) |
 
-#### 3.2 Verhältnis zur echten FLCS und `fcs/fbw-override`
+#### 3.2 Relation to the real FLCS and `fcs/fbw-override`
 
-- Die vanilla JSBSim-F-16 ist eine ECHTE FLCS: `fcs/*-cmd-norm` sind **Raten-Sollwerte**, keine
-  Ruderausschläge.
-- `FBFdmSpawn::FbwOverride` (`fdm/FBFdmBoot.h`) setzt beim Spawn `fcs/fbw-override = 1.0`
-  (`fdm/FBFdm.cpp`): damit ist FlightBox' eigene FCS der Regler statt der modelleigenen
-  Flugsteuerung — direktes Ruder, sonst zwei geschachtelte Ratenschleifen.
-- Der Weg in die Physik ist ausschließlich `FBFdm::SetControls(roll,pitch,yaw,thr)`:
+- The vanilla JSBSim F-16 is a REAL FLCS: `fcs/*-cmd-norm` are **rate setpoints**, not control surface
+  deflections.
+- `FBFdmSpawn::FbwOverride` (`fdm/FBFdmBoot.h`) sets `fcs/fbw-override = 1.0` at spawn (`fdm/FBFdm.cpp`):
+  with that, FlightBox's own FCS is the controller instead of the model-owned flight control — direct
+  surfaces, otherwise two nested rate loops.
+- The way into the physics is exclusively `FBFdm::SetControls(roll,pitch,yaw,thr)`:
   - `roll → fcs/aileron-cmd-norm`
-  - `pitch → fcs/elevator-cmd-norm` als **`−pitch + ElevTrim`** (JSBSim: +Elevator = Nase RUNTER;
-    FlightBox: +Pitch = Nase HOCH; `ElevTrim` ist das vom Trimmlauf gefundene Höhenruder = die
-    Trimmklappe, die bei neutralem Stick LEVEL hält statt die nasenhohe Ruhelage der Zelle)
-  - `yaw → fcs/rudder-cmd-norm` (+yaw koordiniert die Kurve; −yaw schiebt sie — gemessen, starker
-    negativer Wendemoment)
-  - `thr → fcs/throttle-cmd-norm`, **slew-limitiert** (ein Sprung 0 → 0,95 sprengt die Drehzahl-ODE des
-    Triebwerks und lässt die Zelle abkippen)
-  - Kampfschaden greift GENAU HIER an: `roll/pitch/yaw *= Authority`, `thr` gedeckelt — die FCS
-    kommandiert unverändert, das Flugzeug antwortet nicht mehr.
+  - `pitch → fcs/elevator-cmd-norm` as **`−pitch + ElevTrim`** (JSBSim: +elevator = nose DOWN;
+    FlightBox: +pitch = nose UP; `ElevTrim` is the elevator found by the trim run = the trim tab that
+    holds LEVEL at neutral stick instead of the nose-high resting attitude of the airframe)
+  - `yaw → fcs/rudder-cmd-norm` (+yaw coordinates the turn; −yaw skids it — measured, strong adverse yaw
+    moment)
+  - `thr → fcs/throttle-cmd-norm`, **slew-limited** (a jump 0 → 0.95 blows up the engine's RPM ODE and
+    makes the airframe depart)
+  - Battle damage acts EXACTLY HERE: `roll/pitch/yaw *= Authority`, `thr` capped — the FCS commands
+    unchanged, the aircraft no longer answers.
 
-#### 3.3 Das FLCS-Gesetz, Schritt für Schritt (alles bei festen 0,01 s)
+#### 3.3 The FLCS law, step by step (all at a fixed 0.01 s)
 
 ```
 bc      = min(|roll|, 80°) → rad
 vsErr   = TargetVsMs − vy
 VsIterm = clamp(VsIterm + KVsi·vsErr·0.01, ±0.5)
 nzRaw   = 1/cos(bc) + KVs2g·vsErr + VsIterm
-nzCmd   = clamp(nzRaw, NzPrev ± NzSlew·0.01)      // Slew-Limit auf das g-KOMMANDO
+nzCmd   = clamp(nzRaw, NzPrev ± NzSlew·0.01)      // slew limit on the g COMMAND
 gErr    = nzCmd − nz
 bankErr = |BankCmdDeg − roll|
-blend   = clamp(1 − (bankErr − 5)/15, 0, 1)       // 1 bei ≤5°, 0 ab 20°
+blend   = clamp(1 − (bankErr − 5)/15, 0, 1)       // 1 at ≤5°, 0 from 20°
 GIterm  = clamp(GIterm + blend·KGi·gErr·0.01, ±1)
 Roll    = clamp(KRollRate·(BankCmdDeg − roll), ±RollStickMax)
 Pitch   = blend · clamp(KG·gErr + GIterm, ±1)
@@ -479,445 +473,439 @@ NyIterm = clamp(NyIterm + KNyi·ny·0.01, ±0.6)
 Yaw     = clamp(KNy·ny + NyIterm, ±1)
 ```
 
-Die vier Konstruktionsentscheidungen, jede gegen das nackte Modell gemessen:
+The four design decisions, each measured against the bare model:
 
-| Element | Begründung |
+| Element | Justification |
 |---|---|
-| Kurven-g-Feedforward aus der TATSÄCHLICHEN Schräglage | das g, das eine Kurve JETZT braucht, hängt an der Schräglage JETZT |
-| VS-Fehler-INTEGRAL | bricht die falschen Höhe/g-Gleichgewichte auf |
-| Slew-limitiertes g-Kommando | `NzSlew` = 1,5 g/s |
-| g-Stick erst EINGEBLENDET, wenn die Schräglage nahezu steht | ein Pilot rollt mit neutralem Pitch ein; treibt man die g-Schleife mitten in der Rolle, stapelt sie sich auf die eigene g-PID der FLCS → Einflugspitzen |
+| Turn g feedforward from the ACTUAL bank angle | the g a turn needs NOW depends on the bank angle NOW |
+| VS error INTEGRAL | breaks up the wrong altitude/g equilibria |
+| Slew-limited g command | `NzSlew` = 1.5 g/s |
+| g stick only BLENDED IN once the bank angle is nearly settled | a pilot rolls in with neutral pitch; driving the g loop in the middle of the roll stacks it onto the FLCS's own g PID → entry spikes |
 
-**Gierpedale:** nullen den Querlastfaktor. Der Gierdämpfer des Modells (rohe r-Rückführung, kein
-Washout) hält Ruder gegen eine stationäre Kurve; ein Rest-`ny` von etwa **−0,10 g** bleibt
-**modell-intrinsisch** — akzeptierte Modell-Eigenschaft, kein Defekt (Prinzip 5).
+**Yaw pedals:** null the lateral load factor. The model's yaw damper (raw r feedback, no washout) holds
+rudder against a steady turn; a residual `ny` of about **−0.10 g** remains **model-intrinsic** — an
+accepted model property, not a defect (principle 5).
 
-**Throttle (in beiden Arten):**
-`ThrIterm = clamp(ThrIterm + KTi·spdErr·0.01, −ThrTrim, 1−ThrTrim)` — der Integratorbereich ist der
-PHYSIKALISCHE Weg von der Trimmstellung zu beiden Anschlägen. `Thr = clamp(ThrTrim + KpSpd·spdErr +
-ThrIterm, 0, 1)`.
+**Throttle (in both kinds):**
+`ThrIterm = clamp(ThrIterm + KTi·spdErr·0.01, −ThrTrim, 1−ThrTrim)` — the integrator range is the
+PHYSICAL travel from the trim setting to both stops. `Thr = clamp(ThrTrim + KpSpd·spdErr + ThrIterm,
+0, 1)`.
 
-**Raw-Zweig (FLCS-lose Modelle, `flightctl.h`s `fc_update` verbatim):**
+**Raw branch (FLCS-less models, `flightctl.h`'s `fc_update` verbatim):**
 `pitchCmd = clamp(KAltRaw·AltErrM, ±PitchMaxDeg)`; `Roll = clamp(KpRoll·(BankCmd−roll) − KdRoll·p, ±1)`;
 `Pitch = −clamp(KpPitch·(pitchCmd−pitch) − KdPitch·q, ±1)`; `Yaw = clamp(−KdYaw·r + KCoord·BankCmd, ±1)`.
 
-**MANUAL** wird ganz vorn durchgereicht: `o = {ManualRoll, ManualPitch, ManualYaw, ManualThr}`, keine
-Integratorbewegung, keine Schleife.
+**MANUAL** is passed through right at the front: `o = {ManualRoll, ManualPitch, ManualYaw, ManualThr}`,
+no integrator movement, no loop.
 
-#### 3.4 Gains: Default vs. `F16()`-Preset
+#### 3.4 Gains: default vs. the `F16()` preset
 
-| Feld | Default (Raw/c172-Ära) | `F16()` | Einheit/Bedeutung |
+| Field | Default (raw/c172 era) | `F16()` | Unit/meaning |
 |---|---|---|---|
-| `Flcs` | 0 | **1** | Innenschleifen-Art |
-| `RollStickMax` | 1,0 | **0,15** | Cap des Roll-Sticks („sanftes Einrollen") |
-| `KRollRate` | 0,06 | **0,05** | Schräglagenfehler → Roll-Stick |
-| `KG` | 0,4 | **0,25** | g-Fehler → Pitch-Stick (P) |
-| `KGi` | 2,0 | **0,8** | g-Fehler → Pitch-Stick (I) |
-| `KVs2g` | 0,05 | 0,05 | VS-Fehler → g-Kommando |
-| `KVsi` | 0,02 | 0,02 | VS-Fehler-Integral |
-| `KNy`/`KNyi` | 1,5 / 2,0 | 1,5 / 2,0 | Quer-g → Pedale (P/I) |
-| `KTi` | 0,002 | 0,002 | Speed-Integral |
-| `KpSpd` | 0,03 | **0,02** | Speed-Fehler → Throttle |
-| `ThrTrim` | 0,55 | **0,85** | Throttle-Trimmpunkt |
-| `NzSlew` | 1,5 | 1,5 | max. g-Kommandoänderung je Sekunde |
-| `KpRoll`/`KdRoll` | 0,022 / 0,004 | (ungenutzt) | Raw-Zweig |
-| `KpPitch`/`KdPitch` | 0,06 / 0,010 | (ungenutzt) | Raw-Zweig |
-| `KdYaw`/`KCoord` | 0,006 / 0,004 | (ungenutzt) | Raw-Zweig |
-| `PitchMaxDeg`/`KAltRaw` | 15 / 0,05 | (ungenutzt) | Raw-Zweig |
+| `Flcs` | 0 | **1** | inner loop kind |
+| `RollStickMax` | 1.0 | **0.15** | cap of the roll stick ("gentle roll-in") |
+| `KRollRate` | 0.06 | **0.05** | bank error → roll stick |
+| `KG` | 0.4 | **0.25** | g error → pitch stick (P) |
+| `KGi` | 2.0 | **0.8** | g error → pitch stick (I) |
+| `KVs2g` | 0.05 | 0.05 | VS error → g command |
+| `KVsi` | 0.02 | 0.02 | VS error integral |
+| `KNy`/`KNyi` | 1.5 / 2.0 | 1.5 / 2.0 | lateral g → pedals (P/I) |
+| `KTi` | 0.002 | 0.002 | speed integral |
+| `KpSpd` | 0.03 | **0.02** | speed error → throttle |
+| `ThrTrim` | 0.55 | **0.85** | throttle trim point |
+| `NzSlew` | 1.5 | 1.5 | max. g command change per second |
+| `KpRoll`/`KdRoll` | 0.022 / 0.004 | (unused) | raw branch |
+| `KpPitch`/`KdPitch` | 0.06 / 0.010 | (unused) | raw branch |
+| `KdYaw`/`KCoord` | 0.006 / 0.004 | (unused) | raw branch |
+| `PitchMaxDeg`/`KAltRaw` | 15 / 0.05 | (unused) | raw branch |
 
-**`RollStickMax = 0,15` ist eine Messung:** damit bleibt `nz` im Bereich **0,7…1,9 g**; bei 0,35 waren
-es **−1,1…+3,0 g**.
+**`RollStickMax = 0.15` is a measurement:** with it `nz` stays in the range **0.7…1.9 g**; at 0.35 it was
+**−1.1…+3.0 g**.
 
-#### 3.5 Nebenpflichten
+#### 3.5 Secondary duties
 
-- **`FBTelemetrySource "flightcontrol"`** — Spalten `rollCmd`, `pitchCmd`, `yawCmd`, `throttleNorm`.
-  `Run()` cached sein Ergebnis in `LastControls_`; bei 100 Hz liest der Telemetriebus (10 Hz) immer das
-  jüngste.
-- **`Reset()`** nullt alle Integratoren (`GIterm`, `VsIterm`, `NyIterm`, `ThrIterm`, `NzPrev`) — neuer
-  Flug.
-- **`GetGIterm()`/`GetVsIterm()`** sind Diagnose-Fenster in die Integratoren.
+- **`FBTelemetrySource "flightcontrol"`** — columns `rollCmd`, `pitchCmd`, `yawCmd`, `throttleNorm`.
+  `Run()` caches its result in `LastControls_`; at 100 Hz the telemetry bus (10 Hz) always reads the most
+  recent one.
+- **`Reset()`** zeroes all integrators (`GIterm`, `VsIterm`, `NyIterm`, `ThrIterm`, `NzPrev`) — a new
+  flight.
+- **`GetGIterm()`/`GetVsIterm()`** are diagnostic windows into the integrators.
 
 ---
 
-### 4. `FBAirDataSystem` — Luftdaten (ADC-Klasse)
+### 4. `FBAirDataSystem` — air data (ADC class)
 
-`systems/FBAirDataSystem.h/.cpp`. Schreibt `FBState::AirData`. Airframe-agnostisch: jedes Modul mit
-einem ADC und einem Geschwindigkeitsvektor bekommt dieselben Zahlen; eine Zelle, deren Luftdatenkette
-sich wirklich unterscheidet, überschreibt `Run()`.
+`systems/FBAirDataSystem.h/.cpp`. Writes `FBState::AirData`. Airframe-agnostic: every module with an ADC
+and a velocity vector gets the same numbers; an airframe whose air data chain really differs overrides
+`Run()`.
 
-| Blockfeld | Quelle | Bemerkung |
+| Block field | Source | Note |
 |---|---|---|
-| `CasKt` | `fdm.cas · kMsToKt` | kalibrierte Fahrt |
-| `Mach` | `fdm.mach` | direkt |
-| `GLoad` | `fdm.nz` | Körper-Normallastfaktor |
-| `GLoadPeak` | laufendes Maximum seit Boot | wird nie zurückgesetzt (HUD-Peak-G) |
-| `TrackDeg` | `atan2(vx, −vz)`, auf 0…360 gebracht | Bodenkurs aus dem Geschwindigkeitsvektor |
-| `FpaDeg` | `atan2(vy, max(horiz, 0.01))` | Bahnneigungswinkel, + = steigend |
+| `CasKt` | `fdm.cas · kMsToKt` | calibrated airspeed |
+| `Mach` | `fdm.mach` | direct |
+| `GLoad` | `fdm.nz` | body normal load factor |
+| `GLoadPeak` | running maximum since boot | is never reset (HUD peak G) |
+| `TrackDeg` | `atan2(vx, −vz)`, brought to 0…360 | ground track from the velocity vector |
+| `FpaDeg` | `atan2(vy, max(horiz, 0.01))` | flight path angle, + = climbing |
 
-**FPM-Richtung als WELT-Azimut/Elevation, nicht als körperrelativer Versatz:** `FBF16Hud` projiziert
-sie durch DIESELBE Kamerabasis (yaw/pitch/roll), die der konforme Horizont schon benutzt — die Lage
-muss also nicht zweimal komponiert werden.
+**FPM direction as a WORLD azimuth/elevation, not as a body-relative offset:** `FBF16Hud` projects it
+through the SAME camera basis (yaw/pitch/roll) that the conformal horizon already uses — so the attitude
+does not have to be composed twice.
 
-`vx/vy/vz` sind X-Plane-lokal (+x Ost, +y auf, +z Süd) — bereits das lokale ENU-Frame, keine Geodäsie
-nötig. `horiz = √(vx²+vz²)`.
+`vx/vy/vz` are X-Plane-local (+x east, +y up, +z south) — already the local ENU frame, no geodesy needed.
+`horiz = √(vx²+vz²)`.
 
-Telemetrie-Quelle `"airdata"`: `casKt`, `mach`, `nz`, `aoaDeg`. Die Klasse cached ihre eigenen letzten
-Werte, weil `SampleTelemetry` kein `FBState` in der Signatur hat (Kern-Architekturregel: eine Quelle
-sampelt ihr EIGENES letztes Ergebnis). `aoaDeg` steht in der Telemetrie, aber NICHT im Block.
+Telemetry source `"airdata"`: `casKt`, `mach`, `nz`, `aoaDeg`. The class caches its own last values,
+because `SampleTelemetry` has no `FBState` in its signature (core architecture rule: a source samples its
+OWN last result). `aoaDeg` is in the telemetry, but NOT in the block.
 
-`dt` wird ignoriert (`(void)dt`) — das System ist zustandsfrei bis auf `PeakG`.
+`dt` is ignored (`(void)dt`) — the system is stateless apart from `PeakG`.
 
 ---
 
-### 5. `FBRadarAltimeter` — der Referenzfall für `Invalid`
+### 5. `FBRadarAltimeter` — the reference case for `Invalid`
 
-`systems/FBRadarAltimeter.h/.cpp`. Schreibt `FBState::RadarAlt`.
+`systems/FBRadarAltimeter.h/.cpp`. Writes `FBState::RadarAlt`.
 
-#### 5.1 Vertrag
+#### 5.1 Contract
 
-- **Es fragt das Terrain NICHT selbst ab.** Es konvertiert das vom Client bereits aufgelöste Paar
-  `(elevAslM, groundAslM)` in Metern ASL in die Radarhöhe in Fuß — dasselbe DEM-Sample, das die App
-  ohnehin für `FBRenderer::SetAgl` holt. Keine zweite Terrainabfrage.
-- `AglFt = (elevAslM − groundAslM) · 3,280839895`.
-- Ein Schalter: `SetPowered(bool)`, Default `true`.
+- **It does NOT query the terrain itself.** It converts the pair `(elevAslM, groundAslM)` in metres ASL,
+  already resolved by the client, into the radar altitude in feet — the same DEM sample the app fetches
+  for `FBRenderer::SetAgl` anyway. No second terrain query.
+- `AglFt = (elevAslM − groundAslM) · 3.280839895`.
+- One switch: `SetPowered(bool)`, default `true`.
 
-#### 5.2 Was er lehrt
+#### 5.2 What it teaches
 
-> Die Box ist eine BESTROMTE Box, und `doc/f16/controls-commands.md` §6.4 dokumentiert die Folge
-> wörtlich: die CARA-ALOW-Warnung feuert **nur** bei bestromtem und sendendem Radarhöhenmesser — egal
-> wie bereitwillig das DED die Schwelle angenommen hat.
+> The box is a POWERED box, and `doc/f16/controls-commands.md` §6.4 documents the consequence verbatim:
+> the CARA ALOW warning fires **only** with the radar altimeter powered and transmitting — no matter how
+> willingly the DED accepted the threshold.
 
-Daraus die Regel, die für den ganzen Bus gilt:
+From that the rule that applies to the whole bus:
 
-| Fall | Verhalten |
+| Case | Behaviour |
 |---|---|
-| bestromt | `AglFt` neu gerechnet, `H.Publish(NowS)` → `Valid` |
-| stromlos | `H.Invalidate()` → `Invalid`, **die letzte Zahl bleibt stehen** |
+| powered | `AglFt` recomputed, `H.Publish(NowS)` → `Valid` |
+| unpowered | `H.Invalidate()` → `Invalid`, **the last number stays standing** |
 
-Stromlos publiziert die Box **nicht** „0 ft" und **nicht** einen alten Wert als frisch. Sie macht ihren
-Block ungültig, und **jeder Konsument muss dann sagen, was er ohne sie tut** — der AGL-Boden des
-Piloten, das R-Feld des HUD, das Warnsystem. Das ist der Gewinn des Dreizustandskopfs; eine Box, die
-stattdessen 0 ft publiziert, flöge den Jet in den Boden.
+Unpowered, the box publishes **neither** "0 ft" **nor** an old value as fresh. It invalidates its block,
+and **every consumer then has to say what it does without it** — the pilot's AGL floor, the HUD's R
+field, the warning system. That is the gain of the three-state header; a box that instead published 0 ft
+would fly the jet into the ground.
 
-Dass die letzte Zahl im Feld stehen BLEIBT, ist ebenfalls Absicht: ein Konsument, der den Kopf
-ignoriert, darf nicht still eine frisch aussehende Null bekommen.
+That the last number REMAINS standing in the field is likewise intentional: a consumer who ignores the
+header must not silently get a fresh-looking zero.
 
 ---
 
-### 6. `FBWarningSystem` — der Warnsatz als Bitmaske
+### 6. `FBWarningSystem` — the warning set as a bitmask
 
-`systems/FBWarningSystem.h/.cpp`. Schreibt `FBState::Warnings` und **nichts sonst**; liest
-Radarhöhe, die vom UFC committeten Schwellen und den Airframe-Block.
+`systems/FBWarningSystem.h/.cpp`. Writes `FBState::Warnings` and **nothing else**; reads radar altitude,
+the thresholds committed by the UFC and the Airframe block.
 
-> Es kommandiert nichts — ein Warnsystem, das handeln könnte, wäre ein zweiter Pilot.
+> It commands nothing — a warning system that could act would be a second pilot.
 
-#### 6.1 Warum es existiert: Gültigkeitsköpfe konsequent machen
+#### 6.1 Why it exists: making the validity headers consistent
 
-Jede Bedingung hier ist eine Fusion von Blöcken, die anderswo geschrieben wurden. Jede kann daher
-**UNAUSWERTBAR** sein — und das ist eine dritte Antwort, verschieden von „Warnung" und „keine Warnung".
-Der Block trägt sie getrennt:
+Every condition here is a fusion of blocks written elsewhere. Every one of them can therefore be
+**UNEVALUABLE** — and that is a third answer, distinct from "warning" and "no warning". The block carries
+it separately:
 
 ```
 struct FBWarningBlock { FBBlockHeader H; uint32_t Active; uint32_t Inhibited; };
 ```
 
-Ein `Invalid`er Radarhöhenblock heißt **nicht** „nicht tief". Er heißt: niemand kann es sagen — und der
-Annunciator sagt genau das.
+An `Invalid` radar altitude block does **not** mean "not low". It means: nobody can say — and the
+annunciator says exactly that.
 
-#### 6.2 Die drei Bits (`core/FBAvionicsBlocks.h::FBWarningBit`)
+#### 6.2 The three bits (`core/FBAvionicsBlocks.h::FBWarningBit`)
 
-| Bit | Wert | Aktiv wenn | Inhibiert wenn | Gar nicht ausgewertet wenn |
+| Bit | Value | Active when | Inhibited when | Not evaluated at all when |
 |---|---|---|---|---|
-| `FBWarnAlow` | 1<<0 | `RadarAlt.AglFt < Ufc.AlowFt` | `Ufc` lesbar & `AlowFt > 0` & `RadarAlt` NICHT lesbar | `Ufc` unlesbar oder `AlowFt == 0` (keine Schwelle eingegeben = nichts zu warnen, **kein** Inhibit) |
-| `FBWarnBingo` | 1<<1 | `Airframe.FuelLbs ≤ Ufc.BingoEffectiveLbs` | `Ufc` lesbar & `BingoEffectiveLbs > 0` & `Airframe` NICHT lesbar | `Ufc` unlesbar oder Schwelle 0 |
-| `FBWarnGearUnsafe` | 1<<2 | `Airframe.WeightOnWheels && GearPosition < 0.99` | `Airframe` NICHT lesbar | — |
+| `FBWarnAlow` | 1<<0 | `RadarAlt.AglFt < Ufc.AlowFt` | `Ufc` readable & `AlowFt > 0` & `RadarAlt` NOT readable | `Ufc` unreadable or `AlowFt == 0` (no threshold entered = nothing to warn about, **no** inhibit) |
+| `FBWarnBingo` | 1<<1 | `Airframe.FuelLbs ≤ Ufc.BingoEffectiveLbs` | `Ufc` readable & `BingoEffectiveLbs > 0` & `Airframe` NOT readable | `Ufc` unreadable or threshold 0 |
+| `FBWarnGearUnsafe` | 1<<2 | `Airframe.WeightOnWheels && GearPosition < 0.99` | `Airframe` NOT readable | — |
 
-Feinheiten, die im Code begründet sind:
+Subtleties that are justified in the code:
 
-- **BINGO gegen die EFFEKTIVE Schwelle, nicht gegen die eingegebene.** Der Jet führt zwei Zahlen
-  (`doc/f16/controls-commands.md` §6.8): das DED-Feld zeigt, was der Pilot TIPPTE (`BingoLbs`), die
-  Warnung feuert an der Systemobergrenze (`BingoEffectiveLbs`). Anzeigen lesen die erste, das
-  Warnsystem die zweite — Zusammenlegen hätte die dokumentierte Klemmung unsichtbar gemacht.
-- **Gear ist der Kontrollfall.** Es ist die einzige Bedingung, deren Eingaben aus EINEM Block kommen —
-  damit ist es die Referenz gegen die zwei Fusionen darüber.
-- `Readable()` = `Valid` ODER `Held`. Ein absichtlich eingefrorener Block wird also gelesen; nur
-  `Invalid` inhibiert.
+- **BINGO against the EFFECTIVE threshold, not against the entered one.** The jet carries two numbers
+  (`doc/f16/controls-commands.md` §6.8): the DED field shows what the pilot TYPED (`BingoLbs`), the
+  warning fires at the system limit (`BingoEffectiveLbs`). Displays read the first, the warning system
+  the second — merging them would have made the documented clamping invisible.
+- **Gear is the control case.** It is the only condition whose inputs come from ONE block — which makes
+  it the reference against the two fusions above.
+- `Readable()` = `Valid` OR `Held`. A deliberately frozen block is therefore read; only `Invalid`
+  inhibits.
 
-Telemetrie-Quelle `"warn"`: `warn_active`, `warn_inhibited` (beide als Integer-Bitmasken).
+Telemetry source `"warn"`: `warn_active`, `warn_inhibited` (both as integer bitmasks).
 
 ---
 
-### 7. `FBNavSystem` — Steerpoint + Bullseye + Sequenzierung
+### 7. `FBNavSystem` — steerpoint + bullseye + sequencing
 
-`systems/FBNavSystem.h/.cpp`. Schreibt `FBState::Nav` UND `FBState::Cruise` (ein Quellsystem darf mehr
-als eine Nachricht publizieren).
+`systems/FBNavSystem.h/.cpp`. Writes `FBState::Nav` AND `FBState::Cruise` (one source system may publish
+more than one message).
 
-#### 7.1 Umfang und Setzung
+#### 7.1 Scope and setting
 
-Ein aktiver Steerpoint plus Bullseye-Referenz. Die echte Hardware kennt eine Steerpoint-Datenbank
-(26…30 Markpoints plus die Missions-Steerpoints, `doc/f16/navigation-ils.md`) — **dies ist der
-Ein-Punkt-Platzhalter, mit dem jedes Modul startet.**
+One active steerpoint plus a bullseye reference. The real hardware knows a steerpoint database (26…30
+markpoints plus the mission steerpoints, `doc/f16/navigation-ils.md`) — **this is the one-point
+placeholder every module starts with.**
 
-| Setter | Bedeutung |
+| Setter | Meaning |
 |---|---|
-| `SetSteerpoint(lat, lon, elevFt)` | `elevFt` = die EIGENE Bodenhöhe des Steerpoints (Eingang für `FBF16FireControl`s Slant-Range) |
-| `SetBullseye(lat, lon)` | im F-16-Modul: die Piste der Mission (`FBF16Module::SetRunway`) — eine `.fbm` deklariert kein Bullseye, und die Piste ist der eine gebriefte geografische Punkt, den alle Einheiten teilen |
+| `SetSteerpoint(lat, lon, elevFt)` | `elevFt` = the steerpoint's OWN ground elevation (input for `FBF16FireControl`'s slant range) |
+| `SetBullseye(lat, lon)` | in the F-16 module: the mission's runway (`FBF16Module::SetRunway`) — a `.fbm` declares no bullseye, and the runway is the one briefed geographic point all units share |
 
-#### 7.2 Geodäsie
+#### 7.2 Geodesy
 
-**Dieselbe planare ENU-Näherung wie überall sonst im Baum** (`core/FBGeodesy.h`, die EINE Definition):
-`nord = Δlat · 111320 m/deg`, `ost = wrap180(Δlon) · 111320 · cos(ref_lat)`. Steerpoints liegen zehner
-von nm entfernt, nicht interkontinental — der Flacherde-Fehler ist vernachlässigbar, und es bleibt
-konsistent mit dem Rest des Codes statt eine zweite Geodäsie-Konvention einzuführen. Die Wrap-Behandlung
-ist Teil des Primitivs: unwrapped las eine 360°-Differenz am Antimeridian ~38.000 km für einen Punkt
-einen Meter weiter.
+**The same planar ENU approximation as everywhere else in the tree** (`core/FBGeodesy.h`, the ONE
+definition): `north = Δlat · 111320 m/deg`, `east = wrap180(Δlon) · 111320 · cos(ref_lat)`. Steerpoints
+lie tens of nm away, not intercontinentally — the flat-earth error is negligible, and it stays consistent
+with the rest of the code instead of introducing a second geodesy convention. The wrap handling is part
+of the primitive: unwrapped, a 360° difference at the antimeridian read ~38,000 km for a point one metre
+further on.
 
-Konvention: **der Referenzpunkt kommt ZUERST und besitzt den Kosinus.**
+Convention: **the reference point comes FIRST and owns the cosine.**
 
-#### 7.3 Was publiziert wird
+#### 7.3 What is published
 
-| Feld | Rechnung |
+| Field | Computation |
 |---|---|
-| `Nav.SteerBearingDeg` | Peilung Flugzeug → Steerpoint, 0…360 |
+| `Nav.SteerBearingDeg` | bearing aircraft → steerpoint, 0…360 |
 | `Nav.SteerElevAngleDeg` | `atan2(StElevFt·kFtToM − fdm.elev, max(dist,1))` |
-| `Nav.SteerDistNm` | Horizontaldistanz |
-| `Nav.SteerElevFt` | durchgereicht |
-| `Nav.BullBearingDeg` / `BullDistNm` | Peilung/Distanz **VOM Bullseye ZUM Flugzeug** |
-| `Nav.MagVarDeg` | **0,0 — Platzhalter, kein Deklinationsmodell** |
+| `Nav.SteerDistNm` | horizontal distance |
+| `Nav.SteerElevFt` | passed through |
+| `Nav.BullBearingDeg` / `BullDistNm` | bearing/distance **FROM the bullseye TO the aircraft** |
+| `Nav.MagVarDeg` | **0.0 — placeholder, no declination model** |
 | `Cruise.SteerTtgS` | `dist / max(gs, 1)` |
 
-`Nav.H.Publish` nur, wenn Steerpoint ODER Bullseye gesetzt ist.
+`Nav.H.Publish` only if a steerpoint OR bullseye is set.
 
-#### 7.4 Der `Held`-Fall: die CRUS-Seite bei ausgefahrenem Fahrwerk
+#### 7.4 The `Held` case: the CRUS side with the gear down
 
-Der echte Jet FRIERT die berechneten CRUS-Felder bei ausgefahrenem Fahrwerk EIN, statt sie zu leeren
-(`doc/f16/controls-commands.md`, CRUS-Tabelle). Weil das eine Eigenschaft der NACHRICHT ist, hat sie
-einen eigenen Kopf — deshalb ist `Cruise` ein eigener Block:
+The real jet FREEZES the computed CRUS fields with the gear down instead of clearing them
+(`doc/f16/controls-commands.md`, CRUS table). Because that is a property of the MESSAGE, it has a header
+of its own — which is why `Cruise` is a separate block:
 
 ```
 gearDown = Airframe.H.Readable() && Airframe.GearPosition > 0.5
 gearDown ? Cruise.H.Hold() : (Cruise.SteerTtgS = …, Cruise.H.Publish(NowS))
 ```
 
-`Hold()` bewegt den Zeitstempel NICHT — genau das macht „wie alt ist diese eingefrorene Zahl"
-beantwortbar. Bearing/Distance im Nav-Block laufen dabei ungerührt weiter.
+`Hold()` does NOT move the timestamp — exactly that makes "how old is this frozen number" answerable.
+Bearing/distance in the Nav block keep running unaffected.
 
-#### 7.5 `AdvanceWaypoint` — Sequenzierung als AKTEURS-Verhalten
+#### 7.5 `AdvanceWaypoint` — sequencing as ACTOR behaviour
 
 ```
 int AdvanceWaypoint(FBFlightPlan &plan, double lat, double lon, double captureM = 500.0)
 ```
 
-**Wer ruft:** das MODUL selbst, im Piloten-Takt (10 Hz), direkt nach der Entscheidung
-(`FBF16Module::Run`). **Nicht** der Missions-Orchestrator — dieses System kennt Steerpoints und
-Distanzen bereits, also gehört die Sequenzierung hierher und nicht in die Runner-Buchhaltung. Der
-Runner-Richter (`core/FBMissionMonitor`) urteilt unabhängig davon auf seiner eigenen, unveränderlichen
-Plankopie.
+**Who calls:** the MODULE itself, at the pilot rate (10 Hz), right after the decision
+(`FBF16Module::Run`). **Not** the mission orchestrator — this system already knows steerpoints and
+distances, so the sequencing belongs here and not in the runner's bookkeeping. The runner's judge
+(`core/FBMissionMonitor`) judges independently of it on its own, immutable copy of the plan.
 
-**Zwei Erfüllungsgründe:**
+**Two grounds for fulfilment:**
 
-| Grund | Test | Gilt ab |
+| Ground | Test | Applies from |
 |---|---|---|
-| `capture` | `FBPlanarDistM(Flugzeug, wp) ≤ captureM` (Default 500 m) | jedem Wegpunkt |
-| `passed` | Projektion auf die Bahn `wp[idx−1] → wp[idx]`: `alongM ≥ legM` | **erst ab `idx > 0`** |
+| `capture` | `FBPlanarDistM(aircraft, wp) ≤ captureM` (default 500 m) | every waypoint |
+| `passed` | Projection onto the leg `wp[idx−1] → wp[idx]`: `alongM ≥ legM` | **only from `idx > 0`** |
 
-**Warum ein Fangkreis allein nicht reicht:** ein Fangkreis kann einen Wegpunkt nicht beantworten, an dem
-das Flugzeug PHYSISCH nicht ankommen kann — einen, der innerhalb seines eigenen Kurvenradius liegt und
-den es außen für immer umkreist. (`bfm-basic.fbm` benutzt genau das absichtlich, um einen Verteidiger
-zum Kurven zu bringen.) Die Antwort ist **nicht ein größerer Kreis**, sondern die Achse, die die Bahn
-ohnehin definiert: **hinter der Senkrechten durch den Fix ist der Fix passiert**, wie groß der Fehlabstand
-auch war.
+**Why a capture circle alone is not enough:** a capture circle cannot answer a waypoint at which the
+aircraft PHYSICALLY cannot arrive — one that lies inside its own turn radius and which it orbits from
+outside forever. (`bfm-basic.fbm` uses exactly that deliberately, to make a defender turn.) The answer is
+**not a larger circle** but the axis that the leg defines anyway: **beyond the perpendicular through the
+fix, the fix has been passed**, however large the miss distance was.
 
-**Warum das den absichtlichen Dauerkreis der BFM-Verteidiger nicht zerstört:** die Regel existiert
-GENAU DORT, wo die BAHN existiert — dieselben zwei deklarierten Fixe, deren Track `FBPilot` fliegt. Ein
-ERSTER Wegpunkt hat keine einlaufende Bahn, also gibt es kein „hinter" zu messen, und der Punkt wird
-verfolgt wie zuvor. In `bfm-basic.fbm` hat der Verteidiger genau EINE `wp`-Zeile (Index 0): kein
-Vorgänger, keine Bahn, keine `passed`-Prüfung, der Orbit bleibt.
+**Why that does not destroy the deliberate permanent circle of the BFM defenders:** the rule exists
+EXACTLY WHERE the LEG exists — the same two declared fixes whose track `FBPilot` flies. A FIRST waypoint
+has no incoming leg, so there is no "beyond" to measure, and the point is pursued as before. In
+`bfm-basic.fbm` the defender has exactly ONE `wp` line (index 0): no predecessor, no leg, no `passed`
+check, the orbit remains.
 
-**Damit stimmen Sequenzierung und Guidance konstruktiv überein:** das Fliegen hält nur dort eine Linie
-(`SetDirectLeg`), wo die Buchführung erkennen kann, dass die Linie geendet hat.
+**With that, sequencing and guidance agree by construction:** the flying holds a line
+(`SetDirectLeg`) only where the bookkeeping can recognise that the line has ended.
 
-Rückgabe: der gerade erreichte Planindex oder −1. Logzeile: `FBLog::Info("nav", "WP_REACHED", {idx, lat,
-lon, by=capture|passed})`.
+Return: the plan index just reached, or −1. Log line: `FBLog::Info("nav", "WP_REACHED", {idx, lat, lon,
+by=capture|passed})`.
 
 ---
 
-### 8. `FBDisplaySystem` — das generische Default-HUD
+### 8. `FBDisplaySystem` — the generic default HUD
 
-`systems/FBDisplaySystem.h`, `systems/FBDisplaySystem.cpp`. Erster Slot mit ECHTEM statt NoOp-Default —
-deshalb aus `FBSystemSlots.h` herausgewachsen.
+`systems/FBDisplaySystem.h`, `systems/FBDisplaySystem.cpp`. The first slot with a REAL instead of a NoOp
+default — which is why it grew out of `FBSystemSlots.h`.
 
-#### 8.1 Zwei getrennte Einstiegspunkte
+#### 8.1 Two separate entry points
 
-| Methode | Takt | Aufrufer | Zweck |
+| Method | Rate | Caller | Purpose |
 |---|---|---|---|
-| `Run(const FBState&, FBMasterMode, dt)` | 20 Hz (Modul) | `FBF16Module::Run` | periodische Anzeigenlogik (MFD-Seiten, Warnlampen) — Default leer |
-| `BuildHud(const FBState&, const FBHudEnv&, FBHudGeometry&) const` | 1× pro gerendertem Frame | `render/stages/FBHudStage::Encode` | die ganze Symbologie neu erzeugen |
+| `Run(const FBState&, FBMasterMode, dt)` | 20 Hz (module) | `FBF16Module::Run` | periodic display logic (MFD pages, warning lamps) — default empty |
+| `BuildHud(const FBState&, const FBHudEnv&, FBHudGeometry&) const` | 1× per rendered frame | `render/stages/FBHudStage::Encode` | regenerate the whole symbology |
 
-`BuildHud` ist `const`: es LIEST Zustand, es besitzt keinen.
+`BuildHud` is `const`: it READS state, it owns none.
 
-#### 8.2 Arbeitsteilung mit `render/`
+#### 8.2 Division of labour with `render/`
 
 ```
-systems/FBDisplaySystem::BuildHud   → LOGIK/Symbologie, füllt …
-render/FBHudGeometry                → den wiederverwendeten 2D-Geometriepuffer (Pixelkoordinaten)
-render/stages/FBHudStage            → das reine WebGPU-Backend: lädt die Vertexströme VERBATIM hoch
+systems/FBDisplaySystem::BuildHud   → LOGIC/symbology, fills …
+render/FBHudGeometry                → the reused 2D geometry buffer (pixel coordinates)
+render/stages/FBHudStage            → the pure WebGPU backend: uploads the vertex streams VERBATIM
 ```
 
-- `FBHudStage` hält die Display-System-Referenz nur GEBORGT (`SetDisplaySystem`, `nullptr` = leeres
-  HUD); der Client verdrahtet sie aus dem aktiven Modul (`R.SetHudDisplay(&module.Displays())`).
-- `FBHudStage` cached seinerseits eine `FBState`-Kopie (`SetState`) plus `Agl`, baut daraus
-  `FBHudEnv{Width, Height, Agl, Have}` und ruft `BuildHud` — pro Frame, nach `Geometry.Reset()`.
-- `FBHudGeometry` kennt zwei Primitive: **Strokes** (`x,y,d,hw,r,g,b`, 6 Vertices je Segment, analytische
-  Coverage-AA) und **Glyphs** (`x,y,u,v,r,g,b`, 6 je Zeichen, Bitmap-Font-Atlas). Vektoren statt fester
-  Arrays: `Reset()` leert ohne Kapazität freizugeben, nach dem ersten Frame allokiert nichts mehr.
-- `FBHudGeometry::SetClip/ClearClip` ist die Scissor-Klammer für konforme Symbologie (Liang-Barsky für
-  Strokes, Ganz-oder-gar-nicht für Glyphs) — vom generischen Default NICHT benutzt, wohl aber von
-  `FBF16Hud`s Combiner-Apertur.
-- `FBHudEnv` trägt Viewport/AGL/Have-Telemetry, weil das Render-/Telemetrie-Verdrahtung ist und kein
-  Sim-Zustand: es reist getrennt, statt `FBState` für einen Konsumenten aufzublähen.
+- `FBHudStage` holds the display system reference only BORROWED (`SetDisplaySystem`, `nullptr` = empty
+  HUD); the client wires it from the active module (`R.SetHudDisplay(&module.Displays())`).
+- `FBHudStage` for its part caches an `FBState` copy (`SetState`) plus `Agl`, builds
+  `FBHudEnv{Width, Height, Agl, Have}` from it and calls `BuildHud` — per frame, after `Geometry.Reset()`.
+- `FBHudGeometry` knows two primitives: **strokes** (`x,y,d,hw,r,g,b`, 6 vertices per segment, analytic
+  coverage AA) and **glyphs** (`x,y,u,v,r,g,b`, 6 per character, bitmap font atlas). Vectors instead of
+  fixed arrays: `Reset()` clears without releasing capacity, after the first frame nothing allocates any
+  more.
+- `FBHudGeometry::SetClip/ClearClip` is the scissor bracket for conformal symbology (Liang-Barsky for
+  strokes, all-or-nothing for glyphs) — NOT used by the generic default, but by `FBF16Hud`'s combiner
+  aperture.
+- `FBHudEnv` carries viewport/AGL/have-telemetry, because that is render/telemetry wiring and not sim
+  state: it travels separately instead of inflating `FBState` for one consumer.
 
-#### 8.3 Was das Default-HUD zeichnet (MIL-STD-1787-artig)
+#### 8.3 What the default HUD draws (MIL-STD-1787-like)
 
-Geometrie/Positionen verbatim aus dem stillgelegten `FBHudSymbology.h::w3_build_hud` portiert
-(Äquivalenzabsicht: gleiches Pixel-Layout für die behaltenen Elemente).
+Geometry/positions ported verbatim from the retired `FBHudSymbology.h::w3_build_hud` (equivalence intent:
+the same pixel layout for the retained elements).
 
 | Element | Details |
 |---|---|
-| Farbe | monochromes HUD-Grün `(0.30, 1.00, 0.40)` |
-| Waterline/Boresight | feste Zellenreferenz, bildschirmfest, zwei Balken ±10…28 px + V-Spitze 7 px tief |
-| `NO TELEMETRY` | wenn `env.Have == false`: nur Waterline + roter Text, `return` |
-| Konformer Horizont | zwei Segmente neben der Waterline (Lücke ±36 px, Ende ±86 px), gekippt durch DIESELBE Kameraprojektion wie die Szene: `w3_cam_from(yaw,pitch,roll, FOV 80°)`, Mitte = Horizontpunkt geradeaus (az=yaw), zweiter Punkt bei +20° liefert die Neigung |
-| Horizont-DIP | aus `Platform.AltM` (ASL/Krümmungsreferenz), **nicht** aus AGL — mit AGL atmete der Horizont bei Geländerelief im Level-Loiter |
-| Heading-Tape (oben) | 5 px/deg, Ticks alle 5°, Labels alle 30° (`N/03/06/E/…`), Schiene ±200 px, Fenster ±45°, Kastenwert `%03.0f` + Up-Caret |
-| Steerpoint-Marker | Dreieck + `SP` am Offset `Platform.HomeBearingDeg` (nasenrelativ), auf ±44° geklemmt |
-| GS-Tape (links, x=70) | 5 px je Einheit **m/s**, Ticks alle 5, Labels alle 10, Schiene ±150 px, Kastenwert + Caret, Label `GS` |
-| ALT-Tape (rechts, x=W−70) | 1,5 px je **Meter**, Ticks alle 10 m, Labels alle 20 m, Schiene ±150 px, Kastenwert + `<`-Caret, Label `ASL` |
-| AGL/VS | unter dem ALT-Kasten: `AGL%4.0f` (aus `env.Agl`), `VS%+4.0f` (aus `Platform.VsMs`) |
+| Colour | monochrome HUD green `(0.30, 1.00, 0.40)` |
+| Waterline/boresight | fixed airframe reference, screen-fixed, two bars ±10…28 px + V tip 7 px deep |
+| `NO TELEMETRY` | when `env.Have == false`: only waterline + red text, `return` |
+| Conformal horizon | two segments beside the waterline (gap ±36 px, end ±86 px), tilted through the SAME camera projection as the scene: `w3_cam_from(yaw,pitch,roll, FOV 80°)`, centre = horizon point straight ahead (az=yaw), a second point at +20° gives the tilt |
+| Horizon DIP | from `Platform.AltM` (ASL/curvature reference), **not** from AGL — with AGL the horizon breathed over terrain relief in a level loiter |
+| Heading tape (top) | 5 px/deg, ticks every 5°, labels every 30° (`N/03/06/E/…`), rail ±200 px, window ±45°, box value `%03.0f` + up caret |
+| Steerpoint marker | triangle + `SP` at the offset `Platform.HomeBearingDeg` (nose-relative), clamped to ±44° |
+| GS tape (left, x=70) | 5 px per unit **m/s**, ticks every 5, labels every 10, rail ±150 px, box value + caret, label `GS` |
+| ALT tape (right, x=W−70) | 1.5 px per **metre**, ticks every 10 m, labels every 20 m, rail ±150 px, box value + `<` caret, label `ASL` |
+| AGL/VS | below the ALT box: `AGL%4.0f` (from `env.Agl`), `VS%+4.0f` (from `Platform.VsMs`) |
 
-Alle Werte kommen aus `state.Platform` — der Default liest KEINEN anderen Block (kein AirData, kein Nav,
-kein RadarAlt). Er ist in SI beschriftet (m/s, m), nicht in kt/ft; die musterspezifischen Einheiten und
-Formate sind Sache des Overrides.
+All values come from `state.Platform` — the default reads NO other block (no AirData, no Nav, no
+RadarAlt). It is labelled in SI (m/s, m), not in kt/ft; the type-specific units and formats are the
+override's business.
 
-#### 8.4 Der Override
+#### 8.4 The override
 
-`FBF16Module` komponiert **nicht** diesen Default, sondern `modules/f16/displays/FBF16Hud` (die echte
-F-16-Symbologie). Der generische Default bleibt der Fallback für Clients ohne lebendes Modul — z. B.
-`FBAppNative.cpp`s No-Module-Screenshot-Modus (`static FBDisplaySystem hudDisplay;`).
+`FBF16Module` composes **not** this default but `modules/f16/displays/FBF16Hud` (the real F-16
+symbology). The generic default remains the fallback for clients without a living module — e.g.
+`FBAppNative.cpp`'s no-module screenshot mode (`static FBDisplaySystem hudDisplay;`).
 
 ---
 
-### 9. `FBAirframeControls` — was die Hände des Piloten anfassen
+### 9. `FBAirframeControls` — what the pilot's hands touch
 
-`systems/FBAirframeControls.h/.cpp`. Interface + NoOp-Default in EINER Klasse (das
-`FBSystemSlots.h`-Muster), plus die reale Ownship-Implementierung daneben.
+`systems/FBAirframeControls.h/.cpp`. Interface + NoOp default in ONE class (the `FBSystemSlots.h`
+pattern), plus the real ownship implementation alongside.
 
-#### 9.1 Der Vertrag
+#### 9.1 The contract
 
-Alles, was ein Pilot jenseits von Stick/Throttle (`FBFlightControl`) und Guidance-Zielen
-(`FBAutopilot`) bedient:
+Everything a pilot operates beyond stick/throttle (`FBFlightControl`) and guidance targets
+(`FBAutopilot`):
 
-| Kommando | Wertebereich | JSBSim-Property (via `FBFdm`) |
+| Command | Value range | JSBSim property (via `FBFdm`) |
 |---|---|---|
-| `SetGear(bool down)` | — | `gear/gear-cmd-norm` (0/1; das Modell fährt kinematisch) |
+| `SetGear(bool down)` | — | `gear/gear-cmd-norm` (0/1; the model travels kinematically) |
 | `SetSpeedbrake(double)` | 0…1 | `fcs/speedbrake-cmd-norm` |
-| `SetWheelBrakes(l, r)` | je 0…1 | `fcs/left-brake-cmd-norm`, `fcs/right-brake-cmd-norm` |
+| `SetWheelBrakes(l, r)` | each 0…1 | `fcs/left-brake-cmd-norm`, `fcs/right-brake-cmd-norm` |
 | `SetNosewheelSteer(double)` | −1…1 | `fcs/steer-cmd-norm` |
-| `EngineStart()` / `EngineCutoff()` | — | `FGPropulsion::SetStarter`/`SetCutoff` (alle Triebwerke) |
+| `EngineStart()` / `EngineCutoff()` | — | `FGPropulsion::SetStarter`/`SetCutoff` (all engines) |
 
-| Rückmeldung | Bedeutung |
+| Feedback | Meaning |
 |---|---|
-| `GetWeightOnWheels()` | modellweites WOW — eine Ja/Nein-Frage, keine Aufschlüsselung je Fahrwerk (die gehört einem künftigen Fahrwerkssystem) |
-| `GetGearPosition()` | 0 = ein … 1 = aus, kinematisch verzögert |
-| `GetSpeedbrake()` | 0…1, verzögerter Readback |
-| `GetGrossWeightLbs()` | Live-Abfluggewicht — Eingang für `FBPilot`s Rotationsgeschwindigkeits-Tabelle |
-| `GetEngineRunning(int idx)` | läuft/läuft nicht |
+| `GetWeightOnWheels()` | model-wide WOW — a yes/no question, no breakdown per gear leg (that belongs to a future landing gear system) |
+| `GetGearPosition()` | 0 = up … 1 = down, kinematically delayed |
+| `GetSpeedbrake()` | 0…1, delayed readback |
+| `GetGrossWeightLbs()` | live gross weight — input for `FBPilot`'s rotation speed table |
+| `GetEngineRunning(int idx)` | running/not running |
 
-NoOp-Default: alle Setter tun nichts, `GetWeightOnWheels()` liefert `false`, alle Zahlen 0.
+NoOp default: all setters do nothing, `GetWeightOnWheels()` returns `false`, all numbers 0.
 
-#### 9.2 `FBJsbsimAirframeControls` — die reale Ownship-Implementierung
+#### 9.2 `FBJsbsimAirframeControls` — the real ownship implementation
 
-- **Jeder Setter reicht direkt an EINE geborgte `FBFdm` weiter, jeder Getter liest DIESELBE Property
-  zurück.** Kein Schattenzustand: eine kinematische Fahrwerksfahrt oder ein WOW-Umschlag ist in dem
-  Moment sichtbar, in dem das FDM ihn meldet.
-- Die `FBFdm&` ist **konstruktor-injiziert und nie null** — die Zuordnung dieses Objekts zu EINEM
-  Airframe steht für seine ganze Lebensdauer fest. Genau deshalb ist jede Methode ein reiner Forward
-  ohne „gibt es ein FDM"-Zweig.
-- Es ist **airframe-agnostisch**: die benutzten `FBFdm`-Methoden sind generische FGFCS-/
-  FGGroundReactions-/FGPropulsion-Anbindungen, also kann jedes JSBSim-geflogene Modul es
-  wiederverwenden, nicht nur die F-16.
-- Verdrahtet wird es in `FBModule::AttachFdm`: das Modul TAUSCHT den NoOp-Default gegen die reale
-  Instanz aus (`AirframeCtrl = std::make_unique<FBJsbsimAirframeControls>(fdm);`).
+- **Every setter forwards directly to ONE borrowed `FBFdm`, every getter reads the SAME property back.**
+  No shadow state: a kinematic gear travel or a WOW transition is visible the moment the FDM reports it.
+- The `FBFdm&` is **constructor-injected and never null** — the assignment of this object to ONE airframe
+  is fixed for its whole lifetime. Precisely for that reason every method is a pure forward without an
+  "is there an FDM" branch.
+- It is **airframe-agnostic**: the `FBFdm` methods used are generic FGFCS/FGGroundReactions/FGPropulsion
+  bindings, so every JSBSim-flown module can reuse it, not only the F-16.
+- It is wired in `FBModule::AttachFdm`: the module EXCHANGES the NoOp default for the real instance
+  (`AirframeCtrl = std::make_unique<FBJsbsimAirframeControls>(fdm);`).
 
-#### 9.3 Warum der Pilot die Zelle NUR hierüber liest
+#### 9.3 Why the pilot reads the airframe ONLY through this
 
-Aus `FBPilot.h`s Signatur-Banner:
+From `FBPilot.h`'s signature banner:
 
-> Der Pilot fasst nie ein FDM an — er kennt keines und kann keines erreichen. Genau das hält diese
-> generische Schicht **airframe-agnostisch UND instanz-agnostisch** (Multi-Unit).
+> The pilot never touches an FDM — it knows none and can reach none. Exactly that keeps this generic
+> layer **airframe-agnostic AND instance-agnostic** (multi-unit).
 
-- Ein Pilot, der an dieser Schnittstelle vorbei ins FDM griffe, wäre an EINE konkrete
-  FDM-Implementierung und an EINE Instanz davon gebunden.
-- Das Handle reist **pro Tick** mit dem Rest der wahrgenommenen Welt (`const FBAirframeControls&`,
-  `st`, `plan`, `runway`), statt bei der Konstruktion gebunden zu werden — ein Modul komponiert seinen
-  Piloten lange bevor ein Airframe existiert.
-- Abgrenzung, präzise: **Zellen-ZUSTAND** (Fahrwerk, WOW, Gewicht, Triebwerk) kommt ausschließlich über
-  dieses Interface; **Pose/Fahrt** liest der Pilot aus dem `const fb_fdm_state& st` derselben Signatur;
-  **Avionik** ausschließlich über den Kommandobus. Ein `const FBWorld*` stand früher in der Signatur,
-  wurde nie gelesen und ist entfernt worden: ein Pfad zur Grundwahrheit, der darauf wartete, benutzt zu
-  werden.
-- Der Rückweg ist derselbe Kanal: `FBPilotCommands` trägt `std::optional`-Felder, und das Modul ruft
-  den passenden Setter NUR, wenn ein Feld gesetzt ist — „nicht gesetzt" heißt „der Pilot fasst diese
-  Bedienung gerade nicht an", was die meisten Ticks für die meisten Bedienungen zutrifft.
+- A pilot reaching past this interface into the FDM would be bound to ONE concrete FDM implementation and
+  to ONE instance of it.
+- The handle travels **per tick** with the rest of the perceived world (`const FBAirframeControls&`,
+  `st`, `plan`, `runway`) instead of being bound at construction — a module composes its pilot long
+  before an airframe exists.
+- The demarcation, precisely: **airframe STATE** (gear, WOW, weight, engine) comes exclusively through
+  this interface; **pose/speed** the pilot reads from the `const fb_fdm_state& st` of the same signature;
+  **avionics** exclusively through the command bus. A `const FBWorld*` used to stand in the signature, was
+  never read and has been removed: a path to ground truth waiting to be used.
+- The way back is the same channel: `FBPilotCommands` carries `std::optional` fields, and the module
+  calls the matching setter ONLY if a field is set — "not set" means "the pilot is not touching this
+  control right now", which is true for most ticks for most controls.
 
-#### 9.4 Telemetrie
+#### 9.4 Telemetry
 
-`FBAirframeControls` ist selbst `FBTelemetrySource` (`"airframe"`) — über DIESELBEN virtuellen Getter,
-die jeder Aufrufer benutzt. Deshalb funktioniert sie unverändert für den NoOp-Default UND für
-`FBJsbsimAirframeControls`; keiner von beiden überschreibt Telemetrie. Spalten: `gearPos`, `wow`,
-`speedbrake`.
+`FBAirframeControls` is itself an `FBTelemetrySource` (`"airframe"`) — through the SAME virtual getters
+every caller uses. That is why it works unchanged for the NoOp default AND for
+`FBJsbsimAirframeControls`; neither of them overrides telemetry. Columns: `gearPos`, `wow`, `speedbrake`.
 
 ---
 
-### 10. Die noch leeren Slots
+### 10. The still-empty slots
 
-`systems/FBSystemSlots.h`. „NoOp-Default" heißt hier: die Klasse existiert, ist instanziierbar, wird
-vom Modul besessen und im Takt aufgerufen — ihr `Run()` ist leer.
+`systems/FBSystemSlots.h`. "NoOp default" here means: the class exists, is instantiable, is owned by the
+module and called at its rate — its `Run()` is empty.
 
-| Klasse | Signatur | Was hineingehört |
+| Class | Signature | What belongs in it |
 |---|---|---|
-| `FBInputSystem` | `Run(FBMasterMode mode, double dt)` | HOTAS (SSC+TQS) + ICP: routet Stick-/Schalterereignisse nach dem aktiven Master-Mode. **Input-Routing ist Modul-Autorität, nicht global.** NoOp, bis ein Modul echten Input bindet. |
-| `FBPropulsionSystem` | `Run(const fb_fdm_state &s, double dt)` | Triebwerks-SYSTEM-Logik ÜBER dem rohen FDM (F110+DEEC-Zustand, BINGO/JOKER-Rufe, EPU). **JSBSims eigenes Antriebsmodell treibt den Schub bereits** — hier legt sich das Triebwerksmanagement darüber. |
-| `FBWeaponSystem` | `Run(FBMasterMode, const FBWorld*, double dt)` | historischer Stub für SMS/CCIP/CCRP/Gun; **überholt** durch `FBStoresSystem`/`FBGunSystem` (s. Offene Punkte) |
+| `FBInputSystem` | `Run(FBMasterMode mode, double dt)` | HOTAS (SSC+TQS) + ICP: routes stick/switch events according to the active master mode. **Input routing is module authority, not global.** NoOp until a module binds real input. |
+| `FBPropulsionSystem` | `Run(const fb_fdm_state &s, double dt)` | engine SYSTEM logic ABOVE the raw FDM (F110+DEEC state, BINGO/JOKER calls, EPU). **JSBSim's own propulsion model already drives the thrust** — engine management layers on top of it here. |
+| `FBWeaponSystem` | `Run(FBMasterMode, const FBWorld*, double dt)` | historical stub for SMS/CCIP/CCRP/gun; **superseded** by `FBStoresSystem`/`FBGunSystem` (see Gaps) |
 
-**Kosten:** ein nicht fälliger NoOp-Slot kostet einen Throttle-Vergleich, ein fälliger einen leeren
-virtuellen Aufruf. Keine Heap-Allokation pro Frame, kein Dispatch in der inneren 100-Hz-Mathematik.
+**Cost:** a NoOp slot that is not due costs one throttle comparison, one that is due costs an empty
+virtual call. No heap allocation per frame, no dispatch in the inner 100 Hz maths.
 
-**Der geborgte `const FBWorld*`** ist bereits in der Signatur, obwohl niemand ihn liest: Sensoren/Waffen/
-Defensiv bekommen die Welt read-only pro Tick. Ein Waffensystem, das echte Munition spawnt, bräuchte
-einen MUTIERBAREN Weltpfad — der kommt mit der ersten realen Implementierung und wurde nicht
-spekulativ vorgebaut. (Die reale Lösung ist inzwischen eine andere: das System legt einen
-`FBStoreRelease` in eine Warteschlange, der BESITZER spawnt — s. `weapons-and-damage.md`.)
+**The borrowed `const FBWorld*`** is already in the signature although nobody reads it: sensors/weapons/
+defensive get the world read-only per tick. A weapon system that spawns real ordnance would need a
+MUTABLE world path — that comes with the first real implementation and was not built speculatively. (The
+real solution has meanwhile turned out different: the system places an `FBStoreRelease` in a queue, the
+OWNER spawns — see `weapons-and-damage.md`.)
 
 ---
 
-### 11. Blockbus-Verträge dieser Systeme
+### 11. Block bus contracts of these systems
 
-| Block (`core/FBAvionicsBlocks.h`) | Schreiber | Hier dokumentierte Leser |
+| Block (`core/FBAvionicsBlocks.h`) | Writer | Readers documented here |
 |---|---|---|
-| `Platform` | das Modul (aus dem `st`, das es bekommt) bzw. der Client (`FBSimUnit::HudState`) | `FBDisplaySystem::BuildHud` |
-| `AirData` | `FBAirDataSystem` | HUD, Kommandobus-G-Sperre (`CmdBus_.SetLoadFactor`) |
-| `RadarAlt` | `FBRadarAltimeter` | `FBWarningSystem`, HUD, Pilot |
+| `Platform` | the module (from the `st` it gets) resp. the client (`FBSimUnit::HudState`) | `FBDisplaySystem::BuildHud` |
+| `AirData` | `FBAirDataSystem` | HUD, command bus g lock (`CmdBus_.SetLoadFactor`) |
+| `RadarAlt` | `FBRadarAltimeter` | `FBWarningSystem`, HUD, pilot |
 | `Nav` | `FBNavSystem` | HUD, `FBF16FireControl` |
-| `Cruise` | `FBNavSystem` (zweite Nachricht) | HUD |
-| `Warnings` | `FBWarningSystem` | HUD, Pilot |
-| `Airframe` | `FBAirframeControls` (über das Modul, das den FDM-Handle für die Tanksummen hält) | `FBNavSystem` (Gear→Cruise-Freeze), `FBWarningSystem` |
+| `Cruise` | `FBNavSystem` (second message) | HUD |
+| `Warnings` | `FBWarningSystem` | HUD, pilot |
+| `Airframe` | `FBAirframeControls` (via the module, which holds the FDM handle for the tank totals) | `FBNavSystem` (gear→cruise freeze), `FBWarningSystem` |
 | `Ufc` | `modules/f16/FBF16Ufc` | `FBWarningSystem` |
 
-`FBState::NowS` ist die EINE Bus-Zeitreferenz: das Modul stempelt sie einmal pro `Run()` aus seiner
-eigenen Sim-Uhr, bevor es irgendeinen Slot taktet, und jeder Blockkopf-Zeitstempel kommt daher. Eine
-Uhr für den ganzen Bus ist das, was das Alter eines Blocks beantwortbar macht, ohne dass jedes System
-sein eigenes „jetzt" führt.
+`FBState::NowS` is the ONE bus time reference: the module stamps it once per `Run()` from its own sim
+clock, before it ticks any slot, and every block header timestamp comes from there. One clock for the
+whole bus is what makes the age of a block answerable without every system keeping its own "now".
 
-Die Blockstatus werden als eigene Telemetriespalten veröffentlicht (`blk_*`, `FBStateBusTelemetry`) —
-weil ein gehaltener Wert sonst wie ein frischer aussieht.
+The block statuses are published as telemetry columns of their own (`blk_*`, `FBStateBusTelemetry`) —
+because a held value otherwise looks like a fresh one.

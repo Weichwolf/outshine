@@ -3,9 +3,11 @@
 **Sources** (cite the tag, never a bare number):
 
 - **`DCS-FM p.NN`** = `doc/DCS MIG-29 Flight Manual EN.pdf` (Eagle Dynamics, *DCS: MiG-29 Fulcrum*
-  Flight Manual, FC3-level, 2018, 116 pp). Pages distilled here: **15–20** (general design, TTD
-  table), **69–85** (MiG-29 Weapons: A-A missiles, A-S weapons, rockets), **89–98** (weapons
-  delivery), **116** (the manual's own source list — it is itself a distillation of Russian
+  Flight Manual, FC3-level, 2018, 116 pp). **`NN` is the PRINTED page number** (the one in the page
+  footer) — this manual has six roman-numbered front-matter pages, so **printed = PDF − 6**.
+  Pages distilled here: **9–14** (general design, TTD
+  table), **63–79** (MiG-29 Weapons: A-A missiles, A-S weapons, rockets), **83–92** (weapons
+  delivery), **110** (the manual's own source list — it is itself a distillation of Russian
   monograph literature, see below).
 - **`DCS-EA p.NN`** = `doc/DCS MiG-29A Early Access Manual EN.pdf` (Eagle Dynamics, *DCS: MiG-29
   Fulcrum* Early Access Flight Manual v.09, 2025, 115 pp). Pages distilled here: **11–13**
@@ -22,7 +24,7 @@
 no source · `[GAP]` = not known publicly, not guessed · `[ED-MODEL]` = a statement that is more
 plausibly an Eagle Dynamics modelling decision than a documented aircraft property.
 
-> **Source caveat that applies to this whole file.** `DCS-FM p.116` names its own sources: the
+> **Source caveat that applies to this whole file.** `DCS-FM p.110` names its own sources: the
 > monograph *Aviation and Time* №5/2001, S. Moroz *Frontline fighter MiG-29* (Exprint, 2004),
 > Pavlov/Voylokov 2009, Markovskiy in *M-Hobby* №2(24)/2000, plus airwar.ru. So `DCS-FM` is a
 > **secondary distillation of Russian open literature**, not a flight manual in the T.O. sense. It
@@ -34,24 +36,26 @@ plausibly an Eagle Dynamics modelling decision than a documented aircraft proper
 
 ---
 
-## 1. Inventory — what the 9-12 carries
+## Spec
+
+### 1. Inventory — what the 9-12 carries
 
 | Class | Weapons | Source |
 |---|---|---|
-| Gun | 1 × **GSh-301** (GRAU **9A-4071K**) 30 mm, **150 rounds**, **1,500 rd/min**, in the port LERX/fuselage side ahead of the cockpit | `DCS-FM p.70`, `DCS-EA p.86` |
+| Gun | 1 × **GSh-301** (GRAU **9A-4071K**) 30 mm, **150 rounds**, **1,500 rd/min**, in the port LERX/fuselage side ahead of the cockpit | `DCS-FM p.64`, `DCS-EA p.86` |
 | A-A medium (SARH) | **R-27R** (+ **R-27ER** per `DCS-EA p.86`, see §3.1 caveat) | `DCS-EA p.86` |
 | A-A medium (IR) | **R-27T** (+ **R-27ET** per `DCS-EA p.86`) | `DCS-EA p.86` |
 | A-A short (IR) | **R-73**, **R-60**, **R-60M** | `DCS-EA p.86` |
-| Bombs GP | FAB-100 / **FAB-250** / **FAB-500** (FAB-1500 named in the family text but not as a 9-12 store) | `DCS-FM p.81` |
-| Bombs penetrator | BetAB-500ShP (retarded + rocket-boosted) | `DCS-FM p.81–82` |
-| Bombs cluster | **RBK-250**, **RBK-500** | `DCS-FM p.83` |
+| Bombs GP | FAB-100 / **FAB-250** / **FAB-500** (FAB-1500 named in the family text but not as a 9-12 store) | `DCS-FM p.75` |
+| Bombs penetrator | BetAB-500ShP (retarded + rocket-boosted) | `DCS-FM p.75–76` |
+| Bombs cluster | **RBK-250**, **RBK-500** | `DCS-FM p.77` |
 | Dispenser | **KMGU-2** (8 × BKF cartridges) | `DCS-FM p.77` |
-| Rockets | **S-5** (UB-32 class), **S-8** (B-8M1, 20 rds), **S-24** | `DCS-EA p.98`, `DCS-FM p.84–85` |
+| Rockets | **S-5** (UB-32 class), **S-8** (B-8M1, 20 rds), **S-24** | `DCS-EA p.98`, `DCS-FM p.78–79` |
 | Fuel | 1 × **PTB-1500** centreline (1,500 L) — ferry only | §2.2 |
 
-**Standard air-defence loadout: 2 × R-27R + 4 × R-73** `DCS-FM p.70`.
+**Standard air-defence loadout: 2 × R-27R + 4 × R-73** `DCS-FM p.64`.
 **Guided missiles are carried on six wing hardpoints** `DCS-EA p.86`; the ground-attack role is
-explicitly **secondary** `DCS-FM p.70`.
+explicitly **secondary** `DCS-FM p.64`.
 
 **Not carried by the 9-12:** any guided A-G weapon. *"Originally, MiG-29А and MiG-29С can use only
 unguided bombs and rockets"* `DCS-FM p.74`. There is no laser/TV/ARM store in this airframe's
@@ -60,9 +64,9 @@ inventory — the laser in the nose (KOLS) is a **rangefinder for the sight**, n
 
 ---
 
-## 2. Stations, racks and the release path
+### 2. Stations, racks and the release path
 
-### 2.1 Station map
+#### 2.1 Station map
 
 | FlightBox index | Position | Documented stores | Source / confidence |
 |---|---|---|---|
@@ -72,7 +76,7 @@ inventory — the laser in the nose (KOLS) is a **rangefinder for the sight**, n
 | C | fuselage **centreline** | **PTB-1500** fuel tank, **ferry only** | T3 |
 
 - **Six underwing pylons + one centreline station** is certain and agreed by every source
-  (`DCS-FM p.70` "6 different external stations"; `DCS-EA p.86` "six wing hardpoints").
+  (`DCS-FM p.64` "6 different external stations"; `DCS-EA p.86` "six wing hardpoints").
 - **`[GAP]` The official station NUMBERING is not established by any source consulted.** The 1…6
   ordering above is a FlightBox convention (`[SET]`, left-outboard → right-outboard) chosen to match
   `modules/f16/FBF16Sms`'s left-to-right convention. Do not present it as a MiG-29 fact.
@@ -84,14 +88,14 @@ inventory — the laser in the nose (KOLS) is a **rangefinder for the sight**, n
   the case/link ejection port. Relevant to FlightBox only as a `hardware_precedence` rejection
   reason if ever modelled; **not** confirmed for the 9-12 by a T1–T3 source.
 
-### 2.2 Fuel-tank carriage — a real 9-12 restriction
+#### 2.2 Fuel-tank carriage — a real 9-12 restriction
 
 | Variant | Centreline PTB-1500 | Wing PTB-1150 | Ferry range |
 |---|---|---|---|
-| **9-12** | yes | **no** (inboard pylons not wet) | **2,100 km** `DCS-FM p.20` |
-| 9-13 (series 351+) | yes | yes (2×) | **2,900 km** `DCS-FM p.20` |
+| **9-12** | yes | **no** (inboard pylons not wet) | **2,100 km** `DCS-FM p.14` |
+| 9-13 (series 351+) | yes | yes (2×) | **2,900 km** `DCS-FM p.14` |
 
-`[ABL]` The 800 km ferry-range delta between the two variants in `DCS-FM p.20` is exactly explained
+`[ABL]` The 800 km ferry-range delta between the two variants in `DCS-FM p.14` is exactly explained
 by the T3/T4 statement that the wet inboard pylons arrived with the 9-13 series 351 — two
 independent sources agreeing on a *difference* is stronger than either alone. **A 9-12 loadout in a
 `.fbm` mission must not offer wing tanks.**
@@ -100,18 +104,18 @@ independent sources agreeing on a *difference* is stronger than either alone. **
 gear down. That is a carriage-dependent *flight-control* interlock — model it in the airframe
 controls layer, not in the stores layer.
 
-### 2.3 Racks / launchers
+#### 2.3 Racks / launchers
 
 | Store | Launcher | Source |
 |---|---|---|
 | R-27R/T | **APU-470** rail (same rail for the standard and extended bodies) | `DCS-FM p.67` ("the same rail and ejector launchers are used for both size variants"), T4 for the designation |
-| R-73 | **P-72 / P-72D**, i.e. **APU-73-1 / APU-73-1D** | `DCS-FM p.78` (verbatim) |
+| R-73 | **P-72 / P-72D**, i.e. **APU-73-1 / APU-73-1D** | `DCS-FM p.72` (verbatim) |
 | R-60M | APU-60-1(M) | T4 |
 | S-24 | APU-68 | T4 |
-| S-8 | **B-8M1** pod, **20 rounds** | `DCS-FM p.84`, `DCS-EA p.98` |
+| S-8 | **B-8M1** pod, **20 rounds** | `DCS-FM p.78`, `DCS-EA p.98` |
 | KMGU-2 | BDZ-U beam rack, singly | `DCS-FM p.77` |
 
-### 2.4 The release path — pilot controls that gate every shot
+#### 2.4 The release path — pilot controls that gate every shot
 
 This is the part FlightBox has to reproduce faithfully, because **the MiG-29's store selection is
 structurally different from the F-16's**: there is no per-station stepping and no SMS inventory page.
@@ -143,9 +147,9 @@ because it keeps the core's one-store-one-unit invariant intact `[SET]`.
 
 ---
 
-## 3. Air-to-air missiles
+### 3. Air-to-air missiles
 
-### 3.1 R-27 family (AA-10 Alamo)
+#### 3.1 R-27 family (AA-10 Alamo)
 
 **Family-level facts** — these are the launch *constraints* and matter more for a rebuild than the
 headline ranges `DCS-FM p.67–68`:
@@ -174,7 +178,7 @@ range column **disagree by roughly a factor of two** and are kept separate on pu
 
 - **All four share the same 39 kg expanding-rod warhead**, radar-proximity + impact fuzed
   (`DCS-FM p.68`; T3 corroborates the 39 kg rod warhead across the family — high confidence).
-- **Aspect dependence, quoted for the ER as the family's worked example** `DCS-FM p.72`:
+- **Aspect dependence, quoted for the ER as the family's worked example** `DCS-FM p.66`:
   max forward-hemisphere range **66 km at 10,000 m**, **28 km at 1,000 m**, and
   **rear-hemisphere 10 km at 1,000 m**. `[ABL]` That is a **2.4× altitude factor** and a further
   **2.8× aspect factor** — i.e. the worst case is ~1/6.6 of the headline number. Any DLZ model that
@@ -196,7 +200,7 @@ range column **disagree by roughly a factor of two** and are kept separate on pu
   other on exactly this point. `[ED-MODEL]` Treat R-27ER/ET on a 9-12 as an ED module decision, not
   as an established 9-12 capability; the historically safe 9-12 medium-range fit is **R-27R / R-27T**.
 
-### 3.2 The SARH support obligation — the R's defining tactical property
+#### 3.2 The SARH support obligation — the R's defining tactical property
 
 This is the single most important behavioural difference between this airframe's BVR weapon and the
 F-16's AIM-120, and FlightBox's `systems/FBEngagement` state machine is built around the *opposite*
@@ -216,7 +220,7 @@ assumption. Stated with its source, then its consequences:
 |---|---|---|
 | 1 | **Support time = whole time of flight**, not "flight time minus pitbull range". | `DCS-FM p.65`, direct |
 | 2 | **`[DER]` Worked support time.** Head-on shot at 25 km, own 900 km/h (250 m/s), target 900 km/h; missile average ground speed taken as 700 m/s over the coast phase. Closing rate missile↔target = 700 + 250 = 950 m/s → **t ≈ 26 s of unbroken STT illumination**. For the same 25 km shot the AIM-120 comparison in `doc/f16/weapons.md` ends the shooter's obligation at the 10–20 km activation ring, i.e. after ~5–15 s. | `[DER]` from `DCS-FM p.65`'s 800–1,000 km/h floor and Mach 2–3 boost; **assumptions stated, not measured** |
-| 3 | **Cranking is bounded by the antenna, not by tactics.** The N019's azimuth deviation is **67°** (`DCS-FM p.18`) and STT must stay inside it, so the crank angle is a hard geometric ceiling — unlike the F-16 module's `kCrankDeg = 45°` (gimbal 60° minus reserve), the MiG-29's reserve has to be taken off **67°** and the aircraft may not turn cold **at all** while supporting. | `[ABL]` from `DCS-FM p.18` + consequence 1 |
+| 3 | **Cranking is bounded by the antenna, not by tactics.** The N019's azimuth deviation is **67°** (`DCS-FM p.12`) and STT must stay inside it, so the crank angle is a hard geometric ceiling — unlike the F-16 module's `kCrankDeg = 45°` (gimbal 60° minus reserve), the MiG-29's reserve has to be taken off **67°** and the aircraft may not turn cold **at all** while supporting. | `[ABL]` from `DCS-FM p.12` + consequence 1 |
 | 4 | **No defensive break while supporting.** `systems/FBEngagement`'s `Defend` state (turn beam-on, put own radial velocity in the opponent's Doppler notch) is *mutually exclusive* with supporting an R-27R — beaming breaks the illumination the missile lives on. The F-16 can crank-and-defend; this jet cannot. | `[ABL]` |
 | 5 | **The lock IS the warning.** The shooter is in continuous STT from before launch to impact, so the target's RWR has the full ~26 s to react. `DCS-FM p.65`'s "jousting" is the emergent behaviour: both sides illuminate and neither may turn away first. | `[ABL]` |
 | 6 | **The IR members of the family are the answer to (1)–(5).** R-27T/ET need only pre-launch IR lock (`DCS-FM p.69`), then are fire-and-forget, and `DCS-FM p.68` says explicitly: *"the combined launch of R-27 missiles with different seeker variants increases the resistance to target counter measures."* A mixed R+T load is a doctrine, not a preference. | `DCS-FM p.68–69` |
@@ -228,26 +232,26 @@ changes for this module is (a) the hold duration equals the *full* predicted TOF
 going stupid), and (c) the crank hook is derived from 67°, not 60°. None of that needs new
 architecture — it is three module-level hook values plus one state-transition guard `[SET]`.
 
-### 3.3 R-73 (AA-11 Archer)
+#### 3.3 R-73 (AA-11 Archer)
 
 | Parameter | Value | Source |
 |---|---|---|
-| Launch mass | **105 kg** | `DCS-FM p.78` |
-| Length / Ø | **2.90 m** / **0.17 m** | `DCS-FM p.78` |
-| Wing span / control-surface span | 0.51 m / 0.38 m | `DCS-FM p.78` |
-| Warhead | **7.4 kg** expanding-rod, **blast radius ≈ 3.5 m** | `DCS-FM p.78`, `p.78` (radius) |
-| Fuze | active radio proximity | `DCS-FM p.78` |
-| Motor | single-mode solid propellant | `DCS-FM p.78` |
-| Control | **aerodynamic surfaces + gas-dynamic vanes** (thrust vectoring), ailerons + exhaust vanes driven by a solid gas generator | `DCS-FM p.78` |
-| Autopilot inputs | **α and β sensors mounted ahead of the destabilisers** — the "pine cone" nose section | `DCS-FM p.78` |
-| Range | **0.3 … 20 km**; **30 km forward hemisphere at high altitude** | `DCS-FM p.78` |
-| Max target altitude | 20 km | `DCS-FM p.78` |
-| Max target speed | 2,500 km/h | `DCS-FM p.78` |
-| **Max target g** | **12** | `DCS-FM p.78` |
-| Seeker | **"Mayak" OGS MK-80** (Arsenal, Kiev); acquisition to **60°**, later **gimbal limits raised to 75°**, **max seeker slew rate 60 °/s** | `DCS-FM p.77` |
-| Seeker CCM | pulse-time signal modulation + multi-channel digital processing; extended photodetector sensitivity band | `DCS-FM p.77` |
-| Aimpoint bias | steers to a point **forward of the target's nozzles** — deliberately into the fuselage/cockpit, not the exhaust | `DCS-FM p.77` |
-| Launcher | P-72 / P-72D (APU-73-1 / -1D) | `DCS-FM p.78` |
+| Launch mass | **105 kg** | `DCS-FM p.72` |
+| Length / Ø | **2.90 m** / **0.17 m** | `DCS-FM p.72` |
+| Wing span / control-surface span | 0.51 m / 0.38 m | `DCS-FM p.72` |
+| Warhead | **7.4 kg** expanding-rod, **blast radius ≈ 3.5 m** | `DCS-FM p.72`, `p.72` (radius) |
+| Fuze | active radio proximity | `DCS-FM p.72` |
+| Motor | single-mode solid propellant | `DCS-FM p.72` |
+| Control | **aerodynamic surfaces + gas-dynamic vanes** (thrust vectoring), ailerons + exhaust vanes driven by a solid gas generator | `DCS-FM p.72` |
+| Autopilot inputs | **α and β sensors mounted ahead of the destabilisers** — the "pine cone" nose section | `DCS-FM p.72` |
+| Range | **0.3 … 20 km**; **30 km forward hemisphere at high altitude** | `DCS-FM p.72` |
+| Max target altitude | 20 km | `DCS-FM p.72` |
+| Max target speed | 2,500 km/h | `DCS-FM p.72` |
+| **Max target g** | **12** | `DCS-FM p.72` |
+| Seeker | **"Mayak" OGS MK-80** (Arsenal, Kiev); acquisition to **60°**, later **gimbal limits raised to 75°**, **max seeker slew rate 60 °/s** | `DCS-FM p.71` |
+| Seeker CCM | pulse-time signal modulation + multi-channel digital processing; extended photodetector sensitivity band | `DCS-FM p.71` |
+| Aimpoint bias | steers to a point **forward of the target's nozzles** — deliberately into the fuselage/cockpit, not the exhaust | `DCS-FM p.71` |
+| Launcher | P-72 / P-72D (APU-73-1 / -1D) | `DCS-FM p.72` |
 | Missile airframe g | T4: >60 g manoeuvre capability | T4, cross-check only |
 
 **Helmet-sight coupling (Shchel-3UM)** — `DCS-EA p.92`, and this is the number that matters:
@@ -268,7 +272,7 @@ handed a target far enough off-boresight that it will find it alone; the Aphid c
 the missile (75° gimbal).** For FlightBox that means the *cueing* limit, not the seeker limit, is
 the module hook that decides whether a shot is offered.
 
-### 3.4 R-60M (AA-8 Aphid)
+#### 3.4 R-60M (AA-8 Aphid)
 
 | Parameter | Value | Source |
 |---|---|---|
@@ -290,7 +294,7 @@ inventory by a wide margin — in `core/FBDamageModel` terms, the isotropic frag
 produce degradation where the R-73 produces a kill, and that falls out of the existing damage model
 without a single new constant.
 
-### 3.5 Launch-envelope symbology — what the DLZ actually shows
+#### 3.5 Launch-envelope symbology — what the DLZ actually shows
 
 `DCS-EA p.88–89` (HUD lock-mode elements) + `DCS-FM p.66` (the concept behind them):
 
@@ -314,18 +318,18 @@ gun/close-in scale changes again at ~1 km `DCS-EA p.96`.
 three, so this jet needs no new FBState field, only its own forward-integration of the R-27's
 performance table `[SET]`.
 
-### 3.6 Radar/IR mode → weapon availability
+#### 3.6 Radar/IR mode → weapon availability
 
 | WCS mode | Sensor | Detection range | Notes | Source |
 |---|---|---|---|---|
-| **RAD** (search/TWS/lock) | N019 | 70 km FH / 35 km RH; 10 targets tracked; antenna ±67° az, +60/−38° el | in close combat the antenna moves **in the vertical axis only** | `DCS-FM p.18` |
+| **RAD** (search/TWS/lock) | N019 | 70 km FH / 35 km RH; 10 targets tracked; antenna ±67° az, +60/−38° el | in close combat the antenna moves **in the vertical axis only** | `DCS-FM p.12` |
 | RAD **CLOSE CMBT** | N019 vertical bar | **5.4 nm … 1,500 ft** | stable auto-track at equal speeds and in lag → supports manoeuvring combat; lock command must be held ≤ 2 s | `DCS-EA p.89` |
 | **IR** (KOLS) | opto-electronic + laser | **13.5 … 5.4 nm**; with thermal countermeasures **5.4 … 1.6 nm** | *"turn on IR mode after takeoff"*; used to approach **without emitting** | `DCS-EA p.91` |
 | IR **CC** | KOLS | as RAD CC | attack in rear hemisphere at aspect up to 3/4 | `DCS-EA p.92` |
 | **HELM** | HMS | see §3.3 | ±60° az, +60/−14° el | `DCS-EA p.92` |
 | **OPT** | manual designation | — | designation handed to radar, KOLS **and** missile seeker from the control button | `DCS-EA p.93` |
 | **BS** (boresight) | missile seeker only | — | **degraded mode** for when the WCS fails; fixed crosshair; **no capture indication on the HUD**, only the voice message "Launch permitted" plus an audio tone for R-60M/R-73 | `DCS-EA p.94` |
-| **RETICLE** | fixed grid | — | not a combat mode; a calibrated fallback image | `DCS-EA p.94`, `DCS-FM p.67` |
+| **RETICLE** | fixed grid | — | not a combat mode; a calibrated fallback image | `DCS-EA p.94`, `DCS-FM p.61` |
 
 **Radar tracking floor** `DCS-EA p.87` — a genuine Doppler-notch specification, and the one place
 this manual gives the number FlightBox's `systems/FBRadarSystem` already models abstractly:
@@ -343,20 +347,20 @@ is documented rather than invented.
 
 ---
 
-## 4. GSh-301 30 mm cannon
+### 4. GSh-301 30 mm cannon
 
 Built to be read next to `doc/f16/weapons.md` §4.1 (M61A1) — same rows, so the two guns are
 comparable at a glance.
 
-### 4.1 Documented parameters
+#### 4.1 Documented parameters
 
 | Parameter | GSh-301 (9A-4071K) | Source / tier |
 |---|---|---|
 | Calibre / cartridge | **30 × 165 mm** | T3 (weaponsystems.net) |
-| Type | **single-barrel**, short-recoil / gas operated, water-evaporation cooled | `DCS-FM p.70` ("single-barreled"), T3/T4 for the operating principle |
-| Installation | port side of the nose/LERX section, **built into the airframe** ahead of the cockpit | `DCS-FM p.70`, `DCS-EA p.86` |
-| **Ammunition capacity** | **150 rounds** | `DCS-FM p.70`, `DCS-EA p.86` |
-| **Rate of fire** | **1,500 rd/min** | `DCS-FM p.70`, `DCS-EA p.86`; T3 gives the hardware range **1,500–1,800 rd/min** |
+| Type | **single-barrel**, short-recoil / gas operated, water-evaporation cooled | `DCS-FM p.64` ("single-barreled"), T3/T4 for the operating principle |
+| Installation | port side of the nose/LERX section, **built into the airframe** ahead of the cockpit | `DCS-FM p.64`, `DCS-EA p.86` |
+| **Ammunition capacity** | **150 rounds** | `DCS-FM p.64`, `DCS-EA p.86` |
+| **Rate of fire** | **1,500 rd/min** | `DCS-FM p.64`, `DCS-EA p.86`; T3 gives the hardware range **1,500–1,800 rd/min** |
 | **Muzzle velocity** | **860 m/s** | T3 (weaponsystems.net); **T4 says 900 m/s** — contested, use 860 and flag |
 | Projectile mass | **390 g** | T4 (multiple, consistent) |
 | Complete round mass | ≈ 832 g | T4 — **weak**, wanted for ammo-mass modelling |
@@ -367,7 +371,7 @@ comparable at a glance.
 | Effective range, ground | 1,200 … 1,800 m | T3 |
 | Dispersion | **`[GAP]`** — no T1–T3 figure found | — |
 
-### 4.2 The manual's own firing-range numbers — an independent cross-check
+#### 4.2 The manual's own firing-range numbers — an independent cross-check
 
 `DCS-EA p.97`, gun employment against an air target:
 
@@ -383,7 +387,7 @@ comparable at a glance.
 landing on the same envelope. This is the highest-confidence gun number in the file, and it is
 exactly the interval `core/FBGunBallistics` must reproduce.
 
-### 4.3 Ballistic calibration anchor — the A-G correction table
+#### 4.3 Ballistic calibration anchor — the A-G correction table
 
 `DCS-EA p.100` gives, for **RETICLE (fixed-grid) mode**, the *angular correction in the aircraft's
 plane of symmetry* for each unguided weapon at a stated condition. It is the only quantitative
@@ -405,7 +409,7 @@ says **14**. The factor ~2.3 gap is expected and instructive: the real correctio
 `core/FBGunBallistics`, not as an input**: a correct drag model fired from these exact conditions
 must land near 14, and if it lands near 6 the drag retardation is missing.
 
-### 4.4 Derived firing model (for `core/FBGun.h` / `FBGunBallistics`)
+#### 4.4 Derived firing model (for `core/FBGun.h` / `FBGunBallistics`)
 
 All `[DER]` from §4.1, formulas stated:
 
@@ -434,7 +438,7 @@ bulk of a burst on it requires a full cone ≤ 12.5 mrad, i.e. a **half-angle �
 `kDispersionHalfMrad = 6.0 [SET]` in the module header **with this derivation written next to it**,
 and mark it as the first number to replace when GAF T.O. 1F-MIG29-1 becomes available.
 
-### 4.5 Gun sight modes
+#### 4.5 Gun sight modes
 
 | Method | Condition | Procedure | Source |
 |---|---|---|---|
@@ -450,16 +454,16 @@ the no-radar default. Same two mechanisms, opposite defaults.
 
 ---
 
-## 5. Air-to-ground stores
+### 5. Air-to-ground stores
 
-### 5.1 Free-fall bombs
+#### 5.1 Free-fall bombs
 
 | Store | Mass / class | Documented detail | Release limits | Source |
 |---|---|---|---|---|
-| FAB-100/250/500 (M-62 family) | 100 / 250 / 500 kg | HE GP, against ground objects, equipment, fortifications, bridges | **release speed 500–1,000 km/h** | `DCS-FM p.81` |
+| FAB-100/250/500 (M-62 family) | 100 / 250 / 500 kg | HE GP, against ground objects, equipment, fortifications, bridges | **release speed 500–1,000 km/h** | `DCS-FM p.75` |
 | FAB-500 M-62 detail | 2,470 mm × 400 mm, **filling 201 kg** | low-drag 1962 model for external carriage | — | T3 |
 | FAB-250 M-62 detail | filling **100 kg** | — | — | T3 |
-| **BetAB-500ShP** | 500 kg class | **parachute-retarded, then rocket-boosted** to pierce concrete; heavier casing, buried detonation | **150–1,000 m altitude, 550–1,100 km/h** | `DCS-FM p.81–82` |
+| **BetAB-500ShP** | 500 kg class | **parachute-retarded, then rocket-boosted** to pierce concrete; heavier casing, buried detonation | **150–1,000 m altitude, 550–1,100 km/h** | `DCS-FM p.75–76` |
 | **RBK-250 AO-1** | 273 kg, 2,120 × 325 mm | **150 fragmentation bomblets**, 150 kg of submunitions; **footprint up to 4,800 m²** | — | `DCS-FM p.76` |
 | **RBK-500 AO-2.5RTM** | 504 kg, 2,500 × 450 mm | **108 × AO-2.5RTM** bomblets (2.5 kg, 150 × 90 mm), 270 kg of submunitions | **500–2,300 km/h, 300 m – 10 km** | `DCS-FM p.77` |
 | **KMGU-2** | dispenser | **8 × BKF cartridges**; inter-cartridge interval **0.005 / 0.2 / 1.0 / 1.5 s**; typical fills 12 × AO-2.5RT, 12 × PTM-1 mines, or 156 × PFM-1C | **50–150 m, 500–900 km/h** | `DCS-FM p.77` |
@@ -476,17 +480,17 @@ the numbers above are the **catalogue** entries (`core/FBStore.h`: kind, key, mo
 area, life) and the **release limits** that `FBStoresSystem` must reject outside of. The 500–1,000
 km/h envelope for FAB bombs is a *rejectable condition* (`out_of_context`), not a guideline.
 
-### 5.2 Unguided rockets
+#### 5.2 Unguided rockets
 
 | Rocket | Calibre | Documented detail | Source |
 |---|---|---|---|
-| **S-8** | 80 mm | **20 per station in B-8M1**; 6 stabiliser fins deployed by a piston driven by motor exhaust; motor burn **0.69 s**; **dispersion/CEP = 0.3 % of range**; **max effective launch range 2 km**; S-8TsM is the smoke/marking variant | `DCS-FM p.84–85` |
+| **S-8** | 80 mm | **20 per station in B-8M1**; 6 stabiliser fins deployed by a piston driven by motor exhaust; motor burn **0.69 s**; **dispersion/CEP = 0.3 % of range**; **max effective launch range 2 km**; S-8TsM is the smoke/marking variant | `DCS-FM p.78–79` |
 | S-8KOM (representative round) | 80 mm | 1,570 mm, **11.3 kg**, warhead **3.6 kg**, **610 m/s**, range 1,300–4,000 m | T3 |
 | **S-24** | 240 mm | **2.33 m, 235 kg, 123 kg blast-fragmentation warhead**, range ~2–3 km; S-24B uses low-smoke BN-K propellant | T3; named as MiG-29 store at `DCS-EA p.98` |
 | **S-5** | 57 mm | named as a MiG-29 store; no per-round data in either manual | `DCS-EA p.98` |
 | B-8M1 pod | — | 2,760 mm, Ø 520 mm, **160 kg empty**, 20 rounds | T3 |
 
-**Class-level rocket facts** `DCS-FM p.84`: motor burns **0.7–1.1 s**, accelerating to
+**Class-level rocket facts** `DCS-FM p.78`: motor burns **0.7–1.1 s**, accelerating to
 **2,100–2,800 km/h**; thereafter pure ballistic flight; calibres 57–370 mm; typical launch
 **600–1,000 km/h at 10°–30° dive**; fired in salvos.
 
@@ -494,7 +498,7 @@ km/h envelope for FAB bombs is a *rejectable condition* (`out_of_context`), not 
 that is a **6 m CEP**, and it is the only dispersion number in either manual for **any** weapon —
 strictly better sourced than the gun's (§4.4 `[SET]`).
 
-### 5.3 A-G delivery modes
+#### 5.3 A-G delivery modes
 
 | Mode | Applies to | Mechanism | Source |
 |---|---|---|---|
@@ -531,11 +535,11 @@ starts the flight parameters must be **held constant** until the presence symbol
 
 ---
 
-## 6. Loadout templates
+### 6. Loadout templates
 
 | Role | Loadout | Basis |
 |---|---|---|
-| **Air defence (standard)** | 2 × R-27R (inboard) + 4 × R-73 (mid/outboard) + 150 rds | `DCS-FM p.70` verbatim |
+| **Air defence (standard)** | 2 × R-27R (inboard) + 4 × R-73 (mid/outboard) + 150 rds | `DCS-FM p.64` verbatim |
 | Air defence, CM-resistant | 1 × R-27R + 1 × R-27T + 4 × R-73 | `[ABL]` from `DCS-FM p.68`'s mixed-seeker doctrine |
 | Air defence, legacy | 2 × R-27R + 4 × R-60M | T3/T4 (period photos, model-kit pylon sets pair APU-470 with APU-60) |
 | CAP with tank | as standard + PTB-1500 centreline — **note: speedbrake inhibited** (`DCS-EA p.57`), gun possibly inhibited on early jets (T4) | `[ABL]` |
@@ -546,56 +550,50 @@ starts the flight parameters must be **held constant** until the presence symbol
 `[DER]` **Standard-loadout mass check.** 2 × 253 + 4 × 105 = **926 kg** of missiles, plus 150 rounds
 × 0.832 kg ≈ **125 kg** of ammunition = **1,051 kg**. Empty 10,900 + internal fuel 3,200 + pilot/kit
 ~100 + 1,051 = **15,251 kg**, against the documented **normal takeoff weight of 15,300 kg**
-(`DCS-FM p.20`). **Agreement to 0.3 %** — this closes the loop between the weapons file and the
+(`DCS-FM p.14`). **Agreement to 0.3 %** — this closes the loop between the weapons file and the
 mass budget in `flight-model-spec.md` §3, and it is the strongest single consistency check either
 file contains.
 
 ---
 
-## 7. Technical depth — researched, with tiers
+---
 
-### 7.1 What the two DCS manuals disagree about
+## State
 
-| Item | `DCS-FM` | `DCS-EA` | Verdict |
-|---|---|---|---|
-| Gun designation | "GSh-30-1" `p.70` | "GSh-301 (9A-4071K)" `p.86` | Same weapon; **9A-4071K** is the GRAU index. Use GSh-301. |
-| R-27ER/ET on a 9-12 | "the Su-27 and its variants can be equipped" `p.68–69` | listed in the 9-12's own armament `p.86` | `[ED-MODEL]`, see §3.1 |
-| Range units | km | nm / kts / ft | `DCS-EA` is a metricated German-manual descendant; conversions in this file are stated in both |
-| Radar detection | 70 km FH / 35 km RH `p.18` | not restated | Use `DCS-FM`; T4 gives 60–70 km with a design goal of 100 km never achieved |
+**Nothing in this file is implemented.** FlightBox has no MiG-29 module, no
+`sim/src/modules/mig29/` and no JSBSim MiG-29 model. The airframe exists only as a **spec-first
+contract** — [`../flightbox/aircraft/mig29.md`](../flightbox/aircraft/mig29.md), whose own status
+line reads *"spec only. Nothing is built."* Everything below is therefore a **forward commitment**,
+not a description of code.
 
-### 7.2 Numbers taken from research, with tier
+| Roadmap stage | What it will take from this file |
+|---|---|
+| **R3** — knowledge base | *running*: this file is the R3 deliverable for the armament |
+| **R6** — asymmetric weapons + RCS | the primary consumer: R-27R/T, R-73 and R-60M are the "enemy missile family" R6 names, each to become its own unit with its own module and FDM, exactly as the AIM-120 is today. The DLZ vocabulary of §3.5 maps onto the existing `Raero`/`Rtr`/`Rmin` block |
+| **R7** — enemy units at BVR scale | the **R-27R support obligation** (§3.2) is the doctrine-defining property: ~26 s of illumination against the AIM-120's 5–15 s, a crank ceiling bounded by the antenna at 67°, and Support/Defend therefore **mutually exclusive** |
+| **R8** — JSBSim model | station geometry and store masses/drag areas (§2) are what a MiG-29 `FBStoresSystem` would mount as point masses and an external force; the GSh-301 row set (§4) is built to line up with the M61A1 table `core/FBGun.h` already carries |
 
-| Fact | Value | Tier | Note |
-|---|---|---|---|
-| GSh-301 muzzle velocity | **860 m/s** | T3 | T4 says 900 m/s |
-| GSh-301 projectile mass | 390 g | T4 | consistent across sources; **wanted at T2** |
-| GSh-301 barrel life | 2,000 rd | T3 | |
-| R-60M launch mass | 43.5 kg | T3/T4 | not in either manual |
-| R-60M off-boresight | 17° or ±20° | T4 | contested |
-| R-27 family brochure ranges | 60/95/50/90 km | T3 (Vympel export data via airforce-technology) | **head-on, high altitude, ideal** — not a DLZ |
-| R-27 warhead | 39 kg rod, radar-proximity + impact | T3 | agrees with `DCS-FM` |
-| S-8KOM round data | 11.3 kg / 3.6 kg / 610 m/s | T3 | |
-| S-24 round data | 235 kg / 123 kg / 2–3 km | T3 | |
-| FAB-500 M-62 filler | 201 kg | T3 | |
-| Max external load | 3,000 kg | T3 (Jane's-derived) | one T4 says 3,500 kg |
+**The scale caveat that governs every row** (from the module file): the MiG-29 is a
+**BVR-scale** opponent — what has to be right is what he can reach, how fast he gets there, what he
+can see and what he can shoot. A failing knife-fight comparison is not a defect of the model; a wrong
+envelope is.
 
-### 7.3 Rebuild notes — mapping to FlightBox types
-
-| FlightBox element | What this file supplies | What is still missing |
-|---|---|---|
-| `core/FBStore.h` catalogue | mass, warhead mass, guided/unguided flag, model name per store | **drag area (CdA)** for every store — must come from each store's own JSBSim model, as for Mk-82 |
-| `core/FBGun.h` | muzzle velocity 860 m/s, 1,500 rd/min, 150-round drum | dispersion cone (`[SET]` 6 mrad, §4.4) |
-| `core/FBGunBallistics` | acceptance target: 14 thousandths at 1,500 m / 432 kts / 20° dive (§4.3) | 30 mm drag coefficient vs Mach |
-| `systems/FBStoresSystem` | pair-release semantics (§2.4); release-envelope rejections (§5.1) | per-station weight limits `[GAP]` |
-| `systems/FBRadarSystem` | range-scheduled Doppler notch: 81 kts > 8 nm, 27 kts < 8 nm (§3.6) | the N019's actual PRF set |
-| `systems/FBEngagement` | SARH support-to-impact rule, 67° crank ceiling, Defend/Support exclusivity (§3.2) | R-27R time-of-flight table |
-| `FireControl` block | Dr max1 / Dr max2 / Dr min ↔ Raero / Rtr / Rmin (§3.5) | the R-27's own performance table for forward integration |
-| `core/FBDamageModel` | warhead masses 39 / 7.4 / 3.5 kg; R-60M fuze radius 5 m; R-73 blast radius 3.5 m | R-27 fuze burst radius `[GAP]` |
-| `FBPilot` Attack phase | the 1.5–4 s post-designation pickle window (§5.3) | — |
+Roadmap chain: [`../flightbox/roadmap.md`](../flightbox/roadmap.md) — **R3** (this knowledge base,
+running) → **R6** (asymmetric weapons + RCS) → **R7** (enemy units, MiG-29 at BVR scale) → **R8**
+(the JSBSim MiG-29 model). Nothing after R3 has begun.
 
 ---
 
-## 8. Open gaps — not guessed
+## Gaps
+
+**Source gaps** — the file's own itemised list follows, section number unchanged. The
+governing caveat is at the top of the file: `DCS-FM` is itself a **secondary distillation of Russian
+open literature**, treated as a good T3 and never as T1; the **GAF T.O. 1F-MIG29-1** is the document
+that would settle most `[GAP]` rows and was not available to this pass.
+
+**Implementation gaps** — none statable yet: nothing is built (see State).
+
+### 8. Open gaps — not guessed
 
 1. **`[GAP]` Official station numbering and per-station load limits.** Six wing pylons + centreline
    is certain; everything finer is convention.
@@ -621,10 +619,60 @@ file contains.
 
 ---
 
-## Sources
+---
+
+## Knowledge
+
+§7 carries the researched depth *and* the cross-manual conflict registrations
+(§7.1) — both values kept, never silently resolved.
+
+### 7. Technical depth — researched, with tiers
+
+#### 7.1 What the two DCS manuals disagree about
+
+| Item | `DCS-FM` | `DCS-EA` | Verdict |
+|---|---|---|---|
+| Gun designation | "GSh-30-1" `p.64` | "GSh-301 (9A-4071K)" `p.86` | Same weapon; **9A-4071K** is the GRAU index. Use GSh-301. |
+| R-27ER/ET on a 9-12 | "the Su-27 and its variants can be equipped" `p.68–69` | listed in the 9-12's own armament `p.86` | `[ED-MODEL]`, see §3.1 |
+| Range units | km | nm / kts / ft | `DCS-EA` is a metricated German-manual descendant; conversions in this file are stated in both |
+| Radar detection | 70 km FH / 35 km RH `p.12` | not restated | Use `DCS-FM`; T4 gives 60–70 km with a design goal of 100 km never achieved |
+
+#### 7.2 Numbers taken from research, with tier
+
+| Fact | Value | Tier | Note |
+|---|---|---|---|
+| GSh-301 muzzle velocity | **860 m/s** | T3 | T4 says 900 m/s |
+| GSh-301 projectile mass | 390 g | T4 | consistent across sources; **wanted at T2** |
+| GSh-301 barrel life | 2,000 rd | T3 | |
+| R-60M launch mass | 43.5 kg | T3/T4 | not in either manual |
+| R-60M off-boresight | 17° or ±20° | T4 | contested |
+| R-27 family brochure ranges | 60/95/50/90 km | T3 (Vympel export data via airforce-technology) | **head-on, high altitude, ideal** — not a DLZ |
+| R-27 warhead | 39 kg rod, radar-proximity + impact | T3 | agrees with `DCS-FM` |
+| S-8KOM round data | 11.3 kg / 3.6 kg / 610 m/s | T3 | |
+| S-24 round data | 235 kg / 123 kg / 2–3 km | T3 | |
+| FAB-500 M-62 filler | 201 kg | T3 | |
+| Max external load | 3,000 kg | T3 (Jane's-derived) | one T4 says 3,500 kg |
+
+#### 7.3 Rebuild notes — mapping to FlightBox types
+
+| FlightBox element | What this file supplies | What is still missing |
+|---|---|---|
+| `core/FBStore.h` catalogue | mass, warhead mass, guided/unguided flag, model name per store | **drag area (CdA)** for every store — must come from each store's own JSBSim model, as for Mk-82 |
+| `core/FBGun.h` | muzzle velocity 860 m/s, 1,500 rd/min, 150-round drum | dispersion cone (`[SET]` 6 mrad, §4.4) |
+| `core/FBGunBallistics` | acceptance target: 14 thousandths at 1,500 m / 432 kts / 20° dive (§4.3) | 30 mm drag coefficient vs Mach |
+| `systems/FBStoresSystem` | pair-release semantics (§2.4); release-envelope rejections (§5.1) | per-station weight limits `[GAP]` |
+| `systems/FBRadarSystem` | range-scheduled Doppler notch: 81 kts > 8 nm, 27 kts < 8 nm (§3.6) | the N019's actual PRF set |
+| `systems/FBEngagement` | SARH support-to-impact rule, 67° crank ceiling, Defend/Support exclusivity (§3.2) | R-27R time-of-flight table |
+| `FireControl` block | Dr max1 / Dr max2 / Dr min ↔ Raero / Rtr / Rmin (§3.5) | the R-27's own performance table for forward integration |
+| `core/FBDamageModel` | warhead masses 39 / 7.4 / 3.5 kg; R-60M fuze radius 5 m; R-73 blast radius 3.5 m | R-27 fuze burst radius `[GAP]` |
+| `FBPilot` Attack phase | the 1.5–4 s post-designation pickle window (§5.3) | — |
+
+---
+
+### Sources
 
 - `doc/DCS MIG-29 Flight Manual EN.pdf` — Eagle Dynamics, *DCS: MiG-29 Fulcrum Flight Manual*, 2018.
-  Pages 15–20, 69–85, 89–98, 116.
+  Printed pages 9–14, 63–79, 83–92, 110 (= PDF pages 15–20, 69–85, 89–98, 116).
 - `doc/DCS MiG-29A Early Access Manual EN.pdf` — Eagle Dynamics, *DCS: MiG-29 Fulcrum Flight Manual,
   Early Access v.09*, 2025. Pages 11–13, 59–60, 63, 86–105.
 - [weaponsystems.net — 30 mm Gryazev-Shipunov GSh-301](https://weaponsystems.net/system/98-30mm+Gryazev-Shipunov+GSh-301) (T3)

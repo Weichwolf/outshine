@@ -10,11 +10,11 @@
 This file was **SHALLOW**; per task priority this pass raises it to the **same depth as `weapons.md`**
 (CMDS is now in-scope, not "nice to have" — task explicitly elevates it).
 
----
+## Spec
 
-## 1. Chuck's Guide distillation (unchanged from previous pass)
+### 1. Chuck's Guide distillation (unchanged from previous pass)
 
-### RWR — AN/ALR-56M Radar Warning Receiver
+#### RWR — AN/ALR-56M Radar Warning Receiver
 Threat Warning Azimuth (TWA) indicator; symbols also on the HMD. Powered via the **RWR power button**
 (runs a BIT). A status-change tone sounds when a new emitter symbol appears.
 
@@ -34,7 +34,7 @@ Position on the scope = relative bearing (own nose = top); distance from center 
 - **TWA auxiliary panel**: RWR source switch (enables RWR data for CMDS SEMI/AUTO), Jammer source
   switch, **SEARCH** button ('S' search-radar symbols), **LOW ALTITUDE** button, ACT/PWR indicator.
 
-### CMDS — AN/ALE-47 Countermeasures Dispenser System
+#### CMDS — AN/ALE-47 Countermeasures Dispenser System
 - **Chaff**: passive radar-reflective. **Flares**: heat decoys. FCDs in the body fairing; ground crew
   sets loadout, **max 120 combined** (typical 60 chaff / 60 flare).
 - **6 programs**: PRGM knob selects 1–4; **PRG 5** = slap switch (left sidewall, always); **PRG 6** =
@@ -48,9 +48,9 @@ Position on the scope = relative bearing (own nose = top); distance from center 
 
 ---
 
-## 2. ED EA Guide — official system logic (primary source for rebuild)
+### 2. ED EA Guide — official system logic (primary source for rebuild)
 
-### 2.1 RWR — AN/ALR-56M (ED EA Guide p.634–637)
+#### 2.1 RWR — AN/ALR-56M (ED EA Guide p.634–637)
 
 **Antenna geometry & coverage** (ED, precise): 2× high-band antennas + a dual-blade low-band antenna
 per side (4 high-band total), giving **360° azimuth coverage but only ±45° in elevation**. This creates
@@ -99,7 +99,7 @@ plays an audio tone over the THREAT channel; track/missile-guidance transitions 
 - **POWER** toggles the whole ALR-56M; **ACT/PWR** button shows POWER (powered) vs ACTIVITY (any threat
   currently in track/missile-guidance mode) as two independently-lit states on one button.
 
-### 2.2 CMDS — AN/ALE-47 (ED EA Guide p.638–643)
+#### 2.2 CMDS — AN/ALE-47 (ED EA Guide p.638–643)
 
 **CMDS Control Panel** (Left Auxiliary Console):
 - **Status display** 3-state: **NO GO** (powered, malfunctioned) / **GO** (ready) / **DISPENSE RDY**
@@ -152,7 +152,7 @@ schema a FlightBox CMDS model needs to reproduce a "program" as data, not hand-t
 Program 5 = CHAFF/FLARE Dispense button (left cockpit wall, independent of the SSC CMS switch).
 OTHER1/OTHER2 DED pages exist but **have no function** — chaff/flare are the only expendables modeled.
 
-### 2.3 Electronic Countermeasures (ED EA Guide p.644–649)
+#### 2.3 Electronic Countermeasures (ED EA Guide p.644–649)
 
 **Physical principle** (ED's own explanation, consistent with public EW literature — high confidence):
 a radar depends on receiving its own reflected pulse strongly enough to process range/position against
@@ -184,14 +184,14 @@ radar-system-specific, not a fixed number.
   i.e. this is documented as a **simulation simplification**, not modeled per-real-pod fidelity; worth
   knowing if FlightBox ever wants to differentiate pod behavior beyond what DCS itself models.
 
-### 2.4 Hands-On Controls (ED EA Guide p.649)
+#### 2.4 Hands-On Controls (ED EA Guide p.649)
 CMS (4-way, SSC) is the sole stick-mounted defensive control; its FWD/AFT/RIGHT/Left-slap semantics
 are fully mode-dependent per the CMDS-mode table in §2.2 (MAN/SEMI/AUTO each remap the same 4
 directions to different actions — already tabulated above, not repeated). The **CHAFF/FLARE Dispense
 button** (left cockpit wall, above throttle) is a **hardware-independent** path to Program 5, usable in
 MAN/SEMI/AUTO regardless of SSC CMS state.
 
-## 3. Appendix B — ALIC codes & RWR symbols (ED EA Guide p.680–683)
+### 3. Appendix B — ALIC codes & RWR symbols (ED EA Guide p.680–683)
 
 Structural note only (the full table is large — dozens of emitter entries — and belongs in a future
 threat-database extraction pass, not hand-transcribed here): ED provides a lookup table mapping
@@ -205,15 +205,56 @@ and other threat symbols (Appendix B tables — pp. 680–683). **TODO (future p
 full ID↔RWR↔system table into a structured reference if/when the RWR/threat-classification system is
 actually implemented — not needed for the current flight+rendering scope.
 
----
+## State
 
-## 4. Technical depth (researched + derived — deepened this pass, no longer SHALLOW)
+Both halves are built: the RWR as the **exact mirror image of the radar** (it asks "who is looking at
+me", reading only published emissions), and the CMDS as a real program state machine.
+
+| Item of this reference | FlightBox | Where |
+|---|---|---|
+| RWR as a passive receiver on published emissions | **built** — `FBRwrSystem` reads the emitter signature other units publish and checks two geometries: does the sender's beam cover this jet, and can this jet's own antenna hear from that direction | [`../flightbox/sim/sensors.md`](../flightbox/sim/sensors.md) §5 |
+| **No range on the RWR** | **built as a property**: a threat carries relative bearing, mode, estimated emitter class, a "new" window and lethality — never a distance, because a receiver measures power, not range | same |
+| AN/ALR-56M antenna geometry | **built** — 360° azimuth but only ±45° elevation, i.e. a real blind zone that own manoeuvring opens up | [`../flightbox/aircraft/f16.md`](../flightbox/aircraft/f16.md) §6 |
+| PRIORITY / OPEN display caps | **built** as an explicit *display* limit over a detection that keeps running | same |
+| ALE-47: magazine, programs, salvo/burst schema | **built** — 60/60 magazine (120 combined max), BINGO 10/10, six programs whose *schema* comes from §2.2 and whose *values* are marked `[SET]` | [`../flightbox/sim/sensors.md`](../flightbox/sim/sensors.md) §6 |
+| CMDS mode state machine OFF/STBY/MAN/SEMI/AUTO/BYP | **built**, including consent semantics: SEMI asks per dispense, AUTO once per mode change and then repeats itself; automatic dispensing stops at chaff BINGO | same |
+| Dispensing over the command bus (CMS) | **built** — `CmDispense` / `CmConsent` / `CmdsMode`, rejectable (`depleted` on an empty magazine) | same |
+| Chaff that actually works | **built** — each cartridge leaves a cloud with an ageing curve at the release position; whether it *defeats* anything is decided by the opposing radar's Doppler notch, never by a probability roll | same, §4 |
+| SEMI/AUTO triggering on the **warning**, not on the truth | **built** — what stands in the RWR blind zone gets no answer | same |
+| Flares | **counted, ineffective** — there is no IR seeker for them to defeat, and the code says so | same, Gaps 2 |
+| ECM / jammer, ECM-XMIT interaction with CMDS modes, burnthrough | **not implemented** — the whole §2.3 interaction is absent | same, Gaps 7 |
+| MWS / missile approach warning | **not implemented**; a launch is noticed only through a supporting radar or an active seeker in the beam — which matches the source (MWS not functional on Block 50) | same, Gaps 8 |
+| Threat library (ALIC codes, symbol table) | **not implemented** — classification passes the emitter class through, so the estimate is always right; Appendix B is not transcribed by the source either | same, Gaps 6 |
+
+## Gaps
+
+**Source gaps** (this file vs. its sources)
+- §4.3 above ("What remains a genuine gap") is the itemised list, left in place under Knowledge so its
+  numbering stays citable.
+- **Appendix B (ALIC codes & RWR symbols, ED pp.680–683) is summarised structurally, not transcribed** —
+  §3 above says so explicitly; no symbol/code correlation table exists in this file.
+- ED pp.633–649 and Chuck Part 12 are processed.
+
+**Implementation gaps** (this reference vs. FlightBox)
+- *Modelled:* RWR geometry and its blind zone, threat presentation without range, the display caps, the
+  ALE-47 magazine/program/mode machine, chaff as a physical cloud judged by the opposing radar.
+- *Partially:* the RWR — azimuth blanking by the own airframe is not modelled (360° really is 360°), the
+  "new"-window is derived from a continuously radiating volume rather than pulsed illumination, and one
+  receiver-sensitivity constant serves every emitter class.
+- *Not at all:* ECM/jammer and its interaction with CMDS modes, MWS, the threat/ALIC library, flare
+  effectiveness, expendable types beyond chaff/flare.
+
+## Knowledge
+
+### 4. Technical depth (researched + derived — deepened this pass, no longer SHALLOW)
+
+*Section number kept for cross-reference stability (`§2.1`, `§2.2` and `§4.x` are cited from the code.)*
 
 Confidence tiers: **T1** official/declassified mil docs · **T2** manufacturer datasheets · **T3**
 established literature/databases (FAS, GlobalSecurity, DTIC-adjacent) · **T4** community/wiki
 (cross-check only, flagged).
 
-### 4.1 AN/ALR-56M — components & coverage
+#### 4.1 AN/ALR-56M — components & coverage
 - **Architecture** (T3, FAS/man.fas.org "AN/ALR-56M Radar Warning Receiver"): fast-scanning
   superheterodyne receiver + superhet controller + analysis processor + low-band receiver/power supply
   + **four quadrant (high-band) receivers**. Matches ED's own antenna diagram (§2.1) exactly — 2 high-
@@ -227,7 +268,7 @@ established literature/databases (FAS, GlobalSecurity, DTIC-adjacent) · **T4** 
     Microwave Journal). Not independently load-bearing for FlightBox simulation, but useful context
     for why the antenna/coverage figures resemble the F-15 family's.
 
-### 4.2 AN/ALE-47 — capacity & cartridge facts
+#### 4.2 AN/ALE-47 — capacity & cartridge facts
 - **Physical capacity**: T3/T4 sources (GlobalSecurity AN/ALE-47 page, Wikipedia) describe payload
   modules divided into **3 zones of 10 cartridges each per dispenser module** (≈30/module), with total
   aircraft-installed capacity commonly cited in the **32–120 round range depending on airframe/
@@ -245,7 +286,7 @@ established literature/databases (FAS, GlobalSecurity, DTIC-adjacent) · **T4** 
   values and, per the task's source-hierarchy guidance, a design/doctrine decision (not physically
   derivable), so a gap here would be marked, but ED already provides the complete, load-bearing schema.
 
-### 4.3 What remains a genuine gap (not guessed)
+#### 4.3 What remains a genuine gap (not guessed)
 - Full ALIC/RWR/threat-system correlation table (Appendix B) — structurally described (§3) but not
   transcribed; needed only once threat classification is actually implemented.
 - Confirmed F-16C Block-50 CMDS cartridge type/mix (RR-1xx chaff variant, M206 vs XM21x flare variant)
@@ -260,7 +301,7 @@ established literature/databases (FAS, GlobalSecurity, DTIC-adjacent) · **T4** 
   dispersal, seduction-probability curves) become measurable in `fb-gym` telemetry rather than
   needing a literature citation — noting this for the later combat-systems phase, not the current one.
 
-## Sources
+### Sources
 - **ED EA Guide** (primary this pass): pp. 633–649 (§2 above), pp. 680–683 (§3 above).
 - **Chuck's Guide**: Part 12, pp. 574–599 (§1 above, unchanged from previous pass).
 - T3 web research (§4): man.fas.org / GlobalSecurity.org "AN/ALR-56M Radar Warning Receiver",

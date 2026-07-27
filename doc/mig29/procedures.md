@@ -19,7 +19,9 @@ weight/temperature/altitude schedule at all (§7).
 
 ---
 
-## 1. Quick reference — the numbers a pilot module needs
+## Spec
+
+### 1. Quick reference — the numbers a pilot module needs
 
 | Phase | Parameter | Value | Source |
 |---|---|---|---|
@@ -64,7 +66,7 @@ must therefore be a **different schedule**, not a re-tuned F-16 one.
 
 ---
 
-## 2. Preflight interior check (**FULL**) — `DCS-EA p.71–72`
+### 2. Preflight interior check (**FULL**) — `DCS-EA p.71–72`
 Prerequisites: wheel chocks placed, **ground electric power** connected (all starting operations use
 ground power).
 
@@ -100,13 +102,13 @@ ground power).
 24. Confirm **FAST PREP** lamp lit (navigation fast-initialisation complete).
 25. **RADIO** switch ON.
 
-## 3. Engine start — `DCS-EA p.72–73`
+### 3. Engine start — `DCS-EA p.72–73`
 See `engines-fuel.md` §5.1 for the full sequence and the monitored parameters. Preconditions specific to
 this phase: **RECORD** on · canopy closed and locked (pin recessed, no AEKRAN signal, LOCK CANOPY out) ·
 **ejection handle ARMED** · **Start-Up Mode Switch = START BOTH** · both throttles **IDLE**. Then
 **GND START**. Ground power is disconnected once the engines are running.
 
-## 4. Post-engine-start (**FULL**) — `DCS-EA p.73–75`
+### 4. Post-engine-start (**FULL**) — `DCS-EA p.73–75`
 1. **Trim check**: pitch full forward → aft until **STAB TRIM NEUTRAL** lights; aileron full right →
    left until **AIL TRIM NEUTRAL** lights; rudder right until **RUD TRIM NEUTRAL** extinguishes, then
    back to neutral.
@@ -137,7 +139,7 @@ this phase: **RECORD** on · canopy closed and locked (pin recessed, no AEKRAN s
 16. **Clear the AEKRAN queue** — press AEKRAN CALL until QUEUE is out and MEMORY is on.
 17. Request chock removal.
 
-## 5. Taxi — `DCS-EA p.75–76`
+### 5. Taxi — `DCS-EA p.75–76`
 - Verify no obstacles; no aircraft crossing; taxiing traffic **≥300 ft** away.
 - **Brake check before moving**: hold brakes, advance to **80 % RPM**; the aircraft should remain
   stationary (*may crawl when wet*). Release.
@@ -153,7 +155,7 @@ this phase: **RECORD** on · canopy closed and locked (pin recessed, no AEKRAN s
   correction).
 - Line up, stop **10…15 m** after crossing the threshold, aligned with the centreline.
 
-## 6. Takeoff — `DCS-EA p.76–78`
+### 6. Takeoff — `DCS-EA p.76–78`
 
 **Power choice** (`DCS-EA p.76`): takeoff is normally at **maximum (military) throttle**; afterburner
 is used for training or with external payloads. The decision must weigh aircraft mass, OAT, pressure
@@ -161,7 +163,7 @@ altitude, wind, runway length and barrier availability; **maximum abort speed an
 the deciding indicators**. AB always improves performance and safety margins, **but aircraft handling is
 more difficult if an engine fails during an AB takeoff than during a military-power takeoff.**
 
-### 6.1 Normal takeoff
+#### 6.1 Normal takeoff
 1. **Flaps down**; confirm visually, in the mirrors and on the IP-52.
 2. Check roll, pitch, heading and course indicators; altimeter zeroed.
 3. Start the stopwatch and flight timer.
@@ -181,7 +183,7 @@ more difficult if an engine fails during an AB takeoff than during a military-po
 13. At **270 kts** set **RPM 83–85 %**, climb at **985…1,480 ft/min**.
 14. Hold **270 kts** until clear of the airbase control zone.
 
-### 6.2 Afterburner takeoff (`DCS-EA p.78`)
+#### 6.2 Afterburner takeoff (`DCS-EA p.78`)
 - **AB detents must be unlocked** before max AB is available.
 - Advance smoothly to max AB **after brake release**. **Maintain directional control with the rudder
   pedals — do not use wheel braking for directional control on the roll.**
@@ -192,15 +194,15 @@ more difficult if an engine fails during an AB takeoff than during a military-po
   **both RPM, difference < 4 %** → **ramps fully closed** → observe thrust increase at intake opening
   (**≈108 kts**) → **aft stick for rotation to 10° pitch** → **liftoff 140–150 kts, fly off at 10°**.
 
-### 6.3 Crosswind takeoff (`DCS-EA p.78`)
+#### 6.3 Crosswind takeoff (`DCS-EA p.78`)
 - The aircraft **weather-vanes into the wind**; controllable with **nose-gear steering and rudder**, and
   the tendency **decreases as speed increases**.
 - **Takeoff attitude slightly lower than normal → liftoff speed ≈ +8 kts.**
 - After liftoff, **crab into the wind, wings level**, to hold runway alignment.
 
-## 7. Landing — `DCS-EA p.79–80`
+### 7. Landing — `DCS-EA p.79–80`
 
-### 7.1 Normal landing
+#### 7.1 Normal landing
 1. Enter the pattern per local procedure (**pattern speed ≥300 kts**, altitude as directed locally).
 2. Adjust power to reach the allowable gear-lowering airspeed.
 3. **Extend gear and flaps/LEF on the downwind leg** (**200…220 kts**).
@@ -218,7 +220,7 @@ more difficult if an engine fails during an AB takeoff than during a military-po
 maintain/attain landing attitude and **deploy the chute immediately upon touchdown** to prevent further
 bouncing."*
 
-### 7.2 Crosswind landing
+#### 7.2 Crosswind landing
 1. Compensate carefully in the pattern to avoid under/overshooting the final turn.
 2. **≤15 kts crosswind**: **5…10° low wing** plus crab.
 3. **>15 kts**: **wings-level crab**.
@@ -231,7 +233,7 @@ bouncing."*
 8. **Brakes at 115 kts.** Counter weather-vaning with **aileron into the wind and rudder**.
 9. *If the chute is used and excessive weather-vaning results — **jettison the chute**.*
 
-### 7.3 Brake chute (`DCS-EA p.60`)
+#### 7.3 Brake chute (`DCS-EA p.60`)
 *"The landing drag chute enormously reduces the required runway distance at landing. To use it or not
 is solely a pilot's decision."* **Mandatory** for:
 - Landing **immediately after takeoff**
@@ -249,17 +251,47 @@ genuinely different rollout model from the F-16's aerobraking. A MiG-29 `FBPilot
 deploy decision (from runway state + weight + slat state), a deploy command over the bus, a drag
 increment, and a **jettison** path.
 
-## 8. Technical depth (researched)
-Little research value was found beyond the manuals for this file. Two community data points, both
-**T4**, both about the *DCS module* rather than the jet, and both **not used as facts** here:
-- Community discussion reports MiG-29 manuals quoting **250–260 km/h landing speed** while the common
-  practice is **280–290 km/h** (≈135–140 kts vs ≈150–157 kts) — consistent in order of magnitude with
-  `DCS-EA`'s **140 kts touchdown**, and with the Russian technical description's **"landing speed
-  250–260 km/h"** (T4, `military.wikireading.ru`).
-- No T1–T3 performance manual (takeoff/landing distance charts, V-speed schedules) was located in this
-  pass.
+### 10. Variant notes
+No variant-specific procedure differences are documented. The 9-13's higher empty weight and fuel load
+would shift the speed schedule, but **no source quantifies it** — see gap 1.
 
-## 9. Open gaps (honest)
+---
+
+## State
+
+**Nothing in this file is implemented.** FlightBox has no MiG-29 module, no
+`sim/src/modules/mig29/` and no JSBSim MiG-29 model. The airframe exists only as a **spec-first
+contract** — [`../flightbox/aircraft/mig29.md`](../flightbox/aircraft/mig29.md), whose own status
+line reads *"spec only. Nothing is built."* Everything below is therefore a **forward commitment**,
+not a description of code.
+
+| Roadmap stage | What it will take from this file |
+|---|---|
+| **R3** — knowledge base | *running*: this file is the R3 deliverable for ground and pattern procedures |
+| **R6** — asymmetric weapons | nothing directly |
+| **R7** — enemy units at BVR scale | §1 is directly consumable by an `FBPilot` phase machine, and its numbers differ enough from the F-16 schedule that **reusing the F-16 numbers would simply be wrong**; the brake chute (§7.3) is a normal-procedure, decision-gated device with a 175 kt separation speed and six mandatory-use cases |
+| **R8** — JSBSim model | takeoff/landing speeds and distances are envelope anchors the model is measured against |
+
+**The scale caveat that governs every row** (from the module file): the MiG-29 is a
+**BVR-scale** opponent — what has to be right is what he can reach, how fast he gets there, what he
+can see and what he can shoot. A failing knife-fight comparison is not a defect of the model; a wrong
+envelope is.
+
+Roadmap chain: [`../flightbox/roadmap.md`](../flightbox/roadmap.md) — **R3** (this knowledge base,
+running) → **R6** (asymmetric weapons + RCS) → **R7** (enemy units, MiG-29 at BVR scale) → **R8**
+(the JSBSim MiG-29 model). Nothing after R3 has begun.
+
+---
+
+## Gaps
+
+**Source gaps** — the file's own itemised list follows, section number unchanged.
+Performance tables are **SHALLOW**; the **GAF T.O. 1F-MIG29-1** would supply them at T1
+(`PROGRESS.md`).
+
+**Implementation gaps** — none statable yet: nothing is built (see State).
+
+### 9. Open gaps (honest)
 1. **No weight/temperature/pressure-altitude schedules of any kind.** The only weight qualifier in the
    entire source set is *"for landing with maximum landing weight add 5 to 10 kts"* and *"liftoff occurs
    at 140 to 150 kts **depending on aircraft gross weight**"* — with no table behind either. The task's
@@ -279,6 +311,16 @@ Little research value was found beyond the manuals for this file. Two community 
    shutdown chapter at all.
 8. **Crosswind limits** — the technique is scaled by crosswind but **no limit value** is given.
 
-## 10. Variant notes
-No variant-specific procedure differences are documented. The 9-13's higher empty weight and fuel load
-would shift the speed schedule, but **no source quantifies it** — see gap 1.
+---
+
+## Knowledge
+
+### 8. Technical depth (researched)
+Little research value was found beyond the manuals for this file. Two community data points, both
+**T4**, both about the *DCS module* rather than the jet, and both **not used as facts** here:
+- Community discussion reports MiG-29 manuals quoting **250–260 km/h landing speed** while the common
+  practice is **280–290 km/h** (≈135–140 kts vs ≈150–157 kts) — consistent in order of magnitude with
+  `DCS-EA`'s **140 kts touchdown**, and with the Russian technical description's **"landing speed
+  250–260 km/h"** (T4, `military.wikireading.ru`).
+- No T1–T3 performance manual (takeoff/landing distance charts, V-speed schedules) was located in this
+  pass.

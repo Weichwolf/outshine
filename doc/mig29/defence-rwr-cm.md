@@ -18,7 +18,9 @@ has none, and the S's Gardeniya is described only qualitatively.
 
 ---
 
-## 1. The one architectural thing to internalise
+## Spec
+
+### 1. The one architectural thing to internalise
 
 The SPO-15 is **entirely analogue**: application-specific circuits, no processor, **one azimuth channel
 processed at a time, clockwise** (`DCS-EA p.111`). Where the F-16's ALR-56M is described as a
@@ -36,12 +38,12 @@ modelled as **a set of independent receivers whose physics leaks into the displa
 
 ---
 
-## 2. SPO-15LM "Beryoza" — the receiver (**FULL**)
+### 2. SPO-15LM "Beryoza" — the receiver (**FULL**)
 
 Designation in the airframe list: **L006LM "Berjoza"** (`DCS-FM p.13`). Purpose: warn of RF emission
 **in the centimetre band** for defence against hostile fire-control radars (`DCS-EA p.105`).
 
-### 2.1 What it reports (`DCS-EA p.105`)
+#### 2.1 What it reports (`DCS-EA p.105`)
 - Azimuth to the illumination event
 - Mode of the illuminating radar (**search or track**)
 - **Type** of the threat
@@ -51,7 +53,7 @@ Designation in the airframe list: **L006LM "Berjoza"** (`DCS-FM p.13`). Purpose:
   power**
 - **Main threat elevation** relative to own aircraft
 
-### 2.2 Antenna geometry and azimuth resolution (`DCS-EA p.105–106`) — **the core model**
+#### 2.2 Antenna geometry and azimuth resolution (`DCS-EA p.105–106`) — **the core model**
 | Property | Value |
 |---|---|
 | Coverage | **360° azimuth, ±30° elevation** (dedicated receiving channels) |
@@ -66,7 +68,7 @@ Designation in the airframe list: **L006LM "Berjoza"** (`DCS-FM p.13`). Purpose:
 | **Resulting azimuth resolution** | **10° within the forward ±50° sector**; **±20° beyond it**; **±45° in the rear hemisphere** |
 | **Virtual sector** | In the LM, the **90° sector on the indicator is virtual** — it corresponds to a *simultaneous* detection in the rear hemisphere **and** in the 50° sector on the same side |
 
-### 2.3 Indicator layout (`DCS-EA p.33`, repeated `p.106`)
+#### 2.3 Indicator layout (`DCS-EA p.33`, repeated `p.106`)
 1. Device-ready light · 2. **Main-threat azimuth light** · 3. Threat azimuth light · 4. **Tracking
 warning light — RED** · 5. **Emitter power-level indicator** (circular scale) · 6. Own-aircraft
 silhouette · 7. Threat azimuth indicator (rear channels) · 8. Primary-threat azimuth indicator (rear
@@ -78,7 +80,7 @@ Control panel, right console (`DCS-EA p.34, p.107`): **1. Allow-search on/off** 
 **2. Power on/off** · **3. Audio volume**. (The volume pot has an off detent that lights a separate
 "sound disabled" lamp, `DCS-EA p.112`.)
 
-### 2.4 Threat types — ⚠️ **the manuals contradict each other**
+#### 2.4 Threat types — ⚠️ **the manuals contradict each other**
 
 **`DCS-EA p.107` (correct, physically argued — model this one):**
 | Letter | Typical threats | Description |
@@ -99,7 +101,7 @@ device's real PRI/pulse-width classification. Two manuals, two meanings for the 
 Х: Hawk CWAR/HiPIR · Н: Nike-Hercules TTR/MTR · F: F-14, F-15, F-16, F/A-18, M-2000 ·
 С: F-4, F-5, F-104, Mirage F1, Jaguar, Talos, Terrier, Tartar, SM-1.
 
-### 2.5 Recognition, search vs track (`DCS-EA p.108`)
+#### 2.5 Recognition, search vs track (`DCS-EA p.108`)
 - Classification is by **pulse width and PRF**. Six types; **if the signal matches nothing, no type lamp
   lights** (unknown ≠ a symbol).
 - **Friendly radars are by convention not in the threat programme** — but a friendly radar with similar
@@ -111,7 +113,7 @@ device's real PRI/pulse-width classification. Two manuals, two meanings for the 
 - The **search filter switch** is tied to exactly this property: switched off, **emitters not
   classified as tracking are filtered out**.
 
-### 2.6 Priority logic (`DCS-EA p.108–110`) — **FULL**
+#### 2.6 Priority logic (`DCS-EA p.108–110`) — **FULL**
 | Priority | Condition |
 |---|---|
 | 1 | Nike-Hercules launch (not implemented) |
@@ -151,7 +153,7 @@ emitter of that type).
 Nike-Hercules launch would be shown by **modulating the track light and its tone at 2 Hz** (not
 implemented).
 
-### 2.7 Device limitations (`DCS-EA p.111–112`) — **all of these are modelling requirements**
+#### 2.7 Device limitations (`DCS-EA p.111–112`) — **all of these are modelling requirements**
 1. **Sequential clockwise per-channel processing**; the only inter-channel interaction is the power
    measurement. Azimuth indication is therefore limited by the physical antenna pattern, not only by
    channel count.
@@ -181,7 +183,7 @@ implemented).
     **level 1**, to avoid chaotic flicker.
 11. **When the onboard FCR is radiating, the forward hemisphere of the device is completely disabled.**
 
-### 2.8 Built-in test (`DCS-EA p.112`, and the crew procedure `DCS-EA p.74`)
+#### 2.8 Built-in test (`DCS-EA p.112`, and the crew procedure `DCS-EA p.74`)
 - **AUTO (switch right)**: automatic system + light test. The **device-ready light goes out**; all other
   lights come on; **if ready returns within 5–7 s the test passed**. Brightness is **halved** during
   test. (Crew procedure `DCS-EA p.74` gives the same 5…7 s.)
@@ -193,7 +195,7 @@ implemented).
   first pass. In the higher sub-band the device should report **main type Х in track**. Exit by pushing
   the switch right. **After a test a false main type may persist for 2–12 s.**
 
-### 2.9 Threat programme provenance (`DCS-EA p.110`)
+#### 2.9 Threat programme provenance (`DCS-EA p.110`)
 - The recognition circuits are **plug-in cartridges**, in principle field-replaceable, in practice
   changed by **resoldering jumpers**. Programmes were **assigned per theatre**, and typically **never
   updated after the Warsaw Pact dissolved**.
@@ -204,7 +206,7 @@ implemented).
 - ⚠️ The Stock/Automatic selection is an **ED mission-editor construct**, but it is a faithful model of
   a real property: **the SPO-15's classification is only as current as its hardware programme.**
 
-### 2.10 FC3 cross-check (`DCS-FM p.30–32`) — simplified, kept for the record
+#### 2.10 FC3 cross-check (`DCS-FM p.30–32`) — simplified, kept for the record
 Azimuth ±180°, elevation ±30°. **Unlimited threats on screen.** **Threat history duration 8 s.**
 Function modes: **All (acquisition) or Lock** (the "ОБЗОР/ОТКЛ" switch). *"If the time between radar
 spikes of a threat radar is eight or more seconds, the azimuth lights will not blink."* Acquisition →
@@ -215,7 +217,7 @@ capabilities … the system warns of every radar, both adversarial and friendly.
 
 ---
 
-## 3. Countermeasures — BVP-30-26 dispensers
+### 3. Countermeasures — BVP-30-26 dispensers
 
 | Property | Value | Source |
 |---|---|---|
@@ -242,7 +244,7 @@ decoys, nor whether the split is a ground-crew loadout choice. ⚠️ Gap.
 
 ---
 
-## 4. ECM — "Gardeniya" (**not on the 9-12**)
+### 4. ECM — "Gardeniya" (**not on the 9-12**)
 
 `DCS-FM p.62` describes the active jammer explicitly as a **MiG-29S** system:
 - **"Gardeniya"**, product **L203**, for individual protection against radar-guided air-to-air and
@@ -257,7 +259,7 @@ podded/variant-dependent. **For a 9-12 build, model no onboard jammer.**
 
 ---
 
-## 5. Related warnings
+### 5. Related warnings
 
 `DCS-FM p.104` voice messages relevant to the defensive suite:
 | Trigger | Message |
@@ -273,26 +275,53 @@ cue is the SPO-15 reading a **type П** emitter or a **track-mode** transition (
 
 ---
 
-## 6. Technical depth (researched)
-
-### 6.1 SPO-15 family
-The DCS-EA text is itself the deepest public description found this pass and is treated here as the
-primary source; no independent T1–T3 document was located. The **L006 / L006LM "Beryoza"** designation
-and the **±30° elevation** figure are corroborated by `DCS-FM p.13` and `p.31` independently of the EA
-chapter.
-
-### 6.2 BVP-30-26
-*"Two BVP-30-26 passive countermeasure blocks with 60 **PPI-26-1V** countermeasure cartridges
-(26 mm)"*; the 9-13 uses **BVP-30-26M** blocks. Sources: Russian aviation encyclopaedic sites
-(`ot-a-do-ya.org`, `snariad.ru`) — **T4**, consistent with `DCS-FM p.13`.
-
-### 6.3 What research did **not** produce
-No public source for: chaff/flare **split**, **programme timing** (burst count, salvo count, intervals),
-**cartridge burn time or RF payload**, or the **firing pattern** of the GROUND/FHS/RHS programmes.
+### 8. Variant notes
+- **9-13 / MiG-29S**: **BVP-30-26M** dispensers; **"Gardeniya" L203 active jammer** available (§4);
+  same SPO-15LM.
+- **Earlier SPO-15 (non-LM)**: has **separate 50° and 70° forward channels** (they are merged only in
+  the LM, §2.2) and **carrier-frequency binning enabled** (permanently disabled in the 9-12, §2.8).
+  Both differences are stated in `DCS-EA` and are worth recording in case an earlier-block model is
+  ever attempted.
+- **MiG-29SMT/MiG-35**: L-150 "Pastel" digital RWR — a different device entirely; nothing in §2 carries
+  over.
 
 ---
 
-## 7. Open gaps (honest)
+## State
+
+**Nothing in this file is implemented.** FlightBox has no MiG-29 module, no
+`sim/src/modules/mig29/` and no JSBSim MiG-29 model. The airframe exists only as a **spec-first
+contract** — [`../flightbox/aircraft/mig29.md`](../flightbox/aircraft/mig29.md), whose own status
+line reads *"spec only. Nothing is built."* Everything below is therefore a **forward commitment**,
+not a description of code.
+
+| Roadmap stage | What it will take from this file |
+|---|---|
+| **R3** — knowledge base | *running*: this file is the R3 deliverable for the SPO-15 and the dispensers |
+| **R6** — asymmetric weapons + RCS | the SPO-15 priority logic keys off assumed geometry, so it interacts with whatever RCS/emitter model R6 introduces |
+| **R7** — enemy units at BVR scale | the eleven documented analogue limitations (§2) are **modelling requirements, not colour** — several of them (own-radar blanking of the forward hemisphere, per-channel track marking, CW/HPRF confusion) create exploitable, deterministic behaviours a FlightBox `FBRwrSystem` override must reproduce; the BVP-30-26 dispensers map onto `FBCountermeasureSystem` |
+| **R8** — JSBSim model | nothing directly |
+
+**The scale caveat that governs every row** (from the module file): the MiG-29 is a
+**BVR-scale** opponent — what has to be right is what he can reach, how fast he gets there, what he
+can see and what he can shoot. A failing knife-fight comparison is not a defect of the model; a wrong
+envelope is.
+
+Roadmap chain: [`../flightbox/roadmap.md`](../flightbox/roadmap.md) — **R3** (this knowledge base,
+running) → **R6** (asymmetric weapons + RCS) → **R7** (enemy units, MiG-29 at BVR scale) → **R8**
+(the JSBSim MiG-29 model). Nothing after R3 has begun.
+
+---
+
+## Gaps
+
+**Source gaps** — the file's own itemised list follows, section number unchanged. The
+**GAF T.O. 1F-MIG29-1** is the one acquisition that would raise several of them to T1
+(`PROGRESS.md`).
+
+**Implementation gaps** — none statable yet: nothing is built (see State).
+
+### 7. Open gaps (honest)
 1. **Dispenser programme parameters** — the single biggest gap. FlightBox's
    `FBCountermeasureSystem` schema (salvo size/interval, salvo count/interval, per type) has **no
    MiG-29 values to fill it with**. Anything used must be marked `[SET]`, exactly as the F-16's ALE-47
@@ -311,12 +340,25 @@ No public source for: chaff/flare **split**, **programme timing** (burst count, 
 
 ---
 
-## 8. Variant notes
-- **9-13 / MiG-29S**: **BVP-30-26M** dispensers; **"Gardeniya" L203 active jammer** available (§4);
-  same SPO-15LM.
-- **Earlier SPO-15 (non-LM)**: has **separate 50° and 70° forward channels** (they are merged only in
-  the LM, §2.2) and **carrier-frequency binning enabled** (permanently disabled in the 9-12, §2.8).
-  Both differences are stated in `DCS-EA` and are worth recording in case an earlier-block model is
-  ever attempted.
-- **MiG-29SMT/MiG-35**: L-150 "Pastel" digital RWR — a different device entirely; nothing in §2 carries
-  over.
+---
+
+## Knowledge
+
+### 6. Technical depth (researched)
+
+#### 6.1 SPO-15 family
+The DCS-EA text is itself the deepest public description found this pass and is treated here as the
+primary source; no independent T1–T3 document was located. The **L006 / L006LM "Beryoza"** designation
+and the **±30° elevation** figure are corroborated by `DCS-FM p.13` and `p.31` independently of the EA
+chapter.
+
+#### 6.2 BVP-30-26
+*"Two BVP-30-26 passive countermeasure blocks with 60 **PPI-26-1V** countermeasure cartridges
+(26 mm)"*; the 9-13 uses **BVP-30-26M** blocks. Sources: Russian aviation encyclopaedic sites
+(`ot-a-do-ya.org`, `snariad.ru`) — **T4**, consistent with `DCS-FM p.13`.
+
+#### 6.3 What research did **not** produce
+No public source for: chaff/flare **split**, **programme timing** (burst count, salvo count, intervals),
+**cartridge burn time or RF payload**, or the **firing pattern** of the GROUND/FHS/RHS programmes.
+
+---

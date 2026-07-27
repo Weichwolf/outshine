@@ -19,15 +19,33 @@ numbers below are that checklist's row numbers.
 
 ---
 
-## 0. Header — sources and tags
+> **Schema note — this file carries a THIN four-section frame, on purpose.** The rest of
+> `doc/mig29/` is organised as `Spec` / `State` / `Gaps` / `Knowledge`. Here the **three-column
+> format above *is already* a Spec+Gaps hybrid**: every row states what is documented, what is
+> derivable and what is open, side by side. Exploding those rows into separate sections would
+> destroy the one structure that makes the file usable. So the frame is applied *around* the
+> existing structure and not *through* it:
+> - **`## Spec`** holds §0–§11 unchanged, including the **envelope-anchor tables (§8)** and the
+>   **build order (§11)** — the two parts that are pure specification.
+> - The **derivation-path column stays inside each row**, where it belongs; it is the file's
+>   `Knowledge` content, distributed rather than collected.
+> - **`## State`** is new and says the honest thing: nothing is built.
+> - **`## Gaps`** holds §12 (open points, already split into the three required kinds).
+> - **`## Knowledge`** holds the sources and points back at the in-row derivations.
+
+## Spec
+
+### 0. Header — sources and tags
 
 **Primary sources** (the same two PDFs as `doc/mig29/weapons.md`; see that file's source caveat,
 which applies here identically):
 
-- **`DCS-FM p.NN`** — `doc/DCS MIG-29 Flight Manual EN.pdf` (ED, 2018, 116 pp). Pages used:
-  **15–17** (airframe geometry, control surfaces, landing gear, intakes), **18–19** (avionics),
-  **20** (the TTD table — the single densest page in either manual), **87** (powerplant intro),
-  **116** (its own sources).
+- **`DCS-FM p.NN`** — `doc/DCS MIG-29 Flight Manual EN.pdf` (ED, 2018, 116 pp). **`NN` is the
+  PRINTED page number** (the one in the page footer) — this manual has six roman-numbered
+  front-matter pages, so **printed = PDF − 6**. Pages used:
+  **9–11** (airframe geometry, control surfaces, landing gear, intakes), **12–13** (avionics),
+  **14** (the TTD table — the single densest page in either manual), **81** (powerplant intro),
+  **110** (its own sources).
 - **`DCS-EA p.NN`** — `doc/DCS MiG-29A Early Access Manual EN.pdf` (ED, 2025, 115 pp). Pages used:
   **19** (AoA/g meter markings), **55, 57–58** (feel unit, flaps/slats/speedbrake, emergency panel),
   **60** (drag chute), **64** (SAU AFCS panel), **75–80** (taxi/takeoff/landing procedures — the
@@ -52,7 +70,7 @@ modelling decision than an aircraft property.
 
 ---
 
-## 1.1 Provenance chain (checklist row 1.1) — and why it is the weakest part
+### 1.1 Provenance chain (checklist row 1.1) — and why it is the weakest part
 
 The F-16 model has **NASA TP-1538**: a published, full-envelope wind-tunnel-derived aerodynamic
 dataset. **There is no MiG-29 equivalent in the public domain, at any tier.** That single fact
@@ -62,7 +80,7 @@ determines the shape of this entire document.
 |---|---|---|
 | **GAF T.O. 1F-MIG29-1** (German AF MiG-29G/GT Flight Manual, 30 Sep 1994 / rev. 20 Sep 2001, ~454 pp, English, USAF format) | **T1**: performance charts (takeoff/landing distance vs weight/OAT/pressure altitude, climb schedules, drag indices, fuel flow), limits, control-system description | **Exists; not consulted this pass.** `DCS-EA` reads like a distillation of it (knots/feet, TLP panel, "German manual" at `DCS-EA p.40`). **The highest-value single acquisition for this model.** |
 | TsAGI / MiG OKB aerodynamic reports | coefficient decks | **`[GAP]`** — not public |
-| `DCS-FM p.20` TTD table | envelope endpoints | **have it** (T3-grade, see §8) |
+| `DCS-FM p.14` TTD table | envelope endpoints | **have it** (T3-grade, see §8) |
 | `DCS-EA p.75–80` procedures | speed anchors by phase | **have it** (T3-grade) |
 | Jane's-derived compendia (SirViper, aerospaceweb) | dimensions, weights, takeoff/landing distances | **have it** (T3) |
 | Klimov / ММП им. Чернышева RD-33 data | engine scalars | **have it** (T2/T3) |
@@ -76,7 +94,7 @@ misrepresenting its source.
 
 ---
 
-## 1.2 Model delta (checklist row 1.2)
+### 1.2 Model delta (checklist row 1.2)
 
 Not applicable in the F-16 sense (there is no upstream deck to diff against). The equivalent
 discipline here: **the model is FlightBox-own from the first line**, so the "delta" is the full
@@ -86,29 +104,29 @@ metric and belongs in `PROGRESS.md`.**
 
 ---
 
-## 2. Geometry — `<metrics>` (checklist row 2)
+### 2. Geometry — `<metrics>` (checklist row 2)
 
-### 2.1 Reference quantities (what JSBSim actually reads)
+#### 2.1 Reference quantities (what JSBSim actually reads)
 
 | `<metrics>` element | Documented | Derivation path | Open / `[SET]` |
 |---|---|---|---|
-| `wingarea` | **38.056 m² = 409.6 ft²** `DCS-FM p.20`; T3 rounds to 38.0 m² | — | **the *convention* is open**: for an integral-layout aircraft it is unclear whether 38.056 m² is the exposed wing, the wing + carry-through, or wing + carry-through + LERX. Every coefficient in §6 is scaled by this number, so **the convention must be declared and then never changed** `[SET]` |
-| `wingspan` | **11.36 m = 37.27 ft** `DCS-FM p.20` | — | — |
+| `wingarea` | **38.056 m² = 409.6 ft²** `DCS-FM p.14`; T3 rounds to 38.0 m² | — | **the *convention* is open**: for an integral-layout aircraft it is unclear whether 38.056 m² is the exposed wing, the wing + carry-through, or wing + carry-through + LERX. Every coefficient in §6 is scaled by this number, so **the convention must be declared and then never changed** `[SET]` |
+| `wingspan` | **11.36 m = 37.27 ft** `DCS-FM p.14` | — | — |
 | `chord` (c̄) | `[GAP]` | `[DER]` mean geometric chord `= S/b = 38.056/11.36 = 3.35 m = 10.99 ft`. True MAC differs because of the taper + LERX; a planform reconstruction from a scaled 3-view refines it | expect ±10 % until a 3-view is digitised |
-| `htailarea` | **7.05 m² = 75.9 ft²** (stabilator, `DCS-FM p.16`) | assumed to be **both halves**, per Soviet convention `[ABL]` | if it is per-half the pitch derivatives double — **verify before trusting §6.5** |
+| `htailarea` | **7.05 m² = 75.9 ft²** (stabilator, `DCS-FM p.10`) | assumed to be **both halves**, per Soviet convention `[ABL]` | if it is per-half the pitch derivatives double — **verify before trusting §6.5** |
 | `htailarm` | `[GAP]` | measure stabilator quarter-chord to CG on a scaled 3-view; expect **≈ 5.0–5.5 m** for a 17.32 m airframe `[SET]` pending measurement | |
-| `vtailarea` | **rudder 1.25 m² each** `DCS-FM p.16` (that is the *control surface*, not the fin) | total fin area from a 3-view; `[ABL]` twin fins of a 38 m² fighter are typically 2 × 5–6 m² | `[SET]` |
+| `vtailarea` | **rudder 1.25 m² each** `DCS-FM p.10` (that is the *control surface*, not the fin) | total fin area from a 3-view; `[ABL]` twin fins of a 38 m² fighter are typically 2 × 5–6 m² | `[SET]` |
 | `vtailarm` | `[GAP]` | same method as `htailarm` | note `doc/f16/flight-model.md` §12.3 flags `vtailarm = 0` in the F-16 deck as an unfilled field — **do not repeat that** |
 | `AERORP` | `[GAP]` | place at the c̄ quarter-chord once c̄ and the CG station are fixed | `[SET]` |
 | `EYEPOINT` | `[GAP]` | from the cockpit sill / seat position in a 3-view; `DCS-EA p.75` gives a taxi-geometry drawing (nose wheel 14'10" behind the pivot reference, 24'12" total) that constrains the longitudinal layout | `[SET]` |
 | `VRP` | — | set to the nose reference used for all other stations | `[SET]` |
 
-### 2.2 Planform and surfaces (all `DCS-FM p.15–16`, i.e. T3)
+#### 2.2 Planform and surfaces (all `DCS-FM p.9–10`, i.e. T3)
 
 | Item | Value |
 |---|---|
 | Layout | **integral** — one continuous lifting surface, LERX blended into the fuselage |
-| Wing LE sweep | **42°** (`DCS-FM p.20` confirms) |
+| Wing LE sweep | **42°** (`DCS-FM p.14` confirms) |
 | Wing TE sweep | **≈ 9°** |
 | Wing dihedral | **−3°** (anhedral) |
 | Aspect ratio | **3.4** (T3) — consistent with `b²/S = 11.36²/38.056 = 3.39` `[DER]` ✔ |
@@ -130,7 +148,7 @@ produces the MiG-29's documented high-α behaviour, and **it is exactly the feat
 database (§6.4) also has** — which is why that analogy is the right one and an F-16 analogy would
 not be.
 
-### 2.3 Landing gear geometry (`DCS-FM p.16–17`)
+#### 2.3 Landing gear geometry (`DCS-FM p.10–11`)
 
 | Item | Value |
 |---|---|
@@ -143,15 +161,15 @@ not be.
 
 ---
 
-## 3. Mass, inertia, tanks — `<mass_balance>` + `<propulsion>` tanks (checklist row 3)
+### 3. Mass, inertia, tanks — `<mass_balance>` + `<propulsion>` tanks (checklist row 3)
 
-### 3.1 Masses
+#### 3.1 Masses
 
 | Item | Documented | Derivation path | Open |
 |---|---|---|---|
-| **Empty weight** | **10,900 kg** `DCS-FM p.20`; T3 agrees (24,030 lb) | — | high confidence |
-| **Normal takeoff** | **15,300 kg** `DCS-FM p.20`; T3 says 15,240 kg | — | — |
-| **Max takeoff** | **18,100 kg** `DCS-FM p.20`; T3 says 18,500 kg | — | spread ≈ 2 % |
+| **Empty weight** | **10,900 kg** `DCS-FM p.14`; T3 agrees (24,030 lb) | — | high confidence |
+| **Normal takeoff** | **15,300 kg** `DCS-FM p.14`; T3 says 15,240 kg | — | — |
+| **Max takeoff** | **18,100 kg** `DCS-FM p.14`; T3 says 18,500 kg | — | spread ≈ 2 % |
 | **Internal fuel** | **3,200 kg / 4,300–4,365 L** (T3); T4 gives 3,375–3,500 kg | — | ±10 % |
 | Max external ordnance | 3,000 kg (T3); one T4 says 3,500 | — | — |
 | Pilot + kit | `[GAP]` | `[SET]` 100 kg as a `<pointmass>`, mirroring the F-16 deck's single "Pilot" point mass | — |
@@ -164,7 +182,7 @@ against the documented **normal takeoff weight 15,300 kg**. **Agreement 0.3 %.**
 figures — empty mass, internal fuel, the standard loadout, and normal TOW — are mutually consistent,
 which is much stronger evidence than any of them alone. **Adopt all four.**
 
-### 3.2 Inertia tensor — the largest single `[SET]` in the model
+#### 3.2 Inertia tensor — the largest single `[SET]` in the model
 
 **Nothing is published.** The derivation path, stated explicitly so it can be criticised:
 
@@ -194,9 +212,9 @@ which is much stronger evidence than any of them alone. **Adopt all four.**
 measured roll response (§8) misses its anchor, because `Ixx` and the aileron/differential-stabilator
 power are the *only* two knobs that set roll acceleration, and one of them (§6.6) is also a `[SET]`.
 
-### 3.3 Fuel tanks
+#### 3.3 Fuel tanks
 
-**Documented structure** `DCS-FM p.15` (fore → aft): tank **#1**, tank **#2**, then the
+**Documented structure** `DCS-FM p.9` (fore → aft): tank **#1**, tank **#2**, then the
 **integral tank #3** *("the main fuel source of the aircraft")*, then the engine bays, flanked by
 **two tanks #3a**.
 T3 adds **one tank in each wing**, for **six internal tanks total (four fuselage + two wing)**;
@@ -217,12 +235,12 @@ manual gives per-tank capacities. **`[GAP]` remains.**
 
 ---
 
-## 4. Ground reactions — `<ground_reactions>` (checklist row 4)
+### 4. Ground reactions — `<ground_reactions>` (checklist row 4)
 
 | Strut | Documented | Derivation path | Open |
 |---|---|---|---|
-| **NOSE (BOGEY)** | position from wheel base 3.645 m; **steering ±30° taxi / ±8° takeoff**; 2 × KT-100 570 × 140 mm `DCS-FM p.16–17` | longitudinal position: nose gear is **well behind the pilot's seat** — `DCS-EA p.75` gives a turning diagram with 24'12" and 14'10" dimensions that fixes it relative to the pivot point | spring/damping `[SET]` |
-| **LEFT / RIGHT MAIN (BOGEY)** | track 3.09 m; single KT-150 840 × 290 mm; **retract forward with 90° rotation** `DCS-FM p.17` | — | spring/damping `[SET]` |
+| **NOSE (BOGEY)** | position from wheel base 3.645 m; **steering ±30° taxi / ±8° takeoff**; 2 × KT-100 570 × 140 mm `DCS-FM p.10–11` | longitudinal position: nose gear is **well behind the pilot's seat** — `DCS-EA p.75` gives a turning diagram with 24'12" and 14'10" dimensions that fixes it relative to the pivot point | spring/damping `[SET]` |
+| **LEFT / RIGHT MAIN (BOGEY)** | track 3.09 m; single KT-150 840 × 290 mm; **retract forward with 90° rotation** `DCS-FM p.11` | — | spring/damping `[SET]` |
 | Brakes | wheel brakes + separate **nose-wheel brake handle** `DCS-EA p.23`; *"the aircraft brakes with a slight delay"*, *"hard braking … leads to a smooth but significant lowering of the nose"* `DCS-EA p.76` | brake gain `[SET]`; the documented **delay** is a real behaviour worth an actuator lag rather than an instant `[SET]` | — |
 | **Drag chute** | **jettisons/separates above 175 kts** `DCS-EA p.60`; mandatory for wet runway, short field, landing immediately after takeoff, no-slat landing, aborted takeoff after nose-wheel lift, heavy feel-unit setting | JSBSim has no chute primitive → implement as an `<external_reactions>` force, `F = q·CdA_chute`, aft along body X, at the tail attachment `[SET]` | `CdA` `[GAP]`; calibrate against the **600 m landing roll with chute** anchor (§8) |
 | **Structure contacts** | `[GAP]` | place at nose, tail, wingtips, fin tips, **and the nozzles** — `DCS-EA p.78` warns *"rapid full aft movement of the stick may result in the exhaust nozzles hitting the runway"*, which is a documented ground-strike point and belongs in the deck | `[SET]` |
@@ -230,14 +248,14 @@ manual gives per-tank capacities. **`[GAP]` remains.**
 
 ---
 
-## 5. Propulsion — `<turbine_engine>` × 2 (checklist row 5)
+### 5. Propulsion — `<turbine_engine>` × 2 (checklist row 5)
 
-### 5.1 RD-33 scalars
+#### 5.1 RD-33 scalars
 
 | Parameter | Documented | Tier | JSBSim field |
 |---|---|---|---|
-| **Static thrust, max afterburner** | **8,300 kgf = 81.4 kN = 18,298 lbf** | `DCS-FM p.20` (kgf) + T3 (kN) — **two independent, agreeing** | `maxthrust` |
-| **Static thrust, military** | **5,040 kgf = 49.4 kN = 11,111 lbf** | `DCS-FM p.20` + T3 | `milthrust` |
+| **Static thrust, max afterburner** | **8,300 kgf = 81.4 kN = 18,298 lbf** | `DCS-FM p.14` (kgf) + T3 (kN) — **two independent, agreeing** | `maxthrust` |
+| **Static thrust, military** | **5,040 kgf = 49.4 kN = 11,111 lbf** | `DCS-FM p.14` + T3 | `milthrust` |
 | **SFC, military** | **0.77 kg/(kgf·h)** = **0.77 lbm/(lbf·h)** (numerically identical) | T3 (Klimov/ММП data, RU sources) | `tsfc` = **0.77** |
 | **SFC, full afterburner** | **2.05 kg/(kgf·h)** = **2.05 lbm/(lbf·h)** | T3 | `atsfc` = **2.05** |
 | **Bypass ratio** | **0.47–0.49** (sources: 0.47 / 0.48 / 0.49) | T3 | `bypassratio` = **0.48** |
@@ -253,17 +271,17 @@ manual gives per-tank capacities. **`[GAP]` remains.**
 conversion of 0.77 kg/(kgf·h) is **78.5 kg/(kN·h)**, not 7.5. Use the kgf figures, which map onto
 JSBSim's `lbm/(lbf·hr)` **one-to-one with no conversion at all**.
 
-### 5.2 Two engines — placement and the moment problem
+#### 5.2 Two engines — placement and the moment problem
 
 | Item | Documented | Derivation path | Open |
 |---|---|---|---|
-| Count | **2 × RD-33** `DCS-FM p.20, p.87` | two `<engine>` + two `<thruster>` blocks, one per nacelle | — |
+| Count | **2 × RD-33** `DCS-FM p.14, p.81` | two `<engine>` + two `<thruster>` blocks, one per nacelle | — |
 | Lateral separation | `[GAP]` | measure nacelle centrelines on a scaled 3-view; **expect ≈ 1.4–1.6 m** for an 11.36 m span with the wide fuselage tunnel `[SET]` | this number **is** the asymmetric-thrust yaw moment: at full AB one-engine-out gives `81.4 kN × 0.75 m ≈ 61 kN·m` `[DER]`, which the rudders must trim — a direct check on §6.7 |
 | Cant / toe-in | `[GAP]` | assume **0°**, thrust along body X `[SET]` | — |
 | Vertical offset from CG | `[GAP]` | 3-view; small, but sets the thrust pitch couple | `[SET]` |
 | Intake | adjustable ramp, external compression, boundary-layer bleed; **ramp position is instrumented in the cockpit** (`DCS-EA p.30`) and has an **emergency retraction switch** (`DCS-EA p.58`); `DCS-EA p.78` notes a **nose-lowering tendency during intake duct opening** on the takeoff roll and *"observe increase of thrust when intake system opens at about 108 kts"* | JSBSim's turbine model has no ramp schedule. `[SET]` Either fold ram recovery into the thrust tables (simplest, recommended) **or** add a scheduled thrust multiplier on Mach. **Do not model the ramp as a separate system on a first pass.** | the documented 108 kts step-change in thrust is a **real, measurable takeoff-roll feature** — it belongs in §8's acceptance list, not in the aero |
 
-### 5.3 Spool dynamics
+#### 5.3 Spool dynamics
 
 | Parameter | Documented | Derivation path |
 |---|---|---|
@@ -274,7 +292,7 @@ JSBSim's `lbm/(lbf·hr)` **one-to-one with no conversion at all**.
 | Climb RPM | **83–85 %** giving **985–1,480 ft/min at 270 kts** `DCS-EA p.77` | **a genuine part-power thrust anchor** — see §8 |
 | Max RPM difference (limit) | **4 %** between engines `DCS-EA p.77` | operational limit, not a model parameter |
 
-### 5.4 Thrust tables — the honest statement
+#### 5.4 Thrust tables — the honest statement
 
 JSBSim's `<turbine_engine>` needs `IdleThrust`, `MilThrust` and `AugThrust` as **tables of
 (Mach, density altitude)**. **No public RD-33 thrust deck exists** `[GAP]`.
@@ -301,13 +319,13 @@ JSBSim's `<turbine_engine>` needs `IdleThrust`, `MilThrust` and `AugThrust` as *
 
 ---
 
-## 6. Aerodynamics — the derivation plan, per coefficient (checklist row 6)
+### 6. Aerodynamics — the derivation plan, per coefficient (checklist row 6)
 
 **This section deliberately contains almost no numbers.** It contains, for every coefficient the
 model needs, **which of the three categories it falls into**. That classification *is* the
 deliverable.
 
-### 6.1 Category legend
+#### 6.1 Category legend
 
 | Category | Meaning |
 |---|---|
@@ -316,7 +334,7 @@ deliverable.
 | **ANA** | *taken by declared analogy* from the F/A-18 HARV public database (§6.4) |
 | **SET** | *declared setting* — no source, no derivation, written as such in the XML |
 
-### 6.2 Lift
+#### 6.2 Lift
 
 | Coefficient | Cat. | Basis |
 |---|---|---|
@@ -327,12 +345,12 @@ deliverable.
 | Ground effect | **SET** | the F-16 deck models it on lift only (`doc/f16/flight-model.md` §6.3); do the same, and record that drag/pitch ground effect is absent |
 | `CLde` (stabilator) | **GEO** | tail area 7.05 m², arm from §2.1, tail efficiency `[SET]` |
 
-### 6.3 Drag
+#### 6.3 Drag
 
 | Coefficient | Cat. | Basis |
 |---|---|---|
 | `CD0` subsonic | **INV** | from the **climb-rate/Ps anchor**, §8 |
-| `CD0` supersonic | **INV** | `[DER]` **Vmax sea level 1,500 km/h** `DCS-FM p.20` → `M = 1.224`, `q = 106,350 Pa`, `qS = 4.047 MN`. With both engines at AB and a ram-recovery factor of 1.30 at M1.2/SL, `T ≈ 212 kN` → **`CD ≈ 0.052`**. And **Vmax 2,450 km/h at 11 km** → `M = 2.30`, `q = 83,800 Pa`, `qS = 3.19 MN`; with `T ≈ 135 kN` (density ratio 0.297 × ram ≈ 2.8) → **`CD ≈ 0.042`**. Both are plausible for a fighter with wave drag, and they bracket the supersonic level |
+| `CD0` supersonic | **INV** | `[DER]` **Vmax sea level 1,500 km/h** `DCS-FM p.14` → `M = 1.224`, `q = 106,350 Pa`, `qS = 4.047 MN`. With both engines at AB and a ram-recovery factor of 1.30 at M1.2/SL, `T ≈ 212 kN` → **`CD ≈ 0.052`**. And **Vmax 2,450 km/h at 11 km** → `M = 2.30`, `q = 83,800 Pa`, `qS = 3.19 MN`; with `T ≈ 135 kN` (density ratio 0.297 × ram ≈ 2.8) → **`CD ≈ 0.042`**. Both are plausible for a fighter with wave drag, and they bracket the supersonic level |
 | **Caveat on the above** | — | **the ram-recovery factors are `[SET]`, not measured.** This is exactly the under-determination named in §5.4 step 4. Publish both the CD and the assumed ram factor next to each other so a later reader can re-solve |
 | Transonic drag rise | **ANA + SET** | shape from the HARV/F-16 decks' `*_M` correction structure; the *magnitude* is fitted to hit both Vmax anchors |
 | Induced drag / `e` | **INV** | from **sustained** turn performance — **and this is a weak anchor**: the only public numbers are T4 (28 °/s instantaneous, 9 g at corner). §8 lists what must be measured instead |
@@ -340,7 +358,7 @@ deliverable.
 | Speedbrake drag | **INV** | areas documented (0.75 + 0.55 m², §2.2); `[DER]` at full deflection the projected area ≈ `0.75·sin56° + 0.55·sin60° ≈ 1.10 m²`, `Cd ≈ 1.2` flat plate → `ΔCdA ≈ 1.3 m²` → `ΔCD ≈ 0.035` on 38.056 m². Calibrate against the pattern-deceleration behaviour |
 | Gear drag | **SET** | calibrate against the **220 kts gear-check speed** and pattern speeds |
 
-### 6.4 The high-α regime — the declared analogy
+#### 6.4 The high-α regime — the declared analogy
 
 **Statement, to be reproduced verbatim in the model's XML header comment:**
 
@@ -360,7 +378,7 @@ is a **single-engine, single-tail, strake-not-LEX, blended-body** aircraft whose
 dominated by its own very different forebody. The two candidate analogies are not equally good, and
 picking the convenient one would be the exact failure this file exists to prevent.
 
-### 6.5 Pitch
+#### 6.5 Pitch
 
 | Coefficient | Cat. | Basis |
 |---|---|---|
@@ -370,16 +388,16 @@ picking the convenient one would be the exact failure this file exists to preven
 | `Cmde` | **GEO** | stabilator area × arm × efficiency; **must reproduce the documented deflection limits** (§7.2) as usable pitch authority at both ends of the ARU schedule |
 | Mach tuck | **ANA** | shape from a comparable deck; magnitude `[SET]` |
 
-### 6.6 Roll
+#### 6.6 Roll
 
 | Coefficient | Cat. | Basis |
 |---|---|---|
 | `Clp` (roll damping) | **GEO** | `AR`, taper, sweep → standard estimate |
-| `Clda` (aileron power) | **GEO + INV** | geometry documented (1.45 m² each, +25/−15°, **5° up neutral**) `DCS-FM p.16`; **INV** against a measured roll rate anchor — which is `[GAP]`, see §8 |
-| Differential stabilator roll contribution | **SET** | the stabilator is documented as *"fully rotary, differential"* `DCS-FM p.16`, so it contributes roll, but the **mixing law and the roll/pitch authority split are `[GAP]`** |
+| `Clda` (aileron power) | **GEO + INV** | geometry documented (1.45 m² each, +25/−15°, **5° up neutral**) `DCS-FM p.10`; **INV** against a measured roll rate anchor — which is `[GAP]`, see §8 |
+| Differential stabilator roll contribution | **SET** | the stabilator is documented as *"fully rotary, differential"* `DCS-FM p.10`, so it contributes roll, but the **mixing law and the roll/pitch authority split are `[GAP]`** |
 | `Clbeta` (dihedral effect) | **GEO** | wing anhedral −3°, high LERX vortex contribution `[ANALOGY]` at high α |
 
-### 6.7 Yaw
+#### 6.7 Yaw
 
 | Coefficient | Cat. | Basis |
 |---|---|---|
@@ -388,7 +406,7 @@ picking the convenient one would be the exact failure this file exists to preven
 | `Cndr` | **GEO + INV** | rudder area 1.25 m² each documented; **INV** against the **asymmetric-thrust trim requirement** from §5.2 (≈ 61 kN·m at full AB single-engine) and against the documented crosswind technique: **1° of crab per 3 kts of crosswind**, wings-level crab above 15 kts `DCS-EA p.79` |
 | Adverse yaw / ARI | **SET** | `[GAP]` whether the aircraft has aileron-rudder interconnect |
 
-### 6.8 What the deck will NOT contain (row 6.x)
+#### 6.8 What the deck will NOT contain (row 6.x)
 
 | Absent | Consequence |
 |---|---|
@@ -400,7 +418,7 @@ picking the convenient one would be the exact failure this file exists to preven
 
 ---
 
-## 7. Flight control — `<flight_control>` sketch (checklist row 7)
+### 7. Flight control — `<flight_control>` sketch (checklist row 7)
 
 **The headline, because it changes everything relative to the F-16 module:**
 
@@ -415,25 +433,25 @@ picking the convenient one would be the exact failure this file exists to preven
 > the exception in FlightBox, not the rule, and this airframe is the rule. **No FBW reimplementation
 > is required.**
 
-### 7.1 Channels
+#### 7.1 Channels
 
 | Channel | Surface(s) | Documented behaviour | Source |
 |---|---|---|---|
-| **Pitch** | fully-moving **differential stabilator** | travel **takeoff: ≈ 15° up / 35° down**; **in flight: 5°45′ / 17°45′** | `DCS-FM p.16` |
-| **Roll** | ailerons (+ differential stabilator) | **up 25° / down 15°**, **neutral = 5° up** | `DCS-FM p.16` |
-| **Yaw** | twin rudders | 1.25 m² each; **rudder trim is a 3-position switch** | `DCS-FM p.16`, `DCS-EA p.64` |
-| **LEF (slats)** | 3-section LE flaps | **20°**, **auto-extend above α = 8.7°**; after gear retraction *"the slats become fully automatic and operate depending on the angle of attack and the Mach number"*; retract with the flaps or manually on the ground | `DCS-FM p.16`, `DCS-EA p.57` |
-| **TEF (flaps)** | single-slotted | **25°**; three buttons: **RETRACTED / TAKEOFF / LANDING**; *"the flaps and slats extract both"* on either DOWN button | `DCS-FM p.16`, `DCS-EA p.57` |
-| **Speedbrakes** | upper 0.75 m² +56°, lower 0.55 m² −60° | spring-loaded switch on the right throttle, auto-returns to IN; **full extension ≈ 3 s**; **blow-back retraction above 540 kts**; **inhibited with centreline tank or gear down**; **auto-retract on total electrical failure** | `DCS-FM p.16`, `DCS-EA p.57` |
+| **Pitch** | fully-moving **differential stabilator** | travel **takeoff: ≈ 15° up / 35° down**; **in flight: 5°45′ / 17°45′** | `DCS-FM p.10` |
+| **Roll** | ailerons (+ differential stabilator) | **up 25° / down 15°**, **neutral = 5° up** | `DCS-FM p.10` |
+| **Yaw** | twin rudders | 1.25 m² each; **rudder trim is a 3-position switch** | `DCS-FM p.10`, `DCS-EA p.64` |
+| **LEF (slats)** | 3-section LE flaps | **20°**, **auto-extend above α = 8.7°**; after gear retraction *"the slats become fully automatic and operate depending on the angle of attack and the Mach number"*; retract with the flaps or manually on the ground | `DCS-FM p.10`, `DCS-EA p.57` |
+| **TEF (flaps)** | single-slotted | **25°**; three buttons: **RETRACTED / TAKEOFF / LANDING**; *"the flaps and slats extract both"* on either DOWN button | `DCS-FM p.10`, `DCS-EA p.57` |
+| **Speedbrakes** | upper 0.75 m² +56°, lower 0.55 m² −60° | spring-loaded switch on the right throttle, auto-returns to IN; **full extension ≈ 3 s**; **blow-back retraction above 540 kts**; **inhibited with centreline tank or gear down**; **auto-retract on total electrical failure** | `DCS-FM p.10`, `DCS-EA p.57` |
 | **Gear** | tricycle | retract **32–50 ft AGL**; if not fully up: 80 % RPM, 220 kts, recheck | `DCS-EA p.77` |
-| **NWS** | nose wheel | ±30° taxi / ±8° takeoff; a **gain-increase button** is held for sharp turns | `DCS-FM p.16`, `DCS-EA p.76` |
+| **NWS** | nose wheel | ±30° taxi / ±8° takeoff; a **gain-increase button** is held for sharp turns | `DCS-FM p.10`, `DCS-EA p.76` |
 | **Drag chute** | — | separates above **175 kts** | `DCS-EA p.60` |
 
-### 7.2 ARU — the variable gearing unit
+#### 7.2 ARU — the variable gearing unit
 
 **What it does, from the one documented fact:** the stabilator's available travel is **roughly
 halved between the takeoff/landing configuration and the in-flight configuration**
-(15°/35° → 5°45′/17°45′) `DCS-FM p.16`. `[ABL]` That is the classic Soviet **АРУ (автомат
+(15°/35° → 5°45′/17°45′) `DCS-FM p.10`. `[ABL]` That is the classic Soviet **АРУ (автомат
 регулирования управления)**: a q-scheduled gearing changer that reduces stick-to-stabilator gearing
 as dynamic pressure rises, so that a given stick displacement produces a roughly constant *g*
 response instead of a constant *deflection*.
@@ -445,7 +463,7 @@ response instead of a constant *deflection*.
 | Transition rate | `[GAP]` | `[SET]` first-order lag | — |
 | **Cockpit tie-in** | there is a **"FEEL UNIT TAKEOFF – LANDING" lamp** checked before takeoff `DCS-EA p.77`, a **feel-unit control** (authority of the AFCS in handling, *"not implemented yet"* in DCS) `DCS-EA p.55`, and a **throttle-tightening handle** `DCS-EA p.55` | model the feel unit as **stick-force gradient**, which JSBSim does not simulate — so it becomes a `systems/FBFlightControl` gain, not a deck element `[SET]` | the "Heavy" feel-unit position is one of the **mandatory drag-chute conditions** `DCS-EA p.60`, i.e. it is a real configuration state |
 
-### 7.3 SOS — the AoA/g limiter
+#### 7.3 SOS — the AoA/g limiter
 
 | Aspect | Value | Tier |
 |---|---|---|
@@ -466,7 +484,7 @@ deck sees normalised commands, not forces; (b) it must be **overridable**, which
 decision, not an airframe one; (c) putting it in the deck would make it invisible to
 `core/FBFlightMonitor`, and the whole point of that monitor is that the limiter is not the judge.
 
-### 7.4 SAU-451 AFCS — the outer loops
+#### 7.4 SAU-451 AFCS — the outer loops
 
 `DCS-EA p.64` gives the panel; each of these is a **`systems/FBAutopilot` mode**, not a deck element:
 
@@ -480,30 +498,30 @@ decision, not an airframe one; (c) putting it in the deck would make it invisibl
 | **MISSED APPROACH** | *"not implemented yet"* in DCS | `FBPilot` phase, later |
 | Cold-start | AFCS runs a **3-minute BIT** | a startup-procedure fact, not a deck one |
 
-`DCS-FM p.40–42` covers the same system at FC3 level, including radar-altimeter minimum-altitude
+`DCS-FM p.34–36` covers the same system at FC3 level, including radar-altimeter minimum-altitude
 setting — cross-reference the parallel agent's systems files rather than duplicating.
 
 ---
 
-## 8. The documented envelope anchors — the future gym acceptance test
+### 8. The documented envelope anchors — the future gym acceptance test
 
 **This table is the deliverable that outlives the rest of the file.** Every row becomes a `.fbm`
 mission plus a telemetry assertion; the model is `release=BETA` when all "must" rows pass.
 
-### 8.1 Performance envelope
+#### 8.1 Performance envelope
 
 | # | Anchor | Value | Source / tier | Gym measurement |
 |---|---|---|---|---|
-| A1 | **Vmax, altitude** | **2,450 km/h ≈ M 2.3** (T3 says 2,445 at 11,000 m) | `DCS-FM p.20` | level accel at 11 km, AB, clean, until `dV/dt → 0`; read `mach` |
-| A2 | **Vmax, sea level** | **1,500 km/h ≈ M 1.22** | `DCS-FM p.20` | **conflict:** one T3 source says 1,200 km/h / M1.06. Test against 1,500; record the miss |
-| A3 | **Service ceiling** | **18,000 m** | `DCS-FM p.20`; T3 spread **17,000–18,500 m** | zoom-free steady climb to `ROC < 0.5 m/s` |
-| A4 | **Max climb rate** | **330 m/s** (= 19,800 m/min = 65,000 ft/min, T3 states the same number in both units) | `DCS-FM p.20` + T3 | **read the derivation note below — do not test this as a steady climb** |
-| A5 | **Max operational g** | **+9** | `DCS-FM p.20` | limiter/monitor check |
+| A1 | **Vmax, altitude** | **2,450 km/h ≈ M 2.3** (T3 says 2,445 at 11,000 m) | `DCS-FM p.14` | level accel at 11 km, AB, clean, until `dV/dt → 0`; read `mach` |
+| A2 | **Vmax, sea level** | **1,500 km/h ≈ M 1.22** | `DCS-FM p.14` | **conflict:** one T3 source says 1,200 km/h / M1.06. Test against 1,500; record the miss |
+| A3 | **Service ceiling** | **18,000 m** | `DCS-FM p.14`; T3 spread **17,000–18,500 m** | zoom-free steady climb to `ROC < 0.5 m/s` |
+| A4 | **Max climb rate** | **330 m/s** (= 19,800 m/min = 65,000 ft/min, T3 states the same number in both units) | `DCS-FM p.14` + T3 | **read the derivation note below — do not test this as a steady climb** |
+| A5 | **Max operational g** | **+9** | `DCS-FM p.14` | limiter/monitor check |
 | A5b | g limit above M 0.85 | **+7** | T4 | corroborated by the **red 7 g mark on the cockpit gauge** `DCS-EA p.19` `[ABL]` |
 | A5c | g limit with centreline tank | **+4 until empty** | T4 | a carriage-dependent limit |
 | A6 | **AoA limiter** | **26°** (early 9-12: 24°) | T4 + the 25° gauge marker `DCS-EA p.19` | measure the α at which the modelled limiter arrests the pull |
-| A7 | Range, internal fuel | **1,430 km** | `DCS-FM p.20` | cruise mission, fuel-to-zero |
-| A8 | Ferry range | **2,100 km** (9-12, centreline tank only) | `DCS-FM p.20` | see `weapons.md` §2.2 |
+| A7 | Range, internal fuel | **1,430 km** | `DCS-FM p.14` | cruise mission, fuel-to-zero |
+| A8 | Ferry range | **2,100 km** (9-12, centreline tank only) | `DCS-FM p.14` | see `weapons.md` §2.2 |
 | A9 | Instantaneous turn rate | **28 °/s** | **T4 only** — weakest anchor in the table | measure anyway; it is the number the community will compare against |
 
 `[DER]` **A4 is not a rate of climb, and testing it as one will fail.** Check: a steady climb at
@@ -515,7 +533,7 @@ sea level at a light weight, not a sustained climb rate at altitude.** Test A4 a
 M 0.9, light** — and record this reinterpretation in the mission file, because the raw number in the
 manual invites exactly the wrong test.
 
-### 8.2 Takeoff and landing — the densest and best-sourced anchors
+#### 8.2 Takeoff and landing — the densest and best-sourced anchors
 
 All from `DCS-EA p.75–80` unless marked; these are procedure numbers from a German-manual descendant
 and are the most trustworthy operational figures available.
@@ -550,7 +568,7 @@ residual** is exactly what a lighter "normal weight", a headwind, or ground effe
 **Three independently-sourced numbers (static thrust, liftoff speed, takeoff run) closing to 13 % is
 the second-strongest consistency check in this document** (after the mass closure, §3.1).
 
-### 8.3 What is NOT anchored, and therefore cannot be accepted yet
+#### 8.3 What is NOT anchored, and therefore cannot be accepted yet
 
 | Missing anchor | Why it matters |
 |---|---|
@@ -562,7 +580,7 @@ the second-strongest consistency check in this document** (after the mass closur
 
 ---
 
-## 9. Accepted-model-property policy (checklist row 9)
+### 9. Accepted-model-property policy (checklist row 9)
 
 `CLAUDE.md` Principle 5 says the **pinned vanilla F-16 model** is truth and that FlightBox is judged
 on flying it faithfully, not on model-vs-real-jet. **That principle does not transfer unchanged**,
@@ -583,7 +601,7 @@ accepted. The adapted rule:
 
 ---
 
-## 10. Weapons and stores (checklist row 10)
+### 10. Weapons and stores (checklist row 10)
 
 Fully covered in **`doc/mig29/weapons.md`**. Interface points that belong to *this* file:
 
@@ -591,14 +609,14 @@ Fully covered in **`doc/mig29/weapons.md`**. Interface points that belong to *th
 |---|---|---|
 | Store carriage mechanism | `<pointmass>` per occupied station + one `<external_reactions>` force `fb-stores` | identical to the F-16 path; **no model XML is patched at runtime** |
 | Station coordinates | `[GAP]` | must be derived from the same 3-view that fixes §2.1's arms; `modules/mig29/…Sms` anchors them, as `FBF16Sms` does |
-| Gun position | port side of the nose ahead of the cockpit `DCS-FM p.70` | exact offsets `[GAP]`; `[SET]` from a 3-view |
+| Gun position | port side of the nose ahead of the cockpit `DCS-FM p.64` | exact offsets `[GAP]`; `[SET]` from a 3-view |
 | **Gun recoil** | `[DER]` **8.39 kN** steady during fire (`weapons.md` §4.4) = **0.056 g** at 15,300 kg | worth an `<external_reactions>` channel; the F-16 model has no gun-recoil force either, so this would be a FlightBox extension, declared as such |
 | Ammunition mass | ≈ 125 kg full | model as a depleting mass, otherwise a 6-second burst is mass-neutral |
 | Centreline tank | 1,500 L; **inhibits speedbrakes** (`DCS-EA p.57`) and caps g at +4 until empty (T4) | a carriage-dependent *flight-control* and *limit* effect, i.e. it belongs to this file, not to `weapons.md` |
 
 ---
 
-## 11. Build order — what is built when, and what it is measured against
+### 11. Build order — what is built when, and what it is measured against
 
 **The rule: each step is only "done" when a named §8 anchor is measured in `fb-gym` telemetry.
 No step may be started before its predecessor's anchor passes**, because every later step's
@@ -624,9 +642,42 @@ saying so here is the point of the file.
 
 ---
 
-## 12. Open points (checklist row 12) — split into the three required kinds
+## State
 
-### 12.1 What nobody knows publicly — permanent declared estimates
+**Nothing in this file is implemented.** There is no `sim/assets/aircraft/mig29`, no
+`sim/src/modules/mig29/`, no entry in `sim/assets/MODEL-DELTAS.md` and no gym mission that flies a
+MiG-29. The airframe exists only as a **spec-first contract** —
+[`../flightbox/aircraft/mig29.md`](../flightbox/aircraft/mig29.md), whose own status line reads
+*"spec only. Nothing is built."* This file is the **input** to that build, which is roadmap stage
+**R8**.
+
+| Roadmap stage | What it will take from this file |
+|---|---|
+| **R3** — knowledge base (`doc/mig29/`) | *running*: this file is the R3 deliverable for the flight model |
+| **R6** — asymmetric weapons + RCS | §10 (weapons and stores) is the hook: store masses and drag areas become point masses and one external force, exactly as on the F-16 |
+| **R7** — enemy units, MiG-29 at **BVR scale** | §8's anchors are the acceptance criteria that decide whether a BVR-scale opponent is good enough; turn-fight fidelity is explicitly **not** one of them |
+| **R8** — JSBSim MiG-29 model | the primary consumer: §11's 10-step build order with its promotion gates, measured in the gym against §8 anchor by anchor, under the `MODEL-DELTAS` discipline |
+
+**The measurement contract**, restated from the module file: every anchor of §8 (max speed by
+altitude, sustained/instantaneous turn, climb rate, service ceiling, fuel flow) is measured in the
+gym against the documented number and the deviation is stated. A failing knife-fight comparison is
+not a defect of this model; a wrong envelope is.
+
+---
+
+## Gaps
+
+**Source gaps** — §12 below is the file's own three-way split (permanently open · closable by the
+GAF T.O. 1F-MIG29-1 · closable by measurement) and is left exactly as written, section number
+intact. The governing acquisition note: **GAF T.O. 1F-MIG29-1** (German Air Force MiG-29G flight
+manual, ~454 pp, English, USAF format) was located but **not available to this pass**; the whole
+file is written so its arrival is an edit, not a rewrite (§1.1).
+
+**Implementation gaps** — none statable yet: nothing is built (see State).
+
+### 12. Open points (checklist row 12) — split into the three required kinds
+
+#### 12.1 What nobody knows publicly — permanent declared estimates
 
 These will remain `[SET]` or `[ANALOGY]` **even if the German flight manual is obtained**, because a
 flight manual contains performance and limits, not coefficient decks:
@@ -650,22 +701,22 @@ flight manual contains performance and limits, not coefficient decks:
 9. **Per-tank capacities and the fuel feed sequence** — hence CG travel through a sortie.
 10. **Control-surface actuator rates and hinge-moment limits.**
 
-### 12.2 Where the sources contradict each other
+#### 12.2 Where the sources contradict each other
 
 | Item | Value A | Value B | Note |
 |---|---|---|---|
-| Vmax sea level | 1,500 km/h `DCS-FM p.20` | 1,200 km/h / M1.06 (T3 aerospaceweb) | 25 % apart — **the largest single conflict in the envelope** |
-| Service ceiling | 18,000 m `DCS-FM p.20` | 17,000 m (T3 Jane's) / 18,500 m (T3 aerospaceweb) | 9 % spread |
-| Max takeoff weight | 18,100 kg `DCS-FM p.20` | 18,500 kg (T3) | 2 % |
-| Normal takeoff weight | 15,300 kg `DCS-FM p.20` | 15,240 kg (T3) | 0.4 % — negligible |
+| Vmax sea level | 1,500 km/h `DCS-FM p.14` | 1,200 km/h / M1.06 (T3 aerospaceweb) | 25 % apart — **the largest single conflict in the envelope** |
+| Service ceiling | 18,000 m `DCS-FM p.14` | 17,000 m (T3 Jane's) / 18,500 m (T3 aerospaceweb) | 9 % spread |
+| Max takeoff weight | 18,100 kg `DCS-FM p.14` | 18,500 kg (T3) | 2 % |
+| Normal takeoff weight | 15,300 kg `DCS-FM p.14` | 15,240 kg (T3) | 0.4 % — negligible |
 | Internal fuel | 3,200 kg (T3) | 3,375–3,500 kg (T4) | 10 % — affects range anchors A7/A8 |
-| Internal tank count | 5 fuselage compartments named `DCS-FM p.15` | 4 fuselage + 2 wing (T3) | enumeration does not reconcile |
+| Internal tank count | 5 fuselage compartments named `DCS-FM p.9` | 4 fuselage + 2 wing (T3) | enumeration does not reconcile |
 | RD-33 dry weight | 1,055 kg (T3) | 1,156 kg (T3) | probably bare vs. installed |
 | Turbine inlet temp | 1,536 K | 1,530 K takeoff / 1,680 K in flight | both T3 |
 | RD-33 SFC units | 0.77 / 2.05 kg/(kgf·h) | "7.5 / 20.1 kg/(kN·h)" | **the second is a factor-of-10 unit error**, §5.1 |
 | R-27ER/ET on a 9-12 | `DCS-EA p.86` lists them | `DCS-FM p.68–69` assigns them to the Su-27 | `weapons.md` §3.1 |
 
-### 12.3 Where numbers look implausible
+#### 12.3 Where numbers look implausible
 
 | Finding | Why suspicious |
 |---|---|
@@ -673,10 +724,10 @@ flight manual contains performance and limits, not coefficient decks:
 | **Takeoff run 250 m** | Very short for a 15.3 t fighter; §8.2's derivation says 284 m at normal weight with AB, so the 250 m figure is credible **only** at a lighter weight or with AB + headwind. It is almost certainly an AB figure at a demonstration weight, and should not be used as a MIL-power anchor |
 | **Ferry 2,100 km (9-12) vs 2,900 km (9-13)** | 38 % apart for the same airframe and engines; explained *exactly* by the 9-13's wet inboard pylons (`weapons.md` §2.2), which is a satisfying resolution rather than a contradiction |
 | **Wing area 38.056 m² quoted to 5 significant figures** | The precision implies a specific reference-area convention that no source states (§2.1). Treat the digits as a *convention marker*, not as accuracy |
-| **"Rudder fins square 1.25 m²"** `DCS-FM p.16` | Almost certainly the **rudder** (control surface), not the fin; if read as total fin area the aircraft would be directionally hopeless. Recorded as an interpretation, `[ABL]` |
+| **"Rudder fins square 1.25 m²"** `DCS-FM p.10` | Almost certainly the **rudder** (control surface), not the fin; if read as total fin area the aircraft would be directionally hopeless. Recorded as an interpretation, `[ABL]` |
 | **Landing roll 600 m with chute** vs **takeoff run 250 m** | A 2.4:1 ratio is unusual — most fighters land shorter relative to their takeoff run. Consistent with a 9 t-class landing weight and no thrust reverser, but flagged for re-check against B9 |
 
-### 12.4 Not investigated this pass
+#### 12.4 Not investigated this pass
 
 - **GAF T.O. 1F-MIG29-1** — the one document that would move a dozen `[GAP]`s to `[T1]`.
 - A **scaled 3-view digitisation**, which would close `htailarm`, `vtailarm`, `AERORP`, `EYEPOINT`,
@@ -692,9 +743,18 @@ flight manual contains performance and limits, not coefficient decks:
 
 ---
 
-## Sources
+## Knowledge
 
-- `doc/DCS MIG-29 Flight Manual EN.pdf` — Eagle Dynamics, 2018. Pages 15–20, 87, 116.
+The researched depth of this file is **distributed, not collected**: it lives in the
+**derivation-path column** of every table in Spec (the INV / GEO / ANA / SET procedures of §6, the
+`<turbine_engine>` derivation of §5, the inertia estimates of §3) and in the **declared F/A-18 HARV
+high-α analogy** of §6.4. That is deliberate — a derivation is only useful next to the number it
+produces. The sources those derivations draw on are listed here.
+
+### Sources
+
+- `doc/DCS MIG-29 Flight Manual EN.pdf` — Eagle Dynamics, 2018. Printed pages 9–14, 81, 110
+  (= PDF pages 15–20, 87, 116).
 - `doc/DCS MiG-29A Early Access Manual EN.pdf` — Eagle Dynamics, 2025. Pages 19, 55, 57–58, 60, 64, 75–80.
 - **NASA TM-110216** — Strickland, Bundick, Messina, Hoffler, Carzoo, Yeager, Beissner,
   *Simulation model of the F/A-18 high angle-of-attack research vehicle utilized for the design of

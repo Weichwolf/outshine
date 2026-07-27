@@ -34,11 +34,36 @@ der Jet KANN.
 | `[MESS]` | gemessen, Kommando/Harness steht daneben |
 | `[DOC]` | aus `doc/f16/` bzw. `doc/flightbox/` mit deren eigenem Zitat-Tag |
 
----
+## Spec
 
-## 1. Herkunftskette und Modell-Delta
+**Das gepinnte Modell, wie es geflogen wird, plus die deklarierten Deltas** — mehr verlangt Prinzip 5
+nicht, und weniger genügt ihm nicht. Die Delta-Liste und ihr Prüftor führt
+[`sim/assets/MODEL-DELTAS.md`](../../sim/assets/MODEL-DELTAS.md) (`make -C sim verify-models`).
+Alles Übrige in `doc/f16/` beschreibt den ECHTEN Jet (Design-Ziele); diese Datei beschreibt, was unser
+Flugzeug tatsächlich TUT.
 
-### 1.1 NASA TP-1538 → JSBSim → FlightBox
+## State
+
+**Diese Datei IST der Zustand.** Sie beschreibt kein Ziel, sondern eine Bestandsaufnahme: §1–§10 sind
+das geflogene Modell — Herkunftskette und Delta, Geometrie, Masse, Bodenkontakte, Antrieb, Aerodynamik,
+die FLCS als XML, die gemessene Einhüllende, die akzeptierten Modell-Eigenschaften und die beiden
+Waffenmodelle. Die für die übrige Ablage wichtigsten zwei Abschnitte:
+
+- **§7.11 — die Abweichungstabelle Modell vs. echte FLCS.** Die Brücke zwischen dieser Datei und
+  [`flight-controls-flcs.md`](flight-controls-flcs.md): Design-Ziel `[DOC]` gegen Ist `[XML]`, Zeile
+  für Zeile. Wer eine Zahl aus dem Handbuch nachbauen will, liest zuerst hier nach, ob das Modell sie
+  überhaupt hat.
+- **§9 — die zwölf akzeptierten Modell-Eigenschaften.** Ausdrücklich Wahrheit, kein Defekt
+  (Prinzip 5); sie dürfen nicht „repariert" werden.
+
+Wie der Code diese Zahlen benutzt, steht auf der anderen Seite:
+[`../flightbox/sim/fdm.md`](../flightbox/sim/fdm.md) (Adapter, Ladeablauf, Kanäle),
+[`../flightbox/aircraft/f16.md`](../flightbox/aircraft/f16.md) (die Hooks des Moduls) und
+[`../flightbox/aircraft/stores.md`](../flightbox/aircraft/stores.md) (Modellwurzeln + Delta-Regel).
+
+### 1. Herkunftskette und Modell-Delta
+
+#### 1.1 NASA TP-1538 → JSBSim → FlightBox
 
 Die Quellenlage von TP-1538 ist in `aerodynamics-performance.md` §„Reference aerodynamic dataset"
 vollständig aufgeschrieben (Nguyen, Ogburn, Gilbert, Kibler, Brown & Deal, *Simulator Study of
@@ -68,7 +93,7 @@ klemmt auf die Randstützstelle `[JSB]` — der Modellautor schreibt das selbst 
 Was der Modellautor stattdessen gebaut hat, ist eine FLCS-seitige Krücke: die Bremsklappe fährt
 selbsttätig aus, wenn α ≥ 53° UND v ≤ 18 ft/s (§7.7).
 
-### 1.2 Modell-Delta gegenüber dem gepinnten Submodul
+#### 1.2 Modell-Delta gegenüber dem gepinnten Submodul
 
 `sim/assets/aircraft/f16/` ist **byte-identisch** zu `sim/vendor/jsbsim/aircraft/f16/` mit genau einer
 Ergänzung: das Verzeichnis `engine/` mit `F100-PW-229.xml` und `direct.xml`, die im Submodul unter
@@ -84,7 +109,7 @@ Vanilla-JSBSim. FlightBox setzt sie nur (`fdm/FBFdm.cpp:148`, Default AUS).
 
 ---
 
-## 2. Geometrie — `f16.xml → <metrics>`
+### 2. Geometrie — `f16.xml → <metrics>`
 
 | Element | Wert | Bemerkung |
 |---|---|---|
@@ -108,7 +133,7 @@ von 0,35 c̄ abweichenden Schwerpunkt vorsehen) macht das Modell NICHT.
 
 ---
 
-## 3. Masse und Trägheit — `f16.xml → <mass_balance>`
+### 3. Masse und Trägheit — `f16.xml → <mass_balance>`
 
 | Element | Wert | Bemerkung |
 |---|---|---|
@@ -145,9 +170,9 @@ Handbuch.
 
 ---
 
-## 4. Bodenkontakte — `f16.xml → <ground_reactions>`
+### 4. Bodenkontakte — `f16.xml → <ground_reactions>`
 
-### 4.1 Fahrwerk (`type="BOGEY"`)
+#### 4.1 Fahrwerk (`type="BOGEY"`)
 
 | Kontakt | Ort (in) | Feder (lb/ft) | Dämpfung (lb/ft/s) | µ stat/dyn/roll | max_steer | Bremsgruppe |
 |---|---|---|---|---|---|---|
@@ -157,7 +182,7 @@ Handbuch.
 
 `[XML]`, alle drei `<retractable>1</retractable>`.
 
-### 4.2 Struktur (`type="STRUCTURE"`) — die Aufschlagpunkte
+#### 4.2 Struktur (`type="STRUCTURE"`) — die Aufschlagpunkte
 
 | Kontakt | Ort (in) | Feder | Dämpfung | µ (alle drei) |
 |---|---|---|---|---|
@@ -171,7 +196,7 @@ Handbuch.
 30 ft der `<metrics>` `[ABL]` — die Kontaktgeometrie zählt die Startschienen mit, die Bezugs-
 Spannweite nicht.
 
-### 4.3 Es gibt KEINE Bruchlast im Modell
+#### 4.3 Es gibt KEINE Bruchlast im Modell
 
 JSBSims `<contact>` kennt kein Feld für eine Versagenslast — weder für eine Fahrwerksstrebe noch für
 einen Strukturpunkt `[JSB FGLGear]`. Was `core/FBFlightMonitor` als K.O. wertet, leitet er deshalb
@@ -182,7 +207,7 @@ Schranke `kHardLandingForceFactor = 3,0` `[DOC core.md]`. Ebenso ist `gear/gear-
 Der Monitor ist damit modellgetrieben, aber die Schranken sind seine, nicht die des XML — und das ist
 genau die Trennung, die Prinzip „Kein Cheaten" verlangt.
 
-### 4.4 `<external_reactions>`
+#### 4.4 `<external_reactions>`
 
 | Kraft | Ort (in) | Richtung (Körper) | Wer treibt sie |
 |---|---|---|---|
@@ -200,9 +225,9 @@ FlightBox legt zur LAUFZEIT zwei weitere Kräfte an derselben Mechanik an — `f
 
 ---
 
-## 5. Antrieb — `engine/F100-PW-229.xml`
+### 5. Antrieb — `engine/F100-PW-229.xml`
 
-### 5.1 Skalare
+#### 5.1 Skalare
 
 | Element | Wert | Bedeutung |
 |---|---|---|
@@ -215,7 +240,7 @@ FlightBox legt zur LAUFZEIT zwei weitere Kräfte an derselben Mechanik an — `f
 | `augmented` / `augmethod` | 1 / **2** | `[XML]` — Methode 2 = STUFENLOSER Nachbrenner (s.u.) |
 | `injected` | 0 | `[XML]` keine Wassereinspritzung |
 
-### 5.2 Die drei Schubtabellen
+#### 5.2 Die drei Schubtabellen
 
 Alle drei sind **Faktoren**, indiziert nach Mach (Zeile) × `atmosphere/density-altitude` in ft
 (Spalte). Spaltenraster durchgängig −10.000 / 0 / 10.000 / 20.000 / 30.000 / 40.000 / 50.000 /
@@ -231,7 +256,7 @@ Alle drei sind **Faktoren**, indiziert nach Mach (Zeile) × `atmosphere/density-
 seinem M-1,4-Wert ein, oberhalb Mach 2,6 der Nachbrennerschub, und oberhalb 60.000 ft
 Dichtehöhe ist der Schub **exakt null** — das Modell hat dort keine Gipfelhöhe, sondern eine Wand.
 
-### 5.3 Schub- und Drehzahlgesetz `[JSB FGTurbine::Run(), Zeilen 198-260]`
+#### 5.3 Schub- und Drehzahlgesetz `[JSB FGTurbine::Run(), Zeilen 198-260]`
 
 ```
 idlethrust = milthrust · IdleThrust(M, h)
@@ -246,7 +271,7 @@ thrust    += (maxthrust · AugThrust(M,h) − thrust) · min(AugmentCmd, 1)
 Der Nachbrenner ist also **stufenlos** (kein Schnappen bei „Throttle > 99 %", das wäre AugMethod 1)
 und mischt linear zwischen Trocken- und Vollschub.
 
-### 5.4 Spool-Dynamik `[JSB FGTurbine.h:326-340, FGTurbine::Seek()]`
+#### 5.4 Spool-Dynamik `[JSB FGTurbine.h:326-340, FGTurbine::Seek()]`
 
 Weder das Modell noch das Triebwerks-XML deklarieren Spool-Funktionen; JSBSim setzt Defaults ein:
 
@@ -269,7 +294,7 @@ Turbinenmodell, nicht des F100. Beide Zeiten wachsen mit der Höhe (der `(1−ρ
 Sonstige Kennwerte sind reine Algebra, keine Physik: `EGT = TAT + 363,1 + Throttle·357,1`,
 `Öldruck = 0,62·N2`, `Leerlauf-Kraftstofffluss = 17800^0,2 · 107 = 758 pph` `[JSB]`.
 
-### 5.5 Die Throttle-Abbildung — der wichtigste Fallstrick
+#### 5.5 Die Throttle-Abbildung — der wichtigste Fallstrick
 
 `f16.xml → <channel name="Throttle">` enthält genau eine Komponente:
 `fcs/throttle-pos-norm = 2 · fcs/throttle-cmd-norm` `[XML]`. JSBSims Turbine liest die Position und
@@ -286,7 +311,7 @@ FlightBox schreibt `fcs/throttle-cmd-norm` direkt (`FBFdm::SetControls`), mit ei
 Slew-Limit, weil ein Sprung die Drehzahl-ODE sprengt `[DOC fdm.md]`. Ein Regler, der „Throttle 0,8"
 als „80 % Schub" liest, liegt also um den halben Nachbrenner daneben.
 
-### 5.6 Thruster
+#### 5.6 Thruster
 
 `engine/direct.xml`: `<direct name="Direct">`, leer — der Schub des Triebwerks IST der Schub am
 Rumpf. Ort (0/0/0) in, Ausrichtung 0/0/0 `[XML]`, also durch den Strukturursprung und exakt entlang
@@ -294,9 +319,9 @@ der Rumpfachse: **kein Schubvektor-Versatz, kein Anstellwinkel der Düse**.
 
 ---
 
-## 6. Aerodynamik — `f16.xml → <aerodynamics>`
+### 6. Aerodynamik — `f16.xml → <aerodynamics>`
 
-### 6.1 Aufbau
+#### 6.1 Aufbau
 
 **41 `<function>`, 35 `<table>`** `[MESS]`, verteilt auf eine globale Funktion und sechs Achsen:
 
@@ -320,7 +345,7 @@ Moment  = qbar-psf · Sw-sqft · (bw-ft | cbarw-ft) · […]
 Rate    = … · (bi2vel | ci2vel) · (p|q|r)-aero-rad_sec      bi2vel = b/2V, ci2vel = c̄/2V [JSB]
 ```
 
-### 6.2 Stützstellenraster (durchgängig, gilt für ALLE Tabellen)
+#### 6.2 Stützstellenraster (durchgängig, gilt für ALLE Tabellen)
 
 | Variable | Stützstellen (rad) | in Grad |
 |---|---|---|
@@ -333,7 +358,7 @@ Rate    = … · (bi2vel | ci2vel) · (p|q|r)-aero-rad_sec      bi2vel = b/2V, c
 Das ist exakt das Raster des kanonischen offenen F-16-Modells (Stevens & Lewis / AeroBench)
 `[DOC flight-controls-flcs.md §Canonical model constants]`.
 
-### 6.3 Globale Funktion
+#### 6.3 Globale Funktion
 
 | Name | Beschreibung | Unabhängige Var. | Verlauf |
 |---|---|---|---|
@@ -342,7 +367,7 @@ Das ist exakt das Raster des kanonischen offenen F-16-Modells (Stevens & Lewis /
 **+22,9 % Auftrieb im vollen Bodeneffekt**, monoton fallend bis eine Spannweite Höhe. Multipliziert
 JEDEN Term der LIFT-Achse außer `CLq_Dsb`.
 
-### 6.4 Achse `DRAG`
+#### 6.4 Achse `DRAG`
 
 | Funktion | Unabhängige Var. | Stellgröße | Kernzahlen |
 |---|---|---|---|
@@ -355,7 +380,7 @@ JEDEN Term der LIFT-Achse außer `CLq_Dsb`.
 | `CDq` — Nickrate | α (12) | q·c̄/2V | −2,139 (−5°) … **+24,105** (45°) `[XML]` |
 | `CDq_Dlef` — Nickrate × Vorflügel | α (12) | q·c̄/2V · δlef | 0,015…0,067 `[XML]` |
 
-### 6.5 Achse `SIDE`
+#### 6.5 Achse `SIDE`
 
 | Funktion | Unabhängige Var. | Kernzahlen |
 |---|---|---|
@@ -369,7 +394,7 @@ JEDEN Term der LIFT-Achse außer `CLq_Dsb`.
 Beide Ratenterme **wechseln jenseits 35° AoA das Vorzeichen** — das ist die Nachstall-Signatur, die
 TP-1538 auch bei −10…45° noch hergibt.
 
-### 6.6 Achse `LIFT`
+#### 6.6 Achse `LIFT`
 
 | Funktion | Unabhängige Var. | Stellgröße | Kernzahlen |
 |---|---|---|---|
@@ -383,7 +408,7 @@ TP-1538 auch bei −10…45° noch hergibt.
 **`CL_max ≈ 1,9` und der Abfall danach** (35° → 40° → 45°: 1,900 / 1,898 / 1,753 bei δh=0
 `[XML]`) sind die einzige Stall-Information, die das Modell trägt: eine flache Kuppe, kein Abriss.
 
-### 6.7 Achse `ROLL`
+#### 6.7 Achse `ROLL`
 
 | Funktion | Unabhängige Var. | Kernzahlen |
 |---|---|---|
@@ -399,7 +424,7 @@ TP-1538 auch bei −10…45° noch hergibt.
 Die **Rolldämpfung viertelt sich zwischen 0° und 45° AoA** — der physikalische Grund, warum ein
 Rollkommando bei hohem α im Modell so lange braucht.
 
-### 6.8 Achse `PITCH`
+#### 6.8 Achse `PITCH`
 
 | Funktion | Unabhängige Var. | Kernzahlen |
 |---|---|---|
@@ -415,7 +440,7 @@ positiven Abschnitten — genau die **entspannte Längsstabilität**, die den ge
 zwingend macht. Die Machkorrektur `Cma_M` kippt bei M 1,0 stark nach negativ: der klassische
 Machtuck-Stabilitätssprung.
 
-### 6.9 Achse `YAW`
+#### 6.9 Achse `YAW`
 
 | Funktion | Unabhängige Var. | Kernzahlen |
 |---|---|---|
@@ -431,7 +456,7 @@ Machtuck-Stabilitätssprung.
 **Der `Cnb`-Vorzeichenwechsel bei 35° AoA ist die Departure-Grenze des Modells** — jenseits davon
 verstärkt Schiebewinkel sich selbst. Er ist echte TP-1538-Physik, kein Artefakt.
 
-### 6.10 Was die Aerodynamik NICHT enthält
+#### 6.10 Was die Aerodynamik NICHT enthält
 
 | Fehlt | Konsequenz |
 |---|---|
@@ -444,13 +469,13 @@ verstärkt Schiebewinkel sich selbst. Er ist echte TP-1538-Physik, kein Artefakt
 
 ---
 
-## 7. Die FLCS als `<flight_control>`-XML
+### 7. Die FLCS als `<flight_control>`-XML
 
 `f16.xml → <flight_control name="F-16 FC">`, Zeilen 311–981: **11 Kanäle, 58 Komponenten,
 5 Verstärkungspläne** `[MESS]`. Vier Interface-Properties werden vorab deklariert:
 `fcs/alpha-norm`, `fcs/hook-engage`, `fcs/canopy-engage`, `fcs/fbw-override` `[XML]`.
 
-### 7.1 Kanalübersicht
+#### 7.1 Kanalübersicht
 
 | # | Kanal | Zeilen | Komponenten | Ausgang in die Aerodynamik |
 |---|---|---|---|---|
@@ -465,7 +490,7 @@ verstärkt Schiebewinkel sich selbst. Er ist echte TP-1538-Physik, kein Artefakt
 | 9 | Hook | 938–955 | 1 | — |
 | 10 | Canopy | 957–981 | 2 | — |
 
-### 7.2 Roll-Kanal
+#### 7.2 Roll-Kanal
 
 ```
 velocities/p-aero-rad_sec ──×0,31821──► roll-rate-norm
@@ -499,7 +524,7 @@ fcs/aileron-cmd-norm ──┬──(−)──► roll-trim-error ──► PID
    Flächenpositionen für die Animation und den Flaperon-Mixer.
 2. Damit **überbrückt `fcs/fbw-override` den Roll-PID NICHT** (§7.10).
 
-### 7.3 Pitch-Kanal
+#### 7.3 Pitch-Kanal
 
 ```
 accelerations/n-pilot-z-norm ──┬─► g-load-corrected ──×0,020──► g-load-norm ──┐
@@ -542,7 +567,7 @@ getrimmten Horizontalflug `[MESS]` (JSBSim-CLI-Sonde auf diesem Modell, 350 KCAS
 den Offset, den ihr Kommentar beseitigen will**. Wirkungslos bleibt das nur, weil der Term mit 0,020
 gewichtet ist: der Fehler ist ±0,02 im Signal.
 
-### 7.4 Yaw-Kanal
+#### 7.4 Yaw-Kanal
 
 | Größe | Wert | Bedeutung |
 |---|---|---|
@@ -559,7 +584,7 @@ Rollkommando ins Seitenruder `[XML]`.
 `fcs/rudder-pos-norm` wird **zweimal geschrieben** (vom PID `fcs/yaw-load-pid` und von der Kinematik
 `fcs/rudder-position`) `[XML]`; die Kinematik läuft später im Kanal und gewinnt `[JSB]`.
 
-### 7.5 Leading Edge Flap — der α-/Mach-Plan
+#### 7.5 Leading Edge Flap — der α-/Mach-Plan
 
 `<switch name="fcs/lef-pos-rad">`, Tests in dieser Reihenfolge (erster Treffer gewinnt `[JSB
 FGSwitch]`):
@@ -576,7 +601,7 @@ FGSwitch]`):
 `fcs/lef-pos-deg` auf ±25°. Der Plan ist also eine **Dreistufen-Treppe**, kein stetiger Plan wie
 beim echten Jet.
 
-### 7.6 Landing Gear
+#### 7.6 Landing Gear
 
 | Größe | Wert |
 |---|---|
@@ -587,7 +612,7 @@ beim echten Jet.
 Der Lenkplan ist genau der, den `procedures-takeoff-taxi.md` als „NWS-Gain-vs-Groundspeed-Prinzip"
 beschreibt `[DOC]` — hier mit konkreten Zahlen.
 
-### 7.7 Speedbrake
+#### 7.7 Speedbrake
 
 | Größe | Wert |
 |---|---|
@@ -603,7 +628,7 @@ Der Auto-Trigger ist die einzige Deep-Stall-Vorkehrung des Modells (§1.1); der 
 so („to prevent deep stall … just enough pitch down moment"). Bei α ≥ 53° stehen die Aerotabellen
 allerdings längst auf ihrem 45°-Klemmwert.
 
-### 7.8 Trailing Edge Flap (Kanal „Flaps")
+#### 7.8 Trailing Edge Flap (Kanal „Flaps")
 
 | Bedingung | δTEF |
 |---|---|
@@ -614,7 +639,7 @@ allerdings längst auf ihrem 45°-Klemmwert.
 `[XML]`, Normierung ×2,864789 (= 1/0,349 `[ABL]`), Kinematik 3 s. **Ohne Fahrwerksbezug** — die
 Klappen fahren allein auf Fahrtmesser.
 
-### 7.9 Der Flaperon-Mixer — ein Vorzeichenfehler mit erster Ordnung Wirkung
+#### 7.9 Der Flaperon-Mixer — ein Vorzeichenfehler mit erster Ordnung Wirkung
 
 ```
 left-flaperon-norm  = −tef-control − aileron-speed-compensated
@@ -652,7 +677,7 @@ Modell-Eigenschaft, kein zu behebender Defekt** (`sim/vendor` ist read-only) —
 Abfang- oder Anflug-Regler zahlt bei jedem Rollmanöver einen realen Auftriebs-/Energie-Preis, und
 wer Telemetrie liest, muss wissen, woher der Knick kommt.
 
-### 7.10 Was `fcs/fbw-override` wirklich überbrückt
+#### 7.10 Was `fcs/fbw-override` wirklich überbrückt
 
 | Kanal | Schalter vorhanden | Ersetzt | Erreicht die Aerodynamik? |
 |---|---|---|---|
@@ -667,7 +692,7 @@ die Rollmomenten-Wirkung. FlightBox setzt den Schalter im Default NICHT (`FBFdmS
 false` `[DOC fdm.md]`), fliegt also die modelleigene FLCS; die obige Tabelle gilt für jeden, der es
 anders vorhat.
 
-### 7.11 Modell-FLCS gegen echte FLCS — die Fidelity-Tabelle
+#### 7.11 Modell-FLCS gegen echte FLCS — die Fidelity-Tabelle
 
 Design-Ziele aus `flight-controls-flcs.md` (Chuck Part 15 / ED / AIAA-Literatur), Ist-Zustand aus
 `f16.xml`. **Diese Tabelle ist der eigentliche Zweck dieses Kapitels.**
@@ -703,9 +728,9 @@ ist.
 
 ---
 
-## 8. Die gemessene Einhüllende
+### 8. Die gemessene Einhüllende
 
-### 8.1 Corner-Speed — `make -C sim test-corner`
+#### 8.1 Corner-Speed — `make -C sim test-corner`
 
 Methode (`sim/src/app/FBTestCornerSpeed.cpp`): Luftstart getrimmt bei **5.000 m**, Rollen auf **85°
 Schräglage**, dann Vollausschlag `fcs/elevator-cmd-norm = −1` **durch die modelleigene FLCS**,
@@ -735,7 +760,7 @@ Die 380 KCAS liegen dennoch **innerhalb** des in `aerodynamics-performance.md` p
 Corner-PLATEAUS von 330–440 KCAS `[DOC]` — die stärkste verfügbare Gegenprobe für eine Zahl, die
 kein Handbuch tabelliert.
 
-### 8.2 Maximale Rollrate
+#### 8.2 Maximale Rollrate
 
 Direkt an diesem Modell gemessen (JSBSim-CLI-Sonde, getrimmter Horizontalflug bei 10.000 ft,
 `fcs/aileron-cmd-norm = 1,0` als Sprung, Spitzenwert über 4 s) `[MESS]`:
@@ -751,7 +776,7 @@ Modell-Eigenschaft" ist damit erklärt und belegt: es ist die Sättigung des Rol
 Aerodynamik. Unter 400 KCAS erreicht das Flugzeug das Kommando gar nicht — dort ist die
 Querruderautorität (`Clda`, §6.7) die Grenze.
 
-### 8.3 Weitere belegte Messungen
+#### 8.3 Weitere belegte Messungen
 
 Alle aus `doc/flightbox/sim/pilot-ai.md` bzw. `doc/flightbox/aircraft/f16.md`, dort mit ihren Läufen belegt `[DOC]`:
 
@@ -765,7 +790,7 @@ Alle aus `doc/flightbox/sim/pilot-ai.md` bzw. `doc/flightbox/aircraft/f16.md`, d
 
 ---
 
-## 9. Akzeptierte Modell-Eigenschaften (Prinzip 5)
+### 9. Akzeptierte Modell-Eigenschaften (Prinzip 5)
 
 Was hier steht, ist **Wahrheit, nicht Fehlerliste**. `sim/vendor` ist read-only; diese Eigenschaften
 sind zu KENNEN, nicht zu reparieren.
@@ -787,9 +812,9 @@ sind zu KENNEN, nicht zu reparieren.
 
 ---
 
-## 10. Die Waffenmodelle
+### 10. Die Waffenmodelle
 
-### 10.1 Mk-82 — `sim/assets/aircraft/mk82/mk82.xml` (vendored, `release="BETA"`)
+#### 10.1 Mk-82 — `sim/assets/aircraft/mk82/mk82.xml` (vendored, `release="BETA"`)
 
 **Der Vorbehalt steht im Modell selbst.** `<fileheader><note>` `[XML]`, wörtlich:
 
@@ -841,7 +866,7 @@ einen rotationssymmetrischen Körper konsistent, aber eben eine Kopie; (b) `Cnbe
 10.000 ft) liegen bei, werden von FlightBox aber nicht benutzt — FlightBox spawnt Stores über
 `FBFdmSpawn::Ballistic` aus dem Trägerzustand `[DOC CLAUDE.md]`.
 
-### 10.2 AIM-120 — `sim/assets/aircraft/aim120/` (FlightBox-eigen, `release="ALPHA"`)
+#### 10.2 AIM-120 — `sim/assets/aircraft/aim120/` (FlightBox-eigen, `release="ALPHA"`)
 
 Dieses Modell ist als einziges **selbst durchdokumentiert**: jede Zahl trägt im XML ein Tag
 (`[T-ED]` / `[T3]` / `[DERIVED]` / `[SET]`) und jede Ableitung ihre Formel. Die Zusammenfassung:
@@ -896,9 +921,68 @@ Die drei Aussagen, gegen die dieses Set gebaut wurde, stehen als Rechnung im XML
 14,9 kN ≈ **13,8 g** (≈19 g bei 3 km, ≈25 g auf Meereshöhe); **(3) Verzögerung** nach Brennschluss
 bei M 4/6 km **5,6 g**.
 
----
+## Gaps
 
-## 11. Was eine solche Beschreibung braucht — die Übergabe-Checkliste
+Beide Sorten stehen hier zusammen, weil sie bei dieser Datei zusammenfallen: was das MODELL nicht
+abbildet, ist zugleich das, was FlightBox nicht simulieren kann. §12 ist bewusst dreigeteilt —
+fehlend, widersprüchlich, unplausibel — plus das, was nicht untersucht wurde.
+
+### 12. Offene Punkte
+
+#### 12.1 Was das Modell nicht abbildet
+
+| Fehlend | §  | Bemerkung |
+|---|---|---|
+| Nachstall α > 45° / Deep Stall | 1.1, 6.10 | Widerspricht der Erwartung, die `aerodynamics-performance.md` aus TP-1538 ableitet |
+| ARI, Anti-Spin, CAT I/III, MPO, DBU, Gun-Kompensation | 7.11 | die gesamte Schutzschicht der echten FLCS |
+| Aerodynamische Wirkung der Landeklappen | 7.9 | Vorzeichenfehler im Mixer |
+| Fanghakenkraft | 4.4 | deklariert, nicht verdrahtet |
+| Außenlast-Aerodynamik im Deck | 6.10 | FlightBox ersetzt sie extern |
+| Bodeneffekt auf Widerstand und Nickmoment | 6.3 | nur Auftrieb |
+| `Cmadot` (α̇-Term) | 6.10 | die Mk-82 hat einen, die F-16 nicht |
+| Machabhängigkeit der Grundtabellen | 6.10 | nur additive `*_M`-Korrekturen |
+
+#### 12.2 Wo das Modell sich selbst widerspricht
+
+| Befund | § | Belegzeile |
+|---|---|---|
+| `n-pilot-z-norm` ist −1 im Horizontalflug; der „Schwerkraftkorrektur"-Summer zieht `cos·cos` ab statt es zu addieren und verdoppelt den Offset | 7.3 | `[MESS]` `g-load-corrected = −1,482` bei `Nz = +1,000` |
+| Der Flaperon-Mixer kürzt die Klappen weg und verdoppelt die Querruder — die Vorzeichen sind vertauscht | 7.9 | `[ABL]` `flaperon-summer = −2·ail_sc` |
+| `fcs/rudder-pos-norm` hat zwei Schreiber im selben Kanal | 7.4 | `[XML]` PID-`<output>` und Kinematik-`<output>` |
+| `fcs/dht-left/right-pos-rad` werden gerechnet und von nichts gelesen | 7.3 | `[MESS]` Grep |
+| Spannweite in `<metrics>` (30 ft) gegen Flügelspitzen-Kontakte (31,5 ft) | 4.2 | `[ABL]` |
+| Mk-82: `Cnbeta` benutzt `cbarw-ft` statt `bw-ft` | 10.1 | folgenlos, weil hier gleich groß |
+| Mk-82: `Cmalpha` wird bei M 1,6 positiv (statisch instabil) | 10.1 | `[XML]` +9,024 bei α = 0 |
+
+#### 12.3 Wo Zahlen unplausibel wirken
+
+| Befund | § | Warum verdächtig |
+|---|---|---|
+| Gierraten-Normierung 100 (0,57 °/s Vollausschlag über 89 kt) | 7.4 | Zwei Größenordnungen härter als jede plausible Gierdämpfung; wirkt wie eine Einheitenverwechslung |
+| Roll-PID `kd = −0,00125` (negativ) | 7.2 | Ein negativer D-Anteil verstärkt Ratenänderungen, statt sie zu dämpfen |
+| Nickraten-Normierung 6,2 gegen g-Normierung 0,020 | 7.3 | Faktor > 30 zwischen den beiden Rückführungen — der Grund für die 5,6-g-Decke |
+| Schub exakt 0 ab 60.000 ft Dichtehöhe | 5.2 | Eine Nullspalte als Tabellenrand ist eine Wand, kein Abfall |
+| Spool-down 3× schneller als Spool-up | 5.4 | JSBSim-Default, physikalisch verkehrt herum |
+| Trägheitsverhältnis Izz/Ixx = 6,6 | 3 | Plausibel für eine Deltaflügel-Zelle, aber nirgends im Modell belegt |
+| `vtailarm = 0` bei `vtailarea = 54,75` | 2 | Offensichtlich unausgefüllt; folgenlos, weil ungelesen |
+
+#### 12.4 Nicht untersucht
+
+- Das Trimmverhalten (`FBFdmBoot::Spawn` → JSBSims `DoTrim`) über der Einhüllenden; die
+  Corner-Messung zeigt oberhalb 580 KCAS „udot doesn't appear to be trimmable" `[MESS]` — die
+  betroffenen Punkte fliegen ungetrimmt an.
+- Ob und wie stark `Cma_M`s Machtuck-Sprung bei M 1,0 die geschlossene Nickschleife destabilisiert.
+- Die Wechselwirkung zwischen dem Flaperon-Artefakt (§7.9) und der Corner-Messung (§8.1) — letztere
+  rollt zuerst auf 85° und misst DANACH; der Auftriebssprung fällt in die Rolleinleitung, nicht in
+  das Messfenster, ist aber nicht quantifiziert.
+
+## Knowledge
+
+*§11 ist die übertragbare Vorlage: was eine solche Modellbeschreibung enthalten MUSS und woher jede
+Angabe kommen muss. Sie ist die Bauanleitung für `doc/mig29/flight-model.md` und steht deshalb hier,
+nicht im Zustandsteil.*
+
+### 11. Was eine solche Beschreibung braucht — die Übergabe-Checkliste
 
 Für die nächste Zelle (MiG-29) ist diese Datei die Vorlage. Die Gliederung ist übertragbar; was je
 Abschnitt zwingend woher kommen MUSS, steht hier:
@@ -934,54 +1018,3 @@ Abschnitt zwingend woher kommen MUSS, steht hier:
 3. **Property-Verfolgung schlägt Lesen.** Ob eine FCS-Komponente wirkt, entscheidet sich daran, ob
    ihr Ausgang eine Aerofunktion erreicht — nicht daran, wie sie heißt. §7.9 und §7.10 sind beide auf
    diesem Weg gefunden worden.
-
----
-
-## 12. Offene Punkte
-
-### 12.1 Was das Modell nicht abbildet
-
-| Fehlend | §  | Bemerkung |
-|---|---|---|
-| Nachstall α > 45° / Deep Stall | 1.1, 6.10 | Widerspricht der Erwartung, die `aerodynamics-performance.md` aus TP-1538 ableitet |
-| ARI, Anti-Spin, CAT I/III, MPO, DBU, Gun-Kompensation | 7.11 | die gesamte Schutzschicht der echten FLCS |
-| Aerodynamische Wirkung der Landeklappen | 7.9 | Vorzeichenfehler im Mixer |
-| Fanghakenkraft | 4.4 | deklariert, nicht verdrahtet |
-| Außenlast-Aerodynamik im Deck | 6.10 | FlightBox ersetzt sie extern |
-| Bodeneffekt auf Widerstand und Nickmoment | 6.3 | nur Auftrieb |
-| `Cmadot` (α̇-Term) | 6.10 | die Mk-82 hat einen, die F-16 nicht |
-| Machabhängigkeit der Grundtabellen | 6.10 | nur additive `*_M`-Korrekturen |
-
-### 12.2 Wo das Modell sich selbst widerspricht
-
-| Befund | § | Belegzeile |
-|---|---|---|
-| `n-pilot-z-norm` ist −1 im Horizontalflug; der „Schwerkraftkorrektur"-Summer zieht `cos·cos` ab statt es zu addieren und verdoppelt den Offset | 7.3 | `[MESS]` `g-load-corrected = −1,482` bei `Nz = +1,000` |
-| Der Flaperon-Mixer kürzt die Klappen weg und verdoppelt die Querruder — die Vorzeichen sind vertauscht | 7.9 | `[ABL]` `flaperon-summer = −2·ail_sc` |
-| `fcs/rudder-pos-norm` hat zwei Schreiber im selben Kanal | 7.4 | `[XML]` PID-`<output>` und Kinematik-`<output>` |
-| `fcs/dht-left/right-pos-rad` werden gerechnet und von nichts gelesen | 7.3 | `[MESS]` Grep |
-| Spannweite in `<metrics>` (30 ft) gegen Flügelspitzen-Kontakte (31,5 ft) | 4.2 | `[ABL]` |
-| Mk-82: `Cnbeta` benutzt `cbarw-ft` statt `bw-ft` | 10.1 | folgenlos, weil hier gleich groß |
-| Mk-82: `Cmalpha` wird bei M 1,6 positiv (statisch instabil) | 10.1 | `[XML]` +9,024 bei α = 0 |
-
-### 12.3 Wo Zahlen unplausibel wirken
-
-| Befund | § | Warum verdächtig |
-|---|---|---|
-| Gierraten-Normierung 100 (0,57 °/s Vollausschlag über 89 kt) | 7.4 | Zwei Größenordnungen härter als jede plausible Gierdämpfung; wirkt wie eine Einheitenverwechslung |
-| Roll-PID `kd = −0,00125` (negativ) | 7.2 | Ein negativer D-Anteil verstärkt Ratenänderungen, statt sie zu dämpfen |
-| Nickraten-Normierung 6,2 gegen g-Normierung 0,020 | 7.3 | Faktor > 30 zwischen den beiden Rückführungen — der Grund für die 5,6-g-Decke |
-| Schub exakt 0 ab 60.000 ft Dichtehöhe | 5.2 | Eine Nullspalte als Tabellenrand ist eine Wand, kein Abfall |
-| Spool-down 3× schneller als Spool-up | 5.4 | JSBSim-Default, physikalisch verkehrt herum |
-| Trägheitsverhältnis Izz/Ixx = 6,6 | 3 | Plausibel für eine Deltaflügel-Zelle, aber nirgends im Modell belegt |
-| `vtailarm = 0` bei `vtailarea = 54,75` | 2 | Offensichtlich unausgefüllt; folgenlos, weil ungelesen |
-
-### 12.4 Nicht untersucht
-
-- Das Trimmverhalten (`FBFdmBoot::Spawn` → JSBSims `DoTrim`) über der Einhüllenden; die
-  Corner-Messung zeigt oberhalb 580 KCAS „udot doesn't appear to be trimmable" `[MESS]` — die
-  betroffenen Punkte fliegen ungetrimmt an.
-- Ob und wie stark `Cma_M`s Machtuck-Sprung bei M 1,0 die geschlossene Nickschleife destabilisiert.
-- Die Wechselwirkung zwischen dem Flaperon-Artefakt (§7.9) und der Corner-Messung (§8.1) — letztere
-  rollt zuerst auf 85° und misst DANACH; der Auftriebssprung fällt in die Rolleinleitung, nicht in
-  das Messfenster, ist aber nicht quantifiziert.

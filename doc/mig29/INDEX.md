@@ -18,16 +18,45 @@ Two source documents, kept distinguishable in every file. **Cite the tag, never 
 | **DCS-EA** | `doc/DCS MiG-29A Early Access Manual EN.pdf` (Eagle Dynamics, 2025) | 115 | The **full-fidelity 9-12 module** manual. Real switch names, real system designations, precise procedures and — in the SPO-15 chapter — an unusually deep, physically argued description of an analogue device. **Printed page == PDF page.** |
 | **DCS-FM** | `doc/DCS MIG-29 Flight Manual EN.pdf` (Eagle Dynamics, 2018) | 116 | The **Flaming Cliffs 3** manual for the simplified MiG-29A/S. Rich on *concepts* (radar physics, notch, HUD symbol meaning, voice warnings) but its avionics model is deliberately abstracted, and several of its numbers are **ED design decisions**. **Printed page = PDF page − 6.** |
 
-> ⚠️ **Page-numbering trap inside this directory.** DCS-FM has six roman-numbered front-matter pages,
-> so its printed and PDF page numbers differ by 6. The two files were written in parallel by different
-> agents and **do not use the same convention**:
-> - `flight-controls.md`, `engines-fuel.md`, `cockpit-displays.md`, `radar-sensors.md`,
->   `defence-rwr-cm.md`, `navigation.md`, `procedures.md`, `datalink-gci.md`, `PROGRESS.md` →
->   **printed page** (`DCS-FM p.14` = the TTD table).
-> - `weapons.md`, `flight-model-spec.md` → **PDF page** (`DCS-FM p.20` = the same TTD table).
+> ✅ **Page-numbering convention — RESOLVED: all files cite printed pages.** DCS-FM has six
+> roman-numbered front-matter pages, so its printed and PDF page numbers differ by 6
+> (**printed = PDF − 6**; `DCS-FM p.14` is the TTD table). The directory now uses the **printed**
+> page everywhere — the majority convention, and the one `doc/f16/` already follows.
 >
-> **DCS-EA has no front matter offset — printed == PDF — so it is unambiguous everywhere.**
-> Reconciling the two conventions is an open item in [PROGRESS.md](PROGRESS.md).
+> **What was converted:** `weapons.md` and `flight-model-spec.md` were the two files written on the
+> PDF-page convention. Every DCS-FM citation in both was checked **against the PDF text itself**
+> rather than shifted blindly, because both turned out to be *internally mixed*: in `weapons.md`
+> **45 of 86** tagged citations were PDF-page (converted) and **41 were already printed** (left
+> alone) — the R-27, R-60M and cluster-bomb sections had been written printed while the R-73, gun,
+> FAB and rocket sections were written PDF, so `p.72` and `p.78` could refer to the *same* physical
+> page. In `flight-model-spec.md` **43 of 45** were converted, 2 were already printed. The source
+> page lists in both headers and both `Sources` sections were converted with them. Verification:
+> every remaining `DCS-FM p.N` in the directory was re-matched against the extracted page text —
+> **zero citations resolve to a PDF page**.
+>
+> **DCS-EA has no front-matter offset — printed == PDF — so it was unambiguous and is untouched.**
+
+---
+
+## File schema (all 12 files)
+
+Every content file is organised as **`## Spec` → `## State` → `## Gaps` → `## Knowledge`**, the same
+form as `doc/f16/` and `doc/flightbox/`:
+
+| Section | Meaning here |
+|---|---|
+| **`## Spec`** | what the real MiG-29A 9-12 documentably does — the bulk of every file, including the variant notes |
+| **`## State`** | what FlightBox implements. Today that is **"nothing built"** in every single file: the airframe exists only as the spec-first contract [`../flightbox/aircraft/mig29.md`](../flightbox/aircraft/mig29.md). Each State section names which roadmap stage (R3 / R6 / R7 / R8) will consume which part of the file |
+| **`## Gaps`** | source gaps (the existing honest gap lists, the unsourced numbers, the **GAF T.O. 1F-MIG29-1** acquisition note, the 403-blocked research sites) — plus implementation gaps once building starts |
+| **`## Knowledge`** | researched depth, derivations, the cross-manual conflict registrations |
+
+Original section numbers are **unchanged** (`§2.4`, `§7.1` … still resolve); only the heading level
+moved down one, so `## 3.` became `### 3.`. `INDEX.md` and `PROGRESS.md` are meta files and are
+exempt. **[flight-model-spec.md](flight-model-spec.md) carries a deliberately thin frame:** its
+three-column layout (documented / derivation path / open+`[SET]`) *is already* a Spec+Gaps hybrid, so
+the frame goes around that structure rather than through it — the anchor tables and build order sit
+under Spec, the derivation-path columns stay inside their rows, and the file says so in a schema note
+at the top.
 
 **Three standing cautions:**
 1. **The two manuals contradict each other in at least four places** — the SPO-15 threat-type letters
@@ -58,8 +87,8 @@ Two source documents, kept distinguishable in every file. **Cite the tag, never 
 | [navigation.md](navigation.md) | **SN-29 / A-323 "PION"** RSBN navigation: the 9-point store, the complete panel, **manual** waypoint sequencing, the CORR (radio-correction) dependency; **ADF (ARK-19)**; **A037 radio altimeter**; the **RETURN / LANDING / MISSED-APPROACH** state machine with all engage conditions, the descent profile table and the altitude plateaus; PRMG landing beacons | **FULL** on modes, **MEDIUM** on infrastructure, **SHALLOW** on INS/drift | DCS-EA 16–18, 23–25, 41–43, 45, 63, 81–84; DCS-FM 12–13, 23, 26, 41–42 + research |
 | [procedures.md](procedures.md) | Preflight (25 steps) · start · post-start (17 steps) · taxi · normal/AB/crosswind takeoff · normal/crosswind landing · **brake chute rules**. Opens with a **one-table quick reference** of every phase number a pilot module needs | **FULL** on the procedure chapter, **SHALLOW** on performance tables | DCS-EA 60, 71–80; DCS-FM 81–82 |
 | [datalink-gci.md](datalink-gci.md) | **The Lazur/Biryuza GCI story** and why it is the anti-Link-16: hardware evidence (all of it "not implemented"), the **voice-BRAA → manual-radar-cueing loop** that *is* documented and *is* implementable, IFF's identity monopoly, and a separated **design argument** for a `FBDatalinkSystem` override whose payload is a *vector*, not a track list | **SHALLOW on hardware** (honestly — the module doesn't implement it), **MEDIUM on doctrine** | DCS-EA 38, 48–49, 51, 59, 113; DCS-FM 12–13, 30–31, 43–44, 83–86, 99–100 + research |
-| **[weapons.md](weapons.md)** | *(owned by the parallel agent)* GSh-301 gun, R-27/R-73/R-60 family, unguided rockets and bombs, station/pylon data, employment and release computation | — | — |
-| **[flight-model-spec.md](flight-model-spec.md)** | *(owned by the parallel agent)* The JSBSim-model specification: geometry, mass, aero, engine tables, the envelope to be reproduced and measured | — | — |
+| [weapons.md](weapons.md) | **GSh-301** gun (built row-for-row against the M61A1 table), the **R-27 / R-73 / R-60M** family with the **SARH support obligation** as its defining tactical property, unguided rockets and bombs, station/pylon data, the release path and the DLZ vocabulary mapped onto `Raero`/`Rtr`/`Rmin` | **FULL** on the A-A family and the gun, **MEDIUM** on A-G stores | DCS-FM 9–14, 61–79; DCS-EA 11–13, 59–60, 63, 86–105 + research |
+| [flight-model-spec.md](flight-model-spec.md) | The **JSBSim-model specification**: geometry, mass/inertia, tanks, ground reactions, the RD-33 `<turbine_engine>` spec, the per-coefficient aero **derivation plan**, the documented **envelope anchors** (= the future gym acceptance test) and a 10-step build order with promotion gates | **FULL** on the build order and anchors; the aero deck is by construction a derivation plan, not data | DCS-FM 9–14, 34–36, 81; DCS-EA 19, 55, 57–58, 60, 64, 75–80 + research |
 
 Coverage ledger: **[PROGRESS.md](PROGRESS.md)**.
 
@@ -122,6 +151,6 @@ Coverage ledger: **[PROGRESS.md](PROGRESS.md)**.
 - **DCS-FM pp. 94–103** (radio command menus, wingman/ATC/tanker phraseology) — folded only where it
   carries data: the AWACS/GCI BRAA protocol is in `datalink-gci.md` §2.1 and the ATC glide-path calls in
   `procedures.md`. The wingman-command tables are DCS UX.
-- **DCS-FM pp. 63–80** and **DCS-EA pp. 86–104 (weapons/employment)** — **owned by
-  [weapons.md](weapons.md)** (parallel agent).
+- **DCS-FM pp. 63–80** and **DCS-EA pp. 86–104 (weapons/employment)** — not distilled *by the system
+  files*; they are **owned by [weapons.md](weapons.md)**, which does distil them.
 - **DCS-EA pp. 113–115** (abbreviations) — used as a lookup, not distilled.

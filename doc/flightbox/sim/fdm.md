@@ -1,16 +1,14 @@
-# FDM-Adapter — `sim/src/fdm/`
+# FDM adapter — `sim/src/fdm/`
 
-> Body still in German — translation pass pending (see [roadmap](../roadmap.md)).
-
-**Quellen dieser Datei:** die Kommentar-Banner der sieben Dateien in `sim/src/fdm/`
+**Sources of this file:** the comment banners of the seven files in `sim/src/fdm/`
 (`FBFdm.h`, `FBFdm.cpp`, `FBFdmBoot.h`, `FBFdmBoot.cpp`, `FBFdmTelemetrySource.h/.cpp`, `em_compat.h`),
-`sim/src/app/FBTestTwoFdm.cpp` (der Koexistenz-Beweis), `sim/src/core/FBDamageModel.h` (die
-Folge-Konstanten) und CLAUDE.md. Zahlen ohne Quellenangabe stehen so im Code; Herleitungen sind als
-solche markiert, Setzungen mit `[SET]`.
+`sim/src/app/FBTestTwoFdm.cpp` (the coexistence proof), `sim/src/core/FBDamageModel.h` (the
+consequence constants) and CLAUDE.md. Numbers without a source reference are in the code as written;
+derivations are marked as such, settings with `[SET]`.
 
-Gegenstand: die **einzige** Naht zwischen FlightBox und der gepinnten JSBSim-Engine
-(`sim/vendor/jsbsim`, read-only, CLAUDE.md Prinzip 1). Alles über dieser Naht sieht ein flaches POD und
-eine Klasse; niemand sieht `FGFDMExec`.
+Subject: the **only** seam between FlightBox and the pinned JSBSim engine
+(`sim/vendor/jsbsim`, read-only, CLAUDE.md principle 1). Everything above this seam sees a flat POD and
+one class; nobody sees `FGFDMExec`.
 
 ---
 
@@ -53,434 +51,435 @@ seven harnesses rc=0, corner speed unchanged at 380 KCAS / 16.2214 °/s.
 |---|---|
 | `fdm/FBFdm` | count of process-wide JSBSim state: `CLAUDE.md` says three, `FBFdm.cpp` lists four. The code is authoritative. |
 
-### Inventory (German, from the previous `Offene Punkte` section)
+### Inventory (from the previous `Offene Punkte` section)
 
-- **Widerspruch in der Zahl der prozessweiten JSBSim-Dinge.** CLAUDE.md sagt „die drei in `FBFdm.cpp`
-  dokumentierten Dinge", `FBFdm.cpp` listet **vier** Punkte (debug_lvl, Logger, `Element::convert`,
-  `JSBSIM_*`-Env). Die Liste in `FBFdm.cpp` ist die maßgebliche. Der vierte Punkt ist streng genommen
-  kein eigener Zustand, sondern ein Schreiber auf den ersten — vermutlich die Quelle des
-  Zählunterschieds. (Die abweichende Zwei-Behauptung im `FBFdm.h`-Banner ist mit der Kommentar-Runde
-  entfallen, ebenso dessen veraltetes Ownership-Banner.)
-- **`GetGroundClearanceM` bei `gearDown=false`** überspringt einziehbare Kontakte, aber nicht solche,
-  die zwar `ctSTRUCTURE` sind und trotzdem einziehbar deklariert wurden — Konsequenz für Modelle mit
-  ungewöhnlicher Kontaktdeklaration ist nicht geprüft.
-- **`GetGearPos`/`GetSpeedbrakePos` klemmen nicht**: sie geben die Modell-Property roh weiter. Ein
-  Modell, das außerhalb [0,1] fährt, würde das nach oben durchreichen. Bisher kein Fall.
-- **Es gibt keinen Readback für `Authority`/`ThrottleMax`/`DamageCdA`.** Die Schadenswirkung ist damit
-  nur über ihre Folgen (Telemetrie/Verhalten) beobachtbar, nicht direkt. `core/FBSystemHealth`s
-  `dmg_*`-Spalten decken den ZUSTAND ab, nicht den angewandten Faktor.
-- **Es gibt keinen Readback für `ElevTrim`.** Der Trimm-Bias ist nur im `loaded`-Logeintrag sichtbar,
-  danach nicht mehr abfragbar.
-- **`SetStoresDrag` mit `cdaFt2 <= 0` NACH einmaliger Anlage** setzt die Magnitude auf 0, entfernt die
-  Kraft aber nicht (JSBSims `FGExternalReactions` kennt kein Entfernen). Dokumentiert wirkungsgleich,
-  aber die Kraft bleibt in der Modellstruktur bestehen.
-- **Ungeprüft in dieser Runde:** die konkreten Aufrufer der Tank-Setter (`FBModule::ApplySetup`-Keys
-  `fuel_lbs`/`fuel_pct`) wurden nicht gelesen; die Schlüsselnamen stammen aus dem `FBFdm.h`-Banner und
-  aus CLAUDE.md, nicht aus `doc/mission-format.md`.
+- **Contradiction in the count of process-wide JSBSim things.** CLAUDE.md says "the three things
+  documented in `FBFdm.cpp`", `FBFdm.cpp` lists **four** points (debug_lvl, logger, `Element::convert`,
+  `JSBSIM_*` env). The list in `FBFdm.cpp` is the authoritative one. Strictly speaking the fourth point
+  is not a state of its own but a writer onto the first — presumably the source of the counting
+  difference. (The diverging two-claim in the `FBFdm.h` banner was dropped in the comment round, as was
+  its outdated ownership banner.)
+- **`GetGroundClearanceM` with `gearDown=false`** skips retractable contacts, but not those that are
+  `ctSTRUCTURE` and were nevertheless declared retractable — the consequence for models with an unusual
+  contact declaration has not been checked.
+- **`GetGearPos`/`GetSpeedbrakePos` do not clamp**: they pass the model property through raw. A model
+  that travels outside [0,1] would push that upwards. No case so far.
+- **There is no readback for `Authority`/`ThrottleMax`/`DamageCdA`.** The damage effect is therefore only
+  observable through its consequences (telemetry/behaviour), not directly. `core/FBSystemHealth`'s
+  `dmg_*` columns cover the STATE, not the applied factor.
+- **There is no readback for `ElevTrim`.** The trim bias is only visible in the `loaded` log entry, and
+  cannot be queried afterwards.
+- **`SetStoresDrag` with `cdaFt2 <= 0` AFTER it has been created once** sets the magnitude to 0, but does
+  not remove the force (JSBSim's `FGExternalReactions` knows no removal). Documented as effect-equivalent,
+  but the force stays in the model structure.
+- **Not checked in this round:** the concrete callers of the tank setters (`FBModule::ApplySetup` keys
+  `fuel_lbs`/`fuel_pct`) were not read; the key names come from the `FBFdm.h` banner and from CLAUDE.md,
+  not from `doc/mission-format.md`.
 
 
 ## Knowledge
 
 Derivations, formulas and measured constants — the distilled body of this file.
 
-### 1. Dateien
+### 1. Files
 
-| Datei | Rolle |
+| File | Role |
 |---|---|
-| `fdm/FBFdm.h` | Die öffentliche Naht: `struct fb_fdm_state` (POD) + `class FBFdm`. Nennt KEINEN JSBSim-Typ. |
-| `fdm/FBFdm.cpp` | Die EINE Übersetzungseinheit mit JSBSim-Headern. Enthält `struct FBFdm::Impl` (pimpl) mit der `FGFDMExec`. |
-| `fdm/FBFdmBoot.h` | `struct FBFdmSpawn` (die IC als Daten) + `class FBFdmBoot` — der einzige Friend von `FBFdm`s privatem Lade-Konstruktor. |
-| `fdm/FBFdmBoot.cpp` | `FBFdmBoot::Spawn` — die einzige Stelle, an der ein `FBFdm` entsteht. |
-| `fdm/FBFdmTelemetrySource.h/.cpp` | `FBTelemetrySource` für die rohe FDM-Pose (10 Spalten). |
-| `fdm/em_compat.h` | Build-Shim für JSBSim unter emscripten/musl (`strerror_r`). Force-Include NUR für JSBSim-Quellen. |
+| `fdm/FBFdm.h` | The public seam: `struct fb_fdm_state` (POD) + `class FBFdm`. Names NO JSBSim type. |
+| `fdm/FBFdm.cpp` | The ONE translation unit with JSBSim headers. Contains `struct FBFdm::Impl` (pimpl) with the `FGFDMExec`. |
+| `fdm/FBFdmBoot.h` | `struct FBFdmSpawn` (the IC as data) + `class FBFdmBoot` — the only friend of `FBFdm`'s private loading constructor. |
+| `fdm/FBFdmBoot.cpp` | `FBFdmBoot::Spawn` — the only place where an `FBFdm` comes into being. |
+| `fdm/FBFdmTelemetrySource.h/.cpp` | `FBTelemetrySource` for the raw FDM pose (10 columns). |
+| `fdm/em_compat.h` | Build shim for JSBSim under emscripten/musl (`strerror_r`). Force-include ONLY for JSBSim sources. |
 
 ---
 
-### 2. Die Ein-TU-Naht
+### 2. The single-TU seam
 
-**Vertrag.** `FBFdm.cpp` ist die einzige Übersetzungseinheit im ganzen Baum, die einen JSBSim-Header
-inkludiert. Jeder Aufrufer (jedes Modul, jedes System, jede Telemetriequelle, jeder Client) sieht
-ausschließlich:
+**Contract.** `FBFdm.cpp` is the only translation unit in the whole tree that includes a JSBSim header.
+Every caller (every module, every system, every telemetry source, every client) sees exclusively:
 
-- `fb_fdm_state` — flaches POD, snake_case-Name, weil es der `FBModule::Run`-Vertrag ist, gegen den
-  jedes Modul und jede Telemetriequelle geschrieben ist;
-- die Methoden von `FBFdm`.
+- `fb_fdm_state` — flat POD, snake_case name, because it is the `FBModule::Run` contract against which
+  every module and every telemetry source is written;
+- the methods of `FBFdm`.
 
-**Mechanik.** Die Engine liegt hinter einem pimpl (`std::unique_ptr<Impl> P`, `Impl` trägt die
-`FGFDMExec` by value). Daraus folgt eine bewusste Abweichung von der FB-Konvention „Getter inline im
-Header": die Getter **können** nicht inline sein — der Header darf den Typ nicht nennen, aus dem sie
-lesen.
+**Mechanics.** The engine sits behind a pimpl (`std::unique_ptr<Impl> P`, `Impl` carries the `FGFDMExec`
+by value). From that follows a deliberate deviation from the FB convention "getters inline in the
+header": the getters **cannot** be inline — the header must not name the type they read from.
 
-**Was das garantiert.**
+**What that guarantees.**
 
-| Garantie | Warum |
+| Guarantee | Why |
 |---|---|
-| Ein Build-Bruch in JSBSim trifft genau eine `.o`-Datei | Nur diese TU kennt die Header. |
-| Kein System/Modul kann an der Naht vorbei ins Property-Tree schreiben | `SetPropertyValue` ist nirgends sonst erreichbar. |
-| Die Liste aller berührten JSBSim-Properties ist endlich und steht im Header | `FBFdm.h` nennt zu jeder Methode die Property, die sie schreibt/liest. |
-| Exceptions bleiben lokal | Die Firewall (§7) sitzt in dieser TU; darüber gibt es nur `bool` und `Faulted()`. |
+| A build break in JSBSim hits exactly one `.o` file | Only this TU knows the headers. |
+| No system/module can write into the property tree past the seam | `SetPropertyValue` is reachable nowhere else. |
+| The list of all touched JSBSim properties is finite and stands in the header | `FBFdm.h` names, for every method, the property it writes/reads. |
+| Exceptions stay local | The firewall (§7) sits in this TU; above it there is only `bool` and `Faulted()`. |
 
-#### `fb_fdm_state` — Felder und Einheiten
+#### `fb_fdm_state` — fields and units
 
-| Feld | Einheit | JSBSim-Property |
+| Field | Unit | JSBSim property |
 |---|---|---|
 | `roll`, `pitch`, `yaw` | deg (φ/θ/ψ) | `attitude/phi-deg`, `theta-deg`, `psi-deg` |
-| `p`, `q`, `r` | deg/s, Körperraten | `velocities/[pqr]-rad_sec` × rad→deg |
-| `lat`, `lon` | deg, **geodätisch** | `position/lat-geod-deg`, `position/long-gc-deg` |
+| `p`, `q`, `r` | deg/s, body rates | `velocities/[pqr]-rad_sec` × rad→deg |
+| `lat`, `lon` | deg, **geodetic** | `position/lat-geod-deg`, `position/long-gc-deg` |
 | `elev` | m ASL | `position/h-sl-ft` × ft→m |
-| `speed` / `gs` / `cas` | m/s (TAS / Ground / **dichtekorrigiert** CAS) | `velocities/vt-fps`, `vg-fps`, `vc-fps` |
+| `speed` / `gs` / `cas` | m/s (TAS / ground / **density-corrected** CAS) | `velocities/vt-fps`, `vg-fps`, `vc-fps` |
 | `mach` | — | `velocities/mach` |
-| `vx`, `vy`, `vz` | m/s, **X-Plane-local**: +x Ost, +y hoch, +z Süd | `v-east-fps`, `−v-down-fps`, `−v-north-fps` |
-| `nx`, `ny`, `nz` | g, Körperlastfaktoren (long/lat/normal) | `accelerations/N[xyz]` |
+| `vx`, `vy`, `vz` | m/s, **X-Plane-local**: +x east, +y up, +z south | `v-east-fps`, `−v-down-fps`, `−v-north-fps` |
+| `nx`, `ny`, `nz` | g, body load factors (long/lat/normal) | `accelerations/N[xyz]` |
 | `alphaDeg` | deg | `aero/alpha-deg` |
 
-Die `vx/vy/vz`-Konvention ist ein **Erbstück der Vor-Pivot-Bridge** und bleibt bewusst, weil Renderer-
-und HUD-Mathematik sie bereits konsumieren. Jeder Konsument außerhalb (z. B.
-`app/FBMissionBoot.h::FBMissionSpawnStore`, `FBMissionRunner.cpp::GroundCrossing`) rechnet sie explizit
-in NED/ENU um und sagt das im Kommentar.
+The `vx/vy/vz` convention is an **inheritance from the pre-pivot bridge** and stays deliberately, because
+renderer and HUD maths already consume it. Every consumer outside (e.g.
+`app/FBMissionBoot.h::FBMissionSpawnStore`, `FBMissionRunner.cpp::GroundCrossing`) converts it explicitly
+into NED/ENU and says so in the comment.
 
-`cas` ist dichtekorrigiert — die ehrliche „wie nah am Stall"-Größe auf jeder Platzhöhe.
+`cas` is density-corrected — the honest "how close to the stall" quantity at any field elevation.
 
 ---
 
-### 3. Instanzfähigkeit
+### 3. Instance capability
 
-**Vertrag.** `FBFdm` ist EIN simuliertes Flugzeug. Beliebig viele Objekte koexistieren im selben Prozess
-mit unabhängiger Physik; jede `FGFDMExec(nullptr)` allokiert ihren **eigenen** `SGPropertyNode`-Root und
-ihren eigenen FDM-Zähler. Keine statischen mutablen Globals im Adapter (grep-verifizierbar).
+**Contract.** `FBFdm` is ONE simulated aircraft. Any number of objects coexist in the same process with
+independent physics; every `FGFDMExec(nullptr)` allocates its **own** `SGPropertyNode` root and its own
+FDM counter. No static mutable globals in the adapter (grep-verifiable).
 
-**Beweis:** `make -C sim test-fdm` → `build/fb-test-two-fdm` (`app/FBTestTwoFdm.cpp`). Der Harness
-behauptet drei Dinge und prüft sie:
+**Proof:** `make -C sim test-fdm` → `build/fb-test-two-fdm` (`app/FBTestTwoFdm.cpp`). The harness
+claims three things and checks them:
 
-1. zwei Zellen laden und trimmen unabhängig (zwei `FGFDMExec`, je eigener Property-Tree);
-2. ihre Zustände **divergieren gemäß ihren eigenen Kommandos** (A rollt rechts, B links) — also liest/
-   schreibt keine die Physik der anderen;
-3. eine DRITTE Zelle mit derselben IC und denselben Kommandos reproduziert A **bit-für-bit** — also
-   trägt eine Instanz keinen versteckten Cross-Talk ihrer Nachbarn.
+1. two airframes load and trim independently (two `FGFDMExec`, each with its own property tree);
+2. their states **diverge according to their own commands** (A rolls right, B left) — so neither reads
+   nor writes the other's physics;
+3. a THIRD airframe with the same IC and the same commands reproduces A **bit for bit** — so an instance
+   carries no hidden cross-talk from its neighbours.
 
-Exit 0 = bewiesen, 1 = nicht unabhängig, 2 = Setup-Fehler. Kein Threading, keine Unit-Liste: diese Stufe
-beweist nur Instanzfähigkeit.
+Exit 0 = proven, 1 = not independent, 2 = setup error. No threading, no unit list: this stage proves only
+instance capability.
 
-#### Was in JSBSim SELBST prozessweit bleibt
+#### What stays process-wide in JSBSim ITSELF
 
-Verifiziert gegen `vendor/jsbsim` am gepinnten Commit; im Banner von `FBFdm.cpp` dokumentiert. **Vier
-Punkte**, keiner davon trägt Physikzustand:
+Verified against `vendor/jsbsim` at the pinned commit; documented in the banner of `FBFdm.cpp`. **Four
+points**, none of which carries physics state:
 
-| Prozessweit | Was es ist | Warum unkritisch |
+| Process-wide | What it is | Why uncritical |
 |---|---|---|
-| `FGJSBBase::debug_lvl` | statisches Debug-Level, `SetDebugLevel()` wirkt für ALLE Instanzen | Jede `FBFdm` setzt es im Konstruktor auf 0, also kann keine Instanz eine andere überraschen. Wird nur aus einem Ctor und aus `FGFDMExec`s Child-FDM-Trim-Pfad geschrieben (den FlightBox nicht benutzt), und ist für die gesamte `Run()` read-only. |
-| `JSBSim::SetLogger`/`GetLogger` (`input_output/FGLog.cpp`) | EIN Logger — am gepinnten Commit `thread_local` | Per-INSTANZ-Logrouting ist damit unmöglich, aber zwei Threads teilen sich nie einen Logger. FlightBox setzt ihn nie; JSBSims eigene Ausgabe bleibt bei Debug 0 aus. |
-| `Element::convert` (`input_output/FGXMLElement.cpp`) | statische Einheiten-Konvertierungstabelle, lazy aus dem `Element`-Ctor gefüllt und mit `operator[]` gelesen — das **einfügen kann** | Wird ausschließlich beim **LADEN** eines Flugzeugs berührt. Genau deshalb spawnt `fb-gym`s paralleler Pfad seine Einheiten sequenziell und parallelisiert nur den STEP (`app/FBTickPool.h`). |
-| `JSBSIM_DEBUG` / `JSBSIM_DISPERSE` (Env-Variablen) | im `FGFDMExec`-Ctor in denselben geteilten Static gelesen | Gilt für den ganzen Prozess, nicht für eine Zelle. |
+| `FGJSBBase::debug_lvl` | static debug level, `SetDebugLevel()` acts on ALL instances | Every `FBFdm` sets it to 0 in the constructor, so no instance can surprise another. It is written only from one ctor and from `FGFDMExec`'s child-FDM trim path (which FlightBox does not use), and is read-only for the whole of `Run()`. |
+| `JSBSim::SetLogger`/`GetLogger` (`input_output/FGLog.cpp`) | ONE logger — at the pinned commit `thread_local` | Per-INSTANCE log routing is therefore impossible, but two threads never share a logger. FlightBox never sets it; JSBSim's own output stays off at debug 0. |
+| `Element::convert` (`input_output/FGXMLElement.cpp`) | static unit conversion table, filled lazily from the `Element` ctor and read with `operator[]` — which **can insert** | Is touched exclusively when LOADING an aircraft. Precisely for that reason `fb-gym`'s parallel path spawns its units sequentially and parallelises only the STEP (`app/FBTickPool.h`). |
+| `JSBSIM_DEBUG` / `JSBSIM_DISPERSE` (env variables) | read in the `FGFDMExec` ctor into the same shared static | Applies to the whole process, not to one airframe. |
 
-**Konsequenz für Nebenläufigkeit:** keiner der vier ist aus `Step()` erreichbar, also dürfen N Zellen
-KONKURRENT integrieren, ein Thread je Zelle. Das interne Reference-Counting der Engine (`SGReferenced`)
-ist NICHT atomar — was genau deswegen unschädlich ist: jeder Property-Node und jedes `Element` hängt an
-dem einen `FGFDMExec`-Root seiner Instanz und wird nie geteilt.
+**Consequence for concurrency:** none of the four is reachable from `Step()`, so N airframes MAY integrate
+CONCURRENTLY, one thread per airframe. The engine's internal reference counting (`SGReferenced`) is NOT
+atomic — which is harmless for exactly that reason: every property node and every `Element` hangs off the
+one `FGFDMExec` root of its instance and is never shared.
 
 ---
 
 ### 4. Ownership
 
-| Rolle | Handle | Regel |
+| Role | Handle | Rule |
 |---|---|---|
-| Besitzer | `std::unique_ptr<FBFdm>` | Wer die Einheit besitzt, besitzt ihre Zelle — heute `units/FBSimUnit` (deklariert VOR dem Modul, damit die Zelle das Modul überlebt, das sie nur borgt). |
-| Kommandierender Borger | `FBFdm&` | Jede Kommando-Methode ist **nicht-const**. |
-| Lesender Borger | `const FBFdm&` / `const FBFdm*` | Jeder Readback ist **const**. |
+| Owner | `std::unique_ptr<FBFdm>` | Whoever owns the unit owns its airframe — today `units/FBSimUnit` (declared BEFORE the module, so that the airframe outlives the module that only borrows it). |
+| Commanding borrower | `FBFdm&` | Every command method is **non-const**. |
+| Reading borrower | `const FBFdm&` / `const FBFdm*` | Every readback is **const**. |
 
-Die Konstheit ist tragend, nicht kosmetisch: ein Lese-Handle **kann** die Physik nicht schreiben — das
-ist CLAUDE.mds „Kein Cheaten", durchgesetzt vom Typsystem statt per Konvention.
+The constness is load-bearing, not cosmetic: a read handle **cannot** write the physics — that is
+CLAUDE.md's "no cheating", enforced by the type system instead of by convention.
 
-`FBFdm` ist nicht kopierbar (`= delete` auf Copy-Ctor und -Zuweisung).
+`FBFdm` is not copyable (`= delete` on copy ctor and assignment).
 
-**`FBModule::AttachFdm(FBFdm&)` ist der Konstruktor-Injektions-Ersatz.** Module werden von
-`FBModuleRegistry` **argumentlos** gebaut (Name → Factory), also gibt es keinen Konstruktor, in den eine
-Zelle hineingereicht werden könnte. `AttachFdm` wird vom Besitzer GENAU EINMAL gerufen — direkt nach dem
-Spawn, vor dem ersten `Run()` — und ist von da an dauerhaft. Es ist zugleich der Punkt, an dem das Modul
-eine echte `FBFdm&` an die Systeme weiterreichen kann, deren Zuordnung zu einer Zelle FIX ist
-(`FBJsbsimAirframeControls`, konstruktor-injiziert).
+**`FBModule::AttachFdm(FBFdm&)` is the constructor-injection substitute.** Modules are built by
+`FBModuleRegistry` **without arguments** (name → factory), so there is no constructor into which an
+airframe could be handed. `AttachFdm` is called by the owner EXACTLY ONCE — right after the spawn, before
+the first `Run()` — and is permanent from then on. It is at the same time the point at which the module
+can pass a real `FBFdm&` on to those systems whose assignment to an airframe is FIXED
+(`FBJsbsimAirframeControls`, constructor-injected).
 
-Das Modul besitzt nie eine Zelle und kann keine erzeugen — es kann nicht: die IC liegt hinter
-`fdm/FBFdmBoot.h`, das kein Modul inkludiert (§5).
-
----
-
-### 5. IC-Abschottung
-
-**Struktur, nicht Konvention:**
-
-| Element | Wirkung |
-|---|---|
-| `FBFdm::FBFdm()` + `FBFdm::Load()` sind **privat** | Niemand kann eine Zelle konstruieren oder laden. |
-| `friend class FBFdmBoot` — der EINZIGE Friend | Genau ein Produzent. |
-| `FBFdmBoot` steht in einem **separaten Header** | Wer `FBFdm.h` inkludiert (jedes Modul/System, um ein `FBFdm&` zu halten), erreicht KEINE IC. Wer IC will, muss `FBFdmBoot.h` NAMENTLICH nennen. |
-| Es gibt **kein** `Init`/`Reset`/`Respawn` auf `FBFdm` | Eine geborgte Referenz kann die Zelle nicht neu platzieren, neu trimmen oder neu spawnen. |
-| `Spawn()` gibt `nullptr` zurück, wenn das Modell nicht lud | Eine `FBFdm`, die existiert, ist IMMER eine geladene — kein Aufrufer und keine Methode braucht einen „nicht initialisiert"-Zweig. |
-
-**Wer `FBFdmBoot.h` nennen darf:** nur `app/` — `app/FBMissionBoot.h`, `app/FBAppWasm.cpp` und die
-Test-Harnesses. `grep -rn FBFdmBoot src/systems src/modules` ist leer und **kann nicht still aufhören,
-leer zu sein**: der Compiler erzwingt es, weil der Konstruktor privat ist.
-
-Zweite Stufe derselben Schranke: ein `units/FBSimUnit` lässt sich nur aus einer bereits gespawnten
-`FBFdm` bauen — also ist `FBMissionBoot.h` auch der einzige Produzent eines vollständigen Akteurs.
-
-#### `FBFdmSpawn` — die IC als Daten
-
-| Feld | Bedeutung |
-|---|---|
-| `ModelsRoot` | die EINE Modellwurzel. native/gym `assets/aircraft`, WASM der eingebettete FS-Pfad `/fb/aircraft` (→ `app/FBModelRoots.h`). |
-| `Aircraft` | Modellverzeichnis + XML-Name unter `ModelsRoot`. |
-| `LatDeg`, `LonDeg` | **geodätisch** (passt zu GPS/HOME_LAT). |
-| `GroundElevM` | aufgelöste Bodenhöhe unter dem Spawnpunkt, m ASL. |
-| `HeightOffsetM` | `< 0` = **auf dem Fahrwerk sitzen** (Modell-eigene Gear-Down-Clearance); `>= 0` = so viele Meter über `GroundElevM`. `0` fällt auf provisorische **3 m** zurück (Luftstart ohne expliziten Offset). |
-| `SpeedMs` | kalibrierte Fluggeschwindigkeit. `0` = stehender Bodenstart → **keine** Trimmsuche. |
-| `HeadingDeg` | Kurs; negativ wird +360 gerechnet. |
-| `FbwOverride` | setzt `fcs/fbw-override` = 1, überbrückt die modelleigene FLCS. |
-| `Ballistic` + `PitchDeg`/`RollDeg` + `VelNorthMs`/`VelEastMs`/`VelDownMs` | Die **Abwurf-IC** (§6). Bei `Ballistic == false` vollständig ignoriert. |
-
-**Ein IC-Anwendung je Zelle.** `Spawn()` legt Position/Lage/Geschwindigkeit **gemeinsam** an — für den
-Bodensitz genauso wie für die explizite Luft-Höhe. Es gibt keinen zweiten, getrennten Luft-Codepfad und
-kein Re-Init danach.
+The module never owns an airframe and cannot create one — it cannot: the IC sits behind
+`fdm/FBFdmBoot.h`, which no module includes (§5).
 
 ---
 
-### 6. Der Ladeablauf (`LoadUnguarded`)
+### 5. IC lockdown
 
-Schritt für Schritt, weil jeder Schritt eine Begründung trägt:
+**Structure, not convention:**
 
-1. **Pfad-Auflösung Engine/Systems.** `<root>/<aircraft>/engine` und `<root>/<aircraft>/Systems`,
-   bedingungslos. Jedes FlightBox-Modell ist unter seinem eigenen Verzeichnis vollständig — genau das
-   Layout, das JSBSims eigene Loader ZUERST durchsuchen (`FGPropulsion::FindEngineFullPathname` und
-   `FGFCS::FindFullPathName` probieren `<aircraft>/engine` bzw. `<aircraft>/Systems` vor jedem
-   übergebenen Pfad). Die frühere Sondierung (existiert `<ac>/engine`? sonst `<parent>/engine`) samt
-   Parent-Trunkierung ist mit der einen Modellwurzel entfallen; ein Modell ohne Triebwerk (`mk82`) löst
-   den Pfad schlicht nie auf.
-2. **IC setzen:** Geod-Lat/Lon, ASL-Höhe = `GroundElevM + max(HeightOffsetM, 3 m)`, Psi.
-3. **Ballistic** (Abwurf): Theta/Phi direkt aus der Trägerlage, plus der volle NED-Geschwindigkeits-
-   VEKTOR. **Sonst**: kalibrierte Geschwindigkeit + Flugbahnwinkel 0 (level).
+| Element | Effect |
+|---|---|
+| `FBFdm::FBFdm()` + `FBFdm::Load()` are **private** | Nobody can construct or load an airframe. |
+| `friend class FBFdmBoot` — the ONLY friend | Exactly one producer. |
+| `FBFdmBoot` stands in a **separate header** | Whoever includes `FBFdm.h` (every module/system, in order to hold an `FBFdm&`) reaches NO IC. Whoever wants the IC must name `FBFdmBoot.h` BY NAME. |
+| There is **no** `Init`/`Reset`/`Respawn` on `FBFdm` | A borrowed reference cannot re-place, re-trim or re-spawn the airframe. |
+| `Spawn()` returns `nullptr` if the model did not load | An `FBFdm` that exists is ALWAYS a loaded one — no caller and no method needs a "not initialised" branch. |
+
+**Who may name `FBFdmBoot.h`:** only `app/` — `app/FBMissionBoot.h`, `app/FBAppWasm.cpp` and the test
+harnesses. `grep -rn FBFdmBoot src/systems src/modules` is empty and **cannot silently stop being
+empty**: the compiler enforces it, because the constructor is private.
+
+Second stage of the same barrier: a `units/FBSimUnit` can only be built from an already spawned
+`FBFdm` — so `FBMissionBoot.h` is also the only producer of a complete actor.
+
+#### `FBFdmSpawn` — the IC as data
+
+| Field | Meaning |
+|---|---|
+| `ModelsRoot` | the ONE model root. native/gym `assets/aircraft`, WASM the embedded FS path `/fb/aircraft` (→ `app/FBModelRoots.h`). |
+| `Aircraft` | model directory + XML name under `ModelsRoot`. |
+| `LatDeg`, `LonDeg` | **geodetic** (matches GPS/HOME_LAT). |
+| `GroundElevM` | resolved ground elevation under the spawn point, m ASL. |
+| `HeightOffsetM` | `< 0` = **sit on the landing gear** (model-owned gear-down clearance); `>= 0` = that many metres above `GroundElevM`. `0` falls back to a provisional **3 m** (air start without an explicit offset). |
+| `SpeedMs` | calibrated airspeed. `0` = standing ground start → **no** trim search. |
+| `HeadingDeg` | heading; negative is computed +360. |
+| `FbwOverride` | sets `fcs/fbw-override` = 1, bypasses the model-owned FLCS. |
+| `Ballistic` + `PitchDeg`/`RollDeg` + `VelNorthMs`/`VelEastMs`/`VelDownMs` | The **release IC** (§6). With `Ballistic == false` completely ignored. |
+
+**One IC application per airframe.** `Spawn()` lays down position/attitude/velocity **together** — for the
+ground seat just as for the explicit airborne altitude. There is no second, separate airborne code path
+and no re-init afterwards.
+
+---
+
+### 6. The load sequence (`LoadUnguarded`)
+
+Step by step, because every step carries a justification:
+
+1. **Path resolution engine/Systems.** `<root>/<aircraft>/engine` and `<root>/<aircraft>/Systems`,
+   unconditionally. Every FlightBox model is complete under its own directory — exactly the layout that
+   JSBSim's own loaders search FIRST (`FGPropulsion::FindEngineFullPathname` and
+   `FGFCS::FindFullPathName` try `<aircraft>/engine` resp. `<aircraft>/Systems` before any passed-in
+   path). The earlier probing (does `<ac>/engine` exist? otherwise `<parent>/engine`) including parent
+   truncation went away with the single model root; a model without an engine (`mk82`) simply never
+   resolves the path.
+2. **Set IC:** geodetic lat/lon, ASL altitude = `GroundElevM + max(HeightOffsetM, 3 m)`, psi.
+3. **Ballistic** (release): theta/phi directly from the carrier attitude, plus the full NED velocity
+   VECTOR. **Otherwise**: calibrated airspeed + flight path angle 0 (level).
 4. `RunIC()`.
-5. **Bodensitz-Nachkorrektur** (`HeightOffsetM < 0`): jetzt ist der CG gültig, also wird auf die
-   Modell-Gear-Down-Clearance (`GetGroundClearanceM(true)`, Schwelle > 0,1 m) neu platziert und `RunIC()`
-   wiederholt — die Spawnhöhe ist damit die geometriewahre Radhöhe, ohne Sprung beim ersten Schritt.
-6. **Triebwerke starten** (`FGPropulsion::InitRunning` für jeden Index) — **außer bei `Ballistic`**.
-   Begründung im Code: ohne laufendes Triebwerk gibt es während `FGTrim` keinen Schub, also meldet eine
-   angetriebene Zelle „udot not trimmable", die IC ist kein Gleichgewicht, und die ungetrimmte Zelle
-   departed beim ersten Schritt violent. Für einen abgeworfenen Store ist es das Gegenteil und
-   **nicht kosmetisch**: `InitRunning` schlägt den Throttle auf 1 und marschiert das Triebwerk in einen
-   stationären Zustand — bei einem FESTSTOFFMOTOR (`FGRocket`: Zündung = Throttle == 1, und einmal
-   gezündet brennt er bis zur Erschöpfung) hieße das, der Motor brennt schon in der IC und kein Kommando
-   könnte ihn halten. Ein ungetriebener Store hat keine Triebwerke, also ist das für jeden Store, der vor
-   der ersten Rakete flog, bit-identisch.
-7. `fcs/fbw-override` = 1, falls verlangt. `Setdt(kStepS)`.
-8. **Trimm** — nur wenn `SpeedMs > 0` UND nicht `Ballistic`. Modus `tLongitudinal` (Pitch/Throttle/
-   Alpha, Flügel level): robuster als `tFull` auf leichten/langsamen Zellen. In `try/catch`, ein Wurf =
-   nicht getrimmt.
-   - **Warum V=0 nicht getrimmt wird:** null Fluggeschwindigkeit = null Aero-Kraft/Moment, also kann
-     keine Ruderstellung `udot`/`qdot` nullen. Früher lief `FGTrim` trotzdem, meldete „not trimmable" und
-     ließ `ElevTrim` auf der letzten Iterierten der gescheiterten Suche stehen (Rauschen). Jetzt wird
-     neutral gesetzt — was dem ungetrimmten Knüppel eines echten Jets vor dem Roll entspricht.
-9. **`ElevTrim` festhalten:** der Höhenruderausschlag, auf den der Trimmer sich gesetzt hat, wird als
-   **Trimmruder-Bias** gespeichert (`fcs/elevator-cmd-norm` nach dem Trimm; 0 bei V=0). Damit hält
-   neutraler Knüppel LEVEL statt der Nase-hoch-Lage der Zelle bei Neutral.
-10. Abschließendes `RunIC()` — saubere, ebene IC (Lage + Speed); gehalten wird sie vom Trimmruder, nicht
-    vom perturbierten Suchzustand.
-11. `FBLog::Info("fdm","loaded", …)` in drei Varianten (ballistisch / getrimmt / Bodenstart).
+5. **Ground-seat post-correction** (`HeightOffsetM < 0`): now the CG is valid, so it is re-placed onto the
+   model gear-down clearance (`GetGroundClearanceM(true)`, threshold > 0.1 m) and `RunIC()` is repeated —
+   the spawn altitude is thereby the geometrically true wheel height, without a jump at the first step.
+6. **Start the engines** (`FGPropulsion::InitRunning` for every index) — **except with `Ballistic`**.
+   Justification in the code: without a running engine there is no thrust during `FGTrim`, so a powered
+   airframe reports "udot not trimmable", the IC is not an equilibrium, and the untrimmed airframe
+   departs violently at the first step. For a released store it is the opposite and **not cosmetic**:
+   `InitRunning` slams the throttle to 1 and marches the engine into a steady state — with a SOLID-FUEL
+   MOTOR (`FGRocket`: ignition = throttle == 1, and once ignited it burns to exhaustion) that would mean
+   the motor is already burning in the IC and no command could hold it. An unpowered store has no engines,
+   so for every store that flew before the first missile this is bit-identical.
+7. `fcs/fbw-override` = 1, if requested. `Setdt(kStepS)`.
+8. **Trim** — only if `SpeedMs > 0` AND not `Ballistic`. Mode `tLongitudinal` (pitch/throttle/alpha, wings
+   level): more robust than `tFull` on light/slow airframes. In `try/catch`, a throw = not trimmed.
+   - **Why V=0 is not trimmed:** zero airspeed = zero aero force/moment, so no control deflection can null
+     `udot`/`qdot`. Previously `FGTrim` ran anyway, reported "not trimmable" and left `ElevTrim` on the
+     last iterate of the failed search (noise). Now it is set neutral — which corresponds to the untrimmed
+     stick of a real jet before the roll.
+9. **Hold on to `ElevTrim`:** the elevator deflection the trimmer settled on is stored as the **trim
+   control bias** (`fcs/elevator-cmd-norm` after the trim; 0 at V=0). With that, a neutral stick holds
+   LEVEL instead of the nose-up attitude of the airframe at neutral.
+10. Final `RunIC()` — clean, level IC (attitude + speed); it is held by the trim control, not by the
+    perturbed search state.
+11. `FBLog::Info("fdm","loaded", …)` in three variants (ballistic / trimmed / ground start).
 
 ---
 
-### 7. Schritt, Exception-Firewall, `Faulted()`
+### 7. Step, exception firewall, `Faulted()`
 
-`static constexpr double FBFdm::kStepS = 0.01` — **100 Hz**, die EINE Definition dieser Rate. Der
-Substep-Akkumulator des Moduls und die Test-Harnesses lesen sie hier, statt `0.01` zu wiederholen.
+`static constexpr double FBFdm::kStepS = 0.01` — **100 Hz**, the ONE definition of this rate. The
+module's substep accumulator and the test harnesses read it here, instead of repeating `0.01`.
 
-`Step(fb_fdm_state &out)`: einen festen Schritt vorrücken, dann den Zustand nach `out` lesen.
+`Step(fb_fdm_state &out)`: advance one fixed step, then read the state into `out`.
 
-**Firewall.** JSBSim wirft `JSBSim::BaseException` (ein `std::runtime_error`) aus dem XML-Parsen und
-`FGJSBBase::FloatingPointException` aus Tabellenauswertungen. Ungefangen tötet eine kaputte
-`aircraft.xml` den Prozess mit `std::terminate`, und die Missionsschleife bekommt nie eine `RESULT`-Zeile
-zum Verzweigen. Deshalb:
+**Firewall.** JSBSim throws `JSBSim::BaseException` (a `std::runtime_error`) out of the XML parsing and
+`FGJSBBase::FloatingPointException` out of table evaluations. Uncaught, a broken `aircraft.xml` kills the
+process with `std::terminate`, and the mission loop never gets a `RESULT` line to branch on. Therefore:
 
-| Ebene | Guard |
+| Level | Guard |
 |---|---|
-| `Load` | umschließt `LoadUnguarded` (XML-Parsen, IC, Trimm, Triebwerksstart) |
-| `Step` | umschließt `StepUnguarded` |
-| `FBFdmBoot::Spawn` | umschließt das EINZIGE, was außerhalb liegt: die Konstruktion des Engine-Objekts selbst (`FGFDMExec`-Ctor allokiert Property-Root, liest `JSBSIM_*`) |
+| `Load` | wraps `LoadUnguarded` (XML parsing, IC, trim, engine start) |
+| `Step` | wraps `StepUnguarded` |
+| `FBFdmBoot::Spawn` | wraps the ONE thing that lies outside: the construction of the engine object itself (`FGFDMExec` ctor allocates the property root, reads `JSBSIM_*`) |
 
-Gefangen wird über `std::exception` (JSBSims Hierarchie leitet davon ab) plus Catch-All — so muss hier
-kein JSBSim-Typ genannt werden. **In WASM identisch:** libJSBSim aus dem Submodul, diese TU und der
-finale Link tragen alle `-fexceptions` (`vendor/build_jsbsim_wasm.sh`, das `wasm`-Make-Target) — die EINE
-Stelle, an der Exceptions eingeschaltet sind, und die Firewall sitzt darin.
+Catching goes via `std::exception` (JSBSim's hierarchy derives from it) plus a catch-all — so no JSBSim
+type has to be named here. **Identical in WASM:** libJSBSim from the submodule, this TU and the final link
+all carry `-fexceptions` (`vendor/build_jsbsim_wasm.sh`, the `wasm` make target) — the ONE place where
+exceptions are switched on, and the firewall sits inside it.
 
-**`Faulted()` ist gelatcht:** ist der Integrator einmal gestiegen, ist die Physik dieser Zelle vorbei.
-Jeder spätere `Step` ist ein No-Op, `out` behält seine letzten guten Werte (nie halb geschrieben), der
-Aufrufer liest einen eingefrorenen aber ENDLICHEN Zustand. Der App-seitige Richter
-(`core/FBFlightMonitor` über `FBFlightMonitorSample::FdmFault`) macht daraus ein
-`NumericalDivergence`-K.O. Das Modul sieht davon nichts.
+**`Faulted()` is latched:** once the integrator has blown up, the physics of this airframe is over. Every
+later `Step` is a no-op, `out` keeps its last good values (never half-written), the caller reads a frozen
+but FINITE state. The app-side judge (`core/FBFlightMonitor` via `FBFlightMonitorSample::FdmFault`) turns
+that into a `NumericalDivergence` knockout. The module sees nothing of this.
 
 ---
 
-### 8. Kommandokanäle
+### 8. Command channels
 
-Der einzige Weg, auf dem irgendetwas über dieser Klasse die Physik beeinflusst (die simulierte
-Steuerfläche — CLAUDE.md „Kein Cheaten").
+The only way in which anything above this class influences the physics (the simulated control surface —
+CLAUDE.md "no cheating").
 
-| Methode | JSBSim-Property | Bereich / Anmerkung |
+| Method | JSBSim property | Range / note |
 |---|---|---|
 | `SetControls(roll,pitch,yaw,thr)` | `fcs/aileron-cmd-norm`, `fcs/elevator-cmd-norm`, `fcs/rudder-cmd-norm`, `fcs/throttle-cmd-norm` | roll/pitch/yaw ∈ [−1,1], thr ∈ [0,1] |
-| `SetGear(cmd)` | `gear/gear-cmd-norm` | [0,1], 1 = unten; der Kinematik-Transit ist der modelleigene `flight_control`-Kanal |
+| `SetGear(cmd)` | `gear/gear-cmd-norm` | [0,1], 1 = down; the kinematic transit is the model-owned `flight_control` channel |
 | `SetFlap` / `SetSpeedbrake` | `fcs/flap-cmd-norm`, `fcs/speedbrake-cmd-norm` | [0,1] |
-| `SetWheelBrakes(l,r)` | `fcs/left-brake-cmd-norm`, `fcs/right-brake-cmd-norm` | je [0,1], geklemmt |
-| `SetNosewheelSteer(cmd)` | `fcs/steer-cmd-norm` | [−1,1], generisch in `FGGroundReactions` verdrahtet; wie viel Ausschlag daraus wird, sagt der Gain-Block der jeweiligen `aircraft.xml` — diese Klasse behauptet nur das Pilotenkommando |
-| `EngineStart()` | `propulsion/cutoff_cmd`=0, `starter_cmd`=1 | propulsions-weit (`FGPropulsion::SetStarter/SetCutoff` gelten default für ALLE Triebwerke) |
-| `EngineCutoff()` | `starter_cmd`=0, `cutoff_cmd`=1 | dito |
+| `SetWheelBrakes(l,r)` | `fcs/left-brake-cmd-norm`, `fcs/right-brake-cmd-norm` | each [0,1], clamped |
+| `SetNosewheelSteer(cmd)` | `fcs/steer-cmd-norm` | [−1,1], wired generically in `FGGroundReactions`; how much deflection results is said by the gain block of the respective `aircraft.xml` — this class only claims the pilot command |
+| `EngineStart()` | `propulsion/cutoff_cmd`=0, `starter_cmd`=1 | propulsion-wide (`FGPropulsion::SetStarter/SetCutoff` apply by default to ALL engines) |
+| `EngineCutoff()` | `starter_cmd`=0, `cutoff_cmd`=1 | ditto |
 
-#### Drei Eigenheiten in `SetControls`
+#### Three peculiarities in `SetControls`
 
-1. **Schadenswirkung sitzt HIER**, zwischen kommandierendem System und Physik: `roll/pitch/yaw`
-   werden mit `Authority` skaliert, `thr` auf `ThrottleMax` gedeckelt. Beide sind 1.0 auf einer
-   unbeschädigten Zelle — also Arithmetik ohne Wirkung, bis wirklich etwas abgeschossen wurde.
-2. **Throttle wird gerampt, nicht gestuft.** `kEscSpinupS = 0.5 s` ⇒
-   `kThrottleSlew = kStepS / kEscSpinupS = 0.01/0.5 = 0.02` pro Schritt (voller Hub 0→1 in 0,5 s).
-   Begründung im Code: ein 0→0,95-Sprung sprengt die RPM-ODE des Triebwerks und departed die Zelle.
-3. **Vorzeichen und Trimm.** JSBSims `+elevator` = Nase RUNTER, FlightBox' `+pitch` = Nase HOCH, also
-   geht `-pitch + ElevTrim` hinaus. `+yaw` koordiniert die Kurve, `−yaw` schiebt sie (gemessen: starkes
-   adverses Giermoment).
+1. **Damage effect sits HERE**, between the commanding system and the physics: `roll/pitch/yaw` are
+   scaled with `Authority`, `thr` is capped at `ThrottleMax`. Both are 1.0 on an undamaged airframe —
+   so arithmetic without effect, until something really has been shot up.
+2. **Throttle is ramped, not stepped.** `kEscSpinupS = 0.5 s` ⇒
+   `kThrottleSlew = kStepS / kEscSpinupS = 0.01/0.5 = 0.02` per step (full travel 0→1 in 0.5 s).
+   Justification in the code: a 0→0.95 jump blows up the engine's RPM ODE and departs the airframe.
+3. **Sign and trim.** JSBSim's `+elevator` = nose DOWN, FlightBox's `+pitch` = nose UP, so `-pitch +
+   ElevTrim` goes out. `+yaw` coordinates the turn, `−yaw` skids it (measured: strong adverse yaw moment).
 
 ---
 
-### 9. Außenlasten (Carriage)
+### 9. External stores (carriage)
 
-Zwei Mechanismen, **beide modell-eigen**, beide zur LAUFZEIT bestückt statt per Modell-XML-Patch —
-`vendor/jsbsim` bleibt read-only (Prinzip 1), und kein Modell bekommt eine Station, die es nicht hatte.
+Two mechanisms, **both model-owned**, both populated at RUNTIME instead of by a model-XML patch —
+`vendor/jsbsim` stays read-only (principle 1), and no model gets a station it did not have.
 
-| Methode | Mechanismus | Wirkung |
+| Method | Mechanism | Effect |
 |---|---|---|
-| `AddStorePointMass(name, xIn, yIn, zIn) → index` | `FGMassBalance::AddPointMass` (die `<pointmass>`-Mechanik, von der die F-16 genau eine deklariert: ihren Piloten) | Masse, Schwerpunkt UND der r²-Trägheitsbeitrag kommen aus der Engine |
-| `SetStorePointMassLbs(index, lbs)` | `inertia/pointmass-weight-lbs[i]` | die Masse ändert sich auch beim Abwurf (auf 0) — deshalb fliegt ein beladener Jet anders als ein sauberer und ein entladener anders als beide |
-| `SetStoresDrag(cdaFt2, xIn, yIn, zIn)` | eigene `<external_reactions>`-Kraft `fb-stores` | Kraft `CdA · qbar` entlang der Körper-**−x**-Achse, angreifend am Schwerpunkt der belegten Stationen — das MOMENT einer außermittigen Last kommt damit aus derselben Physik wie die Kraft |
+| `AddStorePointMass(name, xIn, yIn, zIn) → index` | `FGMassBalance::AddPointMass` (the `<pointmass>` mechanism, of which the F-16 declares exactly one: its pilot) | mass, centre of gravity AND the r² inertia contribution come from the engine |
+| `SetStorePointMassLbs(index, lbs)` | `inertia/pointmass-weight-lbs[i]` | the mass also changes on release (to 0) — that is why a loaded jet flies differently from a clean one and an unloaded one differently from both |
+| `SetStoresDrag(cdaFt2, xIn, yIn, zIn)` | own `<external_reactions>` force `fb-stores` | force `CdA · qbar` along the body **−x** axis, acting at the centroid of the occupied stations — the MOMENT of an off-centre load therefore comes from the same physics as the force |
 
-**Koordinaten:** strukturelle Zoll (`IN`) im Frame, in dem die `aircraft.xml` bereits Pilot, Fahrwerk und
-Tanks platziert.
+**Coordinates:** structural inches (`IN`) in the frame in which the `aircraft.xml` already places pilot,
+landing gear and tanks.
 
-**Index-Entdeckung statt Mitzählen.** Nach `AddPointMass` ist unsere Masse die letzte; der Index wird aus
-dem Property-Tree gelesen (erster Index, dessen `inertia/pointmass-weight-lbs[n]` NICHT existiert, ist
-die Anzahl; `n−1` sind wir). Damit ist der Adapter generisch über jedes Modell, egal wie viele
-Punktmassen dessen XML mitbrachte.
+**Index discovery instead of counting along.** After `AddPointMass` our mass is the last one; the index is
+read from the property tree (the first index whose `inertia/pointmass-weight-lbs[n]` does NOT exist is the
+count; `n−1` is us). With that the adapter is generic over every model, no matter how many point masses
+its XML brought along.
 
-**`EnsureDragForce(name, x, y, z)` — die geteilte Hilfsroutine** (Carriage und Battle Damage brauchen sie
-beide, deshalb ist sie eine Funktion und kein Block). Sie legt eine benannte Körper-**−x**-Kraft auf dem
-geladenen Modell an. Feinheit: `FGExternalReactions::Load` HÄNGT Kräfte an und bindet danach seine sechs
-Aggregat-Ausgabeproperties neu — die das geladene Modell bereits gebunden hat, falls es selbst eine
-externe Kraft deklarierte, und ein doppelter Tie loggt pro Property einen Fehler. Deshalb werden die
-Aggregate (`moments/[lmn]-external-lbsft`, `forces/fb[xyz]-external-lbs`) vorher **untied** und von
-`Load` an dasselbe Objekt neu gebunden: keine Ausgabe, keine Modelldatei angefasst, und das Flugzeug
-behält jede Kraft, die es selbst deklariert hat.
+**`EnsureDragForce(name, x, y, z)` — the shared helper routine** (carriage and battle damage both need it,
+which is why it is a function and not a block). It creates a named body **−x** force on the loaded model.
+Subtlety: `FGExternalReactions::Load` APPENDS forces and afterwards re-binds its six aggregate output
+properties — which the loaded model has already bound if it declared an external force of its own, and a
+double tie logs one error per property. Therefore the aggregates (`moments/[lmn]-external-lbsft`,
+`forces/fb[xyz]-external-lbs`) are **untied** beforehand and re-bound by `Load` to the same object: no
+output, no model file touched, and the aircraft keeps every force it declared itself.
 
-**Kosten pro Schritt:** genau ein `SetPropertyValue` je aktivem Kanal
-(`magnitude = CdA · aero/qbar-psf`), und nur auf einer Zelle, die wirklich etwas trägt.
-`SetStoresDrag` ruft man je **Loadout-ÄNDERUNG**, nicht pro Frame. Bei `cdaFt2 <= 0` (Default) wird die
-Kraft **nie angelegt** — eine saubere Zelle ist bit-identisch zu einer, die nie von Stores gehört hat.
+**Cost per step:** exactly one `SetPropertyValue` per active channel
+(`magnitude = CdA · aero/qbar-psf`), and only on an airframe that really carries something.
+`SetStoresDrag` is called per loadout CHANGE, not per frame. With `cdaFt2 <= 0` (default) the force is
+**never created** — a clean airframe is bit-identical to one that never heard of stores.
 
 ---
 
-### 10. Schadenskanäle
+### 10. Damage channels
 
-Drei Konsequenzen, die eine aufgelöste Detonation auf eine Zelle haben kann (`core/FBDamageModel` nennt
-die Werte und ihre Begründung), jede über einen Mechanismus, den JSBSim bereits hat. Gesetzt werden sie
-**nur** vom Besitzer der Einheit (`units/FBSimUnit::ApplyDamageToAirframe`), nie von einem Modul: ein
-Modul kommt an eine nicht-const `FBFdm` nur, wenn der Besitzer sie ihm reicht — und der reicht sie für
-Steuerung, nicht für Schaden.
+Three consequences that a resolved detonation can have on an airframe (`core/FBDamageModel` names the
+values and their justification), each through a mechanism JSBSim already has. They are set **only** by
+the owner of the unit (`units/FBSimUnit::ApplyDamageToAirframe`), never by a module: a module reaches a
+non-const `FBFdm` only if the owner hands it over — and the owner hands it over for control, not for
+damage.
 
-| Methode | Physikalische Wirkung | Werte (aus `core/FBDamageModel.h`) |
+| Method | Physical effect | Values (from `core/FBDamageModel.h`) |
 |---|---|---|
-| `SetControlAuthority(norm)` | Skaliert JEDEN kommandierten Ausschlag (roll/pitch/yaw) **in** `SetControls`. Die FCS kommandiert unverändert weiter, das Flugzeug antwortet nur nicht mehr — was ein durchtrennter Aktuatorstrang bedeutet. | degradiert **0,5** [SET, aber mit strukturellem Grund: die F-16 hat zwei unabhängige Hydrauliksysteme, also ist der Verlust eines davon die natürliche Bedeutung von „degradiert"]; ausgefallen **0,0** |
-| `SetThrottleLimit(maxNorm)` | Deckelt den kommandierten Throttle — der Nachbrennerbereich ist schlicht nicht mehr erreichbar. Der Schub selbst bleibt JSBSims Triebwerksmodell. | degradiert **0,6** [DERIVED: dort liegt das AB-Gate in der `throttle-cmd-norm`-Konvention des F-16-Modells]; ausgefallen = Cutoff (JSBSims eigenes Engine-Out, kein hier erfundener Schubterm) |
-| `SetDamageDrag(cdaFt2)` | Zusätzliche Widerstands-FLÄCHE entlang Körper-−x **durch den CG** — also Widerstand ohne behauptetes Nickmoment (wo die Löcher sind, weiß dieses Modell nicht). Eigener Kraftkanal `fb-damage`, damit Carriage und Schaden sich nie überschreiben. | degradiert **1,5 ft²**, ausgefallen **6,0 ft²** [SET; zur Einordnung: die Nullauftriebs-Widerstandsfläche einer sauberen F-16 liegt in der Größenordnung 4 ft², also ist „degradiert" spürbar schmutzig und „ausgefallen" ein Loch in der Zelle] |
+| `SetControlAuthority(norm)` | Scales EVERY commanded deflection (roll/pitch/yaw) **inside** `SetControls`. The FCS keeps commanding unchanged, the aircraft simply no longer answers — which is what a severed actuator run means. | degraded **0.5** [SET, but with a structural reason: the F-16 has two independent hydraulic systems, so the loss of one of them is the natural meaning of "degraded"]; failed **0.0** |
+| `SetThrottleLimit(maxNorm)` | Caps the commanded throttle — the afterburner range is simply no longer reachable. The thrust itself remains JSBSim's engine model. | degraded **0.6** [DERIVED: that is where the AB gate lies in the `throttle-cmd-norm` convention of the F-16 model]; failed = cutoff (JSBSim's own engine-out, no thrust term invented here) |
+| `SetDamageDrag(cdaFt2)` | Additional drag AREA along body −x **through the CG** — i.e. drag without a claimed pitching moment (where the holes are, this model does not know). Own force channel `fb-damage`, so that carriage and damage never overwrite each other. | degraded **1.5 ft²**, failed **6.0 ft²** [SET; for orientation: the zero-lift drag area of a clean F-16 is on the order of 4 ft², so "degraded" is noticeably dirty and "failed" is a hole in the airframe] |
 
-**Alle drei sind neutral, bis etwas getroffen wurde** — Authority 1, kein Throttle-Limit, kein Drag; der
-`fb-damage`-Kanal wird bei `cdaFt2 <= 0` nie angelegt. Eine unbeschädigte Zelle rechnet **bit-identisch**
-wie eine, die nie von Schaden gehört hat (nachgemessen, CLAUDE.md).
+**All three are neutral until something has been hit** — authority 1, no throttle limit, no drag; the
+`fb-damage` channel is never created with `cdaFt2 <= 0`. An undamaged airframe computes **bit-identically**
+to one that never heard of damage (measured, CLAUDE.md).
 
-Was daraus FOLGT — ein Jet, der nicht mehr rollt; ein Triebwerk ohne Nachbrenner; eine Zelle, die die
-Höhe nicht hält — ist JSBSim, das das Flugzeug integriert, das sie jetzt ist. Kein zweites, paralleles
-Flugmodell.
+What FOLLOWS from that — a jet that no longer rolls; an engine without afterburner; an airframe that does
+not hold altitude — is JSBSim integrating the aircraft it now is. No second, parallel flight model.
 
 ---
 
-### 11. Tank-Verdrahtung
+### 11. Tank wiring
 
-Generisch über `FGPropulsion`s eigenes Tankinventar — enumeriert nach Index, nimmt nie an, wie viele
-Tanks eine `aircraft.xml` deklariert.
+Generic over `FGPropulsion`'s own tank inventory — enumerated by index, never assuming how many tanks an
+`aircraft.xml` declares.
 
-| Methode | Verhalten |
+| Method | Behaviour |
 |---|---|
-| `SetFuelTankLbs(idx, lbs)` | ein Tank; Index außerhalb = No-Op; negativ → 0 |
-| `SetFuelTotalLbs(lbs)` | verteilt **proportional zum Kapazitätsanteil JEDES Tanks** (so füllt eine reale Betankungszahl den Jet), nicht Tank-für-Tank |
-| `SetFuelPct(pct)` | 0..100 der deklarierten Gesamtkapazität, über `SetFuelTotalLbs` |
-| `GetFuelTankCount/TankLbs/TotalLbs/CapacityLbs` | Readbacks; `GetFuelTotalLbs` ist die `fuelLbs`-Telemetriespalte |
+| `SetFuelTankLbs(idx, lbs)` | one tank; index out of range = no-op; negative → 0 |
+| `SetFuelTotalLbs(lbs)` | distributes **proportionally to the capacity share of EVERY tank** (that is how a real refuelling number fills the jet), not tank by tank |
+| `SetFuelPct(pct)` | 0..100 of the declared total capacity, via `SetFuelTotalLbs` |
+| `GetFuelTankCount/TankLbs/TotalLbs/CapacityLbs` | readbacks; `GetFuelTotalLbs` is the `fuelLbs` telemetry column |
 
-**Spritmangel simuliert diese Klasse NICHT.** Leerlaufen lässt JSBSims eigenes `FGEngine`-Modell das
-Triebwerk NATIV verhungern; der Adapter macht den Füllstand nur beobachtbar und setzbar. Missionsseitig
-kommen die Werte aus `set fuel_lbs` / `set fuel_pct` über `FBModule::ApplySetup`.
+**This class does NOT simulate fuel starvation.** Running dry is JSBSim's own `FGEngine` model starving
+the engine NATIVELY; the adapter only makes the level observable and settable. On the mission side the
+values come from `set fuel_lbs` / `set fuel_pct` via `FBModule::ApplySetup`.
 
 ---
 
 ### 12. Readbacks
 
-Alle const — deshalb ist `const FBFdm&` ein echtes Nur-Lese-Handle.
+All const — which is why `const FBFdm&` is a genuine read-only handle.
 
-| Methode | Quelle | Wofür |
+| Method | Source | What for |
 |---|---|---|
-| `GetQbarPsf()` | `aero/qbar-psf` | die Größe, gegen die beide Drag-Kanäle gemessen werden |
-| `GetCgXIn()` | `inertia/cg-x-in` | Carriage-Wirkung auf die BALANCE, beobachtbar; zugleich Angriffspunkt des `fb-damage`-Kanals |
-| `SetGroundElevM` / `GetGroundElevM` | `position/terrain-elevation-asl-ft` | Welt-Wahrheit vom Elevation-Hook (`FBElevationProvider`) statt Flat-Default. Der Getter existiert, damit ein Aufrufer BEWEISEN kann, dass der DEM-Wert wirklich in JSBSim ankam — nicht nur, dass der Setter gerufen wurde. |
-| `GetGroundClearanceM(bool gearDown)` | `FGGroundReactions` → je Gear `GetBodyLocation(3)` (Körper-z, ft unter dem CG), Maximum | CG-Höhe über Grund, wenn der tiefste aktive Kontakt aufsetzt. `gearDown=false` überspringt alle einziehbaren Kontakte → nur feste Struktur (Bauch). **Pro Modell und Fahrwerkszustand**, also sind Start/Aufsetzen/Crash-Erkennung und die Kamera-Augenhöhe geometriewahr statt eine feste Zahl. |
-| `GetGearPos()` / `GetSpeedbrakePos()` | `gear/gear-pos-norm`, `fcs/speedbrake-pos-norm` | kinematisch verzögerte IST-Position |
-| `GetWow()` | `gear/wow` (`FGGroundReactions::GetWOW`) | modellweit: wahr, sobald IRGENDEIN Bogey einfedert. Eine Aufschlüsselung je Bein gehört einem künftigen Fahrwerkssystem, nicht dieser Naht. |
-| `GetStructureContact()` | enumeriert Kontakt-TYP `ctSTRUCTURE`, nie einen Index oder Flugzeugnamen | wahr, wenn ein nicht-berädeter Zellengeometriepunkt einfedert. Ein Modell ohne solche Punkte liest immer false. Konsument: `FBFlightMonitor`s Struktur-K.O. |
-| `GetMaxGearForceLbs()` | max. `FGLGear::GetCompForce` über alle BOGEY-Beine | die modelleigene Feder/Dämpfer-Reaktion, KEINE abgeleitete Sinkraten-Heuristik. `FBFlightMonitor` vergleicht sie gegen `GetWeightLbs()` und urteilt „harte Landung" allein aus Physik. |
-| `GetWeightLbs()` | `inertia/weight-lbs` | u. a. weil `FBPilot`s Rotationsgeschwindigkeits-Tabelle nach Gewicht indiziert |
-| `GetEngineRunning(i)` | `propulsion/engine[i]/set-running` | je Triebwerksindex |
-| `Faulted()` | gelatchtes Flag | s. §7 |
+| `GetQbarPsf()` | `aero/qbar-psf` | the quantity against which both drag channels are measured |
+| `GetCgXIn()` | `inertia/cg-x-in` | carriage effect on the BALANCE, observable; at the same time point of application of the `fb-damage` channel |
+| `SetGroundElevM` / `GetGroundElevM` | `position/terrain-elevation-asl-ft` | world truth from the elevation hook (`FBElevationProvider`) instead of the flat default. The getter exists so that a caller can PROVE that the DEM value really arrived in JSBSim — not merely that the setter was called. |
+| `GetGroundClearanceM(bool gearDown)` | `FGGroundReactions` → per gear `GetBodyLocation(3)` (body z, ft below the CG), maximum | CG height above ground when the lowest active contact touches down. `gearDown=false` skips all retractable contacts → only fixed structure (belly). **Per model and gear state**, so take-off/touchdown/crash detection and the camera eye height are geometrically true instead of a fixed number. |
+| `GetGearPos()` / `GetSpeedbrakePos()` | `gear/gear-pos-norm`, `fcs/speedbrake-pos-norm` | kinematically delayed ACTUAL position |
+| `GetWow()` | `gear/wow` (`FGGroundReactions::GetWOW`) | model-wide: true as soon as ANY bogey compresses. A breakdown per leg belongs to a future landing gear system, not to this seam. |
+| `GetStructureContact()` | enumerates contact TYPE `ctSTRUCTURE`, never an index or aircraft name | true when a non-wheeled airframe geometry point compresses. A model without such points always reads false. Consumer: `FBFlightMonitor`'s structural knockout. |
+| `GetMaxGearForceLbs()` | max. `FGLGear::GetCompForce` over all BOGEY legs | the model-owned spring/damper reaction, NO derived sink-rate heuristic. `FBFlightMonitor` compares it against `GetWeightLbs()` and judges "hard landing" purely from physics. |
+| `GetWeightLbs()` | `inertia/weight-lbs` | among other things because `FBPilot`'s rotation speed table is indexed by weight |
+| `GetEngineRunning(i)` | `propulsion/engine[i]/set-running` | per engine index |
+| `Faulted()` | latched flag | see §7 |
 
 ---
 
 ### 13. `FBFdmTelemetrySource`
 
-Sitzt an der **Adapter-Naht**, nicht im Modul: `fb_fdm_state` ist das POD des FDM, und die einzigen
-Zusatzeingaben sind die Zelle selbst und eine geborgte Boden-ASL — kein Modulzustand ist beteiligt. Alle
-drei Referenzen sind geborgt und konstruktor-injiziert; `const FBFdm*` ist ein Nur-Lese-Handle:
-Telemetrie beobachtet, sie kommandiert nie.
+Sits at the **adapter seam**, not in the module: `fb_fdm_state` is the POD of the FDM, and the only
+additional inputs are the airframe itself and a borrowed ground ASL — no module state is involved. All
+three references are borrowed and constructor-injected; `const FBFdm*` is a read-only handle: telemetry
+observes, it never commands.
 
-**Die Zelle ist OPTIONAL, und der Zeiger sagt das** — eine Einheit ohne Airframe (statisches Bodenziel)
-hat trotzdem Pose, Höhe und Bodenprobe, also den größten Teil dieses Schemas.
+**The airframe is OPTIONAL, and the pointer says so** — a unit without an airframe (static ground target)
+still has pose, altitude and ground sample, i.e. the greater part of this schema.
 
-| Spalte | Einheit | Quelle |
+| Column | Unit | Source |
 |---|---|---|
 | `lat`, `lon` | deg | `st.lat/lon` |
 | `altM` | m | `st.elev` |
 | `aglM` | m | `st.elev − groundAslM` |
-| `vsMs` | m/s | `st.vy` (X-Plane-local +y = hoch) |
+| `vsMs` | m/s | `st.vy` (X-Plane-local +y = up) |
 | `pitchDeg`, `rollDeg`, `hdgDeg` | deg | `st.pitch/roll/yaw` |
-| `fuelLbs` | lb | `GetFuelTotalLbs()`, **0 ohne Zelle** |
-| `gearLoadFactor` | — | `GetMaxGearForceLbs() / GetWeightLbs()`, **0 ohne Zelle**. Es ist genau `FBFlightMonitor`s eigenes Hartlandungs-Verhältnis (`kHardLandingForceFactor = 3.0` löst aus), aber **jeden Tick** geloggt statt nur beim Auslösen — damit die Aufsetzhärte einer Landung messbar ist, auch wenn sie klar unter der K.O.-Schwelle bleibt. |
+| `fuelLbs` | lb | `GetFuelTotalLbs()`, **0 without an airframe** |
+| `gearLoadFactor` | — | `GetMaxGearForceLbs() / GetWeightLbs()`, **0 without an airframe**. It is exactly `FBFlightMonitor`'s own hard-landing ratio (`kHardLandingForceFactor = 3.0` triggers), but logged **every tick** instead of only on triggering — so that the touchdown harshness of a landing is measurable even when it stays clearly below the knockout threshold. |
 
-Nur die zwei genuin zellen-eigenen Spalten gehen auf 0; das Spaltenset bleibt identisch, also hat jede
-Trace eines Laufs denselben Header, gleich welche Art Einheit sie erzeugt hat.
+Only the two genuinely airframe-owned columns go to 0; the column set stays identical, so every trace of a
+run has the same header, whatever kind of unit produced it.
 
 ---
 
-### 14. Namensraum, `extern "C"`, Build-Shim
+### 14. Namespace, `extern "C"`, build shim
 
-**`namespace FlightBox` wie der Rest des Baums — kein `extern "C"`.** Die C-Linkage war für die längst
-gelöschte `xp_bridge.c` der Vor-Pivot-Architektur da. Heute ruft niemand den Adapter aus C oder aus JS:
-die einzigen WASM-Exporte sind `fb_toggle_ground`/`fb_set_ground` in `app/FBAppWasm.cpp`. `extern "C"` +
-`EMSCRIPTEN_KEEPALIVE` bleibt Konvention **ausschließlich** für von JS NAMENTLICH gerufene Symbole
-(EMSCRIPTEN_KEEPALIVE allein reicht nicht — C++-Mangling bricht Exporte still).
+**`namespace FlightBox` like the rest of the tree — no `extern "C"`.** The C linkage was there for the
+long-since deleted `xp_bridge.c` of the pre-pivot architecture. Today nobody calls the adapter from C or
+from JS: the only WASM exports are `fb_toggle_ground`/`fb_set_ground` in `app/FBAppWasm.cpp`. `extern "C"`
++ `EMSCRIPTEN_KEEPALIVE` remains convention **exclusively** for symbols called BY NAME from JS
+(EMSCRIPTEN_KEEPALIVE alone is not enough — C++ mangling breaks exports silently).
 
-**`em_compat.h`** ist Klebstoff an der Naht, kein Patch: force-included (`emcc -include`) NUR für die
-JSBSim-Quellen, damit das Submodul bit-vanilla bleibt. Inhalt: emscripten definiert `_GNU_SOURCE`
-(libc++ braucht es für `strtof_l`/`strtod_l`), musl liefert aber das POSIX-`int strerror_r(...)`, während
-`simgear/misc/strutils.cxx` den `_GNU_SOURCE`-Zweig nimmt und `std::string(strerror_r(...))` schreibt,
-also den GNU-`char*`-Rückgabewert erwartet. Der Wrapper liefert den Puffer zurück; er wird VOR dem Makro
-definiert, damit sein eigener Aufruf die echte libc-Funktion erreicht (keine Rekursion).
+**`em_compat.h`** is glue at the seam, not a patch: force-included (`emcc -include`) ONLY for the JSBSim
+sources, so that the submodule stays bit-vanilla. Content: emscripten defines `_GNU_SOURCE` (libc++ needs
+it for `strtof_l`/`strtod_l`), but musl supplies the POSIX `int strerror_r(...)`, while
+`simgear/misc/strutils.cxx` takes the `_GNU_SOURCE` branch and writes `std::string(strerror_r(...))`, thus
+expecting the GNU `char*` return value. The wrapper returns the buffer; it is defined BEFORE the macro, so
+that its own call reaches the real libc function (no recursion).
+
+### The wind channel (R4, commit `43b82b5`)
+
+`SetWindNedMs(n,e,d)` writes JSBSim's `FGWinds::SetWindNED` (ft/s, north/east/down). `vWindNED` is
+the velocity of the AIR MASS, not the meteorological "from" bearing: `FGAuxiliary` computes
+`vAeroUVW = vUVW − Tl2b·vTotalWindNED`, so a wind from 270° is `(N=0, E=+v, D=0)`. Gusts and
+turbulence are separate vectors in the same class and stay untouched. The channel is set only by the
+unit's OWNER (`FBSimUnit::UpdateWind`, decision rate) and only on CHANGE — still air is `FGWinds`'
+boot state, so a calm run never touches the channel and is bit-identical to a run before the channel
+existed (measured: all 50 pre-existing missions byte-identical).

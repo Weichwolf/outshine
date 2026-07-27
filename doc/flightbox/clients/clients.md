@@ -90,3 +90,21 @@ Nothing about the physics or the verdict may depend on which client is running.
 | Threading measurements (2 units 1.29–1.41× at 2 threads; 4 units up to 1.77× at 4 threads; the ceiling is the machine) | [`../sim/units-and-missions.md`](../sim/units-and-missions.md) |
 | `app/FBTickPool` is gym-only, not part of the core lib, never reaches the WASM build | [`../architecture.md`](../architecture.md) |
 | Host operation: podman VM, `tiles/up.sh` (:8081), `sim/up.sh` (:8080, mounts `sim/web` live) | [`../build-and-ops.md`](../build-and-ops.md) |
+
+### Weather defaults per client (R4, commit `43b82b5`)
+
+Precedence lives in one place, `missions`-side (`FBWeatherBoot.h`): **a mission that declares `wx`
+always wins** — a scenario with declared wind keeps it. Without a declaration the client default
+applies:
+
+| Client | Default | Why |
+|---|---|---|
+| gym | calm | the regression baseline stays byte-identical |
+| native | calm | the frame oracle needs reproducibility |
+| wasm | **live `/wx`** | the browser flies today's real weather |
+
+The browser fetches once per session (a GFS cycle is valid 6 h), flies calm until the blob arrives,
+and adopts it ATOMICALLY at a frame boundary — under ASYNCIFY a callback can land between two
+substeps. A dead endpoint is a warning, never a boot failure (the `/elev` lesson). No CLI flag, by
+decision: weather is part of the SCENARIO like the runway and the spawn — a flag would let a
+measurement silently run in air the file did not declare.

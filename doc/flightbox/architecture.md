@@ -1,8 +1,4 @@
-# Architektur
-
-> Body still in German — translation pass pending (see [roadmap](roadmap.md)).
-
-Der Grundriss. Wer was besitzt, was gegen was linkt, und wo eine Datei hingehört.
+# Architecture
 
 ## Spec
 
@@ -40,123 +36,122 @@ The architectural contradictions found while distilling live with their subsyste
 
 The map itself — every structural fact of the tree, distilled.
 
-### Der Prozess
+### The process
 
 ```
-fb-tiles (Server: weltweit DEM/OSM/Luftbild)  ──HTTP──▶  Command Center (Client)
-                                                          = JSBSim + FBW + Autopilot (Pilot/Mission|Manual)
-                                                            + WebGPU-ECEF-Renderer + HUD
-                                                            als EIN Prozess (WASM-Browser | native CLI)
+fb-tiles (server: worldwide DEM/OSM/aerial imagery)  ──HTTP──▶  Command Center (client)
+                                                          = JSBSim + FBW + autopilot (Pilot/Mission|Manual)
+                                                            + WebGPU ECEF renderer + HUD
+                                                            as ONE process (WASM browser | native CLI)
 ```
 
-Nichts ist vorgeladen — jede Kachel on-demand. Daraus folgt: **jeder Punkt der Erde ist ein gültiger
-Start.**
+Nothing is preloaded — every tile on demand. From which follows: **every point on Earth is a valid
+start.**
 
-### Core-Lib + drei Clients
+### Core lib + three clients
 
-FlightBox Core ist eine **reine Bibliothek**. `sim/`s `core-lib`-Target baut den Simulator selbst zu
-einem nativen Archiv `build/libfbcore.a`:
+FlightBox Core is a **pure library**. `sim/`'s `core-lib` target builds the simulator itself into a
+native archive `build/libfbcore.a`:
 
-| Enthalten | Nicht enthalten |
+| Included | Not included |
 |---|---|
-| `core/`, `fdm/`, `systems/`, `modules/` (inkl. F-16), `units/`, der `.fbm`-Parser, libJSBSim | `render/`, `world/` (Tile-Streaming), `app/FBTickPool` |
+| `core/`, `fdm/`, `systems/`, `modules/` (incl. the F-16), `units/`, the `.fbm` parser, libJSBSim | `render/`, `world/` (tile streaming), `app/FBTickPool` |
 
-Genau **eine** Ausnahme: `render/FBHudGeometry.cpp` — reine CPU-Vertexlisten-Mathematik ohne
-WebGPU-/Dawn-Include, die `systems/FBDisplaySystem` strukturell braucht.
+Exactly **one** exception: `render/FBHudGeometry.cpp` — pure CPU vertex-list maths without a
+WebGPU/Dawn include, which `systems/FBDisplaySystem` structurally needs.
 
-WASM ist ein anderes Toolchain-Target (emcc/wasm32) und kompiliert dieselbe Quelldatei-Liste
-zwangsläufig selbst nach. Das ist Cross-Compile, keine Duplikation der Architektur.
+WASM is a different toolchain target (emcc/wasm32) and inevitably recompiles the same source-file list
+itself. That is a cross-compile, not a duplication of the architecture.
 
-Drei Clients linken bzw. kompilieren dagegen:
+Three clients link or compile against it:
 
-| Client | Quelle | Target | Rolle |
+| Client | Source | Target | Role |
 |---|---|---|---|
-| **`fb-gym`** | `app/FBAppGym.cpp` + `app/FBMissionRunner.cpp` | `make -C sim gym` | headless: Mission rein → Telemetrie raus. **Kein Dawn-/wgpu-Symbol im Binary** (per `nm` verifiziert). Der Missions-Kern. |
-| **`gpu_native`** | `app/FBAppNative.cpp` | `make -C sim native` | Referenz-Renderer und Frame-Orakel. `--mission --interval` erzeugt PNG-Beweisframes über einen GPU-freien Tick-Hook auf derselben `FBRunMission`-Schleife. Ohne `--interval` headless. |
-| **wasm** | `app/FBAppWasm.cpp` | `make -C sim wasm` | der Browser. |
+| **`fb-gym`** | `app/FBAppGym.cpp` + `app/FBMissionRunner.cpp` | `make -C sim gym` | headless: mission in → telemetry out. **No Dawn/wgpu symbol in the binary** (verified with `nm`). The mission core. |
+| **`gpu_native`** | `app/FBAppNative.cpp` | `make -C sim native` | reference renderer and frame oracle. `--mission --interval` produces PNG proof frames through a GPU-free tick hook on the same `FBRunMission` loop. Without `--interval` it is headless. |
+| **wasm** | `app/FBAppWasm.cpp` | `make -C sim wasm` | the browser. |
 
-`fb-gym`-Optionen: `--mission FILE [--out DIR] [--timeout N] [--threads N] [--elev tiles|const|swiss]`.
-`--threads` ist **gym-only**.
+`fb-gym` options: `--mission FILE [--out DIR] [--timeout N] [--threads N] [--elev tiles|const|swiss]`.
+`--threads` is **gym-only**.
 
-### Verzeichnisse
+### Directories
 
-| Verzeichnis | Zuständigkeit | Doku |
+| Directory | Responsibility | Doc |
 |---|---|---|
-| `sim/src/app/` | Einstiegspunkte, App-Lifecycle, Missions-Orchestrator, Sink-Implementierungen, der Gym-Threadpool | [units-and-missions.md](sim/units-and-missions.md), [build-and-ops.md](build-and-ops.md) |
-| `sim/src/core/` | Avionik-Bus, Kommandobus, Log, Telemetrie, die zwei Richter, Missionsdaten-Typen, Schadensmodell, Ballistik, Elevation-Hook, Basistypen. **Zeigt nie nach `systems/` oder `modules/`.** | [core.md](sim/core.md) |
-| `sim/src/math/` | Value-Math (`FBMat4`) | [core.md](sim/core.md) |
-| `sim/src/fdm/` | der JSBSim-Adapter. Die eine Übersetzungseinheit mit JSBSim-Headern. | [fdm.md](sim/fdm.md) |
-| `sim/src/units/` | Welt-Entitäten: `FBUnit`, `FBSimUnit`, `FBUnitRegistry` | [units-and-missions.md](sim/units-and-missions.md) |
-| `sim/src/systems/` | die generischen, airframe-agnostischen Systemslots eines Moduls | [systems.md](sim/systems.md), [sensors.md](sim/sensors.md), [pilot-ai.md](sim/pilot-ai.md), [weapons-and-damage.md](sim/weapons-and-damage.md) |
-| `sim/src/modules/` | `FBModule`-Basisschnittstelle + Registry | [modules-f16.md](aircraft/f16.md) |
-| `sim/src/modules/f16/` | das F-16-Modul und seine Overrides | [modules-f16.md](aircraft/f16.md) |
-| `sim/src/modules/stores,missile,ground/` | die Module abgeworfener Waffen und statischer Bodenziele | [weapons-and-damage.md](sim/weapons-and-damage.md) |
-| `sim/src/render/`, `render/stages/` | WebGPU-Renderer, eine Klasse je Shader | [rendering.md](render/renderer.md) |
-| `sim/src/world/`, `sim/src/terrain/` | Welt, Tile-Streaming, Gelände-Mathematik | [world-and-terrain.md](world-and-terrain.md) |
-| `tiles/` | fb-tiles, der Tile-Server (eigenes Makefile) | [world-and-terrain.md](world-and-terrain.md) |
-| `temp/` | Migrationsgut der Vor-Architektur. Read-only-Steinbruch, **keine lebende Architektur.** | — |
+| `sim/src/app/` | entry points, app lifecycle, mission orchestrator, sink implementations, the gym thread pool | [units-and-missions.md](sim/units-and-missions.md), [build-and-ops.md](build-and-ops.md) |
+| `sim/src/core/` | avionics bus, command bus, log, telemetry, the two judges, mission-data types, damage model, ballistics, elevation hook, base types. **Never points into `systems/` or `modules/`.** | [core.md](sim/core.md) |
+| `sim/src/math/` | value maths (`FBMat4`) | [core.md](sim/core.md) |
+| `sim/src/fdm/` | the JSBSim adapter. The one translation unit with JSBSim headers. | [fdm.md](sim/fdm.md) |
+| `sim/src/units/` | world entities: `FBUnit`, `FBSimUnit`, `FBUnitRegistry` | [units-and-missions.md](sim/units-and-missions.md) |
+| `sim/src/systems/` | the generic, airframe-agnostic system slots of a module | [systems.md](sim/systems.md), [sensors.md](sim/sensors.md), [pilot-ai.md](sim/pilot-ai.md), [weapons-and-damage.md](sim/weapons-and-damage.md) |
+| `sim/src/modules/` | `FBModule` base interface + registry | [modules-f16.md](aircraft/f16.md) |
+| `sim/src/modules/f16/` | the F-16 module and its overrides | [modules-f16.md](aircraft/f16.md) |
+| `sim/src/modules/stores,missile,ground/` | the modules of released weapons and static ground targets | [weapons-and-damage.md](sim/weapons-and-damage.md) |
+| `sim/src/render/`, `render/stages/` | WebGPU renderer, one class per shader | [rendering.md](render/renderer.md) |
+| `sim/src/world/`, `sim/src/terrain/` | world, tile streaming, terrain maths | [world-and-terrain.md](world-and-terrain.md) |
+| `tiles/` | fb-tiles, the tile server (its own Makefile) | [world-and-terrain.md](world-and-terrain.md) |
+| `temp/` | migration material of the pre-architecture. Read-only quarry, **not living architecture.** | — |
 
-### Das Schichtungsmuster
+### The layering pattern
 
-**FBCore → Interface → Default-Implementation → modul-spezifischer Override.**
+**FBCore → interface → default implementation → module-specific override.**
 
-Nicht „gehört der F-16". Der Simulator lädt beliebig viele steuerbare Module zur Laufzeit und hält jedes
-polymorph hinter `FBModule*`. Jedes Modul trägt dieselben Systemkategorien, unterscheidet sich aber im
-**Verhalten**, nicht nur in Zahlen. Interface und Default leben in EINER Klasse; ein Modul überschreibt
-per Ableitung. Reines Zahlen-Tuning bleibt Preset oder Config — dafür wird keine leere Ableitung
-angelegt.
+Not "belongs to the F-16". The simulator loads any number of flyable modules at runtime and holds each
+one polymorphically behind `FBModule*`. Every module carries the same system categories but differs in
+**behaviour**, not just in numbers. Interface and default live in ONE class; a module overrides by
+derivation. Pure number tuning stays a preset or config — no empty derivation is created for that.
 
-Das gilt seit der Orchestrator-Runde auch für den **Zugriff**: `FBModule` deklariert die generischen
-Accessoren selbst (`Autopilot()`, `FlightControl()`, `PilotSystem()`, `Controls()`, `Displays()`,
-`AirDataSystem()`, `FlightPlan()`, `Telemetry()`, `SetRunway()`, `SetGroundAsl()`, `ApplySetup()`), und
-`FBMissionRunner.cpp` / `FBAppGym.cpp` inkludieren nie einen konkreten Modul-Header.
+Since the orchestrator round this also applies to **access**: `FBModule` declares the generic accessors
+itself (`Autopilot()`, `FlightControl()`, `PilotSystem()`, `Controls()`, `Displays()`,
+`AirDataSystem()`, `FlightPlan()`, `Telemetry()`, `SetRunway()`, `SetGroundAsl()`, `ApplySetup()`), and
+`FBMissionRunner.cpp` / `FBAppGym.cpp` never include a concrete module header.
 
-### Ein Flugzeug = Modul + JSBSim-Modell
+### An aircraft = module + JSBSim model
 
-| Teil | Wo | Was |
+| Part | Where | What |
 |---|---|---|
-| Code-Modul | `sim/src/modules/<name>/` | `FBModule`-Ableitung: Systeme, Presets, Displays |
-| JSBSim-Modell | `sim/assets/aircraft/<modell>/` | Aero, Masse, Antrieb, Engine-Daten |
+| Code module | `sim/src/modules/<name>/` | `FBModule` derivation: systems, presets, displays |
+| JSBSim model | `sim/assets/aircraft/<model>/` | aero, mass, propulsion, engine data |
 
-**Eine Wurzel** (`app/FBModelRoots.h`): jedes Modell, das FlightBox fliegt, liegt in
-`sim/assets/aircraft` — ein selbstständiges Verzeichnis je Modell, mit seiner `.xml` und seinen eigenen
-`engine/`- und `Systems/`-Unterverzeichnissen (JSBSims eigenes Pro-Flugzeug-Layout, das seine Loader vor
-jedem geteilten Pfad durchsuchen). Heute: `f16`, `mk82` (beide Kopien aus dem Submodul), `aim120`
-(FlightBox-eigen, das Submodul hat keine AMRAAM).
+**One root** (`app/FBModelRoots.h`): every model FlightBox flies lives in `sim/assets/aircraft` — a
+self-contained directory per model, with its `.xml` and its own `engine/` and `Systems/`
+subdirectories (JSBSim's own per-aircraft layout, which its loaders search before any shared path).
+Today: `f16`, `mk82` (both copies from the submodule), `aim120` (FlightBox's own, the submodule has no
+AMRAAM).
 
-Das gepinnte Submodul ist damit **kein Ladepfad mehr, sondern die Basis** — der Upstream-Stand, gegen den
-`make -C sim verify-models` jede Kopie diffed. Abweichen darf eine Kopie nur als benannter Eintrag in
-`sim/assets/MODEL-DELTAS.md` — die Delta-Regel, [`CLAUDE.md`](../../CLAUDE.md) Prinzip 1. Die frühere Unterscheidung
-„vendored oder eigen" (`FBModule::FdmModelVendored()`) ist damit entfallen; ein Modul nennt nur noch
-seinen Modellnamen.
+The pinned submodule is thereby **no longer a load path but the base** — the upstream state against
+which `make -C sim verify-models` diffs every copy. A copy may only deviate as a named entry in
+`sim/assets/MODEL-DELTAS.md` — the delta rule, [`CLAUDE.md`](../../CLAUDE.md) principle 1. The earlier
+distinction "vendored or own" (`FBModule::FdmModelVendored()`) has therefore been dropped; a module
+now only names its model.
 
-Aircraft-XML trägt eine EIGENE Lizenz (F-16 = GPL, die meisten LGPL) — Attribution je Datei, der
-`<fileheader>` jeder Kopie bleibt unverändert.
+Aircraft XML carries its OWN licence (F-16 = GPL, most of them LGPL) — attribution per file, the
+`<fileheader>` of every copy stays unchanged.
 
-### Steuerung
+### Control
 
-Ein schlanker Fly-by-Wire-Layer stabilisiert die Fluglage (Raten-/Attitude-PID auf die
-`fcs/*-cmd-norm`-Eingänge; die F-16 hat eine eigene FLCS → `fcs/fbw-override=1` überbrückt sie).
-Darüber der Autopilot — generische Guidance in `systems/FBAutopilot`, Verhalten modul-überschreibbar.
+A lean fly-by-wire layer stabilises the attitude (rate/attitude PID onto the `fcs/*-cmd-norm` inputs;
+the F-16 has its own FLCS → `fcs/fbw-override=1` bypasses it). Above it the autopilot — generic
+guidance in `systems/FBAutopilot`, behaviour module-overridable.
 
-| Modus | Mechanismus |
+| Mode | Mechanism |
 |---|---|
-| `manual` (`?ap=manual`) | direkter Stick durch den FBW. `FBInputSystem` ist weiterhin NoOp-Default — kein gebundenes HOTAS. |
-| `pilot` (Boot-Default) | `FBPilot` fliegt eine `.fbm`-Mission als Phasenmaschine und kommandiert je Phase `FBAutopilot::Direct` |
-| `bfm` (`set task bfm`) | kein Autopilot-Modus, sondern ein eigenes Regelgesetz auf Manual-Stick gegen den gelockten Radarkontakt |
-| `intercept` (`set task intercept`) | BVR: eine eigene Zustandsmaschine (`systems/FBEngagement`) auf Direct-Guidance, geflogen mit dem SENSOR |
-| `attack` (`set task attack`) | die einzige Phase, deren Entscheidung ein Moment ist: ein Pickle auf den Cue des Feuerleitblocks |
+| `manual` (`?ap=manual`) | direct stick through the FBW. `FBInputSystem` is still the NoOp default — no bound HOTAS. |
+| `pilot` (boot default) | `FBPilot` flies a `.fbm` mission as a phase machine and commands `FBAutopilot::Direct` per phase |
+| `bfm` (`set task bfm`) | not an autopilot mode but a control law of its own on manual stick, against the locked radar contact |
+| `intercept` (`set task intercept`) | BVR: a state machine of its own (`systems/FBEngagement`) on direct guidance, flown with the SENSOR |
+| `attack` (`set task attack`) | the only phase whose decision is a moment: one pickle on the cue of the fire-control block |
 
 Details: [pilot-ai.md](sim/pilot-ai.md), [systems.md](sim/systems.md).
 
-### Multi-Unit
+### Multi-unit
 
-Eine Mission beschreibt einen **Verband** mehrerer Einheiten verschiedener Fraktionen. Je Einheit:
-Modul, Fraktion, Spawn, Flugplan, Ziele. Jede bekommt eine eigene `FBFdm`, ein eigenes `FBModule`,
-eigene Monitore und eine eigene Telemetriedatei; das Missions-Urteil fällt **pro Einheit**.
+A mission describes a **formation** of several units of different factions. Per unit: module, faction,
+spawn, flight plan, objectives. Each gets its own `FBFdm`, its own `FBModule`, its own monitors and its
+own telemetry file; the mission verdict falls **per unit**.
 
-Die Snapshot-Disziplin steht: pro Tick rechnen erst alle Einheiten, dann macht eine Barriere die neuen
-Posen gemeinsam sichtbar. `FBUnit::GetPose()` liefert damit immer den Stand des zuletzt
-**abgeschlossenen** Ticks — die Tick-Reihenfolge kann kein Ergebnis beeinflussen.
+The snapshot discipline stands: per tick all units compute first, then a barrier makes the new poses
+jointly visible. `FBUnit::GetPose()` therefore always yields the state of the last **completed** tick —
+tick order cannot influence any result.
 
-Details und die vier Ausbau-Etappen: [units-and-missions.md](sim/units-and-missions.md).
+Details and the four expansion stages: [units-and-missions.md](sim/units-and-missions.md).

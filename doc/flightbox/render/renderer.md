@@ -1,19 +1,17 @@
-# Rendering — der WebGPU-Renderer
+# Rendering — the WebGPU renderer
 
-> Body still in German — translation pass pending (see [roadmap](../roadmap.md)).
-
-**Quellen dieser Datei:** `sim/src/render/` (14 Dateien: `FBRenderer.h/.cpp`, `FBCamera.h`,
+**Sources of this file:** `sim/src/render/` (14 files: `FBRenderer.h/.cpp`, `FBCamera.h`,
 `FBDrawStage.h`, `FBFrameContext.h`, `FBGpu.h`, `FBHudGeometry.h/.cpp`, `FBHudFont.h`,
-`FBHudFontRom.h`, `FBChunkMesh.h`, `FBChunkVtx.h`, `FBMips.h`, `FBEphemeris.h`) und
-`sim/src/render/stages/` (39 Dateien), plus CLAUDE.mds Abschnitte `render/`, `render/stages/` und
-„Rendering (das Herzstück)". Jede Zahl unten steht so im Quelltext; Herleitungen und Setzungen sind
-als solche gekennzeichnet. Widersprüche zwischen CLAUDE.md und Code stehen unter *Offene Punkte* —
-sie sind nicht stillschweigend aufgelöst.
+`FBHudFontRom.h`, `FBChunkMesh.h`, `FBChunkVtx.h`, `FBMips.h`, `FBEphemeris.h`) and
+`sim/src/render/stages/` (39 files), plus CLAUDE.md's `render/`, `render/stages/` and "Rendering (das
+Herzstück)" sections. Every number below appears verbatim in the source; derivations and settings are
+marked as such. Contradictions between CLAUDE.md and the code are in *Gaps* — they are not resolved
+silently.
 
-Nachbardateien: `architecture.md` (Lib/Client-Split), `world-and-terrain.md` (was den Renderer mit
-Geometrie und Albedo füttert). Die HUD-**Symbologie** (was gezeichnet wird) gehört nicht hierher,
-sondern zu `systems/FBDisplaySystem` + `modules/f16/displays/FBF16Hud`; diese Datei beschreibt nur
-das **Backend** (womit gezeichnet wird).
+Neighbouring files: `architecture.md` (lib/client split), `world-and-terrain.md` (what feeds the
+renderer with geometry and albedo). The HUD **symbology** (what is drawn) does not belong here but to
+`systems/FBDisplaySystem` + `modules/f16/displays/FBF16Hud`; this file describes only the **backend**
+(what it is drawn with).
 
 ---
 
@@ -69,492 +67,488 @@ Renderer-adjacent items that belong to the world/tile side (`TODO.md` §4.7/4.8 
 instance, time-based eviction, `kNodeCeil`, imagery mode not declarable in `.fbm`, TLS not wired) are
 parked in [`../roadmap.md`](../roadmap.md) until `world/` is split.
 
-### Inventory (German, from the previous `Offene Punkte` section)
+### Inventory (from the previous `Open points` section)
 
-1. **`FBUnitsStage` und `FBSpritesStage` sind NoOp.** Beide Slots sind in der Encode-Ordnung fest
-   verdrahtet (Units nach dem Terrain, Sprites vor dem HUD), aber sie zeichnen nichts. **Konsequenz:
-   andere Flugzeuge, abgeworfene Waffen, Flugkörper, Bodenziele, Rauch und Fackeln sind unsichtbar.**
-   Die gesamte Multi-Unit-Simulation (Etappen 1–6, Datalink, Radar, BFM, Intercept, Schadensmodell)
-   existiert physikalisch und in der Telemetrie, aber es gibt kein Bild davon. Ein Frame-Beweis kann
-   heute nichts über Einheiten aussagen.
-2. **Reversed-Z-Zahlen widersprechen sich.** CLAUDE.md sagt „near 0,01 m / far 240 km". Der Code
-   (`MvpCamRel`) nutzt eine **unendliche** Far-Plane und `zn = 0.05`. Die 240 km sind der
-   Streaming-Sichtradius (`FB_VIEW_KM`), nicht die Far-Plane; die 0,01 m stehen nirgends im Code.
-   Nicht aufgelöst — vermutlich veraltete Doku, aber das ist eine Vermutung.
-3. **Der Kamera-Clamp „nie unter die Oberfläche" hat keinen Konsumenten mehr.** `fb-sim` liefert
-   `window.FB_GROUND_CLEAR` an den Browser (`app/FBSimHost.cpp`, gelesen aus `/tmp/fb_clearance`), und
-   `web/config.js` setzt es auf 0 — aber **kein** C++-Code liest es (`grep FB_GROUND_CLEAR src/` findet
-   nur den Erzeuger). Die geometriewahre Höhe wirkt heute nur über den Spawn-IC
-   (`GetGroundClearanceM`), nicht als Pro-Frame-Clamp. CLAUDE.mds Formulierung „die Kamera geht nie
-   unter die Oberfläche" beschreibt damit einen Zustand, den der Code nicht mehr erzwingt.
-4. **Toter Code in `FBCamera.h`.** `w3_frustum_from` und `w3_aabb_visible` (Gribb-Hartmann-Culling)
-   haben im ganzen Baum **keinen Aufrufer** — das Culling passiert im Streamer (`FBWorld`) über
-   Sichtradius und Frustum-Gewichtung, nicht über diese Ebenen. Genutzt sind aus dieser Datei nur
-   `w3_cam_from`, `w3_basis_from`, `w3_horizon_dip_rad` (alle drei von der HUD-Symbologie) und
-   `FBCameraBasisEcef`. Ob die Frustum-Helfer für eine künftige `FBUnitsStage` reserviert sind oder
-   ersatzlos entfallen sollten, ist offen.
-5. **Aerial Perspective ist per Default AUS** (`FB_AP=0`), obwohl die gesamte
-   Transmittance-LUT-Infrastruktur dafür existiert und jeden Frame gerechnet wird. Das Gelände ist
-   „lit albedo pur, volle Helligkeit bis zum Horizont" — eine ausdrückliche Nutzerentscheidung
-   (2026-07-23), aber physikalisch falsch. Die LUT wird trotzdem berechnet, weil Himmel und Sonne sie
-   brauchen.
-6. **Wolken sind per Default AUS** (`FB_CLOUDS=0`, Nutzerentscheidung 2026-07-23) und es ist **keine
-   Wetterquelle verdrahtet**: `FBState.Env.Cloud*` bleibt null, und `FBCloudMarchStage` liest „0" als
-   „kein Wetterbericht" und setzt seine eigene Defaultdecke. Der Kommentar bei `FBRenderer::HudState`
-   nennt das ausdrücklich: null IST hier der ehrliche Wert, solange kein open-meteo-Anschluss existiert.
-7. **Transmittance-LUT wird jeden Frame neu gerechnet.** Sie hängt nur an Höhe und Sonnen-cos-θ; ein
-   `TODO cache while the sun is static` steht im Header und ist offen.
-8. **Upscale ist bilinear.** `TODO bicubic/sharpen` im Header; ebenso fehlt der 8-Tap-Glow des HUD
-   (`TODO` in `FBHudStage.cpp`), der die Leuchtdichte-Anmutung eines echten Combiners ausmachen würde.
-9. **`FBTerrainLoader`s statischer Pfad (`SetTerrain`/`SetAlbedoArray`) ist nur noch Bring-up.** Beide
-   Clients fahren Streaming; der statische Pfad in `FBTilesStage` (Direktdraws, Layer == Kachelindex)
-   bleibt als zweiter Codepfad bestehen und wird nirgends regelmäßig getestet.
-10. **Der Ladebildschirm hat einen Timeout-Ausgang** (30 s, `FB_LOAD_TIMEOUT_MS`), nach dem er das
-    Bild freigibt, egal wie wenig resident ist — der Log unterscheidet `converged` von `TIMEOUT`. Ein
-    Frame-Beweis, der aus einem Timeout-Boot stammt, ist damit nicht dasselbe Bild wie einer aus einem
-    konvergierten. Das ist heute nur an der Logzeile erkennbar, nicht am PNG.
+1. **`FBUnitsStage` and `FBSpritesStage` are NoOp.** Both slots are hard-wired into the encode order
+   (units after the terrain, sprites before the HUD), but they draw nothing. **Consequence: other
+   aircraft, released stores, missiles, ground targets, smoke and flares are invisible.** The whole
+   multi-unit simulation (stages 1–6, datalink, radar, BFM, intercept, damage model) exists physically
+   and in the telemetry, but there is no picture of it. A frame proof can say nothing about units
+   today.
+2. **The reversed-Z numbers contradict each other.** CLAUDE.md says "near 0.01 m / far 240 km". The
+   code (`MvpCamRel`) uses an **infinite** far plane and `zn = 0.05`. The 240 km are the streaming view
+   radius (`FB_VIEW_KM`), not the far plane; the 0.01 m appear nowhere in the code. Not resolved —
+   presumably stale documentation, but that is a presumption.
+3. **The camera clamp "never below the surface" has no consumer any more.** `fb-sim` supplies
+   `window.FB_GROUND_CLEAR` to the browser (`app/FBSimHost.cpp`, read from `/tmp/fb_clearance`), and
+   `web/config.js` sets it to 0 — but **no** C++ code reads it (`grep FB_GROUND_CLEAR src/` finds only
+   the producer). The geometry-true height acts today only through the spawn IC
+   (`GetGroundClearanceM`), not as a per-frame clamp. CLAUDE.md's phrasing "the camera never goes below
+   the surface" therefore describes a state the code no longer enforces.
+4. **Dead code in `FBCamera.h`.** `w3_frustum_from` and `w3_aabb_visible` (Gribb-Hartmann culling) have
+   **no caller** in the whole tree — the culling happens in the streamer (`FBWorld`) via view radius
+   and frustum weighting, not via these planes. Used from this file are only `w3_cam_from`,
+   `w3_basis_from`, `w3_horizon_dip_rad` (all three by the HUD symbology) and `FBCameraBasisEcef`.
+   Whether the frustum helpers are reserved for a future `FBUnitsStage` or should be dropped without
+   replacement is open.
+5. **Aerial perspective is OFF by default** (`FB_AP=0`), although the entire transmittance LUT
+   infrastructure for it exists and is computed every frame. The terrain is "lit albedo pure, full
+   brightness to the horizon" — an explicit user decision (2026-07-23), but physically wrong. The LUT is
+   computed anyway, because sky and sun need it.
+6. **Clouds are OFF by default** (`FB_CLOUDS=0`, user decision 2026-07-23) and **no weather source is
+   wired**: `FBState.Env.Cloud*` stays zero, and `FBCloudMarchStage` reads "0" as "no weather report"
+   and sets its own default deck. The comment at `FBRenderer::HudState` says so explicitly: zero IS the
+   honest value here as long as no open-meteo connection exists.
+7. **The transmittance LUT is recomputed every frame.** It depends only on altitude and the sun's
+   cos θ; a `TODO cache while the sun is static` is in the header and is open.
+8. **Upscale is bilinear.** `TODO bicubic/sharpen` in the header; likewise missing is the HUD's 8-tap
+   glow (`TODO` in `FBHudStage.cpp`), which would give the luminance feel of a real combiner.
+9. **`FBTerrainLoader`'s static path (`SetTerrain`/`SetAlbedoArray`) is bring-up only.** Both clients
+   run streaming; the static path in `FBTilesStage` (direct draws, layer == tile index) remains as a
+   second code path and is nowhere tested regularly.
+10. **The loading screen has a timeout exit** (30 s, `FB_LOAD_TIMEOUT_MS`) after which it releases the
+    picture no matter how little is resident — the log distinguishes `converged` from `TIMEOUT`. A frame
+    proof originating from a timeout boot is therefore not the same picture as one from a converged
+    boot. Today that is visible only from the log line, not from the PNG.
 
 
 ## Knowledge
 
 Derivations, formulas and measured constants — the distilled body of this file.
 
-### 1 Grundentscheidungen
+### 1 Fundamental decisions
 
-| Entscheidung | Umsetzung | Herleitung / Grund |
+| Decision | Implementation | Derivation / reason |
 |---|---|---|
-| **API: WebGPU** | EIN Quelltext, ZWEI Link-Ziele — emdawnwebgpu (Browser) und natives Dawn (`gpu_native`) | Dieselbe Dawn-Header-Familie beidseitig: „write once, link twice". Native Dawn rendert wirklich; ein headless Browser mit SwiftShader gibt diesen Beweis nicht. |
-| **WGS84-ECEF, camera-relative** | Vertices tragen den Versatz zum Tile-Origin; das Frame subtrahiert `origin_ecef − cam_ecef`; die Kamera sitzt im Ursprung | Keine absoluten 6,4e6-m-Koordinaten erreichen je ein `float`. Präzision ist überall auf der Erde AM Auge am besten. |
-| **Reversed-Z (Depth32Float)** | Clear `0.0`, `CompareFunction::Greater`, unendliche Ferne, `zn = 0.05 m` | `[0,1]`-Clip (nativ, nicht GLs `[-1,1]`) → volle Mantisse für die Tiefe; fernes Gelände z-fightet nicht. |
-| **HDR + ACES** | Szene → `rgba16float`-Ziel, ein Fullscreen-Tonemap (Narkowicz-ACES-Fit) → sRGB | Licht bleibt bis dahin linear; Display-Encoding passiert an GENAU EINER Stelle (dem Tonemap-Pass, dessen sRGB-View beim Store encodiert). |
-| **RenderBundle-Submission** | Terrain-Draws werden einmal aufgezeichnet und je Frame abgespielt; Neuaufzeichnung nur bei STRUKTUR-Änderung | ~N CPU-Draw-Encodes werden zu einem `ExecuteBundles`. |
-| **Feature-Gates = gebackene Konstanten** | Env-getriebener String-Replace am Shader-Quelltext vor `CreateShaderModule` | Ein toter Pfad wird vom Shader-Compiler wegoptimiert und kostet nichts — kein Laufzeit-Branch. |
-| **Fixes 720p-Frametarget** | Szene + Tonemap + HUD landen in `FrameTex` (1280×720); ein Upscale-Pass legt es auf die Swapchain | Die Sim-Auflösung ist stabil, die Anzeige folgt Canvas × DPR. |
+| **API: WebGPU** | ONE source, TWO link targets — emdawnwebgpu (browser) and native Dawn (`gpu_native`) | The same Dawn header family on both sides: "write once, link twice". Native Dawn really renders; a headless browser with SwiftShader does not provide that proof. |
+| **WGS84-ECEF, camera-relative** | vertices carry the offset to the tile origin; the frame subtracts `origin_ecef − cam_ecef`; the camera sits at the origin | No absolute 6.4e6 m coordinate ever reaches a `float`. Precision is best AT the eye everywhere on Earth. |
+| **Reversed-Z (Depth32Float)** | clear `0.0`, `CompareFunction::Greater`, infinite far, `zn = 0.05 m` | `[0,1]` clip (native, not GL's `[-1,1]`) → the full mantissa for depth; distant terrain does not z-fight. |
+| **HDR + ACES** | scene → `rgba16float` target, one fullscreen tonemap (Narkowicz ACES fit) → sRGB | Light stays linear until then; display encoding happens at EXACTLY ONE place (the tonemap pass, whose sRGB view encodes on store). |
+| **Render bundle submission** | terrain draws are recorded once and replayed per frame; re-recording only on a STRUCTURAL change | ~N CPU draw encodes become one `ExecuteBundles`. |
+| **Feature gates = baked constants** | env-driven string replace on the shader source before `CreateShaderModule` | A dead path is optimised away by the shader compiler and costs nothing — no runtime branch. |
+| **Fixed 720p frame target** | scene + tonemap + HUD land in `FrameTex` (1280×720); an upscale pass puts it onto the swapchain | The sim resolution is stable, the display follows canvas × DPR. |
 
-#### 1.1 Zwei Link-Ziele, ein Renderer
+#### 1.1 Two link targets, one renderer
 
 | | Browser (WASM/emdawnwebgpu) | Native (Dawn, `gpu_native`) |
 |---|---|---|
-| Bring-up | `FBRenderer::Init(canvasSelector, w, h)` — asynchron, Callbacks `AllowSpontaneous`; `Ready()` pollt die App | `FBRenderer::InitOffscreen(w, h)` — blockierend über `Instance::WaitAny(future, UINT64_MAX)` |
-| Voraussetzung | Browser-Event-Loop pumpt die Callbacks | Instance-Feature `TimedWaitAny` wird beim `CreateInstance` angefordert |
-| Finales Ziel | `wgpu::Surface` auf `#gpu`, Format = erstes sRGB-fähige aus `SurfaceCapabilities` (sonst `BGRA8Unorm`) | `OffscreenTex`: `RGBA8UnormSrgb`, Usage `RenderAttachment\|CopySrc` |
-| Rückgabe | — | `ReadPixels()` → dicht gepacktes W·H·4 RGBA8, bereits sRGB-codiert → direkt für `stb_image_write` |
+| Bring-up | `FBRenderer::Init(canvasSelector, w, h)` — asynchronous, callbacks `AllowSpontaneous`; `Ready()` polls the app | `FBRenderer::InitOffscreen(w, h)` — blocking via `Instance::WaitAny(future, UINT64_MAX)` |
+| Prerequisite | the browser event loop pumps the callbacks | the instance feature `TimedWaitAny` is requested at `CreateInstance` |
+| Final target | `wgpu::Surface` on `#gpu`, format = the first sRGB-capable one from `SurfaceCapabilities` (otherwise `BGRA8Unorm`) | `OffscreenTex`: `RGBA8UnormSrgb`, usage `RenderAttachment\|CopySrc` |
+| Return | — | `ReadPixels()` → tightly packed W·H·4 RGBA8, already sRGB-encoded → straight into `stb_image_write` |
 
-Beim Adapter wird protokolliert, **worauf** WebGPU wirklich läuft (`FBLog::Info("render","adapter")`):
-`adapterType == CPU` heißt Software-Rasterizer (SwiftShader/lavapipe/WARP) — dann ist hohe CPU-Last
-der Browser, nicht unser Code. Ebenfalls geloggt: `maxTextureArrayLayers`, `maxBufferSize`,
+At the adapter it is logged **what** WebGPU really runs on (`FBLog::Info("render","adapter")`):
+`adapterType == CPU` means a software rasteriser (SwiftShader/lavapipe/WARP) — then high CPU load is
+the browser's, not our code's. Also logged: `maxTextureArrayLayers`, `maxBufferSize`,
 `maxTextureDimension2D`.
 
-Geräteverlust ist kein Absturz: der `DeviceLostCallback` setzt `DeviceLost`, GPU-Operationen werden
-danach übersprungen, die CPU-Seite (Tile-Streaming, Zähler) läuft weiter. `DeviceUsable()` =
+Device loss is not a crash: the `DeviceLostCallback` sets `DeviceLost`, GPU operations are skipped from
+then on, the CPU side (tile streaming, counters) keeps running. `DeviceUsable()` =
 `DeviceReady && !DeviceLost`.
 
-#### 1.2 Camera-relative ECEF und die Projektion
+#### 1.2 Camera-relative ECEF and the projection
 
-`MvpCamRel()` (`FBRenderer.cpp`, static) baut **Projektion × View** so:
+`MvpCamRel()` (`FBRenderer.cpp`, static) builds **projection × view** like this:
 
-- View = reine Rotation aus der ECEF-Kamerabasis (`right`, `camUp`, `−fwd`) — keine Translation, weil
-  die Vertices schon vorverschoben ankommen.
-- Projektion = unendliches Reversed-Z: `p = {f/asp, 0,0,0, 0,f,0,0, 0,0,0,−1, 0,0,zn,0}` mit
-  `f = 1/tan(fov/2)`, `fov = 60°`, `zn = 0.05`. Daraus `z_clip = zn`, `w = −z_eye`, also
-  **`depth = zn / (−z_eye)`** — monoton fallend mit der Entfernung, 1 bei `zn`, → 0 im Unendlichen.
-- Keine explizite Far-Plane. Die „Sichtweite" ist eine Eigenschaft des **Streamings** (Radius
-  `FB_VIEW_KM`, Default 240 km — s. `world-and-terrain.md`), nicht der Projektion.
+- View = a pure rotation from the ECEF camera basis (`right`, `camUp`, `−fwd`) — no translation,
+  because the vertices already arrive pre-shifted.
+- Projection = infinite reversed-Z: `p = {f/asp, 0,0,0, 0,f,0,0, 0,0,0,−1, 0,0,zn,0}` with
+  `f = 1/tan(fov/2)`, `fov = 60°`, `zn = 0.05`. From that `z_clip = zn`, `w = −z_eye`, hence
+  **`depth = zn / (−z_eye)`** — monotonically falling with distance, 1 at `zn`, → 0 at infinity.
+- No explicit far plane. The "view distance" is a property of the **streaming** (radius `FB_VIEW_KM`,
+  default 240 km — see `world-and-terrain.md`), not of the projection.
 
-Der 20-float-Block `Mvp20` im `FBFrameContext` ist diese Matrix (Index 0..15, column-major) plus die
-Sonnenrichtung (16..18) plus ein Pad — genau so, wie ihn die Terrain-Uniform erwartet.
+The 20-float block `Mvp20` in the `FBFrameContext` is this matrix (index 0..15, column-major) plus the
+sun direction (16..18) plus one pad — exactly as the terrain uniform expects it.
 
-#### 1.3 Tiefenzustände je Stage
+#### 1.3 Depth states per stage
 
-| Stage | `depthWriteEnabled` | `depthCompare` | Wirkung |
+| Stage | `depthWriteEnabled` | `depthCompare` | Effect |
 |---|---|---|---|
-| `FBSkyStage` | false | `Always` | Hintergrund; alles zeichnet darüber |
-| `FBSunStage`, `FBMoonStage` | — (additiv, im selben Pass direkt nach Sky) | wie Sky | reine Addition, reihenfolgeunabhängig |
-| `FBStarsStage` | false | `Always` | „im Unendlichen"; Terrain übermalt sie |
-| `FBTilesStage` | true | `Greater` | Reversed-Z: näher = größer |
-| `FBTileLightsStage` | false | `GreaterEqual` | Hügel verdecken ferne Lichter, aber die Sprites schreiben keine Tiefe |
+| `FBSkyStage` | false | `Always` | background; everything draws over it |
+| `FBSunStage`, `FBMoonStage` | — (additive, in the same pass directly after sky) | as sky | pure addition, order-independent |
+| `FBStarsStage` | false | `Always` | "at infinity"; terrain paints over them |
+| `FBTilesStage` | true | `Greater` | reversed-Z: nearer = greater |
+| `FBTileLightsStage` | false | `GreaterEqual` | hills occlude distant lights, but the sprites write no depth |
 
-#### 1.4 HDR-Format: warum `rgba16float` und nicht `rg11b10ufloat`
+#### 1.4 HDR format: why `rgba16float` and not `rg11b10ufloat`
 
-`rg11b10ufloat` war die Bandbreiten-Wahl und ist **verworfen**: es hat keinen Alphakanal und keine
-garantierte Blend-Unterstützung — der Wolken-Pass blendet premultipliziertes Alpha darüber, das ging
-kaputt. `rgba16float` ist das Standard-Blend-fähige HDR-Format; die 4 zusätzlichen Byte/Pixel bei
-720p sind vernachlässigbar (`FBRenderer::OnAdapter`, Kommentar dort).
+`rg11b10ufloat` was the bandwidth choice and is **rejected**: it has no alpha channel and no guaranteed
+blend support — the cloud pass blends premultiplied alpha over it, and that broke. `rgba16float` is the
+standard blend-capable HDR format; the 4 extra bytes per pixel at 720p are negligible
+(`FBRenderer::OnAdapter`, comment there).
 
-#### 1.5 Der Present-Pfad
+#### 1.5 The present path
 
-| Ressource | Größe/Format | Rolle |
+| Resource | Size/format | Role |
 |---|---|---|
-| `HdrTex` | Width×Height, `HdrFormat` (rgba16float), `RenderAttachment\|TextureBinding` | Szenenziel, lineare Radianz |
-| `DepthTex` | Width×Height, `Depth32Float`, `RenderAttachment\|TextureBinding` | Reversed-Z; der Wolken-Pass SAMPLED sie (deshalb `TextureBinding`) |
-| `FrameTex` | Width×Height (1280×720), `SurfaceFormat` (sRGB), `+CopySrc` | Szene+Tonemap+HUD landen hier |
-| Swapchain | Canvas `clientSize × devicePixelRatio`, gekappt bei 4096 | folgt der Anzeige |
+| `HdrTex` | width×height, `HdrFormat` (rgba16float), `RenderAttachment\|TextureBinding` | scene target, linear radiance |
+| `DepthTex` | width×height, `Depth32Float`, `RenderAttachment\|TextureBinding` | reversed-Z; the cloud pass SAMPLES it (hence `TextureBinding`) |
+| `FrameTex` | width×height (1280×720), `SurfaceFormat` (sRGB), `+CopySrc` | scene+tonemap+HUD land here |
+| Swapchain | canvas `clientSize × devicePixelRatio`, capped at 4096 | follows the display |
 
-`SyncSwapSize()` rekonfiguriert die Surface nur, wenn sich Breite ODER Höhe um **≥ 8 px** ändert
-(Hysterese gegen Sub-Pixel-Jitter). Szene und HUD bleiben davon unberührt — nur Swapchain und
-Upscale-Viewport folgen.
+`SyncSwapSize()` reconfigures the surface only when width OR height changes by **≥ 8 px** (hysteresis
+against sub-pixel jitter). Scene and HUD are untouched by this — only swapchain and upscale viewport
+follow.
 
-#### 1.6 Feature-Gates und Env-Schalter
+#### 1.6 Feature gates and env switches
 
-Der Mechanismus ist zweistufig: entweder wird eine **Konstante in den WGSL-Quelltext gebacken**
-(String-Replace vor `CreateShaderModule`, dann strippt der Shader-Compiler den toten Block), oder
-eine ganze Ressourcen-/Pipeline-Gruppe wird **gar nicht erst gebaut**.
+The mechanism has two levels: either a **constant is baked into the WGSL source** (string replace
+before `CreateShaderModule`, after which the shader compiler strips the dead block), or a whole
+resource/pipeline group is **not built at all**.
 
-| Schalter | Default | Wirkung | Ort |
+| Switch | Default | Effect | Place |
 |---|---|---|---|
-| `FB_CLOUDS` | 0 (aus) | armiert den kompletten Volumetrik+Dome-Wolkenpfad. Aus = `CreateClouds()` läuft nie: keine Noise-Volumes, keine Pipelines, kein VRAM | `FBRenderer::OnDevice` |
-| `FB_AP` | 0 (aus) | Terrain-Aerial-Perspective. `const AP_ON : f32 = 0.0` wird im Terrain-Shader ersetzt; aus = der ganze tLUT/Inscatter/Glow-Block strippt weg | `FBTilesStage.cpp` |
-| `FB_CLOUD_QUALITY` | 1.0 | skaliert die Schrittzahl des Raymarch; 0 schaltet den Pass ab | `FBCloudMarchStage` |
-| `FB_MOON_SCALE` | 1.0 | Multiplikator auf den echten Mondwinkelradius (0,0045 rad ≈ 0,5°) | `FBRenderer::UpdateAtmosphere` |
-| `FB_CLOUD_CELLS` | 1 (an) | F1-Zellenfeld; aus = dessen `worley2D`-Erzeugung wird aus dem Bake-Shader ersetzt | `FBCloudBaseBakeStage`, `FBCloudMarchStage` |
-| `FB_BASE_*`, `FB_SS_*`, `FB_D2_*`, `FB_CELL_KM`, `FB_CELL_DOME`, `FB_CONE_R`, `FB_MOONLIGHT`, `FB_CLOUD_BASE_M`, `FB_CLOUD_THICK_M` | s. Code | Sweep-Haken der Wolken-Forschung (`doc/clouds/`) | Cloud-Stages |
-| `FB_PHOTO_ZMAX` | 11 | ab welchem Zoom eine Luftbild-Kachel als „hell genug" gilt (Gain-Rechnung) | `FBTilesStage.cpp` |
-| `FB_PHOTO_EMA` / `FB_PHOTO_MAXGAIN` / `FB_PHOTO_LOG` | 0.08 / 2.5 / aus | adaptive Helligkeitsanpassung der Luftbild-Layer | `FBTilesStage.cpp` |
-| `FB_SHAPEHIST` | aus | numerisches Dichte-Histogramm des Basis-Noise (Lab-Werkzeug) | `FBCloudBaseBakeStage::ShapeStats` |
-| `FB_GPU_NOOP` / `FB_GPU_BISECT` | Compile-Defines | Bisect-Stufen: inerte Frames bzw. nur Acquire — trennt Init-seitigen von Frame-seitigem Gerätetod | `FBRenderer::RenderFrame` |
+| `FB_CLOUDS` | 0 (off) | arms the complete volumetric+dome cloud path. Off = `CreateClouds()` never runs: no noise volumes, no pipelines, no VRAM | `FBRenderer::OnDevice` |
+| `FB_AP` | 0 (off) | terrain aerial perspective. `const AP_ON : f32 = 0.0` is substituted in the terrain shader; off = the whole tLUT/inscatter/glow block strips away | `FBTilesStage.cpp` |
+| `FB_CLOUD_QUALITY` | 1.0 | scales the step count of the raymarch; 0 disables the pass | `FBCloudMarchStage` |
+| `FB_MOON_SCALE` | 1.0 | multiplier on the real lunar angular radius (0.0045 rad ≈ 0.5°) | `FBRenderer::UpdateAtmosphere` |
+| `FB_CLOUD_CELLS` | 1 (on) | F1 cell field; off = its `worley2D` generation is substituted out of the bake shader | `FBCloudBaseBakeStage`, `FBCloudMarchStage` |
+| `FB_BASE_*`, `FB_SS_*`, `FB_D2_*`, `FB_CELL_KM`, `FB_CELL_DOME`, `FB_CONE_R`, `FB_MOONLIGHT`, `FB_CLOUD_BASE_M`, `FB_CLOUD_THICK_M` | see code | sweep hooks of the cloud research (`doc/clouds/`) | cloud stages |
+| `FB_PHOTO_ZMAX` | 11 | from which zoom an aerial-imagery tile counts as "bright enough" (gain calculation) | `FBTilesStage.cpp` |
+| `FB_PHOTO_EMA` / `FB_PHOTO_MAXGAIN` / `FB_PHOTO_LOG` | 0.08 / 2.5 / off | adaptive brightness adjustment of the imagery layers | `FBTilesStage.cpp` |
+| `FB_SHAPEHIST` | off | numerical density histogram of the base noise (lab tool) | `FBCloudBaseBakeStage::ShapeStats` |
+| `FB_GPU_NOOP` / `FB_GPU_BISECT` | compile defines | bisect levels: inert frames and acquire-only respectively — separates init-side from frame-side device death | `FBRenderer::RenderFrame` |
 
 ---
 
-### 2 Die Pass-Topologie als Vertrag
+### 2 The pass topology as a contract
 
-**Die Regel:** `FBRenderer` besitzt Instance/Adapter/Device/Queue/Surface/Targets, **jede**
-`BeginRenderPass`/`BeginComputePass`-Grenze und die Encode-Reihenfolge. Eine `FBDrawStage`
-(`render/FBDrawStage.h`) zeichnet **in den geliehenen Encoder**, den `FBRenderer` bereits geöffnet
-hat, und öffnet oder schließt **nie** selbst einen Pass.
+**The rule:** `FBRenderer` owns instance/adapter/device/queue/surface/targets, **every**
+`BeginRenderPass`/`BeginComputePass` boundary and the encode order. An `FBDrawStage`
+(`render/FBDrawStage.h`) draws **into the borrowed encoder** that `FBRenderer` has already opened, and
+**never** opens or closes a pass itself.
 
-Warum das eine Regel und keine Stilfrage ist:
+Why this is a rule and not a matter of style:
 
-1. **Die Pass-Zahl ist eine Messgröße.** Der Stage-Split durfte die Anzahl der `Begin*Pass`-Aufrufe
-   pro Frame nicht verändern; `RenderFrame` zählt sie deshalb mit (`passCount`) und loggt sie
-   (`FBLog::Debug("render","passcount")`) beim ersten SZENEN-Frame und danach alle 300 Frames. Ein
-   Vorher/Nachher-Diff ist damit direkt aus der Telemetrie ablesbar.
-2. **Ein Pass ist teuer, ein Draw nicht.** Dürfte jede Stage eigene Pass-Grenzen ziehen, würde jede
-   neue Stage die Topologie vermehren — schleichend und unauffällig.
-3. **Attachments sind Vertragssache.** Wer den Pass öffnet, bestimmt Ziel-Views, Load/Store-Ops und
-   Clear-Werte. Der Cloud-Resolve schreibt z. B. in ZWEI Attachments, deren Ping-Pong-Index der
-   Renderer VOR `Encode()` abfragt — die Stage kann diesen Descriptor gar nicht selbst bauen.
+1. **The pass count is a measured quantity.** The stage split was not allowed to change the number of
+   `Begin*Pass` calls per frame; `RenderFrame` therefore counts them (`passCount`) and logs them
+   (`FBLog::Debug("render","passcount")`) at the first SCENE frame and every 300 frames thereafter. A
+   before/after diff is thus readable directly from the telemetry.
+2. **A pass is expensive, a draw is not.** If every stage could draw its own pass boundaries, every new
+   stage would multiply the topology — creepingly and unobtrusively.
+3. **Attachments are a matter of contract.** Whoever opens the pass determines target views, load/store
+   ops and clear values. The cloud resolve, for example, writes into TWO attachments whose ping-pong
+   index the renderer queries BEFORE `Encode()` — the stage cannot build that descriptor itself.
 
-Ergänzende Regeln aus `FBDrawStage.h`:
+Supplementary rules from `FBDrawStage.h`:
 
-- **Eine Stage self-gated.** „Nichts sichtbar diesen Frame" heißt: `Encode()` zeichnet nichts. Der
-  Renderer ruft jede Stage in ihrem Slot **bedingungslos** auf (die einzige Ausnahme ist der HUD-Pass,
-  dessen `if (HudEnabled)` außen sitzt — ein leerer Pass wäre trotzdem ein Pass, und die
-  Pass-Zahl-Invariante lebt an genau diesem äußeren `if`).
-- **Zwei `Encode`-Formen.** `Encode(ctx, RenderPassEncoder&)` und
-  `EncodeCompute(ctx, ComputePassEncoder&)`; die jeweils andere bleibt der inerte Default.
-- **`FBGpu`** (Device/Queue/Formate/Größe/Instance) bekommt eine Stage EINMAL bei `Init`/`Configure`,
-  nie pro Frame. **`FBFrameContext`** ist der geteilte Pro-Frame-Zustand (Kamerabasis, MVP, Sonne,
-  Mond, Tag-Faktor, Wetter, Frame-Nummer, Größe) — eine Stage greift nie in `FBRenderer` zurück.
+- **A stage self-gates.** "Nothing visible this frame" means: `Encode()` draws nothing. The renderer
+  calls every stage in its slot **unconditionally** (the only exception is the HUD pass, whose
+  `if (HudEnabled)` sits outside — an empty pass would still be a pass, and the pass-count invariant
+  lives on exactly this outer `if`).
+- **Two `Encode` forms.** `Encode(ctx, RenderPassEncoder&)` and
+  `EncodeCompute(ctx, ComputePassEncoder&)`; the other one stays the inert default.
+- **`FBGpu`** (device/queue/formats/size/instance) is given to a stage ONCE at `Init`/`Configure`,
+  never per frame. **`FBFrameContext`** is the shared per-frame state (camera basis, MVP, sun, moon,
+  day factor, weather, frame number, size) — a stage never reaches back into `FBRenderer`.
 
-#### 2.1 Die vollständige Encode-Reihenfolge
+#### 2.1 The complete encode order
 
-Reihenfolge wie in `FBRenderer::RenderFrame()`:
+Order as in `FBRenderer::RenderFrame()`:
 
-| # | Pass | Stage(s) | Ziel | Anmerkung |
+| # | Pass | Stage(s) | Target | Note |
 |---|---|---|---|---|
-| 1 | Compute | `FBTransmittanceStage` | `TransLUT` (256×64) | jeden Frame neu (TODO: cachen, solange die Sonne steht) |
-| 2 | Compute | `FBSkyViewStage` | `SkyLUT` (192×108) | liest `TransLUT` |
-| 3 | **Scene** (Color `HdrTex`, Depth `DepthTex`, beide Clear) | `FBSkyStage` | HDR | füllt den Hintergrund, erste Zeichnung im Pass |
-| 3 | ″ | `FBSunStage` | HDR | additiv (One/One) |
-| 3 | ″ | `FBMoonStage` | HDR | additiv |
-| 3 | ″ | `FBStarsStage` | HDR | additiv, self-gated (nur EVS-Nacht) |
-| 3 | ″ | `FBTilesStage` | HDR + Depth | Terrain; RenderBundle (Streaming) oder Direktdraws (statisch) |
-| 3 | ″ | **`FBUnitsStage`** | HDR | **NoOp**, aber fest verdrahtet: KI-/Waffen-Einheiten zeichnen direkt nach dem Terrain |
-| 3 | ″ | `FBTileLightsStage` | HDR | Nachtlichter, tiefen-getestet, self-gated |
-| 3 | ″ | **`FBSpritesStage`** | HDR | **NoOp**, fest verdrahtet: Effekt-Billboards direkt vor dem HUD |
-| 4 | Cloud-March (nur `FB_CLOUDS=1`) | `FBCloudMarchStage` | `CloudLowTex` (¼-Auflösung) | EIGENER Pass, weil er `DepthTex` SAMPLEN muss (die im Szenenpass noch Attachment war) |
-| 5 | Cloud-Resolve (nur `FB_CLOUDS=1`) | `FBCloudResolveStage` | `CloudHist[w]` + `CloudWSum[w]` (zwei Attachments) | temporales Upsampling in die Ping-Pong-Historie |
-| 6 | Tonemap (Color `FrameTex`, Clear) | `FBTonemapStage` | 720p sRGB | ACES; komponiert dabei die Wolke, falls armiert |
-| 7 | HUD (Color `FrameTex`, **LoadOp `Load`**) | `FBHudStage` | 720p sRGB | nur wenn `HudEnabled`; erhält das getonemappte Bild |
-| 8 | Upscale (Color = final, Clear) | `FBUpscaleStage` | Swapchain oder Offscreen | bilinear |
+| 1 | Compute | `FBTransmittanceStage` | `TransLUT` (256×64) | recomputed every frame (TODO: cache while the sun is static) |
+| 2 | Compute | `FBSkyViewStage` | `SkyLUT` (192×108) | reads `TransLUT` |
+| 3 | **Scene** (colour `HdrTex`, depth `DepthTex`, both clear) | `FBSkyStage` | HDR | fills the background, first drawing in the pass |
+| 3 | ″ | `FBSunStage` | HDR | additive (One/One) |
+| 3 | ″ | `FBMoonStage` | HDR | additive |
+| 3 | ″ | `FBStarsStage` | HDR | additive, self-gated (EVS night only) |
+| 3 | ″ | `FBTilesStage` | HDR + depth | terrain; render bundle (streaming) or direct draws (static) |
+| 3 | ″ | **`FBUnitsStage`** | HDR | **NoOp**, but hard-wired: AI/weapon units draw directly after the terrain |
+| 3 | ″ | `FBTileLightsStage` | HDR | night lights, depth-tested, self-gated |
+| 3 | ″ | **`FBSpritesStage`** | HDR | **NoOp**, hard-wired: effect billboards directly before the HUD |
+| 4 | Cloud march (only `FB_CLOUDS=1`) | `FBCloudMarchStage` | `CloudLowTex` (quarter resolution) | its OWN pass, because it must SAMPLE `DepthTex` (which was still an attachment in the scene pass) |
+| 5 | Cloud resolve (only `FB_CLOUDS=1`) | `FBCloudResolveStage` | `CloudHist[w]` + `CloudWSum[w]` (two attachments) | temporal upsampling into the ping-pong history |
+| 6 | Tonemap (colour `FrameTex`, clear) | `FBTonemapStage` | 720p sRGB | ACES; composites the cloud along the way if armed |
+| 7 | HUD (colour `FrameTex`, **LoadOp `Load`**) | `FBHudStage` | 720p sRGB | only when `HudEnabled`; preserves the tonemapped picture |
+| 8 | Upscale (colour = final, clear) | `FBUpscaleStage` | swapchain or offscreen | bilinear |
 
-**Pass-Zahlen (die geloggte Invariante):**
+**Pass counts (the logged invariant):**
 
-| Konfiguration | Passes |
+| Configuration | Passes |
 |---|---|
-| Standard, Wolken aus | **6** (2 Compute + Scene + Tonemap + HUD + Upscale) |
-| `FB_CLOUDS=1` | **8** (+ March + Resolve) |
-| HUD aus (Cloud-Lab) | **5** |
-| Ladebildschirm | **2** (HUD-Text in `FrameTex` + Upscale) |
+| Standard, clouds off | **6** (2 compute + scene + tonemap + HUD + upscale) |
+| `FB_CLOUDS=1` | **8** (+ march + resolve) |
+| HUD off (cloud lab) | **5** |
+| Loading screen | **2** (HUD text into `FrameTex` + upscale) |
 
-Nach `Finish()`/`Submit()` folgen noch drei reihenfolgekritische Nacharbeiten, die keine Passes sind:
-`Cloud->ResolveTimestamps(enc)` **vor** `Finish`, `Cloud->PollTimestamps()` **nach** `Submit`, und
-`Resolve->Advance(ctx)` (Ping-Pong-Flip + Snapshot der View-Proj/Eye als „previous"), erst **nachdem**
-der Tonemap dieses Frames Ergebnis gelesen hat.
+After `Finish()`/`Submit()` three order-critical follow-ups remain that are not passes:
+`Cloud->ResolveTimestamps(enc)` **before** `Finish`, `Cloud->PollTimestamps()` **after** `Submit`, and
+`Resolve->Advance(ctx)` (ping-pong flip + snapshot of view-proj/eye as "previous"), only **after** this
+frame's tonemap has read the result.
 
-#### 2.2 Der Ladebildschirm
+#### 2.2 The loading screen
 
-Ein eigener, kurzer Frame-Pfad (`if (LoadingScreen)`): schwarzes `FrameTex`, `Hud->EncodeLoadingText`
-(nur die Text-Pipeline: „LOADING TERRAIN x%" + Kachelzähler), dann Upscale. Keine Szene, kein Himmel.
-Die App hält JSBSim solange eingefroren — der erste geflogene Frame ist damit schon in voller
-Zielauflösung, ohne Low-Res-Leiter. Schwelle und Timeout liegen beim Client (`FB_LOAD_THRESH` 0,95;
+A separate, short frame path (`if (LoadingScreen)`): a black `FrameTex`, `Hud->EncodeLoadingText` (the
+text pipeline only: "LOADING TERRAIN x%" + tile counters), then upscale. No scene, no sky. The app
+keeps JSBSim frozen meanwhile — the first flown frame is therefore already at full target resolution,
+without a low-res ladder. Threshold and timeout live with the client (`FB_LOAD_THRESH` 0.95;
 `FB_LOAD_TIMEOUT_MS` 30000 — `app/FBAppWasm.cpp`).
 
 ---
 
-### 3 Stage-Katalog
+### 3 Stage catalogue
 
-| Klasse | Datei (`render/stages/`) | Art | Ziel / Ergebnis | Gate |
+| Class | File (`render/stages/`) | Kind | Target / result | Gate |
 |---|---|---|---|---|
-| `FBTransmittanceStage` | `.h/.cpp` | Compute | `TransLUT` 256×64 rgba16float | immer |
-| `FBSkyViewStage` | `.h/.cpp` | Compute | `SkyLUT` 192×108 rgba16float | immer |
-| `FBSkyStage` | `.h/.cpp` | Render | Himmelsdom + Wolkendecken-Value-Noise-Sheet | immer (SVS pinnt Tag=1) |
-| `FBSunStage` | `.h/.cpp` | Render, additiv | Sonnenscheibe + Vorwärts-Glow | gibt `vec4f(0)` außerhalb EVS |
-| `FBMoonStage` | `.h/.cpp` | Render, additiv | Mond als beleuchtete Kugel; besitzt die NASA-LROC-Albedotextur | wie Sun |
-| `FBStarsStage` | `.h/.cpp` | Render, instanziert additiv | HYG-Sternfeld an wahrem Alt/Az | self-gated: kein SVS, kein Tag, kein Katalog → kein Draw |
-| `FBTilesStage` | `.h/.cpp` | Render | Gelände (s. §6) | immer, sobald konfiguriert |
+| `FBTransmittanceStage` | `.h/.cpp` | compute | `TransLUT` 256×64 rgba16float | always |
+| `FBSkyViewStage` | `.h/.cpp` | compute | `SkyLUT` 192×108 rgba16float | always |
+| `FBSkyStage` | `.h/.cpp` | render | sky dome + cloud-deck value-noise sheet | always (SVS pins day=1) |
+| `FBSunStage` | `.h/.cpp` | render, additive | sun disc + forward glow | returns `vec4f(0)` outside EVS |
+| `FBMoonStage` | `.h/.cpp` | render, additive | moon as an illuminated sphere; owns the NASA LROC albedo texture | as sun |
+| `FBStarsStage` | `.h/.cpp` | render, instanced additive | HYG star field at true alt/az | self-gated: no SVS, no day, no catalogue → no draw |
+| `FBTilesStage` | `.h/.cpp` | render | terrain (see §6) | always, once configured |
 | `FBUnitsStage` | `.h` | — | **NoOp** | — |
-| `FBTileLightsStage` | `.h/.cpp` | Render, instanziert additiv | Nachtlicht-Sprites am Boden | self-gated wie Stars |
+| `FBTileLightsStage` | `.h/.cpp` | render, instanced additive | night-light sprites on the ground | self-gated like stars |
 | `FBSpritesStage` | `.h` | — | **NoOp** | — |
-| `FBCloudMipDownStage` | `.h/.cpp` | Compute-Helfer (Init) | Box-Downsample 2×2×2 für Mip-Ketten; **submittet eigene Command-Buffer** (kein Frame-Stage) | Wolken armiert |
-| `FBCloudBaseBakeStage` | `.h/.cpp` | Bake (einmal) | Perlin-Worley-Basisvolumen 128³ RGBA8, volle Mip-Kette | ″ |
-| `FBCloudDetailBakeStage` | `.h/.cpp` | Bake (einmal) | Worley-Oktaven-Detailvolumen 32³, volle Mip-Kette | ″ |
-| `FBCloudCellBakeStage` | `.h/.cpp` | Bake (einmal) | 512² F1-Zellenfeld, EINE Mip-Stufe | ″ |
-| `FBCloudMarchStage` | `.h/.cpp` | Render | Raymarch in `CloudLowTex` (¼-Auflösung, premultipliziert) | ″ |
-| `FBCloudResolveStage` | `.h/.cpp` | Render (2 Attachments) | temporales Upsampling in `CloudHist`/`CloudWSum` Ping-Pong | ″ |
-| `FBTonemapStage` | `.h/.cpp` | Render | ACES → `FrameTex`; **ein Shader-Quelltext, zwei Pipelines** | immer |
-| `FBHudStage` | `.h/.cpp` | Render | HUD-Overlay (s. §7) | `HudEnabled` |
-| `FBUpscaleStage` | `.h/.cpp` | Render | 720p → Anzeigeauflösung, bilinear | immer |
+| `FBCloudMipDownStage` | `.h/.cpp` | compute helper (init) | 2×2×2 box downsample for mip chains; **submits its own command buffers** (not a frame stage) | clouds armed |
+| `FBCloudBaseBakeStage` | `.h/.cpp` | bake (once) | Perlin-Worley base volume 128³ RGBA8, full mip chain | ″ |
+| `FBCloudDetailBakeStage` | `.h/.cpp` | bake (once) | Worley-octave detail volume 32³, full mip chain | ″ |
+| `FBCloudCellBakeStage` | `.h/.cpp` | bake (once) | 512² F1 cell field, ONE mip level | ″ |
+| `FBCloudMarchStage` | `.h/.cpp` | render | raymarch into `CloudLowTex` (quarter resolution, premultiplied) | ″ |
+| `FBCloudResolveStage` | `.h/.cpp` | render (2 attachments) | temporal upsampling into the `CloudHist`/`CloudWSum` ping-pong | ″ |
+| `FBTonemapStage` | `.h/.cpp` | render | ACES → `FrameTex`; **one shader source, two pipelines** | always |
+| `FBHudStage` | `.h/.cpp` | render | HUD overlay (see §7) | `HudEnabled` |
+| `FBUpscaleStage` | `.h/.cpp` | render | 720p → display resolution, bilinear | always |
 
-Dazu drei reine **WGSL-Splice-Header** (keine Klassen, kein eigenständig kompilierbarer Shader — der
-Konsument konkateniert sie vor seinen eigenen Code):
+In addition three pure **WGSL splice headers** (no classes, no independently compilable shader — the
+consumer concatenates them in front of its own code):
 
-| Header | Inhalt | Konsumenten |
+| Header | Content | Consumers |
 |---|---|---|
-| `FBAtmoCommon.h` | `Atmo`-Uniform-Struct + Streuungsphysik | Transmittance, SkyView, Sky, Tiles (Aerial Perspective) |
-| `FBAtmoSample.h` | Sky-View-LUT-Sampling + Belichtung (`kSkyExposure = 8.0`) | Sky, Tiles |
-| `FBCloudNoiseCommon.h` | Hash/Worley/Perlin/`remap` | die drei Bake-Shader + March (nur `remap`) |
+| `FBAtmoCommon.h` | `Atmo` uniform struct + scattering physics | transmittance, sky view, sky, tiles (aerial perspective) |
+| `FBAtmoSample.h` | sky-view LUT sampling + exposure (`kSkyExposure = 8.0`) | sky, tiles |
+| `FBCloudNoiseCommon.h` | hash/Worley/Perlin/`remap` | the three bake shaders + march (only `remap`) |
 
 ---
 
-### 4 Die Atmosphäre (Hillaire 2020)
+### 4 The atmosphere (Hillaire 2020)
 
-Zwei Compute-LUTs plus ein Fullscreen-Himmelspass; dieselbe Transmittance-LUT treibt auch die
-Aerial-Perspective des Geländes, damit Himmel und Boden dieselbe Luft sehen.
+Two compute LUTs plus one fullscreen sky pass; the same transmittance LUT also drives the terrain's
+aerial perspective, so that sky and ground see the same air.
 
-**Geteilte, `FBRenderer`-eigene Ressourcen** (weil 3+ Konsumenten lesen):
+**Shared resources owned by `FBRenderer`** (because 3+ consumers read them):
 
-| Ressource | Format/Größe | Anmerkung |
+| Resource | Format/size | Note |
 |---|---|---|
-| `TransLUT` | 256×64 rgba16float, `StorageBinding\|TextureBinding` | nur Höhe × Sonnen-cos-θ parametrisiert → braucht keine Kamera |
-| `SkyLUT` | 192×108 rgba16float | Einfachstreuung, raymarched |
-| `LutSamp` | linear, **U = Repeat** (Azimut wickelt), V = ClampToEdge | |
-| `AtmoBuf` | 11 × vec4 = 44 float | s. Tabelle unten |
+| `TransLUT` | 256×64 rgba16float, `StorageBinding\|TextureBinding` | parameterised only by altitude × sun cos θ → needs no camera |
+| `SkyLUT` | 192×108 rgba16float | single scattering, raymarched |
+| `LutSamp` | linear, **U = Repeat** (azimuth wraps), V = ClampToEdge | |
+| `AtmoBuf` | 11 × vec4 = 44 floats | see table below |
 
-**Inhalt von `AtmoBuf`** (`FBRenderer::UpdateAtmosphere`, Reihenfolge = Layout):
+**Content of `AtmoBuf`** (`FBRenderer::UpdateAtmosphere`, order = layout):
 
-| Index | Feld | Bedeutung |
+| Index | Field | Meaning |
 |---|---|---|
-| 0 | `camPosMm` | Auge in Megametern (ECEF/1e6) |
-| 1 | `sunDir` | Sonnenrichtung ECEF |
-| 2 | `up` | radiales Up am Auge |
-| 3 | `sunTan` | Sonnenrichtung, tangential projiziert |
+| 0 | `camPosMm` | eye in megametres (ECEF/1e6) |
+| 1 | `sunDir` | sun direction ECEF |
+| 2 | `up` | radial up at the eye |
+| 3 | `sunTan` | sun direction, tangentially projected |
 | 4 | `side` | `up × sunTan` |
-| 5–7 | `camRight`, `camUp`, `camFwd` | **gerollte** Kamerabasis (nur die Sichtstrahl-Rekonstruktion nutzt sie) |
-| 8 | `params` | `tan(30°)`, Aspect, `cos(0,5°)` (Sonnenwinkelradius), `30` (Scheibenintensität) |
-| 9 | `moonDir` | xyz Richtung, w = beleuchteter Phasenanteil |
-| 10 | `skyExtra` | x = Tagesfaktor, y = EVS-Gate, z = Wolkendeckung, w = Mondwinkelradius `0.0045 × FB_MOON_SCALE` |
+| 5–7 | `camRight`, `camUp`, `camFwd` | **rolled** camera basis (only the view-ray reconstruction uses it) |
+| 8 | `params` | `tan(30°)`, aspect, `cos(0.5°)` (sun angular radius), `30` (disc intensity) |
+| 9 | `moonDir` | xyz direction, w = illuminated phase fraction |
+| 10 | `skyExtra` | x = day factor, y = EVS gate, z = cloud cover, w = lunar angular radius `0.0045 × FB_MOON_SCALE` |
 
-**Atmosphären-Konstanten** (`FBAtmoCommon.h`, Hillaires Standardwerte): `groundRadiusMM = 6.360`,
-`atmosphereRadiusMM = 6.460`, Rayleigh-Basis `(5.802, 13.558, 33.1)`, Mie-Streuung `3.996`,
-Mie-Absorption `4.4`, Ozon `(0.650, 1.881, 0.085)`.
+**Atmosphere constants** (`FBAtmoCommon.h`, Hillaire's standard values): `groundRadiusMM = 6.360`,
+`atmosphereRadiusMM = 6.460`, Rayleigh base `(5.802, 13.558, 33.1)`, Mie scattering `3.996`, Mie
+absorption `4.4`, ozone `(0.650, 1.881, 0.085)`.
 
-**Tagesfaktor** (`DaylightFactor`, verbatim aus dem Vorgänger-Code `atmo.h::w3_daylight`):
-`t = clamp((sunElDeg + 9)/12, 0, 1)`, dann `t²(3−2t)` (Smoothstep). Voller Tag über ≈ +3°, dunkel ab
-≈ −9° (nautische Dämmerung). EINE Zahl für Himmel, Boden und Sternen-Fade.
+**Day factor** (`DaylightFactor`, verbatim from the predecessor code `atmo.h::w3_daylight`):
+`t = clamp((sunElDeg + 9)/12, 0, 1)`, then `t²(3−2t)` (smoothstep). Full day above ≈ +3°, dark from
+≈ −9° (nautical twilight). ONE number for sky, ground and star fade.
 
-**SVS vs. EVS** (der TAB-Umschalter):
+**SVS vs. EVS** (the TAB toggle):
 
-| Modus | Bodenquelle | Sonne | Zusatzeffekte |
+| Mode | Ground source | Sun | Additional effects |
 |---|---|---|---|
-| SVS (`GroundPhoto = 0`) | OSM-Render | fest 45° Elevation, Azimut 180° | Tagesfaktor auf 1 gepinnt, keine Sterne/Lichter/Wolken |
-| EVS (`GroundPhoto = 1`) | Luftbild | echte Ephemeride (`FBEphemeris.h`, über `SetHud`) | Sterne, Nachtlichter, Wolken, Mondlicht |
+| SVS (`GroundPhoto = 0`) | OSM render | fixed 45° elevation, azimuth 180° | day factor pinned to 1, no stars/lights/clouds |
+| EVS (`GroundPhoto = 1`) | aerial imagery | real ephemeris (`FBEphemeris.h`, via `SetHud`) | stars, night lights, clouds, moonlight |
 
-Begründung im Code: SVS ist eine **zeitunabhängige Datenbanksicht**; nur EVS ist „die echte Kamera",
-also muss nur dort Morgen-/Abenddämmerung zur Bildhelligkeit passen.
+Rationale in the code: SVS is a **time-independent database view**; only EVS is "the real camera", so
+only there does dawn/dusk have to match the picture's brightness.
 
-**Init-Order-Vertrag** (`FBRenderer::CreateAtmosphere`, ausdrücklich als CONTRACT dokumentiert):
-WebGPU-Bind-Groups pinnen beim Erzeugen eine konkrete `TextureView` — es gibt kein „später
-umbinden". Also müssen die Stages in Abhängigkeitsreihenfolge konfiguriert werden:
+**Init-order contract** (`FBRenderer::CreateAtmosphere`, documented explicitly as a CONTRACT): WebGPU
+bind groups pin a concrete `TextureView` at creation — there is no "rebind later". So the stages have
+to be configured in dependency order:
 
 ```
-Transmittance (besitzt TransLUT)
-   └─ SkyView   (liest TransLUT, schreibt SkyLUT)
-        └─ Sky  (liest SkyLUT + AtmoBuf)
-   ├─ Sun       (liest TransLUT für die Sonnenfarbe + AtmoBuf)
-   └─ Moon      (baut die Albedotextur aus den von SetMoonTexture gestagten Bytes + AtmoBuf)
-…danach erst CreateTerrainPipeline() → FBTilesStage::Configure(… TransLUT, SkyLUT …)
+Transmittance (owns TransLUT)
+   └─ SkyView   (reads TransLUT, writes SkyLUT)
+        └─ Sky  (reads SkyLUT + AtmoBuf)
+   ├─ Sun       (reads TransLUT for the sun colour + AtmoBuf)
+   └─ Moon      (builds the albedo texture from the bytes staged by SetMoonTexture + AtmoBuf)
+…only then CreateTerrainPipeline() → FBTilesStage::Configure(… TransLUT, SkyLUT …)
 ```
 
-Ephemeriden (`render/FBEphemeris.h`, reine Funktionen): `SunPos` ist ein Verbatim-Port der
-NOAA-Näherungsformeln (< ~0,5° Fehler); `MoonPos`/`MoonPhase` sind ein Port von Paul Schlyters
-Näherung (public domain) **ohne** dessen lange Störungsterm-Tabelle — gut auf etwa ein Grad, genug
-für eine Scheibe plus Phase, nicht für Navigation. Die Phase ist `(1 − cos(Elongation))/2`.
+Ephemerides (`render/FBEphemeris.h`, pure functions): `SunPos` is a verbatim port of the NOAA
+approximation formulas (< ~0.5° error); `MoonPos`/`MoonPhase` are a port of Paul Schlyter's
+approximation (public domain) **without** its long perturbation-term table — good to about a degree,
+enough for a disc plus phase, not for navigation. The phase is `(1 − cos(elongation))/2`.
 
 ---
 
-### 5 Die Wolkenkette
+### 5 The cloud chain
 
-Ausgelagert nach [`clouds.md`](clouds.md) — die Wolkenkette hat ein eigenes Soll (Neubau) und
-einen eigenen Ist-Stand.
+Moved out into [`clouds.md`](clouds.md) — the cloud chain has a spec of its own (rebuild) and a state
+of its own.
 
 ---
 
-### 6 Die Terrain-Stage im Detail
+### 6 The terrain stage in detail
 
-`FBTilesStage` ist die einzige Stage mit echtem Pro-Frame-CPU-Zustand.
+`FBTilesStage` is the only stage with real per-frame CPU state.
 
-**Vertexlayout** (`render/FBChunkVtx.h`, `w3_vtx`): `pos[3]`, `uv[2]`, `norm[3]` = 32 B, dicht
-gepackt, mit `_Static_assert` auf Größe und Offsets 0/12/20. Der Grund steht im Header: Schreiber
-(Tile-Worker) und Leser (Draw-Call) stimmten früher nur **von Hand** überein — als die Normalen
-dazukamen, wanderte der Stride von 20 auf 32 und jede handgeschriebene Zahl musste mitwandern; ein
-Fehler dort rendert Müll statt zu brechen.
+**Vertex layout** (`render/FBChunkVtx.h`, `w3_vtx`): `pos[3]`, `uv[2]`, `norm[3]` = 32 B, tightly
+packed, with a `_Static_assert` on size and offsets 0/12/20. The reason is in the header: writer (tile
+worker) and reader (draw call) used to agree only **by hand** — when the normals were added, the stride
+moved from 20 to 32 and every hand-written number had to move with it; an error there renders garbage
+instead of breaking.
 
-**Geometrie**: `pos` ist der ECEF-**Versatz zum Tile-Origin** (float; bei z14 < 2 km → Sub-Zentimeter),
-`origin` ist der Doppel-Anker, den das Frame abzieht. Der Bau steht in `render/FBChunkMesh.h`
-(`w3_chunk_build_ecef`): dieselbe reguläre Gitterstruktur wie der ENU-Pfad, aber jeder Knoten wird
-durch die exakte Mercator-Inverse und Geodätisch→ECEF projiziert — kein Tangentialebenenfehler, keine
-Abhängigkeit von einem Heimatursprung. Normalen sind echte ECEF-Kreuzprodukte der Nachbarversätze,
-tragen die Krümmung der Kachel also gratis. `err` = maximaler Höhenfehler der Dezimierung in Metern —
-projektionsunabhängig, und genau die Zahl, auf der das LOD des Streamers aufsetzt.
+**Geometry**: `pos` is the ECEF **offset to the tile origin** (float; at z14 < 2 km → sub-centimetre),
+`origin` is the double anchor the frame subtracts. The construction is in `render/FBChunkMesh.h`
+(`w3_chunk_build_ecef`): the same regular grid structure as the ENU path, but every node is projected
+through the exact inverse Mercator and geodetic→ECEF — no tangent-plane error, no dependency on a home
+origin. Normals are real ECEF cross products of the neighbouring offsets and therefore carry the tile's
+curvature for free. `err` = maximum height error of the decimation in metres — projection-independent,
+and exactly the number the streamer's LOD builds on.
 
-**Per-Draw-Daten** (Storage-Buffer `TileBuf`, ein `Tile{a: vec4f, b: vec4f}` je Draw, 32 B):
+**Per-draw data** (storage buffer `TileBuf`, one `Tile{a: vec4f, b: vec4f}` per draw, 32 B):
 
-| Feld | Bedeutung |
+| Field | Meaning |
 |---|---|
 | `a.xyz` | `origin_ecef − cam_ecef` (float, camera-relative) |
-| `a.w` | Layer im Albedo-Array |
-| `b.x` | Pro-Kachel-Helligkeits-Gain des Luftbilds (1,0 für OSM) |
+| `a.w` | layer in the albedo array |
+| `b.x` | per-tile brightness gain of the imagery (1.0 for OSM) |
 
-Der Draw wählt seinen Eintrag über `firstInstance`, also gilt `instance_index == Draw-Index`.
+The draw selects its entry via `firstInstance`, so `instance_index == draw index`.
 
-**Albedo**: `texture_2d_array`, Kantenlänge 512 (Client-Wahl), **wachsend** bis zum echten
-`maxTextureArrayLayers` des Adapters (Zielgerät 2048; Default-Cap 256). Hochgeladen wird immer eine
-**komplette sRGB-Mip-Pyramide** (`render/FBMips.h`: Farbmittelung in LINEAREM Licht — dekodieren,
-mitteln, re-enkodieren, damit Entfernung nicht abdunkelt; Alpha ist schon linear). Zwei Layer je
-Kachel sind möglich: der eager gebackene **Base**-Layer und der lazy nachgeladene **Photo/Overlay**-Layer.
+**Albedo**: `texture_2d_array`, edge length 512 (client's choice), **growing** up to the adapter's real
+`maxTextureArrayLayers` (target device 2048; default cap 256). What is uploaded is always a **complete
+sRGB mip pyramid** (`render/FBMips.h`: colour averaging in LINEAR light — decode, average, re-encode,
+so that distance does not darken; alpha is already linear). Two layers per tile are possible: the
+eagerly baked **base** layer and the lazily loaded **photo/overlay** layer.
 
-**Sampler** (`FBRenderer::CreateTileTexture`, geteilt mit dem Tonemap): ClampToEdge (ein Bake IST eine
-Kachel — nichts wickelt), linear/linear, **trilinear** über die Mip-Kette, `maxAnisotropy = 16`.
+**Sampler** (`FBRenderer::CreateTileTexture`, shared with the tonemap): ClampToEdge (a bake IS a tile —
+nothing wraps), linear/linear, **trilinear** over the mip chain, `maxAnisotropy = 16`.
 
-**Der Grazing-Mip-Bias** (Terrain-Fragment-Shader): bei streifendem Blick übersteigt die
-UV-Fußabdruck-Anisotropie den 16:1-Hardware-Deckel → vertikale Streifen. Korrektur:
-`gbias = clamp(1.0 · (−log2(grazeV) − 2.5), 0, 1.2)` mit `grazeV` = Abwärtskomponente des
-Sichtstrahls. Einsatz erst unter ≈ 10° Depression, Deckel 1,2 (≈ 2,3-facher Fußabdruck). Der Kommentar
-nennt das ausdrücklich eine **Nutzerentscheidung** (2026-07-23): Schärfe schlägt Streifenfreiheit; ein
-Reststreifen im äußersten Horizontband ist akzeptiert.
+**The grazing mip bias** (terrain fragment shader): at grazing view angles the UV footprint anisotropy
+exceeds the 16:1 hardware cap → vertical streaks. Correction:
+`gbias = clamp(1.0 · (−log2(grazeV) − 2.5), 0, 1.2)` with `grazeV` = downward component of the view
+ray. It only kicks in below ≈ 10° of depression, cap 1.2 (≈ 2.3× the footprint). The comment calls this
+explicitly a **user decision** (2026-07-23): sharpness beats freedom from streaks; a residual streak in
+the outermost horizon band is accepted.
 
-**RenderBundle**: Signatur = FNV-1a über die Draw-**Struktur** (Anzahl, Bind-Group-Handle nach einem
-Array-Wachstum, je Kachel Vertexbuffer-Handle + Vertexzahl). `TileBuf`- und Uniform-**Inhalte** ändern
-sich jeden Frame, aber das Bundle referenziert diese Buffer nur per Handle — deshalb löst nur eine
-Strukturänderung eine Neuaufzeichnung aus (wenige pro Sekunde im Anflug, **null** im geparkten
-Zustand). Zähler: `GetBundleRecords()`.
+**Render bundle**: signature = FNV-1a over the draw **structure** (count, bind-group handle after an
+array growth, per tile the vertex-buffer handle + vertex count). `TileBuf` and uniform **contents**
+change every frame, but the bundle references those buffers only by handle — which is why only a
+structural change triggers a re-record (a few per second on approach, **zero** when parked). Counter:
+`GetBundleRecords()`.
 
-**2-Phasen-Commit**: eine Kachel darf erst **einen Pass NACH** ihrem GPU-Upload gezeichnet werden
-(`FrameNo > PhotoUpTick + 1` für den Overlay-Layer; die Streamer-Seite spiegelt das, s.
-`world-and-terrain.md`). Sonst referenziert ein Draw einen Layer, dessen `WriteTexture` noch nicht
-sichtbar ist → ein schwarzer Frame.
+**Two-phase commit**: a tile may only be drawn **one pass AFTER** its GPU upload
+(`FrameNo > PhotoUpTick + 1` for the overlay layer; the streamer side mirrors this, see
+`world-and-terrain.md`). Otherwise a draw references a layer whose `WriteTexture` is not yet visible →
+a black frame.
 
-**Invarianten-Zähler** (einmal pro Sekunde als `FBLog::Debug("render","present")` mit
-`violation`-Flag):
+**Invariant counters** (once per second as `FBLog::Debug("render","present")` with a `violation` flag):
 
-| Zähler | Bedeutung — sollte 0 bleiben |
+| Counter | Meaning — should stay 0 |
 |---|---|
-| `notReadyDraws` | ein Draw ohne committeten Layer |
-| `wrongModeDraws` | SVS zeigte EVS oder umgekehrt (Modus-Bluten) |
-| `blackDraws` | Layer-Index < 0 |
+| `notReadyDraws` | a draw without a committed layer |
+| `wrongModeDraws` | SVS showed EVS or vice versa (mode bleed) |
+| `blackDraws` | layer index < 0 |
 
 ---
 
-### 7 Das HUD-Backend
+### 7 The HUD backend
 
-Ausgelagert nach [`hud.md`](hud.md) — Geometriepuffer, WebGPU-Backend und Font-System.
+Moved out into [`hud.md`](hud.md) — geometry buffer, WebGPU backend and font system.
 
 ---
 
-### 8 Kamera und Bodenwahrheit
+### 8 Camera and ground truth
 
-#### 8.1 `FBCamera.h` — Lage rein, Basis raus
+#### 8.1 `FBCamera.h` — attitude in, basis out
 
-Die Datei ist bewusst **reine Mathematik**: kein GL, keine Globals, keine Nebeneffekte. Sie berechnet
-die Augen-POSITION absichtlich **nicht** — die hängt am Gelände und gehört der Tile-Seite.
+The file is deliberately **pure maths**: no GL, no globals, no side effects. It deliberately does
+**not** compute the eye POSITION — that depends on the terrain and belongs to the tile side.
 
-Render-Raum ist ENU mit `E = +X`, `up = +Y`, `N = −Z`. Die Basis kommt aus Gier/Nick, dann wird um die
-Vorwärtsachse gerollt:
+Render space is ENU with `E = +X`, `up = +Y`, `N = −Z`. The basis comes from yaw/pitch, then it is
+rolled about the forward axis:
 
 ```
 up = u·cos(roll) + s·sin(roll)
 sr = s·cos(roll) − u·sin(roll)
 ```
 
-Das `+s` ist die Stelle, die **still spiegelt**: sie stand einmal auf `−s`, und eine Rechtsschräglage
-sah aus wie eine Linksschräglage. Nichts stürzte ab, nichts sah kaputt aus — ein geneigter Horizont
-ist in beide Richtungen ein geneigter Horizont. Genau deswegen ist die Logik EINMAL vorhanden
-(`w3_basis_from`) und wird von beiden Pfaden benutzt statt kopiert.
+The `+s` is the place that **mirrors silently**: it once read `−s`, and a right bank looked like a left
+bank. Nothing crashed, nothing looked broken — a tilted horizon is a tilted horizon in either
+direction. Precisely for that reason the logic exists ONCE (`w3_basis_from`) and is used by both paths
+instead of copied.
 
-**`FBCameraBasisEcef`** ist die EINE Lage→ECEF-Basis, die native und WASM teilen. Sie stand vorher
-zeichengleich zweimal — in `FBAppNative.cpp` und `FBAppWasm.cpp`, jede mit einem Kommentar, der bat,
-sie mit der anderen identisch zu halten. Damit waren „die Frames des Orakels" und „die Frames des
-Browsers" nur **von Hand** dieselbe Kamera. Sie rechnet in **Doubles** (das Auge liegt im 6,4e6-m-
-Bereich) und rotiert die Render-Basis über `FBEnuAxesEcef` (`core/FBGeodesy.h`, geschlossene Form,
-rechtshändig, det +1 → Dreieckswicklung bleibt erhalten) ins ECEF; die Render→ENU-Abbildung ist
-`(e, n, u) = (x, −z, y)`.
+**`FBCameraBasisEcef`** is the ONE attitude→ECEF basis that native and WASM share. It used to exist
+character-identically twice — in `FBAppNative.cpp` and `FBAppWasm.cpp`, each with a comment asking that
+it be kept identical to the other. That made "the oracle's frames" and "the browser's frames" the same
+camera only **by hand**. It computes in **doubles** (the eye lies in the 6.4e6 m range) and rotates the
+render basis into ECEF via `FBEnuAxesEcef` (`core/FBGeodesy.h`, closed form, right-handed, det +1 →
+triangle winding is preserved); the render→ENU mapping is `(e, n, u) = (x, −z, y)`.
 
-Der Renderer kennt drei Kameraquellen, in dieser Vorrangfolge:
+The renderer knows three camera sources, in this order of precedence:
 
-| Quelle | Setter | Eigenschaft |
+| Source | Setter | Property |
 |---|---|---|
-| Volle Basis | `SetCameraBasis(eye, fwd, right, up)` | trägt **Roll** — der Horizont kippt bei Schräglage. Gewinnt über beide anderen. |
-| Skript-Kamera | `SetCamera(eye, target)` | Up ist radial abgeleitet, **kein** Roll |
-| Default-Orbit | — | kreist über dem Terrainfeld-Zentrum (1500 m hoch, 6500 m Radius, 0,2 rad/s) — nur Bring-up/Standbild |
+| Full basis | `SetCameraBasis(eye, fwd, right, up)` | carries **roll** — the horizon tilts in a bank. Wins over both others. |
+| Scripted camera | `SetCamera(eye, target)` | up is derived radially, **no** roll |
+| Default orbit | — | circles above the terrain field's centre (1500 m high, 6500 m radius, 0.2 rad/s) — bring-up/still image only |
 
-**Horizont-Dip** (`w3_horizon_dip_rad`): `acos(R/(R+h))` mit `R = 6 371 000 m` (Kugel-Mittelradius —
-das Terrain steht auf dem WGS84-Ellipsoid, aber der Dip ist ein Kleinwinkel-Kugelresultat, für das der
-Mittelradius der Standardwert ist). Ein waagerecht gezeichneter HUD-Horizont liest in der Höhe zu
-HOCH; er muss um genau diesen Winkel fallen, damit er den echten, weggekrümmten Horizont überlagert
-(MIL-STD-1787, konform). Konsumiert wird er von der Symbologie (`systems/FBDisplaySystem`,
-`modules/f16/displays/FBF16Hud`), nicht vom Terrain-Pass — dort ergibt sich die Krümmung von selbst,
-weil die ECEF-Kacheln wirklich wegkippen.
+**Horizon dip** (`w3_horizon_dip_rad`): `acos(R/(R+h))` with `R = 6 371 000 m` (mean spherical radius —
+the terrain stands on the WGS84 ellipsoid, but the dip is a small-angle spherical result for which the
+mean radius is the standard value). A HUD horizon drawn level reads too HIGH at altitude; it has to
+fall by exactly this angle so that it overlays the real, curved-away horizon (MIL-STD-1787, conformal).
+It is consumed by the symbology (`systems/FBDisplaySystem`,
+`modules/f16/displays/FBF16Hud`), not by the terrain pass — there the curvature arises by itself,
+because the ECEF tiles really do tilt away.
 
-#### 8.2 Augenhöhe aus der Modell-Geometrie
+#### 8.2 Eye height from the model geometry
 
-Die Augenhöhe am Boden kommt **nicht** aus einer festen Zahl, sondern aus JSBSims Fahrwerksgeometrie:
-`FBFdm::GetGroundClearanceM(gearDown)` (`sim/src/fdm/FBFdm.cpp`) läuft über alle
-Ground-Reaction-Einheiten und nimmt das größte `GetBodyLocation(3)` (Körper-z, nach unten positiv, ft
-unter dem CG) — mit `gearDown = false` zählen nur nicht-einziehbare Kontakte (der Bauch).
+The eye height at ground level does **not** come from a fixed number but from JSBSim's gear geometry:
+`FBFdm::GetGroundClearanceM(gearDown)` (`sim/src/fdm/FBFdm.cpp`) walks all ground-reaction units and
+takes the largest `GetBodyLocation(3)` (body z, positive downward, ft below the CG) — with
+`gearDown = false` only non-retractable contacts count (the belly).
 
-Genutzt wird das an der Spawn-Naht: Ist `HeightOffsetM < 0` („auf dem Fahrwerk sitzen"), setzt der
-Boot-Pfad nach dem ersten `RunIC()` — wenn der CG gültig ist — die Höhe auf
-`GroundElevM + GetGroundClearanceM(true)` und läuft die IC erneut. Die Spawnhöhe ist damit
-geometriewahr statt geraten; es gibt keinen „gehalten→scharf"-Sprung.
+It is used at the spawn seam: if `HeightOffsetM < 0` ("sit on the gear"), the boot path sets the
+altitude to `GroundElevM + GetGroundClearanceM(true)` after the first `RunIC()` — once the CG is valid
+— and runs the IC again. The spawn altitude is thereby geometry-true instead of guessed; there is no
+"held→live" jump.
 
-Die Kamera selbst ist im heutigen Client **das Auge des Flugzeugs**: `FBGeoToEcef(pose)` →
-`SetCameraBasis`. Ein zusätzlicher Clamp „nie unter die Oberfläche" ist im Client-Code **nicht mehr
-verdrahtet** — s. *Offene Punkte*.
+The camera itself is, in today's client, **the aircraft's eye**: `FBGeoToEcef(pose)` →
+`SetCameraBasis`. An additional clamp "never below the surface" is **no longer wired** in the client
+code — see *Gaps*.
 
-#### 8.3 „Crash → Motor aus, kein Freeze"
+#### 8.3 "Crash → engine off, no freeze"
 
-Der physikalische Richter (`core/FBFlightMonitor`) gehört dem Client, nicht dem Modul. Löst er aus,
-schneidet `units/FBSimUnit::RunMonitors` das Triebwerk **über denselben Controls-Pfad, den ein Pilot
-benutzen würde** (`Module_->Controls().EngineCutoff()`) — und sonst nichts. Kein Freeze, kein
-Sonderfall im Renderer: JSBSims eigene Ground-Reactions rechnen weiter, das Wrack rutscht, der
-Renderer zeichnet es. Dieselbe Kopplung gilt für Schaden (`ApplyDamageToAirframe`: Cutoff,
-Throttle-Deckel, Ruderautorität, Zusatzwiderstand). Ein FAIL-Urteil der Mission schneidet den Motor
-NUR, wenn die Einheit noch kampffähig war — bei einem Abschuss wäre das das Urteil, das aufs Flugzeug
-wirkt, statt des Schadens.
+The physical judge (`core/FBFlightMonitor`) belongs to the client, not to the module. When it trips,
+`units/FBSimUnit::RunMonitors` cuts the engine **through the same controls path a pilot would use**
+(`Module_->Controls().EngineCutoff()`) — and does nothing else. No freeze, no special case in the
+renderer: JSBSim's own ground reactions keep computing, the wreck slides, the renderer draws it. The
+same coupling applies to damage (`ApplyDamageToAirframe`: cutoff, throttle cap, control authority,
+additional drag). A mission FAIL verdict cuts the engine ONLY if the unit was still combat-effective —
+for a kill that would be the verdict acting on the aircraft instead of the damage.
 
 ---
 
-### 9 Die Regel `grep -c 'R"(' FBRenderer.cpp` == 0
+### 9 The rule `grep -c 'R"(' FBRenderer.cpp` == 0
 
-**Heute erfüllt: 0.** Kein einziges rohes WGSL-String-Literal steht mehr in `FBRenderer.cpp`.
+**Satisfied today: 0.** Not a single raw WGSL string literal remains in `FBRenderer.cpp`.
 
-Was die Regel aussagt: Der Render-Stage-Split ist **abgeschlossen**, und zwar überprüfbar mit einem
-Einzeiler statt mit einem Urteil. Jedes WGSL lebt in genau einer `stages/`-Datei; `FBRenderer` ist
-damit **nur noch** Orchestrator — Gerät, Ziele, Pass-Grenzen, Reihenfolge, geteilte Ressourcen. Eine
-neue Shader-Idee kann nicht mehr „schnell mal" in den Orchestrator wandern, weil die Regel es sofort
-sichtbar machen würde.
+What the rule states: the render stage split is **complete**, and verifiably so with a one-liner rather
+than with a judgement. Every piece of WGSL lives in exactly one `stages/` file; `FBRenderer` is
+therefore **only** an orchestrator — device, targets, pass boundaries, order, shared resources. A new
+shader idea can no longer wander "just quickly" into the orchestrator, because the rule would make it
+visible immediately.
 
-Verteilung der 20 WGSL-Blöcke über 17 Stage-Dateien (drei Dateien tragen zwei: `FBTonemapStage` mit/ohne
-Wolken-Composite, `FBHudStage` Stroke/Text, `FBCloudBaseBakeStage` Bake + Histogramm) plus drei reine
-Splice-Header ohne eigene Klasse.
+Distribution of the 20 WGSL blocks over 17 stage files (three files carry two: `FBTonemapStage`
+with/without cloud composite, `FBHudStage` stroke/text, `FBCloudBaseBakeStage` bake + histogram) plus
+three pure splice headers without a class of their own.

@@ -10,7 +10,9 @@ Cite tags `Chuck p.NN` vs `ED EA Guide p.NN`. A subset of the entries below, reo
 pilot commands with precondition/feedback/failure columns, is in
 **[`controls-commands.md`](controls-commands.md)**.
 
-## SSC — Side Stick Controller (stick)
+## Spec
+
+### SSC — Side Stick Controller (stick)
 
 | Control | Function |
 |---|---|
@@ -24,7 +26,7 @@ pilot commands with precondition/feedback/failure columns, is in
 | **Expand/FOV button** | Cycles field-of-view for the selected sensor/system |
 | **NWS A/R DISC & MSL STEP** | NWS: nosewheel steering. A/R (in flight, refuel door OPEN): disconnects boom latch. MSL STEP: in EO/A-A cycles next weapon station; in A-G cycles **CCRP → CCIP → DTOS** |
 
-## TQS — Throttle Quadrant System (throttle)
+### TQS — Throttle Quadrant System (throttle)
 
 | Control | Function |
 |---|---|
@@ -38,13 +40,13 @@ pilot commands with precondition/feedback/failure columns, is in
 
 ---
 
-## ED EA Guide addendum — Hands-On Controls, FULL cross-check (official, p.82–88)
+### ED EA Guide addendum — Hands-On Controls, FULL cross-check (official, p.82–88)
 
 **Press-duration convention** (ED explicit, applies to every switch below unless noted): **short press
 < 0.5 s**, **long press > 0.5 s**. Exceptions requiring a **full 1 s** press are called out inline
 (bolded in ED's own table — TMS FWD-long "Cycle HARM POS", TMS RIGHT-long "IR Pointer ×2").
 
-### SSC — additions/precision over Chuck's table
+#### SSC — additions/precision over Chuck's table
 | Control | ED precision beyond Chuck |
 |---|---|
 | **Trigger** (2-stage) | 1st detent = laser designator/ranger (needs TGP powered); **2nd detent** = fires gun **if selected+armed**, OR fires the laser designator/ranger for **30 s** if in CCIP/STRF sub-modes (i.e. the trigger's 2nd-stage meaning is **mode-conditional**, not a fixed "gun" action) |
@@ -53,7 +55,7 @@ pilot commands with precondition/feedback/failure columns, is in
 | **Paddle switch** | precisely: disengages autopilot **for the duration held**; on release, autopilot **captures NEW reference values** of pitch/roll/altitude per whatever PITCH/ROLL modes are selected on the MISC panel (`flight-controls-flcs.md`) — a "release re-trims to current attitude," not "resumes old target" |
 | **Expand/FOV button** | SOI-dependent cycle table below; also toggles AGM-65 seeker FOV or steps AGM-88 FOV/POS sub-modes when WPN is SOI |
 
-#### MSL STEP button — full context table (ED p.82–83)
+##### MSL STEP button — full context table (ED p.82–83)
 | State | Short press (<0.5s) | Long press (>0.5s) |
 |---|---|---|
 | Ground | Toggle nosewheel steering (NWS) on/off | — |
@@ -62,7 +64,7 @@ pilot commands with precondition/feedback/failure columns, is in
 | Air, A-A / Missile Override / Dogfight mode | Select next missile station (same type) | Cycle missile type |
 | Air, A-G mode | Cycle CCIP → DTOS → CCRP | — (AGM-65/AGM-88 selected: select next station instead) |
 
-#### TMS (Target Management Switch) — SOI-dependent 4-way × short/long matrix (ED p.83)
+##### TMS (Target Management Switch) — SOI-dependent 4-way × short/long matrix (ED p.83)
 | Direction × duration | HUD SOI | HMCS SOI | FCR SOI | HSD SOI | HAD SOI | TGP SOI | WPN SOI |
 |---|---|---|---|---|---|---|---|
 | FWD short | Designate (DTOS/VIS) | Designate | Designate / ACM BORE | Designate | (No Action) | Point Track | Track/Force Correlate |
@@ -76,7 +78,7 @@ pilot commands with precondition/feedback/failure columns, is in
 
 *= only relevant in A-G master mode when HUD/FCR is SOI: TMS RIGHT cycles through available sighting points.
 
-#### DMS (Display Management Switch) — SOI selector (ED p.83)
+##### DMS (Display Management Switch) — SOI selector (ED p.83)
 | Direction × duration | Effect |
 |---|---|
 | FWD short | SOI → HUD |
@@ -88,7 +90,7 @@ pilot commands with precondition/feedback/failure columns, is in
 | — | Helmet Display Unit ON/OFF (context-specific binding) |
 | — | Swap SOI between the two MFDs |
 
-#### CMS (Countermeasures Management Switch) — mode-dependent (ED p.84, cross-refs `defence-rwr-cm.md`
+##### CMS (Countermeasures Management Switch) — mode-dependent (ED p.84, cross-refs `defence-rwr-cm.md`
 for the full CMDS mode×CMS state machine)
 | Direction | Effect |
 |---|---|
@@ -101,7 +103,7 @@ for the full CMDS mode×CMS state machine)
 | AFT (CMDS=SEMI) | Dispense 1× Auto Program; enable ECM if Mode 1/2 |
 | AFT (CMDS=AUTO) | Enable continuous auto-program dispensing |
 
-#### EXP/FOV button — SOI-dependent (ED p.84)
+##### EXP/FOV button — SOI-dependent (ED p.84)
 | SOI | Short press | Long press |
 |---|---|---|
 | FCR | Cycle FCR EXP modes | — |
@@ -112,7 +114,7 @@ for the full CMDS mode×CMS state machine)
 | WPN (AGM-88, HAS sub-mode) | Cycle WIDE→CTR→LT→RT | — |
 | WPN (AGM-88, POS sub-mode) | Cycle EOM→RUK→PB | — |
 
-### Throttle (TQS) — additions/precision over Chuck's table
+#### Throttle (TQS) — additions/precision over Chuck's table
 | Control | ED precision beyond Chuck |
 |---|---|
 | **UHF/VHF Transmit switch** | AFT=UHF Tx, FWD=VHF Tx (matches Chuck); the **left/right (IFF OUT/IN)** positions Chuck listed as "filter datalink"/"toggle tracks" are precisely: **short press** LEFT=toggle datalink info on FCR, RIGHT=cycle datalink filters; **long press** RIGHT (>0.5s)=transmit selected steerpoint/SPI/SEAD-target over datalink, LEFT=no action |
@@ -122,29 +124,68 @@ for the full CMDS mode×CMS state machine)
 | **RDR CURSOR/ENABLE** | multi-directional slew (FCR/HSD/HAD cursor, TGP sensor, AGM-65 seeker); **depress**: in A-A mode, swaps AIM-9 BORE/SLAVE **for duration held**; in A-G mode with AGM-65, steps PRE→VIS→BORE |
 | **SPD BRK switch** | 3-pos, aft-momentary, spring-loaded off-aft to center; extension/retraction continues for as long as held, so **any intermediate deflection is achievable**. **Full extension: 60°** when right main gear is NOT down-and-locked. **Limited to 43°** when right main gear IS down-and-locked (prevents lower surfaces striking ground on landing) — **overridable temporarily by holding SPD BRK aft**; once the nose gear compresses after touchdown, full 60° is available again without holding |
 
-### Cross-check verdict
+#### Cross-check verdict
 No numeric or logical contradiction found between Chuck's HOTAS table and ED's Hands-On Controls
 chapter — Chuck's table is a correct but coarse summary; ED supplies the missing **state-dependent**
 detail (SOI/master-mode matrices, exact press-duration thresholds, speedbrake angles) that a
 command-block model needs to reproduce *when* a HOTAS input is valid/what it actually does, not just
 *that* the switch exists.
 
----
+## State
 
-# Technical depth (researched — shallow pass — deepen when in scope)
+**No HOTAS binding exists.** `FBInputSystem` is still the NoOp default; `?ap=manual` gives a direct stick
+path through the FBW, but nothing is bound to it — the browser client has no bound controller
+([`../flightbox/clients/clients.md`](../flightbox/clients/clients.md), stage 5.3: deliberately last,
+"it is only a mapping").
 
-## Components (LRUs)
+What *does* exist is the other half of this file: the **actions** these switches trigger are modelled as
+bus commands, and the autonomous pilot issues them exactly as a hand would.
+
+| Switch of this reference | FlightBox equivalent | Where |
+|---|---|---|
+| TMS forward (designate/lock) | `FBRadarSystem::Designate()` via an avionics command — value = the published track number, 0 releases | [`../flightbox/sim/sensors.md`](../flightbox/sim/sensors.md) §4 |
+| Trigger (gun) | `GunTrigger` command, value = trigger-hold duration | [`../flightbox/sim/weapons-and-damage.md`](../flightbox/sim/weapons-and-damage.md) §3 |
+| Pickle (weapon release) | `WeaponRelease` command; rejected on master-arm/weight-on-wheels | same, §2 |
+| CMS (countermeasures) | `CmDispense` / `CmConsent` / `CmdsMode` commands | [`../flightbox/sim/sensors.md`](../flightbox/sim/sensors.md) §6 |
+| Speedbrake, gear, NWS, wheel brakes, throttle | `FBAirframeControls` channels | [`../flightbox/sim/systems.md`](../flightbox/sim/systems.md) §9 |
+| Press-duration discriminators (0.5 s / 1.0 s), SOI-dependent action matrices, DOG FIGHT switch precedence | **not implemented** — no SOI concept, no press-duration semantics, no master-mode override switch | — |
+| `WeaponSelect` | deliberately answered `NotImplemented` by the command bus — the jet has it, FlightBox does not, and the command says so instead of silently succeeding | [`../flightbox/aircraft/f16.md`](../flightbox/aircraft/f16.md) Gaps 4 |
+
+## Gaps
+
+**Source gaps** (this file vs. its sources)
+- The `## Knowledge` section is an explicitly **SHALLOW** research pass (force-transducer SSC, TQS),
+  marked "deepen when in scope".
+- Chuck Part 9 (pp.158–160) and ED pp.82–88 are fully processed; the ED cross-check found **no
+  contradiction**, only added precision. ED Appendix D (HOTAS quick-reference diagrams, pp.686–692) is
+  **not processed** (judged redundant — see PROGRESS.md Pass 4).
+
+**Implementation gaps** (this reference vs. FlightBox)
+- *Modelled:* the command vocabulary behind the switches — designate, trigger, pickle, countermeasures,
+  airframe controls — each issuable, acknowledgeable and rejectable over the command bus.
+- *Partially:* nothing sits between; either the action exists as a command or it does not.
+- *Not at all:* physical binding of any device, Sensor-of-Interest, press-duration classes, cursor
+  slew, DOG FIGHT/MSL OVRD master-mode switches, manual trim, EXP/FOV control.
+
+## Knowledge
+
+**Technical depth (researched — shallow pass — deepen when in scope)**
+
+*Researched engineering depth. Kept separate from the guide distillation in `## Spec`; sources cited at
+the end. This pass is explicitly **shallow** — deepen when the subsystem is in scope.*
+
+### Components (LRUs)
 - **Side-Stick Controller (SSC)**: a **force-transducer** grip on the right console — the original F-16
   stick was **rigid (near-zero travel)**; production sticks add small motion but still command by force.
 - **Throttle Quadrant (TQS)**: left-console throttle grip with the switches above.
 
-## Functional principle
+### Functional principle
 The SSC's force sensors output a signal proportional to applied pilot force (quadruplex, one per FLCC
 channel), so pitch/roll/yaw commands are **force gradients**, not deflections — this is the input side of
 the FLCS (`flight-controls-flcs.md`). HOTAS switches (DMS/TMS/CMS/pinky/pickle/trigger) are discrete
 inputs multiplexed to the MMC/FLCC over the avionics bus; the design goal is hands-on-throttle-and-stick
 sensor/weapon management without reaching to panels.
 
-## Sources
+### Sources
 - Wikipedia *General Dynamics F-16* (side-stick force controller); ryanporto F-16 FCS — force-sensing stick.
 - DCS guide Part 9 (control mapping) — cross-referenced above.

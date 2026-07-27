@@ -1,24 +1,22 @@
-# Piloten-KI — FBPilot, FBBfmTrack, FBEngagement, FBPilotTuning
+# Pilot AI — FBPilot, FBBfmTrack, FBEngagement, FBPilotTuning
 
-> Body still in German — translation pass pending (see [roadmap](../roadmap.md)).
+**Source state:** commit `9673e00` ("guidance holds a path where a path is declared").
+The primary sources are the comment banners of the source code:
 
-**Quellenstand:** Commit `9673e00` („Führung hält eine Bahn, wo eine Bahn deklariert ist").
-Primärquellen sind die Kommentar-Banner des Quellcodes:
-
-| Datei | Rolle |
+| File | Role |
 |---|---|
-| `sim/src/systems/FBPilot.h` / `.cpp` | die Entscheidungsebene: Phasenmaschine, Brief, BFM-Regelgesetz, Attack, Intercept |
-| `sim/src/systems/FBBfmTrack.h` / `.cpp` | das Zielbild aus Radarkontakten + das BFM-Scoreboard + `FBTrackDatum` |
-| `sim/src/systems/FBEngagement.h` / `.cpp` | die BVR-Zustandsmaschine als Daten + das Debriefing |
-| `sim/src/systems/FBPilotTuning.h` / `.cpp` | die Piloten-VARIANTE als Missionsdaten |
-| `sim/src/modules/f16/FBF16Pilot.h` | die F-16-Zahlen (alle virtuellen Hooks) |
-| `sim/src/modules/f16/FBF16Module.cpp` | Takt-Verdrahtung, `set`-Schlüssel → Brief/Task/Variante |
-| `sim/tools/fb_tournament.py` | der Turnierläufer (kein Build-Target) |
-| `doc/mission-format.md` §§ Kampf-/Abfang-/Angriffsmissionen, Piloten-Varianten | die Missionsdaten-Seite |
+| `sim/src/systems/FBPilot.h` / `.cpp` | the decision layer: phase machine, brief, BFM control law, Attack, Intercept |
+| `sim/src/systems/FBBfmTrack.h` / `.cpp` | the target picture from radar contacts + the BFM scoreboard + `FBTrackDatum` |
+| `sim/src/systems/FBEngagement.h` / `.cpp` | the BVR state machine as data + the debriefing |
+| `sim/src/systems/FBPilotTuning.h` / `.cpp` | the pilot VARIANT as mission data |
+| `sim/src/modules/f16/FBF16Pilot.h` | the F-16 numbers (all virtual hooks) |
+| `sim/src/modules/f16/FBF16Module.cpp` | rate wiring, `set` keys → brief/task/variant |
+| `sim/tools/fb_tournament.py` | the tournament runner (not a build target) |
+| `doc/mission-format.md` §§ combat/intercept/attack missions, pilot variants | the mission data side |
 
-Konvention in diesem Dokument: **[MESS]** = am gepinnten Modell oder im Missions-Regelkreis gemessen,
-**[HERL]** = aus einer genannten Gleichung hergeleitet, **[SETZ]** = gesetzt (Konstruktions-Entscheidung
-ohne Quellzahl), **[DOK]** = aus `doc/f16/`.
+Convention in this document: **[MESS]** = measured on the pinned model or in the mission control loop,
+**[HERL]** = derived from a named equation, **[SETZ]** = set (a design decision without a source number),
+**[DOK]** = from `doc/f16/`.
 
 ---
 
@@ -82,124 +80,121 @@ refinement is the running work.
 
 This file describes state `9673e00`. Commit `658014d` has already changed three of its points
 (sign-correct trigger, derived brake cap `a/k` with the new hook `BfmBrakeMs2`, wingline conversion) —
-affected: §5.2, §5.7, §5.8, §11, §12 of the German body below.
+affected: §5.2, §5.7, §5.8, §11, §12 of the body below.
 
-### Inventory (German, from the previous `Offene Punkte` section)
+### Inventory (from the previous `Offene Punkte` section)
 
-**Bekannte Schwächen (Stand `9673e00`, jede gemessen, keine davon versteckt):**
+**Known weaknesses (state `9673e00`, each one measured, none of them hidden):**
 
-1. **Kanone gegen den kurvenden Verteidiger: ~1 von 8 Anflügen verfehlt weiterhin.** Der Verfolger setzt
-   sich innerhalb der MINDESTENTFERNUNG des Trichters fest — dort liefert die EEGS-Lösung keine
-   brauchbare Feuerfreigabe mehr, während die Verfolgungsgeometrie den Jet dort hält. Fehlt: eine
-   Regel, die aus „zu nah" wieder Abstand macht (die Kontrollposition beschreibt eine Bandmitte, keine
-   Untergrenze mit Ausweichverhalten).
-2. **Das BVR-Duell bleibt ein Patt, weil jeder Fernschuss GENOTCHT wird.** Beide Seiten verteidigen
-   erfolgreich mit Beam + Düppel (`bvr-duel.fbm`: erster Schuss abgewehrt, zweiter bei t=527 s mit 43,6 m
-   Fehlabstand ebenfalls). Solange keine Seite einen Schuss aus einer Geometrie beibringt, die den Notch
-   ausschließt (oder eine Waffe, die ihn übersteht), ist die Paarung symmetrisch und das Ergebnis
-   strukturell unentschieden. `bvr-duel-decided.fbm` zeigt die Gegenprobe: ein Energie-Unterschied
-   entscheidet, das Handwerk allein nicht.
-3. **Der enge Frontalpass wird nicht in eine Kurve KONVERTIERT.** Das Gesetz regelt eine PEILUNG und
-   nimmt immer den kurzen Weg; genau am Heckdurchgang sind beide Wege gleich lang, das kommandierte
-   Auftriebsvektor-Vorzeichen kippt, und der Regelkreis sieht keinen sich verschlechternden Fehler,
-   sondern einen NEUEN Fehler auf der anderen Seite — er antwortet mit einer Umkehr. [MESS] am 385-m-Merge
-   von `bfm-blind`: die Sichtlinie wanderte von +102° auf +177° und wickelte auf −177°, das Rollkommando
-   klapperte über die Vertikale (94/109/97/100/107/93/105° Querlage in aufeinanderfolgenden
-   Halbsekunden), statt eine Kurve zu halten. Ein Pass wird damit nicht in eine Position umgesetzt.
-4. **Der Annäherungsfahrplan hat bei `9673e00` einen FLACHEN Deckel** (`BfmMaxClosureKt` = 200 kt), der
-   nicht an der Bremsautorität der Zelle hängt. Der Fahrplan `c = k·(R − Rctrl)` verlangt eine
-   Verzögerung `k·c`; jenseits von `a/k` schreibt der Pilot einen Scheck, den die Zelle nicht deckt.
-   [MESS, `gun-bfm`] Beschleunigung auf 190 kt Annäherung bei 2 nm, danach 35 s Leerlauf + Bremsklappe
-   ohne sie loszuwerden, Ankunft im Kontrollband mit 98 kt statt der gefahrplanten 5, Durchflug auf 61 m.
-5. **Der Gashebel regelt eine Geschwindigkeits-DIFFERENZ, nicht die Annäherungsrate.** Beide sind nur in
-   einer koaltitudinalen Heckverfolgung dieselbe Zahl. [MESS, `gun-bfm` dritter Anflug] 74 kt
-   TAS-Differenz gegen 157 kt tatsächliche Annäherung, weil der Verfolger 700 m höher war und Höhe in
-   Annäherung umsetzte. Die Alternative (Regelung auf die Radarmessung der Annäherung) ist gemessen und
-   verworfen: Kontrollband minimal besser (21,4 % → 23,2 % der verfolgten Zeit), Trichterzeit gegen den
-   geradeaus fliegenden Verteidiger brach ein (21,2 → 12,7 s) — die Annäherungsrate trägt die ganze
-   Verfolgungsgeometrie, sie mit dem Gashebel zu regeln lässt den Gashebel die Kurve bekämpfen.
-6. **Keine Geländemaskierung in der Sensorkette** (bewusst, `systems/FBRadarSystem`): der Pilot kann
-   deshalb keine Terrain-Taktik lernen, weder aktiv noch defensiv.
-7. **Fackeln wirken nicht** (kein IR-Sucher im Baum) — die Verteidigung des Piloten ist heute rein
-   Chaff + Beam.
+1. **Gun against the turning defender: ~1 in 8 approaches still misses.** The pursuer settles inside the
+   MINIMUM RANGE of the funnel — there the EEGS solution no longer delivers a usable firing cue, while
+   the pursuit geometry keeps the jet there. Missing: a rule that turns "too close" back into distance
+   (the control position describes a band centre, not a lower bound with an avoidance behaviour).
+2. **The BVR duel stays a stalemate, because every long shot is NOTCHED.** Both sides defend successfully
+   with beam + chaff (`bvr-duel.fbm`: first shot defeated, the second at t=527 s with a 43.6 m miss
+   distance likewise). As long as neither side brings a shot from a geometry that excludes the notch (or
+   a weapon that survives it), the pairing is symmetric and the result structurally a draw.
+   `bvr-duel-decided.fbm` shows the control: an energy difference decides, craft alone does not.
+3. **The tight head-on pass is not CONVERTED into a turn.** The law controls a BEARING and always takes
+   the short way; exactly at the tail passage both ways are equally long, the commanded lift vector sign
+   flips, and the control loop sees not a worsening error but a NEW error on the other side — it answers
+   with a reversal. [MESS] at the 385 m merge of `bfm-blind`: the line of sight moved from +102° to +177°
+   and wrapped to −177°, the roll command clattered across the vertical (94/109/97/100/107/93/105° of
+   bank in successive half seconds) instead of holding a turn. A pass is therefore not converted into a
+   position.
+4. **The closure schedule has a FLAT cap at `9673e00`** (`BfmMaxClosureKt` = 200 kt) that does not hang
+   on the brake authority of the airframe. The schedule `c = k·(R − Rctrl)` demands a deceleration `k·c`;
+   beyond `a/k` the pilot writes a cheque the airframe cannot cover. [MESS, `gun-bfm`] acceleration to
+   190 kt of closure at 2 nm, then 35 s of idle + speedbrake without getting rid of it, arrival in the
+   control band at 98 kt instead of the scheduled 5, fly-through at 61 m.
+5. **The throttle controls a speed DIFFERENCE, not the closure rate.** The two are the same number only
+   in a co-altitude tail chase. [MESS, `gun-bfm` third approach] 74 kt of TAS difference against 157 kt of
+   actual closure, because the pursuer was 700 m higher and converted altitude into closure. The
+   alternative (controlling on the radar measurement of closure) has been measured and rejected: control
+   band marginally better (21.4 % → 23.2 % of the tracked time), funnel time against the straight-flying
+   defender collapsed (21.2 → 12.7 s) — the closure rate carries the whole pursuit geometry, controlling
+   it with the throttle lets the throttle fight the turn.
+6. **No terrain masking in the sensor chain** (deliberate, `systems/FBRadarSystem`): the pilot therefore
+   cannot learn any terrain tactics, neither offensive nor defensive.
+7. **Flares have no effect** (no IR seeker in the tree) — the pilot's defence today is purely chaff +
+   beam.
 
-**Nachführung fällig — nebenläufige Änderung.**
-Zum Zeitpunkt dieser Datei ändert ein anderer Agent `sim/src/systems/FBPilot.{h,cpp}` und
-`sim/src/modules/f16/FBF16Pilot.h` (Nahkampf-Runde). Bereits in der Arbeitskopie sichtbar und hier NOCH
-NICHT dokumentiert:
+**Update due — concurrent change.**
+At the time of this file another agent is changing `sim/src/systems/FBPilot.{h,cpp}` and
+`sim/src/modules/f16/FBF16Pilot.h` (close-combat round). Already visible in the working copy and NOT YET
+documented here:
 
-- ein neuer Zellen-Hook `BfmBrakeMs2()` (F-16 2,4 m/s², [MESS] 238 Proben bei 4.000 m zwischen 325 und
-  400 KCAS, Median 2,39 / p10 1,64 / p90 3,80) und ein daraus **hergeleiteter** Annäherungsdeckel
-  `a/k` statt des flachen 200-kt-Deckels → betrifft Punkt 4 oben;
-- eine **Konversions-Regel** mit committetem Drehsinn (`BfmTurnSense_`, `kBfmConvertErrDeg` = 90°,
-  Zonenbreite aus `180° − LOS-Rate · kBfmReverseS`) → betrifft Punkt 3 oben;
-- der Abzug liest die vorhergesagte Ziellösung als **BETRAG** statt sie bei 0 zu klemmen.
+- a new airframe hook `BfmBrakeMs2()` (F-16 2.4 m/s², [MESS] 238 samples at 4,000 m between 325 and
+  400 KCAS, median 2.39 / p10 1.64 / p90 3.80) and a closure cap **derived** from it, `a/k`, instead of
+  the flat 200 kt cap → affects point 4 above;
+- a **conversion rule** with a committed turn direction (`BfmTurnSense_`, `kBfmConvertErrDeg` = 90°, zone
+  width from `180° − LOS rate · kBfmReverseS`) → affects point 3 above;
+- the trigger reads the predicted target solution as an **absolute value** instead of clamping it at 0.
 
-Nach Abschluss dieser Runde sind § 5.2 (Fahrplan), § 5.7/§ 5.8 (Rolle/Abzug), § 11 (Hook-Tabelle) und
-§ 12 (Punkte 3–5) gegen den dann gültigen Commit nachzuziehen. `doc/mission-format.md` trägt Teile
-dieser Runde bereits — bei Abweichungen zwischen beiden Dateien gilt der QUELLCODE des jeweils
-zitierten Commits.
+After this round is finished, § 5.2 (schedule), § 5.7/§ 5.8 (roll/trigger), § 11 (hook table) and § 12
+(points 3–5) have to be brought up to the then-current commit. `doc/mission-format.md` already carries
+parts of this round — where the two files disagree, the SOURCE CODE of the respective quoted commit
+applies.
 
 
 ## Knowledge
 
 Derivations, formulas and measured constants — the distilled body of this file.
 
-### 1. Die Schichtung
+### 1. The layering
 
-Drei Ebenen, drei Fragen, drei Takte. Keine Ebene greift an der nächsten vorbei.
+Three levels, three questions, three rates. No level reaches past the next.
 
-| Ebene | Klasse | Frage | Takt | Ausgang |
+| Level | Class | Question | Rate | Output |
 |---|---|---|---|---|
-| Mission | `systems/FBPilot` | WOHIN soll das Flugzeug | 10 Hz | `FBPilotCommands` |
-| Führung | `systems/FBAutopilot` | WELCHES Manöver bringt es dahin | 100 Hz (im FDM-Substep) | `FBGuidance` (Querlage, VS, Speed) |
-| Hände | `systems/FBFlightControl` | WELCHER Ruderausschlag | 100 Hz | `FBControls` → `FBFdm::SetControls` |
+| Mission | `systems/FBPilot` | WHERE should the aircraft go | 10 Hz | `FBPilotCommands` |
+| Guidance | `systems/FBAutopilot` | WHICH manoeuvre gets it there | 100 Hz (in the FDM substep) | `FBGuidance` (bank, VS, speed) |
+| Hands | `systems/FBFlightControl` | WHICH control deflection | 100 Hz | `FBControls` → `FBFdm::SetControls` |
 
-Der Takt entsteht im Modul, nicht im Piloten: `FBF16Module::Run` ruft `Due(PilotAccS, dt, 10.0)` und
-darin `PilotSys->Run(...)`; die 100-Hz-Substeps laufen darunter in derselben `Run()`
-(`AP->Run(st)` → `FC->Run(...)` → `fdm.Step(st)`, Spiralschutz ≤ 12 Substeps/Frame).
-Eine Piloten-Entscheidung steht damit für ~10 FDM-Schritte. Unmittelbar nach dem Piloten-Tick
-veröffentlicht das Modul die fusionierte BFM-Sicht auf den Bus (`SharedState.Bfm = PilotSys->BfmTrack().Block()`)
-und ruft `NavSys->AdvanceWaypoint(...)` — die Wegpunkt-Sequenzierung ist Akteurs-Verhalten, keine
-Runner-Buchhaltung.
+The rate arises in the module, not in the pilot: `FBF16Module::Run` calls `Due(PilotAccS, dt, 10.0)` and
+inside it `PilotSys->Run(...)`; the 100 Hz substeps run below it in the same `Run()`
+(`AP->Run(st)` → `FC->Run(...)` → `fdm.Step(st)`, spiral protection ≤ 12 substeps/frame).
+A pilot decision therefore stands for ~10 FDM steps. Immediately after the pilot tick the module
+publishes the fused BFM view onto the bus (`SharedState.Bfm = PilotSys->BfmTrack().Block()`) and calls
+`NavSys->AdvanceWaypoint(...)` — waypoint sequencing is actor behaviour, not runner bookkeeping.
 
-#### `FBPilotCommands` — die Ausgabe eines Entscheidungstakts
+#### `FBPilotCommands` — the output of one decision tick
 
 ```
 FBPilotGuidance Guidance;                        // None | Manual | Direct | Course
 double TargetAltM, TargetSpeedKt;
-double TargetLatDeg, TargetLonDeg;               // Direct-Zielpunkt / Course-Referenzpunkt
-bool   HaveLeg; double LegLatDeg, LegLonDeg;     // der Bahnursprung, wenn eine Bahn EXISTIERT
-double CourseDeg, GlidepathDeg;                  // nur Course (TargetAltM = Schwellenhöhe)
+double TargetLatDeg, TargetLonDeg;               // Direct target point / Course reference point
+bool   HaveLeg; double LegLatDeg, LegLonDeg;     // the path origin, when a path EXISTS
+double CourseDeg, GlidepathDeg;                  // Course only (TargetAltM = threshold elevation)
 double ManualRoll, ManualPitch, ManualYaw, ManualThr;
 std::optional<bool>   GearDown;
 std::optional<double> Speedbrake, WheelBrakeLeft, WheelBrakeRight, NosewheelSteer;
 std::optional<bool>   EngineStart;
 ```
 
-Zwei Verträge stecken in den Typen:
+Two contracts sit in the types:
 
-- **`FBPilotGuidance::None` = „AP unangetastet lassen".** Das Modul ruft den passenden
-  `FBAutopilot`-Setter (`SetManual`/`SetDirect`/`SetDirectLeg`/`SetCourse`) NUR bei einem konkreten Modus;
-  ein `None`-Tick ändert nichts an der laufenden Führung. Ein neutraler `FBPilotCommands` (Phase `Idle`)
-  ruft in `FBF16Module::ApplyPilotCommands` gar nichts auf.
-- **Jede Zellen-Anforderung ist `std::optional`.** Nicht gesetzt = „der Pilot fasst diesen Hebel gerade
-  nicht an" — das Abbild der Hände eines echten Piloten, und der Grund, warum die meisten Ticks keine
-  einzige Zellen-Anforderung tragen.
-- **`HaveLeg` ist KEIN Optional**, obwohl es eines sein könnte: es ist keine Bedienung, die der Pilot
-  ausüben kann oder nicht, sondern das, was er WEISS. Kein Bein = keine Linie = das Peilungsgesetz.
-  `SetLegFromPlan` setzt es erst ab dem ZWEITEN Wegpunkt eines Plans (`idx > 0`) — zwei deklarierte
-  Fixes sind eine Bahn, ein erster Wegpunkt ist eine Peilung. Das ist tragend: würde man aus der
-  Spawn-Position ein Bein erfinden, flöge ein Verteidiger, der einen Punkt IN seinem eigenen Kurvenkreis
-  umkreisen soll, ihn einmal an und verließe ihn (`missions/bfm-basic.fbm`).
+- **`FBPilotGuidance::None` = "leave the AP untouched".** The module calls the matching `FBAutopilot`
+  setter (`SetManual`/`SetDirect`/`SetDirectLeg`/`SetCourse`) ONLY on a concrete mode; a `None` tick
+  changes nothing about the running guidance. A neutral `FBPilotCommands` (phase `Idle`) calls nothing at
+  all in `FBF16Module::ApplyPilotCommands`.
+- **Every airframe request is `std::optional`.** Not set = "the pilot is not touching this lever right
+  now" — the image of a real pilot's hands, and the reason why most ticks carry no airframe request at
+  all.
+- **`HaveLeg` is NOT an optional**, although it could be one: it is not a control the pilot may or may
+  not operate but what he KNOWS. No leg = no line = the bearing law. `SetLegFromPlan` sets it only from
+  the SECOND waypoint of a plan on (`idx > 0`) — two declared fixes are a path, a first waypoint is a
+  bearing. That is load-bearing: if one invented a leg from the spawn position, a defender that is
+  supposed to orbit a point INSIDE its own turn circle would fly to it once and leave it
+  (`missions/bfm-basic.fbm`).
 
 ---
 
-### 2. Die Regel, die alles trägt
+### 2. The rule that carries everything
 
-#### 2.1 Der Pilot hält KEINE Systemzeiger
+#### 2.1 The pilot holds NO system pointers
 
-Die gesamte Signatur ist der Vertrag:
+The whole signature is the contract:
 
 ```
 virtual FBPilotCommands Run(const FBState &state, FBCommandBus &avionics,
@@ -207,458 +202,447 @@ virtual FBPilotCommands Run(const FBState &state, FBCommandBus &avionics,
                             const FBFlightPlan &plan, const FBRunway *runway, double dt);
 ```
 
-- `state` — der Avionik-Bus. Was Sensoren HINEINGESCHRIEBEN haben, mit Reichweite, Scanvolumen,
-  Netzzyklus, Alter und Gültigkeitskopf. Nie Weltwahrheit.
-- `avionics` — der Kommandobus. Der EINZIGE Weg von dieser Klasse zu einer Avionikbox.
-- `airframe` — die Zelle, geborgt CONST: Instrumentenablesungen (WOW, Fahrwerksstellung, Startgewicht,
-  Triebwerk läuft) über dieselbe Schnittstelle, über die die Kommandos wieder herausgehen. Der Pilot
-  erreicht kein FDM und weiß nicht, welches er fliegt — das hält diese Schicht zellen- UND
-  instanz-agnostisch.
-- Ein `const FBWorld *` STAND früher in dieser Signatur (ungenutzt, `(void)world`). Er ist entfernt:
-  ein Pilot, dem man Weltwahrheit gar nicht reichen kann, kann nicht versehentlich darauf fliegen.
+- `state` — the avionics bus. What sensors have WRITTEN into it, with range, scan volume, net cycle, age
+  and validity header. Never world truth.
+- `avionics` — the command bus. The ONLY way from this class to an avionics box.
+- `airframe` — the airframe, borrowed CONST: instrument readings (WOW, gear position, take-off weight,
+  engine running) through the same interface through which the commands go back out. The pilot reaches no
+  FDM and does not know which one he is flying — that keeps this layer airframe- AND instance-agnostic.
+- A `const FBWorld *` used to STAND in this signature (unused, `(void)world`). It has been removed: a
+  pilot to whom world truth cannot even be handed cannot accidentally fly on it.
 
-#### 2.2 Avionik nur über den Kommandobus
+#### 2.2 Avionics only through the command bus
 
-Jede Bedienung ist ein `avionics.Post(target, value, nowS)` mit Quittung. Das kostet Zeit und kann
-abgelehnt werden (`core/FBCommandBus.h`):
+Every operation is an `avionics.Post(target, value, nowS)` with an acknowledgement. That costs time and
+can be rejected (`core/FBCommandBus.h`):
 
-| Klasse | Latenz | Beispiele |
+| Class | Latency | Examples |
 |---|---|---|
-| HOTAS | `kHotasLatencyS` = 0,5 s | `MasterArm`, `Designate`, `WeaponRelease`, `CmDispense`, `RadarMode`, `RadarSlewEl` |
-| DED (Kopf nach unten) | `kDedLatencyS` = 4,0 s | `AlowFt`, `BingoLbs`, `CmdsMode` |
-| Abzug (Sonderfall) | `kTriggerLatencyS` = 0,1 s | `GunTrigger` — der Wert IST die Dauer des Drucks; der ABSTAND zweier Drücke bleibt 0,5 s |
+| HOTAS | `kHotasLatencyS` = 0.5 s | `MasterArm`, `Designate`, `WeaponRelease`, `CmDispense`, `RadarMode`, `RadarSlewEl` |
+| DED (head down) | `kDedLatencyS` = 4.0 s | `AlowFt`, `BingoLbs`, `CmdsMode` |
+| Trigger (special case) | `kTriggerLatencyS` = 0.1 s | `GunTrigger` — the value IS the duration of the squeeze; the SPACING of two squeezes stays 0.5 s |
 
-Zusätzlich sperrt der Bus Kopf-nach-unten-Eingaben, während der Jet manövriert (Lastvielfaches aus dem
-AirData-Block; ohne gültigen Block liest er 1 g).
+In addition the bus locks head-down inputs while the jet is manoeuvring (load factor from the AirData
+block; without a valid block it reads 1 g).
 
-#### 2.3 Der Brief — und ohne Brief bedient er nichts
+#### 2.3 The brief — and without a brief he operates nothing
 
-Eine `set`-Zeile richtet das Flugzeug im Spawn-Fenster ein, VOR dem ersten Piloten-Tick. Eine
-`brief_*`-Zeile richtet den PILOTEN ein: sie ist ein Wert, den er im Flug über den Bus EINGIBT.
+A `set` line configures the aircraft in the spawn window, BEFORE the first pilot tick. A `brief_*` line
+configures the PILOT: it is a value that he ENTERS in flight over the bus.
 
-| Brief | Kanal | Missionszeile |
+| Brief | Channel | Mission line |
 |---|---|---|
 | `BriefAlowFt` | DED | `set brief_alow_ft <ft>` |
 | `BriefBingoLbs` | DED | `set brief_bingo_lbs <lb>` |
 | `BriefMasterArm` | HOTAS | `set brief_master_arm arm\|sim` |
 | `BriefWeapon` | HOTAS | `set brief_weapon gun\|aim9\|aim120` |
-| `BriefRelease(atS)` | HOTAS | `set brief_release_s <t>` (wiederholbar, max. `kMaxBriefedReleases` = 8) |
-| `BriefChaff(atS)` | HOTAS | `set brief_chaff_s <t>` (wiederholbar, max. `kMaxBriefedDispenses` = 8) |
-| `BriefAttack(mode)` | — (keine Box) | `set attack_mode ccip\|ccrp` |
+| `BriefRelease(atS)` | HOTAS | `set brief_release_s <t>` (repeatable, max. `kMaxBriefedReleases` = 8) |
+| `BriefChaff(atS)` | HOTAS | `set brief_chaff_s <t>` (repeatable, max. `kMaxBriefedDispenses` = 8) |
+| `BriefAttack(mode)` | — (no box) | `set attack_mode ccip\|ccrp` |
 
-Ablauf (`EnterBriefedItems`, `ReleaseBriefedStores`, `DispenseBriefedCm`):
+Sequence (`EnterBriefedItems`, `ReleaseBriefedStores`, `DispenseBriefedCm`):
 
-- **Eine Eingabe pro Entscheidungstakt**, feste Reihenfolge ALOW → BINGO → Master-Arm → Waffenwahl.
-  Der Strom ist damit deterministisch, und der Pilot arbeitet einen Hebel nach dem anderen.
-- **Wiederholversuch nur bei Bus-Ablehnung** (Kanal belegt, Manöver-Sperre), und zwar frühestens nach
-  `kBriefRetryS` = 2,0 s [SETZ]. Begründung im Header: eine abgelehnte DED-Eingabe ist eine Hand vom
-  Stick und ein Kopf nach unten; im 10-Hz-Takt zu wiederholen wäre ein Tastaturmakro und würde den
-  Kommandostrom zumüllen. Was die zuständige Box ERREICHT hat, ist final — ein Pilot, dem der Jet „nein"
-  gesagt hat, tippt dieselbe Zahl nicht ewig neu.
-- **Abwürfe und Täuschkörper werden NIE wiederholt.** Eine abgelehnte Auslösung ist eine Entscheidung des
-  Jets.
-- **Cockpitarbeit nur im Flug**: `CurPhase != Idle && !GetWeightOnWheels()`. Am Boden stehen diese
-  Eingaben in der Checkliste vor dem Anlassen, also außerhalb der Phasen dieser Klasse.
+- **One input per decision tick**, in the fixed order ALOW → BINGO → master arm → weapon selection. The
+  stream is thereby deterministic, and the pilot works one lever after the other.
+- **Retry only on a bus rejection** (channel busy, manoeuvre lock), and then at the earliest after
+  `kBriefRetryS` = 2.0 s [SETZ]. Justification in the header: a rejected DED input is a hand off the
+  stick and a head down; repeating it at 10 Hz would be a keyboard macro and would clog the command
+  stream. What REACHED the responsible box is final — a pilot to whom the jet has said "no" does not
+  retype the same number forever.
+- **Releases and countermeasures are NEVER repeated.** A rejected release is a decision of the jet.
+- **Cockpit work only in flight**: `CurPhase != Idle && !GetWeightOnWheels()`. On the ground these inputs
+  are on the checklist before engine start, hence outside the phases of this class.
 
-#### 2.4 Er sieht nur über Sensoren
+#### 2.4 He sees only through sensors
 
-Alles, was der Pilot über andere Einheiten weiß, kommt aus `FBState`-Blöcken: Radar (ANONYME Kontakte +
-Lock-Index), RWR (Peilungen und Emissionsklasse, KEINE Entfernung), FireControl (Startbereich/Abwurflösung),
-Stores, Warnungen, Cmds, Datalink. Der Kopf jedes Blocks (`Invalid`/`Valid`/`Held`) wird ZUERST gefragt
-— `Readable()` bzw. `IsValid()` stehen in jedem Entscheidungspfad vor dem ersten Zahlenzugriff.
+Everything the pilot knows about other units comes from `FBState` blocks: radar (ANONYMOUS contacts +
+lock index), RWR (bearings and emission class, NO range), FireControl (launch envelope/release solution),
+stores, warnings, cmds, datalink. The header of every block (`Invalid`/`Valid`/`Held`) is asked FIRST —
+`Readable()` resp. `IsValid()` stand in every decision path before the first access to a number.
 
 ---
 
-### 3. Die Phasen-Zustandsmaschine
+### 3. The phase state machine
 
-`FBPilot::Phase` (Reihenfolge im Enum ist telemetrie-sichtbar, nur ANHÄNGEN):
+`FBPilot::Phase` (the order in the enum is telemetry-visible, only APPEND):
 `Idle, Preflight, Takeoff, Climb, Route, Approach, Flare, Rollout, Shutdown, Bfm, Intercept, Attack`.
 
-| Phase | Guidance | Was sie tut | Ende |
+| Phase | Guidance | What it does | End |
 |---|---|---|---|
-| `Idle` | `None` | nichts — neutraler Befehl, der AP bleibt unangetastet | nur durch `SetPhase` von außen |
-| `Preflight` | `Manual` | Fahrwerk unten, beide Radbremsen 1.0, Leerlauf, Flügel waagerecht | Triebwerk läuft UND `PhaseElapsedS ≥ kPreflightHoldS` (2,0 s) → `Takeoff`; ohne Bodenkontakt bleibt sie neutral |
-| `Takeoff` | `Manual` | Bremsen los, Schub `TakeoffThrottleNorm()`, Bugradsteuerung auf die Runway-Achse, Stick neutral bis `Vr − RotationLeadKt`, dann Pitch-PD auf `RotationPitchDeg` | WOW == 0 → `Climb` |
-| `Climb` | `Direct` (+ Bein ab WP 2) | zum aktiven Wegpunkt auf DESSEN Höhe, Speed = `ClimbSpeedKt`; Fahrwerk ein bei positiver Rate + AGL-Marge + unter `GearUpLimitKt` | `GetGearPosition() ≤ 0,02` → `Route`; kein Wegpunkt → `Shutdown` |
-| `Route` | `Direct` (+ Bein ab WP 2) | zum aktiven Wegpunkt auf DESSEN Höhe UND Speed | Wegpunkt vom Typ `Land` → `Approach`; kein Wegpunkt mehr → `Shutdown` |
-| `Approach` | `Course` | verlängerte Runway-Mittellinie + `GlidepathAngleDeg`-Sinkflug zur Schwelle, Speed = `ApproachSpeedKt`, Bremsklappe `ApproachSpeedbrakeNorm`, Fahrwerk unten | Radarhöhe ≤ `FlareStartAglFt` → `Flare`; WOW vorher → `Rollout`; keine Runway → `Shutdown` |
-| `Flare` | `Manual` | Schub Leerlauf, Pitch-PD auf `FlareTargetPitchDeg` mit gedämpfter Autorität (`kFlareStickMax` 0,6) | WOW → `Rollout` |
-| `Rollout` | `Manual` | Bremsklappe voll, Zwei-Punkt-Aerobrake auf `AerobrakePitchDeg` bis `AerobrakeSpeedKt`, dann proportionales Absenken der Nase; Radbremsen `RolloutBrakeNorm` erst unterhalb; Bugradsteuerung wie im Start | keine — `core/FBMissionMonitor` urteilt „steht auf der Runway" |
-| `Shutdown` | `None` | nichts | — |
-| `Bfm` | `Manual` (eigenes Gesetz) | § 5 | keine: Kampfphase, per Missionsdeklaration betreten |
-| `Intercept` | `Direct` | § 7 | keine (außer intern `Abort`) |
-| `Attack` | `Direct` | § 4 | nach dem Egress zurück nach `Route` |
+| `Idle` | `None` | nothing — a neutral command, the AP stays untouched | only through `SetPhase` from outside |
+| `Preflight` | `Manual` | gear down, both wheel brakes 1.0, idle, wings level | engine running AND `PhaseElapsedS ≥ kPreflightHoldS` (2.0 s) → `Takeoff`; without ground contact it stays neutral |
+| `Takeoff` | `Manual` | brakes off, thrust `TakeoffThrottleNorm()`, nosewheel steering onto the runway axis, stick neutral until `Vr − RotationLeadKt`, then pitch PD onto `RotationPitchDeg` | WOW == 0 → `Climb` |
+| `Climb` | `Direct` (+ leg from WP 2) | to the active waypoint at ITS altitude, speed = `ClimbSpeedKt`; gear up on a positive rate + AGL margin + below `GearUpLimitKt` | `GetGearPosition() ≤ 0.02` → `Route`; no waypoint → `Shutdown` |
+| `Route` | `Direct` (+ leg from WP 2) | to the active waypoint at ITS altitude AND speed | waypoint of type `Land` → `Approach`; no waypoint left → `Shutdown` |
+| `Approach` | `Course` | extended runway centreline + `GlidepathAngleDeg` descent to the threshold, speed = `ApproachSpeedKt`, speedbrake `ApproachSpeedbrakeNorm`, gear down | radar altitude ≤ `FlareStartAglFt` → `Flare`; WOW before that → `Rollout`; no runway → `Shutdown` |
+| `Flare` | `Manual` | thrust idle, pitch PD onto `FlareTargetPitchDeg` with damped authority (`kFlareStickMax` 0.6) | WOW → `Rollout` |
+| `Rollout` | `Manual` | speedbrake full, two-point aerobrake onto `AerobrakePitchDeg` until `AerobrakeSpeedKt`, then proportional lowering of the nose; wheel brakes `RolloutBrakeNorm` only below that; nosewheel steering as in take-off | none — `core/FBMissionMonitor` judges "standing on the runway" |
+| `Shutdown` | `None` | nothing | — |
+| `Bfm` | `Manual` (own law) | § 5 | none: a combat phase, entered by mission declaration |
+| `Intercept` | `Direct` | § 7 | none (except internally `Abort`) |
+| `Attack` | `Direct` | § 4 | back to `Route` after the egress |
 
-Gemeinsame Bausteine:
+Shared building blocks:
 
-- **`PitchHoldStick(targetDeg, pitchDeg, qDegS, stickMax)`** — ein PD (`kRotateKp` 0,15, `kRotateKd` 0,02)
-  auf eine Ziel-Längslage. Rotation, Flare und Aerobrake/Derotate sind DASSELBE Gesetz mit anderem Ziel
-  und anderer Autoritätsgrenze (`kRotateStickMax` 1,0 bzw. `kFlareStickMax` 0,6).
-- **`NosewheelSteerCmd`** — `−(0,01·Querablage[m] + 0,02·Kursfehler[°])`, gekappt auf ±0,6.
-  Klein gehalten, weil die modelleigene `steer-cmd-norm`→Grad-Kennlinie bei Rollgeschwindigkeit selbst
-  sehr steil ist (~80 °/Einheit bei ~6 kt, `f16.xml`). Achsenkonvention = die von
-  `FBMissionMonitor::OnRunway` und `FBAutopilot::SetCourse` (along = 0 an der Schwelle, + in
-  Runway-Richtung; + across = rechts) — Start, Rollout und Missions-Urteil sind sich damit einig, was
-  „auf der Linie" heißt.
-- **Fahrwerk-ein-Freigabe:** `st.vy > kPositiveRateMs` (0,5 m/s), Radarhöhe **lesbar** und
-  > `kGearUpAglFt` (10 ft), CAS < `GearUpLimitKt`. Die kleine AGL-Marge ist eine JSBSim-Eigenschaft:
-  `FGLGear` friert WOW ein, sobald `gear-pos-norm` erstmals ≤ 0,99 fällt — eine Einfahrt mitten im
-  Aufsetzer würde ein veraltetes `WOW=true` einfrieren. Groß darf sie nicht sein, weil das Modell im
-  vollen Nachbrenner sonst die 300-kt-Fahrwerksgrenze erreicht [DOK `procedures-takeoff-taxi.md`].
-- **Jedes AGL-Gate fragt zuerst den Kopf des Radarhöhen-Blocks.** Ohne gültige Höhe handelt der Pilot
-  NICHT: Fahrwerk bleibt unten, der Flare löst nicht aus, der BFM-Boden zieht nicht mehr
-  [DOK `controls-commands.md` §6.4 — der Sensor sperrt die Wirkung, nicht das Kommando].
+- **`PitchHoldStick(targetDeg, pitchDeg, qDegS, stickMax)`** — a PD (`kRotateKp` 0.15, `kRotateKd` 0.02)
+  onto a target pitch attitude. Rotation, flare and aerobrake/derotate are THE SAME law with a different
+  target and a different authority limit (`kRotateStickMax` 1.0 resp. `kFlareStickMax` 0.6).
+- **`NosewheelSteerCmd`** — `−(0.01·cross-track offset[m] + 0.02·heading error[°])`, capped at ±0.6. Kept
+  small, because the model-owned `steer-cmd-norm`→degrees characteristic is itself very steep at taxi
+  speed (~80 °/unit at ~6 kt, `f16.xml`). Axis convention = that of `FBMissionMonitor::OnRunway` and
+  `FBAutopilot::SetCourse` (along = 0 at the threshold, + in the runway direction; + across = right) —
+  take-off, rollout and the mission verdict thereby agree about what "on the line" means.
+- **Gear-up clearance:** `st.vy > kPositiveRateMs` (0.5 m/s), radar altitude **readable** and
+  > `kGearUpAglFt` (10 ft), CAS < `GearUpLimitKt`. The small AGL margin is a JSBSim property: `FGLGear`
+  freezes WOW as soon as `gear-pos-norm` first falls ≤ 0.99 — a retraction in the middle of a touchdown
+  would freeze a stale `WOW=true`. It must not be large, because in full afterburner the model would
+  otherwise reach the 300 kt gear limit [DOK `procedures-takeoff-taxi.md`].
+- **Every AGL gate asks the header of the radar altitude block first.** Without a valid altitude the
+  pilot does NOT act: the gear stays down, the flare does not trigger, the BFM floor no longer pulls
+  [DOK `controls-commands.md` §6.4 — the sensor blocks the effect, not the command].
 
 ---
 
-### 4. Phase `Attack` — die einzige Phase, deren Entscheidung ein MOMENT ist
+### 4. Phase `Attack` — the only phase whose decision is a MOMENT
 
-Drei Teile; der mittlere dauert einen Tick.
+Three parts; the middle one lasts one tick.
 
-#### 4.1 Anflug (RUN-IN)
+#### 4.1 Run-in
 
-`FBAutopilot::Direct` auf den aktiven Wegpunkt, auf DESSEN deklarierter Höhe und Geschwindigkeit —
-also ein **waagerechter Laydown**. Zwei Gründe, beide im Banner:
+`FBAutopilot::Direct` onto the active waypoint, at ITS declared altitude and speed — hence a **level
+laydown**. Two reasons, both in the banner:
 
-1. `Direct` HÄLT eine Höhe. Einen waagerechten, stabilen Anflug fliegt diese Guidance exakt; ein
-   20–30°-Sturzflug wäre der Pilot im Dauerkampf gegen seine eigene Höhenhaltung.
-2. So bleibt der AUSLÖSEMOMENT die einzige Variable des Versuchs: der Anflug ist auf den Meter
-   wiederholbar, jeder Meter Fehlabstand gehört der Rechnung oder dem Moment, nicht dem Fliegen.
+1. `Direct` HOLDS an altitude. This guidance flies a level, stable run-in exactly; a 20–30° dive would be
+   the pilot in a permanent fight against his own altitude hold.
+2. That way the RELEASE MOMENT stays the only variable of the experiment: the run-in is repeatable to the
+   metre, every metre of miss distance belongs to the computation or to the moment, not to the flying.
 
-Der Anflug ist eine **BAHN, keine Peilung**: der Ursprung wird im Moment des Anflugbeginns EINMAL
-verankert (`AtkHaveRunIn_`, `AtkRunInLatDeg_/LonDeg_`) und über `HaveLeg` an `SetDirectLeg` gereicht.
-Die Mission deklariert keinen Initial Point, also IST der Punkt, an dem der Anflug begann, der Initial
-Point. [MESS, `doc/mission-format.md`] Querfehler 31,6 m → 10,6 m auf dem 19-km-CCRP-Anflug, der
-Längsanteil unverändert.
+The run-in is a **PATH, not a bearing**: the origin is anchored ONCE at the moment the run-in begins
+(`AtkHaveRunIn_`, `AtkRunInLatDeg_/LonDeg_`) and handed to `SetDirectLeg` via `HaveLeg`. The mission
+declares no initial point, so the point at which the run-in began IS the initial point. [MESS,
+`doc/mission-format.md`] cross-track error 31.6 m → 10.6 m on the 19 km CCRP run-in, the along-track
+component unchanged.
 
-#### 4.2 Der EINE Pickle
+#### 4.2 The ONE pickle
 
-Die Torbedingungen in der Reihenfolge, in der ein Pilot sie prüft:
+The gate conditions in the order in which a pilot checks them:
 
-| # | Bedingung | Quelle |
+| # | Condition | Source |
 |---|---|---|
-| 1 | `fc.H.Readable() && fc.AgValid` | kein Rechner, kein Abwurf |
-| 2 | `fc.AgArmMarginS > 0` | ein Abwurf von hier käme als Blindgänger an (PUAC) |
-| 3 | `fc.AgInRange` mindestens EINMAL gesehen (`AtkInRangeSeen_` gelatcht) | ein Countdown zählt DURCH null; ohne Latch feuert man auch auf eine nie positive Lösung (kein Bodenspeed eingegeben, Ziel längst hinter dem Jet) |
-| 4a | **CCRP**: `fc.AgTimeToReleaseS ≤ leadS − bias` | der Cue |
-| 4b | **CCIP**: dasselbe UND `\|fc.AgCrossErrM\| ≤ AttackCcipTolM` | die Beurteilung, die ein Countdown nicht treffen kann |
+| 1 | `fc.H.Readable() && fc.AgValid` | no computer, no release |
+| 2 | `fc.AgArmMarginS > 0` | a release from here would arrive as a dud (PUAC) |
+| 3 | `fc.AgInRange` seen at least ONCE (`AtkInRangeSeen_` latched) | a countdown counts THROUGH zero; without the latch one also fires on a solution that was never positive (no ground speed entered, target long behind the jet) |
+| 4a | **CCRP**: `fc.AgTimeToReleaseS ≤ leadS − bias` | the cue |
+| 4b | **CCIP**: the same AND `\|fc.AgCrossErrM\| ≤ AttackCcipTolM` | the judgement that a countdown cannot make |
 
-Nur der QUER-Anteil geht in die CCIP-Bedingung. Der Längsanteil ist genau das, worum es beim Cue geht —
-er ist im Moment des Drucks absichtlich ungleich null (die Bombe muss noch geworfen werden). Den
-kombinierten Fehlabstand zu prüfen würde jeden richtigen Abwurf ablehnen und dann einen späten annehmen.
+Only the CROSS-track component goes into the CCIP condition. The along-track component is exactly what
+the cue is about — it is deliberately non-zero at the moment of the press (the bomb still has to be
+thrown). Checking the combined miss distance would reject every correct release and then accept a late
+one.
 
-**Die Vorhaltung um die eigene Betätigungslatenz.**
-`leadS = FBCommandBus::LatencyS(FBCommandTarget::WeaponRelease)` = 0,5 s. Genau auf dem Cue zu drücken
-ließe den Store eine halbe Sekunde zu spät von der Schiene: bei 230 m/s sind das 115 m — mehr, als die
-ganze Rechnung wert ist. **Der echte Jet löst dasselbe Problem andersherum:** im CCRP HÄLT der Pilot den
-Knopf und das FLUGZEUG löst aus, wenn der Cue durchläuft [DOK `weapons.md` §2.5]. Die Absicht wird also
-früh geäußert und der Moment gehört dem Rechner. Auf einem Bus, auf dem ein Kommando ein diskretes
-Ereignis ist, ist „um exakt die Kanal-Latenz vorhalten" genau dieselbe Aussage — und sie ist das Wissen
-des Piloten um seine eigenen Hände, kein Blick in etwas, das er nicht sehen darf.
+**The lead by one's own actuation latency.**
+`leadS = FBCommandBus::LatencyS(FBCommandTarget::WeaponRelease)` = 0.5 s. Pressing exactly on the cue
+would let the store leave the rail half a second too late: at 230 m/s that is 115 m — more than the whole
+computation is worth. **The real jet solves the same problem the other way round:** in CCRP the pilot
+HOLDS the button and the AIRCRAFT releases when the cue runs through [DOK `weapons.md` §2.5]. The
+intention is therefore expressed early and the moment belongs to the computer. On a bus where a command
+is a discrete event, "lead by exactly the channel latency" is the very same statement — and it is the
+pilot's knowledge of his own hands, not a look into something he may not see.
 
-**Der Pilot rechnet keine Ballistik.** Er hält keine Zielposition und löst keine Bahn: er liest den
-FireControl-Block wie den Radarhöhenmesser vor einem Flare. Wer rechnet: `core/FBBallistics` (geteilte
-Vorwärtsintegration) über `modules/f16/FBF16FireControl`.
+**The pilot computes no ballistics.** He holds no target position and solves no trajectory: he reads the
+FireControl block like the radar altimeter before a flare. Who computes: `core/FBBallistics` (shared
+forward integration) via `modules/f16/FBF16FireControl`.
 
-Der Pickle wird EINMAL abgesetzt und bei Ablehnung nie wiederholt; die Zeile
-`pilot ATTACK_RELEASE` protokolliert Modus, Annahme, `ttrS`, `leadS`, `biasS`, Längs-/Querfehler,
-Fehlabstand, Wurfweite, Flugzeit, Schärfreserve, Höhe und Bodenspeed.
+The pickle is posted ONCE and never repeated on a rejection; the line `pilot ATTACK_RELEASE` records
+mode, acceptance, `ttrS`, `leadS`, `biasS`, along/cross error, miss distance, throw range, time of
+flight, arming margin, altitude and ground speed.
 
-#### 4.3 Abdrehen (EGRESS)
+#### 4.3 Egress
 
-Nach dem Abwurf: Zielpunkt EINMAL rechnen (`AttackEgressTurnDeg` gegen den aktuellen BODENKURS aus dem
-AirData-Block, `AttackEgressRangeM` voraus, `AttackEgressClimbM` höher), dann `Direct` dorthin mit der
-Geschwindigkeit, die der Anflug hinterlassen hat, für `AttackEgressS` Sekunden — danach zurück nach
-`Route`. Immer nach RECHTS: eine Ausweichkurve muss sich für eine Seite entscheiden, und die Seite aus
-der Geometrie zu wählen wäre eine Entscheidung, für die es hier keine Quelle gibt [SETZ].
-Kein Schmuck: ein waagerechter Abwurf fliegt das Flugzeug über die eigene Detonation.
+After the release: compute the target point ONCE (`AttackEgressTurnDeg` against the current GROUND TRACK
+from the AirData block, `AttackEgressRangeM` ahead, `AttackEgressClimbM` higher), then `Direct` to it at
+the speed the run-in left behind, for `AttackEgressS` seconds — then back to `Route`. Always to the
+RIGHT: an escape turn has to decide on a side, and choosing the side from the geometry would be a
+decision for which there is no source here [SETZ]. No ornament: a level release flies the aircraft over
+its own detonation.
 
-#### 4.4 Die Vorspannung als Messinstrument
+#### 4.4 The bias as a measuring instrument
 
-`AttackReleaseBiasS` (Variante `pilot_attack_bias_s`, Band −10…+10 s) verschiebt AUSSCHLIESSLICH
-Bedingung 4a. Ein um `bias` Sekunden verspäteter Abwurf landet pro Sekunde eine Bodengeschwindigkeit
-weiter — damit beantwortet die Mission die Frage „tut die Rechnung überhaupt etwas".
-[MESS] `attack-late.fbm` mit `set pilot_attack_bias_s 2.0`: 482 m Fehlabstand statt 22 m.
+`AttackReleaseBiasS` (variant `pilot_attack_bias_s`, band −10…+10 s) shifts EXCLUSIVELY condition 4a. A
+release delayed by `bias` seconds lands one ground speed further per second — with that the mission
+answers the question "does the computation do anything at all".
+[MESS] `attack-late.fbm` with `set pilot_attack_bias_s 2.0`: 482 m miss distance instead of 22 m.
 
 ---
 
-### 5. Phase `Bfm` — die einzige Phase mit EIGENEM Regelgesetz
+### 5. Phase `Bfm` — the only phase with its OWN control law
 
-Kein Autopilot-Modus: `Guidance = Manual`, wie Takeoff/Flare/Rollout. Grund: `Direct`/`Course` sind
-NAVIGATIONS-Modi, deren 60°-Querlagendeckel und bewusst sanfter Rolleinsatz (`FBFlightControl::F16`s
-`RollStickMax` = 0,15, eine Reiseflugzahl) für einen Kampf strukturell falsch sind — und sie
-umzustimmen würde die Zahlen jeder bestehenden Mission verschieben.
+No autopilot mode: `Guidance = Manual`, like takeoff/flare/rollout. Reason: `Direct`/`Course` are
+NAVIGATION modes whose 60° bank cap and deliberately gentle roll input (`FBFlightControl::F16`'s
+`RollStickMax` = 0.15, a cruise number) are structurally wrong for a fight — and re-tuning them would
+shift the numbers of every existing mission.
 
-Ein Tick sind vier Schritte: Bild lesen → Verfolgungsart wählen → Zielpunkt bilden → mit der noch
-vorhandenen Energie hinfliegen.
+One tick is four steps: read the picture → choose the pursuit type → form the aim point → fly there with
+the energy that is left.
 
-#### 5.1 Das Gesetz: EIN Auftriebsvektor, EIN Lastvielfaches
+#### 5.1 The law: ONE lift vector, ONE load factor
 
-Ein Flugzeug kann nur entlang seiner Auftriebsachse (Bauch → Haube) beschleunigen. Eine Kurve ist also
-erst ein ROLLEN, das diese Achse dorthin legt, wo Beschleunigung gebraucht wird, und dann ein ZIEHEN.
-Gewollt sind zwei Dinge, beide Vektoren in der Ebene senkrecht zur Geschwindigkeit — also werden sie
-addiert:
+An aircraft can only accelerate along its lift axis (belly → canopy). A turn is therefore first a ROLL
+that puts this axis where acceleration is needed, and then a PULL. Two things are wanted, both vectors in
+the plane perpendicular to the velocity — so they are added:
 
 ```
-L = a_turn·(sin φ, cos φ) + (−g·sin(roll)·cos(pitch), +g·cos(roll)·cos(pitch))      [Körper: rechts, oben]
+L = a_turn·(sin φ, cos φ) + (−g·sin(roll)·cos(pitch), +g·cos(roll)·cos(pitch))      [body: right, up]
 a_turn = min( V · err_rad / kBfmTurnTimeS , g_avail · g0 )
-roll_cmd = clamp( atan2(L_rechts, L_oben) / kBfmRollFullDeg , −1, +1 )
+roll_cmd = clamp( atan2(L_right, L_up) / kBfmRollFullDeg , −1, +1 )
 n_cmd    = clamp( |L| / g0 , 0 , g_avail )
 ```
 
-φ ist die Richtung des Lenkfehlers in denselben Körperachsen; `kBfmTurnTimeS` = 2,0 s [SETZ] ist die
-Zeit, in der der Pilot den Lenkfehler weghaben will; `kBfmRollFullDeg` = 60° [SETZ] ist der Rollfehler,
-der vollen Querausschlag verdient.
+φ is the direction of the steering error in the same body axes; `kBfmTurnTimeS` = 2.0 s [SETZ] is the
+time in which the pilot wants the steering error gone; `kBfmRollFullDeg` = 60° [SETZ] is the roll error
+that deserves full lateral deflection.
 
-**Drei Verhalten fallen aus diesem einen Ausdruck heraus statt als Sonderfälle codiert zu sein:**
+**Three behaviours fall out of this one expression instead of being coded as special cases:**
 
-1. Fehler null bei beliebiger Querlage → **L** zeigt in der WELT senkrecht nach oben → der Jet rollt
-   flügelgleich und hält 1 g. Das ist die Nachführlösung, ohne eigenen Nachführmodus.
-2. Reiner Azimutfehler im Horizontalflug → `roll = atan(a_turn/g)` und `n = 1/cos(roll)` — das IST die
-   Kurvenflugbeziehung, hier erreicht statt angenommen.
-3. Harte Kurve bei 90° Querlage → die Schwerkraft hat ENTLANG der Auftriebsachse gar keine Komponente,
-   die Kurve kostet also nur ihr eigenes g und die Nase fällt.
+1. Zero error at any bank angle → **L** points vertically up in the WORLD → the jet rolls wings-level and
+   holds 1 g. That is the tracking solution, without a tracking mode of its own.
+2. Pure azimuth error in level flight → `roll = atan(a_turn/g)` and `n = 1/cos(roll)` — that IS the
+   turning-flight relation, reached here instead of assumed.
+3. A hard turn at 90° of bank → gravity has no component ALONG the lift axis at all, so the turn costs
+   only its own g and the nose falls.
 
-**Warum `cos(roll)·cos(pitch)` und NICHT `1/cos(roll)`.** Der Term ist die Projektion der Schwerkraft
-auf die Auftriebsachse, nicht die Forderung, Höhe zu halten. `1/cos(roll)` wäre das
-Horizontalkurven-Lastvielfache — ein Gesetz, das bei 90° Querlage gegen unendlich geht und schon bei 80°
-still 5,7 g dafür ausgibt, eine Höhe zu halten, die niemand verlangt hat. Die gewählte Form lässt die
-Nase in der Schräglage fallen, und **genau das macht den Energiekampf erst möglich**: Höhe wird gegen
-Geschwindigkeit getauscht, ohne dass irgendwo ein „Energie-Modus" steht.
+**Why `cos(roll)·cos(pitch)` and NOT `1/cos(roll)`.** The term is the projection of gravity onto the lift
+axis, not the demand to hold altitude. `1/cos(roll)` would be the level-turn load factor — a law that
+goes to infinity at 90° of bank and already spends 5.7 g at 80° silently on holding an altitude nobody
+asked for. The chosen form lets the nose fall in the bank, and **exactly that is what makes the energy
+fight possible in the first place**: altitude is traded for speed without an "energy mode" standing
+anywhere.
 
-**Die Achsen einzeln:**
+**The axes individually:**
 
-- **Rolle** braucht keinen Dämpfungsanteil: der Querstick einer FLCS-Zelle IST ein RATEN-Kommando
-  (`f16.xml` differenziert `fcs/aileron-cmd-norm` gegen die gemessene Rollrate), ein Proportionalgesetz
-  auf den WINKELfehler ist damit bereits eines auf die Rate.
-- **Nick** ist eine PI-Regelung auf den Lastvielfachen-Fehler (`kBfmGKp` 0,25, `kBfmGKi` 0,5,
-  I-Grenze ±0,6), weil die Stick-zu-g-Autorität einer FLCS geschwindigkeitsabhängig ist. Bewusst
-  ASYMMETRISCH gekappt: voller Zug, aber nur `kBfmPushMax` = 0,3 Druck — ein Jäger zieht und entlastet,
-  er drückt nicht.
-- **Verfügbares g**: `g_avail = clamp(CornerG·(V/Vcorner)², 1, MaxG)` — Auftrieb wächst mit dem
-  Staudruck. Damit fordert die Schleife nie eine Kurve, die es nicht gibt, und der Integrator läuft
-  nicht auf.
+- **Roll** needs no damping term: the lateral stick of an FLCS airframe IS a RATE command (`f16.xml`
+  differentiates `fcs/aileron-cmd-norm` against the measured roll rate), so a proportional law on the
+  ANGLE error is already one on the rate.
+- **Pitch** is a PI control on the load factor error (`kBfmGKp` 0.25, `kBfmGKi` 0.5, I limit ±0.6),
+  because the stick-to-g authority of an FLCS is speed-dependent. Deliberately capped ASYMMETRICALLY:
+  full pull, but only `kBfmPushMax` = 0.3 push — a fighter pulls and unloads, it does not push.
+- **Available g**: `g_avail = clamp(CornerG·(V/Vcorner)², 1, MaxG)` — lift grows with dynamic pressure.
+  With that the loop never demands a turn that does not exist, and the integrator does not wind up.
 
-#### 5.2 Verfolgungsart aus der Geometrie
+#### 5.2 Pursuit type from the geometry
 
-Der Überschuss ist ein **FAHRPLAN, keine Schwelle**: die gewünschte Annäherung ist proportional zur
-Restentfernung, damit die Annäherungsrate beim Erreichen der Kontrollentfernung bereits abgebaut ist.
+The excess is a **SCHEDULE, not a threshold**: the desired closure is proportional to the remaining
+range, so that the closure rate has already been worked off by the time the control range is reached.
 
 ```
-ctrlMid = ½·(ctrlMin + ctrlMax)                          // Kontrollposition, über die Variante lesbar
+ctrlMid = ½·(ctrlMin + ctrlMax)                          // control position, readable through the variant
 schedKt = clamp( (R_nm − ctrlMid) · BfmClosureGainKtPerNm , ±BfmMaxClosureKt )
-overtaking = validTrack && closKt > schedKt + kBfmClosureDeadKt      // Totband 40 kt
+overtaking = validTrack && closKt > schedKt + kBfmClosureDeadKt      // dead band 40 kt
 ```
 
-| Art | Bedingung | Zielpunkt |
+| Type | Condition | Aim point |
 |---|---|---|
-| `Search` | kein gültiger Track | Richtung + Höhe (§ 5.4), nie ein Punkt |
-| `Lag` | `R < ctrlMin` ODER `overtaking` | HINTER ihm entlang seiner Bahn (`BfmLagTimeS`) **und** ÜBER ihm (`BfmYoYoHeightM · excess`) |
-| `Lead` | `Aspekt > BfmLeadAspectDeg` ODER `R > BfmLeadRangeNm` | Kollisionsvorhalt: `t_lead = clamp(R/V, 0, BfmLeadMaxS)`, Ziel + `v_tgt·t_lead` |
-| `Pure` | sonst | auf ihn |
+| `Search` | no valid track | direction + altitude (§ 5.4), never a point |
+| `Lag` | `R < ctrlMin` OR `overtaking` | BEHIND him along his path (`BfmLagTimeS`) **and** ABOVE him (`BfmYoYoHeightM · excess`) |
+| `Lead` | `aspect > BfmLeadAspectDeg` OR `R > BfmLeadRangeNm` | collision lead: `t_lead = clamp(R/V, 0, BfmLeadMaxS)`, target + `v_tgt·t_lead` |
+| `Pure` | otherwise | onto him |
 
-- **Lag sind ZWEI Verschiebungen, nicht eine.** Hinter ihm stoppt die Nase davor, nach vorn zu
-  schießen; ÜBER ihm baut den Überschuss tatsächlich ab — aus der Kurvenebene nach oben ziehen tauscht
-  die überschüssige Geschwindigkeit in Höhe, statt sie mit Widerstand zu verbrennen, den der Jet nicht
-  hat, und gibt sie im Herunterkommen zurück. Das IST der **High Yo-Yo**. Die Höhe skaliert mit
-  `excess = clamp((closKt − schedKt)/BfmMaxClosureKt, 0, 1)`, wickelt sich also von selbst ab.
-- **Lead ist eine ZEIT, kein fester Winkel** — der Vorhalt schrumpft mit der Entfernung und verlangt nie
-  eine Kurve in leeren Himmel.
+- **Lag is TWO displacements, not one.** Behind him stops the nose from shooting out in front; ABOVE him
+  actually works the excess off — pulling up out of the turn plane trades the excess speed for altitude
+  instead of burning it with drag the jet does not have, and gives it back on the way down. That IS the
+  **high yo-yo**. The height scales with `excess = clamp((closKt − schedKt)/BfmMaxClosureKt, 0, 1)`, so it
+  unwinds by itself.
+- **Lead is a TIME, not a fixed angle** — the lead shrinks with range and never demands a turn into empty
+  sky.
 
-#### 5.3 Der Gashebel als zweite Hälfte des Annäherungsproblems
+#### 5.3 The throttle as the second half of the closure problem
 
-Hinter ihn zu zielen hält die Nase drin; es hält keinen Jet auf, der schlicht 100 kt schneller ist. Also
-fliegt der Pilot die GESCHWINDIGKEIT, die die Geometrie will:
+Aiming behind him keeps the nose in; it does not stop a jet that is simply 100 kt faster. So the pilot
+flies the SPEED that the geometry wants:
 
 ```
-mit Track:   speedErrKt = (v_tgt − v_own)·kt + schedKt      // schedKt ist INNERHALB der Zone negativ
-ohne Track:  speedErrKt = BfmCornerSpeedKt − casKt          // Ecke, wo jeder Kampf am besten beginnt
-thr = clamp( kBfmThrTrim(0,6) + kBfmThrKpPerKt(0,006)·speedErrKt , 0, 1 )    // ±67 kt = Leerlauf…voll
-lowEnergy → thr = 1,0
-cas > BfmCornerSpeedKt·kBfmOverspeedFrac(1,15) → thr = min(thr, 0,6)
+with a track:  speedErrKt = (v_tgt − v_own)·kt + schedKt      // schedKt is negative INSIDE the zone
+without one:   speedErrKt = BfmCornerSpeedKt − casKt          // the corner, where every fight starts best
+thr = clamp( kBfmThrTrim(0.6) + kBfmThrKpPerKt(0.006)·speedErrKt , 0, 1 )    // ±67 kt = idle…full
+lowEnergy → thr = 1.0
+cas > BfmCornerSpeedKt·kBfmOverspeedFrac(1.15) → thr = min(thr, 0.6)
 Speedbrake = speedErrKt < −kBfmSpeedbrakeKt(40) ? 1 : 0
 ```
 
-**„Ohne Energie" ist relativ, nicht absolut:**
-`lowEnergy = casKt < BfmMinSpeedKt && (!validTrack || v_tgt > v_own)`. Ein Verfolger in der
-Kontrollposition hinter einem hart und verzögernd kurvenden Verteidiger IST unterhalb seines eigenen
-Eckbands, und das mit vollem Nachbrenner zu „korrigieren" wirft ihn nach vorn heraus.
-[MESS] die absolute Regel kostete 250 von 268 Sekunden Kontrollposition.
+**"Out of energy" is relative, not absolute:**
+`lowEnergy = casKt < BfmMinSpeedKt && (!validTrack || v_tgt > v_own)`. A pursuer in the control position
+behind a hard, decelerating defender IS below his own corner band, and "correcting" that with full
+afterburner throws him out in front.
+[MESS] the absolute rule cost 250 out of 268 seconds of control position.
 
-`lowEnergy` wirkt außerdem im Zielpunkt: `if (lowEnergy && aimU > 0) aimU = 0` — ein **Deckel**, keine
-Nase-runter-Vorspannung. Ein negativer Höhenwunsch würde den Auftriebsvektor INVERTIEREN (das Gesetz
-zeigt die Auftriebsachse auf den Zielpunkt, „unter mir" heißt 180° Rolle), also einen Split-S fliegen.
-[MESS] genau das warf den Jet 2.900 m tief, während der Pilot nur 50 kt zurückgewinnen wollte.
+`lowEnergy` also acts in the aim point: `if (lowEnergy && aimU > 0) aimU = 0` — a **cap**, not a
+nose-down bias. A negative altitude wish would INVERT the lift vector (the law points the lift axis at
+the aim point, "below me" means 180° of roll), hence fly a split-S.
+[MESS] exactly that threw the jet 2,900 m down while the pilot only wanted to recover 50 kt.
 
-#### 5.4 Die Suche: das Datum + die Unsicherheitsbreite
+#### 5.4 The search: the datum + the uncertainty width
 
-Die Suche fliegt eine **RICHTUNG und eine HÖHE**, niemals einen Punkt, und sie fliegt das **DATUM**
-(§ 6.2), nicht die zuletzt gemessene Position.
+The search flies a **DIRECTION and an ALTITUDE**, never a point, and it flies the **DATUM** (§ 6.2), not
+the last measured position.
 
 ```
 if (datum.Valid && datum.RangeM > datum.RadiusM) { brg = datum.BearingDeg; aimU = datum.UpM; }
-else                                             { brg = anker(BfmSearchHdgDeg_); aimU = anker(BfmSearchAltM_) − st.elev; }
+else                                             { brg = anchor(BfmSearchHdgDeg_); aimU = anchor(BfmSearchAltM_) − st.elev; }
 aim = kBfmSearchRangeM(3 nm) · (sin brg, cos brg)
 aimU = clamp(aimU, −tan(kBfmSearchDownMaxDeg 5°)·R, +tan(kBfmSearchUpMaxDeg 20°)·R)
 ```
 
-Vier Einzelentscheidungen, jede mit gemessener Begründung:
+Four individual decisions, each with a measured justification:
 
-1. **Datum statt gefrorenem Messpunkt.** Der Block fällt jenseits des Extrapolationsfensters auf die
-   zuletzt GEMESSENE Position zurück; ein Verteidiger im Break hat davon bis zum Suchbeginn ein Viertel
-   seines Kreises entfernt. [MESS] Zielen auf den alten Punkt erzeugte einen 1.500-m-Sturz auf ein
-   Datum, dessen Besitzer längst weg war.
-2. **Innerhalb des Gebiets ist die Peilung KEINE Information mehr.** Ist der Jet innerhalb
-   `datum.RadiusM`, ist der Gegner genauso wahrscheinlich hinten wie vorn; auf den Mittelpunkt zu
-   steuern, auf dem man sitzt, lässt die Peilung durch 180° schwingen, das Gesetz antwortet mit einer
-   Maximalraten-Umkehr, und die Suche wird ein Orbit. Dann ist die ehrliche Suche die kalte: Kurs und
-   Höhe halten und das Scan-Muster arbeiten lassen.
-3. **Die kalte Suche wird VERANKERT** (`BfmSearchAnchored_`): auf „wohin meine Nase gerade zeigt" zu
-   zielen ist ein Regelkreis ohne Referenz — [MESS] das Weben startet eine Rolle, die Rolle dreht den
-   Jet, der Zielpunkt folgt der Drehung, und die Suche setzt sich in einen stabilen 80°-Schräglagen-Orbit,
-   der nichts absucht. Sobald wieder ein Track existiert, wird die Verankerung gelöst.
-4. **Die Suche wird AUFRECHT geflogen**, mit asymmetrischen Grenzen (20° hoch, 5° runter). Ein steiler
-   Abwärtswunsch lässt das Auftriebsvektor-Gesetz invertiert rollen (siehe oben) — [MESS] 2.000 m Zoom
-   und Rolle, während das Ziel auf Datum-Höhe in aller Ruhe unbeobachtet flog. Höhe, die in einer
-   Schräglage verlorengeht, wird durch STEIGEN zurückgeholt, nicht durch Nachstürzen.
+1. **Datum instead of a frozen measurement point.** The block falls back beyond the extrapolation window
+   onto the last MEASURED position; a defender in a break has moved a quarter of his circle away from it
+   by the time the search starts. [MESS] aiming at the old point produced a 1,500 m dive onto a datum
+   whose owner was long gone.
+2. **Inside the area the bearing is no longer information.** If the jet is inside `datum.RadiusM`, the
+   opponent is just as likely to be behind as in front; steering onto the centre point one is sitting on
+   makes the bearing swing through 180°, the law answers with a maximum-rate reversal, and the search
+   becomes an orbit. Then the honest search is the cold one: hold heading and altitude and let the scan
+   pattern work.
+3. **The cold search is ANCHORED** (`BfmSearchAnchored_`): aiming at "wherever my nose is pointing right
+   now" is a control loop without a reference — [MESS] the weave starts a roll, the roll turns the jet,
+   the aim point follows the turn, and the search settles into a stable 80° bank orbit that searches
+   nothing. As soon as a track exists again, the anchoring is released.
+4. **The search is flown UPRIGHT**, with asymmetric limits (20° up, 5° down). A steep downward wish makes
+   the lift vector law roll inverted (see above) — [MESS] 2,000 m of zoom and roll while the target flew
+   unobserved at datum altitude in all peace. Altitude lost in a bank is recovered by CLIMBING, not by
+   diving after it.
 
-**Das Webmuster** (`SearchWeaveDeg`) — der Zielpunkt wird IN DER WELT um die Vertikale rotiert (nicht
-Grad auf den Körper-Azimut addiert), damit der Lenkfehler bei jeder Querlage eine kohärente Richtung
-bleibt. Zwei Muster:
+**The weave pattern** (`SearchWeaveDeg`) — the aim point is rotated about the vertical IN THE WORLD (not
+degrees added to the body azimuth), so that the steering error stays a coherent direction at any bank
+angle. Two patterns:
 
-| Fall | Amplitude | Periode | Phasenbezug |
+| Case | Amplitude | Period | Phase reference |
 |---|---|---|---|
-| kein Datum (nie etwas gesehen) | `BfmScanAmplitudeDeg` | `BfmScanPeriodS` | Missionsuhr |
-| Datum vorhanden | `clamp(datum.HalfWidthDeg, base, kBfmScanMaxAmpDeg 45°)` | `BfmScanPeriodS · amp/base` | **Suchbeginn** (`ScanSinceS_`) |
+| no datum (never seen anything) | `BfmScanAmplitudeDeg` | `BfmScanPeriodS` | mission clock |
+| datum available | `clamp(datum.HalfWidthDeg, base, kBfmScanMaxAmpDeg 45°)` | `BfmScanPeriodS · amp/base` | **start of the search** (`ScanSinceS_`) |
 
-- **Die Breite ist das, was der Pilot NICHT weiß.** Eine feste Amplitude sucht dieselben paar Grad ab,
-  ob er vor einer Sekunde oder vor einer Minute verlorenging.
-- **Die Periode wächst mit**, damit die Eigen-Kursrate des Webens (`2π·A/T`) die sanfte Zahl bleibt, die
-  die Zellen-Hooks nennen: eine breitere Suche dauert länger, sie kurvt nicht härter.
-  [MESS] ein 20°/10-s-Weben setzte den Jet in einen permanenten 77°-Schräglagen-Orbit und erfasste nichts.
-- **Die Phase ist am SUCHBEGINN verankert**, damit der Sweep AUF der Datum-Peilung beginnt — der
-  wahrscheinlichsten Peilung, die es gibt — und symmetrisch nach außen wandert. Auf der Missionsuhr
-  phasiert, betritt der Pilot jede Suche an einem zufälligen Punkt der Sinuskurve.
-  [MESS, 16 Merges einer Geometrie] vorher 6 von 11 Kontaktverlusten wieder erfasst (34/80/81/86/170/240 s,
-  fünfmal nie), nachher 11 von 11 (10…141 s, Median 39 s).
+- **The width is what the pilot does NOT know.** A fixed amplitude searches the same few degrees whether
+  he was lost a second ago or a minute ago.
+- **The period grows with it**, so that the weave's own heading rate (`2π·A/T`) stays the gentle number
+  the airframe hooks name: a wider search takes longer, it does not turn harder.
+  [MESS] a 20°/10 s weave put the jet into a permanent 77° bank orbit and acquired nothing.
+- **The phase is anchored at the START OF THE SEARCH**, so that the sweep begins ON the datum bearing —
+  the most probable bearing there is — and moves outwards symmetrically. Phased on the mission clock, the
+  pilot enters every search at a random point of the sine.
+  [MESS, 16 merges of one geometry] before: 6 of 11 contact losses reacquired (34/80/81/86/170/240 s,
+  five times never), afterwards 11 of 11 (10…141 s, median 39 s).
 
-Das Weben läuft, sobald `!validTrack || trackAgeS > BfmScanAfterS` — bis dahin folgt die Nase allein
-der Extrapolation.
+The weave runs as soon as `!validTrack || trackAgeS > BfmScanAfterS` — until then the nose follows the
+extrapolation alone.
 
-#### 5.5 Der Bodendeckel
+#### 5.5 The floor
 
 `if (BfmFloorFt() > 0 && ra.H.Readable() && ra.AglFt < BfmFloorFt())`
 → `elErr += kBfmFloorPullDeg(30°) · clamp(1 − AglFt/FloorFt, 0, 1)`.
-Er steht ÜBER allem darüber: ein in den Boden geflogener Kampf ist kein gewonnener Kampf. Ohne lesbaren
-Radarhöhen-Block zieht er nicht (§ 3).
+It stands ABOVE everything above it: a fight flown into the ground is not a fight won. Without a readable
+radar altitude block it does not pull (§ 3).
 
-#### 5.6 Die Kanonen-Nachführung (Abschnitt 3b/3c) — ein GESETZ, keine Zahl
+#### 5.6 Gun tracking (section 3b/3c) — a LAW, not a number
 
-**Warum die Phase überhaupt ein zweites Gesetz braucht.** Verfolgungssteuerung (§ 5.2) zielt die Nase
-auf eine POSITION — wo er ist, wo er in zwei Sekunden sein wird, oder einen Punkt hinter ihm. Keine
-davon ist, wohin ein Geschütz zeigen muss: eine 20-mm-Runde braucht eine Drittelsekunde für 300 m, und
-das Ziel wandert in dieser Zeit um eine Spannweite an Winkel. Reine Verfolgung innerhalb der
-Kanonenreichweite ist damit ein garantierter Fehlschuss — [MESS] mit dem Verfolgungsgesetz allein läuft
-der Zielfehler IN der Kontrollposition auf ~9° gegen eine Trichtertoleranz von ~1°, und der Abzug kommt
-nie herunter. Deshalb wird der Lenkfehler im Trichter der vom Feuerleitrechner publizierte
-VORHALTE-Fehler: dieselbe Lösung, die auch das Abzugstor liest, also können Zielen und Schießen nicht
-auseinandergehen. Der Pilot rechnet dabei nichts — er liest eine Zahl vom Bus wie jedes andere
-Instrument.
+**Why the phase needs a second law at all.** Pursuit steering (§ 5.2) aims the nose at a POSITION — where
+he is, where he will be in two seconds, or a point behind him. None of these is where a gun has to point:
+a 20 mm round takes a third of a second for 300 m, and the target moves a wingspan of angle in that time.
+Pure pursuit inside gun range is therefore a guaranteed miss — [MESS] with the pursuit law alone the aim
+error IN the control position runs to ~9° against a funnel tolerance of ~1°, and the trigger never comes
+down. That is why in the funnel the steering error becomes the LEAD error published by the fire control
+computer: the same solution that the trigger gate reads too, so aiming and shooting cannot diverge. The
+pilot computes nothing in the process — he reads a number off the bus like any other instrument.
 
-**Eintrittstor.** Drei Bedingungen; die letzten zwei verhindern, dass dies ein schlechteres
-Verfolgungsgesetz wird als das obige:
+**Entry gate.** Three conditions; the last two prevent this from becoming a worse pursuit law than the
+one above:
 
 ```
 gunTrack = Gun.H.Readable() && Gun.Ready && fc.H.Readable() && fc.GunValid
-        && fc.GunSpanMr >= fc.GunFunnelBottomMr        // die Reichweitenprüfung des Guides selbst
-        && |g.AzDeg| <= BfmControlAtaDeg               // er ist VORN
-        && fc.GunAimErrorDeg <= BfmGunTrackMaxErrDeg   // es ist ein NACHFÜHR- und kein Kurvenproblem
+        && fc.GunSpanMr >= fc.GunFunnelBottomMr        // the guide's own range check
+        && |g.AzDeg| <= BfmControlAtaDeg               // he is IN FRONT
+        && fc.GunAimErrorDeg <= BfmGunTrackMaxErrDeg   // it is a TRACKING and not a turning problem
 ```
 
-Eine Kanonenlösung existiert für ein Ziel ÜBERALL, auch für eines, das gerade an der Fläche
-vorbeigezogen ist — deren geforderte Rohrrichtung liegt dann 170° neben der Nase. Diese als Lenkfehler
-in das Auftriebsvektor-Gesetz zu geben erzeugt eine gewaltsame, energiezerstörende Umkehr:
-[MESS] flog den Jet in 158 s in den Boden.
+A gun solution exists for a target ANYWHERE, including one that has just pulled past the wing — the
+demanded barrel direction then lies 170° off the nose. Feeding that as a steering error into the lift
+vector law produces a violent, energy-destroying reversal: [MESS] flew the jet into the ground in 158 s.
 
-**Warum ein Ratenanteil überhaupt sein muss.** Das Gesetz regelt einen FEHLER und kommandiert eine
-Drehrate `err/T`. Gegen ein kurvendes Ziel ist die geforderte Rohrrichtung aber keine Konstante, sondern
-eine **RAMPE** — sie wandert durch den Trichter —, und ein Regelkreis, der eine Rampe nur mit
-Proportionalanteil beantwortet, bleibt konstant um (Rampenrate × eigene Zeitkonstante) zurück.
-[MESS] gegen einen Verteidiger im Maximalraten-Break: Lösung wandert ~1 °/s, T = 2 s, Zielfehler nie
-unter 4,6° bei ~1° Trichtertoleranz — zwei Feuerstöße, 70 Schuss, kein Treffer. Das ist kein
-Schießproblem, es ist ein **Regelkreis-TYP-Problem**.
+**Why there has to be a rate term at all.** The law controls an ERROR and commands a turn rate `err/T`.
+Against a turning target, however, the demanded barrel direction is not a constant but a **RAMP** — it
+travels through the funnel — and a control loop that answers a ramp with a proportional term alone stays
+constantly behind by (ramp rate × its own time constant).
+[MESS] against a defender in a maximum-rate break: the solution travels ~1 °/s, T = 2 s, aim error never
+below 4.6° against a ~1° funnel tolerance — two bursts, 70 rounds, no hit. That is not a shooting
+problem, it is a control loop TYPE problem.
 
-**Welche Rate — und hier ist die naheliegende Implementierung die falsche.** Die publizierte Vorhaltung
-ist KÖRPERbezogen. Sie zu differenzieren misst also die eigene Zugbewegung genauso wie die Zielbewegung,
-und im eingeschwungenen Zustand (genau dem, dessen Nachlauf man entfernen will) ist diese Ableitung fast
-null, während die Lösung so schnell wie eh und je durch den Himmel wandert. Eigene Kreiselraten wieder
-herauszurechnen wäre Arithmetik auf einer Größe, die sie bereits vermischt hat. Also:
+**Which rate — and here the obvious implementation is the wrong one.** The published lead is
+BODY-referenced. Differentiating it therefore measures one's own pulling motion just as much as the
+target's motion, and in the steady state (exactly the one whose lag one wants to remove) this derivative
+is almost zero, while the solution travels through the sky as fast as ever. Removing one's own gyro rates
+again would be arithmetic on a quantity that has already mixed them in. So:
 
 ```
-(be,bn,bu) = FBBodyLosToEnu(roll,pitch,yaw, fc.GunLeadAzDeg, fc.GunLeadElDeg)   // in die WELT
-rate  = α-Filter( d(be,bn,bu)/dt ),  α = kBfmLeadRateAlpha = 0,4
+(be,bn,bu) = FBBodyLosToEnu(roll,pitch,yaw, fc.GunLeadAzDeg, fc.GunLeadElDeg)   // into the WORLD
+rate  = α filter( d(be,bn,bu)/dt ),  α = kBfmLeadRateAlpha = 0.4
 k     = kBfmTurnTimeS · min(1, rateMax/|rate|),  rateMax = CornerTurnRateDegS()
-(azErr,elErr) = FBEnuToBodyLos( (be,bn,bu) + k·rate )                            // zurück in den Körper
+(azErr,elErr) = FBEnuToBodyLos( (be,bn,bu) + k·rate )                            // back into the body
 ```
 
-Nichts von der eigenen Rolle, Nick oder Gierbewegung überlebt diesen Rundweg — das ist der Punkt.
-Dem bestehenden Gesetz übergeben ergibt das ein Drehratenkommando `err/T + ω`: der P-Anteil nimmt den
-Fehler heraus, der Ratenanteil hält die Nase auf einer Lösung, die nicht stillsteht. Die Begrenzung auf
-`CornerTurnRateDegS` ist keine Vorsicht: eine schneller wandernde Lösung ist kein Nachführproblem mehr,
-und sie zu fordern würfe den Auftriebsvektor auf einen Punkt, den die Zelle nicht erreicht.
-Der Filter existiert, weil die Schätzung eine Differenz EINES publizierten Floats über zwei 10-Hz-Ticks
-ist — schnell genug für eine Umkehr, langsam genug, dass ein verrauschter Look nicht die Nase schwenkt.
+Nothing of one's own roll, pitch or yaw motion survives this round trip — that is the point. Handed to
+the existing law, this yields a turn rate command `err/T + ω`: the P term takes the error out, the rate
+term keeps the nose on a solution that does not stand still. The limitation to `CornerTurnRateDegS` is
+not caution: a faster travelling solution is no longer a tracking problem, and demanding it would throw
+the lift vector at a point the airframe cannot reach. The filter exists because the estimate is the
+difference of ONE published float over two 10 Hz ticks — fast enough for a reversal, slow enough that a
+noisy look does not swing the nose.
 
-**Der Integrator und seine Herleitung.** Der Vorwärtsanteil lässt genau das stehen, was die
-RATENSCHÄTZUNG selbst falsch hat: ein Filter hat Nachlauf, und die Bewegung der geforderten Rohrrichtung
-hängt schwach von der Eigengeschwindigkeit ab, die Schätzung ist also etwas zu klein und der Kreis
-schwingt etwas hinterher ein. [MESS] stationär 1,45° bei einer Lösungstoleranz nahe 0,4°. Ein konstanter
-Versatz in einem Kreis, der bereits P- und Ratenanteil hat, ist exakt der Fall für einen Integrator —
-und der konvergiert hier auf eine bestimmte Zahl: im Gleichgewicht ist der Fehler null und der
-Integrator hält genau den Fehlbetrag des Vorwärtsanteils.
+**The integrator and its derivation.** The feedforward term leaves standing exactly what the RATE
+ESTIMATE itself has wrong: a filter has lag, and the motion of the demanded barrel direction depends
+weakly on one's own speed, so the estimate is a little too small and the loop settles a little behind.
+[MESS] steady state 1.45° against a solution tolerance near 0.4°. A constant offset in a loop that
+already has a P and a rate term is exactly the case for an integrator — and here it converges on a
+definite number: in equilibrium the error is zero and the integrator holds exactly the shortfall of the
+feedforward term.
 
-**Sein Gewinn ist keine Geschmacksfrage** [HERL]: das Gesetz kommandiert eine Drehrate `(e + I)/T` gegen
-einen Winkel, der Kreis schließt sich also als
+**Its gain is not a matter of taste** [HERL]: the law commands a turn rate `(e + I)/T` against an angle,
+so the loop closes as
 
 ```
 s² + s/T + Ki/T = 0        →    ζ = 1 / (2·√(Ki·T))
-Ki = 1/(2T)                →    ζ = 1/(2·√(0,5)) = 0,7071
+Ki = 1/(2T)                →    ζ = 1/(2·√(0.5)) = 0.7071
 ```
 
-also `kBfmTrackKi = 0.5 / kBfmTurnTimeS` = 0,25 s⁻¹ bei T = 2 s — die Lehrbuchwurzel „schwingt sich ohne
-Überschwingen ein", und nichts weiter muss gewählt werden. [MESS] das Doppelte (ζ = 0,5) wurde zuerst
-probiert: gegen einen Verteidiger im Break ein klarer Gewinn, gegen einen geradeaus fliegenden schwang
-der Kreis und die Trichterzeit brach ein. Wind-up-Grenze `kBfmTrackIMaxDeg` = 10°; der Trichterabriss
-setzt beide Integratoren hart zurück.
+hence `kBfmTrackKi = 0.5 / kBfmTurnTimeS` = 0.25 s⁻¹ at T = 2 s — the textbook root "settles without
+overshoot", and nothing further has to be chosen. [MESS] twice that (ζ = 0.5) was tried first: against a
+defender in a break a clear gain, against a straight-flying one the loop rang and the funnel time
+collapsed. Wind-up limit `kBfmTrackIMaxDeg` = 10°; a funnel break resets both integrators hard.
 
-**Die Begrenzung auf das Eintrittstor.** Die drei Anteile (P, Rate, I — hier alle drei WINKEL) können
-sich zu einer Forderung addieren, die weit größer als der Zielfehler selbst ist. Dieses Gesetz ist aber
-nur für das NACHFÜHR-Problem zuständig, also begrenzt genau die Schwelle, die es hereingelassen hat,
-auch was es fordern darf:
+**The limitation to the entry gate.** The three terms (P, rate, I — all three ANGLES here) can add up to
+a demand far larger than the aim error itself. This law is however only responsible for the TRACKING
+problem, so exactly the threshold that let it in also limits what it may demand:
 
 ```
-mag = √(azErr² + elErr²);  lim = BfmGunTrackMaxErrDeg;  if (mag > lim) skaliere beide auf lim
+mag = √(azErr² + elErr²);  lim = BfmGunTrackMaxErrDeg;  if (mag > lim) scale both to lim
 ```
 
-[MESS] ohne sie erreichte die kombinierte Forderung auf kürzeste Entfernung sechzig Grad, der Jet
-antwortete wie auf jede Sechzig-Grad-Forderung — voller Ausschlag in beiden Achsen — und departierte
-(LOC-K.O. bei 150 °/s Rollrate).
+[MESS] without it the combined demand reached sixty degrees at the shortest range, the jet answered as it
+answers any sixty-degree demand — full deflection in both axes — and departed (LOC knockout at 150 °/s of
+roll rate).
 
-Der Zustandswechsel wird protokolliert: `pilot GUN_TRACK` / `pilot GUN_BREAK` mit Entfernung, Flugzeit,
-Zielfehler, Vorhaltewinkeln, Trichtergeometrie und Trommelinhalt. Im Trichter meldet das Scoreboard
-`Lead` — es IST Vorhalteverfolgung.
+The state change is logged: `pilot GUN_TRACK` / `pilot GUN_BREAK` with range, time of flight, aim error,
+lead angles, funnel geometry and drum contents. In the funnel the scoreboard reports `Lead` — it IS lead
+pursuit.
 
-**Gesamtwirkung** [MESS, je acht Anflüge pro Verteidiger, vorher/nachher]: Trichterzeit 3,2 → 20,7 s
-(geradeaus) bzw. 0,0 → 21,6 s (kurvend); Schuss auf dem Ziel 11,9 → 111,2 bzw. 0,0 → 120,4 Patronen;
-Abschüsse 0 → 5 bzw. 0 → 7 von je acht Läufen; mittlerer Nachführfehler 10,5° → 6,9° bzw. 11,9° → 4,1°.
+**Overall effect** [MESS, eight approaches per defender, before/after]: funnel time 3.2 → 20.7 s
+(straight) resp. 0.0 → 21.6 s (turning); rounds on target 11.9 → 111.2 resp. 0.0 → 120.4; kills 0 → 5
+resp. 0 → 7 out of eight runs each; mean tracking error 10.5° → 6.9° resp. 11.9° → 4.1°.
 
-#### 5.7 Der Rollraten-Regler — das dritte Gesetz
+#### 5.7 The roll-rate limiter — the third law
 
-Das Auftriebsvektor-Kommando ist ein WINKELfehler, der F-16-Querstick ein RATEN-Kommando: ein großer
-Fehler bedeutet vollen Ausschlag, solange er dauert — und der größte Fehler, den dieses Gesetz erzeugen
-kann, ist 180° (es nimmt immer den kurzen Weg). [MESS] eine Wiedererfassung auf 3,7 nm verlangte 230°
-Rolle, der Jet antwortete drei Sekunden lang mit 150 °/s, und der Flugmonitor nannte es, wonach es von
-außen aussieht: ein Departure.
+The lift vector command is an ANGLE error, the F-16 lateral stick a RATE command: a large error means
+full deflection for as long as it lasts — and the largest error this law can produce is 180° (it always
+takes the short way). [MESS] a reacquisition at 3.7 nm demanded 230° of roll, the jet answered with
+150 °/s for three seconds, and the flight monitor called it what it looks like from outside: a departure.
 
 ```
 kBfmRollRateMaxDegS = 120 / kBfmTurnTimeS = 60 °/s
@@ -666,211 +650,203 @@ if (|p| > cap && p·rollCmd > 0 && BfmRollCmdPrev_ != 0)
     lim = |BfmRollCmdPrev_| · cap / |p|;   if (|rollCmd| > lim) rollCmd = ±lim
 ```
 
-**Warum das VORHERIGE Kommando skaliert wird und nicht das rohe.** Auf einem Raten-Stick sind Kommando
-und Rate proportional, also IST `cmd_prev · cap/rate` das Kommando, das die Deckelrate erzeugt hätte —
-und der Fixpunkt dieser Rekursion ist die Deckelrate selbst. Skaliert man stattdessen das rohe
-(gesättigte) Kommando, konvergiert das Ganze auf das geometrische Mittel aus Deckel und
-Vollausschlagsrate der Zelle: [MESS] ein 45-°/s-Regler hielt 85 °/s und der Jet rollte glatt durch 360°.
+**Why the PREVIOUS command is scaled and not the raw one.** On a rate stick, command and rate are
+proportional, so `cmd_prev · cap/rate` IS the command that would have produced the cap rate — and the
+fixed point of that recursion is the cap rate itself. If one scales the raw (saturated) command instead,
+the whole thing converges on the geometric mean of the cap and the airframe's full-deflection rate:
+[MESS] a 45 °/s limiter held 85 °/s and the jet rolled smoothly through 360°.
 
-**Die GRÖSSENORDNUNG folgt aus dem Gesetz, das er bedient:** die Rolle existiert, um eine Kurve zu
-etablieren, deren eigene Zeitkonstante `kBfmTurnTimeS` ist — auch der schlimmste Fall muss also in etwa
-dieser Zeit geflogen werden, das sind Zehner von Grad pro Sekunde, keine Hunderter. Der **WERT** ist
-gemessen [MESS, 16 Kanonengefechte gegen zwei Verteidiger]: ungeregelt und bei 90 °/s departierte der
-Kampf in sechs davon, bei 60 °/s in keinem — und die Schießleistung war dort ebenfalls am besten.
-Der Regler REDUZIERT nur, er kann nie Stick hinzufügen.
+**The ORDER OF MAGNITUDE follows from the law it serves:** the roll exists in order to establish a turn
+whose own time constant is `kBfmTurnTimeS` — so even the worst case has to be flown in roughly that time,
+which is tens of degrees per second, not hundreds. The **VALUE** is measured [MESS, 16 gun engagements
+against two defenders]: unlimited and at 90 °/s the fight departed in six of them, at 60 °/s in none —
+and the shooting performance was best there as well. The limiter only REDUCES, it can never add stick.
 
-#### 5.8 Der Abzug (`BfmGunfire`)
+#### 5.8 The trigger (`BfmGunfire`)
 
-Kein zweites Zielen — ein Finger. Er tut drei Dinge:
+No second aiming — a finger. It does three things:
 
-1. Prüft, ob die Kanone scharf und geladen ist (`Gun.H.Readable() && Gun.Ready`) und eine gültige
-   Lösung existiert.
-2. **Sagt den Zielfehler voraus**: `pred = err + (dErr/dt)·(LatencyS(GunTrigger) + fc.GunTofS)`.
-   Jede HOTAS-Handlung trifft eine Latenz später ein, und bei Nachführraten eines Jägers bewegt sich der
-   Zielfehler ~2 °/s — auf 300 m sind das zehn Meter Fehlabstand pro Sekunde Verzug.
-   [MESS] Feuerstöße, die auf einer 0,35°-Lösung befohlen wurden, kamen auf einer 1,7°-Lösung an und
-   gingen 8 m vorbei.
-3. **Hält den Pipper enger als der Trichter.** Die Trichterwände sind die SPANNWEITE des Ziels; eine
-   Lösung knapp innerhalb setzt das Trefferbild eine halbe Spannweite neben seine Mitte.
-   `pred > Tuned(GunFireTolFrac, BfmGunFireTolFrac()) · fc.GunTolDeg` → nicht schießen.
-   0,35 [SETZ] legt das Muster in den Rumpf statt irgendwohin über die Spannweite.
-4. Squeeze über den Bus (`GunTrigger`, Wert = `BfmGunBurstS`), und nicht wieder vor Ablauf dieser Dauer
-   (`GunNextS_`).
+1. Checks whether the gun is armed and loaded (`Gun.H.Readable() && Gun.Ready`) and a valid solution
+   exists.
+2. **Predicts the aim error**: `pred = err + (dErr/dt)·(LatencyS(GunTrigger) + fc.GunTofS)`.
+   Every HOTAS action arrives one latency later, and at a fighter's tracking rates the aim error moves
+   ~2 °/s — at 300 m that is ten metres of miss distance per second of delay.
+   [MESS] bursts commanded on a 0.35° solution arrived on a 1.7° solution and missed by 8 m.
+3. **Holds the pipper tighter than the funnel.** The funnel walls are the target's WINGSPAN; a solution
+   just inside puts the pattern half a wingspan beside its centre.
+   `pred > Tuned(GunFireTolFrac, BfmGunFireTolFrac()) · fc.GunTolDeg` → do not fire.
+   0.35 [SETZ] puts the pattern into the fuselage instead of somewhere across the wingspan.
+4. Squeeze over the bus (`GunTrigger`, value = `BfmGunBurstS`), and not again before that duration has
+   elapsed (`GunNextS_`).
 
-**Er prüft NIE, auf wen er schießt** — und kann es nicht: der Pilot sieht einen Radarkontakt, keine
-Besetzungsliste. Die Mission deklariert die Besetzung, der Abzug beantwortet den Trichter.
+**It NEVER checks whom it is shooting at** — and cannot: the pilot sees a radar contact, not a cast list.
+The mission declares the cast, the trigger answers the funnel.
 
-#### 5.9 Die Kontrollposition und das Scoreboard
+#### 5.9 The control position and the scoreboard
 
 ```
 inControl = validTrack && Locked && ctrlMin ≤ R ≤ ctrlMax
          && AspectDeg ≤ BfmControlAspectDeg && |AzDeg| ≤ BfmControlAtaDeg
 ```
 
-Nur `ctrlMin`/`ctrlMax` gehen über die Variantentabelle (`pilot_bfm_ctrl_min_nm`/`_max_nm`) — es ist die
-eine BFM-Zahl, die eine Mission wirklich ändern muss: eine Raketen-Halteposition liegt AUSSERHALB des
-Kanonentrichters [DOK `weapons.md` §2.5: 600–3.000 ft], ein Kanonen-Brief IST also eine andere
-Kontrollposition und sonst nichts.
+Only `ctrlMin`/`ctrlMax` go through the variant table (`pilot_bfm_ctrl_min_nm`/`_max_nm`) — it is the one
+BFM number that a mission really has to change: a missile holding position lies OUTSIDE the gun funnel
+[DOK `weapons.md` §2.5: 600–3,000 ft], so a gun brief IS a different control position and nothing else.
 
 ---
 
-### 6. `systems/FBBfmTrack` — das Bild und das Gedächtnis
+### 6. `systems/FBBfmTrack` — the picture and the memory
 
-#### 6.1 Woraus es gebaut wird — und woraus ausdrücklich NICHT
+#### 6.1 What it is built from — and what expressly NOT
 
-**Nur** aus `FBState.Radar` (Kontakte + Lock-Index) und dem eigenen `fb_fdm_state`. Im Include-Baum
-dieser Datei gibt es **kein `FBWorld`, keine `FBUnitRegistry`, keinen Datalink-Track** — das ist die
-Anti-Cheat-Eigenschaft, auf der der ganze BFM-Beweis ruht: die gemeldete Position ist eine berechnete
-Schätzung, die in der Missionsanalyse gegen eine Wahrheit gelegt werden kann, die sie nie gesehen hat.
+**Only** from `FBState.Radar` (contacts + lock index) and its own `fb_fdm_state`. In the include tree of
+this file there is **no `FBWorld`, no `FBUnitRegistry`, no datalink track** — that is the anti-cheat
+property on which the whole BFM proof rests: the reported position is a computed estimate that can be
+laid against a truth in the mission analysis which it has never seen.
 
-**Kopf zuerst**: ein `Invalid` Radar-Block ist ein Gerät, das nicht schaut, und sein Kontaktarray bedeutet
-nichts. `Update()` liest nur den GELOCKTEN Kontakt — ein ungelockter Suchrückstrahler ist eine Detektion,
-kein Ziel, auf das sich der Pilot festgelegt hat; beides zu mischen ließe die Verfolgung zwischen Jets
-springen.
+**Header first**: an `Invalid` radar block is a device that is not looking, and its contact array means
+nothing. `Update()` reads only the LOCKED contact — an unlocked search return is a detection, not a
+target the pilot has committed to; mixing the two would let the pursuit jump between jets.
 
-**Ein Look, kein Re-Read.** `lookS = nowS − c->LookAgeS`; nur wenn `lookS > LastLookS_ + kMinLookDtS`
-(0,05 s) wird gefaltet. Ein zwischen zwei Looks erneut gelesener Kontakt trägt DIESELBE eingefrorene
-Geometrie — ihn zu differenzieren würde eine Null in den Geschwindigkeitsfilter schieben.
+**One look, no re-read.** `lookS = nowS − c->LookAgeS`; folding happens only if
+`lookS > LastLookS_ + kMinLookDtS` (0.05 s). A contact re-read between two looks carries THE SAME frozen
+geometry — differentiating it would push a zero into the velocity filter.
 
-**Der Echo-Ort ist WELT-referenziert** (Peilung + Elevationswinkel), nicht Körper-Az/El: letztere wurden
-gegen die Lage ZUM LOOKZEITPUNKT gemessen, auf die Lage JETZT angewandt schmierten sie die Eigenbewegung
-eines rollenden Jets in die geschätzte Zielgeschwindigkeit.
+**The echo location is WORLD-referenced** (bearing + elevation angle), not body az/el: the latter were
+measured against the attitude AT THE TIME OF THE LOOK, and applied to the attitude NOW they would smear
+the own motion of a rolling jet into the estimated target velocity.
 
-**Der Alpha-Filter.** `Vel += kVelAlpha · (Δpos/Δt − Vel)` mit `kVelAlpha` = 0,25. Bei ~0,1 s
-STT-Frame ist das eine Zeitkonstante von ~0,4 s.
-[MESS, gegen die aus beiden Unit-Logs rekonstruierte Wahrheit] aufeinanderfolgende Looks mit diesem
-Filter treffen die RICHTUNG der geschätzten Geschwindigkeit auf 1,8° (Median, p90 1,9°); eine
-Halbsekunden-Basislinie — fünfmal weniger Differenzierungsfehler, eine halbe Sekunde mehr Nachlauf —
-lag 5,4° daneben.
+**The alpha filter.** `Vel += kVelAlpha · (Δpos/Δt − Vel)` with `kVelAlpha` = 0.25. At a ~0.1 s STT frame
+that is a time constant of ~0.4 s.
+[MESS, against the truth reconstructed from both unit logs] successive looks with this filter hit the
+DIRECTION of the estimated velocity to within 1.8° (median, p90 1.9°); a half-second baseline — five
+times less differentiation error, half a second more lag — was 5.4° off.
 
-**Extrapolation und Einfrieren** (`Predict`, jeder Tick, ob frischer Look oder nicht):
+**Extrapolation and freezing** (`Predict`, every tick, fresh look or not):
 
-| Alter | `Blk_.H.Status` | Position |
+| Age | `Blk_.H.Status` | Position |
 |---|---|---|
-| ≤ `kMaxExtrapolateS` (8,0 s) | `Valid` | letzter Look + `Vel·Alter` — jung genug, um darauf VORZUHALTEN |
-| > 8,0 s | `Held` | zurück auf die zuletzt GEMESSENE Position, eingefroren |
+| ≤ `kMaxExtrapolateS` (8.0 s) | `Valid` | last look + `Vel·age` — young enough to LEAD on |
+| > 8.0 s | `Held` | back to the last MEASURED position, frozen |
 
-Der Stempel ist immer der LOOK, nicht `now` — Alter am Kopf ist Alter seit der Sensor ihn sah.
-Begründung für die 8 s: ein Konstantgeschwindigkeits-Modell gegen einen kurvenden Jäger geht schnell
-falsch; bei ~5 °/s Dauerkurvenrate liegt eine Geradeausvorhersage nach acht Sekunden bereits einen
-Großteil eines Kurvendurchmessers daneben, und dann ist „wo er WAR" ehrlicher als „wo er wäre, hätte er
-aufgehört zu manövrieren".
+The stamp is always the LOOK, not `now` — age at the header is age since the sensor saw him. Justification
+for the 8 s: a constant-velocity model against a turning fighter goes wrong quickly; at a ~5 °/s sustained
+turn rate a straight-line prediction is already off by a large part of a turn diameter after eight
+seconds, and then "where he WAS" is more honest than "where he would be if he had stopped manoeuvring".
 
-**Die Annäherungsrate** kommt vom Radar, SOLANGE es hinsieht; im Coast aus der Schätzung selbst
-(Relativgeschwindigkeit auf die Sichtlinie). Die eingefrorene letzte Messung wäre schlimmer als nutzlos:
-ein Merge endet mit mehreren hundert Knoten Annäherung im Protokoll, und ein Pilot, der diese Zahl noch
-liest, fliegt einen längst beendeten Overshoot weiter, statt zurückzudrehen.
+**The closure rate** comes from the radar AS LONG AS it is looking; in coast from the estimate itself
+(relative velocity onto the line of sight). The frozen last measurement would be worse than useless: a
+merge ends with several hundred knots of closure in the record, and a pilot still reading that number
+keeps flying an overshoot that ended long ago instead of turning back.
 
-**Aspekt** [HERL]: der Winkel AM ZIEL zwischen seinem Heck und der Sichtlinie zu uns. Mit **L** =
-Einheitsvektor eigen→Ziel und **T** = seine Einheits-Geschwindigkeit zeigt Ziel→uns entlang −**L** und
-sein Heck entlang −**T**, also `cos(aspect) = (−T)·(−L) = T·L`. Undefiniert unterhalb
-`kMinTrackSpeedMs` (20 m/s) — dann bleibt der letzte Wert stehen.
+**Aspect** [HERL]: the angle AT THE TARGET between its tail and the line of sight to us. With **L** = the
+unit vector own→target and **T** = its unit velocity, target→us points along −**L** and its tail along
+−**T**, hence `cos(aspect) = (−T)·(−L) = T·L`. Undefined below `kMinTrackSpeedMs` (20 m/s) — then the last
+value stays standing.
 
-**Energiehöhe** `Es = (h + v²/2g)` in ft: die einzige Energiezahl, die ein Pilot von EIGENEN
-Instrumenten ablesen kann.
+**Energy height** `Es = (h + v²/2g)` in ft: the only energy number a pilot can read off his OWN
+instruments.
 
-#### 6.2 `FBTrackDatum` — das Gedächtnis, vollständig hergeleitet
+#### 6.2 `FBTrackDatum` — the memory, fully derived
 
-Der Block beantwortet „wo ist er" und hört jenseits des Fensters ehrlich auf. Dieses Einfrieren ist für
-die VERFOLGUNG richtig — man zieht keine Vorhaltung auf eine Vermutung — und für die SUCHE nutzlos.
-Suchen braucht zwei Zahlen, die der Block nicht trägt: einen PUNKT und die BREITE des Gebiets darum.
+The block answers "where is he" and honestly stops beyond the window. This freezing is right for the
+PURSUIT — one does not pull lead on a guess — and useless for the SEARCH. Searching needs two numbers the
+block does not carry: a POINT and the WIDTH of the area around it.
 
-Beide kommen aus derselben Schätzung, mit EINER zusätzlichen Annahme: der Gegner kurve etwa so hart wie
-man selbst.
+Both come from the same estimate, with ONE additional assumption: that the opponent turns about as hard
+as oneself.
 
-**Die Verschiebung** zwischen Geradeaus-Vorhersage und einer Kurve mit konstanter Rate ω, nach t
-Sekunden bei Geschwindigkeit V:
+**The displacement** between a straight-line prediction and a turn at constant rate ω, after t seconds at
+speed V:
 
 ```
 d(t) = (V/ω) · √( (ωt − sin ωt)² + (1 − cos ωt)² )
 ```
 
-Reihenentwicklung für die Zeiten, die zählen (ωt klein): `ωt − sin ωt ≈ (ωt)³/6`,
-`1 − cos ωt ≈ (ωt)²/2` — der zweite Term dominiert, also
+Series expansion for the times that matter (ωt small): `ωt − sin ωt ≈ (ωt)³/6`, `1 − cos ωt ≈ (ωt)²/2` —
+the second term dominates, hence
 
 ```
-d(t) ≈ (V/ω)·(ωt)²/2 = 0,5 · V · ω · t²
+d(t) ≈ (V/ω)·(ωt)²/2 = 0.5 · V · ω · t²
 ```
 
-**Die harte Schranke:** weiter als `V·t` von der zuletzt tatsächlich gesehenen Position kann er nicht
-sein, was immer er getan hat. Also
+**The hard bound:** he cannot be further than `V·t` from the position last actually seen, whatever he did.
+Hence
 
 ```
-RadiusM = min( 0,5·V·ω·t² , V·t )
+RadiusM = min( 0.5·V·ω·t² , V·t )
 ```
 
-**Der Kreuzungspunkt** der beiden Hälften [HERL]: `0,5·V·ω·t² = V·t ⟺ t = 2/ω`.
-VOR ihm ist die Vorhersage mehr wert als der letzte Look, NACH ihm könnte die Kurve überall hingegangen
-sein und der ehrliche Mittelpunkt hört auf, sich zu bewegen — deshalb `tProp = min(AgeS, 2/ω)`.
-Diese Grenze ist HERGELEITET, nicht gewählt, und für die F-16 dieses Simulators landet sie bei ~7,3 s —
-dort, wo `kMaxExtrapolateS` UNABHÄNGIG davon auf 8 s gesetzt worden war. Zwei verschiedene Fragen, eine
-Antwort.
+**The crossing point** of the two halves [HERL]: `0.5·V·ω·t² = V·t ⟺ t = 2/ω`. BEFORE it the prediction
+is worth more than the last look, AFTER it the turn could have gone anywhere and the honest centre point
+stops moving — hence `tProp = min(AgeS, 2/ω)`. This limit is DERIVED, not chosen, and for the F-16 of
+this simulator it lands at ~7.3 s — right where `kMaxExtrapolateS` had been set to 8 s INDEPENDENTLY. Two
+different questions, one answer.
 
-**ω = „er kurvt wie ich"** — `FBPilot::CornerTurnRateDegS()`:
+**ω = "he turns like me"** — `FBPilot::CornerTurnRateDegS()`:
 
 ```
-ω = g·√(n² − 1) / V        (n, V = die EIGENEN Corner-Hooks der Zelle)
-F-16: n = 5,6, V = 380 kt = 195,5 m/s → 9,80665·√30,36/195,5 = 0,2764 rad/s = 15,8 °/s
+ω = g·√(n² − 1) / V        (n, V = the airframe's OWN corner hooks)
+F-16: n = 5.6, V = 380 kt = 195.5 m/s → 9.80665·√30.36/195.5 = 0.2764 rad/s = 15.8 °/s
 ```
 
-[MESS] `make -C sim test-corner` misst am selben Modell direkt 16,2 °/s — die Herleitung geht gegen das
-Modell auf. Dieselbe Methode wird ZWEIMAL benutzt und ist deshalb eine Methode und keine zwei
-Konstanten: sie ist die schnellste Nasenbewegung, die dieser Jet einer wandernden Kanonenlösung
-nachführen kann, UND die Annahme über den anderen.
+[MESS] `make -C sim test-corner` measures 16.2 °/s directly on the same model — the derivation checks out
+against the model. The same method is used TWICE and is therefore a method and not two constants: it is
+the fastest nose movement this jet can use to track a travelling gun solution, AND the assumption about
+the other one.
 
-**`HalfWidthDeg`** = `atan2(RadiusM, horizontale Entfernung)` — der Radius, von HIER aus als Winkel
-gesehen, also genau die Halbbreite, die eine Suche abdecken muss. Damit ist das Scanmuster eine FOLGE
-dessen, was der Pilot nicht weiß, statt ein festes Weben.
+**`HalfWidthDeg`** = `atan2(RadiusM, horizontal range)` — the radius seen as an angle from HERE, hence
+exactly the half width a search has to cover. With that the scan pattern is a CONSEQUENCE of what the
+pilot does not know, instead of a fixed weave.
 
-`Datum()` ist bewusst NICHT aus `Block()` abgeleitet: der Block fällt jenseits des Fensters auf den
-Messpunkt zurück und friert ein (richtig für die Verfolgung, falsch für die Suche), also rechnet diese
-Methode aus derselben gespeicherten Schätzung mit ihrer EIGENEN Fortschreibungsregel. Const,
-allokationsfrei, einmal pro Entscheidungstakt.
+`Datum()` is deliberately NOT derived from `Block()`: the block falls back to the measurement point
+beyond the window and freezes (right for the pursuit, wrong for the search), so this method computes from
+the same stored estimate with its OWN propagation rule. Const, allocation-free, once per decision tick.
 
-#### 6.3 Die `bfm_*`-Kanäle (Quelle `bfm`, 15 Spalten, hinten angehängt)
+#### 6.3 The `bfm_*` channels (source `bfm`, 15 columns, appended at the end)
 
-| Spalte | Bedeutung |
+| Column | Meaning |
 |---|---|
 | `bfm_pursuit` | `none`/`search`/`lead`/`pure`/`lag` |
-| `bfm_valid` / `bfm_locked` | Schätzung jung genug zum Vorhalten / Radar hält ihn JETZT |
-| `bfm_age` | s seit dem letzten echten Look (−1 wenn ungültig) |
-| `bfm_rng` / `bfm_ata` / `bfm_aspect` / `bfm_hca` / `bfm_clos` | nm / ° off nose (+ = rechts) / ° AM ZIEL (0 = im Rücken) / Kursdifferenz / kt (+ = annähernd) |
-| `bfm_es` | eigene Energiehöhe (ft) |
-| `bfm_gcmd` / `bfm_ctrl` | kommandiertes g / Kontrollposition JETZT |
-| `bfm_engaged` / `bfm_lock_s` / `bfm_ctrl_s` | die drei Integrale (s) — Lock-Haltequote und Zeit in der Kontrollposition aus der LETZTEN Zeile ablesbar |
+| `bfm_valid` / `bfm_locked` | estimate young enough to lead on / radar is holding him NOW |
+| `bfm_age` | s since the last real look (−1 if invalid) |
+| `bfm_rng` / `bfm_ata` / `bfm_aspect` / `bfm_hca` / `bfm_clos` | nm / ° off nose (+ = right) / ° AT THE TARGET (0 = on his tail) / heading crossing angle / kt (+ = closing) |
+| `bfm_es` | own energy height (ft) |
+| `bfm_gcmd` / `bfm_ctrl` | commanded g / control position NOW |
+| `bfm_engaged` / `bfm_lock_s` / `bfm_ctrl_s` | the three integrals (s) — lock retention ratio and time in the control position readable from the LAST line |
 
-Jede Größe ist aus EIGENER Perspektive berechenbar. Alles, was Weltwahrheit braucht (z.B. der WAHRE
-Aspekt), gehört in die Auswertung, nicht in den Piloten.
+Every quantity is computable from OWN perspective. Everything that needs world truth (e.g. the TRUE
+aspect) belongs in the analysis, not in the pilot.
 
 ---
 
-### 7. Phase `Intercept` — geflogen mit dem SENSOR
+### 7. Phase `Intercept` — flown with the SENSOR
 
-Der Gegenpol zu BFM: BFM wird mit der NASE geflogen und der Lock geht nie weg; ein Abfang wird mit dem
-SENSOR geflogen, und die ganze Kunst ist, wann man ihn worauf richtet. Guidance ist `Direct` auf einen
-Punkt `kInterceptAimM` (60 nm) entlang des gewünschten Kurses — weit genug, dass die Peilung dorthin
-über einen ganzen Tick auf Bruchteile eines Grades der gewünschte Kurs ist.
+The opposite pole to BFM: BFM is flown with the NOSE and the lock never goes away; an intercept is flown
+with the SENSOR, and the whole art is when to point it at what. Guidance is `Direct` onto a point
+`kInterceptAimM` (60 nm) along the desired course — far enough that the bearing to it is the desired
+course to within fractions of a degree over a whole tick.
 
-Reihenfolge eines Ticks = Reihenfolge der Aufmerksamkeit eines Piloten: was sehe ich → wer sieht mich →
-in welchem Zustand bin ich → wohin zeige ich den Jet → und erst dann welchen Schalter fasse ich an.
+The order of a tick = the order of a pilot's attention: what do I see → who sees me → what state am I in
+→ where do I point the jet → and only then which switch do I touch.
 
-#### 7.1 Das Bild
+#### 7.1 The picture
 
-- Gelockt → der Kontakt bei `LockIndex`. Sonst der NÄCHSTE Rückstrahler, der sich nicht als Freund
-  ausgewiesen hat: eine gültige Mode-4-Antwort BEWEIST freundlich und nimmt ihn von der Liste, Schweigen
-  beweist nichts und bleibt Kandidat (`core/FBRadarContact.h` kennt keinen Wert „hostile") — das IST das
-  Identifikationsproblem, keine Abkürzung darum herum.
-- `haveTgt = tgt && LookAgeS < kInterceptLostS` (10,0 s) — zwei CRM-Frames plus Marge: ein verpasster
-  Sweep ist ein verpasster Sweep, drei sind ein Ziel, das nicht mehr da ist.
-- `Bfm_.Update()` läuft AUCH hier: die Fusion liefert, was ein einzelnes Echo nicht kann — die
-  Zielgeschwindigkeit und daraus den Aspekt, auf dem die Schussentscheidung beruht.
+- Locked → the contact at `LockIndex`. Otherwise the NEAREST return that has not identified itself as a
+  friend: a valid Mode 4 reply PROVES friendly and takes it off the list, silence proves nothing and
+  stays a candidate (`core/FBRadarContact.h` knows no value "hostile") — that IS the identification
+  problem, not a shortcut around it.
+- `haveTgt = tgt && LookAgeS < kInterceptLostS` (10.0 s) — two CRM frames plus margin: a missed sweep is
+  a missed sweep, three are a target that is no longer there.
+- `Bfm_.Update()` runs here TOO: the fusion supplies what a single echo cannot — the target velocity and
+  from it the aspect on which the shot decision rests.
 
-#### 7.2 Wer mich sieht
+#### 7.2 Who sees me
 
-Aus dem RWR-Block: die stärkste Nicht-Such-Warnung, wobei ein **Raketen**-Symbol ein **Track**-Symbol
-IMMER schlägt (das eine ist ein Radar, das schießen könnte, das andere ein Suchkopf, der es bereits hat).
+From the RWR block: the strongest non-search warning, where a **missile** symbol ALWAYS beats a **track**
+symbol (one is a radar that could shoot, the other a seeker that already has).
 
-**Die Kernregel — wann eine Warnung eine Antwort verlangt:**
+**The core rule — when a warning demands an answer:**
 
 ```
 shotSelfSufficient = Eng_.HaveShot() && (Eng_.Pitbull() || !locked)
@@ -878,30 +854,29 @@ mustDefend = threatMissile || (threatTrack && (!weapons || shotSelfSufficient))
 defendDue  = mustDefend && (now − IntDefendCueS_) ≥ Tuned(ReactionS, kInterceptReactionS)
 ```
 
-Ein Suchkopf auf dem eigenen Flugzeug ist **nie** verhandelbar. Ein bloß VERFOLGENDES Radar ist es:
-vor dem eigenen Schuss von einem Lock-Spike wegzudrehen verliert das Gefecht — der ganze Grund, warum
-ein Jäger es hinnimmt, verfolgt zu werden, ist, dass er gleich zurückschießt. Ein Track-Spike verlangt
-also erst eine Antwort, wenn der eigene Angriff nichts mehr zu gewinnen hat: der Schuss ist weg und
-braucht keine Führung mehr, oder es gab nie einen.
+A seeker on one's own aircraft is **never** negotiable. A merely TRACKING radar is: turning away from a
+lock spike before one's own shot loses the engagement — the whole reason a fighter accepts being tracked
+is that it is about to shoot back. A track spike therefore demands an answer only once one's own attack
+has nothing left to gain: the shot is away and needs no more guidance, or there never was one.
 
-`IntDefendCueS_` ist die Null der Reaktionszeit — der Moment, in dem die Warnung eine Antwort VERLANGTE,
-nicht das erste je gesehene Symbol.
+`IntDefendCueS_` is the zero of the reaction time — the moment at which the warning DEMANDED an answer,
+not the first symbol ever seen.
 
-#### 7.3 Die Zustandsmaschine (`FBEngageState`)
+#### 7.3 The state machine (`FBEngageState`)
 
-| Zustand | Was der Pilot tut | Verlassen wenn |
+| State | What the pilot does | Left when |
 |---|---|---|
-| `Idle` | wie `Search` behandelt | s.u. |
-| `Search` | gebrieften Vektor fliegen (aktiver Wegpunkt = Peilung + Höhe), Suchmodus wählen, Antenne auf das erwartete Höhenband, **NICHT locken** (ein Lock ist eine persönliche Warnung an den, auf den er zeigt) | `haveTgt` → `Attack` wenn `R ≤ LockRangeNm`, sonst `Closing` |
-| `Closing` | Verfolgungskurs auf den Kontakt, co-altitude, Antenne auf dem Rückstrahler zentriert — weiter OHNE Lock | `R ≤ LockRangeNm` → `Attack`; Kontakt weg → `Search`; keine Waffen → `Abort`; `R < AbortRangeNm` und nie geschossen → `Abort` |
-| `Attack` | designieren (TMS vorwärts) wenn noch nicht gelockt; Startbereich lesen; schießen wenn `inParams` UND Lock ≥ `kInterceptTrackSettleS` alt UND Schussabstände eingehalten | Schuss registriert (Stores-Zähler) → `Support`; sonst wie oben |
-| `Support` | **Lock HALTEN** (die AIM-120 fliegt ihre Mittelphase am Uplink) und dabei **CRANKEN**: wegdrehen, bis das Ziel am Rand dessen sitzt, was die Antenne noch führen kann | `now − ShotS ≥ holdS` ODER (`!locked && !Pitbull`) → `weapons && haveTgt ? Attack : Abort` |
-| `Defend` | **BEAMEN**: quer zur Bedrohungspeilung drehen (kürzerer Weg), Täuschkörper alle `ChaffIntervalS` | `now − IntThreatLastS_ ≥ DefendHoldS` → `CanPressOn(state) ? Search : Abort` |
-| `Abort` | kalt abdrehen: 180° weg vom Letzten, was auf dieses Flugzeug gezeigt hat | terminal |
+| `Idle` | treated like `Search` | see below |
+| `Search` | fly the briefed vector (active waypoint = bearing + altitude), select the search mode, antenna onto the expected altitude band, **do NOT lock** (a lock is a personal warning to the one it points at) | `haveTgt` → `Attack` if `R ≤ LockRangeNm`, otherwise `Closing` |
+| `Closing` | pursuit course onto the contact, co-altitude, antenna centred on the return — still WITHOUT a lock | `R ≤ LockRangeNm` → `Attack`; contact gone → `Search`; no weapons → `Abort`; `R < AbortRangeNm` and never fired → `Abort` |
+| `Attack` | designate (TMS forward) if not yet locked; read the launch envelope; shoot when `inParams` AND the lock is ≥ `kInterceptTrackSettleS` old AND the shot spacings are respected | shot registered (stores counter) → `Support`; otherwise as above |
+| `Support` | **HOLD the lock** (the AIM-120 flies its midcourse on the uplink) and **CRANK** while doing so: turn away until the target sits at the edge of what the antenna can still carry | `now − ShotS ≥ holdS` OR (`!locked && !Pitbull`) → `weapons && haveTgt ? Attack : Abort` |
+| `Defend` | **BEAM**: turn across the threat bearing (the shorter way), countermeasures every `ChaffIntervalS` | `now − IntThreatLastS_ ≥ DefendHoldS` → `CanPressOn(state) ? Search : Abort` |
+| `Abort` | turn away cold: 180° away from the last thing that pointed at this aircraft | terminal |
 
-`defendDue` schlägt alles andere und setzt sofort `Defend`.
+`defendDue` beats everything else and sets `Defend` immediately.
 
-**Der Schuss-Torschluss:**
+**The shot gate:**
 
 ```
 inParams = fc.DlzValid && fc.InZone
@@ -912,48 +887,47 @@ wantShot = locked && inParams
         && (now − IntLastShotS_) ≥ Tuned(ShotSpacingS, …) && now ≥ IntNextShotS_
 ```
 
-Geschossen wird bei **Rtr**, nicht bei Raero: Raero ist die kinematische Maximalreichweite, also ein
-Schuss, den der Gegner durch Umdrehen und Weglaufen besiegt; Rtr ist die Entfernung, aus der die Runde
-auch dann ankommt, wenn er genau das tut. `RtrFactor` ist ein ANTEIL einer Zahl, die die Feuerleitung je
-Schuss rechnet — kein eigener Entfernungswert —, bleibt also richtig, wenn sich die Geometrie ändert.
+The shot is taken at **Rtr**, not at Raero: Raero is the kinematic maximum range, hence a shot that the
+opponent defeats by turning around and running away; Rtr is the range from which the round arrives even
+when he does exactly that. `RtrFactor` is a FRACTION of a number that the fire control computes per shot
+— not a range value of its own — so it stays correct when the geometry changes.
 
-**`kInterceptTrackSettleS` = 2,0 s** [HERL/MESS]: ein Single-Target-Track ist nicht in dem Moment eine
-Feuerlösung, in dem die Antenne stehenbleibt. Die Runde wird mit der geschätzten BEWEGUNG des Ziels
-programmiert (`core/FBWeaponUplink`), und diese Schätzung wird aus aufeinanderfolgenden Looks
-differenziert und gefiltert (`kVelAlpha`, ~0,4 s Zeitkonstante auf einem 0,1-s-STT-Frame). Innerhalb
-einer Sekunde nach dem Designieren zu schießen heißt, eine Runde mit einer Geschwindigkeit von nahezu
-null zu starten — [MESS] der Aspekt, unter dem der Schuss fiel, ließ sich nicht einmal berechnen. Zwei
-Sekunden sind mehrere Filter-Zeitkonstanten und zugleich das, was eine echte Schusssequenz an
-Schalterarbeit kostet.
+**`kInterceptTrackSettleS` = 2.0 s** [HERL/MESS]: a single target track is not a firing solution the
+moment the antenna stops moving. The round is programmed with the estimated MOTION of the target
+(`core/FBWeaponUplink`), and this estimate is differentiated from successive looks and filtered
+(`kVelAlpha`, ~0.4 s time constant on a 0.1 s STT frame). Shooting within a second of designating means
+launching a round with a velocity of nearly zero — [MESS] the aspect at which the shot was taken could
+not even be computed. Two seconds are several filter time constants and at the same time what a real
+firing sequence costs in switch work.
 
-**Nach dem Schuss:** `IntNextShotS_ = now + max(ShotSpacingS, fc.TimeToImpactS)` — eine zweite Runde ist
-erst dann überhaupt eine Frage, wenn die erste ihre Chance hatte. Der Pilot erfährt über den Treffer
-weiterhin nichts außer über die eigenen Sensoren: ein zerstörter Jet hört auf, ein Radarkontakt zu sein,
-weil er fällt, nicht weil es ihm jemand sagt.
+**After the shot:** `IntNextShotS_ = now + max(ShotSpacingS, fc.TimeToImpactS)` — a second round is only a
+question at all once the first has had its chance. The pilot still learns nothing about the hit except
+through his own sensors: a destroyed jet stops being a radar contact because it falls, not because
+somebody tells him.
 
-**Die Crank-Dauer.** NICHT „bis der Suchkopf übernimmt": das ist der Moment, ab dem die Runde den UPLINK
-nicht mehr braucht, nicht das Ende des Schusses. Zwischen Suchkopf-Aktivierung und Einschlag kann dieser
-Jet nichts mehr für sie tun und hat jeden Grund, dem Ziel derweil nicht entgegenzufliegen:
+**The crank duration.** NOT "until the seeker takes over": that is the moment from which the round no
+longer needs the UPLINK, not the end of the shot. Between seeker activation and impact this jet can do
+nothing more for it and has every reason not to fly towards the target meanwhile:
 
 ```
 holdS = min( kInterceptSupportMaxS(60 s) , max( Eng_.ShotTtiS() , max(Eng_.ShotTtaS(), 0) ) )
 ```
 
-Der Deckel fängt einen Startbereich ab, der nie einen Countdown produziert hat (`TimeToImpactS < 0`:
-die Runde stirbt, bevor sie ankommt). Das andere Ende ist das Versagen: Lock weg UND der Suchkopf hat
-NICHT übernommen — die Runde fliegt eine Schätzung, die niemand mehr auffrischt; dafür lohnt die
-Rückkehr, denn Neu-Designieren nimmt den Uplink wieder auf.
+The cap catches a launch envelope that never produced a countdown (`TimeToImpactS < 0`: the round dies
+before it arrives). The other end is failure: lock gone AND the seeker has NOT taken over — the round is
+flying an estimate that nobody refreshes any more; going back is worth it for that, because re-designating
+resumes the uplink.
 
-**Die Crank-Seite wird einmal pro Schuss festgelegt** (`IntCrankSign_`): ein Crank, der seine Richtung
-jeden Tick neu wählt, ist ein Jet, der eine S fliegt, während seine Runde ungestützt bleibt.
-Kommandiert wird `aimHdg = st.yaw + wrap180(tgtAz − sign·CrankAtaDeg)`.
+**The crank side is fixed once per shot** (`IntCrankSign_`): a crank that chooses its direction anew every
+tick is a jet flying an S while its round stays unsupported. The command is
+`aimHdg = st.yaw + wrap180(tgtAz − sign·CrankAtaDeg)`.
 
-**Der Beam.** 90° zur Bedrohungspeilung (`InterceptBeamOffsetDeg`): dort hat die Eigengeschwindigkeit
-keine Komponente auf seine Sichtlinie, was genau das Clutter-Filter eines Puls-Doppler-Geräts ist — und
-es ist die EINZIGE Geometrie, in der Düppel überhaupt etwas wert sind (`systems/FBRadarSystem`s Notch).
-Von den beiden Wegen der kürzere, weil die Drehung selbst Zeit in seinem besten Fall ist.
+**The beam.** 90° to the threat bearing (`InterceptBeamOffsetDeg`): there one's own velocity has no
+component on his line of sight, which is exactly the clutter filter of a pulse-Doppler device — and it is
+the ONLY geometry in which chaff is worth anything at all (`systems/FBRadarSystem`'s notch). Of the two
+ways the shorter one, because the turn itself is time in his favour.
 
-#### 7.4 `CanPressOn` — die drei Instrumente der Wiederaufnahme
+#### 7.4 `CanPressOn` — the three instruments of resumption
 
 ```
 weapons = Stores.H.Readable() && Stores.LoadedCount > 0
@@ -962,265 +936,260 @@ sensor  = Radar.H.Readable() && Radar.Radiating
 return weapons && !bingo && sensor;
 ```
 
-Drei Instrumente, drei Gründe heimzufliegen, jeder vom BUS abgelesen statt gewusst: ein Jet mit leeren
-Trägern kann ihn nicht töten, einer bei BINGO kommt danach nicht heim, und einer, dessen Gerät nicht
-strahlt, findet ihn nicht einmal. Die Fuel-Beurteilung trägt der WARN-Block, weil BINGO eine Zahl ist,
-zu der sich der PILOT verpflichtet hat (`systems/FBWarningSystem` gegen die gebriefte Schwelle) — kein
-Bruchteil, den diese Klasse erfinden darf.
+Three instruments, three reasons to fly home, each read off the BUS instead of known: a jet with empty
+racks cannot kill him, one at BINGO will not get home afterwards, and one whose set is not radiating will
+not even find him. The fuel judgement is carried by the WARN block, because BINGO is a number the PILOT
+committed to (`systems/FBWarningSystem` against the briefed threshold) — not a fraction this class may
+invent.
 
-**Die Wiederaufnahme sucht das DATUM, nicht den gebrieften Vektor.** Ein Jäger, der zur Verteidigung
-abgebrochen und überlebt hat, nimmt nicht die Vektorierung eines Fluglotsen wieder auf, als wäre nichts
-gewesen — er geht dorthin zurück, wo er ihn zuletzt wusste. Kurs, Höhenband, Antennenelevation UND
-Webbreite kommen alle aus `FBBfmTrack::Datum`. Hat er nie etwas gesehen, ist das Datum ungültig und jede
-Zahl bleibt Byte für Byte die gebriefte — deshalb ist ein Abfang ohne je einen Kontakt von alldem
-unberührt.
-[MESS, `bvr-duel.fbm`] vorher flogen beide nach dem Abwehrmanöver ihren Vektor weiter und trennten sich
-**474 s** lang bis 70,7 km, jeder mit einer Rakete an Bord. Danach kehren beide um (größte Trennung
-55,6 km bei t≈280 s), gehen bei t≈355 s wieder in `closing`, bei t≈365 s in `attack`, zweiter Schuss bei
-t = 527 s (43,6 m Fehlabstand, im Notch abgewehrt wie der erste). Timeout deshalb 320 → 700 s.
+**The resumption searches the DATUM, not the briefed vector.** A fighter that broke off to defend and
+survived does not resume an air controller's vectoring as if nothing had happened — he goes back to where
+he last knew him. Heading, altitude band, antenna elevation AND weave width all come from
+`FBBfmTrack::Datum`. If he has never seen anything, the datum is invalid and every number stays byte for
+byte the briefed one — which is why an intercept without a single contact is untouched by all of this.
+[MESS, `bvr-duel.fbm`] before, both continued to fly their vector after the defensive manoeuvre and
+separated for **474 s** up to 70.7 km, each with a missile aboard. Afterwards both turn around (greatest
+separation 55.6 km at t≈280 s), go back into `closing` at t≈355 s, into `attack` at t≈365 s, second shot
+at t = 527 s (43.6 m miss distance, defeated in the notch like the first). Timeout therefore 320 → 700 s.
 
-#### 7.5 Die Antennenführung
+#### 7.5 The antenna control
 
-- `Search`: `wantEl = atan2(bandAltM − st.elev, distM)·rad2deg − st.pitch`. Der **eigene Nick** ist
-  das, was daraus ein Kommando statt einer Konstante macht: das Muster ist an die Nase geschraubt, ein
-  steigender Jet schaut also aus dem Band heraus, das er absuchen soll, wenn die Antenne nicht um genau
-  diesen Winkel zurückgedrückt wird.
-- `Closing`/`Attack`/`Support`: `wantEl = tgtElDeg` — den Rückstrahler **zentrieren**, nicht relativ
-  nachführen. Sowohl die gemeldete Kontaktelevation als auch die Mitte des Volumens sind
-  körperbezogen, die gewünschte Antennenstellung IST also der Winkel, unter dem der Kontakt zurückkam.
-  [MESS] auf das aktuelle Kommando zu ADDIEREN wanderte die Keule Look für Look vom Ziel weg und verlor
-  einen frontalen Kontakt zwanzig Sekunden nach der Erfassung.
+- `Search`: `wantEl = atan2(bandAltM − st.elev, distM)·rad2deg − st.pitch`. One's **own pitch** is what
+  makes this a command instead of a constant: the pattern is bolted to the nose, so a climbing jet looks
+  out of the band it is supposed to search unless the antenna is pushed back by exactly this angle.
+- `Closing`/`Attack`/`Support`: `wantEl = tgtElDeg` — **centre** the return, do not track it relatively.
+  Both the reported contact elevation and the centre of the volume are body-referenced, so the desired
+  antenna position IS the angle at which the contact came back.
+  [MESS] ADDING to the current command made the beam wander away from the target look by look and lost a
+  head-on contact twenty seconds after acquisition.
 
-#### 7.6 Die Hände (`InterceptCockpit`)
+#### 7.6 The hands (`InterceptCockpit`)
 
-**Höchstens EINE Bedienhandlung pro `Tuned(ActionSpacingS, kInterceptActionS)`** (Default 0,5 s), in
-fester Prioritätsreihenfolge:
+**At most ONE operating action per `Tuned(ActionSpacingS, kInterceptActionS)`** (default 0.5 s), in a
+fixed priority order:
 
-1. **Düppel** (`CmDispense`, Wert 0 = das vom PRGM-Knopf gewählte Programm) — das Flugzeug, auf das
-   geschossen wird, editiert keinen Radarmodus.
-2. **Schuss** (`WeaponRelease`).
-3. **Designation** (`Designate`, Wert = Tracknummer; 0 = lösen) — nur wenn das Gerät nicht schon den
-   verlangten Lock hält: eine Designation ist eine Entscheidung, keine wiederholte Forderung.
-4. **Antennenelevation** (`RadarSlewEl`), mit Totband `kInterceptElDeadDeg` = 2,0° — ein Knopf, der alle
-   zehntel Sekunden angetippt wird, wird nicht geflogen; ein Suchmuster ist ±10,5° hoch
-   (`modules/f16/FBF16Fcr`), 2° liegen also gut innerhalb der Keule.
-5. **Suchmodus**, EINMAL (`RadarMode`, `SearchRadarModeOrdinal()`). Ordinal < 0 = „dieses Modul hat
-   keinen eigenen nicht-lockenden Suchmodus, das Gerät bleibt, wie die Mission es gesetzt hat".
+1. **Chaff** (`CmDispense`, value 0 = the program selected by the PRGM knob) — the aircraft being shot at
+   does not edit a radar mode.
+2. **Shot** (`WeaponRelease`).
+3. **Designation** (`Designate`, value = track number; 0 = break) — only if the device is not already
+   holding the demanded lock: a designation is a decision, not a repeated demand.
+4. **Antenna elevation** (`RadarSlewEl`), with a dead band `kInterceptElDeadDeg` = 2.0° — a knob that is
+   tapped every tenth of a second is not being flown; a search pattern is ±10.5° high
+   (`modules/f16/FBF16Fcr`), so 2° lie well inside the beam.
+5. **Search mode**, ONCE (`RadarMode`, `SearchRadarModeOrdinal()`). Ordinal < 0 = "this module has no
+   non-locking search mode of its own, the device stays as the mission set it".
 
 ---
 
-### 8. `systems/FBEngagement` — die Zustandsmaschine als Daten und das Debriefing
+### 8. `systems/FBEngagement` — the state machine as data and the debriefing
 
-**Scoreboard, nicht Gehirn.** `FBBfmTrack` trägt beide Rollen (Bild + Metrik), weil ein Tracker EIN
-Objekt sein muss; hier steht das Bild bereits auf dem Bus, und was fehlt, ist ein Ort, sich zu MERKEN,
-was passiert ist. `FBPilot::Run` entscheidet, diese Klasse protokolliert.
+**Scoreboard, not brain.** `FBBfmTrack` carries both roles (picture + metric), because a tracker has to be
+ONE object; here the picture is already on the bus, and what is missing is a place to REMEMBER what
+happened. `FBPilot::Run` decides, this class records.
 
-**Ereignisse, je genau einmal (erstes Vorkommen gewinnt):**
+**Events, each exactly once (first occurrence wins):**
 
-| Methode | Was sie festhält |
+| Method | What it records |
 |---|---|
-| `NoteContact(now)` | erster fester Radarkontakt auf dem bearbeiteten Ziel |
-| `NoteLock(now)` | erster Single-Target-Track |
-| `NoteShot(now, R, ata, aspect, raero, rtr, rmin, tta, tti)` | der Abzug MIT dem ganzen Startbereich, wie ihn die Feuerleitung in DIESEM Augenblick meldete — die Vorhersage, gegen die das geflogene Ergebnis später gemessen wird. NUR der erste Schuss beschreibt die Metrik (ein zweiter ist eine andere Entscheidung mit eigener Geometrie; Mitteln beschriebe keine von beiden), der Zähler sagt, wie viele fielen |
-| `NoteThreat(now)` | erste Track-Klassen-Warnung |
-| `NoteDefensiveAction(now, cueS)` | erstes Kommando als ANTWORT, gemessen ab dem CUE |
-| `NoteChaff(n)` | tatsächlich ausgestoßene PATRONEN (die Zählung der Anlage, nicht die der Schalterwürfe) |
-| `NoteSupport(locked, now, dt)` | ein Tick im Führungsfenster `[Start, Start + TTA]` |
+| `NoteContact(now)` | first firm radar contact on the target being worked |
+| `NoteLock(now)` | first single target track |
+| `NoteShot(now, R, ata, aspect, raero, rtr, rmin, tta, tti)` | the trigger WITH the whole launch envelope as the fire control reported it AT THAT INSTANT — the prediction against which the flown result is later measured. ONLY the first shot describes the metric (a second one is a different decision with its own geometry; averaging would describe neither), the counter says how many fell |
+| `NoteThreat(now)` | first track-class warning |
+| `NoteDefensiveAction(now, cueS)` | first command as an ANSWER, measured from the CUE |
+| `NoteChaff(n)` | CARTRIDGES actually ejected (the set's count, not that of the switch throws) |
+| `NoteSupport(locked, now, dt)` | one tick in the guidance window `[start, start + TTA]` |
 
-**Führung wird in SEKUNDEN GEMESSEN, IN DENEN DER UPLINK TATSÄCHLICH GESPEIST WURDE**, nicht in
-Sekunden seit dem Start: wer die Nase drin behält, aber den Track durch den Kardanwinkel verliert, stützt
-den Schuss nicht mehr. `Pitbull` ist das abgeleitete Urteil, genau einmal am ENDE des Fensters gefällt.
-Das Fenster schließt VOR der Zählung dieses Ticks, damit die Summe die Fensterlänge nie übersteigt —
-`eng_support_f` ist ein ANTEIL und wird zusätzlich bei 1 gekappt (Tick 0,1 s gegen ein auf den
-Integrationsschritt quantisiertes Fenster).
+**Guidance is MEASURED IN SECONDS IN WHICH THE UPLINK WAS ACTUALLY FED**, not in seconds since launch:
+whoever keeps the nose in but loses the track through the gimbal limit is no longer supporting the shot.
+`Pitbull` is the derived verdict, passed exactly once at the END of the window. The window closes BEFORE
+this tick's count, so that the sum never exceeds the window length — `eng_support_f` is a FRACTION and is
+additionally capped at 1 (0.1 s tick against a window quantised onto the integration step).
 
-**Die `eng_*`-Kanäle (Quelle `eng`, 27 Spalten, ganz hinten angehängt).** Jeder ist (a) aus den EIGENEN
-Instrumenten berechenbar und (b) eine Größe, über die ein echtes Debriefing streiten würde:
+**The `eng_*` channels (source `eng`, 27 columns, appended right at the end).** Each is (a) computable
+from one's OWN instruments and (b) a quantity a real debriefing would argue about:
 
-| Spalte(n) | Misst |
+| Column(s) | Measures |
 |---|---|
-| `eng_state` | der Zustand aus § 7.3 |
-| `eng_tgt_nm`, `eng_ata`, `eng_aspect`, `eng_clos`, `eng_locked` | die aktuelle Geometrie des bearbeiteten Kontakts (−1 = keiner) |
-| `eng_detect_s`, `eng_lock_s` | **Zeit bis zur Erfassung** — wer die Antenne auf die falsche Höhe stellt, findet ihn spät oder nie |
-| `eng_shot_s`, `eng_shot_nm`, `eng_shot_ata`, `eng_shot_aspect` | Schussmoment, -entfernung, -geometrie |
-| `eng_shot_rtr_nm`, `eng_shot_raero_nm`, `eng_shot_rmin_nm` | der Startbereich IM MOMENT des Schusses — ein Schuss ist nur so gut wie die Geometrie, in der er fiel |
-| `eng_tta_s`, `eng_tti_s` | die beiden Vorhersagen des Feuerleitrechners (bis Eigenlenkung / bis Einschlag) |
-| `eng_support_s`, `eng_support_f`, `eng_pitbull` | **der Unterschied zwischen einem Start und einem Abschuss** |
-| `eng_threat_s`, `eng_react_s` | **Reaktionszeit** — der eine Kanal, der rein den PILOTEN und nicht die Geometrie beschreibt |
-| `eng_defend_s`, `eng_shots`, `eng_chaff` | Sekunden in der Verteidigung, Schüsse, ausgestoßene Patronen |
-| `eng_es`, `eng_es_min` | Energiehöhe jetzt und ihr Minimum SEIT BEGINN DES GEFECHTS (nicht seit Laufbeginn: wer noch nicht kämpft, hat noch nichts ausgegeben) |
+| `eng_state` | the state from § 7.3 |
+| `eng_tgt_nm`, `eng_ata`, `eng_aspect`, `eng_clos`, `eng_locked` | the current geometry of the contact being worked (−1 = none) |
+| `eng_detect_s`, `eng_lock_s` | **time to acquisition** — whoever puts the antenna at the wrong altitude finds him late or never |
+| `eng_shot_s`, `eng_shot_nm`, `eng_shot_ata`, `eng_shot_aspect` | shot moment, range, geometry |
+| `eng_shot_rtr_nm`, `eng_shot_raero_nm`, `eng_shot_rmin_nm` | the launch envelope AT THE MOMENT of the shot — a shot is only as good as the geometry in which it fell |
+| `eng_tta_s`, `eng_tti_s` | the two predictions of the fire control computer (to self-guidance / to impact) |
+| `eng_support_s`, `eng_support_f`, `eng_pitbull` | **the difference between a launch and a kill** |
+| `eng_threat_s`, `eng_react_s` | **reaction time** — the one channel that describes purely the PILOT and not the geometry |
+| `eng_defend_s`, `eng_shots`, `eng_chaff` | seconds in defence, shots, cartridges ejected |
+| `eng_es`, `eng_es_min` | energy height now and its minimum SINCE THE START OF THE ENGAGEMENT (not since the start of the run: whoever is not fighting yet has not spent anything yet) |
 
-Alle überleben das Gefecht, deshalb IST die letzte Zeile eines Laufs das ganze Debriefing.
-**Das ist die Bedeutung für die evolutionäre Runde:** weil jeder Kanal aus eigener Perspektive
-berechenbar ist, bewertet die Fitness kein Wissen, das der Pilot nicht hatte — und weil sie in der
-Telemetrie stehen und nicht in der Auswertung neu gerechnet werden, urteilt die Auswertung nicht über
-ihre eigene Kopie der Geometrie.
+All of them survive the engagement, which is why the last line of a run IS the whole debriefing.
+**That is the significance for the evolutionary round:** because every channel is computable from one's
+own perspective, the fitness does not score knowledge the pilot did not have — and because they are in
+the telemetry and not recomputed in the analysis, the analysis does not judge on its own copy of the
+geometry.
 
 ---
 
-### 9. `systems/FBPilotTuning` — die Variante als Missionsdaten
+### 9. `systems/FBPilotTuning` — the variant as mission data
 
-**Die Tabelle.** Ein festes Array `{Have_[], Value_[]}` über das Parameter-Ordinal: keine Allokation,
-kein Map-Lookup im Entscheidungspfad. Gelesen ausschließlich über
+**The table.** A fixed array `{Have_[], Value_[]}` over the parameter ordinal: no allocation, no map
+lookup in the decision path. Read exclusively through
 
 ```
 double Tuned(FBPilotParam p, double own) const { return Tune_.Or(p, own); }
 ```
 
-`own` ist IMMER der eigene Hook dieses Piloten — die Zahlen der Zelle bleiben damit in der Klasse der
-Zelle, und die Überschreibung bleibt dünn und an der Verwendungsstelle sichtbar.
+`own` is ALWAYS this pilot's own hook — the airframe's numbers thereby stay in the airframe's class, and
+the override stays thin and visible at the point of use.
 
-**„Nicht gesetzt ist keine Null."** Ein leerer Eintrag bedeutet „die eigene Zahl dieses Piloten". Eine
-Mission ohne `pilot_*`-Zeile fliegt deshalb byte-identisch zu einer, die diese Klasse nie gesehen hat
-(nachgemessen).
+**"Not set is not zero."** An empty entry means "this pilot's own number". A mission without a `pilot_*`
+line therefore flies byte-identically to one that never saw this class (measured).
 
-**Bandprüfung.** `Set(key, value)` lehnt einen unbekannten Schlüssel oder einen Wert außerhalb des
-Bandes ab; `FBF16Module::ApplySetup` macht daraus einen Missions-FAIL. Eine vertippte Turnier-Zahl fliegt
-also nicht still den Default. Die Bänder sind bewusst WEIT — sie fangen einen Tippfehler oder eine
-Einheitenverwechslung, sie kodieren keinen Geschmack: ein Turnier darf eine schlechte Idee versuchen, es
-darf nicht 6.000 nm versuchen.
+**Band check.** `Set(key, value)` rejects an unknown key or a value outside the band;
+`FBF16Module::ApplySetup` turns that into a mission FAIL. A mistyped tournament number therefore does not
+silently fly the default. The bands are deliberately WIDE — they catch a typo or a unit confusion, they
+do not encode taste: a tournament may try a bad idea, it may not try 6,000 nm.
 
-| Schlüssel | Band | Entscheidet | Anmerkung |
+| Key | Band | Decides | Note |
 |---|---|---|---|
-| `pilot_speed_kt` | 150…900 | Abfanggeschwindigkeit (kt TAS) | |
-| `pilot_lock_nm` | 1…40 | wo der Lock (und seine Warnung) ausgegeben wird | Obergrenze = das Tor des APG-68 |
-| `pilot_shot_rtr` | 0,1…3,0 | Auslösen bei diesem Vielfachen von Rtr | > 1 = jenseits von Rtr |
-| `pilot_shot_ata_deg` | 1…60 | wie weit off-nose noch geschossen wird | Obergrenze = Kardanwinkel |
-| `pilot_shot_spacing_s` | 0…120 | Abstand zweier Schüsse auf dasselbe Ziel | |
-| `pilot_crank_deg` | 0…60 | wie weit der gestützte Schuss weggedreht wird | |
-| `pilot_abort_nm` | 0…40 | darunter ist der Abfang vorbei | |
-| `pilot_beam_deg` | 0…180 | Verteidigungsdrehung gegen die Bedrohungspeilung | |
-| `pilot_chaff_s` | 0,2…60 | Wurfintervall in der Verteidigung | |
-| `pilot_defend_hold_s` | 0…120 | Haltezeit nach der letzten Warnung | |
-| `pilot_react_s` | 0…30 | menschliche Reaktionszeit | **PILOTEN-Eigenschaft** |
-| `pilot_action_s` | 0,1…30 | eine Bedienhandlung pro dieser Zeit | **PILOTEN-Eigenschaft** |
-| `pilot_gun_burst_s` | 0,1…1,0 | Länge EINES Abzugsdrucks | Obergrenze = `core/FBGun.h`s `MaxBurstS`; die Dauer ist NICHT der Bus-Abstand |
-| `pilot_gun_tol_frac` | 0,05…1,0 | wie eng der Pipper gehalten wird (Anteil der Trichtertoleranz) | |
-| `pilot_bfm_ctrl_min_nm` | 0,05…5,0 | Nahkante der Kontrollposition | |
-| `pilot_bfm_ctrl_max_nm` | 0,05…10,0 | Fernkante | Kanonenposition IM Trichter, Raketenposition außerhalb |
-| `pilot_attack_bias_s` | −10…+10 | Abwurf um s Sekunden nach dem Cue | bewusst WEIT und VORZEICHENBEHAFTET: der Parameter für einen ABSICHTLICH falschen Abwurf |
-| `pilot_attack_ccip_m` | 1…2000 | CCIP-Pipper-Toleranz | |
+| `pilot_speed_kt` | 150…900 | intercept speed (kt TAS) | |
+| `pilot_lock_nm` | 1…40 | where the lock (and its warning) is issued | upper limit = the APG-68's gate |
+| `pilot_shot_rtr` | 0.1…3.0 | trigger at this multiple of Rtr | > 1 = beyond Rtr |
+| `pilot_shot_ata_deg` | 1…60 | how far off nose a shot is still taken | upper limit = gimbal limit |
+| `pilot_shot_spacing_s` | 0…120 | spacing of two shots at the same target | |
+| `pilot_crank_deg` | 0…60 | how far away the supported shot is cranked | |
+| `pilot_abort_nm` | 0…40 | below this the intercept is over | |
+| `pilot_beam_deg` | 0…180 | defensive turn against the threat bearing | |
+| `pilot_chaff_s` | 0.2…60 | dispensing interval in the defence | |
+| `pilot_defend_hold_s` | 0…120 | hold time after the last warning | |
+| `pilot_react_s` | 0…30 | human reaction time | **PILOT property** |
+| `pilot_action_s` | 0.1…30 | one operating action per this time | **PILOT property** |
+| `pilot_gun_burst_s` | 0.1…1.0 | length of ONE trigger squeeze | upper limit = `core/FBGun.h`'s `MaxBurstS`; the duration is NOT the bus spacing |
+| `pilot_gun_tol_frac` | 0.05…1.0 | how tightly the pipper is held (fraction of the funnel tolerance) | |
+| `pilot_bfm_ctrl_min_nm` | 0.05…5.0 | near edge of the control position | |
+| `pilot_bfm_ctrl_max_nm` | 0.05…10.0 | far edge | gun position IN the funnel, missile position outside |
+| `pilot_attack_bias_s` | −10…+10 | release s seconds after the cue | deliberately WIDE and SIGNED: the parameter for a DELIBERATELY wrong release |
+| `pilot_attack_ccip_m` | 1…2000 | CCIP pipper tolerance | |
 
-**Warum eine Population eine Menge von TEXTZEILEN ist.** Eine Variante ist damit eine ZEILE in einer
-Missionsdatei statt einer Klasse — zwischen zwei Kandidaten wird nichts kompiliert, und im Simulator
-steht kein Turnier-Code. Reaktions- und Handlungszeit liegen weiterhin ZUSÄTZLICH zur Bus-Latenz der
-jeweiligen Klasse: keine Variante kann schneller antworten, als der Jet es zulässt.
+**Why a population is a set of TEXT LINES.** A variant is thereby a LINE in a mission file instead of a
+class — nothing is compiled between two candidates, and there is no tournament code in the simulator.
+Reaction and action times still lie ON TOP of the bus latency of the respective class: no variant can
+answer faster than the jet allows.
 
-#### 9.1 Der Turnierläufer (`sim/tools/fb_tournament.py`)
+#### 9.1 The tournament runner (`sim/tools/fb_tournament.py`)
 
-Stdlib-Python, kein Build-Target, keine Abhängigkeit unter `sim/build` außer der `fb-gym`-Binärdatei.
+Stdlib Python, not a build target, no dependency under `sim/build` except the `fb-gym` binary.
 
-- **Was er fliegt:** jedes ungeordnete Paar von Varianten, in BEIDEN Seitenzuordnungen (A west/B east und
-  B west/A east), auf einer Startgeometrie. Beide Sitze zu fliegen entfernt den Positionsvorteil aus dem
-  Ergebnis — die zwei Läufe eines Paares sind Spiegelbilder, die SUMME misst also die Variante und nicht
-  den Sitz. Läufe gehen über `fb-gym --threads N` und sind byte-reproduzierbar (`--check-determinism`
-  fliegt jede Paarung zusätzlich mit `--threads 1` und vergleicht die Telemetrie byteweise).
-- **Geometrien:** `mirror` (frontal, co-altitude, co-speed, beide außerhalb des 40-nm-Suchtors bei t=0 —
-  beide Läufe beginnen mit einer echten Suchphase, keiner bekommt eine Detektion geschenkt) und `split`
-  (der Energie-Unterschied von `bvr-duel-decided.fbm`: 6.000 m und 150 kt — nicht „wer gewinnt einen
-  gleichen Kampf", sondern „wer macht mehr aus beiden Enden eines ungleichen").
-- **Auswertung** ausschließlich aus `telemetry*.csv` (die `eng_*`- und `dmg_*`-Spalten der letzten Zeile)
-  plus den `UNIT_RESULT`-Zeilen aus `events.log`.
+- **What it flies:** every unordered pair of variants, in BOTH side assignments (A west/B east and B
+  west/A east), on one starting geometry. Flying both seats removes the positional advantage from the
+  result — the two runs of a pair are mirror images, so the SUM measures the variant and not the seat.
+  Runs go through `fb-gym --threads N` and are byte-reproducible (`--check-determinism` flies every
+  pairing additionally with `--threads 1` and compares the telemetry byte by byte).
+- **Geometries:** `mirror` (head-on, co-altitude, co-speed, both outside the 40 nm search gate at t=0 —
+  both runs begin with a real search phase, neither gets a detection for free) and `split` (the energy
+  difference of `bvr-duel-decided.fbm`: 6,000 m and 150 kt — not "who wins an equal fight" but "who makes
+  more of both ends of an unequal one").
+- **Evaluation** exclusively from `telemetry*.csv` (the `eng_*` and `dmg_*` columns of the last line)
+  plus the `UNIT_RESULT` lines from `events.log`.
 
-**Die Auswertungsregel: Ergebnis dominiert, Handwerk ordnet nur innerhalb gleicher Ergebnisse.**
+**The evaluation rule: outcome dominates, craft only orders within equal outcomes.**
 
-| Posten | Gewicht | Begründung im Skript |
+| Item | Weight | Justification in the script |
 |---|---|---|
-| `kill` | +1000 | der Sinn des Einsatzes |
-| `lost` | −1200 | etwas MEHR als ein Abschuss wert — ohne die Asymmetrie wäre ein gegenseitiger Abschuss so viel wert wie ein Patt, und „immer tauschen" wäre eine stabile Strategie |
-| `hits landed` | +150 je Treffer | der Anti-Schießwütig-Posten und das Einzige, wofür ein Schuss überhaupt etwas bekommt; nicht fälschbar (ein Treffer heißt, eine Runde auf zehn Meter geführt zu haben) und ein Sechstel eines Abschusses |
-| `no shot` | −250 | der Anti-Weglaufen-Posten. Wer nie feuert, kann auch nicht abgeschossen werden — eine reine Überlebenswertung hat ihr Optimum im Verlassen des Gebiets. Größer als alle Handwerksposten zusammen |
-| `rounds` | −25 je Schuss | eine AIM-120 ist nicht umsonst |
-| `shot geometry` | ×100 | `q = zone · cos(ata)`, `zone = clamp((Raero − R)/(Raero − Rtr), 0, 1)`. 1,0 = bei oder innerhalb Rtr, direkt voraus. **Plateau** jenseits Rtr: „näher ist besser" ohne Grenze würde für das Hineindrücken bezahlen, was die Ergebnisposten längst teurer bewerten |
-| `support` | ×80 | `eng_support_f` — der Unterschied zwischen Start und Abschuss |
-| `shot lead` | ×40 | `tanh((t_foe − t_me)/15)`, RELATIV zum Gegner im SELBEN Lauf — ein Duell ist eine relative Sache; die tanh verhindert, dass ein 15-s-Vorsprung zehnmal so viel wert ist wie ein 5-s-Vorsprung |
-| `defence` | ×40 | nur wo es etwas abzuwehren GAB und nur wenn es funktionierte: `max(0, 1 − react/8)` und überlebt. Nicht farmbar — beschossen zu werden ist die Entscheidung des Gegners |
-| `energy` | ×40 | `eng_es_min / es_start`. Bewusst klein: geradeaus und waagerecht zu fliegen ist auf dieser Achse perfekt und auf jeder anderen hoffnungslos |
+| `kill` | +1000 | the point of the sortie |
+| `lost` | −1200 | worth somewhat MORE than a kill — without the asymmetry a mutual kill would be worth as much as a stalemate, and "always trade" would be a stable strategy |
+| `hits landed` | +150 per hit | the anti-trigger-happy item and the only thing a shot gets anything for at all; not fakeable (a hit means having guided a round to within ten metres) and a sixth of a kill |
+| `no shot` | −250 | the anti-running-away item. Whoever never fires cannot be shot down either — a pure survival score has its optimum in leaving the area. Larger than all craft items together |
+| `rounds` | −25 per shot | an AIM-120 is not free |
+| `shot geometry` | ×100 | `q = zone · cos(ata)`, `zone = clamp((Raero − R)/(Raero − Rtr), 0, 1)`. 1.0 = at or inside Rtr, straight ahead. **Plateau** beyond Rtr: "closer is better" without a limit would pay for pressing in, which the outcome items already price higher |
+| `support` | ×80 | `eng_support_f` — the difference between a launch and a kill |
+| `shot lead` | ×40 | `tanh((t_foe − t_me)/15)`, RELATIVE to the opponent in the SAME run — a duel is a relative thing; the tanh prevents a 15 s lead from being worth ten times as much as a 5 s lead |
+| `defence` | ×40 | only where there WAS something to defend against and only if it worked: `max(0, 1 − react/8)` and survived. Not farmable — being shot at is the opponent's decision |
+| `energy` | ×40 | `eng_es_min / es_start`. Deliberately small: flying straight and level is perfect on this axis and hopeless on every other |
 
-Die Rangliste ist der MITTELWERT über die Läufe einer Variante (wächst also nicht mit der Feldgröße) und
-trennt `outcome` (kill/lost/hits) von `craft` (der Rest).
+The ranking is the MEAN over the runs of a variant (so it does not grow with the field size) and separates
+`outcome` (kill/lost/hits) from `craft` (the rest).
 
 ---
 
-### 10. Der Missions-Regelkreis als Arbeitsweise
+### 10. The mission control loop as a way of working
 
 ```
-Mission definieren (.fbm)  →  headless simulieren (fb-gym)  →  Telemetrie maschinell analysieren
+define a mission (.fbm)  →  simulate headless (fb-gym)  →  analyse the telemetry mechanically
       ↑                                                                       │
-      └───────────────────────── Korrektur ←──────────────────────────────────┘
+      └───────────────────────────── correction ←────────────────────────────┘
 ```
 
-- **Definieren:** `sim/missions/*.fbm`. Für einen Kampf zwingend `set datalink off` (sonst wäre die
-  Sensorbeschränkung nur behauptet) und ein Auto-Lock-Modus (`set fcr_mode acm_hud` o.ä. — CRM lockt
-  nicht von selbst). Für einen Abfang `set fcr_mode crm` und Startgeometrien außerhalb des Suchtors.
-- **Simulieren:** `build/fb-gym --mission FILE --out DIR [--threads N] [--elev const|swiss]`.
-  Kampf- und Abfangmissionen enden per **TIMEOUT (Exit 3)** — ein Gefecht hat kein Wegpunkt-Ziel; das
-  Urteil steht in der Telemetrie, nicht im Exit-Code. Seit den Kampfzielen (`objective kill unit …`)
-  kann ein Duell stattdessen SUCCESS/FAIL liefern.
-- **Analysieren:** die LETZTE ZEILE trägt alle Integrale. Kanäle nach Frage:
+- **Define:** `sim/missions/*.fbm`. For a fight, `set datalink off` is mandatory (otherwise the sensor
+  restriction would only be claimed) plus an auto-lock mode (`set fcr_mode acm_hud` or similar — CRM does
+  not lock by itself). For an intercept, `set fcr_mode crm` and starting geometries outside the search
+  gate.
+- **Simulate:** `build/fb-gym --mission FILE --out DIR [--threads N] [--elev const|swiss]`.
+  Combat and intercept missions end by **TIMEOUT (exit 3)** — an engagement has no waypoint objective; the
+  verdict is in the telemetry, not in the exit code. Since the combat objectives (`objective kill unit
+  …`) a duel can deliver SUCCESS/FAIL instead.
+- **Analyse:** the LAST LINE carries all the integrals. Channels by question:
 
-| Frage | Kanäle / Ereignisse |
+| Question | Channels / events |
 |---|---|
-| Wo war der Pilot? | `phase`, `activeWp`, `distToWpM` |
-| Wie lief der Kurvenkampf? | `bfm_*` (§ 6.3), `pilot GUN_TRACK`/`GUN_BREAK` |
-| Wie lief der Abfang? | `eng_*` (§ 8) |
-| Was hat er bedient? | `cmd_*`-Spalten, `cmd CMD_ISSUE`/`CMD_ACK`/`CMD_REJECT` |
-| Was hat er gesehen? | `blk_*` (Blockgültigkeit — ein gehaltener Wert sieht sonst aus wie ein frischer), `warn_*` |
-| Was hat er getroffen? | `dmg_hits`/`dmg_failed`/`dmg_degraded`/`dmg_effective`, `damage DAMAGE`/`SYSTEM`/`KILL`, `gun HIT`/`MISS`/`DRY` |
-| Was hat er abgeworfen? | `pilot ATTACK_RELEASE`, `stores DELIVERY` |
-| Wie ging es aus? | `UNIT_RESULT unit=… result=… reason="…" decisive=…`, `RESULT`, `SUMMARY` |
+| Where was the pilot? | `phase`, `activeWp`, `distToWpM` |
+| How did the turning fight go? | `bfm_*` (§ 6.3), `pilot GUN_TRACK`/`GUN_BREAK` |
+| How did the intercept go? | `eng_*` (§ 8) |
+| What did he operate? | `cmd_*` columns, `cmd CMD_ISSUE`/`CMD_ACK`/`CMD_REJECT` |
+| What did he see? | `blk_*` (block validity — a held value otherwise looks like a fresh one), `warn_*` |
+| What did he hit? | `dmg_hits`/`dmg_failed`/`dmg_degraded`/`dmg_effective`, `damage DAMAGE`/`SYSTEM`/`KILL`, `gun HIT`/`MISS`/`DRY` |
+| What did he drop? | `pilot ATTACK_RELEASE`, `stores DELIVERY` |
+| How did it end? | `UNIT_RESULT unit=… result=… reason="…" decisive=…`, `RESULT`, `SUMMARY` |
 
-- **Regel für neue Kanäle:** IMMER hinten anhängen (`units/FBSimUnit::StartTelemetry`), damit keine je
-  gemessene Spalte ihre Position verliert. `FBBfmTrack` und `FBEngagement` sind aus genau diesem Grund
-  EIGENE Telemetriequellen und nicht in die drei `pilot`-Spalten hineingefaltet, die mitten in jeder
-  bestehenden `telemetry.csv` stehen.
+- **Rule for new channels:** ALWAYS append at the end (`units/FBSimUnit::StartTelemetry`), so that no
+  column ever measured loses its position. `FBBfmTrack` and `FBEngagement` are separate telemetry sources
+  for exactly this reason, and not folded into the three `pilot` columns that sit in the middle of every
+  existing `telemetry.csv`.
 
 ---
 
-### 11. Piloten-Eigenschaft vs. Flugzeug-Eigenschaft
+### 11. Pilot property vs. aircraft property
 
-Die Trennung ist strukturell: Flugzeug-Zahlen sind **virtuelle Hooks** auf `FBPilot`, die das Modul
-überschreibt; Piloten-Zahlen sind **Konstanten in `FBPilot.cpp`**, weil ein Mensch in jedem Cockpit
-derselbe ist — und beide sind über `FBPilotTuning` missionsseitig überschreibbar, wo eine Variante
-sinnvoll ist.
+The separation is structural: aircraft numbers are **virtual hooks** on `FBPilot` which the module
+overrides; pilot numbers are **constants in `FBPilot.cpp`**, because a human is the same in every cockpit
+— and both are overridable from the mission side through `FBPilotTuning` where a variant makes sense.
 
-**PILOTEN-Eigenschaften** (Konstanten, keine Hooks):
+**PILOT properties** (constants, not hooks):
 
-| Konstante | Wert | Begründung |
+| Constant | Value | Justification |
 |---|---|---|
-| `kInterceptReactionS` | 1,0 s | die eine Zahl in dieser Datei, die einen MENSCHEN modelliert: wahrnehmen, erkennen, entscheiden, bewegen. Veröffentlichte Werte für einen geübten Piloten auf einen eindeutigen, erwarteten Reiz liegen bei 0,5–1,5 s; 1,0 s ist die Mitte. Sie liegt OBEN AUF der 0,5-s-HOTAS-Latenz — das früheste, was ein Verteidigungskommando wirken kann, ist also anderthalb Sekunden nach dem Aufleuchten. Genau dafür existiert sie: eine KI, die im selben Tick antwortet, gewinnt mit Reflexen, die sie nicht hat |
-| `kInterceptActionS` | 0,5 s | dasselbe für die HÄNDE: ein Pilot bedient einen Hebel nach dem anderen, und die Avionik braucht selbst 0,5 s, um zwei Handlungen an einem Schalter zu unterscheiden |
-| `kInterceptElDeadDeg` | 2,0° | Totband der Antennenhöhe, innerhalb der Keulenbreite |
-| `kInterceptLostS` | 10,0 s | zwei CRM-Frames plus Marge |
-| `kInterceptTrackSettleS` | 2,0 s | mehrere Filter-Zeitkonstanten + die Schalterarbeit einer echten Schusssequenz |
-| `kBriefRetryS` | 2,0 s | ein abgelehnter DED-Eintrag ist eine Hand und ein Kopf, keine Schleife |
-| `kBfmTurnTimeS`, `kBfmRollFullDeg`, `kBfmRollRateMaxDegS`, die PI-Gewinne | s. § 5 | Regelgesetz-Parameter, teils hergeleitet, teils gemessen |
+| `kInterceptReactionS` | 1.0 s | the one number in this file that models a HUMAN: perceive, recognise, decide, move. Published values for a trained pilot on an unambiguous, expected stimulus are 0.5–1.5 s; 1.0 s is the middle. It sits ON TOP of the 0.5 s HOTAS latency — so the earliest a defensive command can act is one and a half seconds after the light comes on. That is exactly what it exists for: an AI answering in the same tick wins with reflexes it does not have |
+| `kInterceptActionS` | 0.5 s | the same for the HANDS: a pilot operates one lever after the other, and the avionics itself needs 0.5 s to distinguish two actions on one switch |
+| `kInterceptElDeadDeg` | 2.0° | dead band of the antenna elevation, within the beam width |
+| `kInterceptLostS` | 10.0 s | two CRM frames plus margin |
+| `kInterceptTrackSettleS` | 2.0 s | several filter time constants + the switch work of a real firing sequence |
+| `kBriefRetryS` | 2.0 s | a rejected DED entry is a hand and a head, not a loop |
+| `kBfmTurnTimeS`, `kBfmRollFullDeg`, `kBfmRollRateMaxDegS`, the PI gains | see § 5 | control law parameters, partly derived, partly measured |
 
-**FLUGZEUG-Eigenschaften** (virtuelle Hooks; F-16-Werte aus `modules/f16/FBF16Pilot.h`):
+**AIRCRAFT properties** (virtual hooks; F-16 values from `modules/f16/FBF16Pilot.h`):
 
-| Hook | Generischer Default | F-16 | Quelle |
+| Hook | Generic default | F-16 | Source |
 |---|---|---|---|
-| `RotationSpeedKt(w)` | 65 | Tabelle 128…198 KIAS über 20.000…44.000 lb, interpoliert | [DOK] `procedures-takeoff-taxi.md` |
-| `RotationLeadKt` / `RotationPitchDeg` | 10 / 8° | 15 kt / 10° | [DOK] „~15 kt unter Vr im AB", „8–12° Rotationslage" |
-| `GearUpLimitKt` / `ClimbSpeedKt` / `TakeoffThrottleNorm` | 150 / 100 / 1,0 | 300 / 350 / 1,0 | [DOK] / Missionsprofil / [DOK] „Full Afterburner" |
-| `ApproachSpeedKt` | 90 | **165** | [MESS] getrimmt waagerecht, Fahrwerk unten, ~40 % Sprit: 11,0° AoA bei 164,9 KCAS — ein offener Ersatz für eine geschlossene AoA-Schleife, treu zur Trimmkurve des Modells statt zu einer abgeschriebenen Zahl |
+| `RotationSpeedKt(w)` | 65 | table 128…198 KIAS over 20,000…44,000 lb, interpolated | [DOK] `procedures-takeoff-taxi.md` |
+| `RotationLeadKt` / `RotationPitchDeg` | 10 / 8° | 15 kt / 10° | [DOK] "~15 kt below Vr in AB", "8–12° rotation attitude" |
+| `GearUpLimitKt` / `ClimbSpeedKt` / `TakeoffThrottleNorm` | 150 / 100 / 1.0 | 300 / 350 / 1.0 | [DOK] / mission profile / [DOK] "full afterburner" |
+| `ApproachSpeedKt` | 90 | **165** | [MESS] trimmed level, gear down, ~40 % fuel: 11.0° AoA at 164.9 KCAS — an open-loop substitute for a closed AoA loop, faithful to the model's trim curve instead of to a copied number |
 | `GlidepathAngleDeg` | 3° | 3° | [DOK] `navigation-ils.md` |
-| `FlareTargetPitchDeg` / `AerobrakePitchDeg` / `AerobrakeSpeedKt` | 8 / 10 / 100 | 12,5 / 12,0 / 100 | [DOK] Short-Final/Roll-Out (≤13° AoA, ~13° halten bis ~100 kt) mit Marge gegen den 15°-Lagen-K.O. des Flugmonitors |
-| `BfmCornerSpeedKt` / `BfmCornerG` | 300 / 4,0 | **380 / 5,6** | [MESS] `make -C sim test-corner`: 280→12,8 °/s @3,2 g \| 340→14,9 @4,6 \| **380→16,2 @5,6 (Spitze)** \| 420→14,7 @5,8 \| 500→11,7 @5,6 \| 620→12,9 @7,5 |
-| `BfmMinSpeedKt` | 220 | 300 | [MESS] dort ist die Rate ~17 % unter der Spitze |
-| `BfmMaxG` / `BfmUnloadG` | 6,0 / 3,0 | 9,0 / 3,0 | Strukturgrenze / [SETZ] |
-| `BfmControlMinNm`…`BfmControlAtaDeg` | 0,5 / 1,5 / 30° / 30° | identisch | [SETZ] |
-| `BfmClosureGainKtPerNm` / `BfmMaxClosureKt` | 120 / 200 | identisch | [SETZ] |
-| `BfmLead*`, `BfmLagTimeS`, `BfmYoYoHeightM` | 45°/3 nm/4 s, 2,5 s, 400 m | dito, Yo-Yo 600 m | [SETZ] |
-| `BfmScanAmplitudeDeg` / `BfmScanPeriodS` | 8° / 30 s | identisch (~1,7 °/s Weben: ein Scan, keine Kurve) | [HERL] aus `2π·A/T` |
+| `FlareTargetPitchDeg` / `AerobrakePitchDeg` / `AerobrakeSpeedKt` | 8 / 10 / 100 | 12.5 / 12.0 / 100 | [DOK] short final/roll-out (≤13° AoA, hold ~13° until ~100 kt) with margin against the flight monitor's 15° attitude knockout |
+| `BfmCornerSpeedKt` / `BfmCornerG` | 300 / 4.0 | **380 / 5.6** | [MESS] `make -C sim test-corner`: 280→12.8 °/s @3.2 g \| 340→14.9 @4.6 \| **380→16.2 @5.6 (peak)** \| 420→14.7 @5.8 \| 500→11.7 @5.6 \| 620→12.9 @7.5 |
+| `BfmMinSpeedKt` | 220 | 300 | [MESS] there the rate is ~17 % below the peak |
+| `BfmMaxG` / `BfmUnloadG` | 6.0 / 3.0 | 9.0 / 3.0 | structural limit / [SETZ] |
+| `BfmControlMinNm`…`BfmControlAtaDeg` | 0.5 / 1.5 / 30° / 30° | identical | [SETZ] |
+| `BfmClosureGainKtPerNm` / `BfmMaxClosureKt` | 120 / 200 | identical | [SETZ] |
+| `BfmLead*`, `BfmLagTimeS`, `BfmYoYoHeightM` | 45°/3 nm/4 s, 2.5 s, 400 m | ditto, yo-yo 600 m | [SETZ] |
+| `BfmScanAmplitudeDeg` / `BfmScanPeriodS` | 8° / 30 s | identical (~1.7 °/s weave: a scan, not a turn) | [HERL] from `2π·A/T` |
 | `BfmFloorFt` | 2000 | 2000 | [SETZ] |
-| `BfmGunBurstS` / `BfmGunTrackMaxErrDeg` / `BfmGunFireTolFrac` | 0,5 s / 20° / 0,35 | keine Überschreibung → generische Werte | [SETZ], Burst-Länge = der Bus-Mindestabstand, also Dauerfeuer solange der Trichter hält |
-| `SearchRadarModeOrdinal` | −1 | **1** (`FBF16FcrMode::Crm`) | der einzige F-16-Modus, der groß sucht und NICHT selbst lockt |
-| `InterceptSpeedKt` | 300 | **550 kt TAS** | auf 8.000 m ≈ 375 KCAS = die gemessene Eckgeschwindigkeit; zugleich die Startgeschwindigkeit, die die Runde erbt |
-| `InterceptLockRangeNm` | 20 | **16** | außerhalb jedes frontal gemessenen Rtr (~11 nm auf 8.000 m [MESS]) und innerhalb des 40-nm-Suchtors |
-| `InterceptCrankAtaDeg` | 45 | **45** | [HERL] STT-Kardanwinkel ±60° minus 15° Reserve für ein manövrierendes Ziel |
-| `InterceptShotAtaDeg` | 30 | 30 | eine schienengestartete Runde, der mehr als ~30° aufzuholen gegeben wird, verbraucht ihren Motor dafür |
-| `InterceptAbortRangeNm` | 5 | 5 | darunter sind Rmin und der Merge dasselbe Problem |
-| `InterceptShotRtrFactor` / `ShotSpacingS` / `BeamOffsetDeg` / `ChaffIntervalS` / `DefendHoldS` | 1,0 / 12 s / 90° / 3 s / 12 s | identisch | [SETZ] bzw. Notch-Geometrie |
-| `AttackReleaseBiasS` / `AttackCcipTolM` | 0 / 60 m | 0 / **45 m** | [HERL] das Splittermuster einer Mk-82 nimmt eine weiche Anlage bis ~25 m aus und degradiert sie bis ~45 m (`modules/ground/FBGroundTarget.h`) — weiter daneben erreicht der Anflug nichts, und genau dann pickelt ein Pilot nicht |
-| `AttackEgressTurnDeg` / `ClimbM` / `RangeM` / `S` | 120° / 500 m / 12 km / 25 s | **135°** / 600 m / 12 km / 30 s | eine Ausweichkurve deutlich hinter den Beam; 135° am Querlagenlimit sind bequem in 30 s |
+| `BfmGunBurstS` / `BfmGunTrackMaxErrDeg` / `BfmGunFireTolFrac` | 0.5 s / 20° / 0.35 | no override → generic values | [SETZ], burst length = the bus minimum spacing, hence continuous fire as long as the funnel holds |
+| `SearchRadarModeOrdinal` | −1 | **1** (`FBF16FcrMode::Crm`) | the only F-16 mode that searches wide and does NOT lock by itself |
+| `InterceptSpeedKt` | 300 | **550 kt TAS** | at 8,000 m ≈ 375 KCAS = the measured corner speed; at the same time the launch speed the round inherits |
+| `InterceptLockRangeNm` | 20 | **16** | outside every head-on measured Rtr (~11 nm at 8,000 m [MESS]) and inside the 40 nm search gate |
+| `InterceptCrankAtaDeg` | 45 | **45** | [HERL] STT gimbal limit ±60° minus 15° of reserve for a manoeuvring target |
+| `InterceptShotAtaDeg` | 30 | 30 | a rail-launched round given more than ~30° to make up spends its motor on that |
+| `InterceptAbortRangeNm` | 5 | 5 | below that, Rmin and the merge are the same problem |
+| `InterceptShotRtrFactor` / `ShotSpacingS` / `BeamOffsetDeg` / `ChaffIntervalS` / `DefendHoldS` | 1.0 / 12 s / 90° / 3 s / 12 s | identical | [SETZ] resp. notch geometry |
+| `AttackReleaseBiasS` / `AttackCcipTolM` | 0 / 60 m | 0 / **45 m** | [HERL] the fragment pattern of a Mk-82 takes a soft installation out to ~25 m and degrades it out to ~45 m (`modules/ground/FBGroundTarget.h`) — further off than that the run achieves nothing, and that is exactly when a pilot does not pickle |
+| `AttackEgressTurnDeg` / `ClimbM` / `RangeM` / `S` | 120° / 500 m / 12 km / 25 s | **135°** / 600 m / 12 km / 30 s | an escape turn well behind the beam; 135° at the bank limit are comfortable in 30 s |

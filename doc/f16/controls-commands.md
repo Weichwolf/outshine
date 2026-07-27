@@ -7,7 +7,9 @@ is a **re-cut** of material already distilled elsewhere, reorganized around one 
 discrete command can the pilot actually issue, through what control, under what precondition, with
 what feedback and what documented failure mode.*
 
-## Why this is a separate file, not folded into `cockpit-displays.md`/`hotas.md`
+## Spec
+
+### Why this is a separate file, not folded into `cockpit-displays.md`/`hotas.md`
 The two source files are organized **by physical panel** (ICP, DED pages, MFD, SSC, throttle) because
 that's how the guides present them and how a pilot learns them. This file is organized **by command**
 across all panels, because that's the shape FlightBox's upcoming avionics command-block model needs:
@@ -17,7 +19,7 @@ task mandate) — this list is the enumeration of that path's vocabulary. Every 
 one of the two source files; this file adds no new facts, only the cross-device regrouping +
 explicit precondition/failure columns the source files don't always spell out as such.
 
-## The DED's propose → commit/reject protocol (the canonical command pattern)
+### The DED's propose → commit/reject protocol (the canonical command pattern)
 This is the single most directly reusable architectural fact in this whole pass. Every DED field edit
 follows **the same three-step cycle**, independent of which page (`cockpit-displays.md`'s new ICP/DED
 addendum, `ED EA Guide p.100`):
@@ -43,9 +45,9 @@ real jet does the latter.
 
 ---
 
-## 1. ICP / DED commands
+### 1. ICP / DED commands
 
-### 1.1 Navigation-within-DED (control-plane, not data-plane — moves the cursor/page, doesn't change
+#### 1.1 Navigation-within-DED (control-plane, not data-plane — moves the cursor/page, doesn't change
 mission state)
 | Command | Trigger | Precondition | Effect | Feedback | Failure/rejection |
 |---|---|---|---|---|---|
@@ -57,7 +59,7 @@ mission state)
 | `OpenListSubpage(1..9,0)` | ICP keypad while LIST shown | LIST page displayed | opens named subpage (DEST/BNGO/VIP/NAV/MAN/INS/DLNK/CMDS/MODE/VRP, 0→MISC) | DED shows subpage | `INTG` is **N/I** |
 | `OpenMiscSubpage(1..9,0)` | ICP keypad while MISC shown | MISC page displayed | opens named subpage (MAGV/HMCS/LASR/GPS/HTS/BULL/HARM, etc.) | DED shows subpage | `CORR`,`OFP`,`INSM`,`GPS`,`DRNG` **N/I** |
 
-### 1.2 Field edit (data-plane — the propose/commit/reject cycle above, applied per page)
+#### 1.2 Field edit (data-plane — the propose/commit/reject cycle above, applied per page)
 | Command | Trigger | Precondition | Effect | Feedback | Failure/rejection |
 |---|---|---|---|---|---|
 | `TypeDigit(0-9)` / `TypeNegative()` | ICP keypad / **0/M-SEL** for the minus sign | asterisks on an editable field | appends to proposed value, field highlights | field text highlighted | none — always accepted into the edit buffer |
@@ -67,7 +69,7 @@ mission state)
 | `IncrementField()` / `DecrementField()` | DED Inc/Dec rocker | asterisks on an arrow-marked field | steps value up/down (e.g. steerpoint number, preset channel) | field value changes live, no highlight (not a "proposed" edit — takes effect immediately) | none |
 | `ToggleOrEnable()` | 0/M-SEL | asterisks on a boolean/enum field (CRUS mode enable, MODE-page mode commit) | toggles/commits the shown state | field highlights when enabled | MODE page: **inoperative if throttle DOG FIGHT switch is not centered** — a hard precondition failure |
 
-### 1.3 Page-specific commands (each `{field, value}` pair follows the §1.2 commit cycle; only the
+#### 1.3 Page-specific commands (each `{field, value}` pair follows the §1.2 commit cycle; only the
 semantic payload is listed here — see `cockpit-displays.md` for full field tables)
 | Command | Page | Precondition | Effect | Feedback | Failure/rejection |
 |---|---|---|---|---|---|
@@ -84,7 +86,7 @@ semantic payload is listed here — see `cockpit-displays.md` for full field tab
 | `SetMasterModeBackup(A-A\|A-G\|NAV)` | MODE (LIST DED backup path) | throttle DOG FIGHT switch centered | changes master mode (same as ICP buttons) | DED field highlights when shown mode == active mode; pressing again → NAV | **rejected outright** if DOG FIGHT switch is not centered |
 | `CycleSteerpoint(prev\|next)` | any page with a Selected-Steerpoint field | Inc/Dec asterisks on that field | changes selected steerpoint | field updates, HSD/HUD steerpoint symbology follows | — |
 
-### 1.4 ICP hardware commands (not DED-page-mediated)
+#### 1.4 ICP hardware commands (not DED-page-mediated)
 | Command | Trigger | Effect | Feedback | Failure |
 |---|---|---|---|---|
 | `SelectMasterMode(A-A\|A-G)` | ICP Master Mode button | sets master mode; pressing the **active** mode's own button returns to NAV | HUD Master Mode Status text changes | none documented (but see §3 DOG FIGHT-switch override, which takes precedence) |
@@ -95,7 +97,7 @@ semantic payload is listed here — see `cockpit-displays.md` for full field tab
 
 ---
 
-## 2. MFD commands
+### 2. MFD commands
 | Command | Trigger | Precondition | Effect | Feedback | Failure/rejection |
 |---|---|---|---|---|---|
 | `PressOsb(n)` | any of 20 OSBs | — | activates whatever function is currently labeled at that OSB (context-dependent — format-specific, see `radar-sensors.md`/`weapons.md`/`navigation-ils.md` per format) | OSB label highlights if now-active | — |
@@ -108,12 +110,12 @@ semantic payload is listed here — see `cockpit-displays.md` for full field tab
 
 ---
 
-## 3. HOTAS commands
+### 3. HOTAS commands
 Full SOI/mode-dependent action matrices (TMS/DMS/CMS/EXP-FOV) are large 4-way×2-duration tables kept
 in `hotas.md`'s ED addendum, not reproduced here — referenced by row below. Duration convention:
 **short <0.5 s, long >0.5 s** (exceptions needing a full 1 s are noted).
 
-### 3.1 SSC (stick)
+#### 3.1 SSC (stick)
 | Command | Trigger | Precondition | Effect | Feedback | Failure |
 |---|---|---|---|---|---|
 | `Trim(pitch\|roll, dir)` | Trim hat, 4-way | — | trims nose up/down, wing left/right down | aircraft response; trim indicator (if modeled) | — |
@@ -127,7 +129,7 @@ in `hotas.md`'s ED addendum, not reproduced here — referenced by row below. Du
 | `PaddleOverride(hold)` | Paddle switch | — | disengages autopilot for duration held; on release, autopilot captures NEW reference at current pitch/roll/alt per active PITCH/ROLL modes | control authority returns to stick immediately on press | **does not disengage** autopilot in HDG SEL/STRG SEL roll modes (`flight-controls-flcs.md`) — a real documented exception to what "paddle" normally does |
 | `ExpandFov(short\|long)` | Expand/FOV button | SOI-dependent | cycles FOV/zoom for current SOI's sensor — full matrix `hotas.md` | sensor FOV changes | — |
 
-### 3.2 Throttle (TQS)
+#### 3.2 Throttle (TQS)
 | Command | Trigger | Precondition | Effect | Feedback | Failure |
 |---|---|---|---|---|---|
 | `SetThrottle(OFF\|IDLE\|MIL\|AB\|MAX AB)` | throttle lever position | — | commands engine thrust (`engine-fuel.md`) | engine spool/N1/EGT response | — |
@@ -147,42 +149,14 @@ in `hotas.md`'s ED addendum, not reproduced here — referenced by row below. Du
 
 ---
 
-## 4. Autopilot mode commands (cross-ref `flight-controls-flcs.md`)
+### 4. Autopilot mode commands (cross-ref `flight-controls-flcs.md`)
 | Command | Trigger | Precondition | Effect | Feedback | Failure |
 |---|---|---|---|---|---|
 | `SetPitchMode(ALT HOLD\|OFF\|ATT HOLD)` | Pitch Mode switch, MISC panel | — | engages/disengages pitch autopilot mode | — | **a pitch mode must be active for any roll mode to engage** — roll-mode commands are rejected (or simply inert) without one |
 | `SetRollMode(HDG SEL\|OFF\|ATT HOLD\|STRG SEL)` | Roll Mode switch, MISC panel | a pitch mode is active | engages/disengages roll autopilot mode | — | see above |
 | `PaddleOverride(hold)` | SSC Paddle switch | — | see §3.1 | — | **exception**: does not disengage in HDG SEL/STRG SEL (only overrides while held, autopilot doesn't drop the mode) |
 
----
-
-## 5. Command-rate ceiling (task priority 3 — "ohne die Hand zu bewegen")
-What a pilot can realistically command **without moving a hand off stick/throttle**, and how fast:
-- **Every HOTAS switch action above is a single discrete press/hold/direction** — the physical ceiling
-  is however fast a human can move a 4-8-way switch and release it, gated by the **short/long
-  press-duration discriminators** the avionics itself uses to distinguish two different commands on
-  the same switch: **0.5 s** (most TMS/DMS/CMS/EXP-FOV/MAN-RNG-depress cells) and **1.0 s** (a few TMS
-  cells, MAN-RNG long-depress for Gun Strafe).
-- This means **the practical minimum time between two DIFFERENT commands on the same switch is ~0.5–1
-  s** if the pilot needs the long-press variant of either — a real, book-derived upper bound on HOTAS
-  command rate, not a guessed one. Commands on **different** switches (e.g. TMS forward + CMS aft) have
-  no such coupling and can be issued in the same instant (two hands, many switches).
-- The **paddle switch** is the fastest-acting command in the set: instantaneous authority handoff
-  (autopilot ↔ stick) on press/release, no debounce/duration semantics documented — it is a level
-  signal, not an edge-triggered command, and should probably be modeled as such (state, not event).
-- **ICP/DED commands are categorically slower**: every DED field write needs the propose→commit cycle
-  (§ above) — realistically several seconds per field (select field, type digits, press ENTR) — this is
-  **head-down, not HOTAS**, and is the class of command a pilot-KI would issue between maneuvering
-  segments, not during one. A command-block rate model should treat **HOTAS commands** (sub-second,
-  usable while maneuvering) and **DED commands** (multi-second, effectively "administrative") as two
-  different latency classes.
-- **abgeleitet**: no book source states a numeric "commands per minute" figure anywhere in either
-  guide; the 0.5 s/1.0 s discriminators above are the only quantitative timing facts documented, and
-  the HOTAS-vs-DED latency-class split is the derived, not stated, conclusion drawn from them.
-
----
-
-## 6. Documented rejection/precondition patterns (summary, for the "Ablehnungsgründe" design)
+### 6. Documented rejection/precondition patterns (summary, for the "Ablehnungsgründe" design)
 Every concrete case found in the source material where a command can fail or be gated, collected in
 one place:
 1. **Explicit reject via pilot action**: RCL (2nd press) / DCS RTN discard an uncommitted DED edit —
@@ -211,7 +185,31 @@ self-reject (RCL/RTN) or a state/mode precondition on a *different* control, nev
 rejection on the field itself. This is a real, flagged gap: a FlightBox command-block model will need
 to invent its own range-validation policy for numeric DED fields, since neither guide specifies one.
 
+## State
+
+**This is the file with the highest implementation coverage of the whole set** — FlightBox's avionics
+command bus was built from it, pattern for pattern.
+
+| Item of this reference | FlightBox | Where |
+|---|---|---|
+| propose → commit/reject as the command shape | **built** — `core/FBAvionicsCommand.h`: a command is `{target, proposed value}`, the answer an acknowledgement `{result, reason}` | [`../flightbox/sim/core.md`](../flightbox/sim/core.md) |
+| The two latency classes derived in §5 (HOTAS sub-second vs. head-down DED multi-second) | **built** — `FBCommandBus` enforces the latency of the class the command belongs to, plus a manoeuvre lock for head-down entries | same |
+| The §6 rejection catalogue | **built as the reject-reason enum**, plus **two reasons FlightBox owns**: `OutOfRange` (the sources document no per-field bounds check — FlightBox rejects rather than silently clamping) and `ChannelBusy` | same |
+| Read-only DED fields as periodically recomputed **output blocks** | **built** — `FBState` is exactly that: typed blocks, one writer each, with a `{stamp, status}` head | same |
+| "Gear down freezes the CRUS fields" | **built as the `Held` state** — the third validity value exists because of this documented precedent | same |
+| Effect-side vs. command-side precondition (ALOW set always succeeds; the *warning* needs a powered CARA) | **built** — the radar altimeter is the reference case: unpowered it publishes no 0 ft, it invalidates its block, and the warning reports INHIBITED | [`../flightbox/sim/systems.md`](../flightbox/sim/systems.md) §5–§6 |
+| Hardware-precedence lockout (weight on wheels, master arm) | **built** — `hardware_precedence` on weapon release and gun trigger | [`../flightbox/sim/weapons-and-damage.md`](../flightbox/sim/weapons-and-damage.md) §2–§3 |
+| A command to a destroyed box | **built** — the bus answers `rejected / system_failed`; nothing had to be written for damage to reach the command path | same, §8 |
+| The pilot as a bus client | **built and exclusive** — the autonomous pilot holds no system pointers; what he enters in flight is his brief (`brief_*` mission lines), one input per decision tick, in its latency class, with the risk of rejection | [`../flightbox/sim/pilot-ai.md`](../flightbox/sim/pilot-ai.md) §2 |
+| `WeaponSelect` | **deliberately `NotImplemented`** — the jet has it, FlightBox does not, and the command says so instead of silently succeeding | [`../flightbox/aircraft/f16.md`](../flightbox/aircraft/f16.md) Gaps 4 |
+| The actual DED/MFD command *surface* (pages, fields, OSBs) | **not implemented** — there is no display to enter them on; only the handful of values the HUD needs exist | [`cockpit-displays.md`](cockpit-displays.md) |
+| SOI, press-duration classes, DOG FIGHT precedence | **not implemented** | [`hotas.md`](hotas.md) |
+
 ## Gaps
+
+**Source gaps** (this file vs. its sources — the list that stood under the previous `## Gaps` heading,
+kept verbatim)
+
 - Per-field numeric range/validation rules (see §6 closing note) — not documented in either source.
 - **MARK DED page** (steerpoint markpoint entry) — not found in ED p.97–120 despite the chapter's own
   cross-reference table implying it belongs there; likely lives in the Navigation chapter (p.163–246),
@@ -220,3 +218,41 @@ to invent its own range-validation policy for numeric DED fields, since neither 
   fully enumerated in `radar-sensors.md`/`weapons.md`/`navigation-ils.md`; only the format-management
   layer (assign/swap/declutter) is covered above.
 - IFF procedure command detail remains a gap (`datalink-iff.md`).
+
+**Implementation gaps** (this reference vs. FlightBox)
+- *Modelled:* the command protocol itself — propose/acknowledge/reject, latency classes, rejection
+  reasons, output blocks with three-state validity, effect-side gating.
+- *Partially:* the command *vocabulary* — only the commands whose target systems exist are issuable
+  (designate, gun trigger, weapon release, countermeasures, CMDS mode, ALOW/BNGO/master-arm brief
+  entries); everything DED- or MFD-page-shaped has no target.
+- *Not at all:* the physical control layer (no bound HOTAS, no panels), SOI, press-duration semantics,
+  master-mode selection commands, DTE, and any command whose subject is a display.
+
+## Knowledge
+
+### 5. Command-rate ceiling (task priority 3 — "ohne die Hand zu bewegen")
+What a pilot can realistically command **without moving a hand off stick/throttle**, and how fast:
+- **Every HOTAS switch action above is a single discrete press/hold/direction** — the physical ceiling
+  is however fast a human can move a 4-8-way switch and release it, gated by the **short/long
+  press-duration discriminators** the avionics itself uses to distinguish two different commands on
+  the same switch: **0.5 s** (most TMS/DMS/CMS/EXP-FOV/MAN-RNG-depress cells) and **1.0 s** (a few TMS
+  cells, MAN-RNG long-depress for Gun Strafe).
+- This means **the practical minimum time between two DIFFERENT commands on the same switch is ~0.5–1
+  s** if the pilot needs the long-press variant of either — a real, book-derived upper bound on HOTAS
+  command rate, not a guessed one. Commands on **different** switches (e.g. TMS forward + CMS aft) have
+  no such coupling and can be issued in the same instant (two hands, many switches).
+- The **paddle switch** is the fastest-acting command in the set: instantaneous authority handoff
+  (autopilot ↔ stick) on press/release, no debounce/duration semantics documented — it is a level
+  signal, not an edge-triggered command, and should probably be modeled as such (state, not event).
+- **ICP/DED commands are categorically slower**: every DED field write needs the propose→commit cycle
+  (§ above) — realistically several seconds per field (select field, type digits, press ENTR) — this is
+  **head-down, not HOTAS**, and is the class of command a pilot-KI would issue between maneuvering
+  segments, not during one. A command-block rate model should treat **HOTAS commands** (sub-second,
+  usable while maneuvering) and **DED commands** (multi-second, effectively "administrative") as two
+  different latency classes.
+- **abgeleitet**: no book source states a numeric "commands per minute" figure anywhere in either
+  guide; the 0.5 s/1.0 s discriminators above are the only quantitative timing facts documented, and
+  the HOTAS-vs-DED latency-class split is the derived, not stated, conclusion drawn from them.
+
+*Kept numbered §5 for cross-reference stability, and filed here rather than in `## Spec` because it is
+**derived** (marked `abgeleitet` above), not documented by either guide.*

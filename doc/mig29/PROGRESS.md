@@ -8,14 +8,30 @@ file's "Open gaps" section) · **OPEN** (not processed) · **N/A** (no rebuild v
 **Page-number convention** — restated here because it is easy to get wrong:
 - **DCS-EA** (`DCS MiG-29A Early Access Manual EN.pdf`, 115 pp): **printed page == PDF page**.
 - **DCS-FM** (`DCS MIG-29 Flight Manual EN.pdf`, 116 pp): **printed page = PDF page − 6**
-  (front matter is roman-numbered). The eight systems files and this ledger use the **printed** page.
+  (front matter is roman-numbered). **Every file in this directory uses the printed page.**
 
-> ⚠️ **Unreconciled convention split.** `weapons.md` and `flight-model-spec.md` (written in parallel by
-> a second agent) cite DCS-FM by **PDF page**, not printed page — e.g. the TTD table is `DCS-FM p.14`
-> in this ledger and `DCS-FM p.20` there. **Both are internally consistent; the directory is not.**
-> DCS-EA is unaffected (no front-matter offset). **Open item**: pick one convention directory-wide and
-> rewrite the other set of citations. Recommendation: **printed page**, because it is what a reader
-> sees on the page and what the manual's own table of contents uses.
+> ✅ **Convention split RESOLVED (pass 2).** `weapons.md` and `flight-model-spec.md` were the two
+> files written on the PDF-page convention and have been converted to printed pages. The conversion
+> was **not** a blanket −6: each citation was matched against the extracted text of both candidate
+> pages, because both files turned out to be *internally mixed*.
+>
+> | File | Tagged `DCS-FM p.N` citations | Converted (were PDF-page) | Left alone (already printed) |
+> |---|---|---|---|
+> | `weapons.md` | 86 | **45** | 41 |
+> | `flight-model-spec.md` | 45 | **43** | 2 |
+>
+> Plus 4 bare `p.N` follow-on refs and the page lists in both file headers and both `Sources`
+> sections. In `weapons.md` the split ran by section: R-27 (§3.1–3.2), R-60M (§3.4), the DLZ concept
+> (§3.5) and the cluster-bomb/KMGU rows (§5.1) were already printed, while the gun (§4), R-73 (§3.3),
+> FAB/BetAB, the rockets (§5.2) and the TTD-table rows were PDF — so `p.72` and `p.78` could denote
+> the *same* physical page. In `flight-model-spec.md` only two citations were already printed
+> (`p.11`, the upper-intake 200 km/h limit; `p.68–69`, the R-27E Su-27 attribution).
+>
+> **Verification:** every remaining `DCS-FM p.N` in all 12 files was re-scored against the extracted
+> page text of PDF page *N* and PDF page *N+6*. Result across the directory: **125 citations resolve
+> to the printed reading, 0 to the PDF reading**; the remainder carry no distinctive token to score
+> (short table cells) and are covered by their section's neighbours. DCS-EA is unaffected (printed ==
+> PDF) and untouched.
 
 ---
 
@@ -162,13 +178,50 @@ DONE, N/A, or explicitly OTHER-AGENT. What remains is **research**, not extracti
 5. **`defence-rwr-cm.md`** — CM programme parameters; chaff/flare split of the 60 cartridges.
 6. **`radar-sensors.md`** — scan-bar patterns and frame times; track-firm criteria; KOLS raster.
 7. **`datalink-gci.md`** — the whole Lazur message set; IFF system designation for the 9-12.
-8. **Citation-convention reconciliation** across the directory (see the ⚠️ note at the top of this
-   file). Mechanical, but it must be done before anyone trusts a DCS-FM page number without checking
-   which file it came from.
-9. **A loader skill** (`.claude/skills/mig29-systems/SKILL.md`, pattern `f16-systems`) — **not created
-   this pass**, because per the packaging rule a skill is written for a *completed* knowledge base and
-   this one is honestly PARTIAL. Create it once items 1–3 are closed or explicitly accepted as
-   permanent gaps.
+8. ~~**Citation-convention reconciliation** across the directory.~~ **CLOSED in pass 2** — see the ✅
+   note at the top of this file. A DCS-FM page number can now be trusted without checking which file
+   it came from.
+9. **A loader skill** (`.claude/skills/mig29-systems/SKILL.md`, pattern `f16-systems`) — created after
+   pass 1; updated in pass 2 (citation-trap warning removed, schema described). It still declares
+   coverage honestly PARTIAL, because items 1–7 are open.
+
+---
+
+## Pass 2 — schema alignment (roadmap R10, part D)
+
+Scope: **no new extraction.** Two things only.
+
+1. **Citation reconciliation** (item 8 above) — closed, table at the top of this file.
+2. **Schema alignment** onto `## Spec` / `## State` / `## Gaps` / `## Knowledge`, the same form as
+   `doc/f16/` and `doc/flightbox/`. Content moved **1:1**: every original section survives with its
+   original number and body text; only the heading level dropped one (`## 3.` → `### 3.`), so all
+   `§n.m` cross-references still resolve. Tags (`[DER]`, `[ABL]`, `[SET]`, `[GAP]`, `[ED-MODEL]`,
+   confidence tiers) and the six conflict registrations are untouched.
+
+| File | Spec | Gaps | Knowledge |
+|---|---|---|---|
+| `flight-controls.md` | §1–5, §7, §8 | §9 | §6 |
+| `engines-fuel.md` | §1–5, §8 | §7 | §6 |
+| `cockpit-displays.md` | §1–7, §10 | §9 | §8 |
+| `radar-sensors.md` | §1–6, §9 | §8 | §7 |
+| `defence-rwr-cm.md` | §1–5, §8 | §7 | §6 |
+| `navigation.md` | §1–5, §8 | §7 | §6 |
+| `procedures.md` | §1–7, §10 | §9 | §8 |
+| `datalink-gci.md` | §1–3, §7 | §6 | §4, **§5** (the design argument — reasoning, not source) |
+| `weapons.md` | §1–6 | §8 | §7, Sources |
+| `flight-model-spec.md` | §0–§11 (thin frame, see below) | §12 | Sources + pointer to the in-row derivations |
+
+- **Variant notes stay Spec** — they are documented aircraft facts about 9-13/S/SMT, not research.
+- **`## State` is new in every file and says the same honest thing: nothing is built.** It links the
+  spec-first module contract [`../flightbox/aircraft/mig29.md`](../flightbox/aircraft/mig29.md) and
+  names which roadmap stage (R3 / R6 / R7 / R8) consumes which part of that file.
+- **`flight-model-spec.md` got a deliberately THIN frame.** Its three-column layout (documented /
+  derivation path / open+`[SET]`) *is already* a Spec+Gaps hybrid; exploding those rows into separate
+  sections would destroy the structure that makes the file usable. So the anchor tables (§8) and the
+  build order (§11) sit under Spec together with the rest of §0–§11, the derivation-path column stays
+  inside each row, §12 becomes Gaps, and a schema note at the top of the file states this explicitly.
+- `INDEX.md` and this ledger are meta files and are exempt from the schema; `INDEX.md` states the
+  schema and the resolved citation convention.
 
 ---
 

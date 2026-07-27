@@ -17,7 +17,7 @@ file; this page only orders them and says where the work is described. Direction
 | R7 | **Enemy units** in order of buildability: one-way drone (Shahed class) + cruise missile first (the only ones that can be built properly today; real F-16 tasking; they stress the Doppler notch and the gun; `modules/drone` tests the module architecture), then MiG-29 per the R3 spec / Flanker class — explicitly at BVR scale | [`aircraft/mig29.md`](aircraft/mig29.md) | after R6 |
 | R8 | **JSBSim MiG-29 model** along the build order of `doc/mig29/flight-model-spec.md`, every step measured against a documented anchor in the gym; bookkeeping under the `MODEL-DELTAS` discipline | [`aircraft/mig29.md`](aircraft/mig29.md), [`aircraft/stores.md`](aircraft/stores.md) | after R3 |
 | R9 | **Missions for humans:** a scenario layer over the `.fbm` format | [`vision.md`](vision.md), `doc/mission-format.md` | open |
-| R10 | **Translation wave:** `doc/flightbox/` to English (the bodies that today still carry the `> Body still in German` note), then schema alignment of `doc/f16/` and `doc/mig29/` onto the same Spec/State/Gaps/Knowledge form | this file, [`INDEX.md`](INDEX.md) | open |
+| R10 | **Translation wave:** `doc/flightbox/` to English (the bodies that today still carry the `> Body still in German` note), then schema alignment of `doc/f16/` and `doc/mig29/` onto the same Spec/State/Gaps/Knowledge form | this file, [`INDEX.md`](INDEX.md) | **done** — except `world-and-terrain.md`, which stays German until its split into `world/` (phase 3 of the mirror refactor); the seven `sim/` files still cite pre-refactor `sim/src` paths, updated in phase 3 |
 
 ## Parked
 

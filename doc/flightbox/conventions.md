@@ -1,9 +1,6 @@
-# Konventionen
+# Conventions
 
-> Body still in German — translation pass pending (see [roadmap](roadmap.md)). The working rule below
-> is normative and in English.
-
-Sprache, Namen, Struktur, und was nie im Code stehen darf.
+Language, names, structure, and what must never appear in the code.
 
 ## The working rule (spec first)
 
@@ -30,88 +27,87 @@ A round that intends to change behaviour therefore runs like this:
    deleting it means someone re-runs the experiment.
 
 Two consequences worth stating: there is no second list of open work anywhere (no `TODO.md`, no
-trailing "offene Punkte" per file — Gaps is the one place), and `CLAUDE.md` is touched only when a
+trailing "open points" per file — Gaps is the one place), and `CLAUDE.md` is touched only when a
 session-start fact changed, kept under 100 lines.
 
-## Sprache
+## Language
 
-**C++17, wie JSBSim. Nicht C.** Ordentliche Klassen nach C++-Best-Practice: RAII, klare Ownership,
-minimale public API.
+**C++17, like JSBSim. Not C.** Proper classes following C++ best practice: RAII, clear ownership,
+minimal public API.
 
-Der Coding-Style orientiert sich an JSBSim, weil FlightBox sich in dessen Ökosystem einfügt:
+The coding style follows JSBSim, because FlightBox fits into its ecosystem:
 
-| Sache | Regel | Beispiel |
+| Item | Rule | Example |
 |---|---|---|
-| Klassen | `FB`-Präfix (analog JSBSims `FG`) | `FBFlightControl`, `FBRenderer` |
-| Methoden | PascalCase | `Run()`, `GetLoadFactor()` |
-| Member | PascalCase | `LatDeg`, `EngState_` |
-| Namensraum | ein `namespace FlightBox` | — |
-| Dateien | Klasse pro Datei | `FBName.h` / `FBName.cpp` |
-| Getter | inline im Header | — |
-| Header-Guards | ja | — |
+| Classes | `FB` prefix (analogous to JSBSim's `FG`) | `FBFlightControl`, `FBRenderer` |
+| Methods | PascalCase | `Run()`, `GetLoadFactor()` |
+| Members | PascalCase | `LatDeg`, `EngState_` |
+| Namespace | one `namespace FlightBox` | — |
+| Files | one class per file | `FBName.h` / `FBName.cpp` |
+| Getters | inline in the header | — |
+| Header guards | yes | — |
 
-JSBSims LGPL-Banner wird nicht kopiert — unsere Dateien tragen unsere Lizenz.
+JSBSim's LGPL banner is not copied — our files carry our licence.
 
 ## `extern "C"`
 
-Nur für Funktionen, die von JavaScript **namentlich** gerufen werden. `EMSCRIPTEN_KEEPALIVE` allein
-reicht nicht — Mangling bricht Exporte still.
+Only for functions called from JavaScript **by name**. `EMSCRIPTEN_KEEPALIVE` alone is not enough —
+mangling breaks exports silently.
 
-Heute betrifft das genau zwei Symbole: `fb_toggle_ground` und `fb_set_ground` in `FBAppWasm.cpp`. Der
-FDM-Adapter ist ausdrücklich **kein** solcher Fall und lebt in `namespace FlightBox`.
+Today this concerns exactly two symbols: `fb_toggle_ground` and `fb_set_ground` in `FBAppWasm.cpp`. The
+FDM adapter is explicitly **not** such a case and lives in `namespace FlightBox`.
 
-## Keine verstreuten Ausgaben
+## No scattered output
 
-`core/`, `systems/`, `modules/`, `render/`, `world/`, `fdm/`, `units/` emittieren **nie** direkt. Kein
-`printf`, kein `fprintf`, kein `std::cout`, kein `std::cerr`.
+`core/`, `systems/`, `modules/`, `render/`, `world/`, `fdm/`, `units/` **never** emit directly. No
+`printf`, no `fprintf`, no `std::cout`, no `std::cerr`.
 
-| Art | Kanal |
+| Kind | Channel |
 |---|---|
-| diskrete Ereignisse | `FBLog` (`core/FBLog.h`) — geleveled, `tag` + `event` + key=val-Felder |
-| periodischer Zustand | `FBTelemetryBus` (`core/FBTelemetry.h`) — Zeitreihe mit Schema |
+| discrete events | `FBLog` (`core/FBLog.h`) — levelled, `tag` + `event` + key=val fields |
+| periodic state | `FBTelemetryBus` (`core/FBTelemetry.h`) — time series with a schema |
 
-Ausnahmen, abschließend:
+Exceptions, exhaustively:
 
-- die Sink-Implementierungen selbst (`app/FBLogSinks.*`, `app/FBTelemetrySinks.*`)
-- CLI-UX in `app/`: Usage, Hilfe, argv-Fehler, Bootstrap-Fehler vor dem Sink-Aufbau
+- the sink implementations themselves (`app/FBLogSinks.*`, `app/FBTelemetrySinks.*`)
+- CLI UX in `app/`: usage, help, argv errors, bootstrap errors before the sinks are set up
 
-Core bleibt I/O-frei, aber nicht formatierungsfrei: `snprintf` in einen lokalen Puffer ist überall
-erlaubt, ein `FILE*` oder `fstream` nirgends.
+Core stays I/O-free, but not formatting-free: `snprintf` into a local buffer is allowed everywhere, a
+`FILE*` or `fstream` nowhere.
 
-## Kommentare
+## Comments
 
-**Der Zweck eines Kommentars ist das nicht-offensichtliche WARUM.** Ein Kommentar, der beschreibt, *was*
-die Zeile darunter tut, sagt dasselbe in zwei Sprachen und driftet weg — er wird weggelassen. Code und
-Namen erklären sich selbst.
+**The purpose of a comment is the non-obvious WHY.** A comment that describes *what* the line below it
+does says the same thing in two languages and drifts away — it is omitted. Code and names explain
+themselves.
 
-Was dieses Projekt zusätzlich verlangt: **jede Zahl trägt ihre Herkunft.** Eine Konstante ist entweder
+What this project additionally demands: **every number carries its provenance.** A constant is either
 
-- **hergeleitet** — dann steht die Herleitung dabei (die Formel, nicht das Ergebnis), oder
-- **gemessen** — dann steht die Messung dabei (was, womit, welches Ergebnis), oder
-- **gesetzt** — dann ist sie als `[SET]` gekennzeichnet und als Setzung benannt.
+- **derived** — then the derivation is stated with it (the formula, not the result), or
+- **measured** — then the measurement is stated with it (what, with what, which result), or
+- **set** — then it is marked `[SET]` and named as a setting.
 
-Eine Zahl ohne eine dieser drei Angaben ist ein Defekt.
+A number without one of these three statements is a defect.
 
-> **Entschieden und umgesetzt** (roadmap R1, commit `f77f1cf`): the derivations live HERE — in the
+> **Decided and implemented** (roadmap R1, commit `f77f1cf`): the derivations live HERE — in the
 > `## Knowledge` section of the topic file — and the code carries a one-liner plus a reference. The
-> proof that no behaviour changed is the unchanged `sim/tools/strip_comments.py` hash. Der Bestand trug
-> diese Herleitungen zuvor als 15–25-zeilige Banner direkt im Quellcode.
+> proof that no behaviour changed is the unchanged `sim/tools/strip_comments.py` hash. The existing
+> code previously carried these derivations as 15–25-line banners directly in the source.
 
-## Struktur
+## Structure
 
-- `core/` zeigt **nie** nach `systems/` oder `modules/`.
-- Peers rufen sich nie gegenseitig — ein Modul cycelt seine Systeme, die Systeme kennen einander nicht.
-- Sensoren **schreiben** `FBState`, Displays **lesen** ihn.
-- Waffen erhalten eine geborgte `FBWorld`-Referenz, nie eine globale.
-- Der Renderer ist ein Bolt-on, nie eine Abhängigkeit der Physik- oder Terminierungs-Logik.
-- Die Pass-Topologie des Renderers ist ein Vertrag: nur `FBRenderer` setzt Pass-Grenzen, kein Stage-Split
-  darf sie vermehren.
+- `core/` **never** points into `systems/` or `modules/`.
+- Peers never call each other — a module cycles its systems, the systems do not know one another.
+- Sensors **write** `FBState`, displays **read** it.
+- Weapons get a borrowed `FBWorld` reference, never a global one.
+- The renderer is a bolt-on, never a dependency of the physics or the termination logic.
+- The renderer's pass topology is a contract: only `FBRenderer` sets pass boundaries, no stage split may
+  multiply them.
 
-## Architektur-Stil
+## Architectural style
 
-Systeme bauen, nicht Features. Minimale public API, maximale Kapselung. Zustandsmaschinen statt
-boolescher Flags. Komposition vor Vererbung. Registry-/Plugin-Muster. Phasen-orientierte Abläufe.
+Build systems, not features. Minimal public API, maximal encapsulation. State machines instead of
+boolean flags. Composition over inheritance. Registry/plug-in patterns. Phase-oriented sequences.
 
-Defensiv an Systemgrenzen, vertrauend im Inneren. Feste Kapazitäten und keine Allokation im Tick-Pfad.
-Kein Zufall in einer deterministischen Simulation — wo eine Streuung nötig ist, ist sie ein Modell, kein
-Würfel.
+Defensive at system boundaries, trusting inside. Fixed capacities and no allocation in the tick path.
+No randomness in a deterministic simulation — where a dispersion is needed, it is a model, not a die.

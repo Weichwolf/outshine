@@ -1,5 +1,7 @@
 # H — Experiment Protocol: Parameter Sweep + "Looks Like a Cloud" Checklist
 
+> **Legacy studies of the demolished FBCloud* chain; kept for the noise/raymarch groundwork, see [../flightbox/render/clouds.md](../flightbox/render/clouds.md).**
+
 Source: methodology synthesized from the iterative before/after slides across Schneider 2015 (slides
 55, 62–66, 83 — each showing an isolated component: Beer's-law-only, +HG, +powder, cheap-vs-full) and
 Nubis³ 2023 (slides 30–36 — with/without multi-scattering, ambient-only, direct-only, combined); this
@@ -46,7 +48,7 @@ lighting (shading) — exactly the ambiguity a "looks like static" bug report ne
 | Base noise composite construction | plain Perlin+Worley-erode | true Perlin-Worley displacement ([01-noise-construction.md §3](01-noise-construction.md)) | Whether the silhouette itself lacks billow structure |
 | Step count at fixed quality | 16-160 (quality-scaled) | 32, 64, 128 fixed, WITHOUT the density-scale/temporal confounds above | Whether visible banding (not noise) is a separate, additional artifact |
 
-## 4. "Sieht aus wie eine Wolke" checklist (silhouette + shading, both required)
+## 4. "Looks like a cloud" checklist (silhouette + shading, both required)
 
 **Silhouette (shape) — check with density/alpha-only render:**
 - [ ] Flat, sharply defined base (real cumulus bases are near-planar — a height-gradient with a hard

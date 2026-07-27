@@ -15,12 +15,28 @@ and the per-number source tags in each file; the gap lists say what nobody has s
 
 ## Read this first
 
-- **Page-citation trap:** the system files cite DCS-FM by *printed* page, `weapons.md` and
-  `flight-model-spec.md` by *PDF* page (printed = PDF − 6). DCS-EA is unambiguous (printed == PDF).
-  Flagged in `INDEX.md`; reconcile before quoting a DCS-FM page onward.
+- **File schema — `## Spec` / `## State` / `## Gaps` / `## Knowledge`**, the same four sections as
+  `doc/f16/` and `doc/flightbox/`. **Spec** = what the real 9-12 documentably does (the bulk, variant
+  notes included). **State** = what FlightBox implements — today **"nothing built"** in every file,
+  linking the spec-first module contract `doc/flightbox/aircraft/mig29.md` and naming which roadmap
+  stage (R3/R6/R7/R8) consumes which part. **Gaps** = source gaps, unsourced numbers, the
+  GAF T.O. 1F-MIG29-1 acquisition note. **Knowledge** = researched depth, derivations, the
+  cross-manual conflict registrations. Original section numbers are unchanged (`§2.4`, `§7.1` …
+  still resolve); only the heading level dropped one. `INDEX.md`/`PROGRESS.md` are meta and exempt.
+  `flight-model-spec.md` carries a deliberately **thin** frame — its three-column rows
+  (documented / derivation path / open+`[SET]`) are themselves a Spec+Gaps hybrid and stay intact;
+  the file says so in a schema note at its top.
+- **Page citations: printed pages everywhere.** DCS-FM's printed page = PDF page − 6 (six roman
+  front-matter pages); DCS-EA has no offset. The former split between the system files and
+  `weapons.md`/`flight-model-spec.md` is **resolved** — both were converted citation by citation
+  against the PDF text (they were internally mixed, so a blanket shift would have been wrong).
+  Details and the verification in `PROGRESS.md`. A `DCS-FM p.N` in this base can now be quoted
+  onward without checking which file it came from.
 - **DCS numbers can be ED design decisions**, not documented jet behaviour — the files mark the
   suspect ones. The FlightBox ground truth for flight behaviour will be the JSBSim model that
   `flight-model-spec.md` specifies, once built (same Prinzip-5 logic as the F-16).
+- **Nothing is implemented.** There is no MiG-29 module, model or mission. Every "State" section says
+  so; do not write code against this base assuming a `modules/mig29/` exists.
 
 ## Task routing
 

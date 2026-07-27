@@ -1,5 +1,7 @@
 # A — Noise Construction: Perlin-Worley Recipe
 
+> **Legacy studies of the demolished FBCloud* chain; kept for the noise/raymarch groundwork, see [../flightbox/render/clouds.md](../flightbox/render/clouds.md).**
+
 Source: Schneider & Vos, SIGGRAPH 2015 (slides 27–32, 47); Schneider, Nubis³ 2023 recap of "Nubis,
 Evolved" 2022 (slides 22–24); confirmed independently by Nijhoff's Himalayas Shadertoy writeup
 (texture split only, no new numbers).

@@ -7,13 +7,31 @@ description: F-16C systems knowledge for FlightBox — complete rebuild spec dis
 
 The knowledge base lives in `<repo>/doc/f16/` — 17 files (15 subsystem files + 1 cross-cutting command
 list + `flight-model.md`, whose source is the JSBSim model tree rather than a guide), each with a
-Chuck's-Guide distillate (facts/tables/steps, page-cited) plus a `Technical depth
-(researched — for rebuild)` section (engineering sources, confidence-flagged). **Most files
-additionally carry an ED EA Guide section** (official Eagle Dynamics module manual, `doc/DCS F-16C
-Early Access Guide EN.pdf`) — cite tags are always `Chuck p.NN` vs `ED EA Guide p.NN` so you can tell
-which source backs which claim. Where the two disagree, both values are kept and the conflict is
-flagged explicitly (see `flight-controls-flcs.md`'s autopilot bank-angle-limit discrepancy for the
-pattern). Start at `INDEX.md`; coverage map + exact unprocessed-page ledger in `PROGRESS.md`.
+Chuck's-Guide distillate (facts/tables/steps, page-cited) plus researched engineering depth
+(engineering sources, confidence-flagged). **Most files additionally carry an ED EA Guide section**
+(official Eagle Dynamics module manual, `doc/DCS F-16C Early Access Guide EN.pdf`) — cite tags are
+always `Chuck p.NN` vs `ED EA Guide p.NN` so you can tell which source backs which claim. Where the two
+disagree, both values are kept and the conflict is flagged explicitly (see `flight-controls-flcs.md`'s
+autopilot bank-angle-limit discrepancy for the pattern). Start at `INDEX.md`; coverage map + exact
+unprocessed-page ledger in `PROGRESS.md`.
+
+## How a file is laid out (same four sections as `doc/flightbox/`)
+
+Every topic file carries the same four headings. **They mean something different here than on the
+implementation side, because this base documents the REAL jet:**
+
+| Section | In `doc/f16/` (reference base) | Use it when |
+|---|---|---|
+| `## Spec` | what the real jet documentably does — the distilled source material, the **design targets**. This is the bulk of every file. | you need the real-world behaviour, number or procedure |
+| `## State` | what **FlightBox** implements of it, in a few honest lines, with links into `doc/flightbox/`. Never duplicates that content. | you need to know whether the thing exists in the simulator before spec'ing work on it |
+| `## Gaps` | both kinds, each labelled: **source gaps** (unprocessed pages, SHALLOW research passes, unresolved discrepancies) and **implementation gaps** (modelled / partially / not at all) | you are looking for work, or about to trust a number |
+| `## Knowledge` | the researched engineering depth (the former `Technical depth` sections), with its sources | you need architecture, signal flow or a derivation |
+
+Two exceptions: `INDEX.md` and `PROGRESS.md` are meta files without the schema, and in
+`flight-model.md` the schema is inverted — that file documents *our* model, so §1–§10 are its `State`,
+§12 its `Gaps` and §11 (the handover checklist for the next airframe) its `Knowledge`.
+
+Reading a `State` section is not a substitute for `doc/flightbox/`: it is a pointer plus a verdict.
 
 Read the files relevant to the task at hand:
 
@@ -40,7 +58,11 @@ numeric source is the separate analog AoA indicator). `FBF16Pilot` currently use
 FDM state rather than gating through this, which the file documents as a deliberate, now-explicit
 simplification — read this section before adding new pilot-visible-quantity assumptions.
 
-Ground rules when applying this knowledge: the operative artifact is the vanilla JSBSim F-16 model
+Ground rules when applying this knowledge: **read `Spec` for the target and `State` for what exists —
+never assume a documented system is built.** The coverage is uneven on purpose: `controls-commands.md`,
+`hud-symbology.md` and `flight-model.md` are near-fully reflected in the code, while
+`air-refueling.md`, `navigation-ils.md` (TACAN/ILS/INS) and `cockpit-displays.md` have essentially no
+implementation at all. The operative artifact is the vanilla JSBSim F-16 model
 (reference chain NASA TP-1538 → JSBSim → FlightBox, CLAUDE.md Prinzip 5) — **and that artifact is now
 written down in `flight-model.md`, so "the model says X" is a checkable claim, not an appeal**;
 researched real-jet values are DESIGN TARGETS, not defect criteria. Confidence flags in the files are honest —

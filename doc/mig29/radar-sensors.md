@@ -21,7 +21,9 @@ resolution cells (§8).
 
 ---
 
-## 1. The one architectural thing to internalise
+## Spec
+
+### 1. The one architectural thing to internalise
 
 The MiG-29's fire control is built around **two co-equal sighting channels**, selectable by a single
 rotary switch, and a **third, purely angular channel** (the helmet):
@@ -52,9 +54,9 @@ entirely different `FBPilot` intercept phase — see §6.
 
 ---
 
-## 2. Radar controls in the cockpit (**FULL**)
+### 2. Radar controls in the cockpit (**FULL**)
 
-### 2.1 PUR-31 radar control panel, left console (`DCS-EA p.63`)
+#### 2.1 PUR-31 radar control panel, left console (`DCS-EA p.63`)
 | Control | Positions | Meaning |
 |---|---|---|
 | Antenna elevation selector | continuous | manual antenna elevation |
@@ -73,7 +75,7 @@ entirely different `FBPilot` intercept phase — see §6.
 `FBRadarSystem` power/emission split (`SetPowered` / EMCON), *pre-existing in the real jet*. DUMMY is a
 non-radiating test state and maps to "powered, publishes no `FBEmitter` signature".
 
-### 2.2 PSR-31 weapon control panel (`DCS-EA p.12–13`)
+#### 2.2 PSR-31 weapon control panel (`DCS-EA p.12–13`)
 | Control | Values | Sensor relevance |
 |---|---|---|
 | **MASTER ARM** | ARM / SAVE | connects triggers to weapon circuits |
@@ -88,7 +90,7 @@ non-radiating test state and maps to "powered, publishes no `FBEmitter` signatur
 it has no radar or laser range. That is a documented, pilot-set, error-prone ranging channel with no
 F-16 analogue — a candidate for an honest "range estimate with a stated error source".
 
-### 2.3 Radar-related HOTAS (`DCS-EA p.68–69`)
+#### 2.3 Radar-related HOTAS (`DCS-EA p.68–69`)
 Stick: **Target acquisition symbol control button (KU-31)** (the TDC slew) · **Break-lock button**.
 Throttle: **Target range wheel** · **Lock On button** (dual-function: Lock-On airborne / NWS-High on
 the ground with flaps up).
@@ -99,9 +101,9 @@ merely displayed.
 
 ---
 
-## 3. Radar modes as documented in DCS-EA (the 9-12 module) — **FULL**
+### 3. Radar modes as documented in DCS-EA (the 9-12 module) — **FULL**
 
-### 3.1 RAD (radar) — search
+#### 3.1 RAD (radar) — search
 Doppler-limited detection envelope, stated numerically (`DCS-EA p.87`) — **the most valuable radar
 numbers in either manual**:
 
@@ -125,7 +127,7 @@ Procedure (`DCS-EA p.88`):
 5. Re-target: press the control button, re-aim the strobe, LOCKON. **RESET on the stick returns to
    automatic selection of the most dangerous target.**
 
-### 3.2 LOCK (single-target track)
+#### 3.2 LOCK (single-target track)
 On capture the HUD shows "**A**" and the display switches from scan to lock format (`DCS-EA p.88`).
 HUD elements in lock (`DCS-EA p.88–89`): aiming ring · fixed crosshair · artificial horizon · roll
 scale · pitch scale · **selected missile type** · **seeker readiness/capture mark** · availability
@@ -148,7 +150,7 @@ weapon's range → launch → **exit the attack on the "ОТВ" command**.
 | **ОТВ** (OTV) | **Break off / exit the attack** (flashes at minimum permitted firing range) |
 | **Г** (G) | **"Gorka"** — pull up, the computed climb to target altitude |
 
-### 3.3 RAD Close Combat (`DCS-EA p.89`)
+#### 3.3 RAD Close Combat (`DCS-EA p.89`)
 - Used in direct visual contact; captures a target **in the vertical search zone** at ranges from
   **5.4 nm down to 1,500 ft**.
 - "Stable automatic tracking is provided **at equal speeds and at a lag**" — i.e. CC mode deliberately
@@ -157,13 +159,13 @@ weapon's range → launch → **exit the attack on the "ОТВ" command**.
 - **LOCKON must be pressed for no more than 2 seconds.**
 - Then "ПР" → launch; "ОТВ" → exit **in the direction of the aiming ring**.
 
-### 3.4 Jamming behaviour (`DCS-EA p.63`, and FC3 detail in §4.4)
+#### 3.4 Jamming behaviour (`DCS-EA p.63`, and FC3 detail in §4.4)
 ECCM switch selects HUD symbology in the presence of jamming: **AJ** shows active-interference
 indication; **OFF** shows jam indication without vertical notches, index only.
 
 ---
 
-## 4. Radar modes as documented in DCS-FM (FC3) — cross-check, **flagged as simplified**
+### 4. Radar modes as documented in DCS-FM (FC3) — cross-check, **flagged as simplified**
 
 | FC3 mode | Real-mode equivalent | Documented behaviour |
 |---|---|---|
@@ -204,7 +206,7 @@ before the target is detected … only after the radar has completed several sca
 no-escape zone) · **Rmin**. Compare `DCS-EA`'s **D r max1 / D r max2 / D r min** (§3.2) — same concept,
 different labels.
 
-### 4.4 ECM / jamming (`DCS-FM p.52–53`)
+#### 4.4 ECM / jamming (`DCS-FM p.52–53`)
 - Under strong ECM, **TWS/TWS2 are unusable — SCAN only**.
 - The radar cannot measure range: a **vertical jamming strobe** of randomly flashing marks appears on
   the jammer's bearing; the "**АП**" symbol appears when ECM is detected in the scan pattern.
@@ -216,7 +218,7 @@ different labels.
 
 ---
 
-## 5. Close-combat acquisition modes (FC3 numbers; EA gives the taxonomy)
+### 5. Close-combat acquisition modes (FC3 numbers; EA gives the taxonomy)
 
 | Mode | Key | Scan volume | Lock | Notes |
 |---|---|---|---|---|
@@ -236,16 +238,16 @@ Close-air-combat engagement ranges are stated as **~10 km** overall (`DCS-FM p.8
 
 ---
 
-## 6. OEPS-29 / KOLS — the IRST, and why it changes the doctrine (**FULL**)
+### 6. OEPS-29 / KOLS — the IRST, and why it changes the doctrine (**FULL**)
 
-### 6.1 What it is
+#### 6.1 What it is
 **KOLS** = *Quantum Optical-Laser Station*: an **IR search-and-track head collimated with a laser
 rangefinder/designator**, in a transparent spherical radome **forward and to the right of the canopy**
 (`DCS-FM p.9, p.38`). Together with the **Shchel-3UM** helmet sight it forms **OEPS-29**, which sits
 inside **OEPrNK-29** alongside the **SN-29** navigation system, the **C100** mission computer and the
 **SEI-31** indication system (`DCS-FM p.12`).
 
-### 6.2 Documented performance
+#### 6.2 Documented performance
 | Quantity | Value | Source |
 |---|---|---|
 | **IR detection range, clean air** | **13.5 … 5.4 nm** (25 … 10 km) | `DCS-EA p.91` |
@@ -255,7 +257,7 @@ inside **OEPrNK-29** alongside the **SN-29** navigation system, the **C100** mis
 | KOLS field of view (research) | azimuth **±30°** or **±15°**, elevation **±15°** | T4, §7.2 |
 | IRST dwell to search one increment | **4–6 s** | `DCS-FM p.86` |
 
-### 6.3 Employment (`DCS-EA p.90–91`)
+#### 6.3 Employment (`DCS-EA p.90–91`)
 1. WCS MODES → **IR**. *"Turn on IR mode after takeoff."*
 2. Attack hemisphere switch **FHS–RHS** → **RHS**; set target size with **SPAN**.
 3. Detect the target mark on the HUD. Under interference, **reduce KOLS sensitivity with the IR
@@ -267,7 +269,7 @@ inside **OEPrNK-29** alongside the **SN-29** navigation system, the **C100** mis
 Sign on the HUD that the IR channel is the **lead channel**: "**ТП**" (`DCS-EA p.91`; the FC3 manual
 uses the same "ТП" symbol, `DCS-FM p.51`).
 
-### 6.4 Why this matters for the FlightBox pilot module
+#### 6.4 Why this matters for the FlightBox pilot module
 Stated outright by the sources:
 - *"Unlike radar systems, OESS systems are passive, i.e. not radiating energy. **The enemy doesn't know
   that OESS is tracking his aircraft.** This significantly increases the attack stealthiness."*
@@ -289,7 +291,7 @@ SARH shot — at which point the opponent's RWR lights up. Where the F-16 pilot'
 "a lock warns the target", the MiG-29's is "**radiating at all** warns the target, and not radiating
 costs range *and* identity".
 
-### 6.5 Shchel-3UM helmet-mounted sight
+#### 6.5 Shchel-3UM helmet-mounted sight
 | Property | Value | Source |
 |---|---|---|
 | **Designation coverage** | **±60° azimuth, +60° / −14° elevation** | `DCS-EA p.92` |
@@ -312,9 +314,76 @@ Per-missile release discipline (`DCS-EA p.93`):
 
 ---
 
-## 7. Technical depth (researched)
+### 9. Variant notes
+- **9-13 / MiG-29S**: N019M(E) "Topaz" — improved processor (Ts101M), **TWS2** with two simultaneous
+  R-77 engagements, greater range (T4: N019M ≈ 90 km). Everything about the **sensor taxonomy** in this
+  file still holds; the numbers move.
+- **MiG-29SMT / MiG-35**: N010 Zhuk / Zhuk-AE — a different radar entirely. Out of scope.
+- The **helmet sight and KOLS are unchanged** across 9-12 → 9-13; the doctrinal content of §6 is
+  variant-independent.
 
-### 7.1 N019 "Rubin" / N019M "Topaz" — hardware facts
+---
+
+## State
+
+**Nothing in this file is implemented.** FlightBox has no MiG-29 module, no
+`sim/src/modules/mig29/` and no JSBSim MiG-29 model. The airframe exists only as a **spec-first
+contract** — [`../flightbox/aircraft/mig29.md`](../flightbox/aircraft/mig29.md), whose own status
+line reads *"spec only. Nothing is built."* Everything below is therefore a **forward commitment**,
+not a description of code.
+
+| Roadmap stage | What it will take from this file |
+|---|---|
+| **R3** — knowledge base | *running*: this file is the R3 deliverable for the sensor pair (N019 + KOLS/helmet sight) |
+| **R6** — asymmetric weapons + RCS | the detection ranges here are stated against a target RCS; RCS as a unit property is exactly what R6 introduces, and this file is where the MiG-29 side of that number is read |
+| **R7** — enemy units at BVR scale | the defining row: the mode taxonomy (§3) becomes a `FBRadarSystem::ActiveVolume` override, the quantified Doppler notch (§3) becomes its notch parameters, and **KOLS as a passive primary channel** (§6) inverts the F-16 BVR cost function from "a lock warns the target" to "**radiating at all** warns the target" |
+| **R8** — JSBSim model | nothing directly — sensors are module code, not model XML |
+
+**The scale caveat that governs every row** (from the module file): the MiG-29 is a
+**BVR-scale** opponent — what has to be right is what he can reach, how fast he gets there, what he
+can see and what he can shoot. A failing knife-fight comparison is not a defect of the model; a wrong
+envelope is.
+
+Roadmap chain: [`../flightbox/roadmap.md`](../flightbox/roadmap.md) — **R3** (this knowledge base,
+running) → **R6** (asymmetric weapons + RCS) → **R7** (enemy units, MiG-29 at BVR scale) → **R8**
+(the JSBSim MiG-29 model). Nothing after R3 has begun.
+
+---
+
+## Gaps
+
+**Source gaps** — the file's own itemised list follows, section number unchanged. Note
+that two research sites that would deepen §7 returned **403** to this pass and are recorded in
+`PROGRESS.md`; the **GAF T.O. 1F-MIG29-1** remains the one T1 acquisition.
+
+**Implementation gaps** — none statable yet: nothing is built (see State).
+
+### 8. Open gaps (honest)
+1. **Scan-bar patterns and frame times per mode** in the 9-12: only the T4 "2.5–5 s, 4-bar/6-bar"
+   summary exists. `DCS-EA` never states a frame time.
+2. **Track initiation criteria** (how many looks to firm a track) — nothing in either manual.
+   FlightBox's `kHitsToFirm`/coast model has **no MiG-29-specific number** to anchor to.
+3. **TWS scan volume in the 9-12** — `DCS-EA` documents a TWS switch (FHS/RHS) but never the volume;
+   the 10-track figure comes from the FC3 manual and from research.
+4. **N019 elevation/azimuth conflict** (§7.1) unresolved without a T1/T2 source.
+5. **KOLS scan pattern and frame time** — the "4–6 s per increment" figure is FC3 (a *pilot technique*,
+   not a system spec). The real KOLS raster is undocumented publicly.
+6. **IRST detection range vs aspect and vs afterburner** — the sources say "more effective from the
+   rear" and the FC3 manual notes an afterburning aircraft is an exception to the size rule
+   (`DCS-FM p.86`), but no quantitative aspect law exists.
+7. **The `DCS-EA` RAD-mode closure thresholds (§3.1) have no altitude qualifier** — real Doppler notch
+   width depends on the clutter spectrum, hence on altitude and terrain. Model as stated, flag the
+   simplification.
+
+---
+
+---
+
+## Knowledge
+
+### 7. Technical depth (researched)
+
+#### 7.1 N019 "Rubin" / N019M "Topaz" — hardware facts
 Source: toad-design MiG Alley "N019 Radar" article — **T4** (secondary compilation, evidently derived
 from Russian published material; the most detailed public account found this pass).
 
@@ -360,14 +429,14 @@ and generates numerous false returns"*; pursuit mode is *"prone to displaying fa
 clutter especially at low altitudes"*. This corroborates the FC3 manual's **−25 % range penalty** for
 АВТ (§4).
 
-### 7.2 KOLS / OEPS-29
+#### 7.2 KOLS / OEPS-29
 IR detection range **15 km**; **laser rangefinder 6 km**; **FOV azimuth ±30° or ±15°, elevation ±15°**.
 Sources: defence.pk technical thread on "S-31E2 KOLS", GlobalSecurity MiG-29 design page — **T4**.
 The **6 km laser range** is the important number: it bounds the range at which the *passive* channel
 can produce a **true** range for a launch computation. Beyond it the WCS must fall back on the **SPAN**
 angular method (§2.2) — which is exactly why that knob exists.
 
-### 7.3 What the sources do **not** support
+#### 7.3 What the sources do **not** support
 - The claim that the MiG-29 has **spoilers** or **digital fly-by-wire** appeared in one search summary
   and is **wrong for the 9-12** (that is MiG-29K/MiG-35 or an F/A-18 confusion). Recorded here so it is
   not re-introduced. See `flight-controls.md` §1.
@@ -375,30 +444,3 @@ angular method (§2.2) — which is exactly why that knob exists.
   cells**, or **track-file memory time**.
 
 ---
-
-## 8. Open gaps (honest)
-1. **Scan-bar patterns and frame times per mode** in the 9-12: only the T4 "2.5–5 s, 4-bar/6-bar"
-   summary exists. `DCS-EA` never states a frame time.
-2. **Track initiation criteria** (how many looks to firm a track) — nothing in either manual.
-   FlightBox's `kHitsToFirm`/coast model has **no MiG-29-specific number** to anchor to.
-3. **TWS scan volume in the 9-12** — `DCS-EA` documents a TWS switch (FHS/RHS) but never the volume;
-   the 10-track figure comes from the FC3 manual and from research.
-4. **N019 elevation/azimuth conflict** (§7.1) unresolved without a T1/T2 source.
-5. **KOLS scan pattern and frame time** — the "4–6 s per increment" figure is FC3 (a *pilot technique*,
-   not a system spec). The real KOLS raster is undocumented publicly.
-6. **IRST detection range vs aspect and vs afterburner** — the sources say "more effective from the
-   rear" and the FC3 manual notes an afterburning aircraft is an exception to the size rule
-   (`DCS-FM p.86`), but no quantitative aspect law exists.
-7. **The `DCS-EA` RAD-mode closure thresholds (§3.1) have no altitude qualifier** — real Doppler notch
-   width depends on the clutter spectrum, hence on altitude and terrain. Model as stated, flag the
-   simplification.
-
----
-
-## 9. Variant notes
-- **9-13 / MiG-29S**: N019M(E) "Topaz" — improved processor (Ts101M), **TWS2** with two simultaneous
-  R-77 engagements, greater range (T4: N019M ≈ 90 km). Everything about the **sensor taxonomy** in this
-  file still holds; the numbers move.
-- **MiG-29SMT / MiG-35**: N010 Zhuk / Zhuk-AE — a different radar entirely. Out of scope.
-- The **helmet sight and KOLS are unchanged** across 9-12 → 9-13; the doctrinal content of §6 is
-  variant-independent.

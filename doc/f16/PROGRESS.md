@@ -447,3 +447,56 @@ DED page gap (above) is new information from this pass, not a pre-existing one. 
 unprocessed from Pass 2/3 (Radio Communications p.247–260, HTS/HMCS p.492–523, IFF procedure detail,
 Appendices, Aux/Left/Right Console) remains **unchanged** — see Pass 2/3 sections above for the full
 ledger, still current.
+
+---
+
+## Pass 5 — schema alignment onto the four-section form (roadmap R10, part C)
+
+**No source pages were read this pass.** This was a pure reorganisation: every topic file was moved
+onto the same `## Spec` / `## State` / `## Gaps` / `## Knowledge` form that `doc/flightbox/` uses, so
+that a reader can hold reference and implementation side by side without learning two layouts.
+
+### What the four sections mean in a REFERENCE base (owner-approved reading)
+
+| Section | Content |
+|---|---|
+| `## Spec` | what the real jet documentably does — the existing guide distillation + ED addenda, unchanged. The bulk of every file. |
+| `## State` | what FlightBox implements of it — brief, table-shaped, linking into `doc/flightbox/`; never a copy of that content. **Newly written this pass**, established by reading `doc/flightbox/aircraft/f16.md`, `sim/sensors.md`, `sim/systems.md`, `sim/weapons-and-damage.md`, `sim/pilot-ai.md`, `sim/fdm.md`, `aircraft/stores.md`, `clients/clients.md`, `journal.md` and `roadmap.md` — not guessed. |
+| `## Gaps` | both kinds, each explicitly labelled: **source gaps** (SHALLOW research passes, unprocessed pages, unresolved Chuck/ED discrepancies — the existing declarations, moved or referenced in place) and **implementation gaps** (modelled / partially / not at all). |
+| `## Knowledge` | the researched engineering depth — the former `Technical depth (researched …)` sections, moved under the heading with their marker line and sources intact. |
+
+### Method / discipline
+
+- **Reorganisation, not revision.** Existing body text moved 1:1; headings were demoted one level so
+  the four sections really contain their material. Verified mechanically: a word-multiset comparison
+  of every file against its pre-pass version shows **no lost content** — only `---` separators at the
+  seams and the `Technical depth` heading, whose exact wording is preserved as a bold marker line
+  directly under `## Knowledge`.
+- **Section numbering left alone**, because code banners cite it (`weapons.md` §4.1/§4.5,
+  `defence-rwr-cm.md` §2.1/§2.2, `controls-commands.md` §6.4/§6.6). Numbered gap sections
+  (`weapons.md` §4.7, `defence-rwr-cm.md` §4.3) therefore stayed **in place** under Knowledge and are
+  referenced from `## Gaps` instead of being moved. `controls-commands.md` §5 (explicitly `abgeleitet`,
+  not sourced) moved to Knowledge but kept its number; `cockpit-displays.md`'s "Remaining gap (this
+  file, cumulative)" block moved verbatim into `## Gaps`.
+- **Discrepancies stay unresolved**: overhead-break G (Chuck 3–4 G vs. ED ~3 G), autopilot bank limit
+  (45° vs. ±30°), steerpoint count (99 vs. 127), ADI glideslope scale (0.7° vs. 2.5°/dot), gun drum
+  (510 vs. 512). All still carry both values and their flags.
+- `flight-model.md` inverted, per its subject: `Spec` is one line (the pinned model as flown plus the
+  declared deltas → `sim/assets/MODEL-DELTAS.md`), §1–§10 are `State`, §12 is `Gaps`, §11 (the handover
+  checklist) is `Knowledge`.
+- `INDEX.md` and `PROGRESS.md` are meta files and carry no schema. INDEX gained a statement of the
+  schema plus a **coverage-at-a-glance table** (one line per file, from its `State`).
+
+### Files raised this pass
+All 17 topic files (`aerodynamics-performance`, `air-refueling`, `cockpit-displays`,
+`controls-commands`, `datalink-iff`, `defence-rwr-cm`, `engine-fuel`, `flight-controls-flcs`,
+`flight-model`, `hotas`, `hud-symbology`, `navigation-ils`, `procedures-landing`, `procedures-startup`,
+`procedures-takeoff-taxi`, `radar-sensors`, `weapons`) + `INDEX.md` +
+`.claude/skills/f16-systems/SKILL.md` (states what the four sections mean here).
+
+### COVERAGE (Pass 5): COMPLETE for its own scope
+Every topic file carries the four sections; every file's State is backed by a named `doc/flightbox/`
+file. **Source coverage is unchanged by this pass** — the unprocessed-page ledger of Passes 2–4 stands
+exactly as written above (Radio Communications p.247–260, HTS/HMCS p.492–523, IFF procedure detail,
+Aux/Left/Right Console remainder of p.43–81, Appendices A/C/D/E, the MARK DED page, and the priority-4
+"check every file against ED" sweep). Nothing was distilled and nothing was closed this pass.

@@ -16,7 +16,9 @@ p.225–226 (Great Circle Steering Cue — ED's name for Chuck's "Tadpole"). Cit
 > The guide presents the HUD as annotated screenshots; element positions below are the DCS/real F-16C
 > standard layout confirmed by the callouts. This is the reference our HUD (MIL-STD-1787) is built against.
 
-## HUD control switches (what is displayed) — p.64
+## Spec
+
+### HUD control switches (what is displayed) — p.64
 
 | Switch | Positions |
 |---|---|
@@ -28,7 +30,7 @@ p.225–226 (Great Circle Steering Cue — ED's name for Chuck's "Tadpole"). Cit
 | **DED Data** | FWD **DED** (DED data on HUD) · MID **PFL** (Pilot Fault List on HUD) · AFT OFF |
 | **HUD Brightness** | FWD Day · MID Auto · AFT Night |
 
-## Core flight symbology (layout)
+### Core flight symbology (layout)
 
 | Element | Position | Meaning |
 |---|---|---|
@@ -44,7 +46,7 @@ p.225–226 (Great Circle Steering Cue — ED's name for Chuck's "Tadpole"). Cit
 | **Speed Brake indicator** | HUD annotation | Shown when speedbrakes deployed |
 | **Master Mode label** | HUD | **NAV / A-A / A-G**; pressing A-A/A-G ICP button toggles, reverts to NAV |
 
-## AOA indexer & HUD AOA bracket (on-speed cue)
+### AOA indexer & HUD AOA bracket (on-speed cue)
 
 **AOA Indexer** (3 lights, glareshield) — approach on-speed reference:
 | Light | AoA | Meaning |
@@ -63,14 +65,14 @@ in the bracket. Appears **on landing-gear deployment**. Target approach AoA **11
 > bands above and ED's 11.1–13.9° are effectively the same cue; ED's is the more precise official
 > figure.
 
-## Landing HUD usage (Part 6)
+### Landing HUD usage (Part 6)
 
 - Align **FPM on Horizon Line** → level turn (overhead break, ~70° bank, 3–4 G).
 - Final: align **FPM + the 2.5° pitch-ladder lines with the runway threshold** for glidepath, hold 11° AoA.
 - Short final: shift FPM forward to a point **300–500 ft down the runway**, flare, do **not** level off.
 - Control AoA with **throttle, not pitch trim** — FBW sets AoA.
 
-## Navigation / steering symbology (Part 16, pp. 705–711)
+### Navigation / steering symbology (Part 16, pp. 705–711)
 
 | Element | Meaning |
 |---|---|
@@ -83,7 +85,7 @@ in the bracket. Appears **on landing-gear deployment**. Target approach AoA **11
 
 Fly to steerpoint: align the **tadpole with the FPM**.
 
-## ILS symbology (Part 16, pp. 771–772)
+### ILS symbology (Part 16, pp. 771–772)
 
 | Element | Meaning |
 |---|---|
@@ -95,20 +97,20 @@ Fly to steerpoint: align the **tadpole with the FPM**.
 "**Center the bars**": both bars centered on the FPM forming a perfect cross = on localizer + on glideslope.
 On capture, deploy gear → "E" AoA bracket appears; LANDING light UP; deploy speedbrake.
 
-## Advisory cues
+### Advisory cues
 
 - **Pull-Up cues (X)**: displayed on the HUD when below the CARA ALOW radar-altitude floor (Part 8, ALOW).
 - **AL** flashes + VMS "ALTITUDE" below CARA ALOW; see `aerodynamics-performance.md`.
 
 ---
 
-## ED EA Guide addendum — full HUD element spec (official, p.89–96)
+### ED EA Guide addendum — full HUD element spec (official, p.89–96)
 
 The ED EA Guide's HUD chapter gives the **exact geometry and scale numbers** the guide screenshots
 above only imply. This resolves the earlier "TFOV not firmly public" confidence gap in the Technical-
 depth section below with an **official number**.
 
-### HUD field of view (resolves prior TFOV gap)
+#### HUD field of view (resolves prior TFOV gap)
 - **Combining-glass display surface: 25° diameter**, extending down to a line **10.5° below the
   field-of-view center** (ED EA Guide p.89) — i.e. the visible area is *not* symmetric top/bottom
   around the boresight; it extends further below center than above, consistent with a HUD combiner
@@ -116,7 +118,7 @@ depth section below with an **official number**.
   supersedes the "typ. ~20–25° class, not firmly public" note in the researched section below.
 - Symbology is focused at infinity, superimposed on the outside world along the flight path.
 
-### Full element list with exact scale/geometry (ED EA Guide p.89–92)
+#### Full element list with exact scale/geometry (ED EA Guide p.89–92)
 | # | Element | Detail |
 |---|---|---|
 | 1 | Great Circle Steering Cue | see "Great Circle Steering Cue" below — ED's name for Chuck's Tadpole |
@@ -163,7 +165,7 @@ implementation's mode-label lookup table): `NAV`, `CCIP`, `CCRP`, `DTOS`, `LADD`
 `MSL` (Missile Override, no type selected); `DGFT` (Dogfight master mode); `JETT` (Selective or
 Emergency Jettison). See `weapons.md` for what each sub-mode computes.
 
-### HUD Control Panel (ED EA Guide p.93–96 — refines Chuck's switch table above)
+#### HUD Control Panel (ED EA Guide p.93–96 — refines Chuck's switch table above)
 Confirms Chuck's switch list (p.64) but with exact per-position behavior:
 - **Scales switch**: `VV/VAH` (adds Bank Angle Indicator around FPM, removes Roll Indicator, if FPM
   shown) / `VAH` (no vertical-velocity scale) / `OFF` (digital readouts only, no analog scales).
@@ -178,7 +180,7 @@ Confirms Chuck's switch list (p.64) but with exact per-position behavior:
 - **Altitude switch, Test switch**: marked **N/I** (not implemented in DCS) by ED — real-jet-only
   functionality, not simulated even in the reference module.
 
-### Great Circle Steering Cue (ED's name for Chuck's "Tadpole")
+#### Great Circle Steering Cue (ED's name for Chuck's "Tadpole")
 ED EA Guide p.89–90, 225–226 — same physical HUD element Chuck's guide calls the "Steerpoint Tadpole"
 (p.705–711), but ED's official manual gives the underlying **computation method**, not just the visual
 behavior:
@@ -195,7 +197,7 @@ behavior:
   limits, the cue clamps to the left/right edge of its travel range rather than disappearing — same
   clamp philosophy as the Diamond Symbol's crossed-out-when-outside-TFOV behavior.
 
-### HSD Azimuth Steering Line (ED EA Guide p.226 — new element not in Chuck's HUD file, belongs on the
+#### HSD Azimuth Steering Line (ED EA Guide p.226 — new element not in Chuck's HUD file, belongs on the
 HSD MFD, see `cockpit-displays.md`/`navigation-ils.md`)
 A line on the HSD showing aircraft-heading alignment relative to the selected steerpoint/SPI/weapon
 solution; if offset from the display's centered watermark, turn toward the line until centered — the
@@ -204,7 +206,7 @@ implementation that must drive both displays from one steering-error computation
 
 ---
 
-## Was der Pilot wirklich sieht (What the pilot actually sees — instrumentation ground truth)
+### Was der Pilot wirklich sieht (What the pilot actually sees — instrumentation ground truth)
 
 Per the coordinator's explicit ask: this is the checklist against which FlightBox's autonomous pilot
 (`FBF16Pilot`) should be validated — it may only reason over quantities that a real instrument actually
@@ -213,7 +215,7 @@ priority-1..3 files. **This section is descriptive of the F-16C cockpit, not yet
 enforcement mechanism** — no code change was made this pass; it is the reference for a future audit of
 `FBF16Pilot`/`FBAirDataSystem`/`FBNavSystem` against these instruments.
 
-### On the HUD (primary; usable heads-up, always in view when Scales/FPM switches are on)
+#### On the HUD (primary; usable heads-up, always in view when Scales/FPM switches are on)
 | Quantity | Resolution/format | Source instrument |
 |---|---|---|
 | CAS/TAS/GND speed | nearest 10 kt (minor tick), 60–900 kt range | Velocity Scale (switch-selectable) |
@@ -228,7 +230,7 @@ enforcement mechanism** — no code change was made this pass; it is the referen
 | Time/distance to steerpoint | TTG in time; distance in whole nm | HUD nav block |
 | Mach | nearest 0.01 | Mach Number field |
 
-### On the DED / EHSI / instrument panel (secondary; requires an eyes-down glance)
+#### On the DED / EHSI / instrument panel (secondary; requires an eyes-down glance)
 | Quantity | Resolution/format | Source |
 |---|---|---|
 | INS-only lat/lon | DD°MM.M' / DDD°MM.M' | INS DED page |
@@ -240,7 +242,7 @@ enforcement mechanism** — no code change was made this pass; it is the referen
 | Engine RPM/FTIT/oil/hydraulic pressure | analog gauge, no HUD repeater | Instrument panel gauges |
 | Fuel quantity | nearest 100 lb increments on gauges; totalizer | Fuel gauges / BNGO DED page |
 
-### Architectural implication for FlightBox
+#### Architectural implication for FlightBox
 - **A pilot module must not read ground-truth doubles it has no in-sim instrument for.** E.g. exact
   INS position error in feet, or a numeric glideslope-deviation angle, are **never directly displayed**
   — only discretized/needle-form. If `FBF16Pilot` or `FBAirDataSystem` ever expose a "system nav
@@ -257,15 +259,55 @@ enforcement mechanism** — no code change was made this pass; it is the referen
   implementation using the numeric AoA is a deliberate simplification (documented here, not silently
   assumed), matching a full-instrument-panel pilot rather than a HUD-only one.
 
----
+## State
 
-# Technical depth (researched — for rebuild)
+**This file is the closest match between reference and implementation in the whole set** — the F-16 HUD
+is built against it element by element, inside the real combiner aperture.
+
+| Item of this reference | FlightBox | Where |
+|---|---|---|
+| FPM, conformal pitch ladder, horizon line, bank scale, waterline | **built** | [`../flightbox/aircraft/f16.md`](../flightbox/aircraft/f16.md) §12 |
+| Heading / CAS / altitude tapes, G load, Mach, peak G, master-mode text | **built** | same |
+| Steerpoint diamond (crossed out beyond the real F-16C TFOV/2) + Tadpole / Great Circle Steering Cue | **built** | same |
+| Right status block: R (radar altitude) → AL (ALOW) → 'B' slant range → TTG → distance to steerpoint | **built**; 'R' is carried as a documented FlightBox addition with no FlightGear counterpart | same |
+| The combiner aperture itself (~25° TFOV, aspect-correct), conformal symbology scissored at the window edge | **built** — tapes and blocks at the aperture edges, conformal elements clipped, the diamond clamp coincident with the window edge | [`../flightbox/render/hud.md`](../flightbox/render/hud.md) |
+| Bitmap font + MAX7456 look | **built** as two separate things: a generic coverage-antialiased font system in `render/`, and an F-16-specific chip hook (`FBF16Max7456`) that is a real, instantiated NoOp | [`../flightbox/aircraft/f16.md`](../flightbox/aircraft/f16.md) §11 |
+| ILS symbology (localizer/glideslope bars, command steering) | **not implemented** — there is no ILS receiver | — |
+| A-A / A-G weapon symbology beyond the release cue (TD box, locked-target symbol, DLZ scale, EEGS funnel drawing) | **not implemented** — and deliberately so for the lock: this file documents neither a TD box nor a locked-target symbol, so none is invented; the lock lives in the bus, telemetry and events | [`../flightbox/sim/sensors.md`](../flightbox/sim/sensors.md) Gaps 11 |
+| Pull-up / breakX cues | **not implemented** | — |
+
+**"Was der Pilot wirklich sieht" is the acceptance list:** that section is the instrumentation ground
+truth a pilot module is validated against — which quantities are actually readable heads-up, at what
+resolution, and which require an eyes-down glance (which FlightBox spends as command-bus latency).
+
+## Gaps
+
+**Source gaps** (this file vs. its sources)
+- The source set documents **no TD box and no locked-target symbol**; the radar-adjacent entry is the
+  HMCS, a different function. This is a genuine source gap, not an implementation choice — anything
+  drawn there would be invented.
+- Chuck Parts 3/6/8/16 and ED pp.89–96 + 225–226 are fully processed.
+
+**Implementation gaps** (this reference vs. FlightBox)
+- *Modelled:* the whole core flight/navigation symbology set, in the real aperture, with the real
+  scales.
+- *Partially:* the status blocks — present with the documented fields, but fed by FlightBox's own
+  computation (e.g. steerpoint elevation is sampled under the aircraft, not declared).
+- *Not at all:* ILS symbology, weapon-specific symbology (TD box, DLZ, EEGS drawing), pull-up/breakX
+  cues, HUD declutter modes, MAN RNG/UNCAGE behaviour, HMCS.
+
+## Knowledge
+
+**Technical depth (researched — for rebuild)**
+
+*Researched engineering depth (public engineering sources, cited at the end). Kept separate from the
+guide distillation in `## Spec` — every fact here is researched, not taken from the DCS guides.*
 
 The standard our HUD is built against is **MIL-STD-1787** (*Aircraft Display Symbology*, adopted
 1984-12-10; current rev D:2018). Sources cited inline. This section gives the symbology *conventions* and
 geometry a faithful HUD must obey — beyond the guide's element list.
 
-## MIL-STD-1787 conventions
+### MIL-STD-1787 conventions
 - Scope: standardizes symbols/formats/information content for electro-optical displays across **takeoff,
   navigation, terrain following/avoidance, weapon delivery, and landing** (globalsecurity / FAS mirror of
   MIL-STD-1787A).
@@ -277,7 +319,7 @@ geometry a faithful HUD must obey — beyond the guide's element list.
   (bend/point toward the horizon), positive bars solid, negative (dive) bars dashed — the 1787 convention
   our per-degree ladder should follow.
 
-## F-16 HUD geometry (the four reference points)
+### F-16 HUD geometry (the four reference points)
 MIL-STD-1787 defines four HUD reference points; the **left-hand and right-hand reference points are
 specific to the F-16 HUD design** (DTIC ADA430578; MIL-STD-1787):
 1. Center of the **TFOV** (Total Field Of View),
@@ -293,7 +335,7 @@ specific to the F-16 HUD design** (DTIC ADA430578; MIL-STD-1787):
   exact combiner geometry is a separate, still-open question (DTIC ADA430578 doesn't give the number
   this precisely).
 
-## Implications for our MIL-STD-1787 HUD
+### Implications for our MIL-STD-1787 HUD
 - FPM is compressed/caged when wind drift would push it off-HUD — matches the DRIFT C/O switch
   (`cockpit-displays.md`): DRIFT C/O keeps the FPM centered regardless of wind.
 - Airspeed **left**, altitude **right**, heading tape **top**, FPM/pitch ladder centered — the 1787/F-16
@@ -301,7 +343,7 @@ specific to the F-16 HUD design** (DTIC ADA430578; MIL-STD-1787):
 - Steering/ILS bars (localizer vertical, glideslope horizontal) form a cross on the FPM — a flight-director
   presentation per 1787 landing symbology; deflection scaling in `navigation-ils.md`.
 
-## Hardware (LRUs, for context)
+### Hardware (LRUs, for context)
 - **HUD**: F-16C uses a **wide-angle raster/stroke HUD**; the **Pilot Display Unit (PDU)** combiner +
   optics. The **HUD Electronics Unit** was a separate LRU on early jets but is **absorbed into the MMC**
   (Modular Mission Computer) on Block 50+ (airforce-technology; see `cockpit-displays.md`).
@@ -309,7 +351,7 @@ specific to the F-16 HUD design** (DTIC ADA430578; MIL-STD-1787):
   wheels drive this); **stroke** draws the symbology. Day/Auto/Night brightness per the guide switch.
 - Symbology is generated by the **MMC** from sensor/mission data and drawn on the PDU.
 
-## Sources
+### Sources
 - MIL-STD-1787A/D *Aircraft Display Symbology* (globalsecurity.org; man.fas.org mirror) — ARS, pitch
   ladder, reference points.
 - DTIC ADA430578 *New Flight Display Formats* — ARS/FPM/climb-dive set, F-16 left/right reference points, TFOV.

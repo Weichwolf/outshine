@@ -1,5 +1,7 @@
 # F — Haze / Fog / Aerial Perspective: Coupling Without Double-Hazing
 
+> **Legacy studies of the demolished FBCloud* chain; kept for the noise/raymarch groundwork, see [../flightbox/render/clouds.md](../flightbox/render/clouds.md).**
+
 Source: Koschmieder relation (standard atmospheric-optics result, widely cited e.g. Horvath 1971,
 *Atmospheric Environment*); Hillaire SIGGRAPH 2016 Frostbite course (slides 39–43, 56, EXACT — the
 cloud/aerial-perspective coupling scheme and height-fog approximation); Hillaire EGSR 2020 (already

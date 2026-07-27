@@ -4,44 +4,46 @@ Source: DCS F-16C Viper Guide (Chuck's Guide), Part 10 — Radar & Sensors, pp. 
 This is a structural reference to the mode taxonomy + key display/HOTAS concepts; the guide contains
 extensive per-mode tutorials not reproduced step-by-step here.
 
-## Sensor overview
+## Spec
+
+### Sensor overview
 Sensors: **FCR** (AN/APG-68 Fire Control Radar), **TGP** (targeting pod), **HMCS** (helmet cueing),
 Maverick seeker, HTS pod. Displayed on the MFDs; the active sensor = **SOI** (Sensor of Interest), set by
 **DMS** (up = HUD, down = MFD sensor). Master modes: **NAV / A-A / A-G** (drive which sensor modes exist).
 
-## FCR — Air-to-Air modes
+### FCR — Air-to-Air modes
 
 Top-level: **BVR** (beyond visual range search) · **ACM** (air combat maneuvering, close-in) · **STT**
 (single target track). Display: range = vertical axis, azimuth = horizontal.
 
-### CRM (Combined Radar Mode) — default at power-up
+#### CRM (Combined Radar Mode) — default at power-up
 Combines BVR search sub-modes under one interface (cycle sub-modes: hold **TMS right** > 1 s):
 | Sub-mode | Behavior |
 |---|---|
 | **RWS** (Range While Search) | Default search; large-volume, all-aspect, all-altitude detection |
 | **TWS** (Track While Scan) | Maintains up to **10 trackfiles** while still scanning; artificially limits scan volume (bars/azimuth), auto-centers; provides post-launch datalink for AMRAAM; less precise than STT |
 
-### SAM (Situational Awareness Mode)
+#### SAM (Situational Awareness Mode)
 Hybrid RWS/STT: locking a target in RWS enters SAM. Radar periodically scans the locked target while
 scanning the whole area. Acquire: cursor on target → **TMS forward** once → release (starts 4-bar,
 ±10° spotlight at last known position).
 
-### STT / DTT (radar lock)
+#### STT / DTT (radar lock)
 - **STT** (Single Target Track): all radar power on one target, highest accuracy.
 - **DTT** (Dual Target Track): two targets tracked.
 
-### Spotlight
+#### Spotlight
 In RWS/TWS, a spotlight scan can designate targets at longer range (concentrates the scan).
 
-### ACM (Air Combat Mode) — close-in auto-acquisition
+#### ACM (Air Combat Mode) — close-in auto-acquisition
 Sub-modes: **HUD Scan**, **Vertical Scan**, **Boresight**, **Slewable** — auto-lock the first target in a
 close-range volume tied to HUD geometry.
 
-### Other A-A
+#### Other A-A
 - **EXP (Expand)**: zoom the radar display.
 - **HMCS radar lock**: lock the target the helmet cross is on.
 
-## FCR — Air-to-Ground modes
+### FCR — Air-to-Ground modes
 | Mode | Purpose |
 |---|---|
 | **GM** (Ground Mapping) | Terrain/ground map picture |
@@ -52,10 +54,10 @@ close-range volume tied to HUD geometry.
 
 Designation via Radar Cursor slew + TMS; sets the SPI for A-G weapons and nav fixes.
 
-## FCR — Air-to-Sea
+### FCR — Air-to-Sea
 - **SEA** mode: detect surface ships.
 
-## TGP — Targeting Pod (Sniper/Litening class)
+### TGP — Targeting Pod (Sniper/Litening class)
 - Modes: A-G (point/area track), A-A. SOI via DMS down; slew with Radar Cursor; **TMS up** = point track,
   **TMS right** = area track, **TMS down** = slave to steerpoint.
 - **Cursor Zero (CZ)** / steerpoint slaving, **Snowplow** mode (pod points at ground ahead), **LSS**
@@ -63,19 +65,19 @@ Designation via Radar Cursor slew + TMS; sets the SPI for A-G weapons and nav fi
 - Lasing: Laser Arm switch ARM → trigger 1st stage fires laser ("L" flashes on HUD); used for ranging,
   nav fix, and LGB guidance. Laser codes set on the LASR DED page.
 
-## HMCS — Helmet-Mounted Cueing System
+### HMCS — Helmet-Mounted Cueing System
 - Power-up + alignment (coarse then fine) against the HUD reference cross — see `procedures-startup.md`
   steps 66–68 and `hud-symbology.md`.
 - HMD symbology mirrors key HUD/RWR elements off-boresight; used for high-off-boresight (HOBS) missile
   cueing (AIM-9X), ground target designation, and off-HUD radar lock.
 
-## Weapon sensor: AGM-65 Maverick
+### Weapon sensor: AGM-65 Maverick
 Maverick seeker (IR: D/G; EO: H/K) is itself a sensor page — boresight, pre-planned (slaved to TGP/radar),
 visual, and boresight employment modes (see `weapons.md`).
 
 ---
 
-# ED EA Guide — precision addendum (official source, additive)
+## ED EA Guide — precision addendum (official source, additive)
 
 > **Additive per task instructions**: a developer agent is implementing the FCR in parallel and may be
 > reading this file. Nothing below rewords the sections above; it only adds numeric/logic precision
@@ -84,7 +86,7 @@ visual, and boresight employment modes (see `weapons.md`).
 > precises a term already used above (e.g. ACM sub-mode names), it is **consistent**, not a
 > correction — flagged explicitly only where it genuinely differs.
 
-## FCR power/standby
+### FCR power/standby
 - **STBY / OVRD**: Standby Override (OSB 4, any FCR MFD page) forces FCR to STBY independent of master
   mode, **stows the antenna to 60° left azimuth / +30° elevation**, and holds STBY across master-mode
   changes until OVRD is toggled off again (ED EA Guide p.375).
@@ -92,7 +94,7 @@ visual, and boresight employment modes (see `weapons.md`).
   changing FCR mode — independent of the FCR-internal STBY state (ED p.375).
 - On the ground (WOW) FCR transmission is inhibited regardless of selected mode (ED p.375).
 
-## CRM (Combined Radar Mode) — precise sub-mode taxonomy (ED EA Guide p.376–399)
+### CRM (Combined Radar Mode) — precise sub-mode taxonomy (ED EA Guide p.376–399)
 ED names **six** CRM sub-modes, not just RWS/TWS as summarized above — this is additive precision,
 not a contradiction (RWS/TWS were correctly identified as the two headline sub-modes; ED adds the
 full state machine around them):
@@ -145,7 +147,7 @@ VSR): enlarges an **8×8 NM** area around the cursor (or centered on the FCR TOI
 to fill the whole MFD, to help sort closely-spaced targets (e.g. a formation) for individual
 designation. Removed automatically at the 160 NM range scale (box would be sub-pixel).
 
-## Radar scan-frame geometry & refresh-rate tradeoff (ED p.359–361, quantified)
+### Radar scan-frame geometry & refresh-rate tradeoff (ED p.359–361, quantified)
 Two worked examples ED gives directly (this is the concrete azimuth/bar-count vs. refresh-time
 tradeoff the mode-selection logic above is built on):
 | Scan pattern | Azimuth × bars | Scan-frame time | Coverage |
@@ -156,7 +158,7 @@ tradeoff the mode-selection logic above is built on):
 Azimuth scan width options in CRM: **A6 (±60°) / A3 (±30°) / A1 (±10°)**, cyclic via OSB 18. Elevation
 bar-scan options: **4B / 3B (TWS only) / 2B / 1B**, via OSB 17 — settings persist per CRM sub-mode.
 
-## ACM (Air Combat Mode) — exact scan geometry per sub-mode (ED EA Guide p.391–399)
+### ACM (Air Combat Mode) — exact scan geometry per sub-mode (ED EA Guide p.391–399)
 This is the biggest precision addition over the existing "HUD Scan / Vertical Scan / Boresight /
 Slewable" summary above — same four sub-modes, now with **exact angular/range figures**:
 
@@ -177,7 +179,7 @@ FCR is SOI rejects an STT lock and returns to NO RAD.
 regardless of declutter settings — ED explicitly flags this as an IFF/fratricide-risk callout (verify
 via NCTR/AIFF before engaging a close-range STT lock, not via datalink correlation).
 
-## NCTR & AIFF (ED EA Guide p.399–403)
+### NCTR & AIFF (ED EA Guide p.399–403)
 - **NCTR (Non-Cooperative Target Recognition)**: analyzes Doppler returns from **rotating engine
   compressor/turbine blades**, which constrains it to **head-on or tail-on aspect only**. Trigger:
   TMS Left held **>0.5 s** on an FCR TOI (also fires a simultaneous AIFF LOS interrogation along the
@@ -189,7 +191,7 @@ via NCTR/AIFF before engaging a close-range STT lock, not via datalink correlati
   documented logic, NCTR and IFF-LOS-interrogation are triggered by the **same** pilot input, not two
   separate actions.
 
-## FCR Air-to-Ground modes — precise scan/threshold parameters (ED EA Guide p.404–418)
+### FCR Air-to-Ground modes — precise scan/threshold parameters (ED EA Guide p.404–418)
 - **GM / GMT / SEA** share identical scan-geometry controls: azimuth **A6 (±60°) / A3 (±30°) / A1
   (±10°)**; range scale **10 / 20 / 40 / 80 NM**. All three are Plan-Position-Indicator ground-map
   renders; GM = static terrain reflectivity map, SEA = same but clutter-rejection tuned for low/medium
@@ -218,7 +220,7 @@ via NCTR/AIFF before engaging a close-range STT lock, not via datalink correlati
   sub-mode is active (this is the FCR-side enforcement of the Pre-planned/Visual split documented in
   `weapons.md` §2.1).
 
-## TGP (AN/AAQ-33-class pod) — sensor/zoom facts (ED EA Guide p.453–491)
+### TGP (AN/AAQ-33-class pod) — sensor/zoom facts (ED EA Guide p.453–491)
 - **Two sensor channels**: FLIR (thermal, day/night, White-Hot/Black-Hot polarity, two optical FOVs)
   and TV (daylight, higher magnification/clarity than FLIR at the cost of no night capability).
   Wide/Narrow FOV toggle via Expand/FOV button; a **TV Picture-in-Picture** overlay is available inside
@@ -234,20 +236,67 @@ via NCTR/AIFF before engaging a close-range STT lock, not via datalink correlati
 - **Slave mode**: TGP LOS is driven by the current 3-D SPI whenever the MMC "owns" SPI (i.e. not
   actively tracking on its own) — large crosshair symbol signals Slave state on the TGP MFD format.
 
-## HTS (AN/ASQ-213) and HMCS (JHMCS) — brief additive notes (ED EA Guide p.492–523)
+### HTS (AN/ASQ-213) and HMCS (JHMCS) — brief additive notes (ED EA Guide p.492–523)
 Not deep-extracted this pass (budget prioritized FCR/TGP); confirmed consistent with the existing
 summary above (HAS/POS modes, HAD threat display, alignment procedure). **TODO (future pass)**: HTS
 WPN-format field definitions and HMCS DED alignment-page parameters (ED p.494–523) are not yet
 distilled to the same depth as FCR/TGP above — flagged as a gap, not guessed.
 
----
+## State
 
-# Technical depth (researched — shallow pass — deepen when in scope)
+The FCR is built as a **mode set over one generic radar** — a scan volume *is* a mode, a lock is just
+another volume. Everything else in this file (TGP, HMCS, HTS, Maverick seeker, A-G and A-Sea radar) does
+not exist.
+
+| Item of this reference | FlightBox | Where |
+|---|---|---|
+| Generic active air-to-air radar: scan volume relative to the nose, range gate, frame time, firm/coast track life | **built** — `FBRadarSystem`; a target becomes a track after `kHitsToFirm` consecutive looks and coasts before it drops | [`../flightbox/sim/sensors.md`](../flightbox/sim/sensors.md) §4 |
+| CRM as the power-up search mode | **built** — ±60°/±10.5°, 40 nm, no auto-lock | [`../flightbox/aircraft/f16.md`](../flightbox/aircraft/f16.md) §4 |
+| ACM sub-modes | **built, all four** — HUD scan ±15°/±10°, boresight ±5° cone, vertical scan ±5°/−13°…+47°, slewable ±10° around the cursor; 10 nm, each auto-locking the nearest firm track | same |
+| STT | **built as its own volume** — gimbal ±60°, 0.1 s frame, single-target: the lock costs every other track file | same |
+| TMS-forward designation | **built** — `Designate()` takes the published track number; a designated lock that breaks falls back to search rather than grabbing the next contact | [`../flightbox/sim/sensors.md`](../flightbox/sim/sensors.md) §4 |
+| The radar as an **emitter** | **built** — the mode being flown determines what is published to other units' RWRs (whole volume when searching, pencil beam in STT) | same, §4 (+ §5 for who hears it) |
+| Chaff / Doppler notch | **built** — a clutter-filter model measured on own quantities only, no dice | same |
+| Contact identity | **deliberately absent** — a contact carries range/bearing/az/el/closure and a track number, never a unit id, callsign or team; IFF Mode 4 is the only identity source and has no "hostile" value | same, §1 |
+| SAM, TWS, DTT, spotlight, RWS-only sub-modes | **not implemented** — the mode set is CRM + 4×ACM + STT | [`../flightbox/aircraft/f16.md`](../flightbox/aircraft/f16.md) §4 |
+| NCTR, AIFF, Mode 1/2/3 | **not implemented** — Mode 4 only | [`../flightbox/sim/sensors.md`](../flightbox/sim/sensors.md) Gaps 9 |
+| A-G / A-Sea radar modes (GM, GMT, SEA, MTR) | **not implemented** — the radar filters on `FBUnitKind::Aircraft`, so ground targets and stores in flight are invisible to every radar | same, Gaps 3 |
+| TGP, HMCS, HTS, Maverick seeker | **not implemented** | — |
+| The missile's own seeker | **built** as a second derivation of the same system — ±10° searched field, ±45° gimbal after lock, off until the guidance switches it on | [`../flightbox/sim/weapons-and-damage.md`](../flightbox/sim/weapons-and-damage.md) §10 |
+
+**Two honest limits of the built radar**, both declared in the code: no terrain masking (air-to-air
+line of sight is always clear), and no measurement error — geometry is exact, only availability,
+volume, time and ageing are simulated, so a track can never jump to the wrong target.
+
+## Gaps
+
+**Source gaps** (this file vs. its sources)
+- The `## Knowledge` section is an explicitly **SHALLOW** research pass (LRU designations + principle).
+- **HTS/HMCS WPN-format and DED alignment-page detail (ED pp.492–523) is not distilled** to the depth of
+  the FCR/TGP sections — flagged in the addendum above, not guessed.
+- ED FCR/TGP pp.342–491 are processed; Chuck Part 10 is distilled to mode taxonomy plus display/HOTAS
+  concepts, not tutorial by tutorial (PROGRESS.md, pass-1 depth note).
+
+**Implementation gaps** (this reference vs. FlightBox)
+- *Modelled:* CRM, the four ACM sub-modes, STT, designation, emission, chaff susceptibility, IFF Mode 4,
+  and the anonymity of a contact.
+- *Partially:* the mode *state machine* — FlightBox selects among volumes, but has none of the
+  documented inter-mode transitions (e.g. TWS↔STT), and no radar display page to select them on;
+  the mode is mission data (`set fcr_mode`) or a pilot command.
+- *Not at all:* SAM/TWS/DTT/spotlight, all A-G and A-Sea modes, NCTR/AIFF, TGP, HMCS, HTS, Maverick
+  seeker, terrain masking, measurement noise, ECM interaction.
+
+## Knowledge
+
+**Technical depth (researched — shallow pass — deepen when in scope)**
+
+*Researched engineering depth. Kept separate from the guide distillation in `## Spec`; sources cited at
+the end. This pass is explicitly **shallow** — deepen when the subsystem is in scope.*
 
 > Combat sensors are outside the current rebuild scope (flight + rendering). This is an LRU/principle
 > stub for future extension only.
 
-## Components (LRUs)
+### Components (LRUs)
 - **FCR**: **AN/APG-68(V)** — mechanically-scanned (planar-array) pulse-Doppler fire-control radar,
   ~4 LRUs (antenna, transmitter, low-power RF, radar signal processor). Newer builds field the
   **AN/APG-83 SABR** AESA.
@@ -256,7 +305,7 @@ distilled to the same depth as FCR/TGP above — flagged as a gap, not guessed.
   high-off-boresight cueing.
 - **HARM targeting**: **AN/ASQ-213 HTS** pod (emitter geolocation).
 
-## Functional principle
+### Functional principle
 The APG-68 is a coherent pulse-Doppler set: it transmits phase-coherent pulse trains and range-Doppler
 processes the returns, so airborne targets are separated from ground clutter by their closing-rate Doppler
 shift (this is why look-down/all-aspect works). Air-to-air modes (RWS/TWS/STT) trade scan volume for track
@@ -264,6 +313,6 @@ quality; air-to-ground modes synthesize a ground map or detect moving targets by
 sensors are passive EO/IR with an active laser for ranging and guidance. All sensors are LRUs on the
 1553/fiber avionics bus, arbitrated as the Sensor of Interest (SOI).
 
-## Sources
+### Sources
 - Wikipedia *AN/APG-68*, *AN/APG-83*; airforce-technology.com F-16 — radar/pod/HMCS designations.
 - DCS guide Part 10 (mode taxonomy) — cross-referenced above.

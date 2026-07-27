@@ -1,5 +1,7 @@
 # D — March Strategy: Step Counts, Adaptive Stepping, Jitter, Resolution Tiers
 
+> **Legacy studies of the demolished FBCloud* chain; kept for the noise/raymarch groundwork, see [../flightbox/render/clouds.md](../flightbox/render/clouds.md).**
+
 Source: Schneider & Vos, SIGGRAPH 2015 (slides 74–92, EXACT numbers below); Schneider, Nubis³ 2023
 (slides 44–51, EXACT — the cone-step/SDF acceleration and the two-pass resolution split); Hillaire,
 SIGGRAPH 2016 (slide 44, EXACT resolution + timing numbers for the Frostbite scheme, which differs

@@ -1,5 +1,7 @@
 # E — Temporal Reprojection: Bayer Update Pattern, Reprojection Math, History Handling
 
+> **Legacy studies of the demolished FBCloud* chain; kept for the noise/raymarch groundwork, see [../flightbox/render/clouds.md](../flightbox/render/clouds.md).**
+
 Source: Schneider & Vos, SIGGRAPH 2015 (slides 90–92, EXACT — the HZD scheme); Hillaire, SIGGRAPH 2016
 (slide 44, EXACT — the Frostbite scheme, which is a different but related design point); Nubis³ 2023
 (slide 50–51, EXACT — explicit statement that the HZD-style full-16-frame-amortization scheme is

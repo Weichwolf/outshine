@@ -1,5 +1,7 @@
 # Current State vs. Sources — 5 Key Findings
 
+> **Legacy studies of the demolished FBCloud* chain; kept for the noise/raymarch groundwork, see [../flightbox/render/clouds.md](../flightbox/render/clouds.md).**
+
 Cross-references `command_center/fb/FBRenderer.cpp` (the shipped cloud pass, `CreateClouds`/
 `UpdateClouds`/`kCloudWGSL`, lines ~1171–1562) against the recipes in files 01–08. Ranked by how
 likely each is to be the dominant cause of "looks like image static," most likely first.

@@ -19,6 +19,31 @@ written-down form of what Prinzip 5 calls "the reference". Every other file desc
 (design targets); `flight-model.md` describes what our aircraft actually *does*. Its §7.11 is the
 deviation table between the two, and its §11 is the transferable template for the next airframe.
 
+## How to read a file
+
+Every topic file below carries the **same four sections as [`doc/flightbox/`](../flightbox/INDEX.md)**
+— with the meaning a *reference* base gives them (this base documents the real jet; `doc/flightbox/`
+documents the implementation):
+
+| Section | What it is here | Use it when |
+|---|---|---|
+| `## Spec` | what the real jet documentably does — the distilled source material, the **design targets**. The bulk of every file, page-cited, cite tags intact. | you need the real-world behaviour, number or procedure |
+| `## State` | what **FlightBox** implements of it — a few honest lines with links into `doc/flightbox/`, never a copy of that content | you need to know whether the thing exists in the simulator |
+| `## Gaps` | both kinds, each labelled: **source gaps** (unprocessed pages, SHALLOW research passes, unresolved Chuck/ED discrepancies) and **implementation gaps** (modelled / partially / not at all) | you are looking for work, or about to trust a number |
+| `## Knowledge` | the researched engineering depth — the former `Technical depth (researched …)` sections, marker and sources intact | you need architecture, signal flow or a derivation |
+
+Together, the `State` sections are the **coverage map FlightBox-vs-real-jet**: read them top to bottom
+and you know what the simulator does and does not have.
+
+Two exceptions. This index and [`PROGRESS.md`](PROGRESS.md) are **meta files** and carry no schema. And
+[`flight-model.md`](flight-model.md) inverts it, because it documents *our* model rather than the real
+jet: its `Spec` is one line (the pinned model as flown plus the declared deltas —
+[`sim/assets/MODEL-DELTAS.md`](../../sim/assets/MODEL-DELTAS.md)), §1–§10 are its `State`, §12 its
+`Gaps`, and §11 (the handover checklist for the next airframe) its `Knowledge`.
+
+**Nothing was revised when the schema landed** — content moved under headings 1:1, page citations,
+confidence tiers and the flagged discrepancies are untouched.
+
 ## Files
 
 | File | Content | Source part / pages |
@@ -74,6 +99,31 @@ next.
   `radar-sensors.md`); IFF procedure detail (noted as a gap in `datalink-iff.md`); Appendices A/D/E/F
   (checklists/HOTAS quick-refs/glossary — mostly UX, low rebuild value; Appendix F formulas already
   folded into `weapons.md`). See PROGRESS.md for the full unprocessed-page ledger.
+
+## Coverage at a glance — FlightBox vs. the real jet
+
+One line per file, taken from its `## State` section. Read the file's own State/Gaps before acting on
+a row; details and links live there, not here.
+
+| File | FlightBox implements |
+|---|---|
+| [flight-model.md](flight-model.md) | **is** the state — the model as flown |
+| [controls-commands.md](controls-commands.md) | **near-full**: the command bus is built from this file (propose/ack/reject, two latency classes, rejection catalogue, output blocks with `Held`) — but only commands whose target system exists |
+| [hud-symbology.md](hud-symbology.md) | **near-full** for flight/nav symbology in the real combiner aperture; no ILS, no weapon symbology, no TD box (source-silent) |
+| [radar-sensors.md](radar-sensors.md) | **FCR only**: CRM + four ACM sub-modes + STT, designation, emission, chaff notch, IFF Mode 4. No SAM/TWS/DTT, no A-G/A-Sea, no TGP/HMCS/HTS |
+| [defence-rwr-cm.md](defence-rwr-cm.md) | **both halves built**: ALR-56M geometry + rangeless threats, ALE-47 programs/modes/consent, chaff clouds. No ECM, no MWS, no threat library, flares inert |
+| [datalink-iff.md](datalink-iff.md) | **cooperative net built** (range, radio horizon, 1 Hz cycle, staleness, POWER/XMT) + IFF Mode 4. No TDMA/STN/PPLI, no STF correlation, no HSD |
+| [weapons.md](weapons.md) | **three weapons** (AIM-120, Mk-82, M61A1) + damage; CCIP/CCRP from one integration; no SPI/cursor model, no AIM-9/LGB/JDAM/HARM/Maverick, no strafing |
+| [flight-controls-flcs.md](flight-controls-flcs.md) | the **model's** FLCS plus an FBW outer loop; own guidance modes instead of the relief modes; no CAT I/III, ARI, MPO |
+| [aerodynamics-performance.md](aerodynamics-performance.md) | the envelope as **measured on the model** + ALOW; no enforced speed/G limits, no VMS voice |
+| [engine-fuel.md](engine-fuel.md) | thrust/spool/fuel via JSBSim (**F100-PW-229**, not the F110 this file describes) + BINGO + damage effects; no engine systems |
+| [procedures-takeoff-taxi.md](procedures-takeoff-taxi.md) | **takeoff flies** with the Vr-vs-weight table; no taxi, no CAT I/III, no crosswind |
+| [procedures-landing.md](procedures-landing.md) | **landing flies** (straight-in); flown to a fixed CAS, not the 11–13° AoA band; no pattern, no ILS, no go-around |
+| [procedures-startup.md](procedures-startup.md) | **nothing of the sequence** — the spawn is trimmed and configured declaratively; no INS alignment |
+| [cockpit-displays.md](cockpit-displays.md) | **no displays** — but this file's DED protocol and the "gear-down freezes" precedent shaped the avionics bus |
+| [hotas.md](hotas.md) | **no binding** — the actions exist as bus commands, no SOI, no press-duration classes |
+| [navigation-ils.md](navigation-ils.md) | **steerpoint + bullseye only** — no TACAN, no ILS, no INS drift/alignment, no EHSI/HSD |
+| [air-refueling.md](air-refueling.md) | **nothing** — fuel state exists, the task does not |
 
 ## FlightBox relevance
 - `flight-model.md` is the **ground truth per Prinzip 5** and the first place to look when a measured

@@ -1,10 +1,8 @@
-# Wolken — die Renderkette
+# Clouds — the render chain
 
-> Body still in German — translation pass pending (see [roadmap](../roadmap.md)).
-
-**Herkunft:** ausgelagert aus `rendering.md` §5 (Stand `793e1fe`), unverändert übernommen.
-Nachbardateien: [`renderer.md`](renderer.md) (Pass-Topologie, in die sich die Kette einhängt),
-`../world-and-terrain.md` (Wetterquelle, sobald verdrahtet).
+**Origin:** moved out of `rendering.md` §5 (state `793e1fe`), taken over unchanged. Neighbouring
+files: [`renderer.md`](renderer.md) (the pass topology the chain hooks into), `../world-and-terrain.md`
+(weather source, once wired).
 
 ## Spec
 
@@ -86,69 +84,67 @@ the data source would mean tuning against an invented sky.
 | **Single dramatic formations** — towering Cb, anvil, storm front | a formation is a different object than a layer. Not an extension of the three étages; if ever wanted, a fourth thing of its own with its own spec. |
 | No temporal accumulation, no bakes | one pass, full resolution — the banding is handled by jitter + dither instead |
 
-### Inventory (German, from the previous `Offene Punkte` section)
+### Inventory (from the previous `Open points` section)
 
-(siehe [`renderer.md`](renderer.md) — die Sammelliste der Renderer-Runde ist dort
-vollständig erhalten; die hierher gehörenden Punkte stehen oben unter Gaps.)
+(see [`renderer.md`](renderer.md) — the collected list of the renderer round is preserved there in
+full; the points that belong here are above under Gaps.)
 
 
 ## Knowledge
 
 Derivations, formulas and measured constants — the distilled body of this file.
 
-### Die Kette im Bestand
+### The existing chain
 
-Sechs Klassen, eine je Shader. **Drei backen einmal, zwei laufen pro Frame, eine ist ein
-Init-Helfer.** Der gesamte Zweig wird nur gebaut, wenn `FB_CLOUDS=1` — sonst kostet er weder Bootzeit
-noch VRAM.
+Six classes, one per shader. **Three bake once, two run per frame, one is an init helper.** The whole
+branch is only built when `FB_CLOUDS=1` — otherwise it costs neither boot time nor VRAM.
 
 ```
-FBCloudMipDownStage  (geteilter Box-Downsample, Init-Zeit)
+FBCloudMipDownStage  (shared box downsample, init time)
    ├─ FBCloudBaseBakeStage   128³ Perlin-Worley  ─┐
    ├─ FBCloudDetailBakeStage  32³ Worley         ─┤
-   └─ (FBCloudCellBakeStage   512² F1-Zellen)    ─┤
+   └─ (FBCloudCellBakeStage   512² F1 cells)     ─┤
                                                   ▼
-                                        FBCloudMarchStage  → CloudLowTex (¼ Auflösung)
+                                        FBCloudMarchStage  → CloudLowTex (quarter resolution)
                                                   ▼
-                                        FBCloudResolveStage → CloudHist/CloudWSum (Ping-Pong)
+                                        FBCloudResolveStage → CloudHist/CloudWSum (ping-pong)
                                                   ▼
-                                        FBTonemapStage (Composite)
+                                        FBTonemapStage (composite)
 ```
 
-Bind-Group-Reihenfolge (aus demselben Pin-Grund wie bei der Atmosphäre): erst die Bakes, dann March
-(dessen Bind-Group ihre Views pinnt), dann Resolve (pinnt Marchs `CloudLowTex`-View).
+Bind-group order (for the same pinning reason as with the atmosphere): first the bakes, then march
+(whose bind group pins their views), then resolve (which pins march's `CloudLowTex` view).
 
-**Der March** (`FBCloudMarchStage`):
+**The march** (`FBCloudMarchStage`):
 
-| Größe | Wert | Herkunft |
+| Quantity | Value | Provenance |
 |---|---|---|
-| Zielauflösung | `Width/4 × Height/4`, rgba16float | Kostenbudget; die Resolve rekonstruiert daraus |
-| Schalenradien | absolut: `groundR = |eye| − AltM`, `rBase = groundR + baseAGL`, `rTop = rBase + thick` | bewusst gegen den ECHTEN WGS84-Boden gerechnet, nicht gegen Hillaires vereinfachte 6360 km |
-| Default-Basis | 8000 m AGL (hohe, aufgelockerte Zellenschicht) | akzeptierte Setzung 2026-07-23; `FB_CLOUD_BASE_M` sweept |
-| Dicke | `2600 + 1400 · CloudHigh` m | Setzung; `FB_CLOUD_THICK_M` |
-| Material | Dichte 18, Extinktion 0,06, Sonnenintensität 18, Detail 1,3 | Setzungen, per `SetCloudLab` überschreibbar |
-| Deckung | max(CloudCover, Low, Mid, High); 0 → 0,4 in EVS | „kein Wetterbericht" = eine ansehnliche Defaultdecke |
-| Schirm-Jitter | exaktes 4×4-Subraster, `FrameNo % 16` | jedes Vollauflösungs-Subpixel bekommt genau einmal je 16 Frames eine Direktprobe |
-| Strahl-Dither | `frac(FrameNo · 0.6180339887)` | goldener Schnitt gegen Banding |
-| Winddrift | `nowSec · 8` (km-Maßstab) | Setzung |
-| Zellfeld | 40 km je Tile (≈ 4 km Zellen), Dome-Subtraktion 0,5 | `FB_CELL_KM` / `FB_CELL_DOME` |
+| Target resolution | `Width/4 × Height/4`, rgba16float | cost budget; the resolve reconstructs from it |
+| Shell radii | absolute: `groundR = \|eye\| − AltM`, `rBase = groundR + baseAGL`, `rTop = rBase + thick` | deliberately computed against the REAL WGS84 ground, not against Hillaire's simplified 6360 km |
+| Default base | 8000 m AGL (a high, broken cellular layer) | accepted setting 2026-07-23; `FB_CLOUD_BASE_M` sweeps it |
+| Thickness | `2600 + 1400 · CloudHigh` m | a setting; `FB_CLOUD_THICK_M` |
+| Material | density 18, extinction 0.06, sun intensity 18, detail 1.3 | settings, overridable via `SetCloudLab` |
+| Coverage | max(CloudCover, Low, Mid, High); 0 → 0.4 in EVS | "no weather report" = a presentable default deck |
+| Screen jitter | exact 4×4 sub-raster, `FrameNo % 16` | every full-resolution sub-pixel gets a direct sample exactly once every 16 frames |
+| Ray dither | `frac(FrameNo · 0.6180339887)` | golden ratio against banding |
+| Wind drift | `nowSec · 8` (km scale) | a setting |
+| Cell field | 40 km per tile (≈ 4 km cells), dome subtraction 0.5 | `FB_CELL_KM` / `FB_CELL_DOME` |
 
-Optionale GPU-Zeitmessung: Ist das Device-Feature `TimestampQuery` da, klammern **beide** Indizes den
-March-Pass (nur diesen — einen Index auf `kQuerySetIndexUndefined` zu lassen lässt diesen Dawn-Build
-den ganzen Command-Buffer verwerfen). Auflösen vor `Finish`, Pollen nach `Submit`; Mittelwert wird
-alle 120 Frames geloggt.
+Optional GPU timing: if the device feature `TimestampQuery` is present, **both** indices bracket the
+march pass (only this one — leaving one index at `kQuerySetIndexUndefined` makes this Dawn build
+discard the whole command buffer). Resolve before `Finish`, poll after `Submit`; the mean is logged
+every 120 frames.
 
-**Der Resolve** (`FBCloudResolveStage`): Reprojektion der Historie über die Kamerabewegung an der
-**Schalen-Mitte** (`CloudMidR = (rBase + rTop)/2`), zwei Ping-Pong-Paare (`CloudHist` rgba16float,
-`CloudWSum` r32float = akkumuliertes Splat-Gewicht je Vollauflösungs-Pixel). `ResetHistory()` und
-`SetAccumMode(true)` (echtes 1/N-Mittel statt exponentiellem Blend) sind Lab-Werkzeuge für die
-Parameter-Sweeps.
+**The resolve** (`FBCloudResolveStage`): reprojection of the history over the camera motion at the
+**shell midpoint** (`CloudMidR = (rBase + rTop)/2`), two ping-pong pairs (`CloudHist` rgba16float,
+`CloudWSum` r32float = accumulated splat weight per full-resolution pixel). `ResetHistory()` and
+`SetAccumMode(true)` (a true 1/N mean instead of an exponential blend) are lab tools for the parameter
+sweeps.
 
-**Der Composite** liegt im Tonemap, nicht in der Wolke: `scene = scene·(1−cl.a) + cl.rgb`
-(premultipliziert) vor dem ACES-Fit. `FBTonemapStage` hält deshalb **zwei Pipelines aus einem
-Quelltext** — die Plain-Variante bindet die Wolkentextur überhaupt nicht, sodass der ausgeschaltete
-Pfad auch keine veraltete Historie samplen kann. Welche gilt, ist eine Bootzeit-Konstante und wird nie
-mitten im Lauf umgeschaltet.
+**The composite** lives in the tonemap, not in the cloud: `scene = scene·(1−cl.a) + cl.rgb`
+(premultiplied) before the ACES fit. `FBTonemapStage` therefore holds **two pipelines from one source**
+— the plain variant does not bind the cloud texture at all, so the disabled path cannot sample stale
+history either. Which one applies is a boot-time constant and is never switched mid-run.
 
-Vertiefte Herleitungen zu Noise, Dichte, Beleuchtung, Marschstrategie, temporaler Reprojektion und
-iGPU-Budget stehen in `doc/clouds/01`–`10`.
+Deeper derivations on noise, density, lighting, march strategy, temporal reprojection and the iGPU
+budget are in `doc/clouds/01`–`10`.

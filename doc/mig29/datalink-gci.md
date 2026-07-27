@@ -22,7 +22,9 @@ argument**, kept separate from the sourced facts.
 
 ---
 
-## 1. What the aircraft actually carries
+## Spec
+
+### 1. What the aircraft actually carries
 
 | Item | Evidence | Status |
 |---|---|---|
@@ -41,12 +43,12 @@ symbology, no ranges. Everything else in §4 is research.
 
 ---
 
-## 2. How GCI information actually reaches the pilot in the simulated aircraft
+### 2. How GCI information actually reaches the pilot in the simulated aircraft
 
 Since the datalink is not implemented, the documented path is **voice → pilot → manual data entry**,
 and the manuals are unusually specific about it. **This is directly implementable today.**
 
-### 2.1 The voice request/response protocol (`DCS-FM p.99–100`)
+#### 2.1 The voice request/response protocol (`DCS-FM p.99–100`)
 | Request | Response format |
 |---|---|
 | **BOGEY DOPE** — bearing, range, altitude and aspect of the **nearest** enemy aircraft | *"(callsign), (controller), **bandits bearing (xx) for (yyy). (altitude) (aspect)**"*. **Range in kilometres if the controller is Russian**, miles if Western |
@@ -61,7 +63,7 @@ and the manuals are unusually specific about it. **This is directly implementabl
 a tracked, correlated, persistent track file. There is **no altitude of ownship in the loop** — the
 pilot must convert the controller's absolute target altitude into a **relative** one himself (§2.2).
 
-### 2.2 The manual data-entry mechanism — **the important part**
+#### 2.2 The manual data-entry mechanism — **the important part**
 `DCS-FM p.43–44` and `p.83–84`: the radar's **elevation scan coverage is computed from two numbers the
 pilot types in**:
 1. **Expected range to target, in kilometres** — *"often derived from AWACS and GCI data"*.
@@ -90,7 +92,7 @@ So the *real* GCI loop, as documented, is:
 latency class*. A MiG-29 `FBPilot` that receives a GCI vector must **spend real seconds** entering it,
 and can enter it **wrong**.
 
-### 2.3 Range-only cueing under jamming
+#### 2.3 Range-only cueing under jamming
 The same manual mechanism is reused when the radar cannot measure range at all: under an AOJ (angle-of-
 jam) lock, *"the target range displayed in the HUD … is **not measured by the radar but rather provided
 by the fighter pilot (e.g. according to instructions received by radio)**, with the default value 10 km"*
@@ -98,7 +100,7 @@ by the fighter pilot (e.g. according to instructions received by radio)**, with 
 
 ---
 
-## 3. IFF — what identity the MiG-29 can and cannot obtain
+### 3. IFF — what identity the MiG-29 can and cannot obtain
 
 | Fact | Source |
 |---|---|
@@ -120,12 +122,82 @@ This maps cleanly onto FlightBox's existing anti-cheat contract (`CLAUDE.md`, "K
 
 ---
 
-## 4. Technical depth (researched) — the real Lazur/Biryuza system
+### 7. Variant notes
+- **9-13 (MiG-29S)**: same guidance family; research (§4.2) puts both 9.12 and 9.13 in the
+  **ALM-1/ALM-4** group, with ALM-4 the Rubezh-capable/Su-27-interoperable set.
+- **Export aircraft**: reported to receive **the downgraded Lazur/ALM-1** rather than ALM-4 — relevant
+  if a mission wants to model a coalition MiG-29 without full GCI integration.
+- **MiG-29SMT/MiG-35**: modern digital datalinks; nothing here applies.
+
+---
+
+## State
+
+**Nothing in this file is implemented.** FlightBox has no MiG-29 module, no
+`sim/src/modules/mig29/` and no JSBSim MiG-29 model. The airframe exists only as a **spec-first
+contract** — [`../flightbox/aircraft/mig29.md`](../flightbox/aircraft/mig29.md), whose own status
+line reads *"spec only. Nothing is built."* Everything below is therefore a **forward commitment**,
+not a description of code.
+
+| Roadmap stage | What it will take from this file |
+|---|---|
+| **R3** — knowledge base | *running*: this file is the R3 deliverable for GCI doctrine and IFF |
+| **R6** — asymmetric weapons | nothing directly |
+| **R7** — enemy units at BVR scale | the decisive row: a MiG-29 opponent is **ground-controlled by design**. The compensating asset for a short-legged radar is a controller on the ground, and the FlightBox `FBDatalinkSystem` slot fits it **without new architecture** — but the payload is a **steering vector with human entry latency**, not a track list (§5). The voice-BRAA → manual-radar-cueing loop of §2.2 is implementable today; the hardware datalink can wait |
+| **R8** — JSBSim model | nothing directly |
+
+**The scale caveat that governs every row** (from the module file): the MiG-29 is a
+**BVR-scale** opponent — what has to be right is what he can reach, how fast he gets there, what he
+can see and what he can shoot. A failing knife-fight comparison is not a defect of the model; a wrong
+envelope is.
+
+Roadmap chain: [`../flightbox/roadmap.md`](../flightbox/roadmap.md) — **R3** (this knowledge base,
+running) → **R6** (asymmetric weapons + RCS) → **R7** (enemy units, MiG-29 at BVR scale) → **R8**
+(the JSBSim MiG-29 model). Nothing after R3 has begun.
+
+---
+
+## Gaps
+
+**Source gaps** — this file has the most, and says so: the Lazur/Biryuza hardware is
+documented in both manuals only as *"not implemented"*, so §1 is honestly **SHALLOW**. The file's own
+itemised list follows, section number unchanged.
+
+**Implementation gaps** — none statable yet: nothing is built (see State).
+
+### 6. Open gaps (honest — this file has the most)
+1. **The entire message set of Lazur/Biryuza** — command vocabulary, update rate, data format,
+   frequencies, ranges. Nothing usable found.
+2. **Whether the guidance couples to the SAU-451** (§5.3) — unresolved.
+3. **The HUD symbology of the guidance mode** — no source describes what the pilot sees, apart from the
+   unverified "range setting 9–9.5 km / 32 km" note (§4.2).
+4. **IFF Mode/system designation and interrogation geometry** — the MiG-29's interrogator is never named
+   in either manual (`DCS-EA` calls it "IFF transponder, not implemented yet"), and no research source
+   gave the system (Kremniy-2 / Parol were the era's systems, **but no source in this pass confirmed the
+   9-12's fit — deliberately not asserted here**).
+5. **SO-69 transponder behaviour** — listed once, never described.
+6. **The ground station's own detection performance**, which is what actually bounds a GCI intercept —
+   entirely out of scope of both manuals and unreached by research.
+7. **secretprojects.co.uk is 403 to automated fetching** and appears to hold the deepest public treatment
+   of Soviet GCI datalinks. **TODO**: retrieve those two threads by another route — they are the highest-
+   value single target for the next research pass on this file.
+
+---
+
+---
+
+## Knowledge
+
+§4 is the researched hardware depth; **§5 is a design argument, i.e. reasoning
+rather than source**, and was already marked as such in place. Both sit here so that no reader can
+mistake either for a documented aircraft property.
+
+### 4. Technical depth (researched) — the real Lazur/Biryuza system
 
 All **T4** (community/encyclopaedic; no T1–T3 source was reachable this pass — `secretprojects.co.uk`,
 which appears to hold the deepest treatment, returns HTTP 403 to automated fetches).
 
-### 4.1 What Lazur is
+#### 4.1 What Lazur is
 - **Lazur** (NATO reporting name **"Markham"**) is a Soviet-era **two-way VHF data link for
   ground-controlled interception**: it carries **radar video and guidance commands** between the ground
   control station and the fighter, *"allowing pilots to engage targets **without activating onboard
@@ -134,7 +206,7 @@ which appears to hold the deepest treatment, returns HTTP 403 to automated fetch
   necessary unless the data link fails**.
 - Source: Grokipedia "Lazur" entry; radioreference.com "Historic GCI data links" thread.
 
-### 4.2 The MiG-29 fit
+#### 4.2 The MiG-29 fit
 - The MiG-29 Lazur installation is described as comprising: **SAU-451-04** automatic control system ·
   **E502-20 / E502-20/04** airborne guidance system · **R-862** radio · **A-611** marker receiver ·
   **SO-69** ATC responder with the UNN block / K-42E kit · **ARK-19** radio compass ·
@@ -155,7 +227,7 @@ same SAU-451 block family, the same R-862 radio and the same ARK-19 that `DCS-FM
 lists), but it comes from a single forum lineage. **The one number in it — the 9–9.5 km / 32 km HUD
 range scales — is the kind of detail that should be corroborated before it is modelled.**
 
-### 4.3 The ground side
+#### 4.3 The ground side
 - **Vozdukh-1M** is described as an automated **fighter direction post** for automated guidance of both
   the direction post and the fighters.
 - **Rubezh** is the more modern command system the ALM-4-equipped MiG-29s worked with.
@@ -163,9 +235,9 @@ range scales — is the kind of detail that should be corroborated before it is 
 
 ---
 
-## 5. Design argument for FlightBox (**clearly separated — this is reasoning, not source**)
+### 5. Design argument for FlightBox (**clearly separated — this is reasoning, not source**)
 
-### 5.1 The contrast, stated plainly
+#### 5.1 The contrast, stated plainly
 | Property | **F-16 / Link-16 (MIDS-LVT)** | **MiG-29 / Lazur-Biryuza** |
 |---|---|---|
 | Topology | **peer-to-peer TDMA network**, every participant a node | **star**: one ground station, one (or a few) controlled fighters |
@@ -177,7 +249,7 @@ range scales — is the kind of detail that should be corroborated before it is 
 | Failure mode | graceful — the picture degrades | **total** — without the controller the fighter is alone with a short-legged radar |
 | Range | ~300 nm line-of-sight terminal range (`doc/f16/datalink-iff.md`) | bounded by the **ground radar's** coverage, not the aircraft's |
 
-### 5.2 Proposed FlightBox mapping
+#### 5.2 Proposed FlightBox mapping
 `systems/FBDatalinkSystem` already has the right shape and needs **no new architecture** — only a
 different override, in the same slot the F-16 uses for `FBF16Datalink`:
 
@@ -199,7 +271,7 @@ different override, in the same slot the F-16 uses for `FBF16Datalink`:
   **ILLUM only inside a briefed range** — the mirror image of the F-16 module's "lock as late as
   possible", one step further back: **radiate as late as possible**.
 
-### 5.3 What must NOT be invented
+#### 5.3 What must NOT be invented
 - A track list. The sources describe **vectors and commands**, never a correlated multi-track picture in
   the cockpit.
 - An identity feed. §3 is explicit: **no cooperative identity except via the radar interrogator.**
@@ -210,29 +282,3 @@ different override, in the same slot the F-16 uses for `FBF16Datalink`:
   autopilot. **Leave it as a HUD/director cue until better-sourced.**
 
 ---
-
-## 6. Open gaps (honest — this file has the most)
-1. **The entire message set of Lazur/Biryuza** — command vocabulary, update rate, data format,
-   frequencies, ranges. Nothing usable found.
-2. **Whether the guidance couples to the SAU-451** (§5.3) — unresolved.
-3. **The HUD symbology of the guidance mode** — no source describes what the pilot sees, apart from the
-   unverified "range setting 9–9.5 km / 32 km" note (§4.2).
-4. **IFF Mode/system designation and interrogation geometry** — the MiG-29's interrogator is never named
-   in either manual (`DCS-EA` calls it "IFF transponder, not implemented yet"), and no research source
-   gave the system (Kremniy-2 / Parol were the era's systems, **but no source in this pass confirmed the
-   9-12's fit — deliberately not asserted here**).
-5. **SO-69 transponder behaviour** — listed once, never described.
-6. **The ground station's own detection performance**, which is what actually bounds a GCI intercept —
-   entirely out of scope of both manuals and unreached by research.
-7. **secretprojects.co.uk is 403 to automated fetching** and appears to hold the deepest public treatment
-   of Soviet GCI datalinks. **TODO**: retrieve those two threads by another route — they are the highest-
-   value single target for the next research pass on this file.
-
----
-
-## 7. Variant notes
-- **9-13 (MiG-29S)**: same guidance family; research (§4.2) puts both 9.12 and 9.13 in the
-  **ALM-1/ALM-4** group, with ALM-4 the Rubezh-capable/Su-27-interoperable set.
-- **Export aircraft**: reported to receive **the downgraded Lazur/ALM-1** rather than ALM-4 — relevant
-  if a mission wants to model a coalition MiG-29 without full GCI integration.
-- **MiG-29SMT/MiG-35**: modern digital datalinks; nothing here applies.

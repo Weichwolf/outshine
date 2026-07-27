@@ -20,7 +20,9 @@ found this pass (§7).
 
 ---
 
-## 1. The headline fact for FlightBox: **this is NOT a fly-by-wire aircraft**
+## Spec
+
+### 1. The headline fact for FlightBox: **this is NOT a fly-by-wire aircraft**
 
 The MiG-29 9-12 has a **conventional mechanical control system with irreversible hydraulic actuators**
 — rods and bellcranks from stick/pedals to the boosters, no electrical command path in the primary
@@ -51,7 +53,7 @@ Consequences that are stated outright in the sources:
 
 ---
 
-## 2. Control surfaces — geometry and deflection limits
+### 2. Control surfaces — geometry and deflection limits
 
 All from `DCS-FM p.10` (the FC3 manual's "Aircraft construction" section) unless marked.
 
@@ -81,7 +83,7 @@ the maximum nosewheel steering angle (`DCS-EA p.74`).
 
 ---
 
-## 3. ARU-29-2 — the automatic gear-ratio changer (the number-one modelling item)
+### 3. ARU-29-2 — the automatic gear-ratio changer (the number-one modelling item)
 
 `DCS-EA` names it only as a cockpit control ("Control of the **ARU**, emergency pumping station and
 MRK", left console item 4, `DCS-EA p.52`) and lists a **"FEEL UNIT TAKEOFF–LANDING" annunciator** that
@@ -109,7 +111,7 @@ in the "Heavy" position** (`DCS-EA p.60`) — i.e. the gearing state changes the
 
 ---
 
-## 4. SOS-3M — AoA/g limiter (the "COC" of the DCS cockpit)
+### 4. SOS-3M — AoA/g limiter (the "COC" of the DCS cockpit)
 
 The DCS-EA cockpit calls it **"COC"**: *"Check if **COC** — the flight envelope protection system — is
 functional by monitoring the **'COC FAIL'** and **'NO COC RESERVE'** lights extinguish on the
@@ -148,7 +150,7 @@ Aural limit warnings exist and are separate from the limiter (`DCS-FM p.105`):
 
 ---
 
-## 5. AFCS — SAU-451 (**FULL**)
+### 5. AFCS — SAU-451 (**FULL**)
 
 Designation: **SAU-451-02** per `DCS-FM p.34`; Russian technical sources give **SAU-451-03** and the
 Lazur-equipped fit **SAU-451-04** (§6.5) — variant/blocks differ, function does not.
@@ -156,7 +158,7 @@ Three-channel automatic control system. Purpose: *"automatic and director contro
 important stages of flight, and improved stability and controllability … with manual control over the
 entire operational altitude range, airspeed and angle of attack"* (`DCS-FM p.34`).
 
-### 5.1 Mode list and panel
+#### 5.1 Mode list and panel
 Panel, top to bottom (`DCS-EA p.64`): **DAMPER · AUTO RECOVER · ALT HOLD · ATT. HOLD · APPROACH ·
 MISSED APPROACH** (last one *not implemented* in DCS).
 
@@ -172,7 +174,7 @@ MISSED APPROACH** (last one *not implemented* in DCS).
 
 All mode logic above: `DCS-FM p.34–35`.
 
-### 5.2 Engage/disengage protocol
+#### 5.2 Engage/disengage protocol
 - **Trim before engaging** — mandatory for every mode except Level-to-horizon (`DCS-FM p.34, p.35`).
 - **RESET / СБРОС button** (stick-mounted "AFCS MODES OFF", `DCS-EA p.68` item 2): short press cancels
   the currently active mode; **held > 3 s it also disables DAMPER and Ground Collision Avoidance**, and
@@ -188,7 +190,7 @@ All mode logic above: `DCS-FM p.34–35`.
   - ⚠️ *"Do not move the flight stick until the end of BIT — it may cause fail of AFCS BIT"* — this is
     a real interlock, worth reproducing as a precondition/rejection case.
 
-### 5.3 Trim
+#### 5.3 Trim
 `DCS-FM p.33`:
 | Axis | Trim authority |
 |---|---|
@@ -202,65 +204,7 @@ console** (`DCS-EA p.64`); pitch/roll trim is a **four-position hat on the stick
 
 ---
 
-## 6. Technical depth (researched — outside the two DCS manuals)
-
-### 6.1 Hydraulics and actuators
-- **Two independent hydraulic systems**, **NP-103A** variable-displacement pumps on the engine
-  accessory gearboxes, **207 bar (3,000 psi)**, **80 litres** of fluid.
-  - **Main system**: one chamber of *each* control-surface actuator, **leading- and trailing-edge
-    flaps**, **stick pusher**, **artificial feel unit**, landing-gear extension/retraction, nosewheel
-    steering, APU exhaust door.
-  - **Back-up system**: the **second chamber** of each control-surface actuator **and the stick
-    pusher**; can be driven by an emergency **NS-58** pump.
-  - Source: Jane's-derived entry mirrored at `janes.migavia.com/rus/mig/mig-29.html` — **T3**.
-  - **Rebuild consequence**: loss of one hydraulic system halves actuator authority but does not remove
-    it — matching FlightBox's existing degraded-FLCS convention (`CLAUDE.md`: FLCS authority ×0.5 for
-    one of two hydraulic systems). The MiG-29 justifies that same ×0.5 *from its own architecture*.
-- **Booster designations**: **RP-260A** (pitch), **RP-280** (roll), **RP-270** (yaw); irreversible.
-  Nose/main struts are twin-chamber oleos. Nosewheel steering **±8° takeoff/landing, ±31° taxi**.
-  Source: `military.wikireading.ru/3814` (Техническое описание самолёта МиГ-29, изделие 9-12А) — **T4**.
-- Control run described as **"жёсткая"** (rigid/push-rod), with irreversible hydraulic actuators —
-  `ot-a-do-ya.org` — **T4**. Two independent T4 sources agree; no T1–T3 contradiction found.
-
-### 6.2 ARU-29-2
-Function, composition and the pressure-sensor dependency as stated in §3. Source: a Russian technical
-document indexed as "MiG 29, АРУ-29-2" (scribd) plus the wikireading technical description — **T4**.
-No public gear-ratio *schedule* (ratio vs q) was found. **TODO** — this is the single most valuable
-missing number for a faithful MiG-29 flight model.
-
-### 6.3 SOS-3M
-- **26° AoA trip** on MiG-29/MiG-29UB; stick-pusher actuation; LEF control; pilot-information function.
-  Sources: Russian-language technical summaries — **T4**, three independent sites in agreement.
-- Threshold history (22° → 24° + override → 26° in SOS-3M) and the "override by pulling harder"
-  behaviour: secretprojects.co.uk thread "MiG-29 Supermanoeuvrability" — **T4** (forum expert,
-  uncorroborated; the *behaviour* is corroborated by ED's own DCS "stick deflection limiter override"
-  feature threads).
-- "The MiG-29 has been cleared to an AoA of up to **45°**" (vs F-16A's 25°) — toad-design MiG Alley
-  comparison article — **T4**, and almost certainly a *demonstrated/flight-test* figure, not an
-  operational limit. Do **not** use as a modelling limit.
-
-### 6.4 Envelope numbers
-| Quantity | Value | Source / tier |
-|---|---|---|
-| Max operational g | **9** | `DCS-FM p.14` (spec table) |
-| g vs Mach | **9 g below M 0.85**, **7.5 g above** | toad-design — **T4** |
-| Cockpit g red mark | **7 g** | `DCS-EA p.19` |
-| SOS-3M AoA trip | **26°** | **T4** (§6.3) |
-| Max speed, sea level, clean | **1,500 km/h** | `DCS-FM p.14` |
-| Max speed, altitude | **2,450 km/h** (M ≈ 2.35) | `DCS-FM p.14`; M 2.35 from wikireading **T4** |
-| Service ceiling | **18,000 m** | `DCS-FM p.14` |
-| Max climb rate | **330 m/s** | `DCS-FM p.14` (9-12 and 9-13 alike) |
-| Speedbrake blow-back | retracts above **540 kts** | `DCS-EA p.57` |
-
-### 6.5 SAU-451 block variants
-SAU-451-**02** (`DCS-FM p.34`) / -**03** (wikireading, T4, "functions above 50–60 m altitude") /
--**04** (the block integrated with the Lazur GCI datalink, see `datalink-gci.md`). The **50–60 m floor**
-is a useful rebuild constraint: the AFCS is not a terrain-following system and refuses to work below
-that height.
-
----
-
-## 7. Secondary controls (flaps, slats, speedbrakes) — logic worth reproducing
+### 7. Secondary controls (flaps, slats, speedbrakes) — logic worth reproducing
 
 `DCS-EA p.57`, verbatim logic:
 - Three pushbuttons on the left console: two **FLAPS DOWN** (**TAKEOFF** and **LANDING** positions) and
@@ -278,7 +222,7 @@ that height.
 
 ---
 
-## 8. Variant notes (no parallel description)
+### 8. Variant notes (no parallel description)
 - **9-13 (MiG-29S/Fulcrum-C)**: same RD-33, same 9 g, same airframe geometry; **empty weight
   10,900 → 11,200 kg**, **max TOW 18,100 → 18,480 kg** (`DCS-FM p.14`); enlarged dorsal spine adds
   internal fuel (see `engines-fuel.md`). SOS-3M threshold **26°** applies to both 9-12A and 9-13 (§6.3).
@@ -289,7 +233,44 @@ that height.
 
 ---
 
-## 9. Open gaps (honest)
+---
+
+## State
+
+**Nothing in this file is implemented.** FlightBox has no MiG-29 module, no
+`sim/src/modules/mig29/` and no JSBSim MiG-29 model. The airframe exists only as a **spec-first
+contract** — [`../flightbox/aircraft/mig29.md`](../flightbox/aircraft/mig29.md), whose own status
+line reads *"spec only. Nothing is built."* Everything below is therefore a **forward commitment**,
+not a description of code.
+
+| Roadmap stage | What it will take from this file |
+|---|---|
+| **R3** — knowledge base | *running*: this file is the R3 deliverable for the control system; it is complete as far as the two DCS manuals reach |
+| **R6** — asymmetric weapons | nothing directly; the g-limit and AoA ceiling here bound what a launch envelope may assume |
+| **R7** — enemy units at BVR scale | the SAU-451 mode set is the shape of the future `FBAutopilot` override; the SOS-3M limiter is the ceiling the pilot may command |
+| **R8** — JSBSim model | `<flight_control>` is built from §2 (surface areas, deflection limits), §3 (the ARU gearing schedule — the number-one open item), §4 (SOS-3M) and §7 (flaps/slats/speedbrake logic). **No `fcs/fbw-override` counterpart exists**: the gearing schedule *is* the model |
+
+**The scale caveat that governs every row** (from the module file): the MiG-29 is a
+**BVR-scale** opponent — what has to be right is what he can reach, how fast he gets there, what he
+can see and what he can shoot. A failing knife-fight comparison is not a defect of the model; a wrong
+envelope is.
+
+Roadmap chain: [`../flightbox/roadmap.md`](../flightbox/roadmap.md) — **R3** (this knowledge base,
+running) → **R6** (asymmetric weapons + RCS) → **R7** (enemy units, MiG-29 at BVR scale) → **R8**
+(the JSBSim MiG-29 model). Nothing after R3 has begun.
+
+---
+
+## Gaps
+
+**Source gaps** — the itemised list below is the file's own; it is unchanged and keeps its
+section number so existing cross-references stay valid. Beyond it: the **GAF T.O. 1F-MIG29-1**
+(German Air Force MiG-29G flight manual, ~454 pp, English, USAF format) is the one acquisition that
+would close most of §9 at T1 level — it was **not available to this pass** (see `PROGRESS.md`).
+
+**Implementation gaps** — none can be stated yet: nothing is built (see State).
+
+### 9. Open gaps (honest)
 1. **ARU gear-ratio schedule** (ratio, and feel-spring rate, vs dynamic pressure/altitude) — not found
    in any public source. Blocks a faithful pitch-response model.
 2. **Stick force gradients** (N/g, N/cm) in either ARU regime — not found.
@@ -304,3 +285,65 @@ that height.
 7. **Roll rate, sustained/instantaneous turn rate, corner speed** — deliberately *not* recorded here;
    they belong to `flight-model-spec.md` (parallel agent) and must come from measurement, not from
    a marketing figure.
+
+---
+
+## Knowledge
+
+### 6. Technical depth (researched — outside the two DCS manuals)
+
+#### 6.1 Hydraulics and actuators
+- **Two independent hydraulic systems**, **NP-103A** variable-displacement pumps on the engine
+  accessory gearboxes, **207 bar (3,000 psi)**, **80 litres** of fluid.
+  - **Main system**: one chamber of *each* control-surface actuator, **leading- and trailing-edge
+    flaps**, **stick pusher**, **artificial feel unit**, landing-gear extension/retraction, nosewheel
+    steering, APU exhaust door.
+  - **Back-up system**: the **second chamber** of each control-surface actuator **and the stick
+    pusher**; can be driven by an emergency **NS-58** pump.
+  - Source: Jane's-derived entry mirrored at `janes.migavia.com/rus/mig/mig-29.html` — **T3**.
+  - **Rebuild consequence**: loss of one hydraulic system halves actuator authority but does not remove
+    it — matching FlightBox's existing degraded-FLCS convention (`CLAUDE.md`: FLCS authority ×0.5 for
+    one of two hydraulic systems). The MiG-29 justifies that same ×0.5 *from its own architecture*.
+- **Booster designations**: **RP-260A** (pitch), **RP-280** (roll), **RP-270** (yaw); irreversible.
+  Nose/main struts are twin-chamber oleos. Nosewheel steering **±8° takeoff/landing, ±31° taxi**.
+  Source: `military.wikireading.ru/3814` (Техническое описание самолёта МиГ-29, изделие 9-12А) — **T4**.
+- Control run described as **"жёсткая"** (rigid/push-rod), with irreversible hydraulic actuators —
+  `ot-a-do-ya.org` — **T4**. Two independent T4 sources agree; no T1–T3 contradiction found.
+
+#### 6.2 ARU-29-2
+Function, composition and the pressure-sensor dependency as stated in §3. Source: a Russian technical
+document indexed as "MiG 29, АРУ-29-2" (scribd) plus the wikireading technical description — **T4**.
+No public gear-ratio *schedule* (ratio vs q) was found. **TODO** — this is the single most valuable
+missing number for a faithful MiG-29 flight model.
+
+#### 6.3 SOS-3M
+- **26° AoA trip** on MiG-29/MiG-29UB; stick-pusher actuation; LEF control; pilot-information function.
+  Sources: Russian-language technical summaries — **T4**, three independent sites in agreement.
+- Threshold history (22° → 24° + override → 26° in SOS-3M) and the "override by pulling harder"
+  behaviour: secretprojects.co.uk thread "MiG-29 Supermanoeuvrability" — **T4** (forum expert,
+  uncorroborated; the *behaviour* is corroborated by ED's own DCS "stick deflection limiter override"
+  feature threads).
+- "The MiG-29 has been cleared to an AoA of up to **45°**" (vs F-16A's 25°) — toad-design MiG Alley
+  comparison article — **T4**, and almost certainly a *demonstrated/flight-test* figure, not an
+  operational limit. Do **not** use as a modelling limit.
+
+#### 6.4 Envelope numbers
+| Quantity | Value | Source / tier |
+|---|---|---|
+| Max operational g | **9** | `DCS-FM p.14` (spec table) |
+| g vs Mach | **9 g below M 0.85**, **7.5 g above** | toad-design — **T4** |
+| Cockpit g red mark | **7 g** | `DCS-EA p.19` |
+| SOS-3M AoA trip | **26°** | **T4** (§6.3) |
+| Max speed, sea level, clean | **1,500 km/h** | `DCS-FM p.14` |
+| Max speed, altitude | **2,450 km/h** (M ≈ 2.35) | `DCS-FM p.14`; M 2.35 from wikireading **T4** |
+| Service ceiling | **18,000 m** | `DCS-FM p.14` |
+| Max climb rate | **330 m/s** | `DCS-FM p.14` (9-12 and 9-13 alike) |
+| Speedbrake blow-back | retracts above **540 kts** | `DCS-EA p.57` |
+
+#### 6.5 SAU-451 block variants
+SAU-451-**02** (`DCS-FM p.34`) / -**03** (wikireading, T4, "functions above 50–60 m altitude") /
+-**04** (the block integrated with the Lazur GCI datalink, see `datalink-gci.md`). The **50–60 m floor**
+is a useful rebuild constraint: the AFCS is not a terrain-following system and refuses to work below
+that height.
+
+---
