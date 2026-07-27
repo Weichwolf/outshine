@@ -20,8 +20,8 @@ WORKDIR /app
 COPY tiles/ tiles/
 # osmmesh/ is flat (mvt.h etc. sit directly in it) and already trimmed to exactly what this server
 # needs (see tiles/osmmesh/osmmesh.h) -- `-Itiles` resolves `<osmmesh/mvt.h>` as tiles/osmmesh/mvt.h.
-RUN gcc -O2 -Wall -Itiles \
-        tiles/src/main.c tiles/src/elev.c tiles/src/cache.c tiles/src/route.c tiles/src/tilesrc.c tiles/src/prefetch.c tiles/src/raster.c tiles/src/bake.c tiles/src/bakepool.c tiles/src/tilemap.c tiles/src/stars.c tiles/src/lights.c tiles/osmmesh/*.c \
+RUN gcc -O2 -Wall -Wextra -Wpedantic -Werror -Itiles \
+        tiles/src/main.c tiles/src/elev.c tiles/src/cache.c tiles/src/route.c tiles/src/tilesrc.c tiles/src/prefetch.c tiles/src/raster.c tiles/src/bake.c tiles/src/bakepool.c tiles/src/tilemap.c tiles/src/stars.c tiles/src/lights.c tiles/src/grib2.c tiles/src/wx.c tiles/osmmesh/*.c \
         -o /usr/local/bin/fb-tiles -lm -lpthread -lcurl
 
 FROM docker.io/library/debian:trixie-slim

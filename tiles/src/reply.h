@@ -8,7 +8,7 @@
 #include <errno.h>
 #include <sys/socket.h>
 
-static int fb_send_all(int fd, const void *buf, size_t len) {
+static inline int fb_send_all(int fd, const void *buf, size_t len) {
     const char *p = buf;
     while (len) {
         ssize_t w = send(fd, p, len, MSG_NOSIGNAL);
@@ -19,7 +19,7 @@ static int fb_send_all(int fd, const void *buf, size_t len) {
     return 0;
 }
 
-static void fb_reply(int fd, const char *status, const char *ctype, const char *body) {
+static inline void fb_reply(int fd, const char *status, const char *ctype, const char *body) {
     char hdr[512];
     int n = snprintf(hdr, sizeof hdr,
         "HTTP/1.1 %s\r\nContent-Type: %s\r\nContent-Length: %zu\r\n"
@@ -29,7 +29,7 @@ static void fb_reply(int fd, const char *status, const char *ctype, const char *
     fb_send_all(fd, body, strlen(body));
 }
 
-static void fb_reply_bin(int fd, const char *ctype, const uint8_t *body, size_t n) {
+static inline void fb_reply_bin(int fd, const char *ctype, const uint8_t *body, size_t n) {
     char hdr[512];
     int h = snprintf(hdr, sizeof hdr,
         "HTTP/1.1 200 OK\r\nContent-Type: %s\r\nContent-Length: %zu\r\n"

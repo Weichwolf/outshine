@@ -1,0 +1,13 @@
+# fb-tiles test data -- real captured responses, committed so a consumer can build against the
+# wire format without a network or a running server.
+#
+# wx-gfs-2026-07-27T00Z-step2-v1.wxb
+#   One unmodified 200 body of GET /wx, captured from the deployed stack (nginx :8081) on
+#   2026-07-27. FBWX format version 1, grid step 2 (0.5 deg, 720x361), 20 fields, 8317984 bytes.
+#   GFS cycle 2026-07-27T00:00:00Z, analysis step f000 (run == valid).
+#   sha256 acded0200d49926203d4548301a2fd1586b6e3c5ecbf61fbd0355e6f9c609ede
+#
+#   This IS the intended gym fixture: a blob is a pure function of (GFS run, format version, grid
+#   step), so re-fetching the same cycle reproduces these bytes exactly -- compare by checksum.
+#   Format: doc/flightbox/world-and-terrain.md, section "Wetter -- /wx"; constants: src/wxfmt.h.
+#   Spot values verified against ecCodes 2.41 and Open-Meteo (see the same doc section).

@@ -8,6 +8,7 @@
 #include "stars.h"
 #include "lights.h"
 #include "tilemap_api.h"
+#include "wx.h"
 #include "reply.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -103,6 +104,15 @@ static void handle(int fd, char *req) {
         return;
     }
 
+    if (!strcmp(path, "/wx")) {
+        /* One global blob per GFS run, no tiling and no parameters: at 0.25 deg a whole variable is
+         * a 1440x721 field, so the DEM's argument runs backwards here -- splitting it would cost
+         * round trips and, worse, let a client end up with wind from one run and cloud from the
+         * next. Blocks like /bake; N concurrent callers share ONE build (wx.c). */
+        fb_wx_handle(fd);
+        return;
+    }
+
     if (!strncmp(path, "/bake/", 6)) {
         const char *r = path + 6;
         fb_albedo_kind k;
@@ -179,6 +189,7 @@ static void handle(int fd, char *req) {
     if (!strcmp(path, "/health")) {
         long h, m, f, ch, cf, cx, pq, pd, pdr, pf, bh, bb, bf, pif, pab;
         long tq, tmh, tmm, tl, td, bnative, bsuper, lbaked, lserved, bpserved;
+        long wxs, wxb, wxd, wxff, wxdf, wxst, wxfb;
         int pth, cthreads; long cbusy, cqueued;
         fb_elev_stats(&h, &m, &f); fb_cache_stats(&ch, &cf, &cx);
         fb_pf_stats(&pq, &pd, &pdr, &pf); fb_bake_stats(&bh, &bb, &bf);
@@ -187,8 +198,9 @@ static void handle(int fd, char *req) {
         fb_tm_stats(&tq, &tmh, &tmm, &tl, &td);
         fb_lights_stats(&lbaked, &lserved);
         fb_bakepool_stats(&bpserved);
+        fb_wx_stats(&wxs, &wxb, &wxd, &wxff, &wxdf, &wxst, &wxfb);
         pool_stats(&cthreads, &cbusy, &cqueued);
-        char body[1300];
+        char body[1600];
         snprintf(body, sizeof body,
                  "ok pool_threads=%d pool_busy=%ld pool_queued=%ld | "
                  "dem_resident_hits=%ld dem_decoded=%ld dem_fail=%ld | "
@@ -200,11 +212,14 @@ static void handle(int fd, char *req) {
                  "native_bakes=%ld super_bakes=%ld bake_block_served=%ld | "
 
                  "tilemap_queries=%ld hits=%ld misses=%ld learned=%ld dropped=%ld | "
-                 "lights_baked=%ld lights_served=%ld\n",
+                 "lights_baked=%ld lights_served=%ld | "
+                 "wx_served=%ld wx_built=%ld wx_disk_hits=%ld wx_fetch_fail=%ld wx_decode_fail=%ld "
+                 "wx_stale_served=%ld wx_run_fallback=%ld\n",
                  cthreads, cbusy, cqueued,
                  h, m, f, ch, cf, cx, fb_cache_absent(), pth, pq, pd, pdr, pf, pab, pif, bh, bb, bf,
                  fb_raster_scanline_overflows(), fb_style_unknown_count(), bnative, bsuper, bpserved,
-                 tq, tmh, tmm, tl, td, lbaked, lserved);
+                 tq, tmh, tmm, tl, td, lbaked, lserved,
+                 wxs, wxb, wxd, wxff, wxdf, wxst, wxfb);
         fb_reply(fd, "200 OK", "text/plain", body);
         return;
     }
@@ -231,6 +246,7 @@ int main(void) {
     fb_elev_init(cache);
     fb_bake_init(cache);
     fb_lights_init(cache);
+    fb_wx_init(cache);
     fb_stars_init(getenv("STARS_DIR") ? getenv("STARS_DIR") : "/usr/local/share/fb-stars");
     fb_pf_start();
 
@@ -263,7 +279,7 @@ int main(void) {
     listen(lfd, 256);
     fprintf(stderr, "[fb-tiles] %s:%d  cache=%s  pool=%d threads  "
                     "(/elev?lat=&lon= , /t/{terrain|vector|imagery}/z/x/y , /t/lights/z/x/y , "
-                    "/t/stars/{band}/0/0 , /health)\n", bindaddr && *bindaddr ? bindaddr : "0.0.0.0",
+                    "/t/stars/{band}/0/0 , /wx , /health)\n", bindaddr && *bindaddr ? bindaddr : "0.0.0.0",
                     port, cache, g_cthreads);
 
     for (;;) {

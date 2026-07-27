@@ -11,7 +11,7 @@ CC       ?= gcc
 # -I. : osmmesh/ is flat (mvt.h etc. sit directly in it, no include/ subdir), so `<osmmesh/mvt.h>`
 # resolves as ./osmmesh/mvt.h from this directory -- no extra -I needed for src/ (quoted includes
 # there resolve relative to each source file, which is all same-directory siblings).
-CFLAGS   ?= -O2 -Wall -Wextra -Werror -I.
+CFLAGS   ?= -O2 -Wall -Wextra -Wpedantic -Werror -I.
 # Most dev machines have libcurl4-openssl-dev installed and need nothing extra. A machine with only
 # the runtime .so (no curl.h) can point these at a local compat header without touching this file,
 # e.g.: make build CURL_CFLAGS=-I/path/to/curl-compat/include CURL_LIBS='-L/path/to/lib -lcurl'
@@ -20,7 +20,7 @@ CURL_LIBS   ?= -lcurl
 TILES_PORT  ?= 8081
 
 SRC := $(addprefix src/,main.c elev.c cache.c route.c tilesrc.c prefetch.c raster.c bake.c \
-       bakepool.c tilemap.c stars.c lights.c) $(wildcard osmmesh/*.c)
+       bakepool.c tilemap.c stars.c lights.c grib2.c wx.c) $(wildcard osmmesh/*.c)
 BIN := fb-tiles
 
 # This Makefile's own directory, absolute -- so `image` resolves the repo root correctly no matter

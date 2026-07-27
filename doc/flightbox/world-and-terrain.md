@@ -5,7 +5,8 @@
 `osmmesh.h`, `osmmesh_terrain.cpp`), `sim/src/render/FBChunkMesh.h` + `FBChunkVtx.h` (die
 Mesh-Endstufe), `sim/src/app/FBTileWorkerMain.cpp` + `sim/web/fbtw-worker.js`, `sim/Makefile`
 (Targets `wasm`/`worker`) sowie `tiles/` (Server: `Makefile`, `nginx.conf`, `src/*`) — der Server ist
-hier **aus Klientensicht** dokumentiert und wurde nicht verändert. Dazu CLAUDE.mds Abschnitte
+hier **aus Klientensicht** dokumentiert; die einzige Ausnahme ist §9 (`/wx`), das die
+**Server-seitige** Wetter-Datenart beschreibt (`tiles/src/wx.c`, `grib2.c`, `wxfmt.h`). Dazu CLAUDE.mds Abschnitte
 `world/`, `terrain/` und „Rendering".
 
 Nachbardateien: `rendering.md` (was mit der Geometrie passiert, sobald sie auf der GPU liegt),
@@ -454,6 +455,7 @@ Auflösung.
 | `/t/lights/z/x/y` | binäre Nachtlichtliste | 200 (auch leer) / 204 (kein Vektordatum) | `fb_stream_lights` |
 | `/t/stars/{band}/0/0` | HYG-Sternband, 6 B/Stern | 200 / 404 | `fb_fetch_stars` (4 Bänder, verkettet) |
 | `/elev?lat=&lon=[&block=1]` | Text: eine Zahl (m ASL) + Newline | 200 / **503 „no dem"** (kalt) | `fb_stream_ground` |
+| `/wx` | globales Wind-/Wolkenpaket, Binärformat `FBWX` (§9) | 200 / **503** (kein GFS-Lauf erreichbar) | künftiger `FBWeatherProvider`; heute die Fixture in `tiles/testdata/` |
 | `/health` | Text-Statistikzeile | 200 | Betrieb |
 
 **Die Statuscode-Semantik ist der eigentliche Vertrag:**
@@ -499,6 +501,7 @@ Das Container-Frontend (`tiles/nginx.conf`) hört auf **:8081** und cacht selbst
 | `proxy_cache_lock` | an, Timeout 300 s — N gleichzeitige Misses derselben Kachel kollabieren zu EINEM Upstream-Request, vor fb-tiles' eigenem Inflight-Dedup |
 | `proxy_read_timeout` | 300 s — ein kalter Bake blockiert und darf nicht abgeschnitten werden |
 | Nie gecacht | `/health`, `/elev` (Live-Werte) |
+| `/wx` (eigener `location = /wx`-Block) | die EINZIGE cachebare Route ohne `immutable`: der Origin rechnet die Restlaufzeit des gelieferten GFS-Laufs und sagt sie als `Cache-Control: max-age`. nginx wertet die Antwort-Header VOR `proxy_cache_valid`, also entscheidet der Origin; `proxy_cache_valid 200 1h` ist nur der Rückfall. 503 bekommt **keine** Gültigkeitsregel → eine NOMADS-Störung kann nie als Wetter gespeichert werden |
 
 fb-tiles selbst: Verbindungs-Thread-Pool (`TILES_THREADS`), Disk-Cache unter `TILES_CACHE`
 (Default `/var/cache/fbtiles`), Sternbänder aus `STARS_DIR`. TLS ist ein dokumentierter, offener
@@ -523,6 +526,354 @@ Nichts ist vorgeladen. Die Konsequenzen, in der Reihenfolge, in der sie greifen:
 
 Damit ist ein `spawn`-Eintrag in einer `.fbm`-Datei überall auf der Erde gültig, ohne dass irgendwo
 ein Gebiet definiert werden müsste.
+
+---
+
+## 9 Wetter — `/wx`
+
+Die vierte Datenart neben DEM, Vektor und Luftbild, und die einzige **ungekachelte**: weltweiter
+Wind und Bewölkung aus dem **NOAA GFS**, on-demand geholt, gecacht, in einem eigenen kompakten
+Binärformat (`FBWX`) ausgeliefert. Server-Seite: `tiles/src/wx.c` (Endpunkt, Laufermittlung,
+Quantisierung), `tiles/src/grib2.c` (GRIB2-Dekoder), `tiles/src/wxfmt.h` (**die Formatkonstanten —
+dieser Header ist der maschinenlesbare Teil dieses Abschnitts**). Fixture eines echten Abrufs:
+`tiles/testdata/wx-gfs-2026-07-27T00Z-step2-v1.wxb` (+ `manifest.txt`).
+
+### 9.1 Warum EIN Blob und keine Kacheln
+
+Bei 0,25° ist das globale Feld **einer** Variablen 1440×721 Punkte — die DEM-Situation genau
+umgekehrt: nicht ein winziger Ausschnitt aus einem riesigen Datensatz, sondern ein Datensatz, der
+als Ganzes klein ist. Drei Gründe für ein einziges Paket statt eines Blobs pro Variable:
+
+1. Der Klient will **alles einmal pro Sitzung**. N Blobs = N Rundreisen und N Cache-Einträge für
+   eine einzige logische Sache.
+2. **Ein Lauf ist eine Atmosphäre.** Getrennte Blobs könnten über eine Laufgrenze fallen und dem
+   Klienten Wind aus dem 06z- und Bewölkung aus dem 12z-Lauf geben. Im gepackten Paket ist der
+   Laufzeitstempel ein **Header-Feld für alle 20 Felder gemeinsam**, und der Server weigert sich,
+   Datensätze zweier Läufe in ein Paket zu schreiben.
+3. Der Header ist selbstbeschreibend (Feldliste + Offsets), also kostet „alles in einem" nichts an
+   Flexibilität: wer nur den Wind braucht, liest zehn Ebenen und ignoriert den Rest.
+
+### 9.2 Der Endpunkt
+
+```
+GET /wx          → 200  application/octet-stream, FBWX-Blob (heute 8 317 984 B)
+                 → 503  kein GFS-Lauf erreichbar UND keiner auf Platte
+```
+
+Keine Query-Parameter, keine Pfadvarianten. Der Statuscode-Vertrag ist der bestehende (§7.1), auf
+diese Datenart angewandt:
+
+| Code | Bedeutung |
+|---|---|
+| **200** | terminal — Bytes da. Auch der Fall „ältester Lauf von Platte, NOMADS gerade nicht erreichbar": dann trägt die Antwort `X-Wx-Stale: 1`. |
+| **503** | keine Daten, transient → wiederholen. Wird **nie** gecacht (weder von nginx noch auf Platte). |
+| **404** | nur für einen anderen Pfad (`/wx/irgendwas`) — es gibt genau eine Ressource. |
+| **202** | kommt nicht vor. `/wx` **blockiert** wie `/bake`, bis das Paket fertig ist; das HTTP-Timeout des Klienten ist die einzige Frist. |
+| **204** | kommt nicht vor. Bei DEM/Vektor unterscheidet 204 „echtes Loch" von „leer"; Wetter hat **kein Loch** — die Atmosphäre bedeckt jeden Punkt der Erde. Ein Feld ohne Wert an einem Gitterpunkt (nur die Wolkenuntergrenze) wird **im Blob** markiert, nicht per Statuscode (§9.5). |
+
+Antwort-Header:
+
+| Header | Inhalt |
+|---|---|
+| `Cache-Control: public, max-age=N` | Restlaufzeit des gelieferten Laufs: `Laufzeit + 6 h + 4 h − jetzt`, mindestens 300 s. **Kein `immutable`** — als einzige cachebare Route. |
+| `X-Wx-Format: FBWX/1` | Formatversion, identisch mit dem Header-Feld |
+| `X-Wx-Run` / `X-Wx-Valid` | ISO-8601-UTC des Laufs bzw. der Gültigkeitszeit (bei f000 gleich) |
+| `X-Wx-Stale: 0\|1` | 1 = der Lauf konnte in diesem Durchgang nicht gegen NOMADS bestätigt werden (Netz weg) |
+| `X-Cache-Status` | von nginx, wie bei allen cachebaren Routen |
+
+### 9.3 Quelle und Laufermittlung
+
+NOAA GFS über NOMADS, **0,25°**, ohne Schlüssel. Geholt wird über den `grib_filter`-CGI
+(`https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl`), der serverseitig nach Variable und
+Level zuschneidet — das volle GRIB (~500 MB) wird nie geladen. Zeitschritt **f000** (Analyse) = das
+„Jetzt" des Simulators; `run == valid`.
+
+**Drei** Filter-Requests, nicht einer: der CGI liefert das **Kreuzprodukt** aus gewählten Variablen
+und Leveln, ein Sammel-Request zöge also zusätzlich TCDC auf den vier Druckflächen und HGT an der
+Oberfläche mit (~5 MB Abfall). Die drei Gruppen treffen exakt die 20 gewünschten Records.
+
+**Laufermittlung** (`wx_acquire`, `wx.c`): GFS läuft 4×/Tag (00/06/12/18Z) und landet ~3,5–5 h nach
+seiner Analysezeit auf NOMADS. Der Server probiert vom **neuesten Zyklus rückwärts**, je Zyklus
+zuerst Platte, dann Netz:
+
+* **Nicht fertig** — NOMADS antwortet mit 404 *oder* mit `200` und einer HTML-Fehlerseite
+  („Data file is not present"). Der Statuscode allein beweist also nichts; die eigentliche
+  Unterscheidung ist die **GRIB-Magic am Anfang des Bodys** plus die Vollzähligkeit aller 20
+  Records. Genau diese Prüfung ist der Grund, warum eine Fehlerseite hier nie als Wetter im Cache
+  landen kann (die `/elev`-Lehre). Reaktion: nächstälterer Zyklus (bis zu 4 = 24 h zurück).
+* **Nicht erreichbar** (Verbindungsfehler oder 5xx) — der Netzpfad wird **sofort** aufgegeben, statt
+  vier weitere Zyklen anzuklopfen; der Rest des Durchgangs sucht nur noch auf Platte (bis zu 8
+  Zyklen = 48 h) und liefert das Neueste, was da ist, mit `X-Wx-Stale: 1`.
+* **Gar nichts** — 503, und nichts wird geschrieben.
+
+Nach jedem Durchgang, der nichts Neues fand, sperrt ein **Dämpfer** (`g_next_probe`, 600 s) weitere
+NOMADS-Probes; sonst würde jeder Request in der Lücke zwischen zwei Läufen erneut anklopfen.
+Gleichzeitige Anfragen teilen sich **einen** Build (eine Mutex + Condvar, ein Artefakt = ein
+Inflight-Schlüssel): 16 parallele Kaltstarts → `wx_built=1`.
+
+### 9.4 Das Gitter
+
+| | |
+|---|---|
+| Quellgitter | GFS 0,25°, 1440×721, Zeile 0 = 90 °N, Spalte 0 = 0 °E (Scanmodus 0) |
+| Ausgabegitter | jeder **`grid_step`**-te Quellpunkt auf einem exakten Untergitter; Default `grid_step = 2` → **0,5°, 720×361** |
+| Warum unterabgetastet und nicht gemittelt | so ist **jeder ausgelieferte Wert buchstäblich ein GFS-Gitterpunktwert** und keine von uns erfundene Zahl — das macht auch den Punktvergleich gegen einen unabhängigen GFS-Konsumenten (§9.7) überhaupt erst aussagekräftig. Für synoptische Felder ist der Verlust bedeutungslos: das 0,25°-Produkt ist selbst schon Ausgabe eines gröber auflösenden Spektralmodells. |
+| Warum überhaupt `grid_step` | bei 0,25° wäre derselbe Feldsatz **33 MB** — weit jenseits dessen, was ein Klient einmal pro Sitzung zieht. `grid_step 2` ⇒ 8,3 MB, `4` ⇒ 2,1 MB. Es ist ein **Compile-Time-Makro** (`FB_WX_STEP` in `wx.c`), kein Query-Parameter: keine zweite Cache-Identität, kein Per-Request-Zweig. |
+
+Der Klient kodiert davon **nichts**: `nx`, `ny`, `lat0`, `lon0`, `dlat`, `dlon` stehen im Header.
+
+```
+sample(i,j) liegt bei   lat = lat0 + j*dlat      (90 − 0,5·j)
+                        lon = lon0 + i*dlon      (0,5·i)
+Index im Plane:         idx = j*nx + i
+```
+
+`dlat` ist **negativ** (Zeile 0 = Nordpol). Längengrade laufen 0…359,5 °E; `flags` Bit 0
+(`FB_WX_HDR_FLAG_LON_WRAP`) sagt, dass Spalte `nx−1` genau ein `dlon` vor Spalte 0 liegt — bilinear
+also `i` modulo `nx` nehmen. Breitengrade wickeln **nicht**: `j` auf `[0, ny−1]` klemmen.
+
+### 9.5 Das Format `FBWX`
+
+Alles **little-endian**. Aufbau: Header (64 B) + `field_count` Deskriptoren (je 24 B) + die Planes.
+Jeder Deskriptor trägt seinen **absoluten** Offset, ein Leser muss also nie Größen aufsummieren.
+
+**Header, 64 Byte:**
+
+| Off | Typ | Feld | Bedeutung |
+|---:|---|---|---|
+| 0 | u32 | `magic` | `0x58574246` = `'F','B','W','X'` |
+| 4 | u16 | `format_version` | heute **1**. Ändert sich, sobald ein Byte etwas anderes bedeutet. |
+| 6 | u16 | `header_bytes` | 64 — wo die Deskriptoren beginnen (wächst in künftigen Versionen) |
+| 8 | u16 | `nx` | Spalten (720) |
+| 10 | u16 | `ny` | Zeilen (361) |
+| 12 | f32 | `lat0` | Breite der Zeile 0 (+90.0) |
+| 16 | f32 | `lon0` | Länge der Spalte 0 (0.0) |
+| 20 | f32 | `dlat` | Breitenschritt je Zeile (**−0.5**) |
+| 24 | f32 | `dlon` | Längenschritt je Spalte (+0.5) |
+| 28 | u32 | `run_epoch` | Analysezeit des GFS-Laufs, UTC-Sekunden — **aus dem GRIB selbst**, nicht aus der URL |
+| 32 | u32 | `valid_epoch` | Gültigkeitszeit (= `run_epoch` bei f000) |
+| 36 | u32 | reserviert | 0 |
+| 40 | u16 | `field_count` | 20 |
+| 42 | u16 | `desc_bytes` | 24 — Schrittweite der Deskriptortabelle |
+| 44 | u32 | `payload_bytes` | Summe aller Planes (8 317 440) |
+| 48 | u8 | `flags` | Bit 0 = Längengrad wickelt |
+| 49 | u8 | `source` | 1 = NOAA GFS 0,25° |
+| 50 | u16 | `grid_step` | Quellpunkte je Ausgabepunkt (2) |
+| 52 | u8[12] | reserviert | 0 |
+
+**Deskriptor, 24 Byte:**
+
+| Off | Typ | Feld | Bedeutung |
+|---:|---|---|---|
+| 0 | u8 | `var` | 1 `WIND_U` (m/s, ostwärts) · 2 `WIND_V` (m/s, nordwärts) · 3 `HEIGHT` (m) · 4 `CLOUD` (%) · 5 `VIS` (m) |
+| 1 | u8 | `level_kind` | 1 `AGL` · 2 `ISOBARIC` · 3 `CLOUD_LOW` · 4 `CLOUD_MID` · 5 `CLOUD_HIGH` · 6 `ATMOSPHERE` · 7 `SURFACE` · 8 `CLOUD_CEIL` |
+| 2 | u16 | `level_value` | Meter bei `AGL`, hPa bei `ISOBARIC`, sonst 0 |
+| 4 | u8 | `bits` | 8 oder 16 |
+| 5 | u8 | `flags` | Bit 0 = das Feld kennt „kein Wert" |
+| 6 | u16 | `missing_raw` | dieser Rohwert bedeutet „kein Wert" (nur wenn Bit 0 gesetzt) |
+| 8 | f32 | `scale` | |
+| 12 | f32 | `offset` | |
+| 16 | u32 | `payload_off` | absoluter Byte-Offset der Plane im Blob |
+| 20 | u32 | `payload_bytes` | `nx·ny·bits/8` |
+
+**Wert-Rekonstruktion** — eine Zeile, für jedes Feld dieselbe:
+
+```
+raw = 8-bit-Byte oder 16-bit-LE-Wort an  payload_off + (j*nx + i) * bits/8
+wert = offset + raw * scale            (Einheit aus `var`)
+```
+
+und, wenn `flags & 1` und `raw == missing_raw`: **kein Wert** (nicht 0, nicht interpolieren —
+Nachbarpunkte, die ebenfalls „kein Wert" sind, aus der Interpolation ausschließen).
+
+Die Einheit folgt aus `var`, deshalb gibt es kein Einheitenfeld. `HEIGHT` ist **geopotentielle Höhe
+über MSL** (GFS-Parameter „Geopotential height", gpm) — der Unterschied zu geometrischen Metern
+liegt bei 11 km unter 0,3 %, für die Zuordnung eines Windniveaus zu einer Flughöhe irrelevant.
+
+### 9.6 Die 20 Felder und ihre Quantisierung
+
+Die Quantisierungsfenster sind **fest verdrahtet, nie aus den Daten abgeleitet**: gleiche Eingabe →
+gleiche Bytes, und ein Klient darf die Bedeutung eines Rohwerts hart kodieren. Werte außerhalb des
+Fensters **sättigen** (klemmen), sie laufen nie über.
+
+| # | var | level | bits | `scale` | `offset` | `missing_raw` | `payload_off` | Bytes | Auflösung |
+|---:|---|---|---:|---|---:|---|---:|---:|---|
+| 0 | `WIND_U` | `AGL` 10 m | 16 | 0.00549324788 | −180 | — | 544 | 519 840 | 0,0055 m/s |
+| 1 | `WIND_V` | `AGL` 10 m | 16 | 0.00549324788 | −180 | — | 520 384 | 519 840 | 0,0055 m/s |
+| 2 | `WIND_U` | `ISOBARIC` 850 | 16 | 0.00549324788 | −180 | — | 1 040 224 | 519 840 | 0,0055 m/s |
+| 3 | `WIND_V` | `ISOBARIC` 850 | 16 | 0.00549324788 | −180 | — | 1 560 064 | 519 840 | 0,0055 m/s |
+| 4 | `WIND_U` | `ISOBARIC` 700 | 16 | 0.00549324788 | −180 | — | 2 079 904 | 519 840 | 0,0055 m/s |
+| 5 | `WIND_V` | `ISOBARIC` 700 | 16 | 0.00549324788 | −180 | — | 2 599 744 | 519 840 | 0,0055 m/s |
+| 6 | `WIND_U` | `ISOBARIC` 500 | 16 | 0.00549324788 | −180 | — | 3 119 584 | 519 840 | 0,0055 m/s |
+| 7 | `WIND_V` | `ISOBARIC` 500 | 16 | 0.00549324788 | −180 | — | 3 639 424 | 519 840 | 0,0055 m/s |
+| 8 | `WIND_U` | `ISOBARIC` 250 | 16 | 0.00549324788 | −180 | — | 4 159 264 | 519 840 | 0,0055 m/s |
+| 9 | `WIND_V` | `ISOBARIC` 250 | 16 | 0.00549324788 | −180 | — | 4 679 104 | 519 840 | 0,0055 m/s |
+| 10 | `HEIGHT` | `ISOBARIC` 850 | 8 | 4.70588255 | 600 | — | 5 198 944 | 259 920 | 4,7 m |
+| 11 | `HEIGHT` | `ISOBARIC` 700 | 8 | 5.88235283 | 2000 | — | 5 458 864 | 259 920 | 5,9 m |
+| 12 | `HEIGHT` | `ISOBARIC` 500 | 8 | 7.05882359 | 4300 | — | 5 718 784 | 259 920 | 7,1 m |
+| 13 | `HEIGHT` | `ISOBARIC` 250 | 8 | 11.7647057 | 8500 | — | 5 978 704 | 259 920 | 11,8 m |
+| 14 | `HEIGHT` | `CLOUD_CEIL` | 16 | 0.305185109 | 0 | **65535** | 6 238 624 | 519 840 | 0,31 m |
+| 15 | `CLOUD` | `ATMOSPHERE` | 8 | 0.392156869 | 0 | — | 6 758 464 | 259 920 | 0,39 % |
+| 16 | `CLOUD` | `CLOUD_LOW` | 8 | 0.392156869 | 0 | — | 7 018 384 | 259 920 | 0,39 % |
+| 17 | `CLOUD` | `CLOUD_MID` | 8 | 0.392156869 | 0 | — | 7 278 304 | 259 920 | 0,39 % |
+| 18 | `CLOUD` | `CLOUD_HIGH` | 8 | 0.392156869 | 0 | — | 7 538 224 | 259 920 | 0,39 % |
+| 19 | `VIS` | `SURFACE` | 16 | 0.373846024 | 0 | — | 7 798 144 | 519 840 | 0,37 m |
+
+Warum diese Breiten:
+
+* **Wind 16 bit über ±180 m/s.** Der stärkste je gemessene Jetstream liegt bei ~110 m/s; das Fenster
+  ist bewusst weit und die Auflösung mit 0,0055 m/s trotzdem eine Größenordnung feiner als die
+  Modellunsicherheit. Die Quelle selbst quantisiert gröber (GFS packt UGRD auf 9–13 Bit).
+* **Höhen 8 bit mit engem Fenster je Druckfläche.** Eine geopotentielle Fläche variiert global nur
+  um 800–2100 m; die Fenster oben lassen ≥400 m Reserve auf jeder Seite und lösen trotzdem 5–12 m
+  auf. Sie dienen dazu, ein Windniveau in Metern zu **verorten**, nicht dazu, Höhenmesser zu setzen.
+* **Bewölkung 8 bit.** Der Wertebereich ist 0–100 %, GFS liefert selbst nur eine Nachkommastelle.
+* **Sichtweite 16 bit, obwohl es ein „Bewölkungsfeld" ist.** Sichtweite interessiert genau dort, wo
+  sie klein ist: bei 8 bit wären 200 m Nebel ±47 m unsicher. GFS deckelt „unbegrenzt" bei
+  ~24 135 m, das Fenster geht bis 24 500 m.
+* **Wolkenuntergrenze mit echtem Missing-Flag.** GFS meldet „keine Untergrenze" nicht per Bitmap,
+  sondern als Höhe ~20 000 m. Werte ≥ 19 000 m werden hier zu `missing_raw = 65535` — ein Renderer
+  darf keine Wolkenbasis in 20 km Höhe zeichnen. Anteil im Beispiel: 47,2 % der Gitterpunkte, exakt
+  deckungsgleich mit `GFS ≥ 19000` (nachgeprüft).
+
+**Wolkenuntergrenze vs. Druck:** geprüft — der GFS-`f000`-Analyseschritt liefert die Untergrenze als
+`HGT:cloud ceiling` (geopotentielle Höhe in m). Ein `PRES:cloud base`-Record existiert in diesem
+Schritt **nicht**; die Höhe ist also nicht nur die bequemere, sondern die einzige Form.
+
+**Bewölkung, welche Records:** im Analyseschritt heißen die Schichten `LCDC`/`MCDC`/`HCDC` (low/
+middle/high cloud layer, momentan) und die Gesamtbedeckung `TCDC:entire atmosphere` — nicht, wie in
+den Vorhersageschritten, viermal `TCDC` mit unterschiedlichem Level.
+
+### 9.7 GRIB2 — warum der Dekoder eigener Code ist
+
+Der pragmatische Weg wäre `wgrib2` oder die eccodes-Tools im Container gewesen. Gemessen:
+
+* **`wgrib2` ist in Debian trixie nicht paketiert** (`apt-cache policy wgrib2` → leer).
+* `libeccodes-tools` gibt es, zieht aber `libeccodes0` + `libnetcdf22` nach (~40 MB im Image) und
+  hätte pro Abruf einen `fork/exec` plus entweder Textparsing von 20 Mio. Werten oder eine
+  Zwischendatei bedeutet.
+
+Stattdessen: **`tiles/src/grib2.c`**, ~330 Zeilen. Der Grund, dass das vertretbar ist, steht in den
+Daten — alle 20 GFS-Records benutzen dieselbe, engste Teilmenge des Standards:
+
+| | |
+|---|---|
+| Gitter | Template **3.0** (reguläres lat/lon), Scanmodus 0 |
+| Produkt | Template **4.0** (auch 4.8 akzeptiert) |
+| Packung | Template **5.3** — complex packing + spatial differencing 2. Ordnung, `mvm = 0`, keine Bitmap. (5.0 simple packing ist mit implementiert.) |
+| **Nicht** dabei | JPEG2000 (5.40), PNG (5.41), Bitmaps in Sektion 6, Missing-Value-Management in 5.3 |
+
+Was nicht dazugehört, wird **namentlich abgelehnt** (`fb_grib2_last_error`) statt geraten — es ist
+eine Upstream-Antwort, also eine Systemgrenze. Eine Feinheit, die in keiner WMO-Tabelle klar
+dasteht und die ein Nachbauer wissen muss: in Sektion 7 beginnen die drei Deskriptor-Arrays
+(Gruppen-Referenzwerte, -Breiten, -Längen) **jeweils an einer Oktettgrenze**; ohne dieses Padding
+ergibt die Summe der Gruppenlängen nicht die Punktzahl (erster Debug-Befund: 1 468 303 statt
+1 038 240).
+
+**Verifikation gegen unabhängige Referenzen.** Zwei, weil sie verschiedene Dinge belegen:
+
+*1 — ecCodes 2.41 (Container, `grib_get -l lat,lon,1`), der maßgebliche Dekodier-Check* an fünf
+Punkten, GFS 2026-07-27 00Z:
+
+| Punkt | Größe | ecCodes | `/wx` | Δ | Quantisierungsschritt |
+|---|---|---|---|---|---|
+| 46,5 N / 7,5 E | u 250 hPa | 5,64641 m/s | 5,6443 | 0,0021 | 0,0055 |
+| | v 250 hPa | −23,3125 | −23,3106 | 0,0019 | 0,0055 |
+| | gh 250 hPa | 10 804,5 m | 10 805,9 | 1,4 | 11,8 |
+| | vis | 24 134,8 m | 24 134,8 | 0,0 | 0,37 |
+| 35,0 N / 139,5 E | ceiling | 5 948,38 m | 5 948,4 | 0,02 | 0,31 |
+| | tcc / lcc / hcc | 95,5 / 29,7 / 95,5 % | 95,7 / 29,8 / 95,7 | ≤0,2 | 0,39 |
+| 60,0 S / 60,0 W | 10u | 15,1738 m/s | 15,1751 | 0,0013 | 0,0055 |
+| | lcc / mcc / hcc | 87,8 / 14,5 / 0 % | 87,8 / 14,5 / 0,0 | 0,0 | 0,39 |
+
+Über **alle 20 Felder × alle 259 920 Gitterpunkte** beträgt der maximale Fehler gegen eine
+unabhängige Vollfeld-Dekodierung exakt **0,5 Quantisierungsschritte** — also reine Rundung, kein
+Dekodierfehler; die Missing-Maske der Wolkenuntergrenze stimmt punktweise überein.
+
+*2 — Open-Meteo (`api.open-meteo.com/v1/gfs`, `models=gfs_global`), ein unabhängiger operationeller
+GFS-Konsument*, 46,5 N / 7,5 E, 2026-07-27T00:00Z:
+
+| Größe | Open-Meteo | `/wx` |
+|---|---|---|
+| Wind 250 hPa | 24,01 m/s aus 346° | 23,98 m/s aus 346,4° |
+| gh 250 hPa | 10 803,81 m | 10 805,9 m |
+| Wind 850 hPa | 2,04 m/s aus 210° | 2,11 m/s aus 210,5° |
+| gh 850 hPa | 1 520,0 m | 1 522,4 m |
+| Wind 10 m | 2,08 m/s aus 215° | 2,34 m/s aus 208,4° |
+| Sichtweite | 24 140 m | 24 134,8 m |
+
+Windrichtung/-betrag und Höhen stimmen auf <0,1 m/s bzw. <2,5 m — die Höhendifferenz ist genau ein
+Viertel Quantisierungsschritt. Der 10-m-Wind weicht etwas mehr ab, weil Open-Meteo räumlich
+interpoliert und geländeabhängig herunterskaliert (es meldet für den Punkt eine eigene
+Geländehöhe), während `/wx` den rohen Gitterpunkt liefert. **Bewölkung eignet sich als Vergleich
+nicht**: Open-Meteos GFS-Wolkenschichten sind aus relativer Feuchte gerechnet, nicht die
+GFS-eigenen LCDC/MCDC/HCDC-Diagnosen — an 60 S/60 W meldet Open-Meteo „high 100 %", während GFS
+selbst (per ecCodes bestätigt) 0 % sagt. Für die Wolken ist ecCodes die Referenz, nicht Open-Meteo.
+
+### 9.8 Determinismus und die Gym-Fixture
+
+Ein Blob ist eine **reine Funktion von (GFS-Lauf, Formatversion, `grid_step`)**. Es steht kein
+Erzeugungszeitstempel drin (Offset 36 ist bewusst reserviert und null), keine Zufallszahl, keine
+datenabgeleitete Quantisierung. Zwei unabhängige Kaltstarts desselben Zyklus — verschiedene Rechner,
+verschiedene Compiler (clang/macOS gegen gcc/Debian im Container) — liefern **byte-identische**
+8 317 984 Bytes (nachgemessen, md5 `17b33c82bafae29442eb6d1cc12fb6de`).
+
+Damit gilt für die eingebackene Fixture:
+`tiles/testdata/wx-gfs-2026-07-27T00Z-step2-v1.wxb`, sha256
+`acded0200d49926203d4548301a2fd1586b6e3c5ecbf61fbd0355e6f9c609ede`. Sie ist ein unveränderter
+200-Body von `/wx` und kann als feste Gym-Wetterlage übernommen werden; ein Regressionstest darf sie
+per Prüfsumme vergleichen statt per Toleranz. Die Dateinamen auf Platte tragen `grid_step` und
+Formatversion (`gfs2_2026072700_v1.wxb`), sind also wie die Bake-Dateinamen an die Version gekoppelt
+— eine Formatänderung verschiebt das Artefakt, statt das alte zu vergiften.
+
+### 9.9 Betriebszahlen
+
+Gemessen am 2026-07-27, GFS-Zyklus 00Z, Apple A18 Pro, Podman-VM:
+
+| Größe | Wert |
+|---|---|
+| Rohbytes von NOMADS | **15 451 174 B** GRIB2 in 3 Filter-Requests (7 313 561 + 4 463 283 + 3 674 330) |
+| Ausgelieferte Bytes | **8 317 984 B** (Faktor 0,54 gegen roh, bei 20 Mio. → 260 k Gitterpunkten je Feld) |
+| Über die Leitung (nginx gzip) | **4 599 798 B** |
+| GRIB2-Dekodierung, 20 Felder / 20,8 Mio. Punkte | **0,10 s** (3 Läufe: 0,103 / 0,102 / 0,099) |
+| Kalt, Origin direkt | **7,30 s** — praktisch vollständig NOMADS-Latenz (davon 0,10 s Dekodierung) |
+| Kalt, durch nginx (`X-Cache-Status: MISS`) | **7,06 / 7,49 s** (zwei Läufe auf leerem Cache) |
+| Von Platte nach Neustart (inkl. eines NOMADS-Probes) | **0,26 s** |
+| Resident im Origin | **0,002–0,005 s** |
+| Wiederholung durch nginx (`X-Cache-Status: HIT`) | **0,081 s** |
+| 16 gleichzeitige Kaltstarts, Origin direkt im Container | 6,93 s Wall, **`wx_built = 1`**, alle 16 Antworten byte-identisch (Host-Binary: 6,12 s, gleiches Ergebnis) |
+| 24 gleichzeitige Anfragen durch nginx nach einem MISS | 0,53 s Wall, **24× `HIT`**, Origin unberührt |
+| Speicher während des Builds | Blob 8,3 MB + eine GRIB-Gruppe ≤7,3 MB + Dekoder-Scratch 8,3 MB |
+| Platte im Origin | ein Zyklus = 8,3 MB; ältere werden nach dem Build **namentlich** weggeräumt (kein `readdir`), Dauerzustand ≤ 8 Dateien ≈ 75 MB |
+
+Größe bei anderen `grid_step`: 1 → 33,2 MB · **2 → 8,3 MB** · 4 → 2,1 MB.
+
+`/health` bekommt eine eigene Gruppe:
+
+```
+wx_served=N wx_built=N wx_disk_hits=N wx_fetch_fail=N wx_decode_fail=N wx_stale_served=N wx_run_fallback=N
+```
+
+`wx_run_fallback` zählt die Durchgänge, in denen der neueste Zyklus noch nicht veröffentlicht war
+und auf den vorigen zurückgefallen wurde — der Normalfall in den ~4 h nach einer Analysezeit, kein
+Fehler. `wx_fetch_fail` und `wx_decode_fail` sind die echten Fehlerzähler.
+
+### 9.10 Was der Simulator daraus baut (noch offen)
+
+Der Endpunkt existiert, der Konsument nicht. Die nächste Sim-Runde hängt daran:
+
+* `FBElevationProvider`-Geschwister im Core: ein `FBWeatherProvider` (`WindAt(lat,lon,alt)` als
+  Vertikalinterpolation über die vier Druckflächen + 10 m AGL, `CloudAt`, `VisibilityAt`), mit einer
+  konstanten und einer blob-gestützten Implementierung, damit `fb-gym` ohne Netz läuft.
+* JSBSim-Verdrahtung über `FGWinds` (`fdm/FBFdm`) — der Adapter hat heute keinen Windkanal.
+* Wolken-Stages: `TCDC`/`LCDC`/`MCDC`/`HCDC` als Bedeckungs-Modulation, `CLOUD_CEIL` als
+  Basishöhe der Deckschicht.
+* Die Fixture oben als feste Gym-Wetterlage.
+
+Server-seitig offen und bewusst so gelassen: nur der **Analyseschritt f000**, keine Vorhersage
+(`fXXX`) — eine Sitzung länger als der Lauf sieht dieselbe Atmosphäre, bis nginx den nächsten Lauf
+zieht. Die Struktur trägt es (`valid_epoch` ist ein eigenes Header-Feld, `parse_product` rechnet
+Vorhersagezeiten bereits aus), es gibt nur noch keinen Konsumenten, der eine Zeitachse bräuchte.
 
 ---
 
