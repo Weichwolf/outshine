@@ -1,0 +1,74 @@
+name bvr-duel-1
+timeout 320
+
+# THE DUEL: two intercept pilots, the same code, pointed at each other. Nothing is scripted on either
+# side — no briefed release, no briefed chaff, no briefed manoeuvre. Each jet is given what a controller
+# gives a fighter (a vector and a master-arm call) and then decides everything else for itself out of
+# its own radar, its own warning receiver and its own fire control.
+#
+# THIS IS THE MISSION THE WHOLE INTERCEPT PHASE EXISTS FOR, and it is also the one whose result is not
+# designed. Both jets will detect, both will lock, both will shoot, and from the first lock onwards each
+# of them is inside the other's decision loop: a lock spike on the receiver is a warning, and the rule
+# systems/FBPilot follows is that a track spike is worth turning for only once this jet's own shot no
+# longer needs supporting. Two aircraft applying that rule to each other is exactly the mutual-kill
+# problem of a head-on BVR merge, and whatever comes out of it is the answer.
+#
+# THE ONE ASYMMETRY IS MISSION DATA, NOT CODE: viper starts 1,000 m higher and 50 kt faster than bandit.
+# That is the classic BVR advantage — a round launched higher and faster inherits both, and Raero is an
+# integration that starts from the launcher's own velocity (modules/f16/FBF16FireControl) — and it is
+# introduced deliberately so the run is a fight rather than a mirror. A perfectly symmetric setup would
+# produce two identical timelines and prove nothing about the decision rules.
+#
+# THE GEOMETRY: 99 km apart, head-on, closing at roughly 700 m/s. Both start well outside the APG-68's
+# 40 nm search gate, so both runs begin with a real search phase.
+#
+# WHAT TO READ, in BOTH telemetry files side by side (telemetry.csv = viper, telemetry_bandit.csv):
+#   eng_detect_s / eng_lock_s   who saw whom first, and who spent the first lock — the lock is what
+#                               puts a symbol on the other jet's scope, so the first one to lock is the
+#                               first one to be seen coming
+#   eng_shot_s / eng_shot_nm    who shot first and from where
+#   eng_threat_s / eng_react_s  when each receiver lit up and how long its pilot took to answer
+#   eng_state                   the two state machines interleaved: attack/support against defend
+#   eng_support_f / eng_pitbull whether each shot was supported to its seeker's own activation, which is
+#                               the difference between a launch and a kill
+#   DETONATION / MISS           what actually arrived, measured on the published poses by the runner's
+#                               own proximity fuze — never by the weapon's opinion of itself
+# There is no damage model, so neither jet stops flying when it is hit. The verdict is therefore read
+# from the miss distances and the two timelines, not from who is left; the run ends at its timeout
+# (exit 3) like every other engagement mission, for the same reason (a fight has no waypoint).
+
+unit viper
+  team friendly
+  module f16
+  spawn 46.90000 6.40000 9000 90.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink off
+  set fcr_mode crm
+  set store 3 aim120
+  set store 7 aim120
+  set brief_master_arm arm
+  set cmds_mode man                        # the pilot throws over the CMS switch, HOTAS latency
+  set cmds_program 1                       # PRGM 1 = BREAK LOCK, 4 cartridges in ~1.1 s
+  set cmds_chaff 60
+  set cmds_flare 60
+  set task intercept
+  wp 46.90000 8.35000 9000 450             # the vector: threat bearing 090
+
+unit bandit
+  team hostile
+  module f16
+  spawn 46.90000 7.70000 8000 270.0 400
+  set gear up
+  set fuel_pct 70
+  set datalink off
+  set fcr_mode crm
+  set store 3 aim120
+  set store 7 aim120
+  set brief_master_arm arm
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set task intercept
+  wp 46.90000 5.75000 8000 400             # its mirror vector, threat bearing 270

@@ -79,7 +79,55 @@ const double kBfmOverspeedFrac = 1.15;    /* above this multiple of corner speed
 const double kBfmThrTrim = 0.6, kBfmThrKpPerKt = 0.006;   /* +-67 kt of speed error = idle..full */
 const double kBfmSpeedbrakeKt = 40.0;     /* boards out only when the throttle alone cannot do it */
 
+/* INTERCEPT (the Intercept phase). The four numbers below are properties of the PILOT and of the
+ * geometry, not of the airframe, which is why they are constants here rather than virtual hooks: an
+ * F-16 and a MiG-29 have different gimbal limits and different launch zones (those ARE hooks), but a
+ * human's reaction time and the width of an antenna-elevation deadband are the same in both cockpits.
+ *
+ * kInterceptReactionS is the one number in this file that models a PERSON: perceive the warning,
+ * recognise what it means, decide, move. Published figures for a trained pilot answering an
+ * unambiguous, expected cue cluster around 0.5-1.5 s; 1.0 s is the middle of that, and it sits ON TOP
+ * of the command bus's own 0.5 s HOTAS latency (core/FBCommandBus), so the earliest a defensive command
+ * can take effect is a second and a half after the receiver lit up. That is the whole point of having
+ * it: an AI that answered in the tick the block changed would be winning on reflexes it does not have.
+ *
+ * kInterceptActionS is the same idea applied to the HANDS: a pilot works one control at a time, and the
+ * avionics itself uses 0.5 s to tell two commands on one switch apart (core/FBCommandBus::
+ * kHotasLatencyS). So this phase posts at most one command per 0.5 s, in priority order, however many
+ * things it would like to have done at once. */
+const double kInterceptReactionS = 1.0;
+const double kInterceptActionS = 0.5;
+/* How far the antenna has to be off the wanted elevation before it is worth another switch action. A
+ * search pattern is +/-10.5 deg tall (modules/f16/FBF16Fcr), so a 2-deg deadband is well inside the
+ * beam and keeps the pilot from spending the whole engagement re-pointing it. */
+const double kInterceptElDeadDeg = 2.0;
+/* How stale a contact may get before this phase calls it lost and goes back to searching. Two CRM
+ * frames plus a margin: one missed sweep is a missed sweep, three is a target that is no longer there. */
+const double kInterceptLostS = 10.0;
+/* The Direct guidance target is a POINT, and a heading demand has to become one. Far enough that the
+ * bearing to it is the heading asked for to within a fraction of a degree over a whole tick. */
+const double kInterceptAimM = 60.0 * kNmToM;
+/* The longest a shot is supported when the fire control never predicted an activation time (see the
+ * Support state). Longer than any time of flight this simulator's weapon catalogue produces. */
+const double kInterceptSupportMaxS = 60.0;
+/* HOW LONG A FRESH LOCK IS LET SETTLE BEFORE THE TRIGGER. A single-target track is not a firing
+ * solution the instant the antenna stops sweeping: the round is programmed with the target's estimated
+ * MOTION (core/FBWeaponUplink), and that estimate is differenced from successive looks and filtered
+ * (systems/FBBfmTrack::kVelAlpha, a ~0.4 s time constant on a 0.1 s STT frame). Shooting inside a
+ * second of designating means launching a round programmed with a velocity of nearly zero — measured:
+ * the aspect the shot was taken at could not even be computed. Two seconds is several filter time
+ * constants and is also what a real firing sequence costs in switchology. */
+const double kInterceptTrackSettleS = 2.0;
+
 double Clamp(double v, double lo, double hi) { return v < lo ? lo : v > hi ? hi : v; }
+
+/* The bearing/altitude pair a Direct-guidance aim point needs, from a heading demand. */
+void AimAlongHeading(const fb_fdm_state &st, double hdgDeg, double &latDeg, double &lonDeg) {
+  double h = hdgDeg * kDeg2Rad;
+  double coslat = std::cos(st.lat * kDeg2Rad);
+  latDeg = st.lat + kInterceptAimM * std::cos(h) / kMPerDeg;
+  lonDeg = st.lon + kInterceptAimM * std::sin(h) / (kMPerDeg * (std::fabs(coslat) > 1e-6 ? coslat : 1e-6));
+}
 } // namespace
 
 const char *FBPilot::PhaseName(Phase p) {
@@ -94,6 +142,7 @@ const char *FBPilot::PhaseName(Phase p) {
     case Phase::Rollout: return "Rollout";
     case Phase::Shutdown: return "Shutdown";
     case Phase::Bfm: return "Bfm";
+    case Phase::Intercept: return "Intercept";
   }
   return "?";
 }
@@ -372,6 +421,310 @@ void FBPilot::DispenseBriefedCm(FBCommandBus &avionics) {
   }
 }
 
+/* ONE cockpit action, at most, per decision tick (see kInterceptActionS), in the order a pilot would
+ * take them: the aircraft being shot at throws chaff before it worries about a radar mode. Everything
+ * goes through the same bus a hand would drive; nothing here reaches a box directly. */
+bool FBPilot::InterceptCockpit(const FBState &state, FBCommandBus &avionics, int designateTrack,
+                               bool wantShot, bool wantChaff, double wantElDeg) {
+  if (TimeS_ - IntLastActionS_ < kInterceptActionS) return false;
+  auto post = [&](FBCommandTarget t, double v) {
+    IntLastActionS_ = TimeS_;
+    avionics.Post(t, v, TimeS_);
+  };
+  if (wantChaff) {
+    post(FBCommandTarget::CmDispense, 0.0);   /* CMS forward: the program the PRGM knob selects */
+    IntLastChaffS_ = TimeS_;
+    return true;
+  }
+  if (wantShot) {
+    post(FBCommandTarget::WeaponRelease, 1.0);
+    IntLastShotS_ = TimeS_;
+    return true;
+  }
+  /* TMS forward on the contact the pilot picked, or TMS aft (0) to let one go. Only when the set is not
+   * already holding the lock that was asked for — a designation is a decision, not a repeated demand. */
+  bool locked = state.Radar.H.Readable() && state.Radar.LockIndex >= 0;
+  if (designateTrack > 0 && !locked) { post(FBCommandTarget::Designate, designateTrack); return true; }
+  if (designateTrack < 0 && locked) { post(FBCommandTarget::Designate, 0.0); return true; }
+  /* The antenna elevation control: the search pattern is pointed at the altitude band the target is
+   * expected in. Deadbanded, because a knob that is nudged every tenth of a second is not being flown. */
+  if (std::fabs(wantElDeg - IntCmdElDeg_) > kInterceptElDeadDeg) {
+    IntCmdElDeg_ = wantElDeg;
+    post(FBCommandTarget::RadarSlewEl, wantElDeg);
+    return true;
+  }
+  /* ...and, once, the search mode itself: this phase is flown in a mode that finds everything and locks
+   * nothing. A module without such a mode (ordinal < 0) has its set left exactly as the mission set it. */
+  int searchMode = SearchRadarModeOrdinal();
+  if (!IntCmdMode_ && searchMode >= 0 && state.Radar.H.Readable() &&
+      state.Radar.ModeOrdinal != searchMode) {
+    IntCmdMode_ = true;
+    post(FBCommandTarget::RadarMode, searchMode);
+    return true;
+  }
+  return false;
+}
+
+/* ONE decision tick of an intercept. The order below is the order a pilot's attention runs in: what can
+ * I see, who can see me, what state does that put me in, where do I point the jet, and only then which
+ * switch do I touch.
+ *
+ * WHAT IT MAY SEE (CLAUDE.md "Kein Cheaten"): the radar block (anonymous contacts + the lock), the RWR
+ * block (bearings and what class of emission they are), the fire-control block (the launch zone), the
+ * stores block (what is left on the racks and what has left them) — all of it written by simulated
+ * boxes, none of it truth. The engaged target's position is derived from the radar's own reported
+ * bearing/elevation/range and nothing else, exactly as the BFM tracker's is. */
+FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &avionics,
+                                           const fb_fdm_state &st, const FBFlightPlan &plan, double dt) {
+  /* The locked contact's own fusion, for the quantities a single echo cannot give: the target's
+   * velocity, and from it the aspect the shot decision is taken on. Unlocked it simply coasts, which is
+   * the correct answer to "where is he going" when nobody is tracking him. */
+  Bfm_.Update(state, st, TimeS_);
+  const FBBfmBlock &fused = Bfm_.Block();
+
+  /* ---- 1. the picture: which return is being worked ---- */
+  const FBRadarBlock &fcr = state.Radar;
+  bool radarUp = fcr.H.Readable();
+  bool locked = radarUp && fcr.LockIndex >= 0 && fcr.LockIndex < fcr.ContactCount;
+  const FBRadarContact *tgt = nullptr;
+  if (locked) {
+    tgt = &fcr.Contacts[fcr.LockIndex];
+  } else if (radarUp) {
+    /* Nearest return that has not identified itself as a friend. A valid Mode-4 reply PROVES friendly
+     * and is the one thing that takes a contact off the list; silence proves nothing and stays a
+     * candidate (core/FBRadarContact.h) — which is exactly the identification problem, not a shortcut
+     * around it. */
+    for (int i = 0; i < fcr.ContactCount; i++) {
+      const FBRadarContact &c = fcr.Contacts[i];
+      if (c.Iff == FBIffReply::Friendly) continue;
+      if (!tgt || c.RangeM < tgt->RangeM) tgt = &c;
+    }
+  }
+  if (locked) { if (IntLockSinceS_ < 0.0) IntLockSinceS_ = TimeS_; } else { IntLockSinceS_ = -1.0; }
+  bool haveTgt = tgt != nullptr && tgt->LookAgeS < kInterceptLostS;
+  if (haveTgt) {
+    if (IntTrack_ != tgt->TrackNum) IntTrack_ = tgt->TrackNum;
+    Eng_.NoteContact(TimeS_);
+    if (locked) Eng_.NoteLock(TimeS_);
+  } else {
+    IntTrack_ = 0;
+  }
+
+  double tgtRangeM = haveTgt ? tgt->RangeM : 0.0;
+  double tgtAzDeg = haveTgt ? tgt->AzDeg : 0.0;
+  double tgtElDeg = haveTgt ? tgt->ElDeg : 0.0;
+  double tgtBrgDeg = haveTgt ? tgt->BearingDeg : st.yaw;
+  double tgtAltM = haveTgt ? st.elev + tgtRangeM * std::sin(tgt->ElevAngleDeg * kDeg2Rad) : st.elev;
+  double tgtClosMs = haveTgt ? tgt->ClosureMs : 0.0;
+  double aspectDeg = (locked && fused.H.IsValid()) ? fused.AspectDeg : -1.0;
+
+  /* ---- 2. who can see me: the warning receiver, and what it demands ---- */
+  const FBRwrBlock &rwr = state.Rwr;
+  bool threatTrack = false, threatMissile = rwr.H.Readable() && rwr.Powered && rwr.MissileLaunch;
+  double threatBrgDeg = 0.0;
+  if (rwr.H.Readable() && rwr.Powered) {
+    for (int i = 0; i < rwr.ThreatCount; i++) {
+      const FBRwrThreat &t = rwr.Threats[i];
+      if (t.Mode == FBRwrThreatMode::Search) continue;
+      /* The MISSILE symbol outranks a TRACK symbol whatever the scope's own priority says: one of them
+       * is a radar that might shoot, the other is a seeker that already has. */
+      bool better = !threatTrack || t.Mode == FBRwrThreatMode::Missile;
+      if (!better) continue;
+      threatTrack = true;
+      threatBrgDeg = t.BearingDeg;
+      if (t.Mode == FBRwrThreatMode::Missile) threatMissile = true;
+    }
+  }
+  if (threatTrack) Eng_.NoteThreat(TimeS_);
+
+  /* WHEN A WARNING IS WORTH TURNING FOR. A seeker on the aircraft is never negotiable. A radar merely
+   * tracking it is: turning away from a lock spike before taking your own shot loses the engagement,
+   * and the whole reason a fighter accepts being tracked is that it is about to shoot back. So a track
+   * spike demands an answer only once this jet's own attack has nothing left to gain — the shot is away
+   * and no longer needs supporting, or there was never one to take. */
+  bool weapons = state.Stores.H.Readable() && state.Stores.LoadedCount > 0;
+  bool shotSelfSufficient = Eng_.HaveShot() && (Eng_.Pitbull() || !locked);
+  bool mustDefend = threatMissile || (threatTrack && (!weapons || shotSelfSufficient));
+  if (mustDefend) {
+    if (IntDefendCueS_ < 0.0) IntDefendCueS_ = TimeS_;
+    IntThreatLastS_ = TimeS_;
+  } else {
+    IntDefendCueS_ = -1.0;
+  }
+  bool defendDue = mustDefend && TimeS_ - IntDefendCueS_ >= kInterceptReactionS;
+
+  /* ---- 3. the brief: the vector flown while there is nothing on the scope ----
+   * The mission's active waypoint IS the vector — a controller's "threat bearing 090, thirty miles,
+   * angels 25" is a point and an altitude, and that is exactly what a waypoint carries. With none
+   * declared the pilot holds what it was spawned on, anchored once so the search does not chase its own
+   * turn (the same failure the BFM cold search had). */
+  if (const FBWaypoint *wp = plan.ActiveWaypoint()) {
+    IntBriefHdgDeg_ = FBBearingDeg(st.lat, st.lon, wp->LatDeg, wp->LonDeg);
+    IntBriefAltM_ = wp->AltM;
+    IntAnchored_ = true;
+  } else if (!IntAnchored_) {
+    IntBriefHdgDeg_ = st.yaw;
+    IntBriefAltM_ = st.elev;
+    IntAnchored_ = true;
+  }
+
+  /* ---- 4. the shot: has one left the jet, and is one available ---- */
+  const FBFireControlBlock &fc = state.FireControl;
+  bool zone = fc.H.Readable() && fc.DlzValid;
+  double shotRangeM = zone ? fc.TargetRangeM : 0.0;
+  bool inParams = zone && fc.InZone && shotRangeM <= fc.RtrM * InterceptShotRtrFactor() &&
+                  std::fabs(tgtAzDeg) <= InterceptShotAtaDeg();
+  int released = state.Stores.H.Readable() ? state.Stores.ReleasedCount : IntSeenReleases_;
+  if (released > IntSeenReleases_) {
+    IntSeenReleases_ = released;
+    Eng_.NoteShot(TimeS_, shotRangeM, tgtAzDeg, aspectDeg, fc.RaeroM, fc.RtrM, fc.RminM, fc.TimeToActiveS,
+                  fc.TimeToImpactS);
+    /* WHEN A SECOND ROUND IS EVEN A QUESTION. Not before the first one has had its chance: the fire
+     * control predicted a time of flight, and re-attacking a target that a round is still on its way to
+     * is spending a missile on an answer nobody has yet. With no damage model in this simulator the
+     * target always survives that wait, so the rule looks like "shoot again" — but the DECISION is the
+     * one a pilot takes, and the metric that records it is honest about which shot it describes. */
+    IntNextShotS_ = TimeS_ + std::fmax(InterceptShotSpacingS(),
+                                       fc.TimeToImpactS > 0.0f ? (double)fc.TimeToImpactS : 0.0);
+    IntHaveCrankSign_ = false;
+    EngState_ = FBEngageState::Support;
+  }
+  int chaffOut = state.Cmds.H.Readable() ? state.Cmds.ChaffDispensed : IntSeenChaff_;
+  if (chaffOut > IntSeenChaff_) { Eng_.NoteChaff(chaffOut - IntSeenChaff_); IntSeenChaff_ = chaffOut; }
+
+  /* ---- 5. the state machine (systems/FBEngagement's banner has the states) ---- */
+  if (defendDue) {
+    EngState_ = FBEngageState::Defend;
+  } else if (EngState_ == FBEngageState::Defend && TimeS_ - IntThreatLastS_ >= InterceptDefendHoldS()) {
+    /* THE RE-ATTACK DECISION. The threat has stopped demanding an answer; whether that was the notch
+     * working or the shooter going away is not something this aircraft can know. What it can answer is
+     * whether it still has anything to come back with. */
+    EngState_ = weapons ? FBEngageState::Search : FBEngageState::Abort;
+  } else if (EngState_ == FBEngageState::Support) {
+    /* HOW LONG THE CRANK IS HELD. Not "until the seeker takes over": that is when the round stops
+     * needing the UPLINK, not when the shot is over. Between the seeker going active and the round
+     * arriving there is nothing this jet can do for it and every reason not to be flying at the target
+     * meanwhile, so the crank is held until the fire control's own predicted time of flight has run —
+     * shoot, crank, and only then decide again. The cap catches a launch zone that never produced a
+     * countdown at all (TimeToImpactS < 0: the round dies before it gets there).
+     *
+     * The other ending is the failure one: the lock is gone and the seeker has NOT taken over, so the
+     * round is flying an estimate nobody is refreshing. That is worth going back for — re-designating
+     * resumes the uplink (systems/FBStoresSystem radiates while the fire control has a target), which
+     * is the only thing that can still save the shot. */
+    double sinceShotS = TimeS_ - Eng_.ShotS();
+    double holdS = std::fmin(kInterceptSupportMaxS,
+                             std::fmax(Eng_.ShotTtiS(), std::fmax(Eng_.ShotTtaS(), 0.0)));
+    if (sinceShotS >= holdS || (!locked && !Eng_.Pitbull()))
+      EngState_ = weapons && haveTgt ? FBEngageState::Attack : FBEngageState::Abort;
+  } else if (EngState_ != FBEngageState::Abort) {
+    /* NOTHING ON THE SCOPE OUTRANKS EVERYTHING ELSE: an aircraft with nothing to shoot at flies its
+     * brief and searches, whatever is or is not left on its racks — a jet out of missiles still has a
+     * job, and an empty-rack abort taken before anything was ever seen would just be a jet leaving. */
+    if (!haveTgt) EngState_ = FBEngageState::Search;
+    else if (!weapons) EngState_ = FBEngageState::Abort;
+    else if (tgtRangeM * kMToNm < InterceptAbortRangeNm() && !Eng_.HaveShot())
+      EngState_ = FBEngageState::Abort;   /* inside visual range with nothing fired: this is not an
+                                           * intercept any more, and pressing on is a merge */
+    else if (tgtRangeM * kMToNm <= InterceptLockRangeNm()) EngState_ = FBEngageState::Attack;
+    else EngState_ = FBEngageState::Closing;
+  }
+
+  /* ---- 6. where the jet is pointed ---- */
+  FBPilotCommands c{};
+  c.Guidance = FBPilotGuidance::Direct;
+  c.TargetSpeedKt = InterceptSpeedKt();
+  c.TargetAltM = IntBriefAltM_;
+  double aimHdgDeg = IntBriefHdgDeg_;
+  double wantElDeg = 0.0;
+  int designate = 0;
+  bool wantShot = false, wantChaff = false;
+
+  switch (EngState_) {
+    case FBEngageState::Idle:
+    case FBEngageState::Search: {
+      /* Point the antenna at the altitude band the brief put this aircraft in — a controller vectors a
+       * fighter to the height the trade is expected at, so co-altitude is the search's own assumption
+       * until a return says otherwise. Own PITCH is what makes this a command rather than a constant:
+       * the pattern is bolted to the nose, so a climbing jet's radar looks up and out of the band it is
+       * supposed to be sweeping unless the antenna is pushed back down by exactly that angle. */
+      double distM = std::fmax(kInterceptAimM * 0.25, 1000.0);
+      wantElDeg = std::atan2(IntBriefAltM_ - st.elev, distM) * kRad2Deg - st.pitch;
+      break;
+    }
+    case FBEngageState::Closing:
+    case FBEngageState::Attack: {
+      /* Pure pursuit at the contact, co-altitude with it. Deliberately NOT a lead course: before the
+       * lock this aircraft has an echo and no velocity estimate to lead on, and after it the round is
+       * the thing that needs the lead, not the launcher. Flying at him also keeps him in the middle of a
+       * search pattern that is only 21 degrees tall. */
+      aimHdgDeg = tgtBrgDeg;
+      c.TargetAltM = tgtAltM;
+      /* Centre the pattern on the return: both the reported contact elevation and the volume's own
+       * centre are body-referenced (systems/FBRadarSystem's FBRadarScanVolume), so the wanted antenna
+       * position IS the angle the contact came back at. Adding it to the current command instead would
+       * walk the beam off the target one look at a time — measured, and it lost a head-on contact
+       * twenty seconds after acquiring it. */
+      wantElDeg = tgtElDeg;
+      if (EngState_ == FBEngageState::Attack) {
+        if (!locked) designate = IntTrack_;
+        wantShot = locked && inParams && TimeS_ - IntLockSinceS_ >= kInterceptTrackSettleS &&
+                   TimeS_ - IntLastShotS_ >= InterceptShotSpacingS() && TimeS_ >= IntNextShotS_;
+      }
+      break;
+    }
+    case FBEngageState::Support: {
+      /* THE CRANK. Turn away until the target sits at the edge of what the antenna can still follow —
+       * every degree of that is separation bought without paying for it in guidance, because the uplink
+       * needs the LOCK and not the nose. The side is fixed once per shot: a crank that re-picks its
+       * direction every tick is a jet flying an S while a round it launched goes unsupported. */
+      if (!IntHaveCrankSign_) { IntCrankSign_ = tgtAzDeg >= 0.0 ? 1.0 : -1.0; IntHaveCrankSign_ = true; }
+      if (haveTgt) {
+        double wantAz = IntCrankSign_ * InterceptCrankAtaDeg();
+        aimHdgDeg = st.yaw + FBWrap180(tgtAzDeg - wantAz);
+        c.TargetAltM = tgtAltM;
+        wantElDeg = tgtElDeg;
+      } else {
+        /* Nothing to hold the crank angle against any more: keep the heading the crank had reached
+         * rather than snapping back to a briefed vector that points at where the fight was. */
+        aimHdgDeg = st.yaw;
+        c.TargetAltM = st.elev;
+      }
+      break;
+    }
+    case FBEngageState::Defend: {
+      /* THE BEAM. Put the emitter on the 3/9 line: that is where own velocity has no component along
+       * his line of sight, which is precisely the clutter filter a pulse-Doppler set rejects, and it is
+       * the only geometry in which chaff is worth anything at all (systems/FBRadarSystem's notch). The
+       * shorter of the two ways round, because the turn itself is time spent in his radar's best case. */
+      double left = FBWrap180(threatBrgDeg + InterceptBeamOffsetDeg());
+      double right = FBWrap180(threatBrgDeg - InterceptBeamOffsetDeg());
+      double turn = std::fabs(right) <= std::fabs(left) ? right : left;
+      aimHdgDeg = st.yaw + turn;
+      wantChaff = TimeS_ - IntLastChaffS_ >= InterceptChaffIntervalS();
+      break;
+    }
+    case FBEngageState::Abort: {
+      /* Cold, and stay cold: 180 degrees off the last thing that was pointed at this aircraft. */
+      double fromDeg = threatTrack ? st.yaw + threatBrgDeg : (haveTgt ? tgtBrgDeg : IntBriefHdgDeg_);
+      aimHdgDeg = fromDeg + 180.0;
+      break;
+    }
+  }
+
+  AimAlongHeading(st, aimHdgDeg, c.TargetLatDeg, c.TargetLonDeg);
+
+  /* ---- 7. the hands ---- */
+  bool acted = InterceptCockpit(state, avionics, designate, wantShot, wantChaff, wantElDeg);
+  if (acted && (wantChaff || EngState_ == FBEngageState::Defend))
+    Eng_.NoteDefensiveAction(TimeS_, IntDefendCueS_ >= 0.0 ? IntDefendCueS_ : IntThreatLastS_);
+
+  Eng_.NoteSupport(locked, TimeS_, dt);
+  double esFt = (st.elev + st.speed * st.speed / (2.0 * kBfmG0)) * kMToFt;
+  Eng_.Report(EngState_, haveTgt, locked, tgtRangeM, tgtAzDeg, aspectDeg, tgtClosMs, esFt, dt);
+  return c;
+}
+
 FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
                              const FBAirframeControls &airframe, const fb_fdm_state &st,
                              const FBFlightPlan &plan, const FBRunway *runway, double dt) {
@@ -524,6 +877,9 @@ FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
 
     case Phase::Bfm:
       return BfmCommands(state, st, dt);
+
+    case Phase::Intercept:
+      return InterceptCommands(state, avionics, st, plan, dt);
 
     case Phase::Shutdown:
     default:

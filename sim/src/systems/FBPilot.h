@@ -34,6 +34,32 @@
  * can actually buy (BfmCornerSpeedKt & co. below). See Run()'s BFM section for the full derivation. It
  * is entered by mission declaration, not by sequencing, and it never leaves by itself.
  *
+ * Phase INTERCEPT (the beyond-visual-range engagement): BFM's opposite in every respect that matters.
+ * BFM is flown with the nose and the lock never leaves the target; an intercept is flown with the
+ * SENSOR and the whole art is deciding when to point it, when to shoot, how long to keep supporting the
+ * shot and when to stop. It is therefore a small state machine of its own (systems/FBEngagement's
+ * FBEngageState, which also records what it did):
+ *   SEARCH   fly the briefed vector, radar in a SEARCH mode, antenna elevation pointed at the altitude
+ *            band the target is expected in, and DO NOT LOCK. A lock is a personal warning to the
+ *            aircraft it is pointed at (systems/FBRwrSystem), so it is spent as late as possible.
+ *   CLOSING  a contact is on the scope: close on it, still without locking, still searching.
+ *   ATTACK   inside the briefed lock range: designate (TMS forward), read the launch zone the fire
+ *            control publishes, and pull the trigger when the geometry is right — inside Rtr (the range
+ *            from which the round arrives even if he turns and runs) rather than at Raero, which is a
+ *            shot he can outrun, and with the target inside the seeker's own acquisition cone.
+ *   SUPPORT  a round is in the air. Hold the lock — an AIM-120 flies its midcourse on the launcher's
+ *            uplink — but CRANK: turn away until the target sits at the edge of what the antenna can
+ *            still follow. That buys separation for free, because the lock is what costs, not the nose.
+ *            When the fire control's own countdown says the seeker has taken over, the shot no longer
+ *            needs him.
+ *   DEFEND   somebody has a firing solution on this aircraft. Turn ACROSS his line of sight — that is
+ *            what puts own radial velocity inside a pulse-Doppler set's clutter filter — and throw
+ *            chaff, which is worth nothing without exactly that manoeuvre (systems/FBRadarSystem's
+ *            notch). Both go out over the command bus, after a human's reaction time.
+ *   ABORT    nothing left to shoot with, or the fight has closed inside the range this phase is for.
+ * The phase reads the RADAR, the RWR and the FIRE-CONTROL blocks and nothing else, and it operates the
+ * jet exclusively through FBCommandBus — radar mode, antenna elevation, designation, trigger, chaff.
+ *
  * The airframe-specific NUMBERS (rotation speed by weight, rotation pitch, gear-up limit, climb speed,
  * takeoff throttle, approach speed/glidepath, flare/rollout pitch targets and speeds) are the class's
  * virtual hooks below, not hardcoded here — FBF16Pilot supplies the F-16's; the defaults here are a
@@ -50,6 +76,7 @@
 #include "FBAirframeControls.h"
 #include "FBBfmTrack.h"
 #include "FBCommandBus.h"
+#include "FBEngagement.h"
 #include "FBFlightPlan.h"
 #include "FBRunway.h"
 #include "FBState.h"
@@ -87,7 +114,8 @@ public:
   /* Bfm is a TERMINAL phase in the sense the others are not: it is entered by mission declaration
    * (`set task bfm`, the module's own key) and left only by the run ending — a fight has no waypoint to
    * sequence to. It appends after Shutdown so no existing phase's telemetry string moves. */
-  enum class Phase { Idle, Preflight, Takeoff, Climb, Route, Approach, Flare, Rollout, Shutdown, Bfm };
+  enum class Phase { Idle, Preflight, Takeoff, Climb, Route, Approach, Flare, Rollout, Shutdown, Bfm,
+                     Intercept };
   static const char *PhaseName(Phase p);
 
   FBPilot() = default;
@@ -163,6 +191,12 @@ public:
   FBBfmTrack &BfmTrack() { return Bfm_; }
   const FBBfmTrack &BfmTrack() const { return Bfm_; }
 
+  /* The intercept's state machine + its debrief (systems/FBEngagement), a THIRD telemetry source for
+   * the same reason the BFM one is a second: appending channels never moves a column that has already
+   * been measured. */
+  FBEngagement &Engagement() { return Eng_; }
+  const FBEngagement &Engagement() const { return Eng_; }
+
 protected:
   /* The airframe's own numbers (class banner) — generic placeholders here, FBF16Pilot overrides every
    * one of them from doc/f16/procedures-takeoff-taxi.md. Not the Run() override point: these are config
@@ -228,6 +262,44 @@ protected:
   virtual double BfmScanPeriodS() const { return 30.0; }
   virtual double BfmFloorFt() const { return 2000.0; }   /* AGL below which the pull is biased up */
 
+  /* ---- INTERCEPT (the Intercept phase, see the class banner) — this jet's BVR numbers ----
+   * Generic placeholders again, and again not the override point: FBF16Pilot supplies the F-16's, each
+   * of them derived from the APG-68's geometry or from the AIM-120's launch zone rather than picked.
+   *
+   * THE RADAR MODE THE SEARCH IS FLOWN IN is a module ordinal (FBRadarBlock::ModeOrdinal is documented
+   * as "the module's own mode label, not logic"), so the generic layer cannot name it — it can only ask
+   * for it. -1 = "this module has no separate non-locking search mode, leave the set alone", which is
+   * also what keeps a module that never defined one from having its radar switched to mode -1. */
+  virtual int    SearchRadarModeOrdinal() const { return -1; }
+  virtual double InterceptSpeedKt() const { return 300.0; }
+  /* WHERE THE LOCK IS SPENT. Far enough out that the single-target track has settled and the fire
+   * control has a launch zone before the shot range arrives; close enough that the warning it gives the
+   * target is not a free half-minute of preparation. */
+  virtual double InterceptLockRangeNm() const { return 20.0; }
+  /* THE SHOT. Taken at RtrFactor times Rtr — the range from which the round still arrives if the target
+   * reverses at launch — and only with the target inside ShotAtaDeg of the nose, which is what a
+   * rail-launched round can still pull onto. RtrFactor is a fraction of a number the fire control
+   * computes per shot, not a range of its own, so it stays right when the geometry changes. */
+  virtual double InterceptShotRtrFactor() const { return 1.0; }
+  virtual double InterceptShotAtaDeg() const { return 30.0; }
+  virtual double InterceptShotSpacingS() const { return 12.0; }   /* between two shots at one target */
+  /* THE CRANK: how far off the nose the target is allowed to sit while the shot is being supported.
+   * It IS the antenna's gimbal limit minus the margin a manoeuvring target needs — turn further and the
+   * track breaks, which is the one thing the support phase must not do. */
+  virtual double InterceptCrankAtaDeg() const { return 45.0; }
+  /* Below this the engagement is no longer beyond visual range: an intercept has failed to do its job
+   * and pressing on is a merge, not a shot. */
+  virtual double InterceptAbortRangeNm() const { return 5.0; }
+  /* THE DEFENCE: how far across the threat's line of sight to turn (90 deg = pure beam, where own
+   * radial velocity is zero and a pulse-Doppler set cannot tell the aircraft from a chaff cloud) and how
+   * often to keep throwing while it lasts. */
+  virtual double InterceptBeamOffsetDeg() const { return 90.0; }
+  virtual double InterceptChaffIntervalS() const { return 3.0; }
+  /* How long a defensive reaction is held after the last warning: a beam manoeuvre abandoned the instant
+   * the symbol drops is one that never got out of the notch, and the receiver goes quiet exactly BECAUSE
+   * the manoeuvre worked. */
+  virtual double InterceptDefendHoldS() const { return 12.0; }
+
 private:
   /* One decision tick of cockpit work: posts the next briefed item that still needs entering. A
    * bus-level rejection (channel busy, or the manoeuvre gate — the pilot is flying, not typing) leaves
@@ -243,6 +315,16 @@ private:
   /* The Bfm phase's body — one decision tick of the fight (see Run()'s BFM section). Separate because
    * it is the only phase with an inner control law of its own rather than a target for the autopilot. */
   FBPilotCommands BfmCommands(const FBState &state, const fb_fdm_state &st, double dt);
+  /* The Intercept phase's body (class banner). Separate for the same reason BfmCommands is: it is the
+   * only other phase that decides for itself what the aircraft is doing, and the only one that operates
+   * avionics as part of flying rather than as briefed cockpit work. */
+  FBPilotCommands InterceptCommands(const FBState &state, FBCommandBus &avionics,
+                                    const fb_fdm_state &st, const FBFlightPlan &plan, double dt);
+  /* ONE cockpit action per decision tick, in priority order, at a human's working rate (see
+   * kInterceptActionS): the defensive ones first, because the jet being shot at is not editing a radar
+   * mode. Returns true if something was posted. */
+  bool InterceptCockpit(const FBState &state, FBCommandBus &avionics, int designateTrack, bool wantShot,
+                        bool wantChaff, double wantElDeg);
   void Transition(Phase p) { CurPhase = p; PhaseElapsedS = 0.0; }
 
   /* Runway-relative along/across-track (m), the SAME axis convention FBMissionMonitor::OnRunway and
@@ -258,6 +340,28 @@ private:
   double DistToWpCache = -1.0;
 
   FBBfmTrack Bfm_;                /* the fight's picture + scoreboard; inert outside the Bfm phase */
+  FBEngagement Eng_;              /* the intercept's state + debrief; inert outside the Intercept phase */
+
+  /* ---- the Intercept phase's own memory (systems/FBEngagement holds the record; this is the state the
+   * decisions are taken from) ---- */
+  FBEngageState EngState_ = FBEngageState::Idle;
+  int    IntTrack_ = 0;             /* the contact number being worked, 0 = none */
+  double IntBriefAltM_ = 0.0;       /* the altitude band the search covers; the brief's, else own */
+  double IntBriefHdgDeg_ = 0.0;     /* the vector flown while nothing is on the scope */
+  bool   IntAnchored_ = false;
+  double IntLastActionS_ = -1e9;    /* one cockpit action at a time (kInterceptActionS) */
+  double IntLastShotS_ = -1e9;
+  double IntNextShotS_ = -1e9;      /* not before the round already in the air has had its chance */
+  double IntLastChaffS_ = -1e9;
+  double IntLockSinceS_ = -1.0;     /* when the current single-target track started (see the settle) */
+  double IntCmdElDeg_ = 0.0;        /* the antenna elevation this pilot has asked for */
+  bool   IntCmdMode_ = false;       /* the search mode has been selected once */
+  int    IntSeenReleases_ = 0;      /* the stores block's own release count, to notice a shot leaving */
+  int    IntSeenChaff_ = 0;
+  double IntThreatLastS_ = -1e9;    /* last tick a warning demanded an answer (the defence's hold) */
+  double IntDefendCueS_ = -1.0;     /* when it started demanding one — the reaction time's zero */
+  double IntCrankSign_ = 1.0;       /* which way the crank turn goes, decided once per support entry */
+  bool   IntHaveCrankSign_ = false;
   double TimeS_ = 0.0;            /* the pilot's own clock — the tracker stamps looks in absolute time */
   double BfmGIterm_ = 0.0;        /* the g loop's integrator (see BfmCommands) */
   double BfmSearchHdgDeg_ = 0.0;  /* the cold search's anchored heading + altitude (see BfmCommands) */

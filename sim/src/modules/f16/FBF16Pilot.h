@@ -94,6 +94,42 @@ protected:
   double BfmScanAmplitudeDeg() const override { return 8.0; }    /* a gentle S inside the ACM box's own width */
   double BfmScanPeriodS() const override { return 30.0; }        /* ~1.7 deg/s of weave: a scan, not a turn */
   double BfmFloorFt() const override { return 2000.0; }
+
+  /* INTERCEPT (systems/FBPilot's Intercept phase). Every number below comes out of THIS jet's two boxes
+   * — the APG-68's geometry and the AIM-120's launch zone — rather than being chosen:
+   *   SearchRadarModeOrdinal = CRM, the set's own power-up mode and the only F-16 mode that searches a
+   *     large volume and does NOT auto-lock (modules/f16/FBF16Fcr's table). Its ordinal, not its name,
+   *     because the generic layer is not allowed to know either.
+   *   InterceptSpeedKt 550: knots TRUE, the unit FBAutopilot's speed loop regulates in
+   *     (FBFlightControl differences it against fb_fdm_state::speed) — at the 8,000 m an intercept is
+   *     flown at that is ~375 KCAS, i.e. this jet's measured 380 kt corner speed. Two things at once:
+   *     the launch speed the round inherits, which is what Raero's integration starts from
+   *     (modules/f16/FBF16FireControl::SolveLaunchZone), and a jet that is already at its best turn
+   *     rate when the engagement stops being beyond visual range.
+   *   InterceptLockRangeNm 16: outside every Rtr this weapon produces head-on (~11 nm at 8,000 m,
+   *     measured — missions/intercept-aim120.fbm's launch record) and inside the APG-68's own 40 nm
+   *     search gate, so the single-target track has settled and the fire control has published a launch
+   *     zone before the shot range arrives, while the warning it hands the target is seconds rather
+   *     than a minute.
+   *   InterceptCrankAtaDeg 45: the STT gimbal envelope is +/-60 deg (FBF16Fcr::kGimbalAzDeg), and 15
+   *     degrees of it is what a manoeuvring target needs before the track breaks. Cranking to the very
+   *     limit is how a shot goes unsupported.
+   *   InterceptShotAtaDeg 30: an AIM-120 leaves the rail pointed where the jet is pointed and has to
+   *     pull onto the target; a boresight-launched round given more than about thirty degrees to make
+   *     up spends its motor doing it.
+   *   InterceptAbortRangeNm 5: inside this a BVR weapon's Rmin and the merge are the same problem, and
+   *     doc/f16/ calls the fight from there a dogfight, not an intercept. */
+  int    SearchRadarModeOrdinal() const override { return 1; }   /* FBF16FcrMode::Crm */
+  double InterceptSpeedKt() const override { return 550.0; }
+  double InterceptLockRangeNm() const override { return 16.0; }
+  double InterceptShotRtrFactor() const override { return 1.0; }
+  double InterceptShotAtaDeg() const override { return 30.0; }
+  double InterceptShotSpacingS() const override { return 12.0; }
+  double InterceptCrankAtaDeg() const override { return 45.0; }
+  double InterceptAbortRangeNm() const override { return 5.0; }
+  double InterceptBeamOffsetDeg() const override { return 90.0; }
+  double InterceptChaffIntervalS() const override { return 3.0; }
+  double InterceptDefendHoldS() const override { return 12.0; }
 };
 
 } // namespace FlightBox

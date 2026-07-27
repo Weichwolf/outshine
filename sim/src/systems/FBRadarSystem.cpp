@@ -235,6 +235,9 @@ void FBRadarSystem::UpdateLock(double simTimeS, bool autoAcquire) {
     FBLog::Info("radar", "RADAR_LOST", {{"track", LockedNum_},
         {"reason", autoAcquire ? "track dropped" : "mode change"}});
     LockedNum_ = 0;
+    /* A lock the PILOT designated does not re-acquire by itself (see Designate): losing it means the
+     * set falls back to searching, and taking a new one is another decision with the same price. */
+    if (Designated_) { Designated_ = false; return; }
   }
   if (!autoAcquire) return;
 
@@ -253,6 +256,38 @@ void FBRadarSystem::UpdateLock(double simTimeS, bool autoAcquire) {
       {"t", simTimeS}});
 }
 
+/* The pilot's designation (see the header). Deliberately a separate event from the ACM auto-acquisition's
+ * RADAR_LOCK: the two look identical on the scope and are opposite decisions in the debrief — one was
+ * taken, the other happened. */
+bool FBRadarSystem::Designate(int trackNum, double simTimeS) {
+  /* THE ANTENNA MOVES WITH THE DESIGNATION, and the frame grid has to move with it. Locking replaces
+   * the pattern (a 4-second search sweep becomes a 0.1-second stare, modules/f16/FBF16Fcr), but the
+   * grid still holds the search pattern's next-sweep time — so without this the first single-target
+   * look would arrive up to a whole search frame later and the track would stand on the stale echo the
+   * designation was taken from. Measured: four seconds of a frozen lock, during which the fused target
+   * VELOCITY stayed at zero and a shot taken there was programmed with a stationary target. */
+  NextScanS_ = simTimeS;
+  if (trackNum == 0) {
+    if (LockedNum_ == 0) return false;
+    FBLog::Info("radar", "RADAR_BREAK", {{"track", LockedNum_}, {"t", simTimeS}});
+    LockedNum_ = 0;
+    Designated_ = false;
+    return true;
+  }
+  for (int i = 0; i < TrackCount_; i++) {
+    const Track &t = Tracks_[i];
+    if (!t.Firm || t.TrackNum != trackNum) continue;
+    LockedNum_ = trackNum;
+    Designated_ = true;
+    FBLog::Info("radar", "RADAR_DESIGNATE", {{"track", trackNum}, {"rangeNm", t.RangeM * kMToNm},
+        {"azDeg", t.AzDeg}, {"elDeg", t.ElDeg}, {"closureKt", t.ClosureMs * kMsToKt},
+        {"iff", t.Iff == FBIffReply::Friendly ? "friendly"
+                : t.Iff == FBIffReply::NoReply ? "unknown" : "not-interrogated"}, {"t", simTimeS}});
+    return true;
+  }
+  return false;
+}
+
 void FBRadarSystem::DropAllTracks(const char *reason, double simTimeS) {
   if (LockedNum_ != 0)
     FBLog::Info("radar", "RADAR_LOST", {{"track", LockedNum_}, {"reason", reason}});
@@ -262,6 +297,7 @@ void FBRadarSystem::DropAllTracks(const char *reason, double simTimeS) {
           {"t", simTimeS}});
   TrackCount_ = 0;
   LockedNum_ = 0;
+  Designated_ = false;
 }
 
 void FBRadarSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegistry *net,

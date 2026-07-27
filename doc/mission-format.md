@@ -77,7 +77,7 @@ unit two
 | Akteur  | `module`  | Rest der Zeile | Modulname, per `FBModuleRegistry` aufgelöst (heute nur `f16` registriert) — bestimmt sowohl das `FBModule` als auch den JSBSim-Aircraft-Ordnernamen (`vendor/jsbsim/aircraft/<module>`). Pflicht je Block. |
 | Akteur  | `team`    | `friendly`\|`hostile`\|`neutral` | Fraktion (`FBUnitTeam`, `core/FBTeam.h`) — landet in der `FBWorld`-Unit-Registry, die Sensoren/Waffen künftig lesen. Optional, Default `friendly`. |
 | Akteur  | `spawn`   | `<lat lon \| threshold>` `<altM \| ground>` `hdgDeg` `speedKt` | Pflicht, genau einmal je Block: die deklarative IC dieser Einheit — Position, Höhe-ODER-Boden, Kurs, Speed. `threshold` übernimmt lat/lon der missionsweiten `runway`-Zeile (reine Schreib-Convenience, keine zweite Positions-Syntax). `ground` löst die Höhe aus Gelände + Fahrwerksgeometrie auf; ein numerischer Wert ist eine LITERALE ASL-Höhe (ein Luftstart). Beide Fälle durchlaufen dieselbe eine JSBSim-IC-Anwendung. |
-| Akteur  | `set`     | `key value...` | Systemzustand als Missionsdaten — der Runner parst nur die KV-Liste und reicht sie im Spawn-IC-Fenster an `FBModule::ApplySetup(key, value)` DIESER Einheit; das MODUL interpretiert seine eigenen Schlüssel. Ein unbekannter Schlüssel ist ein Laufzeit-FAIL (Exit 1, `SET_REJECTED`-Event), kein Parse-Fehler. F-16 kennt heute: `gear` (`up`/`down`), `fuel_lbs` (absolute Tankmenge, lb), `fuel_pct` (0..100, Anteil der modelleigenen Gesamtkapazität), die vier Schalter des MIDS-Terminals — `datalink` (`on`/`off`, Geräte-Strom), `datalink_xmt` (`on`/`off`, XMT/EMCON), `datalink_filter` (`fr`/`fl`/`off`, HSD-Kontaktfilter), `datalink_range_nm` (Terminal-Reichweite, nm) — sowie FCR/IFF: `fcr_mode` (`off`/`crm`/`acm_hud`/`acm_bore`/`acm_vert`/`acm_slew`), `fcr_range_nm` (überschreibt die Reichweite JEDES Modus), `fcr_slew_az`/`fcr_slew_el` (Cursor der Slewable-Box, Grad), `iff_xpdr` (`on`/`off`, eigener Transponder), `iff_interrogator` (`on`/`off`, eigener Abfrager); die Defensivanlage — `rwr` (`on`/`off`, Strom des Warnempfängers), `rwr_display` (`priority`/`open`, TWP-MODE-Anzeigedeckel), `rwr_search` (`on`/`off`, SEARCH-Filter), `cmds_mode` (`off`/`stby`/`man`/`semi`/`auto`/`byp`), `cmds_program` (1..6, PRGM-Knopf), `cmds_chaff`/`cmds_flare` (Vorrat je Typ, zusammen ≤ 120); dazu `task` (`route`/`bfm`) — die FBPilot-Phase, in der diese Einheit startet (Default = das, was der Spawn vorgibt: `route` in der Luft, `preflight` am Boden); sowie die Zuladung `store <station> <typ>` (eine Zeile je Pylon, F-16-Stationen 1..9, Typ aus dem Katalog `core/FBStore.h` — heute `mk82`) und `brief_release_s <t>` (wiederholbar: wann der Pilot pickelt, Sim-Sekunden) sowie `brief_chaff_s <t>` (wiederholbar: wann er Täuschkörper wirft). |
+| Akteur  | `set`     | `key value...` | Systemzustand als Missionsdaten — der Runner parst nur die KV-Liste und reicht sie im Spawn-IC-Fenster an `FBModule::ApplySetup(key, value)` DIESER Einheit; das MODUL interpretiert seine eigenen Schlüssel. Ein unbekannter Schlüssel ist ein Laufzeit-FAIL (Exit 1, `SET_REJECTED`-Event), kein Parse-Fehler. F-16 kennt heute: `gear` (`up`/`down`), `fuel_lbs` (absolute Tankmenge, lb), `fuel_pct` (0..100, Anteil der modelleigenen Gesamtkapazität), die vier Schalter des MIDS-Terminals — `datalink` (`on`/`off`, Geräte-Strom), `datalink_xmt` (`on`/`off`, XMT/EMCON), `datalink_filter` (`fr`/`fl`/`off`, HSD-Kontaktfilter), `datalink_range_nm` (Terminal-Reichweite, nm) — sowie FCR/IFF: `fcr_mode` (`off`/`crm`/`acm_hud`/`acm_bore`/`acm_vert`/`acm_slew`), `fcr_range_nm` (überschreibt die Reichweite JEDES Modus), `fcr_slew_az`/`fcr_slew_el` (Cursor der Slewable-Box, Grad), `iff_xpdr` (`on`/`off`, eigener Transponder), `iff_interrogator` (`on`/`off`, eigener Abfrager); die Defensivanlage — `rwr` (`on`/`off`, Strom des Warnempfängers), `rwr_display` (`priority`/`open`, TWP-MODE-Anzeigedeckel), `rwr_search` (`on`/`off`, SEARCH-Filter), `cmds_mode` (`off`/`stby`/`man`/`semi`/`auto`/`byp`), `cmds_program` (1..6, PRGM-Knopf), `cmds_chaff`/`cmds_flare` (Vorrat je Typ, zusammen ≤ 120); dazu `task` (`route`/`bfm`/`intercept`) — die FBPilot-Phase, in der diese Einheit startet (Default = das, was der Spawn vorgibt: `route` in der Luft, `preflight` am Boden); sowie die Zuladung `store <station> <typ>` (eine Zeile je Pylon, F-16-Stationen 1..9, Typ aus dem Katalog `core/FBStore.h` — heute `mk82`) und `brief_release_s <t>` (wiederholbar: wann der Pilot pickelt, Sim-Sekunden) sowie `brief_chaff_s <t>` (wiederholbar: wann er Täuschkörper wirft). |
 | Akteur  | `wp`      | lat lon altM speedKt | `FBWaypoint` vom Typ `Enroute`, im Flugplan DIESER Einheit |
 | Akteur  | `land`    | — | `FBWaypoint` vom Typ `Land` AN der Runway-Schwelle (braucht die missionsweite `runway`-Zeile) |
 
@@ -219,6 +219,19 @@ das Radar bekommt ein Echo — die Regeln, die eine Mission kennen muss:
 - **ACM lockt selbst.** Jeder ACM-Sub-Modus lockt den NÄCHSTEN festen Track ohne Bedienung — das ist der
   Zweck der Modi. Der Lock ist STT: die Antenne verlässt die kleine Box, folgt dem Ziel bis an die
   Gimbal-Grenze (±60°) und sieht dabei NUR noch dieses eine Ziel (alle anderen Trackfiles laufen aus).
+- **CRM lockt NIE von selbst — der Pilot designiert.** Der Kommandobus trägt dafür `Designate` (TMS
+  vorwärts): Wert = die veröffentlichte Track-NUMMER des Kontakts (also genau das anonyme Handle, das
+  der Pilot vom Bus liest), Wert 0 = Lock lösen (TMS rückwärts). Eine Nummer ohne festen Track wird als
+  `out_of_context` abgelehnt — der Rückstrahler war weg, bis die Hand fertig war. Ein DESIGNIERTER Lock,
+  der verlorengeht, fällt zurück in die Suche und greift sich NICHT den nächsten Kontakt; das
+  Auto-Reacquire gehört den ACM-Modi, die es verlangt haben. Events: `radar RADAR_DESIGNATE` bzw.
+  `radar RADAR_BREAK` (getrennt von `RADAR_LOCK`, weil das eine eine Entscheidung ist und das andere
+  ein Automatismus).
+- **`fcr_slew_el` ist die Antennenhöhen-Bedienung, nicht nur der ACM-Cursor.** Auch CRMs
+  Elevations-MITTE folgt ihr (±10,5° um die eingestellte Höhe): ein mechanisch abtastendes Radar deckt
+  bei BVR-Entfernung nur ein paar tausend Fuß ab, und die Antenne auf das falsche Höhenband zu stellen
+  ist die klassische Art, an einem Ziel vorbeizufliegen, das das Radar problemlos hätte sehen können.
+  Default 0 → unverändertes Verhalten für jede Mission, die den Schlüssel nicht setzt.
 - **Ein Kontakt ist ANONYM.** `FBRadarContact` (core/) trägt Range/Bearing/Elevationswinkel/Az/El/
   Closure/Track-Nummer — keine Id, kein Callsign, kein Team. Das ist die Fidelity-Grenze und zugleich der
   Anti-Cheat-Punkt. (Bearing + Elevationswinkel sind WELT-bezogen und stehen neben dem körperfesten
@@ -585,6 +598,55 @@ Energiehöhe = Höhe + v²/2g, ft — die einzige Energiezahl, die aus EIGENEN I
 damit aus der LETZTEN Zeile ablesbar. Jede dieser Größen ist aus der Perspektive der Einheit selbst
 berechenbar; alles, was die Weltwahrheit braucht (z.B. der WAHRE Aspektwinkel), gehört in die
 Auswertung, nicht in den Piloten.
+
+## Abfang-Missionen (`set task intercept`)
+
+Eine Einheit mit `set task intercept` fliegt einen **Abfang jenseits der Sichtweite** (`systems/FBPilot`s
+Intercept-Phase). Der Gegenpol zu `bfm`: BFM wird mit der NASE geflogen und der Lock geht nie weg — ein
+Abfang wird mit dem SENSOR geflogen, und die ganze Kunst ist, wann man ihn worauf richtet. Die Phase ist
+eine eigene kleine Zustandsmaschine (`systems/FBEngagement`, Spalte `eng_state`):
+
+| Zustand | Was der Pilot tut |
+|---|---|
+| `search` | Den gebrieften Vektor fliegen (der aktive Wegpunkt IST der Vektor: Peilung, Entfernung, Flughöhe), im SUCHMODUS, Antennenhöhe auf das eigene Höhenband gestellt — und **NICHT locken**: ein Lock ist eine Warnung an den Gegner. |
+| `closing` | Ein Kontakt steht auf dem Schirm: Verfolgungskurs, co-altitude mit dem Kontakt, Antenne auf dem Rückstrahler zentriert — immer noch ohne Lock. |
+| `attack` | Innerhalb der gebrieften Lock-Entfernung: designieren (TMS vorwärts über den Kommandobus), den Startbereich aus dem FireControl-Block lesen, und schießen, sobald `range <= Rtr` UND das Ziel innerhalb des Suchkopf-Erfassungskegels liegt. |
+| `support` | Eine Rakete fliegt: Lock HALTEN (der Uplink führt sie) und dabei **abdrehen bis an den Rand des Antennenkegels** (Crank). Gehalten bis zur vom FCC vorhergesagten Flugzeit — der Suchkopf übernimmt zwar früher, aber bis zum Einschlag gibt es keinen Grund, dem Ziel entgegenzufliegen. |
+| `defend` | Jemand hat eine Lösung auf diesem Flugzeug: **quer zur Bedrohungspeilung drehen** (90°, dort ist die eigene Radialgeschwindigkeit null und ein Puls-Doppler-Sucher kann Flugzeug und Düppelwolke nicht trennen) und Täuschkörper werfen. Beides über den Kommandobus, nach einer menschlichen Reaktionszeit. |
+| `abort` | Nichts mehr zum Schießen, oder der Kampf ist unter die Abfang-Entfernung gefallen: kalt abdrehen. |
+
+**Wann eine Bedrohungswarnung eine Antwort verlangt** ist die Kernregel: ein Suchkopf auf dem eigenen
+Flugzeug (RWR-Modus `missile`) immer; ein bloß VERFOLGENDES Radar (`track`) erst, wenn der eigene Angriff
+nichts mehr zu gewinnen hat — der Schuss ist weg und braucht keine Führung mehr, oder es gab nie einen
+zu schießen. Sonst verliert man das Gefecht, indem man vor dem eigenen Schuss abdreht.
+
+Die Zahlen sind Modul-Sache (`modules/f16/FBF16Pilot`): Lock ab 16 nm, Schuss bei Rtr, Crank auf 45°
+(APG-68-Kardanwinkel 60° minus Reserve), Abbruch unter 5 nm, Suchmodus = CRM. Generisch (Piloten-, nicht
+Flugzeug-Eigenschaft) bleiben die 1,0 s Reaktionszeit und die 0,5 s zwischen zwei Bedienhandlungen —
+beide ZUSÄTZLICH zur Bus-Latenz der jeweiligen Bedienklasse.
+
+Wie BFM-Missionen enden Abfang-Missionen per **TIMEOUT (Exit 3)**, und aus demselben Grund: ein Gefecht
+hat kein Wegpunkt-Ziel. Das Urteil steht in der LETZTEN ZEILE der `eng_*`-Spalten (Quelle
+`systems/FBEngagement`, ganz hinten angehängt — bestehende Spalten verschieben sich nie):
+
+| Spalte | Bedeutung |
+|---|---|
+| `eng_state` | s.o. |
+| `eng_tgt_nm` / `eng_ata` / `eng_aspect` / `eng_clos` / `eng_locked` | die aktuelle Geometrie des bearbeiteten Kontakts (−1 = keiner) |
+| `eng_detect_s` / `eng_lock_s` | **Zeit bis zur Erfassung**: erster fester Kontakt, erster Lock |
+| `eng_shot_s` / `eng_shot_nm` / `eng_shot_ata` / `eng_shot_aspect` | **Schussentfernung und -geometrie** |
+| `eng_shot_rtr_nm` / `eng_shot_raero_nm` / `eng_shot_rmin_nm` | der Startbereich IM MOMENT des Schusses — ein Schuss ist nur so gut wie die Geometrie, in der er fiel |
+| `eng_tta_s` / `eng_tti_s` | die beiden Vorhersagen des Feuerleitrechners (bis Eigenlenkung, bis Einschlag) — gegen die die geflogene Flugzeit gemessen wird |
+| `eng_support_s` / `eng_support_f` / `eng_pitbull` | **wurde die Führung bis zur Eigenlenkung gehalten** — Sekunden mit Lock im Führungsfenster, als Anteil davon, und das Urteil am Fensterende |
+| `eng_threat_s` / `eng_react_s` | **Reaktionszeit auf die Bedrohungswarnung** (gemessen ab dem Moment, in dem die Warnung eine Antwort VERLANGTE, nicht ab dem ersten Symbol) |
+| `eng_defend_s` / `eng_chaff` / `eng_shots` | Sekunden in der Verteidigung, tatsächlich ausgestoßene Düppel-PATRONEN (die Zählung der CMDS-Anlage, nicht die der Schalterwürfe), abgefeuerte Schüsse |
+| `eng_es` / `eng_es_min` | **Energiezustand über den Ablauf**: Energiehöhe jetzt und ihr Minimum seit Beginn des Gefechts |
+
+Beispiele: `sim/missions/bvr-intercept.fbm` (einseitig: nicht schießendes Ziel, ganze Kette Suche →
+Erfassung → Schuss → Führung → Treffer), `bvr-duel.fbm` (**beidseitig**: zwei KI-Jets, beide bewaffnet,
+beide mit RWR und Gegenmaßnahmen), `bvr-defend.fbm` + `bvr-defend-blind.fbm` (das Verteidigungs-Paar:
+identischer Schuss, EINE Zeile Unterschied — `set rwr on|off` — also reagierende gegen nicht reagierende
+KI).
 
 ## Ausgabe je Lauf (`--out DIR`)
 

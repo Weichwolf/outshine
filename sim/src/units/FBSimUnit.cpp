@@ -147,6 +147,10 @@ void FBSimUnit::StartTelemetry(FBTelemetrySink *sink) {
    * rather than moving every column to the right of that list (see FBStateBusTelemetry's banner). */
   Bus_.Register(&Module_->Rwr());
   Bus_.Register(&Module_->Countermeasures());
+  /* And LAST once more, same rule: the intercept's state machine and its debrief (systems/
+   * FBEngagement) — the pilot's THIRD source, appended so that every column measured before it stays
+   * exactly where it was. */
+  Bus_.Register(&Module_->PilotSystem().Engagement());
   Bus_.SetSink(sink);
   Bus_.Start();
 }

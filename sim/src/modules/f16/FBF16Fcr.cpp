@@ -32,8 +32,16 @@ void FBF16Fcr::RebuildVolumes() {
   off.FrameS = 1.0;   /* never swept; a nonzero frame keeps the base class's scan grid well-defined */
   Modes_[(int)FBF16FcrMode::Off] = off;
 
+  /* CRM's elevation CENTRE is the antenna-elevation control, not a fixed zero: a mechanically-scanned
+   * set's 4-bar pattern covers +/-10.5 deg about wherever the pilot has pointed it, and at BVR range
+   * that window is a few thousand feet of altitude — pointing it at the wrong band is the classic way to
+   * fly straight past a target the radar was perfectly capable of seeing. The same SlewEl_ the slewable
+   * ACM box uses carries it, because it is the same control; azimuth stays nose-centred, since the +/-60
+   * deg pattern already spans everything the jet can turn to inside a search cycle. Zero by default, so
+   * a mission that never touches it gets exactly the pattern it always got. */
   FBRadarScanVolume crm;
-  crm.AzHalfDeg = 60.0; crm.ElHalfDeg = 10.5; crm.RangeM = search; crm.FrameS = 4.0;
+  crm.AzHalfDeg = 60.0; crm.ElCenterDeg = SlewElDeg_; crm.ElHalfDeg = 10.5;
+  crm.RangeM = search; crm.FrameS = 4.0;
   Modes_[(int)FBF16FcrMode::Crm] = crm;
 
   FBRadarScanVolume hud;

@@ -1,0 +1,65 @@
+name bvr-defend-1
+timeout 200
+
+# DOES THE DEFENCE ACTUALLY DO ANYTHING? Two missions, ONE line of difference, so the answer is a
+# number and not an impression:
+#
+#     bvr-defend.fbm        the defender's warning receiver is POWERED    -> it reacts
+#     bvr-defend-blind.fbm  ... the same jet with `set rwr off`           -> it cannot
+#
+# That single line is the whole experiment, and it is the right one because it removes the CAUSE rather
+# than the effect: a pilot who hears nothing neither turns nor throws, which is exactly the compounding
+# vulnerability doc/f16/defence-rwr-cm.md describes ("the RWR is a geometry-gated emission detector, not
+# a ground-truth threat oracle" — no warning, no answer). Everything else is identical, down to the
+# shot: the shooter is a SCRIPTED jet with a briefed release at a fixed second, so the round leaves the
+# rail from the same place at the same time with the same solution in both runs.
+#
+# THE SHOOTER (viper) is deliberately NOT an intercept pilot: this mission measures the DEFENDER, and a
+# thinking shooter would react to the defender's manoeuvre and change the shot. It flies straight east
+# with the auto-locking ACM box opened to 40 nm and pickles at t=10 s, ~20 km out.
+#
+# THE DEFENDER (bandit) is `set task intercept` with NO weapons and its RADAR OFF. Without a radar it
+# has no contact, so its intercept state machine sits in SEARCH flying the briefed vector — a straight
+# westbound leg into the shooter — until its warning receiver reports a set TRACKING it. With nothing to
+# shoot back with, that lock spike is already reason enough to leave (systems/FBPilot: a track spike is
+# worth turning for the moment this jet's own attack has nothing left to gain, and an unarmed jet's
+# attack never had anything), so the reaction comes several seconds BEFORE the round is even launched —
+# which is the whole point of having a receiver.
+# What it then does is turn ACROSS the threat bearing (the Defend state: 90 degrees off, where own
+# radial velocity is zero and a pulse-Doppler seeker cannot separate the aircraft from a chaff cloud —
+# systems/FBRadarSystem::kDopplerNotchMs) and work the CMS switch. Both go out over the command bus at
+# HOTAS latency, a full second of human reaction time after the warning.
+#
+# WHAT TO COMPARE between the two runs: the "DETONATION missM" (or the "MISS closestM" when there is no
+# detonation at all) in events.log, and eng_react_s / eng_chaff / eng_defend_s in the defender's
+# telemetry. The reacting run's number is the miss distance the defence bought.
+
+unit viper
+  team friendly
+  module f16
+  spawn 46.90000 6.90000 8000 90.0 400
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode acm_hud
+  set fcr_range_nm 40
+  set store 3 aim120
+  set brief_master_arm arm
+  set brief_release_s 10                   # ~20 km, inside the launch zone: the identical shot
+  wp 46.90000 7.15000 8000 400
+
+unit bandit
+  team hostile
+  module f16
+  spawn 46.90000 7.20000 8000 270.0 400
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode off                         # no radar: the ONLY thing it knows comes from the receiver
+  set rwr on                               # <<< THE ONE LINE that differs from bvr-defend-blind.fbm
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set task intercept
+  wp 46.90000 6.60000 8000 400             # the briefed vector it flies until the warning comes

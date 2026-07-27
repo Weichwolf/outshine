@@ -299,10 +299,19 @@ void FBF16Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &out
       if (!FBF16Ufc::SteerNumInRange((int)c.Value)) { outcome = FBCommandOutcome::Rejected; reason = FBCommandReason::OutOfRange; return; }
       UfcSys->SetSteerpointNumber((int)c.Value);
       return;
-    /* §6.6, the honest answer: the F-16 has both, FlightBox has neither yet. A silent success would be
-     * a lie the pilot would then fly on. */
-    case FBCommandTarget::WeaponSelect:
+    /* TMS forward/aft on a contact the pilot picked off the scope (systems/FBRadarSystem::Designate).
+     * The VALUE is the contact's own published track number — 0 breaks the lock. A number that names no
+     * firm track is the valid-command-wrong-context case: the return the pilot designated is gone by the
+     * time the hand finished moving, which is a real cockpit outcome and not a range error. */
     case FBCommandTarget::Designate:
+      if (!Fcr_->Designate((int)c.Value, SimTimeS)) {
+        outcome = FBCommandOutcome::Rejected;
+        reason = FBCommandReason::OutOfContext;
+      }
+      return;
+    /* §6.6, the honest answer: the F-16 has it, FlightBox has not. A silent success would be a lie the
+     * pilot would then fly on. */
+    case FBCommandTarget::WeaponSelect:
       outcome = FBCommandOutcome::Rejected;
       reason = FBCommandReason::NotImplemented;
       return;
@@ -431,7 +440,8 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
   if (key == "task") {
     if (value == "route") PilotSys->SetPhase(FBPilot::Phase::Route);
     else if (value == "bfm") PilotSys->SetPhase(FBPilot::Phase::Bfm);
-    else return RejectSetup("want route|bfm", key, value);
+    else if (value == "intercept") PilotSys->SetPhase(FBPilot::Phase::Intercept);
+    else return RejectSetup("want route|bfm|intercept", key, value);
     return true;
   }
   /* THE DEFENSIVE SUITE (doc/f16/defence-rwr-cm.md). `rwr` is the ALR-56M's POWER button; `rwr_display`

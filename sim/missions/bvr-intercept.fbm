@@ -1,0 +1,64 @@
+name bvr-intercept-1
+timeout 300
+
+# THE ONE-SIDED INTERCEPT: the pilot flies the whole beyond-visual-range sequence itself. Nothing about
+# the shot is briefed — there is no `brief_release_s` line anywhere in this file, and that is the point.
+# What is briefed is what a controller would give a fighter and nothing more: a VECTOR (one waypoint —
+# bearing, distance, altitude) and a master-arm call. Everything after that is systems/FBPilot's
+# Intercept phase deciding for itself, through the avionics command bus, on what its own boxes report.
+#
+# THE CAST
+#   viper   friendly, `set task intercept`, two AIM-120s, CRM search (the F-16 mode that finds
+#           everything and locks NOTHING — modules/f16/FBF16Fcr), RWR powered, datalink OFF. The
+#           datalink is off in both jets for the same reason bfm-basic.fbm turns it off: with the net up
+#           the intercept would be flown on somebody else's picture, and the sensor limitation would be
+#           a claim rather than a constraint.
+#   bandit  hostile, radar OFF, no weapons, flying a straight westbound leg at constant speed. It never
+#           looks, never shoots and never manoeuvres, so every number in the viper's telemetry is a
+#           property of the viper's decisions.
+#
+# THE GEOMETRY: 99 km apart, head-on, co-altitude at 8,000 m, closing at roughly 680 m/s. That is well
+# OUTSIDE the APG-68's 40 nm (74 km) search gate, so the run starts with a genuine search phase — the
+# pilot flying the briefed vector with the antenna pointed at the briefed altitude band, seeing nothing.
+#
+# WHAT THE RUN HAS TO SHOW, in telemetry.csv's eng_* columns and in events.log:
+#   eng_state    search -> closing -> attack -> support (-> defend/abort if it comes to that)
+#   eng_detect_s the first firm contact, ~74 km, i.e. the moment the geometry allowed it and not before
+#   eng_lock_s   the RADAR_DESIGNATE event: the pilot's own TMS-forward at its briefed lock range,
+#                deliberately late, because a lock is a warning to the target
+#   eng_shot_s / eng_shot_nm / eng_shot_rtr_nm  the trigger, and the launch zone it was pulled in — the
+#                shot is taken at Rtr (the range the round arrives from even if he turns and runs), not
+#                at Raero, which is a shot he could outrun
+#   eng_support_f / eng_pitbull  whether the lock was held all the way to the seeker's own activation,
+#                which is the difference between a launch and a kill
+#   DETONATION   with the miss distance
+#
+# THE RUN ENDS AT ITS TIMEOUT (exit 3), by design and for the same reason bfm-basic.fbm does: an
+# engagement has no waypoint to arrive at. The vector waypoint is 150 km east — far enough that it is
+# never reached, so nothing about the intercept is cut short by a mission verdict. The verdict of the
+# intercept is read from the eng_* columns' LAST ROW, which is the whole debrief.
+
+unit viper
+  team friendly
+  module f16
+  spawn 46.90000 6.40000 8000 90.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink off
+  set fcr_mode crm                         # search, no auto-lock: the pilot decides when to lock
+  set store 3 aim120
+  set store 7 aim120
+  set brief_master_arm arm
+  set task intercept
+  wp 46.90000 8.35000 8000 450             # the controller's vector: threat bearing 090, co-altitude
+
+unit bandit
+  team hostile
+  module f16
+  spawn 46.90000 7.70000 8000 270.0 400
+  set gear up
+  set fuel_pct 70
+  set datalink off
+  set fcr_mode off                         # it does not look, and therefore never warns anyone
+  set rwr off
+  wp 46.90000 5.90000 8000 400             # a straight westbound leg through the engagement

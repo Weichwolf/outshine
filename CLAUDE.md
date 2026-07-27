@@ -66,6 +66,7 @@ modul-überschreibbar:
 | `manual` (`?ap=manual`) | direkter Stick (Gamepad/Tastatur) durch den FBW |
 | `pilot` (Boot-Default) | FBF16Pilot (`systems/FBPilot`, F-16-Override `modules/f16/FBF16Pilot`) fliegt eine `.fbm`-Mission als Phasenmaschine, deren START-Phase die deklarative `spawn`-Zeile bestimmt (Boden: Preflight → Takeoff → Climb → Route → …; Luftstart: direkt Route — kein Taxi/Rotate zu simulieren), kommandiert je Phase `FBAutopilot::Direct` (Punkt-zu-Punkt Kurs/Höhe/Speed) — `doc/mission-format.md` |
 | `bfm` (`set task bfm`) | dieselbe Phasenmaschine in ihrer Kampf-Phase: KEIN Autopilot-Modus, sondern ein eigenes Regelgesetz auf Manual-Stick, das gegen den GELOCKTEN Radarkontakt fliegt (systems/FBBfmTrack) — Lead/Pure/Lag aus Aspekt, Peilung und Annäherungsrate, Energie gegen die gemessene Corner-Speed, und bei Kontaktverlust Extrapolation + Suchmuster. Missionen: `sim/missions/bfm-*.fbm` |
+| `intercept` (`set task intercept`) | dieselbe Phasenmaschine in ihrer BVR-Phase — der Gegenpol zu `bfm`: BFM wird mit der Nase geflogen, ein Abfang mit dem SENSOR. Eine eigene Zustandsmaschine (`systems/FBEngagement`) auf Direct-Guidance: Suche auf dem gebrieften Vektor OHNE Lock (ein Lock warnt den Gegner), Annäherung, Designation (TMS über den Kommandobus) erst auf gebriefter Lock-Entfernung, Schuss wenn der DLZ-Block Rtr sagt, Crank bis an den Kardanwinkel während der Führung, Beam + Täuschkörper wenn der RWR eine Lösung meldet — jede Bedienhandlung über den Bus, mit menschlicher Reaktionszeit obendrauf. Missionen: `sim/missions/bvr-*.fbm` |
 
 `FBAutopilot::Direct` ist das interne Guidance-Primitiv, das der Pilot je Phase kommandiert — keine
 eigene Flugmodus-Wahl, nur die Ausführung dessen, was der Pilot verlangt. Die Pilot-Phasen + ihr
@@ -440,7 +441,15 @@ sim/src/
                Maskierung ist BEWUSST NICHT modelliert (im Header dokumentiert): Luft-Luft-Sichtlinie ist
                frei, Maskierung bräuchte einen DEM-Raymarch je Kontakt je Look. `ActiveVolume()` ist DER
                Override-Punkt — ein ganzer Modus-Satz ist nichts als eine Auswahl unter Volumina, und ein
-               Lock nichts als ein anderes Volumen (F-16: `modules/f16/FBF16Fcr`). Das Set STRAHLT auch:
+               Lock nichts als ein anderes Volumen (F-16: `modules/f16/FBF16Fcr`). `Designate()` ist der
+               PILOTEN-Lock daneben (TMS vorwärts, Wert = die veröffentlichte Track-Nummer; 0 = lösen):
+               die ACM-Modi locken selbst, weil in einem Kurvenkampf niemand ein Radar bedient — ein
+               BVR-Suchmodus tut das Gegenteil, und WELCHER Rückstrahler zum Single-Target-Track wird,
+               ist eine Entscheidung mit Preis (die Keule warnt genau den, auf den sie zeigt). Ein
+               designierter Lock, der verlorengeht, fällt in die Suche zurück statt sich den nächsten
+               Kontakt zu greifen; das Frame-Raster wird bei der Designation neu gesetzt, weil sonst der
+               erste Single-Target-Look bis zu einer ganzen Suchperiode später käme und der Track auf dem
+               Echo stünde, aus dem er designiert wurde. Das Set STRAHLT auch:
                `Emission()` leitet aus dem gerade geflogenen Muster die publizierte Signatur ab
                (`core/FBEmitter.h`) — suchend das ganze Volumen, im Single-Target-Track eine BLEISTIFT-
                Keule auf genau einen Kontakt —, sodass Abstrahlung und Antennenzustand nie auseinander
@@ -527,7 +536,31 @@ sim/src/
                zuletzt GEMESSENE Datum. Zugleich FBTelemetrySource "bfm" (Aspekt/ATA/Range/Closure/
                eigene Energiehöhe + die Integrale Lock-Sekunden und Kontrollpositions-Sekunden) — die
                Fitness-Kanäle der späteren evolutionären Runde, alle aus EIGENER Perspektive
-               berechenbar. FBAirframeControls (`.h/.cpp`): das
+               berechenbar.
+               Die Phase **Intercept** (Missionsdaten: `set task intercept`) ist die BVR-Etappe und in
+               jeder Hinsicht der Gegenpol zu Bfm: sie fliegt Direct-Guidance (Manöver auf
+               BVR-Niveau, kein Knife-Fight-Regelgesetz) und entscheidet stattdessen über den SENSOR.
+               Zustände (FBEngageState): Search (gebriefter Vektor = der aktive Wegpunkt, Suchmodus,
+               Antennenhöhe auf das eigene Höhenband, KEIN Lock — ein Lock ist eine Warnung an den
+               Gegner und wird so spät wie möglich ausgegeben), Closing (Verfolgungskurs auf den
+               Kontakt, weiter ohne Lock), Attack (designieren, Startbereich aus dem FireControl-Block
+               lesen, schießen bei `range <= Rtr` und Ziel im Erfassungskegel), Support (Lock halten —
+               die AIM-120 fliegt ihre Mittelphase am Uplink — und dabei CRANKEN bis an den Rand des
+               Antennenkegels; gehalten bis zur vorhergesagten Flugzeit), Defend (QUER zur
+               Bedrohungspeilung drehen, dort ist die eigene Radialgeschwindigkeit null und der
+               Doppler-Notch der Gegenseite offen, plus Täuschkörper — beides erst nach
+               kInterceptReactionS), Abort. Die Kernregel: eine Verfolgungswarnung verlangt eine
+               Antwort erst, wenn der EIGENE Angriff nichts mehr zu gewinnen hat; ein Suchkopf auf dem
+               eigenen Flugzeug immer. Alle Zahlen sind Hooks (F-16: Lock ab 16 nm, Crank auf 45° =
+               Gimbal 60° minus Reserve); Reaktionszeit und Bedien-Takt sind KEINE Hooks, weil sie den
+               Piloten und nicht das Flugzeug beschreiben.
+               FBEngagement (`FBEngagement.h/.cpp`): die Zustandsmaschine dieser Phase als DATEN plus
+               ihr Debriefing — Zeit bis Kontakt/Lock, Schussentfernung und -geometrie samt dem
+               Startbereich IM MOMENT des Schusses, gehaltene Führungssekunden gegen das Fenster, das
+               der Schuss brauchte (`eng_pitbull`), Reaktionszeit auf die Bedrohungswarnung,
+               Energiehöhe und ihr Minimum. FBTelemetrySource "eng", ganz hinten angehängt; wie
+               FBBfmTrack ausschließlich aus EIGENER Perspektive berechenbar und damit die Fitness der
+               evolutionären Runde. FBAirframeControls (`.h/.cpp`): das
                Interface, das der Pilot bedient (Gear/Speedbrake/Radbremsen L+R/Bugradsteuerung/Engine-
                Start-Cutoff + WOW-/Gear-Positions-Getter) — Interface+NoOp-Default in einer Klasse wie
                FBSystemSlots.h, `FBJsbsimAirframeControls` daneben ist die reale, airframe-agnostische
@@ -595,7 +628,12 @@ sim/src/
                          Skeleton (übernimmt das FBPilot-Default-Verhalten unverändert) — hier landen
                          künftig die F-16-eigenen Zahlen/Prozeduren: die Abhebegeschwindigkeit nach
                          Gewichtstabelle (doc/f16/procedures-takeoff-taxi.md) und der 11°-AoA-Anflug
-                         (doc/f16/procedures-landing.md). Der Ort, an dem künftiges
+                         (doc/f16/procedures-landing.md). Es trägt heute schon die BVR-Zahlen der
+                         Intercept-Phase, jede aus einer der beiden F-16-Boxen abgeleitet statt
+                         gewählt: Suchmodus = CRM-Ordinal (der einzige Modus, der groß sucht und nicht
+                         selbst lockt), Lock ab 16 nm (außerhalb jedes head-on gemessenen Rtr, innerhalb
+                         des 40-nm-Tors), Crank auf 45° (Gimbal 60° minus die Reserve, die ein
+                         manövrierendes Ziel braucht), Schuss-Kegel 30°, Abbruch unter 5 nm. Der Ort, an dem künftiges
                          F-16-spezifisches Verhalten (echtes Radar, echtes HOTAS-Binding, …) als
                          Ableitung eingehängt wird. FBF16Datalink (`.h`) ist die erste solche Ableitung
                          mit echtem Inhalt: das MIDS-LVT-Terminal — Link-16-Reichweite (~300 nm LOS)

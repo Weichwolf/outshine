@@ -175,6 +175,20 @@ public:
   bool Locked() const { return LockedNum_ != 0; }
   int LockedTrackNum() const { return LockedNum_; }
 
+  /* THE PILOT'S OWN LOCK (TMS forward on a designated contact, doc/f16/radar-sensors.md's search ->
+   * STT step). The ACM sub-modes auto-acquire because nobody operates a radar in a turning fight; a
+   * BVR search mode does the opposite — it finds everything and locks nothing, and WHICH return becomes
+   * a single-target track is a decision the pilot takes and pays for, because the beam that follows it
+   * is a personal warning to the aircraft it is pointed at (systems/FBRwrSystem). So it needs a verb.
+   *   `trackNum` = the contact's own published number (core/FBRadarContact::TrackNum) — the same
+   *   anonymous handle the pilot reads off the bus, never a unit id.
+   *   `trackNum` = 0 drops whatever is held (TMS aft), which is how an attack is broken off without
+   *   switching the set off.
+   * Returns false if there is no such firm track to designate. A DESIGNATED lock that is later lost
+   * falls back to SEARCH rather than silently grabbing the next return — the auto-acquire behaviour
+   * belongs to the ACM modes that asked for it, not to a lock the pilot chose. */
+  bool Designate(int trackNum, double simTimeS);
+
   /* The override point (class banner). `st` is this aircraft's own pose/attitude, `net` the borrowed
    * registry of published unit snapshots (null = nothing to see), `simTimeS` the module's own sim clock
    * — absolute, so the picture cannot depend on how often the module happens to cycle this slot. Writes
@@ -263,6 +277,7 @@ private:
   int TrackCount_ = 0;
   int NextTrackNum_ = 1;
   int LockedNum_ = 0;
+  bool Designated_ = false;   /* the held lock is the PILOT's, not an ACM auto-acquisition (Designate) */
 
   int SelfId_ = 0;
   FBUnitTeam SelfTeam_ = FBUnitTeam::Friendly;
