@@ -7,7 +7,7 @@
 #include "FBState.h"
 #include "FBFdm.h"
 
-namespace FlightBox {
+namespace FlightBox::Systems {
 
 class FBNavSystem {
 public:
@@ -17,7 +17,7 @@ public:
   void SetSteerpoint(double lat, double lon, double elevFt) { StLat = lat; StLon = lon; StElevFt = elevFt; Have = true; }
   void SetBullseye(double lat, double lon) { BullLat = lat; BullLon = lon; HaveBull = true; }
 
-  virtual void Run(FBState &state, const fb_fdm_state &fdm, double dt);
+  virtual void Run(FBState &state, const Fdm::fb_fdm_state &fdm, double dt);
 
   /* Sequenzierung ist AKTEURS-Verhalten: das Modul ruft das selbst, nicht der Missions-Orchestrator.
    * Rueckgabe: der gerade erreichte Planindex, sonst -1. */
@@ -29,5 +29,5 @@ private:
   bool Have = false, HaveBull = false;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems
 #endif

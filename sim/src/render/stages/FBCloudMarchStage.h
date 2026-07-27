@@ -7,7 +7,7 @@
 #include <webgpu/webgpu_cpp.h>
 #include "FBDrawStage.h"
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 class FBCloudMarchStage : public FBDrawStage {
 public:
@@ -57,5 +57,5 @@ private:
   int TsCount = 0;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

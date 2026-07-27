@@ -10,9 +10,10 @@
 #include "FBTeam.h"
 #include "FBWeaponUplink.h"
 
-namespace FlightBox {
+namespace FlightBox::World { class FBWorld; }
 
-class FBWorld;
+namespace FlightBox::Units {
+
 class FBUnitRegistry;
 
 /* A kind exists only where the OWNER must treat the unit differently — a Weapon's physical K.O. is a
@@ -57,7 +58,7 @@ public:
 
   /* `units` is the cast as simulated SENSORS may observe it, `world` the terrain side on top; both
    * borrowed, either may be null in a client that has none. */
-  virtual void Run(double dt, const FBUnitRegistry *units, const FBWorld *world) {
+  virtual void Run(double dt, const FBUnitRegistry *units, const World::FBWorld *world) {
     (void)dt; (void)units; (void)world;
   }
 
@@ -68,5 +69,5 @@ private:
   FBUnitTeam Team;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Units
 #endif

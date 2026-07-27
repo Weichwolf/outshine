@@ -1,6 +1,6 @@
 #include "FBF16Cmds.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 /* The six programs [SET], each for a stated job the automatic mapping picks between — full table with
  * those jobs: doc/flightbox/modules-f16.md §7. In order: BREAK LOCK, MIXED, FLARE, SUSTAINED, SLAP,
@@ -37,4 +37,4 @@ FBF16Cmds::FBF16Cmds() {
   InstallProgram(6, p);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules

@@ -8,7 +8,7 @@
 #include <cstring>
 #include "FBDatalinkSystem.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 /* The HSD's three contact-filter switch positions [DOC]. */
 enum class FBF16ContactFilter { FriendlyAll, FlightLeadsOnly, Off };
@@ -20,7 +20,7 @@ inline bool FBF16ContactFilterFromString(const char *s, FBF16ContactFilter &out)
   return false;
 }
 
-class FBF16Datalink : public FBDatalinkSystem {
+class FBF16Datalink : public Sensors::FBDatalinkSystem {
 public:
   /* [DOC] Link-16 air-to-air LOS reach; the horizon of the two altitudes usually binds long before it,
    * which is the base class's business. */
@@ -32,7 +32,7 @@ public:
   FBF16ContactFilter ContactFilter() const { return Filter_; }
 
 protected:
-  bool AcceptContact(const FBUnit &sender, int flightIndex) const override {
+  bool AcceptContact(const Units::FBUnit &sender, int flightIndex) const override {
     (void)sender;
     switch (Filter_) {
       case FBF16ContactFilter::FriendlyAll:     return true;
@@ -46,5 +46,5 @@ private:
   FBF16ContactFilter Filter_ = FBF16ContactFilter::FriendlyAll;   /* HSD default: FR ON */
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif

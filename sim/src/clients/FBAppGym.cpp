@@ -67,9 +67,9 @@ int main(int argc, char **argv) {
   }
   if (missionPath.empty()) { Usage(argv[0]); return 1; }
   if (threads < 1) { fprintf(stderr, "fb-gym: --threads must be >= 1\n"); return 1; }
-  if (!FBEnsureDir(outDir)) { fprintf(stderr, "fb-gym: cannot create --out %s\n", outDir.c_str()); return 1; }
+  if (!Missions::FBEnsureDir(outDir)) { fprintf(stderr, "fb-gym: cannot create --out %s\n", outDir.c_str()); return 1; }
 
-  static FBStdoutLogSink gStdoutSink;
+  static Clients::FBStdoutLogSink gStdoutSink;
   FBLog::SetSink(&gStdoutSink);
   FBLog::SetLevel(FBLogLevel::Debug);
 
@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
    * the runner for one CLI mode. */
   std::unique_ptr<FBElevationProvider> elevation;
   if (elevMode == "tiles") {
-    elevation = std::make_unique<FBTilesElevation>(base.c_str());
+    elevation = std::make_unique<World::FBTilesElevation>(base.c_str());
   } else if (elevMode == "swiss") {
     auto baked = std::make_unique<FBBakedDemElevation>(swissDemPath);
     if (!baked->Ok())
@@ -104,6 +104,6 @@ int main(int argc, char **argv) {
    * byte of difference between a sequential and a parallel run. */
   FBLog::Info("gym", "step_threads", {{"requested", (int)threads}});
 
-  return FBRunMission(missionPath, timeout, outDir, FBNativeModelRoots(), *elevation, nullptr,
+  return FBRunMission(missionPath, timeout, outDir, Missions::FBNativeModelRoots(), *elevation, nullptr,
                       (size_t)threads);
 }

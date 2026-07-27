@@ -6,7 +6,7 @@
 #include <vector>
 #include "FBTelemetry.h"
 
-namespace FlightBox {
+namespace FlightBox::Clients {
 
 /* One fopen'd FILE* for the run; the header is the schema-generated column list, joined once. */
 class FBCsvTelemetrySink : public FBTelemetrySink {
@@ -19,5 +19,5 @@ private:
   FILE *F;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Clients
 #endif /* FBTELEMETRYSINKS_H */

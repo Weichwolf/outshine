@@ -4,7 +4,7 @@
 #include "FBUnits.h"
 #include <cmath>
 
-namespace FlightBox {
+namespace FlightBox::Weapons {
 
 void FBGunSystem::Install(const FBGunSpec &spec, double fwdM, double rightM, double downM,
                           double boreDownDeg, double boreRightDeg) {
@@ -90,7 +90,7 @@ double RoundsBetween(double a, double b, double ratePerS, double spool) {
 }
 } // namespace
 
-void FBGunSystem::Run(FBState &state, const fb_fdm_state &st, double nowS, double dt) {
+void FBGunSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, double nowS, double dt) {
   if (state.Airframe.H.Readable()) Wow_ = state.Airframe.WeightOnWheels;
 
   double whole = 0.0;
@@ -195,4 +195,4 @@ void FBGunSystem::SampleTelemetry(FBTelemetryRow &row) const {
   row.Push(SolInFunnel_);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Weapons

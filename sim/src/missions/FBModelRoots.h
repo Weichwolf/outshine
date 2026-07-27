@@ -11,7 +11,7 @@
 
 #include <string>
 
-namespace FlightBox {
+namespace FlightBox::Missions {
 
 struct FBModelRoots {
   std::string Aircraft;    /* FlightBox's model root: one directory per model */
@@ -23,5 +23,5 @@ struct FBModelRoots {
 /* One definition for every client that runs from sim/, instead of literals that could drift apart. */
 inline FBModelRoots FBNativeModelRoots() { return FBModelRoots{"assets/aircraft", "assets"}; }
 
-} // namespace FlightBox
+} // namespace FlightBox::Missions
 #endif

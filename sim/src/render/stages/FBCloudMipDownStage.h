@@ -6,7 +6,7 @@
 #include <webgpu/webgpu_cpp.h>
 #include "FBGpu.h"
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 class FBCloudMipDownStage {
 public:
@@ -21,5 +21,5 @@ private:
   wgpu::ComputePipeline Pipe;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

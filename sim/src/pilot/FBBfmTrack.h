@@ -8,7 +8,7 @@
 #include "FBState.h"
 #include "FBTelemetry.h"
 
-namespace FlightBox {
+namespace FlightBox::Pilot {
 
 /* Was der Pilot diesen Tick mit dem Bild gemacht hat. Telemetrie-Ordinal — anhaengen, nie umsortieren. */
 enum class FBBfmPursuit { None, Search, Lead, Pure, Lag };
@@ -43,7 +43,7 @@ public:
 
   /* Liest NUR den GELOCKTEN Kontakt — ein ungelockter Suchrueckstrahler ist eine Detektion, kein Ziel,
    * auf das sich der Pilot festgelegt hat; beides zu mischen liesse die Verfolgung springen. */
-  void Update(const FBState &state, const fb_fdm_state &own, double nowS);
+  void Update(const FBState &state, const Fdm::fb_fdm_state &own, double nowS);
 
   /* Das Urteil des Piloten ueber diesen Tick, fuer das Scoreboard zurueckgemeldet (die Schwellen gehoeren
    * dem Piloten — sie sind zellenspezifisch, nicht Sache dieses Containers). */
@@ -53,7 +53,7 @@ public:
 
   /* `turnRateDegS` ist die Annahme, wie hart das Ziel kurven kann — die Zahl der EIGENEN Zelle, denn
    * diese Klasse kennt keine. */
-  FBTrackDatum Datum(const fb_fdm_state &own, double nowS, double turnRateDegS) const;
+  FBTrackDatum Datum(const Fdm::fb_fdm_state &own, double nowS, double turnRateDegS) const;
 
   const FBBfmBlock &Block() const { return Blk_; }
   bool Engaged() const { return EngagedS_ > 0.0; }
@@ -65,7 +65,7 @@ public:
   void SampleTelemetry(FBTelemetryRow &row) const override;
 
 private:
-  void Predict(const fb_fdm_state &own, double nowS);
+  void Predict(const Fdm::fb_fdm_state &own, double nowS);
 
   FBBfmBlock Blk_{};
   bool   Have_ = false;          /* mindestens ein Look ist eingeflossen */
@@ -81,5 +81,5 @@ private:
   double EngagedS_ = 0.0, LockS_ = 0.0, ControlS_ = 0.0;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Pilot
 #endif

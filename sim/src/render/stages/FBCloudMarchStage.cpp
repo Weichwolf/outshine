@@ -8,7 +8,7 @@
 #include <cstdlib>
 #include <string>
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 static bool CloudCellsOn(void) { const char *e = getenv("FB_CLOUD_CELLS"); return !e || atoi(e) != 0; }
 
@@ -465,4 +465,4 @@ void FBCloudMarchStage::PollTimestamps(void) {
       });
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render

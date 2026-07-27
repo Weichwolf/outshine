@@ -69,25 +69,25 @@ void CheckBallistics() {
 }
 
 void CheckFunnel() {
-  const double span = FBF16FireControl::kTargetSpanM;
-  double topMr = span / FBF16FireControl::kFunnelMinRangeM * 1000.0;
-  double botMr = span / FBF16FireControl::kFunnelMaxRangeM * 1000.0;
-  FBLog::Info("gun", "FUNNEL", {{"minRangeFt", FBF16FireControl::kFunnelMinRangeM * kMToFt},
-                                {"maxRangeFt", FBF16FireControl::kFunnelMaxRangeM * kMToFt},
+  const double span = Modules::FBF16FireControl::kTargetSpanM;
+  double topMr = span / Modules::FBF16FireControl::kFunnelMinRangeM * 1000.0;
+  double botMr = span / Modules::FBF16FireControl::kFunnelMaxRangeM * 1000.0;
+  FBLog::Info("gun", "FUNNEL", {{"minRangeFt", Modules::FBF16FireControl::kFunnelMinRangeM * kMToFt},
+                                {"maxRangeFt", Modules::FBF16FireControl::kFunnelMaxRangeM * kMToFt},
                                 {"spanM", span}, {"topMr", topMr}, {"bottomMr", botMr}});
-  Check(std::fabs(FBF16FireControl::kFunnelMinRangeM * kMToFt - 600.0) < 0.5,
-        "the funnel's near end is the guide's 600 ft", FBF16FireControl::kFunnelMinRangeM * kMToFt,
+  Check(std::fabs(Modules::FBF16FireControl::kFunnelMinRangeM * kMToFt - 600.0) < 0.5,
+        "the funnel's near end is the guide's 600 ft", Modules::FBF16FireControl::kFunnelMinRangeM * kMToFt,
         600.0, 0.5);
-  Check(std::fabs(FBF16FireControl::kFunnelMaxRangeM * kMToFt - 3000.0) < 0.5,
-        "...and its far end the guide's 3,000 ft", FBF16FireControl::kFunnelMaxRangeM * kMToFt, 3000.0,
+  Check(std::fabs(Modules::FBF16FireControl::kFunnelMaxRangeM * kMToFt - 3000.0) < 0.5,
+        "...and its far end the guide's 3,000 ft", Modules::FBF16FireControl::kFunnelMaxRangeM * kMToFt, 3000.0,
         0.5);
   /* Five times the range is a fifth of the angular width — which is what makes a target that FILLS
    * the funnel be at the range its lead was computed for. */
-  Check(std::fabs(topMr / botMr - FBF16FireControl::kFunnelMaxRangeM / FBF16FireControl::kFunnelMinRangeM)
+  Check(std::fabs(topMr / botMr - Modules::FBF16FireControl::kFunnelMaxRangeM / Modules::FBF16FireControl::kFunnelMinRangeM)
             < 1e-9,
         "the funnel's width ratio is its range ratio", topMr / botMr, 5.0, 1e-6);
   /* The out-of-range test: past the far end a target appears SMALLER than the funnel's wide end. */
-  double farMr = span / (2.0 * FBF16FireControl::kFunnelMaxRangeM) * 1000.0;
+  double farMr = span / (2.0 * Modules::FBF16FireControl::kFunnelMaxRangeM) * 1000.0;
   Check(farMr < botMr, "a target past the funnel is smaller than its bottom", farMr, botMr, 0.0);
 }
 
@@ -153,20 +153,20 @@ void CheckLead() {
 
 /* The drum: squeeze until empty, then squeeze again. */
 void CheckMagazine() {
-  FBGunSystem gun;
+  Weapons::FBGunSystem gun;
   gun.Install(kM61A1, 4.6, -0.9, -0.3, 0.0, 0.0);
   gun.SetMasterArm(FBArmState::Arm);
 
   FBState state{};
   state.Airframe.WeightOnWheels = false;
   state.Airframe.H.Publish(0.0);
-  fb_fdm_state st{};
+  Fdm::fb_fdm_state st{};
   st.lat = 47.0; st.lon = 7.0; st.elev = 4000.0;
   st.vx = 250.0;
 
   /* On the wheels first: the interlock that comes before anything else. */
   {
-    FBGunSystem ground;
+    Weapons::FBGunSystem ground;
     ground.Install(kM61A1, 4.6, -0.9, -0.3, 0.0, 0.0);
     ground.SetMasterArm(FBArmState::Arm);
     FBCommandOutcome o = FBCommandOutcome::Pending;
@@ -179,7 +179,7 @@ void CheckMagazine() {
   }
   /* ...and master arm SAFE. */
   {
-    FBGunSystem safe;
+    Weapons::FBGunSystem safe;
     safe.Install(kM61A1, 4.6, -0.9, -0.3, 0.0, 0.0);
     FBState s2{};
     s2.Airframe.WeightOnWheels = false;
@@ -247,8 +247,8 @@ void CheckMagazine() {
 } // namespace
 
 int main() {
-  FBStdoutLogSink sink;
-  FBLogSinkScope scope(&sink);
+  Clients::FBStdoutLogSink sink;
+  Clients::FBLogSinkScope scope(&sink);
   FBLog::SetTime(0.0);
 
   CheckDispersion();

@@ -1,6 +1,6 @@
 #include "FBCloudMipDownStage.h"
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 static const char *kMipDownCS = R"(
 @group(0) @binding(0) var src : texture_3d<f32>;
@@ -51,4 +51,4 @@ void FBCloudMipDownStage::Downsample(wgpu::TextureView srcView, wgpu::TextureVie
   Queue.Submit(1, &cmd);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render

@@ -1,7 +1,7 @@
 #include "FBWorld.h"
 #include "FBRenderer.h"
 #include "FBTerrainLoader.h"
-#include "FBMips.h"         /* fb_pyramid_bytes — the albedo scratch now holds a whole mip pyramid */
+#include "FBMips.h"         /* Render::fb_pyramid_bytes — the albedo scratch now holds a whole mip pyramid */
 #include "FBLog.h"
 #include "FBUnits.h"
 #include "geo.h"
@@ -11,7 +11,7 @@
 #include <cstdlib>
 #include <unordered_map>
 
-namespace FlightBox {
+namespace FlightBox::World {
 
 static const int kRootZ = 8;
 static const int kMaxZ = 14;
@@ -54,7 +54,7 @@ static const int kLightBudget = 65536;   /* max sprites resident (team-lead cap)
 static const double kLightLiftM = 6.0;   /* sit lights just above the DEM so terrain occludes cleanly */
 static const float kLightGain = 3.0f;    /* additive HDR gain so cores pop (ACES compresses highlights) */
 
-bool FBWorld::Open(FBRenderer *renderer, const char *tilesBase, double lat, double lon, int grid,
+bool FBWorld::Open(Render::FBRenderer *renderer, const char *tilesBase, double lat, double lon, int grid,
                    double viewMeters, int albedoTS) {
   R = renderer;
   Grid = grid;
@@ -62,7 +62,7 @@ bool FBWorld::Open(FBRenderer *renderer, const char *tilesBase, double lat, doub
   ViewM = viewMeters;
   Lat0 = lat;
   Lon0 = lon;
-  Scratch.resize((size_t)fb_pyramid_bytes(TS));   /* holds a whole finished mip pyramid, not one level */
+  Scratch.resize((size_t)Render::fb_pyramid_bytes(TS));   /* holds a whole finished mip pyramid, not one level */
   gIndex.clear();
   if (fb_stream_open(tilesBase, lat, lon, kRootZ) == 0) return false;
   fb_stream_set_base(DefaultPhoto ? 1 : 0);        /* worker priority: base tiles before the overlay */
@@ -431,4 +431,4 @@ void FBWorld::Update(double camLat, double camLon, const double eyeEcef[3], cons
   }
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::World

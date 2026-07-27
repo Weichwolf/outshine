@@ -9,7 +9,7 @@
 #ifndef FBHUDFONTROM_H
 #define FBHUDFONTROM_H
 
-namespace FlightBox {
+namespace FlightBox::Systems {
 
 inline constexpr int kFontGlyphs = 43;
 inline constexpr int kFontTile = 16;
@@ -836,5 +836,5 @@ inline const unsigned char kFontGlyphRom[kFontGlyphs][kFontTile][kFontTile] = {
     },
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems
 #endif

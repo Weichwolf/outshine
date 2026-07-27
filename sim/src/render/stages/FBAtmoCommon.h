@@ -3,7 +3,7 @@
 #ifndef FBATMOCOMMON_H
 #define FBATMOCOMMON_H
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 static const char *kAtmoCommon = R"(
 const PI = 3.14159265358979;
@@ -56,5 +56,5 @@ fn tLUTuv(pos : vec3f, sunDir : vec3f) -> vec2f {
 }
 )";
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

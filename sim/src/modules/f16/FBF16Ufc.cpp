@@ -1,6 +1,6 @@
 #include "FBF16Ufc.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 void FBF16Ufc::Run(FBState &state, double dt) {
   (void)dt;
@@ -11,4 +11,4 @@ void FBF16Ufc::Run(FBState &state, double dt) {
   state.Ufc.H.Publish(state.NowS);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules

@@ -1,7 +1,7 @@
 #include "FBFlightControl.h"
 #include <cmath>
 
-namespace FlightBox {
+namespace FlightBox::Systems {
 
 static double Clamp(double v, double lo, double hi) { return v < lo ? lo : v > hi ? hi : v; }
 
@@ -24,7 +24,7 @@ FBFlightControl FBFlightControl::F16(void) {
   return c;
 }
 
-FBControls FBFlightControl::Run(const FBGuidance &g, const fb_fdm_state &s) {
+FBControls FBFlightControl::Run(const FBGuidance &g, const Fdm::fb_fdm_state &s) {
   FBControls o{};
   if (g.Mode == FBMode::Manual) {
     o.Roll = g.ManualRoll; o.Pitch = g.ManualPitch; o.Yaw = g.ManualYaw; o.Thr = g.ManualThr;
@@ -78,4 +78,4 @@ void FBFlightControl::SampleTelemetry(FBTelemetryRow &row) const {
   row.Push(LastControls_.Thr);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems

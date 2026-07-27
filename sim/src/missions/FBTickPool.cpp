@@ -1,6 +1,6 @@
 #include "FBTickPool.h"
 
-namespace FlightBox {
+namespace FlightBox::Missions {
 
 FBTickPool::FBTickPool(size_t threads) {
   for (size_t i = 1; i < threads; i++) Workers_.emplace_back([this] { WorkerLoop(); });
@@ -57,4 +57,4 @@ void FBTickPool::RunTick(FBTickJob &job, size_t count) {
   Done_.wait(lk, [&] { return Busy_ == 0; });
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Missions

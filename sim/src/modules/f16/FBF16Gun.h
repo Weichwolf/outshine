@@ -9,12 +9,12 @@
 
 #include "FBGunSystem.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
-class FBF16Gun : public FBGunSystem {
+class FBF16Gun : public Weapons::FBGunSystem {
 public:
   FBF16Gun();
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif

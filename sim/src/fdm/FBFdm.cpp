@@ -31,7 +31,7 @@
 
 using namespace JSBSim;
 
-namespace FlightBox {
+namespace FlightBox::Fdm {
 
 namespace {
 constexpr double kFt    = kFtToM;              /* ft -> m */
@@ -453,4 +453,4 @@ double FBFdm::GetFuelCapacityLbs() const {
   return sum;
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Fdm

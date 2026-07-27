@@ -19,6 +19,9 @@
 #include "FBLog.h"
 #include "FBLogSinks.h"
 
+/* extern "C" exports pin this TU to the global namespace; the types it borrows are namespaced. */
+using namespace FlightBox;
+
 /* stb_image's implementation lives in terrain.cpp — declared, never re-implemented. */
 extern "C" {
 unsigned char *stbi_load_from_memory(const unsigned char *buffer, int len, int *x, int *y,
@@ -97,7 +100,7 @@ static int tw_provider(void *user, osmmesh_tile_kind kind, uint32_t z, uint32_t 
 
 EMSCRIPTEN_KEEPALIVE
 int fbtw_open(const char *base, double lat, double lon) {
-  static FlightBox::FBStdoutLogSink twLogSink;
+  static FlightBox::Clients::FBStdoutLogSink twLogSink;
   FlightBox::FBLog::SetSink(&twLogSink);
   FlightBox::FBLog::SetLevel(FlightBox::FBLogLevel::Debug);   /* the worker console used to print unconditionally */
   snprintf(tw_base, sizeof tw_base, "%s", base ? base : "");
@@ -115,7 +118,7 @@ int fbtw_open(const char *base, double lat, double lon) {
 }
 
 /* One tile's result, read back by JS after fbtw_build. Globals: one build in flight. */
-static w3_chunk tw_chunk;
+static Render::FBChunk tw_chunk;
 static double tw_origin[3] = {0, 0, 0};
 static uint8_t *tw_mips = 0;
 static int tw_mipbytes = 0;
@@ -131,7 +134,7 @@ EMSCRIPTEN_KEEPALIVE int     fbtw_ts(void)       { return tw_ts; }
 
 EMSCRIPTEN_KEEPALIVE
 void fbtw_release(void) {
-  w3_chunk_free(&tw_chunk);
+  Render::FBChunkFree(&tw_chunk);
   free(tw_mips);
   tw_mips = 0;
   tw_mipbytes = 0;
@@ -156,11 +159,11 @@ static int tw_albedo(int z, int x, int y, int mode, int ts) {
   free(enc);
   if (!px) return 0;
   if (w != ts || h != ts) { stbi_image_free(px); return 0; }
-  int bytes = fb_pyramid_bytes(ts);
+  int bytes = Render::fb_pyramid_bytes(ts);
   uint8_t *mips = (uint8_t *)malloc((size_t)bytes);
   if (!mips) { stbi_image_free(px); return 0; }
   double tp = emscripten_get_now();
-  fb_build_pyramid(px, ts, mips);
+  Render::fb_build_pyramid(px, ts, mips);
   twp_mips += emscripten_get_now() - tp;
   if (++twp_npyr % 32 == 0) twp_report();
   stbi_image_free(px);
@@ -184,7 +187,7 @@ int fbtw_build(int z, int x, int y, int grid, int mode, int ts, int what) {
     twp_osmfetch += emscripten_get_now() - tof;
     if (fetched) {
       double tm = emscripten_get_now();
-      int meshed = (w3_chunk_build_ecef(t.terrain, z, (uint32_t)x, (uint32_t)y, grid, &tw_chunk, tw_origin) &&
+      int meshed = (Render::FBChunkBuildEcef(t.terrain, z, (uint32_t)x, (uint32_t)y, grid, &tw_chunk, tw_origin) &&
                     tw_chunk.nverts > 0);
       twp_mesh += emscripten_get_now() - tm; twp_nmesh++;
       if (meshed) result |= 1;

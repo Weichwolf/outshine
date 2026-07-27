@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <cstring>
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 /* Two pipelines sharing one pixel->NDC map. The fragment LINEARISES the colour so the sRGB swapchain
  * view re-encodes it to the intended display green. TODO: the 8-tap glow. */
@@ -68,12 +68,12 @@ void FBHudStage::Init(const FBGpu &gpu) {
 
   /* r8unorm, LINEAR — the fragment shader turns that into coverage AA. The gutter texels stay at
    * their zero-init value. */
-  const uint32_t AW = (uint32_t)kFontAtlasW, AH = (uint32_t)kFontAtlasH;
+  const uint32_t AW = (uint32_t)Systems::kFontAtlasW, AH = (uint32_t)Systems::kFontAtlasH;
   std::vector<uint8_t> atlas((size_t)AW * AH, 0);
-  for (int gi = 0; gi < kFontGlyphs; gi++)
-    for (int row = 0; row < kFontTile; row++)
-      for (int c = 0; c < kFontTile; c++)
-        atlas[(size_t)(row + 1) * AW + gi * kFontTilePad + 1 + c] = kFontGlyphRom[gi][row][c];
+  for (int gi = 0; gi < Systems::kFontGlyphs; gi++)
+    for (int row = 0; row < Systems::kFontTile; row++)
+      for (int c = 0; c < Systems::kFontTile; c++)
+        atlas[(size_t)(row + 1) * AW + gi * Systems::kFontTilePad + 1 + c] = Systems::kFontGlyphRom[gi][row][c];
   wgpu::TextureDescriptor td{};
   td.size = {AW, AH, 1};
   td.format = wgpu::TextureFormat::R8Unorm;
@@ -102,11 +102,11 @@ void FBHudStage::Init(const FBGpu &gpu) {
   Queue.WriteBuffer(Uni, 0, scale, sizeof scale);
 
   bd.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
-  bd.size = kHudMaxStrokeFloats * sizeof(float);   /* stroke verts (x,y,d,hw,r,g,b) */
+  bd.size = Systems::kHudMaxStrokeFloats * sizeof(float);   /* stroke verts (x,y,d,hw,r,g,b) */
   StrokeVtx = Device.CreateBuffer(&bd);
-  bd.size = kHudMaxTextFloats * sizeof(float);   /* glyph verts (x,y,u,v,r,g,b) */
+  bd.size = Systems::kHudMaxTextFloats * sizeof(float);   /* glyph verts (x,y,u,v,r,g,b) */
   TextVtx = Device.CreateBuffer(&bd);
-  LoadingGlyphs.reserve(kHudMaxTextFloats);
+  LoadingGlyphs.reserve(Systems::kHudMaxTextFloats);
 
   wgpu::BlendState blend{};
   blend.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
@@ -193,7 +193,7 @@ void FBHudStage::Init(const FBGpu &gpu) {
 void FBHudStage::Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pass) {
   Geometry.Reset();
   if (Disp) {
-    FBHudEnv env{ctx.Width, ctx.Height, Agl, Have};
+    Systems::FBHudEnv env{ctx.Width, ctx.Height, Agl, Have};
     Disp->BuildHud(State, env, Geometry);
   }
   const std::vector<float> &strokes = Geometry.Strokes();
@@ -223,11 +223,11 @@ void FBHudStage::EncodeLoadingText(wgpu::RenderPassEncoder &pass, int width, int
   snprintf(msg, sizeof msg, "LOADING TERRAIN %d PCT", (int)(pct * 100.0f + 0.5f));
   snprintf(cnt, sizeof cnt, "%d / %d TILES", ready, total);
   float s = 4.0f;
-  FBHudFontAppendText(LoadingGlyphs, (float)width * 0.5f - (float)strlen(msg) * kFontAdvance * s * 0.5f,
-                     (float)height * 0.5f - kFontQuadSize * s, s, 0.20f, 1.00f, 0.40f, msg);
+  Systems::FBHudFontAppendText(LoadingGlyphs, (float)width * 0.5f - (float)strlen(msg) * Systems::kFontAdvance * s * 0.5f,
+                     (float)height * 0.5f - Systems::kFontQuadSize * s, s, 0.20f, 1.00f, 0.40f, msg);
   float cs = s * 0.6f;
-  FBHudFontAppendText(LoadingGlyphs, (float)width * 0.5f - (float)strlen(cnt) * kFontAdvance * cs * 0.5f,
-                     (float)height * 0.5f + kFontQuadSize * s * 1.4f, cs, 0.45f, 0.80f, 0.50f, cnt);
+  Systems::FBHudFontAppendText(LoadingGlyphs, (float)width * 0.5f - (float)strlen(cnt) * Systems::kFontAdvance * cs * 0.5f,
+                     (float)height * 0.5f + Systems::kFontQuadSize * s * 1.4f, cs, 0.45f, 0.80f, 0.50f, cnt);
   if (!LoadingGlyphs.empty()) {
     Queue.WriteBuffer(TextVtx, 0, LoadingGlyphs.data(), LoadingGlyphs.size() * sizeof(float));
     pass.SetPipeline(TextPipe);
@@ -237,4 +237,4 @@ void FBHudStage::EncodeLoadingText(wgpu::RenderPassEncoder &pass, int width, int
   }
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render

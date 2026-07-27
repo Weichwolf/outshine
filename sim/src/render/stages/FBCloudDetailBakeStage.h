@@ -6,7 +6,7 @@
 #include "FBGpu.h"
 #include "FBCloudMipDownStage.h"
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 class FBCloudDetailBakeStage {
 public:
@@ -23,5 +23,5 @@ private:
   wgpu::Texture Tex;   /* 32^3 RGBA8Unorm, full mip chain */
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

@@ -1,7 +1,7 @@
 #include "FBStarsStage.h"
 #include <cmath>
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 /* HYG star-field placement, Polaris-pinned. */
 static double GmstDeg(double unixSec) {   /* Greenwich mean sidereal time, deg (IAU J2000 polynomial) */
@@ -199,4 +199,4 @@ void FBStarsStage::Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pa
   pass.Draw(6, (uint32_t)NStarVis);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render

@@ -6,7 +6,7 @@
 
 #include <memory>
 
-namespace FlightBox {
+namespace FlightBox::Fdm {
 
 struct fb_fdm_state {
   double roll, pitch, yaw;   /* deg (phi/theta/psi) */
@@ -129,5 +129,5 @@ private:
   bool Faulted_ = false;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Fdm
 #endif

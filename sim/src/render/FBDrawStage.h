@@ -12,7 +12,7 @@
 #include "FBGpu.h"
 #include "FBFrameContext.h"
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 class FBDrawStage {
 public:
@@ -25,5 +25,5 @@ public:
   virtual void EncodeCompute(const FBFrameContext &ctx, wgpu::ComputePassEncoder &pass) { (void)ctx; (void)pass; }
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

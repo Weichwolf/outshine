@@ -9,7 +9,7 @@
 #include "FBFrameContext.h"
 #include "FBGpu.h"
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 class FBCloudResolveStage {
 public:
@@ -46,5 +46,5 @@ private:
   int AccumN = 0;                    /* frames since reset */
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

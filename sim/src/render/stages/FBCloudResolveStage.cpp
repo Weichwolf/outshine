@@ -2,7 +2,7 @@
 #include "FBAtmoCommon.h"
 #include <string>
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 /* Blends the fresh jittered march into the reprojected history with a neighbourhood clamp against
  * ghosting; prepends kAtmoCommon for the Atmo struct. */
@@ -170,4 +170,4 @@ void FBCloudResolveStage::Advance(const FBFrameContext &ctx) {
   HistValid = true;
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render

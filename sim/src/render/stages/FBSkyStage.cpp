@@ -3,7 +3,7 @@
 #include "FBAtmoSample.h"
 #include <string>
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 static const char *kSkyWGSL = R"(
 @group(0) @binding(0) var svLUT : texture_2d<f32>;
@@ -91,4 +91,4 @@ void FBSkyStage::Encode(const FBFrameContext &, wgpu::RenderPassEncoder &pass) {
   pass.Draw(3);   /* physically-based sky background, the fullscreen triangle */
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render

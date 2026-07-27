@@ -3,7 +3,7 @@
 #include "FBLog.h"
 #include <cmath>
 
-namespace FlightBox {
+namespace FlightBox::Pilot {
 
 namespace {
 const double kPreflightHoldS = 2.0;
@@ -84,7 +84,7 @@ const double kInterceptTrackSettleS = 2.0;
 double Clamp(double v, double lo, double hi) { return v < lo ? lo : v > hi ? hi : v; }
 
 /* Aus einem Kurswunsch den Punkt machen, den die Direct-Guidance braucht. */
-void AimAlongHeading(const fb_fdm_state &st, double hdgDeg, double &latDeg, double &lonDeg) {
+void AimAlongHeading(const Fdm::fb_fdm_state &st, double hdgDeg, double &latDeg, double &lonDeg) {
   double h = hdgDeg * kDeg2Rad;
   double coslat = std::cos(st.lat * kDeg2Rad);
   latDeg = st.lat + kInterceptAimM * std::cos(h) / kMPerDeg;
@@ -165,7 +165,7 @@ double FBPilot::SearchWeaveDeg(const FBTrackDatum &datum, bool searching) {
 /* EIN Entscheidungstakt des Kampfes: Bild lesen -> Verfolgungsart waehlen -> Zielpunkt bilden -> mit der
  * vorhandenen Energie hinfliegen. Das Bild ist ein RADAR-TRACK und sonst nichts. */
 FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionics,
-                                    const fb_fdm_state &st, double dt) {
+                                    const Fdm::fb_fdm_state &st, double dt) {
   Bfm_.Update(state, st, TimeS_);
   const FBBfmBlock &g = Bfm_.Block();
   /* Der Kopf beantwortet die zwei Fragen, auf die sich das ganze Gesetz verzweigt: gibt es ueberhaupt
@@ -571,7 +571,7 @@ bool FBPilot::CanPressOn(const FBState &state) const {
  * dann welchen Schalter fasse ich an. Alles Gesehene ist von simulierten Boxen geschrieben, nichts
  * davon Wahrheit. doc/flightbox/pilot-ai.md, Abschnitt 7. */
 FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &avionics,
-                                           const fb_fdm_state &st, const FBFlightPlan &plan, double dt) {
+                                           const Fdm::fb_fdm_state &st, const FBFlightPlan &plan, double dt) {
   /* Die Fusion des gelockten Kontakts, fuer das, was ein einzelnes Echo nicht hergibt: die
    * Zielgeschwindigkeit und daraus der Aspekt, unter dem die Schussentscheidung faellt. */
   Bfm_.Update(state, st, TimeS_);
@@ -820,7 +820,7 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
  * keine Zielposition — sie liest ein Instrument (die Luft-Boden-Felder des FireControl-Blocks), genau
  * wie sie vor einem Flare den Radarhoehenmesser liest. doc/flightbox/pilot-ai.md, Abschnitt 4. */
 FBPilotCommands FBPilot::AttackCommands(const FBState &state, FBCommandBus &avionics,
-                                        const fb_fdm_state &st, const FBFlightPlan &plan) {
+                                        const Fdm::fb_fdm_state &st, const FBFlightPlan &plan) {
   FBPilotCommands c{};
 
   /* ---- der Weg hinaus, sobald der Store weg ist ---- */
@@ -899,7 +899,7 @@ FBPilotCommands FBPilot::AttackCommands(const FBState &state, FBCommandBus &avio
 }
 
 FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
-                             const FBAirframeControls &airframe, const fb_fdm_state &st,
+                             const Systems::FBAirframeControls &airframe, const Fdm::fb_fdm_state &st,
                              const FBFlightPlan &plan, const FBRunway *runway, double dt) {
   PhaseElapsedS += dt;
   TimeS_ += dt;
@@ -1065,4 +1065,4 @@ void FBPilot::SampleTelemetry(FBTelemetryRow &row) const {
   row.Push(DistToWpCache);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Pilot

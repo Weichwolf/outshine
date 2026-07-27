@@ -6,7 +6,7 @@
 #include <vector>
 #include "FBDrawStage.h"
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 class FBStarsStage : public FBDrawStage {
 public:
@@ -32,5 +32,5 @@ private:
   int NStars = 0, NStarVis = 0, InstCap = 0;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

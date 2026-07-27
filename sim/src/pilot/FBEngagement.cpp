@@ -1,7 +1,7 @@
 #include "FBEngagement.h"
 #include "FBUnits.h"
 
-namespace FlightBox {
+namespace FlightBox::Pilot {
 
 const char *FBEngageStateStr(FBEngageState s) {
   switch (s) {
@@ -145,4 +145,4 @@ void FBEngagement::SampleTelemetry(FBTelemetryRow &row) const {
   row.Push(HaveEs_ ? EsMinFt_ : 0.0);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Pilot

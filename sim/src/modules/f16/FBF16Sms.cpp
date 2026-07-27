@@ -1,6 +1,6 @@
 #include "FBF16Sms.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 namespace {
 /* Left wingtip (1) to right wingtip (9); station 5 is the centreline. */
@@ -17,4 +17,4 @@ FBF16Sms::FBF16Sms() {
   for (const Pylon &p : kPylons) DeclareStation(p.Number, kStationXIn, p.YIn, kStationZIn);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules

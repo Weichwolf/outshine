@@ -6,7 +6,7 @@
 #include "FBDrawStage.h"
 #include <cstdint>
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 class FBMoonStage : public FBDrawStage {
 public:
@@ -21,5 +21,5 @@ private:
   wgpu::BindGroup Bind;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

@@ -12,7 +12,7 @@
 #include "FBStore.h"
 #include "FBSystemSlots.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 class FBStoreModule : public FBModule {
 public:
@@ -20,34 +20,34 @@ public:
 
   const FBStoreSpec &Spec() const { return Spec_; }
 
-  void AttachFdm(FBFdm &fdm) override { Fdm_ = &fdm; }
+  void AttachFdm(Fdm::FBFdm &fdm) override { Fdm_ = &fdm; }
   const char *FdmModelName() const override { return Spec_.FdmModel; }
 
   /* Fixed 100 Hz substeps of its own FDM, no command to any control channel — the same accumulator and
    * spiral guard as every other module, so a store integrates on the clock of the jet that dropped it. */
-  void Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units = nullptr,
-           const FBWorld *world = nullptr) override;
+  void Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegistry *units = nullptr,
+           const World::FBWorld *world = nullptr) override;
 
-  FBAutopilot &Autopilot() override { return AP_; }
-  FBFlightControl &FlightControl() override { return FC_; }
-  FBPilot &PilotSystem() override { return Pilot_; }
-  FBAirframeControls &Controls() override { return Ctrl_; }
-  FBDisplaySystem &Displays() override { return Disp_; }
-  FBAirDataSystem &AirDataSystem() override { return AirData_; }
-  FBNavSystem &NavSystem() override { return Nav_; }
-  FBWarningSystem &WarningSystem() override { return Warn_; }
-  FBRadarAltimeter &RadarAltimeter() override { return RadarAlt_; }
+  Systems::FBAutopilot &Autopilot() override { return AP_; }
+  Systems::FBFlightControl &FlightControl() override { return FC_; }
+  Pilot::FBPilot &PilotSystem() override { return Pilot_; }
+  Systems::FBAirframeControls &Controls() override { return Ctrl_; }
+  Systems::FBDisplaySystem &Displays() override { return Disp_; }
+  Systems::FBAirDataSystem &AirDataSystem() override { return AirData_; }
+  Systems::FBNavSystem &NavSystem() override { return Nav_; }
+  Systems::FBWarningSystem &WarningSystem() override { return Warn_; }
+  Systems::FBRadarAltimeter &RadarAltimeter() override { return RadarAlt_; }
   FBCommandBus &Commands() override { return Cmds_; }
-  FBDatalinkSystem &Datalink() override { return Datalink_; }
-  FBRadarSystem &Radar() override { return Radar_; }
+  Sensors::FBDatalinkSystem &Datalink() override { return Datalink_; }
+  Sensors::FBRadarSystem &Radar() override { return Radar_; }
   /* The slots exist because every module carries the same categories; these are the defaults, never
    * cycled and powered down at construction so nothing they hold can be mistaken for a picture. */
-  FBRwrSystem &Rwr() override { return Rwr_; }
-  FBCountermeasureSystem &Countermeasures() override { return Cm_; }
-  FBStoresSystem &Stores() override { return Stores_; }
-  FBGunSystem &Guns() override { return Gun_; }
+  Sensors::FBRwrSystem &Rwr() override { return Rwr_; }
+  Sensors::FBCountermeasureSystem &Countermeasures() override { return Cm_; }
+  Weapons::FBStoresSystem &Stores() override { return Stores_; }
+  Weapons::FBGunSystem &Guns() override { return Gun_; }
   const FBState &Telemetry() const override { return State_; }
-  const FBGuidance &LastGuidance() const override { return LastG_; }
+  const Systems::FBGuidance &LastGuidance() const override { return LastG_; }
   int LastSubsteps() const override { return LastSub_; }
 
   FBFlightPlan &FlightPlan() override { return Plan_; }
@@ -62,31 +62,31 @@ public:
 
 private:
   const FBStoreSpec &Spec_;
-  FBFdm *Fdm_ = nullptr;          /* borrowed, never owned */
+  Fdm::FBFdm *Fdm_ = nullptr;          /* borrowed, never owned */
   float GroundAslM_ = 0.0f;
   double AccS_ = 0.0;
   int LastSub_ = 0;
 
-  FBAutopilot AP_;
-  FBFlightControl FC_;
-  FBPilot Pilot_;
-  FBAirframeControls Ctrl_;
-  FBDisplaySystem Disp_;
-  FBAirDataSystem AirData_;
-  FBNavSystem Nav_;
-  FBWarningSystem Warn_;
-  FBRadarAltimeter RadarAlt_;
+  Systems::FBAutopilot AP_;
+  Systems::FBFlightControl FC_;
+  Pilot::FBPilot Pilot_;
+  Systems::FBAirframeControls Ctrl_;
+  Systems::FBDisplaySystem Disp_;
+  Systems::FBAirDataSystem AirData_;
+  Systems::FBNavSystem Nav_;
+  Systems::FBWarningSystem Warn_;
+  Systems::FBRadarAltimeter RadarAlt_;
   FBCommandBus Cmds_;
-  FBDatalinkSystem Datalink_;
-  FBRadarSystem Radar_;
-  FBRwrSystem Rwr_;
-  FBCountermeasureSystem Cm_;
-  FBStoresSystem Stores_;
-  FBGunSystem Gun_;
+  Sensors::FBDatalinkSystem Datalink_;
+  Sensors::FBRadarSystem Radar_;
+  Sensors::FBRwrSystem Rwr_;
+  Sensors::FBCountermeasureSystem Cm_;
+  Weapons::FBStoresSystem Stores_;
+  Weapons::FBGunSystem Gun_;
   FBFlightPlan Plan_;
   FBState State_{};
-  FBGuidance LastG_{};
+  Systems::FBGuidance LastG_{};
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif

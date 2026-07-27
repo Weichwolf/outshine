@@ -1,6 +1,6 @@
 #include "FBFdmTelemetrySource.h"
 
-namespace FlightBox {
+namespace FlightBox::Fdm {
 
 void FBFdmTelemetrySource::DeclareTelemetry(FBTelemetrySchema &schema) const {
   schema.Add("lat", "deg");
@@ -31,4 +31,4 @@ void FBFdmTelemetrySource::SampleTelemetry(FBTelemetryRow &row) const {
   row.Push(weightLbs > 0.0 ? Fdm->GetMaxGearForceLbs() / weightLbs : 0.0);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Fdm

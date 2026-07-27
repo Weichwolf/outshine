@@ -44,7 +44,7 @@ double BankHoldStick(double bankErrDeg) {
 }
 
 bool MeasurePoint(double entryCasKt, SweepPoint &out) {
-  FBFdmSpawn ic;
+  Fdm::FBFdmSpawn ic;
   ic.ModelsRoot = "assets/aircraft";
   ic.Aircraft = "f16";
   ic.LatDeg = 46.7; ic.LonDeg = 6.8;
@@ -52,17 +52,17 @@ bool MeasurePoint(double entryCasKt, SweepPoint &out) {
   ic.HeightOffsetM = kAltM;
   ic.SpeedMs = entryCasKt * kKtToMs;
   ic.HeadingDeg = 90.0;
-  std::unique_ptr<FBFdm> fdm = FBFdmBoot::Spawn(ic);
+  std::unique_ptr<Fdm::FBFdm> fdm = Fdm::FBFdmBoot::Spawn(ic);
   if (!fdm) return false;
   fdm->SetGroundElevM(0.0);
   fdm->SetFuelPct(60.0);
   fdm->SetGear(0.0);
 
-  fb_fdm_state st{};
+  Fdm::fb_fdm_state st{};
   fdm->Step(st);
 
   /* Roll-in until the bank is established. */
-  for (int i = 0; i < (int)(kRollInMaxS / FBFdm::kStepS) && st.roll < kBankDeg; i++) {
+  for (int i = 0; i < (int)(kRollInMaxS / Fdm::FBFdm::kStepS) && st.roll < kBankDeg; i++) {
     fdm->SetControls(1.0, 0.0, 0.0, 1.0);
     fdm->Step(st);
   }
@@ -70,7 +70,7 @@ bool MeasurePoint(double entryCasKt, SweepPoint &out) {
 
   double psi0 = st.yaw, alt0 = st.elev, wrap = 0.0, prevPsi = st.yaw;
   double nzSum = 0.0, nzPeak = 0.0, alphaSum = 0.0;
-  int n = (int)(kMeasureS / FBFdm::kStepS);
+  int n = (int)(kMeasureS / Fdm::FBFdm::kStepS);
   for (int i = 0; i < n; i++) {
     fdm->SetControls(BankHoldStick(kBankDeg - st.roll), 1.0, 0.0, 1.0);
     fdm->Step(st);
@@ -95,7 +95,7 @@ bool MeasurePoint(double entryCasKt, SweepPoint &out) {
 } // namespace
 
 int main() {
-  FBStdoutLogSink sink;
+  Clients::FBStdoutLogSink sink;
   FBLog::SetSink(&sink);
   FBLog::SetLevel(FBLogLevel::Debug);
 

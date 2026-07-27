@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 static bool CloudCellsOn(void) { const char *e = getenv("FB_CLOUD_CELLS"); return !e || atoi(e) != 0; }
 
@@ -234,4 +234,4 @@ fn cs(@builtin(global_invocation_id) id : vec3u) {
   (void)pct;
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render

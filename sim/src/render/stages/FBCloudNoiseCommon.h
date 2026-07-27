@@ -3,7 +3,7 @@
 #ifndef FBCLOUDNOISECOMMON_H
 #define FBCLOUDNOISECOMMON_H
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 static const char *kCloudNoiseCommon = R"(
 fn h33(p : vec3f) -> vec3f {
@@ -68,5 +68,5 @@ fn perlinFbm(uv : vec3f, f : f32) -> f32 {
 fn remap(v : f32, a : f32, b : f32, c : f32, d : f32) -> f32 { return c + (v - a) / (b - a) * (d - c); }
 )";
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

@@ -3,7 +3,7 @@
 #include "FBUnits.h"
 #include <cmath>
 
-namespace FlightBox {
+namespace FlightBox::Pilot {
 
 namespace {
 const double kG0 = 9.80665;   /* das g der Energiehoehe, kein Lastvielfaches */
@@ -30,7 +30,7 @@ void FBBfmTrack::Reset() {
   GCmd_ = 0.0;
 }
 
-void FBBfmTrack::Update(const FBState &state, const fb_fdm_state &own, double nowS) {
+void FBBfmTrack::Update(const FBState &state, const Fdm::fb_fdm_state &own, double nowS) {
   const FBRadarBlock &fcr = state.Radar;
   const FBRadarContact *c = nullptr;
   /* Kopf zuerst: ein Invalid Radar-Block ist ein Geraet, das nicht schaut — sein Kontaktarray bedeutet
@@ -83,7 +83,7 @@ void FBBfmTrack::Update(const FBState &state, const fb_fdm_state &own, double no
 
 /* Laeuft JEDEN Tick, frischer Look oder nicht: mit Lock ist das Vorhersageintervall ein Radar-Frame und
  * dies schlicht die Messung, ohne Lock ist derselbe Code die Extrapolation. */
-void FBBfmTrack::Predict(const fb_fdm_state &own, double nowS) {
+void FBBfmTrack::Predict(const Fdm::fb_fdm_state &own, double nowS) {
   if (!Have_) { Blk_ = FBBfmBlock{}; AgeS_ = 0.0; return; }
   double age = nowS - LastLookS_;
   /* Jenseits des Fensters faellt die Position auf die zuletzt GEMESSENE zurueck und der Block wird Held —
@@ -127,7 +127,7 @@ void FBBfmTrack::Predict(const fb_fdm_state &own, double nowS) {
 
 /* Bewusst NICHT aus Block() abgeleitet: der Block friert jenseits des Fensters auf dem Messpunkt ein
  * (richtig fuer die Verfolgung, falsch fuer die Suche), also eigene Fortschreibungsregel. */
-FBTrackDatum FBBfmTrack::Datum(const fb_fdm_state &own, double nowS, double turnRateDegS) const {
+FBTrackDatum FBBfmTrack::Datum(const Fdm::fb_fdm_state &own, double nowS, double turnRateDegS) const {
   FBTrackDatum d;
   if (!Have_) return d;
   d.Valid = true;
@@ -199,4 +199,4 @@ void FBBfmTrack::SampleTelemetry(FBTelemetryRow &row) const {
   row.Push(ControlS_);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Pilot

@@ -17,7 +17,7 @@
 #include "FBSimUnit.h"
 #include "FBUnitRegistry.h"
 
-namespace FlightBox {
+namespace FlightBox::Missions {
 
 /* Loc shares Crash's exit code 2: both are FBFlightMonitor K.O.s, distinguished by the RESULT line's
  * `result` field. A caller branching only on exit != 0 — the documented contract — sees no difference. */
@@ -32,8 +32,8 @@ public:
    * declarative IC — not a runway assumption, since an airborne mission has no runway at all. `actors`
    * and `units` are borrowed and valid for the whole run; everything a renderer hook needs hangs off
    * their entries, which is what keeps this interface GPU-type-free. */
-  virtual void OnMissionStart(const FBSpawn &spawn, const FBActorList &actors,
-                              const FBUnitRegistry &units) {
+  virtual void OnMissionStart(const FBSpawn &spawn, const Units::FBActorList &actors,
+                              const Units::FBUnitRegistry &units) {
     (void)spawn; (void)actors; (void)units;
   }
 
@@ -45,7 +45,7 @@ public:
   /* After the pose barrier and this tick's telemetry sample, so every pose the hook reads is this
    * tick's. A camera has ONE eye and rides actors[0]; the list is here for everything that is not the
    * camera. The hook sets its own cadence for anything expensive. */
-  virtual void OnTick(const FBActorList &actors, double simT) = 0;
+  virtual void OnTick(const Units::FBActorList &actors, double simT) = 0;
 };
 
 /* mkdir -p: creates every missing path component. */
@@ -62,5 +62,5 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
                  const FBModelRoots &models, FBElevationProvider &elevation,
                  FBMissionTickHook *hook = nullptr, size_t threads = 1);
 
-} // namespace FlightBox
+} // namespace FlightBox::Missions
 #endif

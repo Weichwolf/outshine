@@ -262,7 +262,7 @@ void CheckConventions() {
 } // namespace
 
 int main(int argc, char **argv) {
-  static FBStdoutLogSink sink;
+  static Clients::FBStdoutLogSink sink;
   FBLog::SetSink(&sink);
   FBLog::SetLevel(FBLogLevel::Debug);
 

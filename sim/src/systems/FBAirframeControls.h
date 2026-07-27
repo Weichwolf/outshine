@@ -7,7 +7,7 @@
 #include "FBFdm.h"
 #include "FBTelemetry.h"
 
-namespace FlightBox {
+namespace FlightBox::Systems {
 
 class FBAirframeControls : public FBTelemetrySource {
 public:
@@ -40,7 +40,7 @@ public:
 
 class FBJsbsimAirframeControls : public FBAirframeControls {
 public:
-  explicit FBJsbsimAirframeControls(FBFdm &fdm) : Fdm(fdm) {}
+  explicit FBJsbsimAirframeControls(Fdm::FBFdm &fdm) : Fdm(fdm) {}
 
   void SetGear(bool down) override;
   void SetSpeedbrake(double norm) override;
@@ -56,8 +56,8 @@ public:
   bool   GetEngineRunning(int engineIndex) const override;
 
 private:
-  FBFdm &Fdm;   /* geborgt — Besitzer ist, wem die Einheit gehoert */
+  Fdm::FBFdm &Fdm;   /* geborgt — Besitzer ist, wem die Einheit gehoert */
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems
 #endif

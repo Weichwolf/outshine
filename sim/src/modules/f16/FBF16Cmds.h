@@ -8,9 +8,9 @@
 
 #include "FBCountermeasureSystem.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
-class FBF16Cmds : public FBCountermeasureSystem {
+class FBF16Cmds : public Sensors::FBCountermeasureSystem {
 public:
   /* [DOC] defence-rwr-cm.md §1: typical 60/60, 120 combined maximum. */
   static constexpr int kTypicalChaff = 60;
@@ -24,5 +24,5 @@ public:
   FBF16Cmds();
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif

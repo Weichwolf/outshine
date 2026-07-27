@@ -2,7 +2,7 @@
 #include "FBCloudNoiseCommon.h"
 #include <string>
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 static const char *kCloudDetailCS = R"(
 @group(0) @binding(0) var outTex : texture_storage_3d<rgba8unorm, write>;
@@ -75,4 +75,4 @@ void FBCloudDetailBakeStage::Configure(const FBGpu &gpu, FBCloudMipDownStage &mi
   }
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render

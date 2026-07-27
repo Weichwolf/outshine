@@ -10,10 +10,9 @@
 #include "FBTelemetry.h"
 #include "FBFdm.h"
 
-namespace FlightBox {
+namespace FlightBox::Units { class FBUnit; class FBUnitRegistry; }
 
-class FBUnit;
-class FBUnitRegistry;
+namespace FlightBox::Sensors {
 
 class FBDatalinkSystem : public FBTelemetrySource {
 public:
@@ -39,7 +38,7 @@ public:
 
   /* `simTimeS` ist ABSOLUTE Zeit, damit das Ergebnis nicht davon abhaengt, wie oft das Modul den Slot
    * taktet. `net` null = gar kein Netz. */
-  virtual void Run(FBState &state, const fb_fdm_state &st, const FBUnitRegistry *net, double simTimeS);
+  virtual void Run(FBState &state, const Fdm::fb_fdm_state &st, const Units::FBUnitRegistry *net, double simTimeS);
 
   const char *TelemetryName() const override { return "dl"; }
   void DeclareTelemetry(FBTelemetrySchema &schema) const override;
@@ -48,7 +47,7 @@ public:
 protected:
   /* Der Kontaktfilter. `flightIndex` = Ordinal des Absenders unter den Teilnehmern dieser Fraktion in
    * Registry- = Missionsreihenfolge, Index 0 also der Flight Lead. */
-  virtual bool AcceptContact(const FBUnit &sender, int flightIndex) const {
+  virtual bool AcceptContact(const Units::FBUnit &sender, int flightIndex) const {
     (void)sender; (void)flightIndex;
     return true;
   }
@@ -71,8 +70,8 @@ private:
   /* Telemetrie braucht eine Zahl, keine Tabelle: naechster Track, -1 bei leerer Liste. */
   float NearestNm_ = -1.0f, NearestAgeS_ = -1.0f;
 
-  void Cycle(const fb_fdm_state &st, const FBUnitRegistry &net, double simTimeS);
+  void Cycle(const Fdm::fb_fdm_state &st, const Units::FBUnitRegistry &net, double simTimeS);
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Sensors
 #endif

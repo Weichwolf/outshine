@@ -6,7 +6,7 @@
 #include "FBState.h"
 #include "FBTelemetry.h"
 
-namespace FlightBox {
+namespace FlightBox::Systems {
 
 class FBWarningSystem : public FBTelemetrySource {
 public:
@@ -22,5 +22,5 @@ private:
   uint32_t Active_ = 0, Inhibited_ = 0;   /* Telemetriekopie des zuletzt publizierten Blocks */
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems
 #endif

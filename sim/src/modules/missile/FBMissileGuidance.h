@@ -21,11 +21,11 @@
 #include "FBStore.h"
 #include "FBWeaponUplink.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 class FBMissileSeeker;
 
-class FBMissileGuidance : public FBPilot {
+class FBMissileGuidance : public Pilot::FBPilot {
 public:
   /* Telemetry ordinal — append, never reorder. */
   enum class Phase { Inertial = 0, Midcourse, Terminal };
@@ -65,8 +65,8 @@ public:
 
   /* The override point: reads its own seeker's and uplink's bus blocks plus the airframe state, returns
    * fin/throttle as a Manual guidance request. `plan`/`runway` unused — a missile has no flight plan. */
-  FBPilotCommands Run(const FBState &state, FBCommandBus &avionics, const FBAirframeControls &airframe,
-                      const fb_fdm_state &st, const FBFlightPlan &plan, const FBRunway *runway,
+  Pilot::FBPilotCommands Run(const FBState &state, FBCommandBus &avionics, const Systems::FBAirframeControls &airframe,
+                      const Fdm::fb_fdm_state &st, const FBFlightPlan &plan, const FBRunway *runway,
                       double dt) override;
 
   /* A missile's trace is not a jet's, and the bus is per-unit, so this REPLACES the pilot's channels
@@ -79,7 +79,7 @@ public:
 
 private:
   /* Strict priority: own seeker > uplink > last known; each branch sets Phase_. */
-  void UpdateTarget(const FBState &state, const fb_fdm_state &st);
+  void UpdateTarget(const FBState &state, const Fdm::fb_fdm_state &st);
   void EnterPhase(Phase p, const char *why);
 
   const FBStoreSpec *Spec_ = nullptr;   /* borrowed catalogue entry */
@@ -104,5 +104,5 @@ private:
   double NzInt_ = 0.0, NyInt_ = 0.0;   /* the two acceleration loops' integrators */
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif

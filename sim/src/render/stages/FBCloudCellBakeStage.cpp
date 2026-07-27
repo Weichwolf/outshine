@@ -2,7 +2,7 @@
 #include "FBCloudNoiseCommon.h"
 #include <string>
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 /* Tileable F1-round bumps pow(1-F1,2) at ~57 texel/cell, which is what makes the puffs ROUND rather
  * than angular plates. The octave frequencies must be INTEGER to wrap seamlessly. */
@@ -55,4 +55,4 @@ void FBCloudCellBakeStage::Configure(const FBGpu &gpu) {
   wgpu::CommandBuffer cmd = enc.Finish(); Queue.Submit(1, &cmd);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render

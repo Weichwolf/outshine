@@ -14,7 +14,7 @@
 #include <cstring>
 #include "FBDamageModel.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 struct FBGroundTargetSpec {
   const char *Key = "";        /* the mission-file `module <name>` / FBModuleRegistry name */
@@ -54,5 +54,5 @@ inline const FBGroundTargetSpec *FBFindGroundTarget(const char *key) {
   return nullptr;
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif

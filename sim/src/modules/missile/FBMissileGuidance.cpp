@@ -6,7 +6,7 @@
 #include "FBUnits.h"
 #include <cmath>
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 namespace {
 constexpr double kG = 9.80665;
@@ -53,7 +53,7 @@ void FBMissileGuidance::EnterPhase(Phase p, const char *why) {
 
 /* Strict priority: own seeker > uplink > last known. Every branch writes the SAME four fields, so the
  * law below never asks where its numbers came from — only how old they are. */
-void FBMissileGuidance::UpdateTarget(const FBState &state, const fb_fdm_state &st) {
+void FBMissileGuidance::UpdateTarget(const FBState &state, const Fdm::fb_fdm_state &st) {
   /* --- Terminal. The velocity comes from the tracker every pilot owns, fed from the seeker's own radar
    * block: a contact is an echo without velocity, and the law needs one. --- */
   BfmTrack().Update(state, st, NowS_);
@@ -92,12 +92,12 @@ void FBMissileGuidance::UpdateTarget(const FBState &state, const fb_fdm_state &s
   EnterPhase(Phase::Inertial, Phase_ == Phase::Midcourse ? "uplink lost" : "no uplink yet");
 }
 
-FBPilotCommands FBMissileGuidance::Run(const FBState &state, FBCommandBus &avionics,
-                                       const FBAirframeControls &airframe, const fb_fdm_state &st,
+Pilot::FBPilotCommands FBMissileGuidance::Run(const FBState &state, FBCommandBus &avionics,
+                                       const Systems::FBAirframeControls &airframe, const Fdm::fb_fdm_state &st,
                                        const FBFlightPlan &plan, const FBRunway *runway, double dt) {
   (void)avionics; (void)airframe; (void)plan; (void)runway; (void)dt;
-  FBPilotCommands c;
-  c.Guidance = FBPilotGuidance::Manual;
+  Pilot::FBPilotCommands c;
+  c.Guidance = Pilot::FBPilotGuidance::Manual;
   /* A solid motor has no throttle: full command from separation, and FBFdm's own throttle slew is the
    * safe-separation delay before ignition. */
   c.ManualThr = 1.0;
@@ -223,4 +223,4 @@ void FBMissileGuidance::SampleTelemetry(FBTelemetryRow &row) const {
   row.Push(HaveTarget_ ? NowS_ - TgtStampS_ : -1.0);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules

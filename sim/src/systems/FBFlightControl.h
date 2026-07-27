@@ -7,7 +7,7 @@
 #include "FBAutopilot.h"
 #include "FBTelemetry.h"
 
-namespace FlightBox {
+namespace FlightBox::Systems {
 
 struct FBControls { double Roll, Pitch, Yaw, Thr; };
 
@@ -17,7 +17,7 @@ public:
   virtual ~FBFlightControl() = default;
 
   /* Ein 100-Hz-Schritt; mutiert die Integratoren. Der EINE Override-Punkt. */
-  virtual FBControls Run(const FBGuidance &g, const fb_fdm_state &s);
+  virtual FBControls Run(const FBGuidance &g, const Fdm::fb_fdm_state &s);
 
   const char *TelemetryName() const override { return "flightcontrol"; }
   void DeclareTelemetry(FBTelemetrySchema &schema) const override;
@@ -41,5 +41,5 @@ private:
   FBControls LastControls_{0.0, 0.0, 0.0, 0.0};
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems
 #endif

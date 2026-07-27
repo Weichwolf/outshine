@@ -6,7 +6,7 @@
 #include "FBDrawStage.h"
 #include "FBCloudResolveStage.h"
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 class FBTonemapStage : public FBDrawStage {
 public:
@@ -23,5 +23,5 @@ private:
   wgpu::BindGroup TonemapBindH[2], TonemapBindPlain;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

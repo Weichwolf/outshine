@@ -3,7 +3,7 @@
 #include "FBStore.h"
 #include "FBStoreModule.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 void FBRegisterStoreModules() {
   for (const FBStoreSpec *spec : kStoreCatalogue) {
@@ -14,4 +14,4 @@ void FBRegisterStoreModules() {
   }
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules

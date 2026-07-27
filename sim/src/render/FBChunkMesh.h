@@ -4,7 +4,7 @@
  * Ausgabevertrag (verts/err/origin_out) und Schuerzen: doc/flightbox/world-and-terrain.md §5.2. */
 #ifndef FBCHUNKMESH_H
 #define FBCHUNKMESH_H
-#include "FBChunkVtx.h" /* w3_vtx, w3_chunk, w3_chunk_free -- no dependency on the ENU builder */
+#include "FBChunkVtx.h" /* FBChunkVtx, FBChunk, FBChunkFree -- no dependency on the ENU builder */
 #include <math.h>
 #include "geo.h"
 #include "mesh.h"
@@ -13,8 +13,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-static int w3_chunk_build_ecef(const osmmesh_mesh *m, int z, uint32_t x, uint32_t y, int grid,
-                               w3_chunk *out, double origin_out[3]) {
+namespace FlightBox::Render {
+
+inline int FBChunkBuildEcef(const osmmesh_mesh *m, int z, uint32_t x, uint32_t y, int grid,
+                           FBChunk *out, double origin_out[3]) {
   if (!out || !origin_out) return 0;
   out->verts = 0;
   out->nverts = 0;
@@ -145,7 +147,7 @@ static int w3_chunk_build_ecef(const osmmesh_mesh *m, int z, uint32_t x, uint32_
   if (skirt < 5.f) skirt = 5.f;
 
   int nquad = (gr - 1) * (gc - 1), nedge = 2 * ((gr - 1) + (gc - 1));
-  w3_vtx *v = (w3_vtx *)malloc(((size_t)nquad + nedge) * 6 * sizeof(w3_vtx));
+  FBChunkVtx *v = (FBChunkVtx *)malloc(((size_t)nquad + nedge) * 6 * sizeof(FBChunkVtx));
   size_t o = 0;
   if (!v) {
     free(pe);
@@ -161,7 +163,7 @@ static int w3_chunk_build_ecef(const osmmesh_mesh *m, int z, uint32_t x, uint32_
       for (int k = 0; k < 6; k++) {
         const double *P = pe + ((size_t)qj[k] * gc + qi[k]) * 3;
         const float *N = nv + ((size_t)qj[k] * gc + qi[k]) * 3;
-        w3_vtx *d = &v[o++];
+        FBChunkVtx *d = &v[o++];
         d->pos[0] = (float)P[0];
         d->pos[1] = (float)P[1];
         d->pos[2] = (float)P[2];
@@ -192,7 +194,7 @@ static int w3_chunk_build_ecef(const osmmesh_mesh *m, int z, uint32_t x, uint32_
                       {Ax, Ay, Az}, {Bdx, Bdy, Bdz}, {Adx, Ady, Adz}};                             \
     float U6[6][2] = {{au, av}, {bu, bv}, {bu, bv}, {au, av}, {bu, bv}, {au, av}};                 \
     for (int k = 0; k < 6; k++) {                                                                  \
-      w3_vtx *d = &v[o++];                                                                         \
+      FBChunkVtx *d = &v[o++];                                                                         \
       d->pos[0] = P6[k][0];                                                                        \
       d->pos[1] = P6[k][1];                                                                        \
       d->pos[2] = P6[k][2];                                                                        \
@@ -228,4 +230,5 @@ static int w3_chunk_build_ecef(const osmmesh_mesh *m, int z, uint32_t x, uint32_
   return 1;
 }
 
+} // namespace FlightBox::Render
 #endif /* FBCHUNKMESH_H */

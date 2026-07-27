@@ -9,7 +9,7 @@
 
 #include <vector>
 
-namespace FlightBox {
+namespace FlightBox::Systems {
 
 /* The bounds FBHudStage sizes its GPU buffers to. */
 inline constexpr size_t kHudMaxStrokeFloats = 147456;
@@ -47,5 +47,5 @@ private:
   float ClipX0 = 0, ClipY0 = 0, ClipX1 = 0, ClipY1 = 0;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems
 #endif

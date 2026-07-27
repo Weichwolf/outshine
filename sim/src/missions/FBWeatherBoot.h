@@ -15,7 +15,7 @@
 #include "FBMissionFile.h"
 #include "FBModelRoots.h"
 
-namespace FlightBox {
+namespace FlightBox::Missions {
 
 /* Null iff the mission declared a fixture this client cannot load; *err then says which path failed.
  * A mission with no `wx` line returns null WITHOUT an error — that is the caller's default to fill. */
@@ -53,5 +53,5 @@ inline std::unique_ptr<FBWeatherProvider> FBMakeMissionWeather(const FBMission &
   return nullptr;
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Missions
 #endif

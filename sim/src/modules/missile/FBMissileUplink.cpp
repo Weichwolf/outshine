@@ -6,9 +6,9 @@
 #include <cmath>
 #include <cstring>
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
-void FBMissileUplink::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegistry *net,
+void FBMissileUplink::Run(FBState &state, const Fdm::fb_fdm_state &st, const Units::FBUnitRegistry *net,
                           double simTimeS) {
   FBDatalinkBlock &b = state.Datalink;
   b.Powered = Powered();
@@ -17,7 +17,7 @@ void FBMissileUplink::Run(FBState &state, const fb_fdm_state &st, const FBUnitRe
 
   FBWeaponUplink up{};
   if (Powered() && net && LauncherId_ != 0) {
-    for (const FBUnit *u : net->Units()) {
+    for (const Units::FBUnit *u : net->Units()) {
       if (!u || u->GetId() != LauncherId_) continue;
       /* By VALUE: what this receiver has heard must outlive the expression that read it. */
       up = u->GetSignature().Uplink;
@@ -49,4 +49,4 @@ void FBMissileUplink::Run(FBState &state, const fb_fdm_state &st, const FBUnitRe
   b.H.Publish(simTimeS);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules

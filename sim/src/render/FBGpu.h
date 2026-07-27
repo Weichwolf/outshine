@@ -5,7 +5,7 @@
 
 #include <webgpu/webgpu_cpp.h>
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 struct FBGpu {
   wgpu::Device Device;
@@ -16,5 +16,5 @@ struct FBGpu {
   wgpu::Instance Instance;             /* only for the rare stage that blocks on MapAsync (Instance::WaitAny) */
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

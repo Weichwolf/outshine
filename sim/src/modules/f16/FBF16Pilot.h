@@ -7,9 +7,9 @@
 
 #include "FBPilot.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
-class FBF16Pilot : public FBPilot {
+class FBF16Pilot : public Pilot::FBPilot {
 protected:
   double RotationSpeedKt(double grossWeightLbs) const override;
   double RotationLeadKt() const override { return 15.0; }
@@ -77,5 +77,5 @@ protected:
   double AttackEgressS() const override { return 30.0; }
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif

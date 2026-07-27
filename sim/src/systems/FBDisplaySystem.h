@@ -8,7 +8,7 @@
 #include "FBMasterMode.h"
 #include "FBState.h"
 
-namespace FlightBox {
+namespace FlightBox::Systems {
 
 /* Was BuildHud jenseits von FBState braucht: Render-/Telemetrie-Verdrahtung, kein Sim-Zustand — reist
  * getrennt, statt FBState fuer einen Konsumenten aufzublaehen. */
@@ -28,5 +28,5 @@ public:
   virtual void BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry &out) const;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems
 #endif

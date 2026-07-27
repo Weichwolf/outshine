@@ -12,7 +12,7 @@
 #include <emscripten.h>
 #endif
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 static void Cross3(const double a[3], const double b[3], double o[3]);   /* defined below */
 static void Norm3(double v[3]);
@@ -792,4 +792,4 @@ bool FBRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
   return true;
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render

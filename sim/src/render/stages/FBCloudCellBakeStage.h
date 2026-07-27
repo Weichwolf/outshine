@@ -6,7 +6,7 @@
 #include <webgpu/webgpu_cpp.h>
 #include "FBGpu.h"
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 class FBCloudCellBakeStage {
 public:
@@ -19,5 +19,5 @@ private:
   wgpu::Texture Tex;   /* 512^2 RGBA8Unorm, single mip */
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

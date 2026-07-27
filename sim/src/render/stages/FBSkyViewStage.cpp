@@ -2,7 +2,7 @@
 #include "FBAtmoCommon.h"
 #include <string>
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 static const char *kSkyViewCS = R"(
 @group(0) @binding(0) var svOut : texture_storage_2d<rgba16float, write>;
@@ -84,4 +84,4 @@ void FBSkyViewStage::EncodeCompute(const FBFrameContext &, wgpu::ComputePassEnco
   pass.DispatchWorkgroups(24, 14, 1);   /* 192x108 / 8x8 (ceil) */
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render

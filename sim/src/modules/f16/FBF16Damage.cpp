@@ -1,6 +1,6 @@
 #include "FBF16Damage.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 namespace {
 /* ---- THE FOUR FRAGILITY CLASSES: the actual modelling decision of this file. All [SET], in J/m^2 of
@@ -69,4 +69,4 @@ constexpr FBDamageLayout kLayout{kZones, Count(kZones), /*FrontalAreaM2*/ 4.0, /
 
 const FBDamageLayout &FBF16DamageLayout() { return kLayout; }
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules

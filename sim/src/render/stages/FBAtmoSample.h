@@ -3,7 +3,7 @@
 #ifndef FBATMOSAMPLE_H
 #define FBATMOSAMPLE_H
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 static const char *kAtmoSample = R"(
 const kSkyExposure = 8.0;
@@ -17,5 +17,5 @@ fn skyViewSample(svLUT : texture_2d<f32>, lsamp : sampler, A : Atmo, dir : vec3f
 }
 )";
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

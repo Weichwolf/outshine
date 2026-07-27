@@ -4,7 +4,7 @@
 #include <cstdarg>
 #include <cstdio>
 
-namespace FlightBox {
+namespace FlightBox::Systems {
 
 namespace {
 /* Half of the 1 px band the fragment shader ramps coverage over, so alpha hits 0 exactly at the
@@ -121,4 +121,4 @@ void FBHudGeometry::Printf(float x, float y, float s, float r, float g, float b,
   Text(x, y, s, r, g, b, buf);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems

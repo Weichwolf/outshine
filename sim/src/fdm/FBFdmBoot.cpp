@@ -3,7 +3,7 @@
 #include <exception>
 #include <string>
 
-namespace FlightBox {
+namespace FlightBox::Fdm {
 
 /* `new` rather than make_unique because FBFdm's ctor is private to this class; the try covers the ONE
  * thing outside FBFdm::Load's own firewall — constructing the engine object itself. */
@@ -20,4 +20,4 @@ std::unique_ptr<FBFdm> FBFdmBoot::Spawn(const FBFdmSpawn &spawn) {
   return nullptr;
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Fdm

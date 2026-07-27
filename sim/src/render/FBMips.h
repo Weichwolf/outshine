@@ -8,6 +8,8 @@
 #include <string.h>
 #include <math.h>
 
+namespace FlightBox::Render {
+
 static float fb_srgb_lin_[256];
 static int fb_srgb_init_ = 0;
 static inline void fb_srgb_lut_(void) {
@@ -61,4 +63,5 @@ static inline void fb_build_pyramid(const uint8_t *rgba, int ts, uint8_t *dst) {
   }
 }
 
+} // namespace FlightBox::Render
 #endif /* FBMIPS_H */

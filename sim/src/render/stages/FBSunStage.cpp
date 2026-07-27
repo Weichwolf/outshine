@@ -3,7 +3,7 @@
 #include "FBAtmoSample.h"
 #include <string>
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 /* Disc = solar transmittance, glow = a soft forward halo. */
 static const char *kSunWGSL = R"(
@@ -81,4 +81,4 @@ void FBSunStage::Encode(const FBFrameContext &, wgpu::RenderPassEncoder &pass) {
   pass.Draw(3);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render

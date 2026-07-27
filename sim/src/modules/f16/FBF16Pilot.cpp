@@ -1,6 +1,6 @@
 #include "FBF16Pilot.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 /* doc/f16/procedures-takeoff-taxi.md's weight/Vr table, piecewise-linear interpolated; clamped at the
  * table's ends (20,000..44,000 lb) rather than extrapolated. */
@@ -19,4 +19,4 @@ double FBF16Pilot::RotationSpeedKt(double grossWeightLbs) const {
   return kV[n - 1];
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules

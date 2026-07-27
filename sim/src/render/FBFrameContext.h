@@ -3,7 +3,7 @@
 #ifndef FBFRAMECONTEXT_H
 #define FBFRAMECONTEXT_H
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 struct FBFrameContext {
   double Eye[3], Fwd[3], Right[3], CamUp[3];   /* ECEF camera basis, eye at the render origin */
@@ -23,5 +23,5 @@ struct FBFrameContext {
   int Width, Height;        /* fixed scene resolution (FrameTex) */
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

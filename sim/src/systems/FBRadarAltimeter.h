@@ -5,7 +5,7 @@
 
 #include "FBState.h"
 
-namespace FlightBox {
+namespace FlightBox::Systems {
 
 class FBRadarAltimeter {
 public:
@@ -21,5 +21,5 @@ private:
   bool Powered_ = true;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems
 #endif

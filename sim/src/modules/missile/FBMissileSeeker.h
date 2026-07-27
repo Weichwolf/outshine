@@ -13,9 +13,9 @@
 
 #include "FBRadarSystem.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
-class FBMissileSeeker : public FBRadarSystem {
+class FBMissileSeeker : public Sensors::FBRadarSystem {
 public:
   /* [SET] — no public figure exists. Its measurable CONSEQUENCE is the point: a midcourse that hands
    * over with the target more than this far off the nose does not acquire. */
@@ -41,16 +41,16 @@ public:
 
 protected:
   /* The one hook: the slaved cone while looking, the gimbal envelope once it has something. */
-  const FBRadarScanVolume &ActiveVolume() const override { return Locked() ? Track_ : Vol_; }
+  const Sensors::FBRadarScanVolume &ActiveVolume() const override { return Locked() ? Track_ : Vol_; }
   int ModeOrdinal() const override { return Vol_.Active ? 1 : 0; }
   /* What differs about this set's EMISSION: behind the antenna is a warhead, so a warning receiver
    * classifies it as the launch case however it happens to be scanning. */
   FBEmitterKind EmitterKind() const override { return FBEmitterKind::MissileSeeker; }
 
 private:
-  FBRadarScanVolume Vol_{};
-  FBRadarScanVolume Track_{};   /* the locked pattern: same range/frame, the gimbal's full envelope */
+  Sensors::FBRadarScanVolume Vol_{};
+  Sensors::FBRadarScanVolume Track_{};   /* the locked pattern: same range/frame, the gimbal's full envelope */
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif

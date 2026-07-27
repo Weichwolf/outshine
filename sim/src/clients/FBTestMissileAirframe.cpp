@@ -23,8 +23,8 @@ constexpr double kReleaseSpeedMs = 270.0; /* ~M 0.9 at 6 km — a fighter's laun
  * met at 800 m/s is a stiff ODE that diverges inside ONE step. */
 constexpr double kNoGroundElevM = -100000.0;
 
-std::unique_ptr<FBFdm> SpawnMissile(double altM) {
-  FBFdmSpawn ic;
+std::unique_ptr<Fdm::FBFdm> SpawnMissile(double altM) {
+  Fdm::FBFdmSpawn ic;
   ic.ModelsRoot = "assets/aircraft";
   ic.Aircraft = "aim120";
   ic.LatDeg = 46.9; ic.LonDeg = 6.9;
@@ -33,7 +33,7 @@ std::unique_ptr<FBFdm> SpawnMissile(double altM) {
   ic.HeadingDeg = 90.0;
   ic.Ballistic = true;                    /* a released store's IC: attitude + velocity vector, no trim */
   ic.VelEastMs = kReleaseSpeedMs;
-  std::unique_ptr<FBFdm> m = FBFdmBoot::Spawn(ic);
+  std::unique_ptr<Fdm::FBFdm> m = Fdm::FBFdmBoot::Spawn(ic);
   if (m) m->SetGroundElevM(kNoGroundElevM);
   return m;
 }
@@ -52,32 +52,32 @@ struct Run {
 /* `pitchCmd` is held for the whole run; + = nose up. */
 Run Fly(double thr, double pitchCmd, double seconds, double altM = kReleaseAltM) {
   Run r;
-  std::unique_ptr<FBFdm> m = SpawnMissile(altM);
+  std::unique_ptr<Fdm::FBFdm> m = SpawnMissile(altM);
   if (!m) return r;
   r.LaunchWeightLbs = m->GetWeightLbs();
-  fb_fdm_state st{};
+  Fdm::fb_fdm_state st{};
   double prevSpeed = kReleaseSpeedMs, t = 0.0;
   bool burnedOut = false;
   double fuel0 = m->GetFuelTotalLbs();
-  for (int i = 0; i < (int)(seconds / FBFdm::kStepS); i++) {
+  for (int i = 0; i < (int)(seconds / Fdm::FBFdm::kStepS); i++) {
     m->SetControls(0.0, pitchCmd, 0.0, thr);
     m->Step(st);
-    t += FBFdm::kStepS;
-    double accelG = (st.speed - prevSpeed) / FBFdm::kStepS / 9.80665;
+    t += Fdm::FBFdm::kStepS;
+    double accelG = (st.speed - prevSpeed) / Fdm::FBFdm::kStepS / 9.80665;
     prevSpeed = st.speed;
     if (st.speed > r.PeakSpeedMs) { r.PeakSpeedMs = st.speed; r.PeakMach = st.mach; }
     if (!burnedOut && accelG > r.PeakAccelG) r.PeakAccelG = accelG;
-    if (std::fabs(t - 6.0) < FBFdm::kStepS * 0.5) r.SustainAccelG = accelG;
+    if (std::fabs(t - 6.0) < Fdm::FBFdm::kStepS * 0.5) r.SustainAccelG = accelG;
     if (!burnedOut && m->GetFuelTotalLbs() <= 0.001 && fuel0 > 0.001) {
       burnedOut = true;
       r.BurnoutS = t;
       r.BurnoutSpeedMs = st.speed;
       r.BurnoutWeightLbs = m->GetWeightLbs();
     }
-    if (burnedOut && std::fabs(t - (r.BurnoutS + 1.0)) < FBFdm::kStepS * 0.5) r.CoastDecelG = -accelG;
-    if (std::fabs(t - 20.0) < FBFdm::kStepS * 0.5) r.SpeedAt20S = st.speed;
+    if (burnedOut && std::fabs(t - (r.BurnoutS + 1.0)) < Fdm::FBFdm::kStepS * 0.5) r.CoastDecelG = -accelG;
+    if (std::fabs(t - 20.0) < Fdm::FBFdm::kStepS * 0.5) r.SpeedAt20S = st.speed;
     /* Late enough for the alpha response to have settled, still supersonic. */
-    if (std::fabs(t - 12.0) < FBFdm::kStepS * 0.5) {
+    if (std::fabs(t - 12.0) < Fdm::FBFdm::kStepS * 0.5) {
       r.TrimAlphaDeg = st.alphaDeg;
       r.TrimNz = st.nz;
       r.TrimMach = st.mach;
@@ -96,7 +96,7 @@ bool Check(const char *what, double got, double lo, double hi) {
 } // namespace
 
 int main() {
-  FBStdoutLogSink sink;
+  Clients::FBStdoutLogSink sink;
   FBLog::SetSink(&sink);
   FBLog::SetLevel(FBLogLevel::Info);
 

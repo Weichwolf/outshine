@@ -9,9 +9,9 @@
 
 #include "FBDamageModel.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 const FBDamageLayout &FBF16DamageLayout();
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif

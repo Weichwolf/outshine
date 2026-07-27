@@ -3,7 +3,7 @@
 #include "FBLog.h"
 #include <cmath>
 
-namespace FlightBox {
+namespace FlightBox::Systems {
 
 namespace {
 /* Peilung (deg rechtweisend) + Horizontaldistanz (m) VON (lat0,lon0) NACH (lat1,lon1). */
@@ -16,7 +16,7 @@ void BearingDist(double lat0, double lon0, double lat1, double lon1, double &bea
 }
 } // namespace
 
-void FBNavSystem::Run(FBState &state, const fb_fdm_state &fdm, double dt) {
+void FBNavSystem::Run(FBState &state, const Fdm::fb_fdm_state &fdm, double dt) {
   (void)dt;
   FBNavBlock &b = state.Nav;
   b.MagVarDeg = 0.0f;   /* Platzhalter — kein Deklinationsmodell */
@@ -71,4 +71,4 @@ int FBNavSystem::AdvanceWaypoint(FBFlightPlan &plan, double lat, double lon, dou
   return idx;
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems

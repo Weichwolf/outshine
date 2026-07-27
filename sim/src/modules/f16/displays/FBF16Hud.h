@@ -5,12 +5,12 @@
 
 #include "FBDisplaySystem.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
-class FBF16Hud : public FBDisplaySystem {
+class FBF16Hud : public Systems::FBDisplaySystem {
 public:
-  void BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry &out) const override;
+  void BuildHud(const FBState &state, const Systems::FBHudEnv &env, Systems::FBHudGeometry &out) const override;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif
