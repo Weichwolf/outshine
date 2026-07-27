@@ -7,7 +7,33 @@ entweder gemessen, beim Destillieren der Doku gefunden, oder als bewusste Lücke
 Was sie öffnet, kommt hierher — **einschließlich verworfener Ansätze mit ihren Messungen.** Ein
 gemessener Fehlschlag ist Wissen; ihn zu löschen heißt, dass ihn jemand nachbaut.
 
-Stand: `793e1fe` + Modell-Umzug/Delta-Regel.
+Stand: `0f52690` + laufende Runden (s. Roadmap).
+
+## 0. Roadmap
+
+Die Richtung, vom Projekteigner gesetzt: **ein taktisches Luftkampfspiel auf echter Physik** — so
+korrekt wie nötig, so zugänglich wie möglich. Der Maßstab ist gestaffelt: die F-16 genau (sie ist das
+Produkt), Sensoren/Waffenhüllkurven/Gefechtsverlauf glaubwürdig (hier entsteht das Spiel), gegnerische
+Flugzeuge treffen ihre Einhüllende und mehr nicht. Kurvenkampf-Fidelity ist nachrangig — meist sieht
+man seinen Gegner nicht; die Waffensysteme sind wichtiger als der Flieger, der sie trägt. Wetter,
+Wolken und Nacht sind taktische Schichten, nicht Dekoration. Anti-Cheat bleibt aus Spielgründen: einen
+schummelnden Gegner merkt man sofort.
+
+Zwei Missionsklassen: die `sim/missions/*.fbm` sind **Messvorrichtungen fürs Gym** und bleiben so
+(der Regelkreis arbeitet damit); Missionen **für Menschen** werden später lockerer definiert —
+Szenarien statt Testaufbauten.
+
+| # | Etappe | Stand |
+|---|---|---|
+| R1 | **Kommentar-Kürzung** `sim/src/` (Herleitungen sind in dieser Doku, Code trägt Einzeiler + Verweis; Beweis: `sim/tools/strip_comments.py`-Hash unverändert) | läuft, 4 Agenten; `core/` fertig (−66 %) |
+| R2 | **Wetter, Server-Hälfte:** `/wx` auf fb-tiles — NOAA GFS 0,25°, globales Kompaktraster statt Kacheln (1440×721 je Variable), Wind 10 m + 850/700/500/250 hPa, Bedeckung je Stockwerk, Wolkenbasis, Sicht. Format = Schnittstelle, dokumentiert in `world-and-terrain.md` | läuft |
+| R3 | **MiG-29-Wissensbasis** `doc/mig29/` nach dem Muster von `doc/f16/` + dessen neuem `flight-model.md` (§11-Checkliste als Template): Systeme/Avionik/Prozeduren aus den zwei DCS-Handbüchern + Web-Recherche, `weapons.md` (R-27R/T, R-73, R-60M, GSch-301, Luft-Boden), `flight-model-spec.md` als Bauvorlage mit belegten Einhüllenden-Ankern | läuft, 2 Agenten |
+| R4 | **Wetter, Sim-Hälfte:** `FBWeatherProvider` (konstant / **fixes Gym-Dataset** aus der /wx-Fixture, deterministisch / live), Wind→JSBSims FGWinds (heute null Verdrahtung), `.fbm`-Wetterdeklaration, Datenschnittstelle für den Wolken-Neubau | nach R1 |
+| R5 | **Wolken-Neubau** — Spezifikation s. 4.9. Die sechs `FBCloud*`-Stages sind Abriss, nicht Basis | nach R4 |
+| R6 | **Asymmetrische Waffen + RCS:** gegnerische Flugkörperfamilie (R-73/R-27/R-77-Klasse aus der MiG-29-Basis; R-37M-Klasse für die Fernbedrohung), AIM-9X, Rückstrahlquerschnitt als Einheiten-Eigenschaft. Begründung: das Duell-Patt (2.3) ist Symmetrie, kein KI-Defekt — Asymmetrie macht aus dem Münzwurf eine Entscheidung | nach R3 |
+| R7 | **Gegner-Einheiten** nach der Rangliste: Einwegdrohne (Shahed-Klasse) + Marschflugkörper zuerst (einzige richtig baubaren; reale F-16-Missionen; stressen Doppler-Notch und Kanone; `modules/drone` testet die Modul-Architektur), dann MiG-29 nach R3-Spec bzw. Flanker-Klasse — ausdrücklich BVR-Maßstab | nach R6 |
+| R8 | **JSBSim-MiG-29-Modell** nach `doc/mig29/flight-model-spec.md`s Bau-Reihenfolge, jeder Schritt gegen einen belegten Anker im Gym gemessen; Buchführung über `MODEL-DELTAS`-Disziplin | nach R3 |
+| R9 | Menschen-Missionen: Szenario-Schicht über dem `.fbm`-Format | offen |
 
 ## 1. Widersprüche zwischen Behauptung und Code
 
@@ -22,10 +48,9 @@ keiner davon gesucht.
 | `systems/FBRwrSystem` | `SelfTeam_` wird gespeichert und absichtlich nie gelesen. Toter Zustand mit Cheat-Potenzial, sobald ihn jemand anfasst. |
 | `systems/FBFlightControl::Run` | `0.01` hart verdrahtet statt `dt` — bindet die Innenschleife still an 100 Hz. |
 | `systems/FBDisplaySystem` | inkludiert `render/FBCamera.h`. Das ist eine **zweite** Core-Lib-Ausnahme; dokumentiert war nur `FBHudGeometry.cpp`. |
-| `fdm/FBFdm` | Zählwiderspruch beim prozessweiten JSBSim-Zustand: Header sagt zwei, CLAUDE.md sagte drei, `FBFdm.cpp` listet vier. Der Code ist maßgeblich. |
+| `fdm/FBFdm` | Zählwiderspruch beim prozessweiten JSBSim-Zustand: CLAUDE.md sagt drei, `FBFdm.cpp` listet vier. Der Code ist maßgeblich (die Zwei-Behauptung im Header ist mit der Kommentar-Runde entfallen). |
 | `modules/f16/FBF16Sms` | Stationsgeometrie ist **längs kollabiert** — alle neun Pylone auf derselben Rumpfstation, also erzeugt Zuladung kein Nickmoment. |
 | `systems/FBWeaponSystem` | vestigial: NoOp-Stub wird mit 20 Hz getaktet, obwohl Stores und Gun real sind. Sein Banner beschreibt einen überholten Zustand. |
-| diverse | Vier veraltete Code-Banner: `FBUnit.h` („planned per-unit threading" — Etappe 4 ist gebaut), `FBUnitRegistry.h` („heute Datalink, morgen Radar" — es sind vier), `FBSimUnit.h` (`GetSignature` „heute Datalink" — es sind fünf Größen), `FBModule.h`/`FBFdm.h` (Ownership „später `units/FBUnit`" — ist längst `FBSimUnit`). |
 | `FBMissionRunner.h` | Docstring nennt `LOC` nicht und spricht von Einzahl-Modul; der Detonations-Banner behauptet „what a hit DOES is deliberately not modelled yet" direkt über dem `ResolveBurst`-Aufruf. |
 | `core/FBFlightMonitor.h` | Banner verortet das Off-Runway-Urteil in `FBMissionRunner.cpp`. Es lebt seit dem Missions-Monitor in `core/FBMissionMonitor::Tick`. |
 | `core/FBStateBusTelemetry.cpp` | Banner zählt „zwei danach hinzugekommene Blöcke (Rwr, Cmds)" — es sind drei, `blk_gun` folgt derselben Regel. |
@@ -83,6 +108,7 @@ Bewusste Lücken. Jede ist im jeweiligen Header als solche benannt — keine ist
 | 4.6 | Toter Code: `w3_frustum_from`, `w3_aabb_visible`. Statischer Terrain-Pfad ungetestetes Erbe. |
 | 4.7 | DEM-Cache liegt pro Worker-Instanz (6× Redundanz, ungemessen). Eviction rein zeitbasiert; `kNodeCeil` verweigert stumm jeden Split. |
 | 4.8 | Bildmodus (SVS/EVS) ist nicht in `.fbm` deklarierbar. TLS im Tile-Server nicht verdrahtet. |
+| 4.9 | **Wolken-Neubau — die Spezifikation** (Roadmap R5, vom Projekteigner festgelegt): **begrenzt-volumetrisch, aber einfach.** EINE separable Dichtefunktion je Stockwerk — 2D-Coverage-FBM (windadvektiert aus dem Weather-Provider) × analytisches Vertikalprofil, optional ein kleines beim Start erzeugtes 3D-Erosionsrauschen (~64³). Marsch NUR im Schichtband: Strahl ∩ Kugelschale analytisch → maximal drei kurze Segmente, 6–12 Schritte je Segment, Blue-Noise-Jitter, 16F-Akkumulation, Dither am Ausgang (das Banding-Rezept). Licht ohne Sekundärmarsch: Beer über die Restdicke aus dem Profil geschlossen + 2–3 Sonnen-Taps ins 2D-Feld, Ambient aus der vorhandenen Sky-LUT. Fullres, EIN Pass, kein Temporal, keine Bakes, `t1` an die Szenentiefe geklemmt (Wolken vor Bergen, Nebel unterm Jet über Terrain gratis). Kamera im Band → Segment beginnt bei ihr: EIN Codepfad für außen/innen/Übergang, Durchflug nahtlos per Konstruktion. **Keine Impostoren** — Preis: aufgelockerte Cumulus lesen sich als fleckige Decke, akzeptiert. Die Dichtefunktion muss WGSL- UND C++-auswertbar sein (geteilte Konstanten): „wie weit sehe ich" ist dieselbe Frage, die später Sensoren/IR stellen. **Die sechs `FBCloud*`-Stages sind Abriss, nicht Basis** — Anforderungen des Eigners: wie viel und wie weit man sieht, Durchflug mit Rücksicht, der Nebel unter einem. |
 
 ## 5. Clients
 
@@ -98,7 +124,7 @@ Bewusste Lücken. Jede ist im jeweiligen Header als solche benannt — keine ist
 | Frage | Stand |
 |---|---|
 | **Der erste echte Modell-Delta.** Die Delta-Regel und ihr Gate stehen (`sim/assets/MODEL-DELTAS.md`, `make -C sim verify-models`), die Liste ist leer. Ungeprüft ist damit nur eines: ob das Eintrags-Format für einen MEHRDATEI-Delta oder eine neue Datei (Diff gegen /dev/null) im Alltag trägt. Der Verifikator kann beides, gemessen ist es nicht. | offen |
-| **Ort der Herleitungen.** Der Bestand trägt sie als 15–25-zeilige Banner im Quellcode. Die Herleitungen selbst sind unstrittig das wertvollste Wissen im Baum; strittig ist, ob sie in den Code gehören oder nach `doc/flightbox/` mit einer Zeile Verweis. Diese Doku enthält sie inzwischen vollständig — ein Verlagern wäre also kein Verlust mehr, sondern nur noch eine Kürzung. | offen |
+| **Flaperon-Mixer des f16-Modells: erster Kandidat für einen echten Delta.** `doc/f16/flight-model.md` §7.9 belegt vertauschte Vorzeichen im Flaperon-Summer (`left + right` statt `left − right`): die Landeklappen sind aerodynamisch wirkungslos, jedes Rollkommando erzeugt einen symmetrischen Auftriebssprung (gemessen: Nz +1,0 → −0,88 in 0,11 s bei 1,5° Bank) und **negativen Widerstand** (−10.000 lbf, physikalisch unmöglich), asymmetrisch je Rollrichtung — plausibel die Ursache der ~0,2°-Reiseflug-Asymmetrie und eines Teils der BFM-Rollprobleme. Die Korrektur wäre exakt der Fall „nachweisbarer Fehler im Modell", für den die Delta-Regel gebaut wurde — aber sie re-baselined ALLE 50 Missionen. **Entscheidung des Projekteigners, nicht einer Runde.** | **wartet auf Eigner** |
 
 ## 7. Nachführung dieser Doku
 

@@ -13,10 +13,17 @@ Neither guide is the primary source for FlightBox flight-model fidelity — that
 JSBSim F-16 itself (CLAUDE.md Prinzip 5). These files are a reference for system **behavior/logic**
 (modes, limits, symbology, computation logic), which JSBSim's flight-dynamics tables don't carry.
 
+**And that primary source now has its own file:** [`flight-model.md`](flight-model.md) is the only
+file here whose source is not a PDF but the model tree `sim/assets/aircraft/` itself — it is the
+written-down form of what Prinzip 5 calls "the reference". Every other file describes the *real* jet
+(design targets); `flight-model.md` describes what our aircraft actually *does*. Its §7.11 is the
+deviation table between the two, and its §11 is the transferable template for the next airframe.
+
 ## Files
 
 | File | Content | Source part / pages |
 |---|---|---|
+| [flight-model.md](flight-model.md) | **THE JSBSim MODEL ITSELF** — geometry/mass/gear, the F100 thrust tables + spool law + the throttle→AB mapping, all 41 aero functions and 35 tables per axis with their breakpoint grids, the FLCS as XML (11 channels, 58 components, every gain converted to "full stick = X"), **the model-vs-real-FLCS deviation table**, the measured envelope (corner 380 KCAS/5,625 g/16,22 °/s, roll rate saturating at ~186 °/s), 12 accepted model properties, plus mk82/aim120 | `sim/assets/aircraft/f16/` (2165 lines / 6 files), `mk82/`, `aim120/`; JSBSim engine source; own measurements |
 | [flight-controls-flcs.md](flight-controls-flcs.md) | **FLCS architecture, gains, CAT I/III limiters, AoA/G envelope, ARI, MPO, autopilot modes** + ED autopilot addendum (command-authority numbers, disengage-condition cross-check) | Chuck Part 15, 662–672; ED p.128–131 |
 | [aerodynamics-performance.md](aerodynamics-performance.md) | Airspeed/G/weight limits, envelope, ALOW, VMS warnings | Chuck Part 8, 153–157 |
 | [hud-symbology.md](hud-symbology.md) | Every HUD element (position + meaning), control switches, AOA bracket, steering/ILS symbology — **now with ED's exact scale/geometry numbers (TFOV 25°/10.5°, all tick spacings), full Slant-Range letter table, Master Mode text tags, Great Circle Steering Cue mechanism, and a "Was der Pilot wirklich sieht" instrumentation checklist** | Chuck Parts 3/6/8/16; ED p.89–96, 225–226 |
@@ -69,6 +76,11 @@ next.
   folded into `weapons.md`). See PROGRESS.md for the full unprocessed-page ledger.
 
 ## FlightBox relevance
+- `flight-model.md` is the **ground truth per Prinzip 5** and the first place to look when a measured
+  number surprises you: it explains why full aft stick buys 5.6 g and not 9 (the model's pitch channel
+  is a *rate* command), why roll rate plateaus at ~186 °/s (the 1/0.31821 command scale), why roll
+  input costs ~2 g of lift (a sign error in the flaperon mixer), and what `fcs/fbw-override` actually
+  bypasses (pitch only). Its §9 lists the 12 accepted model properties that must never be "fixed".
 - `controls-commands.md` is the **direct template for the upcoming avionics command-block model**: the
   DED's propose→commit/reject cycle is the reference pattern for command blocks with acknowledgment +
   rejection reasons, and the file's §6 collects every documented precondition/rejection case found
