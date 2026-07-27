@@ -9,7 +9,11 @@
  * geometry, stick neutral until Vr then a pitch-rate rotation to the rotate-attitude target, liftoff via
  * WOW==0) -> Climb (FBAutopilot::Direct guidance to the active FBFlightPlan waypoint, gear retracted once
  * a positive rate is established below the gear-up speed limit) -> Route (Direct guidance to the active
- * waypoint at ITS own alt/speed; FBFlightPlan's own WP_REACHED sequencing, driven by the caller, advances
+ * waypoint at ITS own alt/speed — and, from the SECOND waypoint on, on the LEG from the one before it
+ * rather than on the bearing to it: two declared fixes are a track, and a track is flown, not chased
+ * (FBAutopilot's banner has the measurement). The first waypoint of a plan has no declared inbound
+ * track and is flown as a bearing, unchanged;
+ * FBFlightPlan's own WP_REACHED sequencing, driven by the caller, advances
  * the active waypoint — Route just keeps flying whatever is active; the active waypoint turning
  * FBWaypointType::Land hands off to Approach below; no waypoints left -> Shutdown, the mission runner's
  * pre-landing SUCCESS gate).
@@ -37,12 +41,16 @@
  * Phase ATTACK (the air-to-ground delivery, doc/f16/weapons.md §2.5): the only phase whose decision is
  * a MOMENT rather than a trajectory. It has three parts and the middle one lasts one tick:
  *   RUN-IN   FBAutopilot::Direct to the active waypoint at ITS declared altitude and speed — i.e. a
- *            level laydown attack. That is a deliberate profile choice and the reason is the guidance
- *            this simulator has: Direct holds an altitude and steers to a point, so a straight, stable,
- *            level run-in is something it flies EXACTLY, while a 20-30 degree dive would be the pilot
- *            fighting its own altitude hold all the way down the chute. A level delivery is also what
- *            makes the release cue the only variable under test: the run-in is repeatable to the metre,
- *            so every metre of miss belongs to the computation or to the moment, not to the flying.
+ *            level laydown attack, flown as a TRACK: the point the pass was commenced from is anchored
+ *            once and the leg to the target is held from there (SetDirectLeg), which is what an attack
+ *            run is. That is a deliberate profile choice and the reason is the guidance this simulator
+ *            has: Direct holds an altitude, so a straight, stable, level run-in is something it flies
+ *            EXACTLY, while a 20-30 degree dive would be the pilot fighting its own altitude hold all
+ *            the way down the chute. A level delivery is also what makes the release cue the only
+ *            variable under test: the run-in is repeatable to the metre, so every metre of miss belongs
+ *            to the computation or to the moment, not to the flying — and holding the track rather than
+ *            the bearing is what makes that true ACROSS the run-in too (measured: 31.6 m of lateral
+ *            miss became 10.6 m, with the along-track half unchanged).
  *   RELEASE  one pickle, over the command bus, on the fire control's own cue (the FBFireControlBlock's
  *            air-to-ground fields — modules/f16/FBF16FireControl solves them, this class only reads
  *            them, like every other instrument). WHICH cue is the briefed delivery mode: CCRP releases
@@ -123,6 +131,14 @@ struct FBPilotCommands {
 
   double TargetAltM = 0.0, TargetSpeedKt = 0.0;
   double TargetLatDeg = 0.0, TargetLonDeg = 0.0;   /* Direct target point / Course reference point */
+  /* THE LEG the Direct target sits at the end of, when the pilot is flying one (FBAutopilot::
+   * SetDirectLeg): the guidance then holds that TRACK instead of the bearing to the point. Unset is not
+   * a missing value, it is the statement "there is no line here" — an intercept, a fight, a search and a
+   * break turn all steer at a point and are meant to. Not a std::optional pair like the airframe demands
+   * below because it is not a control the pilot may or may not touch: it is what the pilot KNOWS about
+   * where it is going, and the flag is that knowledge. */
+  bool   HaveLeg = false;
+  double LegLatDeg = 0.0, LegLonDeg = 0.0;         /* the leg's origin fix */
   double CourseDeg = 0.0, GlidepathDeg = 0.0;      /* Course-only: track heading + descent angle
                                                       (TargetAltM doubles as Course's threshold elevM) */
   double ManualRoll = 0.0, ManualPitch = 0.0, ManualYaw = 0.0, ManualThr = 0.0;   /* Manual pass-through */
@@ -434,6 +450,13 @@ private:
   /* Runway-relative along/across-track (m), the SAME axis convention FBMissionMonitor::OnRunway and
    * FBAutopilot::SetCourse use (along=0 at the threshold, +down the runway; +across = right of course) —
    * shared by Takeoff's ground-steering law and Rollout's reuse of it below. */
+  /* THE INBOUND TRACK OF THE ACTIVE WAYPOINT, if the mission declared one. A route leg is two DECLARED
+   * fixes and nothing else: the track to the FIRST waypoint of a plan does not exist — the aircraft goes
+   * there from wherever it happens to be, which is a bearing, and inventing a line out of its spawn
+   * position would turn a defender told to circle one point into a jet that flies at it once and leaves
+   * (missions/bfm-basic.fbm). */
+  static void SetLegFromPlan(FBPilotCommands &c, const FBFlightPlan &plan);
+
   static void RunwayAxis(const FBRunway &rwy, double lat, double lon, double &alongM, double &acrossM);
   double NosewheelSteerCmd(const FBRunway &rwy, double lat, double lon, double yawDeg) const;
   double PitchHoldStick(double targetDeg, double pitchDeg, double qDegS, double stickMax) const;
@@ -479,6 +502,11 @@ private:
   FBDeliveryMode AtkMode_ = FBDeliveryMode::Ccip;
   bool   AtkReleased_ = false;    /* the pass is spent: one pickle per declared attack */
   bool   AtkInRangeSeen_ = false; /* the cue has been positive at least once (see AttackCommands) */
+  /* WHERE THE PASS WAS COMMENCED FROM — the run-in's own leg origin (see AttackCommands). An attack run
+   * is flown on a track that is established once, when the jet rolls out on it, and held to the release;
+   * the mission declares no initial point, so the point the run-in started from IS the initial point. */
+  bool   AtkHaveRunIn_ = false;
+  double AtkRunInLatDeg_ = 0.0, AtkRunInLonDeg_ = 0.0;
   double AtkEgressUntilS_ = 0.0;  /* the break turn's own clock, absolute */
   double AtkEgressLatDeg_ = 0.0, AtkEgressLonDeg_ = 0.0, AtkEgressAltM_ = 0.0;
 

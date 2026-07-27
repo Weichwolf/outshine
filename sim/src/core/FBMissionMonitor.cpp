@@ -126,8 +126,27 @@ bool FBMissionMonitor::Tick(const FBMissionMonitorSample &s, double simTimeS) {
       }
     } else {
       /* Reference = the aircraft (its latitude scales the longitude), the historical convention here. */
-      if (FBPlanarDistM(s.LatDeg, s.LonDeg, wp.LatDeg, wp.LonDeg) <= WpCaptureM_) {
-        FBLog::Info("mission", "WP_REACHED", {{"idx", ActiveIdx_}, {"lat", wp.LatDeg}, {"lon", wp.LonDeg}});
+      bool reached = FBPlanarDistM(s.LatDeg, s.LonDeg, wp.LatDeg, wp.LonDeg) <= WpCaptureM_;
+      const char *by = "capture";
+      /* ...OR THE AIRCRAFT IS PAST IT. A capture circle asks "did it arrive"; for a fix the aircraft
+       * cannot arrive at — one inside its own turn radius — the honest question is "did it get there",
+       * and the answer is the leg's own axis: beyond the perpendicular through the fix, the fix is
+       * behind. Only from the second waypoint on, because only then is there a declared inbound track
+       * to measure "behind" against. The same geometric rule systems/FBNavSystem sequences the
+       * GUIDANCE with, and deliberately a second, independent statement of it rather than a call into
+       * it: this class judges from its own private copy of the plan and observed position alone (class
+       * banner), and that is exactly what must not be traded away for sharing five lines. */
+      if (!reached && ActiveIdx_ > 0) {
+        const FBWaypoint &from = Plan_.At(ActiveIdx_ - 1);
+        double legM = FBPlanarDistM(from.LatDeg, from.LonDeg, wp.LatDeg, wp.LonDeg);
+        double course = FBBearingDeg(from.LatDeg, from.LonDeg, wp.LatDeg, wp.LonDeg);
+        double alongM = 0.0, acrossM = 0.0;
+        FBTrackProjectM(from.LatDeg, from.LonDeg, course, s.LatDeg, s.LonDeg, alongM, acrossM);
+        if (alongM >= legM) { reached = true; by = "passed"; }
+      }
+      if (reached) {
+        FBLog::Info("mission", "WP_REACHED",
+                    {{"idx", ActiveIdx_}, {"lat", wp.LatDeg}, {"lon", wp.LonDeg}, {"by", by}});
         ActiveIdx_++;
         if (ActiveIdx_ >= Plan_.Size()) {
           PlanDone_ = true;

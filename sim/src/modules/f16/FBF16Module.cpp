@@ -413,7 +413,11 @@ void FBF16Module::ApplyPilotCommands(const FBPilotCommands &c) {
       AP->SetManual(c.ManualRoll, c.ManualPitch, c.ManualYaw, c.ManualThr);
       break;
     case FBPilotGuidance::Direct:
-      AP->SetDirect(c.TargetLatDeg, c.TargetLonDeg, c.TargetAltM, c.TargetSpeedKt * kKtToMs);
+      if (c.HaveLeg)
+        AP->SetDirectLeg(c.LegLatDeg, c.LegLonDeg, c.TargetLatDeg, c.TargetLonDeg, c.TargetAltM,
+                         c.TargetSpeedKt * kKtToMs);
+      else
+        AP->SetDirect(c.TargetLatDeg, c.TargetLonDeg, c.TargetAltM, c.TargetSpeedKt * kKtToMs);
       break;
     case FBPilotGuidance::Course:
       AP->SetCourse(c.TargetLatDeg, c.TargetLonDeg, c.CourseDeg, c.TargetAltM, c.GlidepathDeg,

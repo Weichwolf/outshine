@@ -53,11 +53,29 @@ void FBNavSystem::Run(FBState &state, const fb_fdm_state &fdm, double dt) {
 int FBNavSystem::AdvanceWaypoint(FBFlightPlan &plan, double lat, double lon, double captureM) {
   const FBWaypoint *wp = plan.ActiveWaypoint();
   if (!wp) return -1;
-  /* Reference = the aircraft (its latitude scales the longitude), the historical convention here. */
-  if (FBPlanarDistM(lat, lon, wp->LatDeg, wp->LonDeg) > captureM) return -1;
   int idx = plan.ActiveIndex();
+  /* Reference = the aircraft (its latitude scales the longitude), the historical convention here. */
+  bool reached = FBPlanarDistM(lat, lon, wp->LatDeg, wp->LonDeg) <= captureM;
+  const char *by = "capture";
+  /* ...OR IT IS SIMPLY BEHIND. A capture circle cannot answer a waypoint the aircraft physically cannot
+   * arrive at — one placed inside its own turn radius, which it orbits outside forever (and which
+   * missions/bfm-basic.fbm deliberately uses to make a defender turn). The answer is not a bigger circle
+   * but the axis the leg already defines: past the perpendicular through the fix, the fix is passed,
+   * whatever the miss distance was. It exists exactly where the LEG exists (the same two declared fixes
+   * FBPilot flies the track of) — a first waypoint has no inbound track, so there is no "behind" to
+   * measure and the point is chased as before. Sequencing and guidance therefore agree by construction:
+   * the flying holds a line only where the bookkeeping can tell that the line has ended. */
+  if (!reached && idx > 0) {
+    const FBWaypoint &from = plan.At(idx - 1);
+    double legM = FBPlanarDistM(from.LatDeg, from.LonDeg, wp->LatDeg, wp->LonDeg);
+    double course = FBBearingDeg(from.LatDeg, from.LonDeg, wp->LatDeg, wp->LonDeg);
+    double alongM = 0.0, acrossM = 0.0;
+    FBTrackProjectM(from.LatDeg, from.LonDeg, course, lat, lon, alongM, acrossM);
+    if (alongM >= legM) { reached = true; by = "passed"; }
+  }
+  if (!reached) return -1;
   plan.SetActiveIndex(idx + 1);
-  FBLog::Info("nav", "WP_REACHED", {{"idx", idx}, {"lat", wp->LatDeg}, {"lon", wp->LonDeg}});
+  FBLog::Info("nav", "WP_REACHED", {{"idx", idx}, {"lat", wp->LatDeg}, {"lon", wp->LonDeg}, {"by", by}});
   return idx;
 }
 

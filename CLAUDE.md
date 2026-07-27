@@ -64,12 +64,23 @@ modul-überschreibbar:
 | Modus | Mechanismus |
 |---|---|
 | `manual` (`?ap=manual`) | direkter Stick (Gamepad/Tastatur) durch den FBW |
-| `pilot` (Boot-Default) | FBF16Pilot (`systems/FBPilot`, F-16-Override `modules/f16/FBF16Pilot`) fliegt eine `.fbm`-Mission als Phasenmaschine, deren START-Phase die deklarative `spawn`-Zeile bestimmt (Boden: Preflight → Takeoff → Climb → Route → …; Luftstart: direkt Route — kein Taxi/Rotate zu simulieren), kommandiert je Phase `FBAutopilot::Direct` (Punkt-zu-Punkt Kurs/Höhe/Speed) — `doc/mission-format.md` |
+| `pilot` (Boot-Default) | FBF16Pilot (`systems/FBPilot`, F-16-Override `modules/f16/FBF16Pilot`) fliegt eine `.fbm`-Mission als Phasenmaschine, deren START-Phase die deklarative `spawn`-Zeile bestimmt (Boden: Preflight → Takeoff → Climb → Route → …; Luftstart: direkt Route — kein Taxi/Rotate zu simulieren), kommandiert je Phase `FBAutopilot::Direct` (Kurs/Höhe/Speed auf einen Punkt — ODER, wo eine BAHN deklariert ist, auf deren Linie: `FBAutopilot::SetDirectLeg`) — `doc/mission-format.md` |
 | `bfm` (`set task bfm`) | dieselbe Phasenmaschine in ihrer Kampf-Phase: KEIN Autopilot-Modus, sondern ein eigenes Regelgesetz auf Manual-Stick, das gegen den GELOCKTEN Radarkontakt fliegt (systems/FBBfmTrack) — Lead/Pure/Lag aus Aspekt, Peilung und Annäherungsrate, Energie gegen die gemessene Corner-Speed, und bei Kontaktverlust Extrapolation + Suchmuster. Missionen: `sim/missions/bfm-*.fbm` |
 | `intercept` (`set task intercept`) | dieselbe Phasenmaschine in ihrer BVR-Phase — der Gegenpol zu `bfm`: BFM wird mit der Nase geflogen, ein Abfang mit dem SENSOR. Eine eigene Zustandsmaschine (`systems/FBEngagement`) auf Direct-Guidance: Suche auf dem gebrieften Vektor OHNE Lock (ein Lock warnt den Gegner), Annäherung, Designation (TMS über den Kommandobus) erst auf gebriefter Lock-Entfernung, Schuss wenn der DLZ-Block Rtr sagt, Crank bis an den Kardanwinkel während der Führung, Beam + Täuschkörper wenn der RWR eine Lösung meldet — jede Bedienhandlung über den Bus, mit menschlicher Reaktionszeit obendrauf. Missionen: `sim/missions/bvr-*.fbm` |
 
 `FBAutopilot::Direct` ist das interne Guidance-Primitiv, das der Pilot je Phase kommandiert — keine
-eigene Flugmodus-Wahl, nur die Ausführung dessen, was der Pilot verlangt. Die Pilot-Phasen + ihr
+eigene Flugmodus-Wahl, nur die Ausführung dessen, was der Pilot verlangt. **Ein Punkt ist keine Bahn,
+und Direct beantwortet beides**, weil der Unterschied kein Manöver ist, sondern das, was der PILOT WEISS:
+auf eine Peilung zu regeln ist richtig, solange es nur einen Punkt gibt (Abfang, Kurvenkampf, Suche);
+sobald eine Linie deklariert ist (die Route-Etappe zwischen zwei Wegpunkten, die Anflugbahn eines
+Angriffs), reicht der Pilot ihren Ursprung mit und dieselbe Guidance hält die BAHN. Die Trennung ist
+messbar und keine Geschmacksfrage: die Lagestabilität einer Punktverfolgung fällt mit 1/R, sie kann eine
+Linie auf Entfernung also gar nicht halten (gemessen: 31 m Querversatz über 19 km CCRP-Anflug, 165–2094 m
+mittlerer Querversatz auf Reiseflug-Etappen, dazu eine Dauer-Querlage von 0,8–2,4° im „Geradeausflug").
+Mit Bahn: 10,6 m bzw. 1–17 m, Querlage ≈ 0. Die zwei Gewichte des Bahnreglers sind HERGELEITET, nicht
+gewählt (ζ = 1/√2 + „der Querterm erreicht das Querlagenlimit bei genau einem Kurvenradius Versatz" →
+`k_χ = 2ζ·√(φmax·tanφmax)` geschwindigkeitsunabhängig, `k_y = φmax/R(V)`) — Details in
+`systems/FBAutopilot.cpp`. Die Pilot-Phasen + ihr
 Regelkreis (FBPilot → FBAutopilot::Direct → FBFlightControl → JSBSim, 10 Hz Entscheidung über 100 Hz
 FDM-Substeps) sind der **Missions-Kern**; `manual` bleibt als direkter Stick-Sandkasten (noch ohne
 gebundenes HOTAS — `FBInputSystem` ist weiterhin der NoOp-Default). Weitere Phasen (Anflug/Landung)
@@ -216,7 +227,13 @@ Speed) — KEINE getrennten Boden-/Luft-Codepfade, eine EINZIGE IC-Anwendung
 (`FBMissionBoot.h::FBMissionSpawnActor`, das den fertigen Akteur liefert); `set <key> <value>`-Zeilen tragen Systemzustand als
 Missionsdaten, der Runner reicht die rohe KV-Liste nur durch, das MODUL interpretiert seine eigenen
 Schlüssel (`FBModule::ApplySetup`, unbekannter Schlüssel = Laufzeit-FAIL). Wegpunkt-Sequenzierung ist
-Akteurs-Verhalten, nicht Runner-Buchhaltung: `systems/FBNavSystem::AdvanceWaypoint` sitzt im Modul.
+Akteurs-Verhalten, nicht Runner-Buchhaltung: `systems/FBNavSystem::AdvanceWaypoint` sitzt im Modul —
+und hakt einen Wegpunkt auf ZWEI Wegen ab: Capture-Kreis (500 m) ODER, ab dem zweiten Wegpunkt, jenseits
+der Senkrechten durch ihn (der Wegpunkt ist PASSIERT). Der zweite Weg existiert genau dort, wo die Etappe
+existiert — ein erster Wegpunkt hat keine deklarierte Anflugbahn, also gibt es kein „dahinter", und ein
+Punkt im eigenen Kurvenradius wird weiter ewig umkreist (genau das macht `bfm-basic.fbm`s Verteidiger).
+`core/FBMissionMonitor` wendet dieselbe Geometrie unabhängig an (eigene Plan-Kopie, eigene Rechnung —
+nie ein Aufruf ins Modul).
 `FBMission` ist missionsweite Daten (`name`/`runway`/`timeout`) plus eine LISTE von `FBMissionUnit`
 (Callsign, Modul, `FBUnitTeam`, `FBSpawn`, `set`-KV, eigener `FBFlightPlan`) — ein Einzelflug ist der
 Sonderfall „ein Block", kein zweiter Dialekt.
@@ -490,7 +507,12 @@ sim/src/
   systems/   die generischen, airframe-agnostischen System-Slots eines Moduls — Interface + Default
              in EINER Klasse, ein Modul überschreibt per Ableitung (Zahlen-Tuning bleibt Preset/
              Config, keine leere Ableitung dafür):
-               FBAutopilot (Guidance), FBFlightControl (FBW-Innenschleife),
+               FBAutopilot (Guidance — Manual/Direct/Course; Direct trägt einen OPTIONALEN
+               Bahn-Ursprung [`SetDirectLeg`]: mit ihm hält es die Linie zwischen zwei Fixpunkten
+               gegen den GROUND TRACK, ohne ihn die Peilung zum Punkt. Ein Modus, kein zweiter —
+               Höhe/Speed/Capture/Telemetrie sind dieselben, und ein zweiter Modus würde sie
+               verdoppeln. Die zwei Bahn-Gewichte sind hergeleitet, s. die Datei),
+               FBFlightControl (FBW-Innenschleife),
                FBAirDataSystem (CAS/Mach/G-Last, FPM-Richtung als Ground-Track/Flightpath-Angle aus dem
                ENU-Geschwindigkeitsvektor), FBRadarAltimeter (AGL aus DER SELBEN DEM-Quelle, die die App
                schon für `SetAgl` auflöst — keine zweite Terrain-Abfrage; zugleich der REFERENZFALL für
@@ -500,7 +522,8 @@ sim/src/
                konsequent: eine Warnung, deren Quellblock ungültig ist, meldet sich als INHIBITED statt
                als „keine Warnung"), FBNavSystem (ein Steerpoint +
                Bullseye, planare ENU-Geodäsie wie `home_bearing`/`home_dist`; `AdvanceWaypoint` ist die
-               Wegpunkt-Sequenzierung — Akteurs-Verhalten, das Modul ruft es selbst, nicht der Runner) —
+               Wegpunkt-Sequenzierung — Akteurs-Verhalten, das Modul ruft es selbst, nicht der Runner —
+               mit Capture-Kreis ODER Passage über die Etappen-Achse, s.o.) —
                die heute REAL
                implementierten Systeme, `Run()`/`Update()` virtuell, dem Sensoren-SCHREIBEN-FBState-
                Muster folgend;

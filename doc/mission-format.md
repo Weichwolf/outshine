@@ -161,6 +161,37 @@ Der Lauf endet beim ersten ENTSCHEIDENDEN Scheitern (es gibt nichts mehr zu bewe
 physikalischen K.O. (kein Wrack integriert im Hintergrund weiter) und sonst, sobald jede Einheit mit
 Zielen ein Urteil hat.
 
+### Wann ein Wegpunkt „erreicht" ist — und was eine Etappe ist
+
+Zwei `wp`-Zeilen hintereinander sind eine **ETAPPE**: die Linie vom vorigen zum aktiven Wegpunkt. Sie
+ist Missionsdaten und nicht Interpretation — deshalb hat der ERSTE Wegpunkt eines Plans keine (es gibt
+keine deklarierte Anflugbahn zu ihm; die Einheit kommt von dort, wo sie zufällig ist).
+
+Das hat zwei Konsequenzen, und beide gelten für die Flugführung UND für das Urteil:
+
+| | mit Etappe (ab `wp` Nr. 2) | ohne Etappe (`wp` Nr. 1) |
+|---|---|---|
+| Flugführung | hält die LINIE (`FBAutopilot::SetDirectLeg`, Querablage + Bahnwinkel gegen den Ground Track) | fliegt die PEILUNG zum Punkt (unverändert) |
+| „erreicht" | Capture-Kreis 500 m **ODER** jenseits der Senkrechten durch den Wegpunkt (= passiert) | nur Capture-Kreis 500 m |
+
+Der zweite Weg löst einen realen Fall: ein Wegpunkt **innerhalb des eigenen Kurvenradius** kann per
+Kreis nie erreicht werden — der Jet umkreist ihn außerhalb, für immer (`missions/test-wp-inside-turn.fbm`
+konstruiert genau das: WP1 liegt 1.000 m neben WP0, der engste Kreis dieses Jets bei 300 kt hat 1.400 m
+Radius, die dichteste Annäherung ist damit 1.000 m = zweimal der Capture-Kreis). Ohne die Passage-Regel
+läuft die Mission in den TIMEOUT (exit 3), mit ihr wird WP1 nach 15,1 s als `by=passed` abgehakt und die
+Route geht weiter (exit 0).
+
+Dass die Regel an die Etappe gebunden ist, ist die Bedingung dafür, dass die andere Nutzung der
+Eigenschaft erhalten bleibt: `bfm-basic.fbm`/`gun-turning.fbm` erzeugen ihren Verteidiger-Dauerkreis
+ABSICHTLICH mit einem einzigen Wegpunkt im Zentrum seiner Kurve — ein erster Wegpunkt, also keine
+Etappe, also weder Bahnregelung noch Passage (nachgemessen unverändert: −58,2° Querlage, −5,25 °/s bzw.
+−54,1° / −4,61 °/s).
+
+`FBNavSystem::AdvanceWaypoint` (Flugführung) und `FBMissionMonitor` (Urteil) wenden dieselbe Geometrie
+**unabhängig** an — eigene Plan-Kopie, eigene Rechnung, kein Aufruf ins jeweils andere. `events.log`
+sagt je Zeile, welcher der beiden Wege gegriffen hat: `nav WP_REACHED … by=capture|passed` bzw.
+`mission WP_REACHED … by=capture|passed`.
+
 ## Kampfziele (`objective`)
 
 Ohne `objective`-Zeile ist der **Flugplan das ganze Urteil** — die ursprüngliche Regel, unverändert.
@@ -752,10 +783,14 @@ Eine Einheit mit `set task attack` fliegt einen **Bombenangriff auf den aktiven 
 (`systems/FBPilot`s Attack-Phase). Drei Teile, eine Entscheidung:
 
 1. **Anflug** — `FBAutopilot::Direct` auf den aktiven Wegpunkt, auf DESSEN Hoehe und Geschwindigkeit,
-   also ein **waagerechter Laydown-Anflug**. Bewusst waagerecht: `Direct` haelt eine Hoehe und steuert
-   einen Punkt an, fliegt also genau diese Bahn exakt und wiederholbar, waehrend ein 20–30°-Sturz den
-   Piloten die ganze Bahn gegen die eigene Hoehenhaltung kaempfen liesse — und dann waere jeder Meter
-   Fehlabstand ein Streit ueber das Fliegen statt eine Messung der Abwurfrechnung.
+   also ein **waagerechter Laydown-Anflug**. Bewusst waagerecht: `Direct` haelt eine Hoehe und fliegt
+   genau diese Bahn exakt und wiederholbar, waehrend ein 20–30°-Sturz den Piloten die ganze Bahn gegen
+   die eigene Hoehenhaltung kaempfen liesse — und dann waere jeder Meter Fehlabstand ein Streit ueber
+   das Fliegen statt eine Messung der Abwurfrechnung. Der Anflug ist eine **BAHN, keine Peilung**: der
+   Pilot verankert im Moment des Anflugbeginns dessen Ursprung und kommandiert
+   `FBAutopilot::SetDirectLeg` auf die Linie Ursprung→Ziel — genau das, was ein Angriffsanflug ist (man
+   dreht auf den Anflugkurs ein und HAELT ihn). Auf eine Peilung geregelt wandert der Jet ueber die
+   Anfluglaenge seitlich von der eigenen Bahn weg (gemessen: 31 m ueber 19 km), und die Bombe erbt das.
 2. **Abwurf** — EIN Pickle ueber den Kommandobus, auf den Cue der Feuerleitung und auf nichts sonst.
    Der Pilot rechnet keine Ballistik; er liest den `FBFireControlBlock` wie jedes andere Instrument.
 3. **Abdrehen** — 135°-Ausweichkurve mit Steigflug (F-16-Zahlen: `AttackEgressTurnDeg` 135,
@@ -813,9 +848,9 @@ Missionszeilen:
 
 | Groesse | CCRP | CCIP | 2 s zu spaet (`attack-late.fbm`) |
 |---|---|---|---|
-| `predErrM` (Rechner gegen Modell) | 57,1 m | 57,1 m | 57,0 m |
-| `aimErrM` (Bombe gegen Ziel) | **37,2 m** | **37,2 m** | **482,2 m** |
-| davon lang / seitlich | 19,6 / 31,6 m | 19,6 / 31,6 m | 481,6 / 23,4 m |
+| `predErrM` (Rechner gegen Modell) | 57,1 m | 57,1 m | 57,1 m |
+| `aimErrM` (Bombe gegen Ziel) | **22,2 m** | **22,2 m** | **481,5 m** |
+| davon lang / seitlich | 19,5 / 10,6 m | 19,5 / 10,6 m | 481,5 / 3,5 m |
 | `tofErrS` | −0,097 s | −0,097 s | −0,097 s |
 | Urteil | SUCCESS (exit 0) | SUCCESS (exit 0) | TIMEOUT (exit 3), Ziel steht |
 
@@ -824,10 +859,24 @@ als die Tabelle sagt, weil die Tabelle EIN Cd fuer alle Machzahlen fuehrt und de
 weathercockenden Runde gar nicht kennt. Beides sind erklaerte Auslassungen des RECHNERS
 (`core/FBBallistics.h`), keine Fehler der Simulation — genau wie die DLZ-Abweichung einer gelenkten
 Runde. Der Lieferfehler ist kleiner als der Rechnerfehler, weil dessen Laengsanteil dem Abwurfmoment
-entgegenlaeuft; der verbleibende dominante Anteil ist **seitlich** und stammt aus dem Spurfehler der
-Fuehrung (~0,4° Kurs bei 2.880 m Wurfweite = ~30 m), nicht aus der Ballistik.
+entgegenlaeuft.
 
-`missions/attack-hardened.fbm` fliegt denselben Abwurf gegen `target_hard`: derselbe 37-m-Fehlabstand,
+Das Fehlerbudget einzeln, und wem jeder Posten gehoert:
+
+| Posten | Betrag | Gehoert |
+|---|---|---|
+| Rechner (Tabelle gegen Modell-Aerodynamik) | 57,1 m kurz | `core/FBBallistics` — erklaerte Auslassung |
+| Ausloesemoment (Cue + Vorhalt gegen den Rechnerfehler) | 19,5 m lang (netto) | Pilot/Feuerleitung |
+| Querbahn (Spurfehler der Fuehrung bei Auslesung) | 10,6 m | `systems/FBAutopilot` |
+
+Der Queranteil war **31,6 m**, solange der Anflug auf eine PEILUNG geregelt wurde: eine Punktverfolgung
+hat eine Lagestabilitaet, die mit 1/R faellt, also laesst sie die Dauerstoerung des Flugzeugs (~0,2°
+aequivalente Querlage) ueber 19 km ungebremst auflaufen. Seit der Anflug eine BAHN ist, bleibt genau die
+statische Restablage des Bahnreglers uebrig: gemessen −10,9 m bei −0,21° Dauerquerlage, gegen
+φ_d/k_y = 0,21°/0,0190 °/m = 11,0 m aus der Herleitung (`systems/FBAutopilot.cpp`) — zwei Stellen genau.
+Der Laengsanteil ist dabei unveraendert (19,6 → 19,5 m).
+
+`missions/attack-hardened.fbm` fliegt denselben Abwurf gegen `target_hard`: derselbe 22-m-Fehlabstand,
 KEINE Schadenszeile (die ankommende Energie erreicht nicht einmal die Degrade-Schwelle) — TIMEOUT,
 `result=INTACT`. Die Fragilitaetsklassen sind damit ein Modell und keine Dekoration.
 
@@ -855,8 +904,11 @@ nie), nachher 11 von 11 (10…141 s, Median 39 s).
 
 **Ein Kampf hat kein Wegpunkt-Ziel — solche Missionen enden per TIMEOUT (Exit 3), und zwar
 absichtlich.** Der Verfolger deklariert keine Objectives (kein `wp`), der Gegner fliegt sein definiertes
-Manöver (in den vier Missionen: ein einziger Wegpunkt im ZENTRUM seiner Kurve, den die Direct-Guidance
-nicht erreichen kann → stabiler Dauerkurvenflug am Bank-Limit). `core/FBMissionMonitor` hat damit nichts
+Manöver (in den vier Missionen: ein EINZIGER Wegpunkt im ZENTRUM seiner Kurve, den die Direct-Guidance
+nicht erreichen kann → stabiler Dauerkurvenflug am Bank-Limit). Dass er der ERSTE Wegpunkt ist, ist
+tragend und keine Nebensache: ein erster Wegpunkt hat keine Etappe, also weder Bahnregelung noch
+Passage-Abhakung (s. „Wann ein Wegpunkt ‚erreicht‘ ist"), und der Kreis bleibt genau der Kreis, den die
+Missionsdatei beschreibt. `core/FBMissionMonitor` hat damit nichts
 zu urteilen und sagt korrekt TIMEOUT; das Urteil über den Kampf liest die Auswertung aus der Telemetrie
 (`bfm_*`-Spalten unten).
 
@@ -1057,14 +1109,20 @@ die Einheit, deren Urteil den Lauf BEENDET hat (bei SUCCESS keine). Die abschlie
   briefte Eingaben in beiden Latenzklassen, alle vier Quittungsergebnisse, beide Eigen-Policy-Gründe,
   dazu ein abgeschalteter Radarhöhenmesser (`invalid`) neben dem ohnehin gehaltenen Radarbild (`held`).
 - `sim/missions/attack-ccrp.fbm` — der Luft-Boden-Referenzlauf: 19 km waagerechter Anflug, CCRP-Abwurf
-  einer Mk-82 auf ein deklariertes `target_soft`, Aufschlag 37,2 m neben dem Ziel, Ziel zerstoert,
+  einer Mk-82 auf ein deklariertes `target_soft`, Aufschlag 22,2 m neben dem Ziel, Ziel zerstoert,
   `objective kill unit` erfuellt (SUCCESS, exit 0). Mit `--elev const` messen (flache 0-m-Basis:
   Rechenebene, Zielhoehe und Aufschlagboden sind dann dieselbe Zahl).
 - `sim/missions/attack-ccip.fbm` — derselbe Anflug auf dem CCIP-Cue, mit `objective survive` so gebaut,
   dass der Lauf ueber den Treffer hinaus bis zum Ende der Ausweichkurve und zurueck in die Route laeuft:
   der VOLLSTAENDIGE Angriffsablauf in einem Lauf.
 - `sim/missions/attack-late.fbm` — die Gegenprobe: dieselbe Datei mit EINER Zeile mehr
-  (`set pilot_attack_bias_s 2.0`, Abwurf zwei Sekunden nach dem Cue). 482 m Fehlabstand statt 37 m,
+  (`set pilot_attack_bias_s 2.0`, Abwurf zwei Sekunden nach dem Cue). 482 m Fehlabstand statt 22 m,
   Ziel steht, TIMEOUT (exit 3) — das Mass dafuer, was die Rechnung leistet.
 - `sim/missions/attack-hardened.fbm` — derselbe gute Abwurf gegen `target_hard`: gleicher Fehlabstand,
   keine Wirkung, `result=INTACT`. Die Fragilitaetsklassen sind ein Modell, keine Dekoration.
+- `sim/missions/test-wp-inside-turn.fbm` — die Wegpunkt-Sequenzierung an ihrer Kante: WP1 liegt 1.000 m
+  seitlich von WP0 und damit INNERHALB des engsten Kurvenkreises dieses Jets (~1.400 m bei 300 kt), ist
+  per Capture-Kreis also unerreichbar (dichteste Annäherung 1.000 m, gemessen). Über die Etappen-Achse
+  wird er nach 15,1 s als `by=passed` abgehakt und WP2 normal geflogen — SUCCESS (exit 0); ohne die
+  Regel umkreist der Jet ihn bei −58,9° Querlage bis zum TIMEOUT (exit 3). Siehe „Wann ein Wegpunkt
+  ‚erreicht‘ ist" oben.

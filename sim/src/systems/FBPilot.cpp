@@ -190,6 +190,16 @@ const char *FBPilot::PhaseName(Phase p) {
   return "?";
 }
 
+/* See the header: a leg is the track between two DECLARED fixes, so the first waypoint of a plan has
+ * none and is flown as a bearing. */
+void FBPilot::SetLegFromPlan(FBPilotCommands &c, const FBFlightPlan &plan) {
+  int idx = plan.ActiveIndex();
+  if (idx <= 0 || idx >= plan.Size()) return;
+  const FBWaypoint &from = plan.At(idx - 1);
+  c.HaveLeg = true;
+  c.LegLatDeg = from.LatDeg; c.LegLonDeg = from.LonDeg;
+}
+
 /* along=0 at the threshold, +down the runway heading; +across = right of the runway axis — the SAME
  * convention FBMissionMonitor::OnRunway and FBAutopilot::SetCourse use (class banner), so Takeoff's
  * ground steering, Rollout's reuse of it, and the mission verdict all agree on "on the line". */
@@ -1064,10 +1074,21 @@ FBPilotCommands FBPilot::AttackCommands(const FBState &state, FBCommandBus &avio
   if (!wp) { Transition(Phase::Route); return c; }   /* nothing briefed to attack */
 
   /* ---- the run-in ---- */
+  /* THE RUN-IN IS A TRACK, not a bearing, and it is anchored the moment the pass begins: an attack run
+   * is rolled out on and held, which is what makes the release moment the only variable the mission is
+   * measuring. Chasing the bearing instead lets any lateral disturbance walk the jet off its own attack
+   * track for the whole length of the run-in — measured at 31 m of across-track miss on the 19 km CCRP
+   * pass, which the bomb then inherits. */
+  if (!AtkHaveRunIn_) {
+    AtkHaveRunIn_ = true;
+    AtkRunInLatDeg_ = st.lat; AtkRunInLonDeg_ = st.lon;
+  }
   c.Guidance = FBPilotGuidance::Direct;
   c.TargetLatDeg = wp->LatDeg; c.TargetLonDeg = wp->LonDeg;
   c.TargetAltM = wp->AltM;
   c.TargetSpeedKt = wp->SpeedKt;
+  c.HaveLeg = true;
+  c.LegLatDeg = AtkRunInLatDeg_; c.LegLonDeg = AtkRunInLonDeg_;
 
   const FBFireControlBlock &fc = state.FireControl;
   if (!fc.H.Readable() || !fc.AgValid) return c;
@@ -1197,6 +1218,7 @@ FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
       c.TargetLatDeg = wp->LatDeg; c.TargetLonDeg = wp->LonDeg;
       c.TargetAltM = wp->AltM;
       c.TargetSpeedKt = ClimbSpeedKt();
+      SetLegFromPlan(c, plan);
       /* Positive rate + a confirmed AGL margin (kGearUpAglFt) + below the gear-transit speed limit ->
        * gear up; otherwise leave GearDown unset (it is still commanded down from Takeoff, the safe
        * default) rather than force a retraction. */
@@ -1219,6 +1241,7 @@ FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
       c.TargetLatDeg = wp->LatDeg; c.TargetLonDeg = wp->LonDeg;
       c.TargetAltM = wp->AltM;
       c.TargetSpeedKt = wp->SpeedKt;
+      SetLegFromPlan(c, plan);
       return c;
     }
 
