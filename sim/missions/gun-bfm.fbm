@@ -1,5 +1,5 @@
 name gun-bfm-1
-timeout 400
+timeout 600
 
 # THE GUN ENGAGEMENT. bfm-basic.fbm's setup, flown to a firing conclusion: VIPER works its way into the
 # control position behind BANDIT on radar contacts alone, and this time it is allowed to shoot.
@@ -26,14 +26,17 @@ timeout 400
 #                                minutes is 0.574 nm). 0.15-0.40 nm puts the same pursuit law's target
 #                                position inside the funnel. Nothing else about the fight changes —
 #                                same law, same gains, one declared band (systems/FBPilotTuning).
-# THE RUN NOW ENDS IN A KILL, exit 1 at t=167 — and that is a CHANGE, recorded here because the reason
-# is the whole point of the file. It used to run to its timeout: the funnel was entered, the trigger was
-# squeezed, and the rounds went where the solution had been rather than where it was going. Since the
-# gun tracking loop carries the solution's own RATE as a control term (systems/FBPilot), the same pass
-# puts nine rounds through the forward fuselage, the flight controls and the structure fail together,
-# and the defender's own mission monitor concludes FAIL ("combat ineffective"). exit 1 is therefore the
-# PASSING outcome here — a run that ends at its timeout again means the shooter stopped hitting. The
-# detail is still read from the events and the telemetry, not from the exit code.
+# THE RUN ENDS IN A KILL, exit 1 at t=414. exit 1 is the PASSING outcome here — a run that reaches its
+# timeout means the shooter stopped hitting. The detail is still read from the events and the telemetry,
+# not from the exit code.
+#
+# THE CLOCK AND THE DEFENDER'S LEG ARE SIZED FOR THAT, and both had to grow (from 400 s and 50 km) when
+# the pursuit stopped writing cheques it could not cash: the closure schedule is now capped at the
+# overtake this airframe can actually brake off again (systems/FBPilot's BfmBrakeMs2), so the approach
+# builds ~140 kt of closure instead of ~235 and takes correspondingly longer to arrive. The leg is the
+# binding one, not the clock: BANDIT flies a straight line to a fix, and at 50 km it REACHED it at
+# t=342 — its own mission monitor declared SUCCESS and ended the engagement for a reason that has
+# nothing to do with gunnery. A tracking pass has to be given enough runway to be decided by the gun.
 #
 # THE DEFENDER is bfm-basic's, unchanged and deliberately not a second gunfighter: a sustained max-rate
 # level left turn around a waypoint at the centre of its own turn circle, declared as one mission line
@@ -80,4 +83,4 @@ unit bandit
   set fuel_pct 60
   set datalink off
   set fcr_mode off                           # the defender is a target, it does not look
-  wp 46.67485 7.60000 4000 300               # straight ahead, 50 km east: a tracking pass, see the header
+  wp 46.67485 8.40000 4000 300               # straight ahead, 115 km east: a tracking pass, see the header

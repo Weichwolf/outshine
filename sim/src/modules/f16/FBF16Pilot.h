@@ -85,6 +85,15 @@ protected:
   double BfmControlAtaDeg() const override { return 30.0; }
   double BfmClosureGainKtPerNm() const override { return 120.0; }
   double BfmMaxClosureKt() const override { return 200.0; }
+  /* MEASURED on this model, same discipline as the corner numbers: every telemetry sample of the gun
+   * approach sweep taken with the throttle at idle, the speedbrake out, inside 15 deg of bank and at
+   * 1 g, with the flight-path component of gravity removed — 238 samples at 4,000 m between 325 and
+   * 400 KCAS, median 2.39 m/s^2, p10 1.64, p90 3.80. The MEDIAN is the number, i.e. the authority this
+   * airframe has rather than the one it is guaranteed: the conservative p10 was measured too and it
+   * throttles the whole approach (over the sixteen-approach sweep, 11 kills against 14 and 21 s less
+   * time in the funnel), because every knot the schedule gives away at long range is a knot the pursuer
+   * has to make up inside the merge. */
+  double BfmBrakeMs2() const override { return 2.4; }
   double BfmLeadAspectDeg() const override { return 45.0; }
   double BfmLeadRangeNm() const override { return 3.0; }
   double BfmLeadMaxS() const override { return 4.0; }

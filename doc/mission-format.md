@@ -605,7 +605,10 @@ hinge der Schaden an der Tickrate). Ein Gefechtskopf summiert nicht: eine Detona
 Gegner) und `missions/gun-turning.fbm` (derselbe Schütze gegen bfm-basics DAUERKURVENDEN Verteidiger —
 die harte Prüfung, weil dort die Trichterlösung durch den Trichter WANDERT). Beide enden mit einem Kill
 (Exit 1 = FAIL für den Getroffenen); das Urteil steht in den Ereignissen (`gun HIT`, `damage SYSTEM`,
-`damage KILL`) und in `gun_sol_err`/`gun_in_funnel`. Die Zahlen der Waffe selbst (Streuungs-Fit gegen
+`damage KILL`) und in `gun_sol_err`/`gun_in_funnel`. `gun-bfm`s Verteidigerbein und Uhr sind mit dem
+gedeckelten Anflug mitgewachsen (50 → 115 km, 400 → 600 s): er fliegt eine GERADE zu einem Fix, und bei
+50 km erreichte er ihn bei t=342 — sein eigener Missions-Monitor beendete den Kampf aus einem Grund, der
+mit Kanonen nichts zu tun hat. Die Zahlen der Waffe selbst (Streuungs-Fit gegen
 MIL-DTL-45500/1A, Flugzeit, Trichter-Geometrie, Vorhaltelösung gegen die geflogene Bahn,
 Munitionsverbrauch, Ablehnung bei leerer Trommel) prüft `make -C sim test-gun`.
 
@@ -617,6 +620,28 @@ FEHLERRATE und Integral eigene Regelanteile. Vorher/nachher über je acht Anflü
 Trichterzeit 3,2 s → 20,7 s (geradeaus) bzw. 0,0 s → 21,6 s (kurvend), Schuss auf dem Ziel 11,9 → 111,2
 bzw. 0,0 → 120,4 Patronen, Abschüsse 0 → 5 bzw. 0 → 7 von je acht Läufen, mittlerer Nachführfehler
 10,5° → 6,9° bzw. 11,9° → 4,1°.
+
+**Der Abzug liest einen BETRAG.** Die publizierte Ziellösung ist ein Betrag, ihre Vorhersage über
+Bedienlatenz + Flugzeit muss also auch als einer gelesen werden: eine Lösung, die DURCH null wandert —
+genau das, was sie gegen einen kurvenden Gegner tut —, sagt −1,5° voraus und das heisst „1,5° daneben",
+nicht „perfekt". Der frühere Clamp auf 0 machte die am schnellsten wandernde Lösung im Kampf zur besten,
+die es gibt. Gemessen über dieselben je acht Anflüge (nur diese eine Zeile geändert): Feuerstöße 46 → 30
+(geradeaus) bzw. 59 → 38 (kurvend), Schuss auf dem Ziel je Feuerstoß 1,81 → 4,42 bzw. 2,21 → 3,19,
+Munitionsverbrauch je Abschuss 394 → 254 bzw. 270 → 204 Patronen.
+
+**Die Kontrollposition ist eine Frage der Bremsautorität, nicht der Nachführung.** Der Fahrplan
+(gewünschte Annäherung ∝ Restentfernung) verlangt eine Verzögerung von Steigung × Annäherung; die Zelle
+hat 2,4 m/s² (gemessen, `FBF16Pilot::BfmBrakeMs2`), also ist a/k die grösste Annäherung, die vor der
+Kontrollentfernung noch abgebaut werden kann — vorher stand dort ein Deckel von 200 kt und der Pilot
+beschleunigte auf 190 kt Annäherung bei 2 nm, um sie dann 35 s lang mit Leerlauf und Bremsklappe nicht
+mehr loszuwerden (Ankunft im Band mit 98 kt statt der gefahrplanten 5, danach Durchflug auf 61 m).
+Gemessen über je acht Anflüge: Spitzen-Annäherung im Heckanflug 235 → 183 kt, Abschüsse 4/8 → 7/8
+(geradeaus) bzw. 7/8 → 7/8 (kurvend), Munitionsverbrauch je Abschuss 394 → 125 bzw. 270 → 201 Patronen.
+Die Ankunft SELBST bleibt zu schnell (Median 90 → 85 kt an der Bandkante, Zeit im Band 21,4 % → 20,7 %):
+der Deckel nimmt den selbstgemachten Teil des Überschusses weg, nicht den Rest — der Gashebel regelt eine
+Geschwindigkeits-DIFFERENZ statt der Annäherung selbst, und beide Alternativen dazu sind gemessen und
+verworfen (ein geometrischer Schleppwinkel und ein Gashebel auf der gemessenen Annäherung, s. die
+Kommentare in `systems/FBPilot`).
 
 ### Startbedingung des Stores
 

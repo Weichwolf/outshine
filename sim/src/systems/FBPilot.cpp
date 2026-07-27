@@ -110,6 +110,16 @@ const double kBfmScanMaxAmpDeg = 45.0;
  * inverted. Height lost in a bank is given back by climbing, not by diving after it. */
 const double kBfmSearchUpMaxDeg = 20.0, kBfmSearchDownMaxDeg = 5.0;
 const double kBfmFloorPullDeg = 30.0;     /* full nose-up bias when the AGL floor is reached */
+/* THE WINGLINE, and it is a boundary rather than a threshold (see BfmCommands' conversion): inside it
+ * the target is in the forward hemisphere and the shortest way to it is unambiguous, outside it getting
+ * the nose around is a committed turn whose direction the pilot may not un-decide tick by tick. */
+const double kBfmConvertErrDeg = 90.0;
+/* ...and how wide that zone is: a reversal of the lift vector is 180 deg of roll, which at the pilot's
+ * own governed rate costs kBfmReverseS seconds, and in that time the bearing moves by its own rate. So a
+ * reversal is only worth STARTING if the geometry will still be asking for it when it finishes — i.e. if
+ * the error is further from 180 than the bearing can travel meanwhile. The zone therefore opens up on a
+ * fast pass and closes to almost nothing in a slow scissors, out of numbers that are already there. */
+const double kBfmReverseS = 180.0 / kBfmRollRateMaxDegS;
 const double kBfmG0 = 9.80665;
 const double kBfmClosureDeadKt = 40.0;    /* how far off the closure schedule is worth reacting to */
 const double kBfmOverspeedFrac = 1.15;    /* above this multiple of corner speed the throttle comes back */
@@ -316,8 +326,20 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
   const double ctrlMinNm = Tuned(FBPilotParam::BfmCtrlMinNm, BfmControlMinNm());
   const double ctrlMaxNm = Tuned(FBPilotParam::BfmCtrlMaxNm, BfmControlMaxNm());
   double ctrlMidNm = 0.5 * (ctrlMinNm + ctrlMaxNm);
-  double schedKt = Clamp((rngNm - ctrlMidNm) * BfmClosureGainKtPerNm(), -BfmMaxClosureKt(),
-                         BfmMaxClosureKt());
+  /* AND THE OVERTAKE IT MAY BUILD IS THE ONE IT CAN GET RID OF AGAIN. The schedule c = k*(R - Rctrl) is
+   * a first-order decay, so following it demands a deceleration of exactly dc/dt = k*c — proportional to
+   * the overtake itself. An airframe's braking authority is finite (BfmBrakeMs2, its own measured number),
+   * so the schedule is followable only while k*c <= a, i.e. only up to a closure of a/k. Above that the
+   * pilot is not flying a schedule, it is writing a cheque: measured on gun-bfm, the old 200 kt ceiling
+   * had it accelerate to 190 kt of closure at 2 nm, and from 2,530 m in — throttle at idle, boards out,
+   * for thirty-five straight seconds — the range decayed a third faster than the closure did. It reached
+   * the control band with 98 kt of overtake against a schedule asking for 5, went through it to 61 m and
+   * out the far side. Nothing about the endgame was wrong; the approach had already made the endgame
+   * impossible. a/k is not a ceiling chosen to be safe, it is the largest overtake this jet can still
+   * unwind on the way in, and it falls out of two numbers that were already there. */
+  double schedSlopePerS = BfmClosureGainKtPerNm() * kKtToMs / kNmToM;
+  double capKt = std::fmin(BfmMaxClosureKt(), BfmBrakeMs2() / schedSlopePerS * kMsToKt);
+  double schedKt = Clamp((rngNm - ctrlMidNm) * BfmClosureGainKtPerNm(), -capKt, capKt);
   bool overtaking = validTrack && closKt > schedKt + kBfmClosureDeadKt;
 
   FBBfmPursuit mode;
@@ -537,6 +559,58 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
 
   double phiCmd = std::atan2(liftRight, liftUp) * kRad2Deg;
   double rollCmd = Clamp(phiCmd / kBfmRollFullDeg, -1.0, 1.0);
+
+  /* ---- THE CONVERSION: a bearing law is undefined at 180 deg, so the turn is committed to a sense ----
+   * Everything above regulates a BEARING, and a bearing law takes the short way round. That is right up
+   * to the moment the target crosses the tail: there the two ways round are equal, the commanded lift
+   * direction flips sign, and the law does not see the same error getting worse — it sees a NEW error on
+   * the other side and answers it with a reversal. That is exactly the geometry of a close frontal pass:
+   * measured on bfm-blind's 385 m merge, the line of sight swept from +102 to +177 deg and wrapped to
+   * -177, and the roll command chattered across the vertical (94/109/97/100/107/93/105 deg of bank in
+   * successive half-seconds) instead of holding one turn.
+   *
+   * A CONVERSION IS A COMMITMENT, and the geometric statement of it is that the commanded turn may STOP
+   * but may not REVERSE. It is A STATE and its two entry conditions are both geometry. The target is
+   * behind the WINGLINE — inside it he is in the forward hemisphere, the short way round is unambiguous
+   * and a genuine cross-over must be followed; outside it, getting the nose around is a turn in a plane
+   * and changing the plane halfway through is how the singularity expresses itself. AND the line of
+   * sight is rotating FASTER THAN THE AIRFRAME CAN TURN (CornerTurnRateDegS, the pilot's own number, the
+   * same one the search datum is built on): that is precisely when the bearing stops being a trackable
+   * signal, and it is what makes a pass a pass rather than a wide overshoot. At bfm-blind's 385 m merge
+   * the line of sight swept at 61 deg/s against an airframe that turns at 15.8; in the overshoots of the
+   * gun approaches it sweeps at three or four, and there the pilot both can and should keep following
+   * the bearing. Without that second condition the commitment fires on every overshoot too and costs
+   * more than it buys — measured over the sixteen gun approaches, two kills.
+   *
+   * Clipping to the committed half — rather than mirroring the demand onto the long way round — is what
+   * makes this BOUNDED: the worst thing it can ask for is "hold the bank you have and keep pulling". The
+   * mirroring version was tried and measured, and it is the unbounded one: the demand kept flipping with
+   * the aircraft's own roll, the jet rolled continuously through 360 deg and departed at t=39 in
+   * bfm-blind and in two of the sixteen gun approaches.
+   *
+   * WHICH WAY IT COMMITS needs no rule of its own — it is whichever way the pilot was already turning
+   * when the target crossed the wingline, i.e. the side he passed on. The pilot therefore turns AFTER
+   * him, which is both the smaller sweep and the one that keeps the line of sight rotating INTO the
+   * antenna's gimbal rather than out the other side. Whether that ends as a one- or a two-circle fight is
+   * then the defender's decision and not this law's: if he turns back into it, the two merge again nose
+   * to nose; if he does not, the pilot is behind him. */
+  double losRateDegS = 0.0;
+  if (haveTrack) {
+    double rr = std::fmax(g.RangeM, 1.0);
+    double le = g.EastM / rr, ln = g.NorthM / rr, lu = g.UpM / rr;
+    double re = g.VelE - st.vx, rn = g.VelN + st.vz, ru = g.VelU - st.vy;
+    double along = re * le + rn * ln + ru * lu;
+    double ce = re - along * le, cn = rn - along * ln, cu = ru - along * lu;
+    losRateDegS = std::sqrt(ce * ce + cn * cn + cu * cu) / rr * kRad2Deg;
+  }
+  double convertZoneDeg = Clamp(180.0 - losRateDegS * kBfmReverseS, kBfmConvertErrDeg, 180.0);
+  if (errMag > convertZoneDeg) {
+    if (BfmTurnSense_ == 0) BfmTurnSense_ = rollCmd >= 0.0 ? 1 : -1;
+    if (rollCmd * BfmTurnSense_ < 0.0) rollCmd = 0.0;
+  } else {
+    BfmTurnSense_ = 0;
+  }
+
   if (std::fabs(st.p) > kBfmRollRateMaxDegS && st.p * rollCmd > 0.0 && BfmRollCmdPrev_ != 0.0) {
     /* Scale the command THAT PRODUCED the measured rate, not the raw one: on a rate-command stick the
      * two are proportional, so cmd_prev * cap/rate is the command that would have produced the cap, and
@@ -562,7 +636,17 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
    * the SPEED the geometry wants: the target's own speed (the track estimate knows it — that is what a
    * velocity estimate is for) plus exactly the overtake the closure schedule allows at this range, which
    * goes NEGATIVE inside the control zone. With no picture at all there is nothing to match, so the
-   * pilot parks the jet at corner speed, where any fight it might find is best entered. */
+   * pilot parks the jet at corner speed, where any fight it might find is best entered.
+   *
+   * IT REGULATES THE SPEED DIFFERENCE AND NOT THE RANGE RATE, and that is a known and measured
+   * approximation rather than an oversight: the two are the same number only in a co-altitude tail chase,
+   * and a pursuer 700 m high and coming down converts height into closure the speed match never saw
+   * (measured on gun-bfm's third approach, 74 kt of true-airspeed difference against 157 kt of actual
+   * closure). Closing the loop on the radar's own range rate instead was tried and measured over the
+   * sixteen gun approaches: the control band held marginally better (21.4 % -> 23.2 % of tracked time)
+   * and the funnel time against the straight defender collapsed with it, 21.2 s -> 12.7 s. The range
+   * rate carries the whole pursuit geometry, so regulating it with the throttle makes the throttle fight
+   * the turn; the speed difference is the part of it the throttle actually owns. */
   double speedErrKt;
   if (validTrack) {
     speedErrKt = (tgtSpeedMs - st.speed) * kMsToKt + schedKt;
@@ -611,7 +695,12 @@ void FBPilot::BfmGunfire(const FBState &state, FBCommandBus &avionics) {
     double rate = (fc.GunAimErrorDeg - GunPrevErrDeg_) / (TimeS_ - GunPrevS_);
     predErrDeg = fc.GunAimErrorDeg +
                  rate * (FBCommandBus::LatencyS(FBCommandTarget::GunTrigger) + fc.GunTofS);
-    if (predErrDeg < 0.0) predErrDeg = 0.0;
+    /* THE PUBLISHED ERROR IS A MAGNITUDE, so its extrapolation has to be read as one. A solution that is
+     * SWEEPING — which is exactly what one does against a target that is turning — passes through zero
+     * and comes out the other side: predicting -1.5 deg does not mean "perfectly on him by then", it
+     * means "1.5 deg past him". Reading the signed prediction would make the fastest-moving solution in
+     * the fight look like the best one there is. */
+    predErrDeg = std::fabs(predErrDeg);
   }
   GunPrevErrDeg_ = fc.GunAimErrorDeg;
   GunPrevS_ = TimeS_;

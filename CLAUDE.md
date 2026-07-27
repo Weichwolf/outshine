@@ -682,8 +682,12 @@ sim/src/
                (Winkel gewinnen), Lag (Overshoot verhindern — Aimpunkt hinter UND über ihm, der High
                Yo-Yo), Pure dazwischen; Reichweiten-/Energie-Management über einen Closure-FAHRPLAN
                (gewünschte Annäherungsrate ∝ Restentfernung) plus Speed-Matching auf die GESCHÄTZTE
-               Zielgeschwindigkeit. Alle Zahlen sind virtuelle Hooks (F-16: Corner-Speed 380 KCAS,
-               gemessen via `make -C sim test-corner`). Drei Regelanteile darin sind KEINE Zahlen, sondern
+               Zielgeschwindigkeit. Der Fahrplan ist auf den Überschuss GEDECKELT, den die Zelle wieder
+               loswird: ein Fahrplan erster Ordnung verlangt eine Verzögerung von Steigung×Annäherung, die
+               Bremsautorität ist endlich (`BfmBrakeMs2`, F-16 2,4 m/s² — gemessen an Leerlauf+Bremsklappe
+               im Geradeausflug), also ist a/k die grösste Annäherung, die vor der Kontrollentfernung noch
+               abgebaut werden kann. Alle Zahlen sind virtuelle Hooks (F-16: Corner-Speed 380 KCAS,
+               gemessen via `make -C sim test-corner`). Vier Regelanteile darin sind KEINE Zahlen, sondern
                Gesetze: (a) die KANONEN-Nachführung im Trichter regelt nicht nur den Fehler, sondern auch
                dessen RATE — die geforderte Rohrrichtung wird in die WELT gedreht, dort differenziert und
                um eine Zeitkonstante vorausgesagt (kein Eigenanteil im Signal), plus ein Integrator mit
@@ -692,7 +696,20 @@ sim/src/
                nur solange sie außerhalb des Gebiets ist, denn im Inneren ist die Peilung zum Mittelpunkt
                keine Information mehr; (c) ein ROLLRATEN-Regler begrenzt die Eigenrolle (skaliert das
                Kommando, das die gemessene Rate erzeugt hat) — ohne ihn beantwortet das Gesetz einen
-               180°-Lenkfehler mit Vollausschlag und der Monitor sieht ein Departure.
+               180°-Lenkfehler mit Vollausschlag und der Monitor sieht ein Departure; (d) die KONVERSION,
+               ein eigener geometrischer Zustand statt eines Zeitfensters: ein Peilungsgesetz nimmt den
+               kürzeren Weg und ist bei 180° undefiniert, also sieht es einen Gegner, der das Heck
+               kreuzt, nicht als schlechter werdenden Fehler, sondern als NEUEN Fehler auf der anderen
+               Seite — und antwortet mit einer Rollumkehr (gemessen am 385-m-Frontalpass von bfm-blind).
+               Solange der Gegner ausserhalb der Konversionszone liegt, darf das Rollkommando deshalb
+               STOPPEN, aber nicht die Seite wechseln; die Seite ist die, auf der er vorbeiflog, also
+               dreht der Pilot ihm nach (kleinerer Bogen, und die Sichtlinie läuft in den Kardanwinkel
+               statt aus ihm heraus) — ob daraus ein Ein- oder Zwei-Kreis-Kampf wird, entscheidet der
+               Gegner. Die Zone ist hergeleitet, nicht gesetzt: eine Rollumkehr kostet 180° Rolle, bei der
+               eigenen begrenzten Rollrate also eine bekannte Zeit, und in der wandert die Peilung um ihre
+               eigene Rate — also lohnt eine Umkehr nur ausserhalb genau dieses Winkels von 180° (nach
+               unten von der Flügellinie begrenzt). Auf einem schnellen Vorbeiflug öffnet die Zone weit,
+               in einer langsamen Schere fast gar nicht.
                FBBfmTrack (`FBBfmTrack.h/.cpp`): das Bild, gegen das diese Phase regelt — ausschließlich
                aus dem Radar-BLOCK des FBState (Kontakte + Lock-Index, Kopf zuerst) gebaut (kein FBWorld, keine Registry, kein
                Datalink-Track im Include-Baum): geschätzte Zielposition + Geschwindigkeitsvektor aus

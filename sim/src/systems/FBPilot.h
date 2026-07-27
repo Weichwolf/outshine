@@ -320,6 +320,11 @@ protected:
    * problem (aspect beyond LeadAspectDeg, or further out than LeadRangeNm); pure in between. */
   virtual double BfmClosureGainKtPerNm() const { return 120.0; }   /* the closure SCHEDULE's slope */
   virtual double BfmMaxClosureKt() const { return 200.0; }
+  /* How hard the airframe can slow down with everything it has (idle + boards, level). It is what bounds
+   * the schedule above — a first-order closure schedule demands a deceleration of slope*closure, so an
+   * overtake beyond BrakeMs2/slope is one the jet cannot unwind before the control range (BfmCommands).
+   * A MEASURED airframe property like the corner numbers, not a tuning knob. */
+  virtual double BfmBrakeMs2() const { return 1.5; }
   virtual double BfmLeadAspectDeg() const { return 45.0; }
   virtual double BfmLeadRangeNm() const { return 3.0; }
   virtual double BfmLeadMaxS() const { return 4.0; }     /* cap on the collision-course lead time */
@@ -493,6 +498,8 @@ private:
   double TimeS_ = 0.0;            /* the pilot's own clock — the tracker stamps looks in absolute time */
   double BfmGIterm_ = 0.0;        /* the g loop's integrator (see BfmCommands) */
   double BfmRollCmdPrev_ = 0.0;   /* the roll governor's own last command (see BfmCommands) */
+  /* The committed turn sense while the target is behind the wingline (see BfmCommands' conversion). */
+  int    BfmTurnSense_ = 0;
   double BfmSearchHdgDeg_ = 0.0;  /* the cold search's anchored heading + altitude (see BfmCommands) */
   double BfmSearchAltM_ = 0.0;
   bool   BfmSearchAnchored_ = false;
