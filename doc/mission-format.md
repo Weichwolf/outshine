@@ -21,7 +21,7 @@ Kurs + Speed, eine EINZIGE IC-Anwendung (`FBMissionBoot.h`s `FBMissionSpawnActor
 Eine Anweisung pro Zeile, `#` leitet einen Kommentar bis Zeilenende ein, Leerzeilen werden ignoriert,
 führende Einrückung ist rein kosmetisch. **Zwei Geltungsbereiche:**
 
-- **missionsweit** — `name`, `runway`, `timeout`. Müssen VOR dem ersten `unit`-Block stehen.
+- **missionsweit** — `name`, `runway`, `timeout`, `wx`. Müssen VOR dem ersten `unit`-Block stehen.
 - **akteursbezogen** — `module`, `team`, `spawn`, `set`, `wp`, `land`, `objective`. Nur INNERHALB
   eines `unit`-Blocks; ein Block läuft bis zum nächsten `unit` oder Dateiende.
 
@@ -73,6 +73,7 @@ unit two
 | Mission | `name`    | Rest der Zeile | Missionsname (Telemetrie/Logs) |
 | Mission | `runway`  | lat lon elevM trueHdgDeg lengthM | Optionale Landing-Geometrie (`FBRunway`) — nötig für `spawn threshold`, `land`, und `FBMissionMonitor`s Off-Runway-Touchdown-FAIL-Prüfung; eine reine Luftstart-Mission ohne Landeabsicht braucht keine `runway`-Zeile. Missionsweit: alle Einheiten teilen sie. Breite ungenutzt (0, Default-Fallback im Monitor). |
 | Mission | `timeout` | Sekunden (>0) | Sim-Zeit bis TIMEOUT, falls die Mission nicht vorher endet. Gilt für jede Einheit. |
+| Mission | `wx`      | `calm` \| `fixture <name\|pfad>` \| `wind <dirDegFROM> <speedKt>` | Die ATMOSPHÄRE der Mission (`core/FBWeatherProvider`), optional, höchstens einmal, Default `calm`. S. „Wetter" unten. |
 | Akteur  | `unit`    | callsign | Blockbeginn. 1–24 Zeichen aus `[A-Za-z0-9_-]` (das Callsign benennt auch die Telemetriedatei und die `unit=`-Log-Attribution), missionsweit eindeutig. |
 | Akteur  | `module`  | Rest der Zeile | Modulname, per `FBModuleRegistry` aufgelöst (heute nur `f16` registriert) — bestimmt sowohl das `FBModule` als auch den JSBSim-Aircraft-Ordnernamen (`sim/assets/aircraft/<module>`). Pflicht je Block. |
 | Akteur  | `team`    | `friendly`\|`hostile`\|`neutral` | Fraktion (`FBUnitTeam`, `core/FBTeam.h`) — landet in der `FBWorld`-Unit-Registry, die Sensoren/Waffen künftig lesen. Optional, Default `friendly`. |
@@ -83,7 +84,8 @@ unit two
 | Akteur  | `objective` | `survive` \| `waypoints` \| `kill unit <callsign>` \| `kill team <fraktion>` | KAMPFZIEL dieser Einheit (`core/FBObjective.h`) — wiederholbar, s. „Kampfziele" unten. `kill unit` muss eine Einheit DIESER Mission nennen (Vorwärtsreferenz erlaubt, geprüft am Dateiende) und nicht die eigene; `objective waypoints` braucht `wp`/`land`-Zeilen darüber. Ein doppelt deklariertes Ziel ist ein Parse-Fehler. |
 
 `name`, `timeout` und mindestens ein `unit`-Block sind Pflicht; je Block sind `module` und `spawn`
-Pflicht. `runway` ist optional (nur nötig für `spawn threshold`/`land`/die Off-Runway-Prüfung). Parse-
+Pflicht. `runway` und `wx` sind optional (`runway` nur nötig für `spawn threshold`/`land`/die
+Off-Runway-Prüfung, `wx` Default `calm`). Parse-
 Fehler (`FBParseMissionFile` liefert `false` + eine Meldung in `*err`) sind: unbekanntes Keyword, eine
 Akteurszeile ohne offenen Block, eine missionsweite Zeile nach dem ersten Block, ein doppeltes oder
 nicht dateisicheres Callsign, zwei `spawn`-Zeilen in einem Block, `spawn threshold`/`land` ohne
@@ -98,8 +100,8 @@ eine explizite `spawn`-Höhe unterhalb des aufgelösten Bodens. `v=0` in der Luf
 
 ## Datenmodell
 
-`FBMission` = `Name` + optionale `FBRunway` (`HaveRunway`) + `TimeoutS` + `Units` (Liste von
-`FBMissionUnit`). `FBMissionUnit` = `Id` (Callsign) + `ModuleName` + `Team` + `FBSpawn` (`HaveSpawn`) +
+`FBMission` = `Name` + optionale `FBRunway` (`HaveRunway`) + `TimeoutS` + `FBWeatherSpec`
+(`HaveWeather`) + `Units` (Liste von `FBMissionUnit`). `FBMissionUnit` = `Id` (Callsign) + `ModuleName` + `Team` + `FBSpawn` (`HaveSpawn`) +
 `SetKV` (Dateireihenfolge) + `FBFlightPlan` (die `wp`/`land`-Zeilen in Dateireihenfolge) +
 `Objectives` (die `objective`-Zeilen, `std::vector<FBObjective>`). Ein
 Landeziel ist kein eigenes Flag: der Flugplan endet dann auf einem `FBWaypointType::Land`-Wegpunkt,
@@ -115,6 +117,83 @@ Code (kein Runway-Schwellen-Spawn, kein Wegpunkt-Advance — beides sitzt im Boo
 `systems/FBNavSystem::AdvanceWaypoint`, dem Modul selbst). Die Bodenhöhe für einen `ground`-Spawn kommt
 aus dem injizierten `FBElevationProvider` (`--elev tiles|const|swiss`) — die Datei-Elevation der
 `runway`-Zeile ist nur Doku/Fallback.
+
+## Wetter (`wx`)
+
+Eine Zeile, missionsweit, höchstens einmal, optional. Sie wählt die **Implementierung des
+Wetter-Hooks** (`core/FBWeatherProvider`, das Geschwister von `FBElevationProvider`) für den ganzen
+Lauf:
+
+| Zeile | Provider | Bedeutung |
+|---|---|---|
+| *(keine)* / `wx calm` | `core/FBCalmWeather` | Windstille, keine Bewölkung, unbegrenzte Sicht. **Der Default** — jede Mission ohne `wx`-Zeile fliegt exakt wie vor Existenz des Hooks (byte-identische Telemetrie, nachgemessen). |
+| `wx wind <dirDegFROM> <speedKt>` | `core/FBConstantWindWeather` | EIN Vektor überall auf der Erde und in jeder Höhe. `dirDegFROM` ist die Richtung, aus der es weht (0..360, meteorologisch), `speedKt` 0..300. Bewusst unphysikalisch: kein Scherwind, keine Grenzschicht — ein MESSINSTRUMENT, dessen Antwort eine geschlossene Formel ist. |
+| `wx fixture <name\|pfad>` | `core/FBFixedWeather` | Ein echter FBWX-Blob von `fb-tiles`' `/wx` (GFS 0,25°, unterabgetastet auf 0,5°): Wind auf 10 m + 850/700/500/250 hPa, Geopotential je Fläche, Bedeckung total/low/mid/high, Wolkenuntergrenze, Sicht. Ein Name OHNE `/` wird unter dem Asset-Verzeichnis des Klienten aufgelöst (`sim/assets/`), ein Pfad mit `/` wörtlich genommen. |
+
+Werte außerhalb der Bänder, eine zweite `wx`-Zeile oder ein unbekanntes Schlüsselwort sind
+Parse-Fehler; ein deklarierter Fixture-Blob, der sich nicht lesen lässt, ist ein **Laufzeit-FAIL**
+(Exit 1) und keine stille Rückfallebene — ein Lauf in der falschen Atmosphäre wäre schlimmer als gar
+keiner.
+
+**Vorrangregel, für jeden Klienten dieselbe:** die Mission gewinnt IMMER. Ohne `wx`-Zeile gilt der
+Default des Klienten — `fb-gym` und `gpu_native`: `calm` (eine Messung muss reproduzierbar sein), der
+Browser: **live** (ein `GET /wx` pro Sitzung, bis dahin `calm`). Deshalb gibt es kein CLI-Flag:
+Wetter ist Teil des SZENARIOS wie die Runway und der Spawn, nicht eine Fähigkeit des Klienten wie
+`--elev`.
+
+### Wie der Wind wirkt
+
+Kein Modul, kein Pilot und kein Regler sieht den Provider. Der EIGENTÜMER der Einheit
+(`FBMissionRunner`, im Browser der Frame-Loop) sampelt ihn im Entscheidungstakt an der Position der
+Einheit und legt den Vektor über `FBSimUnit::UpdateWind` → `FBFdm::SetWindNedMs` in JSBSims `FGWinds`;
+JSBSim zieht ihn von der Bodengeschwindigkeit ab und rechnet die Aerodynamik auf der Differenz. Ein
+Pilot ERLEBT Wind also nur als Drift auf seinen Instrumenten (Kurs gegen Bodenkurs im Platform-Block),
+so wie im echten Flugzeug. Der Vektor wird nur bei ÄNDERUNG geschrieben — in Windstille wird der Kanal
+nie angefasst.
+
+Gemessen an `sim/missions/wx-crosswind.fbm` (Geradeausflug Nord, `wx wind 270 20`, gegen denselben Lauf
+mit `wx calm`, Fenster 200–300 s):
+
+| Größe | Erwartung | Gemessen | Abweichung |
+|---|---|---|---|
+| Vorhaltewinkel (Kurs − Bodenkurs) | `asin(10,289 / 180,019)` = 3,2765° | 3,3078° | 0,031° (0,95 %) |
+| Groundspeed | `sqrt(TAS² − Vw²)` = 179,725 m/s | 179,717 m/s | 0,008 m/s (0,004 %) |
+| Bodenkurs | unverändert (die Führung kompensiert) | 359,95° gegen 359,998° calm | 0,046° |
+
+### Ein Abwurf im Wind geht daneben — das ist Physik, kein Defekt
+
+Der Feuerleitrechner (`modules/f16/FBF16FireControl`) integriert die gespeicherte Ballistiktabelle
+gegen STILLE Luft; nichts im Jet reicht ihm einen Windvektor. Die Bombe fällt dann durch eine Luftmasse,
+die sich bewegt, und landet woanders. `sim/missions/wx-ccrp-wind.fbm` ist `attack-ccrp.fbm` plus
+`wx wind 360 25`; gemessen an der `stores DELIVERY`-Zeile beider Läufe:
+
+| Querwind | `aimAcrossM` | Verschiebung | Bodenziel |
+|---:|---:|---:|---|
+| 0 (calm) | 9,88 m | — | DESTROYED |
+| 25 kt | 22,67 m | +12,79 m | DESTROYED |
+| 50 kt | 34,97 m | +25,09 m | DESTROYED |
+| 100 kt | 55,04 m | +45,16 m | **INTACT** |
+
+Die Verschiebung ist deutlich KLEINER als „Wind × Fallzeit" (bei 25 kt wären das 127 m): eine 227-kg-
+Bombe bei 220 m/s koppelt seitlich so schwach an die Luft, dass ihre laterale Relaxationszeit bei rund
+zwei Minuten liegt — in zehn Sekunden Fallzeit merkt sie fast nichts. Das ist eine Eigenschaft der
+Waffe und der Abwurfhöhe, keine Korrektur, die irgendwo fehlt.
+
+### Das feste Gym-Dataset
+
+`sim/assets/wx-2026-07-27T00Z.wxb` ist eine byte-genaue Kopie von `tiles/testdata/wx-gfs-2026-07-27T00Z-
+step2-v1.wxb`, also ein unveränderter 200-Body von `/wx` (GFS-Zyklus 2026-07-27 00Z, Analyseschritt,
+FBWX v1, 720×361, 20 Felder, 8 317 984 B, sha256 `acded02…9ede`). Ein Blob ist eine reine Funktion von
+(GFS-Lauf, Formatversion, Gitterschritt), also ist er per Prüfsumme vergleichbar statt per Toleranz.
+`sim/missions/wx-gfs-fixture.fbm` fliegt darin.
+
+Format: `tiles/src/wxfmt.h` ist der Vertrag, `sim/src/core/FBWxFormat.h` der Spiegel auf der Sim-Seite
+(core/ darf nicht nach tiles/ zeigen), Prosa in `doc/flightbox/world-and-terrain.md` §9. Gegen
+Auseinanderdriften der beiden steht ein Prüfer statt einer Konvention: `make -C sim test-weather` →
+`build/fb-test-weather` parst die Fixture und rechnet die in §9.7 aus einem UNABHÄNGIGEN Dekoder
+(ecCodes 2.41) veröffentlichten Stichwerte nach, mit der Quantisierungsstufe des jeweiligen Feldes als
+Toleranz. Dasselbe Binary ist die Sonde: `fb-test-weather <blob> <lat> <lon> <altM>` druckt Wind,
+Sicht, Bedeckung und Wolkenbasis an einem Punkt.
 
 ## Tick-Reihenfolge und Snapshot-Regel
 

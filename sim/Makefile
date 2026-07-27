@@ -19,6 +19,8 @@
 #                 -> build/fb-test-missile-airframe
 #   make test-gun  check the M61A1's ballistics, dispersion fit, EEGS funnel geometry and the lead
 #                 solution against doc/f16/weapons.md -> build/fb-test-gun
+#   make test-weather  check the FBWX format mirror against the committed /wx fixture
+#                 -> build/fb-test-weather
 #   make verify-models  every model copy under assets/aircraft differs from the pinned submodule by
 #                 EXACTLY the deltas assets/MODEL-DELTAS.md names -- no unexplained byte
 #   make image    build the deployable fb-sim web container (podman)
@@ -93,7 +95,8 @@ RENDER_STAGE_SRCS := $(wildcard src/render/stages/*.cpp)
 CORE_LIB_SRCS := \
   src/fdm/FBFdm.cpp src/fdm/FBFdmBoot.cpp src/fdm/FBFdmTelemetrySource.cpp \
   src/core/FBLog.cpp src/core/FBTelemetry.cpp src/core/FBMissionFile.cpp src/core/FBCommandBus.cpp src/core/FBStateBusTelemetry.cpp \
-  src/core/FBRunwayPlateauElevation.cpp src/core/FBBakedDemElevation.cpp src/core/FBFlightMonitor.cpp \
+  src/core/FBRunwayPlateauElevation.cpp src/core/FBBakedDemElevation.cpp src/core/FBFixedWeather.cpp \
+  src/core/FBFlightMonitor.cpp \
   src/core/FBMissionMonitor.cpp src/core/FBSystemHealth.cpp src/core/FBDamageModel.cpp \
   src/core/FBGunBallistics.cpp src/core/FBGunProjectiles.cpp src/core/FBBallistics.cpp \
   src/systems/FBAutopilot.cpp src/systems/FBFlightControl.cpp src/systems/FBDisplaySystem.cpp \
@@ -118,7 +121,7 @@ CORE_LIB_SRCS := \
   src/units/FBSimUnit.cpp \
   src/render/FBHudGeometry.cpp
 
-.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun verify-models image up down restart clean
+.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun test-weather verify-models image up down restart clean
 
 help:            ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
@@ -145,7 +148,7 @@ wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,w
 	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O1 $(EMCC_WARN) -fexceptions \
 	    $(INC_WASM) \
 	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=256MB -sSTACK_SIZE=4MB -sEXIT_RUNTIME=0 \
-	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_fb_toggle_ground,_fb_set_ground \
+	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_fb_toggle_ground,_fb_set_ground,_fb_wx_ready,_fb_wx_failed \
 	    --embed-file assets/aircraft@/fb/aircraft \
 	    --embed-file web/moon.jpg@/moon.jpg \
 	    -o web/gpu.js; \
@@ -285,6 +288,16 @@ test-gun: core-lib     ## check the gun's ballistics/EEGS geometry against doc/f
 	    -lpthread -ldl -lm \
 	    -o build/fb-test-gun; \
 	  echo "test-gun -> build/fb-test-gun"
+
+test-weather: core-lib   ## check the FBWX mirror against the committed /wx fixture -> build/fb-test-weather
+	@cd $(SELF_DIR); set -e; \
+	  c++ src/app/FBTestWeather.cpp src/app/FBLogSinks.cpp \
+	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
+	    -std=c++17 -O2 $(CXX_WARN) \
+	    $(INC_NATIVE) -isystem $(JSB_HOST)/include/JSBSim \
+	    -lpthread -ldl -lm \
+	    -o build/fb-test-weather; \
+	  echo "test-weather -> build/fb-test-weather"
 
 test-missile: core-lib   ## fly the FlightBox AIM-120 model open-loop (motor/drag/trim proof) -> build/fb-test-missile-airframe
 	@cd $(SELF_DIR); set -e; \

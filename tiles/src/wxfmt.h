@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 /* The /wx wire format ("FBWX"). This header IS the contract: fb-tiles writes it, the simulator
+ * Sim-side mirror: sim/src/core/FBWxFormat.h — checked against this contract by sim's build/fb-test-weather.
  * reads it, and a baked gym fixture is a byte-for-byte copy of one response. Full prose in
  * doc/flightbox/world-and-terrain.md, section "Wetter -- /wx".
  *

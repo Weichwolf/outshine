@@ -14,3 +14,17 @@ changes. DO NOT hand-edit.
 - Regenerate: `python3 tools/bake_swiss_dem.py --base http://localhost:8081 --out assets/swiss-dem-90m.bin`
   (needs Pillow + numpy; takes ~1 min cold against a local fb-tiles, ~2 s once fb-tiles' own disk cache
   is warm).
+
+**`wx-2026-07-27T00Z.wxb`** — the FIXED gym weather: a byte-for-byte copy of
+`tiles/testdata/wx-gfs-2026-07-27T00Z-step2-v1.wxb`, itself one unmodified 200 body of `GET /wx`
+(FBWX format v1, grid step 2 = 0.5° / 720x361, 20 fields, 8 317 984 B, GFS cycle 2026-07-27T00:00:00Z
+analysis step f000). sha256 `acded0200d49926203d4548301a2fd1586b6e3c5ecbf61fbd0355e6f9c609ede`. Named
+by its CYCLE, because that plus the format version is the whole identity of these bytes.
+
+- Consumer: `sim/src/core/FBFixedWeather.h/.cpp`; format mirror `sim/src/core/FBWxFormat.h`, contract
+  `tiles/src/wxfmt.h`, prose `doc/flightbox/world-and-terrain.md` §9.
+- A mission asks for it by name: `wx fixture wx-2026-07-27T00Z.wxb` (`doc/mission-format.md`).
+- Verified by `make -C sim test-weather` → `build/fb-test-weather`, which re-derives §9's documented
+  spot values from these bytes.
+- Refresh: fetch `/wx` from a running fb-tiles and copy the body in (`curl -s http://localhost:8081/wx
+  -o assets/wx-<cycle>.wxb`); a blob is a pure function of (GFS run, format version, grid step).

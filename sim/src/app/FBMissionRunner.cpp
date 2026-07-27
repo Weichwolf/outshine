@@ -2,6 +2,7 @@
 #include "FBMissionFile.h"
 #include "FBMissionBoot.h"
 #include "FBMissionMonitor.h"
+#include "FBWeatherBoot.h"
 #include "FBModuleRegistry.h"
 #include "FBTelemetry.h"
 #include "FBTelemetrySinks.h"
@@ -442,6 +443,25 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   double timeoutS = timeoutOverride > 0.0 ? timeoutOverride : mission.TimeoutS;
   FBLog::Info("mission", "MISSION_START", {{"name", mission.Name}, {"timeout", timeoutS}});
 
+  /* The mission's atmosphere, or still air. A DECLARED fixture that will not load is a FAIL and not a
+   * quiet fallback: a run measured in the wrong weather is worse than no run. */
+  std::string werr;
+  std::unique_ptr<FBWeatherProvider> weather = FBMakeMissionWeather(mission, models, &werr);
+  if (!weather) {
+    if (!werr.empty()) {
+      FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", werr}});
+      return 1;
+    }
+    weather = std::make_unique<FBCalmWeather>();
+  }
+  if (mission.HaveWeather) {
+    /* Only when DECLARED: a calm run's events.log must stay byte-identical to one from before weather. */
+    FBLog::Info("mission", "WEATHER", {{"kind", mission.Weather.Kind == FBWeatherKind::Fixture ? "fixture"
+                                              : mission.Weather.Kind == FBWeatherKind::Wind ? "wind" : "calm"},
+        {"fixture", mission.Weather.Fixture}, {"fromDeg", mission.Weather.WindFromDeg},
+        {"speedKt", mission.Weather.WindSpeedKt}});
+  }
+
   /* ---- Step 2: set up the world with its actors ----
    * The list's ORDER is the mission file's order and stays the tick order for the whole run. */
   FBRegisterBuiltinModules();
@@ -519,7 +539,10 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     return FBMissionRoster{RosterBuf.data(), (int)RosterBuf.size()};
   };
 
-  if (hook) hook->OnMissionStart(mission.Units.front().Spawn, Actors, UnitReg);
+  if (hook) {
+    hook->OnWeather(*weather);
+    hook->OnMissionStart(mission.Units.front().Spawn, Actors, UnitReg);
+  }
 
   std::vector<FBActorTelemetry> ActorTelemetry;
   ActorTelemetry.reserve(maxActors);
@@ -560,8 +583,14 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
    * objectives at all; every judged actor's own monitor concludes TIMEOUT at exactly this sim time. */
   while (!FirstFlightKo(Actors) && !FirstDecidingFailure(Actors) && !AllJudgedConcluded(Actors) &&
          simT < timeoutS) {
-    for (auto &a : Actors)
-      if (a->Active()) a->UpdateGroundAsl(elevation.GroundElevM(a->State().lat, a->State().lon));
+    /* Ground truth and air mass, both at the DECISION tick and not per 100 Hz substep: a GFS field
+     * varies over ~50 km and the jet covers under 60 m in a tick, so a finer sample would be the same
+     * number ten times. */
+    for (auto &a : Actors) {
+      if (!a->Active()) continue;
+      a->UpdateGroundAsl(elevation.GroundElevM(a->State().lat, a->State().lon));
+      a->UpdateWind(weather->WindNedMs(a->State().lat, a->State().lon, a->State().elev));
+    }
     stepJob.SetTime(simT);
     pool.RunTick(stepJob, Actors.size());
     for (auto &l : actorLogs) l.Drain(logSink);

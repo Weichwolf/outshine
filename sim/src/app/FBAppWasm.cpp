@@ -13,6 +13,7 @@
 #include "FBModuleRegistry.h"
 #include "FBMissionBoot.h"
 #include "FBMissionMonitor.h"
+#include "FBWeatherBoot.h"
 #include "FBElevationProvider.h"
 #include "FBEphemeris.h"
 #include "FBGeodesy.h"
@@ -41,7 +42,9 @@ static const double kSpeedMs = 220.0;    /* ?ap=manual spawn speed */
 static const char *kSandboxModule = "f16";   /* ?ap=manual has no .fbm to name a module — the sandbox
     picks this one by REGISTRY NAME, so even the debug path never names a concrete module type */
 /* A path in emscripten's embedded FS, filled by the wasm target's --embed-file line. */
-static const FlightBox::FBModelRoots kWasmModelRoots{"/fb/aircraft"};
+/* No asset root: the browser embeds the model tree and nothing else, so a mission's `wx fixture` has
+ * nothing to resolve against here — live /wx is this client's weather (app/FBWeatherBoot.h). */
+static const FlightBox::FBModelRoots kWasmModelRoots{"/fb/aircraft", ""};
 static const char *kDefaultMissionUrl = "/missions/payerne-full.fbm";   /* the full autonomous sortie:
     ground start, waypoint loop, landing to a full stop. web/missions/ is a build-time copy of
     sim/missions/ (make wasm) served by fb-sim's web/ mount — editable without a WASM rebuild */
@@ -63,6 +66,56 @@ static double LastMs = 0.0;
 static double Olat = 47.179846, Olon = 7.411427;   /* ENU/home origin (config.js) */
 static time_t SimUtc = 0;                /* FB_SIM_UTC override; 0 = real wall clock (live sky) */
 
+/* THE BROWSER'S WEATHER, and the one client whose default is LIVE. Three objects and one rule: `gWeather`
+ * is what the sim flies in right now (calm until something better exists), `gWxIncoming` is a parsed blob
+ * waiting to be adopted, and the adoption happens at the TOP OF A FRAME — never inside one. With
+ * ASYNCIFY the frame can be suspended mid-tick (fb_stream_ground yields), so a fetch callback really can
+ * land between two substeps; swapping there would fly half a tick in one atmosphere and half in another.
+ * A mission that DECLARES `wx` replaces all of this at boot (the precedence rule, app/FBWeatherBoot.h). */
+static std::unique_ptr<FlightBox::FBWeatherProvider> gWeather;
+static std::unique_ptr<FlightBox::FBFixedWeather> gWxIncoming;
+static bool gWxLive = true;    /* cleared once a mission declares its own: a late /wx must not override it */
+
+/* Called BY NAME from the fetch glue below, hence extern "C" (EMSCRIPTEN_KEEPALIVE alone would let the
+ * mangled name defeat the export). Takes ownership of `bytes`. */
+extern "C" EMSCRIPTEN_KEEPALIVE void fb_wx_ready(uint8_t *bytes, int n) {
+  if (!gWxLive) { free(bytes); return; }   /* the mission's own weather already won */
+  auto wx = std::make_unique<FlightBox::FBFixedWeather>(bytes, (size_t)n);
+  free(bytes);
+  if (!wx->Ok()) {
+    FBLog::Warn("wx", "live_rejected", {{"bytes", n}, {"reason", "not a well-formed FBWX blob"}});
+    return;
+  }
+  char run[24];
+  FBLog::Info("wx", "live_ready", {{"bytes", n}, {"run", FBWxIsoUtc(wx->RunEpoch(), run, sizeof run)},
+      {"nx", (int)wx->Header().Nx}, {"ny", (int)wx->Header().Ny},
+      {"gridStep", (int)wx->Header().GridStep}, {"fields", (int)wx->Header().FieldCount}});
+  gWxIncoming = std::move(wx);
+}
+
+/* The /elev lesson applied to weather: an unreachable or broken endpoint is a LOG LINE, never a boot
+ * failure — the session goes on flying the calm air it started in. */
+extern "C" EMSCRIPTEN_KEEPALIVE void fb_wx_failed(int status) {
+  FBLog::Warn("wx", "live_unavailable", {{"status", status}, {"flying", "calm"}});
+}
+
+/* ONE request per session: a GFS cycle is valid for six hours and the blob is a pure function of it, so
+ * there is nothing to poll for. fetch(), not the synchronous XHR the tile paths use, because this must
+ * not block the boot for the seconds a cold /wx can take (§9.9: 7 s through NOMADS). */
+EM_JS(void, fb_wx_fetch, (const char *url), {
+  var u = UTF8ToString(url);
+  fetch(u).then(function (r) {
+    if (!r.ok) { _fb_wx_failed(r.status | 0); return null; }
+    return r.arrayBuffer();
+  }).then(function (buf) {
+    if (!buf) return;
+    var src = new Uint8Array(buf);
+    var p = _malloc(src.length);
+    HEAPU8.set(src, p);
+    _fb_wx_ready(p, src.length);
+  }).catch(function () { _fb_wx_failed(0); });
+})
+
 /* One source of truth for SVS(OSM) <-> EVS(photo): the streamer's lazy photo fetch AND the renderer's
  * draw layer + sun choice. */
 static void GroundSet(int photo) {
@@ -79,6 +132,13 @@ static void frame(void) {
   LastMs = now;
   if (dt > 0.1) dt = 0.1;   /* clamp a stall/tab-switch so the sim doesn't lurch */
   FBLog::SetTime(now / 1000.0);   /* wall-clock seconds since page load — correlates every log line this frame */
+
+  /* THE ATOMIC SWITCH, and the only place it can happen: before this frame reads the wind at all. */
+  if (gWxIncoming) {
+    gWeather = std::move(gWxIncoming);
+    W.SetWeather(gWeather.get());   /* the drawing side borrows the same object, never a copy */
+    FBLog::Info("wx", "source", {{"source", "live"}, {"endpoint", "/wx"}});
+  }
 
   /* Boot gate: JSBSim stays FROZEN until the cut around the spawn is resident, so the first flown
    * frame is already full-resolution and the spawn DEM ground is loaded. */
@@ -120,6 +180,10 @@ static void frame(void) {
    * draws, so gear/contact/crash collide against real terrain. A cold /elev keeps the last good value
    * for BOTH the FDM and the HUD/radar-alt path — they must not disagree about where the ground is. */
   for (auto &a : gActors) a->UpdateGroundAsl(fb_stream_ground(a->State().lat, a->State().lon));
+  /* The air mass, from the same seam every client uses. Sampled per frame beside the ground for the same
+   * reason: one number, one place, before anything integrates. */
+  for (auto &a : gActors)
+    a->UpdateWind(gWeather->WindNedMs(a->State().lat, a->State().lon, a->State().elev));
   double gForHud = gOwnship->GroundAslM();
   double cp_b = emscripten_get_now();   /* end: ground/bridges */
 
@@ -242,6 +306,10 @@ int main() {
 
   FBRegisterBuiltinModules();
 
+  /* Still air is what the session STARTS in, whatever it ends up flying: the fetch below is in flight
+   * while the first frames already run, and a null provider would be a branch in the tick path. */
+  gWeather = std::make_unique<FBCalmWeather>();
+
   if (manualMode) {
     /* No mission file, so this builds its actor by hand — the ONE place this client touches the IC
      * directly, and it ends in the same state minus a plan to judge (hence no FBMissionMonitor). */
@@ -303,7 +371,31 @@ int main() {
           {"waypoints", mission.Units[i].Plan.Size()}});
       gActors.push_back(std::move(unit));
     }
+    /* THE PRECEDENCE RULE (app/FBWeatherBoot.h): a mission that declares its weather keeps it, in the
+     * browser exactly as in fb-gym. Only a mission that does NOT gets this client's live default. */
+    std::string werr;
+    std::unique_ptr<FBWeatherProvider> declared = FBMakeMissionWeather(mission, kWasmModelRoots, &werr);
+    if (declared) {
+      gWeather = std::move(declared);
+      gWxLive = false;   /* nothing fetched, and a late arrival could not override it either */
+      FBLog::Info("wx", "source", {{"source", "mission"}, {"url", kDefaultMissionUrl}});
+    } else if (!werr.empty()) {
+      /* The browser embeds no fixture (live is its default), so a fixture mission degrades to live
+       * rather than refusing to fly — the opposite of fb-gym, where the declaration IS the measurement. */
+      FBLog::Warn("wx", "mission_weather_unavailable", {{"reason", werr}, {"falling_back", "live /wx"}});
+    }
   }
+
+  /* ONE /wx per session, off the same fb-tiles base the tiles come from, started as early as there is
+   * something to hand the result to and never waited for. Until it lands (or does not) the sim flies
+   * calm — the first frames are already running by then. */
+  if (gWxLive) {
+    static char wxUrl[224];
+    snprintf(wxUrl, sizeof wxUrl, "%s/wx", base);
+    FBLog::Info("wx", "source", {{"source", "calm"}, {"pending", wxUrl}});
+    fb_wx_fetch(wxUrl);
+  }
+
   gOwnship = gActors.front().get();
   gRoster.reserve(gActors.size());
   for (auto &a : gActors) a->PrimeState();   /* one step each to fill state before the first guidance step */
@@ -352,6 +444,7 @@ int main() {
   }
   for (auto &a : gActors) gUnits.Register(a.get());   /* the App owns the units; everyone else borrows */
   W.SetUnits(&gUnits);
+  W.SetWeather(gWeather.get());   /* the DATA side only; the frame swap below re-points it when /wx lands */
   FBLog::Info("gpu", "world_ready", {{"viewKm", viewM / 1000.0}});
 
   emscripten_set_main_loop(frame, 0, 1);

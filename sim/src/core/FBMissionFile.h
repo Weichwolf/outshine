@@ -30,11 +30,23 @@ struct FBMissionUnit {
   std::vector<std::pair<std::string, std::string>> SetKV;   /* `set <key> <value>` lines, file order */
 };
 
+/* `wx <kind> ...` — mission-wide, because an atmosphere is not something one actor has and another does
+ * not. Unset means Calm, so a file written before weather existed declares still air by omission. */
+enum class FBWeatherKind { Calm, Fixture, Wind };
+
+struct FBWeatherSpec {
+  FBWeatherKind Kind = FBWeatherKind::Calm;
+  std::string   Fixture;       /* `wx fixture <name|path>`: a bare name resolves under the client's assets */
+  double        WindFromDeg = 0.0, WindSpeedKt = 0.0;   /* `wx wind <dirFROM> <kt>` */
+};
+
 struct FBMission {
   std::string  Name;
   FBRunway     Runway;       /* optional: landing-relevant geometry, `spawn threshold ...`'s reference */
   bool         HaveRunway = false;
   double       TimeoutS = 0.0;   /* sim-seconds until TIMEOUT; 0 = unset (a parse error, not a mission) */
+  FBWeatherSpec Weather;
+  bool         HaveWeather = false;   /* declared explicitly — the ONE thing that outranks a client default */
   std::vector<FBMissionUnit> Units;
 };
 

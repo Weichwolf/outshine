@@ -1,0 +1,34 @@
+name wx-crosswind-1
+timeout 700
+
+# THE WIND ACTS PHYSICALLY, and this mission is the instrument that proves it — a measurement, not a
+# scenario. One jet, one long straight leg due NORTH, and a 20 kt wind FROM 270 (i.e. blowing east), so
+# the whole wind vector is across the flight path and none of it along.
+#
+# WHAT IT PROVES. Nothing in FlightBox tells the pilot, the autopilot or the FCS that there is wind:
+# `wx` reaches core/FBWeatherProvider, the unit's OWNER samples it and hands the vector to JSBSim's
+# FGWinds (fdm/FBFdm::SetWindNedMs), and JSBSim subtracts it from the ground velocity to get the
+# aerodynamic one. So the aircraft ends up CRABBED into the wind purely because its guidance is steering
+# at a point on the ground and the air is carrying it sideways:
+#
+#   drift = heading - ground track ~= asin(crosswind / TAS)
+#   groundspeed = sqrt(TAS^2 - crosswind^2)  (crabbed, so the drift is fully cancelled)
+#
+# Both numbers come out of telemetry.csv against the same file from the run WITHOUT the `wx` line —
+# heading is hdgDeg, track and groundspeed are differentiated from lat/lon at the 10 Hz sample rate.
+#
+# `wx wind` is deliberately the crudest possible atmosphere: one vector everywhere, at every altitude,
+# no shear, no boundary layer. That is what makes it an instrument — the expected answer is a closed
+# form. Real weather is `wx fixture` (doc/mission-format.md).
+
+wx wind 270 20
+
+unit viper
+  module f16
+  spawn 46.30000 7.00000 3000 0.0 350        # air start, due north at 3000 m, wind square on the left
+  set gear up
+  set fuel_pct 60
+  set datalink off                           # nothing here is an engagement; keep the trace clean
+  set fcr_mode off
+  wp 46.90000 7.00000 3000 350               # 67 km straight north — the leg the drift is measured on
+  wp 47.40000 7.00000 3000 350               # and 56 km more, so the steady state has time to be steady

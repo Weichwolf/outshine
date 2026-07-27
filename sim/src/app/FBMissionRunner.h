@@ -3,6 +3,8 @@
  * ALL judgement lives in core/FBFlightMonitor and core/FBMissionMonitor, per actor; this file only
  * COMBINES their verdicts into one exit code. Ground truth arrives through an injected
  * FBElevationProvider, so this has no renderer/world/Dawn dependency and belongs to the core library.
+ * WEATHER, unlike ground truth, is not injected but DECLARED: it is part of the scenario (app/
+ * FBWeatherBoot.h), and both clients here default to calm so a measurement stays reproducible.
  * A caller wanting more than headless telemetry supplies an FBMissionTickHook, whose interface is
  * deliberately GPU-type-free. doc/flightbox/units-and-missions.md, Abschnitt 5-7. */
 #ifndef FBMISSIONRUNNER_H
@@ -10,6 +12,7 @@
 #include <string>
 #include "FBElevationProvider.h"
 #include "FBModelRoots.h"
+#include "FBWeatherProvider.h"
 #include "FBSpawn.h"
 #include "FBSimUnit.h"
 #include "FBUnitRegistry.h"
@@ -33,6 +36,11 @@ public:
                               const FBUnitRegistry &units) {
     (void)spawn; (void)actors; (void)units;
   }
+
+  /* The DATA side of weather, once, before the first tick: the run's atmosphere, borrowed for as long
+   * as the run lasts. A renderer asks it for cover, cloud base and wind; it draws nothing by itself and
+   * this interface stays GPU-type-free. */
+  virtual void OnWeather(const FBWeatherProvider &weather) { (void)weather; }
 
   /* After the pose barrier and this tick's telemetry sample, so every pose the hook reads is this
    * tick's. A camera has ONE eye and rides actors[0]; the list is here for everything that is not the

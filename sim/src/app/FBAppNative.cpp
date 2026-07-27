@@ -178,6 +178,10 @@ public:
   FBNativeMissionHook(std::string base, std::string outDir, double intervalS, int width = 1280, int height = 720)
       : Base(std::move(base)), OutDir(std::move(outDir)), IntervalS(intervalS), Width(width), Height(height) {}
 
+  /* The run's atmosphere, borrowed before the world exists — handed on in OnMissionStart below, where
+   * FBWorld is created. Only the DATA side: nothing draws weather yet. */
+  void OnWeather(const FlightBox::FBWeatherProvider &weather) override { Wx = &weather; }
+
   void OnMissionStart(const FlightBox::FBSpawn &spawn, const FlightBox::FBActorList &actors,
                       const FlightBox::FBUnitRegistry &units) override {
     const FlightBox::FBSimUnit &primary = *actors.front();   /* the camera's actor (FBMissionRunner.h) */
@@ -204,6 +208,7 @@ public:
     }
     /* Borrowed: the renderer's VIEW of the cast, never a second list of its own. */
     W->SetUnits(&units);
+    W->SetWeather(Wx);
     /* Warm the terrain cut before the first PNG; the jet is stationary, so an approximate cut does. */
     double altAsl0 = primary.GroundAslM() + (spawn.Ground ? 2.0 : (spawn.AltM - primary.GroundAslM()));
     double eye0[3], fwd0[3], right0[3], up0[3];
@@ -244,6 +249,7 @@ private:
   std::string Base, OutDir;
   double IntervalS;
   int Width, Height;
+  const FlightBox::FBWeatherProvider *Wx = nullptr;   /* borrowed for the run (OnWeather) */
   std::unique_ptr<FlightBox::FBRenderer> R;
   std::unique_ptr<FlightBox::FBWorld> W;
   double Acc = 0.0;

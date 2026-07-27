@@ -15,6 +15,7 @@ namespace FlightBox {
 
 class FBRenderer;
 class FBUnitRegistry;
+class FBWeatherProvider;
 
 class FBWorld {
 public:
@@ -24,6 +25,12 @@ public:
    * client — fb-gym needs the same registry without linking any of world/. This is the drawing side. */
   void SetUnits(const FBUnitRegistry *units) { Units_ = units; }
   const FBUnitRegistry *Units() const { return Units_; }
+
+  /* BORROWED for the same reason: the atmosphere is simulation state (core/FBWeatherProvider), and the
+   * drawing side only ever ASKS it — cover, cloud base and wind for the cloud rebuild. Null until a
+   * client sets one, and nothing here draws weather today. */
+  void SetWeather(const FBWeatherProvider *weather) { Weather_ = weather; }
+  const FBWeatherProvider *Weather() const { return Weather_; }
 
   /* `viewMeters` = the view radius (FB_VIEW_KM * 1000). */
   bool Open(FBRenderer *renderer, const char *tilesBase, double lat, double lon, int grid,
@@ -100,6 +107,7 @@ private:
   void BuildLights(int idx);   /* fetch + decode /t/lights for node idx into its lightInst (rel Anchor) */
 
   const FBUnitRegistry *Units_ = nullptr;   /* borrowed, see SetUnits' banner */
+  const FBWeatherProvider *Weather_ = nullptr;   /* borrowed, see SetWeather's banner */
 
   FBRenderer *R;
   bool Photo;            /* currently viewed mode (SetGroundMode) */

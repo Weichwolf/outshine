@@ -68,7 +68,7 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
       continue;
     }
 
-    if (kw == "name" || kw == "runway" || kw == "timeout") {
+    if (kw == "name" || kw == "runway" || kw == "timeout" || kw == "wx") {
       if (inBlock) return fail("'" + kw + "' is mission-wide and must come before the first 'unit' block");
       if (kw == "name") {
         std::string rest;
@@ -80,6 +80,32 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
         if (!(ls >> lat >> lon >> elev >> hdg >> len)) return fail("'runway' needs lat lon elevM hdgDeg lengthM");
         out.Runway = FBRunway{lat, lon, elev, hdg, len, 0.0};
         out.HaveRunway = true;
+      } else if (kw == "wx") {
+        /* An explicit KIND word first, never a guess from what follows: `wx 270 20` would read as a
+         * shorthand today and as something else the day a third kind appears. */
+        if (out.HaveWeather) return fail("mission already has a 'wx' line");
+        std::string kind;
+        if (!(ls >> kind)) return fail("'wx' needs calm|fixture|wind");
+        if (kind == "calm") {
+          out.Weather = FBWeatherSpec{};
+        } else if (kind == "fixture") {
+          std::string rest;
+          std::getline(ls, rest);
+          out.Weather.Kind = FBWeatherKind::Fixture;
+          out.Weather.Fixture = Trim(rest);
+          if (out.Weather.Fixture.empty()) return fail("'wx fixture' needs an asset name or a path");
+        } else if (kind == "wind") {
+          double dir, kt;
+          if (!(ls >> dir >> kt)) return fail("'wx wind' needs dirDegFROM speedKt");
+          if (dir < 0.0 || dir > 360.0) return fail("'wx wind' direction must be 0..360 (the bearing it blows FROM)");
+          if (kt < 0.0 || kt > 300.0) return fail("'wx wind' speed must be 0..300 kt");
+          out.Weather.Kind = FBWeatherKind::Wind;
+          out.Weather.WindFromDeg = dir;
+          out.Weather.WindSpeedKt = kt;
+        } else {
+          return fail("'wx' needs calm|fixture|wind");
+        }
+        out.HaveWeather = true;
       } else {
         double t;
         if (!(ls >> t) || t <= 0.0) return fail("'timeout' needs a positive seconds value");

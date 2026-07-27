@@ -77,6 +77,12 @@ public:
   /* World truth from the App's elevation hook, so gear/contact collide against the DEM. */
   void SetGroundElevM(double m);
 
+  /* World truth from the App's WEATHER hook (core/FBWeatherProvider), the air mass's own velocity in
+   * m/s. JSBSim's FGWinds carries exactly this vector in ft/s and subtracts it from the ground velocity
+   * to get the aerodynamic one, so a wind FROM 270 is (N=0, E=+v, D=0) and nothing about the airframe,
+   * the FCS or the pilot has to know it exists. Never set = still air, bit-identical to before. */
+  void SetWindNedMs(double n, double e, double d);
+
   /* ---- Readbacks: const, so a `const FBFdm&` is a read-only handle. ---- */
 
   /* What the FDM is CURRENTLY colliding against — proves the DEM value reached JSBSim. */

@@ -15,10 +15,13 @@ namespace FlightBox {
 
 struct FBModelRoots {
   std::string Aircraft;    /* FlightBox's model root: one directory per model */
+  /* Everything else this client can load from disk by NAME — today the baked weather fixture a mission's
+   * `wx fixture` line names. Empty = this client has no filesystem to resolve one against (the browser). */
+  std::string Assets;
 };
 
 /* One definition for every client that runs from sim/, instead of literals that could drift apart. */
-inline FBModelRoots FBNativeModelRoots() { return FBModelRoots{"assets/aircraft"}; }
+inline FBModelRoots FBNativeModelRoots() { return FBModelRoots{"assets/aircraft", "assets"}; }
 
 } // namespace FlightBox
 #endif

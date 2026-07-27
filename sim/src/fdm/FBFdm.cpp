@@ -17,6 +17,7 @@
 #include "models/FGGroundReactions.h"
 #include "models/FGLGear.h"
 #include "models/FGMassBalance.h"
+#include "models/atmosphere/FGWinds.h"
 #include "models/FGPropulsion.h"
 #include "models/propulsion/FGEngine.h"
 #include "models/propulsion/FGTank.h"
@@ -375,6 +376,13 @@ void FBFdm::SetGroundElevM(double m) {
 
 double FBFdm::GetGroundElevM() const {
   return P->Exec.GetPropertyValue("position/terrain-elevation-asl-ft") * kFt;
+}
+
+/* FGWinds' own frame and unit: vWindNED is the air mass's velocity in ft/s, north/east/down, and
+ * FGAuxiliary subtracts it from the body velocity (vAeroUVW = vUVW - Tl2b*vTotalWindNED). Gusts and
+ * turbulence are separate vectors on top, so writing this one never disturbs them. */
+void FBFdm::SetWindNedMs(double n, double e, double d) {
+  P->Exec.GetWinds()->SetWindNED(n / kFt, e / kFt, d / kFt);
 }
 
 double FBFdm::GetGroundClearanceM(bool gearDown) const {

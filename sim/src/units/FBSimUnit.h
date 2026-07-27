@@ -16,6 +16,7 @@
 #include "FBModule.h"
 #include "FBState.h"
 #include "FBStateBusTelemetry.h"
+#include "FBWeatherProvider.h"
 #include "FBTelemetry.h"
 #include "FBUnit.h"
 
@@ -83,6 +84,11 @@ public:
    * the module's HUD/radar-alt path, so the two can never disagree about where the ground is. */
   void UpdateGroundAsl(double sampleM);
   double GroundAslM() const { return GroundAslM_; }
+
+  /* The air mass this unit is flying through, sampled by its OWNER from the weather hook and pushed
+   * into JSBSim before the substeps. Nothing above the FDM is told: a pilot experiences wind as drift
+   * on his instruments, exactly as he would in the aircraft. */
+  void UpdateWind(const FBWindNed &wind);
   double AglM() const { return St_.elev - GroundAslM_; }
 
   FBState HudState() const;
@@ -134,6 +140,9 @@ private:
   FBUnitSignature Sig_;                /* published with it */
   std::string LogLabel_;
   double GroundAslM_;
+  /* Last vector handed to the FDM, re-set only when it changes — and STILL AIR is the state JSBSim
+   * boots in, so a calm run never writes this channel at all. */
+  FBWindNed Wind_;
   FBSystemHealth Health_;              /* written only by core/FBDamageModel */
   FBFdmTelemetrySource FdmSrc_;
   FBStateBusTelemetry BusSrc_;

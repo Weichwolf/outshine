@@ -60,6 +60,16 @@ void FBSimUnit::UpdateGroundAsl(double sampleM) {
   if (Fdm_) Fdm_->SetGroundElevM(GetKind() == FBUnitKind::Weapon ? kWeaponNoGroundElevM : GroundAslM_);
 }
 
+/* Written through only on a CHANGE: in still air (every mission that declares no weather) the airframe
+ * is never told about wind at all, which is what keeps a calm run bit-identical to one from before this
+ * channel existed. */
+void FBSimUnit::UpdateWind(const FBWindNed &wind) {
+  if (!Fdm_) return;
+  if (wind.N == Wind_.N && wind.E == Wind_.E && wind.D == Wind_.D) return;
+  Wind_ = wind;
+  Fdm_->SetWindNedMs(wind.N, wind.E, wind.D);
+}
+
 /* The module publishes the platform block at its slot cadence; re-publishing at frame rate draws the
  * conformal HUD against the pose actually being rendered. Same block, same writer role, no second copy. */
 FBState FBSimUnit::HudState() const {

@@ -1,0 +1,40 @@
+name wx-gfs-fixture-1
+timeout 700
+
+# REAL WEATHER, FIXED FOR EVER: the committed GFS blob (assets/wx-2026-07-27T00Z.wxb — one unmodified
+# body of fb-tiles' /wx, cycle 2026-07-27 00Z, analysis step) instead of a made-up vector. It is the
+# gym's standard atmosphere, and this mission is what proves the whole chain works on it: asset lookup
+# by name, FBWX parse, bilinear in the 0.5 deg grid, and the vertical interpolation between the
+# pressure levels' own geopotential heights.
+#
+# WHY 9 000 m OVER THE ALPS. At 46.5 N / 7.5 E that cycle carries, on the two levels this altitude sits
+# between (both re-derived from the blob by build/fb-test-weather):
+#
+#   500 hPa, gh 5 789 m:  u +10.45  v -10.18 m/s
+#   250 hPa, gh 10 806 m: u  +5.64  v -23.31 m/s
+#
+# i.e. a strong northerly with an easterly component — so an EASTBOUND leg here gets a real crosswind
+# from the left AND a real tailwind, and both show up: the ground track holds while the heading crabs
+# north, and the groundspeed rises above the calm run's. Run it against the same file with `wx calm` to
+# get both numbers; nothing else in the mission changes.
+#
+# Not an instrument like wx-crosswind.fbm — that one has a closed-form answer. This one has an
+# ATMOSPHERE, and its only claim is that the atmosphere is the one in the file.
+#
+# IT ENDS IN TIMEOUT (exit 3), BY CONSTRUCTION. The single steerpoint sits 430 km away, far beyond what
+# 700 s of flight can reach, so the leg is one uninterrupted straight line and the drift can be read off
+# any window of it. A closer waypoint would end the run in a capture turn — and in a wind this strong
+# (18 m/s of it across the path at 9 km) the capture itself becomes the story: the guidance flies a
+# steady 59 deg orbit around a point it can no longer close on. That is a real and separate finding
+# about waypoint capture in wind, and it does not belong in a measurement of the atmosphere.
+
+wx fixture wx-2026-07-27T00Z.wxb
+
+unit viper
+  module f16
+  spawn 46.50000 6.30000 9000 90.0 400       # air start at 9 000 m, due east across the wind
+  set gear up
+  set fuel_pct 80                            # a long high leg: fuel, not the timeout, must not end it
+  set datalink off
+  set fcr_mode off
+  wp 46.50000 12.00000 9000 400              # 430 km east: out of reach on purpose, so the leg is straight
