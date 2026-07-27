@@ -8,6 +8,8 @@
 #define FBUNIT_H
 
 #include <string>
+#include "FBCountermeasure.h"
+#include "FBEmitter.h"
 #include "FBTeam.h"
 #include "FBWeaponUplink.h"
 
@@ -46,6 +48,19 @@ struct FBUnitSignature {
    * DatalinkXmt is: a reply is a RADIATED signal, so whether this aircraft answers a Mode-4 challenge is
    * observable by another unit's interrogator (systems/FBRadarSystem) and not private to its module. */
   bool IffXpdr = false;
+  /* THE RADAR BEAM (core/FBEmitter.h): what this unit's set is radiating, in which mode, and — the part
+   * that makes it a geometry problem rather than a flag — WHERE the beam is pointed. The loudest thing
+   * a fighter emits, and the one another aircraft's warning receiver (systems/FBRwrSystem) is built to
+   * hear. Silent by default: an aircraft with its set off publishes Mode::None, like every unit that
+   * carries no radar at all. */
+  FBEmitterSignature Radar;
+  /* THE CHAFF THIS UNIT HAS THROWN (core/FBCountermeasure.h) — an emission in everything but the
+   * direction of causality: it is not radiated, it REFLECTS, but it is the same kind of fact about this
+   * unit that another unit's sensor may legitimately notice, published at the same barrier so no radar
+   * ever sees half a salvo. Hanging the clouds off the DISPENSING unit rather than making each one a
+   * unit of its own is a deliberate scope decision with a stated consequence: a cloud can only decoy a
+   * radar that is looking at the aircraft that threw it, never one tracking somebody else nearby. */
+  FBChaffCloud Chaff[kMaxChaffClouds];
 };
 
 class FBUnit {

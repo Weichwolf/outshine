@@ -48,6 +48,19 @@ void FBSimUnit::PublishPose() {
   Pose_.HeadingDeg = St_.yaw;   /* no ground-track field on fb_fdm_state; yaw is the flown heading */
   Sig_.DatalinkXmt = Module_->Datalink().Transmitting();
   Sig_.IffXpdr = Module_->Radar().IffTransponder();   /* what another jet's interrogator can get back */
+  /* THE RADAR BEAM (core/FBEmitter.h): what the set is radiating and where it is pointed, derived by the
+   * set itself so the emission can never disagree with the pattern the antenna is flying. The ONE thing
+   * added here is the guidance case: a tracking radar that is ALSO supporting a shot is a different
+   * warning to be on the receiving end of (doc/f16/defence-rwr-cm.md §1's flashing circle), and whether
+   * this jet is supporting one is the STORES system's knowledge, not the radar's — so the two published
+   * emissions are combined at the barrier that publishes both, and neither system learns about the
+   * other. */
+  Sig_.Radar = Module_->Radar().Emission();
+  if (Sig_.Radar.Mode == FBEmitterMode::Track && Module_->Stores().Uplink().Active)
+    Sig_.Radar.Mode = FBEmitterMode::Guidance;
+  /* ...and what this jet has thrown into the air behind it (systems/FBCountermeasureSystem). */
+  const FBChaffCloud *clouds = Module_->Countermeasures().Clouds();
+  for (int i = 0; i < kMaxChaffClouds; i++) Sig_.Chaff[i] = clouds[i];
   /* The midcourse guidance uplink to a round this unit launched (systems/FBStoresSystem::Uplink) — an
    * emission like the two above, published at the same barrier so no missile ever reads its launcher's
    * transmitter half-way through a tick. */
@@ -128,6 +141,12 @@ void FBSimUnit::StartTelemetry(FBTelemetrySink *sink) {
   /* LAST again, and for the same appending rule: the stores books (systems/FBStoresSystem) — what is
    * loaded, what was released, and the gross weight that follows from it. */
   Bus_.Register(&Module_->Stores());
+  /* And LAST once more, for the third time and the same reason: the defensive pair. Their two blocks
+   * were added to FBState after core/FBStateBusTelemetry's list had already been measured in the middle
+   * of every telemetry.csv, so each of them carries its own block-validity column here at the end
+   * rather than moving every column to the right of that list (see FBStateBusTelemetry's banner). */
+  Bus_.Register(&Module_->Rwr());
+  Bus_.Register(&Module_->Countermeasures());
   Bus_.SetSink(sink);
   Bus_.Start();
 }

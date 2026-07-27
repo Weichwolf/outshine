@@ -68,6 +68,11 @@ public:
   FBCommandBus &Commands() override { return Cmds_; }
   FBMissileUplink &Datalink() override { return Uplink_; }          /* covariant */
   FBMissileSeeker &Radar() override { return Seeker_; }             /* covariant */
+  /* No warning receiver and no dispenser on a store: the slots exist because every module carries the
+   * same categories (FBModule's banner), and these two are the airframe-agnostic defaults, never
+   * cycled. Powered down at construction so nothing they hold can be mistaken for a picture. */
+  FBRwrSystem &Rwr() override { return Rwr_; }
+  FBCountermeasureSystem &Countermeasures() override { return Cm_; }
   FBStoresSystem &Stores() override { return Stores_; }             /* a round carries no stores */
   const FBState &Telemetry() const override { return State_; }
   const FBGuidance &LastGuidance() const override { return LastG_; }
@@ -96,6 +101,8 @@ private:
   FBFlightControl FC_;
   FBMissileGuidance Guidance_;
   FBMissileSeeker Seeker_;
+  FBRwrSystem Rwr_;
+  FBCountermeasureSystem Cm_;
   FBMissileUplink Uplink_;
   FBAirframeControls Ctrl_;
   FBDisplaySystem Disp_;

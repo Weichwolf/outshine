@@ -144,6 +144,15 @@ public:
   static constexpr int kMaxBriefedReleases = 8;
   bool BriefRelease(double atS);
 
+  /* THE COUNTERMEASURE BRIEF: throw the selected dispense program at `atS` mission-elapsed seconds, one
+   * entry per throw, in brief order. Identical in shape and reasoning to BriefRelease — an ACTION at a
+   * moment rather than a value to enter — and identical in what it refuses to do: a dispense the jet
+   * turned down is not retried, because a pilot who was told the magazine is empty does not keep
+   * working the switch. A mission that flies SEMI/AUTO briefs nothing here: there the aircraft answers
+   * its own warning receiver (systems/FBCountermeasureSystem). */
+  static constexpr int kMaxBriefedDispenses = 8;
+  bool BriefChaff(double atS);
+
   const char *TelemetryName() const override { return "pilot"; }
   void DeclareTelemetry(FBTelemetrySchema &schema) const override;
   void SampleTelemetry(FBTelemetryRow &row) const override;
@@ -228,6 +237,8 @@ private:
 
   /* Posts every briefed release whose moment has come (see BriefRelease). */
   void ReleaseBriefedStores(FBCommandBus &avionics);
+  /* ...and every briefed countermeasure dispense (see BriefChaff). */
+  void DispenseBriefedCm(FBCommandBus &avionics);
 
   /* The Bfm phase's body — one decision tick of the fight (see Run()'s BFM section). Separate because
    * it is the only phase with an inner control law of its own rather than a target for the autopilot. */
@@ -257,6 +268,8 @@ private:
    * pickled, so the array is never rewritten and the sequence is exactly what the mission declared. */
   double ReleaseAtS_[kMaxBriefedReleases]{};
   int    ReleaseCount_ = 0, ReleaseNext_ = 0;
+  double DispenseAtS_[kMaxBriefedDispenses]{};
+  int    DispenseCount_ = 0, DispenseNext_ = 0;
 
   double BriefAlowFt_ = 0.0, BriefBingoLbs_ = 0.0, BriefWeapon_ = 0.0;
   bool   BriefArm_ = true;

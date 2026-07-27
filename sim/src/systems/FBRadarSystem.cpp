@@ -28,6 +28,41 @@ void FBRadarSystem::RelativeLos(const fb_fdm_state &own, double tgtLatDeg, doubl
   FBEnuToBodyLos(own.roll, own.pitch, own.yaw, e, n, u, azDeg, elDeg);
 }
 
+/* Own velocity resolved along the line of sight. The unit vector comes from the WORLD-referenced pair
+ * the look already produced, and the velocity from the FDM state's ENU components (fb_fdm_state's
+ * X-Plane axes: +x east, +y up, +z south). This is the CLUTTER Doppler — what a stationary point in
+ * that direction would close at — and therefore the reference the notch test is taken against. */
+double FBRadarSystem::OwnClosureOn(const fb_fdm_state &st, double bearingDeg, double elevAngleDeg) {
+  double cb = std::cos(bearingDeg * kDeg2Rad), sb = std::sin(bearingDeg * kDeg2Rad);
+  double ce = std::cos(elevAngleDeg * kDeg2Rad), se = std::sin(elevAngleDeg * kDeg2Rad);
+  double ue = sb * ce, un = cb * ce, uu = se;
+  return st.vx * ue + (-st.vz) * un + st.vy * uu;
+}
+
+/* Which chaff cloud this set ends up measuring (class banner). Every cloud in the unit's published
+ * signature is tested against the SAME volume the aircraft was tested against, and the strongest return
+ * wins: the two-way radar equation is RCS/r^4, with the cloud's own age curve supplying the RCS
+ * (core/FBCountermeasure.h). Deterministic by construction — no draw, no probability. */
+const FBChaffCloud *FBRadarSystem::SelectDecoy(const FBChaffCloud *clouds, const fb_fdm_state &st,
+                                               const FBRadarScanVolume &v, double simTimeS) const {
+  const FBChaffCloud *best = nullptr;
+  double bestPower = 0.0;
+  for (int i = 0; i < kMaxChaffClouds; i++) {
+    const FBChaffCloud &c = clouds[i];
+    if (!c.Active) continue;
+    double rcs = FBChaffRcsNorm(simTimeS - c.BloomS);
+    if (rcs <= 0.0) continue;
+    double r = 0.0, brg = 0.0, ev = 0.0, az = 0.0, el = 0.0;
+    RelativeLos(st, c.LatDeg, c.LonDeg, c.AltM, r, brg, ev, az, el);
+    if (r > v.RangeM || r < 1.0) continue;
+    if (std::fabs(FBWrap180(az - v.AzCenterDeg)) > v.AzHalfDeg) continue;
+    if (std::fabs(el - v.ElCenterDeg) > v.ElHalfDeg) continue;
+    double power = rcs / (r * r * r * r);
+    if (power > bestPower) { bestPower = power; best = &c; }
+  }
+  return best;
+}
+
 void FBRadarSystem::SetPowered(bool on) {
   Powered_ = on;
   if (!on) NextScanS_ = 0.0;   /* a set that comes back up starts a fresh frame grid, not a stale one */
@@ -64,8 +99,36 @@ void FBRadarSystem::ScanFrame(const fb_fdm_state &st, const FBUnitRegistry &net,
       if (sttOnly && (slot < 0 || Tracks_[slot].TrackNum != LockedNum_)) continue;
 
       FBUnitPose p = u->GetPose();
+      FBUnitSignature sig = u->GetSignature();
       double rangeM = 0.0, bearingDeg = 0.0, elevAngleDeg = 0.0, azDeg = 0.0, elDeg = 0.0;
       RelativeLos(st, p.LatDeg, p.LonDeg, p.ElevM, rangeM, bearingDeg, elevAngleDeg, azDeg, elDeg);
+
+      /* THE DOPPLER DECISION (class banner + kDopplerNotchMs), taken BEFORE the volume test, because a
+       * seduced look measures the cloud and it is the CLOUD that then has to be in the beam. The
+       * target's radial velocity is what the set measures, not what the target publishes: own velocity
+       * along the line of sight minus the closure differenced from the last two looks. Only a track
+       * that already has a look pair can be fooled — a first detection has no closure to test. */
+      const FBChaffCloud *decoy = nullptr;
+      double tgtRadialMs = 0.0, ownClosureMs = 0.0, measuredClosureMs = 0.0;
+      double dtDwell = slot >= 0 ? simTimeS - Tracks_[slot].DopplerRefS : 0.0;
+      bool dwellDone = slot >= 0 && Tracks_[slot].DopplerRefS > 0.0 && dtDwell >= kDopplerDwellS;
+      if (slot >= 0 && (dwellDone || Tracks_[slot].Seduced)) {
+        const Track &prev = Tracks_[slot];
+        ownClosureMs = OwnClosureOn(st, bearingDeg, elevAngleDeg);
+        measuredClosureMs = dwellDone ? (prev.DopplerRefRangeM - rangeM) / dtDwell : prev.ClosureMs;
+        tgtRadialMs = ownClosureMs - measuredClosureMs;
+        /* Once the tracking gate has settled into the clutter filter it STAYS there while a return
+         * exists in it: a cloud is stationary, so it is inside the notch by construction, and a
+         * processor tracking that bin has no reason to leave it. Without the stickiness the test would
+         * flip every look — the substituted measurement makes the NEXT look's closure a jump, which
+         * reads as a target well outside the notch (measured: seduce/resolve alternating at the
+         * seeker's 20 Hz frame). The seduction ends when the clouds do. */
+        if (prev.Seduced || std::fabs(tgtRadialMs) < kDopplerNotchMs)
+          decoy = SelectDecoy(sig.Chaff, st, v, simTimeS);
+      }
+      if (decoy)
+        RelativeLos(st, decoy->LatDeg, decoy->LonDeg, decoy->AltM, rangeM, bearingDeg, elevAngleDeg,
+                    azDeg, elDeg);
 
       bool inVolume = rangeM <= v.RangeM &&
                       std::fabs(FBWrap180(azDeg - v.AzCenterDeg)) <= v.AzHalfDeg &&
@@ -99,6 +162,19 @@ void FBRadarSystem::ScanFrame(const fb_fdm_state &st, const FBUnitRegistry &net,
       if (dtLook > 1e-6) t.ClosureMs = (t.PrevRangeM - rangeM) / dtLook;
       t.PrevRangeM = rangeM;
       t.PrevLookS = simTimeS;
+
+      if (decoy && !t.Seduced)
+        FBLog::Info("radar", "CHAFF_SEDUCED", {{"track", t.TrackNum},
+            {"tgtRadialMs", tgtRadialMs}, {"notchMs", kDopplerNotchMs},
+            {"ownClosMs", ownClosureMs}, {"measClosMs", measuredClosureMs},
+            {"cloudAgeS", simTimeS - decoy->BloomS}, {"rangeM", rangeM},
+            {"offsetM", FBPlanarDistM(decoy->LatDeg, decoy->LonDeg, p.LatDeg, p.LonDeg)}});
+      else if (!decoy && t.Seduced)
+        FBLog::Info("radar", "CHAFF_RESOLVED", {{"track", t.TrackNum},
+            {"tgtRadialMs", tgtRadialMs}, {"notchMs", kDopplerNotchMs}, {"rangeM", rangeM}});
+      t.Seduced = decoy != nullptr;
+
+      if (t.DopplerRefS <= 0.0 || dwellDone) { t.DopplerRefRangeM = rangeM; t.DopplerRefS = simTimeS; }
 
       t.RangeM = rangeM;
       t.BearingDeg = bearingDeg;
@@ -258,6 +334,36 @@ void FBRadarSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegi
    * sweep, so a consumer can ask how old the picture is. */
   if (swept) b.H.Publish(simTimeS);
   else b.H.Hold();
+}
+
+/* What leaves the antenna (class banner). Two shapes, and the difference between them is the difference
+ * between "somebody is looking" and "he has me": a search pattern's beam crosses everything inside the
+ * volume it sweeps, so the volume IS the illuminated window; a single-target track puts the whole beam
+ * on one contact, so the window collapses to a pencil pointed at it. Both are body-referenced, i.e. they
+ * roll and pitch with the aircraft, which is what makes a warning receiver's picture change when the
+ * EMITTER manoeuvres. */
+FBEmitterSignature FBRadarSystem::Emission() const {
+  FBEmitterSignature e;
+  const FBRadarScanVolume &v = ActiveVolume();
+  if (!Powered_ || !v.Active) return e;   /* Mode::None — nothing is radiating */
+  e.Kind = EmitterKind();
+  e.RangeM = (float)v.RangeM;
+  if (v.SingleTarget && LockedNum_ != 0) {
+    for (int i = 0; i < TrackCount_; i++) {
+      if (Tracks_[i].TrackNum != LockedNum_) continue;
+      e.Mode = FBEmitterMode::Track;
+      e.AzCenterDeg = (float)Tracks_[i].AzDeg;
+      e.ElCenterDeg = (float)Tracks_[i].ElDeg;
+      e.AzHalfDeg = e.ElHalfDeg = (float)kTrackBeamHalfDeg;
+      return e;
+    }
+  }
+  e.Mode = FBEmitterMode::Search;
+  e.AzCenterDeg = (float)v.AzCenterDeg;
+  e.AzHalfDeg = (float)v.AzHalfDeg;
+  e.ElCenterDeg = (float)v.ElCenterDeg;
+  e.ElHalfDeg = (float)v.ElHalfDeg;
+  return e;
 }
 
 void FBRadarSystem::DeclareTelemetry(FBTelemetrySchema &schema) const {

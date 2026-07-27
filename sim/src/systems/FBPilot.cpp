@@ -355,6 +355,23 @@ void FBPilot::ReleaseBriefedStores(FBCommandBus &avionics) {
   }
 }
 
+bool FBPilot::BriefChaff(double atS) {
+  if (DispenseCount_ >= kMaxBriefedDispenses) return false;
+  DispenseAtS_[DispenseCount_++] = atS;
+  return true;
+}
+
+/* The CMS switch, when the brief says so: one HOTAS-class command per briefed moment, posted once and
+ * never retried (see BriefChaff). Value 0 = the program the PRGM knob selects, which is what CMS
+ * Forward means on the real switch — the pilot throws what the jet was set up with, they do not pick a
+ * program in the middle of a manoeuvre. */
+void FBPilot::DispenseBriefedCm(FBCommandBus &avionics) {
+  while (DispenseNext_ < DispenseCount_ && TimeS_ >= DispenseAtS_[DispenseNext_]) {
+    DispenseNext_++;
+    avionics.Post(FBCommandTarget::CmDispense, 0.0, TimeS_);
+  }
+}
+
 FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
                              const FBAirframeControls &airframe, const fb_fdm_state &st,
                              const FBFlightPlan &plan, const FBRunway *runway, double dt) {
@@ -368,6 +385,7 @@ FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
   if (CurPhase != Phase::Idle && !airframe.GetWeightOnWheels()) {
     EnterBriefedItems(avionics);
     ReleaseBriefedStores(avionics);
+    DispenseBriefedCm(avionics);
   }
 
   /* Mission waypoint bookkeeping (telemetry cache — class banner): the same active-waypoint distance

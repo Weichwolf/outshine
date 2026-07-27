@@ -440,7 +440,17 @@ sim/src/
                Maskierung ist BEWUSST NICHT modelliert (im Header dokumentiert): Luft-Luft-Sichtlinie ist
                frei, Maskierung bräuchte einen DEM-Raymarch je Kontakt je Look. `ActiveVolume()` ist DER
                Override-Punkt — ein ganzer Modus-Satz ist nichts als eine Auswahl unter Volumina, und ein
-               Lock nichts als ein anderes Volumen (F-16: `modules/f16/FBF16Fcr`);
+               Lock nichts als ein anderes Volumen (F-16: `modules/f16/FBF16Fcr`). Das Set STRAHLT auch:
+               `Emission()` leitet aus dem gerade geflogenen Muster die publizierte Signatur ab
+               (`core/FBEmitter.h`) — suchend das ganze Volumen, im Single-Target-Track eine BLEISTIFT-
+               Keule auf genau einen Kontakt —, sodass Abstrahlung und Antennenzustand nie auseinander
+               laufen können. Und es ist TÄUSCHBAR: `SelectDecoy` + `kDopplerNotchMs` sind das ganze
+               Chaff-Modell — eine Wolke ohne Eigengeschwindigkeit liegt im Clutter-Filter und wird
+               verworfen, ES SEI DENN das verfolgte Flugzeug liegt mit seiner eigenen Radialgeschwindig-
+               keit im selben Filter (Querflug), dann kann der Prozessor die beiden Echos nicht trennen
+               und nimmt das stärkste (RCS/r⁴). Gemessen wird das an EIGENEN Größen (Eigengeschwindigkeit
+               auf die Sichtlinie minus gemessene Annäherung, über ein Dwell `kDopplerDwellS` statt zweier
+               Einzelmessungen), nie an der Wahrheit des Ziels — deterministisch, kein Würfel;
                FBStoresSystem (`.h/.cpp`): der Stores/SMS-Slot — Stationsinventar, Master-Arm-
                Verriegelung, der EINE Abwurfpfad. Eine belegte Station ist eine JSBSim-PUNKTMASSE auf dem
                Trägerflugzeug und die Summe der Widerstandsflächen eine JSBSim-EXTERNAL-FORCE, d.h.
@@ -452,12 +462,40 @@ sim/src/
                Ausgelöst wird ausschließlich über den Kommandobus (`WeaponRelease`), also ablehnbar:
                Master Arm nicht ARM / Gewicht auf dem Fahrwerk = hardware_precedence, keine belegte
                Station = out_of_context;
-               FBSystemSlots.h — Input/HOTAS, Propulsion, Weapons, Defensive: Interface
+               FBRwrSystem (eigene Datei, `FBRwrSystem.h/.cpp`): die PASSIVE Hälfte des Defensiv-Slots
+               und das exakte Spiegelbild des Radars — nicht „was ist da draußen", sondern „wer schaut
+               mich an". Sie liest ausschließlich die publizierten Emissions-Signaturen der Registry
+               (`core/FBEmitter.h`, s.u. units/) und prüft ZWEI Geometrien: trifft die Keule des Senders
+               diesen Jet (Fenster körperfest AM SENDER, mit dessen publizierter Lage rotiert — dieselbe
+               `FBEnuToBodyLos`-Transformation, die das Radar für sich selbst benutzt), und kann die
+               EIGENE Antenne aus dieser Richtung überhaupt hören (`ElevCoverageDeg`, 360° Azimut aber
+               begrenzte Elevation → eine echte BLINDZONE, die das eigene Manövrieren aufreißt).
+               Veröffentlicht `core/FBRwrThreat`s: relative Peilung, Modus (Suche/Verfolgung/Rakete),
+               geschätzte Emitter-Art, „neu"-Fenster, Lethality — **keine Entfernung**, denn ein RWR misst
+               Empfangsleistung, nie Range (doc/f16/defence-rwr-cm.md §2.1). Reichweite des Hörens =
+               Sender-Torweite · `kBeamRangeFactor` (Einweg- gegen Zweiwegpfad). `Run()` ist der
+               Override-Punkt, die Empfängerzahlen sind Hooks (F-16: `modules/f16/FBF16Rwr`, ALR-56M:
+               ±45° Elevation, PRIORITY/OPEN-Anzeigedeckel);
+               FBCountermeasureSystem (eigene Datei, `.h/.cpp`): die AKTIVE Hälfte — Vorräte, die
+               ALE-47-Programm-Zustandsmaschine (Salvengröße/-intervall, Salvenzahl/-intervall je Typ,
+               `core/FBCountermeasure.h`, Schema und Wertebereiche aus §2.2) und der Modus-Knopf als
+               echte Zustandsmaschine (OFF/STBY/MAN/SEMI/AUTO/BYP; SEMI verlangt Zustimmung PRO Abwurf,
+               AUTO einmal pro Moduswechsel und wiederholt dann selbsttätig, automatische Abwürfe
+               entfallen bei Chaff-BINGO). Ausgelöst wird NUR über den Kommandobus (`CmDispense`/
+               `CmConsent`/`CmdsMode`) — ablehnbar, u.a. `depleted` bei leerem Magazin. In SEMI/AUTO
+               triggert sie auf den RWR-BLOCK, also auf die WARNUNG und nicht auf die Wahrheit: was in
+               der Blindzone steht, beantwortet sie nicht. Jede Chaff-Patrone hinterlässt eine WOLKE an
+               der Abwurfposition mit Alterskurve (kein Zufall, keine Ablösewahrscheinlichkeit), die in
+               der Einheiten-Signatur publiziert wird; ob sie WIRKT, entscheidet allein das gegnerische
+               Radar (s.o. FBRadarSystem, Doppler-Notch). Fackeln werden gezählt und wirken (noch) nicht —
+               es gibt keinen IR-Sucher, und das steht so im Header. F-16: `modules/f16/FBF16Cmds`
+               (60/60-Magazin, die sechs Programme, BINGO 10/10);
+               FBSystemSlots.h — Input/HOTAS, Propulsion, Weapons: Interface
                + NoOp-Default für die restlichen F-16-Systemkategorien, ein Modul füllt sie bei Bedarf
-               per Ableitung (Comms/Datalink und Sensors sind wie Displays aus dieser Datei
-               herausgewachsen, s.o.).
-               Sensoren SCHREIBEN/Displays LESEN den geteilten FBState; Waffen/
-               Defensiv erhalten eine geborgte FBWorld-Referenz (nie global).
+               per Ableitung (Comms/Datalink, Sensors und jetzt Defensiv sind wie Displays aus dieser
+               Datei herausgewachsen, s.o.).
+               Sensoren SCHREIBEN/Displays LESEN den geteilten FBState; Waffen
+               erhalten eine geborgte FBWorld-Referenz (nie global).
                FBPilot (`FBPilot.h/.cpp`): die Missions-Ebene ÜBER Guidance/FlightControl — FBAutopilot
                (Manöver) und FBFlightControl (100 Hz, die Hände) bleiben unangetastet; FBPilot entscheidet
                WOHIN (FBFlightPlan-Wegpunkte, optionale FBRunway) und gibt das im ~10-Hz-Entscheidungstakt
@@ -576,7 +614,17 @@ sim/src/
                          doc/f16/-Quelle gibt die Taxonomie, keine Zahlen) — im Header als solche
                          ausgewiesen, nicht als Zitat verkleidet. KEINE HUD-Symbologie: `doc/f16/hud-
                          symbology.md` kennt weder TD-Box noch Locked-Target-Symbol, also wird keine
-                         erfunden. Trägt drei F-16-eigene HUD-Platzhalter (eigene
+                         erfunden. FBF16Rwr (`.h`, header-only wie FBF16Datalink) ist die dritte: der
+                         AN/ALR-56M — die dokumentierte Antennengeometrie (360° Azimut, aber nur ±45°
+                         Elevation, also eine echte Blindzone über und unter der Rumpfachse, die eigenes
+                         Manövrieren aufreißt) und der TWP-Anzeigedeckel PRIORITY (5) / OPEN (16), der
+                         ausdrücklich ein DISPLAY-Limit über einer weiter laufenden Erkennung ist;
+                         Missions-Schalter `rwr`, `rwr_display`, `rwr_search`. FBF16Cmds (`.h/.cpp`) ist
+                         die vierte: das AN/ALE-47 — 60/60-Magazin (max. 120 kombiniert), BINGO 10/10 und
+                         die sechs Programme, deren SCHEMA aus der Quelle stammt und deren WERTE als
+                         [SET] gekennzeichnet sind, jedes mit seiner Aufgabe im Header; Missions-Schalter
+                         `cmds_mode`, `cmds_program`, `cmds_chaff`, `cmds_flare`, Pilotenbrief
+                         `brief_chaff_s`. Trägt drei F-16-eigene HUD-Platzhalter (eigene
                          `.h/.cpp`, kein genereller Systemslot, da airframe-spezifisch): FBF16FireControl
                          (das FEUERLEITSYSTEM: der "B"-Range-Provider — Slant-Range aus Distanz +
                          Höhendifferenz zur Steerpoint-Elevation, Pythagoras — PLUS der
@@ -648,8 +696,13 @@ sim/src/
 
 `units/` (`sim/src/units/`) trägt die Welt-Entitäten-Basisschnittstelle: `FBUnit` (Identität — Id/
 Callsign/Kind-Enum `Aircraft/…`/`FBUnitTeam` aus `core/FBTeam.h` —, geodätische Pose, publizierte
-Emissions-Signatur `FBUnitSignature` [heute: sendet das Datalink-Terminal, antwortet der IFF-Transponder
-— was FREMDE Sensoren an dieser Einheit wahrnehmen dürfen], `virtual void Run(dt, const FBUnitRegistry*, const FBWorld*)`) und, darauf
+Emissions-Signatur `FBUnitSignature` [sendet das Datalink-Terminal, antwortet der IFF-Transponder,
+läuft ein Lenkfunk zu einer eigenen Waffe, und — seit der RWR-Etappe — WAS DAS RADAR ABSTRAHLT
+(`core/FBEmitter.h`: Modus Suche/Verfolgung/Lenkung, Emitter-Art, das körperfeste Keulenfenster, das
+Entfernungstor als Leistungsmaß) plus die geworfenen CHAFF-WOLKEN (`core/FBCountermeasure.h`, ein
+Reflektor statt eines Senders, aber dieselbe Frage: was fremde Sensoren an dieser Einheit wahrnehmen
+dürfen). Eine RETIRIERTE Einheit verstummt (`FBSimUnit::Retire` leert die Signatur) — ein detonierter
+Flugkörper darf nicht ewig weiterstrahlen], `virtual void Run(dt, const FBUnitRegistry*, const FBWorld*)`) und, darauf
 aufbauend, **`FBSimUnit` — EINE simulierte Einheit als EIN
 Objekt**: sie BESITZT ihre `FBFdm` und das `FBModule`, das sie fliegt (in dieser Deklarationsreihenfolge,
 damit die Zelle das Modul überlebt, das sie nur borgt), hält den geteilten `fb_fdm_state`, die
@@ -753,14 +806,17 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
   `systems/` und `modules/` erreichen die IC nicht und sehen `FBFlightMonitor`/`FBMissionMonitor` nie.
   Und die Gegenrichtung, seit es Cross-Unit-Wahrnehmung gibt: Piloten **sehen** nur über simulierte
   SENSOREN. Die Einheiten-Registry (`units/FBUnitRegistry`, die Welt-Wahrheit „wer existiert wo") reicht
-  ausschließlich bis zu den SENSOR-Slots des Moduls — heute genau zwei, `systems/FBDatalinkSystem`
-  (kooperativ) und `systems/FBRadarSystem` (aktiv);
+  ausschließlich bis zu den SENSOR-Slots des Moduls — heute genau drei, `systems/FBDatalinkSystem`
+  (kooperativ), `systems/FBRadarSystem` (aktiv) und `systems/FBRwrSystem` (passiv, sieht ausschließlich
+  publizierte Emissions-Signaturen);
   sie steht in KEINER Pilot-Signatur (`FBPilot::Run` trägt seit dieser Etappe auch keinen
   `const FBWorld*` mehr, den nie jemand las) und in keinem Member. Was ein Pilot über andere Einheiten
   weiß, steht in `FBState` — das, was die Sensoren dort HINEINGESCHRIEBEN haben, mit ihrer Reichweite,
   ihrem Scanvolumen, ihrem Netzzyklus und ihrem Alter. Grep-Beleg: `#include "FBUnitRegistry.h"` und
-  `.Units()` erscheinen in `src/systems`/`src/modules` in GENAU ZWEI Dateien (`FBDatalinkSystem.cpp`,
-  `FBRadarSystem.cpp`); sonst kommt der Typ dort nur als Vorwärtsdeklaration/Parameter vor
+  `.Units()` erscheinen in `src/systems`/`src/modules` in GENAU VIER Dateien — den drei Sensor-Slots
+  (`FBDatalinkSystem.cpp`, `FBRadarSystem.cpp`, `FBRwrSystem.cpp`) und dem Uplink-EMPFÄNGER des
+  Flugkörpers (`modules/missile/FBMissileUplink.cpp`), der aus demselben Grund dort steht: er hört eine
+  publizierte Emission ab, so wie es ein Empfänger tut; sonst kommt der Typ dort nur als Vorwärtsdeklaration/Parameter vor
   (`FBModule::Run` → `FBF16Module::Run`). Die zweite Hälfte dieser Grenze ist der Kontakt SELBST:
   `core/FBRadarContact` trägt Range/Bearing/Az/El/Closure und eine radar-eigene Tracknummer — **keine
   Unit-Id, kein Callsign, kein Team**. Die Registry weiß, wer da fliegt; das Radar darf es nicht

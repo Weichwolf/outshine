@@ -77,7 +77,7 @@ unit two
 | Akteur  | `module`  | Rest der Zeile | Modulname, per `FBModuleRegistry` aufgelöst (heute nur `f16` registriert) — bestimmt sowohl das `FBModule` als auch den JSBSim-Aircraft-Ordnernamen (`vendor/jsbsim/aircraft/<module>`). Pflicht je Block. |
 | Akteur  | `team`    | `friendly`\|`hostile`\|`neutral` | Fraktion (`FBUnitTeam`, `core/FBTeam.h`) — landet in der `FBWorld`-Unit-Registry, die Sensoren/Waffen künftig lesen. Optional, Default `friendly`. |
 | Akteur  | `spawn`   | `<lat lon \| threshold>` `<altM \| ground>` `hdgDeg` `speedKt` | Pflicht, genau einmal je Block: die deklarative IC dieser Einheit — Position, Höhe-ODER-Boden, Kurs, Speed. `threshold` übernimmt lat/lon der missionsweiten `runway`-Zeile (reine Schreib-Convenience, keine zweite Positions-Syntax). `ground` löst die Höhe aus Gelände + Fahrwerksgeometrie auf; ein numerischer Wert ist eine LITERALE ASL-Höhe (ein Luftstart). Beide Fälle durchlaufen dieselbe eine JSBSim-IC-Anwendung. |
-| Akteur  | `set`     | `key value...` | Systemzustand als Missionsdaten — der Runner parst nur die KV-Liste und reicht sie im Spawn-IC-Fenster an `FBModule::ApplySetup(key, value)` DIESER Einheit; das MODUL interpretiert seine eigenen Schlüssel. Ein unbekannter Schlüssel ist ein Laufzeit-FAIL (Exit 1, `SET_REJECTED`-Event), kein Parse-Fehler. F-16 kennt heute: `gear` (`up`/`down`), `fuel_lbs` (absolute Tankmenge, lb), `fuel_pct` (0..100, Anteil der modelleigenen Gesamtkapazität), die vier Schalter des MIDS-Terminals — `datalink` (`on`/`off`, Geräte-Strom), `datalink_xmt` (`on`/`off`, XMT/EMCON), `datalink_filter` (`fr`/`fl`/`off`, HSD-Kontaktfilter), `datalink_range_nm` (Terminal-Reichweite, nm) — sowie FCR/IFF: `fcr_mode` (`off`/`crm`/`acm_hud`/`acm_bore`/`acm_vert`/`acm_slew`), `fcr_range_nm` (überschreibt die Reichweite JEDES Modus), `fcr_slew_az`/`fcr_slew_el` (Cursor der Slewable-Box, Grad), `iff_xpdr` (`on`/`off`, eigener Transponder), `iff_interrogator` (`on`/`off`, eigener Abfrager); dazu `task` (`route`/`bfm`) — die FBPilot-Phase, in der diese Einheit startet (Default = das, was der Spawn vorgibt: `route` in der Luft, `preflight` am Boden); sowie die Zuladung `store <station> <typ>` (eine Zeile je Pylon, F-16-Stationen 1..9, Typ aus dem Katalog `core/FBStore.h` — heute `mk82`) und `brief_release_s <t>` (wiederholbar: wann der Pilot pickelt, Sim-Sekunden). |
+| Akteur  | `set`     | `key value...` | Systemzustand als Missionsdaten — der Runner parst nur die KV-Liste und reicht sie im Spawn-IC-Fenster an `FBModule::ApplySetup(key, value)` DIESER Einheit; das MODUL interpretiert seine eigenen Schlüssel. Ein unbekannter Schlüssel ist ein Laufzeit-FAIL (Exit 1, `SET_REJECTED`-Event), kein Parse-Fehler. F-16 kennt heute: `gear` (`up`/`down`), `fuel_lbs` (absolute Tankmenge, lb), `fuel_pct` (0..100, Anteil der modelleigenen Gesamtkapazität), die vier Schalter des MIDS-Terminals — `datalink` (`on`/`off`, Geräte-Strom), `datalink_xmt` (`on`/`off`, XMT/EMCON), `datalink_filter` (`fr`/`fl`/`off`, HSD-Kontaktfilter), `datalink_range_nm` (Terminal-Reichweite, nm) — sowie FCR/IFF: `fcr_mode` (`off`/`crm`/`acm_hud`/`acm_bore`/`acm_vert`/`acm_slew`), `fcr_range_nm` (überschreibt die Reichweite JEDES Modus), `fcr_slew_az`/`fcr_slew_el` (Cursor der Slewable-Box, Grad), `iff_xpdr` (`on`/`off`, eigener Transponder), `iff_interrogator` (`on`/`off`, eigener Abfrager); die Defensivanlage — `rwr` (`on`/`off`, Strom des Warnempfängers), `rwr_display` (`priority`/`open`, TWP-MODE-Anzeigedeckel), `rwr_search` (`on`/`off`, SEARCH-Filter), `cmds_mode` (`off`/`stby`/`man`/`semi`/`auto`/`byp`), `cmds_program` (1..6, PRGM-Knopf), `cmds_chaff`/`cmds_flare` (Vorrat je Typ, zusammen ≤ 120); dazu `task` (`route`/`bfm`) — die FBPilot-Phase, in der diese Einheit startet (Default = das, was der Spawn vorgibt: `route` in der Luft, `preflight` am Boden); sowie die Zuladung `store <station> <typ>` (eine Zeile je Pylon, F-16-Stationen 1..9, Typ aus dem Katalog `core/FBStore.h` — heute `mk82`) und `brief_release_s <t>` (wiederholbar: wann der Pilot pickelt, Sim-Sekunden) sowie `brief_chaff_s <t>` (wiederholbar: wann er Täuschkörper wirft). |
 | Akteur  | `wp`      | lat lon altM speedKt | `FBWaypoint` vom Typ `Enroute`, im Flugplan DIESER Einheit |
 | Akteur  | `land`    | — | `FBWaypoint` vom Typ `Land` AN der Runway-Schwelle (braucht die missionsweite `runway`-Zeile) |
 
@@ -246,6 +246,78 @@ annähernd), `fcr_lock_age` (s seit dem letzten Look — > 0 heißt Coast), `fcr
 ein Locked-Target-Symbol (der radarnahe Eintrag, HMC, ist ein Markpoint-Cursor). Der Lock bleibt deshalb
 in FBState/Telemetrie/Events, bis die Symbologie-Referenz ihn abdeckt — erfunden wird nichts.
 
+## RWR & Gegenmaßnahmen — wer schaut MICH an, und was werfe ich
+
+Die Gegenseite der Sensorik: `systems/FBRwrSystem` (F-16: `modules/f16/FBF16Rwr`, AN/ALR-56M) hört zu,
+`systems/FBCountermeasureSystem` (F-16: `modules/f16/FBF16Cmds`, AN/ALE-47) antwortet. Quelle für beide:
+`doc/f16/defence-rwr-cm.md`.
+
+**Was ein Radar ABSTRAHLT, ist beobachtbarer Zustand** (`core/FBEmitter.h`), publiziert an derselben
+Tick-Barriere wie Pose und Datalink-Schalter: Modus, Emitter-Art, das körperfeste Keulenfenster und das
+Entfernungstor. Drei Signale, und der Unterschied ist der taktische Kern:
+
+| Emission | Keule | Was sie bedeutet |
+|---|---|---|
+| **Suche** | das ganze Scanvolumen des Modus (der Strahl streicht einmal je Frame darüber) | jemand sucht — Information |
+| **Verfolgung** | ±3° BLEISTIFT auf genau einen Kontakt (STT) | er hat MICH — Warnung |
+| **Lenkung** | dieselbe Bleistiftkeule, während der Schütze eine Waffe stützt | eine Rakete fliegt — Alarm |
+| **Raketensucher** | die eigene Keule des Flugkörpers (`modules/missile/FBMissileSeeker`) | der Endanflug — Alarm |
+
+**Der RWR ist ein geometrisch begrenzter EMPFÄNGER, kein Bedrohungsorakel.** Er meldet, was er HÖRT:
+
+- **Die Keule muss treffen.** Das Fenster ist am SENDER körperfest, wird mit dessen publizierter Lage
+  gedreht und dann geprüft — dieselbe Transformation, die der Sender für seine eigene Erfassung benutzt.
+  Ein suchendes Radar bestrahlt alles in seinem Volumen; ein verfolgendes GENAU EIN Flugzeug.
+- **Die eigene Antenne muss hören können.** 360° Azimut, aber nur **±45° Elevation** (ALR-56M) — darüber
+  und darunter liegt eine echte **Blindzone**, die das eigene Manövrieren aufreißt und die eine bereits
+  bestehende Lock- oder Startwarnung STILL verschwinden lässt (`rwr THREAT_BLIND`).
+- **Hörweite = Sender-Tor · 2** (`kBeamRangeFactor`): der Empfänger sitzt im EINWEG-Pfad, der Sender
+  braucht Hin- und Rückweg. Man wird gewarnt, bevor man erfasst wird.
+- **Keine Entfernung.** Ein RWR misst Empfangsleistung, nie Range (§2.1). Publiziert werden relative
+  Peilung, Elevation, Signalstärke und eine Lethality (Ringposition), niemals Meter.
+
+**CMDS: Programme als Daten, der Modus-Knopf als Zustandsmaschine.** Ein Programm ist das
+DED-Parameterschema des ALE-47 (§2.2): je Typ Salvengröße (BQ 0–99), Salvenintervall (BI 0,020–10 s),
+Salvenzahl (SQ 0–99), Programmintervall (SI 0,50–150 s); BQ oder SQ = 0 nimmt den Typ aus dem Programm.
+Die sechs F-16-Programme (`modules/f16/FBF16Cmds`, Werte [SET], Schema dokumentiert):
+
+| PRGM | Chaff | Fackeln | wofür |
+|---|---|---|---|
+| 1 BREAK LOCK | 2 × 0,10 s, 2 Salven à 1,00 s | — | die dichte Reflexantwort, und was AUTO gegen eine RAKETE wirft |
+| 2 MIXED | 2 × 0,10 s, 2 Salven à 2,00 s | 1, 2 Salven | unbekannte Bedrohung |
+| 3 FLARE | — | 2 × 0,10 s, 4 Salven | nur IR (gezählt, wirkungslos: es gibt keinen IR-Sucher) |
+| 4 SUSTAINED | 2 × 0,10 s, 4 Salven à 4,00 s | — | gegen einen bloßen TRACK, und was AUTO dann wiederholt |
+| 5 SLAP | 1 | 1 | der Wandknopf |
+| 6 BYPASS | 1 | 1 | die dokumentierte Notausgabe |
+
+Modi: `off`/`stby` (nichts; nur in STBY darf umprogrammiert werden) · `man` (CMS vorwärts wirft das
+PRGM-Programm) · `semi` (das System WÄHLT, aber jeder Abwurf braucht Zustimmung) · `auto` (wählt UND
+wiederholt, Zustimmung gilt ab Moduswechsel) · `byp` (genau 1 Chaff + 1 Fackel). Automatische Abwürfe
+entfallen bei Chaff-BINGO. **In SEMI/AUTO triggert die Anlage auf den RWR-BLOCK** — also auf die
+Warnung, nicht auf die Wahrheit: was in der Blindzone steht, wird nicht beantwortet.
+
+**Die Wirkung — Doppler, nicht Würfel** (`systems/FBRadarSystem`, Modell-Entscheidung mit Herleitung):
+eine Chaff-Wolke verliert binnen einer Sekunde die Geschwindigkeit des Flugzeugs und liegt danach im
+Clutter-Filter, den ein Puls-Doppler-Sucher verwirft — **es sei denn**, das verfolgte Flugzeug liegt mit
+seiner EIGENEN Radialgeschwindigkeit im selben Filter, was genau dann gilt, wenn es quer zur Sichtlinie
+fliegt. Dann kann der Prozessor die beiden Echos nicht trennen und nimmt das stärkste (RCS/r⁴, mit der
+Alterskurve der Wolke). Gesetzte Parameter: Notch-Halbbreite **40 m/s**, Messdauer **0,2 s**, Blüte
+**0,3 s**, Wolkenlebensdauer **8 s**, RWR-Hörfaktor **2,0**. Alles deterministisch — kein Zufall, nirgends.
+
+Beobachtbar: `events.log` trägt `rwr THREAT_NEW` / `THREAT_MODE` / `THREAT_BLIND` / `THREAT_DROP`,
+`cmds PROGRAM_START` / `SALVO` / `PROGRAM_END` / `MAGAZINE_EMPTY` und `radar CHAFF_SEDUCED` /
+`CHAFF_RESOLVED` (mit den beiden Messgrößen, aus denen die Entscheidung fiel); `telemetry.csv` am
+Zeilenende die zehn RWR-Spalten `blk_rwr`, `rwr_on`, `rwr_threats`, `rwr_mode` (−1 = nichts, 0 = Suche,
+1 = Verfolgung, 2 = Rakete), `rwr_brg`, `rwr_el`, `rwr_leth`, `rwr_new`, `rwr_launch`, `rwr_act` und die
+elf CMDS-Spalten `blk_cmds`, `cm_mode`, `cm_status`, `cm_prog`, `cm_chaff`, `cm_flare`, `cm_lo`,
+`cm_disp`, `cm_out_chaff`, `cm_out_flare`, `cm_clouds`.
+
+Referenzläufe: `missions/rwr-spike.fbm` (Suche → Verfolgung → Raketensucher aus EINER Geometrie, und das
+Verschwinden aller drei), `missions/rwr-blindzone.fbm` (der Ritt durch die ±45°-Grenze, während der
+Sender nachweislich weiter lockt) und die 2×2-Tafel `cm-straight-clean` / `cm-chaff-straight` /
+`cm-beam-only` / `cm-chaff-beam` (Chaff allein wirkungslos, Manöver allein fast wirkungslos, beides
+zusammen entscheidend).
+
 ## Der Avionik-Bus — Gültigkeit, Kommandos, Brief
 
 **Der geteilte Zustand ist ein Satz typisierter BLÖCKE**, nicht mehr eine flache Feldliste
@@ -269,7 +341,9 @@ Radarhöhenmesser).
 
 Jeder Block-Status steht in `telemetry.csv` als eigene Spalte (`blk_platform`, `blk_env`, `blk_airdata`,
 `blk_radalt`, `blk_nav`, `blk_cruise`, `blk_firecontrol`, `blk_ufc`, `blk_stores`, `blk_airframe`,
-`blk_warn`, `blk_radar`, `blk_datalink`, `blk_bfm`; Werte 0/1/2 wie oben) — plus `warn_active` und
+`blk_warn`, `blk_radar`, `blk_datalink`, `blk_bfm` — und, ganz am Zeilenende statt in dieser Gruppe,
+`blk_rwr` und `blk_cmds`: ihre Blöcke kamen dazu, als die Gruppe schon in jeder gemessenen
+telemetry.csv stand, und ein Einfügen hätte jede Spalte rechts davon verschoben; Werte 0/1/2 wie oben) — plus `warn_active` und
 `warn_inhibited` als Bitmasken (`1` = ALOW, `2` = BINGO, `4` = Fahrwerk unsicher).
 
 **Kommandos: der EINZIGE Weg vom Piloten zu einer Box.** Ein Kommando ist `{Ziel, Vorschlagswert}`, die
@@ -281,7 +355,8 @@ abgelehnt, damit keine KI im Kurvenkampf Steuerpunkte eintippt. Ergebnisse: `acc
 (übernommen, Wirkung gesperrt — z. B. ALOW ohne Radarhöhenmesser), `rejected`. Ablehnungsgründe sind der
 Katalog aus `doc/f16/controls-commands.md` §6 plus zwei EIGENE Modell-Entscheidungen: `out_of_range`
 (die Quellen dokumentieren KEINE Bereichsprüfung — FlightBox lehnt ab und sagt es, statt still zu
-klemmen) und `channel_busy` (Hand/Kopf sind schon beschäftigt).
+klemmen), `channel_busy` (Hand/Kopf sind schon beschäftigt) und `depleted` (das Magazin hinter der Box
+ist leer — die einzige Ablehnung, die eine Defensivanlage mitten im Beschuss produziert).
 
 Der Kommandostrom ist beobachtbar: `events.log` trägt `cmd CMD_ISSUE` / `CMD_ACK` / `CMD_REJECT` (mit
 Ziel, Wert, Klasse, Ergebnis, Grund, gemessener Latenz), `telemetry.csv` die neun Spalten
@@ -300,6 +375,7 @@ Pilot überhaupt nichts (er tippt keine Zahlen ein, die ihm niemand gegeben hat)
 | `set brief_bingo_lbs <lb>` | DED | BNGO-Schwelle eingeben (0…20.000 lb; über 6.070 lb → `clamped`) |
 | `set brief_master_arm arm\|sim` | HOTAS | Master-Arm setzen |
 | `set brief_weapon gun\|aim9\|aim120` | HOTAS | Waffenwahl — heute `rejected/not_implemented` |
+| `set brief_chaff_s <t>` | HOTAS | Täuschkörper werfen (CMS vorwärts, gewähltes Programm); wiederholbar |
 | `set radalt on\|off` | (Spawn) | CARA-Strom; `off` macht den Radarhöhen-Block für den ganzen Lauf `invalid` |
 
 `sim/missions/cmd-avionics.fbm` fährt genau diese Fälle in einem Lauf durch (Annahme, Klemmung,

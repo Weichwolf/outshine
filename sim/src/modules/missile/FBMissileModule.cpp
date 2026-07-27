@@ -4,6 +4,7 @@ namespace FlightBox {
 
 FBMissileModule::FBMissileModule(const FBStoreSpec &spec) : Spec_(spec) {
   Guidance_.Bind(Spec_, Seeker_);
+  Rwr_.SetPowered(false);   /* a round carries no warning receiver — see the slot accessors */
 }
 
 void FBMissileModule::ProgramRelease(const FBStoreRelease &rel) {

@@ -26,6 +26,9 @@ const char *FBCommandTargetStr(FBCommandTarget t) {
     case FBCommandTarget::Designate: return "designate";
     case FBCommandTarget::StationSelect: return "station_select";
     case FBCommandTarget::WeaponRelease: return "weapon_release";
+    case FBCommandTarget::CmDispense: return "cm_dispense";
+    case FBCommandTarget::CmConsent: return "cm_consent";
+    case FBCommandTarget::CmdsMode: return "cmds_mode";
   }
   return "?";
 }
@@ -40,6 +43,11 @@ FBCommandClass FBCommandClassOf(FBCommandTarget t) {
     case FBCommandTarget::AlowFt:
     case FBCommandTarget::BingoLbs:
     case FBCommandTarget::SteerpointNum:
+    /* The CMDS mode knob is on the left auxiliary console, not on the stick: a hand comes off the
+     * throttle and the head goes down for it (doc/f16/defence-rwr-cm.md §2.2). CmDispense and
+     * CmConsent are the CMS switch and stay HOTAS — the whole point of a countermeasure is that it can
+     * be thrown mid-manoeuvre. */
+    case FBCommandTarget::CmdsMode:
       return FBCommandClass::Ded;
     default:
       return FBCommandClass::Hotas;
@@ -65,6 +73,12 @@ FBCommandGroup FBCommandGroupOf(FBCommandTarget t) {
     case FBCommandTarget::StationSelect:
     case FBCommandTarget::WeaponRelease:
       return FBCommandGroup::Stores;
+    /* The defensive suite's own group, answered in the module's Defensive slot tick beside the RWR and
+     * the dispenser themselves. */
+    case FBCommandTarget::CmDispense:
+    case FBCommandTarget::CmConsent:
+    case FBCommandTarget::CmdsMode:
+      return FBCommandGroup::Defensive;
     default:
       return FBCommandGroup::Avionics;
   }
@@ -94,6 +108,7 @@ const char *FBCommandReasonStr(FBCommandReason r) {
     case FBCommandReason::ValueClamped: return "value_clamped";
     case FBCommandReason::OutOfRange: return "out_of_range";
     case FBCommandReason::ChannelBusy: return "channel_busy";
+    case FBCommandReason::Depleted: return "depleted";
   }
   return "?";
 }

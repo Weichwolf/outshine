@@ -1,0 +1,32 @@
+name cm-depleted-1
+timeout 60
+
+# THE REFUSAL. A dispense is a COMMAND (doc/f16/defence-rwr-cm.md §2.4's CMS switch, core/FBCommandBus),
+# which means it can be turned down and the refusal is on the record — and the one refusal a defensive
+# system produces in the middle of being shot at is "there is nothing left". This mission is one jet,
+# no threat and no shot: six chaff cartridges loaded, PRGM 1 briefed three times, and a program that
+# wants four each. What has to appear in events.log, in this order:
+#
+#   throw 1 (t=10)   PROGRAM_START, two salvos of two -> four cartridges, two left
+#   throw 2 (t=14)   PROGRAM_START, one salvo of two, then "cmds MAGAZINE_EMPTY" mid-program
+#   throw 3 (t=18)   "cmd CMD_REJECT ... reason=depleted" — the command never reaches a dispenser
+#
+# and in telemetry.csv, cm_chaff 6 -> 2 -> 0 with cm_out_chaff counting the other way. The flare
+# magazine is deliberately full: PRGM 1 is chaff-only (modules/f16/FBF16Cmds), so a full flare rack does
+# not make a chaff-only program dispensable — which is the point of the per-type program schema.
+
+unit lone
+  team friendly
+  module f16
+  spawn 46.90000 6.60000 6000 90.0 400
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set cmds_mode man
+  set cmds_program 1                       # 2 x 2 chaff, chaff only
+  set cmds_chaff 6                         # enough for one and a half programs
+  set cmds_flare 60
+  set brief_chaff_s 10
+  set brief_chaff_s 14
+  set brief_chaff_s 18
+  wp 46.90000 6.75000 6000 400

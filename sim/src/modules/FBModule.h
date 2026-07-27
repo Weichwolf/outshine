@@ -19,6 +19,7 @@
 #include "FBAirframeControls.h"
 #include "FBAutopilot.h"
 #include "FBCommandBus.h"
+#include "FBCountermeasureSystem.h"
 #include "FBDatalinkSystem.h"
 #include "FBDisplaySystem.h"
 #include "FBFlightControl.h"
@@ -27,6 +28,7 @@
 #include "FBPilot.h"
 #include "FBRadarAltimeter.h"
 #include "FBRadarSystem.h"
+#include "FBRwrSystem.h"
 #include "FBStoresSystem.h"
 #include "FBWarningSystem.h"
 #include "FBRunway.h"
@@ -111,6 +113,12 @@ public:
    * the unit's emission snapshot (units/FBSimUnit) — and for neither of them does the client need to
    * know which set it is. */
   virtual FBRadarSystem &Radar() = 0;
+  /* The Defensive slot, which is TWO systems: the warning receiver and the dispenser that answers it.
+   * Both are surfaced on the base for the same generic reasons the radar and the terminal are — the
+   * client registers their telemetry, and the dispenser's chaff clouds go into the unit's published
+   * emission snapshot (units/FBSimUnit) exactly as the radar's beam does. */
+  virtual FBRwrSystem &Rwr() = 0;
+  virtual FBCountermeasureSystem &Countermeasures() = 0;
   /* The Stores slot: what this module carries and the queue of what it has let go of. Surfaced on the
    * base because the client both registers its telemetry AND drains its releases — the released store
    * becomes a unit of the world, which only the client can create (fdm/FBFdmBoot.h), and it must be

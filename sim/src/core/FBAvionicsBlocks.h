@@ -19,9 +19,11 @@
 
 #include "FBArmState.h"
 #include "FBBlockStatus.h"
+#include "FBCountermeasure.h"
 #include "FBDatalinkTrack.h"
 #include "FBMode.h"
 #include "FBRadarContact.h"
+#include "FBRwrThreat.h"
 #include <cstdint>
 
 namespace FlightBox {
@@ -202,6 +204,37 @@ struct FBDatalinkBlock {
   bool Transmitting = false;
   int  TrackCount = 0;
   FBDatalinkTrack Tracks[kMaxDatalinkTracks]{};
+};
+
+/* ---- RWR: WHO IS LOOKING AT THIS AIRCRAFT — the passive counterpart of the radar block above.
+ * WRITER: systems/FBRwrSystem.
+ * Held has the same meaning it has for the radar and arrives the same way: a threat whose emission
+ * stopped being heard is carried for a moment before it is dropped, and while nothing new is being
+ * received the picture stands still and only the per-threat age moves. */
+struct FBRwrBlock {
+  FBBlockHeader H;
+  bool Powered = false;
+  int  ThreatCount = 0;
+  int  PriorityIndex = -1;     /* index of the highest-priority threat (the diamond); -1 = none */
+  bool MissileLaunch = false;  /* any threat guiding a missile at this aircraft — the LAUNCH light */
+  bool Activity = false;       /* any threat tracking — the ACT half of the ACT/PWR indicator */
+  bool HiddenSearch = false;   /* search-class emitters are being heard but filtered off the display
+                                * (doc/f16/defence-rwr-cm.md §2.1: suppression is visually
+                                * distinguishable from absence) */
+  FBRwrThreat Threats[kMaxRwrThreats]{};
+};
+
+/* ---- CMDS: the countermeasure dispenser's own state. WRITER: systems/FBCountermeasureSystem. */
+struct FBCmdsBlock {
+  FBBlockHeader H;
+  FBCmdsMode   Mode = FBCmdsMode::Off;
+  FBCmdsStatus Status = FBCmdsStatus::NoGo;
+  int  ProgramSelected = 1;    /* the PRGM knob */
+  int  ChaffRemaining = 0, FlareRemaining = 0;
+  bool ChaffLow = false, FlareLow = false;   /* at or below the pilot-set BINGO quantity: the "LO" lamp */
+  bool Dispensing = false;     /* a program is running right now */
+  int  ChaffDispensed = 0, FlareDispensed = 0;   /* this sortie */
+  int  ActiveClouds = 0;       /* chaff clouds still worth something (core/FBCountermeasure.h) */
 };
 
 /* ---- BFM trackfile: the fused target estimate the fight is flown on. WRITER: systems/FBBfmTrack

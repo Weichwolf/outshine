@@ -19,7 +19,12 @@
  *                                                        the slot is entered faster than that only so a
  *                                                        coasting contact's age is observable between
  *                                                        looks, never to make the beam sweep sooner
- *   Defensive                                5 Hz        accumulator-throttled inside Run()
+ *   Defensive (FBF16Rwr + FBF16Cmds)         10 Hz       accumulator-throttled inside Run(); the
+ *                                                        dispenser's burst intervals are tenths of a
+ *                                                        second, so the slot is entered at the sim tick
+ *                                                        rather than quantising a salvo. Receiver first,
+ *                                                        dispenser second: the second reads what the
+ *                                                        first wrote, in the same tick
  *   Comms/Datalink (FBF16Datalink)           5 Hz        accumulator-throttled inside Run(); the NET
  *                                                        itself cycles at 1 Hz inside the system
  *                                                        (FBDatalinkSystem::kNetPeriodS) — the slot is
@@ -44,11 +49,13 @@
 #include "FBAirDataSystem.h"
 #include "FBAirframeControls.h"
 #include "FBAutopilot.h"
+#include "FBF16Cmds.h"
 #include "FBF16Datalink.h"
 #include "FBF16Fcr.h"
 #include "FBF16FireControl.h"
 #include "FBF16Max7456.h"
 #include "FBF16Pilot.h"
+#include "FBF16Rwr.h"
 #include "FBF16Sms.h"
 #include "FBF16Ufc.h"
 #include "FBFlightControl.h"
@@ -92,6 +99,8 @@ public:
   FBNavSystem &NavSystem() override { return *NavSys; }   /* steerpoint/bullseye (SetSteerpoint/SetBullseye) */
   FBDatalinkSystem &Datalink() override { return *Datalink_; }   /* the F-16's TNDL terminal */
   FBF16Fcr &Radar() override { return *Fcr_; }   /* covariant: FBModule::Radar() returns FBRadarSystem& */
+  FBF16Rwr &Rwr() override { return *Rwr_; }     /* covariant, likewise: the jet's own ALR-56M */
+  FBF16Cmds &Countermeasures() override { return *Cmds_; }   /* ...and its own ALE-47 */
   FBF16Ufc &Ufc() { return *UfcSys; }             /* ALOW/selected-steerpoint placeholder setup */
   FBF16Sms &Sms() { return *SmsSys; }             /* the SMS: loadout, master arm, release */
   FBStoresSystem &Stores() override { return *SmsSys; }   /* the generic Stores slot, filled by it */
@@ -109,6 +118,7 @@ public:
   void SetUnitIdentity(int unitId, FBUnitTeam team) override {
     Datalink_->SetIdentity(unitId, team);
     Fcr_->SetIdentity(unitId, team);
+    Rwr_->SetIdentity(unitId, team);   /* ...and the receiver, so it never warns about its own set */
     /* ...and the SMS, so a round it launches knows whose midcourse uplink to listen to
      * (systems/FBStoresSystem::SetUnitId -> FBWeaponUplink::LauncherId). */
     SmsSys->SetUnitId(unitId);
@@ -124,7 +134,7 @@ public:
   FBAirframeControls &Controls() override { return *AirframeCtrl; }
   FBAirDataSystem &AirDataSystem() override { return *AirData; }   /* the ADC telemetry source (mission-runner Bus) */
   FBWarningSystem &WarningSystem() override { return *Warn_; }
-  FBCommandBus &Commands() override { return Cmds_; }
+  FBCommandBus &Commands() override { return CmdBus_; }
   FBRadarAltimeter &RadarAltimeter() override { return *RadarAlt; }
   FBFlightPlan &FlightPlan() override { return Plan_; }
   /* The assigned runway doubles as the mission's BULLSEYE reference: a .fbm declares no bullseye, and
@@ -140,7 +150,9 @@ public:
    * four switches — `datalink` (on/off: power), `datalink_xmt` (on/off: XMT/EMCON), `datalink_filter`
    * (fr/fl/off: the HSD contact filter), `datalink_range_nm` — and the FCR/IFF set: `fcr_mode`
    * (off/crm/acm_hud/acm_bore/acm_vert/acm_slew), `fcr_range_nm`, `fcr_slew_az`/`fcr_slew_el` (the
-   * slewable box's cursor), `iff_xpdr` and `iff_interrogator` (on/off) — plus `task` (route/bfm: which FBPilot phase this
+   * slewable box's cursor), `iff_xpdr` and `iff_interrogator` (on/off), the defensive suite (`rwr`, `rwr_search` on/off,
+   * `rwr_display` priority/open, `cmds_mode` off/stby/man/semi/auto/byp, `cmds_program` 1..6,
+   * `cmds_chaff`/`cmds_flare` counts) — plus `task` (route/bfm: which FBPilot phase this
    * jet starts in) — see
    * doc/mission-format.md. An unknown key OR an unparsable/out-of-range value returns false (Runner-level
    * mission FAIL): a mission that declares a state this airframe cannot take must not start silently in
@@ -168,7 +180,11 @@ private:
   std::unique_ptr<FBF16Max7456> Chip;   /* MAX7456-chip-specific hook, see FBF16Max7456's banner */
   std::unique_ptr<FBF16Fcr> Fcr_;       /* the Sensors slot, filled with the F-16's own APG-68 */
   std::unique_ptr<FBWeaponSystem> Weapons;
-  std::unique_ptr<FBDefensiveSystem> Defensive;
+  /* The Defensive slot, filled with the F-16's own pair (systems/FBRwrSystem + FBCountermeasureSystem):
+   * the receiver writes what is looking at this jet into the bus, the dispenser reads that same block
+   * and answers it. Cycled in that order, once per Defensive tick. */
+  std::unique_ptr<FBF16Rwr> Rwr_;
+  std::unique_ptr<FBF16Cmds> Cmds_;
   std::unique_ptr<FBF16Datalink> Datalink_;   /* the Comms slot, filled with the F-16's own terminal */
 
   /* The HUD's telemetry chain (see the rate table): generic systems/ defaults + the two F-16-specific
@@ -191,7 +207,7 @@ private:
   bool HaveRunway_ = false;
   double PilotAccS = 0.0;
 
-  FBCommandBus Cmds_;   /* the pilot's only path to this jet's boxes (FBModule::Commands) */
+  FBCommandBus CmdBus_;   /* the pilot's only path to this jet's boxes (FBModule::Commands) */
   FBMasterMode Mode = FBMasterMode::Nav;
   FBState SharedState{};   /* Sensors WRITE, Displays READ — no display queries a sensor directly */
 

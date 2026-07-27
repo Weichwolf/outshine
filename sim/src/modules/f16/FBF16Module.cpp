@@ -18,7 +18,8 @@ FBF16Module::FBF16Module()
       Chip(std::make_unique<FBF16Max7456>()),
       Fcr_(std::make_unique<FBF16Fcr>()),   /* the F-16's own APG-68, not a generic search set */
       Weapons(std::make_unique<FBWeaponSystem>()),
-      Defensive(std::make_unique<FBDefensiveSystem>()),
+      Rwr_(std::make_unique<FBF16Rwr>()),     /* the F-16's own ALR-56M, not a generic receiver */
+      Cmds_(std::make_unique<FBF16Cmds>()),   /* ...and its own ALE-47 */
       Datalink_(std::make_unique<FBF16Datalink>()),
       AirData(std::make_unique<FBAirDataSystem>()),
       RadarAlt(std::make_unique<FBRadarAltimeter>()),
@@ -58,7 +59,7 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, 
   /* What the DED gate reads: head-down data entry is only possible in a jet that is not being flown
    * hard (core/FBCommandBus.h). Unpublished air data reads as 1 g — a jet with no ADC is not
    * manoeuvring by any measurement this aircraft has. */
-  Cmds_.SetLoadFactor(SharedState.AirData.H.Readable() ? SharedState.AirData.GLoad : 1.0f);
+  CmdBus_.SetLoadFactor(SharedState.AirData.H.Readable() ? SharedState.AirData.GLoad : 1.0f);
   Input->Run(Mode, dt);            /* HOTAS/ICP: once per Run() call, the coarsest sim tick */
   Propulsion->Run(st, dt);         /* engine-system logic above the raw FDM: same cadence */
 
@@ -115,7 +116,16 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, 
   }
   if (Due(DisplayAccS, dt, 20.0)) Disp->Run(SharedState, Mode, dt);
   if (Due(WeaponAccS, dt, 20.0)) Weapons->Run(Mode, world, dt);
-  if (Due(DefensiveAccS, dt, 5.0)) Defensive->Run(world, dt);
+  /* The Defensive slot, at the pilot's own decision rate rather than the 5 Hz the NoOp placeholder ran
+   * at: a countermeasure program's burst interval is a tenth of a second (doc/f16/defence-rwr-cm.md
+   * §2.2), so entering the slot slower than the sim tick would quantise a salvo. The order inside it is
+   * the data flow — the receiver writes the threat picture, the dispenser reads it, and the pilot's CMS
+   * commands are answered in between so a throw takes effect on this tick's program and not the next. */
+  if (Due(DefensiveAccS, dt, 10.0)) {
+    Rwr_->Run(SharedState, st, units, SimTimeS);
+    ServiceCommands(FBCommandGroup::Defensive);
+    Cmds_->Run(SharedState, st, SimTimeS);
+  }
   /* Comms/Datalink: the COOPERATIVE half of what this module knows about other units
    * (systems/FBDatalinkSystem's banner — `units`, the registry of published snapshots, reaches this slot
    * and the Sensors slot above, and nothing else). It writes tracks into SharedState; whatever reads
@@ -132,7 +142,7 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, 
    * sees whether the mission itself concluded from that same capture — that verdict is a separate,
    * independent judgement the caller owns (core/, not this file). */
   if (Due(PilotAccS, dt, 10.0)) {
-    ApplyPilotCommands(PilotSys->Run(SharedState, Cmds_, *AirframeCtrl, st, Plan_,
+    ApplyPilotCommands(PilotSys->Run(SharedState, CmdBus_, *AirframeCtrl, st, Plan_,
                                      HaveRunway_ ? &Rwy_ : nullptr, dt));
     /* The pilot's own track processor publishes its fused picture onto the bus after the decision tick
      * — the same forwarding the platform block gets, for the same reason: the writer is one system
@@ -182,11 +192,11 @@ void FBF16Module::PublishAirframe() {
  * F-16 box owns "radar mode" is this module's knowledge, not systems/'s. */
 void FBF16Module::ServiceCommands(FBCommandGroup group) {
   FBAvionicsCommand c{};
-  while (Cmds_.TakeDue(group, SimTimeS, c)) {
+  while (CmdBus_.TakeDue(group, SimTimeS, c)) {
     FBCommandOutcome outcome = FBCommandOutcome::Accepted;
     FBCommandReason reason = FBCommandReason::None;
     ApplyCommand(c, outcome, reason);
-    Cmds_.Complete(c, outcome, reason, SimTimeS);
+    CmdBus_.Complete(c, outcome, reason, SimTimeS);
   }
 }
 
@@ -247,6 +257,30 @@ void FBF16Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &out
     case FBCommandTarget::WeaponRelease:
       SmsSys->Release(SimTimeS, outcome, reason);
       return;
+    /* The defensive trio. The dispenser itself answers the throw (systems/FBCountermeasureSystem::
+     * Dispense decides and says why — an empty magazine is a refusal with its own reason), exactly as
+     * the SMS answers the pickle; this module only routes. */
+    case FBCommandTarget::CmDispense:
+      if (c.Value < 0.0 || c.Value > (double)FBCountermeasureSystem::kProgramCount) {
+        outcome = FBCommandOutcome::Rejected;
+        reason = FBCommandReason::OutOfRange;
+        return;
+      }
+      Cmds_->Dispense((int)c.Value, SimTimeS, outcome, reason);
+      return;
+    case FBCommandTarget::CmConsent:
+      Cmds_->SetConsent(c.Value != 0.0);
+      return;
+    case FBCommandTarget::CmdsMode: {
+      int ord = (int)c.Value;
+      if (ord < 0 || ord > (int)FBCmdsMode::Byp) {
+        outcome = FBCommandOutcome::Rejected;
+        reason = FBCommandReason::OutOfRange;
+        return;
+      }
+      Cmds_->SetMode((FBCmdsMode)ord);
+      return;
+    }
     case FBCommandTarget::AlowFt:
       if (!FBF16Ufc::AlowInRange((float)c.Value)) { outcome = FBCommandOutcome::Rejected; reason = FBCommandReason::OutOfRange; return; }
       UfcSys->SetAlow((float)c.Value);
@@ -400,6 +434,50 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
     else return RejectSetup("want route|bfm", key, value);
     return true;
   }
+  /* THE DEFENSIVE SUITE (doc/f16/defence-rwr-cm.md). `rwr` is the ALR-56M's POWER button; `rwr_display`
+   * the TWP MODE button (PRIORITY = 5 symbols, OPEN = 16); `rwr_search` the TWA panel's SEARCH toggle,
+   * which hides search-class emitters without hiding the fact that it is hiding them. `cmds_mode` is the
+   * mode knob whose position decides who may dispense at all, `cmds_program` the PRGM knob, and
+   * `cmds_chaff`/`cmds_flare` the loadout the ground crew set — capped at the airframe's documented 120
+   * combined. */
+  if (key == "rwr" || key == "rwr_search") {
+    if (value != "on" && value != "off") return RejectSetup("want on|off", key, value);
+    if (key == "rwr") Rwr_->SetPowered(value == "on");
+    else Rwr_->SetSearchShown(value == "on");
+    return true;
+  }
+  if (key == "rwr_display") {
+    FBF16RwrDisplay d;
+    if (!FBF16RwrDisplayFromString(value.c_str(), d))
+      return RejectSetup("want priority|open", key, value);
+    Rwr_->SetDisplay(d);
+    return true;
+  }
+  if (key == "cmds_mode") {
+    FBCmdsMode m;
+    if (!FBCmdsModeFromString(value.c_str(), m))
+      return RejectSetup("want off|stby|man|semi|auto|byp", key, value);
+    Cmds_->SetMode(m);
+    return true;
+  }
+  if (key == "cmds_program") {
+    double n = 0.0;
+    if (!ParseDouble(value, n)) return RejectSetup("not a number", key, value);
+    if (!Cmds_->SelectProgram((int)n)) return RejectSetup("no such program (1..6)", key, value);
+    return true;
+  }
+  if (key == "cmds_chaff" || key == "cmds_flare") {
+    double n = 0.0;
+    if (!ParseDouble(value, n)) return RejectSetup("not a number", key, value);
+    if (n < 0.0 || n > (double)FBF16Cmds::kMaxCombined)
+      return RejectSetup("outside the dispenser's capacity", key, value);
+    int chaff = key == "cmds_chaff" ? (int)n : Cmds_->ChaffRemaining();
+    int flare = key == "cmds_flare" ? (int)n : Cmds_->FlareRemaining();
+    if (chaff + flare > FBF16Cmds::kMaxCombined)
+      return RejectSetup("chaff + flare exceeds 120 combined", key, value);
+    Cmds_->SetLoadout(chaff, flare);
+    return true;
+  }
   /* The CARA's power switch: the one mission-declarable way to make a source block INVALID, which is
    * what a consumer's handling of that state can be measured against (systems/FBRadarAltimeter). */
   if (key == "radalt") {
@@ -454,6 +532,18 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
    * has no release solution (no CCIP/CCRP), so a mission that wants a bomb dropped from a defined state
    * says exactly that and nothing pretends to have aimed it. Like every other brief item it goes through
    * the command bus when the moment comes, and may be refused. */
+  /* WHEN the pilot throws countermeasures, as mission data: `set brief_chaff_s <t>`, repeatable, one
+   * line per dispense the brief calls for. The same shape and the same reasoning as brief_release_s —
+   * a moment, not a condition — and it travels the same way, through the CMS switch's own HOTAS-class
+   * command, which the dispenser may refuse (an empty magazine, the wrong knob position). The SEMI/AUTO
+   * modes need no brief at all: there the jet answers its own RWR. */
+  if (key == "brief_chaff_s") {
+    double t = 0.0;
+    if (!ParseDouble(value, t)) return RejectSetup("not a number", key, value);
+    if (t < 0.0) return RejectSetup("negative time", key, value);
+    if (!PilotSys->BriefChaff(t)) return RejectSetup("too many briefed dispenses", key, value);
+    return true;
+  }
   if (key == "brief_release_s") {
     double t = 0.0;
     if (!ParseDouble(value, t)) return RejectSetup("not a number", key, value);

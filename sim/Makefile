@@ -94,9 +94,10 @@ CORE_LIB_SRCS := \
   src/systems/FBAirDataSystem.cpp src/systems/FBRadarAltimeter.cpp src/systems/FBNavSystem.cpp \
   src/systems/FBAirframeControls.cpp src/systems/FBPilot.cpp src/systems/FBDatalinkSystem.cpp \
   src/systems/FBRadarSystem.cpp src/systems/FBBfmTrack.cpp src/systems/FBWarningSystem.cpp \
+  src/systems/FBRwrSystem.cpp src/systems/FBCountermeasureSystem.cpp \
   src/systems/FBStoresSystem.cpp \
   src/modules/FBModuleRegistry.cpp \
-  src/modules/f16/FBF16Fcr.cpp \
+  src/modules/f16/FBF16Fcr.cpp src/modules/f16/FBF16Cmds.cpp \
   src/modules/f16/FBF16Max7456.cpp src/modules/f16/FBF16Module.cpp src/modules/f16/FBF16FireControl.cpp \
   src/modules/f16/FBF16Ufc.cpp src/modules/f16/FBF16Sms.cpp src/modules/f16/FBF16Pilot.cpp \
   src/modules/f16/FBF16ModuleRegistration.cpp \

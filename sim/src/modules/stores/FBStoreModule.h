@@ -24,7 +24,7 @@ namespace FlightBox {
 
 class FBStoreModule : public FBModule {
 public:
-  explicit FBStoreModule(const FBStoreSpec &spec) : Spec_(spec) {}
+  explicit FBStoreModule(const FBStoreSpec &spec) : Spec_(spec) { Rwr_.SetPowered(false); }
 
   const FBStoreSpec &Spec() const { return Spec_; }
 
@@ -50,6 +50,11 @@ public:
   FBCommandBus &Commands() override { return Cmds_; }
   FBDatalinkSystem &Datalink() override { return Datalink_; }
   FBRadarSystem &Radar() override { return Radar_; }
+  /* No warning receiver and no dispenser on a store: the slots exist because every module carries the
+   * same categories (FBModule's banner), and these two are the airframe-agnostic defaults, never
+   * cycled. Powered down at construction so nothing they hold can be mistaken for a picture. */
+  FBRwrSystem &Rwr() override { return Rwr_; }
+  FBCountermeasureSystem &Countermeasures() override { return Cm_; }
   FBStoresSystem &Stores() override { return Stores_; }   /* a bomb carries no stores of its own */
   const FBState &Telemetry() const override { return State_; }
   const FBGuidance &LastGuidance() const override { return LastG_; }
@@ -85,6 +90,8 @@ private:
   FBCommandBus Cmds_;
   FBDatalinkSystem Datalink_;
   FBRadarSystem Radar_;
+  FBRwrSystem Rwr_;
+  FBCountermeasureSystem Cm_;
   FBStoresSystem Stores_;
   FBFlightPlan Plan_;
   FBState State_{};

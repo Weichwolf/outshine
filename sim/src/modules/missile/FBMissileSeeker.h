@@ -74,6 +74,10 @@ protected:
    * envelope once it has something. */
   const FBRadarScanVolume &ActiveVolume() const override { return Locked() ? Track_ : Vol_; }
   int ModeOrdinal() const override { return Vol_.Active ? 1 : 0; }
+  /* The one thing about this set's EMISSION that differs from a fighter's, and the one that matters to
+   * whoever hears it (core/FBEmitter.h): what is behind the antenna is a warhead. A warning receiver
+   * classifies this signal as the launch case however it happens to be scanning. */
+  FBEmitterKind EmitterKind() const override { return FBEmitterKind::MissileSeeker; }
 
 private:
   FBRadarScanVolume Vol_{};

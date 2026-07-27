@@ -28,6 +28,13 @@ enum class FBCommandTarget : uint8_t {
    * leaves a receipt like every other cockpit action (this file's banner). Appended, never inserted:
    * the ordinals above are telemetry-visible in every run ever measured. */
   StationSelect, WeaponRelease,
+  /* The defensive trio (doc/f16/defence-rwr-cm.md §2.2/§2.4). CmDispense is the CMS switch's forward
+   * throw — the one action a pilot performs IN a manoeuvre rather than between two, which is exactly
+   * why it is a HOTAS-class command and not a panel edit (value 0 = the program the PRGM knob selects,
+   * 1..6 = a program directly). CmConsent is CMS Aft/Right, the SEMI/AUTO consent. CmdsMode is the mode
+   * knob on the left console: a hand off the throttle and a head down, i.e. the DED class. Appended,
+   * never inserted. */
+  CmDispense, CmConsent, CmdsMode,
 };
 
 const char *FBCommandTargetStr(FBCommandTarget t);
@@ -45,7 +52,7 @@ FBCommandClass FBCommandClassOf(FBCommandTarget t);
 
 /* WHICH system owns the target — the module dispatches a due command to the slot that owns it, in that
  * slot's own tick, so a command is consumed at the cadence of the box that answers it. */
-enum class FBCommandGroup : uint8_t { Sensors, Comms, Avionics, Stores };
+enum class FBCommandGroup : uint8_t { Sensors, Comms, Avionics, Stores, Defensive };
 
 FBCommandGroup FBCommandGroupOf(FBCommandTarget t);
 
@@ -62,8 +69,8 @@ enum class FBCommandOutcome : uint8_t { Pending, Accepted, Clamped, Inhibited, R
 const char *FBCommandOutcomeStr(FBCommandOutcome o);
 
 /* WHY. The first eight entries are the eight documented rejection/precondition patterns of
- * doc/f16/controls-commands.md §6, one to one and in its order. The last two are FlightBox's OWN, and
- * are marked as such because the guides document neither:
+ * doc/f16/controls-commands.md §6, one to one and in its order. The last three are FlightBox's OWN, and
+ * are marked as such because the guides document none of them:
  *   OutOfRange  — the numeric bounds policy the source material explicitly lacks (see §6's closing
  *                 note: "a FlightBox command-block model will need to invent its own range-validation
  *                 policy"). Ours REJECTS and says so rather than clamping silently; the one documented
@@ -83,6 +90,11 @@ enum class FBCommandReason : uint8_t {
   ValueClamped,           /* §6.8 accepted, system ceiling governs */
   OutOfRange,             /* FlightBox policy — see the enum banner */
   ChannelBusy,            /* FlightBox policy — see the enum banner */
+  /* FlightBox's own third: the box is willing and the command is valid, but the magazine behind it is
+   * empty. Distinct from OutOfContext (which says the command made no sense here) because an empty
+   * dispenser is a fact about the AIRCRAFT that the pilot needs to hear differently — and it is the one
+   * refusal a defensive system produces in the middle of being shot at. */
+  Depleted,
 };
 
 const char *FBCommandReasonStr(FBCommandReason r);

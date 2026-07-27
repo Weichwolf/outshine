@@ -16,9 +16,11 @@
 #ifndef FBSYSTEMSLOTS_H
 #define FBSYSTEMSLOTS_H
 
+#include "FBCountermeasureSystem.h"
 #include "FBDatalinkSystem.h"
 #include "FBDisplaySystem.h"
 #include "FBRadarSystem.h"
+#include "FBRwrSystem.h"
 #include "FBMasterMode.h"
 #include "FBState.h"
 #include "FBFdm.h"
@@ -50,13 +52,6 @@ class FBWeaponSystem {
 public:
   virtual ~FBWeaponSystem() = default;
   virtual void Run(FBMasterMode mode, const FBWorld *world, double dt) { (void)mode; (void)world; (void)dt; }
-};
-
-/* RWR + CMDS (chaff/flare): reads the world for other emitters through a borrowed pointer. NoOp. */
-class FBDefensiveSystem {
-public:
-  virtual ~FBDefensiveSystem() = default;
-  virtual void Run(const FBWorld *world, double dt) { (void)world; (void)dt; }
 };
 
 } // namespace FlightBox

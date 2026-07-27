@@ -1,0 +1,63 @@
+name rwr-spike-1
+timeout 220
+
+# THE THREE WARNINGS, IN ORDER, OUT OF ONE UNCHANGING GEOMETRY. A radar searching, a radar tracking and
+# a missile seeker are three different things to be on the receiving end of (doc/f16/defence-rwr-cm.md
+# §1's symbol table), and this mission produces all three from a single head-on pass with NOTHING
+# scripted in between — every transition is a consequence of range, and the analysis can recompute each
+# one from the two telemetry files alone.
+#
+#   spike   flies due EAST from 46.900/6.600 at 8,000 m. Its own radar is OFF, so it contributes nothing
+#           to the picture except a target and a warning receiver — everything in its rwr_* columns was
+#           HEARD, never known.
+#   hunter  flies due WEST from 46.900/7.300 at 8,000 m with the ACM HUD box and its range gate closed
+#           down to 10 nm, and carries an AIM-120.
+#
+# WHY THE 10 nm GATE IS THE WHOLE MECHANISM: a warning receiver sits in the ONE-WAY path of a beam whose
+# echo has to make the trip twice, so it hears an emitter well before that emitter can detect anything
+# (systems/FBRwrSystem::kBeamRangeFactor = 2). With the gate at 10 nm the sequence is therefore forced by
+# geometry:
+#   ~20 nm   the beam becomes audible                       -> THREAT_NEW  mode=search
+#   ~10 nm   the hunter's radar detects and its ACM box locks -> THREAT_MODE search -> track
+#   after the launch, at the round's activation range, the AIM-120's own seeker lights up
+#                                                            -> a second symbol, mode=missile
+# and the whole thing runs backwards after the merge: the hunter's tracking beam follows the spike to its
+# gimbal limit, loses it, and the ACM box left pointing forward no longer covers an aircraft that is now
+# behind -> THREAT_DROP. The warning goes away because the emitter stopped illuminating, not because a
+# timer expired.
+#
+# Both jets have a waypoint at the end of their leg, so the run ends SUCCESS on the legs being flown.
+# There is no damage model: the spike flies on through its own intercept, which is what makes the second
+# half of the sequence (the loss of the warnings) measurable at all.
+
+unit spike
+  team friendly
+  module f16
+  spawn 46.90000 6.60000 8000 90.0 400
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off                         # radiates nothing: every rwr_* column is passive
+  set rwr on
+  set rwr_display open
+  # ...and it ANSWERS what it hears: CMDS in AUTO dispenses by itself while a threat is tracking or
+  # guiding (doc/f16/defence-rwr-cm.md §2.2 — consent is granted by turning the knob to AUTO), which is
+  # the RWR -> dispenser coupling in one line and nothing briefed. Head-on, so the chaff is rejected by
+  # the seeker's Doppler filter and the intercept is unaffected: the effect of chaff has its own 2x2
+  # experiment (missions/cm-*.fbm).
+  set cmds_mode auto
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 46.90000 7.20000 8000 400
+
+unit hunter
+  team hostile
+  module f16
+  spawn 46.90000 7.30000 8000 270.0 400
+  set gear up
+  set fuel_pct 60
+  set fcr_mode acm_hud
+  set fcr_range_nm 10                      # the gate that separates "heard" from "detected"
+  set store 3 aim120
+  set brief_master_arm arm
+  set brief_release_s 95                   # after the lock is established (see the sequence above)
+  wp 46.90000 6.70000 8000 400

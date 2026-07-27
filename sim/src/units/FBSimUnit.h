@@ -99,7 +99,13 @@ public:
    * list: that would move every later actor's index and make a run's tick order depend on when a bomb
    * happened to land. */
   bool Active() const { return Active_; }
-  void Retire() { Active_ = false; }
+  /* Retiring also SILENCES the unit: its published emission signature goes empty in the same act. A
+   * detonated round's seeker was still radiating in its last snapshot, and because that snapshot is
+   * frozen from then on, everything with a warning receiver would have gone on hearing a missile that no
+   * longer exists (measured: the shooter's own RWR reported a live seeker two minutes after the
+   * detonation). The pose stays — it is where the unit ended up, and the record must stay valid — but
+   * nothing that has left the simulation may keep emitting into it. */
+  void Retire() { Active_ = false; Sig_ = FBUnitSignature{}; }
 
   /* ---- state + ground truth ---- */
   const fb_fdm_state &State() const { return St_; }

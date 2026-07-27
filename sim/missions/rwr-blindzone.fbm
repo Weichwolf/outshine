@@ -1,0 +1,49 @@
+name rwr-blindzone-1
+timeout 170
+
+# THE BLIND ZONE, AS A CONTINUOUS SWEEP THROUGH IT. doc/f16/defence-rwr-cm.md §2.1: the ALR-56M's
+# antennas cover 360 degrees in azimuth but only +-45 degrees in ELEVATION, and the consequence the
+# source spells out is that a hostile radar can end up in that hole and "silently drop lock/launch
+# warnings". This mission puts one emitter on a slow ramp through exactly that boundary, so the same run
+# contains the case where the warning MUST be there and the case where it MUST NOT — with nothing else
+# changing.
+#
+#   painter  flies EAST at 5,000 m and 420 kt, radar in ACM VERTICAL SCAN: a narrow (+-5 deg) but very
+#            tall pattern reaching from 13 deg below to 47 deg above the boresight (modules/f16/FBF16Fcr's
+#            mode table). It is the one F-16 sub-mode that can point at something far above the nose.
+#   watcher  flies the same heading 5 km ahead and 4,000 m HIGHER, at 320 kt — slower, so the painter
+#            closes the horizontal gap at ~50 m/s while the height difference stays put.
+#
+# The elevation angle from the painter up to the watcher therefore RISES through the run:
+#            5,000 m gap -> atan(4000/5000) = 38.7 deg   (heard: inside the receiver's +-45)
+#            4,000 m gap -> atan(4000/4000) = 45.0 deg   (the boundary, ~20 s in)
+#            3,000 m gap -> atan(4000/3000) = 53.1 deg   (blind: outside it)
+# and because the painter's own vertical scan reaches to 47 deg — and its single-target track, once
+# locked, follows the target through the antenna's full gimbal envelope — the BEAM never stops arriving.
+# That is the whole point: the emitter is still illuminating, its own fcr_lock column proves it, and the
+# watcher's warning disappears anyway. Nothing but the receiving antenna's geometry decides it.
+#
+# WHAT TO CHECK, against the two telemetry files rather than against this comment: recompute the
+# elevation angle between the two aircraft per sample, find the tick where it crosses 45 deg, and compare
+# it with the "THREAT_BLIND" line and the tick where rwr_threats falls to 0 (one hold time later,
+# systems/FBRwrSystem::kHoldS).
+
+unit painter
+  team hostile
+  module f16
+  spawn 46.90000 6.60000 5000 90.0 420
+  set gear up
+  set fuel_pct 60
+  set fcr_mode acm_vert                    # the tall pattern: -13 .. +47 deg, +-5 deg wide
+  set rwr off                              # this jet is the emitter; its own receiver is not the subject
+  wp 46.90000 6.98000 5000 420
+
+unit watcher
+  team friendly
+  module f16
+  spawn 46.90000 6.66580 9000 90.0 320     # 5.0 km ahead, 4.0 km above -> 38.7 deg at t=0
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off                         # radiates nothing: everything it reports was heard
+  set rwr on
+  wp 46.90000 7.00000 9000 320

@@ -85,7 +85,7 @@ private:
   /* Last completion time per target ordinal is what the same-switch window is measured against; a flat
    * array keeps it allocation-free and O(1). +1 for the None slot. */
   static constexpr int kTargetSlots = 32;
-  static_assert((int)FBCommandTarget::WeaponRelease < kTargetSlots, "widen kTargetSlots for new targets");
+  static_assert((int)FBCommandTarget::CmdsMode < kTargetSlots, "widen kTargetSlots for new targets");
   double LastActionS_[kTargetSlots]{};
   bool   HaveLastAction_[kTargetSlots]{};
 

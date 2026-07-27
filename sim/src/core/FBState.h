@@ -39,6 +39,8 @@ struct FBState {
   FBAirframeBlock    Airframe;
   FBWarningBlock     Warnings;
   FBRadarBlock       Radar;
+  FBRwrBlock         Rwr;
+  FBCmdsBlock        Cmds;
   FBDatalinkBlock    Datalink;
   FBBfmBlock         Bfm;
 };
