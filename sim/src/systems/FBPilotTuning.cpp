@@ -32,6 +32,12 @@ const Entry kParams[] = {
   {"pilot_gun_tol_frac",   FBPilotParam::GunFireTolFrac,     0.05,    1.0},
   {"pilot_bfm_ctrl_min_nm", FBPilotParam::BfmCtrlMinNm,      0.05,    5.0},
   {"pilot_bfm_ctrl_max_nm", FBPilotParam::BfmCtrlMaxNm,      0.05,   10.0},
+  /* The release moment's own offset from the computed cue, in seconds. The band is deliberately WIDE
+   * and SIGNED: this is the parameter a mission declares when it wants a WRONG delivery, so that the
+   * resulting miss can be measured against the computed one. +/-10 s at fighter speeds is a couple of
+   * kilometres either way — far past any real error and exactly the point. */
+  {"pilot_attack_bias_s",  FBPilotParam::AttackBiasS,      -10.0,   10.0},
+  {"pilot_attack_ccip_m",  FBPilotParam::AttackCcipTolM,     1.0, 2000.0},
 };
 } // namespace
 

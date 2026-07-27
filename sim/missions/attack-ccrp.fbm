@@ -1,0 +1,60 @@
+name attack-ccrp-1
+timeout 200
+
+# THE CCRP DELIVERY, end to end: the pilot flies a level laydown at a declared ground target, the fire
+# control computes when to let go, the round is released over the command bus on that cue, and the
+# target is destroyed by the burst its impact makes. `objective kill unit bunker` is what turns all of
+# that into a verdict — exit 0 only if the thing on the ground stopped standing.
+#
+# WHY LEVEL AND NOT A DIVE. FBAutopilot::Direct holds an altitude and steers to a point, so a straight
+# level run-in is a trajectory this simulator flies EXACTLY and repeatably. A 20-30 degree dive would be
+# the pilot fighting its own altitude hold the whole way down the chute, and every metre of miss would
+# then be an argument about the flying rather than a measurement of the delivery computation. A laydown
+# makes the release MOMENT the only variable — which is the point of the mission (and of its sibling
+# attack-late.fbm, where that moment is deliberately wrong).
+#
+# RUN THE MEASUREMENT WITH `--elev const`. With no `runway` line that provider is a flat 0 m base
+# everywhere (core/FBRunwayPlateauElevation), so the fire control's impact plane, the target's own
+# elevation and the ground the physics judge resolves the impact against are all the same number, and
+# the `stores DELIVERY` line's predErrM is purely what the COMPUTER got wrong: its coarse stored
+# ballistic table (core/FBStore.h's kMk82 Perf) against the vendored model's own Mach-dependent
+# aerodynamics. Run it on the default swiss DEM and it still flies and still kills — the prediction then
+# also carries the terrain difference between the ground under the JET (which is what a barometric
+# ranging solution knows) and the ground at the impact point, which is a real error of the real method.
+#
+# WHAT THE RUN PRODUCES, all in events.log:
+#   pilot ATTACK_RELEASE   the cue the pilot released on: time-to-release, along/cross error, bomb range
+#   sms RELEASE_SOLUTION   what the computer predicted, as it left the jet on the round
+#   stores IMPACT          where it actually landed, measured by the physics judge
+#   stores DELIVERY        the two put together: predErrM (computer) and aimErrM (delivery)
+#   damage DAMAGE/KILL     what the burst did to the bunker
+#
+# GEOMETRY: 19 km of straight run-in at 900 m and 450 KCAS, target dead ahead on the nose. The
+# altitude is a delivery decision and it is the one that matters most: every degree of track error at
+# release becomes a lateral miss proportional to the bomb's throw, and the throw is set by the height.
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.90000 6.80000  900 90.0 450       # due east at the target, co-track, 19 km out
+  set gear up
+  set fuel_pct 60
+  set datalink off                           # nothing here is an air engagement
+  set fcr_mode off
+  set store 3 mk82                           # left wing pylon
+  set store 7 mk82                           # its mirror — the second is never dropped: one pass
+  set brief_master_arm arm                   # entered over the bus once airborne, like every brief item
+  set task attack
+  set attack_mode ccrp
+  wp 46.90000 7.05000 900 450                # THE TARGET: the active steerpoint IS the aim point
+  wp 46.95000 7.20000 3000 400               # the egress point, flown after the break turn
+  # THE VERDICT IS THE TARGET, and nothing else: the run ends the tick the bunker stops being
+  # combat-effective. Deliberately NOT `objective waypoints` as well — a strike waypoint is a point you
+  # aim at from three kilometres away, not one you arrive at, and this jet releases well short of it and
+  # then turns away. attack-ccip.fbm is the mission that carries the pass through to its end.
+  objective kill unit bunker
+
+unit bunker
+  module target_soft                         # modules/ground: an unprotected installation, no FDM
+  team hostile
+  spawn 46.90000 7.05000 ground 90.0 0       # sits where the steerpoint is; heading = its long axis

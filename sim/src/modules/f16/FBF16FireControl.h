@@ -17,7 +17,18 @@
  * does: a fire-control computer works from a table, and the error between its prediction and the flown
  * result is a real property of every shot. The intercept mission measures exactly that error.
  *
- * (3) THE TARGET ESTIMATE the round is programmed with and then supported by. A radar contact is an
+ * (3) THE AIR-TO-GROUND DELIVERY SOLUTION (weapons.md §2.5's CCIP/CCRP): where the selected unguided
+ * store lands if the pickle is pressed now, and how far that point is from the designated one. The
+ * arithmetic is core/FBBallistics' — shared, because CCIP and CCRP are the same integration asked two
+ * questions and must not be able to disagree. What is FIRE CONTROL and therefore lives here is the
+ * three inputs the integration is fed with, all of them this jet's own conventions: the release state
+ * comes from the platform block, the AIM POINT is the active steerpoint (weapons.md §2.2 lists the
+ * steerpoint as the "pre-planned" delivery's sighting point), and the IMPACT PLANE is the steerpoint's
+ * own elevation — the 'B' ranging method this box already computes its slant range with, i.e. the same
+ * elevation-provider sample the radar altimeter reads and the mission's own ground truth is judged
+ * against. Nothing here queries terrain; a fire-control computer cannot.
+ *
+ * (4) THE TARGET ESTIMATE the round is programmed with and then supported by. A radar contact is an
  * echo with no velocity (core/FBRadarContact.h), and both the launch zone and the missile's midcourse
  * need to know where the target is GOING — so this box carries its own systems/FBBfmTrack, fed from the
  * LOCKED contact only, and publishes the result as an FBWeaponTargetState (core/FBWeaponUplink.h). The
@@ -34,6 +45,7 @@
 #ifndef FBF16FIRECONTROL_H
 #define FBF16FIRECONTROL_H
 
+#include "FBBallistics.h"
 #include "FBBfmTrack.h"
 #include "FBGun.h"
 #include "FBState.h"
@@ -68,6 +80,17 @@ public:
   /* The target estimate this box holds, for the SMS to program a round with and to radiate as the
    * midcourse uplink. Invalid whenever the radar has no lock the tracker could stand on. */
   const FBWeaponTargetState &TargetState() const { return Target_; }
+
+  /* ...and its unguided counterpart: the delivery solution the SMS stamps onto a bomb at release, so
+   * that what the computer predicted leaves the aircraft with the weapon (core/FBStore.h's
+   * FBReleaseSolution). Invalid whenever there is no air-to-ground solution to record.
+   *
+   * The DELIVERY MODE is set from outside (the module's `set attack_mode` line): it decides nothing
+   * about the arithmetic — both modes read the same solution — but it is what the release RECORD has to
+   * carry, because the mode is the statement of which of the two cues the pilot released on. */
+  const FBReleaseSolution &ReleaseSolution() const { return Solution_; }
+  void SetDeliveryMode(FBDeliveryMode m) { Mode_ = m; }
+  FBDeliveryMode DeliveryMode() const { return Mode_; }
 
   /* THE LAUNCH-ZONE INTEGRATION, a free static because it is pure arithmetic on a weapon's performance
    * table plus one engagement geometry — no member state, so a harness or a future intercept AI can
@@ -122,9 +145,15 @@ private:
    * estimate: the launch zone asks whether a missile would arrive, the funnel asks where the gun has to
    * point. `trk` is this box's own fused picture, already updated this tick. */
   void SolveGun(FBState &state, const fb_fdm_state &own, const FBGunSpec *gun, const FBBfmBlock &trk);
+  /* The air-to-ground half, split out for the same reason: a different question against a different
+   * kind of target. `selected` is the store the SMS has up; anything guided or absent leaves the
+   * solution invalid, which is the honest answer for a jet with no bomb on the selected station. */
+  void SolveGroundAttack(FBState &state, const fb_fdm_state &own, const FBStoreSpec *selected);
 
   FBBfmTrack Track_;                  /* this box's own fused picture of the locked contact */
   FBWeaponTargetState Target_{};
+  FBReleaseSolution Solution_{};
+  FBDeliveryMode Mode_ = FBDeliveryMode::Ccip;
 };
 
 } // namespace FlightBox

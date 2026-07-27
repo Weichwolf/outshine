@@ -61,8 +61,9 @@ JSB_HOST     := build/jsbsim-host
 # override; modules/f16 = the F-16's module (composes systems/ + its gain preset); fdm = the JSBSim
 # adapter (namespace FlightBox, ONE-TU JSBSim seam, one FBFdm per airframe — see fdm/FBFdm.h); terrain = the lean
 # terrain API (flat); modules/missile = the guided-weapon module (seeker/guidance/uplink);
+# modules/ground = the static ground-target module (a module with no FDM at all -- see its banner);
 # vendor/jsbsim/src = the JSBSim headers.
-INC_MODULES := -Isrc/core -Isrc/math -Isrc/render -Isrc/world -Isrc/units -Isrc/systems -Isrc/modules -Isrc/modules/f16 -Isrc/modules/f16/displays -Isrc/modules/stores -Isrc/modules/missile
+INC_MODULES := -Isrc/core -Isrc/math -Isrc/render -Isrc/world -Isrc/units -Isrc/systems -Isrc/modules -Isrc/modules/f16 -Isrc/modules/f16/displays -Isrc/modules/stores -Isrc/modules/missile -Isrc/modules/ground
 INC_WASM   := $(INC_MODULES) -Isrc/fdm -Isrc/terrain -I$(JSBSIM)/src
 INC_NATIVE := $(INC_MODULES) -Isrc/fdm -Isrc/terrain
 INC_TILES := -I../tiles/src
@@ -92,7 +93,7 @@ CORE_LIB_SRCS := \
   src/core/FBLog.cpp src/core/FBTelemetry.cpp src/core/FBMissionFile.cpp src/core/FBCommandBus.cpp src/core/FBStateBusTelemetry.cpp \
   src/core/FBRunwayPlateauElevation.cpp src/core/FBBakedDemElevation.cpp src/core/FBFlightMonitor.cpp \
   src/core/FBMissionMonitor.cpp src/core/FBSystemHealth.cpp src/core/FBDamageModel.cpp \
-  src/core/FBGunBallistics.cpp src/core/FBGunProjectiles.cpp \
+  src/core/FBGunBallistics.cpp src/core/FBGunProjectiles.cpp src/core/FBBallistics.cpp \
   src/systems/FBAutopilot.cpp src/systems/FBFlightControl.cpp src/systems/FBDisplaySystem.cpp \
   src/systems/FBAirDataSystem.cpp src/systems/FBRadarAltimeter.cpp src/systems/FBNavSystem.cpp \
   src/systems/FBAirframeControls.cpp src/systems/FBPilot.cpp src/systems/FBDatalinkSystem.cpp \
@@ -107,6 +108,7 @@ CORE_LIB_SRCS := \
   src/modules/f16/FBF16Pilot.cpp \
   src/modules/f16/FBF16ModuleRegistration.cpp \
   src/modules/stores/FBStoreModule.cpp src/modules/stores/FBStoreModuleRegistration.cpp \
+  src/modules/ground/FBGroundModuleRegistration.cpp \
   src/modules/missile/FBMissileModule.cpp src/modules/missile/FBMissileModuleRegistration.cpp \
   src/modules/missile/FBMissileSeeker.cpp src/modules/missile/FBMissileGuidance.cpp \
   src/modules/missile/FBMissileUplink.cpp \

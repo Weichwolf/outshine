@@ -130,6 +130,30 @@ protected:
   double InterceptBeamOffsetDeg() const override { return 90.0; }
   double InterceptChaffIntervalS() const override { return 3.0; }
   double InterceptDefendHoldS() const override { return 12.0; }
+
+  /* ATTACK (systems/FBPilot's Attack phase) — this jet's air-to-ground delivery numbers. None of them
+   * touches where the round goes; that is the fire control's, and the pilot only reads it.
+   *   AttackReleaseBiasS 0: release ON the computed cue. It is a hook, not a setting — a mission that
+   *     wants a wrong delivery declares one (`set pilot_attack_bias_s`), and the F-16 flies its passes
+   *     on the cue.
+   *   AttackCcipTolM 45: how far the predicted impact point may sit from the aim point and still be
+   *     "the pipper is on it". [DERIVED from what the weapon does, not picked]: a Mk-82's own fragment
+   *     pattern takes a soft installation out to ~25 m (modules/ground/FBGroundTarget.h) and degrades it
+   *     to ~45 m, so a pass whose pipper is further off than that is a pass that would achieve nothing —
+   *     which is exactly when a pilot does not pickle and comes round again.
+   *   AttackEgressTurnDeg 135: a check turn well past the beam, so the jet is opening from its own
+   *     detonation rather than flying along it. The F-16 holds this at the guidance's own bank limit.
+   *   AttackEgressClimbM 600 / AttackEgressRangeM 12000 / AttackEgressS 30: the leg is a place in the
+   *     world rather than a heading (systems/FBPilot's AttackCommands), so it needs a distance far
+   *     enough ahead that the turn is a turn and not an arrival, and a hold long enough to complete it
+   *     at this jet's turn rate — 135 deg at a 30 deg/s-limited roll and the standard bank limit is
+   *     comfortably inside 30 s. */
+  double AttackReleaseBiasS() const override { return 0.0; }
+  double AttackCcipTolM() const override { return 45.0; }
+  double AttackEgressTurnDeg() const override { return 135.0; }
+  double AttackEgressClimbM() const override { return 600.0; }
+  double AttackEgressRangeM() const override { return 12000.0; }
+  double AttackEgressS() const override { return 30.0; }
 };
 
 } // namespace FlightBox

@@ -27,6 +27,7 @@ void FBRegisterBuiltinModules() {
   FBRegisterF16Module();
   FBRegisterStoreModules();
   FBRegisterMissileModules();
+  FBRegisterGroundModules();
 }
 
 } // namespace FlightBox

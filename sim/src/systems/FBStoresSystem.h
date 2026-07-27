@@ -65,6 +65,12 @@ public:
    * Which BOX produced it is the module's business (the F-16's is modules/f16/FBF16FireControl), which
    * is why it arrives as data instead of this generic slot reaching for a concrete system. */
   void SetTargetState(const FBWeaponTargetState &t) { Target_ = t; }
+  /* ...and its unguided counterpart: the delivery solution the fire control currently holds
+   * (core/FBStore.h's FBReleaseSolution). Copied onto a bomb at release exactly as the target estimate
+   * is copied onto a guided round, and for the same reason — the prediction has to leave the aircraft
+   * with the weapon so it can be measured against the impact. The SMS neither computes nor questions
+   * it; which BOX produced it is the module's business. */
+  void SetReleaseSolution(const FBReleaseSolution &s) { Solution_ = s; }
   /* Who this aircraft is, so a launched round knows whose uplink to listen to (FBModule::SetUnitIdentity
    * -> the module wires it, exactly like the radar's and the terminal's identity). */
   void SetUnitId(int id) { SelfId_ = id; }
@@ -121,6 +127,7 @@ private:
    * from a tick — can refuse a shot outside it without reaching for the bus itself. */
   int SelfId_ = 0;
   FBWeaponTargetState Target_{};
+  FBReleaseSolution Solution_{};
   FBWeaponUplink Uplink_{};
   bool   HaveZone_ = false, InZone_ = false;
   double ZoneRangeM_ = 0.0, ZoneMinM_ = 0.0, ZoneMaxM_ = 0.0, ZoneRtrM_ = 0.0;

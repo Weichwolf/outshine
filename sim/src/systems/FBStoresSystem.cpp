@@ -159,6 +159,10 @@ bool FBStoresSystem::Release(double nowS, FBCommandOutcome &outcome, FBCommandRe
     rel.LauncherId = SelfId_;
     rel.Target = Target_;
     GuidedInFlight_++;
+  } else {
+    /* The unguided half of the same programming: an UNGUIDED round is aimed by the computer, not by a
+     * seeker, so what leaves with it is the solution it was aimed with (see SetReleaseSolution). */
+    rel.Solution = Solution_;
   }
 
   /* The gross weight AT the release, i.e. before this change reaches the engine: FGMassBalance sums the
@@ -190,6 +194,16 @@ bool FBStoresSystem::Release(double nowS, FBCommandOutcome &outcome, FBCommandRe
         {"ttaS", ZoneTtaS_}, {"ttiS", ZoneTtiS_},
         {"tgtLat", Target_.LatDeg}, {"tgtLon", Target_.LonDeg}, {"tgtAltM", Target_.AltM},
         {"tgtAgeS", nowS - Target_.StampS}});
+  /* ...and the unguided one's, for the same reason and in the same shape: what the computer PREDICTED
+   * at the instant of the pickle. The runner puts it beside the impact it then measures. */
+  if (rspec && !rspec->Guided && rel.Solution.Valid)
+    FBLog::Info("sms", "RELEASE_SOLUTION", {{"store", spec ? spec->Key : "?"},
+        {"mode", FBDeliveryModeStr(rel.Solution.Mode)},
+        {"predLat", rel.Solution.ImpactLatDeg}, {"predLon", rel.Solution.ImpactLonDeg},
+        {"planeM", rel.Solution.ImpactElevM}, {"predTofS", rel.Solution.TofS},
+        {"aimLat", rel.Solution.AimLatDeg}, {"aimLon", rel.Solution.AimLonDeg},
+        {"aimMissM", rel.Solution.AimMissM}, {"armMarginS", rel.Solution.ArmMarginS},
+        {"solAgeS", nowS - rel.Solution.StampS}});
   return true;
 }
 

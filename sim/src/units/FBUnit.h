@@ -22,7 +22,14 @@ class FBUnitRegistry;
  * any other unit (units/FBSimUnit) — the KIND exists because two things about it differ and both are
  * the owner's business, not the unit's: its physical K.O. is a detonation rather than the end of the
  * run, and it is not something another unit's air-to-air sensors are looking for. */
-enum class FBUnitKind { Aircraft, Weapon };
+/* Ground = a static object on the surface: a target, and one day whatever else stands still. It is a
+ * kind for the same shape of reason Weapon is — two things about it differ and both are the OWNER's
+ * business, not the unit's: it has no airframe to be judged by the physics monitor (it is not flying,
+ * so there is nothing for FBFlightMonitor to conclude), and it is not something another unit's
+ * AIR-to-air sensors are looking for. What it IS is a full participant everywhere else: it appears in
+ * the mission roster, it carries a health register, and a weapon burst is resolved against it through
+ * the same core/FBDamageModel as against any aircraft. */
+enum class FBUnitKind { Aircraft, Weapon, Ground };
 
 struct FBUnitPose {
   double LatDeg = 0.0, LonDeg = 0.0, ElevM = 0.0;   /* geodetic, m ASL */

@@ -34,6 +34,29 @@
  * can actually buy (BfmCornerSpeedKt & co. below). See Run()'s BFM section for the full derivation. It
  * is entered by mission declaration, not by sequencing, and it never leaves by itself.
  *
+ * Phase ATTACK (the air-to-ground delivery, doc/f16/weapons.md §2.5): the only phase whose decision is
+ * a MOMENT rather than a trajectory. It has three parts and the middle one lasts one tick:
+ *   RUN-IN   FBAutopilot::Direct to the active waypoint at ITS declared altitude and speed — i.e. a
+ *            level laydown attack. That is a deliberate profile choice and the reason is the guidance
+ *            this simulator has: Direct holds an altitude and steers to a point, so a straight, stable,
+ *            level run-in is something it flies EXACTLY, while a 20-30 degree dive would be the pilot
+ *            fighting its own altitude hold all the way down the chute. A level delivery is also what
+ *            makes the release cue the only variable under test: the run-in is repeatable to the metre,
+ *            so every metre of miss belongs to the computation or to the moment, not to the flying.
+ *   RELEASE  one pickle, over the command bus, on the fire control's own cue (the FBFireControlBlock's
+ *            air-to-ground fields — modules/f16/FBF16FireControl solves them, this class only reads
+ *            them, like every other instrument). WHICH cue is the briefed delivery mode: CCRP releases
+ *            when the solution cue passes (time-to-release <= 0), CCIP additionally insists that the
+ *            predicted impact point is laterally ON the target (|AgCrossErrM| inside the tolerance),
+ *            which is what a pilot with the pipper in view can see and a countdown cannot. Both are gated
+ *            on the arming margin, so a release that would arrive as a dud is not made.
+ *   EGRESS   a check turn away from the run-in track with a climb, held for a fixed time, then back to
+ *            Route. It is not decoration: a level delivery flies the aircraft over its own detonation,
+ *            and turning away is what the profile is.
+ * Every number in it is an airframe/pilot hook below (AttackReleaseBiasS & co.), so a mission can bias
+ * the release moment by a declared number of seconds — which is how the computation is proved to be
+ * doing something: the same profile released two seconds late lands a groundspeed's worth of metres long.
+ *
  * Phase INTERCEPT (the beyond-visual-range engagement): BFM's opposite in every respect that matters.
  * BFM is flown with the nose and the lock never leaves the target; an intercept is flown with the
  * SENSOR and the whole art is deciding when to point it, when to shoot, how long to keep supporting the
@@ -81,6 +104,7 @@
 #include "FBPilotTuning.h"
 #include "FBRunway.h"
 #include "FBState.h"
+#include "FBStore.h"
 #include "FBTelemetry.h"
 #include "FBFdm.h"
 
@@ -114,9 +138,13 @@ class FBPilot : public FBTelemetrySource {
 public:
   /* Bfm is a TERMINAL phase in the sense the others are not: it is entered by mission declaration
    * (`set task bfm`, the module's own key) and left only by the run ending — a fight has no waypoint to
-   * sequence to. It appends after Shutdown so no existing phase's telemetry string moves. */
+   * sequence to. It appends after Shutdown so no existing phase's telemetry string moves.
+   *
+   * Attack is the AIR-TO-GROUND delivery (see the Run() section): entered by declaration like the two
+   * above, but unlike them it ENDS — a bombing pass has a run-in, one moment, and a way out, after
+   * which the jet is back on its route. Appended last, same rule. */
   enum class Phase { Idle, Preflight, Takeoff, Climb, Route, Approach, Flare, Rollout, Shutdown, Bfm,
-                     Intercept };
+                     Intercept, Attack };
   static const char *PhaseName(Phase p);
 
   FBPilot() = default;
@@ -172,6 +200,13 @@ public:
    * button is not flying the brief. */
   static constexpr int kMaxBriefedReleases = 8;
   bool BriefRelease(double atS);
+
+  /* THE ATTACK BRIEF: which delivery mode the pass is flown in (core/FBStore.h's FBDeliveryMode). Unlike
+   * the items above it is not entered into a box over the bus — it is what the PILOT decides to act on,
+   * and the fire control publishes both cues regardless. The module sets the same mission line on its
+   * own fire control too, so the release RECORD says which cue the round was let go on. */
+  void BriefAttack(FBDeliveryMode m) { AtkMode_ = m; }
+  FBDeliveryMode AttackMode() const { return AtkMode_; }
 
   /* THE COUNTERMEASURE BRIEF: throw the selected dispense program at `atS` mission-elapsed seconds, one
    * entry per throw, in brief order. Identical in shape and reasoning to BriefRelease — an ACTION at a
@@ -314,6 +349,27 @@ protected:
   /* Below this the engagement is no longer beyond visual range: an intercept has failed to do its job
    * and pressing on is a merge, not a shot. */
   virtual double InterceptAbortRangeNm() const { return 5.0; }
+
+  /* ---- ATTACK (the Attack phase, see the class banner) — this jet's air-to-ground delivery numbers ----
+   * Generic placeholders again, and again not the override point. Everything about WHERE the round goes
+   * is the fire control's; these are only about the pilot's own hands and its way out.
+   *
+   * THE BIAS is the phase's measurement instrument, and it is a number rather than a switch on purpose:
+   * a delivery released `bias` seconds after the computed cue lands one groundspeed-second per second
+   * long, so a mission can declare a wrong release and the resulting miss is the computation's own
+   * answer to "does this do anything". 0 = release on the cue, which is every real pass. */
+  virtual double AttackReleaseBiasS() const { return 0.0; }
+  /* HOW FAR BESIDE THE TARGET the predicted impact point may sit and still be "pipper on": the
+   * ACROSS-track half of the aiming error at the moment the cue passes. Only the across half, because the
+   * along half is what the cue itself is about — it is deliberately non-zero when the button goes down.
+   * It is the judgement a CCRP countdown cannot make, and the reason the two modes are not one release. */
+  virtual double AttackCcipTolM() const { return 60.0; }
+  /* THE WAY OUT: how far off the run-in track to break, how high to go, how far ahead the turn is aimed
+   * and how long it is held before the jet is back on its route. */
+  virtual double AttackEgressTurnDeg() const { return 120.0; }
+  virtual double AttackEgressClimbM() const { return 500.0; }
+  virtual double AttackEgressRangeM() const { return 12000.0; }
+  virtual double AttackEgressS() const { return 25.0; }
   /* THE DEFENCE: how far across the threat's line of sight to turn (90 deg = pure beam, where own
    * radial velocity is zero and a pulse-Doppler set cannot tell the aircraft from a chaff cloud) and how
    * often to keep throwing while it lasts. */
@@ -343,6 +399,10 @@ private:
   /* The fight's trigger finger (see the .cpp). Separate from the flying above for the same reason the
    * intercept's cockpit work is: operating a weapon is not steering. */
   void BfmGunfire(const FBState &state, FBCommandBus &avionics);
+  /* The Attack phase's body (class banner). Separate for the same reason the two above are: it decides
+   * for itself what the aircraft is doing and it operates a weapon as part of flying. */
+  FBPilotCommands AttackCommands(const FBState &state, FBCommandBus &avionics, const fb_fdm_state &st,
+                                 const FBFlightPlan &plan);
   /* The Intercept phase's body (class banner). Separate for the same reason BfmCommands is: it is the
    * only other phase that decides for itself what the aircraft is doing, and the only one that operates
    * avionics as part of flying rather than as briefed cockpit work. */
@@ -396,6 +456,13 @@ private:
   double BfmSearchHdgDeg_ = 0.0;  /* the cold search's anchored heading + altitude (see BfmCommands) */
   double BfmSearchAltM_ = 0.0;
   bool   BfmSearchAnchored_ = false;
+  /* ---- the Attack phase's own memory ---- */
+  FBDeliveryMode AtkMode_ = FBDeliveryMode::Ccip;
+  bool   AtkReleased_ = false;    /* the pass is spent: one pickle per declared attack */
+  bool   AtkInRangeSeen_ = false; /* the cue has been positive at least once (see AttackCommands) */
+  double AtkEgressUntilS_ = 0.0;  /* the break turn's own clock, absolute */
+  double AtkEgressLatDeg_ = 0.0, AtkEgressLonDeg_ = 0.0, AtkEgressAltM_ = 0.0;
+
   double GunNextS_ = -1e9;        /* not before the burst already commanded has finished */
   bool   GunTracking_ = false;    /* flying the funnel (see BfmCommands) — logged on the transition */
   double GunPrevErrDeg_ = 0.0, GunPrevS_ = 0.0;   /* the aiming error's rate (see BfmGunfire's lead) */

@@ -19,10 +19,6 @@ namespace {
  * infinity. */
 constexpr double kWeaponNoGroundElevM = -100000.0;
 
-FBFdm &RequireFdm(const std::unique_ptr<FBFdm> &fdm) {
-  assert(fdm && "FBSimUnit needs a spawned airframe (FBFdmBoot::Spawn)");
-  return *fdm;
-}
 } // namespace
 
 FBSimUnit::FBSimUnit(int id, std::string name, FBUnitKind kind, FBUnitTeam team,
@@ -33,7 +29,7 @@ FBSimUnit::FBSimUnit(int id, std::string name, FBUnitKind kind, FBUnitTeam team,
       Module_(std::move(module)),
       St_(initialState),
       GroundAslM_(groundAslM),
-      FdmSrc_(RequireFdm(Fdm_), St_, GroundAslM_),
+      FdmSrc_(Fdm_.get(), St_, GroundAslM_),
       BusSrc_(Module_->Telemetry()),
       HealthSrc_(Health_) {
   assert(Module_ && "FBSimUnit needs the module that flies the airframe");
@@ -76,7 +72,7 @@ void FBSimUnit::Run(double dt, const FBUnitRegistry *units, const FBWorld *world
 void FBSimUnit::UpdateGroundAsl(double sampleM) {
   if (FBElevationResolved(sampleM)) GroundAslM_ = sampleM;
   Module_->SetGroundAsl((float)GroundAslM_);
-  Fdm_->SetGroundElevM(GetKind() == FBUnitKind::Weapon ? kWeaponNoGroundElevM : GroundAslM_);
+  if (Fdm_) Fdm_->SetGroundElevM(GetKind() == FBUnitKind::Weapon ? kWeaponNoGroundElevM : GroundAslM_);
 }
 
 /* The module's bus with THIS frame's pose folded in: the module publishes the platform block at its own
@@ -110,6 +106,9 @@ FBDamageResult FBSimUnit::TakeKineticBurst(const FBKineticBurst &burst) {
 /* Health -> physics (core/FBDamageModel's consequence constants). Idempotent and called only when the
  * register changed: nothing here is per-frame work. */
 void FBSimUnit::ApplyDamageToAirframe() {
+  /* No airframe, no physics to push it into: a wrecked ground target is wrecked in its register and
+   * nowhere else, which is the whole of what "destroyed" means for something that never moved. */
+  if (!Fdm_) return;
   switch (Health_.State(FBSystemId::Engine)) {
     case FBHealthState::Failed:
       Module_->Controls().EngineCutoff();   /* through the same controls path a pilot would use */
@@ -135,7 +134,7 @@ void FBSimUnit::ApplyDamageToAirframe() {
 FBMissionMonitorSample FBSimUnit::BuildMissionSample(const FBMissionRoster &roster) const {
   FBMissionMonitorSample s;
   s.LatDeg = St_.lat; s.LonDeg = St_.lon;
-  s.AnyWow = Fdm_->GetWow();
+  s.AnyWow = Fdm_ ? Fdm_->GetWow() : true;   /* a unit with no airframe is on the ground, by definition */
   s.GroundSpeedKt = St_.gs * kMsToKt;
   s.CombatIneffective = !Health_.CombatEffective();
   s.Roster = roster;
@@ -147,7 +146,11 @@ bool FBSimUnit::FinalizeMission(double simT, const FBMissionRoster &roster) {
 }
 
 bool FBSimUnit::RunMonitors(double simT, const FBMissionRoster &roster) {
-  if (Flight_.Tick(FBBuildFlightMonitorSample(*Fdm_, St_, GroundAslM_), simT)) {
+  /* THE PHYSICS JUDGE ONLY JUDGES PHYSICS. Without an airframe there is no flight to lose control of
+   * and no structure to break — every input the monitor takes is an FDM observation — so a unit that
+   * does not fly is simply never shown to it. Its MISSION judge below is untouched: what a static unit
+   * has to achieve, if anything, is still judged exactly as every other unit's is. */
+  if (Fdm_ && Flight_.Tick(FBBuildFlightMonitorSample(*Fdm_, St_, GroundAslM_), simT)) {
     Module_->Controls().EngineCutoff();
     return true;
   }

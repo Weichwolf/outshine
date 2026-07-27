@@ -16,6 +16,17 @@
  * unit hands out is borrowed (`const&`/`*`), and the telemetry SINK stays with the client (file I/O is
  * app/'s, core/ stays I/O-free).
  *
+ * THE AIRFRAME IS OPTIONAL — the one thing about a unit that is not universal. Everything else here is:
+ * a unit has an identity, a team, a published pose, a health register, two judges and a telemetry trace
+ * whether or not something flies it. A STATIC GROUND TARGET (modules/ground/FBGroundModule) has no
+ * flight dynamics and therefore no FBFdm, and the alternative — inventing a JSBSim airframe for a
+ * bunker so that this class could keep asserting one — would have meant integrating a made-up
+ * aerodynamic object at 100 Hz to reproduce the position it was spawned at. So the pointer may be null,
+ * in exactly the six places where a unit's behaviour genuinely depends on having an airframe (the FDM
+ * step, the ground-elevation push, the physics judge's sample, the weight-on-wheels observation, the
+ * damage-to-physics push, and two telemetry columns). A unit with no airframe holds the pose its
+ * declarative spawn gave it, forever, which is what a target on the ground does.
+ *
  * ANTI-CHEAT (CLAUDE.md "Kein Cheaten") is unweakened by the bundling: an FBSimUnit can only be
  * constructed from an already-spawned FBFdm, and the only producer of one is fdm/FBFdmBoot (app/-only),
  * so nothing under systems/ or modules/ can build a unit, reach a monitor, or re-place an airframe —
@@ -67,7 +78,8 @@ public:
   /* `fdm` must be a spawned, trimmed airframe (fdm/FBFdmBoot::Spawn) and `module` an already
    * AttachFdm'd module flying it — the boot sequence that produces both lives in app/FBMissionBoot.h,
    * the one place allowed to name the IC header. `initialState` is the state that boot left behind
-   * (the declarative spawn position, before the first step). */
+   * (the declarative spawn position, before the first step). A NULL `fdm` is legal and means exactly
+   * one thing: this unit has no flight dynamics (see the banner). */
   FBSimUnit(int id, std::string name, FBUnitKind kind, FBUnitTeam team, std::unique_ptr<FBFdm> fdm,
             std::unique_ptr<FBModule> module, const fb_fdm_state &initialState, double groundAslM);
 
@@ -110,7 +122,8 @@ public:
 
   /* ---- state + ground truth ---- */
   const fb_fdm_state &State() const { return St_; }
-  const FBFdm &Fdm() const { return *Fdm_; }              /* read-only handle, see FBFdm.h */
+  const FBFdm *Fdm() const { return Fdm_.get(); }         /* read-only handle, see FBFdm.h; null = no
+                                                           * airframe (the banner) */
   FBModule &Module() { return *Module_; }
   const FBModule &Module() const { return *Module_; }
   /* The module's Displays slot as the renderer wants it (FBRenderer::SetHudDisplay takes a const
@@ -131,8 +144,9 @@ public:
   FBState HudState() const;
 
   /* One FDM step to fill the shared state before the first frame reads pose/HUD (boot only; the module
-   * drives every step after that). */
-  void PrimeState() { Fdm_->Step(St_); PublishPose(); }
+   * drives every step after that). Nothing to step without an airframe — the spawn pose is already the
+   * whole truth about such a unit. */
+  void PrimeState() { if (Fdm_) Fdm_->Step(St_); PublishPose(); }
 
   /* ---- battle damage ----
    * The unit owns its health register (core/FBSystemHealth) for the same reason it owns its two judges:

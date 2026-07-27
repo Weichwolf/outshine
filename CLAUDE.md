@@ -394,6 +394,15 @@ sim/src/
              Arithmetik für das Feuerleitsystem VOR dem Schuss und die Geschosse DANACH, weil ein
              ungelenktes Geschoss genau diese Bahn fliegt), FBGunProjectiles (der Bündel-Pool des
              Klienten: fixe Kapazität, keine Allokation, kein Zufall — FBDamageModels Geschwister),
+             FBBallistics (`.h/.cpp`, das GETEILTE Primitiv der beiden Luft-Boden-Abwurfverfahren: EINE
+             Vorwärts-Integration der Ballistiktabelle eines ungelenkten Stores gegen eine ebene
+             Aufschlagfläche — CCIP fragt sie „wo landet sie, wenn ich jetzt auslöse", CCRP fragt dieselbe
+             Antwort „wann muss ich auslösen", projiziert auf den aktuellen Bodenkurs; damit können Pipper
+             und Freigabe-Countdown nicht auseinanderlaufen. Bewusst NICHT die Aerodynamik, die die Bombe
+             dann fliegt: ein Feuerleitrechner führt eine gespeicherte Tabelle, und die Differenz zwischen
+             beiden ist eine echte Eigenschaft jedes Abwurfs — die Angriffsmissionen messen sie, statt sie
+             wegzurechnen. Die Aufschlagfläche wird ÜBERGEBEN, nie nachgeschlagen: diese Datei kennt kein
+             Gelände),
              der Elevation-Hook (FBElevationProvider/FBConstantElevation/FBRunwayPlateauElevation/
              FBBakedDemElevation, s.o.), gemeinsame Basistypen — zeigt NIE nach systems/ oder
              modules/. Zwei getrennte Kanäle für alles, was sonst verstreutes printf/fprintf wäre:
@@ -465,11 +474,19 @@ sim/src/
              FBTilesElevation (der Elevation-Hook-Provider auf fb_stream_ground, s.o. — NICHT
              Teil der Core-Lib)
   units/     FBUnit-Basisschnittstelle + FBSimUnit + FBUnitRegistry (Details s.u., nach dem
-             Verzeichnisbaum). `FBUnitKind` unterscheidet Aircraft und Weapon: eine abgefeuerte Waffe
+             Verzeichnisbaum). `FBUnitKind` unterscheidet Aircraft, Weapon und Ground: eine abgefeuerte Waffe
              ist strukturell dieselbe Einheit (eigene FDM-Instanz, eigenes Modul, gleiche Monitore) —
              die KIND-Unterscheidung existiert nur für die zwei Dinge, die dem BESITZER gehören: ihr
              physikalisches K.O. ist eine Detonation und beendet den Lauf nicht, und Luft-Luft-Sensoren
-             suchen keine Bomben.
+             suchen keine Bomben. Ground ist aus demselben Grund ein eigenes Kind: ein statisches
+             Bodenziel hat KEINE Flugdynamik, wird also nie dem Physik-Monitor gezeigt und von keinem
+             Luft-Luft-Sensor gesucht — und ist überall sonst eine volle Einheit (Roster,
+             Gesundheitsregister, Schadensmodell, eigene Telemetriedatei). Genau daran hängt die EINE
+             Ausnahme in FBSimUnit: das AIRFRAME ist optional (`std::unique_ptr<FBFdm>` darf null sein).
+             Eine Einheit MIT Airframe wird von JSBSim getaktet, eine OHNE hält die Pose ihres
+             deklarativen Spawns — die Alternative wäre gewesen, einem Bunker ein erfundenes
+             JSBSim-Modell zu geben und es bei 100 Hz zu integrieren, um die Position zu reproduzieren,
+             an der er gespawnt wurde.
   systems/   die generischen, airframe-agnostischen System-Slots eines Moduls — Interface + Default
              in EINER Klasse, ein Modul überschreibt per Ableitung (Zahlen-Tuning bleibt Preset/
              Config, keine leere Ableitung dafür):
@@ -549,7 +566,12 @@ sim/src/
                die der Besitzer leert, weil das Erzeugen eines FDM hinter fdm/FBFdmBoot.h liegt.
                Ausgelöst wird ausschließlich über den Kommandobus (`WeaponRelease`), also ablehnbar:
                Master Arm nicht ARM / Gewicht auf dem Fahrwerk = hardware_precedence, keine belegte
-               Station = out_of_context;
+               Station = out_of_context. Eine GELENKTE Runde bekommt beim Start die Zielschätzung der
+               Feuerleitung mit, eine UNGELENKTE die ABWURFLÖSUNG (`core/FBStore.h`s
+               FBReleaseSolution: vorhergesagter Aufschlagpunkt, Flugzeit, Zielpunkt, Schärfreserve) —
+               aus demselben Grund: die Vorhersage muss den Jet MIT der Waffe verlassen, damit der
+               Besitzer der Simulation sie neben den gemessenen Aufschlag legen und den Fehler beziffern
+               kann (`stores DELIVERY`);
                FBGunSystem (`.h/.cpp`): der Bordkanonen-Slot und FBStoresSystem's Geschwister — Trommel,
                Feuerrate, Verriegelungen, der EINE Weg, auf dem Schüsse das Flugzeug verlassen. Er
                unterscheidet sich vom SMS genau dort, wo die Waffen sich unterscheiden: ein Store geht
@@ -562,7 +584,14 @@ sim/src/
                am Boden = hardware_precedence, leere Trommel = depleted. Und sie wertet NIE einen eigenen
                Treffer: ein Feuerstoß legt `FBGunBurst`-Sätze in eine Warteschlange, die der Besitzer der
                Simulation leert, fliegt (core/FBGunProjectiles) und gegen die veröffentlichten Posen
-               auflöst — dieselbe Grenze wie beim Näherungszünder;
+               auflöst — dieselbe Grenze wie beim Näherungszünder. Der BODENAUFSCHLAG eines Stores ist
+               die dritte Instanz derselben Grenze: schlägt eine Bombe auf, löst der RUNNER ihren
+               Gefechtskopf gegen die Bodenziele in der Nähe auf, durch dasselbe core/FBDamageModel wie
+               eine Rakete neben einem Jet — der Durchstosspunkt sub-Tick rekonstruiert (der Store hat
+               keine Bodenkontaktkräfte, fliegt also ballistisch weiter; Tiefe/Sinkrate zurück), weil
+               der 0,1-s-Tick sonst ~20 m Horizontalweg unterschlägt. Gegen FLUGZEUGE wird ein
+               Bodenburst bewusst NICHT aufgelöst (die Splittergeometrie gegen eine Zelle gibt es
+               nicht; ein erfundener Radius wäre eine Zahl, die sich als Physik ausgibt);
                FBRwrSystem (eigene Datei, `FBRwrSystem.h/.cpp`): die PASSIVE Hälfte des Defensiv-Slots
                und das exakte Spiegelbild des Radars — nicht „was ist da draußen", sondern „wer schaut
                mich an". Sie liest ausschließlich die publizierten Emissions-Signaturen der Registry
@@ -609,7 +638,18 @@ sim/src/
                Latenzklasse der jeweiligen Bedienung und mit dem Risiko, abgelehnt zu werden. Ohne
                Brief bedient er nichts. Die Phasen-Zustandsmaschine (Idle/Preflight/Takeoff/Climb/Route/
                Approach/Flare/Rollout/Shutdown, doc/f16/procedures-*.md) ist das Prozedur-Gerüst; Run()
-               ist der Override-Punkt (analog FBAutopilot::Run). Die Phase **Bfm** (Missionsdaten:
+               ist der Override-Punkt (analog FBAutopilot::Run). Die Phase **Attack** (Missionsdaten:
+               `set task attack` + `set attack_mode ccip|ccrp`) ist die einzige, deren Entscheidung ein
+               MOMENT ist statt einer Bahn: Anflug (Direct auf den aktiven Steerpoint, auf DESSEN Höhe/
+               Speed — ein waagerechter Laydown, weil genau diese Bahn die vorhandene Guidance exakt und
+               wiederholbar fliegt und damit der Abwurfmoment die einzige Variable bleibt), EIN Pickle
+               über den Kommandobus auf den Cue des FireControl-Blocks (CCRP: Freigabe-Countdown
+               <= 0; CCIP: derselbe Moment UND das Pipper seitlich auf dem Ziel — die Entscheidung, die
+               ein Countdown nicht treffen kann), dann Abdrehen (Ausweichkurve + Steigflug, danach
+               zurück in Route). Der Pickle wird um die eigene Betätigungslatenz VORGEHALTEN
+               (`FBCommandBus::LatencyS`) — der echte Jet löst denselben Effekt andersherum, indem der
+               Pilot hält und das FLUGZEUG auslöst. Der Pilot rechnet keine Ballistik: er liest den
+               Block wie jedes andere Instrument. Die Phase **Bfm** (Missionsdaten:
                `set task bfm`) ist die einzige mit EIGENEM Regelgesetz statt eines Autopilot-Modus: sie
                fliegt Manual-Stick (wie Takeoff/Flare/Rollout), rollt den Auftriebsvektor auf einen
                Zielpunkt und zieht das g, das den Geschwindigkeitsvektor in kBfmTurnTimeS auf ihn dreht
@@ -788,7 +828,13 @@ sim/src/
                          einer gespeicherten Tabelle, und der Fehler dieser Vorhersage ist eine echte
                          Eigenschaft jedes Schusses, die die Abfangmission misst] gegen die aktuelle
                          Radargeometrie: Raero/Rtr/Rmin + Zeit bis Suchereinschaltung und bis Einschlag,
-                         alles im FireControl-Block; dazu ein EIGENER systems/FBBfmTrack, der aus dem
+                         alles im FireControl-Block; PLUS der LUFT-BODEN-Abwurflösung (CCIP/CCRP) aus
+                         core/FBBallistics — Aufschlagpunkt, Freigabe-Countdown, Längs-/Querfehler und
+                         die Schärfzeit-Reserve, ebenfalls im FireControl-Block. Ballistik ist geteilt,
+                         FEUERLEITUNG ist hier: die drei Eingaben sind Konventionen DIESES Jets (der
+                         Abwurfzustand aus dem Platform-Block, der Zielpunkt = der aktive Steerpoint,
+                         die Rechenebene = dessen Elevation, also die 'B'-Entfernungsquelle und damit
+                         derselbe Elevation-Provider-Wert, den auch der Radarhöhenmesser liest); dazu ein EIGENER systems/FBBfmTrack, der aus dem
                          gelockten Kontakt die Zielschätzung baut, mit der der SMS eine Runde programmiert
                          und die er danach als Lenkfunk aussendet), FBF16Ufc (ALOW-Floor + gewählte
                          Steerpoint-Nummer), FBF16Sms (der SMS: NUR die Pylon-Geometrie dieses Musters
@@ -821,6 +867,19 @@ sim/src/
                          des Stores. Eine GELENKTE Waffe ist ein anderes Modul (modules/missile, s.u.),
                          kein Flag auf diesem — welche der beiden ein Eintrag ist, sagt sein `Guided`-Flag,
                          gelesen an genau je einer Stelle in den beiden Registrierungsdateien.
+  modules/ground/        FBGroundTarget.h (der Katalog: eine Wertetyp-Zeile je Zielklasse, heute
+                         `target_soft` und `target_hard` — Schadenslayout + Fragilitätsschwellen, kein
+                         Verhalten, genau wie core/FBStore.h für einen Store) + FBGroundModule (`.h`) +
+                         FBGroundModuleRegistration.cpp: das Modul eines STATISCHEN BODENZIELS. Es ist
+                         modules/stores' FBStoreModule minus eine Sache statt plus einer: eine
+                         abgeworfene Bombe hat keinen Piloten, integriert aber; dies hat nicht einmal
+                         das. Sein Run() ist leer und sein `FdmModelName()` ist LEER — genau daran
+                         erkennt die Spawn-Bahn (app/FBMissionBoot.h), dass hier kein Airframe zu laden
+                         ist, und `FBModule::UnitKind()` sagt, was für eine Welt-Entität daraus wird.
+                         Das einzige Nicht-Default an ihm ist `DamageLayout()`: WO seine Struktur sitzt
+                         und wie viel Energie sie aushält — dieselbe Tabelle, die
+                         modules/f16/FBF16Damage für die Zelle liefert, damit EIN Schadensmodell beide
+                         beantwortet. EINE Klasse, N Registry-Namen, wie bei den Stores.
   modules/missile/       Das Gegenstück für einen LENKFLUGKÖRPER, heute die AIM-120 (`aim120`):
                          FBMissileModule (`.h/.cpp`) + FBMissileModuleRegistration.cpp, plus die drei
                          Slots, die eine Bombe nicht hat und die hier ECHTE Systeme sind:

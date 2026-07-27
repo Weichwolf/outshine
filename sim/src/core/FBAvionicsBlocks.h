@@ -146,6 +146,33 @@ struct FBFireControlBlock {
   float GunTolDeg = 0.0f;        /* the funnel's own aiming tolerance at this range (see GunInFunnel) */
   bool  GunInRange = false;      /* inside the funnel's own range window */
   bool  GunInFunnel = false;     /* in range AND the nose is inside the lead solution's own tolerance */
+
+  /* ---- THE AIR-TO-GROUND DELIVERY SOLUTION (doc/f16/weapons.md §2.5's CCIP/CCRP), the FOURTH product
+   * of the same box, under the same head and for the same reason as the two above: it fuses the nav and
+   * platform blocks and goes invalid when they do. AgValid says whether there is a SOLUTION — an
+   * aircraft with no unguided store selected still publishes its fire-control block.
+   *
+   * ONE integration (core/FBBallistics.h), two questions. The IMPACT POINT is the CCIP pipper: where the
+   * selected round lands if the pickle is pressed now. The three ERRORS are that point measured against
+   * the designated aim point along the current ground track, which is what CCRP's Solution Cue counts
+   * down. A consumer picks the mode by which numbers it reads, not by asking this box to be in one.
+   *
+   * The impact point is the one place on this bus carrying geodetic DOUBLES: at 1e-5 deg a float is a
+   * metre, and a metre is the quantity the whole solution is measured in. */
+  bool   AgValid = false;
+  double AgImpactLatDeg = 0.0, AgImpactLonDeg = 0.0;
+  float  AgImpactElevM = 0.0f;    /* the plane it was solved against, m ASL (the ranging source's) */
+  float  AgTofS = 0.0f;           /* time of fall from a release now */
+  float  AgRangeM = 0.0f;         /* horizontal aircraft -> impact point: the bomb's own range */
+  float  AgAlongErrM = 0.0f;      /* + = the round falls SHORT of the aim point; 0 = release now */
+  float  AgCrossErrM = 0.0f;      /* + = it falls RIGHT of it — the steering-line error */
+  float  AgMissM = 0.0f;          /* the two combined: the pipper's distance from the aim point */
+  float  AgTimeToReleaseS = 0.0f; /* AgAlongErrM at the current groundspeed; <= 0 = the cue has passed */
+  float  AgArmMarginS = 0.0f;     /* fall time left once the fuze's arming delay has run; < 0 = a dud */
+  /* THE IN-RANGE CUE: the aim point can still be hit from here — it is beyond the current impact point
+   * (the release moment has not gone past) AND a release now would arm before arrival. Both halves are
+   * the guide's own two conditions for a valid delivery, expressed as the one bit a decision reads. */
+  bool   AgInRange = false;
 };
 
 /* ---- UFC/DED entered values: what the pilot typed into the control head and the jet committed.

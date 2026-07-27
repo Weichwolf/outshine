@@ -149,6 +149,7 @@ const char *FBPilot::PhaseName(Phase p) {
     case Phase::Shutdown: return "Shutdown";
     case Phase::Bfm: return "Bfm";
     case Phase::Intercept: return "Intercept";
+    case Phase::Attack: return "Attack";
   }
   return "?";
 }
@@ -833,6 +834,106 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
   return c;
 }
 
+/* ---- THE AIR-TO-GROUND PASS (the Attack phase, see the class banner) ----
+ * Three parts and one decision. The RUN-IN is FBAutopilot::Direct to the active waypoint at its own
+ * declared altitude and speed — a level laydown, chosen because it is the profile this simulator's
+ * guidance flies exactly (see the banner) and because it makes the release moment the only variable
+ * under test. The RELEASE is one pickle over the same command bus every other cockpit action goes
+ * through, taken on the fire control's published cue and on nothing else: this class solves no
+ * ballistics and holds no target position, it reads an instrument (FBFireControlBlock's air-to-ground
+ * fields) exactly as it reads the radar altimeter before a flare. The EGRESS is a check turn away with
+ * a climb, held for a fixed time, after which the jet is back on its route.
+ *
+ * WHAT GATES THE PICKLE, in the order a pilot would check it:
+ *   a published, valid solution      — no computer, no delivery;
+ *   the arming margin is positive    — a release from here would arrive as a dud (the guide's PUAC);
+ *   the mode's own cue has passed    — CCRP: time-to-release <= 0. CCIP: the same instant, PLUS the
+ *                                      predicted impact point laterally on the target, which is the
+ *                                      judgement a pilot makes with the pipper in view and a countdown
+ *                                      cannot make at all.
+ * The bias shifts only the last of them, by a declared number of seconds (AttackReleaseBiasS). */
+FBPilotCommands FBPilot::AttackCommands(const FBState &state, FBCommandBus &avionics,
+                                        const fb_fdm_state &st, const FBFlightPlan &plan) {
+  FBPilotCommands c{};
+
+  /* ---- the way out, once the store is gone ---- */
+  if (AtkReleased_) {
+    if (TimeS_ >= AtkEgressUntilS_) { Transition(Phase::Route); return c; }
+    c.Guidance = FBPilotGuidance::Direct;
+    c.TargetLatDeg = AtkEgressLatDeg_; c.TargetLonDeg = AtkEgressLonDeg_;
+    c.TargetAltM = AtkEgressAltM_;
+    c.TargetSpeedKt = st.cas * kMsToKt;   /* hold what the run-in left: the turn is the manoeuvre */
+    return c;
+  }
+
+  const FBWaypoint *wp = plan.ActiveWaypoint();
+  if (!wp) { Transition(Phase::Route); return c; }   /* nothing briefed to attack */
+
+  /* ---- the run-in ---- */
+  c.Guidance = FBPilotGuidance::Direct;
+  c.TargetLatDeg = wp->LatDeg; c.TargetLonDeg = wp->LonDeg;
+  c.TargetAltM = wp->AltM;
+  c.TargetSpeedKt = wp->SpeedKt;
+
+  const FBFireControlBlock &fc = state.FireControl;
+  if (!fc.H.Readable() || !fc.AgValid) return c;
+  if (fc.AgArmMarginS <= 0.0) return c;   /* too low to arm — the pass is not made from here */
+
+  /* IN RANGE FIRST, THEN THE CUE. A release cue counts DOWN through zero, so acting on "<= 0" alone
+   * would also fire on a solution that has never been positive — a computer that has not yet been given
+   * a groundspeed, a target already behind the aircraft. Latching the in-range bit is what a pilot does
+   * anyway: you watch the cue come down the steering line before you press anything. */
+  if (fc.AgInRange) AtkInRangeSeen_ = true;
+  if (!AtkInRangeSeen_) return c;
+
+  /* THE PICKLE IS LED BY ITS OWN ACTUATION DELAY. A command reaches the box that answers it one class
+   * latency after the hand moves (core/FBCommandBus), so pressing exactly ON the cue would let the store
+   * off the rack half a second late — at 230 m/s, 115 m long, which is more than the whole computation is
+   * worth. The real jet has the same problem and solves it the same way round: in CCRP the pilot HOLDS
+   * the button and the AIRCRAFT releases when the solution cue passes (doc/f16/weapons.md §2.5), i.e.
+   * the intent is issued early and the moment is the computer's. Leading by exactly the channel's own
+   * latency is that, expressed in a bus where a command is a discrete event. It is the pilot's knowledge
+   * of its own hands, not a peek at anything. */
+  double bias = Tuned(FBPilotParam::AttackBiasS, AttackReleaseBiasS());
+  double leadS = FBCommandBus::LatencyS(FBCommandTarget::WeaponRelease);
+  bool cue = fc.AgTimeToReleaseS <= leadS - bias;
+  /* CCIP's extra condition is the LATERAL half of the aiming error and only that. The along-track half
+   * is what the cue above is FOR — it is deliberately non-zero at the moment the button is pressed (the
+   * round still has to be thrown that far), so testing the combined miss would refuse every correct
+   * release and then accept a late one. What "the pipper is on the target" adds over a countdown is the
+   * across-track judgement, which is exactly the one a countdown cannot make. */
+  if (AtkMode_ == FBDeliveryMode::Ccip)
+    cue = cue && std::fabs(fc.AgCrossErrM) <= Tuned(FBPilotParam::AttackCcipTolM, AttackCcipTolM());
+  if (!cue) return c;
+
+  /* THE PICKLE. Refused (master arm, an empty rack, a shot-away SMS) is final and the pass is over:
+   * a pilot who was told no by the jet does not keep mashing the button — the same rule every other
+   * weapon action in this class follows. */
+  FBCommandAck r = avionics.Post(FBCommandTarget::WeaponRelease, 1.0, TimeS_);
+  FBLog::Info("pilot", "ATTACK_RELEASE", {{"mode", FBDeliveryModeStr(AtkMode_)},
+      {"accepted", r.Outcome != FBCommandOutcome::Rejected},
+      {"ttrS", (double)fc.AgTimeToReleaseS}, {"leadS", leadS}, {"biasS", bias},
+      {"alongErrM", (double)fc.AgAlongErrM}, {"crossErrM", (double)fc.AgCrossErrM},
+      {"missM", (double)fc.AgMissM}, {"bombRangeM", (double)fc.AgRangeM},
+      {"tofS", (double)fc.AgTofS}, {"armMarginS", (double)fc.AgArmMarginS},
+      {"altM", st.elev}, {"gsMs", st.gs}});
+  AtkReleased_ = true;
+  AtkEgressUntilS_ = TimeS_ + AttackEgressS();
+
+  /* The break turn's aim point, computed once so the leg is a fixed place in the world rather than a
+   * heading the guidance would have to re-derive every tick: AttackEgressTurnDeg off the CURRENT ground
+   * track, AttackEgressRangeM ahead, AttackEgressClimbM above. Always to the right — a check turn has to
+   * go one way, and picking the side from the geometry would be a decision nothing here can source. */
+  double trackDeg = state.AirData.H.Readable() ? state.AirData.TrackDeg : st.yaw;
+  double hdg = (trackDeg + AttackEgressTurnDeg()) * kDeg2Rad;
+  double coslat = std::cos(st.lat * kDeg2Rad);
+  double rng = AttackEgressRangeM();
+  AtkEgressLatDeg_ = st.lat + rng * std::cos(hdg) / kMPerDeg;
+  AtkEgressLonDeg_ = st.lon + (coslat > 1e-6 ? rng * std::sin(hdg) / (kMPerDeg * coslat) : 0.0);
+  AtkEgressAltM_ = st.elev + AttackEgressClimbM();
+  return c;
+}
+
 FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
                              const FBAirframeControls &airframe, const fb_fdm_state &st,
                              const FBFlightPlan &plan, const FBRunway *runway, double dt) {
@@ -988,6 +1089,9 @@ FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
 
     case Phase::Intercept:
       return InterceptCommands(state, avionics, st, plan, dt);
+
+    case Phase::Attack:
+      return AttackCommands(state, avionics, st, plan);
 
     case Phase::Shutdown:
     default:

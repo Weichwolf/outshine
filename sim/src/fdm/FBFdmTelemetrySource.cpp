@@ -27,9 +27,9 @@ void FBFdmTelemetrySource::SampleTelemetry(FBTelemetryRow &row) const {
   row.Push(St.pitch);
   row.Push(St.roll);
   row.Push(St.yaw);
-  row.Push(Fdm.GetFuelTotalLbs());
-  double weightLbs = Fdm.GetWeightLbs();
-  row.Push(weightLbs > 0.0 ? Fdm.GetMaxGearForceLbs() / weightLbs : 0.0);
+  row.Push(Fdm ? Fdm->GetFuelTotalLbs() : 0.0);
+  double weightLbs = Fdm ? Fdm->GetWeightLbs() : 0.0;
+  row.Push(weightLbs > 0.0 ? Fdm->GetMaxGearForceLbs() / weightLbs : 0.0);
 }
 
 } // namespace FlightBox

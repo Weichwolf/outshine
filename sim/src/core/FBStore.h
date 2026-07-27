@@ -22,14 +22,18 @@ namespace FlightBox {
  * station and must stay 0 so a zeroed block reads as "nothing loaded". */
 enum class FBStoreKind : uint8_t { None = 0, Mk82, Aim120 };
 
-/* THE FIRE-CONTROL COMPUTER'S OWN PERFORMANCE TABLE for a guided round — the coarse model a launch-zone
- * computation runs on (modules/f16/FBF16FireControl). It is DELIBERATELY a separate, simplified copy of
- * what the weapon's JSBSim model does: a real FCC integrates a stored table, not the missile's actual
- * aerodynamics, and the difference between the two is a real property of every DLZ ever flown. The
- * intercept mission measures it — predicted time of flight against the flown one — instead of hiding it
- * by feeding the computation the same numbers the missile flies with.
+/* THE FIRE-CONTROL COMPUTER'S OWN PERFORMANCE TABLE for a round — the coarse model a launch-zone or a
+ * bomb-fall computation runs on (modules/f16/FBF16FireControl). It is DELIBERATELY a separate,
+ * simplified copy of what the weapon's JSBSim model does: a real FCC integrates a stored table, not the
+ * weapon's actual aerodynamics, and the difference between the two is a real property of every DLZ ever
+ * flown and every CCIP pipper ever put on a target. The intercept mission measures it for the guided
+ * case — predicted time of flight against the flown one — and the ground-attack missions for the
+ * unguided one, instead of hiding it by feeding the computation the same numbers the weapon flies with.
  *
- * Unguided stores leave this zeroed; nothing reads it for them. */
+ * AN UNGUIDED STORE USES THE SAME TABLE, and only the four entries a falling body has: LaunchMassKg,
+ * DragCoefA, RefAreaM2 and ArmingS. Its motor fields stay zero because it has no motor, and its seeker
+ * fields because it has no seeker — the table is not "the guided block", it is what the computer knows
+ * about the round (core/FBBallistics.h integrates exactly these four). */
 struct FBWeaponPerf {
   double BoostThrustN = 0.0, BoostS = 0.0;       /* the motor as the FCC knows it */
   double SustainThrustN = 0.0, SustainS = 0.0;
@@ -40,7 +44,10 @@ struct FBWeaponPerf {
   double ActivationRangeM = 0.0;                 /* range at which the seeker is switched on (the DLZ's
                                                   * "Radar Activation Range" cue, weapons.md §2.5) */
   double SeekerRangeM = 0.0;                     /* what the seeker can actually detect at */
-  double ArmingS = 0.0;                          /* separation + ignition + arming; sets Rmin */
+  /* Separation + arming. For a guided round it also covers motor ignition and is what sets Rmin; for a
+   * bomb it is the fall time the fuze needs before it will function, i.e. the pull-up anticipation cue's
+   * own number (core/FBBallistics.h's ArmMarginS). One quantity, one field. */
+  double ArmingS = 0.0;
 };
 
 struct FBStoreSpec {
@@ -81,13 +88,34 @@ struct FBStoreSpec {
  *                  diverged after this long is retired so a run cannot accumulate zombie actors. Fall
  *                  times for this class are tens of seconds (§4.2), so 300 s never truncates a real
  *                  trajectory. */
-/*   WarheadKg    = 87 kg (192 lb) of Tritonal [T3, the Mk-82's standard fill]. Unused today — a bomb has
- *                  no proximity fuze, so nothing ever resolves a Mk-82 burst against an aircraft — but it
- *                  is a property of the store and belongs in its catalogue entry, not in whatever first
- *                  needs it. */
+/*   WarheadKg    = 87 kg (192 lb) of Tritonal [T3, the Mk-82's standard fill]. A bomb has no proximity
+ *                  fuze, so nothing resolves a Mk-82 burst against an aircraft; what DOES read it is the
+ *                  ground burst at the impact point (app/FBMissionRunner.cpp), through the same
+ *                  core/FBDamageModel a warhead detonating beside an aircraft goes through.
+ *   Perf         = the FCC's BALLISTIC table (see FBWeaponPerf): what the fire-control computer knows
+ *                  about this bomb, and deliberately less than the bomb knows about itself.
+ *                  LaunchMassKg 226.8 = the model's own 500 lb, one object one mass.
+ *                  RefAreaM2 0.23597 = the model's own <wingarea> (2.54 ft^2), the area its whole drag
+ *                  table is referred to.
+ *                  DragCoefA 0.142 [DERIVED, and deliberately coarse]: mk82.xml's CDmin table runs
+ *                  0.140 at M 0.2 through 0.144 at M 0.8 and then rises steeply transonically; the
+ *                  computer carries ONE subsonic number, which is what a stored table is, and the
+ *                  resulting prediction error against the model's own Mach-dependent drag is the thing
+ *                  the CCIP/CCRP missions measure rather than tune away.
+ *                  ArmingS 2.0 [SET]: no citable arming delay exists for the Mk-82's standard fuzes
+ *                  (weapons.md §4.7 marks fuze internals as a gap, and §4.2's PUAC text gives the
+ *                  CONCEPT without a number); 2 s is the order of a nose fuze's arming vane and it is
+ *                  what the pull-up anticipation cue is computed from. */
 inline constexpr FBStoreSpec kMk82{FBStoreKind::Mk82, "mk82", "mk82", true, 500.0, 0.366, 300.0,
                                    /*Guided*/ false, /*RequiresLock*/ false, /*FuzeRadiusM*/ 0.0,
-                                   /*WarheadKg*/ 87.0, FBWeaponPerf{}};
+                                   /*WarheadKg*/ 87.0,
+                                   FBWeaponPerf{/*BoostThrustN*/ 0.0, /*BoostS*/ 0.0,
+                                                /*SustainThrustN*/ 0.0, /*SustainS*/ 0.0,
+                                                /*LaunchMassKg*/ 226.796, /*BurnoutMassKg*/ 226.796,
+                                                /*DragCoefA*/ 0.142, /*RefAreaM2*/ 0.235974,
+                                                /*MinSpeedMs*/ 0.0,
+                                                /*ActivationRangeM*/ 0.0, /*SeekerRangeM*/ 0.0,
+                                                /*ArmingS*/ 2.0}};
 
 /* AIM-120 AMRAAM (doc/f16/weapons.md §2.5, §3, §4.4). The FIRST guided round: its model is FlightBox's
  * own (Vendored = false -> sim/assets/aircraft/aim120, because the pinned submodule has no AMRAAM and
@@ -147,6 +175,37 @@ inline const FBStoreSpec *FBStoreSpecOf(FBStoreKind kind) {
   return nullptr;
 }
 
+/* THE DELIVERY MODE an unguided release was computed in (doc/f16/weapons.md §2.5). Append only — the
+ * ordinal is the mission-visible `set attack_mode` value and a telemetry column. */
+enum class FBDeliveryMode : uint8_t { Ccip = 0, Ccrp };
+
+inline const char *FBDeliveryModeStr(FBDeliveryMode m) {
+  return m == FBDeliveryMode::Ccrp ? "ccrp" : "ccip";
+}
+
+/* WHAT AN UNGUIDED RELEASE WAS AIMED WITH — the fire control's own answer at the instant the pickle was
+ * accepted, carried out of the aircraft on the round. The exact counterpart of FBWeaponTargetState for
+ * a guided launch, and it exists for the same reason: the prediction has to leave the jet WITH the
+ * weapon, so the owner of the simulation can put it beside the impact it then measures and state the
+ * error. Nothing in here steers anything — a bomb has no guidance; it is a record. */
+struct FBReleaseSolution {
+  bool   Valid = false;
+  FBDeliveryMode Mode = FBDeliveryMode::Ccip;
+  double ImpactLatDeg = 0.0, ImpactLonDeg = 0.0;   /* where the computer said it would land */
+  double ImpactElevM = 0.0;                        /* the plane it solved against */
+  double TofS = 0.0;
+  double AimLatDeg = 0.0, AimLonDeg = 0.0;         /* what it was aimed AT (the designated point) */
+  double AimMissM = 0.0;                           /* predicted impact -> aim point, at release */
+  double ArmMarginS = 0.0;                         /* < 0 = released below the arming margin (a dud) */
+  /* WHEN the computer produced it. A release is answered by the SMS in the module's Stores command group,
+   * which is serviced BEFORE the fire control's own tick in the same sensor sweep (modules/f16/
+   * FBF16Module's rate table), so the solution a round is stamped with is necessarily the previous
+   * sweep's. That lag is a real property of the bus ordering and it is worth tens of metres at fighter
+   * speeds — so it is RECORDED rather than hidden, and every measurement made from this struct can state
+   * how much of its error is simply the age of the number. */
+  double StampS = 0.0;
+};
+
 /* ONE released store, as the SMS hands it over: which station let go of what, when, and WHERE that
  * station sits relative to the carrier's CG (body axes, metres: +fwd/+right/+down). The offset travels
  * with the release because the SMS is the only thing that knows its own pylon geometry, and the app-side
@@ -164,6 +223,9 @@ struct FBStoreRelease {
    * uplink to listen to for corrections afterwards. Both are zero/invalid for an unguided store. */
   int    LauncherId = 0;
   FBWeaponTargetState Target;
+  /* ...and the unguided half of the same idea: the delivery solution the release was made on (see
+   * FBReleaseSolution). Invalid for a guided round, which is aimed by its seeker and not by a table. */
+  FBReleaseSolution Solution;
 };
 
 } // namespace FlightBox

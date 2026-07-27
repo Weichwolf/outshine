@@ -214,7 +214,7 @@ static void frame(void) {
   { static double accLog = 0.0; accLog += dt;
     if (accLog >= 1.0) { accLog = 0.0;
       FBLog::Info("flight", "agl", {{"alt", St.elev}, {"agl", gOwnship->AglM()}, {"ground", gForHud},
-          {"fdmGnd", gOwnship->Fdm().GetGroundElevM()}, {"spd", St.speed}, {"cas", St.cas}, {"bank", St.roll},
+          {"fdmGnd", gOwnship->Fdm() ? gOwnship->Fdm()->GetGroundElevM() : 0.0}, {"spd", St.speed}, {"cas", St.cas}, {"bank", St.roll},
           {"hdg", St.yaw}, {"vs", St.vy}, {"ringDist", g.RingDistM},
           {"mode", ModeLabel(g.Mode)}});
       FBLog::Info("flight", "home", {{"dist", (double)hs.Platform.HomeDistM}, {"brg", (double)hs.Platform.HomeBearingDeg},

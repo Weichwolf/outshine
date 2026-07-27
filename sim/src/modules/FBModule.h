@@ -35,6 +35,7 @@
 #include "FBWarningSystem.h"
 #include "FBRunway.h"
 #include "FBState.h"
+#include "FBUnit.h"
 #include "FBFdm.h"
 
 namespace FlightBox {
@@ -60,6 +61,14 @@ public:
    * because only the module knows which aircraft.xml its systems/gains were written against; the boot
    * path (FBMissionBoot.h) asks for it instead of reusing the registry name as a directory name. */
   virtual const char *FdmModelName() const = 0;
+
+  /* WHAT KIND OF WORLD ENTITY this module is (units/FBUnit.h). Aircraft by default, because everything
+   * that flies itself is one; a module returning FBUnitKind::Ground declares that it is a static object
+   * and — the part that matters structurally — that it has no airframe at all, which its empty
+   * FdmModelName() then says in the one place the spawn path reads. Weapon is NOT set here: a store is
+   * a kind by virtue of having been RELEASED, which is the releasing path's statement and not the
+   * module's (app/FBMissionBoot.h). */
+  virtual FBUnitKind UnitKind() const { return FBUnitKind::Aircraft; }
 
   /* WHICH model root FdmModelName lives under. true (the default, and every aircraft in this tree) =
    * the pinned, read-only JSBSim submodule; false = FlightBox's own model assets, which is where a model

@@ -124,6 +124,10 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, 
     /* ...and hands the SMS its target estimate, which the SMS copies onto a launched round and then
      * radiates as that round's midcourse uplink (systems/FBStoresSystem::SetTargetState). */
     SmsSys->SetTargetState(FireCtrl->TargetState());
+    /* ...and the unguided counterpart, the same handover for the same reason: what an unguided round
+     * carries out of the jet is the delivery solution it was aimed with (systems/FBStoresSystem::
+     * SetReleaseSolution). */
+    SmsSys->SetReleaseSolution(FireCtrl->ReleaseSolution());
     UfcSys->Run(SharedState, dt);
     if (SystemWorking(FBSystemId::Stores)) SmsSys->Run(SharedState, dt);
     else SharedState.Stores.H.Invalidate();
@@ -518,7 +522,22 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
     if (value == "route") PilotSys->SetPhase(FBPilot::Phase::Route);
     else if (value == "bfm") PilotSys->SetPhase(FBPilot::Phase::Bfm);
     else if (value == "intercept") PilotSys->SetPhase(FBPilot::Phase::Intercept);
-    else return RejectSetup("want route|bfm|intercept", key, value);
+    else if (value == "attack") PilotSys->SetPhase(FBPilot::Phase::Attack);
+    else return RejectSetup("want route|bfm|intercept|attack", key, value);
+    return true;
+  }
+  /* THE DELIVERY MODE of an air-to-ground pass (doc/f16/weapons.md §2.5). ONE mission line with TWO
+   * consumers, wired here because pairing them is module knowledge: the PILOT needs it to know which
+   * cue to release on (systems/FBPilot's Attack phase), and the FIRE CONTROL needs it so the release
+   * record says which cue the round was let go on (modules/f16/FBF16FireControl). Neither changes the
+   * arithmetic — both cues come out of the same integration and are published either way. */
+  if (key == "attack_mode") {
+    FBDeliveryMode m;
+    if (value == "ccip") m = FBDeliveryMode::Ccip;
+    else if (value == "ccrp") m = FBDeliveryMode::Ccrp;
+    else return RejectSetup("want ccip|ccrp", key, value);
+    PilotSys->BriefAttack(m);
+    FireCtrl->SetDeliveryMode(m);
     return true;
   }
   /* THE DRUM: how many rounds this jet started the sortie with. A mission may load LESS than the gun's

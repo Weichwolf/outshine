@@ -1,5 +1,6 @@
 #include "FBF16FireControl.h"
 #include "FBAtmosphere.h"
+#include "FBBallistics.h"
 #include "FBGeodesy.h"
 #include "FBGunBallistics.h"
 #include "FBUnits.h"
@@ -112,6 +113,85 @@ void FBF16FireControl::SolveGun(FBState &state, const fb_fdm_state &own, const F
   b.GunInFunnel = b.GunInRange && errDeg <= b.GunTolDeg;
 }
 
+/* THE AIR-TO-GROUND SOLUTION (CCIP/CCRP, doc/f16/weapons.md §2.5). Everything ballistic about it is
+ * core/FBBallistics' — one integration, both delivery modes, so the pipper and the release countdown can
+ * never disagree about where the round goes. What this box supplies is the three inputs, each of them a
+ * jet convention rather than a piece of arithmetic:
+ *   RELEASE STATE   the aircraft's position and full velocity vector. A store leaves the pylon with the
+ *                   carrier's motion (app/FBMissionBoot's separation IC says the same thing), and the
+ *                   station offset is metres against a fall of kilometres, so the computer works from
+ *                   the CG — the SMS's own pylon geometry is not fire-control knowledge.
+ *   AIM POINT       the active steerpoint (§2.2's "pre-planned" sighting point). Both modes are solved
+ *                   against it: CCRP because that IS its designation, CCIP because an AI has no eye and
+ *                   the steerpoint is the point it was briefed to hit.
+ *   IMPACT PLANE    the steerpoint's own elevation, i.e. the 'B' ranging source this box already uses.
+ *                   It is the module's elevation-provider sample, the same number the radar altimeter
+ *                   reads — this file never touches terrain.
+ * A guided round or an empty station leaves the whole solution invalid: a computer with nothing to drop
+ * has no impact point, which is a different statement from an impact point of zero. */
+void FBF16FireControl::SolveGroundAttack(FBState &state, const fb_fdm_state &own,
+                                         const FBStoreSpec *selected) {
+  FBFireControlBlock &b = state.FireControl;
+  b.AgValid = false;
+  b.AgImpactLatDeg = 0.0; b.AgImpactLonDeg = 0.0;
+  b.AgImpactElevM = 0.0f; b.AgTofS = 0.0f; b.AgRangeM = 0.0f;
+  b.AgAlongErrM = 0.0f; b.AgCrossErrM = 0.0f; b.AgMissM = 0.0f;
+  b.AgTimeToReleaseS = 0.0f; b.AgArmMarginS = 0.0f;
+  b.AgInRange = false;
+  Solution_ = FBReleaseSolution{};
+  if (!selected || selected->Guided) return;
+
+  FBReleaseState rel;
+  rel.LatDeg = own.lat; rel.LonDeg = own.lon; rel.AltM = own.elev;
+  /* fb_fdm_state's velocity is X-Plane local (+x east, +y up, +z south), see fdm/FBFdm.h. */
+  rel.VelE = own.vx; rel.VelN = -own.vz; rel.VelU = own.vy;
+  double planeM = state.Nav.SteerElevFt * kFtToM;
+  FBImpactPrediction pred = FBSolveImpactPoint(selected->Perf, rel, planeM);
+  if (!pred.Valid) return;
+
+  /* The aim point, reconstructed from the nav block's own bearing/distance rather than from a second
+   * copy of the steerpoint: this box reads the bus, like every other consumer (one writer per block). */
+  double distM = state.Nav.SteerDistNm * kNmToM;
+  double brg = state.Nav.SteerBearingDeg * kDeg2Rad;
+  double coslat = std::cos(own.lat * kDeg2Rad);
+  double aimLat = own.lat + distM * std::cos(brg) / kMPerDeg;
+  double aimLon = own.lon + (coslat > 1e-6 ? distM * std::sin(brg) / (kMPerDeg * coslat) : 0.0);
+  /* The ground TRACK, not the heading: the release cue lives on the axis the aircraft is actually
+   * moving along, which is what the air-data block publishes (and what the round inherits). Its head is
+   * checked like every other source this box fuses — with no air data there is an impact point but no
+   * release cue, which is a real distinction and not a missing number. */
+  FBAimSolution aim{};
+  if (state.AirData.H.Readable())
+    aim = FBSolveAim(pred, own.lat, own.lon, aimLat, aimLon, state.AirData.TrackDeg, own.gs);
+
+  b.AgValid = true;
+  b.AgImpactLatDeg = pred.LatDeg;
+  b.AgImpactLonDeg = pred.LonDeg;
+  b.AgImpactElevM = (float)pred.ElevM;
+  b.AgTofS = (float)pred.TofS;
+  b.AgRangeM = (float)pred.RangeM;
+  b.AgArmMarginS = (float)pred.ArmMarginS;
+  if (aim.Valid) {
+    b.AgAlongErrM = (float)aim.AlongErrM;
+    b.AgCrossErrM = (float)aim.CrossErrM;
+    b.AgMissM = (float)aim.MissM;
+    b.AgTimeToReleaseS = (float)aim.TimeToGoS;
+    b.AgInRange = aim.AlongErrM >= 0.0 && pred.ArmMarginS > 0.0;
+  }
+
+  Solution_.Valid = true;
+  Solution_.Mode = Mode_;
+  Solution_.ImpactLatDeg = pred.LatDeg;
+  Solution_.ImpactLonDeg = pred.LonDeg;
+  Solution_.ImpactElevM = pred.ElevM;
+  Solution_.TofS = pred.TofS;
+  Solution_.AimLatDeg = aimLat;
+  Solution_.AimLonDeg = aimLon;
+  Solution_.AimMissM = aim.Valid ? aim.MissM : 0.0;
+  Solution_.ArmMarginS = pred.ArmMarginS;
+  Solution_.StampS = state.NowS;
+}
+
 /* Slant = sqrt(horizontal^2 + altDiff^2), the 'B' (baro/steerpoint-elevation) method — then the target
  * track, then the launch zone the SMS's interlock and a future intercept AI read. */
 void FBF16FireControl::Run(FBState &state, const fb_fdm_state &own, const FBStoreSpec *selected,
@@ -172,6 +252,8 @@ void FBF16FireControl::Run(FBState &state, const fb_fdm_state &own, const FBStor
 
   /* ---- the gun solution for the same target estimate ---- */
   SolveGun(state, own, gun, trk);
+  /* ---- and the air-to-ground one, against the ground rather than against a contact ---- */
+  SolveGroundAttack(state, own, selected);
   b.H.Publish(state.NowS);
 }
 

@@ -73,7 +73,8 @@ const FBSimUnit *FirstFlightKo(const FBActorList &actors) {
      * judged by the very same FBFlightMonitor as every other unit (the ground contact, the speed, the
      * attitude are the same physics); only the CONSEQUENCE differs, and that consequence belongs to the
      * owner of the simulation, which is this file. See RetireImpactedStores below. */
-    if (a->GetKind() == FBUnitKind::Weapon) continue;
+    if (a->GetKind() != FBUnitKind::Aircraft) continue;   /* a store's K.O. is its impact; a ground
+                                                           * target has no flight to lose */
     if (a->FlightMonitor().Tripped()) return a.get();
   }
   return nullptr;
@@ -158,6 +159,10 @@ struct FBStoreTrack {
   double DeadlineS = 0.0;   /* SpawnS + the store's own MaxFlightS (core/FBStore.h) */
   const FBStoreSpec *Spec = nullptr;
   int    LauncherId = 0;
+  /* WHAT THE COMPUTER SAID WOULD HAPPEN (core/FBStore.h's FBReleaseSolution), carried out of the jet on
+   * the round itself. It is here so that the impact — which this file measures — can be reported beside
+   * the prediction it is the answer to, in one line, by the only thing that knows both. */
+  FBReleaseSolution Solution;
   /* Closest this store came to any aircraft OTHER THAN THE ONE THAT LAUNCHED IT — the number that says
    * how the shot went. The launcher is excluded from the REPORT and not from the fuze (below): a round
    * separating from a pylon passes its own carrier at tens of metres, which is a fact about geometry and
@@ -322,13 +327,104 @@ bool ResolveGunHit(FBSimUnit &target, const FBCpa &c, const FBGunProjectiles::Bu
   return true;
 }
 
+/* ---- THE GROUND BURST: what a bomb does where it lands ----
+ * The unguided counterpart of ResolveBurst above, and the same rule end to end: the OWNER of the
+ * simulation resolves what happened between two units, on observed truth. The store supplies its warhead
+ * mass and the speed it arrived at (core/FBStore.h), the TARGET's module supplies where its structure is
+ * (FBModule::DamageLayout), core/FBDamageModel does the rest — the same 1/r^2 fragment law an aircraft is
+ * judged by, so a bomb near-missing a bunker and a missile near-missing a fighter go through one model.
+ *
+ * WHAT IT DELIBERATELY DOES NOT REACH: aircraft. A jet low over its own detonation is inside a real
+ * fragment envelope, and modelling it would need a frag-vs-airframe geometry (and an escape manoeuvre to
+ * measure it against) that nothing here has; resolving a burst against everything within an invented
+ * cutoff would be a number pretending to be physics. So a ground burst hurts GROUND units, and that
+ * boundary is stated rather than hidden behind a radius constant. */
+bool ResolveGroundBurst(FBSimUnit &target, const fb_fdm_state &burst, const FBStoreSpec &spec) {
+  const FBUnitPose &p = target.GetPose();
+  double relE = 0.0, relN = 0.0;
+  FBEnuOffsetM(p.LatDeg, p.LonDeg, burst.lat, burst.lon, relE, relN);
+  double relU = burst.elev - p.ElevM;
+  /* IS THIS BURST EVEN NEAR HIM? The gate is DERIVED, not a radius somebody picked: the lowest threshold
+   * this target's own layout declares is the least energy that can do anything to it at all, so a burst
+   * whose flux at this distance is below that could only ever produce a zero-effect DAMAGE line and a
+   * spurious entry in his hit count. A bomb landing 14 km away is not a hit on him in any sense. */
+  double dist = std::sqrt(relE * relE + relN * relN + relU * relU);
+  const FBDamageLayout &layout = target.Module().DamageLayout();
+  double least = 0.0;
+  for (int i = 0; i < layout.ZoneCount; i++)
+    for (int k = 0; k < layout.Zones[i].SystemCount; k++) {
+      double th = layout.Zones[i].Systems[k].DegradeJm2;
+      if (th > 0.0 && (least == 0.0 || th < least)) least = th;
+    }
+  if (least > 0.0 && FBFragmentFluxJm2(spec.WarheadKg, dist, burst.speed) < least) return false;
+
+  FBBurst b;
+  FBEnuToBodyVec(p.RollDeg, p.PitchDeg, p.YawDeg, relE, relN, relU, b.FwdM, b.RightM, b.DownM);
+  b.ClosureMs = burst.speed;   /* the round's own arrival speed: the target is not moving */
+  b.WarheadKg = spec.WarheadKg;
+  FBDamageResult r = target.TakeBurst(b);
+  FBLogUnitScope us(target.LogLabel());
+  FBLog::Info("damage", "DAMAGE", {{"zone", FBDamageZoneStr(r.Zone)}, {"rangeM", r.RangeM},
+      {"fluxJm2", r.PeakFluxJm2}, {"warheadKg", spec.WarheadKg}, {"closureMs", b.ClosureMs},
+      {"bodyFwdM", b.FwdM}, {"bodyRightM", b.RightM}, {"bodyDownM", b.DownM},
+      {"failed", (int)r.NewlyFailed}, {"degraded", (int)r.NewlyDegraded},
+      {"hits", target.Health().Hits()}});
+  for (int i = 0; i < (int)FBSystemId::Count; i++) {
+    uint32_t bit = 1u << i;
+    if (!((r.NewlyFailed | r.NewlyDegraded) & bit)) continue;
+    FBLog::Warn("damage", "SYSTEM", {{"system", FBSystemIdStr((FBSystemId)i)},
+        {"state", FBHealthStateStr((r.NewlyFailed & bit) ? FBHealthState::Failed
+                                                         : FBHealthState::Degraded)}});
+  }
+  if (r.WasEffective && !r.NowEffective)
+    FBLog::Warn("damage", "KILL", {{"reason", "structure destroyed"},
+        {"failed", (int)target.Health().FailedMask()}, {"lat", p.LatDeg}, {"lon", p.LonDeg}});
+  return true;
+}
+
 /* The impact report: what the store was doing at the moment its own FBFlightMonitor said it hit
  * something. Everything here is OBSERVED — position and velocity out of the FDM state, the reason out
  * of the judge — so a detonation is measured, never scripted. `mode` separates the two ways a store's
  * flight can end: a ground contact (the detonation) and everything else (a lost weapon), because the
  * monitor can also trip on a tumbling store or a diverged integration and calling that an impact would
  * be a lie in the telemetry. */
-void LogStoreImpact(const FBSimUnit &store, const FBStoreTrack &track, double simT) {
+/* WHERE THE ROUND CROSSED THE GROUND, as opposed to where it was first SEEN below it. The judge runs on
+ * the run's 0.1 s tick, so by the time a store is observed to have penetrated it has already travelled
+ * up to a tick past the surface — measured on a Mk-82 arriving at 216 m/s: 14 m of penetration, i.e.
+ * ~20 m of horizontal travel beyond the true impact point. That is a fifth of the whole delivery error
+ * this mission set exists to measure, and it is an artefact of the sampling rate rather than anything
+ * the aircraft or the computer did.
+ *
+ * So the crossing is recovered from the observed sample itself — exactly what the proximity fuze already
+ * does for an air burst (ClosestApproach's FracT: "the event's time is the sub-tick one and not the
+ * sample it was found in"). The store is `depth` metres under the surface with a known velocity and NO
+ * contact forces acting on it (a weapon's airframe is deliberately given no ground to collide with,
+ * units/FBSimUnit's kWeaponNoGroundElevM), so it is still on its ballistic arc and the crossing is
+ * depth / sink-rate seconds behind: back-project the position by that. Over ~0.1 s the arc's curvature is
+ * worth centimetres, which is why this is a straight line and not a second integration.
+ *
+ * Deliberately NOT interpolated between the last two published POSES: by the time the physics judge
+ * concludes, the previous pose is already under the surface too (it takes a few metres of penetration to
+ * be a conclusion rather than a rounding error), so there is no bracketing pair to interpolate between.
+ *
+ * Everything downstream — the impact record, the delivery error and the burst the damage model resolves
+ * — uses THIS point. `backS` is how far behind the observed sample it was. */
+fb_fdm_state GroundCrossing(const FBSimUnit &store, double &backS) {
+  fb_fdm_state s = store.State();
+  backS = 0.0;
+  double depth = store.GroundAslM() - s.elev;
+  if (!(depth > 0.0) || !(s.vy < -0.1)) return s;
+  backS = depth / -s.vy;
+  double coslat = std::cos(s.lat * kDeg2Rad);
+  /* fb_fdm_state velocity is X-Plane local: +x east, +y up, +z south (fdm/FBFdm.h). */
+  s.lat -= (-s.vz) * backS / kMPerDeg;
+  s.lon -= coslat > 1e-6 ? s.vx * backS / (kMPerDeg * coslat) : 0.0;
+  s.elev = store.GroundAslM();
+  return s;
+}
+
+void LogStoreImpact(const FBSimUnit &store, const FBStoreTrack &track, double simT,
+                    const fb_fdm_state &cross, double backS) {
   const fb_fdm_state &st = store.State();
   double horizMs = std::sqrt(st.vx * st.vx + st.vz * st.vz);
   double angleDeg = std::atan2(-st.vy, horizMs > 1e-6 ? horizMs : 1e-6) * kRad2Deg;
@@ -340,7 +436,35 @@ void LogStoreImpact(const FBSimUnit &store, const FBStoreTrack &track, double si
       {"reason", FBKoReasonStr(r)}, {"lat", st.lat}, {"lon", st.lon}, {"altM", st.elev},
       {"groundAslM", store.GroundAslM()}, {"tofS", simT - track.SpawnS},
       {"speedMs", st.speed}, {"vsMs", st.vy}, {"impactAngleDeg", angleDeg},
-      {"pitchDeg", st.pitch}, {"rollDeg", st.roll}, {"trackDeg", st.yaw}});
+      {"pitchDeg", st.pitch}, {"rollDeg", st.roll}, {"trackDeg", st.yaw},
+      /* ...and the interpolated crossing the delivery is actually measured against (see
+       * GroundCrossing): where it went through the surface, and how far into this tick that was. */
+      {"crossLat", cross.lat}, {"crossLon", cross.lon}, {"crossBackS", backS},
+      {"crossTofS", simT - track.SpawnS - backS}});
+  /* THE DELIVERY, MEASURED: the fire control's prediction (carried out of the jet on the round, see
+   * FBStoreTrack::Solution) against the impact just observed. `predErrM` is what the COMPUTER got wrong
+   * — the coarse stored table against the model's own aerodynamics, which is the error the whole
+   * CCIP/CCRP arrangement exists to expose — and `aimErrM` is what the DELIVERY got wrong, i.e. the two
+   * of them plus whatever the release moment cost. Only for a ground contact: a lost store's last
+   * position says nothing about aiming. */
+  if (ground && track.Solution.Valid) {
+    const FBReleaseSolution &sol = track.Solution;
+    double predErr = FBPlanarDistM(sol.ImpactLatDeg, sol.ImpactLonDeg, cross.lat, cross.lon);
+    double aimErr = FBPlanarDistM(sol.AimLatDeg, sol.AimLonDeg, cross.lat, cross.lon);
+    /* Long/short and left/right, in the ROUND'S OWN arrival direction (a bomb weathercocks into its
+     * velocity, so its heading at impact is the run-in track): + along = it went long. */
+    double alongM = 0.0, acrossM = 0.0;
+    FBTrackProjectM(sol.AimLatDeg, sol.AimLonDeg, st.yaw, cross.lat, cross.lon, alongM, acrossM);
+    FBLog::Info("stores", "DELIVERY", {{"mode", FBDeliveryModeStr(sol.Mode)},
+        {"predLat", sol.ImpactLatDeg}, {"predLon", sol.ImpactLonDeg},
+        {"aimLat", sol.AimLatDeg}, {"aimLon", sol.AimLonDeg},
+        {"predErrM", predErr}, {"aimErrM", aimErr},
+        {"aimLongM", alongM}, {"aimAcrossM", acrossM},
+        {"predTofS", sol.TofS}, {"tofS", simT - track.SpawnS - backS},
+        {"tofErrS", sol.TofS - (simT - track.SpawnS - backS)},
+        {"planeM", sol.ImpactElevM}, {"groundAslM", store.GroundAslM()},
+        {"armMarginS", sol.ArmMarginS}, {"solAgeS", track.SpawnS - sol.StampS}});
+  }
 }
 
 /* telemetry.csv per actor: the PRIMARY keeps the canonical name (every existing tool and every
@@ -372,12 +496,22 @@ const char *ActorResultStr(const FBSimUnit &a) {
    * crash — same judge, same verdict, different word for a different kind of unit. */
   if (a.GetKind() == FBUnitKind::Weapon)
     return a.FlightMonitor().Tripped() ? "IMPACT" : "IN_FLIGHT";
+  /* A ground target has neither judge's question to answer: it cannot crash and it was given nothing to
+   * fly. What it CAN report is the only thing that ever happens to it. */
+  if (a.GetKind() == FBUnitKind::Ground)
+    return a.Health().CombatEffective() ? "INTACT" : "DESTROYED";
   const FBMissionMonitor *m = a.MissionMonitor();
   if (a.FlightMonitor().Tripped() && !ShotDownFirst(a))
     return a.FlightMonitor().Reason() == FBKoReason::Loc ? "LOC" : "CRASH";
   return m ? FBMissionVerdictStr(m->Verdict()) : "NONE";
 }
 std::string ActorReason(const FBSimUnit &a) {
+  if (a.GetKind() == FBUnitKind::Ground) {
+    if (a.Health().CombatEffective()) return "still standing";
+    char buf[64];
+    snprintf(buf, sizeof buf, "structure destroyed by %d hit(s)", a.Health().Hits());
+    return buf;
+  }
   if (a.FlightMonitor().Tripped() && !ShotDownFirst(a)) return a.FlightMonitor().Detail();
   const FBMissionMonitor *m = a.MissionMonitor();
   if (!m) return "no objectives";
@@ -729,10 +863,25 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
       }
       if (detonated) continue;
       if (store.FlightMonitor().Tripped()) {
-        LogStoreImpact(store, t, simT);
+        double backS = 0.0;
+        fb_fdm_state cross = GroundCrossing(store, backS);
+        LogStoreImpact(store, t, simT, cross, backS);
         if (t.MinMissM < 1e17)
           FBLog::Info("stores", "MISS", {{"closestM", t.MinMissM}, {"unitId", t.MinMissUnit},
                                          {"fuzeM", t.Spec ? t.Spec->FuzeRadiusM : 0.0}});
+        /* ...and the burst it made, against everything standing near where it landed (see
+         * ResolveGroundBurst). Only for a GROUND contact: a store the judge tripped on for tumbling or
+         * for a diverged integration did not detonate anywhere in particular. */
+        FBKoReason kr = store.FlightMonitor().Reason();
+        bool onGround = kr == FBKoReason::StructureContact || kr == FBKoReason::CfitPenetration ||
+                        kr == FBKoReason::GearUpContact || kr == FBKoReason::HardLanding ||
+                        kr == FBKoReason::AttitudeContact;
+        if (onGround && t.Spec && t.Spec->WarheadKg > 0.0) {
+          for (auto &g : Actors) {
+            if (g->GetKind() != FBUnitKind::Ground || !g->Active()) continue;
+            (void)ResolveGroundBurst(*g, cross, *t.Spec);
+          }
+        }
         store.Retire();
       } else if (simT >= t.DeadlineS) {
         FBLog::Warn("stores", "EXPIRED", {{"tofS", simT - t.SpawnS}, {"altM", store.State().elev},
@@ -791,7 +940,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
           store->StartTelemetry(nullptr);   /* it still flies; only its trace is missing */
         }
         StoreTracks.push_back({Actors.size(), simT, simT + spec->MaxFlightS, spec, carrier.GetId(),
-                               1e18, 0});
+                               rel.Solution, 1e18, 0});
         UnitReg.Register(store.get());
         Actors.push_back(std::move(store));
       }

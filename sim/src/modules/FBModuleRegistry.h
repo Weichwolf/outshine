@@ -25,14 +25,16 @@ public:
 /* One entry point per module FAMILY, each defined in that family's OWN directory — the only files
  * allowed to name a concrete module type (modules/f16/FBF16ModuleRegistration.cpp,
  * modules/stores/FBStoreModuleRegistration.cpp, modules/missile/FBMissileModuleRegistration.cpp — the
- * catalogue's Guided flag decides which of the last two claims an entry, read in one place each). */
+ * catalogue's Guided flag decides which of the last two claims an entry, read in one place each; the
+ * ground targets are modules/ground/FBGroundModuleRegistration.cpp). */
 void FBRegisterF16Module();
 void FBRegisterStoreModules();
 void FBRegisterMissileModules();
+void FBRegisterGroundModules();
 
-/* Registers every module this link target was built with: the flyable aircraft AND the released
- * stores, which are modules in exactly the same sense (they are their own FDM + FBModule, spawned
- * through the same registry by name). Idempotent (re-registering just overwrites the map entry) —
+/* Registers every module this link target was built with: the flyable aircraft, the released stores —
+ * modules in exactly the same sense (their own FDM + FBModule, spawned through the same registry by
+ * name) — and the static ground targets, which are the same thing minus the FDM (modules/ground). Idempotent (re-registering just overwrites the map entry) —
  * safe to call once per run before the first FBModuleRegistry::Create, from any App main() or
  * FBMissionRunner itself. */
 void FBRegisterBuiltinModules();

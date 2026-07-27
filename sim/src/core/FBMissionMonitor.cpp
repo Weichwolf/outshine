@@ -58,8 +58,16 @@ bool FBMissionMonitor::HasSurviveObjective() const {
 }
 
 bool FBMissionMonitor::KillObjectivesMet(const FBMissionRoster &roster) const {
-  for (const auto &o : Objectives_)
-    if (o.Kind != FBObjectiveKind::Survive && !FBObjectiveMet(o, roster)) return false;
+  for (const auto &o : Objectives_) {
+    /* Two kinds are not decided against the roster and must be SKIPPED here rather than fall through
+     * FBObjectiveMet's "no" — `survive` is answered only at the end of the run (Finalize), and
+     * `waypoints` is answered by PlanJudged_/PlanDone_ above, which is the whole reason it exists as a
+     * declarable objective. Letting either reach FBObjectiveMet made it permanently unmet, i.e. a unit
+     * that declared `kill` AND `waypoints` — the documented way to keep the flight plan judged while
+     * also having a combat goal (core/FBObjective.h) — could never succeed. */
+    if (o.Kind == FBObjectiveKind::Survive || o.Kind == FBObjectiveKind::Waypoints) continue;
+    if (!FBObjectiveMet(o, roster)) return false;
+  }
   return true;
 }
 

@@ -62,6 +62,34 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const FBModelRoots &models
   if (!module) return fail("unknown module '" + block.ModuleName + "'");
 
   const FBSpawn &sp = block.Spawn;
+
+  /* A MODULE WITH NO AIRFRAME (modules/ground/FBGroundModule — an empty FdmModelName): the whole spawn
+   * is the declarative position, and there is nothing to load, place, trim or attach. It is deliberately
+   * this early return rather than a branch threaded through the IC below, because the two have nothing
+   * in common: everything from here to the end of the aircraft path exists to put a JSBSim instance into
+   * a state, and this unit has none. What it DOES share is everything after that — the unit object, its
+   * identity, its health register, its telemetry, its mission monitor — which is why those steps are
+   * reached the same way in both. */
+  if (!module->FdmModelName() || module->FdmModelName()[0] == '\0') {
+    if (!sp.Ground) return fail("a unit with no airframe must spawn on the ground");
+    if (!block.SetKV.empty()) {
+      FBLog::Error("mission", "SET_REJECTED", {{"key", block.SetKV.front().first},
+                                               {"value", block.SetKV.front().second}});
+      return fail("spawn failed (this module takes no 'set' lines)");
+    }
+    fb_fdm_state gst{};
+    gst.lat = sp.LatDeg; gst.lon = sp.LonDeg; gst.elev = groundAsl; gst.yaw = sp.HeadingDeg;
+    FBUnitKind gkind = module->UnitKind();   /* read BEFORE the move: argument order is unspecified */
+    auto gunit = std::make_unique<FBSimUnit>((int)unitIdx + 1, block.Id, gkind, block.Team,
+                                             nullptr, std::move(module), gst, groundAsl);
+    if (!block.Plan.Empty() || !block.Objectives.empty())
+      gunit->SetMissionMonitor(std::make_unique<FBMissionMonitor>(block.Plan, block.Objectives,
+                                                                  mission.Runway, mission.HaveRunway,
+                                                                  timeoutS));
+    gunit->SetLogAttribution(mission.Units.size() > 1);
+    return gunit;
+  }
+
   FBFdmSpawn ic;
   /* The MODULE names its JSBSim model AND which root it lives under; `module <name>` in the .fbm stays
    * a pure registry key (FBModule::FdmModelName/FdmModelVendored, app/FBModelRoots.h). */
@@ -94,7 +122,8 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const FBModelRoots &models
   fb_fdm_state st{};
   st.lat = sp.LatDeg; st.lon = sp.LonDeg; st.elev = sp.Ground ? groundAsl : sp.AltM;
 
-  auto unit = std::make_unique<FBSimUnit>((int)unitIdx + 1, block.Id, FBUnitKind::Aircraft, block.Team,
+  FBUnitKind kind = module->UnitKind();   /* read BEFORE the move: argument order is unspecified */
+  auto unit = std::make_unique<FBSimUnit>((int)unitIdx + 1, block.Id, kind, block.Team,
                                           std::move(fdm), std::move(module), st, groundAsl);
   /* An actor is JUDGED iff the mission gave it something to achieve — waypoints to reach or combat
    * objectives to meet (core/FBObjective.h). An actor with neither has nothing to succeed or fail at

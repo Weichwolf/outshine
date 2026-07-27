@@ -687,6 +687,138 @@ Beide Vorzeichen sind die erwarteten: Widerstand verlängert den Fall und bremst
 Horizontalkomponente stärker, als er den Fall verlängert. Die Herleitung ist genau das, was ihre eigene
 Quelle behauptet, eine **untere Schranke** — sie ist kein Zielwert und wird nicht weggerechnet.
 
+## Bodenziele (`module target_soft` | `target_hard`)
+
+Ein **statisches Bodenziel ist eine ganz gewoehnliche `unit`** — kein neues Schluesselwort, keine zweite
+Deklarationssyntax. Es unterscheidet sich in genau einer Zeile:
+
+```
+unit bunker
+  module target_soft            # FBModuleRegistry-Key wie 'f16' — die ART des Ziels
+  team hostile                  # die Fraktion, gegen die ein 'kill unit/team' geprueft wird
+  spawn 46.90000 7.05000 ground 90.0 0    # Position; 'ground' = Elevation aus dem Provider, hdg = Laengsachse
+```
+
+**Es hat keine Flugdynamik und deshalb kein JSBSim-Modell.** Das ist die Konstruktionsentscheidung, und
+sie sitzt an genau einer Stelle: `FBModule::FdmModelName()` liefert einen LEEREN Namen, `FBModule::
+UnitKind()` liefert `FBUnitKind::Ground`, und die Spawn-Bahn (`app/FBMissionBoot.h`) baut daraufhin eine
+`units/FBSimUnit` OHNE `FBFdm`. Alles andere an der Einheit ist unveraendert dieselbe Mechanik wie bei
+einem Jet: Identitaet, Fraktion, veroeffentlichte Pose, **Gesundheitsregister**, **Schadensmodell**,
+Roster, Telemetriedatei, Unit-Registry. Die Alternative — einem Bunker ein triviales JSBSim-Modell zu
+geben — haette ein erfundenes aerodynamisches Objekt bei 100 Hz integriert, nur um die Position zu
+reproduzieren, an der es gespawnt wurde.
+
+Folgen, die aus `UnitKind::Ground` direkt fallen: der Physik-Monitor sieht ein Bodenziel nie (es fliegt
+nicht, es kann keinen Absturz haben), Luft-Luft-Sensoren (Radar/Datalink) finden es nicht, Kanonen-Bundles
+werden nicht gegen es aufgeloest (**kein Strafing**, s.u.), und es steht im Roster, gegen den
+`objective kill unit` geprueft wird. Ein `set`-Schluessel ist bei einem Ziel IMMER unbekannt und damit
+ein Missions-FAIL — was ein Ziel ist, sagt sein Modulname, wo es steht, seine `spawn`-Zeile.
+
+| Modul | Struktur faellt ab | ...degradiert ab | gedacht als |
+|---|---|---|---|
+| `target_soft` | 2,8e3 J/m² (Mk-82: ~45 m) | 1,2e3 J/m² (~69 m) | ungeschuetzte Anlage, Fahrzeugpark, Stellung |
+| `target_hard` | 9,0e4 J/m² (Mk-82: ~8 m) | 2,5e4 J/m² (~15 m) | Bunker, gehaertetes Bauwerk |
+
+Nur `Structure` ist deklariert: `FBSystemHealth::CombatEffective` fragt nach Triebwerk, Steuerung und
+Struktur, und ein Bauwerk hat genau eines davon. Zerstoert = `Structure` failed = kampfunfaehig =
+`objective kill unit <name>` erfuellt. Die Schwellen sind [SET] (weapons.md §4.7 nennt Gefechtskopf-
+Innenleben als echte Luecke), verankert an der offen zitierten Groessenordnung von 50–60 m
+Wirkradius einer 500-lb-Bombe gegen ungeschuetzte Ziele.
+
+**Der Bodenaufschlag als Detonation:** trifft ein Store den Boden, loest der Runner — nicht das Modul —
+seinen Gefechtskopf gegen jedes Bodenziel in der Naehe auf, durch dasselbe `core/FBDamageModel` wie eine
+Rakete neben einem Jet. Der Aufschlagpunkt wird dabei **sub-Tick** rekonstruiert (der Store fliegt ohne
+Bodenkontaktkraefte weiter, also `Tiefe / Sinkrate` zurueckprojiziert): beim 0,1-s-Tick des Laufes sind
+das ~20 m Horizontalweg, ein Fuenftel des gesamten Lieferfehlers. Gegen FLUGZEUGE wird ein Bodenburst
+bewusst NICHT aufgeloest — ein Jet ueber der eigenen Detonation ist real gefaehrdet, aber die dafuer
+noetige Splitter-Geometrie gegen eine Zelle gibt es hier nicht, und ein erfundener Radius waere eine Zahl,
+die sich als Physik ausgibt.
+
+## Luft-Boden-Angriff (`set task attack`, `set attack_mode ccip|ccrp`)
+
+Eine Einheit mit `set task attack` fliegt einen **Bombenangriff auf den aktiven Steerpoint**
+(`systems/FBPilot`s Attack-Phase). Drei Teile, eine Entscheidung:
+
+1. **Anflug** — `FBAutopilot::Direct` auf den aktiven Wegpunkt, auf DESSEN Hoehe und Geschwindigkeit,
+   also ein **waagerechter Laydown-Anflug**. Bewusst waagerecht: `Direct` haelt eine Hoehe und steuert
+   einen Punkt an, fliegt also genau diese Bahn exakt und wiederholbar, waehrend ein 20–30°-Sturz den
+   Piloten die ganze Bahn gegen die eigene Hoehenhaltung kaempfen liesse — und dann waere jeder Meter
+   Fehlabstand ein Streit ueber das Fliegen statt eine Messung der Abwurfrechnung.
+2. **Abwurf** — EIN Pickle ueber den Kommandobus, auf den Cue der Feuerleitung und auf nichts sonst.
+   Der Pilot rechnet keine Ballistik; er liest den `FBFireControlBlock` wie jedes andere Instrument.
+3. **Abdrehen** — 135°-Ausweichkurve mit Steigflug (F-16-Zahlen: `AttackEgressTurnDeg` 135,
+   `AttackEgressClimbM` 600, `AttackEgressS` 30), danach zurueck in die Route-Phase.
+
+**CCIP und CCRP sind EINE Rechnung, zwei Fragen** (`core/FBBallistics`, gemeinsames Primitiv): eine
+Vorwaerts-Integration der Ballistiktabelle des Stores (`core/FBStore.h`s `FBWeaponPerf` — Masse, EIN
+Cd, Referenzflaeche, Schaerfzeit) gegen eine ebene Aufschlagflaeche. Die Flaeche ist die
+**Steerpoint-Elevation**, also der `FBElevationProvider`-Wert, den auch der Radarhoehenmesser liest und
+gegen den der Monitor den Aufschlag beurteilt. Aus derselben Integration:
+
+| Modus | Cue, auf den der Pilot ausloest |
+|---|---|
+| `ccrp` | `AgTimeToReleaseS <= 0` — die Solution-Cue laeuft den Steering-Line herunter und passiert den FPM |
+| `ccip` | derselbe Moment UND `|AgCrossErrM|` innerhalb der Pipper-Toleranz (F-16: 45 m) — „das Pipper liegt SEITLICH auf dem Ziel", das Urteil, das ein Countdown nicht faellen kann |
+
+Auf einem sauber geflogenen Anflug loesen beide im selben Tick aus; auf einem schlecht gespurten loest
+CCRP aus und trifft daneben, CCIP loest gar nicht aus. Beides ist das dokumentierte Verhalten
+(doc/f16/weapons.md §2.5).
+
+**Der Pickle wird um die eigene Betaetigungslatenz vorgehalten.** Ein Kommando erreicht die Box eine
+Klassenlatenz spaeter (`core/FBCommandBus`, HOTAS 0,5 s); genau auf dem Cue zu druecken wuerde den Store
+0,5 s zu spaet loesen — bei 231 m/s sind das 115 m, mehr als die ganze Rechnung wert ist. Der echte Jet
+loest dasselbe Problem andersherum: in CCRP HAELT der Pilot den Knopf und das FLUGZEUG loest aus, wenn
+die Cue den FPM passiert. Gemessen: ohne Vorhalt 123 m lang, mit Vorhalt 8 m.
+
+Missionszeilen:
+
+```
+  set task attack                 # startet in der Attack-Phase (wie 'bfm'/'intercept')
+  set attack_mode ccip|ccrp       # welchen Cue der Pilot nimmt; setzt auch den Modus im Abwurf-Protokoll
+  set pilot_attack_bias_s <s>     # Variante: Abwurf um s Sekunden NACH dem Cue (+ = spaet, − = frueh)
+  set pilot_attack_ccip_m <m>     # Variante: die CCIP-Pipper-Toleranz
+```
+
+### Beobachtbar (Luft-Boden)
+
+- `pilot ATTACK_RELEASE` — der Cue im Moment des Drueckens: `ttrS`, `leadS`, `biasS`, `alongErrM`,
+  `crossErrM`, `missM`, `bombRangeM`, `tofS`, `armMarginS`.
+- `sms RELEASE_SOLUTION` — was der Rechner VORHERSAGTE, wie es mit der Runde den Jet verlaesst
+  (`predLat`/`predLon`/`predTofS`/`aimLat`/`aimLon`/`aimMissM`/`armMarginS`/`solAgeS`). Das
+  Gegenstueck zu `LAUNCH_SOLUTION` einer gelenkten Runde.
+- `stores IMPACT` — zusaetzlich `crossLat`/`crossLon`/`crossBackS`/`crossTofS`: der
+  sub-Tick-rekonstruierte Durchstosspunkt, gegen den alles Weitere gemessen wird.
+- `stores DELIVERY` — **Vorhersage gegen Wirklichkeit**, vom Besitzer der Simulation gemessen:
+  `predErrM` (was der RECHNER falsch hatte), `aimErrM` (was die LIEFERUNG falsch hatte),
+  `aimLongM`/`aimAcrossM` (lang/kurz und rechts/links in der Anflugrichtung), `tofErrS`, `planeM` gegen
+  `groundAslM` (die Elevationsdifferenz zwischen Rechenebene und echtem Boden am Aufschlagpunkt).
+- `damage DAMAGE`/`SYSTEM`/`KILL` am Bodenziel — dieselben Zeilen wie bei einem getroffenen Jet.
+- `mission UNIT_RESULT` eines Bodenziels: `INTACT` oder `DESTROYED` (statt eines Flug-Urteils).
+
+### Gemessen (`--elev const`, flache 0-m-Basis)
+
+`missions/attack-ccrp.fbm` / `attack-ccip.fbm`: 19 km Anflug, 900 m, 450 KCAS, Wurfweite 2.880 m.
+
+| Groesse | CCRP | CCIP | 2 s zu spaet (`attack-late.fbm`) |
+|---|---|---|---|
+| `predErrM` (Rechner gegen Modell) | 57,1 m | 57,1 m | 57,0 m |
+| `aimErrM` (Bombe gegen Ziel) | **37,2 m** | **37,2 m** | **482,2 m** |
+| davon lang / seitlich | 19,6 / 31,6 m | 19,6 / 31,6 m | 481,6 / 23,4 m |
+| `tofErrS` | −0,097 s | −0,097 s | −0,097 s |
+| Urteil | SUCCESS (exit 0) | SUCCESS (exit 0) | TIMEOUT (exit 3), Ziel steht |
+
+Der Rechnerfehler ist ein **systematischer Vorhalt-Fehler nach kurz**: die echte Bombe fliegt weiter,
+als die Tabelle sagt, weil die Tabelle EIN Cd fuer alle Machzahlen fuehrt und den Auftrieb der
+weathercockenden Runde gar nicht kennt. Beides sind erklaerte Auslassungen des RECHNERS
+(`core/FBBallistics.h`), keine Fehler der Simulation — genau wie die DLZ-Abweichung einer gelenkten
+Runde. Der Lieferfehler ist kleiner als der Rechnerfehler, weil dessen Laengsanteil dem Abwurfmoment
+entgegenlaeuft; der verbleibende dominante Anteil ist **seitlich** und stammt aus dem Spurfehler der
+Fuehrung (~0,4° Kurs bei 2.880 m Wurfweite = ~30 m), nicht aus der Ballistik.
+
+`missions/attack-hardened.fbm` fliegt denselben Abwurf gegen `target_hard`: derselbe 37-m-Fehlabstand,
+KEINE Schadenszeile (die ankommende Energie erreicht nicht einmal die Degrade-Schwelle) — TIMEOUT,
+`result=INTACT`. Die Fragilitaetsklassen sind damit ein Modell und keine Dekoration.
+
 ## Kampf-Missionen (`set task bfm`)
 
 Eine Einheit mit `set task bfm` fliegt keine Wegpunkte, sondern **BFM** (`systems/FBPilot`s Bfm-Phase):
@@ -889,3 +1021,15 @@ die Einheit, deren Urteil den Lauf BEENDET hat (bei SUCCESS keine). Die abschlie
 - `sim/missions/cmd-avionics.fbm` — der Avionik-Kommando-/Gültigkeits-Demonstrator (kein Flugtest):
   briefte Eingaben in beiden Latenzklassen, alle vier Quittungsergebnisse, beide Eigen-Policy-Gründe,
   dazu ein abgeschalteter Radarhöhenmesser (`invalid`) neben dem ohnehin gehaltenen Radarbild (`held`).
+- `sim/missions/attack-ccrp.fbm` — der Luft-Boden-Referenzlauf: 19 km waagerechter Anflug, CCRP-Abwurf
+  einer Mk-82 auf ein deklariertes `target_soft`, Aufschlag 37,2 m neben dem Ziel, Ziel zerstoert,
+  `objective kill unit` erfuellt (SUCCESS, exit 0). Mit `--elev const` messen (flache 0-m-Basis:
+  Rechenebene, Zielhoehe und Aufschlagboden sind dann dieselbe Zahl).
+- `sim/missions/attack-ccip.fbm` — derselbe Anflug auf dem CCIP-Cue, mit `objective survive` so gebaut,
+  dass der Lauf ueber den Treffer hinaus bis zum Ende der Ausweichkurve und zurueck in die Route laeuft:
+  der VOLLSTAENDIGE Angriffsablauf in einem Lauf.
+- `sim/missions/attack-late.fbm` — die Gegenprobe: dieselbe Datei mit EINER Zeile mehr
+  (`set pilot_attack_bias_s 2.0`, Abwurf zwei Sekunden nach dem Cue). 482 m Fehlabstand statt 37 m,
+  Ziel steht, TIMEOUT (exit 3) — das Mass dafuer, was die Rechnung leistet.
+- `sim/missions/attack-hardened.fbm` — derselbe gute Abwurf gegen `target_hard`: gleicher Fehlabstand,
+  keine Wirkung, `result=INTACT`. Die Fragilitaetsklassen sind ein Modell, keine Dekoration.

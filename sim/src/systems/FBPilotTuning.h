@@ -40,6 +40,8 @@ enum class FBPilotParam {
   GunFireTolFrac,          /* pilot_gun_tol_frac    — how tightly the pipper is held before firing */
   BfmCtrlMinNm,            /* pilot_bfm_ctrl_min_nm — the control position's near edge */
   BfmCtrlMaxNm,            /* pilot_bfm_ctrl_max_nm — ...and its far one */
+  AttackBiasS,             /* pilot_attack_bias_s   — release this many seconds after the computed cue */
+  AttackCcipTolM,          /* pilot_attack_ccip_m   — how close the CCIP pipper has to be to pickle */
   Count
 };
 

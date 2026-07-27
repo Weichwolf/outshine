@@ -1,0 +1,40 @@
+name attack-hardened-1
+timeout 200
+
+# THE SAME WELL-FLOWN PASS AGAINST A HARDENED TARGET. attack-ccrp.fbm with one token changed
+# (`module target_hard`), so the delivery is identical — same cue, same release, same ~37 m impact — and
+# only the thing being hit is different.
+#
+# WHAT IT PROVES: that the fragility classes are a model and not decoration. A Mk-82's fragment field
+# finishes an unprotected installation out to ~45 m and hurts it out to ~69 m; the hardened class needs
+# ~8 m to be finished and ~15 m to be hurt (modules/ground/FBGroundTarget.h, with the flux law those
+# radii come from). The same near miss that destroys the soft target therefore leaves this one INTACT —
+# no damage line at all, because the arriving energy does not reach even its degrade threshold, and the
+# runner's own derived gate declines to resolve a burst that could only produce a zero.
+#
+# EXPECTED OUTCOME: TIMEOUT (exit 3) with `unit=hardened result=INTACT`. A hardened target is a
+# different weapon's problem, which is the honest statement to leave in the record.
+#
+# Run it with `--elev const`, like its siblings.
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.90000 6.80000  900 90.0 450
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode off
+  set store 3 mk82
+  set store 7 mk82
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 46.90000 7.05000 900 450
+  wp 46.95000 7.20000 3000 400
+  objective kill unit hardened
+
+unit hardened
+  module target_hard                         # a bunker: the same catalogue, the other fragility class
+  team hostile
+  spawn 46.90000 7.05000 ground 90.0 0
