@@ -18,7 +18,7 @@ Jede Zahl in diesem Dokument trägt genau einen:
 | Marker | Bedeutung |
 |---|---|
 | `[DOC]` | in `doc/f16/` belegt (Fundstelle genannt) |
-| `[MODELL]` | aus dem gepinnten `vendor/jsbsim/aircraft/f16/f16.xml` abgeleitet (Herleitung genannt) |
+| `[MODELL]` | aus dem geflogenen `assets/aircraft/f16/f16.xml` abgeleitet (Herleitung genannt) — Upstream-Stand plus die Deltas aus `sim/assets/MODEL-DELTAS.md`, heute keine |
 | `[MESS]` | im Gym gegen das vanilla Modell gemessen (Messaufbau genannt) |
 | `[SET]` | Setzung/deklarierter Modellparameter — KEIN Zitat, als solcher im Quellcode ausgewiesen |
 | `[ABL]` | aus einer anderen FlightBox-Größe hergeleitet (Rechnung genannt) |
@@ -49,7 +49,6 @@ Deklaration (was für eine Entität dieses Modul wird):
 | Methode | Vertrag |
 |---|---|
 | `FdmModelName()` | Modellverzeichnis/-XML. BEWUSST nicht aus dem Registry-Namen abgeleitet: „f16"/"f16" fallen heute zusammen, sind aber nicht dasselbe. Ein LEERER Name heißt „kein Airframe" (`modules/ground`). |
-| `FdmModelVendored()` | Modellwurzel: `true` = gepinntes read-only Submodul (jedes Flugzeug in diesem Baum), `false` = FlightBox-eigene Assets (die AIM-120 ist die erste — das Submodul hat keine und darf nicht ergänzt werden, Prinzip 1). Auflösung in `app/FBModelRoots.h`. |
 | `UnitKind()` | `Aircraft` (Default) / `Ground`. `Weapon` wird hier NICHT gesetzt: ein Store ist eine Waffe kraft ABWURF, und das ist die Aussage der abwerfenden Bahn, nicht des Moduls. |
 
 Ausführung:
@@ -951,12 +950,12 @@ ruhigen unterscheiden können.
 
 | Punkt | Aussage |
 |---|---|
-| Modell | `sim/vendor/jsbsim/aircraft/f16` — die **vanilla, full-scale JSBSim-F-16** mit echter FLCS, aus dem **gepinnten, read-only Submodul**. `FBF16Module::FdmModelName()` liefert `"f16"`, `FdmModelVendored()` bleibt beim Default `true` |
+| Modell | `sim/assets/aircraft/f16` — die **full-scale JSBSim-F-16** mit echter FLCS, FlightBox' Kopie des gepinnten Upstream (heute byte-identisch, `sim/assets/MODEL-DELTAS.md` nennt kein Delta). `FBF16Module::FdmModelName()` liefert `"f16"`; eine Wurzelwahl gibt es nicht mehr |
 | Nicht abgeleitet | Der Modellname ist BEWUSST nicht aus dem Registry-Namen abgeleitet: die beiden fallen heute zusammen, sind aber nicht dasselbe |
 | „Referenz ist das MODELL" (Prinzip 5) | Praktisch: die Zielgröße ist NICHT „stimmt die Zahl mit dem echten Jet überein", sondern „fliegt FlightBox das Modell TREU". Belegte Konsequenzen in diesem Modul: die ~5,6 g / ~16 °/s am Corner (statt 9 g / 20+ °/s) sind AKZEPTIERTE Modell-Eigenschaften und kein zu tunender Defekt; die ~170-KCAS-Abhebegeschwindigkeit trotz 128-kt-Tabellen-Vr ebenso; `ApproachSpeedKt` 165 ist die GEMESSENE Trimmkurve des Modells und keine kopierte Realzahl. Bewertet werden korrekte Integration + Rendering |
 | FBW/FLCS | Die JSBSim-F-16 hat eine echte FLCS (`fcs/*-cmd-norm` = Raten-Sollwerte). FlightBox' FBW kommandiert sie über das `Flcs=1`-Preset, statt sie zu verzerren; `fcs/fbw-override=1` überbrückt sie (direktes Ruder) — dieses Modul nutzt den FLCS-Pfad |
-| Lizenz | Die Aircraft-XML trägt eine EIGENE Lizenz — die F-16 ist **GPL** (`<license licenseName="GPL">`, `<author>Erik Hofman</author>`), die meisten anderen JSBSim-Modelle LGPL. Attribution erfolgt PER DATEI; das Submodul wird nie gepatcht. FlightBox' eigene Quellen tragen FlightBox' Lizenz, JSBSims LGPL-Banner wird nicht kopiert |
-| Eigene Modelle | Wenn das Submodul ein Modell nicht hat, darf es dort auch nicht hineingelegt werden — es landet in `sim/assets/aircraft/` und das Modul sagt das über `FdmModelVendored() == false` (erster Fall: die AIM-120 in `modules/missile/`) |
+| Lizenz | Die Aircraft-XML trägt eine EIGENE Lizenz — die F-16 ist **GPL** (`<license licenseName="GPL">`, `<author>Erik Hofman</author>`), die meisten anderen JSBSim-Modelle LGPL. Attribution erfolgt PER DATEI, der `<fileheader>` der Kopie bleibt unverändert; das Submodul selbst wird nie gepatcht. FlightBox' eigene Quellen tragen FlightBox' Lizenz, JSBSims LGPL-Banner wird nicht kopiert |
+| Eigene Modelle | Ein Modell, das der Upstream gar nicht kennt, liegt in derselben Wurzel und hat schlicht kein Gegenstück in der Herkunftstabelle (erster Fall: die AIM-120 in `modules/missile/`) |
 
 ---
 

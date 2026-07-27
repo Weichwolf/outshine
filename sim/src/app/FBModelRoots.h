@@ -1,14 +1,19 @@
 /* FlightBox — FBModelRoots: where JSBSim models come from, as one value the client fills in once.
  *
- * WHY THERE ARE TWO. FlightBox has two KINDS of model. The aircraft are the pinned JSBSim submodule's
- * (vendor/jsbsim/aircraft), read-only and never patched — CLAUDE.md Prinzip 1. Everything the submodule
- * does NOT carry has to be written by us, and therefore cannot live there: the AIM-120 is the first, and
- * it sits in sim/assets/aircraft. Which of the two a module's model comes from is the MODULE's own
- * statement (FBModule::FdmModelVendored), never a guess from the name — so this struct is only the
- * per-client PATHS, resolved per link target:
- *     native/gym : "vendor/jsbsim/aircraft"  and  "assets/aircraft"   (relative to sim/)
- *     WASM       : "/jsbsim/aircraft"        and  "/fb/aircraft"      (the embedded FS, see the wasm
- *                                                                      make target's --embed-file lines)
+ * ONE ROOT, and it is not the submodule. Everything FlightBox flies lives under sim/assets/aircraft, one
+ * self-contained directory per model (its .xml plus its own engine/ and Systems/ — JSBSim's own
+ * per-aircraft layout, which its loaders search before any shared path). The pinned submodule is the
+ * upstream BASIS that `make -C sim verify-models` diffs those copies against; it is not a load path.
+ *
+ * WHY THE INVERSION (CLAUDE.md, Prinzip 1's Delta-Regel). The submodule used to BE the
+ * aircraft root precisely because it was read-only, and sim/assets/aircraft existed only for what the
+ * submodule does not carry. That cannot hold once a model may legitimately be corrected or extended: a
+ * model loaded from the submodule cannot carry a correction, and a model loaded from a copy of unknown
+ * provenance is no longer a reference. The third option is this one — FlightBox flies its own copy, the
+ * submodule stays the untouched basis, and every deviation is a named, evidenced entry in
+ * sim/assets/MODEL-DELTAS.md that the verify gate holds to.
+ *     native/gym : "assets/aircraft"   (relative to sim/)
+ *     WASM       : "/fb/aircraft"      (the embedded FS, see the wasm make target's --embed-file line)
  * Lives in app/ because only app/ boots an airframe (fdm/FBFdmBoot.h's gate): nothing under systems/ or
  * modules/ can reach a model path any more than it can reach an initial condition. */
 #ifndef FBMODELROOTS_H
@@ -19,16 +24,12 @@
 namespace FlightBox {
 
 struct FBModelRoots {
-  std::string Vendor;      /* the pinned JSBSim submodule's aircraft root */
-  std::string FlightBox;   /* FlightBox's own model assets */
-
-  /* The root for a model, given the module's own answer to "is it vendored". */
-  const std::string &Of(bool vendored) const { return vendored ? Vendor : FlightBox; }
+  std::string Aircraft;    /* FlightBox's model root: one directory per model */
 };
 
-/* The native/gym pair, one definition for every client that runs from sim/ (both apps and every test
- * harness) instead of four string literals that could drift apart. */
-inline FBModelRoots FBNativeModelRoots() { return FBModelRoots{"vendor/jsbsim/aircraft", "assets/aircraft"}; }
+/* The native/gym root, one definition for every client that runs from sim/ (both apps and every test
+ * harness) instead of string literals that could drift apart. */
+inline FBModelRoots FBNativeModelRoots() { return FBModelRoots{"assets/aircraft"}; }
 
 } // namespace FlightBox
 #endif

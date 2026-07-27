@@ -45,10 +45,9 @@ static const double kAglM = 1500.0;      /* ?ap=manual spawn height above ground
 static const double kSpeedMs = 220.0;    /* ?ap=manual spawn speed */
 static const char *kSandboxModule = "f16";   /* ?ap=manual has no .fbm to name a module — the sandbox
     picks this one by REGISTRY NAME, so even the debug path never names a concrete module type */
-/* The browser's two model roots (app/FBModelRoots.h): both are paths in emscripten's embedded FS, filled
- * by the wasm target's --embed-file lines. Which one a module's model comes from is the module's own
- * statement, exactly as in the native clients. */
-static const FlightBox::FBModelRoots kWasmModelRoots{"/jsbsim/aircraft", "/fb/aircraft"};
+/* The browser's model root (app/FBModelRoots.h): a path in emscripten's embedded FS, filled by the wasm
+ * target's --embed-file line — the same sim/assets/aircraft the native clients read, only mounted. */
+static const FlightBox::FBModelRoots kWasmModelRoots{"/fb/aircraft"};
 static const char *kDefaultMissionUrl = "/missions/payerne-full.fbm";   /* the full autonomous sortie:
     ground start, waypoint loop, landing to a full stop. web/missions/ is a build-time copy of
     sim/missions/ (make wasm) served by fb-sim's web/ mount — editable without a WASM rebuild */
@@ -312,7 +311,7 @@ int main() {
     double altAsl = kConfigGroundM + kAglM;
     double slat = olat + kRadiusM / kMPerDeg, slon = olon;   /* 8 km due N, heading E */
     FBFdmSpawn ic;
-    ic.ModelsRoot = kWasmModelRoots.Of(module->FdmModelVendored());
+    ic.ModelsRoot = kWasmModelRoots.Aircraft;
     ic.Aircraft = module->FdmModelName();
     ic.LatDeg = slat; ic.LonDeg = slon; ic.GroundElevM = altAsl;
     ic.HeightOffsetM = 0.0;   /* airborne, no explicit offset — the IC's own provisional margin applies */

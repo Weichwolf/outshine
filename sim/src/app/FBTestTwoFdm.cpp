@@ -25,7 +25,7 @@ namespace {
 
 FBFdmSpawn MakeSpawn(double lat, double lon, double groundM, double hdgDeg) {
   FBFdmSpawn ic;
-  ic.ModelsRoot = "vendor/jsbsim/aircraft";
+  ic.ModelsRoot = "assets/aircraft";
   ic.Aircraft = "f16";
   ic.LatDeg = lat; ic.LonDeg = lon;
   ic.GroundElevM = groundM;

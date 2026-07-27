@@ -39,7 +39,7 @@ int main() {
    * (FBMissionSpawnActor's ground case uses <0); FbwOverride so our own FBW (a flat Manual command
    * below), not the F-16's own FLCS, is what's driving — same override every other client uses. */
   FBFdmSpawn ic;
-  ic.ModelsRoot = "vendor/jsbsim/aircraft"; ic.Aircraft = "f16";
+  ic.ModelsRoot = "assets/aircraft"; ic.Aircraft = "f16";
   ic.LatDeg = lat; ic.LonDeg = lon; ic.GroundElevM = groundAsl; ic.HeightOffsetM = spawnAglM;
   ic.SpeedMs = speedMs; ic.HeadingDeg = 0.0; ic.FbwOverride = true;
   std::unique_ptr<FBFdm> fdm = FBFdmBoot::Spawn(ic);

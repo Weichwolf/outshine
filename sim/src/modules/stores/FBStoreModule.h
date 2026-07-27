@@ -6,7 +6,7 @@
  * bomb does: integrate.
  *
  * IT HAS NO PILOT AND NO GUIDANCE, deliberately. Nothing here touches the FDM's control inputs, so the
- * trajectory is the vendored aero model plus gravity and nothing else — which is the entire point of
+ * trajectory is the model's own aero deck plus gravity and nothing else — which is the entire point of
  * modelling a weapon as its own FDM instance instead of as a hand-written ballistic formula. A guided
  * weapon is a DIFFERENT module (its seeker/autopilot filled in), not a flag on this one.
  *
@@ -30,7 +30,6 @@ public:
 
   void AttachFdm(FBFdm &fdm) override { Fdm_ = &fdm; }
   const char *FdmModelName() const override { return Spec_.FdmModel; }
-  bool FdmModelVendored() const override { return Spec_.Vendored; }
 
   /* The whole behaviour of a released store: fixed 100 Hz substeps of its own FDM, no command written
    * to any control channel. Same substep accumulator and spiral guard as every other module, so a

@@ -6,13 +6,12 @@ das hier und `CLAUDE.md` ist nachzuführen.
 
 Geladen wird das über den Skill **`flightbox`** (`.claude/skills/flightbox/SKILL.md`), aufgabenbezogen.
 
-Stand: `658014d`, 27.07.2026.
+Stand: `793e1fe` + Modellwurzel/Delta-Regel, 27.07.2026.
 
 ## Immer zuerst
 
 | Datei | Inhalt |
 |---|---|
-| [principles.md](principles.md) | Die fünf nicht verhandelbaren Prinzipien und die **Anti-Cheat-Garantien**. Jede andere Datei setzt sie voraus. Eine Änderung, die eines davon verletzt, ist falsch, auch wenn sie funktioniert. |
 | [conventions.md](conventions.md) | Namen, Struktur, die Keine-printf-Regel, und die Regel, dass **jede Zahl ihre Herkunft trägt** — hergeleitet, gemessen oder `[SET]`. |
 | [architecture.md](architecture.md) | Prozessmodell, Core-Lib plus drei Clients, Verzeichniskarte, das Schichtungsmuster, Multi-Unit in Kürze. |
 
@@ -20,14 +19,14 @@ Stand: `658014d`, 27.07.2026.
 
 | Datei | Zeilen | Inhalt |
 |---|---|---|
-| [core.md](core.md) | 2178 | Der Avionik-Blockbus mit Dreizustands-Gültigkeit, der Kommandobus mit Quittung und Ablehnungskatalog, `FBLog`/`FBTelemetry`, die **zwei Richter**, Missionsdaten-Typen, Kampfziele, Gesundheitsregister und Schadensmodell, Ballistik- und Waffen-Wertetypen, Elevation-Hook, Geodäsie. |
-| [fdm.md](fdm.md) | 443 | Der JSBSim-Adapter: die Ein-TU-Naht, Instanzfähigkeit, **IC-Abschottung**, Ownership, Zuladung und Schadenskanäle über modell-eigene APIs, der vollständige Ladeablauf. |
-| [units-and-missions.md](units-and-missions.md) | 734 | `FBUnit`/`FBSimUnit`/`FBUnitRegistry`, die Snapshot-Barriere, der Vier-Schritt-Orchestrator, Spawn, die Multi-Unit-Etappen 1–4 samt Thread-Pool und den ehrlichen Skalierungszahlen, Detonations- und Aufschlag-Auflösung. |
+| [core.md](core.md) | 2177 | Der Avionik-Blockbus mit Dreizustands-Gültigkeit, der Kommandobus mit Quittung und Ablehnungskatalog, `FBLog`/`FBTelemetry`, die **zwei Richter**, Missionsdaten-Typen, Kampfziele, Gesundheitsregister und Schadensmodell, Ballistik- und Waffen-Wertetypen, Elevation-Hook, Geodäsie. |
+| [fdm.md](fdm.md) | 445 | Der JSBSim-Adapter: die Ein-TU-Naht, Instanzfähigkeit, **IC-Abschottung**, Ownership, Zuladung und Schadenskanäle über modell-eigene APIs, der vollständige Ladeablauf. |
+| [units-and-missions.md](units-and-missions.md) | 736 | `FBUnit`/`FBSimUnit`/`FBUnitRegistry`, die Snapshot-Barriere, der Vier-Schritt-Orchestrator, Spawn, die Multi-Unit-Etappen 1–4 samt Thread-Pool und den ehrlichen Skalierungszahlen, Detonations- und Aufschlag-Auflösung. |
 | [systems.md](systems.md) | 879 | Die generischen Slots: Guidance (inkl. **vollständiger Bahnfolge-Herleitung**), FBW-Innenschleife, Luftdaten, Radarhöhenmesser als Referenzfall für `Invalid`, Warnungen, Navigation und Wegpunkt-Sequenzierung, Display-Slot, Airframe-Controls. |
 | [sensors.md](sensors.md) | 804 | Datalink, Radar, RWR, Gegenmaßnahmen — und **die Wahrnehmungsgrenze**: wer die Registry sehen darf, warum ein Kontakt anonym ist, warum IFF zweiwertig ist. |
 | [pilot-ai.md](pilot-ai.md) | 1148 | Phasenmaschine, Attack, BFM mit seinem eigenen Regelgesetz, das **Datum** als Piloten-Gedächtnis, BVR-Abfang, Debriefing-Kanäle, Varianten und Turnier, der Missions-Regelkreis. |
-| [weapons-and-damage.md](weapons-and-damage.md) | 1511 | Waffe-als-Einheit, SMS und Kanone, geteilte Ballistik, die **drei Auflösungsgrenzen**, das Schadensmodell von der Geometrie bis zur Systemfolge, und die Kopplung „Ausfall → Block ungültig". |
-| [modules-f16.md](modules-f16.md) | 1004 | Das F-16-Modul: Komposition, Takt, Kommando-Router, und jeder Override mit seinen Zahlen und deren Herkunft. HUD-Symbologie-Umsetzung. |
+| [weapons-and-damage.md](weapons-and-damage.md) | 1525 | Waffe-als-Einheit, SMS und Kanone, geteilte Ballistik, die **drei Auflösungsgrenzen**, das Schadensmodell von der Geometrie bis zur Systemfolge, und die Kopplung „Ausfall → Block ungültig". |
+| [modules-f16.md](modules-f16.md) | 1003 | Das F-16-Modul: Komposition, Takt, Kommando-Router, und jeder Override mit seinen Zahlen und deren Herkunft. HUD-Symbologie-Umsetzung. |
 | [rendering.md](rendering.md) | 663 | WebGPU, ECEF camera-relative, Reversed-Z, die **Pass-Topologie als Vertrag**, der Stage-Katalog, das HUD-Backend mit Coverage-AA, Kamera und Bodenwahrheit. |
 | [world-and-terrain.md](world-and-terrain.md) | 501 | `FBWorld`, Tile-Streaming und Worker, Elevation über Kacheln, die Terrain-Lib, `fb-tiles` aus Klientensicht. |
 

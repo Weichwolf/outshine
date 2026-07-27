@@ -78,13 +78,22 @@ Accessoren selbst (`Autopilot()`, `FlightControl()`, `PilotSystem()`, `Controls(
 | Teil | Wo | Was |
 |---|---|---|
 | Code-Modul | `sim/src/modules/<name>/` | `FBModule`-Ableitung: Systeme, Presets, Displays |
-| JSBSim-Modell | Submodul **oder** `sim/assets/aircraft/` | Aero, Masse, Antrieb, Engine-Daten |
+| JSBSim-Modell | `sim/assets/aircraft/<modell>/` | Aero, Masse, Antrieb, Engine-Daten |
 
-Welche Wurzel ein Modul braucht, sagt es selbst (`FBModule::FdmModelVendored()`) — ein Modell, das das
-gepinnte Submodul nicht hat, darf dort auch nicht liegen. Die F-16 fliegt das vanilla Modell aus dem
-Submodul; die AIM-120 ein FlightBox-eigenes.
+**Eine Wurzel** (`app/FBModelRoots.h`): jedes Modell, das FlightBox fliegt, liegt in
+`sim/assets/aircraft` — ein selbstständiges Verzeichnis je Modell, mit seiner `.xml` und seinen eigenen
+`engine/`- und `Systems/`-Unterverzeichnissen (JSBSims eigenes Pro-Flugzeug-Layout, das seine Loader vor
+jedem geteilten Pfad durchsuchen). Heute: `f16`, `mk82` (beide Kopien aus dem Submodul), `aim120`
+(FlightBox-eigen, das Submodul hat keine AMRAAM).
 
-Aircraft-XML trägt eine EIGENE Lizenz (F-16 = GPL, die meisten LGPL) — Attribution je Datei.
+Das gepinnte Submodul ist damit **kein Ladepfad mehr, sondern die Basis** — der Upstream-Stand, gegen den
+`make -C sim verify-models` jede Kopie diffed. Abweichen darf eine Kopie nur als benannter Eintrag in
+`sim/assets/MODEL-DELTAS.md` — die Delta-Regel, [`CLAUDE.md`](../../CLAUDE.md) Prinzip 1. Die frühere Unterscheidung
+„vendored oder eigen" (`FBModule::FdmModelVendored()`) ist damit entfallen; ein Modul nennt nur noch
+seinen Modellnamen.
+
+Aircraft-XML trägt eine EIGENE Lizenz (F-16 = GPL, die meisten LGPL) — Attribution je Datei, der
+`<fileheader>` jeder Kopie bleibt unverändert.
 
 ## Steuerung
 

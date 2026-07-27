@@ -82,8 +82,9 @@ public:
    * fly. */
   void AttachFdm(FBFdm &fdm) override;
 
-  /* vendor/jsbsim/aircraft/f16 — the vanilla full-scale model (CLAUDE.md Prinzip 5). Deliberately NOT
-   * derived from the registry name: the two happen to coincide today, they are not the same thing. */
+  /* assets/aircraft/f16 — the full-scale JSBSim model FlightBox flies (Prinzip 5), i.e. the pinned
+   * upstream plus whatever assets/MODEL-DELTAS.md names, today nothing. Deliberately NOT derived from
+   * the registry name: the two happen to coincide today, they are not the same thing. */
   const char *FdmModelName() const override { return "f16"; }
 
   void Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units = nullptr,

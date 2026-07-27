@@ -1,5 +1,5 @@
 /* FlightBox — FBFdm: ONE simulated airframe's JSBSim instance. This is the ONE-TU seam between our C++
- * and the vendored JSBSim engine (vendor/jsbsim, read-only per CLAUDE.md Prinzip 1): FBFdm.cpp is the
+ * and the vendored JSBSim ENGINE (vendor/jsbsim, never patched — Prinzip 1): FBFdm.cpp is the
  * ONLY translation unit that includes a JSBSim header — every caller sees this class plus the flat POD
  * state below, never FGFDMExec. The engine lives behind a pimpl for exactly that reason, which is also
  * why the getters are NOT inline in the header (the usual FB convention): they cannot be, the header may
@@ -104,8 +104,9 @@ public:
    * contribution all move, and they move again the moment its weight goes to zero at release, which is
    * what makes a loaded jet fly differently from a clean one and a released one differently from both.
    * AddStorePointMass() is the model's own AddPointMass API (the aircraft.xml `<pointmass>` mechanism,
-   * of which the F-16 declares one: the pilot) driven from here instead of from XML, because
-   * vendor/jsbsim is read-only (CLAUDE.md Prinzip 1) — no model file gains a station it did not have.
+   * of which the F-16 declares one: the pilot) driven from here instead of from XML, because a LOADOUT
+   * is not a property of the airframe: it changes per mission and per station, so writing it into the
+   * model would be a model delta that says something the model does not (Prinzip 1's Delta-Regel).
    * Locations are in the loaded model's own STRUCTURAL frame (inches), the frame its aircraft.xml
    * already places the pilot, the gear and the tanks in. Returns the index to address the mass with,
    * or -1 if the engine refused it. */
@@ -115,7 +116,7 @@ public:
   /* The carriage DRAG of everything currently loaded, as a drag AREA (CdA, ft^2) acting at the loaded
    * stations' centroid (structural inches, same frame as above): the force CdA * qbar is applied along
    * the body -x axis every step through JSBSim's own <external_reactions> mechanism — an "fb-stores"
-   * force this class ADDS to the loaded model at runtime (again: no model file is patched), so the
+   * force this class ADDS to the loaded model at runtime (again: nothing is written into the model), so the
    * moment an off-centre load produces comes out of the same physics as the force. Call it once per
    * loadout CHANGE, not per frame. cdaFt2 <= 0 (the default) means no stores force is ever created and
    * a clean airframe is bit-identical to one that never heard of stores. */

@@ -40,7 +40,6 @@
 #include <cmath>
 #include <cstdio>
 #include <string>
-#include <sys/stat.h>
 
 using namespace JSBSim;
 
@@ -126,14 +125,13 @@ bool FBFdm::Load(const FBFdmSpawn &spawn) {
 bool FBFdm::LoadUnguarded(const FBFdmSpawn &spawn) {
   FGFDMExec &ex = P->Exec;
   const std::string r = spawn.ModelsRoot, d = r + "/" + spawn.Aircraft;
-  /* Engine/Systems paths: our bundled models carry their own <ac>/engine + <ac>/Systems; the vanilla
-   * JSBSim models (e.g. the full-scale f16) share JSBSim's standard <root>/../engine and keep Systems
-   * under <ac>/Systems. Fall back to the shared layout so a vanilla model loads with no duplication.
-   * Parent by truncation, NOT "..": emscripten's virtual FS does not normalize ".." in a path. */
-  auto exists = [](const std::string &p) { struct stat st; return ::stat(p.c_str(), &st) == 0; };
-  const std::string parent = r.substr(0, r.find_last_of('/'));
-  const std::string eng = exists(d + "/engine") ? d + "/engine" : parent + "/engine";
-  const std::string sys = exists(d + "/Systems") ? d + "/Systems" : parent + "/systems";
+  /* Engine/Systems: every FlightBox model is self-contained under <root>/<ac>, so both are that model's
+   * own subdirectories — the layout JSBSim's own loaders search FIRST (FGPropulsion::FindEngineFullPathname
+   * and FGFCS::FindFullPathName try <aircraft>/engine and <aircraft>/Systems before these paths). No
+   * probing and no shared root any more: there is one model root (app/FBModelRoots.h), and a model that
+   * declares no engine simply never resolves the path. */
+  const std::string eng = d + "/engine";
+  const std::string sys = d + "/Systems";
   if (!ex.LoadModel(SGPath(r), SGPath(eng), SGPath(sys), spawn.Aircraft)) {
     FBLog::Error("fdm", "LoadModel_failed", {{"aircraft", spawn.Aircraft}, {"root", r}, {"engine", eng}});
     return false;

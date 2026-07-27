@@ -19,6 +19,8 @@
 #                 -> build/fb-test-missile-airframe
 #   make test-gun  check the M61A1's ballistics, dispersion fit, EEGS funnel geometry and the lead
 #                 solution against doc/f16/weapons.md -> build/fb-test-gun
+#   make verify-models  every model copy under assets/aircraft differs from the pinned submodule by
+#                 EXACTLY the deltas assets/MODEL-DELTAS.md names -- no unexplained byte
 #   make image    build the deployable fb-sim web container (podman)
 #   make up       run the web host container (serves the WASM app on :8080)
 #   make clean    remove build artifacts
@@ -116,7 +118,7 @@ CORE_LIB_SRCS := \
   src/units/FBSimUnit.cpp \
   src/render/FBHudGeometry.cpp
 
-.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun image up down restart clean
+.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun verify-models image up down restart clean
 
 help:            ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
@@ -144,11 +146,7 @@ wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,w
 	    $(INC_WASM) \
 	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=256MB -sSTACK_SIZE=4MB -sEXIT_RUNTIME=0 \
 	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_fb_toggle_ground,_fb_set_ground \
-	    --embed-file $(JSBSIM)/aircraft/f16@/jsbsim/aircraft/f16 \
-	    --embed-file $(JSBSIM)/aircraft/mk82@/jsbsim/aircraft/mk82 \
-	    --embed-file assets/aircraft/aim120@/fb/aircraft/aim120 \
-	    --embed-file $(JSBSIM)/engine/F100-PW-229.xml@/jsbsim/engine/F100-PW-229.xml \
-	    --embed-file $(JSBSIM)/engine/direct.xml@/jsbsim/engine/direct.xml \
+	    --embed-file assets/aircraft@/fb/aircraft \
 	    --embed-file web/moon.jpg@/moon.jpg \
 	    -o web/gpu.js; \
 	  mkdir -p web/missions; cp missions/*.fbm web/missions/; \
@@ -297,6 +295,13 @@ test-missile: core-lib   ## fly the FlightBox AIM-120 model open-loop (motor/dra
 	    -lpthread -ldl -lm \
 	    -o build/fb-test-missile-airframe; \
 	  echo "test-missile -> build/fb-test-missile-airframe"
+
+# The delta gate (CLAUDE.md, Prinzip 1). NOT a prerequisite of the build targets: it
+# only has anything to say when a file under assets/aircraft or the pinned submodule changes, and making
+# every compile wait on python3 for that would put an interpreter on the critical path of a C++ build.
+# Run it whenever a model is touched, and as part of the acceptance gate.
+verify-models:   ## check assets/aircraft against the pinned submodule + assets/MODEL-DELTAS.md
+	@cd $(SELF_DIR) && python3 tools/verify_models.py
 
 image:          ## build the deployable fb-sim web container (context = sim/, trimmed by .containerignore)
 	cd $(SELF_DIR) && podman build -f Dockerfile -t fb-sim .

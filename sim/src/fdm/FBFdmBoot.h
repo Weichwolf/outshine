@@ -20,8 +20,8 @@ namespace FlightBox {
 
 /* The initial condition, as data (core/FBSpawn is the mission-level declaration this is resolved into). */
 struct FBFdmSpawn {
-  std::string ModelsRoot;      /* JSBSim aircraft root — native/gym "vendor/jsbsim/aircraft", WASM the
-                                * embedded FS path "/jsbsim/aircraft" */
+  std::string ModelsRoot;      /* the ONE model root — native/gym "assets/aircraft", WASM the embedded FS
+                                * path "/fb/aircraft" (app/FBModelRoots.h) */
   std::string Aircraft;        /* model directory + xml name under ModelsRoot */
   double LatDeg = 0.0;         /* GEODETIC — matches GPS/HOME_LAT */
   double LonDeg = 0.0;

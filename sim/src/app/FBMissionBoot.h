@@ -47,8 +47,8 @@ namespace FlightBox {
  * the file's own; an actor the mission gave neither has nothing to succeed or fail at and carries no
  * monitor, so it never appears in the mission verdict.
  *
- * `models` is the client's pair of model roots (app/FBModelRoots.h — they differ per link target, and
- * WHICH of the two a module's model comes from is the module's own statement). Returns nullptr with a human reason in *err (unknown module, JSBSim init,
+ * `models` is the client's model root (app/FBModelRoots.h — one root, its spelling differs per link
+ * target). Returns nullptr with a human reason in *err (unknown module, JSBSim init,
  * rejected `set` line); on success the caller owns the actor and everything in it. */
 inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const FBModelRoots &models, const FBMission &mission,
                                                       size_t unitIdx, double groundAsl, double timeoutS,
@@ -91,9 +91,9 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const FBModelRoots &models
   }
 
   FBFdmSpawn ic;
-  /* The MODULE names its JSBSim model AND which root it lives under; `module <name>` in the .fbm stays
-   * a pure registry key (FBModule::FdmModelName/FdmModelVendored, app/FBModelRoots.h). */
-  ic.ModelsRoot = models.Of(module->FdmModelVendored());
+  /* The MODULE names its JSBSim model; `module <name>` in the .fbm stays a pure registry key
+   * (FBModule::FdmModelName under the client's one model root, app/FBModelRoots.h). */
+  ic.ModelsRoot = models.Aircraft;
   ic.Aircraft = module->FdmModelName();
   ic.LatDeg = sp.LatDeg;
   ic.LonDeg = sp.LonDeg;
@@ -189,7 +189,7 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnStore(const FBModelRoots &models
 
   double coslat = std::cos(carrier.lat * kDeg2Rad);
   FBFdmSpawn ic;
-  ic.ModelsRoot = models.Of(module->FdmModelVendored());
+  ic.ModelsRoot = models.Aircraft;
   ic.Aircraft = module->FdmModelName();
   ic.LatDeg = carrier.lat + offN / kMPerDeg;
   ic.LonDeg = carrier.lon + (coslat > 1e-6 ? offE / (kMPerDeg * coslat) : 0.0);

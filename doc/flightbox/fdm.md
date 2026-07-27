@@ -157,7 +157,7 @@ Zweite Stufe derselben Schranke: ein `units/FBSimUnit` lässt sich nur aus einer
 
 | Feld | Bedeutung |
 |---|---|
-| `ModelsRoot` | JSBSim-Aircraft-Root. native/gym `vendor/jsbsim/aircraft`, WASM der eingebettete FS-Pfad `/jsbsim/aircraft` (→ `app/FBModelRoots.h`). |
+| `ModelsRoot` | die EINE Modellwurzel. native/gym `assets/aircraft`, WASM der eingebettete FS-Pfad `/fb/aircraft` (→ `app/FBModelRoots.h`). |
 | `Aircraft` | Modellverzeichnis + XML-Name unter `ModelsRoot`. |
 | `LatDeg`, `LonDeg` | **geodätisch** (passt zu GPS/HOME_LAT). |
 | `GroundElevM` | aufgelöste Bodenhöhe unter dem Spawnpunkt, m ASL. |
@@ -177,11 +177,13 @@ kein Re-Init danach.
 
 Schritt für Schritt, weil jeder Schritt eine Begründung trägt:
 
-1. **Pfad-Auflösung Engine/Systems.** `<root>/<aircraft>/engine` wenn vorhanden, sonst
-   `<parent>/engine`; analog `<aircraft>/Systems` bzw. `<parent>/systems`. Grund: FlightBox-eigene
-   Modelle bringen ihre `engine`/`Systems` mit, die vanilla-JSBSim-Modelle (u. a. die full-scale f16)
-   teilen sich JSBSims Standard-Layout. Der Parent wird durch **Trunkierung** am letzten `/` gebildet,
-   NICHT über `..`: emscriptens virtuelles FS normalisiert `..` nicht.
+1. **Pfad-Auflösung Engine/Systems.** `<root>/<aircraft>/engine` und `<root>/<aircraft>/Systems`,
+   bedingungslos. Jedes FlightBox-Modell ist unter seinem eigenen Verzeichnis vollständig — genau das
+   Layout, das JSBSims eigene Loader ZUERST durchsuchen (`FGPropulsion::FindEngineFullPathname` und
+   `FGFCS::FindFullPathName` probieren `<aircraft>/engine` bzw. `<aircraft>/Systems` vor jedem
+   übergebenen Pfad). Die frühere Sondierung (existiert `<ac>/engine`? sonst `<parent>/engine`) samt
+   Parent-Trunkierung ist mit der einen Modellwurzel entfallen; ein Modell ohne Triebwerk (`mk82`) löst
+   den Pfad schlicht nie auf.
 2. **IC setzen:** Geod-Lat/Lon, ASL-Höhe = `GroundElevM + max(HeightOffsetM, 3 m)`, Psi.
 3. **Ballistic** (Abwurf): Theta/Phi direkt aus der Trägerlage, plus der volle NED-Geschwindigkeits-
    VEKTOR. **Sonst**: kalibrierte Geschwindigkeit + Flugbahnwinkel 0 (level).

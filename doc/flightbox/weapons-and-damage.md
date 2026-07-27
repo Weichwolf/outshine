@@ -530,6 +530,14 @@ Auslösemoment entgegenläuft. Fehlerbudget:
 | Auslösemoment (Cue + Vorhalt) | 19,5 m lang (netto) | Pilot/Feuerleitung |
 | Querbahn (Spurfehler der Führung) | 10,6 m | `systems/FBAutopilot` |
 
+**Wogegen diese Zahlen gemessen sind.** Die AUFTEILUNG oben bleibt gültig — sie misst FlightBox' Führung
+und Feuerleitung gegen FlightBox' eigene Ballistiktabelle, und beide Seiten sind unsere. Die ABSOLUTE
+Zahl (22 m, davon 10,6 m quer) sagt dagegen nichts über einen echten Abwurf: Referenz ist die
+Aerodynamik des Mk-82-Modells, dessen eigener `<fileheader>`-`<note>` einräumt, es könne „a gross
+approximation, with the only similarity to an actual object being the name" sein und sei „for
+educational and entertainment purposes only". Prinzip 5 gilt hier also besonders eng — die Zahl ist die
+Treue zum MODELL, nicht die Treue zur Wirklichkeit, und darf nicht als Fidelity-Beleg zitiert werden.
+
 ### 4.3 `FBGunProjectiles` — der Pool
 
 `sim/src/core/FBGunProjectiles.{h,cpp}`. Feste Kapazität `kMaxBundles = 64` (genug für vier
@@ -1282,10 +1290,10 @@ wachsen. Nichts hier entscheidet etwas über den Flug.
 
 #### Das Modell ist FlightBox-EIGEN
 
-`sim/assets/aircraft/aim120/` (`FdmModelVendored() == false`, aufgelöst über `app/FBModelRoots.h`). Der
-Grund steht in Prinzip 1: das gepinnte JSBSim-Submodul hat keine AMRAAM und ist read-only, also ist der
-einzige ehrliche Ort für ein selbstgeschriebenes Modell der eigene Asset-Baum. Nichts unter `vendor/`
-wird durch seine Existenz angefasst.
+`sim/assets/aircraft/aim120/` — in derselben einen Modellwurzel wie f16 und mk82, aber als einziges
+Modell OHNE Upstream-Gegenstück (`sim/assets/MODEL-DELTAS.md`, Herkunftstabelle: `—`). Das gepinnte
+JSBSim-Submodul hat keine AMRAAM; hier gibt es also nichts zu diffen, sondern nur ein selbstgeschriebenes
+Modell. Nichts unter `vendor/` wird durch seine Existenz angefasst.
 
 Modelliert wird darin die GANZE Flugmechanik: Masse und ihre Abnahme über den Brand, Schub über die
 Brennzeit, Axial- und Normalkraft über Mach und Anstellwinkel, statische Stabilität, Nick-/Gier-/
@@ -1491,6 +1499,12 @@ sobald eine Quelle auftaucht):
 | Mk-82 `ArmingS` | 2,0 s | die Blindgänger-Schwelle des Pull-Up-Cues |
 
 **Ungelöste Fragen / Widersprüche:**
+
+- **Die CCIP/CCRP-Genauigkeit hat keinen absoluten Aussagewert.** Die 22 m Gesamtfehler (davon 10,6 m
+  quer, §4.2) sind gegen ein Bombenmodell gemessen, das sich selbst als möglicherweise grobe Näherung
+  bezeichnet, deren einzige Ähnlichkeit mit dem echten Objekt der Name sei. Die Fehlerbudget-Aufteilung
+  bleibt gültig (Guidance gegen unsere eigene Ballistiktabelle); die absolute Zahl ist kein
+  Fidelity-Beleg. Ein Mk-82-Modell mit belegter Aerodynamik zu beschaffen oder zu bauen ist offen.
 
 - **Trommelinhalt 510 vs. 512** — derselbe Guide nennt beides (§3 Spezifikationstabelle vs. §2.5 Text).
   FlightBox nimmt 510 (Spezifikationstabelle gewinnt) und notiert die Differenz statt zu mitteln.

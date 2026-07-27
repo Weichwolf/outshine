@@ -1,6 +1,7 @@
 # Projektfortschritt
 
-Was gebaut ist, in welcher Reihenfolge, und woran es hängt. Stand: Commit `9673e00` (2026-07-27).
+Was gebaut ist, in welcher Reihenfolge, und woran es hängt. Stand: Commit `793e1fe` + Modell-Umzug
+und Delta-Regel (2026-07-27).
 
 Diese Datei ist Teil der Dokumentation und wird mit jedem abgeschlossenen Bauabschnitt nachgeführt.
 Offene Arbeit steht in [TODO.md](TODO.md).
@@ -85,6 +86,35 @@ Kommandoblöcke.
 |---|---|
 | `cac7b62` | Piloten-Gedächtnis: das Datum statt des letzten Messpunkts; Kanonen-Nachführung mit Ratenanteil; Rollraten-Regler |
 | `9673e00` | Führung hält eine Bahn, wo eine Bahn deklariert ist — Querfehler und Wegpunkt-Fang |
+
+### Eine Modellwurzel und die Delta-Regel (27.07.)
+
+**Was gebaut.** Alle geflogenen JSBSim-Modelle liegen jetzt unter `sim/assets/aircraft` — `f16`
+(inkl. `Systems/` und der beiden referenzierten Engine-XML, die als `f16/engine/` ins Modellverzeichnis
+gewandert sind: JSBSims eigenes Pro-Flugzeug-Layout, das seine Loader zuerst durchsuchen), `mk82`, und
+die schon dort liegende `aim120`. `FBModelRoots` hat EINE Wurzel, `FBModule::FdmModelVendored()` und
+`FBStoreSpec::Vendored` sind ersatzlos entfallen, `FBFdm`s Engine-/Systems-Sondierung (`stat` + Parent-
+Trunkierung) ist zu zwei bedingungslosen Pfaden geworden, und der WASM-Build embedded eine Wurzel statt
+fünf Einzelpfade.
+
+**Warum.** Prinzip 1 ist von „nie gepatcht" zur **Delta-Regel** geworden: das gepinnte Submodul ist die
+Basis, die Kopie fliegt, und jede Abweichung ist ein benannter, belegter Eintrag in
+`sim/assets/MODEL-DELTAS.md` — ein besseres Missionsergebnis ist ausdrücklich kein Beleg. Das Gate ist
+`make -C sim verify-models` (`sim/tools/verify_models.py`): kanonischer Unified-Diff je Datei,
+zeichenweise gegen den Diff-Block des Eintrags. Bewusst kein `patch`/`git apply` — eine Anwendung mit
+Fuzz könnte eine Abweichung verschlucken.
+
+**Gemessen.**
+
+| Prüfung | Ergebnis |
+|---|---|
+| Regression 50 Missionen | **121/121 Telemetriedateien byte-identisch**, alle 50 Exit-Codes gleich, `events.log` identisch bis auf Ausgabepfad und Wall-Clock |
+| `verify-models` | grün (4 upstream-gedeckte Pfade, 0 Deltas, 1 FlightBox-eigenes Modell) |
+| Negativtest | ein geändertes Byte in `f16.xml` → rc=1 mit dem fehlenden Block; ebenso ein deklarierter, aber nicht vorhandener Delta, ein nicht passender Diff und ein nicht deklariertes Modellverzeichnis |
+| Harnesses | alle sieben rc=0; Corner-Speed unverändert 380 KCAS / 16,2214 °/s |
+| Determinismus | 5 Missionen × `--threads 1/2/4` × 2 Wiederholungen = je eine Signatur |
+| WASM | baut; JSBSim lädt `f16` aus dem eingebetteten `/fb/aircraft` und trimmt (`trimConverged=1`) |
+| Frame | `gpu_native --mission payerne-takeoff --interval 20` → 28 PNGs, Gelände + HUD |
 
 ## Gefundene Defektklassen
 

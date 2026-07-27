@@ -306,15 +306,15 @@ Code.
   träfe.
 - Idempotent (Neuregistrierung überschreibt den Eintrag), also gefahrlos einmal pro Lauf aufrufbar.
 - `Create(name)` → `std::unique_ptr<FBModule>` oder `nullptr`. Der Registry-Name ist ein **reiner
-  Schlüssel**: WELCHES JSBSim-Modell dazu gehört, sagt das Modul (`FdmModelName`), und unter welcher
-  Wurzel es liegt, ebenfalls (`FdmModelVendored`).
+  Schlüssel**: WELCHES JSBSim-Modell dazu gehört, sagt das Modul (`FdmModelName`); wo es liegt, ist seit
+  der einen Modellwurzel keine Frage mehr.
 
 ### `FBModule` — was der Orchestrator über die Basis erreicht
 
 | Kategorie | Methoden |
 |---|---|
 | Wiring (einmalig, vor dem ersten `Run`) | `AttachFdm(FBFdm&)`, `SetUnitIdentity(id, team)`, `AttachHealth(const FBSystemHealth&)` |
-| Selbstauskunft | `FdmModelName()`, `FdmModelVendored()`, `UnitKind()`, `DamageLayout()` |
+| Selbstauskunft | `FdmModelName()`, `UnitKind()`, `DamageLayout()` |
 | Takt | `Run(fb_fdm_state&, dt, const FBUnitRegistry*, const FBWorld*)` |
 | System-Slots | `Autopilot`, `FlightControl`, `PilotSystem`, `Controls`, `Displays`, `AirDataSystem`, `NavSystem`, `WarningSystem`, `RadarAltimeter`, `Commands`, `Datalink`, `Radar`, `Rwr`, `Countermeasures`, `Stores`, `Guns`, `Telemetry` |
 | Diagnostik | `LastGuidance()`, `LastSubsteps()` |
@@ -431,7 +431,7 @@ Identität, Gesundheitsregister, Telemetrie, Missions-Monitor).
 | Schritt | Inhalt |
 |---|---|
 | 1 | `FBModuleRegistry::Create(block.ModuleName)` — unbekannt ⇒ `nullptr` + Grund |
-| 2 | `FBFdmSpawn` füllen: `ModelsRoot = models.Of(module->FdmModelVendored())`, `Aircraft = module->FdmModelName()`, Position, `GroundElevM`, `HeightOffsetM = Ground ? −1 : (AltM − groundAsl)`, `SpeedMs = SpeedKt·kt→m/s`, Heading |
+| 2 | `FBFdmSpawn` füllen: `ModelsRoot = models.Aircraft`, `Aircraft = module->FdmModelName()`, Position, `GroundElevM`, `HeightOffsetM = Ground ? −1 : (AltM − groundAsl)`, `SpeedMs = SpeedKt·kt→m/s`, Heading |
 | 3 | `FBFdmBoot::Spawn(ic)` — **die EINE IC-Anwendung**, Boden ODER Luft, kein zweiter Codepfad |
 | 4 | `SetGroundElevM(groundAsl)`, `module->AttachFdm(*fdm)` — VOR jedem `Controls()`/`ApplySetup`, das die Zelle erreicht |
 | 5 | Missionsdaten aufs Modul: Runway (falls vorhanden), `FlightPlan() = block.Plan` |
@@ -670,25 +670,27 @@ byte-identisch.
 
 ---
 
-## 11. `FBModelRoots` — die zwei Modellwurzeln
+## 11. `FBModelRoots` — die EINE Modellwurzel
 
-**Warum zwei.** FlightBox hat zwei ARTEN Modell:
+**Warum eine.** Alles, was FlightBox fliegt, liegt unter `sim/assets/aircraft` — ein selbstständiges
+Verzeichnis je Modell (`.xml` plus eigene `engine/`- und `Systems/`-Unterverzeichnisse, JSBSims eigenes
+Pro-Flugzeug-Layout). Heute `f16`, `mk82` und `aim120`.
 
-1. die des **gepinnten, read-only Submoduls** (`vendor/jsbsim/aircraft`) — nie gepatcht, Prinzip 1;
-2. alles, was das Submodul NICHT trägt und deshalb dort auch nicht liegen darf — heute die **AIM-120**,
-   in `sim/assets/aircraft`.
+Das gepinnte Submodul ist **kein Ladepfad mehr, sondern die Basis**: der Upstream-Stand, gegen den
+`make -C sim verify-models` jede Kopie diffed (siehe [architecture.md](architecture.md)s Delta-Regel,
+Delta-Regel). Die frühere Zwei-Wurzel-Aufteilung („aus dem Submodul, weil read-only" gegen „bei uns,
+weil das Submodul es nicht hat") trägt nicht mehr, sobald ein Modell korrigiert werden darf: aus dem
+Submodul geladen kann es keine Korrektur tragen, aus einer Kopie unbekannter Herkunft geladen ist es
+keine Referenz. Damit ist auch `FBModule::FdmModelVendored()` ersatzlos entfallen — eine Unterscheidung
+ohne Wirkung.
 
-**WELCHE ein Modul braucht, sagt das MODUL** (`FBModule::FdmModelVendored()`), niemals ein Rateschluss
-aus dem Namen. `FBModelRoots` ist deshalb nur das PFAD-Paar je Link-Ziel:
+| Client | Modellwurzel |
+|---|---|
+| native / gym (relativ zu `sim/`) | `assets/aircraft` |
+| WASM (eingebettetes FS, s. `--embed-file` im `wasm`-Target) | `/fb/aircraft` |
 
-| Client | `Vendor` | `FlightBox` |
-|---|---|---|
-| native / gym (relativ zu `sim/`) | `vendor/jsbsim/aircraft` | `assets/aircraft` |
-| WASM (eingebettetes FS, s. `--embed-file` im `wasm`-Target) | `/jsbsim/aircraft` | `/fb/aircraft` |
-
-`Of(vendored)` liefert die passende Wurzel. `FBNativeModelRoots()` ist die EINE Definition des
-native/gym-Paars für jeden Client, der aus `sim/` läuft (beide Apps und jeder Test-Harness) — statt vier
-Stringliterale, die auseinanderdriften können.
+`FBNativeModelRoots()` ist die EINE Definition der native/gym-Wurzel für jeden Client, der aus `sim/`
+läuft (beide Apps und jeder Test-Harness) — statt Stringliteralen, die auseinanderdriften können.
 
 **Liegt in `app/`**, weil nur `app/` ein Airframe bootet (das IC-Gate): nichts unter `systems/` oder
 `modules/` erreicht einen Modellpfad, so wenig wie eine Initialbedingung.

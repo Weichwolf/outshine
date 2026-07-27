@@ -57,7 +57,7 @@ double BankHoldStick(double bankErrDeg) {
 
 bool MeasurePoint(double entryCasKt, SweepPoint &out) {
   FBFdmSpawn ic;
-  ic.ModelsRoot = "vendor/jsbsim/aircraft";
+  ic.ModelsRoot = "assets/aircraft";
   ic.Aircraft = "f16";
   ic.LatDeg = 46.7; ic.LonDeg = 6.8;
   ic.GroundElevM = 0.0;

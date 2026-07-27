@@ -85,8 +85,8 @@ struct FBGunSpec {
  *                       duration; this is the ceiling, not a doctrine.
  * DELIBERATELY ABSENT — the ammunition's MASS. 510 rounds are of the order of 110 lb, and firing them
  * off would move the aircraft's weight and CG. It is not modelled because the vanilla f16.xml's empty
- * weight cannot be decomposed (CLAUDE.md Prinzip 1: the model is read-only and its mass breakdown is
- * its own), so adding a drum as a point mass would as likely double-count it as correct it. The
+ * weight cannot be decomposed (its mass breakdown is its own, and taking it apart would be a model DELTA
+ * with no evidence behind it — CLAUDE.md Prinzip 1), so adding a drum as a point mass would as likely double-count it as correct it. The
  * omission is under half a percent of gross weight and is stated instead of hidden. */
 inline constexpr FBGunSpec kM61A1{FBGunKind::M61A1, "m61a1",
                                   /*MuzzleVelMs*/ 1030.0, /*RoundsPerMin*/ 6000.0, /*Capacity*/ 510,

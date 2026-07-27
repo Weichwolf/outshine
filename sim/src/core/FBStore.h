@@ -1,6 +1,6 @@
 /* FlightBox — the STORE catalogue: what an external store IS, as data. One entry per carriable item,
- * and every number in it is either the store's OWN pinned JSBSim model (vendor/jsbsim/aircraft/<model>,
- * read-only per CLAUDE.md Prinzip 1) or derived from it by a stated formula — nothing about a weapon is
+ * and every number in it is either the store's OWN JSBSim model (sim/assets/aircraft/<model>, whose
+ * every deviation from upstream is a named delta entry) or derived from it by a stated formula — nothing about a weapon is
  * invented here, because a released store flies as its own FDM instance of exactly that model and the
  * carriage figures must describe the same object.
  *
@@ -53,10 +53,7 @@ struct FBWeaponPerf {
 struct FBStoreSpec {
   FBStoreKind Kind = FBStoreKind::None;
   const char *Key = "";        /* the mission-file / FBModuleRegistry name of this store */
-  const char *FdmModel = "";   /* its JSBSim model directory under the aircraft root */
-  bool   Vendored = true;      /* true: the pinned JSBSim submodule's model; false: FlightBox's own
-                                * (sim/assets/aircraft — where a model has to live when the submodule
-                                * carries none and is read-only, CLAUDE.md Prinzip 1) */
+  const char *FdmModel = "";   /* its JSBSim model directory under the one aircraft root */
   double MassLbs = 0.0;        /* carriage mass */
   double DragAreaFt2 = 0.0;    /* CdA: carriage drag = this * qbar (lbf), see kMk82 below */
   double MaxFlightS = 0.0;     /* lifetime cap after release (see the runner's retire rule) */
@@ -106,7 +103,7 @@ struct FBStoreSpec {
  *                  (weapons.md §4.7 marks fuze internals as a gap, and §4.2's PUAC text gives the
  *                  CONCEPT without a number); 2 s is the order of a nose fuze's arming vane and it is
  *                  what the pull-up anticipation cue is computed from. */
-inline constexpr FBStoreSpec kMk82{FBStoreKind::Mk82, "mk82", "mk82", true, 500.0, 0.366, 300.0,
+inline constexpr FBStoreSpec kMk82{FBStoreKind::Mk82, "mk82", "mk82", 500.0, 0.366, 300.0,
                                    /*Guided*/ false, /*RequiresLock*/ false, /*FuzeRadiusM*/ 0.0,
                                    /*WarheadKg*/ 87.0,
                                    FBWeaponPerf{/*BoostThrustN*/ 0.0, /*BoostS*/ 0.0,
@@ -118,8 +115,8 @@ inline constexpr FBStoreSpec kMk82{FBStoreKind::Mk82, "mk82", "mk82", true, 500.
                                                 /*ArmingS*/ 2.0}};
 
 /* AIM-120 AMRAAM (doc/f16/weapons.md §2.5, §3, §4.4). The FIRST guided round: its model is FlightBox's
- * own (Vendored = false -> sim/assets/aircraft/aim120, because the pinned submodule has no AMRAAM and
- * may not be added to), and its module is modules/missile.
+ * own — sim/assets/aircraft/aim120 has no upstream counterpart at all, the pinned submodule carries no
+ * AMRAAM — and its module is modules/missile.
  *   MassLbs      = 335 lb launch weight [T3] — the same figure aim120.xml's structure + propellant add
  *                  up to, so what the pylon loses is what the released FDM flies with.
  *   DragAreaFt2  = 0.115 ft^2 [DERIVED]: the model's own subsonic CA (0.43 at carriage Mach 0.8) over
@@ -150,7 +147,7 @@ inline constexpr FBStoreSpec kMk82{FBStoreKind::Mk82, "mk82", "mk82", true, 500.
  *                  ArmingS 1.5 [SET] — separation (0.5 s to motor ignition, see FBFdm's throttle slew)
  *                  plus the fuze arming delay; it is what sets Rmin. */
 inline constexpr FBStoreSpec kAim120{
-    FBStoreKind::Aim120, "aim120", "aim120", false, 335.0, 0.115, 120.0,
+    FBStoreKind::Aim120, "aim120", "aim120", 335.0, 0.115, 120.0,
     /*Guided*/ true, /*RequiresLock*/ true, /*FuzeRadiusM*/ 10.0, /*WarheadKg*/ 20.5,
     FBWeaponPerf{/*BoostThrustN*/ 24020.0, /*BoostS*/ 3.0,
                  /*SustainThrustN*/ 6228.0, /*SustainS*/ 7.7,

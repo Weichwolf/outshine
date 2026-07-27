@@ -22,16 +22,21 @@ Ansätze mit ihren Messungen. Eine gemessene Fehlschlagsvariante ist Wissen.
 
 ## Prinzipien (nicht verhandelbar)
 
-1. **Physik nicht neu schreiben.** JSBSim ist die Wahrheit, gepinntes read-only Submodul
-   (`sim/vendor/jsbsim`), nie gepatcht. Eigener Code nur an den Nähten: FDM-Adapter, Regelung, Renderer.
+1. **Physik nicht neu schreiben — Modell-Abweichung nur als Delta.** Die Engine ist die Wahrheit,
+   gepinntes read-only Submodul (`sim/vendor/jsbsim`), nie gepatcht; eigener Code nur an den Nähten
+   (FDM-Adapter, Regelung, Renderer). Geflogen wird FlightBox' Modellkopie (`sim/assets/aircraft/`, die
+   EINE Wurzel), das Submodul ist deren **Basis**: jede Abweichung ist ein benannter, BELEGTER Eintrag
+   in `sim/assets/MODEL-DELTAS.md` (ein besseres Missionsergebnis ist kein Beleg), Gate
+   `make -C sim verify-models`.
 2. **JSBSim läuft IM Client.** libJSBSim linkt direkt ins Command Center, WASM wie nativ. Keine
    Telemetrie-Grenze zwischen Physik und Bild — ein Prozess, ein Adressraum.
 3. **Server-seitig nur zwei Container:** `fb-tiles` (`tiles/`, :8081, Tile-API) und `fb-sim` (`sim/`,
    :8080, Web-Host). Alles andere ist Client.
 4. **Sim läuft so schnell wie sinnvoll.** Die Mathematik ist deterministisch. Gibt das Tempo das
    Ergebnis, ist die Kopplung nicht-deterministisch — ein Bug.
-5. **F-16 zuerst, vanilla JSBSim-Modell.** Referenz ist das **Modell**, nicht der echte Jet. Seine
-   Eigenschaften sind akzeptiert, keine Defekte. FlightBox muss es treu fliegen.
+5. **F-16 zuerst.** Referenz ist das **Modell**, nicht der echte Jet — seine Eigenschaften sind
+   akzeptiert, keine Defekte, und FlightBox muss es treu fliegen. Das gilt, weil das geflogene Modell
+   exakt benannt ist: gepinnter Stand plus die belegte Delta-Liste aus Prinzip 1 (heute leer).
 
 ## Kein Cheaten
 
@@ -64,12 +69,14 @@ Schichtung überall: **FBCore → Interface → Default → modul-spezifischer O
 ## Build
 
 Nur über Make-Targets. `sim/`: `core-lib` | `gym` | `native` | `wasm` (baut `worker` immer mit) |
-`worker` | `image` | `up` | `test-monitor` | `test-fdm` | `test-corner` | `test-missile` | `test-gun`.
+`worker` | `verify-models` | `image` | `up` | `test-monitor` | `test-fdm` | `test-corner` |
+`test-missile` | `test-gun`.
 `tiles/`: `build` | `image` | `run`.
 
 **Gates:** Warnings = Errors (`-Wall -Wextra -Wpedantic`) · `nm build/fb-gym` = 0 Dawn/WebGPU-Symbole ·
 sieben Harnesses rc=0 · Frame-Beweis oder numerische Messung · Regression über alle `sim/missions/*.fbm`
-mit einzeln begründeten Abweichungen · Determinismus über `--threads 1/2/4` · vendor bleibt read-only.
+mit einzeln begründeten Abweichungen · Determinismus über `--threads 1/2/4` · `make wasm` baut und die
+App startet · `verify-models` grün · vendor bleibt read-only.
 
 **Regelkreis:** Mission definieren → headless simulieren → Telemetrie analysieren → Korrektur → Loop.
 Exit 0/1/2/3 = SUCCESS/FAIL/CRASH/TIMEOUT. Der Exit-Code ist nicht immer das Urteil — die Leseregel

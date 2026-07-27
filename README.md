@@ -47,8 +47,7 @@ and the ECEF renderer — is in [`CLAUDE.md`](CLAUDE.md).
 ## Lizenz
 
 FlightBox steht unter der **GNU General Public License, Version 2 oder später**
-(`GPL-2.0-or-later`) — Lizenztext in [`LICENSE`](LICENSE), Begründung der Wahl und die vollständige
-Liste der Fremdanteile in [`LICENSE.md`](LICENSE.md).
+(`GPL-2.0-or-later`) — Lizenztext in [`LICENSE`](LICENSE).
 
 ## Datenquellen & Lizenzen
 
@@ -59,6 +58,8 @@ Der Simulator lädt reale Welt-Daten on-demand. Attributionspflicht der Quellen:
 - **Luftbilder:** Esri World Imagery — © Esri und seine Datenlieferanten.
 - **Geländehöhe:** Copernicus DEM (Terrarium-kodiert).
 - **Flugphysik:** [JSBSim](https://github.com/JSBSim-Team/jsbsim) — LGPL 2.1.
+- **WebGPU-Backend:** Dawn / Tint (Google) — BSD-3-Clause.
+- **HUD-Schrift:** B612 Mono (Airbus) — SIL OFL 1.1.
 - **Sternkatalog:** [HYG Database](https://github.com/astronexus/HYG-Database) (Hipparcos-abgeleitet)
   — lizenziert unter CC-BY-SA 4.0.
 - **Mondtextur:** NASA/GSFC Scientific Visualization Studio, CGI Moon Kit (LROC WAC Albedo,

@@ -1,6 +1,6 @@
 /* FlightBox — fb-test-missile-airframe: the AIM-120 MODEL's own proof, with no guidance anywhere near
- * it. It flies sim/assets/aircraft/aim120 (FlightBox's own JSBSim model — the submodule has no AMRAAM
- * and is read-only, CLAUDE.md Prinzip 1) through three open-loop runs and prints the numbers the
+ * it. It flies sim/assets/aircraft/aim120 (FlightBox's own JSBSim model — the one model in the root
+ * with no upstream counterpart, because the submodule has no AMRAAM) through three open-loop runs and prints the numbers the
  * model's own banner claims, so the claim and the measurement can be read against each other:
  *
  *   1. POWERED, fins neutral — the motor. Boost acceleration, the boost/sustain step, burnout time and

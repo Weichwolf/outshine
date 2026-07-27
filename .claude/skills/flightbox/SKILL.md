@@ -15,7 +15,7 @@ Start at [`doc/flightbox/INDEX.md`](../../../doc/flightbox/INDEX.md).
 
 | File | Why |
 |---|---|
-| `principles.md` | The five non-negotiable principles and the **anti-cheat guarantees**. Every other file assumes them. A change that violates one of these is wrong even if it works. |
+| `CLAUDE.md` (repo root) | The principles and the **anti-cheat guarantees**, condensed. A change that violates one of these is wrong even if it works. |
 | `conventions.md` | Naming, structure, the no-printf rule, and the rule that **every number carries its provenance** (derived / measured / `[SET]`). |
 
 ## Then read what the task touches
@@ -72,7 +72,7 @@ and say so, or leave it stated.
 ## Ground rules when applying this knowledge
 
 - The vanilla JSBSim F-16 model is the ground truth for flight behaviour, above any guide and above any
-  text in these files (`principles.md`, Prinzip 5).
+  text in these files (`CLAUDE.md`, Prinzip 5).
 - Measurements beat inspection. The mission control loop (`build-and-ops.md`) is how a claim about
   behaviour gets settled — a defect that was not measured is a hypothesis.
 - The anti-cheat structure is load-bearing. If a task seems to require the pilot to read the unit

@@ -22,6 +22,7 @@ Jedes Projekt trägt sein eigenes Makefile.
 | `test-corner` | `fb-test-corner-speed` — misst Corner-Speed/-g/-Drehrate des Modells |
 | `test-missile` | `fb-test-missile-airframe` |
 | `test-gun` | `fb-test-gun` — Streuung, Flugzeit, Trichtergeometrie, Vorhaltelösung, Munitionsverbrauch |
+| `verify-models` | die Delta-Prüfung: `assets/aircraft` gegen das gepinnte Submodul + `assets/MODEL-DELTAS.md` |
 
 Fehlt der Tile-Worker, hängt die WASM-App still beim Start (404 im Worker). Deshalb die feste
 Abhängigkeit statt zweier getrennt zu merkender Targets.
@@ -42,12 +43,35 @@ Eine Änderung gilt erst als verifiziert, wenn sie diese Prüfungen besteht.
 | **Frame-Beweis** | build-wirksame Änderungen brauchen einen gerenderten Frame **oder** eine numerische Messung |
 | **Regression** | Telemetrie aller `sim/missions/*.fbm` byte-verglichen; jede Abweichung einzeln begründet, jede Verdikt-Änderung eigens |
 | **Determinismus** | `--threads 1/2/4` × Wiederholungen ergeben eine einzige Signatur |
-| **vendor read-only** | `sim/vendor/jsbsim` und das f16-Modell werden nie geändert |
+| **WASM** | `make -C sim wasm` baut und die App startet im Browser — der einzige Client, der täglich benutzt wird; ein gebrochener Boot ist teurer als jeder andere Fehler |
+| **Modell-Deltas** | `make -C sim verify-models` grün: jede Kopie unter `sim/assets/aircraft` weicht vom gepinnten Upstream um EXAKT die Einträge in `sim/assets/MODEL-DELTAS.md` ab |
+| **vendor read-only** | `sim/vendor/jsbsim` wird nie geändert — Engine wie Modelle. Geändert wird höchstens die KOPIE, und dann als benannter Delta-Eintrag |
+
+### Der Delta-Gate im Detail
+
+`verify-models` rechnet je Datei den kanonischen Unified-Diff (`difflib`, 3 Zeilen Kontext) zwischen
+Upstream und Kopie und vergleicht ihn zeichenweise mit dem Diff-Block des zugehörigen Eintrags. Es
+schlägt in **vier** Richtungen fehl, alle nachgemessen:
+
+| Fall | Meldung |
+|---|---|
+| unerklärte Abweichung in einer Kopie | `UNEXPLAINED difference from upstream` + der Block, der fehlt |
+| erklärter Delta, den die Kopie nicht (mehr) trägt | `declares a delta that is NOT present in the copy` |
+| Eintrag vorhanden, aber Diff stimmt nicht überein | `the declared delta does not match the actual difference` |
+| Modell unter `assets/aircraft`, das die Herkunftstabelle nicht nennt | `is not declared in ... ('## Herkunft')` |
+
+Ein Delta-Block wird **generiert, nicht getippt** — `python3 tools/verify_models.py --emit` gibt das
+fertige Eintragsgerüst aus. In einem Unified-Diff ist Whitespace bedeutungstragend (Kontextzeilen tragen
+ihr führendes Leerzeichen), also ist Abtippen eine Fehlerquelle ohne Nutzen.
+
+Das Target ist bewusst KEINE Voraussetzung der Build-Targets: es hat nur etwas zu sagen, wenn eine Datei
+unter `assets/aircraft` oder im Submodul sich ändert, und dafür einen Python-Interpreter auf den
+kritischen Pfad jedes C++-Compiles zu legen wäre der falsche Tausch.
 
 ## Mess-Disziplin
 
 - Akzeptierte Modell-Eigenschaften der vanilla JSBSim-F-16 sind die Wahrheit, keine Defekte
-  ([principles.md](principles.md), Prinzip 5).
+  (CLAUDE.md, Prinzip 5).
 - Messungen laufen über den **Missions-Regelkreis** (Telemetrie), nicht über Einzelbeobachtungen.
 - Ziel-GPU-Fähigkeiten: `doc/webgl-webgpu-report.txt`.
 

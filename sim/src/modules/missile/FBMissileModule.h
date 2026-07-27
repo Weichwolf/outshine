@@ -2,7 +2,7 @@
  * modules/stores/FBStoreModule. A bomb's module has no pilot and no sensors, so its Run() only
  * integrates; a missile has both, so its Run() cycles them — and that is the whole difference. It is a
  * full FBModule over one JSBSim model (sim/assets/aircraft/aim120, FlightBox's own — the pinned
- * submodule carries no AMRAAM and is read-only), owned by one units/FBSimUnit, stepped by the same
+ * submodule carries no AMRAAM, so this model has no upstream counterpart), owned by one units/FBSimUnit, stepped by the same
  * runner and judged by the same monitors as every jet in the mission.
  *
  * ONE CLASS, N CATALOGUE ENTRIES, exactly like FBStoreModule: the round it flies is the FBStoreSpec
@@ -45,7 +45,6 @@ public:
 
   void AttachFdm(FBFdm &fdm) override { Fdm_ = &fdm; }
   const char *FdmModelName() const override { return Spec_.FdmModel; }
-  bool FdmModelVendored() const override { return Spec_.Vendored; }
 
   /* The LAUNCH PROGRAMMING, applied once by the spawn path (app/FBMissionBoot.h) before the first tick:
    * the shooter's target estimate, whose uplink to listen to, and the mission time of the release —

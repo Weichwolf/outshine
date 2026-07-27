@@ -7,7 +7,7 @@ entweder gemessen, beim Destillieren der Doku gefunden, oder als bewusste Lücke
 Was sie öffnet, kommt hierher — **einschließlich verworfener Ansätze mit ihren Messungen.** Ein
 gemessener Fehlschlag ist Wissen; ihn zu löschen heißt, dass ihn jemand nachbaut.
 
-Stand: `658014d`.
+Stand: `793e1fe` + Modell-Umzug/Delta-Regel.
 
 ## 1. Widersprüche zwischen Behauptung und Code
 
@@ -63,6 +63,7 @@ Bewusste Lücken. Jede ist im jeweiligen Header als solche benannt — keine ist
 | **Terrain-Maskierung** für Radar, Datalink und Funkpfad | Luft-Luft-Sichtlinie ist immer frei. Bräuchte einen DEM-Raymarch je Kontakt je Look. | [sensors.md](sensors.md) |
 | **Kein IR-Sucher** | Fackeln werden gezählt und wirken nicht. | [sensors.md](sensors.md) |
 | **Kein Lofting der AIM-120** | Mittelphase fliegt flach, Reichweite bleibt unter dem Möglichen. | [weapons-and-damage.md](weapons-and-damage.md) |
+| **Das Mk-82-Modell trägt keine belegte Aerodynamik** — sein eigener `<note>` nennt sich möglicherweise eine grobe Näherung, deren einzige Ähnlichkeit mit dem echten Objekt der Name sei | Die CCIP/CCRP-Genauigkeit (22 m gesamt, 10,6 m quer) ist damit eine Aussage über die Treue zum MODELL, nicht über einen echten Abwurf. Die Fehlerbudget-Aufteilung bleibt gültig — sie misst unsere Guidance gegen unsere eigene Ballistiktabelle —, die absolute Zahl darf nicht als Fidelity-Beleg zitiert werden. Ein Modell mit belegter Aerodynamik zu beschaffen oder zu bauen ist offen. | [weapons-and-damage.md](weapons-and-damage.md) |
 | **Kein Strafing.** Ursache ist *nicht* die Nullfläche der Bodenziele, sondern dass `FBGunProjectiles` nach 3 s / 3000 m aufgibt — die Geschosse erreichen den Boden nie. | Luft-Boden mit der Kanone unmöglich | [weapons-and-damage.md](weapons-and-damage.md) |
 | Bodenburst wird nicht gegen Flugzeuge aufgelöst | bewusst: die Splittergeometrie gegen eine Zelle gibt es nicht, ein erfundener Radius wäre eine als Physik verkleidete Zahl | [weapons-and-damage.md](weapons-and-damage.md) |
 | Keine Splitter-Richtcharakteristik, kein Zünderversagen, kein Munitionsgewicht, kein Kanonen-Einbauwinkel | — | [weapons-and-damage.md](weapons-and-damage.md) |
@@ -92,23 +93,14 @@ Bewusste Lücken. Jede ist im jeweiligen Header als solche benannt — keine ist
 | 5.3 | HOTAS-Binding — bewusst zuletzt, ist nur ein Mapping. `FBInputSystem` ist NoOp. |
 | 5.4 | Keine Lock-/TD-Box-HUD-Symbologie, weil `doc/f16/hud-symbology.md` keine kennt. Wird nicht erfunden. |
 
-## 6. Recht und Lizenz
-
-Das Projekt steht seit `LICENSE`/`LICENSE.md` unter GPL-2.0-or-later. Zwei Punkte bleiben offen.
-
-| # | Sache |
-|---|---|
-| 6.1 | **`doc/f16/` ist getrackt und öffentlich** und enthält Destillate zweier kommerzieller Handbücher — exakte Zahlen, Tabellen, Ablaufbeschreibungen, seitengenau zitiert. Die PDFs selbst sind über `doc/.gitignore` draußen; die Destillate sind es, worauf es ankommt. Rechtliche Einordnung offen. Handlungsmöglichkeiten: eigenes privates Repo als Submodul, Reduktion auf Verweise statt Zahlen, oder bewusst so belassen. Betrifft auch die vorhandenen MiG-29-Handbücher, falls daraus eine zweite Sammlung entsteht. |
-| 6.2 | **Esri World Imagery** wird als Luftbildquelle geladen; die Nutzungsbedingungen sind ungeprüft. Anders als OSM (ODbL) und Copernicus ist das keine offene Quelle. |
-
-## 7. Offene Entscheidungen
+## 6. Offene Entscheidungen
 
 | Frage | Stand |
 |---|---|
+| **Der erste echte Modell-Delta.** Die Delta-Regel und ihr Gate stehen (`sim/assets/MODEL-DELTAS.md`, `make -C sim verify-models`), die Liste ist leer. Ungeprüft ist damit nur eines: ob das Eintrags-Format für einen MEHRDATEI-Delta oder eine neue Datei (Diff gegen /dev/null) im Alltag trägt. Der Verifikator kann beides, gemessen ist es nicht. | offen |
 | **Ort der Herleitungen.** Der Bestand trägt sie als 15–25-zeilige Banner im Quellcode. Die Herleitungen selbst sind unstrittig das wertvollste Wissen im Baum; strittig ist, ob sie in den Code gehören oder nach `doc/flightbox/` mit einer Zeile Verweis. Diese Doku enthält sie inzwischen vollständig — ein Verlagern wäre also kein Verlust mehr, sondern nur noch eine Kürzung. | offen |
-| Restlicher ED-Doku-Bestand: Funk, HTS/HMCS, Anhänge, Aux-/Left-/Right-Console. | offen, s. `doc/f16/PROGRESS.md` |
 
-## 8. Nachführung dieser Doku
+## 7. Nachführung dieser Doku
 
 `pilot-ai.md` und `modules-f16.md` beschreiben den Stand `9673e00`. Commit `658014d` hat davon bereits
 drei Punkte verändert (vorzeichenrichtiger Abzug, hergeleiteter Bremsdeckel `a/k` mit dem neuen Hook

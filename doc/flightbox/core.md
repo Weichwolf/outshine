@@ -1150,8 +1150,7 @@ FBStoreKind { None = 0, Mk82, Aim120 }   // anhängen; None muss 0 bleiben, dami
 | Feld | Bedeutung |
 |---|---|
 | `Kind`, `Key` | Ordinal; Missionsdatei-/Registry-Name |
-| `FdmModel` | JSBSim-Modellverzeichnis unter der Aircraft-Wurzel |
-| `Vendored` | `true`: das Modell des gepinnten Submoduls. `false`: FlightBox' eigenes (`sim/assets/aircraft`) — dort, wo ein Modell liegen MUSS, wenn das read-only-Submodul keines trägt (Prinzip 1) |
+| `FdmModel` | JSBSim-Modellverzeichnis unter der EINEN Modellwurzel (`sim/assets/aircraft`) |
 | `MassLbs` | Trage-Masse |
 | `DragAreaFt2` | CdA: Trage-Widerstand = dies × qbar (lbf) |
 | `MaxFlightS` | Lebensdauerkappe nach Abwurf |
@@ -1206,9 +1205,9 @@ Block", sie ist das, was der Rechner über die Runde weiß.
 
 #### `kAim120` — AIM-120 AMRAAM
 
-`doc/f16/weapons.md` §2.5, §3, §4.4. Die ERSTE gelenkte Runde: `Vendored = false` →
-`sim/assets/aircraft/aim120`, weil das gepinnte Submodul keine AMRAAM hat und nicht erweitert werden
-darf. Modul: `modules/missile`.
+`doc/f16/weapons.md` §2.5, §3, §4.4. Die ERSTE gelenkte Runde: `sim/assets/aircraft/aim120` — das
+einzige Modell in der Wurzel OHNE Upstream-Gegenstück, weil das gepinnte Submodul keine AMRAAM hat.
+Modul: `modules/missile`.
 
 | Zahl | Wert | Herleitung |
 |---|---|---|

@@ -70,14 +70,6 @@ public:
    * module's (app/FBMissionBoot.h). */
   virtual FBUnitKind UnitKind() const { return FBUnitKind::Aircraft; }
 
-  /* WHICH model root FdmModelName lives under. true (the default, and every aircraft in this tree) =
-   * the pinned, read-only JSBSim submodule; false = FlightBox's own model assets, which is where a model
-   * has to live when the submodule carries none and may not be added to (CLAUDE.md Prinzip 1 — the
-   * AIM-120 is the first). The MODULE states it for the same reason it states the model name: only the
-   * module knows which model its systems were written against, and the boot path (app/FBModelRoots.h)
-   * turns the answer into a path per link target. */
-  virtual bool FdmModelVendored() const { return true; }
-
   /* WHO this module is flying, from the unit that owns it (units/FBSimUnit's constructor) — wiring,
    * once, like AttachFdm. A module needs its own identity the moment it carries a system that observes
    * OTHER units: the datalink has to recognise its own PPLI in the registry and know whose net it is
