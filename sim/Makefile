@@ -23,6 +23,8 @@
 #                 -> build/fb-test-weather
 #   make verify-models  every model copy under assets/aircraft differs from the pinned submodule by
 #                 EXACTLY the deltas assets/MODEL-DELTAS.md names -- no unexplained byte
+#   make verify-layers  src/ is a stack and every #include points DOWN it -- the directory tree, the
+#                 "Kein Cheaten"-Regeln and the Core-Lib boundary as a machine-checked matrix
 #   make image    build the deployable fb-sim web container (podman)
 #   make up       run the web host container (serves the WASM app on :8080)
 #   make clean    remove build artifacts
@@ -56,20 +58,25 @@ JSBSIM       := vendor/jsbsim
 JSB_WASM     := build/jsbsim-wasm
 JSB_HOST     := build/jsbsim-host
 
-# Shared include roots (flat -I per module dir; #include stays bare-filename). core = FBState/
-# FBMode/telemetry/FBFlightPlan/FBRunway; math = value-math (FBMat4); render = FBRenderer + camera/mips/
-# chunkmesh/ephemeris/the HUD's WebGPU-backend resources (FBHudGeometry, FBHudFont ROM); world = FBWorld/
-# tile streaming; units = FBUnit/FBSimUnit (world-entity identity/pose + the whole flown unit); systems = the
-# DEFAULT, airframe-agnostic guidance/FCS/displays/pilot/airframe-controls (FBAutopilot/
-# FBFlightControl/FBDisplaySystem/FBPilot/FBAirframeControls) modules compose and may
-# override; modules/f16 = the F-16's module (composes systems/ + its gain preset); fdm = the JSBSim
-# adapter (namespace FlightBox, ONE-TU JSBSim seam, one FBFdm per airframe — see fdm/FBFdm.h); terrain = the lean
-# terrain API (flat); modules/missile = the guided-weapon module (seeker/guidance/uplink);
-# modules/ground = the static ground-target module (a module with no FDM at all -- see its banner);
+# Shared include roots (flat -I per module dir; #include stays bare-filename — which is why moving a
+# file between these directories touches no source line). The directories ARE the layers `make
+# verify-layers` enforces: core = value types + the two channels + the incorruptible judges + the
+# camera/matrix maths (FBState/FBMode/FBCamera/FBMat4/telemetry/FBFlightPlan/FBRunway); fdm = the
+# JSBSim adapter (namespace FlightBox, ONE-TU JSBSim seam, one FBFdm per airframe); units = FBUnit/
+# FBUnitRegistry/FBSimUnit (world-entity identity/pose + the whole flown unit); sensors = the slots
+# that read the unit registry (datalink/radar/RWR/countermeasures); weapons = the stores + gun slots;
+# systems = the airframe-agnostic flight/avionics slots (FBAutopilot/FBFlightControl/FBDisplaySystem/
+# FBAirframeControls) plus the CPU-side HUD geometry + font they hand to the renderer; pilot = the
+# mission layer above guidance (FBPilot/FBBfmTrack/FBEngagement/FBPilotTuning); modules/* = the
+# airframes composing all of the above; missions = the GPU-free orchestrator (FBMissionRunner/
+# FBMissionBoot/FBTickPool); clients = the entry points; render = FBRenderer + the WebGPU stages;
+# world = FBWorld/tile streaming, with world/terrain the lean terrain API (flat) under it;
 # vendor/jsbsim/src = the JSBSim headers.
-INC_MODULES := -Isrc/core -Isrc/math -Isrc/render -Isrc/world -Isrc/units -Isrc/systems -Isrc/modules -Isrc/modules/f16 -Isrc/modules/f16/displays -Isrc/modules/stores -Isrc/modules/missile -Isrc/modules/ground
-INC_WASM   := $(INC_MODULES) -Isrc/fdm -Isrc/terrain -I$(JSBSIM)/src
-INC_NATIVE := $(INC_MODULES) -Isrc/fdm -Isrc/terrain
+INC_MODULES := -Isrc/core -Isrc/render -Isrc/world -Isrc/units -Isrc/systems -Isrc/sensors -Isrc/weapons -Isrc/pilot -Isrc/modules -Isrc/modules/f16 -Isrc/modules/f16/displays -Isrc/modules/stores -Isrc/modules/missile -Isrc/modules/ground
+# The two roots only a CLIENT link line needs: the orchestrator and the I/O sinks it attaches.
+INC_CLIENT := -Isrc/missions -Isrc/clients
+INC_WASM   := $(INC_MODULES) -Isrc/fdm -Isrc/world/terrain -I$(JSBSIM)/src
+INC_NATIVE := $(INC_MODULES) -Isrc/fdm -Isrc/world/terrain
 INC_TILES := -I../tiles/src
 
 # EVERY WebGPU render stage, one class per shader (CLAUDE.md render/stages). A wildcard, not a hand list:
@@ -78,13 +85,13 @@ INC_TILES := -I../tiles/src
 # a new stage in BOTH targets, by construction.
 RENDER_STAGE_SRCS := $(wildcard src/render/stages/*.cpp)
 
-# The FlightBox core library (Auftrag "Lib/Client-Split"): core/ + fdm/ + systems/ + modules/f16/ +
-# units/ + libJSBSim, EVERYTHING a headless mission run needs and NOTHING render/world-streaming-
-# specific (CLAUDE.md: "render/ und world/-Streaming gehoeren NICHT zur Core-Lib"). ONE exception:
-# render/FBHudGeometry.cpp — physically under render/ but pure CPU vertex-list math (no WebGPU/Dawn
-# include, verified), the one render/ file systems/FBDisplaySystem.cpp structurally depends on to build
-# the HUD's vertex buffers; core-lib links it so fb-gym can, without pulling in any Dawn symbol (see the
-# gym target's own nm check). This library is a NATIVE-TOOLCHAIN archive (build/libfbcore.a) shared by
+# The FlightBox core library (Auftrag "Lib/Client-Split"): core/ + fdm/ + units/ + sensors/ + weapons/
+# + systems/ + pilot/ + modules/ + libJSBSim, EVERYTHING a headless mission run needs and NOTHING
+# render/world-streaming-specific (CLAUDE.md: "render/ und world/-Streaming gehoeren NICHT zur
+# Core-Lib"). NO exception any more: the CPU-side HUD geometry FBDisplaySystem structurally needs used
+# to be render/FBHudGeometry.cpp and had to be named here by hand; it now lives in systems/ next to the
+# display slot it serves, so this list is exactly "the layers below the clients" and nothing else.
+# This library is a NATIVE-TOOLCHAIN archive (build/libfbcore.a) shared by
 # native + gym; the WASM client is a different toolchain entirely (emcc/wasm32) and necessarily
 # RE-COMPILES this same list itself in the wasm target below — cross-compilation, not duplication.
 # ONE LIST, LITERALLY: the wasm target loops over THIS variable. It used to keep a hand-written copy that
@@ -101,11 +108,12 @@ CORE_LIB_SRCS := \
   src/core/FBGunBallistics.cpp src/core/FBGunProjectiles.cpp src/core/FBBallistics.cpp \
   src/systems/FBAutopilot.cpp src/systems/FBFlightControl.cpp src/systems/FBDisplaySystem.cpp \
   src/systems/FBAirDataSystem.cpp src/systems/FBRadarAltimeter.cpp src/systems/FBNavSystem.cpp \
-  src/systems/FBAirframeControls.cpp src/systems/FBPilot.cpp src/systems/FBDatalinkSystem.cpp \
-  src/systems/FBRadarSystem.cpp src/systems/FBBfmTrack.cpp src/systems/FBWarningSystem.cpp \
-  src/systems/FBEngagement.cpp src/systems/FBPilotTuning.cpp \
-  src/systems/FBRwrSystem.cpp src/systems/FBCountermeasureSystem.cpp \
-  src/systems/FBStoresSystem.cpp src/systems/FBGunSystem.cpp \
+  src/systems/FBAirframeControls.cpp src/systems/FBWarningSystem.cpp src/systems/FBHudGeometry.cpp \
+  src/sensors/FBDatalinkSystem.cpp src/sensors/FBRadarSystem.cpp \
+  src/sensors/FBRwrSystem.cpp src/sensors/FBCountermeasureSystem.cpp \
+  src/weapons/FBStoresSystem.cpp src/weapons/FBGunSystem.cpp \
+  src/pilot/FBPilot.cpp src/pilot/FBBfmTrack.cpp \
+  src/pilot/FBEngagement.cpp src/pilot/FBPilotTuning.cpp \
   src/modules/FBModuleRegistry.cpp \
   src/modules/f16/FBF16Fcr.cpp src/modules/f16/FBF16Cmds.cpp src/modules/f16/FBF16Damage.cpp \
   src/modules/f16/FBF16Max7456.cpp src/modules/f16/FBF16Module.cpp src/modules/f16/FBF16FireControl.cpp \
@@ -118,10 +126,9 @@ CORE_LIB_SRCS := \
   src/modules/missile/FBMissileSeeker.cpp src/modules/missile/FBMissileGuidance.cpp \
   src/modules/missile/FBMissileUplink.cpp \
   src/modules/f16/displays/FBF16Hud.cpp \
-  src/units/FBSimUnit.cpp \
-  src/render/FBHudGeometry.cpp
+  src/units/FBSimUnit.cpp
 
-.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun test-weather verify-models image up down restart clean
+.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun test-weather verify-models verify-layers image up down restart clean
 
 help:            ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
@@ -131,22 +138,22 @@ wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,w
 	  $(FB_UPTODATE) \
 	  	  test -f $(JSB_WASM)/src/libJSBSim.a || bash vendor/build_jsbsim_wasm.sh; \
 	  mkdir -p build/obj-wasm; \
-	  for f in src/terrain/*.cpp; do o=build/obj-wasm/$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/terrain -Isrc/core -Ivendor -c -o "$$o"; done; \
-	  emcc src/world/FBTerrainLoader.cpp $(CXXSTD) -O1 $(EMCC_WARN) $(INC_MODULES) -Isrc/terrain $(INC_TILES) \
+	  for f in src/world/terrain/*.cpp; do o=build/obj-wasm/$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core -Ivendor -c -o "$$o"; done; \
+	  emcc src/world/FBTerrainLoader.cpp $(CXXSTD) -O1 $(EMCC_WARN) $(INC_MODULES) -Isrc/world/terrain $(INC_TILES) \
 	    -c -o build/obj-wasm/FBTerrainLoader.o; \
 	  o=build/obj-wasm/FBFdm.o; f=src/fdm/FBFdm.cpp; \
 	  fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -fexceptions \
 	    -include src/fdm/em_compat.h -I$(JSBSIM)/src -Isrc/fdm -Isrc/core -c -o "$$o"; \
 	  for f in $(filter-out src/fdm/FBFdm.cpp,$(CORE_LIB_SRCS)); do \
 	    o=build/obj-wasm/$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/fdm $(INC_MODULES) -Isrc/terrain -c -o "$$o"; \
+	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/fdm $(INC_MODULES) -Isrc/world/terrain -c -o "$$o"; \
 	  done; \
 	  emcc build/obj-wasm/*.o $(JSB_WASM)/src/libJSBSim.a \
-	    src/app/FBAppWasm.cpp src/app/FBLogSinks.cpp src/render/FBRenderer.cpp src/world/FBWorld.cpp \
+	    src/clients/FBAppWasm.cpp src/clients/FBLogSinks.cpp src/render/FBRenderer.cpp src/world/FBWorld.cpp \
 	    $(RENDER_STAGE_SRCS) \
 	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O1 $(EMCC_WARN) -fexceptions \
-	    $(INC_WASM) \
+	    $(INC_WASM) $(INC_CLIENT) \
 	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=256MB -sSTACK_SIZE=4MB -sEXIT_RUNTIME=0 \
 	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_fb_toggle_ground,_fb_set_ground,_fb_wx_ready,_fb_wx_failed \
 	    --embed-file assets/aircraft@/fb/aircraft \
@@ -159,11 +166,11 @@ worker:          ## build the off-thread tile worker (fetch/decode/mesh/mips) ->
 	@cd $(SELF_DIR); source "$(EMSDK_DIR)/emsdk_env.sh" >/dev/null 2>&1; set -e; \
 	  $(FB_UPTODATE) \
 	  	  mkdir -p build/obj-worker; \
-	  for f in src/terrain/*.cpp; do o=build/obj-worker/$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/terrain -Isrc/core -Ivendor -c -o "$$o"; done; \
+	  for f in src/world/terrain/*.cpp; do o=build/obj-worker/$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core -Ivendor -c -o "$$o"; done; \
 	  emcc src/core/FBLog.cpp $(CXXSTD) -O2 $(EMCC_WARN) -Isrc/core -c -o build/obj-worker/FBLog.o; \
-	  emcc build/obj-worker/*.o src/app/FBTileWorkerMain.cpp src/app/FBLogSinks.cpp $(CXXSTD) -O2 $(EMCC_WARN) \
-	    -Isrc/render -Isrc/terrain -Isrc/core $(INC_TILES) \
+	  emcc build/obj-worker/*.o src/clients/FBTileWorkerMain.cpp src/clients/FBLogSinks.cpp $(CXXSTD) -O2 $(EMCC_WARN) \
+	    -Isrc/render -Isrc/world/terrain -Isrc/core -Isrc/clients $(INC_TILES) \
 	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=64MB -sEXIT_RUNTIME=0 -sFETCH \
 	    -sEXPORTED_FUNCTIONS=_malloc,_free,_fbtw_open,_fbtw_build,_fbtw_verts,_fbtw_nverts,_fbtw_err,_fbtw_origin,_fbtw_mips,_fbtw_mipbytes,_fbtw_ts,_fbtw_release \
 	    -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,HEAPU8,HEAPF32,HEAPF64 \
@@ -195,16 +202,16 @@ native: core-lib ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	  test -f $(DAWN_LIBDIR)/libwebgpu_dawn.a || bash vendor/build_dawn_native.sh; \
 	  test -f $(CURL_COMPAT)/curl/curl.h || bash vendor/fetch_curl_compat.sh; \
 	  mkdir -p build/obj-native; \
-	  for f in src/terrain/*.cpp; do o=build/obj-native/$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/terrain -Isrc/core -isystem vendor -c -o "$$o"; done; \
+	  for f in src/world/terrain/*.cpp; do o=build/obj-native/$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core -isystem vendor -c -o "$$o"; done; \
 	  c++ src/world/FBTerrainLoader.cpp $(CXXSTD) -O2 $(CXX_WARN) $(INC_NATIVE) $(INC_TILES) \
 	    -isystem $(CURL_COMPAT) -c -o build/obj-native/FBTerrainLoader.o; \
-	  c++ src/app/FBAppNative.cpp src/app/FBMissionRunner.cpp src/app/FBTickPool.cpp src/app/FBLogSinks.cpp src/app/FBTelemetrySinks.cpp \
+	  c++ src/clients/FBAppNative.cpp src/missions/FBMissionRunner.cpp src/missions/FBTickPool.cpp src/clients/FBLogSinks.cpp src/clients/FBTelemetrySinks.cpp \
 	    src/render/FBRenderer.cpp src/world/FBWorld.cpp \
 	    $(RENDER_STAGE_SRCS) \
 	    build/obj-native/*.o build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++20 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) \
+	    $(INC_NATIVE) $(INC_CLIENT) \
 	    -isystem $(DAWN_OUT)/gen/include -isystem vendor/dawn/include -isystem vendor \
 	    -isystem $(CURL_COMPAT) -isystem $(JSB_HOST)/include/JSBSim \
 	    -L$(DAWN_LIBDIR) -lwebgpu_dawn -L$(CURL_COMPAT)/lib -lcurl -lpthread -ldl -lm $$PLATFORM_LIBS \
@@ -219,14 +226,14 @@ gym: core-lib    ## build the headless mission client (Mission in, Telemetrie ra
 	  $(FB_UPTODATE) \
 	  	  test -f $(CURL_COMPAT)/curl/curl.h || bash vendor/fetch_curl_compat.sh; \
 	  mkdir -p build/obj-gym; \
-	  for f in src/terrain/*.cpp; do o=build/obj-gym/$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/terrain -Isrc/core -isystem vendor -c -o "$$o"; done; \
+	  for f in src/world/terrain/*.cpp; do o=build/obj-gym/$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core -isystem vendor -c -o "$$o"; done; \
 	  c++ src/world/FBTerrainLoader.cpp $(CXXSTD) -O2 $(CXX_WARN) $(INC_NATIVE) $(INC_TILES) \
 	    -isystem $(CURL_COMPAT) -c -o build/obj-gym/FBTerrainLoader.o; \
-	  c++ src/app/FBAppGym.cpp src/app/FBMissionRunner.cpp src/app/FBTickPool.cpp src/app/FBLogSinks.cpp src/app/FBTelemetrySinks.cpp \
+	  c++ src/clients/FBAppGym.cpp src/missions/FBMissionRunner.cpp src/missions/FBTickPool.cpp src/clients/FBLogSinks.cpp src/clients/FBTelemetrySinks.cpp \
 	    build/obj-gym/*.o build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) -isystem $(CURL_COMPAT) -isystem $(JSB_HOST)/include/JSBSim \
+	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(CURL_COMPAT) -isystem $(JSB_HOST)/include/JSBSim \
 	    -L$(CURL_COMPAT)/lib -lcurl -lpthread -ldl -lm \
 	    -o build/fb-gym; \
 	  gpusyms=$$(nm -gU build/fb-gym 2>/dev/null | grep -Eic '(^|[^a-z])(wgpu|dawn)[A-Za-z_]|webgpu' || true); \
@@ -239,72 +246,72 @@ gym: core-lib    ## build the headless mission client (Mission in, Telemetrie ra
 
 test-monitor: core-lib   ## build FBFlightMonitor's negative-proof harnesses -> build/fb-test-hard-landing, build/fb-test-loc-departure
 	@cd $(SELF_DIR); set -e; \
-	  c++ src/app/FBTestHardLanding.cpp src/app/FBLogSinks.cpp \
+	  c++ src/clients/FBTestHardLanding.cpp src/clients/FBLogSinks.cpp \
 	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) -isystem $(JSB_HOST)/include/JSBSim \
+	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
 	    -lpthread -ldl -lm \
 	    -o build/fb-test-hard-landing; \
-	  c++ src/app/FBTestLocDeparture.cpp src/app/FBLogSinks.cpp \
+	  c++ src/clients/FBTestLocDeparture.cpp src/clients/FBLogSinks.cpp \
 	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) -isystem $(JSB_HOST)/include/JSBSim \
+	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
 	    -lpthread -ldl -lm \
 	    -o build/fb-test-loc-departure; \
-	  c++ src/app/FBTestNanDivergence.cpp src/app/FBLogSinks.cpp \
+	  c++ src/clients/FBTestNanDivergence.cpp src/clients/FBLogSinks.cpp \
 	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) -isystem $(JSB_HOST)/include/JSBSim \
+	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
 	    -lpthread -ldl -lm \
 	    -o build/fb-test-nan-divergence; \
 	  echo "test-monitor -> build/fb-test-hard-landing build/fb-test-loc-departure build/fb-test-nan-divergence"
 
 test-fdm: core-lib       ## build the two-instance FDM coexistence proof (multi-unit stage 1) -> build/fb-test-two-fdm
 	@cd $(SELF_DIR); set -e; \
-	  c++ src/app/FBTestTwoFdm.cpp src/app/FBLogSinks.cpp \
+	  c++ src/clients/FBTestTwoFdm.cpp src/clients/FBLogSinks.cpp \
 	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) -isystem $(JSB_HOST)/include/JSBSim \
+	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
 	    -lpthread -ldl -lm \
 	    -o build/fb-test-two-fdm; \
 	  echo "test-fdm -> build/fb-test-two-fdm"
 
 test-corner: core-lib    ## measure the vanilla model's corner speed (BFM energy reference) -> build/fb-test-corner-speed
 	@cd $(SELF_DIR); set -e; \
-	  c++ src/app/FBTestCornerSpeed.cpp src/app/FBLogSinks.cpp \
+	  c++ src/clients/FBTestCornerSpeed.cpp src/clients/FBLogSinks.cpp \
 	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) -isystem $(JSB_HOST)/include/JSBSim \
+	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
 	    -lpthread -ldl -lm \
 	    -o build/fb-test-corner-speed; \
 	  echo "test-corner -> build/fb-test-corner-speed"
 
 test-gun: core-lib     ## check the gun's ballistics/EEGS geometry against doc/f16/weapons.md -> build/fb-test-gun
 	@cd $(SELF_DIR); set -e; \
-	  c++ src/app/FBTestGun.cpp src/app/FBLogSinks.cpp \
+	  c++ src/clients/FBTestGun.cpp src/clients/FBLogSinks.cpp \
 	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) -isystem $(JSB_HOST)/include/JSBSim \
+	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
 	    -lpthread -ldl -lm \
 	    -o build/fb-test-gun; \
 	  echo "test-gun -> build/fb-test-gun"
 
 test-weather: core-lib   ## check the FBWX mirror against the committed /wx fixture -> build/fb-test-weather
 	@cd $(SELF_DIR); set -e; \
-	  c++ src/app/FBTestWeather.cpp src/app/FBLogSinks.cpp \
+	  c++ src/clients/FBTestWeather.cpp src/clients/FBLogSinks.cpp \
 	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) -isystem $(JSB_HOST)/include/JSBSim \
+	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
 	    -lpthread -ldl -lm \
 	    -o build/fb-test-weather; \
 	  echo "test-weather -> build/fb-test-weather"
 
 test-missile: core-lib   ## fly the FlightBox AIM-120 model open-loop (motor/drag/trim proof) -> build/fb-test-missile-airframe
 	@cd $(SELF_DIR); set -e; \
-	  c++ src/app/FBTestMissileAirframe.cpp src/app/FBLogSinks.cpp \
+	  c++ src/clients/FBTestMissileAirframe.cpp src/clients/FBLogSinks.cpp \
 	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) -isystem $(JSB_HOST)/include/JSBSim \
+	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
 	    -lpthread -ldl -lm \
 	    -o build/fb-test-missile-airframe; \
 	  echo "test-missile -> build/fb-test-missile-airframe"
@@ -315,6 +322,13 @@ test-missile: core-lib   ## fly the FlightBox AIM-120 model open-loop (motor/dra
 # Run it whenever a model is touched, and as part of the acceptance gate.
 verify-models:   ## check assets/aircraft against the pinned submodule + assets/MODEL-DELTAS.md
 	@cd $(SELF_DIR) && python3 tools/verify_models.py
+
+# The STRUCTURE gate, verify-models' sibling: the directories under src/ are layers, and this asserts
+# that no #include points up the stack. Same reasoning for not being a build prerequisite -- it has
+# something to say only when a file moves or grows an include, and an interpreter has no business on
+# the critical path of a C++ build. Run it whenever src/ is restructured, and as part of the gate.
+verify-layers:   ## check src/ against the layer matrix in tools/verify_layers.py
+	@cd $(SELF_DIR) && python3 tools/verify_layers.py
 
 image:          ## build the deployable fb-sim web container (context = sim/, trimmed by .containerignore)
 	cd $(SELF_DIR) && podman build -f Dockerfile -t fb-sim .

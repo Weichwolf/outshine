@@ -46,7 +46,7 @@ Die KI darf nicht an der Simulation vorbeigreifen. Strukturell gesichert, wo mö
   (physikalisches K.O., modell-abgeleitet) und `core/FBMissionMonitor` (Missions-Urteil aus eigener
   Plankopie). Jeder Client, der eine Sim-Schleife fährt, füttert beide.
 - **Wirken nur über simulierte Systeme.** Einziger State-Schreiber ist der Boot-Spawn: `FBFdm`s
-  ladender Konstruktor ist privat, einziger Friend `FBFdmBoot`, das nur `app/` nennt.
+  ladender Konstruktor ist privat, einziger Friend `FBFdmBoot`, das nur `missions/` und `clients/` nennen.
 - **Sehen nur über Sensoren.** Die Unit-Registry erreicht genau vier Dateien (Datalink, Radar, RWR,
   Flugkörper-Uplink). Ein Radarkontakt trägt keine Identität; die einzige Identitätsquelle ist IFF
   Mode 4, und die kennt kein „hostile".
@@ -60,8 +60,8 @@ fb-tiles (DEM/OSM/Luftbild)  ──HTTP──▶  Command Center = JSBSim + FBW 
                                         als EIN Prozess (WASM | native)
 ```
 
-FlightBox Core ist eine **reine Bibliothek** (`build/libfbcore.a`: `core/ fdm/ systems/ modules/
-units/` + libJSBSim). Drei Clients linken dagegen: **`fb-gym`** (headless, GPU-frei, der Missions-Kern),
+FlightBox Core ist eine **reine Bibliothek** (`build/libfbcore.a`: alle Schichten unter den Clients
+— `core/ fdm/ units/ sensors/ weapons/ systems/ pilot/ modules/ missions/` + libJSBSim; Schichtordnung — `make verify-layers` prüft die Ordnung). Drei Clients linken dagegen: **`fb-gym`** (headless, GPU-frei, der Missions-Kern),
 **`gpu_native`** (Referenz-Renderer und Frame-Orakel) und **wasm** (der Browser).
 
 Schichtung überall: **FBCore → Interface → Default → modul-spezifischer Override.**
@@ -85,7 +85,7 @@ steht im Kopfkommentar der jeweiligen `.fbm`-Datei und ist verbindlich.
 ## Harte Regeln im Code
 
 - **Keine verstreuten Ausgaben.** Ereignisse über `FBLog`, Zustand über `FBTelemetryBus`. Ausnahmen nur:
-  die Sink-Implementierungen und CLI-UX in `app/`. Core ist I/O-frei.
+  die Sink-Implementierungen und CLI-UX in `clients/`. Core ist I/O-frei.
 - **Jede Zahl trägt ihre Herkunft** — hergeleitet (mit Formel), gemessen (mit Messung) oder `[SET]`.
   Eine Zahl ohne eine der drei Angaben ist ein Defekt.
 - `core/` zeigt nie nach `systems/` oder `modules/`. Peers rufen sich nie gegenseitig.
