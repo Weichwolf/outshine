@@ -429,6 +429,17 @@ Radarhöhen-Block zieht er nicht (§ 3).
 
 ### 5.6 Die Kanonen-Nachführung (Abschnitt 3b/3c) — ein GESETZ, keine Zahl
 
+**Warum die Phase überhaupt ein zweites Gesetz braucht.** Verfolgungssteuerung (§ 5.2) zielt die Nase
+auf eine POSITION — wo er ist, wo er in zwei Sekunden sein wird, oder einen Punkt hinter ihm. Keine
+davon ist, wohin ein Geschütz zeigen muss: eine 20-mm-Runde braucht eine Drittelsekunde für 300 m, und
+das Ziel wandert in dieser Zeit um eine Spannweite an Winkel. Reine Verfolgung innerhalb der
+Kanonenreichweite ist damit ein garantierter Fehlschuss — [MESS] mit dem Verfolgungsgesetz allein läuft
+der Zielfehler IN der Kontrollposition auf ~9° gegen eine Trichtertoleranz von ~1°, und der Abzug kommt
+nie herunter. Deshalb wird der Lenkfehler im Trichter der vom Feuerleitrechner publizierte
+VORHALTE-Fehler: dieselbe Lösung, die auch das Abzugstor liest, also können Zielen und Schießen nicht
+auseinandergehen. Der Pilot rechnet dabei nichts — er liest eine Zahl vom Bus wie jedes andere
+Instrument.
+
 **Eintrittstor.** Drei Bedingungen; die letzten zwei verhindern, dass dies ein schlechteres
 Verfolgungsgesetz wird als das obige:
 

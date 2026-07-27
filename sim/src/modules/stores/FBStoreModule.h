@@ -1,18 +1,10 @@
-/* FlightBox — FBStoreModule: the module a RELEASED store flies with. A weapon in flight is structurally
- * the same thing as a jet — one FBModule over one JSBSim model, owned by one units/FBSimUnit, stepped by
- * the same runner, judged by the same monitors — and this class is what makes that literal rather than
- * a claim: it is a full FBModule whose systems are all the airframe-agnostic defaults, because a Mk-82
- * has no autopilot, no pilot, no radar and no displays, and its Run() therefore does the only thing a
- * bomb does: integrate.
- *
- * IT HAS NO PILOT AND NO GUIDANCE, deliberately. Nothing here touches the FDM's control inputs, so the
- * trajectory is the model's own aero deck plus gravity and nothing else — which is the entire point of
- * modelling a weapon as its own FDM instance instead of as a hand-written ballistic formula. A guided
- * weapon is a DIFFERENT module (its seeker/autopilot filled in), not a flag on this one.
- *
- * ONE CLASS, N CATALOGUE ENTRIES: the store it flies is the FBStoreSpec handed to the constructor, so
- * every entry of core/FBStore.h registers the same class under its own name (FBStoreModuleRegistration).
- * The FdmModelName comes from that spec — the store's own pinned JSBSim model. */
+/* FlightBox — FBStoreModule: the module a RELEASED store flies with, and what makes "a weapon in flight
+ * is structurally a jet" literal rather than a claim — a full FBModule whose slots are all defaults,
+ * whose Run() only integrates. NO PILOT AND NO GUIDANCE, deliberately: nothing here touches a control
+ * channel, so the trajectory is the model's own aero deck plus gravity, which is the entire point of
+ * giving a weapon its own FDM instead of a hand-written ballistic formula. A guided weapon is a
+ * DIFFERENT module, not a flag on this one. ONE CLASS, N CATALOGUE ENTRIES.
+ * doc/flightbox/weapons-and-damage.md §10.1. */
 #ifndef FBSTOREMODULE_H
 #define FBSTOREMODULE_H
 
@@ -31,9 +23,8 @@ public:
   void AttachFdm(FBFdm &fdm) override { Fdm_ = &fdm; }
   const char *FdmModelName() const override { return Spec_.FdmModel; }
 
-  /* The whole behaviour of a released store: fixed 100 Hz substeps of its own FDM, no command written
-   * to any control channel. Same substep accumulator and spiral guard as every other module, so a
-   * store integrates on the same clock as the jet that dropped it. */
+  /* Fixed 100 Hz substeps of its own FDM, no command to any control channel — the same accumulator and
+   * spiral guard as every other module, so a store integrates on the clock of the jet that dropped it. */
   void Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units = nullptr,
            const FBWorld *world = nullptr) override;
 
@@ -49,13 +40,12 @@ public:
   FBCommandBus &Commands() override { return Cmds_; }
   FBDatalinkSystem &Datalink() override { return Datalink_; }
   FBRadarSystem &Radar() override { return Radar_; }
-  /* No warning receiver and no dispenser on a store: the slots exist because every module carries the
-   * same categories (FBModule's banner), and these two are the airframe-agnostic defaults, never
-   * cycled. Powered down at construction so nothing they hold can be mistaken for a picture. */
+  /* The slots exist because every module carries the same categories; these are the defaults, never
+   * cycled and powered down at construction so nothing they hold can be mistaken for a picture. */
   FBRwrSystem &Rwr() override { return Rwr_; }
   FBCountermeasureSystem &Countermeasures() override { return Cm_; }
-  FBStoresSystem &Stores() override { return Stores_; }   /* a bomb carries no stores of its own */
-  FBGunSystem &Guns() override { return Gun_; }                     /* a bomb carries no gun */
+  FBStoresSystem &Stores() override { return Stores_; }
+  FBGunSystem &Guns() override { return Gun_; }
   const FBState &Telemetry() const override { return State_; }
   const FBGuidance &LastGuidance() const override { return LastG_; }
   int LastSubsteps() const override { return LastSub_; }
@@ -63,9 +53,8 @@ public:
   FBFlightPlan &FlightPlan() override { return Plan_; }
   void SetRunway(const FBRunway &rwy) override { (void)rwy; }
   void SetGroundAsl(float m) override { GroundAslM_ = m; }
-  /* A released store takes no mission setup: it was configured by being loaded onto a pylon. Every key
-   * is therefore unknown, which is a mission FAIL — and correctly so, since a `set` line aimed at a
-   * store could only be a mission that thinks it is declaring an aircraft. */
+  /* A released store was configured by being loaded onto a pylon, so any `set` key is unknown and voids
+   * the spawn — correctly, since such a line could only be a mission that thinks it declares a jet. */
   bool ApplySetup(const std::string &key, const std::string &value) override {
     (void)key; (void)value;
     return false;
@@ -73,7 +62,7 @@ public:
 
 private:
   const FBStoreSpec &Spec_;
-  FBFdm *Fdm_ = nullptr;          /* borrowed, never owned (AttachFdm) */
+  FBFdm *Fdm_ = nullptr;          /* borrowed, never owned */
   float GroundAslM_ = 0.0f;
   double AccS_ = 0.0;
   int LastSub_ = 0;

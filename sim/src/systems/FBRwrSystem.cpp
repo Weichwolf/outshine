@@ -10,14 +10,12 @@ namespace FlightBox {
 void FBRwrSystem::SetPowered(bool on) {
   if (Powered_ == on) return;
   Powered_ = on;
-  if (!on) Count_ = 0;   /* a receiver that comes back up starts from silence, not from a stale picture */
+  if (!on) Count_ = 0;   /* ein wieder hochgefahrener Empfaenger startet aus der Stille */
 }
 
-/* The emitter's own antenna test, run from the receiving end: rotate the line of sight from the EMITTER
- * to this aircraft into the EMITTER's body frame (its published pose carries the attitude) and ask
- * whether it falls inside the beam window it is radiating. Same transform, same convention, same file as
- * the radar uses to decide what IT sees — which is the point: the two sides of an illumination can never
- * disagree about the geometry. */
+/* Der Antennentest des SENDERS, vom Empfangsende gerechnet: dieselbe Transformation, dieselbe
+ * Konvention, dieselbe Datei, die das Radar fuer SEINE Erfassung benutzt — die zwei Seiten einer
+ * Bestrahlung koennen sich ueber die Geometrie nie uneinig sein. */
 bool FBRwrSystem::BeamCovers(const FBEmitterSignature &sig, double rollDeg, double pitchDeg,
                              double yawDeg, double eastM, double northM, double upM) {
   double az = 0.0, el = 0.0;
@@ -26,9 +24,8 @@ bool FBRwrSystem::BeamCovers(const FBEmitterSignature &sig, double rollDeg, doub
          std::fabs(el - sig.ElCenterDeg) <= sig.ElHalfDeg;
 }
 
-/* doc/f16/defence-rwr-cm.md §1's symbol table, as the three things a receiver distinguishes. A missile's
- * own seeker is the launch case however it happens to be scanning — what makes it the top of the scale
- * is what is behind the antenna. */
+/* Ein Raketensucher ist der Startfall, egal wie er gerade scannt — was ihn an die Spitze der Skala
+ * setzt, ist, was hinter der Antenne sitzt. */
 FBRwrThreatMode FBRwrSystem::ModeOf(const FBEmitterSignature &sig, FBEmitterKind kind) {
   if (kind == FBEmitterKind::MissileSeeker) return FBRwrThreatMode::Missile;
   switch (sig.Mode) {
@@ -53,8 +50,7 @@ void FBRwrSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegist
     b.ThreatCount = 0;
     b.PriorityIndex = -1;
     b.MissileLaunch = b.Activity = b.HiddenSearch = false;
-    /* Not listening is not "nothing out there" — the difference is the whole reason a block has a head
-     * (core/FBBlockStatus.h), and here it is the difference between a quiet sky and a dead box. */
+    /* „Nicht zuhoeren" ist nicht „nichts da draussen": ruhiger Himmel gegen tote Box. */
     b.H.Invalidate();
     Count_ = 0;
     ThreatCount_ = 0; PriorityMode_ = 0;
@@ -66,12 +62,12 @@ void FBRwrSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegist
 
   for (int i = 0; i < Count_; i++) Threats_[i].Heard = false;
 
-  /* The registry is walked IN ORDER, so a fresh detection's symbol number depends on the mission's
-   * declaration order and never on who happened to radiate first. */
+  /* Registry IN REIHENFOLGE, damit die Symbolnummer an der Missionsdeklaration haengt und nie daran,
+   * wer zuerst strahlte. */
   for (const FBUnit *u : net->Units()) {
-    if (!u || u->GetId() == SelfId_) continue;   /* own set is not a threat to itself */
+    if (!u || u->GetId() == SelfId_) continue;   /* das eigene Set ist keine Bedrohung fuer sich selbst */
     FBUnitSignature sig = u->GetSignature();
-    if (sig.Radar.Mode == FBEmitterMode::None) continue;   /* silent unit: nothing to hear */
+    if (sig.Radar.Mode == FBEmitterMode::None) continue;   /* stumme Einheit: nichts zu hoeren */
 
     FBUnitPose p = u->GetPose();
     double e = 0.0, n = 0.0;
@@ -79,9 +75,8 @@ void FBRwrSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegist
     double up = st.elev - p.ElevM;
     double rangeM = std::sqrt(e * e + n * n + up * up);
 
-    /* How far this beam is heard: the emitter's own gate stretched by the one-way path advantage (see
-     * kBeamRangeFactor). Nothing about this number leaves the class — what is published is the POWER it
-     * produces, never the distance behind it. */
+    /* Hoerweite = das Tor des Senders mal dem Einwegvorteil. Diese Zahl verlaesst die Klasse NIE —
+     * publiziert wird die Leistung, die sie erzeugt, nie die Entfernung dahinter. */
     double hearM = sig.Radar.RangeM * kBeamRangeFactor;
     if (hearM <= 0.0 || rangeM > hearM) continue;
 
@@ -89,17 +84,14 @@ void FBRwrSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegist
     for (int i = 0; i < Count_; i++)
       if (Threats_[i].UnitId == u->GetId()) { slot = i; break; }
 
-    if (!BeamCovers(sig.Radar, p.RollDeg, p.PitchDeg, p.YawDeg, e, n, up)) continue;   /* pointed somewhere else: not heard at all */
+    if (!BeamCovers(sig.Radar, p.RollDeg, p.PitchDeg, p.YawDeg, e, n, up)) continue;   /* zeigt woanders hin */
 
-    /* The RECEIVER's own coverage: 360 degrees around, but only so far above and below the fuselage
-     * plane (doc/f16/defence-rwr-cm.md §2.1's +-45 deg elevation limit on the F-16's set). A beam that
-     * arrives outside it is genuinely inaudible — including one that was audible a second ago, which is
-     * how a manoeuvre drops a lock warning without the threat having done anything. */
+    /* Die Abdeckung des EMPFAENGERS: 360° Azimut, begrenzte Elevation — eine echte BLINDZONE, die das
+     * eigene Manoevrieren aufreisst, samt einer Warnung, die man eine Sekunde zuvor noch hatte. */
     double rxAz = 0.0, rxEl = 0.0;
     FBEnuToBodyLos(st.roll, st.pitch, st.yaw, -e, -n, -up, rxAz, rxEl);
     if (std::fabs(rxEl) > ElevCoverageDeg()) {
-      /* Logged on the TRANSITION only: a threat that stays in the hole is one event, not one per tick,
-       * and what is worth a line is the moment a warning that existed stopped being audible. */
+      /* Nur der UEBERGANG ist eine Zeile wert: der Moment, in dem eine bestehende Warnung unhoerbar wurde. */
       if (slot >= 0 && !Threats_[slot].Blind) {
         Threats_[slot].Blind = true;
         FBLog::Info("rwr", "THREAT_BLIND", {{"symbol", Threats_[slot].Id},
@@ -109,9 +101,8 @@ void FBRwrSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegist
       continue;
     }
 
-    /* Received power, normalised against what this receiver can hear at all: one-way propagation, so
-     * power goes as 1/r^2 and the figure is 1 at zero range and 0 where the signal disappears into the
-     * noise. This is the ONE proximity cue the box has (core/FBRwrThreat.h). */
+    /* Empfangsleistung, normiert auf die Hoerweite: Einwegausbreitung, Leistung ~ 1/r². Die EINE
+     * Naeherungsandeutung, die die Box hat. */
     double ratio = rangeM / hearM;
     double signal = 1.0 - ratio * ratio;
     if (signal < 0.0) signal = 0.0;
@@ -120,7 +111,7 @@ void FBRwrSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegist
     FBRwrThreatMode mode = ModeOf(sig.Radar, kind);
 
     if (slot < 0) {
-      if (Count_ >= kMaxRwrThreats) continue;   /* the table is full; nothing is displaced */
+      if (Count_ >= kMaxRwrThreats) continue;   /* Tabelle voll; nichts wird verdraengt */
       slot = Count_++;
       Threats_[slot] = Threat{};
       Threats_[slot].Id = NextId_++;
@@ -147,8 +138,7 @@ void FBRwrSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegist
     t.Blind = false;
   }
 
-  /* Hold, then drop: an emission that stops being heard keeps its symbol for kHoldS (class banner), so
-   * a beam sweeping past does not blink the display. */
+  /* Halten, dann fallen lassen: eine wegstreichende Keule soll das Display nicht blinken lassen. */
   for (int i = 0; i < Count_;) {
     Threat &t = Threats_[i];
     if (t.Heard || simTimeS - t.LastS < kHoldS) { i++; continue; }
@@ -161,10 +151,8 @@ void FBRwrSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegist
   Publish(state, simTimeS);
 }
 
-/* The display: the detected set, ranked, filtered and capped. Ranking is by MODE first (a tracking
- * radar outranks any number of searching ones — the scale core/FBRwrThreat.h's enum order defines) and
- * by received power within a mode, with the table's own order as the tie-break, so the priority symbol
- * never flickers between two equal threats. */
+/* Rangfolge: erst MODUS (Enum-Ordnung), dann Empfangsleistung, Tiebreak = Tabellenreihenfolge — so
+ * flackert das Prioritaetssymbol nicht zwischen zwei gleichwertigen Bedrohungen. */
 void FBRwrSystem::Publish(FBState &state, double simTimeS) {
   FBRwrBlock &b = state.Rwr;
   int order[kMaxRwrThreats];
@@ -174,7 +162,7 @@ void FBRwrSystem::Publish(FBState &state, double simTimeS) {
     if (!SearchShown_ && Threats_[i].Mode == FBRwrThreatMode::Search) { hiddenSearch = true; continue; }
     order[n++] = i;
   }
-  for (int i = 1; i < n; i++) {   /* insertion sort: n <= 8, no allocation, stable */
+  for (int i = 1; i < n; i++) {   /* Insertion Sort: n <= 8, keine Allokation, stabil */
     int key = order[i];
     int j = i - 1;
     while (j >= 0 && (Threats_[order[j]].Mode < Threats_[key].Mode ||
@@ -206,7 +194,7 @@ void FBRwrSystem::Publish(FBState &state, double simTimeS) {
     if (t.Mode != FBRwrThreatMode::Search) activity = true;
   }
   b.ThreatCount = n;
-  b.PriorityIndex = n > 0 ? 0 : -1;   /* the ranking above put it first */
+  b.PriorityIndex = n > 0 ? 0 : -1;   /* die Rangfolge oben hat sie nach vorn sortiert */
   b.MissileLaunch = launch;
   b.Activity = activity;
   b.HiddenSearch = hiddenSearch;
@@ -224,14 +212,13 @@ void FBRwrSystem::Publish(FBState &state, double simTimeS) {
 }
 
 void FBRwrSystem::DeclareTelemetry(FBTelemetrySchema &schema) const {
-  /* FIRST column is this source's block validity: the RWR block was added to FBState after
-   * core/FBStateBusTelemetry's list was already sitting in the middle of every measured telemetry.csv,
-   * and appending a name there would move every column to its right (see that file's banner). */
+  /* ERSTE Spalte ist die Blockgueltigkeit: FBStateBusTelemetrys Liste sitzt in der MITTE jeder je
+   * gemessenen telemetry.csv, ein Name mehr dort verschoebe jede Spalte rechts davon. */
   schema.Add("blk_rwr");
   schema.Add("rwr_on");
   schema.Add("rwr_threats");
-  schema.Add("rwr_mode");            /* the priority threat's mode ordinal, -1 = nothing heard */
-  schema.Add("rwr_brg", "deg");      /* relative to own nose */
+  schema.Add("rwr_mode");            /* Modus-Ordinal der Prioritaetsbedrohung, -1 = nichts gehoert */
+  schema.Add("rwr_brg", "deg");      /* relativ zur eigenen Nase */
   schema.Add("rwr_el", "deg");
   schema.Add("rwr_leth");
   schema.Add("rwr_new");

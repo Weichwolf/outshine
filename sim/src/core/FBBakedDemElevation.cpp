@@ -1,16 +1,6 @@
-/* Asset layout (little-endian, all fields read at fixed byte offsets — never a cast onto a C struct,
- * so padding/alignment can never desync the reader from tools/bake_swiss_dem.py's writer):
- *   offset  0  char[8]   magic   "FBDEM01\0"
- *   offset  8  uint32_t  cols
- *   offset 12  uint32_t  rows
- *   offset 16  double    lonMin
- *   offset 24  double    latMin
- *   offset 32  double    lonMax
- *   offset 40  double    latMax
- *   offset 48  float     scaleM        (int16 sample * scaleM = metres)
- *   offset 52  uint32_t  reserved (0)
- *   offset 56  int16_t[rows*cols]      row-major, row 0 = latMin, col 0 = lonMin, little-endian
- */
+/* Asset layout: doc/flightbox/core.md, Abschnitt 9 ("Das Asset-Layout"). Every field is read at a
+ * FIXED byte offset and never as a cast onto a C struct, so padding/alignment can never desync this
+ * reader from tools/bake_swiss_dem.py's writer. */
 #include "FBBakedDemElevation.h"
 #include <cstdio>
 #include <cstring>

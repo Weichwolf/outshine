@@ -5,10 +5,8 @@
 namespace FlightBox {
 
 namespace {
-/* The distance from the burst to a zone: the airframe is its longitudinal axis segment (file banner), so
- * the along-axis coordinate is CLAMPED into the zone's own stretch and the lateral/vertical offsets are
- * carried through unchanged. A burst abeam the middle of a zone is therefore as close as its lateral
- * miss; one past the nose has to reach back along the axis as well. */
+/* The airframe is its longitudinal axis segment: clamp the along-axis coordinate into the zone's own
+ * stretch, carry the lateral/vertical offsets through unchanged. */
 double ZoneRangeM(const FBBurst &b, const FBDamageZoneSpec &z) {
   double fwd = b.FwdM;
   if (fwd < z.AftM) fwd = z.AftM;
@@ -31,9 +29,8 @@ const char *FBDamageZoneStr(FBDamageZone z) {
 
 double FBFragmentFluxJm2(double warheadKg, double rangeM, double closureMs) {
   if (warheadKg <= 0.0) return 0.0;
-  /* A floor on the range, not a physical statement: the 1/r^2 law diverges at zero and a burst inside
-   * the airframe is not more instructive than one against its skin. 0.5 m is about the half-width of a
-   * fighter fuselage, i.e. the closest a burst can be to the axis and still be outside the aircraft. */
+  /* A floor, not a physical statement: 1/r^2 diverges at zero, and 0.5 m is about the closest a burst
+   * can be to the axis and still be outside the aircraft. */
   double r = rangeM > 0.5 ? rangeM : 0.5;
   double areal = warheadKg * kCaseFraction / (4.0 * kPi * r * r);
   double v2 = kFragSpeedMs * kFragSpeedMs + closureMs * closureMs;
@@ -64,16 +61,15 @@ FBDamageResult FBDamageModel::ApplyKinetic(const FBKineticBurst &burst, const FB
   if (!layout.Zones || layout.ZoneCount <= 0 || burst.FluxJm2 <= 0.0) return res;
 
   health.NoteHit();
-  /* The footprint the rounds arrived in: one sigma of the pattern, with a floor of half a metre so that
-   * a point-blank burst — where the pattern is centimetres wide — still lands on the zone it passed
-   * through rather than on a mathematical point between two of them. */
+  /* One sigma of the pattern, floored so a point-blank burst lands on the zone it passed through
+   * rather than on a mathematical point between two of them. */
   double half = burst.SpreadM > 0.5 ? burst.SpreadM : 0.5;
   double aft = burst.FwdM - half, fwd = burst.FwdM + half;
   for (int i = 0; i < layout.ZoneCount; i++) {
     const FBDamageZoneSpec &z = layout.Zones[i];
     if (fwd < z.AftM || aft > z.FwdM) continue;   /* the stream missed this stretch of the airframe */
-    /* WHAT THIS ZONE HAS TAKEN ALTOGETHER, not what this bundle brought (FBSystemHealth::AddKinetic):
-     * fifty rounds arriving as five bundles do the damage of fifty rounds. */
+    /* What this ZONE has taken altogether, not what this bundle brought: fifty rounds arriving as
+     * five bundles do the damage of fifty rounds. */
     double total = health.AddKinetic((int)z.Zone, burst.FluxJm2);
     if (total > res.PeakFluxJm2) {
       res.PeakFluxJm2 = total;

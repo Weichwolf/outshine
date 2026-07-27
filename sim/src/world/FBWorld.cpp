@@ -17,19 +17,16 @@ static const int kRootZ = 8;
 static const int kMaxZ = 14;
 static const int kGrace = 180;                 /* passes unasked before eviction (lru.h hysteresis) */
 static const double kEarthCirc = 40075016.686;
-/* LOD is PURELY DISTANCE-BASED (2026-07-23, user directive): split when a tile's projected EDGE LENGTH
- * (ground span / distance, FOV-normalised to a 720-px/60deg viewport) exceeds kEdgeTau pixels. Height
- * variance is deliberately NOT in the decision — a flat near tile must refine to the same level a rugged
- * one would at the same distance (equal albedo resolution by distance). kSseK = H / (2 tan(fov/2)) is the
- * pixel focal length; a tile of span S at distance d projects to S*kSseK/d px. Leaf tiles land between
- * kEdgeTau/2 and kEdgeTau px on screen, so near=fine, far=coarse, monotonic in distance. (This also
- * unsticks the old flat-terrain leaves=2-3 case, where err~0 refused every split.) */
+/* LOD is PURELY distance-based: height variance is deliberately NOT in the decision, so a flat near
+ * tile refines as far as a rugged one at the same distance (equal albedo resolution by distance).
+ * kSseK = H / (2 tan(fov/2)) is the pixel focal length.
+ * Herleitung + Konstantentabelle: doc/flightbox/world-and-terrain.md, Abschnitt 2.2. */
 static const double kSseK = 720.0 / (2.0 * 0.57735026919);   /* H / (2 tan(fov/2)) */
 static const double kEdgeTau = 384.0;   /* target max on-screen tile edge (px); lower = finer = more tiles */
 static const double kCosView = 0.5;            /* frustum weight: <60deg off-axis -> full priority */
 static const int kNodeCeil = 6000;             /* safety backstop on the working set */
 
-/* Packed (z,x,y) key for O(1) node lookup. z<16, x/y<2^30 (z<=29). */
+/* Packed (z,x,y) node key: z<16, x/y<2^30 (z<=29). */
 static inline uint64_t Key(int z, long x, long y) {
   return ((uint64_t)(z & 0xF) << 60) | ((uint64_t)(x & 0x3FFFFFFF) << 30) | (uint64_t)(y & 0x3FFFFFFF);
 }
@@ -40,8 +37,7 @@ FBWorld::FBWorld()
     Pass(0), Evicted(0), LastLog(0), Leaves(0), DrawnReady(0), Pending(0), TargetTot(0), TargetRdy(0), MeshVram(0),
     NightLights(false), Anchor{0, 0, 0}, LightsResident(0) {}
 
-/* Night-light appearance (cosmetic LUT, like the OSM style palette): per-class colour, world radius
- * (m) and a brightness weight; the shader gets colour * (intensity/255) * brightness, additive. */
+/* Cosmetic LUT: the shader gets colour * (intensity/255) * brightness, additive. */
 static const float kLightColor[8][3] = {
   {1.00f, 0.55f, 0.22f},   /* 0 residential  — sodium orange */
   {1.00f, 0.68f, 0.36f},   /* 1 primary      — amber */
@@ -70,8 +66,7 @@ bool FBWorld::Open(FBRenderer *renderer, const char *tilesBase, double lat, doub
   gIndex.clear();
   if (fb_stream_open(tilesBase, lat, lon, kRootZ) == 0) return false;
   fb_stream_set_base(DefaultPhoto ? 1 : 0);        /* worker priority: base tiles before the overlay */
-  /* Light-position anchor = the field origin ECEF (alt 0). Sprite positions are stored relative to it
-   * so the renderer holds float offsets (< view radius) and subtracts (eye - anchor) per frame. */
+  /* Sprite positions are stored relative to this anchor, so the renderer holds float offsets. */
   osmmesh_geo g0{}; g0.lat = lat; g0.lon = lon; g0.alt = 0.0;
   osmmesh_ecef a0 = osmmesh_geo_to_ecef(g0);
   Anchor[0] = a0.x; Anchor[1] = a0.y; Anchor[2] = a0.z;
@@ -107,8 +102,7 @@ int FBWorld::Ensure(int z, long x, long y) {
   return idx;
 }
 
-/* Pure viability — map bounds AND within the view radius. A child that fails EITHER only prevents the
- * parent's split (the parent stays a drawn leaf); it never voids coverage. No side effects. */
+/* A child that fails only PREVENTS the parent's split; it never voids coverage. No side effects. */
 bool FBWorld::Viable(int z, long x, long y, const double eye[3]) const {
   long n = 1L << z;
   if (x < 0 || y < 0 || x >= n || y >= n) return false;
@@ -145,9 +139,7 @@ void FBWorld::Emit(int idx) {
   }
 }
 
-/* Decode /t/lights for one drawn leaf into node.lightInst: each record's tile-local (x,y) -> geo ->
- * ECEF at the tile-centre ground height + a small lift, minus the anchor. Class -> colour/radius LUT,
- * intensity -> brightness. lightState: 1 = decoded (buffer may be empty for a dark tile), -1 pending. */
+/* lightState 1 = decoded (the buffer may be empty for a dark tile), -1 = pending. */
 void FBWorld::BuildLights(int idx) {
   Node &n = Nodes[idx];
   if (!n.haveMesh) { n.lightState = -1; return; }   /* need origin height first; retry a later pass */
@@ -157,8 +149,7 @@ void FBWorld::BuildLights(int idx) {
   const uint8_t *p = LightBytes.data();
   int count = (int)p[0] | ((int)p[1] << 8);
   n.lightInst.clear();
-  /* Tile-centre ground ASL from the mesh origin (ECEF -> geodetic alt). One height per tile is plenty
-   * for point lights viewed from altitude (a z14 tile is < 2 km across). */
+  /* One height per tile is plenty for point lights seen from altitude (a z14 tile is < 2 km). */
   osmmesh_ecef oe{n.origin[0], n.origin[1], n.origin[2]};
   double groundAsl = osmmesh_ecef_to_geo(oe).alt;
   int have = nb - 4 < count * 6 ? (nb - 4) / 6 : count;
@@ -184,11 +175,8 @@ void FBWorld::BuildLights(int idx) {
   n.lightState = 1;
 }
 
-/* Geometry-only refine test: does (z,x,y) project larger than kEdgeTau? Pure function of camera + tile
- * geometry (distance-LOD) — so the TARGET cut is known instantly, without any tile data. That is what
- * lets the boot/teleport request go straight to the final leaves (no LOD ladder / rebuild churn) and
- * removes the old all-four-children-in-view gate (each viable child refines independently → the
- * leaves=2-3 stall is gone; out-of-ViewM quadrants are simply not covered, by design). */
+/* A pure function of camera and tile geometry, needing NO tile data — which is what lets the
+ * boot/teleport request go straight to the final leaves, with no LOD ladder and no rebuild churn. */
 bool FBWorld::WantSplit(int z, long x, long y, const double eye[3]) const {
   if (z >= kMaxZ || (int)Nodes.size() >= kNodeCeil) return false;
   double c[3]; Center(z, x, y, c);
@@ -201,8 +189,7 @@ int FBWorld::Find(int z, long x, long y) const {
   return it == gIndex.end() ? -1 : it->second;
 }
 
-/* Pure: can this subtree cover its ground area with tiles READY this pass? True if every viable child
- * can cover (refined), OR this node itself is resident (a coarser tile holds the whole area). */
+/* Can this subtree cover its area with tiles READY this pass? */
 bool FBWorld::CanCover(int z, long x, long y, const double eye[3]) const {
   if (WantSplit(z, x, y, eye)) {
     bool anyV = false, allC = true;
@@ -218,8 +205,7 @@ bool FBWorld::CanCover(int z, long x, long y, const double eye[3]) const {
   return idx >= 0 && CoversInMode(Nodes[idx]);   /* mode-aware: right mode ready, or already-drawn (keep old at TAB) */
 }
 
-/* Cascade the REQUEST to the target leaves — geometry picks the depth, no data needed. Intermediate
- * nodes are only touched (kept alive as refine-holds); only the final target leaves get AddWork'd. */
+/* Intermediate nodes are only touched (kept alive as refine-holds); only target leaves get AddWork'd. */
 void FBWorld::RequestSubtree(int z, long x, long y, const double eye[3], const double fwd[3]) {
   int idx = Ensure(z, x, y);
   Nodes[idx].touch = Pass;
@@ -236,12 +222,8 @@ void FBWorld::RequestSubtree(int z, long x, long y, const double eye[3], const d
   if (!Uploaded(Nodes[idx])) AddWork(idx, z, x, y, eye, fwd);   /* TARGET leaf */
 }
 
-/* Direct-to-target draw traversal (returns 1 = this node's area is fully covered by emitted tiles). At
- * a split node: if all viable children can cover -> draw the refined level. Else HOLD with this node if
- * resident (the previous, coarser target leaf) while the deeper targets stream in — cascading the
- * request meanwhile. If self is NOT resident (boot/teleport), emit whatever ready descendants exist
- * (partial); the remaining hole is covered by a resident ancestor higher up, or by the LOADING SCREEN.
- * No intermediate LOD levels are ever built — only the geometry-target leaves. */
+/* The draw traversal; 1 = this node's area is fully covered by emitted tiles. No intermediate LOD
+ * level is ever built — only the geometry-target leaves. Ablauf: doc/flightbox/world-and-terrain.md §2.3. */
 int FBWorld::Descend(int z, long x, long y, const double eye[3], const double fwd[3]) {
   int idx = Ensure(z, x, y);
   Nodes[idx].touch = Pass;
@@ -269,7 +251,7 @@ int FBWorld::Descend(int z, long x, long y, const double eye[3], const double fw
         Emit(idx);
         return 1;
       }
-      /* self not resident (boot/teleport): emit ready descendants, rest is a hole (loading screen) */
+      /* self not resident: emit ready descendants, the rest is a hole the loading screen covers */
       for (int q = 0; q < 4; q++) {
         long cx = x * 2 + (q & 1), cy = y * 2 + (q >> 1);
         if (Viable(z + 1, cx, cy, eye)) Descend(z + 1, cx, cy, eye, fwd);
@@ -277,16 +259,14 @@ int FBWorld::Descend(int z, long x, long y, const double eye[3], const double fw
       return 0;
     }
   }
-  /* target leaf (or a tile with no viable children — fully beyond ViewM): request + emit. Covered (in
-   * mode) only if ReadyMode — a base-resident but overlay-pending leaf still emits (never a hole/blank;
-   * FBRenderer holds the old mode) but reports NOT mode-covered so an ancestor keeps holding. */
+  /* A base-resident but overlay-pending leaf still EMITS (never a hole) but reports not mode-covered,
+   * so an ancestor keeps holding. */
   if (!Uploaded(Nodes[idx])) AddWork(idx, z, x, y, eye, fwd);
   Emit(idx);
   return CoversInMode(Nodes[idx]) ? 1 : 0;
 }
 
-/* Walk the geometry target cut (no side effects), counting total leaves and GPU-ready ones — the
- * boot/teleport LoadProgress that gates the loading screen + sim start. */
+/* Side-effect-free walk of the target cut: the LoadProgress that gates the loading screen. */
 void FBWorld::CountTargets(int z, long x, long y, const double eye[3], int &total, int &ready) const {
   if (WantSplit(z, x, y, eye)) {
     bool anyV = false;
@@ -315,7 +295,7 @@ void FBWorld::Update(double camLat, double camLon, const double eyeEcef[3], cons
   while (camLon < -180.0) camLon += 360.0;
   fb_stream_campos(camLat, camLon);   /* worker pump prioritises nearest tiles */
 
-  /* Root ring: zROOT tiles whose centre is within the view radius of the camera. */
+  /* Root ring: zROOT tiles whose centre is within the view radius. */
   uint32_t rx = 0, ry = 0;
   osmmesh_geo_to_tile(camLon, camLat, (uint8_t)kRootZ, &rx, &ry);
   double span = SpanM(kRootZ);
@@ -331,7 +311,7 @@ void FBWorld::Update(double camLat, double camLon, const double eyeEcef[3], cons
       }
     }
 
-  /* Budgeted work, worst-first (nearest + in-frustum). lru.h bake-budget: bound per-frame cost. */
+  /* Budgeted, worst-first (nearest + in-frustum), to bound per-frame cost. */
   std::sort(WorkList.begin(), WorkList.end(), [](const Work &a, const Work &b) { return a.prio > b.prio; });
   int build = 2, albedo = 2, upload = 6;
   for (const Work &w : WorkList) {
@@ -350,8 +330,7 @@ void FBWorld::Update(double camLat, double camLon, const double eyeEcef[3], cons
       }
     }
     if (!nd.haveAlbedo && albedo > 0) {
-      /* Base albedo pyramid = the boot-default source (eager). A photo base with no Esri coverage (a
-       * 204 hole) falls back to OSM so the tile can always draw its base. `r` = pyramid bytes. */
+      /* A photo base with no Esri coverage (204) falls back to OSM, so every tile can draw a base. */
       int baseMode = DefaultPhoto ? 1 : 0;
       int r = fb_stream_pyramid(nd.z, (uint32_t)nd.x, (uint32_t)nd.y, baseMode, TS, Scratch.data());
       if (r < 0 && baseMode == 1)   /* photo hole -> OSM base */
@@ -375,9 +354,8 @@ void FBWorld::Update(double camLat, double camLon, const double eyeEcef[3], cons
     }
   }
 
-  /* Lazy OVERLAY: when the viewed mode differs from the eager base, fetch the OTHER mode's albedo for
-   * on-screen tiles (budgeted), then cache it. Symmetric — base OSM -> photo overlay, base photo ->
-   * OSM overlay. A server 204 marks the node -1 (give up; the tile keeps drawing its base). */
+  /* Symmetric: whichever mode is not the eager base is fetched lazily for on-screen tiles. A 204
+   * marks the node -1 — give up, the tile keeps drawing its base. */
   if (Photo != DefaultPhoto && R && R->DeviceUsable()) {
     int altBudget = 2;
     int altMode = Photo ? 1 : 0;   /* the non-base mode: base photo -> osm overlay, base osm -> photo */
@@ -395,13 +373,11 @@ void FBWorld::Update(double camLat, double camLon, const double eyeEcef[3], cons
     }
   }
 
-  /* Re-emit is not needed: Descend already built DrawSlots from tiles that were ready THIS pass. Newly
-   * uploaded tiles enter the draw list next pass — one frame's latency, invisible. */
+  /* No re-emit: Descend already built DrawSlots from tiles ready THIS pass, and newly uploaded ones
+   * enter next pass — one frame of latency, invisible. */
   if (R) R->SetDrawList(DrawSlots.data(), (int)DrawSlots.size());
 
-  /* Night lights (LOWEST priority — after terrain mesh/albedo/overlay): stream a few undecoded drawn
-   * leaves per pass, then hand the renderer the concatenated sprites of every decoded drawn leaf,
-   * capped at kLightBudget (nearest-first: DrawnLeaves is in descent order, coarse ring outward). */
+  /* LOWEST priority, after mesh/albedo/overlay. Nearest-first: DrawnLeaves is in descent order. */
   if (NightLights && R) {
     int fetch = 3;   /* per-pass decode budget */
     for (int idx : DrawnLeaves) {
@@ -422,7 +398,7 @@ void FBWorld::Update(double camLat, double camLon, const double eyeEcef[3], cons
     R->SetLights(nullptr, 0);   /* left night / disabled -> drop the field */
   }
 
-  /* Grace-period eviction (swap-pop; keep gIndex in sync). */
+  /* Grace-period eviction; swap-pop, so gIndex must stay in sync. */
   for (size_t i = 0; i < Nodes.size();) {
     Node &nd = Nodes[i];
     if (nd.touch == Pass) { nd.stale = 0; i++; continue; }

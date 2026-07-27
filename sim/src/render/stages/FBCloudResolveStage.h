@@ -1,10 +1,7 @@
-/* FlightBox — FBCloudResolveStage: temporal upsample of FBCloudMarchStage's quarter-res output into a
- * full-res ping-pong history (kCloudResolveWGSL), reprojected by the camera's motion at the cloud
- * mid-shell. FBRenderer still opens/closes this pass and reads WriteIndex()/GetHistView()/GetWSumView()
- * to build its RenderPassDescriptor (the two-target write attachment) BEFORE calling Encode(); Advance()
- * (called once per frame, after the tonemap composite has read this frame's result) flips the ping-pong
- * index and snapshots this frame's view-proj/eye as "previous" for next frame's reprojection — mirrors
- * the original single-function RenderFrame ordering exactly. */
+/* Temporal upsample of the quarter-res march into a full-res ping-pong history, reprojected by the
+ * camera's motion at the cloud mid-shell. FBRenderer reads WriteIndex()/GetHistView()/GetWSumView() to
+ * build the TWO-target pass descriptor BEFORE calling Encode() — which is exactly why this stage
+ * cannot open its own pass. doc/flightbox/rendering.md, Abschnitt 5. */
 #ifndef FBCLOUDRESOLVESTAGE_H
 #define FBCLOUDRESOLVESTAGE_H
 
@@ -26,12 +23,9 @@ public:
   void SetAccumMode(bool on) { AccumMode = on; }
   void ResetHistory(void) { HistValid = false; AccumN = 0; }
 
-  /* Records the resolve draw into an ALREADY-open pass targeting GetHistView(WriteIndex())/
-   * GetWSumView(WriteIndex()) — the caller builds that pass descriptor first. `cloudMidR` is
-   * FBCloudMarchStage's shell mid-radius (Mm), the reprojection depth. */
+  /* `cloudMidR` is the march's shell mid-radius (Mm) — the reprojection depth. */
   void Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pass, double cloudMidR);
-  /* Flips the ping-pong index + snapshots this frame's view-proj/eye as "previous" — call once, after
-   * the tonemap composite has consumed WriteIndex() for this frame. */
+  /* Call once per frame, AFTER the tonemap composite has consumed WriteIndex(). */
   void Advance(const FBFrameContext &ctx);
 
 private:

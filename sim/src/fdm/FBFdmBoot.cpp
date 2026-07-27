@@ -5,11 +5,8 @@
 
 namespace FlightBox {
 
-/* The one place an FBFdm comes into existence. `new` rather than make_unique because FBFdm's
- * constructor is private to this class (the IC gate, see FBFdmBoot.h) — ownership is in the unique_ptr
- * before anything can throw. FBFdm::Load has its own exception firewall; the try here covers the ONE
- * thing outside it, constructing the engine object itself (FGFDMExec's ctor allocates its property root
- * and reads JSBSIM_* env vars). A failed spawn is always nullptr, never a terminated process. */
+/* `new` rather than make_unique because FBFdm's ctor is private to this class; the try covers the ONE
+ * thing outside FBFdm::Load's own firewall — constructing the engine object itself. */
 std::unique_ptr<FBFdm> FBFdmBoot::Spawn(const FBFdmSpawn &spawn) {
   try {
     std::unique_ptr<FBFdm> fdm(new FBFdm());

@@ -1,14 +1,8 @@
-/* FlightBox — FBRunwayPlateauElevation: the gym's DEM-free elevation provider ("--elev const"). A
- * mission can have more than one runway (today one; Phase 3's dest_runway will add a second) at
- * DIFFERENT elevations, so a single flat constant is wrong for takeoff+landing in the same run. This
- * provider instead holds every runway the mission cares about and answers each query with: inside that
- * runway's footprint (its length x width rectangle) + a ~5 km margin, the runway's own
- * ThresholdElevM; beyond that, a ~10 km smoothstep falloff onto a flat 0 m base, so enroute cruise
- * still reads a plausible (if approximate) AGL instead of a hard cliff at the footprint edge.
- * Overlapping plateaus follow the NEAREST runway only (simplest continuous choice — a hard switch
- * between two plateaus of different elevation is possible only where their footprints are close
- * enough to overlap, which real airfields never are; document, don't over-engineer for a case that
- * cannot occur with today's one-runway missions). */
+/* The gym's DEM-free elevation provider (`--elev const`). A mission can have several runways at
+ * DIFFERENT elevations, so a single flat constant is wrong for takeoff+landing in one run: this holds
+ * every runway and answers with its own elevation inside footprint+margin, then a smoothstep falloff
+ * onto a flat 0 m base. Overlapping plateaus follow the NEAREST runway — the simplest continuous
+ * choice. doc/flightbox/core.md, Abschnitt 9. */
 #ifndef FBRUNWAYPLATEAUELEVATION_H
 #define FBRUNWAYPLATEAUELEVATION_H
 #include <vector>

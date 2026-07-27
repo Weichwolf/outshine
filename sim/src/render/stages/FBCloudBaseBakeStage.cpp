@@ -54,7 +54,7 @@ void FBCloudBaseBakeStage::Configure(const FBGpu &gpu, FBCloudMipDownStage &mipD
   td.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
   Tex = Device.CreateTexture(&td);
 
-  /* Base-construction sweep hooks (ridge diagnosis): toggle the Worley displacement / octaves via env. */
+  /* Sweep hooks for the ridge diagnosis. */
   std::string baseCS = kCloudBaseCS;
   auto rep = [&](const std::string &from, const std::string &to) {
     auto p = baseCS.find(from); if (p != std::string::npos) baseCS.replace(p, from.size(), to);
@@ -67,8 +67,8 @@ void FBCloudBaseBakeStage::Configure(const FBGpu &gpu, FBCloudMipDownStage &mipD
   if (const char *sh = getenv("FB_BASE_STRETCH_HI")) rep("(0.82 - 0.55)", "(" + std::string(sh) + " - 0.55)");
   if (const char *lo = getenv("FB_SS_LO")) rep("smoothstep(0.24,", "smoothstep(" + std::string(lo) + ",");
   if (const char *hi = getenv("FB_SS_HI")) rep(" 0.64, pf)", " " + std::string(hi) + ", pf)");
-  /* F1-cell field (B) is OFF by default: skip its worley2D generation entirely (the Stand-A density path
-   * reads only .r) — no boot cost. FB_CLOUD_CELLS=1 keeps it (paired with CELLS_ON=1.0 in the march). */
+  /* Off by default: skipping the worley2D generation entirely costs no boot time, and the default
+   * density path reads only .r. */
   if (!CloudCellsOn())
     rep("clamp(pow(worley2D(uv.xy, 9.0), 2.0) * 0.72 + pow(worley2D(uv.xy * 1.9 + 5.3, 5.0), 2.0) * 0.28, 0.0, 1.0)", "0.0");
 
@@ -80,9 +80,8 @@ void FBCloudBaseBakeStage::Configure(const FBGpu &gpu, FBCloudMipDownStage &mipD
     return Device.CreateShaderModule(&smd);
   };
 
-  /* mip 0: noise compute -> storage -> copy to sampled mip 0. Storage-usage 3D textures don't sample
-   * trilinear on every backend (software Dawn falls back to nearest -> flat facets), so generate into
-   * a storage volume, then copy into this sampled-only volume that filters correctly. */
+  /* Generate into a STORAGE volume, then copy into a sampled-only one: storage-usage 3D textures do
+   * not sample trilinear on every backend (software Dawn falls back to nearest -> flat facets). */
   wgpu::TextureViewDescriptor vAll{}; vAll.dimension = wgpu::TextureViewDimension::e3D;
   auto mkStorage3d = [&](uint32_t sz) {
     wgpu::TextureDescriptor sd{};
@@ -105,7 +104,7 @@ void FBCloudBaseBakeStage::Configure(const FBGpu &gpu, FBCloudMipDownStage &mipD
     enc.CopyTextureToTexture(&s, &d, &ext);
     wgpu::CommandBuffer cmd = enc.Finish(); Queue.Submit(1, &cmd);
   }
-  /* downsample each subsequent level from the sampled previous level */
+  /* each level from the sampled previous one */
   uint32_t lvl = 1, sz = n / 2;
   while (sz >= 1) {
     wgpu::Texture st = mkStorage3d(sz);
@@ -119,10 +118,8 @@ void FBCloudBaseBakeStage::Configure(const FBGpu &gpu, FBCloudMipDownStage &mipD
   }
 }
 
-/* Numeric shape/density histogram: evaluate the SAME base-shape math density() uses over a 3D grid in
- * the shell and read back the values, so base dynamic-range tuning is driven by numbers, not eyes.
- * Reports shape percentiles AND the post-coverage-remap density d = (shape-(1-cov))/cov percentiles —
- * the goal (per convergence guidance) is cloud CORES at d~1 with only edges in low d. */
+/* Evaluates the SAME base-shape math density() uses and reads it back, so dynamic-range tuning is
+ * driven by numbers rather than by eyes. The goal is cloud CORES at d~1 with only edges in low d. */
 void FBCloudBaseBakeStage::ShapeStats(float cover, float low, float high) {
   const uint32_t GX = 128, GY = 128, GZ = 32, N = GX * GY * GZ;
   static const char *kHistCS = R"(
@@ -177,8 +174,8 @@ fn cs(@builtin(global_invocation_id) id : vec3u) {
   wgpu::Buffer ubuf = Device.CreateBuffer(&ubd);
   Queue.WriteBuffer(ubuf, 0, uni, sizeof(uni));
 
-  /* fresh sampler matching FBCloudMarchStage's CloudSamp descriptor (repeat/linear) — sampler behaviour
-   * is defined entirely by the descriptor, not object identity, so a diagnostic tool owning its own is fine. */
+  /* Sampler behaviour is defined by the DESCRIPTOR, not object identity, so a diagnostic owning its
+   * own copy of the march's descriptor measures the same thing. */
   wgpu::SamplerDescriptor sd{};
   sd.addressModeU = wgpu::AddressMode::Repeat;
   sd.addressModeV = wgpu::AddressMode::Repeat;
@@ -227,7 +224,7 @@ fn cs(@builtin(global_invocation_id) id : vec3u) {
   auto pct = [&](double p) { return s[(size_t)(p * (N - 1))]; };
   size_t cloud = 0, solid = 0;
   for (float x : s) { if (x > 0.001f) cloud++; if (x > 0.9f) solid++; }
-  /* percentiles over CLOUD voxels (d>0) — the whole-grid median is ~0 since most of the shell is clear */
+  /* over CLOUD voxels only: the whole-grid median is ~0, since most of the shell is clear */
   size_t c0 = N - cloud;
   auto cpct = [&](double p) { return s[c0 + (size_t)(p * (cloud > 0 ? cloud - 1 : 0))]; };
   FBLog::Debug("render", "shapehist", {{"cov", (double)cover}, {"low", (double)low}, {"high", (double)high},

@@ -1,6 +1,4 @@
-/* FlightBox — FBCloudDetailBakeStage: the Worley-octave 3D detail noise volume (32^3), baked ONCE at
- * Configure() via FBCloudMipDownStage for the mip chain — not a per-frame draw stage. FBCloudMarchStage
- * erodes the base shape with this (view injected at ITS Configure()). */
+/* The 32^3 Worley-octave detail volume the march erodes the base shape with. Baked ONCE. */
 #ifndef FBCLOUDDETAILBAKESTAGE_H
 #define FBCLOUDDETAILBAKESTAGE_H
 

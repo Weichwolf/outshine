@@ -1,19 +1,9 @@
-/* FlightBox renderer — the terrain vertex LAYOUT: the one contract shared by the two sides.
+/* The terrain vertex LAYOUT: the one contract between the writer (the tile worker's mesh build) and
+ * the reader (the draw call). Alone in its own header because the main thread needs only the layout,
+ * and including the build functions where nothing calls them is -Wunused-function under -Werror.
  *
- * The WRITER is the tile worker (FBChunkMesh.h -> w3_chunk_build_ecef, off the main thread). The
- * READER is the draw call on the main thread (glVertexAttribPointer, via W3_VTX_STRIDE/W3_VTX_OFF
- * in world3d.h). They used to live in one header, but since the mesh build moved to the worker the
- * main thread needs ONLY this layout, not the build maths -- and including the build functions
- * where nothing calls them is a -Wunused-function error under -Werror. So the layout that both
- * sides must agree on lives here, alone; the build that only the worker runs stays in
- * FBChunkMesh.h.
- *
- * The writer and the reader used to agree only by hand: literal stride 32 and offsets 0/12/20
- * spelled out at the draw call. When normals were added the stride went 20 -> 32 and every one of
- * those numbers had to change together; getting one wrong does not error, it renders garbage.
- * Derive them from the struct instead, and pin the result so a layout change breaks the build
- * rather than the picture.
- */
+ * Stride and offsets are DERIVED from the struct and pinned by static_assert: they used to be literals
+ * spelled out at the draw call, and getting one wrong does not error — it renders garbage. */
 #ifndef FBCHUNKVTX_H
 #define FBCHUNKVTX_H
 #include <stddef.h>
@@ -24,10 +14,8 @@ typedef struct {
   float norm[3];
 } w3_vtx;
 
-/* One built terrain chunk: a malloc'd w3_vtx array + its measured geometric error. Lives here, with
- * the vertex layout, because BOTH builders produce it -- chunkmesh.h (ENU) and chunkmesh_ecef.h
- * (global ECEF) -- and the ECEF builder must not have to include the ENU one just for the struct.
- */
+/* Here with the layout because BOTH builders (ENU and ECEF) produce it, and neither should have to
+ * include the other just for the struct. */
 #include <stdlib.h>
 typedef struct {
   w3_vtx *verts;

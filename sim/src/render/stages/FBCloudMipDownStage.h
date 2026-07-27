@@ -1,7 +1,5 @@
-/* FlightBox — FBCloudMipDownStage: the box-downsample compute (kMipDownCS) shared by every 3D
- * noise-volume bake (FBCloudBaseBakeStage, FBCloudDetailBakeStage) to build a full mip chain after
- * the base-level noise compute. Not a per-frame draw stage — a one-time INIT-time bake helper, so it
- * owns and submits its own command buffers rather than recording into a caller's pass/encoder. */
+/* The box-downsample every 3D noise bake shares. An INIT-time helper, not a per-frame stage — which
+ * is why it may own and submit its own command buffers instead of borrowing an encoder. */
 #ifndef FBCLOUDMIPDOWNSTAGE_H
 #define FBCLOUDMIPDOWNSTAGE_H
 
@@ -14,8 +12,7 @@ class FBCloudMipDownStage {
 public:
   void Configure(const FBGpu &gpu);
 
-  /* Box-average `srcView` (a single mip level of a 3D texture, size 2*dstSize per axis) 2x2x2 into
-   * `dstView` (a storage-binding 3D texture view of dstSize^3) — submits its own command buffer. */
+  /* 2x2x2 box average; `srcView` must be 2*dstSize per axis. */
   void Downsample(wgpu::TextureView srcView, wgpu::TextureView dstView, uint32_t dstSize);
 
 private:

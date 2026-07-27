@@ -1,8 +1,7 @@
-/* FlightBox — sRGB mip-pyramid builder, shared by the native terrain path (FBTerrainLoader.cpp) and
- * the off-thread tile worker (FBTileWorkerMain.cpp). Colour is averaged in LINEAR light (decode ->
- * average -> re-encode) so the distance doesn't darken; alpha is already linear, averaged directly.
- * The pyramid is packed CONTIGUOUS: level 0 (ts*ts), level 1 ((ts/2)^2), ... down to 1x1, RGBA8
- * throughout. */
+/* The ONE sRGB mip-pyramid builder, shared by the native terrain path and the tile worker — so the
+ * oracle and the browser render identical pixels. Colour is averaged in LINEAR light (decode, average,
+ * re-encode) so distance does not darken; alpha is already linear. Packed contiguous, level 0 down
+ * to 1x1, RGBA8 throughout. */
 #ifndef FBMIPS_H
 #define FBMIPS_H
 #include <stdint.h>
@@ -25,18 +24,17 @@ static inline uint8_t fb_lin_srgb_(float l) {
   return (uint8_t)(v < 0 ? 0 : v > 255 ? 255 : v);
 }
 
-/* Mip levels for a ts*ts image (floor(log2 ts)+1). */
+/* floor(log2 ts) + 1. */
 static inline int fb_mip_count(int ts) { int n = 1; while (ts > 1) { ts >>= 1; n++; } return n; }
 
-/* Total bytes of the full pyramid for ts (level 0..N packed contiguous). */
+/* Total bytes of the full packed pyramid. */
 static inline int fb_pyramid_bytes(int ts) {
   int b = 0, w = ts;
   for (;;) { b += w * w * 4; if (w == 1) break; w >>= 1; }
   return b;
 }
 
-/* Build the whole pyramid from a ts*ts RGBA8-sRGB level-0 image into `dst`
- * (fb_pyramid_bytes(ts) long). */
+/* `dst` must be fb_pyramid_bytes(ts) long. */
 static inline void fb_build_pyramid(const uint8_t *rgba, int ts, uint8_t *dst) {
   fb_srgb_lut_();
   memcpy(dst, rgba, (size_t)ts * ts * 4);

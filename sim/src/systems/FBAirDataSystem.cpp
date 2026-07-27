@@ -4,8 +4,7 @@
 
 namespace FlightBox {
 
-/* CAS/Mach/G straight off the FDM; ground track + flight-path angle from the X-Plane-local velocity
- * (+x east, +y up, +z south — already the local ENU frame, no geodesy needed). */
+/* vx/vy/vz sind X-Plane-lokal (+x Ost, +y auf, +z Sued) = bereits ENU, keine Geodaesie noetig. */
 void FBAirDataSystem::Run(FBState &state, const fb_fdm_state &fdm, double dt) {
   (void)dt;
   FBAirDataBlock &b = state.AirData;

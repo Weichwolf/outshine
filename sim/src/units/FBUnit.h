@@ -1,9 +1,6 @@
-/* FlightBox — FBUnit: the base interface every world entity shares, controllable or not. The pilot
- * (systems/FBPilot) and any future sensor/weapon system query units through THIS interface, never the
- * concrete type — Ownship today, AI aircraft/ground units later, same shape, so nothing above this
- * layer has to know whose aircraft it's looking at. Identity (Id/Kind/Team) is set once at
- * construction; Pose is read fresh each query (a Unit is a VIEW onto whatever owns the ground truth,
- * see FBSimUnit's banner — never a duplicated copy that can drift out of sync). */
+/* FlightBox — FBUnit: the base interface every world entity shares. Identity is set once at
+ * construction; a Unit is a VIEW onto whatever owns the ground truth, never a copy that can drift.
+ * Details: doc/flightbox/units-and-missions.md */
 #ifndef FBUNIT_H
 #define FBUNIT_H
 
@@ -18,17 +15,9 @@ namespace FlightBox {
 class FBWorld;
 class FBUnitRegistry;
 
-/* Weapon = a store in free flight after release: its own FDM, its own module, stepped and judged like
- * any other unit (units/FBSimUnit) — the KIND exists because two things about it differ and both are
- * the owner's business, not the unit's: its physical K.O. is a detonation rather than the end of the
- * run, and it is not something another unit's air-to-air sensors are looking for. */
-/* Ground = a static object on the surface: a target, and one day whatever else stands still. It is a
- * kind for the same shape of reason Weapon is — two things about it differ and both are the OWNER's
- * business, not the unit's: it has no airframe to be judged by the physics monitor (it is not flying,
- * so there is nothing for FBFlightMonitor to conclude), and it is not something another unit's
- * AIR-to-air sensors are looking for. What it IS is a full participant everywhere else: it appears in
- * the mission roster, it carries a health register, and a weapon burst is resolved against it through
- * the same core/FBDamageModel as against any aircraft. */
+/* A kind exists only where the OWNER must treat the unit differently — a Weapon's physical K.O. is a
+ * detonation and not the end of the run, a Ground unit has no airframe to judge, and neither is
+ * something another unit's AIR-to-air sensors look for. Everywhere else all three are full units. */
 enum class FBUnitKind { Aircraft, Weapon, Ground };
 
 struct FBUnitPose {
@@ -39,34 +28,14 @@ struct FBUnitPose {
 };
 
 /* What this unit RADIATES — the part of its system state another unit's sensors may legitimately
- * notice. A cooperative datalink track exists because the sender's terminal is transmitting, so that
- * switch is not private to the sender's module: it is observable, and therefore published at the same
- * barrier as the pose (no receiver ever reads a transmitter state mid-tick). Emitters that only make
- * sense once the matching sensor exists (radar illumination, jammer, IFF replies) join here. */
+ * notice, published at the same barrier as the pose so no receiver ever reads half of it. */
 struct FBUnitSignature {
   bool DatalinkXmt = false;   /* MIDS terminal powered AND transmitting (XMT ON) */
-  /* The midcourse guidance uplink this unit is radiating to a weapon it launched (core/FBWeaponUplink.h,
-   * doc/f16/weapons.md §2.5's datalink->active handover). Published here for the same reason the two
-   * switches below are: a guidance transmission is an emission, so the missile receives it through its
-   * own comms slot instead of being handed its shooter's private state. Inactive on any unit that is
-   * not supporting a shot, which is every unit most of the time. */
-  FBWeaponUplink Uplink;
-  /* IFF transponder answering (AN/APX-113, doc/f16/datalink-iff.md). Published for the same reason
-   * DatalinkXmt is: a reply is a RADIATED signal, so whether this aircraft answers a Mode-4 challenge is
-   * observable by another unit's interrogator (systems/FBRadarSystem) and not private to its module. */
-  bool IffXpdr = false;
-  /* THE RADAR BEAM (core/FBEmitter.h): what this unit's set is radiating, in which mode, and — the part
-   * that makes it a geometry problem rather than a flag — WHERE the beam is pointed. The loudest thing
-   * a fighter emits, and the one another aircraft's warning receiver (systems/FBRwrSystem) is built to
-   * hear. Silent by default: an aircraft with its set off publishes Mode::None, like every unit that
-   * carries no radar at all. */
-  FBEmitterSignature Radar;
-  /* THE CHAFF THIS UNIT HAS THROWN (core/FBCountermeasure.h) — an emission in everything but the
-   * direction of causality: it is not radiated, it REFLECTS, but it is the same kind of fact about this
-   * unit that another unit's sensor may legitimately notice, published at the same barrier so no radar
-   * ever sees half a salvo. Hanging the clouds off the DISPENSING unit rather than making each one a
-   * unit of its own is a deliberate scope decision with a stated consequence: a cloud can only decoy a
-   * radar that is looking at the aircraft that threw it, never one tracking somebody else nearby. */
+  FBWeaponUplink Uplink;      /* midcourse guidance to a weapon this unit launched */
+  bool IffXpdr = false;       /* AN/APX-113 answering Mode 4 */
+  FBEmitterSignature Radar;   /* the BEAM incl. where it points; silent Mode::None by default */
+  /* Chaff hangs off the DISPENSING unit rather than being units of its own — stated consequence: a
+   * cloud can only decoy a radar looking at the aircraft that threw it. */
   FBChaffCloud Chaff[kMaxChaffClouds];
 };
 
@@ -81,25 +50,13 @@ public:
   FBUnitKind GetKind() const { return Kind; }
   FBUnitTeam GetTeam() const { return Team; }
 
-  /* SNAPSHOT CONTRACT (multi-unit): what this returns is the pose of the LAST COMPLETED tick, never a
-   * half-integrated one. The client steps every unit first and only then publishes the new poses (the
-   * barrier in FBMissionRunner.cpp / the WASM frame loop), so a unit reading another unit through the
-   * FBWorld registry always sees a consistent world state and never depends on tick ORDER — which is
-   * exactly what makes the planned per-unit threading (CLAUDE.md "Ausblick Multi-Unit") a pure
-   * parallelisation instead of a redesign. */
+  /* SNAPSHOT CONTRACT: the state of the LAST COMPLETED tick, never a half-integrated one — the client
+   * steps every unit and only then publishes, so no result can depend on tick ORDER. */
   virtual FBUnitPose GetPose() const = 0;
-
-  /* The published emission signature, under the SAME snapshot contract as GetPose (see above): a unit
-   * that switched its transmitter off during this tick still reads as it was at the last barrier. A
-   * unit type with no emitters keeps the silent default. */
   virtual FBUnitSignature GetSignature() const { return {}; }
 
-  /* Per-frame update at whatever rate the owner drives it; NoOp default (a unit whose motion is driven
-   * entirely by something else has nothing to do here — FBSimUnit forwards it to the module, which
-   * cycles the FDM and its own systems). `units` is the cast of the world as simulated SENSORS may
-   * observe it (units/FBUnitRegistry — every entry a last-completed-tick snapshot, including this unit
-   * itself), `world` the terrain/streaming side a sensor may need on top of it; both are borrowed and
-   * either may be null in a client that has none. */
+  /* `units` is the cast as simulated SENSORS may observe it, `world` the terrain side on top; both
+   * borrowed, either may be null in a client that has none. */
   virtual void Run(double dt, const FBUnitRegistry *units, const FBWorld *world) {
     (void)dt; (void)units; (void)world;
   }

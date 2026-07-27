@@ -4,9 +4,8 @@
 
 namespace FlightBox {
 
-/* Moon as a lit sphere: within its angular radius, reconstruct the front-hemisphere normal, sample
- * the NASA albedo, and light it with the REAL sun direction — phase/terminator emerge physically.
- * Verbatim the original kSkyWGSL moon block, moved into its own additive fullscreen-triangle draw. */
+/* Reconstruct the front-hemisphere normal, sample the albedo, light it with the REAL sun direction —
+ * so phase and terminator emerge physically instead of being drawn. */
 static const char *kMoonWGSL = R"(
 @group(0) @binding(0) var<uniform> A : Atmo;
 @group(0) @binding(1) var lsamp : sampler;

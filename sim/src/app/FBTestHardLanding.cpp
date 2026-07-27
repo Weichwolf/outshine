@@ -1,18 +1,8 @@
-/* FlightBox — fb-test-hard-landing: a minimal, dedicated negative-proof harness for
- * core/FBFlightMonitor's gear-force hard-landing check (RESULT HARD_LANDING). Task context: today's
- * FBPilot::Climb ALWAYS commands the gear up within a couple of seconds of any positive-rate liftoff
- * (systems/FBPilot.cpp), so a mission flown through the normal Takeoff/Climb/Route phase machine cannot
- * reach the ground with the gear still extended — every such profile instead exercises the (equally
- * real) gear-up/structure-contact path, not this one. This harness isolates the gear-EXTENDED case
- * directly: it spawns the real, vendored, read-only f16 model airborne a few metres up, gear held down,
- * and drives ONLY the generic simulated control surface (fcs cmd-norm via FBFdm::SetControls, gear via
- * FBFdm::SetGear) — no FBPilot, no FBAutopilot, nothing that writes FDM state directly (the same
- * anti-cheat contract as every other client) — so gravity plus a mild forward glide produces a genuine,
- * model-simulated hard touchdown for FBFlightMonitor to judge.
- *
- * `make test-monitor` builds this -> build/fb-test-hard-landing. Exit 0 = FBFlightMonitor tripped
- * HARD_LANDING as expected (the proof); exit 1 = it did not trip before the harness's own timeout (test
- * FAILED — the monitor missed a genuinely excessive touchdown); exit 2 = setup failure (JSBSim init). */
+/* fb-test-hard-landing: the negative proof for FBFlightMonitor's gear-force check. It exists because
+ * FBPilot::Climb always retracts the gear seconds after liftoff, so no mission flown through the normal
+ * phase machine can reach the ground gear-EXTENDED — every such profile exercises the structure-contact
+ * path instead. Drives only the generic simulated controls, never a state setter, so the touchdown is
+ * genuinely model-produced. Exit 0 = it tripped (the proof), 1 = it missed one, 2 = setup failure. */
 #include "FBFlightMonitor.h"
 #include "FBLog.h"
 #include "FBLogSinks.h"
@@ -35,9 +25,7 @@ int main() {
                                       * chase needed */
   const double speedMs = 40.0;      /* a mild forward glide (~78 kt) — not hovering, not a dive */
 
-  /* HeightOffsetM>0: an explicit airborne IC (FBFdmBoot.h) — NOT the ground-spawn-on-gear path
-   * (FBMissionSpawnActor's ground case uses <0); FbwOverride so our own FBW (a flat Manual command
-   * below), not the F-16's own FLCS, is what's driving — same override every other client uses. */
+  /* HeightOffsetM > 0 is the explicit AIRBORNE IC, not the ground-spawn-on-gear path (which uses < 0). */
   FBFdmSpawn ic;
   ic.ModelsRoot = "assets/aircraft"; ic.Aircraft = "f16";
   ic.LatDeg = lat; ic.LonDeg = lon; ic.GroundElevM = groundAsl; ic.HeightOffsetM = spawnAglM;
@@ -59,10 +47,9 @@ int main() {
   bool tripped = false;
 
   while (simT < timeoutS) {
-    /* The ONLY commands this harness ever issues, both through the generic simulated control surface
-     * every module/pilot uses (never a state setter): idle-ish throttle so it doesn't power back up and
-     * fly away, neutral stick (let it settle into whatever attitude gravity + the model's own
-     * aerodynamics produce), gear held DOWN every tick (the scenario this harness exists to test). */
+    /* The ONLY commands this harness ever issues, all through the generic control surface and never a
+     * state setter: idle throttle so it cannot fly away, neutral stick so the attitude is the model's
+     * own, gear held DOWN — the scenario itself. */
     fdm->SetControls(0.0, 0.0, 0.0, 0.15);
     fdm->SetGear(1.0);   /* gear down; flap/speedbrake left at the model default */
 

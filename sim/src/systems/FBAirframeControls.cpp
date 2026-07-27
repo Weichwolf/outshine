@@ -9,8 +9,7 @@ void FBJsbsimAirframeControls::SetNosewheelSteer(double norm) { Fdm.SetNosewheel
 void FBJsbsimAirframeControls::EngineStart() { Fdm.EngineStart(); }
 void FBJsbsimAirframeControls::EngineCutoff() { Fdm.EngineCutoff(); }
 
-/* Model-wide WOW (FBFdm::GetWow) — the airframe-controls contract asks a single yes/no question, not
- * which gear; a per-gear breakdown belongs to a future landing-gear system. */
+/* Modellweites WOW: eine Ja/Nein-Frage, keine Aufschluesselung je Fahrwerk. */
 bool FBJsbsimAirframeControls::GetWeightOnWheels() const { return Fdm.GetWow(); }
 double FBJsbsimAirframeControls::GetGearPosition() const { return Fdm.GetGearPos(); }
 double FBJsbsimAirframeControls::GetSpeedbrake() const { return Fdm.GetSpeedbrakePos(); }

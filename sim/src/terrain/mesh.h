@@ -1,14 +1,6 @@
-/* libosmmesh/include/osmmesh/mesh.h
- *
- * Shared mesh container used by all mesh generators (T5 terrain,
- * T6 buildings, T7 linear features). Plain SoA: positions/normals/uvs
- * as flat float arrays, indices as flat uint32. Caller owns the memory
- * once the generator returns; `osmmesh_mesh_free` releases it.
- *
- * All coordinates are ENU meters (east, north, up) around the configured
- * origin from `osmmesh_enu_ctx`. Normals are unit length. UVs are optional;
- * normals are optional.
- */
+/* The shared mesh container: plain SoA, flat float arrays plus flat uint32 indices, in ENU metres
+ * around the configured origin. The CALLER owns the memory once a generator returns
+ * (osmmesh_mesh_free). Normals are unit length; normals and UVs are both optional. */
 
 #ifndef OSMMESH_MESH_H
 #define OSMMESH_MESH_H
@@ -28,8 +20,7 @@ typedef struct {
     uint32_t  n_triangles;
 } osmmesh_mesh;
 
-/* Free every non-NULL data pointer inside `m` and zero the struct. Safe
- * on an already-zeroed struct; safe to call twice. */
+/* Safe on an already-zeroed struct, and safe twice. */
 void osmmesh_mesh_free(osmmesh_mesh *m);
 
 #ifdef __cplusplus

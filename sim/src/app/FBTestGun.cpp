@@ -1,22 +1,8 @@
-/* FlightBox — fb-test-gun: the gun's own arithmetic, checked against doc/f16/weapons.md's numbers and
- * against itself. No JSBSim, no mission: everything here is core/FBGunBallistics + core/FBGunProjectiles
- * + systems/FBGunSystem, which is the point — the flight code's claims are checkable without flying,
- * and the flying (missions/gun-bfm.fbm) then only has to show that the aircraft can be brought into the
- * geometry these numbers describe.
- *
- * FIVE CHECKS, each printed with the figure it is checked against:
- *   1 DISPERSION   the fitted circular-normal pattern reproduces MIL-DTL-45500/1A's 80%-in-8-mil
- *                  specification it was fitted to, AND predicts the 12-mil figure it was NOT fitted to.
- *   2 BALLISTICS   time of flight, residual speed and drop at gun ranges — against the drag-free floor
- *                  (§4.2's sanity rule: a real round can never arrive sooner than the vacuum case).
- *   3 FUNNEL       the EEGS funnel's geometry: the guide's own 600 ft / 3,000 ft range window turned
- *                  into the angular spans that ARE the funnel's two ends, and the out-of-range test.
- *   4 LEAD         the fire control's solution FLOWN: solve the lead for a crossing target, fire the
- *                  bundle along the solved bore with the projectile pool, integrate, and measure how
- *                  far it actually passes the target. Prediction against reality, in metres.
- *   5 MAGAZINE     the drum empties at the rate it should and the box then refuses the trigger with
- *                  Depleted — the refusal the whole command path exists to be able to give.
- * Exit 0 = every check inside its stated tolerance; 1 = one failed (the line says which). */
+/* fb-test-gun: the gun's arithmetic against doc/f16/weapons.md's numbers and against itself. No JSBSim
+ * and no mission — which is the point: the flight code's claims are checkable WITHOUT flying, and the
+ * flying then only has to show the aircraft can reach the geometry these numbers describe.
+ * Five checks: dispersion, ballistics, funnel geometry, the lead solution FLOWN, magazine + depletion.
+ * Exit 0 = every check inside its stated tolerance, 1 = one failed and the line says which. */
 #include "FBGun.h"
 #include "FBGunBallistics.h"
 #include "FBGunProjectiles.h"
@@ -40,8 +26,7 @@ void Check(bool ok, const char *what, double got, double want, double tol) {
                                                       {"tol", tol}});
 }
 
-/* The fraction of a circular-normal pattern inside a circle of `radiusRad` — the closed form the
- * dispersion sigma was fitted with (core/FBGun.h). */
+/* The closed form the dispersion sigma was fitted with. */
 double PatternFraction(double radiusRad, double sigmaRad) {
   return 1.0 - std::exp(-(radiusRad * radiusRad) / (2.0 * sigmaRad * sigmaRad));
 }
@@ -54,9 +39,8 @@ void CheckDispersion() {
                                     {"in12milPct", in12 * 100.0}});
   Check(std::fabs(in8 - 0.80) < 0.005, "80% inside the 8 mil circle (MIL-DTL-45500/1A)", in8, 0.80,
         0.005);
-  /* The guide calls the 12 mil circle "100%". A Gaussian never reaches 1, so what is checked is that it
-   * is at least 95% — i.e. that the fit made from the 80% figure alone lands where the second, unused
-   * figure says it should. */
+  /* A Gaussian never reaches 1, so the check is >= 95%: the fit made from the 80% figure ALONE must
+   * land where the second, unused figure says it should. */
   Check(in12 > 0.95, "the 12 mil circle holds essentially all of it", in12, 1.0, 0.05);
 }
 
@@ -73,12 +57,12 @@ void CheckBallistics() {
     FBLog::Info("gun", "BALLISTIC", {{"rangeM", s}, {"tofS", t}, {"speedMs", v}, {"dropM", drop},
                                      {"vacuumTofS", s / v0}});
     Check(t > s / v0, "a real round is slower than the drag-free floor", t, s / v0, 0.0);
-    /* Round-trip the closed form against its own inverse — the property the whole lead solve rests on. */
+    /* The closed form against its own inverse — the property the lead solve rests on. */
     Check(std::fabs(FBGunPathAfter(k, v0, t) - s) < 0.01, "path(time(path)) is an identity",
           FBGunPathAfter(k, v0, t), s, 0.01);
   }
-  /* The one external cross-check available: doc/f16/weapons.md §4.1 gives no firing table, but every
-   * published 20 mm table puts the flight time to 1,000 m between 1.1 s and 1.5 s. */
+  /* The one external cross-check: no firing table exists in the source, but every published 20 mm
+   * table puts the flight time to 1,000 m between 1.1 s and 1.5 s. */
   double t1000 = FBGunTimeToPath(k, v0, 1000.0);
   Check(t1000 > 1.1 && t1000 < 1.5, "time of flight to 1,000 m is in the published band", t1000, 1.3,
         0.2);
@@ -97,22 +81,18 @@ void CheckFunnel() {
   Check(std::fabs(FBF16FireControl::kFunnelMaxRangeM * kMToFt - 3000.0) < 0.5,
         "...and its far end the guide's 3,000 ft", FBF16FireControl::kFunnelMaxRangeM * kMToFt, 3000.0,
         0.5);
-  /* The funnel is a shape, and the shape is the wingspan at each range: five times the range is a fifth
-   * of the angular width, which is what makes a target that fills it be AT the range the lead was
-   * computed for. */
+  /* Five times the range is a fifth of the angular width — which is what makes a target that FILLS
+   * the funnel be at the range its lead was computed for. */
   Check(std::fabs(topMr / botMr - FBF16FireControl::kFunnelMaxRangeM / FBF16FireControl::kFunnelMinRangeM)
             < 1e-9,
         "the funnel's width ratio is its range ratio", topMr / botMr, 5.0, 1e-6);
-  /* ...and the guide's out-of-range test: a target beyond the far end appears SMALLER than the funnel's
-   * wide end. */
+  /* The out-of-range test: past the far end a target appears SMALLER than the funnel's wide end. */
   double farMr = span / (2.0 * FBF16FireControl::kFunnelMaxRangeM) * 1000.0;
   Check(farMr < botMr, "a target past the funnel is smaller than its bottom", farMr, botMr, 0.0);
 }
 
-/* CHECK 4: the fire control's lead solution, FLOWN. One synthetic engagement — the shooter running
- * level, the target crossing at 90 degrees 500 m ahead — solved once, then fired and integrated with the
- * same projectile pool the mission runner uses. What is measured is the distance between the bundle and
- * the (independently propagated) target at closest approach: the prediction's own error, in metres. */
+/* The lead solution FLOWN: solved once, then fired and integrated by the same pool the runner uses,
+ * against an independently propagated target. The measurement is the prediction's error in metres. */
 void CheckLead() {
   const double altM = 4000.0;
   const double ownE = 250.0, ownN = 0.0, ownU = 0.0;      /* shooter tracking east at 250 m/s */
@@ -129,9 +109,7 @@ void CheckLead() {
     FBGunAim aim = FBGunSolveLead(kM61A1, altM, ownE, ownN, ownU, relE, relN, relU, c.VE, c.VN, c.VU);
     if (!aim.Valid) { Check(false, "the lead solve produced an answer", 0.0, 1.0, 0.0); continue; }
 
-    /* Fire it. The bundle leaves with the shooter's velocity plus the muzzle velocity along the SOLVED
-     * BORE — exactly what systems/FBGunSystem builds — and is then flown by the pool, which knows
-     * nothing about the solution. */
+    /* Exactly what FBGunSystem builds, then flown by a pool that knows nothing about the solution. */
     FBGunProjectiles pool;
     FBGunBurst b;
     b.Kind = kM61A1.Kind;
@@ -142,11 +120,10 @@ void CheckLead() {
     b.VelU = ownU + aim.BoreU * kM61A1.MuzzleVelMs;
     pool.Launch(b);
 
-    /* The target, propagated independently on its own straight line from the same origin. */
+    /* Propagated independently on its own straight line. */
     double te = relE, tn = relN, tu = relU;
-    /* 1 ms steps: the sampled closest approach is quantised by how far the round moves in one step
-     * (~1 m here), and the number being measured is a fraction of the dispersion pattern — so the
-     * sampling has to be well under it or the harness would be measuring its own grid. */
+    /* 1 ms: the sampled closest approach is quantised by how far a round moves in one step, and the
+     * number measured is a fraction of the dispersion — otherwise this measures its own grid. */
     const double dt = 0.001;
     double best = 1e18, bestT = 0.0, missE = 0.0, missN = 0.0, missU = 0.0;
     for (double t = 0.0; t < 3.0; t += dt) {
@@ -165,8 +142,7 @@ void CheckLead() {
                                 {"predRangeM", aim.RangeM}, {"missM", best},
                                 {"missE", missE}, {"missN", missN}, {"missU", missU},
                                 {"spreadM", aim.SpreadM}, {"impactMs", aim.ImpactSpeedMs}});
-    /* The tolerance is the pattern's own sigma: a solution whose axis passes the target inside one sigma
-     * of the round dispersion is a solution — claiming better than the weapon's own spread would be
+    /* The tolerance IS the pattern's own sigma: claiming better than the weapon's spread would be
      * meaningless. */
     Check(best < aim.SpreadM, "the flown bundle passes inside one dispersion sigma", best, 0.0,
           aim.SpreadM);
@@ -175,7 +151,7 @@ void CheckLead() {
   }
 }
 
-/* CHECK 5: the drum. Squeeze until it is empty, then squeeze again. */
+/* The drum: squeeze until empty, then squeeze again. */
 void CheckMagazine() {
   FBGunSystem gun;
   gun.Install(kM61A1, 4.6, -0.9, -0.3, 0.0, 0.0);
@@ -188,7 +164,7 @@ void CheckMagazine() {
   st.lat = 47.0; st.lon = 7.0; st.elev = 4000.0;
   st.vx = 250.0;
 
-  /* On the wheels first: the interlock a jet applies before anything else. */
+  /* On the wheels first: the interlock that comes before anything else. */
   {
     FBGunSystem ground;
     ground.Install(kM61A1, 4.6, -0.9, -0.3, 0.0, 0.0);
@@ -218,10 +194,9 @@ void CheckMagazine() {
           fired ? 1.0 : 0.0, 0.0, 0.0);
   }
 
-  /* CONTINUOUS FIRE, the way a pilot produces it: the command bus allows one action on a switch every
-   * 0.5 s (core/FBCommandBus.h), so a held trigger is a squeeze re-commanded at exactly that interval,
-   * each one EXTENDING the burst already running rather than restarting it (and therefore not
-   * restarting the spool-up either). */
+  /* Continuous fire the way a pilot produces it: the bus allows one switch action every 0.5 s, so a
+   * held trigger is a squeeze re-commanded at that interval, each EXTENDING the running burst rather
+   * than restarting it — and therefore not restarting the spool-up either. */
   const double dt = 0.1;
   double nowS = 0.0;
   int bursts = 0, roundsOut = 0;
@@ -253,13 +228,11 @@ void CheckMagazine() {
                                   {"remaining", gun.RoundsRemaining()}});
   Check(roundsOut == kM61A1.Capacity, "every round in the drum came out", roundsOut, kM61A1.Capacity,
         0.0);
-  /* The mean rate over the whole magazine sits just under the nominal 100 rd/s: the spool-up is the
-   * only thing that can hold it back, and it is worth ~15 rounds once (core/FBGun.h). */
+  /* Just under the nominal rate: the spool-up is the only thing that can hold it back. */
   double mean = fireS > 0.0 ? roundsOut / fireS : 0.0;
   Check(mean > 90.0 && mean <= kM61A1.RoundsPerMin / 60.0, "the mean rate is the gun's, less spool-up",
         mean, kM61A1.RoundsPerMin / 60.0, 10.0);
-  /* ...and the spool-up is visible in the same number: the whole drum comes out ~0.15 s later than the
-   * nominal rate alone would put it (half the ramp, core/FBGun.h's SpoolUpS). */
+  /* The spool-up is visible in the same number: half the ramp, later than the nominal rate alone. */
   double nominalS = kM61A1.Capacity / (kM61A1.RoundsPerMin / 60.0);
   FBLog::Info("gun", "SPOOL", {{"nominalS", nominalS}, {"firingS", fireS},
                                {"costRounds", (fireS - nominalS) * kM61A1.RoundsPerMin / 60.0}});

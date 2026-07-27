@@ -1,10 +1,6 @@
-/* FlightBox — FBModuleRegistry: name -> factory registry for the modules a mission can select via its
- * `module <name>` line (doc/mission-format.md). A headless runner (FBMissionRunner.h) resolves a
- * module by NAME only and holds everything behind FBModule* from then on — it never names a concrete
- * module type, so it stays airframe-agnostic as more modules (Ka-52, F-18, ...) register. Each module
- * registers itself from its OWN directory (modules/f16/FBF16ModuleRegistration.cpp) behind
- * FBRegisterBuiltinModules(), declared here so a caller that only wants to CREATE a module never has
- * to include a concrete module's header. */
+/* FlightBox — FBModuleRegistry: name -> factory for the modules a mission's `module <name>` line can
+ * select. Declared here so a caller that only wants to CREATE a module never includes a concrete
+ * module's header. */
 #ifndef FBMODULEREGISTRY_H
 #define FBMODULEREGISTRY_H
 #include <functional>
@@ -22,21 +18,14 @@ public:
   static std::unique_ptr<FBModule> Create(const std::string &name);
 };
 
-/* One entry point per module FAMILY, each defined in that family's OWN directory — the only files
- * allowed to name a concrete module type (modules/f16/FBF16ModuleRegistration.cpp,
- * modules/stores/FBStoreModuleRegistration.cpp, modules/missile/FBMissileModuleRegistration.cpp — the
- * catalogue's Guided flag decides which of the last two claims an entry, read in one place each; the
- * ground targets are modules/ground/FBGroundModuleRegistration.cpp). */
+/* One entry point per module FAMILY, each defined in that family's own *Registration.cpp — the only
+ * files allowed to name a concrete module type. */
 void FBRegisterF16Module();
 void FBRegisterStoreModules();
 void FBRegisterMissileModules();
 void FBRegisterGroundModules();
 
-/* Registers every module this link target was built with: the flyable aircraft, the released stores —
- * modules in exactly the same sense (their own FDM + FBModule, spawned through the same registry by
- * name) — and the static ground targets, which are the same thing minus the FDM (modules/ground). Idempotent (re-registering just overwrites the map entry) —
- * safe to call once per run before the first FBModuleRegistry::Create, from any App main() or
- * FBMissionRunner itself. */
+/* Every module this link target was built with. Idempotent; call once before the first Create(). */
 void FBRegisterBuiltinModules();
 
 } // namespace FlightBox

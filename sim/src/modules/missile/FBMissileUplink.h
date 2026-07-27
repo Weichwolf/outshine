@@ -1,30 +1,11 @@
-/* FlightBox — FBMissileUplink: the missile's COMMS slot, filled with the one thing a missile's comms
- * does — receive midcourse guidance updates from the aircraft that launched it (doc/f16/weapons.md
- * §2.5: "initial guidance = datalink command from the launching aircraft"). It derives from
- * systems/FBDatalinkSystem and overrides its Run for the same reason FBMissileSeeker derives from
- * FBRadarSystem: the slot, the registry access rule and the "publish into your own FBState" contract are
- * exactly right, only the message is different.
- *
- * WHAT IT LISTENS TO. The launcher publishes its guidance transmission in its own units/FBUnit
- * SIGNATURE (core/FBWeaponUplink.h) — an emission, beside its datalink XMT switch and its IFF
- * transponder, under the same snapshot contract. This class walks the registry, finds the ONE unit whose
- * id matches the launcher this round was programmed with, and takes the uplink only if that unit is
- * still radiating one. It reads nothing else about that unit, and nothing at all about the target: the
- * uplink's content is the SHOOTER'S OWN RADAR ESTIMATE, with the shooter's errors and the shooter's age.
- *
- * WHY IT PUBLISHES AS A DATALINK TRACK. The received message IS a cooperative track — a position, a
- * velocity and the time it was measured — so it goes into the datalink block the bus already carries
- * (core/FBAvionicsBlocks.h), as the single entry Tracks[0], and the guidance reads it as an instrument
- * like everything else. No new bus block, no back channel, and the block's own head answers the only
- * question the guidance actually has: is anyone still telling me anything?
- *
- * ANONYMOUS. The track carries the callsign "UPLINK" and no unit id, because the shooter's radar does
- * not know who it is looking at either (core/FBRadarContact.h). A missile cannot learn an identity its
- * launcher never had.
- *
- * LOSING IT IS NOT AN ERROR PATH. When the launcher's fire control drops the lock, Uplink.Active goes
- * false and this class simply stops publishing tracks. The guidance sees the age grow and falls back to
- * inertial. Nothing here decides anything about the flight. */
+/* FlightBox — FBMissileUplink: the missile's COMMS slot, receiving midcourse updates from the aircraft
+ * that launched it. It walks the registry for the ONE unit whose id matches its programmed launcher and
+ * takes that unit's published uplink emission — nothing else about it, and nothing at all about the
+ * target: the content is the SHOOTER'S estimate, with the shooter's errors and the shooter's age.
+ * Published as the single datalink TRACK, because that is what the message is; ANONYMOUS, because the
+ * shooter's radar does not know who it is looking at either. Losing it is not an error path — the
+ * class simply stops publishing and the guidance sees the age grow.
+ * doc/flightbox/weapons-and-damage.md §10.2. */
 #ifndef FBMISSILEUPLINK_H
 #define FBMISSILEUPLINK_H
 
@@ -34,8 +15,7 @@ namespace FlightBox {
 
 class FBMissileUplink : public FBDatalinkSystem {
 public:
-  /* Which launcher this receiver is tuned to (the round's launch programming). 0 = none, and then
-   * nothing is ever received. */
+  /* 0 = none, and then nothing is ever received. */
   void SetLauncherId(int id) { LauncherId_ = id; }
 
   void Run(FBState &state, const fb_fdm_state &st, const FBUnitRegistry *net, double simTimeS) override;

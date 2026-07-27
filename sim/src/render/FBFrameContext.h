@@ -1,7 +1,5 @@
-/* FlightBox — FBFrameContext: the shared per-frame state every draw stage's Encode() reads. FBRenderer
- * fills exactly one of these per RenderFrame() call, before recording any pass, and hands it to each
- * stage in turn — a stage never reaches back into FBRenderer for camera/sun/mode state. Grows as more
- * stages are extracted (kein Big-Bang); today it carries what the already-extracted stages need. */
+/* The shared per-frame state every stage's Encode() reads: FBRenderer fills exactly one per frame,
+ * before recording any pass. A stage never reaches back into FBRenderer for camera/sun/mode state. */
 #ifndef FBFRAMECONTEXT_H
 #define FBFRAMECONTEXT_H
 

@@ -1,13 +1,6 @@
-/* FlightBox renderer — 4x4 matrix / 3-vector maths (column-major, OpenGL convention).
- *
- * Split out of world3d.h because it is the one part of the renderer that needs no GL context:
- * pure float maths, so it can be asserted directly instead of being judged by looking at pixels.
- * A wrong sign here does not crash — it quietly mirrors the world or turns the camera inside out,
- * which is exactly the class of bug a unit test catches and an eyeball does not.
- *
- * Column-major, matching glUniformMatrix4fv(..., GL_FALSE, m): element m[c*4+r] is column c,
- * row r. Multiplying by a column vector v gives m*v.
- */
+/* 4x4 matrix / 3-vector maths, column-major (element m[c*4+r] is column c, row r; m*v takes a column
+ * vector) — the one part of the renderer that needs no GL context and can therefore be asserted
+ * directly instead of judged by looking at pixels. doc/flightbox/core.md, Abschnitt 10.4. */
 #ifndef FBMAT4_H
 #define FBMAT4_H
 #include <math.h>
@@ -30,13 +23,10 @@ static void m_mul(float *o, const float *a, const float *b) {
   memcpy(o, r, 64);
 }
 
-/* Right-handed perspective, looking down -z, mapping the frustum to clip space. */
-/* REVERSED-Z perspective: near maps to NDC z=+1 (window depth 1.0), far to -1 (window 0.0) — the
- * standard zn<->zf swap in the z-row. Paired with glClearDepthf(0) + glDepthFunc(GL_GEQUAL) and the
- * 32-bit float depth buffer (present.h), the projection's 1/z curve cancels the float mantissa's
- * distribution, giving near-uniform precision across a 0.01 m..240 km range where plain depth
- * z-fights distant terrain into flicker (lod.h). x/y (m[0],m[5]) and w (m[11]) are unchanged, so
- * screen projection, the HUD's manual projection, and frustum extraction are unaffected. */
+/* Right-handed REVERSED-Z perspective: near maps to NDC z=+1, far to -1 (the zn<->zf swap in the
+ * z-row). With GL_GEQUAL and a 32-bit float depth buffer the 1/z curve cancels the mantissa
+ * distribution, giving near-uniform precision over 0.01 m..240 km. x/y and w are unchanged, so screen
+ * projection, the HUD's manual projection and frustum extraction are unaffected. */
 static void m_persp(float *m, float fovy, float asp, float zn, float zf) {
   float f = 1.f / tanf(fovy * 0.5f);
   memset(m, 0, 64);

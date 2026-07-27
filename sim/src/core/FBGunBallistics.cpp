@@ -27,16 +27,15 @@ double FBGunPathAfter(double k, double v0, double t) {
 double FBGunTimeToPath(double k, double v0, double s) {
   if (v0 <= 0.0) return 0.0;
   if (k <= 0.0) return s / v0;
-  /* exp(k*s) overflows long before any range a gun is used at; the guard keeps a nonsense input from
-   * producing an infinity that would then propagate into a pose. */
+  /* exp(k*s) overflows long before any range a gun is used at — the guard keeps a nonsense input from
+   * propagating an infinity into a pose. */
   double e = k * s;
   if (e > 20.0) return -1.0;
   return (std::exp(e) - 1.0) / (k * v0);
 }
 
 namespace {
-/* The fraction of a circular-normal pattern of width `sigma`, centred `miss` from the target's centre,
- * that lands inside a disc represented by its own equivalent normal `sigmaT`. */
+/* Fraction of a circular-normal pattern that lands inside a disc written as its equivalent normal. */
 double PatternOverlap(double missM, double sigmaM, double sigmaT2) {
   double s2 = sigmaM * sigmaM + sigmaT2;
   return (sigmaT2 / s2) * std::exp(-(missM * missM) / (2.0 * s2));
@@ -67,8 +66,7 @@ double FBGunFluxJm2(double rounds, const FBGunSpec &spec, double impactSpeedMs, 
   if (rounds <= 0.0 || sigmaM <= 0.0 || targetAreaM2 <= 0.0 || impactSpeedMs <= 0.0) return 0.0;
   double energyPerRound = 0.5 * spec.RoundMassKg * impactSpeedMs * impactSpeedMs;
   double hits = FBGunExpectedHits(rounds, missM, sigmaM, targetAreaM2, extentM);
-  /* Over WHICH area: the pattern's, or the target's when the pattern is smaller than it. Same
-   * arithmetic as the density above, expressed as the area the rounds that landed were spread over. */
+  /* Over WHICH area: the pattern's, or the target's when the pattern is smaller than it. */
   double patternM2 = 2.0 * kPi * sigmaM * sigmaM;
   double areaM2 = patternM2 < targetAreaM2 ? patternM2 : targetAreaM2;
   return hits * energyPerRound / areaM2;
@@ -97,9 +95,8 @@ FBGunAim FBGunSolveLead(const FBGunSpec &spec, double altM, double ownVelE, doub
     if (dist < 1.0) return a;
     de = De / dist; dn = Dn / dist; du = Du / dist;
 
-    /* The round's ground-frame launch speed along that direction: the aircraft's own velocity
-     * contributes its component along it, and the muzzle velocity contributes whatever is left after
-     * cancelling the crossing component (see the header's bore derivation). */
+    /* Ground-frame launch speed along that direction: own velocity along it, plus whatever muzzle
+     * velocity is left after cancelling the crossing component. */
     double along = ownVelE * de + ownVelN * dn + ownVelU * du;
     double ce = ownVelE - along * de, cn = ownVelN - along * dn, cu = ownVelU - along * du;
     double cross2 = ce * ce + cn * cn + cu * cu;
@@ -112,8 +109,7 @@ FBGunAim FBGunSolveLead(const FBGunSpec &spec, double altM, double ownVelE, doub
     t = tn;
   }
 
-  /* The bore direction: cancel the crossing component with the muzzle velocity, the rest along the
-   * flight direction. */
+  /* The bore: cancel the crossing component, the rest along the flight direction. */
   double along = ownVelE * de + ownVelN * dn + ownVelU * du;
   double be = (mu * de - (ownVelE - along * de)) / spec.MuzzleVelMs;
   double bn = (mu * dn - (ownVelN - along * dn)) / spec.MuzzleVelMs;
@@ -122,8 +118,7 @@ FBGunAim FBGunSolveLead(const FBGunSpec &spec, double altM, double ownVelE, doub
   if (bl < 1e-9) return a;
 
   double vAtTarget = FBGunSpeedAfter(k, v0, t);
-  /* What the target sees: the round's ground velocity along the flight direction minus the target's own
-   * velocity along it — the closing speed at impact, which is what carries the energy. */
+  /* What the TARGET sees — the closing speed at impact is what carries the energy. */
   double tgtAlong = tgtVelE * de + tgtVelN * dn + tgtVelU * du;
 
   a.Valid = true;

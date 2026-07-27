@@ -1,24 +1,13 @@
-/* FlightBox — fb-test-corner-speed: the MEASUREMENT behind systems/FBPilot's BFM energy management.
- * doc/f16/aerodynamics-performance.md gives a corner PLATEAU of ~330-440 KCAS for the real jet and
- * explicitly refuses to tabulate a corner speed; CLAUDE.md Prinzip 5 says the reference is the vanilla
- * JSBSim model itself. So this harness measures the model's own instantaneous turn performance and the
- * pilot quotes the result — no copied real-jet number anywhere in the flight code.
+/* fb-test-corner-speed: the MEASUREMENT behind FBPilot's BFM energy management. The source refuses to
+ * tabulate a corner speed and the reference is the vanilla model itself, so this measures the MODEL's
+ * own instantaneous turn performance and the pilot quotes the result — no copied real-jet number
+ * anywhere in the flight code.
  *
- * METHOD, one entry speed per sweep point: spawn airborne and trimmed at kAltM, roll to kBankDeg with
- * full lateral stick, then hold that bank while commanding full aft stick (fcs/elevator-cmd-norm = -1
- * through the model's OWN FLCS — the same path FBPilot's BFM phase commands, alpha limiter included) and
- * average the turn rate over kMeasureS seconds. Reported per point:
- *   turnRateDegS  d(psi)/dt, wrap-corrected — the measured instantaneous turn rate
- *   nz            body normal load factor reached (the g the FLCS actually allowed)
- *   alphaDeg      AoA at that g (the lift limit, once the alpha limiter is the binding constraint)
- *   casKtEnd      what the pull cost in speed over the window (the energy price)
- * Corner speed = the SLOWEST entry speed at which the turn rate is within kCornerBandFrac of the sweep's
- * best — the operational reading of "the slowest speed that still buys max turn rate", which is what a
- * pilot's corner number is for.
- *
- * `make test-corner` builds this -> build/fb-test-corner-speed. Exit 0 = a corner speed was found and
- * the sweep is monotone-then-flat as a turn-rate curve must be; 1 = the sweep produced no usable peak;
- * 2 = setup failure (JSBSim init). */
+ * Method per sweep point: trimmed airborne entry, roll to kBankDeg, then hold that bank at full aft
+ * stick through the model's OWN FLCS (alpha limiter included) and average the turn rate. Corner speed =
+ * the SLOWEST entry speed still within kCornerBandFrac of the sweep's best turn rate.
+ * Exit 0 = a corner speed was found and the curve is monotone-then-flat; 1 = no usable peak;
+ * 2 = setup failure. */
 #include "FBFdmBoot.h"
 #include "FBGeodesy.h"
 #include "FBLog.h"
@@ -47,9 +36,8 @@ struct SweepPoint {
   double AltLossM = 0.0;
 };
 
-/* Bank hold + full aft stick. The roll axis is a RATE command into the model's own FLCS (f16.xml's
- * Roll channel differences fcs/aileron-cmd-norm against 0.31821*p), so a proportional bank-error law IS
- * a rate command — no damping term, the airframe's PID owns the inner loop. */
+/* The roll axis is a RATE command into the model's own FLCS, so a proportional bank-error law IS a
+ * rate command — no damping term here, the airframe's own loop owns that. */
 double BankHoldStick(double bankErrDeg) {
   double cmd = bankErrDeg / 45.0;   /* full stick at 45 deg of bank error */
   return cmd < -1.0 ? -1.0 : cmd > 1.0 ? 1.0 : cmd;
@@ -73,7 +61,7 @@ bool MeasurePoint(double entryCasKt, SweepPoint &out) {
   fb_fdm_state st{};
   fdm->Step(st);
 
-  /* Roll-in: full lateral stick, wings-level pitch, until the bank is established. */
+  /* Roll-in until the bank is established. */
   for (int i = 0; i < (int)(kRollInMaxS / FBFdm::kStepS) && st.roll < kBankDeg; i++) {
     fdm->SetControls(1.0, 0.0, 0.0, 1.0);
     fdm->Step(st);

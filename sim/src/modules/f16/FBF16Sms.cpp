@@ -3,8 +3,7 @@
 namespace FlightBox {
 
 namespace {
-/* The nine pylons, left wingtip (1) to right wingtip (9) — see FBF16Sms.h for where every number comes
- * from. Station 5 is the centreline. */
+/* Left wingtip (1) to right wingtip (9); station 5 is the centreline. */
 constexpr double kStationXIn = -193.0;   /* the model's own CG station */
 constexpr double kStationZIn = -30.0;    /* under the wing, between the model's tank and gear z */
 struct Pylon { int Number; double YIn; };

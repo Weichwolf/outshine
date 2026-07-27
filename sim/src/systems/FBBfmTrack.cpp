@@ -6,7 +6,7 @@
 namespace FlightBox {
 
 namespace {
-const double kG0 = 9.80665;   /* the g in the energy height, not a load factor */
+const double kG0 = 9.80665;   /* das g der Energiehoehe, kein Lastvielfaches */
 } // namespace
 
 const char *FBBfmPursuitStr(FBBfmPursuit p) {
@@ -33,21 +33,19 @@ void FBBfmTrack::Reset() {
 void FBBfmTrack::Update(const FBState &state, const fb_fdm_state &own, double nowS) {
   const FBRadarBlock &fcr = state.Radar;
   const FBRadarContact *c = nullptr;
-  /* Head first: an Invalid radar block is a set that is not looking, and its contact array means
-   * nothing — reading it would be exactly the stale-picture bug the head exists to prevent. */
+  /* Kopf zuerst: ein Invalid Radar-Block ist ein Geraet, das nicht schaut — sein Kontaktarray bedeutet
+   * nichts. */
   if (fcr.H.Readable() && fcr.LockIndex >= 0 && fcr.LockIndex < fcr.ContactCount)
     c = &fcr.Contacts[fcr.LockIndex];
 
   if (c) {
-    /* The look this contact stands on. A contact re-read between looks carries the SAME frozen geometry,
-     * so differencing it would inject a zero into the velocity filter — the age field is what separates
-     * a new measurement from a re-read (systems/FBRadarSystem: geometry freezes, only LookAgeS moves). */
+    /* Ein zwischen zwei Looks erneut gelesener Kontakt traegt DIESELBE eingefrorene Geometrie — ihn zu
+     * differenzieren schoebe eine Null in den Geschwindigkeitsfilter. */
     double lookS = nowS - c->LookAgeS;
     if (lookS > LastLookS_ + kMinLookDtS || !Have_) {
-      /* Place the echo: own position + slant range along the WORLD-referenced direction the set
-       * reports (bearing + elevation angle). Deliberately not the body az/el — those were measured
-       * against the attitude at look time, and applying them to the attitude NOW would smear a rolling
-       * jet's own motion into the target's estimated velocity. */
+      /* Der Echo-Ort ist WELT-referenziert (Peilung + Elevationswinkel), bewusst nicht Koerper-Az/El:
+       * letztere wurden gegen die Lage ZUM LOOKZEITPUNKT gemessen und schmierten die Eigenbewegung eines
+       * rollenden Jets in die geschaetzte Zielgeschwindigkeit. */
       double brg = c->BearingDeg * kDeg2Rad, elw = c->ElevAngleDeg * kDeg2Rad;
       double horiz = c->RangeM * std::cos(elw);
       double e = horiz * std::sin(brg), n = horiz * std::cos(brg), u = c->RangeM * std::sin(elw);
@@ -73,32 +71,23 @@ void FBBfmTrack::Update(const FBState &state, const fb_fdm_state &own, double no
   }
 
   Predict(own, nowS);
-  /* While the set is actually looking at him, the CLOSURE is the radar's own measurement (a pulse-Doppler
-   * quantity, and the one FBRadarContact carries). While it is not, the frozen last measurement is worse
-   * than useless — it is actively misleading: a merge ends with several hundred knots of closure on
-   * record, and a pilot still reading that number would keep flying an overshoot that is long over
-   * instead of turning back in. Coasting therefore takes the range rate from the estimate itself. */
+  /* Annaeherungsrate vom Radar, SOLANGE es hinsieht; im Coast aus der Schaetzung selbst (Predict). Die
+   * eingefrorene letzte Messung waere schlimmer als nutzlos: ein Merge endet mit mehreren hundert Knoten
+   * im Protokoll, und wer die noch liest, fliegt einen laengst beendeten Overshoot weiter. */
   if (c) Blk_.ClosureMs = c->ClosureMs;
   Blk_.Locked = c != nullptr;
 
-  /* Own specific energy — energy height, the one energy number a pilot can read off his own instruments
-   * (altitude + true airspeed). It is what makes "did he bleed himself dry winning those angles?"
-   * answerable without knowing anything about the other jet. */
+  /* Energiehoehe: die einzige Energiezahl, die ein Pilot von EIGENEN Instrumenten ablesen kann. */
   EsFt_ = (own.elev + own.speed * own.speed / (2.0 * kG0)) * kMToFt;
 }
 
-/* The estimate, propagated to NOW and expressed as the geometry the pilot steers on. Runs every tick,
- * fresh look or not: while the lock is held the prediction interval is one radar frame and this is
- * simply the measurement; while it is lost the same code keeps the target moving on its last known
- * vector, which IS the extrapolation the sensor limitation demands. */
+/* Laeuft JEDEN Tick, frischer Look oder nicht: mit Lock ist das Vorhersageintervall ein Radar-Frame und
+ * dies schlicht die Messung, ohne Lock ist derselbe Code die Extrapolation. */
 void FBBfmTrack::Predict(const fb_fdm_state &own, double nowS) {
   if (!Have_) { Blk_ = FBBfmBlock{}; AgeS_ = 0.0; return; }
   double age = nowS - LastLookS_;
-  /* Past kMaxExtrapolateS the prediction has outlived its own credibility: propagating a velocity that
-   * old would send the pilot chasing a point in empty sky, and the honest datum is the last position
-   * actually MEASURED. The geometry keeps being reported (Have) — a pilot who has lost the lock still
-   * knows where he last saw him, and that is where a search starts — but it stops being Valid, which is
-   * what tells the pilot to search rather than pursue. */
+  /* Jenseits des Fensters faellt die Position auf die zuletzt GEMESSENE zurueck und der Block wird Held —
+   * die Geometrie wird weiter gemeldet (dort startet die Suche), aber sie ist nicht mehr Valid. */
   bool extrapolate = age <= kMaxExtrapolateS;
   double prop = extrapolate ? age : 0.0;
 
@@ -115,21 +104,17 @@ void FBBfmTrack::Predict(const fb_fdm_state &own, double nowS) {
   Blk_.RangeM = std::sqrt(e * e + n * n + u * u);
   FBEnuToBodyLos(own.roll, own.pitch, own.yaw, e, n, u, Blk_.AzDeg, Blk_.ElDeg);
   AgeS_ = age;
-  /* The stamp is the LOOK, not now: age asked of the head is age since the sensor saw him. Past the
-   * credible extrapolation window the block freezes rather than blanking — Held (class banner). */
+  /* Der Stempel ist der LOOK, nicht `now`: Alter am Kopf ist Alter, seit der Sensor ihn sah. */
   Blk_.H.StampS = LastLookS_;
   Blk_.H.Status = extrapolate ? FBBlockStatus::Valid : FBBlockStatus::Held;
 
-  /* Range rate from the estimate + own velocity (fb_fdm_state's X-Plane-local axes: +x east, +y up,
-   * +z south). Overwritten by the radar's own measurement while locked — see Update(). */
+  /* Annaeherungsrate aus der Schaetzung; wird bei gehaltenem Lock von der Radarmessung ueberschrieben. */
   double ownE = own.vx, ownN = -own.vz, ownU = own.vy;
   double relE = VelE_ - ownE, relN = VelN_ - ownN, relU = VelU_ - ownU;
   Blk_.ClosureMs = -(e * relE + n * relN + u * relU) / std::fmax(Blk_.RangeM, 1.0);
 
-  /* Aspect: the angle AT THE TARGET between its tail and the line of sight to us — 0 means the pursuer
-   * sits directly behind him. With L the unit vector own->target and T his unit velocity, the vector
-   * target->us is -L and his tail points along -T, so cos(aspect) = (-T).(-L) = T.L. Undefined while his
-   * estimated speed is too small to define a direction; the last value then simply stands. */
+  /* Aspekt: der Winkel AM ZIEL zwischen seinem Heck und der Sichtlinie zu uns, also cos(aspect) = T·L.
+   * Unterhalb kMinTrackSpeedMs undefiniert — dann bleibt der letzte Wert stehen. */
   double vh = std::sqrt(VelE_ * VelE_ + VelN_ * VelN_ + VelU_ * VelU_);
   if (vh > kMinTrackSpeedMs && Blk_.RangeM > 1.0) {
     double dot = (VelE_ * e + VelN_ * n + VelU_ * u) / (vh * Blk_.RangeM);
@@ -140,11 +125,8 @@ void FBBfmTrack::Predict(const fb_fdm_state &own, double nowS) {
   }
 }
 
-/* The last known state, turned into a place to go and a width to sweep — the whole derivation is in the
- * header's FBTrackDatum banner. Deliberately NOT derived from Block(): the block reverts to the last
- * MEASURED position past the credible window and freezes, which is the right answer for a pursuit and
- * the wrong one for a search, so this recomputes from the same stored estimate with its own propagation
- * rule. Const and allocation-free — it is asked for once per decision tick. */
+/* Bewusst NICHT aus Block() abgeleitet: der Block friert jenseits des Fensters auf dem Messpunkt ein
+ * (richtig fuer die Verfolgung, falsch fuer die Suche), also eigene Fortschreibungsregel. */
 FBTrackDatum FBBfmTrack::Datum(const fb_fdm_state &own, double nowS, double turnRateDegS) const {
   FBTrackDatum d;
   if (!Have_) return d;
@@ -153,7 +135,7 @@ FBTrackDatum FBBfmTrack::Datum(const fb_fdm_state &own, double nowS, double turn
 
   double v = std::sqrt(VelE_ * VelE_ + VelN_ * VelN_ + VelU_ * VelU_);
   double w = std::fmax(turnRateDegS, 1.0) * kDeg2Rad;
-  double tProp = std::fmin(d.AgeS, 2.0 / w);   /* past 2/w the turn could have gone anywhere: stop */
+  double tProp = std::fmin(d.AgeS, 2.0 / w);   /* jenseits 2/w koennte die Kurve ueberall hingegangen sein */
 
   double coslat = std::cos(PosLatDeg_ * kDeg2Rad);
   double lat = PosLatDeg_ + VelN_ * tProp / kMPerDeg;

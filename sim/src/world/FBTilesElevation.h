@@ -1,8 +1,5 @@
-/* FlightBox — FBTilesElevation: the elevation hook's live-DEM implementation for the native and WASM
- * clients — a thin pass-through onto the existing fb_stream_ground/fb_stream_open terrain-streaming
- * mechanism (FBTerrainLoader.h), so ground-truth consumers go through FBElevationProvider without any
- * change in the numbers fb_stream_ground already produced. world/, not core/: it depends on the tile-
- * streaming C ABI that render/world own, which the core library intentionally excludes. */
+/* The elevation hook's live-DEM implementation: a thin pass-through onto fb_stream_ground. In world/
+ * and not core/, because it depends on the tile-streaming C ABI the core library excludes. */
 #ifndef FBTILESELEVATION_H
 #define FBTILESELEVATION_H
 #include "FBElevationProvider.h"
@@ -12,9 +9,8 @@ namespace FlightBox {
 
 class FBTilesElevation : public FBElevationProvider {
 public:
-  /* fb_stream_ground reads the fb_base fb_stream_open sets, independent of the (lat,lon) passed to
-   * fb_stream_open itself (that origin only seeds the render-side quadtree root, irrelevant to a plain
-   * /elev point query) — so this constructor only needs `base`, no mission/runway knowledge yet. */
+  /* fb_stream_ground reads the base URL fb_stream_open set, independent of that call's (lat,lon) —
+   * which only seeds the render-side quadtree root. So `base` is all this needs. */
   explicit FBTilesElevation(const char *base) { fb_stream_open(base, 0.0, 0.0, 8); }
 
   double GroundElevM(double latDeg, double lonDeg) const override {

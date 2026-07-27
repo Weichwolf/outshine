@@ -1,17 +1,8 @@
-/* FlightBox — FBAtmosphere: the ISA standard atmosphere, header-only, for the two consumers that need
- * air density WITHOUT an FDM to ask.
- *
- * Everything that is flying already has JSBSim's own atmosphere behind it (aero/qbar-psf and friends);
- * this file exists for the two places that have to reason about air they are not currently in:
- *   - modules/f16/FBF16FireControl's launch-zone integration, which predicts a weapon's flight before
- *     that weapon exists, and
- *   - modules/missile/FBMissileGuidance's autopilot gain schedule, which needs the dynamic pressure
- *     acting on its own airframe from the pose it is handed (fb_fdm_state carries no qbar).
- * One definition rather than two private copies of the same four constants.
- *
- * Troposphere to 11 km with the standard 6.5 K/km lapse, then the isothermal layer. No wind, no weather,
- * no non-standard day: the consumers above are a stored fire-control table and a gain schedule, and
- * neither would be improved by a fidelity the rest of the engagement does not have. */
+/* The ISA standard atmosphere, header-only, for the two consumers that must reason about air they are
+ * not currently flying in (a launch-zone integration and a missile gain schedule) — everything that
+ * flies has JSBSim's own atmosphere behind it. Troposphere to 11 km at the standard 6.5 K/km lapse,
+ * then the isothermal layer. No wind, no weather, no non-standard day.
+ * doc/flightbox/core.md, Abschnitt 10.2. */
 #ifndef FBATMOSPHERE_H
 #define FBATMOSPHERE_H
 

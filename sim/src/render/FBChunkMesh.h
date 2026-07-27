@@ -1,27 +1,7 @@
-/* FlightBox renderer — the ECEF variant of w3_chunk_build. Pure geometry, no GL.
- *
- * Same structure as chunkmesh.h's regular-grid branch (detect the grid, decimate to grid x grid,
- * measure the geometric error the LOD runs on, hang skirts), but the vertex POSITIONS are WGS84
- * ECEF offsets from a per-tile double origin instead of flat render-space (east, up, -north). This
- * is what puts the tile on the real curved ellipsoid so the horizon dips and precision stays best
- * at the camera (the renderer draws camera-relative: trans = origin_ecef - cam_ecef, camera at 0).
- *
- * Input is the SAME ENU regular-grid mesh osmmesh_fetch_tile already builds (its heights are
- * seam-stitched against the four neighbours) -- we take only the height field from it and
- * re-project every node through the EXACT Mercator inverse + geodetic->ECEF (osmmesh geo.h), so
- * there is no flat-earth tangent-plane error and no dependence on the fixed home origin. z/x/y
- * place the tile.
- *
- *   out->verts   w3_vtx[]: pos = ECEF offset from origin (float, <2 km at z14 -> sub-cm),
- *                          norm = unit ECEF surface normal, uv = (frac_x, frac_y).
- *   out->err     max |decimated surface - source height| in METRES -- identical measure to the ENU
- *                path (a height-field property, projection-independent), drives the LOD.
- *   origin_out   the tile-center ECEF (double), the floating-point anchor the frame subtracts.
- *
- * Winding/normals: the mesh winding matches the ENU path; the normal is the true ECEF geometric
- * normal via cross products of neighbour offsets (east x north = radial-out), so it carries the
- * tile's own curvature for free. Returns 1 on success, 0 on failure (out zeroed).
- */
+/* The terrain chain's END STAGE: pure geometry, no GL. It takes only the HEIGHT FIELD of the ENU
+ * mesh osmmesh already stitched, and re-projects EVERY node through the exact Mercator inverse and
+ * geodetic->ECEF — so there is no tangent-plane error and no dependence on a fixed home origin.
+ * Ausgabevertrag (verts/err/origin_out) und Schuerzen: doc/flightbox/world-and-terrain.md §5.2. */
 #ifndef FBCHUNKMESH_H
 #define FBCHUNKMESH_H
 #include "FBChunkVtx.h" /* w3_vtx, w3_chunk, w3_chunk_free -- no dependency on the ENU builder */
@@ -42,8 +22,8 @@ static int w3_chunk_build_ecef(const osmmesh_mesh *m, int z, uint32_t x, uint32_
   origin_out[0] = origin_out[1] = origin_out[2] = 0.0;
   if (!m || !m->positions || m->n_vertices == 0) return 0;
 
-  /* Detect grid width C (row-major, north->south; east resets west at each row start) -- same
-   * detector as chunkmesh.h, so a tile that is a regular grid there is one here too. */
+  /* Grid width C, row-major north->south; the same detector both builders use, so a tile that is a
+   * regular grid in one is a regular grid in the other. */
   uint32_t C = 0;
   for (uint32_t i = 1; i < m->n_vertices; i++)
     if (m->positions[i * 3] < m->positions[(i - 1) * 3] - 0.5f) {
@@ -70,8 +50,7 @@ static int w3_chunk_build_ecef(const osmmesh_mesh *m, int z, uint32_t x, uint32_
     return 0;
   }
 
-  /* Origin: the tile CENTER projected to the ellipsoid at the center node's height. Keeps every
-   * offset <= half the tile diagonal + local relief. */
+  /* The tile CENTRE on the ellipsoid, so every offset stays <= half a diagonal plus local relief. */
   {
     int rc = W3_RI(gr / 2), cc = W3_CI(gc / 2);
     osmmesh_geo gc0 = osmmesh_tile_frac_to_geo((uint8_t)z, x, y, 0.5, 0.5);
@@ -97,18 +76,16 @@ static int w3_chunk_build_ecef(const osmmesh_mesh *m, int z, uint32_t x, uint32_
       nh[(size_t)j * gc + i] = h;
     }
 
-  /* Radial-out at the origin (for skirts + normal orientation). Origin is on the ellipsoid, so the
-   * geodetic up ~ normalize(origin) to well under a degree; good enough for a curtain direction. */
+  /* The origin is on the ellipsoid, so geodetic up ~ normalize(origin) to well under a degree. */
   double olen = sqrt(origin_out[0] * origin_out[0] + origin_out[1] * origin_out[1] +
                      origin_out[2] * origin_out[2]);
   if (olen < 1.0) olen = 1.0;
   float radial[3] = {(float)(origin_out[0] / olen), (float)(origin_out[1] / olen),
                      (float)(origin_out[2] / olen)};
 
-  /* Per-vertex ECEF normal from neighbour offsets: east x north = radial-out (E x N = U). Central
-   * differences over the DECIMATED neighbours, so the light matches the drawn silhouette (the same
-   * reason chunkmesh takes smooth normals from the decimated field). Cross products are
-   * translation-invariant, so the small float offsets give the true geometric normal. */
+  /* Central differences over the DECIMATED neighbours, so the light matches the drawn silhouette.
+   * Cross products are translation-invariant, so the small float offsets give the TRUE geometric
+   * normal — the tile's curvature comes along for free. */
   float *nv = (float *)malloc((size_t)NN * 3 * sizeof(float));
   if (!nv) {
     free(pe);
@@ -145,10 +122,8 @@ static int w3_chunk_build_ecef(const osmmesh_mesh *m, int z, uint32_t x, uint32_
       o[2] = fz;
     }
 
-  /* Geometric error: identical to chunkmesh.h -- walk every SOURCE pixel, evaluate the drawn
-   * surface (same two triangles per quad) at that spot, keep the worst vertical miss. A
-   * height-field property, so the ECEF projection does not change it: flat saturates, mountains
-   * subdivide. */
+  /* Walk every SOURCE pixel, evaluate the drawn surface there, keep the worst vertical miss. A
+   * height-field property, so the ECEF projection cannot change it. */
   float err = 0.f;
   for (int j = 0; j < gr - 1; j++)
     for (int i = 0; i < gc - 1; i++) {
@@ -197,8 +172,8 @@ static int w3_chunk_build_ecef(const osmmesh_mesh *m, int z, uint32_t x, uint32_
         d->norm[2] = N[2];
       }
     }
-/* Skirt: a curtain from each boundary edge, hanging along -radial (toward earth center), textured
- * with the edge's own texels. Bounds the LOD-seam crack (chunkmesh.h's argument, unchanged). */
+/* A curtain hanging along -radial from each boundary edge, textured with that edge's own texels:
+ * it bounds the LOD-seam crack. */
 #define W3_SKIRT_EDGE(aj, ai, bj, bi)                                                              \
   do {                                                                                             \
     const double *A = pe + ((size_t)(aj) * gc + (ai)) * 3,                                         \

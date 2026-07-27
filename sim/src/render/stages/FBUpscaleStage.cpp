@@ -2,9 +2,7 @@
 
 namespace FlightBox {
 
-/* Upscale/present: a fullscreen triangle sampling the fixed-720p FrameTex (linear) onto the swapchain
- * at the display resolution. SVS goes straight through; a future EVS WebCodecs link would swap the
- * sampled source for the decoded frame. Verbatim FBRenderer::CreatePresent's shader/pipeline half. */
+/* A fullscreen triangle sampling FrameTex linearly onto the target at display resolution. */
 static const char *kUpscaleWGSL = R"(
 @group(0) @binding(0) var samp : sampler;
 @group(0) @binding(1) var frame : texture_2d<f32>;

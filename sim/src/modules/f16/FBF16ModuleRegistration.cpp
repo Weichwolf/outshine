@@ -1,6 +1,5 @@
-/* Registers "f16" with FBModuleRegistry — the ONE file in the F-16's own directory allowed to name
- * FBF16Module directly for this purpose; every caller of FBRegisterBuiltinModules() only ever sees the
- * neutral declaration in modules/FBModuleRegistry.h. */
+/* The ONE file allowed to name FBF16Module for registration; every caller of
+ * FBRegisterBuiltinModules() sees only the neutral declaration. */
 #include "FBModuleRegistry.h"
 #include "FBF16Module.h"
 

@@ -1,14 +1,5 @@
-/* FlightBox — FBNavSystem: one active steerpoint + the bullseye reference, the DEFAULT implementation
- * of a module's navigation slot (steerpoint DB is real F-16 hardware — 26..30 markpoints plus the
- * mission steerpoints per doc/f16/navigation-ils.md — this is the single-active-point placeholder every
- * module starts with). Writes bearing/elevation-angle/distance/TTG to the steerpoint and bearing/
- * distance FROM the bullseye into FBState every Run(); FBF16Hud only reads them.
- *
- * Geodesy is the SAME planar ENU approximation FBAppNative/FBAppWasm already use for the platform block's
- * home bearing/distance (dlat/dlon * 111320 m/deg, cos-scaled) — steerpoints are tens of nm out, not intercontinental,
- * so the flat-earth error is negligible and this stays consistent with the rest of the codebase rather
- * than introducing a second geodesy convention. Run() is the override point for a module whose nav
- * solution genuinely differs (e.g. one that fuses a real INS drift model). */
+/* FlightBox — FBNavSystem: ein aktiver Steerpoint + Bullseye-Referenz (der Ein-Punkt-Platzhalter, mit
+ * dem jedes Modul startet), plus die Wegpunkt-Sequenzierung. doc/flightbox/systems.md, Abschnitt 7. */
 #ifndef FBNAVSYSTEM_H
 #define FBNAVSYSTEM_H
 
@@ -22,16 +13,14 @@ class FBNavSystem {
 public:
   virtual ~FBNavSystem() = default;
 
-  /* elevFt: the steerpoint's OWN ground elevation (ASL) — FBF16FireControl's slant-range input. */
+  /* elevFt: die EIGENE Bodenhoehe des Steerpoints (ASL) — Eingang fuer FBF16FireControls Slant-Range. */
   void SetSteerpoint(double lat, double lon, double elevFt) { StLat = lat; StLon = lon; StElevFt = elevFt; Have = true; }
   void SetBullseye(double lat, double lon) { BullLat = lat; BullLon = lon; HaveBull = true; }
 
   virtual void Run(FBState &state, const fb_fdm_state &fdm, double dt);
 
-  /* Waypoint-advance: Akteurs-Verhalten (this system already knows steerpoints/distances, doc/mission-
-   * format.md), not Runner bookkeeping — the module calls this itself (guidance's own capture), not the
-   * mission orchestrator. Advances `plan`'s active waypoint once within `captureM` of it, logging
-   * WP_REACHED. Returns the just-reached waypoint's plan index, or -1 if none was captured this call. */
+  /* Sequenzierung ist AKTEURS-Verhalten: das Modul ruft das selbst, nicht der Missions-Orchestrator.
+   * Rueckgabe: der gerade erreichte Planindex, sonst -1. */
   int AdvanceWaypoint(FBFlightPlan &plan, double lat, double lon, double captureM = 500.0);
 
 private:

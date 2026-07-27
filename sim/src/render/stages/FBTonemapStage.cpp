@@ -27,8 +27,8 @@ fn aces(x : vec3f) -> vec3f {   // Narkowicz ACES fit
 }
 )";
 
-/* Cloud-off tonemap: the SAME ACES compress with no cloud composite (no cloud texture binding at all,
- * so the cloud path can be skipped whole — no stale-history sample). Used unless FB_CLOUDS=1. */
+/* The same ACES compress with NO cloud texture binding at all, so the disarmed path cannot sample a
+ * stale history. */
 static const char *kTonemapPlainWGSL = R"(
 @group(0) @binding(0) var samp : sampler;
 @group(0) @binding(1) var hdr : texture_2d<f32>;
@@ -72,7 +72,7 @@ void FBTonemapStage::Configure(const FBGpu &gpu, wgpu::Sampler samp, wgpu::Textu
   fs.targets = &ct;
   rp.fragment = &fs;       /* no depthStencil on the tonemap pass */
 
-  /* Plain (cloud-off) tonemap always built — it is the default present path. */
+  /* Always built: it is the default present path. */
   wgpu::ShaderSourceWGSL pwgsl{}; pwgsl.code = kTonemapPlainWGSL;
   wgpu::ShaderModuleDescriptor psmd{}; psmd.nextInChain = &pwgsl;
   wgpu::ShaderModule psm = gpu.Device.CreateShaderModule(&psmd);
@@ -92,7 +92,7 @@ void FBTonemapStage::Configure(const FBGpu &gpu, wgpu::Sampler samp, wgpu::Textu
     TonemapBindPlain = gpu.Device.CreateBindGroup(&bgd);
   }
 
-  /* Cloud-compositing tonemap only when the cloud path is armed (CloudHist exists). */
+  /* Only when the cloud path is armed. */
   if (CloudsOn) {
     TonemapPipe = gpu.Device.CreateRenderPipeline(&rp);
     for (int k = 0; k < 2; k++) {   /* one per history: composites the TEMPORALLY-accumulated cloud */

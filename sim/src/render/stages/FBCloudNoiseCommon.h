@@ -1,8 +1,5 @@
-/* FlightBox — shared WGSL fragment for volumetric-cloud noise: Perlin/Worley 3D + 2D cellular helpers
- * (h33 hash, worley/worley2D/worleyFbm, perlin, remap), used by the three noise-bake shaders
- * (FBCloudBaseBakeStage, FBCloudDetailBakeStage, FBCloudCellBakeStage) and by FBCloudMarchStage
- * (remap() only there — the worley/perlin helpers go unused in the march, harmless). Textual WGSL
- * splice, not compiled on its own. */
+/* Shared WGSL noise helpers for the three bakes and the march. A textual splice, not compiled on
+ * its own. */
 #ifndef FBCLOUDNOISECOMMON_H
 #define FBCLOUDNOISECOMMON_H
 

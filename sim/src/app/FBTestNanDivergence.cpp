@@ -1,17 +1,11 @@
-/* FlightBox — fb-test-nan-divergence: the negative proof for core/FBFlightMonitor's NUMERICAL_DIVERGENCE
- * K.O. Every other check in FBFlightMonitor::Tick is a COMPARISON, and IEEE-754 makes every comparison
- * against NaN false — so before this check existed, a diverged FDM sailed past all of them and the run
- * ended as an unexplained TIMEOUT (exit 3) with no reason in events.log. That silently voided the
- * "unbestechlicher Monitor" contract (CLAUDE.md "Kein Cheaten"): the judge that cannot see the accident.
- *
- * The divergence is injected at the SAMPLE, not into JSBSim: FBFlightMonitorSample is the monitor's whole
- * input (FBFlightMonitor.h — deliberately fdm-decoupled), so poisoning one field of it is exactly the
- * state a diverged integrator would hand over, with no need to corrupt the pinned, read-only model. Both
- * entry points are proven: a non-finite field, and FBFdm::Faulted() (the latched "the integrator raised"
- * flag the exception firewall in FBFdm.cpp sets).
- *
- * `make test-monitor` builds this -> build/fb-test-nan-divergence. Exit 0 = every injected divergence
- * tripped NUMERICAL_DIVERGENCE and the clean control sample did NOT; exit 1 = a case failed. */
+/* fb-test-nan-divergence: the negative proof for FBFlightMonitor's NUMERICAL_DIVERGENCE K.O. Every
+ * OTHER check in the monitor is a comparison, and IEEE-754 makes every comparison against NaN false — so
+ * without this check a diverged FDM sails past all of them and the run ends as an unexplained TIMEOUT
+ * with no reason logged: the judge that cannot see the accident.
+ * Injected at the SAMPLE, not into JSBSim: the sample IS the monitor's whole input, so poisoning a field
+ * of it is exactly the state a diverged integrator hands over. Both entry points are proven: a
+ * non-finite field, and the latched Faulted() flag. Exit 0 = every case tripped and the clean control
+ * sample did not; 1 = a case failed. */
 #include "FBFlightMonitor.h"
 #include "FBLog.h"
 #include "FBLogSinks.h"
@@ -23,8 +17,7 @@ using namespace FlightBox;
 
 namespace {
 
-/* A perfectly ordinary airborne sample: level, fast, high above terrain, nothing near any threshold —
- * so the ONLY thing a trip below can be attributed to is the injected divergence. */
+/* Nothing near any threshold, so the ONLY thing a trip can be attributed to is the injection. */
 FBFlightMonitorSample CleanSample() {
   FBFlightMonitorSample s;
   s.LatDeg = 46.84335; s.LonDeg = 6.91523;
@@ -38,8 +31,7 @@ FBFlightMonitorSample CleanSample() {
 
 int gFailures = 0;
 
-/* Feeds ONE poisoned sample into a FRESH monitor (the monitor latches, so each case needs its own) and
- * asserts the verdict. */
+/* A FRESH monitor per case: it latches. */
 void Expect(const char *field, const FBFlightMonitorSample &s, bool wantTrip) {
   FBFlightMonitor monitor;
   bool tripped = monitor.Tick(s, 1.0);
@@ -82,8 +74,7 @@ int main() {
   { auto s = CleanSample(); s.WeightLbs = kNan; ExpectDiverged("weightLbs", s); }
   { auto s = CleanSample(); s.FdmFault = true; ExpectDiverged("fdmFault", s); }
 
-  /* The regression this whole check exists for: an all-NaN sample used to trip NOTHING. Proven here by
-   * asserting it now trips, and by the pre-fix behaviour recorded in the task report. */
+  /* The regression this check exists for: an all-NaN sample used to trip NOTHING. */
   { auto s = CleanSample();
     s.LatDeg = s.LonDeg = s.ElevM = s.RollDeg = s.PitchDeg = kNan;
     s.PDegS = s.QDegS = s.RDegS = s.VsMs = s.TasMs = kNan;

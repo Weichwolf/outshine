@@ -1,13 +1,7 @@
-/* FlightBox — FBDatalinkTrack: one contact as a COOPERATIVE datalink reports it (MIDS/Link-16, DCS'
- * TNDL — doc/f16/datalink-iff.md). Not a sensor return: the sender broadcasts its own INS/GPS position
- * and its own identity, so callsign and team come for free and accuracy is the SENDER's navigation
- * accuracy, not the receiver's. What a receiver adds is only WHEN it heard it — ReportTimeS, and the
- * AgeS derived from it, which is why a track is never "live": it is the last message that arrived.
- *
- * Fixed capacity, no heap: FBState carries the whole list inline (kMaxDatalinkTracks entries + a count),
- * so a tick that rebuilds the picture allocates nothing and a display reads a plain array. Eight is a
- * four-ship plus its package — enough for the missions this simulator flies, and the number that bounds
- * the per-frame FBState copy the HUD path already makes. */
+/* One contact as a COOPERATIVE datalink reports it — NOT a sensor return: the sender broadcasts its own
+ * fix and identity, so callsign and team come for free and the accuracy is the SENDER's. A receiver
+ * adds only WHEN it heard it, which is why a track is never "live".
+ * doc/flightbox/core.md, Abschnitt 8.2. */
 #ifndef FB_FBDATALINKTRACK_H
 #define FB_FBDATALINKTRACK_H
 

@@ -7,14 +7,8 @@
 
 namespace FlightBox {
 
-/* ENU offset -> slant range + true bearing + world-referenced elevation angle + body-frame az/el. The
- * body rotation is core/FBGeodesy.h's FBEnuToBodyLos (the one definition, shared with the pilot's BFM
- * steering, which needs its exact inverse).
- *
- * The world-referenced pair (bearing, elevation angle) is what a set can publish about WHERE a return
- * is without its consumer having to un-rotate a look-old body vector through a now-current attitude: the
- * radar knows its own attitude at the instant of the look, the consumer does not. Body az/el stays the
- * antenna's own quantity (the scan volume is body-referenced); the world pair is the reported position. */
+/* Das WELT-Paar ist die gemeldete Position (der Konsument muesste sonst einen look-alten Koerpervektor
+ * durch eine jetzt-aktuelle Lage zurueckdrehen); das KOERPER-Paar ist die Groesse der Antenne. */
 void FBRadarSystem::RelativeLos(const fb_fdm_state &own, double tgtLatDeg, double tgtLonDeg,
                                 double tgtAltM, double &rangeM, double &bearingDeg, double &elevAngleDeg,
                                 double &azDeg, double &elDeg) {
@@ -28,10 +22,7 @@ void FBRadarSystem::RelativeLos(const fb_fdm_state &own, double tgtLatDeg, doubl
   FBEnuToBodyLos(own.roll, own.pitch, own.yaw, e, n, u, azDeg, elDeg);
 }
 
-/* Own velocity resolved along the line of sight. The unit vector comes from the WORLD-referenced pair
- * the look already produced, and the velocity from the FDM state's ENU components (fb_fdm_state's
- * X-Plane axes: +x east, +y up, +z south). This is the CLUTTER Doppler — what a stationary point in
- * that direction would close at — and therefore the reference the notch test is taken against. */
+/* Die CLUTTER-Doppler: was ein STEHENDER Punkt in dieser Richtung schliessen wuerde. */
 double FBRadarSystem::OwnClosureOn(const fb_fdm_state &st, double bearingDeg, double elevAngleDeg) {
   double cb = std::cos(bearingDeg * kDeg2Rad), sb = std::sin(bearingDeg * kDeg2Rad);
   double ce = std::cos(elevAngleDeg * kDeg2Rad), se = std::sin(elevAngleDeg * kDeg2Rad);
@@ -39,10 +30,8 @@ double FBRadarSystem::OwnClosureOn(const fb_fdm_state &st, double bearingDeg, do
   return st.vx * ue + (-st.vz) * un + st.vy * uu;
 }
 
-/* Which chaff cloud this set ends up measuring (class banner). Every cloud in the unit's published
- * signature is tested against the SAME volume the aircraft was tested against, and the strongest return
- * wins: the two-way radar equation is RCS/r^4, with the cloud's own age curve supplying the RCS
- * (core/FBCountermeasure.h). Deterministic by construction — no draw, no probability. */
+/* Jede Wolke gegen DASSELBE Volumen wie das Flugzeug, staerkster Rueckstrahler gewinnt: Zweiweg-
+ * Radargleichung RCS/r^4. Deterministisch — kein Wurf, keine Wahrscheinlichkeit. */
 const FBChaffCloud *FBRadarSystem::SelectDecoy(const FBChaffCloud *clouds, const fb_fdm_state &st,
                                                const FBRadarScanVolume &v, double simTimeS) const {
   const FBChaffCloud *best = nullptr;
@@ -65,7 +54,7 @@ const FBChaffCloud *FBRadarSystem::SelectDecoy(const FBChaffCloud *clouds, const
 
 void FBRadarSystem::SetPowered(bool on) {
   Powered_ = on;
-  if (!on) NextScanS_ = 0.0;   /* a set that comes back up starts a fresh frame grid, not a stale one */
+  if (!on) NextScanS_ = 0.0;   /* ein wieder hochgefahrenes Set startet ein frisches Frame-Raster */
 }
 
 FBIffReply FBRadarSystem::Interrogate(const FBUnit &u) const {
@@ -74,23 +63,19 @@ FBIffReply FBRadarSystem::Interrogate(const FBUnit &u) const {
   return validReply ? FBIffReply::Friendly : FBIffReply::NoReply;
 }
 
-/* One antenna frame: the volume is swept once, every unit is tested against it, hits build tracks and
- * misses coast them. The registry is walked IN ORDER, so a fresh acquisition's track number depends on
- * the mission's declaration order and never on who happened to be seen first. */
+/* Ein Antennen-Frame. Registry IN REIHENFOLGE, damit die Tracknummer einer Neuerfassung an der
+ * Missionsdeklaration haengt und nie daran, wer zuerst gesehen wurde. */
 void FBRadarSystem::ScanFrame(const fb_fdm_state &st, const FBUnitRegistry &net, double simTimeS) {
   const FBRadarScanVolume &v = ActiveVolume();
   bool seen[kMaxRadarContacts] = {};
 
-  /* STT: the beam is on the locked track and nowhere else, so every other unit is not even looked at
-   * this frame and its trackfile ages out below (FBRadarScanVolume::SingleTarget). */
+  /* STT: jede andere Einheit wird in diesem Frame gar nicht erst angeschaut und altert unten aus. */
   bool sttOnly = v.SingleTarget && LockedNum_ != 0;
 
   if (v.Active) {
     for (const FBUnit *u : net.Units()) {
-      if (!u || u->GetId() == SelfId_) continue;   /* the set does not paint itself */
-      /* An air-to-air set searches for AIRCRAFT. A store in free flight is a unit of the world like any
-       * other, but it is not what this radar's detection model describes, and painting one as a contact
-       * would be an invention rather than a simulation. */
+      if (!u || u->GetId() == SelfId_) continue;   /* das Set malt sich nicht selbst */
+      /* Ein Luft-Luft-Set sucht FLUGZEUGE; eine Bombe als Kontakt zu malen waere Erfindung. */
       if (u->GetKind() != FBUnitKind::Aircraft) continue;
 
       int slot = -1;
@@ -103,11 +88,8 @@ void FBRadarSystem::ScanFrame(const fb_fdm_state &st, const FBUnitRegistry &net,
       double rangeM = 0.0, bearingDeg = 0.0, elevAngleDeg = 0.0, azDeg = 0.0, elDeg = 0.0;
       RelativeLos(st, p.LatDeg, p.LonDeg, p.ElevM, rangeM, bearingDeg, elevAngleDeg, azDeg, elDeg);
 
-      /* THE DOPPLER DECISION (class banner + kDopplerNotchMs), taken BEFORE the volume test, because a
-       * seduced look measures the cloud and it is the CLOUD that then has to be in the beam. The
-       * target's radial velocity is what the set measures, not what the target publishes: own velocity
-       * along the line of sight minus the closure differenced from the last two looks. Only a track
-       * that already has a look pair can be fooled — a first detection has no closure to test. */
+      /* Die Doppler-Entscheidung faellt VOR dem Volumentest: ein verfuehrter Look misst die WOLKE, und
+       * dann muss die WOLKE in der Keule liegen. Nur ein Track mit Look-Paar kann getaeuscht werden. */
       const FBChaffCloud *decoy = nullptr;
       double tgtRadialMs = 0.0, ownClosureMs = 0.0, measuredClosureMs = 0.0;
       double dtDwell = slot >= 0 ? simTimeS - Tracks_[slot].DopplerRefS : 0.0;
@@ -117,12 +99,9 @@ void FBRadarSystem::ScanFrame(const fb_fdm_state &st, const FBUnitRegistry &net,
         ownClosureMs = OwnClosureOn(st, bearingDeg, elevAngleDeg);
         measuredClosureMs = dwellDone ? (prev.DopplerRefRangeM - rangeM) / dtDwell : prev.ClosureMs;
         tgtRadialMs = ownClosureMs - measuredClosureMs;
-        /* Once the tracking gate has settled into the clutter filter it STAYS there while a return
-         * exists in it: a cloud is stationary, so it is inside the notch by construction, and a
-         * processor tracking that bin has no reason to leave it. Without the stickiness the test would
-         * flip every look — the substituted measurement makes the NEXT look's closure a jump, which
-         * reads as a target well outside the notch (measured: seduce/resolve alternating at the
-         * seeker's 20 Hz frame). The seduction ends when the clouds do. */
+        /* KLEBRIGKEIT: hat sich das Tor einmal in den Clutterfilter gesetzt, bleibt es dort, solange
+         * dort ein Echo ist. Ohne sie kippte der Test bei jedem Look (gemessen: Seduce/Resolve im
+         * 20-Hz-Takt alternierend). doc/flightbox/sensors.md, Abschnitt 4.7. */
         if (prev.Seduced || std::fabs(tgtRadialMs) < kDopplerNotchMs)
           decoy = SelectDecoy(sig.Chaff, st, v, simTimeS);
       }
@@ -135,8 +114,7 @@ void FBRadarSystem::ScanFrame(const fb_fdm_state &st, const FBUnitRegistry &net,
                       std::fabs(elDeg - v.ElCenterDeg) <= v.ElHalfDeg;
 
       if (!inVolume) {
-        /* A hit streak that breaks before it firms is not a track at all — only a FIRM track earns the
-         * coast below, which is why an un-firm entry is deleted here rather than aged. */
+        /* Nur ein FESTER Track verdient den Coast unten — eine gebrochene Trefferserie wird geloescht. */
         if (slot >= 0 && !Tracks_[slot].Firm) {
           for (int j = slot; j < TrackCount_ - 1; j++) Tracks_[j] = Tracks_[j + 1];
           TrackCount_--;
@@ -146,7 +124,7 @@ void FBRadarSystem::ScanFrame(const fb_fdm_state &st, const FBUnitRegistry &net,
       }
 
       if (slot < 0) {
-        if (TrackCount_ >= kMaxRadarContacts) continue;   /* the file is full; nothing is displaced */
+        if (TrackCount_ >= kMaxRadarContacts) continue;   /* Trackdatei voll; nichts wird verdraengt */
         slot = TrackCount_++;
         Tracks_[slot] = Track{};
         Tracks_[slot].UnitId = u->GetId();
@@ -155,9 +133,8 @@ void FBRadarSystem::ScanFrame(const fb_fdm_state &st, const FBUnitRegistry &net,
       }
 
       Track &t = Tracks_[slot];
-      /* Range rate from consecutive looks. A pulse-Doppler set measures it directly; differencing the
-       * two looks the track actually stands on is the same quantity through the observable, and needs no
-       * assumption about a velocity the target's snapshot does not publish (its vertical rate). */
+      /* Annaeherungsrate aus zwei Looks differenziert: dieselbe Groesse ueber das Beobachtbare, ohne
+       * eine Annahme ueber die Vertikalrate, die der Snapshot nicht publiziert. */
       double dtLook = simTimeS - t.PrevLookS;
       if (dtLook > 1e-6) t.ClosureMs = (t.PrevRangeM - rangeM) / dtLook;
       t.PrevRangeM = rangeM;
@@ -203,13 +180,13 @@ void FBRadarSystem::ScanFrame(const fb_fdm_state &st, const FBUnitRegistry &net,
     }
   }
 
-  /* Coast + drop, in one pass over the file. `seen` is indexed by the slot as it stood during the walk
-   * above; the compaction there kept both in step. */
+  /* `seen` ist ueber den Slot-Index des Durchlaufs oben indiziert; die Kompaktierung dort hielt beide
+   * synchron. */
   double coastS = std::fmax(kMinCoastS, kCoastFrames * v.FrameS);
   for (int i = 0; i < TrackCount_;) {
     Track &t = Tracks_[i];
     if (seen[i] || simTimeS - t.LastLookS < coastS) {
-      if (!seen[i]) t.Hits = 0;   /* the streak is broken; re-firming needs kHitsToFirm fresh looks */
+      if (!seen[i]) t.Hits = 0;   /* Serie gebrochen; Re-Firming braucht kHitsToFirm frische Looks */
       i++;
       continue;
     }
@@ -221,22 +198,20 @@ void FBRadarSystem::ScanFrame(const fb_fdm_state &st, const FBUnitRegistry &net,
   }
 }
 
-/* The ACM property (doc/f16/radar-sensors.md: "auto-lock the first target in a close-range volume"):
- * nobody operates a radar in a turning fight, so a volume declared AutoAcquire locks by itself. "First"
- * is read as NEAREST — the beam's instantaneous position inside its sweep is not modelled, so the only
- * alternative would be an arbitrary registry-order tie-break. */
+/* „Der erste" wird als „der NAECHSTE" gelesen: die momentane Keulenposition innerhalb des Sweeps ist
+ * nicht modelliert, die Alternative waere ein willkuerlicher Registry-Tiebreak. */
 void FBRadarSystem::UpdateLock(double simTimeS, bool autoAcquire) {
   if (LockedNum_ != 0) {
     for (int i = 0; i < TrackCount_; i++)
       if (Tracks_[i].TrackNum == LockedNum_) {
-        if (!autoAcquire) break;   /* the mode no longer holds locks — fall through to the drop below */
+        if (!autoAcquire) break;   /* der Modus haelt keine Locks mehr — weiter zum Drop unten */
         return;
       }
     FBLog::Info("radar", "RADAR_LOST", {{"track", LockedNum_},
         {"reason", autoAcquire ? "track dropped" : "mode change"}});
     LockedNum_ = 0;
-    /* A lock the PILOT designated does not re-acquire by itself (see Designate): losing it means the
-     * set falls back to searching, and taking a new one is another decision with the same price. */
+    /* Ein vom PILOTEN designierter Lock erfasst nicht von selbst neu — einen neuen zu nehmen ist eine
+     * weitere Entscheidung mit demselben Preis. */
     if (Designated_) { Designated_ = false; return; }
   }
   if (!autoAcquire) return;
@@ -256,16 +231,11 @@ void FBRadarSystem::UpdateLock(double simTimeS, bool autoAcquire) {
       {"t", simTimeS}});
 }
 
-/* The pilot's designation (see the header). Deliberately a separate event from the ACM auto-acquisition's
- * RADAR_LOCK: the two look identical on the scope and are opposite decisions in the debrief — one was
- * taken, the other happened. */
+/* Bewusst ein anderes Ereignis als RADAR_LOCK: auf dem Scope sehen sie gleich aus, im Debriefing sind
+ * sie Gegensaetze — eines wurde entschieden, das andere geschah. */
 bool FBRadarSystem::Designate(int trackNum, double simTimeS) {
-  /* THE ANTENNA MOVES WITH THE DESIGNATION, and the frame grid has to move with it. Locking replaces
-   * the pattern (a 4-second search sweep becomes a 0.1-second stare, modules/f16/FBF16Fcr), but the
-   * grid still holds the search pattern's next-sweep time — so without this the first single-target
-   * look would arrive up to a whole search frame later and the track would stand on the stale echo the
-   * designation was taken from. Measured: four seconds of a frozen lock, during which the fused target
-   * VELOCITY stayed at zero and a shot taken there was programmed with a stationary target. */
+  /* Das Raster muss mit dem Muster mitgehen: ohne diese Zeile kaeme der erste Single-Target-Look bis zu
+   * einer ganzen Suchperiode spaeter (gemessen: 4 s eingefrorener Lock mit Zielgeschwindigkeit null). */
   NextScanS_ = simTimeS;
   if (trackNum == 0) {
     if (LockedNum_ == 0) return false;
@@ -312,18 +282,16 @@ void FBRadarSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegi
     if (TrackCount_ > 0 || LockedNum_ != 0) DropAllTracks(Powered_ ? "radar standby" : "radar off", simTimeS);
     b.ContactCount = 0;
     b.LockIndex = -1;
-    /* A set that is not radiating has no picture — not an empty one. Invalid, so a consumer cannot
-     * mistake "nothing found" for "not looking" (core/FBBlockStatus.h). */
+    /* Ein nicht strahlendes Set hat kein Bild — kein leeres. Invalid, damit „nichts gefunden" nicht mit
+     * „nicht geschaut" verwechselt werden kann. */
     b.H.Invalidate();
     ContactCount_ = 0;
     LockNm_ = -1.0f; LockAzDeg_ = LockElDeg_ = LockClosureKt_ = LockAgeS_ = 0.0f; LockIff_ = 0;
     return;
   }
 
-  /* The antenna's own frame grid. ActiveVolume() is re-read every iteration because acquiring a lock can
-   * change the pattern (an ACM box becoming an STT envelope, modules/f16/FBF16Fcr) — and with it the
-   * frame time this grid advances by. The guard bounds the catch-up a pathological FrameS could ask for
-   * and RESYNCS the grid rather than falling further behind every call. */
+  /* ActiveVolume() wird in JEDER Iteration neu gelesen, weil ein erworbener Lock das Muster und damit
+   * die Frame-Zeit aendert. Der Waechter begrenzt das Nachholen und RESYNCHRONISIERT danach. */
   int guard = 0;
   bool swept = false;
   while (NextScanS_ <= simTimeS && guard++ < 64) {
@@ -334,7 +302,7 @@ void FBRadarSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegi
   }
   if (NextScanS_ <= simTimeS) NextScanS_ = simTimeS + ActiveVolume().FrameS;
 
-  /* Between looks nothing about a contact's geometry moves — only its age. */
+  /* Zwischen zwei Looks bewegt sich an der Geometrie eines Kontakts nichts — nur sein Alter. */
   int n = 0;
   b.LockIndex = -1;
   LockNm_ = -1.0f; LockAzDeg_ = LockElDeg_ = LockClosureKt_ = LockAgeS_ = 0.0f; LockIff_ = 0;
@@ -365,23 +333,18 @@ void FBRadarSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegi
   }
   b.ContactCount = n;
   ContactCount_ = n;
-  /* Between sweeps the geometry stands still and only the per-contact age moves (class banner) —
-   * freeze-at-last-value, which is exactly what Held means. The stamp keeps naming the last completed
-   * sweep, so a consumer can ask how old the picture is. */
+  /* Held statt Publish: der Zeitstempel nennt weiter den letzten abgeschlossenen Sweep. */
   if (swept) b.H.Publish(simTimeS);
   else b.H.Hold();
 }
 
-/* What leaves the antenna (class banner). Two shapes, and the difference between them is the difference
- * between "somebody is looking" and "he has me": a search pattern's beam crosses everything inside the
- * volume it sweeps, so the volume IS the illuminated window; a single-target track puts the whole beam
- * on one contact, so the window collapses to a pencil pointed at it. Both are body-referenced, i.e. they
- * roll and pitch with the aircraft, which is what makes a warning receiver's picture change when the
- * EMITTER manoeuvres. */
+/* Zwei Formen, und ihr Unterschied ist der zwischen „jemand sucht" und „er hat MICH": suchend IST das
+ * Scanvolumen das beleuchtete Fenster, im Single-Target-Track faellt es auf einen Bleistift zusammen.
+ * Beide koerperfest, deshalb aendert sich das Bild eines Warnempfaengers, wenn der SENDER manoevriert. */
 FBEmitterSignature FBRadarSystem::Emission() const {
   FBEmitterSignature e;
   const FBRadarScanVolume &v = ActiveVolume();
-  if (!Powered_ || !v.Active) return e;   /* Mode::None — nothing is radiating */
+  if (!Powered_ || !v.Active) return e;   /* Mode::None — es strahlt nichts */
   e.Kind = EmitterKind();
   e.RangeM = (float)GateRangeM(v);
   if (v.SingleTarget && LockedNum_ != 0) {

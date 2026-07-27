@@ -50,9 +50,7 @@ bool FBEnsureDir(const std::string &dir) {
 }
 
 namespace {
-/* FBMissionVerdict + FBFlightMonitor's FBKoReason -> the ONE FBMissionResult this Runner returns —
- * both monitors run independently (see the file banner); this is the one place their two verdicts
- * combine into a single exit code, not a third judgement of its own. */
+/* The one place the two independent monitors' verdicts combine; doc/flightbox/units-and-missions.md §5. */
 FBMissionResult ToMissionResult(FBMissionVerdict v) {
   switch (v) {
     case FBMissionVerdict::Success: return FBMissionResult::Success;
@@ -63,16 +61,9 @@ FBMissionResult ToMissionResult(FBMissionVerdict v) {
   return FBMissionResult::Timeout;   /* unreachable in practice: only called once Concluded() */
 }
 
-/* A physical K.O. of ANY actor ends the run — today's ownship-is-the-run rule, generalised, and
- * deliberately the conservative reading: with several actors one departing airframe still stops the
- * loop rather than leaving a wreck integrating in the background. WHOSE K.O. it was decides the RESULT
- * line, which is why this returns the unit and not a bool. */
+/* A physical K.O. of ANY aircraft ends the run; returns WHOSE, because that decides the RESULT line. */
 const FBSimUnit *FirstFlightKo(const FBActorList &actors) {
   for (const auto &a : actors) {
-    /* A weapon's K.O. is its IMPACT — the event the mission was flown for, not the end of it. It is
-     * judged by the very same FBFlightMonitor as every other unit (the ground contact, the speed, the
-     * attitude are the same physics); only the CONSEQUENCE differs, and that consequence belongs to the
-     * owner of the simulation, which is this file. See RetireImpactedStores below. */
     if (a->GetKind() != FBUnitKind::Aircraft) continue;   /* a store's K.O. is its impact; a ground
                                                            * target has no flight to lose */
     if (a->FlightMonitor().Tripped()) return a.get();
@@ -80,18 +71,8 @@ const FBSimUnit *FirstFlightKo(const FBActorList &actors) {
   return nullptr;
 }
 
-/* ---- THE COMBINATION RULE, and the one thing objectives changed about it ----
- * An actor's loss is EXPECTED when it is another actor's DECLARED OBJECTIVE (core/FBObjective.h): this
- * unit is combat-ineffective, and somebody else's mission file said in so many words that making it so
- * was the point. Two observed facts and a declaration — no team heuristic, no notion of "the player's
- * side", and nothing at all for a mission that declares no objectives, which is why every legacy
- * mission combines exactly as it always did.
- *
- * WHY IT EXISTS: a duel has a winner and a loser, not two failures. Before objectives, the loser's FAIL
- * was the only verdict in the run and it became the run's — so a mission whose HOSTILE unit was shot
- * down reported FAIL, and the shooter's success was invisible. An expected loss is still reported as
- * that actor's own FAIL in its UNIT_RESULT line (it lost, and the record says so); what it no longer
- * does is decide the run. */
+/* Two observed facts plus a declaration, never a team heuristic: a duel has a winner and a loser rather
+ * than two failures. Herleitung: doc/flightbox/units-and-missions.md §5, "Wie aus N Urteilen eines wird". */
 bool ExpectedLoss(const FBActorList &actors, const FBSimUnit &a) {
   if (a.Health().CombatEffective()) return false;
   for (const auto &b : actors) {
@@ -104,10 +85,7 @@ bool ExpectedLoss(const FBActorList &actors, const FBSimUnit &a) {
   return false;
 }
 
-/* The MISSION verdict is per actor and combined here, nowhere else: an actor is JUDGED iff the mission
- * gave it objectives (it then carries an FBMissionMonitor, app/FBMissionBoot.h). The run is over the
- * moment ONE judged actor's failure DECIDES it (there is nothing left to prove) — an expected loss does
- * not, so the run goes on until the side that declared it has an answer too. */
+/* An actor is JUDGED iff the mission gave it objectives; an expected loss does not decide the run. */
 const FBSimUnit *FirstDecidingFailure(const FBActorList &actors) {
   for (const auto &a : actors) {
     const FBMissionMonitor *m = a->MissionMonitor();
@@ -116,9 +94,6 @@ const FBSimUnit *FirstDecidingFailure(const FBActorList &actors) {
   }
   return nullptr;
 }
-/* ...and it is over anyway once every judged actor has an answer, whatever that answer is. For a
- * mission with no objectives that is the same instant as "every judged actor succeeded", because there
- * any failure at all is a deciding one and stops the loop above first. */
 bool AllJudgedConcluded(const FBActorList &actors) {
   bool anyJudged = false;
   for (const auto &a : actors) {
@@ -129,12 +104,8 @@ bool AllJudgedConcluded(const FBActorList &actors) {
   }
   return anyJudged;
 }
-/* The judged actor whose verdict/detail the combined RESULT quotes once nothing decided the run — the
- * first one, matching the single-actor case exactly (there the primary IS the only judged actor). An
- * actor whose loss was somebody's declared objective is skipped: quoting the LOSER of a decided duel as
- * the run's verdict is precisely the team-blindness objectives exist to remove. If every judged actor
- * lost that way (a mutual exchange), the first of them speaks after all — nobody came home, and the
- * record should say so rather than invent a winner. */
+/* Whose verdict the combined RESULT quotes when nothing decided the run: the first judged actor whose
+ * loss was NOT somebody's objective — and if every one lost that way (a mutual exchange), the first. */
 const FBSimUnit *FirstJudged(const FBActorList &actors) {
   for (const auto &a : actors)
     if (a->MissionMonitor() && !ExpectedLoss(actors, *a)) return a.get();
@@ -144,59 +115,31 @@ const FBSimUnit *FirstJudged(const FBActorList &actors) {
 }
 
 
-/* ---- Released stores: the actor list's ONE runtime growth path ----
- * A store becomes a unit at the END of the tick its release was commanded in, so it is only stepped
- * from the NEXT tick onwards. That is not a convenience: the step phase runs one job per actor index
- * (app/FBTickPool.h), and an actor appearing mid-phase would make a run's outcome depend on WHEN in the
- * phase it appeared. Appending at the barrier keeps the whole tick a snapshot, exactly like every pose.
- *
- * The order is deterministic all the way down: actors are drained in list order, each actor's own
- * release queue is FIFO, and every new actor is appended in that order — so the list, the tick order
- * and the unit ids are identical in a 1-thread and an N-thread run. */
+/* A released store, from separation to impact. The actor list's one runtime growth path; tick semantics:
+ * doc/flightbox/units-and-missions.md §6. */
 struct FBStoreTrack {
   size_t Index = 0;      /* into the actor list */
   double SpawnS = 0.0;
   double DeadlineS = 0.0;   /* SpawnS + the store's own MaxFlightS (core/FBStore.h) */
   const FBStoreSpec *Spec = nullptr;
   int    LauncherId = 0;
-  /* WHAT THE COMPUTER SAID WOULD HAPPEN (core/FBStore.h's FBReleaseSolution), carried out of the jet on
-   * the round itself. It is here so that the impact — which this file measures — can be reported beside
-   * the prediction it is the answer to, in one line, by the only thing that knows both. */
+  /* What the computer said would happen, carried out of the jet so the impact can be reported beside it. */
   FBReleaseSolution Solution;
-  /* Closest this store came to any aircraft OTHER THAN THE ONE THAT LAUNCHED IT — the number that says
-   * how the shot went. The launcher is excluded from the REPORT and not from the fuze (below): a round
-   * separating from a pylon passes its own carrier at tens of metres, which is a fact about geometry and
-   * not about aim. */
+  /* Closest approach to any aircraft OTHER than the launcher — one separating from a pylon passes its
+   * own carrier at tens of metres, which is geometry and not aim. */
   double MinMissM = 1e18;
   int    MinMissUnit = 0;
 };
 
-/* ---- The proximity fuze: WAS THIS A HIT? ----
- * A guided round's flight ends where it passes a unit closer than its own fuze radius (core/FBStore.h).
- * That verdict belongs HERE, to the owner of the simulation, for exactly the reason the two monitors do:
- * the missile's own seeker says where it THINKS the target is, and letting the weapon score itself on
- * its own estimate would be the purest form of cheating. This is measured on the published poses, i.e.
- * on the truth, like FBFlightMonitor's ground contact.
- *
- * WHY A CLOSEST-APPROACH COMPUTATION AND NOT A DISTANCE TEST. The run's tick is 0.1 s and a head-on
- * closure can exceed 1,500 m/s, so consecutive samples are 150 m apart: a plain per-tick distance test
- * against a 10 m fuze radius would miss nearly every real hit. So the miss distance is the minimum over
- * the SEGMENT between the last tick's relative position and this one's — the standard CPA formula on
- * p(t) = p0 + t*(p1-p0), t in [0,1]. The straight-line assumption inside one tick is worth about a
- * metre of curvature at 20 g, which is stated here rather than hidden.
- *
- * THE ARMING DELAY IS WHAT KEEPS A LAUNCH FROM DETONATING ON ITS OWN LAUNCHER: for the first ArmingS
- * seconds the fuze is not live, which is both real and the reason a round leaving a pylon 3 m from the
- * jet that carried it does not count as a hit on it. */
+/* Closest approach over the tick SEGMENT, not a per-tick distance test: at 0.1 s and >1500 m/s closure
+ * consecutive samples are 150 m apart and a 10 m fuze radius would be missed almost every time.
+ * Herleitung: doc/flightbox/units-and-missions.md §8, "ClosestApproach (CPA)". */
 struct FBCpa {
   double MissM = 1e18;
   double ClosureMs = 0.0;
-  double FracT = 0.0;   /* where inside the tick the burst happened, 0..1 — reported, so the event's
-                         * time is the sub-tick one and not the sample it was found in */
-  /* WHERE the burst was, relative to the target, in local ENU metres at the moment of closest approach.
-   * The same vector whose length is MissM — carried out because a damage resolution needs the DIRECTION
-   * too (core/FBDamageModel works in the target's body frame), and recomputing it anywhere else would be
-   * a second, drifting copy of the same geometry. */
+  double FracT = 0.0;   /* where inside the tick, 0..1 — makes the event's time the sub-tick one */
+  /* Same vector whose length is MissM: a damage resolution needs the DIRECTION too, and recomputing it
+   * elsewhere would be a second, drifting copy of the same geometry. */
   double RelE = 0.0, RelN = 0.0, RelU = 0.0;
 };
 
@@ -220,17 +163,8 @@ FBCpa ClosestApproach(const FBUnitPose &a0, const FBUnitPose &b0, const FBUnitPo
   return c;
 }
 
-/* ---- THE HIT'S CONSEQUENCE: geometry -> damage ----
- * The burst is a point in the world; what it wrecked depends on where that point sits on the TARGET'S
- * airframe, so the closest-approach vector is rotated into the target's body frame and handed to
- * core/FBDamageModel through the unit that owns the health register (units/FBSimUnit::TakeBurst).
- *
- * WHY HERE. The same reason the fuze verdict above is here and not in the weapon: the owner of the
- * simulation resolves what happened between two units, on the published poses, i.e. on the truth. The
- * WEAPON supplies one number (its warhead mass, core/FBStore.h), the TARGET'S MODULE supplies one table
- * (where its systems are, FBModule::DamageLayout) and neither of them decides anything. The attitude
- * used is the target's published pose — the same snapshot everything else this tick was measured
- * against, so the whole resolution is a function of already-observed state and of nothing else. */
+/* Geometry -> damage, resolved by the OWNER of the simulation on the published poses: letting a weapon
+ * score itself on its own seeker estimate would be the purest form of cheating. */
 void ResolveBurst(FBSimUnit &target, const FBCpa &c, const FBStoreSpec &spec) {
   const FBUnitPose &p = target.GetPose();
   FBBurst b;
@@ -244,8 +178,7 @@ void ResolveBurst(FBSimUnit &target, const FBCpa &c, const FBStoreSpec &spec) {
       {"bodyFwdM", b.FwdM}, {"bodyRightM", b.RightM}, {"bodyDownM", b.DownM},
       {"failed", (int)r.NewlyFailed}, {"degraded", (int)r.NewlyDegraded},
       {"hits", target.Health().Hits()}});
-  /* One line per system that changed state, so a damage picture is greppable rather than a bitmask to
-   * decode by hand. */
+  /* One line per changed system, so a damage picture is greppable rather than a bitmask to decode. */
   for (int i = 0; i < (int)FBSystemId::Count; i++) {
     uint32_t bit = 1u << i;
     if (!((r.NewlyFailed | r.NewlyDegraded) & bit)) continue;
@@ -258,47 +191,26 @@ void ResolveBurst(FBSimUnit &target, const FBCpa &c, const FBStoreSpec &spec) {
         {"failed", (int)target.Health().FailedMask()}, {"altM", p.ElevM}, {"speedMs", p.SpeedMs}});
 }
 
-/* Below this many expected rounds a pass is not a hit but a near miss: the density model is continuous
- * and would otherwise report a millionth of a round every time a bundle flew past anything. A tenth of a
- * round is comfortably under one hit and comfortably over the noise. */
+/* The three gun gates; Herleitung: doc/flightbox/units-and-missions.md §8, "ResolveGunHit". */
 constexpr double kMinReportedHits = 0.1;
-/* How far off the axis a bundle can pass and still be worth resolving, on top of three sigma of its own
- * pattern: the airframe's own reach, i.e. a fighter's half span. Not a hit radius — the density model
- * decides that — but the point past which it can only return zero. */
 constexpr double kGunHitReachM = 8.0;
-/* ...and how close a bundle's CLOSEST approach has to be to be worth a line in the record at all. Wide
- * enough that a burst that "went past him" is measured, narrow enough that a bundle crossing the same
- * sky is not. */
 constexpr double kGunNearMissM = 200.0;
 
-/* ---- THE GUN'S HALF OF THE SAME JOB: bundle geometry -> damage ----
- * Structurally identical to ResolveBurst above and here for exactly the same reason: the owner of the
- * simulation resolves what happened between two units, on the published poses. What differs is what
- * arrives. A warhead is a mass and the model derives an energy from it; a burst of gunfire is a COUNT of
- * rounds in a pattern, so the energy density is computed here — from the miss distance, the pattern's
- * spread at that range, the relative speed at impact and the area the target presents to the stream —
- * and the damage model is handed the result (core/FBDamageModel's FBKineticBurst).
- *
- * The rounds hit an AREA of the airframe, not a point, so the footprint's centre along the target's own
- * axis decides which zones see anything at all — the same body-frame rotation the fragment path uses,
- * of the same closest-approach vector. */
+/* ResolveBurst's kinetic twin: a warhead is a mass the model derives an energy from, a burst is a COUNT
+ * of rounds in a pattern, so the energy density is computed here and the damage model handed the result. */
 bool ResolveGunHit(FBSimUnit &target, const FBCpa &c, const FBGunProjectiles::Bundle &bundle,
                    double sigmaM, double relSpeedMs) {
   const FBUnitPose &p = target.GetPose();
   double fwd = 0.0, right = 0.0, down = 0.0;
   FBEnuToBodyVec(p.RollDeg, p.PitchDeg, p.YawDeg, c.RelE, c.RelN, c.RelU, fwd, right, down);
   const FBDamageLayout &layout = target.Module().DamageLayout();
-  /* WHAT THE STREAM SEES: the presented area for the direction it arrived from — the same relative
-   * geometry, expressed in the target's own frame (core/FBDamageModel::FBPresentedAreaM2). */
   double areaM2 = FBPresentedAreaM2(layout, fwd, right, down);
   if (areaM2 <= 0.0) return false;   /* nothing to hit: a store, a unit with no declared airframe */
   double extentM = FBPresentedExtentM(layout, fwd, right, down);
 
   double hits = FBGunExpectedHits(bundle.Rounds, c.MissM, sigmaM, areaM2, extentM);
   double flux = FBGunFluxJm2(bundle.Rounds, *bundle.Spec, relSpeedMs, c.MissM, sigmaM, areaM2, extentM);
-  /* The pattern passed close but the density model puts no rounds on him: that is a MISS, and it is the
-   * caller's to record — this function reports only what it actually resolved. */
-  if (hits < kMinReportedHits) return false;
+  if (hits < kMinReportedHits) return false;   /* close, but no rounds on him — the caller records the miss */
 
   FBKineticBurst kb;
   kb.FwdM = fwd;
@@ -327,27 +239,16 @@ bool ResolveGunHit(FBSimUnit &target, const FBCpa &c, const FBGunProjectiles::Bu
   return true;
 }
 
-/* ---- THE GROUND BURST: what a bomb does where it lands ----
- * The unguided counterpart of ResolveBurst above, and the same rule end to end: the OWNER of the
- * simulation resolves what happened between two units, on observed truth. The store supplies its warhead
- * mass and the speed it arrived at (core/FBStore.h), the TARGET's module supplies where its structure is
- * (FBModule::DamageLayout), core/FBDamageModel does the rest — the same 1/r^2 fragment law an aircraft is
- * judged by, so a bomb near-missing a bunker and a missile near-missing a fighter go through one model.
- *
- * WHAT IT DELIBERATELY DOES NOT REACH: aircraft. A jet low over its own detonation is inside a real
- * fragment envelope, and modelling it would need a frag-vs-airframe geometry (and an escape manoeuvre to
- * measure it against) that nothing here has; resolving a burst against everything within an invented
- * cutoff would be a number pretending to be physics. So a ground burst hurts GROUND units, and that
- * boundary is stated rather than hidden behind a radius constant. */
+/* ResolveBurst's unguided counterpart, same 1/r^2 fragment law. Deliberately does NOT reach aircraft:
+ * a frag-vs-airframe geometry does not exist here, and an invented cutoff radius would be a number
+ * pretending to be physics. Herleitung: doc/flightbox/units-and-missions.md §8. */
 bool ResolveGroundBurst(FBSimUnit &target, const fb_fdm_state &burst, const FBStoreSpec &spec) {
   const FBUnitPose &p = target.GetPose();
   double relE = 0.0, relN = 0.0;
   FBEnuOffsetM(p.LatDeg, p.LonDeg, burst.lat, burst.lon, relE, relN);
   double relU = burst.elev - p.ElevM;
-  /* IS THIS BURST EVEN NEAR HIM? The gate is DERIVED, not a radius somebody picked: the lowest threshold
-   * this target's own layout declares is the least energy that can do anything to it at all, so a burst
-   * whose flux at this distance is below that could only ever produce a zero-effect DAMAGE line and a
-   * spurious entry in his hit count. A bomb landing 14 km away is not a hit on him in any sense. */
+  /* The proximity gate is DERIVED, not picked: the lowest threshold this target's own layout declares is
+   * the least energy that can do anything to it at all. */
   double dist = std::sqrt(relE * relE + relN * relN + relU * relU);
   const FBDamageLayout &layout = target.Module().DamageLayout();
   double least = 0.0;
@@ -382,33 +283,9 @@ bool ResolveGroundBurst(FBSimUnit &target, const fb_fdm_state &burst, const FBSt
   return true;
 }
 
-/* The impact report: what the store was doing at the moment its own FBFlightMonitor said it hit
- * something. Everything here is OBSERVED — position and velocity out of the FDM state, the reason out
- * of the judge — so a detonation is measured, never scripted. `mode` separates the two ways a store's
- * flight can end: a ground contact (the detonation) and everything else (a lost weapon), because the
- * monitor can also trip on a tumbling store or a diverged integration and calling that an impact would
- * be a lie in the telemetry. */
-/* WHERE THE ROUND CROSSED THE GROUND, as opposed to where it was first SEEN below it. The judge runs on
- * the run's 0.1 s tick, so by the time a store is observed to have penetrated it has already travelled
- * up to a tick past the surface — measured on a Mk-82 arriving at 216 m/s: 14 m of penetration, i.e.
- * ~20 m of horizontal travel beyond the true impact point. That is a fifth of the whole delivery error
- * this mission set exists to measure, and it is an artefact of the sampling rate rather than anything
- * the aircraft or the computer did.
- *
- * So the crossing is recovered from the observed sample itself — exactly what the proximity fuze already
- * does for an air burst (ClosestApproach's FracT: "the event's time is the sub-tick one and not the
- * sample it was found in"). The store is `depth` metres under the surface with a known velocity and NO
- * contact forces acting on it (a weapon's airframe is deliberately given no ground to collide with,
- * units/FBSimUnit's kWeaponNoGroundElevM), so it is still on its ballistic arc and the crossing is
- * depth / sink-rate seconds behind: back-project the position by that. Over ~0.1 s the arc's curvature is
- * worth centimetres, which is why this is a straight line and not a second integration.
- *
- * Deliberately NOT interpolated between the last two published POSES: by the time the physics judge
- * concludes, the previous pose is already under the surface too (it takes a few metres of penetration to
- * be a conclusion rather than a rounding error), so there is no bracketing pair to interpolate between.
- *
- * Everything downstream — the impact record, the delivery error and the burst the damage model resolves
- * — uses THIS point. `backS` is how far behind the observed sample it was. */
+/* Where the round crossed the surface, as opposed to where it was first SEEN below it: on a 0.1 s tick a
+ * Mk-82 penetrates 14 m before it is observed, i.e. ~20 m of horizontal travel — a fifth of the delivery
+ * error the attack missions exist to measure. Herleitung: doc/flightbox/units-and-missions.md §8. */
 fb_fdm_state GroundCrossing(const FBSimUnit &store, double &backS) {
   fb_fdm_state s = store.State();
   backS = 0.0;
@@ -437,22 +314,15 @@ void LogStoreImpact(const FBSimUnit &store, const FBStoreTrack &track, double si
       {"groundAslM", store.GroundAslM()}, {"tofS", simT - track.SpawnS},
       {"speedMs", st.speed}, {"vsMs", st.vy}, {"impactAngleDeg", angleDeg},
       {"pitchDeg", st.pitch}, {"rollDeg", st.roll}, {"trackDeg", st.yaw},
-      /* ...and the interpolated crossing the delivery is actually measured against (see
-       * GroundCrossing): where it went through the surface, and how far into this tick that was. */
       {"crossLat", cross.lat}, {"crossLon", cross.lon}, {"crossBackS", backS},
       {"crossTofS", simT - track.SpawnS - backS}});
-  /* THE DELIVERY, MEASURED: the fire control's prediction (carried out of the jet on the round, see
-   * FBStoreTrack::Solution) against the impact just observed. `predErrM` is what the COMPUTER got wrong
-   * — the coarse stored table against the model's own aerodynamics, which is the error the whole
-   * CCIP/CCRP arrangement exists to expose — and `aimErrM` is what the DELIVERY got wrong, i.e. the two
-   * of them plus whatever the release moment cost. Only for a ground contact: a lost store's last
-   * position says nothing about aiming. */
+  /* `predErrM` is what the COMPUTER got wrong (stored table vs. the model's aerodynamics), `aimErrM`
+   * what the DELIVERY got wrong. Only for a ground contact: a lost store says nothing about aiming. */
   if (ground && track.Solution.Valid) {
     const FBReleaseSolution &sol = track.Solution;
     double predErr = FBPlanarDistM(sol.ImpactLatDeg, sol.ImpactLonDeg, cross.lat, cross.lon);
     double aimErr = FBPlanarDistM(sol.AimLatDeg, sol.AimLonDeg, cross.lat, cross.lon);
-    /* Long/short and left/right, in the ROUND'S OWN arrival direction (a bomb weathercocks into its
-     * velocity, so its heading at impact is the run-in track): + along = it went long. */
+    /* In the ROUND'S arrival direction — a bomb weathercocks into its velocity: + along = it went long. */
     double alongM = 0.0, acrossM = 0.0;
     FBTrackProjectM(sol.AimLatDeg, sol.AimLonDeg, st.yaw, cross.lat, cross.lon, alongM, acrossM);
     FBLog::Info("stores", "DELIVERY", {{"mode", FBDeliveryModeStr(sol.Mode)},
@@ -467,37 +337,24 @@ void LogStoreImpact(const FBSimUnit &store, const FBStoreTrack &track, double si
   }
 }
 
-/* telemetry.csv per actor: the PRIMARY keeps the canonical name (every existing tool and every
- * regression hash reads outDir/telemetry.csv), each further actor gets a file named after its callsign
- * (validated filename-safe by the parser) with the same fixed schema. One file per unit rather than one
- * wide row: an actor's column set follows ITS module, so a shared row would either force every module
- * into one schema or make the header depend on the mission's cast — and a per-unit file needs no
- * special case at N=1. */
+/* One CSV per actor, the primary keeping the canonical name; doc/flightbox/units-and-missions.md §10. */
 std::string TelemetryPath(const std::string &outDir, size_t index, const FBSimUnit &unit) {
   if (index == 0) return outDir + "/telemetry.csv";
   return outDir + "/telemetry_" + unit.GetName() + ".csv";
 }
 
-/* WAS THE GROUND THE CAUSE OR THE CONSEQUENCE? A jet that was shot down and then flew into the terrain
- * has TWO true verdicts, and the useful one is the first: the shootdown explains the crash, the crash
- * explains nothing. So the physical judge steps aside for a unit whose mission judge already concluded
- * and which is combat-ineffective — the only way that pairing arises. An undamaged wreck (CFIT, a
- * departure) still reports as one, unchanged. */
+/* Was the ground the cause or the consequence? The shootdown explains the crash, the crash explains
+ * nothing — so the physical judge steps aside for a concluded, combat-ineffective unit. */
 bool ShotDownFirst(const FBSimUnit &a) {
   const FBMissionMonitor *m = a.MissionMonitor();
   return m && m->Concluded() && !a.Health().CombatEffective();
 }
 
-/* This actor's own result string for the per-unit breakdown: the physical judge outranks the mission
- * judge (a wreck has no mission verdict worth quoting) EXCEPT after a shootdown, see above; an actor
- * without objectives reports NONE. */
+/* The per-unit breakdown's result string: the physical judge outranks the mission judge except after a
+ * shootdown. Table: doc/flightbox/units-and-missions.md §5, "UNIT_RESULT". */
 const char *ActorResultStr(const FBSimUnit &a) {
-  /* A store's physical K.O. is the outcome it was released for, so it is named as such rather than as a
-   * crash — same judge, same verdict, different word for a different kind of unit. */
   if (a.GetKind() == FBUnitKind::Weapon)
     return a.FlightMonitor().Tripped() ? "IMPACT" : "IN_FLIGHT";
-  /* A ground target has neither judge's question to answer: it cannot crash and it was given nothing to
-   * fly. What it CAN report is the only thing that ever happens to it. */
   if (a.GetKind() == FBUnitKind::Ground)
     return a.Health().CombatEffective() ? "INTACT" : "DESTROYED";
   const FBMissionMonitor *m = a.MissionMonitor();
@@ -518,19 +375,14 @@ std::string ActorReason(const FBSimUnit &a) {
   return m->Concluded() ? m->Detail() : "still under way when the run ended";
 }
 
-/* The file + sink behind one actor's telemetry bus. app/ owns the I/O (core/ stays I/O-free), the unit
- * owns the bus — this pairs them for the run's lifetime, one entry per actor. */
+/* The file + sink behind one actor's telemetry bus: app/ owns the I/O, the unit owns the bus. */
 struct FBActorTelemetry {
   FBFileHandle File{nullptr, &fclose};
   std::unique_ptr<FBCsvTelemetrySink> Sink;
 };
 
-/* The tick's STEP phase as one job (app/FBTickPool.h): index i is actor i stepping its own airframe and
- * module for `dt`, nothing else. Everything the step could otherwise share is kept out of it — the world
- * pointer is null here exactly as it always was, so no actor reaches the unit registry, and log output
- * goes into the actor's OWN buffer rather than the run's sink. The sim time is stamped inside RunIndex
- * because FBLog's clock is thread-local (core/FBLog.h): each worker learns the tick it is in from the
- * job, which is also the only per-tick state this object carries. */
+/* The tick's STEP phase as one job (app/FBTickPool.h): index i steps actor i and nothing else. The sim
+ * time is stamped inside RunIndex because FBLog's clock is thread-local. */
 class FBActorStepJob : public FBTickJob {
 public:
   FBActorStepJob(FBActorList &actors, const FBUnitRegistry &units,
@@ -563,10 +415,8 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   FBFileHandle evf = FBOpenFile(evPath.c_str(), "w");
   if (!evf) { fprintf(stderr, "mission: cannot open %s for writing\n", evPath.c_str()); return 1; }
 
-  /* Declaration order IS the cleanup contract (FBLogSinkScope's banner): the scope is declared last, so
-   * it is destroyed first and FBLog's sink pointer is cleared before the sinks and the FILE* behind them
-   * go away — on EVERY return below, not just the successful one. A second mission in the same process
-   * (the planned pilot tournaments) would otherwise log through a dangling, already-closed sink. */
+  /* Declaration order IS the cleanup contract: the scope is declared last, so FBLog's sink pointer is
+   * cleared before the sinks and the FILE* behind them go away — on EVERY return below. */
   FBFileLogSink fileSink(evf.get());
   FBStdoutLogSink stdoutSink;
   FBCompositeLogSink logSink;
@@ -593,40 +443,29 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   FBLog::Info("mission", "MISSION_START", {{"name", mission.Name}, {"timeout", timeoutS}});
 
   /* ---- Step 2: set up the world with its actors ----
-   * One block per actor the mission declares (core/FBMissionFile.h). Everything an actor needs —
-   * elevation-resolved spawn, airframe, module, its own monitors, telemetry — is produced here and
-   * owned by the list from then on; the list's ORDER is the mission file's order and stays the tick
-   * order for the whole run. */
+   * The list's ORDER is the mission file's order and stays the tick order for the whole run. */
   FBRegisterBuiltinModules();
   FBActorList Actors;
-  /* Capacity for the whole cast INCLUDING every store the mission could release: the list is the one
-   * thing in the tick path allowed to grow at runtime (see FBStoreTrack above), and reserving it here
-   * means that growth never reallocates while the run is under way. The loaded count is known only
-   * after the actors exist, so the reserve is done in two steps — this one for the declared units, the
-   * exact one right after the spawn loop. */
   Actors.reserve(mission.Units.size());
   for (size_t i = 0; i < mission.Units.size(); i++) {
     const FBMissionUnit &block = mission.Units[i];
     const FBSpawn &sp = block.Spawn;
-    /* Attribution for everything this actor's spawn emits — empty label for a single-actor mission
-     * (core/FBLog.h). The unit itself does not exist yet, so the rule is read from the mission here and
-     * from the unit (FBSimUnit::LogLabel) in every loop below. */
+    /* The unit does not exist yet, so the attribution rule is read from the mission here and from
+     * FBSimUnit::LogLabel in every loop below. */
     FBLogUnitScope us(mission.Units.size() > 1 ? block.Id : std::string());
     double groundAsl = elevation.GroundElevM(sp.LatDeg, sp.LonDeg);
     if (!FBElevationResolved(groundAsl)) {
       FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "elevation unresolved at spawn"}});
       return 1;
     }
-    /* Consistency validation (declarative-spawn contract, doc/mission-format.md): an explicit altitude
-     * placed below the resolved terrain is a genuine contradiction, not a legal (if unusual)
-     * declaration — a 1 m margin absorbs elevation-source rounding, not real penetration. */
+    /* An explicit altitude below the resolved terrain is a contradiction, not an unusual declaration;
+     * the 1 m margin absorbs elevation-source rounding, not real penetration. */
     if (!sp.Ground && sp.AltM < groundAsl - 1.0) {
       FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "spawn altitude is below ground"},
           {"altM", sp.AltM}, {"groundM", groundAsl}});
       return 1;
     }
-    /* WHICH actor this spawn is comes from the scope's `unit=` attribution above, not from a second
-     * name field — `name` stays the MISSION's, exactly as it always read. */
+    /* `name` stays the MISSION's; WHICH actor this is comes from the `unit=` scope above. */
     FBLog::Info("mission", "SPAWN", {{"name", mission.Name}, {"lat", sp.LatDeg}, {"lon", sp.LonDeg},
         {"ground", sp.Ground}, {"altM", sp.Ground ? groundAsl : sp.AltM}, {"groundAsl", groundAsl},
         {"hdg", sp.HeadingDeg}, {"speedKt", sp.SpeedKt}});
@@ -640,19 +479,17 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     Actors.push_back(std::move(unit));
   }
 
-  /* The exact ceiling, now that every module's loadout is applied: one further actor per loaded
-   * station, and not one more — a store can be released once. */
+  /* The exact ceiling now that every loadout is applied: one further actor per loaded station and not
+   * one more — a store can be released once. Everything index-parallel below is sized for it, so no
+   * store appearing mid-run ever resizes a buffer a worker thread is holding a reference to. */
   size_t maxActors = Actors.size();
   for (const auto &a : Actors) maxActors += (size_t)a->Module().Stores().LoadedCount();
   Actors.reserve(maxActors);
   std::vector<FBStoreTrack> StoreTracks;
   StoreTracks.reserve(maxActors - Actors.size());
-  /* THE ROUNDS IN THE AIR (core/FBGunProjectiles): the client's, like the fuze verdict and the damage
-   * resolution, and a fixed pool — a gun engagement adds no allocation to the tick path. */
-  FBGunProjectiles Bullets;
-  /* ONE record per bundle slot: how close it ever came and to whom. The pool flies the rounds and knows
-   * nothing about units; this is the OWNER's book, kept beside it and emitted when the bundle's life
-   * ends — the same shape as FBStoreTrack::MinMissM, for the same reason. */
+  FBGunProjectiles Bullets;   /* the client's, like the fuze verdict; fixed pool, no tick-path allocation */
+  /* One record per bundle slot: the pool flies the rounds and knows nothing about units, so how close
+   * each came and to whom is the OWNER's book, emitted when the bundle's life ends. */
   struct FBGunPass {
     bool   Live = false;
     double MinMissM = 1e18;
@@ -660,24 +497,17 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     std::string TargetName;
   };
   std::vector<FBGunPass> GunPasses(FBGunProjectiles::kMaxBundles);
-  /* LAST TICK'S poses, for the fuze's closest-approach computation (see ClosestApproach's banner). Sized
-   * for the ceiling so a store joining the list mid-run never reallocates it, and captured at the very
-   * end of every tick — including for a store that only just appeared, whose spawn pose is already
-   * published (units/FBSimUnit's constructor). */
-  std::vector<FBUnitPose> PrevPose(maxActors);
+  std::vector<FBUnitPose> PrevPose(maxActors);   /* last tick's poses, for ClosestApproach */
   bool HavePrevPose = false;
 
-  /* The run's ONE unit registry (units/FBUnitRegistry): the whole cast, in mission-declaration order,
-   * filled once now that every actor exists and borrowed by everything that observes units — the
-   * modules' sensors through the step job below, and (native only) the hook's FBWorld for drawing. */
+  /* The run's ONE unit registry, in mission-declaration order, borrowed by everything that observes
+   * units: the modules' sensors through the step job, and (native only) the hook's FBWorld. */
   FBUnitRegistry UnitReg;
   for (const auto &a : Actors) UnitReg.Register(a.get());
 
-  /* The OBSERVED roster a combat objective is judged against (core/FBObjective.h), rebuilt once per
-   * tick and shown to every judged actor's monitor: callsign, faction, and the one bit that actor's own
-   * health register publishes. Weapons are left out — a round in the air is not somebody's target.
-   * Reserved for the ceiling, so the tick path never allocates and the borrowed FBMissionRoster view
-   * never dangles; the Id borrows the unit's own name, which outlives the run. */
+  /* The OBSERVED roster a combat objective is judged against: callsign, faction, and the one bit the
+   * actor's own health register publishes. Weapons are out — a round in the air is not somebody's
+   * target. The Id borrows the unit's own name, which outlives the run. */
   std::vector<FBUnitObservation> RosterBuf;
   RosterBuf.reserve(maxActors);
   auto BuildRoster = [&]() {
@@ -708,45 +538,26 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   /* ---- Step 3: execute the actors ---- */
   const double dt = 0.1;
   double simT = 0.0;
-  /* steady_clock, not clock(): with a worker thread per actor clock() reports the SUM of every thread's
-   * CPU time, so the SUMMARY's `wallS`/`speedup` would get worse the faster the run actually got. */
+  /* steady_clock, not clock(): the latter sums every thread's CPU time and would report a FASTER
+   * parallel run as a slower one. */
   auto wallStart = std::chrono::steady_clock::now();
 
-  /* The STEP phase's execution resources. The pool is sized here rather than taken as the caller's raw
-   * wish: threads beyond the cast size would only park on the barrier. One capture buffer per actor,
-   * alive for the whole run so a steady-state tick allocates nothing. Nothing about the pool is LOGGED —
-   * how many threads stepped the cast is a property of the client, not an event of the mission, and a
-   * line about it would be the one difference between a sequential and a parallel events.log.
-   * The pool is declared LAST for the same reason FBLogSinkScope is (see its banner): reverse
-   * declaration order means it is destroyed FIRST, so its threads are joined while the buffers and the
+  /* Nothing about the pool is LOGGED: how many threads stepped the cast is a property of the client and
+   * a line about it would be the one difference between a sequential and a parallel events.log. The
+   * pool is declared LAST, so it is destroyed FIRST — its threads are joined while the buffers and the
    * job they were handed are still alive. */
   if (threads < 1) threads = 1;
   if (threads > Actors.size()) threads = Actors.size();
-  /* Sized for the CEILING, not for today's cast: the job indexes this vector by actor index, and a
-   * store joining the list mid-run must not resize a buffer a worker thread is holding a reference to. */
   std::vector<FBBufferedLogSink> actorLogs(maxActors);
   FBActorStepJob stepJob(Actors, UnitReg, actorLogs, dt);
   FBTickPool pool(threads);
 
-  /* The run ends on the first physical K.O. of ANY actor, the first mission FAILURE of any judged
-   * actor, or once EVERY judged actor has met its own objectives (see the helpers above). The trailing
-   * timeout guard is the backstop for a cast with no objectives at all — every judged actor's own
-   * FBMissionMonitor concludes TIMEOUT at exactly this sim time, so it never preempts one.
-   *
-   * SNAPSHOT DISCIPLINE (FBUnit::GetPose's contract): the per-actor passes are separate loops on
-   * purpose — every actor integrates against the poses of the LAST completed tick, and only the barrier
-   * after all of them publishes the new ones. No actor can therefore see a neighbour that has already
-   * stepped this tick, so tick ORDER cannot influence the result — which is what lets the STEP pass run
-   * one thread per actor (app/FBTickPool.h) while EVERY other pass stays a plain sequential loop in
-   * actor order:
-   *   - elevation sampling, because the provider is the client's one shared object (FBTilesElevation
-   *     drives the tile streamer) and a per-tick point query is far too cheap to be worth the question;
-   *   - pose publication, which IS the barrier;
-   *   - monitors + envelope checks, so the verdict that ends a run and the lines it emits are read in
-   *     actor order, never in finishing order;
-   *   - telemetry sampling and the tick hook (the native oracle's renderer), single-threaded by decision.
-   * The step pass's own log output is captured per actor and replayed here, in the same actor order the
-   * sequential loop wrote it in. */
+  /* SNAPSHOT DISCIPLINE: the per-actor passes are separate loops on purpose — everything integrates
+   * against the poses of the LAST completed tick and only PublishPose (the barrier) makes the new ones
+   * visible, so tick ORDER cannot influence the result. That is what lets STEP run one thread per actor
+   * while every other pass stays a sequential loop in actor order. Which pass is which and why:
+   * doc/flightbox/units-and-missions.md §7. The trailing timeout is the backstop for a cast with no
+   * objectives at all; every judged actor's own monitor concludes TIMEOUT at exactly this sim time. */
   while (!FirstFlightKo(Actors) && !FirstDecidingFailure(Actors) && !AllJudgedConcluded(Actors) &&
          simT < timeoutS) {
     for (auto &a : Actors)
@@ -767,22 +578,15 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     }
     for (auto &a : Actors)
       if (a->Active()) a->SampleTelemetry(simT);
-    /* ---- THE ROUNDS IN THE AIR (core/FBGunProjectiles) ----
-     * Stepped here, in the same pass and for the same reason the fuze is resolved here: they are the
-     * client's, they fly on nobody's estimate, and what they hit is measured on the published poses.
-     * The order inside the tick is fixed: fly them, then resolve them against every aircraft they
-     * passed, then take on whatever the modules fired during this tick (below, with the store releases)
-     * so a bundle is never resolved in the tick it was created in — the same snapshot discipline the
-     * actor list's growth follows. */
+    /* Fly them, resolve them, and only then (below, with the releases) take on what was fired THIS tick
+     * — so a bundle is never resolved in the tick it was created in. */
     Bullets.Step(dt);
     if (HavePrevPose) {
       for (int bi = 0; bi < Bullets.Capacity(); bi++) {
         const FBGunProjectiles::Bundle &bundle = Bullets.At(bi);
         FBGunPass &pass = GunPasses[bi];
         if (!bundle.Live) {
-          /* THE BUNDLE'S LIFE IS OVER — and the record of how it went is the CLOSEST it ever came, not
-           * the first tick it came anywhere near. A burst's debrief turns on that number: it is what
-           * says whether the aiming or the timing was wrong. */
+          /* The record of how it went is the CLOSEST it ever came, not the first tick it came near. */
           if (pass.Live && pass.MinMissM < kGunNearMissM) {
             FBLog::Info("gun", "MISS", {{"target", pass.TargetName}, {"missM", pass.MinMissM},
                 {"spreadM", pass.SpreadM}, {"rounds", pass.Rounds}, {"pathM", pass.PathM},
@@ -800,9 +604,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
           if (tgt.GetKind() != FBUnitKind::Aircraft || !tgt.Active()) continue;
           if (tgt.GetId() == bundle.LauncherId) continue;   /* nobody shoots himself down */
           FBCpa c = ClosestApproach(b0, PrevPose[k], b1, tgt.GetPose(), dt);
-          /* The pattern's own size at this point of the flight (dispersion times the path flown), and
-           * the gate: three sigma plus the airframe's own reach. Beyond it the density model returns a
-           * number no report should carry, and the arithmetic is skipped rather than rounded away. */
+          /* The pattern's size at this point of the flight: dispersion times the path flown. */
           double sigmaM = bundle.Spec->DispersionSigmaRad * bundle.PathM;
           if (sigmaM < 0.05) sigmaM = 0.05;
           if (c.MissM < pass.MinMissM) {
@@ -822,17 +624,14 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
       }
     }
 
-    /* A store's flight ends where its own judge says it does: an impact (the detonation) or the
-     * lifetime cap its catalogue entry declares. Retiring is all that happens to the RUN — see
-     * FirstFlightKo. In actor order, like every other verdict pass, and AFTER this tick's telemetry
-     * sample so the impact tick is the last ROW of the store's trace and not a gap in it. */
+    /* A store's flight ends where its own judge says: an impact or its catalogue lifetime cap. AFTER
+     * this tick's telemetry sample, so the impact tick is the last ROW of its trace and not a gap. */
     for (auto &t : StoreTracks) {
       FBSimUnit &store = *Actors[t.Index];
       if (!store.Active()) continue;
       FBLogUnitScope us(store.LogLabel());
-      /* The proximity fuze first (see ClosestApproach's banner): a round that passed inside its fuze
-       * radius during this tick detonated there, whatever it does afterwards. Only for a store that HAS
-       * one, only once armed, and only against aircraft — the truth, on the published poses. */
+      /* The proximity fuze first: a round that passed inside its radius this tick detonated there,
+       * whatever it does afterwards. The arming delay is what keeps a launch off its own launcher. */
       bool detonated = false;
       if (t.Spec && t.Spec->FuzeRadiusM > 0.0 && HavePrevPose &&
           simT - t.SpawnS >= t.Spec->Perf.ArmingS) {
@@ -845,9 +644,6 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
             t.MinMissUnit = tgt.GetId();
           }
           if (c.MissM > t.Spec->FuzeRadiusM) continue;
-          /* Geometry at the burst, all observed: how far off it was, how fast the two were closing, and
-           * from where. What a hit DOES is deliberately not modelled yet — this is the event, not a
-           * damage verdict. */
           const fb_fdm_state &ms = store.State();
           double aspect = FBWrap180(tgt.GetPose().YawDeg - ms.yaw);
           FBLog::Info("stores", "DETONATION", {{"target", tgt.GetName()},
@@ -869,9 +665,8 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
         if (t.MinMissM < 1e17)
           FBLog::Info("stores", "MISS", {{"closestM", t.MinMissM}, {"unitId", t.MinMissUnit},
                                          {"fuzeM", t.Spec ? t.Spec->FuzeRadiusM : 0.0}});
-        /* ...and the burst it made, against everything standing near where it landed (see
-         * ResolveGroundBurst). Only for a GROUND contact: a store the judge tripped on for tumbling or
-         * for a diverged integration did not detonate anywhere in particular. */
+        /* Only for a GROUND contact: a store the judge tripped on for tumbling or for a diverged
+         * integration did not detonate anywhere in particular. */
         FBKoReason kr = store.FlightMonitor().Reason();
         bool onGround = kr == FBKoReason::StructureContact || kr == FBKoReason::CfitPenetration ||
                         kr == FBKoReason::GearUpContact || kr == FBKoReason::HardLanding ||
@@ -891,16 +686,12 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     }
     if (hook) hook->OnTick(Actors, simT);
 
-    /* THE ACTOR LIST'S ONE GROWTH POINT (FBStoreTrack's banner): every store the modules released
-     * during this tick becomes a unit now, at the end of it, and is therefore first stepped in the NEXT
-     * one. Drained in actor order, each module's queue in FIFO order, so the new actors' order — and
-     * with it their ids, their telemetry files and their tick order — is identical no matter how many
-     * threads stepped the tick. */
+    /* THE ACTOR LIST'S ONE GROWTH POINT: what was released or fired this tick becomes a unit now, at
+     * the end of it, and is first stepped in the NEXT one. Drained in actor order, each module's queue
+     * FIFO, so ids/files/tick order are identical no matter how many threads stepped the tick. */
     size_t declaredActors = Actors.size();
     for (size_t i = 0; i < declaredActors; i++) {
       FBSimUnit &carrier = *Actors[i];
-      /* THE GUN'S BURSTS, drained in the same pass as the releases and in the same actor order: rounds
-       * fired during this tick enter the world now and are first flown in the next one. */
       FBGunBurst gb;
       while (carrier.Module().Guns().TakeBurst(gb)) {
         if (Bullets.Launch(gb)) {
@@ -946,8 +737,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
       }
     }
 
-    /* The tick's last act: remember where everything was. One capture point, after the growth above, so
-     * every actor in the list — including one that appeared this tick — has an entry from now on. */
+    /* After the growth above, so an actor that appeared this tick has an entry from now on. */
     for (size_t i = 0; i < Actors.size(); i++) PrevPose[i] = Actors[i]->GetPose();
     HavePrevPose = true;
   }
@@ -955,11 +745,8 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   /* ---- Step 4: validate the world — the monitors already did; combine their verdicts ---- */
   const FBSimUnit &primary = *Actors.front();
   const FBSimUnit *ko = FirstFlightKo(Actors);
-  /* A physical K.O. always ENDS the run (no wreck integrates in the background) but it only DECIDES it
-   * when it was not somebody's declared objective: a shot-down jet that finally reaches the ground is
-   * the expected end of that aircraft, not the mission's crash. When it is expected, the run's verdict
-   * comes from the mission judges as usual — and the ones still waiting on a `survive` objective are
-   * asked here, because the run they had to survive is over. */
+  /* A K.O. always ENDS the run but only DECIDES it when it was nobody's declared objective. When it is
+   * expected, the monitors still waiting on a `survive` are asked here — the run to survive is over. */
   if (ko && ExpectedLoss(Actors, *ko)) {
     FBMissionRoster roster = BuildRoster();
     for (auto &a : Actors) {
@@ -969,9 +756,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     ko = nullptr;
   }
   const FBSimUnit *failed = ko ? nullptr : FirstDecidingFailure(Actors);
-  /* The actor whose verdict ENDED the run — a K.O. or the first deciding mission failure. On a clean
-   * success nobody decided anything alone (every judged actor met its own objectives), so this stays
-   * null and the combined RESULT carries no unit attribution. */
+  /* Null on a clean success: nobody decided anything alone, so RESULT carries no unit attribution. */
   const FBSimUnit *deciding = ko ? ko : failed;
   const FBSimUnit *judged = FirstJudged(Actors);
   FBMissionResult result;
@@ -991,10 +776,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   }
   const fb_fdm_state &st = primary.State();
 
-  /* Per-actor breakdown before the combined verdict: one machine-readable line per actor with its own
-   * result, its own reason, where it ended up and which telemetry file holds its trace. Emitted only
-   * for a real flight — with a single actor the RESULT line below IS that actor's verdict and a
-   * breakdown would just repeat it (the same rule that leaves single-actor logs unattributed). */
+  /* With a single actor the RESULT line below IS that actor's verdict, so a breakdown would repeat it. */
   if (Actors.size() > 1) {
     for (size_t i = 0; i < Actors.size(); i++) {
       const FBSimUnit &a = *Actors[i];
@@ -1008,8 +790,6 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
 
   double wallS = std::chrono::duration<double>(std::chrono::steady_clock::now() - wallStart).count();
   FBLog::SetTime(simT);
-  /* The combined verdict, attributed to the actor that decided it — with one actor the label is empty
-   * and the line reads exactly as it always did. */
   FBLogUnitScope us(deciding ? deciding->LogLabel() : std::string());
   FBLog::Info("mission", "RESULT", {{"result", FBMissionResultStr(result)}, {"reason", reason},
       {"lat", st.lat}, {"lon", st.lon}, {"altM", st.elev}, {"durationS", simT}});

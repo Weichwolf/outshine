@@ -1,23 +1,10 @@
-/* The camera basis of ONE frame, as pure mathematics. No GL, no globals, no side effects.
+/* The camera basis of ONE frame, as pure mathematics: attitude in, orthonormal basis + MVP out. No
+ * GL, no globals, no side effects. The eye POSITION is deliberately not computed here — it depends on
+ * the terrain and belongs to the tile side. fov/aspect/near/far are PARAMETERS, not the renderer's
+ * constants, so this is testable against something other than the renderer's own configuration.
  *
- * Attitude in, orthonormal basis + MVP out. Nothing else.
- *
- * This is the code that mirrors silently when it is wrong. The comment it replaces says so in
- * plain words: "The previous -s inverted it: a right bank looked like a left bank." Nothing
- * crashed, nothing looked broken — the world simply rolled the wrong way, and a screenshot cannot
- * tell you, because a banked horizon looks like a banked horizon either way. That class of bug is
- * exactly why FBMat4.h has tests, and this is the layer above it that had none.
- *
- * fov / aspect / near / far are PARAMETERS, not the renderer's constants. Same reason chunkmesh
- * takes `grid`: a module that knows the renderer's configuration cannot be tested against anything
- * but the renderer's configuration. W3_FOV stays where it belongs — at the call site.
- *
- * The eye position is NOT computed here on purpose. It needs `w3_O.yoff` (the osmmesh ground) and
- * `w3_frame.nD`, which belong to the tile side; taking them would drag this file into an ownership
- * question it does not have. Position in, basis out.
- *
- * Render space is ENU: E=+X, up=+Y, N=-Z. Angles in degrees, as they arrive on the wire.
- */
+ * Render space is ENU: E=+X, up=+Y, N=-Z; angles in degrees.
+ * Herleitung: doc/flightbox/rendering.md, Abschnitt 8.1. */
 #ifndef FBCAMERA_H
 #define FBCAMERA_H
 
@@ -33,46 +20,38 @@ typedef struct {
   float mvp[16]; /* projection * view, column-major, ready for glUniformMatrix4fv */
 } w3_cam;
 
-/* Earth mean radius (sphere), metres. The ECEF terrain uses the WGS84 ellipsoid; the horizon dip is
- * a small-angle spherical result for which the mean radius is the standard value. */
+/* Sphere mean radius: the terrain is on the ellipsoid, but the dip is a small-angle spherical result. */
 #define W3_EARTH_RADIUS_M 6371000.0f
 
-/* Horizon dip: from height h above the local surface the visible horizon of a sphere of radius R
- * sinks acos(R/(R+h)) below the gravity-level horizontal (~sqrt(2h/R) for small h). A level HUD
- * horizon and a level sky gradient both read too HIGH aloft — they must drop by THIS angle to
- * overlay the real, curved-away horizon (MIL-STD-1787 conformal). h<=0 -> 0. */
+/* acos(R/(R+h)): a level HUD horizon reads too HIGH aloft and must drop by exactly this to overlay
+ * the real, curved-away one (MIL-STD-1787 conformal). */
 [[maybe_unused]] static float w3_horizon_dip_rad(float alt_m) {
   if (alt_m <= 0.f) return 0.f;
   return acosf(W3_EARTH_RADIUS_M / (W3_EARTH_RADIUS_M + alt_m));
 }
 
-/* The orthonormal camera basis from an attitude, in RENDER space (E=+X, up=+Y, N=-Z). Split out of
- * w3_cam_from so the ECEF path below reuses the EXACT same silent-mirror-critical logic (forward
- * from yaw/pitch, the +s roll sign) instead of a second copy that could drift from it. */
+/* Split out of w3_cam_from so the ECEF path reuses the EXACT same silent-mirror-critical logic
+ * instead of a second copy that could drift from it. */
 [[maybe_unused]] static void w3_basis_from(float yaw_deg, float pitch_deg, float roll_deg, float f[3], float sr[3],
                           float up[3]) {
   const float RAD = (float)M_PI / 180.f;
   float yaw = yaw_deg * RAD, pitch = pitch_deg * RAD, roll = roll_deg * RAD;
 
-  /* Forward from yaw/pitch. Yaw 0 = north = -Z; yaw 90 = east = +X. */
+  /* Yaw 0 = north = -Z; yaw 90 = east = +X. */
   f[0] = cosf(pitch) * sinf(yaw);
   f[1] = sinf(pitch);
   f[2] = -cosf(pitch) * cosf(yaw);
 
-  /* Unrolled basis: screen-right is forward x world-up, screen-up completes it.
-   * Degenerate when the nose points straight up or down (f parallel to world-up): the cross
-   * product vanishes and there IS no defined screen-right — heading stops meaning anything.
-   * v_norm leaves a below-epsilon vector alone rather than exploding it into NaN, so the frame
-   * degrades to garbage-but-finite instead of painting the screen with NaN. No aircraft this
-   * simulates flies there; the guarantee is only that it cannot poison the whole frame. */
+  /* Degenerate with the nose straight up or down: the cross product vanishes and there IS no
+   * screen-right. v_norm leaves a sub-epsilon vector alone, so the frame degrades to
+   * garbage-but-finite rather than painting the screen with NaN. */
   float wup[3] = {0, 1, 0}, s[3], u[3];
   v_cross(s, f, wup);
   v_norm(s);
   v_cross(u, s, f);
 
-  /* Roll the basis around the forward axis. +roll = right bank = right wing down, and it must
-   * tilt the camera-up toward the RIGHT (+s), so the world appears to roll LEFT in view. The
-   * sign here was once -s, and a right bank looked like a left bank. See test_camera.c. */
+  /* THE SILENT MIRROR: +roll = right bank must tilt camera-up toward the RIGHT (+s). This was once
+   * -s, and a right bank looked like a left bank — nothing crashed. Pinned in test_camera.c. */
   for (int i = 0; i < 3; i++) {
     up[i] = u[i] * cosf(roll) + s[i] * sinf(roll);
     sr[i] = s[i] * cosf(roll) - u[i] * sinf(roll);
@@ -93,38 +72,16 @@ typedef struct {
   return c;
 }
 
-/* ==== ECEF camera-relative rendering (the terrain camera) ======================================
- * Terrain is drawn on the WGS84 ellipsoid with the camera at the coordinate origin (floating
- * origin) — best precision AT the camera everywhere on earth, curvature exact, no dateline/pole
- * special cases. w3_cam_from above is NOT dead: the sky dome and star field are an infinity pass in
- * LOCAL render-ENU (up=+Y), so they keep the flat-earth camera; the geometric horizon dip emerges
- * because the ECEF terrain curves away below that local horizon.
- *
- * Attitude arrives in the aircraft's LOCAL ENU frame (north/east/up at its lat/lon). To view ECEF
- * geometry we rotate the local camera basis into ECEF axes by the ENU->ECEF rotation at the
- * camera's lat/lon. THIS is the new mathematics, and the one that mirrors silently if a sign is
- * wrong — a wrong-tilted horizon still looks like a horizon. Pinned in test_camera.c against the
- * closed-form ENU axes (Polaris-class checks: at (0,0) up is +X, east is +Y, north is +Z, etc.). */
-
-/* ENU basis vectors expressed in ECEF at geodetic (lat,lon) are core/FBGeodesy.h's FBEnuAxesEcef —
- *   East  = (-sinL,        cosL,       0   )
- *   North = (-sinP cosL,  -sinP sinL,  cosP)
- *   Up    = ( cosP cosL,   cosP sinL,  sinP)
- * closed form, right-handed, det +1 (a proper rotation), so it preserves triangle winding. It used to
- * stand here a fourth time (a float-out `w3_enu_axes_ecef` + `w3_render_to_ecef` + `w3_cam_ecef`, none
- * of which had a single caller left anywhere in the tree — the live path is the double-precision basis
- * below, which both App clients now share instead of carrying a copy each). */
+/* w3_cam_from above is NOT dead: sky dome and star field are an infinity pass in LOCAL render-ENU, so
+ * they keep the flat-earth camera — the horizon dip emerges because the ECEF terrain curves away below
+ * that local horizon. The rotation into ECEF axes uses core/FBGeodesy.h's FBEnuAxesEcef (closed form,
+ * right-handed, det +1, so triangle winding survives) and is the OTHER silent mirror: a wrongly tilted
+ * horizon still looks like a horizon. Pinned in test_camera.c. */
 
 namespace FlightBox {
 
-/* The ECEF camera basis for a camera sitting on an aircraft: the render-space forward/right/up from
- * yaw/pitch/roll (w3_basis_from's logic above, including the silent-mirror-critical +s roll sign),
- * rotated into the local ENU frame at (lat,lon) — render->ENU is (e,n,u) = (x,-z,y).
- *
- * Doubles, not floats: the eye is an ECEF position in the 6.4e6 m range and this basis is derived
- * alongside it each frame. This exact function stood twice, character for character, in
- * FBAppNative.cpp and FBAppWasm.cpp, each with a comment asking the reader to keep it identical to the
- * other — i.e. the oracle's frames and the browser's frames were "the same camera" only by hand. */
+/* The ONE attitude->ECEF basis native and WASM share; render->ENU is (e,n,u) = (x,-z,y). Doubles,
+ * not floats: the eye is an ECEF position in the 6.4e6 m range. */
 inline void FBCameraBasisEcef(double yawDeg, double pitchDeg, double rollDeg, double latDeg,
                               double lonDeg, double fwd[3], double right[3], double up[3]) {
   double yaw = yawDeg * kDeg2Rad, pitch = pitchDeg * kDeg2Rad, roll = rollDeg * kDeg2Rad;
@@ -157,8 +114,7 @@ inline void FBCameraBasisEcef(double yawDeg, double pitchDeg, double rollDeg, do
 
 } // namespace FlightBox
 
-/* out = viewproj * translate(t). translate touches only the last column, so columns 0..2 pass
- * through and column 3 = VP*(t,1). Column-major (m[col*4+row]). Cheap: no full 4x4 multiply. */
+/* translate touches only the last column, so columns 0..2 pass through — no full 4x4 multiply. */
 [[maybe_unused]] static void w3_mvp_translate(float out[16], const float vp[16], const float t[3]) {
   for (int i = 0; i < 12; i++)
     out[i] = vp[i];
@@ -166,10 +122,9 @@ inline void FBCameraBasisEcef(double yawDeg, double pitchDeg, double rollDeg, do
     out[12 + r] = vp[r] * t[0] + vp[4 + r] * t[1] + vp[8 + r] * t[2] + vp[12 + r];
 }
 
-/* Six inward half-spaces from an MVP (Gribb-Hartmann): inside iff every plane[k]·(x,y,z,1) >= 0.
- * Same silent-mirror class as the basis above -- a wrong sign culls on-screen terrain (a hole at
- * one heading) or nothing, neither crashes, no screenshot shows it. Pinned in test_camera.c.
- * Planes stay UNnormalised: a sign test does not need unit length, and it saves the sqrt. */
+/* Gribb-Hartmann: inside iff every plane[k]·(x,y,z,1) >= 0. Same silent-mirror class — a wrong sign
+ * culls on-screen terrain at one heading and no screenshot shows it. Planes stay UNnormalised: a sign
+ * test needs no unit length. */
 typedef struct {
   float p[6][4];
 } w3_frustum; /* mvp is column-major: mvp[col*4+row] */
@@ -185,8 +140,8 @@ typedef struct {
   return fr;
 }
 
-/* AABB at least partially inside? Positive-vertex test. Errs toward keeping (a false positive is
- * one wasted draw; a false negative would be a hole) -- the safe asymmetry for culling. */
+/* Positive-vertex test, erring toward KEEPING: a false positive is one wasted draw, a false negative
+ * would be a hole. */
 [[maybe_unused]] static int w3_aabb_visible(const w3_frustum *fr, const float bmin[3], const float bmax[3]) {
   for (int k = 0; k < 6; k++) {
     const float *pl = fr->p[k];

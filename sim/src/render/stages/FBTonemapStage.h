@@ -1,7 +1,5 @@
-/* FlightBox — FBTonemapStage: one shader source, TWO pipelines (kTonemapWGSL with cloud compositing,
- * kTonemapPlainWGSL without) — same ACES compress either way, chosen at Encode() by whether the cloud
- * path is armed (a boot-time constant, never toggled mid-run). When armed, it borrows the cloud-resolve
- * peer to read WHICH ping-pong history slot this frame resolved into (never owns it). */
+/* ONE shader source, TWO pipelines: same ACES compress, with and without the cloud composite. Which
+ * one applies is a BOOT-TIME constant, never toggled mid-run. */
 #ifndef FBTONEMAPSTAGE_H
 #define FBTONEMAPSTAGE_H
 
@@ -12,7 +10,7 @@ namespace FlightBox {
 
 class FBTonemapStage : public FBDrawStage {
 public:
-  /* `cloudResolve` is nullptr when the cloud path isn't armed (Plain-only). */
+  /* nullptr when the cloud path is not armed. */
   void Configure(const FBGpu &gpu, wgpu::Sampler samp, wgpu::TextureView hdrView,
                  bool cloudsOn, const FBCloudResolveStage *cloudResolve);
   void Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pass) override;

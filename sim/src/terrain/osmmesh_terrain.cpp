@@ -4,9 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Decoded-DEM LRU. fetch_terrain_grid_raw is hit ~15x per output tile (self + 4 stitch neighbours,
- * each of those re-stitching), so caching the decoded heightgrid short-circuits the dominant
- * cold-boot cost (the PNG decode) for tiles already seen this session. */
+/* The raw fetch is hit ~15x per output tile (self + 4 stitch neighbours, each re-stitching), so
+ * caching the DECODED grid short-circuits the dominant cold-boot cost: the PNG decode. */
 #define OM_DEM_LRU_CAP 128
 typedef struct { uint64_t seq; int used; uint8_t z; uint32_t x, y; osmmesh_terrain_grid g; } om_dem_ent;
 
@@ -25,7 +24,7 @@ struct osmmesh_ctx {
     uint64_t   dem_seq;
 };
 
-/* Ask the host for one tile's raw bytes. Absent / not-yet-fetched => 0. */
+/* Absent or not-yet-fetched both give 0. */
 static int om_tile_bytes(osmmesh_ctx *ctx, osmmesh_tile_kind kind,
                          uint32_t z, uint32_t x, uint32_t y, uint8_t **out, size_t *len)
 {
@@ -33,8 +32,6 @@ static int om_tile_bytes(osmmesh_ctx *ctx, osmmesh_tile_kind kind,
     if (!ctx->tile_provider) return 0;
     return ctx->tile_provider(ctx->tile_provider_user, kind, z, x, y, out, len) ? 1 : 0;
 }
-
-/* ---- decoded-DEM LRU ---------------------------------------------------- */
 
 static int om_dem_cache_off(void)
 {
@@ -82,11 +79,8 @@ static void om_dem_lru_put(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
     e->seq = ++ctx->dem_seq;
 }
 
-/* ---- terrain grid fetch (raw + neighbour-edge stitch) ------------------- */
-
-/* Fetch + decode + crop the terrain tile for (z, x, y) into an owned grid,
- * WITHOUT any neighbour-edge stitching. Splitting raw from stitched avoids
- * unbounded recursion (the stitch pass reads the four neighbours raw). */
+/* WITHOUT stitching: splitting raw from stitched is what avoids unbounded recursion, since the
+ * stitch pass reads its four neighbours raw. */
 static int fetch_terrain_grid_raw(osmmesh_ctx *ctx,
                                   uint8_t z, uint32_t x, uint32_t y,
                                   osmmesh_terrain_grid *out_grid)
@@ -95,9 +89,8 @@ static int fetch_terrain_grid_raw(osmmesh_ctx *ctx,
     if (om_dem_lru_get(ctx, z, x, y, out_grid)) return OSMMESH_OK;
     if (!ctx->tile_provider) return OSMMESH_OK;
 
-    /* If request z exceeds the provider's max zoom, step up to the parent tile and crop the decoded
-     * heightmap to the sub-tile region (a tile server has no header stating its max zoom, so the
-     * host declares it in the config). */
+    /* Past the provider's max zoom: step up to the parent and crop. A tile server has no header
+     * stating its max zoom, so the host declares it. */
     uint8_t ter_z = z;
     uint32_t ter_x = x, ter_y = y;
     uint32_t sub_x = 0, sub_y = 0, sub_div = 1;
@@ -159,11 +152,9 @@ static int fetch_terrain_grid_raw(osmmesh_ctx *ctx,
     return OSMMESH_OK;
 }
 
-/* Average our edge column/row with the neighbour tile's matching column/row.
- * Symmetric: both sides land on the same midpoint, so the heights line up
- * exactly at the seam. Side codes: 0=W (col 0), 1=E (col cols-1), 2=N (row 0),
- * 3=S (row rows-1). Tolerates dimension mismatches (parent-edge cropping can
- * shave a row/column); only the overlapping range is averaged. */
+/* SYMMETRIC averaging: both sides land on the same midpoint, so the heights line up exactly at the
+ * seam. Sides 0=W, 1=E, 2=N, 3=S. Dimension mismatches (parent-edge cropping shaves a row) are
+ * tolerated — only the overlapping range is averaged. */
 static void stitch_edge(osmmesh_ctx *ctx, osmmesh_terrain_grid *self,
                         uint8_t z, uint32_t nx, uint32_t ny, int side)
 {
@@ -197,7 +188,7 @@ static void stitch_edge(osmmesh_ctx *ctx, osmmesh_terrain_grid *self,
     osmmesh_terrain_grid_free(&n);
 }
 
-/* Wrap the raw fetch with neighbour-edge averaging (4 independent sides). */
+/* The raw fetch plus neighbour-edge averaging on four independent sides. */
 static int fetch_terrain_grid(osmmesh_ctx *ctx,
                               uint8_t z, uint32_t x, uint32_t y,
                               osmmesh_terrain_grid *out_grid)
@@ -212,7 +203,7 @@ static int fetch_terrain_grid(osmmesh_ctx *ctx,
     return OSMMESH_OK;
 }
 
-/* Build a terrain mesh (ENU meters) from an already-decoded heightgrid. */
+/* ENU metres, from an already-decoded grid. */
 static int build_terrain_mesh_from_grid(osmmesh_ctx *ctx,
                                         const osmmesh_terrain_grid *grid,
                                         const osmmesh_tile_enu_map *map,
@@ -241,8 +232,6 @@ static int build_terrain_mesh_from_grid(osmmesh_ctx *ctx,
     *out_mesh = m;
     return OSMMESH_OK;
 }
-
-/* ---- public API --------------------------------------------------------- */
 
 int osmmesh_create(const osmmesh_config *cfg, osmmesh_ctx **out)
 {

@@ -8,9 +8,8 @@ namespace {
 constexpr double kPlateauMarginM = 5000.0;   /* full-elevation margin beyond the runway rectangle */
 constexpr double kFalloffM = 10000.0;        /* smoothstep distance from full elevation to the base */
 
-/* Distance (m) from (lat,lon) to `rwy`'s length x width rectangle (0 inside it) — along/across
- * projection onto the runway's centerline axis, same convention FBAppNative's OnRunway crash-gate
- * uses, but returning a distance-to-rectangle instead of an inside/outside bool. */
+/* Distance to the runway's length x width rectangle, 0 inside it — the same along/across projection
+ * the on-runway gate uses, returning a distance instead of a bool. */
 double FootprintDistM(const FBRunway &rwy, double latDeg, double lonDeg) {
   double along, across;
   FBTrackProjectM(rwy.ThresholdLatDeg, rwy.ThresholdLonDeg, rwy.TrueHeadingDeg, latDeg, lonDeg,

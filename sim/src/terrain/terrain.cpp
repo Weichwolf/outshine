@@ -1,61 +1,6 @@
-/* libosmmesh/src/terrain.c
- *
- * Terrarium-RGB PNG -> float heightfield -> triangulated mesh.
- * See include/osmmesh/terrain.h for the API contract.
- *
- * ========================================================================
- *  Winding / orientation proof (do not "just flip it" if a test fails --
- *  verify the math first).
- * ========================================================================
- *
- * The input grid is row-major with row 0 = NORTH edge, col 0 = WEST edge.
- * We place vertex (r, c) at:
- *
- *     local_x = c * (extent / (cols_out - 1))
- *     local_y = r * (extent / (rows_out - 1))
- *
- * The tile_enu_map apply function turns (lx, ly) into
- *
- *     e = origin_e + lx * scale_e      (scale_e > 0)
- *     n = origin_n + ly * scale_n      (scale_n < 0: ENU n grows north,
- *                                        r/local_y grow south)
- *
- * Up (z) is the height in meters from the grid.
- *
- * With that mapping:
- *   - P(r+1, c)   has n smaller than P(r, c)    (south)
- *   - P(r,   c+1) has e larger  than P(r, c)    (east)
- *
- * For triangle (r,c), (r+1,c), (r+1,c+1):
- *   edge A = P(r+1,c)   - P(r,c)   = (0, scale_n*dy, 0) with scale_n<0,dy>0
- *           = (0, -, 0)   -- pointing south
- *   edge B = P(r+1,c+1) - P(r,c)   = (+, -, 0) -- pointing south-east
- *   A x B = (edge_A.y * edge_B.z - edge_A.z * edge_B.y,
- *            edge_A.z * edge_B.x - edge_A.x * edge_B.z,
- *            edge_A.x * edge_B.y - edge_A.y * edge_B.x)
- *         = (0, 0, 0 - (-)*(+))
- *         = (0, 0, positive)  -- points UP, good.
- *
- * For triangle (r,c), (r+1,c+1), (r,c+1):
- *   edge A = P(r+1,c+1) - P(r,c)   = (+, -, 0)
- *   edge B = P(r,  c+1) - P(r,c)   = (+, 0,  0)
- *   A x B = (0, 0, (+)*(0) - (-)*(+))
- *         = (0, 0, positive)  -- points UP, good.
- *
- * Both tris have CCW winding when viewed from +z (up), so this ordering
- * is consistent with right-handed normals pointing skyward. This was
- * verified algebraically above, not by running tests and flipping until
- * green. The test suite cross-checks by asserting normal.z ~ 1 for a
- * flat grid, which triggers if the math above is wrong.
- *
- * ========================================================================
- *  Normals: per-face, area-weighted, accumulated per vertex, normalized
- *  at the end. Area-weighting falls out of NOT normalizing the face
- *  normal before accumulation (the un-normalized cross product has
- *  magnitude = 2 * face area). For a flat grid all faces have the same
- *  normal (0,0,1) so the result is exactly (0,0,1) after re-normalize.
- * ========================================================================
- */
+/* Terrarium-RGB PNG -> float heightfield -> triangulated mesh; API contract in terrain.h.
+ * Der WINDING-BEWEIS (algebraisch, nicht ergruent — bei einem Testfehler erst die Mathematik
+ * pruefen) und die Flaechengewichtung der Normalen: doc/flightbox/world-and-terrain.md, Abschnitt 5.1. */
 
 #include "terrain.h"
 #include "mesh.h"
@@ -65,9 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Silence stb_image warnings locally. stb_image has a handful of cast-qual
- * and unused-but-set-variable hits under our -Wall -Wextra -Wpedantic
- * -Werror flags. Keep the relaxation scoped to this include. */
+/* stb_image has cast-qual and unused-but-set hits under -Wall -Wextra -Wpedantic -Werror; the
+ * relaxation stays scoped to this include. */
 #if defined(__GNUC__)
 #  pragma GCC diagnostic push
 #  pragma GCC diagnostic ignored "-Wcast-qual"
@@ -80,10 +24,8 @@
 #endif
 
 #define STB_IMAGE_IMPLEMENTATION
-/* JPEG stays ENABLED (upstream disabled it): the command center decodes Esri aerial imagery,
- * which is JPEG, and this is the only image decoder we ship. Two stb_image implementations in
- * one link would collide, so the renderer shares this one. stb_image is the one genuinely
- * third-party piece here (see src/3rdparty/README.md); osmmesh itself is FlightBox code. */
+/* JPEG stays ENABLED (upstream disables it): Esri aerial imagery is JPEG, and two stb_image
+ * implementations in one link would collide — so the renderer shares this one. */
 #define STBI_NO_BMP
 #define STBI_NO_PSD
 #define STBI_NO_TGA
@@ -100,10 +42,6 @@
 #  pragma GCC diagnostic pop
 #endif
 
-/* ========================================================================
- *  Shared mesh container
- * ====================================================================== */
-
 void osmmesh_mesh_free(osmmesh_mesh *m)
 {
     if (!m) return;
@@ -114,10 +52,6 @@ void osmmesh_mesh_free(osmmesh_mesh *m)
     m->n_vertices  = 0;
     m->n_triangles = 0;
 }
-
-/* ========================================================================
- *  Terrarium PNG decode
- * ====================================================================== */
 
 /* kept in sync with tiles/osmmesh/terrain.c */
 
@@ -136,12 +70,11 @@ int osmmesh_terrain_decode_png(const uint8_t *png_data, size_t png_len,
     if (!out) return OSMMESH_TERRAIN_ERR_ARG;
     memset(out, 0, sizeof(*out));
     if (!png_data || png_len == 0) return OSMMESH_TERRAIN_ERR_ARG;
-    /* stb_image takes int for length; guard against >2GiB tiles (never
-     * happens in practice but silence the conversion). */
+    /* stb_image takes int for the length. */
     if (png_len > (size_t)INT32_MAX) return OSMMESH_TERRAIN_ERR_ARG;
 
     int w = 0, h = 0, channels = 0;
-    /* Force RGB (3 channels); stb_image drops alpha for us. */
+    /* Force RGB; stb_image drops alpha. */
     stbi_uc *px = stbi_load_from_memory(png_data, (int)png_len,
                                          &w, &h, &channels, STBI_rgb);
     if (!px) {
@@ -160,8 +93,7 @@ int osmmesh_terrain_decode_png(const uint8_t *png_data, size_t png_len,
         return OSMMESH_TERRAIN_ERR_OOM;
     }
 
-    /* Terrarium: h = R*256 + G + B/256 - 32768. All arithmetic in float32
-     * is lossless at this magnitude (1 ULP ~ 1e-3 m for |h| < 32768). */
+    /* h = R*256 + G + B/256 - 32768; float32 is lossless here (1 ULP ~ 1e-3 m for |h| < 32768). */
     for (size_t i = 0; i < n; i++) {
         const stbi_uc *p = px + i * 3;
         float H = (float)p[0] * 256.0f
@@ -177,10 +109,6 @@ int osmmesh_terrain_decode_png(const uint8_t *png_data, size_t png_len,
     out->cols = (uint32_t)w;
     return OSMMESH_TERRAIN_OK;
 }
-
-/* ========================================================================
- *  Mesh build
- * ====================================================================== */
 
 int osmmesh_terrain_build_mesh(const osmmesh_terrain_grid *grid,
                                 const osmmesh_tile_enu_map *map,
@@ -198,8 +126,7 @@ int osmmesh_terrain_build_mesh(const osmmesh_terrain_grid *grid,
 
     uint32_t rows = grid->rows, cols = grid->cols;
     uint32_t S = opts->stride;
-    /* Stride must divide (rows-1) and (cols-1) exactly so the sampled grid
-     * covers the full tile. */
+    /* Exact division, so the sampled grid covers the full tile. */
     if (((rows - 1) % S) != 0 || ((cols - 1) % S) != 0) {
         return OSMMESH_TERRAIN_ERR_ARG;
     }
@@ -221,7 +148,6 @@ int osmmesh_terrain_build_mesh(const osmmesh_terrain_grid *grid,
     if (opts->compute_normals) {
         normals = (float *)calloc((size_t)NV * 3, sizeof(float));
     }
-    /* Always emit UVs: cheap, one float2 per vertex, useful downstream. */
     uvs = (float *)malloc((size_t)NV * 2 * sizeof(float));
 
     if (!positions || !indices || !uvs ||
@@ -230,15 +156,12 @@ int osmmesh_terrain_build_mesh(const osmmesh_terrain_grid *grid,
         return OSMMESH_TERRAIN_ERR_OOM;
     }
 
-    /* Per-grid-step local-coord delta. Using double for the accumulation
-     * to avoid step drift across the 256-pixel span; cast to float at
-     * store. */
+    /* double accumulation against step drift over the 256-pixel span; float only at store. */
     double inv_cm1 = 1.0 / (double)(cols_out - 1);
     double inv_rm1 = 1.0 / (double)(rows_out - 1);
     double tile_w_e = map->scale_e * (double)map->extent;   /* meters */
     double tile_h_n = map->scale_n * (double)map->extent;   /* meters, NEG */
 
-    /* -- Vertices ----------------------------------------------------- */
     for (uint32_t r = 0; r < rows_out; r++) {
         double fr = (double)r * inv_rm1;           /* [0..1], north->south */
         uint32_t src_r = r * S;                     /* row in input grid */
@@ -255,14 +178,12 @@ int osmmesh_terrain_build_mesh(const osmmesh_terrain_grid *grid,
             positions[3*vi + 1] = (float)n;
             positions[3*vi + 2] = u;
 
-            /* UV origin bottom-left, standard GL convention: v grows with n
-             * (northward), so v = 1 - fr. */
+            /* UV origin bottom-left (GL): v grows northward, so v = 1 - fr. */
             uvs[2*vi + 0] = (float)fc;
             uvs[2*vi + 1] = (float)(1.0 - fr);
         }
     }
 
-    /* -- Indices ------------------------------------------------------ */
     uint32_t *w = indices;
     for (uint32_t r = 0; r < rows_out - 1; r++) {
         for (uint32_t c = 0; c < cols_out - 1; c++) {
@@ -270,13 +191,11 @@ int osmmesh_terrain_build_mesh(const osmmesh_terrain_grid *grid,
             uint32_t v10 = (r + 1) * cols_out + c;
             uint32_t v11 = (r + 1) * cols_out + (c + 1);
             uint32_t v01 = r       * cols_out + (c + 1);
-            /* See top-of-file winding proof. CCW from +z (up). */
             *w++ = v00; *w++ = v10; *w++ = v11;
             *w++ = v00; *w++ = v11; *w++ = v01;
         }
     }
 
-    /* -- Normals (area-weighted face-normal accumulation) ------------- */
     if (opts->compute_normals) {
         for (uint32_t t = 0; t < NT; t++) {
             uint32_t i0 = indices[3*t + 0];
@@ -291,7 +210,6 @@ int osmmesh_terrain_build_mesh(const osmmesh_terrain_grid *grid,
             float bx = p2[0] - p0[0];
             float by = p2[1] - p0[1];
             float bz = p2[2] - p0[2];
-            /* cross = a x b (un-normalized, magnitude = 2*area). */
             float nx = ay*bz - az*by;
             float ny = az*bx - ax*bz;
             float nz = ax*by - ay*bx;
@@ -299,7 +217,6 @@ int osmmesh_terrain_build_mesh(const osmmesh_terrain_grid *grid,
             normals[3*i1+0] += nx; normals[3*i1+1] += ny; normals[3*i1+2] += nz;
             normals[3*i2+0] += nx; normals[3*i2+1] += ny; normals[3*i2+2] += nz;
         }
-        /* Normalize per vertex. */
         for (uint32_t v = 0; v < NV; v++) {
             float *n = &normals[3*v];
             float m2 = n[0]*n[0] + n[1]*n[1] + n[2]*n[2];
@@ -307,8 +224,7 @@ int osmmesh_terrain_build_mesh(const osmmesh_terrain_grid *grid,
                 float inv = 1.0f / sqrtf(m2);
                 n[0] *= inv; n[1] *= inv; n[2] *= inv;
             } else {
-                /* Degenerate (should not happen for a well-formed grid).
-                 * Default to up. */
+                /* Degenerate: default to up. */
                 n[0] = 0.0f; n[1] = 0.0f; n[2] = 1.0f;
             }
         }

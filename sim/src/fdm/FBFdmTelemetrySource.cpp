@@ -12,10 +12,9 @@ void FBFdmTelemetrySource::DeclareTelemetry(FBTelemetrySchema &schema) const {
   schema.Add("rollDeg", "deg");
   schema.Add("hdgDeg", "deg");
   schema.Add("fuelLbs", "lb");
-  schema.Add("gearLoadFactor");   /* peak gear strut force / aircraft weight — FBFlightMonitor's own
-                                    * hard-landing ratio (kHardLandingForceFactor=3.0 trips it), logged
-                                    * every tick (not just at a trip) so a landing's touchdown severity is
-                                    * measurable even when it stays well clear of the K.O. threshold. */
+  /* FBFlightMonitor's own hard-landing ratio, logged EVERY tick so touchdown severity is measurable
+   * well below the K.O. threshold. */
+  schema.Add("gearLoadFactor");
 }
 
 void FBFdmTelemetrySource::SampleTelemetry(FBTelemetryRow &row) const {

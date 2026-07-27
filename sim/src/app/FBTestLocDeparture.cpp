@@ -1,18 +1,8 @@
-/* FlightBox — fb-test-loc-departure: a minimal, dedicated negative-proof harness for
- * core/FBFlightMonitor's LOC/departure checks (RESULT LOC). Task context: the vanilla f16 model's own
- * FLCS provides real envelope/anti-spin protection (doc/f16/flight-controls-flcs.md — an ACCEPTED model
- * characteristic per CLAUDE.md Prinzip 5, not a defect), and FlightBox's own guidance loop
- * (FBAutopilot/FBFlightControl) is deliberately gentle — so a normal mission profile, even one abusing
- * the target-speed/altitude waypoints toward a low-speed high-alpha corner, could not push this build's
- * measurements past the monitor's sustained thresholds (see the task report). This harness isolates a
- * genuine departure entry directly: sustained full-aft-stick + full-rudder at low airspeed (a classic
- * accelerated-stall/spin provocation) — driven ONLY through the generic simulated control surface
- * (fcs cmd-norm via FBFdm::SetControls), never a state setter, same anti-cheat contract as every
- * other client.
- *
- * `make test-monitor` builds this -> build/fb-test-loc-departure. Exit 0 = FBFlightMonitor tripped LOC
- * as expected; exit 1 = it did not trip before the harness's own timeout (test FAILED); exit 2 = setup
- * failure (JSBSim init). */
+/* fb-test-loc-departure: the negative proof for FBFlightMonitor's LOC checks. It exists because the
+ * model's own FLCS has real anti-spin protection (an ACCEPTED model characteristic) and FlightBox's
+ * guidance is deliberately gentle, so no normal mission profile can push the measurements past the
+ * monitor's sustained thresholds. Sustained full aft stick + full rudder at low airspeed, driven only
+ * through the generic control surface. Exit 0 = it tripped, 1 = it missed one, 2 = setup failure. */
 #include "FBFlightMonitor.h"
 #include "FBLog.h"
 #include "FBLogSinks.h"
@@ -56,8 +46,7 @@ int main() {
   bool tripped = false;
 
   while (simT < timeoutS) {
-    /* Sustained full-aft-stick + full-rudder + idle throttle: the classic accelerated-stall/spin
-     * provocation, through the SAME simulated fcs cmd-norm channels any guidance system uses. */
+    /* The classic accelerated-stall/spin provocation, through the SAME channels any guidance uses. */
     fdm->SetControls(0.0, -1.0, 1.0, 0.1);
     fdm->SetGear(0.0);   /* gear up (airborne departure, not a ground scenario) */
 

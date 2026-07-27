@@ -1,12 +1,11 @@
-/* FlightBox — off-thread tile worker (WASM, its own module; no WebGPU, no JSBSim). Runs inside a Web
- * Worker (fbtileworker.js) so the whole blocking pipeline — DEM/MVT/albedo fetch, stbi decode, osmmesh
- * meshing AND the sRGB mip pyramid — leaves the render thread. It hands back finished vertex arrays +
- * finished mip pyramids (transferables, zero-copy across postMessage). Ports command_center/tileworker.c
- * (the WHY-a-worker-not-pthread reasoning holds verbatim: the byte cache is a main-thread JS Map, so a
- * pthread would proxy every fetch back into the thread we are emptying — a worker just owns its fetch).
+/* The off-thread tile worker (WASM, its own module): the whole blocking pipeline leaves the render
+ * thread and finished vertex arrays + mip pyramids come back zero-copy across postMessage.
  *
- * ONE build in flight at a time (fbtileworker.js gates it): fbtw_build SUSPENDS on the synchronous
- * fetch under ASYNCIFY; a re-entrant second build corrupts the shared osmmesh/result state. */
+ * A WORKER AND NOT A PTHREAD: the byte cache is a main-thread JS Map, so a pthread would proxy every
+ * fetch back into the very thread being emptied.
+ * ONE build in flight at a time (the JS shim gates it): fbtw_build SUSPENDS on the synchronous fetch
+ * under ASYNCIFY, and a re-entrant second build corrupts the shared result state.
+ * doc/flightbox/world-and-terrain.md, Abschnitt 6. */
 #include <emscripten.h>
 #include <emscripten/fetch.h>
 #include <stdio.h>
@@ -20,16 +19,14 @@
 #include "FBLog.h"
 #include "FBLogSinks.h"
 
-/* stb_image lives in osmmesh's terrain.cpp (non-static, shared across the link). Declare, don't
- * re-impl. C linkage: stb wraps its API in extern "C" under C++. */
+/* stb_image's implementation lives in terrain.cpp — declared, never re-implemented. */
 extern "C" {
 unsigned char *stbi_load_from_memory(const unsigned char *buffer, int len, int *x, int *y,
                                      int *channels_in_file, int desired_channels);
 void stbi_image_free(void *retval_from_stbi_load);
 }
 
-/* JS entry points: C linkage so the -sEXPORTED_FUNCTIONS names resolve unmangled. The definitions
- * below inherit this linkage. */
+/* C linkage so the -sEXPORTED_FUNCTIONS names resolve unmangled; the definitions inherit it. */
 extern "C" {
 int      fbtw_open(const char *base, double lat, double lon);
 int      fbtw_build(int z, int x, int y, int grid, int mode, int ts, int what);
@@ -46,11 +43,8 @@ void     fbtw_release(void);
 static osmmesh_ctx *tw_osm = 0;
 static char tw_base[160] = "";
 
-/* [tileperf-worker] — browser-side cold-boot timing (the venue the DEM cache actually runs in; native
- * headless can't reach drawn>0, so this is where the cache win is measured live). Per-stage ms + a
- * summary every 32 pyramids. Emitted via FBLog::Debug (tag "worker") to the worker's own stdout sink
- * (fbtw_open); the last line before the field converges is the cold-boot pipeline total. Cheap (a few
- * log lines per boot). */
+/* [tileperf-worker]: the browser-side half of the cold-boot timing — the venue the DEM cache actually
+ * runs in, since native headless never reaches drawn>0. §3.4 */
 static double twp_osmfetch = 0, twp_mesh = 0, twp_albfetch = 0, twp_decode = 0, twp_mips = 0, twp_t0 = 0;
 static long twp_nmesh = 0, twp_npyr = 0;
 static void twp_report(void) {
@@ -65,8 +59,7 @@ static void twp_report(void) {
        {"mipsMs", twp_mips}, {"mipsMsPerTile", twp_mips / p}});
 }
 
-/* Synchronous byte fetch — a worker MAY block. 200 = bytes, 204 = a real hole, 202/404/5xx = queued or
- * transient (retry after a short sleep). Same contract as tileworker.c's tw_get. */
+/* A worker MAY block. 200 = bytes, 204 = a real hole, everything else = retry. */
 static int tw_get(const char *url, uint8_t **out, size_t *len) {
   for (int attempt = 0; attempt < 60; attempt++) {
     emscripten_fetch_attr_t a;
@@ -121,7 +114,7 @@ int fbtw_open(const char *base, double lat, double lon) {
   return 1;
 }
 
-/* One tile's result, read back by JS after fbtw_build (globals — one build in flight). */
+/* One tile's result, read back by JS after fbtw_build. Globals: one build in flight. */
 static w3_chunk tw_chunk;
 static double tw_origin[3] = {0, 0, 0};
 static uint8_t *tw_mips = 0;
@@ -144,11 +137,10 @@ void fbtw_release(void) {
   tw_mipbytes = 0;
 }
 
-/* Fetch + decode + pyramid the albedo for (z,x,y) in `mode` (0 = /bake/osm, 1 = /bake/photo) at `ts`.
- * Fills tw_mips/tw_mipbytes/tw_ts. Returns 1 on a real image, 0 on a miss (caller falls back). */
+/* 1 on a real image, 0 on a miss — the caller falls back. */
 static int tw_albedo(int z, int x, int y, int mode, int ts) {
   char url[256];
-  /* ?v= busts the browser's immutable cache when the OSM bake style changes (photo is unversioned) */
+  /* ?v= busts the browser's immutable cache when the OSM bake style changes */
   snprintf(url, sizeof url, mode ? "%s/bake/photo/%d/%d/%d?tex=%d" : "%s/bake/osm/%d/%d/%d?tex=%d&v=" FB_OSM_STYLE_VER_S,
            tw_base, z, x, y, ts);
   uint8_t *enc = 0;
@@ -178,10 +170,8 @@ static int tw_albedo(int z, int x, int y, int mode, int ts) {
   return 1;
 }
 
-/* Build one tile's requested parts. `what` is a bitmask: bit0 = mesh, bit1 = albedo pyramid (for
- * `mode`/`ts`). Mesh and albedo are decoupled so the main thread can queue them independently (base
- * mesh + base albedo at high priority, the lazy overlay albedo lower). Returns the same bitmask of
- * what actually succeeded — JS reads whichever it asked for. */
+/* `what` is a bitmask (bit0 mesh, bit1 albedo pyramid); mesh and albedo are DECOUPLED so the main
+ * thread can queue them at different priorities. Returns the bitmask of what actually succeeded. */
 EMSCRIPTEN_KEEPALIVE
 int fbtw_build(int z, int x, int y, int grid, int mode, int ts, int what) {
   fbtw_release();

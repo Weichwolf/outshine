@@ -20,9 +20,8 @@ bool FBGunSystem::SetRounds(int rounds) {
   return true;
 }
 
-/* The interlocks, in the order a jet applies them: is there a gun, is it armed, is the aircraft flying,
- * is there anything in the drum. Each answers with its own reason — collapsing them into "no" is exactly
- * what a command bus with reasons exists to avoid. */
+/* Jede Verriegelung antwortet mit ihrem EIGENEN Grund — sie in ein „nein" zusammenzufassen ist genau
+ * das, wogegen ein Kommandobus mit Gruenden existiert. */
 bool FBGunSystem::Trigger(double seconds, double nowS, FBCommandOutcome &outcome,
                           FBCommandReason &reason) {
   Triggers_++;
@@ -59,8 +58,8 @@ bool FBGunSystem::Trigger(double seconds, double nowS, FBCommandOutcome &outcome
     outcome = FBCommandOutcome::Clamped;
     reason = FBCommandReason::ValueClamped;
   }
-  /* A second squeeze while one is running extends it; the spool-up is not restarted, because the barrels
-   * never stopped turning. */
+  /* Ein zweiter Abzugsdruck verlaengert den laufenden; der Hochlauf startet NICHT neu, weil die Laeufe
+   * nie aufgehoert haben zu drehen. */
   if (FireUntilS_ <= 0.0) FireStartS_ = nowS;
   double end = nowS + want;
   if (end > FireUntilS_) FireUntilS_ = end;
@@ -77,9 +76,8 @@ bool FBGunSystem::TakeBurst(FBGunBurst &out) {
 }
 
 namespace {
-/* Rounds fired between two moments of a squeeze, `a` and `b` seconds after the trigger came down, with
- * the barrels spooling linearly to full rate over `spool`. The integral of the rate, so no rounds are
- * created or lost by the cadence the slot happens to be cycled at. */
+/* Das INTEGRAL der Rate zwischen zwei Momenten eines Abzugsdrucks (Hochlauf linear ueber `spool`), damit
+ * die Taktung des Slots weder Schuesse erfindet noch verschluckt. */
 double RoundsBetween(double a, double b, double ratePerS, double spool) {
   auto integral = [&](double x) {
     if (x <= 0.0) return 0.0;
@@ -125,18 +123,15 @@ void FBGunSystem::Run(FBState &state, const fb_fdm_state &st, double nowS, doubl
       b.LauncherId = SelfId_;
       b.Kind = Spec_->Kind;
       b.Rounds = (int)whole;
-      /* WHERE the rounds leave: the muzzle's own place on the airframe, not the CG — a gun sits metres
-       * ahead of and beside the centre of gravity, and at gun range that offset is the difference
-       * between a hit and a miss. */
+      /* Die MUENDUNG, nicht das CG: eine Kanone sitzt Meter davor und daneben, und auf Kanonenentfernung
+       * ist dieser Versatz der Unterschied zwischen Treffer und Fehlschuss. */
       double oe = 0.0, on = 0.0, ou = 0.0;
       FBBodyVecToEnu(st.roll, st.pitch, st.yaw, MuzzleFwdM_, MuzzleRightM_, MuzzleDownM_, oe, on, ou);
       double coslat = std::cos(st.lat * kDeg2Rad);
       b.LatDeg = st.lat + on / kMPerDeg;
       b.LonDeg = st.lon + (coslat > 1e-6 ? oe / (kMPerDeg * coslat) : 0.0);
       b.AltM = st.elev + ou;
-      /* ...and how fast: the aircraft's own velocity plus the muzzle velocity along the bore. Both
-       * halves are physics and this class knows both, so what crosses the boundary is a plain
-       * projectile state (core/FBGun.h's banner). */
+      /* ...und wie schnell: Eigengeschwindigkeit plus Muendungsgeschwindigkeit entlang des Bore. */
       double be = 0.0, bn = 0.0, bu = 0.0;
       FBBodyLosToEnu(st.roll, st.pitch, st.yaw, BoreRightDeg_, -BoreDownDeg_, be, bn, bu);
       b.VelE = st.vx + be * Spec_->MuzzleVelMs;
@@ -159,11 +154,8 @@ void FBGunSystem::Run(FBState &state, const fb_fdm_state &st, double nowS, doubl
   b.Ready = Spec_ != nullptr && Arm_ == FBArmState::Arm && Rounds_ > 0 && !Wow_;
   b.H.Publish(state.NowS);
   BlockStatus_ = (int)b.H.Status;
-  /* The AIMING SOLUTION this gun is being pointed with, cached for telemetry only. It is a READ of
-   * another system's block (the fire control writes it, modules/f16/FBF16FireControl), which any system
-   * may do — what would be wrong is writing it. It sits on the gun's own source because "where the gun
-   * was pointing when it fired" and "what came out of it" are one measurement, and splitting them
-   * across two files would make the funnel impossible to check against the rounds. */
+  /* Nur ein LESEN eines fremden Blocks, fuer die Telemetrie. Es sitzt auf der Quelle der Kanone, weil
+   * „wohin sie zeigte" und „was herauskam" EINE Messung sind. */
   const FBFireControlBlock &fc = state.FireControl;
   bool fcOk = fc.H.Readable();
   SolRangeM_ = fcOk && fc.GunValid ? fc.GunRangeM : -1.0f;
@@ -173,9 +165,7 @@ void FBGunSystem::Run(FBState &state, const fb_fdm_state &st, double nowS, doubl
 }
 
 void FBGunSystem::DeclareTelemetry(FBTelemetrySchema &schema) const {
-  /* FIRST column is this source's own block validity, for the reason systems/FBRwrSystem states: the gun
-   * block was added to FBState long after core/FBStateBusTelemetry's list settled in the middle of every
-   * measured telemetry.csv, and appending a name there would move every column to its right. */
+  /* ERSTE Spalte ist die Blockgueltigkeit — Begruendung in FBRwrSystems Schema. */
   schema.Add("blk_gun");
   schema.Add("gun_rounds");
   schema.Add("gun_fired");
@@ -183,8 +173,8 @@ void FBGunSystem::DeclareTelemetry(FBTelemetrySchema &schema) const {
   schema.Add("gun_triggers");
   schema.Add("gun_refused");
   schema.Add("gun_burst");
-  /* ...and the solution it was aimed with (see Run): range to the predicted intercept point, how far the
-   * nose was from the required bore, the target's angular span there, and the funnel's own verdict. */
+  /* Die Loesung, mit der gezielt wurde: Entfernung zum vorhergesagten Treffpunkt, Ablage der Nase vom
+   * geforderten Bore, Winkelausdehnung des Ziels dort, und das Urteil des Trichters. */
   schema.Add("gun_sol_rng", "m");
   schema.Add("gun_sol_err", "deg");
   schema.Add("gun_sol_span", "mr");

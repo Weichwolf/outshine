@@ -9,41 +9,23 @@ namespace {
 constexpr float kRad = 3.14159265358979323846f / 180.f;
 constexpr float kR2D = 57.29577951308232f;
 constexpr float kHudFovDeg = 80.0f;
-/* Combiner APERTURE -- the real F-16 HUD is a small window in front of the pilot, not the whole
- * windscreen. Two documented angular specs (doc/f16/hud-symbology.md's "Technical depth"; DTIC
- * ADA430578 TFOV note cross-checked against the GPL-2.0 FlightGear F-16 mod's Nasal/HUD/HUD_main.nas
- * `TFOV=25deg`): TFOV (Total FOV, the full cone symbology may be positioned in) ~25deg, IFOV
- * (Instantaneous FOV, what the combiner glass actually shows at one head position) ~20x13.5deg. This
- * window uses TFOV for its horizontal half-angle (matches the diamond's out-of-view clamp, which the
- * window edge now doubles as -- see the clamp below) and IFOV's aspect ratio (13.5/20) to size the
- * vertical half-angle, since the combiner is documented wider than tall, not to IFOV's raw vertical
- * number verbatim -- a "clean" derived definition rather than a second independent magic constant. */
+/* Combiner APERTURE — the real HUD is a small window, not the whole windscreen. Horizontal half-angle
+ * is TFOV/2 [DOC]; the VERTICAL is DERIVED from IFOV's aspect ratio rather than set as a second magic
+ * constant. doc/flightbox/modules-f16.md §12.1. */
 constexpr float kApertureHalfWidthDeg = 12.5f;                                    /* TFOV/2 */
 constexpr float kApertureIfovH = 20.0f, kApertureIfovV = 13.5f;                   /* IFOV, for the ratio only */
 constexpr float kApertureHalfHeightDeg = kApertureHalfWidthDeg * (kApertureIfovV / kApertureIfovH);
-/* Combiner is rendered enlarged for 720p on-screen legibility -- the physical aperture ANGLE above is
- * untouched (still the real TFOV/IFOV spec the conformal projector uses), only the drawn window and
- * every fixed-pixel symbol/text size in it grow by this factor. Picked so the ~190x127px aperture lands
- * at ~358x239px -- inside a 3x3 720p grid's ~427x240 middle cell (doc/f16/hud-symbology.md's box math). */
+/* [SET] Enlarges only the DRAWN window and the fixed pixel sizes in it; the physical aperture ANGLE
+ * above stays what the conformal projector uses. */
 constexpr float kHudMagnify = 1.88f;
-/* Text-scale FLOORS the magnify multiplies from. The old aperture's own text constants (0.6-0.7 for the
- * boxed readouts, 0.62-0.65 for tick labels/status blocks) were shrunk to fit a window less than half
- * this size and stayed well under B612's own legibility ratio (ink ~= 0.75 * 6 * s) even after
- * kHudMagnify -- so the readouts/secondary text get raised to a common base FIRST, matching the
- * ~0.9-1.0 scale the ladder/G-load text already used, before the one central factor multiplies
- * everything: kHudReadoutScale*kHudMagnify ~= 2.16 (quad ~13, ink ~9.7px, clears the >=9px main-readout
- * floor); kHudSecondaryScale*kHudMagnify ~= 2.03 (quad ~12.2, ink ~9.1px, clears the >=8px secondary
- * floor with margin). Every other fixed size (boxes, ticks, symbols, insets) scales by kHudMagnify alone. */
+/* Text-scale FLOORS the magnify multiplies from [ABL], so the ink clears B612's own legibility ratio. */
 constexpr float kHudReadoutScale = 1.15f, kHudSecondaryScale = 1.08f;
 constexpr float kHgR = 0.30f, kHgG = 1.0f, kHgB = 0.40f;
-/* Feet per metre comes from core/FBUnits.h — the local float copy of it shadowed the shared constant
- * (same value to the last float bit, but exactly the drift FBUnits.h exists to prevent). */
-constexpr float kMToFtF = (float)kMToFt;
+constexpr float kMToFtF = (float)kMToFt;   /* from core/FBUnits.h: a local copy would drift */
 
 struct Proj { float sx, sy, zc; };   /* zc = cos(angle from boresight); zc<=0 = behind */
 
-/* The aperture window in screen pixels: same projector scale (Kc) every conformal element uses, so the
- * window is exactly the disc that scale subtends at the two half-angles above. */
+/* The aperture in screen pixels, at the same projector scale every conformal element uses. */
 struct Aperture { float cx, cy, x0, y0, x1, y1; };
 
 float Wrap180(float d) {
@@ -59,20 +41,16 @@ void DashedLine(FBHudGeometry &out, float x0, float y0, float x1, float y1, int 
   }
 }
 
-/* Altitude box's "6,020"-style thousands comma; %03d on the remainder handles the sign correctly since
- * C++ integer division/modulo both truncate toward zero. */
+/* "6,020"-style thousands comma; the sign works out because C++ division and modulo both truncate
+ * toward zero. */
 void PrintThousands(FBHudGeometry &out, float x, float y, float s, float r, float g, float b, int v) {
   if (v <= -1000 || v >= 1000) out.Printf(x, y, s, r, g, b, "%d,%03d", v / 1000, v % 1000 < 0 ? -(v % 1000) : v % 1000);
   else out.Printf(x, y, s, r, g, b, "%d", v);
 }
 
-/* Ray from the aperture centre through (px,py), pulled back to the rectangle's own boundary -- the
- * diamond's out-of-view clamp now lands exactly on the window edge instead of an independent circular
- * ring (task: "clamp ring merged with the window edge"). Degenerates to the centre point itself when
- * px==py==cx==cy (division guarded below), which never happens here (the diamond is never AT
- * boresight when clamping triggers). */
-/* `inset` shrinks the effective rectangle so a symbol of that half-size clamped onto it stays FULLY
- * inside the aperture (its crossed-out strokes don't get scissored in half by SetClip below). */
+/* Ray from the aperture centre through (px,py), pulled back to the rectangle's own boundary — so the
+ * out-of-view clamp lands exactly ON the window edge instead of on an independent ring. The inset
+ * shrinks it by a symbol's half-size, so its strokes are not scissored in half. */
 void ClampToRect(const Aperture &ap, float px, float py, float insetX, float insetY, float &ox, float &oy) {
   float dx = px - ap.cx, dy = py - ap.cy;
   float halfW = 0.5f * (ap.x1 - ap.x0) - insetX, halfH = 0.5f * (ap.y1 - ap.y0) - insetY;
@@ -84,15 +62,10 @@ void ClampToRect(const Aperture &ap, float px, float py, float insetX, float ins
 }
 } // namespace
 
-/* F-16 HUD symbology (doc/f16/hud-symbology.md; DCS F-16C Viper Guide Part 16 p.706 as the reference
- * frame; cross-checked against the FlightGear F-16 mod's Nasal/HUD -- see the class banner). Every
- * conformal element (horizon, pitch ladder, FPM, steerpoint diamond/tadpole) goes through ONE az/el
- * projector built from the SAME camera basis (yaw/pitch/roll) the generic default HUD's horizon
- * already uses -- "az/el" here is WORLD-referenced (0=north, +el=up), so a world direction (ground
- * track, bearing to a steerpoint) needs no separate body-frame composition. All of it is then cropped
- * to the combiner APERTURE (kApertureHalfWidthDeg/kApertureHalfHeightDeg above): the pilot's own
- * eye-relative window, not the whole render target -- tapes/text/heading/bank sit AT that window's
- * edges/corners, and the conformal elements are scissored to its rectangle (FBHudGeometry::SetClip). */
+/* Every conformal element goes through ONE az/el projector built from the same camera basis the generic
+ * HUD's horizon uses; "az/el" is WORLD-referenced (0=north, +el=up), so a world direction needs no
+ * body-frame composition. Everything is then cropped to the combiner APERTURE — the pilot's own
+ * eye-relative window, not the render target. Element table: doc/flightbox/modules-f16.md §12.2. */
 void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry &out) const {
   out.Reset();
   float cx = 0.5f * (float)env.Width, cy = 0.5f * (float)env.Height;
@@ -118,15 +91,14 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
 
   Aperture ap;
   ap.cx = cx; ap.cy = cy;
-  /* Kc itself stays the real scene-FOV projector (Project() below is untouched -- horizon/ladder/FPM/
-   * diamond positions stay conformal); kHudMagnify only inflates the WINDOW those positions get cropped
-   * to, so the already-conformal picture simply shows more of itself, larger. */
+  /* Kc stays the real scene-FOV projector, so positions stay conformal; kHudMagnify only inflates the
+   * WINDOW they are cropped to. */
   float winHalfW = Kc * tanf(kApertureHalfWidthDeg * kRad) * kHudMagnify;
   float winHalfH = Kc * tanf(kApertureHalfHeightDeg * kRad) * kHudMagnify;
   ap.x0 = cx - winHalfW; ap.x1 = cx + winHalfW;
   ap.y0 = cy - winHalfH; ap.y1 = cy + winHalfH;
 
-  /* ===== Conformal group: horizon, pitch ladder, FPM -- all scissored to the aperture rectangle. ===== */
+  /* ===== Conformal group: horizon, pitch ladder, FPM — all scissored to the aperture. ===== */
   out.SetClip(ap.x0, ap.y0, ap.x1, ap.y1);
 
   /* ----- Horizon: two segments flanking the boresight, gap for the FPM/ladder. ----- */
@@ -142,15 +114,11 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
     }
   }
 
-  /* ----- Pitch ladder: earth-referenced bars every 5deg, positive solid / negative dashed (MIL-STD-1787
-   * convention). Compacted to the aperture's own scale (doc/f16/hud-symbology.md's "Technical depth")
-   * -- half the old azimuth spread, so a full bar's two segments fit inside the window's width; the
-   * SetClip above still crops whatever pokes past it in elevation (task's expected effect: at 5deg
-   * spacing, only ~1-3 rungs visible through an 8.4deg half-height window). ----- */
+  /* ----- Pitch ladder: earth-referenced bars every 5 deg, positive solid / negative dashed
+   * (MIL-STD-1787), compacted so a full bar's two segments fit the window's width. ----- */
   {
-    /* gapDeg/outerDeg are stylistic azimuth spread (not a physical quantity -- only Ldeg's elevation
-     * carries real pitch), so kHudMagnify scales them directly as the "screen size" of the ladder bar,
-     * exactly like tickLen (an already-literal screen length). */
+    /* gapDeg/outerDeg are stylistic azimuth SPREAD, not a physical quantity — only Ldeg carries real
+     * pitch — so kHudMagnify scales them like any other screen length. */
     const float gapDeg = 1.0f * kHudMagnify, outerDeg = 4.5f * kHudMagnify, tickLen = 3.f * kHudMagnify;
     for (int Ldeg = -30; Ldeg <= 30; Ldeg += 5) {
       if (Ldeg == 0) continue;
@@ -174,10 +142,8 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
     }
   }
 
-  /* ----- FPM (flight path marker): the Aircraft Reference Symbol in normal flight (MIL-STD-1787) --
-   * circle + wings + tail, at the velocity vector's true ground track/flight-path angle. Computed
-   * (not just drawn) inside the clip section since the tadpole below re-uses fpm.sx/sy as its own
-   * anchor -- Project() itself is a pure function, unaffected by clip state. ----- */
+  /* ----- FPM: the MIL-STD-1787 Aircraft Reference Symbol at the velocity vector. Computed here rather
+   * than at its draw site because the tadpole below re-uses its anchor. ----- */
   Proj fpm = Project(state.AirData.TrackDeg, state.AirData.FpaDeg);
   {
     float fx = fpm.sx, fy = fpm.sy, mg = kHudMagnify;
@@ -189,19 +155,14 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
 
   out.ClearClip();
 
-  /* ----- Heading tape (TOP of the APERTURE): magnetic (state.Platform.YawDeg - magVarDeg; magVarDeg is a 0deg
-   * placeholder until a declination model exists). MOVED here from the aperture floor -- both our own
-   * doc/f16/hud-symbology.md ("Heading tape | Top") and the FlightGear mod's HUD_main.nas
-   * (head_mask/head_frame/head_curr all anchor at `sy*0.1`, i.e. ~10% down from the canvas TOP) agree;
-   * the earlier bottom placement was a plain error, not a documented deviation. Ticks point DOWN
-   * (toward the FPM/ladder), labels sit below the rail -- mirror image of the old top-of-scale layout,
-   * value box still straddles the rail. ----- */
+  /* ----- Heading tape, TOP of the aperture, ticks pointing down: magnetic (MagVar is a 0 deg
+   * placeholder until a declination model exists). ----- */
   {
     float mg = kHudMagnify;
     float hdg = state.Platform.YawDeg - state.Nav.MagVarDeg;
     hdg = hdg < 0 ? hdg + 360.f : (hdg >= 360.f ? hdg - 360.f : hdg);
     float hy1 = ap.y0 + 15.f * mg;                       /* rail y, near the aperture's top edge */
-    float halfSpan = winHalfW - 12.f * mg, hpd = 3.2f * mg;   /* px/deg -- how much heading range the tape shows */
+    float halfSpan = winHalfW - 12.f * mg, hpd = 3.2f * mg;   /* px/deg */
     for (int hh = (int)floorf((hdg - halfSpan / hpd) / 5.f) * 5; hh <= (int)(hdg + halfSpan / hpd); hh += 5) {
       float sx = cx + ((float)hh - hdg) * hpd;
       if (sx < ap.x0 || sx > ap.x1) continue;
@@ -225,15 +186,11 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
     out.Printf(cx - 10 * mg, hy1 - 3 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, "%03.0f", hdg);
   }
 
-  /* ----- Bank-angle scale (below the FPM): fixed ticks at 0/10/20/30/45deg + a pointer rotating with
-   * roll (clamped +-45deg). FG's HUD_main.nas roll_lines/roll_pointer put rollPos=[0,25] and
-   * rollRadius=50 against a half-canvas-height of 130px (centerOrigin to edge) -- 19.2% offset, 38.5%
-   * radius; scaled onto our own half-aperture-height (winHalfH) instead of jammed at the aperture's
-   * physical floor. ----- */
+  /* ----- Bank-angle scale below the FPM: fixed ticks + a pointer rotating with roll, clamped +-45 deg.
+   * Offset and radius are fractions of the half-aperture-height (§12.2). ----- */
   {
     float mg = kHudMagnify;
-    /* R/by are already fractions of winHalfH, which itself carries kHudMagnify -- only the literal
-     * tick length (tk) needs its own explicit scale. */
+    /* R/by already carry kHudMagnify through winHalfH; only the literal tick length needs its own. */
     float bx = cx, by = cy + 0.192f * winHalfH, R = 0.385f * winHalfH, tk = 4.f * mg;
     static const float marks[] = {0, 10, 20, -10, -20};
     static const float longMarks[] = {30, -30, 45, -45};
@@ -252,24 +209,17 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
     out.Line(px, py, px + (nx * 5.f - tx * 2.5f) * mg, py + (ny * 5.f - ty * 2.5f) * mg, kHgR, kHgG, kHgB);
   }
 
-  /* ----- G-load (top-left of the aperture). The ADC's head decides whether there is a number to show
-   * at all — same rule as the right-hand block below, applied to the one source that feeds three
-   * separate readouts and the CAS tape. A jet whose air data is gone shows dashes where its G, its Mach
-   * and its airspeed were, which is exactly what the pilot has to be able to tell apart from 1.0 g and
-   * zero knots. ----- */
+  /* ----- G-load, top-left. THE VALIDITY RULE (§12.4): every readout asks its source block's head
+   * first, because a pilot must be able to tell a FAILED sensor from a quiet one — 1.0 g and zero
+   * knots are not what a dead ADC means. ----- */
   const bool airDataOk = state.AirData.H.Readable();
   if (airDataOk)
     out.Printf(ap.x0 + 2.f * kHudMagnify, ap.y0 + 2.f * kHudMagnify, kHudSecondaryScale * kHudMagnify, kHgR, kHgG, kHgB, "%.1f", state.AirData.GLoad);
   else
     out.Text(ap.x0 + 2.f * kHudMagnify, ap.y0 + 2.f * kHudMagnify, kHudSecondaryScale * kHudMagnify, kHgR, kHgG, kHgB, "-.-");
 
-  /* ----- Left status block (LEFT edge, just past vertical centre -- not jammed in the bottom corner):
-   * master mode (NAV) FIRST, then Mach, Peak-G, ARM/SIM, bullseye bearing/distance. Both the vertical
-   * anchor and the row ORDER now follow the FlightGear mod's window2 (armmode/submode text, TOP of its
-   * stack at HUD_main.nas's y=147.7 of a 260px-tall canvas whose centre is y=130 -- 13.6% of the
-   * half-height below centre) -> window7 (Mach) -> window8 (Peak-G) -> window11 (bullseye, bottom of
-   * its stack); ARM/SIM has no FG-window counterpart at this position (kept, 4th row -- a documented
-   * addition, not a repositioning). ----- */
+  /* ----- Left status block: NAV, Mach, Peak-G, ARM/SIM, bullseye. ARM/SIM is a documented ADDITION —
+   * the reference layout has no counterpart for it at this position. ----- */
   {
     float lx = ap.x0 + 2.f * kHudMagnify, ls = 8.f * kHudMagnify, s = kHudSecondaryScale * kHudMagnify;
     float ly = cy + 0.136f * winHalfH;
@@ -286,19 +236,12 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
               ((int)(state.Nav.BullBearingDeg + 0.5f) % 360 + 360) % 360, state.Nav.BullDistNm);
   }
 
-  /* ----- Right status block (RIGHT edge, same vertical band as the left block): radar altitude (R),
-   * ALOW floor (AL), the 'B' slant range, TTG, distance>steerpoint -- order matches FlightGear's
-   * window10(TA/ALOW)->window3(slant range)->window4(TTG)->window5(nav-range>steerpoint) run; R (radar
-   * altitude) has no FG-window counterpart here (FG gives it its own dedicated "radalt" text elsewhere)
-   * but stays as an extra lead row -- a documented addition. ----- */
+  /* ----- Right status block: R (radar altitude, a documented ADDITION), AL, 'B' slant range, TTG,
+   * distance>steerpoint. A HELD block still shows its value — deliberately frozen is not broken, and
+   * blanking it would throw away information the pilot is entitled to. ----- */
   {
     float rx = ap.x1 - 46.f * kHudMagnify, ls = 8.f * kHudMagnify, s = kHudSecondaryScale * kHudMagnify;
     float ry = cy + 0.136f * winHalfH;
-    /* EVERY readout in this block asks its source block's head first. A dead box gets DASHES, not its
-     * last number in the same font as a live one — that is the whole reason the head exists
-     * (core/FBBlockStatus.h), and it is why the F-16's own manual insists the pilot can tell a failed
-     * sensor from a quiet one. A HELD block still shows its value: it is deliberately frozen, not
-     * broken, and blanking it would throw away information the pilot is entitled to. */
     if (state.RadarAlt.H.Readable()) out.Printf(rx, ry, s, kHgR, kHgG, kHgB, "R%4.0f", state.RadarAlt.AglFt);
     else out.Text(rx, ry, s, kHgR, kHgG, kHgB, "R----");
     if (state.Ufc.H.Readable()) out.Printf(rx, ry + ls, s, kHgR, kHgG, kHgB, "AL%3.0f", state.Ufc.AlowFt);
@@ -317,17 +260,13 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
     else out.Text(rx, ry + 4 * ls, s, kHgR, kHgG, kHgB, "---> --");
   }
 
-  /* ----- Airspeed tape (LEFT side, CAS): minor ticks every 20kt, boxed exact value + "C" CAS tag,
-   * inset from the aperture's own edge (FG's speed_frame box sits at ~8-29% of canvas width from the
-   * left, not flush against the combiner edge -- HUD_main.nas line 357's `0.20*sx*uv_used` anchor).
-   * Numeric tick labels dropped (no room at this scale) -- the box carries the exact value, same
-   * simplification the altitude tape below makes. ----- */
+  /* ----- Airspeed tape (CAS): minor ticks every 20 kt, boxed exact value, inset from the aperture
+   * edge. Numeric tick labels dropped — no room at this scale, and the box carries the value. ----- */
   {
     float mg = kHudMagnify;
     float ax = ap.x0 + 0.08f * (ap.x1 - ap.x0), as = state.AirData.CasKt;
     float tapeHalf = 20.f * mg, pxPerKt = 0.55f * mg;
-    /* A dead ADC has no scale to move: the tape's frame and box stay (the instrument is still there),
-     * the moving ticks and the number do not. */
+    /* A dead ADC has no scale to move: frame and box stay (the instrument is there), ticks do not. */
     if (airDataOk) {
       for (int av = (int)floorf((as - tapeHalf / pxPerKt) / 20.f) * 20; av <= (int)(as + tapeHalf / pxPerKt); av += 20) {
         if (av < 0) continue;
@@ -343,9 +282,8 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
     else out.Text(ax + 4 * mg, cy - 3 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, "---");
   }
 
-  /* ----- Altitude tape (RIGHT side, barometric ASL): minor ticks every 100ft, boxed exact value,
-   * thousands-comma'd ("6,020" ft), inset from the aperture edge to mirror the CAS tape (FG's alt_frame
-   * anchors at ~0.80*sx*uv_used, the same ~8% margin from its edge). ----- */
+  /* ----- Altitude tape (barometric ASL): minor ticks every 100 ft, boxed thousands-comma'd value,
+   * inset to mirror the CAS tape. ----- */
   {
     float mg = kHudMagnify;
     float axr = ap.x1 - 0.08f * (ap.x1 - ap.x0), asl = state.Platform.AltM * kMToFtF;
@@ -357,18 +295,15 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
       out.Line(axr, sy, axr - tk * mg, sy, kHgR, kHgG, kHgB);
     }
     out.Line(axr, cy - tapeHalf, axr, cy + tapeHalf, kHgR, kHgG, kHgB);
-    /* box wide enough for a 6-char "10,020"-style readout: 6 * advance(4 * 2.162) ~= 52px < 32*mg */
+    /* wide enough for a 6-char "10,020": 6 * advance(4 * 2.162) ~= 52 px < 32*mg */
     out.Box(axr - 34 * mg, cy - 5 * mg, axr - 2 * mg, cy + 5 * mg, kHgR, kHgG, kHgB);
     PrintThousands(out, axr - 32 * mg, cy - 3 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, (int)asl);
   }
 
-  /* ===== Steerpoint diamond + tadpole -- back under the aperture clip (task: these stay conformal). The
-   * cross-out gate and the clamp position both use the RECTANGULAR aperture now, not a separate circular
-   * ring, so the crossed-out diamond always sits exactly ON the window's own edge (task 4). ===== */
+  /* ===== Steerpoint diamond + tadpole: conformal, so back under the aperture clip. ===== */
   out.SetClip(ap.x0, ap.y0, ap.x1, ap.y1);
-  /* No nav solution, no steering symbology: a diamond drawn from an unwritten block would point the
-   * pilot at a steerpoint that does not exist (MIL-STD-1787's declutter rule, and the reason the block
-   * has a head at all). A BFM mission with no waypoints is exactly this case. */
+  /* No nav solution, no steering symbology: a diamond from an unwritten block would point the pilot at
+   * a steerpoint that does not exist (MIL-STD-1787's declutter rule). A BFM mission is exactly this. */
   if (state.Nav.H.Readable()) {
     Proj sp = Project(state.Nav.SteerBearingDeg, state.Nav.SteerElevAngleDeg);
     bool outOfFov = sp.zc < 0.05f || sp.sx < ap.x0 || sp.sx > ap.x1 || sp.sy < ap.y0 || sp.sy > ap.y1;
@@ -384,9 +319,8 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
       out.Line(px - dw, py + dh, px + dw, py - dh, kHgR, kHgG, kHgB);
     }
 
-    /* Tadpole: near the FPM, X clamped to the aperture's own half-width (scaled down from the old
-     * screen-width-fraction clamp), rotated so it points UP when the steerpoint is ahead of track,
-     * DOWN when behind (doc/f16/hud-symbology.md). */
+    /* Tadpole: near the FPM, X clamped to the aperture half-width, rotated so it points UP when the
+     * steerpoint is ahead of track and DOWN when behind [DOC]. */
     float mg = kHudMagnify;
     float relBrg = Wrap180(state.Nav.SteerBearingDeg - state.AirData.TrackDeg);
     float clampX = winHalfW - 12.f * mg;

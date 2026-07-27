@@ -3,13 +3,13 @@
 
 namespace FlightBox {
 
-/* ---- HYG star field placement math: ports of command_center/stars.h (Polaris-pinned there). ---- */
+/* HYG star-field placement, Polaris-pinned. */
 static double GmstDeg(double unixSec) {   /* Greenwich mean sidereal time, deg (IAU J2000 polynomial) */
   double jd = unixSec / 86400.0 + 2440587.5, dd = jd - 2451545.0;
   double g = std::fmod(280.46061837 + 360.98564736629 * dd, 360.0);
   return g < 0 ? g + 360.0 : g;
 }
-/* Catalogue RA/dec + local sidereal time + latitude -> ENU direction; returns 0 if at/below horizon. */
+/* RA/dec + local sidereal time + latitude -> ENU; 0 if at or below the horizon. */
 static int StarEnu(double lstDeg, double latDeg, double raDeg, double decDeg, double out[3]) {
   const double RAD = 3.14159265358979 / 180.0;
   double H = (lstDeg - raDeg) * RAD, dec = decDeg * RAD;
@@ -23,7 +23,7 @@ static int StarEnu(double lstDeg, double latDeg, double raDeg, double decDeg, do
   out[2] = sinAlt;              /* up */
   return 1;
 }
-/* B-V colour index -> spectral tint (shaders.h W3_VSTAR starColour, verbatim). */
+/* B-V colour index -> spectral tint. */
 static void StarColour(float bv, float out[3]) {
   float t = bv < -0.4f ? -0.4f : bv > 1.8f ? 1.8f : bv;
   const float blue[3] = {0.61f, 0.70f, 1.0f}, white[3] = {1, 1, 1}, yellow[3] = {1.0f, 0.96f, 0.84f};
@@ -150,7 +150,7 @@ void FBStarsStage::Update(double nowSec) {
 
   double lst = std::fmod(GmstDeg(nowSec) + Lon, 360.0);
   if (lst < 0) lst += 360.0;
-  /* ENU basis at the origin, in ECEF (FBCamera.h w3_enu_axes). Star ENU -> ECEF via these axes. */
+  /* Star ENU -> ECEF via the origin's own ENU axes. */
   const double RAD = 3.14159265358979 / 180.0;
   double P = Lat * RAD, L = Lon * RAD;
   double sP = std::sin(P), cP = std::cos(P), sL = std::sin(L), cL = std::cos(L);

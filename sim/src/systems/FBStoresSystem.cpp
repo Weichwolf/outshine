@@ -68,8 +68,7 @@ bool FBStoresSystem::SelectStation(int station) {
   return true;
 }
 
-/* Station step: the next LOADED station after the one just emptied, wrapping — the same "weapon/station
- * step" a real SMS does so a ripple does not need the pilot to reselect between releases. */
+/* Station-Step: die naechste BELEGTE Station, umlaufend — eine Ripple braucht so keine Neuwahl. */
 void FBStoresSystem::SelectNextLoaded() {
   int from = IndexOf(Selected_);
   for (int k = 1; k <= Count_; k++) {
@@ -79,10 +78,8 @@ void FBStoresSystem::SelectNextLoaded() {
   Selected_ = -1;
 }
 
-/* The whole loadout, restated to the engine: each station's point mass, and the aggregate drag area at
- * the loaded stations' CENTROID (an empty jet: zero area, no force). Weight-weighted centroid rather
- * than a fixed point, so an asymmetric load's drag produces the yaw/roll moment it physically should —
- * out of JSBSim's own force model, not out of a term invented here. */
+/* Gewichtsgewichteter SCHWERPUNKT der belegten Stationen statt eines festen Punktes: so erzeugt eine
+ * asymmetrische Zuladung ihr Gier-/Rollmoment aus JSBSims eigenem Kraftmodell. */
 void FBStoresSystem::PublishLoadout() {
   if (!Fdm_) return;
   double cda = 0.0, wx = 0.0, wy = 0.0, wz = 0.0, w = 0.0;
@@ -106,9 +103,8 @@ bool FBStoresSystem::Release(double nowS, FBCommandOutcome &outcome, FBCommandRe
                                             {"station", Selected_}, {"arm", MasterArm() == FBArmState::Arm}});
     return false;
   };
-  /* The two hardware interlocks first, in the order the jet checks them: the master arm switch is the
-   * pilot's own safety, weight-on-wheels is the airframe's. Neither is something software may talk its
-   * way past (doc/f16/controls-commands.md §6.2). */
+  /* Die zwei HARDWARE-Verriegelungen zuerst: ein physischer Schalter sperrt den Softwarepfad, und kein
+   * Software-Zustand darf sich daran vorbeireden. */
   if (Arm_ != FBArmState::Arm)
     return refuse(FBCommandReason::HardwarePrecedence, "master arm not in ARM");
   if (Wow_)
@@ -119,11 +115,8 @@ bool FBStoresSystem::Release(double nowS, FBCommandOutcome &outcome, FBCommandRe
   if (PendingCount_ >= kMaxPendingReleases)
     return refuse(FBCommandReason::ChannelBusy, "release queue not drained");
 
-  /* The WEAPON-SPECIFIC interlocks, after the two hardware ones and before anything leaves the rail. A
-   * guided round is not a bomb: it needs a target to be programmed with and a launch zone to be inside,
-   * and both are the fire control's answer (cached in Run from the bus block it publishes), not the
-   * SMS's opinion. Refusing here rather than launching a round that cannot arrive is the same
-   * valid-command-wrong-context case an unselected station is (doc/f16/controls-commands.md §6.5). */
+  /* Die WAFFENSPEZIFISCHEN Verriegelungen: die Antwort der FEUERLEITUNG (in Run() gecached), nicht die
+   * Meinung des SMS. */
   const FBStoreSpec *rspec = FBStoreSpecOf(Stations_[i].Kind);
   if (rspec && rspec->RequiresLock) {
     if (!RadarLocked_ || !Target_.Valid)
@@ -144,31 +137,24 @@ bool FBStoresSystem::Release(double nowS, FBCommandOutcome &outcome, FBCommandRe
   rel.Kind = s.Kind;
   rel.MassLbs = s.MassLbs;
   rel.SimTimeS = nowS;
-  /* Structural (x aft, y right, z up, inches, origin at the model's datum) -> body (fwd/right/down,
-   * metres) RELATIVE TO THE CG, which is the frame the release point is built in: JSBSim's own
-   * structural-to-body convention (FGMassBalance::StructuralToBody), applied here because this class is
-   * the only one that knows where the pylon is. */
+  /* Struktur (x achtern, y rechts, z auf, Zoll) -> Koerper (vorn/rechts/unten, Meter) RELATIV ZUM CG:
+   * JSBSims eigene Konvention, hier angewandt, weil nur diese Klasse weiss, wo der Pylon sitzt. */
   double cgXIn = Fdm_ ? Fdm_->GetCgXIn() : s.XIn;
   rel.OffFwdM = (cgXIn - s.XIn) * kInToM;
   rel.OffRightM = s.YIn * kInToM;
   rel.OffDownM = -s.ZIn * kInToM;
-  /* The launch programming (core/FBStore.h's FBStoreRelease): a guided round leaves the rail knowing
-   * where the shooter's fire control last saw the target and whose uplink to listen to for corrections.
-   * An unguided store carries an invalid target and launcher 0, which is what it is. */
+  /* Die Startprogrammierung: eine gelenkte Runde nimmt die Zielschaetzung des Schuetzen mit, eine
+   * ungelenkte die Abwurfloesung, mit der sie gezielt wurde. */
   if (rspec && rspec->Guided) {
     rel.LauncherId = SelfId_;
     rel.Target = Target_;
     GuidedInFlight_++;
   } else {
-    /* The unguided half of the same programming: an UNGUIDED round is aimed by the computer, not by a
-     * seeker, so what leaves with it is the solution it was aimed with (see SetReleaseSolution). */
     rel.Solution = Solution_;
   }
 
-  /* The gross weight AT the release, i.e. before this change reaches the engine: FGMassBalance sums the
-   * point masses in its own Run, so the new weight exists one step later and is read from the telemetry
-   * column (sms_gw_lbs), not from here. Logging a "before" that the next step contradicts would be a
-   * measurement of nothing. */
+  /* Das Gewicht VOR dem Wirksamwerden: FGMassBalance summiert die Punktmassen in seinem eigenen Run, das
+   * neue Gewicht existiert einen Schritt spaeter und wird aus sms_gw_lbs gelesen. */
   double gwLbs = Fdm_ ? Fdm_->GetWeightLbs() : 0.0;
   double storesBefore = LoadedMassLbs();
   s.Kind = FBStoreKind::None;
@@ -176,7 +162,7 @@ bool FBStoresSystem::Release(double nowS, FBCommandOutcome &outcome, FBCommandRe
   s.DragAreaFt2 = 0.0;
   Released_++;
   SelectNextLoaded();
-  PublishLoadout();   /* the mass is off the jet from this step on — see the class banner */
+  PublishLoadout();   /* die Masse ist ab diesem Schritt vom Jet herunter */
   outcome = FBCommandOutcome::Accepted;
   reason = FBCommandReason::None;
   const FBStoreSpec *spec = FBStoreSpecOf(rel.Kind);
@@ -184,18 +170,15 @@ bool FBStoresSystem::Release(double nowS, FBCommandOutcome &outcome, FBCommandRe
       {"storeLbs", rel.MassLbs}, {"gwLbs", gwLbs},
       {"storesLbsBefore", storesBefore}, {"storesLbsAfter", LoadedMassLbs()},
       {"remaining", LoadedCount()}, {"nextStation", Selected_}});
-  /* A guided round's launch record carries the SOLUTION it was fired on — the fire control's own launch
-   * zone and its two countdowns, at the moment of launch. It is a separate line rather than more fields
-   * on RELEASE because it exists only for a guided round, and because it is the prediction the flown
-   * result is later measured against (the DLZ's error is a real property, not a bug to hide). */
+  /* Eigene Zeile statt weiterer RELEASE-Felder: die Vorhersage, gegen die das geflogene Ergebnis spaeter
+   * gemessen wird (der Fehler der DLZ ist eine echte Eigenschaft, kein zu versteckender Fehler). */
   if (rspec && rspec->Guided)
     FBLog::Info("sms", "LAUNCH_SOLUTION", {{"store", spec ? spec->Key : "?"},
         {"rangeM", ZoneRangeM_}, {"rminM", ZoneMinM_}, {"raeroM", ZoneMaxM_}, {"rtrM", ZoneRtrM_},
         {"ttaS", ZoneTtaS_}, {"ttiS", ZoneTtiS_},
         {"tgtLat", Target_.LatDeg}, {"tgtLon", Target_.LonDeg}, {"tgtAltM", Target_.AltM},
         {"tgtAgeS", nowS - Target_.StampS}});
-  /* ...and the unguided one's, for the same reason and in the same shape: what the computer PREDICTED
-   * at the instant of the pickle. The runner puts it beside the impact it then measures. */
+  /* ...und dasselbe fuer die ungelenkte Runde: was der Rechner im Moment des Pickles VORHERSAGTE. */
   if (rspec && !rspec->Guided && rel.Solution.Valid)
     FBLog::Info("sms", "RELEASE_SOLUTION", {{"store", spec ? spec->Key : "?"},
         {"mode", FBDeliveryModeStr(rel.Solution.Mode)},
@@ -217,12 +200,11 @@ bool FBStoresSystem::TakeRelease(FBStoreRelease &out) {
 
 void FBStoresSystem::Run(FBState &state, double dt) {
   (void)dt;
-  /* The weight-on-wheels interlock reads the airframe block like any other consumer — an unpublished
-   * one leaves the last known value rather than inventing "airborne". */
+  /* Ein unpublizierter Airframe-Block laesst den letzten bekannten Wert stehen, statt „in der Luft" zu
+   * erfinden. */
   if (state.Airframe.H.Readable()) Wow_ = state.Airframe.WeightOnWheels;
 
-  /* The fire control's answer, cached for the pickle (which arrives from the command bus between ticks,
-   * not inside one) — read like any other consumer reads a block, head first. */
+  /* Die Antwort der Feuerleitung, fuer den Pickle gecached (der zwischen zwei Ticks vom Bus kommt). */
   RadarLocked_ = state.Radar.H.Readable() && state.Radar.LockIndex >= 0;
   HaveZone_ = state.FireControl.H.Readable() && state.FireControl.DlzValid;
   if (HaveZone_) {
@@ -237,10 +219,8 @@ void FBStoresSystem::Run(FBState &state, double dt) {
     InZone_ = false;
   }
 
-  /* WHAT THIS AIRCRAFT RADIATES to a round in flight. A launcher supports its shot for exactly as long
-   * as its fire control still holds the target: lose the lock and the uplink stops mid-flight, which is
-   * the case the whole midcourse/terminal split exists for. Nothing here decides what the missile then
-   * does — the missile does (modules/missile/FBMissileGuidance). */
+  /* Der Schuetze stuetzt seinen Schuss genau solange, wie seine Feuerleitung das Ziel haelt: Lock weg,
+   * Uplink weg — mitten im Flug. Was die Rakete dann tut, entscheidet die Rakete. */
   Uplink_.Active = GuidedInFlight_ > 0 && Target_.Valid;
   Uplink_.LauncherId = SelfId_;
   Uplink_.Target = Target_;
@@ -257,14 +237,13 @@ void FBStoresSystem::Run(FBState &state, double dt) {
 }
 
 void FBStoresSystem::DeclareTelemetry(FBTelemetrySchema &schema) const {
-  schema.Add("sms_arm");            /* 1 = master arm ARM */
-  schema.Add("sms_station");        /* selected station, -1 = none */
-  schema.Add("sms_loaded");         /* stores still on the jet */
-  schema.Add("sms_lbs", "lb");      /* their total weight — the SMS's own books */
+  schema.Add("sms_arm");            /* 1 = Master Arm ARM */
+  schema.Add("sms_station");        /* gewaehlte Station, -1 = keine */
+  schema.Add("sms_loaded");
+  schema.Add("sms_lbs", "lb");      /* die Buecher des SMS */
   schema.Add("sms_released");
-  /* The airframe's gross weight, in the SAME row as the books above: this is the one place the mass a
-   * release TOOK OFF and the mass the AIRFRAME then has can be read against each other, which is what
-   * makes the carriage effect measurable rather than asserted. */
+  /* Das Bruttogewicht der ZELLE in DERSELBEN Zeile wie die Buecher darueber — nur so ist der
+   * Traegereffekt mess- statt behauptbar. */
   schema.Add("sms_gw_lbs", "lb");
 }
 

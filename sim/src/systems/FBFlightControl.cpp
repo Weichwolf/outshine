@@ -18,7 +18,7 @@ void FBFlightControl::Reset(void) { GIterm = VsIterm = NyIterm = ThrIterm = NzPr
 FBFlightControl FBFlightControl::F16(void) {
   FBFlightControl c;
   c.Flcs = 1;
-  c.RollStickMax = 0.15;   /* gentle pilot roll-in: nz stays 0.7..1.9 vs -1.1..+3.0 at 0.35 (measured) */
+  c.RollStickMax = 0.15;   /* gemessen: nz bleibt 0,7..1,9 g; bei 0,35 waren es -1,1..+3,0 g */
   c.KRollRate = 0.05; c.KG = 0.25; c.KGi = 0.8;
   c.KpSpd = 0.02; c.ThrTrim = 0.85;
   return c;
@@ -31,11 +31,9 @@ FBControls FBFlightControl::Run(const FBGuidance &g, const fb_fdm_state &s) {
     return LastControls_ = o;
   }
   if (Flcs) {
-    /* Turn-g feedforward from the ACTUAL bank (the g a turn needs NOW depends on the bank NOW), the
-     * vs-error INTEGRAL collapsing the false alt/g equilibria, a slew-limited g command, and the g
-     * stick BLENDED in only once the bank is nearly established (a pilot rolls in neutral-pitch;
-     * driving the g loop mid-roll stacks onto the FLCS's own g-PID -> entry spikes). All measured
-     * against the bare model — see flightctl.h history / sim-critic runs. */
+    /* Vier Konstruktionsentscheidungen, jede gegen das nackte Modell gemessen: Kurven-g-Feedforward aus
+     * der TATSAECHLICHEN Schraeglage, VS-Fehler-Integral, slew-limitiertes g-Kommando, und der g-Stick
+     * erst EINGEBLENDET, wenn die Schraeglage steht. doc/flightbox/systems.md, Abschnitt 3.3. */
     double bc = std::fmin(std::fabs(s.roll), 80.0) * (M_PI / 180.0);
     double targetVs = g.TargetVsMs;
     double vsErr = targetVs - s.vy;
@@ -51,20 +49,17 @@ FBControls FBFlightControl::Run(const FBGuidance &g, const fb_fdm_state &s) {
     GIterm = Clamp(GIterm + blend * KGi * gErr * 0.01, -1.0, 1.0);
     o.Roll = Clamp(KRollRate * (g.BankCmdDeg - s.roll), -RollStickMax, RollStickMax);
     o.Pitch = blend * Clamp(KG * gErr + GIterm, -1.0, 1.0);
-    /* pedals: null the lateral load factor — the model's yaw damper (raw r feedback, no washout)
-     * holds rudder against a steady turn; residual ny ~ -0.10 g remains model-intrinsic. */
+    /* Pedale nullen den Querlastfaktor; ein Rest-ny von ~-0,10 g bleibt modell-intrinsisch (Prinzip 5). */
     NyIterm = Clamp(NyIterm + KNyi * s.ny * 0.01, -0.6, 0.6);
     o.Yaw = Clamp(KNy * s.ny + NyIterm, -1.0, 1.0);
   } else {
-    double pitchCmd = Clamp(KAltRaw * g.AltErrM, -PitchMaxDeg, PitchMaxDeg); /* not used by the F-16
-                            (FLCS-command inner); the c172-era attitude PD for FLCS-less models —
-                            pitch-angle target from alt error, verbatim flightctl.h fc_update raw path */
+    double pitchCmd = Clamp(KAltRaw * g.AltErrM, -PitchMaxDeg, PitchMaxDeg);
     o.Roll = Clamp(KpRoll * (g.BankCmdDeg - s.roll) - KdRoll * s.p, -1.0, 1.0);
     o.Pitch = -Clamp(KpPitch * (pitchCmd - s.pitch) - KdPitch * s.q, -1.0, 1.0);
     o.Yaw = Clamp(-KdYaw * s.r + KCoord * g.BankCmdDeg, -1.0, 1.0);
   }
   double spdErr = g.TargetSpeedMs - s.speed;
-  ThrIterm = Clamp(ThrIterm + KTi * spdErr * 0.01, -ThrTrim, 1.0 - ThrTrim);   /* physical range from trim */
+  ThrIterm = Clamp(ThrIterm + KTi * spdErr * 0.01, -ThrTrim, 1.0 - ThrTrim);   /* physischer Weg von der Trimmstellung zu beiden Anschlaegen */
   o.Thr = Clamp(ThrTrim + KpSpd * spdErr + ThrIterm, 0.0, 1.0);
   return LastControls_ = o;
 }

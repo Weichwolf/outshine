@@ -1,17 +1,10 @@
-/* FlightBox — FBMissionBoot: the declarative spawn BOTH entry points need to start a mission-with-pilot
- * run (the native/gym mission runner and the WASM app's default boot), factored once so neither App
- * duplicates JSBSim IC / FBPilot-arming mechanics. Generic over FBModule (mission.ModuleName picks the
- * concrete module via FBModuleRegistry), not hardcoded to the F-16: this header itself never names a
- * concrete module type. Header-only: every caller already links FBMissionFile.cpp + the module registry,
- * so no new Makefile translation unit is needed for this.
+/* The declarative spawn both entry points share (the mission runner and the WASM boot), generic over
+ * FBModule — this header never names a concrete module type. ONE IC application covers ground sit and
+ * airborne alike; there is no second code path.
  *
- * ONE IC application (CLAUDE.md's declarative-spawn contract): FBFdmBoot::Spawn applies position/
- * attitude/velocity together for BOTH a ground sit (HeightOffsetM<0) and an explicit airborne altitude
- * (the offset above the resolved ground) — FBSpawn.Ground picks which, there is no second, separate
- * airborne code path here. This header is also the app-side half of the IC gate: it includes
- * fdm/FBFdmBoot.h, the ONLY way to produce an FBFdm, which is why no file under systems/ or modules/
- * can spawn, re-place or re-trim an airframe (FBFdmBoot.h's banner) — and, since an FBSimUnit can only
- * be built FROM a spawned airframe, why this header is also the only producer of a complete actor. */
+ * It is also the app-side half of the IC gate: it includes fdm/FBFdmBoot.h, the only way to produce an
+ * FBFdm — which is why nothing under systems/ or modules/ can spawn or re-trim an airframe, and why
+ * this header is the only producer of a complete actor. Ablauf: doc/flightbox/units-and-missions.md §6. */
 #ifndef FBMISSIONBOOT_H
 #define FBMISSIONBOOT_H
 
@@ -30,26 +23,9 @@
 
 namespace FlightBox {
 
-/* Spawns ONE mission actor — the `unit` block at `unitIdx` (core/FBMissionFile.h): resolves that
- * block's ModuleName through FBModuleRegistry, applies its declarative FBSpawn as a single
- * FBFdmBoot::Spawn IC call (ground-sit or literal-altitude airborne, see the file banner), wires the
- * airframe to the module (FBModule::AttachFdm) and then the block's own data onto it — its FlightPlan
- * and the MISSION's runway, FBAutopilot neutral Manual (idle stick/throttle: a
- * real-FLCS airframe like the F-16 holds wings-level on its own, so a ground spawn's Preflight hold has
- * something stable to sit in), gear DOWN + both wheel brakes as the real-world baseline (a mission's own
- * `set gear up` line overrides it for an air start), FBPilot armed at the phase matching the spawn
- * (Preflight for a ground sit — the WOW-gated hold+takeoff-roll machinery; Route directly for an
- * airborne spawn, already established in flight), and every `set <key> <value>` line via
- * FBModule::ApplySetup (an unrecognized key voids the spawn — the caller turns that into a mission FAIL,
- * doc/mission-format.md). An actor WITH objectives (a non-empty flight plan, `objective` lines, or
- * both) also gets its own FBMissionMonitor, built from the mission FILE's plan/objectives/runway (never
- * the module's live, mutated copy) with `timeoutS` — the caller's resolved timeout, which may override
- * the file's own; an actor the mission gave neither has nothing to succeed or fail at and carries no
- * monitor, so it never appears in the mission verdict.
- *
- * `models` is the client's model root (app/FBModelRoots.h — one root, its spelling differs per link
- * target). Returns nullptr with a human reason in *err (unknown module, JSBSim init,
- * rejected `set` line); on success the caller owns the actor and everything in it. */
+/* Spawns ONE mission actor: the `unit` block at `unitIdx`, step by step in
+ * doc/flightbox/units-and-missions.md §6. Returns nullptr with a human reason in *err; on success the
+ * caller owns the actor and everything in it. */
 inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const FBModelRoots &models, const FBMission &mission,
                                                       size_t unitIdx, double groundAsl, double timeoutS,
                                                       std::string *err) {
@@ -63,13 +39,9 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const FBModelRoots &models
 
   const FBSpawn &sp = block.Spawn;
 
-  /* A MODULE WITH NO AIRFRAME (modules/ground/FBGroundModule — an empty FdmModelName): the whole spawn
-   * is the declarative position, and there is nothing to load, place, trim or attach. It is deliberately
-   * this early return rather than a branch threaded through the IC below, because the two have nothing
-   * in common: everything from here to the end of the aircraft path exists to put a JSBSim instance into
-   * a state, and this unit has none. What it DOES share is everything after that — the unit object, its
-   * identity, its health register, its telemetry, its mission monitor — which is why those steps are
-   * reached the same way in both. */
+  /* A MODULE WITH NO AIRFRAME (an empty FdmModelName): deliberately an early return rather than a
+   * branch threaded through the IC, because everything below exists to put a JSBSim instance into a
+   * state and this unit has none. Everything AFTER that is shared. */
   if (!module->FdmModelName() || module->FdmModelName()[0] == '\0') {
     if (!sp.Ground) return fail("a unit with no airframe must spawn on the ground");
     if (!block.SetKV.empty()) {
@@ -112,8 +84,7 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const FBModelRoots &models
   module->Controls().SetWheelBrakes(1.0, 1.0);
   module->PilotSystem().SetPhase(sp.Ground ? FBPilot::Phase::Preflight : FBPilot::Phase::Route);
   for (const auto &kv : block.SetKV) {
-    /* The module already logged WHY (unknown key vs. unparsable/out-of-range value — only it knows its
-     * own keys); this is the boot-level "the spawn is void because of this line". */
+    /* The module already logged WHY — only it knows its keys; this is "the spawn is void". */
     if (!module->ApplySetup(kv.first, kv.second)) {
       FBLog::Error("mission", "SET_REJECTED", {{"key", kv.first}, {"value", kv.second}});
       return fail("spawn failed (jsbsim init, a bad model, or a rejected 'set' line)");
@@ -125,44 +96,23 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const FBModelRoots &models
   FBUnitKind kind = module->UnitKind();   /* read BEFORE the move: argument order is unspecified */
   auto unit = std::make_unique<FBSimUnit>((int)unitIdx + 1, block.Id, kind, block.Team,
                                           std::move(fdm), std::move(module), st, groundAsl);
-  /* An actor is JUDGED iff the mission gave it something to achieve — waypoints to reach or combat
-   * objectives to meet (core/FBObjective.h). An actor with neither has nothing to succeed or fail at
-   * and carries no monitor, so it never appears in the mission verdict; that was the rule before
-   * objectives existed and it is unchanged, only the definition of "something" grew. */
+  /* An actor is JUDGED iff the mission gave it something to achieve; one with neither waypoints nor
+   * objectives carries no monitor and never appears in the mission verdict. */
   if (!block.Plan.Empty() || !block.Objectives.empty())
     unit->SetMissionMonitor(std::make_unique<FBMissionMonitor>(block.Plan, block.Objectives,
                                                                mission.Runway, mission.HaveRunway,
                                                                timeoutS));
-  /* THE one place the log-attribution rule is decided (core/FBLog.h's SetUnit banner): a mission with a
-   * single actor keeps its lines unattributed — they are the mission's own — while a flight labels
-   * every line with the callsign that produced it. */
+  /* THE one place the log-attribution rule is decided: a single actor's lines stay unattributed
+   * (they are the mission's own), a flight labels every line with its callsign. */
   unit->SetLogAttribution(mission.Units.size() > 1);
   return unit;
 }
 
-/* Spawns ONE RELEASED STORE as its own actor: the second producer of a complete unit, and structurally
- * the same four steps as the mission actor above — resolve the module by name (the store's catalogue
- * key IS its registry key, modules/stores/FBStoreModuleRegistration), apply ONE declarative IC, attach
- * the airframe, wrap it in an FBSimUnit. It differs in exactly two things, and both are properties of
- * what a released store IS: the IC comes from the CARRIER's state instead of from a mission file, and
- * the unit is FBUnitKind::Weapon, which is what tells its owner that its physical K.O. is an impact
- * rather than the end of the run.
- *
- * THE SEPARATION STATE, in full:
- *   - POSITION: the carrier's position plus the station's own offset, rotated out of body axes by the
- *     carrier's attitude (core/FBGeodesy's one rotation). A store leaves the pylon, not the CG.
- *   - ATTITUDE: the carrier's, unchanged. Nothing tips it off the rack; whatever the airframe was doing
- *     at that instant is what the store starts doing.
- *   - VELOCITY: the carrier's velocity vector AT THAT STATION, i.e. its CG velocity plus omega x r —
- *     the rotational term matters the moment a release happens in a roll, and leaving it out would be a
- *     silent simplification rather than a modelling choice.
- * There is deliberately NO ejector impulse: a real pylon pushes the store down at some ft/s, and
- * doc/f16/weapons.md has no citable figure for it (§4.5's station data is T4 at best), so the store
- * separates with the carrier's motion and nothing invented on top. When a source turns up it is one
- * added body-axis velocity term here, in this one place.
- *
- * `groundAsl` is the terrain under the release point (the carrier's own current sample — the store is
- * within metres of it). Returns nullptr with a reason in *err. */
+/* The second producer of a complete unit: structurally the same four steps as the mission actor, but
+ * the IC comes from the CARRIER's state rather than a mission file, and the unit is a Weapon.
+ * There is deliberately NO ejector impulse — no citable figure exists, so the store separates with the
+ * carrier's motion and nothing invented on top; a source would add ONE body-axis term, here.
+ * Der vollstaendige Separationszustand: doc/flightbox/units-and-missions.md §6. */
 inline std::unique_ptr<FBSimUnit> FBMissionSpawnStore(const FBModelRoots &models, const FBStoreRelease &rel,
                                                       const fb_fdm_state &carrier, double groundAsl,
                                                       int unitId, const std::string &name,
@@ -179,7 +129,7 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnStore(const FBModelRoots &models
   double offE = 0.0, offN = 0.0, offU = 0.0;
   FBBodyVecToEnu(carrier.roll, carrier.pitch, carrier.yaw, rel.OffFwdM, rel.OffRightM, rel.OffDownM,
                  offE, offN, offU);
-  /* omega x r in body axes (rates deg/s -> rad/s), then the same rotation into ENU. */
+  /* omega x r in body axes, then the same rotation into ENU: the term that matters in a roll. */
   double p = carrier.p * kDeg2Rad, q = carrier.q * kDeg2Rad, r = carrier.r * kDeg2Rad;
   double rotFwd = q * rel.OffDownM - r * rel.OffRightM;
   double rotRight = r * rel.OffFwdM - p * rel.OffDownM;
@@ -210,8 +160,8 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnStore(const FBModelRoots &models
   if (!fdm) return fail(std::string("store spawn failed (jsbsim init or a bad model: ") + ic.Aircraft + ")");
   fdm->SetGroundElevM(groundAsl);
   module->AttachFdm(*fdm);
-  /* The launch programming, generically (FBModule::ProgramRelease): a bomb ignores it, a guided round
-   * takes its launcher's id and its target estimate from it. This file names no weapon type. */
+  /* Generic launch programming: a bomb ignores it, a guided round takes its launcher id and target
+   * estimate from it. This file names no weapon type. */
   module->ProgramRelease(rel);
 
   fb_fdm_state st{};
@@ -219,8 +169,7 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnStore(const FBModelRoots &models
   st.roll = ic.RollDeg; st.pitch = ic.PitchDeg; st.yaw = ic.HeadingDeg;
   auto unit = std::make_unique<FBSimUnit>(unitId, name, FBUnitKind::Weapon, team, std::move(fdm),
                                           std::move(module), st, groundAsl);
-  /* A store never flies alone — there is always at least the jet that dropped it — so its lines are
-   * always attributed to its own callsign. */
+  /* A store never flies alone, so its lines are always attributed. */
   unit->SetLogAttribution(true);
   FBLog::Info("stores", "SEPARATION", {{"store", spec->Key}, {"station", rel.Station},
       {"lat", ic.LatDeg}, {"lon", ic.LonDeg}, {"altM", st.elev}, {"aglM", ic.HeightOffsetM},

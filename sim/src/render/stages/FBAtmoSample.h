@@ -1,6 +1,5 @@
-/* FlightBox — sky-view LUT sampling + exposure, shared verbatim by the sky dome (FBSkyStage) and the
- * terrain's aerial perspective (FBTilesStage). Requires FBAtmoCommon.h's `Atmo` struct to already be
- * in scope — concatenate kAtmoCommon before this. */
+/* Sky-view LUT sampling + exposure, shared by the sky dome and the terrain's aerial perspective.
+ * Requires FBAtmoCommon.h's `Atmo` struct to be in scope already. */
 #ifndef FBATMOSAMPLE_H
 #define FBATMOSAMPLE_H
 

@@ -1,12 +1,8 @@
-/* FlightBox — fb-gym: the headless mission client (Prinzip "Mission rein, Telemetrie raus"). Links the
- * FlightBox core library (build/libfbcore.a) + the mission-loop (FBMissionRunner.cpp, shared with the
- * native frame-oracle) — NO render/, NO world/-streaming beyond the plain fb_stream_ground point query
- * FBTilesElevation wraps, and critically NO Dawn/WebGPU symbol anywhere in this binary (see the gym
- * Makefile target's own nm check). Ground truth is the elevation hook (FBElevationProvider): --elev
- * picks tiles (live fb-tiles), const (FBRunwayPlateauElevation — the mission's own runway(s) on a flat
- * base, no data needed), or swiss (the baked Switzerland DEM island, tools/bake_swiss_dem.py). Default
- * is swiss when the baked asset is present on disk, const otherwise, so a bare `fb-gym --mission FILE`
- * always runs, network or not. */
+/* fb-gym: the headless mission client — mission in, telemetry out. Links the core library and the
+ * shared mission loop, and critically carries NO Dawn/WebGPU symbol at all (the Makefile target's own
+ * nm check enforces it). --elev picks the ground-truth provider; the default is `swiss` when the baked
+ * asset is on disk and `const` otherwise, so a bare `fb-gym --mission FILE` always runs, network or
+ * not. doc/flightbox/build-and-ops.md. */
 #include "FBMissionRunner.h"
 #include "FBMissionFile.h"
 #include "FBRunwayPlateauElevation.h"
@@ -79,10 +75,9 @@ int main(int argc, char **argv) {
 
   if (elevMode.empty()) elevMode = FileExists(swissDemPath) ? "swiss" : "const";
 
-  /* FBRunwayPlateauElevation needs the mission's runway(s) BEFORE FBRunMission itself parses the file
-   * (it needs the provider as an argument) — a second, cheap parse of the same flat text (no side
-   * effects, FBParseMissionFile is pure string-in/struct-out) is simpler than threading a deferred
-   * provider through FBMissionRunner for one CLI mode. */
+  /* This provider needs the mission's runways BEFORE FBRunMission parses the file, and the parser is
+   * pure string-in/struct-out — so a second cheap parse beats threading a deferred provider through
+   * the runner for one CLI mode. */
   std::unique_ptr<FBElevationProvider> elevation;
   if (elevMode == "tiles") {
     elevation = std::make_unique<FBTilesElevation>(base.c_str());
@@ -105,10 +100,8 @@ int main(int argc, char **argv) {
     return 1;
   }
   FBLog::Info("gym", "elevation_provider", {{"mode", elevMode}});
-  /* Announced HERE, on the gym's own boot sink, and never inside the run: FBRunMission installs the
-   * mission's events.log sink below, and a thread-count line there would be the single byte of
-   * difference between a sequential and a parallel run's log. The runner clamps the value to the
-   * mission's unit count. */
+  /* Announced HERE and never inside the run: a thread-count line in events.log would be the single
+   * byte of difference between a sequential and a parallel run. */
   FBLog::Info("gym", "step_threads", {{"requested", (int)threads}});
 
   return FBRunMission(missionPath, timeout, outDir, FBNativeModelRoots(), *elevation, nullptr,

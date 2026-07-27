@@ -13,10 +13,8 @@ void FBMissileModule::ProgramRelease(const FBStoreRelease &rel) {
   Uplink_.SetLauncherId(rel.LauncherId);
 }
 
-/* One frame: the uplink once, then fixed 100 Hz substeps of seeker -> guidance -> FCS -> FDM. The
- * seeker and the guidance sit INSIDE the substep loop (header banner: a round covers 15 m per step) and
- * the pass-through autopilot/FCS carry the fin commands the guidance produced in that same step. Same
- * substep accumulator and spiral guard as every other module. */
+/* The uplink once, then fixed 100 Hz substeps of seeker -> guidance -> FCS -> FDM; same accumulator and
+ * spiral guard as every other module. */
 void FBMissileModule::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units,
                           const FBWorld *world) {
   (void)world;
@@ -24,12 +22,10 @@ void FBMissileModule::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *uni
   FBFdm &fdm = *Fdm_;
   SimTimeS_ += dt;
   State_.NowS = SimTimeS_;
-  /* Comms: what the launcher is still telling this round, if anything (modules/missile/FBMissileUplink).
-   * `units` reaches this slot and the seeker below, and nothing else in the module. */
+  /* `units` reaches this slot and the seeker below, and nothing else in the module. */
   Uplink_.Run(State_, st, units, SimTimeS_);
-  /* Air data: not used by the guidance (which reads the accelerometer and the gyros directly, like the
-   * real box), but published so the round's own telemetry carries the CAS/Mach/g of every tick — the
-   * columns the boost, the coast and the terminal turn are read off. */
+  /* Not read by the guidance (which uses the accelerometer and gyros directly, like the real box), but
+   * published so the trace carries the CAS/Mach/g the boost, coast and terminal turn are read off. */
   AirData_.Run(State_, st, dt);
 
   AccS_ += dt;

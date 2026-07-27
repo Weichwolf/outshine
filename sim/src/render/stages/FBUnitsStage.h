@@ -1,7 +1,6 @@
-/* FlightBox — FBUnitsStage: draw slot for AI-controlled units (future units/ registry), wired into
- * the scene pass right after the terrain draws. NoOp today — no unit registry exists yet (see
- * CLAUDE.md's units/ deferral) — but the App/FBRenderer already cycles this slot every frame, so a
- * real implementation only has to fill Encode(), never wire a new call site. */
+/* The draw slot for units, wired into the scene pass right after the terrain. NoOp today, but the
+ * SLOT is real and cycled every frame — a real implementation only fills Encode(), it never has to
+ * wire a new call site or change the pass count. */
 #ifndef FBUNITSSTAGE_H
 #define FBUNITSSTAGE_H
 
@@ -10,7 +9,7 @@
 namespace FlightBox {
 
 class FBUnitsStage : public FBDrawStage {
-  /* Pure NoOp: FBDrawStage's default Init/Encode already do nothing. */
+  /* FBDrawStage's defaults already do nothing. */
 };
 
 } // namespace FlightBox

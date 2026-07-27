@@ -8,10 +8,8 @@ namespace FlightBox {
 
 namespace {
 constexpr double kG = 9.80665;
-/* The integration step. A Mk-82 released at 450 kt from 4 km falls for ~30 s, so 0.05 s is 600 steps of
- * a six-term update — cheap enough for the 10 Hz fire-control slot and fine enough that the step error
- * is far below the modelling error the whole prediction is built to expose (measured: halving it moves
- * the impact point by well under a metre). */
+/* Cheap enough for the 10 Hz fire-control slot, fine enough that the step error is far below the
+ * modelling error the prediction exists to expose (halving it moves the impact well under a metre). */
 constexpr double kStepS = 0.05;
 /* A leak guard, not physics: nothing this file integrates falls for two minutes. */
 constexpr double kMaxTofS = 120.0;
@@ -24,10 +22,8 @@ FBImpactPrediction FBSolveImpactPoint(const FBWeaponPerf &perf, const FBReleaseS
   if (perf.LaunchMassKg <= 0.0 || perf.RefAreaM2 <= 0.0) return p;
   if (rel.AltM <= impactElevM) return p;
 
-  /* ENU displacement from the release point, integrated with Heun's method (predictor + corrector on
-   * the same acceleration law): the drag term is quadratic in speed, and plain Euler at this step size
-   * biases the range by a few metres over a long fall — an error of the same order as the effect being
-   * measured, and therefore not one to accept for free. */
+  /* Heun rather than Euler: the drag term is quadratic in speed, and Euler at this step biases the
+   * range by an error of the same order as the effect being measured. */
   double e = 0.0, n = 0.0, u = 0.0;
   double ve = rel.VelE, vn = rel.VelN, vu = rel.VelU;
   double t = 0.0;
@@ -60,9 +56,7 @@ FBImpactPrediction FBSolveImpactPoint(const FBWeaponPerf &perf, const FBReleaseS
   }
   if (!hit) return p;
 
-  /* Linear interpolation inside the step that crossed the plane: the whole prediction is a
-   * sub-metre-scale claim, and quantising the impact point to a 0.05 s step would throw ~15 m of range
-   * away at release speed. */
+  /* Interpolate inside the crossing step: quantising to 0.05 s throws ~15 m of range away. */
   double h0 = rel.AltM + prevU - impactElevM, h1 = rel.AltM + u - impactElevM;
   double f = (h0 - h1) > 1e-9 ? h0 / (h0 - h1) : 1.0;
   double ie = prevE + f * (e - prevE), in = prevN + f * (n - prevN);
@@ -83,10 +77,8 @@ FBImpactPrediction FBSolveImpactPoint(const FBWeaponPerf &perf, const FBReleaseS
 FBAimSolution FBSolveAim(const FBImpactPrediction &pred, double ownLatDeg, double ownLonDeg,
                          double tgtLatDeg, double tgtLonDeg, double trackDeg, double groundSpeedMs) {
   FBAimSolution a;
-  /* A RELEASE CUE NEEDS A TRACK. Both errors below are projections onto the direction the aircraft is
-   * moving in, and an aircraft that is not moving has none — so a stationary (or not-yet-stepped) state
-   * yields no solution rather than a zero one, which is the difference between "release now" and "no
-   * answer". */
+  /* A release cue needs a TRACK: both errors are projections onto the direction of motion, so a
+   * stationary state yields no solution rather than a zero one. */
   if (!pred.Valid || groundSpeedMs <= 1.0) return a;
   double alongTgt = 0.0, acrossTgt = 0.0, alongImp = 0.0, acrossImp = 0.0;
   FBTrackProjectM(ownLatDeg, ownLonDeg, trackDeg, tgtLatDeg, tgtLonDeg, alongTgt, acrossTgt);

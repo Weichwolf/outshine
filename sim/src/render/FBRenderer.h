@@ -1,14 +1,7 @@
-/* FlightBox — FBRenderer: the WebGPU rendering system (Dawn header family; emdawnwebgpu on the web,
- * native Dawn for the CLI — write once, link twice). Orchestrator: owns instance/adapter/device/
- * surface/targets and EVERY Begin/EndRenderPass boundary (the pass topology + encode order); DRAWING
- * itself is delegated to FBDrawStage-derived classes (render/stages/) it holds and cycles in a fixed
- * order — a stage never begins/ends a pass, it records into the encoder FBRenderer already opened.
- * Bring-up stage: device init + a field of REAL fb-tiles terrain (osmmesh ECEF meshes, camera-
- * relative), textured with real per-tile OSM albedos (a texture_2d_array), lit under a physically-
- * based Hillaire-2020 sky (compute LUTs + fullscreen sky pass + aerial perspective), drawn into an HDR
- * target, then an ACES tonemap pass to the swapchain ([0,1] reversed-Z depth on the scene pass), and a
- * MIL-STD-1787 HUD overlay pass on top (FBHudStage; a pure WebGPU backend, symbology owned by the
- * wired systems/FBDisplaySystem — see SetHudDisplay). */
+/* The WebGPU rendering system, one source and two link targets (emdawnwebgpu / native Dawn).
+ * ORCHESTRATOR: it owns device/surface/targets and EVERY Begin/EndRenderPass boundary plus the encode
+ * order; drawing lives in FBDrawStage-derived classes that record into the encoder it already opened.
+ * A stage never begins or ends a pass. Pass-Topologie als Vertrag: doc/flightbox/rendering.md §2. */
 #ifndef FBRENDERER_H
 #define FBRENDERER_H
 
@@ -45,121 +38,95 @@ class FBRenderer {
 public:
   FBRenderer();
 
-  /* Async bring-up (WASM): instance -> adapter -> device -> surface(canvas selector) -> configured.
-   * Ready() flips true when the chain completes; poll it from the app loop. */
+  /* Async bring-up (WASM): poll Ready() from the app loop. */
   void Init(const char *canvasSelector, int width, int height);
 
-  /* Synchronous bring-up (native CLI): same chain, blocking via Instance::WaitAny (native Dawn
-   * supports this; no browser event loop to pump). Renders into an offscreen RGBA8-sRGB target
-   * instead of a surface -> Ready() is final by the time this returns. */
+  /* Native: the same chain, blocking (no browser event loop to pump), into an offscreen target. */
   void InitOffscreen(int width, int height);
 
   bool Ready(void) const { return DeviceReady; }
 
-  /* One frame: acquire the target (surface or offscreen texture), run the passes, submit. */
+  /* Acquire the target, run the passes, submit. */
   void RenderFrame(void);
 
-  /* Offscreen mode only: read the last-rendered frame back as tightly packed W*H*4 RGBA8 (already
-   * sRGB-encoded by the tonemap pass) -> ready for stb_image_write. */
+  /* Offscreen only: tightly packed W*H*4 RGBA8, already sRGB-encoded — ready for stb_image_write. */
   bool ReadPixels(std::vector<uint8_t> &rgba);
   void ShapeStats(float cover, float low, float high) { BaseBake->ShapeStats(cover, low, high); }   /* numeric histogram of the base shape/density field over the shell */
 
-  /* Hand the renderer a merged camera-relative ECEF terrain mesh + per-tile double origins (from
-   * FBTerrainLoader, or synthesized — see FBAppNative.cpp). Call before Init/InitOffscreen (or before
-   * the device is ready); FBTilesStage uploads it at Configure(). */
+  /* The STATIC terrain path. Call before Init; FBTilesStage uploads it at Configure(). */
   void SetTerrain(const float *verts, uint32_t nverts, int ntiles, const uint32_t *voff,
                   const uint32_t *vcnt, const double *origins, const double *center);
 
-  /* Real per-tile albedos: `layers` images of ts*ts RGBA8 (sRGB), layer i = tile i. Uploaded as a
-   * texture_2d_array by FBTilesStage. Optional — without it, layers are procedural checkers. */
+  /* Optional: without it the layers are procedural checkers. */
   void SetAlbedoArray(const uint8_t *rgba, int ts, int layers);
 
-  /* ---- dynamic streaming (Stage 4): FBWorld drives a mutable tile table ----------------------
-   * Enable before Init: the terrain source becomes per-tile GPU buffers + a growable albedo array
-   * (layers recycled, grows to 2048), not the static SetTerrain mesh. */
+  /* Enable before Init: the terrain source becomes per-tile buffers + a growable albedo array
+   * driven by FBWorld, not the static SetTerrain mesh. */
   void SetStreaming(int albedoTS) { Tiles->EnableStreaming(albedoTS); }
   bool DeviceUsable(void) const { return DeviceReady && !DeviceLost; }
 
-  /* Upload one streamed tile (mesh + its RGBA8-sRGB albedo). Returns a table slot id, or -1 if the
-   * device is gone or the albedo array is full (2048). Camera-relative ECEF: `origin` is subtracted
-   * from the eye each frame. */
+  /* A table slot id, or -1 if the device is gone or the albedo array is full. */
   int  UploadTile(const float *verts, uint32_t nverts, const double origin[3], const uint8_t *albedo,
                   int ts, int z);
-  /* Attach the aerial-photo albedo to an already-uploaded tile (lazy, first TAB into EVS): allocates
-   * a SECOND array layer for `slot`. 1 = attached (or already had one), 0 = device gone / array full
-   * (caller stops retrying -> the tile keeps drawing OSM). */
+  /* The lazy overlay: a SECOND array layer for `slot`. 0 = the caller stops retrying and the tile
+   * keeps drawing its base. */
   int  UploadTilePhoto(int slot, const uint8_t *photo, int ts, int z);
   void ReleaseTile(int slot) { Tiles->ReleaseTile(slot); }         /* free the buffer, recycle BOTH albedo layers */
   void SetDrawList(const int *slots, int n) { Tiles->SetDrawList(slots, n); }  /* the tiles to draw this frame (FBWorld's leaves) */
   long AlbedoVramBytes(void) const { return Tiles->AlbedoVramBytes(); }  /* resident albedo VRAM (layers in use * ts^2 * 4) */
 
-  /* MIL-STD-1787 HUD overlay: the live pose the symbology reads. `have` false -> "NO TELEMETRY".
-   * Call each frame; without it the HUD pass is skipped. */
+  /* The live pose the symbology reads; `have` false -> "NO TELEMETRY". */
   void SetHud(const FBState &s, bool have);
   void SetHudEnabled(bool e) { HudEnabled = e; }   /* draw the HUD overlay (off for the cloud lab) */
-  /* The Displays system slot that owns the HUD symbology — borrowed, forwarded to FBHudStage. Wire it
-   * once from the active module (e.g. R.SetHudDisplay(&f16->Displays())); nullptr draws an empty HUD. */
+  /* Borrowed from the active module and forwarded to FBHudStage; nullptr draws an empty HUD. */
   void SetHudDisplay(const FBDisplaySystem *disp) { Hud->SetDisplaySystem(disp); }
-  /* Boot/teleport loading screen: while on, RenderFrame draws a black screen with a MAX7456-style
-   * "LOADING TERRAIN x%" + tile counter (no scene/sky), and the app keeps JSBSim frozen. Off -> normal. */
+  /* While on, RenderFrame draws only the loading text and the client keeps JSBSim frozen. §2.2 */
   void SetLoadingScreen(bool on, float pct, int ready, int total) { LoadingScreen = on; LoadPct = pct; LoadReady = ready; LoadTotal = total; }
 
-  /* True AGL (m, ASL - DEM ground under the aircraft) for the HUD altitude tape + horizon dip. The
-   * caller owns the DEM lookup (fb_stream_ground); forwarded to FBHudStage's FBHudEnv each Encode().
-   * Negative = below terrain, never hidden. */
+  /* The caller owns the DEM lookup. Negative = below terrain, never hidden. */
   void SetAgl(float agl);
 
-  /* Ground albedo source (TAB): 0 = OSM render (SVS, a constant-daylight database view), 1 = aerial
-   * photo (EVS, lit by the real ephemeris sun the app feeds via SetHud). Per-tile: a tile without its
-   * photo layer yet draws OSM (silent fallback), so the flip is never a hole. */
+  /* 0 = OSM/SVS (a constant-daylight database view), 1 = photo/EVS (lit by the real ephemeris sun).
+   * Per tile, with a silent fallback, so the flip is never a hole. */
   void SetGroundMode(int photo);
   int  GetGroundMode(void) const { return GroundPhoto ? 1 : 0; }
   int  DrawCount(void) const { return Tiles->DrawCount(); }   /* tile draws/frame (TileBuf = n*32 B) */
 
-  /* Boot default = the EAGER base albedo (uploaded with each tile). The OTHER mode is the lazy overlay
-   * (DynTile.PhotoLayer, fetched on first switch). 1 = EVS/photo base (Esri first), 0 = OSM base. */
+  /* The EAGER base albedo uploaded with each tile; the other mode becomes the lazy overlay. */
   void SetDefaultMode(int photo) { Tiles->SetDefaultMode(photo); }
 
-  /* NASA LROC equirect moon albedo (RGBA8, w x h). Call before Init; the sky pass lights it as a
-   * sphere by the real sun. Without it the moon disc falls back to a flat grey. */
+  /* Call before Init; without it the moon disc falls back to flat grey. */
   void SetMoonTexture(const uint8_t *rgba, int w, int h);
 
-  /* Moon apparent-size multiplier over its true angular radius (FB_MOON_SCALE; default 1 = realistic
-   * ~0.5deg, ~5 px at 720p). A tuning knob only. */
+  /* Multiplier over the true angular radius (1 = realistic ~0.5 deg, ~5 px at 720p). */
   void SetMoonScale(double s) { MoonScale = s > 0.0 ? s : 1.0; }
 
-  /* Volumetric cloud raymarch quality (FB_CLOUD_QUALITY): scales step counts. 1 = best (default),
-   * lower trades detail for FPS. 0 disables the cloud pass. */
+  /* Scales the march step counts; 0 disables the cloud pass entirely. */
   void SetCloudQuality(double q) { Cloud->SetQuality(q); }
 
-  /* Cloud-lab override: force the material params (coverage, density, extinction, sun intensity, detail
-   * strength) for the parameter-sweep rig, bypassing the weather-derived values. */
+  /* Cloud-lab override for the parameter sweep, bypassing the weather-derived values. */
   void SetCloudLab(float cover, float density, float extinct, float sunI, float detail) {
     Cloud->SetCloudLab(cover, density, extinct, sunI, detail);
   }
-  /* Discard the temporal history (lab: reset accumulation before each parameter cell). */
+  /* Discard the temporal history — the lab resets accumulation before each parameter cell. */
   void ResetCloudHistory(void) { Resolve->ResetHistory(); }
   void SetAccumMode(bool on) { Resolve->SetAccumMode(on); }   /* lab proof: true 1/N average instead of exponential blend */
 
-  /* HYG star catalogue bytes (6 B/star, mag-sorted; the /t/stars bands concatenated). Call before
-   * Init; the renderer decodes + places them at true alt/az for the given origin. */
+  /* 6 B/star, mag-sorted. Call before Init; placed at true alt/az for the given origin. */
   void SetStars(const uint8_t *hyg, int nbytes, double originLat, double originLon);
 
-  /* Sim UTC (Unix seconds) driving sidereal star placement — the app sets it each frame (or once). */
+  /* Drives sidereal star placement. */
   void SetSkyClock(double unixSec) { SkyClock = unixSec; }
 
-  /* Night-light instances (EVS night): FBWorld streams /t/lights, decodes to camera-anchor-relative
-   * ECEF, and uploads here. `inst` = count * 7 floats [posRelAnchor.xyz, worldRadiusM, colorPremul.rgb].
-   * SetLightAnchor gives the ECEF the positions are relative to (the world origin) — set once. The pass
-   * subtracts (eye - anchor) per frame, so it stays camera-relative without a per-frame re-upload. */
+  /* count * 7 floats [posRelAnchor.xyz, worldRadiusM, colorPremul.rgb]. The pass subtracts
+   * (eye - anchor) per frame, so it stays camera-relative without a re-upload. */
   void SetLightAnchor(const double anchor[3]) { TileLights->SetAnchor(anchor); }
   void SetLights(const float *inst, int count) { TileLights->SetLights(inst, count); }
 
-  /* Scripted camera: eye + look-at target in ECEF (double); up is derived radial (no roll). */
+  /* Up is derived radial: no roll. */
   void SetCamera(const double eye[3], const double target[3]);
 
-  /* Full ECEF camera basis (eye + forward/right/up), e.g. from an aircraft attitude — carries ROLL,
-   * so the horizon tilts at bank. Takes precedence over SetCamera/orbit. */
+  /* Carries ROLL, so the horizon tilts at bank. Takes precedence over SetCamera/orbit. */
   void SetCameraBasis(const double eye[3], const double fwd[3], const double right[3],
                       const double up[3]);
 
@@ -200,16 +167,13 @@ private:
   wgpu::Texture DepthTex, HdrTex;  /* shared scene targets: FBTilesStage/FBSkyStage draw into them, clouds sample DepthTex */
   std::unique_ptr<FBTilesStage> Tiles = std::make_unique<FBTilesStage>();
 
-  /* Present path: the whole frame (scene + tonemap + HUD) lands in a FIXED 720p FrameTex; one upscale
-   * pass then samples it onto the swapchain at the live display resolution (canvas clientSize x DPR). */
+  /* The whole frame lands in a FIXED 720p FrameTex; only the upscale pass follows the display size. */
   wgpu::Texture FrameTex;
   std::unique_ptr<FBUpscaleStage> Upscale = std::make_unique<FBUpscaleStage>();
   int SwapW, SwapH;                   /* live swapchain (display) size; scene stays Width x Height */
 
-  /* Hillaire-2020 atmosphere (Stage 5): two compute LUTs + a fullscreen sky pass; the transmittance
-   * LUT also drives the terrain's aerial perspective. All linear radiance into the HDR chain. These
-   * resources stay FBRenderer-owned (like FrameTex) because 3+ consumers read them — the three stage
-   * classes below hold only the pipeline/bind group built from views injected at Configure(). */
+  /* Hillaire 2020. These resources stay FBRenderer-owned because 3+ consumers read them; the stages
+   * hold only the pipeline/bind group built from views injected at Configure(). §4 */
   wgpu::Texture TransLUT, SkyLUT;                 /* 256x64, 192x108 rgba16float (storage + sampled) */
   wgpu::Sampler LutSamp;                          /* linear, U-repeat (azimuth wraps), V-clamp */
   wgpu::Buffer AtmoBuf;                           /* shared atmosphere uniform (sun, camera basis) */
@@ -217,10 +181,8 @@ private:
   std::unique_ptr<FBSkyViewStage> SkyView = std::make_unique<FBSkyViewStage>();
   std::unique_ptr<FBSkyStage> Sky = std::make_unique<FBSkyStage>();
 
-  /* Sun disc/glow + moon-as-lit-sphere: additive draws encoded directly after Sky in the scene pass
-   * (same blend order as the original single-shader composite). FBMoonStage owns the NASA LROC albedo
-   * texture (the sole consumer after the split) — FBRenderer keeps only the raw bytes the app feeds
-   * via SetMoonTexture, staged here until CreateAtmosphere() hands them to Moon->Configure(). */
+  /* Additive draws, encoded directly after Sky in the scene pass. FBMoonStage owns the albedo
+   * texture; these are only the raw bytes staged until Moon->Configure(). */
   std::unique_ptr<FBSunStage> Sun = std::make_unique<FBSunStage>();
   std::unique_ptr<FBMoonStage> Moon = std::make_unique<FBMoonStage>();
   std::vector<uint8_t> MoonData;
@@ -229,19 +191,14 @@ private:
   double SkyClock;
   std::unique_ptr<FBStarsStage> Stars = std::make_unique<FBStarsStage>();
 
-  /* Night-light field (EVS night): instanced additive sprites at ground level, camera-anchor-relative
-   * ECEF, class-coloured. Streamed + placed by FBWorld; drawn after terrain (depth-tested for occlusion). */
+  /* Streamed and placed by FBWorld; drawn after the terrain, depth-tested for occlusion. */
   std::unique_ptr<FBTileLightsStage> TileLights = std::make_unique<FBTileLightsStage>();
 
-  /* Draw slots wired into the encode order but not yet real systems (see CLAUDE.md's future units/):
-   * Units draws right after terrain, Sprites right before the HUD pass. */
+  /* NoOp, but wired into the encode ORDER: Units right after terrain, Sprites right before the HUD. */
   std::unique_ptr<FBUnitsStage> Units = std::make_unique<FBUnitsStage>();
   std::unique_ptr<FBSpritesStage> Sprites = std::make_unique<FBSpritesStage>();
 
-  /* Volumetric clouds (Nubis/MSFS-class): a Perlin-Worley 3D base + a Worley detail volume + a 512²
-   * cell field (compute-baked once, one class per shader), raymarched through a WGS84 spherical shell
-   * into the quarter-res CloudLowTex, temporally upsampled by FBCloudResolveStage, then composited by
-   * FBTonemapStage. EVS-only; SVS leaves it off (CloudsOn stays false, none of this is built). */
+  /* The cloud chain; SVS leaves CloudsOn false and none of this is built. doc/flightbox/rendering.md §5. */
   std::unique_ptr<FBCloudMipDownStage> CloudMipDown = std::make_unique<FBCloudMipDownStage>();
   std::unique_ptr<FBCloudBaseBakeStage> BaseBake = std::make_unique<FBCloudBaseBakeStage>();
   std::unique_ptr<FBCloudDetailBakeStage> DetailBake = std::make_unique<FBCloudDetailBakeStage>();
@@ -250,16 +207,13 @@ private:
   std::unique_ptr<FBCloudResolveStage> Resolve = std::make_unique<FBCloudResolveStage>();
   bool HasTimestamp = false;   /* device feature (OnAdapter) — passed into Cloud->Configure() */
 
-  /* HUD overlay (Stage 8): dynamic per-frame geometry, drawn after the tonemap. FBHudStage is the
-   * WebGPU backend (MAX7456 atlas + solid/line/text pipelines); FBRenderer keeps the telemetry pose
-   * itself too — sun/moon/cloud drive its OWN lighting math, not just the HUD. */
+  /* FBHudStage is the WebGPU backend only; FBRenderer keeps the pose itself because sun/moon/cloud
+   * drive its own lighting math, not just the HUD. */
   std::unique_ptr<FBHudStage> Hud = std::make_unique<FBHudStage>();
-  /* Value-initialised at the DECLARATION, not only in the one constructor's init list: RenderFrame reads
-   * HudState's weather fields (cloud_low/mid/high/base) whether or not SetHud has ever been called, so
-   * "the constructor happens to cover it" is a guarantee that a second constructor would silently drop.
-   * The zeros are a defined state, not a missing one — FBCloudMarchStage treats cover<=0 / base==0 as
-   * "no weather report" and applies its own default deck (see its Update banner); no open-meteo source
-   * is wired yet, so zero IS the honest value. */
+  /* Value-initialised at the DECLARATION, not just in the one constructor: RenderFrame reads the
+   * weather fields whether or not SetHud was ever called, and a second constructor would silently drop
+   * that guarantee. The zeros are a DEFINED state — "no weather report", for which the cloud march has
+   * its own default deck. */
   FBState HudState{};
   bool HudEnabled, HudHave;
   bool LoadingScreen = false; float LoadPct = 0.0f; int LoadReady = 0, LoadTotal = 0;   /* boot loading screen */

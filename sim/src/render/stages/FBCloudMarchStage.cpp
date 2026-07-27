@@ -12,7 +12,7 @@ namespace FlightBox {
 
 static bool CloudCellsOn(void) { const char *e = getenv("FB_CLOUD_CELLS"); return !e || atoi(e) != 0; }
 
-/* Raymarch. Prepend kAtmoCommon (Atmo struct, rayIntersectSphere, groundRadiusMM, PI) + kAtmoSample. */
+/* Prepends kAtmoCommon (Atmo struct, rayIntersectSphere, groundRadiusMM, PI) + kAtmoSample. */
 static const char *kCloudWGSL = R"(
 struct Cloud { p0 : vec4f, p1 : vec4f, p2 : vec4f, p3 : vec4f, p4 : vec4f, p5 : vec4f, p6 : vec4f, p7 : vec4f };   /* p0: rBaseMm,rTopMm(ABS),coverage,quality; p1: low,mid,high,time; p2: wind.xyz,densityScale; p3: depthScaleX,depthScaleY,groundR,jitterX; p4: extinction,sunIntensity,detailStrength,jitterY; p5: d2Freq,d2Weight,baseLODbias,coneR; p6: tangent1.xyz,cellSpanKm; p7: tangent2.xyz,- */
 @group(0) @binding(0) var<uniform> A : Atmo;
@@ -288,8 +288,7 @@ void FBCloudMarchStage::Configure(const FBGpu &gpu, wgpu::Buffer atmoBuf, wgpu::
   Queue = gpu.Queue;
   HasTimestamp = hasTimestamp;
 
-  /* Quarter-res march target: the whole cloud pass runs at Width/4 x Height/4 and is upsampled in the
-   * tonemap composite. 16x fewer marched pixels — the core of the perf budget. */
+  /* Quarter res: 16x fewer marched pixels, which IS the perf budget. */
   CloudW = gpu.Width / 4;
   CloudH = gpu.Height / 4;
   {
@@ -313,9 +312,7 @@ void FBCloudMarchStage::Configure(const FBGpu &gpu, wgpu::Buffer atmoBuf, wgpu::
   bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
   CloudUni = Device.CreateBuffer(&bd);
 
-  /* Raymarch render pipeline: writes premultiplied cloud (rgb=scatter, a=1-transm) into the quarter-res
-   * target; the tonemap composites it over the HDR scene. No blend (the target holds only the cloud).
-   * kCloudNoiseCommon supplies remap() (the worley/perlin helpers go unused here — harmless). */
+  /* No blend: the target holds ONLY the premultiplied cloud, which the tonemap composites. */
   std::string marchSrc = std::string(kAtmoCommon) + kAtmoSample + kCloudNoiseCommon + kCloudWGSL;
   if (CloudCellsOn()) {   /* flip the baked shape switch on (paired with the base-gen cellF above) */
     const std::string from = "const CELLS_ON : f32 = 0.0;";
@@ -375,26 +372,23 @@ void FBCloudMarchStage::Configure(const FBGpu &gpu, wgpu::Buffer atmoBuf, wgpu::
 }
 
 void FBCloudMarchStage::Update(const FBFrameContext &ctx) {
-  /* Cloud deck from the weather (HudState): a main deck whose base/thickness follow cloud_base + the
-   * low/mid/high mix; total coverage drives the fill. EVS-only (the pass self-gates on skyExtra.y). */
+  /* The deck derived from the weather block. Werte + Herleitung: doc/flightbox/rendering.md §5. */
   float cover = ctx.CloudCover;
   if (ctx.CloudLow > cover) cover = ctx.CloudLow;
   if (ctx.CloudMid > cover) cover = ctx.CloudMid;
   if (ctx.CloudHigh > cover) cover = ctx.CloudHigh;
   if (cover <= 0.0f) cover = ctx.GroundPhoto ? 0.4f : 0.0f;   /* a pleasant default deck when no weather */
-  /* DEFAULT WEATHER = a HIGH broken cell layer (base 8 km): the ~2 km loiter always sees it in the
-   * mid/far field (accepted 2026-07-23). open-meteo cloud_base overrides once wired; FB_CLOUD_BASE_M
-   * sweeps it. Paired with cells-on + FB_CELL_KM 40 / FB_CELL_DOME 0.5 + moonlight (the shipped look). */
+  /* No weather report is a DEFINED state, not a missing one: a high broken cell layer the ~2 km
+   * loiter always sees in the mid and far field. [SET] */
   double baseAGL = ctx.CloudBaseAGL > 0.0f ? ctx.CloudBaseAGL : 8000.0;
   if (const char *cb = getenv("FB_CLOUD_BASE_M")) baseAGL = atof(cb);
   double thick = 2600.0 + 1400.0 * ctx.CloudHigh;
   if (const char *ct = getenv("FB_CLOUD_THICK_M")) thick = atof(ct);
   double topAGL = baseAGL + thick;
-  /* Tunable material params (default; the cloud lab / research numbers override via SetCloudLab). */
+  /* [SET]; the cloud lab overrides them via SetCloudLab. */
   float density = 18.0f, extinct = 0.06f, sunI = 18.0f, detail = 1.3f;
   if (CloudLab) { cover = LabCover; density = LabDensity; extinct = LabExtinct; sunI = LabSunI; detail = LabDetail; }
-  /* Shell radii are ABSOLUTE, referenced to the REAL ground under the camera (WGS84, not the Hillaire
-   * simplified 6360 km): ground radius = |eye| - camera MSL altitude; base/top add the AGL heights. */
+  /* Referenced to the REAL WGS84 ground under the camera, not Hillaire's simplified 6360 km. */
   double eyeLen = std::sqrt(ctx.Eye[0] * ctx.Eye[0] + ctx.Eye[1] * ctx.Eye[1] + ctx.Eye[2] * ctx.Eye[2]);
   double groundR = eyeLen - (double)ctx.AltM;
   float p[32];
@@ -411,19 +405,19 @@ void FBCloudMarchStage::Update(const FBFrameContext &ctx) {
   p[12] = CloudW > 0 ? (float)ctx.Width / (float)CloudW : 4.0f;    /* low-res -> full-res depth map */
   p[13] = CloudH > 0 ? (float)ctx.Height / (float)CloudH : 4.0f;
   p[14] = (float)(groundR / 1.0e6);   /* real ground radius Mm — rebase cloud pos into the Hillaire LUT frame */
-  /* Per-frame screen jitter (NDC): EXACT 4x4 sub-grid so each full-res sub-pixel gets a direct sample
-   * once per 16 frames -> the resolve splat reconstructs full resolution from the quarter-res march. */
+  /* An EXACT 4x4 sub-grid, so every full-res sub-pixel gets a direct sample once per 16 frames and
+   * the resolve can reconstruct full resolution from a quarter-res march. */
   { uint32_t ph = ctx.FrameNo % 16u;
     float jx = ((float)(ph % 4u) + 0.5f) / 4.0f - 0.5f, jy = ((float)(ph / 4u) + 0.5f) / 4.0f - 0.5f;
     p[15] = CloudW > 0 ? jx * 2.0f / (float)CloudW : 0.0f;
     p[16] = extinct; p[17] = sunI; p[18] = detail;
     p[19] = CloudH > 0 ? jy * 2.0f / (float)CloudH : 0.0f; }
-  /* p5: fine-detail freq + weight (default 0.28 km / 0.35; env-overridable for the cauliflower sweep). */
+  /* p5: fine-detail frequency + weight. */
   { const char *ef = getenv("FB_D2_FREQ"), *ew = getenv("FB_D2_WEIGHT");
     p[20] = ef ? (float)atof(ef) : 0.45f; p[21] = ew ? (float)atof(ew) : 0.20f;
     const char *bb = getenv("FB_BASE_LOD_BIAS"); p[22] = bb ? (float)atof(bb) : 0.0f; const char *cr = getenv("FB_CONE_R"); p[23] = cr ? (float)atof(cr) : 0.30f; }   /* swept: soft cauliflower */
-  /* p6/p7: horizontal tangent basis (from the camera up) + cell span (km/tile) — the 512² F1 cell field
-   * is sampled by (dot(pos,t1), dot(pos,t2))/span so cells extrude along LOCAL UP = vertical round puffs. */
+  /* p6/p7: the horizontal tangent basis + cell span. Sampling the F1 field by (dot(pos,t1),
+   * dot(pos,t2))/span extrudes cells along LOCAL UP, i.e. into vertical round puffs. */
   double t1[3] = {ctx.Up[1], -ctx.Up[0], 0.0};
   double l1 = std::sqrt(t1[0] * t1[0] + t1[1] * t1[1] + t1[2] * t1[2]);
   if (l1 < 1e-6) { t1[0] = 1.0; t1[1] = 0.0; t1[2] = 0.0; l1 = 1.0; }

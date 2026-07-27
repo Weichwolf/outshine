@@ -1,10 +1,6 @@
-/* Native headless WebGPU harness (Dawn, not WASM/emdawnwebgpu): drives FBRenderer's OFFSCREEN mode
- * through the same HDR+ACES-tonemap pipeline FBAppWasm.cpp exercises in-browser, dumping PNG frames.
- * This is the verification path a headless-browser SwiftShader can't give us: native Dawn actually
- * renders. Terrain streams from FBWorld's multi-LOD quadtree (Stage 7) — the SAME code FBAppWasm.cpp
- * runs in-browser, fetched via libcurl (fb_terrain.c's native branch) since there is no browser event
- * loop. Camera sits at ~1500 m AGL looking to the horizon so the far LOD gradient is visible.
- * stb_image_write (public domain, geo/osmmesh/src/3rdparty/stb_image_write.h) writes the PNGs. */
+/* The native frame ORACLE: FBRenderer's offscreen mode through the same pipeline the browser runs,
+ * dumping PNGs. This is the verification venue a headless-browser SwiftShader cannot give — native
+ * Dawn actually renders. doc/flightbox/rendering.md, Abschnitt 1.1. */
 #include "FBRenderer.h"
 #include "FBWorld.h"
 #include "FBCamera.h"
@@ -34,9 +30,7 @@
 
 using namespace FlightBox;
 
-/* Camera/geodesy math is shared, not per-App: FBGeoToEcef/FBEnuAxesEcef (core/FBGeodesy.h) and
- * FBCameraBasisEcef (render/FBCamera.h). This file used to carry its own copies of all three, with a
- * comment asking the reader to keep them identical to the browser's. */
+
 
 namespace {
 
@@ -56,7 +50,7 @@ void Usage(const char *argv0) {
           argv0);
 }
 
-/* Sweep range for a lab parameter. */
+/* A lab parameter's sweep range. */
 static void LabRange(const std::string &p, float &lo, float &hi) {
   if (p == "coverage") { lo = 0.30f; hi = 0.82f; }
   else if (p == "density") { lo = 2.0f; hi = 10.0f; }
@@ -66,8 +60,7 @@ static void LabRange(const std::string &p, float &lo, float &hi) {
   else { lo = 0.0f; hi = 1.0f; }
 }
 
-/* Cloud lab: render a cols x rows grid of parameter variants into ONE PNG. Fixed camera on a cloud
- * bank, no terrain streaming (fast); the two swept axes are --labx (columns) / --laby (rows). */
+/* A cols x rows grid of parameter variants in ONE PNG: fixed camera, no terrain streaming. */
 int RunCloudLab(double lat, double lon, time_t utc, double cloudQ, double ground, double aglM,
                 const std::string &labx, const std::string &laby, const std::string &moonPath,
                 const std::string &outDir, bool singleCell = false, float cov0 = 0.6f,
@@ -75,10 +68,8 @@ int RunCloudLab(double lat, double lon, time_t utc, double cloudQ, double ground
                 double camBelowM = -5000.0, double bankKm = 12.0, int frames = 24) {   /* default: view the deck from ABOVE (AC7 vantage) */
   const int W = 1280, H = 720;
   const double kPi2 = kPi;   /* was a 15-digit truncation of the same pi (core/FBUnits.h) */
-  /* FRONTAL framing: place the camera below the deck base and aim at a bank ~12 km ahead at the deck's
-   * mid-height, so the silhouette/underside structure reads face-on instead of grazing the deck edge-on
-   * at the horizon. Deck geometry mirrors the shader default (base 1500 AGL, top ~4100 AGL). aglM is
-   * ignored here — the lab camera is deck-relative so the framing is deterministic across invocations. */
+  /* FRONTAL framing, below the deck base and aimed at a bank ~12 km ahead: the silhouette reads
+   * face-on instead of grazing the deck edge-on. Deck-relative, so it is deterministic across runs. */
   const double deckBaseAGL = 1500.0, deckTopAGL = 4100.0, deckMidAGL = 0.5 * (deckBaseAGL + deckTopAGL);
   const double camAGL = deckBaseAGL - camBelowM, bankDistM = bankKm * 1000.0;
   (void)aglM;
@@ -91,8 +82,7 @@ int RunCloudLab(double lat, double lon, time_t utc, double cloudQ, double ground
   FlightBox::MoonPos(lat, lon, utc, &hs.Env.MoonElDeg, &hs.Env.MoonAzDeg, &hs.Env.MoonPhase);
   double E3[3], N3[3], U3[3];
   FBEnuAxesEcef(lat, lon, E3, N3, U3);
-  /* Aim 42 deg OFF the sun azimuth so the deck is side-lit (edge light + self-shadow visible), not
-   * blinded by the sun disc. Pitch follows from the deck-relative aim point, not a fixed angle. */
+  /* 42 deg OFF the sun azimuth: side-lit shows edge light and self-shadow instead of a blinding disc. */
   double yawDeg = hs.Env.SunAzDeg + 42.0, yaw = yawDeg * kPi2 / 180.0;
   double riseM = (pitchOverrideDeg > -900.0) ? bankDistM * std::tan(pitchOverrideDeg * kPi2 / 180.0)
                                              : deckMidAGL - camAGL;
@@ -181,15 +171,8 @@ int RunCloudLab(double lat, double lon, time_t utc, double cloudQ, double ground
   return 0;
 }
 
-/* Phase name: FlightBox::FBPilot::PhaseName (systems/FBPilot.h) — one definition, shared with the
- * telemetry Bus's "phase" channel instead of a second local switch here. */
-
-/* FBNativeMissionHook: the concrete FBMissionTickHook only THIS translation unit (which already links
- * FBRenderer/FBWorld/Dawn) implements — FBMissionRunner.h/.cpp itself never sees these types, which is
- * what keeps fb-gym's link GPU-free while still sharing the one mission-loop implementation. Mirrors
- * the render/PNG-dump behaviour the old inline RunMission's `wantRender` branch had byte-for-byte: GPU
- * device + FBWorld quadtree built once at spawn (60-tile warm-up around the runway), then a PNG every
- * `intervalS` sim-seconds inside OnTick. */
+/* The concrete FBMissionTickHook, implemented ONLY in this translation unit — which is what keeps
+ * fb-gym's link GPU-free while both clients share one mission loop. */
 class FBNativeMissionHook : public FlightBox::FBMissionTickHook {
 public:
   FBNativeMissionHook(std::string base, std::string outDir, double intervalS, int width = 1280, int height = 720)
@@ -219,11 +202,9 @@ public:
       R.reset(); W.reset();
       return;
     }
-    /* The world BORROWS the run's one unit registry (units/FBUnitRegistry, owned by the runner) — the
-     * renderer's view of the cast, never a second list of its own. */
+    /* Borrowed: the renderer's VIEW of the cast, never a second list of its own. */
     W->SetUnits(&units);
-    /* Warm the terrain cut around the spawn before the first PNG — same 60-tick pre-roll RunMission
-     * always did (the jet is stationary this round, an approximate cut is enough for a proof frame). */
+    /* Warm the terrain cut before the first PNG; the jet is stationary, so an approximate cut does. */
     double altAsl0 = primary.GroundAslM() + (spawn.Ground ? 2.0 : (spawn.AltM - primary.GroundAslM()));
     double eye0[3], fwd0[3], right0[3], up0[3];
     FBGeoToEcef(spawn.LatDeg, spawn.LonDeg, altAsl0, eye0);
@@ -269,11 +250,8 @@ private:
   int Shot = 0;
 };
 
-/* --mission: ground-spawns the mission's F-16 on its runway threshold (FBMissionRunner.h, shared with
- * fb-gym) and steps it headless via FBMissionRunner::FBRunMission until SUCCESS/CRASH/TIMEOUT/FAIL.
- * Ground truth = FBTilesElevation (the SAME fb_stream_ground this runner always used — the elevation
- * hook is a pure pass-through here, no numbers change). No FBRenderer/FBWorld/GPU device unless
- * `renderIntervalS > 0`, in which case FBNativeMissionHook (above) is the frame-oracle bolt-on. */
+/* No FBRenderer/FBWorld/GPU device at all unless `renderIntervalS > 0` — the renderer is a bolt-on
+ * here, never a dependency of the physics or the termination logic. */
 int RunMission(const std::string &missionPath, double timeoutOverride, double renderIntervalS,
               const std::string &base, const std::string &outDir) {
   FlightBox::FBTilesElevation elevation(base.c_str());
@@ -332,9 +310,7 @@ int main(int argc, char **argv) {
   }
   if (!FlightBox::FBEnsureDir(outDir)) { fprintf(stderr, "gpu_native: cannot create --out %s\n", outDir.c_str()); return 1; }
 
-  /* RunMission installs its OWN sink (events.log + stdout) — everything else here (cloudlab/cloudcell/
-   * the plain screenshot path) just wants console visibility. Debug: nothing used to be filtered
-   * (every migrated call site printed unconditionally before this change). */
+  /* FBRunMission installs its OWN sink; everything else here just wants console visibility. */
   static FlightBox::FBStdoutLogSink gStdoutSink;
   FlightBox::FBLog::SetSink(&gStdoutSink);
   FlightBox::FBLog::SetLevel(FlightBox::FBLogLevel::Debug);
@@ -349,8 +325,7 @@ int main(int argc, char **argv) {
 
   const int width = 1280, height = 720, fps = 60;
 
-  /* Camera: eye at ~aglM above ground, aimed along (yaw, pitch). Default pitch aims at the horizon;
-   * --pitch DEG (+ = up) lets a shot frame the sky (moon/stars). Built in the eye's ENU frame. */
+  /* Built in the eye's ENU frame; --pitch (+ = up) lets a shot frame the sky. */
   double eye[3], target[3];
   FBGeoToEcef(lat, lon, ground + aglM, eye);
   double E3[3], N3[3], U3[3];
@@ -363,14 +338,14 @@ int main(int argc, char **argv) {
   { double l = std::sqrt(fwd[0]*fwd[0] + fwd[1]*fwd[1] + fwd[2]*fwd[2]); fwd[0]/=l; fwd[1]/=l; fwd[2]/=l; }
   for (int a = 0; a < 3; a++) target[a] = eye[a] + fwd[a] * 80000.0;
 
-  /* Plausible HUD pose (no live sim here): level flight on the camera heading, loitering. */
+  /* No live sim on this path: a plausible level-flight pose. */
   FlightBox::FBState hs{};
   hs.Platform.RollDeg = 0.f; hs.Platform.PitchDeg = (float)pitchDeg; hs.Platform.YawDeg = (float)yawDeg;
   hs.Platform.AltM = (float)(ground + aglM); hs.Platform.GsMs = 220.f; hs.Platform.TasMs = 220.f; hs.Platform.VsMs = 0.f;
   hs.Platform.HomeDistM = 8000.f; hs.Platform.HomeBearingDeg = 45.f;
   hs.Platform.Mode = FlightBox::FBMode::Manual;
   hs.Env.CloudCover = (float)cloudCover;
-  /* Real ephemeris sun + moon (EVS only; SVS renders a constant day regardless). */
+  /* EVS only; SVS renders a constant day regardless. */
   time_t clk = utc ? utc : time(nullptr);
   FlightBox::SunPos(lat, lon, clk, &hs.Env.SunElDeg, &hs.Env.SunAzDeg);
   FlightBox::MoonPos(lat, lon, clk, &hs.Env.MoonElDeg, &hs.Env.MoonAzDeg, &hs.Env.MoonPhase);

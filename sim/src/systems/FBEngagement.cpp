@@ -30,9 +30,8 @@ void FBEngagement::Report(FBEngageState state, bool haveTarget, bool locked, dou
   AspectDeg_ = aspectDeg;
   ClosureMs_ = closureMs;
   EsFt_ = esFt;
-  /* The minimum is taken over the ENGAGEMENT, not over the run: an aircraft that has not started
-   * fighting yet has not spent anything, and seeding the minimum with the first sample keeps the channel
-   * from reporting a zero that never happened. */
+  /* Das Minimum laeuft ueber das GEFECHT, nicht ueber den Lauf: wer noch nicht kaempft, hat noch nichts
+   * ausgegeben — sonst meldete der Kanal eine Null, die es nie gab. */
   if (!HaveEs_ || esFt < EsMinFt_) { EsMinFt_ = esFt; HaveEs_ = true; }
   EngagedS_ += dt;
   if (state == FBEngageState::Defend) DefendS_ += dt;
@@ -49,9 +48,8 @@ void FBEngagement::NoteLock(double nowS) {
 void FBEngagement::NoteShot(double nowS, double rangeM, double ataDeg, double aspectDeg, double raeroM,
                             double rtrM, double rminM, double ttaS, double ttiS) {
   Shots_++;
-  /* The FIRST shot is the one the metrics describe. A second round at the same target is a different
-   * decision with its own geometry, and averaging the two would describe neither — the count says how
-   * many were taken, the zone figures stay those of the shot the support metrics belong to. */
+  /* NUR der erste Schuss beschreibt die Metrik: ein zweiter ist eine andere Entscheidung mit eigener
+   * Geometrie, und Mitteln beschriebe keine von beiden. Der Zaehler sagt, wie viele fielen. */
   if (ShotS_ >= 0.0) return;
   ShotS_ = nowS;
   ShotRangeM_ = rangeM;
@@ -64,15 +62,12 @@ void FBEngagement::NoteShot(double nowS, double rangeM, double ataDeg, double as
   ShotTtiS_ = ttiS;
 }
 
-/* Support is measured in SECONDS THE UPLINK WAS ACTUALLY FED inside the window the round needs it, not
- * in seconds since the launch: a pilot who keeps the nose in but loses the track through the gimbal has
- * stopped supporting the shot even though he is still pointing at it. Pitbull is the derived verdict,
- * taken exactly once — at the end of the window, i.e. at the moment the fire control predicted the
- * seeker would take over, which is when the shot stops needing him either way. */
+/* Fuehrung wird in SEKUNDEN GEMESSEN, IN DENEN DER UPLINK TATSAECHLICH GESPEIST WURDE, nicht in
+ * Sekunden seit dem Start: wer die Nase drin behaelt, aber den Track durch den Kardanwinkel verliert,
+ * stuetzt den Schuss nicht mehr. `Pitbull` ist das abgeleitete Urteil, genau einmal gefaellt. */
 void FBEngagement::NoteSupport(bool locked, double nowS, double dt) {
   if (ShotS_ < 0.0 || ShotTtaS_ < 0.0 || SupportDone_) return;
-  /* The window closes BEFORE this tick is counted, so the accumulated seconds can never exceed the
-   * window they are a fraction of. */
+  /* Das Fenster schliesst VOR der Zaehlung dieses Ticks — die Summe kann es nie uebersteigen. */
   if (nowS - ShotS_ >= ShotTtaS_) { SupportDone_ = true; Pitbull_ = locked; return; }
   if (locked) SupportS_ += dt;
 }
@@ -136,9 +131,8 @@ void FBEngagement::SampleTelemetry(FBTelemetryRow &row) const {
   row.Push(ShotTtaS_);
   row.Push(ShotTtiS_);
   row.Push(SupportS_);
-  /* A FRACTION, so it is clamped at 1: the run's tick is 0.1 s and the predicted window is quantised to
-   * the launch-zone integration's own step, so the last counted tick can straddle the window's end by a
-   * few hundredths. Over-support is not a thing this channel can measure — the window is closed. */
+  /* Ein ANTEIL, deshalb bei 1 gekappt: 0,1-s-Tick gegen ein auf den Integrationsschritt quantisiertes
+   * Fenster — der letzte gezaehlte Tick kann dessen Ende um Hundertstel ueberspannen. */
   double supportFrac = ShotTtaS_ > 0.0 ? SupportS_ / ShotTtaS_ : 0.0;
   row.Push(supportFrac > 1.0 ? 1.0 : supportFrac);
   row.Push(Pitbull_);

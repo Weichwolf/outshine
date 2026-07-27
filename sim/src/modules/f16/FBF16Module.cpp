@@ -14,12 +14,12 @@ FBF16Module::FBF16Module()
       FC(std::make_unique<FBFlightControl>(FBFlightControl::F16())),
       Input(std::make_unique<FBInputSystem>()),
       Propulsion(std::make_unique<FBPropulsionSystem>()),
-      Disp(std::make_unique<FBF16Hud>()),   /* the F-16's own HUD symbology, not the generic default */
+      Disp(std::make_unique<FBF16Hud>()),
       Chip(std::make_unique<FBF16Max7456>()),
-      Fcr_(std::make_unique<FBF16Fcr>()),   /* the F-16's own APG-68, not a generic search set */
+      Fcr_(std::make_unique<FBF16Fcr>()),
       Weapons(std::make_unique<FBWeaponSystem>()),
-      Rwr_(std::make_unique<FBF16Rwr>()),     /* the F-16's own ALR-56M, not a generic receiver */
-      Cmds_(std::make_unique<FBF16Cmds>()),   /* ...and its own ALE-47 */
+      Rwr_(std::make_unique<FBF16Rwr>()),
+      Cmds_(std::make_unique<FBF16Cmds>()),
       Datalink_(std::make_unique<FBF16Datalink>()),
       AirData(std::make_unique<FBAirDataSystem>()),
       RadarAlt(std::make_unique<FBRadarAltimeter>()),
@@ -27,7 +27,7 @@ FBF16Module::FBF16Module()
       FireCtrl(std::make_unique<FBF16FireControl>()),
       UfcSys(std::make_unique<FBF16Ufc>()),
       SmsSys(std::make_unique<FBF16Sms>()),
-      GunSys(std::make_unique<FBF16Gun>()),   /* the M61A1 and where it is bolted (FBF16Gun) */
+      GunSys(std::make_unique<FBF16Gun>()),
       Warn_(std::make_unique<FBWarningSystem>()),
       PilotSys(std::make_unique<FBF16Pilot>()),
       AirframeCtrl(std::make_unique<FBAirframeControls>()) {}   /* NoOp until an airframe is attached */
@@ -35,8 +35,8 @@ FBF16Module::FBF16Module()
 void FBF16Module::AttachFdm(FBFdm &fdm) {
   Fdm_ = &fdm;
   AirframeCtrl = std::make_unique<FBJsbsimAirframeControls>(fdm);
-  /* The SMS's pylons become real point masses on THIS airframe (systems/FBStoresSystem::AttachFdm) —
-   * every station empty until a mission loads one, so an unloaded jet is unchanged. */
+  /* The pylons become real point masses on THIS airframe — every station empty until a mission loads
+   * one, so an unloaded jet is unchanged. */
   SmsSys->AttachFdm(fdm);
 }
 
@@ -48,65 +48,45 @@ bool FBF16Module::Due(double &accS, double dt, double hz) {
   return true;
 }
 
-/* Cycles every system slot the doc/f16/ inventory names (see the header's rate table), then the
- * fixed 100 Hz FDM substeps (spiral guard, <=12/frame): guidance -> FLCS-command -> JSBSim in
- * lockstep. AP->Run() / FC->Run() are the only virtual dispatch INSIDE that inner loop (one call
- * each per substep); every other slot below is throttled OUTSIDE it, at most once per Run(). */
+/* Cycles every system slot, then the fixed 100 Hz FDM substeps (spiral guard, <=12/frame): guidance ->
+ * FLCS-command -> JSBSim in lockstep. AP->Run()/FC->Run() are the only virtual dispatch INSIDE that
+ * inner loop; every other slot is throttled outside it. Rate table: doc/flightbox/modules-f16.md §2.2. */
 void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, const FBWorld *world) {
-  if (!Fdm_) return;               /* no airframe attached (FBModule::AttachFdm) — nothing to fly */
+  if (!Fdm_) return;               /* no airframe attached — nothing to fly */
   FBFdm &fdm = *Fdm_;
-  SimTimeS += dt;                  /* the module's own clock — the datalink's message timestamps */
-  SharedState.NowS = SimTimeS;     /* the bus time reference every block header is stamped against */
-  /* What the DED gate reads: head-down data entry is only possible in a jet that is not being flown
-   * hard (core/FBCommandBus.h). Unpublished air data reads as 1 g — a jet with no ADC is not
-   * manoeuvring by any measurement this aircraft has. */
+  SimTimeS += dt;
+  SharedState.NowS = SimTimeS;     /* the bus time every block header is stamped against */
+  /* The DED gate: unpublished air data reads as 1 g — a jet with no ADC is not manoeuvring by any
+   * measurement this aircraft has. */
   CmdBus_.SetLoadFactor(SharedState.AirData.H.Readable() ? SharedState.AirData.GLoad : 1.0f);
-  Input->Run(Mode, dt);            /* HOTAS/ICP: once per Run() call, the coarsest sim tick */
-  Propulsion->Run(st, dt);         /* engine-system logic above the raw FDM: same cadence */
+  Input->Run(Mode, dt);
+  Propulsion->Run(st, dt);
 
   if (Due(SensorAccS, dt, 10.0)) {
-    /* The two blocks the module itself publishes, FIRST in the group because the systems below read
-     * them: the platform pose out of the `st` this module was handed, and the airframe/propulsion
-     * readbacks out of the controls object every gear/brake command already goes through. Publishing
-     * them here rather than letting each consumer reach for `st` is what keeps "one writer per block"
-     * true — FBF16FireControl used to read an altitude field nobody filled. */
+    /* The module's own two blocks FIRST, because the systems below read them — that is what keeps "one
+     * writer per block" true instead of each consumer reaching for `st`. */
     PublishPlatform(st);
     PublishAirframe();
-    /* The two command groups whose owning boxes live in this slot group, serviced FIRST so a command
-     * that becomes due now is already in force when those boxes run below — a switch the pilot threw
-     * takes effect on the next sweep, not the one after it. */
+    /* Commands before the boxes they address, so a switch the pilot threw takes effect on the next
+     * sweep and not the one after it. */
     ServiceCommands(FBCommandGroup::Sensors);
     ServiceCommands(FBCommandGroup::Avionics);
-    /* The pickle's group, serviced here with the others and immediately before the SMS's own tick
-     * below, so a release is answered by the box that owns it and the stores block it republishes in
-     * the same tick already reflects what left the jet. */
     ServiceCommands(FBCommandGroup::Stores);
-    /* The Sensors slot: the SECOND (and last) system that sees the other units at all — the ACTIVE one,
-     * next to the cooperative terminal below (systems/FBRadarSystem's banner). `units` stops here too;
-     * what leaves is an anonymous contact list in SharedState.
-     * BATTLE DAMAGE (core/FBSystemHealth, read-only here): a failed set is not cycled at all and its
-     * block goes Invalid — everything downstream then behaves as it already does for a set that was
-     * never powered. A degraded one runs normally at the reduced range its damaged aperture leaves it. */
+    /* THE DAMAGE PATTERN, identical at every box below (doc/flightbox/modules-f16.md §2.4): a FAILED
+     * system is not cycled at all and its block goes Invalid, so every consumer behaves as it already
+     * does for a box that was never powered; a DEGRADED one runs at its one derivable restriction. */
     Fcr_->SetRangeFactor(SystemDegraded(FBSystemId::Radar) ? kRadarRangeDegraded : 1.0);
     if (SystemWorking(FBSystemId::Radar)) Fcr_->Run(SharedState, st, units, SimTimeS);
     else SharedState.Radar.H.Invalidate();
-    /* The HUD's telemetry chain, one throttle group so FireControl always reads Nav's SAME-tick output
-     * (see the header's rate table) — `st` is the FDM state as of the END of the PREVIOUS Run() call,
-     * same one-tick lag every other Sensor-cadence write already has. Each of them under the same
-     * health gate as the radar above: a failed box publishes nothing and says so. */
+    /* One throttle group so FireControl always reads Nav's SAME-tick output; `st` is the FDM state as
+     * of the END of the previous Run(), the one-tick lag every Sensor-cadence write has. */
     if (SystemWorking(FBSystemId::AirData)) AirData->Run(SharedState, st, dt);
     else SharedState.AirData.H.Invalidate();
     if (SystemWorking(FBSystemId::RadarAlt)) RadarAlt->Run(SharedState, (float)st.elev, GroundAslM);
     else SharedState.RadarAlt.H.Invalidate();
-    /* WHAT the nav system computes against: this module's own flight plan, republished every sensor
-     * tick because the active waypoint advances during the run (NavSys->AdvanceWaypoint below). Only
-     * the browser client ever set a steerpoint before, so in every .fbm run FBNavSystem had nothing to
-     * publish and the whole readout chain that hangs off it (nav, cruise, fire-control) stayed Invalid.
-     * The steerpoint's own GROUND elevation is not part of a `wp` line (doc/mission-format.md — a
-     * waypoint declares the altitude to FLY, not the terrain under it), so the module supplies the only
-     * terrain figure it has: this tick's elevation sample under the aircraft, the same one the radar
-     * altimeter reads. Over the gentle terrain a route waypoint sits in that IS its elevation; a
-     * declared per-waypoint elevation is mission-format work, not a number to invent here. */
+    /* Republished every sensor tick because the active waypoint advances during the run. A `wp` line
+     * declares the altitude to FLY, not the terrain under it, so the steerpoint's ground elevation is
+     * the only terrain figure the module has: this tick's sample under the aircraft. */
     if (const FBWaypoint *swp = Plan_.ActiveWaypoint())
       NavSys->SetSteerpoint(swp->LatDeg, swp->LonDeg, GroundAslM * kMToFt);
     if (SystemWorking(FBSystemId::Nav)) {
@@ -115,40 +95,30 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, 
       SharedState.Nav.H.Invalidate();
       SharedState.Cruise.H.Invalidate();   /* the same box publishes both messages */
     }
-    /* The fire control gets the SELECTED station's round: the launch zone it computes is for the weapon
-     * that would actually leave the jet if the pilot pickled now (modules/f16/FBF16FireControl). */
+    /* The SELECTED station's round: the launch zone computed is for the weapon that would actually
+     * leave the jet if the pilot pickled now. */
     if (SystemWorking(FBSystemId::FireControl))
       FireCtrl->Run(SharedState, st, FBStoreSpecOf(SmsSys->StoreAt(SmsSys->SelectedStation())),
                     GunSys->Spec(), SimTimeS, dt);
     else SharedState.FireControl.H.Invalidate();
-    /* ...and hands the SMS its target estimate, which the SMS copies onto a launched round and then
-     * radiates as that round's midcourse uplink (systems/FBStoresSystem::SetTargetState). */
+    /* What a launched round carries out of the jet: a guided one its target estimate, an unguided one
+     * the delivery solution it was aimed with. */
     SmsSys->SetTargetState(FireCtrl->TargetState());
-    /* ...and the unguided counterpart, the same handover for the same reason: what an unguided round
-     * carries out of the jet is the delivery solution it was aimed with (systems/FBStoresSystem::
-     * SetReleaseSolution). */
     SmsSys->SetReleaseSolution(FireCtrl->ReleaseSolution());
     UfcSys->Run(SharedState, dt);
     if (SystemWorking(FBSystemId::Stores)) SmsSys->Run(SharedState, dt);
     else SharedState.Stores.H.Invalidate();
-    /* LAST in the group: the warning set is a pure consumer of everything published above it, including
-     * their validity heads (systems/FBWarningSystem). */
+    /* LAST: a pure consumer of everything above it, including their validity heads. */
     Warn_->Run(SharedState, dt);
   }
   if (Due(DisplayAccS, dt, 20.0)) Disp->Run(SharedState, Mode, dt);
   if (Due(WeaponAccS, dt, 20.0)) Weapons->Run(Mode, world, dt);
-  /* THE GUN, once per Run() with the FULL dt — deliberately not throttled like the slots around it. Its
-   * output is a ROUND COUNT integrated over time (systems/FBGunSystem's banner), so entering it at a
-   * rate other than the caller's tick would either drop rounds or invent them. Everything else about it
-   * is cheap: an unfired gun is one comparison. A gun that has been shot away neither fires nor
-   * publishes, like every other damaged box. */
+  /* THE GUN, once per Run() with the FULL dt — deliberately unthrottled: its output is a round count
+   * INTEGRATED over time, so any other cadence would drop rounds or invent them. */
   if (SystemWorking(FBSystemId::Gun)) GunSys->Run(SharedState, st, SimTimeS, dt);
   else SharedState.Gun.H.Invalidate();
-  /* The Defensive slot, at the pilot's own decision rate rather than the 5 Hz the NoOp placeholder ran
-   * at: a countermeasure program's burst interval is a tenth of a second (doc/f16/defence-rwr-cm.md
-   * §2.2), so entering the slot slower than the sim tick would quantise a salvo. The order inside it is
-   * the data flow — the receiver writes the threat picture, the dispenser reads it, and the pilot's CMS
-   * commands are answered in between so a throw takes effect on this tick's program and not the next. */
+  /* Defensive, in data-flow order: the receiver writes the threat picture, the dispenser reads it, and
+   * the CMS commands are answered in between so a throw hits this tick's program and not the next. */
   if (Due(DefensiveAccS, dt, 10.0)) {
     if (SystemWorking(FBSystemId::Rwr)) Rwr_->Run(SharedState, st, units, SimTimeS);
     else SharedState.Rwr.H.Invalidate();
@@ -156,28 +126,20 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, 
     if (SystemWorking(FBSystemId::Countermeasures)) Cmds_->Run(SharedState, st, SimTimeS);
     else SharedState.Cmds.H.Invalidate();
   }
-  /* Comms/Datalink: the COOPERATIVE half of what this module knows about other units
-   * (systems/FBDatalinkSystem's banner — `units`, the registry of published snapshots, reaches this slot
-   * and the Sensors slot above, and nothing else). It writes tracks into SharedState; whatever reads
-   * them — HUD today, pilot later — reads them as instrument data. */
+  /* Comms/Datalink: the COOPERATIVE half. `units` reaches this slot and the Sensors slot above, and
+   * nothing else; what leaves is instrument data in SharedState. */
   if (Due(CommsAccS, dt, 5.0)) {
     ServiceCommands(FBCommandGroup::Comms);
     if (SystemWorking(FBSystemId::Datalink)) Datalink_->Run(SharedState, st, units, SimTimeS);
     else SharedState.Datalink.H.Invalidate();
   }
-  /* Pilot: the mission brain above Guidance/FlightControl (rate table). Idle (nobody called SetPhase)
-   * returns a neutral FBPilotCommands, so ApplyPilotCommands is a no-op until the App starts the phase
-   * machine — once it does, this is the takeoff/climb/route chain actually flying the jet. Waypoint
-   * capture (Akteurs-Verhalten, FBNavSystem's own job — doc/mission-format.md) runs right after, same
-   * cadence: THIS tick's Pilot::Run() flew toward the pre-capture active waypoint. This module never
-   * sees whether the mission itself concluded from that same capture — that verdict is a separate,
-   * independent judgement the caller owns (core/, not this file). */
+  /* Pilot. Waypoint capture runs right after, same cadence: THIS tick's Run() flew toward the
+   * pre-capture active waypoint. Whether the MISSION concluded from that same capture is a separate,
+   * independent judgement the caller owns. */
   if (Due(PilotAccS, dt, 10.0)) {
     ApplyPilotCommands(PilotSys->Run(SharedState, CmdBus_, *AirframeCtrl, st, Plan_,
                                      HaveRunway_ ? &Rwy_ : nullptr, dt));
-    /* The pilot's own track processor publishes its fused picture onto the bus after the decision tick
-     * — the same forwarding the platform block gets, for the same reason: the writer is one system
-     * (systems/FBBfmTrack), it just does not hold the bus itself. */
+    /* Forwarded like the platform block: the writer is one system, it just does not hold the bus. */
     SharedState.Bfm = PilotSys->BfmTrack().Block();
     NavSys->AdvanceWaypoint(Plan_, st.lat, st.lon);
   }
@@ -218,9 +180,8 @@ void FBF16Module::PublishAirframe() {
 }
 
 
-/* One group's due commands, handed to the box that owns them. The MODULE does the routing for the same
- * reason it interprets its own `set` keys (FBModule::ApplySetup): the systems are generic, and which
- * F-16 box owns "radar mode" is this module's knowledge, not systems/'s. */
+/* The MODULE routes for the same reason it interprets its own `set` keys: the systems are generic, and
+ * which F-16 box owns "radar mode" is this aircraft's knowledge, not systems/'s. */
 void FBF16Module::ServiceCommands(FBCommandGroup group) {
   FBAvionicsCommand c{};
   while (CmdBus_.TakeDue(group, SimTimeS, c)) {
@@ -231,15 +192,11 @@ void FBF16Module::ServiceCommands(FBCommandGroup group) {
   }
 }
 
-/* Where a command actually happens — and where the RANGE POLICY lives, next to the box that knows the
- * domain (core/FBAvionicsCommand.h's OutOfRange note): out of range is REJECTED and named, never
- * clamped behind the pilot's back. The one clamp in the file is the documented BNGO ceiling, and it is
- * reported as Clamped, not as success. */
+/* Where the RANGE POLICY lives, next to the box that knows the domain: out of range is REJECTED and
+ * named, never clamped behind the pilot's back. The one clamp is the documented BNGO ceiling, and it is
+ * reported as Clamped rather than as success. Table: doc/flightbox/modules-f16.md §2.5. */
 namespace {
-/* WHICH BOX a command is addressed to, for the damage gate below. Module knowledge, exactly like the
- * routing in ApplyCommand itself: which F-16 box owns "radar mode" is this aircraft's business, not
- * systems/'s. Returns false for a command whose owner is not a system the damage model tracks (the UFC's
- * data entry, the master-mode switch). */
+/* False for a command whose owner is not a system the damage model tracks (UFC entry, master mode). */
 bool CommandOwner(FBCommandTarget t, FBSystemId &out) {
   switch (t) {
     case FBCommandTarget::RadarMode:
@@ -268,11 +225,8 @@ bool CommandOwner(FBCommandTarget t, FBSystemId &out) {
 
 void FBF16Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &outcome,
                                FBCommandReason &reason) {
-  /* THE DAMAGE GATE, before any box is touched: a command to a system that has been shot away does
-   * nothing and says so (core/FBAvionicsCommand.h's SystemFailed). Without it a destroyed SMS would
-   * still let a round off the rail — the module gates its Run() and its block, but the release path runs
-   * through this router, not through that Run(). The pilot then behaves correctly for free: it reads the
-   * refusal exactly as it reads an empty magazine's. */
+  /* THE DAMAGE GATE, before any box is touched: without it a destroyed SMS would still let a round off
+   * the rail, because the release path runs through this router and not through SmsSys->Run(). */
   FBSystemId owner = FBSystemId::Engine;
   if (CommandOwner(c.Target, owner) && !SystemWorking(owner)) {
     outcome = FBCommandOutcome::Rejected;
@@ -317,30 +271,24 @@ void FBF16Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &out
       return;
     }
     case FBCommandTarget::MasterArm:
-      /* ONE switch, both weapon systems: the master arm is a cockpit control, not a property of the
-       * SMS, and a jet whose racks are armed has an armed gun too. */
+      /* ONE switch, both weapon systems: master arm is a cockpit control, not an SMS property, and a
+       * jet whose racks are armed has an armed gun too. */
       SmsSys->SetMasterArm(c.Value != 0.0 ? FBArmState::Arm : FBArmState::Sim);
       GunSys->SetMasterArm(SmsSys->MasterArm());
       return;
-    /* The two stores commands. The SMS itself answers the release (systems/FBStoresSystem::Release
-     * decides and says why); this module only routes, exactly as it does for every other box. */
     case FBCommandTarget::StationSelect:
       if (!SmsSys->SelectStation((int)c.Value)) {
         outcome = FBCommandOutcome::Rejected;
         reason = FBCommandReason::OutOfContext;
       }
       return;
+    /* Release/trigger/dispense: the owning BOX decides and says why; this module only routes. */
     case FBCommandTarget::WeaponRelease:
       SmsSys->Release(SimTimeS, outcome, reason);
       return;
-    /* The trigger, answered by the gun itself (systems/FBGunSystem::Trigger decides and says why —
-     * safe, on the wheels, or an empty drum), exactly as the SMS answers the pickle. */
     case FBCommandTarget::GunTrigger:
       GunSys->Trigger(c.Value, SimTimeS, outcome, reason);
       return;
-    /* The defensive trio. The dispenser itself answers the throw (systems/FBCountermeasureSystem::
-     * Dispense decides and says why — an empty magazine is a refusal with its own reason), exactly as
-     * the SMS answers the pickle; this module only routes. */
     case FBCommandTarget::CmDispense:
       if (c.Value < 0.0 || c.Value > (double)FBCountermeasureSystem::kProgramCount) {
         outcome = FBCommandOutcome::Rejected;
@@ -365,33 +313,29 @@ void FBF16Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &out
     case FBCommandTarget::AlowFt:
       if (!FBF16Ufc::AlowInRange((float)c.Value)) { outcome = FBCommandOutcome::Rejected; reason = FBCommandReason::OutOfRange; return; }
       UfcSys->SetAlow((float)c.Value);
-      /* Documented effect-side precondition (doc/f16/controls-commands.md §6.4): the entry commits
-       * either way, but with the CARA unpowered the warning it arms can never fire — and the pilot is
-       * told so instead of being left to assume a live floor. */
+      /* §6.4: the entry commits either way, but with the CARA unpowered the warning it arms can never
+       * fire — and the pilot is told instead of assuming a live floor. */
       if (!RadarAlt->Powered()) { outcome = FBCommandOutcome::Inhibited; reason = FBCommandReason::EffectPrecondition; }
       return;
     case FBCommandTarget::BingoLbs:
       if (!FBF16Ufc::BingoInRange((float)c.Value)) { outcome = FBCommandOutcome::Rejected; reason = FBCommandReason::OutOfRange; return; }
-      /* §6.8: ENTR succeeds and the field shows what was typed; the warning still fires at the system
-       * ceiling. Accepted-with-clamp, not a rejection. */
+      /* §6.8: ENTR succeeds and the field shows what was typed, but the warning fires at the system
+       * ceiling — accepted-with-clamp, not a rejection. */
       if (!UfcSys->SetBingo((float)c.Value)) { outcome = FBCommandOutcome::Clamped; reason = FBCommandReason::ValueClamped; }
       return;
     case FBCommandTarget::SteerpointNum:
       if (!FBF16Ufc::SteerNumInRange((int)c.Value)) { outcome = FBCommandOutcome::Rejected; reason = FBCommandReason::OutOfRange; return; }
       UfcSys->SetSteerpointNumber((int)c.Value);
       return;
-    /* TMS forward/aft on a contact the pilot picked off the scope (systems/FBRadarSystem::Designate).
-     * The VALUE is the contact's own published track number — 0 breaks the lock. A number that names no
-     * firm track is the valid-command-wrong-context case: the return the pilot designated is gone by the
-     * time the hand finished moving, which is a real cockpit outcome and not a range error. */
+    /* Value = the contact's published track number, 0 = break lock. A number naming no firm track is
+     * OutOfContext, not a range error: the return is gone by the time the hand finished moving. */
     case FBCommandTarget::Designate:
       if (!Fcr_->Designate((int)c.Value, SimTimeS)) {
         outcome = FBCommandOutcome::Rejected;
         reason = FBCommandReason::OutOfContext;
       }
       return;
-    /* §6.6, the honest answer: the F-16 has it, FlightBox has not. A silent success would be a lie the
-     * pilot would then fly on. */
+    /* §6.6: the F-16 has it, FlightBox has not — a silent success would be a lie the pilot flies on. */
     case FBCommandTarget::WeaponSelect:
       outcome = FBCommandOutcome::Rejected;
       reason = FBCommandReason::NotImplemented;
@@ -403,10 +347,8 @@ void FBF16Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &out
   }
 }
 
-/* Applies only the fields FBPilotCommands actually set (Guidance != None, each std::optional present) —
- * an Idle-phase neutral FBPilotCommands (every field default/unset) reaches here and calls NOTHING,
- * which is what keeps an un-started pilot (Phase::Idle) bit-identical to not having one (see Run()'s
- * banner). */
+/* Only the fields actually SET — which is what keeps an un-started pilot (Phase::Idle, everything
+ * default) bit-identical to not having one. */
 void FBF16Module::ApplyPilotCommands(const FBPilotCommands &c) {
   switch (c.Guidance) {
     case FBPilotGuidance::Manual:
@@ -434,11 +376,9 @@ void FBF16Module::ApplyPilotCommands(const FBPilotCommands &c) {
   if (c.EngineStart) *c.EngineStart ? AirframeCtrl->EngineStart() : AirframeCtrl->EngineCutoff();
 }
 
-/* Boundary input (mission-file text, defensive checks per CLAUDE.md's C++ conventions). STRICT: the whole
- * value must be one finite number and nothing else. A silent 0.0 default here is worse than a hard
- * failure — `set fuel_lbs FULL` or a thousands separator would spawn the jet with an empty tank, report
- * success, and JSBSim would kill the engine minutes later in the air with nothing in events.log naming
- * the cause. The parser is FBMissionFile's Trim'ed value, so no leading/trailing space is expected. */
+/* Boundary input. STRICT: the whole value must be one finite number and nothing else — a silent 0.0
+ * would spawn the jet with an empty tank, report success, and kill the engine minutes later with
+ * nothing in events.log naming the cause. */
 namespace {
 bool ParseDouble(const std::string &s, double &out) {
   if (s.empty()) return false;
@@ -451,8 +391,7 @@ bool ParseDouble(const std::string &s, double &out) {
   return true;
 }
 
-/* One rejection, one greppable event naming BOTH the key and the raw text — the caller turns the false
- * into a mission FAIL (FBMissionBoot.h), so this is the only place the actual value is still known. */
+/* The only place the raw value is still known: the caller turns the false into a mission FAIL. */
 bool RejectSetup(const char *reason, const std::string &key, const std::string &value) {
   FBLog::Error("module", "SET_INVALID_VALUE", {{"key", key}, {"value", value}, {"reason", reason}});
   return false;
@@ -461,9 +400,8 @@ bool RejectSetup(const char *reason, const std::string &key, const std::string &
 
 bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
   if (!Fdm_) return false;   /* setup lines describe the airframe's state — none to apply without one */
-  /* The MIDS terminal's switches (doc/f16/datalink-iff.md, systems/FBDatalinkSystem's banner): POWER and
-   * XMT are two switches because the real terminal has two — powering it down blinds this jet, XMT OFF
-   * only stops it being heard by the others. */
+  /* POWER and XMT are two switches because the real terminal has two: power off blinds this jet, XMT
+   * off only stops it being heard. */
   if (key == "datalink" || key == "datalink_xmt") {
     if (value != "on" && value != "off") return RejectSetup("want on|off", key, value);
     if (key == "datalink") Datalink_->SetPowered(value == "on");
@@ -483,11 +421,8 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
     Datalink_->SetMaxRangeM(nm * kNmToM);
     return true;
   }
-  /* The FCR + IFF set (doc/f16/radar-sensors.md, doc/f16/datalink-iff.md; modules/f16/FBF16Fcr's mode
-   * table). `fcr_mode` is the ACM/CRM sub-mode selection the pilot would make on the HOTAS; `iff_xpdr`
-   * and `iff_interrogator` are the two halves of the APX-113, separately switchable because they answer
-   * two different questions — whether OTHERS can identify this jet, and whether this jet can identify
-   * others. */
+  /* The two halves of the APX-113 are separately switchable because they answer different questions:
+   * whether OTHERS can identify this jet, and whether this jet can identify others. */
   if (key == "fcr_mode") {
     FBF16FcrMode m;
     if (!FBF16FcrModeFromString(value.c_str(), m))
@@ -517,11 +452,8 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
     else Fcr_->SetIffInterrogator(value == "on");
     return true;
   }
-  /* The pilot's TASK: which phase of systems/FBPilot's machine this jet starts in. `route` is what a
-   * mission gets without the line (FBMissionBoot's spawn already arms it); `bfm` puts the pilot into the
-   * fight, where it flies its radar picture instead of a waypoint chain. Declared as mission data rather
-   * than inferred from the loadout because two jets with identical setup lines can have opposite jobs —
-   * one manoeuvres against the other, the other flies its brief. */
+  /* Which phase the pilot starts in. Declared as mission data rather than inferred from the loadout:
+   * two jets with identical setup lines can have opposite jobs. */
   if (key == "task") {
     if (value == "route") PilotSys->SetPhase(FBPilot::Phase::Route);
     else if (value == "bfm") PilotSys->SetPhase(FBPilot::Phase::Bfm);
@@ -530,11 +462,8 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
     else return RejectSetup("want route|bfm|intercept|attack", key, value);
     return true;
   }
-  /* THE DELIVERY MODE of an air-to-ground pass (doc/f16/weapons.md §2.5). ONE mission line with TWO
-   * consumers, wired here because pairing them is module knowledge: the PILOT needs it to know which
-   * cue to release on (systems/FBPilot's Attack phase), and the FIRE CONTROL needs it so the release
-   * record says which cue the round was let go on (modules/f16/FBF16FireControl). Neither changes the
-   * arithmetic — both cues come out of the same integration and are published either way. */
+  /* ONE line, TWO consumers — the pilot needs the cue to release on, the fire control needs it for the
+   * release record. Neither changes the arithmetic: both cues come out of the same integration. */
   if (key == "attack_mode") {
     FBDeliveryMode m;
     if (value == "ccip") m = FBDeliveryMode::Ccip;
@@ -544,10 +473,8 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
     FireCtrl->SetDeliveryMode(m);
     return true;
   }
-  /* THE DRUM: how many rounds this jet started the sortie with. A mission may load LESS than the gun's
-   * capacity (an aircraft that has been shooting, or the empty-magazine case a refusal has to be proven
-   * against) and never more — systems/FBGunSystem::SetRounds refuses that, and the refusal becomes a
-   * mission FAIL like every other bad setup line. */
+  /* A mission may load LESS than the drum holds (a jet that has been shooting, or the empty-magazine
+   * case a refusal must be proven against) and never more. */
   if (key == "gun_rounds") {
     double n = 0.0;
     if (!ParseDouble(value, n)) return RejectSetup("not a number", key, value);
@@ -555,12 +482,6 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
     if (!GunSys->SetRounds((int)n)) return RejectSetup("more rounds than the gun holds", key, value);
     return true;
   }
-  /* THE DEFENSIVE SUITE (doc/f16/defence-rwr-cm.md). `rwr` is the ALR-56M's POWER button; `rwr_display`
-   * the TWP MODE button (PRIORITY = 5 symbols, OPEN = 16); `rwr_search` the TWA panel's SEARCH toggle,
-   * which hides search-class emitters without hiding the fact that it is hiding them. `cmds_mode` is the
-   * mode knob whose position decides who may dispense at all, `cmds_program` the PRGM knob, and
-   * `cmds_chaff`/`cmds_flare` the loadout the ground crew set — capped at the airframe's documented 120
-   * combined. */
   if (key == "rwr" || key == "rwr_search") {
     if (value != "on" && value != "off") return RejectSetup("want on|off", key, value);
     if (key == "rwr") Rwr_->SetPowered(value == "on");
@@ -599,16 +520,15 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
     Cmds_->SetLoadout(chaff, flare);
     return true;
   }
-  /* The CARA's power switch: the one mission-declarable way to make a source block INVALID, which is
-   * what a consumer's handling of that state can be measured against (systems/FBRadarAltimeter). */
+  /* The one mission-declarable way to make a source block INVALID, which is what a consumer's handling
+   * of that state can be measured against. */
   if (key == "radalt") {
     if (value != "on" && value != "off") return RejectSetup("want on|off", key, value);
     RadarAlt->SetPowered(value == "on");
     return true;
   }
-  /* THE BRIEF (systems/FBPilot's brief block): not applied here — handed to the pilot, who will enter
-   * it through the avionics command bus once airborne, at its control's own latency class, and may be
-   * refused. A mission that briefs nothing leaves every box exactly as the spawn set it. */
+  /* THE BRIEF is not applied here — the pilot enters it through the command bus once airborne, at its
+   * control's latency class, and may be refused. Briefing nothing leaves every box as the spawn set it. */
   if (key == "brief_alow_ft" || key == "brief_bingo_lbs") {
     double v = 0.0;
     if (!ParseDouble(value, v)) return RejectSetup("not a number", key, value);
@@ -628,12 +548,8 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
     else return RejectSetup("want gun|aim9|aim120", key, value);
     return true;
   }
-  /* THE PILOT VARIANT (systems/FBPilotTuning): `set pilot_<param> <value>` overrides one of the
-   * pilot's own decision numbers for this unit only. Forwarded whole — the parameter set is a property
-   * of the PILOT, not of this airframe, so the key table lives with the pilot and this module does not
-   * get a second, drifting copy of it. A rejected key or an out-of-band value is a mission FAIL like
-   * every other bad `set` line, which is what keeps a misspelt tournament parameter from quietly
-   * flying the default. */
+  /* Forwarded WHOLE: the parameter set is a property of the PILOT, not of this airframe, so the key
+   * table lives there and this module gets no second, drifting copy of it. */
   if (key.compare(0, 6, "pilot_") == 0) {
     double v = 0.0;
     if (!ParseDouble(value, v)) return RejectSetup("not a number", key, value);
@@ -646,11 +562,8 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
     AirframeCtrl->SetGear(value == "down");
     return true;
   }
-  /* THE LOADOUT, as mission data: `set store <station> <type>` (doc/mission-format.md). One line per
-   * pylon, because that is how a jet is loaded — station by station, with the type on it. The station
-   * numbers are this airframe's own (1..9, modules/f16/FBF16Sms), the type names are the catalogue's
-   * (core/FBStore.h); an unknown either way is a mission FAIL rather than a jet that quietly takes off
-   * with an empty rack. */
+  /* One line per pylon, because that is how a jet is loaded. An unknown station or type is a mission
+   * FAIL rather than a jet that quietly takes off with an empty rack. */
   if (key == "store") {
     std::istringstream in(value);
     int station = 0;
@@ -661,16 +574,8 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
     if (!SmsSys->Load(station, *spec)) return RejectSetup("no such station, or already loaded", key, value);
     return true;
   }
-  /* WHEN the pilot pickles, as mission data: `set brief_release_s <t>`, repeatable — one line per store
-   * the brief calls for, in mission-elapsed seconds. Deliberately a TIME and not a target: this stage
-   * has no release solution (no CCIP/CCRP), so a mission that wants a bomb dropped from a defined state
-   * says exactly that and nothing pretends to have aimed it. Like every other brief item it goes through
-   * the command bus when the moment comes, and may be refused. */
-  /* WHEN the pilot throws countermeasures, as mission data: `set brief_chaff_s <t>`, repeatable, one
-   * line per dispense the brief calls for. The same shape and the same reasoning as brief_release_s —
-   * a moment, not a condition — and it travels the same way, through the CMS switch's own HOTAS-class
-   * command, which the dispenser may refuse (an empty magazine, the wrong knob position). The SEMI/AUTO
-   * modes need no brief at all: there the jet answers its own RWR. */
+  /* Both briefed as a MOMENT and not a condition: mission-elapsed seconds, repeatable, travelling the
+   * command bus like every other brief item and refusable there. */
   if (key == "brief_chaff_s") {
     double t = 0.0;
     if (!ParseDouble(value, t)) return RejectSetup("not a number", key, value);

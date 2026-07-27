@@ -1,7 +1,5 @@
-/* FlightBox — FBFlightPlan: the pilot's mission brief, a plain ordered waypoint chain. Lives in core/
- * (value type, zeroes no dependency on systems/modules) so both FBPilot (systems/) and a future
- * mission-setup UI can share it without either owning the other. Holds structure only — no procedure
- * logic (SIDs/holds/approach sequencing are FBPilot's phase machine, not this container). */
+/* The pilot's mission brief: a plain ordered waypoint chain, structure only — procedure logic is
+ * FBPilot's phase machine, not this container. */
 #ifndef FBFLIGHTPLAN_H
 #define FBFLIGHTPLAN_H
 

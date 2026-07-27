@@ -1,13 +1,6 @@
-/* FlightBox — FBDisplaySystem: cockpit displays, the DEFAULT implementation of a module's Displays
- * system slot. Interface + a REAL default (not NoOp, unlike the rest of FBSystemSlots.h): BuildHud is
- * the generic MIL-STD-1787-ish HUD every airframe starts with — waterline, conformal horizon,
- * heading/groundspeed/altitude tapes with a steerpoint marker, "NO TELEMETRY" fallback. A module whose
- * HUD genuinely differs (real MFD pages, F-16-specific symbology) subclasses and overrides BuildHud,
- * same override-point pattern as FBAutopilot::Run/FBFlightControl::Run; FBF16Module composes this
- * default unmodified until it does.
- *
- * Run() stays the periodic display-logic slot (MFD pages, warning lights, ...) FBF16Module already
- * throttles at 20 Hz — separate from BuildHud, which FBHudStage calls once per rendered frame. */
+/* FlightBox — FBDisplaySystem: der Anzeigen-Slot. Run() ist die periodische Anzeigenlogik (20 Hz),
+ * BuildHud das generische MIL-STD-1787-artige Default-HUD (1x je gerendertem Frame) und der zweite
+ * Override-Punkt. doc/flightbox/systems.md, Abschnitt 8. */
 #ifndef FBDISPLAYSYSTEM_H
 #define FBDISPLAYSYSTEM_H
 
@@ -17,12 +10,12 @@
 
 namespace FlightBox {
 
-/* What BuildHud needs beyond FBState: viewport size and AGL are render/telemetry plumbing, not sim
- * state, so they travel separately rather than bloating FBState for one consumer. */
+/* Was BuildHud jenseits von FBState braucht: Render-/Telemetrie-Verdrahtung, kein Sim-Zustand — reist
+ * getrennt, statt FBState fuer einen Konsumenten aufzublaehen. */
 struct FBHudEnv {
   int Width, Height;
-  float Agl;   /* m, ASL - DEM ground under the aircraft; AGL readout + horizon-dip fallback (alt<=1) */
-  bool Have;   /* telemetry present; false -> BuildHud draws only the NO TELEMETRY fallback */
+  float Agl;   /* m, ASL - DEM-Boden; AGL-Anzeige + Horizont-Dip-Fallback bei alt<=1 */
+  bool Have;   /* Telemetrie vorhanden; false -> nur der NO-TELEMETRY-Fallback */
 };
 
 class FBDisplaySystem {
@@ -31,8 +24,7 @@ public:
 
   virtual void Run(const FBState &state, FBMasterMode mode, double dt) { (void)state; (void)mode; (void)dt; }
 
-  /* The HUD override point (see the class banner). Regenerates the full symbology into `out` for one
-   * frame; FBHudStage uploads it verbatim. Const: BuildHud reads state, it does not own any of it. */
+  /* Const: BuildHud LIEST Zustand, es besitzt keinen. */
   virtual void BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry &out) const;
 };
 

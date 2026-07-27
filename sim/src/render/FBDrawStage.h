@@ -1,11 +1,10 @@
-/* FlightBox — FBDrawStage: one shader's pipeline(s) + bind group(s) + draw(s), recorded into a
- * BORROWED encoder FBRenderer already opened. A stage NEVER begins or ends a pass itself — pass
- * topology (Begin/EndRenderPass boundaries, the encode order) stays FBRenderer's, exactly as today;
- * splitting the renderer into stages must not add a single render or compute pass. A stage self-gates
- * its own draw (e.g. "nothing visible this frame" -> Encode records no commands) rather than the
- * caller deciding whether to invoke it — FBRenderer calls every stage in its slot unconditionally.
- * Override whichever Encode() form matches the stage's shader kind; the other stays the inert
- * default (a render-pass stage never touches EncodeCompute, and vice versa). */
+/* One shader's pipeline(s) + bind group(s) + draw(s), recorded into a BORROWED encoder FBRenderer
+ * already opened. A STAGE NEVER BEGINS OR ENDS A PASS: the pass topology and encode order are
+ * FBRenderer's, and a stage split must not add a single render or compute pass.
+ * A stage SELF-GATES its own draw ("nothing visible" -> Encode records nothing) rather than the caller
+ * deciding, because FBRenderer calls every stage in its slot unconditionally. Override whichever
+ * Encode() form matches the shader kind; the other stays the inert default.
+ * Vertrag + vollstaendige Encode-Reihenfolge: doc/flightbox/rendering.md, Abschnitt 2. */
 #ifndef FBDRAWSTAGE_H
 #define FBDRAWSTAGE_H
 

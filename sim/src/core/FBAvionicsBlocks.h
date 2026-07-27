@@ -1,19 +1,6 @@
-/* FlightBox — the avionics OUTPUT blocks: the typed payload of core/FBState, one block per SOURCE
- * system, each with an FBBlockHeader (core/FBBlockStatus.h) saying whether its numbers currently mean
- * anything. This file IS the bus layout, which is why the blocks live together in it rather than one
- * per file: a block is a message definition, not a class — no behaviour, no invariants of its own, and
- * a reader needs to see the whole set to know what the bus carries.
- *
- * THE ONE RULE: every block has exactly ONE writer (named in its comment) and any number of readers.
- * A reader never writes a block, and no block is written by two systems — that is what makes "who put
- * this number here" answerable at compile time instead of by grep, and it is the property the flat
- * FBState had already lost (a growing struct where the fire-control system read a field the App wrote
- * and nobody could see it).
- *
- * Semantics, not addresses (MIL-STD-1553 as the model): defined data groups with a validity head and a
- * known producer. Deliberately NOT taken over: bus addressing, word packing, message scheduling —
- * FlightBox's transport is a typed struct passed by reference in one address space, and inventing
- * remote-terminal addresses for it would be cargo cult. */
+/* The avionics OUTPUT blocks: the typed payload of core/FBState, one block per SOURCE system.
+ * THE ONE RULE: every block has exactly ONE writer — named in its comment below — and any number of
+ * readers. doc/flightbox/core.md, Abschnitt 1. */
 #ifndef FBAVIONICSBLOCKS_H
 #define FBAVIONICSBLOCKS_H
 
@@ -28,11 +15,8 @@
 
 namespace FlightBox {
 
-/* ---- Platform: the airframe's own pose/velocity, the block everything conformal is drawn against.
- * WRITER: the owner of the FDM state — the module publishes it from the `st` it is handed each Run(),
- * and the client re-publishes it with this frame's live pose before handing the bus to the renderer
- * (units/FBSimUnit::HudState). One writer per bus instance; the module's bus and the client's frame
- * copy are the same block filled from the same source. */
+/* ---- Platform: the airframe's own pose/velocity, what everything conformal is drawn against.
+ * WRITER: the owner of the FDM state (module from `st`; client re-publishes the live frame pose). */
 struct FBPlatformBlock {
   FBBlockHeader H;
   float RollDeg = 0.0f, PitchDeg = 0.0f, YawDeg = 0.0f;
@@ -43,10 +27,8 @@ struct FBPlatformBlock {
   FBMode Mode = FBMode::Manual;      /* the REAL, confirmed guidance mode (MIL-STD-1787) */
 };
 
-/* ---- Environment: sky/weather inputs the renderer's lighting and the HUD's haze read.
- * WRITER: the client (ephemeris + live weather), never a module system. Not avionics in the airframe
- * sense, but it is shared per-frame state with exactly the same producer/consumer question, so it
- * carries the same head — an unfed weather source is Invalid, not "zero cover". */
+/* ---- Environment: sky/weather for lighting and haze. WRITER: the client (ephemeris + live weather),
+ * never a module system. An unfed weather source is Invalid, not "zero cover". */
 struct FBEnvironmentBlock {
   FBBlockHeader H;
   float CloudCover = 0.0f;                                     /* 0..1 total (HUD/haze legacy total) */
@@ -65,10 +47,8 @@ struct FBAirDataBlock {
   float FpaDeg = 0.0f;                    /* flight-path angle, + = climbing (the FPM's elevation) */
 };
 
-/* ---- Radar altitude. WRITER: systems/FBRadarAltimeter.
- * The block that MUST be able to say Invalid: the CARA is a powered box, and doc/f16/
- * controls-commands.md §6.4 documents the consequence literally — the ALOW warning only fires with the
- * radar altimeter powered and transmitting, however happily the DED accepted the threshold. */
+/* ---- Radar altitude. WRITER: systems/FBRadarAltimeter. The reference case for Invalid: unpowered it
+ * publishes no 0 ft (doc/f16/controls-commands.md §6.4). */
 struct FBRadarAltBlock {
   FBBlockHeader H;
   float AglFt = 0.0f;
@@ -86,25 +66,18 @@ struct FBNavBlock {
   float MagVarDeg = 0.0f;           /* magnetic variation (placeholder: 0) */
 };
 
-/* ---- Cruise: the DED CRUS page's COMPUTED fields, split off the nav block for one documented reason
- * (doc/f16/controls-commands.md, CRUS table): with the gear down these stop updating and freeze at
- * their last value while bearing/distance keep working. That is a per-MESSAGE property, so it needs its
- * own head — the freeze is expressed as FBBlockStatus::Held, which is where the third state earns its
- * existence. WRITER: systems/FBNavSystem (a source system may publish more than one message). */
+/* ---- Cruise: the DED CRUS page's COMPUTED fields. WRITER: systems/FBNavSystem.
+ * Own head because gear-down freezes exactly these while bearing/distance keep working — the origin of
+ * FBBlockStatus::Held (doc/f16/controls-commands.md, CRUS-Tabelle). */
 struct FBCruiseBlock {
   FBBlockHeader H;
   float SteerTtgS = 0.0f;   /* time-to-go to the steerpoint at the current groundspeed */
 };
 
-/* ---- Fire control: the 'B' (baro/steerpoint-elevation) slant-range method, PLUS the air-to-air launch
- * zone for the selected weapon. WRITER: modules/f16/FBF16FireControl.
- *
- * The DLZ half is the block's second message in all but name (doc/f16/weapons.md §2.5's DLZ table:
- * Raero, Rtr, the activation range and the two post-launch countdowns). It shares the head with the
- * slant range because both are the same box's output and both go invalid together when the sources they
- * fuse do; DlzValid says whether there is a SOLUTION on top of that — a fire control with no locked
- * target publishes its block and reports no launch zone, which is a different fact from an unpublished
- * block. Every field is metres/seconds (the bus is SI; only displays convert to nm). */
+/* ---- Fire control: FOUR products under one head (ranging, DLZ, gun solution, air-to-ground release).
+ * WRITER: modules/f16/FBF16FireControl. All four go invalid together with the sources they fuse; each
+ * carries its own "is there a SOLUTION" bit on top. SI throughout; only displays convert to nm.
+ * doc/flightbox/core.md, Abschnitt 1.3. */
 struct FBFireControlBlock {
   FBBlockHeader H;
   float SteerSlantNm = 0.0f;
@@ -120,18 +93,8 @@ struct FBFireControlBlock {
   float TimeToImpactS = 0.0f;  /* predicted total time of flight; < 0 = no intercept from here */
   bool  InZone = false;        /* Rmin <= range <= Raero — what the SMS's launch interlock reads */
 
-  /* ---- THE GUN SOLUTION (doc/f16/weapons.md §2.5's EEGS), the third product of the same box. It is
-   * published under the same head for the same reason the launch zone is: it is a fusion of the target
-   * estimate and own motion, and it goes invalid when they do. GunValid says whether there is a
-   * SOLUTION, exactly as DlzValid does — a fire control with nothing to shoot at still publishes.
-   *
-   * The EEGS funnel is a SIGHT: its walls are the target's known wingspan drawn at the range for which
-   * the gun is correctly aimed, so a target that fills the funnel is at the range the lead was computed
-   * for. What that geometry says about a SHOT is three numbers, and they are what a pilot (or an AI)
-   * actually needs: how far the required lead is from where the nose is pointing right now
-   * (GunAimErrorDeg), how big the target is in angle at this range (GunSpanMr), and the two spans that
-   * bracket the funnel's own range window (GunFunnelTopMr at its minimum range, GunFunnelBottomMr at its
-   * maximum). "Target smaller than the funnel bottom" — the guide's own out-of-range test — is then
+  /* ---- The GUN solution (doc/f16/weapons.md §2.5's EEGS). The funnel is a SIGHT: its walls are the
+   * target's wingspan drawn at the range the gun is correctly aimed for, so the out-of-range test is
    * literally GunSpanMr < GunFunnelBottomMr. */
   bool  GunValid = false;
   float GunRangeM = 0.0f;        /* to the predicted intercept point, not to the target now */
@@ -147,18 +110,9 @@ struct FBFireControlBlock {
   bool  GunInRange = false;      /* inside the funnel's own range window */
   bool  GunInFunnel = false;     /* in range AND the nose is inside the lead solution's own tolerance */
 
-  /* ---- THE AIR-TO-GROUND DELIVERY SOLUTION (doc/f16/weapons.md §2.5's CCIP/CCRP), the FOURTH product
-   * of the same box, under the same head and for the same reason as the two above: it fuses the nav and
-   * platform blocks and goes invalid when they do. AgValid says whether there is a SOLUTION — an
-   * aircraft with no unguided store selected still publishes its fire-control block.
-   *
-   * ONE integration (core/FBBallistics.h), two questions. The IMPACT POINT is the CCIP pipper: where the
-   * selected round lands if the pickle is pressed now. The three ERRORS are that point measured against
-   * the designated aim point along the current ground track, which is what CCRP's Solution Cue counts
-   * down. A consumer picks the mode by which numbers it reads, not by asking this box to be in one.
-   *
-   * The impact point is the one place on this bus carrying geodetic DOUBLES: at 1e-5 deg a float is a
-   * metre, and a metre is the quantity the whole solution is measured in. */
+  /* ---- The AIR-TO-GROUND delivery solution (CCIP/CCRP). ONE integration (core/FBBallistics.h), two
+   * questions: a consumer picks the mode by WHICH numbers it reads, not by putting this box in one.
+   * The only geodetic doubles on this bus — at 1e-5 deg a float is a metre, the unit it is measured in. */
   bool   AgValid = false;
   double AgImpactLatDeg = 0.0, AgImpactLonDeg = 0.0;
   float  AgImpactElevM = 0.0f;    /* the plane it was solved against, m ASL (the ranging source's) */
@@ -169,10 +123,7 @@ struct FBFireControlBlock {
   float  AgMissM = 0.0f;          /* the two combined: the pipper's distance from the aim point */
   float  AgTimeToReleaseS = 0.0f; /* AgAlongErrM at the current groundspeed; <= 0 = the cue has passed */
   float  AgArmMarginS = 0.0f;     /* fall time left once the fuze's arming delay has run; < 0 = a dud */
-  /* THE IN-RANGE CUE: the aim point can still be hit from here — it is beyond the current impact point
-   * (the release moment has not gone past) AND a release now would arm before arrival. Both halves are
-   * the guide's own two conditions for a valid delivery, expressed as the one bit a decision reads. */
-  bool   AgInRange = false;
+  bool   AgInRange = false;       /* release moment not gone past AND a release now would arm in time */
 };
 
 /* ---- UFC/DED entered values: what the pilot typed into the control head and the jet committed.
@@ -180,19 +131,15 @@ struct FBFireControlBlock {
 struct FBUfcBlock {
   FBBlockHeader H;
   float AlowFt = 0.0f;         /* CARA ALOW floor */
-  /* Two numbers because the jet keeps two (doc/f16/controls-commands.md §6.8): the DED field shows what
-   * the pilot TYPED, the warning fires at the system ceiling. Displays read the first, the warning
-   * system reads the second — collapsing them would have made the documented clamp invisible. */
+  /* Two numbers because the jet keeps two (doc/f16/controls-commands.md §6.8): the DED shows what was
+   * typed, the warning fires at the system ceiling. */
   float BingoLbs = 0.0f;       /* what was entered (0 = none) */
   float BingoEffectiveLbs = 0.0f;   /* what actually governs the warning */
   int   SteerNum = 0;       /* selected steerpoint number */
 };
 
-/* ---- Stores/SMS: the loadout, station by station. WRITER: systems/FBStoresSystem (the F-16 fills the
- * slot with modules/f16/FBF16Sms, which only adds this airframe's pylon geometry).
- * `Station[i]` carries the FBStoreKind ordinal on station i+1 — 0 = empty — rather than a pointer or a
- * name, for the same reason every other block carries plain numbers: a bus message is data, and the
- * catalogue behind the ordinal (core/FBStore.h) is a compile-time table both writer and reader share. */
+/* ---- Stores/SMS: the loadout, station by station. WRITER: systems/FBStoresSystem (F-16 slot:
+ * modules/f16/FBF16Sms). `Station[i]` = FBStoreKind ordinal on station i+1, 0 = empty. */
 constexpr int kMaxStoreStations = 12;
 
 struct FBStoresBlock {
@@ -206,11 +153,8 @@ struct FBStoresBlock {
   int   ReleasedCount = 0;         /* stores this jet has let go of this sortie */
 };
 
-/* ---- Gun: the internal gun's books. WRITER: systems/FBGunSystem (the F-16 fills the slot with
- * modules/f16/FBF16Gun, which only adds this airframe's gun and where it is bolted).
- * Its own block rather than fields on the stores block above for the reason the two systems are
- * separate: the SMS knows about pylons and what hangs on them, and a gun hangs on nothing. `Kind` is the
- * FBGunKind ordinal (0 = no gun fitted), the same convention the stores block uses for its stations. */
+/* ---- Gun: the internal gun's books. WRITER: systems/FBGunSystem (F-16 slot: modules/f16/FBF16Gun).
+ * Own block, not stores fields: the SMS knows pylons, and a gun hangs on nothing. */
 struct FBGunBlock {
   FBBlockHeader H;
   FBArmState Arm = FBArmState::Sim;
@@ -221,10 +165,8 @@ struct FBGunBlock {
   bool  Ready = false;          /* a gun is fitted, armed and has rounds — what a pilot checks */
 };
 
-/* ---- Airframe/propulsion: gear + weight-on-wheels + the fuel state, the readbacks OTHER systems
- * regulate against (the gear signal drives the cruise freeze above; the fuel state drives BINGO).
- * WRITER: systems/FBAirframeControls (through the module, which owns the FDM handle the fuel totals
- * come from — the same object every gear/brake command already goes through). */
+/* ---- Airframe/propulsion: the readbacks OTHER systems regulate against (gear drives the cruise
+ * freeze, fuel drives BINGO). WRITER: systems/FBAirframeControls. */
 struct FBAirframeBlock {
   FBBlockHeader H;
   float GearPosition = 0.0f;     /* 0 = up .. 1 = down, kinematic-lagged */
@@ -235,8 +177,7 @@ struct FBAirframeBlock {
   bool  EngineRunning = false;
 };
 
-/* ---- Warnings: the caution/warning set, a BITMASK so one block carries the whole annunciator panel
- * without growing a field per lamp. WRITER: systems/FBWarningSystem. */
+/* ---- Warnings: the caution/warning set as a BITMASK. WRITER: systems/FBWarningSystem. */
 enum FBWarningBit : uint32_t {
   FBWarnAlow = 1u << 0,        /* below the CARA ALOW floor */
   FBWarnBingo = 1u << 1,       /* fuel at or below the committed BNGO threshold */
@@ -246,14 +187,11 @@ enum FBWarningBit : uint32_t {
 struct FBWarningBlock {
   FBBlockHeader H;
   uint32_t Active = 0;            /* OR of FBWarningBit */
-  uint32_t Inhibited = 0;         /* conditions whose SOURCE block is Invalid — the warning cannot be
-                                   * evaluated, which is a different fact from "not warning" */
+  uint32_t Inhibited = 0;         /* source block Invalid: cannot be evaluated — not "not warning" */
 };
 
 /* ---- Radar (FCR): the ACTIVE sensor picture. WRITER: systems/FBRadarSystem.
- * Held is the normal steady state here, not an exception: between antenna frames the geometry stands
- * still and only the per-contact age moves (systems/FBRadarSystem's banner) — exactly freeze-at-last-
- * value, so the head says Held until the next completed sweep republishes it. */
+ * Held is the steady state, not an exception: between antenna frames only the contact age moves. */
 struct FBRadarBlock {
   FBBlockHeader H;
   bool Radiating = false;      /* powered AND the active mode radiates */
@@ -265,8 +203,7 @@ struct FBRadarBlock {
 };
 
 /* ---- Datalink: the cooperative net picture. WRITER: systems/FBDatalinkSystem.
- * Same Held story as the radar, arrived at from the opposite direction: the net refreshes once per
- * cycle and the picture is frozen in between. */
+ * Held between net cycles, as the radar is between frames. */
 struct FBDatalinkBlock {
   FBBlockHeader H;
   bool Powered = false;
@@ -275,11 +212,8 @@ struct FBDatalinkBlock {
   FBDatalinkTrack Tracks[kMaxDatalinkTracks]{};
 };
 
-/* ---- RWR: WHO IS LOOKING AT THIS AIRCRAFT — the passive counterpart of the radar block above.
- * WRITER: systems/FBRwrSystem.
- * Held has the same meaning it has for the radar and arrives the same way: a threat whose emission
- * stopped being heard is carried for a moment before it is dropped, and while nothing new is being
- * received the picture stands still and only the per-threat age moves. */
+/* ---- RWR: WHO IS LOOKING AT THIS AIRCRAFT — the passive counterpart of the radar block.
+ * WRITER: systems/FBRwrSystem. Held as above, while a fading threat is carried before it is dropped. */
 struct FBRwrBlock {
   FBBlockHeader H;
   bool Powered = false;
@@ -287,9 +221,8 @@ struct FBRwrBlock {
   int  PriorityIndex = -1;     /* index of the highest-priority threat (the diamond); -1 = none */
   bool MissileLaunch = false;  /* any threat guiding a missile at this aircraft — the LAUNCH light */
   bool Activity = false;       /* any threat tracking — the ACT half of the ACT/PWR indicator */
-  bool HiddenSearch = false;   /* search-class emitters are being heard but filtered off the display
-                                * (doc/f16/defence-rwr-cm.md §2.1: suppression is visually
-                                * distinguishable from absence) */
+  bool HiddenSearch = false;   /* heard but filtered off the display — suppression is distinguishable
+                                * from absence (doc/f16/defence-rwr-cm.md §2.1) */
   FBRwrThreat Threats[kMaxRwrThreats]{};
 };
 
@@ -306,13 +239,10 @@ struct FBCmdsBlock {
   int  ActiveClouds = 0;       /* chaff clouds still worth something (core/FBCountermeasure.h) */
 };
 
-/* ---- BFM trackfile: the fused target estimate the fight is flown on. WRITER: systems/FBBfmTrack
- * (published onto the bus by the module after the pilot's decision tick, the same way the platform
- * block is published from `st`).
- * The head carries the fusion's own three states verbatim: Invalid = never seen; Valid = fresh or
- * within the credible extrapolation window; Held = past it, where the estimate reverts to the last
- * MEASURED position and stops being something to lead on. StampS is the LOOK the estimate stands on,
- * not the publication time — age is age since the sensor last actually saw him. */
+/* ---- BFM trackfile: the fused target estimate the fight is flown on. WRITER: systems/FBBfmTrack.
+ * The head carries the fusion's three states verbatim: Invalid = never seen, Valid = fresh or inside
+ * the credible extrapolation window, Held = past it (last MEASURED position, nothing to lead on).
+ * StampS is the LOOK the estimate stands on, not the publication time. */
 struct FBBfmBlock {
   FBBlockHeader H;
   bool   Locked = false;      /* the radar is holding this target RIGHT NOW (STT) */

@@ -8,18 +8,15 @@ namespace FlightBox {
 namespace {
 constexpr float kRad = 3.14159265358979323846f / 180.f;
 constexpr float kHudFovDeg = 80.0f;
-/* Monochrome HUD green (MIL-STD-1787). */
+/* Monochromes HUD-Gruen (MIL-STD-1787). */
 constexpr float kHgR = 0.30f, kHgG = 1.0f, kHgB = 0.40f;
 } // namespace
 
-/* Generic default HUD (see the header banner): waterline, conformal horizon, heading/GS/alt tapes,
- * steerpoint marker on the heading tape, NO TELEMETRY fallback. Geometry/positions ported verbatim from the retired
- * FBHudSymbology.h w3_build_hud (equivalence intent: same pixel layout for the elements kept). */
 void FBDisplaySystem::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry &out) const {
   out.Reset();
   float cx = 0.5f * (float)env.Width, cy = 0.5f * (float)env.Height;
 
-  /* Waterline / boresight: the FIXED aircraft reference (nose / longitudinal axis), screen-locked. */
+  /* Waterline/Boresight: die FESTE Zellenreferenz, bildschirmfest. */
   out.Line(cx - 28, cy, cx - 10, cy, kHgR, kHgG, kHgB);
   out.Line(cx + 10, cy, cx + 28, cy, kHgR, kHgG, kHgB);
   out.Line(cx - 10, cy, cx, cy + 7, kHgR, kHgG, kHgB);
@@ -29,11 +26,8 @@ void FBDisplaySystem::BuildHud(const FBState &state, const FBHudEnv &env, FBHudG
     return;
   }
 
-  /* Conformal horizon: two short segments flanking the waterline (gap +/-36 px, end +/-86 px), tilting
-   * with roll from the SAME camera projection as the scene. Centre = horizon point straight ahead
-   * (az=yaw); a second point at +20 deg gives the tilt. Dip depends on height above the curvature
-   * reference (ellipsoid/ASL), NOT local ground clearance -- AGL made the horizon breathe with terrain
-   * relief during a level loiter. */
+  /* Konformer Horizont, gekippt durch DIESELBE Kameraprojektion wie die Szene. Der Dip haengt an der
+   * Hoehe ueber der Kruemmungsreferenz (ASL), NICHT an AGL — sonst atmet er mit dem Gelaenderelief. */
   {
     static const float kEyeOrigin[3] = {0, 0, 0};
     w3_cam cam = w3_cam_from(state.Platform.YawDeg, state.Platform.PitchDeg, state.Platform.RollDeg, kEyeOrigin, kHudFovDeg,
@@ -59,9 +53,8 @@ void FBDisplaySystem::BuildHud(const FBState &state, const FBHudEnv &env, FBHudG
   }
   float hdg = state.Platform.YawDeg < 0 ? state.Platform.YawDeg + 360 : state.Platform.YawDeg;
 
-  /* ===== Heading tape (top): moving scale centred on heading, boxed value + up-caret, steerpoint
-   * pointer. Ticks every 5 deg, labels every 30 (N/03/06/E...). the platform block's home bearing is relative to the nose,
-   * so on a nose-centred tape the steerpoint marker sits at that offset from centre. ===== */
+  /* Heading-Tape. HomeBearingDeg ist nasenrelativ, sitzt auf einem nasenzentrierten Tape also direkt
+   * als Versatz von der Mitte. */
   {
     float hpd = 5.f, hy1 = 40;
     for (int hh = (int)floorf((hdg - 45.f) / 5.f) * 5; hh <= (int)hdg + 45; hh += 5) {
@@ -96,7 +89,7 @@ void FBDisplaySystem::BuildHud(const FBState &state, const FBHudEnv &env, FBHudG
     out.Text(hsx - 5.5f, hy1 - 25, 1.4f, kHgR, kHgG, kHgB, "SP");
   }
 
-  /* ===== Groundspeed tape (left): moving vertical scale, boxed value + caret. ===== */
+  /* Groundspeed-Tape (links). */
   {
     float apx = 5.f, ax = 70.f, as = state.Platform.GsMs;
     for (int av = (int)floorf((as - 30.f) / 5.f) * 5; av <= (int)as + 30; av += 5) {
@@ -115,7 +108,7 @@ void FBDisplaySystem::BuildHud(const FBState &state, const FBHudEnv &env, FBHudG
     out.Text(ax + 3, cy - 30, 1.4f, kHgR, kHgG, kHgB, "GS");
   }
 
-  /* ===== Altitude tape (right): ASL scale + '<' caret; AGL (ASL - DEM ground) and VS below. ===== */
+  /* Hoehen-Tape (rechts), darunter AGL und VS. */
   {
     float mpx = 1.5f, axr = (float)env.Width - 70.f, asl = state.Platform.AltM;
     for (int av = (int)floorf((asl - 100.f) / 10.f) * 10; av <= (int)asl + 100; av += 10) {

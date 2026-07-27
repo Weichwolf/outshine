@@ -1,8 +1,6 @@
-/* FlightBox — FBCloudMarchStage: the volumetric raymarch (kCloudWGSL) into the quarter-res CloudLowTex.
- * Owns the per-frame CloudUni update (weather deck -> shell radii/material params) and the optional GPU
- * timestamp query bracketing the march pass (native oracle [cloud-perf] telemetry). Reads the base/
- * detail/cell noise volumes + depth/atmosphere LUTs as views injected at Configure() (produced by their
- * own bake stages / FBRenderer) — never regenerates them. */
+/* The volumetric raymarch into the quarter-res CloudLowTex. Owns the per-frame weather->shell update
+ * and the optional GPU timestamp bracket; the noise volumes and LUTs arrive as injected views and are
+ * never regenerated here. doc/flightbox/rendering.md, Abschnitt 5. */
 #ifndef FBCLOUDMARCHSTAGE_H
 #define FBCLOUDMARCHSTAGE_H
 
@@ -28,11 +26,11 @@ public:
   bool WantsTimestamp(void) const { return HasTimestamp; }
   wgpu::QuerySet GetQuerySet(void) const { return TsQuery; }
 
-  /* Refreshes CloudUni from the current frame's weather/camera state — call before Encode(). */
+  /* Call before Encode(). */
   void Update(const FBFrameContext &ctx);
   void Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pass) override;
 
-  /* GPU-timing bracket for the native [cloud-perf] log: Resolve before Finish(), Poll after Submit(). */
+  /* Resolve before Finish(), Poll after Submit() — the order is the contract. */
   void ResolveTimestamps(wgpu::CommandEncoder &enc);
   void PollTimestamps(void);
 

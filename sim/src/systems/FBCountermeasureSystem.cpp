@@ -10,15 +10,13 @@ const char *TypeName(FBCmType t) { return t == FBCmType::Chaff ? "chaff" : "flar
 
 FBCountermeasureSystem::FBCountermeasureSystem() {
   Chaff_ = 30;
-  Flare_ = 30;   /* generic placeholder magazine; a module states its own (modules/f16/FBF16Cmds) */
+  Flare_ = 30;   /* Platzhalter-Magazin; ein Modul nennt sein eigenes */
   LoadGenericPrograms();
   for (FBChaffCloud &c : Clouds_) c = FBChaffCloud{};
 }
 
-/* A generic, deliberately unremarkable table: one chaff-only program, one mixed, one flare-only, one
- * long chaff pattern, the slap program and the bypass pair. Every figure is inside the ALE-47's
- * documented parameter ranges (core/FBCountermeasure.h) and none of them is a real jet's programming —
- * the same status FBRadarSystem::kGenericRangeNm carries. */
+/* Eine bewusst unauffaellige Platzhaltertabelle: jede Zahl liegt in den dokumentierten
+ * ALE-47-Parameterbereichen, keine ist die Programmierung eines echten Jets. */
 void FBCountermeasureSystem::LoadGenericPrograms() {
   FBCmProgram p{};
   p.Chaff = {2, 0.10, 2, 1.00};
@@ -42,17 +40,15 @@ void FBCountermeasureSystem::LoadGenericPrograms() {
   p.Flare = {1, 0.10, 1, 1.00};
   Programs_[4] = p;
 
-  /* BYP (doc/f16/defence-rwr-cm.md §2.2): exactly one chaff and one flare. */
+  /* BYP (doc/f16/defence-rwr-cm.md §2.2): genau eine Chaff und eine Fackel. */
   p = FBCmProgram{};
   p.Chaff = {1, 0.10, 1, 1.00};
   p.Flare = {1, 0.10, 1, 1.00};
   Programs_[5] = p;
 }
 
-/* [SET] — the source states that the system picks "the appropriate Automatic program per threat" and
- * never which, so the doctrine is ours: a radar merely TRACKING you gets the economical pattern (a
- * couple of clouds, repeated slowly, enough to break a lock without emptying the magazine); a radar
- * GUIDING a missile, or a seeker already looking at you, gets the dense one. */
+/* [SET] Die Doktrin ist unsere: gegen eine RAKETE das dichte Programm, gegen einen blossen TRACK das
+ * sparsame wiederholende. */
 int FBCountermeasureSystem::AutomaticProgram(FBRwrThreatMode worst) const {
   return worst == FBRwrThreatMode::Missile ? 1 : 4;
 }
@@ -60,8 +56,7 @@ int FBCountermeasureSystem::AutomaticProgram(FBRwrThreatMode worst) const {
 void FBCountermeasureSystem::SetMode(FBCmdsMode m) {
   if (Mode_ == m) return;
   Mode_ = m;
-  /* "Consent defaults to granted every time the knob is turned to AUTO" (doc/f16/defence-rwr-cm.md
-   * §2.2) — SEMI's consent is per dispense and therefore starts ungranted. */
+  /* Zustimmung gilt als erteilt, sobald der Knopf auf AUTO steht (§2.2); SEMIs ist je Abwurf. */
   Consent_ = m == FBCmdsMode::Auto;
   AwaitingConsent_ = false;
   if (m == FBCmdsMode::Off || m == FBCmdsMode::Stby) StopProgram("mode");
@@ -80,7 +75,7 @@ bool FBCountermeasureSystem::InstallProgram(int n, const FBCmProgram &p) {
 }
 
 bool FBCountermeasureSystem::SetProgram(int n, const FBCmProgram &p) {
-  if (Mode_ != FBCmdsMode::Stby) return false;   /* §2.2: reprogramming is a STBY-only action */
+  if (Mode_ != FBCmdsMode::Stby) return false;   /* §2.2: Umprogrammieren ist eine STBY-Handlung */
   return InstallProgram(n, p);
 }
 
@@ -96,7 +91,7 @@ void FBCountermeasureSystem::SetLoadout(int chaff, int flare) {
 }
 
 bool FBCountermeasureSystem::SetBingo(int chaff, int flare) {
-  if (chaff < 0 || chaff > 99 || flare < 0 || flare > 99) return false;   /* §2.2's DED range */
+  if (chaff < 0 || chaff > 99 || flare < 0 || flare > 99) return false;   /* DED-Bereich, §2.2 */
   BingoChaff_ = chaff;
   BingoFlare_ = flare;
   return true;
@@ -104,7 +99,7 @@ bool FBCountermeasureSystem::SetBingo(int chaff, int flare) {
 
 void FBCountermeasureSystem::SetConsent(bool on) {
   Consent_ = on;
-  if (!on) StopProgram("consent revoked");   /* CMS Right interrupts an in-progress program (§2.2) */
+  if (!on) StopProgram("consent revoked");   /* CMS rechts unterbricht ein laufendes Programm (§2.2) */
 }
 
 bool FBCountermeasureSystem::Low(FBCmType type) const {
@@ -141,9 +136,8 @@ void FBCountermeasureSystem::StopProgram(const char *why) {
   FlarePlayer_ = Player{};
 }
 
-/* One cartridge leaves the aircraft. Chaff becomes a cloud at the position the aircraft is at right now
- * and with no velocity of its own (core/FBCountermeasure.h): the ring keeps the freshest ones, which is
- * also the right set to keep, because an old cloud is a thin one. */
+/* Der Ring behaelt die FRISCHESTEN Patronen — auch die richtige Auswahl, denn eine alte Wolke ist eine
+ * duenne. */
 void FBCountermeasureSystem::Eject(FBCmType type, const fb_fdm_state &st, double simTimeS) {
   if (type == FBCmType::Chaff) {
     Chaff_--;
@@ -165,9 +159,8 @@ bool FBCountermeasureSystem::PlayType(FBCmType type, const FBCmProgramType &p, P
                                       const fb_fdm_state &st, double simTimeS) {
   if (!pl.Running) return false;
   int fired = 0;
-  /* Absolute-time schedule with a catch-up guard, the same shape as the radar's antenna frame grid: a
-   * burst interval shorter than the slot's cadence still ejects the right number of cartridges at the
-   * right times instead of being stretched to the tick rate. */
+  /* Absolutzeit-Fahrplan mit Nachhol-Waechter: ein Burst-Intervall unter der Slot-Taktung wirft
+   * trotzdem die richtige Zahl Patronen zu den richtigen Zeiten. */
   int guard = 0;
   while (pl.Running && simTimeS >= pl.NextS && guard++ < 128) {
     int left = type == FBCmType::Chaff ? Chaff_ : Flare_;
@@ -197,14 +190,13 @@ bool FBCountermeasureSystem::PlayType(FBCmType type, const FBCmProgramType &p, P
 
 bool FBCountermeasureSystem::Dispense(int program, double nowS, FBCommandOutcome &outcome,
                                       FBCommandReason &reason) {
-  /* The knob physically locks the dispenser out in OFF/STBY — a hardware precedence, the same class of
-   * refusal as a master-arm interlock (doc/f16/controls-commands.md §6.2). */
+  /* Der Knopf sperrt den Werfer in OFF/STBY physisch aus — dieselbe Ablehnungsklasse wie Master Arm. */
   if (Mode_ == FBCmdsMode::Off || Mode_ == FBCmdsMode::Stby) {
     outcome = FBCommandOutcome::Rejected;
     reason = FBCommandReason::HardwarePrecedence;
     return false;
   }
-  /* BYP overrides the selection entirely: one chaff, one flare, and programs 1-6 are unavailable. */
+  /* BYP ueberschreibt die Wahl vollstaendig. */
   int n = Mode_ == FBCmdsMode::Byp ? kBypassProgram : (program > 0 ? program : Selected_);
   if (n < 1 || n > kProgramCount) {
     outcome = FBCommandOutcome::Rejected;
@@ -214,7 +206,7 @@ bool FBCountermeasureSystem::Dispense(int program, double nowS, FBCommandOutcome
   const FBCmProgram &p = Programs_[n - 1];
   if (p.Empty()) {
     outcome = FBCommandOutcome::Rejected;
-    reason = FBCommandReason::OutOfContext;   /* a program with both types zeroed dispenses nothing */
+    reason = FBCommandReason::OutOfContext;   /* beide Typen genullt = es wird nichts geworfen */
     return false;
   }
   bool haveAny = (p.Chaff.Present() && Chaff_ > 0) || (p.Flare.Present() && Flare_ > 0);
@@ -227,8 +219,8 @@ bool FBCountermeasureSystem::Dispense(int program, double nowS, FBCommandOutcome
   return true;
 }
 
-/* SEMI/AUTO: the system's own trigger, and it fires at the WARNING rather than at the truth (class
- * banner) — no threat on the RWR block means no automatic dispense, whatever is actually out there. */
+/* SEMI/AUTO triggert auf die WARNUNG statt auf die Wahrheit: keine Bedrohung im RWR-Block heisst kein
+ * automatischer Abwurf, egal was da draussen wirklich steht. */
 void FBCountermeasureSystem::ServiceAutomatic(const FBState &state, double simTimeS) {
   if (Mode_ != FBCmdsMode::Semi && Mode_ != FBCmdsMode::Auto) { AwaitingConsent_ = false; return; }
   const FBRwrBlock &r = state.Rwr;
@@ -236,14 +228,14 @@ void FBCountermeasureSystem::ServiceAutomatic(const FBState &state, double simTi
                     r.Threats[0].Mode != FBRwrThreatMode::Search;
   if (!threatened) { AwaitingConsent_ = false; return; }
   if (Running_) return;
-  /* §2.2: automatic (and only automatic) dispensing is withheld once chaff is at its BINGO quantity —
-   * what is left is being kept for a shot the pilot decides to answer. */
+  /* §2.2: bei Chaff-BINGO entfaellt der AUTOMATISCHE Abwurf (und nur der) — was uebrig ist, gehoert
+   * dem Piloten fuer einen Schuss, den er selbst beantworten will. */
   if (Low(FBCmType::Chaff)) { AwaitingConsent_ = false; return; }
   if (Mode_ == FBCmdsMode::Semi && !Consent_) { AwaitingConsent_ = true; return; }
   AwaitingConsent_ = false;
   StartProgram(AutomaticProgram(r.Threats[0].Mode), simTimeS,
                Mode_ == FBCmdsMode::Auto ? "auto" : "semi consent");
-  if (Mode_ == FBCmdsMode::Semi) Consent_ = false;   /* consent is per dispense in SEMI */
+  if (Mode_ == FBCmdsMode::Semi) Consent_ = false;   /* in SEMI gilt die Zustimmung je Abwurf */
 }
 
 void FBCountermeasureSystem::Run(FBState &state, const fb_fdm_state &st, double simTimeS) {
@@ -276,7 +268,7 @@ void FBCountermeasureSystem::Run(FBState &state, const fb_fdm_state &st, double 
   b.ActiveClouds = ActiveClouds_;
   if (Mode_ == FBCmdsMode::Off) {
     Status_ = FBCmdsStatus::NoGo;
-    b.H.Invalidate();   /* an unpowered dispenser reports nothing, which is not "nothing to report" */
+    b.H.Invalidate();   /* ein stromloser Werfer meldet nichts — das ist nicht „nichts zu melden" */
   } else {
     Status_ = AwaitingConsent_ ? FBCmdsStatus::DispenseReady : FBCmdsStatus::Go;
     b.H.Publish(simTimeS);
@@ -286,8 +278,7 @@ void FBCountermeasureSystem::Run(FBState &state, const fb_fdm_state &st, double 
 }
 
 void FBCountermeasureSystem::DeclareTelemetry(FBTelemetrySchema &schema) const {
-  /* FIRST column is this source's block validity — see systems/FBRwrSystem's schema for why it travels
-   * here rather than in core/FBStateBusTelemetry's list. */
+  /* ERSTE Spalte ist die Blockgueltigkeit — Begruendung in FBRwrSystems Schema. */
   schema.Add("blk_cmds");
   schema.Add("cm_mode");
   schema.Add("cm_status");

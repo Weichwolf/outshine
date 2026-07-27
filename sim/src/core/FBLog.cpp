@@ -14,9 +14,8 @@ FBLogField::FBLogField(const char *key, const char *v) : Key(key), Value(v) {}
 FBLogField::FBLogField(const char *key, const std::string &v) : Key(key), Value(v) {}
 
 FBLogSink *FBLog::Sink_ = nullptr;
-/* Debug by default: every migrated call site used to print unconditionally, and CLAUDE.md's WASM
- * banner requires the browser console to look unchanged — the callers that want a quieter channel
- * (the mission runner's events.log) raise this explicitly. */
+/* Debug by default so the browser console looks unchanged; a caller wanting a quieter channel raises
+ * the level explicitly. */
 FBLogLevel FBLog::Level_ = FBLogLevel::Debug;
 thread_local FBLogSink *FBLog::ThreadSink_ = nullptr;
 thread_local double FBLog::TimeS_ = 0.0;
@@ -30,15 +29,13 @@ void FBLog::SetUnit(const char *label) {
 void FBLog::Emit(FBLogLevel level, const char *tag, const char *event,
                  std::initializer_list<FBLogField> fields) {
   if (!Sink_ || level < Level_) return;
-  /* Level and "is anything listening at all" stay the PROCESS sink's question — a capture buffer is a
-   * redirect of an already-accepted line, not a second switch. */
+  /* A capture buffer is a redirect of an already-accepted line, not a second switch. */
   FBLogSink *out = ThreadSink_ ? ThreadSink_ : Sink_;
   if (!Unit_[0]) {
     out->Write(TimeS_, level, tag, event, std::vector<FBLogField>(fields));
     return;
   }
-  /* Attribution FIRST, so `unit=` reads before the payload on every attributed line — a script splits
-   * on the first field, a human sees whose line it is without scanning to the end. */
+  /* Attribution FIRST: a script splits on the first field, a human sees whose line it is at once. */
   std::vector<FBLogField> withUnit;
   withUnit.reserve(fields.size() + 1);
   withUnit.emplace_back("unit", static_cast<const char *>(Unit_));

@@ -4,9 +4,8 @@
 
 namespace FlightBox {
 
-/* 512² 2D cell field (B mode): tileable F1-round bumps pow(1-F1,2). ~57 texel/cell (vs ~14 in the old
- * 128³ G channel) -> ROUND puffs, not the angular 128³ tilted plates. Two integer-freq octaves so cells
- * vary in size (freq must be integer to wrap seamlessly). Sampled horizontally -> vertical columns. */
+/* Tileable F1-round bumps pow(1-F1,2) at ~57 texel/cell, which is what makes the puffs ROUND rather
+ * than angular plates. The octave frequencies must be INTEGER to wrap seamlessly. */
 static const char *kCloudCellCS = R"(
 @group(0) @binding(0) var outTex : texture_storage_2d<rgba8unorm, write>;
 @compute @workgroup_size(8, 8)

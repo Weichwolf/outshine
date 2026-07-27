@@ -1,24 +1,11 @@
-/* FlightBox — FBCommandBus: the ONE path from a pilot's intent to an avionics box, and the receipt
- * coming back. Owned by the module (like the state bus it mirrors); the pilot POSTS, the module hands
- * each due command to the system that owns it in that system's own tick, and that system COMPLETES it.
- * Fixed capacity, no allocation, no ownership of anything.
- *
- * WHAT IT ENFORCES BY ITSELF, before any system sees a command:
- *   - LATENCY. A command is not consumable before IssuedS + its class latency (core/
- *     FBAvionicsCommand.h): 0.5 s for a HOTAS switch action, kDedLatencyS for a DED field edit. Nothing
- *     an AI does can arrive faster than a hand can move.
- *   - OCCUPANCY. One DED edit at a time (a pilot has one head), and the same HOTAS switch cannot be
- *     worked twice inside one press-duration window. A second one is Rejected(ChannelBusy) — the
- *     documented ~0.5-1 s floor between two different commands on the same switch (§5).
- *   - THE MANOEUVRE GATE. A DED edit is head-down, hands-off work; above kDedMaxG the pilot is flying
- *     the jet, not typing. Rejected(SequencePrecondition). This is the rule that keeps an AI from
- *     entering steerpoints in a knife fight, which is precisely what the two-class split exists for,
- *     and it is FlightBox's own number (§5 gives no g figure — see kDedMaxG).
- * Everything else — does this value make sense, is this box even fitted — is the OWNING SYSTEM's
- * answer, because that is where the knowledge is.
- *
- * IT IS ALSO THE COMMAND STREAM'S RECORDER (FBTelemetrySource "cmd" + FBLog "cmd" events), so a gym run
- * shows WHAT the AI operated long before there is a display to watch it on. */
+/* The ONE path from a pilot's intent to an avionics box, and the receipt back. Owned by the module; the
+ * pilot POSTS, the module hands each due command to its owning system in that system's tick, and that
+ * system COMPLETES it. Fixed capacity, no allocation.
+ * Three rules before any system sees a command: LATENCY (nothing arrives faster than a hand moves),
+ * OCCUPANCY (one head, one switch at a time -> ChannelBusy), and the MANOEUVRE GATE (above kDedMaxG the
+ * pilot is flying, not typing -> SequencePrecondition). Everything else is the owning system's answer.
+ * Also the command stream's RECORDER (FBTelemetrySource "cmd" + FBLog "cmd" events).
+ * doc/flightbox/core.md, Abschnitt 2.6. */
 #ifndef FBCOMMANDBUS_H
 #define FBCOMMANDBUS_H
 
@@ -29,30 +16,15 @@ namespace FlightBox {
 
 class FBCommandBus : public FBTelemetrySource {
 public:
-  /* The documented short/long press discriminator (doc/f16/controls-commands.md §5): the avionics
-   * itself uses 0.5 s to tell two commands on one switch apart, so that is the floor for a HOTAS
-   * action's effect and for re-using the same switch. */
+  /* The documented short/long press discriminator (doc/f16/controls-commands.md §5). */
   static constexpr double kHotasLatencyS = 0.5;
-  /* FlightBox's own number, derived not quoted: §5 says a DED field write is "realistically several
-   * seconds per field (select field, type digits, press ENTR)" and gives no figure. Four seconds is the
-   * middle of "several" and — the point — an order of magnitude above the HOTAS class, which is the
-   * property the model needs. */
+  /* FlightBox's own numbers, derived not quoted — the guides give neither. Derivations:
+   * doc/flightbox/core.md, Abschnitt 2.6. */
   static constexpr double kDedLatencyS = 4.0;
-  /* FlightBox's own number again: no guide states a g limit for data entry. 1.5 g is a shade above
-   * level flight — enough that a gentle cruise turn does not lock the DED, low enough that anything
-   * recognisable as manoeuvring does. */
   static constexpr double kDedMaxG = 1.5;
-  /* THE TRIGGER IS THE ONE HOTAS ACTION WHOSE LATENCY IS NOT A PRESS DURATION. kHotasLatencyS above is
-   * the figure the avionics uses to tell a short press from a long one on a MODE switch (§5) — it is how
-   * long the SYSTEM waits before deciding what the pilot meant, and applying it to the gun trigger would
-   * say that rounds leave the barrels half a second after the finger closes. They do not: the delay
-   * between squeeze and first round is the gun's own spool-up, which is modelled where it belongs
-   * (core/FBGun.h's SpoolUpS, 0.3 s of barrels coming up to speed). What is left here is the finger
-   * itself, and 0.1 s is a human's own actuation time. It matters: at a fighter's tracking rates the
-   * aiming solution moves about a degree in half a second, which at gun range is five metres of miss —
-   * i.e. the difference between a burst that hits and one that does not (measured, both ways).
-   * The SPACING between two squeezes stays kHotasLatencyS like every other switch: a finger can pull the
-   * trigger quickly, it cannot pull it twice in the same instant. */
+  /* The one HOTAS action whose latency is NOT a press duration: the barrels' spool-up is modelled where
+   * it belongs (FBGun.h's SpoolUpS), so what is left here is the FINGER. The SPACING between two
+   * squeezes stays kHotasLatencyS. */
   static constexpr double kTriggerLatencyS = 0.1;
 
   /* How long an action of this target's class takes to reach the box that answers it. */
@@ -65,8 +37,8 @@ public:
 
   ~FBCommandBus() override = default;
 
-  /* The pilot's one verb. Returns the receipt as it stands right now: Pending if the command entered
-   * the queue, or a final Rejected if the bus itself refused it (see the class banner). */
+  /* The pilot's one verb: Pending if the command entered the queue, final Rejected if the bus itself
+   * refused it. */
   FBCommandAck Post(FBCommandTarget target, double value, double nowS);
 
   /* The module's side: hand out the next command of `group` whose latency has elapsed. Returns false
@@ -100,8 +72,7 @@ private:
   int Count_ = 0;
   uint32_t NextSeq_ = 1;
   double LoadFactorG_ = 1.0;
-  /* Last completion time per target ordinal is what the same-switch window is measured against; a flat
-   * array keeps it allocation-free and O(1). +1 for the None slot. */
+  /* Last completion per target ordinal — the same-switch window; flat array = O(1), no allocation. */
   static constexpr int kTargetSlots = 32;
   static_assert((int)FBCommandTarget::GunTrigger < kTargetSlots, "widen kTargetSlots for new targets");
   double LastActionS_[kTargetSlots]{};

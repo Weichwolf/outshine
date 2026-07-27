@@ -6,11 +6,8 @@
 namespace FlightBox {
 
 namespace {
-/* "off the runway" — unchanged geometry from the pre-orchestrator crash gate this replaces (formerly
- * FBMissionRunner.cpp's own OnRunway): project (lat,lon) onto the runway's along/across-track axes
- * (centreline from the threshold on TrueHeadingDeg) — on the runway iff within its length (+
- * marginAlongM before/after) and half-width (+ marginAcrossM either side). WidthM <= 1 (the mission
- * format leaves it unset) falls back to a generous 60 m generic-runway half-width. */
+/* Project onto the runway's along/across axes: on it iff inside length + margin and half-width +
+ * margin. WidthM <= 1 (the mission format leaves it unset) falls back to a generic 60 m width. */
 bool OnRunway(const FBRunway &rwy, double lat, double lon, double marginAlongM, double marginAcrossM) {
   double along, across;
   FBTrackProjectM(rwy.ThresholdLatDeg, rwy.ThresholdLonDeg, rwy.TrueHeadingDeg, lat, lon, along, across);
@@ -18,9 +15,7 @@ bool OnRunway(const FBRunway &rwy, double lat, double lon, double marginAlongM, 
   return along >= -marginAlongM && along <= rwy.LengthM + marginAlongM && std::fabs(across) <= halfW;
 }
 
-/* Stillstand-on-the-runway SUCCESS gate (class banner): a taxi-speed threshold, not a full stop — a
- * rolling-to-a-stop aircraft still has a few kt of groundspeed for several ticks, and the mission
- * objective ("landed and stopped") is met well before the literal last knot bleeds off. */
+/* A taxi-speed threshold, not a full stop: "landed and stopped" is met before the last knot bleeds. */
 constexpr double kStillstandKt = 2.0;
 } // namespace
 
@@ -38,11 +33,8 @@ FBMissionMonitor::FBMissionMonitor(FBFlightPlan plan, std::vector<FBObjective> o
                                    FBRunway runway, bool haveRunway, double timeoutS, double wpCaptureM)
     : Plan_(std::move(plan)), Objectives_(std::move(objectives)), Runway_(runway),
       HaveRunway_(haveRunway), TimeoutS_(timeoutS), WpCaptureM_(wpCaptureM) {
-  /* IS THE FLIGHT PLAN PART OF THE VERDICT? Without `objective` lines it is the WHOLE verdict — the
-   * format's original judgement, unchanged. With them, the block is the complete statement of what this
-   * unit has to achieve, so the plan is only judged if it says so (`objective waypoints`): a BVR
-   * mission's `wp` line is a briefed vector for the guidance, not a place the fighter has to arrive at,
-   * and reading it as an objective is what would make a decided engagement time out. */
+  /* Without `objective` lines the plan is the WHOLE verdict; with them it is judged only if declared —
+   * a BVR mission's `wp` line is a briefed vector, not a place the fighter has to arrive at. */
   PlanJudged_ = Objectives_.empty() || HasObjective(FBObjectiveKind::Waypoints);
   PlanDone_ = !PlanJudged_ || Plan_.Empty();
 }
@@ -59,12 +51,8 @@ bool FBMissionMonitor::HasSurviveObjective() const {
 
 bool FBMissionMonitor::KillObjectivesMet(const FBMissionRoster &roster) const {
   for (const auto &o : Objectives_) {
-    /* Two kinds are not decided against the roster and must be SKIPPED here rather than fall through
-     * FBObjectiveMet's "no" — `survive` is answered only at the end of the run (Finalize), and
-     * `waypoints` is answered by PlanJudged_/PlanDone_ above, which is the whole reason it exists as a
-     * declarable objective. Letting either reach FBObjectiveMet made it permanently unmet, i.e. a unit
-     * that declared `kill` AND `waypoints` — the documented way to keep the flight plan judged while
-     * also having a combat goal (core/FBObjective.h) — could never succeed. */
+    /* Neither is decided against the roster, and falling through to FBObjectiveMet's "no" would leave
+     * them permanently unmet: `survive` is answered in Finalize, `waypoints` by PlanJudged_/PlanDone_. */
     if (o.Kind == FBObjectiveKind::Survive || o.Kind == FBObjectiveKind::Waypoints) continue;
     if (!FBObjectiveMet(o, roster)) return false;
   }
@@ -74,16 +62,13 @@ bool FBMissionMonitor::KillObjectivesMet(const FBMissionRoster &roster) const {
 bool FBMissionMonitor::Conclude(FBMissionVerdict v, const std::string &detail) {
   Verdict_ = v;
   Detail_ = detail;
-  /* Self-logs its own conclusion (FBFlightMonitor's "KO" precedent) — every caller (FBMissionRunner's
-   * combined final RESULT/SUMMARY, the WASM frame loop with no Runner to synthesize one) sees this the
-   * instant it happens, without re-deriving it. */
+  /* Self-logs, so every caller sees the conclusion the instant it happens without re-deriving it. */
   FBLog::Info("mission", "RESULT", {{"result", FBMissionVerdictStr(v)}, {"reason", detail}});
   return true;
 }
 
-/* The SUCCESS wording. Legacy (no objectives declared) is exactly the plan's own sentence, byte for
- * byte — those strings are in every measured events.log. Objectives append to it, and an actor with
- * objectives and no waypoints has only them to report. */
+/* Without objectives the wording is exactly the plan's own sentence, byte for byte — those strings are
+ * in every measured events.log. */
 namespace {
 std::string SuccessDetail(const std::string &planDetail, bool haveObjectives) {
   if (!haveObjectives) return planDetail;
@@ -92,13 +77,10 @@ std::string SuccessDetail(const std::string &planDetail, bool haveObjectives) {
 } // namespace
 
 bool FBMissionMonitor::Tick(const FBMissionMonitorSample &s, double simTimeS) {
-  if (Concluded()) return false;   /* latched — see the header banner */
+  if (Concluded()) return false;   /* latched */
 
-  /* Shot down. WHOSE failure that is depends on what the mission declared (class banner): with no
-   * objectives it is this unit's own, unchanged; with a `survive` objective it is the declared one;
-   * with only a `kill` objective this unit was not told to come home, and its own loss ends nothing.
-   * Checked FIRST either way, because everything below it assumes an aircraft that could still get
-   * there. */
+  /* Shot down — checked FIRST, because everything below assumes an aircraft that could still get there.
+   * WHOSE failure it is depends on what the mission declared. */
   if (s.CombatIneffective) {
     if (Objectives_.empty())
       return Conclude(FBMissionVerdict::Fail, "combat ineffective (weapon damage)");
@@ -106,16 +88,12 @@ bool FBMissionMonitor::Tick(const FBMissionMonitorSample &s, double simTimeS) {
       return Conclude(FBMissionVerdict::Fail, "combat ineffective (survive objective lost)");
   }
 
-  /* Mission-level ground-contact judgement: a touchdown the physics-only FBFlightMonitor accepted
-   * (survivable) but which happened away from the assigned runway missed the mission's objective. */
+  /* A touchdown the physics judge accepted as survivable, but in the wrong place. */
   if (HaveRunway_ && s.AnyWow && !OnRunway(Runway_, s.LatDeg, s.LonDeg, 50.0, 30.0))
     return Conclude(FBMissionVerdict::Fail, "touchdown off the assigned runway");
 
-  /* Waypoint progress against the mission's OWN plan, purely from observed position (class banner). A
-   * Land waypoint (always the LAST one, doc/mission-format.md's 'land' keyword) does not capture-and-
-   * advance like an Enroute one — it needs the aircraft to actually STOP on the runway, not merely fly
-   * over the threshold, so SUCCESS there is a standalone condition, never reached via ActiveIdx_ falling
-   * off the end of the plan. */
+  /* A Land waypoint (always the LAST) does not capture-and-advance: it needs the aircraft to STOP on
+   * the runway, so SUCCESS there is standalone, never ActiveIdx_ falling off the end of the plan. */
   if (PlanJudged_ && ActiveIdx_ >= 0 && ActiveIdx_ < Plan_.Size()) {
     const FBWaypoint &wp = Plan_.At(ActiveIdx_);
     if (wp.Type == FBWaypointType::Land) {
@@ -128,14 +106,10 @@ bool FBMissionMonitor::Tick(const FBMissionMonitorSample &s, double simTimeS) {
       /* Reference = the aircraft (its latitude scales the longitude), the historical convention here. */
       bool reached = FBPlanarDistM(s.LatDeg, s.LonDeg, wp.LatDeg, wp.LonDeg) <= WpCaptureM_;
       const char *by = "capture";
-      /* ...OR THE AIRCRAFT IS PAST IT. A capture circle asks "did it arrive"; for a fix the aircraft
-       * cannot arrive at — one inside its own turn radius — the honest question is "did it get there",
-       * and the answer is the leg's own axis: beyond the perpendicular through the fix, the fix is
-       * behind. Only from the second waypoint on, because only then is there a declared inbound track
-       * to measure "behind" against. The same geometric rule systems/FBNavSystem sequences the
-       * GUIDANCE with, and deliberately a second, independent statement of it rather than a call into
-       * it: this class judges from its own private copy of the plan and observed position alone (class
-       * banner), and that is exactly what must not be traded away for sharing five lines. */
+      /* ...OR THE AIRCRAFT IS PAST IT: for a fix inside its own turn radius, "did it get there" is
+       * answered by the leg's axis. From the second waypoint on, since only then is there an inbound
+       * track. Deliberately a SECOND, independent statement of FBNavSystem's rule, not a call into it —
+       * this class judges from its own copy alone. */
       if (!reached && ActiveIdx_ > 0) {
         const FBWaypoint &from = Plan_.At(ActiveIdx_ - 1);
         double legM = FBPlanarDistM(from.LatDeg, from.LonDeg, wp.LatDeg, wp.LonDeg);
@@ -156,8 +130,7 @@ bool FBMissionMonitor::Tick(const FBMissionMonitorSample &s, double simTimeS) {
     }
   }
 
-  /* SUCCESS needs BOTH halves (class banner). A `survive` objective is deliberately NOT one of them
-   * here: it can only be answered when the run is over, which is Finalize's job. */
+  /* SUCCESS needs BOTH halves; `survive` can only be answered once the run is over (Finalize). */
   if (PlanDone_ && !HasSurviveObjective() && KillObjectivesMet(s.Roster))
     return Conclude(FBMissionVerdict::Success, SuccessDetail(PlanDetail_, !Objectives_.empty()));
 
@@ -169,9 +142,7 @@ bool FBMissionMonitor::Tick(const FBMissionMonitorSample &s, double simTimeS) {
 bool FBMissionMonitor::Finalize(const FBMissionMonitorSample &s, double simTimeS) {
   (void)simTimeS;
   if (Concluded()) return false;
-  /* The end of the run, from this unit's side. `survive` is met exactly here and only here: it is not
-   * combat-ineffective, so it is still able to fight, so it survived. Everything else was already
-   * decided on the tick it happened. */
+  /* `survive` is met exactly here and only here: not combat-ineffective at the end = it survived. */
   if (PlanDone_ && KillObjectivesMet(s.Roster) &&
       !(HasSurviveObjective() && s.CombatIneffective)) {
     std::string d = SuccessDetail(PlanDetail_, !Objectives_.empty());

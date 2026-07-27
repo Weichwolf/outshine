@@ -418,15 +418,12 @@ definiert, damit sein eigener Aufruf die echte libc-Funktion erreicht (keine Rek
 
 ## Offene Punkte
 
-- **Widerspruch in der Zahl der prozessweiten JSBSim-Dinge.** `FBFdm.h`s Banner sagt „the two things
-  that stay process-wide", CLAUDE.md sagt „die drei in `FBFdm.cpp` dokumentierten Dinge", `FBFdm.cpp`
-  listet **vier** Punkte (debug_lvl, Logger, `Element::convert`, `JSBSIM_*`-Env). Die Liste in
-  `FBFdm.cpp` ist die maßgebliche; die anderen beiden Stellen sind veraltet. Der vierte Punkt ist
-  streng genommen kein eigener Zustand, sondern ein Schreiber auf den ersten — vermutlich die Quelle
-  der Zählunterschiede.
-- **`FBFdm.h`s Ownership-Banner ist veraltet:** „today: the App/mission runner, one per run —
-  perspektivisch `units/FBUnit`, one per unit". Der Zustand ist längst erreicht: `units/FBSimUnit`
-  besitzt die Zelle, einer je Einheit.
+- **Widerspruch in der Zahl der prozessweiten JSBSim-Dinge.** CLAUDE.md sagt „die drei in `FBFdm.cpp`
+  dokumentierten Dinge", `FBFdm.cpp` listet **vier** Punkte (debug_lvl, Logger, `Element::convert`,
+  `JSBSIM_*`-Env). Die Liste in `FBFdm.cpp` ist die maßgebliche. Der vierte Punkt ist streng genommen
+  kein eigener Zustand, sondern ein Schreiber auf den ersten — vermutlich die Quelle des
+  Zählunterschieds. (Die abweichende Zwei-Behauptung im `FBFdm.h`-Banner ist mit der Kommentar-Runde
+  entfallen, ebenso dessen veraltetes Ownership-Banner.)
 - **`GetGroundClearanceM` bei `gearDown=false`** überspringt einziehbare Kontakte, aber nicht solche,
   die zwar `ctSTRUCTURE` sind und trotzdem einziehbar deklariert wurden — Konsequenz für Modelle mit
   ungewöhnlicher Kontaktdeklaration ist nicht geprüft.

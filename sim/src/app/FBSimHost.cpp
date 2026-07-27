@@ -1,8 +1,6 @@
-/* fb-sim — the FlightBox web host. A pure static-file HTTP server for the browser Command Center,
- * plus a generated /config.js that injects the runtime origin/tiles/time env into the page. The
- * simulator itself — JSBSim, FBW, autopilot, renderer — runs IN the browser; this process only serves
- * the app. Single-threaded select() loop. Env: HTTP_PORT (default 8080), ORIGIN_LAT/LON, TILES_URL,
- * SIM_UTC. */
+/* fb-sim: a pure static-file host for the browser client plus a generated /config.js carrying the
+ * runtime env into the page. The simulator itself runs IN the browser; this only serves it.
+ * Env: HTTP_PORT (8080), ORIGIN_LAT/LON, TILES_URL, SIM_UTC. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,9 +23,8 @@ static client_t cl[MAX_CLIENTS];
 
 static void set_nonblock(int fd){ int f=fcntl(fd,F_GETFL,0); fcntl(fd,F_SETFL,f|O_NONBLOCK); }
 
-/* Send the whole buffer even on a non-blocking socket: on EAGAIN, wait for the send buffer to drain
- * (poll POLLOUT). Essential for the multi-MB gpu.wasm payload, which otherwise gets silently
- * truncated. Returns 0 on success, -1 on error. */
+/* Sends the WHOLE buffer even on a non-blocking socket: without the EAGAIN wait the multi-MB
+ * gpu.wasm payload is silently truncated. */
 static int send_all(int fd,const void*buf,size_t len){
     const uint8_t*p=(const uint8_t*)buf; size_t off=0;
     while(off<len){
@@ -41,8 +38,7 @@ static int send_all(int fd,const void*buf,size_t len){
     return 0;
 }
 
-/* Handle one client's buffered request. Returns 1 when the response is served (caller closes the fd),
- * 0 while the request headers are still incomplete (keep reading). */
+/* 1 = served (the caller closes the fd), 0 = headers still incomplete, keep reading. */
 static int http_handle(client_t*c){
     c->rx[c->rxn<(int)sizeof c->rx-1?c->rxn:(int)sizeof c->rx-1]=0;
     char*req=(char*)c->rx;
@@ -51,18 +47,16 @@ static int http_handle(client_t*c){
     char path[256]="/"; sscanf(req,"GET %255s",path);
     char*q=strchr(path,'?'); if(q)*q=0;
 
-    /* Runtime config: origin (home) coordinates, tile server URL and sim clock from server env ->
-     * command center. Set ORIGIN_LAT / ORIGIN_LON at container start to fly anywhere. */
+    /* Server env -> the page. Set ORIGIN_LAT/ORIGIN_LON at container start to fly anywhere. */
     if(strcmp(path,"/config.js")==0){
         const char*la=getenv("ORIGIN_LAT"), *lo=getenv("ORIGIN_LON");
-        /* TILES_URL points the BROWSER at fb-tiles (a published host URL, not the podman-internal
-         * name — it must be reachable from the browser, not from this container). Empty => the
-         * renderer falls back to its preloaded region archive. */
+        /* A published host URL, not the podman-internal name: it must be reachable from the BROWSER,
+         * not from this container. */
         const char*tu=getenv("TILES_URL");
-        /* SIM_UTC (Unix seconds; 0/unset = real time) pins a reproducible sky for night/dusk shots. */
+        /* 0/unset = real time; a fixed value pins a reproducible sky. */
         const char*su=getenv("SIM_UTC");
-        /* Model belly clearance (m): the camera never sinks below (ground+clearance), so the eye rests
-         * at the aircraft's geometry-true lowest height over terrain, not on the dirt. */
+        /* The camera never sinks below (ground + clearance), so the eye rests at the model's
+         * geometry-true lowest height rather than on the dirt. */
         double clr=0.0; { FILE*cf=fopen("/tmp/fb_clearance","r"); if(cf){ if(fscanf(cf,"%lf",&clr)!=1) clr=0; fclose(cf); } }
         char body[384]; int bn=snprintf(body,sizeof body,
             "window.FB_ORIGIN_LAT=%s;window.FB_ORIGIN_LON=%s;window.FB_SIM_UTC=%s;window.FB_TILES_URL='%s';window.FB_GROUND_CLEAR=%.3f;\n",

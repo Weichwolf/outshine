@@ -19,22 +19,19 @@ void FBMissileUplink::Run(FBState &state, const fb_fdm_state &st, const FBUnitRe
   if (Powered() && net && LauncherId_ != 0) {
     for (const FBUnit *u : net->Units()) {
       if (!u || u->GetId() != LauncherId_) continue;
-      /* By VALUE: GetSignature returns the launcher's published snapshot, and what this receiver has
-       * heard must outlive the expression that read it. */
+      /* By VALUE: what this receiver has heard must outlive the expression that read it. */
       up = u->GetSignature().Uplink;
       if (up.Active && up.LauncherId == LauncherId_ && up.Target.Valid) b.TrackCount = 1;
       break;   /* one launcher, one entry — nothing else in the registry is looked at */
     }
   }
   if (b.TrackCount == 0) {
-    /* Nothing is being received. Not an empty picture — no picture (core/FBBlockStatus.h), which is the
-     * state the guidance's uplink timeout is measured against. */
+    /* Nothing received: not an empty picture but NO picture, the state the guidance's timeout runs on. */
     b.H.Invalidate();
     return;
   }
 
-  /* The received message as the one track this terminal carries. Range/bearing are the RECEIVER's own
-   * arithmetic on the reported position, exactly as FBDatalinkSystem computes them for a PPLI. */
+  /* Range/bearing are the RECEIVER's own arithmetic on the reported position. */
   FBDatalinkTrack &t = b.Tracks[0];
   t = FBDatalinkTrack{};
   std::strncpy(t.Callsign, "UPLINK", sizeof t.Callsign - 1);
@@ -46,8 +43,7 @@ void FBMissileUplink::Run(FBState &state, const fb_fdm_state &st, const FBUnitRe
   t.HeadingDeg = (float)(speed > 0.1 ? std::atan2(up.Target.VelE, up.Target.VelN) * kRad2Deg : 0.0);
   t.RangeM = (float)FBPlanarDistM(st.lat, st.lon, t.LatDeg, t.LonDeg);
   t.BearingDeg = (float)FBBearingDeg(st.lat, st.lon, t.LatDeg, t.LonDeg);
-  /* The stamp is the LAUNCHER'S look, not the moment this arrived: the shooter's radar is what the
-   * estimate stands on, and its age is what the missile has to fly with. */
+  /* The stamp is the LAUNCHER'S look, not the moment this arrived: its age is what the round flies on. */
   t.ReportTimeS = (float)up.Target.StampS;
   t.AgeS = (float)(simTimeS - up.Target.StampS);
   b.H.Publish(simTimeS);

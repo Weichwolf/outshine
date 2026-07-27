@@ -1,7 +1,5 @@
-/* Threshold sourcing: every constant below is a generic, core-owned aviation-engineering bound — none
- * are sourced from or tunable by any one airframe's documentation, and none are module-declared data
- * (there is no such channel; see FBFlightMonitor.h's banner). Numbers marked "regression" are
- * pre-existing FBMissionRunner constants moved here verbatim. */
+/* Every constant below is a generic, core-owned aviation-engineering bound — none sourced from or
+ * tunable by an airframe's documentation. Derivations: doc/flightbox/core.md, Abschnitt 4.1. */
 #include "FBFlightMonitor.h"
 #include "FBLog.h"
 #include <cmath>
@@ -9,83 +7,41 @@
 namespace FlightBox {
 
 namespace {
-/* Terrain penetration: aglM below this means the gear/belly is inside the ground mesh, not a soft
- * touchdown. Regression: FBMissionRunner's pre-existing `aglM < -3.0` gate, unchanged. */
+/* Gear/belly inside the ground mesh, not a soft touchdown. */
 constexpr double kPenetrationMarginM = -3.0;
 
-/* Ground contact with the gear NOT extended: JSBSim's own gear/gear-pos-norm (0=up..1=down, the lagged
- * kinematic transit every retractable-gear model exposes). Any weight-on-wheels contact while
- * substantially retracted is a belly/gear-up touchdown regardless of where it happens — a purely
- * physical fact, and 0.5 is simply the generic midpoint of that normalized [0,1] range. */
+/* The generic midpoint of JSBSim's own normalized gear/gear-pos-norm range. */
 constexpr double kGearDownThreshold = 0.5;
 
-/* Hard landing, from the model's OWN gear physics rather than a declared sink-rate number: JSBSim's
- * strut spring/damper reaction (FBFdm::GetMaxGearForceLbs) IS the aircraft's real, physically
- * simulated touchdown load — comparing it against the model's own static weight
- * (FBFdm::GetWeightLbs) needs exactly one core-owned, airframe-agnostic bound: a load factor no
- * landing gear of this CLASS is designed past. Generic gear-design practice sizes a limit/hard landing
- * around a low-single-digit "g" reaction at the CG; concentrated on a SINGLE strut (this check takes the
- * peak, not a sum) a properly executed landing routinely spikes past 1x total weight on one main gear
- * without being remotely hard. kHardLandingForceFactor=3.0 (peak single-strut force > 3x the aircraft's
- * OWN total weight) sits comfortably above that normal-landing transient while staying far short of a
- * structural-failure-grade impact — conservative in the direction of NOT tripping a good landing.
- * Verified empirically: the reference takeoff run's static/rolling gear force never exceeds a small
- * fraction of 1x weight per strut (see the task report's measurement); a deliberately excessive
- * touchdown profile clears this bound by a wide margin. */
+/* Peak SINGLE-strut force against the model's own static weight: above any normal-landing transient,
+ * far short of a structural-failure impact — conservative towards NOT tripping a good landing. */
 constexpr double kHardLandingForceFactor = 3.0;
 
-/* Extreme attitude at ground contact — a geometry risk (tailstrike/structural strike) generic to any
- * airframe with finite ground clearance; complements (does not replace) the model-driven structural-
- * contact check above for an airframe whose aircraft.xml declares no STRUCTURE points. 15 deg is a
- * conservative, class-generic bound for both pitch and roll at wheels-down — not sourced from or tuned
- * to one airframe's numbers. */
+/* Tailstrike geometry risk — complements (never replaces) the model-driven structure-contact check for
+ * an airframe whose aircraft.xml declares no STRUCTURE points. */
 constexpr double kMaxContactPitchDeg = 15.0;
 constexpr double kMaxContactRollDeg = 15.0;
 
-/* LOC/departure — purely behavioural, no aerodynamic-model-specific quantity (no AoA number, which
- * means something different per airframe class and isn't even meaningful for some): a sustained,
- * multi-axis body-rate magnitude this large, held for multiple seconds while airborne, is a spin/tumble
- * for any fixed-wing airframe, not a coordinated maneuver — generic engineering judgement, not a per-
- * airframe figure. */
+/* Purely BEHAVIOURAL, deliberately no AoA number: a sustained multi-axis rate of this magnitude is a
+ * spin/tumble for any fixed-wing airframe, not a coordinated manoeuvre. */
 constexpr double kLocRateDegS = 60.0;
 constexpr double kLocSustainS = 3.0;
 
-/* Stall/mush/deep-stall signature — purely KINEMATIC, deliberately not the model's own aero/alpha-deg
- * output (no aerodynamic-model quantity, no per-airframe stall-AoA number; the vanilla model exposes no
- * declared alpha limit to derive one from anyway): from attitude + the velocity vector alone, compute
- * where the nose POINTS (PitchDeg) vs. where the aircraft actually GOES (the flight-path angle, from
- * VsMs and TasMs) — a large, sustained mismatch between the two is flight that isn't attached/conventional
- * for ANY fixed-wing airframe, independent of its particular stall characteristics. A fast, shallow,
- * intentional dive (near-level attitude, high sink rate from sheer speed) keeps this mismatch small —
- * verified empirically against a diving test profile (see the task report) — while a stalled/mushing/
- * deep-stalled aircraft (nose not aligned with its actual path) does not. kMinTasMs excludes the
- * near-zero-airspeed settle transient (regression: FBMissionRunner's old `cas > 15.0` gate, m/s). */
+/* Stall/mush signature, purely KINEMATIC (deliberately not the model's alpha-deg): where the nose
+ * POINTS against where the aircraft GOES. A fast shallow dive keeps this mismatch small, a mushing
+ * aircraft does not. kMinTasMs excludes the near-zero-airspeed settle transient. */
 constexpr double kMinTasMs = 15.0;
 constexpr double kNoseFlightpathMismatchDeg = 30.0;
 constexpr double kStallSustainS = 4.0;
 
-/* Ground-contact confirmation window — applied ONLY to the two BINARY, threshold-crossing signals
- * (StructureContact/GearUpContact's AnyWow component: JSBSim's WOW flag, a hard true/false on which
- * side of the ground surface a contact point sits) that a single-tick terrain-feed step can flip for
- * exactly one sample: the caller pushes a FRESH terrain height into the FDM once per tick (a discrete
- * update, not a continuously-followed surface), and on a live DEM with real along-track grade that step
- * can momentarily read as contact even though the ground-reaction model settles a tick later. Confirmed
- * empirically (see the task report): a live-data run without this confirmation window false-tripped
- * STRUCTURE_CONTACT on an ordinary takeoff roll. Deliberately NOT applied to HardLanding/AttitudeContact
- * — those are smoothly-varying PHYSICAL quantities (gear strut force, attitude) computed from the
- * aircraft's own continuous dynamics, not a discrete height comparison, and (measured) a genuine hard-
- * landing force spike itself decays within a similarly short window — sustaining THOSE would make the
- * check miss the very impacts it exists to catch. 0.2 s is a couple of ticks at any of this codebase's
- * tick rates (10 Hz mission decision tick, 60+ Hz WASM frame loop) — long enough to reject a one-sample
- * artifact, far too short to matter for a genuine, sustained structural/gear-up contact (which stays
- * true for seconds, not a fraction of one). */
+/* Applied ONLY to the two BINARY signals a single-tick terrain-feed step can flip for one sample.
+ * Deliberately NOT to HardLanding/AttitudeContact: those are smoothly-varying physical quantities, and a
+ * genuine force peak itself decays inside such a window — sustaining them would miss the very impacts
+ * the checks exist for. */
 constexpr double kContactConfirmS = 0.2;
 
-/* First non-finite quantity in the sample, or nullptr when everything is a number. Every OTHER check in
- * Tick() is a comparison, and IEEE-754 makes every comparison against NaN false — a diverged FDM would
- * therefore sail past all of them and the run would end as an unexplained TIMEOUT. Checked on the RAW
- * inputs (not on aglM or the derived flight-path angle) so the divergence is caught at its entry point,
- * before it has propagated into anything else. */
+/* Checked on the RAW inputs, not on aglM or the derived FPA, so divergence is caught at its entry
+ * point before it propagates. */
 const char *FirstNonFinite(const FBFlightMonitorSample &s) {
   const struct { const char *Name; double Value; } fields[] = {
       {"lat", s.LatDeg}, {"lon", s.LonDeg}, {"elevM", s.ElevM}, {"groundAslM", s.GroundAslM},
@@ -130,23 +86,18 @@ bool FBFlightMonitor::Tick(const FBFlightMonitorSample &s, double simTimeS) {
   double dt = LastSimTimeS_ < 0.0 ? 0.0 : simTimeS - LastSimTimeS_;
   LastSimTimeS_ = simTimeS;
 
-  /* 0. Numerical divergence — BEFORE every other check, because every other check is a comparison and
-   * comparisons against NaN are all false (see FirstNonFinite's banner + FBKoReason's). Single-tick
-   * trigger: a non-finite state never recovers, and waiting only lets the garbage propagate. */
+  /* 0. Numerical divergence — BEFORE everything else (NaN loses every comparison); single-tick. */
   if (s.FdmFault)
     return Trip(FBKoReason::NumericalDivergence, "fdm integrator faulted", s);
   if (const char *bad = FirstNonFinite(s))
     return Trip(FBKoReason::NumericalDivergence, std::string("non-finite state: ") + bad, s);
 
-  /* 1. Terrain penetration (CFIT) — checked before the contact-confirmation group below since its own
-   * -3 m margin already absorbs a single-tick terrain-feed step; a genuine hole-through-the-mesh CFIT
-   * should not wait a confirmation window. */
+  /* 1. CFIT — before the confirmation group: the -3 m margin already absorbs a terrain-feed step. */
   double aglM = s.ElevM - s.GroundAslM;
   if (aglM < kPenetrationMarginM)
     return Trip(FBKoReason::CfitPenetration, "ground penetration", s);
 
-  /* 2, 3: the two BINARY/threshold-crossing checks — confirmation-gated (see kContactConfirmS's
-   * banner), the condition must hold for several CONSECUTIVE ticks, not just one. */
+  /* 2, 3: the two BINARY checks — confirmation-gated over consecutive ticks. */
   bool structureNow = s.StructureContact;
   StructureTimerS_ = structureNow ? StructureTimerS_ + dt : 0.0;
   if (StructureTimerS_ >= kContactConfirmS)
@@ -157,21 +108,17 @@ bool FBFlightMonitor::Tick(const FBFlightMonitorSample &s, double simTimeS) {
   if (GearUpTimerS_ >= kContactConfirmS)
     return Trip(FBKoReason::GearUpContact, "ground contact with gear not extended", s);
 
-  /* 4. Hard landing — the model's own gear strut force vs. its own static weight (see the constant's
-   * banner); checked every tick a bogey is compressed, not just the touchdown edge, so it catches the
-   * actual force peak wherever in the compression cycle it occurs. Single-tick trigger deliberately (see
-   * kContactConfirmS's banner: a genuine peak here is itself brief). */
+  /* 4. Hard landing — every tick a bogey is compressed, not just the touchdown edge, so the actual
+   * force peak is caught wherever in the compression cycle it falls. */
   if (s.AnyWow && s.WeightLbs > 0.0 && s.GearForceLbs > kHardLandingForceFactor * s.WeightLbs)
     return Trip(FBKoReason::HardLanding, "hard landing: gear strut force exceeded the design load factor", s);
 
-  /* 5. Extreme attitude with weight on any contact (bogey or structure) — tailstrike/structural-strike
-   * geometry risk even at a benign gear load. Single-tick trigger (continuous quantity, see above). */
+  /* 5. Extreme attitude on any contact — a geometry risk even at a benign gear load. */
   bool anyContact = s.AnyWow || s.StructureContact;
   if (anyContact && (std::fabs(s.RollDeg) > kMaxContactRollDeg || s.PitchDeg > kMaxContactPitchDeg))
     return Trip(FBKoReason::AttitudeContact, "extreme attitude at ground contact", s);
 
-  /* 6. LOC/departure — airborne only, purely behavioural (no AoA/model-specific quantity, see the
-   * constants' banners above). */
+  /* 6. LOC/departure — airborne only. */
   bool departing = !s.AnyWow &&
                    std::sqrt(s.PDegS * s.PDegS + s.QDegS * s.QDegS + s.RDegS * s.RDegS) > kLocRateDegS;
   LocTimerS_ = departing ? LocTimerS_ + dt : 0.0;

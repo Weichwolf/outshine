@@ -29,8 +29,8 @@ void FBTickPool::WorkerLoop() {
     Start_.wait(lk, [&] { return Stop_ || Generation_ != seen; });
     if (Stop_) return;
     seen = Generation_;
-    /* Job_/Count_ were written under this mutex before the notify, so acquiring it above published them;
-     * the work itself runs unlocked — the whole point is that the indices share nothing. */
+    /* Acquiring the mutex above published Job_/Count_; the work itself runs UNLOCKED, which is the
+     * whole point — the indices share nothing. */
     lk.unlock();
     Drain();
     lk.lock();

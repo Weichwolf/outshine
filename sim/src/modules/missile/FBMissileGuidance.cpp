@@ -35,9 +35,8 @@ void FBMissileGuidance::Program(const FBWeaponTargetState &target, int launcherI
   HaveTarget_ = target.Valid;
   TgtLatDeg_ = target.LatDeg; TgtLonDeg_ = target.LonDeg; TgtAltM_ = target.AltM;
   TgtVelE_ = target.VelE; TgtVelN_ = target.VelN; TgtVelU_ = target.VelU;
-  /* The stamp is the LAUNCHER'S look time, in the mission-wide sim clock every unit's module runs on
-   * (the missile's own clock is seeded with the release time, FBMissileModule::SetClock) — so the age of
-   * the launch programming is real from the first tick, not zero because it was just handed over. */
+  /* The LAUNCHER'S look time in the mission-wide clock, so the programming's age is real from the first
+   * tick rather than zero because it was just handed over. */
   TgtStampS_ = target.Valid ? target.StampS : -1e9;
   FBLog::Info("missile", "PROGRAMMED", {{"launcher", launcherId}, {"haveTarget", HaveTarget_},
       {"tgtLat", TgtLatDeg_}, {"tgtLon", TgtLonDeg_}, {"tgtAltM", TgtAltM_},
@@ -52,14 +51,11 @@ void FBMissileGuidance::EnterPhase(Phase p, const char *why) {
   Phase_ = p;
 }
 
-/* THE ESTIMATE THE LAW FLIES AGAINST, in the strict priority the three phases define: the round's own
- * seeker outranks the launcher's uplink, which outranks the last thing either of them said. Every
- * branch writes the SAME four fields, so the guidance below never asks where its numbers came from —
- * only how old they are. */
+/* Strict priority: own seeker > uplink > last known. Every branch writes the SAME four fields, so the
+ * law below never asks where its numbers came from — only how old they are. */
 void FBMissileGuidance::UpdateTarget(const FBState &state, const fb_fdm_state &st) {
-  /* --- Terminal: the seeker's own lock. The fused position/velocity comes from the tracker every pilot
-   * already owns (systems/FBBfmTrack), fed from the radar block the seeker just published — a contact is
-   * an echo with no velocity, and the law needs one. --- */
+  /* --- Terminal. The velocity comes from the tracker every pilot owns, fed from the seeker's own radar
+   * block: a contact is an echo without velocity, and the law needs one. --- */
   BfmTrack().Update(state, st, NowS_);
   const FBBfmBlock &trk = BfmTrack().Block();
   SeekerLocked_ = state.Radar.H.Readable() && state.Radar.LockIndex >= 0;
@@ -74,13 +70,10 @@ void FBMissileGuidance::UpdateTarget(const FBState &state, const fb_fdm_state &s
     EnterPhase(Phase::Terminal, "own seeker acquired");
     return;
   }
-  /* Once terminal, always terminal: a seeker that has held the target does not go back to asking the
-   * launcher for permission. It keeps flying its own last measurement (below). */
+  /* Once terminal, always terminal: a seeker that has held the target does not go back to asking. */
   if (Phase_ == Phase::Terminal) return;
 
-  /* --- Midcourse: a fresh message from the launcher. The uplink arrives as the one track this round's
-   * comms slot publishes (modules/missile/FBMissileUplink) — read like any other instrument, head
-   * first, age included. --- */
+  /* --- Midcourse: the uplink, read like any other instrument — head first, age included. --- */
   if (state.Datalink.H.Readable() && state.Datalink.TrackCount > 0) {
     const FBDatalinkTrack &m = state.Datalink.Tracks[0];
     if (NowS_ - m.ReportTimeS <= kUplinkTimeoutS) {
@@ -88,14 +81,14 @@ void FBMissileGuidance::UpdateTarget(const FBState &state, const fb_fdm_state &s
       double hdg = m.HeadingDeg * kDeg2Rad;
       TgtVelE_ = m.SpeedMs * std::sin(hdg);
       TgtVelN_ = m.SpeedMs * std::cos(hdg);
-      TgtVelU_ = 0.0;   /* the uplink carries a ground-track velocity; a climb rate is not in the message */
+      TgtVelU_ = 0.0;   /* the message carries a ground track: there is no climb rate in it */
       TgtStampS_ = m.ReportTimeS;
       HaveTarget_ = true;
       EnterPhase(Phase::Midcourse, "uplink from launcher");
       return;
     }
   }
-  /* --- Inertial: nobody is telling this round anything. It flies what it last knew. --- */
+  /* --- Inertial: nobody is telling this round anything, so it flies what it last knew. --- */
   EnterPhase(Phase::Inertial, Phase_ == Phase::Midcourse ? "uplink lost" : "no uplink yet");
 }
 
@@ -105,15 +98,14 @@ FBPilotCommands FBMissileGuidance::Run(const FBState &state, FBCommandBus &avion
   (void)avionics; (void)airframe; (void)plan; (void)runway; (void)dt;
   FBPilotCommands c;
   c.Guidance = FBPilotGuidance::Manual;
-  /* A solid motor has no throttle: full command from separation, and the throttle slew inside FBFdm
-   * (0.5 s from idle) is the safe-separation delay before ignition. It is commanded every tick because
-   * that is the only channel there is, not because anything could turn it off again. */
+  /* A solid motor has no throttle: full command from separation, and FBFdm's own throttle slew is the
+   * safe-separation delay before ignition. */
   c.ManualThr = 1.0;
 
   UpdateTarget(state, st);
   if (!HaveTarget_) {
-    /* A round with no programming at all: fins centred, motor lit. It flies straight and the run's own
-     * lifetime cap ends it — deliberately not a special case, just an absence of guidance. */
+    /* Fins centred, motor lit: it flies straight and the lifetime cap ends it. Not a special case,
+     * just an absence of guidance. */
     FinPitch_ = FinYaw_ = 0.0;
     return c;
   }
@@ -152,8 +144,7 @@ FBPilotCommands FBMissileGuidance::Run(const FBState &state, FBCommandBus &avion
   double aU = gain * (omE * uN - omN * uE);
   aU += kG;   /* gravity bias (class banner): PN says nothing about weight */
 
-  /* ---- resolve the command into the body frame. The magnitude plus the body-referenced direction from
-   * the ONE shared rotation primitive (core/FBGeodesy) — no second spelling of the Euler sequence. ---- */
+  /* Into the body frame through the ONE shared rotation primitive — no second Euler spelling. */
   double aMag = std::sqrt(aE * aE + aN * aN + aU * aU);
   double aAz = 0.0, aEl = 0.0;
   FBEnuToBodyLos(st.roll, st.pitch, st.yaw, aE, aN, aU, aAz, aEl);
@@ -164,10 +155,8 @@ FBPilotCommands FBMissileGuidance::Run(const FBState &state, FBCommandBus &avion
   double nyCmd = Clamp(aRightBody / kG, -kMaxCommandG, kMaxCommandG);
   NzCmdG_ = nzCmd; NyCmdG_ = nyCmd;
 
-  /* ---- the two lateral-acceleration loops + the roll holder (class banner). The measurements are the
-   * round's own accelerometer (st.nz/st.ny, body load factors in g) and rate gyros (st.q/st.r, deg/s):
-   * exactly the two instruments a missile has. Gains scheduled on the dynamic pressure the round is
-   * actually flying at (header: kQRefPa/kFinPerG). ---- */
+  /* ---- The two lateral-acceleration loops + the roll holder, closed on the round's own accelerometer
+   * (st.nz/st.ny) and rate gyros (st.q/st.r): exactly the two instruments a missile has. ---- */
   double qbar = FBDynamicPressure(st.speed, st.elev);
   double scale = qbar > 1.0 ? kQRefPa / qbar : kGainScaleMax;
   scale = Clamp(scale, kGainScaleMin, kGainScaleMax);
@@ -175,8 +164,8 @@ FBPilotCommands FBMissileGuidance::Run(const FBState &state, FBCommandBus &avion
   double ki = kFinPerG * kLoopI * scale;
   double kd = kRateGain * scale;
   double ez = nzCmd - st.nz, ey = nyCmd - st.ny;
-  /* Integrate in FIN units and clamp there, so the anti-windup limit is the physical one (a fin cannot
-   * deflect past its stops) rather than a number in error units that has to be re-derived per gain. */
+  /* Integrate in FIN units and clamp there, so the anti-windup limit is the PHYSICAL one rather than a
+   * number in error units that would have to be re-derived per gain. */
   NzInt_ = Clamp(NzInt_ + ki * ez * dt, -kIntegralClamp, kIntegralClamp);
   NyInt_ = Clamp(NyInt_ + ki * ey * dt, -kIntegralClamp, kIntegralClamp);
   double pitchCmd = kp * ez + NzInt_ - kd * (st.q * kDeg2Rad);

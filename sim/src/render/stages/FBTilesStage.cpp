@@ -10,13 +10,8 @@
 
 namespace FlightBox {
 
-/* Bring-up terrain pipeline. Establishes the port's structural patterns from day one:
- *   - INDEXED geometry (never triangle soup), 32 B w3_vtx-compatible layout (pos3+uv2+norm3)
- *   - per-draw transforms in a UNIFORM/STORAGE buffer via one bind group (batched submission)
- *   - Depth32Float with [0,1] REVERSED-Z: clear 0.0, compare Greater — full float precision,
- *     no [-1,1] mantissa loss (the WebGL limitation this port removes)
- *   - sRGB render target view: light in linear, encode on write
- * Geometry: a procedural 32x32 height-field grid standing in for a terrain tile. */
+/* The terrain draw. Per-draw data, albedo array, grazing mip bias, RenderBundle signature and the
+ * invariant counters: doc/flightbox/rendering.md, Abschnitt 6. */
 static const char *kTerrainWGSL = R"(
 struct U { mvp : mat4x4f, sun : vec4f };
 @group(0) @binding(0) var<uniform> u : U;
@@ -119,13 +114,10 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f, @location
 }
 )";
 
-/* Max per-frame draws in streaming mode — the storage buffer + draw loop bound (a multi-LOD cut to
- * 240 km stays under this; the streamer's leaves are frustum/grace-bounded). */
+/* The storage-buffer and draw-loop bound; a multi-LOD cut to 240 km stays well under it. */
 static const int kMaxDraws = 4096;
 
-/* Albedo mip levels are built OFF this thread now: the worker (or the native synchronous path) hands
- * a finished sRGB pyramid via fb_stream_pyramid; the renderer only uploads levels. The pyramid math
- * lives once in FBMips.h (ONE source — oracle and browser render identical pixels). */
+/* Mip levels are built off this thread; the renderer only uploads what fb_stream_pyramid hands it. */
 static int MipCountFor(int ts) { return fb_mip_count(ts); }
 
 static int fbPhotoZmax(void) { const char *e = getenv("FB_PHOTO_ZMAX"); return e ? atoi(e) : 11; }
@@ -146,8 +138,7 @@ void FBTilesStage::Configure(const FBGpu &gpu, wgpu::Sampler samp, wgpu::Texture
   AtmoBuf = atmoBuf;
   MaxLayers = maxLayers;
 
-  /* Albedo texture_2d_array: streaming = an empty growable array FBWorld fills/recycles at runtime;
-   * static = one layer per tile, real bakes via SetAlbedoArray or a procedural checker fallback. */
+  /* Streaming = a growable array FBWorld fills and recycles; static = one layer per tile. */
   if (Streaming) {
     LayerCap = 64;
     LayerUsed = 0;
@@ -196,9 +187,8 @@ void FBTilesStage::Configure(const FBGpu &gpu, wgpu::Sampler samp, wgpu::Texture
     }
   }
 
-  /* Static (SetStaticMesh): upload the merged mesh once. Streaming: no merged Vtx — per-tile buffers
-   * live in the DynTiles table (UploadTile). osmmesh emits a triangle SOUP (6 verts/quad), so both
-   * draw non-indexed; an index buffer would halve the traffic. TODO: weld+index on upload. */
+  /* osmmesh emits a triangle SOUP (6 verts/quad), so both paths draw non-indexed.
+   * TODO: weld + index on upload — it would halve the traffic. */
   wgpu::BufferDescriptor bd{};
   if (!Streaming) {
     bd.size = (uint64_t)TerrainNVerts * 8 * sizeof(float);
@@ -211,9 +201,7 @@ void FBTilesStage::Configure(const FBGpu &gpu, wgpu::Sampler samp, wgpu::Texture
   bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
   Uni = Device.CreateBuffer(&bd);
 
-  /* Two vec4 per draw (struct Tile): a = camera-relative ECEF origin (xyz) + albedo layer (w),
-   * b.x = per-tile photo brightness gain. Rewritten every frame. Storage, not uniform — scales past
-   * the 64 KB uniform limit. Streaming sizes to the draw ceiling. */
+  /* Storage, not uniform: it scales past the 64 KB uniform limit. Rewritten every frame. */
   int entries = Streaming ? kMaxDraws : (NTiles > 0 ? NTiles : 1);
   bd.size = (uint64_t)entries * 8 * sizeof(float);
   bd.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
@@ -278,8 +266,7 @@ void FBTilesStage::SetAlbedoArray(const uint8_t *rgba, int ts, int layers) {
   AlbedoData.assign(rgba, rgba + (size_t)layers * ts * ts * 4);
 }
 
-/* Grow the albedo array to hold `need` layers: recreate at a larger cap (×2, capped 2048) and copy
- * the resident layers over. Rare — only when the working set outgrows the current cap. */
+/* Recreate at double the cap and copy the resident layers over. Rare. */
 void FBTilesStage::EnsureAlbedoCap(int need) {
   if (need <= LayerCap) return;
   int cap = LayerCap ? LayerCap : 64;
@@ -313,8 +300,7 @@ void FBTilesStage::EnsureAlbedoCap(int need) {
   RebuildBind();
 }
 
-/* (Re)create the terrain bind group. Called once after the pipeline is built and again whenever the
- * albedo array texture is swapped out (EnsureAlbedoCap) — the group pins a specific texture view. */
+/* Also called whenever EnsureAlbedoCap swaps the array texture out: a bind group PINS a view. */
 void FBTilesStage::RebuildBind(void) {
   wgpu::TextureViewDescriptor avd{};
   avd.dimension = wgpu::TextureViewDimension::e2DArray;
@@ -333,7 +319,7 @@ void FBTilesStage::RebuildBind(void) {
   Bind = Device.CreateBindGroup(&bgd);
 }
 
-/* One free albedo-array layer: a recycled slot, or a freshly grown one. -1 at the device ceiling. */
+/* A recycled slot or a freshly grown one; -1 at the device ceiling. */
 int FBTilesStage::AllocLayer(void) {
   if (!FreeLayers.empty()) { int l = FreeLayers.back(); FreeLayers.pop_back(); return l; }
   EnsureAlbedoCap(LayerUsed + 1);
@@ -341,8 +327,7 @@ int FBTilesStage::AllocLayer(void) {
   return LayerUsed++;
 }
 
-/* Upload a finished sRGB mip PYRAMID (level 0..N packed contiguous, from fb_stream_pyramid) into array
- * layer `layer`. No mip building here — that ran off-thread (worker) or synchronously (native). */
+/* No mip building here — that already ran off-thread or synchronously. */
 void FBTilesStage::WriteAlbedoLayer(int layer, const uint8_t *pyramid, int ts) {
   const uint8_t *p = pyramid;
   int w = ts, level = 0;
@@ -377,8 +362,7 @@ void FBTilesStage::ClearLayer(int layer) {
   if (layer < (int)Gains.size()) Gains[layer] = 1.0f;
 }
 
-/* Per-frame: refresh the adaptive brightness reference from the resident NEAR photo tiles, then rebuild
- * every far tile's gain toward it. EMA-smoothed so the far field doesn't flicker as tiles stream/evict. */
+/* EMA-smoothed, so the far field does not flicker as tiles stream and evict. */
 void FBTilesStage::UpdatePhotoGains(void) {
   double sum = 0.0; int n = 0;
   for (size_t l = 0; l < LayerKind.size(); l++)
@@ -400,8 +384,7 @@ void FBTilesStage::UpdatePhotoGains(void) {
     }
     if (l < Gains.size()) Gains[l] = g;
   }
-  static long frameNoDbg = 0;   /* [photogain] log cadence matches the old FrameNo%60 gate closely enough
-                                 * for a diagnostic (not a correctness-sensitive value) */
+  static long frameNoDbg = 0;   /* log cadence only — not a correctness-sensitive value */
   frameNoDbg++;
   if (getenv("FB_PHOTO_LOG") && (frameNoDbg % 60) == 0)
     FBLog::Debug("render", "photogain", {{"Ytarget", (double)PhotoYTarget}, {"near", n}, {"far", nfar},
@@ -476,10 +459,8 @@ void FBTilesStage::Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pa
       off[i * 8 + 0] = (float)(d.Origin[0] - ctx.Eye[0]);
       off[i * 8 + 1] = (float)(d.Origin[1] - ctx.Eye[1]);
       off[i * 8 + 2] = (float)(d.Origin[2] - ctx.Eye[2]);
-      /* Layer for the CURRENTLY displayed mode. Viewed mode == the eager base -> the base layer. Otherwise
-       * the OTHER mode's overlay, once ITS upload is committed (2-phase). The `layerMode` records which
-       * ground mode the chosen layer actually IS, so the mode-strictness invariant can be measured:
-       * wrongModeDraws (drew the other mode — the SVS<->EVS bleed) + blackDraws (no committed layer). */
+      /* `layerMode` records which ground mode the chosen layer actually IS, so the mode-strictness
+       * invariant is MEASURABLE rather than assumed. */
       int want = ctx.GroundPhoto ? 1 : 0;
       bool overlayReady = (d.PhotoLayer >= 0 && ctx.FrameNo > d.PhotoUpTick + 1);
       int layer, layerMode;
@@ -506,11 +487,8 @@ void FBTilesStage::Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pa
 
   Queue.WriteBuffer(Uni, 0, ctx.Mvp20, sizeof ctx.Mvp20);
 
-  /* RenderBundle: bake the ~nDraw per-tile terrain draws once, replay every frame. Signature = the draw
-   * STRUCTURE (count, Bind after an array grow, each tile's Vtx handle + NVerts); TileBuf/uniform CONTENTS
-   * change per frame but the bundle references those buffers by handle, so only structure triggers a
-   * re-record (~few/s in a loiter as tiles stream, 0 when parked). Cuts ~nDraw CPU draw-encodes to one
-   * ExecuteBundles. */
+  /* Signature = the draw STRUCTURE only. TileBuf/uniform CONTENTS change every frame, but the bundle
+   * references those buffers by HANDLE — so only a structural change forces a re-record. */
   if (Streaming && nDraw > 0) {
     uint64_t sig = 1469598103934665603ULL;
     auto mix = [&sig](uint64_t v) { sig ^= v; sig *= 1099511628211ULL; };

@@ -17,8 +17,7 @@ namespace FlightBox {
 static void Cross3(const double a[3], const double b[3], double o[3]);   /* defined below */
 static void Norm3(double v[3]);
 
-/* wgpu::StringView -> std::string for FBLog fields (Dawn callback messages are non-null-terminated
- * views, not C strings). */
+/* Dawn callback messages are non-null-terminated views, not C strings. */
 static std::string SvToStr(wgpu::StringView v) { return std::string(v.data, v.length); }
 
 FBRenderer::FBRenderer()
@@ -76,8 +75,8 @@ void FBRenderer::InitOffscreen(int width, int height) {
   Selector = nullptr;
   Width = width;
   Height = height;
-  /* TimedWaitAny: native Dawn can drive Request{Adapter,Device} via Instance::WaitAny(future,
-   * timeout) synchronously — no browser event loop here to pump AllowSpontaneous callbacks. */
+  /* Native Dawn drives Request{Adapter,Device} synchronously: there is no browser event loop here to
+   * pump AllowSpontaneous callbacks. */
   static constexpr auto kTimedWaitAny = wgpu::InstanceFeatureName::TimedWaitAny;
   wgpu::InstanceDescriptor id{};
   id.requiredFeatureCount = 1;
@@ -103,9 +102,8 @@ void FBRenderer::StartAdapterRequest(void) {
 
 void FBRenderer::OnAdapter(wgpu::Adapter a) {
   Adapter = a;
-  /* CPU-load diagnosis (branch performance): print WHAT WebGPU actually runs on. adapterType==CPU means
-   * the ENTIRE pipeline is software rasterization (SwiftShader/lavapipe/WARP) — then the high CPU is the
-   * browser, not our code, and the fix is browser-side (chrome://gpu, Firefox WebGPU/Vulkan flags). */
+  /* adapterType==CPU means the WHOLE pipeline is software rasterization — then high CPU load is the
+   * browser and the fix is browser-side (chrome://gpu, Firefox WebGPU/Vulkan flags). */
   { wgpu::AdapterInfo info{};
     a.GetInfo(&info);
     const bool soft = (info.adapterType == wgpu::AdapterType::CPU);
@@ -122,9 +120,8 @@ void FBRenderer::OnAdapter(wgpu::Adapter a) {
                                       {"maxBufferSizeMB", (double)(lim.maxBufferSize >> 20)},
                                       {"maxTexDim2D", (int)lim.maxTextureDimension2D}});
   }
-  /* HDR scene target = rgba16float: the volumetric cloud pass blends premultiplied-alpha over it, and
-   * rg11b10ufloat has NO alpha channel + no guaranteed blend support (the earlier bandwidth pick broke
-   * cloud compositing). 16F is the standard blendable HDR format; the extra 4 B/px at 720p is nothing. */
+  /* rgba16float and not rg11b10ufloat: the cloud pass blends premultiplied alpha over the HDR target,
+   * and rg11b10 has no alpha channel. Herleitung: doc/flightbox/rendering.md §1.4. */
   bool rg11 = false;
   HdrFormat = wgpu::TextureFormat::RGBA16Float;
   wgpu::DeviceDescriptor dd{};
@@ -133,8 +130,7 @@ void FBRenderer::OnAdapter(wgpu::Adapter a) {
   HasTimestamp = a.HasFeature(wgpu::FeatureName::TimestampQuery);   /* cloud-pass GPU timing (WASM iGPU number) */
   if (HasTimestamp) feats.push_back(wgpu::FeatureName::TimestampQuery);
   if (!feats.empty()) { dd.requiredFeatureCount = feats.size(); dd.requiredFeatures = feats.data(); }
-  /* The multi-LOD albedo array grows past the default 256-layer cap; request the adapter's real max
-   * (2048 on the target GPU) so EnsureAlbedoCap can grow that far. */
+  /* The multi-LOD albedo array outgrows the default 256-layer cap; ask for the adapter's real max. */
   wgpu::Limits adapterLimits{};
   a.GetLimits(&adapterLimits);
   MaxLayers = (int)adapterLimits.maxTextureArrayLayers;
@@ -186,16 +182,8 @@ void FBRenderer::OnDevice(wgpu::Device d) {
                                                      ? "rg11b10ufloat" : "rgba16float"}});
 }
 
-/* Hillaire-2020 physically-based sky+atmosphere: three shader classes (FBTransmittanceStage,
- * FBSkyViewStage, FBSkyStage), one per shader — CreateAtmosphere below only creates the shared
- * resources (textures/sampler/uniform 3+ consumers read, incl. FBTilesStage terrain aerial
- * perspective) and wires the three stages via explicit dependency injection at Configure(). */
-/* Terrain draw (kTerrainWGSL) + the albedo texture_2d_array + RenderBundle/DynTile streaming state
- * all live in FBTilesStage now (render/stages/FBTilesStage.*) — this method only creates the scene's
- * SHARED targets (DepthTex/HdrTex: FBSkyStage and FBTilesStage both draw into them, the cloud pass
- * samples DepthTex) and hands FBTilesStage its dependencies (the shared sampler, both atmosphere
- * LUTs, AtmoBuf) via explicit Configure() — same Init-order contract as CreateAtmosphere: this must
- * run AFTER it, since Tiles' bind group pins the LUT views CreateAtmosphere already created. */
+/* Creates the SCENE's shared targets and injects FBTilesStage's dependencies. Must run AFTER
+ * CreateAtmosphere: Tiles' bind group pins the LUT views that method created. */
 void FBRenderer::CreateTerrainPipeline(void) {
   wgpu::TextureDescriptor td{};
   td.size = {(uint32_t)Width, (uint32_t)Height, 1};
@@ -235,10 +223,8 @@ int FBRenderer::UploadTilePhoto(int slot, const uint8_t *photo, int ts, int z) {
 void FBRenderer::SetGroundMode(int photo) { GroundPhoto = photo != 0; }
 
 
-/* Fullscreen ACES-approx tonemap (kTonemapWGSL/kTonemapPlainWGSL, FBTonemapStage): reads the HDR scene
- * target, encodes to the (sRGB) swapchain. Lighting stays linear upstream; this is the only place
- * display encoding happens. Depends on Resolve when CloudsOn (its CloudHist views), so this must run
- * AFTER CreateClouds(). */
+/* Lighting stays linear upstream; this is the only place display encoding happens. Depends on
+ * Resolve's CloudHist views when CloudsOn, so it must run AFTER CreateClouds(). */
 void FBRenderer::CreateTonemapPipeline(void) {
   FBGpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
   Tonemap->Configure(gpu, Samp, HdrTex.CreateView(), CloudsOn, CloudsOn ? Resolve.get() : nullptr);
@@ -280,14 +266,9 @@ void FBRenderer::CreateAtmosphere(void) {
   bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
   AtmoBuf = Device.CreateBuffer(&bd);
 
-  /* Init-order CONTRACT: the atmosphere stages are Configure()d here, in THIS order, because each
-   * later one's bind group is built from an EARLIER one's already-created texture view (WebGPU bind
-   * groups pin a specific view at creation — there is no "rebind later"). Transmittance owns TransLUT;
-   * SkyView reads TransLUT (injected) and writes SkyLUT; Sky reads SkyLUT (injected) + AtmoBuf; Sun
-   * reads TransLUT (injected, solar colour) + AtmoBuf; Moon builds its own albedo texture from the
-   * raw bytes SetMoonTexture staged + reads AtmoBuf. FBTilesStage (created after this method returns —
-   * see OnDevice) likewise receives TransLUT/SkyLUT views injected at ITS Configure(), for the
-   * terrain's aerial perspective — this is why CreateAtmosphere runs before CreateTerrainPipeline. */
+  /* Init-order CONTRACT: THIS order, because each later stage's bind group is built from an earlier
+   * one's already-created texture view — a WebGPU bind group pins a view at creation, there is no
+   * "rebind later". Same reason CreateAtmosphere runs before CreateTerrainPipeline. */
   FBGpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
   Transmittance->Configure(gpu, TransLUT.CreateView());
   SkyView->Configure(gpu, SkyLUT.CreateView(), TransLUT.CreateView(), LutSamp, AtmoBuf);
@@ -306,13 +287,9 @@ void FBRenderer::SetStars(const uint8_t *hyg, int nbytes, double originLat, doub
   Stars->SetCatalogue(hyg, nbytes, originLat, originLon);
 }
 
-/* Volumetric clouds (Nubis/MSFS-class): one class per shader (kein Big-Bang splitting further —
- * FBCloudBaseBakeStage/FBCloudDetailBakeStage/FBCloudCellBakeStage bake the 3 noise volumes ONCE via
- * FBCloudMipDownStage's shared box-downsample; FBCloudMarchStage raymarches the WGS84 spherical shell
- * into the quarter-res target; FBCloudResolveStage temporally upsamples it). This method only bakes
- * the noise + wires the per-frame stages together, in the Init-order their bind groups require:
- * bakes first (March's bind group pins their views), then March (Resolve's bind group pins March's
- * CloudLowTex view). EVS-only; skipped whole when CloudsOn is false (no boot/VRAM cost). */
+/* Bakes the 3 noise volumes once and wires the per-frame cloud stages in the Init-order their bind
+ * groups require: bakes, then March, then Resolve. Skipped whole when CloudsOn is false (no VRAM
+ * cost). Kette: doc/flightbox/rendering.md §5. */
 void FBRenderer::CreateClouds(void) {
   FBGpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
   CloudMipDown->Configure(gpu);
@@ -356,9 +333,9 @@ void FBRenderer::UpdateAtmosphere(const double eye[3], const double sunDir[3], c
   Queue.WriteBuffer(AtmoBuf, 0, a, sizeof a);
 }
 
-/* Camera-RELATIVE [0,1] reversed-Z projection * view. Vertices arrive pre-translated by (origin-cam),
- * so the eye is at the ORIGIN and the view is pure rotation from the ECEF camera basis (right, up,
- * -fwd). This is the port's global-precision convention: no giant absolute ECEF coords reach float. */
+/* Camera-relative: vertices arrive pre-translated by (origin-cam), so the eye is at the ORIGIN and the
+ * view is pure rotation — no absolute ECEF coordinate ever reaches float.
+ * Herleitung: doc/flightbox/rendering.md §1.2. */
 static void MvpCamRel(float *m, const double R[3], const double Uc[3], const double F[3], int w, int h) {
   const float fov = 60.0f * 3.14159265f / 180.0f, asp = (float)w / (float)h;
   const float zn = 0.05f;
@@ -376,7 +353,6 @@ static void MvpCamRel(float *m, const double R[3], const double Uc[3], const dou
     }
 }
 
-/* Unit cross product a x b -> o. */
 static void Cross3(const double a[3], const double b[3], double o[3]) {
   o[0] = a[1] * b[2] - a[2] * b[1];
   o[1] = a[2] * b[0] - a[0] * b[2];
@@ -387,8 +363,8 @@ static void Norm3(double v[3]) {
   if (l < 1e-9) l = 1.0;
   v[0] /= l; v[1] /= l; v[2] /= l;
 }
-/* ONE daylight factor from sun elevation (atmo.h w3_daylight, verbatim): full day above ~+3°, fading
- * through civil twilight, dark by nautical twilight (~-9°). Shared by sky, ground and star fade. */
+/* ONE daylight factor from sun elevation, shared by sky, ground and star fade: full day above ~+3°,
+ * dark by nautical twilight (~-9°). */
 static double DaylightFactor(double sunElDeg) {
   double t = (sunElDeg + 9.0) / 12.0;
   if (t < 0.0) t = 0.0;
@@ -423,8 +399,7 @@ void FBRenderer::ConfigureSurface(void) {
 }
 
 #ifdef __EMSCRIPTEN__
-/* Live canvas backing-store size = clientSize x devicePixelRatio (the display resolution the upscale
- * pass should target). Returns packed (w<<16 | h), 0 if the canvas is gone. */
+/* Live canvas backing store = clientSize x devicePixelRatio, packed (w<<16 | h); 0 if it is gone. */
 EM_JS(int, fb_canvas_px, (const char *sel), {
   var c = document.querySelector(UTF8ToString(sel));
   if (!c) return 0;
@@ -437,9 +412,8 @@ EM_JS(int, fb_canvas_px, (const char *sel), {
 })
 #endif
 
-/* Reconfigure the swapchain to the display size when the canvas changes (F-fullscreen, window resize).
- * Hysteresis (>= 8 px) avoids thrash from sub-pixel jitter (present.h pr_sync_size). The scene + HUD
- * stay fixed 720p (FrameTex); only the swapchain + upscale viewport follow. Surface mode only. */
+/* Scene + HUD stay fixed 720p; only the swapchain and upscale viewport follow the canvas. The 8 px
+ * hysteresis keeps sub-pixel jitter from thrashing the reconfigure. */
 void FBRenderer::SyncSwapSize(void) {
 #ifdef __EMSCRIPTEN__
   if (Mode != Target::Surface || !Selector) return;
@@ -460,9 +434,8 @@ void FBRenderer::SyncSwapSize(void) {
 #endif
 }
 
-/* Offscreen final target: RGBA8UnormSrgb so the tonemap pass's linear-out write is sRGB-encoded by
- * the GPU on store, same as the surface's sRGB view — CopyTextureToBuffer then hands back bytes a
- * PNG writer can use directly, no CPU-side encode step. */
+/* RGBA8UnormSrgb so the GPU sRGB-encodes on store, exactly as the surface's sRGB view does:
+ * CopyTextureToBuffer then hands back bytes a PNG writer uses directly, with no CPU encode step. */
 void FBRenderer::CreateOffscreenTarget(void) {
   SurfaceFormat = wgpu::TextureFormat::RGBA8UnormSrgb;
   wgpu::TextureDescriptor td{};
@@ -490,8 +463,7 @@ void FBRenderer::RenderFrame(void) {
   } else {
     finalView = OffscreenTex.CreateView();
   }
-  /* Whole frame (scene + tonemap + HUD) renders into the fixed-720p FrameTex; the upscale pass at the
-   * end resolves it onto finalView (swapchain at display size, or the 1:1 offscreen readback target). */
+  /* Scene + tonemap + HUD all land in the fixed-720p FrameTex; only the upscale pass touches finalView. */
   wgpu::TextureView frameView = FrameTex.CreateView();
 #ifdef FB_GPU_BISECT
   FrameNo++;
@@ -499,9 +471,8 @@ void FBRenderer::RenderFrame(void) {
 #endif
   if (DeviceLost) return;   /* device gone (headless SwiftShader): CPU streaming lives on elsewhere */
 
-  /* BOOT/TELEPORT LOADING SCREEN: black frame + "LOADING TERRAIN x%" (MAX7456 glyphs), no scene/sky.
-   * The app keeps JSBSim frozen until the target cut is resident, then clears this — so the first scene
-   * frame is already full-resolution (no low-res ladder). Reuses the HUD-text + upscale pipelines only. */
+  /* Its own short frame path, 2 passes: the app freezes JSBSim until the target cut is resident, so
+   * the first scene frame is already full resolution. doc/flightbox/rendering.md §2.2. */
   if (LoadingScreen) {
     FrameNo++;
     FBFrameContext lctx{};   /* Upscale::Encode ignores ctx today; kept for interface uniformity */
@@ -532,8 +503,8 @@ void FBRenderer::RenderFrame(void) {
 
   double t = FrameNo++ / 60.0;
 
-  /* Camera basis in ECEF (radial up ~ geodetic up to <1deg). Scripted eye/target if SetCamera was
-   * used (Stage 4 flight path); otherwise the default orbit over Center (static/native). */
+  /* Camera basis in ECEF (radial up ~ geodetic up to <1 deg): scripted eye/target if SetCamera was
+   * used, otherwise the default orbit over Center. */
   double eye[3], up[3], east[3], north[3], fwd[3], right[3], camUp[3];
   double zax[3] = {0, 0, 1};
   if (CameraFull) {   /* aircraft attitude: full rolled ECEF basis (horizon tilts at bank) */
@@ -556,18 +527,16 @@ void FBRenderer::RenderFrame(void) {
     Norm3(fwd);
     Cross3(fwd, g, right); Norm3(right); Cross3(right, fwd, camUp);
   }
-  /* Geographic frame at the eye (radial up) — drives the sun + atmosphere hemisphere, INDEPENDENT
-   * of camera roll (only the view reconstruction in the sky pass uses the rolled camera basis). */
+  /* Drives sun + atmosphere hemisphere, INDEPENDENT of camera roll — only the sky pass's view
+   * reconstruction uses the rolled basis. */
   for (int a = 0; a < 3; a++) up[a] = eye[a];
   Norm3(up);
   Cross3(zax, up, east); Norm3(east); Cross3(up, east, north);
 
   float u[20];
   MvpCamRel(u, right, camUp, fwd, Width, Height);
-  /* Sun drives BOTH the terrain diffuse and the physically-based atmosphere, so sky and ground agree.
-   * SVS (OSM) is a time-independent database view -> a constant 45° sun facing south. EVS (photo) is
-   * the real camera -> the live ephemeris sun the app fed via SetHud (sun_el/sun_az, deg, az 0=N 90=E),
-   * so dawn/dusk/night match the aerial imagery. az/el -> ECEF via the eye's radial ENU frame. */
+  /* ONE sun for terrain diffuse and atmosphere, so sky and ground agree. SVS is a time-independent
+   * database view -> a fixed 45° sun facing south; EVS is the real camera -> the live ephemeris sun. */
   double elDeg = 45.0, azDeg = 180.0;
   if (GroundPhoto) { elDeg = HudState.Env.SunElDeg; azDeg = HudState.Env.SunAzDeg; }
   const double el = elDeg * 3.14159265 / 180.0, az = azDeg * 3.14159265 / 180.0;
@@ -576,11 +545,7 @@ void FBRenderer::RenderFrame(void) {
   for (int a = 0; a < 3; a++) sun[a] = up[a] * se + (north[a] * caz + east[a] * saz) * ce;
   Norm3(sun);
   u[16] = (float)sun[0]; u[17] = (float)sun[1]; u[18] = (float)sun[2]; u[19] = 0;
-  /* FBTilesStage::Encode() writes this into its own Uni buffer from ctx.Mvp20 (built below) — same
-   * values, just written at draw time instead of here (both precede the single Queue.Submit). */
-
-  /* Moon direction + real-sky factors (EVS only; SVS pins day=1 and the sky pass gates the extras
-   * off). Daylight is w3_daylight(sun_el): full day above ~+3°, dark by ~-9° (nautical twilight). */
+  /* Moon direction + real-sky factors, EVS only: SVS pins day=1 and the sky pass gates the extras off. */
   double sunElDeg = std::asin(std::max(-1.0, std::min(1.0, sun[0] * up[0] + sun[1] * up[1] + sun[2] * up[2]))) * 180.0 / 3.14159265;
   double dayF = GroundPhoto ? DaylightFactor(sunElDeg) : 1.0;
   double moon[3];
@@ -591,15 +556,13 @@ void FBRenderer::RenderFrame(void) {
       moon[a] = up[a] * std::sin(mel) + (north[a] * std::cos(maz) + east[a] * std::sin(maz)) * cme;
     Norm3(moon);
   }
-  /* cloud=0 unless the path is armed: kills the sky-dome value-noise sheet (skyExtra.z) too, not just the
-   * volumetric march — the whole cloud look is off by default. */
+  /* cloud=0 kills the sky-dome noise sheet too, not just the volumetric march. */
   double cloud = (CloudsOn && GroundPhoto) ? std::max(0.0, std::min(1.0, (double)HudState.Env.CloudCover)) : 0.0;
   UpdateAtmosphere(eye, sun, right, camUp, fwd, moon, dayF, HudState.Env.MoonPhase, cloud);
   Stars->Update(SkyClock);
 
-  /* Shared per-frame state every draw stage's Encode() reads (FBRenderer still decides WHEN each is
-   * called — the pass topology/order below is unchanged from before the stage split). Built here
-   * (before the cloud update) so FBCloudMarchStage::Update() can read it too. */
+  /* The shared per-frame state every stage's Encode() reads; built before the cloud update so
+   * FBCloudMarchStage::Update() can read it too. */
   FBFrameContext ctx{};
   for (int a = 0; a < 3; a++) { ctx.Eye[a] = eye[a]; ctx.Fwd[a] = fwd[a]; ctx.Right[a] = right[a]; ctx.CamUp[a] = camUp[a]; ctx.Up[a] = up[a]; }
   for (int i = 0; i < 20; i++) ctx.Mvp20[i] = u[i];
@@ -615,12 +578,13 @@ void FBRenderer::RenderFrame(void) {
 
   wgpu::CommandEncoder enc = Device.CreateCommandEncoder();
 
-  /* Pass-count proof (render/ stage-split acceptance criterion): the split into FBDrawStage classes
-   * must not change the number of Begin*Pass calls/frame — count them here and log periodically so a
-   * before/after diff is directly readable from the telemetry. */
+  /* PASS TOPOLOGY IS A CONTRACT: only this function opens and closes passes — a stage draws into the
+   * borrowed encoder — and a stage split must never change this count. Hence the tally + the periodic
+   * log below, so a before/after diff is readable straight from the telemetry.
+   * Vollständige Encode-Reihenfolge: doc/flightbox/rendering.md §2. */
   int passCount = 0;
 
-  /* Atmosphere LUTs (compute, once per frame — TODO cache while the sun is static). */
+  /* Once per frame — TODO cache while the sun is static. */
   {
     wgpu::ComputePassEncoder cp = enc.BeginComputePass();
     passCount++;
@@ -654,30 +618,23 @@ void FBRenderer::RenderFrame(void) {
   passCount++;
   Sky->Encode(ctx, scene);                 /* physically-based sky background, first in the pass */
 
-  /* Sun disc/glow + moon-as-lit-sphere: additive draws (One/One blend), same slot the original single
-   * kSkyWGSL shader composited them into — encoded right after Sky so the result is pixel-equivalent. */
-  Sun->Encode(ctx, scene);
+  Sun->Encode(ctx, scene);     /* additive (One/One), right after Sky */
   Moon->Encode(ctx, scene);
 
-  /* Real stars (EVS night): additive instanced quads at their true alt/az, over the sky, under the
-   * terrain. FBStarsStage self-gates (SVS / daylight / none visible -> no draw). */
-  Stars->Encode(ctx, scene);
+  Stars->Encode(ctx, scene);   /* additive, over the sky and under the terrain; self-gates */
 
   Tiles->Encode(ctx, scene);   /* terrain: RenderBundle (streaming) or direct per-tile draws (static) */
 
-  Units->Encode(ctx, scene);   /* AI units draw slot (NoOp today) */
+  /* NoOp today, but wired into the encode ORDER: units belong right after the terrain, effect
+   * billboards right before the HUD — that placement is the contract, not the drawing. */
+  Units->Encode(ctx, scene);
 
-  /* Night lights (EVS night): additive sprites over the terrain, depth-tested so hills occlude far
-   * ones. FBTileLightsStage self-gates (same fade window as the stars). */
-  TileLights->Encode(ctx, scene);
+  TileLights->Encode(ctx, scene);   /* night lights, depth-tested so hills occlude far ones; self-gates */
 
-  Sprites->Encode(ctx, scene);   /* future effect-billboard draw slot (NoOp today) */
+  Sprites->Encode(ctx, scene);
   scene.End();
 
-  /* Volumetric cloud pass -> the QUARTER-RES target (premultiplied cloud). SEPARATE pass so it can
-   * SAMPLE the depth texture (now detached) for terrain occlusion; the tonemap upsamples + composites
-   * it. EVS-only (the shader self-gates on skyExtra.y). Whole pass (march + resolve) skipped when the
-   * cloud path is disarmed — the plain tonemap below presents the scene with no cloud composite. */
+  /* A SEPARATE pass because it must SAMPLE the depth texture that was an attachment a moment ago. */
   if (CloudsOn) {
   {
     wgpu::RenderPassColorAttachment cca{};
@@ -688,8 +645,8 @@ void FBRenderer::RenderFrame(void) {
     wgpu::RenderPassDescriptor cp{};
     cp.colorAttachmentCount = 1;
     cp.colorAttachments = &cca;
-    wgpu::PassTimestampWrites tw{};   /* BOTH indices on this one pass (the cloud march = the cost we budget); leaving
-       one index at kQuerySetIndexUndefined trips this Dawn build's validation -> rejects every command buffer. */
+    wgpu::PassTimestampWrites tw{};   /* BOTH indices here: leaving one at kQuerySetIndexUndefined trips
+       this Dawn build's validation and rejects every command buffer. */
     if (Cloud->WantsTimestamp()) { tw.querySet = Cloud->GetQuerySet(); tw.beginningOfPassWriteIndex = 0; tw.endOfPassWriteIndex = 1; cp.timestampWrites = &tw; }
     wgpu::RenderPassEncoder cl = enc.BeginRenderPass(&cp);
     passCount++;
@@ -721,8 +678,7 @@ void FBRenderer::RenderFrame(void) {
   }
   }   /* end if (CloudsOn) — cloud march + resolve */
 
-  /* Tonemap pass -> the fixed-720p FrameTex: ACES-compress HDR, sRGB-encode on store. No depth. */
-  wgpu::RenderPassColorAttachment tca{};
+  wgpu::RenderPassColorAttachment tca{};   /* tonemap -> FrameTex: ACES, sRGB-encode on store, no depth */
   tca.view = frameView;
   tca.loadOp = wgpu::LoadOp::Clear;
   tca.storeOp = wgpu::StoreOp::Store;
@@ -735,9 +691,8 @@ void FBRenderer::RenderFrame(void) {
   Tonemap->Encode(ctx, tone);
   tone.End();
 
-  /* HUD overlay pass -> the SAME final target, loadOp Load (preserve the tonemapped scene). Geometry
-   * is the reused symbology, rebuilt + uploaded each frame. Triangles (AA horizon) first, then the
-   * line primitives, then the textured glyphs. */
+  /* Same target, loadOp Load to preserve the tonemapped scene. The `if` sits OUTSIDE the pass on
+   * purpose: an empty pass would still be a pass, and the pass count is the invariant. */
   if (HudEnabled) {
     Hud->SetState(HudState, HudHave);
     wgpu::RenderPassColorAttachment hca{};
@@ -753,9 +708,7 @@ void FBRenderer::RenderFrame(void) {
     hud.End();
   }
 
-  /* Upscale/present: sample the finished 720p FrameTex onto finalView (swapchain at display size, or
-   * the offscreen readback target 1:1). The app owns the filter — bilinear here (TODO bicubic/sharpen).
-   * SVS goes straight through; the EVS WebCodecs link (next stage) will swap the sampled source. */
+  /* Present: 720p FrameTex -> finalView, bilinear (TODO bicubic/sharpen). */
   wgpu::RenderPassColorAttachment uca{};
   uca.view = finalView;
   uca.loadOp = wgpu::LoadOp::Clear;
@@ -769,10 +722,8 @@ void FBRenderer::RenderFrame(void) {
   Upscale->Encode(ctx, upscale);
   upscale.End();
 
-  /* Pass-count proof: log once on the first SCENE frame (not FrameNo==1, which is usually consumed by
-   * the loading screen — a short native-oracle run must still capture this) and periodically after.
-   * Expected today: 6 without clouds (2 compute + scene/tonemap/hud/upscale), 8 with FB_CLOUDS=1
-   * (+ march + resolve); 5 if HudEnabled is off (cloud lab). */
+  /* Logged on the first SCENE frame (FrameNo==1 is usually the loading screen, and a short
+   * native-oracle run must still capture it), then every 300. Expected: 6 / 8 with clouds / 5 no HUD. */
   static bool loggedFirstPassCount = false;
   if (!loggedFirstPassCount || FrameNo % 300 == 0) {
     loggedFirstPassCount = true;
@@ -784,8 +735,7 @@ void FBRenderer::RenderFrame(void) {
   Queue.Submit(1, &cmd);
   if (CloudsOn) Cloud->PollTimestamps();   /* async map -> accumulate GPU cloud-pass ms, log avg every 120 frames */
 
-  /* Temporal state for next frame's reprojection: flips the ping-pong index + snapshots this frame's
-   * view-proj/eye as "previous" (mirrors the original single-function ordering exactly). */
+  /* AFTER the tonemap read this frame's result: flips the ping-pong index and snapshots view-proj/eye. */
   if (CloudsOn) Resolve->Advance(ctx);
 
   /* 2-phase-commit assertion (once/sec): no frame should ever have drawn an uncommitted layer. */
@@ -798,9 +748,8 @@ void FBRenderer::RenderFrame(void) {
   }
 }
 
-/* Offscreen readback: CopyTextureToBuffer into a MapRead staging buffer (256-byte row-pitch
- * alignment, the WebGPU-wide rule) then MapAsync, blocking via Instance::WaitAny like the native
- * device bring-up above. Strips row padding on the way out. */
+/* CopyTextureToBuffer into a MapRead staging buffer (256-byte row pitch, the WebGPU rule), then
+ * MapAsync blocking via Instance::WaitAny. Strips the row padding on the way out. */
 bool FBRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
   const uint32_t bpp = 4;
   const uint32_t unpaddedRow = (uint32_t)Width * bpp;

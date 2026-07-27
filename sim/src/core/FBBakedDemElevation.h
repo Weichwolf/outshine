@@ -1,9 +1,6 @@
-/* FlightBox — FBBakedDemElevation: the elevation hook's offline-DEM implementation ("--elev swiss") —
- * loads a small baked island raster (sim/assets, see tools/bake_swiss_dem.py) once and answers
- * GroundElevM by bilinear interpolation, 0 m outside the raster's bbox (the "island" contract: the
- * asset only covers Switzerland, everything else reads sea level). core/, not world/: it is a static
- * data asset load (fopen once, no network, no streaming), the same category of file I/O JSBSim itself
- * does for its own model XML — not the "app owns file I/O" telemetry-sink exception. */
+/* The elevation hook's offline-DEM implementation (`--elev swiss`): one baked island raster, bilinear,
+ * 0 m outside its bbox. core/ and not world/ because it is a static asset load, the same category of
+ * file I/O JSBSim does for its own model XML. doc/flightbox/core.md, Abschnitt 9. */
 #ifndef FBBAKEDDEMELEVATION_H
 #define FBBAKEDDEMELEVATION_H
 #include <cstdint>
@@ -15,9 +12,8 @@ namespace FlightBox {
 
 class FBBakedDemElevation : public FBElevationProvider {
 public:
-  /* Loads `path` (the .bin format tools/bake_swiss_dem.py writes — see FBBakedDemElevation.cpp's
-   * banner for the layout). Ok() is false on any read/format failure; GroundElevM then always
-   * returns 0 (degrades to the flat-sea-level fallback rather than crashing a mission boot). */
+  /* Ok() false on any read/format failure; GroundElevM then returns 0 — degrading to sea level rather
+   * than crashing a mission boot. */
   explicit FBBakedDemElevation(const std::string &path);
 
   bool Ok(void) const { return LoadedOk; }

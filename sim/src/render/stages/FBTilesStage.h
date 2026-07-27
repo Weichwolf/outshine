@@ -1,14 +1,7 @@
-/* FlightBox — FBTilesStage: the terrain draw (kTerrainWGSL) — the one stage with real per-frame CPU
- * state, ported verbatim from FBRenderer: the growable albedo texture_2d_array (static bake OR
- * FBWorld's streamed per-tile table), the RenderBundle that bakes ~N per-tile draws once and replays
- * them (re-recorded only on STRUCTURE change), the 2-phase-commit tile table (a tile draws only one
- * pass after its GPU upload lands), and the SVS/EVS-strictness + black-tile invariant counters.
- *
- * Depends on FBTransmittanceStage's/FBSkyViewStage's LUTs (aerial perspective) and the shared AtmoBuf
- * — all three injected at Configure(), per the atmosphere Init-order contract documented in
- * FBRenderer::CreateAtmosphere (this stage's Configure() must run AFTER that). `samp` is FBRenderer's
- * shared linear sampler (also used by the tonemap pass reading HdrTex) — genuinely cross-stage, so it
- * stays FBRenderer-owned rather than duplicated here. */
+/* The terrain draw — the ONE stage with real per-frame CPU state: the growable albedo array, the
+ * RenderBundle, the 2-phase-commit tile table and the mode-strictness invariant counters.
+ * Its Configure() must run AFTER FBRenderer::CreateAtmosphere, whose LUT views it is handed.
+ * doc/flightbox/rendering.md, Abschnitt 6. */
 #ifndef FBTILESSTAGE_H
 #define FBTILESSTAGE_H
 
@@ -23,22 +16,19 @@ public:
   void Configure(const FBGpu &gpu, wgpu::Sampler samp, wgpu::TextureView transLutView,
                 wgpu::TextureView skyLutView, wgpu::Buffer atmoBuf, int maxLayers);
 
-  /* Static terrain (SetTerrain path): upload the merged mesh + optional real per-tile bakes once. */
+  /* The static path: upload the merged mesh once. */
   void SetStaticMesh(const float *verts, uint32_t nverts, int ntiles, const uint32_t *voff,
                      const uint32_t *vcnt, const double *origins);
   void SetAlbedoArray(const uint8_t *rgba, int ts, int layers);
 
-  /* Dynamic streaming (FBWorld drives a mutable per-tile GPU table + growable albedo array) instead
-   * of the static SetStaticMesh source. Call before Configure(). */
+  /* FBWorld drives a mutable per-tile table instead. Call before Configure(). */
   void EnableStreaming(int albedoTS) { Streaming = true; AlbedoTS = albedoTS; }
   void SetDefaultMode(int photo) { BaseMode = photo ? 1 : 0; }   /* boot default: eager base layer */
 
-  /* Upload one streamed tile (mesh + its RGBA8-sRGB albedo). Returns a table slot id, or -1 if the
-   * albedo array is full. Caller (FBRenderer) has already checked DeviceUsable(). */
+  /* A table slot id, or -1 if the albedo array is full. The caller has checked DeviceUsable(). */
   int UploadTile(const float *verts, uint32_t nverts, const double origin[3], const uint8_t *albedo,
                 int ts, int z);
-  /* Attach the aerial-photo albedo to an already-uploaded tile; `frameNo` timestamps the 2-phase
-   * commit (the tile draws the photo layer only once its upload is a pass old). */
+  /* `frameNo` timestamps the 2-phase commit: the photo layer draws only once its upload is a pass old. */
   int UploadTilePhoto(int slot, const uint8_t *photo, int ts, int z, unsigned frameNo);
   void ReleaseTile(int slot);
   void SetDrawList(const int *slots, int n) { DrawList.assign(slots, slots + n); }
@@ -46,12 +36,10 @@ public:
   int DrawCount(void) const { return Streaming ? (int)DrawList.size() : NTiles; }
   bool IsStreaming(void) const { return Streaming; }
 
-  /* Per-frame: rebuilds per-draw storage (camera-relative offsets + albedo layer/gain), writes it,
-   * (re)records the RenderBundle on structure change, and draws — self-contained, no external gating
-   * needed (there is always terrain to draw once configured). */
+  /* Self-contained: there is always terrain to draw once configured. */
   void Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pass) override;
 
-  /* Invariant telemetry (FBRenderer's periodic [present] log reads these). */
+  /* Invariant telemetry, read by FBRenderer's periodic [present] log. */
   long GetNotReadyDraws(void) const { return NotReadyDraws; }
   long GetWrongModeDraws(void) const { return WrongModeDraws; }
   long GetBlackDraws(void) const { return BlackDraws; }

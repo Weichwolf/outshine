@@ -1,28 +1,6 @@
-/* libosmmesh/include/osmmesh/geo.h
- *
- * Coordinate library: three layers of conversions used by all mesh builders.
- *
- *   1. Web Mercator (EPSG:3857 / Google-Slippy-Tiles) -- (z,x,y) <-> lon/lat.
- *   2. MVT local coordinates -- (0..extent) within a tile -> lon/lat.
- *   3. ENU (East/North/Up, meters) -- local tangent-plane around an origin.
- *
- * The library is purely computational. The only stateful piece is the ENU
- * context, which caches sin/cos of the configured origin so that hot per-
- * vertex conversions reduce to multiplies and adds.
- *
- * Scope limits (documented so T5+ callers don't re-learn them):
- *
- *   - ENU uses a flat-earth tangent-plane approximation, not a full ECEF
- *     round-trip. For our ~20 km ROI the error is sub-millimeter (see
- *     geo.c for the derivation). No ECEF, no WGS84 ellipsoidal formulas.
- *   - Web Mercator latitude is capped at +/- 85.05112878 deg. Points
- *     outside that band are rejected by osmmesh_geo_to_tile; callers
- *     should never need to project beyond that for slippy tiles.
- *   - MVT local_y origin is TOP-LEFT: local_y=0 is the northern edge,
- *     local_y=extent is the southern edge. This matches the Mapbox /
- *     Shortbread convention and contradicts the sign of the ENU n-axis,
- *     which is explicitly handled in the fast-path tile_enu_map.
- */
+/* Coordinate conversions: Web Mercator slippy tiles, MVT local coordinates, ENU tangent plane, WGS84
+ * ECEF. Scope limits (ENU flat-earth range, Mercator latitude cap, MVT top-left origin):
+ * doc/flightbox/world-and-terrain.md, Abschnitt 5. */
 
 #ifndef OSMMESH_GEO_H
 #define OSMMESH_GEO_H
@@ -48,9 +26,8 @@ typedef struct {
     double min_lon, min_lat, max_lon, max_lat;
 } osmmesh_geo_bounds;
 
-/* ENU context: caches origin-dependent factors. Initialize once per origin
- * with osmmesh_enu_init, reuse across any number of conversions. Treat as
- * opaque layout; only osmmesh_enu_init may write these fields. */
+/* Caches origin-dependent factors so per-vertex conversions are multiplies and adds. Opaque layout:
+ * only osmmesh_enu_init may write these fields. */
 typedef struct {
     double origin_lat, origin_lon;   /* input, degrees */
     double cos_lat0;                 /* cached cos(radians(origin_lat)) */
@@ -59,9 +36,7 @@ typedef struct {
     double meters_per_deg_lon;       /* cos_lat0 * pi * R / 180 */
 } osmmesh_enu_ctx;
 
-/* Earth-radius constant used for the tangent-plane scaling. WGS84 equatorial
- * semi-major axis. Exposed as extern so tests can cross-check scale factors
- * without re-hardcoding the value. */
+/* WGS84 equatorial semi-major axis; extern so tests cross-check without re-hardcoding it. */
 extern const double osmmesh_earth_radius_m;
 
 /* Error codes. 0 = success, negative = error. */
@@ -69,141 +44,62 @@ extern const double osmmesh_earth_radius_m;
 #define OSMMESH_GEO_ERR_ARG      -1
 #define OSMMESH_GEO_ERR_RANGE    -2   /* lat outside Mercator band */
 
-/* ========================================================================
- *  Web Mercator / slippy-tile math
- * ====================================================================== */
-
-/* (lon_deg, lat_deg) -> tile (z, x, y). The integer tile that CONTAINS the
- * point is written to *out_x / *out_y. If the point lies exactly on a tile
- * boundary, the tile to the east / south wins (standard floor semantics on
- * the continuous tile coordinate).
- *
- * Returns OSMMESH_GEO_OK on success; OSMMESH_GEO_ERR_ARG on NULL out pointers;
- * OSMMESH_GEO_ERR_RANGE if lat_deg is outside [-85.05112878, 85.05112878]. */
+/* The tile CONTAINING the point; exactly on a boundary the east/south tile wins (floor semantics). */
 int osmmesh_geo_to_tile(double lon_deg, double lat_deg, uint8_t z,
                          uint32_t *out_x, uint32_t *out_y);
 
-/* Geographic bounds of a tile. Never fails for in-range inputs; for z=0 the
- * entire Mercator world is returned. */
 osmmesh_geo_bounds osmmesh_tile_bounds(uint8_t z, uint32_t x, uint32_t y);
 
-/* Convert an MVT local coordinate (inside tile (z,x,y)) to geographic
- * (lon, lat, alt=0). local_x, local_y are in [0..extent]; the origin is the
- * tile's TOP-LEFT (local_y=0 is the northern edge). Geometry just outside
- * [0..extent] is accepted (MVT features may bleed) and projected via the
- * same linear extrapolation. */
+/* MVT local coordinate -> geographic. Geometry just outside [0..extent] is accepted (features may
+ * bleed) and projected by the same linear extrapolation. */
 osmmesh_geo osmmesh_tile_local_to_geo(uint8_t z, uint32_t x, uint32_t y,
                                        uint32_t extent,
                                        int32_t local_x, int32_t local_y);
 
-/* Fractional-tile -> geographic. (fx, fy) are in [0..1] across the tile,
- * origin TOP-LEFT (fy=0 = north edge, fy=1 = south edge). Full double
- * precision -- unlike osmmesh_tile_local_to_geo this does NOT round the
- * position onto an integer MVT lattice, so it is the canonical projector for
- * the ECEF terrain path (a 0.5-lattice-unit rounding is ~0.18 m at z14, which
- * would break the sub-cm offset guarantee). alt is left 0; the caller sets it.
- * The Mercator inverse here is pinned equal to osmmesh_tile_local_to_geo at
- * integer local coords by the test suite, so the two cannot drift. */
+/* Fractional tile (fx,fy in [0..1], origin top-left) -> geographic in full double precision: the
+ * canonical projector for the ECEF path, because the integer MVT lattice rounds ~0.18 m at z14 and
+ * would break the sub-cm offset guarantee. The test suite pins it equal to the lattice variant. */
 osmmesh_geo osmmesh_tile_frac_to_geo(uint8_t z, uint32_t x, uint32_t y,
                                       double fx, double fy);
 
-/* ========================================================================
- *  WGS84 ECEF (Earth-Centered, Earth-Fixed)
- *
- *  Global-scale path added ALONGSIDE the flat-earth ENU model above (which is
- *  correct only to ~20 km from its origin). ECEF places every vertex on the
- *  WGS84 ellipsoid in one earth-fixed double-precision frame, so a mesh can
- *  span the planet. The renderer draws it camera-relative: per tile it holds a
- *  double ECEF origin, per frame subtracts the double camera-ECEF, and uploads
- *  the small float difference (see terrain.h osmmesh_terrain_build_mesh_ecef).
- *
- *  Altitude convention: `alt`/`h` is treated as height above the WGS84
- *  ELLIPSOID. Terrarium heights are orthometric (above the geoid); the geoid
- *  undulation (up to ~85 m globally, ~45 m over central Europe) is ignored.
- *  For rendering that is a slow, smooth vertical bias with no visible effect;
- *  it is the same simplification the ENU path already makes (u = alt).
- * ====================================================================== */
+/* ---- WGS84 ECEF: the global-scale path beside the ~20 km ENU model above ----
+ * `alt`/`h` is height above the WGS84 ELLIPSOID; Terrarium heights are orthometric, and the geoid
+ * undulation (~85 m globally) is ignored — a slow, smooth vertical bias with no visible effect. */
 
-/* WGS84 defining parameters. a = semi-major axis (== osmmesh_earth_radius_m),
- * f = flattening. Exposed so tests cross-check without re-hardcoding. */
 extern const double osmmesh_wgs84_a;   /* 6378137.0 m */
 extern const double osmmesh_wgs84_f;   /* 1 / 298.257223563 */
 
-/* ECEF position in meters. X toward (lat 0, lon 0), Y toward (lat 0, lon 90E),
- * Z toward the north pole. Right-handed. */
+/* X toward (lat 0, lon 0), Y toward (lat 0, lon 90E), Z toward the north pole. Right-handed. */
 typedef struct {
     double x, y, z;
 } osmmesh_ecef;
 
-/* Geodetic (WGS84) -> ECEF. Closed form, no iteration:
- *   N = a / sqrt(1 - e^2 sin^2 phi)
- *   X = (N + h) cos phi cos lam
- *   Y = (N + h) cos phi sin lam
- *   Z = (N (1 - e^2) + h) sin phi
- * Exact for any lat/lon/alt. */
 osmmesh_ecef osmmesh_geo_to_ecef(osmmesh_geo g);
-
-/* ECEF -> geodetic (WGS84). Bowring's closed-form inverse (sub-millimeter,
- * no iteration). At the poles (x=y=0) lon is defined as 0. Inverse of
- * osmmesh_geo_to_ecef to sub-mm over the whole ellipsoid. */
+/* Bowring's closed-form inverse, sub-mm over the whole ellipsoid. At the poles (x=y=0) lon is 0. */
 osmmesh_geo osmmesh_ecef_to_geo(osmmesh_ecef p);
 
-/* ========================================================================
- *  ENU (local tangent plane)
- * ====================================================================== */
-
-/* Initialize ctx with a geographic origin. origin_lat must be in
- * [-89.9, 89.9] degrees (the ENU scale factor degenerates near the poles).
- * Returns OSMMESH_GEO_OK or OSMMESH_GEO_ERR_ARG / OSMMESH_GEO_ERR_RANGE. */
+/* origin_lat must be in [-89.9, 89.9]: the ENU scale factor degenerates near the poles. */
 int osmmesh_enu_init(osmmesh_enu_ctx *ctx,
                       double origin_lat, double origin_lon);
 
-/* Geographic -> local ENU meters. Tangent-plane approximation anchored at
- * the context origin: sub-millimeter error at 20 km range (see geo.c). */
 osmmesh_enu osmmesh_enu_from_geo(const osmmesh_enu_ctx *ctx,
                                    osmmesh_geo g);
 
-/* Inverse: local ENU -> geographic. */
 osmmesh_geo osmmesh_enu_to_geo(const osmmesh_enu_ctx *ctx,
                                 osmmesh_enu e);
 
-/* Convenience path: MVT local coord -> ENU meters. Correct but NOT on the
- * hot path: use osmmesh_tile_enu_map_* if you are doing many vertices from
- * the same tile. */
+/* Correct but NOT the hot path: use osmmesh_tile_enu_map_* for many vertices from the same tile. */
 osmmesh_enu osmmesh_tile_local_to_enu(const osmmesh_enu_ctx *ctx,
                                         uint8_t z, uint32_t x, uint32_t y,
                                         uint32_t extent,
                                         int32_t local_x, int32_t local_y);
 
-/* ------------------------------------------------------------------------
- * Fast path for per-vertex ENU projection within one tile.
- *
- * The mesh builders (T5/T6/T7) iterate over thousands of MVT vertices per
- * tile. Evaluating the lon/lat trig per vertex is wasteful: the relation
- * between (local_x, local_y) and (e, n) is affine at the scale of one
- * tile (the Mercator -> lon stretch is linear on a tile; the lon -> e
- * stretch is linear in the tangent plane; the lat->n stretch is very
- * nearly linear over the vertical extent of one z=14 tile (<1.5 km) and
- * we treat it as linear; the residual is < 1 m and swamped by the
- * tangent-plane model error anyway).
- *
- * Usage pattern:
- *     osmmesh_tile_enu_map map;
- *     osmmesh_tile_enu_map_init(&map, &ctx, z, x, y, extent);
- *     for (each vertex) {
- *         osmmesh_enu v = osmmesh_tile_enu_map_apply(&map, lx, ly);
- *         ...
- *     }
- * ------------------------------------------------------------------------ */
+/* Per-vertex ENU fast path: (local_x, local_y) -> (e, n) is affine at the scale of one tile, and the
+ * lat->n residual over a z14 tile (<1.5 km) is under a metre — swamped by the tangent-plane error. */
 typedef struct {
     double origin_e, origin_n;   /* ENU position of tile top-left */
-    double scale_e, scale_n;     /* meters per local-coord unit */
-    /* scale_n is NEGATIVE because MVT local_y grows south but ENU n-axis
-     * grows north. */
-    uint32_t extent;             /* local-coord span of the tile (echoed
-                                  * from _init for downstream callers that
-                                  * need to know the tile width in meters
-                                  * = scale_e * extent). Added in T5. */
+    double scale_e, scale_n;     /* meters per local-coord unit; scale_n NEGATIVE (local_y grows south) */
+    uint32_t extent;             /* echoed from _init: tile width in meters = scale_e * extent */
 } osmmesh_tile_enu_map;
 
 void osmmesh_tile_enu_map_init(osmmesh_tile_enu_map *map,
@@ -211,9 +107,7 @@ void osmmesh_tile_enu_map_init(osmmesh_tile_enu_map *map,
                                 uint8_t z, uint32_t x, uint32_t y,
                                 uint32_t extent);
 
-/* Per-vertex fast path: only multiplies and adds, no trig, no branches.
- * Kept static inline in the header so the compiler can fold it into the
- * mesh-builder inner loops. */
+/* Inline in the header so the compiler folds it into the mesh-builder inner loops. */
 static inline osmmesh_enu osmmesh_tile_enu_map_apply(
     const osmmesh_tile_enu_map *map, int32_t local_x, int32_t local_y)
 {

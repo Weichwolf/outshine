@@ -1,7 +1,5 @@
-/* FlightBox — FBUnitTeam: the faction an entity belongs to. It lives in core/ rather than beside
- * FBUnit because it is BOTH world-entity identity (units/FBUnit) and mission DATA (a .fbm `team` line,
- * core/FBMissionFile) — parking it in units/ would make core/ depend on units/ just to name a faction,
- * and duplicating the enum would give the mission file and the world two notions of "hostile". */
+/* The faction an entity belongs to. In core/ because it is BOTH world-entity identity and mission
+ * DATA — duplicating it would give the mission file and the world two notions of "hostile". */
 #ifndef FBTEAM_H
 #define FBTEAM_H
 
@@ -20,8 +18,7 @@ inline const char *FBUnitTeamStr(FBUnitTeam t) {
   return "?";
 }
 
-/* The .fbm `team` keyword's only accepted spellings (lowercase, exactly the FBUnitTeamStr strings) —
- * the parser is strict everywhere else, so it is strict here too. */
+/* The `team` keyword's only accepted spellings — the parser is strict everywhere else too. */
 inline bool FBUnitTeamFromString(const char *s, FBUnitTeam &out) {
   if (!std::strcmp(s, "friendly")) { out = FBUnitTeam::Friendly; return true; }
   if (!std::strcmp(s, "hostile"))  { out = FBUnitTeam::Hostile;  return true; }

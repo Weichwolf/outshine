@@ -1,6 +1,4 @@
-/* The catalogue's registration with FBModuleRegistry — one name per store, all of them the same class
- * (modules/stores/FBStoreModule). Its own translation unit for the same reason the F-16's is: this is
- * the only file outside the registry that names a concrete module type. */
+/* One name per unguided store, all the same class; the only file outside the registry that names it. */
 #include "FBModuleRegistry.h"
 #include "FBStore.h"
 #include "FBStoreModule.h"

@@ -12,8 +12,7 @@ std::string Trim(const std::string &s) {
   return s.substr(a, b - a + 1);
 }
 
-/* A unit callsign also becomes a filename (outDir/telemetry_<id>.csv) and a log field value, so the
- * accepted alphabet is the intersection of "safe in both": no separators, no quoting, no spaces. */
+/* A callsign becomes a filename AND a log field value, so the alphabet is the intersection of both. */
 bool CallsignOk(const std::string &s) {
   if (s.empty() || s.size() > 24) return false;
   for (char c : s)
@@ -51,10 +50,8 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
     std::string kw;
     ls >> kw;
 
-    /* Two scopes, one file (doc/mission-format.md): mission-wide keywords may only appear BEFORE the
-     * first actor block, actor keywords only INSIDE one. Both directions are hard errors — a `runway`
-     * line sitting between two units would silently read as "mission-wide but declared late", and an
-     * actor keyword before any `unit` line has no owner to belong to. */
+    /* Two scopes, one file: both directions are hard errors — a late mission keyword would read as
+     * "mission-wide but declared late", and an actor keyword before any `unit` has no owner. */
     const bool inBlock = !out.Units.empty();
     FBMissionUnit *unit = inBlock ? &out.Units.back() : nullptr;
 
@@ -104,10 +101,8 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
       if (!(ls >> t) || !FBUnitTeamFromString(t.c_str(), unit->Team))
         return fail("'team' needs friendly|hostile|neutral");
     } else if (kw == "spawn") {
-      /* spawn <lat lon | threshold> <altM | ground> <hdgDeg> <speedKt> — the actor's declarative IC
-       * (doc/mission-format.md): 'threshold' reuses the mission's runway lat/lon (a ground-start
-       * convenience, not a second position syntax), 'ground' resolves the altitude from terrain + gear
-       * clearance at spawn (FBMissionBoot.h), never a separate code path. */
+      /* spawn <lat lon | threshold> <altM | ground> <hdgDeg> <speedKt> — the declarative IC. Neither
+       * keyword is a second syntax or a second code path (doc/mission-format.md). */
       if (unit->HaveSpawn) return fail("unit '" + unit->Id + "' already has a 'spawn'");
       std::string first;
       if (!(ls >> first)) return fail("'spawn' needs lat|threshold");
@@ -139,11 +134,8 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
       unit->Plan.AddWaypoint(FBWaypoint{out.Runway.ThresholdLatDeg, out.Runway.ThresholdLonDeg,
                                         out.Runway.ThresholdElevM, 0.0, FBWaypointType::Land});
     } else if (kw == "objective") {
-      /* objective survive | objective kill unit <callsign> | objective kill team <faction>
-       * (doc/mission-format.md). `kill` takes an explicit unit/team discriminator rather than guessing
-       * from the word that follows: a callsign is allowed to BE "hostile" (the parser's alphabet does
-       * not forbid it), and a mission whose kill objective silently changed meaning because somebody
-       * named a jet after a faction is not a format anybody should have to debug. */
+      /* `kill` takes an EXPLICIT unit/team discriminator rather than guessing from the next word: a
+       * callsign is allowed to be "hostile", and that must not silently change what the line means. */
       std::string what;
       if (!(ls >> what)) return fail("'objective' needs survive|waypoints|kill");
       FBObjective o;
@@ -175,9 +167,8 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
           return fail("unit '" + unit->Id + "' declares '" + FBObjectiveStr(o) + "' twice");
       unit->Objectives.push_back(std::move(o));
     } else if (kw == "set") {
-      /* set <key> <value...> — raw KV data only (doc/mission-format.md); the PARSER never interprets a
-       * key, only the module does (FBModule::ApplySetup) once the Runner hands these over in the spawn
-       * IC window. An unknown key is a Runner-level FAIL, not a parse error. */
+      /* Raw KV only: the PARSER never interprets a key, the MODULE does. An unknown key is a
+       * Runner-level FAIL, not a parse error. */
       std::string key, rest;
       if (!(ls >> key)) return fail("'set' needs a key");
       std::getline(ls, rest);
@@ -195,10 +186,8 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
   for (const auto &u : out.Units) {
     if (u.ModuleName.empty()) return failFile("unit '" + u.Id + "' has no 'module'");
     if (!u.HaveSpawn) return failFile("unit '" + u.Id + "' has no 'spawn'");
-    /* A named kill target is resolved against the whole cast, not against the blocks seen so far: an
-     * objective may name a unit declared further down the file, and the two sides of a duel would
-     * otherwise be an ordering puzzle. A target that does not exist is a mission that can never be
-     * won, so it is a parse error and not a silent never-met objective. */
+    /* Resolved against the WHOLE cast, not the blocks seen so far, or a duel would be an ordering
+     * puzzle. A target that does not exist is a mission that can never be won: a parse error. */
     for (const auto &o : u.Objectives) {
       if (o.Kind != FBObjectiveKind::KillUnit) continue;
       bool found = false;

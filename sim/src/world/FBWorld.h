@@ -1,18 +1,10 @@
-/* FlightBox — FBWorld: multi-LOD terrain streaming for the WebGPU renderer. Owns a chunked-LOD
- * QUADTREE (Cesium-style) and feeds FBRenderer a per-frame draw list of the LOD cut. Ports the old
- * engine's streaming from command_center/tiles/walk.h (priority refinement) + lru.h (grace-period
- * eviction, demand-scaled cache, non-blocking byte cache), with the CORRECTED coverage semantics.
+/* Multi-LOD terrain streaming: a chunked-LOD quadtree that feeds FBRenderer a per-frame draw list of
+ * the LOD cut. A node draws ITSELF or its four children, never both.
  *
- * Refinement (recursive descent from a zROOT ring): a node draws ITSELF or its four CHILDREN, never
- * both. It splits only when its frustum-weighted screen-space error exceeds the threshold AND all
- * four children are viable AND all four are resident (child-ready gating — the parent keeps drawing
- * until the finer level has fully landed, so refinement never opens a hole). Fetch/mesh/albedo/upload
- * are budgeted per frame (lru.h bake-budget), spent worst-first (nearest, in-frustum).
- *
- * CORRECTED walk.h semantics (sim-critic): view distance may only PREVENT a split — a child past the
- * view radius makes the parent stay a drawn leaf (detail dropped, coverage NEVER). Children's
- * viability (map bounds + view distance) is tested SIDE-EFFECT-FREE before the parent is replaced;
- * the walk.h bug treated "past view" like "off-map" at the split and voided the parent's quadrant. */
+ * THE CORRECTED walk.h SEMANTICS, because getting it wrong opens holes in the world: view distance may
+ * only PREVENT a split — a child past the view radius makes the parent stay a drawn LEAF (detail
+ * dropped, coverage NEVER), and children's viability is tested side-effect-free BEFORE the parent is
+ * replaced. Refinement, Budgets und Konstanten: doc/flightbox/world-and-terrain.md, Abschnitt 2. */
 #ifndef FBWORLD_H
 #define FBWORLD_H
 
@@ -28,40 +20,32 @@ class FBWorld {
 public:
   FBWorld();
 
-  /* The cast of the world, BORROWED: the registry itself lives in the core library (units/
-   * FBUnitRegistry — see its banner for why it moved out of this class) and is owned by the client that
-   * owns the units. FBWorld only carries a pointer to it, for the drawing side (unit markers,
-   * render/stages/FBUnitsStage) — a renderer needs to know what is out there, but it is not where that
-   * knowledge belongs, and fb-gym must have the same registry without linking any of world/. */
+  /* BORROWED: the cast of the world is simulation state and lives in the core library, owned by the
+   * client — fb-gym needs the same registry without linking any of world/. This is the drawing side. */
   void SetUnits(const FBUnitRegistry *units) { Units_ = units; }
   const FBUnitRegistry *Units() const { return Units_; }
 
-  /* Open the streamer. `viewMeters` is the view radius (FB_VIEW_KM * 1000, the old w3_view_m). */
+  /* `viewMeters` = the view radius (FB_VIEW_KM * 1000). */
   bool Open(FBRenderer *renderer, const char *tilesBase, double lat, double lon, int grid,
             double viewMeters, int albedoTS);
 
-  /* One refinement pass for a camera at ground track (camLat,camLon), ECEF eye + forward. Budgeted;
-   * `nowMs` drives the once-per-second counter log (leaves/drawn/pending/evicted/vram). */
+  /* One budgeted refinement pass; `nowMs` drives the 1 Hz counter log. */
   void Update(double camLat, double camLon, const double eyeEcef[3], const double fwdEcef[3],
               double nowMs);
 
-  /* Currently VIEWED ground mode (TAB): 0 = OSM, 1 = aerial photo. The mode that is NOT the boot default
-   * (SetDefaultMode) is the lazy OVERLAY — fetched only while viewed, for on-screen tiles, then cached. */
+  /* Currently VIEWED mode (0 = OSM, 1 = photo). Whichever is NOT the boot default is the lazy
+   * OVERLAY: fetched only while viewed, for on-screen tiles, then cached. */
   void SetGroundMode(int photo) { Photo = photo != 0; }
-  /* Boot default = the EAGER base albedo source uploaded with every tile (1 = photo/Esri, 0 = OSM). */
+  /* The EAGER base albedo source, uploaded with every tile. */
   void SetDefaultMode(int photo) { DefaultPhoto = photo != 0; }
 
-  /* Boot/teleport convergence: fraction of the geometry target cut whose leaves are GPU-ready this pass
-   * (0..1). The app shows a LOADING SCREEN (and keeps JSBSim frozen) until this crosses the threshold,
-   * then switches to the scene — so the first scene frame is already at full target resolution, no
-   * low-res transition. TargetTot/TargetRdy are the raw counts for the "resident/total" readout. */
+  /* Fraction of the geometry target cut that is GPU-ready. The client holds the loading screen (and
+   * JSBSim) until this crosses its threshold. */
   float LoadProgress() const { return TargetTot > 0 ? (float)TargetRdy / (float)TargetTot : 0.0f; }
   int TargetTotal() const { return TargetTot; }
   int TargetReadyN() const { return TargetRdy; }
 
-  /* Night-light streaming (EVS night). When on, drawn leaves stream /t/lights (lowest priority) and
-   * the decoded ground-level ECEF sprite instances are handed to the renderer each pass. Off = no
-   * fetch, no upload (the renderer draws none). The app gates this on the day/night fade. */
+  /* Off = no fetch, no upload. The client gates this on the day/night fade. */
   void SetNightLights(bool on) { NightLights = on; }
 
 private:
@@ -88,24 +72,19 @@ private:
 
   int Ensure(int z, long x, long y);                              /* node index (creates on miss) */
   bool Uploaded(const Node &n) const { return n.haveMesh && n.haveAlbedo && n.slot >= 0; }
-  /* Two-phase commit: a tile is drawable/splittable only ONE pass after its GPU upload was issued, so
-   * the WriteTexture is submitted+visible before any draw references the layer (no empty-layer frame). */
+  /* Two-phase commit: drawable only ONE pass after the upload was issued, so the WriteTexture is
+   * submitted and visible before any draw references the layer. */
   bool Ready(const Node &n) const { return Uploaded(n) && Pass > n.readyPass; }
-  /* Mode-aware readiness: drawable IN THE CURRENT DISPLAY MODE. When viewing the base mode, base-ready is
-   * enough; when viewing the overlay mode, the overlay must be resolved too (attached + 2-phase-committed,
-   * or a genuine hole = the base is the only + stable option). Drives the refine/cover decisions so a fine
-   * tile is never shown in the WRONG mode while its overlay streams — the coarser right-mode parent holds. */
+  /* Drawable IN THE CURRENT DISPLAY MODE, so a fine tile is never shown in the WRONG mode while its
+   * overlay streams — the coarser right-mode parent holds instead. */
   bool ReadyMode(const Node &n) const {
     if (!Ready(n)) return false;
     if (Photo == DefaultPhoto) return true;
-    /* +1 matches the renderer's overlay 2-phase (FrameNo > PhotoUpTick+1) so FBWorld only refines to a
-     * tile on the frame the renderer actually draws its overlay layer — no 1-frame wrong-mode gap. */
+    /* +1 mirrors the renderer's own overlay 2-phase, else there is a 1-frame wrong-mode gap. */
     return n.alt == -1 || (n.alt == 1 && Pass > n.altPass + 1);
   }
-  /* Coverage for the refine/hold decision: a fine tile counts as covering iff it is mode-ready (draw the
-   * right mode) OR it was already drawn last pass (a TAB switch KEEPS the resident fine tile in the old
-   * mode until its new-mode overlay lands — no re-coarsen, no flash). A NEW streaming tile (never drawn)
-   * only counts once mode-ready, so it never POPS in the wrong mode. */
+  /* A TAB switch KEEPS the resident fine tile in the old mode until its new overlay lands (no
+   * re-coarsen, no flash); a NEW tile counts only once mode-ready, so it never pops in the wrong one. */
   bool CoversInMode(const Node &n) const { return ReadyMode(n) || (Ready(n) && n.emitPass + 1 >= Pass); }
   bool Viable(int z, long x, long y, const double eye[3]) const;  /* map bounds + view (pure) */
   bool WantSplit(int z, long x, long y, const double eye[3]) const;   /* geometry-only refine test */

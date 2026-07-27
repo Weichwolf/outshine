@@ -1,16 +1,6 @@
-/* FlightBox — FBAirframeControls: what a pilot's HANDS touch beyond stick/throttle (FBFlightControl)
- * and guidance targets (FBAutopilot) — gear, speedbrake, wheel brakes, nosewheel steering, engine
- * start/cutoff. Interface + NoOp DEFAULT in one class (FBSystemSlots.h pattern): a module with no
- * airframe-controls path composes this unmodified.
- *
- * FBJsbsimAirframeControls below is the REAL implementation for the ownship: every setter forwards
- * straight to ONE BORROWED FBFdm (fdm/FBFdm.h) and every getter reads the SAME FDM property back, so a
- * kinematic gear transit or a WOW flip is visible the instant the FDM reports it — no shadow state kept
- * here. The FDM reference is CONSTRUCTOR-injected and never null: this object's association to one
- * airframe is fixed for its whole life (the module builds it when its FDM is attached), which is what
- * lets every method below be a plain forward with no "is there an FDM" branch. It is airframe-agnostic
- * (the FBFdm methods it uses are generic FGFCS/FGGroundReactions/FGPropulsion ties, see FBFdm.h), so any
- * JSBSim-flown module can reuse it, not only the F-16. */
+/* FlightBox — FBAirframeControls: was die Haende des Piloten jenseits von Stick/Throttle und Guidance
+ * anfassen (Interface + NoOp-Default), plus FBJsbsimAirframeControls als reale Ownship-Implementierung.
+ * doc/flightbox/systems.md, Abschnitt 9. */
 #ifndef FBAIRFRAMECONTROLS_H
 #define FBAIRFRAMECONTROLS_H
 
@@ -30,18 +20,15 @@ public:
   virtual void EngineStart() {}
   virtual void EngineCutoff() {}
 
-  /* The airframe's own readbacks — the ONLY channel through which anything above this interface
-   * (FBPilot above all) may sense the airframe. A pilot that reached past this into the FDM would be
-   * bound to one concrete FDM implementation and to one instance of it; going through here keeps
-   * systems/ airframe- AND instance-agnostic. */
+  /* Der EINZIGE Kanal, ueber den etwas oberhalb dieses Interface die Zelle wahrnehmen darf — das haelt
+   * systems/ airframe- UND instanz-agnostisch. */
   virtual bool   GetWeightOnWheels() const { return false; }
-  virtual double GetGearPosition() const { return 0.0; }   /* 0=up .. 1=down, kinematic-lagged */
-  virtual double GetSpeedbrake() const { return 0.0; }     /* 0..1, lagged readback */
-  virtual double GetGrossWeightLbs() const { return 0.0; } /* live gross weight — FBPilot's rotation-speed table */
+  virtual double GetGearPosition() const { return 0.0; }   /* 0=ein .. 1=aus, kinematisch verzoegert */
+  virtual double GetSpeedbrake() const { return 0.0; }     /* 0..1, verzoegerter Readback */
+  virtual double GetGrossWeightLbs() const { return 0.0; }
   virtual bool   GetEngineRunning(int engineIndex) const { (void)engineIndex; return false; }
 
-  /* Telemetry via the same virtual getters every caller already uses — works unmodified for both the
-   * NoOp default and FBJsbsimAirframeControls (no telemetry override needed in either). */
+  /* Telemetrie ueber dieselben virtuellen Getter: gilt unveraendert fuer NoOp UND JSBSim-Ableitung. */
   const char *TelemetryName() const override { return "airframe"; }
   void DeclareTelemetry(FBTelemetrySchema &schema) const override {
     schema.Add("gearPos"); schema.Add("wow"); schema.Add("speedbrake");
@@ -69,7 +56,7 @@ public:
   bool   GetEngineRunning(int engineIndex) const override;
 
 private:
-  FBFdm &Fdm;   /* borrowed — owned by whoever owns the airframe (App/mission runner today) */
+  FBFdm &Fdm;   /* geborgt — Besitzer ist, wem die Einheit gehoert */
 };
 
 } // namespace FlightBox

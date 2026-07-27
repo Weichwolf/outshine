@@ -1,47 +1,7 @@
-/* FlightBox — FBF16Module: the F-16, today's one registered FBModule. Composes the DEFAULT systems
- * (systems/FBAutopilot, systems/FBFlightControl — unmodified) with the F-16 gain preset
- * (FBFlightControl::F16()), and cycles the full system-slot set the doc/f16/ inventory names — Guidance/FCS,
- * Input/HOTAS, Propulsion, Displays, Sensors, Weapons, Defensive, Comms — each at its own rate. This
- * is the ONE place F-16 behavior lives; it is also the place a future F-16-specific override (a real
- * radar model, a real HOTAS binding, ...) gets hung, by replacing one slot's default with a subclass.
- *
- * Rate table (System -> rate -> mechanism):
- *   Guidance (FBAutopilot) / FlightControl   100 Hz     fixed substep loop (spiral-guarded, <=12/frame)
- *   Input/HOTAS, Propulsion                  ~frame     once per Run() call (the coarsest sim tick)
- *   Displays                                 20 Hz       accumulator-throttled inside Run()
- *   Weapons                                  20 Hz       accumulator-throttled inside Run()
- *   Sensors (FBF16Fcr), AirData, RadarAlt,   10 Hz       accumulator-throttled inside Run(), ONE group
- *   Nav, FireControl, Ufc, Sms                           (the HUD's telemetry chain updates together —
- *                                                          FireControl reads Nav's SAME-tick output).
- *                                                        Like the datalink, the FCR's own ANTENNA grid
- *                                                        runs on absolute sim time inside the system
- *                                                        (FBRadarScanVolume::FrameS, 0.1..4 s by mode);
- *                                                        the slot is entered faster than that only so a
- *                                                        coasting contact's age is observable between
- *                                                        looks, never to make the beam sweep sooner
- *   Defensive (FBF16Rwr + FBF16Cmds)         10 Hz       accumulator-throttled inside Run(); the
- *                                                        dispenser's burst intervals are tenths of a
- *                                                        second, so the slot is entered at the sim tick
- *                                                        rather than quantising a salvo. Receiver first,
- *                                                        dispenser second: the second reads what the
- *                                                        first wrote, in the same tick
- *   Comms/Datalink (FBF16Datalink)           5 Hz        accumulator-throttled inside Run(); the NET
- *                                                        itself cycles at 1 Hz inside the system
- *                                                        (FBDatalinkSystem::kNetPeriodS) — the slot is
- *                                                        entered faster than that only so a held track's
- *                                                        AGE is observable between net cycles, never to
- *                                                        refresh the picture sooner
- *   Pilot (FBPilot, the mission-level brain ABOVE  10 Hz  accumulator-throttled inside Run(); its
- *   Guidance/FlightControl — core/ architecture           FBPilotCommands are applied to Autopilot()/
- *   banner)                                                Controls() only where a field is actually
- *                                                          set (std::optional/Guidance::None = "leave
- *                                                          it") — Idle (the phase-machine's boot state)
- *                                                          stays neutral, so composing the pilot changes
- *                                                          NOTHING until the App actually starts it
- *                                                          (SetPhase(Preflight), see FBAppNative.cpp
- *                                                          RunMission / FBAppWasm.cpp's mission boot).
- * All NoOp defaults cost one throttle comparison when not due, and nothing when they are (empty
- * virtual call) — no per-frame heap allocation, no dispatch inside the 100 Hz substep's inner math. */
+/* FlightBox — FBF16Module: the F-16. Composes the systems/ DEFAULTS with the F-16 gain preset and
+ * cycles every slot of the doc/f16/ inventory, each at its own rate — the rate table with its
+ * justifications is doc/flightbox/modules-f16.md §2.2. This is where an F-16-specific override gets
+ * hung, by replacing one slot's default with a subclass. */
 #ifndef FBF16MODULE_H
 #define FBF16MODULE_H
 
@@ -77,130 +37,100 @@ class FBF16Module : public FBModule {
 public:
   FBF16Module();
 
-  /* Borrows the airframe and swaps the NoOp airframe-controls default for the real, FDM-bound one —
-   * see FBModule::AttachFdm. Until it is called the module has no airframe and Run() has nothing to
-   * fly. */
+  /* Also swaps the NoOp airframe-controls default for the real, FDM-bound one. */
   void AttachFdm(FBFdm &fdm) override;
 
-  /* assets/aircraft/f16 — the full-scale JSBSim model FlightBox flies (Prinzip 5), i.e. the pinned
-   * upstream plus whatever assets/MODEL-DELTAS.md names, today nothing. Deliberately NOT derived from
-   * the registry name: the two happen to coincide today, they are not the same thing. */
+  /* Deliberately NOT derived from the registry name: the two coincide today, they are not one thing. */
   const char *FdmModelName() const override { return "f16"; }
 
   void Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units = nullptr,
            const FBWorld *world = nullptr) override;
 
-  /* The HUD's telemetry chain writes HERE (SharedState), not into the App's own FBState — the App must
-   * seed its per-frame FBState from this BEFORE overwriting the fields it computes itself (pose/sun/
-   * moon/...), e.g. `FBState hs = F16->Telemetry(); hs.roll = ...;`, so BuildHud sees both. */
+  /* The HUD's telemetry chain writes HERE, so a client seeds its per-frame FBState from this BEFORE
+   * overwriting the fields it computes itself. */
   const FBState &Telemetry() const override { return SharedState; }
 
   FBAutopilot &Autopilot() override { return *AP; }
   FBFlightControl &FlightControl() override { return *FC; }
-  FBDisplaySystem &Displays() override { return *Disp; }   /* wire into FBRenderer::SetHudDisplay */
-  FBF16Max7456 &Max7456() { return *Chip; }       /* the MAX7456-chip-specific hook, see its banner */
-  FBNavSystem &NavSystem() override { return *NavSys; }   /* steerpoint/bullseye (SetSteerpoint/SetBullseye) */
-  FBDatalinkSystem &Datalink() override { return *Datalink_; }   /* the F-16's TNDL terminal */
-  FBF16Fcr &Radar() override { return *Fcr_; }   /* covariant: FBModule::Radar() returns FBRadarSystem& */
-  FBF16Rwr &Rwr() override { return *Rwr_; }     /* covariant, likewise: the jet's own ALR-56M */
-  FBF16Cmds &Countermeasures() override { return *Cmds_; }   /* ...and its own ALE-47 */
-  FBF16Ufc &Ufc() { return *UfcSys; }             /* ALOW/selected-steerpoint placeholder setup */
-  FBF16Sms &Sms() { return *SmsSys; }             /* the SMS: loadout, master arm, release */
-  FBStoresSystem &Stores() override { return *SmsSys; }   /* the generic Stores slot, filled by it */
-  FBF16Gun &Gun() { return *GunSys; }                      /* the M61A1: drum, trigger, burst stream */
-  FBGunSystem &Guns() override { return *GunSys; }         /* ...as the generic slot the client drains */
+  FBDisplaySystem &Displays() override { return *Disp; }
+  FBF16Max7456 &Max7456() { return *Chip; }
+  FBNavSystem &NavSystem() override { return *NavSys; }
+  FBDatalinkSystem &Datalink() override { return *Datalink_; }
+  FBF16Fcr &Radar() override { return *Fcr_; }   /* covariant: the base returns FBRadarSystem& */
+  FBF16Rwr &Rwr() override { return *Rwr_; }
+  FBF16Cmds &Countermeasures() override { return *Cmds_; }
+  FBF16Ufc &Ufc() { return *UfcSys; }
+  FBF16Sms &Sms() { return *SmsSys; }
+  FBStoresSystem &Stores() override { return *SmsSys; }
+  FBF16Gun &Gun() { return *GunSys; }
+  FBGunSystem &Guns() override { return *GunSys; }
   const FBGuidance &LastGuidance() const override { return LastG; }
   int LastSubsteps() const override { return LastSub; }
 
-  /* Ground ASL (m) under the aircraft, the SAME DEM sample the App already resolved for
-   * FBRenderer::SetAgl (fb_stream_ground) — call before Run() each frame; FBRadarAltimeter reuses it
+  /* The SAME DEM sample the client already resolved for the renderer — FBRadarAltimeter reuses it
    * rather than re-querying terrain. */
   void SetGroundAsl(float m) override { GroundAslM = m; }
 
-  /* Identity for the two systems that observe other units (FBModule::SetUnitIdentity): the terminal
-   * needs it to skip its own PPLI and know whose net it is on, the radar to skip its own echo and know
-   * whose IFF crypto it holds. */
+  /* Every slot that observes other units needs its own identity: to skip its own PPLI/echo, to know
+   * whose IFF crypto it holds, whose uplink a launched round listens to, and who fired a burst. */
   void SetUnitIdentity(int unitId, FBUnitTeam team) override {
     Datalink_->SetIdentity(unitId, team);
     Fcr_->SetIdentity(unitId, team);
-    Rwr_->SetIdentity(unitId, team);   /* ...and the receiver, so it never warns about its own set */
-    /* ...and the SMS, so a round it launches knows whose midcourse uplink to listen to
-     * (systems/FBStoresSystem::SetUnitId -> FBWeaponUplink::LauncherId). */
+    Rwr_->SetIdentity(unitId, team);
     SmsSys->SetUnitId(unitId);
-    /* ...and the gun, so a burst it fires carries the shooter's identity into the world (the client
-     * excludes the shooter from its own rounds' hit resolution). */
     GunSys->SetUnitId(unitId);
   }
 
   FBMasterMode GetMasterMode() const { return Mode; }
   void SetMasterMode(FBMasterMode m) { Mode = m; }
 
-  /* The pilot (see the rate table) + what it flies/lands on: FlightPlan/Runway are simple accessors the
-   * App fills at boot (mission setup, not a per-frame write); PilotSys is the F-16 skeleton (currently
-   * the unmodified FBPilot default) exposed for boot/test phase-machine access (mission boot). */
-  FBF16Pilot &PilotSystem() override { return *PilotSys; }   /* covariant: FBModule::PilotSystem() returns FBPilot& */
+  FBF16Pilot &PilotSystem() override { return *PilotSys; }   /* covariant: the base returns FBPilot& */
   FBAirframeControls &Controls() override { return *AirframeCtrl; }
-  FBAirDataSystem &AirDataSystem() override { return *AirData; }   /* the ADC telemetry source (mission-runner Bus) */
+  FBAirDataSystem &AirDataSystem() override { return *AirData; }
   FBWarningSystem &WarningSystem() override { return *Warn_; }
   FBCommandBus &Commands() override { return CmdBus_; }
   FBRadarAltimeter &RadarAltimeter() override { return *RadarAlt; }
   FBFlightPlan &FlightPlan() override { return Plan_; }
-  /* The assigned runway doubles as the mission's BULLSEYE reference: a .fbm declares no bullseye, and
-   * the runway is the one briefed geographic point every unit of a mission shares — the same role the
-   * browser client's home point plays. A mission without a runway simply has no bullseye and the HUD's
-   * bearing/range pair stays at the origin default. */
+  /* The runway doubles as the mission's BULLSEYE: a .fbm declares none, and the runway is the one
+   * briefed point every unit shares. Without one the HUD's bearing/range pair stays at the origin. */
   void SetRunway(const FBRunway &rwy) override {
     Rwy_ = rwy; HaveRunway_ = true;
     NavSys->SetBullseye(rwy.ThresholdLatDeg, rwy.ThresholdLonDeg);
   }
 
-  /* `gear` (up/down — an air start spawns retracted), `fuel_lbs`, `fuel_pct` (0..100), the terminal's
-   * four switches — `datalink` (on/off: power), `datalink_xmt` (on/off: XMT/EMCON), `datalink_filter`
-   * (fr/fl/off: the HSD contact filter), `datalink_range_nm` — and the FCR/IFF set: `fcr_mode`
-   * (off/crm/acm_hud/acm_bore/acm_vert/acm_slew), `fcr_range_nm`, `fcr_slew_az`/`fcr_slew_el` (the
-   * slewable box's cursor), `iff_xpdr` and `iff_interrogator` (on/off), the defensive suite (`rwr`, `rwr_search` on/off,
-   * `rwr_display` priority/open, `cmds_mode` off/stby/man/semi/auto/byp, `cmds_program` 1..6,
-   * `cmds_chaff`/`cmds_flare` counts) — plus `task` (route/bfm: which FBPilot phase this
-   * jet starts in) — see
-   * doc/mission-format.md. An unknown key OR an unparsable/out-of-range value returns false (Runner-level
-   * mission FAIL): a mission that declares a state this airframe cannot take must not start silently in
-   * some other state. */
+  /* The key set is doc/mission-format.md + doc/flightbox/modules-f16.md §2.6. An unknown key OR an
+   * unparsable/out-of-range value returns false (mission FAIL): a mission that declares a state this
+   * airframe cannot take must not start silently in some other state. */
   bool ApplySetup(const std::string &key, const std::string &value) override;
 
-  /* Where this airframe's systems sit, for the core's damage resolution (modules/f16/FBF16Damage — the
-   * module states the geometry, core/FBDamageModel is the only thing that may act on it). */
   const FBDamageLayout &DamageLayout() const override { return FBF16DamageLayout(); }
 
 private:
   void ApplyPilotCommands(const FBPilotCommands &c);
-  void PublishPlatform(const fb_fdm_state &st);   /* the module's own two bus blocks (see Run()) */
+  void PublishPlatform(const fb_fdm_state &st);
   void PublishAirframe();
-  /* Command dispatch: hands every DUE command of one group to the system that owns it, in that
-   * system's own slot tick, and answers with the outcome/reason the box itself decided. */
+  /* Hands every DUE command of one group to the system that owns it, in that system's own slot tick,
+   * and answers with the outcome the box itself decided. */
   void ServiceCommands(FBCommandGroup group);
   void ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &outcome, FBCommandReason &reason);
-  static bool Due(double &accS, double dt, double hz);   /* throttle helper for the slower slots */
+  static bool Due(double &accS, double dt, double hz);
 
-  /* Owned through base pointers (not value members) so a future module can substitute an override
-   * without slicing; the F-16 composes the unmodified DEFAULTS. */
+  /* Base pointers, not value members, so a future module can substitute an override without slicing. */
   std::unique_ptr<FBAutopilot> AP;
   std::unique_ptr<FBFlightControl> FC;
 
   std::unique_ptr<FBInputSystem> Input;
   std::unique_ptr<FBPropulsionSystem> Propulsion;
   std::unique_ptr<FBDisplaySystem> Disp;
-  std::unique_ptr<FBF16Max7456> Chip;   /* MAX7456-chip-specific hook, see FBF16Max7456's banner */
-  std::unique_ptr<FBF16Fcr> Fcr_;       /* the Sensors slot, filled with the F-16's own APG-68 */
+  std::unique_ptr<FBF16Max7456> Chip;
+  std::unique_ptr<FBF16Fcr> Fcr_;
   std::unique_ptr<FBWeaponSystem> Weapons;
-  /* The Defensive slot, filled with the F-16's own pair (systems/FBRwrSystem + FBCountermeasureSystem):
-   * the receiver writes what is looking at this jet into the bus, the dispenser reads that same block
-   * and answers it. Cycled in that order, once per Defensive tick. */
+  /* Defensive is TWO systems, cycled receiver-then-dispenser: the second reads what the first wrote. */
   std::unique_ptr<FBF16Rwr> Rwr_;
   std::unique_ptr<FBF16Cmds> Cmds_;
-  std::unique_ptr<FBF16Datalink> Datalink_;   /* the Comms slot, filled with the F-16's own terminal */
+  std::unique_ptr<FBF16Datalink> Datalink_;
 
-  /* The HUD's telemetry chain (see the rate table): generic systems/ defaults + the two F-16-specific
-   * placeholders (FireControl's 'B' slant range, Ufc/Sms). */
+  /* The HUD's telemetry chain: generic systems/ defaults + the F-16-specific boxes. */
   std::unique_ptr<FBAirDataSystem> AirData;
   std::unique_ptr<FBRadarAltimeter> RadarAlt;
   std::unique_ptr<FBNavSystem> NavSys;
@@ -211,16 +141,15 @@ private:
   std::unique_ptr<FBWarningSystem> Warn_;
   float GroundAslM = 0.0f;
 
-  /* The pilot + what it commands beyond the FDM (see the rate table + FlightPlan()/SetRunway()). */
   std::unique_ptr<FBF16Pilot> PilotSys;
-  std::unique_ptr<FBAirframeControls> AirframeCtrl;   /* NoOp until AttachFdm, FBJsbsimAirframeControls after */
-  FBFdm *Fdm_ = nullptr;                              /* borrowed, never owned (AttachFdm) */
+  std::unique_ptr<FBAirframeControls> AirframeCtrl;   /* NoOp until AttachFdm, FDM-bound after */
+  FBFdm *Fdm_ = nullptr;                              /* borrowed, never owned */
   FBFlightPlan Plan_;
   FBRunway Rwy_;
   bool HaveRunway_ = false;
   double PilotAccS = 0.0;
 
-  FBCommandBus CmdBus_;   /* the pilot's only path to this jet's boxes (FBModule::Commands) */
+  FBCommandBus CmdBus_;   /* the pilot's only path to this jet's boxes */
   FBMasterMode Mode = FBMasterMode::Nav;
   FBState SharedState{};   /* Sensors WRITE, Displays READ — no display queries a sensor directly */
 
@@ -228,8 +157,8 @@ private:
   double AccS = 0.0;
   int LastSub = 0;
   double DisplayAccS = 0.0, SensorAccS = 0.0, WeaponAccS = 0.0, DefensiveAccS = 0.0, CommsAccS = 0.0;
-  /* The module's own sim clock (accumulated dt): the datalink stamps and ages its messages in absolute
-   * sim seconds, so its picture cannot depend on how often this module happens to cycle the slot. */
+  /* Absolute sim seconds: sensors stamp and age their picture against this, so it cannot depend on how
+   * often this module happens to cycle a slot. */
   double SimTimeS = 0.0;
 };
 

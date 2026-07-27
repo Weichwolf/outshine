@@ -23,10 +23,8 @@ void CopyCallsign(char *dst, const std::string &src) {
 }
 } // namespace
 
-/* One network cycle: the whole picture is rebuilt by walking the registry IN ORDER, so the track list
- * is always in mission-declaration order and never depends on who was heard first. A participant that
- * cannot be received right now is not deleted immediately — its previous message is carried over until
- * it ages past the drop threshold. */
+/* Ein Netzzyklus: das GANZE Bild wird neu gebaut, Registry IN REIHENFOLGE — die Trackliste haengt damit
+ * nie daran, wer zuerst gehoert wurde. */
 void FBDatalinkSystem::Cycle(const fb_fdm_state &st, const FBUnitRegistry &net, double simTimeS) {
   FBDatalinkTrack fresh[kMaxDatalinkTracks];
   int n = 0;
@@ -34,14 +32,13 @@ void FBDatalinkSystem::Cycle(const fb_fdm_state &st, const FBUnitRegistry &net, 
   const double dropAgeS = kDropAfterCycles * kNetPeriodS;
 
   for (const FBUnit *u : net.Units()) {
-    if (!u || u->GetTeam() != SelfTeam_) continue;   /* a cooperative net carries its own faction only */
-    /* The net is a net of PARTICIPANTS: a released store belongs to the same faction but carries no
-     * terminal, so it is not a member — and skipping it BEFORE the ordinal below matters, because the
-     * flight index is what the FR/FL contact filter selects on. */
+    if (!u || u->GetTeam() != SelfTeam_) continue;   /* ein kooperatives Netz traegt nur die eigene Fraktion */
+    /* Ein abgeworfener Store gehoert zur selben Fraktion, traegt aber kein Terminal — und der Test muss
+     * VOR das Ordinal, weil der FR/FL-Filter genau darauf selektiert. */
     if (u->GetKind() != FBUnitKind::Aircraft) continue;
-    flightIndex++;                                   /* ordinal within the flight, self included */
-    if (u->GetId() == SelfId_) continue;             /* own PPLI is not a track on own display */
-    if (!AcceptContact(*u, flightIndex)) continue;   /* receiver-side contact filter (TNDL FR/FL) */
+    flightIndex++;                                   /* Ordinal in der Rotte, eigene Einheit eingeschlossen */
+    if (u->GetId() == SelfId_) continue;             /* die eigene PPLI ist kein Track auf dem eigenen Display */
+    if (!AcceptContact(*u, flightIndex)) continue;
     if (n >= kMaxDatalinkTracks) break;
 
     FBUnitPose p = u->GetPose();
@@ -64,7 +61,7 @@ void FBDatalinkSystem::Cycle(const fb_fdm_state &st, const FBUnitRegistry &net, 
       t.SpeedMs = (float)p.SpeedMs;
       t.ReportTimeS = (float)simTimeS;
     } else if (held && simTimeS - held->ReportTimeS < dropAgeS) {
-      fresh[n++] = *held;   /* hold the last message, position and timestamp unchanged */
+      fresh[n++] = *held;   /* letzte Nachricht halten, Position und Zeitstempel unveraendert */
     }
   }
 
@@ -97,14 +94,13 @@ void FBDatalinkSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitR
   b.Transmitting = Transmitting();
 
   if (!Powered_ || !net) {
-    /* Terminal off (or no net at all): the receiver goes blind — see the header on XMT vs. POWER. */
     if (TrackCount_ > 0)
       for (int i = 0; i < TrackCount_; i++)
         FBLog::Info("datalink", "TRACK_LOST", {{"id", Tracks_[i].UnitId},
             {"callsign", std::string(Tracks_[i].Callsign)}, {"reason", "terminal off"}});
     TrackCount_ = 0;
     b.TrackCount = 0;
-    /* A powered-down terminal receives nothing — the net picture is not "empty", it is absent. */
+    /* Ein stromloses Terminal empfaengt nichts — das Netzbild ist nicht „leer", es ist ABWESEND. */
     b.H.Invalidate();
     NearestNm_ = NearestAgeS_ = -1.0f;
     return;
@@ -117,14 +113,13 @@ void FBDatalinkSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitR
     cycled = true;
   }
 
-  /* Between cycles the picture stands still and only its age moves — range/bearing are recomputed
-   * against OWN new position (the display's own geometry), never against a newer sender position. */
+  /* Zwischen den Zyklen bewegt sich nur das ALTER — Entfernung/Peilung gegen die EIGENE neue Position,
+   * nie gegen eine neuere Absenderposition. */
   NearestNm_ = NearestAgeS_ = -1.0f;
   for (int i = 0; i < TrackCount_; i++) {
     FBDatalinkTrack &t = Tracks_[i];
-    /* max(0): ReportTimeS is stored as float and simTimeS accumulates in double, so a message stamped
-     * in this very cycle can read back a few hundred nanoseconds "in the future" — a negative age is
-     * nonsense to a consumer, and clamping is cheaper than widening the track. */
+    /* max(0): ReportTimeS ist float, simTimeS double — eine im selben Zyklus gestempelte Nachricht
+     * laege sonst um Nanosekunden „in der Zukunft". */
     t.AgeS = std::max(0.0f, (float)(simTimeS - t.ReportTimeS));
     t.RangeM = (float)FBPlanarDistM(st.lat, st.lon, t.LatDeg, t.LonDeg);
     t.BearingDeg = (float)FBBearingDeg(st.lat, st.lon, t.LatDeg, t.LonDeg);
@@ -133,8 +128,7 @@ void FBDatalinkSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitR
     if (NearestNm_ < 0.0f || nm < NearestNm_) { NearestNm_ = nm; NearestAgeS_ = t.AgeS; }
   }
   b.TrackCount = TrackCount_;
-  /* Between net cycles the picture stands still and only its age moves (class banner) — Held, with the
-   * stamp still naming the last cycle that actually delivered messages. */
+  /* Held statt Publish: der Zeitstempel nennt weiter den letzten Zyklus, der wirklich lieferte. */
   if (cycled) b.H.Publish(simTimeS);
   else b.H.Hold();
 }

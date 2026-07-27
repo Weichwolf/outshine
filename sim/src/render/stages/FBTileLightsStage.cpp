@@ -2,11 +2,8 @@
 
 namespace FlightBox {
 
-/* Instanced additive sprites at ground level. Each instance is camera-ANCHOR-relative ECEF (posRel),
- * a per-class world radius (m), and a premultiplied class colour. The vs subtracts (eye - anchor) so
- * the field is camera-relative without a per-frame CPU re-upload; the sprite shrinks with distance
- * (clamped to a tight point range). Depth-tested (reversed-Z, Greater, no write): terrain in front
- * occludes far lights, but a light does not write depth so it never occludes another. */
+/* The vs subtracts (eye - anchor), so the field is camera-relative without a per-frame re-upload.
+ * Depth-tested but depth-WRITE off: terrain occludes far lights, a light never occludes another. */
 static const char *kLightWGSL = R"(
 struct LU { mvp : mat4x4f, p : vec4f, eye : vec4f };   /* p = (dayFade, vpW, vpH, focal); eye.xyz = eye-anchor (m) */
 @group(0) @binding(0) var<uniform> lu : LU;

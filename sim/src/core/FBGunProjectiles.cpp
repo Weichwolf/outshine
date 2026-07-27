@@ -28,9 +28,8 @@ bool FBGunProjectiles::Launch(const FBGunBurst &burst) {
   return false;
 }
 
-/* One tick of every bundle: drag on the SPEED (closed form, core/FBGunBallistics.h), gravity on the
- * vertical, and a trapezoidal position update on the mean of the two velocities — second order in dt,
- * which matters at 0.1 s ticks and ~1,000 m/s. */
+/* Drag on the SPEED (closed form), gravity on the vertical, trapezoidal position update on the mean of
+ * the two velocities — second order in dt, which matters at 0.1 s ticks and ~1,000 m/s. */
 void FBGunProjectiles::Step(double dt) {
   if (dt <= 0.0) return;
   for (Bundle &b : B_) {

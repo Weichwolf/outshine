@@ -7,14 +7,12 @@
 namespace FlightBox {
 
 namespace {
-/* Half of the 1px box-filter band FBHudStage's fragment shader ramps coverage over -- see its banner.
- * A stroke's rasterised half-extent is hw + kLineFeather, so alpha == 0 exactly at the quad edge. */
+/* Half of the 1 px band the fragment shader ramps coverage over, so alpha hits 0 exactly at the
+ * quad edge. */
 constexpr float kLineFeather = 0.5f;
 
-/* Liang-Barsky segment clip against an axis-aligned rect: shrinks [t0,t1] along the segment by each of
- * the 4 half-plane tests, returns false (segment wholly outside, caller emits nothing) iff the interval
- * collapses. p/q per Liang-Barsky: p<0 entering, p>0 leaving, p==0 parallel (reject iff already outside
- * that boundary). */
+/* Liang-Barsky: p<0 entering, p>0 leaving, p==0 parallel (reject iff already outside that boundary).
+ * false = wholly outside, and the caller emits nothing. */
 bool ClipSegment(float &x0, float &y0, float &x1, float &y1, float cx0, float cy0, float cx1, float cy1) {
   float dx = x1 - x0, dy = y1 - y0, t0 = 0.f, t1 = 1.f;
   float p[4] = {-dx, dx, -dy, dy};
@@ -51,15 +49,10 @@ void FBHudGeometry::Reset() {
   TextV.clear();
 }
 
-/* Emits one stroke's 2 triangles (6 verts) as a quad expanded hw+kLineFeather to each side of the
- * centreline; d is that vertex's signed perpendicular distance, interpolated exactly across the quad
- * since it's an affine function of position on a rectangle. Caps are BUTT, at the segment's own
- * endpoints (not feathered/extended) -- deliberately: HUD strokes are short (ticks/rails/box edges/
- * horizon-bar halves), the visible aliasing this whole change targets is the SIDE edge running along a
- * tilted stroke's length (the horizon bar, the waterline chevron, tick diagonals at extreme roll), not
- * the short end cut across it; adding a second longitudinal distance channel to feather that cut too
- * would double the shader/vertex-format complexity for an edge that's already just 1px of hard cut
- * regardless of angle. */
+/* d interpolates exactly across the quad because it is an affine function of position on a rectangle.
+ * Caps are BUTT, deliberately: the aliasing worth removing is the SIDE edge running along a tilted
+ * stroke's LENGTH (the horizon bar, the waterline chevron), not the 1 px end cut across it — and
+ * feathering that too would need a second distance channel through shader and vertex format. */
 static void AppendStroke(std::vector<float> &out, float x0, float y0, float x1, float y1, float hw,
                           float r, float g, float b) {
   float dx = x1 - x0, dy = y1 - y0, len = sqrtf(dx * dx + dy * dy);
@@ -103,10 +96,8 @@ void FBHudGeometry::Box(float x0, float y0, float x1, float y1, float r, float g
   Line(x0, y1, x0, y0, r, g, b);
 }
 
-/* Glyphs are opaque atlas quads (no sub-character geometry to clip a straight edge through), so under
- * an active aperture clip a character is an all-or-nothing decision: drawn iff its content box
- * overlaps the clip rect at all, dropped whole otherwise -- x still advances so surviving characters
- * of a string straddling the aperture edge stay correctly spaced. */
+/* All-or-nothing under an aperture clip: a glyph is an opaque quad with no sub-character geometry.
+ * x still advances, so a string straddling the aperture edge stays correctly spaced. */
 void FBHudGeometry::Text(float x, float y, float s, float r, float g, float b, const char *text) {
   if (!ClipOn) { FBHudFontAppendText(TextV, x, y, s, r, g, b, text); return; }
   float adv = kFontAdvance * s, qs = kFontQuadSize * s;

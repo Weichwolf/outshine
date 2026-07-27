@@ -1,11 +1,6 @@
-/* FlightBox WebGPU demo — real-terrain loader. Fetches a square field of fb-tiles DEM tiles around a
- * geographic centre, meshes each through the SAME machinery the sim uses (osmmesh -> chunkmesh_ecef,
- * w3_vtx pos3+uv2+norm3, camera-relative ECEF), and merges them into one vertex array for the GPU.
- *
- * This is the tileworker.c pipeline (SYNCHRONOUS emscripten_fetch under ASYNCIFY -> osmmesh_fetch_tile
- * -> w3_chunk_build_ecef) but run inline on the demo's main thread: the native path has no tile worker, and a
- * one-shot blocking load before the render loop is the simplest correct thing. Not for cc.js (there the
- * worker exists for the measured frame-time reason documented in tileworker.c). */
+/* The tile-streaming C ABI: fb-tiles bytes -> osmmesh -> camera-relative ECEF meshes + albedo mip
+ * pyramids, polled per pass by FBWorld. Vertrag, Plattform-Split und Worker-Pool:
+ * doc/flightbox/world-and-terrain.md, Abschnitt 3. */
 #include "FBTerrainLoader.h"
 #include "FBMips.h"
 #include "style_ver.h"
@@ -23,9 +18,8 @@
 #include <unistd.h>
 #endif
 
-/* stb_image lives in osmmesh's terrain.cpp (STB_IMAGE_IMPLEMENTATION, non-static, shared across the
- * link — see the note there). Declare, don't re-implement: two implementations would collide. C
- * linkage: stb wraps its API in extern "C" under C++. */
+/* stb_image's implementation lives in terrain.cpp — declared here, never re-implemented: two
+ * implementations in one link would collide. */
 extern "C" {
 unsigned char *stbi_load_from_memory(const unsigned char *buffer, int len, int *x, int *y,
                                      int *channels_in_file, int desired_channels);
@@ -35,11 +29,8 @@ void stbi_image_free(void *retval_from_stbi_load);
 static char fb_base[160] = "";
 
 #ifdef __EMSCRIPTEN__
-/* Synchronous byte fetch. NOTE: emscripten_fetch's SYNCHRONOUS mode is a Web-Worker-only facility
- * (returns NULL on a page's main thread — that is why tileworker.c runs in a worker). The browser
- * demo has no worker, so the correct main-thread primitive is a blocking XHR; binary comes back via
- * the x-user-defined charset trick (each response char is one byte). Returns the HTTP status, or -1
- * on a JS exception; on 200 hands over a malloc'd buffer. */
+/* emscripten_fetch's SYNCHRONOUS mode is Web-Worker-only (NULL on a page's main thread), so the
+ * main-thread primitive is a blocking XHR; binary arrives via the x-user-defined charset trick. */
 EM_JS(int, fb_xhr_get, (const char *url, uint8_t **out_ptr, uint32_t *out_len), {
   var u = UTF8ToString(url);
   try {
@@ -57,8 +48,7 @@ EM_JS(int, fb_xhr_get, (const char *url, uint8_t **out_ptr, uint32_t *out_len), 
   } catch (e) { return -1; }
 })
 
-/* 202/404/5xx = queued or transient, retry after a short sleep (ASYNCIFY); 204 = a real hole; only
- * 200 hands over bytes. */
+/* 202/404/5xx = queued or transient (retry), 204 = a real hole, only 200 hands over bytes. */
 static int fb_get(const char *url, uint8_t **out, size_t *len) {
   for (int attempt = 0; attempt < 60; attempt++) {
     uint8_t *buf = 0;
@@ -76,10 +66,8 @@ static int fb_get(const char *url, uint8_t **out, size_t *len) {
   return 0;
 }
 #else
-/* Native counterpart: libcurl's easy interface, blocking (no ASYNCIFY here — gpu_native is a plain
- * CLI, its own thread of control, no browser event loop to yield to). Same retry contract as the
- * WASM path: 202/404/5xx queued-or-transient (retry after a short sleep), 204 a real hole, only 200
- * hands over bytes. */
+/* Blocking libcurl: gpu_native is a CLI with its own thread of control, no event loop to yield to.
+ * Same retry contract as the WASM path above. */
 struct fb_buf { uint8_t *data; size_t len, cap; };
 
 static size_t fb_curl_write(void *ptr, size_t sz, size_t nmemb, void *userdata) {
@@ -134,7 +122,7 @@ static int fb_provider(void *user, osmmesh_tile_kind kind, uint32_t z, uint32_t 
   return fb_get(url, out, len);
 }
 
-/* Missing-albedo layer: a magenta/charcoal checker — an unmistakable "no bake here" marker. */
+/* An unmistakable "no bake here" marker. */
 static void fb_albedo_fallback(int ts, uint8_t *dst) {
   for (int y = 0; y < ts; y++)
     for (int x = 0; x < ts; x++) {
@@ -147,8 +135,7 @@ static void fb_albedo_fallback(int ts, uint8_t *dst) {
     }
 }
 
-/* Fetch the baked OSM albedo (fb-tiles /bake/osm) and decode it into a ts*ts RGBA8 layer. Returns 1
- * on a real image, 0 on any miss/decode failure (caller draws the fallback). */
+/* 1 on a real image, 0 on any miss/decode failure — the caller then draws the fallback. */
 static int fb_load_albedo(int z, uint32_t x, uint32_t y, int ts, uint8_t *dst) {
   char url[256];
   snprintf(url, sizeof url, "%s/bake/osm/%d/%u/%u?tex=%d&v=" FB_OSM_STYLE_VER_S, fb_base, z, x, y, ts);
@@ -198,7 +185,7 @@ int fb_terrain_load(const char *base, double lat, double lon, int z, int grid, f
   uint32_t total = 0;
   double ground = 0.0;
   int have_ground = 0;
-  /* 4x4 field: the centre tile sits at (cx,cy); span -1..+2 so (lat,lon) lands near the middle. */
+  /* Span -1..+2 so (lat,lon) lands near the middle of the 4x4 field. */
   for (int dy = -1; dy <= 2; dy++)
     for (int dx = -1; dx <= 2; dx++) {
       uint32_t tx = cx + (uint32_t)dx, ty = cy + (uint32_t)dy;
@@ -282,27 +269,14 @@ void fb_terrain_free(fb_terrain *t) {
   t->ntiles = 0;
 }
 
-/* ============================================================================================
- * Streaming layer (Stage 4/7). Same fb-tiles endpoints; FBWorld polls per frame. The BYTE ACCESS is
- * platform-specific:
- *   WASM   — a JS-side async cache (EM_JS), NON-BLOCKING (mirrors tilesrc_js.h: 200 terminal, 204
- *            hole, anything else "ask again"), so nothing stalls the browser render loop.
- *   native — a blocking libcurl fetch behind a small in-memory cache (gpu_native is a CLI with its
- *            own thread of control; blocking a PNG-dump frame is fine).
- * The provider + fb_stream_* below are COMMON — only fbs_init/fbs_size/fbs_copy differ.
- * ========================================================================================== */
+/* The streaming layer. fb_stream_* is COMMON to both platforms; only the three byte primitives
+ * fbs_init/fbs_size/fbs_copy differ — WASM a non-blocking JS async cache, native blocking libcurl.
+ * doc/flightbox/world-and-terrain.md §3.1. */
 #ifdef __EMSCRIPTEN__
-/* ---- WASM: EVERY blocking step (DEM/albedo fetch, stbi decode, osmmesh mesh, sRGB mips) runs in a
- * Web Worker (fbtw-worker.js + fbtileworker.wasm). The render thread only posts requests — camera-
- * priority, BASE tiles before the lazy OVERLAY — and polls finished results: whole vertex arrays +
- * whole mip pyramids, transferred zero-copy across postMessage. ---------------------------------- */
-
-/* Worker POOL: N independent fbtileworker instances (each its own WASM module -> own osmmesh ctx +
- * DEM cache; the ASYNCIFY "one build in flight" rule holds PER instance, so N parallel builds are safe
- * — minor cross-instance cache redundancy accepted). One shared camera-priority queue (T.q) + dedup set
- * (T.req: a tile is queued/in-flight at most once, so no tile is built twice) + result map (T.done). pump
- * hands the best (base-prio, nearest) pending request to EVERY free worker. Poll fns + two-phase flip
- * (FBWorld) unchanged. N = min(hardwareConcurrency-2, 6), >=1. */
+/* WASM: every blocking step runs in a worker pool; the render thread only posts requests and polls
+ * finished results (whole vertex arrays + mip pyramids, zero-copy across postMessage). The ASYNCIFY
+ * "one build in flight" rule holds PER worker instance, so N parallel builds are safe.
+ * Pool-Struktur + Prioritaetsschluessel: doc/flightbox/world-and-terrain.md §3.2. */
 EM_JS(void, fbw_init, (const char *base, double lat, double lon), {
   var N = Math.max(1, Math.min(((navigator.hardwareConcurrency || 4) - 2), 6));
   var T = { workers: [], readyCount: 0, q: [], done: new Map(),
@@ -351,8 +325,7 @@ EM_JS(void, fbw_campos, (double lat, double lon), {
   var T = Module.__fbw; if (T) { T.camLat = lat; T.camLon = lon; }
 })
 
-/* Poll the meshed tile. 1 + verts (malloc'd, caller frees) / nverts / origin / err when ready, else
- * queue a mesh request (priority 0) and return 0. */
+/* 1 + verts (malloc'd, caller frees) when ready, else queue a mesh request and return 0. */
 EM_JS(int, fbw_mesh_poll, (int z, int x, int y, int grid, uint8_t **vptr, int *nv, double *origin, float *errp), {
   var T = Module.__fbw; if (!T) return 0;
   var k = T.key(z, x, y, 1, 0);
@@ -372,8 +345,7 @@ EM_JS(int, fbw_mesh_poll, (int z, int x, int y, int grid, uint8_t **vptr, int *n
   return 0;
 })
 
-/* Poll the albedo mip pyramid for `mode` into dst. Bytes written (>0) when ready, 0 pending, -1 hole
- * (204). Base-mode requests are priority 0 (with the mesh); the overlay is priority 1. */
+/* Base-mode requests are priority 0 (with the mesh); the lazy overlay is priority 1. */
 EM_JS(int, fbw_pyr_poll, (int z, int x, int y, int mode, int ts, uint8_t *dst), {
   var T = Module.__fbw; if (!T) return 0;
   var k = T.key(z, x, y, 2, mode);
@@ -411,9 +383,8 @@ int fb_stream_pyramid(int z, uint32_t x, uint32_t y, int mode, int ts, uint8_t *
   return fbw_pyr_poll(z, (int)x, (int)y, mode, ts, dst);
 }
 
-/* Ground under the aircraft, ASYNC: kicks one /elev fetch when idle, returns the last resolved ASL
- * (-1e9 until the first lands). Mirrors jsbridge.h fb_ground_request/get, merged into one poll so the
- * render thread never holds a connection open (tiles/elev.c: cold = 503, warm = the DEM read). */
+/* ASYNC: kicks one /elev fetch when idle and returns the last resolved ASL (-1e9 until the first
+ * lands), so the render thread never holds a connection open. */
 EM_JS(double, fbw_ground_poll, (double lat, double lon), {
   var G = Module.__fbG || (Module.__fbG = { val: -1e9, busy: false });
   if (!G.busy) {
@@ -422,9 +393,8 @@ EM_JS(double, fbw_ground_poll, (double lat, double lon), {
       G.busy = true;
       fetch(base + '/elev?lat=' + lat + '&lon=' + lon)
         .then(function (r) { return r.ok ? r.text() : null; })
-        /* Number(), not parseFloat(): parseFloat stops at the first non-numeric character, so an error
-         * page or a "442 m" body would parse to a plausible-looking elevation. Number("") is 0, hence the
-         * explicit empty-body guard. An invalid body leaves G.val untouched — never cached. */
+        /* Number(), not parseFloat(): the latter stops at the first non-numeric character, so an error
+         * page or a "442 m" body would parse to a plausible elevation. Number("") is 0, hence the guard. */
         .then(function (t) { if (t !== null) { var s = t.trim();
                                var v = s.length ? Number(s) : NaN;
                                if (isFinite(v)) G.val = v; }
@@ -438,16 +408,12 @@ double fb_stream_ground(double lat, double lon) {
   while (lon > 180.0) lon -= 360.0;   /* normalize lon before the /elev query (dateline) */
   while (lon < -180.0) lon += 360.0;
   double v = fbw_ground_poll(lat, lon);
-  /* Clamp REAL samples to sea level: open-ocean bathymetry is negative (ETOPO seafloor), but the water
-   * surface — and the aircraft's ground reference / JSBSim floor — is 0, not the seabed. Leave the
-   * -1e9 "not-yet" sentinel untouched so callers still know a sample hasn't landed. */
+  /* Sea-level clamp on REAL samples only; the -1e9 "not yet" sentinel stays. §3.3 */
   return v < -1e8 ? v : (v < 0.0 ? 0.0 : v);
 }
 
-/* WASM: async main-thread DEM-tile cache (mirrors fbw_lights_poll). Non-blocking — kicks a fetch on a
- * miss and returns 0 (pending) until the bytes land, then copies them into a WASM buffer. FBTerrainField
- * decodes immediately, so a single static buffer is safe. Contract: 1 = bytes ready (buf/len set),
- * 0 = pending (retry — do NOT cache as a hole), -1 = real hole/error. */
+/* Non-blocking DEM-tile cache. FBTerrainField decodes immediately, so a single static buffer is safe.
+ * 0 = pending; do NOT cache that as a hole. */
 EM_JS(int, fbw_dem_poll, (int z, int x, int y, uint8_t *dst, int cap), {
   var D = Module.__fbD || (Module.__fbD = { done: new Map(), req: new Set(), inflight: 0 });
   var k = z + '/' + x + '/' + y;
@@ -476,8 +442,7 @@ int fb_stream_dem(int z, int x, int y, const uint8_t **bytes, int *len) {
   return 1;
 }
 
-/* Night-light tile, ASYNC main-thread fetch (lowest priority — the caller only polls a few per frame).
- * In-flight-capped so it never floods the connection or stalls the render loop. Cached per tile key. */
+/* Lowest priority and in-flight-capped, so it never floods the connection or stalls the render loop. */
 EM_JS(int, fbw_lights_poll, (int z, int x, int y, uint8_t *dst, int cap), {
   var L = Module.__fbL || (Module.__fbL = { done: new Map(), req: new Set(), inflight: 0 });
   var k = z + '/' + x + '/' + y;
@@ -511,11 +476,8 @@ static struct fbs_ent fbs_cache[2048];
 static int fbs_cache_n = 0, fbs_cache_head = 0;
 static osmmesh_ctx *fbs_ctx = 0;
 
-/* [tileperf] — per-stage cold-boot instrumentation (FB_TILEPERF=1). Times the SHARED pipeline the
- * browser worker wraps: DEM fetch+decode (osmmesh_fetch_tile), mesh (w3_chunk_build_ecef), albedo
- * fetch (fbs_size), albedo decode (stbi), mip pyramid (fb_build_pyramid). A running summary prints
- * every 32 pyramids + at close; the last line before convergence is the cold-boot total. Zero cost
- * when off (one cached env check). */
+/* [tileperf] (FB_TILEPERF=1): per-stage cold-boot timings of the SHARED pipeline the browser worker
+ * wraps. Zero cost when off — one cached env check. doc/flightbox/world-and-terrain.md §3.4. */
 #include <time.h>
 static int fbtp_on_ = -1;
 static inline int fbtp(void) {
@@ -649,9 +611,8 @@ int fb_stream_build(int z, uint32_t x, uint32_t y, int grid, float **verts, int 
   return 1;
 }
 
-/* Albedo mip pyramid for (z,x,y) in `mode` (0 osm, 1 photo) into dst (fb_pyramid_bytes(ts) long).
- * Fetch + decode + build the same sRGB pyramid the worker builds (fb_mips.h — ONE source, so the
- * oracle and the browser render identical pixels). Bytes (>0) resident, 0 pending, -1 hole. */
+/* The SAME sRGB pyramid the worker builds (fb_mips.h is the one source), so the oracle and the
+ * browser render identical pixels. */
 int fb_stream_pyramid(int z, uint32_t x, uint32_t y, int mode, int ts, uint8_t *dst) {
   char path[160];
   snprintf(path, sizeof path, mode ? "/bake/photo/%d/%u/%u?tex=%d" : "/bake/osm/%d/%u/%u?tex=%d&v=" FB_OSM_STYLE_VER_S,
@@ -678,11 +639,8 @@ int fb_stream_pyramid(int z, uint32_t x, uint32_t y, int mode, int ts, uint8_t *
   return fb_pyramid_bytes(ts);
 }
 
-/* Strict "the whole body is one finite number" parse of an /elev reply. atof() alone returns 0.0 for an
- * HTML error page, a proxy notice or a truncated body — 0.0 passes the >-1e8 validity test, gets CACHED,
- * and from then on poisons AGL, radar altitude and the crash check with "sea level" wherever the aircraft
- * is. Leading/trailing whitespace is fine (the server ends the body with a newline); anything else is
- * not a measurement. */
+/* The whole body must be ONE finite number: atof() alone returns 0.0 for an error page, and 0.0 passes
+ * the validity test, gets cached and poisons AGL/radar altitude/crash check from then on. §3.3 */
 static int fbs_parse_elev(const char *text, double *out) {
   const char *p = text;
   while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
@@ -697,8 +655,7 @@ static int fbs_parse_elev(const char *text, double *out) {
   return 1;
 }
 
-/* Native /elev: synchronous curl (block=1 waits for a cold origin DEM), cached per ~tile-cell (≈33 m)
- * so a moving aircraft only refetches after appreciable travel — a static camera fetches once. */
+/* Synchronous curl (block=1 waits for a cold origin DEM), cached per ~tile-cell (33 m). */
 double fb_stream_ground(double lat, double lon) {
   static double clat = 1e9, clon = 1e9, cval = -1e9;
   while (lon > 180.0) lon -= 360.0;   /* normalize lon before the /elev query (dateline) */
@@ -722,8 +679,7 @@ double fb_stream_ground(double lat, double lon) {
       FlightBox::FBLog::Warn("world", "elev_reply_invalid", {{"lat", lat}, {"lon", lon}, {"body", std::string(tmp)}});
       return cval;   /* NOT cached: a bad reply must not become this cell's permanent ground truth */
     }
-    /* Clamp REAL samples to sea level: open-ocean bathymetry is negative (ETOPO seabed), but the water
-     * surface — the ground reference + JSBSim floor — is 0. Sentinel -1e9 stays untouched. */
+    /* Sea-level clamp on REAL samples only; the -1e9 sentinel stays. §3.3 */
     if (v > -1e8) { if (v < 0.0) v = 0.0; clat = lat; clon = lon; cval = v; return v; }
   } else if (buf) {
     free(buf);
@@ -731,8 +687,7 @@ double fb_stream_ground(double lat, double lon) {
   return cval;
 }
 
-/* Native: raw Terrarium DEM tile bytes behind the byte cache (fbs_size caches by path). The pointer is
- * into the cache — valid until evicted; FBTerrainField decodes immediately and never holds it. */
+/* The pointer is INTO the byte cache — valid until evicted; FBTerrainField decodes immediately. */
 int fb_stream_dem(int z, int x, int y, const uint8_t **bytes, int *len) {
   char path[96];
   snprintf(path, sizeof path, "/t/terrain/%d/%d/%d", z, x, y);
@@ -743,8 +698,7 @@ int fb_stream_dem(int z, int x, int y, const uint8_t **bytes, int *len) {
   return 1;
 }
 
-/* Native night-light tile: synchronous fetch behind the byte cache (fbs_size caches by path). Returns
- * bytes (>=4 incl. the count header even when empty), 0 on miss/too-big. */
+/* Returns >= 4 bytes (the count header even when empty), 0 on miss/too big. */
 int fb_stream_lights(int z, uint32_t x, uint32_t y, uint8_t *dst, int cap) {
   char path[96];
   snprintf(path, sizeof path, "/t/lights/%d/%u/%u", z, x, y);

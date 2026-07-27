@@ -3,13 +3,10 @@
 namespace FlightBox {
 
 namespace {
-/* ---- The four fragility classes (see the header's banner). All [SET], in J/m^2 of fragment energy.
- * For scale, against an AIM-120's 20.5 kg warhead at a head-on closure of ~850 m/s the ranges these
- * correspond to are:
- *   1.2e4  ~ 11.6 m      3.0e4  ~  7.3 m      5.0e4  ~  5.7 m
- *   8.0e4  ~  4.5 m      1.5e5  ~  3.3 m      2.5e5  ~  2.5 m
- * i.e. anything that trips the proximity fuze at all costs avionics, and only a burst inside ~3 m takes
- * the engine or the flight controls with it. ---- */
+/* ---- THE FOUR FRAGILITY CLASSES: the actual modelling decision of this file. All [SET], in J/m^2 of
+ * fragment energy. The ladder is chosen ONCE to read the way a blast-fragmentation warhead behaves
+ * against this airframe; every intermediate case then follows from the 1/r^2 law rather than from
+ * another number. Scale table: doc/flightbox/modules-f16.md §10.3. ---- */
 constexpr double kAvionicsDegrade = 1.2e4;   /* a box: thin skin, no redundancy */
 constexpr double kAvionicsFail = 3.0e4;
 constexpr double kEngineDegrade = 5.0e4;     /* accessories/nozzle: military power only */
@@ -19,10 +16,8 @@ constexpr double kFlcsFail = 1.5e5;
 constexpr double kStructDegrade = 8.0e4;     /* skin and stringers: drag */
 constexpr double kStructFail = 2.5e5;
 
-/* An avionics system has no derivable degraded behaviour except the radar's (range follows the radar
- * equation, core/FBDamageModel::kRadarRangeDegraded), so every other box declares its degrade threshold
- * equal to its fail threshold and therefore never enters the Degraded state. Modelling "a bit of noise"
- * on an INS or an ADC would be inventing a number, which this file does not do. */
+/* Only the radar has a DERIVABLE degraded behaviour (range follows the radar equation), so every other
+ * box sets degrade = fail and never enters Degraded: "a bit of noise" on an INS would be an invention. */
 constexpr FBZoneSystem kNoseSystems[] = {
     {FBSystemId::Radar, kAvionicsDegrade, kAvionicsFail},     /* APG-68 antenna + transmitter */
     {FBSystemId::AirData, kAvionicsFail, kAvionicsFail},      /* pitot/AoA probes on the cone */
@@ -31,10 +26,8 @@ constexpr FBZoneSystem kNoseSystems[] = {
 
 constexpr FBZoneSystem kForwardSystems[] = {
     {FBSystemId::Nav, kAvionicsFail, kAvionicsFail},          /* INS */
-    /* The M61A1 and its drum sit in the left wing-root strake, i.e. in this zone (modules/f16/FBF16Gun).
-     * It takes the STRUCTURAL thresholds rather than the avionics ones, and not for effect: a gun is a
-     * mechanical installation with the mass and section of the airframe around it, not a black box on a
-     * rack, so what it takes to stop it is what it takes to hole the structure it is bolted to. */
+    /* STRUCTURAL thresholds, not avionics: a gun is a mechanical installation with the mass and section
+     * of the airframe around it, so what stops it is what holes the structure it is bolted to. */
     {FBSystemId::Gun, kStructFail, kStructFail},
     {FBSystemId::FireControl, kAvionicsFail, kAvionicsFail},  /* FCC */
     {FBSystemId::RadarAlt, kAvionicsFail, kAvionicsFail},     /* CARA */
@@ -66,20 +59,10 @@ constexpr FBDamageZoneSpec kZones[] = {
     {FBDamageZone::Aft, -7.46, -2.42, kAftSystems, Count(kAftSystems)},
 };
 
-/* THE PRESENTED AREAS (core/FBDamageModel.h's FBDamageLayout) — what a stream of gunfire sees. Derived
- * from the pinned f16.xml's own geometry rather than picked, and stated as the crude equivalents they
- * are:
- *   Frontal 4.0 m^2   the airframe seen head-on or from astern: a fuselage of roughly 1 m x 1.5 m
- *                     section plus the thin edge of a 27.9 m^2 wing and the fins. It is an EQUIVALENT
- *                     area — no projection of the actual shape is computed anywhere.
- *   Lateral 14 m^2    seen from the side or from above: the model's own <wingarea> is 27.9 m^2 and its
- *                     <wingspan> 9.14 m over a 14.5 m length, so the planform is of that order and the
- *                     side view rather less; 14 m^2 is the middle of the two, which is what a single
- *                     number for "across the axis" can honestly be.
- * Both [SET]. They scale the expected round count linearly, which is why they are named here, once. */
-/* ...and how far that material reaches from the centreline in each view (core/FBGunBallistics.h's
- * two-scale hit model): half the model's own <wingspan> (9.14 m -> 4.57 m) seen from astern, and half
- * its own length (14.5 m -> 7.3 m) seen from the side. Both are the model's geometry, not settings. */
+/* What a stream of gunfire sees. The two AREAS are [SET] EQUIVALENTS derived from the model's own
+ * geometry — no projection of the actual shape is computed anywhere — and they scale the expected round
+ * count linearly, which is why they are named once, here. The two EXTENTS are the model's geometry
+ * outright: half its <wingspan> from astern, half its length from the side. §10.4. */
 constexpr FBDamageLayout kLayout{kZones, Count(kZones), /*FrontalAreaM2*/ 4.0, /*LateralAreaM2*/ 14.0,
                                  /*FrontalExtentM*/ 4.57, /*LateralExtentM*/ 7.3};
 } // namespace

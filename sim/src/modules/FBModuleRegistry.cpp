@@ -4,10 +4,8 @@
 namespace FlightBox {
 
 namespace {
-/* Function-local static (Meyer's singleton), not a namespace-scope global: populated explicitly by
- * FBRegisterBuiltinModules() at a known point in main(), never by static-initialization order across
- * translation units — avoids both the SIOF and the "unreferenced .o in a static archive never links"
- * trap a self-registering namespace-scope static would hit here. */
+/* Function-local static, populated explicitly at a known point: avoids both the static-init order
+ * fiasco and the "unreferenced .o in a static archive never links" trap of self-registration. */
 std::map<std::string, FBModuleFactory> &Registry() {
   static std::map<std::string, FBModuleFactory> r;
   return r;

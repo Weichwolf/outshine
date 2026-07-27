@@ -5,10 +5,8 @@
 
 namespace FlightBox {
 
-/* HUD overlay: geometry comes from the wired FBDisplaySystem's BuildHud() into a reused FBHudGeometry
- * (stroke quads x,y,d,hw,r,g,b / textured glyphs x,y,u,v,r,g,b) in 2D pixel coords. Two pipelines
- * share the pixel->NDC map; the fragment linearises the colour so the sRGB swapchain view re-encodes
- * it to the intended display green. TODO: the 8-tap present.h glow. */
+/* Two pipelines sharing one pixel->NDC map. The fragment LINEARISES the colour so the sRGB swapchain
+ * view re-encodes it to the intended display green. TODO: the 8-tap glow. */
 static const char *kHudStrokeWGSL = R"(
 struct HU { scale : vec4f };
 @group(0) @binding(0) var<uniform> h : HU;
@@ -68,10 +66,8 @@ void FBHudStage::Init(const FBGpu &gpu) {
   Device = gpu.Device;
   Queue = gpu.Queue;
 
-  /* HUD font atlas: kFontGlyphs tiles of kFontTilePad (kFontTile x kFontTile 8-bit COVERAGE bitmap,
-   * baked from B612 Mono -- see FBHudFontRom.h -- plus a 1-texel transparent gutter on every side).
-   * r8unorm, LINEAR (the fragment shader turns that into coverage AA, see kHudTextWGSL). The gutter
-   * texels stay at their zero-init value. */
+  /* r8unorm, LINEAR — the fragment shader turns that into coverage AA. The gutter texels stay at
+   * their zero-init value. */
   const uint32_t AW = (uint32_t)kFontAtlasW, AH = (uint32_t)kFontAtlasH;
   std::vector<uint8_t> atlas((size_t)AW * AH, 0);
   for (int gi = 0; gi < kFontGlyphs; gi++)
@@ -129,8 +125,7 @@ void FBHudStage::Init(const FBGpu &gpu) {
     return Device.CreateShaderModule(&smd);
   };
 
-  /* stroke pipeline (pos2+d1+hw1+col3, stride 28) — replaces the old solid/line pair: every straight
-   * segment is now one analytic-coverage AA quad (TriangleList only, no more LineList topology). */
+  /* pos2+d1+hw1+col3, stride 28. TriangleList only: every straight segment is one AA quad. */
   {
     wgpu::ShaderModule sm = mkmod(kHudStrokeWGSL);
     wgpu::VertexAttribute attrs[4] = {};
@@ -161,7 +156,7 @@ void FBHudStage::Init(const FBGpu &gpu) {
     bg.entries = &be;
     StrokeBind = Device.CreateBindGroup(&bg);
   }
-  /* text pipeline (pos2+uv2+col3, stride 28) — samples the atlas, alpha-tests. */
+  /* pos2+uv2+col3, stride 28. */
   {
     wgpu::ShaderModule sm = mkmod(kHudTextWGSL);
     wgpu::VertexAttribute attrs[3] = {};

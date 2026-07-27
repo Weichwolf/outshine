@@ -1,22 +1,9 @@
-/* FlightBox — FBGeodesy: the ONE planar-ENU geodesy the simulator measures with. Header-only, no
- * translation unit.
- *
- * Why this file exists: the identical five-line "dlat*111320, dlon*111320*cos(lat)" block stood in six
- * places (core/FBMissionMonitor, core/FBRunwayPlateauElevation, systems/FBPilot, systems/FBNavSystem,
- * systems/FBAutopilot, app/FBAppWasm) — and only some of them wrapped the longitude difference into
- * [-180,180]. The unwrapped copies read a ~360 deg delta across the antimeridian, i.e. a distance of
- * ~38,000 km to a point a metre away: at 180 deg longitude the mission monitor's waypoint capture, the
- * runway-plateau elevation and the HUD's home distance were all simply wrong. Wrapping is now part of
- * the primitive, not something each caller has to remember.
- *
- * CONVENTION: the reference point comes FIRST and owns the cosine. FBEnuOffsetM(ref, p) returns p's
- * offset FROM ref, with the longitude scaling taken at the REFERENCE latitude — one rule, so a bearing
- * and a distance computed by two different subsystems agree. A caller that only needs a distance may
- * pass either point as the reference (the offsets differ only in sign, the magnitude is identical).
- *
- * SCOPE: deliberately planar/small-angle, matching what every call site already did — steerpoints,
- * runway axes and waypoint captures are tens of nautical miles out, not intercontinental. Real geodesic
- * math belongs to whatever needs it, not to this file's callers. */
+/* The ONE planar-ENU geodesy the simulator measures with. Header-only.
+ * CONVENTION: the reference point comes FIRST and owns the cosine — FBEnuOffsetM(ref, p) is p's offset
+ * FROM ref, longitude scaled at the REFERENCE latitude, so a bearing and a distance computed by two
+ * subsystems agree. Longitude WRAPPING is part of the primitive, not something a caller must remember.
+ * SCOPE: deliberately planar/small-angle — tens of nautical miles, not intercontinental.
+ * doc/flightbox/core.md, Abschnitt 10.1. */
 #ifndef FBGEODESY_H
 #define FBGEODESY_H
 
@@ -25,9 +12,8 @@
 
 namespace FlightBox {
 
-/* WGS84 geodetic -> ECEF (m). The planar helpers below are small-angle by design; this one is not — it
- * is the exact ellipsoid conversion the renderer's camera-relative ECEF world is built on. It stood
- * character-identical in both App entry points (FBAppNative.cpp, FBAppWasm.cpp) before it moved here. */
+/* WGS84 geodetic -> ECEF (m). The one function here that is NOT small-angle: the exact ellipsoid
+ * conversion the renderer's camera-relative ECEF world stands on. */
 inline void FBGeoToEcef(double latDeg, double lonDeg, double altM, double out[3]) {
   const double a = 6378137.0, e2 = 6.69437999014e-3;
   double lat = latDeg * kDeg2Rad, lon = lonDeg * kDeg2Rad;
@@ -38,8 +24,7 @@ inline void FBGeoToEcef(double latDeg, double lonDeg, double altM, double out[3]
   out[2] = (N * (1.0 - e2) + altM) * sl;
 }
 
-/* The local ENU axes at (lat,lon), expressed in ECEF — the rotation every ECEF-space camera/vector
- * conversion starts from (render/FBCamera.h's FBCameraBasisEcef, the App screenshot paths). */
+/* The local ENU axes at (lat,lon) in ECEF — where every ECEF camera/vector conversion starts. */
 inline void FBEnuAxesEcef(double latDeg, double lonDeg, double E[3], double N[3], double U[3]) {
   double P = latDeg * kDeg2Rad, L = lonDeg * kDeg2Rad;
   double sP = std::sin(P), cP = std::cos(P), sL = std::sin(L), cL = std::cos(L);
@@ -48,8 +33,7 @@ inline void FBEnuAxesEcef(double latDeg, double lonDeg, double E[3], double N[3]
   U[0] = cP * cL;  U[1] = cP * sL;  U[2] = sP;
 }
 
-/* Angle difference folded into [-180,180]. The loop form (not fmod) is the one every existing call site
- * used; it is exact for the one-or-two-wrap deltas that actually occur. */
+/* Angle folded into [-180,180]. The loop form is exact for the one-or-two-wrap deltas that occur. */
 inline double FBWrap180(double deg) {
   while (deg > 180.0) deg -= 360.0;
   while (deg < -180.0) deg += 360.0;
@@ -79,12 +63,9 @@ inline double FBBearingDeg(double refLat, double refLon, double lat, double lon)
   return brg < 0.0 ? brg + 360.0 : brg;
 }
 
-/* Line of sight <-> body frame, the pair the sensors and the pilot share. ENU in, body-referenced
- * azimuth/elevation out (+az = right of the nose, +el = above the boresight plane) — the standard
- * NED->body Euler sequence Rx(roll)*Ry(pitch)*Rz(yaw) applied to the offset, i.e. WHAT THE ANTENNA SEES
- * rather than what a map would show. systems/FBRadarSystem::RelativeLos is the one caller of the forward
- * direction; systems/FBPilot's BFM steering is the one caller of the inverse, and they must agree
- * exactly or the pilot would steer at a point the radar reports elsewhere. */
+/* Line of sight <-> body frame, shared by the sensors and the pilot: ENU in, body azimuth/elevation out
+ * (+az right of the nose, +el above the boresight plane) — WHAT THE ANTENNA SEES, not what a map would
+ * show. Radar and pilot must agree exactly or one steers where the other reports. */
 inline void FBEnuToBodyLos(double rollDeg, double pitchDeg, double yawDeg, double eastM, double northM,
                            double upM, double &azDeg, double &elDeg) {
   double N = northM, E = eastM, D = -upM;
@@ -114,11 +95,8 @@ inline void FBBodyLosToEnu(double rollDeg, double pitchDeg, double yawDeg, doubl
   upM = -(-sth * xb + sph * cth * yb + cph * cth * zb);
 }
 
-/* A BODY-frame vector (+forward/+right/+down, any unit) expressed in local ENU, same unit. Built on
- * FBBodyLosToEnu rather than on a second copy of the Euler sequence — two spellings of the same
- * rotation drifting apart is precisely the class of bug this file exists to prevent. The one caller is
- * the store-release geometry (app/FBMissionBoot.h): a pylon offset and the rotational velocity at that
- * pylon are both body vectors that have to land in the world's frame. */
+/* A BODY vector (+fwd/+right/+down) in local ENU. Built ON FBBodyLosToEnu, not on a second copy of the
+ * Euler sequence — two spellings of one rotation drifting apart is what this file exists to prevent. */
 inline void FBBodyVecToEnu(double rollDeg, double pitchDeg, double yawDeg, double fwd, double right,
                            double down, double &eastM, double &northM, double &upM) {
   double mag = std::sqrt(fwd * fwd + right * right + down * down);
@@ -129,10 +107,7 @@ inline void FBBodyVecToEnu(double rollDeg, double pitchDeg, double yawDeg, doubl
   eastM *= mag; northM *= mag; upM *= mag;
 }
 
-/* The exact inverse of FBBodyVecToEnu: a local-ENU vector expressed in BODY axes (+forward/+right/+down,
- * same unit). Built on FBEnuToBodyLos for the same one-spelling-of-the-rotation reason. The one caller is
- * the damage resolution (app/FBMissionRunner.cpp): a detonation happens at a point in the world and what
- * decides which systems it wrecked is where that point sits along the target's own airframe axis. */
+/* The exact inverse, on FBEnuToBodyLos for the same one-spelling reason. */
 inline void FBEnuToBodyVec(double rollDeg, double pitchDeg, double yawDeg, double eastM, double northM,
                            double upM, double &fwd, double &right, double &down) {
   double mag = std::sqrt(eastM * eastM + northM * northM + upM * upM);
@@ -146,11 +121,9 @@ inline void FBEnuToBodyVec(double rollDeg, double pitchDeg, double yawDeg, doubl
   down = -mag * se;
 }
 
-/* Along/across-track projection of (lat,lon) onto the line through (refLat,refLon) on true heading
- * `courseDeg`: +along down the course from the reference, +across to its right. The runway-axis
- * primitive FBMissionMonitor's on-runway gate, FBRunwayPlateauElevation's footprint, FBPilot's
- * centreline steering and FBAutopilot's localizer all need — one definition, so "on the line" means the
- * same thing to the pilot flying it and to the monitor judging it. */
+/* Along/across-track projection onto the line through the reference on true `courseDeg`: +along down
+ * the course, +across to its right. ONE definition, so "on the line" means the same to the pilot flying
+ * it and the monitor judging it. */
 inline void FBTrackProjectM(double refLat, double refLon, double courseDeg, double lat, double lon,
                             double &alongM, double &acrossM) {
   double e, n;

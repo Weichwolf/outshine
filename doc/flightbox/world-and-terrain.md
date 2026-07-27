@@ -237,6 +237,12 @@ Nativ wird pro ≈ Kachelzelle (**≈ 33 m**) gecacht — ein fliegendes Flugzeu
 nennenswerter Strecke neu, eine stehende Kamera genau einmal. Der Startpfad fragt mit `?block=1`
 (s. §7.3).
 
+**Klemmung auf Meeresspiegel (beide Plattformen).** Eine ECHTE Probe wird auf ≥ 0 geklemmt: offene
+Bathymetrie ist negativ (ETOPO-Seeboden), aber die Wasser*oberfläche* — und damit die Bodenreferenz
+des Flugzeugs und der JSBSim-Boden — liegt bei 0, nicht auf dem Meeresgrund. Das
+`−1e9`-„noch-keine-Probe"-Sentinel bleibt dabei unangetastet, sonst könnten Aufrufer nicht mehr
+unterscheiden, ob eine Probe gelandet ist.
+
 ### 3.4 `[tileperf]` — die Kaltstart-Instrumentierung
 
 `FB_TILEPERF=1` (nativ) bzw. der Worker-eigene `[tileperf-worker]`-Log messen die Stufen derselben
@@ -290,12 +296,48 @@ Scopes; FlightBox streamt Terrain.
 
 **Grenzen, die dokumentiert und einzuhalten sind:**
 
-- ENU ist eine **flache Tangentialebene**, keine ECEF-Rundreise. Für den ~20 km-ROI ist der Fehler
-  sub-Millimeter (Herleitung in `geo.cpp`). Für globales Rendern reicht das **nicht** — deshalb
-  reprojiziert die Endstufe (§5.2) jeden Knoten exakt.
-- Web-Mercator-Breite ist bei ± 85,05112878° gekappt; `osmmesh_geo_to_tile` weist alles darüber ab.
+- ENU ist eine **flache Tangentialebene**, keine ECEF-Rundreise (Herleitung + Fehlerschranken §5.0).
+  Für globales Rendern reicht das **nicht** — deshalb reprojiziert die Endstufe (§5.2) jeden Knoten
+  exakt.
+- Web-Mercator-Breite ist bei ± 85,05112878° gekappt (exakt `atan(sinh(π))·180/π`, WMTS-Spec /
+  OGC Simple Tile Scheme); `osmmesh_geo_to_tile` weist alles darüber ab.
 - MVT-`local_y` hat den Ursprung **oben links** (0 = Nordkante) — entgegengesetzt zur ENU-N-Achse;
   der Fast-Path `tile_enu_map` behandelt das Vorzeichen explizit.
+
+### 5.0 Das ENU-Modell und seine Fehlerschranken
+
+Die Projektion, verankert am ENU-Ursprung — der Kleinwinkel-Grenzfall der echten ECEF→ENU-Transformation:
+
+```
+e = (lon − lon0) · cos(lat0) · (π/180) · R
+n = (lat − lat0)             · (π/180) · R
+u = alt                                          R = 6378137 m (WGS84-Äquatorradius)
+```
+
+**Krümmungsfehler der n-Achse.** Dritter Taylor-Term von sinh gegen die lineare
+Breite-zu-Meter-Beziehung: `Δn ≈ d³ / (6R²)`. Bei d = 10 km sind das **~4,1·10⁻⁶ m**, also
+Mikrometer.
+
+**Ellipsoid gegen Kugel.** ~0,3 % im Skalenfaktor — aber ein **BIAS, keine Formverzerrung**. Weil
+ENU im selben Kugelmodell verankert ist, das alle Eingaben benutzen, ist die Rundreise
+ENU→lon/lat exakt; die einzige Folge ist, dass „ein Meter ENU" gegen eine 6378137-m-Kugel definiert
+ist statt gegen den lokalen Ellipsoidradius.
+
+**Konsequenz:** volles ECEF an dieser Stelle kostete zwei sqrt/sin/cos je Konversion und kaufte bis
+~100 km exakt nichts. Der globale Pfad steht deshalb DANEBEN (§5.2), nicht an seiner Stelle.
+
+**Mercator→lokal auf einer Kachel ist ebenfalls linear.** Innerhalb einer z14-Kachel (~1,4 km
+Vertikalausdehnung) ist die Mercator-y-Achse monoton und nahezu linear in der Breite. Der Fast-Path
+`tile_enu_map` interpoliert deshalb rein linear zwischen den ENU-Positionen der Kachelecken.
+
+**Der bekannte Restfehler des Fast-Path — eine Eigenschaft, kein Bug.** `d(lat)/d(y_mvt)` ist nicht
+konstant (~0,04 % Unterschied Oberkante gegen Unterkante) und trägt am vertikalen Mittelpunkt der
+Kachel höchstens **~0,3 m** Rest bei. Das ist GRÖSSER als der oben genannte Sub-mm-Modellfehler.
+Deshalb prüft die Testsuite ausdrücklich nur die **vier Kachelecken** auf 1e-3 m Übereinstimmung mit
+dem langsamen `osmmesh_tile_local_to_enu` — dort ist die n-Linearisierung exakt, und beide Pfade
+benutzen dieselbe Längen-Linearisierung. Ein Mitte-der-Kachel-Kreuzvergleich würde eine Präzision
+versprechen, die es nicht gibt. **Nicht durch Rücknahme der Trigonometrie in die heiße Schleife
+„reparieren".**
 
 ### 5.1 Terrarium und das Stitching
 
@@ -309,6 +351,32 @@ Gitterorientierung: Zeile 0 = **Nord**, Spalte 0 = **West** (PNG-Layout und Slip
 `build_mesh` platziert Vertex `(r,c)` bei `(c·dx, r·dy)`; weil `map->scale_n` bereits negativ ist
 (ENU-N wächst nach Norden, `r` nach Süden), kommen die Positionen ohne weiteren Vorzeichenwechsel
 ENU-korrekt heraus.
+
+**Dreiecks-Winding — algebraisch bewiesen, nicht ergrünt.** Wenn ein Test hier fällt: erst die
+Mathematik prüfen, nicht das Vorzeichen umdrehen. Mit `e = origin_e + lx·scale_e` (scale_e > 0) und
+`n = origin_n + ly·scale_n` (scale_n < 0) gilt: `P(r+1,c)` liegt SÜDLICH von `P(r,c)`, `P(r,c+1)`
+ÖSTLICH davon.
+
+```
+Dreieck (r,c), (r+1,c), (r+1,c+1):
+  A = P(r+1,c)   − P(r,c) = (0, −, 0)     nach Süden
+  B = P(r+1,c+1) − P(r,c) = (+, −, 0)     nach Südosten
+  A × B = (0, 0, 0 − (−)·(+)) = (0, 0, +) → zeigt NACH OBEN
+
+Dreieck (r,c), (r+1,c+1), (r,c+1):
+  A = P(r+1,c+1) − P(r,c) = (+, −, 0)
+  B = P(r,c+1)   − P(r,c) = (+, 0, 0)
+  A × B = (0, 0, (+)·0 − (−)·(+)) = (0, 0, +) → zeigt NACH OBEN
+```
+
+Beide Dreiecke sind also CCW von +z (oben) gesehen, konsistent mit rechtshändigen, himmelwärts
+zeigenden Normalen. Die Testsuite prüft das gegen, indem sie für ein flaches Gitter `normal.z ≈ 1`
+verlangt.
+
+**Normalen**: pro Fläche, flächengewichtet, je Vertex akkumuliert, am Ende normalisiert. Die
+Flächengewichtung fällt daraus ab, dass die Flächennormale VOR der Akkumulation NICHT normalisiert
+wird — das unnormierte Kreuzprodukt hat Betrag = 2 · Flächeninhalt. Für ein flaches Gitter haben alle
+Flächen dieselbe Normale (0,0,1), das Ergebnis ist nach dem Re-Normalisieren also exakt (0,0,1).
 
 **Stitching**: `osmmesh_fetch_tile` holt zusätzlich die vier Nachbarkacheln und gleicht die
 Randhöhen ab — sonst klaffen an jeder Kachelgrenze Risse. Weil dieselbe Nachbarkachel bei jedem

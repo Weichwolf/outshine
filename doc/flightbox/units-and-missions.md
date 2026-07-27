@@ -699,20 +699,11 @@ läuft (beide Apps und jeder Test-Harness) — statt Stringliteralen, die ausein
 
 ## Offene Punkte
 
-- **Veraltete Banner-Aussagen (Code widerspricht sich selbst):**
-  - `units/FBUnit.h` (`GetPose`) spricht vom „**planned** per-unit threading (CLAUDE.md 'Ausblick
-    Multi-Unit')" — Etappe 4 ist längst gebaut, und CLAUDE.md hat keinen Abschnitt „Ausblick Multi-Unit"
-    mehr.
-  - `units/FBUnitRegistry.h` sagt, die Registry bekomme „nur ein simulierter SENSOR (heute
-    `FBDatalinkSystem`, **morgen** das Radar)" — es sind längst vier Dateien (Datalink, Radar, RWR,
-    Missile-Uplink).
-  - `units/FBSimUnit.h` beschreibt `GetSignature()` als „**heute** sein Datalink-Sender" — publiziert
-    werden inzwischen fünf Größen (Datalink, Uplink, IFF, Radarkeule, Chaff).
-  - `modules/FBModule.h` (`AttachFdm`) sagt „App/mission runner today, `units/FBUnit` **later**" — es ist
-    bereits `units/FBSimUnit`.
-- **Zwei Zählwidersprüche.** `FBSimUnit.h` nennt „exactly the six places", an denen ein fehlendes
-  Airframe zählt; die Zählung hängt davon ab, ob man die zwei Telemetriespalten als eine oder zwei
-  Stellen zählt (§3 listet sie einzeln als sechs Zeilen auf, wovon eine zwei Spalten trägt).
+- **Erledigt (Kommentar-Runde):** die vier veralteten Banner-Aussagen in `FBUnit.h` („planned per-unit
+  threading"), `FBUnitRegistry.h` („heute Datalink, morgen das Radar"), `FBSimUnit.h` (`GetSignature`
+  „heute sein Datalink-Sender") und `FBModule.h` (`AttachFdm`, „`units/FBUnit` later") sind mit den
+  Bannern selbst entfallen; ebenso `FBSimUnit.h`s Zählwiderspruch „exactly the six places", an denen ein
+  fehlendes Airframe zählt.
 - **`FBMissionRunner.h`s Docstring ist unvollständig:** „Returns 0/1/2/3 = Success/Fail/Crash/Timeout"
   nennt `LOC` nicht, das sich Code 2 mit `Crash` teilt (im `FBMissionResult`-Banner korrekt erklärt).
   Ebenso beschreibt derselbe Docstring `FBRunMission` noch als „Ground-spawns `missionPath`'s module" —

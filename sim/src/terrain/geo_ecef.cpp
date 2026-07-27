@@ -1,39 +1,19 @@
-/* libosmmesh/src/geo_ecef.c
- *
- * WGS84 ECEF conversions + a full-precision fractional-tile projector.
- *
- * ADDITIVE global-scale path. Kept in its own translation unit (not folded
- * into geo.c) for one concrete reason: geo.c's osmmesh_geo_to_tile carries a
- * defensive `yc < 0` clamp that its own latitude range-guard makes
- * unreachable, so geo.c cannot be pulled into the 100%-coverage unit suite
- * without either deleting a guard whose risk this task does not own, or gaming
- * the number. This file has no such dead branch and is verified to 100%.
- *
- * The ENU model in geo.c is left exactly as-is; the renderer still consumes it.
- *
- * See osmmesh/geo.h for the API contract and the altitude convention.
- */
+/* WGS84 ECEF conversions + the full-precision fractional-tile projector. Its OWN translation unit for
+ * one concrete reason: geo.cpp carries a defensive clamp its own range guard makes unreachable, so
+ * geo.cpp cannot reach 100% coverage without either deleting that guard or gaming the number. This
+ * file has no dead branch and is verified to 100%. API contract in geo.h. */
 
 #include "geo.h"
 
 #include <math.h>
 
-/* Deg <-> rad without M_PI (not in C99 without extensions). Same value as
- * geo.c's private copy. */
+/* M_PI is not in C99 without extensions; same value as geo.cpp's private copy. */
 static const double OSMMESH_PI = 3.14159265358979323846;
 #define DEG2RAD(d)  ((d) * (OSMMESH_PI / 180.0))
 #define RAD2DEG(r)  ((r) * (180.0 / OSMMESH_PI))
 
-/* ========================================================================
- *  WGS84 constants
- * ====================================================================== */
-
 const double osmmesh_wgs84_a = 6378137.0;
 const double osmmesh_wgs84_f = 1.0 / 298.257223563;
-
-/* ========================================================================
- *  Fractional-tile -> geographic (full double precision)
- * ====================================================================== */
 
 osmmesh_geo osmmesh_tile_frac_to_geo(uint8_t z, uint32_t x, uint32_t y,
                                       double fx, double fy)
@@ -44,17 +24,12 @@ osmmesh_geo osmmesh_tile_frac_to_geo(uint8_t z, uint32_t x, uint32_t y,
 
     osmmesh_geo g;
     g.lon = xf * 360.0 - 180.0;
-    /* Web-Mercator inverse: identical to geo.c osmmesh_tile_local_to_geo. The
-     * test suite pins the two together at integer local coords. */
+    /* The test suite pins this against osmmesh_tile_local_to_geo at integer local coords. */
     double yy = 1.0 - 2.0 * yf;
     g.lat = RAD2DEG(atan(sinh(OSMMESH_PI * yy)));
     g.alt = 0.0;
     return g;
 }
-
-/* ========================================================================
- *  Geodetic <-> ECEF (WGS84)
- * ====================================================================== */
 
 osmmesh_ecef osmmesh_geo_to_ecef(osmmesh_geo g)
 {
@@ -87,7 +62,7 @@ osmmesh_geo osmmesh_ecef_to_geo(osmmesh_ecef p)
 
     osmmesh_geo g;
 
-    /* Polar singularity: on the spin axis longitude is undefined; define 0. */
+    /* On the spin axis longitude is undefined; define it as 0. */
     if (pxy < 1e-9) {
         g.lon = 0.0;
         g.lat = (p.z >= 0.0) ? 90.0 : -90.0;
@@ -97,8 +72,7 @@ osmmesh_geo osmmesh_ecef_to_geo(osmmesh_ecef p)
 
     g.lon = RAD2DEG(atan2(p.y, p.x));
 
-    /* Bowring 1976: closed-form geodetic latitude via the parametric latitude
-     * theta. ep2 = second eccentricity squared. */
+    /* Bowring 1976, closed form via the parametric latitude; ep2 = second eccentricity squared. */
     double ep2 = e2 / (1.0 - e2);
     double theta = atan2(p.z * a, pxy * b);
     double st = sin(theta), ct = cos(theta);

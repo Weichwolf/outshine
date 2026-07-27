@@ -1,7 +1,5 @@
-/* FlightBox — FBUpscaleStage: samples the fixed-720p FrameTex (scene+tonemap+HUD all land there) onto
- * the swapchain/offscreen target at display resolution. Bilinear today; TODO bicubic/sharpen. Reused
- * at TWO call sites (the normal present pass and the boot-loading-screen present pass) — both just
- * hand it a RenderPassEncoder, the stage doesn't care what filled FrameTex. */
+/* Samples the fixed-720p FrameTex onto the target at display resolution. Bilinear; TODO
+ * bicubic/sharpen. Used by BOTH present paths — it does not care what filled FrameTex. */
 #ifndef FBUPSCALESTAGE_H
 #define FBUPSCALESTAGE_H
 
@@ -11,9 +9,8 @@ namespace FlightBox {
 
 class FBUpscaleStage : public FBDrawStage {
 public:
-  /* `frameView` is the fixed-720p present source (FBRenderer's FrameTex) — set once, sampled every
-   * Encode() regardless of what most recently rendered into it. Named Configure, not Init, so it
-   * doesn't hide FBDrawStage's virtual Init(gpu) (-Woverloaded-virtual). */
+  /* Named Configure and not Init, so it does not hide FBDrawStage's virtual Init(gpu)
+   * (-Woverloaded-virtual). */
   void Configure(const FBGpu &gpu, wgpu::TextureView frameView);
   void Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pass) override;
 

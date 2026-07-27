@@ -1,7 +1,5 @@
-/* FlightBox — shared WGSL fragment for the Hillaire-2020 atmosphere: the `Atmo` uniform struct +
- * scattering-physics helpers, needed by every atmosphere-related shader (FBTransmittanceStage,
- * FBSkyViewStage, FBSkyStage, and FBTilesStage's terrain aerial-perspective sampling). A textual
- * WGSL splice, not compiled on its own — each consumer concatenates it ahead of its own shader body. */
+/* The `Atmo` uniform struct + scattering helpers every atmosphere shader needs. A textual WGSL
+ * splice, not compiled on its own — each consumer concatenates it ahead of its own body. */
 #ifndef FBATMOCOMMON_H
 #define FBATMOCOMMON_H
 

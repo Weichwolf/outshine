@@ -1,5 +1,4 @@
-/* FlightBox — FBTelemetry sink implementations. app/ owns the file I/O (CLAUDE.md exception); core/
- * only ever declares/samples channels. */
+/* The telemetry sink implementations: app/ owns the file I/O, core/ only declares and samples. */
 #ifndef FBTELEMETRYSINKS_H
 #define FBTELEMETRYSINKS_H
 #include <cstdio>
@@ -9,8 +8,7 @@
 
 namespace FlightBox {
 
-/* telemetry.csv — header is the schema-generated column list (comma-joined once), each row is the
- * comma-joined sampled fields; one fopen'd FILE* for the runner's lifetime. */
+/* One fopen'd FILE* for the run; the header is the schema-generated column list, joined once. */
 class FBCsvTelemetrySink : public FBTelemetrySink {
 public:
   explicit FBCsvTelemetrySink(FILE *f) : F(f) {}

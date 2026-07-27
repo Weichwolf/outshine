@@ -34,9 +34,8 @@ const char *FBCommandTargetStr(FBCommandTarget t) {
   return "?";
 }
 
-/* HOTAS = one press or one switch throw the hand already rests on; DED = a field edit through the
- * propose/commit cycle (doc/f16/controls-commands.md §1.2 vs §3). Range/threshold/steerpoint entries
- * are typed; modes, switches and cursor slews are not. */
+/* HOTAS = a throw the hand already rests on; DED = a typed field edit. Range/threshold/steerpoint
+ * entries are typed; modes, switches and cursor slews are not. */
 FBCommandClass FBCommandClassOf(FBCommandTarget t) {
   switch (t) {
     case FBCommandTarget::RadarRangeNm:
@@ -44,10 +43,8 @@ FBCommandClass FBCommandClassOf(FBCommandTarget t) {
     case FBCommandTarget::AlowFt:
     case FBCommandTarget::BingoLbs:
     case FBCommandTarget::SteerpointNum:
-    /* The CMDS mode knob is on the left auxiliary console, not on the stick: a hand comes off the
-     * throttle and the head goes down for it (doc/f16/defence-rwr-cm.md §2.2). CmDispense and
-     * CmConsent are the CMS switch and stay HOTAS — the whole point of a countermeasure is that it can
-     * be thrown mid-manoeuvre. */
+    /* The CMDS mode knob is on the left console, not the stick; CmDispense/CmConsent are the CMS
+     * switch and stay HOTAS — a countermeasure exists to be thrown mid-manoeuvre. */
     case FBCommandTarget::CmdsMode:
       return FBCommandClass::Ded;
     default:
@@ -69,17 +66,14 @@ FBCommandGroup FBCommandGroupOf(FBCommandTarget t) {
     case FBCommandTarget::DatalinkFilter:
     case FBCommandTarget::DatalinkRangeNm:
       return FBCommandGroup::Comms;
-    /* The SMS owns both, and it is cycled with the module's weapons slot — a pickle is answered by the
-     * box that actually lets go of the store, at that box's own rate. */
+    /* Answered by the box that actually lets go of the store, at that box's own rate. */
     case FBCommandTarget::StationSelect:
     case FBCommandTarget::WeaponRelease:
-    /* The gun is not the SMS, but it is armament and it is answered in the same slot tick: one group
-     * for "the things that make this aircraft lethal", so a trigger takes effect at the cadence of the
-     * box that fires it (systems/FBGunSystem). */
+    /* Not the SMS, but armament: one group for the things that make this aircraft lethal, so a
+     * trigger takes effect at the cadence of the box that fires it. */
     case FBCommandTarget::GunTrigger:
       return FBCommandGroup::Stores;
-    /* The defensive suite's own group, answered in the module's Defensive slot tick beside the RWR and
-     * the dispenser themselves. */
+    /* Answered in the Defensive slot tick, beside the RWR and the dispenser themselves. */
     case FBCommandTarget::CmDispense:
     case FBCommandTarget::CmConsent:
     case FBCommandTarget::CmdsMode:
@@ -152,7 +146,7 @@ FBCommandAck FBCommandBus::Post(FBCommandTarget target, double value, double now
   if (target == FBCommandTarget::None) return Reject(target, value, nowS, FBCommandReason::OutOfContext);
   FBCommandClass cls = FBCommandClassOf(target);
 
-  /* The manoeuvre gate: head-down work needs a jet that is not being flown hard (class banner). */
+  /* The manoeuvre gate: head-down work needs a jet that is not being flown hard. */
   if (cls == FBCommandClass::Ded && std::fabs(LoadFactorG_) > kDedMaxG)
     return Reject(target, value, nowS, FBCommandReason::SequencePrecondition);
   if (cls == FBCommandClass::Ded && DedChannelBusy())

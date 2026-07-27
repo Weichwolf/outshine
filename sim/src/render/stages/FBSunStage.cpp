@@ -5,8 +5,7 @@
 
 namespace FlightBox {
 
-/* Sun disc + glow (EVS, sun above horizon). Disc = solar transmittance; glow = soft forward halo.
- * Verbatim the original kSkyWGSL sun block, moved into its own additive fullscreen-triangle draw. */
+/* Disc = solar transmittance, glow = a soft forward halo. */
 static const char *kSunWGSL = R"(
 @group(0) @binding(0) var<uniform> A : Atmo;
 @group(0) @binding(1) var lsamp : sampler;

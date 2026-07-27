@@ -1,7 +1,5 @@
-/* FlightBox — FBCloudBaseBakeStage: the Perlin-Worley 3D base-shape noise volume (128^3), baked ONCE
- * at Configure() via FBCloudMipDownStage for the mip chain — not a per-frame draw stage. FBCloudMarchStage
- * samples the result (view injected at ITS Configure()). Also owns ShapeStats (the numeric shape/
- * density histogram lab tool, FB_SHAPEHIST) since it reads this exact texture. */
+/* The 128^3 Perlin-Worley base-shape volume, baked ONCE at Configure() — not a per-frame stage. Owns
+ * ShapeStats because that lab tool reads this exact texture. */
 #ifndef FBCLOUDBASEBAKESTAGE_H
 #define FBCLOUDBASEBAKESTAGE_H
 
@@ -20,9 +18,7 @@ public:
     return Tex.CreateView(&vd);
   }
 
-  /* Numeric shape/density histogram over a 3D grid (FB_SHAPEHIST lab tool): evaluate the SAME
-   * base-shape math the march's density() uses and read back percentiles, so tuning is numbers-
-   * driven, not eyeballed. */
+  /* Evaluates the SAME math the march's density() uses, so tuning is numbers-driven. */
   void ShapeStats(float cover, float low, float high);
 
 private:

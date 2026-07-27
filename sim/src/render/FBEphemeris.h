@@ -1,17 +1,8 @@
-/* FlightBox — sun/moon ephemeris: pure functions, no state, no globals.
- *
- * SunPos is a verbatim port of flightbox/server.c's sun_pos (low-precision NOAA-style solar
- * formulae, < ~0.5 deg) — the legacy WS/UDP path fed the HUD/sky from it; the in-process sim
- * (flightsim.h) never got it, so EVS was frozen at a hardcoded "always noon, no moon" sky
- * regardless of FB_SIM_UTC (sim-critic gate finding).
- *
- * MoonPos/MoonPhase are NEW — server.c never computed the moon at all (never had more than a
- * hardcoded moon_el/az/phase either). This is a fresh port of Paul Schlyter's well-known
- * low-precision geocentric lunar-position formulae
- * (http://www.stjarnhimlen.se/comp/ppcomp.html, "Position of the Moon" — public domain, deliberately
- * WITHOUT his long perturbation-term table): good to roughly a degree, plenty for a sky disc +
- * phase, not for real lunar navigation. Phase fraction uses the standard (1-cos elongation)/2
- * approximation from the sun-moon ecliptic-longitude difference. */
+/* Sun/moon ephemeris: pure functions, no state, no globals. NOAA low-precision solar formulae
+ * (< ~0.5 deg) and Paul Schlyter's lunar approximation (public domain,
+ * http://www.stjarnhimlen.se/comp/ppcomp.html) deliberately WITHOUT his perturbation-term table —
+ * good to about a degree, enough for a disc and a phase, not for navigation.
+ * doc/flightbox/rendering.md, Abschnitt 4. */
 #ifndef FB_EPHEMERIS_H
 #define FB_EPHEMERIS_H
 #include <cmath>
@@ -19,7 +10,7 @@
 
 namespace FlightBox {
 
-/* Real solar elevation/azimuth (deg) at (lat,lon) for a UTC epoch. */
+/* Solar elevation/azimuth in degrees at (lat,lon) for a UTC epoch. */
 static inline void SunPos(double lat, double lon, time_t utc, float *el, float *az) {
   double D2R = M_PI / 180.0, jd = utc / 86400.0 + 2440587.5, n = jd - 2451545.0;
   double L = fmod(280.460 + 0.9856474 * n, 360.0), g = fmod(357.528 + 0.9856003 * n, 360.0) * D2R;
@@ -32,13 +23,13 @@ static inline void SunPos(double lat, double lon, time_t utc, float *el, float *
   *az = (float)(fmod(atan2(-sin(ha), tan(dec) * cos(la) - sin(la) * cos(ha)) / D2R + 360.0, 360.0));
 }
 
-/* Geocentric Moon elevation/azimuth (deg) + illuminated phase fraction (0=new..1=full). Same
- * (lat,lon,utc) convention as SunPos so both read off the identical time base. */
+/* Phase fraction 0 = new .. 1 = full. Same (lat,lon,utc) convention as SunPos, so both read the
+ * identical time base. */
 static inline void MoonPos(double lat, double lon, time_t utc, float *el, float *az, float *phase) {
   double D2R = M_PI / 180.0, jd = utc / 86400.0 + 2440587.5;
   double d = jd - 2451543.5;   /* days since Schlyter's epoch (1999-12-31 00:00 UT) */
 
-  /* Moon orbital elements (deg), linear in d (Schlyter, simplified — no secular/periodic terms) */
+  /* Orbital elements (deg), linear in d — simplified, no secular or periodic terms. */
   double N = fmod(125.1228 - 0.0529538083 * d, 360.0) * D2R;   /* long. of ascending node */
   double i = 5.1454 * D2R;                                      /* inclination */
   double w = fmod(318.0634 + 0.1643573223 * d, 360.0) * D2R;    /* argument of perigee */

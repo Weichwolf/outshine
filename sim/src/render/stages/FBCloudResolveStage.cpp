@@ -4,9 +4,8 @@
 
 namespace FlightBox {
 
-/* Temporal resolve: blend the fresh jittered quarter-res march into the reprojected history (camera
- * motion at the cloud mid-shell), with a neighbourhood clamp to suppress ghosting. Prepend kAtmoCommon
- * for the Atmo struct (camera basis + params for the ray). */
+/* Blends the fresh jittered march into the reprojected history with a neighbourhood clamp against
+ * ghosting; prepends kAtmoCommon for the Atmo struct. */
 static const char *kCloudResolveWGSL = R"(
 struct RU { prevVP : mat4x4f, camMove : vec4f, blend : vec4f };   /* camMove.xyz metres; blend: alpha, histValid, midR(Mm), - */
 @group(0) @binding(0) var samp : sampler;

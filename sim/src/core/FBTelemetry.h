@@ -1,12 +1,7 @@
-/* FlightBox — telemetry: periodically sampled state, a time series with a schema (see FBLog.h for the
- * discrete-event counterpart). Classes DECLARE they carry telemetry (FBTelemetrySource — the
- * Serializable analogue); emission is CENTRAL (FBTelemetryBus, the one caller of every source's
- * Sample). FBTelemetrySource lives in core/ so systems/render/world/fdm can implement it without
- * depending on app/ — the concrete sink (CSV file, …) is injected from app/, same split as FBLog.
- *
- * A row is built by CONCATENATION: each source pushes exactly as many string fields as it declared
- * channels, in the same order, so declaration/registration order IS column order — no string-keyed
- * lookup at sample time. */
+/* Periodically sampled state, a time series with a schema (FBLog.h is the discrete-event counterpart).
+ * Classes DECLARE themselves a source; emission is CENTRAL, and the concrete sink is injected from
+ * app/. A row is built by CONCATENATION, so declaration/registration order IS column order — no
+ * string-keyed lookup at sample time. doc/flightbox/core.md, Abschnitt 3.2. */
 #ifndef FBTELEMETRY_H
 #define FBTELEMETRY_H
 #include <string>
@@ -56,11 +51,8 @@ public:
   virtual void Row(const std::vector<std::string> &fields) = 0;
 };
 
-/* The one emitter. Sources register once (borrowed pointers — the bus never owns a system, mirrors
- * FBWorld's unit registration). Start() builds the schema (a leading "t" channel, then every source in
- * registration order) and pushes the header; Tick(simTime) samples every source into one row. A null
- * sink makes Tick() a cheap no-op — the WASM boot leaves it unset (CLAUDE.md: "Bus läuft, Sink null =
- * billig"). */
+/* The one emitter. Sources register once as BORROWED pointers — the bus never owns a system. A null
+ * sink makes Tick() a cheap no-op, which is what the WASM boot leaves it as. */
 class FBTelemetryBus {
 public:
   void Register(FBTelemetrySource *src) { Sources_.push_back(src); }

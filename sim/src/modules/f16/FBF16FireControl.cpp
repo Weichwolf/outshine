@@ -20,16 +20,14 @@ FBLaunchZone FBF16FireControl::SolveLaunchZone(const FBWeaponPerf &perf, double 
   FBLaunchZone z;
   if (perf.LaunchMassKg <= 0.0 || perf.RefAreaM2 <= 0.0) return z;
 
-  /* ONE density for the whole integration (the launch altitude's, core/FBAtmosphere.h): the round's
-   * altitude band over an engagement is small next to its range, and a fire-control computer's stored
-   * model is not a trajectory simulator. */
+  /* ONE density for the whole integration: the round's altitude band over an engagement is small next
+   * to its range, and a stored fire-control model is not a trajectory simulator. */
   const double rho = FBIsaDensity(altM);
   const double burnS = perf.BoostS + perf.SustainS;
   const double dt = 0.25;             /* coarse on purpose: a stored table's worth of fidelity */
   const double maxS = 240.0;
 
-  /* The target's own closing component along the line of sight: the radar measures the TOTAL closure,
-   * of which the launcher's own motion is the part the round inherits at launch. */
+  /* The radar measures TOTAL closure; the launcher's own part is what the round inherits at launch. */
   const double tgtLosMs = closureMs - ownLosMs;
 
   double v = ownSpeedMs, s = 0.0, t = 0.0, r = rangeM;
@@ -58,13 +56,9 @@ FBLaunchZone FBF16FireControl::SolveLaunchZone(const FBWeaponPerf &perf, double 
   return z;
 }
 
-/* THE GUN SOLUTION (the EEGS, doc/f16/weapons.md §2.5). Everything ballistic about it is
- * core/FBGunBallistics' — the same arithmetic the rounds are then flown with, which for an unguided
- * projectile is what a fire-control computer genuinely solves (see that file's banner on why this is not
- * the cheat the missile's coarse launch-zone table exists to avoid). What is FIRE CONTROL rather than
- * ballistics, and therefore lives here, is the three answers the funnel exists to give: is the target
- * inside the funnel's range window, how big is it in angle there, and how far is the required lead from
- * where the nose is pointing right now. */
+/* Everything ballistic is core/FBGunBallistics' — the same arithmetic the rounds are then flown with,
+ * which for an unguided projectile is what a fire-control computer genuinely solves. What is FIRE
+ * CONTROL is the three answers the funnel gives: in range, how big in angle, how far off the nose. */
 void FBF16FireControl::SolveGun(FBState &state, const fb_fdm_state &own, const FBGunSpec *gun,
                                 const FBBfmBlock &trk) {
   FBFireControlBlock &b = state.FireControl;
@@ -80,8 +74,7 @@ void FBF16FireControl::SolveGun(FBState &state, const fb_fdm_state &own, const F
                                 trk.UpM, trk.VelE, trk.VelN, trk.VelU);
   if (!aim.Valid) return;
 
-  /* Where the nose actually points, in the same frame — the gun is boresighted to it
-   * (modules/f16/FBF16Gun), so the angle between the two IS the lead the pilot still owes. */
+  /* The gun is boresighted to the nose, so the angle between the two IS the lead still owed. */
   double ne = 0.0, nn = 0.0, nu = 0.0;
   FBBodyLosToEnu(own.roll, own.pitch, own.yaw, 0.0, 0.0, ne, nn, nu);
   double dot = ne * aim.BoreE + nn * aim.BoreN + nu * aim.BoreU;
@@ -103,32 +96,18 @@ void FBF16FireControl::SolveGun(FBState &state, const fb_fdm_state &own, const F
   b.GunFunnelTopMr = (float)(kTargetSpanM / kFunnelMinRangeM * 1000.0);
   b.GunFunnelBottomMr = (float)(kTargetSpanM / kFunnelMaxRangeM * 1000.0);
   b.GunInRange = aim.RangeM >= kFunnelMinRangeM && aim.RangeM <= kFunnelMaxRangeM;
-  /* IN THE FUNNEL = in range AND the nose is inside the tolerance the geometry itself sets: half the
-   * target's angular size (aim at its centre and its skin is still half a span away) plus 1.5 sigma of
-   * the round pattern (core/FBGun.h's dispersion). Derived, not chosen — it is exactly the condition
-   * under which core/FBGunBallistics' density model puts a meaningful number of rounds on the target,
-   * so the trigger gate and the damage arithmetic cannot drift apart. */
+  /* Tolerance DERIVED, not chosen: half the target's angular size plus 1.5 sigma of the round pattern
+   * is exactly where the density model puts a meaningful number of rounds on it, so the trigger gate
+   * and the damage arithmetic cannot drift apart. */
   double tolRad = 0.5 * kTargetSpanM / aim.RangeM + 1.5 * gun->DispersionSigmaRad;
   b.GunTolDeg = (float)(tolRad * kRad2Deg);
   b.GunInFunnel = b.GunInRange && errDeg <= b.GunTolDeg;
 }
 
-/* THE AIR-TO-GROUND SOLUTION (CCIP/CCRP, doc/f16/weapons.md §2.5). Everything ballistic about it is
- * core/FBBallistics' — one integration, both delivery modes, so the pipper and the release countdown can
- * never disagree about where the round goes. What this box supplies is the three inputs, each of them a
- * jet convention rather than a piece of arithmetic:
- *   RELEASE STATE   the aircraft's position and full velocity vector. A store leaves the pylon with the
- *                   carrier's motion (app/FBMissionBoot's separation IC says the same thing), and the
- *                   station offset is metres against a fall of kilometres, so the computer works from
- *                   the CG — the SMS's own pylon geometry is not fire-control knowledge.
- *   AIM POINT       the active steerpoint (§2.2's "pre-planned" sighting point). Both modes are solved
- *                   against it: CCRP because that IS its designation, CCIP because an AI has no eye and
- *                   the steerpoint is the point it was briefed to hit.
- *   IMPACT PLANE    the steerpoint's own elevation, i.e. the 'B' ranging source this box already uses.
- *                   It is the module's elevation-provider sample, the same number the radar altimeter
- *                   reads — this file never touches terrain.
- * A guided round or an empty station leaves the whole solution invalid: a computer with nothing to drop
- * has no impact point, which is a different statement from an impact point of zero. */
+/* One integration, both delivery modes, so the pipper and the release countdown can never disagree.
+ * The three inputs are jet CONVENTIONS rather than arithmetic (doc/flightbox/modules-f16.md §8.4):
+ * release state from the CG, aim point = the active steerpoint, impact plane = its own elevation. A
+ * guided round or an empty station leaves the solution invalid, which is not an impact point of zero. */
 void FBF16FireControl::SolveGroundAttack(FBState &state, const fb_fdm_state &own,
                                          const FBStoreSpec *selected) {
   FBFireControlBlock &b = state.FireControl;
@@ -149,17 +128,16 @@ void FBF16FireControl::SolveGroundAttack(FBState &state, const fb_fdm_state &own
   FBImpactPrediction pred = FBSolveImpactPoint(selected->Perf, rel, planeM);
   if (!pred.Valid) return;
 
-  /* The aim point, reconstructed from the nav block's own bearing/distance rather than from a second
-   * copy of the steerpoint: this box reads the bus, like every other consumer (one writer per block). */
+  /* Reconstructed from the nav block's own bearing/distance rather than a second copy of the
+   * steerpoint: this box reads the bus, like every other consumer. */
   double distM = state.Nav.SteerDistNm * kNmToM;
   double brg = state.Nav.SteerBearingDeg * kDeg2Rad;
   double coslat = std::cos(own.lat * kDeg2Rad);
   double aimLat = own.lat + distM * std::cos(brg) / kMPerDeg;
   double aimLon = own.lon + (coslat > 1e-6 ? distM * std::sin(brg) / (kMPerDeg * coslat) : 0.0);
   /* The ground TRACK, not the heading: the release cue lives on the axis the aircraft is actually
-   * moving along, which is what the air-data block publishes (and what the round inherits). Its head is
-   * checked like every other source this box fuses — with no air data there is an impact point but no
-   * release cue, which is a real distinction and not a missing number. */
+   * moving along, and the round inherits. With no air data there is an impact point but no release
+   * cue — a real distinction, not a missing number. */
   FBAimSolution aim{};
   if (state.AirData.H.Readable())
     aim = FBSolveAim(pred, own.lat, own.lon, aimLat, aimLon, state.AirData.TrackDeg, own.gs);
@@ -192,8 +170,7 @@ void FBF16FireControl::SolveGroundAttack(FBState &state, const fb_fdm_state &own
   Solution_.StampS = state.NowS;
 }
 
-/* Slant = sqrt(horizontal^2 + altDiff^2), the 'B' (baro/steerpoint-elevation) method — then the target
- * track, then the launch zone the SMS's interlock and a future intercept AI read. */
+/* Slant = sqrt(horizontal^2 + altDiff^2), the 'B' (baro/steerpoint-elevation) method. */
 void FBF16FireControl::Run(FBState &state, const fb_fdm_state &own, const FBStoreSpec *selected,
                            const FBGunSpec *gun, double nowS, double dt) {
   (void)dt;
@@ -230,9 +207,8 @@ void FBF16FireControl::Run(FBState &state, const fb_fdm_state &own, const FBStor
   int lock = state.Radar.H.Readable() ? state.Radar.LockIndex : -1;
   if (selected && selected->Guided && lock >= 0 && lock < state.Radar.ContactCount) {
     const FBRadarContact &c = state.Radar.Contacts[lock];
-    /* The launcher's own speed along the line of sight, out of the contact's body-referenced angles —
-     * the same geometry the antenna reports, so splitting the measured closure into "mine" and "his"
-     * uses no second notion of where the target is. */
+    /* Out of the contact's own body-referenced angles, so splitting the measured closure into "mine"
+     * and "his" uses no second notion of where the target is. */
     double ownLos = own.speed * std::cos(c.AzDeg * kDeg2Rad) * std::cos(c.ElDeg * kDeg2Rad);
     double tgtSpeed = std::sqrt(trk.VelE * trk.VelE + trk.VelN * trk.VelN + trk.VelU * trk.VelU);
     FBLaunchZone z = SolveLaunchZone(selected->Perf, own.speed, own.elev, c.RangeM, c.ClosureMs, ownLos,

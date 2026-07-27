@@ -1,6 +1,5 @@
-/* FlightBox — FBCloudCellBakeStage: the 512² 2D F1-round cell field (B-mode vertical puffs), baked ONCE
- * at Configure() — a 2D texture, no mip chain (unlike the 3D base/detail bakes). FBCloudMarchStage
- * samples it via a horizontal tangent-plane projection (view injected at ITS Configure()). */
+/* The 512^2 F1 cell field, baked ONCE. A 2D texture with no mip chain, unlike the 3D bakes; the
+ * march samples it through a horizontal tangent-plane projection. */
 #ifndef FBCLOUDCELLBAKESTAGE_H
 #define FBCLOUDCELLBAKESTAGE_H
 
