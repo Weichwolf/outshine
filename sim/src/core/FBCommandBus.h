@@ -42,6 +42,24 @@ public:
    * level flight — enough that a gentle cruise turn does not lock the DED, low enough that anything
    * recognisable as manoeuvring does. */
   static constexpr double kDedMaxG = 1.5;
+  /* THE TRIGGER IS THE ONE HOTAS ACTION WHOSE LATENCY IS NOT A PRESS DURATION. kHotasLatencyS above is
+   * the figure the avionics uses to tell a short press from a long one on a MODE switch (§5) — it is how
+   * long the SYSTEM waits before deciding what the pilot meant, and applying it to the gun trigger would
+   * say that rounds leave the barrels half a second after the finger closes. They do not: the delay
+   * between squeeze and first round is the gun's own spool-up, which is modelled where it belongs
+   * (core/FBGun.h's SpoolUpS, 0.3 s of barrels coming up to speed). What is left here is the finger
+   * itself, and 0.1 s is a human's own actuation time. It matters: at a fighter's tracking rates the
+   * aiming solution moves about a degree in half a second, which at gun range is five metres of miss —
+   * i.e. the difference between a burst that hits and one that does not (measured, both ways).
+   * The SPACING between two squeezes stays kHotasLatencyS like every other switch: a finger can pull the
+   * trigger quickly, it cannot pull it twice in the same instant. */
+  static constexpr double kTriggerLatencyS = 0.1;
+
+  /* How long an action of this target's class takes to reach the box that answers it. */
+  static double LatencyS(FBCommandTarget t) {
+    if (t == FBCommandTarget::GunTrigger) return kTriggerLatencyS;
+    return FBCommandClassOf(t) == FBCommandClass::Ded ? kDedLatencyS : kHotasLatencyS;
+  }
 
   static constexpr int kMaxPending = 8;
 
@@ -85,7 +103,7 @@ private:
   /* Last completion time per target ordinal is what the same-switch window is measured against; a flat
    * array keeps it allocation-free and O(1). +1 for the None slot. */
   static constexpr int kTargetSlots = 32;
-  static_assert((int)FBCommandTarget::CmdsMode < kTargetSlots, "widen kTargetSlots for new targets");
+  static_assert((int)FBCommandTarget::GunTrigger < kTargetSlots, "widen kTargetSlots for new targets");
   double LastActionS_[kTargetSlots]{};
   bool   HaveLastAction_[kTargetSlots]{};
 

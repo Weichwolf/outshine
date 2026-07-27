@@ -9,6 +9,8 @@
 #include "FBLogSinks.h"
 #include "FBTickPool.h"
 #include "FBGeodesy.h"
+#include "FBGunBallistics.h"
+#include "FBGunProjectiles.h"
 #include "FBStore.h"
 #include "FBUnits.h"
 #include <cerrno>
@@ -251,6 +253,75 @@ void ResolveBurst(FBSimUnit &target, const FBCpa &c, const FBStoreSpec &spec) {
         {"failed", (int)target.Health().FailedMask()}, {"altM", p.ElevM}, {"speedMs", p.SpeedMs}});
 }
 
+/* Below this many expected rounds a pass is not a hit but a near miss: the density model is continuous
+ * and would otherwise report a millionth of a round every time a bundle flew past anything. A tenth of a
+ * round is comfortably under one hit and comfortably over the noise. */
+constexpr double kMinReportedHits = 0.1;
+/* How far off the axis a bundle can pass and still be worth resolving, on top of three sigma of its own
+ * pattern: the airframe's own reach, i.e. a fighter's half span. Not a hit radius — the density model
+ * decides that — but the point past which it can only return zero. */
+constexpr double kGunHitReachM = 8.0;
+/* ...and how close a bundle's CLOSEST approach has to be to be worth a line in the record at all. Wide
+ * enough that a burst that "went past him" is measured, narrow enough that a bundle crossing the same
+ * sky is not. */
+constexpr double kGunNearMissM = 200.0;
+
+/* ---- THE GUN'S HALF OF THE SAME JOB: bundle geometry -> damage ----
+ * Structurally identical to ResolveBurst above and here for exactly the same reason: the owner of the
+ * simulation resolves what happened between two units, on the published poses. What differs is what
+ * arrives. A warhead is a mass and the model derives an energy from it; a burst of gunfire is a COUNT of
+ * rounds in a pattern, so the energy density is computed here — from the miss distance, the pattern's
+ * spread at that range, the relative speed at impact and the area the target presents to the stream —
+ * and the damage model is handed the result (core/FBDamageModel's FBKineticBurst).
+ *
+ * The rounds hit an AREA of the airframe, not a point, so the footprint's centre along the target's own
+ * axis decides which zones see anything at all — the same body-frame rotation the fragment path uses,
+ * of the same closest-approach vector. */
+bool ResolveGunHit(FBSimUnit &target, const FBCpa &c, const FBGunProjectiles::Bundle &bundle,
+                   double sigmaM, double relSpeedMs) {
+  const FBUnitPose &p = target.GetPose();
+  double fwd = 0.0, right = 0.0, down = 0.0;
+  FBEnuToBodyVec(p.RollDeg, p.PitchDeg, p.YawDeg, c.RelE, c.RelN, c.RelU, fwd, right, down);
+  const FBDamageLayout &layout = target.Module().DamageLayout();
+  /* WHAT THE STREAM SEES: the presented area for the direction it arrived from — the same relative
+   * geometry, expressed in the target's own frame (core/FBDamageModel::FBPresentedAreaM2). */
+  double areaM2 = FBPresentedAreaM2(layout, fwd, right, down);
+  if (areaM2 <= 0.0) return false;   /* nothing to hit: a store, a unit with no declared airframe */
+  double extentM = FBPresentedExtentM(layout, fwd, right, down);
+
+  double hits = FBGunExpectedHits(bundle.Rounds, c.MissM, sigmaM, areaM2, extentM);
+  double flux = FBGunFluxJm2(bundle.Rounds, *bundle.Spec, relSpeedMs, c.MissM, sigmaM, areaM2, extentM);
+  /* The pattern passed close but the density model puts no rounds on him: that is a MISS, and it is the
+   * caller's to record — this function reports only what it actually resolved. */
+  if (hits < kMinReportedHits) return false;
+
+  FBKineticBurst kb;
+  kb.FwdM = fwd;
+  kb.FluxJm2 = flux;
+  kb.SpreadM = sigmaM;
+  kb.Rounds = hits;
+  kb.ImpactSpeedMs = relSpeedMs;
+  FBDamageResult r = target.TakeKineticBurst(kb);
+  FBLogUnitScope us(target.LogLabel());
+  FBLog::Info("gun", "HIT", {{"rounds", hits}, {"ofRounds", bundle.Rounds}, {"missM", c.MissM},
+      {"spreadM", sigmaM}, {"impactMs", relSpeedMs}, {"areaM2", areaM2}, {"extentM", extentM},
+      {"fluxJm2", flux},
+      {"zone", FBDamageZoneStr(r.Zone)}, {"bodyFwdM", fwd}, {"bodyRightM", right},
+      {"bodyDownM", down}, {"failed", (int)r.NewlyFailed}, {"degraded", (int)r.NewlyDegraded},
+      {"hitsTotal", target.Health().Hits()}});
+  for (int i = 0; i < (int)FBSystemId::Count; i++) {
+    uint32_t bit = 1u << i;
+    if (!((r.NewlyFailed | r.NewlyDegraded) & bit)) continue;
+    FBLog::Warn("damage", "SYSTEM", {{"system", FBSystemIdStr((FBSystemId)i)},
+        {"state", FBHealthStateStr((r.NewlyFailed & bit) ? FBHealthState::Failed
+                                                         : FBHealthState::Degraded)}});
+  }
+  if (r.WasEffective && !r.NowEffective)
+    FBLog::Warn("damage", "KILL", {{"reason", "combat ineffective"},
+        {"failed", (int)target.Health().FailedMask()}, {"altM", p.ElevM}, {"speedMs", p.SpeedMs}});
+  return true;
+}
+
 /* The impact report: what the store was doing at the moment its own FBFlightMonitor said it hit
  * something. Everything here is OBSERVED — position and velocity out of the FDM state, the reason out
  * of the judge — so a detonation is measured, never scripted. `mode` separates the two ways a store's
@@ -442,6 +513,19 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   Actors.reserve(maxActors);
   std::vector<FBStoreTrack> StoreTracks;
   StoreTracks.reserve(maxActors - Actors.size());
+  /* THE ROUNDS IN THE AIR (core/FBGunProjectiles): the client's, like the fuze verdict and the damage
+   * resolution, and a fixed pool — a gun engagement adds no allocation to the tick path. */
+  FBGunProjectiles Bullets;
+  /* ONE record per bundle slot: how close it ever came and to whom. The pool flies the rounds and knows
+   * nothing about units; this is the OWNER's book, kept beside it and emitted when the bundle's life
+   * ends — the same shape as FBStoreTrack::MinMissM, for the same reason. */
+  struct FBGunPass {
+    bool   Live = false;
+    double MinMissM = 1e18;
+    double SpreadM = 0.0, PathM = 0.0, ClosureMs = 0.0, Rounds = 0.0;
+    std::string TargetName;
+  };
+  std::vector<FBGunPass> GunPasses(FBGunProjectiles::kMaxBundles);
   /* LAST TICK'S poses, for the fuze's closest-approach computation (see ClosestApproach's banner). Sized
    * for the ceiling so a store joining the list mid-run never reallocates it, and captured at the very
    * end of every tick — including for a store that only just appeared, whose spawn pose is already
@@ -549,6 +633,61 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     }
     for (auto &a : Actors)
       if (a->Active()) a->SampleTelemetry(simT);
+    /* ---- THE ROUNDS IN THE AIR (core/FBGunProjectiles) ----
+     * Stepped here, in the same pass and for the same reason the fuze is resolved here: they are the
+     * client's, they fly on nobody's estimate, and what they hit is measured on the published poses.
+     * The order inside the tick is fixed: fly them, then resolve them against every aircraft they
+     * passed, then take on whatever the modules fired during this tick (below, with the store releases)
+     * so a bundle is never resolved in the tick it was created in — the same snapshot discipline the
+     * actor list's growth follows. */
+    Bullets.Step(dt);
+    if (HavePrevPose) {
+      for (int bi = 0; bi < Bullets.Capacity(); bi++) {
+        const FBGunProjectiles::Bundle &bundle = Bullets.At(bi);
+        FBGunPass &pass = GunPasses[bi];
+        if (!bundle.Live) {
+          /* THE BUNDLE'S LIFE IS OVER — and the record of how it went is the CLOSEST it ever came, not
+           * the first tick it came anywhere near. A burst's debrief turns on that number: it is what
+           * says whether the aiming or the timing was wrong. */
+          if (pass.Live && pass.MinMissM < kGunNearMissM) {
+            FBLog::Info("gun", "MISS", {{"target", pass.TargetName}, {"missM", pass.MinMissM},
+                {"spreadM", pass.SpreadM}, {"rounds", pass.Rounds}, {"pathM", pass.PathM},
+                {"closureMs", pass.ClosureMs}});
+          }
+          pass = FBGunPass{};
+          continue;
+        }
+        if (!pass.Live) { pass = FBGunPass{}; pass.Live = true; }
+        FBUnitPose b0{}, b1{};
+        b0.LatDeg = bundle.PrevLatDeg; b0.LonDeg = bundle.PrevLonDeg; b0.ElevM = bundle.PrevAltM;
+        b1.LatDeg = bundle.LatDeg; b1.LonDeg = bundle.LonDeg; b1.ElevM = bundle.AltM;
+        for (size_t k = 0; k < Actors.size(); k++) {
+          FBSimUnit &tgt = *Actors[k];
+          if (tgt.GetKind() != FBUnitKind::Aircraft || !tgt.Active()) continue;
+          if (tgt.GetId() == bundle.LauncherId) continue;   /* nobody shoots himself down */
+          FBCpa c = ClosestApproach(b0, PrevPose[k], b1, tgt.GetPose(), dt);
+          /* The pattern's own size at this point of the flight (dispersion times the path flown), and
+           * the gate: three sigma plus the airframe's own reach. Beyond it the density model returns a
+           * number no report should carry, and the arithmetic is skipped rather than rounded away. */
+          double sigmaM = bundle.Spec->DispersionSigmaRad * bundle.PathM;
+          if (sigmaM < 0.05) sigmaM = 0.05;
+          if (c.MissM < pass.MinMissM) {
+            pass.MinMissM = c.MissM;
+            pass.SpreadM = sigmaM;
+            pass.PathM = bundle.PathM;
+            pass.ClosureMs = c.ClosureMs;
+            pass.Rounds = bundle.Rounds;
+            pass.TargetName = tgt.GetName();
+          }
+          if (c.MissM > 3.0 * sigmaM + kGunHitReachM) continue;   /* past the airframe's own reach */
+          if (!ResolveGunHit(tgt, c, bundle, sigmaM, c.ClosureMs)) continue;   /* close, but nothing on him */
+          Bullets.Retire(bi);   /* the rounds went into him: this bundle is spent */
+          pass = FBGunPass{};   /* a hit is its own record; no miss line for this bundle */
+          break;
+        }
+      }
+    }
+
     /* A store's flight ends where its own judge says it does: an impact (the detonation) or the
      * lifetime cap its catalogue entry declares. Retiring is all that happens to the RUN — see
      * FirstFlightKo. In actor order, like every other verdict pass, and AFTER this tick's telemetry
@@ -611,6 +750,20 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     size_t declaredActors = Actors.size();
     for (size_t i = 0; i < declaredActors; i++) {
       FBSimUnit &carrier = *Actors[i];
+      /* THE GUN'S BURSTS, drained in the same pass as the releases and in the same actor order: rounds
+       * fired during this tick enter the world now and are first flown in the next one. */
+      FBGunBurst gb;
+      while (carrier.Module().Guns().TakeBurst(gb)) {
+        if (Bullets.Launch(gb)) {
+          FBLogUnitScope us(carrier.LogLabel());
+          FBLog::Info("gun", "BURST", {{"rounds", gb.Rounds}, {"altM", gb.AltM},
+              {"velE", gb.VelE}, {"velN", gb.VelN}, {"velU", gb.VelU},
+              {"remaining", carrier.Module().Guns().RoundsRemaining()}});
+        } else {
+          FBLogUnitScope us(carrier.LogLabel());
+          FBLog::Warn("gun", "BURST_DROPPED", {{"rounds", gb.Rounds}, {"live", Bullets.LiveCount()}});
+        }
+      }
       FBStoreRelease rel;
       while (carrier.Module().Stores().TakeRelease(rel)) {
         const FBStoreSpec *spec = FBStoreSpecOf(rel.Kind);

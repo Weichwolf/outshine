@@ -17,6 +17,8 @@
 #                 -> build/fb-test-corner-speed
 #   make test-missile  fly the FlightBox AIM-120 model open-loop (motor/drag/trim proof)
 #                 -> build/fb-test-missile-airframe
+#   make test-gun  check the M61A1's ballistics, dispersion fit, EEGS funnel geometry and the lead
+#                 solution against doc/f16/weapons.md -> build/fb-test-gun
 #   make image    build the deployable fb-sim web container (podman)
 #   make up       run the web host container (serves the WASM app on :8080)
 #   make clean    remove build artifacts
@@ -90,17 +92,19 @@ CORE_LIB_SRCS := \
   src/core/FBLog.cpp src/core/FBTelemetry.cpp src/core/FBMissionFile.cpp src/core/FBCommandBus.cpp src/core/FBStateBusTelemetry.cpp \
   src/core/FBRunwayPlateauElevation.cpp src/core/FBBakedDemElevation.cpp src/core/FBFlightMonitor.cpp \
   src/core/FBMissionMonitor.cpp src/core/FBSystemHealth.cpp src/core/FBDamageModel.cpp \
+  src/core/FBGunBallistics.cpp src/core/FBGunProjectiles.cpp \
   src/systems/FBAutopilot.cpp src/systems/FBFlightControl.cpp src/systems/FBDisplaySystem.cpp \
   src/systems/FBAirDataSystem.cpp src/systems/FBRadarAltimeter.cpp src/systems/FBNavSystem.cpp \
   src/systems/FBAirframeControls.cpp src/systems/FBPilot.cpp src/systems/FBDatalinkSystem.cpp \
   src/systems/FBRadarSystem.cpp src/systems/FBBfmTrack.cpp src/systems/FBWarningSystem.cpp \
   src/systems/FBEngagement.cpp src/systems/FBPilotTuning.cpp \
   src/systems/FBRwrSystem.cpp src/systems/FBCountermeasureSystem.cpp \
-  src/systems/FBStoresSystem.cpp \
+  src/systems/FBStoresSystem.cpp src/systems/FBGunSystem.cpp \
   src/modules/FBModuleRegistry.cpp \
   src/modules/f16/FBF16Fcr.cpp src/modules/f16/FBF16Cmds.cpp src/modules/f16/FBF16Damage.cpp \
   src/modules/f16/FBF16Max7456.cpp src/modules/f16/FBF16Module.cpp src/modules/f16/FBF16FireControl.cpp \
-  src/modules/f16/FBF16Ufc.cpp src/modules/f16/FBF16Sms.cpp src/modules/f16/FBF16Pilot.cpp \
+  src/modules/f16/FBF16Ufc.cpp src/modules/f16/FBF16Sms.cpp src/modules/f16/FBF16Gun.cpp \
+  src/modules/f16/FBF16Pilot.cpp \
   src/modules/f16/FBF16ModuleRegistration.cpp \
   src/modules/stores/FBStoreModule.cpp src/modules/stores/FBStoreModuleRegistration.cpp \
   src/modules/missile/FBMissileModule.cpp src/modules/missile/FBMissileModuleRegistration.cpp \
@@ -110,7 +114,7 @@ CORE_LIB_SRCS := \
   src/units/FBSimUnit.cpp \
   src/render/FBHudGeometry.cpp
 
-.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile image up down restart clean
+.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun image up down restart clean
 
 help:            ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
@@ -271,6 +275,16 @@ test-corner: core-lib    ## measure the vanilla model's corner speed (BFM energy
 	    -lpthread -ldl -lm \
 	    -o build/fb-test-corner-speed; \
 	  echo "test-corner -> build/fb-test-corner-speed"
+
+test-gun: core-lib     ## check the gun's ballistics/EEGS geometry against doc/f16/weapons.md -> build/fb-test-gun
+	@cd $(SELF_DIR); set -e; \
+	  c++ src/app/FBTestGun.cpp src/app/FBLogSinks.cpp \
+	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
+	    -std=c++17 -O2 $(CXX_WARN) \
+	    $(INC_NATIVE) -isystem $(JSB_HOST)/include/JSBSim \
+	    -lpthread -ldl -lm \
+	    -o build/fb-test-gun; \
+	  echo "test-gun -> build/fb-test-gun"
 
 test-missile: core-lib   ## fly the FlightBox AIM-120 model open-loop (motor/drag/trim proof) -> build/fb-test-missile-airframe
 	@cd $(SELF_DIR); set -e; \

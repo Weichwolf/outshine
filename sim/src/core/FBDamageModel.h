@@ -67,10 +67,34 @@ struct FBDamageZoneSpec {
   int SystemCount = 0;
 };
 
+/* The layout, plus the ONE piece of airframe geometry a projectile stream needs that a fragment burst
+ * does not: how big a target the aircraft presents to something arriving from a given direction. A
+ * warhead sprays isotropically and the airframe's cross-section never enters its arithmetic (see the
+ * banner); a burst of gunfire is a narrow pattern that either lands on the aircraft or does not, so the
+ * PRESENTED AREA is what decides how much of it arrives. Two numbers rather than one, because the
+ * difference between them is a factor of three on any fighter and it is free to interpolate: the area
+ * seen along the longitudinal axis, and the area seen across it. A module that declares neither (the
+ * default, and every released store) presents nothing and takes no gun damage — which is correct: a
+ * bomb in free flight is not something anybody shoots at. */
 struct FBDamageLayout {
   const FBDamageZoneSpec *Zones = nullptr;
   int ZoneCount = 0;
+  double FrontalAreaM2 = 0.0;   /* seen head-on/from astern */
+  double LateralAreaM2 = 0.0;   /* seen from the side or from above */
+  /* ...and how far the airframe REACHES in those two views (metres from its centre): half the span seen
+   * from astern, half the length seen from the side. The area says how much material there is, this says
+   * how far out it is scattered — see core/FBGunBallistics.h's two-scale hit model for why one number
+   * cannot do both jobs. Zero = undeclared, and the hit model then treats the target as compact. */
+  double FrontalExtentM = 0.0;
+  double LateralExtentM = 0.0;
 };
+
+/* The presented area for a stream arriving along `fwd/right/down` in the target's own body frame (the
+ * vector need not be normalised). |cos| of the axis angle times frontal, |sin| times lateral — the
+ * simplest interpolation that is exact at both ends, and no claim at all about the shape in between. */
+double FBPresentedAreaM2(const FBDamageLayout &layout, double fwd, double right, double down);
+/* ...and the matching half-extent for that same direction, interpolated the same way. */
+double FBPresentedExtentM(const FBDamageLayout &layout, double fwd, double right, double down);
 
 /* ONE burst, as the owner of the simulation measured it: WHERE it went off in the target's own body
  * frame (+forward/+right/+down from the CG, metres — the runner rotates its closest-approach vector
@@ -129,12 +153,44 @@ constexpr double kRadarRangeDegraded = 0.7071067811865476;
  * behind a damage verdict instead of trusting it. */
 double FBFragmentFluxJm2(double warheadKg, double rangeM, double closureMs);
 
+/* ONE BURST OF GUNFIRE ARRIVING ON AN AIRFRAME — the kinetic counterpart of FBBurst, and deliberately a
+ * different input type rather than a flag on the same one, because the two weapon effects are known
+ * through different things. A warhead is known by its MASS and the model derives the energy that reaches
+ * a surface from it (fragment spread, 1/r^2). A gun burst is known by the ENERGY DENSITY it delivers,
+ * which the owner of the simulation has already computed from the round count, the impact speed and the
+ * pattern's spread at that range (core/FBGunBallistics.h's FBGunFluxJm2) — a number this file has no
+ * business re-deriving and could not, since it never sees a round.
+ *
+ * WHAT IT SHARES WITH A WARHEAD BURST, and why that is legitimate: the DESTINATION. Both express what
+ * arrives as J/m^2 of areal energy at a place on the airframe, and both are judged against the same
+ * per-system thresholds, so one damage register answers for both without a second, uncalibrated set of
+ * numbers. That is a stated modelling decision and not a physical claim: 20 mm impacts and warhead
+ * fragments do not damage structure by the same mechanism, and expressing both as areal energy is the
+ * common currency this simulator uses, not a statement that they are equivalent.
+ *
+ * WHERE IT LANDS. A bullet stream is a narrow pattern, not an isotropic spray, so it does NOT reach
+ * every zone: the rounds arrive in a footprint of radius ~SpreadM about the point where the stream's
+ * axis passed the airframe, and only the zones that footprint overlaps see anything at all. That, and
+ * not any threshold, is what makes a gun a surgical weapon and a warhead an area one. */
+struct FBKineticBurst {
+  double FwdM = 0.0;        /* where the stream's axis passed, along the airframe axis from the CG */
+  double FluxJm2 = 0.0;     /* areal energy arriving there */
+  double SpreadM = 0.0;     /* the pattern's sigma at the target — the footprint's own size */
+  double Rounds = 0.0;      /* expected rounds on the airframe, for the record */
+  double ImpactSpeedMs = 0.0;
+};
+
 class FBDamageModel {
 public:
   /* Resolves one burst against one aircraft's layout and health register. Returns what changed; the
    * register itself is the state. A layout with no zones (the default for any module that has not
    * declared one — a released store, for instance) takes no damage and returns an empty result. */
   static FBDamageResult Apply(const FBBurst &burst, const FBDamageLayout &layout, FBSystemHealth &health);
+
+  /* ...and the same for a burst of gunfire (see FBKineticBurst). Same register, same thresholds, same
+   * monotone rules, same absence of randomness — only the geometry of what arrives differs. */
+  static FBDamageResult ApplyKinetic(const FBKineticBurst &burst, const FBDamageLayout &layout,
+                                     FBSystemHealth &health);
 };
 
 } // namespace FlightBox

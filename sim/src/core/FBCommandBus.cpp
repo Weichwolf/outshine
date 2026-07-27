@@ -29,6 +29,7 @@ const char *FBCommandTargetStr(FBCommandTarget t) {
     case FBCommandTarget::CmDispense: return "cm_dispense";
     case FBCommandTarget::CmConsent: return "cm_consent";
     case FBCommandTarget::CmdsMode: return "cmds_mode";
+    case FBCommandTarget::GunTrigger: return "gun_trigger";
   }
   return "?";
 }
@@ -72,6 +73,10 @@ FBCommandGroup FBCommandGroupOf(FBCommandTarget t) {
      * box that actually lets go of the store, at that box's own rate. */
     case FBCommandTarget::StationSelect:
     case FBCommandTarget::WeaponRelease:
+    /* The gun is not the SMS, but it is armament and it is answered in the same slot tick: one group
+     * for "the things that make this aircraft lethal", so a trigger takes effect at the cadence of the
+     * box that fires it (systems/FBGunSystem). */
+    case FBCommandTarget::GunTrigger:
       return FBCommandGroup::Stores;
     /* The defensive suite's own group, answered in the module's Defensive slot tick beside the RWR and
      * the dispenser themselves. */
@@ -161,7 +166,8 @@ FBCommandAck FBCommandBus::Post(FBCommandTarget target, double value, double now
   c.Target = target;
   c.Value = value;
   c.IssuedS = nowS;
-  c.DueS = nowS + (cls == FBCommandClass::Ded ? kDedLatencyS : kHotasLatencyS);
+  c.DueS = nowS + LatencyS(c.Target);
+  (void)cls;
   Issued_++;
 
   FBLog::Info("cmd", "CMD_ISSUE", {{"seq", (int)c.Seq}, {"target", FBCommandTargetStr(target)},

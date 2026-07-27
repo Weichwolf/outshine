@@ -77,7 +77,7 @@ unit two
 | Akteur  | `module`  | Rest der Zeile | Modulname, per `FBModuleRegistry` aufgelöst (heute nur `f16` registriert) — bestimmt sowohl das `FBModule` als auch den JSBSim-Aircraft-Ordnernamen (`vendor/jsbsim/aircraft/<module>`). Pflicht je Block. |
 | Akteur  | `team`    | `friendly`\|`hostile`\|`neutral` | Fraktion (`FBUnitTeam`, `core/FBTeam.h`) — landet in der `FBWorld`-Unit-Registry, die Sensoren/Waffen künftig lesen. Optional, Default `friendly`. |
 | Akteur  | `spawn`   | `<lat lon \| threshold>` `<altM \| ground>` `hdgDeg` `speedKt` | Pflicht, genau einmal je Block: die deklarative IC dieser Einheit — Position, Höhe-ODER-Boden, Kurs, Speed. `threshold` übernimmt lat/lon der missionsweiten `runway`-Zeile (reine Schreib-Convenience, keine zweite Positions-Syntax). `ground` löst die Höhe aus Gelände + Fahrwerksgeometrie auf; ein numerischer Wert ist eine LITERALE ASL-Höhe (ein Luftstart). Beide Fälle durchlaufen dieselbe eine JSBSim-IC-Anwendung. |
-| Akteur  | `set`     | `key value...` | Systemzustand als Missionsdaten — der Runner parst nur die KV-Liste und reicht sie im Spawn-IC-Fenster an `FBModule::ApplySetup(key, value)` DIESER Einheit; das MODUL interpretiert seine eigenen Schlüssel. Ein unbekannter Schlüssel ist ein Laufzeit-FAIL (Exit 1, `SET_REJECTED`-Event), kein Parse-Fehler. F-16 kennt heute: `gear` (`up`/`down`), `fuel_lbs` (absolute Tankmenge, lb), `fuel_pct` (0..100, Anteil der modelleigenen Gesamtkapazität), die vier Schalter des MIDS-Terminals — `datalink` (`on`/`off`, Geräte-Strom), `datalink_xmt` (`on`/`off`, XMT/EMCON), `datalink_filter` (`fr`/`fl`/`off`, HSD-Kontaktfilter), `datalink_range_nm` (Terminal-Reichweite, nm) — sowie FCR/IFF: `fcr_mode` (`off`/`crm`/`acm_hud`/`acm_bore`/`acm_vert`/`acm_slew`), `fcr_range_nm` (überschreibt die Reichweite JEDES Modus), `fcr_slew_az`/`fcr_slew_el` (Cursor der Slewable-Box, Grad), `iff_xpdr` (`on`/`off`, eigener Transponder), `iff_interrogator` (`on`/`off`, eigener Abfrager); die Defensivanlage — `rwr` (`on`/`off`, Strom des Warnempfängers), `rwr_display` (`priority`/`open`, TWP-MODE-Anzeigedeckel), `rwr_search` (`on`/`off`, SEARCH-Filter), `cmds_mode` (`off`/`stby`/`man`/`semi`/`auto`/`byp`), `cmds_program` (1..6, PRGM-Knopf), `cmds_chaff`/`cmds_flare` (Vorrat je Typ, zusammen ≤ 120); dazu `task` (`route`/`bfm`/`intercept`) — die FBPilot-Phase, in der diese Einheit startet (Default = das, was der Spawn vorgibt: `route` in der Luft, `preflight` am Boden); sowie die Zuladung `store <station> <typ>` (eine Zeile je Pylon, F-16-Stationen 1..9, Typ aus dem Katalog `core/FBStore.h` — heute `mk82`) und `brief_release_s <t>` (wiederholbar: wann der Pilot pickelt, Sim-Sekunden) sowie `brief_chaff_s <t>` (wiederholbar: wann er Täuschkörper wirft); schließlich die PILOTEN-VARIANTE `pilot_*` (s. „Piloten-Varianten" unten). |
+| Akteur  | `set`     | `key value...` | Systemzustand als Missionsdaten — der Runner parst nur die KV-Liste und reicht sie im Spawn-IC-Fenster an `FBModule::ApplySetup(key, value)` DIESER Einheit; das MODUL interpretiert seine eigenen Schlüssel. Ein unbekannter Schlüssel ist ein Laufzeit-FAIL (Exit 1, `SET_REJECTED`-Event), kein Parse-Fehler. F-16 kennt heute: `gear` (`up`/`down`), `fuel_lbs` (absolute Tankmenge, lb), `fuel_pct` (0..100, Anteil der modelleigenen Gesamtkapazität), die vier Schalter des MIDS-Terminals — `datalink` (`on`/`off`, Geräte-Strom), `datalink_xmt` (`on`/`off`, XMT/EMCON), `datalink_filter` (`fr`/`fl`/`off`, HSD-Kontaktfilter), `datalink_range_nm` (Terminal-Reichweite, nm) — sowie FCR/IFF: `fcr_mode` (`off`/`crm`/`acm_hud`/`acm_bore`/`acm_vert`/`acm_slew`), `fcr_range_nm` (überschreibt die Reichweite JEDES Modus), `fcr_slew_az`/`fcr_slew_el` (Cursor der Slewable-Box, Grad), `iff_xpdr` (`on`/`off`, eigener Transponder), `iff_interrogator` (`on`/`off`, eigener Abfrager); die Defensivanlage — `rwr` (`on`/`off`, Strom des Warnempfängers), `rwr_display` (`priority`/`open`, TWP-MODE-Anzeigedeckel), `rwr_search` (`on`/`off`, SEARCH-Filter), `cmds_mode` (`off`/`stby`/`man`/`semi`/`auto`/`byp`), `cmds_program` (1..6, PRGM-Knopf), `cmds_chaff`/`cmds_flare` (Vorrat je Typ, zusammen ≤ 120); dazu `task` (`route`/`bfm`/`intercept`) — die FBPilot-Phase, in der diese Einheit startet (Default = das, was der Spawn vorgibt: `route` in der Luft, `preflight` am Boden); die Bordkanone `gun_rounds <n>` (Trommelinhalt beim Start, 0..510 — mehr als die Kapazität ist ein FAIL); sowie die Zuladung `store <station> <typ>` (eine Zeile je Pylon, F-16-Stationen 1..9, Typ aus dem Katalog `core/FBStore.h` — heute `mk82`) und `brief_release_s <t>` (wiederholbar: wann der Pilot pickelt, Sim-Sekunden) sowie `brief_chaff_s <t>` (wiederholbar: wann er Täuschkörper wirft); schließlich die PILOTEN-VARIANTE `pilot_*` (s. „Piloten-Varianten" unten). |
 | Akteur  | `wp`      | lat lon altM speedKt | `FBWaypoint` vom Typ `Enroute`, im Flugplan DIESER Einheit |
 | Akteur  | `land`    | — | `FBWaypoint` vom Typ `Land` AN der Runway-Schwelle (braucht die missionsweite `runway`-Zeile) |
 | Akteur  | `objective` | `survive` \| `waypoints` \| `kill unit <callsign>` \| `kill team <fraktion>` | KAMPFZIEL dieser Einheit (`core/FBObjective.h`) — wiederholbar, s. „Kampfziele" unten. `kill unit` muss eine Einheit DIESER Mission nennen (Vorwärtsreferenz erlaubt, geprüft am Dateiende) und nicht die eigene; `objective waypoints` braucht `wp`/`land`-Zeilen darüber. Ein doppelt deklariertes Ziel ist ein Parse-Fehler. |
@@ -528,6 +528,53 @@ echter SMS tut. `missions/mk82-safe.fbm` ist der Referenzlauf für die Ablehnung
 scharfgeschaltet), `missions/mk82-drop.fbm` fährt beide Fälle: vier Abwürfe und ein Pickle auf einen
 leeren Jet.
 
+### Die Bordkanone
+
+Die M61A1 ist kein Store: sie hängt an keinem Pylon, verlässt das Flugzeug nie und feuert einen STROM.
+Deshalb hat sie einen eigenen Systemslot (`systems/FBGunSystem`, F-16-Installation
+`modules/f16/FBF16Gun`), einen eigenen Bus-Block (`FBGunBlock`) und eine eigene Missionszeile:
+
+```
+unit viper
+  module f16
+  set brief_master_arm arm    # ohne ARM verweigert die Kanone den Abzug
+  set gun_rounds 40           # optional: weniger als die vollen 510 (z.B. für den Leer-Beweis)
+  set task bfm                # geschossen wird in der Kampfphase
+  set pilot_gun_burst_s 0.3   # optional: kürzere Feuerstöße
+```
+
+**Der Abzug ist ein Kommando** (`GunTrigger`, HOTAS-Klasse), sein WERT die Dauer des Drucks in Sekunden
+(gekappt auf `MaxBurstS` = 1,0 s, gemeldet als `clamped`). Die Latenz ist ausnahmsweise NICHT die
+0,5-s-Tastendauer der anderen HOTAS-Kommandos, sondern 0,1 s: die Verzögerung zwischen Fingerdruck und
+erstem Schuss ist der Hochlauf der Rohre, und der steckt bereits im Waffenmodell (`SpoolUpS` 0,3 s) —
+beides zu zählen wäre doppelt gerechnet (`core/FBCommandBus::kTriggerLatencyS`). Abgelehnt wird mit
+Grund: `hardware_precedence` (Master Arm SAFE oder Räder am Boden), `depleted` (leere Trommel),
+`system_failed` (Kanone zerschossen).
+
+**Was ein Feuerstoß IST** (`core/FBGun.h`): pro Sim-Tick ein ballistisches BÜNDEL — bei 6.000 Schuss/min
+und 0,1 s Tick zehn Schuss mit einer gemeinsamen Startgeschwindigkeit (Mündungsgeschwindigkeit auf die
+Bore-Richtung PLUS die Eigengeschwindigkeit des Jets) und einem Streukegel. Geflogen wird das Bündel vom
+Klienten (`core/FBGunProjectiles`, Schwerkraft + quadratischer Widerstand gegen die ISA-Dichte), getroffen
+wird auf den VERÖFFENTLICHTEN Posen (`app/FBMissionRunner`) — dieselbe Grenze wie beim Näherungszünder:
+die Waffe wertet ihren eigenen Treffer nie aus.
+
+Ereignisse in `events.log`: `gun TRIGGER` (jeder Druck), `gun BURST` (jedes Bündel), `gun HIT`
+(erwartete Treffer, Streuung, Aufschlaggeschwindigkeit, Energiedichte, Zone), `gun MISS` (die dichteste
+Annäherung eines Bündels, das nichts getroffen hat), `gun DRY` (Trommel leer), `pilot GUN_TRACK` (der
+Pilot fliegt jetzt den Trichter statt der Verfolgungskurve). Telemetrie: die `gun_*`-Spalten am rechten
+Rand (Trommelinhalt, Verbrauch, Abzüge, Ablehnungen, Lösung + Trichter-Urteil).
+
+**Was die Treffer machen** (`core/FBDamageModel::ApplyKinetic`): dieselbe Register-, Zonen- und
+Schwellenlogik wie ein Gefechtskopf, nur wird die ankommende Flächenenergie aus Trefferzahl,
+Aufschlaggeschwindigkeit und Streuung berechnet statt aus einer Splittermasse — und sie SUMMIERT sich je
+Zone, weil ein Feuerstoß ein durchgehender Strom ist, den der Tick nur in Bündel zerschneidet (sonst
+hinge der Schaden an der Tickrate). Ein Gefechtskopf summiert nicht: eine Detonation ist EIN Ereignis.
+
+**Beweismission**: `missions/gun-bfm.fbm` (Zielverfolgungspass gegen einen geradeaus fliegenden Gegner)
+— endet planmäßig im TIMEOUT (Exit 3), das Urteil steht in den Ereignissen. Die Zahlen der Waffe selbst
+(Streuungs-Fit gegen MIL-DTL-45500/1A, Flugzeit, Trichter-Geometrie, Vorhaltelösung gegen die geflogene
+Bahn, Munitionsverbrauch, Ablehnung bei leerer Trommel) prüft `make -C sim test-gun`.
+
 ### Startbedingung des Stores
 
 Position, Lage und Geschwindigkeitsvektor kommen aus dem TRÄGER, über die eine deklarative
@@ -746,6 +793,10 @@ Parameter bleibt die eigene Zahl des Piloten — eine Mission ohne `pilot_*`-Zei
 | `pilot_defend_hold_s` | 0…120 | wie lange die Verteidigung nach der letzten Warnung gehalten wird |
 | `pilot_react_s` | 0…30 | menschliche Reaktionszeit auf eine Bedrohungswarnung (Default 1,0 s) |
 | `pilot_action_s` | 0,1…30 | eine Bedienhandlung pro dieser Zeit (Default 0,5 s) |
+| `pilot_gun_burst_s` | 0,1…1,0 | Länge EINES Abzugsdrucks (Default 0,5 s ≈ 50 Schuss) |
+| `pilot_gun_tol_frac` | 0,05…1,0 | wie eng der Pipper vor dem Schuss gehalten wird, als Anteil der Trichter-Toleranz (Default 0,35) |
+| `pilot_bfm_ctrl_min_nm` | 0,05…5,0 | Nahkante der Kontrollposition im Kurvenkampf |
+| `pilot_bfm_ctrl_max_nm` | 0,05…10,0 | ...und ihre Fernkante — eine Kanonenposition liegt IM Trichter (600…3.000 ft), eine Raketenposition außerhalb |
 
 Beides — Reaktions- und Handlungszeit — liegt weiterhin ZUSÄTZLICH zur Bus-Latenz der jeweiligen
 Bedienklasse (`core/FBCommandBus`); keine Variante kann schneller antworten, als der Jet erlaubt. Ein

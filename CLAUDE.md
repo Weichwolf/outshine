@@ -274,6 +274,17 @@ dieser Rollenverteilung:
   Zündpunkts zum jeweiligen Achsabschnitt), also ein 1/r²-Abfall statt einer Partition — die Zelle ist
   als ihre Längsachse modelliert, mehr behauptet das Modell nicht. **Kein Zufall, keine Zeit, kein
   interner Zustand:** gleiche Geometrie → gleiches Schadensbild, thread-unabhängig (nachgemessen).
+- **Kinetische Auflösung (dieselbe Klasse, zweiter Eingang):** `FBDamageModel::ApplyKinetic`. Ein
+  Kanonentreffer ist durch etwas anderes bekannt als ein Gefechtskopf — nicht durch eine Masse, aus der
+  das Modell eine Energie ableitet, sondern durch eine FLÄCHENENERGIEDICHTE, die der Besitzer der
+  Simulation bereits aus Trefferzahl, Aufschlaggeschwindigkeit und Streuung gerechnet hat
+  (`core/FBGunBallistics`). Gleiche Währung (J/m²), gleiches Register, gleiche Schwellen; anders ist die
+  GEOMETRIE (ein Geschossstrom trifft eine Stelle, kein isotroper Splitterregen: nur die Zonen, die der
+  Fußabdruck berührt) und die SUMMIERUNG — kinetische Energie addiert sich je Zone, weil ein Feuerstoß
+  ein durchgehender Strom ist, den erst der Tick in Bündel schneidet; sonst hinge der Schaden an der
+  Tickrate. Ein Gefechtskopf summiert nicht: eine Detonation ist EIN Ereignis. Wieviel Ziel ein Strom
+  überhaupt trifft, sagt die Zellengeometrie des Moduls (`FBDamageLayout`: Stirn-/Seitenfläche UND
+  Stirn-/Seiten-Ausdehnung, zwei Maßstäbe, weil ein Jäger viel Spannweite und wenig Material hat).
 - **Zonen + Schwellen (Moduldaten):** `modules/f16/FBF16Damage`. Wo die Systeme sitzen, weiß nur das
   Flugzeug; jede Zonengrenze ist aus der Geometrie des gepinnten Modells abgeleitet (s. dort). Die vier
   Fragilitätsklassen (Avionik/Triebwerk/FLCS/Struktur, je Degrade- und Fail-Schwelle in J/m²) sind die
@@ -375,7 +386,15 @@ sim/src/
              Fragment-Flächendichte/Energie am Treffpunkt, Zonen entlang der Zellenachse, die
              physischen Folge-Konstanten; kein Zufall, keine Zeitabhängigkeit, kein interner Zustand),
              der
-             Elevation-Hook (FBElevationProvider/FBConstantElevation/FBRunwayPlateauElevation/
+             die Kanonen-Wertetypen und -Primitive — FBGun (Katalog: M61A1 mit Mündungsgeschwindigkeit/
+             Feuerrate/Trommel/Streuung, jede Zahl mit ihrer Konfidenzstufe aus doc/f16/weapons.md §4.1;
+             plus FBGunBurst, das eine Bündel), FBGunBallistics (die GETEILTE Ballistik: Widerstands-
+             Retardation, die geschlossenen Formen v(t)/s(t)/t(s), die Vorhaltelösung inkl. der Kanten-
+             Korrektur für die Eigengeschwindigkeit, und das Trefferdichte-/Energiemodell — dieselbe
+             Arithmetik für das Feuerleitsystem VOR dem Schuss und die Geschosse DANACH, weil ein
+             ungelenktes Geschoss genau diese Bahn fliegt), FBGunProjectiles (der Bündel-Pool des
+             Klienten: fixe Kapazität, keine Allokation, kein Zufall — FBDamageModels Geschwister),
+             der Elevation-Hook (FBElevationProvider/FBConstantElevation/FBRunwayPlateauElevation/
              FBBakedDemElevation, s.o.), gemeinsame Basistypen — zeigt NIE nach systems/ oder
              modules/. Zwei getrennte Kanäle für alles, was sonst verstreutes printf/fprintf wäre:
                FBLog (`FBLog.h/.cpp`) — diskrete, geleveled Ereignisse (Debug/Info/Warn/Error), ein
@@ -531,6 +550,19 @@ sim/src/
                Ausgelöst wird ausschließlich über den Kommandobus (`WeaponRelease`), also ablehnbar:
                Master Arm nicht ARM / Gewicht auf dem Fahrwerk = hardware_precedence, keine belegte
                Station = out_of_context;
+               FBGunSystem (`.h/.cpp`): der Bordkanonen-Slot und FBStoresSystem's Geschwister — Trommel,
+               Feuerrate, Verriegelungen, der EINE Weg, auf dem Schüsse das Flugzeug verlassen. Er
+               unterscheidet sich vom SMS genau dort, wo die Waffen sich unterscheiden: ein Store geht
+               EINZELN und wird eine eigene Einheit, die Kanone liefert einen STROM, den der Tick in
+               ballistische BÜNDEL schneidet (`core/FBGun.h`: 6.000 Schuss/min · 0,1 s = zehn Schuss je
+               Bündel, mit einer gemeinsamen Startgeschwindigkeit und einem Streukegel). Die Rate wird
+               INTEGRIERT (Bruchteile werden mitgeführt), damit die Trommel unabhängig von der Taktung des
+               Slots in Kapazität/Rate Sekunden leer ist. Ausgelöst wird über den Kommandobus
+               (`GunTrigger`, WERT = Dauer des Abzugsdrucks), also ablehnbar: Master Arm SAFE oder Räder
+               am Boden = hardware_precedence, leere Trommel = depleted. Und sie wertet NIE einen eigenen
+               Treffer: ein Feuerstoß legt `FBGunBurst`-Sätze in eine Warteschlange, die der Besitzer der
+               Simulation leert, fliegt (core/FBGunProjectiles) und gegen die veröffentlichten Posen
+               auflöst — dieselbe Grenze wie beim Näherungszünder;
                FBRwrSystem (eigene Datei, `FBRwrSystem.h/.cpp`): die PASSIVE Hälfte des Defensiv-Slots
                und das exakte Spiegelbild des Radars — nicht „was ist da draußen", sondern „wer schaut
                mich an". Sie liest ausschließlich die publizierten Emissions-Signaturen der Registry
@@ -763,7 +795,11 @@ sim/src/
                          — neun Stationen, verankert an den Referenzen, die das Modell selbst hergibt
                          [Tank-Butt-Line ±65 in für 4/6, halbe Spannweite 180 in für die Spitzen,
                          CG-Station längs, weil doc/f16/weapons.md §4.5 die Stationsdaten selbst als T4
-                         markiert] — alles Verhalten ist systems/FBStoresSystem), FBF16Damage (die
+                         markiert] — alles Verhalten ist systems/FBStoresSystem), FBF16Gun (dasselbe Muster
+                         für die Kanone: NUR welche Waffe dieser Jet trägt [M61A1] und wo sie sitzt
+                         [Mündung in der linken Rumpfwurzel-Strake, +4,6/−0,9/−0,3 m zum CG, Bore parallel
+                         zur Rumpfreferenzlinie, weil doc/f16/ keinen Einbauwinkel nennt] — alles
+                         Verhalten ist systems/FBGunSystem), FBF16Damage (die
                          SCHADENSZONEN dieses Musters: vier Abschnitte entlang der Zellenachse, jede
                          Grenze aus dem gepinnten f16.xml selbst abgeleitet [RADOME −486,6 in → +7,46 m
                          vor dem CG, EYEPOINT → +3,64 m, Ventralfinnen → −2,42 m, Fanghaken → −7,46 m],
@@ -880,7 +916,7 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
 
 - **Build nur über Make-Targets** — jedes Projekt trägt sein eigenes Makefile: `sim/` baut die CC
   (`make -C sim wasm` | `worker` | `core-lib` | `native` | `gym` | `test-monitor` | `test-fdm` |
-  `test-corner` | `image` | `up`), `tiles/` den
+  `test-corner` | `test-missile` | `test-gun` | `image` | `up`), `tiles/` den
   Tile-Server (`make -C tiles build` | `image` | `run`). Rezepte leben im Makefile, nicht in
   Agenten-Köpfen.
 - **`extern "C"` für jede von JS namentlich gerufene Funktion** (EMSCRIPTEN_KEEPALIVE reicht nicht —
@@ -939,7 +975,8 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
   Gesamturteil eine reine Kombination im Runner — s.o.), nie einen geteilten Richter für die Besetzung.
   Piloten/Module wirken NUR über die simulierten Systeme (`fcs/*-cmd-norm` via FBFlightControl/
   FBAutopilot, FBAirframeControls für Gear/Brakes/Steer/Speedbrake/Engine, Throttle, Tank-Füllstand via
-  `FBFdm::SetFuel*`, Waffenauslösung via Kommandobus -> `FBStoresSystem::Release`) — der einzige
+  `FBFdm::SetFuel*`, Waffenauslösung via Kommandobus -> `FBStoresSystem::Release` bzw.
+  `FBGunSystem::Trigger`) — der einzige
   State-Schreiber (JSBSim-IC/Trim) ist der App-eigene Boot-Spawn (`FBMissionBoot.h::FBMissionSpawnActor`
   und, für einen abgeworfenen Store, `FBMissionSpawnStore` im selben Header, plus die gleichrangigen
   App-Boot-Pfade `FBAppWasm.cpp`s `?ap=manual` und dedizierte Test-Harnesses). Auch eine Waffe kann sich

@@ -1,5 +1,6 @@
 #include "FBPilot.h"
 #include "FBGeodesy.h"
+#include "FBLog.h"
 #include <cmath>
 
 namespace FlightBox {
@@ -182,7 +183,8 @@ double FBPilot::PitchHoldStick(double targetDeg, double pitchDeg, double qDegS, 
  * that prediction to be worth less than a look does the scan start weaving to walk the (body-fixed)
  * radar box across the uncertainty. Getting the target back into the scan volume is itself a manoeuvre
  * goal here, which is exactly what flying without eyes means. */
-FBPilotCommands FBPilot::BfmCommands(const FBState &state, const fb_fdm_state &st, double dt) {
+FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionics,
+                                    const fb_fdm_state &st, double dt) {
   Bfm_.Update(state, st, TimeS_);
   const FBBfmBlock &g = Bfm_.Block();
   /* The head answers the two questions this whole law branches on: is there anything at all (Readable)
@@ -215,14 +217,22 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, const fb_fdm_state &s
    * costs nothing in energy. LEAD (aim where he will be) while the ANGLES are still the problem: a high
    * aspect means this jet is not on his tail yet and cutting the corner is what fixes that. PURE (aim at
    * him) in between, which is also the tracking solution once the control position is reached. */
-  double ctrlMidNm = 0.5 * (BfmControlMinNm() + BfmControlMaxNm());
+  /* THE CONTROL POSITION this fight is being flown to. Read through the variant table (systems/
+   * FBPilotTuning) rather than straight off the airframe's hooks, because it is the one BFM number a
+   * mission genuinely has to be able to change: the range band that is right for holding a firing
+   * position with a missile is outside the gun's own funnel (doc/f16/weapons.md §2.5 puts that at
+   * 600-3,000 ft), so a guns brief IS a different control position and nothing else about the fight
+   * changes with it. Unset = this pilot's own numbers, so every existing mission is untouched. */
+  const double ctrlMinNm = Tuned(FBPilotParam::BfmCtrlMinNm, BfmControlMinNm());
+  const double ctrlMaxNm = Tuned(FBPilotParam::BfmCtrlMaxNm, BfmControlMaxNm());
+  double ctrlMidNm = 0.5 * (ctrlMinNm + ctrlMaxNm);
   double schedKt = Clamp((rngNm - ctrlMidNm) * BfmClosureGainKtPerNm(), -BfmMaxClosureKt(),
                          BfmMaxClosureKt());
   bool overtaking = validTrack && closKt > schedKt + kBfmClosureDeadKt;
 
   FBBfmPursuit mode;
   if (!validTrack) mode = FBBfmPursuit::Search;
-  else if (rngNm < BfmControlMinNm() || overtaking) mode = FBBfmPursuit::Lag;
+  else if (rngNm < ctrlMinNm || overtaking) mode = FBBfmPursuit::Lag;
   else if (g.AspectDeg > BfmLeadAspectDeg() || rngNm > BfmLeadRangeNm()) mode = FBBfmPursuit::Lead;
   else mode = FBBfmPursuit::Pure;
 
@@ -311,6 +321,47 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, const fb_fdm_state &s
   double azErr = 0.0, elErr = 0.0;
   FBEnuToBodyLos(st.roll, st.pitch, st.yaw, aimE, aimN, aimU, azErr, elErr);
 
+  /* ---- 3b. GUN TRACKING: inside the funnel, fly the funnel ----
+   * Pursuit steering aims the nose at a POSITION — where he is, where he will be in a couple of
+   * seconds, or a point behind him. None of those is where a gun has to point: a 20 mm round takes a
+   * third of a second to cross 300 m and the target moves a wingspan's worth of angle in that time, so
+   * pure pursuit inside gun range is a guaranteed miss (measured: with the default law the aim error at
+   * the control position runs to ~9 deg against a funnel tolerance of ~1 deg, and the trigger never
+   * comes down).
+   *
+   * So once the target is inside the funnel's own range window — the guide's own in-range test, which
+   * is that it no longer appears smaller than the funnel's wide end (doc/f16/weapons.md §2.5) — the
+   * steering error becomes the LEAD error the fire control publishes: the angle between where the gun
+   * has to point and where the nose is. Flying that to zero is exactly what a pilot does with the
+   * funnel, and it is the same solution the trigger gate reads, so aiming and shooting cannot disagree.
+   * The pilot computes nothing here: it reads one number off the bus, like every other instrument. */
+  const FBFireControlBlock &fc = state.FireControl;
+  /* THREE conditions, and the last two are what keep this from being a worse pursuit law than the one
+   * above. In range (the guide's own test) is not enough: a gun solution exists for a target ANYWHERE,
+   * including one that has just gone past the wing, and its required bore is then 170 degrees off the
+   * nose. Handing that to the lift-vector law as a steering error produces a violent, energy-destroying
+   * reversal — measured, it flew the jet into the ground in 158 s. So the funnel is flown only when the
+   * target is in front (inside the same angle-off the control position is defined by) AND the lead the
+   * solution asks for is already a TRACKING correction rather than a turn: past that, the pursuit law
+   * above is what gets the nose there, which is its job. */
+  bool gunTrack = state.Gun.H.Readable() && state.Gun.Ready && fc.H.Readable() && fc.GunValid &&
+                  fc.GunSpanMr >= fc.GunFunnelBottomMr &&
+                  std::fabs(g.AzDeg) <= BfmControlAtaDeg() &&
+                  fc.GunAimErrorDeg <= BfmGunTrackMaxErrDeg();
+  if (gunTrack) {
+    azErr = fc.GunLeadAzDeg;
+    elErr = fc.GunLeadElDeg;
+    mode = FBBfmPursuit::Lead;   /* it IS lead pursuit, and the scoreboard should say so */
+  }
+  if (gunTrack != GunTracking_) {
+    GunTracking_ = gunTrack;
+    FBLog::Info("pilot", gunTrack ? "GUN_TRACK" : "GUN_BREAK",
+                {{"rangeM", fc.GunRangeM}, {"tofS", fc.GunTofS}, {"aimErrDeg", fc.GunAimErrorDeg},
+                 {"leadAzDeg", fc.GunLeadAzDeg}, {"leadElDeg", fc.GunLeadElDeg},
+                 {"spanMr", fc.GunSpanMr}, {"bottomMr", fc.GunFunnelBottomMr},
+                 {"rounds", state.Gun.RoundsRemaining}});
+  }
+
   /* The AGL floor outranks everything above it: a fight flown into the ground is not a fight won. */
   const FBRadarAltBlock &ra = state.RadarAlt;
   if (BfmFloorFt() > 0.0 && ra.H.Readable() && ra.AglFt < BfmFloorFt())
@@ -357,10 +408,59 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, const fb_fdm_state &s
     c.ManualThr = std::fmin(c.ManualThr, kBfmThrTrim);   /* past corner the extra knots buy no turn rate */
   c.Speedbrake = speedErrKt < -kBfmSpeedbrakeKt ? 1.0 : 0.0;
 
-  bool inControl = validTrack && g.Locked && rngNm >= BfmControlMinNm() && rngNm <= BfmControlMaxNm() &&
+  bool inControl = validTrack && g.Locked && rngNm >= ctrlMinNm && rngNm <= ctrlMaxNm &&
                    g.AspectDeg <= BfmControlAspectDeg() && std::fabs(g.AzDeg) <= BfmControlAtaDeg();
   Bfm_.Report(mode, inControl, gCmd, dt);
+  BfmGunfire(state, avionics);
   return c;
+}
+
+/* THE SHOT. Everything a gun engagement needs to decide has already been decided by the box that owns
+ * the geometry (modules/f16/FBF16FireControl's EEGS solution): the target is inside the funnel's range
+ * window and the nose is inside the lead solution's own tolerance. So this is not a second aiming
+ * computation — it is the finger, and it does exactly three things a finger does: check the gun is
+ * armed and loaded (the jet's own answer, off the bus), squeeze for a fixed burst, and not squeeze again
+ * before that burst is over.
+ *
+ * IT NEVER CHECKS WHO IT IS SHOOTING AT, and it cannot: the pilot sees a radar track, not a roster
+ * (FBPilot::Run's banner). A fight it was sent into is a fight it shoots in — the mission declares the
+ * cast, and the trigger answers the funnel. */
+void FBPilot::BfmGunfire(const FBState &state, FBCommandBus &avionics) {
+  if (!state.Gun.H.Readable() || !state.Gun.Ready) return;
+  const FBFireControlBlock &fc = state.FireControl;
+  if (!fc.H.Readable() || !fc.GunValid) { GunHaveErr_ = false; return; }
+
+  /* THE TRIGGER TAKES A FINGER'S TIME. Every HOTAS action on this bus arrives one press-duration later
+   * (core/FBCommandBus::LatencyS — a finger's own actuation time for the trigger), and even a tenth of
+   * a second matters in a gun engagement: at a fighter's tracking rates the aiming error moves about two
+   * degrees a second, which at 300 m is ten metres of miss per second of delay (measured — bursts
+   * commanded on a 0.35 deg solution arrived on a 1.7 deg one and passed 8 m clear). So the pilot
+   * squeezes for where the pipper WILL be: the error's own rate of change, differenced across two
+   * decision ticks, extrapolated over exactly the latency the bus will impose plus the round's own time
+   * of flight, which the fire control publishes. Leading the pipper is not a trick — it is what makes a
+   * burst arrive on a moving solution. */
+  double predErrDeg = fc.GunAimErrorDeg;
+  if (GunHaveErr_ && TimeS_ > GunPrevS_) {
+    double rate = (fc.GunAimErrorDeg - GunPrevErrDeg_) / (TimeS_ - GunPrevS_);
+    predErrDeg = fc.GunAimErrorDeg +
+                 rate * (FBCommandBus::LatencyS(FBCommandTarget::GunTrigger) + fc.GunTofS);
+    if (predErrDeg < 0.0) predErrDeg = 0.0;
+  }
+  GunPrevErrDeg_ = fc.GunAimErrorDeg;
+  GunPrevS_ = TimeS_;
+  GunHaveErr_ = true;
+  if (!fc.GunInRange) return;
+  /* THE FUNNEL IS THE SIGHT'S TOLERANCE, NOT THE PILOT'S. Its walls are the target's WINGSPAN, so a
+   * solution just inside it puts the pattern half a span from his centre — on his wingtip if the aim is
+   * perfect and past it if the tracking is drifting (measured: bursts fired at the funnel's own edge
+   * passed 8 m clear). A pilot who is trying to kill rather than to qualify holds the pipper tighter
+   * than that, and this is the number that says how much tighter. */
+  if (predErrDeg > Tuned(FBPilotParam::GunFireTolFrac, BfmGunFireTolFrac()) * fc.GunTolDeg) return;
+  if (TimeS_ < GunNextS_) return;
+  double burstS = Tuned(FBPilotParam::GunBurstS, BfmGunBurstS());
+  if (avionics.Post(FBCommandTarget::GunTrigger, burstS, TimeS_).Outcome == FBCommandOutcome::Rejected)
+    return;
+  GunNextS_ = TimeS_ + burstS;
 }
 
 /* The cockpit half of a decision tick (see the header's brief block). One post per tick, in a fixed
@@ -884,7 +984,7 @@ FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
     }
 
     case Phase::Bfm:
-      return BfmCommands(state, st, dt);
+      return BfmCommands(state, avionics, st, dt);
 
     case Phase::Intercept:
       return InterceptCommands(state, avionics, st, plan, dt);

@@ -54,6 +54,7 @@
 #include "FBF16Datalink.h"
 #include "FBF16Fcr.h"
 #include "FBF16FireControl.h"
+#include "FBF16Gun.h"
 #include "FBF16Max7456.h"
 #include "FBF16Pilot.h"
 #include "FBF16Rwr.h"
@@ -105,6 +106,8 @@ public:
   FBF16Ufc &Ufc() { return *UfcSys; }             /* ALOW/selected-steerpoint placeholder setup */
   FBF16Sms &Sms() { return *SmsSys; }             /* the SMS: loadout, master arm, release */
   FBStoresSystem &Stores() override { return *SmsSys; }   /* the generic Stores slot, filled by it */
+  FBF16Gun &Gun() { return *GunSys; }                      /* the M61A1: drum, trigger, burst stream */
+  FBGunSystem &Guns() override { return *GunSys; }         /* ...as the generic slot the client drains */
   const FBGuidance &LastGuidance() const override { return LastG; }
   int LastSubsteps() const override { return LastSub; }
 
@@ -123,6 +126,9 @@ public:
     /* ...and the SMS, so a round it launches knows whose midcourse uplink to listen to
      * (systems/FBStoresSystem::SetUnitId -> FBWeaponUplink::LauncherId). */
     SmsSys->SetUnitId(unitId);
+    /* ...and the gun, so a burst it fires carries the shooter's identity into the world (the client
+     * excludes the shooter from its own rounds' hit resolution). */
+    GunSys->SetUnitId(unitId);
   }
 
   FBMasterMode GetMasterMode() const { return Mode; }
@@ -200,6 +206,7 @@ private:
   std::unique_ptr<FBF16FireControl> FireCtrl;
   std::unique_ptr<FBF16Ufc> UfcSys;
   std::unique_ptr<FBF16Sms> SmsSys;
+  std::unique_ptr<FBF16Gun> GunSys;
   std::unique_ptr<FBWarningSystem> Warn_;
   float GroundAslM = 0.0f;
 

@@ -275,6 +275,16 @@ protected:
   virtual double BfmScanAmplitudeDeg() const { return 8.0; }
   virtual double BfmScanPeriodS() const { return 30.0; }
   virtual double BfmFloorFt() const { return 2000.0; }   /* AGL below which the pull is biased up */
+  /* THE TRIGGER: how long one squeeze lasts. The command bus enforces 0.5 s between two actions on the
+   * same switch (core/FBCommandBus.h), so a burst of exactly that length is continuous fire for as long
+   * as the funnel holds, and anything longer is a deliberately committed burst. */
+  virtual double BfmGunBurstS() const { return 0.5; }
+  /* How far off the required bore the nose may be and still be a TRACKING problem rather than a turning
+   * one — the boundary between flying the funnel and flying the pursuit law (see BfmCommands). */
+  virtual double BfmGunTrackMaxErrDeg() const { return 20.0; }
+  /* What fraction of the funnel's own tolerance the pilot insists on before squeezing (see BfmGunfire).
+   * 0.35 puts the pattern inside the target's fuselage rather than anywhere across its span. */
+  virtual double BfmGunFireTolFrac() const { return 0.35; }
 
   /* ---- INTERCEPT (the Intercept phase, see the class banner) — this jet's BVR numbers ----
    * Generic placeholders again, and again not the override point: FBF16Pilot supplies the F-16's, each
@@ -328,7 +338,11 @@ private:
 
   /* The Bfm phase's body — one decision tick of the fight (see Run()'s BFM section). Separate because
    * it is the only phase with an inner control law of its own rather than a target for the autopilot. */
-  FBPilotCommands BfmCommands(const FBState &state, const fb_fdm_state &st, double dt);
+  FBPilotCommands BfmCommands(const FBState &state, FBCommandBus &avionics, const fb_fdm_state &st,
+                              double dt);
+  /* The fight's trigger finger (see the .cpp). Separate from the flying above for the same reason the
+   * intercept's cockpit work is: operating a weapon is not steering. */
+  void BfmGunfire(const FBState &state, FBCommandBus &avionics);
   /* The Intercept phase's body (class banner). Separate for the same reason BfmCommands is: it is the
    * only other phase that decides for itself what the aircraft is doing, and the only one that operates
    * avionics as part of flying rather than as briefed cockpit work. */
@@ -382,6 +396,10 @@ private:
   double BfmSearchHdgDeg_ = 0.0;  /* the cold search's anchored heading + altitude (see BfmCommands) */
   double BfmSearchAltM_ = 0.0;
   bool   BfmSearchAnchored_ = false;
+  double GunNextS_ = -1e9;        /* not before the burst already commanded has finished */
+  bool   GunTracking_ = false;    /* flying the funnel (see BfmCommands) — logged on the transition */
+  double GunPrevErrDeg_ = 0.0, GunPrevS_ = 0.0;   /* the aiming error's rate (see BfmGunfire's lead) */
+  bool   GunHaveErr_ = false;
 
   /* The briefed releases, in brief order, consumed front to back — ReleaseNext_ is how many have been
    * pickled, so the array is never rewritten and the sequence is exactly what the mission declared. */

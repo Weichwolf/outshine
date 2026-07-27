@@ -23,6 +23,15 @@ const Entry kParams[] = {
   {"pilot_defend_hold_s",  FBPilotParam::DefendHoldS,        0.0,  120.0},
   {"pilot_react_s",        FBPilotParam::ReactionS,          0.0,   30.0},
   {"pilot_action_s",       FBPilotParam::ActionSpacingS,     0.1,   30.0},
+  /* One squeeze, in seconds. Its DURATION is not the bus's spacing: a pilot may fire a tenth of a
+   * second and wait, and against a tracking solution that only holds for a fraction of a second that is
+   * the shot that hits. Upper rail = the gun's own longest honoured burst (core/FBGun.h's MaxBurstS). */
+  {"pilot_gun_burst_s",    FBPilotParam::GunBurstS,          0.1,    1.0},
+  /* The control position's range band. The rails span "inside the gun's minimum range" to "a missile
+   * shot's worth of separation"; which end a mission wants is what the weapon decides. */
+  {"pilot_gun_tol_frac",   FBPilotParam::GunFireTolFrac,     0.05,    1.0},
+  {"pilot_bfm_ctrl_min_nm", FBPilotParam::BfmCtrlMinNm,      0.05,    5.0},
+  {"pilot_bfm_ctrl_max_nm", FBPilotParam::BfmCtrlMaxNm,      0.05,   10.0},
 };
 } // namespace
 

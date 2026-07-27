@@ -13,12 +13,19 @@ const char *FBSystemIdStr(FBSystemId id) {
     case FBSystemId::Radar: return "radar";
     case FBSystemId::FireControl: return "fire_control";
     case FBSystemId::Stores: return "stores";
+    case FBSystemId::Gun: return "gun";
     case FBSystemId::Datalink: return "datalink";
     case FBSystemId::Rwr: return "rwr";
     case FBSystemId::Countermeasures: return "countermeasures";
     case FBSystemId::Count: break;
   }
   return "?";
+}
+
+double FBSystemHealth::AddKinetic(int zone, double fluxJm2) {
+  if (zone < 0 || zone >= kMaxZones || fluxJm2 <= 0.0) return 0.0;
+  Kinetic_[zone] += fluxJm2;
+  return Kinetic_[zone];
 }
 
 const char *FBHealthStateStr(FBHealthState s) {

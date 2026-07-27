@@ -27,6 +27,7 @@ FBF16Module::FBF16Module()
       FireCtrl(std::make_unique<FBF16FireControl>()),
       UfcSys(std::make_unique<FBF16Ufc>()),
       SmsSys(std::make_unique<FBF16Sms>()),
+      GunSys(std::make_unique<FBF16Gun>()),   /* the M61A1 and where it is bolted (FBF16Gun) */
       Warn_(std::make_unique<FBWarningSystem>()),
       PilotSys(std::make_unique<FBF16Pilot>()),
       AirframeCtrl(std::make_unique<FBAirframeControls>()) {}   /* NoOp until an airframe is attached */
@@ -117,8 +118,8 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, 
     /* The fire control gets the SELECTED station's round: the launch zone it computes is for the weapon
      * that would actually leave the jet if the pilot pickled now (modules/f16/FBF16FireControl). */
     if (SystemWorking(FBSystemId::FireControl))
-      FireCtrl->Run(SharedState, st, FBStoreSpecOf(SmsSys->StoreAt(SmsSys->SelectedStation())), SimTimeS,
-                    dt);
+      FireCtrl->Run(SharedState, st, FBStoreSpecOf(SmsSys->StoreAt(SmsSys->SelectedStation())),
+                    GunSys->Spec(), SimTimeS, dt);
     else SharedState.FireControl.H.Invalidate();
     /* ...and hands the SMS its target estimate, which the SMS copies onto a launched round and then
      * radiates as that round's midcourse uplink (systems/FBStoresSystem::SetTargetState). */
@@ -132,6 +133,13 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, 
   }
   if (Due(DisplayAccS, dt, 20.0)) Disp->Run(SharedState, Mode, dt);
   if (Due(WeaponAccS, dt, 20.0)) Weapons->Run(Mode, world, dt);
+  /* THE GUN, once per Run() with the FULL dt — deliberately not throttled like the slots around it. Its
+   * output is a ROUND COUNT integrated over time (systems/FBGunSystem's banner), so entering it at a
+   * rate other than the caller's tick would either drop rounds or invent them. Everything else about it
+   * is cheap: an unfired gun is one comparison. A gun that has been shot away neither fires nor
+   * publishes, like every other damaged box. */
+  if (SystemWorking(FBSystemId::Gun)) GunSys->Run(SharedState, st, SimTimeS, dt);
+  else SharedState.Gun.H.Invalidate();
   /* The Defensive slot, at the pilot's own decision rate rather than the 5 Hz the NoOp placeholder ran
    * at: a countermeasure program's burst interval is a tenth of a second (doc/f16/defence-rwr-cm.md
    * §2.2), so entering the slot slower than the sim tick would quantise a salvo. The order inside it is
@@ -248,6 +256,7 @@ bool CommandOwner(FBCommandTarget t, FBSystemId &out) {
     case FBCommandTarget::CmDispense:
     case FBCommandTarget::CmConsent:
     case FBCommandTarget::CmdsMode: out = FBSystemId::Countermeasures; return true;
+    case FBCommandTarget::GunTrigger: out = FBSystemId::Gun; return true;
     default: return false;
   }
 }
@@ -304,7 +313,10 @@ void FBF16Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &out
       return;
     }
     case FBCommandTarget::MasterArm:
+      /* ONE switch, both weapon systems: the master arm is a cockpit control, not a property of the
+       * SMS, and a jet whose racks are armed has an armed gun too. */
       SmsSys->SetMasterArm(c.Value != 0.0 ? FBArmState::Arm : FBArmState::Sim);
+      GunSys->SetMasterArm(SmsSys->MasterArm());
       return;
     /* The two stores commands. The SMS itself answers the release (systems/FBStoresSystem::Release
      * decides and says why); this module only routes, exactly as it does for every other box. */
@@ -316,6 +328,11 @@ void FBF16Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &out
       return;
     case FBCommandTarget::WeaponRelease:
       SmsSys->Release(SimTimeS, outcome, reason);
+      return;
+    /* The trigger, answered by the gun itself (systems/FBGunSystem::Trigger decides and says why —
+     * safe, on the wheels, or an empty drum), exactly as the SMS answers the pickle. */
+    case FBCommandTarget::GunTrigger:
+      GunSys->Trigger(c.Value, SimTimeS, outcome, reason);
       return;
     /* The defensive trio. The dispenser itself answers the throw (systems/FBCountermeasureSystem::
      * Dispense decides and says why — an empty magazine is a refusal with its own reason), exactly as
@@ -502,6 +519,17 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
     else if (value == "bfm") PilotSys->SetPhase(FBPilot::Phase::Bfm);
     else if (value == "intercept") PilotSys->SetPhase(FBPilot::Phase::Intercept);
     else return RejectSetup("want route|bfm|intercept", key, value);
+    return true;
+  }
+  /* THE DRUM: how many rounds this jet started the sortie with. A mission may load LESS than the gun's
+   * capacity (an aircraft that has been shooting, or the empty-magazine case a refusal has to be proven
+   * against) and never more — systems/FBGunSystem::SetRounds refuses that, and the refusal becomes a
+   * mission FAIL like every other bad setup line. */
+  if (key == "gun_rounds") {
+    double n = 0.0;
+    if (!ParseDouble(value, n)) return RejectSetup("not a number", key, value);
+    if (n < 0.0 || n != std::floor(n)) return RejectSetup("want a whole, non-negative round count", key, value);
+    if (!GunSys->SetRounds((int)n)) return RejectSetup("more rounds than the gun holds", key, value);
     return true;
   }
   /* THE DEFENSIVE SUITE (doc/f16/defence-rwr-cm.md). `rwr` is the ALR-56M's POWER button; `rwr_display`

@@ -35,6 +35,13 @@ enum class FBCommandTarget : uint8_t {
    * knob on the left console: a hand off the throttle and a head down, i.e. the DED class. Appended,
    * never inserted. */
   CmDispense, CmConsent, CmdsMode,
+  /* THE TRIGGER. A HOTAS action like the pickle, and the ONE way rounds leave the gun — so a burst can
+   * be refused (safe, on the ground, empty drum), costs a finger's worth of time and leaves a receipt,
+   * exactly like every other cockpit action. Its VALUE is the length of the squeeze in seconds
+   * (systems/FBGunSystem's banner): a command models one action, and one action on a trigger is one
+   * burst of a stated length — not a stream of press/release commands the bus's own 0.5 s floor between
+   * two actions on the same switch could never carry. Appended, never inserted. */
+  GunTrigger,
 };
 
 const char *FBCommandTargetStr(FBCommandTarget t);

@@ -74,6 +74,7 @@ public:
   FBRwrSystem &Rwr() override { return Rwr_; }
   FBCountermeasureSystem &Countermeasures() override { return Cm_; }
   FBStoresSystem &Stores() override { return Stores_; }             /* a round carries no stores */
+  FBGunSystem &Guns() override { return Gun_; }                     /* a round carries no gun */
   const FBState &Telemetry() const override { return State_; }
   const FBGuidance &LastGuidance() const override { return LastG_; }
   int LastSubsteps() const override { return LastSub_; }
@@ -112,6 +113,7 @@ private:
   FBRadarAltimeter RadarAlt_;
   FBCommandBus Cmds_;
   FBStoresSystem Stores_;
+  FBGunSystem Gun_;
   FBFlightPlan Plan_;
   FBState State_{};
   FBGuidance LastG_{};

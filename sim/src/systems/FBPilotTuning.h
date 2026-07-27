@@ -36,6 +36,10 @@ enum class FBPilotParam {
   DefendHoldS,             /* pilot_defend_hold_s   — how long the defence is held after the warning */
   ReactionS,               /* pilot_react_s         — the human delay before a defensive command */
   ActionSpacingS,          /* pilot_action_s        — the hands: one cockpit action per this long */
+  GunBurstS,               /* pilot_gun_burst_s     — how long one squeeze of the trigger lasts */
+  GunFireTolFrac,          /* pilot_gun_tol_frac    — how tightly the pipper is held before firing */
+  BfmCtrlMinNm,            /* pilot_bfm_ctrl_min_nm — the control position's near edge */
+  BfmCtrlMaxNm,            /* pilot_bfm_ctrl_max_nm — ...and its far one */
   Count
 };
 

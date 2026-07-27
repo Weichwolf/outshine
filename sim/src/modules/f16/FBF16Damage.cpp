@@ -31,6 +31,11 @@ constexpr FBZoneSystem kNoseSystems[] = {
 
 constexpr FBZoneSystem kForwardSystems[] = {
     {FBSystemId::Nav, kAvionicsFail, kAvionicsFail},          /* INS */
+    /* The M61A1 and its drum sit in the left wing-root strake, i.e. in this zone (modules/f16/FBF16Gun).
+     * It takes the STRUCTURAL thresholds rather than the avionics ones, and not for effect: a gun is a
+     * mechanical installation with the mass and section of the airframe around it, not a black box on a
+     * rack, so what it takes to stop it is what it takes to hole the structure it is bolted to. */
+    {FBSystemId::Gun, kStructFail, kStructFail},
     {FBSystemId::FireControl, kAvionicsFail, kAvionicsFail},  /* FCC */
     {FBSystemId::RadarAlt, kAvionicsFail, kAvionicsFail},     /* CARA */
     {FBSystemId::Datalink, kAvionicsFail, kAvionicsFail},     /* MIDS terminal */
@@ -61,7 +66,22 @@ constexpr FBDamageZoneSpec kZones[] = {
     {FBDamageZone::Aft, -7.46, -2.42, kAftSystems, Count(kAftSystems)},
 };
 
-constexpr FBDamageLayout kLayout{kZones, Count(kZones)};
+/* THE PRESENTED AREAS (core/FBDamageModel.h's FBDamageLayout) — what a stream of gunfire sees. Derived
+ * from the pinned f16.xml's own geometry rather than picked, and stated as the crude equivalents they
+ * are:
+ *   Frontal 4.0 m^2   the airframe seen head-on or from astern: a fuselage of roughly 1 m x 1.5 m
+ *                     section plus the thin edge of a 27.9 m^2 wing and the fins. It is an EQUIVALENT
+ *                     area — no projection of the actual shape is computed anywhere.
+ *   Lateral 14 m^2    seen from the side or from above: the model's own <wingarea> is 27.9 m^2 and its
+ *                     <wingspan> 9.14 m over a 14.5 m length, so the planform is of that order and the
+ *                     side view rather less; 14 m^2 is the middle of the two, which is what a single
+ *                     number for "across the axis" can honestly be.
+ * Both [SET]. They scale the expected round count linearly, which is why they are named here, once. */
+/* ...and how far that material reaches from the centreline in each view (core/FBGunBallistics.h's
+ * two-scale hit model): half the model's own <wingspan> (9.14 m -> 4.57 m) seen from astern, and half
+ * its own length (14.5 m -> 7.3 m) seen from the side. Both are the model's geometry, not settings. */
+constexpr FBDamageLayout kLayout{kZones, Count(kZones), /*FrontalAreaM2*/ 4.0, /*LateralAreaM2*/ 14.0,
+                                 /*FrontalExtentM*/ 4.57, /*LateralExtentM*/ 7.3};
 } // namespace
 
 const FBDamageLayout &FBF16DamageLayout() { return kLayout; }

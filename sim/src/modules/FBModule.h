@@ -25,6 +25,7 @@
 #include "FBDisplaySystem.h"
 #include "FBFlightControl.h"
 #include "FBFlightPlan.h"
+#include "FBGunSystem.h"
 #include "FBNavSystem.h"
 #include "FBPilot.h"
 #include "FBRadarAltimeter.h"
@@ -148,6 +149,12 @@ public:
    * becomes a unit of the world, which only the client can create (fdm/FBFdmBoot.h), and it must be
    * able to do that without knowing which module dropped it. */
   virtual FBStoresSystem &Stores() = 0;
+  /* The gun slot: this aircraft's internal gun and the queue of bursts it has fired. Surfaced on the
+   * base for exactly the reason Stores() is — the client registers its telemetry AND drains its bursts,
+   * because the rounds become part of the world (core/FBGunProjectiles) and only the client may fly them
+   * and decide what they hit. A module with no gun fitted still has the slot; it simply never produces
+   * a burst. */
+  virtual FBGunSystem &Guns() = 0;
   virtual const FBState &Telemetry() const = 0;
 
   /* The two OUTPUTS of the Run() contract above, surfaced for the client's flight/cpuprof telemetry:

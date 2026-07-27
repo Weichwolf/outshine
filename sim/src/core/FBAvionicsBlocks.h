@@ -119,6 +119,33 @@ struct FBFireControlBlock {
   float TimeToActiveS = 0.0f;  /* predicted seconds from launch to the seeker going active */
   float TimeToImpactS = 0.0f;  /* predicted total time of flight; < 0 = no intercept from here */
   bool  InZone = false;        /* Rmin <= range <= Raero — what the SMS's launch interlock reads */
+
+  /* ---- THE GUN SOLUTION (doc/f16/weapons.md §2.5's EEGS), the third product of the same box. It is
+   * published under the same head for the same reason the launch zone is: it is a fusion of the target
+   * estimate and own motion, and it goes invalid when they do. GunValid says whether there is a
+   * SOLUTION, exactly as DlzValid does — a fire control with nothing to shoot at still publishes.
+   *
+   * The EEGS funnel is a SIGHT: its walls are the target's known wingspan drawn at the range for which
+   * the gun is correctly aimed, so a target that fills the funnel is at the range the lead was computed
+   * for. What that geometry says about a SHOT is three numbers, and they are what a pilot (or an AI)
+   * actually needs: how far the required lead is from where the nose is pointing right now
+   * (GunAimErrorDeg), how big the target is in angle at this range (GunSpanMr), and the two spans that
+   * bracket the funnel's own range window (GunFunnelTopMr at its minimum range, GunFunnelBottomMr at its
+   * maximum). "Target smaller than the funnel bottom" — the guide's own out-of-range test — is then
+   * literally GunSpanMr < GunFunnelBottomMr. */
+  bool  GunValid = false;
+  float GunRangeM = 0.0f;        /* to the predicted intercept point, not to the target now */
+  float GunTofS = 0.0f;          /* projectile time of flight to it */
+  float GunAimErrorDeg = 0.0f;   /* angle between the required bore direction and the aircraft's nose */
+  float GunLeadAzDeg = 0.0f;     /* the required bore, body-referenced: + = right */
+  float GunLeadElDeg = 0.0f;     /* ...+ = above */
+  float GunSpreadM = 0.0f;       /* the round pattern's sigma at the intercept point */
+  float GunSpanMr = 0.0f;        /* the target's angular span there, milliradians */
+  float GunFunnelTopMr = 0.0f;   /* its span at the funnel's minimum range (the funnel's narrow end) */
+  float GunFunnelBottomMr = 0.0f;/* ...and at its maximum range */
+  float GunTolDeg = 0.0f;        /* the funnel's own aiming tolerance at this range (see GunInFunnel) */
+  bool  GunInRange = false;      /* inside the funnel's own range window */
+  bool  GunInFunnel = false;     /* in range AND the nose is inside the lead solution's own tolerance */
 };
 
 /* ---- UFC/DED entered values: what the pilot typed into the control head and the jet committed.
@@ -150,6 +177,21 @@ struct FBStoresBlock {
   int   LoadedCount = 0;
   float LoadedLbs = 0.0f;          /* total carried store weight */
   int   ReleasedCount = 0;         /* stores this jet has let go of this sortie */
+};
+
+/* ---- Gun: the internal gun's books. WRITER: systems/FBGunSystem (the F-16 fills the slot with
+ * modules/f16/FBF16Gun, which only adds this airframe's gun and where it is bolted).
+ * Its own block rather than fields on the stores block above for the reason the two systems are
+ * separate: the SMS knows about pylons and what hangs on them, and a gun hangs on nothing. `Kind` is the
+ * FBGunKind ordinal (0 = no gun fitted), the same convention the stores block uses for its stations. */
+struct FBGunBlock {
+  FBBlockHeader H;
+  FBArmState Arm = FBArmState::Sim;
+  uint8_t Kind = 0;
+  int   RoundsRemaining = 0;
+  int   RoundsFired = 0;        /* this sortie */
+  bool  Firing = false;         /* a squeeze is running right now */
+  bool  Ready = false;          /* a gun is fitted, armed and has rounds — what a pilot checks */
 };
 
 /* ---- Airframe/propulsion: gear + weight-on-wheels + the fuel state, the readbacks OTHER systems

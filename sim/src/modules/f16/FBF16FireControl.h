@@ -35,6 +35,7 @@
 #define FBF16FIRECONTROL_H
 
 #include "FBBfmTrack.h"
+#include "FBGun.h"
 #include "FBState.h"
 #include "FBStore.h"
 #include "FBWeaponUplink.h"
@@ -58,10 +59,11 @@ public:
   virtual ~FBF16FireControl() = default;
 
   /* `selected` is the store the SMS currently has selected (null, or an unguided one, means there is no
-   * launch zone to compute). `own` is this aircraft's own state and `nowS` the module's sim clock —
+   * launch zone to compute); `gun` is the gun this aircraft has fitted (null = none, and then there is
+   * no gun solution either). `own` is this aircraft's own state and `nowS` the module's sim clock —
    * absolute, because the target track ages against it. */
-  virtual void Run(FBState &state, const fb_fdm_state &own, const FBStoreSpec *selected, double nowS,
-                   double dt);
+  virtual void Run(FBState &state, const fb_fdm_state &own, const FBStoreSpec *selected,
+                   const FBGunSpec *gun, double nowS, double dt);
 
   /* The target estimate this box holds, for the SMS to program a round with and to radiate as the
    * midcourse uplink. Invalid whenever the radar has no lock the tracker could stand on. */
@@ -99,7 +101,28 @@ public:
    * nose onto the target, and a few hundred metres is what that costs at launch speed. */
   static constexpr double kMinTurnM = 300.0;
 
+  /* ---- THE EEGS FUNNEL'S OWN CONSTANTS (doc/f16/weapons.md §2.5, "Funnel geometry (Level II)") ----
+   * The funnel is drawn between a MINIMUM and a MAXIMUM range and its width at any point is the
+   * target's KNOWN WINGSPAN at the range the gun is currently aimed for; a target that appears smaller
+   * than the funnel's wide end is out of range. Both range limits are the guide's own figures, quoted
+   * exactly (600 ft / 3,000 ft) and converted once here.
+   *
+   * The WINGSPAN is the one number the guide says has to be configured and does not supply ("Requires
+   * the target's actual wingspan to be configured for correct scaling"). This fire control assumes a
+   * like-type target and uses the pinned f16.xml's own <wingspan> (30 ft = 9.144 m), which is both a
+   * real number out of the model and the correct one for every engagement this simulator can currently
+   * fly (F-16 against F-16). A future FCC that knows what it is looking at replaces the constant with
+   * the identified type's span and nothing else about the geometry changes. */
+  static constexpr double kFunnelMinRangeM = 182.88;   /*   600 ft */
+  static constexpr double kFunnelMaxRangeM = 914.40;   /* 3,000 ft */
+  static constexpr double kTargetSpanM = 9.144;
+
 private:
+  /* The EEGS half of Run(), split out because it is a different question against the same target
+   * estimate: the launch zone asks whether a missile would arrive, the funnel asks where the gun has to
+   * point. `trk` is this box's own fused picture, already updated this tick. */
+  void SolveGun(FBState &state, const fb_fdm_state &own, const FBGunSpec *gun, const FBBfmBlock &trk);
+
   FBBfmTrack Track_;                  /* this box's own fused picture of the locked contact */
   FBWeaponTargetState Target_{};
 };

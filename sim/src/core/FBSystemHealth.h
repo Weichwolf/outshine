@@ -52,6 +52,7 @@ enum class FBSystemId : uint8_t {
   Datalink,         /* the net terminal */
   Rwr,              /* the warning receiver */
   Countermeasures,  /* the dispenser */
+  Gun,              /* the internal gun: drum, feed and barrels — APPENDED, see the enum's own rule */
   Count
 };
 
@@ -91,7 +92,16 @@ private:
   /* Monotone: a state only ever gets worse. Returns true if this call actually changed it. */
   bool Worsen(FBSystemId id, FBHealthState s);
   void NoteHit() { Hits_++; }
+  /* THE ONE PIECE OF DAMAGE STATE THAT IS NOT A SYSTEM'S: how much areal energy a zone of this airframe
+   * has taken from PROJECTILES, cumulatively. It exists because a gun is a continuous stream that this
+   * simulator necessarily cuts into per-tick bundles (core/FBGun.h) — judging each bundle on its own
+   * would make the damage a function of the tick rate, which is precisely what CLAUDE.md Prinzip 4
+   * forbids. A warhead has no equivalent and does not use this: a burst is ONE event, and one event's
+   * energy is what it is. `zone` is the FBDamageZone ordinal; the array is sized for all of them. */
+  double AddKinetic(int zone, double fluxJm2);
 
+  static constexpr int kMaxZones = 5;   /* core/FBDamageModel's FBDamageZone, including None */
+  double Kinetic_[kMaxZones]{};
   FBHealthState S_[(int)FBSystemId::Count]{};
   uint32_t Failed_ = 0, Degraded_ = 0;   /* the same information as S_, as the telemetry bitmasks */
   int Hits_ = 0;

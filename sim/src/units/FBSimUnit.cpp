@@ -101,6 +101,12 @@ FBDamageResult FBSimUnit::TakeBurst(const FBBurst &burst) {
   return r;
 }
 
+FBDamageResult FBSimUnit::TakeKineticBurst(const FBKineticBurst &burst) {
+  FBDamageResult r = FBDamageModel::ApplyKinetic(burst, Module_->DamageLayout(), Health_);
+  ApplyDamageToAirframe();
+  return r;
+}
+
 /* Health -> physics (core/FBDamageModel's consequence constants). Idempotent and called only when the
  * register changed: nothing here is per-frame work. */
 void FBSimUnit::ApplyDamageToAirframe() {
@@ -209,6 +215,10 @@ void FBSimUnit::StartTelemetry(FBTelemetrySink *sink) {
    * It is the unit's own source, not a system's — the register belongs to the unit and no module may
    * even write it. */
   Bus_.Register(&HealthSrc_);
+  /* And LAST once more — literally last, AFTER the health register, same appending rule: the gun's books
+   * (systems/FBGunSystem). Registering it anywhere earlier would have moved the dmg_* columns, which
+   * every damage measurement ever taken reads by position. */
+  Bus_.Register(&Module_->Guns());
   Bus_.SetSink(sink);
   Bus_.Start();
 }

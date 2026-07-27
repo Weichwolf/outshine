@@ -146,6 +146,9 @@ public:
    * step onwards JSBSim is flying the damaged aircraft. Nothing is "marked dead": the unit keeps being
    * stepped and keeps being judged by the same two monitors as before. */
   FBDamageResult TakeBurst(const FBBurst &burst);
+  /* ...and the same chain for a burst of gunfire (core/FBDamageModel's FBKineticBurst): a different
+   * kind of arriving energy, the same register, the same push into the airframe afterwards. */
+  FBDamageResult TakeKineticBurst(const FBKineticBurst &burst);
   const FBSystemHealth &Health() const { return Health_; }
 
   /* ---- the two incorruptible judges (fed here, never handed to the module) ---- */

@@ -36,6 +36,7 @@ struct FBState {
   FBFireControlBlock FireControl;
   FBUfcBlock         Ufc;
   FBStoresBlock      Stores;
+  FBGunBlock         Gun;
   FBAirframeBlock    Airframe;
   FBWarningBlock     Warnings;
   FBRadarBlock       Radar;
