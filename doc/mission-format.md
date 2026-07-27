@@ -22,8 +22,8 @@ Eine Anweisung pro Zeile, `#` leitet einen Kommentar bis Zeilenende ein, Leerzei
 führende Einrückung ist rein kosmetisch. **Zwei Geltungsbereiche:**
 
 - **missionsweit** — `name`, `runway`, `timeout`. Müssen VOR dem ersten `unit`-Block stehen.
-- **akteursbezogen** — `module`, `team`, `spawn`, `set`, `wp`, `land`. Nur INNERHALB eines
-  `unit`-Blocks; ein Block läuft bis zum nächsten `unit` oder Dateiende.
+- **akteursbezogen** — `module`, `team`, `spawn`, `set`, `wp`, `land`, `objective`. Nur INNERHALB
+  eines `unit`-Blocks; ein Block läuft bis zum nächsten `unit` oder Dateiende.
 
 Beide Richtungen sind harte Parse-Fehler (eine `runway`-Zeile zwischen zwei Units wäre sonst still
 „missionsweit, nur spät deklariert"; eine `spawn`-Zeile vor dem ersten `unit` hätte keinen Besitzer).
@@ -77,9 +77,10 @@ unit two
 | Akteur  | `module`  | Rest der Zeile | Modulname, per `FBModuleRegistry` aufgelöst (heute nur `f16` registriert) — bestimmt sowohl das `FBModule` als auch den JSBSim-Aircraft-Ordnernamen (`vendor/jsbsim/aircraft/<module>`). Pflicht je Block. |
 | Akteur  | `team`    | `friendly`\|`hostile`\|`neutral` | Fraktion (`FBUnitTeam`, `core/FBTeam.h`) — landet in der `FBWorld`-Unit-Registry, die Sensoren/Waffen künftig lesen. Optional, Default `friendly`. |
 | Akteur  | `spawn`   | `<lat lon \| threshold>` `<altM \| ground>` `hdgDeg` `speedKt` | Pflicht, genau einmal je Block: die deklarative IC dieser Einheit — Position, Höhe-ODER-Boden, Kurs, Speed. `threshold` übernimmt lat/lon der missionsweiten `runway`-Zeile (reine Schreib-Convenience, keine zweite Positions-Syntax). `ground` löst die Höhe aus Gelände + Fahrwerksgeometrie auf; ein numerischer Wert ist eine LITERALE ASL-Höhe (ein Luftstart). Beide Fälle durchlaufen dieselbe eine JSBSim-IC-Anwendung. |
-| Akteur  | `set`     | `key value...` | Systemzustand als Missionsdaten — der Runner parst nur die KV-Liste und reicht sie im Spawn-IC-Fenster an `FBModule::ApplySetup(key, value)` DIESER Einheit; das MODUL interpretiert seine eigenen Schlüssel. Ein unbekannter Schlüssel ist ein Laufzeit-FAIL (Exit 1, `SET_REJECTED`-Event), kein Parse-Fehler. F-16 kennt heute: `gear` (`up`/`down`), `fuel_lbs` (absolute Tankmenge, lb), `fuel_pct` (0..100, Anteil der modelleigenen Gesamtkapazität), die vier Schalter des MIDS-Terminals — `datalink` (`on`/`off`, Geräte-Strom), `datalink_xmt` (`on`/`off`, XMT/EMCON), `datalink_filter` (`fr`/`fl`/`off`, HSD-Kontaktfilter), `datalink_range_nm` (Terminal-Reichweite, nm) — sowie FCR/IFF: `fcr_mode` (`off`/`crm`/`acm_hud`/`acm_bore`/`acm_vert`/`acm_slew`), `fcr_range_nm` (überschreibt die Reichweite JEDES Modus), `fcr_slew_az`/`fcr_slew_el` (Cursor der Slewable-Box, Grad), `iff_xpdr` (`on`/`off`, eigener Transponder), `iff_interrogator` (`on`/`off`, eigener Abfrager); die Defensivanlage — `rwr` (`on`/`off`, Strom des Warnempfängers), `rwr_display` (`priority`/`open`, TWP-MODE-Anzeigedeckel), `rwr_search` (`on`/`off`, SEARCH-Filter), `cmds_mode` (`off`/`stby`/`man`/`semi`/`auto`/`byp`), `cmds_program` (1..6, PRGM-Knopf), `cmds_chaff`/`cmds_flare` (Vorrat je Typ, zusammen ≤ 120); dazu `task` (`route`/`bfm`/`intercept`) — die FBPilot-Phase, in der diese Einheit startet (Default = das, was der Spawn vorgibt: `route` in der Luft, `preflight` am Boden); sowie die Zuladung `store <station> <typ>` (eine Zeile je Pylon, F-16-Stationen 1..9, Typ aus dem Katalog `core/FBStore.h` — heute `mk82`) und `brief_release_s <t>` (wiederholbar: wann der Pilot pickelt, Sim-Sekunden) sowie `brief_chaff_s <t>` (wiederholbar: wann er Täuschkörper wirft). |
+| Akteur  | `set`     | `key value...` | Systemzustand als Missionsdaten — der Runner parst nur die KV-Liste und reicht sie im Spawn-IC-Fenster an `FBModule::ApplySetup(key, value)` DIESER Einheit; das MODUL interpretiert seine eigenen Schlüssel. Ein unbekannter Schlüssel ist ein Laufzeit-FAIL (Exit 1, `SET_REJECTED`-Event), kein Parse-Fehler. F-16 kennt heute: `gear` (`up`/`down`), `fuel_lbs` (absolute Tankmenge, lb), `fuel_pct` (0..100, Anteil der modelleigenen Gesamtkapazität), die vier Schalter des MIDS-Terminals — `datalink` (`on`/`off`, Geräte-Strom), `datalink_xmt` (`on`/`off`, XMT/EMCON), `datalink_filter` (`fr`/`fl`/`off`, HSD-Kontaktfilter), `datalink_range_nm` (Terminal-Reichweite, nm) — sowie FCR/IFF: `fcr_mode` (`off`/`crm`/`acm_hud`/`acm_bore`/`acm_vert`/`acm_slew`), `fcr_range_nm` (überschreibt die Reichweite JEDES Modus), `fcr_slew_az`/`fcr_slew_el` (Cursor der Slewable-Box, Grad), `iff_xpdr` (`on`/`off`, eigener Transponder), `iff_interrogator` (`on`/`off`, eigener Abfrager); die Defensivanlage — `rwr` (`on`/`off`, Strom des Warnempfängers), `rwr_display` (`priority`/`open`, TWP-MODE-Anzeigedeckel), `rwr_search` (`on`/`off`, SEARCH-Filter), `cmds_mode` (`off`/`stby`/`man`/`semi`/`auto`/`byp`), `cmds_program` (1..6, PRGM-Knopf), `cmds_chaff`/`cmds_flare` (Vorrat je Typ, zusammen ≤ 120); dazu `task` (`route`/`bfm`/`intercept`) — die FBPilot-Phase, in der diese Einheit startet (Default = das, was der Spawn vorgibt: `route` in der Luft, `preflight` am Boden); sowie die Zuladung `store <station> <typ>` (eine Zeile je Pylon, F-16-Stationen 1..9, Typ aus dem Katalog `core/FBStore.h` — heute `mk82`) und `brief_release_s <t>` (wiederholbar: wann der Pilot pickelt, Sim-Sekunden) sowie `brief_chaff_s <t>` (wiederholbar: wann er Täuschkörper wirft); schließlich die PILOTEN-VARIANTE `pilot_*` (s. „Piloten-Varianten" unten). |
 | Akteur  | `wp`      | lat lon altM speedKt | `FBWaypoint` vom Typ `Enroute`, im Flugplan DIESER Einheit |
 | Akteur  | `land`    | — | `FBWaypoint` vom Typ `Land` AN der Runway-Schwelle (braucht die missionsweite `runway`-Zeile) |
+| Akteur  | `objective` | `survive` \| `waypoints` \| `kill unit <callsign>` \| `kill team <fraktion>` | KAMPFZIEL dieser Einheit (`core/FBObjective.h`) — wiederholbar, s. „Kampfziele" unten. `kill unit` muss eine Einheit DIESER Mission nennen (Vorwärtsreferenz erlaubt, geprüft am Dateiende) und nicht die eigene; `objective waypoints` braucht `wp`/`land`-Zeilen darüber. Ein doppelt deklariertes Ziel ist ein Parse-Fehler. |
 
 `name`, `timeout` und mindestens ein `unit`-Block sind Pflicht; je Block sind `module` und `spawn`
 Pflicht. `runway` ist optional (nur nötig für `spawn threshold`/`land`/die Off-Runway-Prüfung). Parse-
@@ -99,7 +100,8 @@ eine explizite `spawn`-Höhe unterhalb des aufgelösten Bodens. `v=0` in der Luf
 
 `FBMission` = `Name` + optionale `FBRunway` (`HaveRunway`) + `TimeoutS` + `Units` (Liste von
 `FBMissionUnit`). `FBMissionUnit` = `Id` (Callsign) + `ModuleName` + `Team` + `FBSpawn` (`HaveSpawn`) +
-`SetKV` (Dateireihenfolge) + `FBFlightPlan` (die `wp`/`land`-Zeilen in Dateireihenfolge). Ein
+`SetKV` (Dateireihenfolge) + `FBFlightPlan` (die `wp`/`land`-Zeilen in Dateireihenfolge) +
+`Objectives` (die `objective`-Zeilen, `std::vector<FBObjective>`). Ein
 Landeziel ist kein eigenes Flag: der Flugplan endet dann auf einem `FBWaypointType::Land`-Wegpunkt,
 und genau daran erkennt der Monitor die Stillstand-Regel (unten).
 
@@ -139,36 +141,93 @@ Zwei unbestechliche Instanzen je Akteur, nie vom Modul gesehen (CLAUDE.md „Kei
   den Lauf** (ein departender Airframe soll nicht im Hintergrund weiterintegrieren); RESULT nennt die
   Einheit (`unit=`), Exit 2.
 - `core/FBMissionMonitor` — das MISSIONS-Urteil, **eine Instanz je Einheit MIT Zielen** (nicht-leerer
-  Flugplan; eine Einheit ohne Wegpunkte hat nichts zu erreichen und bekommt keinen Monitor, taucht also
-  im Urteil nicht auf). Er trägt seine EIGENE Kopie von `FBFlightPlan`/`FBRunway` aus der Missionsdatei
-  (nie das Modul-eigene, live mutierte Exemplar) und liest Fortschritt nur aus beobachteter Position —
-  ein Modul kann sich nicht per Selbstauskunft zu SUCCESS melden.
+  Flugplan ODER mindestens eine `objective`-Zeile; eine Einheit ohne beides hat nichts zu erreichen und
+  bekommt keinen Monitor, taucht also im Urteil nicht auf). Er trägt seine EIGENE Kopie von
+  `FBFlightPlan`/`FBRunway`/den `objective`-Zeilen aus der Missionsdatei
+  (nie das Modul-eigene, live mutierte Exemplar) und liest Fortschritt nur aus beobachteter Position
+  bzw. aus einem beobachteten Roster (unten) — ein Modul kann sich nicht per Selbstauskunft zu SUCCESS
+  melden und keine Auskunft über den Gegner geben.
 
 Kombinationsregel (die EINZIGE Stelle, an der aus N Urteilen eins wird — `FBMissionRunner.cpp`):
 
 | Gesamturteil | Bedingung | Exit |
 |---|---|---|
-| CRASH / LOC | eine Einheit hat ein physikalisches K.O. | 2 |
-| FAIL    | eine Einheit mit Zielen ist gescheitert (Touchdown abseits der Runway ODER **kampfunfähig geschossen**) | 1 |
+| CRASH / LOC | eine Einheit hat ein physikalisches K.O., **das nicht das erklärte Ziel einer anderen war** | 2 |
+| FAIL    | eine Einheit mit Zielen ist **entscheidend** gescheitert (Touchdown abseits der Runway ODER kampfunfähig geschossen, ohne dass das jemandes Kampfziel war) | 1 |
 | TIMEOUT | eine Einheit mit Zielen hat ihre Ziele bis zum Timeout nicht erreicht | 3 |
-| SUCCESS | **ALLE** Einheiten mit Zielen haben ihre Ziele erreicht | 0 |
+| SUCCESS | jede Einheit mit Zielen, deren Verlust nicht erklärtes Ziel einer anderen war, hat ihre Ziele erreicht | 0 |
 
-Der Lauf endet beim ERSTEN Scheitern (es gibt nichts mehr zu beweisen) und sonst, sobald jede Einheit
-mit Zielen ihr eigenes SUCCESS erreicht hat.
+Der Lauf endet beim ersten ENTSCHEIDENDEN Scheitern (es gibt nichts mehr zu beweisen), beim ersten
+physikalischen K.O. (kein Wrack integriert im Hintergrund weiter) und sonst, sobald jede Einheit mit
+Zielen ein Urteil hat.
+
+## Kampfziele (`objective`)
+
+Ohne `objective`-Zeile ist der **Flugplan das ganze Urteil** — die ursprüngliche Regel, unverändert.
+Eine `objective`-Zeile macht das Ziel dieser Einheit explizit, und dann ist der Block die **vollständige
+Aussage**: der Flugplan wird nur noch bewertet, wenn er als `objective waypoints` mit drinsteht. Das ist
+kein Detail, sondern der Grund, warum ein Abfang seine gebriefte Vektor-`wp`-Zeile behalten darf, ohne
+dass ein entschiedenes Gefecht am nie erreichten Vektorpunkt in einen TIMEOUT läuft.
+
+| Ziel | Erfüllt, wenn | Verletzt, wenn |
+|---|---|---|
+| `survive` | am Ende des Laufs noch kampffähig — **nie vorher**, s.u. | die Einheit wird kampfunfähig geschossen → sofort FAIL |
+| `waypoints` | der eigene Flugplan ist abgearbeitet (bei `land`: Stillstand auf der Runway) | — |
+| `kill unit <callsign>` | die benannte Einheit ist kampfunfähig (`core/FBSystemHealth::CombatEffective`) | — |
+| `kill team <fraktion>` | JEDE Einheit dieser Fraktion in der Mission ist es (mindestens eine muss existieren) | — |
+
+SUCCESS heißt: alle Ziele erfüllt. **`survive` kann nicht früh erfüllt werden** — „noch kampffähig" ist
+erst wahr, wenn kein Lauf mehr übrig ist, in dem man abgeschossen werden könnte (eine Rakete des
+Gegners kann noch in der Luft sein, nachdem er selbst gestorben ist). Eine Einheit mit `survive` bleibt
+deshalb bis zum Laufende ohne Urteil und wird dann ausgewertet: Ziele erfüllt und noch kampffähig →
+SUCCESS („objectives met, survived"), sonst TIMEOUT. Eine Einheit MIT `kill`, aber OHNE `survive`,
+erklärt damit ausdrücklich, dass ihr eigener Verlust kein Scheitern ist — ein gleichzeitiger Abschuss
+beider Seiten ist dann ein Tausch und nicht das Scheitern beider.
+
+Die Beobachtung, gegen die ein `kill`-Ziel geprüft wird, ist ein **Roster**: je Nicht-Waffen-Akteur
+Callsign, Fraktion und das eine Bit, das sein eigenes Gesundheitsregister veröffentlicht
+(`FBUnitObservation`, `core/FBObjective.h`). Der Runner baut ihn einmal pro Tick aus den Registern, die
+ER besitzt, und zeigt ihn jedem Monitor — kein Modul wird nach seinem Gegner gefragt und keines nach
+sich selbst.
+
+### Zwei Fraktionen mit gegensätzlichen Zielen — ein Duell hat einen Sieger
+
+Die Regel, die aus zwei entgegengesetzten Urteilen eines macht, ist **eine einzige und sie ist
+deklarationsbasiert**, nicht team- oder „Spielerseite"-basiert:
+
+> Der Verlust einer Einheit ist **ERWARTET**, wenn er das erklärte Ziel einer anderen war — die Einheit
+> ist kampfunfähig UND eine andere Einheit hat ein `kill`-Ziel deklariert, das sie (oder ihre Fraktion)
+> nennt. Ein erwarteter Verlust wird weiterhin als das FAIL DIESER EINHEIT gemeldet (`UNIT_RESULT`),
+> **entscheidet aber den Lauf nicht** — weder als Missions-FAIL noch, wenn das Wrack später aufschlägt,
+> als CRASH. Das Gesamturteil kommt dann von den übrigen Einheiten.
+
+Damit hat ein Duell einen Sieger (SUCCESS) und einen Verlierer (FAIL) statt zweimal FAIL. Schlagen sich
+beide Seiten gegenseitig ab (ein Tausch), ist kein Urteil entscheidend und der Lauf meldet das FAIL der
+ersten Einheit — niemand ist heimgekommen, und die Zeile sagt das, statt einen Sieger zu erfinden.
+Missionen ohne `objective`-Zeilen kennen keinen erwarteten Verlust, kombinieren also exakt wie zuvor
+(nachgemessen: 132 von 132 Ausgabedateien der Bestandsmissionen byte-identisch).
+
+Endet ein Lauf durch ein ERWARTETES physikalisches K.O., bekommen alle noch offenen Monitore an dieser
+Stelle ihr Urteil (dieselbe Auswertung wie beim Timeout) — sonst hätte der Schütze mit `survive`-Ziel
+nie eines bekommen.
 
 **Abschuss als Missions-Urteil.** Verliert eine Einheit durch einen Waffentreffer ihr Triebwerk, ihre
 Flugsteuerung oder ihre Struktur (`core/FBSystemHealth::CombatEffective`, s. „Schadensmodell" in
-CLAUDE.md), schließt ihr eigener `FBMissionMonitor` mit FAIL — „combat ineffective (weapon damage)".
+CLAUDE.md), schließt ihr eigener `FBMissionMonitor` mit FAIL — „combat ineffective (weapon damage)"
+bzw. „…(survive objective lost)", je nachdem ob sie Ziele deklariert hat.
 Das ist ausdrücklich ein MISSIONS-Urteil und kein physikalisches: die Einheit wird nicht eingefroren und
 nicht markiert, sie fliegt weiter, solange die Physik es hergibt, und der Physik-Monitor urteilt danach
-wie über jedes andere Flugzeug (meist CFIT, wenn das Wrack den Boden erreicht). Zwei Konsequenzen für
-den Missionsentwurf:
-- Eine Einheit MIT Wegpunkten beendet den Lauf, sobald sie abgeschossen wird (Exit 1) — der Treffer ist
-  dann das Ende der Mission (`bvr-intercept.fbm`, `intercept-aim120.fbm`, `rwr-spike.fbm`, …).
-- Eine Einheit OHNE Wegpunkte trägt gar keinen `FBMissionMonitor` und kann den Lauf nicht beenden; ihr
-  Abschuss ist dann beobachtbar bis zum Aufschlag (`damage-amraam.fbm`, Exit 2 = CRASH).
-Für den SCHÜTZEN gibt es noch kein Ziel „Abschuss": das Missionsformat kennt heute nur Wegpunkte, das
-Gesamturteil ist deshalb das FAIL des Getroffenen und nicht der Erfolg des Schützen.
+wie über jedes andere Flugzeug (meist CFIT, wenn das Wrack den Boden erreicht). In der `UNIT_RESULT`-
+Zeile hat für eine abgeschossene Einheit das MISSIONS-Urteil Vorrang vor dem späteren CRASH: der
+Abschuss erklärt den Aufschlag, der Aufschlag erklärt nichts. Ein unbeschädigtes Wrack (CFIT, Departure)
+meldet weiterhin CRASH/LOC.
+Konsequenzen für den Missionsentwurf:
+- Eine Einheit MIT Zielen beendet den Lauf, sobald sie abgeschossen wird — es sei denn, ihr Abschuss war
+  das erklärte Ziel einer anderen; dann läuft die Mission weiter, bis der Schütze sein eigenes Urteil
+  hat (`bvr-duel-decided.fbm`).
+- Eine Einheit OHNE Ziele trägt gar keinen `FBMissionMonitor` und kann den Lauf nicht beenden; ihr
+  Abschuss ist dann beobachtbar bis zum Aufschlag (`damage-amraam.fbm`, Exit 2 = CRASH — diese Mission
+  deklariert bewusst KEIN Kampfziel, weil ihr Gegenstand die 340 s Nachspiel nach dem Treffer sind).
 
 Endet der Flugplan einer Einheit auf einer `land`-Zeile (`FBWaypointType::Land`, immer die
 Runway-Schwelle), gilt für DIESEN letzten Wegpunkt eine andere SUCCESS-Regel als für `wp`: kein
@@ -658,9 +717,54 @@ hat kein Wegpunkt-Ziel. Das Urteil steht in der LETZTEN ZEILE der `eng_*`-Spalte
 
 Beispiele: `sim/missions/bvr-intercept.fbm` (einseitig: nicht schießendes Ziel, ganze Kette Suche →
 Erfassung → Schuss → Führung → Treffer), `bvr-duel.fbm` (**beidseitig**: zwei KI-Jets, beide bewaffnet,
-beide mit RWR und Gegenmaßnahmen), `bvr-defend.fbm` + `bvr-defend-blind.fbm` (das Verteidigungs-Paar:
+beide mit RWR und Gegenmaßnahmen — nahezu spiegelbildlich und deshalb ein Patt), `bvr-duel-decided.fbm`
+(dasselbe Paar, ENTSCHIEDEN: 6.000 m und 150 kt Energieunterschied, sonst identisch — der Höhere/
+Schnellere hat das größere Rtr, schießt zuerst, der andere kommt nie zum Schuss; SUCCESS gegen FAIL),
+`bvr-defend.fbm` + `bvr-defend-blind.fbm` (das Verteidigungs-Paar:
 identischer Schuss, EINE Zeile Unterschied — `set rwr on|off` — also reagierende gegen nicht reagierende
 KI).
+
+## Piloten-Varianten (`set pilot_*`) und das Turnier
+
+Die Entscheidungszahlen eines Abfangs sind Eigenschaften des PILOTEN, nicht der Zelle. Sie stehen als
+Defaults im Modul (`modules/f16/FBF16Pilot`) und sind je Einheit als Missionsdaten überschreibbar:
+`set pilot_<param> <wert>` → `FBPilot::ApplyTuning` → `systems/FBPilotTuning`. Eine **Variante ist damit
+eine Zeile in einer Missionsdatei**, keine neue Klasse und kein neuer Build. Ein nicht gesetzter
+Parameter bleibt die eigene Zahl des Piloten — eine Mission ohne `pilot_*`-Zeile fliegt unverändert.
+
+| Schlüssel | Band | Was er entscheidet |
+|---|---|---|
+| `pilot_speed_kt` | 150…900 | Geschwindigkeit, mit der der Abfang geflogen wird (kt TAS) |
+| `pilot_lock_nm` | 1…40 | Entfernung, bei der designiert wird — der Lock ist die Warnung an den Gegner |
+| `pilot_shot_rtr` | 0,1…3,0 | Auslösen bei diesem Vielfachen von Rtr (>1 = jenseits von Rtr) |
+| `pilot_shot_ata_deg` | 1…60 | wie weit off-nose noch geschossen wird |
+| `pilot_shot_spacing_s` | 0…120 | Abstand zweier Schüsse auf dasselbe Ziel |
+| `pilot_crank_deg` | 0…60 | wie weit der gestützte Schuss weggedreht wird (Gimbal-Grenze 60°) |
+| `pilot_abort_nm` | 0…40 | darunter ist der Abfang vorbei |
+| `pilot_beam_deg` | 0…180 | Verteidigungsdrehung gegen die Bedrohungspeilung (90° = reiner Beam) |
+| `pilot_chaff_s` | 0,2…60 | Wurfintervall während der Verteidigung |
+| `pilot_defend_hold_s` | 0…120 | wie lange die Verteidigung nach der letzten Warnung gehalten wird |
+| `pilot_react_s` | 0…30 | menschliche Reaktionszeit auf eine Bedrohungswarnung (Default 1,0 s) |
+| `pilot_action_s` | 0,1…30 | eine Bedienhandlung pro dieser Zeit (Default 0,5 s) |
+
+Beides — Reaktions- und Handlungszeit — liegt weiterhin ZUSÄTZLICH zur Bus-Latenz der jeweiligen
+Bedienklasse (`core/FBCommandBus`); keine Variante kann schneller antworten, als der Jet erlaubt. Ein
+unbekannter Schlüssel oder ein Wert außerhalb des Bandes ist ein Laufzeit-FAIL wie jede andere
+schlechte `set`-Zeile — eine vertippte Turnier-Zahl fliegt nicht still den Default.
+
+**Der Turnierläufer** ist ein Skript, kein Build-Target: `sim/tools/fb_tournament.py` (stdlib-Python).
+Er schreibt aus einer Variantenliste (`sim/tools/variants-bvr.txt`) für jedes Paar und **beide
+Seitenzuordnungen** eine `.fbm`-Datei, fährt sie über `fb-gym --threads N` und wertet Telemetrie +
+`UNIT_RESULT` aus. Die Fitness dominiert im Ergebnis (Abschuss +1000, eigener Verlust −1200, gelandeter
+Treffer +150, nie geschossen −250) und ordnet erst darunter nach Handwerk (Schussgeometrie im
+Startbereich, Stützanteil, Schuss-Vorsprung, Verteidigung, Energie) — die Handwerkssumme kann ein
+Ergebnis innerhalb eines Laufs nie umdrehen. Die Ausgabe nennt je Paarung BEIDE Seiten mit ihren
+Einzelposten, die Rangliste trennt `outcome` von `craft`.
+
+```
+sim/tools/fb_tournament.py --variants sim/tools/variants-bvr.txt --out /tmp/t --geometry split \
+    --threads 2 --check-determinism
+```
 
 ## Ausgabe je Lauf (`--out DIR`)
 

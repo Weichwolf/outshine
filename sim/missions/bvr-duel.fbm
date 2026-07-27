@@ -58,6 +58,8 @@ unit viper
   set cmds_flare 60
   set task intercept
   wp 46.90000 8.35000 9000 450             # the vector: threat bearing 090
+  objective kill unit bandit               # what a duel is FOR — and what makes the other's loss
+  objective survive                        # somebody's success instead of the run's failure
 
 unit bandit
   team hostile
@@ -76,3 +78,5 @@ unit bandit
   set cmds_flare 60
   set task intercept
   wp 46.90000 5.75000 8000 400             # its mirror vector, threat bearing 270
+  objective kill unit viper                # the mirror declaration: this file is symmetric in its
+  objective survive                        # objectives too, which is why a draw is a draw

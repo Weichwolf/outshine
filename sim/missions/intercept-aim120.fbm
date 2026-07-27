@@ -28,9 +28,16 @@ timeout 280
 # Both jets have a waypoint at the end of their leg, and a weapon's flight is an EVENT inside a mission
 # rather than the mission's verdict. Since the damage model exists (core/FBDamageModel), though, the
 # round that arrives here is decisive after all: the burst destroys the bandit's systems, the bandit's
-# own mission monitor concludes FAIL ("combat ineffective") and the RUN ENDS AT THE HIT — exit 1, at
-# ~70.4 s, instead of the SUCCESS at ~191 s this mission used to report. Everything up to that tick is
+# own mission monitor concludes FAIL ("combat ineffective") and the RUN ENDS AT THE HIT — at ~70.4 s,
+# instead of the SUCCESS at ~191 s this mission used to report. Everything up to that tick is
 # unchanged, column for column; what the missile did is measured exactly as before.
+#
+# WHOSE result that is, is what the viper's `objective kill unit bandit` line settles (core/FBObjective.h,
+# doc/mission-format.md): the bandit's FAIL is the viper's DECLARED objective, so it is reported as the
+# bandit's own verdict and does not decide the run — the viper concludes SUCCESS ("objectives met") in
+# the same tick and the mission exits 0. Before the objective line the same run exited 1: the shot
+# landed and the mission reported a failure, because nothing in the file said who the shot was FOR.
+# Nothing about the flight changed with that line — every telemetry column is byte-identical.
 
 unit viper
   team friendly
@@ -46,6 +53,7 @@ unit viper
   set brief_release_s 20                   # ~22 nm, head-on: inside the launch zone
   wp 46.90000 7.15000 8000 400          # 42 km east: reached at ~205 s, so the run ends SUCCESS
 
+  objective kill unit bandit
 unit bandit
   team hostile
   module f16

@@ -27,7 +27,8 @@ timeout 200
 
 # WHAT THE EXIT CODE NOW SAYS: this leg's round still arrives (chaff alone achieves nothing head-on), and
 # since core/FBDamageModel exists an arriving round is decisive — the bandit is left combat-ineffective
-# and the run ends at the burst with exit 1 instead of exit 0. The measured miss distance, and every
+# and the run ends at the burst. The viper's `objective kill unit bandit` line makes that the SHOOTER's
+# success (exit 0) rather than the target's failure. The measured miss distance, and every
 # column before that tick, is unchanged.
 
 unit viper
@@ -43,6 +44,7 @@ unit viper
   set brief_release_s 10                   # ~20 km, inside the launch zone, nothing else briefed
   wp 46.90000 7.15000 8000 400
 
+  objective kill unit bandit
 unit bandit
   team hostile
   module f16

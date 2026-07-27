@@ -33,7 +33,7 @@ timeout 300
 #                which is the difference between a launch and a kill
 #   DETONATION   with the miss distance
 #
-# THE RUN ENDS AT THE HIT (exit 1, ~173.0 s). It used to run to its timeout, because a target survived
+# THE RUN ENDS AT THE HIT (~173.0 s, exit 0). It used to run to its timeout, because a target survived
 # everything; since core/FBDamageModel exists, the first burst (0.6 m, dead centre) destroys every
 # system the bandit has, its own mission monitor concludes FAIL ("combat ineffective") and the run is
 # over — the shot was the point of the mission, and the mission now ends when it lands. Everything
@@ -57,6 +57,7 @@ unit viper
   set task intercept
   wp 46.90000 8.35000 8000 450             # the controller's vector: threat bearing 090, co-altitude
 
+  objective kill unit bandit
 unit bandit
   team hostile
   module f16

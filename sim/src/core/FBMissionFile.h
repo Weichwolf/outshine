@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 #include "FBFlightPlan.h"
+#include "FBObjective.h"
 #include "FBRunway.h"
 #include "FBSpawn.h"
 #include "FBTeam.h"
@@ -32,7 +33,11 @@ struct FBMissionUnit {
   FBUnitTeam   Team = FBUnitTeam::Friendly;   /* `team` omitted = friendly */
   FBSpawn      Spawn;
   bool         HaveSpawn = false;
-  FBFlightPlan Plan;         /* this actor's OWN objectives; empty = an actor with nothing to judge */
+  FBFlightPlan Plan;         /* this actor's OWN waypoints; empty = an actor with nothing to fly to */
+  /* `objective ...` lines, file order (core/FBObjective.h) — what this actor has to achieve against
+   * the OTHER actors. Empty = the pre-combat behaviour: the flight plan is the whole judgement, and
+   * being shot down is this unit's own failure and nobody's success. */
+  std::vector<FBObjective> Objectives;
   std::vector<std::pair<std::string, std::string>> SetKV;   /* `set <key> <value>` lines, file order */
 };
 

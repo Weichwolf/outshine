@@ -138,6 +138,42 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
       if (!out.HaveRunway) return fail("'land' without a mission 'runway' line");
       unit->Plan.AddWaypoint(FBWaypoint{out.Runway.ThresholdLatDeg, out.Runway.ThresholdLonDeg,
                                         out.Runway.ThresholdElevM, 0.0, FBWaypointType::Land});
+    } else if (kw == "objective") {
+      /* objective survive | objective kill unit <callsign> | objective kill team <faction>
+       * (doc/mission-format.md). `kill` takes an explicit unit/team discriminator rather than guessing
+       * from the word that follows: a callsign is allowed to BE "hostile" (the parser's alphabet does
+       * not forbid it), and a mission whose kill objective silently changed meaning because somebody
+       * named a jet after a faction is not a format anybody should have to debug. */
+      std::string what;
+      if (!(ls >> what)) return fail("'objective' needs survive|waypoints|kill");
+      FBObjective o;
+      if (what == "survive") {
+        o.Kind = FBObjectiveKind::Survive;
+      } else if (what == "waypoints") {
+        o.Kind = FBObjectiveKind::Waypoints;
+        if (unit->Plan.Empty()) return fail("'objective waypoints' needs 'wp'/'land' lines above it");
+      } else if (what == "kill") {
+        std::string scope, target;
+        if (!(ls >> scope) || !(ls >> target))
+          return fail("'objective kill' needs 'unit <callsign>' or 'team <faction>'");
+        if (scope == "unit") {
+          o.Kind = FBObjectiveKind::KillUnit;
+          o.TargetId = target;
+          if (target == unit->Id) return fail("unit '" + unit->Id + "' cannot have itself as a target");
+        } else if (scope == "team") {
+          o.Kind = FBObjectiveKind::KillTeam;
+          if (!FBUnitTeamFromString(target.c_str(), o.TargetTeam))
+            return fail("'objective kill team' needs friendly|hostile|neutral");
+        } else {
+          return fail("'objective kill' needs 'unit <callsign>' or 'team <faction>'");
+        }
+      } else {
+        return fail("'objective' needs survive|waypoints|kill");
+      }
+      for (const auto &have : unit->Objectives)
+        if (have.Kind == o.Kind && have.TargetId == o.TargetId && have.TargetTeam == o.TargetTeam)
+          return fail("unit '" + unit->Id + "' declares '" + FBObjectiveStr(o) + "' twice");
+      unit->Objectives.push_back(std::move(o));
     } else if (kw == "set") {
       /* set <key> <value...> — raw KV data only (doc/mission-format.md); the PARSER never interprets a
        * key, only the module does (FBModule::ApplySetup) once the Runner hands these over in the spawn
@@ -159,6 +195,18 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
   for (const auto &u : out.Units) {
     if (u.ModuleName.empty()) return failFile("unit '" + u.Id + "' has no 'module'");
     if (!u.HaveSpawn) return failFile("unit '" + u.Id + "' has no 'spawn'");
+    /* A named kill target is resolved against the whole cast, not against the blocks seen so far: an
+     * objective may name a unit declared further down the file, and the two sides of a duel would
+     * otherwise be an ordering puzzle. A target that does not exist is a mission that can never be
+     * won, so it is a parse error and not a silent never-met objective. */
+    for (const auto &o : u.Objectives) {
+      if (o.Kind != FBObjectiveKind::KillUnit) continue;
+      bool found = false;
+      for (const auto &other : out.Units) found = found || other.Id == o.TargetId;
+      if (!found)
+        return failFile("unit '" + u.Id + "': 'objective kill unit " + o.TargetId + "' names no unit "
+                        "in this mission");
+    }
   }
   return true;
 }

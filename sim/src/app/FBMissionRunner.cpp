@@ -77,30 +77,64 @@ const FBSimUnit *FirstFlightKo(const FBActorList &actors) {
   return nullptr;
 }
 
+/* ---- THE COMBINATION RULE, and the one thing objectives changed about it ----
+ * An actor's loss is EXPECTED when it is another actor's DECLARED OBJECTIVE (core/FBObjective.h): this
+ * unit is combat-ineffective, and somebody else's mission file said in so many words that making it so
+ * was the point. Two observed facts and a declaration — no team heuristic, no notion of "the player's
+ * side", and nothing at all for a mission that declares no objectives, which is why every legacy
+ * mission combines exactly as it always did.
+ *
+ * WHY IT EXISTS: a duel has a winner and a loser, not two failures. Before objectives, the loser's FAIL
+ * was the only verdict in the run and it became the run's — so a mission whose HOSTILE unit was shot
+ * down reported FAIL, and the shooter's success was invisible. An expected loss is still reported as
+ * that actor's own FAIL in its UNIT_RESULT line (it lost, and the record says so); what it no longer
+ * does is decide the run. */
+bool ExpectedLoss(const FBActorList &actors, const FBSimUnit &a) {
+  if (a.Health().CombatEffective()) return false;
+  for (const auto &b : actors) {
+    if (b.get() == &a) continue;
+    const FBMissionMonitor *m = b->MissionMonitor();
+    if (!m) continue;
+    for (const auto &o : m->Objectives())
+      if (FBObjectiveCovers(o, a.GetName().c_str(), a.GetTeam())) return true;
+  }
+  return false;
+}
+
 /* The MISSION verdict is per actor and combined here, nowhere else: an actor is JUDGED iff the mission
  * gave it objectives (it then carries an FBMissionMonitor, app/FBMissionBoot.h). The run is over the
- * moment ONE judged actor fails or times out (there is nothing left to prove), and it succeeds only
- * once EVERY judged actor has reached its own verdict of Success. */
-const FBSimUnit *FirstMissionFailure(const FBActorList &actors) {
+ * moment ONE judged actor's failure DECIDES it (there is nothing left to prove) — an expected loss does
+ * not, so the run goes on until the side that declared it has an answer too. */
+const FBSimUnit *FirstDecidingFailure(const FBActorList &actors) {
   for (const auto &a : actors) {
     const FBMissionMonitor *m = a->MissionMonitor();
-    if (m && m->Concluded() && m->Verdict() != FBMissionVerdict::Success) return a.get();
+    if (!m || !m->Concluded() || m->Verdict() == FBMissionVerdict::Success) continue;
+    if (!ExpectedLoss(actors, *a)) return a.get();
   }
   return nullptr;
 }
-bool AllObjectivesMet(const FBActorList &actors) {
+/* ...and it is over anyway once every judged actor has an answer, whatever that answer is. For a
+ * mission with no objectives that is the same instant as "every judged actor succeeded", because there
+ * any failure at all is a deciding one and stops the loop above first. */
+bool AllJudgedConcluded(const FBActorList &actors) {
   bool anyJudged = false;
   for (const auto &a : actors) {
     const FBMissionMonitor *m = a->MissionMonitor();
     if (!m) continue;
     anyJudged = true;
-    if (m->Verdict() != FBMissionVerdict::Success) return false;
+    if (!m->Concluded()) return false;
   }
   return anyJudged;
 }
-/* The judged actor whose verdict/detail the combined RESULT quotes on SUCCESS — the first one, matching
- * the single-actor case exactly (there the primary IS the only judged actor). */
+/* The judged actor whose verdict/detail the combined RESULT quotes once nothing decided the run — the
+ * first one, matching the single-actor case exactly (there the primary IS the only judged actor). An
+ * actor whose loss was somebody's declared objective is skipped: quoting the LOSER of a decided duel as
+ * the run's verdict is precisely the team-blindness objectives exist to remove. If every judged actor
+ * lost that way (a mutual exchange), the first of them speaks after all — nobody came home, and the
+ * record should say so rather than invent a winner. */
 const FBSimUnit *FirstJudged(const FBActorList &actors) {
+  for (const auto &a : actors)
+    if (a->MissionMonitor() && !ExpectedLoss(actors, *a)) return a.get();
   for (const auto &a : actors)
     if (a->MissionMonitor()) return a.get();
   return nullptr;
@@ -249,20 +283,31 @@ std::string TelemetryPath(const std::string &outDir, size_t index, const FBSimUn
   return outDir + "/telemetry_" + unit.GetName() + ".csv";
 }
 
+/* WAS THE GROUND THE CAUSE OR THE CONSEQUENCE? A jet that was shot down and then flew into the terrain
+ * has TWO true verdicts, and the useful one is the first: the shootdown explains the crash, the crash
+ * explains nothing. So the physical judge steps aside for a unit whose mission judge already concluded
+ * and which is combat-ineffective — the only way that pairing arises. An undamaged wreck (CFIT, a
+ * departure) still reports as one, unchanged. */
+bool ShotDownFirst(const FBSimUnit &a) {
+  const FBMissionMonitor *m = a.MissionMonitor();
+  return m && m->Concluded() && !a.Health().CombatEffective();
+}
+
 /* This actor's own result string for the per-unit breakdown: the physical judge outranks the mission
- * judge (a wreck has no mission verdict worth quoting), an actor without objectives reports NONE. */
+ * judge (a wreck has no mission verdict worth quoting) EXCEPT after a shootdown, see above; an actor
+ * without objectives reports NONE. */
 const char *ActorResultStr(const FBSimUnit &a) {
   /* A store's physical K.O. is the outcome it was released for, so it is named as such rather than as a
    * crash — same judge, same verdict, different word for a different kind of unit. */
   if (a.GetKind() == FBUnitKind::Weapon)
     return a.FlightMonitor().Tripped() ? "IMPACT" : "IN_FLIGHT";
-  if (a.FlightMonitor().Tripped())
-    return a.FlightMonitor().Reason() == FBKoReason::Loc ? "LOC" : "CRASH";
   const FBMissionMonitor *m = a.MissionMonitor();
+  if (a.FlightMonitor().Tripped() && !ShotDownFirst(a))
+    return a.FlightMonitor().Reason() == FBKoReason::Loc ? "LOC" : "CRASH";
   return m ? FBMissionVerdictStr(m->Verdict()) : "NONE";
 }
 std::string ActorReason(const FBSimUnit &a) {
-  if (a.FlightMonitor().Tripped()) return a.FlightMonitor().Detail();
+  if (a.FlightMonitor().Tripped() && !ShotDownFirst(a)) return a.FlightMonitor().Detail();
   const FBMissionMonitor *m = a.MissionMonitor();
   if (!m) return "no objectives";
   return m->Concluded() ? m->Detail() : "still under way when the run ended";
@@ -410,6 +455,22 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   FBUnitRegistry UnitReg;
   for (const auto &a : Actors) UnitReg.Register(a.get());
 
+  /* The OBSERVED roster a combat objective is judged against (core/FBObjective.h), rebuilt once per
+   * tick and shown to every judged actor's monitor: callsign, faction, and the one bit that actor's own
+   * health register publishes. Weapons are left out — a round in the air is not somebody's target.
+   * Reserved for the ceiling, so the tick path never allocates and the borrowed FBMissionRoster view
+   * never dangles; the Id borrows the unit's own name, which outlives the run. */
+  std::vector<FBUnitObservation> RosterBuf;
+  RosterBuf.reserve(maxActors);
+  auto BuildRoster = [&]() {
+    RosterBuf.clear();
+    for (const auto &a : Actors) {
+      if (a->GetKind() == FBUnitKind::Weapon) continue;
+      RosterBuf.push_back({a->GetName().c_str(), a->GetTeam(), a->Health().CombatEffective()});
+    }
+    return FBMissionRoster{RosterBuf.data(), (int)RosterBuf.size()};
+  };
+
   if (hook) hook->OnMissionStart(mission.Units.front().Spawn, Actors, UnitReg);
 
   std::vector<FBActorTelemetry> ActorTelemetry;
@@ -468,7 +529,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
    *   - telemetry sampling and the tick hook (the native oracle's renderer), single-threaded by decision.
    * The step pass's own log output is captured per actor and replayed here, in the same actor order the
    * sequential loop wrote it in. */
-  while (!FirstFlightKo(Actors) && !FirstMissionFailure(Actors) && !AllObjectivesMet(Actors) &&
+  while (!FirstFlightKo(Actors) && !FirstDecidingFailure(Actors) && !AllJudgedConcluded(Actors) &&
          simT < timeoutS) {
     for (auto &a : Actors)
       if (a->Active()) a->UpdateGroundAsl(elevation.GroundElevM(a->State().lat, a->State().lon));
@@ -479,11 +540,12 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
       if (a->Active()) a->PublishPose();   /* the barrier: new poses become visible together */
     simT += dt;
     FBLog::SetTime(simT);
+    FBMissionRoster roster = BuildRoster();
     for (auto &a : Actors) {
       if (!a->Active()) continue;
       FBLogUnitScope us(a->LogLabel());
       a->CheckEnvelope();   /* generic envelope diagnostics — per actor, not per run */
-      a->RunMonitors(simT);
+      a->RunMonitors(simT, roster);
     }
     for (auto &a : Actors)
       if (a->Active()) a->SampleTelemetry(simT);
@@ -591,10 +653,23 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   /* ---- Step 4: validate the world — the monitors already did; combine their verdicts ---- */
   const FBSimUnit &primary = *Actors.front();
   const FBSimUnit *ko = FirstFlightKo(Actors);
-  const FBSimUnit *failed = ko ? nullptr : FirstMissionFailure(Actors);
-  /* The actor whose verdict ENDED the run — a K.O. or the first mission failure. On a clean success
-   * nobody decided anything alone (every judged actor met its own objectives), so this stays null and
-   * the combined RESULT carries no unit attribution. */
+  /* A physical K.O. always ENDS the run (no wreck integrates in the background) but it only DECIDES it
+   * when it was not somebody's declared objective: a shot-down jet that finally reaches the ground is
+   * the expected end of that aircraft, not the mission's crash. When it is expected, the run's verdict
+   * comes from the mission judges as usual — and the ones still waiting on a `survive` objective are
+   * asked here, because the run they had to survive is over. */
+  if (ko && ExpectedLoss(Actors, *ko)) {
+    FBMissionRoster roster = BuildRoster();
+    for (auto &a : Actors) {
+      FBLogUnitScope us(a->LogLabel());
+      a->FinalizeMission(simT, roster);
+    }
+    ko = nullptr;
+  }
+  const FBSimUnit *failed = ko ? nullptr : FirstDecidingFailure(Actors);
+  /* The actor whose verdict ENDED the run — a K.O. or the first deciding mission failure. On a clean
+   * success nobody decided anything alone (every judged actor met its own objectives), so this stays
+   * null and the combined RESULT carries no unit attribution. */
   const FBSimUnit *deciding = ko ? ko : failed;
   const FBSimUnit *judged = FirstJudged(Actors);
   FBMissionResult result;

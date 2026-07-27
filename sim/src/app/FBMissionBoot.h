@@ -41,11 +41,11 @@ namespace FlightBox {
  * (Preflight for a ground sit — the WOW-gated hold+takeoff-roll machinery; Route directly for an
  * airborne spawn, already established in flight), and every `set <key> <value>` line via
  * FBModule::ApplySetup (an unrecognized key voids the spawn — the caller turns that into a mission FAIL,
- * doc/mission-format.md). An actor WITH objectives (a non-empty flight plan) also gets its own
- * FBMissionMonitor, built from the mission FILE's plan/runway (never the module's live, mutated copy)
- * with `timeoutS` — the caller's resolved timeout, which may override the file's own; an actor the
- * mission gave no waypoints has nothing to succeed or fail at and carries no monitor, so it never
- * appears in the mission verdict.
+ * doc/mission-format.md). An actor WITH objectives (a non-empty flight plan, `objective` lines, or
+ * both) also gets its own FBMissionMonitor, built from the mission FILE's plan/objectives/runway (never
+ * the module's live, mutated copy) with `timeoutS` — the caller's resolved timeout, which may override
+ * the file's own; an actor the mission gave neither has nothing to succeed or fail at and carries no
+ * monitor, so it never appears in the mission verdict.
  *
  * `models` is the client's pair of model roots (app/FBModelRoots.h — they differ per link target, and
  * WHICH of the two a module's model comes from is the module's own statement). Returns nullptr with a human reason in *err (unknown module, JSBSim init,
@@ -96,9 +96,14 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const FBModelRoots &models
 
   auto unit = std::make_unique<FBSimUnit>((int)unitIdx + 1, block.Id, FBUnitKind::Aircraft, block.Team,
                                           std::move(fdm), std::move(module), st, groundAsl);
-  if (!block.Plan.Empty())
-    unit->SetMissionMonitor(std::make_unique<FBMissionMonitor>(block.Plan, mission.Runway,
-                                                               mission.HaveRunway, timeoutS));
+  /* An actor is JUDGED iff the mission gave it something to achieve — waypoints to reach or combat
+   * objectives to meet (core/FBObjective.h). An actor with neither has nothing to succeed or fail at
+   * and carries no monitor, so it never appears in the mission verdict; that was the rule before
+   * objectives existed and it is unchanged, only the definition of "something" grew. */
+  if (!block.Plan.Empty() || !block.Objectives.empty())
+    unit->SetMissionMonitor(std::make_unique<FBMissionMonitor>(block.Plan, block.Objectives,
+                                                               mission.Runway, mission.HaveRunway,
+                                                               timeoutS));
   /* THE one place the log-attribution rule is decided (core/FBLog.h's SetUnit banner): a mission with a
    * single actor keeps its lines unattributed — they are the mission's own — while a flight labels
    * every line with the callsign that produced it. */

@@ -189,9 +189,17 @@ füttern) → Welt validieren (die Monitore haben's längst entschieden). Ein AK
 Eintrag je `unit`-Block der Missionsdatei, in Dateireihenfolge (Index 0 = primärer Akteur: kanonische
 `telemetry.csv`, Kamera-Auge). Gesamturteil: ein Physik-K.O. IRGENDEINER Einheit beendet den Lauf (die
 konservative Lesart — kein Wrack integriert im Hintergrund weiter), und das MISSIONS-Urteil fällt PRO
-EINHEIT — jede Einheit MIT Zielen trägt ihren eigenen `FBMissionMonitor`; SUCCESS erst, wenn ALLE ihre
-Ziele erreicht haben, FAIL/TIMEOUT sobald eine scheitert. Der Runner ist die einzige Stelle, die aus N
-Urteilen eines macht; er fällt keines selbst. Je Akteur emittiert er eine maschinenlesbare
+EINHEIT — jede Einheit MIT Zielen (Wegpunkte ODER `objective`-Zeilen) trägt ihren eigenen
+`FBMissionMonitor`; SUCCESS erst, wenn ALLE ihre
+Ziele erreicht haben, FAIL/TIMEOUT sobald eine ENTSCHEIDEND scheitert. Der Runner ist die einzige
+Stelle, die aus N Urteilen eines macht; er fällt keines selbst. **Kampfziele machen das Urteil
+team-fähig** (`core/FBObjective.h`, `doc/mission-format.md`): eine `.fbm`-Einheit kann `survive`,
+`waypoints` und `kill unit <callsign>`/`kill team <fraktion>` deklarieren, und die EINE Regel, die aus
+zwei entgegengesetzten Urteilen eines macht, ist deklarationsbasiert statt team-basiert — der Verlust
+einer Einheit ist ERWARTET, wenn er das erklärte `kill`-Ziel einer anderen war; ein erwarteter Verlust
+wird weiter als deren eigenes FAIL gemeldet, entscheidet den Lauf aber nicht (auch nicht als CRASH, wenn
+das Wrack später aufschlägt). Ein Duell hat damit einen Sieger und einen Verlierer statt zweimal FAIL;
+eine Mission ohne `objective`-Zeile kennt keinen erwarteten Verlust und kombiniert exakt wie zuvor. Je Akteur emittiert er eine maschinenlesbare
 `UNIT_RESULT`-Zeile (Teilergebnis + Grund + Telemetriepfad), und bei mehr als einer Einheit trägt JEDE
 akteursbezogene Log-Zeile (auch die modulinternen) als erstes Feld `unit=<callsign>` — bei genau einer
 Einheit entfällt beides, weil es nichts zu unterscheiden gibt (und alte Regressions-Baselines
@@ -353,10 +361,14 @@ sim/src/
              deklarativer-Spawn-Value-Types für FBPilot/den Orchestrator), FBTeam (`FBUnitTeam` —
              die Fraktion, im core/, weil sie BEIDES ist: Missionsdaten und Welt-Identität), FBMissionFile
              (`.fbm`-Parser: missionsweite Daten + eine LISTE von `FBMissionUnit`-Blöcken, je
-             Callsign/`ModuleName`/`FBUnitTeam`/`FBSpawn`/`SetKV`/`FBFlightPlan`), FBMissionMonitor
+             Callsign/`ModuleName`/`FBUnitTeam`/`FBSpawn`/`SetKV`/`FBFlightPlan`/`Objectives`),
+             FBObjective (das KAMPFZIEL als Wert: `survive`/`waypoints`/`kill unit`/`kill team`, plus
+             `FBUnitObservation`/`FBMissionRoster` — die geborgte Ein-Tick-Sicht auf die anderen
+             Einheiten, gegen die ein Ziel geprüft wird: Callsign, Fraktion, das eine Bit aus deren
+             Gesundheitsregister, sonst nichts), FBMissionMonitor
              (FBFlightMonitor-Geschwister: das MISSIONS-Urteil — Wegpunkte/Off-Runway/Timeout, seit dem
-             Schadensmodell auch „kampfunfähig" — aus
-             der eigenen, unveränderlichen Plan-Kopie, nie dem Modul-eigenen Zustand),
+             Schadensmodell auch „kampfunfähig", seit den Kampfzielen auch deren Erfüllung — aus
+             der eigenen, unveränderlichen Plan-/Ziel-Kopie, nie dem Modul-eigenen Zustand),
              FBSystemHealth (das Gesundheitsregister EINER Einheit: je System intakt/degradiert/
              ausgefallen, monoton, Mutatoren privat mit genau einem Friend — s.o. „Kein Cheaten" — plus
              die Telemetrie-Quelle `dmg_*`) und FBDamageModel (die Auflösung Treffer→Schaden:
@@ -602,6 +614,20 @@ sim/src/
                eigenen Flugzeug immer. Alle Zahlen sind Hooks (F-16: Lock ab 16 nm, Crank auf 45° =
                Gimbal 60° minus Reserve); Reaktionszeit und Bedien-Takt sind KEINE Hooks, weil sie den
                Piloten und nicht das Flugzeug beschreiben.
+               FBPilotTuning (`FBPilotTuning.h/.cpp`): die PILOTEN-VARIANTE als Missionsdaten — eine
+               dünne, feste Tabelle {gesetzt?, Wert} über genau die zwölf Entscheidungszahlen des
+               Abfangs (Lock-Entfernung, Rtr-Faktor, Schusskegel/-abstand, Crank, Abbruch, Beam,
+               Chaff-Intervall, Verteidigungs-Haltezeit, Speed, plus Reaktionszeit und Bedien-Takt).
+               Der Pilot liest sie NUR über `Tuned(param, eigener_Wert)` im Entscheidungspfad, das
+               Modul füllt sie über `set pilot_*` (`FBPilot::ApplyTuning`, unbekannter Schlüssel oder
+               Wert außerhalb des Bandes = Missions-FAIL). Ein nicht gesetzter Eintrag ist KEINE Null,
+               sondern „die eigene Zahl dieses Piloten" — eine Mission ohne `pilot_*`-Zeile fliegt
+               byte-identisch wie vor Existenz dieser Klasse (nachgemessen). Damit ist eine Varianten-
+               Population eine Menge von TEXTZEILEN statt eine Menge von Klassen, und der Turnierläufer
+               (`sim/tools/fb_tournament.py`, kein Build-Target) schreibt Missionsdateien statt Code:
+               alle Paarungen, beide Seitenzuordnungen, Läufe über `fb-gym --threads`, Auswertung aus
+               den `eng_*`-Kanälen + `dmg_*` + `UNIT_RESULT` — Ergebnis dominiert, Handwerk ordnet nur
+               innerhalb gleicher Ergebnisse (`doc/mission-format.md`, „Piloten-Varianten").
                FBEngagement (`FBEngagement.h/.cpp`): die Zustandsmaschine dieser Phase als DATEN plus
                ihr Debriefing — Zeit bis Kontakt/Lock, Schussentfernung und -geometrie samt dem
                Startbereich IM MOMENT des Schusses, gehaltene Führungssekunden gegen das Fenster, das
@@ -903,7 +929,10 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
   Geschwister) entscheidet das MISSIONS-Urteil (SUCCESS/FAIL/TIMEOUT) aus der Missionsdatei selbst:
   Wegpunkte erreicht (gegen die EIGENE, unveränderliche Kopie von `FBFlightPlan`, nie das Modul-eigene
   mutierte Exemplar — reine Positions-Beobachtung, keine Modul-Selbstauskunft), Bodenkontakt abseits
-  der zugewiesenen Runway (RESULT FAIL, nicht CRASH), Timeout. Beide werden von JEDEM Client gefüttert,
+  der zugewiesenen Runway (RESULT FAIL, nicht CRASH), Timeout, und die deklarierten Kampfziele
+  (`core/FBObjective.h`) gegen ein vom RUNNER gebautes Roster der anderen Einheiten — Callsign,
+  Fraktion, das eine Bit aus deren eigenem Gesundheitsregister. Kein Modul wird nach seinem Gegner
+  gefragt, keines nach sich selbst. Beide werden von JEDEM Client gefüttert,
   der eine Sim-Schleife fährt — `FBMissionRunner` (fb-gym/gpu_native `--mission`) genauso wie der
   WASM-App-eigene Frame-Loop (`FBAppWasm.cpp`) — je EINE Definition, kein zweiter Paralleltest. Bei
   mehreren Einheiten gibt es je Einheit ein eigenes Paar (das MISSIONS-Urteil ist per Akteur, das

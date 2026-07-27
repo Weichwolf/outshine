@@ -577,6 +577,19 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
     else return RejectSetup("want gun|aim9|aim120", key, value);
     return true;
   }
+  /* THE PILOT VARIANT (systems/FBPilotTuning): `set pilot_<param> <value>` overrides one of the
+   * pilot's own decision numbers for this unit only. Forwarded whole — the parameter set is a property
+   * of the PILOT, not of this airframe, so the key table lives with the pilot and this module does not
+   * get a second, drifting copy of it. A rejected key or an out-of-band value is a mission FAIL like
+   * every other bad `set` line, which is what keeps a misspelt tournament parameter from quietly
+   * flying the default. */
+  if (key.compare(0, 6, "pilot_") == 0) {
+    double v = 0.0;
+    if (!ParseDouble(value, v)) return RejectSetup("not a number", key, value);
+    if (!PilotSys->ApplyTuning(key, v)) return RejectSetup("no such pilot parameter, or out of range",
+                                                          key, value);
+    return true;
+  }
   if (key == "gear") {
     if (value != "up" && value != "down") return RejectSetup("want up|down", key, value);
     AirframeCtrl->SetGear(value == "down");

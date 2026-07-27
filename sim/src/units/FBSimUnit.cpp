@@ -124,13 +124,28 @@ void FBSimUnit::ApplyDamageToAirframe() {
   }
 }
 
-bool FBSimUnit::RunMonitors(double simT) {
+/* The mission judge's whole per-tick input, in one place: this unit's observed position/contact/speed,
+ * the one bit its own health register publishes, and the roster of the others (core/FBObjective.h). */
+FBMissionMonitorSample FBSimUnit::BuildMissionSample(const FBMissionRoster &roster) const {
+  FBMissionMonitorSample s;
+  s.LatDeg = St_.lat; s.LonDeg = St_.lon;
+  s.AnyWow = Fdm_->GetWow();
+  s.GroundSpeedKt = St_.gs * kMsToKt;
+  s.CombatIneffective = !Health_.CombatEffective();
+  s.Roster = roster;
+  return s;
+}
+
+bool FBSimUnit::FinalizeMission(double simT, const FBMissionRoster &roster) {
+  return Mission_ && Mission_->Finalize(BuildMissionSample(roster), simT);
+}
+
+bool FBSimUnit::RunMonitors(double simT, const FBMissionRoster &roster) {
   if (Flight_.Tick(FBBuildFlightMonitorSample(*Fdm_, St_, GroundAslM_), simT)) {
     Module_->Controls().EngineCutoff();
     return true;
   }
-  if (Mission_ && Mission_->Tick({St_.lat, St_.lon, Fdm_->GetWow(), St_.gs * kMsToKt,
-                                  !Health_.CombatEffective()}, simT)) {
+  if (Mission_ && Mission_->Tick(BuildMissionSample(roster), simT)) {
     /* Touched down off the assigned runway. NOT for a shootdown (the other way this verdict is reached):
      * a destroyed jet's engine is whatever the damage left it as, and cutting it here would be the
      * verdict acting on the aircraft instead of the damage doing so. */

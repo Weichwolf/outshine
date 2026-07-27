@@ -155,8 +155,15 @@ public:
 
   /* Feeds both judges this tick's observed truth and applies the ONE consequence a trip has on the
    * airframe (engine cutoff — JSBSim's own ground reactions do the rest, no freeze). Returns true if
-   * either concluded on this tick. */
-  bool RunMonitors(double simT);
+   * either concluded on this tick. `roster` is the observed state of the OTHER units (core/
+   * FBObjective.h) that a combat objective is judged against — built by the caller from the health
+   * registers IT owns, empty for a mission that declares none. */
+  bool RunMonitors(double simT, const FBMissionRoster &roster = FBMissionRoster{});
+
+  /* The run is over and this unit's mission judge has not concluded — ask it (FBMissionMonitor::
+   * Finalize; a `survive` objective can only be answered here). A no-op for an already-concluded or
+   * absent monitor, which is every legacy one. */
+  bool FinalizeMission(double simT, const FBMissionRoster &roster);
 
   /* Generic flight-envelope diagnostics (stall/overspeed/sink) — every module has these quantities, so
    * they are the unit's own observation, latched per unit rather than per run. */
@@ -170,6 +177,7 @@ public:
 
 private:
   void ApplyDamageToAirframe();   /* health register -> JSBSim, the only place damage becomes physics */
+  FBMissionMonitorSample BuildMissionSample(const FBMissionRoster &roster) const;
 
   std::unique_ptr<FBFdm> Fdm_;         /* owned; outlives Module_, which only borrows it */
   std::unique_ptr<FBModule> Module_;

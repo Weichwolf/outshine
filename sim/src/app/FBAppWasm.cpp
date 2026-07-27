@@ -70,6 +70,9 @@ static FBActorList gActors;
 /* The browser's unit registry (units/FBUnitRegistry): the same one object the headless runner builds —
  * filled once at boot, borrowed by every actor's sensors AND by FBWorld's drawing side. */
 static FBUnitRegistry gUnits;
+/* The per-frame roster buffer behind the combat-objective judgement (see the sim tick) — reserved at
+ * boot to the cast size, refilled in place every frame, never reallocated. */
+static std::vector<FBUnitObservation> gRoster;
 static FBSimUnit *gOwnship = nullptr;
 /* This loop's monotonic sim-clock, for the monitors' sustain timers (LOC/deep-stall): the browser has no
  * discrete 10 Hz mission tick like the runner, it integrates whatever the rAF period gives it. */
@@ -169,7 +172,16 @@ static void frame(void) {
    * touchdown off the assigned runway also cuts the engine). Neither stops or special-cases the render
    * loop below — "Konsolen-RESULT genügt" in the browser, there is no process exit here. */
   gSimT += dt;
-  for (auto &a : gActors) { FBLogUnitScope us(a->LogLabel()); a->RunMonitors(gSimT); }
+  /* The observed roster a combat objective is judged against (core/FBObjective.h), rebuilt from the
+   * health registers the CLIENT owns — the same construction FBMissionRunner.cpp does, so a mission
+   * with `objective` lines reaches the same verdict in the browser as in the gym. Reserved once at
+   * boot (below), so a frame allocates nothing. */
+  gRoster.clear();
+  for (auto &a : gActors)
+    if (a->GetKind() != FBUnitKind::Weapon)
+      gRoster.push_back({a->GetName().c_str(), a->GetTeam(), a->Health().CombatEffective()});
+  FBMissionRoster roster{gRoster.data(), (int)gRoster.size()};
+  for (auto &a : gActors) { FBLogUnitScope us(a->LogLabel()); a->RunMonitors(gSimT, roster); }
 
   /* HUD AGL (ASL - DEM ground) — the unit's own AGL, from the one ground sample above, so
    * FBRadarAltimeter and this read the same number. 1 Hz telemetry from THIS sim tick. */
@@ -357,6 +369,7 @@ int main() {
     }
   }
   gOwnship = gActors.front().get();
+  gRoster.reserve(gActors.size());
   for (auto &a : gActors) a->PrimeState();   /* one step each to fill state before the first guidance step */
 
   /* HUD nav placeholder: one steerpoint 8 nm bearing 060 from the config origin, bullseye AT the origin

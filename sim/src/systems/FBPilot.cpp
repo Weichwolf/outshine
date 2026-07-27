@@ -94,7 +94,12 @@ const double kBfmSpeedbrakeKt = 40.0;     /* boards out only when the throttle a
  * kInterceptActionS is the same idea applied to the HANDS: a pilot works one control at a time, and the
  * avionics itself uses 0.5 s to tell two commands on one switch apart (core/FBCommandBus::
  * kHotasLatencyS). So this phase posts at most one command per 0.5 s, in priority order, however many
- * things it would like to have done at once. */
+ * things it would like to have done at once.
+ *
+ * Both are DEFAULTS rather than laws: a mission may override either through the pilot variant
+ * (systems/FBPilotTuning, `set pilot_react_s` / `set pilot_action_s`), which is how a tournament asks
+ * what a slower or a quicker pilot is worth. Nothing else about them changes — the override still sits
+ * on top of the command bus's own latency, so no variant can answer faster than the jet can. */
 const double kInterceptReactionS = 1.0;
 const double kInterceptActionS = 0.5;
 /* How far the antenna has to be off the wanted elevation before it is worth another switch action. A
@@ -426,7 +431,7 @@ void FBPilot::DispenseBriefedCm(FBCommandBus &avionics) {
  * goes through the same bus a hand would drive; nothing here reaches a box directly. */
 bool FBPilot::InterceptCockpit(const FBState &state, FBCommandBus &avionics, int designateTrack,
                                bool wantShot, bool wantChaff, double wantElDeg) {
-  if (TimeS_ - IntLastActionS_ < kInterceptActionS) return false;
+  if (TimeS_ - IntLastActionS_ < Tuned(FBPilotParam::ActionSpacingS, kInterceptActionS)) return false;
   auto post = [&](FBCommandTarget t, double v) {
     IntLastActionS_ = TimeS_;
     avionics.Post(t, v, TimeS_);
@@ -551,7 +556,8 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
   } else {
     IntDefendCueS_ = -1.0;
   }
-  bool defendDue = mustDefend && TimeS_ - IntDefendCueS_ >= kInterceptReactionS;
+  bool defendDue = mustDefend &&
+                   TimeS_ - IntDefendCueS_ >= Tuned(FBPilotParam::ReactionS, kInterceptReactionS);
 
   /* ---- 3. the brief: the vector flown while there is nothing on the scope ----
    * The mission's active waypoint IS the vector — a controller's "threat bearing 090, thirty miles,
@@ -572,8 +578,8 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
   const FBFireControlBlock &fc = state.FireControl;
   bool zone = fc.H.Readable() && fc.DlzValid;
   double shotRangeM = zone ? fc.TargetRangeM : 0.0;
-  bool inParams = zone && fc.InZone && shotRangeM <= fc.RtrM * InterceptShotRtrFactor() &&
-                  std::fabs(tgtAzDeg) <= InterceptShotAtaDeg();
+  bool inParams = zone && fc.InZone && shotRangeM <= fc.RtrM * Tuned(FBPilotParam::ShotRtrFactor, InterceptShotRtrFactor()) &&
+                  std::fabs(tgtAzDeg) <= Tuned(FBPilotParam::ShotAtaDeg, InterceptShotAtaDeg());
   int released = state.Stores.H.Readable() ? state.Stores.ReleasedCount : IntSeenReleases_;
   if (released > IntSeenReleases_) {
     IntSeenReleases_ = released;
@@ -586,7 +592,7 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
      * happens when it did not — which is exactly the decision this rule was written for. The pilot
      * still learns nothing about the hit except through its own sensors: a destroyed jet stops being a
      * radar contact because it falls, not because anything told this pilot it was dead. */
-    IntNextShotS_ = TimeS_ + std::fmax(InterceptShotSpacingS(),
+    IntNextShotS_ = TimeS_ + std::fmax(Tuned(FBPilotParam::ShotSpacingS, InterceptShotSpacingS()),
                                        fc.TimeToImpactS > 0.0f ? (double)fc.TimeToImpactS : 0.0);
     IntHaveCrankSign_ = false;
     EngState_ = FBEngageState::Support;
@@ -597,7 +603,7 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
   /* ---- 5. the state machine (systems/FBEngagement's banner has the states) ---- */
   if (defendDue) {
     EngState_ = FBEngageState::Defend;
-  } else if (EngState_ == FBEngageState::Defend && TimeS_ - IntThreatLastS_ >= InterceptDefendHoldS()) {
+  } else if (EngState_ == FBEngageState::Defend && TimeS_ - IntThreatLastS_ >= Tuned(FBPilotParam::DefendHoldS, InterceptDefendHoldS())) {
     /* THE RE-ATTACK DECISION. The threat has stopped demanding an answer; whether that was the notch
      * working or the shooter going away is not something this aircraft can know. What it can answer is
      * whether it still has anything to come back with. */
@@ -625,17 +631,17 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
      * job, and an empty-rack abort taken before anything was ever seen would just be a jet leaving. */
     if (!haveTgt) EngState_ = FBEngageState::Search;
     else if (!weapons) EngState_ = FBEngageState::Abort;
-    else if (tgtRangeM * kMToNm < InterceptAbortRangeNm() && !Eng_.HaveShot())
+    else if (tgtRangeM * kMToNm < Tuned(FBPilotParam::AbortRangeNm, InterceptAbortRangeNm()) && !Eng_.HaveShot())
       EngState_ = FBEngageState::Abort;   /* inside visual range with nothing fired: this is not an
                                            * intercept any more, and pressing on is a merge */
-    else if (tgtRangeM * kMToNm <= InterceptLockRangeNm()) EngState_ = FBEngageState::Attack;
+    else if (tgtRangeM * kMToNm <= Tuned(FBPilotParam::LockRangeNm, InterceptLockRangeNm())) EngState_ = FBEngageState::Attack;
     else EngState_ = FBEngageState::Closing;
   }
 
   /* ---- 6. where the jet is pointed ---- */
   FBPilotCommands c{};
   c.Guidance = FBPilotGuidance::Direct;
-  c.TargetSpeedKt = InterceptSpeedKt();
+  c.TargetSpeedKt = Tuned(FBPilotParam::InterceptSpeedKt, InterceptSpeedKt());
   c.TargetAltM = IntBriefAltM_;
   double aimHdgDeg = IntBriefHdgDeg_;
   double wantElDeg = 0.0;
@@ -671,7 +677,7 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
       if (EngState_ == FBEngageState::Attack) {
         if (!locked) designate = IntTrack_;
         wantShot = locked && inParams && TimeS_ - IntLockSinceS_ >= kInterceptTrackSettleS &&
-                   TimeS_ - IntLastShotS_ >= InterceptShotSpacingS() && TimeS_ >= IntNextShotS_;
+                   TimeS_ - IntLastShotS_ >= Tuned(FBPilotParam::ShotSpacingS, InterceptShotSpacingS()) && TimeS_ >= IntNextShotS_;
       }
       break;
     }
@@ -682,7 +688,7 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
        * direction every tick is a jet flying an S while a round it launched goes unsupported. */
       if (!IntHaveCrankSign_) { IntCrankSign_ = tgtAzDeg >= 0.0 ? 1.0 : -1.0; IntHaveCrankSign_ = true; }
       if (haveTgt) {
-        double wantAz = IntCrankSign_ * InterceptCrankAtaDeg();
+        double wantAz = IntCrankSign_ * Tuned(FBPilotParam::CrankAtaDeg, InterceptCrankAtaDeg());
         aimHdgDeg = st.yaw + FBWrap180(tgtAzDeg - wantAz);
         c.TargetAltM = tgtAltM;
         wantElDeg = tgtElDeg;
@@ -699,11 +705,11 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
        * his line of sight, which is precisely the clutter filter a pulse-Doppler set rejects, and it is
        * the only geometry in which chaff is worth anything at all (systems/FBRadarSystem's notch). The
        * shorter of the two ways round, because the turn itself is time spent in his radar's best case. */
-      double left = FBWrap180(threatBrgDeg + InterceptBeamOffsetDeg());
-      double right = FBWrap180(threatBrgDeg - InterceptBeamOffsetDeg());
+      double left = FBWrap180(threatBrgDeg + Tuned(FBPilotParam::BeamOffsetDeg, InterceptBeamOffsetDeg()));
+      double right = FBWrap180(threatBrgDeg - Tuned(FBPilotParam::BeamOffsetDeg, InterceptBeamOffsetDeg()));
       double turn = std::fabs(right) <= std::fabs(left) ? right : left;
       aimHdgDeg = st.yaw + turn;
-      wantChaff = TimeS_ - IntLastChaffS_ >= InterceptChaffIntervalS();
+      wantChaff = TimeS_ - IntLastChaffS_ >= Tuned(FBPilotParam::ChaffIntervalS, InterceptChaffIntervalS());
       break;
     }
     case FBEngageState::Abort: {

@@ -26,7 +26,8 @@ timeout 200
 
 # WHAT THE EXIT CODE NOW SAYS: since core/FBDamageModel exists, a burst inside the fuze radius takes the
 # bandit's systems out and its own mission monitor concludes FAIL, so THIS leg — the one that hits —
-# ends at the burst with exit 1 instead of running its legs out to exit 0. The beaming legs still end
+# ends at the burst instead of running its legs out. Which of the two units that verdict belongs to is
+# what the viper's `objective kill unit bandit` line says: exit 0, the shooter's success. The beaming legs still end
 # 0, because their rounds still miss. The 2x2 table is unchanged: the miss distances are identical to
 # the tenth of a millimetre up to the burst tick, and the exit code is now a second, coarser reading of
 # the same fact.
@@ -44,6 +45,7 @@ unit viper
   set brief_release_s 10                   # ~20 km, inside the launch zone, nothing else briefed
   wp 46.90000 7.15000 8000 400
 
+  objective kill unit bandit
 unit bandit
   team hostile
   module f16

@@ -22,9 +22,10 @@ timeout 280
 # line prints all three figures side by side.
 
 # WHAT THE EXIT CODE NOW SAYS: the round arrives, and since core/FBDamageModel exists an arriving round
-# ends the target's sortie — the run stops at the burst with exit 1 rather than flying the legs out to
-# exit 0. Everything the mission measures (the DLZ's prediction against the flown time of flight) happens
-# before that tick and is unchanged.
+# ends the target's sortie — the run stops at the burst rather than flying the legs out. Everything the
+# mission measures (the DLZ's prediction against the flown time of flight) happens before that tick and
+# is unchanged. The viper's `objective kill unit bandit` line is what makes the arriving round the
+# SHOOTER's success (exit 0) instead of the target's failure (exit 1); it changes no flown number.
 
 unit viper
   team friendly
@@ -43,6 +44,7 @@ unit viper
   set brief_release_s 130                  # past the merge, target behind: no lock -> refused
   wp 46.90000 7.15000 8000 400
 
+  objective kill unit bandit
 unit bandit
   team hostile
   module f16

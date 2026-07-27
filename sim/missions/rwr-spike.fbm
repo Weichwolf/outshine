@@ -28,7 +28,9 @@ timeout 220
 #
 # Both jets have a waypoint at the end of their leg. Since the damage model exists (core/FBDamageModel)
 # the hunter's round is decisive: the burst leaves the spike combat-ineffective, its own mission monitor
-# concludes FAIL, and the run ends there (exit 1, ~106.8 s) instead of flying the legs out. The first
+# concludes FAIL, and the run ends there (~106.8 s) instead of flying the legs out. Here the SHOOTER is
+# the hostile unit, which is exactly why the verdict had to stop being team-blind: `hunter`'s
+# `objective kill unit spike` line makes the run exit 0 (the hunter did its job) rather than exit 1. The first
 # half of the sequence — every RWR transition up to the burst — is unchanged column for column; the
 # second half (the loss of the warnings after the merge) is now only reachable in a variant where the
 # round misses, which is what cm-beam-only.fbm and cm-chaff-beam.fbm already are.
@@ -64,3 +66,4 @@ unit hunter
   set brief_master_arm arm
   set brief_release_s 95                   # after the lock is established (see the sequence above)
   wp 46.90000 6.70000 8000 400
+  objective kill unit spike

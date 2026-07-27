@@ -78,6 +78,7 @@
 #include "FBCommandBus.h"
 #include "FBEngagement.h"
 #include "FBFlightPlan.h"
+#include "FBPilotTuning.h"
 #include "FBRunway.h"
 #include "FBState.h"
 #include "FBTelemetry.h"
@@ -197,7 +198,20 @@ public:
   FBEngagement &Engagement() { return Eng_; }
   const FBEngagement &Engagement() const { return Eng_; }
 
+  /* THE VARIANT (systems/FBPilotTuning): the decision numbers a mission may override, so that one
+   * pilot differs from another by a line in a `.fbm` file instead of by a subclass. The module hands
+   * its own `set pilot_*` lines here (FBModule::ApplySetup) during the spawn window and passes the
+   * refusal on as a mission FAIL; every entry the mission leaves alone stays this pilot's own number,
+   * so a mission that tunes nothing is unaffected by the existence of this table. Write-only from
+   * outside: the table is read exclusively through Tuned() below, in the decision path itself. */
+  bool ApplyTuning(const std::string &key, double value) { return Tune_.Set(key, value); }
+
 protected:
+  /* The one reader the decision code uses: this variant's value for `p` if the mission set one, else
+   * the number the caller passed in — which is always this pilot's own hook, so the airframe's numbers
+   * stay in the airframe's class and the override stays sparse and visible at the point of use. */
+  double Tuned(FBPilotParam p, double own) const { return Tune_.Or(p, own); }
+
   /* The airframe's own numbers (class banner) — generic placeholders here, FBF16Pilot overrides every
    * one of them from doc/f16/procedures-takeoff-taxi.md. Not the Run() override point: these are config
    * (like FBFlightControl::F16()'s gain preset), just expressed as virtuals because RotationSpeedKt needs
@@ -341,6 +355,7 @@ private:
 
   FBBfmTrack Bfm_;                /* the fight's picture + scoreboard; inert outside the Bfm phase */
   FBEngagement Eng_;              /* the intercept's state + debrief; inert outside the Intercept phase */
+  FBPilotTuning Tune_;            /* this pilot's variant — empty unless the mission set one */
 
   /* ---- the Intercept phase's own memory (systems/FBEngagement holds the record; this is the state the
    * decisions are taken from) ---- */

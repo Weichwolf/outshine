@@ -1,0 +1,73 @@
+name bvr-duel-decided-1
+timeout 300
+
+# THE DECIDED DUEL: the same two intercept pilots as bvr-duel.fbm, the same code on both sides, the same
+# loadout, the same countermeasure programme, the same objectives — and a different STARTING GEOMETRY.
+# bvr-duel is a near-mirror (1,000 m and 50 kt of asymmetry) and ends in a stalemate: both shoot, both
+# rounds run out of fuel, both jets land the run alive at the timeout. That draw is a PROPERTY OF THE
+# SYMMETRY, not a property of the pilot, which is exactly why it could not decide anything.
+#
+# WHAT IS ASYMMETRIC HERE, and why it is a geometry question rather than a code one:
+#   viper   12,000 m / 500 kt      bandit   6,000 m / 350 kt
+# 6,000 m of altitude and 150 kt of speed. A BVR launch zone is an INTEGRATION that starts from the
+# launcher's own velocity and the air it is flying in (modules/f16/FBF16FireControl::SolveLaunchZone),
+# so the higher, faster jet's Rtr — the range from which its round arrives even if the target turns and
+# runs — is far larger than the lower, slower one's. Both pilots use the identical rule ("designate at
+# the briefed lock range, shoot at Rtr"), both designate in the SAME TENTH OF A SECOND (t=96.6, they are
+# co-ranged), and then the energy decides: viper's Rtr arrives first and its trigger goes at t=101.3
+# while the bandit is still closing to its own. From that moment the bandit's receiver is answering a
+# LAUNCH rather than working an attack, and it never gets a shot away at all.
+#
+# THE TIMELINE THE RUN PRODUCES (measured):
+#   t=96.6   both designate — RADAR_DESIGNATE on both sides, same second, same range (14.9 nm)
+#   t=101.3  viper's trigger, LAUNCH_SOLUTION rangeM=24661 rtrM=24947 — inside Rtr by 300 m
+#   t=101.4  the bandit's RWR goes from `track` to `missile`: it is now defending, not attacking
+#   t=124.3  DETONATION 1.58 m — every system of the bandit fails, it is combat-ineffective
+#   t=124.4  the bandit's own mission monitor: FAIL, "combat ineffective (survive objective lost)"
+#   t=163.4  the wreck reaches the ground. That K.O. was somebody's DECLARED objective, so it ends the
+#            run without deciding it (doc/mission-format.md, "Urteil"): the viper is finalised instead
+#            and concludes SUCCESS, "objectives met, survived". Exit 0.
+#
+# BOTH SIDES DECLARE THE SAME TWO OBJECTIVES, which is what makes this readable as a duel rather than as
+# one jet's sortie: kill him, and come home. The verdict is per unit and the two verdicts are opposite —
+# a winner and a loser, not two failures.
+
+unit viper
+  team friendly
+  module f16
+  spawn 46.90000 6.40000 12000 90.0 500
+  set gear up
+  set fuel_pct 70
+  set datalink off
+  set fcr_mode crm
+  set store 3 aim120
+  set store 7 aim120
+  set brief_master_arm arm
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set task intercept
+  wp 46.90000 8.35000 12000 500            # the vector: threat bearing 090
+  objective kill unit bandit
+  objective survive
+
+unit bandit
+  team hostile
+  module f16
+  spawn 46.90000 7.55000 6000 270.0 350
+  set gear up
+  set fuel_pct 70
+  set datalink off
+  set fcr_mode crm
+  set store 3 aim120
+  set store 7 aim120
+  set brief_master_arm arm
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set task intercept
+  wp 46.90000 5.75000 6000 350             # its mirror vector, threat bearing 270
+  objective kill unit viper
+  objective survive

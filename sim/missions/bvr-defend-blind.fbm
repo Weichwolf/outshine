@@ -35,7 +35,8 @@ timeout 200
 # telemetry. The reacting run's number is the miss distance the defence bought.
 
 # WHAT THE EXIT CODE NOW SAYS: the blind defender is hit, and since core/FBDamageModel exists that ends
-# its sortie — the run stops at the burst with exit 1, where it used to fly on to exit 0. Its sighted
+# its sortie — the run stops at the burst, and the viper's `objective kill unit bandit` line makes that
+# the shooter's SUCCESS (exit 0) rather than the target's failure. Its sighted
 # twin (bvr-defend.fbm) still ends 0, because it defeats the shot. The experiment's own numbers (the
 # miss distances) are unchanged; the exit code is now a second reading of the same difference.
 
@@ -53,6 +54,7 @@ unit viper
   set brief_release_s 10                   # ~20 km, inside the launch zone: the identical shot
   wp 46.90000 7.15000 8000 400
 
+  objective kill unit bandit
 unit bandit
   team hostile
   module f16
