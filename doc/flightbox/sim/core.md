@@ -1,10 +1,12 @@
 # FlightBox Core (`sim/src/core/`)
 
+> Body still in German — translation pass pending (see [roadmap](../roadmap.md)).
+
 **Quelle**: die Quelldateien selbst — `sim/src/core/` (53 Dateien) + `sim/src/math/FBMat4.h`, Stand
 Commit `9673e00` (2026-07-27) — plus `CLAUDE.md`s `core/`-Absatz im `sim/src/`-Verzeichnisbaum. Die
 langen Kommentar-Banner der Quelldateien tragen die HERLEITUNGEN; sie sind hier vollständig
 übernommen, jede Zahl mit ihrer Begründung oder ihrer Kennzeichnung als Setzung. Wo Code und
-CLAUDE.md auseinanderlaufen, steht das unter [Offene Punkte](#offene-punkte) — nicht stillschweigend
+CLAUDE.md auseinanderlaufen, steht das unter [Offene Punkte](#gaps) — nicht stillschweigend
 aufgelöst.
 
 **Wofür diese Schicht zuständig ist**: die WERTETYPEN der Simulation (was ein Store, ein Kontakt, ein
@@ -20,7 +22,144 @@ und benutzt keines davon.
 
 ---
 
-## 0. Die Regel, die `core/` definiert
+## Spec
+
+`core/` is the value layer of the simulation: what a store, a contact, a waypoint, a command **is**,
+the shared primitives (geodesy, atmosphere, ballistics, units), the two observation channels, the
+avionics bus (state + command) and the three states no module may write. It carries **no behaviour** —
+no control law, no sensor, no pilot, no renderer, no JSBSim seam.
+
+| Contract | Acceptance / measurement anchor |
+|---|---|
+| `core/` never points at `systems/` or `modules/` | include graph; the `core-lib` target builds without either |
+| I/O-free, not format-free | no `FILE*`/`fstream`; `snprintf` into a local buffer is allowed (`../conventions.md`) |
+| The avionics bus is a set of typed output blocks, each with **exactly one** writer and a three-state validity head (`Invalid` / `Valid` / `Held`) | a block whose writer is unpowered or destroyed reads `Invalid`, never a stale number; the `blk_*` telemetry columns make validity observable per tick |
+| Avionics is operated through a command path with acknowledgement, two latency classes and a closed rejection catalogue | a command into a destroyed box acks `rejected/system_failed`; every issue/ack/reject shows up in `events.log` |
+| The two judges belong to the client, never to the module | `grep -rn 'FBFlightMonitor\|FBMissionMonitor' sim/src/systems sim/src/modules` stays empty |
+| The health register is monotone and writable by exactly one class | every mutator private, single `friend FBDamageModel` — enforced by the compiler, not by convention |
+| Damage resolution is deterministic | same geometry → same damage picture, thread-independent (measured) |
+| Every number carries its provenance | derived / measured / `[SET]` — see `../conventions.md` |
+
+## State
+
+Built and in service; 53 files plus `math/FBMat4.h`.
+
+| Piece | Status | Anchor |
+|---|---|---|
+| Avionics block bus (17 blocks) + command bus | built | `071ea2b` |
+| `FBLog` / `FBTelemetry`, thread-local context for the gym parallel path | built | `e4d7c26`, `6d7ed5a` |
+| `FBFlightMonitor` (physics KO) | built | `28e74e5` |
+| `FBMissionMonitor` (mission verdict) | built | `92fe8a4` |
+| Objectives, roster, team-capable verdict | built | `82df2e2` |
+| `FBSystemHealth` + `FBDamageModel` | built | `6d84647` |
+| Gun catalogue, gun ballistics, projectile pool | built | `a1a8fbf` |
+| Free-fall ballistics (the shared CCIP/CCRP primitive) | built | `1eeff72` |
+| Elevation providers: constant, runway plateau, baked Swiss DEM | built (the tiles provider lives in `world/` and is **not** part of the core lib) | `705c90a` |
+
+Everything below under Knowledge is the distilled per-file detail, every constant with its provenance.
+
+## Gaps
+
+### Contradictions between claim and code (from the retired `TODO.md` §1)
+
+| Place | Contradiction |
+|---|---|
+| `core/FBFlightMonitor.h` | banner locates the off-runway verdict in `FBMissionRunner.cpp`; it has lived in `core/FBMissionMonitor::Tick` since the mission monitor exists |
+| `core/FBStateBusTelemetry.cpp` | banner counts "the two blocks added afterwards (Rwr, Cmds)" — there are three, `blk_gun` follows the same rule |
+| `core/FBDamageModel` | `kMaxZones = 5` is coupled to `FBDamageZone` but **not** compiler-checked; a new zone disappears silently in `AddKinetic`'s range check |
+| `core/FBAvionicsBlocks.h` | `FBStoresBlock::Arm` defaults to `Arm`, `FBGunBlock::Arm` to `Sim` — asymmetry without a source, and the armed side is the less conservative one |
+| `core/FBFlightPlan` | `FBWaypointType` declares four types, the parser produces two |
+| `math/FBMat4.h` | breaks the tree's coding convention (pre-pivot inheritance) |
+
+### Deliberately not modelled (from the retired `TODO.md` §3)
+
+| Thing | Consequence |
+|---|---|
+| `GroundElevPatch` declared, unimplemented | no terrain following, no CFIT prediction. Parked here because the provider hook is a `core/` type; it moves to the world-side file when `world/` is split. |
+
+### Inventory (German, from the previous `Offene Punkte` section)
+
+Gefundene Lücken, Inkonsistenzen und Fragen — nichts davon ist weggeschrieben oder beschönigt.
+
+1. **CLAUDE.md nennt die Blockliste unvollständig.** Der `core/`-Absatz listet „Platform, Env,
+   AirData, RadarAlt, Nav, Cruise, FireControl, Ufc, Stores, Airframe, Warnings, Radar, Datalink,
+   Bfm" (14). `FBState.h` trägt heute **17**: zusätzlich `Gun`, `Rwr`, `Cmds`. Der Code ist die
+   Wahrheit; CLAUDE.md ist an dieser Stelle veraltet.
+
+2. **Der Banner von `FBStateBusTelemetry.cpp` nennt den Gun-Block nicht.** Er begründet die
+   eingefrorene Spaltenliste mit „die zwei Blöcke, die danach hinzukamen (Rwr, Cmds)"; tatsächlich
+   sind es **drei** — `FBGunSystem::DeclareTelemetry` deklariert `blk_gun` mit derselben Begründung
+   als erste eigene Spalte. Sachlich stimmt alles, nur die Aufzählung im Kommentar ist unvollständig.
+
+3. **Der Banner von `FBFlightMonitor.h` verortet das Off-Runway-Urteil falsch.** Er schreibt, dieses
+   Urteil gehöre „dem Aufrufer, der die Mission kennt (`FBMissionRunner.cpp` bewertet es als FAIL,
+   eine separate, weiterhin unbestechliche, Runner-eigene Prüfung; siehe deren eigenen Banner)". Die
+   Prüfung lebt inzwischen in `core/FBMissionMonitor::Tick` (`OnRunway`, 50 m/30 m Marge). Der
+   Kommentar stammt aus der Zeit vor dem Missionsmonitor.
+
+4. **`FBStoresBlock::Arm` und `FBGunBlock::Arm` haben verschiedene Struct-Defaults** — `FBArmState::Arm`
+   bzw. `FBArmState::Sim`. Beide werden zur Laufzeit von ihrem jeweiligen System geschrieben, der
+   Unterschied ist also vermutlich folgenlos; ob die Asymmetrie beabsichtigt ist, sagt keine Quelle.
+   Ein genullter/uninitialisiert publizierter Stores-Block liest als SCHARF, was die weniger
+   konservative der beiden Voreinstellungen ist.
+
+5. **`FBFlightPlan` deklariert vier Wegpunkttypen, der Parser erzeugt zwei.** `Takeoff` und `Approach`
+   sind in `FBWaypointType` deklariert, aber `FBParseMissionFile` erzeugt ausschließlich `Enroute`
+   (`wp`) und `Land` (`land`). Kein Fehler — nur ein noch unbenutzter Teil des Typs; wer die Enum
+   liest, sollte das wissen.
+
+6. **`FBNavBlock::MagVarDeg` ist ein Platzhalter (immer 0).** Im Blockkommentar so gekennzeichnet.
+   Jede magnetische Peilung, die irgendwo daraus abgeleitet würde, ist heute eine wahre Peilung.
+
+7. **`FBEnvironmentBlock` ist kein Avionikblock**, wird aber wie einer behandelt (eigener
+   Gültigkeitskopf, eigener Schreiber = der Client). Im Kommentar ausdrücklich so begründet („nicht
+   Avionik im Zellensinn, aber geteilter Pro-Frame-Zustand mit exakt derselben Erzeuger-/
+   Konsumentenfrage"). Für einen Leser, der den Bus als Flugzeugsystem-Bus liest, ist das eine
+   Überraschung, die hier notiert sei.
+
+8. **`kMaxStoreStations = 12` gegen neun F-16-Pylone.** Der Block reserviert zwölf Stationsslots; die
+   F-16 deklariert neun (`modules/f16/FBF16Sms`). Kein Widerspruch (Kapazität ≥ Bedarf), aber die
+   überzähligen drei Slots sind unbelegt und tragen dauerhaft 0.
+
+9. **`FBDamageZone` hat fünf Werte inkl. `None`, `FBSystemHealth::kMaxZones` ist 5.** Die Kopplung ist
+   im Kommentar benannt (`kMaxZones = 5 /* core/FBDamageModel's FBDamageZone, including None */`),
+   aber sie ist NICHT compilergeprüft: ein `static_assert` gegen die Enum-Größe fehlt, und
+   `core/FBSystemHealth.h` inkludiert `FBDamageModel.h` bewusst nicht (die Abhängigkeit läuft
+   andersherum). Eine neue Zone würde still über den Rand des `Kinetic_`-Arrays zeigen — abgefangen
+   nur von der Bereichsprüfung in `AddKinetic`, die den Beitrag dann VERWIRFT.
+
+10. **`FBGunProjectiles` löst nie gegen Gelände auf.** Im Banner erklärt und begründet (Luft-Luft ist,
+    wofür der Pool da ist), hier nur als bekannte Grenze festgehalten: es gibt keinen
+    Beschuss-Fußabdruck am Boden.
+
+11. **`FBDamageModel::ApplyKinetic` summiert, `Apply` nicht** — bewusst und begründet (Strom vs.
+    Ereignis). Konsequenz, die nirgends ausgesprochen wird: **ein Gefechtskopf-Burst profitiert nie
+    von vorher eingesteckter kinetischer Energie und umgekehrt.** Die beiden Wirkungen teilen sich das
+    Register (die Systemzustände), aber nicht die Energie-Buchhaltung — `Kinetic_` ist rein kinetisch.
+    Ob eine Zelle, die schon 50 Kanonentreffer hat, auf einen Splitterburst empfindlicher reagieren
+    sollte, ist eine offene Modellfrage.
+
+12. **`FBLog::Unit_` ist auf 32 Zeichen begrenzt, Callsigns auf 24** — passt, aber die Kopplung ist
+    nicht als `static_assert` festgehalten; `snprintf` würde still kürzen.
+
+13. **`math/FBMat4.h` folgt der Coding-Konvention des Baums nicht** (freie `static`-C-Funktionen, kein
+    `namespace FlightBox`, kein `FB`-Präfix an den Funktionen). Es ist die älteste Datei dieser
+    Sammlung und offenkundig Vor-Pivot-Erbe. Kein Defekt, aber ein Stilbruch, den ein künftiger
+    Leser sonst für eine Absicht halten könnte.
+
+14. **Die Aufzählung „53 Dateien, ~4.800 Zeilen" der Aufgabenstellung stimmt** (`ls | wc -l` = 53;
+    `wc -l` über `core/` + `math/` = 4.927 inkl. `FBMat4.h`).
+
+15. **Nicht in `core/` und deshalb hier nur genannt**: `FBTilesElevation` (der vierte
+    Elevation-Provider) liegt in `world/` und ist NICHT Teil der Core-Lib — `fb-gym` linkt ihn nicht.
+    Wer die Provider-Liste vollständig lesen will, muss dorthin.
+
+
+## Knowledge
+
+Derivations, formulas and measured constants — the distilled body of this file.
+
+### 0. Die Regel, die `core/` definiert
 
 | Regel | Belegt durch |
 |---|---|
@@ -36,7 +175,7 @@ und benutzt keines davon.
 | `core/FBLog.cpp`, `core/FBTelemetry.cpp` | `<cstdio>` für `snprintf` — reine Formatierung in lokale Puffer | kein Dateihandle, kein Stream; die SINKS liegen in `app/` (`FBLogSinks.*`, `FBTelemetrySinks.*`) |
 | `core/FBBakedDemElevation.cpp` | `fopen`/`fread` EINES statischen Daten-Assets beim Konstruieren | dieselbe Kategorie, in der JSBSim sein eigenes Modell-XML lädt — Asset-Load, kein Streaming, kein Netz. Im Header explizit so begründet: „core/, not world/". |
 
-### Datei-Inventar nach Sache
+#### Datei-Inventar nach Sache
 
 | Thema | Dateien | Abschnitt |
 |---|---|---|
@@ -53,7 +192,7 @@ und benutzt keines davon.
 
 ---
 
-## 1. Der Avionik-Bus
+### 1. Der Avionik-Bus
 
 `core/FBState.h` ist der EINE geteilte Pro-Frame-Zustand. Er ist **kein flaches Feldbündel**, sondern
 ein Satz typisierter AUSGABEBLÖCKE (`core/FBAvionicsBlocks.h`), jeder mit einem Gültigkeitskopf
@@ -77,7 +216,7 @@ ist die SEMANTIK — definierte Datengruppen, ein Erzeuger, ein Gültigkeitsflag
 Bus-Adressierung, Wortpackung, Message-Scheduling. Der Transport ist eine typisierte Struktur per
 Referenz in EINEM Adressraum; Remote-Terminal-Adressen dafür zu erfinden wäre Cargo-Kult.
 
-### 1.1 `FBBlockStatus` — die Dreizustands-Gültigkeit
+#### 1.1 `FBBlockStatus` — die Dreizustands-Gültigkeit
 
 `core/FBBlockStatus.h`. Drei Zustände, nicht zwei, und der dritte ist BELEGT statt erfunden.
 
@@ -104,7 +243,7 @@ einer beantwortbaren Frage.
 | `Readable()` | `Status != Invalid` — die übliche Frage: darf ich die Zahlen überhaupt lesen? `Valid` UND `Held` sagen ja |
 | `AgeS(nowS)` | `nowS - StampS` |
 
-### 1.2 Die Blöcke und ihre Schreiber
+#### 1.2 Die Blöcke und ihre Schreiber
 
 `FBState` trägt heute **17** Blöcke. Reihenfolge = Deklarationsreihenfolge in `FBState.h`.
 
@@ -149,7 +288,7 @@ fremden Block liest, um seine eigene Ausgabe abzuleiten, sind im jeweiligen Bloc
 Fire Control liest Nav + Platform; Warnings liest RadarAlt, UFC und Airframe; der Cruise-Freeze wird
 vom Gear-Signal des Airframe-Blocks getrieben.
 
-### 1.3 Der FireControl-Block — vier Produkte unter einem Kopf
+#### 1.3 Der FireControl-Block — vier Produkte unter einem Kopf
 
 Alle vier teilen sich den Kopf, weil alle vier Ausgabe DERSELBEN Box sind und alle gemeinsam ungültig
 werden, wenn die Quellen es tun, die sie fusionieren. Jedes trägt zusätzlich ein eigenes
@@ -217,13 +356,13 @@ Modus ist.
 | `AgArmMarginS` | Fallzeit, die übrig bleibt, NACHDEM die Schärfverzögerung des Zünders abgelaufen ist; < 0 = ein Blindgänger |
 | `AgInRange` | beide Hälften der Freigabe-Bedingung des Guides als das eine Bit, auf dem entschieden wird: der Zielpunkt ist noch VOR dem aktuellen Aufschlagpunkt (der Auslösemoment ist nicht vorbei) UND eine Auslösung jetzt würde vor Ankunft scharf |
 
-### 1.4 Der UFC-Block trägt ZWEI Bingo-Zahlen
+#### 1.4 Der UFC-Block trägt ZWEI Bingo-Zahlen
 
 `doc/f16/controls-commands.md` §6.8: das DED-Feld zeigt, was der Pilot GETIPPT hat; die Warnung feuert
 an der System-Obergrenze. Displays lesen `BingoLbs`, das Warnsystem `BingoEffectiveLbs` — die beiden
 zusammenzulegen hätte den dokumentierten Clamp unsichtbar gemacht.
 
-### 1.5 Der Warnungs-Block ist eine Bitmaske
+#### 1.5 Der Warnungs-Block ist eine Bitmaske
 
 `FBWarningBit`: `FBWarnAlow` (1<<0, unter der CARA-ALOW-Schwelle), `FBWarnBingo` (1<<1, Sprit auf oder
 unter der bestätigten BNGO-Schwelle), `FBWarnGearUnsafe` (1<<2, auf den Rädern ohne down-and-locked).
@@ -232,7 +371,7 @@ Eine Bitmaske, damit EIN Block das ganze Annunciator-Panel trägt, ohne pro Lamp
 **`Inhibited` ist keine Verzierung**: Bedingungen, deren QUELLBLOCK `Invalid` ist, können nicht
 ausgewertet werden — und das ist eine andere Tatsache als „warnt nicht".
 
-### 1.6 `FBStateBusTelemetry` — Gültigkeit als messbare Zeitreihe
+#### 1.6 `FBStateBusTelemetry` — Gültigkeit als messbare Zeitreihe
 
 `core/FBStateBusTelemetry.h/.cpp`. Eine Telemetrie-Quelle namens `"blk"`, die je Block dessen
 `FBBlockStatus`-Ordinal ausgibt (0/1/2).
@@ -260,7 +399,7 @@ weiter rechts beobachtet.
 
 ---
 
-## 2. Die Kommandoseite
+### 2. Die Kommandoseite
 
 `core/FBAvionicsCommand.h` ist das VOKABULAR, `core/FBCommandBus.h/.cpp` der WEG. Die Form ist dem
 dokumentierten propose→commit/reject-Protokoll des DED entnommen (`doc/f16/controls-commands.md`,
@@ -275,7 +414,7 @@ echte Eigenschaften des Cockpits, und alle vier führt dieses Modell wieder ein 
 über dasselbe Vokabular steuert wie ein Mensch, ist eine KI, deren Vorteil Entscheidungsqualität ist,
 nicht Zugriff.
 
-### 2.1 Die Ziele
+#### 2.1 Die Ziele
 
 `FBCommandTarget` — Ordinale sind telemetriesichtbar: **anhängen, nie umsortieren**. Klasse und Gruppe
 werden aus `FBCommandClassOf`/`FBCommandGroupOf` (`FBCommandBus.cpp`) abgeleitet, nicht am Ziel
@@ -321,7 +460,7 @@ tragen.
 wird im selben Slot-Takt beantwortet — eine Gruppe für „die Dinge, die dieses Flugzeug tödlich
 machen", damit ein Abzug im Takt der Box wirkt, die feuert.
 
-### 2.2 Die zwei Latenzklassen
+#### 2.2 Die zwei Latenzklassen
 
 `FBCommandClass` — `doc/f16/controls-commands.md` §5 ist das einzige quantitative Timing-Material der
 Quellen.
@@ -334,7 +473,7 @@ Quellen.
 Beides als eine Klasse zu modellieren würde einer KI erlauben, bei 7 g einen Steerpoint zu tippen —
 und genau das ist es, was dieser Split verbietet.
 
-### 2.3 Ergebnisse
+#### 2.3 Ergebnisse
 
 `FBCommandOutcome` — vier Ausgänge, weil die Quellen vier unterscheidbare Enden dokumentieren:
 
@@ -346,7 +485,7 @@ und genau das ist es, was dieser Split verbietet.
 | `Inhibited` | bestätigt, die Wirkung ist durch etwas anderes gesperrt (§6.4, ALOW ohne bestromten Radarhöhenmesser) |
 | `Rejected` | nicht bestätigt; `Reason` sagt warum |
 
-### 2.4 Der vollständige Ablehnungs-/Grundkatalog
+#### 2.4 Der vollständige Ablehnungs-/Grundkatalog
 
 `FBCommandReason`. Die **ersten acht** sind die acht dokumentierten Ablehnungs-/Vorbedingungsmuster
 aus `doc/f16/controls-commands.md` §6, eins zu eins und in dessen Reihenfolge. Die **letzten vier**
@@ -368,7 +507,7 @@ sind FlightBox' EIGENE und sind als solche gekennzeichnet, weil die Quellen kein
 | `Depleted` | `depleted` | **FlightBox** | die Box ist willig und das Kommando gültig, aber das Magazin dahinter ist leer. Getrennt von `OutOfContext`, weil ein leerer Werfer eine Tatsache über das FLUGZEUG ist, die der Pilot anders hören muss — und es ist die eine Ablehnung, die ein Defensivsystem MITTEN im Beschossenwerden erzeugt. |
 | `SystemFailed` | `system_failed` | **FlightBox** | die adressierte Box ist WEG — abgeschossen, nicht abgeschaltet (`core/FBSystemHealth`). Eigener Grund, weil es weder ein Kontextfehler noch eine erfüllbare Vorbedingung ist: nichts an der Konfiguration des Flugzeugs bringt dieses Kommando zurück, und ein Cockpit, das einem zerstörten Radar „falscher Modus" antwortete, schickte seinen Piloten einen Schalter suchen, der nichts mehr tut. |
 
-### 2.5 Die Wertetypen
+#### 2.5 Die Wertetypen
 
 ```
 FBAvionicsCommand { Seq, Target, Value(double), IssuedS, DueS }
@@ -381,7 +520,7 @@ Gewinn: das ZIEL sagt bereits, wie die Zahl zu lesen ist. Die Quittung ist vom K
 damit ein Konsument das Paar loggen/telemetrieren kann, ohne dass der Warteschlangeneintrag
 überleben muss.
 
-### 2.6 `FBCommandBus` — was der Bus selbst erzwingt
+#### 2.6 `FBCommandBus` — was der Bus selbst erzwingt
 
 Besessen vom MODUL (wie der Zustandsbus, den er spiegelt). Der Pilot POSTET, das Modul reicht jedes
 fällige Kommando an das System weiter, dem es gehört — in DESSEN Takt —, und dieses System
@@ -434,12 +573,12 @@ könnte. `Clamped` und `Inhibited` zählen zusätzlich als `Accepted` (sie SIND 
 
 ---
 
-## 3. Die zwei Kanäle
+### 3. Die zwei Kanäle
 
 Die Trennung ist scharf und in beiden Bannern gegenseitig referenziert:
 **Log = diskrete Ereignisse, Telemetrie = periodisch gesampelter Zustand.**
 
-### 3.1 `FBLog` — diskrete, greppbare Ereignisse
+#### 3.1 `FBLog` — diskrete, greppbare Ereignisse
 
 `core/FBLog.h/.cpp`. Eine STATISCHE FASSADE, kein besessenes Objekt: Logging ist Cross-Cutting-
 Infrastruktur, die jede Schicht braucht (systems/render/world/fdm), und ein `FBLog&` durch jede
@@ -493,7 +632,7 @@ akzeptierten Zeile, kein zweiter Schalter.
 | `FBLogUnitScope(label)` | setzt die Attribution und löscht sie im Destruktor — kein Label kann auf die Zeilen der nächsten Einheit oder auf die missionsweiten Zeilen zwischen den Schleifen lecken |
 | `FBLogThreadSinkScope(sink)` | dieselbe Disziplin für den Capture-Puffer — ein Worker, der ohne Löschen zurückkehrte, schriebe im nächsten Tick weiter hinein, unter Umständen in den Puffer einer anderen Einheit |
 
-### 3.2 `FBTelemetry` — Zeitreihe mit Schema
+#### 3.2 `FBTelemetry` — Zeitreihe mit Schema
 
 `core/FBTelemetry.h/.cpp`. Klassen DEKLARIEREN sich als Quelle; die Emission ist ZENTRAL.
 
@@ -530,7 +669,7 @@ bestehenden, und deshalb tragen Rwr/Cmds/Gun ihre Blockgültigkeit selbst (s. [1
 
 ---
 
-## 4. Die zwei Richter
+### 4. Die zwei Richter
 
 Zwei Instanzen, zwei FRAGEN, nie zu einer vermischt. Beide gehören dem CLIENT/Runner, beide werden mit
 einem schreibgeschützten Pro-Tick-Sample gefüttert, beide sind für `systems/` und `modules/`
@@ -550,7 +689,7 @@ Beide werden von JEDEM Client gefüttert, der eine Sim-Schleife fährt — `app/
 (fb-gym / `gpu_native --mission`) genauso wie der WASM-Frame-Loop (`app/FBAppWasm.cpp`). Je EINE
 Definition, kein zweiter Paralleltest.
 
-### 4.1 `FBFlightMonitor` — das physikalische K.O.
+#### 4.1 `FBFlightMonitor` — das physikalische K.O.
 
 `core/FBFlightMonitor.h/.cpp`. **Vollständig modell-abgeleitet und airframe-agnostisch by
 construction**: die Klasse kennt keinen Modul-/Flugzeugtyp und keine modul-deklarierten Zahlen, nur
@@ -610,7 +749,7 @@ Aufrufer füllt diese schmale Sicht (`FBBuildFlightMonitorSample`, `app/FBMissio
 `reason`, `detail`, `lat`, `lon`, `aglM`, `vsMs`, `roll`, `pitch`, `p`, `q`, `r`, `gearPos`,
 `gearForceLbs`, `weightLbs`.
 
-### 4.2 `FBMissionMonitor` — das Missions-Urteil
+#### 4.2 `FBMissionMonitor` — das Missions-Urteil
 
 `core/FBMissionMonitor.h/.cpp`. Konstruiert aus der MISSIONSDATEI:
 `FBMissionMonitor(plan, objectives, runway, haveRunway, timeoutS, wpCaptureM = 500.0)` — alles
@@ -706,7 +845,7 @@ Byte für Byte (diese Strings stehen in jeder gemessenen `events.log`) — `"all
 zusätzlich `", survived"`. Ein Akteur mit Zielen und ohne Wegpunkte hat nur diese zu melden
 (`"objectives met"`).
 
-### 4.3 Warum es zwei sind
+#### 4.3 Warum es zwei sind
 
 Ein sanftes Aufsetzen mit ausgefahrenem Fahrwerk auf einem Acker ist für das FLUGZEUG kein Absturz —
 nur für die Bewertung einer Mission. Umgekehrt ist „kampfunfähig" ein Urteil über die SORTIE, nie ein
@@ -716,9 +855,9 @@ kann nicht durch Physik überstimmt werden.
 
 ---
 
-## 5. Missionsdaten als Typen
+### 5. Missionsdaten als Typen
 
-### 5.1 `FBMissionFile` — der `.fbm`-Parser
+#### 5.1 `FBMissionFile` — der `.fbm`-Parser
 
 `core/FBMissionFile.h/.cpp`. **Reine String-rein/Struct-raus-Funktion**, kein File-I/O — die App liest
 die Datei und reicht den Text herein; so bleibt `core/` plattformneutral. Format-Referenz:
@@ -789,7 +928,7 @@ Ziels.
 
 Fehlermeldungen tragen `"line N: …"`; `out` ist nur bei `true` vollständig gültig.
 
-### 5.2 `FBFlightPlan` / `FBWaypoint`
+#### 5.2 `FBFlightPlan` / `FBWaypoint`
 
 `core/FBFlightPlan.h`. Eine schlichte geordnete Wegpunktkette. **Nur Struktur, keine
 Prozedurlogik** — SIDs/Holdings/Anflugsequenzierung sind die Phasenmaschine von `FBPilot`, nicht
@@ -805,14 +944,14 @@ FBFlightPlan: AddWaypoint / Clear / Size / Empty / At(i) / ActiveIndex / SetActi
 `ActiveWaypoint()` liefert `nullptr`, wenn der Index außerhalb liegt. Der Parser erzeugt heute nur
 `Enroute` und `Land`.
 
-### 5.3 `FBRunway`
+#### 5.3 `FBRunway`
 
 `core/FBRunway.h`. Die landungsrelevante Geometrie EINER Runway:
 `ThresholdLatDeg`, `ThresholdLonDeg`, `ThresholdElevM`, `TrueHeadingDeg` (Kurs der verlängerten
 Mittellinie), `LengthM`, `WidthM`. Wertetyp in `core/` (wie `FBFlightPlan`), damit die Anflug-/
 Landephasen von `FBPilot` und eine künftige Flugplatzdatenbank dieselbe Form teilen.
 
-### 5.4 `FBSpawn`
+#### 5.4 `FBSpawn`
 
 `core/FBSpawn.h`. Die deklarative Anfangsbedingung einer Einheit — **reine Daten, keine Modi/Phasen**:
 
@@ -828,7 +967,7 @@ machen daraus GENAU EINE JSBSim-IC-Anwendung (`FBFdmBoot::Spawn` wendet Position
 Geschwindigkeit gemeinsam an — `app/FBMissionBoot.h`s `FBMissionSpawnActor`) plus die
 Anfangs-`FBPilot`-Phase des Moduls.
 
-### 5.5 `FBObjective` — Kampfziele + das Roster
+#### 5.5 `FBObjective` — Kampfziele + das Roster
 
 `core/FBObjective.h`.
 
@@ -873,7 +1012,7 @@ Roster ausgewertet, das der Client aus den Gesundheitsregistern füllt, die IHM 
 er das Positions-Sample des Monitors füllt. Ein Modul kann seinen Gegner so wenig für tot erklären wie
 sich selbst für gelandet.
 
-### 5.6 `FBTeam`, `FBMode`, `FBMasterMode`, `FBArmState`
+#### 5.6 `FBTeam`, `FBMode`, `FBMasterMode`, `FBArmState`
 
 | Typ | Datei | Werte | Warum in `core/` |
 |---|---|---|---|
@@ -888,12 +1027,12 @@ er es auch hier.
 
 ---
 
-## 6. Schaden
+### 6. Schaden
 
 Drei getrennte Dinge in einer klaren Rollenverteilung: der ZUSTAND (`FBSystemHealth`), die AUFLÖSUNG
 (`FBDamageModel`) und die ZONENDATEN (Moduldaten, z.B. `modules/f16/FBF16Damage` — nicht in `core/`).
 
-### 6.1 `FBSystemHealth` — das Gesundheitsregister
+#### 6.1 `FBSystemHealth` — das Gesundheitsregister
 
 `core/FBSystemHealth.h/.cpp`. EIN Register je `units/FBSimUnit`, dem CLIENT gehörend, ausschließlich
 von einem core-eigenen Urteil gefüttert und vom Modul **gelesen, nie geschrieben**.
@@ -968,7 +1107,7 @@ das falsch wird**: sie fliegt genau so lange weiter, wie die Physik es zulässt.
 **`FBSystemHealthTelemetry`** — eigene Quelle (`"dmg"`), von der Einheit ZULETZT registriert, nach der
 Anhänge-Regel: `dmg_hits`, `dmg_failed` (Bitmaske), `dmg_degraded`, `dmg_effective`.
 
-### 6.2 `FBDamageModel` — die Auflösung
+#### 6.2 `FBDamageModel` — die Auflösung
 
 `core/FBDamageModel.h/.cpp`. Der EINE Schreiber von `FBSystemHealth`, dem Client gehörend. Ein Modul
 löst seinen eigenen Schaden so wenig auf, wie es seinen eigenen Absturz beurteilt.
@@ -980,7 +1119,7 @@ ist der Schritt von diesen drei Zahlen zu einem Systemzustand, und er ist aus de
 die tatsächlich Physik sind — isotrope Splitterausbreitung und kinetische Energie — plus einer
 Schwelle je System, und die ist eine Setzung.
 
-#### Die Energiekette, in drei Schritten mit je genannter Annahme
+##### Die Energiekette, in drei Schritten mit je genannter Annahme
 
 | Schritt | Formel | Annahme |
 |---|---|---|
@@ -1004,7 +1143,7 @@ einem Schadensurteil reproduzieren kann, statt ihr zu glauben:
 double FBFragmentFluxJm2(double warheadKg, double rangeM, double closureMs);
 ```
 
-#### Die Zonen
+##### Die Zonen
 
 Ein Flugzeug ist kein Punkt: WO der Burst relativ zur ZELLENACHSE sitzt, entscheidet, welche Systeme
 in seiner Nähe sind. Das LAYOUT (Moduldaten) schneidet die Zelle entlang ihrer eigenen Längsachse in
@@ -1031,7 +1170,7 @@ degradiertes Verhalten deklariert schlicht `DegradeJm2 == FailJm2` und hat desha
 sind einfache Arrays mit Zählern — das ganze Layout ist eine Compile-Zeit-Tabelle, die ein Modul per
 const-Referenz herausgibt; nichts allokiert.
 
-#### `FBDamageLayout` — plus die Geometrie, die nur ein Geschossstrom braucht
+##### `FBDamageLayout` — plus die Geometrie, die nur ein Geschossstrom braucht
 
 | Feld | Bedeutung |
 |---|---|
@@ -1058,7 +1197,7 @@ double FBPresentedExtentM(layout, fwd, right, down);  // dieselbe Interpolation
 Die einfachste Interpolation, die an beiden Enden exakt ist — und **keine Behauptung über die Form
 dazwischen**. Der Richtungsvektor ist im KÖRPERRAHMEN des Ziels und muss nicht normiert sein.
 
-#### Die zwei Eingänge
+##### Die zwei Eingänge
 
 ```cpp
 struct FBBurst        { FwdM, RightM, DownM; ClosureMs; WarheadKg; };      // Gefechtskopf
@@ -1080,7 +1219,7 @@ Zahlensatz. **Das ist eine ausgesprochene Modellentscheidung und keine physikali
 beide als Flächenenergie auszudrücken ist die gemeinsame Währung dieses Simulators, nicht die Aussage,
 dass sie äquivalent wären.
 
-#### Die zwei Auflösungen im Vergleich
+##### Die zwei Auflösungen im Vergleich
 
 | | `Apply` (Gefechtskopf) | `ApplyKinetic` (Geschossstrom) |
 |---|---|---|
@@ -1111,7 +1250,7 @@ struct FBDamageResult {
 kein verborgener Zustand. Gleiche Geometrie, gleicher Gefechtskopf, gleiche Annäherung → immer
 dieselben Masken (thread-unabhängig nachgemessen).
 
-#### Die physischen Folgen — die Konstanten mit Herleitung
+##### Die physischen Folgen — die Konstanten mit Herleitung
 
 Alle laufen durch JSBSim (`units/FBSimUnit::ApplyDamageToAirframe` → `fdm/FBFdm`), nie durch ein
 zweites, paralleles Flugmodell.
@@ -1126,9 +1265,9 @@ zweites, paralleles Flugmodell.
 
 ---
 
-## 7. Waffen-Wertetypen und Ballistik
+### 7. Waffen-Wertetypen und Ballistik
 
-### 7.1 `FBStore.h` — der Store-Katalog
+#### 7.1 `FBStore.h` — der Store-Katalog
 
 `core/FBStore.h`. **Jede Zahl darin stammt entweder aus dem EIGENEN gepinnten JSBSim-Modell des Stores
 oder ist per genannter Formel daraus abgeleitet** — nichts an einer Waffe wird hier erfunden, denn ein
@@ -1160,7 +1299,7 @@ FBStoreKind { None = 0, Mk82, Aim120 }   // anhängen; None muss 0 bleiben, dami
 | `WarheadKg` | Spreng- + Mantelmasse — die EINE storeseitige Eingabe ins Schadensmodell. 0 = eine inerte Runde, die nichts verletzt |
 | `Perf` | `FBWeaponPerf`, s.u. |
 
-#### `FBWeaponPerf` — die Leistungstabelle des FEUERLEITRECHNERS
+##### `FBWeaponPerf` — die Leistungstabelle des FEUERLEITRECHNERS
 
 Die grobe Tabelle, auf der eine Startbereichs- oder Bombenfall-Rechnung läuft
 (`modules/f16/FBF16FireControl`). **Bewusst eine getrennte, vereinfachte Kopie dessen, was das
@@ -1187,7 +1326,7 @@ hat: `LaunchMassKg`, `DragCoefA`, `RefAreaM2`, `ArmingS`. Die Motorfelder bleibe
 Motor hat, die Suchkopffelder, weil er keinen Suchkopf hat — die Tabelle ist nicht „der gelenkte
 Block", sie ist das, was der Rechner über die Runde weiß.
 
-#### `kMk82` — Mk-82, 500-lb-Freifallbombe
+##### `kMk82` — Mk-82, 500-lb-Freifallbombe
 
 `doc/f16/weapons.md` §3.
 
@@ -1203,7 +1342,7 @@ Block", sie ist das, was der Rechner über die Runde weiß.
 | `Perf.DragCoefA` | **0,142** | **[DERIVED, und bewusst grob]**: `mk82.xml`s CDmin-Tabelle läuft von 0,140 bei M 0,2 bis 0,144 bei M 0,8 und steigt dann transsonisch steil an; der Rechner trägt EINE Unterschallzahl — das IST eine gespeicherte Tabelle —, und der daraus folgende Vorhersagefehler gegen den mach-abhängigen Widerstand des Modells ist genau das, was die CCIP/CCRP-Missionen MESSEN statt wegzutunen |
 | `Perf.ArmingS` | **2,0** | **[SET]**: für die Standardzünder der Mk-82 existiert keine zitierbare Schärfverzögerung (§4.7 markiert Zünder-Interna als Lücke, §4.2s PUAC-Text gibt das KONZEPT ohne Zahl); 2 s ist die Größenordnung einer Bugzünder-Schärfnadel und ist das, woraus der Pull-up-Anticipation-Cue gerechnet wird |
 
-#### `kAim120` — AIM-120 AMRAAM
+##### `kAim120` — AIM-120 AMRAAM
 
 `doc/f16/weapons.md` §2.5, §3, §4.4. Die ERSTE gelenkte Runde: `sim/assets/aircraft/aim120` — das
 einzige Modell in der Wurzel OHNE Upstream-Gegenstück, weil das gepinnte Submodul keine AMRAAM hat.
@@ -1228,7 +1367,7 @@ Modul: `modules/missile`.
 **Katalog-Zugriff**: `kStoreCatalogue[]`, `FBFindStore(key)` (Missionsdatei-/Registry-Name),
 `FBStoreSpecOf(kind)`.
 
-### 7.2 Abwurf-Wertetypen
+#### 7.2 Abwurf-Wertetypen
 
 **`FBDeliveryMode { Ccip = 0, Ccrp }`** — nur anhängen: das Ordinal ist der missionssichtbare
 `set attack_mode`-Wert und eine Telemetriespalte. `FBDeliveryModeStr` → `"ccip"`/`"ccrp"`.
@@ -1259,7 +1398,7 @@ Bombe hat keine Lenkung; es ist ein PROTOKOLL.
 | `LauncherId`, `Target` (`FBWeaponTargetState`) | **die Startprogrammierung einer gelenkten Runde**: wer schießt, und was die Feuerleitung des Schützen im Startmoment aus dem Ziel gemacht hatte. Eine Rakete verlässt die Schiene und weiß schon, wo sie zu suchen anfangen soll — das ist es, was eine inertiale Mittelphase überhaupt möglich macht — und sie weiß, auf wessen Uplink sie danach für Korrekturen hören muss. Beide null/ungültig für einen ungelenkten Store |
 | `Solution` (`FBReleaseSolution`) | die ungelenkte Hälfte derselben Idee. Ungültig für eine gelenkte Runde, die von ihrem Suchkopf gezielt wird und nicht von einer Tabelle |
 
-### 7.3 `FBBallistics` — wo ein ungelenkter Store landet
+#### 7.3 `FBBallistics` — wo ein ungelenkter Store landet
 
 `core/FBBallistics.h/.cpp`. **Die EINE Arithmetik hinter BEIDEN Luft-Boden-Abwurfverfahren**
 (`doc/f16/weapons.md` §2.5), damit die zwei nicht auseinanderdriften können: es ist dieselbe
@@ -1350,7 +1489,7 @@ ein Flugzeug, das sich nicht bewegt, hat keine — ein stehender (oder noch nich
 liefert deshalb KEINE Lösung statt einer Nulllösung (`groundSpeedMs <= 1,0`). Das ist der Unterschied
 zwischen „jetzt auslösen" und „keine Antwort".
 
-### 7.4 `FBGun.h` — der Kanonen-Katalog
+#### 7.4 `FBGun.h` — der Kanonen-Katalog
 
 `core/FBGun.h`. Das Geschwister von `FBStore.h`, und bewusst eine SEPARATE Datei, weil sich die beiden
 Waffen in ihrer ART unterscheiden: ein Store ist ein Objekt, das an einem Pylon hängt und im Moment
@@ -1375,7 +1514,7 @@ eine Messung gehalten werden):
 | **MODELLIERUNG** | (a) dass ein Bündel für N Geschosse steht, (b) dass die Geschosse darin als zirkulare Normalverteilung um seine Achse liegen, (c) dass ein Treffer eine ERWARTETE Geschosszahl und eine Flächenenergiedichte ist statt einer Menge von Einzeleinschlägen. (b) ist an die eine Streuungsangabe der Quellen GEFITTET (s. `kM61A1`); (c) ist, was das Modell deterministisch macht — **es gibt keine Zufallszahl irgendwo im Kanonenpfad** |
 | **WEDER NOCH, und als abwesend erklärt** | Rohrverschleiß, Schuss-zu-Schuss-Geschwindigkeitsstreuung, Leuchtspur/HEI/API-Mischung (§3 listet sechs Munitionstypen; die Trommel hier ist EIN homogenes Geschoss) und die Masse der Munition selbst |
 
-#### `kM61A1` — die M61A1 Vulcan
+##### `kM61A1` — die M61A1 Vulcan
 
 `doc/f16/weapons.md` §2.5, §3, §4.1. Quelle und Konfidenz je Zahl:
 
@@ -1408,7 +1547,7 @@ feuernde Flugzeug nichts wissen muss.
 Abwurf-Datensätze produziert und dort aufhört. Was ein Geschoss einer anderen Einheit antut, löst der
 CLIENT auf den publizierten Posen auf, nie das System, das gefeuert hat.
 
-### 7.5 `FBGunBallistics` — die geteilten ballistischen Primitive
+#### 7.5 `FBGunBallistics` — die geteilten ballistischen Primitive
 
 `core/FBGunBallistics.h/.cpp`. Reine Funktionen auf Werten, kein Zustand, keine Allokation — genau
 das, was die DREI Konsumenten, die sich einig sein MÜSSEN, buchstäblich dieselbe Arithmetik benutzen
@@ -1447,7 +1586,7 @@ kauft, ist eine GESCHLOSSENE FORM** — und damit ein exaktes, iterationsfreies 
 Das ist es, was den Vorhalte-Solve unten in einer Handvoll fester Schritte konvergieren lässt — **ohne
 Suche und ohne Pro-Frame-Allokation**.
 
-#### Das Treffer-/Energiemodell
+##### Das Treffer-/Energiemodell
 
 **`FBGunFluxJm2(rounds, spec, impactSpeedMs, missM, sigmaM, targetAreaM2, extentM)`** [J/m²] — dieselbe
 Währung, in der der Splitterfluss von `core/FBDamageModel` ausgedrückt ist, damit EIN Schadensregister
@@ -1496,7 +1635,7 @@ Keine der beiden ist eine Messung, und beide sind ERKLÄRT. Was das Paar kauft: 
 Lesart ganz ab (ein Ziel ohne deklarierte Ausdehnung gilt als kompakt). Ein Bündel kann nie mehr
 Geschosse landen, als es hält (`hits = min(hits, rounds)`).
 
-#### Die Vorhaltelösung
+##### Die Vorhaltelösung
 
 **`FBGunSolveLead(spec, altM, ownVel…, rel…, tgtVel…) → FBGunAim`**
 
@@ -1542,7 +1681,7 @@ Alles ist ENU-Meter/m-pro-Sekunde relativ zur Position des feuernden Flugzeugs.
 
 `kGravityMs2 = 9,80665`.
 
-### 7.6 `FBGunProjectiles` — die Geschosse in der Luft
+#### 7.6 `FBGunProjectiles` — die Geschosse in der Luft
 
 `core/FBGunProjectiles.h/.cpp`. Ein fester Pool ballistischer BÜNDEL, dem CLIENT gehörend, von ihm
 geschritten und von ihm gelesen, um aufzulösen, was ein Feuerstoß getroffen hat — das strukturelle
@@ -1593,7 +1732,7 @@ gibt keinen ballistischen Geländeaufschlag. Luft-Luft-Bordkanonenbeschuss ist, 
 ist, und einen Beschuss-Fußabdruck zu behaupten, den hier nichts rechnet, wäre schlimmer als die
 erklärte Abwesenheit.
 
-### 7.7 `FBWeaponUplink` — die Lenkfunk-Wertetypen
+#### 7.7 `FBWeaponUplink` — die Lenkfunk-Wertetypen
 
 `core/FBWeaponUplink.h`. Was ein startendes Flugzeug einer von ihm unterstützten Rakete sendet, und
 womit diese Rakete auf der Schiene programmiert wurde.
@@ -1629,7 +1768,7 @@ Schützen.**
 
 ---
 
-## 8. Sensor- und EW-Wertetypen
+### 8. Sensor- und EW-Wertetypen
 
 Die vier Kontakt-/Bedrohungstypen sind bewusst als GEGENSÄTZE konstruiert. Was sie NICHT tragen, ist
 jeweils das Modell:
@@ -1641,7 +1780,7 @@ jeweils das Modell:
 | `FBRwrThreat` | eine RICHTUNG | relative Peilung, Modus, geschätzte Emitter-Art, Letalität | **Entfernung**, sichere Identität |
 | `FBEmitterSignature` | eine ABSTRAHLUNG | Modus, Art, das körperfeste Keulenfenster, das Entfernungstor | Identität, Sendeleistung, Frequenz |
 
-### 8.1 `FBRadarContact` + `FBIffReply`
+#### 8.1 `FBRadarContact` + `FBIffReply`
 
 `core/FBRadarContact.h`. Ein Rückstrahler, wie ein AKTIVES Radar ihn meldet, und der bewusste
 Gegenentwurf zu `FBDatalinkTrack`. **Es gibt hier kein Callsign-Feld, kein Team-Feld und keine
@@ -1678,7 +1817,7 @@ des echten Jets.
 allokiert nichts. Acht entspricht `kMaxDatalinkTracks` und übertrifft die Relevanz der zehn
 TWS-Trackfiles der APG-68 für die Nahkämpfe, die dieser Simulator fliegt, bequem.
 
-### 8.2 `FBDatalinkTrack`
+#### 8.2 `FBDatalinkTrack`
 
 `core/FBDatalinkTrack.h`. Ein Kontakt, wie ein KOOPERATIVES Datalink ihn meldet (MIDS/Link-16, DCS'
 TNDL — `doc/f16/datalink-iff.md`). **Kein Sensor-Rückstrahler**: der Sender strahlt seine eigene
@@ -1702,7 +1841,7 @@ ein Track nie „live" ist: er ist die letzte Nachricht, die ankam.
 genug für die Missionen dieses Simulators, und die Zahl, die die Pro-Frame-`FBState`-Kopie des
 HUD-Pfads begrenzt.
 
-### 8.3 `FBEmitter` — was ein Radar in die Luft setzt
+#### 8.3 `FBEmitter` — was ein Radar in die Luft setzt
 
 `core/FBEmitter.h`. Die dritte Emission in `units/FBUnit`s `FBUnitSignature` (nach dem
 Datalink-Sender und dem IFF-Transponder) und **die erste, die eine RICHTUNG hat** — der ganze Grund,
@@ -1750,7 +1889,7 @@ das Zehnfache der Energie eines auf 10 nm gedeckelten um. **Wie weit das GEHÖRT
 Empfängers** (ein Einwegpfad gegen den Zweiwegpfad des Emitters —
 `systems/FBRwrSystem::kBeamRangeFactor`), nicht des Emitters.
 
-### 8.4 `FBRwrThreat`
+#### 8.4 `FBRwrThreat`
 
 `core/FBRwrThreat.h`. Ein Emitter, wie ein WARNEMPFÄNGER ihn meldet — der bewusste Gegenentwurf zu
 BEIDEN oben. Ein Datalink-Track ist eine Nachricht und trägt ein Callsign; ein Radarkontakt ist ein
@@ -1792,7 +1931,7 @@ Fall, wie auch immer er gerade scannt.
 (`doc/f16/defence-rwr-cm.md` §2.1); das sind **DISPLAY-Deckel über der erfassten Menge**, dies hier ist
 die Größe der Erfassungstabelle selbst und passt zu `kMaxRadarContacts`/`kMaxDatalinkTracks`.
 
-### 8.5 `FBCountermeasure` — Programme und Chaff-Wolken
+#### 8.5 `FBCountermeasure` — Programme und Chaff-Wolken
 
 `core/FBCountermeasure.h`.
 
@@ -1864,7 +2003,7 @@ Wolke aufgehört hat zu zählen, und das Radar, um zwei Wolken gegeneinander zu 
 
 ---
 
-## 9. Der Elevation-Hook
+### 9. Der Elevation-Hook
 
 `core/FBElevationProvider.h`. Die EINE Naht, durch die jeder Core-Konsument von Bodenhöhe geht —
 Missions-Bodenspawn, AGL/Radarhöhe, Absturzerkennung —, damit „wo ist der Boden" eine INJIZIERTE
@@ -1896,7 +2035,7 @@ NICHT fehlschlagen.
 `GroundElevM`, bis es aufhört, den Sentinel zu liefern — genau wie es die Aufrufer von
 `fb_stream_ground` schon tun.
 
-### Die vier Implementierungen
+#### Die vier Implementierungen
 
 | Klasse | Ort | Gym-Flag | Verhalten |
 |---|---|---|---|
@@ -1905,7 +2044,7 @@ NICHT fehlschlagen.
 | `FBBakedDemElevation` | `core/` | `--elev swiss` | eingebackenes Insel-Raster, bilinear |
 | `FBTilesElevation` | **`world/`** (nicht Teil der Core-Lib) | `--elev tiles` | dünner Pass-through auf das Live-fb-tiles-DEM |
 
-#### `FBConstantElevation`
+##### `FBConstantElevation`
 
 `core/FBConstantElevation.h`. Eine feste Bodenhöhe, beim Konstruieren setzbar (`SetElevM` danach). Der
 Gym-Client setzt sie automatisch auf die Schwellen-Elevation der Runway der Mission
@@ -1913,7 +2052,7 @@ Gym-Client setzt sie automatisch auf die Schwellen-Elevation der Runway der Miss
 (Prinzip-4-freundlich: deterministisch, kein Netz). Default 0 m = Meereshöhe, wie jeder andere
 „noch keine Daten"-Fallback dieses Codebaums.
 
-#### `FBRunwayPlateauElevation`
+##### `FBRunwayPlateauElevation`
 
 `core/FBRunwayPlateauElevation.h/.cpp`. Der DEM-freie Provider des Gyms. **Warum nicht einfach eine
 Konstante**: eine Mission kann MEHRERE Runways bei UNTERSCHIEDLICHER Höhe haben (heute eine; Phase 3s
@@ -1938,7 +2077,7 @@ Fall überkonstruieren, der mit den heutigen Ein-Runway-Missionen nicht eintrete
 (`FBTrackProjectM`), die das Off-Runway-Tor des Missionsmonitors benutzt — mit demselben **60-m**-
 Fallback bei `WidthM <= 1`.
 
-#### `FBBakedDemElevation`
+##### `FBBakedDemElevation`
 
 `core/FBBakedDemElevation.h/.cpp`. Lädt EINMAL ein kleines eingebackenes Insel-Raster und beantwortet
 `GroundElevM` per **bilinearer Interpolation**; **0 m außerhalb der Bbox des Rasters** (der
@@ -1983,9 +2122,9 @@ eine C-Struktur**, damit Padding/Alignment den Leser nie vom Writer desynchronis
 
 ---
 
-## 10. Geodäsie, Atmosphäre, Einheiten, Mathematik
+### 10. Geodäsie, Atmosphäre, Einheiten, Mathematik
 
-### 10.1 `FBGeodesy` — die EINE planare ENU-Geodäsie
+#### 10.1 `FBGeodesy` — die EINE planare ENU-Geodäsie
 
 `core/FBGeodesy.h`, header-only, keine Übersetzungseinheit.
 
@@ -2023,7 +2162,7 @@ Datei.
 | `FBEnuToBodyVec(...)` | das exakte Inverse davon, auf `FBEnuToBodyLos` gebaut. Der eine Aufrufer ist die Schadensauflösung (`app/FBMissionRunner.cpp`): eine Detonation passiert an einem Punkt in der Welt, und was entscheidet, welche Systeme sie zerstört hat, ist, wo dieser Punkt entlang der Zellenachse des ZIELS sitzt |
 | `FBTrackProjectM(refLat, refLon, courseDeg, lat, lon, alongM, acrossM)` | **Längs-/Quer-Projektion** auf die Linie durch die Referenz auf true Kurs: +längs den Kurs hinunter, +quer nach rechts. Das Runway-Achsen-Primitiv, das das On-Runway-Tor des Missionsmonitors, der Fußabdruck des Plateau-Providers, die Mittellinien-Steuerung von `FBPilot` und der Localizer von `FBAutopilot` alle brauchen — **eine Definition, damit „auf der Linie" für den Piloten, der sie fliegt, und den Monitor, der sie beurteilt, dasselbe bedeutet** |
 
-### 10.2 `FBAtmosphere` — ISA
+#### 10.2 `FBAtmosphere` — ISA
 
 `core/FBAtmosphere.h`, header-only. **Für die zwei Konsumenten, die über Luft rechnen müssen, in der
 sie gerade nicht fliegen** — alles, was fliegt, hat JSBSims eigene Atmosphäre hinter sich
@@ -2045,7 +2184,7 @@ Eine Definition statt zweier privater Kopien derselben vier Konstanten.
 Feuerleittabelle und ein Verstärkungsplan, und keiner würde durch eine Detailtreue besser, die der
 Rest des Gefechts nicht hat.
 
-### 10.3 `FBUnits` — die EINE Definition jedes Umrechnungsfaktors
+#### 10.3 `FBUnits` — die EINE Definition jedes Umrechnungsfaktors
 
 `core/FBUnits.h`, header-only, `constexpr`.
 
@@ -2073,7 +2212,7 @@ fliegen, und die kein Leser aus einer Datei heraus sehen kann.
 **Werte sind EXAKTE Definitionen, wo eine existiert** — das Verhältnis zu schreiben statt einer
 gekürzten Dezimalzahl ist zugleich genauer und selbstdokumentierend.
 
-### 10.4 `math/FBMat4` — Renderer-Mathematik
+#### 10.4 `math/FBMat4` — Renderer-Mathematik
 
 `sim/src/math/FBMat4.h`. Der einzige Inhalt von `math/`. **Spaltenweise (column-major),
 OpenGL-Konvention**: Element `m[c*4+r]` ist Spalte c, Zeile r; die Multiplikation mit einem
@@ -2096,82 +2235,3 @@ freie `static`-Funktionen im C-Stil (`m_identity`, `m_mul`, `m_persp`, `m_lookat
 | `m_lookat(m, eye, ctr, up)` | Welt → Sicht: Kamera bei `eye`, blickt auf `ctr`, mit ungefähr `up` als Oben |
 | `v_norm(v)` | normiert (No-Op unter Länge 1e-6) |
 | `v_cross(o, a, b)` | Kreuzprodukt |
-
----
-
-## Offene Punkte
-
-Gefundene Lücken, Inkonsistenzen und Fragen — nichts davon ist weggeschrieben oder beschönigt.
-
-1. **CLAUDE.md nennt die Blockliste unvollständig.** Der `core/`-Absatz listet „Platform, Env,
-   AirData, RadarAlt, Nav, Cruise, FireControl, Ufc, Stores, Airframe, Warnings, Radar, Datalink,
-   Bfm" (14). `FBState.h` trägt heute **17**: zusätzlich `Gun`, `Rwr`, `Cmds`. Der Code ist die
-   Wahrheit; CLAUDE.md ist an dieser Stelle veraltet.
-
-2. **Der Banner von `FBStateBusTelemetry.cpp` nennt den Gun-Block nicht.** Er begründet die
-   eingefrorene Spaltenliste mit „die zwei Blöcke, die danach hinzukamen (Rwr, Cmds)"; tatsächlich
-   sind es **drei** — `FBGunSystem::DeclareTelemetry` deklariert `blk_gun` mit derselben Begründung
-   als erste eigene Spalte. Sachlich stimmt alles, nur die Aufzählung im Kommentar ist unvollständig.
-
-3. **Der Banner von `FBFlightMonitor.h` verortet das Off-Runway-Urteil falsch.** Er schreibt, dieses
-   Urteil gehöre „dem Aufrufer, der die Mission kennt (`FBMissionRunner.cpp` bewertet es als FAIL,
-   eine separate, weiterhin unbestechliche, Runner-eigene Prüfung; siehe deren eigenen Banner)". Die
-   Prüfung lebt inzwischen in `core/FBMissionMonitor::Tick` (`OnRunway`, 50 m/30 m Marge). Der
-   Kommentar stammt aus der Zeit vor dem Missionsmonitor.
-
-4. **`FBStoresBlock::Arm` und `FBGunBlock::Arm` haben verschiedene Struct-Defaults** — `FBArmState::Arm`
-   bzw. `FBArmState::Sim`. Beide werden zur Laufzeit von ihrem jeweiligen System geschrieben, der
-   Unterschied ist also vermutlich folgenlos; ob die Asymmetrie beabsichtigt ist, sagt keine Quelle.
-   Ein genullter/uninitialisiert publizierter Stores-Block liest als SCHARF, was die weniger
-   konservative der beiden Voreinstellungen ist.
-
-5. **`FBFlightPlan` deklariert vier Wegpunkttypen, der Parser erzeugt zwei.** `Takeoff` und `Approach`
-   sind in `FBWaypointType` deklariert, aber `FBParseMissionFile` erzeugt ausschließlich `Enroute`
-   (`wp`) und `Land` (`land`). Kein Fehler — nur ein noch unbenutzter Teil des Typs; wer die Enum
-   liest, sollte das wissen.
-
-6. **`FBNavBlock::MagVarDeg` ist ein Platzhalter (immer 0).** Im Blockkommentar so gekennzeichnet.
-   Jede magnetische Peilung, die irgendwo daraus abgeleitet würde, ist heute eine wahre Peilung.
-
-7. **`FBEnvironmentBlock` ist kein Avionikblock**, wird aber wie einer behandelt (eigener
-   Gültigkeitskopf, eigener Schreiber = der Client). Im Kommentar ausdrücklich so begründet („nicht
-   Avionik im Zellensinn, aber geteilter Pro-Frame-Zustand mit exakt derselben Erzeuger-/
-   Konsumentenfrage"). Für einen Leser, der den Bus als Flugzeugsystem-Bus liest, ist das eine
-   Überraschung, die hier notiert sei.
-
-8. **`kMaxStoreStations = 12` gegen neun F-16-Pylone.** Der Block reserviert zwölf Stationsslots; die
-   F-16 deklariert neun (`modules/f16/FBF16Sms`). Kein Widerspruch (Kapazität ≥ Bedarf), aber die
-   überzähligen drei Slots sind unbelegt und tragen dauerhaft 0.
-
-9. **`FBDamageZone` hat fünf Werte inkl. `None`, `FBSystemHealth::kMaxZones` ist 5.** Die Kopplung ist
-   im Kommentar benannt (`kMaxZones = 5 /* core/FBDamageModel's FBDamageZone, including None */`),
-   aber sie ist NICHT compilergeprüft: ein `static_assert` gegen die Enum-Größe fehlt, und
-   `core/FBSystemHealth.h` inkludiert `FBDamageModel.h` bewusst nicht (die Abhängigkeit läuft
-   andersherum). Eine neue Zone würde still über den Rand des `Kinetic_`-Arrays zeigen — abgefangen
-   nur von der Bereichsprüfung in `AddKinetic`, die den Beitrag dann VERWIRFT.
-
-10. **`FBGunProjectiles` löst nie gegen Gelände auf.** Im Banner erklärt und begründet (Luft-Luft ist,
-    wofür der Pool da ist), hier nur als bekannte Grenze festgehalten: es gibt keinen
-    Beschuss-Fußabdruck am Boden.
-
-11. **`FBDamageModel::ApplyKinetic` summiert, `Apply` nicht** — bewusst und begründet (Strom vs.
-    Ereignis). Konsequenz, die nirgends ausgesprochen wird: **ein Gefechtskopf-Burst profitiert nie
-    von vorher eingesteckter kinetischer Energie und umgekehrt.** Die beiden Wirkungen teilen sich das
-    Register (die Systemzustände), aber nicht die Energie-Buchhaltung — `Kinetic_` ist rein kinetisch.
-    Ob eine Zelle, die schon 50 Kanonentreffer hat, auf einen Splitterburst empfindlicher reagieren
-    sollte, ist eine offene Modellfrage.
-
-12. **`FBLog::Unit_` ist auf 32 Zeichen begrenzt, Callsigns auf 24** — passt, aber die Kopplung ist
-    nicht als `static_assert` festgehalten; `snprintf` würde still kürzen.
-
-13. **`math/FBMat4.h` folgt der Coding-Konvention des Baums nicht** (freie `static`-C-Funktionen, kein
-    `namespace FlightBox`, kein `FB`-Präfix an den Funktionen). Es ist die älteste Datei dieser
-    Sammlung und offenkundig Vor-Pivot-Erbe. Kein Defekt, aber ein Stilbruch, den ein künftiger
-    Leser sonst für eine Absicht halten könnte.
-
-14. **Die Aufzählung „53 Dateien, ~4.800 Zeilen" der Aufgabenstellung stimmt** (`ls | wc -l` = 53;
-    `wc -l` über `core/` + `math/` = 4.927 inkl. `FBMat4.h`).
-
-15. **Nicht in `core/` und deshalb hier nur genannt**: `FBTilesElevation` (der vierte
-    Elevation-Provider) liegt in `world/` und ist NICHT Teil der Core-Lib — `fb-gym` linkt ihn nicht.
-    Wer die Provider-Liste vollständig lesen will, muss dorthin.

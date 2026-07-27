@@ -1,5 +1,7 @@
 # Piloten-KI — FBPilot, FBBfmTrack, FBEngagement, FBPilotTuning
 
+> Body still in German — translation pass pending (see [roadmap](../roadmap.md)).
+
 **Quellenstand:** Commit `9673e00` („Führung hält eine Bahn, wo eine Bahn deklariert ist").
 Primärquellen sind die Kommentar-Banner des Quellcodes:
 
@@ -20,7 +22,130 @@ ohne Quellzahl), **[DOK]** = aus `doc/f16/`.
 
 ---
 
-## 1. Die Schichtung
+## Spec
+
+The mission layer above guidance and flight control: the pilot decides WHERE, the autopilot flies the
+manoeuvre, the FBW moves the hands.
+
+| Contract | Acceptance / measurement anchor |
+|---|---|
+| The pilot decides at ~10 Hz over 100 Hz FDM substeps | the module throttles the slot like any other |
+| The pilot sees other units only through `FBState` | he holds no registry, no `FBWorld`, no system pointers |
+| The pilot operates avionics ONLY through the command bus | with human reaction time on top and the risk of rejection; what he enters is his BRIEF (`brief_*` mission lines) |
+| Without a brief he operates nothing | a mission that does not brief a switch gets the boot state |
+| Phases are the procedure skeleton | Idle/Preflight/Takeoff/Climb/Route/Approach/Flare/Rollout/Shutdown + Attack/Bfm/Intercept, per `doc/f16/procedures-*.md` |
+| Airframe numbers are hooks, pilot numbers are not | corner speed, brake authority etc. are virtual airframe hooks; reaction time and operating cadence describe the PILOT and stay fixed |
+| A pilot variant is mission text, not a class | `set pilot_*` → `FBPilotTuning`; an unset entry means "this pilot's own number", and a mission without `pilot_*` flies byte-identically |
+| Every fitness channel is computable from OWN perspective | `bfm_*` / `eng_*` telemetry — the basis of the evolutionary tournament |
+| A measured failure stays documented | rejected approaches remain under Gaps with their measurements |
+
+## State
+
+In progress — takeoff, route, landing, BFM, BVR intercept and air-to-ground all fly autonomously;
+refinement is the running work.
+
+| Piece | Status | Anchor |
+|---|---|---|
+| Framework, phase machine | built | `681c5f8` |
+| Takeoff | flies | `e49d335` |
+| Landing — `payerne-full` flies fully autonomously | flies | `8cd3a74` |
+| BFM manoeuvre AI on radar contacts alone | flies | `b375bef` |
+| Intercept: BVR tactics — lead, shoot, support, defend | flies | `1ecd433` |
+| Objectives + evolutionary tournaments | built | `82df2e2` |
+| Pilot memory: the datum instead of the last measurement; gun tracking with rate term; roll-rate limiter | built | `cac7b62` |
+| Guidance holds a path where a path is declared | built | `9673e00` |
+| Brake-authority-derived closure cap (`BfmBrakeMs2` = 2.4 m/s²), conversion rule, absolute-value trigger | built, **not yet distilled below** | `658014d` |
+
+## Gaps
+
+### Open work (from the retired `TODO.md` §2)
+
+| # | Thing | Known from |
+|---|---|---|
+| 2.1 | **Arrival closure still ~85 kt at the band edge.** The throttle controls a speed *difference*, the schedule is written in range *rate*; the two diverge as soon as the pursuer trades altitude (74 kt TAS difference against 157 kt closure). Two candidates measured and rejected (below). Next: lag angle only inside the band, where the estimate has converged. | `658014d` |
+| 2.2 | **Roll-rate limiter does not converge** when the raw command oscillates in amplitude — `cmd_prev·cap/rate` then has no fixed point. Departure seen at point-blank range. | `658014d` |
+| 2.3 | **The duel stays a stalemate** — every long shot is defeated in the notch, nothing ever reached fuze radius. Decided outcomes exist only where the launch envelopes differ. | `cac7b62` |
+| 2.4 | Gun still misses ~1 in 8 approaches against the turning defender. | `658014d` |
+| 2.5 | AoA band 11–13° instead of a flat 11° on approach (ED-documented, `doc/f16/procedures-landing.md`); porpoise after touchdown; `ApproachSpeed` should be weight-scheduled instead of fixed. | measurement |
+
+### Rejected approaches (do not retry without a new argument)
+
+| Approach | Why rejected |
+|---|---|
+| Geometric lag **angle** from the range-rate equation, acting globally | mode selection degenerates into a relay, the lift vector flutters; with lag in the vertical the jet zooms 940 m and comes back as a split-S. Best variant: 0 of 8 kills. |
+| Throttle controls measured range rate instead of speed difference | band 21.4 → 23.2 %, but funnel time against the straight defender 21.2 → 12.7 s. |
+| Conversion mirroring the long way round | unbounded roll, departure at t=39 in `bfm-blind`, 2 of 16 approaches. |
+| Wingline commit without a LOS-rate gate | costs 2 of 11 kills. |
+| Gun integrator with ζ = 0.5 | better against the turner; against the straight flyer the loop rings and funnel time collapses. |
+
+### Documentation lag (from the retired `TODO.md` §7)
+
+This file describes state `9673e00`. Commit `658014d` has already changed three of its points
+(sign-correct trigger, derived brake cap `a/k` with the new hook `BfmBrakeMs2`, wingline conversion) —
+affected: §5.2, §5.7, §5.8, §11, §12 of the German body below.
+
+### Inventory (German, from the previous `Offene Punkte` section)
+
+**Bekannte Schwächen (Stand `9673e00`, jede gemessen, keine davon versteckt):**
+
+1. **Kanone gegen den kurvenden Verteidiger: ~1 von 8 Anflügen verfehlt weiterhin.** Der Verfolger setzt
+   sich innerhalb der MINDESTENTFERNUNG des Trichters fest — dort liefert die EEGS-Lösung keine
+   brauchbare Feuerfreigabe mehr, während die Verfolgungsgeometrie den Jet dort hält. Fehlt: eine
+   Regel, die aus „zu nah" wieder Abstand macht (die Kontrollposition beschreibt eine Bandmitte, keine
+   Untergrenze mit Ausweichverhalten).
+2. **Das BVR-Duell bleibt ein Patt, weil jeder Fernschuss GENOTCHT wird.** Beide Seiten verteidigen
+   erfolgreich mit Beam + Düppel (`bvr-duel.fbm`: erster Schuss abgewehrt, zweiter bei t=527 s mit 43,6 m
+   Fehlabstand ebenfalls). Solange keine Seite einen Schuss aus einer Geometrie beibringt, die den Notch
+   ausschließt (oder eine Waffe, die ihn übersteht), ist die Paarung symmetrisch und das Ergebnis
+   strukturell unentschieden. `bvr-duel-decided.fbm` zeigt die Gegenprobe: ein Energie-Unterschied
+   entscheidet, das Handwerk allein nicht.
+3. **Der enge Frontalpass wird nicht in eine Kurve KONVERTIERT.** Das Gesetz regelt eine PEILUNG und
+   nimmt immer den kurzen Weg; genau am Heckdurchgang sind beide Wege gleich lang, das kommandierte
+   Auftriebsvektor-Vorzeichen kippt, und der Regelkreis sieht keinen sich verschlechternden Fehler,
+   sondern einen NEUEN Fehler auf der anderen Seite — er antwortet mit einer Umkehr. [MESS] am 385-m-Merge
+   von `bfm-blind`: die Sichtlinie wanderte von +102° auf +177° und wickelte auf −177°, das Rollkommando
+   klapperte über die Vertikale (94/109/97/100/107/93/105° Querlage in aufeinanderfolgenden
+   Halbsekunden), statt eine Kurve zu halten. Ein Pass wird damit nicht in eine Position umgesetzt.
+4. **Der Annäherungsfahrplan hat bei `9673e00` einen FLACHEN Deckel** (`BfmMaxClosureKt` = 200 kt), der
+   nicht an der Bremsautorität der Zelle hängt. Der Fahrplan `c = k·(R − Rctrl)` verlangt eine
+   Verzögerung `k·c`; jenseits von `a/k` schreibt der Pilot einen Scheck, den die Zelle nicht deckt.
+   [MESS, `gun-bfm`] Beschleunigung auf 190 kt Annäherung bei 2 nm, danach 35 s Leerlauf + Bremsklappe
+   ohne sie loszuwerden, Ankunft im Kontrollband mit 98 kt statt der gefahrplanten 5, Durchflug auf 61 m.
+5. **Der Gashebel regelt eine Geschwindigkeits-DIFFERENZ, nicht die Annäherungsrate.** Beide sind nur in
+   einer koaltitudinalen Heckverfolgung dieselbe Zahl. [MESS, `gun-bfm` dritter Anflug] 74 kt
+   TAS-Differenz gegen 157 kt tatsächliche Annäherung, weil der Verfolger 700 m höher war und Höhe in
+   Annäherung umsetzte. Die Alternative (Regelung auf die Radarmessung der Annäherung) ist gemessen und
+   verworfen: Kontrollband minimal besser (21,4 % → 23,2 % der verfolgten Zeit), Trichterzeit gegen den
+   geradeaus fliegenden Verteidiger brach ein (21,2 → 12,7 s) — die Annäherungsrate trägt die ganze
+   Verfolgungsgeometrie, sie mit dem Gashebel zu regeln lässt den Gashebel die Kurve bekämpfen.
+6. **Keine Geländemaskierung in der Sensorkette** (bewusst, `systems/FBRadarSystem`): der Pilot kann
+   deshalb keine Terrain-Taktik lernen, weder aktiv noch defensiv.
+7. **Fackeln wirken nicht** (kein IR-Sucher im Baum) — die Verteidigung des Piloten ist heute rein
+   Chaff + Beam.
+
+**Nachführung fällig — nebenläufige Änderung.**
+Zum Zeitpunkt dieser Datei ändert ein anderer Agent `sim/src/systems/FBPilot.{h,cpp}` und
+`sim/src/modules/f16/FBF16Pilot.h` (Nahkampf-Runde). Bereits in der Arbeitskopie sichtbar und hier NOCH
+NICHT dokumentiert:
+
+- ein neuer Zellen-Hook `BfmBrakeMs2()` (F-16 2,4 m/s², [MESS] 238 Proben bei 4.000 m zwischen 325 und
+  400 KCAS, Median 2,39 / p10 1,64 / p90 3,80) und ein daraus **hergeleiteter** Annäherungsdeckel
+  `a/k` statt des flachen 200-kt-Deckels → betrifft Punkt 4 oben;
+- eine **Konversions-Regel** mit committetem Drehsinn (`BfmTurnSense_`, `kBfmConvertErrDeg` = 90°,
+  Zonenbreite aus `180° − LOS-Rate · kBfmReverseS`) → betrifft Punkt 3 oben;
+- der Abzug liest die vorhergesagte Ziellösung als **BETRAG** statt sie bei 0 zu klemmen.
+
+Nach Abschluss dieser Runde sind § 5.2 (Fahrplan), § 5.7/§ 5.8 (Rolle/Abzug), § 11 (Hook-Tabelle) und
+§ 12 (Punkte 3–5) gegen den dann gültigen Commit nachzuziehen. `doc/mission-format.md` trägt Teile
+dieser Runde bereits — bei Abweichungen zwischen beiden Dateien gilt der QUELLCODE des jeweils
+zitierten Commits.
+
+
+## Knowledge
+
+Derivations, formulas and measured constants — the distilled body of this file.
+
+### 1. Die Schichtung
 
 Drei Ebenen, drei Fragen, drei Takte. Keine Ebene greift an der nächsten vorbei.
 
@@ -38,7 +163,7 @@ veröffentlicht das Modul die fusionierte BFM-Sicht auf den Bus (`SharedState.Bf
 und ruft `NavSys->AdvanceWaypoint(...)` — die Wegpunkt-Sequenzierung ist Akteurs-Verhalten, keine
 Runner-Buchhaltung.
 
-### `FBPilotCommands` — die Ausgabe eines Entscheidungstakts
+#### `FBPilotCommands` — die Ausgabe eines Entscheidungstakts
 
 ```
 FBPilotGuidance Guidance;                        // None | Manual | Direct | Course
@@ -70,9 +195,9 @@ Zwei Verträge stecken in den Typen:
 
 ---
 
-## 2. Die Regel, die alles trägt
+### 2. Die Regel, die alles trägt
 
-### 2.1 Der Pilot hält KEINE Systemzeiger
+#### 2.1 Der Pilot hält KEINE Systemzeiger
 
 Die gesamte Signatur ist der Vertrag:
 
@@ -92,7 +217,7 @@ virtual FBPilotCommands Run(const FBState &state, FBCommandBus &avionics,
 - Ein `const FBWorld *` STAND früher in dieser Signatur (ungenutzt, `(void)world`). Er ist entfernt:
   ein Pilot, dem man Weltwahrheit gar nicht reichen kann, kann nicht versehentlich darauf fliegen.
 
-### 2.2 Avionik nur über den Kommandobus
+#### 2.2 Avionik nur über den Kommandobus
 
 Jede Bedienung ist ein `avionics.Post(target, value, nowS)` mit Quittung. Das kostet Zeit und kann
 abgelehnt werden (`core/FBCommandBus.h`):
@@ -106,7 +231,7 @@ abgelehnt werden (`core/FBCommandBus.h`):
 Zusätzlich sperrt der Bus Kopf-nach-unten-Eingaben, während der Jet manövriert (Lastvielfaches aus dem
 AirData-Block; ohne gültigen Block liest er 1 g).
 
-### 2.3 Der Brief — und ohne Brief bedient er nichts
+#### 2.3 Der Brief — und ohne Brief bedient er nichts
 
 Eine `set`-Zeile richtet das Flugzeug im Spawn-Fenster ein, VOR dem ersten Piloten-Tick. Eine
 `brief_*`-Zeile richtet den PILOTEN ein: sie ist ein Wert, den er im Flug über den Bus EINGIBT.
@@ -135,7 +260,7 @@ Ablauf (`EnterBriefedItems`, `ReleaseBriefedStores`, `DispenseBriefedCm`):
 - **Cockpitarbeit nur im Flug**: `CurPhase != Idle && !GetWeightOnWheels()`. Am Boden stehen diese
   Eingaben in der Checkliste vor dem Anlassen, also außerhalb der Phasen dieser Klasse.
 
-### 2.4 Er sieht nur über Sensoren
+#### 2.4 Er sieht nur über Sensoren
 
 Alles, was der Pilot über andere Einheiten weiß, kommt aus `FBState`-Blöcken: Radar (ANONYME Kontakte +
 Lock-Index), RWR (Peilungen und Emissionsklasse, KEINE Entfernung), FireControl (Startbereich/Abwurflösung),
@@ -144,7 +269,7 @@ Stores, Warnungen, Cmds, Datalink. Der Kopf jedes Blocks (`Invalid`/`Valid`/`Hel
 
 ---
 
-## 3. Die Phasen-Zustandsmaschine
+### 3. Die Phasen-Zustandsmaschine
 
 `FBPilot::Phase` (Reihenfolge im Enum ist telemetrie-sichtbar, nur ANHÄNGEN):
 `Idle, Preflight, Takeoff, Climb, Route, Approach, Flare, Rollout, Shutdown, Bfm, Intercept, Attack`.
@@ -186,11 +311,11 @@ Gemeinsame Bausteine:
 
 ---
 
-## 4. Phase `Attack` — die einzige Phase, deren Entscheidung ein MOMENT ist
+### 4. Phase `Attack` — die einzige Phase, deren Entscheidung ein MOMENT ist
 
 Drei Teile; der mittlere dauert einen Tick.
 
-### 4.1 Anflug (RUN-IN)
+#### 4.1 Anflug (RUN-IN)
 
 `FBAutopilot::Direct` auf den aktiven Wegpunkt, auf DESSEN deklarierter Höhe und Geschwindigkeit —
 also ein **waagerechter Laydown**. Zwei Gründe, beide im Banner:
@@ -206,7 +331,7 @@ Die Mission deklariert keinen Initial Point, also IST der Punkt, an dem der Anfl
 Point. [MESS, `doc/mission-format.md`] Querfehler 31,6 m → 10,6 m auf dem 19-km-CCRP-Anflug, der
 Längsanteil unverändert.
 
-### 4.2 Der EINE Pickle
+#### 4.2 Der EINE Pickle
 
 Die Torbedingungen in der Reihenfolge, in der ein Pilot sie prüft:
 
@@ -239,7 +364,7 @@ Der Pickle wird EINMAL abgesetzt und bei Ablehnung nie wiederholt; die Zeile
 `pilot ATTACK_RELEASE` protokolliert Modus, Annahme, `ttrS`, `leadS`, `biasS`, Längs-/Querfehler,
 Fehlabstand, Wurfweite, Flugzeit, Schärfreserve, Höhe und Bodenspeed.
 
-### 4.3 Abdrehen (EGRESS)
+#### 4.3 Abdrehen (EGRESS)
 
 Nach dem Abwurf: Zielpunkt EINMAL rechnen (`AttackEgressTurnDeg` gegen den aktuellen BODENKURS aus dem
 AirData-Block, `AttackEgressRangeM` voraus, `AttackEgressClimbM` höher), dann `Direct` dorthin mit der
@@ -248,7 +373,7 @@ Geschwindigkeit, die der Anflug hinterlassen hat, für `AttackEgressS` Sekunden 
 der Geometrie zu wählen wäre eine Entscheidung, für die es hier keine Quelle gibt [SETZ].
 Kein Schmuck: ein waagerechter Abwurf fliegt das Flugzeug über die eigene Detonation.
 
-### 4.4 Die Vorspannung als Messinstrument
+#### 4.4 Die Vorspannung als Messinstrument
 
 `AttackReleaseBiasS` (Variante `pilot_attack_bias_s`, Band −10…+10 s) verschiebt AUSSCHLIESSLICH
 Bedingung 4a. Ein um `bias` Sekunden verspäteter Abwurf landet pro Sekunde eine Bodengeschwindigkeit
@@ -257,7 +382,7 @@ weiter — damit beantwortet die Mission die Frage „tut die Rechnung überhaup
 
 ---
 
-## 5. Phase `Bfm` — die einzige Phase mit EIGENEM Regelgesetz
+### 5. Phase `Bfm` — die einzige Phase mit EIGENEM Regelgesetz
 
 Kein Autopilot-Modus: `Guidance = Manual`, wie Takeoff/Flare/Rollout. Grund: `Direct`/`Course` sind
 NAVIGATIONS-Modi, deren 60°-Querlagendeckel und bewusst sanfter Rolleinsatz (`FBFlightControl::F16`s
@@ -267,7 +392,7 @@ umzustimmen würde die Zahlen jeder bestehenden Mission verschieben.
 Ein Tick sind vier Schritte: Bild lesen → Verfolgungsart wählen → Zielpunkt bilden → mit der noch
 vorhandenen Energie hinfliegen.
 
-### 5.1 Das Gesetz: EIN Auftriebsvektor, EIN Lastvielfaches
+#### 5.1 Das Gesetz: EIN Auftriebsvektor, EIN Lastvielfaches
 
 Ein Flugzeug kann nur entlang seiner Auftriebsachse (Bauch → Haube) beschleunigen. Eine Kurve ist also
 erst ein ROLLEN, das diese Achse dorthin legt, wo Beschleunigung gebraucht wird, und dann ein ZIEHEN.
@@ -314,7 +439,7 @@ Geschwindigkeit getauscht, ohne dass irgendwo ein „Energie-Modus" steht.
   Staudruck. Damit fordert die Schleife nie eine Kurve, die es nicht gibt, und der Integrator läuft
   nicht auf.
 
-### 5.2 Verfolgungsart aus der Geometrie
+#### 5.2 Verfolgungsart aus der Geometrie
 
 Der Überschuss ist ein **FAHRPLAN, keine Schwelle**: die gewünschte Annäherung ist proportional zur
 Restentfernung, damit die Annäherungsrate beim Erreichen der Kontrollentfernung bereits abgebaut ist.
@@ -340,7 +465,7 @@ overtaking = validTrack && closKt > schedKt + kBfmClosureDeadKt      // Totband 
 - **Lead ist eine ZEIT, kein fester Winkel** — der Vorhalt schrumpft mit der Entfernung und verlangt nie
   eine Kurve in leeren Himmel.
 
-### 5.3 Der Gashebel als zweite Hälfte des Annäherungsproblems
+#### 5.3 Der Gashebel als zweite Hälfte des Annäherungsproblems
 
 Hinter ihn zu zielen hält die Nase drin; es hält keinen Jet auf, der schlicht 100 kt schneller ist. Also
 fliegt der Pilot die GESCHWINDIGKEIT, die die Geometrie will:
@@ -365,7 +490,7 @@ Nase-runter-Vorspannung. Ein negativer Höhenwunsch würde den Auftriebsvektor I
 zeigt die Auftriebsachse auf den Zielpunkt, „unter mir" heißt 180° Rolle), also einen Split-S fliegen.
 [MESS] genau das warf den Jet 2.900 m tief, während der Pilot nur 50 kt zurückgewinnen wollte.
 
-### 5.4 Die Suche: das Datum + die Unsicherheitsbreite
+#### 5.4 Die Suche: das Datum + die Unsicherheitsbreite
 
 Die Suche fliegt eine **RICHTUNG und eine HÖHE**, niemals einen Punkt, und sie fliegt das **DATUM**
 (§ 6.2), nicht die zuletzt gemessene Position.
@@ -420,14 +545,14 @@ bleibt. Zwei Muster:
 Das Weben läuft, sobald `!validTrack || trackAgeS > BfmScanAfterS` — bis dahin folgt die Nase allein
 der Extrapolation.
 
-### 5.5 Der Bodendeckel
+#### 5.5 Der Bodendeckel
 
 `if (BfmFloorFt() > 0 && ra.H.Readable() && ra.AglFt < BfmFloorFt())`
 → `elErr += kBfmFloorPullDeg(30°) · clamp(1 − AglFt/FloorFt, 0, 1)`.
 Er steht ÜBER allem darüber: ein in den Boden geflogener Kampf ist kein gewonnener Kampf. Ohne lesbaren
 Radarhöhen-Block zieht er nicht (§ 3).
 
-### 5.6 Die Kanonen-Nachführung (Abschnitt 3b/3c) — ein GESETZ, keine Zahl
+#### 5.6 Die Kanonen-Nachführung (Abschnitt 3b/3c) — ein GESETZ, keine Zahl
 
 **Warum die Phase überhaupt ein zweites Gesetz braucht.** Verfolgungssteuerung (§ 5.2) zielt die Nase
 auf eine POSITION — wo er ist, wo er in zwei Sekunden sein wird, oder einen Punkt hinter ihm. Keine
@@ -527,7 +652,7 @@ Zielfehler, Vorhaltewinkeln, Trichtergeometrie und Trommelinhalt. Im Trichter me
 (geradeaus) bzw. 0,0 → 21,6 s (kurvend); Schuss auf dem Ziel 11,9 → 111,2 bzw. 0,0 → 120,4 Patronen;
 Abschüsse 0 → 5 bzw. 0 → 7 von je acht Läufen; mittlerer Nachführfehler 10,5° → 6,9° bzw. 11,9° → 4,1°.
 
-### 5.7 Der Rollraten-Regler — das dritte Gesetz
+#### 5.7 Der Rollraten-Regler — das dritte Gesetz
 
 Das Auftriebsvektor-Kommando ist ein WINKELfehler, der F-16-Querstick ein RATEN-Kommando: ein großer
 Fehler bedeutet vollen Ausschlag, solange er dauert — und der größte Fehler, den dieses Gesetz erzeugen
@@ -554,7 +679,7 @@ gemessen [MESS, 16 Kanonengefechte gegen zwei Verteidiger]: ungeregelt und bei 9
 Kampf in sechs davon, bei 60 °/s in keinem — und die Schießleistung war dort ebenfalls am besten.
 Der Regler REDUZIERT nur, er kann nie Stick hinzufügen.
 
-### 5.8 Der Abzug (`BfmGunfire`)
+#### 5.8 Der Abzug (`BfmGunfire`)
 
 Kein zweites Zielen — ein Finger. Er tut drei Dinge:
 
@@ -575,7 +700,7 @@ Kein zweites Zielen — ein Finger. Er tut drei Dinge:
 **Er prüft NIE, auf wen er schießt** — und kann es nicht: der Pilot sieht einen Radarkontakt, keine
 Besetzungsliste. Die Mission deklariert die Besetzung, der Abzug beantwortet den Trichter.
 
-### 5.9 Die Kontrollposition und das Scoreboard
+#### 5.9 Die Kontrollposition und das Scoreboard
 
 ```
 inControl = validTrack && Locked && ctrlMin ≤ R ≤ ctrlMax
@@ -589,9 +714,9 @@ Kontrollposition und sonst nichts.
 
 ---
 
-## 6. `systems/FBBfmTrack` — das Bild und das Gedächtnis
+### 6. `systems/FBBfmTrack` — das Bild und das Gedächtnis
 
-### 6.1 Woraus es gebaut wird — und woraus ausdrücklich NICHT
+#### 6.1 Woraus es gebaut wird — und woraus ausdrücklich NICHT
 
 **Nur** aus `FBState.Radar` (Kontakte + Lock-Index) und dem eigenen `fb_fdm_state`. Im Include-Baum
 dieser Datei gibt es **kein `FBWorld`, keine `FBUnitRegistry`, keinen Datalink-Track** — das ist die
@@ -644,7 +769,7 @@ sein Heck entlang −**T**, also `cos(aspect) = (−T)·(−L) = T·L`. Undefini
 **Energiehöhe** `Es = (h + v²/2g)` in ft: die einzige Energiezahl, die ein Pilot von EIGENEN
 Instrumenten ablesen kann.
 
-### 6.2 `FBTrackDatum` — das Gedächtnis, vollständig hergeleitet
+#### 6.2 `FBTrackDatum` — das Gedächtnis, vollständig hergeleitet
 
 Der Block beantwortet „wo ist er" und hört jenseits des Fensters ehrlich auf. Dieses Einfrieren ist für
 die VERFOLGUNG richtig — man zieht keine Vorhaltung auf eine Vermutung — und für die SUCHE nutzlos.
@@ -702,7 +827,7 @@ Messpunkt zurück und friert ein (richtig für die Verfolgung, falsch für die S
 Methode aus derselben gespeicherten Schätzung mit ihrer EIGENEN Fortschreibungsregel. Const,
 allokationsfrei, einmal pro Entscheidungstakt.
 
-### 6.3 Die `bfm_*`-Kanäle (Quelle `bfm`, 15 Spalten, hinten angehängt)
+#### 6.3 Die `bfm_*`-Kanäle (Quelle `bfm`, 15 Spalten, hinten angehängt)
 
 | Spalte | Bedeutung |
 |---|---|
@@ -719,7 +844,7 @@ Aspekt), gehört in die Auswertung, nicht in den Piloten.
 
 ---
 
-## 7. Phase `Intercept` — geflogen mit dem SENSOR
+### 7. Phase `Intercept` — geflogen mit dem SENSOR
 
 Der Gegenpol zu BFM: BFM wird mit der NASE geflogen und der Lock geht nie weg; ein Abfang wird mit dem
 SENSOR geflogen, und die ganze Kunst ist, wann man ihn worauf richtet. Guidance ist `Direct` auf einen
@@ -729,7 +854,7 @@ Punkt `kInterceptAimM` (60 nm) entlang des gewünschten Kurses — weit genug, d
 Reihenfolge eines Ticks = Reihenfolge der Aufmerksamkeit eines Piloten: was sehe ich → wer sieht mich →
 in welchem Zustand bin ich → wohin zeige ich den Jet → und erst dann welchen Schalter fasse ich an.
 
-### 7.1 Das Bild
+#### 7.1 Das Bild
 
 - Gelockt → der Kontakt bei `LockIndex`. Sonst der NÄCHSTE Rückstrahler, der sich nicht als Freund
   ausgewiesen hat: eine gültige Mode-4-Antwort BEWEIST freundlich und nimmt ihn von der Liste, Schweigen
@@ -740,7 +865,7 @@ in welchem Zustand bin ich → wohin zeige ich den Jet → und erst dann welchen
 - `Bfm_.Update()` läuft AUCH hier: die Fusion liefert, was ein einzelnes Echo nicht kann — die
   Zielgeschwindigkeit und daraus den Aspekt, auf dem die Schussentscheidung beruht.
 
-### 7.2 Wer mich sieht
+#### 7.2 Wer mich sieht
 
 Aus dem RWR-Block: die stärkste Nicht-Such-Warnung, wobei ein **Raketen**-Symbol ein **Track**-Symbol
 IMMER schlägt (das eine ist ein Radar, das schießen könnte, das andere ein Suchkopf, der es bereits hat).
@@ -762,7 +887,7 @@ braucht keine Führung mehr, oder es gab nie einen.
 `IntDefendCueS_` ist die Null der Reaktionszeit — der Moment, in dem die Warnung eine Antwort VERLANGTE,
 nicht das erste je gesehene Symbol.
 
-### 7.3 Die Zustandsmaschine (`FBEngageState`)
+#### 7.3 Die Zustandsmaschine (`FBEngageState`)
 
 | Zustand | Was der Pilot tut | Verlassen wenn |
 |---|---|---|
@@ -828,7 +953,7 @@ keine Komponente auf seine Sichtlinie, was genau das Clutter-Filter eines Puls-D
 es ist die EINZIGE Geometrie, in der Düppel überhaupt etwas wert sind (`systems/FBRadarSystem`s Notch).
 Von den beiden Wegen der kürzere, weil die Drehung selbst Zeit in seinem besten Fall ist.
 
-### 7.4 `CanPressOn` — die drei Instrumente der Wiederaufnahme
+#### 7.4 `CanPressOn` — die drei Instrumente der Wiederaufnahme
 
 ```
 weapons = Stores.H.Readable() && Stores.LoadedCount > 0
@@ -854,7 +979,7 @@ unberührt.
 55,6 km bei t≈280 s), gehen bei t≈355 s wieder in `closing`, bei t≈365 s in `attack`, zweiter Schuss bei
 t = 527 s (43,6 m Fehlabstand, im Notch abgewehrt wie der erste). Timeout deshalb 320 → 700 s.
 
-### 7.5 Die Antennenführung
+#### 7.5 Die Antennenführung
 
 - `Search`: `wantEl = atan2(bandAltM − st.elev, distM)·rad2deg − st.pitch`. Der **eigene Nick** ist
   das, was daraus ein Kommando statt einer Konstante macht: das Muster ist an die Nase geschraubt, ein
@@ -866,7 +991,7 @@ t = 527 s (43,6 m Fehlabstand, im Notch abgewehrt wie der erste). Timeout deshal
   [MESS] auf das aktuelle Kommando zu ADDIEREN wanderte die Keule Look für Look vom Ziel weg und verlor
   einen frontalen Kontakt zwanzig Sekunden nach der Erfassung.
 
-### 7.6 Die Hände (`InterceptCockpit`)
+#### 7.6 Die Hände (`InterceptCockpit`)
 
 **Höchstens EINE Bedienhandlung pro `Tuned(ActionSpacingS, kInterceptActionS)`** (Default 0,5 s), in
 fester Prioritätsreihenfolge:
@@ -884,7 +1009,7 @@ fester Prioritätsreihenfolge:
 
 ---
 
-## 8. `systems/FBEngagement` — die Zustandsmaschine als Daten und das Debriefing
+### 8. `systems/FBEngagement` — die Zustandsmaschine als Daten und das Debriefing
 
 **Scoreboard, nicht Gehirn.** `FBBfmTrack` trägt beide Rollen (Bild + Metrik), weil ein Tracker EIN
 Objekt sein muss; hier steht das Bild bereits auf dem Bus, und was fehlt, ist ein Ort, sich zu MERKEN,
@@ -933,7 +1058,7 @@ ihre eigene Kopie der Geometrie.
 
 ---
 
-## 9. `systems/FBPilotTuning` — die Variante als Missionsdaten
+### 9. `systems/FBPilotTuning` — die Variante als Missionsdaten
 
 **Die Tabelle.** Ein festes Array `{Have_[], Value_[]}` über das Parameter-Ordinal: keine Allokation,
 kein Map-Lookup im Entscheidungspfad. Gelesen ausschließlich über
@@ -981,7 +1106,7 @@ Missionsdatei statt einer Klasse — zwischen zwei Kandidaten wird nichts kompil
 steht kein Turnier-Code. Reaktions- und Handlungszeit liegen weiterhin ZUSÄTZLICH zur Bus-Latenz der
 jeweiligen Klasse: keine Variante kann schneller antworten, als der Jet es zulässt.
 
-### 9.1 Der Turnierläufer (`sim/tools/fb_tournament.py`)
+#### 9.1 Der Turnierläufer (`sim/tools/fb_tournament.py`)
 
 Stdlib-Python, kein Build-Target, keine Abhängigkeit unter `sim/build` außer der `fb-gym`-Binärdatei.
 
@@ -1017,7 +1142,7 @@ trennt `outcome` (kill/lost/hits) von `craft` (der Rest).
 
 ---
 
-## 10. Der Missions-Regelkreis als Arbeitsweise
+### 10. Der Missions-Regelkreis als Arbeitsweise
 
 ```
 Mission definieren (.fbm)  →  headless simulieren (fb-gym)  →  Telemetrie maschinell analysieren
@@ -1052,7 +1177,7 @@ Mission definieren (.fbm)  →  headless simulieren (fb-gym)  →  Telemetrie ma
 
 ---
 
-## 11. Piloten-Eigenschaft vs. Flugzeug-Eigenschaft
+### 11. Piloten-Eigenschaft vs. Flugzeug-Eigenschaft
 
 Die Trennung ist strukturell: Flugzeug-Zahlen sind **virtuelle Hooks** auf `FBPilot`, die das Modul
 überschreibt; Piloten-Zahlen sind **Konstanten in `FBPilot.cpp`**, weil ein Mensch in jedem Cockpit
@@ -1099,61 +1224,3 @@ sinnvoll ist.
 | `InterceptShotRtrFactor` / `ShotSpacingS` / `BeamOffsetDeg` / `ChaffIntervalS` / `DefendHoldS` | 1,0 / 12 s / 90° / 3 s / 12 s | identisch | [SETZ] bzw. Notch-Geometrie |
 | `AttackReleaseBiasS` / `AttackCcipTolM` | 0 / 60 m | 0 / **45 m** | [HERL] das Splittermuster einer Mk-82 nimmt eine weiche Anlage bis ~25 m aus und degradiert sie bis ~45 m (`modules/ground/FBGroundTarget.h`) — weiter daneben erreicht der Anflug nichts, und genau dann pickelt ein Pilot nicht |
 | `AttackEgressTurnDeg` / `ClimbM` / `RangeM` / `S` | 120° / 500 m / 12 km / 25 s | **135°** / 600 m / 12 km / 30 s | eine Ausweichkurve deutlich hinter den Beam; 135° am Querlagenlimit sind bequem in 30 s |
-
----
-
-## 12. Offene Punkte
-
-**Bekannte Schwächen (Stand `9673e00`, jede gemessen, keine davon versteckt):**
-
-1. **Kanone gegen den kurvenden Verteidiger: ~1 von 8 Anflügen verfehlt weiterhin.** Der Verfolger setzt
-   sich innerhalb der MINDESTENTFERNUNG des Trichters fest — dort liefert die EEGS-Lösung keine
-   brauchbare Feuerfreigabe mehr, während die Verfolgungsgeometrie den Jet dort hält. Fehlt: eine
-   Regel, die aus „zu nah" wieder Abstand macht (die Kontrollposition beschreibt eine Bandmitte, keine
-   Untergrenze mit Ausweichverhalten).
-2. **Das BVR-Duell bleibt ein Patt, weil jeder Fernschuss GENOTCHT wird.** Beide Seiten verteidigen
-   erfolgreich mit Beam + Düppel (`bvr-duel.fbm`: erster Schuss abgewehrt, zweiter bei t=527 s mit 43,6 m
-   Fehlabstand ebenfalls). Solange keine Seite einen Schuss aus einer Geometrie beibringt, die den Notch
-   ausschließt (oder eine Waffe, die ihn übersteht), ist die Paarung symmetrisch und das Ergebnis
-   strukturell unentschieden. `bvr-duel-decided.fbm` zeigt die Gegenprobe: ein Energie-Unterschied
-   entscheidet, das Handwerk allein nicht.
-3. **Der enge Frontalpass wird nicht in eine Kurve KONVERTIERT.** Das Gesetz regelt eine PEILUNG und
-   nimmt immer den kurzen Weg; genau am Heckdurchgang sind beide Wege gleich lang, das kommandierte
-   Auftriebsvektor-Vorzeichen kippt, und der Regelkreis sieht keinen sich verschlechternden Fehler,
-   sondern einen NEUEN Fehler auf der anderen Seite — er antwortet mit einer Umkehr. [MESS] am 385-m-Merge
-   von `bfm-blind`: die Sichtlinie wanderte von +102° auf +177° und wickelte auf −177°, das Rollkommando
-   klapperte über die Vertikale (94/109/97/100/107/93/105° Querlage in aufeinanderfolgenden
-   Halbsekunden), statt eine Kurve zu halten. Ein Pass wird damit nicht in eine Position umgesetzt.
-4. **Der Annäherungsfahrplan hat bei `9673e00` einen FLACHEN Deckel** (`BfmMaxClosureKt` = 200 kt), der
-   nicht an der Bremsautorität der Zelle hängt. Der Fahrplan `c = k·(R − Rctrl)` verlangt eine
-   Verzögerung `k·c`; jenseits von `a/k` schreibt der Pilot einen Scheck, den die Zelle nicht deckt.
-   [MESS, `gun-bfm`] Beschleunigung auf 190 kt Annäherung bei 2 nm, danach 35 s Leerlauf + Bremsklappe
-   ohne sie loszuwerden, Ankunft im Kontrollband mit 98 kt statt der gefahrplanten 5, Durchflug auf 61 m.
-5. **Der Gashebel regelt eine Geschwindigkeits-DIFFERENZ, nicht die Annäherungsrate.** Beide sind nur in
-   einer koaltitudinalen Heckverfolgung dieselbe Zahl. [MESS, `gun-bfm` dritter Anflug] 74 kt
-   TAS-Differenz gegen 157 kt tatsächliche Annäherung, weil der Verfolger 700 m höher war und Höhe in
-   Annäherung umsetzte. Die Alternative (Regelung auf die Radarmessung der Annäherung) ist gemessen und
-   verworfen: Kontrollband minimal besser (21,4 % → 23,2 % der verfolgten Zeit), Trichterzeit gegen den
-   geradeaus fliegenden Verteidiger brach ein (21,2 → 12,7 s) — die Annäherungsrate trägt die ganze
-   Verfolgungsgeometrie, sie mit dem Gashebel zu regeln lässt den Gashebel die Kurve bekämpfen.
-6. **Keine Geländemaskierung in der Sensorkette** (bewusst, `systems/FBRadarSystem`): der Pilot kann
-   deshalb keine Terrain-Taktik lernen, weder aktiv noch defensiv.
-7. **Fackeln wirken nicht** (kein IR-Sucher im Baum) — die Verteidigung des Piloten ist heute rein
-   Chaff + Beam.
-
-**Nachführung fällig — nebenläufige Änderung.**
-Zum Zeitpunkt dieser Datei ändert ein anderer Agent `sim/src/systems/FBPilot.{h,cpp}` und
-`sim/src/modules/f16/FBF16Pilot.h` (Nahkampf-Runde). Bereits in der Arbeitskopie sichtbar und hier NOCH
-NICHT dokumentiert:
-
-- ein neuer Zellen-Hook `BfmBrakeMs2()` (F-16 2,4 m/s², [MESS] 238 Proben bei 4.000 m zwischen 325 und
-  400 KCAS, Median 2,39 / p10 1,64 / p90 3,80) und ein daraus **hergeleiteter** Annäherungsdeckel
-  `a/k` statt des flachen 200-kt-Deckels → betrifft Punkt 4 oben;
-- eine **Konversions-Regel** mit committetem Drehsinn (`BfmTurnSense_`, `kBfmConvertErrDeg` = 90°,
-  Zonenbreite aus `180° − LOS-Rate · kBfmReverseS`) → betrifft Punkt 3 oben;
-- der Abzug liest die vorhergesagte Ziellösung als **BETRAG** statt sie bei 0 zu klemmen.
-
-Nach Abschluss dieser Runde sind § 5.2 (Fahrplan), § 5.7/§ 5.8 (Rolle/Abzug), § 11 (Hook-Tabelle) und
-§ 12 (Punkte 3–5) gegen den dann gültigen Commit nachzuziehen. `doc/mission-format.md` trägt Teile
-dieser Runde bereits — bei Abweichungen zwischen beiden Dateien gilt der QUELLCODE des jeweils
-zitierten Commits.

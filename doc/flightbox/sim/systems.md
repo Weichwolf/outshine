@@ -1,5 +1,7 @@
 # FlightBox — Generische Systemslots (`sim/src/systems/`)
 
+> Body still in German — translation pass pending (see [roadmap](../roadmap.md)).
+
 Quellen dieser Datei: die Kommentar-Banner der Quelldateien unter `sim/src/systems/` (Stand: Branch
 `systems`, Commit `8cd3a74`) plus CLAUDE.mds `systems/`-Abschnitt. Jede Herleitung, jede Messzahl und
 jede Setzung ist von dort übernommen; nichts ist extrapoliert. Wo Code und CLAUDE.md auseinandergehen,
@@ -15,9 +17,98 @@ steht es unter „Offene Punkte".
 
 ---
 
-## 1. Das Slot-Muster
+## Spec
 
-### 1.1 Die Regel
+The airframe-agnostic system slots of a module — interface and default in ONE class, a module
+overrides by derivation. Number tuning stays a preset, never an empty subclass.
+
+| Contract | Acceptance / measurement anchor |
+|---|---|
+| `FBCore → interface → default → module override` | every slot is instantiable without a module; the F-16 composes the defaults and only overrides behaviour |
+| Peers never call each other | a module cycles its slots; slots hold no pointers to sibling slots |
+| Sensors **write** `FBState`, displays **read** it | one writer per block (`core.md`) |
+| The pilot reads the airframe only through `FBAirframeControls` | keeps `systems/` airframe- and instance-agnostic |
+| Guidance is a primitive the pilot commands, not a mode the system picks | `FBAutopilot::Direct` |
+| The inner loop runs at 100 Hz over 10 Hz decisions | `FBFlightControl` on `fcs/*-cmd-norm`; the F-16's own FLCS is bridged by `fcs/fbw-override=1` |
+| A destroyed system is not ticked and its block goes `Invalid` | consumers must state what they do without it — `FBRadarAltimeter` is the reference case |
+
+## State
+
+Built: guidance, FBW inner loop, air data, radar altimeter, warnings, navigation, display slot,
+airframe controls. Sensors, pilot and weapons slots are documented in their own files.
+
+| Slot | Status | Anchor |
+|---|---|---|
+| `FBAutopilot` (Direct/Course/Manual guidance) | built | `681c5f8`, `9673e00` (path following) |
+| `FBFlightControl` (F-16 preset) | built | `681c5f8` |
+| `FBAirDataSystem`, `FBRadarAltimeter`, `FBNavSystem`, `FBWarningSystem` | built | `071ea2b` |
+| `FBDisplaySystem` (generic MIL-STD-1787-like HUD) | built | `4cb92e8` |
+| `FBAirframeControls` + `FBJsbsimAirframeControls` | built | `681c5f8` |
+| `FBInputSystem`, `FBPropulsionSystem`, `FBWeaponSystem` | NoOp defaults | — |
+
+## Gaps
+
+### Contradictions between claim and code (from the retired `TODO.md` §1)
+
+| Place | Contradiction |
+|---|---|
+| `systems/FBFlightControl::Run` | `0.01` hard-wired instead of `dt` — silently binds the inner loop to 100 Hz |
+| `systems/FBDisplaySystem` | includes `render/FBCamera.h`: a **second** core-lib exception, only `FBHudGeometry.cpp` was documented |
+| `systems/FBWeaponSystem` | vestigial — a NoOp stub ticked at 20 Hz while stores and gun are real; its banner describes a superseded state |
+
+### Inventory (German, from the previous `Offene Punkte` section)
+
+1. **`FBWeaponSystem` ist vestigial.** `systems/FBSystemSlots.h` deklariert ihn weiter als NoOp und
+   `FBF16Module` taktet ihn mit 20 Hz (`Weapons->Run(Mode, world, dt)`), obwohl die reale Waffenarbeit
+   längst in `FBStoresSystem` (10-Hz-Gruppe) und `FBGunSystem` (jeder Tick) liegt. Sein Banner-Text
+   („SMS/Stores, CCIP/CCRP, gun: mode-gated … not built speculatively") beschreibt einen Zustand, der
+   nicht mehr gilt. Zu klären: löschen oder mit Zweck füllen.
+2. **`FBSystemSlots.h`s Herausgewachsen-Liste ist unvollständig.** Der Banner nennt drei
+   herausgewachsene Slots (Displays, Comms, Sensors); real sind es sechs (zusätzlich Defensiv, Stores,
+   Gun). Reine Dokumentationslücke im Code.
+3. **`FBFlightControl::Run` hat `0.01` fest verdrahtet** statt `FBFdm::kStepS` oder eines `dt`-Arguments
+   (Integratoren, Slew-Limit). Das bindet die Innenschleife stillschweigend an genau 100 Hz; ein
+   anderer Substep-Takt würde alle Integratorverstärkungen still verschieben. Verhalten heute korrekt,
+   weil das Modul ausschließlich mit `FBFdm::kStepS` taktet.
+4. **Asymmetrie Bodenkurs vs. Nase.** Das Leg-Gesetz regelt gegen den BODENKURS (`atan2(vx,−vz)`) und
+   begründet das ausführlich; COURSE regelt mit demselben `TrackBankCmd` gegen die NASE (`s.yaw`).
+   Der Code sagt dazu nur, dass COURSE „auf seinen eigenen zwei Zahlen" bleibt, weil es ein geflogener,
+   gemessener Anflug ist. Ob der Drift-Einwand für den Localizer nicht gleichermaßen gilt, ist offen.
+5. **COURSE nutzt `KHdg` als `k_dir`.** Dieselbe Zahl (0,8) bedient in DIRECT die Peilungs-P-Verstärkung
+   und in COURSE die Richtungsfehler-Verstärkung der Kaskade — im Header nicht als Doppelrolle
+   ausgewiesen. Ein Modul, das `KHdg` für DIRECT tunt, verstellt damit unbemerkt den Localizer.
+6. **`FBAirDataSystem` publiziert `aoaDeg` nur in die Telemetrie, nicht in den Block.** Ein Konsument
+   auf dem Bus (Pilot, HUD) kommt an das AoA nicht heran, obwohl der ADC es hat; `FBF16Pilot`s
+   11°-AoA-Anflug wird das brauchen.
+7. **`GLoadPeak` wird nie zurückgesetzt** („running max since boot"). Für eine mehrphasige Mission
+   (Start → Kampf → Rückflug) gibt es kein Peak-je-Abschnitt und keine Reset-API.
+8. **`FBNavSystem::MagVarDeg` ist hart 0** — kein Deklinationsmodell. Jede Anzeige, die „magnetisch"
+   beschriftet ist, zeigt derzeit rechtweisend.
+9. **`FBRadarAltimeter` kennt kein `dt` und keine Sichtlinien-/Geländeneigungs-Modellierung** — es ist
+   ein reiner Differenzrechner auf dem DEM-Sample unter dem Flugzeug (kein Kegelfußabdruck, keine
+   Grenzhöhe, keine Verzögerung). Bei Rückenlage/steilen Lagen liefert die echte CARA nichts; hier
+   liefert sie weiter.
+10. **CLAUDE.md nennt bei `FBNavSystem` „planare ENU-Geodäsie wie `home_bearing`/`home_dist`"** — im
+    Code ist `home_bearing`/`home_dist` inzwischen ein Feld des Platform-Blocks, das der Client bzw.
+    das Modul schreibt, nicht `FBNavSystem`. Keine Verhaltensdifferenz, nur eine veraltete Verweiskette.
+11. **`FBDisplaySystem`s Default-HUD nutzt `render/FBCamera.h` (`w3_cam_from`, `w3_horizon_dip_rad`)**
+    — ein `systems/`-Slot inkludiert damit einen `render/`-Header. Das ist die einzige Stelle dieser
+    Art in den hier dokumentierten Slots und passt nur deshalb in die Core-Lib, weil diese Mathematik
+    CPU-seitig und WebGPU-frei ist (dieselbe Ausnahme, die CLAUDE.md für `render/FBHudGeometry.cpp`
+    ausdrücklich einräumt — `FBCamera` nennt sie NICHT).
+12. **Kein Guidance-/FCS-Schadens-Gate im Modul.** `FBSystemId::FlightControls` wirkt nur physisch über
+    `FBFdm::SetControlAuthority`; die Slots selbst laufen weiter und publizieren weiter. Konsistent mit
+    der Absicht („die FLCS kommandiert unverändert, das Flugzeug antwortet nicht"), aber die
+    Block-Invalidierungsregel der anderen Slots gilt hier bewusst nicht — im Code nirgends notiert.
+
+
+## Knowledge
+
+Derivations, formulas and measured constants — the distilled body of this file.
+
+### 1. Das Slot-Muster
+
+#### 1.1 Die Regel
 
 CLAUDE.md: **FBCore → Interface → Default-Implementation → modul-spezifischer Override.**
 In `systems/` heißt das konkret:
@@ -35,7 +126,7 @@ In `systems/` heißt das konkret:
 5. **Das Modul KOMPONIERT die Slots** (`std::unique_ptr<Base>`, nicht Wertmember — sonst Slicing beim
    Austausch), besitzt sie und taktet jeden im eigenen Rhythmus. Slots rufen sich nie gegenseitig.
 
-### 1.2 Der Slot-Bestand
+#### 1.2 Der Slot-Bestand
 
 | Slot | Datei | Default | Override-Punkt | Zustand |
 |---|---|---|---|---|
@@ -57,7 +148,7 @@ eine eigene Datei: Displays (`FBDisplaySystem.h`), Comms/Datalink (`FBDatalinkSy
 (`FBStoresSystem.h`), Gun (`FBGunSystem.h`). Deshalb steht in `FBSystemSlots.h` weder ein
 `FBCommsSystem`- noch ein `FBSensorSystem`-Stub.
 
-### 1.3 Die Kommunikationsregeln (im Signaturtyp kodiert)
+#### 1.3 Die Kommunikationsregeln (im Signaturtyp kodiert)
 
 | Regel | Mechanik |
 |---|---|
@@ -67,7 +158,7 @@ eine eigene Datei: Displays (`FBDisplaySystem.h`), Comms/Datalink (`FBDatalinkSy
 | Welt nur geborgt | wer andere Einheiten/Terrain braucht, bekommt `const FBUnitRegistry*` / `const FBWorld*` pro Tick, nie global, nie als Member |
 | Genau EINE Fusion-Ausnahme, dokumentiert | Feuerleitung liest Nav + Platform; `FBWarningSystem` liest RadarAlt + Ufc + Airframe — beides steht im jeweiligen Blockkommentar |
 
-### 1.4 Takt (wie `FBF16Module` die Slots cycelt)
+#### 1.4 Takt (wie `FBF16Module` die Slots cycelt)
 
 `modules/f16/FBF16Module.cpp::Run()` ist der einzige Ort, an dem diese Slots getaktet werden. `Due()`
 ist ein Akkumulator-Throttle (`accS += dt; if (accS < 1/hz) return false; accS -= 1/hz;`).
@@ -108,7 +199,7 @@ Substep). Alles andere ist außerhalb und höchstens einmal pro `Run()`.
   Ausgabe DESSELBEN Ticks liest.
 - Warnungen zuletzt: reiner Konsument, inklusive der Gültigkeitsköpfe.
 
-### 1.5 Schadens-Gate (`core/FBSystemHealth`, nur lesend)
+#### 1.5 Schadens-Gate (`core/FBSystemHealth`, nur lesend)
 
 Das Modul entscheidet je Slot vor dem Takt:
 
@@ -125,13 +216,13 @@ kommandiert unverändert weiter und das Flugzeug antwortet nur nicht mehr.
 
 ---
 
-## 2. `FBAutopilot` — die Guidance
+### 2. `FBAutopilot` — die Guidance
 
 `systems/FBAutopilot.h`, `systems/FBAutopilot.cpp`. Portiert aus `flightctl.h`s äußerer Schleife,
 Numerik verbatim übernommen (äquivalenzgetestet); COURSE ist neu (Phase 3, die Landung) und sitzt auf
 derselben Ebene wie DIRECT, nicht als Subklassen-Override.
 
-### 2.1 Ausgabe: `FBGuidance`
+#### 2.1 Ausgabe: `FBGuidance`
 
 | Feld | Bedeutung |
 |---|---|
@@ -143,7 +234,7 @@ derselben Ebene wie DIRECT, nicht als Subklassen-Override.
 | `ManualRoll/Pitch/Yaw/Thr` | Durchgriff in MANUAL |
 | `RingDistM` | Diagnose: Entfernung zum Direct-Zielpunkt (in COURSE: Distance-to-go) |
 
-### 2.2 Modi und ihre Setter
+#### 2.2 Modi und ihre Setter
 
 | Modus | Setter | Was geregelt wird |
 |---|---|---|
@@ -155,7 +246,7 @@ derselben Ebene wie DIRECT, nicht als Subklassen-Override.
 `SetDirectLeg` ruft intern `SetDirect` und setzt danach `HaveLeg` — **derselbe Modus mit optionalem
 Bahnursprung**, kein zweiter Modus.
 
-### 2.3 „Ein Punkt ist keine Bahn" — warum EIN Modus mit optionalem Ursprung
+#### 2.3 „Ein Punkt ist keine Bahn" — warum EIN Modus mit optionalem Ursprung
 
 Aus dem Klassen-Banner:
 
@@ -180,7 +271,7 @@ Peilung zwischen ihren Enden verliert ihre Bedeutung lange bevor das Flugzeug si
 `SetDirectLeg` fällt dann still auf das Peilungsgesetz zurück. Zwei Missionsfixes liegen Kilometer
 auseinander; die Schranke fängt also nur eine degenerierte Deklaration.
 
-### 2.4 Das Bahnfolge-Gesetz — vollständige Herleitung
+#### 2.4 Das Bahnfolge-Gesetz — vollständige Herleitung
 
 **Struktur (`TrackBankCmd`, eine Definition, zwei Nutzer — Localizer und Route/Run-in-Leg):**
 
@@ -275,7 +366,7 @@ entfernungsgetriebenen.
 `(void)along;` im Leg-Zweig ist eine Feststellung: die Längskoordinate ist Sache der SEQUENZIERUNG
 (`FBNavSystem::AdvanceWaypoint`), nicht des Fliegens.
 
-### 2.5 DIRECT — Höhen- und Peilungshälfte
+#### 2.5 DIRECT — Höhen- und Peilungshälfte
 
 | Element | Gesetz | Zahl |
 |---|---|---|
@@ -288,7 +379,7 @@ Steigflug nach dem Abheben, wo der Fehler der GANZE Steigflug ist (Tausende Mete
 die FLCS mit ihrem eigenen Alpha-Schedule das AoA zwar sicher, aber die resultierenden fast 30°
 Anstellung sind ein unnötig aggressiver Steigwinkel für einen kontrollierten Climb-out.
 
-### 2.6 COURSE — Localizer + Gleitpfad
+#### 2.6 COURSE — Localizer + Gleitpfad
 
 Trackt die unendliche Linie durch `(refLat,refLon)` auf Rechtweisend `courseDeg` und sinkt dabei auf
 einem geraden Gleitpfad `glidepathDeg` auf `refElevM` AM Referenzpunkt. Generisch darüber, was der
@@ -315,7 +406,7 @@ Die Projektionskonvention (`along=0` am Referenzpunkt, `+across` = rechts vom Ku
 `FBPilot`s Centerline-Gesetz und `FBMissionMonitor::OnRunway` — alle drei sind sich darüber einig, was
 „auf der Linie" heißt.
 
-### 2.7 Gains (public Config-Block, Defaults = geflogenes F-16-Preset)
+#### 2.7 Gains (public Config-Block, Defaults = geflogenes F-16-Preset)
 
 | Feld | Default | Bedeutung |
 |---|---|---|
@@ -336,13 +427,13 @@ UNVERÄNDERT. Konfigurationsunterschiede (F-16-Gains) bleiben Daten auf dieser K
 
 ---
 
-## 3. `FBFlightControl` — die FBW-Innenschleife
+### 3. `FBFlightControl` — die FBW-Innenschleife
 
 `systems/FBFlightControl.h`, `systems/FBFlightControl.cpp`. Konsumiert `FBGuidance` + JSBSim-Zustand,
 emittiert normierte Stick-/Throttle-Werte (`FBControls{Roll,Pitch,Yaw,Thr}`). Portiert aus
 `flightctl.h`s innerer Schleife, Numerik verbatim.
 
-### 3.1 Zwei innere Arten, EIN Flag
+#### 3.1 Zwei innere Arten, EIN Flag
 
 `Flcs` ist **Konfiguration, keine Subklasse** — es ist Tuning, kein Verhalten:
 
@@ -351,7 +442,7 @@ emittiert normierte Stick-/Throttle-Werte (`FBControls{Roll,Pitch,Yaw,Thr}`). Po
 | 1 | **FLCS** | eine echte FLCS wie ein Pilot kommandieren (F-16): Schräglagenfehler → Rollraten-Stick, g-Kommando-PI mit 1/cos(bank)-Kurven-Feedforward + VS-Fehler-Bias/Integral → Pitch-Stick, Quer-g-Nullung → Pedale, PI-Throttle. **Die FLCS der Zelle ist der Stabilisator; wir kommandieren sie.** |
 | 0 | **Raw** | Attitude-Hold-PD direkt auf die Ruder (Modelle OHNE FLCS, der c172-Pfad) |
 
-### 3.2 Verhältnis zur echten FLCS und `fcs/fbw-override`
+#### 3.2 Verhältnis zur echten FLCS und `fcs/fbw-override`
 
 - Die vanilla JSBSim-F-16 ist eine ECHTE FLCS: `fcs/*-cmd-norm` sind **Raten-Sollwerte**, keine
   Ruderausschläge.
@@ -370,7 +461,7 @@ emittiert normierte Stick-/Throttle-Werte (`FBControls{Roll,Pitch,Yaw,Thr}`). Po
   - Kampfschaden greift GENAU HIER an: `roll/pitch/yaw *= Authority`, `thr` gedeckelt — die FCS
     kommandiert unverändert, das Flugzeug antwortet nicht mehr.
 
-### 3.3 Das FLCS-Gesetz, Schritt für Schritt (alles bei festen 0,01 s)
+#### 3.3 Das FLCS-Gesetz, Schritt für Schritt (alles bei festen 0,01 s)
 
 ```
 bc      = min(|roll|, 80°) → rad
@@ -413,7 +504,7 @@ ThrIterm, 0, 1)`.
 **MANUAL** wird ganz vorn durchgereicht: `o = {ManualRoll, ManualPitch, ManualYaw, ManualThr}`, keine
 Integratorbewegung, keine Schleife.
 
-### 3.4 Gains: Default vs. `F16()`-Preset
+#### 3.4 Gains: Default vs. `F16()`-Preset
 
 | Feld | Default (Raw/c172-Ära) | `F16()` | Einheit/Bedeutung |
 |---|---|---|---|
@@ -437,7 +528,7 @@ Integratorbewegung, keine Schleife.
 **`RollStickMax = 0,15` ist eine Messung:** damit bleibt `nz` im Bereich **0,7…1,9 g**; bei 0,35 waren
 es **−1,1…+3,0 g**.
 
-### 3.5 Nebenpflichten
+#### 3.5 Nebenpflichten
 
 - **`FBTelemetrySource "flightcontrol"`** — Spalten `rollCmd`, `pitchCmd`, `yawCmd`, `throttleNorm`.
   `Run()` cached sein Ergebnis in `LastControls_`; bei 100 Hz liest der Telemetriebus (10 Hz) immer das
@@ -448,7 +539,7 @@ es **−1,1…+3,0 g**.
 
 ---
 
-## 4. `FBAirDataSystem` — Luftdaten (ADC-Klasse)
+### 4. `FBAirDataSystem` — Luftdaten (ADC-Klasse)
 
 `systems/FBAirDataSystem.h/.cpp`. Schreibt `FBState::AirData`. Airframe-agnostisch: jedes Modul mit
 einem ADC und einem Geschwindigkeitsvektor bekommt dieselben Zahlen; eine Zelle, deren Luftdatenkette
@@ -478,11 +569,11 @@ sampelt ihr EIGENES letztes Ergebnis). `aoaDeg` steht in der Telemetrie, aber NI
 
 ---
 
-## 5. `FBRadarAltimeter` — der Referenzfall für `Invalid`
+### 5. `FBRadarAltimeter` — der Referenzfall für `Invalid`
 
 `systems/FBRadarAltimeter.h/.cpp`. Schreibt `FBState::RadarAlt`.
 
-### 5.1 Vertrag
+#### 5.1 Vertrag
 
 - **Es fragt das Terrain NICHT selbst ab.** Es konvertiert das vom Client bereits aufgelöste Paar
   `(elevAslM, groundAslM)` in Metern ASL in die Radarhöhe in Fuß — dasselbe DEM-Sample, das die App
@@ -490,7 +581,7 @@ sampelt ihr EIGENES letztes Ergebnis). `aoaDeg` steht in der Telemetrie, aber NI
 - `AglFt = (elevAslM − groundAslM) · 3,280839895`.
 - Ein Schalter: `SetPowered(bool)`, Default `true`.
 
-### 5.2 Was er lehrt
+#### 5.2 Was er lehrt
 
 > Die Box ist eine BESTROMTE Box, und `doc/f16/controls-commands.md` §6.4 dokumentiert die Folge
 > wörtlich: die CARA-ALOW-Warnung feuert **nur** bei bestromtem und sendendem Radarhöhenmesser — egal
@@ -513,14 +604,14 @@ ignoriert, darf nicht still eine frisch aussehende Null bekommen.
 
 ---
 
-## 6. `FBWarningSystem` — der Warnsatz als Bitmaske
+### 6. `FBWarningSystem` — der Warnsatz als Bitmaske
 
 `systems/FBWarningSystem.h/.cpp`. Schreibt `FBState::Warnings` und **nichts sonst**; liest
 Radarhöhe, die vom UFC committeten Schwellen und den Airframe-Block.
 
 > Es kommandiert nichts — ein Warnsystem, das handeln könnte, wäre ein zweiter Pilot.
 
-### 6.1 Warum es existiert: Gültigkeitsköpfe konsequent machen
+#### 6.1 Warum es existiert: Gültigkeitsköpfe konsequent machen
 
 Jede Bedingung hier ist eine Fusion von Blöcken, die anderswo geschrieben wurden. Jede kann daher
 **UNAUSWERTBAR** sein — und das ist eine dritte Antwort, verschieden von „Warnung" und „keine Warnung".
@@ -533,7 +624,7 @@ struct FBWarningBlock { FBBlockHeader H; uint32_t Active; uint32_t Inhibited; };
 Ein `Invalid`er Radarhöhenblock heißt **nicht** „nicht tief". Er heißt: niemand kann es sagen — und der
 Annunciator sagt genau das.
 
-### 6.2 Die drei Bits (`core/FBAvionicsBlocks.h::FBWarningBit`)
+#### 6.2 Die drei Bits (`core/FBAvionicsBlocks.h::FBWarningBit`)
 
 | Bit | Wert | Aktiv wenn | Inhibiert wenn | Gar nicht ausgewertet wenn |
 |---|---|---|---|---|
@@ -556,12 +647,12 @@ Telemetrie-Quelle `"warn"`: `warn_active`, `warn_inhibited` (beide als Integer-B
 
 ---
 
-## 7. `FBNavSystem` — Steerpoint + Bullseye + Sequenzierung
+### 7. `FBNavSystem` — Steerpoint + Bullseye + Sequenzierung
 
 `systems/FBNavSystem.h/.cpp`. Schreibt `FBState::Nav` UND `FBState::Cruise` (ein Quellsystem darf mehr
 als eine Nachricht publizieren).
 
-### 7.1 Umfang und Setzung
+#### 7.1 Umfang und Setzung
 
 Ein aktiver Steerpoint plus Bullseye-Referenz. Die echte Hardware kennt eine Steerpoint-Datenbank
 (26…30 Markpoints plus die Missions-Steerpoints, `doc/f16/navigation-ils.md`) — **dies ist der
@@ -572,7 +663,7 @@ Ein-Punkt-Platzhalter, mit dem jedes Modul startet.**
 | `SetSteerpoint(lat, lon, elevFt)` | `elevFt` = die EIGENE Bodenhöhe des Steerpoints (Eingang für `FBF16FireControl`s Slant-Range) |
 | `SetBullseye(lat, lon)` | im F-16-Modul: die Piste der Mission (`FBF16Module::SetRunway`) — eine `.fbm` deklariert kein Bullseye, und die Piste ist der eine gebriefte geografische Punkt, den alle Einheiten teilen |
 
-### 7.2 Geodäsie
+#### 7.2 Geodäsie
 
 **Dieselbe planare ENU-Näherung wie überall sonst im Baum** (`core/FBGeodesy.h`, die EINE Definition):
 `nord = Δlat · 111320 m/deg`, `ost = wrap180(Δlon) · 111320 · cos(ref_lat)`. Steerpoints liegen zehner
@@ -583,7 +674,7 @@ einen Meter weiter.
 
 Konvention: **der Referenzpunkt kommt ZUERST und besitzt den Kosinus.**
 
-### 7.3 Was publiziert wird
+#### 7.3 Was publiziert wird
 
 | Feld | Rechnung |
 |---|---|
@@ -597,7 +688,7 @@ Konvention: **der Referenzpunkt kommt ZUERST und besitzt den Kosinus.**
 
 `Nav.H.Publish` nur, wenn Steerpoint ODER Bullseye gesetzt ist.
 
-### 7.4 Der `Held`-Fall: die CRUS-Seite bei ausgefahrenem Fahrwerk
+#### 7.4 Der `Held`-Fall: die CRUS-Seite bei ausgefahrenem Fahrwerk
 
 Der echte Jet FRIERT die berechneten CRUS-Felder bei ausgefahrenem Fahrwerk EIN, statt sie zu leeren
 (`doc/f16/controls-commands.md`, CRUS-Tabelle). Weil das eine Eigenschaft der NACHRICHT ist, hat sie
@@ -611,7 +702,7 @@ gearDown ? Cruise.H.Hold() : (Cruise.SteerTtgS = …, Cruise.H.Publish(NowS))
 `Hold()` bewegt den Zeitstempel NICHT — genau das macht „wie alt ist diese eingefrorene Zahl"
 beantwortbar. Bearing/Distance im Nav-Block laufen dabei ungerührt weiter.
 
-### 7.5 `AdvanceWaypoint` — Sequenzierung als AKTEURS-Verhalten
+#### 7.5 `AdvanceWaypoint` — Sequenzierung als AKTEURS-Verhalten
 
 ```
 int AdvanceWaypoint(FBFlightPlan &plan, double lat, double lon, double captureM = 500.0)
@@ -651,12 +742,12 @@ lon, by=capture|passed})`.
 
 ---
 
-## 8. `FBDisplaySystem` — das generische Default-HUD
+### 8. `FBDisplaySystem` — das generische Default-HUD
 
 `systems/FBDisplaySystem.h`, `systems/FBDisplaySystem.cpp`. Erster Slot mit ECHTEM statt NoOp-Default —
 deshalb aus `FBSystemSlots.h` herausgewachsen.
 
-### 8.1 Zwei getrennte Einstiegspunkte
+#### 8.1 Zwei getrennte Einstiegspunkte
 
 | Methode | Takt | Aufrufer | Zweck |
 |---|---|---|---|
@@ -665,7 +756,7 @@ deshalb aus `FBSystemSlots.h` herausgewachsen.
 
 `BuildHud` ist `const`: es LIEST Zustand, es besitzt keinen.
 
-### 8.2 Arbeitsteilung mit `render/`
+#### 8.2 Arbeitsteilung mit `render/`
 
 ```
 systems/FBDisplaySystem::BuildHud   → LOGIK/Symbologie, füllt …
@@ -686,7 +777,7 @@ render/stages/FBHudStage            → das reine WebGPU-Backend: lädt die Vert
 - `FBHudEnv` trägt Viewport/AGL/Have-Telemetry, weil das Render-/Telemetrie-Verdrahtung ist und kein
   Sim-Zustand: es reist getrennt, statt `FBState` für einen Konsumenten aufzublähen.
 
-### 8.3 Was das Default-HUD zeichnet (MIL-STD-1787-artig)
+#### 8.3 Was das Default-HUD zeichnet (MIL-STD-1787-artig)
 
 Geometrie/Positionen verbatim aus dem stillgelegten `FBHudSymbology.h::w3_build_hud` portiert
 (Äquivalenzabsicht: gleiches Pixel-Layout für die behaltenen Elemente).
@@ -708,7 +799,7 @@ Alle Werte kommen aus `state.Platform` — der Default liest KEINEN anderen Bloc
 kein RadarAlt). Er ist in SI beschriftet (m/s, m), nicht in kt/ft; die musterspezifischen Einheiten und
 Formate sind Sache des Overrides.
 
-### 8.4 Der Override
+#### 8.4 Der Override
 
 `FBF16Module` komponiert **nicht** diesen Default, sondern `modules/f16/displays/FBF16Hud` (die echte
 F-16-Symbologie). Der generische Default bleibt der Fallback für Clients ohne lebendes Modul — z. B.
@@ -716,12 +807,12 @@ F-16-Symbologie). Der generische Default bleibt der Fallback für Clients ohne l
 
 ---
 
-## 9. `FBAirframeControls` — was die Hände des Piloten anfassen
+### 9. `FBAirframeControls` — was die Hände des Piloten anfassen
 
 `systems/FBAirframeControls.h/.cpp`. Interface + NoOp-Default in EINER Klasse (das
 `FBSystemSlots.h`-Muster), plus die reale Ownship-Implementierung daneben.
 
-### 9.1 Der Vertrag
+#### 9.1 Der Vertrag
 
 Alles, was ein Pilot jenseits von Stick/Throttle (`FBFlightControl`) und Guidance-Zielen
 (`FBAutopilot`) bedient:
@@ -744,7 +835,7 @@ Alles, was ein Pilot jenseits von Stick/Throttle (`FBFlightControl`) und Guidanc
 
 NoOp-Default: alle Setter tun nichts, `GetWeightOnWheels()` liefert `false`, alle Zahlen 0.
 
-### 9.2 `FBJsbsimAirframeControls` — die reale Ownship-Implementierung
+#### 9.2 `FBJsbsimAirframeControls` — die reale Ownship-Implementierung
 
 - **Jeder Setter reicht direkt an EINE geborgte `FBFdm` weiter, jeder Getter liest DIESELBE Property
   zurück.** Kein Schattenzustand: eine kinematische Fahrwerksfahrt oder ein WOW-Umschlag ist in dem
@@ -758,7 +849,7 @@ NoOp-Default: alle Setter tun nichts, `GetWeightOnWheels()` liefert `false`, all
 - Verdrahtet wird es in `FBModule::AttachFdm`: das Modul TAUSCHT den NoOp-Default gegen die reale
   Instanz aus (`AirframeCtrl = std::make_unique<FBJsbsimAirframeControls>(fdm);`).
 
-### 9.3 Warum der Pilot die Zelle NUR hierüber liest
+#### 9.3 Warum der Pilot die Zelle NUR hierüber liest
 
 Aus `FBPilot.h`s Signatur-Banner:
 
@@ -779,7 +870,7 @@ Aus `FBPilot.h`s Signatur-Banner:
   den passenden Setter NUR, wenn ein Feld gesetzt ist — „nicht gesetzt" heißt „der Pilot fasst diese
   Bedienung gerade nicht an", was die meisten Ticks für die meisten Bedienungen zutrifft.
 
-### 9.4 Telemetrie
+#### 9.4 Telemetrie
 
 `FBAirframeControls` ist selbst `FBTelemetrySource` (`"airframe"`) — über DIESELBEN virtuellen Getter,
 die jeder Aufrufer benutzt. Deshalb funktioniert sie unverändert für den NoOp-Default UND für
@@ -788,7 +879,7 @@ die jeder Aufrufer benutzt. Deshalb funktioniert sie unverändert für den NoOp-
 
 ---
 
-## 10. Die noch leeren Slots
+### 10. Die noch leeren Slots
 
 `systems/FBSystemSlots.h`. „NoOp-Default" heißt hier: die Klasse existiert, ist instanziierbar, wird
 vom Modul besessen und im Takt aufgerufen — ihr `Run()` ist leer.
@@ -810,7 +901,7 @@ spekulativ vorgebaut. (Die reale Lösung ist inzwischen eine andere: das System 
 
 ---
 
-## 11. Blockbus-Verträge dieser Systeme
+### 11. Blockbus-Verträge dieser Systeme
 
 | Block (`core/FBAvionicsBlocks.h`) | Schreiber | Hier dokumentierte Leser |
 |---|---|---|
@@ -830,50 +921,3 @@ sein eigenes „jetzt" führt.
 
 Die Blockstatus werden als eigene Telemetriespalten veröffentlicht (`blk_*`, `FBStateBusTelemetry`) —
 weil ein gehaltener Wert sonst wie ein frischer aussieht.
-
----
-
-## Offene Punkte
-
-1. **`FBWeaponSystem` ist vestigial.** `systems/FBSystemSlots.h` deklariert ihn weiter als NoOp und
-   `FBF16Module` taktet ihn mit 20 Hz (`Weapons->Run(Mode, world, dt)`), obwohl die reale Waffenarbeit
-   längst in `FBStoresSystem` (10-Hz-Gruppe) und `FBGunSystem` (jeder Tick) liegt. Sein Banner-Text
-   („SMS/Stores, CCIP/CCRP, gun: mode-gated … not built speculatively") beschreibt einen Zustand, der
-   nicht mehr gilt. Zu klären: löschen oder mit Zweck füllen.
-2. **`FBSystemSlots.h`s Herausgewachsen-Liste ist unvollständig.** Der Banner nennt drei
-   herausgewachsene Slots (Displays, Comms, Sensors); real sind es sechs (zusätzlich Defensiv, Stores,
-   Gun). Reine Dokumentationslücke im Code.
-3. **`FBFlightControl::Run` hat `0.01` fest verdrahtet** statt `FBFdm::kStepS` oder eines `dt`-Arguments
-   (Integratoren, Slew-Limit). Das bindet die Innenschleife stillschweigend an genau 100 Hz; ein
-   anderer Substep-Takt würde alle Integratorverstärkungen still verschieben. Verhalten heute korrekt,
-   weil das Modul ausschließlich mit `FBFdm::kStepS` taktet.
-4. **Asymmetrie Bodenkurs vs. Nase.** Das Leg-Gesetz regelt gegen den BODENKURS (`atan2(vx,−vz)`) und
-   begründet das ausführlich; COURSE regelt mit demselben `TrackBankCmd` gegen die NASE (`s.yaw`).
-   Der Code sagt dazu nur, dass COURSE „auf seinen eigenen zwei Zahlen" bleibt, weil es ein geflogener,
-   gemessener Anflug ist. Ob der Drift-Einwand für den Localizer nicht gleichermaßen gilt, ist offen.
-5. **COURSE nutzt `KHdg` als `k_dir`.** Dieselbe Zahl (0,8) bedient in DIRECT die Peilungs-P-Verstärkung
-   und in COURSE die Richtungsfehler-Verstärkung der Kaskade — im Header nicht als Doppelrolle
-   ausgewiesen. Ein Modul, das `KHdg` für DIRECT tunt, verstellt damit unbemerkt den Localizer.
-6. **`FBAirDataSystem` publiziert `aoaDeg` nur in die Telemetrie, nicht in den Block.** Ein Konsument
-   auf dem Bus (Pilot, HUD) kommt an das AoA nicht heran, obwohl der ADC es hat; `FBF16Pilot`s
-   11°-AoA-Anflug wird das brauchen.
-7. **`GLoadPeak` wird nie zurückgesetzt** („running max since boot"). Für eine mehrphasige Mission
-   (Start → Kampf → Rückflug) gibt es kein Peak-je-Abschnitt und keine Reset-API.
-8. **`FBNavSystem::MagVarDeg` ist hart 0** — kein Deklinationsmodell. Jede Anzeige, die „magnetisch"
-   beschriftet ist, zeigt derzeit rechtweisend.
-9. **`FBRadarAltimeter` kennt kein `dt` und keine Sichtlinien-/Geländeneigungs-Modellierung** — es ist
-   ein reiner Differenzrechner auf dem DEM-Sample unter dem Flugzeug (kein Kegelfußabdruck, keine
-   Grenzhöhe, keine Verzögerung). Bei Rückenlage/steilen Lagen liefert die echte CARA nichts; hier
-   liefert sie weiter.
-10. **CLAUDE.md nennt bei `FBNavSystem` „planare ENU-Geodäsie wie `home_bearing`/`home_dist`"** — im
-    Code ist `home_bearing`/`home_dist` inzwischen ein Feld des Platform-Blocks, das der Client bzw.
-    das Modul schreibt, nicht `FBNavSystem`. Keine Verhaltensdifferenz, nur eine veraltete Verweiskette.
-11. **`FBDisplaySystem`s Default-HUD nutzt `render/FBCamera.h` (`w3_cam_from`, `w3_horizon_dip_rad`)**
-    — ein `systems/`-Slot inkludiert damit einen `render/`-Header. Das ist die einzige Stelle dieser
-    Art in den hier dokumentierten Slots und passt nur deshalb in die Core-Lib, weil diese Mathematik
-    CPU-seitig und WebGPU-frei ist (dieselbe Ausnahme, die CLAUDE.md für `render/FBHudGeometry.cpp`
-    ausdrücklich einräumt — `FBCamera` nennt sie NICHT).
-12. **Kein Guidance-/FCS-Schadens-Gate im Modul.** `FBSystemId::FlightControls` wirkt nur physisch über
-    `FBFdm::SetControlAuthority`; die Slots selbst laufen weiter und publizieren weiter. Konsistent mit
-    der Absicht („die FLCS kommandiert unverändert, das Flugzeug antwortet nicht"), aber die
-    Block-Invalidierungsregel der anderen Slots gilt hier bewusst nicht — im Code nirgends notiert.

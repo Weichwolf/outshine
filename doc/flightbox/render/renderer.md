@@ -1,5 +1,7 @@
 # Rendering — der WebGPU-Renderer
 
+> Body still in German — translation pass pending (see [roadmap](../roadmap.md)).
+
 **Quellen dieser Datei:** `sim/src/render/` (14 Dateien: `FBRenderer.h/.cpp`, `FBCamera.h`,
 `FBDrawStage.h`, `FBFrameContext.h`, `FBGpu.h`, `FBHudGeometry.h/.cpp`, `FBHudFont.h`,
 `FBHudFontRom.h`, `FBChunkMesh.h`, `FBChunkVtx.h`, `FBMips.h`, `FBEphemeris.h`) und
@@ -15,7 +17,109 @@ das **Backend** (womit gezeichnet wird).
 
 ---
 
-## 1 Grundentscheidungen
+## Spec
+
+One renderer source, two link targets. The renderer is a **bolt-on**: never a dependency of the
+physics or the termination logic.
+
+| Contract | Acceptance / measurement anchor |
+|---|---|
+| WebGPU only, WGSL lives in stage files | `grep -c 'R"(' FBRenderer.cpp` == 0 |
+| A stage is one shader with its pipelines, bind groups and draws, drawing into a BORROWED encoder | no stage opens a render pass |
+| The pass topology is a contract — only `FBRenderer` sets pass boundaries | the encode order is fixed and documented; a stage split must not multiply passes |
+| Global standard WGS84-ECEF, camera-relative, reversed-Z depth | far terrain does not z-fight; horizon dip from curvature |
+| Ground truth from model geometry | eye height at ground from JSBSim's gear geometry, not a fixed number |
+| Native and WASM render the same frame | `gpu_native` is the headless PNG oracle for frame proofs (`../build-and-ops.md`) |
+| Feature gates are baked constants | a disabled pass costs nothing |
+
+## State
+
+Built; the stage split is finished (zero inline shaders in `FBRenderer.cpp`).
+
+| Piece | Status | Anchor |
+|---|---|---|
+| Stage split in four slices | done | `c9206eb`…`2099cb0` |
+| Hillaire atmosphere (transmittance / sky-view / sky), sun, moon, stars | built | `c9206eb`…`2099cb0` |
+| Terrain stage with render bundles and two-phase streaming | built | `c9206eb`…`2099cb0` |
+| Tonemap (two pipelines), upscale, loading screen | built | `c9206eb`…`2099cb0` |
+| Camera basis shared by native and WASM (`FBCameraBasisEcef`) | built | `705c90a` |
+| HUD backend | built — see [`hud.md`](hud.md) | `2f3c277`, `8997eec`, `6f160af` |
+| Cloud chain | built but slated for demolition — see [`clouds.md`](clouds.md) | — |
+| Units and sprites | **nothing** — see [`units-visual.md`](units-visual.md) | — |
+
+## Gaps
+
+### Contradictions between claim and code (from the retired `TODO.md` §1)
+
+| Place | Contradiction |
+|---|---|
+| `render/FBCamera` + `sim/up.sh` | **the camera clamp "never below the surface" has no consumer any more.** `FB_GROUND_CLEAR` is produced by `fb-sim` and read by nobody — an invariant promised in `CLAUDE.md` is effectively off. |
+| `render/FBCamera` | reversed-Z numbers disagree: `CLAUDE.md` says near 0.01 m / far 240 km, the code uses an infinite far plane and `zn = 0.05`; the 240 km are the streaming view radius |
+
+### Open work (from the retired `TODO.md` §4)
+
+| # | Thing |
+|---|---|
+| 4.3 | transmittance LUT is recomputed every frame although it only depends on altitude and sun cos θ |
+| 4.4 | aerial perspective off by default (`FB_AP=0`) although the whole LUT infrastructure exists and runs |
+| 4.5 | upscale is bilinear only (`TODO bicubic/sharpen`) |
+| 4.6 | dead code `w3_frustum_from`, `w3_aabb_visible`; the static terrain path is untested inheritance |
+
+Renderer-adjacent items that belong to the world/tile side (`TODO.md` §4.7/4.8 — DEM cache per worker
+instance, time-based eviction, `kNodeCeil`, imagery mode not declarable in `.fbm`, TLS not wired) are
+parked in [`../roadmap.md`](../roadmap.md) until `world/` is split.
+
+### Inventory (German, from the previous `Offene Punkte` section)
+
+1. **`FBUnitsStage` und `FBSpritesStage` sind NoOp.** Beide Slots sind in der Encode-Ordnung fest
+   verdrahtet (Units nach dem Terrain, Sprites vor dem HUD), aber sie zeichnen nichts. **Konsequenz:
+   andere Flugzeuge, abgeworfene Waffen, Flugkörper, Bodenziele, Rauch und Fackeln sind unsichtbar.**
+   Die gesamte Multi-Unit-Simulation (Etappen 1–6, Datalink, Radar, BFM, Intercept, Schadensmodell)
+   existiert physikalisch und in der Telemetrie, aber es gibt kein Bild davon. Ein Frame-Beweis kann
+   heute nichts über Einheiten aussagen.
+2. **Reversed-Z-Zahlen widersprechen sich.** CLAUDE.md sagt „near 0,01 m / far 240 km". Der Code
+   (`MvpCamRel`) nutzt eine **unendliche** Far-Plane und `zn = 0.05`. Die 240 km sind der
+   Streaming-Sichtradius (`FB_VIEW_KM`), nicht die Far-Plane; die 0,01 m stehen nirgends im Code.
+   Nicht aufgelöst — vermutlich veraltete Doku, aber das ist eine Vermutung.
+3. **Der Kamera-Clamp „nie unter die Oberfläche" hat keinen Konsumenten mehr.** `fb-sim` liefert
+   `window.FB_GROUND_CLEAR` an den Browser (`app/FBSimHost.cpp`, gelesen aus `/tmp/fb_clearance`), und
+   `web/config.js` setzt es auf 0 — aber **kein** C++-Code liest es (`grep FB_GROUND_CLEAR src/` findet
+   nur den Erzeuger). Die geometriewahre Höhe wirkt heute nur über den Spawn-IC
+   (`GetGroundClearanceM`), nicht als Pro-Frame-Clamp. CLAUDE.mds Formulierung „die Kamera geht nie
+   unter die Oberfläche" beschreibt damit einen Zustand, den der Code nicht mehr erzwingt.
+4. **Toter Code in `FBCamera.h`.** `w3_frustum_from` und `w3_aabb_visible` (Gribb-Hartmann-Culling)
+   haben im ganzen Baum **keinen Aufrufer** — das Culling passiert im Streamer (`FBWorld`) über
+   Sichtradius und Frustum-Gewichtung, nicht über diese Ebenen. Genutzt sind aus dieser Datei nur
+   `w3_cam_from`, `w3_basis_from`, `w3_horizon_dip_rad` (alle drei von der HUD-Symbologie) und
+   `FBCameraBasisEcef`. Ob die Frustum-Helfer für eine künftige `FBUnitsStage` reserviert sind oder
+   ersatzlos entfallen sollten, ist offen.
+5. **Aerial Perspective ist per Default AUS** (`FB_AP=0`), obwohl die gesamte
+   Transmittance-LUT-Infrastruktur dafür existiert und jeden Frame gerechnet wird. Das Gelände ist
+   „lit albedo pur, volle Helligkeit bis zum Horizont" — eine ausdrückliche Nutzerentscheidung
+   (2026-07-23), aber physikalisch falsch. Die LUT wird trotzdem berechnet, weil Himmel und Sonne sie
+   brauchen.
+6. **Wolken sind per Default AUS** (`FB_CLOUDS=0`, Nutzerentscheidung 2026-07-23) und es ist **keine
+   Wetterquelle verdrahtet**: `FBState.Env.Cloud*` bleibt null, und `FBCloudMarchStage` liest „0" als
+   „kein Wetterbericht" und setzt seine eigene Defaultdecke. Der Kommentar bei `FBRenderer::HudState`
+   nennt das ausdrücklich: null IST hier der ehrliche Wert, solange kein open-meteo-Anschluss existiert.
+7. **Transmittance-LUT wird jeden Frame neu gerechnet.** Sie hängt nur an Höhe und Sonnen-cos-θ; ein
+   `TODO cache while the sun is static` steht im Header und ist offen.
+8. **Upscale ist bilinear.** `TODO bicubic/sharpen` im Header; ebenso fehlt der 8-Tap-Glow des HUD
+   (`TODO` in `FBHudStage.cpp`), der die Leuchtdichte-Anmutung eines echten Combiners ausmachen würde.
+9. **`FBTerrainLoader`s statischer Pfad (`SetTerrain`/`SetAlbedoArray`) ist nur noch Bring-up.** Beide
+   Clients fahren Streaming; der statische Pfad in `FBTilesStage` (Direktdraws, Layer == Kachelindex)
+   bleibt als zweiter Codepfad bestehen und wird nirgends regelmäßig getestet.
+10. **Der Ladebildschirm hat einen Timeout-Ausgang** (30 s, `FB_LOAD_TIMEOUT_MS`), nach dem er das
+    Bild freigibt, egal wie wenig resident ist — der Log unterscheidet `converged` von `TIMEOUT`. Ein
+    Frame-Beweis, der aus einem Timeout-Boot stammt, ist damit nicht dasselbe Bild wie einer aus einem
+    konvergierten. Das ist heute nur an der Logzeile erkennbar, nicht am PNG.
+
+
+## Knowledge
+
+Derivations, formulas and measured constants — the distilled body of this file.
+
+### 1 Grundentscheidungen
 
 | Entscheidung | Umsetzung | Herleitung / Grund |
 |---|---|---|
@@ -27,7 +131,7 @@ das **Backend** (womit gezeichnet wird).
 | **Feature-Gates = gebackene Konstanten** | Env-getriebener String-Replace am Shader-Quelltext vor `CreateShaderModule` | Ein toter Pfad wird vom Shader-Compiler wegoptimiert und kostet nichts — kein Laufzeit-Branch. |
 | **Fixes 720p-Frametarget** | Szene + Tonemap + HUD landen in `FrameTex` (1280×720); ein Upscale-Pass legt es auf die Swapchain | Die Sim-Auflösung ist stabil, die Anzeige folgt Canvas × DPR. |
 
-### 1.1 Zwei Link-Ziele, ein Renderer
+#### 1.1 Zwei Link-Ziele, ein Renderer
 
 | | Browser (WASM/emdawnwebgpu) | Native (Dawn, `gpu_native`) |
 |---|---|---|
@@ -45,7 +149,7 @@ Geräteverlust ist kein Absturz: der `DeviceLostCallback` setzt `DeviceLost`, GP
 danach übersprungen, die CPU-Seite (Tile-Streaming, Zähler) läuft weiter. `DeviceUsable()` =
 `DeviceReady && !DeviceLost`.
 
-### 1.2 Camera-relative ECEF und die Projektion
+#### 1.2 Camera-relative ECEF und die Projektion
 
 `MvpCamRel()` (`FBRenderer.cpp`, static) baut **Projektion × View** so:
 
@@ -60,7 +164,7 @@ danach übersprungen, die CPU-Seite (Tile-Streaming, Zähler) läuft weiter. `De
 Der 20-float-Block `Mvp20` im `FBFrameContext` ist diese Matrix (Index 0..15, column-major) plus die
 Sonnenrichtung (16..18) plus ein Pad — genau so, wie ihn die Terrain-Uniform erwartet.
 
-### 1.3 Tiefenzustände je Stage
+#### 1.3 Tiefenzustände je Stage
 
 | Stage | `depthWriteEnabled` | `depthCompare` | Wirkung |
 |---|---|---|---|
@@ -70,14 +174,14 @@ Sonnenrichtung (16..18) plus ein Pad — genau so, wie ihn die Terrain-Uniform e
 | `FBTilesStage` | true | `Greater` | Reversed-Z: näher = größer |
 | `FBTileLightsStage` | false | `GreaterEqual` | Hügel verdecken ferne Lichter, aber die Sprites schreiben keine Tiefe |
 
-### 1.4 HDR-Format: warum `rgba16float` und nicht `rg11b10ufloat`
+#### 1.4 HDR-Format: warum `rgba16float` und nicht `rg11b10ufloat`
 
 `rg11b10ufloat` war die Bandbreiten-Wahl und ist **verworfen**: es hat keinen Alphakanal und keine
 garantierte Blend-Unterstützung — der Wolken-Pass blendet premultipliziertes Alpha darüber, das ging
 kaputt. `rgba16float` ist das Standard-Blend-fähige HDR-Format; die 4 zusätzlichen Byte/Pixel bei
 720p sind vernachlässigbar (`FBRenderer::OnAdapter`, Kommentar dort).
 
-### 1.5 Der Present-Pfad
+#### 1.5 Der Present-Pfad
 
 | Ressource | Größe/Format | Rolle |
 |---|---|---|
@@ -90,7 +194,7 @@ kaputt. `rgba16float` ist das Standard-Blend-fähige HDR-Format; die 4 zusätzli
 (Hysterese gegen Sub-Pixel-Jitter). Szene und HUD bleiben davon unberührt — nur Swapchain und
 Upscale-Viewport folgen.
 
-### 1.6 Feature-Gates und Env-Schalter
+#### 1.6 Feature-Gates und Env-Schalter
 
 Der Mechanismus ist zweistufig: entweder wird eine **Konstante in den WGSL-Quelltext gebacken**
 (String-Replace vor `CreateShaderModule`, dann strippt der Shader-Compiler den toten Block), oder
@@ -111,7 +215,7 @@ eine ganze Ressourcen-/Pipeline-Gruppe wird **gar nicht erst gebaut**.
 
 ---
 
-## 2 Die Pass-Topologie als Vertrag
+### 2 Die Pass-Topologie als Vertrag
 
 **Die Regel:** `FBRenderer` besitzt Instance/Adapter/Device/Queue/Surface/Targets, **jede**
 `BeginRenderPass`/`BeginComputePass`-Grenze und die Encode-Reihenfolge. Eine `FBDrawStage`
@@ -142,7 +246,7 @@ Ergänzende Regeln aus `FBDrawStage.h`:
   nie pro Frame. **`FBFrameContext`** ist der geteilte Pro-Frame-Zustand (Kamerabasis, MVP, Sonne,
   Mond, Tag-Faktor, Wetter, Frame-Nummer, Größe) — eine Stage greift nie in `FBRenderer` zurück.
 
-### 2.1 Die vollständige Encode-Reihenfolge
+#### 2.1 Die vollständige Encode-Reihenfolge
 
 Reihenfolge wie in `FBRenderer::RenderFrame()`:
 
@@ -178,7 +282,7 @@ Nach `Finish()`/`Submit()` folgen noch drei reihenfolgekritische Nacharbeiten, d
 `Resolve->Advance(ctx)` (Ping-Pong-Flip + Snapshot der View-Proj/Eye als „previous"), erst **nachdem**
 der Tonemap dieses Frames Ergebnis gelesen hat.
 
-### 2.2 Der Ladebildschirm
+#### 2.2 Der Ladebildschirm
 
 Ein eigener, kurzer Frame-Pfad (`if (LoadingScreen)`): schwarzes `FrameTex`, `Hud->EncodeLoadingText`
 (nur die Text-Pipeline: „LOADING TERRAIN x%" + Kachelzähler), dann Upscale. Keine Szene, kein Himmel.
@@ -188,7 +292,7 @@ Zielauflösung, ohne Low-Res-Leiter. Schwelle und Timeout liegen beim Client (`F
 
 ---
 
-## 3 Stage-Katalog
+### 3 Stage-Katalog
 
 | Klasse | Datei (`render/stages/`) | Art | Ziel / Ergebnis | Gate |
 |---|---|---|---|---|
@@ -223,7 +327,7 @@ Konsument konkateniert sie vor seinen eigenen Code):
 
 ---
 
-## 4 Die Atmosphäre (Hillaire 2020)
+### 4 Die Atmosphäre (Hillaire 2020)
 
 Zwei Compute-LUTs plus ein Fullscreen-Himmelspass; dieselbe Transmittance-LUT treibt auch die
 Aerial-Perspective des Geländes, damit Himmel und Boden dieselbe Luft sehen.
@@ -289,66 +393,14 @@ für eine Scheibe plus Phase, nicht für Navigation. Die Phase ist `(1 − cos(E
 
 ---
 
-## 5 Die Wolkenkette
+### 5 Die Wolkenkette
 
-Sechs Klassen, eine je Shader. **Drei backen einmal, zwei laufen pro Frame, eine ist ein
-Init-Helfer.** Der gesamte Zweig wird nur gebaut, wenn `FB_CLOUDS=1` — sonst kostet er weder Bootzeit
-noch VRAM.
-
-```
-FBCloudMipDownStage  (geteilter Box-Downsample, Init-Zeit)
-   ├─ FBCloudBaseBakeStage   128³ Perlin-Worley  ─┐
-   ├─ FBCloudDetailBakeStage  32³ Worley         ─┤
-   └─ (FBCloudCellBakeStage   512² F1-Zellen)    ─┤
-                                                  ▼
-                                        FBCloudMarchStage  → CloudLowTex (¼ Auflösung)
-                                                  ▼
-                                        FBCloudResolveStage → CloudHist/CloudWSum (Ping-Pong)
-                                                  ▼
-                                        FBTonemapStage (Composite)
-```
-
-Bind-Group-Reihenfolge (aus demselben Pin-Grund wie bei der Atmosphäre): erst die Bakes, dann March
-(dessen Bind-Group ihre Views pinnt), dann Resolve (pinnt Marchs `CloudLowTex`-View).
-
-**Der March** (`FBCloudMarchStage`):
-
-| Größe | Wert | Herkunft |
-|---|---|---|
-| Zielauflösung | `Width/4 × Height/4`, rgba16float | Kostenbudget; die Resolve rekonstruiert daraus |
-| Schalenradien | absolut: `groundR = |eye| − AltM`, `rBase = groundR + baseAGL`, `rTop = rBase + thick` | bewusst gegen den ECHTEN WGS84-Boden gerechnet, nicht gegen Hillaires vereinfachte 6360 km |
-| Default-Basis | 8000 m AGL (hohe, aufgelockerte Zellenschicht) | akzeptierte Setzung 2026-07-23; `FB_CLOUD_BASE_M` sweept |
-| Dicke | `2600 + 1400 · CloudHigh` m | Setzung; `FB_CLOUD_THICK_M` |
-| Material | Dichte 18, Extinktion 0,06, Sonnenintensität 18, Detail 1,3 | Setzungen, per `SetCloudLab` überschreibbar |
-| Deckung | max(CloudCover, Low, Mid, High); 0 → 0,4 in EVS | „kein Wetterbericht" = eine ansehnliche Defaultdecke |
-| Schirm-Jitter | exaktes 4×4-Subraster, `FrameNo % 16` | jedes Vollauflösungs-Subpixel bekommt genau einmal je 16 Frames eine Direktprobe |
-| Strahl-Dither | `frac(FrameNo · 0.6180339887)` | goldener Schnitt gegen Banding |
-| Winddrift | `nowSec · 8` (km-Maßstab) | Setzung |
-| Zellfeld | 40 km je Tile (≈ 4 km Zellen), Dome-Subtraktion 0,5 | `FB_CELL_KM` / `FB_CELL_DOME` |
-
-Optionale GPU-Zeitmessung: Ist das Device-Feature `TimestampQuery` da, klammern **beide** Indizes den
-March-Pass (nur diesen — einen Index auf `kQuerySetIndexUndefined` zu lassen lässt diesen Dawn-Build
-den ganzen Command-Buffer verwerfen). Auflösen vor `Finish`, Pollen nach `Submit`; Mittelwert wird
-alle 120 Frames geloggt.
-
-**Der Resolve** (`FBCloudResolveStage`): Reprojektion der Historie über die Kamerabewegung an der
-**Schalen-Mitte** (`CloudMidR = (rBase + rTop)/2`), zwei Ping-Pong-Paare (`CloudHist` rgba16float,
-`CloudWSum` r32float = akkumuliertes Splat-Gewicht je Vollauflösungs-Pixel). `ResetHistory()` und
-`SetAccumMode(true)` (echtes 1/N-Mittel statt exponentiellem Blend) sind Lab-Werkzeuge für die
-Parameter-Sweeps.
-
-**Der Composite** liegt im Tonemap, nicht in der Wolke: `scene = scene·(1−cl.a) + cl.rgb`
-(premultipliziert) vor dem ACES-Fit. `FBTonemapStage` hält deshalb **zwei Pipelines aus einem
-Quelltext** — die Plain-Variante bindet die Wolkentextur überhaupt nicht, sodass der ausgeschaltete
-Pfad auch keine veraltete Historie samplen kann. Welche gilt, ist eine Bootzeit-Konstante und wird nie
-mitten im Lauf umgeschaltet.
-
-Vertiefte Herleitungen zu Noise, Dichte, Beleuchtung, Marschstrategie, temporaler Reprojektion und
-iGPU-Budget stehen in `doc/clouds/01`–`10`.
+Ausgelagert nach [`clouds.md`](clouds.md) — die Wolkenkette hat ein eigenes Soll (Neubau) und
+einen eigenen Ist-Stand.
 
 ---
 
-## 6 Die Terrain-Stage im Detail
+### 6 Die Terrain-Stage im Detail
 
 `FBTilesStage` ist die einzige Stage mit echtem Pro-Frame-CPU-Zustand.
 
@@ -414,123 +466,15 @@ sichtbar ist → ein schwarzer Frame.
 
 ---
 
-## 7 Das HUD-Backend
+### 7 Das HUD-Backend
 
-Drei Schichten, sauber getrennt: **Geometrie** (CPU, airframe-agnostisch) → **Backend** (WebGPU) →
-**Font** (generisches Bitmap-System). Die **Symbologie** selbst liegt außerhalb, in
-`systems/FBDisplaySystem::BuildHud` bzw. dessen F-16-Override.
-
-### 7.1 `FBHudGeometry` (`render/FBHudGeometry.h/.cpp`)
-
-Der wiederverwendete Pro-Frame-Geometriepuffer in **2D-Pixelkoordinaten**; er ersetzt die alten
-GL-Shim-Globals (`w3_hud`/`w3_hudT`/`mx_v`) durch einen besessenen, rücksetzbaren Puffer. `Reset()`
-leert, ohne Kapazität freizugeben — nach dem ersten Frame allokiert die (beschränkte, deterministische)
-Symbologie nichts mehr.
-
-Zwei Primitivarten, passend zu den zwei Pipelines:
-
-| Art | Layout | Erzeuger |
-|---|---|---|
-| **Strokes** | `(x, y, d, hw, r, g, b)` × 6 je Segment | `Line()` (Haarlinie, hw = 0,5 px), `QLine()` (explizite Halbbreite), `Circle()` (n Sehnen), `Box()` |
-| **Glyphs** | `(x, y, u, v, r, g, b)` × 6 je Zeichen | `Text()`, `Printf()` |
-
-`d` ist der vorzeichenbehaftete Normalabstand des Vertex von der Mittellinie in Pixeln, `hw` die
-nominale Halbbreite des Segments — daraus rechnet der Fragment-Shader analytische Deckung. Es gibt
-**keine** harte `LineList`-Pipeline mehr; jede gerade Strecke (Schienen, Ticks, Carets, Boxen, der
-konforme Horizont) geht durch denselben AA-Quad-Pfad. Kappen sind schlichte Butt-Kappen.
-
-Obergrenzen, auf die `FBHudStage` seine GPU-Buffer dimensioniert: `kHudMaxStrokeFloats = 147456`,
-`kHudMaxTextFloats = 32768`.
-
-**Clipping** (`SetClip`/`ClearClip`): für die konforme Symbologie in der HUD-Combiner-Apertur.
-Strokes werden per Liang-Barsky-Segmentclip **geschnitten** (ein teilweise sichtbarer Stroke emittiert
-nur seinen sichtbaren Teil); Glyphen werden **ganz verworfen**, wenn ihre Content-Box das Rechteck
-nicht schneidet — ein Glyph ist ein opaker Quad und ohne Shader-Änderung nicht weiter unterteilbar.
-Geometrie außerhalb eines `SetClip`/`ClearClip`-Paares (Tapes, Textblöcke) bleibt unberührt.
-
-### 7.2 `FBHudStage` (`render/stages/FBHudStage.h/.cpp`)
-
-Reines WebGPU-Backend: Pipelines, Buffer, Atlas. Einmal je `Encode()` bittet es das **geliehene**
-`FBDisplaySystem`, eine `FBHudGeometry` zu füllen; die Logik lebt dort, nicht hier.
-`SetDisplaySystem(nullptr)` = leeres HUD.
-
-| Detail | Wert |
-|---|---|
-| Pipelines | `Stroke` und `Text`, gemeinsame Pixel→NDC-Abbildung `scale = (2/W, 2/H)` |
-| Blend | `SrcAlpha / OneMinusSrcAlpha` (Farbe), `One / OneMinusSrcAlpha` (Alpha) |
-| Farbe | Der Fragment-Shader **linearisiert** (`pow(col, 2.2)`), damit die sRGB-Swapchain-View beim Schreiben wieder auf das gemeinte Displaygrün encodiert |
-| Pass | LoadOp `Load` auf `FrameTex` — das getonemappte Bild bleibt stehen |
-| Zweitnutzung | `EncodeLoadingText()` — Ladebildschirm, nur die Text-Pipeline |
-
-Stroke-Deckung (analytischer Boxfilter über die Breite):
-`alpha = clamp(hw + 0.5 − |d|, 0, 1)`, `alpha <= 0 → discard`. Eine pixelbündige 1-px-Linie
-(`hw = 0,5`) rendert damit **exakt** wie die frühere harte `LineList`; jeder andere Winkel und jede
-andere Breite bekommen eine weiche Kante statt einer Treppe.
-
-### 7.3 `FBHudFont` (`render/FBHudFont.h` + generiertes `FBHudFontRom.h`)
-
-Das generische, **airframe-agnostische** Font-System — jedes Modul-HUD zeichnet Text hierüber.
-
-| Größe | Wert | Bedeutung |
-|---|---|---|
-| `kFontTile` | 16 | Kantenlänge der Glyphen-Bitmap (gewachsen von 8) |
-| Bittiefe | 8 bit **Flächen-Coverage** (0..255) | echte boxgefilterte Deckung, keine 1-bpp-Maske |
-| `kFontGlyphs` | 43 | Charset `" 0123456789A–Z-.:/+°"` |
-| `kFontTilePad` | 18 = `kFontTile + 2` | 1 Texel transparenter **Gutter** rundum |
-| Atlas | `43·18 × 18`, Format `R8Unorm`, Sampler **LINEAR** | Gutter-Texel bleiben auf ihrem Null-Init |
-| `kFontAdvance` | 4,0 | öffentliche Screen-Pixel-Einheit: Zeichenvorschub |
-| `kFontQuadSize` | 6,0 | öffentliche Screen-Pixel-Einheit: gezeichnete Kachel |
-
-**Herkunft der Daten:** B612 Mono Bold (SIL OFL 1.1 — Airbus' eigene Cockpit-Schrift), gebacken von
-`sim/tools/bake_hud_font.py` (Pillow: 8× supersampled, Box-Filter herunter auf 16×16) in das
-GENERIERTE `FBHudFontRom.h`. Das Skript ist **keine Build-Abhängigkeit** — es läuft nur bei Font- oder
-Charset-Wechsel. `FBHudFont.h` selbst bleibt handgepflegt (Atlas-Layout + Quad-Builder).
-
-**Warum Advance und Quad-Größe unverändert blieben:** sie sind die öffentlichen Einheiten JEDES
-Aufrufers. Nur die interne Rasterauflösung wuchs 8×8 → 16×16; Textgröße, Grundlinie und Vorschub auf
-dem Schirm bleiben, wo sie waren. `kFontAdvance = 4` bei `kFontQuadSize = 6` heißt: der gezeichnete
-Quad ist größer als der Vorschub, die Tinte aber schmaler (das Bake-Skript respektiert das über
-`SAFE_X_FRACTION`) — Content < Advance ergibt eine klare Lücke.
-
-**Gutter + Quad-Überstand:** Der Quad wird auf jeder Seite um **ein Texel in Screen-Pixeln**
-(`texel = qs / kFontTile`) über die Content-Box hinaus aufgezogen, und die UVs decken die volle
-gepolsterte Kachel ab. Damit sieht die Deckungsrekonstruktion außerhalb des Bitmaps echte Nullen statt
-eines geklemmten Randtexel-Echos: randberührende Tinte erreicht volle Deckung, außen fällt es sauber
-auf 0 — und nichts blutet in die Nachbarkachel.
-
-**„Sharp bilinear" — echtes Antialiasing statt Alpha-Test.** Der Text-Fragment-Shader:
-
-```wgsl
-let t  = uv * texSize;              // Sampleort in Texel-Koordinaten
-let fw = max(fwidth(t), 1e-4);      // Screen-Fußabdruck EINES Texels
-let c  = floor(t - 0.5) + 0.5;      // Zentrum des getroffenen Texels
-let f  = clamp((t - c - 0.5) / fw + 0.5, 0.0, 1.0);
-let coverage = textureSampleLevel(atlas, samp, (c + f) / texSize, 0.0).r;
-```
-
-Der Sampleort wird also im Texelraum **verzerrt** (Bruchteil auf den `fwidth()`-Fußabdruck skaliert,
-dann geklemmt), bevor LINEAR gesampelt wird. Eigenschaften:
-
-- Bei Fußabdruck = 1 Texel ist das die **Identität** (schlichtes Bilinear).
-- Vergrößert rastet es flach ein, außer in einer ≈ 1 Screen-Pixel breiten Rampe **direkt an jeder
-  Bit-Kante** — eine Boxfilter-Näherung der idealen analytischen Kante, nicht ein Weichzeichner.
-- Ergebnis ist **gerade Alpha**, kein harter `alpha < x → discard`. Ein Alpha-Test kennt nur an/aus
-  und produziert genau die Treppe, die er verstecken soll; hier ist die Deckung eine echte Fläche.
-
-Der Mechanismus ist **coverage-agnostisch** und unverändert seit der 8×8-1-bpp-Ära — die
-ROM-Auflösung wuchs darunter weg, ohne dass der Shader angefasst werden musste.
-
-**Die Grenze zu chip-spezifischen Eigenheiten.** MAX7456-Artefakte (Interlace-Jitter, Helligkeitskurve,
-Sync-Artefakte, …) gehören **nicht** hierher. Ein Modul, das sie will, hängt sich aus SEINER eigenen
-Klasse ein: `modules/f16/FBF16Max7456` — heute ein echter, von `FBF16Module` gehaltener NoOp-
-Override-Punkt. `render/FBHudFont.h` bleibt generisch; sonst trüge jedes künftige Muster den Chip der
-F-16 mit sich.
+Ausgelagert nach [`hud.md`](hud.md) — Geometriepuffer, WebGPU-Backend und Font-System.
 
 ---
 
-## 8 Kamera und Bodenwahrheit
+### 8 Kamera und Bodenwahrheit
 
-### 8.1 `FBCamera.h` — Lage rein, Basis raus
+#### 8.1 `FBCamera.h` — Lage rein, Basis raus
 
 Die Datei ist bewusst **reine Mathematik**: kein GL, keine Globals, keine Nebeneffekte. Sie berechnet
 die Augen-POSITION absichtlich **nicht** — die hängt am Gelände und gehört der Tile-Seite.
@@ -572,7 +516,7 @@ HOCH; er muss um genau diesen Winkel fallen, damit er den echten, weggekrümmten
 `modules/f16/displays/FBF16Hud`), nicht vom Terrain-Pass — dort ergibt sich die Krümmung von selbst,
 weil die ECEF-Kacheln wirklich wegkippen.
 
-### 8.2 Augenhöhe aus der Modell-Geometrie
+#### 8.2 Augenhöhe aus der Modell-Geometrie
 
 Die Augenhöhe am Boden kommt **nicht** aus einer festen Zahl, sondern aus JSBSims Fahrwerksgeometrie:
 `FBFdm::GetGroundClearanceM(gearDown)` (`sim/src/fdm/FBFdm.cpp`) läuft über alle
@@ -588,7 +532,7 @@ Die Kamera selbst ist im heutigen Client **das Auge des Flugzeugs**: `FBGeoToEce
 `SetCameraBasis`. Ein zusätzlicher Clamp „nie unter die Oberfläche" ist im Client-Code **nicht mehr
 verdrahtet** — s. *Offene Punkte*.
 
-### 8.3 „Crash → Motor aus, kein Freeze"
+#### 8.3 „Crash → Motor aus, kein Freeze"
 
 Der physikalische Richter (`core/FBFlightMonitor`) gehört dem Client, nicht dem Modul. Löst er aus,
 schneidet `units/FBSimUnit::RunMonitors` das Triebwerk **über denselben Controls-Pfad, den ein Pilot
@@ -601,7 +545,7 @@ wirkt, statt des Schadens.
 
 ---
 
-## 9 Die Regel `grep -c 'R"(' FBRenderer.cpp` == 0
+### 9 Die Regel `grep -c 'R"(' FBRenderer.cpp` == 0
 
 **Heute erfüllt: 0.** Kein einziges rohes WGSL-String-Literal steht mehr in `FBRenderer.cpp`.
 
@@ -614,50 +558,3 @@ sichtbar machen würde.
 Verteilung der 20 WGSL-Blöcke über 17 Stage-Dateien (drei Dateien tragen zwei: `FBTonemapStage` mit/ohne
 Wolken-Composite, `FBHudStage` Stroke/Text, `FBCloudBaseBakeStage` Bake + Histogramm) plus drei reine
 Splice-Header ohne eigene Klasse.
-
----
-
-## Offene Punkte
-
-1. **`FBUnitsStage` und `FBSpritesStage` sind NoOp.** Beide Slots sind in der Encode-Ordnung fest
-   verdrahtet (Units nach dem Terrain, Sprites vor dem HUD), aber sie zeichnen nichts. **Konsequenz:
-   andere Flugzeuge, abgeworfene Waffen, Flugkörper, Bodenziele, Rauch und Fackeln sind unsichtbar.**
-   Die gesamte Multi-Unit-Simulation (Etappen 1–6, Datalink, Radar, BFM, Intercept, Schadensmodell)
-   existiert physikalisch und in der Telemetrie, aber es gibt kein Bild davon. Ein Frame-Beweis kann
-   heute nichts über Einheiten aussagen.
-2. **Reversed-Z-Zahlen widersprechen sich.** CLAUDE.md sagt „near 0,01 m / far 240 km". Der Code
-   (`MvpCamRel`) nutzt eine **unendliche** Far-Plane und `zn = 0.05`. Die 240 km sind der
-   Streaming-Sichtradius (`FB_VIEW_KM`), nicht die Far-Plane; die 0,01 m stehen nirgends im Code.
-   Nicht aufgelöst — vermutlich veraltete Doku, aber das ist eine Vermutung.
-3. **Der Kamera-Clamp „nie unter die Oberfläche" hat keinen Konsumenten mehr.** `fb-sim` liefert
-   `window.FB_GROUND_CLEAR` an den Browser (`app/FBSimHost.cpp`, gelesen aus `/tmp/fb_clearance`), und
-   `web/config.js` setzt es auf 0 — aber **kein** C++-Code liest es (`grep FB_GROUND_CLEAR src/` findet
-   nur den Erzeuger). Die geometriewahre Höhe wirkt heute nur über den Spawn-IC
-   (`GetGroundClearanceM`), nicht als Pro-Frame-Clamp. CLAUDE.mds Formulierung „die Kamera geht nie
-   unter die Oberfläche" beschreibt damit einen Zustand, den der Code nicht mehr erzwingt.
-4. **Toter Code in `FBCamera.h`.** `w3_frustum_from` und `w3_aabb_visible` (Gribb-Hartmann-Culling)
-   haben im ganzen Baum **keinen Aufrufer** — das Culling passiert im Streamer (`FBWorld`) über
-   Sichtradius und Frustum-Gewichtung, nicht über diese Ebenen. Genutzt sind aus dieser Datei nur
-   `w3_cam_from`, `w3_basis_from`, `w3_horizon_dip_rad` (alle drei von der HUD-Symbologie) und
-   `FBCameraBasisEcef`. Ob die Frustum-Helfer für eine künftige `FBUnitsStage` reserviert sind oder
-   ersatzlos entfallen sollten, ist offen.
-5. **Aerial Perspective ist per Default AUS** (`FB_AP=0`), obwohl die gesamte
-   Transmittance-LUT-Infrastruktur dafür existiert und jeden Frame gerechnet wird. Das Gelände ist
-   „lit albedo pur, volle Helligkeit bis zum Horizont" — eine ausdrückliche Nutzerentscheidung
-   (2026-07-23), aber physikalisch falsch. Die LUT wird trotzdem berechnet, weil Himmel und Sonne sie
-   brauchen.
-6. **Wolken sind per Default AUS** (`FB_CLOUDS=0`, Nutzerentscheidung 2026-07-23) und es ist **keine
-   Wetterquelle verdrahtet**: `FBState.Env.Cloud*` bleibt null, und `FBCloudMarchStage` liest „0" als
-   „kein Wetterbericht" und setzt seine eigene Defaultdecke. Der Kommentar bei `FBRenderer::HudState`
-   nennt das ausdrücklich: null IST hier der ehrliche Wert, solange kein open-meteo-Anschluss existiert.
-7. **Transmittance-LUT wird jeden Frame neu gerechnet.** Sie hängt nur an Höhe und Sonnen-cos-θ; ein
-   `TODO cache while the sun is static` steht im Header und ist offen.
-8. **Upscale ist bilinear.** `TODO bicubic/sharpen` im Header; ebenso fehlt der 8-Tap-Glow des HUD
-   (`TODO` in `FBHudStage.cpp`), der die Leuchtdichte-Anmutung eines echten Combiners ausmachen würde.
-9. **`FBTerrainLoader`s statischer Pfad (`SetTerrain`/`SetAlbedoArray`) ist nur noch Bring-up.** Beide
-   Clients fahren Streaming; der statische Pfad in `FBTilesStage` (Direktdraws, Layer == Kachelindex)
-   bleibt als zweiter Codepfad bestehen und wird nirgends regelmäßig getestet.
-10. **Der Ladebildschirm hat einen Timeout-Ausgang** (30 s, `FB_LOAD_TIMEOUT_MS`), nach dem er das
-    Bild freigibt, egal wie wenig resident ist — der Log unterscheidet `converged` von `TIMEOUT`. Ein
-    Frame-Beweis, der aus einem Timeout-Boot stammt, ist damit nicht dasselbe Bild wie einer aus einem
-    konvergierten. Das ist heute nur an der Logzeile erkennbar, nicht am PNG.

@@ -1,5 +1,7 @@
 # FlightBox — Waffeneinsatz & Schaden
 
+> Body still in German — translation pass pending (see [roadmap](../roadmap.md)).
+
 **Was diese Datei beschreibt:** die vollständige Kette von der Auslösung bis zur Systemfolge — wer eine
 Waffe freigibt, wie sie fliegt, wer entscheidet, dass sie getroffen hat, was ein Treffer im
 Gesundheitsregister anrichtet und wie sich das durch Avionik-Bus, HUD, Warnsatz, Kommandobus und
@@ -26,7 +28,132 @@ JSBSim-Modell selbst gelesen.
 
 ---
 
-## 1. Die Grundentscheidung: eine abgefeuerte Waffe IST eine Einheit
+## Spec
+
+The full chain from release to system consequence: who clears a weapon, how it flies, who decides it
+hit, what a hit does in the health register, and how that propagates through avionics bus, HUD,
+warning set, command bus and flight physics.
+
+| Contract | Acceptance / measurement anchor |
+|---|---|
+| A weapon is structurally a unit | own FDM instance on its own pinned model, own module from the same registry, own telemetry file, the same two judges |
+| Release happens only through the command bus, and is therefore refusable | Master Arm not ARM / weight on wheels → `hardware_precedence`; empty drum → `depleted` |
+| A weapon never scores its own hit | the system queues an event, the OWNER resolves it against published poses — the same boundary for proximity fuze, gun burst and ground burst |
+| Ballistics is shared between fire control and the round | the same arithmetic answers "where will it land" and "when must I release" — pipper and countdown cannot diverge |
+| Damage is deterministic geometry, no randomness, no time, no internal state | same geometry → same damage picture; measured thread-independent |
+| A fragment warhead is ONE event; a gun stream SUMS per zone | otherwise damage would depend on tick rate |
+| Consequences run through JSBSim, not bookkeeping | cutoff, control authority, drag area — a shot-up jet keeps flying as long as physics allows |
+| Failure → block `Invalid` → visible everywhere | HUD dashes, warning reports INHIBITED, command into the dead box is rejected — none of that was written for damage |
+
+## State
+
+Built: AIM-120, Mk-82, M61A1, ground targets, damage model.
+
+| Piece | Status | Anchor |
+|---|---|---|
+| Weapon-as-unit foundation | built | `b62c769` |
+| AIM-120 with seeker, guidance, uplink | built | `5c68fc5` |
+| Damage model: hits become failures, failures become invalidity | built | `6d84647` |
+| M61A1: derived ballistics, EEGS funnel, kinetic damage | built | `a1a8fbf` |
+| Air-to-ground: ground targets without FDM, CCIP/CCRP from one integration | built | `1eeff72` |
+
+Measured: CCIP/CCRP total error 22 m (10.6 m lateral) **against our own ballistic table** — see the
+Mk-82 fidelity caveat under Gaps before quoting that number.
+
+## Gaps
+
+### Deliberately not modelled (from the retired `TODO.md` §3)
+
+| Thing | Consequence |
+|---|---|
+| No AIM-120 lofting | midcourse flies flat, range stays below what the round could do; every measured `Raero` is that of a flat-flying round |
+| **The Mk-82 model carries no documented aerodynamics** — its own `<note>` calls itself a possibly crude approximation whose only similarity to the real object is the name | the CCIP/CCRP accuracy (22 m total, 10.6 m lateral) is a statement about fidelity to the MODEL, not about a real release. The error-budget split stays valid (our guidance against our own table); the absolute number must not be quoted as a fidelity result. Sourcing or building a model with documented aerodynamics is open — see `../aircraft/stores.md`. |
+| **No strafing.** The cause is *not* the zero area of ground targets but `FBGunProjectiles` giving up after 3 s / 3000 m — the rounds never reach the ground | air-to-ground with the gun is impossible |
+| Ground burst is not resolved against aircraft | deliberate: the fragment geometry against an airframe does not exist; an invented radius would be a number posing as physics |
+| No fragment directivity, no fuze failure, no round mass, no gun installation angle | — |
+
+### Inventory (German, from the previous `Offene Punkte` section)
+
+**Bekannte Lücken (im Code benannt, nicht versteckt):**
+
+- **Kein IR-Sucher.** `FBCountermeasureSystem` zählt Fackeln und sie wirken NICHT — es gibt keinen
+  IR-suchenden Flugkörper, gegen den sie wirken könnten. Steht so im Header.
+- **Kein Lofting der AIM-120.** Das Lenkgesetz ist reines PN plus 1-g-Schwerkraft-Bias; eine
+  Steigflug-Mittelphase (die einem BVR-Schuss reale Reichweite bringt) existiert nicht. Damit ist jedes
+  gemessene `Raero` das einer flach fliegenden Runde.
+- **Waffen sind im Renderer unsichtbar.** `render/stages/FBUnitsStage` und `FBSpritesStage` sind NoOps
+  (in der Encode-Ordnung verdrahtet, aber ohne Inhalt) — eine Rakete, ein Store und ein Bodenziel
+  existieren in der Simulation vollständig und im Bild gar nicht.
+- **WASM hat keinen Freigabe- und keinen Schadenspfad.** `app/FBAppWasm.cpp` leert weder
+  `Stores().TakeRelease()` noch `Guns().TakeBurst()`, hält keinen `FBGunProjectiles`-Pool und löst
+  keinen Burst auf. Der Browser-Client kann eine Waffe laden und tragen (Punktmasse + Widerstand
+  wirken), aber nichts verlässt den Jet. Der ganze Kapitel-5-Apparat lebt in `app/FBMissionRunner.cpp`.
+- **Kein Strafing.** Kanonen-Bündel werden nur gegen `Aircraft` aufgelöst, Bodenziele deklarieren
+  Fläche/Ausdehnung 0. Beheben hieße: Geschosse bis zum Boden verfolgen (heute per `kMaxAgeS`/
+  `kMaxPathM` ausdrücklich nicht) UND eine präsentierte Fläche für Bodenziele setzen.
+- **Bodenburst gegen Flugzeuge fehlt bewusst** (§5.4) — ein tief über der eigenen Bombe fliegender Jet
+  bleibt unversehrt.
+- **Keine Splitter-Richtcharakteristik.** Die Isotropie-Annahme ist die eine geometrische Setzung des
+  Fragmentmodells; ein echter Gefechtskopf hat ein fokussiertes Band, dessen Lage vom Winkel zur
+  Raketenachse abhinge.
+- **Kein Querschnitt, keine Abschirmung, keine Splitterzählung.** Die Zelle ist ein Achsensegment.
+- **Der Näherungszünder trifft immer, wenn die Geometrie stimmt.** Es gibt kein Zünderversagen, keine
+  Blindgängerrate und keine Zünderlogik jenseits von Radius + Schärfzeit.
+- **Kein Gewicht der Munition** (§4.1) und keine Munitionsmischung; eine homogene Runde.
+- **Kein Einbauwinkel der Kanone** (`FBF16Gun`: Bore 0°/0°, weil `doc/f16/` keinen nennt).
+- **Stationsgeometrie längs kollabiert**: alle neun F-16-Pylone teilen die CG-Station (FS −193 in), weil
+  `weapons.md` §4.5 die Stationsdaten selbst als T4 markiert. Eine Zuladung erzeugt damit kein
+  Nickmoment; die LATERALEN Versätze sind modelliert.
+
+**Zahlen, die reine Setzungen sind und jede daran hängende Aussage tragen** (jede einzeln zu messen,
+sobald eine Quelle auftaucht):
+
+| Setzung | Wert | hängt daran |
+|---|---|---|
+| `kCaseFraction` | 0,5 | JEDER Gefechtskopf-Schaden, linear |
+| `kFragSpeedMs` | 1800 | dito, quadratisch (dominiert `v_closure` bei ~850 m/s deutlich) |
+| M61A1 `RoundMassKg` | 0,100 | JEDE kinetische Schadenszahl, linear |
+| M61A1 `DragCoef` | 0,30 | Flugzeit, Trefferenergie |
+| Fragilitätsklassen F-16 | 6 Werte | jedes Kill-/Degrade-Urteil |
+| Fragilitätsklassen Bodenziel | 4 Werte | dito |
+| präsentierte Flächen F-16 | 4,0 / 14,0 m² | erwartete Trefferzahl, linear |
+| AIM-120 `FuzeRadiusM` | 10 m | ob ein Schuss ein Treffer ist |
+| AIM-120 `SeekerRangeM`/`ActivationRangeM` | 14,8 / 18,5 km | Terminal-Übergabe |
+| AIM-120 Sucher-FOV/Gimbal | ±10° / ±45° | ob eine Midcourse „gut genug" war |
+| Mk-82 `ArmingS` | 2,0 s | die Blindgänger-Schwelle des Pull-Up-Cues |
+
+**Ungelöste Fragen / Widersprüche:**
+
+- **Die CCIP/CCRP-Genauigkeit hat keinen absoluten Aussagewert.** Die 22 m Gesamtfehler (davon 10,6 m
+  quer, §4.2) sind gegen ein Bombenmodell gemessen, das sich selbst als möglicherweise grobe Näherung
+  bezeichnet, deren einzige Ähnlichkeit mit dem echten Objekt der Name sei. Die Fehlerbudget-Aufteilung
+  bleibt gültig (Guidance gegen unsere eigene Ballistiktabelle); die absolute Zahl ist kein
+  Fidelity-Beleg. Ein Mk-82-Modell mit belegter Aerodynamik zu beschaffen oder zu bauen ist offen.
+
+- **Trommelinhalt 510 vs. 512** — derselbe Guide nennt beides (§3 Spezifikationstabelle vs. §2.5 Text).
+  FlightBox nimmt 510 (Spezifikationstabelle gewinnt) und notiert die Differenz statt zu mitteln.
+- **Gemeinsame Währung J/m² für Splitter und 20-mm-Einschläge** ist eine erklärte Modellentscheidung
+  und ausdrücklich KEINE physikalische Äquivalenzaussage (§6.3). Ob eine getrennte Schwellentabelle je
+  Wirkmechanismus besser wäre, ist offen — sie wäre heute unkalibrierbar.
+- **`kMinReportedHits` 0,1** ist eine Berichtsschwelle, keine physikalische: unterhalb wird gar nichts
+  aufgelöst, also ist der Übergang von „Treffer" zu „Vorbeischuss" nicht ganz stetig.
+- **Der Anker `IntBriefHdgDeg_` = 000** bei einer Einheit ohne Flugplan (in `damage-amraam.fbm`
+  ausdrücklich als „wart worth fixing in the pilot" dokumentiert): der Intercept-Pilot verankert den
+  Kurs, den sein Zustand beim ERSTEN Entscheidungstick trug — und der liegt vor dem ersten FDM-Schritt,
+  also 000 statt der Spawn-Peilung.
+- **`FBReleaseSolution::StampS`-Verzögerung** (§2.5): die Stores-Kommandogruppe wird VOR der
+  Feuerleitung bedient, eine Runde trägt also die Lösung des vorigen Sweeps. Protokolliert (`solAgeS`),
+  aber nicht behoben — die Bus-Reihenfolge wäre die Stellschraube.
+- **`gun MISS` und `stores MISS` melden die dichteste Annäherung**, aber ein Bündel, das nach einem
+  Treffer retiriert wird, erzeugt gar keine Miss-Zeile — die Statistik „wieviele Bündel gingen daneben"
+  muss deshalb aus `gun BURST` minus `gun HIT` gebildet werden, nicht aus `gun MISS` allein.
+
+
+## Knowledge
+
+Derivations, formulas and measured constants — the distilled body of this file.
+
+### 1. Die Grundentscheidung: eine abgefeuerte Waffe IST eine Einheit
 
 Es gibt keinen Waffen-Sonderpfad. Ein Store, der die Station verlässt, wird ein
 `units/FBSimUnit` — mit derselben Mechanik wie ein Jet:
@@ -43,7 +170,7 @@ Es gibt keinen Waffen-Sonderpfad. Ein Store, der die Station verlässt, wird ein
 | in `FBUnitRegistry` | ja | ja | ja |
 | Snapshot-Pose (`PublishPose`) | ja | ja | ja |
 
-### Was `FBUnitKind` bewirkt — und was NICHT
+#### Was `FBUnitKind` bewirkt — und was NICHT
 
 `FBUnitKind` (`sim/src/units/FBUnit.h`) unterscheidet `Aircraft` / `Weapon` / `Ground`. Die
 Unterscheidung existiert für genau die Dinge, die dem BESITZER der Simulation gehören:
@@ -73,13 +200,13 @@ Aufschlag war, rekonstruiert der Runner sub-Tick (§5.3).
 
 ---
 
-## 2. `FBStoresSystem` — der SMS
+### 2. `FBStoresSystem` — der SMS
 
 `sim/src/systems/FBStoresSystem.{h,cpp}`. Der airframe-agnostische DEFAULT (Interface + Implementierung
 in einer Klasse, `FBSystemSlots.h`-Muster); ein Modul liefert nur seine PYLON-GEOMETRIE
 (`modules/f16/FBF16Sms`) und kann `Run()` überschreiben.
 
-### 2.1 Vertrag
+#### 2.1 Vertrag
 
 | Phase | Aufruf | Bedingung |
 |---|---|---|
@@ -91,7 +218,7 @@ in einer Klasse, `FBSystemSlots.h`-Muster); ein Modul liefert nur seine PYLON-GE
 | Besitzer | `TakeRelease(FBStoreRelease&)` | FIFO-Drain, false wenn leer |
 | Tick | `Run(FBState&, dt)` | publiziert den `FBStoresBlock`, cached die Feuerleitungs-Antwort |
 
-### 2.2 Trägereffekt — Physik der Engine, nicht Rechnung dieser Klasse
+#### 2.2 Trägereffekt — Physik der Engine, nicht Rechnung dieser Klasse
 
 `PublishLoadout()` (nur bei Load und bei Release, nie pro Frame — zwischen diesen zwei Ereignissen
 ändert sich an einer Zuladung nichts):
@@ -121,7 +248,7 @@ summiert die Punktmassen in seinem eigenen `Run`, das neue Gewicht existiert als
 und wird aus der Telemetriespalte `sms_gw_lbs` gelesen. Ein „Vorher", das der nächste Schritt
 widerspricht, wäre eine Messung von nichts.
 
-### 2.3 Die Klasse SPAWNT nichts — und das ist die Anti-Cheat-Struktur
+#### 2.3 Die Klasse SPAWNT nichts — und das ist die Anti-Cheat-Struktur
 
 `Release()` erzeugt einen `FBStoreRelease`-Datensatz (`core/FBStore.h`) in einer Warteschlange fester
 Kapazität (`kMaxPendingReleases == kMaxStations` — eine volle Ripple aller Stationen passt hinein, die
@@ -137,7 +264,7 @@ je Akteur FIFO; der neue Store wird erst im NÄCHSTEN Tick gerechnet. Das ist di
 Determinismus-Bedingung: die Step-Phase verteilt Akteursindizes über Threads, ein mitten in der Phase
 auftauchender Akteur würde das Ergebnis von der Reihenfolge abhängig machen.
 
-### 2.4 Die Ablehnungsgründe
+#### 2.4 Die Ablehnungsgründe
 
 `Release()` prüft in genau dieser Reihenfolge (`doc/f16/controls-commands.md` §6.2/§6.5):
 
@@ -158,7 +285,7 @@ NACH ihnen und VOR dem Verlassen der Schiene; sie sind die Antwort der FEUERLEIT
 `FBFireControlBlock` gecached), nicht die Meinung des SMS — `Release()` wird vom Kommandobus zwischen
 zwei Ticks gerufen und darf nicht selbst nach dem Bus greifen.
 
-### 2.5 Was eine Runde beim Start mitbekommt
+#### 2.5 Was eine Runde beim Start mitbekommt
 
 Zwei Übergaben, ein Prinzip: **die Vorhersage muss den Jet MIT der Waffe verlassen.**
 
@@ -178,7 +305,7 @@ gemessenen Aufschlag legen. Deshalb reist sie auf der Runde mit und wird beim Au
 notwendigerweise die des vorigen Sweeps. Diese Verzögerung ist bei Jägergeschwindigkeit zig Meter wert
 — sie wird protokolliert (`solAgeS`), nicht versteckt.
 
-### 2.6 Der Lenkfunk (Uplink)
+#### 2.6 Der Lenkfunk (Uplink)
 
 `Uplink()` liefert, was dieses Flugzeug an eine von ihm gestartete Runde ABSTRAHLT — publiziert in der
 `FBUnitSignature` der Einheit, wie XMT und der IFF-Transponder:
@@ -193,7 +320,7 @@ taktische Sinn der Midcourse-Phase. Sie hört ausdrücklich NICHT auf, wenn der 
 niemand meldet das dem Schützen, und im echten Jet auch nicht — der Sender verstummt, wenn der Pilot
 den Schuss nicht mehr stützt.
 
-### 2.7 Telemetrie & Ereignisse
+#### 2.7 Telemetrie & Ereignisse
 
 `sms_arm`, `sms_station`, `sms_loaded`, `sms_lbs`, `sms_released`, `sms_gw_lbs` (die letzte Spalte ist
 das Bruttogewicht der ZELLE in derselben Zeile wie die Bücher des SMS — nur so ist der Trägereffekt
@@ -205,12 +332,12 @@ Abwurflösung).
 
 ---
 
-## 3. `FBGunSystem` — die Bordkanone
+### 3. `FBGunSystem` — die Bordkanone
 
 `sim/src/systems/FBGunSystem.{h,cpp}`. Der SMS-Geschwisterslot. Gleich, wo die Struktur gleich ist;
 anders, wo die Waffen sich unterscheiden.
 
-### 3.1 Worin es sich vom SMS unterscheidet
+#### 3.1 Worin es sich vom SMS unterscheidet
 
 | | SMS | Kanone |
 |---|---|---|
@@ -232,7 +359,7 @@ JSBSim-Instanz, Telemetriedatei und Monitor. Was die Geschosse physikalisch SIND
 nicht: ungelenkte Klumpen ohne Systeme und ohne Entscheidungen, an die nur eine Frage gestellt wird —
 wo sind sie und was haben sie getroffen. Also leben sie als Arithmetik.
 
-### 3.2 Die integrierte Rate — und warum sie taktunabhängig sein MUSS
+#### 3.2 Die integrierte Rate — und warum sie taktunabhängig sein MUSS
 
 `RoundsBetween(a, b, ratePerS, spool)` ist das Integral der Feuerrate zwischen zwei Momenten `a`,`b`
 nach dem Abzugsdruck, mit linearem Hochlauf über `spool`:
@@ -252,7 +379,7 @@ Genau deshalb wird die Kanone im F-16-Modul **nicht gedrosselt**, sondern einmal
 VOLLEN `dt` betreten (`FBF16Module.cpp`): eine andere Eintrittsrate würde Schüsse erfinden oder
 verschlucken. Eine nicht feuernde Kanone kostet einen Vergleich.
 
-### 3.3 Verriegelungen
+#### 3.3 Verriegelungen
 
 | Bedingung | Outcome | Reason |
 |---|---|---|
@@ -267,7 +394,7 @@ verschlucken. Eine nicht feuernde Kanone kostet einen Vergleich.
 Ein zweiter Druck während eines laufenden Feuerstoßes VERLÄNGERT ihn auf das spätere Ende; der Hochlauf
 wird nicht neu gestartet, weil die Rohre nie stehengeblieben sind.
 
-### 3.4 Was ein Bündel trägt
+#### 3.4 Was ein Bündel trägt
 
 Beim Erreichen eines ganzen Schusses legt `Run()` einen `FBGunBurst` an:
 
@@ -279,13 +406,13 @@ Beim Erreichen eines ganzen Schusses legt `Run()` einen `FBGunBurst` an:
   diese Klasse kennt beide — was die Grenze überquert, ist deshalb ein schlichter Geschosszustand.
 - **Anzahl** und `LauncherId`, `Kind`, `SimTimeS`.
 
-### 3.5 Sie wertet NIE einen eigenen Treffer
+#### 3.5 Sie wertet NIE einen eigenen Treffer
 
 Dieselbe Grenze wie beim SMS: der Besitzer der Simulation leert die Queue, fliegt die Runden
 (`core/FBGunProjectiles`) und entscheidet auf den VERÖFFENTLICHTEN Posen, was sie getroffen haben. Eine
 Kanone, die sich selbst punktet, wäre derselbe Betrug wie eine Rakete, die sich selbst punktet.
 
-### 3.6 F-16-Installation
+#### 3.6 F-16-Installation
 
 `modules/f16/FBF16Gun.h`: M61A1, Mündung im linken Rumpfwurzel-Strake.
 
@@ -296,7 +423,7 @@ Kanone, die sich selbst punktet, wäre derselbe Betrug wie eine Rakete, die sich
 | unten | −0,3 m | Oberkante des Strake-Fillets |
 | Bore | 0°/0° | doc/f16/ nennt KEINEN Einbauwinkel — Null ist die ehrliche Wahl und steht als solche im Header |
 
-### 3.7 Telemetrie & Ereignisse
+#### 3.7 Telemetrie & Ereignisse
 
 `blk_gun` (zuerst — der Gun-Block kam lange nach `FBStateBusTelemetry`s Liste dazu, ein Name dort hätte
 jede Spalte rechts davon verschoben), `gun_rounds`, `gun_fired`, `gun_firing`, `gun_triggers`,
@@ -308,9 +435,9 @@ Ereignisse: `gun TRIGGER`, `gun BURST`, `gun BURST_DROPPED`, `gun DRY`, `gun HIT
 
 ---
 
-## 4. Ballistik
+### 4. Ballistik
 
-### 4.1 `FBGunBallistics` — die GETEILTE Arithmetik
+#### 4.1 `FBGunBallistics` — die GETEILTE Arithmetik
 
 `sim/src/core/FBGunBallistics.{h,cpp}`. Reine Funktionen auf Werten, kein Zustand, keine Allokation.
 Drei Konsumenten benutzen buchstäblich denselben Code:
@@ -445,7 +572,7 @@ Schuss, Munitionsmischung (Leuchtspur/HEI/API — die Trommel ist homogen) und d
 Prinzip 1, also würde eine Trommel-Punktmasse ebenso wahrscheinlich doppelt zählen wie korrigieren —
 unter 0,5 % des Bruttogewichts, benannt statt versteckt).
 
-### 4.2 `FBBallistics` — das geteilte Primitiv beider Luft-Boden-Verfahren
+#### 4.2 `FBBallistics` — das geteilte Primitiv beider Luft-Boden-Verfahren
 
 `sim/src/core/FBBallistics.{h,cpp}`. EINE Vorwärtsintegration, zwei Fragen:
 
@@ -538,7 +665,7 @@ approximation, with the only similarity to an actual object being the name" sein
 educational and entertainment purposes only". Prinzip 5 gilt hier also besonders eng — die Zahl ist die
 Treue zum MODELL, nicht die Treue zur Wirklichkeit, und darf nicht als Fidelity-Beleg zitiert werden.
 
-### 4.3 `FBGunProjectiles` — der Pool
+#### 4.3 `FBGunProjectiles` — der Pool
 
 `sim/src/core/FBGunProjectiles.{h,cpp}`. Feste Kapazität `kMaxBundles = 64` (genug für vier
 dauerfeuernde Flugzeuge über die volle Lebensdauer eines Bündels, mit Reserve). Eigentum des KLIENTEN,
@@ -570,14 +697,14 @@ Ein Bündel trifft EINMAL — die Runden, für die es stand, sind ins Ziel gegan
 
 ---
 
-## 5. Die drei Auflösungsgrenzen
+### 5. Die drei Auflösungsgrenzen
 
 Alle drei laufen über den BESITZER der Simulation (`app/FBMissionRunner.cpp`), nie über ein Modul, und
 alle drei messen auf den VERÖFFENTLICHTEN Posen — also auf der Wahrheit, wie `FBFlightMonitor`s
 Bodenkontakt. Der Grund ist immer derselbe: der Sucher der Waffe sagt, wo sie das Ziel VERMUTET; ließe
 man die Waffe sich auf ihrer eigenen Schätzung punkten, wäre das die reinste Form des Betrugs.
 
-### 5.0 Das gemeinsame Primitiv: `ClosestApproach`
+#### 5.0 Das gemeinsame Primitiv: `ClosestApproach`
 
 Warum keine Abstandsprüfung: der Tick ist 0,1 s, eine frontale Annäherung kann 1.500 m/s überschreiten
 — aufeinanderfolgende Abtastungen liegen 150 m auseinander, ein Abstandstest gegen einen 10-m-Zünder
@@ -595,7 +722,7 @@ RelE/N/U= der Vektor selbst     (die Richtung braucht die Schadensauflösung)
 Die Geradlinigkeitsannahme innerhalb eines Ticks ist bei 20 g etwa einen Meter Krümmung wert — im
 Header genannt, nicht versteckt.
 
-### 5.1 Näherungszünder neben einem Jet
+#### 5.1 Näherungszünder neben einem Jet
 
 Bedingungen (alle im Runner, in dieser Reihenfolge):
 
@@ -620,7 +747,7 @@ mitgeführt und beim Ende der Runde als `stores MISS` gemeldet. Der Schütze ist
 ausgenommen, nicht vom Zünder: eine Runde, die von einem Pylon separiert, passiert ihren eigenen Träger
 in zig Metern — eine Tatsache über Geometrie, nicht über Zielgenauigkeit.
 
-### 5.2 Kanonenstrom
+#### 5.2 Kanonenstrom
 
 Reihenfolge im Tick, fest: Bündel fliegen (`Bullets.Step(dt)`) → gegen jedes passierte Flugzeug
 auflösen → ERST DANN die in diesem Tick abgefeuerten Bündel aufnehmen. Ein Bündel wird also nie in dem
@@ -645,7 +772,7 @@ sagt, ob das Zielen oder das Timing falsch war. Gemeldet nur unter `kGunNearMiss
 dass „der ist an ihm vorbeigegangen" gemessen wird, eng genug, dass ein Bündel im selben Himmel nicht
 zählt.
 
-### 5.3 Bodenaufschlag eines Stores
+#### 5.3 Bodenaufschlag eines Stores
 
 Der Store hat keine Bodenkontaktkräfte (§1), fliegt also ballistisch weiter, bis der Physik-Richter
 Penetration meldet. Beim 0,1-s-Tick ist er dann bereits bis zu einen Tick UNTER der Oberfläche —
@@ -680,7 +807,7 @@ ihm überhaupt etwas antun kann — ein Burst, dessen Fluss auf dieser Entfernun
 nur eine Null-Effekt-Zeile und einen falschen Eintrag in seiner Trefferzahl erzeugen. `ClosureMs` ist
 hier die reine Ankunftsgeschwindigkeit der Runde (das Ziel bewegt sich nicht).
 
-### 5.4 Warum ein Bodenburst NICHT gegen Flugzeuge aufgelöst wird
+#### 5.4 Warum ein Bodenburst NICHT gegen Flugzeuge aufgelöst wird
 
 Ein Jet tief über der eigenen Detonation ist real in einer Splitterhülle. Modelliert würde das eine
 Frag-gegen-Zelle-Geometrie brauchen (und ein Ausweichmanöver, gegen das man sie messen kann), die hier
@@ -696,7 +823,7 @@ Fähigkeit behaupten, die die Geschossseite nicht hat.
 
 ---
 
-## 6. `FBDamageModel` — was ein Treffer ANRICHTET
+### 6. `FBDamageModel` — was ein Treffer ANRICHTET
 
 `sim/src/core/FBDamageModel.{h,cpp}`. Der EINE Schreiber von `core/FBSystemHealth` (dessen einziger
 `friend`), Eigentum des Klienten. Ein Modul löst seinen eigenen Schaden nie auf, so wenig wie es seinen
@@ -708,7 +835,7 @@ aus dem Store-Katalog. MODELLIERT ist der Schritt von diesen drei Zahlen zu eine
 ist aus den zwei Dingen gebaut, die wirklich Physik sind — isotrope Splitterausbreitung und kinetische
 Energie — plus einer Schwelle je System, die eine Setzung ist.
 
-### 6.1 Die Energie eines Gefechtskopfs, in drei Schritten
+#### 6.1 Die Energie eines Gefechtskopfs, in drei Schritten
 
 | # | Schritt | Formel | Annahme |
 |---|---|---|---|
@@ -727,7 +854,7 @@ verhalten lässt, auf denen es niemand kalibriert hat.
 `FBFragmentFluxJm2(warheadKg, rangeM, closureMs)` ist ÖFFENTLICH, damit ein Bericht, ein Harness oder
 eine Logzeile die genaue Zahl hinter einem Schadensurteil reproduzieren kann, statt ihr zu vertrauen.
 
-### 6.2 Zonen: 1/r²-Abfall statt Partition
+#### 6.2 Zonen: 1/r²-Abfall statt Partition
 
 Ein Flugzeug ist kein Punkt. Das Layout (Moduldaten) zerschneidet die Zelle entlang ihrer LÄNGSACHSE in
 Zonen und benennt, welche Systeme in welcher sitzen. `FBDamageModel::Apply` rechnet PRO ZONE einen
@@ -752,7 +879,7 @@ ohne ABLEITBARES degradiertes Verhalten setzt `Degrade == Fail` und hat damit ni
 `FBDamageResult` meldet: Zone mit dem höchsten Fluss, deren Abstand, den Spitzenfluss, die Bitmasken
 `NewlyFailed`/`NewlyDegraded` (was DIESER Burst geändert hat) und `WasEffective`/`NowEffective`.
 
-### 6.3 `ApplyKinetic` — der zweite Eingang
+#### 6.3 `ApplyKinetic` — der zweite Eingang
 
 Bewusst ein ANDERER Eingabetyp statt eines Flags auf demselben, weil die beiden Waffenwirkungen durch
 verschiedene Dinge BEKANNT sind:
@@ -785,7 +912,7 @@ etwas. Der Boden von 0,5 m sorgt dafür, dass ein Nullabstands-Stoß — dessen 
 — auf der Zone landet, durch die er ging, statt auf einem mathematischen Punkt zwischen zweien.
 `res.RangeM = 0` — ein Treffer, kein Abstands-Burst; es gibt keine Entfernung.
 
-### 6.4 `FBDamageLayout` — zwei Maßstäbe
+#### 6.4 `FBDamageLayout` — zwei Maßstäbe
 
 ```
 FrontalAreaM2  seen head-on/from astern        FrontalExtentM  halbe Spannweite
@@ -807,7 +934,7 @@ das Interpolieren gratis ist. Ein Modul, das keine davon deklariert (der Default
 Store), präsentiert NICHTS und nimmt keinen Kanonenschaden — was korrekt ist: auf eine Bombe im freien
 Fall schießt niemand.
 
-### 6.5 Determinismus — und was daraus folgt
+#### 6.5 Determinismus — und was daraus folgt
 
 Kein Zufallsgenerator irgendwo in dieser Datei, keine Zeitabhängigkeit, kein interner Zustand. Gleiche
 Geometrie + gleicher Gefechtskopf + gleiche Annäherung → gleiche Masken, immer.
@@ -817,7 +944,7 @@ Folgen: ein Gefecht ist über Threadzahlen bit-identisch reproduzierbar (nachgem
 kann jede Zahl hinter einem Urteil nachrechnen, weil `FBFragmentFluxJm2` und `FBGunFluxJm2` öffentlich
 sind.
 
-### 6.6 Die physikalischen Folgekonstanten
+#### 6.6 Die physikalischen Folgekonstanten
 
 Alle in `FBDamageModel.h` beisammen, damit das ganze „wie sich Schaden anfühlt"-Modell auf einmal
 lesbar ist. Angewandt ausschließlich über JSBSim (`FBSimUnit::ApplyDamageToAirframe` → `fdm/FBFdm`),
@@ -835,13 +962,13 @@ nie über ein zweites Parallel-Flugmodell.
 
 ---
 
-## 7. `FBSystemHealth` — das Register
+### 7. `FBSystemHealth` — das Register
 
 `sim/src/core/FBSystemHealth.{h,cpp}`. EIN Register je `FBSimUnit`, strukturelles Geschwister von
 `FBFlightMonitor`/`FBMissionMonitor`: Eigentum des KLIENTEN, gespeist nur von einem core-eigenen
 Urteil, GELESEN — nie geschrieben — vom Modul, das das Flugzeug fliegt.
 
-### 7.1 Das Schreibtor ist der TYP, nicht eine Konvention
+#### 7.1 Das Schreibtor ist der TYP, nicht eine Konvention
 
 Jeder Mutator (`Worsen`, `NoteHit`, `AddKinetic`) ist **privat**, und es gibt genau einen `friend`:
 `FBDamageModel`. Es existiert also nirgends eine API — nicht auf einem const-Handle, nicht auf einem
@@ -849,13 +976,13 @@ nicht-const — mit der ein System, ein Pilot oder ein Modul sich selbst (oder j
 beschädigt oder repariert markieren könnte. `grep -rn FBSystemHealth src/systems src/modules` findet
 nur Lesezugriffe, und es KANN nichts anderes finden: alles andere kompiliert nicht.
 
-### 7.2 Monoton
+#### 7.2 Monoton
 
 Ein Zustand wird nie besser. Es gibt keine Reparatur im Flug, und ein monotones Register ist, was das
 Schadensbild eines Laufs zu einer Funktion der genommenen Bursts und von nichts sonst macht — keine
 Reihenfolgefrage, kein Heilungs-Race zwischen zwei Beobachtern.
 
-### 7.3 Das Inventar
+#### 7.3 Das Inventar
 
 `FBSystemId` (Append only — das Ordinal ist telemetriesichtbar in den `dmg_*`-Bitmasken):
 
@@ -878,7 +1005,7 @@ Reihenfolgefrage, kein Heilungs-Race zwischen zwei Beobachtern.
 Die Liste ist bewusst der Modul-SLOT-Satz plus die drei physischen Dinge, deren Folge JSBSim selbst
 tragen kann.
 
-### 7.4 Die drei Zustände für einen Konsumenten
+#### 7.4 Die drei Zustände für einen Konsumenten
 
 | Zustand | Verhalten |
 |---|---|
@@ -886,7 +1013,7 @@ tragen kann.
 | `Degraded` | läuft und publiziert weiter, mit reduzierter Leistung DORT, wo eine ableitbar ist (Radarreichweite, Triebwerksdecke, FLCS-Autorität). Wo nicht, hat ein System kein degradiertes Verhalten und sein Layout-Eintrag erzeugt nie eines |
 | `Failed` | System läuft NICHT und publiziert NICHT. Sein Block wird `Invalid`, und alles Weitere ergibt sich von selbst (§8) |
 
-### 7.5 `CombatEffective` — ein MISSIONS-Urteil
+#### 7.5 `CombatEffective` — ein MISSIONS-Urteil
 
 ```
 CombatEffective() = !Failed(Engine) && !Failed(FlightControls) && !Failed(Structure)
@@ -905,19 +1032,19 @@ erklärt nichts. Referenzlauf `missions/damage-amraam.fbm` — das Ziel deklarie
 trägt also gar keinen `FBMissionMonitor` und kann den Lauf nicht beenden; die Mission handelt von den
 ~340 s Nachspiel und endet mit Exit 2 (CRASH), verursacht von nichts als dem eigenen Schaden.
 
-### 7.6 Telemetrie
+#### 7.6 Telemetrie
 
 Eigene Source `dmg`, vom Unit als LETZTE registriert (Anhängeregel): `dmg_hits`, `dmg_failed`,
 `dmg_degraded` (Bitmasken über `FBSystemId`), `dmg_effective`.
 
 ---
 
-## 8. DIE KOPPLUNG — der Kern des Ganzen
+### 8. DIE KOPPLUNG — der Kern des Ganzen
 
 Ein ausgefallenes System wird vom Modul **nicht mehr getaktet**, und sein Block wird `Invalid`. Alles
 Weitere ergibt sich aus dem Avionik-Bus, der das längst kann. **Dafür wurde nichts neu geschrieben.**
 
-### 8.1 Das Gate im Modul
+#### 8.1 Das Gate im Modul
 
 `modules/f16/FBF16Module.cpp` — je Slot ein Vergleich, immer nach demselben Muster:
 
@@ -942,7 +1069,7 @@ else SharedState.X.H.Invalidate();
 Der Warnsatz (`FBWarningSystem`) läuft als LETZTER der Gruppe und ist reiner Konsument alles darüber
 Publizierten — inklusive der Gültigkeitsköpfe.
 
-### 8.2 Was sich daraus GRATIS ergibt
+#### 8.2 Was sich daraus GRATIS ergibt
 
 | Konsument | Verhalten bei `Invalid` | wo es steht |
 |---|---|---|
@@ -953,7 +1080,7 @@ Publizierten — inklusive der Gültigkeitsköpfe.
 | Pilot (Weiterkämpfen) | `CanPressOn` = Waffen an Bord ∧ kein BINGO ∧ strahlendes Radar — alle drei vom BUS gelesen, keines gewusst | `FBPilot::CanPressOn` |
 | Kommandobus | Kommando an eine zerstörte Box → `rejected/system_failed` | `FBF16Module::ApplyCommand` |
 
-### 8.3 Das Kommando-Gate
+#### 8.3 Das Kommando-Gate
 
 `FBF16Module::ApplyCommand` prüft VOR jeder Box:
 
@@ -969,7 +1096,7 @@ Zuordnung Kommandoziel → besitzendes System (Auszug): `MasterArm`/`StationSele
 `WeaponRelease` → `Stores`; `GunTrigger` → `Gun`; `CmDispense`/`CmConsent`/`CmdsMode` →
 `Countermeasures`; `Datalink*` → `Datalink`; `Radar*`/`Iff*` → `Radar`.
 
-### 8.4 Wo Schaden PHYSIK wird
+#### 8.4 Wo Schaden PHYSIK wird
 
 `FBSimUnit::ApplyDamageToAirframe()` — idempotent, aufgerufen unmittelbar nach jedem `TakeBurst`/
 `TakeKineticBurst`, der einzige Ort, an dem Schaden Physik wird:
@@ -983,7 +1110,7 @@ Zuordnung Kommandoziel → besitzendes System (Auszug): `MasterArm`/`StationSele
 Alle drei Kanäle sind neutral, bis etwas getroffen wurde: ein unbeschädigtes Flugzeug rechnet
 bit-identisch wie eines, das nie von Schaden gehört hat (nachgemessen).
 
-### 8.5 Ereignisse und Spalten
+#### 8.5 Ereignisse und Spalten
 
 | Ereignis | wann | Felder (Auszug) |
 |---|---|---|
@@ -997,9 +1124,9 @@ Block einer ausgefallenen Box `Invalid` werden sehen.
 
 ---
 
-## 9. Zonen und Fragilität als MODULDATEN
+### 9. Zonen und Fragilität als MODULDATEN
 
-### 9.1 F-16 (`modules/f16/FBF16Damage.{h,cpp}`)
+#### 9.1 F-16 (`modules/f16/FBF16Damage.{h,cpp}`)
 
 Jede Zonengrenze ist aus dem gepinnten `f16.xml` gelesen (Strukturrahmen: x positiv NACH HINTEN, CG bei
 FS −193 in), umgerechnet in Meter VOR dem CG — keine Zahl stammt aus einer Zeichnung oder einem
@@ -1066,7 +1193,7 @@ nie. „Ein bisschen Rauschen" auf einem INS oder einem ADC zu modellieren wäre
 
 Die zwei Flächen skalieren die erwartete Trefferzahl LINEAR, weshalb sie hier einmal benannt sind.
 
-### 9.2 Bodenziele (`modules/ground/FBGroundTarget.h`)
+#### 9.2 Bodenziele (`modules/ground/FBGroundTarget.h`)
 
 Eine Wertetypzeile je Zielklasse, kein Verhalten — dieselbe Entscheidung wie `core/FBStore.h` für einen
 Store.
@@ -1096,9 +1223,9 @@ zu erfinden, den es nicht gibt.
 
 ---
 
-## 10. Die drei Waffenmodule
+### 10. Die drei Waffenmodule
 
-### 10.1 `modules/stores` — die ungelenkte Runde
+#### 10.1 `modules/stores` — die ungelenkte Runde
 
 `FBStoreModule.{h,cpp}` + `FBStoreModuleRegistration.cpp`.
 
@@ -1120,7 +1247,7 @@ zu erfinden, den es nicht gibt.
 Eine gelenkte Waffe ist ein ANDERES Modul, kein Flag auf diesem. Welches von beiden ein Katalogeintrag
 wird, sagt sein `Guided`-Flag, gelesen an genau je einer Stelle in den beiden Registrierungsdateien.
 
-### 10.2 `modules/missile` — der Lenkflugkörper
+#### 10.2 `modules/missile` — der Lenkflugkörper
 
 `FBMissileModule.{h,cpp}`, `FBMissileSeeker.{h,cpp}`, `FBMissileGuidance.{h,cpp}`,
 `FBMissileUplink.{h,cpp}`, `FBMissileModuleRegistration.cpp`. Heute: AIM-120.
@@ -1139,7 +1266,7 @@ integriert nur; eine Rakete hat beide, ihr `Run()` taktet sie — das ist der ga
 Alles andere ist Default: Guidance/FCS reichen die Ruderkommandos in `Manual` durch, keine Anzeigen,
 keine Navigation, kein Warnsatz, keine eigenen Stores.
 
-#### Raten
+##### Raten
 
 Sucher und Lenkung laufen INNERHALB der 100-Hz-Substep-Schleife, neben der FCS: eine Runde, die mit
 1,5 km/s schließt, legt 15 m je 10 ms zurück — ein 10-Hz-Entscheidungstakt (richtig für einen Piloten)
@@ -1148,7 +1275,7 @@ wird also oft betreten, SCHAUT aber nur mit ihrer eigenen Rate. Der Uplink-Empf�
 `Run()`: die Feuerleitung des Schützen kann ohnehin keine frischere Schätzung als ihr eigenes
 Radarframe erzeugen.
 
-#### Das Lenkgesetz: Proportionalnavigation, mit Herleitung
+##### Das Lenkgesetz: Proportionalnavigation, mit Herleitung
 
 Sei `r` der Vektor Rakete→Ziel und `v_rel = v_target − v_missile`. Die Sichtlinie dreht mit
 
@@ -1187,7 +1314,7 @@ MESSEN kann statt darüber zu streiten.
 tief ankommen und am Ende hochziehen. Ein g Aufwärts-Bias wird auf das Kommando addiert, genau das, was
 der Autopilot einer echten Rakete mit seinem eigenen Beschleunigungsmesser tut.
 
-#### Der Autopilot unter dem Gesetz
+##### Der Autopilot unter dem Gesetz
 
 Die kommandierte Beschleunigung wird in den Körperrahmen aufgelöst und als **zwei unabhängige
 Querbeschleunigungs-Regelkreise** geflogen — SKID-TO-TURN, denn ein kreuzförmiger Flugkörper nickt und
@@ -1226,7 +1353,7 @@ stationären Fehler von `1/(1+Kreisverstärkung)`, und mit dem 1-g-Schwerkraft-B
 DAUERSINKEN — die Runde kommt tief an. Genau das zeigte der erste geflogene Abfang, bevor dieser Term
 existierte (gemessen: −18 m/s, ~900 m zu tief am Merge).
 
-#### Die drei Phasen — Übergang durch ERFASSUNG, nicht durch Timer
+##### Die drei Phasen — Übergang durch ERFASSUNG, nicht durch Timer
 
 | Phase | Ordinal | Datenquelle |
 |---|---|---|
@@ -1249,7 +1376,7 @@ Ob das reicht, hängt davon ab, wie lange das her ist und was das Ziel seither t
 Punkt, gemessen statt behauptet: `missions/intercept-lostlock.fbm` trifft damit noch,
 `missions/intercept-defeated.fbm` nicht mehr.
 
-#### Der Sucher
+##### Der Sucher
 
 `FBMissileSeeker` ist strukturell DIESELBE Klasse wie das FCR des Jets (`systems/FBRadarSystem`) — kein
 Kurzschluss, sondern der Punkt: die Rakete ist eine Welteinheit wie jede andere und nimmt die Welt nur
@@ -1267,7 +1394,7 @@ mehrere Blicke für einen Track braucht und ANONYME Geometrie in seinen eigenen 
 | IFF | Interrogator UND Transponder aus | eine Rakete kann nicht fragen, wer das ist, und niemand antwortet für sie |
 | Emission | `FBEmitterKind::MissileSeeker` | das eine, was einen Empfänger interessiert: hinter dieser Antenne sitzt ein Gefechtskopf. Ein RWR klassifiziert dieses Signal als den Startfall, gleich wie es gerade abtastet |
 
-#### Der Uplink-Empfänger
+##### Der Uplink-Empfänger
 
 `FBMissileUplink` läuft die Registry ab, findet die EINE Einheit, deren Id der programmierte Schütze
 ist, und nimmt dessen `FBUnitSignature.Uplink` **nur**, wenn er noch aktiv sendet. Sie liest sonst
@@ -1288,7 +1415,7 @@ Uplinkverlust ist kein Fehlerpfad: `Active` geht auf false, diese Klasse hört a
 publizieren (`H.Invalidate()` — kein leeres Bild, sondern KEIN Bild), und die Lenkung sieht das Alter
 wachsen. Nichts hier entscheidet etwas über den Flug.
 
-#### Das Modell ist FlightBox-EIGEN
+##### Das Modell ist FlightBox-EIGEN
 
 `sim/assets/aircraft/aim120/` — in derselben einen Modellwurzel wie f16 und mk82, aber als einziges
 Modell OHNE Upstream-Gegenstück (`sim/assets/MODEL-DELTAS.md`, Herkunftstabelle: `—`). Das gepinnte
@@ -1342,7 +1469,7 @@ Wahrheit), `msl_closure`, `msl_losrate` (das, was PN auf null treibt), `msl_los_
 Ereignisse: `missile PROGRAMMED`, `missile PHASE` (jeder Wechsel mit Grund, Flugzeit, Entfernung, LOS),
 `missile SEEKER_ACTIVE`.
 
-### 10.3 `modules/ground` — das Modul, das nicht einmal integriert
+#### 10.3 `modules/ground` — das Modul, das nicht einmal integriert
 
 `FBGroundModule.h` + `FBGroundModuleRegistration.cpp`. Strukturell `FBStoreModule` MINUS einer Sache
 statt plus einer: eine abgeworfene Bombe hat keinen Piloten und keine Lenkung, integriert aber; dies
@@ -1370,9 +1497,9 @@ hat nicht einmal das.
 
 ---
 
-## 11. Missionsdaten und Beweisläufe
+### 11. Missionsdaten und Beweisläufe
 
-### 11.1 Die Schlüssel (F-16, `FBF16Module::ApplySetup`)
+#### 11.1 Die Schlüssel (F-16, `FBF16Module::ApplySetup`)
 
 | Zeile | Wirkung |
 |---|---|
@@ -1384,7 +1511,7 @@ hat nicht einmal das.
 | `set pilot_attack_bias_s <s>` / `set pilot_attack_ccip_m <m>` | Varianten des Abwurfmoments bzw. der Pipper-Toleranz |
 | `set pilot_gun_burst_s <s>` | Feuerstoßlänge |
 
-### 11.2 Der Abwurfmoment des Piloten
+#### 11.2 Der Abwurfmoment des Piloten
 
 Der Pilot rechnet **keine** Ballistik: er liest den `FBFireControlBlock` wie jedes Instrument.
 
@@ -1410,7 +1537,7 @@ acht Anflüge: Trichterzeit 3,2 s → 20,7 s (geradeaus) bzw. 0,0 s → 21,6 s (
 Ziel 11,9 → 111,2 bzw. 0,0 → 120,4 Patronen, Abschüsse 0 → 5 bzw. 0 → 7 von je acht Läufen, mittlerer
 Nachführfehler 10,5° → 6,9° bzw. 11,9° → 4,1°.
 
-### 11.3 Startbedingung eines abgeworfenen Stores
+#### 11.3 Startbedingung eines abgeworfenen Stores
 
 `FBMissionBoot.h::FBMissionSpawnStore` — derselbe Vier-Schritt-Spawn wie für jeden Jet, nur kommt die IC
 aus dem TRÄGERZUSTAND (`FBFdmSpawn::Ballistic`):
@@ -1426,7 +1553,7 @@ aus dem TRÄGERZUSTAND (`FBFdmSpawn::Ballistic`):
 Der Stationsversatz wird im SMS gerechnet (strukturell → körperfest, relativ zum CG, JSBSims eigene
 `FGMassBalance::StructuralToBody`-Konvention), weil nur er seine Pylongeometrie kennt.
 
-### 11.4 Beweismissionen
+#### 11.4 Beweismissionen
 
 | Mission | Gegenstand |
 |---|---|
@@ -1445,81 +1572,3 @@ Der Stationsversatz wird im SMS gerechnet (strukturell → körperfest, relativ 
 | `damage-amraam` | die KONSEQUENZ: Detonation, Schadensauflösung, Systemausfälle, Blockungültigkeiten und 340 s Nachspiel bis zum Aufschlag (Exit 2) |
 | `make -C sim test-gun` | Streuungs-Fit gegen MIL-DTL-45500/1A, Flugzeit, Trichtergeometrie, Vorhaltelösung gegen die geflogene Bahn, Munitionsverbrauch, Ablehnung bei leerer Trommel |
 | `make -C sim test-missile` | die AIM-120-Zelle open-loop (Motor/Widerstand/Trimm) |
-
----
-
-## Offene Punkte
-
-**Bekannte Lücken (im Code benannt, nicht versteckt):**
-
-- **Kein IR-Sucher.** `FBCountermeasureSystem` zählt Fackeln und sie wirken NICHT — es gibt keinen
-  IR-suchenden Flugkörper, gegen den sie wirken könnten. Steht so im Header.
-- **Kein Lofting der AIM-120.** Das Lenkgesetz ist reines PN plus 1-g-Schwerkraft-Bias; eine
-  Steigflug-Mittelphase (die einem BVR-Schuss reale Reichweite bringt) existiert nicht. Damit ist jedes
-  gemessene `Raero` das einer flach fliegenden Runde.
-- **Waffen sind im Renderer unsichtbar.** `render/stages/FBUnitsStage` und `FBSpritesStage` sind NoOps
-  (in der Encode-Ordnung verdrahtet, aber ohne Inhalt) — eine Rakete, ein Store und ein Bodenziel
-  existieren in der Simulation vollständig und im Bild gar nicht.
-- **WASM hat keinen Freigabe- und keinen Schadenspfad.** `app/FBAppWasm.cpp` leert weder
-  `Stores().TakeRelease()` noch `Guns().TakeBurst()`, hält keinen `FBGunProjectiles`-Pool und löst
-  keinen Burst auf. Der Browser-Client kann eine Waffe laden und tragen (Punktmasse + Widerstand
-  wirken), aber nichts verlässt den Jet. Der ganze Kapitel-5-Apparat lebt in `app/FBMissionRunner.cpp`.
-- **Kein Strafing.** Kanonen-Bündel werden nur gegen `Aircraft` aufgelöst, Bodenziele deklarieren
-  Fläche/Ausdehnung 0. Beheben hieße: Geschosse bis zum Boden verfolgen (heute per `kMaxAgeS`/
-  `kMaxPathM` ausdrücklich nicht) UND eine präsentierte Fläche für Bodenziele setzen.
-- **Bodenburst gegen Flugzeuge fehlt bewusst** (§5.4) — ein tief über der eigenen Bombe fliegender Jet
-  bleibt unversehrt.
-- **Keine Splitter-Richtcharakteristik.** Die Isotropie-Annahme ist die eine geometrische Setzung des
-  Fragmentmodells; ein echter Gefechtskopf hat ein fokussiertes Band, dessen Lage vom Winkel zur
-  Raketenachse abhinge.
-- **Kein Querschnitt, keine Abschirmung, keine Splitterzählung.** Die Zelle ist ein Achsensegment.
-- **Der Näherungszünder trifft immer, wenn die Geometrie stimmt.** Es gibt kein Zünderversagen, keine
-  Blindgängerrate und keine Zünderlogik jenseits von Radius + Schärfzeit.
-- **Kein Gewicht der Munition** (§4.1) und keine Munitionsmischung; eine homogene Runde.
-- **Kein Einbauwinkel der Kanone** (`FBF16Gun`: Bore 0°/0°, weil `doc/f16/` keinen nennt).
-- **Stationsgeometrie längs kollabiert**: alle neun F-16-Pylone teilen die CG-Station (FS −193 in), weil
-  `weapons.md` §4.5 die Stationsdaten selbst als T4 markiert. Eine Zuladung erzeugt damit kein
-  Nickmoment; die LATERALEN Versätze sind modelliert.
-
-**Zahlen, die reine Setzungen sind und jede daran hängende Aussage tragen** (jede einzeln zu messen,
-sobald eine Quelle auftaucht):
-
-| Setzung | Wert | hängt daran |
-|---|---|---|
-| `kCaseFraction` | 0,5 | JEDER Gefechtskopf-Schaden, linear |
-| `kFragSpeedMs` | 1800 | dito, quadratisch (dominiert `v_closure` bei ~850 m/s deutlich) |
-| M61A1 `RoundMassKg` | 0,100 | JEDE kinetische Schadenszahl, linear |
-| M61A1 `DragCoef` | 0,30 | Flugzeit, Trefferenergie |
-| Fragilitätsklassen F-16 | 6 Werte | jedes Kill-/Degrade-Urteil |
-| Fragilitätsklassen Bodenziel | 4 Werte | dito |
-| präsentierte Flächen F-16 | 4,0 / 14,0 m² | erwartete Trefferzahl, linear |
-| AIM-120 `FuzeRadiusM` | 10 m | ob ein Schuss ein Treffer ist |
-| AIM-120 `SeekerRangeM`/`ActivationRangeM` | 14,8 / 18,5 km | Terminal-Übergabe |
-| AIM-120 Sucher-FOV/Gimbal | ±10° / ±45° | ob eine Midcourse „gut genug" war |
-| Mk-82 `ArmingS` | 2,0 s | die Blindgänger-Schwelle des Pull-Up-Cues |
-
-**Ungelöste Fragen / Widersprüche:**
-
-- **Die CCIP/CCRP-Genauigkeit hat keinen absoluten Aussagewert.** Die 22 m Gesamtfehler (davon 10,6 m
-  quer, §4.2) sind gegen ein Bombenmodell gemessen, das sich selbst als möglicherweise grobe Näherung
-  bezeichnet, deren einzige Ähnlichkeit mit dem echten Objekt der Name sei. Die Fehlerbudget-Aufteilung
-  bleibt gültig (Guidance gegen unsere eigene Ballistiktabelle); die absolute Zahl ist kein
-  Fidelity-Beleg. Ein Mk-82-Modell mit belegter Aerodynamik zu beschaffen oder zu bauen ist offen.
-
-- **Trommelinhalt 510 vs. 512** — derselbe Guide nennt beides (§3 Spezifikationstabelle vs. §2.5 Text).
-  FlightBox nimmt 510 (Spezifikationstabelle gewinnt) und notiert die Differenz statt zu mitteln.
-- **Gemeinsame Währung J/m² für Splitter und 20-mm-Einschläge** ist eine erklärte Modellentscheidung
-  und ausdrücklich KEINE physikalische Äquivalenzaussage (§6.3). Ob eine getrennte Schwellentabelle je
-  Wirkmechanismus besser wäre, ist offen — sie wäre heute unkalibrierbar.
-- **`kMinReportedHits` 0,1** ist eine Berichtsschwelle, keine physikalische: unterhalb wird gar nichts
-  aufgelöst, also ist der Übergang von „Treffer" zu „Vorbeischuss" nicht ganz stetig.
-- **Der Anker `IntBriefHdgDeg_` = 000** bei einer Einheit ohne Flugplan (in `damage-amraam.fbm`
-  ausdrücklich als „wart worth fixing in the pilot" dokumentiert): der Intercept-Pilot verankert den
-  Kurs, den sein Zustand beim ERSTEN Entscheidungstick trug — und der liegt vor dem ersten FDM-Schritt,
-  also 000 statt der Spawn-Peilung.
-- **`FBReleaseSolution::StampS`-Verzögerung** (§2.5): die Stores-Kommandogruppe wird VOR der
-  Feuerleitung bedient, eine Runde trägt also die Lösung des vorigen Sweeps. Protokolliert (`solAgeS`),
-  aber nicht behoben — die Bus-Reihenfolge wäre die Stellschraube.
-- **`gun MISS` und `stores MISS` melden die dichteste Annäherung**, aber ein Bündel, das nach einem
-  Treffer retiriert wird, erzeugt gar keine Miss-Zeile — die Statistik „wieviele Bündel gingen daneben"
-  muss deshalb aus `gun BURST` minus `gun HIT` gebildet werden, nicht aus `gun MISS` allein.

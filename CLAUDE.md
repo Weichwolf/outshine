@@ -8,7 +8,7 @@ realistisches F-16-Flugverhalten.**
 ## Das Wissen steht in doc/flightbox/
 
 Diese Datei ist ein Session-Start-Zettel, kein Wissensspeicher. Alles Inhaltliche — Architektur, jedes
-Subsystem, Herleitungen, Fortschritt, offene Punkte — steht in **`doc/flightbox/`**, Einstieg
+Subsystem, Soll/Ist/Lücken, Herleitungen — steht in **`doc/flightbox/`** (englisch), Einstieg
 [`doc/flightbox/INDEX.md`](doc/flightbox/INDEX.md). Der Skill `flightbox` lädt es aufgabenbezogen.
 
 **Widersprechen sich beide, hat `doc/flightbox/` recht und diese Datei ist nachzuführen.**
@@ -16,9 +16,9 @@ Subsystem, Herleitungen, Fortschritt, offene Punkte — steht in **`doc/flightbo
 Daneben: `doc/f16/` (Skill `f16-systems`) dokumentiert den **echten** Jet aus den Handbüchern —
 Design-Ziele, keine Defektkriterien. `doc/mission-format.md` ist die Referenz des `.fbm`-Formats.
 
-**Doku wird mitgeführt, nicht nachgeholt.** Jede Runde aktualisiert die betroffene Subsystem-Datei,
-trägt sich in `PROGRESS.md` ein und pflegt `TODO.md` — auch die ehrlichen Negative und verworfenen
-Ansätze mit ihren Messungen. Eine gemessene Fehlschlagsvariante ist Wissen.
+**Spec zuerst.** Jede Runde ändert ZUERST das `## Spec` ihrer Themendatei, baut, bis `## State` es
+erfüllt (gemessen an dessen Ankern), führt `## State`/`## Gaps` nach und trägt eine Zeile ins
+`journal.md`. Verworfenes bleibt mit seiner Messung in `## Gaps` — ein gemessener Fehlschlag ist Wissen.
 
 ## Prinzipien (nicht verhandelbar)
 

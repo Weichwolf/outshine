@@ -1,26 +1,35 @@
-# Projektfortschritt
+# Journal — the chronicle of the rounds
 
-Was gebaut ist, in welcher Reihenfolge, und woran es hängt. Stand: Commit `793e1fe` + Modell-Umzug
-und Delta-Regel (2026-07-27).
+> Body still in German — translation pass pending (see [roadmap](roadmap.md)).
 
-Diese Datei ist Teil der Dokumentation und wird mit jedem abgeschlossenen Bauabschnitt nachgeführt.
-Offene Arbeit steht in [TODO.md](TODO.md).
+**What this file is:** one line per finished round, in the order they happened — commit, what it
+built, what it measured. It is history, not a plan and not a contract.
+
+- **What each area must do** → the `## Spec` section of its topic file ([`INDEX.md`](INDEX.md)).
+- **What is built right now** → the `## State` section of that same file.
+- **What is missing, and what was tried and rejected** → its `## Gaps` section.
+- **What comes next, in order** → [`roadmap.md`](roadmap.md).
+
+Every round adds a line here; nothing here is ever rewritten to look better. Rejected approaches are
+kept — in the Gaps of the file they belong to, with their measurements.
+
+State of the entries below: commit `793e1fe` + the model-root/delta round (2026-07-27).
 
 ## Reifegrad je Bereich
 
 | Bereich | Zustand | Doku |
 |---|---|---|
-| FDM-Adapter | **fertig** — instanzfähig, IC-abgeschottet, Schadens- und Zuladungskanäle | [fdm.md](fdm.md) |
-| Core / Avionik-Bus | **fertig** — typisierte Blöcke mit Dreizustands-Gültigkeit, Kommandobus mit Quittung | [core.md](core.md) |
-| Missions-Orchestrator | **fertig** — vier Schritte, kein Missionswissen im Code | [units-and-missions.md](units-and-missions.md) |
-| Multi-Unit | **fertig** — Verband als Missionsdaten, Thread pro Einheit im Gym, deterministisch | [units-and-missions.md](units-and-missions.md) |
-| Sensoren | **gebaut** — Datalink, Radar, RWR, Gegenmaßnahmen. Ohne Terrain-Maskierung. | [sensors.md](sensors.md) |
-| Waffen | **gebaut** — AIM-120, Mk-82, M61A1, Bodenziele, Schadensmodell | [weapons-and-damage.md](weapons-and-damage.md) |
-| Piloten-KI | **in Arbeit** — Start/Route/Landung, BFM, BVR-Abfang, Luft-Boden fliegen; Verfeinerung läuft | [pilot-ai.md](pilot-ai.md) |
-| Renderer | **gebaut** — Stage-Split abgeschlossen. Einheiten und Waffen noch unsichtbar. | [rendering.md](rendering.md) |
-| HUD | **gebaut** — generisches Default-HUD + volle F-16-Symbologie, Coverage-AA | [modules-f16.md](modules-f16.md) |
-| Cockpit-Displays | **nicht begonnen** — die Werte liegen auf dem Bus, die Darstellung fehlt | [TODO.md](TODO.md) |
-| HOTAS | **nicht begonnen** — bewusst zuletzt, ist nur ein Mapping | [TODO.md](TODO.md) |
+| FDM-Adapter | **fertig** — instanzfähig, IC-abgeschottet, Schadens- und Zuladungskanäle | [fdm.md](sim/fdm.md) |
+| Core / Avionik-Bus | **fertig** — typisierte Blöcke mit Dreizustands-Gültigkeit, Kommandobus mit Quittung | [core.md](sim/core.md) |
+| Missions-Orchestrator | **fertig** — vier Schritte, kein Missionswissen im Code | [units-and-missions.md](sim/units-and-missions.md) |
+| Multi-Unit | **fertig** — Verband als Missionsdaten, Thread pro Einheit im Gym, deterministisch | [units-and-missions.md](sim/units-and-missions.md) |
+| Sensoren | **gebaut** — Datalink, Radar, RWR, Gegenmaßnahmen. Ohne Terrain-Maskierung. | [sensors.md](sim/sensors.md) |
+| Waffen | **gebaut** — AIM-120, Mk-82, M61A1, Bodenziele, Schadensmodell | [weapons-and-damage.md](sim/weapons-and-damage.md) |
+| Piloten-KI | **in Arbeit** — Start/Route/Landung, BFM, BVR-Abfang, Luft-Boden fliegen; Verfeinerung läuft | [pilot-ai.md](sim/pilot-ai.md) |
+| Renderer | **gebaut** — Stage-Split abgeschlossen. Einheiten und Waffen noch unsichtbar. | [rendering.md](render/renderer.md) |
+| HUD | **gebaut** — generisches Default-HUD + volle F-16-Symbologie, Coverage-AA | [modules-f16.md](aircraft/f16.md) |
+| Cockpit-Displays | **nicht begonnen** — die Werte liegen auf dem Bus, die Darstellung fehlt | [clients/clients.md](clients/clients.md) |
+| HOTAS | **nicht begonnen** — bewusst zuletzt, ist nur ein Mapping | [clients/clients.md](clients/clients.md) |
 
 ## Chronologie
 
@@ -135,3 +144,23 @@ ist Warnung und Prüfmuster zugleich.
 | **Zombie-Zustand** | Ein detonierter Flugkörper strahlte 74 s nach seiner Detonation weiter. `Retire()` leert jetzt die Signatur. |
 | **Falsche Regelgröße** | Ein reiner P-Regler gegen eine Rampe (die Kanonenlösung gegen einen kurvenden Gegner) parkt bei Rampenrate × Zeitkonstante. Ein Punktregler gegen eine Bahn hat stationären Querversatz. Beides ist Regelungstyp, nicht Tuning. |
 | **Veraltete Dokumentation im Datenfile** | Zwei Missionsköpfe dokumentierten noch „endet im Timeout", nachdem beide Läufe zu Abschüssen geworden waren. Der Kopf trägt die Leseregel und muss mitgeführt werden. |
+
+### Documentation: the spec-driven restructuring (27.07.)
+
+**What it built.** `doc/flightbox/` moved from "one file per subsystem plus a central TODO" to a
+spec-driven shape: every topic file now carries `## Spec` / `## State` / `## Gaps` / `## Knowledge`,
+grouped into `sim/`, `aircraft/`, `render/`, `clients/`. New: `vision.md` (the direction),
+`roadmap.md` (R1–R10, thin, pointing at the Spec each stage must satisfy), `aircraft/mig29.md` and
+`render/units-visual.md` (both spec-only, nothing built), `aircraft/stores.md`,
+`clients/clients.md`. `PROGRESS.md` became this file; `TODO.md` dissolved into the Gaps sections of
+the files it belonged to, plus `roadmap.md`/`vision.md`. `render/rendering.md` split into
+`renderer.md` + `hud.md` + `clouds.md` (whose Spec is the owner-approved rebuild, including the
+cirrus layer) + `units-visual.md`.
+
+**Rule change.** The maintenance obligation is now spec-first: change the Spec, build until State
+meets it, then update State/Gaps and add a line here (`conventions.md`). There is no second list of
+open work any more.
+
+**Not done.** Existing bodies stay German for now (each file says so); the translation wave plus the
+schema alignment of `doc/f16/` and `doc/mig29/` is roadmap R10. `world-and-terrain.md` stays at its
+old path until the `/wx` round lands, then splits into `world/terrain.md` + `world/weather.md`.

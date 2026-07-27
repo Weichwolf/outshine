@@ -753,7 +753,7 @@ Querruderautorität (`Clda`, §6.7) die Grenze.
 
 ### 8.3 Weitere belegte Messungen
 
-Alle aus `doc/flightbox/pilot-ai.md` bzw. `modules-f16.md`, dort mit ihren Läufen belegt `[DOC]`:
+Alle aus `doc/flightbox/sim/pilot-ai.md` bzw. `doc/flightbox/aircraft/f16.md`, dort mit ihren Läufen belegt `[DOC]`:
 
 | Größe | Wert | Herkunft |
 |---|---|---|
@@ -910,7 +910,7 @@ Abschnitt zwingend woher kommen MUSS, steht hier:
 | 1.2 | **Modell-Delta** | Byte-Diff gegen das gepinnte Submodul; jede Abweichung benannt | **Messung** (`diff -rq`) |
 | 2 | **Geometrie** | jedes `<metrics>`-Element mit Wert und Verbraucher; Achsenkonvention aus den Koordinaten ABLEITEN, nicht annehmen | **Modell-XML** + `[ABL]` |
 | 3 | **Masse/Trägheit** | alle Trägheiten inkl. Vorzeichenkonvention; jede `<pointmass>`; jeder Tank mit Ort/Kapazität/Vorbelegung; **Reihenfolge der Entleerung** | **Modell-XML** + **JSBSim-Quelltext** (Konvention, Feed-Logik) |
-| 4 | **Bodenkontakte** | jede Strebe: Ort, Feder, Dämpfung, Reibung, Lenkwinkel, Bremsgruppe; jeder Strukturpunkt; **ausdrücklich: ob es eine Bruchlast gibt** (in JSBSim: nein) | **Modell-XML**; die Schranken des Physik-Monitors aus **`doc/flightbox/core.md`**, nie erfinden |
+| 4 | **Bodenkontakte** | jede Strebe: Ort, Feder, Dämpfung, Reibung, Lenkwinkel, Bremsgruppe; jeder Strukturpunkt; **ausdrücklich: ob es eine Bruchlast gibt** (in JSBSim: nein) | **Modell-XML**; die Schranken des Physik-Monitors aus **`doc/flightbox/sim/core.md`**, nie erfinden |
 | 4.4 | **External Reactions** | jede deklarierte Kraft + **wer sie treibt** (Grep-Beleg, wenn niemand) | **Messung** (Grep) |
 | 5 | **Antrieb** | Skalare; jede Schubtabelle mit Achsen, Rasterbereich und **Klemmverhalten an den Rändern**; Spool-Gesetz; **die Throttle→Schub-Abbildung explizit** | **Modell-XML** + **JSBSim-Quelltext** (Spool-Defaults, AugMethod, Verbrauchsgesetz) |
 | 6 | **Aerodynamik** | Zähl-Übersicht (Funktionen/Tabellen je Achse); **das Stützstellenraster EINMAL zentral**; je Funktion: unabhängige Variablen, Stellgröße, Kernzahlen an den Rändern und am Extremum; Vorzeichenwechsel benennen | **Modell-XML**, ausschließlich. Physikalische Deutung als `[ABL]` markieren |

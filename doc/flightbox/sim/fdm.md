@@ -1,5 +1,7 @@
 # FDM-Adapter — `sim/src/fdm/`
 
+> Body still in German — translation pass pending (see [roadmap](../roadmap.md)).
+
 **Quellen dieser Datei:** die Kommentar-Banner der sieben Dateien in `sim/src/fdm/`
 (`FBFdm.h`, `FBFdm.cpp`, `FBFdmBoot.h`, `FBFdmBoot.cpp`, `FBFdmTelemetrySource.h/.cpp`, `em_compat.h`),
 `sim/src/app/FBTestTwoFdm.cpp` (der Koexistenz-Beweis), `sim/src/core/FBDamageModel.h` (die
@@ -12,7 +14,76 @@ eine Klasse; niemand sieht `FGFDMExec`.
 
 ---
 
-## 1. Dateien
+## Spec
+
+The **only** seam between FlightBox and the pinned JSBSim engine. Everything above it sees a flat POD
+plus one class; nobody sees `FGFDMExec`.
+
+| Contract | Acceptance / measurement anchor |
+|---|---|
+| One translation unit includes JSBSim headers | `FBFdm.cpp`, and nothing else |
+| An `FBFdm` is one aircraft — instance-capable, no static mutable globals | `make -C sim test-fdm` → two coexisting FDMs with independent physics |
+| Initial conditions are structurally sealed off | loading constructor private, single friend `FBFdmBoot`, no re-init/reset; only `app/` files name `FBFdmBoot.h` |
+| Borrowed handles cannot cheat | every command method non-const, every readback const |
+| The pinned model is the truth; a copy may deviate only as a declared delta | `make -C sim verify-models` green (`../build-and-ops.md`) |
+| Carriage and damage act through model-owned JSBSim APIs, never by patching model XML | point masses + a named `fb-stores` external force; `fb-damage` force, throttle cap/cutoff, control authority |
+| Neutral until something happens | a clean, undamaged jet computes bit-identically to one that never heard of stores or damage (measured) |
+
+## State
+
+Built and closed. Seven files.
+
+| Piece | Status | Anchor |
+|---|---|---|
+| Instance-capable adapter, pimpl, no globals | built | `c1bc9de` |
+| IC lockdown (`FBFdmBoot`) | built | `c08a168` |
+| Stores carriage: point masses + external force | built | `b62c769` |
+| Damage channels: control authority, throttle cap, drag | built | `6d84647` |
+| Single model root + delta rule | built | model-root round (see `../journal.md`) |
+| `FBFdmTelemetrySource` (raw FDM pose) | built | `e4d7c26` |
+
+Regression evidence for the last change: 121/121 telemetry files byte-identical over 50 missions, all
+seven harnesses rc=0, corner speed unchanged at 380 KCAS / 16.2214 °/s.
+
+## Gaps
+
+### Contradictions between claim and code (from the retired `TODO.md` §1)
+
+| Place | Contradiction |
+|---|---|
+| `fdm/FBFdm` | count of process-wide JSBSim state: `CLAUDE.md` says three, `FBFdm.cpp` lists four. The code is authoritative. |
+
+### Inventory (German, from the previous `Offene Punkte` section)
+
+- **Widerspruch in der Zahl der prozessweiten JSBSim-Dinge.** CLAUDE.md sagt „die drei in `FBFdm.cpp`
+  dokumentierten Dinge", `FBFdm.cpp` listet **vier** Punkte (debug_lvl, Logger, `Element::convert`,
+  `JSBSIM_*`-Env). Die Liste in `FBFdm.cpp` ist die maßgebliche. Der vierte Punkt ist streng genommen
+  kein eigener Zustand, sondern ein Schreiber auf den ersten — vermutlich die Quelle des
+  Zählunterschieds. (Die abweichende Zwei-Behauptung im `FBFdm.h`-Banner ist mit der Kommentar-Runde
+  entfallen, ebenso dessen veraltetes Ownership-Banner.)
+- **`GetGroundClearanceM` bei `gearDown=false`** überspringt einziehbare Kontakte, aber nicht solche,
+  die zwar `ctSTRUCTURE` sind und trotzdem einziehbar deklariert wurden — Konsequenz für Modelle mit
+  ungewöhnlicher Kontaktdeklaration ist nicht geprüft.
+- **`GetGearPos`/`GetSpeedbrakePos` klemmen nicht**: sie geben die Modell-Property roh weiter. Ein
+  Modell, das außerhalb [0,1] fährt, würde das nach oben durchreichen. Bisher kein Fall.
+- **Es gibt keinen Readback für `Authority`/`ThrottleMax`/`DamageCdA`.** Die Schadenswirkung ist damit
+  nur über ihre Folgen (Telemetrie/Verhalten) beobachtbar, nicht direkt. `core/FBSystemHealth`s
+  `dmg_*`-Spalten decken den ZUSTAND ab, nicht den angewandten Faktor.
+- **Es gibt keinen Readback für `ElevTrim`.** Der Trimm-Bias ist nur im `loaded`-Logeintrag sichtbar,
+  danach nicht mehr abfragbar.
+- **`SetStoresDrag` mit `cdaFt2 <= 0` NACH einmaliger Anlage** setzt die Magnitude auf 0, entfernt die
+  Kraft aber nicht (JSBSims `FGExternalReactions` kennt kein Entfernen). Dokumentiert wirkungsgleich,
+  aber die Kraft bleibt in der Modellstruktur bestehen.
+- **Ungeprüft in dieser Runde:** die konkreten Aufrufer der Tank-Setter (`FBModule::ApplySetup`-Keys
+  `fuel_lbs`/`fuel_pct`) wurden nicht gelesen; die Schlüsselnamen stammen aus dem `FBFdm.h`-Banner und
+  aus CLAUDE.md, nicht aus `doc/mission-format.md`.
+
+
+## Knowledge
+
+Derivations, formulas and measured constants — the distilled body of this file.
+
+### 1. Dateien
 
 | Datei | Rolle |
 |---|---|
@@ -25,7 +96,7 @@ eine Klasse; niemand sieht `FGFDMExec`.
 
 ---
 
-## 2. Die Ein-TU-Naht
+### 2. Die Ein-TU-Naht
 
 **Vertrag.** `FBFdm.cpp` ist die einzige Übersetzungseinheit im ganzen Baum, die einen JSBSim-Header
 inkludiert. Jeder Aufrufer (jedes Modul, jedes System, jede Telemetriequelle, jeder Client) sieht
@@ -49,7 +120,7 @@ lesen.
 | Die Liste aller berührten JSBSim-Properties ist endlich und steht im Header | `FBFdm.h` nennt zu jeder Methode die Property, die sie schreibt/liest. |
 | Exceptions bleiben lokal | Die Firewall (§7) sitzt in dieser TU; darüber gibt es nur `bool` und `Faulted()`. |
 
-### `fb_fdm_state` — Felder und Einheiten
+#### `fb_fdm_state` — Felder und Einheiten
 
 | Feld | Einheit | JSBSim-Property |
 |---|---|---|
@@ -72,7 +143,7 @@ in NED/ENU um und sagt das im Kommentar.
 
 ---
 
-## 3. Instanzfähigkeit
+### 3. Instanzfähigkeit
 
 **Vertrag.** `FBFdm` ist EIN simuliertes Flugzeug. Beliebig viele Objekte koexistieren im selben Prozess
 mit unabhängiger Physik; jede `FGFDMExec(nullptr)` allokiert ihren **eigenen** `SGPropertyNode`-Root und
@@ -90,7 +161,7 @@ behauptet drei Dinge und prüft sie:
 Exit 0 = bewiesen, 1 = nicht unabhängig, 2 = Setup-Fehler. Kein Threading, keine Unit-Liste: diese Stufe
 beweist nur Instanzfähigkeit.
 
-### Was in JSBSim SELBST prozessweit bleibt
+#### Was in JSBSim SELBST prozessweit bleibt
 
 Verifiziert gegen `vendor/jsbsim` am gepinnten Commit; im Banner von `FBFdm.cpp` dokumentiert. **Vier
 Punkte**, keiner davon trägt Physikzustand:
@@ -109,7 +180,7 @@ dem einen `FGFDMExec`-Root seiner Instanz und wird nie geteilt.
 
 ---
 
-## 4. Ownership
+### 4. Ownership
 
 | Rolle | Handle | Regel |
 |---|---|---|
@@ -134,7 +205,7 @@ Das Modul besitzt nie eine Zelle und kann keine erzeugen — es kann nicht: die 
 
 ---
 
-## 5. IC-Abschottung
+### 5. IC-Abschottung
 
 **Struktur, nicht Konvention:**
 
@@ -153,7 +224,7 @@ leer zu sein**: der Compiler erzwingt es, weil der Konstruktor privat ist.
 Zweite Stufe derselben Schranke: ein `units/FBSimUnit` lässt sich nur aus einer bereits gespawnten
 `FBFdm` bauen — also ist `FBMissionBoot.h` auch der einzige Produzent eines vollständigen Akteurs.
 
-### `FBFdmSpawn` — die IC als Daten
+#### `FBFdmSpawn` — die IC als Daten
 
 | Feld | Bedeutung |
 |---|---|
@@ -173,7 +244,7 @@ kein Re-Init danach.
 
 ---
 
-## 6. Der Ladeablauf (`LoadUnguarded`)
+### 6. Der Ladeablauf (`LoadUnguarded`)
 
 Schritt für Schritt, weil jeder Schritt eine Begründung trägt:
 
@@ -217,7 +288,7 @@ Schritt für Schritt, weil jeder Schritt eine Begründung trägt:
 
 ---
 
-## 7. Schritt, Exception-Firewall, `Faulted()`
+### 7. Schritt, Exception-Firewall, `Faulted()`
 
 `static constexpr double FBFdm::kStepS = 0.01` — **100 Hz**, die EINE Definition dieser Rate. Der
 Substep-Akkumulator des Moduls und die Test-Harnesses lesen sie hier, statt `0.01` zu wiederholen.
@@ -248,7 +319,7 @@ Aufrufer liest einen eingefrorenen aber ENDLICHEN Zustand. Der App-seitige Richt
 
 ---
 
-## 8. Kommandokanäle
+### 8. Kommandokanäle
 
 Der einzige Weg, auf dem irgendetwas über dieser Klasse die Physik beeinflusst (die simulierte
 Steuerfläche — CLAUDE.md „Kein Cheaten").
@@ -263,7 +334,7 @@ Steuerfläche — CLAUDE.md „Kein Cheaten").
 | `EngineStart()` | `propulsion/cutoff_cmd`=0, `starter_cmd`=1 | propulsions-weit (`FGPropulsion::SetStarter/SetCutoff` gelten default für ALLE Triebwerke) |
 | `EngineCutoff()` | `starter_cmd`=0, `cutoff_cmd`=1 | dito |
 
-### Drei Eigenheiten in `SetControls`
+#### Drei Eigenheiten in `SetControls`
 
 1. **Schadenswirkung sitzt HIER**, zwischen kommandierendem System und Physik: `roll/pitch/yaw`
    werden mit `Authority` skaliert, `thr` auf `ThrottleMax` gedeckelt. Beide sind 1.0 auf einer
@@ -277,7 +348,7 @@ Steuerfläche — CLAUDE.md „Kein Cheaten").
 
 ---
 
-## 9. Außenlasten (Carriage)
+### 9. Außenlasten (Carriage)
 
 Zwei Mechanismen, **beide modell-eigen**, beide zur LAUFZEIT bestückt statt per Modell-XML-Patch —
 `vendor/jsbsim` bleibt read-only (Prinzip 1), und kein Modell bekommt eine Station, die es nicht hatte.
@@ -312,7 +383,7 @@ Kraft **nie angelegt** — eine saubere Zelle ist bit-identisch zu einer, die ni
 
 ---
 
-## 10. Schadenskanäle
+### 10. Schadenskanäle
 
 Drei Konsequenzen, die eine aufgelöste Detonation auf eine Zelle haben kann (`core/FBDamageModel` nennt
 die Werte und ihre Begründung), jede über einen Mechanismus, den JSBSim bereits hat. Gesetzt werden sie
@@ -336,7 +407,7 @@ Flugmodell.
 
 ---
 
-## 11. Tank-Verdrahtung
+### 11. Tank-Verdrahtung
 
 Generisch über `FGPropulsion`s eigenes Tankinventar — enumeriert nach Index, nimmt nie an, wie viele
 Tanks eine `aircraft.xml` deklariert.
@@ -354,7 +425,7 @@ kommen die Werte aus `set fuel_lbs` / `set fuel_pct` über `FBModule::ApplySetup
 
 ---
 
-## 12. Readbacks
+### 12. Readbacks
 
 Alle const — deshalb ist `const FBFdm&` ein echtes Nur-Lese-Handle.
 
@@ -374,7 +445,7 @@ Alle const — deshalb ist `const FBFdm&` ein echtes Nur-Lese-Handle.
 
 ---
 
-## 13. `FBFdmTelemetrySource`
+### 13. `FBFdmTelemetrySource`
 
 Sitzt an der **Adapter-Naht**, nicht im Modul: `fb_fdm_state` ist das POD des FDM, und die einzigen
 Zusatzeingaben sind die Zelle selbst und eine geborgte Boden-ASL — kein Modulzustand ist beteiligt. Alle
@@ -399,7 +470,7 @@ Trace eines Laufs denselben Header, gleich welche Art Einheit sie erzeugt hat.
 
 ---
 
-## 14. Namensraum, `extern "C"`, Build-Shim
+### 14. Namensraum, `extern "C"`, Build-Shim
 
 **`namespace FlightBox` wie der Rest des Baums — kein `extern "C"`.** Die C-Linkage war für die längst
 gelöschte `xp_bridge.c` der Vor-Pivot-Architektur da. Heute ruft niemand den Adapter aus C oder aus JS:
@@ -413,30 +484,3 @@ JSBSim-Quellen, damit das Submodul bit-vanilla bleibt. Inhalt: emscripten defini
 `simgear/misc/strutils.cxx` den `_GNU_SOURCE`-Zweig nimmt und `std::string(strerror_r(...))` schreibt,
 also den GNU-`char*`-Rückgabewert erwartet. Der Wrapper liefert den Puffer zurück; er wird VOR dem Makro
 definiert, damit sein eigener Aufruf die echte libc-Funktion erreicht (keine Rekursion).
-
----
-
-## Offene Punkte
-
-- **Widerspruch in der Zahl der prozessweiten JSBSim-Dinge.** CLAUDE.md sagt „die drei in `FBFdm.cpp`
-  dokumentierten Dinge", `FBFdm.cpp` listet **vier** Punkte (debug_lvl, Logger, `Element::convert`,
-  `JSBSIM_*`-Env). Die Liste in `FBFdm.cpp` ist die maßgebliche. Der vierte Punkt ist streng genommen
-  kein eigener Zustand, sondern ein Schreiber auf den ersten — vermutlich die Quelle des
-  Zählunterschieds. (Die abweichende Zwei-Behauptung im `FBFdm.h`-Banner ist mit der Kommentar-Runde
-  entfallen, ebenso dessen veraltetes Ownership-Banner.)
-- **`GetGroundClearanceM` bei `gearDown=false`** überspringt einziehbare Kontakte, aber nicht solche,
-  die zwar `ctSTRUCTURE` sind und trotzdem einziehbar deklariert wurden — Konsequenz für Modelle mit
-  ungewöhnlicher Kontaktdeklaration ist nicht geprüft.
-- **`GetGearPos`/`GetSpeedbrakePos` klemmen nicht**: sie geben die Modell-Property roh weiter. Ein
-  Modell, das außerhalb [0,1] fährt, würde das nach oben durchreichen. Bisher kein Fall.
-- **Es gibt keinen Readback für `Authority`/`ThrottleMax`/`DamageCdA`.** Die Schadenswirkung ist damit
-  nur über ihre Folgen (Telemetrie/Verhalten) beobachtbar, nicht direkt. `core/FBSystemHealth`s
-  `dmg_*`-Spalten decken den ZUSTAND ab, nicht den angewandten Faktor.
-- **Es gibt keinen Readback für `ElevTrim`.** Der Trimm-Bias ist nur im `loaded`-Logeintrag sichtbar,
-  danach nicht mehr abfragbar.
-- **`SetStoresDrag` mit `cdaFt2 <= 0` NACH einmaliger Anlage** setzt die Magnitude auf 0, entfernt die
-  Kraft aber nicht (JSBSims `FGExternalReactions` kennt kein Entfernen). Dokumentiert wirkungsgleich,
-  aber die Kraft bleibt in der Modellstruktur bestehen.
-- **Ungeprüft in dieser Runde:** die konkreten Aufrufer der Tank-Setter (`FBModule::ApplySetup`-Keys
-  `fuel_lbs`/`fuel_pct`) wurden nicht gelesen; die Schlüsselnamen stammen aus dem `FBFdm.h`-Banner und
-  aus CLAUDE.md, nicht aus `doc/mission-format.md`.

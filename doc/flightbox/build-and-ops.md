@@ -1,13 +1,53 @@
 # Build, Gates und Betrieb
 
+> Body still in German — translation pass pending (see [roadmap](roadmap.md)).
+
 Rezepte leben im Makefile, nicht in Agenten-Köpfen. Diese Datei sagt, welches Target es gibt, was ein
 Beweis ist, und was auf diesem Rechner besonders ist.
 
-## Make-Targets
+## Spec
+
+What a proof is, and what has to hold before a change counts as verified.
+
+| Gate | Must hold |
+|---|---|
+| Warnings = errors | all targets clean under `-Wall -Wextra -Wpedantic` |
+| `nm` gate | `build/fb-gym` contains zero Dawn/WebGPU symbols |
+| Harnesses | all seven test binaries rc=0 |
+| Frame proof | build-effective changes need a rendered frame **or** a numerical measurement |
+| Regression | telemetry of all `sim/missions/*.fbm` byte-compared; every deviation justified individually, every verdict change separately |
+| Determinism | `--threads 1/2/4` × repetitions produce a single signature |
+| WASM | `make -C sim wasm` builds and the app boots in the browser — the one client used daily |
+| Model deltas | `make -C sim verify-models` green: every copy deviates from the pinned upstream by EXACTLY the entries in `sim/assets/MODEL-DELTAS.md` |
+| vendor read-only | `sim/vendor/jsbsim` is never modified; only the COPY changes, and then as a named delta |
+
+Two rules about how measuring is done at all: accepted properties of the vanilla JSBSim F-16 are the
+truth and not defects (`CLAUDE.md` principle 5), and measurements run through the **mission control
+loop** (telemetry), never through single observations.
+
+Recipes live in the Makefile, not in agents' heads.
+
+## State
+
+All gates exist and are runnable today; the delta gate is the newest and was proven in four failure
+directions (see the German detail below and [`journal.md`](journal.md)).
+
+## Gaps
+
+| Thing | Where it is tracked |
+|---|---|
+| The mission control loop effectively runs on `const`/`swiss` elevation because `payerne-full` crashes under `--elev tiles` | [`clients/clients.md`](clients/clients.md) |
+| The delta entry format is untested for a multi-file delta or a new file (diff against `/dev/null`) | [`aircraft/stores.md`](aircraft/stores.md) |
+
+## Knowledge
+
+Targets, gates and host facts in full.
+
+### Make-Targets
 
 Jedes Projekt trägt sein eigenes Makefile.
 
-### `sim/`
+#### `sim/`
 
 | Target | Ergebnis |
 |---|---|
@@ -27,11 +67,11 @@ Jedes Projekt trägt sein eigenes Makefile.
 Fehlt der Tile-Worker, hängt die WASM-App still beim Start (404 im Worker). Deshalb die feste
 Abhängigkeit statt zweier getrennt zu merkender Targets.
 
-### `tiles/`
+#### `tiles/`
 
 `build` | `image` | `run`
 
-## Gates
+### Gates
 
 Eine Änderung gilt erst als verifiziert, wenn sie diese Prüfungen besteht.
 
@@ -47,7 +87,7 @@ Eine Änderung gilt erst als verifiziert, wenn sie diese Prüfungen besteht.
 | **Modell-Deltas** | `make -C sim verify-models` grün: jede Kopie unter `sim/assets/aircraft` weicht vom gepinnten Upstream um EXAKT die Einträge in `sim/assets/MODEL-DELTAS.md` ab |
 | **vendor read-only** | `sim/vendor/jsbsim` wird nie geändert — Engine wie Modelle. Geändert wird höchstens die KOPIE, und dann als benannter Delta-Eintrag |
 
-### Der Delta-Gate im Detail
+#### Der Delta-Gate im Detail
 
 `verify-models` rechnet je Datei den kanonischen Unified-Diff (`difflib`, 3 Zeilen Kontext) zwischen
 Upstream und Kopie und vergleicht ihn zeichenweise mit dem Diff-Block des zugehörigen Eintrags. Es
@@ -68,14 +108,14 @@ Das Target ist bewusst KEINE Voraussetzung der Build-Targets: es hat nur etwas z
 unter `assets/aircraft` oder im Submodul sich ändert, und dafür einen Python-Interpreter auf den
 kritischen Pfad jedes C++-Compiles zu legen wäre der falsche Tausch.
 
-## Mess-Disziplin
+### Mess-Disziplin
 
 - Akzeptierte Modell-Eigenschaften der vanilla JSBSim-F-16 sind die Wahrheit, keine Defekte
   (CLAUDE.md, Prinzip 5).
 - Messungen laufen über den **Missions-Regelkreis** (Telemetrie), nicht über Einzelbeobachtungen.
 - Ziel-GPU-Fähigkeiten: `doc/webgl-webgpu-report.txt`.
 
-## Der Missions-Regelkreis
+### Der Missions-Regelkreis
 
 Die Arbeitsweise für alles, was Piloten-KI oder Systemverhalten betrifft:
 
@@ -107,7 +147,7 @@ Ausgabe je Lauf in `--out/`:
 | `telemetry_<callsign>.csv` | je weitere Einheit |
 | `events.log` | `t=SEK EVENT key=val`, greppbar |
 
-## Host und Betrieb (dieser Rechner)
+### Host und Betrieb (dieser Rechner)
 
 Kein verstecktes Agenten-Memory — alles Betriebswissen steht hier.
 

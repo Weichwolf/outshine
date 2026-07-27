@@ -1,6 +1,37 @@
 # Konventionen
 
+> Body still in German — translation pass pending (see [roadmap](roadmap.md)). The working rule below
+> is normative and in English.
+
 Sprache, Namen, Struktur, und was nie im Code stehen darf.
+
+## The working rule (spec first)
+
+This documentation is **spec-driven**: every topic file carries the same four sections, and they have
+different owners in time.
+
+| Section | Content | Changes when |
+|---|---|---|
+| `## Spec` | the contract: what the thing must be able to do, acceptance criteria, measurement anchors | only by **decision** — never by building |
+| `## State` | what is built, with commit and measurement. Honest, including "nothing" | when a round lands |
+| `## Gaps` | the difference Spec − State, ordered by value, **including rejected approaches with their measurements** | when a round lands |
+| `## Knowledge` | derivations, formulas, measured constants | when something is derived or measured |
+
+A round that intends to change behaviour therefore runs like this:
+
+1. **Change the Spec of its topic file first.** If the round cannot say what the contract becomes, it
+   is not ready to start. A Spec change is a decision and is made as one.
+2. **Build until State meets Spec** — measured against the Spec's own anchors, not against a feeling.
+   Measurements beat inspection; the mission control loop ([`build-and-ops.md`](build-and-ops.md)) is
+   how a claim about behaviour gets settled.
+3. **Update State and Gaps, and add one line to [`journal.md`](journal.md)** (commit, what it built,
+   what it measured).
+4. **Rejected approaches stay in Gaps** — with their measurements. A measured failure is knowledge;
+   deleting it means someone re-runs the experiment.
+
+Two consequences worth stating: there is no second list of open work anywhere (no `TODO.md`, no
+trailing "offene Punkte" per file — Gaps is the one place), and `CLAUDE.md` is touched only when a
+session-start fact changed, kept under 100 lines.
 
 ## Sprache
 
@@ -61,10 +92,10 @@ Was dieses Projekt zusätzlich verlangt: **jede Zahl trägt ihre Herkunft.** Ein
 
 Eine Zahl ohne eine dieser drei Angaben ist ein Defekt.
 
-> **Offene Entscheidung.** Der Bestand trägt diese Herleitungen als 15–25-zeilige Banner direkt im
-> Quellcode. Die Herleitungen selbst sind das wertvollste Wissen im Baum und unstrittig; strittig ist
-> ihr ORT. Kandidat: Herleitung nach `doc/flightbox/`, im Code eine Zeile Verweis. Siehe
-> [TODO.md](TODO.md).
+> **Entschieden und umgesetzt** (roadmap R1, commit `f77f1cf`): the derivations live HERE — in the
+> `## Knowledge` section of the topic file — and the code carries a one-liner plus a reference. The
+> proof that no behaviour changed is the unchanged `sim/tools/strip_comments.py` hash. Der Bestand trug
+> diese Herleitungen zuvor als 15–25-zeilige Banner direkt im Quellcode.
 
 ## Struktur
 

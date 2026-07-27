@@ -1,18 +1,95 @@
 # Welt-Entitäten und Missions-Kern — `units/`, `app/FBMission*`, `modules/FBModule*`
 
+> Body still in German — translation pass pending (see [roadmap](../roadmap.md)).
+
 **Quellen dieser Datei:** die Kommentar-Banner von `sim/src/units/` (`FBUnit.h`, `FBSimUnit.h/.cpp`,
 `FBUnitRegistry.h`), `sim/src/app/FBMissionRunner.h/.cpp`, `sim/src/app/FBMissionBoot.h`,
 `sim/src/app/FBTickPool.h/.cpp`, `sim/src/app/FBModelRoots.h`, `sim/src/app/FBLogSinks.h`,
 `sim/src/modules/FBModule.h`, `sim/src/modules/FBModuleRegistry.h/.cpp`, plus CLAUDE.md für die
 Etappen-Historie und die Messzahlen. Das Missionsdateiformat selbst steht in
-[`doc/mission-format.md`](../mission-format.md) und wird hier **nicht** wiederholt — nur referenziert.
+[`doc/mission-format.md`](../../mission-format.md) und wird hier **nicht** wiederholt — nur referenziert.
 
 Gegenstand: was eine simulierte Einheit IST, wer sie besitzt, wer sie sehen darf, und die vier Schritte,
 mit denen der Orchestrator aus einer Textdatei einen Lauf mit Urteil macht.
 
 ---
 
-## 1. Dateien
+## Spec
+
+What a simulated unit **is**, who owns it, who may see it, and the four steps that turn a text file
+into a run with a verdict.
+
+| Contract | Acceptance / measurement anchor |
+|---|---|
+| An actor is ONE object owning its FDM and its module | `units/FBSimUnit`; the registry hands out borrowed `const FBUnit*` only |
+| The mission runner is a pure orchestrator — four steps, no mission knowledge in code | `FBMissionRunner.cpp` includes no concrete module header; `module <name>` resolves through the registry |
+| Spawn is declarative data, one IC application, ground or air | `FBMissionBoot.h::FBMissionSpawnActor`; no separate ground/air code paths |
+| Cross-unit reads see the last COMPLETED tick | `PublishPose` barrier after all `Run()`s — tick order cannot influence a result |
+| The verdict is per actor; the runner only combines | one `UNIT_RESULT` line per actor; an expected loss (a declared `kill` objective of another unit) does not decide the run |
+| Determinism is independent of thread count | identical fingerprint (SHA-256 over all `telemetry*.csv` + normalised `events.log` + exit code) over `--threads 1..4` × 5 repetitions |
+| A dropped store grows the actor list at exactly one place, at the END of the tick | `FBMissionSpawnStore`; nothing is allocated in the tick path |
+
+## State
+
+Built through stage 4 (threading) plus the store-spawn path; stages 5–8 are covered in
+`sensors.md`, `pilot-ai.md` and `core.md`.
+
+| Stage | What it built | Anchor |
+|---|---|---|
+| 1 | FDM instance-capable | `c1bc9de` |
+| 2 | the actor is one object | `c08a168` |
+| 3 | the flight is mission data — two jets fly | `2c03704` |
+| 4 | thread per unit in the gym, lockstep barrier, bit-identical | `6d7ed5a` |
+| — | four-step orchestrator, declarative spawn, mission monitor | `92fe8a4` |
+| — | store spawn as a full unit (own FDM, own module, own telemetry) | `b62c769` |
+
+Measured scaling, honestly: 2 units 1.29–1.41× at 2 threads, 4 units 1.49/1.53/1.77× at 2/3/4 threads
+on an A18 Pro; the ceiling is the machine, not the barrier (two independent `fb-gym` processes scale
+just as badly).
+
+## Gaps
+
+### Contradictions between claim and code (from the retired `TODO.md` §1)
+
+| Place | Contradiction |
+|---|---|
+| `FBMissionRunner.h` | docstring omits `LOC` (shares exit code 2 with `Crash`) and still speaks of a single module; the detonation banner claims "what a hit DOES is deliberately not modelled" directly above the `ResolveBurst` call that does exactly that |
+
+### Inventory (German, from the previous `Offene Punkte` section)
+
+- **Erledigt (Kommentar-Runde):** die vier veralteten Banner-Aussagen in `FBUnit.h` („planned per-unit
+  threading"), `FBUnitRegistry.h` („heute Datalink, morgen das Radar"), `FBSimUnit.h` (`GetSignature`
+  „heute sein Datalink-Sender") und `FBModule.h` (`AttachFdm`, „`units/FBUnit` later") sind mit den
+  Bannern selbst entfallen; ebenso `FBSimUnit.h`s Zählwiderspruch „exactly the six places", an denen ein
+  fehlendes Airframe zählt.
+- **`FBMissionRunner.h`s Docstring ist unvollständig:** „Returns 0/1/2/3 = Success/Fail/Crash/Timeout"
+  nennt `LOC` nicht, das sich Code 2 mit `Crash` teilt (im `FBMissionResult`-Banner korrekt erklärt).
+  Ebenso beschreibt derselbe Docstring `FBRunMission` noch als „Ground-spawns `missionPath`'s module" —
+  Einzahl, obwohl es längst eine Besetzung ist.
+- **Der Detonations-Banner ist überholt:** „What a hit DOES is deliberately not modelled yet — this is
+  the event, not a damage verdict" steht unmittelbar vor dem `ResolveBurst`-Aufruf, der genau das tut.
+- **`FBUnitRegistry` hat kein `Unregister`.** Eine retirierte Einheit bleibt registriert (sie verstummt
+  nur). Jeder Sensor muss also selbst mit stillen Einträgen umgehen; ob jeder das tut, wurde in dieser
+  Runde nicht geprüft.
+- **Kein Cross-Check der WASM-Schleife.** `app/FBAppWasm.cpp` ruft nachweislich `PublishPose`,
+  `RunMonitors`, `PrimeState` und `FBWorld::SetUnits`, aber ob sie die Phasenreihenfolge des Runners
+  exakt spiegelt (insbesondere Elevation vor STEP, Roster-Aufbau), wurde nicht Zeile für Zeile
+  verglichen.
+- **`FirstFlightKo`/`ExpectedLoss`/`FirstJudged` sind O(N²) über die Akteursliste** und laufen in der
+  Schleifenbedingung, also mehrfach pro Tick. Bei den heutigen Besetzungsgrößen (< 10) irrelevant,
+  aber nicht dokumentiert als Grenze.
+- **Etappe 7 fehlt in der Historie.** CLAUDE.md nennt Etappen 1–6 und 8; eine 7 wird nirgends erwähnt.
+  Ob sie übersprungen oder aufgegangen ist, geht aus keiner Quelle hervor.
+- **`--elev`-Defaults, Turnierläufer, `.fbm`-Syntax** sind hier bewusst nicht wiederholt — sie stehen in
+  [`doc/mission-format.md`](../../mission-format.md) bzw. gehören in die Nachbardateien dieser
+  Wissensbasis (Elevation-Hook, Piloten-Varianten).
+
+
+## Knowledge
+
+Derivations, formulas and measured constants — the distilled body of this file.
+
+### 1. Dateien
 
 | Datei | Rolle |
 |---|---|
@@ -28,7 +105,7 @@ mit denen der Orchestrator aus einer Textdatei einen Lauf mit Urteil macht.
 
 ---
 
-## 2. `FBUnit` — die Basisschnittstelle
+### 2. `FBUnit` — die Basisschnittstelle
 
 Jede Welt-Entität, steuerbar oder nicht. Pilot, Sensoren und Waffen fragen Einheiten **durch diese
 Schnittstelle** ab, nie über den konkreten Typ — heute Ownship + KI-Jets + Stores + Bodenziele, morgen
@@ -47,7 +124,7 @@ nie eine duplizierte Kopie, die auseinanderdriften kann.
 | `SpeedMs` | TAS/Groundspeed, wie der Unit-Typ es definiert |
 | `HeadingDeg` | Bodenkurs, rechtweisend, 0..360 |
 
-### `FBUnitKind` — und was die Unterscheidung genau bewirkt
+#### `FBUnitKind` — und was die Unterscheidung genau bewirkt
 
 | Kind | Was gleich bleibt | Was UNTERSCHIEDLICH ist (und warum es dem BESITZER gehört) |
 |---|---|---|
@@ -57,7 +134,7 @@ nie eine duplizierte Kopie, die auseinanderdriften kann.
 
 Genau an `Ground` hängt die EINE Ausnahme in `FBSimUnit`: das Airframe ist optional (§3).
 
-### `FBUnitSignature` — was fremde Sensoren wahrnehmen dürfen
+#### `FBUnitSignature` — was fremde Sensoren wahrnehmen dürfen
 
 Der Teil des Systemzustands, den ein anderer Sensor **legitim** bemerken darf. Publiziert an derselben
 Barriere wie die Pose (§4) — kein Empfänger liest je einen halben Tick.
@@ -85,12 +162,12 @@ selbst**), `world` die Terrain-Seite daneben. Beide geborgt, beide dürfen in ei
 
 ---
 
-## 3. `FBSimUnit` — eine simulierte Einheit, ganz
+### 3. `FBSimUnit` — eine simulierte Einheit, ganz
 
 Alles, was vorher verstreute Locals im Missions-Runner und ein Satz file-scope Statics im Browser-Client
 war, ist hier EIN Objekt mit EINEM Besitzer. Es IST ein `FBUnit`.
 
-### Was sie besitzt — und die Deklarationsreihenfolge
+#### Was sie besitzt — und die Deklarationsreihenfolge
 
 ```
 std::unique_ptr<FBFdm>    Fdm_;        // owned
@@ -116,7 +193,7 @@ Telemetriequellen, die Referenzen darauf halten.
 Alles, was die Einheit herausgibt, ist geborgt (`const&`/`*`). Der Telemetrie-**Sink** bleibt beim
 Client: File-I/O gehört `app/`, `core/` bleibt I/O-frei.
 
-### Das optionale Airframe
+#### Das optionale Airframe
 
 Das EINE, was an einer Einheit nicht universell ist. Universell sind: Identität, Fraktion, publizierte
 Pose, Gesundheitsregister, beide Richter, eine Telemetrie-Trace — ob sie nun jemand fliegt oder nicht.
@@ -135,7 +212,7 @@ in genau den Stellen, an denen das Verhalten wirklich vom Airframe abhängt:
 | `ApplyDamageToAirframe` | entfällt; „zerstört" heißt für sie: im Register zerstört und nirgends sonst |
 | `FBFdmTelemetrySource` (`fuelLbs`, `gearLoadFactor`) | 0, Spaltenset unverändert |
 
-### Anti-Cheat, ungeschwächt durch das Bündeln
+#### Anti-Cheat, ungeschwächt durch das Bündeln
 
 Ein `FBSimUnit` lässt sich nur aus einer **bereits gespawnten** `FBFdm` bauen, und die gibt es nur über
 `fdm/FBFdmBoot` (app/-only). Also kann nichts unter `systems/` oder `modules/` eine Einheit bauen, einen
@@ -145,7 +222,7 @@ Richter erreichen oder ein Airframe neu platzieren. Beleg:
 Das Modul sieht die Richter nie: sie werden **hier** gefüttert, aus beobachteter FDM-Wahrheit, und das
 Einzige, was ein Auslösen an der Zelle tut, ist der Triebwerks-Cutoff, den die App immer angewandt hat.
 
-### `TakeBurst` / `TakeKineticBurst`
+#### `TakeBurst` / `TakeKineticBurst`
 
 Die ganze Konsequenzkette in einem Aufruf, in dieser Reihenfolge und nirgends sonst:
 
@@ -168,7 +245,7 @@ Das Register (`core/FBSystemHealth`) gehört der Einheit aus demselben Grund wie
 eine Tatsache ÜBER die Einheit, die ihr eigenes Modul lesen, aber nie schreiben darf. Das Modul bekommt
 bei der Konstruktion ein `const&` (`FBModule::AttachHealth`).
 
-### `Retire()` — das Ende einer Einheit
+#### `Retire()` — das Ende einer Einheit
 
 ```cpp
 void Retire() { Active_ = false; Sig_ = FBUnitSignature{}; }
@@ -184,7 +261,7 @@ void Retire() { Active_ = false; Sig_ = FBUnitSignature{}; }
   Schützen meldete einen lebenden Sucher zwei Minuten nach der Detonation**). Die Pose bleibt — dort ist
   die Einheit gelandet.
 
-### `CheckEnvelope()` — generische Hüllkurven-Diagnostik
+#### `CheckEnvelope()` — generische Hüllkurven-Diagnostik
 
 Latched je Einheit, nicht je Lauf. Reine `FBLog::Warn`-Ausgabe, kein Urteil.
 
@@ -197,7 +274,7 @@ Latched je Einheit, nicht je Lauf. Reine `FBLog::Warn`-Ausgabe, kein Urteil.
 Das `cas`-Gate existiert, weil AoA bei nahezu null Fluggeschwindigkeit numerisch undefiniert ist — sonst
 gäbe es eine Einschwing-Warnung beim Spawn.
 
-### Telemetrie-Registrierung — die Anhäng-Regel
+#### Telemetrie-Registrierung — die Anhäng-Regel
 
 `StartTelemetry(sink)` registriert die Quellen in **fester Spaltenreihenfolge**. Die Regel im Code, an
 sechs Stellen wiederholt: **eine neue Quelle hängt Spalten HINTEN an, sie verschiebt nie alte.** Jede je
@@ -209,7 +286,7 @@ Countermeasures → `PilotSystem().Engagement()` → HealthSrc (`dmg_*`) → Gun
 
 Ein `nullptr`-Sink lässt den Bus ein billiges No-Op (der Browser-Fall).
 
-### Sonstige Verträge
+#### Sonstige Verträge
 
 | Methode | Vertrag |
 |---|---|
@@ -221,9 +298,9 @@ Ein `nullptr`-Sink lässt den Bus ein billiges No-Op (der Browser-Fall).
 
 ---
 
-## 4. `FBUnitRegistry` und die Snapshot-Disziplin
+### 4. `FBUnitRegistry` und die Snapshot-Disziplin
 
-### Warum die Registry in der Core-Lib liegt
+#### Warum die Registry in der Core-Lib liegt
 
 Sie war ein Member-Vektor von `world/FBWorld` — also auf der **Renderer**-Seite des Lib/Client-Splits.
 `fb-gym` linkt `world/` gar nicht und reichte deshalb jedem Modul einen Null-World: ein simulierter
@@ -232,7 +309,7 @@ sehen können. Die Besetzung ist Simulationszustand (sie existiert mit oder ohne
 `units/`, der Client besitzt genau EINE, und `FBWorld` **borgt** sie nur noch (`SetUnits`/`Units()`) für
 die Zeichenseite.
 
-### Vertrag
+#### Vertrag
 
 | Eigenschaft | Regel |
 |---|---|
@@ -241,7 +318,7 @@ die Zeichenseite.
 | Element-Typ | `const FBUnit *` — read-only **by construction**: ein System kann Identität und die PUBLIZIERTE Pose/Signatur des letzten abgeschlossenen Ticks beobachten, sonst nichts. Es kann eine andere Einheit nicht takten, steuern oder schreiben. |
 | Wer sie halten darf | nur ein simulierter SENSOR, und deshalb reist sie als `Run()`-ARGUMENT den System-Zyklus des Moduls hinunter, statt Member zu sein, den jeder erreichen kann. Heute vier Dateien in `systems/`+`modules/`: `FBDatalinkSystem.cpp`, `FBRadarSystem.cpp`, `FBRwrSystem.cpp`, `modules/missile/FBMissileUplink.cpp`. |
 
-### Die Snapshot-Disziplin
+#### Die Snapshot-Disziplin
 
 **`PublishPose()` ist die Barriere.** Der Client taktet ERST jede Einheit und macht DANN in einer zweiten
 Schleife die neuen Posen + Signaturen gemeinsam sichtbar.
@@ -266,7 +343,7 @@ ruft `PublishPose` für alle, dann `RunMonitors` — dieselben zwei Richter, kei
 
 ---
 
-## 5. Der Missions-Runner als reiner Orchestrator
+### 5. Der Missions-Runner als reiner Orchestrator
 
 `FBRunMission(missionPath, timeoutOverride, outDir, models, elevation, hook, threads)` —
 geteilt von `fb-gym` und `gpu_native --mission`. **Genau vier Schritte**, keine Missions-Spezifika im
@@ -279,7 +356,7 @@ Code.
 | **3 — Akteure ausführen** | Die Tick-Schleife bei `dt = 0.1 s` (10 Hz Entscheidungstakt) — Elevation, STEP, Barriere, Monitore, Telemetrie, Geschosse/Stores, Hook, Wachstum, Pose-Merken. |
 | **4 — Welt validieren** | Die Monitore haben längst entschieden; hier werden N Urteile zu EINEM Exit-Code kombiniert und `UNIT_RESULT`/`RESULT`/`SUMMARY` emittiert. |
 
-### Was er NICHT weiß
+#### Was er NICHT weiß
 
 - **Keinen konkreten Modultyp.** `FBMissionRunner.cpp`/`FBAppGym.cpp` inkludieren nie einen konkreten
   Modul-Header; alles läuft über `FBModule`s generische Accessoren.
@@ -294,7 +371,7 @@ Code.
   `FBMissionTickHook`, dessen Interface bewusst GPU-typ-frei ist; `FBAppNative.cpp` implementiert den
   konkreten Hook mit `FBRenderer`/`FBWorld` in SEINER eigenen Übersetzungseinheit.
 
-### Modul-Auflösung: `FBModuleRegistry`
+#### Modul-Auflösung: `FBModuleRegistry`
 
 - `FBRegisterBuiltinModules()` ruft vier familienweise Einstiegspunkte: `FBRegisterF16Module`,
   `FBRegisterStoreModules`, `FBRegisterMissileModules`, `FBRegisterGroundModules`. Jede ist in der
@@ -309,7 +386,7 @@ Code.
   Schlüssel**: WELCHES JSBSim-Modell dazu gehört, sagt das Modul (`FdmModelName`); wo es liegt, ist seit
   der einen Modellwurzel keine Frage mehr.
 
-### `FBModule` — was der Orchestrator über die Basis erreicht
+#### `FBModule` — was der Orchestrator über die Basis erreicht
 
 | Kategorie | Methoden |
 |---|---|
@@ -331,7 +408,7 @@ was die leere `FdmModelName()` an der einen Stelle sagt, die der Spawn-Pfad lies
 NICHT gesetzt:** ein Store ist ein Kind, weil er FREIGEGEBEN wurde, und das ist eine Aussage des
 Freigabepfads (`app/FBMissionBoot.h`), nicht des Moduls.
 
-### `UNIT_RESULT` und die `unit=`-Attribution
+#### `UNIT_RESULT` und die `unit=`-Attribution
 
 **Attributions-Regel (entschieden an genau einer Stelle, `FBMissionBoot.h`):** bei genau einem Akteur
 bleiben die Zeilen unattribuiert — sie sind die der Mission. Ab zwei Akteuren trägt JEDE akteursbezogene
@@ -358,7 +435,7 @@ tritt der physische Richter zurück, wenn der Missions-Richter dieser Einheit be
 sie kampfunfähig ist (die einzige Konstellation, in der dieses Paar auftritt). Ein unbeschädigtes Wrack
 (CFIT, Departure) meldet sich unverändert als solches.
 
-### Wie aus N Urteilen eines wird
+#### Wie aus N Urteilen eines wird
 
 Die Schleifenbedingung ist die Kombination selbst:
 
@@ -403,7 +480,7 @@ dokumentierte Vertrag), sieht keinen Unterschied.
 `SUMMARY` misst `wallS`/`speedup` über `steady_clock`, **nicht** `clock()`: letzteres summiert bei
 mehreren Threads die CPU-Zeit und hätte einen SCHNELLEREN Lauf als langsameren gemeldet.
 
-### Log-Sink-Lebensdauer
+#### Log-Sink-Lebensdauer
 
 `FBLogSinkScope` wird als LETZTES deklariert, also als ERSTES zerstört: der Sink-Zeiger von `FBLog` ist
 weg, bevor die Sinks und das `FILE*` dahinter verschwinden — auf JEDEM Return, nicht nur dem
@@ -412,7 +489,7 @@ einen baumelnden, längst geschlossenen Sink loggen.
 
 ---
 
-## 6. Der Spawn eines Missions-Akteurs
+### 6. Der Spawn eines Missions-Akteurs
 
 `FBMissionBoot.h::FBMissionSpawnActor(models, mission, unitIdx, groundAsl, timeoutS, err)` — header-only,
 generisch über `FBModule`, nennt selbst **keinen konkreten Modultyp**. Es ist zugleich die app-seitige
@@ -446,7 +523,7 @@ Der Runner prüft **vor** dem Aufruf zwei Dinge: die Elevation muss aufgelöst s
 Luftspawn unter dem Gelände (`AltM < groundAsl − 1 m`) ist ein echter Widerspruch, kein legaler
 Sonderfall — die 1-m-Marge fängt Rundung der Elevationsquelle ab, nicht echte Durchdringung.
 
-### `FBMissionSpawnStore` — derselbe Vier-Schritt-Spawn aus dem Trägerzustand
+#### `FBMissionSpawnStore` — derselbe Vier-Schritt-Spawn aus dem Trägerzustand
 
 Der zweite Produzent einer vollständigen Einheit und **strukturell dieselben Schritte**: Modul über die
 Registry auflösen (der Katalogschlüssel des Stores IST sein Registry-Schlüssel), EINE deklarative IC
@@ -470,7 +547,7 @@ Startprogrammierung: eine Bombe ignoriert sie, eine gelenkte Runde nimmt Schütz
 daraus — diese Datei nennt keinen Waffentyp. Geloggt wird `stores SEPARATION` mit dem vollen
 Zustandsvektor.
 
-### Die Tick-Semantik neu angehängter Einheiten
+#### Die Tick-Semantik neu angehängter Einheiten
 
 **Die Akteursliste wächst an genau einer Stelle**: am ENDE des Ticks, in dem der Abwurf/Schuss
 kommandiert wurde — gerechnet wird die neue Einheit erst im NÄCHSTEN.
@@ -492,7 +569,7 @@ mittendrin erscheinender Store keinen Puffer resized, den ein Worker-Thread gera
 
 ---
 
-## 7. Der Tick, Phase für Phase
+### 7. Der Tick, Phase für Phase
 
 Aus der Schleife in `FBMissionRunner.cpp` (`dt = 0.1 s`):
 
@@ -513,7 +590,7 @@ Aus der Schleife in `FBMissionRunner.cpp` (`dt = 0.1 s`):
 
 ---
 
-## 8. Was der Runner sonst noch auflöst (nicht in der Aufgabenliste, aber im File)
+### 8. Was der Runner sonst noch auflöst (nicht in der Aufgabenliste, aber im File)
 
 Diese Dinge stehen im Orchestrator, weil sie zwischen ZWEI Einheiten passieren und auf der **Wahrheit**
 (den publizierten Posen) aufgelöst werden müssen — dieselbe Grenze wie bei den zwei Richtern: eine Waffe,
@@ -568,7 +645,7 @@ die sich auf ihrer eigenen Schätzung selbst bewertet, wäre die reinste Form vo
 
 ---
 
-## 9. Multi-Unit — was jede Etappe gebaut hat
+### 9. Multi-Unit — was jede Etappe gebaut hat
 
 | Etappe | Inhalt | Beweis |
 |---|---|---|
@@ -580,7 +657,7 @@ die sich auf ihrer eigenen Schätzung selbst bewertet, wäre die reinste Form vo
 | **6** | Das FCR-Radar als aktiver Sensor daneben. | — |
 | **8** | Das Avionik-Datenmodell (`FBState` als typisierter Block-Bus, Kommando-/Quittungspfad). | — |
 
-### Etappe 4 im Detail — Pool und Barriere
+#### Etappe 4 im Detail — Pool und Barriere
 
 `app/FBTickPool` ist C++17-Eigenbau (`std::barrier` ist C++20) und **GYM-ONLY per Entscheidung**: native
 und wasm bleiben im Sim-Loop einthreadig (Echtzeit braucht keine Parallelphysik, und der Browser erspart
@@ -600,7 +677,7 @@ sich den pthreads/SharedArrayBuffer-Build). Der Header wird **ausschließlich** 
 | Deklarationsreihenfolge | Der Pool wird ZULETZT deklariert, also ZUERST zerstört: seine Threads werden gejoint, solange Puffer und Job noch leben |
 | Logging über den Pool | **nichts.** Wie viele Threads die Besetzung stepten, ist eine Eigenschaft des Clients, kein Ereignis der Mission — eine Zeile darüber wäre der EINZIGE Unterschied zwischen einem sequenziellen und einem parallelen `events.log`. |
 
-### Was sequenziell bleibt — und der jeweilige Grund
+#### Was sequenziell bleibt — und der jeweilige Grund
 
 | Bleibt sequenziell | Grund |
 |---|---|
@@ -612,7 +689,7 @@ sich den pthreads/SharedArrayBuffer-Build). Der Header wird **ausschließlich** 
 | `FBMissionTickHook` | Der Renderer des nativen Orakels, einthreadig per Entscheidung |
 | Wachstum der Akteursliste | §6 |
 
-### Log und Telemetrie ohne Determinismusverlust
+#### Log und Telemetrie ohne Determinismusverlust
 
 - **Telemetrie** ist längst pro Einheit (eigener Bus, eigene Datei) und wird in der SEQUENZIELLEN Phase
   gesampelt — also gar kein Problem.
@@ -631,14 +708,14 @@ sich den pthreads/SharedArrayBuffer-Build). Der Header wird **ausschließlich** 
   seine Kapazität — ein Steady-State-Tick ohne Logausgabe allokiert nichts.
 - Der Job reicht `world = nullptr` durch, exakt wie zuvor.
 
-### Determinismus-Beweise (aus CLAUDE.md)
+#### Determinismus-Beweise (aus CLAUDE.md)
 
 - `payerne-pair`, `payerne-pair-fail`, `payerne-four`, `payerne-mixed` liefern über `--threads 1..4` und
   je **5 Wiederholungen** EINEN einzigen Fingerabdruck: SHA-256 aller `telemetry*.csv` + normalisierter
   `events.log` + Exit-Code, inklusive der `decisive=`-Attribution.
 - Die 7 Einzel-Missionen × `const`/`swiss` sind mit dem Default **byte-identisch** zum Stand vor Etappe 4.
 
-### Skalierung, ehrlich
+#### Skalierung, ehrlich
 
 | Messung | Wert |
 |---|---|
@@ -654,7 +731,7 @@ Performance-Kernen; darunter ist es ein Faktor < 1,5.
 
 ---
 
-## 10. Telemetrie bei N > 1
+### 10. Telemetrie bei N > 1
 
 | Regel | Inhalt |
 |---|---|
@@ -670,14 +747,14 @@ byte-identisch.
 
 ---
 
-## 11. `FBModelRoots` — die EINE Modellwurzel
+### 11. `FBModelRoots` — die EINE Modellwurzel
 
 **Warum eine.** Alles, was FlightBox fliegt, liegt unter `sim/assets/aircraft` — ein selbstständiges
 Verzeichnis je Modell (`.xml` plus eigene `engine/`- und `Systems/`-Unterverzeichnisse, JSBSims eigenes
 Pro-Flugzeug-Layout). Heute `f16`, `mk82` und `aim120`.
 
 Das gepinnte Submodul ist **kein Ladepfad mehr, sondern die Basis**: der Upstream-Stand, gegen den
-`make -C sim verify-models` jede Kopie diffed (siehe [architecture.md](architecture.md)s Delta-Regel,
+`make -C sim verify-models` jede Kopie diffed (siehe [architecture.md](../architecture.md)s Delta-Regel,
 Delta-Regel). Die frühere Zwei-Wurzel-Aufteilung („aus dem Submodul, weil read-only" gegen „bei uns,
 weil das Submodul es nicht hat") trägt nicht mehr, sobald ein Modell korrigiert werden darf: aus dem
 Submodul geladen kann es keine Korrektur tragen, aus einer Kopie unbekannter Herkunft geladen ist es
@@ -694,34 +771,3 @@ läuft (beide Apps und jeder Test-Harness) — statt Stringliteralen, die ausein
 
 **Liegt in `app/`**, weil nur `app/` ein Airframe bootet (das IC-Gate): nichts unter `systems/` oder
 `modules/` erreicht einen Modellpfad, so wenig wie eine Initialbedingung.
-
----
-
-## Offene Punkte
-
-- **Erledigt (Kommentar-Runde):** die vier veralteten Banner-Aussagen in `FBUnit.h` („planned per-unit
-  threading"), `FBUnitRegistry.h` („heute Datalink, morgen das Radar"), `FBSimUnit.h` (`GetSignature`
-  „heute sein Datalink-Sender") und `FBModule.h` (`AttachFdm`, „`units/FBUnit` later") sind mit den
-  Bannern selbst entfallen; ebenso `FBSimUnit.h`s Zählwiderspruch „exactly the six places", an denen ein
-  fehlendes Airframe zählt.
-- **`FBMissionRunner.h`s Docstring ist unvollständig:** „Returns 0/1/2/3 = Success/Fail/Crash/Timeout"
-  nennt `LOC` nicht, das sich Code 2 mit `Crash` teilt (im `FBMissionResult`-Banner korrekt erklärt).
-  Ebenso beschreibt derselbe Docstring `FBRunMission` noch als „Ground-spawns `missionPath`'s module" —
-  Einzahl, obwohl es längst eine Besetzung ist.
-- **Der Detonations-Banner ist überholt:** „What a hit DOES is deliberately not modelled yet — this is
-  the event, not a damage verdict" steht unmittelbar vor dem `ResolveBurst`-Aufruf, der genau das tut.
-- **`FBUnitRegistry` hat kein `Unregister`.** Eine retirierte Einheit bleibt registriert (sie verstummt
-  nur). Jeder Sensor muss also selbst mit stillen Einträgen umgehen; ob jeder das tut, wurde in dieser
-  Runde nicht geprüft.
-- **Kein Cross-Check der WASM-Schleife.** `app/FBAppWasm.cpp` ruft nachweislich `PublishPose`,
-  `RunMonitors`, `PrimeState` und `FBWorld::SetUnits`, aber ob sie die Phasenreihenfolge des Runners
-  exakt spiegelt (insbesondere Elevation vor STEP, Roster-Aufbau), wurde nicht Zeile für Zeile
-  verglichen.
-- **`FirstFlightKo`/`ExpectedLoss`/`FirstJudged` sind O(N²) über die Akteursliste** und laufen in der
-  Schleifenbedingung, also mehrfach pro Tick. Bei den heutigen Besetzungsgrößen (< 10) irrelevant,
-  aber nicht dokumentiert als Grenze.
-- **Etappe 7 fehlt in der Historie.** CLAUDE.md nennt Etappen 1–6 und 8; eine 7 wird nirgends erwähnt.
-  Ob sie übersprungen oder aufgegangen ist, geht aus keiner Quelle hervor.
-- **`--elev`-Defaults, Turnierläufer, `.fbm`-Syntax** sind hier bewusst nicht wiederholt — sie stehen in
-  [`doc/mission-format.md`](../mission-format.md) bzw. gehören in die Nachbardateien dieser
-  Wissensbasis (Elevation-Hook, Piloten-Varianten).
