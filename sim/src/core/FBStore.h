@@ -61,6 +61,8 @@ struct FBStoreSpec {
   bool   RequiresLock = false; /* the SMS refuses the launch without a fire-control solution */
   double FuzeRadiusM = 0.0;    /* proximity fuze: passing a unit closer than this is a hit. 0 = no
                                 * proximity fuze at all (a bomb hits what it lands on) */
+  double WarheadKg = 0.0;      /* explosive+case mass — the ONE store-side input to the damage model
+                                * (core/FBDamageModel). 0 = an inert round that hurts nothing */
   FBWeaponPerf Perf;
 };
 
@@ -79,9 +81,13 @@ struct FBStoreSpec {
  *                  diverged after this long is retired so a run cannot accumulate zombie actors. Fall
  *                  times for this class are tens of seconds (§4.2), so 300 s never truncates a real
  *                  trajectory. */
+/*   WarheadKg    = 87 kg (192 lb) of Tritonal [T3, the Mk-82's standard fill]. Unused today — a bomb has
+ *                  no proximity fuze, so nothing ever resolves a Mk-82 burst against an aircraft — but it
+ *                  is a property of the store and belongs in its catalogue entry, not in whatever first
+ *                  needs it. */
 inline constexpr FBStoreSpec kMk82{FBStoreKind::Mk82, "mk82", "mk82", true, 500.0, 0.366, 300.0,
                                    /*Guided*/ false, /*RequiresLock*/ false, /*FuzeRadiusM*/ 0.0,
-                                   FBWeaponPerf{}};
+                                   /*WarheadKg*/ 87.0, FBWeaponPerf{}};
 
 /* AIM-120 AMRAAM (doc/f16/weapons.md §2.5, §3, §4.4). The FIRST guided round: its model is FlightBox's
  * own (Vendored = false -> sim/assets/aircraft/aim120, because the pinned submodule has no AMRAAM and
@@ -98,7 +104,11 @@ inline constexpr FBStoreSpec kMk82{FBStoreKind::Mk82, "mk82", "mk82", true, 500.
  *                  exactly this class of number as a genuine gap). 10 m is the conservative reading of
  *                  a 50 lb blast-fragmentation warhead against a fighter: close enough that it is a HIT
  *                  and not a claim, and small enough that a guidance law which only "roughly" arrives
- *                  does not score one. What a hit DOES is deliberately not modelled yet.
+ *                  does not score one. WHAT a hit does is core/FBDamageModel's, out of the next figure.
+ *   WarheadKg    = 20.5 kg (45 lb), the WDU-41/B blast-fragmentation warhead [T3 — the published figure
+ *                  is consistently "about 40-50 lb" and §4.7 marks warhead internals as a genuine gap].
+ *                  It is the ONE weapon-side number the damage model reads; everything else about a hit
+ *                  comes from the measured geometry of the burst.
  *   Perf         = the FCC's table (see FBWeaponPerf): thrust/mass out of engine/WPU-6.xml, drag out of
  *                  aim120.xml's CA at Mach 3, and:
  *                  ActivationRangeM 18.5 km (10 nm) [SET] — the DLZ's own "Radar Activation Range" cue
@@ -113,7 +123,7 @@ inline constexpr FBStoreSpec kMk82{FBStoreKind::Mk82, "mk82", "mk82", true, 500.
  *                  plus the fuze arming delay; it is what sets Rmin. */
 inline constexpr FBStoreSpec kAim120{
     FBStoreKind::Aim120, "aim120", "aim120", false, 335.0, 0.115, 120.0,
-    /*Guided*/ true, /*RequiresLock*/ true, /*FuzeRadiusM*/ 10.0,
+    /*Guided*/ true, /*RequiresLock*/ true, /*FuzeRadiusM*/ 10.0, /*WarheadKg*/ 20.5,
     FBWeaponPerf{/*BoostThrustN*/ 24020.0, /*BoostS*/ 3.0,
                  /*SustainThrustN*/ 6228.0, /*SustainS*/ 7.7,
                  /*LaunchMassKg*/ 152.0, /*BurnoutMassKg*/ 99.8,

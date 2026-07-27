@@ -149,12 +149,26 @@ Kombinationsregel (die EINZIGE Stelle, an der aus N Urteilen eins wird — `FBMi
 | Gesamturteil | Bedingung | Exit |
 |---|---|---|
 | CRASH / LOC | eine Einheit hat ein physikalisches K.O. | 2 |
-| FAIL    | eine Einheit mit Zielen ist gescheitert (Touchdown abseits der Runway) | 1 |
+| FAIL    | eine Einheit mit Zielen ist gescheitert (Touchdown abseits der Runway ODER **kampfunfähig geschossen**) | 1 |
 | TIMEOUT | eine Einheit mit Zielen hat ihre Ziele bis zum Timeout nicht erreicht | 3 |
 | SUCCESS | **ALLE** Einheiten mit Zielen haben ihre Ziele erreicht | 0 |
 
 Der Lauf endet beim ERSTEN Scheitern (es gibt nichts mehr zu beweisen) und sonst, sobald jede Einheit
 mit Zielen ihr eigenes SUCCESS erreicht hat.
+
+**Abschuss als Missions-Urteil.** Verliert eine Einheit durch einen Waffentreffer ihr Triebwerk, ihre
+Flugsteuerung oder ihre Struktur (`core/FBSystemHealth::CombatEffective`, s. „Schadensmodell" in
+CLAUDE.md), schließt ihr eigener `FBMissionMonitor` mit FAIL — „combat ineffective (weapon damage)".
+Das ist ausdrücklich ein MISSIONS-Urteil und kein physikalisches: die Einheit wird nicht eingefroren und
+nicht markiert, sie fliegt weiter, solange die Physik es hergibt, und der Physik-Monitor urteilt danach
+wie über jedes andere Flugzeug (meist CFIT, wenn das Wrack den Boden erreicht). Zwei Konsequenzen für
+den Missionsentwurf:
+- Eine Einheit MIT Wegpunkten beendet den Lauf, sobald sie abgeschossen wird (Exit 1) — der Treffer ist
+  dann das Ende der Mission (`bvr-intercept.fbm`, `intercept-aim120.fbm`, `rwr-spike.fbm`, …).
+- Eine Einheit OHNE Wegpunkte trägt gar keinen `FBMissionMonitor` und kann den Lauf nicht beenden; ihr
+  Abschuss ist dann beobachtbar bis zum Aufschlag (`damage-amraam.fbm`, Exit 2 = CRASH).
+Für den SCHÜTZEN gibt es noch kein Ziel „Abschuss": das Missionsformat kennt heute nur Wegpunkte, das
+Gesamturteil ist deshalb das FAIL des Getroffenen und nicht der Erfolg des Schützen.
 
 Endet der Flugplan einer Einheit auf einer `land`-Zeile (`FBWaypointType::Land`, immer die
 Runway-Schwelle), gilt für DIESEN letzten Wegpunkt eine andere SUCCESS-Regel als für `wp`: kein
@@ -655,6 +669,15 @@ KI).
   breiten Zeile: die Spalten folgen dem MODUL der Einheit, eine geteilte Zeile müsste entweder alle
   Module in ein Schema zwingen oder den Header von der Besetzung abhängig machen.
 - `events.log` — `t=SEK LEVEL tag EVENT key=val …`, greppbar.
+
+**Schadens-Ereignisse und -Spalten** (`core/FBDamageModel`, s. CLAUDE.md „Schadensmodell"): je Treffer
+eine `damage DAMAGE`-Zeile (Zone, Abstand zur Zellenstruktur, Fragment-Energie in J/m², Sprengmasse,
+Annäherungsgeschwindigkeit, Zündpunkt im Körperrahmen, die zwei Bitmasken), je betroffenem System eine
+`damage SYSTEM`-Zeile (`system=… state=degraded|failed`) und, wenn der Treffer die Einheit
+kampfunfähig macht, genau eine `damage KILL`-Zeile. In `telemetry.csv` kommen ganz hinten vier Spalten
+dazu (bestehende verschieben sich nie): `dmg_hits`, `dmg_failed`, `dmg_degraded` (Bitmasken über
+`FBSystemId`) und `dmg_effective`. Die Blockgültigkeits-Spalten (`blk_*`) zeigen denselben Vorgang aus
+der Sicht des Avionik-Busses: ein ausgefallenes System schaltet seinen Block auf `0` (invalid).
 
 **Unit-Attribution im Log:** hat eine Mission MEHR ALS EINE Einheit, trägt jede Zeile, die zu einem
 Akteur gehört, als erstes Feld `unit=<callsign>` (`core/FBLog.h`s `FBLogUnitScope`) — auch die

@@ -581,9 +581,11 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
                   fc.TimeToImpactS);
     /* WHEN A SECOND ROUND IS EVEN A QUESTION. Not before the first one has had its chance: the fire
      * control predicted a time of flight, and re-attacking a target that a round is still on its way to
-     * is spending a missile on an answer nobody has yet. With no damage model in this simulator the
-     * target always survives that wait, so the rule looks like "shoot again" — but the DECISION is the
-     * one a pilot takes, and the metric that records it is honest about which shot it describes. */
+     * is spending a missile on an answer nobody has yet. Since the damage model exists
+     * (core/FBDamageModel) the answer usually arrives before the wait is over, and a re-attack is what
+     * happens when it did not — which is exactly the decision this rule was written for. The pilot
+     * still learns nothing about the hit except through its own sensors: a destroyed jet stops being a
+     * radar contact because it falls, not because anything told this pilot it was dead. */
     IntNextShotS_ = TimeS_ + std::fmax(InterceptShotSpacingS(),
                                        fc.TimeToImpactS > 0.0f ? (double)fc.TimeToImpactS : 0.0);
     IntHaveCrankSign_ = false;

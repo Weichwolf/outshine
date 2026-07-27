@@ -28,6 +28,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "FBDamageModel.h"
 #include "FBFdm.h"
 #include "FBFdmTelemetrySource.h"
 #include "FBFlightMonitor.h"
@@ -133,6 +134,20 @@ public:
    * drives every step after that). */
   void PrimeState() { Fdm_->Step(St_); PublishPose(); }
 
+  /* ---- battle damage ----
+   * The unit owns its health register (core/FBSystemHealth) for the same reason it owns its two judges:
+   * it is a fact ABOUT the unit that the unit's own module may read but must never write. The module
+   * gets a const handle at construction (FBModule::AttachHealth); the only thing that can change a state
+   * is a resolved burst, and this is where one arrives.
+   *
+   * TakeBurst is the whole consequence chain in one call: core/FBDamageModel decides what the geometry
+   * did to which system (the module's own layout says which systems are where), and the outcome is
+   * pushed straight into the airframe — engine cutoff, control authority, drag — so that from the next
+   * step onwards JSBSim is flying the damaged aircraft. Nothing is "marked dead": the unit keeps being
+   * stepped and keeps being judged by the same two monitors as before. */
+  FBDamageResult TakeBurst(const FBBurst &burst);
+  const FBSystemHealth &Health() const { return Health_; }
+
   /* ---- the two incorruptible judges (fed here, never handed to the module) ---- */
   void SetMissionMonitor(std::unique_ptr<FBMissionMonitor> monitor) { Mission_ = std::move(monitor); }
   const FBFlightMonitor &FlightMonitor() const { return Flight_; }
@@ -154,6 +169,8 @@ public:
   void SampleTelemetry(double simT) { Bus_.Tick(simT); }
 
 private:
+  void ApplyDamageToAirframe();   /* health register -> JSBSim, the only place damage becomes physics */
+
   std::unique_ptr<FBFdm> Fdm_;         /* owned; outlives Module_, which only borrows it */
   std::unique_ptr<FBModule> Module_;
   fb_fdm_state St_;
@@ -161,8 +178,10 @@ private:
   FBUnitSignature Sig_;                /* published with it — see GetSignature() */
   std::string LogLabel_;
   double GroundAslM_;
+  FBSystemHealth Health_;              /* written only by core/FBDamageModel — see TakeBurst */
   FBFdmTelemetrySource FdmSrc_;        /* borrows Fdm_/St_/GroundAslM_ — all declared above it */
   FBStateBusTelemetry BusSrc_;         /* borrows the module's own state bus (validity per block) */
+  FBSystemHealthTelemetry HealthSrc_;  /* borrows Health_, declared above it */
   FBTelemetryBus Bus_;
   FBFlightMonitor Flight_;
   std::unique_ptr<FBMissionMonitor> Mission_;   /* absent for a unit with no mission to judge */

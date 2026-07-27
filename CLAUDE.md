@@ -246,6 +246,47 @@ einen hartverdrahteten fb-tiles-Wire. Drei Implementierungen:
   0 m. Gym-Default: `swiss` wenn das Asset vorhanden ist, sonst `const` — ein bare `fb-gym --mission
   FILE` läuft immer, Netz oder nicht.
 
+## Schadensmodell — Treffer, Systemgesundheit, Folgen
+
+Ein Treffer ist seit dieser Etappe eine KONSEQUENZ und keine Notiz. Drei getrennte Dinge, in genau
+dieser Rollenverteilung:
+
+- **Zustand (Core):** `core/FBSystemHealth`, EIN Register je `FBSimUnit` — je System (Triebwerk,
+  Flugsteuerung, Struktur, Luftdaten, Radarhöhenmesser, Navigation, Radar, Feuerleitung, Waffen,
+  Datalink, Warnempfänger, Gegenmaßnahmen) einer von drei Zuständen: intakt / degradiert / ausgefallen.
+  **Monoton** (nichts repariert sich im Flug) und **schreibgeschützt durch den Typ**: alle Mutatoren
+  privat, genau ein `friend` (`FBDamageModel`). Das Modul bekommt `const&` und liest — mehr gibt es
+  nicht, und zwar nicht per Konvention, sondern per Compiler (s.o. „Kein Cheaten").
+- **Auflösung (Core, Runner-Ebene):** `core/FBDamageModel`. Eingang ist die GEMESSENE Geometrie der
+  Detonation (die vorhandene Closest-Approach-Rechnung des Runners auf den PUBLIZIERTEN Posen, in den
+  Körperrahmen des Ziels gedreht — `FBEnuToBodyVec`), die Annäherungsgeschwindigkeit und die
+  Sprengmasse aus dem Store-Katalog (`core/FBStore.h`, AIM-120: 20,5 kg). Daraus: Splittermasse
+  (`kCaseFraction` 0,5 [SET]) → isotrope Flächendichte `m/(4πr²)` → spezifische Energie
+  `½·ρ_A·(v_frag² + v_closure²)` mit `kFragSpeedMs` 1800 [SET]. Pro ZONE eigener Abstand r (Abstand des
+  Zündpunkts zum jeweiligen Achsabschnitt), also ein 1/r²-Abfall statt einer Partition — die Zelle ist
+  als ihre Längsachse modelliert, mehr behauptet das Modell nicht. **Kein Zufall, keine Zeit, kein
+  interner Zustand:** gleiche Geometrie → gleiches Schadensbild, thread-unabhängig (nachgemessen).
+- **Zonen + Schwellen (Moduldaten):** `modules/f16/FBF16Damage`. Wo die Systeme sitzen, weiß nur das
+  Flugzeug; jede Zonengrenze ist aus der Geometrie des gepinnten Modells abgeleitet (s. dort). Die vier
+  Fragilitätsklassen (Avionik/Triebwerk/FLCS/Struktur, je Degrade- und Fail-Schwelle in J/m²) sind die
+  eigentliche SETZUNG des Modells und stehen als solche benannt in einer Datei.
+
+**Die Kopplung ist der Kern:** ein ausgefallenes System wird vom Modul nicht mehr getaktet und sein
+Block wird `Invalid` (`FBF16Module::Run`) — alles Weitere ergibt sich aus dem Avionik-Bus, der das
+längst kann: das HUD strichelt (`H.Readable()`-Abfrage je Anzeige), `FBWarningSystem` meldet die
+betroffene Warnung als INHIBIERT statt als „keine Warnung", der Pilot kommt an `wantShot` gar nicht
+mehr heran (`weapons`/`zone` lesen die Blockgültigkeit), und ein Kommando an eine zerstörte Box
+quittiert der Bus mit `rejected/system_failed`. Nichts davon ist für Schaden neu geschrieben worden.
+Degradiert wird nur modelliert, wo es ABLEITBAR ist: Radarreichweite ×0,707 (halbe Apertur über die
+Radargleichung), FLCS-Autorität ×0,5 (eines von zwei Hydrauliksystemen), Triebwerk ohne Nachbrenner,
+Struktur als Zusatzwiderstand.
+
+**Physik statt Buchführung:** die Folgen laufen durch JSBSim (`fdm/FBFdm`, s.u.) — Cutoff,
+Ruderautorität, Widerstandsfläche. Ein abgeschossener Jet fliegt weiter, solange die Physik es hergibt,
+und stürzt ab, weil sein Triebwerk aus und seine Steuerung weg ist; „kampfunfähig"
+(`FBSystemHealth::CombatEffective` — Triebwerk, Flugsteuerung oder Struktur ausgefallen) ist ein Urteil
+des MISSIONS-Monitors über die Einheit, nie ein Freeze und nie ein Fall für den Physik-Monitor.
+
 ## Sprache & Struktur
 
 **C++ (C++17, wie JSBSim), nicht C.** Ordentliche Klassen nach C++-Best-Practice — RAII, klare
@@ -313,8 +354,15 @@ sim/src/
              die Fraktion, im core/, weil sie BEIDES ist: Missionsdaten und Welt-Identität), FBMissionFile
              (`.fbm`-Parser: missionsweite Daten + eine LISTE von `FBMissionUnit`-Blöcken, je
              Callsign/`ModuleName`/`FBUnitTeam`/`FBSpawn`/`SetKV`/`FBFlightPlan`), FBMissionMonitor
-             (FBFlightMonitor-Geschwister: das MISSIONS-Urteil — Wegpunkte/Off-Runway/Timeout — aus
-             der eigenen, unveränderlichen Plan-Kopie, nie dem Modul-eigenen Zustand), der
+             (FBFlightMonitor-Geschwister: das MISSIONS-Urteil — Wegpunkte/Off-Runway/Timeout, seit dem
+             Schadensmodell auch „kampfunfähig" — aus
+             der eigenen, unveränderlichen Plan-Kopie, nie dem Modul-eigenen Zustand),
+             FBSystemHealth (das Gesundheitsregister EINER Einheit: je System intakt/degradiert/
+             ausgefallen, monoton, Mutatoren privat mit genau einem Friend — s.o. „Kein Cheaten" — plus
+             die Telemetrie-Quelle `dmg_*`) und FBDamageModel (die Auflösung Treffer→Schaden:
+             Fragment-Flächendichte/Energie am Treffpunkt, Zonen entlang der Zellenachse, die
+             physischen Folge-Konstanten; kein Zufall, keine Zeitabhängigkeit, kein interner Zustand),
+             der
              Elevation-Hook (FBElevationProvider/FBConstantElevation/FBRunwayPlateauElevation/
              FBBakedDemElevation, s.o.), gemeinsame Basistypen — zeigt NIE nach systems/ oder
              modules/. Zwei getrennte Kanäle für alles, was sonst verstreutes printf/fprintf wäre:
@@ -609,9 +657,19 @@ sim/src/
              Tank-Verdrahtung (FGPropulsion: `Get/SetFuel*`, je Tank oder Gesamtsumme/-prozent,
              proportional auf die modelleigenen Tankkapazitäten verteilt) — Spritmangel selbst simuliert
              JSBSim nativ (Triebwerk stirbt in der Physik), der Adapter macht es nur beobachtbar/setzbar.
+             Ebenso die drei Kanäle, über die BATTLE DAMAGE PHYSISCH wirkt (`SetControlAuthority`/
+             `SetThrottleLimit`/`SetDamageDrag`, nur vom Einheiten-Besitzer gesetzt): Ruderautorität als
+             Skalierung der kommandierten Ausschläge IN `SetControls` (die FLCS kommandiert unverändert
+             weiter, das Flugzeug antwortet nur nicht mehr), Schubverlust als Throttle-Deckel bzw.
+             JSBSims eigener Cutoff, Strukturschaden als zusätzliche Widerstandsfläche über DIESELBE
+             `<external_reactions>`-Mechanik wie die Zuladung (eigener Kraft-Kanal `fb-damage`, durch den
+             CG — kein behauptetes Moment). Alle drei sind neutral, bis etwas getroffen wurde: ein
+             unbeschädigtes Flugzeug rechnet bit-identisch wie zuvor (nachgemessen).
   modules/   FBModule-Basisschnittstelle (`Run(fb_fdm_state&, dt, const FBUnitRegistry*, const FBWorld*)`
              + `SetUnitIdentity(id,team)` [Boot-Wiring: wer die Einheit IST, für Systeme die andere
-             Einheiten beobachten] PLUS die generischen
+             Einheiten beobachten] + `AttachHealth(const FBSystemHealth&)` [dito, aber NUR lesend] und
+             `DamageLayout()` [wo die eigenen Systeme sitzen — Moduldaten, die der Core anwendet]
+             PLUS die generischen
              System-Accessoren UND `ApplySetup(key,value)` — das Modul interpretiert seine eigenen
              `set`-Mission-Schlüssel, s.o. "Der Missions-Runner ist reiner Orchestrator"; App hält
              jedes Modul dahinter polymorph; ein Modul cycelt seine Systeme intern, jedes im eigenen
@@ -679,7 +737,13 @@ sim/src/
                          — neun Stationen, verankert an den Referenzen, die das Modell selbst hergibt
                          [Tank-Butt-Line ±65 in für 4/6, halbe Spannweite 180 in für die Spitzen,
                          CG-Station längs, weil doc/f16/weapons.md §4.5 die Stationsdaten selbst als T4
-                         markiert] — alles Verhalten ist systems/FBStoresSystem). FBF16Max7456 (eigene Datei,
+                         markiert] — alles Verhalten ist systems/FBStoresSystem), FBF16Damage (die
+                         SCHADENSZONEN dieses Musters: vier Abschnitte entlang der Zellenachse, jede
+                         Grenze aus dem gepinnten f16.xml selbst abgeleitet [RADOME −486,6 in → +7,46 m
+                         vor dem CG, EYEPOINT → +3,64 m, Ventralfinnen → −2,42 m, Fanghaken → −7,46 m],
+                         dazu welche Systeme in welchem Abschnitt sitzen und ihre vier
+                         Fragilitäts-Klassen — reine Daten, angewandt wird sie von core/FBDamageModel).
+                         FBF16Max7456 (eigene Datei,
                          `.h/.cpp`): der MAX7456-CHIP-spezifische Hook (Interlace-Jitter,
                          Helligkeitskurve, Sync-Artefakte, …) — heute ein echter, von FBF16Module
                          gehaltener NoOp-Override-Punkt, getrennt vom generischen Font-System in
@@ -744,9 +808,14 @@ Flugkörper darf nicht ewig weiterstrahlen], `virtual void Run(dt, const FBUnitR
 aufbauend, **`FBSimUnit` — EINE simulierte Einheit als EIN
 Objekt**: sie BESITZT ihre `FBFdm` und das `FBModule`, das sie fliegt (in dieser Deklarationsreihenfolge,
 damit die Zelle das Modul überlebt, das sie nur borgt), hält den geteilten `fb_fdm_state`, die
-aufgelöste Boden-ASL, die Telemetrie-Source + den eigenen `FBTelemetryBus` und BEIDE unbestechlichen
+aufgelöste Boden-ASL, die Telemetrie-Source + den eigenen `FBTelemetryBus`, das Gesundheitsregister
+(`core/FBSystemHealth`, das sie dem Modul nur als `const&` reicht) und BEIDE unbestechlichen
 Richter (`core/FBFlightMonitor` + optional `core/FBMissionMonitor` — letzterer nur, wenn die Mission
-dieser Einheit Ziele gegeben hat). `Run(dt, world)` taktet das Modul, das seinerseits FDM und
+dieser Einheit Ziele gegeben hat). `TakeBurst(FBBurst)` ist der EINE Weg, auf dem Schaden ankommt: der
+Core löst ihn auf (`core/FBDamageModel` gegen die Zonentabelle des Moduls) und die Einheit legt das
+Ergebnis unmittelbar in ihre eigene Zelle (Cutoff/Ruderautorität/Widerstand über `fdm/FBFdm`) — ab dem
+nächsten Schritt integriert JSBSim das Flugzeug, das sie jetzt ist. Nichts wird „tot" markiert: sie wird
+weiter getaktet und weiter von denselben zwei Richtern beurteilt. `Run(dt, world)` taktet das Modul, das seinerseits FDM und
 Systemslots cycelt; die Pose wird einmal pro Tick PUBLIZIERT (`PublishPose`, die Barriere nach allen
 `Run()`s) — `GetPose()` zeigt damit immer den zuletzt ABGESCHLOSSENEN Tick, die Snapshot-Regel für
 cross-unit-Lesezugriffe. Eine `FBActorList` (`std::vector<std::unique_ptr<FBSimUnit>>`) ist die
@@ -821,7 +890,14 @@ Getter inline im Header. JSBSims LGPL-Banner nicht kopieren — unsere Dateien t
   Neue Quellen werden IMMER hinten angehängt (`units/FBSimUnit::StartTelemetry`), damit keine je
   gemessene Spalte ihre Position verliert.
 - **Kein Cheaten:** ZWEI unbestechliche, Runner-/App-eigene Instanzen, nie vom Modul gesehen, nie
-  vermischt — zwei Fragen, nicht eine. `core/FBFlightMonitor` entscheidet K.O. (Absturz/LOC): rein
+  vermischt — zwei Fragen, nicht eine. Dazu, seit dem Schadensmodell, ein DRITTER core-eigener Zustand
+  mit derselben Struktur, aber einer noch härteren Schranke: das Gesundheitsregister
+  (`core/FBSystemHealth`, eines je `FBSimUnit`). Das Modul BEKOMMT es — als `const&`
+  (`FBModule::AttachHealth`) — und liest es je Slot; schreiben kann es niemand außer
+  `core/FBDamageModel`, weil JEDER Mutator privat ist und diese Klasse der einzige `friend`. Kein
+  System, kein Pilot, kein Modul kann sich selbst (oder einen anderen) beschädigen ODER reparieren, und
+  das ist nicht per Grep belegt, sondern per Übersetzung: es kompiliert nicht. Der einzige Weg in den
+  Zustand ist eine aufgelöste Detonation (s.u. „Schadensmodell"). `core/FBFlightMonitor` entscheidet K.O. (Absturz/LOC): rein
   physikalisch, modul-agnostisch (kennt keine Flugzeug-Typen, keine deklarierten Zahlen; Struktur-/
   Gear-Wahrheit kommt aus dem gepinnten JSBSim-Modell selbst). `core/FBMissionMonitor` (dessen
   Geschwister) entscheidet das MISSIONS-Urteil (SUCCESS/FAIL/TIMEOUT) aus der Missionsdatei selbst:

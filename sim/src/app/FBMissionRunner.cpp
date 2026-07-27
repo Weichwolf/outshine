@@ -152,6 +152,11 @@ struct FBCpa {
   double ClosureMs = 0.0;
   double FracT = 0.0;   /* where inside the tick the burst happened, 0..1 — reported, so the event's
                          * time is the sub-tick one and not the sample it was found in */
+  /* WHERE the burst was, relative to the target, in local ENU metres at the moment of closest approach.
+   * The same vector whose length is MissM — carried out because a damage resolution needs the DIRECTION
+   * too (core/FBDamageModel works in the target's body frame), and recomputing it anywhere else would be
+   * a second, drifting copy of the same geometry. */
+  double RelE = 0.0, RelN = 0.0, RelU = 0.0;
 };
 
 FBCpa ClosestApproach(const FBUnitPose &a0, const FBUnitPose &b0, const FBUnitPose &a1,
@@ -170,7 +175,46 @@ FBCpa ClosestApproach(const FBUnitPose &a0, const FBUnitPose &b0, const FBUnitPo
   c.MissM = std::sqrt(me * me + mn * mn + mu * mu);
   c.ClosureMs = dt > 0.0 ? std::sqrt(denom) / dt : 0.0;
   c.FracT = t;
+  c.RelE = me; c.RelN = mn; c.RelU = mu;
   return c;
+}
+
+/* ---- THE HIT'S CONSEQUENCE: geometry -> damage ----
+ * The burst is a point in the world; what it wrecked depends on where that point sits on the TARGET'S
+ * airframe, so the closest-approach vector is rotated into the target's body frame and handed to
+ * core/FBDamageModel through the unit that owns the health register (units/FBSimUnit::TakeBurst).
+ *
+ * WHY HERE. The same reason the fuze verdict above is here and not in the weapon: the owner of the
+ * simulation resolves what happened between two units, on the published poses, i.e. on the truth. The
+ * WEAPON supplies one number (its warhead mass, core/FBStore.h), the TARGET'S MODULE supplies one table
+ * (where its systems are, FBModule::DamageLayout) and neither of them decides anything. The attitude
+ * used is the target's published pose — the same snapshot everything else this tick was measured
+ * against, so the whole resolution is a function of already-observed state and of nothing else. */
+void ResolveBurst(FBSimUnit &target, const FBCpa &c, const FBStoreSpec &spec) {
+  const FBUnitPose &p = target.GetPose();
+  FBBurst b;
+  FBEnuToBodyVec(p.RollDeg, p.PitchDeg, p.YawDeg, c.RelE, c.RelN, c.RelU, b.FwdM, b.RightM, b.DownM);
+  b.ClosureMs = c.ClosureMs;
+  b.WarheadKg = spec.WarheadKg;
+  FBDamageResult r = target.TakeBurst(b);
+  FBLogUnitScope us(target.LogLabel());
+  FBLog::Info("damage", "DAMAGE", {{"zone", FBDamageZoneStr(r.Zone)}, {"rangeM", r.RangeM},
+      {"fluxJm2", r.PeakFluxJm2}, {"warheadKg", spec.WarheadKg}, {"closureMs", c.ClosureMs},
+      {"bodyFwdM", b.FwdM}, {"bodyRightM", b.RightM}, {"bodyDownM", b.DownM},
+      {"failed", (int)r.NewlyFailed}, {"degraded", (int)r.NewlyDegraded},
+      {"hits", target.Health().Hits()}});
+  /* One line per system that changed state, so a damage picture is greppable rather than a bitmask to
+   * decode by hand. */
+  for (int i = 0; i < (int)FBSystemId::Count; i++) {
+    uint32_t bit = 1u << i;
+    if (!((r.NewlyFailed | r.NewlyDegraded) & bit)) continue;
+    FBLog::Warn("damage", "SYSTEM", {{"system", FBSystemIdStr((FBSystemId)i)},
+        {"state", FBHealthStateStr((r.NewlyFailed & bit) ? FBHealthState::Failed
+                                                         : FBHealthState::Degraded)}});
+  }
+  if (r.WasEffective && !r.NowEffective)
+    FBLog::Warn("damage", "KILL", {{"reason", "combat ineffective"},
+        {"failed", (int)target.Health().FailedMask()}, {"altM", p.ElevM}, {"speedMs", p.SpeedMs}});
 }
 
 /* The impact report: what the store was doing at the moment its own FBFlightMonitor said it hit
@@ -458,7 +502,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
       if (t.Spec && t.Spec->FuzeRadiusM > 0.0 && HavePrevPose &&
           simT - t.SpawnS >= t.Spec->Perf.ArmingS) {
         for (size_t k = 0; k < Actors.size(); k++) {
-          const FBSimUnit &tgt = *Actors[k];
+          FBSimUnit &tgt = *Actors[k];
           if (k == t.Index || tgt.GetKind() != FBUnitKind::Aircraft || !tgt.Active()) continue;
           FBCpa c = ClosestApproach(PrevPose[t.Index], PrevPose[k], store.GetPose(), tgt.GetPose(), dt);
           if (c.MissM < t.MinMissM && tgt.GetId() != t.LauncherId) {
@@ -476,6 +520,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
               {"tofS", simT - t.SpawnS + (c.FracT - 1.0) * dt}, {"aspectDeg", aspect}, {"altM", ms.elev},
               {"speedMs", ms.speed}, {"tgtAltM", tgt.GetPose().ElevM},
               {"tgtSpeedMs", tgt.GetPose().SpeedMs}});
+          ResolveBurst(tgt, c, *t.Spec);
           store.Retire();
           detonated = true;
           break;

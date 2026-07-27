@@ -50,6 +50,7 @@
 #include "FBAirframeControls.h"
 #include "FBAutopilot.h"
 #include "FBF16Cmds.h"
+#include "FBF16Damage.h"
 #include "FBF16Datalink.h"
 #include "FBF16Fcr.h"
 #include "FBF16FireControl.h"
@@ -158,6 +159,10 @@ public:
    * mission FAIL): a mission that declares a state this airframe cannot take must not start silently in
    * some other state. */
   bool ApplySetup(const std::string &key, const std::string &value) override;
+
+  /* Where this airframe's systems sit, for the core's damage resolution (modules/f16/FBF16Damage — the
+   * module states the geometry, core/FBDamageModel is the only thing that may act on it). */
+  const FBDamageLayout &DamageLayout() const override { return FBF16DamageLayout(); }
 
 private:
   void ApplyPilotCommands(const FBPilotCommands &c);

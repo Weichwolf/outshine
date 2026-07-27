@@ -252,8 +252,16 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
     out.Line(px, py, px + (nx * 5.f - tx * 2.5f) * mg, py + (ny * 5.f - ty * 2.5f) * mg, kHgR, kHgG, kHgB);
   }
 
-  /* ----- G-load (top-left of the aperture) ----- */
-  out.Printf(ap.x0 + 2.f * kHudMagnify, ap.y0 + 2.f * kHudMagnify, kHudSecondaryScale * kHudMagnify, kHgR, kHgG, kHgB, "%.1f", state.AirData.GLoad);
+  /* ----- G-load (top-left of the aperture). The ADC's head decides whether there is a number to show
+   * at all — same rule as the right-hand block below, applied to the one source that feeds three
+   * separate readouts and the CAS tape. A jet whose air data is gone shows dashes where its G, its Mach
+   * and its airspeed were, which is exactly what the pilot has to be able to tell apart from 1.0 g and
+   * zero knots. ----- */
+  const bool airDataOk = state.AirData.H.Readable();
+  if (airDataOk)
+    out.Printf(ap.x0 + 2.f * kHudMagnify, ap.y0 + 2.f * kHudMagnify, kHudSecondaryScale * kHudMagnify, kHgR, kHgG, kHgB, "%.1f", state.AirData.GLoad);
+  else
+    out.Text(ap.x0 + 2.f * kHudMagnify, ap.y0 + 2.f * kHudMagnify, kHudSecondaryScale * kHudMagnify, kHgR, kHgG, kHgB, "-.-");
 
   /* ----- Left status block (LEFT edge, just past vertical centre -- not jammed in the bottom corner):
    * master mode (NAV) FIRST, then Mach, Peak-G, ARM/SIM, bullseye bearing/distance. Both the vertical
@@ -266,8 +274,13 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
     float lx = ap.x0 + 2.f * kHudMagnify, ls = 8.f * kHudMagnify, s = kHudSecondaryScale * kHudMagnify;
     float ly = cy + 0.136f * winHalfH;
     out.Text(lx, ly, s, kHgR, kHgG, kHgB, "NAV");
-    out.Printf(lx, ly + ls, s, kHgR, kHgG, kHgB, "%.2f", state.AirData.Mach);
-    out.Printf(lx, ly + 2 * ls, s, kHgR, kHgG, kHgB, "%.1f", state.AirData.GLoadPeak);
+    if (airDataOk) {
+      out.Printf(lx, ly + ls, s, kHgR, kHgG, kHgB, "%.2f", state.AirData.Mach);
+      out.Printf(lx, ly + 2 * ls, s, kHgR, kHgG, kHgB, "%.1f", state.AirData.GLoadPeak);
+    } else {
+      out.Text(lx, ly + ls, s, kHgR, kHgG, kHgB, "-.--");
+      out.Text(lx, ly + 2 * ls, s, kHgR, kHgG, kHgB, "-.-");
+    }
     out.Text(lx, ly + 3 * ls, s, kHgR, kHgG, kHgB, state.Stores.Arm == FBArmState::Arm ? "ARM" : "SIM");
     out.Printf(lx, ly + 4 * ls, s, kHgR, kHgG, kHgB, "%03d %02.0f",
               ((int)(state.Nav.BullBearingDeg + 0.5f) % 360 + 360) % 360, state.Nav.BullDistNm);
@@ -313,16 +326,21 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
     float mg = kHudMagnify;
     float ax = ap.x0 + 0.08f * (ap.x1 - ap.x0), as = state.AirData.CasKt;
     float tapeHalf = 20.f * mg, pxPerKt = 0.55f * mg;
-    for (int av = (int)floorf((as - tapeHalf / pxPerKt) / 20.f) * 20; av <= (int)(as + tapeHalf / pxPerKt); av += 20) {
-      if (av < 0) continue;
-      float sy = cy - ((float)av - as) * pxPerKt;
-      if (sy < cy - tapeHalf || sy > cy + tapeHalf) continue;
-      float tk = (av % 100 == 0) ? 5.f : 3.f;
-      out.Line(ax, sy, ax + tk * mg, sy, kHgR, kHgG, kHgB);
+    /* A dead ADC has no scale to move: the tape's frame and box stay (the instrument is still there),
+     * the moving ticks and the number do not. */
+    if (airDataOk) {
+      for (int av = (int)floorf((as - tapeHalf / pxPerKt) / 20.f) * 20; av <= (int)(as + tapeHalf / pxPerKt); av += 20) {
+        if (av < 0) continue;
+        float sy = cy - ((float)av - as) * pxPerKt;
+        if (sy < cy - tapeHalf || sy > cy + tapeHalf) continue;
+        float tk = (av % 100 == 0) ? 5.f : 3.f;
+        out.Line(ax, sy, ax + tk * mg, sy, kHgR, kHgG, kHgB);
+      }
     }
     out.Line(ax, cy - tapeHalf, ax, cy + tapeHalf, kHgR, kHgG, kHgB);
     out.Box(ax + 2 * mg, cy - 5 * mg, ax + 24 * mg, cy + 5 * mg, kHgR, kHgG, kHgB);
-    out.Printf(ax + 4 * mg, cy - 3 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, "%3.0f", as);
+    if (airDataOk) out.Printf(ax + 4 * mg, cy - 3 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, "%3.0f", as);
+    else out.Text(ax + 4 * mg, cy - 3 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, "---");
   }
 
   /* ----- Altitude tape (RIGHT side, barometric ASL): minor ticks every 100ft, boxed exact value,

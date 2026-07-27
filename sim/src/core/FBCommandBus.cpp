@@ -109,6 +109,7 @@ const char *FBCommandReasonStr(FBCommandReason r) {
     case FBCommandReason::OutOfRange: return "out_of_range";
     case FBCommandReason::ChannelBusy: return "channel_busy";
     case FBCommandReason::Depleted: return "depleted";
+    case FBCommandReason::SystemFailed: return "system_failed";
   }
   return "?";
 }

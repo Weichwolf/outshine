@@ -129,6 +129,23 @@ inline void FBBodyVecToEnu(double rollDeg, double pitchDeg, double yawDeg, doubl
   eastM *= mag; northM *= mag; upM *= mag;
 }
 
+/* The exact inverse of FBBodyVecToEnu: a local-ENU vector expressed in BODY axes (+forward/+right/+down,
+ * same unit). Built on FBEnuToBodyLos for the same one-spelling-of-the-rotation reason. The one caller is
+ * the damage resolution (app/FBMissionRunner.cpp): a detonation happens at a point in the world and what
+ * decides which systems it wrecked is where that point sits along the target's own airframe axis. */
+inline void FBEnuToBodyVec(double rollDeg, double pitchDeg, double yawDeg, double eastM, double northM,
+                           double upM, double &fwd, double &right, double &down) {
+  double mag = std::sqrt(eastM * eastM + northM * northM + upM * upM);
+  if (mag <= 0.0) { fwd = right = down = 0.0; return; }
+  double azDeg = 0.0, elDeg = 0.0;
+  FBEnuToBodyLos(rollDeg, pitchDeg, yawDeg, eastM, northM, upM, azDeg, elDeg);
+  double ca = std::cos(azDeg * kDeg2Rad), sa = std::sin(azDeg * kDeg2Rad);
+  double ce = std::cos(elDeg * kDeg2Rad), se = std::sin(elDeg * kDeg2Rad);
+  fwd = mag * ce * ca;
+  right = mag * ce * sa;
+  down = -mag * se;
+}
+
 /* Along/across-track projection of (lat,lon) onto the line through (refLat,refLon) on true heading
  * `courseDeg`: +along down the course from the reference, +across to its right. The runway-axis
  * primitive FBMissionMonitor's on-runway gate, FBRunwayPlateauElevation's footprint, FBPilot's

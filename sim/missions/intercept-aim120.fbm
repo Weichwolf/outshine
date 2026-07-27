@@ -25,9 +25,12 @@ timeout 280
 #   - msl_losrate: proportional navigation driving the line-of-sight rate toward zero
 #   - the DETONATION event with the miss distance, the closing speed and the geometry
 #
-# Both jets have a waypoint at the end of their leg, so the run ends SUCCESS when they have FLOWN THOSE
-# LEGS, not when the missile arrives: a weapon's flight is an EVENT inside a mission, never the mission's
-# verdict (and there is no damage model yet, so the bandit flies on through its own detonation).
+# Both jets have a waypoint at the end of their leg, and a weapon's flight is an EVENT inside a mission
+# rather than the mission's verdict. Since the damage model exists (core/FBDamageModel), though, the
+# round that arrives here is decisive after all: the burst destroys the bandit's systems, the bandit's
+# own mission monitor concludes FAIL ("combat ineffective") and the RUN ENDS AT THE HIT — exit 1, at
+# ~70.4 s, instead of the SUCCESS at ~191 s this mission used to report. Everything up to that tick is
+# unchanged, column for column; what the missile did is measured exactly as before.
 
 unit viper
   team friendly

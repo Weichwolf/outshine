@@ -34,6 +34,11 @@ timeout 200
 # detonation at all) in events.log, and eng_react_s / eng_chaff / eng_defend_s in the defender's
 # telemetry. The reacting run's number is the miss distance the defence bought.
 
+# WHAT THE EXIT CODE NOW SAYS: the blind defender is hit, and since core/FBDamageModel exists that ends
+# its sortie — the run stops at the burst with exit 1, where it used to fly on to exit 0. Its sighted
+# twin (bvr-defend.fbm) still ends 0, because it defeats the shot. The experiment's own numbers (the
+# miss distances) are unchanged; the exit code is now a second reading of the same difference.
+
 unit viper
   team friendly
   module f16

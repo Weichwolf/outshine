@@ -95,6 +95,12 @@ enum class FBCommandReason : uint8_t {
    * dispenser is a fact about the AIRCRAFT that the pilot needs to hear differently — and it is the one
    * refusal a defensive system produces in the middle of being shot at. */
   Depleted,
+  /* ...and its fourth: the box the command is addressed to is GONE — shot away, not switched off
+   * (core/FBSystemHealth). Its own reason because it is neither a context error nor a precondition the
+   * pilot can satisfy: nothing about the aircraft's configuration will make this command work again, and
+   * a cockpit that answered "wrong mode" to a destroyed radar would send its pilot looking for a switch
+   * that no longer does anything. */
+  SystemFailed,
 };
 
 const char *FBCommandReasonStr(FBCommandReason r);

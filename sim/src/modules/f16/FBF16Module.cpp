@@ -82,13 +82,21 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, 
     ServiceCommands(FBCommandGroup::Stores);
     /* The Sensors slot: the SECOND (and last) system that sees the other units at all — the ACTIVE one,
      * next to the cooperative terminal below (systems/FBRadarSystem's banner). `units` stops here too;
-     * what leaves is an anonymous contact list in SharedState. */
-    Fcr_->Run(SharedState, st, units, SimTimeS);
+     * what leaves is an anonymous contact list in SharedState.
+     * BATTLE DAMAGE (core/FBSystemHealth, read-only here): a failed set is not cycled at all and its
+     * block goes Invalid — everything downstream then behaves as it already does for a set that was
+     * never powered. A degraded one runs normally at the reduced range its damaged aperture leaves it. */
+    Fcr_->SetRangeFactor(SystemDegraded(FBSystemId::Radar) ? kRadarRangeDegraded : 1.0);
+    if (SystemWorking(FBSystemId::Radar)) Fcr_->Run(SharedState, st, units, SimTimeS);
+    else SharedState.Radar.H.Invalidate();
     /* The HUD's telemetry chain, one throttle group so FireControl always reads Nav's SAME-tick output
      * (see the header's rate table) — `st` is the FDM state as of the END of the PREVIOUS Run() call,
-     * same one-tick lag every other Sensor-cadence write already has. */
-    AirData->Run(SharedState, st, dt);
-    RadarAlt->Run(SharedState, (float)st.elev, GroundAslM);
+     * same one-tick lag every other Sensor-cadence write already has. Each of them under the same
+     * health gate as the radar above: a failed box publishes nothing and says so. */
+    if (SystemWorking(FBSystemId::AirData)) AirData->Run(SharedState, st, dt);
+    else SharedState.AirData.H.Invalidate();
+    if (SystemWorking(FBSystemId::RadarAlt)) RadarAlt->Run(SharedState, (float)st.elev, GroundAslM);
+    else SharedState.RadarAlt.H.Invalidate();
     /* WHAT the nav system computes against: this module's own flight plan, republished every sensor
      * tick because the active waypoint advances during the run (NavSys->AdvanceWaypoint below). Only
      * the browser client ever set a steerpoint before, so in every .fbm run FBNavSystem had nothing to
@@ -100,16 +108,24 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, 
      * declared per-waypoint elevation is mission-format work, not a number to invent here. */
     if (const FBWaypoint *swp = Plan_.ActiveWaypoint())
       NavSys->SetSteerpoint(swp->LatDeg, swp->LonDeg, GroundAslM * kMToFt);
-    NavSys->Run(SharedState, st, dt);
+    if (SystemWorking(FBSystemId::Nav)) {
+      NavSys->Run(SharedState, st, dt);
+    } else {
+      SharedState.Nav.H.Invalidate();
+      SharedState.Cruise.H.Invalidate();   /* the same box publishes both messages */
+    }
     /* The fire control gets the SELECTED station's round: the launch zone it computes is for the weapon
      * that would actually leave the jet if the pilot pickled now (modules/f16/FBF16FireControl). */
-    FireCtrl->Run(SharedState, st, FBStoreSpecOf(SmsSys->StoreAt(SmsSys->SelectedStation())), SimTimeS,
-                  dt);
+    if (SystemWorking(FBSystemId::FireControl))
+      FireCtrl->Run(SharedState, st, FBStoreSpecOf(SmsSys->StoreAt(SmsSys->SelectedStation())), SimTimeS,
+                    dt);
+    else SharedState.FireControl.H.Invalidate();
     /* ...and hands the SMS its target estimate, which the SMS copies onto a launched round and then
      * radiates as that round's midcourse uplink (systems/FBStoresSystem::SetTargetState). */
     SmsSys->SetTargetState(FireCtrl->TargetState());
     UfcSys->Run(SharedState, dt);
-    SmsSys->Run(SharedState, dt);
+    if (SystemWorking(FBSystemId::Stores)) SmsSys->Run(SharedState, dt);
+    else SharedState.Stores.H.Invalidate();
     /* LAST in the group: the warning set is a pure consumer of everything published above it, including
      * their validity heads (systems/FBWarningSystem). */
     Warn_->Run(SharedState, dt);
@@ -122,9 +138,11 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, 
    * the data flow — the receiver writes the threat picture, the dispenser reads it, and the pilot's CMS
    * commands are answered in between so a throw takes effect on this tick's program and not the next. */
   if (Due(DefensiveAccS, dt, 10.0)) {
-    Rwr_->Run(SharedState, st, units, SimTimeS);
+    if (SystemWorking(FBSystemId::Rwr)) Rwr_->Run(SharedState, st, units, SimTimeS);
+    else SharedState.Rwr.H.Invalidate();
     ServiceCommands(FBCommandGroup::Defensive);
-    Cmds_->Run(SharedState, st, SimTimeS);
+    if (SystemWorking(FBSystemId::Countermeasures)) Cmds_->Run(SharedState, st, SimTimeS);
+    else SharedState.Cmds.H.Invalidate();
   }
   /* Comms/Datalink: the COOPERATIVE half of what this module knows about other units
    * (systems/FBDatalinkSystem's banner — `units`, the registry of published snapshots, reaches this slot
@@ -132,7 +150,8 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, 
    * them — HUD today, pilot later — reads them as instrument data. */
   if (Due(CommsAccS, dt, 5.0)) {
     ServiceCommands(FBCommandGroup::Comms);
-    Datalink_->Run(SharedState, st, units, SimTimeS);
+    if (SystemWorking(FBSystemId::Datalink)) Datalink_->Run(SharedState, st, units, SimTimeS);
+    else SharedState.Datalink.H.Invalidate();
   }
   /* Pilot: the mission brain above Guidance/FlightControl (rate table). Idle (nobody called SetPhase)
    * returns a neutral FBPilotCommands, so ApplyPilotCommands is a no-op until the App starts the phase
@@ -204,8 +223,49 @@ void FBF16Module::ServiceCommands(FBCommandGroup group) {
  * domain (core/FBAvionicsCommand.h's OutOfRange note): out of range is REJECTED and named, never
  * clamped behind the pilot's back. The one clamp in the file is the documented BNGO ceiling, and it is
  * reported as Clamped, not as success. */
+namespace {
+/* WHICH BOX a command is addressed to, for the damage gate below. Module knowledge, exactly like the
+ * routing in ApplyCommand itself: which F-16 box owns "radar mode" is this aircraft's business, not
+ * systems/'s. Returns false for a command whose owner is not a system the damage model tracks (the UFC's
+ * data entry, the master-mode switch). */
+bool CommandOwner(FBCommandTarget t, FBSystemId &out) {
+  switch (t) {
+    case FBCommandTarget::RadarMode:
+    case FBCommandTarget::RadarRangeNm:
+    case FBCommandTarget::RadarSlewAz:
+    case FBCommandTarget::RadarSlewEl:
+    case FBCommandTarget::IffTransponder:
+    case FBCommandTarget::IffInterrogator:
+    case FBCommandTarget::Designate: out = FBSystemId::Radar; return true;
+    case FBCommandTarget::DatalinkPower:
+    case FBCommandTarget::DatalinkTransmit:
+    case FBCommandTarget::DatalinkFilter:
+    case FBCommandTarget::DatalinkRangeNm: out = FBSystemId::Datalink; return true;
+    case FBCommandTarget::MasterArm:
+    case FBCommandTarget::StationSelect:
+    case FBCommandTarget::WeaponSelect:
+    case FBCommandTarget::WeaponRelease: out = FBSystemId::Stores; return true;
+    case FBCommandTarget::CmDispense:
+    case FBCommandTarget::CmConsent:
+    case FBCommandTarget::CmdsMode: out = FBSystemId::Countermeasures; return true;
+    default: return false;
+  }
+}
+} // namespace
+
 void FBF16Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &outcome,
                                FBCommandReason &reason) {
+  /* THE DAMAGE GATE, before any box is touched: a command to a system that has been shot away does
+   * nothing and says so (core/FBAvionicsCommand.h's SystemFailed). Without it a destroyed SMS would
+   * still let a round off the rail — the module gates its Run() and its block, but the release path runs
+   * through this router, not through that Run(). The pilot then behaves correctly for free: it reads the
+   * refusal exactly as it reads an empty magazine's. */
+  FBSystemId owner = FBSystemId::Engine;
+  if (CommandOwner(c.Target, owner) && !SystemWorking(owner)) {
+    outcome = FBCommandOutcome::Rejected;
+    reason = FBCommandReason::SystemFailed;
+    return;
+  }
   switch (c.Target) {
     case FBCommandTarget::RadarMode: {
       int ord = (int)c.Value;

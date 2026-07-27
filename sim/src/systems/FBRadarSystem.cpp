@@ -54,7 +54,7 @@ const FBChaffCloud *FBRadarSystem::SelectDecoy(const FBChaffCloud *clouds, const
     if (rcs <= 0.0) continue;
     double r = 0.0, brg = 0.0, ev = 0.0, az = 0.0, el = 0.0;
     RelativeLos(st, c.LatDeg, c.LonDeg, c.AltM, r, brg, ev, az, el);
-    if (r > v.RangeM || r < 1.0) continue;
+    if (r > GateRangeM(v) || r < 1.0) continue;
     if (std::fabs(FBWrap180(az - v.AzCenterDeg)) > v.AzHalfDeg) continue;
     if (std::fabs(el - v.ElCenterDeg) > v.ElHalfDeg) continue;
     double power = rcs / (r * r * r * r);
@@ -130,7 +130,7 @@ void FBRadarSystem::ScanFrame(const fb_fdm_state &st, const FBUnitRegistry &net,
         RelativeLos(st, decoy->LatDeg, decoy->LonDeg, decoy->AltM, rangeM, bearingDeg, elevAngleDeg,
                     azDeg, elDeg);
 
-      bool inVolume = rangeM <= v.RangeM &&
+      bool inVolume = rangeM <= GateRangeM(v) &&
                       std::fabs(FBWrap180(azDeg - v.AzCenterDeg)) <= v.AzHalfDeg &&
                       std::fabs(elDeg - v.ElCenterDeg) <= v.ElHalfDeg;
 
@@ -383,7 +383,7 @@ FBEmitterSignature FBRadarSystem::Emission() const {
   const FBRadarScanVolume &v = ActiveVolume();
   if (!Powered_ || !v.Active) return e;   /* Mode::None — nothing is radiating */
   e.Kind = EmitterKind();
-  e.RangeM = (float)v.RangeM;
+  e.RangeM = (float)GateRangeM(v);
   if (v.SingleTarget && LockedNum_ != 0) {
     for (int i = 0; i < TrackCount_; i++) {
       if (Tracks_[i].TrackNum != LockedNum_) continue;

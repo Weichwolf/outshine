@@ -26,9 +26,12 @@ timeout 220
 # behind -> THREAT_DROP. The warning goes away because the emitter stopped illuminating, not because a
 # timer expired.
 #
-# Both jets have a waypoint at the end of their leg, so the run ends SUCCESS on the legs being flown.
-# There is no damage model: the spike flies on through its own intercept, which is what makes the second
-# half of the sequence (the loss of the warnings) measurable at all.
+# Both jets have a waypoint at the end of their leg. Since the damage model exists (core/FBDamageModel)
+# the hunter's round is decisive: the burst leaves the spike combat-ineffective, its own mission monitor
+# concludes FAIL, and the run ends there (exit 1, ~106.8 s) instead of flying the legs out. The first
+# half of the sequence — every RWR transition up to the burst — is unchanged column for column; the
+# second half (the loss of the warnings after the merge) is now only reachable in a variant where the
+# round misses, which is what cm-beam-only.fbm and cm-chaff-beam.fbm already are.
 
 unit spike
   team friendly

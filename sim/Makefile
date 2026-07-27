@@ -89,7 +89,7 @@ CORE_LIB_SRCS := \
   src/fdm/FBFdm.cpp src/fdm/FBFdmBoot.cpp src/fdm/FBFdmTelemetrySource.cpp \
   src/core/FBLog.cpp src/core/FBTelemetry.cpp src/core/FBMissionFile.cpp src/core/FBCommandBus.cpp src/core/FBStateBusTelemetry.cpp \
   src/core/FBRunwayPlateauElevation.cpp src/core/FBBakedDemElevation.cpp src/core/FBFlightMonitor.cpp \
-  src/core/FBMissionMonitor.cpp \
+  src/core/FBMissionMonitor.cpp src/core/FBSystemHealth.cpp src/core/FBDamageModel.cpp \
   src/systems/FBAutopilot.cpp src/systems/FBFlightControl.cpp src/systems/FBDisplaySystem.cpp \
   src/systems/FBAirDataSystem.cpp src/systems/FBRadarAltimeter.cpp src/systems/FBNavSystem.cpp \
   src/systems/FBAirframeControls.cpp src/systems/FBPilot.cpp src/systems/FBDatalinkSystem.cpp \
@@ -98,7 +98,7 @@ CORE_LIB_SRCS := \
   src/systems/FBRwrSystem.cpp src/systems/FBCountermeasureSystem.cpp \
   src/systems/FBStoresSystem.cpp \
   src/modules/FBModuleRegistry.cpp \
-  src/modules/f16/FBF16Fcr.cpp src/modules/f16/FBF16Cmds.cpp \
+  src/modules/f16/FBF16Fcr.cpp src/modules/f16/FBF16Cmds.cpp src/modules/f16/FBF16Damage.cpp \
   src/modules/f16/FBF16Max7456.cpp src/modules/f16/FBF16Module.cpp src/modules/f16/FBF16FireControl.cpp \
   src/modules/f16/FBF16Ufc.cpp src/modules/f16/FBF16Sms.cpp src/modules/f16/FBF16Pilot.cpp \
   src/modules/f16/FBF16ModuleRegistration.cpp \

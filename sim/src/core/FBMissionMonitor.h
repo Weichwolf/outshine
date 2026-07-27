@@ -33,6 +33,13 @@ struct FBMissionMonitorSample {
   double LatDeg = 0.0, LonDeg = 0.0;
   bool   AnyWow = false;
   double GroundSpeedKt = 0.0;   /* the stillstand-on-the-runway SUCCESS gate (Land waypoint, class banner) */
+  /* THE SHOOTDOWN, as a MISSION fact (core/FBSystemHealth::CombatEffective — engine, flight controls or
+   * structure gone). It belongs here and not in FBFlightMonitor for the reason that separates the two
+   * judges at all: the physics judge asks whether the airframe survived, and a jet whose engine has just
+   * been shot out is still flying and has survived nothing yet. Whether its SORTIE is over is a mission
+   * question, and this is the mission judge. The unit is not stopped, frozen or marked dead by it — it
+   * goes on being integrated until the physics judge has its own say. */
+  bool   CombatIneffective = false;
 };
 
 class FBMissionMonitor {

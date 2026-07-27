@@ -33,10 +33,15 @@ timeout 300
 #                which is the difference between a launch and a kill
 #   DETONATION   with the miss distance
 #
-# THE RUN ENDS AT ITS TIMEOUT (exit 3), by design and for the same reason bfm-basic.fbm does: an
-# engagement has no waypoint to arrive at. The vector waypoint is 150 km east — far enough that it is
-# never reached, so nothing about the intercept is cut short by a mission verdict. The verdict of the
-# intercept is read from the eng_* columns' LAST ROW, which is the whole debrief.
+# THE RUN ENDS AT THE HIT (exit 1, ~173.0 s). It used to run to its timeout, because a target survived
+# everything; since core/FBDamageModel exists, the first burst (0.6 m, dead centre) destroys every
+# system the bandit has, its own mission monitor concludes FAIL ("combat ineffective") and the run is
+# over — the shot was the point of the mission, and the mission now ends when it lands. Everything
+# before that tick is unchanged, column for column, and the debrief is still read from the eng_*
+# columns' LAST ROW. What the FIRST kill is NOT is a SUCCESS line for the shooter: the combined verdict
+# is the killed unit's FAIL, because no mission format has an objective that says "kill him" yet.
+# The aftermath a kill has — a wreck flying on until the ground takes it — is measured in
+# damage-amraam.fbm, whose target carries no objectives and can therefore not end its own run.
 
 unit viper
   team friendly

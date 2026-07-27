@@ -121,6 +121,26 @@ public:
    * a clean airframe is bit-identical to one that never heard of stores. */
   void SetStoresDrag(double cdaFt2, double xIn, double yIn, double zIn);
 
+  /* ---- BATTLE DAMAGE, as physics rather than as bookkeeping. The three consequences a resolved weapon
+   * burst can have on an airframe (core/FBDamageModel names the values and why), each expressed through
+   * a mechanism JSBSim already has, each set ONLY by the owner of the unit (units/FBSimUnit) and never
+   * by a module: a module cannot reach a non-const FBFdm without the owner handing it one, and the owner
+   * hands it out for controls, not for damage.
+   * Defaults are a no-op — authority 1, no throttle limit, no drag — so an undamaged airframe is
+   * bit-identical to one that never heard of damage. ---- */
+
+  /* Scales every commanded control deflection (roll/pitch/yaw) inside SetControls: 1 = full authority,
+   * 0 = the surfaces stop answering. The FCS keeps commanding normally and the aircraft simply stops
+   * doing what it is told, which is what a severed actuator run means. */
+  void SetControlAuthority(double norm);
+  /* Caps the commanded throttle (0..1): the afterburner range is simply no longer reachable. Thrust
+   * itself stays JSBSim's own engine model. */
+  void SetThrottleLimit(double maxNorm);
+  /* Extra drag AREA (CdA, ft^2) acting along the body -x axis through the CG — the airframe's own
+   * battle damage, on the same <external_reactions> path the carriage drag uses (SetStoresDrag), with
+   * its own force channel so the two never overwrite each other. 0 = none, ever. */
+  void SetDamageDrag(double cdaFt2);
+
   double GetQbarPsf() const;      /* dynamic pressure — what the drag above is measured against */
   double GetCgXIn() const;        /* structural CG station: the carriage effect on BALANCE, observable */
 
@@ -180,6 +200,9 @@ private:
   bool Load(const FBFdmSpawn &spawn);
   bool LoadUnguarded(const FBFdmSpawn &spawn);
   void StepUnguarded(fb_fdm_state &out);
+  /* Adds one named body -x drag force to the loaded model at runtime (the stores and damage channels
+   * share it — see its definition). */
+  bool EnsureDragForce(const char *name, double xIn, double yIn, double zIn);
 
   struct Impl;
   std::unique_ptr<Impl> P;

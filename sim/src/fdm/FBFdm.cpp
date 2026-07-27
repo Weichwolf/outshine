@@ -56,10 +56,12 @@ constexpr double kThrottleSlew = FBFdm::kStepS / kEscSpinupS;
 
 double Clamp01(double v) { return v < 0.0 ? 0.0 : v > 1.0 ? 1.0 : v; }
 
-/* The external-stores force channel we ADD to whatever the loaded model already declares (see
- * EnsureStoresForce below). Its own name, so nothing about it can be confused with a force the
- * aircraft.xml declared for its own purposes. */
+/* The external force channels we ADD to whatever the loaded model already declares (see EnsureForce
+ * below). Own names, so nothing about them can be confused with a force the aircraft.xml declared for
+ * its own purposes — nor with each other: carriage drag and battle damage are two independent areas
+ * that must be able to exist at the same time. */
 constexpr const char *kStoresForce = "fb-stores";
+constexpr const char *kDamageForce = "fb-damage";
 
 /* One numeric leaf `<name unit="U">v</name>`, built in memory — JSBSim's Element is a plain public
  * class, so the model APIs that take one (FGMassBalance::AddPointMass, FGExternalReactions::Load) can
@@ -92,6 +94,10 @@ struct FBFdm::Impl {
   double ElevTrim = 0.0;          /* elevator trim (from DoTrim) biasing the FCS's pitch -> neutral = level */
   double StoresCdA = 0.0;         /* carriage drag area of everything loaded (SetStoresDrag) */
   bool   StoresForce = false;     /* the fb-stores external force exists on this instance */
+  double DamageCdA = 0.0;         /* battle-damage drag area (SetDamageDrag) */
+  bool   DamageForce = false;
+  double Authority = 1.0;         /* control-surface authority scale (SetControlAuthority) */
+  double ThrottleMax = 1.0;       /* throttle ceiling (SetThrottleLimit) */
 };
 
 FBFdm::FBFdm() : P(std::make_unique<Impl>()) { P->Exec.SetDebugLevel(0); }
@@ -233,6 +239,10 @@ void FBFdm::StepUnguarded(fb_fdm_state &o) {
   if (P->StoresForce && P->StoresCdA > 0.0)
     ex.SetPropertyValue(std::string("external_reactions/") + kStoresForce + "/magnitude",
                         P->StoresCdA * ex.GetPropertyValue("aero/qbar-psf"));
+  /* ...and the same for battle damage, on its own channel (SetDamageDrag). */
+  if (P->DamageForce && P->DamageCdA > 0.0)
+    ex.SetPropertyValue(std::string("external_reactions/") + kDamageForce + "/magnitude",
+                        P->DamageCdA * ex.GetPropertyValue("aero/qbar-psf"));
   ex.Run();
   o.roll  = ex.GetPropertyValue("attitude/phi-deg");
   o.pitch = ex.GetPropertyValue("attitude/theta-deg");
@@ -258,6 +268,12 @@ void FBFdm::StepUnguarded(fb_fdm_state &o) {
 }
 
 void FBFdm::SetControls(double roll, double pitch, double yaw, double thr) {
+  /* Battle damage acts HERE, between the commanding system and the physics (SetControlAuthority/
+   * SetThrottleLimit): the FCS goes on issuing exactly what it always issued and the aircraft stops
+   * answering it. Both are 1.0 on an undamaged airframe, so this is arithmetic with no effect until
+   * something has actually been shot off. */
+  roll *= P->Authority; pitch *= P->Authority; yaw *= P->Authority;
+  if (thr > P->ThrottleMax) thr = P->ThrottleMax;
   /* slew, don't step: a 0->0.95 throttle jump blows the engine's RPM ODE up and departs the airframe. */
   double &applied = P->ThrottleApplied;
   if      (thr > applied + kThrottleSlew) applied += kThrottleSlew;
@@ -337,37 +353,43 @@ void FBFdm::SetStorePointMassLbs(int index, double lbs) {
                            lbs < 0.0 ? 0.0 : lbs);
 }
 
-/* Creates the fb-stores external force on first use. FGExternalReactions::Load APPENDS forces and then
+/* Creates one named body-axis DRAG force on first use. FGExternalReactions::Load APPENDS forces and then
  * re-binds its six aggregate output properties — which the loaded model already bound if IT declared
  * any external force, and a duplicate tie would log an error per property. So the aggregates are untied
  * first and Load re-ties them to the same object: no output, no model file touched, and the aircraft
- * keeps every force it declared plus ours. */
+ * keeps every force it declared plus ours. Two channels use it (carriage drag and battle damage), which
+ * is why it is a helper rather than a block inside SetStoresDrag. */
+bool FBFdm::EnsureDragForce(const char *name, double xIn, double yIn, double zIn) {
+  FGFDMExec &ex = P->Exec;
+  auto er = ex.GetExternalReactions();
+  if (!er) return false;
+  auto props = ex.GetPropertyManager();
+  for (const char *agg : {"moments/l-external-lbsft", "moments/m-external-lbsft",
+                          "moments/n-external-lbsft", "forces/fbx-external-lbs",
+                          "forces/fby-external-lbs", "forces/fbz-external-lbs"}) {
+    SGPropertyNode *node = props->GetNode(agg, false);
+    if (node && node->isTied()) props->Untie(node);
+  }
+  Element_ptr root(new Element("external_reactions"));
+  Element *force = new Element("force");
+  force->AddAttribute("name", name);
+  force->AddAttribute("frame", "BODY");
+  AddChild(force, LocationElement(xIn, yIn, zIn));
+  Element *dir = new Element("direction");
+  AddChild(dir, ValueElement("x", nullptr, -1.0));   /* body -x = aft: the magnitude IS drag, positive */
+  AddChild(dir, ValueElement("y", nullptr, 0.0));
+  AddChild(dir, ValueElement("z", nullptr, 0.0));
+  AddChild(force, dir);
+  AddChild(root.ptr(), force);
+  return er->Load(root.ptr());
+}
+
 void FBFdm::SetStoresDrag(double cdaFt2, double xIn, double yIn, double zIn) {
   FGFDMExec &ex = P->Exec;
   P->StoresCdA = cdaFt2 > 0.0 ? cdaFt2 : 0.0;
   if (P->StoresCdA <= 0.0 && !P->StoresForce) return;   /* nothing loaded, nothing ever created */
   if (!P->StoresForce) {
-    auto er = ex.GetExternalReactions();
-    if (!er) return;
-    auto props = ex.GetPropertyManager();
-    for (const char *agg : {"moments/l-external-lbsft", "moments/m-external-lbsft",
-                            "moments/n-external-lbsft", "forces/fbx-external-lbs",
-                            "forces/fby-external-lbs", "forces/fbz-external-lbs"}) {
-      SGPropertyNode *node = props->GetNode(agg, false);
-      if (node && node->isTied()) props->Untie(node);
-    }
-    Element_ptr root(new Element("external_reactions"));
-    Element *force = new Element("force");
-    force->AddAttribute("name", kStoresForce);
-    force->AddAttribute("frame", "BODY");
-    AddChild(force, LocationElement(xIn, yIn, zIn));
-    Element *dir = new Element("direction");
-    AddChild(dir, ValueElement("x", nullptr, -1.0));   /* body -x = aft: the magnitude IS drag, positive */
-    AddChild(dir, ValueElement("y", nullptr, 0.0));
-    AddChild(dir, ValueElement("z", nullptr, 0.0));
-    AddChild(force, dir);
-    AddChild(root.ptr(), force);
-    if (!er->Load(root.ptr())) return;
+    if (!EnsureDragForce(kStoresForce, xIn, yIn, zIn)) return;
     P->StoresForce = true;
   }
   std::string base = std::string("external_reactions/") + kStoresForce;
@@ -375,6 +397,32 @@ void FBFdm::SetStoresDrag(double cdaFt2, double xIn, double yIn, double zIn) {
   ex.SetPropertyValue(base + "/location-y-in", yIn);
   ex.SetPropertyValue(base + "/location-z-in", zIn);
   if (P->StoresCdA <= 0.0) ex.SetPropertyValue(base + "/magnitude", 0.0);
+}
+
+/* ---- Battle damage (FBFdm.h's banner). Three lines of arithmetic and one force channel — everything
+ * that FOLLOWS from them (a jet that will not roll, an engine that will not make afterburner, an airframe
+ * that will not hold altitude) is JSBSim integrating the aircraft it now is. ---- */
+void FBFdm::SetControlAuthority(double norm) {
+  P->Authority = norm < 0.0 ? 0.0 : norm > 1.0 ? 1.0 : norm;
+}
+
+void FBFdm::SetThrottleLimit(double maxNorm) {
+  P->ThrottleMax = maxNorm < 0.0 ? 0.0 : maxNorm > 1.0 ? 1.0 : maxNorm;
+}
+
+void FBFdm::SetDamageDrag(double cdaFt2) {
+  P->DamageCdA = cdaFt2 > 0.0 ? cdaFt2 : 0.0;
+  if (P->DamageCdA <= 0.0 && !P->DamageForce) return;   /* undamaged: the channel never exists */
+  /* Through the CURRENT CG, so battle damage adds drag and no pitching moment — where the holes are is
+   * not something this model knows (core/FBDamageModel's consequence constants say so). */
+  double xIn = GetCgXIn();
+  if (!P->DamageForce) {
+    if (!EnsureDragForce(kDamageForce, xIn, 0.0, 0.0)) return;
+    P->DamageForce = true;
+  }
+  std::string base = std::string("external_reactions/") + kDamageForce;
+  P->Exec.SetPropertyValue(base + "/location-x-in", xIn);
+  if (P->DamageCdA <= 0.0) P->Exec.SetPropertyValue(base + "/magnitude", 0.0);
 }
 
 double FBFdm::GetQbarPsf() const { return P->Exec.GetPropertyValue("aero/qbar-psf"); }

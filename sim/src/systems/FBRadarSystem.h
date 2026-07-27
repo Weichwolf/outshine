@@ -157,6 +157,15 @@ public:
   void SetPowered(bool on);
   bool Powered() const { return Powered_; }
 
+  /* BATTLE DAMAGE, the one performance change a damaged set can have that is DERIVABLE rather than
+   * invented: a partly destroyed antenna is a smaller aperture, and detection range follows the radar
+   * equation (core/FBDamageModel::kRadarRangeDegraded has the derivation). The factor multiplies the
+   * range gate of whatever pattern is in force — search, ACM box or track — and the range the emission
+   * reports, so what the set can see and what it announces stay one thing. 1 = undamaged; the module
+   * sets it from the health register it reads (never writes), units/FBSimUnit owns that register. */
+  void SetRangeFactor(double f) { RangeFactor_ = f > 0.0 ? f : 0.0; }
+  double RangeFactor() const { return RangeFactor_; }
+
   /* The IFF box (AN/APX-113, doc/f16/datalink-iff.md) is a combined INTERROGATOR + TRANSPONDER. It is
    * modelled here rather than as a slot of its own because the only thing in this simulator that ever
    * challenges anything is a radar contact, and the only thing that ever reads a reply is this class —
@@ -231,6 +240,11 @@ protected:
                           double &rangeM, double &bearingDeg, double &elevAngleDeg, double &azDeg,
                           double &elDeg);
 
+  /* The range gate actually in force: the pattern's own range times whatever the antenna has left
+   * (SetRangeFactor). Every range test in this class goes through it, so a damaged set cannot see
+   * further in one code path than in another. */
+  double GateRangeM(const FBRadarScanVolume &v) const { return v.RangeM * RangeFactor_; }
+
 private:
   /* One internal track file. UnitId is the look-to-look correlation key and NEVER leaves this object
    * (class banner); everything published is the FBRadarContact built from the rest. */
@@ -282,7 +296,8 @@ private:
   int SelfId_ = 0;
   FBUnitTeam SelfTeam_ = FBUnitTeam::Friendly;
   bool Powered_ = true;
-  bool IffXpdr_ = true;          /* IFF Master NORM at startup (doc/f16/procedures-startup.md step 46) */
+  double RangeFactor_ = 1.0;     /* battle damage — see SetRangeFactor */
+  bool IffXpdr_ = true;         /* IFF Master NORM at startup (doc/f16/procedures-startup.md step 46) */
   bool IffInterrogator_ = true;
   FBRadarScanVolume Search_{};
   double NextScanS_ = 0.0;       /* the antenna's own frame grid, independent of the slot's cadence */

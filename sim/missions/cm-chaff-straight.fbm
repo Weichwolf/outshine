@@ -25,6 +25,11 @@ timeout 200
 # airspeed, ~200 m/s and five times the notch's half-width, so the two returns are trivially separable
 # and every cartridge is wasted. The measurement is that the miss distance is the reference's, unchanged.
 
+# WHAT THE EXIT CODE NOW SAYS: this leg's round still arrives (chaff alone achieves nothing head-on), and
+# since core/FBDamageModel exists an arriving round is decisive — the bandit is left combat-ineffective
+# and the run ends at the burst with exit 1 instead of exit 0. The measured miss distance, and every
+# column before that tick, is unchanged.
+
 unit viper
   team friendly
   module f16

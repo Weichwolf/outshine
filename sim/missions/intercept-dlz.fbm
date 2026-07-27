@@ -21,6 +21,11 @@ timeout 280
 # fixed number in a mission file: it is whatever the geometry made it at that second, and the events.log
 # line prints all three figures side by side.
 
+# WHAT THE EXIT CODE NOW SAYS: the round arrives, and since core/FBDamageModel exists an arriving round
+# ends the target's sortie — the run stops at the burst with exit 1 rather than flying the legs out to
+# exit 0. Everything the mission measures (the DLZ's prediction against the flown time of flight) happens
+# before that tick and is unchanged.
+
 unit viper
   team friendly
   module f16

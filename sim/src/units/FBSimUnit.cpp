@@ -34,10 +34,12 @@ FBSimUnit::FBSimUnit(int id, std::string name, FBUnitKind kind, FBUnitTeam team,
       St_(initialState),
       GroundAslM_(groundAslM),
       FdmSrc_(RequireFdm(Fdm_), St_, GroundAslM_),
-      BusSrc_(Module_->Telemetry()) {
+      BusSrc_(Module_->Telemetry()),
+      HealthSrc_(Health_) {
   assert(Module_ && "FBSimUnit needs the module that flies the airframe");
   Module_->SetUnitIdentity(GetId(), GetTeam());   /* before the first Run: the terminal's own callsign
                                                    * on the net (FBModule::SetUnitIdentity) */
+  Module_->AttachHealth(Health_);   /* read-only: the module sees its damage, never writes it */
   PublishPose();   /* the declarative spawn is already a valid pose — nobody ever reads an empty one */
 }
 
@@ -89,14 +91,51 @@ FBState FBSimUnit::HudState() const {
   return hs;
 }
 
+/* The burst, resolved and then FLOWN. Two steps, in this order and nowhere else: the core decides what
+ * the geometry did (this unit's module supplies only WHERE its systems are), and the result is handed to
+ * the airframe. Everything after that is ordinary simulation — the module cycles the systems it has
+ * left, JSBSim integrates the aircraft it now is, and both monitors go on judging exactly as before. */
+FBDamageResult FBSimUnit::TakeBurst(const FBBurst &burst) {
+  FBDamageResult r = FBDamageModel::Apply(burst, Module_->DamageLayout(), Health_);
+  ApplyDamageToAirframe();
+  return r;
+}
+
+/* Health -> physics (core/FBDamageModel's consequence constants). Idempotent and called only when the
+ * register changed: nothing here is per-frame work. */
+void FBSimUnit::ApplyDamageToAirframe() {
+  switch (Health_.State(FBSystemId::Engine)) {
+    case FBHealthState::Failed:
+      Module_->Controls().EngineCutoff();   /* through the same controls path a pilot would use */
+      Fdm_->SetThrottleLimit(0.0);
+      break;
+    case FBHealthState::Degraded: Fdm_->SetThrottleLimit(kThrottleLimitDegraded); break;
+    case FBHealthState::Intact: break;
+  }
+  switch (Health_.State(FBSystemId::FlightControls)) {
+    case FBHealthState::Failed: Fdm_->SetControlAuthority(kAuthorityFailed); break;
+    case FBHealthState::Degraded: Fdm_->SetControlAuthority(kAuthorityDegraded); break;
+    case FBHealthState::Intact: break;
+  }
+  switch (Health_.State(FBSystemId::Structure)) {
+    case FBHealthState::Failed: Fdm_->SetDamageDrag(kDamageDragFt2Failed); break;
+    case FBHealthState::Degraded: Fdm_->SetDamageDrag(kDamageDragFt2Degraded); break;
+    case FBHealthState::Intact: break;
+  }
+}
+
 bool FBSimUnit::RunMonitors(double simT) {
   if (Flight_.Tick(FBBuildFlightMonitorSample(*Fdm_, St_, GroundAslM_), simT)) {
     Module_->Controls().EngineCutoff();
     return true;
   }
-  if (Mission_ && Mission_->Tick({St_.lat, St_.lon, Fdm_->GetWow(), St_.gs * kMsToKt}, simT)) {
-    if (Mission_->Verdict() == FBMissionVerdict::Fail)
-      Module_->Controls().EngineCutoff();   /* touched down off the assigned runway */
+  if (Mission_ && Mission_->Tick({St_.lat, St_.lon, Fdm_->GetWow(), St_.gs * kMsToKt,
+                                  !Health_.CombatEffective()}, simT)) {
+    /* Touched down off the assigned runway. NOT for a shootdown (the other way this verdict is reached):
+     * a destroyed jet's engine is whatever the damage left it as, and cutting it here would be the
+     * verdict acting on the aircraft instead of the damage doing so. */
+    if (Mission_->Verdict() == FBMissionVerdict::Fail && Health_.CombatEffective())
+      Module_->Controls().EngineCutoff();
     return true;
   }
   return false;
@@ -151,6 +190,10 @@ void FBSimUnit::StartTelemetry(FBTelemetrySink *sink) {
    * FBEngagement) — the pilot's THIRD source, appended so that every column measured before it stays
    * exactly where it was. */
   Bus_.Register(&Module_->PilotSystem().Engagement());
+  /* And LAST once more, same appending rule: what this unit has had shot off it (core/FBSystemHealth).
+   * It is the unit's own source, not a system's — the register belongs to the unit and no module may
+   * even write it. */
+  Bus_.Register(&HealthSrc_);
   Bus_.SetSink(sink);
   Bus_.Start();
 }

@@ -52,6 +52,12 @@ bool FBMissionMonitor::Conclude(FBMissionVerdict v, const std::string &detail) {
 bool FBMissionMonitor::Tick(const FBMissionMonitorSample &s, double simTimeS) {
   if (Concluded()) return false;   /* latched — see the header banner */
 
+  /* Shot down: this aircraft can no longer fly its sortie, whatever its remaining waypoints say
+   * (FBMissionMonitorSample::CombatIneffective's banner). Checked FIRST, because everything below it
+   * assumes an aircraft that could still get there. */
+  if (s.CombatIneffective)
+    return Conclude(FBMissionVerdict::Fail, "combat ineffective (weapon damage)");
+
   /* Mission-level ground-contact judgement: a touchdown the physics-only FBFlightMonitor accepted
    * (survivable) but which happened away from the assigned runway missed the mission's objective. */
   if (HaveRunway_ && s.AnyWow && !OnRunway(Runway_, s.LatDeg, s.LonDeg, 50.0, 30.0))

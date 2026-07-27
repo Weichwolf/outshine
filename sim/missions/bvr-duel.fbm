@@ -33,9 +33,13 @@ timeout 320
 #                               the difference between a launch and a kill
 #   DETONATION / MISS           what actually arrived, measured on the published poses by the runner's
 #                               own proximity fuze — never by the weapon's opinion of itself
-# There is no damage model, so neither jet stops flying when it is hit. The verdict is therefore read
-# from the miss distances and the two timelines, not from who is left; the run ends at its timeout
-# (exit 3) like every other engagement mission, for the same reason (a fight has no waypoint).
+#   dmg_failed / dmg_effective  what a burst took out, and whether the jet is still able to fight
+# A HIT NOW COUNTS (core/FBDamageModel): a burst inside the fuze radius takes systems out, and a jet
+# that loses its engine, its flight controls or its structure is combat-ineffective, which its own
+# mission monitor concludes as FAIL. That is what would end this run early — and as measured, it does
+# not: neither round has ever got inside the fuze radius here (both are defeated in the notch), so the
+# duel still ends at its timeout (exit 3) with both jets alive. The verdict is therefore still read from
+# the miss distances and the two timelines, and it is still a draw — now for a reason that can change.
 
 unit viper
   team friendly

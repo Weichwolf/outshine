@@ -19,6 +19,7 @@
 #include "FBAirframeControls.h"
 #include "FBAutopilot.h"
 #include "FBCommandBus.h"
+#include "FBDamageModel.h"
 #include "FBCountermeasureSystem.h"
 #include "FBDatalinkSystem.h"
 #include "FBDisplaySystem.h"
@@ -72,6 +73,29 @@ public:
    * OTHER units: the datalink has to recognise its own PPLI in the registry and know whose net it is
    * on. Default: nothing to identify. */
   virtual void SetUnitIdentity(int unitId, FBUnitTeam team) { (void)unitId; (void)team; }
+
+  /* ---- Battle damage: the module READS its own health and never writes it ----
+   * The owning unit hands over a CONST reference to its health register once, like AttachFdm
+   * (units/FBSimUnit's constructor). A module uses it to decide whether to cycle a slot at all and what
+   * a degraded system may still do; it cannot change a single state, because every mutator on
+   * FBSystemHealth is private to core/FBDamageModel (core/FBSystemHealth.h's banner). Until a unit
+   * attaches one — a test harness, the browser's pre-mission boot — Health() reports everything intact,
+   * which is what an unattached module has always effectively been. */
+  void AttachHealth(const FBSystemHealth &health) { Health_ = &health; }
+  FBHealthState HealthOf(FBSystemId id) const {
+    return Health_ ? Health_->State(id) : FBHealthState::Intact;
+  }
+  bool SystemWorking(FBSystemId id) const { return HealthOf(id) != FBHealthState::Failed; }
+  bool SystemDegraded(FBSystemId id) const { return HealthOf(id) == FBHealthState::Degraded; }
+
+  /* WHERE this airframe's systems sit, for the core's damage resolution (core/FBDamageModel — the
+   * module supplies the table, the core applies it and is the only thing that may write a verdict from
+   * it). The default is an empty layout: a module that has declared no zones — a released store, whose
+   * own end is its detonation — has nothing to lose piecewise. */
+  virtual const FBDamageLayout &DamageLayout() const {
+    static const FBDamageLayout kNone{};
+    return kNone;
+  }
 
   /* Advances the module's FDM at its own fixed substep rate for `dt` wall-seconds. `st` is the
    * shared live FDM state the caller (App) reads back for camera/HUD/telemetry. `units` is the borrowed
@@ -155,6 +179,9 @@ public:
    * unrecognized by this module, which the caller turns into a mission FAIL (exit 1), never a silent
    * no-op. */
   virtual bool ApplySetup(const std::string &key, const std::string &value) = 0;
+
+private:
+  const FBSystemHealth *Health_ = nullptr;   /* borrowed, read-only — see AttachHealth */
 };
 
 } // namespace FlightBox
