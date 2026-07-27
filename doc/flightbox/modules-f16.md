@@ -1,0 +1,1004 @@
+# FlightBox — Das F-16-Modul (`modules/f16/`)
+
+**Gegenstand:** FlightBox' NACHBAU der F-16 — Struktur, Verträge, Zahlen und die Stellen, an denen der
+Nachbau von der Vorlage abweicht oder sie bewusst NICHT behauptet.
+
+**Abgrenzung:** `doc/f16/` dokumentiert den ECHTEN Jet aus den Handbüchern (DCS F-16C Viper Guide /
+ED EA Guide). Diese Datei dokumentiert den CODE. Wo eine Zahl aus `doc/f16/` stammt, steht die
+Fundstelle als Verweis — der Inhalt wird nicht kopiert.
+
+**Stand:** Commit `9673e00`. Quellen sind die Kommentar-Banner unter `sim/src/modules/f16/` (23 Dateien)
++ `modules/f16/displays/` (2), `sim/src/modules/FBModule.h`, `FBModuleRegistry.{h,cpp}` sowie CLAUDE.mds
+Abschnitte `modules/` und `modules/f16/`. Nachführungsvermerk: siehe [Offene Punkte](#offene-punkte).
+
+## Herkunftsmarker
+
+Jede Zahl in diesem Dokument trägt genau einen:
+
+| Marker | Bedeutung |
+|---|---|
+| `[DOC]` | in `doc/f16/` belegt (Fundstelle genannt) |
+| `[MODELL]` | aus dem gepinnten `vendor/jsbsim/aircraft/f16/f16.xml` abgeleitet (Herleitung genannt) |
+| `[MESS]` | im Gym gegen das vanilla Modell gemessen (Messaufbau genannt) |
+| `[SET]` | Setzung/deklarierter Modellparameter — KEIN Zitat, als solcher im Quellcode ausgewiesen |
+| `[ABL]` | aus einer anderen FlightBox-Größe hergeleitet (Rechnung genannt) |
+
+---
+
+## 1. Was ein Modul ist
+
+### 1.1 `FBModule` — die Basisschnittstelle
+
+`sim/src/modules/FBModule.h`
+
+Ein steuerbares Flugzeug ist zwei Dinge: das **Code-Modul** (eine `FBModule`-Ableitung) und das
+**JSBSim-Modell** (Verzeichnis mit Aero/Masse/Antrieb). Die App hält jedes Modul POLYMORPH hinter
+`FBModule*`; der Dispatch ist echt, keine Abkürzung auf die eine heutige F-16-Instanz.
+
+Verdrahtung (je einmal, vom Besitzer `units/FBSimUnit` bzw. der Spawn-Bahn `app/FBMissionBoot.h`):
+
+| Methode | Vertrag |
+|---|---|
+| `AttachFdm(FBFdm&)` | bindet das Modul an die Zelle. Die FDM ist GEBORGT und überlebt das Modul; ein Modul kann selbst keine erzeugen (die IC liegt hinter `fdm/FBFdmBoot.h`, das kein Modul inkludiert). Weil die Registry Module ARGUMENTLOS baut, ist das der Ersatz für Konstruktor-Injektion. |
+| `SetUnitIdentity(id, team)` | wer diese Einheit IST — gebraucht von jedem Slot, der ANDERE Einheiten beobachtet (Terminal: eigene PPLI überspringen; Radar: eigenes Echo überspringen; SMS/Kanone: Schützen-Identität an die abgehende Waffe). |
+| `AttachHealth(const FBSystemHealth&)` | NUR LESEND. Nicht virtuell; der Zustand liegt privat in der Basisklasse, Zugriff über `HealthOf()/SystemWorking()/SystemDegraded()`. Ohne Attach meldet alles `Intact`. Schreiben kann niemand außer `core/FBDamageModel` (jeder Mutator privat, ein einziger `friend`) — das ist per COMPILER durchgesetzt, nicht per Konvention. |
+| `DamageLayout()` | WO die Systeme dieser Zelle sitzen — reine Moduldaten, angewandt allein vom Core. Default: leeres Layout (ein abgeworfener Store hat nichts stückweise zu verlieren, sein Ende ist die Detonation). |
+
+Deklaration (was für eine Entität dieses Modul wird):
+
+| Methode | Vertrag |
+|---|---|
+| `FdmModelName()` | Modellverzeichnis/-XML. BEWUSST nicht aus dem Registry-Namen abgeleitet: „f16"/"f16" fallen heute zusammen, sind aber nicht dasselbe. Ein LEERER Name heißt „kein Airframe" (`modules/ground`). |
+| `FdmModelVendored()` | Modellwurzel: `true` = gepinntes read-only Submodul (jedes Flugzeug in diesem Baum), `false` = FlightBox-eigene Assets (die AIM-120 ist die erste — das Submodul hat keine und darf nicht ergänzt werden, Prinzip 1). Auflösung in `app/FBModelRoots.h`. |
+| `UnitKind()` | `Aircraft` (Default) / `Ground`. `Weapon` wird hier NICHT gesetzt: ein Store ist eine Waffe kraft ABWURF, und das ist die Aussage der abwerfenden Bahn, nicht des Moduls. |
+
+Ausführung:
+
+| Methode | Vertrag |
+|---|---|
+| `Run(fb_fdm_state&, dt, const FBUnitRegistry*, const FBWorld*)` | taktet die eigene FDM in festen Substeps über `dt` Wall-Sekunden und cycelt die eigenen Slots, jeden im eigenen Takt. Die heterogene Taktung ist MODUL-INTERN, nicht Teil der Schnittstelle. `units` (Snapshots des letzten abgeschlossenen Ticks, NUR für Sensoren) und `world` (Terrainseite) sind geborgt, dürfen null sein, und das Modul reicht sie nur an die dazu berechtigten Slots weiter. |
+| `ApplySetup(key, value)` | wendet EINE `set <key> <value>`-Missionszeile im Spawn-IC-Fenster an. Das MODUL interpretiert seine eigenen Schlüssel; Runner/Boot parsen nur die flache KV-Liste. `false` bei unbekanntem Schlüssel → Missions-FAIL (Exit 1), nie ein stiller No-Op. |
+| `ProgramRelease(FBStoreRelease)` | die Startprogrammierung, die eine abgeworfene Waffe bei der Trennung mitbekommt. Default leer. |
+
+Generische System-Accessoren — der Grund, warum Runner und Browser-Client NIE einen konkreten
+Modul-Header brauchen:
+
+| Gruppe | Accessoren |
+|---|---|
+| Die drei echten Kern-Slots | `Autopilot()`, `FlightControl()`, `PilotSystem()` |
+| Zelle/Anzeige/Luftdaten/Nav | `Controls()`, `Displays()`, `AirDataSystem()`, `NavSystem()`, `WarningSystem()`, `RadarAltimeter()` |
+| Kommandopfad | `Commands()` (der Avionik-Kommandobus) |
+| Sensorik/Comms/Defensiv | `Datalink()`, `Radar()`, `Rwr()`, `Countermeasures()` |
+| Waffen | `Stores()`, `Guns()` |
+| Bus/Diagnose | `Telemetry()` (der `FBState`-Schnappschuss), `LastGuidance()`, `LastSubsteps()` |
+| Missionsboot | `FlightPlan()`, `SetRunway()`, `SetGroundAsl()` |
+
+Ein konkretes Modul darf KOVARIANT einen spezifischeren Typ zurückgeben (`FBF16Module::Radar()` liefert
+`FBF16Fcr&`), ohne dass ein generischer Aufrufer das je sieht.
+
+### 1.2 Die Registry
+
+`sim/src/modules/FBModuleRegistry.{h,cpp}`
+
+- `FBModuleRegistry::Register(name, factory)` / `Create(name) -> std::unique_ptr<FBModule>`.
+- Die Map ist ein **function-local static** (Meyer-Singleton), gefüllt EXPLIZIT von
+  `FBRegisterBuiltinModules()` an einem bekannten Punkt in `main()`. Begründung im Code: ein
+  namespace-scope Static hätte zwei Fallen — die Static-Initialization-Order-Fiasko-Reihenfolge über
+  Übersetzungseinheiten UND die Regel, dass eine nicht referenzierte `.o` aus einem statischen Archiv
+  gar nicht erst gelinkt wird (die Selbstregistrierung wäre still verschwunden).
+- `FBRegisterBuiltinModules()` ruft eine Einstiegsfunktion pro Modul-FAMILIE:
+  `FBRegisterF16Module()`, `FBRegisterStoreModules()`, `FBRegisterMissileModules()`,
+  `FBRegisterGroundModules()`. Idempotent.
+- **Die Regel:** `FBMissionRunner.cpp` / `FBAppGym.cpp` / `FBAppWasm.cpp` inkludieren NIE einen konkreten
+  Modul-Header. Sie lösen über den Namen auf und halten alles hinter `FBModule*`.
+- **Die eine Ausnahme:** `sim/src/modules/f16/FBF16ModuleRegistration.cpp` — 13 Zeilen, die einzige
+  Datei im F-16-Verzeichnis, die `FBF16Module.h` zu diesem Zweck nennen darf:
+  `FBModuleRegistry::Register("f16", [] { return std::make_unique<FBF16Module>(); })`.
+  Analoge Einzelausnahmen: `modules/stores/`, `modules/missile/`, `modules/ground/`.
+
+---
+
+## 2. `FBF16Module` — die Komposition
+
+`sim/src/modules/f16/FBF16Module.{h,cpp}`
+
+Das ist der EINE Ort, an dem F-16-Verhalten zusammenläuft, und zugleich der Ort, an dem ein künftiger
+Override eingehängt wird, indem ein Slot-Default durch eine Ableitung ersetzt wird.
+
+### 2.1 Was komponiert wird
+
+| Slot | Klasse | Status |
+|---|---|---|
+| Guidance | `systems/FBAutopilot` | **Default, unverändert** |
+| Flight Control | `systems/FBFlightControl` | **Default** mit dem Gain-Preset `FBFlightControl::F16()` |
+| Input/HOTAS | `systems/FBInputSystem` | Default = **NoOp** (kein HOTAS-Binding) |
+| Propulsion | `systems/FBPropulsionSystem` | Default = **NoOp** |
+| Weapons (generischer Slot) | `systems/FBWeaponSystem` | Default = **NoOp** (Waffenwirkung liegt in Stores/Gun) |
+| Luftdaten | `systems/FBAirDataSystem` | **Default, unverändert** |
+| Radarhöhenmesser | `systems/FBRadarAltimeter` | **Default, unverändert** |
+| Navigation | `systems/FBNavSystem` | **Default, unverändert** |
+| Warnungen | `systems/FBWarningSystem` | **Default, unverändert** |
+| Zellensteuerung | `systems/FBAirframeControls` → `FBJsbsimAirframeControls` | Default; NoOp bis `AttachFdm`, danach die FDM-gebundene Ownship-Implementierung |
+| Kommandobus | `core/FBCommandBus` | Wertmember, kein Slot |
+| Displays | `displays/FBF16Hud` | **Override** |
+| Sensoren | `FBF16Fcr` (APG-68) | **Override** |
+| Comms/Datalink | `FBF16Datalink` (MIDS-LVT) | **Override** |
+| Defensiv (passiv) | `FBF16Rwr` (ALR-56M) | **Override** |
+| Defensiv (aktiv) | `FBF16Cmds` (ALE-47) | **Override** |
+| Stores | `FBF16Sms` | **Override** (nur Pylon-Geometrie) |
+| Kanone | `FBF16Gun` | **Override** (nur Bewaffnung + Einbauort) |
+| Pilot | `FBF16Pilot` | **Override** (nur Zahlen-Hooks, nicht `Run()`) |
+| — (kein generischer Slot) | `FBF16FireControl` | F-16-eigenes Feuerleitsystem |
+| — (kein generischer Slot) | `FBF16Ufc` | F-16-eigene ICP/UFC/DED-Teilmenge |
+| — (kein generischer Slot) | `FBF16Max7456` | Chip-Hook fürs HUD-Rendering |
+| — (reine Daten) | `FBF16Damage` | Schadenslayout, geliefert über `DamageLayout()` |
+
+Alle Slots sind über Basiszeiger (`std::unique_ptr<Basisklasse>`) gehalten, damit ein künftiges Modul
+einen Override ohne Slicing einsetzen kann.
+
+**Gain-Preset `FBFlightControl::F16()`** (`sim/src/systems/FBFlightControl.cpp`), alle Werte `[MESS]`
+gegen das vanilla Modell:
+
+| Feld | Wert | Bedeutung |
+|---|---|---|
+| `Flcs` | 1 | FLCS-Command-Innenschleife (die `*-cmd-norm` sind Raten-Sollwerte), nicht Roh-Ruder-PD |
+| `RollStickMax` | 0.15 | sanfte Roll-Einleitung; bei 0.35 wandert nz gemessen auf −1.1…+3.0 statt 0.7…1.9 |
+| `KRollRate` | 0.05 | Roll-Kommando pro Grad Bank-Fehler |
+| `KG` / `KGi` | 0.25 / 0.8 | g-Schleife P/I |
+| `KpSpd` / `ThrTrim` | 0.02 / 0.85 | Schub-PI und Trimmpunkt |
+
+### 2.2 Takt-Tabelle
+
+Der Runner ruft `Run()` einmal je Sim-Tick (Missions-Kern: 10 Hz). Innerhalb davon:
+
+| Slot-Gruppe | Rate | Mechanismus / Begründung |
+|---|---|---|
+| Guidance + FlightControl | **100 Hz** | fester Substep-Loop, Spiralschutz ≤ 12 Substeps je `Run()`. Die einzigen virtuellen Aufrufe INNERHALB der inneren Schleife. |
+| Input/HOTAS, Propulsion | je `Run()` | der gröbste Takt |
+| **Sensorgruppe** (FCR, AirData, RadarAlt, Nav, FireControl, UFC, SMS) | **10 Hz** | EINE Gruppe, damit die HUD-Telemetriekette geschlossen ist: FireControl liest Navs Ausgabe DESSELBEN Ticks. |
+| Displays | 20 Hz | Akkumulator-gedrosselt |
+| Weapons (NoOp-Slot) | 20 Hz | " |
+| **Kanone** | je `Run()`, volles `dt` | BEWUSST ungedrosselt: die Ausgabe ist eine über die Zeit INTEGRIERTE Schusszahl — ein anderer Takt würde Schüsse verlieren oder erfinden. |
+| Defensiv (RWR → CMDS) | 10 Hz | Salven-Intervalle sind Zehntelsekunden (`doc/f16/defence-rwr-cm.md` §2.2); langsamer würde eine Salve quantisieren. Reihenfolge = Datenfluss: der Empfänger schreibt, der Werfer liest im selben Tick. |
+| Comms/Datalink | 5 Hz | Der NETZZYKLUS selbst läuft mit 1 Hz IM System (`FBDatalinkSystem::kNetPeriodS`). Der Slot wird schneller betreten, damit das ALTER eines gehaltenen Tracks zwischen Netzzyklen beobachtbar ist — nie, um das Bild früher aufzufrischen. |
+| Pilot | 10 Hz | Entscheidungstakt. `FBPilotCommands` wird nur dort angewandt, wo ein Feld GESETZT ist (`std::optional` / `Guidance::None` = „unangetastet lassen") — Phase `Idle` bleibt neutral, das Komponieren des Piloten ändert also NICHTS, bis die App die Phasenmaschine startet. |
+
+Analog gilt fürs Radar: das ANTENNENRASTER läuft auf absoluter Sim-Zeit im System
+(`FBRadarScanVolume::FrameS`, 0,1…4 s je Modus); der 10-Hz-Slot lässt nur das Alter eines coastenden
+Kontakts sichtbar werden.
+
+Alle NoOp-Defaults kosten einen Drossel-Vergleich, wenn sie nicht dran sind, und einen leeren virtuellen
+Aufruf, wenn doch. Keine Heap-Allokation pro Frame, kein Dispatch in der 100-Hz-Mathematik.
+
+### 2.3 Reihenfolge innerhalb des Sensor-Ticks
+
+Die Ordnung ist der Datenfluss und keine Geschmacksfrage:
+
+1. `PublishPlatform(st)` / `PublishAirframe()` — die ZWEI Blöcke, die das Modul SELBST schreibt
+   (Lage/Höhe/Geschwindigkeit/AP-Modus bzw. Fahrwerk/WOW/Speedbrake/Triebwerk/Sprit). Zuerst, weil alles
+   darunter sie liest. Sie existieren, damit „ein Schreiber pro Block" wahr bleibt — vorher griffen
+   Konsumenten direkt in `st` (belegter Defekt: `FBF16FireControl` las ein Höhenfeld, das niemand füllte).
+2. `ServiceCommands(Sensors)`, `ServiceCommands(Avionics)`, `ServiceCommands(Stores)` — fällige
+   Kommandos ZUERST, damit ein Schalterwurf auf dem NÄCHSTEN Sweep wirkt und nicht dem übernächsten.
+3. FCR → AirData → RadarAlt → (Steerpoint setzen) → Nav → FireControl → (Zielschätzung + Abwurflösung an
+   den SMS) → UFC → SMS.
+4. Warnsystem ZULETZT: reiner Konsument von allem darüber, inklusive der Gültigkeitsköpfe.
+
+`st` ist der FDM-Zustand vom ENDE des VORIGEN `Run()` — derselbe Ein-Tick-Verzug, den jeder andere
+Schreiber dieser Kadenz auch hat.
+
+Die Steerpoint-Elevation ist ein dokumentierter Kompromiss: eine `wp`-Zeile deklariert die zu FLIEGENDE
+Höhe, nicht das Gelände darunter, also liefert das Modul die einzige Terrain-Zahl, die es hat — die
+Elevationsprobe unter dem Flugzeug DIESES Ticks, dieselbe, die der Radarhöhenmesser liest. Über sanftem
+Gelände IST das die Elevation des Wegpunkts; eine deklarierte Wegpunkt-Elevation wäre Missionsformat-
+Arbeit und keine hier zu erfindende Zahl.
+
+### 2.4 Wie ein ausgefallenes System aus dem Takt fällt
+
+Das Muster ist an JEDER Box identisch und trägt das ganze Schadensmodell:
+
+```
+if (SystemWorking(FBSystemId::X)) X->Run(...);
+else SharedState.X.H.Invalidate();
+```
+
+- Ein AUSGEFALLENES System wird gar nicht getaktet, und sein Block wird `Invalid`. Alles Weitere ergibt
+  sich aus dem Bus, der das längst kann: das HUD strichelt (`H.Readable()`-Abfrage je Anzeige),
+  `FBWarningSystem` meldet INHIBIERT statt „keine Warnung", ein Konsument muss sagen, was er ohne die
+  Quelle tut.
+- Ein DEGRADIERTES System läuft normal, mit der einen ABLEITBAREN Einschränkung: das Radar bekommt
+  `SetRangeFactor(kRadarRangeDegraded)` = 0,7071 `[ABL]` (halbe Apertur über die Radargleichung).
+- `Nav` invalidiert ZWEI Blöcke (`Nav` + `Cruise`) — dieselbe Box veröffentlicht beide Nachrichten.
+- Der **Damage-Gate im Kommando-Router** ist die zweite Hälfte davon (s. 2.5): ohne ihn ließe ein
+  zerstörter SMS weiter eine Runde von der Schiene, denn der Abwurfpfad läuft über den Router und nicht
+  über `SmsSys->Run()`.
+
+### 2.5 Kommando-Routing
+
+`ServiceCommands(group)` nimmt jedes FÄLLIGE Kommando einer Gruppe vom Bus, führt es aus und quittiert
+mit dem Ergebnis, das die BOX selbst entschieden hat. Das Modul routet nur — welche F-16-Box
+„Radarmodus" besitzt, ist Wissen dieses Flugzeugs, nicht von `systems/`.
+
+| Kommandoziel | Box (`FBSystemId`) | Prüfung im Modul |
+|---|---|---|
+| `RadarMode` | Radar | Ordinal 0…`AcmSlew`, sonst `OutOfRange` |
+| `RadarRangeNm` | Radar | > 0 und ≤ 160 nm |
+| `RadarSlewAz` / `RadarSlewEl` | Radar | ±`FBF16Fcr::kGimbalAzDeg` (60°) |
+| `Designate` | Radar | Wert = veröffentlichte Tracknummer, 0 = lösen. Unbekannte Nummer → `OutOfContext` (kein Bereichsfehler: das Echo, das der Pilot designiert hat, ist weg, während die Hand sich bewegte — ein echtes Cockpit-Ergebnis) |
+| `IffTransponder` / `IffInterrogator` | Radar | boolesch |
+| `DatalinkPower` / `Transmit` / `Filter` / `RangeNm` | Datalink | Filter-Ordinal; Reichweite > 0 und ≤ 500 nm |
+| `MasterArm` | Stores | EIN Schalter, BEIDE Waffensysteme: der Master Arm ist ein Cockpit-Bedienelement, kein SMS-Attribut — ein Jet mit scharfen Trägern hat auch eine scharfe Kanone |
+| `StationSelect` | Stores | unbekannte Station → `OutOfContext` |
+| `WeaponRelease` | Stores | der SMS antwortet selbst (Master Arm, Gewicht auf dem Fahrwerk, leere Station) |
+| `WeaponSelect` | Stores | **immer abgelehnt, `NotImplemented`** — `doc/f16/controls-commands.md` §6.6: der Jet hat es, FlightBox nicht. Ein stiller Erfolg wäre eine Lüge, auf der der Pilot dann fliegt |
+| `GunTrigger` | Gun | die Kanone antwortet selbst (SAFE, Räder am Boden, leere Trommel); Wert = Dauer des Abzugsdrucks |
+| `CmDispense` / `CmConsent` / `CmdsMode` | Countermeasures | Programm 0…`kProgramCount`; Modus-Ordinal; der Werfer antwortet selbst (leeres Magazin) |
+| `MasterMode` | — | Ordinal ≤ `Dogfight` |
+| `AlowFt` | — (UFC) | Bereich per `FBF16Ufc::AlowInRange`; **zusätzlich**: bei stromlosem CARA `Inhibited/EffectPrecondition` — der Eintrag steht, aber die Warnung kann nie feuern, und der Pilot erfährt das (`doc/f16/controls-commands.md` §6.4) |
+| `BingoLbs` | — (UFC) | Bereich per `BingoInRange`; oberhalb der dokumentierten Decke `Clamped/ValueClamped`, NICHT abgelehnt (§6.8: ENTR gelingt, das Feld zeigt das Getippte, die Warnung feuert an der Systemdecke) |
+| `SteerpointNum` | — (UFC) | 1…99 |
+
+**Der Damage-Gate steht davor:** `CommandOwner(target)` bildet das Ziel auf die besitzende Box ab; ist
+die ausgefallen, wird nichts angefasst und mit `Rejected/SystemFailed` quittiert. Ziele ohne getrackte
+Box (UFC-Dateneingabe, Master-Mode-Schalter) fallen durch.
+
+**Bereichspolitik:** außerhalb des Bereichs wird ABGELEHNT und benannt, nie hinter dem Rücken des Piloten
+geklemmt. Die eine Klemmung in der Datei ist die dokumentierte BNGO-Decke und wird als `Clamped`
+gemeldet, nicht als Erfolg.
+
+### 2.6 `ApplySetup` — die Missions-Schalter dieses Moduls
+
+Randeingabe aus Missionstext. `ParseDouble` ist STRIKT (der ganze Wert muss EINE endliche Zahl sein und
+sonst nichts): `set fuel_lbs FULL` oder ein Tausendertrennzeichen würde den Jet sonst mit leerem Tank
+spawnen, Erfolg melden, und JSBSim würde das Triebwerk Minuten später in der Luft abstellen, ohne dass
+`events.log` die Ursache nennt. Jede Ablehnung erzeugt EIN greppbares `SET_INVALID_VALUE` mit Schlüssel,
+Rohwert und Grund.
+
+| Schlüssel | Werte | Wirkung |
+|---|---|---|
+| `gear` | up/down | Fahrwerk (ein Luftstart spawnt eingefahren) |
+| `fuel_lbs` / `fuel_pct` | ≥ 0 / 0…100 | `FBFdm::SetFuelTotalLbs` / `SetFuelPct` |
+| `store` | `<station> <type>` | eine Zeile pro Pylon; Station 1…9 dieses Musters, Typ aus `core/FBStore.h` |
+| `gun_rounds` | ganzzahlig ≥ 0, ≤ Kapazität | Trommelfüllung beim Start der Sortie |
+| `datalink`, `datalink_xmt` | on/off | POWER bzw. XMT/EMCON — zwei Schalter, weil das echte Terminal zwei hat |
+| `datalink_filter` | fr/fl/off | HSD-Kontaktfilter |
+| `datalink_range_nm` | > 0 | Terminalreichweite |
+| `fcr_mode` | off/crm/acm_hud/acm_bore/acm_vert/acm_slew | FCR-Modus (die HOTAS-Wahl des Piloten) |
+| `fcr_range_nm` | > 0 | Entfernungstor ALLER Modi |
+| `fcr_slew_az`, `fcr_slew_el` | ±60° | Cursor der slewbaren Box / Antennenhöhe |
+| `iff_xpdr`, `iff_interrogator` | on/off | die zwei Hälften der APX-113 — getrennt, weil sie zwei verschiedene Fragen beantworten (können ANDERE mich erkennen / kann ich andere erkennen) |
+| `rwr`, `rwr_search` | on/off | ALR-56M POWER; TWA-SEARCH-Filter |
+| `rwr_display` | priority/open | TWP-MODE-Taste |
+| `cmds_mode` | off/stby/man/semi/auto/byp | Modusknopf |
+| `cmds_program` | 1…6 | PRGM-Knopf |
+| `cmds_chaff`, `cmds_flare` | 0…120, Summe ≤ 120 | Beladung der Bodencrew |
+| `radalt` | on/off | CARA-Stromschalter — die eine missions-deklarierbare Art, einen Quellblock INVALID zu machen |
+| `task` | route/bfm/intercept/attack | Startphase der Piloten-Zustandsmaschine. Missionsdaten statt aus der Beladung geraten: zwei Jets mit identischen `set`-Zeilen können entgegengesetzte Aufträge haben |
+| `attack_mode` | ccip/ccrp | EINE Zeile, ZWEI Konsumenten (Pilot: auf welchen Cue er auslöst; FireControl: welchen Cue der Abwurfdatensatz nennt). Ändert die Arithmetik NICHT — beide Cues kommen aus derselben Integration |
+| `brief_alow_ft`, `brief_bingo_lbs`, `brief_master_arm`, `brief_weapon`, `brief_chaff_s`, `brief_release_s` | s. `doc/mission-format.md` | wird NICHT hier angewandt, sondern dem Piloten übergeben, der es später über den Kommandobus eingibt — in der Latenzklasse der Bedienung und ablehnbar |
+| `pilot_*` | s. `systems/FBPilotTuning` | ganz durchgereicht: die Parametermenge gehört dem PILOTEN, nicht dieser Zelle, also gibt es hier keine zweite, driftende Kopie der Schlüsseltabelle |
+
+### 2.7 Zwei Kleinigkeiten mit Vertragscharakter
+
+- **Runway = Bullseye.** `SetRunway()` setzt zusätzlich `FBNavSystem::SetBullseye` auf die Schwelle: eine
+  `.fbm` deklariert kein Bullseye, und die Runway ist der eine gebriefte geografische Punkt, den alle
+  Einheiten einer Mission teilen. Ohne Runway kein Bullseye, und das HUD-Peilung/Entfernungs-Paar bleibt
+  auf dem Ursprungs-Default.
+- **`Telemetry()` liefert `SharedState`, nicht den App-`FBState`.** Der Client muss seinen Frame-`FBState`
+  DARAUS keimen, bevor er die selbst gerechneten Felder (Pose/Sonne/Mond) überschreibt, sonst sieht
+  `BuildHud` nur die Hälfte.
+- **DED-Gate:** `CmdBus_.SetLoadFactor(...)` je Tick — kopfunter-Eingaben sind nur in einem Jet möglich,
+  der nicht hart geflogen wird. Unveröffentlichte Luftdaten lesen sich als 1 g: ein Jet ohne ADC
+  manövriert nach keiner Messung, die dieses Flugzeug hat.
+
+---
+
+## 3. `FBF16Pilot` — die Zahlen dieses Jets
+
+`sim/src/modules/f16/FBF16Pilot.{h,cpp}`
+
+**Was hier NICHT liegt:** die Phasenmaschine. `Run()` ist generisch (`systems/FBPilot`); diese Klasse
+überschreibt ausschließlich VIRTUELLE ZAHLEN-HOOKS. Die einzige Methode mit Logik ist die interpolierte
+Vr-Tabelle.
+
+### 3.1 Start
+
+| Hook | Wert | Herkunft |
+|---|---|---|
+| `RotationSpeedKt(gw)` | 128…198 kt über 20.000…44.000 lb, stückweise linear, an den Enden GEKLEMMT statt extrapoliert | `[DOC]` `procedures-takeoff-taxi.md`s Gewicht/Vr-Tabelle |
+| `RotationLeadKt` | 15 kt | `[DOC]` „Afterburner: begin pull ~15 kts below takeoff speed" |
+| `RotationPitchDeg` | 10° | `[DOC]` „Rotate to 8–12 deg" — die Mitte des Bands |
+| `GearUpLimitKt` | 300 kt | `[DOC]` „Retract gear before 300 kts" |
+| `ClimbSpeedKt` | 350 kt | `[SET]` — keine Doku-Zahl für das Steigflugbein; passt zum Steig-Wegpunkt der Mission, konservativ unter Corner |
+| `TakeoffThrottleNorm` | 1.0 | `[DOC]` „Full Afterburner"; im vanilla Modell ist das Ende von `fcs/throttle-cmd-norm` die AB-Raste |
+
+**Dokumentierte Modell-Abweichung** `[MESS]`: eine Vollausschlag-Rotation aus dem Bremsenlösen erzeugt
+unterhalb ~150 KCAS fast keine Nickantwort (Höhenruderwirkung ∝ q ∝ V²). Die saubere Konfiguration mit
+wenig Sprit (~20.600 lb) fliegt erst bei ~170 KCAS, deutlich ÜBER dem Tabellen-Vr von 128–130 kt dieses
+Gewichts, und die erreichbare Lage am natürlichen Abhebepunkt liegt bei ~5° — unabhängig davon, wann der
+Zug beginnt. `RotationSpeedKt`/`RotationPitchDeg` bleiben doku-treu (das VERFAHREN stimmt); die Differenz
+ist die Langsamflug-Auftriebs-/Ruderautorität des Modells, nicht die Zahl dieser Klasse. Das ist Prinzip 5
+in Reinform: das Modell ist die Referenz, seine Eigenheit ist kein Defekt.
+
+### 3.2 Landung
+
+Alle Werte gear-down / ~40 % Sprit.
+
+| Hook | Wert | Herkunft |
+|---|---|---|
+| `ApproachSpeedKt` | 165 kt | `[MESS]` — die Doku nennt ein AoA-Ziel (11°), keine CAS. Getrimmt, gear down, ~40 % Sprit hält das Modell 11,0° AoA bei **164,9 KCAS** (Gym-Kalibriersweep). Das Kommando ist ein Open-Loop-Platzhalter für eine echte AoA-Schleife — treu zur Trimmkurve DES MODELLS statt zu einer kopierten Realzahl |
+| `GlidepathAngleDeg` | 3° | `[DOC]` `navigation-ils.md` „standard glidepath angle" |
+| `ApproachSpeedbrakeNorm` | 0,5 | `[SET]` |
+| `FlareStartAglFt` | 50 ft | `[SET]` |
+| `FlareTargetPitchDeg` | 12,5° | `[DOC]` Short-Final (Aufsetzen ≤ 13° AoA) minus Marge gegen den 15°-Lage-K.O. des `FBFlightMonitor` |
+| `AerobrakePitchDeg` / `AerobrakeSpeedKt` | 12° / 100 kt | `[DOC]` Roll-Out („~13° nose-up bis ~100 kt"), gleiche Marge |
+| `RolloutBrakeNorm` | 0,8 | `[SET]` |
+
+### 3.3 BFM — gemessen, nicht gewählt
+
+`make -C sim test-corner` (`app/FBTestCornerSpeed.cpp`) fährt Eintrittsgeschwindigkeit gegen
+Momentandrehrate an DIESEM Modell: 85° Bank, Vollausschlag durch die modelleigene FLCS, 20-kt-Schritte
+180→620 KCAS bei 5.000 m.
+
+| KCAS | 280 | 340 | **380** | 420 | 500 | 620 |
+|---|---|---|---|---|---|---|
+| °/s | 12,8 | 14,9 | **16,2** | 14,7 | 11,7 | 12,9 |
+| g | 3,2 | 4,6 | **5,6** | 5,8 | 5,6 | 7,5 |
+
+| Hook | Wert | Herkunft |
+|---|---|---|
+| `BfmCornerSpeedKt` / `BfmCornerG` | 380 / 5,6 | `[MESS]` — der Peak der Tabelle |
+| `BfmMinSpeedKt` | 300 | `[MESS]` — dort ist die Rate ~17 % unter dem Peak |
+| `BfmMaxG` | 9,0 | `[DOC]` Strukturgrenze |
+| `BfmUnloadG` | 3,0 | `[SET]` |
+| `BfmControlMinNm` / `MaxNm` / `AspectDeg` / `AtaDeg` | 0,5 / 1,5 / 30 / 30 | `[SET]` — das Fenster, das als „Kontrollposition" zählt |
+| `BfmClosureGainKtPerNm` / `BfmMaxClosureKt` | 120 / 200 | `[SET]` — der Annäherungs-Fahrplan |
+| `BfmLeadAspectDeg` / `LeadRangeNm` / `LeadMaxS` / `LagTimeS` | 45 / 3,0 / 4,0 / 2,5 | `[SET]` — Verfolgungsart-Umschaltung |
+| `BfmYoYoHeightM` | 600 | `[SET]` |
+| `BfmScanAfterS` / `AmplitudeDeg` / `PeriodS` | 3,0 / 8,0 / 30,0 | `[SET]` — 8° liegt innerhalb der ACM-Boxbreite, 30 s Periode ≈ 1,7 °/s: ein Scan, keine Kurve |
+| `BfmFloorFt` | 2000 | `[SET]` Hartdeck |
+
+**Zwei akzeptierte Modell-Eigenschaften** (Prinzip 5, ausdrücklich KEINE zu behebenden Defekte): die
+vanilla FLCS ist ein NICK-RATEN-Kommando (`f16.xml`s Pitch-Kanal differenziert den Stick gegen 6,2·q und
+nur 0,02·nz), also kauft Vollausschlag am Corner ~5,6 g statt der 9 g Strukturgrenze, und die beste
+Drehrate ist ~16 °/s statt der ~20+ des echten Jets. Der gemessene Corner liegt trotzdem INNERHALB des in
+`aerodynamics-performance.md` publizierten 330–440-KCAS-Corner-PLATEAUS — die stärkste verfügbare
+Gegenprobe für eine Zahl, die die Doku bewusst nicht tabelliert.
+
+### 3.4 Intercept (BVR) — jede Zahl aus einer der beiden Boxen
+
+Der Kern dieses Abschnitts: keine dieser Zahlen ist gewählt, jede ist aus der APG-68-Geometrie ODER dem
+AIM-120-Startbereich abgeleitet.
+
+| Hook | Wert | Ableitung |
+|---|---|---|
+| `SearchRadarModeOrdinal` | 1 (= `FBF16FcrMode::Crm`) | `[ABL]` CRM ist der Einschaltmodus des Sets UND der einzige F-16-Modus, der GROSS sucht und NICHT selbst lockt. Als ORDINAL, nicht als Name — die generische Schicht darf beides nicht kennen |
+| `InterceptSpeedKt` | 550 (TRUE) | `[ABL]` die Einheit, die die AP-Geschwindigkeitsschleife regelt. Auf 8.000 m sind das ~375 KCAS = die gemessene Corner-Speed (380). Zwei Dinge auf einmal: die Startgeschwindigkeit, die die Runde erbt (Ausgangspunkt der Raero-Integration), und ein Jet, der schon auf seiner besten Drehrate ist, wenn die Begegnung aufhört, BVR zu sein |
+| `InterceptLockRangeNm` | 16 | `[ABL]` außerhalb JEDES head-on gemessenen Rtr dieser Waffe (~11 nm auf 8.000 m, Startdatensatz aus `missions/intercept-aim120.fbm`) und innerhalb des 40-nm-Suchtors der APG-68 — der Single-Target-Track hat sich gesetzt und die Feuerleitung hat einen Startbereich veröffentlicht, bevor die Schussentfernung kommt, und die Warnung an das Ziel dauert Sekunden statt einer Minute |
+| `InterceptShotRtrFactor` | 1,0 | `[SET]` Schuss auf Rtr |
+| `InterceptShotAtaDeg` | 30 | `[ABL]` eine AIM-120 verlässt die Schiene in Nasenrichtung und muss auf das Ziel ziehen; mehr als ~30° Nachholbedarf kostet sie ihr Triebwerk |
+| `InterceptShotSpacingS` | 12 | `[SET]` |
+| `InterceptCrankAtaDeg` | 45 | `[ABL]` STT-Gimbal ±60° (`FBF16Fcr::kGimbalAzDeg`) minus 15° Reserve, die ein manövrierendes Ziel braucht, bevor der Track bricht. Bis an die Grenze zu cranken ist, wie ein Schuss unbegleitet bleibt |
+| `InterceptAbortRangeNm` | 5 | `[ABL]` darunter sind Rmin einer BVR-Waffe und der Merge dasselbe Problem, und `doc/f16/` nennt den Kampf ab dort einen Dogfight, keinen Abfang |
+| `InterceptBeamOffsetDeg` | 90 | `[ABL]` quer zur Bedrohungspeilung ist die eigene Radialgeschwindigkeit null = im Doppler-Notch der Gegenseite |
+| `InterceptChaffIntervalS` | 3,0 | `[SET]` |
+| `InterceptDefendHoldS` | 12 | `[SET]` |
+
+### 3.5 Attack (Luft-Boden)
+
+Keine dieser Zahlen berührt, WO die Runde landet — das ist Sache der Feuerleitung, der Pilot liest sie nur.
+
+| Hook | Wert | Herkunft |
+|---|---|---|
+| `AttackReleaseBiasS` | 0,0 | `[SET]` Auslösung AUF dem Cue. Ein Hook, keine Einstellung: eine Mission, die eine falsche Abgabe will, deklariert sie (`set pilot_attack_bias_s`) |
+| `AttackCcipTolM` | 45 m | `[ABL]` aus der WIRKUNG der Waffe: eine Mk-82 nimmt eine weiche Anlage bis ~25 m aus und degradiert sie bis ~45 m (`modules/ground/FBGroundTarget.h`) — jenseits davon würde der Anflug nichts erreichen, und genau dann pickelt ein Pilot nicht, sondern kommt wieder |
+| `AttackEgressTurnDeg` | 135 | `[SET]` Kurve deutlich über den Querab-Punkt hinaus, also vom eigenen Einschlag weg statt an ihm entlang |
+| `AttackEgressClimbM` / `RangeM` / `S` | 600 / 12.000 / 30 | `[ABL]` das Abdrehbein ist ein ORT in der Welt, kein Kurs, braucht also eine Distanz weit genug voraus (sonst wäre die Kurve eine Ankunft) und eine Haltezeit, in der sie bei dieser Drehrate fertig wird — 135° bei 30 °/s-begrenzter Rollrate und Standard-Banklimit liegen bequem unter 30 s |
+
+---
+
+## 4. `FBF16Fcr` — die APG-68 als MODUS-SATZ
+
+`sim/src/modules/f16/FBF16Fcr.{h,cpp}` — Ableitung von `systems/FBRadarSystem`.
+
+### 4.1 Was hier F-16 ist, und was nicht
+
+**Nicht hier** (alles im generischen System): Erkennungsgeometrie, Kontaktaufbau
+(`kHitsToFirm` = 2 aufeinanderfolgende Looks), Coast (`max(kMinCoastS 1 s, kCoastFrames 3 · FrameS)`),
+Anonymität der Kontakte, IFF Mode 4, Emissions-Signatur, Chaff-/Doppler-Notch-Verhalten, Reichweiten-
+Skalierung bei Schaden.
+
+**Hier**: der MODUS-SATZ. Die ganze Taxonomie ist EINE Frage — „welches Muster fliegt die Antenne
+gerade?" — und das ist exakt der eine überschriebene Hook `FBRadarSystem::ActiveVolume()`. Zweiter
+Override: `ModeOrdinal()` (die `fcr_mode`-Telemetriespalte).
+
+Taxonomie `[DOC]` `radar-sensors.md` (Chuck Part 10): BVR-Suche / ACM / STT; CRM ist der
+Einschaltmodus, eine großvolumige RWS-Suche, die NICHT selbst lockt; die vier ACM-Sub-Modi (HUD Scan,
+Vertical Scan, Boresight, Slewable) „auto-lock the first target in a close-range volume tied to HUD
+geometry" — die Selbsterfassung IST der Zweck, denn im Kurvenkampf bedient niemand ein Radar, der
+Sub-Modus ist also das ZIELGERÄT; ein Lock ist STT.
+
+### 4.2 Die Volumina
+
+**Statusaussage, wörtlich aus dem Header:** `radar-sensors.md` dokumentiert die TAXONOMIE und gibt KEINE
+Winkel (der Guide zeigt die Modi als MFD-Screenshots). Die Geometrie unten ist deshalb ein **MODELL-
+PARAMETER-SATZ** `[SET]` — abgestimmt auf die öffentlich zitierten DCS-F-16C-ACM-Muster (30×20 HUD-Scan,
+~10°-Boresight-Kegel, schmal-hoher Vertical Scan, 20×20 Slewable, alle am ~10-nm-ACM-Tor) sowie die
+~40-nm-Suchreichweite der APG-68 gegen Jägerziel und ihre mechanisch gescannte 4-Bar-Elevationsdeckung.
+Ausgewiesen als Setzung, NICHT als Zitat verkleidet — derselbe Status wie
+`FBDatalinkSystem::kGenericRangeNm`.
+
+| Modus | Azimut | Elevation | Reichweite | Frame | Auto-Lock | Was es ist |
+|---|---|---|---|---|---|---|
+| `off` | — | — | — | 1,0 s (nie gesweept, hält nur das Raster wohldefiniert) | — | Set strahlt nicht |
+| `crm` | ±60° | ±10,5° um `SlewEl` | 40 nm | 4,0 s | nein | RWS-Suche, Einschaltmodus |
+| `acm_hud` | ±15° | ±10° | 10 nm | 1,0 s | **ja** | die 30×20-HUD-Scan-Box |
+| `acm_bore` | ±5° | ±5° | 10 nm | 0,3 s | **ja** | der ~10°-Boresight-Kegel |
+| `acm_vert` | ±5° | −13°…+47° (Zentrum +17°, Halbhöhe ±30°) | 10 nm | 1,2 s | **ja** | schmal und hoch, für den Zug |
+| `acm_slew` | ±10° um `SlewAz` | ±10° um `SlewEl` | 10 nm | 0,8 s | **ja** | die 20×20-Slewable-Box |
+| **STT** (gelockt) | ±60° | ±60° | 40 nm | 0,1 s | ja | die Gimbal-Hülle, `SingleTarget = true` |
+
+Konstanten: `kAcmRangeNm` 10, `kSearchRangeNm` 40, `kGimbalAzDeg` = `kGimbalElDeg` = 60.
+
+**Was an den Zahlen NICHT beliebig ist** (und deshalb der eigentliche Prüfgegenstand): die
+Frame-Zeiten folgen den Volumina. Eine mechanisch gescannte Antenne braucht für ein breiteres Muster
+länger — der Boresight-Kegel erfasst in einem Bruchteil der HUD-Box-Zeit, CRM ist der langsamste von
+allen. **Diese Relation, nicht die absoluten Sekunden, ist das, was der Modus-Beweis misst.**
+
+Weitere begründete Details:
+
+- **Vertical Scan ist absichtlich ASYMMETRISCH** (−13…+47): der Modus existiert, um während einer
+  Hoch-g-Kurve DURCH ein Ziel gezogen zu werden, reicht also weit über den Boresight und kaum darunter.
+  Er ist der Grund, warum `FBRadarScanVolume` ein ZENTRUM trägt und nicht bloß einen Halbwinkel.
+- **CRMs Elevations-ZENTRUM ist die Antennenhöhen-Steuerung**, nicht eine feste Null: das 4-Bar-Muster
+  deckt ±10,5° um DAS AB, wohin der Pilot gezeigt hat, und auf BVR-Entfernung sind das ein paar tausend
+  Fuß Höhenband — die falsche Höhe ist die klassische Art, an einem Ziel vorbeizufliegen, das das Radar
+  problemlos hätte sehen können. Getragen wird sie vom SELBEN `SlewEl` wie die slewbare ACM-Box, weil es
+  dieselbe Bedienung ist. Azimut bleibt nasenzentriert (±60° decken ohnehin alles ab, wohin der Jet
+  innerhalb eines Suchzyklus drehen kann). Default 0 — eine Mission, die den Regler nie anfasst, bekommt
+  exakt das Muster wie zuvor.
+- **`off` schlägt den Lock:** ein Set abzuschalten, während ein Ziel gelockt ist, muss die Antenne
+  STOPPEN, nicht sie durch einen OFF-Modus starren lassen (die Basisklasse lässt dann jeden Track fallen,
+  wie bei einer Abschaltung). Jeder andere Modus übergibt den Lock an STT.
+- **STT behält `AutoAcquire = true`**, damit die Basisklasse den gehaltenen Lock behält; geht er
+  verloren, fällt das Muster direkt in die Box des Sub-Modus zurück.
+- **`SetRangeOverrideNm`** überschreibt das Tor JEDES Modus mit EINER Zahl (0 = zurück zur Tabelle). Eine
+  Mission, die das Tor überhaupt testet, hält die Geometrie fest und variiert nur die Reichweite — daher
+  ein Wert statt sechs.
+
+### 4.3 Keine Symbologie — bewusst
+
+`doc/f16/hud-symbology.md` dokumentiert **keine** TD-Box und **kein** Locked-Target-Symbol; sein
+radarnaher Eintrag ist der HMC (HUD Mark Cue), eine Markpunkt-Designation und damit eine andere Funktion.
+Eine TD-Box zu zeichnen hieße, Symbologie zu ERFINDEN. Der Lock bleibt deshalb in `FBState`, Telemetrie
+und Events, bis die Symbologie-Referenz ihn wirklich abdeckt.
+
+---
+
+## 5. `FBF16Datalink` — MIDS-LVT
+
+`sim/src/modules/f16/FBF16Datalink.h` (header-only) — Ableitung von `systems/FBDatalinkSystem`.
+
+`[DOC]` `datalink-iff.md` (Chuck Part 13):
+
+| Größe | Wert | Bemerkung |
+|---|---|---|
+| `kMidsRangeNm` | **300 nm** | Link-16 / MIDS-LVT, UHF-Sichtlinien-TDMA-Netz; ersetzt den bewusst generischen Platzhalter der Basisklasse |
+| Bindender Horizont in der Praxis | Funkhorizont beider Höhen | zwei Jets auf je 2.500 m sehen einander ~223 nm weit — Sache der BASISKLASSE, nicht dieser |
+| Kontaktfilter | FR ON (alle Freundlichen) / FL ON (nur Flight Leads) / FR OFF (keine) | das EINZIGE hier Überschriebene: `AcceptContact` |
+| Default | `FriendlyAll` | HSD-Default FR ON |
+
+**Ehrlichkeitsvermerk zum Flight Lead:** der Simulator hat KEIN Verbands-Strukturkonzept — es gibt keine
+Element-/Rotten-Zuordnung, aus der ein Lead ablesbar wäre. `FL ON` behält deshalb den ERSTEN Teilnehmer
+des Verbands, was für einen missions-deklarierten Verband der erste `unit`-Block dieses Teams ist
+(= primärer Akteur, `doc/mission-format.md`). Ein dokumentierter Platzhalter für eine echte
+Lead-Zuweisung, kein Modell davon.
+
+Missions-Schalter: `datalink`, `datalink_xmt`, `datalink_filter`, `datalink_range_nm` (s. 2.6).
+Kommandobus-Ziele: `DatalinkPower`, `DatalinkTransmit`, `DatalinkFilter`, `DatalinkRangeNm`.
+
+---
+
+## 6. `FBF16Rwr` — AN/ALR-56M
+
+`sim/src/modules/f16/FBF16Rwr.h` (header-only) — Ableitung von `systems/FBRwrSystem`.
+Jeder Punkt `[DOC]` aus `defence-rwr-cm.md` §2.1.
+
+| Größe | Wert | Bedeutung |
+|---|---|---|
+| `kElevCoverageDeg` | **±45°** | Vier Hochband-Quadrantenantennen + ein Doppelblatt-Niederbandpaar geben 360° AZIMUT, aber nur ±45° in der ELEVATION. |
+| `kPriorityThreats` | 5 | TWP-MODE = PRIORITY |
+| `kOpenThreats` | 16 | TWP-MODE = OPEN |
+| Default-Anzeige | PRIORITY | so schaltet der Jet ein |
+
+**Die Blindzone ist die ergebnisrelevante Zahl,** und deshalb steht sie zuerst im Header: die Quelle
+buchstabiert die Konsequenz aus — „a genuine RWR blind spot directly above/below the fuselage centerline;
+high-pitch or high-bank defensive maneuvers can rotate a hostile radar into that blind spot, silently
+dropping lock/launch warnings". Das ist keine Anzeigemarotte, sondern ein Loch in der Lageerkennung, das
+das eigene Manövrieren AUFREISST.
+
+**Der Anzeigedeckel ist ein DISPLAY-Limit über weiterlaufender Erkennung.** Die Quelle ist ausdrücklich:
+mehr Bedrohungen können erkannt werden, als angezeigt werden. `MaxDisplayed()` wirkt deshalb nur auf die
+VERÖFFENTLICHTE Liste, über einer Erkennungstabelle, die weiter alles hört und rankt. OPEN-16 übersteigt
+die Tabellengröße `kMaxRwrThreats` — bewusst als dokumentierte Zahl belassen statt auf sie getrimmt,
+damit der Deckel aufhört, das bindende Limit zu sein, sobald die Tabelle wächst.
+
+**Was fehlt und benannt ist:** die Bedrohungs-BIBLIOTHEK (Appendix Bs ALIC/Symbol/System-Korrelation).
+Die Quelle beschreibt deren Struktur und transkribiert sie nicht; Symbolcodes zu erfinden hieße, genau
+das zu raten, was ein RWR nicht raten darf. Die Klassifikation bleibt die generische Emitter-Klassen-
+Schätzung, bis eine echte Bibliothek existiert.
+
+Missions-Schalter: `rwr`, `rwr_search`, `rwr_display`.
+
+---
+
+## 7. `FBF16Cmds` — AN/ALE-47
+
+`sim/src/modules/f16/FBF16Cmds.{h,cpp}` — Ableitung von `systems/FBCountermeasureSystem`.
+
+| Größe | Wert | Status |
+|---|---|---|
+| `kTypicalChaff` / `kTypicalFlare` | 60 / 60 | `[DOC]` §1: „ground crew sets loadout, max 120 combined (typical 60/60)" |
+| `kMaxCombined` | 120 | `[DOC]` §1 — die Decke, gegen die die Missionszeile geprüft wird |
+| `kBingoChaff` / `kBingoFlare` | 10 / 10 | `[SET]` — §2.2s CMDS-BINGO-Seite ist pilotenseitig 0–99; zehn je Typ ist der Brief dieses Jets, also der Punkt, ab dem AUTOMATISCHES Werfen aufhört und der Rest dem Piloten gehört |
+
+**Schema vs. Werte, sauber getrennt:** das Parameter-SCHEMA (Burst-/Salvenmenge und -intervall je Typ) ist
+das der Quelle `[DOC]` §2.2. Die WERTE sind FlightBox' eigene `[SET]` und im Header als solche markiert —
+die Guides dokumentieren die DED-Seite und ihre Wertebereiche, nie, womit die sechs Programme geladen
+sind; das ist Sache einer Staffel, nicht eines Handbuchs. Wofür die Tabelle gewählt ist, steht je
+Programm, damit eine Mission mit anderem Muster eine ZAHL ändert und nicht das Modell.
+
+| # | Name | Chaff (Salvengröße × Intervall, Salvenzahl × Intervall) | Flare | Summe | Aufgabe |
+|---|---|---|---|---|---|
+| 1 | BREAK LOCK | 2 × 0,10 s, 2 Salven à 1,00 s | — | 4 Patronen in ~1,1 s | Der dichte Reflex und die Antwort auf eine RAKETE: vier Wolken innerhalb einer Sekunde setzen mehrere konkurrierende Echos in die Sucherkeule, solange die Geometrie sich noch schnell ändert |
+| 2 | MIXED | 2 × 0,10 s, 2 Salven à 2,00 s | 1 × 0,10 s, 2 Salven à 2,00 s | — | Unbekannte Bedrohung: etwas für ein Radar und etwas für einen IR-Sucher, zum Preis zweier Magazine gleichzeitig |
+| 3 | FLARE | — | 2 × 0,10 s, 4 Salven à 1,00 s | — | Nur infrarot. Wird geworfen und gezählt; es gibt (noch) nichts zu täuschen, und das generische System sagt das offen |
+| 4 | SUSTAINED | 2 × 0,10 s, 4 Salven à 4,00 s | — | 8 Patronen über ~12 s | Antwort auf ein Radar, das nur VERFOLGT, und das eine, das AUTO wiederholt: langsam genug, dass ein langer Lock kein 60er-Magazin leert, bevor der Kampf entschieden ist; dicht genug, dass immer eine Wolke innerhalb ihrer Lebensdauer (`core/FBCountermeasure.h`s `kChaffLifeS`) steht, wenn die nächste erscheint |
+| 5 | SLAP | 1 × 0,10 s, 1 Salve | 1 × 0,10 s, 1 Salve | 2 | die Dispense-Taste an der linken Wand |
+| 6 | BYPASS | 1 × 0,10 s, 1 Salve | 1 × 0,10 s, 1 Salve | 2 | exakt eine Chaff + eine Flare, `[DOC]` §2.2 |
+
+**Nicht überschrieben:** die Bedrohung→Programm-Abbildung. Die generische Doktrin (dichtes Muster gegen
+eine Rakete, sparsam wiederholendes gegen einen Track) ist genau das, worum diese Tabelle herum gebaut
+wurde; ein Override, der dieselben zwei Zahlen zurückgäbe, wäre die leere Ableitung, die CLAUDE.md
+verbietet.
+
+Missions-Schalter: `cmds_mode`, `cmds_program`, `cmds_chaff`, `cmds_flare`; Pilotenbrief `brief_chaff_s`.
+
+---
+
+## 8. `FBF16FireControl` — das Feuerleitsystem
+
+`sim/src/modules/f16/FBF16FireControl.{h,cpp}`. Kein generischer Slot: die Konventionen sind die DIESES
+Flugzeugs. Vier Produkte, EINE Box, EIN Bus-Block (`FBFireControlBlock`).
+
+LIEST Nav-, Platform-, AirData- und Radar-Block, SCHREIBT den FireControl-Block — eine dokumentierte
+FUSION, weshalb sie die Gültigkeitsköpfe prüft: ohne gültige Slant-Range-Quelle wird der ganze Block
+ungültig, ohne Radar-Lock veröffentlicht er weiter, aber mit `DlzValid = false` („keine Startlösung" ist
+eine Antwort, keine Abwesenheit).
+
+### 8.1 Die 'B'-Entfernungsquelle
+
+Slant Range zum aktiven Steerpoint = `sqrt(Horizontaldistanz² + Höhendifferenz²)` gegen die EIGENE
+Elevation des Steerpoints (Baro-Methode), NICHT FCR-Ranging. `RangeProvider = 'B'`.
+
+Belege: `[DOC]` `hud-symbology.md` („B: Range computed using steerpoint elevation/barometric elevation")
+und quergeprüft gegen den GPL-2.0-FlightGear-F-16-Mod (`steerpoints.getCurrentSlantRange()` — dieselbe
+pythagoreische Methode; **nur die FORMEL** verglichen, kein Code kopiert).
+
+### 8.2 Der Luft-Luft-Startbereich (DLZ)
+
+`SolveLaunchZone(perf, ownSpeedMs, altM, rangeM, closureMs, ownLosMs, tgtSpeedMs)` — eine freie STATISCHE
+Funktion, weil sie reine Arithmetik über eine Waffen-Leistungstabelle plus EINE Geometrie ist: kein
+Memberzustand, also auch aus einem Harness oder einer künftigen KI heraus aufrufbar.
+
+Modell: `dv/dt = (T(t) − ½·ρ·v²·CA·S)/m(t)`, T stufig Boost → Sustain → 0, m linear fallend über die
+Brennzeit. EINE Dichte für die ganze Integration (Startaltitude, `core/FBAtmosphere.h`). Schrittweite
+`dt = 0,25 s`, Deckel 240 s. Die Runde ist TOT, sobald `v < MinSpeedMs` — danach kann sie keinen Abfang
+mehr fliegen, und das begrenzt jede Entfernung unten. Der Test läuft erst NACH dem Boost, weil die Runde
+unterhalb von MinSpeed startet, wann immer der Schütze subsonisch ist.
+
+Aus EINER Integration:
+
+| Ausgabe | Rechnung | Bedeutung |
+|---|---|---|
+| `Raero` | `S_m + Vt_los·T_death` | das Ziel schließt mit seiner aktuellen LOS-Komponente weiter auf |
+| `Rtr` | `S_m − tgtSpeed·T_death` (≥ 0) | das Ziel dreht beim Start um und läuft weg (`[DOC]` weapons.md §2.5) |
+| `Rmin` | `closure·ArmingS + kMinTurnM` | Trennen, Zünden, Schärfen — und dann noch auf das Ziel ziehen |
+| `TimeToActiveS` | Zeitpunkt, an dem r ≤ `ActivationRangeM` | Suchereinschaltung |
+| `TimeToImpactS` | Zeitpunkt, an dem r ≤ 0 | −1 heißt „die Runde stirbt vorher", was etwas anderes ist als 0 |
+
+`kMinTurnM` = 300 m `[SET]`.
+
+**Warum die Kopie GRÖBER ist als das Waffenmodell — und zwar mit Absicht:** was integriert wird, ist die
+GESPEICHERTE Leistungstabelle des Feuerleitrechners (`core/FBStore.h`s `FBWeaponPerf`), bewusst eine
+grobe Kopie dessen, was das eigene JSBSim-Modell der Rakete wirklich tut. Ein Feuerleitrechner arbeitet
+aus einer Tabelle, und der FEHLER zwischen seiner Vorhersage und dem geflogenen Ergebnis ist eine echte
+Eigenschaft jedes Schusses. Die Abfangmission MISST genau diesen Fehler, statt ihn wegzurechnen.
+
+**Ausdrücklich NICHT modelliert** (im Header benannt): die gelofteten Mittelphase einer echten AMRAAM
+(auf Höhe ein guter Teil der Reichweite), die eigene Höhenänderung des Ziels und die Energiekosten der
+Endkurve. Alle drei würden Raero auf eine Weise verschieben, die aus nichts hier Verfügbarem belegbar
+wäre — und ein Startbereich, der Präzision behauptet, die er nicht hat, ist schlimmer als einer, dessen
+Vereinfachungen aufgeschrieben sind.
+
+`InZone` = `range ∈ [Rmin, Raero]`. Die DLZ wird nur für eine GELENKTE Waffe auf der GEWÄHLTEN Station
+und bei bestehendem Radar-Lock gerechnet; die Aufspaltung der gemessenen Annäherung in „meins" und
+„seins" nutzt die körperbezogenen Winkel DESSELBEN Kontakts, also keine zweite Vorstellung davon, wo das
+Ziel ist.
+
+### 8.3 Die EEGS-Kanonenlösung
+
+Ballistik ist geteilt (`core/FBGunBallistics` — dieselbe Arithmetik, mit der die Geschosse danach
+geflogen werden; für ein ungelenktes Geschoss löst ein Feuerleitrechner genau das). FEUERLEITUNG sind die
+drei Fragen, die der Trichter beantwortet: ist das Ziel im Entfernungsfenster, wie groß ist es dort im
+Winkel, und wie weit ist der nötige Vorhalt von der Nasenrichtung entfernt.
+
+| Konstante | Wert | Status |
+|---|---|---|
+| `kFunnelMinRangeM` | 182,88 m (600 ft) | `[DOC]` weapons.md §2.5 „Funnel geometry (Level II)", exakt zitiert und einmal umgerechnet |
+| `kFunnelMaxRangeM` | 914,40 m (3.000 ft) | `[DOC]` ebenda |
+| `kTargetSpanM` | 9,144 m | `[MODELL]` — die Quelle sagt ausdrücklich, dass die Zielspannweite konfiguriert werden MUSS, und liefert sie nicht. Angenommen wird ein gleichartiges Ziel und dafür der `<wingspan>` des gepinnten `f16.xml` (30 ft): eine echte Zahl aus dem Modell UND die richtige für jede Begegnung, die dieser Simulator heute fliegen kann (F-16 gegen F-16). Ein künftiger FCC, der weiß, was er sieht, ersetzt die Konstante durch die Spannweite des identifizierten Typs — an der Geometrie ändert sich nichts |
+
+`GunInFunnel` = in Reichweite UND Nase innerhalb der Toleranz, die die Geometrie selbst setzt:
+`0,5·Spannweite/Entfernung + 1,5σ` des Streukegels `[ABL]` — halbe Winkelausdehnung (zielt man auf die
+Mitte, ist die Haut noch eine halbe Spannweite weg) plus 1,5 Sigma des Musters. Das ist EXAKT die
+Bedingung, unter der das Trefferdichtemodell eine sinnvolle Rundenzahl aufs Ziel legt, also können
+Abzugs-Freigabe und Schadensarithmetik nicht auseinanderdriften.
+
+### 8.4 Die Luft-Boden-Abwurflösung (CCIP/CCRP)
+
+Arithmetik = `core/FBBallistics` (geteilt: CCIP und CCRP sind dieselbe Integration mit zwei Fragen und
+dürfen sich nicht widersprechen können). **Was hier liegt, sind die DREI EINGABEN — jede eine Konvention
+DIESES Jets, keine Rechnung:**
+
+| Eingabe | Was | Warum genau das |
+|---|---|---|
+| **Abwurfzustand** | Position + voller Geschwindigkeitsvektor aus dem Platform-Block | Ein Store verlässt den Pylon mit der Bewegung des Trägers (dasselbe sagt die Trennungs-IC in `app/FBMissionBoot.h`); der Stationsversatz ist Meter gegen einen Fall von Kilometern, also rechnet der Computer vom CG — die Pylon-Geometrie des SMS ist kein Feuerleitwissen |
+| **Zielpunkt** | der aktive Steerpoint | `[DOC]` weapons.md §2.2 nennt den Steerpoint als Zielpunkt der „pre-planned"-Abgabe. Beide Modi lösen dagegen: CCRP, weil das SEINE Designation IST; CCIP, weil eine KI kein Auge hat und der Steerpoint der gebriefte Punkt ist. Rekonstruiert aus Peilung/Distanz des NAV-BLOCKS, nicht aus einer zweiten Steerpoint-Kopie — die Box liest den Bus wie jeder andere Konsument (ein Schreiber pro Block) |
+| **Aufschlagebene** | die Elevation des Steerpoints | dieselbe 'B'-Ranging-Quelle, die diese Box schon für die Slant Range nutzt = die Elevationsprobe des Moduls = die Zahl, die auch der Radarhöhenmesser liest. **Diese Datei fragt NIE Gelände ab; ein Feuerleitrechner kann das nicht.** |
+
+Der Freigabe-Cue lebt auf dem BODENKURS (was das Luftdatenblock veröffentlicht und was die Runde erbt),
+nicht auf dem Steuerkurs — und dessen Kopf wird geprüft: ohne Luftdaten gibt es einen Aufschlagpunkt,
+aber keinen Freigabe-Cue, was eine echte Unterscheidung ist und keine fehlende Zahl.
+
+Eine gelenkte Waffe oder eine leere Station lässt die ganze Lösung ungültig: ein Rechner ohne Bombe hat
+keinen Aufschlagpunkt, und das ist etwas anderes als ein Aufschlagpunkt von null.
+
+`FBReleaseSolution` (vorhergesagter Aufschlag, Flugzeit, Zielpunkt, Miss, Schärfreserve, Modus, Stempel)
+wird dem SMS gereicht und verlässt den Jet MIT der Waffe — damit der Besitzer der Simulation Vorhersage
+und gemessenen Aufschlag nebeneinanderlegen und den Fehler beziffern kann.
+
+`SetDeliveryMode` (aus `set attack_mode`) ändert an der Arithmetik NICHTS — beide Cues kommen aus
+derselben Lösung. Der Modus ist das, was der Abwurf-DATENSATZ tragen muss: die Aussage, auf welchem der
+beiden Cues der Pilot ausgelöst hat.
+
+### 8.5 Die Zielschätzung
+
+Ein Radarkontakt ist ein Echo ohne Geschwindigkeit (`core/FBRadarContact.h`), Startbereich und Mittelphase
+brauchen aber, wohin das Ziel GEHT. Diese Box hält deshalb ihre EIGENE `systems/FBBfmTrack`-Instanz,
+gefüttert ausschließlich aus dem GELOCKTEN Kontakt, und veröffentlicht das Ergebnis als
+`FBWeaponTargetState`. Der SMS kopiert es beim Start auf die Runde und strahlt es als Lenkfunk ab,
+solange der Lock hält.
+
+**Der BFM-Tracker des PILOTEN ist eine SEPARATE Instanz für einen separaten Konsumenten** (seine
+Verfolgungssteuerung) und bleibt davon unberührt: ein Tracker pro Konsument, kein geteiltes
+veränderliches Bild.
+
+---
+
+## 9. Die reinen Geometrie-/Ausstattungsklassen
+
+Gemeinsames Muster: **das VERHALTEN ist airframe-agnostisch und liegt im generischen System, der EINBAU
+ist es nicht und liegt hier.**
+
+### 9.1 `FBF16Sms` — die neun Pylone
+
+`sim/src/modules/f16/FBF16Sms.{h,cpp}`. Alles, was der SMS TUT (Inventar, Master-Arm-Verriegelung,
+Abwurfpfad, Punktmasse-/Widerstands-Wirkung der Zuladung), ist `systems/FBStoresSystem`. Hier steht
+ausschließlich, WO die neun Pylone sitzen — und damit, was eine Zuladung mit der Balance macht.
+`DeclareStation(nummer, xIn, yIn, zIn)` in der Strukturrahmen-Einheit des geladenen Modells (Zoll).
+
+| Station | y (BL, in) | Verankerung |
+|---|---|---|
+| 1 / 9 | ∓180 | `[MODELL]` Flügelspitzen = halbe Spannweite des Modells (`<wingspan>` 30 ft → 180 in) |
+| 2 / 8 | ∓140 | `[SET]` zwischen den beiden Ankern eingeteilt |
+| 3 / 7 | ∓105 | `[SET]` dito |
+| 4 / 6 | ∓65 | `[MODELL]` die Butt Line der modelleigenen Außentanks, die dessen Antriebsabschnitt selbst „(station 4)"/„(station 6)" nennt |
+| 5 | 0 | Mittellinie |
+
+| Achse | Wert | Begründung |
+|---|---|---|
+| x (längs) | −193 in für JEDE Station | `[MODELL]` + `[DOC]`: die CG-Station des Modells. `weapons.md` §4.5 markiert die öffentlichen Stationsdaten als **T4** („community, not independently confirmed") — es gibt also keine zitierbare Rumpfstation je Pylon, und eine Zuladung auf die CG-Station zu setzen ist die MINIMALE Annahme: sie fügt Masse und Widerstand hinzu, ohne ein Nickmoment zu erfinden, das niemand belegen kann. Die QUER-Versätze werden dagegen modelliert, weil sie aus der vom Modell deklarierten Flügelgeometrie folgen |
+| z | −30 in | `[MODELL]` unter dem Flügel: die Flügeltanks des Modells sitzen bei z = −15, sein Hauptfahrwerk bei z = −72 — ein pylon-getragener Store dazwischen ist Geometrie, keine Schätzung |
+
+Master Arm startet SAFE (Default des generischen Systems) und wird so scharf gemacht, wie ein Pilot es
+tut: über den Kommandobus, aus dem Brief der Mission.
+
+### 9.2 `FBF16Gun` — der Einbau der M61A1
+
+`sim/src/modules/f16/FBF16Gun.{h,cpp}`. Dasselbe Muster: alles Verhalten (Trommelbuchführung,
+Verriegelungen, Abzugskommando, Bündelstrom) ist `systems/FBGunSystem`. Hier: WELCHE Kanone dieser Jet
+trägt (`kM61A1` aus `core/FBGun.h`) und WO sie sitzt. `Install(spec, fwdM, rightM, downM, boreDownDeg,
+boreRightDeg)` im Körperrahmen (+vorn/+rechts/+unten vom CG, Meter).
+
+| Achse | Wert | Herleitung |
+|---|---|---|
+| vorn | **+4,6 m** | `[MODELL]`-gestützt `[SET]`: das Modell setzt seine CG-Station auf FS −193 in, die Nase ans vordere Ende eines 49 ft 5 in langen Rumpfs; die Mündungsöffnung — beim echten Jet knapp vor der Windschutzscheibe — landet damit ~180 in vor dem CG |
+| rechts | **−0,9 m** | `[SET]` Backbord: die Strake-Installation liegt LINKS, weshalb die Zahl negativ und nicht null ist — einen Meter Querversatz an der Mündung wert |
+| unten | **−0,3 m** | `[SET]` leicht über der Referenzlinie: die Öffnung liegt oben am Strake-Übergang |
+| Bore | **0°/0°** | `[SET]`, und ausdrücklich als solches begründet: die echte Kanone ist auf eine kleine Senkung boresightet, die das Zielsystem kompensiert — aber KEINE Quelle in `doc/f16/` nennt den Winkel, und einen zu erfinden würde jeden Feuerstoß dieses Simulators verzerren. Null ist die ehrliche Wahl und steht ausgeschrieben statt als Auslassung |
+
+`weapons.md` dokumentiert überhaupt keine Kanonen-Einbaukoordinaten (§4.5 markiert selbst die
+Stationsdaten als T4). Die drei Offsets sind deshalb minimale, mit der Zelle konsistente Annahmen und
+keine Zitate — und ihre GRÖSSE ist der Punkt: sie verschieben die Mündung um Meter, was bei 600–3.000 ft
+Kampfentfernung Bruchteile eines Milliradian sind.
+
+### 9.3 `FBF16Ufc` — ICP/UFC/DED, reduziert
+
+`sim/src/modules/f16/FBF16Ufc.{h,cpp}`. Kein generischer Slot: das ICP/DED ist der Bedienkopf DIESES
+Musters. Reduziert auf das, was es heute wirklich besitzt — die COMMITTETEN Werte dreier DED-Felder
+(CARA-ALOW-Untergrenze, BNGO-Spritschwelle, gewählte Steerpoint-Nummer) — und veröffentlicht sie als
+UFC-Block. Hier ENDET der propose→commit/reject-Zyklus aus `doc/f16/controls-commands.md` §1.2.
+
+| Konstante | Wert | Status |
+|---|---|---|
+| `kBingoCeilingLbs` | 6070 lb | `[DOC]` §6.8 (FUEL QTY SEL = NORM) |
+| `kAlowMinFt` / `kAlowMaxFt` | 0 / 50.000 | `[SET]` — FlightBox' EIGENE Bereichspolitik |
+| `kBingoMinLbs` / `kBingoMaxLbs` | 0 / 20.000 | `[SET]` dito |
+| `kSteerNumMin` / `Max` | 1 / 99 | `[SET]` dito |
+| Default ALOW | 500 ft | `[SET]` MIL-STD-1787-Platzhalter |
+| Default BNGO | 0 | 0 = keine Schwelle eingetragen, die Warnung bleibt inhibiert |
+
+**Zwei dokumentierte Fehlerformen, absichtlich VERSCHIEDEN:**
+
+- **BNGO-Klemmung** (`[DOC]` §6.8): der Eintrag wird ANGENOMMEN — ENTR gelingt, das Feld zeigt das
+  Getippte — aber die Warnung feuert unabhängig davon an der Systemdecke. Modelliert als
+  Accept-with-Clamp, nicht als Ablehnung, weil der Jet das so tut. `EffectiveBingo()` macht die Klemmung
+  explizit für das Warnsystem.
+- **Bereichs-Ablehnung**: KEINE der beiden Quellen dokumentiert irgendeine numerische Bereichsprüfung an
+  einem DED-Feld. Die Grenzen oben sind deshalb FlightBox' eigene Modellentscheidung und werden als
+  solche gemeldet (`FBCommandReason::OutOfRange`), nie still geklemmt. Stille ist das eine Verhalten, das
+  das Material ausschließt: jeder dokumentierte DED-Fehler ist für den Piloten SICHTBAR.
+
+---
+
+## 10. `FBF16Damage` — Zonen und Fragilität
+
+`sim/src/modules/f16/FBF16Damage.{h,cpp}`. Reine MODULDATEN, geliefert über `FBModule::DamageLayout()`;
+angewandt wird sie ausschließlich von `core/FBDamageModel` (Geometrie, Energie, Schwellen). Welche Box im
+Radom sitzt und welche im Heck, weiß nur das Flugzeug.
+
+### 10.1 Die Achse ist die des Modells
+
+Jede Zonengrenze ist aus dem Strukturrahmen des gepinnten `f16.xml` gelesen (x positiv ACHTERN, CG bei
+FS −193 in) und in Meter VOR dem CG umgerechnet. **Keine Zahl stammt aus einer Zeichnung oder einem
+Handbuch** — alle `[MODELL]`:
+
+| Referenz im f16.xml | FS (in) | m vor CG |
+|---|---|---|
+| RADOME-Kontaktpunkt (Nasenspitze) | −486,6 | **+7,46** |
+| EYEPOINT (Cockpit) | −336,2 | +3,64 |
+| Bugfahrwerk | −299,6 | +2,71 |
+| CG | −193,0 | 0,00 |
+| Hauptfahrwerk | −158,6 | −0,87 |
+| Flügelspitzen | −121,3 | −1,82 |
+| Ventralfinnen (Beginn Triebwerksbucht) | −97,6 | −2,42 |
+| Thruster (Düse) | 0,0 | −4,90 |
+| Fanghaken (achterste Extremität) | +100,7 | **−7,46** |
+
+Gegenprobe: +7,46 bis −7,46 = 14,9 m Zelle — das IST die 15,03 m Eigenlänge der F-16.
+
+### 10.2 Die vier Abschnitte und ihre Systeme
+
+Welches System wo sitzt, ist die Anordnung, die jede F-16-Fotografie zeigt; eine MESSUNG wird dafür
+ausdrücklich nicht behauptet.
+
+| Zone | Bereich (m vor CG) | Systeme (Degrade/Fail-Klasse) |
+|---|---|---|
+| **Nose** | +3,64 … +7,46 | Radar (Avionik) — APG-68-Antenne + Sender; AirData (Avionik) — Pitot-/AoA-Sonden am Konus; Structure |
+| **Forward** | 0,00 … +3,64 | Nav (Avionik) — INS; **Gun (STRUKTUR)**; FireControl (Avionik) — FCC; RadarAlt (Avionik) — CARA; Datalink (Avionik) — MIDS-Terminal; Structure |
+| **Center** | −2,42 … 0,00 | Stores (Avionik) — SMS + Stationsverkabelung an den Flügelwurzeln; FlightControls (FLCS) — Hydraulik + Aktuatorstränge; Structure |
+| **Aft** | −7,46 … −2,42 | Engine; Rwr (Avionik) — ALR-56M-Heckempfänger; Countermeasures (Avionik) — ALE-47-Werfer; FlightControls (FLCS) — Leitwerksaktuatoren; Structure |
+
+**Warum die Kanone STRUKTUR-Schwellen bekommt** und nicht Avionik-: M61A1 und Trommel sitzen im linken
+Flügelwurzel-Strake, also in dieser Zone — aber eine Kanone ist eine mechanische Installation mit Masse
+und Querschnitt der Zelle um sie herum, keine Blackbox im Rack. Was sie stoppt, ist das, was die Struktur
+durchschlägt, an die sie geschraubt ist. Kein Effekt, sondern eine Aussage über das Bauteil.
+
+### 10.3 Die vier Fragilitätsklassen — die eigentliche SETZUNG
+
+Alle `[SET]`, in J/m² Splitter-Flächenenergie. Das ist die eigentliche Modellentscheidung dieses Files
+und steht als solche benannt darin:
+
+| Klasse | Degrade | Fail | Begründung des Bauteils |
+|---|---|---|---|
+| Avionik | 1,2e4 | 3,0e4 | eine Box: dünne Haut, keine Redundanz |
+| Triebwerk | 5,0e4 | 1,5e5 | Nebenaggregate/Düse: nur noch Militärschub |
+| FLCS | 5,0e4 | 1,5e5 | eines von zwei Hydrauliksystemen |
+| Struktur | 8,0e4 | 2,5e5 | Haut und Stringer: Widerstand |
+
+Maßstab (AIM-120, 20,5 kg Gefechtskopf, ~850 m/s head-on Annäherung):
+
+| J/m² | 1,2e4 | 3,0e4 | 5,0e4 | 8,0e4 | 1,5e5 | 2,5e5 |
+|---|---|---|---|---|---|---|
+| entspricht r ≈ | 11,6 m | 7,3 m | 5,7 m | 4,5 m | 3,3 m | 2,5 m |
+
+Gelesen: alles, was den Näherungszünder überhaupt auslöst, kostet Avionik; nur ein Burst innerhalb ~3 m
+nimmt Triebwerk oder Flugsteuerung mit. Die Leiter ist EINMAL so gewählt, dass sie sich gegen die
+Geometrie dieser Zelle liest wie ein Splittergefechtskopf sich verhält; **jeder Zwischenfall folgt dann
+aus dem 1/r²-Energiegesetz und nicht aus einer weiteren Zahl.**
+
+**Warum die meisten Boxen nie „degradiert" werden:** außer dem Radar (dessen Reichweite über die
+Radargleichung folgt, `kRadarRangeDegraded` = 0,7071) hat kein Avionikgerät ein ABLEITBARES
+Degradationsverhalten. Jede solche Box deklariert deshalb ihre Degrade-Schwelle GLEICH ihrer
+Fail-Schwelle und betritt den Zustand nie. „Ein bisschen Rauschen" auf einem INS oder ADC zu modellieren
+hieße, eine Zahl zu erfinden — das tut diese Datei nicht.
+
+### 10.4 Präsentierte Flächen (was ein Geschossstrom sieht)
+
+| Größe | Wert | Status |
+|---|---|---|
+| `FrontalAreaM2` | 4,0 | `[SET]`, aus `[MODELL]`-Geometrie: Rumpf ~1 × 1,5 m Querschnitt plus die dünne Kante eines 27,9-m²-Flügels und der Finnen. Eine ÄQUIVALENTFLÄCHE — nirgends wird die echte Form projiziert |
+| `LateralAreaM2` | 14,0 | `[SET]` dito: `<wingarea>` 27,9 m² / `<wingspan>` 9,14 m über 14,5 m Länge → Grundriss dieser Größenordnung, Seitenansicht deutlich weniger; 14 ist die Mitte, mehr kann eine EINZELNE Zahl für „quer zur Achse" ehrlich nicht sein |
+| `FrontalExtentM` | 4,57 | `[MODELL]` halbe Spannweite (9,14/2) — von achtern gesehen |
+| `LateralExtentM` | 7,3 | `[MODELL]` halbe Länge (14,5/2) — von der Seite gesehen |
+
+Zwei Maßstäbe, weil ein Jäger viel Spannweite und wenig Material hat. Die Flächen skalieren die erwartete
+Trefferzahl LINEAR — deshalb stehen sie einmal und benannt an dieser Stelle.
+
+---
+
+## 11. `FBF16Max7456` — der Chip-Hook
+
+`sim/src/modules/f16/FBF16Max7456.{h,cpp}`. Ein ECHTER, von `FBF16Module` gehaltener und instanziierter
+NoOp-Override-Punkt (`StyleGlyph(x, y, r, g, b)` = Identität), kein toter Platzhalter.
+
+**Warum getrennt vom Font-System:** `render/FBHudFont.h` + der Textpfad von `FBHudStage` sind die
+GENERISCHE, airframe-agnostische Bitmap-Font-Maschinerie (16×16-Zellen mit echter 8-Bit-Flächen-Coverage,
+gebaked aus B612 Mono; „sharp bilinear"-Rekonstruktion im Shader). Dorthin gehört NICHTS
+Chip-Spezifisches. MAX7456-Eigenheiten — Interlace-Jitter, Helligkeits-/Kontrastkurve, Edge-Enhance,
+Sync-Artefakte — sind Eigenschaften EINES OSD-Chips in EINEM Flugzeug. Sie bekommen deshalb diesen
+Override-Punkt (dasselbe Muster wie der eine virtuelle Punkt von `FBAutopilot`/`FBFlightControl`), an dem
+ein künftiges Artefaktmodell hängt, ohne `render/` oder ein anderes Modul anzufassen.
+
+---
+
+## 12. `displays/FBF16Hud` — die Symbologie
+
+`sim/src/modules/f16/displays/FBF16Hud.{h,cpp}`. Überschreibt `FBDisplaySystem::BuildHud(state, env,
+out)` — den Displays-Override-Punkt. **Reine Symbologie: liest `FBState`, schreibt nichts.**
+
+Quellenlage: `[DOC]` `doc/f16/hud-symbology.md`, DCS F-16C Viper Guide Part 16 p.706 als Bezugsrahmen;
+Positionen quergeprüft gegen den GPL-2.0-FlightGear-F-16-Mod (github.com/NikolaiVChr/f16,
+`Nasal/HUD/HUD_main.nas` + `hud_math.nas`) — **FAKTEN verifiziert, kein Code kopiert**.
+
+### 12.1 Die Combiner-Apertur
+
+Das echte F-16-HUD ist ein kleines Fenster vor dem Piloten, nicht die ganze Windschutzscheibe. Zwei
+dokumentierte Winkelspezifikationen `[DOC]` (hud-symbology.mds „Technical depth"; DTIC ADA430578s
+TFOV-Note, gegengeprüft an `TFOV=25deg` im FlightGear-Mod):
+
+| Größe | Wert | Verwendung |
+|---|---|---|
+| TFOV (voller Kegel, in dem Symbologie positioniert werden darf) | ~25° | `kApertureHalfWidthDeg` = **12,5°** (TFOV/2) |
+| IFOV (was die Combiner-Scheibe bei EINER Kopfposition zeigt) | ~20 × 13,5° | nur fürs SEITENVERHÄLTNIS: `kApertureHalfHeightDeg` = 12,5° · (13,5/20) ≈ 8,44° |
+
+Die vertikale Halbhöhe wird also ABGELEITET statt als zweite Magie-Konstante gesetzt — der Combiner ist
+dokumentiert breiter als hoch, und die rohe IFOV-Vertikale wird bewusst nicht wörtlich genommen.
+
+`kHudMagnify` = 1,88 `[SET]` vergrößert NUR das gezeichnete Fenster und jede feste Pixelgröße darin; der
+physische Apertur-WINKEL bleibt unangetastet (der konforme Projektor rechnet weiter mit TFOV/IFOV).
+Gewählt, damit die ~190×127 px große Apertur bei ~358×239 px landet — innerhalb der ~427×240 px großen
+Mittelzelle eines 3×3-720p-Rasters.
+
+Textskalen-BÖDEN `kHudReadoutScale` 1,15 / `kHudSecondaryScale` 1,08 `[ABL]`: die alten Textkonstanten
+(0,60–0,70) waren für ein weniger als halb so großes Fenster geschrumpft und blieben selbst nach
+`kHudMagnify` unter B612s eigenem Lesbarkeitsverhältnis (Tinte ≈ 0,75·6·s). Ergebnis:
+1,15·1,88 ≈ 2,16 (Tinte ~9,7 px, über dem 9-px-Boden für Hauptanzeigen), 1,08·1,88 ≈ 2,03 (~9,1 px, über
+dem 8-px-Boden für Sekundärtext).
+
+### 12.2 Die Elemente
+
+Alles Konforme läuft durch EINEN Az/El-Projektor aus DERSELBEN Kamerabasis (Yaw/Pitch/Roll), die auch das
+generische Default-HUD für seinen Horizont nutzt. „Az/El" ist WELT-referenziert (0 = Nord, +El = oben) —
+eine Weltrichtung (Bodenkurs, Peilung zum Steerpoint) braucht deshalb keine separate Körperrahmen-
+Komposition.
+
+| Element | Position | Gescissort? | Details / Quelle |
+|---|---|---|---|
+| Horizont | zwei Segmente flankierend zum Boresight, Lücke für FPM/Ladder | **ja** | Horizont-DIP aus Höhe |
+| Pitch-Ladder | erdreferenzierte Sprossen alle 5° von −30 bis +30 | **ja** | positiv durchgezogen / negativ gestrichelt (MIL-STD-1787). Auf die Apertur-Skala VERDICHTET (halbe frühere Azimutspreizung), damit beide Segmente einer Sprosse ins Fenster passen — bei 8,4° Halbhöhe sind ~1–3 Sprossen sichtbar |
+| FPM | am Geschwindigkeitsvektor (`AirData.TrackDeg` / `FpaDeg`) | **ja** | Kreis + Flügel + Leitwerk = Aircraft Reference Symbol (MIL-STD-1787) |
+| Steerpoint-Diamond | an Peilung/Elevationswinkel des Steerpoints | **ja** | außerhalb der Sicht: auf den FENSTERRAND geklemmt und DURCHGEKREUZT. Der Clamp-Ring ist mit der Fensterkante VERSCHMOLZEN (kein zweiter, kreisförmiger Ring), mit Inset, damit die Kreuzstriche nicht halbiert werden |
+| Tadpole | neben dem FPM, X auf die Apertur-Halbbreite geklemmt | **ja** | rotiert: zeigt HOCH, wenn der Steerpoint vor dem Kurs liegt, RUNTER dahinter `[DOC]` |
+| Heading-Tape | **OBEN** an der Apertur, Ticks nach UNTEN, Labels darunter, Wertkasten auf der Schiene | nein | magnetisch (`Yaw − MagVar`; MagVar ist ein 0°-Platzhalter bis ein Deklinationsmodell existiert). Ticks alle 5°, Labels alle 30°, N/E/S/W ausgeschrieben. **Positionskorrektur:** `doc/f16/hud-symbology.md` („Heading tape \| Top") UND der FG-Mod (`sy*0.1` von oben) stimmen überein — die frühere Platzierung unten war ein Fehler, keine dokumentierte Abweichung |
+| Bank-Skala | unter dem FPM, Zentrum `cy + 0,192·winHalfH`, Radius `0,385·winHalfH` | nein | feste Ticks bei 0/±10/±20/±30/±45°, Zeiger mit dem Roll rotierend (auf ±45° geklemmt). Verhältnisse aus FGs `rollPos=[0,25]`/`rollRadius=50` gegen 130 px Halbhöhe = 19,2 % Versatz / 38,5 % Radius, auf die eigene Apertur skaliert |
+| G-Last | Apertur oben links | nein | Quelle: AirData |
+| Linker Statusblock | linke Kante, knapp unter der Vertikalmitte (`cy + 0,136·winHalfH`) | nein | Reihenfolge NAV → Mach → Peak-G → ARM/SIM → Bullseye (Peilung/Distanz). Anker und Reihenfolge folgen FGs window2 → window7 → window8 → window11; **ARM/SIM hat keine FG-Entsprechung an dieser Stelle und ist als dokumentierte ERGÄNZUNG (4. Zeile) markiert** |
+| Rechter Statusblock | rechte Kante, selbes Höhenband | nein | R (Radarhöhe) → AL (ALOW) → 'B' Slant Range → TTG → Distanz>STPT. Reihenfolge folgt FGs window10 → window3 → window4 → window5; **R hat hier keine FG-Entsprechung und ist als dokumentierte Ergänzung geführt** |
+| CAS-Tape | links, ~8 % der Aperturbreite eingerückt (FG: `0.20*sx`, nicht bündig an der Kante) | nein | Nebenticks alle 20 kt, Hauptticks alle 100; Kasten trägt den exakten Wert. Numerische Ticklabels weggelassen (kein Platz auf dieser Skala) |
+| Alt-Tape | rechts, spiegelbildlich eingerückt | nein | Nebenticks alle 100 ft, Hauptticks alle 500; Kasten mit Tausenderkomma („6,020") |
+| „NO TELEMETRY" | zentriert | — | Fallback, wenn `env.Have` falsch ist |
+
+### 12.3 Welche Blöcke gelesen werden — und wer sie schreibt
+
+| Block | Schreiber | Verwendung im HUD |
+|---|---|---|
+| `Platform` | **`FBF16Module` selbst** (`PublishPlatform`) | Lage für den Projektor, Höhe für Alt-Tape und Horizont-Dip, Heading-Tape |
+| `AirData` | `systems/FBAirDataSystem` | FPM-Richtung (Track/FPA), CAS-Tape, G, Peak-G, Mach, Tadpole-Referenz |
+| `RadarAlt` | `systems/FBRadarAltimeter` | „R"-Zeile |
+| `Nav` / `Cruise` | `systems/FBNavSystem` | Steerpoint-Diamond, Tadpole, Bullseye, Distanz>STPT, TTG, MagVar |
+| `FireControl` | `modules/f16/FBF16FireControl` | 'B'-Slant-Range + Provider-Buchstabe |
+| `Ufc` | `modules/f16/FBF16Ufc` | ALOW-Zeile, Steerpoint-Nummer |
+| `Stores` | `systems/FBStoresSystem` (via `FBF16Sms`) | ARM/SIM |
+
+### 12.4 Die Gültigkeitsregel
+
+**Jede Anzeige fragt ZUERST den Kopf ihres Quellblocks.** Eine tote Box bekommt STRICHE, nicht ihre letzte
+Zahl in derselben Schrift wie eine lebende — genau dafür existiert der Kopf (`core/FBBlockStatus.h`), und
+genau darauf besteht das Handbuch des echten Jets: der Pilot muss einen AUSGEFALLENEN Sensor von einem
+ruhigen unterscheiden können.
+
+| Zustand | HUD-Verhalten |
+|---|---|
+| `Invalid` | Striche: `-.-` (G), `-.--` (Mach), `---` (CAS), `R----`, `AL---`, `B---.-`, `---:--`, `---> --`. Beim CAS-Tape bleiben Rahmen und Kasten (das Instrument ist ja da), die beweglichen Ticks und die Zahl verschwinden |
+| `Held` | zeigt seinen Wert. Absichtlich eingefroren ≠ kaputt; ihn auszublenden würde Information wegwerfen, auf die der Pilot Anspruch hat |
+| `Nav` invalid | **keine Steuersymbologie**: weder Diamond noch Tadpole. Ein Diamond aus einem ungeschriebenen Block würde auf einen Steerpoint zeigen, den es nicht gibt (MIL-STD-1787-Declutter-Regel). Eine BFM-Mission ohne Wegpunkte ist exakt dieser Fall |
+
+---
+
+## 13. Die Modellwahl
+
+| Punkt | Aussage |
+|---|---|
+| Modell | `sim/vendor/jsbsim/aircraft/f16` — die **vanilla, full-scale JSBSim-F-16** mit echter FLCS, aus dem **gepinnten, read-only Submodul**. `FBF16Module::FdmModelName()` liefert `"f16"`, `FdmModelVendored()` bleibt beim Default `true` |
+| Nicht abgeleitet | Der Modellname ist BEWUSST nicht aus dem Registry-Namen abgeleitet: die beiden fallen heute zusammen, sind aber nicht dasselbe |
+| „Referenz ist das MODELL" (Prinzip 5) | Praktisch: die Zielgröße ist NICHT „stimmt die Zahl mit dem echten Jet überein", sondern „fliegt FlightBox das Modell TREU". Belegte Konsequenzen in diesem Modul: die ~5,6 g / ~16 °/s am Corner (statt 9 g / 20+ °/s) sind AKZEPTIERTE Modell-Eigenschaften und kein zu tunender Defekt; die ~170-KCAS-Abhebegeschwindigkeit trotz 128-kt-Tabellen-Vr ebenso; `ApproachSpeedKt` 165 ist die GEMESSENE Trimmkurve des Modells und keine kopierte Realzahl. Bewertet werden korrekte Integration + Rendering |
+| FBW/FLCS | Die JSBSim-F-16 hat eine echte FLCS (`fcs/*-cmd-norm` = Raten-Sollwerte). FlightBox' FBW kommandiert sie über das `Flcs=1`-Preset, statt sie zu verzerren; `fcs/fbw-override=1` überbrückt sie (direktes Ruder) — dieses Modul nutzt den FLCS-Pfad |
+| Lizenz | Die Aircraft-XML trägt eine EIGENE Lizenz — die F-16 ist **GPL** (`<license licenseName="GPL">`, `<author>Erik Hofman</author>`), die meisten anderen JSBSim-Modelle LGPL. Attribution erfolgt PER DATEI; das Submodul wird nie gepatcht. FlightBox' eigene Quellen tragen FlightBox' Lizenz, JSBSims LGPL-Banner wird nicht kopiert |
+| Eigene Modelle | Wenn das Submodul ein Modell nicht hat, darf es dort auch nicht hineingelegt werden — es landet in `sim/assets/aircraft/` und das Modul sagt das über `FdmModelVendored() == false` (erster Fall: die AIM-120 in `modules/missile/`) |
+
+---
+
+## Offene Punkte
+
+**Lücken im Nachbau — jede benannt, keine kaschiert:**
+
+1. **Keine TD-Box, kein Locked-Target-Symbol.** `doc/f16/hud-symbology.md` kennt beides nicht (der
+   radarnahe Eintrag ist der HMC, eine andere Funktion). Ein Lock lebt deshalb ausschließlich in
+   `FBState`/Telemetrie/Events. Vor jeder Erweiterung muss die Symbologie-Quelle das wirklich abdecken.
+2. **Kein HOTAS-Binding.** `FBInputSystem` ist der NoOp-Default; `?ap=manual` gibt es, ein gebundener
+   Stick nicht.
+3. **Weitere leere/NoOp-Slots:** `FBPropulsionSystem` (Triebwerkslogik über der rohen FDM) und
+   `FBWeaponSystem` (der generische Waffen-Slot; die echte Wirkung liegt in `FBStoresSystem`/
+   `FBGunSystem`).
+4. **`WeaponSelect` ist bewusst `NotImplemented`** (`doc/f16/controls-commands.md` §6.6) — der Jet hat
+   es, FlightBox nicht, und das Kommando sagt das, statt still zu gelingen.
+5. **Kein Flight-Lead-Konzept.** `FBF16Datalink`s `FL ON` nimmt den ersten `unit`-Block des Teams als
+   Platzhalter. Eine echte Element-/Rottenzuordnung existiert nicht.
+6. **Keine RWR-Bedrohungsbibliothek.** Die ALIC-/Symbol-/System-Korrelationstabelle ist in der Quelle nur
+   strukturell beschrieben; die Klassifikation bleibt die generische Emitter-Klassen-Schätzung.
+7. **Fackeln wirken nicht.** `FBF16Cmds` wirft und zählt sie; es gibt keinen IR-Sucher, gegen den sie
+   wirken könnten, und das steht so im generischen Header.
+8. **Keine Bore-Depression der Kanone** — kein Winkel in `doc/f16/` belegbar, also 0°/0° und ausgeschrieben.
+9. **Kein Nickmoment durch Zuladung** — jede Station sitzt längs auf der CG-Station, weil die
+   Stationsdaten in der Quelle T4 sind (`weapons.md` §4.5).
+10. **Keine Terrain-Maskierung im Radar** und keine geloftete AMRAAM-Mittelphase in der DLZ — beides
+    ausdrücklich im jeweiligen Header als nicht modelliert deklariert.
+11. **Wegpunkt-Elevation:** das Modul setzt als Steerpoint-Elevation die Elevationsprobe UNTER DEM
+    FLUGZEUG dieses Ticks. Eine deklarierte Wegpunkt-Elevation ist Missionsformat-Arbeit; über sanftem
+    Gelände ist die Näherung korrekt, über Bergen nicht.
+12. **MAX7456-Artefaktmodell** existiert nicht — `StyleGlyph` ist die Identität. Der Override-Punkt ist
+    real und instanziiert, damit der Einbau später `render/` nicht anfasst.
+13. **`FBF16Pilot::Run()` ist nicht überschrieben** — die Phasenmaschine ist vollständig generisch. Diese
+    Klasse ist heute ausschließlich ein Zahlensatz.
+
+**Nachführung fällig (nebenläufige Änderung):** dieses Dokument beschreibt den Stand von Commit
+`9673e00`. Während seiner Entstehung lief eine Nahkampf-Runde an `sim/src/modules/f16/FBF16Module.{h,cpp}`
+und `FBF16Pilot.*` (samt `systems/FBPilot.*`). Bereits in der Arbeitskopie sichtbar und hier NOCH NICHT
+erfasst: ein zusätzlicher BFM-Hook `BfmBrakeMs2()` (2,4 m/s², `[MESS]` — 238 Telemetrieproben des
+Kanonen-Anflugsweeps auf 4.000 m zwischen 325 und 400 KCAS bei Leerlauf, ausgefahrener Bremsklappe,
+< 15° Bank und 1 g, mit herausgerechnetem Schwerkraftanteil; Median 2,39, p10 1,64, p90 3,80 — der MEDIAN
+ist die Zahl, weil das konservative p10 im Sweep 11 statt 14 Abschüsse und 21 s weniger Trichterzeit
+brachte). **§3.3 (BFM-Zahlen), §2.1/§2.2 (Komposition und Takt) und die `set`-Tabelle in §2.6 sind nach
+Abschluss dieser Runde gegen den dann aktuellen Stand zu prüfen.**

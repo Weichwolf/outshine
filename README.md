@@ -44,6 +44,12 @@ renderer.
 The architecture — JSBSim-in-the-client, the fly-by-wire + FBPilot mission autopilot, aircraft plugins,
 and the ECEF renderer — is in [`CLAUDE.md`](CLAUDE.md).
 
+## Lizenz
+
+FlightBox steht unter der **GNU General Public License, Version 2 oder später**
+(`GPL-2.0-or-later`) — Lizenztext in [`LICENSE`](LICENSE), Begründung der Wahl und die vollständige
+Liste der Fremdanteile in [`LICENSE.md`](LICENSE.md).
+
 ## Datenquellen & Lizenzen
 
 Der Simulator lädt reale Welt-Daten on-demand. Attributionspflicht der Quellen:
