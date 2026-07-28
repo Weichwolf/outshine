@@ -50,6 +50,30 @@ asymmetric weapon round (R6) comes before the airframe round (R8).
 
 ## State
 
+**Stage 2a and 3 built: the module and the solo end-to-end proof** (merged as part of `11722e5`-follow-up).
+`sim/src/modules/mig29/` is an `FBModule` like any other — registered under `"mig29"` through
+`FBModuleRegistry`, composed from the `systems/` defaults, no second architecture and no special case
+in the runner. It adds exactly three things of its own: this aircraft's pilot numbers (`FBMig29Pilot`,
+hooks only), its FBW gain preset (`FBFlightControl::Mig29()`) and its damage zones (`FBMig29Damage`,
+every boundary a station the deck itself states). Four missions fly it: `mig29-takeoff`,
+`mig29-landing` (glideslope capture from below), `mig29-full` (the acceptance: takeoff, three
+waypoints, approach, flare, rollout to a stop on the Payerne threshold) and `mig29-pair` (an F-16 and
+a MiG-29 in one formation — the multi-module proof `payerne-mixed` makes for f16+f16). All four exit 0.
+
+Numbers from `mig29-full` against `procedures.md` and the stage-1 anchors: rotation 130.1 kt
+(documented 125–135), liftoff 144.2 kt (140–150), ground run 346 m (B8 324 m), cruise altitude hold
+within 5 m, approach 146.5 kt at 11.54° AoA, flare at 28.2 ft AGL (documented 20–30), touchdown
+143.4 kt at 11.66° AoA / 8.84° pitch / 3.59 m/s sink (documented ~140 kt @ 11°, never past 13°; the
+deck's nozzle-strike geometry is 13.5°, the monitor's contact-pitch KO 15°), rollout 919 m at 13.6 t.
+The lighter `mig29-landing` touches at 141.3 kt / 9.76° with 1.84 m/s and rolls 471 m at 12.2 t — the
+AoA difference between the two landings is 1.4 t of fuel, not a different regulator.
+
+**Deliberately absent** (stage 2b/2c): radar, RWR, IRST, countermeasures, stores, gun, datalink, GCI.
+Those slots hold the NoOp/generic defaults, are not cycled, and their blocks stay `Invalid` — a module
+declares what it has, and an N019 that published empty contacts would be a sensor the pilot could
+believe. `set task` accepts only `route` for the same reason. The F-16 is provably untouched: all 53
+stock missions byte-identical, `test-corner` unchanged (380 kt / 16.18 °/s / 5.44 g).
+
 **Stage 1 built: the airframe.** `sim/assets/aircraft/mig29/` holds a FlightBox-own JSBSim deck
 (`mig29.xml`, `engine/RD-33.xml` ×2 instantiation, `engine/RD-33-nozzle.xml`, `reset00.xml`,
 `release="ALPHA"`), declared as FlightBox-own in `sim/assets/MODEL-DELTAS.md`, and
@@ -70,6 +94,12 @@ mission; the only consumer is its own harness, so no existing measurement in the
 reading rule in its own file header).
 
 ## Gaps
+
+| done (2a) | ~~Module (`FBModule` derivation + registry name) and the systems it composes~~ | stage 2a |
+| done (2a) | ~~SOS α limiter and the ARU-aware gains in `systems/FBFlightControl`~~ — `AlphaLimitDeg` is one preset number; 0 means the airframe has its own limiter and is what the F-16 sets | stage 2a |
+| 4b | Own HUD symbology — the module flies the generic MIL-STD-1787 default | stage 2b |
+| 4c | The corner formula `g·√(n²−1)/V` reads 20.2 °/s from the hooks against a measured 24.18 °/s (−16 %; the F-16's gap is −2 %). Cause: altitude loss inside this airframe's measurement window | stage 2c |
+| 4d | Twin-engine damage: `core/FBSystemHealth` carries ONE `Engine` id, so "one RD-33 out" — this airframe's most characteristic damage state — has no state to live in | needs a health-register change, not a module one |
 
 In roadmap terms the remaining chain is **R6 → R8 stage 2/3 → R7**:
 

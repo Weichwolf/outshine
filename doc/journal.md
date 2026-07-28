@@ -410,3 +410,16 @@ stimulus): 1.37 × → **0.89 ×** the cap, 9.2 s → **0.0 s** above it. Costs,
 headers: `gun-dry` 3 → 1 (all twelve rounds now arrive), `gun-bfm` kill 66.7 → 84.2 s, `bfm-blind`'s
 blind interval 41 → 199 s (chaotic across every cap tested), one departure in a non-committed sweep
 geometry. Exactly five missions move, all BFM; nothing else in the tree changes by a byte.
+
+### 2026-07-28 — MiG-29 stage 2a+3: the module flies end-to-end (merge of `b3da424`)
+
+`sim/src/modules/mig29/` (module, pilot numbers, damage zones, registry name `mig29`) plus four
+missions; `mig29-full` flies takeoff, route and landing autonomously to a stop on the Payerne
+threshold (exit 0, 730.6 s; rotation 130.1 kt, touchdown 143.4 kt at 11.66° AoA and 3.59 m/s).
+`mig29-pair` proves two DIFFERENT modules in one formation. The FBW preset is its own for a
+structural reason: behind the g output the F-16 has an FLCS, here the output IS the deflection.
+Three measured failures stand in the preset comment and determine it (saturating yaw → LOC t=28 s;
+double-integrator limit cycle, 20 s period; no α limiter → α 90°, LOC t=122 s). The SOS limiter is
+thereby built where `flight-model-spec.md` §7.3 placed it, behind one preset number. `test-mig29`
+gained the two measurements the module cites: 136.8 kt at the documented 11° touchdown α, and corner
+420 kt / 24.18 °/s / 7.83 g. F-16 byte-identical across all 53 stock missions.

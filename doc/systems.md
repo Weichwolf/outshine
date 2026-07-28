@@ -959,3 +959,24 @@ whole bus is what makes the age of a block answerable without every system keepi
 
 The block statuses are published as telemetry columns of their own (`blk_*`, `FBStateBusTelemetry`) —
 because a held value otherwise looks like a fresh one.
+
+### FBFlightControl: the `Mig29()` preset and why it exists (stage 2a)
+
+The `Flcs` branch now carries four airframe-dependent numbers that are **zero for an aircraft with its
+own FLCS**, and the F-16 is that aircraft: `KqDamp` and `KpDampRoll` (rate feedback inside the g
+branch), `PitchStickMax` (the pitch-axis counterpart of `RollStickMax`) and `AlphaLimitDeg` (the α
+limiter). The reason is structural rather than tuning: on the F-16 this branch's output is a **g
+request** into a fast inner loop that regulates rate and limits α itself; on a mechanically signalled
+airframe the same output **is** the surface deflection, with nothing behind it but a gearing unit and
+its rate limit. With all four at their F-16 values the expression is arithmetically the one that was
+there before — verified across all 53 stock missions, byte for byte.
+
+Three measured failures determine the preset and live in its header comment: a saturating generic
+yaw branch (1.2 s cycle → roll coupling → LOC at t=28 s; the stage-1 harness measured this
+airframe's whole envelope with yaw=0), two cascaded integrators behind the two lags (a 20 s-period
+limit cycle: pitch −6…+28°, VS −24…+15 m/s — removing the VS integrator killed it where no gain
+change did), and a missing α limiter (full stabilator on waypoint roll-in → α spikes to 90°, LOC at
+t=122 s). The limiter is the smaller of **two branches**, never a cap on the first: it may forbid
+pulling, never command pushing, and its lead term is the derivative of the **limited quantity**, not
+the pitch rate — a steady pull carries a steady q that a pitch-rate lead misreads as an impending
+overshoot while α stands still.
