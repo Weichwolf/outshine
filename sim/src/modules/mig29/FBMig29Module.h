@@ -22,6 +22,7 @@
 #include "FBFlightControl.h"
 #include "FBFlightPlan.h"
 #include "FBMasterMode.h"
+#include "FBMig29Cmds.h"
 #include "FBMig29Damage.h"
 #include "FBMig29FireControl.h"
 #include "FBMig29Gun.h"
@@ -66,7 +67,7 @@ public:
   FBMig29Radar &Radar() override { return Radar_; }        /* covariant, like the F-16's */
   FBMig29Rwr &Rwr() override { return Rwr_; }
   FBMig29Irst &Irst() override { return Irst_; }
-  Sensors::FBCountermeasureSystem &Countermeasures() override { return Cm_; }
+  FBMig29Cmds &Countermeasures() override { return Cm_; }   /* covariant, like the F-16's */
   FBMig29Sms &Stores() override { return Stores_; }        /* covariant: pylon geometry only */
   FBMig29Gun &Guns() override { return Gun_; }             /* covariant: installation only */
   const Systems::FBGuidance &LastGuidance() const override { return LastG; }
@@ -138,12 +139,12 @@ private:
   FBMig29Radar Radar_;   /* N019 "Rubin" — the ACTIVE one, and the one that gives the jet away */
   FBMig29Rwr Rwr_;       /* SPO-15LM "Beryoza" — the PASSIVE warning half */
   FBMig29Irst Irst_;     /* OEPS-29 / KOLS — the PASSIVE optical one, this aircraft's own asymmetry */
-  /* Still absent (stage 2c): the cooperative terminal this jet does not have at all — its GCI link is
-   * a VOICE channel the pilot types in (doc/modules/mig29/datalink-gci.md), not a track picture — and
-   * the BVP-30-26 dispensers, whose programme parameters no source states. Never cycled, blocks stay
-   * Invalid. */
+  /* Still absent: the cooperative terminal this jet does not have at all — its GCI link is a VOICE
+   * channel the pilot types in (doc/modules/mig29/datalink-gci.md), not a track picture. Never cycled,
+   * block stays Invalid. */
   Sensors::FBDatalinkSystem Datalink_;
-  Sensors::FBCountermeasureSystem Cm_;
+  /* THE BVP-30-26, the passive dispensers — the piece that makes the defensive asymmetry two-sided. */
+  FBMig29Cmds Cm_;
   /* STAGE 2c: the weapons. The three slots are real from here on — pylon geometry, gun installation and
    * this aircraft's own weapon-control computer; all the BEHAVIOUR is the generic weapons/ code. */
   FBMig29Sms Stores_;

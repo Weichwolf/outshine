@@ -31,6 +31,44 @@ State of the entries below: commit `793e1fe` + the model-root/delta round (2026-
 
 ## Chronology
 
+### 2026-07-28 — MiG-29 value round: the merge acquisition and the second dispenser (this round)
+
+Two coupled gaps, both closed. **(A) The N019 acquires in a turning merge.** Its documented close-combat
+modes (CC/VS/BORE) are azimuth PENCILS (±1.75°/±1.5°/±1.25° — the vertical reading DCS-FM p.12 forces),
+and a pencil cannot hold a manoeuvring nose-on merge target: `duel-merge` fulcrum lock_s was **0**. A
+BROAD forward auto-lock volume was added, `FBMig29Radar::kAcm*` — ±37° azimuth [T4 §7.1, read as azimuth
+against the vertical reading CC takes; the two sources genuinely conflict], a [SET] ±30° nose-centred
+vertical band (measured threshold: ±25° never firms, ±30° acquires, wider buys nothing), Doppler-EXEMPT
+like CC (a co-speed merge is the low-closure case), frame **0.75 s** [DERIVED from T4's "1-2 s lock" over
+the generic two-look firming, the same construction as the RAD 3.0 s frame]. The pilot SELECTS it in the
+fight phase: a new generic hook `FBPilot::BfmRadarModeOrdinal` + `BfmSelectRadarMode`, the F-16 leaving it
+−1 (byte-identical, its `acm_hud` is mission-set). Measured: `duel-merge` `n019 MODE acm` t=0.5,
+`RADAR_LOCK` t=3.8 (3.32 nm), **lock_s 14.2**; `mig29-bfm` improves 203→296 lock_s / 5.3→88 ctrl_s.
+
+**(B) The BVP-30-26 dispensers.** `modules/mig29/FBMig29Cmds`, a `sensors/FBCountermeasureSystem`
+override: 60 cartridges [DOC], a [SET] 30/30 split (a named source gap), 5/5 BINGO and the three geometry
+programmes on the generic slot machine ([SET] values, schema from the source — the F-16 ALE-47 pattern).
+Wired in (cycled RWR→CMDS at 10 Hz, `CmDispense`/`CmConsent`/`CmdsMode` routed, `cmds_*`/`brief_flare_s`
+keys, gated on the `Countermeasures` health id the damage layout already zoned). Its flares seduce the
+AIM-9 through the SAME deterministic model that seduces the R-73 (`sensors/FBIrstSystem::SelectFlare`):
+`mig29-defend.fbm` measures `FLARE_SEDUCED tgtIntensity=0.16` (head-on/dry) and the round expiring 16.0 m
+wide, against an astern control detonating 0.04 m out. The defensive asymmetry (D5) is now two-sided.
+
+**The finding the merge exposed.** With the MiG now flying aggressive LOCKED pursuit, the F-16's own
+UNCAPPED BFM roll law (defaults 90 °/s, `BfmSearchRollCap` 1.0) goes into a full-deflection roll-reversal
+PIO at the close-in high-closure reversal and DEPARTS at t=18 (`duel-merge` exit 3→2, result=LOC). It is
+CAUSAL — with the MiG's ACM disabled the F-16 does not depart and the run is exit 3 again. Per the
+campaign rule a loss to an AI defect is not a result, so this is NOT "the MiG wins the merge"; the
+R-73/GSh-301 thesis stays untested and the merge blocker moved a third time (departure → acquisition →
+the F-16's roll law). The F-16 cap is F-16-scoped and would touch its byte-identity, so it is deferred.
+
+**Gates.** All **57 F-16-only** stock missions byte-identical (before/after `telemetry*.csv` SHA-256);
+`test-corner` unchanged (380 / 16.18 / 5.44); MiG non-combat missions byte-identical; the BVR duels
+(`duel-offset`/`duel-emcon`) move only in `cmd_*` bookkeeping (the intercept CmDispense is no longer
+rejected `NotImplemented`, flight state and outcome identical). Determinism 1/2/4 threads ×3 = one
+fingerprint on `mig29-defend`, `duel-merge`, `mig29-bfm`. `verify-models`, `verify-layers`, WASM and
+native all green; proof frame `notReadyDraws=0 violation=0`.
+
 ### Foundation (24–25 Jul)
 
 | Commit | Section |

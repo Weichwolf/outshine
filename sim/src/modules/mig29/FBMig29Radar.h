@@ -34,7 +34,7 @@ namespace FlightBox::Modules {
 
 /* Ordinals are the telemetry's `fcr_mode` column, so the order is observable schema — append, never
  * reorder. */
-enum class FBMig29RadarMode { Off, Rad, Cc, Vs, Bore };
+enum class FBMig29RadarMode { Off, Rad, Cc, Vs, Bore, Acm };
 
 /* The PUR-31 emission switch, a real three-position control on this jet [DCS-EA p.63]: ILLUM = combat,
  * DUMMY = an antenna-equivalent TEST state that does NOT radiate, OFF = powered down. The generic
@@ -53,6 +53,7 @@ inline bool FBMig29RadarModeFromString(const char *s, FBMig29RadarMode &out) {
   if (!std::strcmp(s, "cc"))   { out = FBMig29RadarMode::Cc;   return true; }
   if (!std::strcmp(s, "vs"))   { out = FBMig29RadarMode::Vs;   return true; }
   if (!std::strcmp(s, "bore")) { out = FBMig29RadarMode::Bore; return true; }
+  if (!std::strcmp(s, "acm"))  { out = FBMig29RadarMode::Acm;  return true; }
   return false;
 }
 
@@ -63,6 +64,7 @@ inline const char *FBMig29RadarModeStr(FBMig29RadarMode m) {
     case FBMig29RadarMode::Cc:   return "cc";
     case FBMig29RadarMode::Vs:   return "vs";
     case FBMig29RadarMode::Bore: return "bore";
+    case FBMig29RadarMode::Acm:  return "acm";
   }
   return "?";
 }
@@ -123,6 +125,34 @@ public:
    * [DERIVED]; the longer RANGE half is not modelled (no figure exists) and stays a gap. */
   static constexpr double kBoreHalfDeg = 1.25;
   static constexpr double kBoreFrameS = 0.5;
+
+  /* ---- ACM: the BROAD close-combat auto-acquisition volume — the merge acquisition mode, and the
+   * acquisition half of module.md gap 4h. WHY IT EXISTS BESIDE CC/VS/BORE: those three are azimuth
+   * PENCILS (±1.75°/±1.5°/±1.25°), the vertical reading DCS-FM p.12 forces ("the antenna rotates ONLY IN
+   * THE VERTICAL AXIS in close combat"). A pencil cannot hold a manoeuvring nose-on merge target — the
+   * MiG never firms a contact and never acquires (MEASURED, duel-merge lock_s 0). The SAME T4 §7.1
+   * figure that CC reads vertically ("fixed ±37°/−13° scan") reads the OTHER way as a broad forward
+   * acquisition box, and the two sources genuinely conflict (radar-sensors.md §7.1 records it). This mode
+   * takes the ±37° as AZIMUTH — a wide forward search in front of the nose, the role the F-16's acm_hud
+   * fills. The elevation half is [SET] ±15°: a forward band tall enough to hold a target through a merge
+   * pull, well inside the +56/−36 gimbal, since the vertical extent of the ±37° reading is undocumented.
+   * Auto-lock (nobody operates a radar in a knife fight) and Doppler-EXEMPT like CC (a co-speed merge is
+   * exactly the low-closure case, DopplerNotchMs below). Frame 2.5 s [T4]. */
+  static constexpr double kAcmAzHalfDeg = 37.0;   /* [T4 §7.1] ±37°, read as azimuth */
+  /* [SET] ±30°, a nose-centred vertical acquisition band ~60° tall — comparable in extent to the
+   * DOCUMENTED close-combat vertical scans (VS −10…+50 = 60°, CC −13…+37 = 50°) but symmetric about the
+   * nose rather than biased up, because a merge acquisition must hold a target that moves to EITHER side
+   * of the nose as the jet pulls. MEASURED to be the threshold: ±25° never firms in duel-merge (the
+   * target dips out between two looks during the pull), ±30° acquires at t=3.9 and locks; wider buys
+   * nothing (±55° gives the identical lock). It is well inside the +56/−36 gimbal. */
+  static constexpr double kAcmElHalfDeg = 30.0;
+  /* [DERIVED] T4 §7.1 gives the close-combat mode a "1-2 s LOCK", distinct from the 2.5 s raster cycle
+   * — the LOCK is the operative number, and the generic system firms (and auto-locks) after kHitsToFirm
+   * (2) looks, so the frame is that lock time over two: 1.5 s / 2 = 0.75 s. The same construction as
+   * kRadFrameS (the 6 s RAD detection over two). It is why the merge acquires at all: a 2.5 s frame needs
+   * 5 s of continuous presence, longer than the window a high-closure pass leaves in the forward
+   * hemisphere. */
+  static constexpr double kAcmFrameS = 0.75;
 
   /* [SET] The single-target stare. No source gives a frame time for РНП; 0.2 s is twice the APG-68's
    * stare, which is the one relation this older analogue set can be given honestly. */
@@ -196,7 +226,7 @@ private:
   FBMig29Zone Zone_ = FBMig29Zone::Center;
   double AntennaElDeg_ = 0.0;
   double RangeOverrideNm_ = 0.0;
-  Sensors::FBRadarScanVolume Modes_[5]{};
+  Sensors::FBRadarScanVolume Modes_[6]{};
   Sensors::FBRadarScanVolume Stt_{};
   Sensors::FBRadarScanVolume Silent_{};
 };

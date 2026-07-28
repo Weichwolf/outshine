@@ -448,9 +448,29 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
   bool inControl = validTrack && g.Locked && rngNm >= ctrlMinNm && rngNm <= ctrlMaxNm &&
                    g.AspectDeg <= BfmControlAspectDeg() && std::fabs(g.AzDeg) <= BfmControlAtaDeg();
   Bfm_.Report(mode, inControl, gCmd, dt);
+  BfmSelectRadarMode(state, avionics);
   BfmDesignate(state, avionics);
   BfmGunfire(state, avionics);
   return c;
+}
+
+/* Die ERFASSUNGS-Haelfte des Kurvenkampfs: waehlt EINMAL den selbst-lockenden Nahkampf-Modus, sobald die
+ * Phase in den Merge geht, und danach nur wieder, wenn der Modus verstellt wurde und kein Lock steht.
+ * Der Modus lockt selbst (FBRadarScanVolume::AutoAcquire), also macht er die Designation, die im
+ * Nahkampf niemand von Hand faehrt — und ohne die die N019-Suchkeule den manoevrierenden Gegner im Merge
+ * nie in ihre Bar bekam (gemessen, duel-merge lock_s 0). BfmRadarModeOrdinal() == -1 (die F-16) laesst
+ * diesen Zweig tot: ihr acm_hud steht per Missionstext, sie ist byte-identisch. Eine Bedienhandlung je
+ * Takt wie alles andere, ueber den Bus, ablehnbar. doc/modules/mig29/module.md gap 4h (a). */
+void FBPilot::BfmSelectRadarMode(const FBState &state, FBCommandBus &avionics) {
+  int acm = BfmRadarModeOrdinal();
+  if (acm < 0) return;
+  const FBRadarBlock &fcr = state.Radar;
+  if (!fcr.H.Readable()) return;
+  if (fcr.LockIndex >= 0) return;          /* haelt schon einen Lock — nicht stoeren */
+  if (fcr.ModeOrdinal == acm) return;      /* schon im ACM-Modus */
+  if (TimeS_ < BfmModeNextS_) return;
+  BfmModeNextS_ = TimeS_ + kInterceptActionS;
+  avionics.Post(FBCommandTarget::RadarMode, acm, TimeS_);
 }
 
 /* Kein zweites Zielen — ein FINGER. Er prueft NIE, auf wen er schiesst, und kann es nicht: der Pilot

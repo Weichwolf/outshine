@@ -213,6 +213,15 @@ protected:
    * den Rumpf statt irgendwo ueber die Spannweite. */
   virtual double BfmGunFireTolFrac() const { return 0.35; }
 
+  /* Der NAHKAMPF-Radarmodus: das Modul-Ordinal des selbst-lockenden ACM-Musters, das die BFM-Phase
+   * WAEHLT, sobald sie in den Kurvenkampf geht — die Erfassungs-Haelfte, die im Merge fehlte. Im
+   * Nahkampf bedient niemand ein Radar von Hand, also uebernimmt der Auto-Lock des Modus die
+   * Designation, die die BVR-Phase noch mit dem Daumen faehrt (BfmDesignate). -1 = das Modul hat keinen
+   * umschaltbaren ACM-Modus, die Designation bleibt manuell. Die F-16 laesst -1: ihr acm_hud wird per
+   * Missionstext gesetzt und bleibt stehen, also aendert dieser Zweig NICHTS an ihr (byte-identisch).
+   * doc/modules/mig29/module.md gap 4h (a). */
+  virtual int    BfmRadarModeOrdinal() const { return -1; }
+
   /* Die BVR-Zahlen. Der Suchmodus ist ein MODUL-Ordinal, die generische Schicht kann ihn also nicht
    * benennen, nur anfordern; -1 = „dieses Modul hat keinen eigenen nicht-lockenden Suchmodus". */
   virtual int    SearchRadarModeOrdinal() const { return -1; }
@@ -274,6 +283,7 @@ private:
                               double dt);
   /* Der Abzugsfinger, getrennt vom Fliegen: eine Waffe zu bedienen ist kein Steuern. */
   void BfmDesignate(const FBState &state, FBCommandBus &avionics);
+  void BfmSelectRadarMode(const FBState &state, FBCommandBus &avionics);
   void BfmGunfire(const FBState &state, FBCommandBus &avionics);
   FBPilotCommands AttackCommands(const FBState &state, FBCommandBus &avionics, const Fdm::fb_fdm_state &st,
                                  const FBFlightPlan &plan);
@@ -366,6 +376,7 @@ private:
   double GunPrevErrDeg_ = 0.0, GunPrevS_ = 0.0;
   bool   GunHaveErr_ = false;
   double BfmDesignateNextS_ = 0.0;   /* s. BfmDesignate: Bedien-Takt, kein 10-Hz-Spam */
+  double BfmModeNextS_ = 0.0;        /* s. BfmSelectRadarMode: Bedien-Takt fuer die Modus-Wahl */
   /* Der Ratenanteil der Kanonen-Nachfuehrung: die geforderte Rohrrichtung als WELT-Richtung und deren
    * eigene Drehrate. Weltbezogen mit Absicht — koerperbezogen maesse man den eigenen Zug, nicht die
    * Bewegung der Loesung. */

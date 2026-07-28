@@ -51,6 +51,14 @@ protected:
   /* The non-locking search mode of the N019 — RAD. The generic BVR phase can only ASK for "the mode
    * that finds everything and locks nothing"; which ordinal that is, only this module knows. */
   int SearchRadarModeOrdinal() const override { return (int)FBMig29RadarMode::Rad; }
+  /* [ABL] Der Nahkampf-Modus, den die BFM-Phase im Merge WAEHLT — ACM, das BREITE vordere
+   * Auto-Lock-Volumen (FBMig29Radar::kAcm*). Die dokumentierten CC/VS/BORE sind Azimut-BLEISTIFTE (das
+   * "nur Vertikalachse" von DCS-FM p.12) und faengen einen manoevrierenden Merge-Gegner nicht — gemessen,
+   * duel-merge lock_s 0. ACM nimmt die ±37° derselben T4-Quelle als AZIMUT (radar-sensors.md §7.1, der
+   * Konflikt ist dort vermerkt) und ist Doppler-ausgenommen wie CC: genau die low-closure-Bedingung eines
+   * co-speed Merges. Der Auto-Lock macht die Designation, die im Nahkampf niemand von Hand faehrt.
+   * doc/modules/mig29/module.md gap 4h (a). */
+  int BfmRadarModeOrdinal() const override { return (int)FBMig29RadarMode::Acm; }
   /* [DOC DCS-EA p.89] The set's own range-scale ladder is 54 / 27 / 13.5 / 5.4 nm; 13.5 nm is the step
    * at which the scale switches for the last time before the close-combat scale, and the radar's own
    * documented search reach is 27 nm, so the lock is taken one ladder step inside it. That is the same

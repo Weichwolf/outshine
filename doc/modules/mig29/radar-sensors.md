@@ -326,7 +326,16 @@ Per-missile release discipline (`DCS-EA p.93`):
 
 ## State
 
-**Nothing in this file is implemented.** FlightBox has no MiG-29 module, no
+**Superseded by build — the authoritative state is [`module.md`](module.md).** The N019 (`FBMig29Radar`)
+and its modes were built in stage 2b; this round added the **ACM close-combat acquisition mode**
+(`FBMig29Radar::kAcm*`): a BROAD forward auto-lock volume the documented CC/VS/BORE pencils are not
+(±37° azimuth [T4 §7.1, §7.1 records the source conflict with DCS-FM p.12's vertical reading, which the
+narrow CC keeps], a [SET] ±30° nose-centred vertical band, Doppler-exempt like CC, frame 0.75 s DERIVED
+from T4's "1-2 s lock"). It is the acquisition tool the merge needed — the MiG pilot selects it in the
+BFM phase and auto-lock does the designation (`duel-merge` lock_s 0→14.2, `mig29-bfm` 203→296). The
+paragraphs below are the original **spec-first** commitment, kept for its reasoning.
+
+The historical note: **Nothing in this file is implemented.** FlightBox has no MiG-29 module, no
 `sim/src/modules/mig29/` and no JSBSim MiG-29 model. The airframe exists only as a **spec-first
 contract** — [`module.md`](module.md), whose own status
 line reads *"spec only. Nothing is built."* Everything below is therefore a **forward commitment**,

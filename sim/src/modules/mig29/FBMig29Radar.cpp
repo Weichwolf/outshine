@@ -48,6 +48,13 @@ void FBMig29Radar::RebuildVolumes() {
   bore.RangeM = close; bore.FrameS = kBoreFrameS; bore.AutoAcquire = true;
   Modes_[(int)FBMig29RadarMode::Bore] = bore;
 
+  /* ACM — the broad forward acquisition box the merge needs (header). Nose-centred, auto-locking. */
+  Sensors::FBRadarScanVolume acm;
+  acm.AzHalfDeg = kAcmAzHalfDeg;
+  acm.ElHalfDeg = kAcmElHalfDeg;
+  acm.RangeM = close; acm.FrameS = kAcmFrameS; acm.AutoAcquire = true;
+  Modes_[(int)FBMig29RadarMode::Acm] = acm;
+
   /* РНП: the gimbal envelope revisited every 0.2 s. SingleTarget, so the lock costs every other track
    * file — on a set with a 10-target TWS capacity that is a real price, and the capacity itself is not
    * modelled (see the header's gap list). */
@@ -114,7 +121,10 @@ void FBMig29Radar::SetRangeOverrideNm(double nm) {
  * 81 kt to 27 kt at exactly that range — the step is the model, not a smoothed curve the source does
  * not describe. */
 double FBMig29Radar::DopplerNotchMs(double rangeM) const {
-  if (Mode_ == FBMig29RadarMode::Cc) return 0.0;   /* [DCS-EA §3.3] tracks at equal speeds and at a lag */
+  /* CC and the broad ACM box are the dogfight modes: both drop the closure requirement, because a
+   * co-speed merge is exactly the low-radial-velocity case [DCS-EA §3.3, "tracks at equal speeds and at
+   * a lag"] — a notch here would reject the very target the mode exists to hold. */
+  if (Mode_ == FBMig29RadarMode::Cc || Mode_ == FBMig29RadarMode::Acm) return 0.0;
   double nm = rangeM * kMToNm;
   double kt = nm > kNotchFarNm ? kNotchFarKt : nm >= kNotchNearNm ? kNotchMidKt : kNotchNearKt;
   return kt * kKtToMs;

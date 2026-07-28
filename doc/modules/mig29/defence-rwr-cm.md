@@ -289,7 +289,18 @@ cue is the SPO-15 reading a **type П** emitter or a **track-mode** transition (
 
 ## State
 
-**Nothing in this file is implemented.** FlightBox has no MiG-29 module, no
+**Superseded by build — the authoritative state is [`module.md`](module.md).** The SPO-15LM
+(`FBMig29Rwr`) was built in stage 2b; this round added the **BVP-30-26 dispensers** (`FBMig29Cmds`, a
+`sensors/FBCountermeasureSystem` override). What is [DOC] is the magazine — 60 combined cartridges
+(2×30 PPI-26, 26 mm, §3); what is [SET] is everything §3/§7 names as a gap — the 30/30 chaff/flare split
+(no source states it), a 5/5 BINGO, and the programme burst/salvo parameters (schema from the source,
+values set, exactly as the F-16's ALE-47). The three geometry programmes (GROUND/FHS/RHS) are mapped
+onto the generic six-slot machine so the pilot's SEMI/AUTO-on-RWR path is the F-16's. There is NO MAWS
+(§5), so an infrared shot is answered only by a briefed throw, not automatically. Flares seduce an IR
+seeker through `sensors/FBIrstSystem::SelectFlare` — `mig29-defend.fbm` measures it. The paragraphs
+below are the original **spec-first** commitment, kept for its reasoning.
+
+The historical note: **Nothing in this file is implemented.** FlightBox has no MiG-29 module, no
 `sim/src/modules/mig29/` and no JSBSim MiG-29 model. The airframe exists only as a **spec-first
 contract** — [`module.md`](module.md), whose own status
 line reads *"spec only. Nothing is built."* Everything below is therefore a **forward commitment**,

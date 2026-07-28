@@ -1,0 +1,81 @@
+name mig29-defend-1
+timeout 90
+
+# THE MIRROR OF f16-aim9 BRANCH B, ROLES SWAPPED — and the mission that closes the campaign's last
+# one-way asymmetry (doc/duels.md D5, doc/modules/mig29/module.md gap 4g). Until this round the F-16
+# answered the R-73 with flares (mig29-r73 branch B) and the MiG answered the AIM-9 with NOTHING: it had
+# no dispenser. Now it has the BVP-30-26 (modules/mig29/FBMig29Cmds, a sensors/FBCountermeasureSystem
+# override), and an infrared shot at it is seduced by the SAME deterministic model that seduces the R-73
+# (sensors/FBIrstSystem::SelectFlare — two received irradiances, I/r^2, no die), read out of the MiG's
+# published signature exactly as its chaff clouds are. Nothing in the F-16 or the generic seeker changed;
+# the round already worked, the target could just never answer it.
+#
+# TWO BRANCHES IN ONE FILE, because a single number proves nothing — the point is the DIFFERENCE:
+#   BRANCH A — "viper" shoots "quarry" (a MiG) FROM ASTERN, no countermeasures. The AIM-9 tracks the
+#              airframe and detonates. Control: the round works when unanswered.
+#   BRANCH B — "eagle" shoots "bandit" (a MiG) HEAD-ON while the MiG dispenses flares on a briefed
+#              schedule straddling the endgame. Expected: irst FLARE_SEDUCED on the round's own head at
+#              the head-on/dry intensity (0.16), the seeker walks onto a cartridge, the pure-PN law flies
+#              at it, and the round goes wide.
+#
+# The MiG throws MANUALLY (cmds_mode man, PRGM 3 = FLARE, a briefed dispense per moment): the 9-12 has
+# NO missile-approach warning system (defence-rwr-cm.md §5), so nothing auto-triggers an infrared
+# defence — the flare is a briefed act, exactly as flint's is in mig29-r73.
+#
+# READING RULE: exit 3 = TIMEOUT is the pass; the branches are read off events.log, not off a verdict
+# (a miss is not a mission result). "viper" declares `kill unit quarry` as bookkeeping so branch A's
+# expected loss does not decide the run before branch B has flown (doc/missions/verdict.md).
+
+unit viper
+  team hostile
+  module f16
+  spawn 46.90000 6.85000 6000 90.0 420       # 4 km astern of quarry, overtaking
+  set gear up
+  set fuel_pct 60
+  set fcr_mode acm_hud                        # the auto-locking ACM box, gate opened
+  set fcr_range_nm 40
+  set store 3 aim9
+  set brief_master_arm arm
+  set brief_release_s 8                        # inside the AIM-9's envelope, tail aspect
+  wp 46.90000 7.60000 6000 420
+  objective kill unit quarry
+
+unit quarry
+  team friendly
+  module mig29
+  spawn 46.90000 6.90000 6000 90.0 300        # straight and level, dispensing nothing
+  set gear up
+  set fuel_pct 60
+  set n019_mode off
+  wp 46.90000 7.90000 6000 300
+
+unit eagle
+  team hostile
+  module f16
+  spawn 47.10000 6.85000 6000 90.0 420        # a second pair 22 km north, head-on
+  set gear up
+  set fuel_pct 60
+  set fcr_mode acm_hud
+  set fcr_range_nm 40
+  set store 3 aim9
+  set brief_master_arm arm
+  set brief_release_s 8
+  wp 47.10000 7.60000 6000 420
+
+unit bandit
+  team friendly
+  module mig29
+  spawn 47.10000 6.98000 6000 270.0 300       # nose-to-nose with eagle, and dispensing
+  set gear up
+  set fuel_pct 60
+  set n019_mode off
+  set cmds_mode man                            # the throw travels the command bus like any other action
+  set cmds_program 3                           # PRGM 3 = FLARE (an infrared shot; chaff has nothing to work on)
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_flare_s 9                          # a burning cartridge across the whole endgame: a flare
+  set brief_flare_s 11                         # lives 4 s (core/FBCountermeasure.h), so the schedule is
+  set brief_flare_s 13                         # denser than that on purpose
+  set brief_flare_s 15
+  set brief_flare_s 17
+  wp 47.10000 6.30000 6000 300

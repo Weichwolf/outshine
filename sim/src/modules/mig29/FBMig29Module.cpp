@@ -95,6 +95,11 @@ void FBMig29Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitReg
     Rwr_.SetOwnRadiating(Radar_.Emission().Mode != FBEmitterMode::None);
     if (SystemWorking(FBSystemId::Rwr)) Rwr_.Run(SharedState, st, units, SimTimeS);
     else SharedState.Rwr.H.Invalidate();
+    /* Data-flow order, the F-16's: the receiver wrote the threat picture above, due commands next so a
+     * throw takes effect this sweep, then the dispenser reads the picture and answers. */
+    ServiceCommands(FBCommandGroup::Defensive);
+    if (SystemWorking(FBSystemId::Countermeasures)) Cm_.Run(SharedState, st, SimTimeS);
+    else SharedState.Cmds.H.Invalidate();
   }
   if (Due(DisplayAccS, dt, 20.0)) Disp->Run(SharedState, Mode, dt);
 
@@ -243,7 +248,7 @@ void FBMig29Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &o
   switch (c.Target) {
     case FBCommandTarget::RadarMode: {
       int ord = (int)c.Value;
-      if (ord < 0 || ord > (int)FBMig29RadarMode::Bore) { reject(FBCommandReason::OutOfRange); return; }
+      if (ord < 0 || ord > (int)FBMig29RadarMode::Acm) { reject(FBCommandReason::OutOfRange); return; }
       if (!SystemWorking(FBSystemId::Radar)) { reject(FBCommandReason::SystemFailed); return; }
       Radar_.SetMode((FBMig29RadarMode)ord);
       return;
@@ -327,6 +332,25 @@ void FBMig29Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &o
       if (!SystemWorking(FBSystemId::Gun)) { reject(FBCommandReason::SystemFailed); return; }
       Gun_.Trigger(c.Value, SimTimeS, outcome, reason);
       return;
+    /* ---- The BVP-30-26 dispensers. Same three CMS controls as the F-16; the box answers itself
+     * (empty magazine), the module only routes and gates on the failed dispenser. */
+    case FBCommandTarget::CmDispense:
+      if (!SystemWorking(FBSystemId::Countermeasures)) { reject(FBCommandReason::SystemFailed); return; }
+      if (c.Value < 0.0 || c.Value > (double)Sensors::FBCountermeasureSystem::kProgramCount) {
+        reject(FBCommandReason::OutOfRange);
+        return;
+      }
+      Cm_.Dispense((int)c.Value, SimTimeS, outcome, reason);
+      return;
+    case FBCommandTarget::CmConsent:
+      Cm_.SetConsent(c.Value != 0.0);
+      return;
+    case FBCommandTarget::CmdsMode: {
+      int ord = (int)c.Value;
+      if (ord < 0 || ord > (int)FBCmdsMode::Byp) { reject(FBCommandReason::OutOfRange); return; }
+      Cm_.SetMode((FBCmdsMode)ord);
+      return;
+    }
     default:
       /* Every remaining target names a box this aircraft does not compose (datalink, dispensers, UFC).
        * Answering it would report success for a switch with nothing behind it. */
@@ -438,6 +462,16 @@ bool FBMig29Module::ApplySetup(const std::string &key, const std::string &value)
     PilotSys->BriefMasterArm(value == "arm");
     return true;
   }
+  /* A briefed dispense, one line per moment — the same channel the F-16 uses (BriefChaff throws the
+   * SELECTED program, so a FLARE program here answers an infrared shot). The generic key name is kept:
+   * the pilot's brief holds "throw the current program at time t" regardless of what is in it. */
+  if (key == "brief_chaff_s" || key == "brief_flare_s") {
+    double t = 0.0;
+    if (!ParseDouble(value, t)) return RejectSetup("not a number", key, value);
+    if (t < 0.0) return RejectSetup("negative time", key, value);
+    if (!PilotSys->BriefChaff(t)) return RejectSetup("too many briefed dispenses", key, value);
+    return true;
+  }
   if (key == "brief_weapon") {
     /* This aircraft's own inventory, not the F-16's: the numbers are the pilot's brief ordinals. */
     if (value == "gun") PilotSys->BriefWeapon(1.0);
@@ -503,6 +537,33 @@ bool FBMig29Module::ApplySetup(const std::string &key, const std::string &value)
     if (value != "on" && value != "off") return RejectSetup("want on|off", key, value);
     if (key == "rwr") Rwr_.SetPowered(value == "on");
     else Rwr_.SetSearchShown(value == "on");
+    return true;
+  }
+  /* ---- The BVP-30-26 dispensers. Same generic keys the F-16 answers — the mode knob, the PRGM knob
+   * and the ground-crew loadout — bounded by this jet's smaller 60-cartridge magazine. */
+  if (key == "cmds_mode") {
+    FBCmdsMode m;
+    if (!FBCmdsModeFromString(value.c_str(), m))
+      return RejectSetup("want off|stby|man|semi|auto|byp", key, value);
+    Cm_.SetMode(m);
+    return true;
+  }
+  if (key == "cmds_program") {
+    double n = 0.0;
+    if (!ParseDouble(value, n)) return RejectSetup("not a number", key, value);
+    if (!Cm_.SelectProgram((int)n)) return RejectSetup("no such program (1..6)", key, value);
+    return true;
+  }
+  if (key == "cmds_chaff" || key == "cmds_flare") {
+    double n = 0.0;
+    if (!ParseDouble(value, n)) return RejectSetup("not a number", key, value);
+    if (n < 0.0 || n > (double)FBMig29Cmds::kMaxCombined)
+      return RejectSetup("outside 0..60", key, value);
+    int chaff = key == "cmds_chaff" ? (int)n : Cm_.ChaffRemaining();
+    int flare = key == "cmds_flare" ? (int)n : Cm_.FlareRemaining();
+    if (chaff + flare > FBMig29Cmds::kMaxCombined)
+      return RejectSetup("chaff + flare exceeds the 60-cartridge magazine", key, value);
+    Cm_.SetLoadout(chaff, flare);
     return true;
   }
   /* ---- The KOLS. */
