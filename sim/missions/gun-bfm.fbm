@@ -10,6 +10,11 @@ timeout 600
 # (measured: median 1.86, p20 1.16 m/s^2 over 4,595 one-second windows). The hook now carries the
 # pessimistic end of its own distribution, 1.2 m/s^2, and the schedule cap with it (140 -> 70 kt).
 # The pass: GUN_TRACK at t=59.5, two squeezes at t=65.9/66.6, KILL at t=66.7 on 70 rounds.
+#
+# RE-MEASURED after the roll limiter became a limit (doc/pilot.md 5.7 — the recursion held 91 deg/s
+# against its own 60 deg/s, the plant inversion holds its 90): the pursuer takes three tracking entries
+# (t=49.4 / 59.4 / 71.2) instead of settling on the first, squeezes at t=83.6 and KILLS at t=84.2. Later
+# and less tidy, but the same conclusion; the exit code is unchanged.
 
 # THE GUN ENGAGEMENT. bfm-basic.fbm's setup, flown to a firing conclusion: VIPER works its way into the
 # control position behind BANDIT on radar contacts alone, and this time it is allowed to shoot.

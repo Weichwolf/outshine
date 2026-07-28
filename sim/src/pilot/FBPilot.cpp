@@ -31,10 +31,21 @@ const double kGearUpAglFt = 10.0;
  * doc/pilot-ai.md, Abschnitt 5. */
 const double kBfmRollFullDeg = 60.0;      /* Rollfehler, der vollen Querausschlag verdient */
 const double kBfmTurnTimeS = 2.0;         /* in dieser Zeit will der Pilot den Lenkfehler weghaben */
-/* Eine Rollrate, die der Pilot auch STOPPEN kann. Groessenordnung folgt aus kBfmTurnTimeS (Zehner von
- * Grad je Sekunde, keine Hunderter), Wert gemessen ueber 16 Kanonengefechte: bei 90 °/s departierte der
- * Kampf in sechs, bei 60 °/s in keinem. Der Regler REDUZIERT nur. */
-const double kBfmRollRateMaxDegS = 120.0 / kBfmTurnTimeS;
+/* Eine Rollrate, die der Pilot auch STOPPEN kann — und jetzt die geschlossene Form statt eines Knopfes:
+ * der GROESSTE Lenkfehler, den dieses Gesetz erzeugen kann, ist 180° (es nimmt immer den kurzen Weg),
+ * und auch der schlimmste Fall muss in der Zeitkonstante geflogen werden, der die Rolle dient. Damit ist
+ * kBfmReverseS unten identisch kBfmTurnTimeS: eine Umkehr IST eine 180°-Rolle. Die frueheren 120 waren
+ * der NOMINALWERT eines Deckels, der seinen Wert nie hielt (gemessen 91 °/s gegen 60 nominal, s.u.);
+ * gegen den korrigierten Deckel neu vermessen — 16-Anflug-Sweep, Deckel 60/75/82,5/90/97,5/105 °/s:
+ * 8/9/11/12/9/10 Treffer, und nur bei 90 °/s kein einziges Departure in den acht BFM-Missionen. */
+const double kBfmRollRateMaxDegS = 180.0 / kBfmTurnTimeS;
+/* Die Strecke Stick -> Rollrate, IDENTIFIZIERT statt angenommen — der Deckel braucht sie, weil er den
+ * Stick stellt und die RATE meint. ARX(1)-Fit p[n+1] = a*p[n] + K*(1-a)*u[n] ueber 15.325 Zehn-Hz-
+ * Proben aus acht BFM-Laeufen, ausschliesslich unterhalb des Deckels (dort ist der Regler inaktiv, der
+ * Fit also offen): a = 0,734 (Rollzeitkonstante 0,323 s), K = 78,7 °/s je Vollausschlag. Derselbe Fit
+ * ueber ALLE Proben gibt 0,772/90,5 — die daraus folgende Deckelverstaerkung weicht um 7 % ab. */
+const double kBfmRollPlantA = 0.734;
+const double kBfmRollPlantKDegS = 78.7;
 const double kBfmGKp = 0.25, kBfmGKi = 0.5, kBfmGIMax = 0.6;
 const double kBfmPushMax = 0.3;           /* ein Jaeger zieht und entlastet, er drueckt nicht */
 const double kBfmSearchRangeM = 5556.0;   /* 3 nm: nur damit die kalte Suche einen Punkt hat */
@@ -382,15 +393,20 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
     BfmTurnSense_ = 0;
   }
 
-  if (std::fabs(st.p) > kBfmRollRateMaxDegS && st.p * rollCmd > 0.0 && BfmRollCmdPrev_ != 0.0) {
-    /* Skaliert wird das Kommando, das die gemessene Rate ERZEUGT hat, nicht das rohe: auf einem
-     * Raten-Stick sind beide proportional, der Fixpunkt dieser Rekursion ist also die Deckelrate selbst.
-     * Das rohe (gesaettigte) zu skalieren konvergiert auf das geometrische Mittel aus Deckel und
-     * Vollausschlagsrate (gemessen: ein 45-°/s-Regler hielt 85 °/s). */
-    double lim = std::fabs(BfmRollCmdPrev_) * kBfmRollRateMaxDegS / std::fabs(st.p);
+  /* DER ROLLRATEN-DECKEL, als STRECKENINVERSION statt als Rekursion: gesucht ist der Stick, der die
+   * NAECHSTE Rate genau auf den Deckel legt — p[n+1] = a*p[n] + K*(1-a)*u[n], nach u aufgeloest. Er
+   * haengt nur von der GEMESSENEN Rate ab, ist also gedaechtnislos und hat einen Fixpunkt per
+   * Konstruktion. Die alte Form skalierte das VORIGE Kommando und war damit kein Deckel, sondern ein
+   * schwach gedaempfter Oszillator (z^2 - 2az + a = 0, also |z| = sqrt(a) = 0,86): gemessen hielt sie
+   * 91 °/s gegen 60 °/s Deckel, mit einer Wiederkehr bei 0,70 s. REDUZIERT weiter nur — nie
+   * Gegenruder, nie mehr als das rohe Kommando.
+   * doc/pilot.md, Abschnitt 5.7. */
+  if (st.p * rollCmd > 0.0) {
+    double lim = Clamp((kBfmRollRateMaxDegS - kBfmRollPlantA * std::fabs(st.p)) /
+                           (kBfmRollPlantKDegS * (1.0 - kBfmRollPlantA)),
+                       0.0, 1.0);
     if (std::fabs(rollCmd) > lim) rollCmd = rollCmd > 0.0 ? lim : -lim;
   }
-  BfmRollCmdPrev_ = rollCmd;
   c.ManualRoll = rollCmd;
 
   double gCmd = Clamp(std::sqrt(liftRight * liftRight + liftUp * liftUp) / kBfmG0, 0.0, gAvail);

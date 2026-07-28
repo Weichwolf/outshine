@@ -78,11 +78,29 @@ bomb at 220 m/s couples so weakly to the air laterally that its lateral relaxati
 minutes — in ten seconds of fall time it notices almost nothing. That is a property of the weapon and
 the release altitude, not a correction missing somewhere.
 
+### Measured — a steerpoint the guidance cannot close
+
+`sim/missions/wx-orbit.fbm`, `wx wind 338 39` (this is the GFS fixture's own 9,000 m wind restated as a
+closed form: u +7.37 / v −18.58 m/s), eastbound leg, so 18.6 m/s stands across it:
+
+| Quantity | Calm | In wind |
+|---|---:|---:|
+| Closest approach to a steerpoint dead ahead, 38 km run-in | 495.6 m | **614.3 m** |
+| Captured (500 m circle)? | yes, t = 167.3 s | **no** |
+| What follows | route continues, SUCCESS t = 316.6 s | a permanent orbit: range 1,793…4,851 m, −59.1° bank, 99.2 s per lap |
+
+Four metres of margin is the whole difference. The cause is a mismatch of frames — the capture circle is
+a GROUND test of fixed radius while the circle the aircraft can fly lives in the air mass — plus the fact
+that a fix without a leg is flown by the BEARING law, which controls the nose rather than the ground
+track. The answer is the `orbited` sequencing ground; derivation in
+[`../systems.md`](../systems.md) §7.5.1.
+
 ## Gaps
 
 | Gap | Detail |
 |---|---|
 | No shear, no boundary layer in `wx wind` | one vector everywhere and at every altitude — deliberately a measuring instrument, not weather |
+| The DIRECT bearing law still controls the nose, not the ground track | that is what leaves a standing lateral drift on the run-in to a leg-less fix (above). Fixing it at the root would let the jet CLOSE such a fix instead of being sequenced past it, but it moves every index-0 trajectory in the tree, including the four BFM defenders' deliberate orbits |
 | The 10 m surface is anchored at 10 m ASL, not above ground | the one approximation, documented in the provider; a terrain-dependent boundary-layer wind would need the elevation hook as a second input |
 | Only the analysis step | `wx fixture` carries an f000 blob; there is no time axis, so a session longer than the run sees the same atmosphere |
 | No cloud rendering from the provider | the provider is consumed by `FBWorld::SetWeather/Weather()`; terrain masking and the rendering side are open — see [`../render/clouds.md`](../render/clouds.md) |

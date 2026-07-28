@@ -20,8 +20,12 @@ timeout 300                                  # sim-seconds until TIMEOUT (by des
 #      than FBBfmTrack::kMaxExtrapolateS the pilot stops believing it and flies back towards the BEARING
 #      and ALTITUDE it last saw him at, scanning (bfm_pursuit = search);
 #   4. RADAR_LOCK again, and the fight resumes into the control position.
-# The blind interval between (1) and (4) is the honest cost of having no eyes, and it is long: this pilot
-# needs the better part of a minute to find a manoeuvring target it lost at the merge.
+# The blind interval between (1) and (4) is the honest cost of having no eyes, and it is long — but its
+# LENGTH is not a stable number and must not be read as one. Measured across a six-value sweep of the
+# BFM roll-rate cap (60…105 deg/s, doc/pilot.md 5.7) the same file reacquires at t=50.9, t=120.0 or
+# t=209.0 with nothing monotone in between: the pass throws the search into one of a few basins, and any
+# perturbation of the roll law reshuffles which. On the committed law it is RADAR_LOST at t=9.9 and
+# RADAR_LOCK again at t=209.0. What is reproducible is the SEQUENCE (1)-(4), and that is the claim.
 
 unit viper
   module f16

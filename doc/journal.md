@@ -378,3 +378,35 @@ plain-text mentions across `doc/`, `CLAUDE.md`, the `.fbm` headers, `sim/tools/`
 that name the format were deliberately left, because touching a string literal would move the
 `strip_comments` hash. That hash is unchanged (`8d85837e…`, 233 files), the link check over every `.md`
 is clean, `core-lib`/`gym` build, and three mission samples run byte-identically.
+
+### 2026-07-28 — two value gaps: the wind orbit and the roll-limiter fixed point (this round)
+
+**A — a steerpoint the guidance cannot close** (`doc/systems.md` §7.5.1). A capture circle is a GROUND
+test of fixed radius; the circle the aircraft can fly lives in the AIR MASS, and a fix WITHOUT a leg is
+flown by the bearing law, which controls the nose and not the ground track. New instrument
+`missions/wx-orbit.fbm` (the GFS fixture's 9,000 m wind as the closed form `wx wind 338 39`): closest
+approach **614 m** against a 500 m circle, then a permanent limit cycle — 1,793…4,851 m, −59.1° bank,
+99.2 s per lap; the same file in calm captures the same fix with **4 m** to spare. Answer: a THIRD
+sequencing ground, `orbited` — two failed approaches (closest approach, opened by more than the capture
+radius, closed again, opened again) — bound to the SUCCESSOR as `passed` is bound to the predecessor, so
+the deliberate terminal orbits of `bfm-basic`/`gun-turning`/`bvr-duel` are out of scope by construction
+(re-measured: bandit `activeWp` 0 for the whole run, zero `WP_REACHED`). Threshold 2 is measured, not
+chosen: at 1 the attack missions sequence their target fix out of the egress at t=87.9 s. Both
+authorities state it independently, both fired at t=311.6 s; `wx-orbit` SUCCESS at t=485.4 s. All 53
+pre-existing missions byte-identical.
+
+**B — the roll limiter had no fixed point** (`doc/pilot.md` §5.7). `cmd_prev·cap/rate` is not a limiter:
+linearised against the identified plant it is `z² − 2az + a = 0`, i.e. an oscillator with **|z| = √a**,
+and it held **1.52 ×** its own declared cap over the 16-approach sweep (pooled autocorrelation of the
+rate while active: first recurrence 0.70 s). Replaced by a memoryless ONE-STEP PLANT INVERSION off an
+ARX(1) identification (15,325 samples below the cap, open loop: a = 0.734 / τ = 0.323 s, K = 78.7
+°/s per stick) — 1.23 × at the same cap, and stretches ≥ 4 s above 0.8 × cap 11 → 0. The cap itself
+became a closed form: the largest error this law can command is 180°, flown in the time constant the
+roll serves → **90 °/s**, with `kBfmReverseS` falling out identically `kBfmTurnTimeS`. Re-measured over
+six cap values × 16 approaches, 90 is also the measured optimum (12/16 against 8/16, and the only value
+with no departure in the eight committed BFM missions); the control with the limiter removed scores
+7/16 at 132 °/s peak. New instrument `missions/bfm-pointblank.fbm` (0.8 nm head-on, the swinging
+stimulus): 1.37 × → **0.89 ×** the cap, 9.2 s → **0.0 s** above it. Costs, all declared in their
+headers: `gun-dry` 3 → 1 (all twelve rounds now arrive), `gun-bfm` kill 66.7 → 84.2 s, `bfm-blind`'s
+blind interval 41 → 199 s (chaotic across every cap tested), one departure in a non-committed sweep
+geometry. Exactly five missions move, all BFM; nothing else in the tree changes by a byte.

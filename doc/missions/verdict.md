@@ -53,6 +53,26 @@ That has two consequences, and both apply to the guidance AND to the verdict:
 | Guidance | holds the LINE (`FBAutopilot::SetDirectLeg`, cross-track plus path angle against the ground track) | flies the BEARING to the point (unchanged) |
 | "reached" | capture circle 500 m **OR** beyond the perpendicular through the waypoint (= passed) | capture circle 500 m only |
 
+A **third** ground, `orbited`, is bound to the other end of the chain — the SUCCESSOR instead of the
+predecessor, so it exists on `wp` no. 1 as well, but never on the last waypoint of a plan:
+
+| | with a successor | last waypoint of the plan |
+|---|---|---|
+| "reached" | additionally: two failed approaches to the fix (closest approach, opened by more than the capture radius, closed again, opened again) = `orbited` | unchanged — a fix with nothing after it is the route's destination, and "still trying" is the correct state |
+
+This solves the case a capture circle cannot: a fix the aircraft cannot close **because of the wind**.
+The capture circle is a GROUND test of fixed radius while the circle the aircraft can fly lives in the
+air mass. [MESS] `missions/wx-orbit.fbm` — at 9,000 m in 18.6 m/s of crosswind the closest approach to a
+steerpoint dead ahead is 614 m (114 m outside the circle), followed by a permanent limit cycle at −59.1°
+of bank, 99.2 s per lap; the same file in calm air captures the same fix with 4 m to spare. With the
+rule the fix goes `by=orbited` at t = 311.6 s and the route finishes at t = 485.4 s (exit 0). The
+derivation, the threshold of two and why it is bound to the successor: `doc/systems.md`, section 7.5.1.
+
+That the rule is bound to the successor is again what lets the deliberate use of the property survive:
+`bfm-basic.fbm`/`gun-turning.fbm` declare their defender's turn as a SINGLE `wp` — no predecessor and no
+successor, therefore neither `passed` nor `orbited` (re-measured unchanged: bandit `activeWp` stays 0 for
+the whole run, −58.9° resp. −57.7° of bank, range to the fix 1,217…2,428 m, zero `WP_REACHED` lines).
+
 The second path solves a real case: a waypoint **inside one's own turn radius** can never be reached
 by circle — the jet orbits it from outside, forever (`missions/test-wp-inside-turn.fbm` constructs
 exactly that: WP1 lies 1,000 m beside WP0, the tightest circle of this jet at 300 kt has a 1,400 m
@@ -66,9 +86,9 @@ waypoint at the centre of its turn — a first waypoint, therefore no leg, there
 control nor passage (re-measured unchanged: −58.2° bank, −5.25 °/s resp. −54.1° / −4.61 °/s).
 
 `FBNavSystem::AdvanceWaypoint` (guidance) and `FBMissionMonitor` (verdict) apply the same geometry
-**independently** — own plan copy, own computation, no call into the other. `events.log` says per line
-which of the two paths took effect: `nav WP_REACHED … by=capture|passed` resp.
-`mission WP_REACHED … by=capture|passed`.
+**independently** — own plan copy, own computation, own approach record, no call into the other.
+`events.log` says per line which of the three paths took effect:
+`nav WP_REACHED … by=capture|passed|orbited` resp. `mission WP_REACHED … by=capture|passed|orbited`.
 
 ### Combat objectives (`objective`)
 

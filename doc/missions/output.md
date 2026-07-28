@@ -105,6 +105,15 @@ carry the same `unit=` attribution as that unit.
   off after 15.1 s as `by=passed` and WP2 flown normally — SUCCESS (exit 0); without the rule the jet
   orbits it at −58.9° bank until TIMEOUT (exit 3). See "When a waypoint is reached" in
   [`verdict.md`](verdict.md).
+- `sim/missions/wx-orbit.fbm` — the same edge made by the WIND instead of by the geometry: at 9,000 m in
+  18.6 m/s of crosswind the closest approach to a steerpoint dead ahead is 614 m (114 m outside the
+  capture circle) and the jet settles into a permanent −59.1° orbit, 99.2 s per lap. The `orbited`
+  ground ticks it off at t = 311.6 s and the route finishes at t = 485.4 s (SUCCESS, exit 0). The same
+  file with `wx calm` captures the same fix with 4 m to spare — the wind is the whole difference.
+- `sim/missions/bfm-pointblank.fbm` — a 0.8 nm head-on entry as a synthetic SWINGING STIMULUS for the BFM
+  roll-rate limiter: the closest entry that still holds a lock for the whole run. Read off it: peak roll
+  rate against the cap the source declares (recursion limiter 1.37 ×, plant inversion 0.89 ×). TIMEOUT
+  (exit 3) by design; the verdict is the roll trace. See §5.7 in [`../pilot.md`](../pilot.md).
 
 ## State
 

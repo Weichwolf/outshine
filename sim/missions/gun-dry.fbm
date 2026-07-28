@@ -9,7 +9,14 @@
 #   The REFUSAL itself (Rejected/depleted, plus the master-arm and weight-on-wheels interlocks) is proven
 #   where a trigger is pulled anyway: `make -C sim test-gun`.
 # The counterpart of mk82-safe.fbm (the master-arm refusal) and cm-depleted.fbm (the empty dispenser).
-# Ends in TIMEOUT (exit 3) by design, like gun-bfm.
+#
+# EXIT 1, NOT 3 — RE-MEASURED, and the reading rule changed with it. This file used to run out its clock
+# because the twelve rounds hurt the defender without killing it. Since the roll limiter became a limit
+# (doc/pilot.md 5.7) the pursuit arrives with a tighter solution and ALL TWELVE arrive: gun DRY at
+# t=83.9 with fired=12, and the defender is combat-ineffective 0.3 s later, so its own monitor concludes
+# FAIL and the run ends at t=84.3. Everything this file exists to show is unchanged and still in the
+# events — the three bursts, `remaining=0`, `gun DRY`, and NO refusal line, because the pilot stops
+# asking. What is NOT shown any more is the timeout; the drum still empties first, and that is the point.
 
 name gun-dry-1
 timeout 120
@@ -39,10 +46,10 @@ timeout 120
 #                                minutes is 0.574 nm). 0.15-0.40 nm puts the same pursuit law's target
 #                                position inside the funnel. Nothing else about the fight changes —
 #                                same law, same gains, one declared band (systems/FBPilotTuning).
-# THE RUN ENDS AT ITS TIMEOUT, exit 3, BY DESIGN — bfm-basic's rule, for bfm-basic's reason: a fight has
-# no waypoint to arrive at, and NINE 20 mm rounds through a forward fuselage are not an airframe kill
-# (they are what the damage lines below show them to be: the avionics gone and the structure hurt). The
-# verdict is read from the events and the telemetry, not from the exit code.
+# THE RUN ENDS ON THE DEFENDER'S OWN VERDICT, exit 1 — see the note at the top of this file. It used to
+# end at its timeout (exit 3), because nine of the twelve 20 mm rounds through a forward fuselage were
+# not an airframe kill; with all twelve arriving they are. Either way the verdict is read from the events
+# and the telemetry, not from the exit code, and the drum runs dry BEFORE anything else happens.
 #
 # THE DEFENDER is bfm-basic's, unchanged and deliberately not a second gunfighter: a sustained max-rate
 # level left turn around a waypoint at the centre of its own turn circle, declared as one mission line

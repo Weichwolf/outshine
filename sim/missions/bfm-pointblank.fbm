@@ -1,0 +1,53 @@
+name bfm-pointblank-1
+timeout 300
+
+# THE ROLL-RATE LIMITER'S OWN INSTRUMENT — a synthetic swinging stimulus, built out of geometry.
+#
+# WHAT IT STIMULATES. The BFM law rolls the lift vector onto a bearing, and a bearing law is a bad
+# signal at short range: the line of sight sweeps at V/R, so at 0.8 nm and 800 kt of combined closure it
+# crosses the whole hemisphere in a couple of seconds. The commanded roll therefore does not merely
+# saturate, it SWINGS IN AMPLITUDE AND SIGN, tick after tick. That is exactly the input under which a
+# roll limiter built as a recursion on its OWN PREVIOUS COMMAND has no fixed point (doc/pilot.md 5.7) —
+# so this file is not a fight, it is a stimulus. bfm-merge.fbm is the same head-on entry at 3 nm, where
+# the sweep is an order of magnitude slower and the limiter is never asked the hard question.
+#
+# WHY 0.8 nm AND NOT CLOSER. Below ~0.6 nm the pursuer's ACM box never builds a track at all (measured:
+# zero contacts for the whole run at 0.3 nm, and the pilot flies the cold search), so there is no
+# bearing to swing and nothing is stimulated. 0.8 nm is the closest entry that still holds a lock for
+# the whole run — 252 s of it — which is what makes the roll trace continuous enough to read.
+#
+# WHAT IS READ OFF IT. The achieved roll rate against the cap the code declares, from rollDeg
+# differentiated at the 10 Hz sample rate, plus whether core/FBFlightMonitor calls a departure:
+#
+#   MEASURED, recursion limiter (|cmd_prev|*cap/|p|, its cap 60 deg/s): peak 82.0 deg/s = 1.37x its own
+#   cap, 9.2 s spent above it.
+#   MEASURED, plant-inversion limiter (its cap 90 deg/s):               peak 80.5 deg/s = 0.89x its own
+#   cap, 0.0 s above it.
+#
+# The two peaks are within 2 %: the jet rolls the same. What changed is that the number in the source is
+# now the bound — the old one was a nominal its own loop rang straight through.
+#
+# NEITHER RUN DEPARTS. The departure this stimulus is built around was seen in an intermediate build;
+# the committed law does not produce one here, and that is the claim this file carries.
+#
+# IT ENDS IN TIMEOUT (exit 3), like every fight (bfm-basic.fbm's header). The verdict is the roll trace.
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.67485 6.919403 4000 270.0 380     # 0.8 nm dead ahead of bandit, pointing straight at him
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode acm_hud
+  set task bfm
+
+unit bandit
+  module f16
+  team hostile
+  spawn 46.67485 6.90000 4000 90.0 300       # the same defender as bfm-merge: a steady break turn
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode off
+  wp 46.70000 6.90000 4000 300               # the CENTRE of its turn — see bfm-basic.fbm's header

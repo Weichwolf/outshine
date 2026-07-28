@@ -14,6 +14,11 @@ void BearingDist(double lat0, double lon0, double lat1, double lon1, double &bea
   bearingDeg = std::atan2(e, n) * kRad2Deg;
   if (bearingDeg < 0.0) bearingDeg += 360.0;
 }
+
+/* Eine gescheiterte Annaeherung ist ein Abflug (Angriffs-Ausweichkurve, BFM-Konversion, Einkurven auf
+ * das naechste Bein); zwei sind eine Runde. Gemessen: bei 1 sequenzieren attack-ccip/-hardened ihren
+ * Zielfix bei t=87,9 s aus der Ausweichkurve heraus, bei 2 loest im ganzen Sweep nur wx-orbit aus. */
+constexpr int kOrbitFailures = 2;
 } // namespace
 
 void FBNavSystem::Run(FBState &state, const Fdm::fb_fdm_state &fdm, double dt) {
@@ -48,11 +53,25 @@ void FBNavSystem::Run(FBState &state, const Fdm::fb_fdm_state &fdm, double dt) {
   if (Have || HaveBull) b.H.Publish(state.NowS);
 }
 
+int FBNavSystem::NoteApproach(int idx, double distM, double captureM) {
+  if (idx != AppIdx) { AppIdx = idx; AppClosing = true; AppMinM = distM; AppMaxM = distM; AppFails = 0; }
+  if (AppClosing) {
+    if (distM < AppMinM) AppMinM = distM;
+    if (distM > AppMinM + captureM) { AppFails++; AppClosing = false; AppMaxM = distM; }
+  } else {
+    if (distM > AppMaxM) AppMaxM = distM;
+    if (distM < AppMaxM - captureM) { AppClosing = true; AppMinM = distM; }
+  }
+  return AppFails;
+}
+
 int FBNavSystem::AdvanceWaypoint(FBFlightPlan &plan, double lat, double lon, double captureM) {
   const FBWaypoint *wp = plan.ActiveWaypoint();
   if (!wp) return -1;
   int idx = plan.ActiveIndex();
-  bool reached = FBPlanarDistM(lat, lon, wp->LatDeg, wp->LonDeg) <= captureM;
+  double distM = FBPlanarDistM(lat, lon, wp->LatDeg, wp->LonDeg);
+  int fails = NoteApproach(idx, distM, captureM);
+  bool reached = distM <= captureM;
   const char *by = "capture";
   /* ...ODER er liegt schlicht HINTER uns: ein Fangkreis kann einen Fix nicht beantworten, den das
    * Flugzeug physisch nie erreicht (Fix innerhalb des eigenen Kurvenradius). Der erste Wegpunkt hat
@@ -65,6 +84,12 @@ int FBNavSystem::AdvanceWaypoint(FBFlightPlan &plan, double lat, double lon, dou
     FBTrackProjectM(from.LatDeg, from.LonDeg, course, lat, lon, alongM, acrossM);
     if (alongM >= legM) { reached = true; by = "passed"; }
   }
+  /* ...ODER das Flugzeug UMKREIST ihn: der Fangkreis ist ein BODEN-Test fester Weite, der Kreis, den
+   * das Flugzeug fliegen kann, lebt in der LUFTMASSE und wird vom Wind verweht. Eine gescheiterte
+   * Annaeherung ist ein Abflug, ZWEI sind eine Runde — dann ist der Fix in dem Kreis, und Weiterfliegen
+   * ist die einzige Antwort. Nur wo der Plan ueberhaupt weitergeht: ein Fix ohne Nachfolger ist das
+   * ZIEL der Route und kein Schritt darin (bfm-basic.fbm). doc/systems.md, Abschnitt 7.5.1. */
+  if (!reached && fails >= kOrbitFailures && idx + 1 < plan.Size()) { reached = true; by = "orbited"; }
   if (!reached) return -1;
   plan.SetActiveIndex(idx + 1);
   FBLog::Info("nav", "WP_REACHED", {{"idx", idx}, {"lat", wp->LatDeg}, {"lon", wp->LonDeg}, {"by", by}});

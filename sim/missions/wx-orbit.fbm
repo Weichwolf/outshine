@@ -1,0 +1,48 @@
+name wx-orbit-1
+timeout 700
+
+# A STEERPOINT THE JET CANNOT CLOSE — AND THE PROOF THAT THE ROUTE GETS PAST IT ANYWAY.
+# The wind twin of test-wp-inside-turn.fbm: there the geometry is declared and the air is still, here
+# the geometry is harmless and the AIR does it.
+#
+# THE MECHANISM. A capture circle is a GROUND test with a fixed 500 m radius. The circle the aircraft
+# can actually fly lives in the AIR MASS, and the wind carries it. At 9 000 m and ~213 m/s the tightest
+# turn this jet flies has a radius of 2 670 m (V^2/(g*tan 60)), so the capture circle is 5 % of it — and
+# the FIRST waypoint of a plan has no leg, so the guidance flies the BEARING to it (nose on the fix,
+# doc/systems.md 2.5) instead of holding a ground track. In still air that converges. In 18 m/s of
+# crosswind the nose-on pursuit is carried downwind the whole way in, the jet arrives with a standing
+# miss distance and then settles into a steady 59 deg bank orbit it can never close from.
+#
+# THE WIND IS THE GFS ONE, AS A CLOSED FORM. `wx wind 338 39` is the atmosphere of
+# wx-gfs-fixture.fbm at this exact altitude, re-stated as a constant vector: that cycle's 500/250 hPa
+# winds interpolate at 9 000 m to u +7.37 / v -18.58 m/s = 20.0 m/s from 338.4 deg, of which 18.6 m/s
+# stands across an eastbound leg. So this mission measures the finding that file's header describes,
+# with an answer that is a formula rather than a data set.
+#
+# MEASURED BEFORE THE ORBIT RULE EXISTED: closest approach to WP0 610 m (110 m outside the capture
+# circle), then a permanent limit cycle — range 1.8...4.8 km, -59 deg of bank, ~100 s per lap, until
+# the timeout. Exit 3, WP0 never sequenced. The same file with `wx calm` captures WP0 at t=180.5 s.
+#
+# WHAT MAKES IT PASSABLE is neither a bigger circle nor a wind model in the jet (nothing in the real
+# aircraft hands the navigation computer a wind vector). It is what the aircraft can observe about
+# ITSELF: it came around a whole lap and is no nearer. Two failed approaches to the same fix — closest
+# approach, opened by more than the capture radius, closed again, opened again — are the signature of an
+# orbit, and nothing else produces it. Both authorities apply that rule independently, as with `passed`:
+# systems/FBNavSystem sequences the guidance, core/FBMissionMonitor judges the verdict off its own
+# private copy of the plan. events.log reads `by=orbited` for WP0 and `by=capture` for WP1.
+#
+# WP1 is what proves the aircraft is flying a route again rather than merely having ticked a box — and
+# it proves the second half of the diagnosis as well: from WP1 on there IS a leg, the guidance holds a
+# GROUND TRACK instead of a bearing, and the same 18 m/s crosswind costs nothing but a crab angle.
+
+wx wind 338 39
+
+unit viper
+  module f16
+  spawn 46.50000 6.30000 9000 90.0 400       # air start at 9 000 m, due east across the wind
+  set gear up
+  set fuel_pct 80
+  set datalink off
+  set fcr_mode off
+  wp 46.50000 6.80000 9000 400               # WP0: 38 km straight ahead — and unclosable in this wind
+  wp 46.50000 7.20000 9000 400               # WP1: 31 km further east, on a leg, captured normally

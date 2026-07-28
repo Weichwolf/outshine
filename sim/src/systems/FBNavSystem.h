@@ -24,9 +24,19 @@ public:
   int AdvanceWaypoint(FBFlightPlan &plan, double lat, double lon, double captureM = 500.0);
 
 private:
+  /* Die Anflug-Historie zum AKTIVEN Fix: wie oft ist das Flugzeug so nah heran, wie es kam, und wieder
+   * aufgemacht. Zwei davon sind eine RUNDE — die Signatur eines Orbits, den kein Fangkreis beantwortet.
+   * doc/systems.md, Abschnitt 7.5.1. */
+  int NoteApproach(int idx, double distM, double captureM);
+
   double StLat = 0.0, StLon = 0.0, StElevFt = 0.0;
   double BullLat = 0.0, BullLon = 0.0;
   bool Have = false, HaveBull = false;
+
+  int    AppIdx = -1;
+  bool   AppClosing = true;
+  double AppMinM = 0.0, AppMaxM = 0.0;
+  int    AppFails = 0;
 };
 
 } // namespace FlightBox::Systems

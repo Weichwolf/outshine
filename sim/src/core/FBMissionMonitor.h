@@ -53,6 +53,9 @@ public:
 
 private:
   bool Conclude(FBMissionVerdict v, const std::string &detail);
+  /* The approach record to the ACTIVE fix — this class's OWN statement of FBNavSystem's orbit rule,
+   * computed from its own plan copy and the observed position alone. doc/systems.md, section 7.5.1. */
+  int NoteApproach(double distM);
   /* Survive and Waypoints are deliberately skipped here — see Finalize resp. PlanJudged_. */
   bool KillObjectivesMet(const FBMissionRoster &roster) const;
   bool HasObjective(FBObjectiveKind kind) const;
@@ -65,6 +68,10 @@ private:
   double       TimeoutS_;
   double       WpCaptureM_;
   int          ActiveIdx_ = 0;
+  int          AppIdx_ = -1;
+  bool         AppClosing_ = true;
+  double       AppMinM_ = 0.0, AppMaxM_ = 0.0;
+  int          AppFails_ = 0;
   bool         PlanJudged_ = true;  /* is the flight plan part of the verdict? (set in the constructor) */
   bool         PlanDone_ = false;   /* every waypoint captured (trivially true if it is not judged) */
 

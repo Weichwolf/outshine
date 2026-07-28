@@ -62,7 +62,7 @@ refinement is the running work.
 | # | Thing | Known from |
 |---|---|---|
 | 2.1 | **Arrival closure still ~85 kt at the band edge.** The throttle controls a speed *difference*, the schedule is written in range *rate*; the two diverge as soon as the pursuer trades altitude (74 kt TAS difference against 157 kt closure). Two candidates measured and rejected (below). Next: lag angle only inside the band, where the estimate has converged. | `658014d` |
-| 2.2 | **Roll-rate limiter does not converge** when the raw command oscillates in amplitude — `cmd_prev·cap/rate` then has no fixed point. Departure seen at point-blank range. | `658014d` |
+| 2.2 | ~~Roll-rate limiter does not converge when the raw command oscillates in amplitude~~ — **CLOSED.** The recursion was an oscillator (|z| = √a), not a limiter; replaced by a memoryless one-step plant inversion off an identified plant, and the cap re-derived as a closed form and re-measured. §5.7. Remaining: the inversion still overshoots its cap by ~18 % at the 10 Hz decision rate (intersample build-up, not a loop mode), and its stability bound assumes a roll lag above ~0.13 s — a crisper airframe than the F-16's 0.32 s would need the two plant numbers to become airframe hooks. | this round |
 | 2.3 | **The duel stays a stalemate** — every long shot is defeated in the notch, nothing ever reached fuze radius. Decided outcomes exist only where the launch envelopes differ. | `cac7b62` |
 | 2.4 | Gun still misses ~1 in 8 approaches against the turning defender. | `658014d` |
 | 2.5 | AoA band 11–13° instead of a flat 11° on approach (ED-documented, `doc/modules/f16/procedures-landing.md`); porpoise after touchdown; `ApproachSpeed` should be weight-scheduled instead of fixed. | measurement |
@@ -79,6 +79,9 @@ refinement is the running work.
 | **Integral action on the BFM throttle** (the textbook fix for the P-only loop's standing error around a fixed trim of 0.6) | it works, and it costs more than it buys. [MESS, 16-approach sweep, Ki = 2·10⁻⁴…2·10⁻³ δ/(kt·s)] against the STRAIGHT defender 0/8 → **8/8** kills, because the pursuer stops arriving with 100+ kt and stops creeping through the funnel's minimum range; against the TURNING defender 8/8 → **0/8**, because exact speed matching leaves him at the defender's own 248 KCAS with nothing left to take the last 14° of angle with, and he empties all 510 rounds at 7–8 m of miss. The miss is time-of-flight driven and measurable: target manoeuvre during flight ≈ ½·V·ω·TOF² = 1.6 m at TOF 0.5 s against 4.8 m at 0.9 s (measured misses 1.6–4 m vs 7–8 m). The standing bias the loop leaves is therefore doing an ENERGY job by accident; before this can be corrected, the energy rule it stands in for has to exist. |
 | Speed floor from the turn rate the pursuer has to match (`ω_max(V) ≥ ω_target`, closed form off `BfmCornerG`/`BfmCornerSpeedKt`) — the intended replacement for that bias | too permissive AND too aggressive at once. The defender in `bfm-basic`'s break turns at only **5.4 °/s** (measured off its own velocity vector), so the floor solves to 191 KCAS and never binds; adding the aim error over the pursuit time constant (`ω_target + err/T`) makes it bind and then it binds everywhere — sweep 0/8 straight, 0/8 turning, 0 rounds fired. |
 | Lowering the shot's Rtr factor to buy a closer AIM-120 pass (`bvr-duel-decided`) | no trend: `pilot_shot_rtr` swept 1.0 → 0.5 gives miss distances 6.25 / 5.35 / 8.11 / 7.52 / 7.20 / 4.03 m. The endgame miss was not the shot's timing but the round's own terminal loop. |
+| Roll limiter as a recursion on its own previous command (`cmd_prev·cap/rate`) | it is an oscillator, not a limiter: |z| = √a, and it held 1.37–1.52 × its own declared cap. Replaced by the plant inversion, §5.7.1. |
+| Keeping the 60 °/s cap once the limiter actually holds it | the number was the nominal of a loop that rang a third past it; enforcing it exactly starves the roll and `gun-bfm` departs at t = 214.6 s. §5.7.2. |
+| Reading `bfm-blind`'s reacquisition time as a regression metric | it is chaotic — 50.9 / 120.0 / 209.0 s across a six-value cap sweep with nothing monotone between. The reproducible claim of that mission is the SEQUENCE, not the interval. |
 
 ### Documentation lag (from the retired `TODO.md` §7)
 
@@ -700,22 +703,89 @@ takes the short way). [MESS] a reacquisition at 3.7 nm demanded 230° of roll, t
 150 °/s for three seconds, and the flight monitor called it what it looks like from outside: a departure.
 
 ```
-kBfmRollRateMaxDegS = 120 / kBfmTurnTimeS = 60 °/s
-if (|p| > cap && p·rollCmd > 0 && BfmRollCmdPrev_ != 0)
-    lim = |BfmRollCmdPrev_| · cap / |p|;   if (|rollCmd| > lim) rollCmd = ±lim
+kBfmRollRateMaxDegS = 180 / kBfmTurnTimeS = 90 °/s
+if (p·rollCmd > 0)
+    lim = clamp((cap − a·|p|) / (K·(1−a)), 0, 1);   if (|rollCmd| > lim) rollCmd = ±lim
 ```
 
-**Why the PREVIOUS command is scaled and not the raw one.** On a rate stick, command and rate are
-proportional, so `cmd_prev · cap/rate` IS the command that would have produced the cap rate — and the
-fixed point of that recursion is the cap rate itself. If one scales the raw (saturated) command instead,
-the whole thing converges on the geometric mean of the cap and the airframe's full-deflection rate:
-[MESS] a 45 °/s limiter held 85 °/s and the jet rolled smoothly through 360°.
+**It is a plant INVERSION, not a regulator and not a recursion:** `p[n+1] = a·p[n] + K(1−a)·u[n]` solved
+for the `u` that puts the NEXT rate exactly on the cap. Its output depends only on the MEASURED rate, so
+it is memoryless and has a fixed point by construction. It still only REDUCES — never counter-stick,
+never more than the raw command.
 
-**The ORDER OF MAGNITUDE follows from the law it serves:** the roll exists in order to establish a turn
-whose own time constant is `kBfmTurnTimeS` — so even the worst case has to be flown in roughly that time,
-which is tens of degrees per second, not hundreds. The **VALUE** is measured [MESS, 16 gun engagements
-against two defenders]: unlimited and at 90 °/s the fight departed in six of them, at 60 °/s in none —
-and the shooting performance was best there as well. The limiter only REDUCES, it can never add stick.
+**The plant is identified, not assumed** [MESS, ARX(1) over 15,325 ten-Hz samples from eight BFM runs,
+restricted to samples below the cap so the fit is open-loop]: `a` = 0.734 (roll lag 0.323 s), `K` = 78.7
+°/s per unit of stick. The same fit over ALL samples gives 0.772 / 90.5, i.e. a limiter gain 7 % away —
+the identification carries.
+
+#### 5.7.1 Why the previous form had to go (rejected: `cmd_prev · cap/rate`)
+
+The old law scaled the command that had PRODUCED the measured rate: `lim = |cmd_prev|·cap/|p|`. The
+argument was that on a rate stick command and rate are proportional, so the fixed point of the recursion
+is the cap. It holds only if `p` is the previous command times a constant — i.e. if the airframe answered
+within one sample.
+
+It does not. With the identified lag spread over the samples (`p[n] = K·Σ(1−a)a^j·u[n−1−j]`), linearising
+the recursion in `x = ln(u·K/cap)` gives
+
+```
+x[n] = x[n−1] − Σ (1−a) a^j x[n−1−j]      ⟹      z² − 2a·z + a = 0      ⟹      |z| = √a
+```
+
+**so it is not a limiter with a fixed point, it is a lightly damped OSCILLATOR** — |z| = 0.86 at the
+identified `a`, i.e. it decays only 5:1 per cycle, and any extra phase (the g loop, the FLCS, the fact
+that the limiter switches in and out) pushes it to the unit circle. Under a raw command that swings in
+AMPLITUDE the two sides of the ratio no longer belong to the same instant at all and the map is
+unbounded for a step at a time.
+
+Measured consequences, all against the number the source declared:
+
+| Instrument | Recursion | Inversion |
+|---|---|---|
+| `missions/bfm-pointblank.fbm` (0.8 nm head-on — the swinging stimulus) | peak **1.37 ×** its own cap, 9.2 s above it | peak **0.89 ×**, **0.0 s** above it |
+| 16-approach gun sweep, peak / cap | **1.52 ×** | 1.23 × at the same cap, 1.18 × at the committed one |
+| 16-approach gun sweep, stretches ≥ 4 s spent above 0.8 × cap | **11** | **0** |
+| ringing while active (pooled autocorrelation of \|p\| over those 11 stretches) | first minimum 0.3 s, first recurrence **0.70 s** | no stretch long enough to measure |
+
+The measured period is shorter than the linear prediction (1.16 s), and that is expected: the limiter is
+not continuously active, and every engage/disengage is a switching mode on top of the loop mode. The
+substantive measurement is the ratio, not the period.
+
+#### 5.7.2 The cap: now a closed form, and re-measured against the corrected law
+
+`120 / kBfmTurnTimeS` was a knob. The **largest** steering error this law can produce is 180° (it always
+takes the short way), and the sentence the old value only gestured at is that even the worst case must be
+flown in the time constant the roll serves — so `cap = 180° / kBfmTurnTimeS = 90 °/s`. With it,
+`kBfmReverseS` (§5.2) becomes identically `kBfmTurnTimeS`, which is what it always meant: **a reversal IS
+a 180° roll.**
+
+The old measurement ("60 °/s → no departures, 90 °/s → six") was taken on a law whose nominal was not its
+cap — 60 nominal was 91 achieved. Re-measured on the corrected limiter [MESS, 16-approach sweep,
+8 geometries × straight/turning defender, plus the eight committed BFM missions]:
+
+| cap °/s | kills straight | turning | total | `gun-bfm` | departures in the 8 committed missions |
+|---:|---:|---:|---:|---|---:|
+| 60 | 0/8 | 8/8 | 8/16 | **LOC** | 1 |
+| 75 | 1/8 | 8/8 | 9/16 | LOC | 1 |
+| 82.5 | 3/8 | 8/8 | 11/16 | LOC | 1 |
+| **90** | **4/8** | **8/8** | **12/16** | **KILL** | **0** |
+| 97.5 | 1/8 | 8/8 | 9/16 | TIMEOUT | 0 |
+| 105 | 2/8 | 8/8 | 10/16 | LOC | 1 |
+| 200 (limiter effectively off) | 1/8 | 6/8 | 7/16 | TIMEOUT | 0 |
+
+Derivation and measurement land on the same number, which is the only reason to trust either. Note what
+the first row says: keeping the OLD cap with the NEW law is a **regression** — the exact limiter tightens
+the real bound by a third without anyone having decided to, and `gun-bfm` departs at t = 214.6 s.
+
+The last row is the control that the limiter still earns its place: with it effectively removed the
+sweep drops to 7/16 and the peak rate reaches 132 °/s.
+
+**Costs, declared** (all five affected missions are BFM, no other mission in the tree moves by a byte):
+`gun-dry` 3 → 1 (all twelve rounds now arrive; the drum still empties first and the header carries the
+new reading rule), `gun-bfm` kill t = 66.7 → 84.2 s, `bfm-blind`'s blind interval 41 s → 199 s (that
+number is chaotic across every cap tested — 50.9 / 120.0 / 209.0 with nothing monotone between — and the
+mission's four claims all still hold), and one departure in a non-committed sweep geometry at t = 232.6 s
+where the old law had none.
 
 #### 5.8 The trigger (`BfmGunfire`)
 

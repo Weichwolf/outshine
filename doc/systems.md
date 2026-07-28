@@ -26,6 +26,7 @@ overrides by derivation. Number tuning stays a preset, never an empty subclass.
 | Peers never call each other | a module cycles its slots; slots hold no pointers to sibling slots |
 | Sensors **write** `FBState`, displays **read** it | one writer per block (`core.md`) |
 | The pilot reads the airframe only through `FBAirframeControls` | keeps `systems/` airframe- and instance-agnostic |
+| Waypoint sequencing terminates on any fix the aircraft is actually pursuing | a route never stalls on a fix it cannot close — arrival, passage and **orbit** are all grounds; `missions/test-wp-inside-turn.fbm` (geometry) and `missions/wx-orbit.fbm` (wind) |
 | Guidance is a primitive the pilot commands, not a mode the system picks | `FBAutopilot::Direct` |
 | The inner loop runs at 100 Hz over 10 Hz decisions | `FBFlightControl` on `fcs/*-cmd-norm`; the F-16's own FLCS is bridged by `fcs/fbw-override=1` |
 | A destroyed system is not ticked and its block goes `Invalid` | consumers must state what they do without it — `FBRadarAltimeter` is the reference case |
@@ -707,12 +708,13 @@ int AdvanceWaypoint(FBFlightPlan &plan, double lat, double lon, double captureM 
 distances, so the sequencing belongs here and not in the runner's bookkeeping. The runner's judge
 (`core/FBMissionMonitor`) judges independently of it on its own, immutable copy of the plan.
 
-**Two grounds for fulfilment:**
+**Three grounds for fulfilment:**
 
-| Ground | Test | Applies from |
+| Ground | Test | Applies where |
 |---|---|---|
 | `capture` | `FBPlanarDistM(aircraft, wp) ≤ captureM` (default 500 m) | every waypoint |
-| `passed` | Projection onto the leg `wp[idx−1] → wp[idx]`: `alongM ≥ legM` | **only from `idx > 0`** |
+| `passed` | Projection onto the leg `wp[idx−1] → wp[idx]`: `alongM ≥ legM` | the fix has a PREDECESSOR (`idx > 0`) |
+| `orbited` | the approach record shows **two** failed approaches to this fix (below) | the fix has a SUCCESSOR (`idx + 1 < size`) |
 
 **Why a capture circle alone is not enough:** a capture circle cannot answer a waypoint at which the
 aircraft PHYSICALLY cannot arrive — one that lies inside its own turn radius and which it orbits from
@@ -729,8 +731,56 @@ check, the orbit remains.
 **With that, sequencing and guidance agree by construction:** the flying holds a line
 (`SetDirectLeg`) only where the bookkeeping can recognise that the line has ended.
 
+##### 7.5.1 `orbited` — the ground the wind made necessary
+
+**The defect it answers** ([MESS] `missions/wx-orbit.fbm`, and the finding recorded in
+`missions/wx-gfs-fixture.fbm`'s header): at 9,000 m in a 20 m/s wind (18.6 m/s of it across the leg)
+the jet's closest approach to a steerpoint dead ahead is **614 m** — 114 m outside the capture circle —
+after which it settles into a **permanent limit cycle**: range 1,793…4,851 m, −59.1° of bank, 99.2 s per
+lap, unchanged to the timeout. The same file with `wx calm` captures the same fix at t = 167.3 s with
+**495.6 m** of closest approach. Four metres of margin is the whole difference between a route and an
+orbit.
+
+**Why it happens is a mismatch of frames, and it is stated in this file already** (§2.4, "Why against
+the GROUND TRACK and not against the nose"): a fix WITHOUT a leg is flown by the bearing law (§2.5),
+which controls the **nose**. In wind the ground track is not the nose, so the approach carries a
+standing lateral drift the bearing gain can never see — the residual §2.4 quantifies at ~30 m for a leg
+becomes 114 m of miss distance over 38 km of run-in here. And a capture circle is a GROUND test with a
+FIXED radius, while the circle the aircraft can fly lives in the AIR MASS and is carried by the wind: at
+213 m/s the tightest turn has R = 2,670 m, so the 500 m circle is 5 % of it.
+
+**Why not a geometric reachability test.** The obvious statement — "unreachable when `d < 2R·sin ψ`,
+with R widened by the drift" — needs the WIND, and nothing in the aircraft hands the navigation computer
+a wind vector (the same fact that makes the CCRP release miss in wind, `missions/weather.md`). Worse, at
+index 0 that test fires on `bfm-basic`'s defender too: in its settled orbit the fix is abeam at
+1,217…2,069 m against `2R sin ψ` ≈ 2,918 m, so ANY reachability test evaluated at index 0 destroys the
+deliberate orbit. The test therefore has to be built from what the aircraft observes **about itself**.
+
+**The signature of an orbit is that it comes back.** One failed approach is a DEPARTURE — an attack
+egress, a BFM conversion, a turn onto the next leg. Two are a LAP: the aircraft went as close as it
+could, opened up, came all the way around, and is no nearer. Formally, a small record per active fix:
+
+```
+closing:  min ← min(min, d);   d > min + captureM  →  failures++, state ← opening, max ← d
+opening:  max ← max(max, d);   d < max − captureM  →  state ← closing, min ← d
+reset on every change of the active index
+failures ≥ 2  →  orbited
+```
+
+| Choice | Why this and not another |
+|---|---|
+| Threshold **2** | [MESS, 54-mission sweep] at 1, `attack-ccip`/`attack-hardened` sequence their target fix at t = 87.9 s — the egress, not an orbit. At 2, **nothing** in the sweep trips but the instrument. One is a departure, two is a lap. |
+| Margin = `captureM` | the mission's own statement of "how near counts as there" is the only tolerance in this rule; using it for both the opening and the re-closing keeps it the ONE number instead of inventing a second. |
+| Bound to a **SUCCESSOR** | sequencing means ADVANCING. A fix with no successor is not a step in a route, it is its destination, and "still trying to get there" is the correct state — which is exactly what `bfm-basic`/`gun-turning`/`bvr-duel` express with a single `wp`. [MESS] without this gate the rule fires on all four BFM defenders (t = 139.4 s), on both `bvr-duel` fighters and on `gun-dry`'s pursuer. `passed` is bound to the predecessor because it needs an inbound axis; `orbited` is bound to the successor because it needs somewhere to go. |
+| Cost: one lap of evidence | [MESS] `wx-orbit.fbm` fires at t = 311.6 s against a closest approach at t = 167.0 s. A rule that decided faster would be deciding on a departure. |
+
+**Open, deliberately not done here:** the ROOT cause is the bearing law's nose reference (§2.5). Making
+it control the ground track like the leg law would let the jet close the fix instead of being sequenced
+past it — but it moves every index-0 trajectory in the tree, including the four BFM defenders' orbits,
+and this round was about the sequencing rule the two authorities share. Recorded under "Gaps".
+
 Return: the plan index just reached, or −1. Log line: `FBLog::Info("nav", "WP_REACHED", {idx, lat, lon,
-by=capture|passed})`.
+by=capture|passed|orbited})`.
 
 ---
 

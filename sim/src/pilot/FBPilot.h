@@ -295,7 +295,6 @@ private:
   double TimeS_ = 0.0;            /* die eigene Uhr des Piloten; der Tracker stempelt Looks absolut */
   double DecisionDtS_ = 0.0;      /* der eigene Entscheidungstakt: zwischen Lesen und Betaetigen liegt genau er */
   double BfmGIterm_ = 0.0;
-  double BfmRollCmdPrev_ = 0.0;
   /* Der festgelegte Drehsinn, solange das Ziel hinter der Fluegellinie steht. */
   int    BfmTurnSense_ = 0;
   double BfmSearchHdgDeg_ = 0.0;  /* verankerter Kurs + Hoehe der kalten Suche */

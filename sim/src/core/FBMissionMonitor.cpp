@@ -17,6 +17,11 @@ bool OnRunway(const FBRunway &rwy, double lat, double lon, double marginAlongM, 
 
 /* A taxi-speed threshold, not a full stop: "landed and stopped" is met before the last knot bleeds. */
 constexpr double kStillstandKt = 2.0;
+
+/* One failed approach is a departure, two are a lap around a fix the aircraft cannot close.
+ * Measured in doc/systems.md, section 7.5.1 — the same number the guidance side arrives at, stated
+ * here a second time rather than shared, like the passage rule below. */
+constexpr int kOrbitFailures = 2;
 } // namespace
 
 const char *FBMissionVerdictStr(FBMissionVerdict v) {
@@ -57,6 +62,20 @@ bool FBMissionMonitor::KillObjectivesMet(const FBMissionRoster &roster) const {
     if (!FBObjectiveMet(o, roster)) return false;
   }
   return true;
+}
+
+int FBMissionMonitor::NoteApproach(double distM) {
+  if (ActiveIdx_ != AppIdx_) {
+    AppIdx_ = ActiveIdx_; AppClosing_ = true; AppMinM_ = distM; AppMaxM_ = distM; AppFails_ = 0;
+  }
+  if (AppClosing_) {
+    if (distM < AppMinM_) AppMinM_ = distM;
+    if (distM > AppMinM_ + WpCaptureM_) { AppFails_++; AppClosing_ = false; AppMaxM_ = distM; }
+  } else {
+    if (distM > AppMaxM_) AppMaxM_ = distM;
+    if (distM < AppMaxM_ - WpCaptureM_) { AppClosing_ = true; AppMinM_ = distM; }
+  }
+  return AppFails_;
 }
 
 bool FBMissionMonitor::Conclude(FBMissionVerdict v, const std::string &detail) {
@@ -104,7 +123,9 @@ bool FBMissionMonitor::Tick(const FBMissionMonitorSample &s, double simTimeS) {
       }
     } else {
       /* Reference = the aircraft (its latitude scales the longitude), the historical convention here. */
-      bool reached = FBPlanarDistM(s.LatDeg, s.LonDeg, wp.LatDeg, wp.LonDeg) <= WpCaptureM_;
+      double distM = FBPlanarDistM(s.LatDeg, s.LonDeg, wp.LatDeg, wp.LonDeg);
+      int fails = NoteApproach(distM);
+      bool reached = distM <= WpCaptureM_;
       const char *by = "capture";
       /* ...OR THE AIRCRAFT IS PAST IT: for a fix inside its own turn radius, "did it get there" is
        * answered by the leg's axis. From the second waypoint on, since only then is there an inbound
@@ -117,6 +138,14 @@ bool FBMissionMonitor::Tick(const FBMissionMonitorSample &s, double simTimeS) {
         double alongM = 0.0, acrossM = 0.0;
         FBTrackProjectM(from.LatDeg, from.LonDeg, course, s.LatDeg, s.LonDeg, alongM, acrossM);
         if (alongM >= legM) { reached = true; by = "passed"; }
+      }
+      /* ...OR THE AIRCRAFT IS ORBITING IT: a capture circle is a GROUND test of fixed radius, the
+       * circle the aircraft can fly lives in the AIR MASS and is carried by the wind. One failed
+       * approach is a departure, two are a lap — and only where the plan has somewhere to go, since a
+       * fix without a successor is the route's destination and not a step in it. Again a SECOND,
+       * independent statement of the guidance-side rule. doc/systems.md, section 7.5.1. */
+      if (!reached && fails >= kOrbitFailures && ActiveIdx_ + 1 < Plan_.Size()) {
+        reached = true; by = "orbited";
       }
       if (reached) {
         FBLog::Info("mission", "WP_REACHED",
