@@ -1,0 +1,72 @@
+name duel-fulcrum-high-1
+timeout 600
+
+# THE ASYMMETRIC DUEL, GEOMETRY 4 OF 8: THE MiG HAS THE ENERGY. The exact mirror of
+# duel-viper-high.fbm — the same 6,000 m / 100 kt split, handed to the other side. Nothing else
+# differs, which is what makes the pair a measurement rather than two anecdotes.
+#
+# THIS IS THE MiG'S BEST DEFAULT-DOCTRINE CASE IN THE CAMPAIGN, and the reason to expect it to be: on
+# duel-headon the two Rtrs sit within half a mile of each other (AIM-120 9.78 nm, R-27R 10.25) and the
+# F-16's 81 s detection lead therefore buys it nothing at the trigger. Rtr is exactly the quantity
+# height and speed move. If 6,000 m and 100 kt cannot turn the MiG's first shot into a kill, then what
+# is missing is the SHOT and not the geometry, and the campaign says so with the two runs side by
+# side.
+#
+# READING RULE: exit 3 (TIMEOUT), and it is the MiG's best DEFAULT-doctrine run in the campaign.
+# MEASURED: 6,000 m and 100 kt lift the R-27R's Rtr from 10.25 to 15.12 nm and its Raero from 39.2 to
+# 55.7, so the MiG shoots FIRST for the only time in the family (t=144.5 at 12.27 nm) and gets three
+# rounds away while the F-16 never fires at all — its own trigger is still 2 nm out when its receiver
+# lights up, and from then on it is beaming and spending all 60 chaff cartridges. The two R-27Rs arrive
+# 11.24 m and 9.81 m out against a 13.8 m fuze: inside the ring, outside the lethal radius. So the
+# energy is worth the first shot on this pairing and the first shot alone is not worth a kill — which
+# is the same sentence duel-viper-high writes from the other seat.
+
+unit viper
+  team friendly
+  module f16
+  spawn 46.90000 6.40000 6000 90.0 400
+  set gear up
+  set fuel_pct 70
+  set datalink off
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 3 aim120
+  set store 7 aim120
+  set store 8 aim9
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 46.90000 8.40000 6000 400
+  objective kill unit fulcrum
+  objective survive
+
+unit fulcrum
+  team hostile
+  module mig29
+  spawn 46.90000 7.85000 12000 270.0 500
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 27
+  set n019_emission illum
+  set rwr on
+  set store 3 r27r
+  set store 4 r27r
+  set store 5 r73
+  set brief_master_arm arm
+  # THE CONTROLLER HAS TO SAY THE ANGELS, and on this geometry that is not a nicety. The N019's search
+  # bar is +-6 deg in elevation (against the APG-68's +-10.5), and the intercept's Search state aims
+  # the antenna at the BRIEFED band — which without a call is this jet's own altitude. Measured
+  # without this line: 6,000 m of separation put the F-16 6.8 deg low at the gate range and the MiG
+  # searched its own level for the whole 600 s (eng_detect_s = -1, not one contact). The F-16 in the
+  # mirror mission needs no equivalent, and that IS the asymmetry: its bar is wide enough to cover the
+  # split by itself.
+  set brief_gci 20 270 99 6
+  set task intercept
+  wp 46.90000 5.85000 12000 500
+  objective kill unit viper
+  objective survive

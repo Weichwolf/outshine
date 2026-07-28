@@ -1,0 +1,65 @@
+name duel-viper-high-1
+timeout 600
+
+# THE ASYMMETRIC DUEL, GEOMETRY 3 OF 8: THE F-16 HAS THE ENERGY. Head-on as in duel-headon.fbm, but
+# viper starts at 12,000 m and 500 kt against a fulcrum at 6,000 m and 400 kt — the same 6,000 m /
+# 100 kt split that `bvr-duel-decided.fbm` uses to break the symmetric F-16 duel, applied to the
+# asymmetric pairing. It is the CONTROL for duel-fulcrum-high.fbm: the same energy difference handed
+# to the other side.
+#
+# WHAT ENERGY BUYS IN THIS TREE, and it is not a bonus number: Rtr is an integration that starts from
+# the launcher's own velocity and the air it is flying in (weapons/FBLaunchZone), so height and speed
+# widen the launch zone. The question this pair of missions answers is whether the energy advantage is
+# worth MORE to the side that is already ahead on detection, or to the side that is behind — i.e.
+# whether the F-16's edge compounds or saturates.
+#
+# READING RULE: exit 3 (TIMEOUT). MEASURED: the energy moves the F-16's shot outwards exactly as
+# predicted (Rtr 9.78 -> 10.84 nm, shot at t=143.6 against duel-headon's 156.6) and moves the MiG's
+# INWARDS (10.25 -> 9.46 nm), so the shot lead grows from -1.4 s to +4.6 s. It still does not decide:
+# the AIM-120 arrives 4.57 m out — three metres closer than head-on and still not a kill — and the
+# MiG's R-27R, fired from 6,000 m below at a climbing target, misses by 262 m. Energy alone is worth
+# about three metres of terminal miss here; duel-doctrine-f16.fbm adds the doctrine on top and that
+# combination is what decides.
+
+unit viper
+  team friendly
+  module f16
+  spawn 46.90000 6.40000 12000 90.0 500
+  set gear up
+  set fuel_pct 70
+  set datalink off
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 3 aim120
+  set store 7 aim120
+  set store 8 aim9
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 46.90000 8.40000 12000 500
+  objective kill unit fulcrum
+  objective survive
+
+unit fulcrum
+  team hostile
+  module mig29
+  spawn 46.90000 7.85000 6000 270.0 400
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 27
+  set n019_emission illum
+  set rwr on
+  set store 3 r27r
+  set store 4 r27r
+  set store 5 r73
+  set brief_master_arm arm
+  set brief_gci 20 270 99 12               # the angels half of the BRAA: see duel-fulcrum-high.fbm
+  set task intercept
+  wp 46.90000 5.85000 6000 400
+  objective kill unit viper
+  objective survive

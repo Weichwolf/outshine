@@ -665,6 +665,7 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
     if (locked) Eng_.NoteLock(TimeS_);
   } else {
     IntTrack_ = 0;
+    IntHaveLookPitch_ = false;   /* kein Kontakt, keine Lage, auf die sich ein alter Look bezieht */
   }
 
   double tgtRangeM = haveTgt ? tgt->RangeM : 0.0;
@@ -832,8 +833,18 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
       c.TargetAltM = tgtAltM;
       /* Den Rueckstrahler ZENTRIEREN, nicht relativ nachfuehren: Kontaktelevation und Volumenmitte sind
        * beide koerperbezogen, die gewuenschte Antennenstellung IST also der Rueckkehrwinkel. Aufs
-       * aktuelle Kommando zu addieren wanderte die Keule Look fuer Look vom Ziel weg (gemessen). */
-      wantElDeg = tgtElDeg;
+       * aktuelle Kommando zu addieren wanderte die Keule Look fuer Look vom Ziel weg (gemessen).
+       *
+       * WAEHREND EINES COASTS ist genau dieser Rueckkehrwinkel VERALTET, und zwar um den einzigen
+       * Betrag, den dieser Pilot selbst kennt: seine EIGENE Lageaenderung seit dem Look. Die gemeldete
+       * Elevation ist koerperbezogen und wurde in der Lage des Looks gemessen; wer seither die Nase
+       * bewegt hat, zeigt die Keule woanders hin, ohne dass sich am Ziel etwas geaendert haette. Bei
+       * einem FRISCHEN Look ist die Korrektur exakt null — nichts, was nie gecoastet hat, bewegt sich
+       * dadurch. [MESS, duel-fulcrum-high] ohne sie stand die N019-Keule (+-6 deg Elevationsfenster)
+       * nach EINEM Look fest, waehrend der Jet 6.000 m auf Ziel-Hoehe sank und dabei 7 deg Nick
+       * abgab: der Kontakt kam nie wieder, coastete 6 s und fiel — ein Track je Anflug, kein Schuss. */
+      if (haveTgt && tgt->LookAgeS <= 0.0f) { IntLookPitchDeg_ = st.pitch; IntHaveLookPitch_ = true; }
+      wantElDeg = tgtElDeg - (IntHaveLookPitch_ ? st.pitch - IntLookPitchDeg_ : 0.0);
       if (EngState_ == FBEngageState::Attack) {
         if (!locked) designate = IntTrack_;
         wantShot = locked && inParams && TimeS_ - IntLockSinceS_ >= kInterceptTrackSettleS &&
@@ -851,7 +862,8 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
         double wantAz = IntCrankSign_ * Tuned(FBPilotParam::CrankAtaDeg, InterceptCrankAtaDeg());
         aimHdgDeg = st.yaw + FBWrap180(tgtAzDeg - wantAz);
         c.TargetAltM = tgtAltM;
-        wantElDeg = tgtElDeg;
+        if (tgt->LookAgeS <= 0.0f) { IntLookPitchDeg_ = st.pitch; IntHaveLookPitch_ = true; }
+        wantElDeg = tgtElDeg - (IntHaveLookPitch_ ? st.pitch - IntLookPitchDeg_ : 0.0);
       } else {
         /* Nichts mehr, wogegen der Crank-Winkel gehalten werden koennte: den erreichten Kurs behalten,
          * statt auf einen gebrieften Vektor zurueckzuschnappen, der dahin zeigt, wo der Kampf WAR. */

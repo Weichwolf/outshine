@@ -68,10 +68,21 @@ protected:
    * away. That is exactly the "jousting" the source names as the emergent behaviour of SARH-armed
    * aircraft: both illuminate, and neither may break first. */
   bool SupportInhibitsDefend() const override { return true; }
-  /* [ABL] The BVR cruise speed. Not a documented number: the phase holds one speed, and this airframe's
-   * measured corner is 420 KCAS, so the approach is flown at the same fraction of corner the F-16's
-   * 300/380 is — 0.79 x 420 = 330. [SET] */
-  double InterceptSpeedKt() const override { return 330.0; }
+  /* [ABL] The BVR cruise speed, and the unit is the point: the AP speed loop controls TRUE airspeed
+   * (systems/FBAutopilot's TargetSpeedMs against fb_fdm_state::speed). The F-16's rule, stated in
+   * doc/modules/f16/module.md, is "the TAS whose CAS at the 8,000 m band IS the measured corner
+   * speed" — 550 kt TAS = ~375 KCAS against a measured corner of 380 — because that number is two
+   * things at once: the launch speed the round inherits into the Raero integration, and a jet already
+   * at its best turn rate when the engagement stops being BVR. Applied to THIS airframe's measured
+   * corner of 420 KCAS (anchor M2-VC), the same rule gives 600: [MESS, duel-headon at 8,000 m] the
+   * loop settles at 422.3 KCAS / M 1.00 on a mean throttle of 0.45.
+   *
+   * IT USED TO BE 330, and that was a unit error rather than a taste: the derivation compared this
+   * jet's corner in CAS against the F-16's ROUTE speed (300) instead of its intercept speed (550), and
+   * then fed the CAS answer to a TAS command. [MESS] the MiG therefore cruised to every BVR merge at
+   * 217 KCAS / M 0.54 — 40 % below its own BfmMinSpeedKt (380 KCAS, the speed below which the same
+   * hooks say it departs in a hard turn), with the smaller launch zone that a slower launcher gets. */
+  double InterceptSpeedKt() const override { return 600.0; }
   /* [DOC] "nose raise 125...135 kts" — the midpoint, and [MESS] anchor B1 rotated at 130.1 kt when the
    * stage-1 harness commanded exactly this. NO WEIGHT TABLE: the F-16 has one because doc/f16 prints
    * one; nothing in doc/mig29/ makes Vr a function of weight, so none is invented. [GAP] */

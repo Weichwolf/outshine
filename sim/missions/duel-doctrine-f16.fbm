@@ -1,0 +1,69 @@
+name duel-doctrine-f16-1
+timeout 600
+
+# THE ASYMMETRIC DUEL, GEOMETRY 8 — THE SECOND DECIDED DUEL, and the mirror of duel-doctrine-mig.fbm:
+# the F-16 flying ITS best doctrine, from the seat that suits it. It is here so the campaign's table
+# has an entry in both directions, and so the two entries can be compared line by line.
+#
+# WHAT IT TAKES FOR EACH SIDE TO DECIDE ONE — this is the finding, not the outcome:
+#   the MiG needs ONE thing:  the early launch (duel-doctrine-mig, co-altitude, co-speed).
+#   the F-16 needs TWO:       the early launch AND the energy (6,000 m and 100 kt, this file).
+# [MESS] the F-16's early launch alone, on duel-headon's co-altitude geometry, gets its shot away
+# 10.7 s ahead of the MiG's and still does not decide: the AIM-120 arrives 4.79 m out, wrecks the
+# avionics (failed=4088, degraded=8195) and leaves engine, flight controls and structure intact, so
+# the MiG stays combat-effective and the run draws. From 6,000 m higher the identical decision arrives
+# 1.77 m out and kills. The whole difference is the terminal miss distance, and the damage model's
+# 1/r^2 is what turns those three metres into a verdict.
+#
+# THE GEOMETRY is duel-viper-high.fbm's, unchanged: head-on, viper 12,000 m / 500 kt against fulcrum
+# 6,000 m / 400 kt. The only difference to that file is the two `pilot_*` lines on the F-16 — the same
+# doctrine change duel-doctrine-mig makes on the MiG, with the lock moved out to match the trigger
+# (a shot cannot be taken from further out than the lock it rides on) and 20 nm rather than 16 because
+# the APG-68's gate is 40 nm rather than the N019's 27.
+#
+# READING RULE: exit 1 with viper SUCCESS. MEASURED — see doc/duels.md.
+
+unit viper
+  team friendly
+  module f16
+  spawn 46.90000 6.40000 12000 90.0 500
+  set gear up
+  set fuel_pct 70
+  set datalink off
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 3 aim120
+  set store 7 aim120
+  set store 8 aim9
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set pilot_shot_rtr 1.4                   # the same doctrine change duel-doctrine-mig makes
+  set pilot_lock_nm 20                     # ...and the designation that has to reach that far
+  set task intercept
+  wp 46.90000 8.40000 12000 500
+  objective kill unit fulcrum
+  objective survive
+
+unit fulcrum
+  team hostile
+  module mig29
+  spawn 46.90000 7.85000 6000 270.0 400
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 27
+  set n019_emission illum
+  set rwr on
+  set store 3 r27r
+  set store 4 r27r
+  set store 5 r73
+  set brief_master_arm arm
+  set brief_gci 20 270 99 12               # the angels half of the BRAA: see duel-fulcrum-high.fbm
+  set task intercept
+  wp 46.90000 5.85000 6000 400
+  objective kill unit viper
+  objective survive

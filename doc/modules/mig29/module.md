@@ -1,7 +1,9 @@
 # MiG-29 — the first opponent
 
-**Status: stages 1, 2a, 2b, 2c and 3 built — the airframe, the module, the sensor suite (N019 / SPO-15 /
-KOLS), the GCI loop and now the WEAPONS (R-27R / R-73 / GSh-301) plus the radar cross-section.** This is the first file written the new way round — the contract exists before the code,
+**Status: stages 1, 2a, 2b, 2c, 3 and 4 built — the airframe, the module, the sensor suite (N019 /
+SPO-15 / KOLS), the GCI loop, the WEAPONS (R-27R / R-73 / GSh-301) plus the radar cross-section, and
+now the thing all of it was for: the aircraft FIGHTS an F-16 and the outcome is decided
+([`../../duels.md`](../../duels.md)).** This is the first file written the new way round — the contract exists before the code,
 and the build rounds are measured against it instead of describing themselves afterwards.
 
 **Neighbours:** `doc/modules/mig29/` (the knowledge base about the real aircraft, from the two DCS manuals plus
@@ -132,6 +134,39 @@ delivery is a director the pilot flies rather than a release moment he reacts to
    against the F-16's 0.734 / 78.7 — it rolls 2.6× harder for the same stick. Now a hook with the
    F-16's numbers as the default.
 
+**Stage 4 built: it fights.** The asymmetric duel campaign — eight `sim/missions/duel-*.fbm`, the
+geometry × outcome table, both sides' `eng_*` debriefing, the EMCON timeline and a mixed tournament —
+lives in [`../../duels.md`](../../duels.md), because it is a property of the PAIRING and not of this
+aircraft. What belongs here is what it said about the MiG-29:
+
+| Finding | Number |
+|---|---|
+| **It can win.** `duel-doctrine-mig`: R-27R away at 14.41 nm (t=141.5), 25.8 s of unbroken illumination, detonation 9.35 m from the F-16, `damage KILL`. The F-16 never fired — its receiver lit 1.5 s before its own trigger would have | exit 0, `fulcrum result=SUCCESS` |
+| **What it needs to win is its OWN launch doctrine**, not a better weapon: the R-27R carries the LONGER Raero (39.2 nm against the AIM-120's 31.1) and a Rtr within half a mile of it, and it has to illuminate to impact either way — so `InterceptShotRtrFactor` = 1.0, the F-16's rule, is close to the worst rule available for it. It stays the default because nothing in `doc/modules/mig29/` states a launch doctrine; the alternative is mission text (`set pilot_shot_rtr`) | [MESS] 1.2–1.6 × Rtr wins, 1.0 and ≥1.8 draw |
+| **Two defects of its own pilot, both found by measuring and both fixed** | see below |
+| **The SPO-15's forward blanking is a tactical cost, not a note.** A head-on MiG that illuminates cannot hear the radar working it: `eng_threat_s` = −1 for the whole of `duel-headon`. Dark, it hears the APG-68 at t=0.1, defends, and survives an AIM-120 (`duel-emcon`) | `duel-headon` vs `duel-emcon` |
+| **Going loud and defending are mutually exclusive**, and nobody wrote that rule: `RadarEmission` is a DED-class command and the bus locks head-down inputs while the jet is manoeuvring | `duel-emcon`, t=174.2 `sequence_precondition` |
+
+**Two pilot defects this stage found by measuring:**
+
+1. **The GCI entry chain did not retry a refused entry.** Every other briefed input in the tree retries
+   on a bus rejection (`FBPilot::EnterBriefedItems`, `kBriefRetryS` = 2 s); this one advanced on the
+   POST rather than on the acknowledgement, so the single entry that makes this radar exist could be
+   lost to one g-loaded tick — measured on `duel-emcon`, where ILLUM was refused at t=174.2 and the MiG
+   then flew 400 s of the duel blind and never fired. One conditional in `FBMig29Pilot.cpp`; **all 69
+   stock missions byte-identical**, because a run in which nothing was refused does not reach it.
+2. **`InterceptSpeedKt` was a unit error, and an expensive one.** The AP speed loop controls TRUE
+   airspeed; the old derivation compared this jet's corner in CAS against the F-16's ROUTE speed (300)
+   instead of its intercept speed (550) and then fed the CAS answer to a TAS command. [MESS] the MiG
+   cruised to every BVR merge at **217 KCAS / M 0.54** — 40 % below its own `BfmMinSpeedKt` of 380 KCAS,
+   with the smaller launch zone a slower launcher gets. Corrected to **600** by the F-16's own
+   documented rule (the TAS whose CAS at the 8,000 m band IS the measured corner): [MESS] 422.3 KCAS /
+   M 1.00 on a mean throttle of 0.45, against the measured corner of 420. It moves exactly one stock
+   mission, `mig29-intercept`, in the direction its own reading rule wants — designate 58.4 → 52.4 s,
+   shot 60.9 → 54.9 s, kill 87.7 → 78.1 s, miss 1.13 → 0.34 m, same exit code and same verdict. **And
+   it is the campaign's second-largest finding:** with the 330 kt hook the F-16 won four of the five BVR
+   geometries outright; correcting it turned all four into draws.
+
 **Deliberately absent** (next stages): countermeasures (BVP-30-26), and any cooperative
 datalink — this aircraft has none, and its GCI is a voice channel, not a track picture. Those slots hold
 the NoOp/generic defaults, are not cycled, and their blocks stay `Invalid` — a module declares what it
@@ -181,7 +216,7 @@ reading rule in its own file header).
 | done (2b) | ~~Radar (N019), RWR (SPO-15), IRST (KOLS) and the GCI loop~~ | stage 2b |
 | 4b | Own HUD symbology — the module flies the generic MIL-STD-1787 default | open |
 | **4g** | **No dispensers.** The BVP-30-26 exists on the aircraft and nowhere in FlightBox: no source states its programme parameters, so this jet can answer neither a radar shot with chaff nor an infrared shot with flares. It is now the single largest one-way asymmetry in the tree, and it is the next thing to close | needs a source, or a declared `[SET]` programme set |
-| **4h** | **BFM on this airframe is unfinished.** The N019's close-combat modes are pencils in azimuth, so a manoeuvring MiG cannot ACQUIRE with them, and its wide RAD mode does not auto-lock — measured on `mig29-gun`'s geometry with `set task bfm`: 0 contact ticks and 0 lock ticks in 134 s. `FBPilot::BfmDesignate` (new, generic, and a no-op for an auto-locking set) gives the pilot the thumb he needs, but the cold-search law still rolls the jet before the first two looks have landed. Until that is addressed, a MiG gun kill has to be flown from a stable position with a briefed burst (which is what `mig29-gun` does) | a search behaviour that keeps the platform steady until firm |
+| **4h** | **BFM on this airframe is unfinished, and there are TWO causes rather than one.** (a) ACQUISITION: the N019's close-combat modes are pencils in azimuth, so a manoeuvring MiG cannot acquire with them, and its wide RAD mode does not auto-lock — measured on `mig29-gun`'s geometry with `set task bfm`: 0 contact ticks and 0 lock ticks in 134 s. `FBPilot::BfmDesignate` gives the pilot the thumb, but the cold-search law still rolls the jet before the first two looks have landed. (b) NEW, and not named before: the close-combat control law **departs this airframe**. [MESS, `missions/duel-merge.fbm`, a nose-on 8 km merge at 5,000 m/380 kt] zero radar contacts, and by t=24.7 s the law has rolled it through −150° of bank at 29° of incidence into a stall/mush KO (roll 91.9°, p = −94.8 °/s, vs = −30.2 m/s) — with the α limiter (26°) active and the roll-rate cap on this airframe's own identified plant. Until both are closed, a MiG gun kill has to be flown from a stable position with a briefed burst (`mig29-gun`), and "the MiG-29 wins the merge" is an untested claim | a search behaviour that keeps the platform steady until firm, AND a close-combat law that this airframe survives |
 | 4e | No `FBSystemId` for an optical station, so the IRST is the one sensor slot that is not damage-gated. Travels with 4d: both are a health-register change, and both move the `dmg_*` telemetry columns | needs a health-register change |
 | ~~4f~~ | ~~The intercept ends in `Abort` on first contact~~ — **done** (2c). `mig29-intercept` now runs the whole chain: `RADAR_DESIGNATE` at t = 58.4 s, shot at 60.9 s, support to impact, `damage KILL` at 87.7 s; `eng_state` search → closing → attack → support | done |
 | ~~4c~~ | **SETTLED, and the formula was right.** The measurement window hypothesis is REFUTED and the harness was comparing two different quantities — see Knowledge below | closed, stage 2c |

@@ -23,6 +23,7 @@ source directory. If you know where the code is, you know where its file is.
 | `sensors/` | [sensors.md](sensors.md) |
 | `weapons/` | [weapons.md](weapons.md) |
 | `pilot/` | [pilot.md](pilot.md) |
+| *(missions, not a source dir)* | [duels.md](duels.md) — the asymmetric duel campaign |
 | `missions/` + `units/` | [missions/](missions/INDEX.md) |
 | `modules/` | [modules/](modules/f16/INDEX.md) |
 | `render/` | [render/](render/renderer.md) |
@@ -72,6 +73,7 @@ were translated in the Phase-3 split; no German prose remains in `doc/`.
 | [sensors.md](sensors.md) | datalink, radar, RWR, countermeasures — and **the perception boundary**: who may see the registry, why a contact is anonymous, why IFF is two-valued |
 | [weapons.md](weapons.md) | weapon-as-unit, SMS and gun, shared ballistics, the **three resolution boundaries**, the damage model from geometry to system consequence, and the coupling "failure → block invalid" |
 | [pilot.md](pilot.md) | phase machine, attack, BFM with its own control law, the **datum** as the pilot's memory, BVR intercept, debriefing channels, variants and tournament, the mission control loop |
+| [duels.md](duels.md) | the **asymmetric measurement campaign** — `missions/duel-*.fbm`, the geometry × outcome table, the four asymmetries with their numbers, the EMCON timeline, the mixed tournament |
 
 ## Missions — `missions/`
 

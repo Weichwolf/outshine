@@ -1,0 +1,88 @@
+name duel-headon-1
+timeout 600
+
+# THE ASYMMETRIC DUEL, GEOMETRY 1 OF 8: HEAD-ON. The reference case of the campaign
+# (doc/duels.md) and the one in which the two weapon systems differ most sharply.
+#
+# WHAT IS ASYMMETRIC, and none of it is mission data — it is what the two modules ARE:
+#   detection   APG-68 40 nm gate against a 4.0 m^2 MiG = 100 km; N019 RAD 27 nm against a 1.2 m^2
+#               F-16 = 50 km. The fourth-root RCS law (sensors/FBRadarSystem::GateRangeM) hands the
+#               F-16 the first look by a factor of two, before either pilot decides anything.
+#   weapon      AIM-120 active: the shooter's obligation ends at the activation ring. R-27R
+#               semi-active: the obligation runs to IMPACT (weapons.md, FBSeekerHandoverS = -1),
+#               and pilot/FBPilot's SupportInhibitsDefend hook makes the MiG's phase machine obey it.
+#   defence     ALE-47 against nothing. The MiG-29 has no dispenser in FlightBox
+#               (modules/mig29/module.md gap 4g), so its only answer to a radar shot is the beam.
+#
+# BOTH SIDES FLY THE SAME PHASE MACHINE with their own numbers, and nothing is scripted: no briefed
+# release, no briefed chaff, no briefed manoeuvre. Each jet gets a vector and a master-arm call.
+#
+# GEOMETRY: 111 km apart at 46.90 N, co-altitude 8,000 m, head-on, both outside BOTH radar gates at
+# t=0 so both runs begin with a real search phase.
+#
+# READING RULE: exit 3 (TIMEOUT), both alive — and that IS the measured answer rather than a missing
+# one. Both pilots ship with the SAME doctrine (designate at the airframe's lock range, shoot at Rtr),
+# both reach it within 1.4 s of each other, both shoot, and every round arrives outside its warhead's
+# lethal radius. MEASURED: viper detects at t=24.0 (52.1 nm) against fulcrum's t=105.2 (26.0 nm) — an
+# 81 s lead that is pure sensor physics (40 nm gate x 1.351 for a 4.0 m^2 target = 100 km, against
+# 27 nm x 1.0 for a 1.2 m^2 one = 50 km) — and then the lead evaporates, because both trigger gates sit
+# at Rtr and Rtr is a function of the GEOMETRY both share: 9.78 nm for the AIM-120, 10.25 for the
+# R-27R, reached at t=156.6 and t=155.2. Two AIM-120s arrive 7.52 m and 8.83 m out, the R-27R runs out
+# of flight time 14.96 m out, and a 20.5 kg warhead at 7.5 m wrecks avionics without taking the engine,
+# the flight controls or the structure (core/FBDamageModel's 1/r^2).
+#
+# WHAT THE DRAW SAYS, and it is the campaign's central result: the F-16's radar advantage is real and
+# it buys a detection, not a kill. What decides is the SHOT, and to make the shot decide, one side has
+# to stop flying the other's doctrine (duel-doctrine-mig.fbm) or bring energy to it
+# (duel-doctrine-f16.fbm). exit 2 (CRASH) would be a defect.
+#
+# MEASURE, side by side in telemetry.csv (viper) and telemetry_fulcrum.csv:
+#   eng_detect_s / eng_lock_s     who saw whom first, and at what range
+#   eng_shot_s / eng_shot_nm      who shot first, and out of what launch envelope (eng_shot_rtr_nm)
+#   eng_support_s / eng_support_f the SARH penalty as a number: the MiG's window is the whole time of
+#                                 flight, the F-16's ends at the seeker
+#   eng_state                     the two machines interleaved; the MiG's SUPPORT_BINDING lines are
+#                                 the ticks in which it was NOT allowed to defend
+#   dmg_failed / dmg_effective    what arrived
+
+unit viper
+  team friendly
+  module f16
+  spawn 46.90000 6.40000 8000 90.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink off                         # a fight is fought on own sensors
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 3 aim120
+  set store 7 aim120
+  set store 8 aim9                         # selected only after both AMRAAMs are gone (station step)
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 46.90000 8.40000 8000 450
+  objective kill unit fulcrum
+  objective survive
+
+unit fulcrum
+  team hostile
+  module mig29
+  spawn 46.90000 7.85000 8000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad                        # the wide non-locking search pattern
+  set n019_range_nm 27                     # the set's own documented search reach
+  set n019_emission illum                  # LOUD from t=0: the baseline against which duel-emcon reads
+  set rwr on
+  set store 3 r27r
+  set store 4 r27r
+  set store 5 r73                          # station step reaches it after both R-27Rs
+  set brief_master_arm arm
+  set task intercept
+  wp 46.90000 5.85000 8000 450
+  objective kill unit viper
+  objective survive

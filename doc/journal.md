@@ -425,6 +425,54 @@ gained the two measurements the module cites: 136.8 kt at the documented 11° to
 420 kt / 24.18 °/s / 7.83 g. F-16 byte-identical across all 53 stock missions.
 
 
+### 2026-07-28 — MiG-29 stage 4: the asymmetric duel as a measurement campaign (this round)
+
+**What the round was for.** Everything since stage 1 existed so that two DIFFERENT aircraft could meet.
+[`pilot.md`](pilot.md) gap 2.3 had recorded for three rounds that the symmetric F-16 duel is a
+stalemate by construction, and `modules/mig29/module.md` had said in as many words that the MiG exists
+to turn the coin toss into a choice. This round is the measurement that says whether it did.
+
+**What it built.** Eight missions (`sim/missions/duel-*.fbm`), an analysis tool
+(`sim/tools/fb_duel_report.py`), a `module=` key on the tournament so a variant file can pit an F-16
+doctrine against a MiG doctrine, and a new topic file [`duels.md`](duels.md) — which is a family of
+MISSIONS rather than a directory of source, and the first entry in `INDEX.md` that is not a mirror of
+`sim/src/`.
+
+**The answer, and it was not the expected one.** Neither side structurally dominates; the launch
+DOCTRINE does. With both pilots on the shipped rule (shoot at Rtr) five of five BVR geometries draw —
+head-on, 50° offset, 6,000 m to either side, EMCON — because the two Rtrs sit within half a mile of
+each other (AIM-120 9.78 nm, R-27R 10.25) and every round then arrives outside its warhead's lethal
+radius. Change the rule on one side and the same geometry decides, and what each side needs is
+different: **the MiG needs only the early launch** (`duel-doctrine-mig`, exit 0 — R-27R away at
+14.41 nm, 25.8 s of unbroken illumination, 9.35 m detonation, the F-16 defensive 1.5 s before its own
+trigger and never firing), **the F-16 needs the early launch AND 6,000 m** (`duel-doctrine-f16`,
+exit 0 — its early launch alone is 10.7 s ahead and still draws at 4.79 m; from 6,000 m higher the
+identical decision arrives 1.77 m out and kills).
+
+**Three AI defects, all found by measuring, all fixed.** The GCI entry chain advanced on the POST
+rather than on the acknowledgement, so the one entry that makes the N019 exist could be lost to a
+single g-loaded tick (measured: 400 s of a duel flown blind). The intercept antenna was centred on a
+COASTED look while the jet's own attitude moved, freezing a ±6° bar after one look through a 6,000 m
+descent. And `FBMig29Pilot::InterceptSpeedKt` was a unit error — a CAS derivation fed to a TAS command
+— that had the MiG cruising to every BVR merge at 217 KCAS / M 0.54, 40 % below its own departure
+speed. **That last one is the round's second finding:** with it in place the F-16 won four of the five
+BVR geometries outright. Correcting it turned all four into draws, i.e. most of the F-16's apparent
+BVR dominance was a MiG tuning error rather than a weapon-system difference.
+
+**Measured.** 66 of 69 stock missions byte-identical, all 69 exit codes unchanged; the three that
+moved are `bvr-duel` and `bvr-duel-decided` (one to two extra antenna slews — `cmd_*` counters, plus
+2.9 s in which one jet's RWR carries an extra SEARCH-class contact behind it that nothing acts on) and
+`mig29-intercept` (same exit code and verdict, everything earlier and tighter: kill 87.7 → 78.1 s,
+miss 1.13 → 0.34 m). No flight-state column and no verdict moved anywhere. All eight duels one fingerprint over
+`--threads 1/2/4` × 3. The mixed tournament decides 12 of 30 runs where the symmetric one decides
+**0 of 30**, and the early launch is worth an entire outcome band on the MiG (−393.7 → +585.0) against
+nothing on the F-16 (601.8 → 603.3) — the same asymmetry the named missions found, reproduced by a
+fitness written before the campaign existed. Open, and now with numbers: the MiG's close-combat law
+DEPARTS the airframe in 22.8 s from a nose-on merge (`duel-merge`, kept as a reproducer), and an
+AIM-120's terminal miss runs 1.37 → 7.66 m as closure runs 744 → 1053 m/s, which against a 1/r² damage
+model is the difference between a kill and a jet that flies on.
+
+
 ### 2026-07-28 — MiG-29 stage 2c: the weapons and the signature
 
 **What the round was for.** The MiG-29 had sensors and no weapons; the F-16 had no infrared round at

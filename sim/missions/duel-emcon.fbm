@@ -1,0 +1,92 @@
+name duel-emcon-1
+timeout 600
+
+# THE ASYMMETRIC DUEL, GEOMETRY 5 OF 8: THE EMCON PROBE — the MiG-29 flown the way its own doctrine
+# says it should be (doc/modules/mig29/datalink-gci.md), against the same F-16 as duel-headon.fbm.
+#
+# THE DUEL IS THE SAME HEAD-ON GEOMETRY. ONE THING CHANGES: the N019 EMISSION SWITCH STARTS ON OFF,
+# and a ground controller calls the fighter loud at commit range instead of at t=0. That single switch
+# moves three things at once, and only one of them is in the MiG's favour:
+#
+#   FOR   the F-16's ALR-56M has nothing to hear. In duel-headon its RWR lit up at t=17.4 s, six and a
+#         half seconds BEFORE its own radar found anything — the MiG announced itself first.
+#   FOR   the SPO-15's forward hemisphere is no longer blanked by its own transmitter
+#         (sensors.md §5.6), so the MiG can finally HEAR the APG-68 that is working it. In duel-headon
+#         its eng_threat_s is -1: it never knew it was being tracked, and never defended.
+#   AGAINST  a silent N019 is a blind N019. This aircraft's pilot flies on radar contacts alone; the
+#         KOLS is powered here and its contacts reach the bus, but pilot/FBPilot's intercept picture is
+#         built from the RADAR block (doc/duels.md, gap D3), so until ILLUM the MiG has only the
+#         controller's four numbers.
+#
+# The APG-68 sees a 4.0 m^2 target at ~100 km whatever the MiG transmits, so EMCON buys NO delay in
+# being FOUND. What it buys is the warning and the surprise, and this mission measures whether that is
+# worth the blindness it costs.
+#
+# THE CONTROLLER'S SCRIPT: one call at t=170 s, by which time the pair is inside 30 km. Three typed
+# entries follow (scan elevation by the range-angle method, ZONE, then ILLUM), each charged its own
+# DED latency, so the set radiates ~8 s after the call and needs a further ~6 s (two 3 s frames) to
+# build its first contact.
+#
+# READING RULE: exit 3 (TIMEOUT), both alive — and the MiG survives an AIM-120 for the only time in
+# the campaign. MEASURED, and every line of it is the switch:
+#   t=0.1    the MiG's SPO-15 already has the APG-68, because nothing of its own is blanking the
+#            forward hemisphere. In duel-headon its eng_threat_s is -1 for the whole run: it never
+#            knew it was being worked, and never defended.
+#   t=16.9   NOTHING appears on the F-16's ALR-56M. In duel-headon it had the MiG at t=16.9, 7.1 s
+#            before its own radar found anything.
+#   t=140.8  missile-launch warning; the MiG answers 1.1 s later and beams for 118.9 s.
+#   t=173.2  the AIM-120 arrives 8.29 m out instead of the 7.52 m of duel-headon — and the beam is why
+#            it is not closer. 50.5 kJ/m^2 in the NOSE zone: air data, radar altimeter, nav, radar,
+#            fire control and datalink all fail; engine, flight controls and structure do not.
+#            `dmg_effective` stays 1.
+#   t=174.2  the controller's commit call arrives INTO that. The ILLUM entry is refused
+#            (`sequence_precondition` — the manoeuvre lock, this jet is pulling), the pilot retries at
+#            t=176.3 as any other briefed entry is retried, and THAT one is refused
+#            `system_failed`: the box it was meant for no longer exists.
+# So EMCON bought the MiG the warning, the defence and its life, and cost it the engagement: it never
+# radiated, never detected, never fired. That trade is the doctrine, measured in one run.
+
+unit viper
+  team friendly
+  module f16
+  spawn 46.90000 6.40000 8000 90.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink off
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 3 aim120
+  set store 7 aim120
+  set store 8 aim9
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 46.90000 8.40000 8000 450
+  objective kill unit fulcrum
+  objective survive
+
+unit fulcrum
+  team hostile
+  module mig29
+  spawn 46.90000 7.85000 8000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 27
+  set n019_emission off                     # SILENT: the whole point of the mission
+  set kols_mode ir                          # the passive alternative, powered and publishing
+  set kols_laser on                         # ...and armed, so a contact inside 6 km gets a range
+  set rwr on
+  set store 3 r27r
+  set store 4 r27r
+  set store 5 r73
+  set brief_master_arm arm
+  set brief_gci 170 270 28 8                # "bandit bearing 270 for 28, angels 8" — commit, go loud
+  set task intercept
+  wp 46.90000 5.85000 8000 450
+  objective kill unit viper
+  objective survive

@@ -53,7 +53,8 @@ refinement is the running work.
 | Pilot memory: the datum instead of the last measurement; gun tracking with rate term; roll-rate limiter | built | `cac7b62` |
 | Guidance holds a path where a path is declared | built | `9673e00` |
 | Brake-authority-derived closure cap (`BfmBrakeMs2`), conversion rule, absolute-value trigger | built, **not yet distilled below** | `658014d` |
-| Re-tune against `MODEL-DELTAS.md` D1: `BfmBrakeMs2` re-measured as a CLOSURE decay (2.4 → 1.2 m/s², cap 140 → 70 kt); the attack release holds the run-in attitude until the store has LEFT and leads the cue by the decision tick as well | built | this round |
+| Re-tune against `MODEL-DELTAS.md` D1: `BfmBrakeMs2` re-measured as a CLOSURE decay (2.4 → 1.2 m/s², cap 140 → 70 kt); the attack release holds the run-in attitude until the store has LEFT and leads the cue by the decision tick as well | built | `658014d`+ |
+| **The antenna is held against one's OWN attitude change while a contact is coasting** (§7.5) — the reported elevation is body-referenced and was measured at the attitude of the LOOK. Found by the asymmetric duel campaign; a fresh look is unchanged to the bit | built | this round, [`duels.md`](duels.md) M2 |
 
 ## Gaps
 
@@ -63,7 +64,9 @@ refinement is the running work.
 |---|---|---|
 | 2.1 | **Arrival closure still ~85 kt at the band edge.** The throttle controls a speed *difference*, the schedule is written in range *rate*; the two diverge as soon as the pursuer trades altitude (74 kt TAS difference against 157 kt closure). Two candidates measured and rejected (below). Next: lag angle only inside the band, where the estimate has converged. | `658014d` |
 | 2.2 | ~~Roll-rate limiter does not converge when the raw command oscillates in amplitude~~ — **CLOSED.** The recursion was an oscillator (|z| = √a), not a limiter; replaced by a memoryless one-step plant inversion off an identified plant, and the cap re-derived as a closed form and re-measured. §5.7. Remaining: the inversion still overshoots its cap by ~18 % at the 10 Hz decision rate (intersample build-up, not a loop mode), and its stability bound assumes a roll lag above ~0.13 s — a crisper airframe than the F-16's 0.32 s would need the two plant numbers to become airframe hooks. | this round |
-| 2.3 | **The duel stays a stalemate** — every long shot is defeated in the notch, nothing ever reached fuze radius. Decided outcomes exist only where the launch envelopes differ. | `cac7b62` |
+| 2.3 | **The SYMMETRIC duel stays a stalemate** — every long shot is defeated in the notch, nothing ever reached fuze radius; re-measured this round, the F-16-only tournament produces **0 kills and 0 losses in 30 runs**. **ASYMMETRIC duels do decide**, and what decides them is the launch DOCTRINE rather than the geometry: [`duels.md`](duels.md) | `cac7b62`, [`duels.md`](duels.md) |
+| 2.6 | **An AIM-120's terminal miss is a strong function of closure, and nothing says whether that is the round or the physics.** [MESS, `duel-headon` with the target's cruise swept] target 169/206/237/268/288 m/s ⇒ closure 744/842/919/1000/1053 m/s ⇒ miss **1.37/2.13/4.74/3.15/7.66 m**. Against a 1/r² damage model those six metres are the difference between a kill and a jet that flies on with wrecked avionics | [`duels.md`](duels.md) D2 |
+| 2.7 | **The pilot does not use the IRST.** `sensors/FBIrstSystem` publishes an `Irst` block; the intercept picture is built from the Radar block alone, so a passive sensor cannot cue anything and "IRST + EMCON" can only be flown as "silent and blind" | [`duels.md`](duels.md) D3 |
 | 2.4 | Gun still misses ~1 in 8 approaches against the turning defender. | `658014d` |
 | 2.5 | AoA band 11–13° instead of a flat 11° on approach (ED-documented, `doc/modules/f16/procedures-landing.md`); porpoise after touchdown; `ApproachSpeed` should be weight-scheduled instead of fixed. | measurement |
 
@@ -1106,11 +1109,23 @@ at t = 527 s (43.6 m miss distance, defeated in the notch like the first). Timeo
 - `Search`: `wantEl = atan2(bandAltM − st.elev, distM)·rad2deg − st.pitch`. One's **own pitch** is what
   makes this a command instead of a constant: the pattern is bolted to the nose, so a climbing jet looks
   out of the band it is supposed to search unless the antenna is pushed back by exactly this angle.
-- `Closing`/`Attack`/`Support`: `wantEl = tgtElDeg` — **centre** the return, do not track it relatively.
-  Both the reported contact elevation and the centre of the volume are body-referenced, so the desired
-  antenna position IS the angle at which the contact came back.
+- `Closing`/`Attack`/`Support`: `wantEl = tgtElDeg − (pitch_now − pitch_at_the_last_look)` — **centre**
+  the return, do not track it relatively. Both the reported contact elevation and the centre of the
+  volume are body-referenced, so the desired antenna position IS the angle at which the contact came
+  back.
   [MESS] ADDING to the current command made the beam wander away from the target look by look and lost a
   head-on contact twenty seconds after acquisition.
+  **The pitch term is what makes that true while the contact COASTS.** The reported angle is
+  body-referenced and was measured in the attitude of the LOOK; between two looks the only thing this
+  pilot knows has changed is his own attitude, so he takes exactly that out and nothing else. On a
+  fresh look (`LookAgeS == 0`) the term is identically zero, which is why nothing that never coasted
+  moves by a tick. [MESS, `duel-fulcrum-high`] without it the N019's ±6° bar froze after ONE look while
+  the jet descended 6,000 m and gave away 7° of pitch: the contact never came back, coasted its 6 s and
+  fell — one track per approach and no shot in 600 s. Effect on the existing tree: three BVR missions
+  gained one or two extra `RadarSlewEl` commands (`bvr-duel`, `bvr-duel-decided`, `mig29-intercept`).
+  `cmd_*` counters move; in `bvr-duel` 29 of 7,000 ticks additionally carry one extra SEARCH-class RWR
+  contact behind the jet, which `mustDefend` skips by construction. Every flight-state column, every
+  shot and every verdict is unchanged.
 
 #### 7.6 The hands (`InterceptCockpit`)
 
@@ -1233,6 +1248,12 @@ Stdlib Python, not a build target, no dependency under `sim/build` except the `f
   result — the two runs of a pair are mirror images, so the SUM measures the variant and not the seat.
   Runs go through `fb-gym --threads N` and are byte-reproducible (`--check-determinism` flies every
   pairing additionally with `--threads 1` and compares the telemetry byte by byte).
+- **Airframes:** a variant line may carry `module=<name>` (default `f16`), which selects the arena
+  block for that seat — so a tournament can be MIXED, an F-16 doctrine against a MiG-29 doctrine
+  (`tools/variants-mixed.txt`, [`duels.md`](duels.md)). Only the box-specific `set` lines differ
+  between the two blocks; the spawn, the master-arm call, `set task intercept`, the vector, the
+  objectives and the `pilot_*` lines are shared text. An f16-only variant file generates byte-identical
+  missions to the version before the key existed (verified over all 60 pairings of both geometries).
 - **Geometries:** `mirror` (head-on, co-altitude, co-speed, both outside the 40 nm search gate at t=0 —
   both runs begin with a real search phase, neither gets a detection for free) and `split` (the energy
   difference of `bvr-duel-decided.fbm`: 6,000 m and 150 kt — not "who wins an equal fight" but "who makes
