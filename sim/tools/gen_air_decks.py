@@ -223,13 +223,22 @@ class Row:
 
     def thrust_n(self, mach, alt_m, augmented=True):
         """The FROZEN half of the T/D product, N, at (M, h), from the family analogy + the statics.
-        A7 is published PER ENGINE, so the installed thrust is the row's own engine count times it."""
+        A7 is published PER ENGINE, so the installed thrust is the row's own engine count times it.
+
+        IT READS THE DECK'S OWN TABLE, not the closed form behind it. The turbojet reference is a
+        continuous ram curve, but what the aeroplane flies is that curve SAMPLED on the JSBSim grid and
+        interpolated linearly between the samples -- and the ram curve is convex there, so the chord
+        sits BELOW it: -1.1 % at M 1.66, -1.6 % at M 2.0. An inversion against the closed form gives the
+        deck a CD0 for a thrust it does not have, and at the anchor the two curves are tangent by
+        construction, so 1 % of thrust is 5 % of Vmax. Measured on su7: M 1.66 against an anchor of
+        1.74 with a polar that matched the deck's own drag to 0.5 %."""
         static = (self.ab_kn if augmented else self.mil_kn) * 1000.0 * self.engines
         if self.family == "turbofan":
             tbl = TF_AUG if augmented else TF_MIL
-            return static * bilinear(tbl, TF_ALT, mach, alt_m * M_FT)
-        n = 0.85 if augmented else 0.90
-        return static * tj_ram(mach, augmented, alt_m) * sigma(alt_m) ** n
+        else:
+            tbl = (tj_surface(TJ_MACH_AUG, augmented=True) if augmented
+                   else tj_surface(TJ_MACH_DRY, augmented=False))
+        return static * bilinear(tbl, TF_ALT, mach, alt_m * M_FT)
 
     def invert_cd0(self, mach, alt_m):
         """Recipe §4.2: at Vmax, level, T = D and L = W."""
@@ -393,15 +402,53 @@ def cl_max(row):
         math.radians(row.alpha_lim_deg)) ** 2 * 1.15
 
 
+# THE ALPHA KNOTS every alpha-indexed table in a generated deck is written on. THE SPACING IS NOT
+# COSMETIC AND IT WAS MEASURED: at a uniform 5 deg the lift-dependent drag table -- a PARABOLA in alpha --
+# is read by JSBSim as the straight chord from 0 to 5 deg, and a supersonic dash sits at 1.5-2 deg. On
+# f15c at M1.93 that chord returns CDi = 0.00519 against the polar's own k*CL^2 = 0.00179, i.e. 2.9x, and
+# the 0.0034 of drag it invents is most of the 0.0045 by which the deck missed its own A1 inversion.
+# One degree through the linear range makes the chord error negligible; the coarse tail past 20 deg is
+# past the alpha limiter and is the EDGE of the model either way (recipe R7).
+ALPHA_KNOTS_DEG = (-25, -20, -15, -10, -7, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 7, 10, 12, 15,
+                   17, 20, 25, 30, 35, 40, 45)
+
+
+# The potential term's own maximum: d/da [sin a * cos^2 a] = 0 at a = atan(1/sqrt(2)) = 35.264 deg.
+A_POTENTIAL_MAX = math.atan(1.0 / math.sqrt(2.0))
+
+
+def stall_alpha(row):
+    """Where the potential lift curve REACHES CLmax, solved on the curve that is actually written --
+    cla*sin(a)*cos^2(a) -- and not on cla*sin(a).
+
+    It used to be asin(CLmax/cla), which ignores the cos^2 factor and therefore returned an alpha where
+    the written curve is still 14 % BELOW CLmax. The table then jumped from that value straight to CLmax
+    at the next knot: a discontinuity in the lift curve, right where several rows' alpha limiters sit
+    (f15c 21.7 deg against a 22.0 deg limit). Measured, the alpha limiter could not hold its own limit on
+    five rows because the aeroplane fell through the step."""
+    cla = cl_alpha(row)
+    target = cl_max(row) / cla if cla > 0 else 1.0
+    if target >= math.sin(A_POTENTIAL_MAX) * math.cos(A_POTENTIAL_MAX) ** 2:
+        return A_POTENTIAL_MAX
+    lo, hi = 0.0, A_POTENTIAL_MAX
+    for _ in range(60):
+        mid = 0.5 * (lo + hi)
+        if math.sin(mid) * math.cos(mid) ** 2 < target:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
+
+
 def lift_table(row):
     """CL(alpha) on the potential term with a stall shape. NO VORTEX TERM: none of these planforms is a
     LERX aircraft of the MiG-29's kind, and a vortex increment would be an invented number on every row.
     The curve is therefore linear-range only, and the alpha limiter in systems/FBFlightControl -- not
     this table -- is the edge of the model (module.md A1)."""
     cla, clmax = cl_alpha(row), cl_max(row)
-    a_stall = math.asin(min(0.99, clmax / cla)) if cla > 0 else 0.3
+    a_stall = stall_alpha(row)
     rows = []
-    for deg in (-15, -10, -5, 0, 5, 10, 15, 20, 25, 30, 35, 40, 45):
+    for deg in ALPHA_KNOTS_DEG:
         a = math.radians(deg)
         cl = cla * math.sin(a) * math.cos(a) ** 2
         if abs(a) > a_stall:
@@ -414,14 +461,25 @@ def lift_table(row):
     return rows
 
 
-def drag_alpha_table(row):
-    """Lift-dependent drag, k*CL^2 with the suction loss blended in past the linear range -- the MiG-29
-    deck's own form, whose f(alpha) schedule is the one piece taken by [ANALOGY]."""
+def suction_blend_table(row):
+    """(1 - f(alpha)): how much of the lift-dependent drag is still the attached-flow parabola. The
+    parabola itself is NOT tabulated -- it is written against aero/cl-squared, so the deck's induced drag
+    is a function of the lift the deck ACTUALLY produced, which is what a polar means. Tabulating it in
+    alpha instead double-books the compressibility factor kCLmach: at M2 that factor takes 30 % off the
+    lift, the aeroplane answers with 43 % more alpha, and an alpha-indexed table charges it (1/0.70)^2 of
+    the induced drag the inversion assumed."""
+    return [(a, 1.0 - min(1.0, (abs(a) / math.radians(30.0)) ** 1.5)) for a, _ in lift_table(row)]
+
+
+def suction_drag_table(row):
+    """f(alpha)*|CL|*|tan alpha|: the leading-edge suction progressively LOST past the linear range --
+    the MiG-29 deck's own form, whose f(alpha) schedule is the one piece taken by [ANALOGY]. It is a
+    genuine function of attitude and stays in alpha; it vanishes as alpha^2.5 and reaches 1 % of the
+    parabola only past 5 deg."""
     out = []
     for a, cl in lift_table(row):
         f = min(1.0, (abs(a) / math.radians(30.0)) ** 1.5)
-        cdi = (1.0 - f) * row.k * cl * cl + f * abs(cl) * abs(math.tan(a))
-        out.append((a, cdi))
+        out.append((a, f * abs(cl) * abs(math.tan(a))))
     return out
 
 
@@ -493,13 +551,88 @@ def cm_alpha(row):
     return -STATIC_MARGIN * cl_alpha(row)
 
 
+CLA_TAIL, TAIL_ETA = 2.4, 0.9   # [GEO] the tail's own lift slope and dynamic-pressure ratio
+
+
 def cm_de(row):
-    """INV against A5 (recipe §6): full stick must trim the aircraft to the published g limit at the
-    corner. At the corner the aircraft is at CLmax, so the elevator must balance the pitching moment of
-    an alpha at the limit:  Cmde * de_max = -Cmalpha * alpha_limit."""
+    """[GEO] from the row's own tail volume: Cmde = -CLa_h * (S_h/S) * (l_h/cbar) * eta, the SAME
+    surface that produces CLde = {CLa_h*(S_h/S)*eta} = 0.432 one axis up.
+
+    IT USED TO BE INVERTED AGAINST A5 -- Cmde*de_max = -Cmalpha*alpha_limit -- and that inversion is
+    RETIRED with its measurement, because it sizes the elevator to BARELY trim the alpha limit at full
+    travel, i.e. to an aeroplane with zero manoeuvre margin at its own limit. Two numbers killed it:
+      * on f5e it returned 0.167/rad where the recipe's own [SET] tail volume implies 1.25/rad, a
+        factor 7.5 -- §2 and §6 were describing two different tails;
+      * ROTATION. The moment balance about the main gear at Vr = 1.15*Vs needs
+            |Cmde| >= [ d*CLmax/(1.3225*de_max) + 0.432*kCLge*d ] / cbar
+        = 0.415/rad on f5e at the [SET] 0.15*cbar main-gear offset. 0.167 could not lift the nose: full
+        aft stick from 167 kt held 2.8 deg of pitch until 226 kt, and the take-off run measured 1 403 m
+        against a published 610 (+130 %) on EVERY row that publishes one, to within 4 %.
+    The [GEO] value satisfies both by construction: it rotates with margin, and trimming the alpha
+    limit now costs a fraction of the travel instead of all of it."""
+    return -CLA_TAIL * 0.20 * (0.42 * row.l_m / (row.s_m2 / row.b_m)) * TAIL_ETA
+
+
+def a4_weight_kg(row):
+    """The WEIGHT at which the row's published maximum rate of climb is reachable with its own frozen
+    thrust and its own inverted polar, at sea level, maximised over Mach. 0 where the row publishes no
+    rate.
+
+    THIS IS R11'S MISSING DERIVATION, and it decides per row rather than by decree whether A4 is an
+    anchor at all. Every other anchor in the catalogue is quoted at the GROSS weight; the climb rates
+    name no weight. Computed:
+      * f15c 13 141 kg, su22 9 982 kg, mirf1 6 024 kg -- BELOW the row's own EMPTY weight, i.e. the
+        published figure is unreachable at any loading of that aeroplane. It is not a constraint on a
+        deck, it is a constraint on nothing.
+      * su27, mig23, mig25, su7, f5e -- between empty and gross, i.e. a light-weight figure whose weight
+        no source states.
+      * mig17 alone reaches its published 65 m/s at gross (76.9 m/s available).
+    So A4 is JUDGED where the figure is reachable at the weight the rest of the anchor set is flown at,
+    and a PROBE where it is not."""
+    if row.a4_roc_ms <= 0.0:
+        return 0.0
+    tbl, _ = cd0_table(row)
+    rho, a = isa(0.0)
+    best = 0.0
+    for i in range(4, 22):
+        m = i * 0.05
+        v = m * a
+        qs = 0.5 * rho * v * v * row.s_m2
+        thrust = row.thrust_n(m, 0.0)
+        cd0 = lerp_table(tbl, m)
+        lo, hi = 200.0, row.gross_kg * 3.0
+        for _ in range(80):
+            mid = 0.5 * (lo + hi)
+            w = mid * G0
+            cl = w / qs
+            if (thrust - (cd0 + row.k * cl * cl) * qs) * v / w > row.a4_roc_ms:
+                lo = mid
+            else:
+                hi = mid
+        best = max(best, 0.5 * (lo + hi))
+    return best
+
+
+def pitch_stick_max(row):
+    """systems/FBFlightControl's pitch authority cap for THIS row [DERIVED], recipe §6.1: the stick
+    fraction at which full travel TRIMS 1.5x the row's own alpha limit. The limiter then owns the same
+    50 % reserve on every row, and no row can pull itself into a tumble on the cap alone -- the one real
+    hazard the MiG-29 round measured on a raw airframe. It is the ONE number a catalogue row's flight
+    control preset needs beyond its published alpha limit."""
     a = math.radians(row.alpha_lim_deg)
-    need = abs(cm_alpha(row)) * a
-    return -need / math.radians(ELEV_MAX_DEG)
+    de = math.radians(ELEV_MAX_DEG)
+    return min(1.0, 1.5 * abs(cm_alpha(row)) * a / (abs(cm_de(row)) * de))
+
+
+def cm_de_rotation_demand(row):
+    """What rotation at Vr needs of |Cmde|, so the deck can print its own margin (recipe §7 step 5).
+    0 where the row publishes no stall/landing speed -- such a row spawns airborne and never rotates."""
+    if row.clmax_v_ms <= 0.0:
+        return 0.0
+    chord = row.s_m2 / row.b_m
+    d = 0.15 * chord
+    de = math.radians(ELEV_MAX_DEG)
+    return (d * cl_max(row) / (1.3225 * de) + 0.432 * 1.15 * d) / chord
 
 
 # --------------------------------------------------------------------------------------------------
@@ -1010,12 +1143,33 @@ def deck_xml(row):
           </table>
         </product>
       </function>
-      <!-- LIFT-DEPENDENT DRAG. k = 1/(pi*AR*e) = {k:.4f} with e = 0.66 [DERIVED, recipe §4.1 — the
-           F-5E's published CD0/(L/D)max pair, generalised, and the FIRST term the attribution band
-           sweeps]. Past the linear range leading-edge suction is progressively lost:
-             CDi(a) = (1-f)*k*CL^2 + f*CL*tan(a),  f = min(1, (a/30deg)^1.5)   [ANALOGY] -->
-      <function name="aero/coefficient/CDalpha">
-        <description>Lift-dependent drag vs alpha</description>
+      <!-- LIFT-DEPENDENT DRAG, and it is written AGAINST THE LIFT COEFFICIENT THE DECK ACTUALLY
+           PRODUCES (aero/cl-squared) and not against alpha. k = 1/(pi*AR*e) = {k:.4f} with e = 0.66
+           [DERIVED, recipe §4.1 — the F-5E's published CD0/(L/D)max pair, generalised, and the FIRST
+           term the attribution band sweeps]. Past the linear range leading-edge suction is
+           progressively lost, and only THAT part is a function of attitude:
+             CDi = k*CL^2*(1-f(a)) + f(a)*CL*tan(a),   f = min(1, (a/30deg)^1.5)   [ANALOGY]
+           MEASURED, and the reason the split exists: with the whole term tabulated in alpha the deck
+           charged 2.9x the polar's own induced drag at a supersonic dash attitude, because a parabola
+           sampled every 5 deg is read as a chord at 1.8 deg AND because kCLmach's lift loss reappears
+           as extra alpha. Neither is a property of the aeroplane; both moved A1. -->
+      <function name="aero/coefficient/CDi">
+        <description>Induced drag on the lift actually produced</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>aero/cl-squared</property>
+          <value> {k:.6f} </value>
+          <table>
+            <independentVar>aero/alpha-rad</independentVar>
+            <tableData>
+{blend}
+            </tableData>
+          </table>
+        </product>
+      </function>
+      <function name="aero/coefficient/CDsuction">
+        <description>Leading-edge suction lost past the linear range</description>
         <product>
           <property>aero/qbar-psf</property>
           <property>metrics/Sw-sqft</property>
@@ -1144,10 +1298,12 @@ def deck_xml(row):
     <axis name="PITCH">
       <!-- Cmalpha = -{sm} * CLalpha = {cma:.4f} /rad [SET static margin, {sm100:.0f} % of the mean
            geometric chord — no row publishes one, and a stable margin is what a conventional airframe
-           of this era has]. Cmde = {cmde:.4f} /rad is INVERTED AGAINST A5 (recipe §6): full stick must
-           trim the aircraft to its published alpha limit, so |Cmalpha|*a_lim = |Cmde|*de_max. That is
-           why the [SET] tail volumes above are harmless — the error is absorbed one step later, by an
-           inversion against a published number. -->
+           of this era has]. Cmde = {cmde:.4f} /rad is [GEO] from THIS row's own tail volume,
+           -CLa_h*(S_h/S)*(l_h/cbar)*eta, the same surface that produces CLde = 0.432 one axis up.
+           IT IS NO LONGER INVERTED AGAINST A5: that inversion sized the elevator to barely TRIM the
+           alpha limit at full travel and could not lift a nose off a runway — measured, a take-off run
+           of 1 403 m against a published 610 with full aft stick held from 167 to 226 kt. Rotation at
+           Vr = 1.15*Vs needs |Cmde| >= {cmderot:.3f}/rad here; this deck carries {cmdeabs:.3f}. -->
       <function name="aero/coefficient/Cm">
         <description>Pitch moment due to alpha</description>
         <product>
@@ -1241,9 +1397,11 @@ def deck_xml(row):
                   "NO TAKEOFF-RUN ANCHOR AND SPAWNS AIRBORNE (recipe §4.5)]"),
            lift=tbl_xml(lift_table(row), 14, "%9.4f  %9.4f"),
            cd0=tbl_xml(cd0, 14, "%9.2f  %9.5f"),
-           cdi=tbl_xml(drag_alpha_table(row), 14, "%9.4f  %9.5f"),
+           cdi=tbl_xml(suction_drag_table(row), 14, "%9.4f  %9.5f"),
+           blend=tbl_xml(suction_blend_table(row), 14, "%9.4f  %9.5f"),
            k=row.k, clda=0.055 + 0.02 * min(1.0, row.ar / 4.0),
            sm=STATIC_MARGIN, sm100=STATIC_MARGIN * 100.0, cma=cma, cmde=cmde,
+           cmderot=cm_de_rotation_demand(row), cmdeabs=abs(cmde),
            lvb=0.40 * row.l_m / row.b_m, cnb=2.0 * 0.15 * (0.40 * row.l_m / row.b_m) * 0.9,
            cndr=-0.6 * 2.0 * 0.15 * (0.40 * row.l_m / row.b_m) * 0.9)
 
@@ -1305,11 +1463,14 @@ struct FBAirAnchorRow {{
   double A2Mach;              /* Vmax at sea level; 0 = [TODO] in the catalogue */
   double A3CeilingM;
   double A4RocMs;             /* 0 = the row publishes a TIME to height instead, or nothing */
+  double A4WeightKg;          /* the weight the published rate is reachable at; < GrossKg = a PROBE */
   double A5G;                 /* 0 = [TODO]; the limiter is then [SET] from the measured CLmax */
   double AlphaLimitDeg;
   double EmptyKg, GrossKg, FuelKg;
   double TakeoffRunM;         /* 0 = not published */
   double WingAreaM2, SpanM, ClMax;   /* A8 + the lift curve's own CLmax, for the ground run's Vr */
+  double ClAtAlphaLimit;             /* the lift the ALPHA LIMITER allows, which is what a pull reaches */
+  double PitchStickMax;              /* systems/FBFlightControl's cap [DERIVED], recipe §6.1 */
   int    Engines;
 }};
 
@@ -1340,10 +1501,13 @@ def anchors_header():
     for r in ANCHORS:
         empty = r.empty_kg if r.empty_kg > 0.0 else r.gross_kg - r.fuel_kg - 100.0
         rows.append('    {"%s", "%s", %.3f, %.1f, %.3f, %.1f, %.1f, %.1f, %.1f, %.1f, %.1f, %.1f, '
-                    "%.1f, %.2f, %.3f, %.3f, %d},\n"
+                    "%.1f, %.1f, %.2f, %.3f, %.3f, %.3f, %.3f, %d},\n"
                     % (r.key, r.name, r.a1_mach, r.a1_alt_m, r.a2_mach, r.a3_ceil_m,
-                       r.a4_roc_ms, r.a5_g, r.alpha_lim_deg, empty, r.gross_kg,
-                       r.fuel_kg, TAKEOFF_M.get(r.key, 0.0), r.s_m2, r.b_m, cl_max(r), r.engines))
+                       r.a4_roc_ms, a4_weight_kg(r), r.a5_g, r.alpha_lim_deg, empty, r.gross_kg,
+                       r.fuel_kg, TAKEOFF_M.get(r.key, 0.0), r.s_m2, r.b_m, cl_max(r),
+                       cl_alpha(r) * math.sin(math.radians(r.alpha_lim_deg))
+                       * math.cos(math.radians(r.alpha_lim_deg)) ** 2,
+                       pitch_stick_max(r), r.engines))
     return ANCHORS_TPL.format(rows="".join(rows))
 
 

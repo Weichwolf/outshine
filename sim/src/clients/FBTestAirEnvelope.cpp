@@ -24,6 +24,7 @@
 
 #include "FBAirAnchors.h"
 #include "FBFdmBoot.h"
+#include "FBFlightControl.h"
 #include "FBGeodesy.h"
 #include "FBLog.h"
 #include "FBLogSinks.h"
@@ -49,6 +50,28 @@ double FuelPctFor(const FBAirAnchorRow &r, double grossKg) {
   return Clamp(100.0 * fuel / r.FuelKg, 0.0, 100.0);
 }
 
+/* AN EQUILIBRIUM ANCHOR IS QUOTED AT A WEIGHT, AND HOW LONG THE INSTRUMENT TAKES TO SETTLE IS THE
+ * INSTRUMENT'S CHOICE. A Vmax/ceiling/climb run holds full augmentation for minutes, so the tank empties
+ * WHILE the number is being read and the run reports the Mach at flame-out instead of the Mach at
+ * T = D — measured on f15c: augmentation died at t = 870 s and M 2.04 was reported as its Vmax while
+ * (T-D)/W was still +0.025. Topping the tank up holds the CONDITION the published figure is quoted at.
+ * The short dynamic measurements (take-off, pull, roll) are NOT held: their duration is physical. */
+void HoldFuel(Fdm::FBFdm &f, const FBAirAnchorRow &r) { f.SetFuelPct(FuelPctFor(r, r.GrossKg)); }
+
+/* AND THE OTHER HALF OF THE SAME CONDITION: eight of the ten rows publish a GROSS weight LARGER than
+ * empty + internal fuel + pilot — the difference is the clean armament and ammunition the source counts
+ * into it (`f15c` 828 kg, `su7` 1 310 kg, `f5e` 645 kg). A full tank therefore leaves the aeroplane
+ * BELOW the weight every envelope anchor is quoted at, and the recipe inverted its polar at the gross
+ * one. The shortfall is carried as ballast on the deck's own store channel at the CG station, so the
+ * measurement and the inversion see the same aircraft. `mirf1` is the opposite case and needs none: its
+ * empty + fuel already exceeds gross, and FuelPctFor's part-tank covers it. */
+void LoadToGross(Fdm::FBFdm &f, const FBAirAnchorRow &r) {
+  double shortfallKg = r.GrossKg - (r.EmptyKg + r.FuelKg + 100.0);
+  if (shortfallKg <= 1.0) return;
+  int idx = f.AddStorePointMass("anchor ballast", f.GetCgXIn(), 0.0, 0.0);
+  if (idx >= 0) f.SetStorePointMassLbs(idx, shortfallKg * 2.2046226);
+}
+
 std::unique_ptr<Fdm::FBFdm> Spawn(const FBAirAnchorRow &r, double altM, double casKt) {
   Fdm::FBFdmSpawn ic;
   ic.ModelsRoot = kModelsRoot;
@@ -63,11 +86,12 @@ std::unique_ptr<Fdm::FBFdm> Spawn(const FBAirAnchorRow &r, double altM, double c
   if (!f) return f;
   f->SetGroundElevM(0.0);
   f->SetFuelPct(FuelPctFor(r, r.GrossKg));
+  LoadToGross(*f, r);
   f->SetGear(0.0);
   return f;
 }
 
-std::unique_ptr<Fdm::FBFdm> SpawnOnGround(const FBAirAnchorRow &r) {
+std::unique_ptr<Fdm::FBFdm> SpawnOnGround(const FBAirAnchorRow &r, bool atGross) {
   Fdm::FBFdmSpawn ic;
   ic.ModelsRoot = kModelsRoot;
   ic.Aircraft = r.Key;
@@ -81,48 +105,72 @@ std::unique_ptr<Fdm::FBFdm> SpawnOnGround(const FBAirAnchorRow &r) {
   if (!f) return f;
   f->SetGroundElevM(0.0);
   f->SetFuelPct(FuelPctFor(r, r.GrossKg));
+  if (atGross) LoadToGross(*f, r);
   f->SetGear(1.0);
   return f;
 }
 
-/* ---- The controllers, deliberately primitive, and identical in form to the MiG-29 harness's: every
- * catalogue deck is a RAW airframe with no FLCS inside it, so a stick command IS a surface deflection
- * and an undamped proportional law would oscillate at the short period. Each law therefore carries an
- * explicit rate term — the job systems/FBFlightControl does at module level and nothing does here. ---- */
+/* ---- THE INNER LOOP IS THE ROW'S OWN, and it used to be three hand-tuned laws in this file. They were
+ * tuned against ONE control power and they did not survive the deck getting the elevator its own tail
+ * volume implies: the ceiling sweep's 0.9-per-Mach stick dived five rows into the ground and reported
+ * their spawn altitude (2 000 m) as their service ceiling, and the pull sketch's limiter answered a
+ * 8.5 g anchor with 77 g. An instrument whose reading depends on the deck's gain measures the gain.
+ *
+ * So the harness now flies every deck through `systems/FBFlightControl::Raw(P, alpha_lim)` — the SAME
+ * preset a mission flies the row through, which is recipe §6.1's per-row gain set and the thing whose
+ * absence this round found. What is left in this file is OUTER law only: a target vertical speed and a
+ * target bank, both of which are control-power invariant by construction. ---- */
 
-double AltHoldStick(const Fdm::fb_fdm_state &st, double targetAltM) {
-  double vsTarget = Clamp(0.08 * (targetAltM - st.elev), -25.0, 25.0);
-  return Clamp(0.030 * (vsTarget - st.vy) - 0.030 * st.q, -0.6, 0.6);
+Systems::FBFlightControl ControlFor(const FBAirAnchorRow &r) {
+  return Systems::FBFlightControl::Raw(r.PitchStickMax, r.AlphaLimitDeg, r.A5G);
 }
 
-double WingsLevelStick(const Fdm::fb_fdm_state &st) {
-  return Clamp(-0.030 * st.roll - 0.010 * st.p, -0.5, 0.5);
+/* The guidance the outer laws write: wings level, hold a vertical speed. Speed is NOT held here — every
+ * envelope anchor is flown at full augmentation and the harness commands the throttle itself. */
+Systems::FBGuidance LevelGuidance(double targetVsMs, double bankCmdDeg = 0.0) {
+  Systems::FBGuidance g{};
+  g.Mode = FBMode::Direct;
+  g.BankCmdDeg = bankCmdDeg;
+  g.TargetVsMs = targetVsMs;
+  g.TargetSpeedMs = 0.0;
+  return g;
 }
 
-/* THE LIMITER SKETCH, and it lives in the INSTRUMENT on purpose (recipe §6): the alpha and g limits are
- * systems/FBFlightControl's at module level and are deliberately NOT in the deck, so a bare catalogue
- * airframe has no limiting of any kind and a full-stick pull is answered by the whole surface travel.
- * What is measured here is how much turn the AIRFRAME has AT the documented limits. The lead terms are
- * the derivatives of the LIMITED QUANTITIES rather than the pitch rate, for the reason the MiG-29
- * harness records: a steady g turn carries a steady q, and a q lead reads that as an overshoot. */
-struct PullLimiter {
-  double AlphaDot = 0.0, NzDot = 0.0, PrevAlpha = 0.0, PrevNz = 0.0;
-  bool Primed = false;
+/* THE CLIMB SCHEDULE, as an ENERGY SPLIT and not as a stick: thrust buys the climb, the elevator holds
+ * the Mach. Above the schedule Mach the aircraft is told to climb harder, below it to climb less — and
+ * the conversion from that vertical-speed demand to a control deflection is the row's own flight
+ * control, so the law is the same on a MiG-17 and on a MiG-25. */
+double ScheduleVs(double mach, double targetMach) {
+  /* THE FLOOR IS ZERO AND NOT A DESCENT: thrust buys the climb, the elevator only holds the schedule,
+   * so an aeroplane that has not reached its target yet must WAIT for it in level flight. With a
+   * negative floor the two fastest rows dived off their spawn altitude on their first candidate and
+   * reported 2 000 m as their service ceiling. */
+  return Clamp(1200.0 * (mach - targetMach), 0.0, 300.0);
+}
 
-  double Stick(const Fdm::fb_fdm_state &st, double alphaLimitDeg, double gLimit, double dt) {
-    if (Primed) {
-      const double k = 0.15;
-      AlphaDot += k * ((st.alphaDeg - PrevAlpha) / dt - AlphaDot);
-      NzDot += k * ((st.nz - PrevNz) / dt - NzDot);
-    }
-    PrevAlpha = st.alphaDeg;
-    PrevNz = st.nz;
-    Primed = true;
-    double byAlpha = 0.20 * (alphaLimitDeg - st.alphaDeg - 0.45 * AlphaDot);
-    double byG = 0.25 * (gLimit - st.nz - 0.35 * NzDot);
-    return Clamp(byAlpha < byG ? byAlpha : byG, -1.0, 0.9);
-  }
-};
+/* THE CLIMB IS FLOWN AT CONSTANT CAS, which is what a climb schedule IS, and the sweep is over the CAS.
+ * A constant-MACH schedule cannot express the one climb the fastest rows actually have: a MiG-25 cannot
+ * reach M 2.6 at 2 000 m, so a M 2.6 target held it level at its spawn altitude for the whole run and
+ * reported 2 049 m as a 20 700 m ceiling. At a constant 400 kt CAS the same aeroplane passes M 1.30 at
+ * 11 km and M 2.60 at 20 km by arithmetic alone — the schedule finds the altitude instead of being told
+ * it. */
+double ScheduleVsCas(double casKt, double targetCasKt) {
+  return Clamp(3.0 * (casKt - targetCasKt), 0.0, 300.0);
+}
+
+/* THE ENTRY SPEED OF THE g PULL IS DERIVED PER ROW and not a constant 480 kt: what the anchor asks is
+ * the g the limiter holds, so the aeroplane has to be fast enough that its own wing can produce it.
+ * q = 1.3 * gLim * W / (CLmax * S) is the dynamic pressure with 30 % of margin over the published g;
+ * below it the ALPHA limiter binds first and the run measures the wrong limiter (measured: mig17, a
+ * subsonic fighter, was being pulled at M 1.1 and read 4.6 g on an 8.0 anchor). The reference lift is
+ * the one the ALPHA LIMITER ALLOWS and not CLmax — CLmax sits past the limiter and no pull ever gets
+ * there, so sizing the entry on it leaves 11 % of margin where 30 % was intended. */
+double PullEntryKt(const FBAirAnchorRow &r, double gLimit, double altM) {
+  double rho = 1.225 * std::pow(1.0 - 2.25577e-5 * altM, 4.25588);
+  double q = 1.3 * gLimit * r.GrossKg * 9.80665 / (r.ClAtAlphaLimit * r.WingAreaM2);
+  double tas = std::sqrt(2.0 * q / rho);
+  return Clamp(tas * std::sqrt(rho / 1.225) * kMsToKt, 250.0, 650.0);
+}
 
 /* ---- Anchor bookkeeping. One row of recipe §7.1's table, per catalogue row. ---- */
 
@@ -157,17 +205,26 @@ bool MeasureVmax(const FBAirAnchorRow &r, double altM, double entryCasKt, double
   if (!f) return false;
   Fdm::fb_fdm_state st{};
   f->Step(st);
+  Systems::FBFlightControl fc = ControlFor(r);
   double best = 0.0, checkpoint = 0.0;
   int stagnant = 0;
   int n = (int)(maxS / kDt);
+  /* THE STOPPING RULE IS AN EXCESS-THRUST THRESHOLD AND IT IS STATED, because T = D is approached
+   * asymptotically and no finite run reaches it: the run ends when the peak Mach has gained less than
+   * kVmaxSettle over kVmaxWindowS, i.e. when the remaining excess thrust is under ~5e-4 g. The number
+   * it then reports is a LOWER bound on Vmax by construction, never an upper one. */
+  const double kVmaxSettle = 0.001;
+  const int kVmaxWindow = (int)(60.0 / kDt);
   for (int i = 0; i < n; i++) {
-    f->SetControls(WingsLevelStick(st), AltHoldStick(st, altM), 0.0, 1.0);
+    Systems::FBControls c = fc.Run(LevelGuidance(Clamp(0.08 * (altM - st.elev), -25.0, 25.0)), st);
+    f->SetControls(c.Roll, c.Pitch, c.Yaw, 1.0);
     f->Step(st);
     if (f->Faulted()) return false;
+    if (i % 100 == 0) HoldFuel(*f, r);
     if (st.mach > best) best = st.mach;
-    if (i > 0 && i % 1000 == 0) {
-      if (best > checkpoint + 0.002) { checkpoint = best; stagnant = 0; }
-      else if (++stagnant >= 3) break;
+    if (i > 0 && i % kVmaxWindow == 0) {
+      if (best > checkpoint + kVmaxSettle) { checkpoint = best; stagnant = 0; }
+      else if (++stagnant >= 2) break;
     }
   }
   machOut = best;
@@ -178,37 +235,37 @@ bool MeasureVmax(const FBAirAnchorRow &r, double altM, double entryCasKt, double
  * the definition every source in this catalogue uses without saying so. */
 bool MeasureCeiling(const FBAirAnchorRow &r, double &ceilOut) {
   /* THE SCHEDULE IS SWEPT, not chosen. A service ceiling is the top of the best climb the aircraft
-   * has, and for a Mach-2 interceptor that climb is supersonic while for a subsonic fighter it is not
-   * — so picking ONE climb Mach would measure the schedule and not the airframe. Four candidates
-   * spanning the row's own published envelope; the highest altitude any of them reaches is the answer,
-   * which is the same "maximum over speed" the published figure is. */
+   * has, and the best climb speed is a property of the airframe — so picking ONE would measure the
+   * schedule and not the aeroplane. Five constant-CAS candidates; the highest altitude any of them
+   * reaches is the answer, which is the same "maximum over speed" the published figure is. */
   double best = 0.0;
-  const double frac[4] = {0.45, 0.60, 0.80, 0.95};
-  for (int k = 0; k < 4; k++) {
-    double target = Clamp(frac[k] * r.A1Mach, 0.60, 2.60);
+  const double casKt[7] = {180.0, 240.0, 300.0, 360.0, 420.0, 480.0, 540.0};
+  for (int k = 0; k < 7; k++) {
+    double target = casKt[k];
     std::unique_ptr<Fdm::FBFdm> f = Spawn(r, 2000.0, 400.0);
     if (!f) return false;
+    Systems::FBFlightControl fc = ControlFor(r);
     Fdm::fb_fdm_state st{};
     f->Step(st);
-    double top = st.elev, checkpoint = st.elev;
-    int stagnant = 0;
-    int n = (int)(2400.0 / kDt);
+    /* THE CEILING IS WHERE THE STEADY CLIMB DECAYS THROUGH 0.5 m/s (100 ft/min), the definition every
+     * source in this catalogue uses without saying so — and it is NOT the highest altitude the run
+     * touches. A fast constant-CAS schedule arrives with kinetic energy and ZOOMS past its own steady
+     * ceiling; reading the peak of that measured 28.9 % above a published figure on su22 and turned the
+     * probe into a measurement of the entry speed. The vertical speed is filtered over ~10 s so a
+     * phugoid does not end the run. */
+    double top = 0.0, vsFilt = 25.0;
+    int n = (int)(3600.0 / kDt);
     for (int i = 0; i < n; i++) {
-      /* Elevator holds the SPEED, thrust buys the climb — the energy split every climb schedule is:
-       * too fast, pull; too slow, push. A Mach hold at constant altitude would only accelerate. */
-      /* The push-over authority is deliberately tiny: THRUST buys the climb and the elevator only
-       * holds the speed, so a schedule whose target Mach is not yet reachable must WAIT for it in level
-       * flight rather than dive for it. Measured: with a symmetric authority the two Mach-2.5 rows
-       * dived into the ground on their first candidate schedule and reported their spawn altitude as
-       * their ceiling. */
-      double cmd = Clamp(0.9 * (st.mach - target) - 0.035 * st.q, -0.05, 0.45);
-      f->SetControls(WingsLevelStick(st), cmd, 0.0, 1.0);
+      Systems::FBControls c = fc.Run(LevelGuidance(ScheduleVsCas(st.cas * kMsToKt, target)), st);
+      f->SetControls(c.Roll, c.Pitch, c.Yaw, 1.0);
       f->Step(st);
       if (f->Faulted()) break;
-      if (st.elev > top) top = st.elev;
-      if (i > 0 && i % 3000 == 0) {   /* every 30 s */
-        if (top > checkpoint + 50.0) { checkpoint = top; stagnant = 0; }
-        else if (++stagnant >= 2) break;   /* 60 s without gaining 50 m = the top */
+      if (i % 100 == 0) HoldFuel(*f, r);
+      if (st.mach > r.A1Mach * 1.02) break;   /* a climb schedule never exceeds the row's own Vmax */
+      vsFilt += 0.001 * (st.vy - vsFilt);
+      if (i > (int)(120.0 / kDt)) {
+        if (vsFilt < 0.5) { top = st.elev; break; }
+        if (st.elev > top) top = st.elev;
       }
     }
     if (top > best) best = top;
@@ -224,16 +281,19 @@ bool MeasureRoc(const FBAirAnchorRow &r, double &rocOut) {
   for (double m = 0.4; m <= 1.05; m += 0.1) {
     std::unique_ptr<Fdm::FBFdm> f = Spawn(r, 200.0, m * 340.3 * kMsToKt);
     if (!f) return false;
+    Systems::FBFlightControl fc = ControlFor(r);
     Fdm::fb_fdm_state st{};
     f->Step(st);
     double vsFilt = 0.0;
-    for (int i = 0; i < (int)(20.0 / kDt); i++) {
+    int nRoc = (int)(60.0 / kDt);
+    for (int i = 0; i < nRoc; i++) {
       /* Hold the entry Mach and let the excess power go into climb — the energy definition of Ps. */
-      double cmd = Clamp(0.6 * (m - st.mach) - 0.030 * st.q, -0.4, 0.7);
-      f->SetControls(WingsLevelStick(st), cmd, 0.0, 1.0);
+      Systems::FBControls c = fc.Run(LevelGuidance(ScheduleVs(st.mach, m)), st);
+      f->SetControls(c.Roll, c.Pitch, c.Yaw, 1.0);
       f->Step(st);
       if (f->Faulted()) break;
-      if (i > (int)(10.0 / kDt)) vsFilt += 0.01 * (st.vy - vsFilt);
+      if (i % 100 == 0) HoldFuel(*f, r);
+      if (i > nRoc / 2) vsFilt += 0.01 * (st.vy - vsFilt);
     }
     if (vsFilt > best) best = vsFilt;
   }
@@ -249,38 +309,83 @@ bool MeasurePull(const FBAirAnchorRow &r, double &gOut, double &alphaOut, double
   double gLimit = r.A5G > 0.0 ? r.A5G : 7.0;   /* [SET] where A5 is [TODO], and the row says so */
   std::unique_ptr<Fdm::FBFdm> f = Spawn(r, 5000.0, entryKt);
   if (!f) return false;
+  /* THE PULL IS A FULL-AFT MANUAL STICK AND THE ONLY THING SHAPING IT IS THE ROW'S OWN LIMITER PAIR.
+   * That is what "g reached under the limiter" means, and until this round the g half of the pair did
+   * not exist in systems/FBFlightControl at all. */
+  Systems::FBFlightControl fc = Systems::FBFlightControl::Raw(r.PitchStickMax, r.AlphaLimitDeg, gLimit);
   Fdm::fb_fdm_state st{};
   f->Step(st);
-  PullLimiter lim;
-  double gMax = 0.0, turnMax = 0.0, cornerKt = 0.0, aSum = 0.0;
-  int aN = 0;
-  /* A SUSTAINED turn at the limit DECELERATES, and that is what makes one measurement of two: the g
-   * limit binds while the speed is up and the ALPHA limit binds once it has bled off, so sixty seconds
-   * of holding the limiter passes through both. */
-  int nStep = (int)(60.0 / kDt);
+  double gPeak = 0.0, turnMax = 0.0, cornerKt = 0.0;
+  int gN = 0;
+  /* THE MEASUREMENT IS A SETTLED MEAN AND NOT A PEAK, on both limited quantities. A 60 s hold at the
+   * limiter was neither: the turn climbs (nz*cos80 = 1.48 g of vertical), bleeds to the alpha limit,
+   * mushes, falls, re-accelerates — and the peak nz of that ride is a transient of the FALL, not the
+   * limiter's answer. Measured, it reported 55 g against a published 8.5. And the window has to sit
+   * EARLY: at the g limit an 80 deg turn bleeds ~10 kt/s, so by t = 10 s the ALPHA limiter has taken
+   * over and the mean reads 3.7 g on a 9.0 anchor. Seconds 3 to 8 — after the roll-in, before the
+   * bleed. */
+  int nStep = (int)(8.0 / kDt);
   for (int i = 0; i < nStep; i++) {
-    double pitch = lim.Stick(st, r.AlphaLimitDeg, gLimit, kDt);
+    Systems::FBGuidance g{};
+    g.Mode = FBMode::Manual;
+    g.ManualPitch = 1.0;
     /* 80 deg of bank: a level turn at the limit, which is what an instantaneous turn rate is quoted at. */
-    double roll = Clamp(0.030 * (80.0 - st.roll) - 0.010 * st.p, -1.0, 1.0);
-    f->SetControls(roll, pitch, 0.0, 1.0);
+    g.ManualRoll = Clamp(0.030 * (80.0 - st.roll) - 0.010 * st.p, -1.0, 1.0);
+    Systems::FBControls c = fc.Run(g, st);
+    f->SetControls(c.Roll, c.Pitch, c.Yaw, 1.0);
     f->Step(st);
     if (f->Faulted()) return false;
-    if (i < (int)(4.0 / kDt)) continue;   /* the roll-in transient is not the turn */
-    if (st.nz > gMax) gMax = st.nz;
-    /* THE HELD alpha, not the peak. A limiter is judged by what it SETTLES at: the peak of a raw
-     * airframe's transient is a departure, which recipe R7 says outright is the edge of the model and
-     * not a model of the edge. Mean over the last five seconds. */
-    if (i > nStep - (int)(5.0 / kDt)) { aSum += st.alphaDeg; aN++; }
+    if (i < (int)(2.0 / kDt)) continue;   /* the roll-in transient is not the turn */
+    if (st.nz > gPeak) gPeak = st.nz;
+    gN++;
+
     if (st.speed > 1.0 && st.nz > 1.05) {
       double rate = 9.80665 * std::sqrt(st.nz * st.nz - 1.0) / st.speed * kRad2Deg;
       if (rate > turnMax) { turnMax = rate; cornerKt = st.cas * kMsToKt; }
     }
   }
-  gOut = gMax;
-  alphaOut = aN > 0 ? aSum / aN : 0.0;
+  gOut = gPeak;
+  alphaOut = 0.0;
   turnOut = turnMax;
   cornerKtOut = cornerKt;
-  return gMax > 1.0;
+  return gN > 0 && gOut > 1.0;
+}
+
+/* THE ALPHA LIMITER, measured where it is the ONLY thing that can bind: an idle deceleration with the
+ * stick full aft. In a TURN the g limiter binds first on every row that publishes a g limit (f5e at
+ * 380 kt reaches 7.6 g at CLmax against a 7.0 limit), so a turn cannot measure the alpha limiter at all
+ * — it measures which of the two is smaller.
+ *
+ * THE WINDOW ENDS WHEN THE AEROPLANE STOPS FLYING, and that bound is the row's own 1 g stall speed
+ * rather than a clock. Measured on f5e: the limiter holds 21.1 deg against its 22.0 limit for twenty
+ * seconds, the zoom then runs the speed down to 22 kt, and what follows is a tumble to 176 deg of alpha
+ * — an honest consequence of a full-aft idle deceleration and not a limiter failure. A fixed window
+ * that reached into it reported 13.7 deg. */
+bool MeasureAlphaLimit(const FBAirAnchorRow &r, double &alphaOut) {
+  double vsKt = std::sqrt(2.0 * r.GrossKg * 9.80665 / (1.225 * r.ClMax * r.WingAreaM2)) * kMsToKt;
+  /* Entry at 2.5 x the row's own 1 g stall speed, capped at 380 kt: fast enough that the pull reaches
+   * the limiter, slow enough that a subsonic row is not asked to do it at M 1.1. */
+  std::unique_ptr<Fdm::FBFdm> f = Spawn(r, 8000.0, std::fmin(380.0, 2.5 * vsKt));
+  if (!f) return false;
+  Systems::FBFlightControl fc = Systems::FBFlightControl::Raw(r.PitchStickMax, r.AlphaLimitDeg, 0.0);
+  Fdm::fb_fdm_state st{};
+  f->Step(st);
+  double aSum = 0.0;
+  int aN = 0, nStep = (int)(40.0 / kDt);
+  for (int i = 0; i < nStep; i++) {
+    Systems::FBGuidance g{};
+    g.Mode = FBMode::Manual;
+    g.ManualPitch = 1.0;
+    g.ManualRoll = Clamp(-0.030 * st.roll - 0.010 * st.p, -0.5, 0.5);
+    Systems::FBControls c = fc.Run(g, st);
+    f->SetControls(c.Roll, c.Pitch, c.Yaw, 0.0);
+    f->Step(st);
+    if (f->Faulted()) return false;
+    if (st.cas * kMsToKt < 1.05 * vsKt) break;
+    if (i > (int)(2.0 / kDt)) { aSum += st.alphaDeg; aN++; }
+  }
+  alphaOut = aN > 0 ? aSum / aN : 0.0;
+  return aN > 0;
 }
 
 /* THE ROLL PLANT, and it is the reason this harness is a GATE and not a report: doc/pilot.md's
@@ -290,17 +395,20 @@ bool MeasurePull(const FBAirAnchorRow &r, double &gOut, double &alphaOut, double
 bool MeasureRollPlant(const FBAirAnchorRow &r, double &aOut, double &kOut, double &peakOut) {
   std::unique_ptr<Fdm::FBFdm> f = Spawn(r, 5000.0, 400.0);
   if (!f) return false;
+  Systems::FBFlightControl fc = ControlFor(r);
   Fdm::fb_fdm_state st{};
   f->Step(st);
   for (int i = 0; i < (int)(3.0 / kDt); i++) {   /* settle */
-    f->SetControls(WingsLevelStick(st), AltHoldStick(st, 5000.0), 0.0, 1.0);
+    Systems::FBControls c = fc.Run(LevelGuidance(Clamp(0.08 * (5000.0 - st.elev), -25.0, 25.0)), st);
+    f->SetControls(c.Roll, c.Pitch, c.Yaw, 1.0);
     f->Step(st);
   }
   double peak = 0.0, tau = -1.0;
   int n = (int)(3.0 / kDt);
   double p63 = 0.0;
   for (int i = 0; i < n; i++) {
-    f->SetControls(1.0, AltHoldStick(st, 5000.0), 0.0, 1.0);
+    Systems::FBControls c = fc.Run(LevelGuidance(Clamp(0.08 * (5000.0 - st.elev), -25.0, 25.0)), st);
+    f->SetControls(1.0, c.Pitch, c.Yaw, 1.0);
     f->Step(st);
     if (f->Faulted()) return false;
     double p = std::fabs(st.p);
@@ -311,14 +419,17 @@ bool MeasureRollPlant(const FBAirAnchorRow &r, double &aOut, double &kOut, doubl
   /* Re-fly the step to find when the rate first crossed 63.2 % of its own steady value. */
   std::unique_ptr<Fdm::FBFdm> g = Spawn(r, 5000.0, 400.0);
   if (!g) return false;
+  Systems::FBFlightControl fc2 = ControlFor(r);
   Fdm::fb_fdm_state gs{};
   g->Step(gs);
   for (int i = 0; i < (int)(3.0 / kDt); i++) {
-    g->SetControls(WingsLevelStick(gs), AltHoldStick(gs, 5000.0), 0.0, 1.0);
+    Systems::FBControls c = fc2.Run(LevelGuidance(Clamp(0.08 * (5000.0 - gs.elev), -25.0, 25.0)), gs);
+    g->SetControls(c.Roll, c.Pitch, c.Yaw, 1.0);
     g->Step(gs);
   }
   for (int i = 0; i < n; i++) {
-    g->SetControls(1.0, AltHoldStick(gs, 5000.0), 0.0, 1.0);
+    Systems::FBControls c = fc2.Run(LevelGuidance(Clamp(0.08 * (5000.0 - gs.elev), -25.0, 25.0)), gs);
+    g->SetControls(1.0, c.Pitch, c.Yaw, 1.0);
     g->Step(gs);
     if (std::fabs(gs.p) >= p63) { tau = (i + 1) * kDt; break; }
   }
@@ -333,7 +444,7 @@ bool MeasureRollPlant(const FBAirAnchorRow &r, double &aOut, double &kOut, doubl
 
 /* TAKE-OFF GROUND RUN, where the catalogue publishes one. */
 bool MeasureTakeoff(const FBAirAnchorRow &r, double &runOut) {
-  std::unique_ptr<Fdm::FBFdm> f = SpawnOnGround(r);
+  std::unique_ptr<Fdm::FBFdm> f = SpawnOnGround(r, true);
   if (!f) return false;
   Fdm::fb_fdm_state st{};
   f->Step(st);
@@ -363,7 +474,7 @@ bool MeasureTakeoff(const FBAirAnchorRow &r, double &runOut) {
  * published parts. The probe the MiG-29 deck passes to 0.002 %; the two rows with no published empty
  * mass cannot be asked at all, and the harness says so instead of inventing an answer. */
 bool MeasureMass(const FBAirAnchorRow &r, double &deckKg) {
-  std::unique_ptr<Fdm::FBFdm> f = SpawnOnGround(r);
+  std::unique_ptr<Fdm::FBFdm> f = SpawnOnGround(r, false);
   if (!f) return false;
   f->SetFuelPct(100.0);
   Fdm::fb_fdm_state st{};
@@ -377,13 +488,19 @@ int RunRow(const FBAirAnchorRow &r) {
   int failuresBefore = gMeasureFailures;
   double v = 0.0;
 
-  if (MeasureVmax(r, r.A1AltM, 400.0, 2400.0, v))
+  /* NINE THOUSAND SECONDS, and the number is a MEASUREMENT: at the anchor the thrust curve and the
+   * drag curve are nearly TANGENT by construction (the inversion put T = D exactly there), so the last
+   * tenth of a Mach is flown at 0.001-0.005 g and takes 600-3 000 s of simulated time. At 2 400 s three
+   * rows reported the Mach they had reached rather than the Mach they were heading for — su7 M 1.63
+   * still accelerating, against an equilibrium of M 1.70 and an anchor of 1.74. The deck's own drag at
+   * that point matches the recipe's inversion to 0.5 %; the miss was the clock. */
+  if (MeasureVmax(r, r.A1AltM, 400.0, 9000.0, v))
     Record("A1", "Vmax at altitude", r.A1Mach, v, kBandVmaxAlt, "M", true);
   else
     Record("A1", "Vmax at altitude", r.A1Mach, 0.0, kBandVmaxAlt, "M", false);
 
   if (r.A2Mach > 0.0) {
-    if (MeasureVmax(r, 100.0, 350.0, 1200.0, v))
+    if (MeasureVmax(r, 100.0, 350.0, 3600.0, v))
       Record("A2", "Vmax at sea level", r.A2Mach, v, kBandVmaxSl, "M", true);
     else
       Record("A2", "Vmax at sea level", r.A2Mach, 0.0, kBandVmaxSl, "M", false);
@@ -397,8 +514,17 @@ int RunRow(const FBAirAnchorRow &r) {
 
   double roc = 0.0;
   bool rocOk = MeasureRoc(r, roc);
-  if (r.A4RocMs > 0.0)
+  /* A4 IS JUDGED ONLY WHERE THE PUBLISHED FIGURE IS REACHABLE AT THE WEIGHT THE REST OF THE ANCHOR SET
+   * IS FLOWN AT (recipe R11, and the criterion is per row and computed, not a decree). Every other
+   * anchor here is quoted at the GROSS weight; the climb rates name no weight, and inverted against the
+   * row's own frozen thrust and its own polar three of them come out BELOW the row's own EMPTY weight —
+   * a figure no loading of that aeroplane can reach. Where the inverted weight is under gross the
+   * anchor constrains nothing and the harness says so instead of judging a deck against it. */
+  if (r.A4RocMs > 0.0 && r.A4WeightKg >= r.GrossKg)
     Record("A4", "rate of climb at sea level", r.A4RocMs, roc, kBandRoc, "m/s", rocOk);
+  else if (r.A4RocMs > 0.0)
+    Record("A4", "rate of climb [PROBE: the published figure needs a lighter, unnamed weight]", 0.0,
+           roc, kBandRoc, "m/s", rocOk, false);
   else
     Record("A4", "rate of climb [the row publishes a TIME to height, not a rate]", 0.0, roc,
            kBandRoc, "m/s", rocOk, false);
@@ -407,13 +533,14 @@ int RunRow(const FBAirAnchorRow &r) {
    * dynamic pressure and the ALPHA limit binds at low, so a single fast pull reports the g limit and an
    * alpha of 7 deg while claiming to have measured an alpha limit of 22. */
   double g = 0.0, alpha = 0.0, turn = 0.0, corner = 0.0;
-  bool pullOk = MeasurePull(r, g, alpha, turn, corner, 480.0);
-  double gSlow = 0.0, alphaSlow = 0.0, turnSlow = 0.0, cornerSlow = 0.0;
-  bool slowOk = MeasurePull(r, gSlow, alphaSlow, turnSlow, cornerSlow, 380.0);
-  if (r.A5G > 0.0) Record("A5", "g reached under the limiter (high-q pull)", r.A5G, g, kBandG, "g", pullOk);
-  else Record("A5", "g reached [A5 is [TODO]: the limiter is [SET] at 7.0]", 0.0, g, kBandG, "g",
+  bool pullOk = MeasurePull(r, g, alpha, turn, corner,
+                            PullEntryKt(r, r.A5G > 0.0 ? r.A5G : 7.0, 5000.0));
+  double alphaSlow = 0.0;
+  bool slowOk = MeasureAlphaLimit(r, alphaSlow);
+  if (r.A5G > 0.0) Record("A5", "g held under the limiter (80 deg bank, full aft)", r.A5G, g, kBandG, "g", pullOk);
+  else Record("A5", "g held [A5 is [TODO]: the limiter is [SET] at 7.0]", 0.0, g, kBandG, "g",
               pullOk, false);
-  Record("ALPHA", "alpha reached under the limiter (low-q pull)", r.AlphaLimitDeg, alphaSlow,
+  Record("ALPHA", "alpha held under the limiter (idle decel, full aft)", r.AlphaLimitDeg, alphaSlow,
          kBandAlpha, "deg", slowOk);
   /* NO PUBLISHED TARGET EXISTS for any row's turn rate or corner speed. They are recipe step 7's
    * MEASUREMENTS, they become this row's own FBPilot hooks, and they are DECLARED ACCEPTED MODEL

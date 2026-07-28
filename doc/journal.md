@@ -1065,3 +1065,48 @@ Nicht gebaut und benannt: der Raketenpod (`hydra70`/`s8`, Design C) und die Luft
 messung (`C25`). Ein Schlagzeug, das die Spec noch nicht hatte: `set emcon` nimmt jetzt einen
 gebrieften Emissionsplan (`free <offS> [<onS>]`) — ein Wert an einem bestehenden Schlüssel, sonst ist
 das Entkommensfenster nicht messbar, weil `scoot_s` einen Start und `react` einen Treffer braucht.
+
+## 2026-07-28 — Vier Katalogzeilen von ALPHA auf ACCEPTED, und ein Instrument, das seine eigene Regel las
+
+Vier gemessene Ursachen, in der Reihenfolge, in der sie gewirkt haben — und die erste war eine andere
+als benannt. Der Schubkanal war seit `d1e1d79` da und der Nachbrenner brannte; an seiner Stelle stand
+der **Prüfstand**: der Tank lief WÄHREND der Messung leer (`f15c` verlor die Augmentation bei t = 870 s
+und M 2,04 wurde als Vmax gebucht, während `(T−D)/W` noch bei +0,025 stand), und acht Zeilen flogen
+unter der Startmasse, auf die jeder Anker bezogen ist. Beides festgehalten macht die Residuen ZUERST
+schlechter (A1 −18,4 → −23,4 auf `f15c`) und alles Folgende überhaupt lesbar.
+
+Dann die eigentliche Ursache von A1, und sie war weder Widerstand noch Schub, sondern **Buchführung im
+Deck**: der auftriebsabhängige Widerstand stand als Tabelle über α mit 5°-Stützstellen, und ein
+Überschall-Dash sitzt bei 1,8° — die Sehne durch eine Parabel liefert dort das 2,9-fache
+(`CDi = 0,00519` gegen `k·CL² = 0,00179`). Dazu `kCLmach` doppelt gebucht. Gegen `aero/cl-squared`
+geschrieben, mit 1°-Stützstellen: A1 auf sechs von zehn Zeilen von −20 % auf −3 %.
+
+Die Startstrecke war nicht das Fahrwerk. `Cmδe`, „INV gegen A5" gerechnet, kam 7,5-fach unter dem, was
+das eigene Leitwerksvolumen aus §2 hergibt, und konnte keine Nase heben — Vollausschlag ab 167 kt hielt
+2,8° Nicklage bis 226 kt. `[GEO]` aus dem Leitwerk: alle drei veröffentlichten Startstrecken im Band
+(−17,8 / +0,7 / +9,7 %).
+
+A4 bleibt Sonde, aber **je Zeile und gerechnet**: für welche Masse ist die veröffentlichte Steigrate mit
+dem eingefrorenen Schub erreichbar? `f15c` 13 141 kg, `su22` 9 982, `mirf1` 6 024 — alle drei UNTER der
+eigenen Leermasse. `mig17` erreicht seine 65 m/s bei Startmasse und behält A4 als Anker (−1,9 %).
+
+Die Abfangmaschine flog jede Zeile mit den Gains der MiG-29. `FBFlightControl::Raw(P, α_lim, g_lim)` ist
+der fehlende Satz: der Grenzwinkel der ZEILE, eine hergeleitete Nickautorität (voller Stick trimmt das
+1,5-fache des eigenen Grenzwinkels) und die g-Gains auf diese Autorität normiert. Dazu der
+g-Begrenzer, den §6 seit jeher versprach und den die Klasse nicht hatte. `air-bomber-intercept.fbm`
+hält 8 002,8 m über 400 s statt bei 510 m aufzuschlagen.
+
+**Das Instrument:** die 2,4 gegen 1 203,6 waren kein Widerspruch, sondern eine zweiseitige Lesart einer
+einseitigen Regel. Eine differentielle Empfindlichkeit (±10 %) neben einer endlichen Differenz (ein
+anderes Flugzeug) — die gesunde Signatur. Der Defekt, den §Spec 11 wirklich benennt, ist die andere
+Kombination, und `fb_tournament.py` prüft ihn jetzt, statt die Zahl zu drucken. Für die Spenderzeile
+selbst gibt es keine Zelle: Regel statt Zahl. Und die reparierte Prüfung fällt sofort durch — die Arena
+ist gesättigt (`mig21`: 19 Läufe, ein einziger unterscheidet sich), was vorher ein Verhältnis zweier
+Gleitkomma-Nullen als 0,6295 verdeckte.
+
+**4 ACCEPTED** (`f15c` `mig21` `mirf1` `f5e`), 6 ALPHA mit je ein bis zwei benannten Ankern: die
+Spreizflügel-Wahl kostet 26–28 % Dienstgipfelhöhe (R14, im Voraus deklariert), die Turbojet-Schublapse
+−14/−23 % auf zwei Zeilen (R15), der Begrenzerabfall 1,2° auf `mig17` (R16), und `su27`s A1 −6,3 % ist
+die eine Abweichung ohne gefundene Ursache (R17). Kein Band geweitet. Rückschritt, gemessen und
+benannt: `air-awacs-cue`s Kriterium 5 galt nur, weil der Abfangjäger dabei abstürzte — er fliegt jetzt,
+und die Zelle erfasst nicht mehr.

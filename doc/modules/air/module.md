@@ -337,7 +337,7 @@ The round is done when these are **measured**, not argued.
 | 2 | Existing missions are untouched | all committed `telemetry*.csv` byte-identical, `events.log` identical modulo `wallS`/`speedup` |
 | 3 | **Every deck row is inside its band** | `make -C sim test-air` measures each row's eight anchors against [`flight-model-recipe.md`](flight-model-recipe.md) §5's bands and prints the deviation per anchor. A row outside stays `ALPHA` and may not answer a campaign question |
 | 4 | The tier gate bites | a `.fbm` giving `set task bfm` to a T1 row exits 1 with `SET_REJECTED`; the same line on the same row after its roll plant is measured is accepted |
-| 5 | **The cue moves an antenna and never a track** | one E-3, one F-16, one target: with the F-16's `Radar` id failed by `damage`, the run produces `net CUE` lines and **zero** `radar CONTACT` lines. Unfailed, the same geometry acquires |
+| 5 | **The cue moves an antenna and never a track** | one E-3, one F-16, one target: with the F-16's `Radar` id failed by `damage`, the run produces `net CUE` lines and **zero** `radar CONTACT` lines. Unfailed, the same geometry acquires. **UNMET as of 2026-07-28 and the reason is measured** — see `## State` |
 | 6 | The cue is worth measurable time | the same geometry with and without the node: time to first firm contact, and the difference reported beside the node's own frame time |
 | 7 | The identification pair survives an AWACS | `w5-03`'s experiment re-run with an `e3` on station: the interceptor's telemetry stays byte-identical between the `neutral` and `hostile` subject up to its own first discriminating sensor tick |
 | 8 | The drag reflex is a sensor, not a clock | two runs identical except the attacker's `set fcr on\|off`: the silent run produces zero `air DRAG` lines |
@@ -355,7 +355,30 @@ all of them already implemented:
 |---|---|---|---|
 | **1** | **The anchor residual**, measured before any campaign runs | per row, the deviation of each of its eight anchors from the published number | a row outside its band is not admitted. This is the MiG-29's own promotion gate re-used, and it catches gross error only |
 | **2** | **The two bands**, on the tournament instrument [`../../duels.md`](../../duels.md) already runs | `band_deck` = outcome spread when the row's declared-ignorance deck values are perturbed (`CD0` ±10 %, `e` ±10 %, `Ixx` ±10 %, thrust ±5 %) with doctrine held fixed · `band_doctrine` = outcome spread when the mission's doctrine levers are swept with the deck held fixed (the O1 yardstick, `band = max_v O(v) − min_v O(v)`) | **the verdict rule: the row is admissible as an opponent iff `band_deck ≤ 0.25 × band_doctrine`.** If perturbing what we admit we do not know moves the result as far as changing the doctrine does, the campaign is measuring the model. The file then prints both bands **instead of** a result |
-| **3** | **The control cell** — the falsification | the same geometry flown with the row's deck **replaced by the pinned F-16 deck or the measured MiG-29 deck**, keeping the row's sensors, weapons and pilot tier | if the outcome does not move, the deck was not what decided and instrument 2 must have said so. **A disagreement between 2 and 3 is a defect of the instrument, not a finding** |
+| **3** | **The control cell** — the falsification | the same geometry flown with the row's deck **replaced by a donor row's**, keeping the row's sensors, weapons and pilot tier | if the outcome does not move, the deck was not what decided and instrument 2 must have said so. **A disagreement between 2 and 3 is a defect of the instrument, not a finding** |
+
+**AND THE RULE IN THAT LAST CELL IS ONE-SIDED — the round that built the tool read it two-sidedly and
+booked a defect that is not one** (`## State` B5: `mig21`'s `band_deck` 2.4 beside a control-cell
+displacement of 1 203.6). The two numbers do not measure the same thing and were never meant to:
+
+| | |
+|---|---|
+| `band_deck` | the spread over ±10 % of four declared-ignorance quantities — a **differential** sensitivity |
+| the control cell | the outcome difference to **a different aeroplane** (2.4× the mass, 2.5× the wing, 2.7× the thrust of the subject) — a **finite** difference, unbounded above |
+
+A small differential beside a large finite difference is the **healthy** signature. The defect §Spec 11
+names is the other combination — **a control cell that moves the outcome NO FURTHER than our own ±10 %
+does**, because then the geometry does not discriminate decks at all and neither band means anything.
+`tools/fb_tournament.py` now evaluates that condition instead of printing the cell's number and leaving
+the reading to a reader, prints the one ratio that makes the two commensurable
+(`band_deck / |control − baseline|` — our declared ignorance as a fraction of a whole different
+aeroplane), and carries a tolerance on the score's own scale, because the ratio of two floating-point
+zeros printed **0.6295** as if it were a measurement.
+
+**Where no donor exists there is no cell.** The donor is one fixed reference deck (`f15c`, the recipe's
+cleanest turbofan row and one of the four `ACCEPTED`), so for the donor row itself the cell IS the
+baseline. The tool reports `n/a — this row IS the donor deck` and states the rule; **a no-op is not a
+measurement and no number is produced for it.**
 
 **The threshold `0.25` is `[SET]`**, and the reason is stated rather than implied: no source gives one,
 a quarter keeps the deck's contribution below the doctrine's even when both extremes land the same way,
@@ -383,23 +406,24 @@ new slot. Ten JSBSim decks and seven missile decks under `sim/assets/aircraft/`,
 |---|---|
 | Existing missions unchanged | **133/133** `telemetry*.csv` byte-identical and **132/132** `events.log` identical modulo `wallS`/`speedup`/path, against the pre-round binary, at `--threads` 1, 2 and 4 |
 | Perception boundary | `verify-layers`: **6 registry reader(s) inside the perception boundary** — unchanged |
-| Anchor residuals | `make -C sim test-air`, ten rows, 0 anchors unmeasurable. **A2 (Vmax at sea level) is inside its ±5 % band on all eight rows that publish one (−0.3 % … −1.4 %)** — the inversion reproduces exactly where it was inverted. **A1 (Vmax at altitude) misses on nine of ten** (−9.5 % `su22` … −58.1 % `mig25`; only `mig17` at −2.0 % is inside). Mass closure is inside ±1 % on **ten of ten** (−0.0 %). **Promotion: 0 of 10 `ACCEPTED`, 10 of 10 `ALPHA`** |
+| Anchor residuals | `make -C sim test-air`, ten rows, 0 anchors unmeasurable. **A1 is inside its ±5 % band on nine of ten** (−0.0 … −2.3 %; `su27` −6.3 % is the one miss), **A2 on all eight that publish one** (+0.2 … +0.5 %), **α on ten of ten** (−3.1 … −5.9 %), **mass on ten of ten**. **Promotion: 4 of 10 `ACCEPTED` (`f15c` · `mig21` · `mirf1` · `f5e`), 6 `ALPHA`** — the full table is [`flight-model-recipe.md`](flight-model-recipe.md) `## State` |
 | The tier gate bites | `air-tier-refused.fbm`: a T2 row given `set task bfm` exits **1** with `SET_INVALID_VALUE … reason="this row's ROLL PLANT IS UNMEASURED …"` + `SET_REJECTED`, and the run never starts. It bites on EVERY row, because step 8 grants a tier only on a deck that passed §7.1 and none has |
-| The cue moves an antenna, never a track | `air-awacs-cue.fbm`: **212** `net CUE` lines, first `radar RADAR_CONTACT unit=fox` at **t = 108.0 s at 10.2 nm** — the RP-22's own 20 km gate, found by the fighter's own set. `air-awacs-blind.fbm`, identical but for `set fcr off`: **271** `net CUE` lines and **ZERO** contacts |
+| The cue moves an antenna, never a track | **REGRESSED, and the old pass was an artefact.** The committed result (7 `radar RADAR_CONTACT unit=fox` lines from t = 108.0 s at 10.2 nm) was flown by an interceptor in an UNCOMMANDED DESCENT: that same run ended `CRASH ground penetration` at t = 174.7 s at 584 m, and the contacts came from below with elDeg +7.5 … +8.2. With the per-row preset (B3) the interceptor holds 6 000 m, passes the target at a **72 m** closest approach (against 4 202 m before) and reports **zero** contacts, so the cued and the blind run no longer differ (271 cues, 2 contacts — both the node's own — in each). The antenna is being cued to az **−179.8°**, i.e. astern, and a MiG-21's ±30° volume then never looks forward. **Criterion 5 is UNMET and needs a geometry a flying aeroplane can satisfy** |
 | The cue is stale by construction | the logged `ageS` walks 1.7 → 10.0 and resets: the node's own 10.0 s frame [DERIVED from 6 rpm] plus the receiver's own age, exactly the two terms §Spec 7 names |
 | An airborne mover is airborne | `air-tanker-orbit.fbm`: a `kc135` orbits at 9 000 m with a runway declared 30 km away and exits **0**. Before `FBModule::Airborne()` the same file failed in its first second on a landing verdict |
 | The racetrack | `air ORBIT axisDeg=90 legM=40000 periodS=600` at t = 108.4 s, four states, no new geometry declared by the mission |
-| Attribution, `band_deck` / `band_doctrine` | `tools/fb_tournament.py --attribution <row>`: `mig21` **2.4 / 38.5 = 0.061** · `mig23` **4.5 / 32.3 = 0.140** · `f15c` **1.9 / 39.5 = 0.048** · `su27` **3.7 / 1231.7 = 0.003** — all inside the 0.25 rule. `mig25` **0.5 / 0.0 = ∞** — NOT admissible, and the tool prints the two bands instead of a result |
+| Attribution, `band_deck` / `band_doctrine` | `tools/fb_tournament.py --attribution <row>`, re-measured after the preset change: `mig21` **0.0 / 1234.5** and `f15c` **1234.5 / 1234.5 = 1.000**. Neither is a result: `mig21` trips the repaired instrument-3 check (B6, the arena is saturated) and `f15c` fails the 0.25 rule outright. **The tool prints the two bands instead of a result in both cases, which is the built behaviour and not an omission** |
 
 **What is NOT built, measured rather than argued:**
 
 | # | Finding | Number |
 |---|---|---|
-| B1 | **No catalogue deck is campaign-admissible.** Ten of ten are `ALPHA` on their own anchor residuals | 2–5 anchors outside band per row |
-| B2 | **A4 inverts a subsonic `CD0` for no row at all.** Worked at the [SET] best-climb condition, the published maximum climb rates imply a drag that is negative (`f15c`, `mig23`) or an order of magnitude below any real aircraft (`f5e`: 0.0038 against its own published 0.0200). A4 was demoted to a probe and the subsonic level is taken from the catalogue's ONE published `CD0`, exactly the way `e` is | A4 measured −54 % … −72 % on eight rows |
-| B3 | **The generic autopilot + the MiG-29 FBW preset cannot hold a catalogue deck's altitude in the Intercept phase.** `air-bomber-intercept.fbm` ends in `CRASH ground penetration`: the aircraft holds 330 kt CAS with the throttle at idle and trades 8 000 m of altitude for it over 242 s at 1 g. A per-row gain preset is needed and this contract does not name one | 8 000 → 510 m in 242 s |
+| B1 | **Four rows are campaign-admissible on their anchors, six are not** — and every one of the six misses ONE or TWO named anchors, not five | `su27` A1 · `mig23`/`su22` A3 (the declared swing-wing planform, recipe R14) · `mig25`/`su7` A3 (the turbojet lapse, R15) · `mig17` A5+α (the limiter's droop, R16) |
+| B2 | **RESOLVED per row and computed.** A4 is judged where the published rate is reachable at the GROSS weight every other anchor is quoted at, and a probe where it is not: inverted for weight it needs 13 141 kg on `f15c`, 9 982 on `su22`, 6 024 on `mirf1` — all BELOW the row's own empty weight. `mig17` alone reaches its 65 m/s at gross and keeps A4 as an anchor (−1.9 %). The old text follows. **A4 inverts a subsonic `CD0` for no row at all.** Worked at the [SET] best-climb condition, the published maximum climb rates imply a drag that is negative (`f15c`, `mig23`) or an order of magnitude below any real aircraft (`f5e`: 0.0038 against its own published 0.0200). A4 was demoted to a probe and the subsonic level is taken from the catalogue's ONE published `CD0`, exactly the way `e` is | A4 measured −54 % … −72 % on eight rows |
+| B3 | **RESOLVED. The per-row gain preset now exists** (`systems/FBFlightControl::Raw`, recipe §6.1) and `FBAirModule` builds it from the row's own `PitchStickMax` / `AlphaLimitDeg` / `MaxG` instead of taking the MiG-29's verbatim | `air-bomber-intercept.fbm` holds **8 002.8 m** at t = 400 s where it used to be at 510 m at t = 242 s. `air-awacs-cue.fbm`'s interceptor likewise stops crashing (exit 2 → 3) |
 | B4 | **T2 cannot fight.** `bfm` is the tier's only combat task and the plant gate refuses it, so the four visual-fighter rows fly routes and nothing else. The attribution test could therefore be run on T3 and T4 only | 4 rows |
-| B5 | **The control cell disagrees with `band_deck` on `mig21`** (instrument 2 says 2.4, instrument 3 moves the outcome by 1 203.6 when the deck is swapped) and is a NO-OP on `f15c` (the donor is `f15c` itself). §Spec 11 calls a disagreement a defect of the INSTRUMENT and it is recorded as one | 1 203.6 vs 2.4 |
+| B5 | **WITHDRAWN AS A FINDING, and it was a mis-reading of the instrument's own rule.** §Spec 11 instrument 3 is ONE-SIDED: the defect it names is a control cell that moves the outcome NO FURTHER than ±10 % of our declared ignorance does. `band_deck` 2.4 beside a whole-different-aeroplane displacement of 1 203.6 is the HEALTHY signature, not a contradiction — a differential and a finite difference on two scales. §Spec 11 now says so and the tool evaluates the stated condition. The `f15c` no-op is answered by a RULE instead of a number: where the row is the donor there is no cell, and the tool prints `n/a` | — |
+| B6 | **AND THE REPAIRED INSTRUMENT IMMEDIATELY FAILS ITS OWN TEST ON `mig21`: the arena is SATURATED.** Nine deck perturbations, the control cell and eight of nine doctrine variants all return the identical outcome (−1450.0); only `beam-hard` moves it. `band_deck` = 0.0 and `|control − baseline|` = 0.0, so the tool reports the instrument defect and prints no result — correctly. **The attribution arena as written cannot attribute anything for that row**, and that is now visible instead of being hidden behind a ratio of two zeros that printed 0.6295 | 0.0 / 0.0, one variant of nineteen differs |
 
 What **already existed and was consumed unchanged**, which is why this was a bounded round:
 

@@ -11,8 +11,14 @@ performance anchors into a JSBSim deck is [`flight-model-recipe.md`](flight-mode
 
 **Status: BUILT 2026-07-28.** All eighteen rows exist as `core/FBAircraft.h` entries and
 `FBModuleRegistry` keys, ten decks and seven rounds are generated, and five `.fbm` files fly them.
-**Every deck row is `ALPHA`** — see [`flight-model-recipe.md`](flight-model-recipe.md) `## State` for
-the residual table. Two numbers in this file MOVED during the build and are marked below: the six guns'
+**Four deck rows are `ACCEPTED` and may answer a campaign question — `f15c` · `mig21` · `mirf1` ·
+`f5e`; six are `ALPHA`, each on one or two NAMED anchors** — see
+[`flight-model-recipe.md`](flight-model-recipe.md) `## State` for the residual table and R14–R17 for the
+six causes. **Two of this file's own numbers were confirmed by that measurement rather than by a
+source:** `PitchStickMax` is no longer a `[SET]` 0.85 on nine rows but `[DERIVED]` per row from the
+row's own deck (recipe §6.1), and the published maximum rates of climb are shown to name **no weight**
+— inverted for one, three of them (`f15c` 13 141 kg, `su22` 9 982 kg, `mirf1` 6 024 kg) come out below
+the row's own empty weight, so A4 is a probe on nine rows and an anchor only on `mig17`. Two numbers in this file MOVED during the build and are marked below: the six guns'
 ballistics, declared `[TODO]` here and filled at [T4] because a gun cannot be built without them.
 
 **Schema:** the same as [`../mig29/`](../mig29/INDEX.md) and
@@ -696,6 +702,19 @@ finite and it is here so nobody has to reconstruct it from eighteen rows.
 | New `FBSystemId` | **0** | — | `Engine2` already exists for the six twin-engine rows |
 | New author-facing `set` keys | **2** | `orbit`, `drag_threat_s` | [`module.md`](module.md) §Spec 9 |
 | New sensor slot | **1** | `sensors/FBNetLinkSystem : FBDatalinkSystem` | [`../../air-defence-network.md`](../../air-defence-network.md) §2 design B, made due. **Not** a seventh registry reader |
+
+---
+
+## What the flight-model round measured back into this file
+
+Three of this file's numbers are now constrained by something other than their source, and the
+constraint is written here because a later reader will otherwise re-derive it:
+
+| Number | What the measurement says |
+|---|---|
+| **the published maximum rate of climb**, nine rows | it names no weight, and at the GROSS weight every other anchor in this file is quoted at it is unreachable on nine of ten rows — **impossible at ANY loading** on `f15c`, `su22` and `mirf1`, whose inverted weights fall below their own empty weights. `mig17` alone reaches its 65 m/s at gross. `[DISPUTED]` in the strict sense: the figure and the mass table cannot both be right |
+| **`mig23`'s and `su22`'s spread planform** | the choice costs **+25.7 %** and **+28.1 %** on the service ceiling, measured. It was declared in advance as a bias (recipe R8) and this is its number |
+| **`mig17`'s 8.0 g** | reachable by the airframe and NOT by the limiter holding it: the proportional limiter's droop is 1.2° of α on the row with the largest derived pitch authority, worth −11.2 % of g. The row, not the source, is what stays `ALPHA` |
 
 ---
 

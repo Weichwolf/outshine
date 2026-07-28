@@ -59,7 +59,13 @@ private:
 
 FBAirModule::FBAirModule(const FBAircraftSpec &spec)
     : Spec_(spec),
-      FC_(Systems::FBFlightControl::Mig29()),   /* the RAW-airframe path: every catalogue deck is one */
+      /* THE RAW-AIRFRAME PATH with THIS ROW'S OWN numbers (recipe §6.1). Every catalogue deck is a raw
+         airframe, so the MiG-29's gain set was the right FORM — but its 26 deg alpha limiter on a
+         MiG-25 (12 deg) parks the limiter 14 deg past the stall, and its pitch authority on a row with
+         three times the elevator power is three times the loop gain. Measured before:
+         air-bomber-intercept.fbm flew 8 000 m into the ground in 242 s holding its commanded speed. */
+      FC_(Systems::FBFlightControl::Raw(spec.Perf.PitchStickMax, spec.Perf.AlphaLimitDeg,
+                                        spec.Perf.MaxG)),
       Ctrl_(std::make_unique<Systems::FBAirframeControls>()),
       Tele_(std::make_unique<FBAirTelemetry>(*this)) {
   Radar_.Configure(spec.Radar);

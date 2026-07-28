@@ -450,10 +450,33 @@ def run_one(job):
 # doctrine's even when both extremes land the same way, and BOTH BANDS ARE PRINTED beside every result,
 # so a reader who disagrees with the number can re-decide without re-running anything.
 #
-# THE CONTROL CELL is the falsification: the same geometry flown with the row's deck REPLACED by the
-# pinned F-16 deck, keeping the row's sensors, weapons and pilot tier. If the outcome does not move, the
-# deck was not what decided and instrument 2 must have said so. A DISAGREEMENT BETWEEN THE TWO IS A
-# DEFECT OF THE INSTRUMENT, NOT A FINDING.
+# THE CONTROL CELL is the falsification: the same geometry flown with the row's deck REPLACED by a
+# DONOR row's, keeping the row's sensors, weapons and pilot tier. §Spec 11's rule is ONE-SIDED and the
+# one-sidedness is the whole content: *if the outcome does not move, the deck was not what decided and
+# instrument 2 must have said so.*
+#
+# THE ROUND THAT BUILT THIS FILE READ THAT RULE TWO-SIDEDLY AND RECORDED A DEFECT THAT IS NOT ONE.
+# On `mig21` it saw band_deck = 2.4 beside a control-cell displacement of 1 203.6 and called the pair a
+# contradiction (module.md `## State` B5). It is not. The two numbers do not measure the same thing and
+# were never meant to:
+#
+#   band_deck            the spread over +-10 % of four DECLARED-IGNORANCE quantities — a DIFFERENTIAL
+#                        sensitivity, in outcome points per "how wrong we admit we might be"
+#   control displacement the outcome difference to A DIFFERENT AEROPLANE — 2.4x the mass, 2.5x the wing
+#                        and 2.7x the thrust of the subject. A FINITE, unbounded difference
+#
+# A small differential beside a large finite difference is the HEALTHY signature: our uncertainty does
+# not move the result, a categorically different airframe does. The defect §Spec 11 names is the OTHER
+# combination — a control cell that moves the outcome NO FURTHER than our own +-10 % does, because then
+# the geometry does not discriminate decks at all and NEITHER band means anything. This file now
+# EVALUATES that condition instead of printing the cell's number and leaving the reading to a reader.
+#
+# AND THE TWO ARE MADE COMMENSURABLE by the one ratio that has a meaning: band_deck / |control - base|,
+# i.e. our declared ignorance expressed as a fraction of a whole different aeroplane.
+#
+# WHERE NO DONOR EXISTS THERE IS NO CELL. The donor is one fixed reference deck, so for the DONOR ROW
+# ITSELF the cell is the baseline and a number computed from it would be a no-op dressed as a
+# measurement. The rule is stated and the cell is reported as `n/a`, never as 0.0.
 # =================================================================================================
 
 # The deck perturbations, each naming the recipe quantity it moves.
@@ -542,8 +565,13 @@ def attr_mission(tag, row, params, control=None):
 # by swapping the module — that would change the sensors and the weapons too, and the whole point is
 # that only the DECK moves. It is done by REGENERATING the row's own XML from ANOTHER row's anchors and
 # leaving the catalogue entry alone: same key, same radar, same rounds, same tier, a different
-# aeroplane underneath. The donor is `f15c`, whose deck is the recipe's cleanest turbofan row.
+# aeroplane underneath. The donor is `f15c`, whose deck is the recipe's cleanest turbofan row and one of
+# the four that are ACCEPTED. FOR `f15c` ITSELF THERE IS NO CELL — see the header's last paragraph.
 CONTROL_DONOR = "f15c"
+
+# Two outcomes closer than this are the SAME outcome. The duel score is of order 10^2..10^3 and its
+# smallest weighted term is of order 1, so half a point is well inside the noise floor of the arena.
+kOutcomeTol = 0.5
 
 
 def attr_outcome(outdir):
@@ -610,10 +638,12 @@ def attribution(gym, outroot, row, threshold=0.25):
             o = run_attr(gym, outroot, "%s-doc-%s" % (row, name),
                          attr_mission(row + name, row, params))
             doc_pts.append((name, o))
-        subprocess.run([sys.executable, os.path.join(SIM_DIR, "tools", "gen_air_decks.py"),
-                        "--only", CONTROL_DONOR, "--as", row], cwd=SIM_DIR, capture_output=True,
-                       text=True, check=True)
-        control = run_attr(gym, outroot, "%s-control" % row, attr_mission(row + "control", row, {}))
+        control = None
+        if row != CONTROL_DONOR:
+            subprocess.run([sys.executable, os.path.join(SIM_DIR, "tools", "gen_air_decks.py"),
+                            "--only", CONTROL_DONOR, "--as", row], cwd=SIM_DIR, capture_output=True,
+                           text=True, check=True)
+            control = run_attr(gym, outroot, "%s-control" % row, attr_mission(row + "control", row, {}))
     finally:
         restore_decks()
 
@@ -632,17 +662,44 @@ def attribution(gym, outroot, row, threshold=0.25):
     print("  doctrine sweep (deck FIXED) — every lever is an existing `set pilot_*` key")
     for name, o in doc_pts:
         print("    %-12s %s" % (name, "-" if o is None else "%+9.1f" % o))
-    print("  control cell (the row's DECK replaced by the pinned F-16's, sensors/weapons/tier held): %s"
-          % ("-" if control is None else "%+.1f" % control))
+    if row == CONTROL_DONOR:
+        print("  control cell: n/a — this row IS the donor deck, so the cell would be the baseline.")
+        print("                A no-op is not a measurement and no number is produced for it.")
+    elif control is None:
+        print("  control cell: NOT FLOWN (the run produced no telemetry)")
+    else:
+        print("  control cell (the row's DECK replaced by %s's, sensors/weapons/tier held): %+.1f"
+              % (CONTROL_DONOR, control))
     print("  ---------------------------------------------------------------------------")
-    print("  band_deck      = %10.1f" % band_deck)
-    print("  band_doctrine  = %10.1f" % band_doc)
+    print("  band_deck      = %10.1f    (+-10 %% on CD0/e/Ixx, +-5 %% on thrust — DIFFERENTIAL)" % band_deck)
+    print("  band_doctrine  = %10.1f    (the O1 doctrine sweep — DIFFERENTIAL)" % band_doc)
     ratio = band_deck / band_doc if band_doc > 1e-9 else float("inf")
     print("  ratio          = %10.3f   (admissible iff <= %.2f)" % (ratio, threshold))
-    if band_doc > 1e-9 and ratio <= threshold:
+
+    # The control cell is a FINITE difference and only becomes commensurable through this ratio. The
+    # tolerance is on the SCORE's own scale: a duel scores in the hundreds and its smallest weighted
+    # term is of order one, so anything under half a point is the same outcome. Without it the ratio of
+    # two floating-point zeros printed 0.6295 as if it were a measurement.
+    cell_ok = True
+    if control is not None and base is not None:
+        disp = abs(control - base)
+        share = band_deck / disp if disp > kOutcomeTol else float("inf")
+        print("  |control-base| = %10.1f    (a DIFFERENT AEROPLANE — finite, not differential)" % disp)
+        print("  band_deck/|control-base| = %s   our declared ignorance as a fraction of that"
+              % ("n/a" if disp <= kOutcomeTol else "%.4f" % share))
+        if disp <= max(band_deck, kOutcomeTol):
+            cell_ok = False
+            print("  INSTRUMENT DEFECT (module.md §Spec 11 instrument 3, the ONE condition it names):")
+            print("           replacing the whole aeroplane moved the outcome no further than +-10 % of")
+            print("           our own uncertainty did. This geometry does not discriminate decks, so")
+            print("           NEITHER band means anything here and no result is printed. The arena is")
+            print("           SATURATED — read the perturbation column: every point is the same outcome.")
+    if band_doc > 1e-9 and ratio <= threshold and cell_ok:
         print("  VERDICT: ADMISSIBLE — the campaign is measuring the doctrine, and the result is")
         print("           %+.1f, printed WITH both bands beside it." % (base if base is not None else float("nan")))
         return 0
+    if not cell_ok:
+        return 1
     print("  VERDICT: NOT ADMISSIBLE AS A CAMPAIGN OPPONENT. Perturbing what we admit we do not know")
     print("           moves the outcome as far as changing the doctrine does, so this file prints THE")
     print("           TWO BANDS INSTEAD OF A RESULT. There is no result line above and that is the")

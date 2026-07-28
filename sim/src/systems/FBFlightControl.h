@@ -26,6 +26,10 @@ public:
   void Reset(void);                      /* alle Integratoren nullen (neuer Flug) */
   static FBFlightControl F16(void);      /* das geflogene F-16-Preset */
   static FBFlightControl Mig29(void);    /* das geflogene MiG-29-Preset — Herleitung in der .cpp */
+  /* Das Preset einer ROHEN Zelle, die keine eigene Vermessung hat: das MiG-29-Preset mit den ZWEI
+   * Zahlen, die eine solche Zelle selbst mitbringt (Nickautoritaet und Grenzwinkel), und den g-Gains
+   * auf die Autoritaet normiert. Herleitung in der .cpp. */
+  static FBFlightControl Raw(double pitchStickMax, double alphaLimitDeg, double gLimitG);
 
   /* Gains — public Config-Block; Defaults im ctor, Zellenwerte via F16()/Mig29(). */
   int    Flcs;                           /* 1 = FLCS kommandieren, 0 = rohe Ruder-PD */
@@ -51,16 +55,27 @@ public:
    * uebersteuerbar, und im Deck vergraben waere er vor core/FBFlightMonitor versteckt, dessen ganzer
    * Sinn es ist, NICHT der Begrenzer zu sein. Er darf nur ZIEHEN verbieten, nie druecken erzwingen. */
   double AlphaLimitDeg;
+  /* DER LASTVIELFACHEN-BEGRENZER, in g. 0 = AUS, und das sind F-16 wie MiG-29: die eine hat ihn in
+   * ihrer eigenen FLCS, die andere hat keinen. doc/modules/air/flight-model-recipe.md §6 nennt diese
+   * Klasse seit der Katalogrunde als den Ort des veroeffentlichten g-Limits (A5) — bis hierher stand
+   * dort nichts, und der Anker mass folglich die aerodynamische Grenze statt der strukturellen
+   * (gemessen: f15c 13,3 g gegen veroeffentlichte 9,0). Gesetz, Vorhalt und Anti-Windup sind Zeile fuer
+   * Zeile die des Anstellwinkel-Begrenzers: der KLEINERE von zwei Zweigen, nie ein erzwungener Druck. */
+  double GLimitG;
 
   double GetGIterm(void) const { return GIterm; }
   double GetVsIterm(void) const { return VsIterm; }
 
 private:
+  double NzLimit(const Fdm::fb_fdm_state &s);   /* der g-Zweig des Begrenzers, beiden Zweigen gemeinsam */
+
   double GIterm, VsIterm, NyIterm, ThrIterm, NzPrev;
   /* Zustand NUR des Begrenzers: die gefilterte Anstellwinkelrate und ihr Vorwert. Existiert und laeuft
    * ausschliesslich, wenn AlphaLimitDeg > 0. */
   double AlphaDot, AlphaPrev;
   bool AlphaPrimed;
+  double NzLimDot, NzLimPrev;
+  bool NzLimPrimed;
   FBControls LastControls_{0.0, 0.0, 0.0, 0.0};
 };
 

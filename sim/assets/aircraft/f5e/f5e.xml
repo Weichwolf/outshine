@@ -29,7 +29,7 @@
   THE POLAR'S PROVENANCE, number by number (recipe §4.2, and every inverted CD0 is published beside
   the frozen thrust that produced it, so a later reader can re-solve without re-deriving):
     A2 is [TODO] in the catalogue — this row inverts ONE point instead of two and stays ALPHA on that account (recipe §4.2)
-    A1 M1.63 at 11000 m [INV]: T =   29.0 kN (FROZEN analogy, 2 x 22.2 kN static), q*S =   727.3 kN, CL 0.0963, CD 0.0398, k*CL^2 0.00117  ->  CD0 = 0.0387
+    A1 M1.63 at 11000 m [INV]: T =   28.7 kN (FROZEN analogy, 2 x 22.2 kN static), q*S =   727.3 kN, CL 0.0963, CD 0.0394, k*CL^2 0.00117  ->  CD0 = 0.0382
     subsonic level 0.0200 [ANALOGY from the F-5E's published CD0, the catalogue's ONLY one] — the same generalisation recipe §4.1 makes for e, and it is here because A4 inverts a subsonic CD0 for no row at all (see the tool's header)
 
   STRUCTURAL FRAME: origin at the NOSE TIP, x positive AFT, y positive to starboard, z positive up,
@@ -324,18 +324,32 @@
           <table>
             <independentVar>aero/alpha-rad</independentVar>
             <tableData>
+                -0.4363    -1.2925
+                -0.3491    -1.1491
                 -0.2618    -0.9188
                 -0.1745    -0.6408
+                -0.1222    -0.4568
                 -0.0873    -0.3291
+                -0.0698    -0.2641
+                -0.0524    -0.1986
+                -0.0349    -0.1326
+                -0.0175    -0.0664
                  0.0000     0.0000
+                 0.0175     0.0664
+                 0.0349     0.1326
+                 0.0524     0.1986
+                 0.0698     0.2641
                  0.0873     0.3291
+                 0.1222     0.4568
                  0.1745     0.6408
+                 0.2094     0.7569
                  0.2618     0.9188
+                 0.2967     1.0174
                  0.3491     1.1491
-                 0.4363     1.1668
-                 0.5236     1.0222
-                 0.6109     0.8777
-                 0.6981     0.7332
+                 0.4363     1.2925
+                 0.5236     1.1165
+                 0.6109     0.9406
+                 0.6981     0.7646
                  0.7854     0.5887
             </tableData>
           </table>
@@ -392,39 +406,100 @@
                    0.60    0.02000
                    0.85    0.02094
                    0.95    0.03070
-                   1.05    0.04264
-                   1.63    0.03868
-                   2.00    0.03609
-                   2.40    0.03468
-                   3.20    0.03426
+                   1.05    0.04213
+                   1.63    0.03822
+                   2.00    0.03566
+                   2.40    0.03427
+                   3.20    0.03385
             </tableData>
           </table>
         </product>
       </function>
-      <!-- LIFT-DEPENDENT DRAG. k = 1/(pi*AR*e) = 0.1261 with e = 0.66 [DERIVED, recipe §4.1 — the
-           F-5E's published CD0/(L/D)max pair, generalised, and the FIRST term the attribution band
-           sweeps]. Past the linear range leading-edge suction is progressively lost:
-             CDi(a) = (1-f)*k*CL^2 + f*CL*tan(a),  f = min(1, (a/30deg)^1.5)   [ANALOGY] -->
-      <function name="aero/coefficient/CDalpha">
-        <description>Lift-dependent drag vs alpha</description>
+      <!-- LIFT-DEPENDENT DRAG, and it is written AGAINST THE LIFT COEFFICIENT THE DECK ACTUALLY
+           PRODUCES (aero/cl-squared) and not against alpha. k = 1/(pi*AR*e) = 0.1261 with e = 0.66
+           [DERIVED, recipe §4.1 — the F-5E's published CD0/(L/D)max pair, generalised, and the FIRST
+           term the attribution band sweeps]. Past the linear range leading-edge suction is
+           progressively lost, and only THAT part is a function of attitude:
+             CDi = k*CL^2*(1-f(a)) + f(a)*CL*tan(a),   f = min(1, (a/30deg)^1.5)   [ANALOGY]
+           MEASURED, and the reason the split exists: with the whole term tabulated in alpha the deck
+           charged 2.9x the polar's own induced drag at a supersonic dash attitude, because a parabola
+           sampled every 5 deg is read as a chord at 1.8 deg AND because kCLmach's lift loss reappears
+           as extra alpha. Neither is a property of the aeroplane; both moved A1. -->
+      <function name="aero/coefficient/CDi">
+        <description>Induced drag on the lift actually produced</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>aero/cl-squared</property>
+          <value> 0.126087 </value>
+          <table>
+            <independentVar>aero/alpha-rad</independentVar>
+            <tableData>
+                -0.4363    0.23927
+                -0.3491    0.45567
+                -0.2618    0.64645
+                -0.1745    0.80755
+                -0.1222    0.88729
+                -0.0873    0.93196
+                -0.0698    0.95131
+                -0.0524    0.96838
+                -0.0349    0.98279
+                -0.0175    0.99391
+                 0.0000    1.00000
+                 0.0175    0.99391
+                 0.0349    0.98279
+                 0.0524    0.96838
+                 0.0698    0.95131
+                 0.0873    0.93196
+                 0.1222    0.88729
+                 0.1745    0.80755
+                 0.2094    0.74702
+                 0.2618    0.64645
+                 0.2967    0.57343
+                 0.3491    0.45567
+                 0.4363    0.23927
+                 0.5236    0.00000
+                 0.6109    0.00000
+                 0.6981    0.00000
+                 0.7854    0.00000
+            </tableData>
+          </table>
+        </product>
+      </function>
+      <function name="aero/coefficient/CDsuction">
+        <description>Leading-edge suction lost past the linear range</description>
         <product>
           <property>aero/qbar-psf</property>
           <property>metrics/Sw-sqft</property>
           <table>
             <independentVar>aero/alpha-rad</independentVar>
             <tableData>
-                -0.2618    0.15586
-                -0.1745    0.06356
-                -0.0873    0.01469
+                -0.4363    0.45849
+                -0.3491    0.22767
+                -0.2618    0.08704
+                -0.1745    0.02175
+                -0.1222    0.00632
+                -0.0873    0.00196
+                -0.0698    0.00090
+                -0.0524    0.00033
+                -0.0349    0.00008
+                -0.0175    0.00001
                  0.0000    0.00000
-                 0.0873    0.01469
-                 0.1745    0.06356
-                 0.2618    0.15586
-                 0.3491    0.30354
-                 0.4363    0.45496
-                 0.5236    0.59019
-                 0.6109    0.61458
-                 0.6981    0.61522
+                 0.0175    0.00001
+                 0.0349    0.00008
+                 0.0524    0.00033
+                 0.0698    0.00090
+                 0.0873    0.00196
+                 0.1222    0.00632
+                 0.1745    0.02175
+                 0.2094    0.04070
+                 0.2618    0.08704
+                 0.2967    0.13268
+                 0.3491    0.22767
+                 0.4363    0.45849
+                 0.5236    0.64463
+                 0.6109    0.65860
+                 0.6981    0.64159
                  0.7854    0.58866
             </tableData>
           </table>
@@ -547,10 +622,12 @@
     <axis name="PITCH">
       <!-- Cmalpha = -0.05 * CLalpha = -0.1902 /rad [SET static margin, 5 % of the mean
            geometric chord — no row publishes one, and a stable margin is what a conventional airframe
-           of this era has]. Cmde = -0.1674 /rad is INVERTED AGAINST A5 (recipe §6): full stick must
-           trim the aircraft to its published alpha limit, so |Cmalpha|*a_lim = |Cmde|*de_max. That is
-           why the [SET] tail volumes above are harmless — the error is absorbed one step later, by an
-           inversion against a published number. -->
+           of this era has]. Cmde = -1.2540 /rad is [GEO] from THIS row's own tail volume,
+           -CLa_h*(S_h/S)*(l_h/cbar)*eta, the same surface that produces CLde = 0.432 one axis up.
+           IT IS NO LONGER INVERTED AGAINST A5: that inversion sized the elevator to barely TRIM the
+           alpha limit at full travel and could not lift a nose off a runway — measured, a take-off run
+           of 1 403 m against a published 610 with full aft stick held from 167 to 226 kt. Rotation at
+           Vr = 1.15*Vs needs |Cmde| >= 0.415/rad here; this deck carries 1.254. -->
       <function name="aero/coefficient/Cm">
         <description>Pitch moment due to alpha</description>
         <product>
@@ -564,7 +641,7 @@
         <product>
           <property>aero/qbar-psf</property><property>metrics/Sw-sqft</property>
           <property>metrics/cbarw-ft</property><property>fcs/elevator-pos-rad</property>
-          <value> -0.1674 </value>
+          <value> -1.2540 </value>
         </product>
       </function>
       <function name="aero/coefficient/Cmq">

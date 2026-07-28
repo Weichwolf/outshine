@@ -9,6 +9,15 @@ static double Clamp(double v, double lo, double hi) { return v < lo ? lo : v > h
  * Preset-Zahlen: der Begrenzer hat EINE Stellgroesse, seinen Grenzwinkel, und die ist AlphaLimitDeg.
  * kSosRateFilter ~ 0,07 s Zeitkonstante bei 100 Hz — eine rohe Differenz ist ueberwiegend Quantisierung. */
 static const double kSosKp = 0.20, kSosLeadS = 0.45, kSosRateFilter = 0.15;
+/* Der g-Zweig desselben Begrenzers. Ein PROPORTIONALER Begrenzer laesst die Groesse um Stick/kp unter
+ * dem Grenzwert stehen; kGosKp ist deshalb aus einem genannten Kriterium GESETZT und nicht aus einer
+ * Analogie: der Abfall soll bei voller Nickautoritaet unter 3 % des Grenzwerts bleiben. Die schaerfste
+ * Zeile des Katalogs (P = 0,28 bei einem 4,5-g-Limit) verlangt kp >= 0,28/(0,03*4,5) = 2,07. Mit 0,25 —
+ * dem Wert des g-REGELZWEIGS, der ein Ziel ausregelt und keine Grenze haelt — gab derselbe Begrenzer
+ * 7,94 g auf eine veroeffentlichte 9,0 (-11,8 %), und das war der Regler und nicht die Zelle.
+ * Der Vorhalt ist kuerzer als der des Anstellwinkels, weil die Lastvielfache dem Ruder ohne die
+ * Zeitkonstante des Anstellwinkelaufbaus folgt. */
+static const double kGosKp = 2.10, kGosLeadS = 0.35;
 
 FBFlightControl::FBFlightControl()
   : Flcs(0), RollStickMax(1.0), PitchStickMax(1.0),
@@ -16,13 +25,17 @@ FBFlightControl::FBFlightControl()
     KTi(0.002), KpSpd(0.03), ThrTrim(0.55),
     KpRoll(0.022), KdRoll(0.004), KpPitch(0.06), KdPitch(0.010), KdYaw(0.006), KCoord(0.004),
     PitchMaxDeg(15), KAltRaw(0.05), NzSlew(1.5), KqDamp(0.0), KpDampRoll(0.0), AlphaLimitDeg(0.0),
+    GLimitG(0.0),
     GIterm(0), VsIterm(0), NyIterm(0), ThrIterm(0), NzPrev(0),
-    AlphaDot(0), AlphaPrev(0), AlphaPrimed(false) {}
+    AlphaDot(0), AlphaPrev(0), AlphaPrimed(false),
+    NzLimDot(0), NzLimPrev(0), NzLimPrimed(false) {}
 
 void FBFlightControl::Reset(void) {
   GIterm = VsIterm = NyIterm = ThrIterm = NzPrev = 0;
   AlphaDot = AlphaPrev = 0;
   AlphaPrimed = false;
+  NzLimDot = NzLimPrev = 0;
+  NzLimPrimed = false;
 }
 
 FBFlightControl FBFlightControl::F16(void) {
@@ -98,6 +111,48 @@ FBFlightControl FBFlightControl::Mig29(void) {
   return c;
 }
 
+/* DAS PRESET EINER ROHEN ZELLE OHNE EIGENE VERMESSUNG — der Satz, den doc/modules/air/
+ * flight-model-recipe.md §6 bis zu dieser Runde NICHT genannt hat und ohne den jede Katalogzelle mit
+ * den Gains der MiG-29 flog. Gemessen, was das kostet: air-bomber-intercept.fbm endete im Aufschlag,
+ * 8 000 -> 510 m in 242 s bei gehaltener Fahrt und Leerlaufschub.
+ *
+ * ES IST DAS MiG-29-PRESET mit genau zwei ersetzten Zahlen und EINER Normierung:
+ *
+ *   1. AlphaLimitDeg ist der Grenzwinkel DER ZEILE. Die 26 deg der MiG-29 auf eine MiG-25 (12 deg) zu
+ *      legen heisst, den Begrenzer 14 deg hinter dem Abriss zu parken — er begrenzt dann nichts.
+ *   2. PitchStickMax ist die Nickautoritaet DER ZEILE, hergeleitet statt gesetzt: der Deckel, bei dem
+ *      voller Stick das 1,5-fache des eigenen Grenzwinkels TRIMMT.  P = 1,5*|Cma|*a_lim/(|Cmde|*de_max).
+ *      Damit hat der Begrenzer auf jeder Zeile dieselbe Reserve — 50 % — und keine Zeile kann sich mit
+ *      dem Stick allein ins Tumble ziehen, was die MiG-29-Runde als die eine echte Gefahr der rohen
+ *      Zelle vermessen hat.
+ *   3. GLimitG ist das veroeffentlichte Lastvielfachen-Limit (A5) der Zeile, 0 wo keins veroeffentlicht
+ *      ist. Erst damit ist §6s Satz "das g-Limit lebt in FBFlightControl" eingeloest.
+ *   4. DIE NORMIERUNG: die drei g-Zweig-Gains skalieren mit P/0,60 (0,60 ist der gemessene Wert der
+ *      MiG-29). Ein g-Fehler kauft damit auf jeder Zeile denselben BRUCHTEIL ihrer eigenen Autoritaet
+ *      statt denselben absoluten Ausschlag — und weil P nach 2. selbst in Vielfachen des Grenzwinkels
+ *      definiert ist, ist der geschlossene Kreis zeilenunabhaengig in der Groesse, die er begrenzt.
+ *      Ohne sie regelt eine Zelle mit dreifacher Ruderwirkung mit dreifacher Kreisverstaerkung. */
+FBFlightControl FBFlightControl::Raw(double pitchStickMax, double alphaLimitDeg, double gLimitG) {
+  FBFlightControl c = Mig29();
+  double p = pitchStickMax > 0.0 ? pitchStickMax : c.PitchStickMax;
+  double scale = p / 0.60;
+  c.PitchStickMax = p;
+  c.AlphaLimitDeg = alphaLimitDeg;
+  c.GLimitG = gLimitG;   /* 0 = die Zeile veroeffentlicht keins; dann begrenzt allein der Grenzwinkel */
+  c.KG *= scale; c.KGi *= scale; c.KqDamp *= scale;
+  return c;
+}
+
+/* DER g-BEGRENZER, EIN Gesetz fuer beide Zweige — dieselbe Form wie der Anstellwinkel-Zweig, mit der
+ * ABLEITUNG DER BEGRENZTEN GROESSE als Vorhalt und nicht der Nickrate: ein stationaerer Zug traegt eine
+ * von null verschiedene Nickrate, die dort als drohende Ueberschreitung gelesen wuerde. */
+double FBFlightControl::NzLimit(const Fdm::fb_fdm_state &s) {
+  if (NzLimPrimed) NzLimDot += kSosRateFilter * ((s.nz - NzLimPrev) / 0.01 - NzLimDot);
+  NzLimPrev = s.nz;
+  NzLimPrimed = true;
+  return kGosKp * (GLimitG - s.nz - kGosLeadS * NzLimDot);
+}
+
 FBControls FBFlightControl::Run(const FBGuidance &g, const Fdm::fb_fdm_state &s) {
   FBControls o{};
   if (g.Mode == FBMode::Manual) {
@@ -131,6 +186,11 @@ FBControls FBFlightControl::Run(const FBGuidance &g, const Fdm::fb_fdm_state &s)
       double byAlpha = kSosKp * (AlphaLimitDeg - s.alphaDeg - kSosLeadS * AlphaDot);
       if (byAlpha < -PitchStickMax) byAlpha = -PitchStickMax;
       if (byAlpha < o.Pitch) o.Pitch = byAlpha;
+    }
+    if (GLimitG > 0.0) {
+      double byG = NzLimit(s);
+      if (byG < -PitchStickMax) byG = -PitchStickMax;
+      if (byG < o.Pitch) o.Pitch = byG;
     }
     /* PitchStickMax ist eine AUTORITAETSGRENZE der Zelle, kein Modus-Tuning wie RollStickMax (0,15 ist
      * eine Navigationsrolle, im Kampf falsch — die Rolle regelt der BFM-Rollratendeckel). Sie galt bis
@@ -179,6 +239,13 @@ FBControls FBFlightControl::Run(const FBGuidance &g, const Fdm::fb_fdm_state &s)
       double byAlpha = kSosKp * (AlphaLimitDeg - s.alphaDeg - kSosLeadS * AlphaDot);
       if (byAlpha < cmd) {
         cmd = byAlpha;
+        if (gErr > 0.0) GIterm = gHold;
+      }
+    }
+    if (GLimitG > 0.0) {
+      double byG = NzLimit(s);
+      if (byG < cmd) {
+        cmd = byG;
         if (gErr > 0.0) GIterm = gHold;
       }
     }

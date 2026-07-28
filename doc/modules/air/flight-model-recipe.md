@@ -14,13 +14,62 @@ are [`catalogue.md`](catalogue.md); the method this file generalises is
 **Status: BUILT 2026-07-28 as an EXECUTABLE recipe — `sim/tools/gen_air_decks.py` IS this file, and the
 ten decks are its output.** `--check` regenerates into a temporary tree and diffs, so the committed
 decks are provably what the recipe produces; a hand edit to a generated deck is a defect, not a delta.
-**Every one of the ten rows is `ALPHA`**: `## State` carries the residuals, and §8 R11 carries the one
-step of the procedure that did not survive contact with the data.
+**Every one of the ten rows is `ALPHA`**: `## State
 
-**Schema note — this file carries a thin four-section frame, for the same reason
-[`../mig29/flight-model-spec.md`](../mig29/flight-model-spec.md) does:** the procedure below *is* a
-Spec+Gaps hybrid, and exploding it into sections would destroy the one structure that makes it usable.
-`## Spec` holds §0–§7; `## State` says the honest thing; `## Gaps` holds §8; `## Knowledge` holds the
+**BUILT and MEASURED.** `tools/gen_air_decks.py` (the recipe, executable) + `tools/gen_air_stores.py`
+(the seven rounds) + `make -C sim test-air` (`clients/FBTestAirEnvelope.cpp`, the anchor harness
+parameterised by row) + `src/clients/FBAirAnchors.h` (generated from the same anchor table the decks come
+from, so the harness and the recipe cannot drift).
+
+**THE RESIDUAL TABLE, ten rows, measured 2026-07-28** (`make -C sim test-air`, 96 s, 0 anchors
+unmeasurable). Deviation in per cent; **bold** = outside its §7.1 band; `probe` = measured but not
+judged, with the reason in the harness's own line.
+
+| Row | A1 Vmax alt (±5 %) | A2 Vmax SL (±5 %) | A3 ceiling (±10 %) | A4 climb (±25 %) | A5 g (±10 %) | α (±5 %) | takeoff (±30 %) | mass (±1 %) | outside | |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `f15c` | −1.3 | +0.5 | −5.5 | probe | −5.6 | −4.6 | — | +0.0 | 0/6 | **ACCEPTED** |
+| `su27` | **−6.3** | +0.4 | +0.0 | probe | −4.6 | −4.1 | — | −0.0 | 1/6 | `ALPHA` |
+| `mig21` | −2.2 | +0.3 | −1.9 | probe | −8.4 | −4.0 | −17.8 | −0.0 | 0/7 | **ACCEPTED** |
+| `mig23` | −1.0 | +0.4 | **+25.7** | probe | −6.5 | −4.2 | +0.7 | −0.0 | 1/7 | `ALPHA` |
+| `mig25` | −1.5 | +0.4 | **−22.9** | probe | −5.3 | −3.1 | — | −0.0 | 1/6 | `ALPHA` |
+| `mig17` | −0.0 | +0.2 | +3.0 | −1.9 | **−11.2** | **−5.9** | — | −0.0 | 2/7 | `ALPHA` |
+| `su7` | −2.3 | +0.4 | **−14.0** | probe | probe | −4.3 | — | −0.0 | 1/5 | `ALPHA` |
+| `su22` | −0.4 | +0.3 | **+28.1** | probe | −4.2 | −3.8 | — | −0.0 | 1/6 | `ALPHA` |
+| `mirf1` | −1.9 | — | −8.2 | probe | probe | −4.0 | — | −0.0 | 0/4 | **ACCEPTED** |
+| `f5e` | −0.8 | — | +5.5 | probe | probe | −4.1 | +9.7 | −0.0 | 0/5 | **ACCEPTED** |
+
+**PROMOTION: 4 `ACCEPTED` (`f15c` · `mig21` · `mirf1` · `f5e`), 6 `ALPHA`.** No band was widened; the
+list of what moved is below, step by step, because which step bought what is the only way to tell a fix
+from a coincidence.
+
+### What each step bought — A1, the anchor that missed nine times out of ten
+
+| Step | What it changed | `f15c` | `mig21` | `su7` | `f5e` | `mig25` |
+|---|---|---|---|---|---|---|
+| 0 | the committed round | −18.4 | −20.6 | −20.2 | −14.6 | −58.1 |
+| 1 | **the instrument holds the published condition** — the tank was emptying MID-MEASUREMENT (augmentation died at t = 870 s on `f15c` and M 2.04 was reported as its Vmax while `(T−D)/W` was still +0.025), and eight rows were flown BELOW the gross weight every anchor is quoted at | −23.4 | −28.0 | −26.9 | −18.4 | −58.1 |
+| 2 | **the deck's induced drag written against `CL²`, α knots at 1°** (§4.2) | −2.5 | −2.8 | −12.3 | −4.9 | −58.0 |
+| 3 | `Cmδe` `[GEO]` (§6.2) + the per-row preset (§6.1) + the CAS climb schedule | −1.3 | +4.7 | −8.1 | −3.1 | −12.7 |
+| 4 | **the inversion reads the deck's own thrust TABLE** (§4.2b) | −1.3 | −2.2 | −2.3 | −0.8 | −1.5 |
+
+Step 1 makes the number WORSE and it is the step that made the rest legible: it stopped the instrument
+from flattering the deck by flying it light and letting it flame out. **Step 2 alone moved A1 from −20 %
+to −3 % on six of ten rows**, which settles the question the round opened with: A1's systematic miss was
+never a drag LEVEL problem and never a thrust problem — it was drag BOOKKEEPING inside the deck.
+
+### And where each of the four named causes actually was
+
+| Named | Found |
+|---|---|
+| 1. no throttle channel, so no afterburner | **already built** (R13, `d1e1d79`) — the committed decks carry the `Throttle` channel and light their augmentation. What was left in its place was the INSTRUMENT: the tank ran dry mid-run, and eight rows flew below gross. §Step 1 |
+| 2. no gear, so no rotation | **the gear was not the residual cause; the elevator was.** §6.2: `Cmδe` inverted against A5 came out 7.5× below the row's own tail volume and could not lever a nose. All three published take-off runs are now inside ±30 % (−17.8 / +0.7 / +9.7) |
+| 3. A4 inverts no subsonic `CD0` | **decided, per row and computed** — R11 below |
+| 4. the intercept machine flies a generated deck into the ground | **the missing per-row gain preset**, §6.1. `air-bomber-intercept.fbm` now holds 8 002 m for its whole 400 s |
+
+**Mass closure is inside ±1 % on ten of ten**, unchanged. **A2 is inside its band on all eight rows that
+publish one** (+0.2 … +0.5 %), still the cleanest column in the table.
+
+## Gaps` holds §8; `## Knowledge` holds the
 derivations that are worth having outside their step.
 
 **Tags**, the campaigns' own: `[T1]` official · `[T3]` established specialist literature · `[T4]`
@@ -82,6 +131,7 @@ numbers alone, and it is the same argument the MiG-29's four-way mass closure ma
 | `htailarm` / `vtailarm` | never | `[SET]` `0.42·L` / `0.40·L` | note that `../f16/flight-model.md` §12.3 flags `vtailarm = 0` in the pinned F-16 deck as an unfilled field — **do not repeat that** |
 | `AERORP` | never | c̄ quarter-chord once c̄ is fixed | `[SET]` |
 | `EYEPOINT` | never | — | `[SET]`; a catalogue cell is never flown by a human, so it reaches nothing |
+| **Landing gear** | never | `[SET]` nose at `0.28·L`, mains at `0.50·L + 0.15·c̄`, drop `0.13·L`, track `0.24·b`; spring/damping scaled from the pinned F-16's by the structural-mass ratio | **it belongs in §2 and R12 is why.** The gear geometry and §6's control power are ONE inversion: the mains' offset behind the CG is the arm the elevator has to lever against, so a `[SET]` gear station is a `[SET]` rotation demand |
 
 **Aspect ratio is `[DERIVED]` per row as `b²/S`** and it is the single most consequential geometric
 number in the recipe, because §4's induced term is written in it.
@@ -103,6 +153,20 @@ contribution is to apply it N times instead of once.
 ### 4. The drag polar — the closed-form inversion
 
 **The polar:** `CD = CD0(M) + k·CL²`, `k = 1/(π·AR·e)`.
+
+**AND THE DECK HAS TO CARRY THAT SENTENCE LITERALLY, which it did not.** The induced term is written
+against `aero/cl-squared` — the lift coefficient the deck actually produces — and only the leading-edge
+suction loss stays a function of α. Two measured reasons, both defects of bookkeeping and neither of
+level:
+
+1. **A parabola sampled every 5° is read as a chord.** A supersonic dash sits at 1.5–2° of α. On `f15c`
+   at M 1.93 the α-indexed table returned `CDi = 0.00519` against the polar's own `k·CL² = 0.00179`
+   — **2.9×** — and the 0.0034 of invented drag was most of the 0.0045 by which the deck missed the very
+   anchor it had been inverted at. Every α-indexed table in a generated deck now carries 1° knots
+   through the linear range.
+2. **`kCLmach` was double-booked.** At M 2 the compressibility factor takes 30 % off the lift, the
+   aeroplane answers with 43 % more α, and an α-indexed drag table charges `(1/0.70)²` of the induced
+   drag the inversion assumed. Indexed by `CL`, that cancels by construction.
 
 #### 4.1 `e` — the one number the catalogue can derive from published data, once
 
@@ -151,6 +215,17 @@ Ps = (T − D)·V / W        ⇒   D = T − Ps·W/V        ⇒   CD0 = D/(qS) �
 do better: three points do not define a transonic rise, and pretending otherwise would be the failure
 [`../mig29/flight-model-spec.md`](../mig29/flight-model-spec.md) §1.1 exists to prevent.
 
+#### 4.2b The inversion reads the deck's TABLES, never the closed form behind them
+
+`T(M,h)` and `CD0(M)` are continuous functions in this file and **sampled tables in the deck**, and
+JSBSim interpolates the samples linearly. Where the sampled function is curved the chord is not the
+curve: the turbojet ram surface is convex in Mach, so its chord sits **1.1 % below it at M 1.66 and
+1.6 % at M 2.0**. An inversion against the closed form hands the deck a `CD0` for a thrust it does not
+have — and at the anchor the thrust and drag curves are **tangent by construction**, so 1 % of thrust is
+5 % of Vmax. Measured on `su7`: M 1.60 against an anchor of 1.74, with a polar that matched the deck's
+own drag build-up to **0.5 %**. The rule is therefore absolute: **anything the recipe inverts, it
+inverts against the number the aeroplane will read.**
+
 #### 4.3 The ram-recovery factor, named beside every `CD0` it produces
 
 `T` in the inversions above is thrust **at that Mach and altitude**, and it is the frozen half of the
@@ -164,7 +239,17 @@ without re-deriving.
 and the catalogue's one published `CD0` are consistent — which is the closest thing to a validation this
 method can have.
 
-#### 4.4 A3, the ceiling, is a **probe** and not an inversion
+#### 4.4 A3, the ceiling, is a **probe** and not an inversion — and it is a *measured* one
+
+**How it is measured is part of what it means.** A service ceiling is the altitude at which the STEADY
+climb decays through 0.5 m/s, flown on the best schedule the aeroplane has, and all three of those words
+were wrong before this round:
+
+| Wrong | Right | What it cost |
+|---|---|---|
+| a constant-**Mach** schedule | constant **CAS**, swept over seven speeds | a MiG-25 cannot reach M 2.6 at 2 000 m, so a M 2.6 target held it level at its spawn altitude for the whole run and the harness reported **2 049 m** as a 20 700 m ceiling. At a constant 400 kt CAS the same aeroplane passes M 1.30 at 11 km and M 2.60 at 20 km by arithmetic alone |
+| the **highest altitude touched** | the altitude where the filtered climb falls through 0.5 m/s | a fast schedule arrives with kinetic energy and **zooms past its own steady ceiling**: reading the peak measured **+28.9 %** on `su22` and turned the probe into a measurement of the entry speed |
+
 
 At the service ceiling `Ps → 0`, so `T(h_c) = D`. That constrains the thrust lapse against the polar
 already fixed by A1/A2/A4. It is **deliberately not** used to solve for `e`: the service ceiling of a
@@ -216,11 +301,46 @@ already exists and was already hardened** for the MiG-29 (`71cb99f`: the pitch-d
 
 | Quantity | Where | Provenance |
 |---|---|---|
-| g limit (A5) | `FBFlightControl`, not the deck | published per row |
+| g limit (A5) | `FBFlightControl::GLimitG` | published per row. **The class had no such field until this round** and §6 had been promising one since the file was written: the A5 anchor was therefore measuring the AERODYNAMIC limit instead of the structural one (`f15c` 13.3 g against a published 9.0). 0 = the row publishes none, and then the α limiter alone binds — which is what F-16 and MiG-29 read, so both are bit-identical |
 | α limit | `FBFlightControl`, `AlphaLimitDeg` | `[TODO]` for almost every row — **and its absence is a hard gate**: a deck with no α limit and no FLCS departs at full aft stick (measured on the MiG-29's own bare deck: a tumble to 180° of α). A row with no published α limit gets `[SET]` at the value its own measured `CLmax` implies, and the setting is logged |
-| `PitchStickMax` | `FBFlightControl` | `[SET]` per row, and it is one of the four numbers the tier gate reads |
-| Control power (`Cmde`, `Clda`, `Cndr`) | the deck | **INV against A5**: full stick must reach the published g at the corner. That is why §2's `[SET]` tail volumes are harmless — the error is absorbed one step later, by an inversion against a published number |
+| `PitchStickMax` | `FBFlightControl` | **`[DERIVED]`, §6.1** — it used to be `[SET]` at 0.85 on nine rows and nothing read it |
+| Control power (`Cmde`) | the deck | **`[GEO]` from the row's own tail volume**, `-CLa_h·(S_h/S)·(l_h/c̄)·η`. It used to be **INV against A5** and that inversion is retired with its measurement, in §6.2 |
+| Control power (`Clda`, `Cndr`) | the deck | `[GEO]`/`[SET]` from the same surfaces, unchanged |
 | `core/FBFlightMonitor` | untouched | **it must not be taught anything about a catalogue row.** It is model-agnostic by construction, and a departure it calls is a defect of the deck — which is precisely what makes it useful here |
+
+#### 6.1 The per-row gain preset — the thing this contract did not name
+
+**`systems/FBFlightControl::Raw(PitchStickMax, AlphaLimitDeg, GLimitG)`.** Until this round every
+catalogue row flew on `FBFlightControl::Mig29()` verbatim, and `air-bomber-intercept.fbm` measured what
+that costs: **8 000 m of altitude in 242 s** at 1 g with the throttle at idle, ending in the ground. It
+is the MiG-29's gain set with **two of the row's own numbers and one normalisation**:
+
+| | |
+|---|---|
+| `AlphaLimitDeg` | the ROW's limit. The MiG-29's 26° on a MiG-25 (12°) parks the limiter 14° past the stall, where it limits nothing |
+| `PitchStickMax` | **`[DERIVED]`: the cap at which full stick TRIMS 1.5× the row's own α limit**, `P = 1.5·\|Cmα\|·α_lim / (\|Cmδe\|·δe_max)`. Every row's limiter then owns the same 50 % reserve and no row can pull itself into a tumble on the cap alone — the one real hazard the MiG-29 round measured on a raw airframe. Ten rows: 0.127 … 0.278 |
+| `GLimitG` | the published g limit (A5), 0 where none is published |
+| the normalisation | the three g-branch gains scale with `P/0.60` (0.60 = the MiG-29's own measured cap). A g error then buys the same FRACTION of each row's authority, and since `P` is itself defined in multiples of the α limit, the closed loop is row-independent in the quantity it limits. Without it a row with three times the elevator power regulates with three times the loop gain |
+
+**The same preset is what the anchor harness flies**, so the A3/A5/α anchors measure the aeroplane a
+mission will actually fly and not a controller that exists only in the instrument.
+
+#### 6.2 Why `Cmδe` is no longer inverted against A5
+
+The old inversion set `Cmδe·δe_max = -Cmα·α_lim` — an elevator sized to **barely trim** the α limit at
+full travel, i.e. an aeroplane with zero manoeuvre margin at its own limit. Two numbers killed it:
+
+1. On `f5e` it returned **0.167/rad** where §2's own `[SET]` tail volume implies **1.254/rad**, a factor
+   7.5. §2 and §6 were describing two different tails.
+2. **Rotation.** The moment balance about the main gear at `Vr = 1.15·Vs` needs
+   `|Cmδe| ≥ [d·CLmax/(1.3225·δe_max) + 0.432·kCLge·d] / c̄` = **0.415/rad** on `f5e` at §2's
+   `0.15·c̄` main-gear offset. 0.167 could not lift a nose: full aft stick held from 167 kt to 226 kt at
+   2.8° of pitch, and the take-off run measured **+130 %** on every row that publishes one, to within
+   4 % — `f5e` 1 403 m against 610, `mig21` +128 %, `mig23` +126 %.
+
+The `[GEO]` value satisfies both by construction and carries its own margin in the deck banner
+(2.0×–3.0× the rotation demand). R12's remaining half is answered: the gear was not the residual cause,
+the elevator was.
 
 ### 7. Build order, and the promotion gates
 
@@ -338,9 +458,13 @@ raw-airframe control path, and the anchor-harness pattern — all as §Spec list
 | R8 | **Swing-wing rows carry one planform** | `mig23`, `su22`. The choice biases either Vmax (spread) or turn (swept), the direction is declared per row, and the second deck is a separate cheap round |
 | R9 | **Ram-recovery factors are settings** | inherited verbatim from the MiG-29 file's own caveat, and mitigated the same way: every inverted `CD0` is published beside the factor it assumed |
 | R10 | **Store drag is outside the deck** | as for every module: `fdm/FBFdm::SetStoresDrag`. Unvalidated for catalogue rows, as it is for the MiG-29 |
-| **R11** | **A4 INVERTS A SUBSONIC `CD0` FOR NO ROW IN THE CATALOGUE — found while building, and it is a step of §4.2 that did not survive the data** | Worked at the [SET] best-climb condition (M 0.9, sea level, full augmentation), the published maximum rates of climb imply a drag that is NEGATIVE for `f15c` and `mig23` and an order of magnitude below any real aircraft for `f5e` (0.0038 against that row's own published 0.0200). The published figures are zoom/optimum-condition numbers and not steady-state `Ps`. **Resolution taken:** A4 is demoted to a PROBE beside A3, and the subsonic level is taken from the catalogue's ONE published `CD0` (the F-5E's 0.0200) — the identical generalisation §4.1 already makes for `e`, from the identical row, declared the same way. Rows whose own A2 anchor is subsonic (`mig17`, `su7`) invert their own and do not use it |
-| **R12** | **The recipe produced no rotatable aeroplane until the gear was moved, and the gear is not in §2** | With the main gear at 0.06 L behind the CG the nose carried 22 % of the weight, and the elevator power §6 inverts (sized to TRIM the alpha limit, not to lever a nose off a runway) could not rotate the aircraft at all: `f5e`'s take-off run measured **4 643 m against a published 610**. The mains now sit 0.15 c̄ behind the CG (nose ~10 %, inside the documented 8–15 % band) and the run is 1 176 m. **§2 says nothing about landing gear and it has to**, because the gear geometry and the inverted control power are one inversion, not two |
-| **R13** | **A generated deck cannot light its afterburner unless the FCS carries a throttle channel, and §6 does not mention one** | FlightBox commands ONE lever in [0,1] (`fdm/FBFdm::SetControls`), and the pinned F-16 and MiG-29 decks both double it in a `Throttle` channel to reach augmentation. The first generated set had none: measured, `f5e` reached M 1.14 instead of M 1.63 and climbed at 43 m/s instead of 175. §6's "no FLCS inside the XML" must not be read as "no channels" |
+| **R14** | **A3 misses by ±25 % on the two swing-wing rows, and the direction is the declared one** | `mig23` **+25.7 %**, `su22` **+28.1 %** — both carry the SPREAD planform by R8's own declaration, and a spread wing at the ceiling is where that choice costs the most: the induced term dominates as `q` falls, and `mig23`'s aspect ratio drops from 5.22 spread to ~1.78 swept. **The bias R8 declared in advance is now MEASURED, and its number is the ceiling.** The remedy is R8's own: the second planform, a separate cheap round. Neither row's band was touched |
+| **R15** | **`mig25` −22.9 % and `su7` −14.0 % on the ceiling are the thrust lapse, which is exactly what A3 is a probe FOR** | the turbojet reference's `σ^0.85` augmented lapse is one exponent for eight rows. §4.4 says a service ceiling is too noisy to solve with; it is precise enough to say the lapse is too steep for the R-15 (R2's own prediction, surviving into the one anchor A1 no longer misses) and for the AL-7F-1 |
+| **R16** | **The α limiter's proportional droop is 1.2° and `mig17` cannot afford it** | the limiter holds `α_lim − stick/k_p`, and `mig17` carries the largest derived pitch authority in the set (`P = 0.271`). Measured droop 1.18° on a 20° limit = −5.9 % against a ±5 % band. The gain `k_p = 0.20` is the MiG-29's own MEASURED value and raising it would change a flown airframe's committed behaviour, so it stands and `mig17` stays `ALPHA` on that account. Its A5 (−11.2 %) is the same droop in the other limiter |
+| **R17** | **`su27` A1 −6.3 % is the one A1 miss with no found cause** | every other row came inside ±5 % once §4.2 and §4.2b were fixed. `su27` is a turbofan, so §4.2b's table/closed-form fix did not touch it, and its margin curve is the flattest in the set (`(T−D)/W` = +0.0029 at M 2.20 against 0 at M 2.35). Whether the residual is the borrowed F100 surface or the conditioning of the anchor is **not measured**, and the row stays `ALPHA` rather than being given a wider band |
+| **R11** | **A4 INVERTS A SUBSONIC `CD0` FOR NO ROW IN THE CATALOGUE — found while building, and it is a step of §4.2 that did not survive the data** | Worked at the [SET] best-climb condition (M 0.9, sea level, full augmentation), the published maximum rates of climb imply a drag that is NEGATIVE for `f15c` and `mig23` and an order of magnitude below any real aircraft for `f5e` (0.0038 against that row's own published 0.0200). The published figures are zoom/optimum-condition numbers and not steady-state `Ps`. **Resolution taken:** A4 is demoted to a PROBE beside A3, and the subsonic level is taken from the catalogue's ONE published `CD0` (the F-5E's 0.0200) — the identical generalisation §4.1 already makes for `e`, from the identical row, declared the same way. Rows whose own A2 anchor is subsonic (`mig17`, `su7`) invert their own and do not use it. **RESOLVED 2026-07-28, per row and computed rather than by decree:** invert the published rate for the WEIGHT it is reachable at, with the row's own frozen thrust and its own polar. `f15c` **13 141 kg**, `su22` **9 982 kg**, `mirf1` **6 024 kg** — all three BELOW the row's own EMPTY weight, i.e. figures no loading of that aeroplane can reach; `su27`/`mig23`/`mig25`/`su7`/`f5e` between empty and gross, a light-weight figure whose weight no source states; **`mig17` alone reaches its published 65 m/s at the gross weight every other anchor is quoted at (76.9 m/s available), and for that row A4 stays a JUDGED anchor — measured −1.9 %.** So the steering point was not wrong: the anchor is a constraint on nine rows' arithmetic and on nothing else, and the harness prints `PROBE` with the reason instead of judging a deck against it |
+| **R12** | **CLOSED. The gear was not the residual cause — the elevator was** | With the main gear at 0.06 L behind the CG the nose carried 22 % of the weight, and the elevator power §6 inverts (sized to TRIM the alpha limit, not to lever a nose off a runway) could not rotate the aircraft at all: `f5e`'s take-off run measured **4 643 m against a published 610**. The mains now sit 0.15 c̄ behind the CG (nose ~10 %, inside the documented 8–15 % band) and the run is 1 176 m. §2 now carries the gear. **The remaining 2.3× was `Cmδe`** (§6.2): the rotation balance about the mains needs 0.415/rad on `f5e` and the A5-trim inversion gave 0.167 — full aft stick from 167 kt held 2.8° of pitch until 226 kt. With `Cmδe` `[GEO]` the three published runs measure −17.8 / +0.7 / +9.7 % |
+| **R13** | **CLOSED in `d1e1d79`, and this round measured what stood in its place** | FlightBox commands ONE lever in [0,1] (`fdm/FBFdm::SetControls`), and the pinned F-16 and MiG-29 decks both double it in a `Throttle` channel to reach augmentation. The first generated set had none: measured, `f5e` reached M 1.14 instead of M 1.63 and climbed at 43 m/s instead of 175. §6's "no FLCS inside the XML" must not be read as "no channels". **The channel is in every committed deck and the augmentation lights.** What the next round found in the same place was the INSTRUMENT: the tank emptied mid-measurement (`f15c`'s augmentation died at t = 870 s and M 2.04 was booked as its Vmax) and eight rows were flown below the gross weight the anchors are quoted at. Both are held now, and holding them made the residuals WORSE before anything else made them better |
 
 ---
 

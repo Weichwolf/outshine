@@ -324,18 +324,32 @@
           <table>
             <independentVar>aero/alpha-rad</independentVar>
             <tableData>
+                -0.4363    -1.1706
+                -0.3491    -1.0184
                 -0.2618    -0.8143
                 -0.1745    -0.5679
+                -0.1222    -0.4049
                 -0.0873    -0.2917
+                -0.0698    -0.2341
+                -0.0524    -0.1760
+                -0.0349    -0.1175
+                -0.0175    -0.0588
                  0.0000     0.0000
+                 0.0175     0.0588
+                 0.0349     0.1175
+                 0.0524     0.1760
+                 0.0698     0.2341
                  0.0873     0.2917
+                 0.1222     0.4049
                  0.1745     0.5679
+                 0.2094     0.6708
                  0.2618     0.8143
+                 0.2967     0.9016
                  0.3491     1.0184
-                 0.4363     1.1525
-                 0.5236     1.0049
-                 0.6109     0.8572
-                 0.6981     0.7096
+                 0.4363     1.1706
+                 0.5236     1.2014
+                 0.6109     0.9882
+                 0.6981     0.7751
                  0.7854     0.5620
             </tableData>
           </table>
@@ -400,30 +414,91 @@
           </table>
         </product>
       </function>
-      <!-- LIFT-DEPENDENT DRAG. k = 1/(pi*AR*e) = 0.1599 with e = 0.66 [DERIVED, recipe §4.1 — the
-           F-5E's published CD0/(L/D)max pair, generalised, and the FIRST term the attribution band
-           sweeps]. Past the linear range leading-edge suction is progressively lost:
-             CDi(a) = (1-f)*k*CL^2 + f*CL*tan(a),  f = min(1, (a/30deg)^1.5)   [ANALOGY] -->
-      <function name="aero/coefficient/CDalpha">
-        <description>Lift-dependent drag vs alpha</description>
+      <!-- LIFT-DEPENDENT DRAG, and it is written AGAINST THE LIFT COEFFICIENT THE DECK ACTUALLY
+           PRODUCES (aero/cl-squared) and not against alpha. k = 1/(pi*AR*e) = 0.1599 with e = 0.66
+           [DERIVED, recipe §4.1 — the F-5E's published CD0/(L/D)max pair, generalised, and the FIRST
+           term the attribution band sweeps]. Past the linear range leading-edge suction is
+           progressively lost, and only THAT part is a function of attitude:
+             CDi = k*CL^2*(1-f(a)) + f(a)*CL*tan(a),   f = min(1, (a/30deg)^1.5)   [ANALOGY]
+           MEASURED, and the reason the split exists: with the whole term tabulated in alpha the deck
+           charged 2.9x the polar's own induced drag at a supersonic dash attitude, because a parabola
+           sampled every 5 deg is read as a chord at 1.8 deg AND because kCLmach's lift loss reappears
+           as extra alpha. Neither is a property of the aeroplane; both moved A1. -->
+      <function name="aero/coefficient/CDi">
+        <description>Induced drag on the lift actually produced</description>
+        <product>
+          <property>aero/qbar-psf</property>
+          <property>metrics/Sw-sqft</property>
+          <property>aero/cl-squared</property>
+          <value> 0.159948 </value>
+          <table>
+            <independentVar>aero/alpha-rad</independentVar>
+            <tableData>
+                -0.4363    0.23927
+                -0.3491    0.45567
+                -0.2618    0.64645
+                -0.1745    0.80755
+                -0.1222    0.88729
+                -0.0873    0.93196
+                -0.0698    0.95131
+                -0.0524    0.96838
+                -0.0349    0.98279
+                -0.0175    0.99391
+                 0.0000    1.00000
+                 0.0175    0.99391
+                 0.0349    0.98279
+                 0.0524    0.96838
+                 0.0698    0.95131
+                 0.0873    0.93196
+                 0.1222    0.88729
+                 0.1745    0.80755
+                 0.2094    0.74702
+                 0.2618    0.64645
+                 0.2967    0.57343
+                 0.3491    0.45567
+                 0.4363    0.23927
+                 0.5236    0.00000
+                 0.6109    0.00000
+                 0.6981    0.00000
+                 0.7854    0.00000
+            </tableData>
+          </table>
+        </product>
+      </function>
+      <function name="aero/coefficient/CDsuction">
+        <description>Leading-edge suction lost past the linear range</description>
         <product>
           <property>aero/qbar-psf</property>
           <property>metrics/Sw-sqft</property>
           <table>
             <independentVar>aero/alpha-rad</independentVar>
             <tableData>
-                -0.2618    0.14571
-                -0.1745    0.06093
-                -0.0873    0.01442
+                -0.4363    0.41524
+                -0.3491    0.20177
+                -0.2618    0.07714
+                -0.1745    0.01927
+                -0.1222    0.00560
+                -0.0873    0.00174
+                -0.0698    0.00080
+                -0.0524    0.00029
+                -0.0349    0.00007
+                -0.0175    0.00001
                  0.0000    0.00000
-                 0.0873    0.01442
-                 0.1745    0.06093
-                 0.2618    0.14571
-                 0.3491    0.27736
-                 0.4363    0.45966
-                 0.5236    0.58016
-                 0.6109    0.60025
-                 0.6981    0.59543
+                 0.0175    0.00001
+                 0.0349    0.00007
+                 0.0524    0.00029
+                 0.0698    0.00080
+                 0.0873    0.00174
+                 0.1222    0.00560
+                 0.1745    0.01927
+                 0.2094    0.03607
+                 0.2618    0.07714
+                 0.2967    0.11759
+                 0.3491    0.20177
+                 0.4363    0.41524
+                 0.5236    0.69361
+                 0.6109    0.69198
+                 0.6981    0.65040
                  0.7854    0.56198
             </tableData>
           </table>
@@ -546,10 +621,12 @@
     <axis name="PITCH">
       <!-- Cmalpha = -0.05 * CLalpha = -0.1686 /rad [SET static margin, 5 % of the mean
            geometric chord — no row publishes one, and a stable margin is what a conventional airframe
-           of this era has]. Cmde = -0.1484 /rad is INVERTED AGAINST A5 (recipe §6): full stick must
-           trim the aircraft to its published alpha limit, so |Cmalpha|*a_lim = |Cmde|*de_max. That is
-           why the [SET] tail volumes above are harmless — the error is absorbed one step later, by an
-           inversion against a published number. -->
+           of this era has]. Cmde = -0.8146 /rad is [GEO] from THIS row's own tail volume,
+           -CLa_h*(S_h/S)*(l_h/cbar)*eta, the same surface that produces CLde = 0.432 one axis up.
+           IT IS NO LONGER INVERTED AGAINST A5: that inversion sized the elevator to barely TRIM the
+           alpha limit at full travel and could not lift a nose off a runway — measured, a take-off run
+           of 1 403 m against a published 610 with full aft stick held from 167 to 226 kt. Rotation at
+           Vr = 1.15*Vs needs |Cmde| >= 0.000/rad here; this deck carries 0.815. -->
       <function name="aero/coefficient/Cm">
         <description>Pitch moment due to alpha</description>
         <product>
@@ -563,7 +640,7 @@
         <product>
           <property>aero/qbar-psf</property><property>metrics/Sw-sqft</property>
           <property>metrics/cbarw-ft</property><property>fcs/elevator-pos-rad</property>
-          <value> -0.1484 </value>
+          <value> -0.8146 </value>
         </product>
       </function>
       <function name="aero/coefficient/Cmq">

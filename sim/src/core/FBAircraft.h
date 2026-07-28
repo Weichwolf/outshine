@@ -77,6 +77,11 @@ struct FBAirPerf {
   double MinSpeedKt = 0.0;
   double ClimbSpeedKt = 0.0;
   double ApproachKt = 0.0;
+  /* systems/FBFlightControl's pitch authority cap [DERIVED], doc/modules/air/flight-model-recipe.md
+   * §6.1: the stick fraction at which full travel TRIMS 1.5x this row's own alpha limit, i.e.
+   * 1.5*|Cma|*a_lim/(|Cmde|*de_max) on its own generated deck. It used to be one [SET] 0.85 on nine
+   * rows and 0.70 on the tenth, and nothing read it — FBAirModule flew every row on the MiG-29's
+   * preset, which cost air-bomber-intercept.fbm 8 000 m of altitude in 242 s. */
   double PitchStickMax = 0.0;
   double RollPlantA = 0.0;        /* 0 = UNMEASURED. Recipe step 7 has not been run on this row. */
   double RollPlantKDegS = 0.0;
@@ -237,7 +242,7 @@ inline constexpr FBAircraftSpec kF15c{
     FBAirRadarSpec{160000.0, 80000.0, 60.0, 0.0, 10.5, 4.0, -1.0, 40.0, false},
     /*HasRwr*/ true, /*Irst*/ 0.0, 0.0, /*NetNode*/ false, /*NetMember*/ true,
     /*Stations*/ 8, FBGunKind::M61A1, 940,
-    FBAirPerf{330.0, 7.0, 9.0, 22.0, 200.0, 350.0, 150.0, 0.85, 0.0, 0.0},
+    FBAirPerf{330.0, 7.0, 9.0, 22.0, 200.0, 350.0, 150.0, 0.273, 0.0, 0.0},
     FBAirMoverSpec{}, /*RcsM2*/ 0.0, FB_AIR_LAYOUT(F15c, 13.05, 19.43)};
 
 /* Su-27S: NO CAMPAIGN FILE NAMES THIS TYPE (catalogue A11) — it is in the catalogue because the round
@@ -249,7 +254,7 @@ inline constexpr FBAircraftSpec kSu27{
     FBAirRadarSpec{79500.0, 51700.0, 60.0, 0.0, 10.5, 4.0, -1.0, 40.0, false},
     /*HasRwr*/ true, /*Irst*/ 50000.0, 70000.0, false, true,
     /*Stations*/ 10, FBGunKind::Gsh301, 150,
-    FBAirPerf{340.0, 7.0, 9.0, 24.0, 210.0, 360.0, 160.0, 0.85, 0.0, 0.0},
+    FBAirPerf{340.0, 7.0, 9.0, 24.0, 210.0, 360.0, 160.0, 0.278, 0.0, 0.0},
     FBAirMoverSpec{}, 0.0, FB_AIR_LAYOUT(Su27, 14.7, 21.9)};
 
 /* MiG-21bis: three campaigns, and the row that is NOT a weak MiG-29. Its +-30 x +-10 deg field is a
@@ -263,7 +268,7 @@ inline constexpr FBAircraftSpec kMig21{
     FBAirRadarSpec{20000.0, 10000.0, 30.0, 0.0, 10.0, 2.0, /*LookDown*/ 0.0, 0.0, false},
     /*HasRwr*/ true, 0.0, 0.0, false, true,
     /*Stations*/ 4, FBGunKind::Gsh23l, 200,
-    FBAirPerf{300.0, 6.0, 8.5, 20.0, 190.0, 330.0, 145.0, 0.85, 0.0, 0.0},
+    FBAirPerf{300.0, 6.0, 8.5, 20.0, 190.0, 330.0, 145.0, 0.203, 0.0, 0.0},
     FBAirMoverSpec{}, 0.0, FB_AIR_LAYOUT(Mig21, 7.154, 14.7)};
 
 /* MiG-23MLD, the N003E export set [SET] because O1's anchor is the Syrian force and the source names
@@ -275,7 +280,7 @@ inline constexpr FBAircraftSpec kMig23{
     FBAirRadarSpec{52000.0, 39000.0, 30.0, 0.0, 6.0, 2.0, /*LookDown*/ 14000.0, 40.0, false},
     /*HasRwr*/ true, 0.0, 0.0, false, true,
     /*Stations*/ 6, FBGunKind::Gsh23l, 200,
-    FBAirPerf{320.0, 6.5, 8.5, 18.0, 200.0, 340.0, 155.0, 0.85, 0.0, 0.0},
+    FBAirPerf{320.0, 6.5, 8.5, 18.0, 200.0, 340.0, 155.0, 0.206, 0.0, 0.0},
     FBAirMoverSpec{}, 0.0, FB_AIR_LAYOUT(Mig23, 13.965, 16.7)};
 
 /* MiG-25PD: reach and no turn. Every other fighter here is a +7 to +9 g airframe; a limiter at +4.5 g
@@ -289,7 +294,7 @@ inline constexpr FBAircraftSpec kMig25{
     FBAirRadarSpec{120000.0, 50000.0, 60.0, 0.0, 10.5, 4.0, -1.0, 40.0, false},
     /*HasRwr*/ true, /*Irst*/ 25000.0, 50000.0, false, true,
     /*Stations*/ 4, FBGunKind::None, 0,
-    FBAirPerf{400.0, 4.0, 4.5, 12.0, 250.0, 420.0, 180.0, 0.70, 0.0, 0.0},
+    FBAirPerf{400.0, 4.0, 4.5, 12.0, 250.0, 420.0, 180.0, 0.127, 0.0, 0.0},
     FBAirMoverSpec{}, 0.0, FB_AIR_LAYOUT(Mig25, 14.01, 23.82)};
 
 /* MiG-17F: guns and eyes, the catalogue's cheapest deck and its most honest row. SearchRangeM 0 —
@@ -301,7 +306,7 @@ inline constexpr FBAircraftSpec kMig17{
     FBAirRadarSpec{0.0, 0.0, 0.0, 0.0, 0.0, 4.0, -1.0, 0.0, false},
     /*HasRwr*/ false, 0.0, 0.0, false, false,
     /*Stations*/ 2, FBGunKind::Nr23, 160,
-    FBAirPerf{250.0, 5.0, 8.0, 20.0, 150.0, 280.0, 120.0, 0.85, 0.0, 0.0},
+    FBAirPerf{250.0, 5.0, 8.0, 20.0, 150.0, 280.0, 120.0, 0.271, 0.0, 0.0},
     FBAirMoverSpec{}, 0.0, FB_AIR_LAYOUT(Mig17, 9.628, 11.264)};
 
 /* Su-7BKL, the strike aircraft of O3. A5 IS [TODO], and that is a hard consequence rather than a
@@ -313,7 +318,7 @@ inline constexpr FBAircraftSpec kSu7{
     FBAirRadarSpec{0.0, 0.0, 0.0, 0.0, 0.0, 4.0, -1.0, 0.0, false},
     /*HasRwr*/ false, 0.0, 0.0, false, false,
     /*Stations*/ 6, FBGunKind::Nr30, 140,
-    FBAirPerf{300.0, 5.0, 0.0, 18.0, 190.0, 320.0, 160.0, 0.85, 0.0, 0.0},
+    FBAirPerf{300.0, 5.0, 0.0, 18.0, 190.0, 320.0, 160.0, 0.198, 0.0, 0.0},
     FBAirMoverSpec{}, 0.0, FB_AIR_LAYOUT(Su7, 9.31, 16.8)};
 
 /* Su-17M4 / Su-22M4 — one row for the type O1 and O3 both name (the Su-20 is the export Su-17). The
@@ -324,7 +329,7 @@ inline constexpr FBAircraftSpec kSu22{
     FBAirRadarSpec{0.0, 0.0, 0.0, 0.0, 0.0, 4.0, -1.0, 0.0, false},
     /*HasRwr*/ true, 0.0, 0.0, false, false,
     /*Stations*/ 10, FBGunKind::Nr30, 160,
-    FBAirPerf{310.0, 5.5, 7.0, 18.0, 200.0, 330.0, 165.0, 0.85, 0.0, 0.0},
+    FBAirPerf{310.0, 5.5, 7.0, 18.0, 200.0, 330.0, 165.0, 0.185, 0.0, 0.0},
     FBAirMoverSpec{}, 0.0, FB_AIR_LAYOUT(Su22, 13.68, 19.02)};
 
 /* Mirage F1C: the ONLY pre-1980 row in the catalogue with a sourced look-down/shoot-down capability
@@ -336,7 +341,7 @@ inline constexpr FBAircraftSpec kMirf1{
     FBAirRadarSpec{96000.0, 40000.0, 60.0, 0.0, 10.5, 4.0, -1.0, 40.0, false},
     /*HasRwr*/ true, 0.0, 0.0, false, true,
     /*Stations*/ 5, FBGunKind::Defa553, 300,
-    FBAirPerf{330.0, 6.0, 0.0, 20.0, 200.0, 340.0, 160.0, 0.85, 0.0, 0.0},
+    FBAirPerf{330.0, 6.0, 0.0, 20.0, 200.0, 340.0, 160.0, 0.209, 0.0, 0.0},
     FBAirMoverSpec{}, 0.0, FB_AIR_LAYOUT(Mirf1, 8.4, 15.3)};
 
 /* F-5E Tiger II: NO CAMPAIGN NAMES THIS TYPE either (catalogue A11) — W1's aggressors are F-16s
@@ -350,7 +355,7 @@ inline constexpr FBAircraftSpec kF5e{
     FBAirRadarSpec{0.0, 0.0, 0.0, 0.0, 0.0, 4.0, -1.0, 0.0, false},
     /*HasRwr*/ false, 0.0, 0.0, false, false,
     /*Stations*/ 7, FBGunKind::M39a2, 560,
-    FBAirPerf{300.0, 6.0, 0.0, 22.0, 180.0, 320.0, 145.0, 0.85, 0.0, 0.0},
+    FBAirPerf{300.0, 6.0, 0.0, 22.0, 180.0, 320.0, 145.0, 0.200, 0.0, 0.0},
     FBAirMoverSpec{}, 0.0, FB_AIR_LAYOUT(F5e, 8.13, 14.69)};
 
 /* ============================ THE EIGHT MOVER ROWS ============================
