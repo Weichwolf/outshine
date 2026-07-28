@@ -32,7 +32,63 @@ State of the entries below: commit `793e1fe` + the model-root/delta round (2026-
 
 ## Chronology
 
-### 2026-07-28 — out of single fighters, an air force: the FLIGHT (this round)
+### 2026-07-28 — clouds: the proof set becomes reproducible, and the grain is measured rather than assumed (this round)
+
+The R5 rebuild was built and merged with three things open. All three were taken to a number; two of
+them ended somewhere other than where the gap text expected, and that is recorded as such.
+
+**The proof set is reproducible now, and the recipe is the finding.** The stored PNGs could not be
+reproduced from the committed source (99.88 % of pixels differed — tuning drift, re-measured on the
+merge). The cause of the *irreproducibility* was never the clouds: the screenshot venue streams tiles
+while it renders, so a short run frames a half-built quadtree. Holding the camera still for 180 frames
+and writing only the last one puts the streamer at `pending=0`, and the converged tile set is a pure
+function of the camera — **12 frames, two independent runs, byte-identical sha256, in both SVS and
+EVS**. The consequence is that the fly-through had to become a LADDER through one column rather than a
+flown mission: a moving camera never converges, so a flown sequence cannot be hashed. Named in Gaps.
+
+**The march grain fell 13 %, not the 50 % the gap hoped for, and the honest reason is in the way.**
+Removing the erosion term entirely dropped the grain from 0.0263 to 0.0149, so the erosion — 1.6 km
+wide, 300 m tall, against a 260 m step — is what a 6–12 node march undersamples. Two changes went in:
+a **composite trapezoid** in place of the jittered rectangle rule, and a **band-limit of the erosion
+against the march's own step** (`ErodeFlat`, a new parameter of the SHARED density function, so
+`--cloudcheck` still covers it — AGREE at 1.90·10⁻⁵). Grain 0.0329 → 0.0285 (3×3 high-pass), cost
++5 %. The bigger win is one the gap did not ask for: the rectangle rule rendered a thick deck **3.7 %
+too dark**, and the trapezoid renders it to +0.8 % of the converged reference. Five alternatives were
+built, measured and rejected — no jitter (−58 % grain, but 72 px contour bands), half-amplitude jitter,
+a front-loaded geometric step ladder (+39 %, worse: it is right for a steep crossing and wrong for the
+grazing far field), a stratified 4×4 ordered jitter (−1 %: stratification fixes the block mean, the
+artefact is per-pixel), and an amplitude fade of the erosion, which measured BEST and was rejected
+because the improvement was a 3.5 % brighter deck in the metric's denominator.
+
+**One ceiling, three étages: a weight, not a choice.** The predecessor clamped the reported ceiling
+into the band of the lowest broken deck and carried two discontinuities — the base stuck at the band
+edge while the ceiling walked on (4.2 km of assertion the data contradicts, measured), and the choice
+of deck flipped whenever a cover crossed 0.5. It is now an ownership weight with a 2 000 m handover:
+étages hand the ceiling over continuously, a deck below a tenth of the sky cannot own one, and the
+outermost edges saturate because there is nothing to hand to. The Payerne proof corridor is unchanged
+to the metre. The price is named and measured: during a handover the deck slides at up to 325 m/km
+against the data's own 135 m/km.
+
+**And the question the owner actually asked — do you see them when you fly?** Yes, on this run.
+Probing the committed fixture point by point: over the Swiss box (90 points) 60 % of points carry
+≥ 25 % cover in some étage and a ceiling is reported at 71 % of them; Payerne itself is 75.7 % low
+cloud with a 2 991 m ceiling. The distribution is strongly bimodal — that is GFS' own layer
+diagnostics, not a defect here — and one run is one atmosphere, so a mission that needs a guaranteed
+sky still has to say `wx fixture`.
+
+One defect was found that predates the round and is NOT fixed: **the underside of an optically thick
+deck receives no light**. The slant optical depth to the sun is ≈ 57, all three multi-scatter octaves
+evaluate to zero, and the base ends up the ambient floor times the sky — dark blue where a real
+overcast is bright grey. It is an ambient/multi-scatter model change, not a march change, so it is
+named with its numbers instead of patched in the middle of a proof round; the cirrus frame shows the
+same code producing Beer damping and a silver rim as soon as the deck is thin.
+
+Gates: all targets clean, `verify-layers`/`verify-models` green, nine harnesses rc=0, `fb-gym` still
+GPU-symbol-free, WASM builds, `--cloudcheck` AGREE, and 14 telemetry CSVs over six missions
+byte-identical to `HEAD` — the clouds do not touch the physics, and that is now measured rather than
+argued.
+
+### 2026-07-28 — out of single fighters, an air force: the FLIGHT
 
 A "flight" was an appearance. `fl` in the datalink's contact filter meant "the first unit of that
 faction in mission order", two jets of one side flew two private wars, and nothing in the tree could

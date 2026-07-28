@@ -49,6 +49,11 @@ constexpr int   kCloudErodeOct  = 2;      /* erosion octaves (rotated, like the 
 constexpr float kCloudErodeFreq = 10.0f;  /* erosion noise frequency, relative to the feature size */
 constexpr float kCloudErodeVert = 3.0f;   /* erosion cycles across the deck height */
 constexpr float kCloudErodeBase = 0.35f;  /* erosion weight at the deck base (top-biased, Nubis) */
+/* The erosion FBM's OWN mean — the value a fully band-limited erosion term collapses to (see
+ * FBCloudDeckParams::ErodeFlat). MEASURED by `gpu_native --cloudcheck`; it is 0.5 by construction
+ * (FBCloudNoise3 is centred on 0.5 and the octave sum is normalised), which is exactly why it can be
+ * faded toward WITHOUT changing the mean density the way fading the amplitude to zero does. */
+constexpr float kCloudErodeMean = 0.5f;
 
 /* ---- One deck. Metres and metres/second throughout; horizontal position is measured in the tangent
  * plane of a fixed anchor, so the field stands still in the world while the aircraft moves. */
@@ -65,7 +70,13 @@ struct FBCloudDeckParams {
   /* DERIVED from Cover by FBCloudCalibrate — carried rather than recomputed so the shader does not
    * evaluate a quantile function per sample, and so both evaluators read the same two numbers. */
   float RemapEdge = 1.0f, RemapWidth = 0.1f;
-  float Pad0 = 0.0f, Pad1 = 0.0f;       /* 16 floats = 64 B: a uniform array element strides by 16 */
+  /* BAND-LIMIT of the erosion octaves, 0 = full detail, 1 = flat. It fades the erosion toward its own
+   * MEAN, not toward zero: erosion SUBTRACTS density, so fading the amplitude out would thicken and
+   * brighten the deck wherever the filter bites (measured: +3.5 % deck luminance). This is the mip
+   * level of a procedural field, and it belongs in the shared function because the answer "how much
+   * cloud is on this ray" depends on the footprint of whoever is asking. */
+  float ErodeFlat = 0.0f;
+  float Pad1 = 0.0f;                    /* 16 floats = 64 B: a uniform array element strides by 16 */
 
   float ThicknessM(void) const { return TopM - BaseM; }
 };
@@ -267,7 +278,11 @@ inline float FBCloudDensity(const FBCloudDeckParams &d, float eastM, float north
   if (s.Coverage <= 0.0f) return 0.0f;
   float dens = FBCloudShape(s.Coverage, h);
   if (d.Erosion > 0.0f && dens > 0.0f) {
-    const float e = FBCloudErosionFbm(s.A * kCloudErodeFreq, s.B * kCloudErodeFreq, h * kCloudErodeVert);
+    float e = kCloudErodeMean;
+    if (d.ErodeFlat < 1.0f) {
+      const float raw = FBCloudErosionFbm(s.A * kCloudErodeFreq, s.B * kCloudErodeFreq, h * kCloudErodeVert);
+      e = FBCloudMix(raw, kCloudErodeMean, d.ErodeFlat);
+    }
     dens -= e * d.Erosion * FBCloudMix(kCloudErodeBase, 1.0f, h);
   }
   if (dens < 0.0f) dens = 0.0f;
@@ -287,12 +302,23 @@ constexpr float kCloudHighDefaultBaseM = 9000.0f;   /* [SET] — the spec's ~9 k
 constexpr float kCloudLowThickM  = 900.0f;          /* [SET] stratocumulus deck */
 constexpr float kCloudMidThickM  = 1400.0f;         /* [SET] altostratus/altocumulus */
 constexpr float kCloudHighThickM = 500.0f;          /* [SET] "a few hundred metres" (spec) */
-constexpr float kCloudBrokenFrac = 0.5f;            /* [SET] broken = the ceiling-bearing cover */
 /* Étage bands the reported ceiling is allowed to land in [SET]. NOT the WMO étage limits: GFS' "low
  * cloud" diagnostic runs to ~642 hPa (~3.7 km), and a first attempt with the textbook 2.5 km low limit
  * threw away a measured 2 991 m ceiling under 76 % low cloud and put the deck at the 1 200 m default
  * instead. The bands are the reporting layers' own extent, so they overlap. */
 constexpr float kCloudBandM[3][2] = {{150.0f, 4000.0f}, {2000.0f, 7500.0f}, {5500.0f, 13000.0f}};
+/* Width of the HANDOVER between two étages [SET]. It is the whole answer to "one ceiling, three decks":
+ * inside its band a deck takes the ceiling as its base, outside it the next étage up does, and in
+ * between both weights slide. Neither of the two obvious rules works — CLAMPING the ceiling into the
+ * band leaves the base stuck at the band edge while the reported ceiling walks on (a deck that stops
+ * rising), and REJECTING it drops the base to the default in one frame (measured: 2.7 km). 800 m of
+ * ceiling change is ~340 km of track at the fixture's own along-corridor gradient (70 m per 30 km), so
+ * the handover is a slide of a few metres per second, not an event. */
+constexpr float kCloudCeilBlendM = 2000.0f;
+/* A deck that is barely there cannot own the ceiling either — and "barely there" has to be a RAMP, not
+ * a threshold, or the ownership flips the instant a cover crosses it (which is exactly the defect the
+ * predecessor's broken-threshold carried). [SET]: a tenth of the sky. */
+constexpr float kCloudCeilExistsFrac = 0.10f;
 
 /* Feature size, stretch, warp, erosion and extinction per étage — the character of each deck [SET].
  * Extinction is chosen from the optical depth it produces over the deck's own thickness: low
@@ -325,32 +351,40 @@ inline FBCloudSky FBCloudSkyFromWeather(const FBWeatherProvider &wx, double latD
 
   FBCloudSky sky;
   sky.VisibilityM = (float)wx.VisibilityM(latDeg, lonDeg);
-  /* WHICH deck the one reported ceiling belongs to: the lowest BROKEN one, or — if nothing is broken —
-   * simply the deck with the most cloud in it. Deciding it once, before the loop, is what keeps the
-   * answer from depending on the loop order. */
-  int ceilDeck = -1;
+  /* WHO OWNS THE ONE REPORTED CEILING — as a WEIGHT per deck, not as a choice between decks, because
+   * every choice this rule could make is a discontinuity somewhere. `own[i]` is "this étage's band
+   * contains the ceiling" (smooth-edged, kCloudCeilBlendM wide) times "no lower étage that exists has
+   * claimed it", so the weights hand over instead of switching. A deck that is not there
+   * (cover 0) cannot own a ceiling, and it does not block the deck above it either.
+   *
+   * The predecessor picked the lowest BROKEN deck and CLAMPED the ceiling into its band. That carried
+   * two discontinuities: the base stuck at the band edge once the reported ceiling walked past it, and
+   * the choice itself flipped decks the instant a cover crossed the broken threshold. Both are gone —
+   * cover now enters only as "exists at all", monotonically. */
+  float own[3] = {0.0f, 0.0f, 0.0f};
+  float ceilFor[3] = {0.0f, 0.0f, 0.0f};
   if (L.HaveCeiling) {
-    for (int i = 0; i < 3 && ceilDeck < 0; i++)
-      if (cover[i] >= kCloudBrokenFrac) ceilDeck = i;
-    if (ceilDeck < 0) {
-      int best = 0;
-      for (int i = 1; i < 3; i++) if (cover[i] > cover[best]) best = i;
-      if (cover[best] > 0.0f) ceilDeck = best;
+    float free = 1.0f;   /* how much of the ceiling the étages below have left unclaimed */
+    for (int i = 0; i < 3; i++) {
+      const float lo = kCloudBandM[i][0], hi = kCloudBandM[i][1];
+      float c = (float)L.CeilingM;
+      /* The outermost edges SATURATE rather than blend: there is no étage below the lowest or above the
+       * highest to hand a ceiling to, so a 100 m fog stays the low deck's base and a 14 km one the
+       * cirrus'. Every INNER edge blends, and that is where the sticking used to happen. */
+      if (i == 0 && c < lo) c = lo;
+      if (i == 2 && c > hi) c = hi;
+      ceilFor[i] = c;
+      const float w = FBCloudSmooth(lo - kCloudCeilBlendM, lo, c)
+                    * (1.0f - FBCloudSmooth(hi, hi + kCloudCeilBlendM, c));
+      const float exists = FBCloudSmooth(0.0f, kCloudCeilExistsFrac, cover[i]);
+      own[i] = w * exists * free;
+      free -= own[i];
     }
   }
   for (int i = 0; i < 3; i++) {
     FBCloudDeckParams &d = sky.Deck[i];
     d.Cover = cover[i] < 0.0f ? 0.0f : (cover[i] > 1.0f ? 1.0f : cover[i]);
-    /* CLAMPED into the étage band, never rejected: a rejected ceiling falls back to the default and the
-     * deck JUMPS. Measured on the fly-through mission — the GFS ceiling rises along the track and at
-     * 4 000 m the first version dropped the deck 2.7 km in one frame. A clamp is continuous. */
-    d.BaseM = defBase[i];
-    if (i == ceilDeck) {
-      float b = (float)L.CeilingM;
-      if (b < kCloudBandM[i][0]) b = kCloudBandM[i][0];
-      if (b > kCloudBandM[i][1]) b = kCloudBandM[i][1];
-      d.BaseM = b;
-    }
+    d.BaseM = FBCloudMix(defBase[i], ceilFor[i], own[i]);
     d.TopM = d.BaseM + thick[i];
     d.FeatureM = kCloudFeatureM[i];
     d.Stretch = kCloudStretch[i];

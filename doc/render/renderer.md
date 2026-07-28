@@ -39,10 +39,10 @@ Built; the stage split is finished (zero inline shaders in `FBRenderer.cpp`).
 | Stage split in four slices | done | `c9206eb`…`2099cb0` |
 | Hillaire atmosphere (transmittance / sky-view / sky), sun, moon, stars | built | `c9206eb`…`2099cb0` |
 | Terrain stage with render bundles and two-phase streaming | built | `c9206eb`…`2099cb0` |
-| Tonemap (two pipelines), upscale, loading screen | built | `c9206eb`…`2099cb0` |
+| Tonemap, upscale, loading screen | built | `c9206eb`…`2099cb0` |
 | Camera basis shared by native and WASM (`FBCameraBasisEcef`) | built | `705c90a` |
 | HUD backend | built — see [`hud.md`](hud.md) | `2f3c277`, `8997eec`, `6f160af` |
-| Cloud chain | built but slated for demolition — see [`clouds.md`](clouds.md) | — |
+| Cloud chain | rebuilt: ONE stage over ONE shared density function — see [`clouds.md`](clouds.md) | `9ca2c0e` + the R5 follow-up round |
 | Units and sprites | **nothing** — see [`units-visual.md`](units-visual.md) | — |
 
 ## Gaps
@@ -95,10 +95,6 @@ parked in [`../roadmap.md`](../roadmap.md) until `world/` is split.
    infrastructure for it exists and is computed every frame. The terrain is "lit albedo pure, full
    brightness to the horizon" — an explicit user decision (2026-07-23), but physically wrong. The LUT is
    computed anyway, because sky and sun need it.
-6. **Clouds are OFF by default** (`FB_CLOUDS=0`, user decision 2026-07-23) and **no weather source is
-   wired**: `FBState.Env.Cloud*` stays zero, and `FBCloudMarchStage` reads "0" as "no weather report"
-   and sets its own default deck. The comment at `FBRenderer::HudState` says so explicitly: zero IS the
-   honest value here as long as no open-meteo connection exists.
 7. **The transmittance LUT is recomputed every frame.** It depends only on altitude and the sun's
    cos θ; a `TODO cache while the sun is static` is in the header and is open.
 8. **Upscale is bilinear.** `TODO bicubic/sharpen` in the header; likewise missing is the HUD's 8-tap
@@ -199,15 +195,12 @@ resource/pipeline group is **not built at all**.
 
 | Switch | Default | Effect | Place |
 |---|---|---|---|
-| `FB_CLOUDS` | 0 (off) | arms the complete volumetric+dome cloud path. Off = `CreateClouds()` never runs: no noise volumes, no pipelines, no VRAM | `FBRenderer::OnDevice` |
+| `FB_CLOUDS` | **1 (armed)** | arms the cloud layer pass. Off = no pipeline, no VRAM. Armed is not the same as drawn: the pass only exists when the weather sample has a deck | `FBRenderer::OnDevice` |
 | `FB_AP` | 0 (off) | terrain aerial perspective. `const AP_ON : f32 = 0.0` is substituted in the terrain shader; off = the whole tLUT/inscatter/glow block strips away | `FBTilesStage.cpp` |
-| `FB_CLOUD_QUALITY` | 1.0 | scales the step count of the raymarch; 0 disables the pass | `FBCloudMarchStage` |
+| `--cloudq` (native) / `SetCloudQuality` | 1.0 | scales the NODE count of the march, 0.25…8 | `FBCloudLayerStage` |
 | `FB_MOON_SCALE` | 1.0 | multiplier on the real lunar angular radius (0.0045 rad ≈ 0.5°) | `FBRenderer::UpdateAtmosphere` |
-| `FB_CLOUD_CELLS` | 1 (on) | F1 cell field; off = its `worley2D` generation is substituted out of the bake shader | `FBCloudBaseBakeStage`, `FBCloudMarchStage` |
-| `FB_BASE_*`, `FB_SS_*`, `FB_D2_*`, `FB_CELL_KM`, `FB_CELL_DOME`, `FB_CONE_R`, `FB_MOONLIGHT`, `FB_CLOUD_BASE_M`, `FB_CLOUD_THICK_M` | see code | sweep hooks of the cloud research (`doc/render/clouds-legacy/`) | cloud stages |
 | `FB_PHOTO_ZMAX` | 11 | from which zoom an aerial-imagery tile counts as "bright enough" (gain calculation) | `FBTilesStage.cpp` |
 | `FB_PHOTO_EMA` / `FB_PHOTO_MAXGAIN` / `FB_PHOTO_LOG` | 0.08 / 2.5 / off | adaptive brightness adjustment of the imagery layers | `FBTilesStage.cpp` |
-| `FB_SHAPEHIST` | off | numerical density histogram of the base noise (lab tool) | `FBCloudBaseBakeStage::ShapeStats` |
 | `FB_GPU_NOOP` / `FB_GPU_BISECT` | compile defines | bisect levels: inert frames and acquire-only respectively — separates init-side from frame-side device death | `FBRenderer::RenderFrame` |
 
 ---
@@ -259,25 +252,21 @@ Order as in `FBRenderer::RenderFrame()`:
 | 3 | ″ | **`FBUnitsStage`** | HDR | **NoOp**, but hard-wired: AI/weapon units draw directly after the terrain |
 | 3 | ″ | `FBTileLightsStage` | HDR | night lights, depth-tested, self-gated |
 | 3 | ″ | **`FBSpritesStage`** | HDR | **NoOp**, hard-wired: effect billboards directly before the HUD |
-| 4 | Cloud march (only `FB_CLOUDS=1`) | `FBCloudMarchStage` | `CloudLowTex` (quarter resolution) | its OWN pass, because it must SAMPLE `DepthTex` (which was still an attachment in the scene pass) |
-| 5 | Cloud resolve (only `FB_CLOUDS=1`) | `FBCloudResolveStage` | `CloudHist[w]` + `CloudWSum[w]` (two attachments) | temporal upsampling into the ping-pong history |
-| 6 | Tonemap (colour `FrameTex`, clear) | `FBTonemapStage` | 720p sRGB | ACES; composites the cloud along the way if armed |
+| 4 | Cloud layer (`FB_CLOUDS=1` **and** the weather has a deck) | `FBCloudLayerStage` | `HdrTex`, premultiplied blend | its OWN pass, because it must SAMPLE `DepthTex` (which was still an attachment in the scene pass) |
+| 5 | Tonemap (colour `FrameTex`, clear) | `FBTonemapStage` | 720p sRGB | ACES; one pipeline — the cloud is already in `HdrTex` |
 | 7 | HUD (colour `FrameTex`, **LoadOp `Load`**) | `FBHudStage` | 720p sRGB | only when `HudEnabled`; preserves the tonemapped picture |
 | 8 | Upscale (colour = final, clear) | `FBUpscaleStage` | swapchain or offscreen | bilinear |
 
 **Pass counts (the logged invariant):**
 
-| Configuration | Passes |
-|---|---|
-| Standard, clouds off | **6** (2 compute + scene + tonemap + HUD + upscale) |
-| `FB_CLOUDS=1` | **8** (+ march + resolve) |
-| HUD off (cloud lab) | **5** |
-| Loading screen | **2** (HUD text into `FrameTex` + upscale) |
+| Configuration | Passes | Verified |
+|---|---|---|
+| Standard, no weather deck | **6** (2 compute + scene + tonemap + HUD + upscale) | `passcount passes=6 clouds=1 cloudPass=0 hud=1` |
+| clouds armed AND the weather has a deck | **7** (+ the cloud layer pass) | `passcount passes=7 clouds=1 cloudPass=1 hud=1` |
+| Loading screen | **2** (HUD text into `FrameTex` + upscale) | |
 
-After `Finish()`/`Submit()` three order-critical follow-ups remain that are not passes:
-`Cloud->ResolveTimestamps(enc)` **before** `Finish`, `Cloud->PollTimestamps()` **after** `Submit`, and
-`Resolve->Advance(ctx)` (ping-pong flip + snapshot of view-proj/eye as "previous"), only **after** this
-frame's tonemap has read the result.
+No order-critical follow-ups remain after `Finish()`/`Submit()`: the temporal resolve that owned them
+(ping-pong flip, history snapshot, timestamp poll) went with the old chain.
 
 #### 2.2 The loading screen
 
@@ -303,13 +292,8 @@ without a low-res ladder. Threshold and timeout live with the client (`FB_LOAD_T
 | `FBUnitsStage` | `.h` | — | **NoOp** | — |
 | `FBTileLightsStage` | `.h/.cpp` | render, instanced additive | night-light sprites on the ground | self-gated like stars |
 | `FBSpritesStage` | `.h` | — | **NoOp** | — |
-| `FBCloudMipDownStage` | `.h/.cpp` | compute helper (init) | 2×2×2 box downsample for mip chains; **submits its own command buffers** (not a frame stage) | clouds armed |
-| `FBCloudBaseBakeStage` | `.h/.cpp` | bake (once) | Perlin-Worley base volume 128³ RGBA8, full mip chain | ″ |
-| `FBCloudDetailBakeStage` | `.h/.cpp` | bake (once) | Worley-octave detail volume 32³, full mip chain | ″ |
-| `FBCloudCellBakeStage` | `.h/.cpp` | bake (once) | 512² F1 cell field, ONE mip level | ″ |
-| `FBCloudMarchStage` | `.h/.cpp` | render | raymarch into `CloudLowTex` (quarter resolution, premultiplied) | ″ |
-| `FBCloudResolveStage` | `.h/.cpp` | render (2 attachments) | temporal upsampling into the `CloudHist`/`CloudWSum` ping-pong | ″ |
-| `FBTonemapStage` | `.h/.cpp` | render | ACES → `FrameTex`; **one shader source, two pipelines** | always |
+| `FBCloudLayerStage` | `.h/.cpp` | render | the whole cloud chain: ray ∩ shell per deck, trapezoid march, premultiplied into `HdrTex` (see [`clouds.md`](clouds.md)) | armed AND the weather has a deck |
+| `FBTonemapStage` | `.h/.cpp` | render | ACES → `FrameTex`; one pipeline | always |
 | `FBHudStage` | `.h/.cpp` | render | HUD overlay (see §7) | `HudEnabled` |
 | `FBUpscaleStage` | `.h/.cpp` | render | 720p → display resolution, bilinear | always |
 
@@ -320,7 +304,7 @@ consumer concatenates them in front of its own code):
 |---|---|---|
 | `FBAtmoCommon.h` | `Atmo` uniform struct + scattering physics | transmittance, sky view, sky, tiles (aerial perspective) |
 | `FBAtmoSample.h` | sky-view LUT sampling + exposure (`kSkyExposure = 8.0`) | sky, tiles |
-| `FBCloudNoiseCommon.h` | hash/Worley/Perlin/`remap` | the three bake shaders + march (only `remap`) |
+| `FBCloudDensityWGSL.h` | the shared cloud density function plus the constants printed from its C++ half | `FBCloudLayerStage` |
 
 ---
 
@@ -549,6 +533,6 @@ therefore **only** an orchestrator — device, targets, pass boundaries, order, 
 shader idea can no longer wander "just quickly" into the orchestrator, because the rule would make it
 visible immediately.
 
-Distribution of the 20 WGSL blocks over 17 stage files (three files carry two: `FBTonemapStage`
-with/without cloud composite, `FBHudStage` stroke/text, `FBCloudBaseBakeStage` bake + histogram) plus
-three pure splice headers without a class of their own.
+Distribution today: **13 WGSL blocks over 12 stage files** (one carries two: `FBHudStage`, stroke and
+text) plus **3 pure splice headers** without a class of their own (`FBAtmoCommon.h`, `FBAtmoSample.h`,
+`FBCloudDensityWGSL.h`).

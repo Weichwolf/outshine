@@ -22,7 +22,7 @@ struct CloudDeck {
   driftE : f32, driftN : f32,
   windE : f32, windN : f32,
   stretch : f32, featureM : f32, warp : f32, erosion : f32, sigma : f32,
-  remapEdge : f32, remapWidth : f32, pad0 : f32, pad1 : f32,
+  remapEdge : f32, remapWidth : f32, erodeFlat : f32, pad1 : f32,
 };
 fn fbSmooth(e0 : f32, e1 : f32, x : f32) -> f32 {
   let t = clamp((x - e0) / (e1 - e0), 0.0, 1.0);
@@ -166,7 +166,11 @@ fn cloudDensity(d : CloudDeck, eastM : f32, northM : f32, h : f32) -> f32 {
   if (s.coverage <= 0.0) { return 0.0; }
   var dens = cloudShape(s.coverage, h);
   if (d.erosion > 0.0 && dens > 0.0) {
-    let e = cdErosionFbm(s.a * kCloudErodeFreq, s.b * kCloudErodeFreq, h * kCloudErodeVert);
+    var e = kCloudErodeMean;
+    if (d.erodeFlat < 1.0) {
+      let raw = cdErosionFbm(s.a * kCloudErodeFreq, s.b * kCloudErodeFreq, h * kCloudErodeVert);
+      e = mix(raw, kCloudErodeMean, d.erodeFlat);
+    }
     dens = dens - e * d.erosion * mix(kCloudErodeBase, 1.0, h);
   }
   return clamp(dens, 0.0, 1.0);
@@ -192,12 +196,14 @@ inline std::string FBCloudDensityConstsWGSL(void) {
            "const kCloudProfTop : f32 = %.9g;\n"
            "const kCloudErodeFreq : f32 = %.9g;\n"
            "const kCloudErodeVert : f32 = %.9g;\n"
-           "const kCloudErodeBase : f32 = %.9g;\n",
+           "const kCloudErodeBase : f32 = %.9g;\n"
+           "const kCloudErodeMean : f32 = %.9g;\n",
            kCloudOctaves, (double)kCloudLacunarity, (double)kCloudGain, (double)kCloudShear,
            (double)kCloudRotC, (double)kCloudRotS,
            (double)kCloudWarpFreq, (double)kCloudWarpCross,
            (double)kCloudTopMin, kCloudErodeOct, (double)kCloudProfBase, (double)kCloudProfTop,
-           (double)kCloudErodeFreq, (double)kCloudErodeVert, (double)kCloudErodeBase);
+           (double)kCloudErodeFreq, (double)kCloudErodeVert, (double)kCloudErodeBase,
+           (double)kCloudErodeMean);
   return std::string(buf);
 }
 

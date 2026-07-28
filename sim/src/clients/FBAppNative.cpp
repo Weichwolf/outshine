@@ -103,6 +103,9 @@ int RunCloudDensityCheck(void) {
     decks[i].Warp = kCloudWarp[i];
     decks[i].Erosion = kCloudErosion[i];
     decks[i].SigmaPerM = kCloudSigma[i];
+    /* The band-limit is a BRANCH in the shared function, so the sample set has to cross it: full
+     * detail, a partly filtered deck, and one collapsed onto the erosion's mean. */
+    decks[i].ErodeFlat = i == 0 ? 0.0f : (i == 1 ? 0.55f : 1.0f);
     FBCloudCalibrate(decks[i]);
   }
   /* The two calibration constants are claimed as MEASURED, so measure them here: the FBM's own mean and
@@ -121,6 +124,64 @@ int RunCloudDensityCheck(void) {
       for (int k = 0; k < 3; k++) if (field[(size_t)i] > decks[k].RemapEdge) above[k]++;
     }
     const double mean = sum / kM, sigma = std::sqrt(sum2 / kM - mean * mean);
+    /* kCloudErodeMean is the value the band-limit fades the erosion TOWARD, so it has to be the
+     * erosion FBM's own mean or the filter would darken/brighten what it filters. Measured, not
+     * assumed, over the same sample count. */
+    { double es = 0.0, es2 = 0.0;
+      uint32_t r3 = 0x51ed270u;
+      auto n3 = [&r3](void) { r3 ^= r3 << 13; r3 ^= r3 >> 17; r3 ^= r3 << 5; return (float)(r3 >> 8) / 16777216.0f; };
+      for (int i = 0; i < kM; i++) {
+        const float e = FBCloudErosionFbm((n3() - 0.5f) * 400.0f, (n3() - 0.5f) * 400.0f, n3() * kCloudErodeVert);
+        es += e;
+        es2 += (double)e * e;
+      }
+      const double em = es / kM;
+      FBLog::Info("cloudcheck", "EROSION_DISTRIBUTION", {{"samples", kM}, {"mean", em},
+          {"sigma", std::sqrt(es2 / kM - em * em)}, {"constMean", (double)kCloudErodeMean}});
+    }
+    /* THE CIRRUS AXIS, measured rather than eyeballed off a render: the spec asks the high deck's
+     * fibres to lie along the real 250 hPa wind. Structure tensor of the coverage field over a plan
+     * grid — the dominant orientation is the eigenvector of [[Jxx,Jxy],[Jxy,Jyy]], and the coherence
+     * (l1-l2)/(l1+l2) says how much of an axis there is at all (1 = pure streaks, 0 = isotropic). */
+    { const int kG = 256;
+      const float kSpanM = 120000.0f, kStep = kSpanM / (float)kG;
+      std::vector<float> f((size_t)kG * kG);
+      /* The CONTROL: the same deck at stretch 1. "Coherence 0.94" only means something beside the
+       * number the same field produces when nothing stretches it. */
+      FBCloudDeckParams iso = decks[2];
+      iso.Stretch = 1.0f;
+      double isoCoh = 0.0;
+      for (int pass = 0; pass < 2; pass++) {
+      const FBCloudDeckParams &dk = pass == 0 ? decks[2] : iso;
+      for (int y = 0; y < kG; y++)
+        for (int x = 0; x < kG; x++)
+          f[(size_t)y * kG + x] = FBCloudCoverage(dk, ((float)x - kG * 0.5f) * kStep,
+                                                  ((float)y - kG * 0.5f) * kStep).Coverage;
+      double jxx = 0, jyy = 0, jxy = 0;
+      for (int y = 1; y < kG - 1; y++)
+        for (int x = 1; x < kG - 1; x++) {
+          const double gx = f[(size_t)y * kG + x + 1] - f[(size_t)y * kG + x - 1];
+          const double gy = f[(size_t)(y + 1) * kG + x] - f[(size_t)(y - 1) * kG + x];
+          jxx += gx * gx; jyy += gy * gy; jxy += gx * gy;
+        }
+      const double tr = jxx + jyy, det = jxx * jyy - jxy * jxy;
+      const double disc = std::sqrt(std::max(tr * tr * 0.25 - det, 0.0));
+      const double l1 = tr * 0.5 + disc, l2 = tr * 0.5 - disc;
+      /* The gradient's dominant direction is ACROSS the streaks, so the streak axis is +90 deg. */
+      const double gradDeg = std::atan2(2.0 * jxy, jxx - jyy) * 0.5 * 180.0 / kPi;
+      double axisDeg = std::fmod(90.0 - gradDeg + 90.0 + 360.0, 180.0);   /* east/north -> compass, +90 */
+      const double windDeg = std::fmod(std::atan2((double)decks[2].WindDirE, (double)decks[2].WindDirN)
+                                       * 180.0 / kPi + 360.0, 180.0);
+      double resid = std::fabs(axisDeg - windDeg);
+      if (resid > 90.0) resid = 180.0 - resid;
+      const double coh = tr > 0.0 ? (l1 - l2) / (l1 + l2) : 0.0;
+      if (pass == 1) { isoCoh = coh; break; }
+      FBLog::Info("cloudcheck", "CIRRUS_AXIS", {{"gridPts", kG * kG}, {"spanKm", kSpanM / 1000.0},
+          {"stretch", (double)decks[2].Stretch}, {"fieldAxisDeg", axisDeg}, {"windAxisDeg", windDeg},
+          {"residualDeg", resid}, {"coherence", coh}});
+      }
+      FBLog::Info("cloudcheck", "CIRRUS_AXIS_ISOTROPIC_CONTROL", {{"stretch", 1.0}, {"coherence", isoCoh}});
+    }
     FBLog::Info("cloudcheck", "FBM_DISTRIBUTION", {{"samples", kM}, {"mean", mean}, {"sigma", sigma},
         {"constMean", (double)kCloudFbmMean}, {"constSigma", (double)kCloudFbmSigma},
         {"cover0", (double)decks[0].Cover}, {"area0", (double)above[0] / kM},

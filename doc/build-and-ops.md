@@ -114,6 +114,7 @@ Not build targets, and deliberately so — they are analysis, not product.
 |---|---|
 | `sim/tools/fb_duel_report.py` | both sides' `eng_*` debriefing plus the EMCON timeline out of one duel run |
 | `sim/tools/fb_tournament.py` | the pilot-variant tournament over `variants-*.txt` |
+| `sim/tools/capture_cloud_proofs.sh` | the **cloud frame-proof set** and the recipe that makes it reproducible: every shot holds the camera still for 180 frames and keeps only the last, so the tile streamer is at `pending=0` and a second run writes the same bytes (measured: 12/12 sha256-identical). Needs `fb-tiles` on :8081 |
 | `sim/tools/fb_bfm_sweep.py` | the **16-approach BFM/gun sweep** the close-combat roll law is measured against (`pilot.md` §5.7.2/§5.7.3): 8 pursuer geometries × straight/turning defender, printing kills, departures and the pooled roll-rate statistics. Read the departure count and the rate statistics, not the kill count — a ~1 m spawn perturbation flips a cell |
 
 ### Measurement discipline

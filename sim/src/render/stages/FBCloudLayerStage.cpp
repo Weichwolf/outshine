@@ -19,6 +19,8 @@ static constexpr float kDitherRel      = 0.0025f;  /* ~1/255 relative — one 8-
 static constexpr float kHazeScaleHM    = 8000.0f; /* ISA density scale height: the haze thins with it */
 static constexpr float kErodeFadeNearM = 8000.0f; /* [SET] erosion starts fading out at 8 km ... */
 static constexpr float kErodeFadeFarM  = 45000.0f;/* [SET] ... and is gone by 45 km (undersampled) */
+static constexpr float kErodeNyqLo     = 0.15f;   /* [SET] erosion cells crossed per step: full amplitude below ... */
+static constexpr float kErodeNyqHi     = 0.60f;   /* [SET] ... gone at (just under) one cell per step = Nyquist */
 static constexpr float kKoschmieder    = 3.912f;  /* ln(1/0.02): visibility -> extinction */
 
 /* Prepends kAtmoCommon (Atmo, PI, groundRadiusMM, tLUTuv) + kAtmoSample (skyViewSample) + the shared
@@ -118,6 +120,69 @@ fn sunOpticalDepth(d : CloudDeck, eastM : f32, northM : f32, h : f32, dens : f32
 
 struct Acc { scat : vec3f, transm : f32, wDist : f32, wAlt : f32, wSum : f32 };
 
+/* One NODE of the quadrature: the density at a ray parameter plus the geometry the lighting needs
+ * there. Erosion is the highest frequency in the field, so it is also the first thing a 6-12 step
+ * march undersamples. The FUNCTION is untouched — only this sample's deck parameters are, exactly as
+ * a mip level is a parameter of a texture fetch rather than a different texture. */
+struct Node { dens : f32, h : f32, eastM : f32, northM : f32, radius : f32 };
+
+/* THE erosion prefilter, and the measured reason the march is grainy at all. The erosion lattice is
+ * featureM/kCloudErodeFreq wide (16 km / 10 = 1.6 km) and thick/kCloudErodeVert tall (900 m / 3 =
+ * 300 m); a step through a 900 m deck is ~260 m long. Looking DOWN through the deck a step therefore
+ * crosses about half an erosion cell — the field is sampled at its own Nyquist rate, and what comes
+ * out is not detail but aliasing that the entry jitter converts into per-pixel grain. MEASURED at the
+ * undercast camera (high-pass std/mean over a flat deck): 0.0388 as committed, 0.0328 with this filter
+ * and the trapezoid below, and 0.0149 with the erosion term removed altogether — that last one is the
+ * control that identified the erosion as the source in the first place.
+ *
+ * So the erosion is band-limited by how well THIS step resolves it — cells crossed per step, the same
+ * quantity a mip footprint measures — and by distance, which is the older, cruder proxy for the same
+ * thing. Where you fly THROUGH the deck the step is near-horizontal against a 1.6 km cell and the
+ * erosion survives in full; where you cross it steeply from above it collapses to its own MEAN, which
+ * is what a correctly filtered field does (and why it is `erodeFlat` and not a scale on `erosion` —
+ * see core/FBCloudDensity.h: the amplitude route would brighten the deck by the erosion's mean). */
+fn erodeFlatness(d : CloudDeck, thick : f32, stepM : f32, up : vec3f, tM : f32) -> f32 {
+  let cellH = d.featureM / kCloudErodeFreq;
+  let cellV = thick / kCloudErodeVert;
+  let sv = abs(dot(gDir, up));                        /* vertical share of the step direction */
+  let sh = sqrt(max(1.0 - sv * sv, 0.0));
+  let cells = stepM * sqrt((sh / cellH) * (sh / cellH) + (sv / cellV) * (sv / cellV));
+  return max(fbSmooth(kErodeNyqLo, kErodeNyqHi, cells),
+             fbSmooth(kErodeFadeNearM, kErodeFadeFarM, tM));
+}
+
+fn nodeAt(d : CloudDeck, rBase : f32, thick : f32, stepM : f32, t : f32) -> Node {
+  let rel = gDir * t;
+  let pos = gCam + rel;
+  var n : Node;
+  n.radius = length(pos);
+  n.h = (n.radius - rBase) * 1.0e6 / thick;
+  n.eastM = S.axE.w + dot(rel, S.axE.xyz) * 1.0e6;
+  n.northM = S.axN.w + dot(rel, S.axN.xyz) * 1.0e6;
+  n.dens = 0.0;
+  if (n.h >= 0.0 && n.h <= 1.0) {
+    var dd = d;
+    dd.erodeFlat = max(d.erodeFlat, erodeFlatness(d, thick, stepM, pos / n.radius, t * 1.0e6));
+    n.dens = cloudDensity(dd, n.eastM, n.northM, n.h);
+  }
+  return n;
+}
+
+/* COMPOSITE TRAPEZOID over the segment, not a rectangle rule at a jittered offset — and it is an
+ * ACCURACY decision far more than a noise one, which is the opposite of what it was tried for. The
+ * rectangle rule applies the ENTRY density of each step over that whole step and then early-terminates
+ * on transm < 0.02, so against an optically thick deck (sigma*thickness = 20) it stops after one or two
+ * samples having over-attenuated both: MEASURED, it renders the deck 3.7 % darker than the converged
+ * reference, where the trapezoid at the same node count lands within 0.8 %. Its nodes SHARE their ends,
+ * so the sum telescopes to h*(f0/2 + f1 + ... + fn/2) and is unbiased for a linear density.
+ *
+ * On the GRAIN it is worth about a tenth at equal node count — the per-pixel scatter is dominated by
+ * the erosion aliasing the band-limit above removes, not by the quadrature rule. Both numbers and the
+ * five rejected alternatives are in doc/render/clouds.md.
+ *
+ * The jitter stays (spec: blue-noise), now as a shift of the INTERIOR nodes between the segment's two
+ * TRUE ends: nodes t0, t0+(k+j)h (k=0..steps-1), t1. Total width stays steps*h, and both ends are
+ * exact, so nothing is dropped at the entry the way an offset rectangle rule drops it. */
 fn marchDeck(accIn : Acc, d : CloudDeck, seg : vec2f) -> Acc {
   var acc = accIn;
   if (d.cover <= 0.0 || seg.x >= seg.y) { return acc; }
@@ -125,30 +190,32 @@ fn marchDeck(accIn : Acc, d : CloudDeck, seg : vec2f) -> Acc {
   let rBase = gGroundR + d.baseM * 1.0e-6;
   var t1 = min(seg.y, seg.x + kMaxSegM * 1.0e-6);
   let segLenM = (t1 - seg.x) * 1.0e6;
-  let nSteps = i32(clamp(segLenM / (thick * 0.35), 6.0, 12.0) * clamp(S.p0.y, 0.25, 8.0) + 0.5);
-  let steps = max(nSteps, 3);
+  /* 6-12 SAMPLES per segment (the spec's budget), and with a trapezoid the samples are the NODES: a
+   * segment split into n intervals evaluates the density n+2 times (both true ends plus the jittered
+   * interior). Solving for the interval count keeps the tap count at the budget instead of 2 above it. */
+  let nNodes = i32(clamp(segLenM / (thick * 0.35), 6.0, 12.0) * clamp(S.p0.y, 0.25, 8.0) + 0.5);
+  let steps = max(nNodes - 2, 3);
   let stepMm = (t1 - seg.x) / f32(steps);
-  let stepM = stepMm * 1.0e6;
-  var t = seg.x + stepMm * gJitter;             /* blue-noise entry offset: the banding recipe */
-  for (var i = 0; i < steps; i = i + 1) {
+  var tA = seg.x;
+  var nA = nodeAt(d, rBase, thick, stepMm * 1.0e6, tA);
+  for (var i = 0; i <= steps; i = i + 1) {
     if (acc.transm < 0.02) { break; }
-    let rel = gDir * t;
-    let pos = gCam + rel;
-    let radius = length(pos);
-    let h = (radius - rBase) * 1.0e6 / thick;
-    if (h >= 0.0 && h <= 1.0) {
-      let eastM = S.axE.w + dot(rel, S.axE.xyz) * 1.0e6;
-      let northM = S.axN.w + dot(rel, S.axN.xyz) * 1.0e6;
-      /* Erosion is the highest frequency in the field, so it is also the first thing a 6-12 step march
-       * undersamples: fade it out with distance rather than let it alias into per-pixel noise. The
-       * FUNCTION is untouched — only this sample's deck parameters are. */
-      var dd = d;
-      dd.erosion = d.erosion * (1.0 - fbSmooth(kErodeFadeNearM, kErodeFadeFarM, t * 1.0e6));
-      let dens = cloudDensity(dd, eastM, northM, h);
+    var tB = seg.x + stepMm * (f32(i) + gJitter);
+    if (i == steps) { tB = t1; }
+    let dtMm = tB - tA;
+    if (dtMm > 0.0) {
+      let nB = nodeAt(d, rBase, thick, dtMm * 1.0e6, tB);
+      let dens = 0.5 * (nA.dens + nB.dens);      /* the trapezoid's own value for this interval */
       if (dens > 0.002) {
+        let tm = 0.5 * (tA + tB);
+        let h = 0.5 * (nA.h + nB.h);
+        let eastM = 0.5 * (nA.eastM + nB.eastM);
+        let northM = 0.5 * (nA.northM + nB.northM);
+        let pos = gCam + gDir * tm;
+        let radius = length(pos);
         let up = pos / radius;
         let sunUp = dot(gSun, up);
-        let od = sunOpticalDepth(dd, eastM, northM, h, dens, sunUp);
+        let od = sunOpticalDepth(d, eastM, northM, h, dens, sunUp);
         var ms = 0.0;                            /* Wrenninge multi-scatter octaves */
         var att = 1.0; var sharp = 1.0; var contrib = 1.0;
         for (var o = 0; o < 3; o = o + 1) {
@@ -161,16 +228,17 @@ fn marchDeck(accIn : Acc, d : CloudDeck, seg : vec2f) -> Acc {
         let ambGrad = kAmbientFloor + (1.0 - kAmbientFloor) * sqrt(clamp(1.0 - dens, 0.0, 1.0));
         let amb = (gSkyAmb * mix(0.62, 0.85, h) + gHorizonCol * 0.55 * (1.0 - h)) * 0.7 * ambGrad;
         let sigma = dens * d.sigma;
-        let tr = exp(-sigma * stepM);
+        let tr = exp(-sigma * dtMm * 1.0e6);
         let w = acc.transm * (1.0 - tr);
         acc.scat = acc.scat + w * (sunLit + amb);
-        acc.wDist = acc.wDist + w * t;
+        acc.wDist = acc.wDist + w * tm;
         acc.wAlt = acc.wAlt + w * (radius - gGroundR) * 1.0e6;
         acc.wSum = acc.wSum + w;
         acc.transm = acc.transm * tr;
       }
+      nA = nB;
+      tA = tB;
     }
-    t = t + stepMm;
   }
   return acc;
 }
@@ -267,14 +335,16 @@ void FBCloudLayerStage::Configure(const FBGpu &gpu, wgpu::Buffer atmoBuf, wgpu::
   bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
   Uni = Device.CreateBuffer(&bd);
 
-  char mats[512];
+  char mats[1024];
   snprintf(mats, sizeof mats,
            "const kSunIntensity : f32 = %.9g;\nconst kMaxSegM : f32 = %.9g;\n"
            "const kMinSunUp : f32 = %.9g;\nconst kAmbientFloor : f32 = %.9g;\n"
            "const kDitherRel : f32 = %.9g;\nconst kHazeScaleHM : f32 = %.9g;\n"
-           "const kErodeFadeNearM : f32 = %.9g;\nconst kErodeFadeFarM : f32 = %.9g;\n",
+           "const kErodeFadeNearM : f32 = %.9g;\nconst kErodeFadeFarM : f32 = %.9g;\n"
+           "const kErodeNyqLo : f32 = %.9g;\nconst kErodeNyqHi : f32 = %.9g;\n",
            (double)kSunIntensity, (double)kMaxSegM, (double)kMinSunUp, (double)kAmbientFloor,
-           (double)kDitherRel, (double)kHazeScaleHM, (double)kErodeFadeNearM, (double)kErodeFadeFarM);
+           (double)kDitherRel, (double)kHazeScaleHM, (double)kErodeFadeNearM, (double)kErodeFadeFarM,
+           (double)kErodeNyqLo, (double)kErodeNyqHi);
   const std::string src = std::string(kAtmoCommon) + kAtmoSample + FBCloudDensityConstsWGSL() + mats +
                           kCloudDensityWGSL + kCloudLayerWGSL;
 
