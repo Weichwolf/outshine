@@ -248,6 +248,26 @@ worth knowing before reading them:
    real experiment, gives O2 its subject, and is the shared mechanism behind the one experiment three
    separate campaigns want to run (below).
 
+### The precondition none of the ten can be flown around: the arena must not be saturated
+
+Specified 2026-07-29 in [`../doctrine-evolution.md`](../doctrine-evolution.md) §4, and it comes **before**
+these campaigns rather than after them. The measurement that forces the order:
+[`../modules/air/module.md`](../modules/air/module.md) §State B6 — on the `mig21` attribution geometry,
+**18 of 19 runs return the identical outcome** (−1450.0), `band_deck` = 0.0 and the control cell moves
+nothing. On such a geometry the Bekaa yardstick below is not small, it is **undefined**: `band` is the
+spread of a constant and `residue` is the difference of two constants. A campaign flown there produces a
+verdict no lever on either side could have changed, which is a fixed point wearing a result's clothes.
+
+The criterion, with its numbers: per geometry the modal outcome class ≤ **60 %** of runs and ≥ **3 of 9**
+doctrine levers must move the outcome class (today: 1 of 9); per arena ≥ **6** geometries of which ≥ **3**
+informative, no two asking the same question — 6 because the duel matrix's own informative rate is a
+measured **2 of 4**. `band_deck ≤ 0.25 · band_doctrine` is unchanged and cited, not re-invented.
+
+The same file also replaces the fitness the yardstick is computed with: it is lexicographic
+(verdict → objectives met → craft) because the present weighted one **demonstrably ranks the doctrine
+that abandons the sort above the one that keeps it** ([`../formation.md`](../formation.md): `f16_solo`
+1097.8 against `f16_net` 977.1, both 0 kills and 0 losses).
+
 ---
 
 ## The identification task (W5 and O2)
@@ -333,6 +353,10 @@ ordering within equal outcomes:
 band = max_v O(v) − min_v O(v)
 ```
 
+**Both quantities are undefined on a saturated geometry, and the check that says so runs first**
+([`../doctrine-evolution.md`](../doctrine-evolution.md) §4). The score itself is the lexicographic one
+of that file's §1, not the weighted sum `fb_tournament.py` computes today.
+
 The levers of `v` are **mission text only**: GCI present/absent, emission policy, commit range,
 launch doctrine, altitude band, formation contract, reaction time. A lever that needs a new class is
 not a doctrine, it is a rebuild. Precedent: the same measurement on a single MiG over one geometry
@@ -383,6 +407,7 @@ that is itself the finding.**
 |---|---|
 | [`../vision.md`](../vision.md) | the staggered scale and why anti-cheat is a game decision — the ground both cross-cutting sections above stand on |
 | [`../duels.md`](../duels.md) | the 1v1 measurement campaign; O4 is largely its re-framing, and O1's yardstick reuses its tournament |
+| [`../doctrine-evolution.md`](../doctrine-evolution.md) | **step 3 of the owner goal, and the precondition for these ten**: the fitness the yardstick is computed with, the five doctrine genes, the archive against circling, and the saturation criterion an arena must pass before a campaign result means anything |
 | [`../formation.md`](../formation.md) | the flight as a fighting unit; every campaign with more than two aircraft a side depends on it |
 | [`../missions/`](../missions/INDEX.md) | everything a `.fbm` can declare — the source of every "can" and "cannot" in the gap tables |
 | [`../modules/f16/module.md`](../modules/f16/module.md), [`../modules/mig29/module.md`](../modules/mig29/module.md) | what the two flyable jets can actually do |
