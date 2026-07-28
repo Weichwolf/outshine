@@ -89,6 +89,11 @@ public:
    * into JSBSim before the substeps. Nothing above the FDM is told: a pilot experiences wind as drift
    * on his instruments, exactly as he would in the aircraft. */
   void UpdateWind(const FBWindNed &wind);
+
+  /* The cloud decks over this unit's position, sampled by its OWNER from the same weather hook and
+   * handed to the MODULE (FBModule::SetCloudSky) rather than to the FDM: wind is physics, cloud is
+   * something a SENSOR looks through. Only a module with such a sensor does anything with it. */
+  void UpdateSky(const FBCloudSky &sky) { Module_->SetCloudSky(sky); }
   double AglM() const { return St_.elev - GroundAslM_; }
 
   FBState HudState() const;

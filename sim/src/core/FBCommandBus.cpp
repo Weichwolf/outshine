@@ -30,6 +30,10 @@ const char *FBCommandTargetStr(FBCommandTarget t) {
     case FBCommandTarget::CmConsent: return "cm_consent";
     case FBCommandTarget::CmdsMode: return "cmds_mode";
     case FBCommandTarget::GunTrigger: return "gun_trigger";
+    case FBCommandTarget::IrstMode: return "irst_mode";
+    case FBCommandTarget::IrstDesignate: return "irst_designate";
+    case FBCommandTarget::IrstLaser: return "irst_laser";
+    case FBCommandTarget::RadarEmission: return "radar_emission";
   }
   return "?";
 }
@@ -46,6 +50,10 @@ FBCommandClass FBCommandClassOf(FBCommandTarget t) {
     /* The CMDS mode knob is on the left console, not the stick; CmDispense/CmConsent are the CMS
      * switch and stay HOTAS — a countermeasure exists to be thrown mid-manoeuvre. */
     case FBCommandTarget::CmdsMode:
+    /* The emission control is a three-position switch on the left console (the MiG-29's PUR-31), not a
+     * throw the hand already rests on. No F-16 command ever carries this target — that airframe has no
+     * such switch and rejects it — so the classification is this aircraft's alone. */
+    case FBCommandTarget::RadarEmission:
       return FBCommandClass::Ded;
     default:
       return FBCommandClass::Hotas;
@@ -60,6 +68,12 @@ FBCommandGroup FBCommandGroupOf(FBCommandTarget t) {
     case FBCommandTarget::RadarSlewEl:
     case FBCommandTarget::IffTransponder:
     case FBCommandTarget::IffInterrogator:
+    /* The optical head is a SENSOR slot like the radar and is answered in the same tick — including
+     * the laser, whose measurement has to land on the picture the same sweep produced. */
+    case FBCommandTarget::IrstMode:
+    case FBCommandTarget::IrstDesignate:
+    case FBCommandTarget::IrstLaser:
+    case FBCommandTarget::RadarEmission:
       return FBCommandGroup::Sensors;
     case FBCommandTarget::DatalinkPower:
     case FBCommandTarget::DatalinkTransmit:

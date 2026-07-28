@@ -24,9 +24,14 @@ bool FBRwrSystem::BeamCovers(const FBEmitterSignature &sig, double rollDeg, doub
          std::fabs(el - sig.ElCenterDeg) <= sig.ElHalfDeg;
 }
 
+/* Die gemeldete Peilung IST die gemessene, solange nichts anderes gesagt wird. */
+double FBRwrSystem::ReportBearingDeg(double rxAzDeg) const { return FBWrap180(rxAzDeg); }
+
 /* Ein Raketensucher ist der Startfall, egal wie er gerade scannt — was ihn an die Spitze der Skala
  * setzt, ist, was hinter der Antenne sitzt. */
-FBRwrThreatMode FBRwrSystem::ModeOf(const FBEmitterSignature &sig, FBEmitterKind kind) {
+FBRwrThreatMode FBRwrSystem::ClassifyMode(const FBEmitterSignature &sig, FBEmitterKind kind,
+                                          double rxAzDeg, double simTimeS) {
+  (void)rxAzDeg; (void)simTimeS;
   if (kind == FBEmitterKind::MissileSeeker) return FBRwrThreatMode::Missile;
   switch (sig.Mode) {
     case FBEmitterMode::Guidance: return FBRwrThreatMode::Missile;
@@ -90,7 +95,7 @@ void FBRwrSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, const Units::
      * eigene Manoevrieren aufreisst, samt einer Warnung, die man eine Sekunde zuvor noch hatte. */
     double rxAz = 0.0, rxEl = 0.0;
     FBEnuToBodyLos(st.roll, st.pitch, st.yaw, -e, -n, -up, rxAz, rxEl);
-    if (std::fabs(rxEl) > ElevCoverageDeg()) {
+    if (std::fabs(rxEl) > ElevCoverageDeg() || Blanked(rxAz)) {
       /* Nur der UEBERGANG ist eine Zeile wert: der Moment, in dem eine bestehende Warnung unhoerbar wurde. */
       if (slot >= 0 && !Threats_[slot].Blind) {
         Threats_[slot].Blind = true;
@@ -108,7 +113,8 @@ void FBRwrSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, const Units::
     if (signal < 0.0) signal = 0.0;
 
     FBEmitterKind kind = Classify(sig.Radar);
-    FBRwrThreatMode mode = ModeOf(sig.Radar, kind);
+    FBRwrThreatMode mode = ClassifyMode(sig.Radar, kind, rxAz, simTimeS);
+    double reportBrg = ReportBearingDeg(rxAz);
 
     if (slot < 0) {
       if (Count_ >= kMaxRwrThreats) continue;   /* Tabelle voll; nichts wird verdraengt */
@@ -119,20 +125,21 @@ void FBRwrSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, const Units::
       Threats_[slot].FirstS = simTimeS;
       Threats_[slot].Mode = mode;
       FBLog::Info("rwr", "THREAT_NEW", {{"symbol", Threats_[slot].Id}, {"mode", FBRwrThreatModeStr(mode)},
-          {"kind", FBEmitterKindStr(kind)}, {"brgDeg", FBWrap180(rxAz)}, {"elDeg", rxEl},
+          {"kind", FBEmitterKindStr(kind)}, {"brgDeg", reportBrg}, {"elDeg", rxEl},
           {"signal", signal}});
     } else if (Threats_[slot].Mode != mode) {
       FBLog::Info("rwr", "THREAT_MODE", {{"symbol", Threats_[slot].Id},
           {"from", FBRwrThreatModeStr(Threats_[slot].Mode)}, {"to", FBRwrThreatModeStr(mode)},
-          {"kind", FBEmitterKindStr(kind)}, {"brgDeg", FBWrap180(rxAz)}, {"signal", signal}});
+          {"kind", FBEmitterKindStr(kind)}, {"brgDeg", reportBrg}, {"signal", signal}});
     }
 
     Threat &t = Threats_[slot];
-    t.BearingDeg = FBWrap180(rxAz);
+    t.BearingDeg = reportBrg;
     t.ElDeg = rxEl;
     t.SignalNorm = signal;
     t.Mode = mode;
     t.Kind = kind;
+    t.Rank = PriorityRank(mode, kind, reportBrg);
     t.LastS = simTimeS;
     t.Heard = true;
     t.Blind = false;
@@ -167,7 +174,9 @@ void FBRwrSystem::Publish(FBState &state, double simTimeS) {
     int j = i - 1;
     while (j >= 0 && (Threats_[order[j]].Mode < Threats_[key].Mode ||
                       (Threats_[order[j]].Mode == Threats_[key].Mode &&
-                       Threats_[order[j]].SignalNorm < Threats_[key].SignalNorm))) {
+                       (Threats_[order[j]].Rank > Threats_[key].Rank ||
+                        (Threats_[order[j]].Rank == Threats_[key].Rank &&
+                         Threats_[order[j]].SignalNorm < Threats_[key].SignalNorm))))) {
       order[j + 1] = order[j];
       j--;
     }

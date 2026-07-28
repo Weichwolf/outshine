@@ -8,6 +8,7 @@
 #include "FBBlockStatus.h"
 #include "FBCountermeasure.h"
 #include "FBDatalinkTrack.h"
+#include "FBIrstContact.h"
 #include "FBMode.h"
 #include "FBRadarContact.h"
 #include "FBRwrThreat.h"
@@ -253,6 +254,23 @@ struct FBBfmBlock {
   double HcaDeg = 0.0;                  /* heading crossing angle */
   double EastM = 0.0, NorthM = 0.0, UpM = 0.0;   /* estimated offset from own position */
   double VelE = 0.0, VelN = 0.0, VelU = 0.0;     /* estimated target velocity (ENU, m/s) */
+};
+
+/* ---- IRST: the PASSIVE infrared picture. WRITER: sensors/FBIrstSystem.
+ * Held between scan frames like the radar's, Invalid when the head is caged or unpowered. The block
+ * carries no identity and no range (except the laser's, per contact) — the austerity is the model, and
+ * doc/sensors.md §6 argues it. APPENDED LAST, which is the telemetry column rule made structural: the
+ * block's own status column is declared by its own system, not by FBStateBusTelemetry's list. */
+struct FBIrstBlock {
+  FBBlockHeader H;
+  bool Powered = false;
+  bool Searching = false;       /* the head is uncaged and looking */
+  int  ModeOrdinal = 0;
+  int  ContactCount = 0;
+  int  LockIndex = -1;          /* index into Contacts of the tracked source; -1 = none */
+  bool LaserArmed = false;      /* the rangefinder is ON — the one ACTIVE thing this sensor can do */
+  int  CloudMaskedCount = 0;    /* sources rejected this frame because a deck stood in the line of sight */
+  FBIrstContact Contacts[kMaxIrstContacts]{};
 };
 
 } // namespace FlightBox

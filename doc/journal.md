@@ -21,7 +21,7 @@ State of the entries below: commit `793e1fe` + the model-root/delta round (2026-
 | Core / avionics bus | **finished** — typed blocks with three-state validity, command bus with acknowledgement | [core.md](core.md) |
 | Mission orchestrator | **finished** — four steps, no mission knowledge in the code | [missions/runtime.md](missions/runtime.md) |
 | Multi-unit | **finished** — formation as mission data, thread per unit in the gym, deterministic | [missions/runtime.md](missions/runtime.md) |
-| Sensors | **built** — datalink, radar, RWR, countermeasures. Without terrain masking. | [sensors.md](sensors.md) |
+| Sensors | **built** — datalink, radar, RWR, IRST, countermeasures. Without terrain masking. | [sensors.md](sensors.md) |
 | Weapons | **built** — AIM-120, Mk-82, M61A1, ground targets, damage model | [weapons.md](weapons.md) |
 | Pilot AI | **in progress** — takeoff/route/landing, BFM, BVR intercept, air-to-ground all fly; refinement ongoing | [pilot.md](pilot.md) |
 | Renderer | **built** — stage split complete. Units and weapons still invisible. | [render/renderer.md](render/renderer.md) |
@@ -423,3 +423,48 @@ double-integrator limit cycle, 20 s period; no α limiter → α 90°, LOC t=122
 thereby built where `flight-model-spec.md` §7.3 placed it, behind one preset number. `test-mig29`
 gained the two measurements the module cites: 136.8 kt at the documented 11° touchdown α, and corner
 420 kt / 24.18 °/s / 7.83 g. F-16 byte-identical across all 53 stock missions.
+
+
+### 2026-07-28 — MiG-29 stage 2b: the sensors and the guidance
+
+Three real sensor derivations, **one new generic slot**, and GCI as mission data.
+
+**`sensors/FBIrstSystem` is the fourth sensor slot and the fifth file allowed to read
+`units/FBUnitRegistry`.** The boundary was never a COUNT — it is "only simulated sensors, each paying a
+stated price" — and the widening is recorded where it is enforced: `tools/verify_layers.py`'s
+`RESTRICTED` table FAILED on the new include until the file was added to it by name. An IRST pays in
+range (25 km at best against the radar's 50), in identity (no interrogator, and `core/FBIrstContact` has
+no field one could be put in) and in weather, and gives back the one thing no other sensor here does:
+it costs the observer nothing to look.
+
+**Two generic constants became hooks, both defaulting to the previous behaviour exactly.**
+`DopplerNotchMs(rangeM)` + `NotchRejectsDetection()` (until now the notch was ONLY chaff's channel — a
+target in the filter stayed visible; a set whose source QUANTIFIES the threshold now rejects) and
+`CoastS(volume)` (the N019's source names a duration, not a frame count). The RWR grew four:
+`Blanked`, `ReportBearingDeg`, `ClassifyMode`, `PriorityRank`. `FBUnitSignature` gained
+`Afterburner`, read off JSBSim's own `FGTurbine::GetAugmentation` rather than off a throttle position.
+
+**Measured against the documented numbers** (four new rigs, all TIMEOUT by construction): detection
+latency **6.0 s** (the derivation runs the other way — the documented "up to six seconds" over the
+generic two-look firming IS the 3.0 s frame time); the Doppler envelope rejecting at **7.94 m/s vs
+41.67** beyond 8 nm and **4.34 vs 16.668** inside 5.4 nm; **`coastS=6`** inertial tracking; the SPO-15's
+forward hemisphere going dark in the SAME tick ILLUM is acknowledged, with the emitter's `fcr_on`
+unchanged, and its bearings reported as channel centres (−10.0° where the F-16 reports 0.045°); the IRST
+aspect law separating a tail-on detection at **19 562 m** from a 103°-aspect one at **15 222 m**; the
+6 km laser stepping `irst_lock_nm` from **−1** to 3.199 nm; a target above a GFS deck never detected
+(`irst_masked`, the first tactical weather effect on a sensor here); and the GCI chain taking **8.0 s**
+from the controller's call to a radiating radar, with the opposing RWR lighting up 0.1 s later.
+
+**Two defects found by building the rigs, both fixed and both measured.** (1) A set powered up mid-run
+replayed its whole silent period through the catch-up guard and reported a firm track in the tick the
+switch moved (t=27.9 instead of one frame later) — `ResyncScan()`, opt-in, so the F-16 is untouched.
+(2) Timing the SPO-15's documented 125-250 ms illumination event classified EVERY search emitter as
+tracking, because the emission model publishes a searching beam as continuous (`mig29-pair`, t=0.3:
+the F-16's CRM sweep reported as TRACK). The event half of that rule now waits for a pulsed emission
+model; the channel half — the actual device defect — is what the override contributes.
+
+`set task intercept` is unlocked for this module, and the honest outcome is that the intercept
+DISENGAGES on first contact: `pilot/FBPilot`'s own rule is "a target on the scope and nothing on the
+rails → Abort", and this jet has no weapon yet. F-16 byte-identical across all **56** stock missions on
+every column they ever had; the four MiG missions move exactly once, because the N019's power-up
+emission position is OFF and this aircraft now starts silent by doctrine.

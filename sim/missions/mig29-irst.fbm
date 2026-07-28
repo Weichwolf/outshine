@@ -1,0 +1,87 @@
+name mig29-irst-1
+timeout 300
+
+# THE KOLS — the passive optical station, and the three things that decide what it can see.
+#
+# An IRST is not a quieter radar. It sees HEAT, so its reach depends on which way the target's engines
+# are pointing; it measures an ANGLE, so it has no range at all unless the collimated laser is fired;
+# and it looks through the ATMOSPHERE, so a cloud deck between the two aircraft ends the matter. This
+# run puts one of each in the same trace.
+#
+#   1. ASPECT (doc/modules/mig29/radar-sensors.md §6.2: clean-air detection 13.5 ... 5.4 nm, i.e.
+#      25 km from behind and 10 km head-on, "IR detection is more effective from the rear").
+#      runner  flies AWAY from the MiG on its own bearing -- aspect 0, full nozzle, reach 25 km.
+#      charger flies at 120 deg of aspect -- inside IR CC's documented 3/4-aspect limit, but showing
+#              much less plume: reach = 10 + 15 x (1 + cos 120)/2 = 13.75 km.
+#      Both spawn ~20 km out, both inside the head's +-15 deg field. Only the first is seen. As the
+#      geometry closes, the second appears at ITS OWN reach and not before -- and the range at which
+#      it does IS the aspect law, read off the two telemetry files.
+#
+#   2. THE LASER (§6.2, T4: 6 km). The head auto-tracks in IR CC (nobody operates a station in a turning
+#      fight), and the laser is armed from the mission. `irst_lock_nm` stays -1 -- NOT zero: nobody
+#      measured a range -- until the tracked source is inside 6 km, and then it carries metres. That
+#      column is the only place in the whole avionics bus where this sensor produces a distance.
+#
+#   3. THE CLOUD DECK. `wx fixture` is the committed GFS blob; along this corridor the 2026-07-27T00Z
+#      cycle reports 53-83 % low cloud with a ceiling near 3 000 m, which core/FBCloudDensity turns into
+#      one deck of roughly 2 950 ... 3 900 m. Everybody below flies under it; `overcast` flies at
+#      5 000 m ABOVE it, tail-on and well inside the reach the aspect law would give it. It is never
+#      detected, and `irst_masked` counts it -- the first time weather changes what a sensor can do in
+#      this simulator.
+#
+# WHAT IS NOT MODELLED, and it is the next step rather than an omission: the deck's HORIZONTAL
+# structure. A deck at or above "broken" is treated as a lid; seeing through the holes of a 60 % deck
+# needs a march along the line of sight through core/FBCloudDensity, which costs one integration per
+# contact per look. Stated in sensors/FBIrstSystem.h, not hidden here.
+#
+# WHAT TO READ:
+#   irst_contacts (fulcrum)   0 -> 1 -> 2, and the RANGE at each step (recompute from the pose columns)
+#   irst_lock_nm              -1 until the laser reaches, then metres/nm
+#   irst_masked               1 whenever the overcast target would otherwise have been in the field
+#   irst IRST_CONTACT events  carry az/el/bearing and the target's afterburner bit -- never a range
+#
+# READING RULE: exit 3 = TIMEOUT is the verdict AND the pass. A measurement rig, not a task.
+
+wx fixture wx-2026-07-27T00Z.wxb
+
+unit fulcrum
+  module mig29
+  team hostile
+  spawn 46.65000 6.80000 2000 40.0 350         # below the deck, north-east up the corridor
+  set gear up
+  set fuel_pct 60
+  set n019_emission off                        # SILENT: everything in this trace was seen, not painted
+  set rwr off
+  set kols_mode ir_cc                          # the close-combat field: +-15 deg, auto-track, 2.5 s
+  set kols_laser on                            # armed -- it only fires on a tracked source inside 6 km
+  wp 47.10000 7.25000 2000 350                 # the SAME point runner is flying to: a straight chase
+
+unit runner
+  module f16
+  team friendly
+  spawn 46.78800 6.96900 2000 40.0 150         # ~20 km ahead on the nose, flying AWAY: aspect 0
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set rwr off
+  wp 47.10000 7.25000 2000 150
+
+unit charger
+  module f16
+  team friendly
+  spawn 46.76600 7.00100 2000 170.0 250        # ~20 km out, 10 deg off the nose, 120 deg of aspect
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set rwr off
+  wp 46.55000 7.10000 2000 250
+
+unit overcast
+  module f16
+  team friendly
+  spawn 46.75000 6.94000 5000 40.0 250         # ~15 km ahead, tail-on -- but ABOVE the deck
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set rwr off
+  wp 47.05000 7.20000 5000 250

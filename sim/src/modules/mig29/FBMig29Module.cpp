@@ -36,8 +36,7 @@ bool FBMig29Module::Due(double &accS, double dt, double hz) {
  * 100 Hz FDM substeps with the same spiral guard. Shorter only because there are fewer slots to cycle. */
 void FBMig29Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegistry *units,
                         const World::FBWorld *world) {
-  (void)units;   /* no sensor slot is cycled yet — the registry reaches nothing here (stage 2b) */
-  (void)world;
+  (void)world;   /* the TERRAIN side; no sensor here samples it (no masking is modelled) */
   if (!Fdm_) return;
   Fdm::FBFdm &fdm = *Fdm_;
   SimTimeS += dt;
@@ -47,12 +46,33 @@ void FBMig29Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitReg
   if (Due(SensorAccS, dt, 10.0)) {
     PublishPlatform(st);
     PublishAirframe();
+    /* Commands before the boxes they address, so a switch the pilot threw takes effect on the next
+     * sweep and not the one after it. */
+    ServiceCommands(FBCommandGroup::Sensors);
+    ServiceCommands(FBCommandGroup::Avionics);
+    /* THE TWO AIR-TO-AIR SENSORS, active first. `units` reaches exactly these two slots and the RWR
+     * below, and nothing else in this module. The damage gate is the F-16's, minus the optical head:
+     * core/FBSystemHealth has no id for an optical station, and adding one would move the dmg_*
+     * telemetry columns — it belongs with the twin-engine change already listed in the module's gaps. */
+    Radar_.SetRangeFactor(SystemDegraded(FBSystemId::Radar) ? kRadarRangeDegraded : 1.0);
+    if (SystemWorking(FBSystemId::Radar)) Radar_.Run(SharedState, st, units, SimTimeS);
+    else SharedState.Radar.H.Invalidate();
+    Irst_.Run(SharedState, st, units, SimTimeS);
     AirData->Run(SharedState, st, dt);
     RadarAlt->Run(SharedState, (float)st.elev, GroundAslM);
     if (const FBWaypoint *swp = Plan_.ActiveWaypoint())
       NavSys->SetSteerpoint(swp->LatDeg, swp->LonDeg, GroundAslM * kMToFt);
     NavSys->Run(SharedState, st, dt);
     Warn_->Run(SharedState, dt);   /* LAST: a pure consumer of everything above it */
+  }
+  /* The PASSIVE half, and the one line that makes this jet's central defect real: what the world hears
+   * from this aircraft is what deafens its own receiver forward. One bit, one source — the emission the
+   * set derives from the pattern it is actually flying (FBRadarSystem::Emission), the same value the
+   * tick barrier publishes to everybody else. */
+  if (Due(DefensiveAccS, dt, 10.0)) {
+    Rwr_.SetOwnRadiating(Radar_.Emission().Mode != FBEmitterMode::None);
+    if (SystemWorking(FBSystemId::Rwr)) Rwr_.Run(SharedState, st, units, SimTimeS);
+    else SharedState.Rwr.H.Invalidate();
   }
   if (Due(DisplayAccS, dt, 20.0)) Disp->Run(SharedState, Mode, dt);
 
@@ -174,6 +194,103 @@ void FBMig29Module::ApplyPilotCommands(const Pilot::FBPilotCommands &c) {
   if (c.EngineStart) *c.EngineStart ? AirframeCtrl->EngineStart() : AirframeCtrl->EngineCutoff();
 }
 
+
+/* THE COMMAND ROUTER. Same shape as the F-16's and for the same reason: FBCommandTarget names a
+ * FUNCTION ("radar mode"), and which box on THIS panel answers it is the aircraft's knowledge. Two
+ * targets mean something different here than they do over there, and both differences are documented
+ * controls rather than reinterpretations:
+ *   RadarSlewAz -> the ZONE switch. This antenna is not slewed continuously in azimuth; the 130° field
+ *                  is divided into three overlapping sectors and the pilot picks one. A continuous
+ *                  value is therefore SNAPPED to the nearest sector, and that is a Clamped outcome —
+ *                  reported, not silently rounded.
+ *   RadarSlewEl -> the antenna elevation knob, which on this jet is the OUTPUT of the range-angle
+ *                  entry the GCI loop runs through (doc/modules/mig29/datalink-gci.md §2.2). */
+void FBMig29Module::ServiceCommands(FBCommandGroup group) {
+  FBAvionicsCommand c{};
+  while (CmdBus_.TakeDue(group, SimTimeS, c)) {
+    FBCommandOutcome outcome = FBCommandOutcome::Accepted;
+    FBCommandReason reason = FBCommandReason::None;
+    ApplyCommand(c, outcome, reason);
+    CmdBus_.Complete(c, outcome, reason, SimTimeS);
+  }
+}
+
+void FBMig29Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &outcome,
+                                 FBCommandReason &reason) {
+  auto reject = [&](FBCommandReason r) { outcome = FBCommandOutcome::Rejected; reason = r; };
+  switch (c.Target) {
+    case FBCommandTarget::RadarMode: {
+      int ord = (int)c.Value;
+      if (ord < 0 || ord > (int)FBMig29RadarMode::Bore) { reject(FBCommandReason::OutOfRange); return; }
+      if (!SystemWorking(FBSystemId::Radar)) { reject(FBCommandReason::SystemFailed); return; }
+      Radar_.SetMode((FBMig29RadarMode)ord);
+      return;
+    }
+    case FBCommandTarget::RadarEmission: {
+      int ord = (int)c.Value;
+      if (ord < 0 || ord > (int)FBMig29Emission::Off) { reject(FBCommandReason::OutOfRange); return; }
+      if (!SystemWorking(FBSystemId::Radar)) { reject(FBCommandReason::SystemFailed); return; }
+      Radar_.SetEmission((FBMig29Emission)ord);
+      return;
+    }
+    case FBCommandTarget::RadarRangeNm:
+      if (c.Value < 0.0) { reject(FBCommandReason::OutOfRange); return; }
+      Radar_.SetRangeOverrideNm(c.Value);
+      return;
+    case FBCommandTarget::RadarSlewAz: {
+      /* Snap to the nearest of the three sectors. A pilot turning a three-position switch cannot land
+       * between two of them, so the command SUCCEEDS with the position it actually reached. */
+      double v = c.Value;
+      FBMig29Zone z = v < -FBMig29Radar::kZoneOffsetDeg * 0.5 ? FBMig29Zone::Left
+                    : v > FBMig29Radar::kZoneOffsetDeg * 0.5 ? FBMig29Zone::Right : FBMig29Zone::Center;
+      Radar_.SetZone(z);
+      double reached = z == FBMig29Zone::Left ? -FBMig29Radar::kZoneOffsetDeg
+                     : z == FBMig29Zone::Right ? FBMig29Radar::kZoneOffsetDeg : 0.0;
+      if (reached != v) { outcome = FBCommandOutcome::Clamped; reason = FBCommandReason::ValueClamped; }
+      return;
+    }
+    case FBCommandTarget::RadarSlewEl: {
+      double before = Radar_.AntennaElevDeg();
+      Radar_.SetAntennaElevDeg(c.Value);
+      if (Radar_.AntennaElevDeg() != c.Value && before != c.Value) {
+        outcome = FBCommandOutcome::Clamped;   /* the dish reached its own stop */
+        reason = FBCommandReason::ValueClamped;
+      }
+      return;
+    }
+    case FBCommandTarget::IffTransponder: Radar_.SetIffTransponder(c.Value != 0.0); return;
+    case FBCommandTarget::IffInterrogator: Radar_.SetIffInterrogator(c.Value != 0.0); return;
+    case FBCommandTarget::Designate:
+      if (!SystemWorking(FBSystemId::Radar)) { reject(FBCommandReason::SystemFailed); return; }
+      if (!Radar_.Designate((int)c.Value, SimTimeS)) {
+        /* The return was gone by the time the hand had finished — the same answer the F-16 gives. */
+        reject(FBCommandReason::OutOfContext);
+      }
+      return;
+    case FBCommandTarget::IrstMode: {
+      int ord = (int)c.Value;
+      if (ord < 0 || ord > (int)FBMig29IrstMode::Bore) { reject(FBCommandReason::OutOfRange); return; }
+      Irst_.SetMode((FBMig29IrstMode)ord);
+      Irst_.SetPowered(ord != (int)FBMig29IrstMode::Off);
+      return;
+    }
+    case FBCommandTarget::IrstDesignate:
+      if (!Irst_.Designate((int)c.Value, SimTimeS)) { reject(FBCommandReason::OutOfContext); return; }
+      return;
+    case FBCommandTarget::IrstLaser:
+      /* The laser is collimated with the head: without a tracked source there is nothing to range, and
+       * arming it would report a capability the station does not have at that moment. */
+      if (c.Value != 0.0 && !Irst_.Locked()) { reject(FBCommandReason::OutOfContext); return; }
+      Irst_.SetLaserArmed(c.Value != 0.0);
+      return;
+    default:
+      /* Every remaining target names a box this aircraft does not compose (stores, gun, datalink,
+       * dispensers, UFC). Answering it would report success for a switch with nothing behind it. */
+      reject(FBCommandReason::NotImplemented);
+      return;
+  }
+}
+
 namespace {
 /* Boundary input, strict for the same reason as the F-16's: a silent 0.0 would spawn the jet with an
  * empty tank and report success. */
@@ -185,6 +302,24 @@ bool ParseDouble(const std::string &s, double &out) {
   if (end != s.c_str() + s.size()) return false;
   if (errno == ERANGE || !std::isfinite(v)) return false;
   out = v;
+  return true;
+}
+
+/* Four whitespace-separated numbers and nothing else. Strict for the same reason ParseDouble is: a
+ * half-parsed controller call would put the antenna somewhere nobody briefed. */
+bool ParseGciCall(const std::string &v, double &atS, double &brgDeg, double &rangeKm, double &altKm) {
+  double out[4] = {0.0, 0.0, 0.0, 0.0};
+  const char *p = v.c_str();
+  for (int i = 0; i < 4; i++) {
+    char *end = nullptr;
+    errno = 0;
+    out[i] = std::strtod(p, &end);
+    if (end == p || errno == ERANGE || !std::isfinite(out[i])) return false;
+    p = end;
+  }
+  while (*p == ' ' || *p == '\t') p++;
+  if (*p) return false;
+  atS = out[0]; brgDeg = out[1]; rangeKm = out[2]; altKm = out[3];
   return true;
 }
 
@@ -206,11 +341,92 @@ bool FBMig29Module::ApplySetup(const std::string &key, const std::string &value)
     return true;
   }
   if (key == "task") {
-    /* Only `route` this round: bfm/intercept/attack all need a sensor or a weapon this module has not
-     * got, and a phase that reads an Invalid block forever is a jet that flies straight ahead. */
-    if (value != "route") return RejectSetup("want route (bfm/intercept/attack need stage 2b/2c)",
-                                             key, value);
-    PilotSys->SetPhase(Pilot::FBPilot::Phase::Route);
+    /* `intercept` is unlocked by stage 2b: the BVR phase machine needs a radar, and this jet now has
+     * one. It runs on N019 + GCI instead of on a datalink picture, which is the whole doctrinal point.
+     * `bfm` and `attack` stay closed — both need a WEAPON (gun / stores), and a phase that reads an
+     * Invalid FireControl block forever is a jet that flies straight ahead. */
+    if (value == "route") { PilotSys->SetPhase(Pilot::FBPilot::Phase::Route); return true; }
+    if (value == "intercept") { PilotSys->SetPhase(Pilot::FBPilot::Phase::Intercept); return true; }
+    return RejectSetup("want route|intercept (bfm/attack need a weapon, stage 2c)", key, value);
+  }
+  /* ---- The N019, its own key prefix. A key that names a GENERIC system property (iff_*) is shared
+   * with the F-16; a key that names THIS aircraft's box is not, because `fcr_mode crm` means nothing on
+   * a jet whose modes are RAD/CC/VS/BORE. */
+  if (key == "n019_mode") {
+    FBMig29RadarMode m = FBMig29RadarMode::Off;
+    if (!FBMig29RadarModeFromString(value.c_str(), m))
+      return RejectSetup("want off|rad|cc|vs|bore", key, value);
+    Radar_.SetMode(m);
+    return true;
+  }
+  if (key == "n019_emission") {
+    if (value == "illum") Radar_.SetEmission(FBMig29Emission::Illum);
+    else if (value == "dummy") Radar_.SetEmission(FBMig29Emission::Dummy);
+    else if (value == "off") Radar_.SetEmission(FBMig29Emission::Off);
+    else return RejectSetup("want illum|dummy|off", key, value);
+    return true;
+  }
+  if (key == "n019_zone") {
+    if (value == "left") Radar_.SetZone(FBMig29Zone::Left);
+    else if (value == "center") Radar_.SetZone(FBMig29Zone::Center);
+    else if (value == "right") Radar_.SetZone(FBMig29Zone::Right);
+    else return RejectSetup("want left|center|right", key, value);
+    return true;
+  }
+  if (key == "n019_elev") {
+    double deg = 0.0;
+    if (!ParseDouble(value, deg)) return RejectSetup("not a number", key, value);
+    Radar_.SetAntennaElevDeg(deg);
+    return true;
+  }
+  if (key == "n019_range_nm") {
+    double nm = 0.0;
+    if (!ParseDouble(value, nm)) return RejectSetup("not a number", key, value);
+    if (nm < 0.0) return RejectSetup("negative range", key, value);
+    Radar_.SetRangeOverrideNm(nm);
+    return true;
+  }
+  if (key == "iff_xpdr" || key == "iff_interrogator") {
+    if (value != "on" && value != "off") return RejectSetup("want on|off", key, value);
+    if (key == "iff_xpdr") Radar_.SetIffTransponder(value == "on");
+    else Radar_.SetIffInterrogator(value == "on");
+    return true;
+  }
+  /* ---- The SPO-15. `rwr` and `rwr_search` are the same generic properties the F-16 answers (power
+   * and the search filter), so they keep the same names. */
+  if (key == "rwr" || key == "rwr_search") {
+    if (value != "on" && value != "off") return RejectSetup("want on|off", key, value);
+    if (key == "rwr") Rwr_.SetPowered(value == "on");
+    else Rwr_.SetSearchShown(value == "on");
+    return true;
+  }
+  /* ---- The KOLS. */
+  if (key == "kols_mode") {
+    FBMig29IrstMode m = FBMig29IrstMode::Off;
+    if (!FBMig29IrstModeFromString(value.c_str(), m))
+      return RejectSetup("want off|ir|ir_cc|bore", key, value);
+    Irst_.SetMode(m);
+    Irst_.SetPowered(m != FBMig29IrstMode::Off);
+    return true;
+  }
+  if (key == "kols_laser") {
+    if (value != "on" && value != "off") return RejectSetup("want on|off", key, value);
+    Irst_.SetLaserArmed(value == "on");
+    return true;
+  }
+  /* ---- GCI: the controller's call as MISSION DATA. One line per transmission, four numbers:
+   *   set brief_gci <atS> <bearingDeg> <rangeKm> <altKm>
+   * i.e. the BRAA the manuals put in the controller's mouth (bearing, range in KILOMETRES because the
+   * controller is Russian, and the target's ABSOLUTE altitude). It is not knowledge: it is something
+   * the pilot has to TYPE, one entry per decision tick, in the DED latency class, and he can be turned
+   * away by the bus like anybody else. doc/missions/sensors.md. */
+  if (key == "brief_gci") {
+    double atS = 0.0, brgDeg = 0.0, rangeKm = 0.0, altKm = 0.0;
+    if (!ParseGciCall(value, atS, brgDeg, rangeKm, altKm))
+      return RejectSetup("want '<atS> <bearingDeg> <rangeKm> <altKm>'", key, value);
+    if (atS < 0.0 || rangeKm <= 0.0) return RejectSetup("time < 0 or range <= 0", key, value);
+    if (!PilotSys->BriefGci(atS, brgDeg, rangeKm, altKm))
+      return RejectSetup("more GCI calls than the brief holds", key, value);
     return true;
   }
   if (key == "radalt") {

@@ -111,6 +111,11 @@ public:
 
   double GetWeightLbs() const;
   bool GetEngineRunning(int engineIndex) const;
+  /* True iff ANY installed turbine is in AUGMENTED thrust — the engine's own Augmentation state, not a
+   * throttle threshold this adapter invents. Model-wide like GetWow, because what an infrared sensor
+   * sees is a plume behind the aircraft and not behind an engine index; a model with no augmented
+   * turbine simply always reads false. */
+  bool GetAugmentation() const;
 
   int    GetFuelTankCount() const;
   double GetFuelTankLbs(int idx) const;

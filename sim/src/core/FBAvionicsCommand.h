@@ -19,6 +19,13 @@ enum class FBCommandTarget : uint8_t {
   StationSelect, WeaponRelease,          /* WeaponRelease is the pickle: the ONE way a store leaves */
   CmDispense, CmConsent, CmdsMode,       /* CmDispense value: 0 = the PRGM knob's program, 1..6 direct */
   GunTrigger,                            /* the ONE way rounds leave; VALUE = squeeze length in seconds */
+  /* The PASSIVE optical head (sensors/FBIrstSystem). Appended, never inserted: the ordinal is a
+   * telemetry column value. IrstLaser is the only ACTIVE thing that station does — and the only
+   * command in this table whose effect is a measurement rather than a state. */
+  IrstMode, IrstDesignate, IrstLaser,
+  /* The EMISSION control of a radar that has one as a separate switch from power (ILLUM/DUMMY/OFF on
+   * the MiG-29's PUR-31). Value = the module's own ordinal, like RadarMode. */
+  RadarEmission,
 };
 
 const char *FBCommandTargetStr(FBCommandTarget t);

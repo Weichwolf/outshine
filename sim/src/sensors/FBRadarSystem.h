@@ -56,7 +56,9 @@ public:
   static constexpr double kTrackBeamHalfDeg = 3.0;
   /* [SET] Der Doppler-Notch, die EINE Zahl, an der das ganze Chaff-Modell haengt: eine Wolke ohne
    * Eigengeschwindigkeit liegt im Clutterfilter, ein Ziel ist genau solange unterscheidbar, wie seine
-   * eigene Radialgeschwindigkeit ausserhalb liegt. doc/sensors.md, Abschnitt 4.7. */
+   * eigene Radialgeschwindigkeit ausserhalb liegt. doc/sensors.md, Abschnitt 4.7. Der DEFAULT des
+   * Hooks DopplerNotchMs() — ein Set mit einem dokumentierten, entfernungsabhaengigen Filter
+   * ueberschreibt ihn (modules/mig29/FBMig29Radar). */
   static constexpr double kDopplerNotchMs = 40.0;
   /* [SET] Das Dwell, ueber das der Notch-Test misst. Zwingend, weil Posen 10 Hz publiziert werden und
    * ein Sucher mit 20 Hz schaut — die Differenz zweier Looks alterniert sonst (gemessen: 446 m/s gegen
@@ -104,6 +106,15 @@ public:
    * melden, also kann kein Modul die beiden auseinanderlaufen lassen. */
   FBEmitterSignature Emission() const;
 
+  /* Schraegentfernung + WELT-Paar (Peilung, Elevationswinkel) + KOERPER-Paar (Az/El). Koerperbezogen
+   * heisst: volle Roll/Nick/Gier-Rotation, also was die ANTENNE sieht. OEFFENTLICH, weil es die EINE
+   * Definition dieses Fuenfergespanns im Baum ist: der passive Kopf (sensors/FBIrstSystem) rechnet
+   * dieselbe Sichtlinie, und zwei Sensoren desselben Rumpfes duerfen sich ueber Geometrie so wenig
+   * uneinig sein wie die zwei Seiten einer Bestrahlung (FBRwrSystem::BeamCovers, gleiches Argument). */
+  static void RelativeLos(const Fdm::fb_fdm_state &own, double tgtLatDeg, double tgtLonDeg, double tgtAltM,
+                          double &rangeM, double &bearingDeg, double &elevAngleDeg, double &azDeg,
+                          double &elDeg);
+
   const char *TelemetryName() const override { return "fcr"; }
   void DeclareTelemetry(FBTelemetrySchema &schema) const override;
   void SampleTelemetry(FBTelemetryRow &row) const override;
@@ -117,15 +128,38 @@ protected:
    * ueber den Modus weiss, der ihn fand. */
   virtual int ModeOrdinal() const { return 0; }
 
+  /* Die HALBBREITE des Clutterfilters an dieser Entfernung. Ein Hook und nicht laenger eine Konstante,
+   * weil ein Set sie DOKUMENTIERT haben kann: das N019 nennt drei Baender (radar-sensors.md §3.1), das
+   * APG-68 gar keins. Der Default ist die alte Zahl fuer jede Entfernung — ein Set, das nichts anderes
+   * sagt, verhaelt sich exakt wie vorher. */
+  virtual double DopplerNotchMs(double rangeM) const { (void)rangeM; return kDopplerNotchMs; }
+
+  /* Verwirft dieses Set eine Detektion, deren Radialgeschwindigkeit IM Filter liegt?
+   *
+   * Der Default ist false und das ist eine bewusst benannte VEREINFACHUNG, keine Physik: bis hierher
+   * war der Notch ausschliesslich der Kanal, ueber den Chaff wirkt (doc/sensors.md §4.7) — ein Ziel im
+   * Filter blieb ohne Wolke sichtbar. Ein Set, dessen Quelle die Erfassungsschwelle BEZIFFERT, schaltet
+   * die Verwerfung ein; fuer alle anderen bleibt das Verhalten unveraendert, weil eine erfundene
+   * Schwelle genau die Zahl waere, die ueber Leben und Tod eines Abfangs entscheidet. */
+  virtual bool NotchRejectsDetection() const { return false; }
+
+  /* Wie lange ein FESTER Track ohne Look gehalten wird. Default: Frames fuer einen Suchsweep, SEKUNDEN
+   * fuer ein Starren. Hook, weil ein Set eine dokumentierte TRAEGHEITSNACHFUEHRUNG haben kann — das
+   * N019 fuehrt 6 s auf dem letzten Vektor weiter (radar-sensors.md §4). */
+  virtual double CoastS(const FBRadarScanVolume &v) const {
+    return kCoastFrames * v.FrameS > kMinCoastS ? kCoastFrames * v.FrameS : kMinCoastS;
+  }
+
   /* Was fuer eine BOX hinter der Antenne sitzt, wie ein fremder Warnempfaenger sie einordnet — Hook,
    * weil ein Raketensucher genau das aendert. */
   virtual FBEmitterKind EmitterKind() const { return FBEmitterKind::AirborneFireControl; }
 
-  /* Schraegentfernung + WELT-Paar (Peilung, Elevationswinkel) + KOERPER-Paar (Az/El). Koerperbezogen
-   * heisst: volle Roll/Nick/Gier-Rotation, also was die ANTENNE sieht. */
-  static void RelativeLos(const Fdm::fb_fdm_state &own, double tgtLatDeg, double tgtLonDeg, double tgtAltM,
-                          double &rangeM, double &bearingDeg, double &elevAngleDeg, double &azDeg,
-                          double &elDeg);
+  /* Das Frame-Raster beim naechsten Run() auf die Uhr setzen. Fuer den Fall, dass die Antenne aus einem
+   * Zustand zurueckkommt, in dem sie NICHT gesweept hat: sonst sieht der Nachhol-Waechter ein Raster,
+   * das um die halbe Mission zurueckliegt, und macht aus dem Einschaltmoment einen festen Track. Ein
+   * Set, das seine Emission getrennt von der Stromversorgung schaltet, ruft das selbst
+   * (modules/mig29/FBMig29Radar::SetEmission); SetPowered tut es ohnehin. */
+  void ResyncScan() { Resync_ = true; }
 
   /* JEDER Entfernungstest dieser Klasse laeuft hierdurch — ein beschaedigtes Set kann nicht in einem
    * Codepfad weiter sehen als in einem anderen. */
@@ -147,6 +181,7 @@ private:
     int    Hits = 0;
     bool   Firm = false;
     bool   Seduced = false;   /* der letzte Look mass eine Chaff-Wolke statt des Flugzeugs */
+    bool   Notched = false;   /* liegt im Clutterfilter; nur bei NotchRejectsDetection() je gesetzt */
     FBIffReply Iff = FBIffReply::NotInterrogated;
   };
 
@@ -181,6 +216,7 @@ private:
   bool IffInterrogator_ = true;
   FBRadarScanVolume Search_{};
   double NextScanS_ = 0.0;       /* das eigene Frame-Raster der Antenne, unabhaengig vom Slot-Takt */
+  bool Resync_ = false;          /* gerade eingeschaltet: das Raster beginnt bei der naechsten Uhr */
 
   /* Telemetrie braucht Zahlen, keine Tabelle. -1 = nichts zu melden. */
   float LockNm_ = -1.0f, LockAzDeg_ = 0.0f, LockElDeg_ = 0.0f, LockClosureKt_ = 0.0f;

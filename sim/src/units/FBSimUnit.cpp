@@ -39,6 +39,10 @@ void FBSimUnit::PublishPose() {
   Pose_.HeadingDeg = St_.yaw;   /* no ground-track field on fb_fdm_state; yaw is the flown heading */
   Sig_.DatalinkXmt = Module_->Datalink().Transmitting();
   Sig_.IffXpdr = Module_->Radar().IffTransponder();
+  /* Not an emission but the same question: what may a foreign sensor notice? A plume is visible to an
+   * infrared head and to nothing else in the tree, and it is read off the ENGINE rather than off a
+   * throttle position, so no module can publish a plume it is not producing. */
+  Sig_.Afterburner = Fdm_ && Fdm_->GetAugmentation();
   /* The beam is derived by the SET, so the emission cannot disagree with the pattern the antenna flies.
    * Combined here only because a tracking radar that is also supporting a shot is a different warning to
    * receive, and whether this jet supports one is the STORES system's knowledge, not the radar's. */
@@ -187,6 +191,7 @@ void FBSimUnit::StartTelemetry(FBTelemetrySink *sink) {
   Bus_.Register(&Module_->PilotSystem().Engagement());
   Bus_.Register(&HealthSrc_);
   Bus_.Register(&Module_->Guns());
+  Bus_.Register(&Module_->Irst());
   Bus_.SetSink(sink);
   Bus_.Start();
 }

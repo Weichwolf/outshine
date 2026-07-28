@@ -48,6 +48,15 @@ public:
   void SetSearchShown(bool on) { SearchShown_ = on; }
   bool SearchShown() const { return SearchShown_; }
 
+  /* Was das EIGENE Set gerade abstrahlt — genau das Bit, das der Besitzer der Einheit ohnehin aus
+   * FBRadarSystem::Emission() ableitet und publiziert, hier ein zweites Mal an den Empfaenger im selben
+   * Rumpf gereicht. Es gibt keinen zweiten Zustand: was die Welt hoert und was der eigene Empfaenger
+   * ertraegt, kommt aus derselben Quelle. Ohne Aufrufer bleibt es false, also aendert es fuer jedes
+   * bestehende Modul nichts — und ein Empfaenger, der seinen eigenen Sender nicht filtern kann, ist
+   * eine EIGENSCHAFT des Geraets (Blanked(), s.u.), keine Regel dieser Klasse. */
+  void SetOwnRadiating(bool on) { OwnRadiating_ = on; }
+  bool OwnRadiating() const { return OwnRadiating_; }
+
   /* `net` null = nichts zu hoeren; `simTimeS` ist die absolute Simuhr des Moduls. */
   virtual void Run(FBState &state, const Fdm::fb_fdm_state &st, const Units::FBUnitRegistry *net, double simTimeS);
 
@@ -61,6 +70,30 @@ protected:
   virtual double ElevCoverageDeg() const { return 60.0; }   /* generischer 4-Quadranten-Empfaenger */
   virtual int    MaxDisplayed() const { return kMaxRwrThreats; }
 
+  /* Taubheit aus ANDEREN Gruenden als der Antennenabdeckung, gefragt je Ankunftsrichtung (Peilung
+   * relativ zur eigenen Nase). Default: keine — ein Empfaenger hoert, was seine Antenne abdeckt. Der
+   * SPO-15 schaltet seine ganze vordere Hemisphaere ab, sobald das eigene Radar strahlt, weil er dessen
+   * HPRF nicht ausfiltern kann (doc/modules/mig29/defence-rwr-cm.md §2.7 Punkt 11). */
+  virtual bool Blanked(double rxAzDeg) const { (void)rxAzDeg; return false; }
+
+  /* Die gemeldete Peilung aus der gemessenen. Default: die Messung selbst. Ein analoges Geraet meldet
+   * statt dessen den KANAL, in dem es etwas gehoert hat — seine Azimutaufloesung ist die Keulenbreite
+   * seiner Antennen, nicht eine Zahl. */
+  virtual double ReportBearingDeg(double rxAzDeg) const;
+
+  /* Suche oder Verfolgung? Default: was der Sender tut. Nicht const und mit Zeit + Richtung im
+   * Argument, weil ein Geraet das an EIGENEN Beobachtungen entscheiden kann statt an der Wahrheit des
+   * Senders — der SPO-15 misst die Beleuchtungsdauer je Azimutkanal und markiert den ganzen Kanal. */
+  virtual FBRwrThreatMode ClassifyMode(const FBEmitterSignature &sig, FBEmitterKind kind,
+                                       double rxAzDeg, double simTimeS);
+
+  /* Ein ZWEITER Sortierschluessel zwischen Modus und Empfangsleistung; kleiner = weiter vorn. Default 0
+   * fuer jede Bedrohung, also bleibt die Rangfolge exakt (Modus, Leistung, Tabellenreihenfolge). Der
+   * SPO-15 haengt hier seine dokumentierte Typ-Prioritaetsreihe ein. */
+  virtual int PriorityRank(FBRwrThreatMode mode, FBEmitterKind kind, double bearingDeg) const {
+    (void)mode; (void)kind; (void)bearingDeg; return 0;
+  }
+
   /* Die Bedrohungsbibliothek ist heute einen Eintrag tief und deshalb immer richtig; das Feld existiert,
    * damit an dem Tag, an dem sie es nicht mehr ist, kein Konsument seine Form aendert. */
   virtual FBEmitterKind Classify(const FBEmitterSignature &sig) const { return sig.Kind; }
@@ -69,6 +102,7 @@ private:
   struct Threat {
     int    Id = 0;
     int    UnitId = 0;          /* Korrelationsschluessel von Erkennung zu Erkennung; NIE publiziert */
+    int    Rank = 0;            /* PriorityRank() des letzten Hoerens — Sortierschluessel, nie publiziert */
     double BearingDeg = 0.0, ElDeg = 0.0;
     double SignalNorm = 0.0;
     double FirstS = 0.0, LastS = 0.0;
@@ -82,7 +116,6 @@ private:
    * Lage — die Keule ist koerperfest. */
   static bool BeamCovers(const FBEmitterSignature &sig, double rollDeg, double pitchDeg, double yawDeg,
                          double eastM, double northM, double upM);
-  static FBRwrThreatMode ModeOf(const FBEmitterSignature &sig, FBEmitterKind kind);
   double Lethality(FBRwrThreatMode mode, double signalNorm) const;
   void   Publish(FBState &state, double simTimeS);
 
@@ -94,6 +127,7 @@ private:
   FBUnitTeam SelfTeam_ = FBUnitTeam::Friendly;
   bool Powered_ = true;
   bool SearchShown_ = true;
+  bool OwnRadiating_ = false;
 
   /* Telemetriesicht auf den letzten Run. */
   int   ThreatCount_ = 0, PriorityMode_ = 0;

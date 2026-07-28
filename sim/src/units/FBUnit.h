@@ -34,6 +34,11 @@ struct FBUnitSignature {
   bool DatalinkXmt = false;   /* MIDS terminal powered AND transmitting (XMT ON) */
   FBWeaponUplink Uplink;      /* midcourse guidance to a weapon this unit launched */
   bool IffXpdr = false;       /* AN/APX-113 answering Mode 4 */
+  /* Any installed turbine in AUGMENTED thrust. Not an emission — a plume is not transmitted, it is
+   * RADIATED heat — but the same question the rest of this struct answers: what may a foreign sensor
+   * legitimately notice about this unit? An infrared head may notice exactly this
+   * (sensors/FBIrstSystem), and nothing else here tells it. */
+  bool Afterburner = false;
   FBEmitterSignature Radar;   /* the BEAM incl. where it points; silent Mode::None by default */
   /* Chaff hangs off the DISPENSING unit rather than being units of its own — stated consequence: a
    * cloud can only decoy a radar looking at the aircraft that threw it. */

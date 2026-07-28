@@ -113,6 +113,7 @@ CORE_LIB_SRCS := \
   src/systems/FBAirframeControls.cpp src/systems/FBWarningSystem.cpp src/systems/FBHudGeometry.cpp \
   src/sensors/FBDatalinkSystem.cpp src/sensors/FBRadarSystem.cpp \
   src/sensors/FBRwrSystem.cpp src/sensors/FBCountermeasureSystem.cpp \
+  src/sensors/FBIrstSystem.cpp \
   src/weapons/FBStoresSystem.cpp src/weapons/FBGunSystem.cpp \
   src/pilot/FBPilot.cpp src/pilot/FBBfmTrack.cpp \
   src/pilot/FBEngagement.cpp src/pilot/FBPilotTuning.cpp \
@@ -123,6 +124,8 @@ CORE_LIB_SRCS := \
   src/modules/f16/FBF16Pilot.cpp \
   src/modules/f16/FBF16ModuleRegistration.cpp \
   src/modules/mig29/FBMig29Module.cpp src/modules/mig29/FBMig29Damage.cpp \
+  src/modules/mig29/FBMig29Radar.cpp src/modules/mig29/FBMig29Rwr.cpp src/modules/mig29/FBMig29Irst.cpp \
+  src/modules/mig29/FBMig29Pilot.cpp \
   src/modules/mig29/FBMig29ModuleRegistration.cpp \
   src/modules/stores/FBStoreModule.cpp src/modules/stores/FBStoreModuleRegistration.cpp \
   src/modules/ground/FBGroundModuleRegistration.cpp \

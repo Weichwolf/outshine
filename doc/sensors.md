@@ -1,4 +1,4 @@
-# FlightBox — Perception: datalink, radar, RWR, countermeasures
+# FlightBox — Perception: datalink, radar, RWR, IRST, countermeasures
 
 **Subject.** How a unit learns about other units — and how it may *not*. This is the sharpest boundary
 of the architecture: it is drawn not by convention but by include graph and type choice, and it is
@@ -11,8 +11,10 @@ checkable by grep.
 | `sim/src/sensors/FBDatalinkSystem.{h,cpp}` | cooperative net (comms/datalink slot) |
 | `sim/src/sensors/FBRadarSystem.{h,cpp}` | active air-to-air radar (sensors slot) |
 | `sim/src/sensors/FBRwrSystem.{h,cpp}` | passive warning receiver (defensive, passive half) |
+| `sim/src/sensors/FBIrstSystem.{h,cpp}` | passive optical search head (sensors slot, second half) |
 | `sim/src/sensors/FBCountermeasureSystem.{h,cpp}` | dispenser set (defensive, active half) |
 | `sim/src/modules/f16/FBF16Datalink.h`, `FBF16Fcr.{h,cpp}`, `FBF16Rwr.h`, `FBF16Cmds.{h,cpp}` | the F-16 derivations |
+| `sim/src/modules/mig29/FBMig29Radar.{h,cpp}`, `FBMig29Rwr.{h,cpp}`, `FBMig29Irst.{h,cpp}` | the MiG-29 derivations |
 | `sim/src/modules/missile/FBMissileSeeker.{h,cpp}`, `FBMissileUplink.{h,cpp}` | the two derivations of the missile |
 | `sim/src/units/FBUnit.h`, `FBSimUnit.cpp` (`PublishPose`) | the published emission signature |
 | `sim/src/modules/f16/FBF16Module.cpp` (`Run`, `ApplySetup`) | rate, health gate, mission switches |
@@ -36,8 +38,11 @@ architecture: drawn by include graph and type choice, checkable by grep.
 
 | Contract | Acceptance / measurement anchor |
 |---|---|
-| The unit registry reaches the SENSOR slots and nothing else | `#include "FBUnitRegistry.h"` / `.Units()` appear in exactly four files under `sim/src/systems` + `sim/src/modules` (the three sensor slots + the missile's uplink receiver) |
+| The unit registry reaches the SENSOR slots and nothing else | `#include "FBUnitRegistry.h"` / `.Units()` appear in exactly **five** files under `sim/src/sensors` + `sim/src/modules` (the four sensor slots + the missile's uplink receiver), and the list is pinned in `tools/verify_layers.py`'s `RESTRICTED` table — the gate FAILS on a sixth |
+| Every widening of that list is a decision with a price, not a convenience | a slot joins the list only by being a SENSOR whose limits are modelled: `FBIrstSystem` pays in range (25 km at best against the radar's 50), in identity (it cannot interrogate IFF at all) and in weather (a cloud deck ends the line of sight) |
 | A radar contact is anonymous | `core/FBRadarContact` carries range/bearing/az/el/closure and a radar-owned track number — no unit id, no callsign, no team |
+| A passive optical contact is anonymous AND has no range | `core/FBIrstContact` carries angles only; `RangeM` exists solely behind a `HasRange` bit that only the laser rangefinder sets |
+| A documented sensor defect is behaviour, not a comment | the N019's range-dependent Doppler envelope REJECTS detections; the SPO-15's forward hemisphere goes dark while the own radar radiates |
 | The only identity source is IFF Mode 4, and it is two-valued | `FBIffReply` has no value "hostile" |
 | Perception costs time | a track firms after `kHitsToFirm` consecutive looks and coasts after leaving the volume; the block carries age, never "live" |
 | Cooperative ≠ active | the datalink gives identity away and needs a transmitting sender; the radar gets an echo and pays with an emission |
@@ -56,6 +61,9 @@ Built: datalink, radar with mode set, RWR, countermeasures — plus the two miss
 | `FBRwrSystem` + `FBF16Rwr` (ALR-56M geometry, PRIORITY/OPEN display cap) | built | `439f53a` |
 | `FBCountermeasureSystem` + `FBF16Cmds` (ALE-47 programs, OFF…BYP state machine, chaff clouds) | built | `439f53a` |
 | `FBMissileSeeker` / `FBMissileUplink` | built | `5c68fc5` |
+| `FBIrstSystem` + `FBMig29Irst` (KOLS: aspect law, laser range, cloud masking) | built | MiG-29 stage 2b |
+| `FBMig29Radar` (N019: five modes + STT, quantified notch, 6 s inertial track) | built | MiG-29 stage 2b |
+| `FBMig29Rwr` (SPO-15LM: forward blanking, channel bearings, channel-wide track marking) | built | MiG-29 stage 2b |
 
 ## Gaps
 
@@ -131,7 +139,29 @@ Built: datalink, radar with mode set, RWR, countermeasures — plus the two miss
 18. **`Emission()` publishes the search volume as a beam**, although the beam only sweeps across it once
     per frame. A target inside the volume is therefore "illuminated" continuously instead of pulsed; the
     duration of the actual illumination (and hence a more realistic "new" window) is not modelled.
-19. **`FBRwrSystem` stores `SelfTeam_` and never reads it.** Intentional (comment), but dead state that
+19. **No `FBSystemId` for the optical station.** `core/FBSystemHealth` has ids for radar, RWR,
+    countermeasures and the rest, but none for an IRST — so `FBMig29Irst` is the one sensor slot that is
+    NOT damage-gated. Adding an id shifts the `dmg_*` telemetry columns, which is why it is held back to
+    travel with the twin-engine health change the MiG-29 module already needs (its gap 4d).
+20. **The SPO-15's search/track criterion is the channel marking, not the illumination duration** (§5.6),
+    because the emission model publishes a searching beam as continuous (gap 18). The device's own
+    §2.5 rule is therefore only half implemented, and the half that is missing is measured, not guessed.
+21. **The SPO-15's 10° forward azimuth resolution is not reached**: the real device gets it from a 10°
+    designed OVERLAP that lights two channels at once, and FlightBox reports one channel, so the achieved
+    resolution is the channel width (20° forward, ±60° aft).
+22. **The IRST sees no horizontal cloud structure** (§6.5): a broken-or-more deck is a lid. Seeing through
+    the holes of a 60 % deck needs a march along the line of sight through `core/FBCloudDensity` — one
+    integration per contact per look, the same price terrain masking costs the radar.
+23. **No IR countermeasure model.** The KOLS's documented degradation under thermal countermeasures
+    (5.4-1.6 nm) has nothing to act on: flares are dispensed and counted but never published in
+    `FBUnitSignature`, and there is no IR seeker either (gap 2).
+24. **The IRST aspect law's SHAPE is a setting.** Both endpoints are documented (25 km rear, 10 km
+    head-on); the curve between them, `(1 + cos A)/2`, is not. A clamped plume-area law would be equally
+    defensible and the source supports neither — which is why the choice sits in one line.
+25. **`FBMig29Rwr`'s assumed-altitude priority rule cannot bite yet.** The constant band (26-55 kft) is
+    read where the documented defect lives, but every emitter in the tree today is airborne and inside
+    it, so no threat is ever de-prioritised by it. The first surface emitter is what turns it on.
+26. **`FBRwrSystem` stores `SelfTeam_` and never reads it.** Intentional (comment), but dead state that
     could easily mutate into faction recognition by accident in a future library by emitter type. Check
     when touching it.
 
@@ -153,21 +183,36 @@ there.
 `FBPilot::Run` carries neither `FBUnitRegistry` nor `FBWorld` in its signature and holds neither of them
 as a member.
 
-#### 1.2 The four files
+#### 1.2 The five files
 
 ```
-$ cd sim && grep -rn "FBUnitRegistry.h\|\.Units()\|->Units()" src/systems src/modules
-src/sensors/FBDatalinkSystem.cpp:5:  #include "FBUnitRegistry.h"
-src/sensors/FBDatalinkSystem.cpp:36:   for (const FBUnit *u : net.Units()) {
-src/sensors/FBRadarSystem.cpp:5:     #include "FBUnitRegistry.h"
-src/sensors/FBRadarSystem.cpp:89:     for (const FBUnit *u : net.Units()) {
-src/sensors/FBRwrSystem.cpp:5:       #include "FBUnitRegistry.h"
-src/sensors/FBRwrSystem.cpp:71:       for (const FBUnit *u : net->Units()) {
-src/modules/missile/FBMissileUplink.cpp:3:  #include "FBUnitRegistry.h"
-src/modules/missile/FBMissileUplink.cpp:20:  for (const FBUnit *u : net->Units()) {
+$ cd sim && grep -rln "FBUnitRegistry.h" src/sensors src/systems src/modules
+src/sensors/FBDatalinkSystem.cpp
+src/sensors/FBIrstSystem.cpp
+src/sensors/FBRadarSystem.cpp
+src/sensors/FBRwrSystem.cpp
+src/modules/missile/FBMissileUplink.cpp
 ```
 
-Four hits, there must be no more. Otherwise `FBUnitRegistry` appears in `systems/`/`modules/` only as a
+**It was four until the MiG-29's passive optical station landed, and the fifth entry is a deliberate,
+recorded widening rather than an erosion.** The rule was never "at most N files" — it is *a pilot sees
+other units only through simulated sensors*, and the list is the enumeration of what counts as one. The
+gate that enforces it (`sim/tools/verify_layers.py`, `RESTRICTED["units/FBUnitRegistry.h"]`) FAILED on
+the new include until the file was added to it by name, which is exactly the intended cost of the
+change: widening the boundary is a diff in the gate, reviewable on its own.
+
+The admission test a slot has to pass is that it has REAL limits, and `FBIrstSystem` pays three:
+
+| It pays in | How much |
+|---|---|
+| range | 25 km at the best aspect, 10 km head-on — against the N019's 50 km gate |
+| identity | none at all. The IFF interrogator does not work with the IRST, and `FBIrstContact` has no field it could be put in |
+| weather | a cloud deck between the two altitudes ends the detection; the radar has no such term |
+
+and it gives one thing back that no other sensor here does: it costs the observer NOTHING. Nobody is
+warned, because nothing is transmitted.
+
+Five hits, there must be no more. Otherwise `FBUnitRegistry` appears in `systems/`/`modules/` only as a
 forward declaration or as a passed-through parameter (`FBModule::Run` → `FBF16Module::Run` → sensor
 slot). **Whoever violates this check with a fifth hit tears down the architecture — not a convention.**
 
@@ -176,6 +221,7 @@ slot). **Whoever violates this check with a fifth hit tears down the architectur
 | `FBDatalinkSystem.cpp` | reads published PPLI transmissions (transmit bit + pose) — cooperative |
 | `FBRadarSystem.cpp` | tests poses against a scan volume — active echo |
 | `FBRwrSystem.cpp` | reads exclusively published emission signatures — passive |
+| `FBIrstSystem.cpp` | tests poses against a field of regard and an aspect-dependent reach — passive, no emission of its own |
 | `FBMissileUplink.cpp` | listens to the published guidance-link transmission of ITS shooter |
 
 **Why the fourth belongs there.** A missile is structurally a unit like any other; its comms slot
@@ -197,6 +243,7 @@ contact type itself is the second barrier:
 | `FBDatalinkTrack` | **yes** — `UnitId`, `Callsign`, `Team` | A message. The sender transmits its own identification; identity is given away. |
 | `FBRadarContact` | **no** — only `TrackNum` + geometry | An echo. No field for id, callsign, team. The absence IS the model. |
 | `FBRwrThreat` | **no** — only `Id` + direction | A heard waveform. `Kind` is an ESTIMATE of the receiver. |
+| `FBIrstContact` | **no** — only `TrackNum` + angles | A hot spot. It carries no range either, except behind the laser's own `HasRange` bit, and there is no IFF field: passive detection costs identity, and the type says so. |
 
 `FBRadarSystem::Track` (private) holds `UnitId` as the correlation key from look to look — this key
 **never leaves the object**. The same applies to `FBRwrSystem::Threat::UnitId`. The published numbers
@@ -235,7 +282,7 @@ radiation than the real box has).
 
 ---
 
-### 2. Common structure of all four systems
+### 2. Common structure of all five systems
 
 | Property | Form |
 |---|---|
@@ -393,6 +440,9 @@ volume**. That is why ONE virtual getter carries a complete fire control set. Be
 hooks: `ModeOrdinal()` (telemetry label only) and `EmitterKind()` (what kind of box sits behind the
 antenna).
 
+**MiG-29 — `FBMig29Radar`, N019 "Rubin"** (§4.9 below for the two things that make it a different
+radar and not a different number).
+
 **F-16 — `FBF16Fcr`, AN/APG-68** (taxonomy [DOC radar-sensors.md], **angles/frames are a declared MODEL
 PARAMETER SET [SET]** — the source shows MFD screenshots and names no numbers):
 
@@ -520,6 +570,16 @@ A target is therefore distinguishable from chaff **exactly as long as its own ra
 outside the bin** — and it lies inside when it flies across the line of sight. Hence: **chaff without a
 beam manoeuvre achieves nothing, and a beam manoeuvre without chaff achieves almost nothing either.**
 
+**Since the N019 landed, the notch is a HOOK and not a constant** (`DopplerNotchMs(rangeM)`), because a
+set can have the number DOCUMENTED — and one does. Two further hooks came with it, and all three default
+to the previous behaviour exactly, so the APG-68 is byte-identical to before:
+
+| Hook | Default | Why it exists |
+|---|---|---|
+| `DopplerNotchMs(rangeM)` | `kDopplerNotchMs` at any range | the N019 states three range bands; the APG-68 states none |
+| `NotchRejectsDetection()` | **false** | until now the notch was ONLY chaff's channel — a target in the filter stayed visible without a cloud. That is a named simplification, and a set whose source QUANTIFIES the detection threshold switches it off. Inventing a threshold for a set whose source is silent would be inventing the number that decides a BVR engagement. |
+| `CoastS(volume)` | `max(1 s, 3 frames)` | the N019's source names a DURATION (6 s of inertial tracking), not a frame count |
+
 | Constant | Value | Derivation |
 |---|---|---|
 | `kDopplerNotchMs` | 40 m/s (~78 kt) [SET] | order of magnitude of the half width of a main-lobe clutter filter: wide enough that ordinary crossing geometry does not notch by accident, narrow enough that it takes a deliberate beam manoeuvre |
@@ -574,6 +634,59 @@ everything. Masking would need a DEM raymarch **per contact and per look** and b
 system first has a reason to pay that price. **Nothing is silently approximated here**, so that nobody
 can mistake the picture for one that has masking. (`FBDatalinkSystem::RadioHorizonM` makes the same
 statement for the radio path.)
+
+---
+
+#### 4.9 `FBMig29Radar` — the N019, and the two hooks it needed
+
+| `n019_mode` | Azimuth | Elevation | Range | Frame | Auto-lock | Origin |
+|---|---|---|---|---|---|---|
+| `off` | — | — | — | (1.0 s) | does not radiate | |
+| `rad` (search) | ±30° about the ZONE third | ±6° about the antenna knob | 50 km | 3.0 s | **no** | ZONE [DOC]; range [T4, the RCS-qualified band's lower bound]; frame [DERIVED, see below]; bar ±6° [SET] |
+| `cc` (radar close combat) | ±1.75° (one beamwidth) | +12° ± 25° = −13°…+37° | 5.4 nm | 2.5 s | yes | [T4] "fixed ±37°/−13°" read with [DOC] "the antenna rotates only in the vertical axis in close combat" |
+| `vs` (vertical scan) | ±1.5° | +20° ± 30° = −10°…+50° | 5.4 nm | 1.0 s | yes | [DOC] "3° wide × −10…+50°" |
+| `bore` | ±1.25° | ±1.25° | 5.4 nm | 0.5 s | yes | [DOC] "2.5° cone along the aircraft axis" |
+| **STT (locked)** | ±65° (gimbal) | +10° ± 46° = −36°…+56° (gimbal) | 50 km | 0.2 s | single target | [T4] gimbal limits; frame [SET] |
+
+**The RAD frame is DERIVED, not chosen.** The source says "you may have to wait up to **six seconds**
+before the target is detected … only after the radar has completed several scanning cycles". The generic
+system firms a track after `kHitsToFirm` = 2 consecutive looks, so the documented latency IS 2 × FrameS
+→ **FrameS = 3.0 s**, which also sits inside T4's 2.5-5 s scan-cycle band. Measured on
+`mig29-radar-notch`: first firm contact at **t = 6.0 s**.
+
+**The Doppler envelope, quantified** [DOC]:
+
+| Range | Required | as m/s |
+|---|---|---|
+| > 8.0 nm | closure/lag > 81 kt | 41.67 |
+| 5.4 … 8.0 nm | > 27 kt | 13.89 |
+| < 5.4 nm | "not guaranteed" below 32.4 kt | 16.67 |
+| `cc` mode | **no requirement** — "stable tracking at equal speeds and at a lag" | 0 |
+
+Two readings are FlightBox's and both are marked as such. **(a) Which quantity**: the source says
+"closure/lag speed", which read literally is aircraft-to-aircraft closure — but the same source explains
+the effect by target ASPECT ("targets at aspect near 90° … small radial closure, small Doppler shift"),
+and a beaming target is exactly the case where closure stays large while its own radial velocity goes to
+zero. The physical discriminator of a pulse-Doppler set is the target's Doppler against MAIN-LOBE
+CLUTTER, i.e. its radial velocity over the ground — which is the quantity `FBRadarSystem` already
+measures for chaff, over the same `kDopplerDwellS` dwell. **(b) "Not guaranteed"** is read
+deterministically as "lost": FlightBox rolls no dice, which makes the innermost band WIDER than the one
+outside it. That inversion is in the source.
+
+**Six seconds of inertial tracking** [DOC] replaces the generic coast rather than flooring it: the
+source names one duration for one track filter, and the generic rule (3 antenna frames = 9 s in RAD,
+0.6 s in the stare) would contradict it in both directions.
+
+**A set with a separate EMISSION switch has to resync its scan raster.** ILLUM/DUMMY/OFF is a real
+three-position control on this jet, and DUMMY does not sweep. Restarting the raster on the way back to
+ILLUM (`ResyncScan()`) is not cosmetic: without it the catch-up guard in `Run` replays the whole silent
+period in the tick the switch moves and reports a firm track in the same tenth of a second the radar
+came on. **Measured: contact at t=27.9 instead of one frame later.** The F-16 has no such switch and is
+untouched by the hook.
+
+**Not modelled, named:** minimum range (250 m), PRF selection (ППС/ЗПС/АВТ and its −25 % penalty), TWS
+as a capacity of its own (10 tracks), the AOJ/burn-through jamming chain, and the source's probabilistic
+wording throughout.
 
 ---
 
@@ -675,9 +788,126 @@ exactly what an RWR must not guess.
 
 ---
 
-### 6. Active-defensive — `FBCountermeasureSystem`
+#### 5.6 `FBMig29Rwr` — the SPO-15LM, three defects as behaviour
 
-#### 6.1 A program is DATA
+The ALR-56M is a detector plus a library plus a sorter. The SPO-15 is **entirely analogue** — no
+processor, one azimuth channel processed at a time — and its source lists eleven consequences of that as
+DEVICE LIMITATIONS. Three are behaviour rather than colour, and those three are the override:
+
+| # | Behaviour | Consequence |
+|---|---|---|
+| 1 | **Own radar radiating → the whole forward hemisphere (±90°) is switched off** | using the radar costs the warning that would have told you to stop. One bit, one source: what the world hears (`FBRadarSystem::Emission()`) is what deafens the receiver in the same fuselage (`SetOwnRadiating` → the generic `Blanked(rxAz)` hook) |
+| 2 | **The priority logic hard-assumes own altitude 26-55 kft** | the box has no altitude input at all. Its two type-priority rows and the azimuth criterion that picks between them (types П/F: ABEAM is the low row, everything else high) are evaluated against a CONSTANT, via the generic `PriorityRank` hook |
+| 3 | **Track is a property of the azimuth CHANNEL, not of an event** | once any track is seen in a channel, the whole channel is marked for `kChannelTrackHoldS` 3.0 s — so a merely searching radar on the same bearing is reported as tracking |
+
+Plus the geometry: **±30° elevation** (against the F-16's ±45° — a bigger blind zone), and the reported
+bearing is the **CENTRE OF THE CHANNEL THAT FIRED**, not the measured angle. Eight logical channels: six
+forward 20° wide covering ±60° (four Luneburg-lens feeds per side, 20° beamwidth and 20° peak
+separation), one spiral antenna per side aft.
+
+**What the source's §2.5 asks for and this does NOT do, with the measurement that decided it.** The real
+criterion for search-vs-track is the LENGTH of the illumination event (>125-250 ms). FlightBox's emission
+model publishes a searching radar's whole scan volume as one *continuously* illuminated window (§4.6 and
+gap 18 below), so timing it would put every search emitter over the threshold within two ticks. **Measured
+on the first run of the class (`mig29-pair`, t = 0.3 s): the F-16's CRM sweep reported as TRACK.** The
+EVENT half therefore waits for a pulsed emission model; the CHANNEL half — the part that is a device
+defect rather than a measurement — is what the override contributes.
+
+**Not taken over, because taking it over would mean inventing:** the six threat letters (П/З/Х/Н/F/С).
+Their assignment is by pulse width and PRF, and `FBEmitterSignature` deliberately carries neither. With
+them fall the CW/HPRF confusion, the 6 dB two-emitter rule, low-frequency multi-sector blooming and the
+781 Hz criterion — the same argument the F-16 file makes for the ALIC table.
+
+---
+
+### 6. Passive optical — `FBIrstSystem`
+
+#### 6.1 The third question
+
+The radar asks "what is out there" and transmits to find out. The RWR asks "who is looking at me" and
+can only hear what somebody else radiates. An **IRST asks the radar's question and pays the RWR's
+price — nothing.** It sees HEAT: no emission, no warning to the target, no reply to interrogate.
+
+That freedom is bought back in the shape of what it produces, and all three terms are separate
+documented statements rather than one fudge factor:
+
+| Term | Model | Source |
+|---|---|---|
+| **Aspect** | reach scales between a rear-aspect and a head-on figure with `f = (1 + cos A)/2`, A = the angle between the target's heading and the bearing this sensor sees it on (A = 0 → dead astern, full nozzle) | endpoints [DOC], the curve [SET] |
+| **Afterburner** | reach × `kAfterburnerRangeFactor` 1.5 [SET]; for a point source irradiance falls as 1/r², so range goes as √intensity — 1.5 is a plume ≈2.25× the unaugmented aircraft | [DOC] states "an exception to the size rule" and no figure |
+| **Cloud** | a deck at or above `kCloudMaskCover` 0.5 ("broken") between the two ALTITUDES is a lid: no detection | [SET] threshold, deck geometry from `core/FBCloudDensity` |
+
+#### 6.2 The contact type is the boundary again
+
+`core/FBIrstContact` carries `TrackNum`, world bearing/elevation, body az/el and a look age. **No unit
+id, no team, no IFF — and no range.** The one exception is a collimated **laser rangefinder**: a short
+deliberate active measurement, on command, inside its own much shorter reach, published behind its own
+`HasRange` bit so that "nobody measured a range" cannot be read as zero metres. The telemetry column
+`irst_lock_nm` carries **-1** when it did not fire, for the same reason.
+
+The laser produces **no** `FBEmitterSignature`: a warning receiver cannot detect it [DOC], which is
+precisely what makes the "stealth attack" of the source material possible.
+
+#### 6.3 Structure — the same contract as the other three
+
+`FBIrstFieldOfRegard` is a type ALIAS of `FBRadarScanVolume`, not a copy: a window in body-referenced
+az/el, one `FrameS` sweep, a gate, `AutoAcquire`, `SingleTarget`. Two fields are read differently and
+both readings are written into the header — `RangeM` is the CLEAN-AIR REAR-ASPECT reach that the aspect
+law scales per target, and `Active` means the head is uncaged, not that it radiates.
+
+`ActiveField()` is THE override point, exactly as `ActiveVolume()` is for the radar. Track build-up
+(`kHitsToFirm` = 2), coasting, the absolute frame raster, fixed capacity (8) and three-state validity
+are all identical to the radar's, because they are properties of a scanning sensor rather than of a
+transmitter.
+
+**One place where copying the radar would have been wrong:** the tracking field is NOT `SingleTarget`.
+A radar in STT spends all its transmitted power on one target and stops refreshing every other file; a
+passive head has no power to spend and keeps seeing its whole field while it follows one mark. The only
+exclusive thing about the track is where the LASER points.
+
+**Auto-acquire picks the smallest ANGULAR offset from the field centre, not the nearest target** — an
+angle-only sensor has no "nearest". That is the one place the missing range changes a decision rather
+than a number.
+
+#### 6.4 `FBMig29Irst` — the KOLS
+
+| Quantity | Value | Origin |
+|---|---|---|
+| rear-aspect clean-air reach | 25 km | [DOC] 13.5 nm |
+| head-on reach | 10 km | [DOC] 5.4 nm |
+| laser rangefinder | 6 km | [DOC/T4] — the bound on where the passive channel can produce a TRUE range |
+| field of regard (search/IR CC) | ±30°/±15° az, ±15° el | [DOC/T4] |
+| frame, search | 5.0 s | [DOC] "4-6 s dwell per increment", midpoint; with two-look firming, acquisition costs 10 s |
+| IR CC aspect gate | 135° | [DOC] rear-hemisphere mode, aspect up to 3/4 |
+
+Modes `off` / `ir` / `ir_cc` / `bore`. The search field does **not** auto-acquire: capture is a
+documented two-handed act ("slew the strobe, press and HOLD LOCKON 2-3 s"), and an angle-only sensor
+locking itself onto whatever is nearest the centre would be a decision the pilot never made about a
+target he cannot identify.
+
+**Not modelled, named rather than approximated:** the Shchel-3UM helmet sight (nothing to designate to
+— no IR missile exists), the IR GAIN knob, the documented degradation under thermal countermeasures
+(flares are dispensed and counted but not published in `FBUnitSignature`), and the SPAN angular ranging
+method.
+
+#### 6.5 The weather coupling, and what it is not
+
+This is the **first tactical effect weather has on a sensor** in FlightBox. It is deliberately the
+crudest honest form: a broken-or-more deck between the two altitudes is a lid, decided per look on the
+deck geometry `core/FBCloudDensity` derives from the same weather provider the wind comes from. The
+sample is resolved by the OWNER once per decision tick (`FBSimUnit::UpdateSky` →
+`FBModule::SetCloudSky`), exactly as ground elevation is — the sensor never queries the world itself.
+
+**The gap, stated instead of approximated:** the deck's HORIZONTAL structure. `core/FBCloudDensity` is a
+closed-form field and could be marched along the line of sight for a real transmittance, which would let
+a 60 %-cover deck be seen through where its holes are. That march costs one integration per contact per
+look — the same price terrain masking costs the radar, and it is declined for the same stated reason.
+
+---
+
+### 7. Active-defensive — `FBCountermeasureSystem`
+
+#### 7.1 A program is DATA
 
 The parameter scheme is that of the AN/ALE-47, field by field and range by range [DOC §2.2], per type
 (chaff/flare):
@@ -704,14 +934,14 @@ at the right times instead of being stretched onto the tick rate.
 |---|---|---|---|
 | 1 BREAK LOCK | 2 × 0.10 s, 2 salvoes of 1.00 s (= 4 cartridges in ~1.1 s) | — | the dense reflex answer; what AUTO throws against a MISSILE |
 | 2 MIXED | 2 × 0.10 s, 2 salvoes of 2.00 s | 1, 2 salvoes | unknown threat — at the cost of two magazines |
-| 3 FLARE | — | 2 × 0.10 s, 4 salvoes of 1.00 s | IR only (see §6.5) |
+| 3 FLARE | — | 2 × 0.10 s, 4 salvoes of 1.00 s | IR only (see §7.5) |
 | 4 SUSTAINED | 2 × 0.10 s, 4 salvoes of 4.00 s (= 8 over ~12 s) | — | against a mere TRACK; what AUTO repeats. Slow enough not to empty a 60-round magazine before the decision; dense enough that there is always a cloud standing within `kChaffLifeS` |
 | 5 SLAP | 1 | 1 | the wall button (always within reach) |
 | 6 BYPASS | 1 | 1 | the documented emergency dispense [DOC §2.2] |
 
 Magazine 60/60, combined maximum 120 [DOC §1]; BINGO 10/10 [SET].
 
-#### 6.2 The mode knob as a state machine
+#### 7.2 The mode knob as a state machine
 
 | Mode | Who may dispense | Consent | Other |
 |---|---|---|---|
@@ -732,7 +962,7 @@ on AUTO"] and stops a running program at OFF/STBY. `SetConsent(false)` = CMS rig
 **Two programming paths, one gate:** `SetProgram` (the DED path) requires STBY; `InstallProgram`
 (protected) is the module constructor — the ground crew — and is ungated.
 
-#### 6.3 Triggering only through the command bus
+#### 7.3 Triggering only through the command bus
 
 `Dispense(program, nowS, outcome, reason)` is **never called directly** (the same rule as for the pickle).
 Rejection catalogue:
@@ -749,7 +979,7 @@ Bus targets: `CmDispense` (CMS forward, HOTAS class — the one action that take
 value 0 = PRGM program, 1..6 = direct), `CmConsent` (CMS aft/right, HOTAS), `CmdsMode` (knob on the left
 console → **DED class**: a hand off the throttle, head down).
 
-#### 6.4 In SEMI/AUTO it triggers on the WARNING, not on the truth
+#### 7.4 In SEMI/AUTO it triggers on the WARNING, not on the truth
 
 ```
 threatened = state.Rwr.H.Readable() && ThreatCount > 0 && Threats[0].Mode != Search
@@ -772,7 +1002,7 @@ Further rules of `ServiceAutomatic`:
   `FBF16Cmds` does NOT override it: the program table is built around exactly this doctrine, and an
   override returning the same two numbers would be the forbidden empty derivation.
 
-#### 6.5 What a dispense actually does
+#### 7.5 What a dispense actually does
 
 **Chaff** → an `FBChaffCloud` at the position where the aircraft is NOW, with `BloomS = simTimeS`. A ring
 of 8 entries: the freshest cartridges stay, older ones are the dispersed ones and are the right ones to
@@ -798,27 +1028,28 @@ Events: `cmds PROGRAM_START` / `SALVO` / `PROGRAM_END` / `MAGAZINE_EMPTY`.
 
 ---
 
-### 7. The four systems compared
+### 8. The five systems compared
 
-| | **Datalink** (cooperative) | **Radar/FCR** (active) | **RWR** (passive) | **CMDS** (active-defensive) |
-|---|---|---|---|---|
-| Class | `sensors/FBDatalinkSystem` | `sensors/FBRadarSystem` | `sensors/FBRwrSystem` | `sensors/FBCountermeasureSystem` |
-| F-16 | `FBF16Datalink` (MIDS-LVT) | `FBF16Fcr` (APG-68) | `FBF16Rwr` (ALR-56M) | `FBF16Cmds` (ALE-47) |
-| Question | "where are my people" | "what is out there" | "who is looking at ME" | "what do I dispense" |
-| **Sees** | own faction, aircraft only, transmitting senders only, within min(terminal, radio horizon) | aircraft in the scan volume (az×el body-fixed) within the range gate | every unit whose beam hits this jet AND whose angle of arrival is covered by one's own antenna | nothing — reads the RWR BLOCK of its own bus |
-| **Gets** | id, callsign, team, position, heading, speed, age | **anonymous geometry**: track no., range, bearing, elevation angle, az/el, closure, look age, IFF | relative bearing, elevation, signal, lethality, mode, estimated emitter type, "new" | — |
-| **Gives away** | its own PPLI (position + identity) as long as XMT is on | its own beam: search volume resp. ±3° pencil onto exactly one target; plus the IFF transponder reply | **nothing** (purely passive) | chaff clouds behind the aircraft (published in the signature) |
-| **Ageing** | 1 Hz net cycle; hold over 3 cycles; `AgeS` runs up; block `Held` | antenna frame (0.1–4.0 s per mode); build-up 2 looks; coast `max(1 s, 3 frames)`; `LookAgeS`; block `Held` | continuous; hold 2 s after last hearing; `AgeS`; "new" 1 s | program schedule in absolute time; cloud: bloom 0.3 s, life 8 s |
-| **Operating latency** | POWER/XMT/filter/range over the bus (DED class) | mode/range/slew/IFF (DED), `Designate` (HOTAS) | POWER/display/search (DED) | `CmDispense`/`CmConsent` (HOTAS), `CmdsMode` (DED) |
-| **CANNOT** | see opponents; go beyond the radio horizon; terrain masking; carry stores/ground targets | supply identity (except IFF friendly/unknown); see bombs or ground targets; terrain masking; more than 8 track files; see anything else in STT | measure range; hear a transmitter outside its beam; hear outside ±45° elevation (F-16); name WHO is there; distinguish faction | know whether it worked; react to a threat the RWR does not hear; decoy an IR seeker (no IR in the sim) |
-| **Failed** | block `Invalid` | block `Invalid`, all tracks dropped | block `Invalid`, table empty | block `Invalid`, status `NoGo` |
-| **Degraded** | — | range × 0.7071 [DERIVED] | — | — |
-| Override point | `AcceptContact` | **`ActiveVolume()`** (+ `ModeOrdinal`, `EmitterKind`) | `Run` (+ `ElevCoverageDeg`, `MaxDisplayed`, `Classify`) | `Run` (+ `AutomaticProgram`) |
-| Telemetry | `dl_*` (5) | `fcr_*`, `iff_xpdr` (11) | `blk_rwr` + `rwr_*` (10) | `blk_cmds` + `cm_*` (11) |
+| | **Datalink** (cooperative) | **Radar/FCR** (active) | **RWR** (passive) | **IRST** (passive optical) | **CMDS** (active-defensive) |
+|---|---|---|---|---|---|
+| Class | `sensors/FBDatalinkSystem` | `sensors/FBRadarSystem` | `sensors/FBRwrSystem` | `sensors/FBIrstSystem` | `sensors/FBCountermeasureSystem` |
+| F-16 | `FBF16Datalink` (MIDS-LVT) | `FBF16Fcr` (APG-68) | `FBF16Rwr` (ALR-56M) | *none — the jet has no IRST; the slot is the NoOp default and its block stays Invalid* | `FBF16Cmds` (ALE-47) |
+| MiG-29 | *none — no cooperative terminal; its GCI is a VOICE channel typed in by the pilot* | `FBMig29Radar` (N019) | `FBMig29Rwr` (SPO-15LM) | `FBMig29Irst` (OEPS-29/KOLS) | *stage 2c (BVP-30-26)* |
+| Question | "where are my people" | "what is out there" | "who is looking at ME" | "what is out there, without asking" | "what do I dispense" |
+| **Sees** | own faction, aircraft only, transmitting senders only, within min(terminal, radio horizon) | aircraft in the scan volume (az×el body-fixed) within the range gate | every unit whose beam hits this jet AND whose angle of arrival is covered by one's own antenna | aircraft in the field of regard within an ASPECT-dependent reach, with no cloud deck between the two altitudes | nothing — reads the RWR BLOCK of its own bus |
+| **Gets** | id, callsign, team, position, heading, speed, age | **anonymous geometry**: track no., range, bearing, elevation angle, az/el, closure, look age, IFF | relative bearing, elevation, signal, lethality, mode, estimated emitter type, "new" | **angles only**: track no., bearing, elevation angle, az/el, look age — plus metres ONLY behind the laser's own validity bit | — |
+| **Gives away** | its own PPLI (position + identity) as long as XMT is on | its own beam: search volume resp. ±3° pencil onto exactly one target; plus the IFF transponder reply | **nothing** (purely passive) | **nothing** — not even the laser, which no warning receiver can detect | chaff clouds behind the aircraft (published in the signature) |
+| **Ageing** | 1 Hz net cycle; hold over 3 cycles; `AgeS` runs up; block `Held` | antenna frame (0.1–4.0 s per mode); build-up 2 looks; coast `CoastS()` (generic `max(1 s, 3 frames)`, N019 6 s); `LookAgeS`; block `Held` | continuous; hold 2 s after last hearing; `AgeS`; "new" 1 s | head frame (0.5–5.0 s per mode); build-up 2 looks; coast `max(1 s, 3 frames)`; `LookAgeS`; block `Held` | program schedule in absolute time; cloud: bloom 0.3 s, life 8 s |
+| **Operating latency** | POWER/XMT/filter/range over the bus (DED class) | mode/range/slew/IFF (DED), emission switch (DED), `Designate` (HOTAS) | POWER/display/search (DED) | `IrstMode`/`IrstDesignate`/`IrstLaser` over the bus | `CmDispense`/`CmConsent` (HOTAS), `CmdsMode` (DED) |
+| **CANNOT** | see opponents; go beyond the radio horizon; terrain masking; carry stores/ground targets | supply identity (except IFF friendly/unknown); see bombs or ground targets; terrain masking; more than 8 track files; see anything else in STT | measure range; hear a transmitter outside its beam; hear outside its elevation coverage; name WHO is there; distinguish faction | **measure range at all** without the laser; ask IFF (there is no interrogator and no field); see through a broken deck; see bombs or ground targets; see a cold target far off aspect | know whether it worked; react to a threat the RWR does not hear; decoy an IR seeker (no IR in the sim) |
+| **Failed** | block `Invalid` | block `Invalid`, all tracks dropped | block `Invalid`, table empty | block `Invalid`, all tracks dropped (no `FBSystemId` yet — see the gaps) | block `Invalid`, status `NoGo` |
+| **Degraded** | — | range × 0.7071 [DERIVED] | — | — | — |
+| Override point | `AcceptContact` | **`ActiveVolume()`** (+ `ModeOrdinal`, `EmitterKind`, `DopplerNotchMs`, `NotchRejectsDetection`, `CoastS`) | `Run` (+ `ElevCoverageDeg`, `MaxDisplayed`, `Classify`, `Blanked`, `ReportBearingDeg`, `ClassifyMode`, `PriorityRank`) | **`ActiveField()`** (+ `ModeOrdinal`, `LaserRangeM`, `DetectRangeM`) | `Run` (+ `AutomaticProgram`) |
+| Telemetry | `dl_*` (5) | `fcr_*`, `iff_xpdr` (11) | `blk_rwr` + `rwr_*` (10) | `blk_irst` + `irst_*` (11), appended LAST | `blk_cmds` + `cm_*` (11) |
 
 ---
 
-### 8. Determinism — what is guaranteed
+### 9. Determinism — what is guaranteed
 
 - **No randomness in the perception chain.** No die, no break-lock probability, no detection probability.
   Chaff effect is an inequality on measured quantities; the stronger cloud wins via `RCS/r⁴`.

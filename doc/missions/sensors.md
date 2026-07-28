@@ -1,4 +1,4 @@
-# Mission data — sensors: datalink, radar/IFF, RWR and countermeasures
+# Mission data — sensors: datalink, radar/IFF, RWR, IRST and countermeasures
 
 **Source of this file:** the former `doc/mission-format.md` (split in the Phase-3 mirror rebuild), sections
 "Datalink — was eine Einheit von den anderen sieht", "Radar (FCR) & IFF — was eine Einheit selbst
@@ -203,6 +203,87 @@ the sender demonstrably keeps locking) and the 2×2 board `cm-straight-clean` / 
 `cm-beam-only` / `cm-chaff-beam` (chaff alone ineffective, manoeuvre alone almost ineffective, both
 together decisive).
 
+### The MiG-29's sensor keys — N019, SPO-15, KOLS and the GCI brief
+
+The MiG-29 module answers a different set of keys, and the split is a rule rather than a habit:
+
+> **A key that names a GENERIC system property is shared; a key that names THIS aircraft's box gets its
+> own prefix.** `iff_xpdr`, `iff_interrogator`, `rwr` and `rwr_search` are the same properties on both
+> airframes and keep the same names. `fcr_mode crm` means nothing on a jet whose modes are RAD/CC/VS/
+> BORE, so the N019 gets `n019_*` and the KOLS gets `kols_*`.
+
+| Key | Values | Meaning |
+|---|---|---|
+| `n019_mode` | `off` \| `rad` \| `cc` \| `vs` \| `bore` | the mode SET; STT is not selectable — it is what a lock turns the pattern into |
+| `n019_emission` | `illum` \| `dummy` \| `off` | the PUR-31 three-position switch, a real control this jet has and the F-16 does not. `dummy` = powered, testing, **not radiating**. **The power-up position is `off`** — this aircraft starts silent by doctrine |
+| `n019_zone` | `left` \| `center` \| `right` | the ZONE switch: the 130° azimuth field in three overlapping thirds. Not a continuous slew — a bus command carrying a continuous value SNAPS and is acknowledged `clamped` |
+| `n019_elev` | degrees | the antenna elevation knob, clamped to the gimbal envelope. This is what the GCI range-angle entry drives |
+| `n019_range_nm` | nm (0 = the mode table's own gate) | measurement rig only: hold the geometry, vary the reach |
+| `kols_mode` | `off` \| `ir` \| `ir_cc` \| `bore` | the optical station. Powering follows the mode: anything but `off` switches the head on |
+| `kols_laser` | `on` \| `off` | arms the rangefinder. It only fires on a TRACKED source inside 6 km, and it is the sensor's only source of metres |
+| `rwr`, `rwr_search` | `on` \| `off` | the same two generic properties the F-16 answers |
+| `iff_xpdr`, `iff_interrogator` | `on` \| `off` | likewise |
+
+Keys the F-16 answers and this module deliberately REJECTS (unknown key = mission FAIL, which is the
+point): `fcr_*`, `datalink*`, `cmds_*`, `store`, `brief_alow_ft`/`brief_bingo_lbs`/`brief_master_arm`/
+`brief_weapon`/`brief_release_s`/`brief_chaff_s`. Each names a box this module does not compose, and
+answering one would report success for a switch with nothing behind it.
+
+`set task` accepts `route` and `intercept`. `bfm` and `attack` are refused: both need a weapon.
+
+#### `set brief_gci` — the controller's call as mission data
+
+```
+set brief_gci <atS> <bearingDeg> <rangeKm> <altKm>
+```
+
+Four whitespace-separated numbers, one line per transmission, up to eight, consumed in file order.
+**Kilometres and an ABSOLUTE target altitude**, because that is what the controller says
+([`../modules/mig29/datalink-gci.md`](../modules/mig29/datalink-gci.md) §2.1: "bandits bearing (xx) for
+(yyy), (altitude) (aspect)", range in kilometres if the controller is Russian).
+
+**It is not a track and it is not knowledge.** There is no GCI block in `FBState`, nothing ages, and
+nothing is correlated with what the radar later finds. At `atS` the PILOT starts TYPING it — three
+entries, one per decision tick, ~2 s apart, each posted on the command bus and charged its own latency:
+
+1. **scan elevation** by the documented range-angle method — `atan2(altKm·1000 − own altitude, rangeKm·1000)`,
+   where the own altitude comes off the pilot's OWN Platform block. No valid altimeter, no entry.
+2. **the ZONE switch**, from the reported bearing relative to where the nose is NOW.
+3. **ILLUM** — and on this jet that is the doctrinal act, not housekeeping: the radar is what gives you
+   away, so it comes on once somebody else has put you in the right piece of sky.
+
+A call still being typed when the next one falls due is ABANDONED (`gci CALL_SUPERSEDED`): the controller
+has superseded it, and typing yesterday's numbers is worse than typing none.
+
+Because the power-up emission position is `off`, **a mission that briefs no GCI call and sets no
+`n019_emission illum` flies a MiG-29 that never radiates** — which is a legitimate scenario, not a
+misconfiguration.
+
+Events to grep: `gci BRAA` / `ENTER_ELEV` / `ENTER_ZONE` / `RADAR_ILLUM` / `CALL_SUPERSEDED`, and on the
+box side `n019 ANTENNA_ELEV` / `ZONE` / `EMISSION` / `MODE`, `spo15 FORWARD_BLANK`, `radar NOTCH_LOST` /
+`NOTCH_REGAIN`, `irst IRST_CONTACT` / `IRST_LOCK` / `LASER_RANGE` / `IRST_DROP`.
+
+Reference runs: `missions/mig29-radar-notch.fbm` (the documented Doppler bands and the 6 s inertial
+track), `missions/mig29-rwr-blind.fbm` (own radar → forward hemisphere dark, with the emitter provably
+unchanged), `missions/mig29-irst.fbm` (aspect, laser range, and a target hidden by a cloud deck) and
+`missions/mig29-intercept.fbm` (the whole GCI chain into a search, a contact, and a disengagement).
+**All four end in TIMEOUT (exit 3) by construction** — they are measurement rigs, not tasks, and each
+file's header states its own reading rule.
+
+### The IRST telemetry columns
+
+| Column | Meaning |
+|---|---|
+| `blk_irst` | block validity — `Invalid` while the head is caged or unpowered, `Held` between frames |
+| `irst_on`, `irst_mode`, `irst_contacts`, `irst_lock` | power, mode ordinal, firm contacts, locked track number |
+| `irst_lock_az`, `irst_lock_el`, `irst_lock_age` | the tracked source's ANGLES and how old the look is |
+| `irst_lock_nm` | **−1 = nobody measured a range.** Metres exist only while the laser is armed, the source is tracked and it is inside 6 km |
+| `irst_masked` | sources rejected this frame because a cloud deck stood in the line of sight |
+| `irst_laser` | the rangefinder is armed |
+
+They are appended at the END of the row (`blk_irst` declared by the IRST system itself, not by
+`FBStateBusTelemetry`'s middle-of-the-row list), so no column that was ever measured moved.
+
 ## State
 
 | Item | State |
@@ -213,6 +294,10 @@ together decisive).
 | CMDS | built; six programs, six modes, four `set` keys, eleven telemetry columns |
 | Chaff effect | built as a Doppler-notch model, deterministic |
 | Flare effect | **counted only** — there is no IR seeker to defeat |
+| N019 (MiG-29) | built; five modes plus STT, the quantified Doppler envelope, 6 s inertial track, five `set` keys |
+| SPO-15 (MiG-29) | built; ±30° elevation, channel-centre bearings, forward blanking by the own radar |
+| IRST / KOLS | built as a NEW generic slot (`sensors/FBIrstSystem`) + the MiG derivation; aspect law, 6 km laser, cloud masking, eleven telemetry columns |
+| GCI | built as `set brief_gci` + typed command-bus entries; **no** track picture and **no** block of its own |
 
 ## Gaps
 
@@ -223,6 +308,9 @@ together decisive).
 | No radar HUD symbology | the symbology reference documents neither a TD box nor a locked-target symbol, so none is drawn |
 | Datalink flight leads are positional | for lack of a real formation structure, "flight lead" = the FIRST unit of that team in the file |
 | CMDS program values are `[SET]` | the schema (BQ/BI/SQ/SI and their ranges) is sourced, the six programs' numbers are set by us |
+| The IRST is not damage-gated | `core/FBSystemHealth` has no id for an optical station; adding one moves the `dmg_*` columns and waits for the twin-engine health change |
+| The MiG-29 has no dispensers yet | BVP-30-26 is stage 2c, and its programme parameters are a documented source gap |
+| GCI is one-way and unverified | the controller is always right, always heard, and never asked for a repeat; the pilot can type it late but not wrong |
 
 ## Knowledge
 

@@ -52,9 +52,16 @@ const FBChaffCloud *FBRadarSystem::SelectDecoy(const FBChaffCloud *clouds, const
   return best;
 }
 
+/* Ein wieder hochgefahrenes Set startet ein FRISCHES Frame-Raster — und zwar wirklich frisch. Nur
+ * NextScanS_ zu nullen genuegte nicht: der Nachhol-Waechter in Run() sieht dann ein Raster, das um die
+ * ganze bisherige Missionszeit zurueckliegt, holt bis zu 64 Frames IM SELBEN Tick nach und macht daraus
+ * einen festen Track im Moment des Einschaltens. Gemessen an mig29-intercept: Kontakt in derselben
+ * Zehntelsekunde, in der der Emissionsschalter umging, statt nach den dokumentierten 2 x FrameS.
+ * Deshalb ein Resync-FLAG, das der naechste Run() gegen die Uhr aufloest, die er ohnehin bekommt. */
 void FBRadarSystem::SetPowered(bool on) {
+  if (on && !Powered_) Resync_ = true;
   Powered_ = on;
-  if (!on) NextScanS_ = 0.0;   /* ein wieder hochgefahrenes Set startet ein frisches Frame-Raster */
+  if (!on) NextScanS_ = 0.0;
 }
 
 FBIffReply FBRadarSystem::Interrogate(const Units::FBUnit &u) const {
@@ -92,6 +99,7 @@ void FBRadarSystem::ScanFrame(const Fdm::fb_fdm_state &st, const Units::FBUnitRe
        * dann muss die WOLKE in der Keule liegen. Nur ein Track mit Look-Paar kann getaeuscht werden. */
       const FBChaffCloud *decoy = nullptr;
       double tgtRadialMs = 0.0, ownClosureMs = 0.0, measuredClosureMs = 0.0;
+      bool notched = false;
       double dtDwell = slot >= 0 ? simTimeS - Tracks_[slot].DopplerRefS : 0.0;
       bool dwellDone = slot >= 0 && Tracks_[slot].DopplerRefS > 0.0 && dtDwell >= kDopplerDwellS;
       if (slot >= 0 && (dwellDone || Tracks_[slot].Seduced)) {
@@ -99,11 +107,34 @@ void FBRadarSystem::ScanFrame(const Fdm::fb_fdm_state &st, const Units::FBUnitRe
         ownClosureMs = OwnClosureOn(st, bearingDeg, elevAngleDeg);
         measuredClosureMs = dwellDone ? (prev.DopplerRefRangeM - rangeM) / dtDwell : prev.ClosureMs;
         tgtRadialMs = ownClosureMs - measuredClosureMs;
+        double notchMs = DopplerNotchMs(rangeM);
+        /* Ein Set mit dokumentierter Erfassungsschwelle SIEHT im Filter nichts — der Look faellt aus,
+         * ohne dass der Sender etwas getan haette. Die Messung laeuft trotzdem weiter (unten), sonst
+         * koennte das Set nie bemerken, dass das Ziel den Filter wieder verlassen hat. */
+        if (NotchRejectsDetection() && std::fabs(tgtRadialMs) < notchMs) notched = true;
         /* KLEBRIGKEIT: hat sich das Tor einmal in den Clutterfilter gesetzt, bleibt es dort, solange
          * dort ein Echo ist. Ohne sie kippte der Test bei jedem Look (gemessen: Seduce/Resolve im
          * 20-Hz-Takt alternierend). doc/sensors.md, Abschnitt 4.7. */
-        if (prev.Seduced || std::fabs(tgtRadialMs) < kDopplerNotchMs)
+        if (!notched && (prev.Seduced || std::fabs(tgtRadialMs) < notchMs))
           decoy = SelectDecoy(sig.Chaff, st, v, simTimeS);
+      }
+      if (notched) {
+        Track &t = Tracks_[slot];
+        /* Der Notch-Bezug wandert weiter, obwohl der Look ausfiel: gemessen wird die Geometrie, die die
+         * Antenne messen WUERDE — nur so ist der Wiedereintritt der Moment, in dem die
+         * Radialgeschwindigkeit den Filter verlaesst, statt vom Alter des letzten Bezugs abzuhaengen.
+         * Steht unter NotchRejectsDetection(), also fasst kein Set ohne Erfassungsschwelle sie an. */
+        if (dwellDone) { t.DopplerRefRangeM = rangeM; t.DopplerRefS = simTimeS; }
+        if (!t.Firm) {
+          for (int j = slot; j < TrackCount_ - 1; j++) Tracks_[j] = Tracks_[j + 1];
+          TrackCount_--;
+          for (int j = slot; j < TrackCount_; j++) seen[j] = seen[j + 1];
+        } else if (!t.Notched) {
+          t.Notched = true;
+          FBLog::Info("radar", "NOTCH_LOST", {{"track", t.TrackNum}, {"tgtRadialMs", tgtRadialMs},
+              {"notchMs", DopplerNotchMs(rangeM)}, {"rangeNm", rangeM * kMToNm}});
+        }
+        continue;
       }
       if (decoy)
         RelativeLos(st, decoy->LatDeg, decoy->LonDeg, decoy->AltM, rangeM, bearingDeg, elevAngleDeg,
@@ -159,6 +190,11 @@ void FBRadarSystem::ScanFrame(const Fdm::fb_fdm_state &st, const Units::FBUnitRe
       t.AzDeg = azDeg;
       t.ElDeg = elDeg;
       t.LastLookS = simTimeS;
+      if (t.Notched) {
+        t.Notched = false;
+        FBLog::Info("radar", "NOTCH_REGAIN", {{"track", t.TrackNum}, {"tgtRadialMs", tgtRadialMs},
+            {"notchMs", DopplerNotchMs(rangeM)}, {"rangeNm", rangeM * kMToNm}});
+      }
       seen[slot] = true;
       if (t.Hits < kHitsToFirm) t.Hits++;
 
@@ -182,7 +218,7 @@ void FBRadarSystem::ScanFrame(const Fdm::fb_fdm_state &st, const Units::FBUnitRe
 
   /* `seen` ist ueber den Slot-Index des Durchlaufs oben indiziert; die Kompaktierung dort hielt beide
    * synchron. */
-  double coastS = std::fmax(kMinCoastS, kCoastFrames * v.FrameS);
+  double coastS = CoastS(v);
   for (int i = 0; i < TrackCount_;) {
     Track &t = Tracks_[i];
     if (seen[i] || simTimeS - t.LastLookS < coastS) {
@@ -292,6 +328,8 @@ void FBRadarSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, const Units
 
   /* ActiveVolume() wird in JEDER Iteration neu gelesen, weil ein erworbener Lock das Muster und damit
    * die Frame-Zeit aendert. Der Waechter begrenzt das Nachholen und RESYNCHRONISIERT danach. */
+  if (Resync_) { NextScanS_ = simTimeS; Resync_ = false; }
+
   int guard = 0;
   bool swept = false;
   while (NextScanS_ <= simTimeS && guard++ < 64) {

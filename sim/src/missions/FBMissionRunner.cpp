@@ -590,6 +590,10 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
       if (!a->Active()) continue;
       a->UpdateGroundAsl(elevation.GroundElevM(a->State().lat, a->State().lon));
       a->UpdateWind(weather->WindNedMs(a->State().lat, a->State().lon, a->State().elev));
+      /* The cloud decks over this actor, from the SAME sample rate and the same provider as the wind.
+       * Nothing reads it unless the module composes a sensor that does (FBModule::SetCloudSky is a
+       * no-op by default), so a mission with no weather and no optical sensor is unaffected. */
+      a->UpdateSky(FBCloudSkyFromWeather(*weather, a->State().lat, a->State().lon, simT));
     }
     stepJob.SetTime(simT);
     pool.RunTick(stepJob, Actors.size());

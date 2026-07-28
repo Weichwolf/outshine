@@ -1,0 +1,83 @@
+name mig29-intercept-1
+timeout 420
+
+# GROUND-CONTROLLED INTERCEPT — the MiG-29's answer to the F-16's datalink, and the exact inverse of it.
+#
+# doc/modules/mig29/datalink-gci.md: "the MiG-29 was designed to be FLOWN TO THE MERGE BY SOMEBODY ELSE.
+# Its own long-range picture is poor by Western standards, its radar warns the enemy the moment it is
+# used, and the compensating asset is a ground-controlled intercept network that hands the fighter a
+# vector." The hardware link is documented in both manuals as NOT IMPLEMENTED, and the path that IS
+# documented is voice -> pilot -> MANUAL DATA ENTRY -> radar scan solution (§2.2). That is what this
+# mission flies, and it is why the same phase machine that runs the F-16's BVR intercept produces a
+# completely different engagement here.
+#
+# THE ASYMMETRY, in one line each:
+#   F-16     a peer node on Link-16 gets a correlated track picture for free, and pays only when it
+#            LOCKS ("a lock warns the target").
+#   MiG-29   gets four numbers over the radio, has to TYPE them, gets no track and no identity out of
+#            it, and pays the moment it RADIATES AT ALL.
+#
+# THE RUN:
+#   t = 0    fulcrum is airborne on the briefed vector with the N019 EMISSION SWITCH ON OFF. It is
+#            completely silent and completely blind. `set task intercept` is unlocked for this module by
+#            stage 2b -- the BVR phase machine needs a radar, and this jet now has one.
+#   t = 20   the controller calls: bearing 270, 55 km, 8 km. The pilot types three entries, one per
+#            decision tick, each charged its own bus latency: the scan ELEVATION from the range-angle
+#            method (documented worked example, §2.2), the ZONE switch, and then ILLUM. Only after the
+#            third does the radar exist at all -- so the GCI call is not an aid here, it is the
+#            PRECONDITION.
+#   t = 90   a second call, updating the picture as the geometry changes.
+#   then     the generic intercept phase runs on what the N019 finds -- and then DISENGAGES, for a
+#            reason that is worth more than a kill would have been (see the reading rule).
+#
+# READING RULE: exit 3 = TIMEOUT is the verdict AND the pass, and what it records is the phase machine
+# refusing to pretend. THIS MODULE COMPOSES NO WEAPON (stage 2c): its Stores block is Invalid, so
+# pilot/FBPilot's own rule "a target on the scope and nothing on the rails -> Abort" fires on the first
+# contact, and `eng_state` goes search -> abort at exactly that tick. That is the correct answer, not a
+# missing feature: an unarmed fighter that kept closing would be a pilot flying an intercept it cannot
+# finish. The consequence is that RADAR_DESIGNATE never appears in this trace -- the lock is the one
+# step of the chain this stage cannot reach, and it is blocked by the armament, not by the sensor.
+#
+# exit 0 would mean the MiG reached its waypoint instead of engaging; exit 2 (CRASH) would be a real
+# failure. What IS measured, all of it before the abort:
+#   gci BRAA / ENTER_ELEV / ENTER_ZONE / RADAR_ILLUM   -- the entry chain and its seconds. The elevation
+#                                                        is the documented range-angle method computed
+#                                                        from the controller's two numbers and the
+#                                                        pilot's OWN altimeter.
+#   n019 ANTENNA_ELEV / ZONE / EMISSION               -- what actually reached the box, and when
+#   radar RADAR_CONTACT                               -- the set finding him AFTER it started radiating,
+#                                                        with the frame-time latency in between
+#   rwr THREAT_NEW (viper)                            -- the price: the MiG's beam appearing on the
+#                                                        other aircraft's warning receiver within a
+#                                                        tenth of a second of ILLUM. Before that there
+#                                                        is nothing to see, which is the whole doctrine.
+#   spo15 FORWARD_BLANK (fulcrum)                     -- and the price it pays itself, in the same tick
+#   the SECOND call                                   -- typed while already disengaging, and the ZONE
+#                                                        entry snaps to LEFT because the nose is now
+#                                                        pointing the other way. The pilot types what he
+#                                                        was told; the switch reports where it landed.
+#   eng_* columns (fulcrum)                           -- the engagement debriefing
+
+unit fulcrum
+  module mig29
+  team hostile
+  spawn 46.90000 7.40000 8000 270.0 400        # airborne on the briefed vector, heading west
+  set gear up
+  set fuel_pct 70
+  set task intercept
+  set n019_mode rad                            # the long-range search pattern...
+  set n019_emission off                        # ...but SILENT until the controller says otherwise
+  set rwr on
+  set brief_gci 20 270 55 8                    # "bandits bearing 270 for 55, angels 8" -- in kilometres
+  set brief_gci 90 270 25 8                    # the update as it closes
+  wp 46.90000 6.60000 8000 400                 # the briefed vector: what Search flies while blind
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.90000 6.70000 8000 90.0 420         # ~53 km west, head-on, co-altitude
+  set gear up
+  set fuel_pct 70
+  set fcr_mode off                             # radiates NOTHING: every warning it gets came from the MiG
+  set rwr on                                   # the price meter for the MiG's emission
+  wp 46.90000 7.60000 8000 420

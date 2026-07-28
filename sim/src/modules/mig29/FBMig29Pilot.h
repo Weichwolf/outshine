@@ -15,11 +15,55 @@
 #define FBMIG29PILOT_H
 
 #include "FBPilot.h"
+#include "FBMig29Radar.h"
 
 namespace FlightBox::Modules {
 
 class FBMig29Pilot : public Pilot::FBPilot {
+public:
+  /* ---- GCI, and it is the whole doctrinal difference to the F-16's datalink.
+   *
+   * The F-16 is a peer node in a network that hands it a correlated track picture. This aircraft is
+   * flown to the merge BY SOMEBODY ELSE, over VOICE, and the documented path is
+   * "controller -> pilot -> MANUAL DATA ENTRY -> radar scan solution"
+   * (doc/modules/mig29/datalink-gci.md §2.2, which calls it the mechanism to implement first). So a GCI
+   * call is not knowledge and it is not a track: it is FOUR NUMBERS the pilot has to TYPE, one entry
+   * per decision tick, in the DED latency class, rejectable by the bus like anything else. Between the
+   * call and the antenna moving there are real seconds.
+   *
+   * WHAT THE CALL IS NOT: it never becomes a contact, it is never correlated with what the radar then
+   * finds, and it does not age into a track file. The controller says where to look; finding anything
+   * is still the pilot's problem, with his own sensor and its own detection time.
+   *
+   * The BEARING half of the BRAA is flown as the briefed vector — i.e. as the mission's own waypoint,
+   * the same one the generic intercept Search phase already steers to — and reaches the radar as the
+   * discrete ZONE. The RANGE and ALTITUDE halves are the documented range-angle entry: the elevation
+   * the antenna bar is aimed at follows from expected range and expected RELATIVE altitude. */
+  static constexpr int kMaxGciCalls = 8;
+  bool BriefGci(double atS, double brgDeg, double rangeKm, double altKm);
+
+  /* The generic phase machine, plus one thing before it: whatever the controller said is due. */
+  Pilot::FBPilotCommands Run(const FBState &state, FBCommandBus &avionics,
+                             const Systems::FBAirframeControls &airframe, const Fdm::fb_fdm_state &st,
+                             const FBFlightPlan &plan, const FBRunway *runway, double dt) override;
+
 protected:
+  /* The non-locking search mode of the N019 — RAD. The generic BVR phase can only ASK for "the mode
+   * that finds everything and locks nothing"; which ordinal that is, only this module knows. */
+  int SearchRadarModeOrdinal() const override { return (int)FBMig29RadarMode::Rad; }
+  /* [DOC DCS-EA p.89] The set's own range-scale ladder is 54 / 27 / 13.5 / 5.4 nm; 13.5 nm is the step
+   * at which the scale switches for the last time before the close-combat scale, and the radar's own
+   * documented search reach is 27 nm, so the lock is taken one ladder step inside it. That is the same
+   * reasoning the F-16 uses (lock inside the gate, outside every head-on Rtr) with this jet's numbers —
+   * and here it costs more, because on this aircraft radiating at all is already the giveaway. */
+  double InterceptLockRangeNm() const override { return 13.5; }
+  /* [DOC T4 §7.1] The antenna's own azimuth gimbal is ±65°, so a crank has to stay inside it with the
+   * reserve a manoeuvring target needs — the same construction as the F-16's 60-15. */
+  double InterceptCrankAtaDeg() const override { return 50.0; }
+  /* [ABL] The BVR cruise speed. Not a documented number: the phase holds one speed, and this airframe's
+   * measured corner is 420 KCAS, so the approach is flown at the same fraction of corner the F-16's
+   * 300/380 is — 0.79 x 420 = 330. [SET] */
+  double InterceptSpeedKt() const override { return 330.0; }
   /* [DOC] "nose raise 125...135 kts" — the midpoint, and [MESS] anchor B1 rotated at 130.1 kt when the
    * stage-1 harness commanded exactly this. NO WEIGHT TABLE: the F-16 has one because doc/f16 prints
    * one; nothing in doc/mig29/ makes Vr a function of weight, so none is invented. [GAP] */
@@ -75,6 +119,19 @@ protected:
   /* [MESS] the same sweep departed (alpha peak > 35 deg) at every entry from 300 to 360 kt and held at
    * 380 and above: below that the SOS stand-in cannot hold 85 deg of bank on this deck. */
   double BfmMinSpeedKt() const override { return 380.0; }
+
+private:
+  /* The briefed transmissions, consumed from the front in brief order — the same array-with-a-cursor
+   * shape as FBPilot's release and chaff briefs, for the same reason: nothing is rewritten in the tick
+   * and the order is the file's. */
+  struct GciCall {
+    double AtS = 0.0, BrgDeg = 0.0, RangeM = 0.0, AltM = 0.0;
+  };
+  GciCall Gci_[kMaxGciCalls]{};
+  int GciCount_ = 0, GciNext_ = 0;
+  int GciStep_ = 0;               /* which of the three entries of the current call is still to type */
+  double GciClockS_ = 0.0;        /* this pilot's own mission clock; FBPilot's is private, by design */
+  double GciLastEntryS_ = -1e9;
 };
 
 } // namespace FlightBox::Modules

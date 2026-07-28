@@ -17,6 +17,7 @@
 #include "FBFlightControl.h"
 #include "FBFlightPlan.h"
 #include "FBGunSystem.h"
+#include "FBIrstSystem.h"
 #include "FBNavSystem.h"
 #include "FBPilot.h"
 #include "FBRadarAltimeter.h"
@@ -93,6 +94,7 @@ public:
   virtual Sensors::FBDatalinkSystem &Datalink() = 0;
   virtual Sensors::FBRadarSystem &Radar() = 0;
   virtual Sensors::FBRwrSystem &Rwr() = 0;
+  virtual Sensors::FBIrstSystem &Irst() = 0;
   virtual Sensors::FBCountermeasureSystem &Countermeasures() = 0;
   /* The client drains these two queues: a released store and a fired burst become part of the world,
    * and only the client may create units (fdm/FBFdmBoot.h) or decide what a round hits. */
@@ -108,6 +110,12 @@ public:
   virtual void SetRunway(const FBRunway &rwy) = 0;
   /* The client's elevation-hook sample, forwarded so e.g. FBRadarAltimeter never re-queries terrain. */
   virtual void SetGroundAsl(float m) = 0;
+
+  /* The weather the OWNER already resolved for this unit, in the same role as SetGroundAsl: one
+   * sample per decision tick, handed down instead of queried a second time. Only a module with a
+   * sensor that cares about it does anything with it — the default is deliberately a no-op, so a
+   * module without one is unchanged by the existence of weather. */
+  virtual void SetCloudSky(const FBCloudSky &sky) { (void)sky; }
 
   /* The launch programming a released store is handed at separation, once, before its first tick.
    * Default: an unguided store has nothing to program. */

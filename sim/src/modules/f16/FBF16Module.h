@@ -58,6 +58,10 @@ public:
   Sensors::FBDatalinkSystem &Datalink() override { return *Datalink_; }
   FBF16Fcr &Radar() override { return *Fcr_; }   /* covariant: the base returns FBRadarSystem& */
   FBF16Rwr &Rwr() override { return *Rwr_; }
+  /* The F-16 has no IRST. The slot holds the generic default, is never cycled and never powered, so
+   * its block stays Invalid — a module declares what it HAS, and the alternative (leaving the accessor
+   * out) would mean a caller holding an FBModule& could not ask. */
+  Sensors::FBIrstSystem &Irst() override { return Irst_; }
   FBF16Cmds &Countermeasures() override { return *Cmds_; }
   FBF16Ufc &Ufc() { return *UfcSys; }
   FBF16Sms &Sms() { return *SmsSys; }
@@ -127,6 +131,7 @@ private:
   std::unique_ptr<Systems::FBWeaponSystem> Weapons;
   /* Defensive is TWO systems, cycled receiver-then-dispenser: the second reads what the first wrote. */
   std::unique_ptr<FBF16Rwr> Rwr_;
+  Sensors::FBIrstSystem Irst_;
   std::unique_ptr<FBF16Cmds> Cmds_;
   std::unique_ptr<FBF16Datalink> Datalink_;
 

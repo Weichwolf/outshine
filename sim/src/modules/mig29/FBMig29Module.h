@@ -23,7 +23,10 @@
 #include "FBFlightPlan.h"
 #include "FBMasterMode.h"
 #include "FBMig29Damage.h"
+#include "FBMig29Irst.h"
 #include "FBMig29Pilot.h"
+#include "FBMig29Radar.h"
+#include "FBMig29Rwr.h"
 #include "FBModule.h"
 #include "FBNavSystem.h"
 #include "FBRadarAltimeter.h"
@@ -57,8 +60,9 @@ public:
   Systems::FBRadarAltimeter &RadarAltimeter() override { return *RadarAlt; }
   FBCommandBus &Commands() override { return CmdBus_; }
   Sensors::FBDatalinkSystem &Datalink() override { return Datalink_; }
-  Sensors::FBRadarSystem &Radar() override { return Radar_; }
-  Sensors::FBRwrSystem &Rwr() override { return Rwr_; }
+  FBMig29Radar &Radar() override { return Radar_; }        /* covariant, like the F-16's */
+  FBMig29Rwr &Rwr() override { return Rwr_; }
+  FBMig29Irst &Irst() override { return Irst_; }
   Sensors::FBCountermeasureSystem &Countermeasures() override { return Cm_; }
   Weapons::FBStoresSystem &Stores() override { return Stores_; }
   Weapons::FBGunSystem &Guns() override { return Gun_; }
@@ -66,6 +70,17 @@ public:
   int LastSubsteps() const override { return LastSub; }
 
   void SetGroundAsl(float m) override { GroundAslM = m; }
+  /* The one consumer of weather above the FDM in this tree: the optical head, which cannot see through
+   * a deck. Handed straight down — the module keeps no copy it could let go stale. */
+  void SetCloudSky(const FBCloudSky &sky) override { Irst_.SetSky(sky); }
+
+  /* Who this aircraft IS, for the three slots that observe other units. */
+  void SetUnitIdentity(int unitId, FBUnitTeam team) override {
+    Radar_.SetIdentity(unitId, team);
+    Rwr_.SetIdentity(unitId, team);
+    Irst_.SetIdentity(unitId, team);
+    Datalink_.SetIdentity(unitId, team);
+  }
 
   FBFlightPlan &FlightPlan() override { return Plan_; }
   /* The runway doubles as the mission's bullseye, exactly as on the F-16 — one briefed point per
@@ -81,6 +96,10 @@ public:
 
 private:
   void ApplyPilotCommands(const Pilot::FBPilotCommands &c);
+  /* The MODULE routes, for the same reason it interprets its own `set` keys: the systems are generic,
+   * and which box on THIS panel owns "radar mode" is this aircraft's knowledge. */
+  void ServiceCommands(FBCommandGroup group);
+  void ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &outcome, FBCommandReason &reason);
   void PublishPlatform(const Fdm::fb_fdm_state &st);
   void PublishAirframe();
   /* Flaps + slats as ONE command, because the deck couples them ([DCS-EA p.57]: either DOWN button
@@ -98,11 +117,15 @@ private:
   std::unique_ptr<FBMig29Pilot> PilotSys;
   std::unique_ptr<Systems::FBAirframeControls> AirframeCtrl;   /* NoOp until AttachFdm, FDM-bound after */
 
-  /* The slots this airframe does not model yet. Value members and never cycled: they exist so that a
-   * caller holding an FBModule& finds every category, and stage 2b fills one by replacing a member. */
+  /* THE THREE SENSORS OF STAGE 2b, each a real derivation with its own numbers. */
+  FBMig29Radar Radar_;   /* N019 "Rubin" — the ACTIVE one, and the one that gives the jet away */
+  FBMig29Rwr Rwr_;       /* SPO-15LM "Beryoza" — the PASSIVE warning half */
+  FBMig29Irst Irst_;     /* OEPS-29 / KOLS — the PASSIVE optical one, this aircraft's own asymmetry */
+  /* Still absent (stage 2c): the cooperative terminal this jet does not have at all — its GCI link is
+   * a VOICE channel the pilot types in (doc/modules/mig29/datalink-gci.md), not a track picture — and
+   * the BVP-30-26 dispensers, whose programme parameters no source states. Never cycled, blocks stay
+   * Invalid. */
   Sensors::FBDatalinkSystem Datalink_;
-  Sensors::FBRadarSystem Radar_;
-  Sensors::FBRwrSystem Rwr_;
   Sensors::FBCountermeasureSystem Cm_;
   Weapons::FBStoresSystem Stores_;
   Weapons::FBGunSystem Gun_;
@@ -124,7 +147,7 @@ private:
   Systems::FBGuidance LastG{};
   double AccS = 0.0;
   int LastSub = 0;
-  double PilotAccS = 0.0, SensorAccS = 0.0, DisplayAccS = 0.0;
+  double PilotAccS = 0.0, SensorAccS = 0.0, DisplayAccS = 0.0, DefensiveAccS = 0.0;
   double SimTimeS = 0.0;
 };
 

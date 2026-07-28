@@ -115,6 +115,27 @@ carry the same `unit=` attribution as that unit.
   rate against the cap the source declares (recursion limiter 1.37 ×, plant inversion 0.89 ×). TIMEOUT
   (exit 3) by design; the verdict is the roll trace. See §5.7 in [`../pilot.md`](../pilot.md).
 
+- `sim/missions/mig29-radar-notch.fbm` — the N019's Doppler envelope against its own documented numbers.
+  One MiG and two targets that beam at different RANGES, because the thresholds are range-dependent: the
+  far one crosses beyond 8 nm (`notchMs=41.67` = 81 kt), the near one inside 5.4 nm (`notchMs=16.668` =
+  32.4 kt), and both events carry the measured target radial velocity beside the threshold that rejected
+  it. `RADAR_DROP … coastS=6` is the documented 6-second inertial track. TIMEOUT (exit 3) by design.
+- `sim/missions/mig29-rwr-blind.fbm` — "using your radar blinds your RWR forward", with the emitter held
+  constant. The MiG hears a radiating F-16 from the first sweep; at t = 40 s a GCI call is typed in and
+  its third entry brings the N019 to ILLUM, at which point the SPO-15's forward hemisphere goes dark and
+  the warning disappears — while the F-16's `fcr_on` never changes. TIMEOUT (exit 3) by design.
+- `sim/missions/mig29-irst.fbm` — the KOLS, all three of its terms in one trace: a tail-on target seen at
+  19.6 km and a 103°-aspect one not seen until 15.2 km (same type, same field — the aspect law), the
+  laser stepping `irst_lock_nm` from −1 to 3.2 nm at its 6 km limit, and a fourth aircraft above a GFS
+  cloud deck that is never detected at all (`irst_masked`). The first tactical effect weather has on a
+  sensor in FlightBox. TIMEOUT (exit 3) by design.
+- `sim/missions/mig29-intercept.fbm` — ground-controlled interception: the MiG starts SILENT, the
+  controller's BRAA is typed in over three command-bus entries (8.0 s from call to radiating radar), the
+  N019 finds the target one frame later, and the opposing RWR lights up 0.1 s after ILLUM. Then the
+  generic intercept phase DISENGAGES, because this module composes no weapon — which is the phase
+  machine refusing to pretend, and the reason `RADAR_DESIGNATE` is absent from the trace. TIMEOUT
+  (exit 3) by design.
+
 ## State
 
 | Item | State |

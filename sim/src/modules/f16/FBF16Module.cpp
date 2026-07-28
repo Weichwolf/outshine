@@ -337,6 +337,13 @@ void FBF16Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &out
       return;
     /* §6.6: the F-16 has it, FlightBox has not — a silent success would be a lie the pilot flies on. */
     case FBCommandTarget::WeaponSelect:
+    /* The same answer for the four targets this airframe has no BOX for: the F-16 carries no optical
+     * search station and its radar's power switch has no separate emission position. A jet that
+     * accepted them would report a capability it does not have. */
+    case FBCommandTarget::IrstMode:
+    case FBCommandTarget::IrstDesignate:
+    case FBCommandTarget::IrstLaser:
+    case FBCommandTarget::RadarEmission:
       outcome = FBCommandOutcome::Rejected;
       reason = FBCommandReason::NotImplemented;
       return;

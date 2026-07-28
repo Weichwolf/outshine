@@ -21,6 +21,7 @@
 #include "models/FGPropulsion.h"
 #include "models/propulsion/FGEngine.h"
 #include "models/propulsion/FGTank.h"
+#include "models/propulsion/FGTurbine.h"
 #include "FBFdm.h"
 #include "FBFdmBoot.h"
 #include "FBLog.h"
@@ -441,6 +442,19 @@ bool FBFdm::GetEngineRunning(int engineIndex) const {
   char buf[48];
   snprintf(buf, sizeof buf, "propulsion/engine[%d]/set-running", engineIndex);
   return P->Exec.GetPropertyValue(buf) != 0.0;
+}
+
+/* JSBSim publishes no `augmentation` property (only the input one for AugMethod 0), so the state is
+ * read off the engine object itself — the same shape as every other readback here, and the reason this
+ * TU is the only one that may see a JSBSim header at all. */
+bool FBFdm::GetAugmentation() const {
+  auto pr = P->Exec.GetPropulsion();
+  for (size_t i = 0; i < pr->GetNumEngines(); i++) {
+    auto e = pr->GetEngine(i);
+    if (!e || e->GetType() != JSBSim::FGEngine::etTurbine) continue;
+    if (std::static_pointer_cast<JSBSim::FGTurbine>(e)->GetAugmentation()) return true;
+  }
+  return false;
 }
 
 int FBFdm::GetFuelTankCount() const { return (int)P->Exec.GetPropulsion()->GetNumTanks(); }

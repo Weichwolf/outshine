@@ -43,6 +43,7 @@ public:
   /* The slots exist because every module carries the same categories; these are the defaults, never
    * cycled and powered down at construction so nothing they hold can be mistaken for a picture. */
   Sensors::FBRwrSystem &Rwr() override { return Rwr_; }
+  Sensors::FBIrstSystem &Irst() override { return Irst_; }
   Sensors::FBCountermeasureSystem &Countermeasures() override { return Cm_; }
   Weapons::FBStoresSystem &Stores() override { return Stores_; }
   Weapons::FBGunSystem &Guns() override { return Gun_; }
@@ -80,6 +81,7 @@ private:
   Sensors::FBDatalinkSystem Datalink_;
   Sensors::FBRadarSystem Radar_;
   Sensors::FBRwrSystem Rwr_;
+  Sensors::FBIrstSystem Irst_;
   Sensors::FBCountermeasureSystem Cm_;
   Weapons::FBStoresSystem Stores_;
   Weapons::FBGunSystem Gun_;
