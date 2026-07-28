@@ -109,6 +109,9 @@ void FBF16Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegis
      * the delivery solution it was aimed with. */
     SmsSys->SetTargetState(FireCtrl->TargetState());
     SmsSys->SetReleaseSolution(FireCtrl->ReleaseSolution());
+    /* The one geometry the SMS needs of its own: whether the point it is lasing is still in front of
+     * the nose. Handed over rather than read, because that box touches no FDM. */
+    SmsSys->SetOwnPose(st.lat, st.lon, st.yaw);
     UfcSys->Run(SharedState, dt);
     if (SystemWorking(FBSystemId::Stores)) SmsSys->Run(SharedState, dt);
     else SharedState.Stores.H.Invalidate();
@@ -126,6 +129,28 @@ void FBF16Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegis
   if (Due(DefensiveAccS, dt, 10.0)) {
     if (SystemWorking(FBSystemId::Rwr)) Rwr_->Run(SharedState, st, units, SimTimeS);
     else SharedState.Rwr.H.Invalidate();
+    /* THE SEEKER CUE an anti-radiation round leaves the rail with: the first threat of the programmed
+     * class in the receiver's OWN priority order. The module picks it because only the module knows
+     * `arm_class`; the SMS copies two angles and classifies nothing. */
+    {
+      const FBRwrBlock &rwr = SharedState.Rwr;
+      bool have = false;
+      double az = 0.0, el = 0.0;
+      if (rwr.H.Readable())
+        for (int i = 0; i < rwr.ThreatCount && !have; i++) {
+          FBEmitterKind k = rwr.Threats[i].Kind;
+          bool ok = ArClass_ == FBArTargetClass::AnySurface
+                        ? (k == FBEmitterKind::SurfaceFireControl || k == FBEmitterKind::SurfaceEarlyWarning)
+                    : ArClass_ == FBArTargetClass::SurfaceFireControl
+                        ? k == FBEmitterKind::SurfaceFireControl
+                        : k == FBEmitterKind::SurfaceEarlyWarning;
+          if (!ok) continue;
+          have = true;
+          az = rwr.Threats[i].BearingDeg;
+          el = rwr.Threats[i].ElDeg;
+        }
+      SmsSys->SetSeekerCue(have, az, el, ArClass_);
+    }
     ServiceCommands(FBCommandGroup::Defensive);
     if (SystemWorking(FBSystemId::Countermeasures)) Cmds_->Run(SharedState, st, SimTimeS);
     else SharedState.Cmds.H.Invalidate();
@@ -493,9 +518,36 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
     FBDeliveryMode m;
     if (value == "ccip") m = FBDeliveryMode::Ccip;
     else if (value == "ccrp") m = FBDeliveryMode::Ccrp;
-    else return RejectSetup("want ccip|ccrp", key, value);
+    /* The third value selects the INSTRUMENT, not a third ballistic solution: an anti-radiation shot is
+     * cued by the warning receiver's bearing, because it has no range to count down. */
+    else if (value == "arm") m = FBDeliveryMode::Arm;
+    else return RejectSetup("want ccip|ccrp|arm", key, value);
     PilotSys->BriefAttack(m);
     FireCtrl->SetDeliveryMode(m);
+    return true;
+  }
+  /* WHAT AN ANTI-RADIATION ROUND WAS PROGRAMMED AGAINST — [SET] per mission, and the coarse form of a
+   * threat table this tree has no data for (doc/air-to-ground.md §2.1). Read by the pilot for its
+   * release gate and by the SMS for the launch programming; nothing else sees it. */
+  if (key == "arm_class") {
+    FBArTargetClass c;
+    if (!FBArTargetClassFromString(value.c_str(), c))
+      return RejectSetup("want any|fire_control|early_warning", key, value);
+    ArClass_ = c;
+    PilotSys->BriefArmClass(c);
+    return true;
+  }
+  /* THE CREW'S LASE SWITCH, briefed like every other action of theirs: mission-elapsed seconds at which
+   * they stop designating and (optionally) resume. Absent = they hold the spot until the geometry or
+   * their own damage takes it away, which is the obligation an LGB imposes. */
+  if (key == "brief_lase_s") {
+    std::istringstream in(value);
+    double offS = 0.0, onS = 0.0;
+    if (!(in >> offS)) return RejectSetup("want '<offS> [<onS>]'", key, value);
+    if (!(in >> onS)) onS = 0.0;
+    if (offS < 0.0 || onS < 0.0) return RejectSetup("want non-negative times", key, value);
+    if (onS > 0.0 && onS <= offS) return RejectSetup("the resume must come after the stop", key, value);
+    SmsSys->BriefLase(offS, onS);
     return true;
   }
   /* A mission may load LESS than the drum holds (a jet that has been shooting, or the empty-magazine

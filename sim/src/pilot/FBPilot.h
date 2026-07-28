@@ -89,6 +89,9 @@ public:
    * die Feuerleitung publiziert beide Cues ohnehin, dies ist, worauf der PILOT handelt. */
   void BriefAttack(FBDeliveryMode m) { AtkMode_ = m; }
   FBDeliveryMode AttackMode() const { return AtkMode_; }
+  /* Which class of transmitter the anti-radiation cue must name before this pilot presses. A brief, not
+   * a switch — the same class of statement `BriefAttack` above is. doc/air-to-ground.md §7. */
+  void BriefArmClass(FBArTargetClass c) { AtkArmClass_ = c; }
 
   /* DER GEGENMASSNAHMEN-BRIEF, in Form und Begruendung identisch zu BriefRelease. Eine Mission in
    * SEMI/AUTO brieft hier nichts: dort beantwortet das Flugzeug seinen eigenen Warnempfaenger. */
@@ -405,6 +408,7 @@ private:
   bool   ScanRunning_ = false;
 
   FBDeliveryMode AtkMode_ = FBDeliveryMode::Ccip;
+  FBArTargetClass AtkArmClass_ = FBArTargetClass::AnySurface;
   bool   AtkReleased_ = false;    /* der Pass ist verbraucht: ein Pickle je deklariertem Angriff */
   /* Gedrueckt ist nicht abgeworfen: zwischen beidem liegt die Betaetigungslatenz, und in der wird die
    * Anflugbahn WEITER geflogen. Der Zaehler ist das, was der Pilot davon sieht. */

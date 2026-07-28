@@ -16,7 +16,15 @@ namespace FlightBox::Modules {
 
 class FBStoreModule : public FBModule {
 public:
-  explicit FBStoreModule(const FBStoreSpec &spec) : Spec_(spec) { Rwr_.SetPowered(false); Visual_.SetPowered(false); }
+  /* Every receiver AND the transmitter down: the radar slot's default is powered, so a falling bomb
+   * used to put an AirborneFireControl beam on the air, and its transponder answered Mode 4 as
+   * friendly from outside the power gate. doc/air-to-ground.md §6. */
+  explicit FBStoreModule(const FBStoreSpec &spec) : Spec_(spec) {
+    Radar_.SetPowered(false);
+    Radar_.SetIffTransponder(false);
+    Rwr_.SetPowered(false);
+    Visual_.SetPowered(false);
+  }
 
   const FBStoreSpec &Spec() const { return Spec_; }
 

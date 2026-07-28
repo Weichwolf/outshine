@@ -63,6 +63,9 @@ void FBSimUnit::PublishPose() {
   const FBFlareCloud *flares = Module_->Countermeasures().Flares();
   for (int i = 0; i < kMaxFlareClouds; i++) Sig_.Flare[i] = flares[i];
   Sig_.Uplink = Module_->Stores().Uplink();
+  /* ...and the spot it is holding, from the same box and at the same barrier: a semi-active LASER round
+   * reads this exactly the way its radar cousin reads the uplink beside it. */
+  Sig_.Designation = Module_->Stores().Designation();
   /* WHAT AN EYE GETS. The three dimensions are the damage layout read as geometry — the layout states
    * HALF-extents (how far the airframe reaches from the CG), an eye measures the WHOLE dimension of a
    * silhouette — so the gun and the eye cannot end up with two tables about one aeroplane. The type is

@@ -291,7 +291,7 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
       /* `kill` takes an EXPLICIT unit/team discriminator rather than guessing from the next word: a
        * callsign is allowed to be "hostile", and that must not silently change what the line means. */
       const std::string kinds =
-          "'objective' needs survive|waypoints|kill|identify|protect|no_fire|deny|avoid";
+          "'objective' needs survive|waypoints|kill|identify|protect|no_fire|deny|avoid|suppress";
       std::string what;
       if (!(ls >> what)) return fail(kinds);
       FBObjective o;
@@ -346,6 +346,19 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
           return fail("'objective deny' needs 'release unit <callsign>' or 'release team <faction>'");
         o.Kind = FBObjectiveKind::DenyRelease;
         if (!readTarget("'objective deny release' needs 'unit <callsign>' or 'team <faction>'")) return false;
+      } else if (what == "suppress") {
+        /* `emitting <s>` is a cumulative ALLOWANCE and not a time window: a window would be a modifier
+         * on every kind and would multiply the grammar (doc/missions/verdict.md's own reason). Absent
+         * means zero — the position must never have been on the air at all. */
+        o.Kind = FBObjectiveKind::Suppress;
+        if (!readTarget("'objective suppress' needs 'unit <callsign>' or 'team <faction>'")) return false;
+        std::string emKw;
+        if (ls >> emKw) {
+          if (emKw != "emitting")
+            return fail("'objective suppress' takes only 'emitting <s>' after the target");
+          if (!(ls >> o.HoldS) || o.HoldS < 0.0)
+            return fail("'objective suppress ... emitting' needs non-negative seconds");
+        }
       } else if (what == "avoid") {
         /* `zone` is a word of its own for the same reason `release` is: a later `avoid <something-else>`
          * must be a new spelling, not a re-reading of this one. */
@@ -400,7 +413,8 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
         continue;
       }
       bool byName = o.Kind == FBObjectiveKind::KillUnit || o.Kind == FBObjectiveKind::Identify ||
-                    ((o.Kind == FBObjectiveKind::Protect || o.Kind == FBObjectiveKind::DenyRelease) &&
+                    ((o.Kind == FBObjectiveKind::Protect || o.Kind == FBObjectiveKind::DenyRelease ||
+                      o.Kind == FBObjectiveKind::Suppress) &&
                      o.Scope == FBObjectiveScope::Unit);
       if (!byName) continue;
       bool found = false;

@@ -323,7 +323,27 @@ Pilot::FBPilotCommands FBSiteFireControl::Run(const FBState &state, FBCommandBus
    * doc/air-defence-network.md §3, the EMCON interaction. */
   if (NetCue_) CueS_ = NowS_;
 
-  const bool cued = !EmconHold_ || NowS_ - CueS_ <= kCueHoldS;
+  /* THE BRIEFED PLAN, and it outranks every other reason to be on the air: a crew told to go dark at a
+   * time goes dark at that time. Written as a separate term rather than folded into `cued` so a
+   * position with no plan takes exactly the decisions it took before this existed. */
+  const bool briefedQuiet = EmconOffS_ > 0.0 && NowS_ >= EmconOffS_ &&
+                            (EmconOnS_ <= 0.0 || NowS_ < EmconOnS_);
+  const bool cued = !briefedQuiet && (!EmconHold_ || NowS_ - CueS_ <= kCueHoldS);
+
+  /* ---- `emcon react`: THE ONE CUE FOR "WE ARE UNDER ATTACK" THIS TREE CAN HONESTLY GIVE A CREW.
+   * The position's own health register, which a module may READ and never write. Not a sensor, not a
+   * warning, not a message — a fact it owns about itself. Everything else was refused with its reason
+   * in doc/air-to-ground.md §5.1: the inbound round radiates nothing, there is no missile-warning
+   * channel, and there is no acoustic or seismic one to invent. ---- */
+  if (EmconReact_) {
+    if (SeenHits_ < 0) SeenHits_ = Hits_;
+    else if (Hits_ > SeenHits_) {
+      SeenHits_ = Hits_;
+      /* Enter() writes the GO_DARK line itself, with `why=damage`: a second one here would be the same
+       * event twice. */
+      if (State_ != State::Cold && State_ != State::Scoot && ScootS_ > 0.0) Enter(State::Scoot, "damage");
+    }
+  }
 
   /* ---- THE PICTURE. Two sources, never fused into one file: the acquisition set (or the eye, for a
    * position that has no radar) says WHERE to look; the fire-control set says whether it HAS him. ---- */
@@ -465,6 +485,7 @@ Pilot::FBPilotCommands FBSiteFireControl::Run(const FBState &state, FBCommandBus
       }
       break;
     case State::Track: {
+      if (briefedQuiet) { Enter(State::Dark, "emission plan"); break; }
       if (!locked && NowS_ - LastTrackS_ > kBreakHoldS) {
         FBLog::Info("site", "BREAK", {{"reason", "track lost"}, {"intoS", NowS_ - TrackSinceS_}});
         Enter(State::Search, "track lost");
@@ -499,6 +520,7 @@ Pilot::FBPilotCommands FBSiteFireControl::Run(const FBState &state, FBCommandBus
       break;
     }
     case State::Engage: {
+      if (briefedQuiet) { Enter(State::Dark, "emission plan"); break; }
       if (!locked && NowS_ - LastTrackS_ > kBreakHoldS) {
         FBLog::Info("site", "BREAK", {{"reason", "track lost"}, {"intoS", NowS_ - TrackSinceS_}});
         Enter(ScootS_ > 0.0 ? State::Scoot : State::Search, "track lost in the engagement");

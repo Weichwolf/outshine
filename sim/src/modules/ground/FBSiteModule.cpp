@@ -145,6 +145,9 @@ void FBSiteModule::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegi
   Optics_.Run(State_, st, units, SimTimeS_);
 
   if (SystemWorking(FBSystemId::FireControl)) {
+    /* The one number `emcon react` runs on, handed across rather than reached for: this position's own
+     * hit count, out of the register the module may read and nobody may write. */
+    Fc_.NoteOwnHits(OwnHits());
     (void)Fc_.Run(State_, Cmds_, Ctrl_, st, Plan_, nullptr, dt);
     /* WHERE THE RAIL POINTS and WHERE THE BARRELS POINT: the fire control's aim, applied to the
      * hardware it commands. A mount publishes roll = pitch = 0, so the launcher's elevation cannot be
@@ -239,8 +242,21 @@ void FBSiteModule::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &ou
 
 bool FBSiteModule::ApplySetup(const std::string &key, const std::string &value) {
   if (key == "emcon") {
-    if (value != "free" && value != "hold") return RejectSetup("want free|hold", key, value);
-    Fc_.SetEmconHold(value == "hold");
+    /* `<free|hold|react> [offS [onS]]` — one key, one value word and an OPTIONAL briefed plan behind
+     * it. The C1 contract's six author-facing keys stay six. doc/air-to-ground.md §5.1. */
+    std::istringstream ls(value);
+    std::string mode;
+    double offS = 0.0, onS = 0.0;
+    if (!(ls >> mode) || (mode != "free" && mode != "hold" && mode != "react"))
+      return RejectSetup("want free|hold|react [offS [onS]]", key, value);
+    if (ls >> offS) {
+      if (offS <= 0.0) return RejectSetup("the emission plan's stop must be positive", key, value);
+      if ((ls >> onS) && onS <= offS)
+        return RejectSetup("the emission plan's resume must come after its stop", key, value);
+    }
+    Fc_.SetEmconHold(mode == "hold");
+    Fc_.SetEmconReact(mode == "react");
+    Fc_.SetEmconPlan(offS, onS);
     return true;
   }
   if (key == "alert") {

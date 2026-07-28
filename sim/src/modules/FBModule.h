@@ -80,6 +80,9 @@ public:
   }
   bool SystemWorking(FBSystemId id) const { return HealthOf(id) != FBHealthState::Failed; }
   bool SystemDegraded(FBSystemId id) const { return HealthOf(id) == FBHealthState::Degraded; }
+  /* HOW OFTEN THIS UNIT HAS BEEN HIT — monotone, and the only thing a module can honestly call "we are
+   * under attack" without reading the world. doc/air-to-ground.md §5.1. */
+  int OwnHits() const { return Health_ ? Health_->Hits() : 0; }
 
   /* WHAT A RADAR GETS BACK from this airframe, m^2. Module data for the same reason the damage layout
    * is: how big an echo an aircraft makes is a property of the aircraft, and a radar that carried a

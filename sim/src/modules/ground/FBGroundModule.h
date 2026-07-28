@@ -14,7 +14,15 @@ namespace FlightBox::Modules {
 
 class FBGroundModule : public FBModule {
 public:
-  explicit FBGroundModule(const FBGroundTargetSpec &spec) : Spec_(spec) { Rwr_.SetPowered(false); Visual_.SetPowered(false); }
+  /* Every receiver AND the transmitter down: the radar slot's default is powered, so a bunker used to
+   * put an AirborneFireControl beam on the air, and its transponder answered Mode 4 as friendly from
+   * outside the power gate. doc/air-to-ground.md §6. */
+  explicit FBGroundModule(const FBGroundTargetSpec &spec) : Spec_(spec) {
+    Radar_.SetPowered(false);
+    Radar_.SetIffTransponder(false);
+    Rwr_.SetPowered(false);
+    Visual_.SetPowered(false);
+  }
 
   const FBGroundTargetSpec &Spec() const { return Spec_; }
 

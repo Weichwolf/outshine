@@ -1,0 +1,44 @@
+name arm-shutdown-late-1
+timeout 200
+
+# ABSCHALTEN MUSS HELFEN — die eine Bedingung, an der diese Runde scheitern kann, als Paar gemessen.
+# This is the LATE half: the crew goes off the air at 90 % of the round's flight and dies anyway.
+# doc/air-to-ground.md §2.2.
+#
+# Identical to arm-shutdown-early.fbm in EVERY line but one: `set emcon free <t>`. That is the whole
+# experiment — one geometry, one weapon, one number moved, two opposite outcomes. What decides it is
+# neither a rule nor a setting: after the last reception the round holds the measured line-of-sight
+# RATE for 4 s and then commands nothing lateral at all, so the miss it ends up with is
+# ZEM(0)*(t_go/t_f)^N of the guidance law already in the tree.
+#
+# WHAT TO READ:
+#   events.log      `site GO_DARK why="emission plan"` at t = 57.5, `missile EMITTER_LOST heldS=4`,
+#                   then `stores DETONATION ... missM` under the round's 5 m fuze radius
+#
+# READING RULE: the MEASUREMENT is `UNIT_RESULT unit=sam`, and the only passing value here is
+# DESTROYED. Read it ONLY beside arm-shutdown-early.fbm — a single run proves nothing about a window.
+
+runway 46.84335 6.91523 441.0 228.0 2889
+
+unit weasel
+  module f16
+  team friendly
+  spawn 46.63000 6.90000 4000 0.0 450
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set rwr on
+  set store 3 agm88
+  set arm_class any
+  set brief_master_arm arm
+  set task route
+  set brief_release_s 1
+  wp 47.20000 6.90000 4000 450
+  objective survive                         # the weasel is never shot at here; this makes exit 0 the pass
+
+unit sam
+  module sa6
+  team hostile
+  spawn 46.808955 6.922835 ground 0.0 0
+  set emcon free 57.52                      # 90 % of the flight: too late
+  set rounds 0

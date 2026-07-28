@@ -11,6 +11,7 @@
 #include "FBNetReport.h"
 #include "FBTeam.h"
 #include "FBVisualContact.h"
+#include "FBStore.h"
 #include "FBWeaponUplink.h"
 
 namespace FlightBox::World { class FBWorld; }
@@ -71,6 +72,10 @@ inline float FBPresentedDimensionM(const FBVisualSignature &v, double fwd, doubl
 struct FBUnitSignature {
   bool DatalinkXmt = false;   /* MIDS terminal powered AND transmitting (XMT ON) */
   FBWeaponUplink Uplink;      /* midcourse guidance to a weapon this unit launched */
+  /* THE LASER SPOT this unit is holding on a point, beside the uplink and for the same reason: it is a
+   * published STATE a semi-active weapon reads, not a message anybody delivers. Inactive for every unit
+   * that never released a laser-guided round. doc/air-to-ground.md §3.2. */
+  FBLaserDesignation Designation;
   bool IffXpdr = false;       /* AN/APX-113 answering Mode 4 */
   /* Any installed turbine in AUGMENTED thrust. Not an emission — a plume is not transmitted, it is
    * RADIATED heat — but the same question the rest of this struct answers: what may a foreign sensor

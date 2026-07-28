@@ -25,6 +25,7 @@ namespace FlightBox::Modules {
 
 class FBMissileSeeker;
 class FBMissileIrSeeker;
+class FBMissileArSeeker;
 
 class FBMissileGuidance : public Pilot::FBPilot {
 public:
@@ -63,12 +64,26 @@ public:
    * straight instead of on an old rate. Two head frames. */
   static constexpr double kLosRateHoldS = 0.1;
 
+  /* [SET] The laser kit's DEAD BAND, and it is the whole of its actuator model beside the two stops:
+   * inside this much alignment the canards trail, outside it they are on the stop. 1.5 deg is the
+   * smallest band at which the terminal path does not chatter at 100 Hz. There is no commanded
+   * acceleration next to it and there must not be — what the fins produce is the DECK's answer.
+   * doc/air-to-ground.md §Knowledge 4. */
+  static constexpr double kLaserDeadBandDeg = 1.5;
+  /* [SET] How far ahead the relay's switching signal is projected with the round's own rate gyros —
+   * one actuator lag (the deck's c1 = 20 1/s = 50 ms) plus the airframe's own response, rounded up. */
+  static constexpr double kLaserRateLeadS = 0.30;
+
   /* Wiring, once, by the module; all borrowed. Which seeker is real is the catalogue entry's
    * FBSeekerKind, and it is read here and in FBMissileModule::Run and nowhere else. */
-  void Bind(const FBStoreSpec &spec, FBMissileSeeker &seeker, FBMissileIrSeeker &irSeeker);
+  void Bind(const FBStoreSpec &spec, FBMissileSeeker &seeker, FBMissileIrSeeker &irSeeker,
+            FBMissileArSeeker &arSeeker);
   /* The launch programming: where the shooter's fire control last saw the target, and whose uplink this
    * round listens to. Applied once, at spawn. */
   void Program(const FBWeaponTargetState &target, int launcherId, double launchS);
+  /* THE WHOLE launch programming of an anti-radiation round: two angles off the shooter's nose and the
+   * class it was told to follow. There is no position, because the shooter's receiver measured none. */
+  void ProgramCue(bool valid, double azDeg, double elDeg, FBArTargetClass cls);
   int  LauncherId() const { return LauncherId_; }
 
   /* The same absolute sim time the seeker's grid and the uplink's message ages run on, so nothing in
@@ -101,6 +116,19 @@ private:
    * Everything below it — the two acceleration loops, the gravity bias, the fins — is unchanged. */
   bool AngleOnlyCommand(const FBState &state, const Fdm::fb_fdm_state &st, double &aE, double &aN,
                         double &aU);
+  /* THE SAME angle-only law on a DIFFERENT detector, and the difference is what the round can do when
+   * the detector goes quiet. The warning receiver reports BODY-referenced angles (it has no antenna to
+   * point), so the line of sight is rotated into the local horizon with the round's OWN attitude — an
+   * instrument it carries — before the rate is taken. When the measurement stops, the rate is HELD for
+   * the row's SeekerMemoryS and is then ZERO: PN commands nothing lateral, the 1 g bias survives
+   * because an accelerometer needs nobody, and the round coasts STRAIGHT. doc/air-to-ground.md §2.2. */
+  bool AntiRadiationCommand(const FBState &state, const Fdm::fb_fdm_state &st, double &aE, double &aN,
+                            double &aU);
+  /* THE PAVEWAY LAW, and it is deliberately NOT proportional navigation: align the velocity vector with
+   * the instantaneous line of sight to the spot, with a BANG-BANG actuator and a dead band; when
+   * aligned the canards trail and the weapon falls ballistically, gravity-biased. Modelling it as PN
+   * would produce a materially better weapon than the real one. doc/air-to-ground.md §Knowledge 4. */
+  bool LaserCommand(const FBState &state, const Fdm::fb_fdm_state &st, Pilot::FBPilotCommands &c);
   /* Everything BELOW whichever law produced the command: body resolution, the two acceleration loops,
    * the roll holder, the fins. Shared, so the two laws cannot drift apart in their autopilot. */
   void FlyCommand(Pilot::FBPilotCommands &c, const Fdm::fb_fdm_state &st, double aE, double aN,
@@ -109,6 +137,7 @@ private:
   const FBStoreSpec *Spec_ = nullptr;   /* borrowed catalogue entry */
   FBMissileSeeker *Seeker_ = nullptr;   /* borrowed, owned by the module */
   FBMissileIrSeeker *IrSeeker_ = nullptr;
+  FBMissileArSeeker *ArSeeker_ = nullptr;
   FBSeekerKind Kind_ = FBSeekerKind::None;
   /* SARH: the shooter's illumination is this round's ONLY source of energy on the target, so losing it
    * kills the head for good — there is no transmitter of its own to switch back on. */
@@ -120,6 +149,22 @@ private:
   double IrLosStampS_ = -1e9;
   double IrOmE_ = 0.0, IrOmN_ = 0.0, IrOmU_ = 0.0;
   double IrOmStampS_ = -1e9;
+
+  /* ---- THE ANTI-RADIATION ROUND'S OWN STATE. The latch is a SYMBOL number, which is the only handle
+   * the receiver publishes: it never gives out a unit id, so "never re-target" can only mean "follow
+   * the symbol you took", and a symbol that disappears is a transmitter that stopped. ---- */
+  int    ArSymbol_ = 0;                 /* 0 = nothing latched yet */
+  bool   ArLost_ = false;               /* logged once per loss, cleared on re-acquisition */
+  double ArSigNorm_ = 0.0;              /* the received power — the ONE proximity hint this round has */
+  double ArLastLookS_ = -1e9;           /* the memory clock: when the transmitter was last MEASURED */
+  int    ArLosSymbol_ = 0;              /* whose line the one below is — a rate needs two of the same */
+  double ArLosE_ = 0.0, ArLosN_ = 0.0, ArLosU_ = 0.0;   /* the last measured line, in the local horizon */
+  double ArOmE_ = 0.0, ArOmN_ = 0.0, ArOmU_ = 0.0;      /* the HELD rate — zeroed when the memory ends */
+
+  /* ---- THE LASER-GUIDED BOMB'S. `SalDead_` does not exist on purpose: a passive energy detector
+   * reacquires a spot that comes back, which is the one place it differs from the radar cousin. ---- */
+  bool   SalTerminal_ = false;
+  double SalSpotLatDeg_ = 0.0, SalSpotLonDeg_ = 0.0, SalSpotElevM_ = 0.0;
 
   Phase  Phase_ = Phase::Inertial;
   int    LauncherId_ = 0;

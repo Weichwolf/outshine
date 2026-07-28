@@ -16,12 +16,19 @@ void FBMissileUplink::Run(FBState &state, const Fdm::fb_fdm_state &st, const Uni
   b.TrackCount = 0;
 
   FBWeaponUplink up{};
+  FBLaserDesignation des{};
   if (Powered() && net && LauncherId_ != 0) {
     for (const Units::FBUnit *u : net->Units()) {
       if (!u || u->GetId() != LauncherId_) continue;
       /* By VALUE: what this receiver has heard must outlive the expression that read it. */
-      up = u->GetSignature().Uplink;
+      const Units::FBUnitSignature sig = u->GetSignature();
+      up = sig.Uplink;
+      des = sig.Designation;
       if (up.Active && up.LauncherId == LauncherId_ && up.Target.Valid) b.TrackCount = 1;
+      /* THE SPOT, on the same single-entry channel and by the same rule — the ONE unit whose id this
+       * round was programmed with. A laser round's shooter publishes no midcourse uplink and an air-to-
+       * air shooter publishes no spot, so the two can never contend for the entry. */
+      else if (des.Active && des.DesignatorId == LauncherId_) b.TrackCount = 1;
       break;   /* one launcher, one entry — nothing else in the registry is looked at */
     }
   }
@@ -34,7 +41,15 @@ void FBMissileUplink::Run(FBState &state, const Fdm::fb_fdm_state &st, const Uni
   /* Range/bearing are the RECEIVER's own arithmetic on the reported position. */
   FBDatalinkTrack &t = b.Tracks[0];
   t = FBDatalinkTrack{};
-  std::strncpy(t.Callsign, "UPLINK", sizeof t.Callsign - 1);
+  const bool spot = !(up.Active && up.Target.Valid);
+  std::strncpy(t.Callsign, spot ? "LASER" : "UPLINK", sizeof t.Callsign - 1);
+  if (spot) {
+    up.Target.LatDeg = des.LatDeg;
+    up.Target.LonDeg = des.LonDeg;
+    up.Target.AltM = des.ElevM;
+    up.Target.VelE = up.Target.VelN = up.Target.VelU = 0.0;   /* a designated point does not move */
+    up.Target.StampS = des.StampS;
+  }
   t.LatDeg = up.Target.LatDeg;
   t.LonDeg = up.Target.LonDeg;
   t.AltM = (float)up.Target.AltM;

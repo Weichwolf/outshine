@@ -1,0 +1,52 @@
+name arm-reacquire-1
+timeout 200
+
+# GO DARK, AND STAY DARK UNTIL IT IS OVER — the third distinct behaviour in the seeker table.
+# doc/air-to-ground.md §2.2.
+#
+# `arm-shutdown-early.fbm` shows a crew that goes off the air at 50 % of the round's flight and lives.
+# THIS FILE is the same crew switching back on twenty seconds later, and it dies. Nothing was written
+# for that: the round switched nothing off and neither did the shooter, so when the latched symbol
+# leaves the receiver's own table the seeker simply goes back to looking — and a transmitter that comes
+# up inside the cone is taken again, under a NEW symbol number, because that is all a warning receiver
+# ever gives out.
+#
+# THE FOUR SEEKERS DIFFER EXACTLY HERE, and none of it is a flag on the round:
+#   ActiveRadar      never loses its target — it carries its own transmitter
+#   Infrared         comes back if the mark re-enters the field
+#   SemiActiveRadar  NEVER comes back: there is no transmitter of its own to switch on
+#   AntiRadiation    comes back, because the target's own crew decides whether there is a signal
+#
+# WHAT TO READ:
+#   events.log      `missile SEEKER_ACTIVE symbol=1` -> `missile EMITTER_LOST symbol=1 heldS=4` ->
+#                   `missile EMITTER_REACQUIRED symbol=2 darkS=20.0` — a SECOND symbol number, which is
+#                   the receiver saying it heard a new transmitter and not the same one refreshed
+#
+# READING RULE: exit 0 = SUCCESS (the weasel survived) is not the measurement. The MEASUREMENT is the
+# `EMITTER_REACQUIRED` line and `UNIT_RESULT unit=sam result=DESTROYED`. Read beside
+# arm-shutdown-early.fbm, whose ONLY difference is that its crew stays quiet.
+
+runway 46.84335 6.91523 441.0 228.0 2889
+
+unit weasel
+  module f16
+  team friendly
+  spawn 46.63000 6.90000 4000 0.0 450
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set rwr on
+  set store 3 agm88
+  set arm_class any
+  set brief_master_arm arm
+  set task route
+  set brief_release_s 1
+  wp 47.20000 6.90000 4000 450
+  objective survive                         # the weasel is never shot at here; this makes exit 0 the pass
+
+unit sam
+  module sa6
+  team hostile
+  spawn 46.808955 6.922835 ground 0.0 0
+  set emcon free 20 40                      # dark at 20 s, back on the air at 40 s
+  set rounds 0

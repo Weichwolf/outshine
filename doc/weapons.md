@@ -94,6 +94,20 @@ Mk-82 fidelity caveat under Gaps before quoting that number.
 
 ## Gaps
 
+**Two things changed under this file on 2026-07-28** ([`air-to-ground.md`](air-to-ground.md)), and both
+are named here because this file owns the boundary they moved:
+
+| What | Before | Now |
+|---|---|---|
+| **The third resolution boundary** (§5.1/§5.3) | a proximity fuze resolved against `FBUnitKind::Aircraft` only, and a store only where it CROSSED the surface — so an AIR-BURSTING air-to-ground weapon had no resolution path at all | a store with `FuzeRadiusM > 0` also resolves its burst against `Ground` units at closest approach, the LAUNCHER excluded (a round does not fuze on the rail it left — the gun path's own rule). **§5.4's refusal is untouched:** that one forbids a GROUND burst against an AIRCRAFT, for want of a fragment-against-airframe geometry, and this is its mirror image and not its exception. Conservation: measured byte-identical over all 113 pre-existing missions |
+| **The damage model's second input** (§6.3, J/m² shared between warhead fragments and 20 mm impacts) | two mechanisms on one currency, declared as this simulator's CHOICE and not a statement of equivalence | **three.** A cluster canister is an AREAL ENERGY DENSITY over a declared rectangle and takes the identical `ApplyKinetic` path. It is the COARSEST use of that currency in the tree — a BLU-97 is a shaped charge *and* a fragmentation case *and* an incendiary ring — and the verdict against `target_soft` sits 12 % above the failure threshold (measured 3 109 J/m² against 2 800), so `kCaseFraction` and `kFragSpeedMs` decide it. Booked as `air-to-ground.md` N3 |
+
+**Two seeker kinds were appended** to `FBSeekerKind`: `SemiActiveLaser` (whose `FBSeekerHandoverS` is
+−1, the R-27R's obligation verbatim, but which REACQUIRES a spot that comes back) and `AntiRadiation`
+(whose handover is 0 — the target IS the transmitter, so the shooter owes it nothing). Neither adds a
+resolution path; both add a detector, and each detector is a derivation of a sensor that already exists.
+
+
 ### `C1` — the active surface-to-air threat: **BUILT 2026-07-28**, and its home moved
 
 **The gap entry that stood here was a placeholder with a boundary and five open questions. All five are

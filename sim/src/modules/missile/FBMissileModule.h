@@ -10,6 +10,7 @@
 #ifndef FBMISSILEMODULE_H
 #define FBMISSILEMODULE_H
 
+#include "FBMissileArSeeker.h"
 #include "FBMissileGuidance.h"
 #include "FBMissileIrSeeker.h"
 #include "FBMissileSeeker.h"
@@ -25,6 +26,10 @@ public:
   explicit FBMissileModule(const FBStoreSpec &spec);
 
   const FBStoreSpec &Spec() const { return Spec_; }
+
+  /* The passive head is the one slot on this module that walks the registry by identity, so it is the
+   * one that has to know which unit it is. */
+  void SetUnitIdentity(int unitId, FBUnitTeam team) override { Ar_.SetIdentity(unitId, team); }
 
   void AttachFdm(Fdm::FBFdm &fdm) override { Fdm_ = &fdm; }
   const char *FdmModelName() const override { return Spec_.FdmModel; }
@@ -48,9 +53,10 @@ public:
   FBCommandBus &Commands() override { return Cmds_; }
   FBMissileUplink &Datalink() override { return Uplink_; }          /* covariant */
   FBMissileSeeker &Radar() override { return Seeker_; }             /* covariant */
-  /* The slots exist because every module carries the same categories; these are the defaults, never
-   * cycled and powered down at construction so nothing they hold can be mistaken for a picture. */
-  Sensors::FBRwrSystem &Rwr() override { return Rwr_; }
+  /* THE WARNING-RECEIVER SLOT IS THE ANTI-RADIATION SEEKER — the same relationship the infrared slot
+   * below has to that round's head, and unpowered for every round that is not one, so nothing it holds
+   * can be mistaken for a picture. */
+  FBMissileArSeeker &Rwr() override { return Ar_; }                          /* covariant */
   FBMissileIrSeeker &Irst() override { return Ir_; }                          /* covariant */
   /* An unmanned round/store/target has no eyes; the slot exists because every module carries the same
    * categories, and it is powered OFF so nothing it holds can be mistaken for a picture. */
@@ -86,7 +92,7 @@ private:
   FBMissileSeeker Seeker_;      /* active/semi-active rounds; dark on an infrared one */
   FBMissileIrSeeker Ir_;                  /* infrared rounds; caged on the other two */
   Sensors::FBVisualSystem Visual_;
-  Sensors::FBRwrSystem Rwr_;
+  FBMissileArSeeker Ar_;                  /* anti-radiation rounds; unpowered on every other one */
   Sensors::FBCountermeasureSystem Cm_;
   FBMissileUplink Uplink_;
   Systems::FBAirframeControls Ctrl_;

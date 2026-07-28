@@ -93,6 +93,10 @@ private:
   /* The cumulative dwell of every `identify`, from the ranges the owner published this tick. Pure
    * bookkeeping, no verdict — and monotone, which is what makes the objective latch. */
   void NoteIdentify(const FBMissionRoster &roster, double dtS);
+  /* The cumulative RADIATING time of every `suppress` target, from the bit the owner published this
+   * tick. Shares the index-parallel Dwell_ with `identify`: one kind per entry, so the two can never
+   * meet. Monotone, which is what makes the objective decidable at all. */
+  void NoteEmitting(const FBMissionRoster &roster, double dtS);
   /* Survive, Waypoints and Identify are deliberately not decided against the roster — see Finalize,
    * PlanJudged_ and Dwell_. */
   bool ObjectivesMet(const FBMissionMonitorSample &s) const;

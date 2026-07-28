@@ -286,6 +286,57 @@ bool ResolveGroundBurst(Units::FBSimUnit &target, const Fdm::fb_fdm_state &burst
   return true;
 }
 
+/* THE CLUSTER, and the reason it is a different function rather than a flag on the one above: a
+ * canister is not a point source but an AREAL ENERGY DENSITY over a declared rectangle, which is
+ * exactly the currency FBDamageModel::ApplyKinetic already takes from the gun. Inside the footprint
+ * every target takes the same flux, outside it exactly nothing — the one weapon in the tree that turns
+ * an aim error from a distance into a binary.
+ *
+ *   flux = N_sub * (kCaseFraction * m_sub) * 0.5*(kFragSpeedMs^2 + v_impact^2) / (along * across)
+ *
+ * THE FOOTPRINT IS FIXED PER ROW and NOT a function of release altitude or dispersal speed
+ * (doc/air-to-ground.md N2), so where the canister functions makes no difference to what arrives, which
+ * is why this is laid at the ground crossing and needs no burst-altitude field. The long axis lies
+ * along the canister's own arrival track — a bomblet pattern is stretched by the carrier's motion.
+ * Herleitung and the 12 % margin that makes this the softest number in the file: §Knowledge 3. */
+bool ResolveClusterBurst(Units::FBSimUnit &target, const Fdm::fb_fdm_state &burst,
+                         const FBStoreSpec &spec) {
+  const Units::FBUnitPose &p = target.GetPose();
+  double alongM = 0.0, acrossM = 0.0;
+  FBTrackProjectM(burst.lat, burst.lon, burst.yaw, p.LatDeg, p.LonDeg, alongM, acrossM);
+  if (std::fabs(alongM) > 0.5 * spec.FootAlongM || std::fabs(acrossM) > 0.5 * spec.FootAcrossM)
+    return false;
+
+  double eSub = kCaseFraction * spec.SubMassKg * 0.5 *
+                (kFragSpeedMs * kFragSpeedMs + burst.speed * burst.speed);
+  double area = spec.FootAlongM * spec.FootAcrossM;
+  FBKineticBurst kb;
+  kb.FwdM = 0.0;                       /* the rectangle covers the whole object: no along-axis aiming */
+  kb.FluxJm2 = spec.SubCount * eSub / area;
+  kb.SpreadM = 0.5 * spec.FootAcrossM;   /* one sigma of the pattern IS the footprint's own half-width */
+  kb.Rounds = spec.SubCount;
+  kb.ImpactSpeedMs = burst.speed;
+  FBDamageResult r = target.TakeKineticBurst(kb);
+  FBLogUnitScope us(target.LogLabel());
+  FBLog::Info("damage", "CLUSTER", {{"subs", spec.SubCount}, {"fluxJm2", kb.FluxJm2},
+      {"alongM", alongM}, {"acrossM", acrossM},
+      {"footAlongM", spec.FootAlongM}, {"footAcrossM", spec.FootAcrossM},
+      {"impactMs", burst.speed}, {"zone", FBDamageZoneStr(r.Zone)},
+      {"failed", (int)r.NewlyFailed}, {"degraded", (int)r.NewlyDegraded},
+      {"hits", target.Health().Hits()}});
+  for (int i = 0; i < (int)FBSystemId::Count; i++) {
+    uint32_t bit = 1u << i;
+    if (!((r.NewlyFailed | r.NewlyDegraded) & bit)) continue;
+    FBLog::Warn("damage", "SYSTEM", {{"system", FBSystemIdStr((FBSystemId)i)},
+        {"state", FBHealthStateStr((r.NewlyFailed & bit) ? FBHealthState::Failed
+                                                         : FBHealthState::Degraded)}});
+  }
+  if (r.WasEffective && !r.NowEffective)
+    FBLog::Warn("damage", "KILL", {{"reason", "structure destroyed"},
+        {"failed", (int)target.Health().FailedMask()}, {"lat", p.LatDeg}, {"lon", p.LonDeg}});
+  return true;
+}
+
 /* Where the round crossed the surface, as opposed to where it was first SEEN below it: on a 0.1 s tick a
  * Mk-82 penetrates 14 m before it is observed, i.e. ~20 m of horizontal travel — a fifth of the delivery
  * error the attack missions exist to measure. Herleitung: doc/units-and-missions.md §8. */
@@ -584,8 +635,15 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     RosterUnit.clear();
     for (const auto &a : Actors) {
       if (a->GetKind() == Units::FBUnitKind::Weapon) continue;
+      /* The radiating bit, off the signature the unit publishes at the barrier — the identical
+       * construction the health bit and the release bit beside it already use. Nothing is asked of the
+       * module and nothing is told to it. */
+      bool emitting = false;
+      const Units::FBUnitSignature sig = a->GetSignature();
+      for (int bi = 0; bi < kMaxEmitterBeams; bi++)
+        emitting = emitting || sig.Radar[bi].Mode != FBEmitterMode::None;
       RosterBuf.push_back({a->GetName().c_str(), a->GetTeam(), a->Health().CombatEffective(),
-                           a->ReleasedWeapon(), std::numeric_limits<double>::infinity()});
+                           a->ReleasedWeapon(), emitting, std::numeric_limits<double>::infinity()});
       RosterUnit.push_back(a.get());
     }
     return FBMissionRoster{RosterBuf.data(), (int)RosterBuf.size()};
@@ -748,9 +806,23 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
           simT - t.SpawnS >= t.Spec->Perf.ArmingS) {
         for (size_t k = 0; k < Actors.size(); k++) {
           Units::FBSimUnit &tgt = *Actors[k];
-          if (k == t.Index || tgt.GetKind() != Units::FBUnitKind::Aircraft || !tgt.Active()) continue;
+          /* THE FUZE NOW REACHES THE GROUND TOO, and it had to: doc/weapons.md §5.1 gated on Aircraft
+           * alone and §5.3 resolved a store only where it CROSSED the surface, so an air-bursting
+           * air-to-ground weapon had no resolution path at all — the boundary was written for the other
+           * direction. This is that boundary's mirror image and not its exception: §5.4's refusal (a
+           * GROUND burst against an AIRCRAFT, for want of a fragment-against-airframe geometry) is
+           * untouched. The LAUNCHER is excluded because a round does not fuze on the rail it left, the
+           * same rule the gun path already states. doc/air-to-ground.md §Gaps collision 2. */
+          bool reachable = tgt.GetKind() == Units::FBUnitKind::Aircraft ||
+                           (tgt.GetKind() == Units::FBUnitKind::Ground && tgt.GetId() != t.LauncherId);
+          if (k == t.Index || !reachable || !tgt.Active()) continue;
           FBCpa c = ClosestApproach(PrevPose[t.Index], PrevPose[k], store.GetPose(), tgt.GetPose(), dt);
-          if (c.MissM < t.MinMissM && tgt.GetId() != t.LauncherId) {
+          /* `stores MISS` stays a record about AIRCRAFT and only about them: a surface round passing
+           * over a bunker on its way up has not nearly missed it, and letting the ground into this book
+           * moved a line in an already-measured file (net-belt-high, measured). Where a round came down
+           * against a POSITION is `stores IMPACT`'s crossLat/crossLon, which is the honest place for it. */
+          if (c.MissM < t.MinMissM && tgt.GetKind() == Units::FBUnitKind::Aircraft &&
+              tgt.GetId() != t.LauncherId) {
             t.MinMissM = c.MissM;
             t.MinMissUnit = tgt.GetId();
           }
@@ -782,10 +854,11 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
         bool onGround = kr == FBKoReason::StructureContact || kr == FBKoReason::CfitPenetration ||
                         kr == FBKoReason::GearUpContact || kr == FBKoReason::HardLanding ||
                         kr == FBKoReason::AttitudeContact;
-        if (onGround && t.Spec && t.Spec->WarheadKg > 0.0) {
+        if (onGround && t.Spec && (t.Spec->WarheadKg > 0.0 || t.Spec->SubCount > 0)) {
           for (auto &g : Actors) {
             if (g->GetKind() != Units::FBUnitKind::Ground || !g->Active()) continue;
-            (void)ResolveGroundBurst(*g, cross, *t.Spec);
+            if (t.Spec->SubCount > 0) (void)ResolveClusterBurst(*g, cross, *t.Spec);
+            else (void)ResolveGroundBurst(*g, cross, *t.Spec);
           }
         }
         store.Retire();

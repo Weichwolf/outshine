@@ -153,6 +153,10 @@ struct FBStoresBlock {
   int   LoadedCount = 0;
   float LoadedLbs = 0.0f;          /* total carried store weight */
   int   ReleasedCount = 0;         /* stores this jet has let go of this sortie */
+  /* Whether this jet is holding a spot on the point it released a laser-guided round against — the
+   * shooter's OWN instrument reading of its own obligation, and the one thing that tells its pilot the
+   * run is not over yet. False for every jet that never released one. doc/air-to-ground.md §3.2. */
+  bool  Designating = false;
 };
 
 /* ---- Gun: the internal gun's books. WRITER: systems/FBGunSystem (F-16 slot: modules/f16/FBF16Gun).

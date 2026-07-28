@@ -187,6 +187,10 @@ private:
   /* Absolute sim seconds: sensors stamp and age their picture against this, so it cannot depend on how
    * often this module happens to cycle a slot. */
   double SimTimeS = 0.0;
+  /* WHAT AN ANTI-RADIATION ROUND ON THIS JET IS PROGRAMMED AGAINST (`set arm_class`). It lives here and
+   * not in the SMS because it is a classification and the SMS classifies nothing.
+   * doc/air-to-ground.md §8. */
+  FBArTargetClass ArClass_ = FBArTargetClass::AnySurface;
 };
 
 } // namespace FlightBox::Modules

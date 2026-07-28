@@ -13,7 +13,9 @@ namespace FlightBox {
 /* Append only — the ordinal is telemetry-visible; None must stay 0 (a zeroed block = "nothing loaded"). */
 enum class FBStoreKind : uint8_t { None = 0, Mk82, Aim120, Aim9, R73, R27r,
                                    /* the surface-to-air rounds (doc/modules/ground/catalogue.md) */
-                                   V750, V601, M3m9, M9m33, Strela2, Igla };
+                                   V750, V601, M3m9, M9m33, Strela2, Igla,
+                                   /* the air-to-ground stores (doc/air-to-ground.md §§2-3) */
+                                   Agm88, Mk84, Gbu12, Cbu87, Fab250, Fab500 };
 
 /* WHAT KIND OF SEEKER a guided round carries — and therefore which SENSOR SLOT modules/missile gives
  * it, which is the whole difference between the three guided weapons in the tree. Not a behaviour flag
@@ -30,8 +32,40 @@ enum class FBStoreKind : uint8_t { None = 0, Mk82, Aim120, Aim9, R73, R27r,
  *                   FBMissileGuidance's strict priority (own seeker > uplink > last known) degenerates
  *                   to its middle branch. It therefore cannot be chaff-decoyed — the cloud seduces the
  *                   SITE's tracking radar instead, which is where such an engagement really breaks.
+ *   SemiActiveLaser an ILLUMINATOR of the shooter's again, but a passive energy detector rather than a
+ *                   receiver tuned to one transmitter: it reacquires a spot that comes back, which is
+ *                   the one place it differs from SemiActiveRadar. Its law is not proportional
+ *                   navigation but the documented Paveway PURSUIT law (doc/air-to-ground.md §3.2).
+ *   AntiRadiation   a sensors/FBRwrSystem of its own: a bearing, an elevation and a received power, and
+ *                   NEVER a range. It has no transmitter, no interrogator and no identity, so it homes
+ *                   on whatever of its programmed class is loudest inside its cone — friend included —
+ *                   and it loses its target the moment that target stops transmitting.
  * Append only — telemetry-visible through the round's own trace. doc/weapons.md, Spec. */
-enum class FBSeekerKind : uint8_t { None = 0, ActiveRadar, Infrared, SemiActiveRadar, CommandGuided };
+enum class FBSeekerKind : uint8_t { None = 0, ActiveRadar, Infrared, SemiActiveRadar, CommandGuided,
+                                    SemiActiveLaser, AntiRadiation };
+
+/* WHAT AN ANTI-RADIATION ROUND WAS PROGRAMMED TO HOME ON — the honest coarsening of a threat table
+ * FlightBox has no data for: FBEmitterSignature carries no band letter, no PRF and no pulse width, so
+ * the filter is three values over FBEmitterKind. `[SET]` per mission (`set arm_class`).
+ * doc/air-to-ground.md §2.1. */
+enum class FBArTargetClass : uint8_t { AnySurface = 0, SurfaceFireControl, SurfaceEarlyWarning };
+
+inline const char *FBArTargetClassStr(FBArTargetClass c) {
+  switch (c) {
+    case FBArTargetClass::AnySurface: return "any";
+    case FBArTargetClass::SurfaceFireControl: return "fire_control";
+    case FBArTargetClass::SurfaceEarlyWarning: return "early_warning";
+  }
+  return "?";
+}
+
+inline bool FBArTargetClassFromString(const char *s, FBArTargetClass &out) {
+  if (!s) return false;
+  if (std::strcmp(s, "any") == 0) { out = FBArTargetClass::AnySurface; return true; }
+  if (std::strcmp(s, "fire_control") == 0) { out = FBArTargetClass::SurfaceFireControl; return true; }
+  if (std::strcmp(s, "early_warning") == 0) { out = FBArTargetClass::SurfaceEarlyWarning; return true; }
+  return false;
+}
 
 /* The FIRE-CONTROL COMPUTER'S performance table for a round — deliberately a coarser copy of what the
  * weapon's JSBSim model does, so the prediction error stays measurable rather than tuned away.
@@ -56,12 +90,16 @@ struct FBWeaponPerf {
  *   ActiveRadar    >0  — until its own seeker goes active at ActivationRangeM (the "pitbull")
  *   SemiActiveRadar -1 — NEVER. The round has no transmitter, so the shooter owes it illumination to
  *                        impact, and the Support state falls back to the predicted time of flight.
- *   CommandGuided   -1 — the same answer for the stronger reason: it has no seeker at all. */
+ *   CommandGuided   -1 — the same answer for the stronger reason: it has no seeker at all.
+ *   SemiActiveLaser -1 — the illuminator is the shooter's, so it owes the round a spot to impact.
+ *   AntiRadiation    0 — the target IS the transmitter; the shooter owes it nothing at all. */
 inline double FBSeekerHandoverS(FBSeekerKind k, double timeToActivationS) {
   switch (k) {
-    case FBSeekerKind::Infrared: return 0.0;
+    case FBSeekerKind::Infrared:
+    case FBSeekerKind::AntiRadiation: return 0.0;
     case FBSeekerKind::ActiveRadar: return timeToActivationS;
     case FBSeekerKind::SemiActiveRadar:
+    case FBSeekerKind::SemiActiveLaser:
     case FBSeekerKind::CommandGuided:
     case FBSeekerKind::None: break;
   }
@@ -95,6 +133,30 @@ struct FBStoreSpec {
    * would be an authority nobody claims. Declared last, so every entry written before it keeps its
    * positional initialiser. doc/modules/ground/module.md §Spec 4. */
   double GatherS = 0.0;
+
+  /* ---- THE AIR-TO-GROUND FIELDS. All appended, all defaulting to "this row has none", which is what
+   * keeps every entry above byte-identical in behaviour. doc/air-to-ground.md §§2-3. ---- */
+
+  /* How long an ANGLE-ONLY round holds the last measured line-of-sight RATE after its target stops
+   * being measurable. A RATE and never a POINT: when it expires the rate is zero, proportional
+   * navigation commands nothing lateral and the gravity bias alone survives, so the round coasts
+   * STRAIGHT. That is literally "stop steering now", which makes the resulting miss the zero-effort
+   * miss of the law already in the tree. 0 = the guidance's generic kLosRateHoldS. */
+  double SeekerMemoryS = 0.0;
+
+  /* THE CARRIAGE ENVELOPE the STORE imposes on its own release, in calibrated airspeed. A property of
+   * the store and not of the airframe or of its computer, so it is checked after both. 0 = no limit,
+   * i.e. every row written before this field existed is unconstrained by construction. */
+  double ReleaseMinKt = 0.0, ReleaseMaxKt = 0.0;
+
+  /* A CLUSTER: N submunitions of m each over a fixed rectangle, long axis along the canister's arrival
+   * track. Zero = a point source, resolved by the fragment law like every other warhead. The pattern is
+   * NOT a function of release altitude or speed (doc/air-to-ground.md N2), so where the canister
+   * functions makes no difference to what arrives — which is why it is laid at the ground crossing and
+   * needs no burst-altitude field. */
+  int    SubCount = 0;
+  double SubMassKg = 0.0;
+  double FootAlongM = 0.0, FootAcrossM = 0.0;
 };
 
 /* Mk-82, 500 lb GP bomb (doc/modules/f16/weapons.md §3). Perf.ArmingS 2.0 [SET], WarheadKg [T3], and
@@ -319,9 +381,145 @@ inline constexpr FBStoreSpec kIgla{
                  /*ArmingS*/ 0.6},
     /*Seeker*/ FBSeekerKind::Infrared, /*FovHalf*/ 2.0, /*GimbalHalf*/ 40.0, /*GatherS*/ 0.6};
 
+/* ---- THE AIR-TO-GROUND STORES (doc/air-to-ground.md §§2-3) ---------------------------------------
+ * The four free-fall rows are the Mk-82's recipe scaled to their own diameter and mass, one relation
+ * each and no second aerodynamic invention: the deck is NON-DIMENSIONAL (every coefficient multiplies
+ * qbar * Sw), so a bigger body is a bigger Sw and a heavier mass and nothing else.
+ *   RefAreaM2 = 0.235974 * (d/d_mk82)^2,  DragAreaFt2 = 0.366 * (d/d_mk82)^2,  d_mk82 = 10.75 in
+ *   DragCoefA 0.142 unchanged — the Mk-82's own coarse figure, kept because all four fly the same deck
+ * and a second number would be a second invention rather than a second measurement.
+ * ALL FOUR INHERIT THE MK-82 DECK'S DECLARED FIDELITY CAVEAT IN FULL (doc/modules/stores.md Gaps 1):
+ * the delivery error measured against them is fidelity to the MODEL, never to a real release. */
+
+/* AGM-88 HARM — the anti-radiation round, and the whole reason doc/air-to-ground.md exists.
+ * Mass 355 kg / 780 lb, diameter 254 mm, WDU-21/B warhead 66.0 kg: all [T4]. Terminal Mach 1.84
+ * [T2, ED p.34-42] is carried instead of the [T4] Mach 2.9 because the rest of the F-16 reference base
+ * is built from the ED figures and mixing sources inside one deck is worse than being slow.
+ *   dV to Mach 1.84 over a M 0.9 launch at 11 km (a = 295.1 m/s) = 543.0 - 265.6 = 277.4 m/s
+ *   m_p = 353.8*(1 - 1/exp(277.4/2305)) = 40.1 kg, burnout 313.7 kg, burn [SET] 6.0 s
+ *   thrust = 40.1*2305/6.0 = 15 405 N
+ * FuzeRadiusM 5.0 [SET]: the weapon's fuze is a LASER proximity one [T2] and no radius is published;
+ * 5 m is the smallest gate in the tree above the MANPADS rows, chosen because a HARM's lethality is its
+ * fragment pattern on a soft van and not a direct hit, and because the fuze radius is a did-it-detonate
+ * gate while the MASS carries the lethality (doc/weapons.md §6.1).
+ * SeekerFovHalfDeg 40 [SET]: the HAS field-of-view options are documented and their angles are not
+ * [T2]; it must exceed the off-boresight angle a launch can produce, and its measurable consequence is
+ * that a shot taken further off the nose than this never acquires. GimbalHalf is the SAME angle and
+ * that is physics: a wideband passive receiver has no antenna to point.
+ * SeekerMemoryS 4.0 [SET] — the one number in this weapon that decides a shot, and it is logged.
+ * NO Rmax and no ActivationRangeM: RequiresLock is false, so this round has no DLZ at all and its reach
+ * is whatever its own deck produces (doc/weapons.md §4.2). SeekerRangeM 0 for the same reason — a
+ * passive receiver's reach is the EMITTER's gate times the one-way advantage, held by FBRwrSystem. */
+inline constexpr FBStoreSpec kAgm88{
+    FBStoreKind::Agm88, "agm88", "agm88", 780.0, 0.2345, 120.0,
+    /*Guided*/ true, /*RequiresLock*/ false, /*FuzeRadiusM*/ 5.0, /*WarheadKg*/ 66.0,
+    FBWeaponPerf{/*BoostThrustN*/ 15405.0, /*BoostS*/ 6.0,
+                 /*SustainThrustN*/ 0.0, /*SustainS*/ 0.0,
+                 /*LaunchMassKg*/ 353.8, /*BurnoutMassKg*/ 313.7,
+                 /*DragCoefA*/ 0.55, /*RefAreaM2*/ 0.050671,
+                 /*MinSpeedMs*/ 200.0,
+                 /*ActivationRangeM*/ 0.0, /*SeekerRangeM*/ 0.0,
+                 /*ArmingS*/ 1.5},
+    /*Seeker*/ FBSeekerKind::AntiRadiation, /*FovHalf*/ 40.0, /*GimbalHalf*/ 40.0, /*GatherS*/ 0.0,
+    /*SeekerMemoryS*/ 4.0};
+
+/* Mk-84, 2 000 lb GP bomb. MassLbs 2 039 nominal and WarheadKg 428.6 (945 lb Tritonal) [T4],
+ * corroborated by [T2] doc/modules/f16/weapons.md §3. Diameter 18 in, length 151.2 in.
+ * It is worth a factor of 2.2 in lethal radius over the Mk-82 against BOTH fragility classes
+ * (doc/air-to-ground.md §Knowledge 2), which is the entire reason to carry one instead of two. */
+inline constexpr FBStoreSpec kMk84{
+    FBStoreKind::Mk84, "mk84", "mk84", 2039.0, 1.0261, 300.0,
+    /*Guided*/ false, /*RequiresLock*/ false, /*FuzeRadiusM*/ 0.0, /*WarheadKg*/ 428.6,
+    FBWeaponPerf{/*BoostThrustN*/ 0.0, /*BoostS*/ 0.0,
+                 /*SustainThrustN*/ 0.0, /*SustainS*/ 0.0,
+                 /*LaunchMassKg*/ 924.9, /*BurnoutMassKg*/ 924.9,
+                 /*DragCoefA*/ 0.142, /*RefAreaM2*/ 0.661593,
+                 /*MinSpeedMs*/ 0.0,
+                 /*ActivationRangeM*/ 0.0, /*SeekerRangeM*/ 0.0,
+                 /*ArmingS*/ 2.0}};
+
+/* GBU-12 PAVEWAY II — a Mk-82 with a guidance kit, and therefore a SEMI-ACTIVE weapon whose
+ * illuminator is the shooter. WarheadKg is the Mk-82's 87.0 unchanged: an LGB changes NOTHING about
+ * lethality and everything about whether the delivery error is inside it. Mass 610 lb [T4].
+ * DragAreaFt2 0.45 [SET] = the Mk-82's 0.366 plus the kit's canards and strakes.
+ * SeekerFovHalfDeg 15 / GimbalHalf 30 [SET]: no figure is published for either; the consequence is the
+ * point — a release that puts the spot outside the head's field does not acquire. SeekerRangeM 10 000
+ * [SET]: the range at which a reflected spot is detectable, well beyond any release this tree flies.
+ * FuzeRadiusM 0 — it is a bomb: it hits what it lands on. */
+inline constexpr FBStoreSpec kGbu12{
+    FBStoreKind::Gbu12, "gbu12", "gbu12", 610.0, 0.2710, 300.0,
+    /*Guided*/ true, /*RequiresLock*/ false, /*FuzeRadiusM*/ 0.0, /*WarheadKg*/ 87.0,
+    FBWeaponPerf{/*BoostThrustN*/ 0.0, /*BoostS*/ 0.0,
+                 /*SustainThrustN*/ 0.0, /*SustainS*/ 0.0,
+                 /*LaunchMassKg*/ 276.7, /*BurnoutMassKg*/ 276.7,
+                 /*DragCoefA*/ 0.55, /*RefAreaM2*/ 0.058552,
+                 /*MinSpeedMs*/ 0.0,
+                 /*ActivationRangeM*/ 0.0, /*SeekerRangeM*/ 10000.0,
+                 /*ArmingS*/ 2.0},
+    /*Seeker*/ FBSeekerKind::SemiActiveLaser, /*FovHalf*/ 15.0, /*GimbalHalf*/ 30.0};
+
+/* CBU-87/B COMBINED EFFECTS MUNITION — the one store in the tree that is an AREA rather than a point.
+ * SUU-65/B canister 950 lb (430 kg), 202 x BLU-97/B of 1.5 kg [T3]/[T4]; diameter 15.6 in.
+ * Footprint 200 x 400 m [T2 Chuck / T4] against 244 x 122 m [T3 GlobalSecurity] — [DISPUTED], both
+ * carried, and FlightBox takes the LARGER because it is the more conservative reading of the lethality
+ * (a thinner areal density over a bigger rectangle).
+ * WarheadKg is deliberately 0: this store has no point warhead at all, and expressing the submunitions
+ * as one would be the invention. Its whole effect is the areal energy density of §Knowledge 3, and its
+ * weakness is stated there and booked as N3: the verdict against `target_soft` sits 12 % above the
+ * failure threshold, so two [SET] constants of the damage model decide it. */
+inline constexpr FBStoreSpec kCbu87{
+    FBStoreKind::Cbu87, "cbu87", "cbu87", 950.0, 0.7708, 300.0,
+    /*Guided*/ false, /*RequiresLock*/ false, /*FuzeRadiusM*/ 0.0, /*WarheadKg*/ 0.0,
+    FBWeaponPerf{/*BoostThrustN*/ 0.0, /*BoostS*/ 0.0,
+                 /*SustainThrustN*/ 0.0, /*SustainS*/ 0.0,
+                 /*LaunchMassKg*/ 430.9, /*BurnoutMassKg*/ 430.9,
+                 /*DragCoefA*/ 0.142, /*RefAreaM2*/ 0.496881,
+                 /*MinSpeedMs*/ 0.0,
+                 /*ActivationRangeM*/ 0.0, /*SeekerRangeM*/ 0.0,
+                 /*ArmingS*/ 2.0},
+    /*Seeker*/ FBSeekerKind::None, /*FovHalf*/ 0.0, /*GimbalHalf*/ 0.0, /*GatherS*/ 0.0,
+    /*SeekerMemoryS*/ 0.0, /*ReleaseMinKt*/ 0.0, /*ReleaseMaxKt*/ 0.0,
+    /*SubCount*/ 202, /*SubMassKg*/ 1.5, /*FootAlongM*/ 400.0, /*FootAcrossM*/ 200.0};
+
+/* FAB-250 M-62 / FAB-500 M-62 — the Soviet free-fall pair, and the FIRST stores in the tree whose
+ * CARRIAGE refuses a release. Class mass and filling [T3] via doc/modules/mig29/weapons.md §5.1;
+ * FAB-500 2 470 x 400 mm, FAB-250 ~1 500 x 285 mm.
+ * THE RELEASE ENVELOPE 500-1 000 km/h is [T2, DCS-FM p.75] and the MiG-29 reference base already rules
+ * it "a rejectable condition (out_of_context), not a guideline" — 269.98 / 539.96 kt [DERIVED].
+ * CARRIAGE AND BRIEFED RELEASE ONLY: the MiG-29 cannot fly `set task attack` at all (C9 — the real
+ * jet's unguided delivery is a DIRECTOR, not a release cue), so these rows exist and their delivery
+ * mode does not. */
+inline constexpr FBStoreSpec kFab250{
+    FBStoreKind::Fab250, "fab250", "fab250", 551.2, 0.3987, 300.0,
+    /*Guided*/ false, /*RequiresLock*/ false, /*FuzeRadiusM*/ 0.0, /*WarheadKg*/ 100.0,
+    FBWeaponPerf{/*BoostThrustN*/ 0.0, /*BoostS*/ 0.0,
+                 /*SustainThrustN*/ 0.0, /*SustainS*/ 0.0,
+                 /*LaunchMassKg*/ 250.0, /*BurnoutMassKg*/ 250.0,
+                 /*DragCoefA*/ 0.142, /*RefAreaM2*/ 0.257067,
+                 /*MinSpeedMs*/ 0.0,
+                 /*ActivationRangeM*/ 0.0, /*SeekerRangeM*/ 0.0,
+                 /*ArmingS*/ 2.0},
+    /*Seeker*/ FBSeekerKind::None, /*FovHalf*/ 0.0, /*GimbalHalf*/ 0.0, /*GatherS*/ 0.0,
+    /*SeekerMemoryS*/ 0.0, /*ReleaseMinKt*/ 269.98, /*ReleaseMaxKt*/ 539.96};
+
+inline constexpr FBStoreSpec kFab500{
+    FBStoreKind::Fab500, "fab500", "fab500", 1102.3, 0.7854, 300.0,
+    /*Guided*/ false, /*RequiresLock*/ false, /*FuzeRadiusM*/ 0.0, /*WarheadKg*/ 201.0,
+    FBWeaponPerf{/*BoostThrustN*/ 0.0, /*BoostS*/ 0.0,
+                 /*SustainThrustN*/ 0.0, /*SustainS*/ 0.0,
+                 /*LaunchMassKg*/ 500.0, /*BurnoutMassKg*/ 500.0,
+                 /*DragCoefA*/ 0.142, /*RefAreaM2*/ 0.506354,
+                 /*MinSpeedMs*/ 0.0,
+                 /*ActivationRangeM*/ 0.0, /*SeekerRangeM*/ 0.0,
+                 /*ArmingS*/ 2.0},
+    /*Seeker*/ FBSeekerKind::None, /*FovHalf*/ 0.0, /*GimbalHalf*/ 0.0, /*GatherS*/ 0.0,
+    /*SeekerMemoryS*/ 0.0, /*ReleaseMinKt*/ 269.98, /*ReleaseMaxKt*/ 539.96};
+
 inline constexpr const FBStoreSpec *kStoreCatalogue[] = {&kMk82, &kAim120, &kAim9, &kR73, &kR27r,
                                                          &kV750, &kV601, &k3m9, &k9m33, &kStrela2,
-                                                         &kIgla};
+                                                         &kIgla,
+                                                         &kAgm88, &kMk84, &kGbu12, &kCbu87,
+                                                         &kFab250, &kFab500};
 
 inline const FBStoreSpec *FBFindStore(const char *key) {
   if (!key) return nullptr;
@@ -336,11 +534,19 @@ inline const FBStoreSpec *FBStoreSpecOf(FBStoreKind kind) {
   return nullptr;
 }
 
-/* Append only — the ordinal is the mission-visible `set attack_mode` value and a telemetry column. */
-enum class FBDeliveryMode : uint8_t { Ccip = 0, Ccrp };
+/* Append only — the ordinal is the mission-visible `set attack_mode` value and a telemetry column.
+ * `Arm` is not a third ballistic solution: it selects which INSTRUMENT supplies the release cue. The
+ * two bombing modes read the fire control's countdown; this one reads the warning receiver's bearing,
+ * because an anti-radiation shot has no range to count down. doc/air-to-ground.md §7. */
+enum class FBDeliveryMode : uint8_t { Ccip = 0, Ccrp, Arm };
 
 inline const char *FBDeliveryModeStr(FBDeliveryMode m) {
-  return m == FBDeliveryMode::Ccrp ? "ccrp" : "ccip";
+  switch (m) {
+    case FBDeliveryMode::Ccrp: return "ccrp";
+    case FBDeliveryMode::Arm: return "arm";
+    case FBDeliveryMode::Ccip: break;
+  }
+  return "ccip";
 }
 
 /* What an unguided release was aimed with — a RECORD, nothing here steers: the prediction leaves the
@@ -379,6 +585,25 @@ struct FBStoreRelease {
    * pitch = 0, yaw = its mount heading) says nothing about where the launcher points. */
   bool   HaveRail = false;
   double RailPitchDeg = 0.0, RailYawDeg = 0.0;
+  /* THE SEEKER CUE of an anti-radiation round, and it is an ANGLE PAIR rather than a position because
+   * the shooter's own receiver cannot produce one: a bearing and an elevation off the launcher's nose,
+   * plus the class the round was programmed to follow. This is the whole launch programming of that
+   * weapon — there is no Target, because nothing measured one. doc/air-to-ground.md §7. */
+  bool   CueValid = false;
+  double CueAzDeg = 0.0, CueElDeg = 0.0;
+  FBArTargetClass ArClass = FBArTargetClass::AnySurface;
+};
+
+/* WHAT A DESIGNATOR PUTS ON A POINT — published in the shooter's unit signature beside the midcourse
+ * uplink and read by a semi-active LASER round exactly the way that round's radar cousin reads the
+ * uplink. One bool, one point, one stamp, and the designator's own id so a bomb takes the spot of the
+ * ONE unit that released it. The point is the STEERPOINT: mission-author knowledge, the same class as a
+ * `wp` line, and no sensor of any kind. doc/air-to-ground.md §3.2. */
+struct FBLaserDesignation {
+  bool   Active = false;
+  int    DesignatorId = 0;
+  double LatDeg = 0.0, LonDeg = 0.0, ElevM = 0.0;
+  double StampS = 0.0;
 };
 
 } // namespace FlightBox

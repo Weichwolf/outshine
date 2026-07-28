@@ -3,14 +3,14 @@
 namespace FlightBox::Modules {
 
 FBMissileModule::FBMissileModule(const FBStoreSpec &spec) : Spec_(spec) {
-  Guidance_.Bind(Spec_, Seeker_, Ir_);
-  Rwr_.SetPowered(false);   /* a round carries no warning receiver — see the slot accessors */
-  Visual_.SetPowered(false);   /* ...nor eyes */
+  Guidance_.Bind(Spec_, Seeker_, Ir_, Ar_);
+  Visual_.SetPowered(false);   /* a round carries no eyes */
 }
 
 void FBMissileModule::ProgramRelease(const FBStoreRelease &rel) {
   SimTimeS_ = rel.SimTimeS;   /* the round's clock IS mission time, seeded at separation */
   Guidance_.Program(rel.Target, rel.LauncherId, rel.SimTimeS);
+  Guidance_.ProgramCue(rel.CueValid, rel.CueAzDeg, rel.CueElDeg, rel.ArClass);
   Uplink_.SetLauncherId(rel.LauncherId);
 }
 
@@ -36,6 +36,9 @@ void FBMissileModule::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitR
     /* ONE seeker runs, and which one is the catalogue entry's — the other stays dark and publishes
      * nothing, so its block cannot be mistaken for a picture. */
     if (Spec_.Seeker == FBSeekerKind::Infrared) Ir_.Run(State_, st, units, tS);
+    /* The passive head has no frame grid at all — it hears continuously, which is why it is the one
+     * seeker that gets a fresh measurement on every substep. */
+    else if (Spec_.Seeker == FBSeekerKind::AntiRadiation) Ar_.Run(State_, st, units, tS);
     else Seeker_.Run(State_, st, units, tS);   /* its antenna keeps its own frame grid on this clock */
     Guidance_.SetTime(tS);
     Pilot::FBPilotCommands g = Guidance_.Run(State_, Cmds_, Ctrl_, st, Plan_, nullptr, Fdm::FBFdm::kStepS);

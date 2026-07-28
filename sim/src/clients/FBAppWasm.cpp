@@ -215,8 +215,14 @@ static void frame(void) {
   gRosterUnit.clear();
   for (auto &a : gActors)
     if (a->GetKind() != Units::FBUnitKind::Weapon) {
+      /* The radiating bit, off the signature this unit publishes at the barrier — the same
+       * construction the two bits before it use, and the same one FBMissionRunner fills. */
+      bool emitting = false;
+      const Units::FBUnitSignature sig = a->GetSignature();
+      for (int bi = 0; bi < kMaxEmitterBeams; bi++)
+        emitting = emitting || sig.Radar[bi].Mode != FBEmitterMode::None;
       gRoster.push_back({a->GetName().c_str(), a->GetTeam(), a->Health().CombatEffective(),
-                         a->ReleasedWeapon(), std::numeric_limits<double>::infinity()});
+                         a->ReleasedWeapon(), emitting, std::numeric_limits<double>::infinity()});
       gRosterUnit.push_back(a.get());
     }
   FBMissionRoster roster{gRoster.data(), (int)gRoster.size()};

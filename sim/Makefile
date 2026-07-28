@@ -134,6 +134,7 @@ CORE_LIB_SRCS := \
   src/modules/ground/FBSiteModule.cpp src/modules/ground/FBSiteFireControl.cpp \
   src/modules/missile/FBMissileModule.cpp src/modules/missile/FBMissileModuleRegistration.cpp \
   src/modules/missile/FBMissileSeeker.cpp src/modules/missile/FBMissileIrSeeker.cpp \
+  src/modules/missile/FBMissileArSeeker.cpp \
   src/modules/missile/FBMissileGuidance.cpp \
   src/modules/missile/FBMissileUplink.cpp \
   src/modules/f16/displays/FBF16Hud.cpp \

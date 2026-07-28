@@ -94,13 +94,34 @@ bool FBMissionMonitor::HasDeferredObjective() const {
       case FBObjectiveKind::DenyRelease:
       /* A zone can still be entered while the run lasts, so an exposure budget is never banked early —
        * the same argument `no_fire` makes about a trigger that can still be pulled. */
-      case FBObjectiveKind::AvoidZone: return true;
+      case FBObjectiveKind::AvoidZone:
+      /* A position that went quiet can still come back on, so an allowance is never banked early — the
+       * same argument `no_fire` makes about a trigger that can still be pulled. */
+      case FBObjectiveKind::Suppress: return true;
       case FBObjectiveKind::KillUnit:
       case FBObjectiveKind::KillTeam:
       case FBObjectiveKind::Waypoints:
       case FBObjectiveKind::Identify: break;
     }
   return false;
+}
+
+/* THE ACCUMULATOR, and it is what makes a NON-MONOTONE roster bit safe to judge on: how long each named
+ * unit has RADIATED over the run, never a state. Pure bookkeeping, no verdict. */
+void FBMissionMonitor::NoteEmitting(const FBMissionRoster &roster, double dtS) {
+  for (size_t i = 0; i < Objectives_.size(); i++) {
+    const FBObjective &o = Objectives_[i];
+    if (o.Kind != FBObjectiveKind::Suppress) continue;
+    for (int k = 0; k < roster.Count; k++) {
+      if (!FBObjectiveNames(o, roster.Units[k].Id, roster.Units[k].Team)) continue;
+      if (!roster.Units[k].Emitting) continue;
+      bool wasMet = Dwell_[i].DwellS <= o.HoldS;
+      Dwell_[i].DwellS += dtS;
+      if (wasMet && Dwell_[i].DwellS > o.HoldS)
+        FBLog::Info("mission", "SUPPRESSION_LOST", {{"unit", roster.Units[k].Id},
+            {"emittingS", Dwell_[i].DwellS}, {"allowanceS", o.HoldS}});
+    }
+  }
 }
 
 void FBMissionMonitor::NoteIdentify(const FBMissionRoster &roster, double dtS) {
@@ -138,6 +159,16 @@ bool FBMissionMonitor::ObjectivesMet(const FBMissionMonitorSample &s) const {
         for (size_t z = 0; z < Zones_.size(); z++)
           if (Zones_[z].Name == o.TargetId) dwell = Dwell2_[z].DwellS;
         if (dwell > o.HoldS) return false;
+        continue;
+      }
+      /* Judged on the ACCUMULATOR, not on the bit: a position that is quiet right now has not been
+       * suppressed if it radiated for a minute first. A unit nobody named is never met rather than
+       * vacuously so, exactly as the roster-decidable kinds behave. */
+      case FBObjectiveKind::Suppress: {
+        bool named = false;
+        for (int k = 0; k < s.Roster.Count; k++)
+          named = named || FBObjectiveNames(o, s.Roster.Units[k].Id, s.Roster.Units[k].Team);
+        if (!named || Dwell_[i].DwellS > o.HoldS) return false;
         continue;
       }
       case FBObjectiveKind::KillUnit:
@@ -184,6 +215,7 @@ bool FBMissionMonitor::Tick(const FBMissionMonitorSample &s, double simTimeS) {
   if (Concluded()) return false;   /* latched */
 
   NoteIdentify(s.Roster, simTimeS - PrevSimT_);
+  NoteEmitting(s.Roster, simTimeS - PrevSimT_);
   NoteZones(s, simTimeS - PrevSimT_);
   PrevSimT_ = simTimeS;
 
@@ -278,6 +310,12 @@ bool FBMissionMonitor::Finalize(const FBMissionMonitorSample &s, double simTimeS
       !(HasSurviveObjective() && s.CombatIneffective)) {
     std::string d = SuccessDetail(PlanDetail_, !Objectives_.empty());
     if (HasSurviveObjective()) d += ", survived";
+    /* The one kind whose result is worth a line of its own, because the number IS the verdict: how long
+     * the position was allowed to radiate and how long it did. */
+    for (size_t i = 0; i < Objectives_.size(); i++)
+      if (Objectives_[i].Kind == FBObjectiveKind::Suppress)
+        FBLog::Info("mission", "SUPPRESSED", {{"target", FBObjectiveStr(Objectives_[i])},
+            {"emittingS", Dwell_[i].DwellS}, {"allowanceS", Objectives_[i].HoldS}});
     return Conclude(FBMissionVerdict::Success, d);
   }
   return Conclude(FBMissionVerdict::Timeout, "sim time exceeded the mission timeout");

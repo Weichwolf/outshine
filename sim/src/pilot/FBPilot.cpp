@@ -1185,10 +1185,55 @@ FBPilotCommands FBPilot::AttackCommands(const FBState &state, FBCommandBus &avio
    * Instrumentenwert — bis dahin faellt oben die Anflugbahn heraus, unveraendert. */
   if (AtkPickled_) {
     const FBStoresBlock &sms = state.Stores;
+    /* DIE BINDUNG AN DIE EIGENE LENKBOMBE, und sie ist EIN Instrumentenwert: solange der eigene SMS
+     * meldet, dass er einen Punkt beleuchtet, wird der Anflug GEHALTEN — die Ausweichkurve naehme dem
+     * Sucher den Fleck, was die reale Einsatzbedingung dieser Waffe ist. Ein Jet, der keine
+     * halbaktive Laserrunde geworfen hat, liest hier false und dreht wie bisher.
+     * doc/air-to-ground.md §3.2. */
+    if (sms.H.Readable() && sms.Designating) return c;
     if (!sms.H.Readable() || sms.ReleasedCount > AtkReleasedSeen_) {
       AtkReleased_ = true;                        /* kein Zaehler mehr = der Pass ist trotzdem vorbei */
       StartAttackEgress(state, st);
     }
+    return c;
+  }
+
+  /* DER ANTIRADIATIONS-CUE, und er ist die einzige Zeile, die dieser Pass fuer die neue Waffe braucht:
+   * kein Countdown, weil es keine Entfernung gibt, sondern eine PEILUNG im Sucherkegel. Gelesen wird
+   * der RWR-BLOCK wie jedes andere Instrument — der Pilot erfaehrt keine Entfernung, weil es keine zu
+   * erfahren gibt. doc/air-to-ground.md §7. */
+  if (AtkMode_ == FBDeliveryMode::Arm) {
+    const FBRwrBlock &rwr = state.Rwr;
+    if (!rwr.H.Readable()) return c;
+    const FBRwrThreat *cue = nullptr;
+    for (int i = 0; i < rwr.ThreatCount && !cue; i++) {
+      FBEmitterKind k = rwr.Threats[i].Kind;
+      bool ok = AtkArmClass_ == FBArTargetClass::AnySurface
+                    ? (k == FBEmitterKind::SurfaceFireControl || k == FBEmitterKind::SurfaceEarlyWarning)
+                : AtkArmClass_ == FBArTargetClass::SurfaceFireControl
+                    ? k == FBEmitterKind::SurfaceFireControl
+                    : k == FBEmitterKind::SurfaceEarlyWarning;
+      if (ok) cue = &rwr.Threats[i];
+    }
+    if (!cue) return c;
+    /* Der Sucherkegel der Runde, gefragt am SCHUETZEN: ein Schuss weiter von der Nase weg als das
+     * erfasst nach der Trennung nichts. Der Wert ist die des gewaehlten Stores. */
+    const FBStoreSpec *sel = state.Stores.H.Readable() && state.Stores.SelectedStation > 0
+                                 ? FBStoreSpecOf((FBStoreKind)state.Stores
+                                        .Station[state.Stores.SelectedStation - 1])
+                                 : nullptr;
+    double fovDeg = sel && sel->SeekerFovHalfDeg > 0.0 ? sel->SeekerFovHalfDeg : 0.0;
+    if (fovDeg > 0.0 && std::fabs((double)cue->BearingDeg) > fovDeg) return c;
+    FBCommandAck ra = avionics.Post(FBCommandTarget::WeaponRelease, 1.0, TimeS_);
+    FBLog::Info("pilot", "ATTACK_RELEASE", {{"mode", FBDeliveryModeStr(AtkMode_)},
+        {"accepted", ra.Outcome != FBCommandOutcome::Rejected},
+        {"class", FBArTargetClassStr(AtkArmClass_)}, {"kind", FBEmitterKindStr(cue->Kind)},
+        {"brgDeg", (double)cue->BearingDeg}, {"elDeg", (double)cue->ElDeg},
+        {"signal", (double)cue->SignalNorm}, {"fovDeg", fovDeg},
+        {"altM", st.elev}, {"gsMs", st.gs}});
+    AtkPickled_ = true;
+    AtkReleasedSeen_ = state.Stores.H.Readable() ? state.Stores.ReleasedCount : -1;
+    if (ra.Outcome == FBCommandOutcome::Rejected) { AtkReleased_ = true; StartAttackEgress(state, st); }
     return c;
   }
 

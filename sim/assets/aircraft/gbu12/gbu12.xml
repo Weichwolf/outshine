@@ -1,0 +1,386 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="http://jsbsim.sourceforge.net/JSBSim.xsl"?>
+<!--
+  FlightBox — GBU-12 PAVEWAY II, a FlightBox-OWN JSBSim model. It flies the SLENDER-BODY deck this
+  tree's AIM-120/V-750/AGM-88 models share and NOT the Mk-82's, and that choice is the whole file: the
+  Mk-82 deck describes an uncontrolled falling body and has no control axes and no roll damping at all,
+  so a guidance kit bolted onto it would command fins that do nothing. This deck is non-dimensional,
+  describes a finned cylinder WITH control surfaces, and is exactly what a Paveway is.
+
+  ===========================================================================================
+  PROVENANCE.
+    610 lb loaded, length 3.28 m   [T4] Wikipedia, GBU-12 Paveway II
+    body = a Mk-82: diameter 10.75 in, and the SAME 87 kg warhead — an LGB changes nothing about
+      lethality and everything about whether the delivery error is inside it
+    Paveway II CEP ~6 m [T4] against 9 m for the GBU-10 [T4]  [DISPUTED], both carried, and NEITHER
+      is a setting here: the miss is whatever the law produces, measured against that band
+    everything else  [DERIVED] by the formula stated where it is used, or [SET] with its reason
+  ===========================================================================================
+
+  GEOMETRY, non-dimensionalised against the BODY cross-section:
+    S = pi*d^2/4 = pi*0.27305^2/4 = 0.058552 m^2 = 0.630247 ft^2   [DERIVED]
+    chord := d = 0.8958 ft; wingspan := 2.6*d = 2.3292 ft [SET, the shared fin proportion]
+    length 3.28 m = 129 in
+    Iyy = Izz = 0.84*m*L^2/12 = 153.37 slug*ft^2 [DERIVED]
+    Ixx = m*r^2/2 = 1.9019 slug*ft^2 [DERIVED]
+    CG at mid-body, station 64.5 in [SET].
+
+  THE CONTROL GROUP, and it is deliberately WEAKER than any missile in this tree:
+    CN_de 1.0 [SET] against a missile fin's 1.2, for a canard set on a bomb;
+    arm = (64.5 - 20) in / 10.75 in of chord = 4.14  ->  Cm_de = -1.0 * 4.14 = -4.14 [DERIVED]
+    Cm_alpha = -3.10 [DERIVED] so full canard (15 deg) trims at alpha = 4.14*0.2618/3.10 = 0.35 rad,
+      and the deck's own CN(alpha) there gives CN = 9*0.35 + 10*0.35^2 + 1.0*0.2618 = 4.64,
+      i.e. lift = 4.64 * qbar * S = 2.6 g at a 220 m/s arrival [DERIVED].
+  THAT NUMBER IS THE POINT: a Paveway pulls under 3 g, so it CHASES the spot instead of leading it and
+  pays for the chase in energy — which is why the ED text warns that speed lost in the ballistic phase
+  "directly reduces terminal maneuverability", and why a release attitude is a real property of an LGB
+  shot. Giving it a missile's authority would produce a better weapon than the real one
+  (doc/air-to-ground.md §Knowledge 4).
+
+  THE ACTUATOR IS BANG-BANG and its lag says so: c1 = 20 1/s (~50 ms) [SET] against a missile fin's
+  60 1/s, for a pneumatic control group that has two positions and no third.
+-->
+<fdm_config name="GBU-12" version="2.0" release="ALPHA"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="http://jsbsim.sourceforge.net/JSBSim.xsd">
+
+  <fileheader>
+    <author> FlightBox </author>
+    <filecreationdate> 2026-07-28 </filecreationdate>
+    <version> 1.0 </version>
+    <description> GBU-12 Paveway II — FlightBox's own model </description>
+    <note>
+      Built from public geometry and mass figures plus the slender-body aerodynamic set this tree's
+      AIM-120 model derives and documents; it is not derived from, and contains nothing out of, any
+      restricted source. Per-number provenance in the banner above.
+    </note>
+  </fileheader>
+
+  <metrics>
+    <wingarea  unit="FT2"> 0.630247 </wingarea>
+    <wingspan  unit="FT">  2.3292  </wingspan>
+    <chord     unit="FT">  0.8958 </chord>
+    <htailarea unit="FT2"> 0 </htailarea>
+    <htailarm  unit="FT">  0 </htailarm>
+    <vtailarea unit="FT2"> 0 </vtailarea>
+    <vtailarm  unit="FT">  0 </vtailarm>
+    <location name="AERORP" unit="IN">
+      <x> 64.5 </x>
+      <y> 0 </y>
+      <z> 0 </z>
+    </location>
+    <location name="VRP" unit="IN">
+      <x> 64.5 </x>
+      <y> 0 </y>
+      <z> 0 </z>
+    </location>
+  </metrics>
+
+  <mass_balance>
+    <ixx unit="SLUG*FT2">      1.9019 </ixx>
+    <iyy unit="SLUG*FT2">    153.37 </iyy>
+    <izz unit="SLUG*FT2">    153.37 </izz>
+    <emptywt unit="LBS">     610.0 </emptywt>
+    <location name="CG" unit="IN">
+      <x> 64.5 </x>
+      <y> 0 </y>
+      <z> 0 </z>
+    </location>
+  </mass_balance>
+
+  <!-- Present so the model is complete, not so they fire: a weapon in flight is given no ground to
+       collide with by its owner (units/FBSimUnit's kWeaponNoGroundElevM). -->
+  <ground_reactions>
+    <contact type="STRUCTURE" name="NOSE_CONTACT">
+      <location unit="IN"> <x> 0 </x> <y> 0 </y> <z> 0 </z> </location>
+      <static_friction>  0 </static_friction>
+      <dynamic_friction> 0 </dynamic_friction>
+      <rolling_friction> 0 </rolling_friction>
+      <spring_coeff  unit="LBS/FT">      10000 </spring_coeff>
+      <damping_coeff unit="LBS/FT/SEC">  20000 </damping_coeff>
+      <max_steer unit="DEG"> 0.0 </max_steer>
+      <brake_group> NONE </brake_group>
+      <retractable> 0 </retractable>
+    </contact>
+    <contact type="STRUCTURE" name="TAIL_CONTACT">
+      <location unit="IN"> <x> 129 </x> <y> 0 </y> <z> 0 </z> </location>
+      <static_friction>  0 </static_friction>
+      <dynamic_friction> 0 </dynamic_friction>
+      <rolling_friction> 0 </rolling_friction>
+      <spring_coeff  unit="LBS/FT">      10000 </spring_coeff>
+      <damping_coeff unit="LBS/FT/SEC">  20000 </damping_coeff>
+      <max_steer unit="DEG"> 0.0 </max_steer>
+      <brake_group> NONE </brake_group>
+      <retractable> 0 </retractable>
+    </contact>
+  </ground_reactions>
+
+  <!-- A BOMB HAS NO MOTOR. The section is present so the model is complete. -->
+  <propulsion>
+  </propulsion>
+
+  <flight_control name="FCS: GBU-12 canards">
+    <channel name="Pitch">
+      <lag_filter name="fcs/elevator-actuator">
+        <input> fcs/elevator-cmd-norm </input>
+        <c1> 20.0 </c1>
+        <clipto> <min> -1.0 </min> <max> 1.0 </max> </clipto>
+      </lag_filter>
+      <aerosurface_scale name="fcs/elevator-scale">
+        <input> fcs/elevator-actuator </input>
+        <range> <min> -0.2618 </min> <max> 0.2618 </max> </range>
+        <output> fcs/elevator-pos-rad </output>
+      </aerosurface_scale>
+    </channel>
+    <channel name="Yaw">
+      <lag_filter name="fcs/rudder-actuator">
+        <input> fcs/rudder-cmd-norm </input>
+        <c1> 20.0 </c1>
+        <clipto> <min> -1.0 </min> <max> 1.0 </max> </clipto>
+      </lag_filter>
+      <aerosurface_scale name="fcs/rudder-scale">
+        <input> fcs/rudder-actuator </input>
+        <range> <min> -0.2618 </min> <max> 0.2618 </max> </range>
+        <output> fcs/rudder-pos-rad </output>
+      </aerosurface_scale>
+    </channel>
+    <channel name="Roll">
+      <lag_filter name="fcs/aileron-actuator">
+        <input> fcs/aileron-cmd-norm </input>
+        <c1> 20.0 </c1>
+        <clipto> <min> -1.0 </min> <max> 1.0 </max> </clipto>
+      </lag_filter>
+      <aerosurface_scale name="fcs/aileron-scale">
+        <input> fcs/aileron-actuator </input>
+        <range> <min> -0.2618 </min> <max> 0.2618 </max> </range>
+        <output> fcs/left-aileron-pos-rad </output>
+      </aerosurface_scale>
+    </channel>
+  </flight_control>
+
+  <aerodynamics>
+
+    <axis name="AXIAL">
+      <function name="aero/coefficient/CA">
+        <description> Axial force (zero lift) </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <table>
+            <independentVar> velocities/mach </independentVar>
+            <tableData>
+              0.0000  0.400
+              0.6000  0.410
+              0.8000  0.430
+              0.9000  0.470
+              0.9500  0.550
+              1.0500  0.820
+              1.2000  0.840
+              1.5000  0.780
+              2.0000  0.680
+              2.5000  0.600
+              3.0000  0.550
+              4.0000  0.470
+              5.0000  0.440
+            </tableData>
+          </table>
+        </product>
+      </function>
+      <function name="aero/coefficient/CA_alpha">
+        <description> Axial force due to angle of attack </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <value> 0.9 </value>
+          <property> aero/alpha-rad </property>
+          <property> aero/alpha-rad </property>
+        </product>
+      </function>
+    </axis>
+
+    <axis name="NORMAL">
+      <function name="aero/coefficient/CN_alpha">
+        <description> Normal force due to angle of attack </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <property> aero/alpha-rad </property>
+          <table>
+            <independentVar> velocities/mach </independentVar>
+            <tableData>
+              0.0000   9.00
+              0.8000   9.20
+              1.0500  11.00
+              1.2000  11.50
+              1.5000  10.50
+              2.0000   9.50
+              2.5000   8.80
+              3.0000   8.20
+              4.0000   7.40
+              5.0000   7.00
+            </tableData>
+          </table>
+        </product>
+      </function>
+      <function name="aero/coefficient/CN_alpha2">
+        <description> Normal force, crossflow (nonlinear in alpha) </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <value> 10.0 </value>
+          <property> aero/alpha-rad </property>
+          <abs> <property> aero/alpha-rad </property> </abs>
+        </product>
+      </function>
+      <function name="aero/coefficient/CN_de">
+        <description> Normal force due to pitch fin deflection </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <value> 1.0 </value>
+          <property> fcs/elevator-pos-rad </property>
+        </product>
+      </function>
+    </axis>
+
+    <axis name="SIDE">
+      <function name="aero/coefficient/CY_beta">
+        <description> Side force due to sideslip </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <property> aero/beta-rad </property>
+          <value> -1.0 </value>
+          <table>
+            <independentVar> velocities/mach </independentVar>
+            <tableData>
+              0.0000   9.00
+              0.8000   9.20
+              1.0500  11.00
+              1.2000  11.50
+              1.5000  10.50
+              2.0000   9.50
+              2.5000   8.80
+              3.0000   8.20
+              4.0000   7.40
+              5.0000   7.00
+            </tableData>
+          </table>
+        </product>
+      </function>
+      <function name="aero/coefficient/CY_beta2">
+        <description> Side force, crossflow (nonlinear in beta) </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <value> -10.0 </value>
+          <property> aero/beta-rad </property>
+          <abs> <property> aero/beta-rad </property> </abs>
+        </product>
+      </function>
+      <function name="aero/coefficient/CY_dr">
+        <description> Side force due to yaw fin deflection </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <value> -1.0 </value>
+          <property> fcs/rudder-pos-rad </property>
+        </product>
+      </function>
+    </axis>
+
+    <axis name="PITCH">
+      <function name="aero/coefficient/Cm_alpha">
+        <description> Pitch moment due to angle of attack </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <property> metrics/cbarw-ft </property>
+          <property> aero/alpha-rad </property>
+          <value> -3.10 </value>
+        </product>
+      </function>
+      <function name="aero/coefficient/Cm_q">
+        <description> Pitch moment due to pitch rate </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <property> metrics/cbarw-ft </property>
+          <property> aero/ci2vel </property>
+          <property> velocities/q-aero-rad_sec </property>
+          <value> -500.0 </value>
+        </product>
+      </function>
+      <function name="aero/coefficient/Cm_de">
+        <description> Pitch moment due to pitch fin deflection </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <property> metrics/cbarw-ft </property>
+          <property> fcs/elevator-pos-rad </property>
+          <value> -4.14 </value>
+        </product>
+      </function>
+    </axis>
+
+    <axis name="YAW">
+      <function name="aero/coefficient/Cn_beta">
+        <description> Yaw moment due to sideslip </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <property> metrics/cbarw-ft </property>
+          <property> aero/beta-rad </property>
+          <value> 3.10 </value>
+        </product>
+      </function>
+      <function name="aero/coefficient/Cn_r">
+        <description> Yaw moment due to yaw rate </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <property> metrics/cbarw-ft </property>
+          <property> aero/ci2vel </property>
+          <property> velocities/r-aero-rad_sec </property>
+          <value> -500.0 </value>
+        </product>
+      </function>
+      <function name="aero/coefficient/Cn_dr">
+        <description> Yaw moment due to yaw fin deflection </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <property> metrics/cbarw-ft </property>
+          <property> fcs/rudder-pos-rad </property>
+          <value> 4.14 </value>
+        </product>
+      </function>
+    </axis>
+
+    <axis name="ROLL">
+      <function name="aero/coefficient/Cl_p">
+        <description> Roll moment due to roll rate </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <property> metrics/bw-ft </property>
+          <property> aero/bi2vel </property>
+          <property> velocities/p-aero-rad_sec </property>
+          <value> -12.0 </value>
+        </product>
+      </function>
+      <function name="aero/coefficient/Cl_da">
+        <description> Roll moment due to roll fin deflection </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <property> metrics/bw-ft </property>
+          <property> fcs/left-aileron-pos-rad </property>
+          <value> 0.05 </value>
+        </product>
+      </function>
+    </axis>
+
+  </aerodynamics>
+
+</fdm_config>

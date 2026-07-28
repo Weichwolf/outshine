@@ -993,3 +993,44 @@ Verworfen mit Messung: die Einweisung als DETEKTIONS-Vorteil ist in diesem Baum 
 Terrainmaskierung (`C4`) findet ein 50-km-Suchset alles innerhalb von 50 km, gleich welches
 Elevationsfenster — was der Cue messbar wert ist, ist das AUFWECKEN einer stummen Stellung und die
 Feuerleitautorität, also Doktrin statt Detektion. Steht so in `## Gaps`.
+
+## 2026-07-28 — Die Luft-Boden-Hälfte: eine Waffe, die auf Sender zielt, und ein Gegner, der abschalten kann
+
+`C8` (ohne Raketenpod), `C26` und `C27` geschlossen; `C25` unberührt. Sechs Stores fliegen — `agm88`
+`mk84` `gbu12` `cbu87` `fab250` `fab500` —, zwei neue `FBSeekerKind`-Werte, die Abwurfhülle als
+Prüfung 8, `objective suppress`, `set emcon react`, `set attack_mode arm`. Der Antiradiationssucher IST
+der Warnempfänger (`FBMissileArSeeker : FBRwrSystem`, zwei bestehende Hooks, **kein neuer Include**):
+`verify-layers` meldet unverändert *6 registry reader(s) inside the perception boundary*. Alle 113
+übrigen Missionen byte-identisch, Telemetrie UND `events.log`, über `--threads 1/2/4`.
+
+**Abschalten hilft, und die Grenze ist gemessen statt gesetzt.** Das Gedächtnis ist eine RATE: nach dem
+letzten Empfang wird die gemessene Sichtlinienrate 4 s gehalten, dann null — die Proportionalnavigation
+befiehlt seitlich nichts mehr, die Schwerkraftvorspannung überlebt, der Ausrollflug ist gerade. Die
+Entkommensgrenze bei 20 km liegt gemessen bei **85,0 %** der Flugzeit (5°-Schuss) und **88,1 %**
+(35°-Schuss) — vorhergesagt waren 61 % und 76 %. Die QUALITATIVE Vorhersage hält exakt: der Frontalschuss
+ist der schwer zu entkommende, und das fällt aus der Geometrie. Die quantitative ist zugunsten des
+Angreifers optimistisch, aus drei benannten Gründen: `ZEM(0)` in der Spec ist nur die seitliche Hälfte
+(die 11,3°-Depression trägt 3,9 km), der Abfall ist gemessen `(t_go/t_f)^2.3` statt `^4` auf einer
+verzögernden Runde, und das Gedächtnis verschiebt die Grenze um +6,4 pp. Nicht angeglichen, gemeldet.
+
+**Die Bruch-Vorhersage für `B1` war zweifach falsch.** Nicht zwei `events.log` ändern sich, sondern
+fünf (dazu `deny-release-broken` `escort-protect` `escort-protect-lost` — genau der Fall, den die Spec
+in ihrem eigenen Restrisiko-Absatz nannte: der RWR der F-16 ist per Default an), und fünfzehn
+Telemetriedateien in acht Missionen bewegen zwei Spalten, die die Vorhersage gar nicht bedacht hatte:
+`fcr_on` und `iff_xpdr` des SENDERS über sich selbst. Kein Verhalten ändert sich irgendwo — jeder Diff
+ist eine reine Löschung von Phantomzeilen. Und `net-blind-cue`s `set alert cold` war KEINE Umgehung:
+ohne die Zeile bekommt die Batterie einen festen Track und die Datei verliert die Null, die sie zeigen
+soll. Kommentar korrigiert, Vorhersage zurückgezogen.
+
+Zwei weitere Funde. `msl_sig` (Spec §9) und Byte-Identität (Spec §10, Kriterium 2) schließen einander
+aus — `msl_*` ist nicht die letzte Quelle am Bus einer Runde, eine Spalte dort verschiebt 95 gemessene
+Dateien; die Anhänge-Regel gewinnt, die Zahl steht in `rwr_leth` und in den Ereignissen. Und ein F-16
+mit bugfestem Bezeichner kann eine Lenkbombe aus einem waagerechten Anflug **nie** bis zum Einschlag
+beleuchten: eine antriebslose Bombe legt Boden mit `v·cos θ` zurück, der Jet mit `v`, also ist er immer
+zuerst da. Bei 250 kt/4 000 m hält er den Fleck durch und die Bombe trifft auf 3,9 m — bei 450 kt
+verliert er ihn 5,7 s vorher und liegt 229 m kurz. Steht als F4 in `## Gaps`.
+
+Nicht gebaut und benannt: der Raketenpod (`hydra70`/`s8`, Design C) und die Luft-Boden-Entfernungs-
+messung (`C25`). Ein Schlagzeug, das die Spec noch nicht hatte: `set emcon` nimmt jetzt einen
+gebrieften Emissionsplan (`free <offS> [<onS>]`) — ein Wert an einem bestehenden Schlüssel, sonst ist
+das Entkommensfenster nicht messbar, weil `scoot_s` einen Start und `react` einen Treffer braucht.

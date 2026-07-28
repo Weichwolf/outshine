@@ -1,7 +1,9 @@
 #include "FBStoresSystem.h"
+#include "FBGeodesy.h"
 #include "FBLog.h"
 #include "FBUnits.h"
 #include <cassert>
+#include <cmath>
 
 namespace FlightBox::Weapons {
 
@@ -134,6 +136,18 @@ bool FBStoresSystem::Release(double nowS, FBCommandOutcome &outcome, FBCommandRe
                     ZoneRangeM_ > ZoneMaxM_ ? "target beyond Raero" : "target inside Rmin");
     }
   }
+  /* PRUEFUNG 8 — die Huelle des STORES, und sie steht NACH den zwei Hardware-Verriegelungen und nach
+   * der Antwort der Feuerleitung, weil sie eine Eigenschaft der WAFFE ist und nicht der Zelle und nicht
+   * des Rechners. Eine Zeile mit Min = Max = 0 kennt keine Huelle, also aendert diese Pruefung fuer
+   * jede vor ihr geschriebene Katalogzeile nichts. doc/air-to-ground.md §3.4. */
+  if (rspec && (rspec->ReleaseMinKt > 0.0 || rspec->ReleaseMaxKt > 0.0)) {
+    if ((rspec->ReleaseMinKt > 0.0 && CasKt_ < rspec->ReleaseMinKt) ||
+        (rspec->ReleaseMaxKt > 0.0 && CasKt_ > rspec->ReleaseMaxKt)) {
+      FBLog::Warn("sms", "RELEASE_ENVELOPE", {{"store", rspec->Key}, {"casKt", CasKt_},
+          {"minKt", rspec->ReleaseMinKt}, {"maxKt", rspec->ReleaseMaxKt}});
+      return refuse(FBCommandReason::OutOfContext, "store release envelope");
+    }
+  }
 
   Station &s = Stations_[i];
   FBStoreRelease &rel = Pending_[PendingCount_++];
@@ -157,8 +171,26 @@ bool FBStoresSystem::Release(double nowS, FBCommandOutcome &outcome, FBCommandRe
     rel.LauncherId = SelfId_;
     rel.Target = Target_;
     GuidedInFlight_++;
-  } else {
-    rel.Solution = Solution_;
+  }
+  /* Die Abwurfloesung reist mit JEDER Runde, die eine hat: fuer die ungelenkte ist sie die Vorhersage,
+   * gegen die der Aufschlag gemessen wird, fuer die LENKBOMBE zusaetzlich der Punkt, den der Schuetze
+   * ab jetzt beleuchtet. Fuer jede Luft-Luft-Runde ist sie ungueltig (SolveGroundAttack loest fuer sie
+   * nicht), also aendert die Verallgemeinerung nichts an einer bestehenden Zeile. */
+  rel.Solution = Solution_;
+  if (rspec && rspec->Seeker == FBSeekerKind::AntiRadiation) {
+    rel.CueValid = CueValid_;
+    rel.CueAzDeg = CueAzDeg_;
+    rel.CueElDeg = CueElDeg_;
+    rel.ArClass = ArClass_;
+  }
+  /* DER SCHUETZE BINDET SICH: ab hier beleuchtet er den Punkt, gegen den er ausgeloest hat, bis seine
+   * Besatzung aufhoert oder die Geometrie es ihm nimmt. */
+  if (rspec && rspec->Seeker == FBSeekerKind::SemiActiveLaser && Solution_.Valid) {
+    LaserInFlight_++;
+    HaveSpot_ = true;
+    SpotLatDeg_ = Solution_.AimLatDeg;
+    SpotLonDeg_ = Solution_.AimLonDeg;
+    SpotElevM_ = Solution_.ImpactElevM;
   }
 
   /* Das Gewicht VOR dem Wirksamwerden: FGMassBalance summiert die Punktmassen in seinem eigenen Run, das
@@ -211,6 +243,9 @@ void FBStoresSystem::Run(FBState &state, double dt) {
   /* Ein unpublizierter Airframe-Block laesst den letzten bekannten Wert stehen, statt „in der Luft" zu
    * erfinden. */
   if (state.Airframe.H.Readable()) Wow_ = state.Airframe.WeightOnWheels;
+  /* Die Fahrt fuer die Huellenpruefung, aus derselben Quelle gecached und aus demselben Grund: Release()
+   * kommt zwischen zwei Ticks vom Bus und darf nicht selbst nach dem Bus greifen. */
+  if (state.AirData.H.Readable()) CasKt_ = state.AirData.CasKt;
 
   /* Die Antwort der Feuerleitung, fuer den Pickle gecached (der zwischen zwei Ticks vom Bus kommt). */
   RadarLocked_ = state.Radar.H.Readable() && state.Radar.LockIndex >= 0;
@@ -232,7 +267,28 @@ void FBStoresSystem::Run(FBState &state, double dt) {
   Uplink_.Active = GuidedInFlight_ > 0 && Target_.Valid;
   Uplink_.LauncherId = SelfId_;
   Uplink_.Target = Target_;
+
+  /* ---- DIE BELEUCHTUNG, in derselben Form wie der Uplink darueber und aus demselben Grund: ein
+   * publizierter ZUSTAND, den der Empfaenger liest, keine Nachricht, die jemand zustellt. Drei
+   * Bedingungen, und alle drei sind Tatsachen ueber den SCHUETZEN — dass eine Runde unterwegs ist, was
+   * seine Besatzung geschaltet hat, und wohin sein Bug zeigt. ---- */
+  bool crewLasing = LaseOffS_ <= 0.0 || state.NowS < LaseOffS_ ||
+                    (LaseOnS_ > 0.0 && state.NowS >= LaseOnS_);
+  bool inField = true;
+  if (HaveSpot_) {
+    double brg = FBBearingDeg(OwnLatDeg_, OwnLonDeg_, SpotLatDeg_, SpotLonDeg_);
+    inField = std::fabs(FBWrap180(brg - OwnYawDeg_)) <= kDesignatorHalfDeg;
+  }
+  Designation_ = FBLaserDesignation{};
+  Designation_.Active = LaserInFlight_ > 0 && HaveSpot_ && crewLasing && inField;
+  Designation_.DesignatorId = SelfId_;
+  Designation_.LatDeg = SpotLatDeg_;
+  Designation_.LonDeg = SpotLonDeg_;
+  Designation_.ElevM = SpotElevM_;
+  Designation_.StampS = state.NowS;
+
   FBStoresBlock &b = state.Stores;
+  b.Designating = Designation_.Active;
   b.Arm = Arm_;
   b.StationCount = Count_;
   b.SelectedStation = Selected_;

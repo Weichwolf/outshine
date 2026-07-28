@@ -84,6 +84,11 @@ public:
    * one writer. */
   void Bind(const FBSiteSpec &spec, const FBState &trackBus);
 
+  /* WHAT THIS POSITION'S OWN REGISTER SAYS ABOUT ITSELF — the module reads its health (it may; every
+   * mutator is private to the damage model) and hands the ONE number `react` needs across. A machine
+   * that reached for a health register itself would be a machine reading state instead of instruments. */
+  void NoteOwnHits(int hits) { Hits_ = hits; }
+
   /* The six mission keys of doc/modules/ground/module.md §Spec 9, each already validated by the module. */
   /* Both applied in the spawn IC window, before the first Run(), so they set the state the position
    * BOOTS in rather than a flag something later has to interpret. */
@@ -91,6 +96,22 @@ public:
     EmconHold_ = on;
     if (State_ != State::Cold) State_ = on ? State::Dark : State::Search;
   }
+  /* THE THIRD VALUE of `set emcon`, and it adds no seventh author-facing key: `react` behaves exactly
+   * as `free` and goes dark for ScootS the moment this position's OWN health register reports a change.
+   * A crew reacting to its own damage reads no sensor and leaks nothing — and it is the only cue for
+   * "we are under attack" this tree can honestly give it, because the round that is attacking radiates
+   * nothing and there is no missile-warning channel. THE LIMIT IS STATED WHERE IT BITES: the crew
+   * reacts AFTER the round arrives, so FlightBox's anti-radiation weapon is more lethal than history
+   * against an attentive crew. doc/air-to-ground.md §5.1. */
+  void SetEmconReact(bool on) { EmconReact_ = on; }
+  /* THE CREW'S BRIEFED EMISSION PLAN, and it is a VALUE on the same key rather than a seventh one: the
+   * position goes off the air at `offS` and (optionally) back on at `onS`, mission-elapsed seconds. It
+   * is doctrine written down before the run — the same class of statement `emcon hold` already is, and
+   * the same class an aircraft's `brief_*` lines are — and it reads nothing. It exists because the
+   * escape window doc/air-to-ground.md §2.2 is built on is CONTINUOUS in the shutdown time, and there
+   * is no other way to put a measurement on it: `scoot_s` needs a launch and `react` needs a hit, so
+   * neither can be placed. 0 = no plan, which is every position written before this. */
+  void SetEmconPlan(double offS, double onS) { EmconOffS_ = offS; EmconOnS_ = onS; }
   void SetColdStart(bool on) { if (on) State_ = State::Cold; }
   void SetRounds(int n) { Rounds_ = n < 0 ? 0 : n; RailsLeft_ = RailsAtMost(); }
   void SetEngageMaxM(double m) { EngageMaxM_ = m; }
@@ -163,6 +184,9 @@ private:
 
   State State_ = State::Search;
   bool   EmconHold_ = false;
+  bool   EmconReact_ = false;
+  double EmconOffS_ = 0.0, EmconOnS_ = 0.0;
+  int    SeenHits_ = -1;               /* the health register's own counter, to notice a NEW hit */
   double EngageMaxM_ = 0.0;             /* 0 = the row's own Rmax; a mission may only clamp DOWN */
   double ReactionS_ = -1.0;             /* < 0 = the row's own */
   double ScootS_ = 0.0;
@@ -223,6 +247,7 @@ private:
   int   TrackCount_ = 0, Beam0_ = 0, Beam1_ = 0, Launches_ = 0;
   bool  Lock_ = false, Cue_ = false;
   double EngagedS_ = 0.0;
+  int    Hits_ = 0;
 };
 
 } // namespace FlightBox::Modules

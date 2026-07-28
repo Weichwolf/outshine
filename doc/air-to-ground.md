@@ -5,7 +5,7 @@ transmitter, the five other stores that decide a strike, what a fighter radar ho
 the difference between *suppressed* and *destroyed*, and the one pre-existing defect that has to die
 first.
 
-**Status: SPECIFIED, NOT BUILT.** No line of `sim/` was touched to write this file.
+**Status: BUILT 2026-07-28, except §3.5 (the rocket pod) and §4 (air-to-ground ranging).**
 
 **Delimitation, and it is the whole reason this file exists separately.**
 [`modules/ground/module.md`](modules/ground/module.md) specifies the position and
@@ -478,9 +478,33 @@ the committed missions:
 | `net-blind-cue.fbm` | the same lines for `ew`, **and** the `sam` (SA-6) loses the cue it currently gets from the bomb. Its `site_cue`/`site_state` columns move | **possibly yes**, and the mission says so itself: line 67 reads `set alert cold  # 60 s of warm-up: blind while the bomb is on its way` — a workaround written *for this defect*. After the fix the workaround is unnecessary; the comment is wrong and must be corrected in the same commit, or the file lies about why it is shaped the way it is |
 | every other mission | **unchanged, byte for byte** | — |
 
-**The prediction is itself the acceptance criterion.** The regression gate runs 336 telemetry files and
-112 event logs; after this fix, **exactly two** logs may differ and **zero** telemetry files outside those
-two missions may. A third difference anywhere is a finding, not a tolerance.
+**The prediction is itself the acceptance criterion — and it was WRONG, in two independent directions.**
+Measured (2026-07-28, the fix applied alone, nothing else changed):
+
+| | Predicted | Measured |
+|---|---|---|
+| `events.log` files that differ | **2** (`sam-radar-kill`, `net-blind-cue`) | **5**: those two plus `deny-release-broken`, `escort-protect`, `escort-protect-lost` |
+| `telemetry*.csv` files that differ | **0 outside those two missions** | **15**, across **8** missions |
+| behaviour changes anywhere | none in `sam-radar-kill`, "possibly yes" in `net-blind-cue` | **none anywhere**. Every one of the five diffs is a PURE DELETION of phantom `rwr THREAT_NEW`/`THREAT_DROP`/`THREAT_BLIND`/`site CUE` lines; no timing moves, no exit code changes |
+
+**The three extra event logs are exactly the case §6's own residual-uncertainty paragraph named:** the
+F-16's RWR is powered by default, so `set rwr on` is not the discriminator. `escort-protect`,
+`escort-protect-lost` and `deny-release-broken` each carry an aircraft that hears a falling Mk-82.
+The paragraph's fallback estimate of **nine** was wrong too, and in the other direction: having a
+listener AND a ground target is necessary but not sufficient — the emitter must also fall inside the
+receiver's coverage, and in the four `attack-*` files plus `wx-ccrp-wind` no aircraft ever hears one.
+
+**The fifteen telemetry files are a class the prediction did not consider at all.** They are not
+listener effects: they are the two columns the EMITTER publishes about ITSELF — `fcr_on` (the radar
+slot's powered bit) and `iff_xpdr` — on every `target_soft`/`target_hard` and every released `mk82`.
+There is no way to fix the defect without those two columns moving, because they are the defect. Union
+of moved columns over all 15 files: `fcr_on`, `iff_xpdr` and nothing else.
+
+**And the `net-blind-cue` workaround was not a workaround.** §6 predicted that `set alert cold` becomes
+unnecessary after the fix. Measured with the line removed: the SA-6 acquires a **firm track** and the
+file produces one `site TRACK` line, against a reading rule whose only passing value is zero. The line
+is LOAD-BEARING, its comment has been corrected to say so, and the prediction that it was a defect
+workaround is withdrawn.
 
 **Residual uncertainty, stated:** the prediction rests on the RWR being unpowered unless a mission writes
 `set rwr on` — evidenced by every RWR mission in the tree writing that line explicitly, and by the
@@ -615,25 +639,60 @@ its own passive seeker, its shooter's published illumination, or a point the mis
 
 ## State
 
-**NOTHING BUILT.** No line of `sim/` was touched.
+**BUILT.** `C8` closes except the rocket pod, `C26` and `C27` close, `C25` is untouched.
 
-What exists and would be consumed **unchanged**, which is why this is a bounded round and not a subsystem:
+### What exists now
 
-| Piece | Where | Used for |
+| Piece | Where | Proof |
 |---|---|---|
-| weapon-as-unit, the release path, the launch programming | [`weapons.md`](weapons.md) §§1–2 | every new round |
-| the seeker-kind dispatch, the phase machine, the uplink/illumination gate, the angle-only pure-PN law | `modules/missile/` | the anti-radiation and laser-guided rounds, verbatim |
-| the passive receiver with its two geometries, its power law and its `Blanked()` hook | `sensors/FBRwrSystem` (+ `FBMig29Rwr`'s use of that hook) | the anti-radiation seeker |
-| the damage model's **two** inputs — isotropic fragments and areal energy density | `core/FBDamageModel` | Mk-84/FAB (the first) and the cluster (the second) |
-| the ground-burst resolution at the impact point, and the ground target's fragility classes | `missions/FBMissionRunner.cpp`, `modules/ground/FBGroundTarget.h` | every bomb in §3 |
-| the elevation provider reaching the fire control | `core/FBBallistics` + `FBElevationProvider` | air-to-ground ranging |
-| deferred objectives, `FBObjectiveCovers`, the conservation argument | `C12`/`C23`, [`missions/verdict.md`](missions/verdict.md) | `objective suppress` costs the roster one bool |
-| the site's health register, its `emcon` machine, `scoot_s` | `modules/ground/FBSiteFireControl` | `emcon react` |
-| the support-obligation hooks (`FBSeekerHandoverS = -1`, `SupportInhibitsDefend`) | stage 2c | the laser-guided bomb binds its shooter with no new architecture |
+| **The anti-radiation round** `agm88` — a bearing, an elevation and a received power, never a range | `core/FBStore.h` (row) · `modules/missile/FBMissileArSeeker` (`: sensors/FBRwrSystem`, two existing hooks overridden, **no new include**) · `FBMissileGuidance::AntiRadiationCommand` | `arm-escape-frontal` `arm-escape-offset` `arm-shutdown-late` `arm-shutdown-early` `arm-reacquire` `arm-pilot-cue` |
+| **The RATE memory**, `SeekerMemoryS` 4.0: after the last reception the measured LOS rate is held, then ZERO — PN commands nothing lateral, the accelerometer's 1 g bias survives, the round coasts STRAIGHT | `FBMissileGuidance::AntiRadiationCommand` | the four `arm-*` escape files |
+| **`FBSeekerKind::SemiActiveLaser`** and the Paveway PURSUIT law with a rate-stabilised bang-bang relay — expressly not proportional navigation | `FBMissileGuidance::LaserCommand` · `assets/aircraft/gbu12/` | `lgb-designate` (3.9 m) `lgb-lase-broken` (1 895 m) `lgb-lase-restored` (9.1 m) |
+| **The designation as a published STATE**, beside the midcourse uplink and read the same way | `FBLaserDesignation` in `core/FBStore.h` · `FBUnitSignature::Designation` · `FBStoresSystem::Designation()` · `FBMissileUplink` | the three `lgb-*` files |
+| **The shooter binds itself**: while its own SMS reports `Designating`, the attack pass does not start the egress | `FBStoresBlock::Designating` · `FBPilot::AttackCommands`, one instrument read | `lgb-designate` vs `lgb-lase-broken` |
+| **Mk-84**, a factor of 2.2 in lethal radius over the Mk-82, out of the untouched fragment law | `core/FBStore.h` · `assets/aircraft/mk84/` | `mk84-radius` vs `mk82-radius` |
+| **CBU-87**, an AREA and not a radius — the areal-energy-density input the damage model already took from the gun | `FBMissionRunner::ResolveClusterBurst` | `cbu87-footprint` |
+| **The release envelope**, `FBStoresSystem::Release` check 8, after both hardware interlocks and the fire control | `core/FBStore.h` (`ReleaseMinKt`/`MaxKt`) · `weapons/FBStoresSystem.cpp` | `fab-envelope-reject` vs `fab-envelope-ok` |
+| **The air-burst resolution path**, §Gaps collision 2: a store with `FuzeRadiusM > 0` now resolves its burst against `Ground` units at closest approach too, the launcher excluded | `FBMissionRunner`, the fuze loop | every `arm-*` hit |
+| **`set emcon react`** — the crew goes dark for `scoot_s` on its own health register's next hit | `FBSiteFireControl` · `FBModule::OwnHits()` | `sam-emcon-react` |
+| **`objective suppress unit\|team [emitting <s>]`**, deferred, judged on a monotone accumulator over a non-monotone roster bit | `core/FBObjective.h` · `FBMissionMonitor::NoteEmitting` | `suppress-quiet` vs `suppress-killed` |
+| **`set attack_mode arm` + `set arm_class`** — the release cue is the RWR's bearing inside the round's own cone | `FBPilot::AttackCommands` · `FBF16Module` | `arm-pilot-cue` |
+| **Re-acquisition** — a latched symbol that leaves the receiver's table is a transmitter that stopped, and the seeker goes back to looking | `FBMissileGuidance::UpdateTarget` | `arm-reacquire` (dark 20 s, re-taken under a NEW symbol, site destroyed) |
+| **The B1/B1b fix** — a bunker and a falling bomb no longer radiate and no longer answer IFF Mode 4 | `FBGroundModule` · `FBStoreModule` constructors | §6, measured below |
+
+### The gates, measured
+
+| Gate | Result |
+|---|---|
+| `verify-layers` | *285 files, 765 internal include(s), 12 layers — no upward include, 3 restricted header(s) respected, **6 registry reader(s) inside the perception boundary**, 272 file(s) in their layer's namespace (5 C-island file(s) exempt)* — the reader list is unchanged |
+| `verify-models` | *4 upstream-backed model path(s) match assets/MODEL-DELTAS.md (1 declared delta(s), 17 FlightBox-own)* |
+| `core-lib` `gym` `native` `wasm` | all clean under `-Wall -Wextra -Wpedantic -Werror`; `nm build/fb-gym` = **0** Dawn/WebGPU symbols |
+| Nine harnesses | rc = 0 |
+| Conservation | after the B1 fix, **all 113 remaining missions byte-identical** — telemetry AND `events.log` — for everything in this file |
+| Determinism | the whole set identical over `--threads 1 / 2 / 4` |
+
+---
 
 ---
 
 ## Gaps
+
+### What the contract did not carry, measured
+
+Six places where building it produced a different answer than writing it did. Every one is a
+MEASUREMENT and none of them was tuned away.
+
+| # | The contract said | The build measured | What it means |
+|---|---|---|---|
+| **F1** | the escape boundary at 20 km sits at **61 %** of the flight for a 5° shot and **76 %** for a 35° shot (§Knowledge 1) | **85.0 %** and **88.1 %** (bisected on `UNIT_RESULT unit=sam`, `arm-escape-*` geometry, release at t = 1.5 s, t_f 62.24 s / 68.50 s) | the crew has 9–13 percentage points MORE time than predicted. **The qualitative claim holds exactly**: the frontal shot is the harder one to escape (85.0 < 88.1) and it falls out of the geometry. The quantitative one is optimistic for the attacker, for three named reasons below |
+| **F1a** | `ZEM(0) = R·sin(θ_offset)` | that is the LATERAL half only | the shots are flown from 4 000 m against a site at ~450 m over 20 km, i.e. an 11.3° DEPRESSION whose vertical aim error is 3.92 km — larger than the 5° shot's 1.74 km lateral one. With `ZEM(0) = 4.29 km` / `12.1 km` the predicted boundaries become 68.7 % / 75.9 % |
+| **F1b** | the miss decays as `(t_go/t_f)⁴` | it decays as **`(t_go/t_f)^2.3`** — measured 490 m at 60 %, 266 at 70 %, 98 at 80 %, 2.4 at 90 % on the 5° shot | the law's `N = 4` assumes a constant closing speed and a linearised geometry; this round decelerates from ~500 to 280 m/s over its last third, so the effective navigation gain falls. This is the dominant residual |
+| **F1c** | `SeekerMemoryS` "shifts the effective shutdown one memory-length later" | it does, and it is worth **+6.4 pp** (5°) and **+5.8 pp** (35°) | the contract said so; it is quantified here. F1a + F1c together predict 75.1 % / 81.7 % against 85.0 / 88.1 measured, and F1b is the rest |
+| **F2** | the B1 fix breaks **exactly two** missions | it breaks **five** `events.log` files and **fifteen** telemetry files across **eight** missions | see §6 below |
+| **F3** | §9: `msl_sig`, "one new column" · §10 criterion 2: every `telemetry*.csv` byte-identical | **the two cannot both hold.** `msl_*` is not the last source on a round's bus, so a column added there shifts every column right of it in 95 already-measured files | resolved in favour of the append rule (`units/FBSimUnit.cpp`): **no `msl_sig` column**. The number is not lost — this round's head IS a warning receiver, so it publishes the whole `rwr_*` group on the same trace and the power is exactly `(rwr_leth − base(rwr_mode)) / 0.15`; the events carry it verbatim (`SEEKER_ACTIVE … signal=`, `EMITTER_LOST … lastSignal=`) |
+| **F4** | §3.2: the shooter's obligation runs "to predicted **impact**", broken by "a turn that breaks the run" | **an F-16 with a nose-referenced designator cannot lase to impact from a level pass at all.** An unpowered bomb covers ground at `v·cos θ < v`, so the jet ALWAYS reaches the target first and the spot goes behind it (measured: 5.6 km standoff at 4 000 m / 450 kt, spot lost 5.7 s before impact, 229 m short) | it is only reachable where the bomb's ground speed exceeds the jet's — measured at **250 kt / 4 000 m**, where the shooter holds the spot all the way and the miss is 3.9 m. Stated rather than repaired: §4.3 refuses a targeting pod, and without one this is what the geometry gives |
+| **F5** | §Gaps collision 2: widen the burst to `Ground` at closest approach | doing that ALSO moved `stores MISS` in `net-belt-high` (a V-750 recorded a 410 m pass over a bunker instead of a 9 525 m pass at the aircraft) | `stores MISS` stays a record about AIRCRAFT; the fuze reach is widened and the launcher is excluded from it. Where a round came down against a POSITION is `stores IMPACT`'s `crossLat`/`crossLon` |
+| **F6** | §10 criterion 3: three runs "differing only in when the site goes dark (`set scoot_s`)" | **`scoot_s` cannot be placed in time** — it needs a launch, and `react` needs a hit; neither is a clock | `set emcon` gained an optional briefed PLAN (`free <offS> [<onS>]`) — one value on an existing key, the C1 contract's six author-facing keys still six. Without it the escape window is unmeasurable, which is the whole subject of this file |
 
 ### The honest headline
 
@@ -653,10 +712,10 @@ gain sight.
 
 | ID | Gap | Home |
 |---|---|---|
-| `C8` | **The store catalogue.** Specified here: `agm88` `mk84` `gbu12` `cbu87` `fab250` `fab500` `hydra70` `s8`, two new `FBSeekerKind` values, one new release check, one magazine field group. Nothing built | this file, §§2–3 |
-| `C25` | **No air-to-ground radar function.** Specified here as **ranging only** (§4.2) with an exhaustive refusal list (§4.3). [`sensors.md`](sensors.md) gap 3 is its symptom and keeps its wording; the ID and the contract live here | this file, §4 |
-| `C26` | **Suppressed ≠ destroyed.** Specified here as a mechanism (`emcon react`) plus an objective kind (`objective suppress`). Closes [`modules/ground/module.md`](modules/ground/module.md) G2's second option with its conservation argument | this file, §5 |
-| `C27` | **The pilot cannot take a suppression shot.** Specified here as ONE gate and one `attack_mode` value (§7), deliberately bounded — everything above it is the pilot's own round | this file, §7 |
+| `C8` | **The store catalogue — BUILT except the rocket pod.** `agm88` `mk84` `gbu12` `cbu87` `fab250` `fab500` fly; both new `FBSeekerKind` values and the release check exist. `hydra70`/`s8` and the `PodRounds`/`RippleS` magazine group are **NOT built**: design C costs a field group, an FDM model with a motor a guidance-free module must light, and a mission grammar for a ripple, and none of it is on the acceptance path of this round | this file, §3.5 |
+| `C25` | **NOT BUILT. No air-to-ground radar function.** Specified here as **ranging only** (§4.2) with an exhaustive refusal list (§4.3). [`sensors.md`](sensors.md) gap 3 is its symptom and keeps its wording; the ID and the contract live here | this file, §4 |
+| ~~`C26`~~ | **CLOSED.** `set emcon react` + `objective suppress`, `CombatEffective` untouched, roster price one bool. [`modules/ground/module.md`](modules/ground/module.md) G2's second option is answered | this file, §5 |
+| ~~`C27`~~ | **CLOSED.** One gate, one `attack_mode` value, `set arm_class` beside it. Everything above it is still the pilot's own round | this file, §7 |
 
 ### Existing gaps this file touches
 

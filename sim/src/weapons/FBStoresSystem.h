@@ -48,6 +48,25 @@ public:
   /* Wer dieses Flugzeug ist, damit eine gestartete Runde weiss, wessen Uplink sie hoert. */
   void SetUnitId(int id) { SelfId_ = id; }
 
+  /* DER SUCHER-CUE einer Antiradiationsrunde: zwei Winkel vom eigenen Warnempfaenger und die Klasse,
+   * gegen die die Mission sie programmiert hat. Vom MODUL je Tick gesetzt (nur das Modul kennt
+   * `arm_class`), hier nur kopiert — der SMS klassifiziert nichts. doc/air-to-ground.md §7. */
+  void SetSeekerCue(bool valid, double azDeg, double elDeg, FBArTargetClass cls) {
+    CueValid_ = valid; CueAzDeg_ = azDeg; CueElDeg_ = elDeg; ArClass_ = cls;
+  }
+
+  /* WAS DIESER SCHUETZE BELEUCHTET — dasselbe Konstrukt wie Uplink(): ein publizierter ZUSTAND, keine
+   * Nachricht. Aktiv, solange eine halbaktive Laserrunde unterwegs ist, der Rechner eine Loesung hat
+   * und der Zielpunkt im Blickfeld des Bezeichners liegt. Der Punkt ist der STEERPOINT, also Wissen des
+   * Missionsautors und kein Sensor. doc/air-to-ground.md §3.2. */
+  const FBLaserDesignation &Designation() const { return Designation_; }
+  /* Der Schalter der BESATZUNG, gebrieft wie jede andere Handlung: ab `offS` wird nicht mehr
+   * beleuchtet, ab `onS` wieder (0 = nie). Missionselapsierte Sekunden. */
+  void BriefLase(double offS, double onS) { LaseOffS_ = offS; LaseOnS_ = onS; }
+  /* WOHIN der Bezeichner zeigen kann. Kein Zielbehaelter (C7): das Geraet ist bugfest, also bricht die
+   * Ausweichkurve die Beleuchtung — was die reale Einsatzbedingung dieser Waffe IST. */
+  static constexpr double kDesignatorHalfDeg = 60.0;
+
   /* Aktiv nur, solange eine lock-fordernde Runde gestartet wurde UND die Feuerleitung noch ein Ziel
    * hat. Sie hoert NICHT auf, wenn der Flug der Runde endet — das meldet dem Schuetzen niemand. */
   const FBWeaponUplink &Uplink() const { return Uplink_; }
@@ -65,6 +84,12 @@ public:
   }
   /* Der Drain des Besitzers: der aelteste noch nicht genommene Abwurf, FIFO. */
   bool TakeRelease(FBStoreRelease &out);
+
+  /* Die Zelle veroeffentlicht ihre Lage ohnehin; der SMS braucht sie fuer genau EINE Frage — liegt der
+   * bezeichnete Punkt noch vor dem Bug. Vom Modul gereicht, damit diese Klasse keinen FDM anfasst. */
+  void SetOwnPose(double latDeg, double lonDeg, double yawDeg) {
+    OwnLatDeg_ = latDeg; OwnLonDeg_ = lonDeg; OwnYawDeg_ = yawDeg;
+  }
 
   virtual void Run(FBState &state, double dt);
 
@@ -119,10 +144,22 @@ private:
   FBReleaseSolution Solution_{};
   FBWeaponUplink Uplink_{};
   bool   HaveZone_ = false, InZone_ = false;
+  double CasKt_ = 0.0;   /* fuer Pruefung 8, aus demselben Grund gecached wie die DLZ-Felder */
   double ZoneRangeM_ = 0.0, ZoneMinM_ = 0.0, ZoneMaxM_ = 0.0, ZoneRtrM_ = 0.0;
   double ZoneTtaS_ = -1.0, ZoneTtiS_ = -1.0;
   bool   RadarLocked_ = false;
   int    GuidedInFlight_ = 0;          /* lock-fordernde Runden, die dieser Jet gestartet hat */
+
+  /* ---- LUFT-BODEN. Alles hier ist "dieser Jet traegt nichts dergleichen", solange nichts es setzt. ---- */
+  bool   CueValid_ = false;
+  double CueAzDeg_ = 0.0, CueElDeg_ = 0.0;
+  FBArTargetClass ArClass_ = FBArTargetClass::AnySurface;
+  int    LaserInFlight_ = 0;
+  double LaseOffS_ = 0.0, LaseOnS_ = 0.0;
+  double SpotLatDeg_ = 0.0, SpotLonDeg_ = 0.0, SpotElevM_ = 0.0;
+  bool   HaveSpot_ = false;
+  double OwnLatDeg_ = 0.0, OwnLonDeg_ = 0.0, OwnYawDeg_ = 0.0;
+  FBLaserDesignation Designation_{};
 
   FBStoreRelease Pending_[kMaxPendingReleases]{};
   int PendingCount_ = 0;

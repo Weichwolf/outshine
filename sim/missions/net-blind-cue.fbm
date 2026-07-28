@@ -64,5 +64,7 @@ unit sam
   team hostile
   spawn 46.750472 6.899801 ground 0.0 0        # 52.2 m WEST of the measured bomb crossing
   set emcon hold
-  set alert cold                                # 60 s of warm-up: blind while the bomb is on its way
+  set alert cold                                # 60 s of warm-up, and it is LOAD-BEARING: removed,
+                                                # this battery gets a firm track (measured) and the
+                                                # file loses the zero it exists to show
   set rounds 3

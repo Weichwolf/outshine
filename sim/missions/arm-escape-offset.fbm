@@ -1,0 +1,48 @@
+name arm-escape-offset-1
+timeout 200
+
+# THE ESCAPE WINDOW, OFF-BORESIGHT SHOT — the twin of arm-escape-frontal.fbm and the half that shows
+# WHY the frontal shot is the hard one to escape. doc/air-to-ground.md §Knowledge 1.
+#
+# The same round, the same range, the same store: only the site's bearing at release changes, from 5 deg
+# to 35 deg off the shooter's nose. That is the ONE thing that sets ZEM(0) = R*sin(theta), and it is
+# geometry rather than a weapon parameter — nothing in the file below is tuned for it.
+#
+# THE PREDICTION doc/air-to-ground.md made: with ZEM(0) = R*sin(35 deg) = 11.5 km the crew's boundary
+# sits at 76 % of the round's flight. THIS FILE SHUTS THE SITE DOWN AT EXACTLY 76 % (t = 53.56 s against
+# a measured 68.50 s time of flight from a release at t = 1.5 s) and the site LIVES. The measured
+# boundary is 88.1 % — LATER than the frontal shot's 85.0 %, which is the qualitative half of the
+# prediction and it holds: a pilot who turns to put the threat on the nose buys the crew LESS time.
+#
+# WHAT TO READ:
+#   events.log      the same chain as the frontal file, with a larger residual miss at the same
+#                   percentage of the flight
+#
+# READING RULE: the MEASUREMENT is `UNIT_RESULT unit=sam`, and the only passing value is INTACT.
+# Compared against arm-escape-frontal.fbm, the pair is the whole claim: at equal percentages of the
+# flight the off-boresight shot misses by more.
+
+runway 46.84335 6.91523 441.0 228.0 2889
+
+unit weasel
+  module f16
+  team friendly
+  spawn 46.63000 6.90000 4000 0.0 450
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set rwr on
+  set store 3 agm88
+  set arm_class any
+  set brief_master_arm arm
+  set task route
+  set brief_release_s 1
+  wp 47.20000 6.90000 4000 450
+  objective survive                         # the weasel is never shot at here; this makes exit 0 the pass
+
+unit sam
+  module sa6
+  team hostile
+  spawn 46.777155 7.050278 ground 0.0 0     # 20 000 m out, 35 deg off the weasel's nose at release
+  set emcon free 53.56                      # off the air at 76 % of the measured 68.50 s flight
+  set rounds 0

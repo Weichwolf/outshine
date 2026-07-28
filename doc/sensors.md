@@ -102,6 +102,22 @@ recovered from the event's own `sizeMrad`/`contrast`; "reported" = where the sec
 
 ## Gaps
 
+**A seventh reader was NOT added on 2026-07-28** and that is worth a line, because the round that came
+in is the one that would have needed it. `modules/missile/FBMissileArSeeker` is an anti-radiation
+seeker and it is `sensors/FBRwrSystem` — it overrides `Blanked()` (to KEEP a forward cone, where
+`FBMig29Rwr` uses the identical hook to BLANK a hemisphere) and `ElevCoverageDeg()`, and it adds no
+`#include`. `make -C sim verify-layers` prints *6 registry reader(s) inside the perception boundary*
+after that round exactly as before it. The seeker therefore inherits every refusal §5 makes: **no
+range, no closure, no identity, no team** — which is why FlightBox's anti-radiation round has no DLZ,
+cannot be given a shot-quality answer, and homes on friendly emitters
+([`air-to-ground.md`](air-to-ground.md) §2.1).
+
+**Gap 3 (no air-to-ground radar mode) is UNCHANGED and still open.** It was specified as ranging only
+in [`air-to-ground.md`](air-to-ground.md) §4 and carries the ID `C25` there; nothing was built. A site
+is still HEARD and not SEEN, and after this round that is a deliberate result rather than an omission:
+the air gained a weapon that needs no sight, and it did not gain sight.
+
+
 ### Contradictions between claim and code (from the retired `TODO.md` §1)
 
 | Place | Contradiction |

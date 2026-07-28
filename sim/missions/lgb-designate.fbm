@@ -1,0 +1,53 @@
+name lgb-designate-1
+timeout 160
+
+# A GUIDED BOMB BINDS ITS SHOOTER. doc/air-to-ground.md §3.2.
+#
+# An LGB is a SEMI-ACTIVE weapon whose illuminator is the shooter — not an analogy but the same
+# mechanism the R-27R already runs, at a different wavelength: the designation travels the SAME
+# published channel the midcourse uplink does (FBUnitSignature, read by the round's own comms slot),
+# and the round has no idea where the point is except that somebody is holding it.
+#
+# The viper releases at 5.6 km from 4 000 m, CCRP, against a briefed steerpoint. The ballistic error at
+# release is over a kilometre; the kit flies it down to a MEASURED 3.9 m — inside the documented
+# Paveway II CEP band of 6-9 m [T4], which is the number this file is checked against and which is NOT
+# a setting: the miss is whatever the pursuit law produces.
+#
+# THE LAW IS NOT PROPORTIONAL NAVIGATION and must not be: the CCG's canards are bang-bang, so the round
+# aligns its velocity vector with the instantaneous line of sight and trails the fins when aligned. It
+# therefore CHASES the spot and pays for the chase in energy, at a measured ~2.6 g of authority against
+# a missile's 25 g command ceiling (doc/air-to-ground.md §Knowledge 4).
+#
+# THE SHOOTER IS HELD ON THE RUN-IN by its own SMS: while `FBStoresBlock::Designating` is true the pilot
+# does not start the egress turn. That is one instrument read and no new phase.
+#
+# WHAT TO READ:
+#   events.log      `missile SEEKER_ACTIVE ... mode="semi-active laser"`, NO `missile
+#                   ILLUMINATION_LOST` anywhere, and `stores DELIVERY ... aimErrM` under 10 m
+#   UNIT_RESULT     bunker DESTROYED
+#
+# READING RULE: exit 0 is not the measurement. The MEASUREMENT is `aimErrM` on the `stores DELIVERY`
+# line against the published 6-9 m band, and `UNIT_RESULT unit=bunker result=DESTROYED`. Read as the
+# first of three: lgb-lase-broken.fbm and lgb-lase-restored.fbm move ONE line each.
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.90000 6.98000 4000 90.0 250
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode off
+  set store 3 gbu12
+  set brief_master_arm arm
+  set task route
+  set attack_mode ccrp
+  set brief_release_s 3
+  wp 46.90000 7.05000 4000 250
+  wp 46.90000 7.30000 4000 250
+  objective survive
+
+unit bunker
+  module target_soft
+  team hostile
+  spawn 46.90000 7.05000 ground 90.0 0

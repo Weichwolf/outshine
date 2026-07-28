@@ -45,6 +45,12 @@ ungeprüftes Modell und lässt `verify-models` fehlschlagen.
 | `9m33` | — |
 | `strela2` | — |
 | `igla` | — |
+| `agm88` | — |
+| `mk84` | — |
+| `gbu12` | — |
+| `cbu87` | — |
+| `fab250` | — |
+| `fab500` | — |
 
 Die sechs Boden-Luft-Runden (`v750` `v601` `3m9` `9m33` `strela2` `igla`) sind FlightBox-eigene Modelle
 aus EINEM Rezept: der nicht-dimensionale Schlankkörper-Satz des AIM-120-Decks, je Zeile aus dem
@@ -52,6 +58,19 @@ publizierten Durchmesser, der Masse und der Endgeschwindigkeit dimensioniert. De
 Unterschied zum luftgestarteten Rezept steht in jedem Banner: dV IST die ganze Endgeschwindigkeit statt
 eines Deltas über eine Abschussgeschwindigkeit, denn diese Runden verlassen eine SCHIENE bei
 Fahrt null. Quellen und Vertrauensstufen je Zahl: `doc/modules/ground/catalogue.md`.
+
+Die sechs Luft-Boden-Stores (`agm88` `mk84` `gbu12` `cbu87` `fab250` `fab500`) sind FlightBox-eigene
+Modelle aus ZWEI Rezepten. `agm88` folgt dem Schlankkörper-Rezept der Boden-Luft-Runden unverändert,
+mit dem EINEN physikalischen Unterschied, dass dV wieder ein Delta über eine Abschussgeschwindigkeit ist
+(sie verlässt einen Pylon bei Mach 0,9). Die vier freifallenden Zeilen und die Lenkbombe tragen den
+**Mk-82-Satz dieses Baums ohne eine geänderte Ziffer** — er ist nicht-dimensional, also ist ein größerer
+Flossenzylinder eine größere Referenzfläche und eine schwerere Masse und sonst nichts; berechnet wird je
+Zeile Sw = 2,54 ft² · (d/10,75 in)², Spannweite = Sehne = 0,9 ft · (d/10,75 in), Iyy = 0,84·m·L²/12 und
+Ixx = m·(d/2)²/2. Die Trägheit ist die PHYSIKALISCHE Zahl und die des Mk-82-Modells ist es nicht (633
+slug·ft² für einen 15,5-slug-Körper von 5,5 ft sind zwei Größenordnungen daneben, stammen aber von
+Upstream); die Folge steht im Banner jedes Modells statt in einem Delta an einem Modell, das dieser Baum
+nicht besitzt. Die `gbu12` bekommt als einzige zusätzlich eine Steuerfläche (vier Canards, bang-bang,
+Ausschlag ±15°) — Quellen und Vertrauensstufen je Zahl: `doc/air-to-ground.md` §§2–3.
 
 Die beiden Engine-XML liegen als `f16/engine/` IM Modellverzeichnis statt in einer geteilten
 Engine-Wurzel: das ist JSBSims eigenes Pro-Flugzeug-Layout (`FGPropulsion::FindEngineFullPathname` und

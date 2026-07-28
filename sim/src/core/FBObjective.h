@@ -32,7 +32,15 @@ enum class FBObjectiveKind {
    * doc/missions/verdict.md's own test — it measures what the aircraft DID, in the identical currency
    * `identify`'s planar range already uses — and it costs the roster nothing, because it asks about the
    * declaring unit's own sample. doc/air-defence-network.md §4. */
-  AvoidZone
+  AvoidZone,
+  /* The named unit's CUMULATIVE RADIATING TIME over the run stays at or below an allowance. A BEHAVIOUR
+   * and not a damage state: it is scored against an OBSERVED bit on a published signature, the same
+   * class of fact as a health bit, and never against a new FBSystemId (the register is monotone by
+   * contract and suppression is not) nor by widening CombatEffective() (which is a statement about
+   * airframes and is read for every unit in the tree). Destroyed implies suppressed and that is not a
+   * special case: Radar failed -> the block goes Invalid -> Emission() returns None -> the bit is false
+   * forever. doc/air-to-ground.md §5.2. */
+  Suppress
 };
 
 /* Which side of `unit <callsign>` / `team <faction>` a kind that offers both was written on. KillUnit/
@@ -46,7 +54,9 @@ struct FBObjective {
   std::string      TargetId;                            /* KillUnit/Identify + Scope::Unit: the callsign */
   FBUnitTeam       TargetTeam = FBUnitTeam::Hostile;    /* KillTeam + Scope::Team: the faction */
   double           RangeM = 0.0;                        /* Identify: the box, [SET] per mission */
-  double           HoldS = 0.0;                         /* Identify: the cumulative dwell inside it */
+  double           HoldS = 0.0;                         /* Identify: the cumulative dwell inside it;
+                                                         * AvoidZone: the exposure budget;
+                                                         * Suppress: the radiating allowance */
 };
 
 /* Deliberately nothing beyond who it is, whose side it is on, whether it can still fight, whether it
@@ -60,6 +70,11 @@ struct FBUnitObservation {
   FBUnitTeam  Team = FBUnitTeam::Friendly;
   bool        CombatEffective = true;
   bool        ReleasedWeapon = false;   /* monotone over the run: a release or a burst, ever */
+  /* IS THIS UNIT RADIATING RIGHT NOW — filled by the OWNER from the signature the unit publishes at the
+   * barrier, the identical construction the two bits above use. It is the FIRST non-monotone roster
+   * field, and that is safe because the judge's ACCUMULATOR is monotone, which is what the rule needs.
+   * doc/air-to-ground.md §5.2. */
+  bool        Emitting = false;
   double      RangeM = std::numeric_limits<double>::infinity();   /* planar, FROM the judged unit */
 };
 
@@ -79,6 +94,7 @@ inline bool FBObjectiveNames(const FBObjective &o, const char *id, FBUnitTeam te
     case FBObjectiveKind::KillTeam: return o.TargetTeam == team;
     case FBObjectiveKind::Protect:
     case FBObjectiveKind::DenyRelease:
+    case FBObjectiveKind::Suppress:
       return o.Scope == FBObjectiveScope::Unit ? (id && o.TargetId == id) : o.TargetTeam == team;
     case FBObjectiveKind::Survive:
     case FBObjectiveKind::Waypoints:
@@ -102,7 +118,11 @@ inline bool FBObjectiveCovers(const FBObjective &o, const char *id, FBUnitTeam t
     case FBObjectiveKind::Protect:
     case FBObjectiveKind::NoFire:
     case FBObjectiveKind::DenyRelease:
-    case FBObjectiveKind::AvoidZone: return false;
+    case FBObjectiveKind::AvoidZone:
+    /* Wanting a position QUIET is not declaring that it should die — the same argument `protect` makes
+     * for the opposite reason, and the reason a suppression sortie's target still decides the run if it
+     * is lost to something nobody declared. */
+    case FBObjectiveKind::Suppress: return false;
   }
   return false;
 }
@@ -122,7 +142,8 @@ inline bool FBObjectiveMet(const FBObjective &o, const FBMissionRoster &roster) 
     case FBObjectiveKind::Waypoints:
     case FBObjectiveKind::Identify:
     case FBObjectiveKind::NoFire:
-    case FBObjectiveKind::AvoidZone: return false;
+    case FBObjectiveKind::AvoidZone:
+    case FBObjectiveKind::Suppress: return false;   /* needs a dwell the roster cannot carry */
   }
   bool any = false;
   for (int i = 0; i < roster.Count; i++) {
@@ -159,6 +180,11 @@ inline std::string FBObjectiveStr(const FBObjective &o) {
     case FBObjectiveKind::AvoidZone: {
       std::ostringstream os;
       os << "avoid zone " << o.TargetId << " exposure " << o.HoldS;
+      return os.str();
+    }
+    case FBObjectiveKind::Suppress: {
+      std::ostringstream os;
+      os << "suppress " << target() << " emitting " << o.HoldS;
       return os.str();
     }
   }

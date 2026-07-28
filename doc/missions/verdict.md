@@ -134,6 +134,36 @@ the grammar is in [`syntax.md`](syntax.md).
 
 That is the whole test, and it is what decides the shape of `identify` below.
 
+#### A SIXTH kind, `suppress` (`C26`) — **built 2026-07-28**
+
+```
+objective suppress unit <callsign> [emitting <s>]      # default 0
+objective suppress team <team>     [emitting <s>]
+```
+
+| | Rule |
+|---|---|
+| Fulfilled when | the named unit's **cumulative radiating time over the run** is ≤ `<s>` |
+| Violated when | — it is not a FAIL condition; it is simply unmet |
+| Decided | in `Finalize` — **deferred**, because a position that has gone quiet can still come back on. It joins `HasDeferredObjective()` and moves nothing for a mission that declares none |
+| `FBObjectiveCovers` | **false**, like every non-`kill` kind: wanting a position QUIET is not declaring that it should die |
+| Roster price | **one bool**, `FBUnitObservation::Emitting`, filled by the OWNER from the signature the unit publishes at the barrier (`Sig_.Radar[b].Mode != None`) — the identical construction `CombatEffective` and `ReleasedWeapon` already use. It is the FIRST NON-MONOTONE roster field, and that is safe because the judge's ACCUMULATOR is monotone, which is what the rule needs |
+| Telemetry | **none new.** A position already publishes `site_beam0`/`site_beam1` and the dwell is reconstructible from them |
+| Events | `mission SUPPRESSED` (with the seconds and the allowance) / `mission SUPPRESSION_LOST` |
+
+**It passes the rule above:** radiating-or-not is an observed fact about a published signature, the
+same class of fact as a health bit, and the declaring unit is never asked what it heard.
+
+**Destroyed implies suppressed, and it is not a special case:** `Radar` failed → the block goes Invalid
+→ `Emission()` returns `None` → the bit is false forever. The implication falls out of
+[`../weapons.md`](../weapons.md) §8's coupling and cost nothing to write.
+
+**The false positive is named rather than hidden:** a position that was never woken scores a
+suppression nobody earned — the exact dual of `deny release` scoring a jettisoning striker as denied.
+The reading rule is the mission's: `suppress` is only a result when it is paired with something the
+attacker DID, and the two proof files (`suppress-quiet.fbm`, `suppress-killed.fbm`) both say so in
+their headers.
+
 #### The four kinds
 
 | Objective | Fulfilled when | Violated when | Decided |
@@ -345,6 +375,7 @@ the VERDICT stays with the monitor.
 | Landing standstill rule | built; margins 0 m longitudinal / 15 m lateral |
 | The four new objective kinds (`C12`) | **built.** `identify`/`protect`/`no_fire`/`deny release` in `core/FBObjective.h` + `core/FBMissionMonitor`, the two roster fields filled by the runner (`missions/FBMissionRunner.cpp`) and by the browser loop; eight missions, one per case; the pre-round tree byte-identical at `--threads 1/2/4` |
 | `FBObjectiveCovers` for the C12 kinds | built as an exhaustive `switch` returning false, and measured as an exit code (`missions/objective-covers-none.fbm`, 1 correct / 0 under the patched counterfactual) |
+| The sixth kind, `suppress` (`C26`) | **built.** `FBObjectiveKind::Suppress` + `FBMissionMonitor::NoteEmitting` (a monotone accumulator over a non-monotone roster bit), deferred like `survive`; two missions, one per outcome; the pre-round tree byte-identical at `--threads 1/2/4` |
 
 ## Gaps
 

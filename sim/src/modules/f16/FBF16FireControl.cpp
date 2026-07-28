@@ -76,7 +76,13 @@ void FBF16FireControl::SolveGroundAttack(FBState &state, const Fdm::fb_fdm_state
   b.AgTimeToReleaseS = 0.0f; b.AgArmMarginS = 0.0f;
   b.AgInRange = false;
   Solution_ = FBReleaseSolution{};
-  if (!selected || selected->Guided) return;
+  /* A LASER-GUIDED BOMB IS RELEASED BALLISTICALLY and steers afterwards, so the computer solves the
+   * same integration for it that it solves for a free-fall round: the cue, the countdown and the arming
+   * margin are the delivery's, and what the kit then corrects is the ERROR. Every air-to-air round is
+   * still refused here — it has a launch zone instead, which is a different question entirely. */
+  bool ballistic = !selected ? false
+                   : !selected->Guided || selected->Seeker == FBSeekerKind::SemiActiveLaser;
+  if (!ballistic) return;
 
   FBReleaseState rel;
   rel.LatDeg = own.lat; rel.LonDeg = own.lon; rel.AltM = own.elev;
