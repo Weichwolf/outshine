@@ -1110,3 +1110,65 @@ Spreizflügel-Wahl kostet 26–28 % Dienstgipfelhöhe (R14, im Voraus deklariert
 die eine Abweichung ohne gefundene Ursache (R17). Kein Band geweitet. Rückschritt, gemessen und
 benannt: `air-awacs-cue`s Kriterium 5 galt nur, weil der Abfangjäger dabei abstürzte — er fliegt jetzt,
 und die Zelle erfasst nicht mehr.
+
+
+### 2026-07-29 — Doktrin-Evolution `E1`: Fitness, Genom, Archiv, Arena
+
+**Wofür die Runde war.** `doc/doctrine-evolution.md` war eine reine Spezifikation. Diese Runde hat sie
+gebaut, in der Reihenfolge, die sie selbst vorschreibt — erst die Eingabe der mittleren Stufe, dann die
+Fitness, dann die Arena, dann Gene und Archiv — und nach jedem Schritt gemessen.
+
+**Der Richter veröffentlicht jetzt einen Zielvektor.** `mission OBJECTIVE unit=… kind=… state=met|unmet|
+violated`, eine Zeile je erklärtem Ziel, an dem EINEN Punkt, den jeder Abschluss passiert
+(`FBMissionMonitor::Conclude`), nicht in `Finalize` — eine Einheit, die im `Tick` FAILt, käme dort nie
+an. Preis wie angekündigt und gemessen: **432/432 Telemetriedateien byteidentisch**, 77 von 137
+`events.log` unverändert, 60 um genau **136** Zeilen gewachsen, keine entfernt, keine andere bewegt.
+
+**Die Fitness ist lexikographisch und wohnt in einer Datei.** `(V, M, C)`, links nach rechts verglichen,
+Aggregation über paarweise Dominanz statt über einen Mittelwert. `hits landed` und `no shot` sind
+ENTFERNT, nicht neu gewichtet; letzteres ersetzt ein Tor, das man nicht zurückkaufen kann.
+
+**Beleg C, abgelesen statt hergeleitet.** Der Mechanismus stimmt exakt — ein Bündel IST ein Tick
+(`gun BURST rounds=1 → 5 → 10` im 0,1-s-Takt), `NoteHit()` genau einmal je Bündel, `dmg_hits` gleich der
+Zahl der `gun HIT`-Zeilen (8/8, 24/24, 23/23). Die ZAHL stimmt nicht: vorhergesagt 1.500 Fitnesspunkte je
+Sekunde Feuer, gemessen **900 / 1.038 / 1.278** — die Herleitung ist eine Obergrenze, weil
+`kMinReportedHits` 15–40 % der Bündel wegfiltert.
+
+**Beleg A hat sich NICHT umgedreht, und das ist der wichtigste Befund.** Auf `mirror` steht die
+Einzelkämpfer-Variante weiter oben — aber der Abstand fällt von 120,7 Punkten `hits landed` auf **0,9
+Punkte `shot lead`** bei exaktem Gleichstand in V und M über alle acht Läufe. Auf `split`, der einzigen
+Geometrie des Paars, die überhaupt etwas entscheidet, liegt die kooperative Variante auf **beiden**
+entscheidenden Stufen vorn (V 4,25 gegen 4,00). Die Spezifikation behauptet in ihrem Wissensteil, die
+neue Fitness sei in einer gesättigten Arena „ehrlich still" — sie ist es nicht, weil C bei Gleichstand
+konsultiert wird und zwei Fließkommazahlen nie gleich sind. Statt an der Ordnung zu drehen, meldet das
+Werkzeug es jetzt: `decided at level: V 2  M 0  C 18` und ein `SATURATED`-Block.
+
+**Die Arena war gesättigter als die Zahl, die das Kriterium erzwungen hat.** `mirror` — die Geometrie,
+auf der jedes veröffentlichte F-16-Doktrinergebnis dieses Baums gemessen wurde — hat **100 % modale
+Ergebnisklasse und 1 von 9 Hebeln**. Die alte Arena (2 Geometrien, 1 informativ) fällt durch. Elf
+F-16-gegen-F-16-Kandidaten wurden geflogen und alle fielen durch; entsättigt hat nicht die Geometrie,
+sondern die **Zelle**: die neue Arena hat 8 Geometrien und **4 informative** (`far`, `split`, `xmirror`,
+`xclose`), drei davon mit einer MiG-29 im Ostsitz oder mit langem Anflug. S3 ist auf dieser Arena nicht
+berechenbar und sagt das, statt eine Null zu drucken — ihr Instrument stört einen GENERIERTEN
+Katalogdeck, und F-16 und MiG-29 sind Prinzip-1-Modellkopien.
+
+**Das Genom kann keinen Absolutwert buchstabieren, und das ist Syntax.** `FBPilotTuning` trägt jetzt
+`Free` und `Scale`; ein `Scale`-Eintrag verlässt die Klasse nur durch `Scaled(p, own) = own · Or(p, 1)`
+und zwei `static_assert`s weisen ein `Scale`-Band zurück, das nicht dimensionslos ist oder keinen Haken
+nennt. Die Laufzeit-Hälfte ist ein Exit-Code: `genome-absolute-refused.fbm` schreibt die eigene
+Eckgeschwindigkeit des Jets (380) ins Gen und **endet mit 1** vor dem ersten Tick;
+`genome-scale-flown.fbm` ist dieselbe Datei mit 0,85 und bewegt den Gashebel in **2.979 von 3.001**
+Ticks. `fb-gym --pilot-keys` druckt das Alphabet, damit kein Werkzeug eine zweite Kopie der Tabelle führt.
+
+**Archiv und Kreis-Messung stehen, und der erste Lauf misst einen Gleichstand.** Nicht-dominierte
+Aufnahme, deterministische Schrittprobe, Kappe 64, alle drei Instrumente (fester Maßstab, zyklische
+Tripel `T`, Doktrin-Trajektorie). Beide Läufe: **jedes Individuum exakt 0,500**. Grund, benannt statt
+kaschiert: G4 wirkt nur in der `bfm`-Phase, die ein BVR-Abfang bis zum Timeout nie betritt, und G2 ist
+inert — `flt_defer_s` = 0,0 in **132 von 132** Spuren an beiden Enden des Bandes, weil die AIM-120 0,3 s
+bindet und die Regel damit nie feuert. Genom und Arena schneiden sich noch nicht; das steht als E-13.
+
+**Tore.** `core-lib gym native wasm` warnungsfrei, `verify-layers` und `verify-models` grün,
+`git status --porcelain sim/assets` vor und nach jedem Evolutionslauf leer, Determinismus über
+`--threads 1/2/4` (434 Telemetriedateien, 139 Logs, 0 Unterschiede), und die von
+`fb_tournament.py` erzeugten Missionen sind gegen das HEAD-Skript über beide Altgeometrien
+**480 verglichen, 0 verschieden**.

@@ -86,7 +86,10 @@ private:
   /* Cumulative dwell per declared zone, from the observed position alone. Pure bookkeeping, no verdict. */
   void NoteZones(const FBMissionMonitorSample &s, double dtS);
 
-  bool Conclude(FBMissionVerdict v, const std::string &detail);
+  bool Conclude(FBMissionVerdict v, const std::string &detail, const FBMissionMonitorSample &s);
+  /* ONE declared goal's own verdict, from the same state ObjectivesMet() reads — which is defined in
+   * terms of it, so the published vector and the verdict can never disagree. */
+  FBObjectiveState StateOf(size_t i, const FBMissionMonitorSample &s) const;
   /* The approach record to the ACTIVE fix — this class's OWN statement of FBNavSystem's orbit rule,
    * computed from its own plan copy and the observed position alone. doc/systems.md, section 7.5.1. */
   int NoteApproach(double distM);

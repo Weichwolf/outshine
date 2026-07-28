@@ -473,15 +473,19 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
    * drin, es haelt keinen Jet auf, der 100 kt schneller ist. Geregelt wird die GESCHWINDIGKEITS-
    * DIFFERENZ und nicht die Annaeherungsrate — die traegt die ganze Verfolgungsgeometrie, den Gashebel
    * darauf zu schliessen liesse ihn gegen die Kurve arbeiten (gemessen: Trichterzeit 21,2 → 12,7 s). */
+  /* G4 (doc/doctrine-evolution.md 2.1): die Geschwindigkeit, auf der der Verfolger BESTEHT, als
+   * Vielfaches seiner EIGENEN Eckgeschwindigkeit. Nur der Gashebel liest sie — der Kurvenradius und der
+   * g-Plan oben bleiben beim Haken des Flugzeugs, weil sie Aerodynamik sind und keine Entscheidung. */
+  const double insistKt = TunedScale(FBPilotParam::BfmEnergyFrac, BfmCornerSpeedKt());
   double speedErrKt;
   if (validTrack) {
     speedErrKt = (tgtSpeedMs - st.speed) * kMsToKt + schedKt;
   } else {
-    speedErrKt = BfmCornerSpeedKt() - casKt;
+    speedErrKt = insistKt - casKt;
   }
   c.ManualThr = Clamp(kBfmThrTrim + kBfmThrKpPerKt * speedErrKt, 0.0, 1.0);
   if (lowEnergy) c.ManualThr = 1.0;   /* Energiemangel schlaegt die Geometrie */
-  if (casKt > BfmCornerSpeedKt() * kBfmOverspeedFrac)
+  if (casKt > insistKt * kBfmOverspeedFrac)
     c.ManualThr = std::fmin(c.ManualThr, kBfmThrTrim);
   c.Speedbrake = speedErrKt < -kBfmSpeedbrakeKt ? 1.0 : 0.0;
 
@@ -1043,8 +1047,11 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
          * doc/formation.md, Abschnitt 6. */
         if (wantShot && Flight_.MateBound()) {
           if (IntCoverSinceS_ < 0.0) IntCoverSinceS_ = TimeS_;
-          double capS = std::fmax(Tuned(FBPilotParam::ShotSpacingS, InterceptShotSpacingS()),
-                                  fc.TimeToImpactS > 0.0f ? (double)fc.TimeToImpactS : 0.0);
+          /* G2: das Vielfache der EIGENEN Bindungszeit, das ein Mitglied den Abzug haelt. 0 = Regel aus,
+           * 1,0 = genau eine Bindung. Die Bindungszeit selbst bleibt die der Waffe. */
+          double capS = TunedScale(FBPilotParam::CoverFrac,
+                                   std::fmax(Tuned(FBPilotParam::ShotSpacingS, InterceptShotSpacingS()),
+                                             fc.TimeToImpactS > 0.0f ? (double)fc.TimeToImpactS : 0.0));
           if (TimeS_ - IntCoverSinceS_ < capS) {
             wantShot = false;
             Flight_.NoteDeferred(dt);

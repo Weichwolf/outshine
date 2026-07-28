@@ -12,6 +12,7 @@
 #include "FBTilesElevation.h"
 #include "FBLog.h"
 #include "FBLogSinks.h"
+#include "FBPilotTuning.h"
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -48,7 +49,10 @@ void Usage(const char *argv0) {
           "                   const  = the mission's own runway(s) on a flat base (FBRunwayPlateauElevation,\n"
           "                            no data/network needed — 'flat')\n"
           "                   swiss  = the baked Switzerland DEM island (tools/bake_swiss_dem.py)\n"
-          "  --swiss-dem PATH override the baked-DEM asset path (default %s)\n",
+          "  --swiss-dem PATH override the baked-DEM asset path (default %s)\n"
+          "  --pilot-keys     print the pilot tuning ALPHABET and exit: one line per key,\n"
+          "                   `<key> free|scale <lo> <hi> <hook>`. It is the ONE table, so an evolution\n"
+          "                   runner reads its genome out of the binary instead of copying it.\n",
           argv0, kDefaultSwissDem, kDefaultSwissDem);
 }
 
@@ -101,6 +105,14 @@ int main(int argc, char **argv) {
   long threads = 1;
   for (int i = 1; i < argc; i++) {
     std::string a = argv[i];
+    if (a == "--pilot-keys") {
+      for (int k = 0; k < Pilot::FBPilotKeyCount(); k++) {
+        const Pilot::FBPilotKey &e = Pilot::FBPilotKeys()[k];
+        printf("%s %s %g %g %s\n", e.Key,
+               e.Kind == Pilot::FBPilotKeyKind::Scale ? "scale" : "free", e.Lo, e.Hi, e.Hook);
+      }
+      return 0;
+    }
     if (a == "--threads" && i + 1 < argc) threads = atol(argv[++i]);
     else if (a == "--mission" && i + 1 < argc) missionPath = argv[++i];
     else if (a == "--campaign" && i + 1 < argc) campaignPath = argv[++i];

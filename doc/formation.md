@@ -119,6 +119,21 @@ Three things fall out of it, and the second is a finding against the round rathe
    more hits than one that splits across two, and in an arena where nobody dies the concentration wins
    on points. It is left standing rather than patched: the weights were written before flights existed
    and re-tuning them to make this round look good is exactly what a fitness must not be for.
+
+   **RE-MEASURED under the lexicographic fitness (round `E1`, [`doctrine-evolution.md`](doctrine-evolution.md)
+   §State "Exhibit A"), and it did NOT turn around:**
+
+   | geometry | old | new order | what carries it |
+   |---|---|---|---|
+   | `mirror` | solo 1097.8 > net 977.1 | solo **1.000** > net 0.625 | **0.9 points of `shot lead`** on an exact tie at V = 4 / M = 2 in all 8 runs — the 120.7-point `hits landed` gap is gone, the direction is not |
+   | `split` | net 940.9 > solo 770.0 | net **V = 4.25, M = 2.25** > solo V = 4.00, M = 2.00 | the cooperative doctrine is ahead at BOTH deciding levels |
+
+   The reading the two rows force: **`mirror` is a saturated geometry and no doctrine claim may be made
+   on it at all.** The arena gate now measures that directly — 100 % modal outcome class, 1 of 9
+   doctrine levers — and the tournament prints `decided at level: V 2  M 0  C 18 (of 20 runs)` under
+   the same field. The finding of this row is therefore no longer "the fitness pays for the wrong
+   thing" (it does not any more) but "the geometry answers nothing".
+
 3. **`f16_net` and `f16_net_left` score identically to the digit**, which is the information hierarchy
    confirming itself: a flight with a shared picture never consults its contract.
 
@@ -143,9 +158,9 @@ of the formation is the numeric one.
 |---|---|---|
 | **F1** | **A separated wingman rejoins badly, and past a point not at all.** After a defensive turn pulls it out, the station error runs to tens of kilometres and the along-track law cannot close it: [MESS, `four-4v4-asym`] viper4 held station at a **20.4 km median** error for 1,894 ticks. The `SPLIT` rule bounds the damage (beyond the pilot's own commit range the flight is declared split and the member flies its own plan, which took the same case from 44.8 km to 20.4 km) but does not fix the rejoin. What is missing is a REJOIN as its own behaviour — a cut-off toward the lead's future position rather than a tail chase up his course line | this round |
 | **F2** | **The sort still re-sorts more than the geometry moves.** [MESS, `pair-2v2-f16`] 19–35 assignment changes per unit over a ~430 s engagement, and a repeating one-tick flip is visible in `events.log`. Two causes were separated and one fixed: the symmetric yielding loop (fixed, below), and a per-frame jitter in the contact list that the settle-time hysteresis does not catch because the OLD assignment leaves the block for a tick. Both candidate fixes were measured and rejected (below) | this round |
-| **F3** | **The MiG has no cover channel at all**, so the rule that keeps one member free is exactly unavailable where the weapon makes it most valuable. It is the round's sharpest asymmetry and it is a real one — but there IS a sourced candidate channel that was not tried: the SPO-15 has **no IFF and warns of every radar, friendly included** (`datalink-gci.md` §3), and a leader illuminating for an R-27R publishes a Guidance-mode emission. A wingman could infer "my leader is bound" from its own receiver, with the documented ambiguity that it cannot tell that emitter from a hostile one | this round |
+| **F3** | *(measured further, round `E1`: the cover gene `pilot_cover_frac` is not merely flat on the F-16, it is INERT — `flt_defer_s` = 0.0 in 132 of 132 unit traces over 12 runs at `xmirror --flight 2`, at both rails of the gene. The AIM-120's 0.3 s binding means the rule never fires.)* **The MiG has no cover channel at all**, so the rule that keeps one member free is exactly unavailable where the weapon makes it most valuable. It is the round's sharpest asymmetry and it is a real one — but there IS a sourced candidate channel that was not tried: the SPO-15 has **no IFF and warns of every radar, friendly included** (`datalink-gci.md` §3), and a leader illuminating for an R-27R publishes a Guidance-mode emission. A wingman could infer "my leader is bound" from its own receiver, with the documented ambiguity that it cannot tell that emitter from a hostile one | this round |
 | **F4** | **`flt_dup` counts SHARING, not the violation.** The acceptance metric is `dup && free > 0`, computed by the analysis tool; the column alone reads 1 whenever two members share a target, which is the correct behaviour when there is nothing else to shoot at. A reader of the raw column will misread it | this round |
-| **F5** | **A flight cannot be given a formation other than combat spread.** `FormationSpreadM`/`TrailM`/`StackM` are airframe hooks, not mission data, so a mission cannot brief a wedge, a trail or a wall — and `FormationTrailM` defaults to 0, so a four-ship is four abreast rather than two elements in trail | this round |
+| **F5** | *(blocks G1 of [`doctrine-evolution.md`](doctrine-evolution.md); `tools/fb_evolve.py` prints the blocker at start and refuses the gene.)* **A flight cannot be given a formation other than combat spread.** `FormationSpreadM`/`TrailM`/`StackM` are airframe hooks, not mission data, so a mission cannot brief a wedge, a trail or a wall — and `FormationTrailM` defaults to 0, so a four-ship is four abreast rather than two elements in trail | this round |
 | **F6** | **The lead has no flight-level decision.** He sorts himself first and everybody else follows; there is no "commit", no "bracket", no "grinder", and no way for the lead to send the wingman anywhere. Every tactic in this file is emergent from one shared cost function | this round |
 
 ### Rejected approaches (do not retry without a new argument)

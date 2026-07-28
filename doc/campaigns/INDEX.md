@@ -259,14 +259,34 @@ spread of a constant and `residue` is the difference of two constants. A campaig
 verdict no lever on either side could have changed, which is a fixed point wearing a result's clothes.
 
 The criterion, with its numbers: per geometry the modal outcome class ≤ **60 %** of runs and ≥ **3 of 9**
-doctrine levers must move the outcome class (today: 1 of 9); per arena ≥ **6** geometries of which ≥ **3**
-informative, no two asking the same question — 6 because the duel matrix's own informative rate is a
-measured **2 of 4**. `band_deck ≤ 0.25 · band_doctrine` is unchanged and cited, not re-invented.
+doctrine levers must move the outcome class; per arena ≥ **6** geometries of which ≥ **3** informative, no
+two asking the same question — 6 because the duel matrix's own informative rate is a measured **2 of 4**.
+
+**BUILT AND MEASURED 2026-07-29** (`sim/tools/fb_arena_check.py`), and the answer moved the arena rather
+than the criterion:
+
+| arena | geometries | informative | verdict |
+|---|---|---|---|
+| the one all published F-16 doctrine results were measured on (`mirror`, `split`) | 2 | 1 | **REFUSED** — and `mirror` itself is **100 % modal with 1 of 9 movers**, worse than the `mig21` cell that forced the criterion |
+| the rebuilt one (aspect × energy × detection × **weapon obligation**) | 8 | **4** (`far`, `split`, `xmirror`, `xclose`) | **PASSED** |
+
+**What desaturated it was not a geometry, it was the AIRFRAME.** Eleven F-16-vs-F-16 candidates were
+flown and every one failed; the three best cells in the passing arena are the two that put a MiG-29 in
+the east seat plus the long approach. Two identical aircraft carrying the same weapon draw, and no
+geometry fixes that — which is [`../duels.md`](../duels.md)'s own finding arriving at the campaign layer.
+
+`band_deck ≤ 0.25 · band_doctrine` (S3) is **not computable on that arena** and the check says so rather
+than printing a zero: its instrument perturbs a GENERATED catalogue deck, and the F-16 and the MiG-29 are
+FlightBox's read-only model copies under principle 1. S3 stays live for a catalogue-row arena, where it
+was defined.
 
 The same file also replaces the fitness the yardstick is computed with: it is lexicographic
-(verdict → objectives met → craft) because the present weighted one **demonstrably ranks the doctrine
-that abandons the sort above the one that keeps it** ([`../formation.md`](../formation.md): `f16_solo`
-1097.8 against `f16_net` 977.1, both 0 kills and 0 losses).
+(verdict → objectives met → craft), **built as `sim/tools/fb_fitness.py`**, because the present weighted
+one demonstrably ranked the doctrine that abandons the sort above the one that keeps it
+([`../formation.md`](../formation.md): `f16_solo` 1097.8 against `f16_net` 977.1, both 0 kills and 0
+losses). Re-measured under the new order that gap is **0.9 points of `shot lead` on an exact tie** — the
+mechanism is gone, the direction is not, and the reason is that `mirror` decides nothing at all.
+
 
 ---
 

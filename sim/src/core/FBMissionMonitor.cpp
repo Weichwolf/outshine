@@ -144,38 +144,57 @@ void FBMissionMonitor::NoteIdentify(const FBMissionRoster &roster, double dtS) {
   }
 }
 
+FBObjectiveState FBMissionMonitor::StateOf(size_t i, const FBMissionMonitorSample &s) const {
+  const FBObjective &o = Objectives_[i];
+  switch (o.Kind) {
+    /* `survive` is answered exactly where Finalize answers it — still combat-capable with no run left
+     * to lose it in — and its loss is the one the mission calls decisive, hence Violated. */
+    case FBObjectiveKind::Survive:
+      return s.CombatIneffective ? FBObjectiveState::Violated : FBObjectiveState::Met;
+    case FBObjectiveKind::Waypoints:
+      return PlanDone_ ? FBObjectiveState::Met : FBObjectiveState::Unmet;
+    case FBObjectiveKind::Identify:
+      return Dwell_[i].Met ? FBObjectiveState::Met : FBObjectiveState::Unmet;
+    case FBObjectiveKind::NoFire:
+      return s.ReleasedWeapon ? FBObjectiveState::Violated : FBObjectiveState::Met;
+    case FBObjectiveKind::AvoidZone: {
+      double dwell = 0.0;
+      for (size_t z = 0; z < Zones_.size(); z++)
+        if (Zones_[z].Name == o.TargetId) dwell = Dwell2_[z].DwellS;
+      return dwell > o.HoldS ? FBObjectiveState::Unmet : FBObjectiveState::Met;
+    }
+    /* Judged on the ACCUMULATOR, not on the bit: a position that is quiet right now has not been
+     * suppressed if it radiated for a minute first. A unit nobody named is never met rather than
+     * vacuously so, exactly as the roster-decidable kinds behave. */
+    case FBObjectiveKind::Suppress: {
+      bool named = false;
+      for (int k = 0; k < s.Roster.Count; k++)
+        named = named || FBObjectiveNames(o, s.Roster.Units[k].Id, s.Roster.Units[k].Team);
+      return named && Dwell_[i].DwellS <= o.HoldS ? FBObjectiveState::Met : FBObjectiveState::Unmet;
+    }
+    /* A protected unit that is already gone cannot come back, so the loss is the violation Tick latches
+     * a FAIL on — the same fact, published per objective instead of per unit. */
+    case FBObjectiveKind::Protect:
+      for (int k = 0; k < s.Roster.Count; k++) {
+        const FBUnitObservation &u = s.Roster.Units[k];
+        if (!u.CombatEffective && FBObjectiveNames(o, u.Id, u.Team)) return FBObjectiveState::Violated;
+      }
+      return FBObjectiveMet(o, s.Roster) ? FBObjectiveState::Met : FBObjectiveState::Unmet;
+    case FBObjectiveKind::KillUnit:
+    case FBObjectiveKind::KillTeam:
+    case FBObjectiveKind::DenyRelease:
+      return FBObjectiveMet(o, s.Roster) ? FBObjectiveState::Met : FBObjectiveState::Unmet;
+  }
+  return FBObjectiveState::Unmet;
+}
+
 bool FBMissionMonitor::ObjectivesMet(const FBMissionMonitorSample &s) const {
   for (size_t i = 0; i < Objectives_.size(); i++) {
-    const FBObjective &o = Objectives_[i];
-    switch (o.Kind) {
-      /* Not decided against the roster, and falling through to FBObjectiveMet's "no" would leave them
-       * permanently unmet: `survive` is answered in Finalize, `waypoints` by PlanJudged_/PlanDone_. */
-      case FBObjectiveKind::Survive:
-      case FBObjectiveKind::Waypoints: continue;
-      case FBObjectiveKind::Identify:  if (!Dwell_[i].Met) return false; continue;
-      case FBObjectiveKind::NoFire:    if (s.ReleasedWeapon) return false; continue;
-      case FBObjectiveKind::AvoidZone: {
-        double dwell = 0.0;
-        for (size_t z = 0; z < Zones_.size(); z++)
-          if (Zones_[z].Name == o.TargetId) dwell = Dwell2_[z].DwellS;
-        if (dwell > o.HoldS) return false;
-        continue;
-      }
-      /* Judged on the ACCUMULATOR, not on the bit: a position that is quiet right now has not been
-       * suppressed if it radiated for a minute first. A unit nobody named is never met rather than
-       * vacuously so, exactly as the roster-decidable kinds behave. */
-      case FBObjectiveKind::Suppress: {
-        bool named = false;
-        for (int k = 0; k < s.Roster.Count; k++)
-          named = named || FBObjectiveNames(o, s.Roster.Units[k].Id, s.Roster.Units[k].Team);
-        if (!named || Dwell_[i].DwellS > o.HoldS) return false;
-        continue;
-      }
-      case FBObjectiveKind::KillUnit:
-      case FBObjectiveKind::KillTeam:
-      case FBObjectiveKind::Protect:
-      case FBObjectiveKind::DenyRelease: if (!FBObjectiveMet(o, s.Roster)) return false; continue;
-    }
+    /* Neither is decided here: `survive` is answered in Finalize, `waypoints` by PlanJudged_/PlanDone_,
+     * and letting either one's StateOf decide would move a verdict this round is not allowed to move. */
+    if (Objectives_[i].Kind == FBObjectiveKind::Survive ||
+        Objectives_[i].Kind == FBObjectiveKind::Waypoints) continue;
+    if (StateOf(i, s) != FBObjectiveState::Met) return false;
   }
   return true;
 }
@@ -194,9 +213,17 @@ int FBMissionMonitor::NoteApproach(double distM) {
   return AppFails_;
 }
 
-bool FBMissionMonitor::Conclude(FBMissionVerdict v, const std::string &detail) {
+bool FBMissionMonitor::Conclude(FBMissionVerdict v, const std::string &detail,
+                                const FBMissionMonitorSample &s) {
   Verdict_ = v;
   Detail_ = detail;
+  /* THE PER-OBJECTIVE VECTOR, published at the ONE point every conclusion passes through rather than in
+   * Finalize alone — a unit that FAILs in Tick never reaches Finalize and would otherwise publish
+   * nothing. One line per DECLARED goal, so a mission that declares none writes nothing new.
+   * doc/doctrine-evolution.md E-1. */
+  for (size_t i = 0; i < Objectives_.size(); i++)
+    FBLog::Info("mission", "OBJECTIVE", {{"kind", FBObjectiveStr(Objectives_[i])},
+                                         {"state", FBObjectiveStateStr(StateOf(i, s))}});
   /* Self-logs, so every caller sees the conclusion the instant it happens without re-deriving it. */
   FBLog::Info("mission", "RESULT", {{"result", FBMissionVerdictStr(v)}, {"reason", detail}});
   return true;
@@ -223,27 +250,27 @@ bool FBMissionMonitor::Tick(const FBMissionMonitorSample &s, double simTimeS) {
    * WHOSE failure it is depends on what the mission declared. */
   if (s.CombatIneffective) {
     if (Objectives_.empty())
-      return Conclude(FBMissionVerdict::Fail, "combat ineffective (weapon damage)");
+      return Conclude(FBMissionVerdict::Fail, "combat ineffective (weapon damage)", s);
     if (HasSurviveObjective())
-      return Conclude(FBMissionVerdict::Fail, "combat ineffective (survive objective lost)");
+      return Conclude(FBMissionVerdict::Fail, "combat ineffective (survive objective lost)", s);
   }
 
   /* The two kinds that are lost the instant they are broken. Both read a MONOTONE register of the
    * owner's, so neither can be un-broken later and the conclusion is safe to latch here. */
   for (const auto &o : Objectives_) {
     if (o.Kind == FBObjectiveKind::NoFire && s.ReleasedWeapon)
-      return Conclude(FBMissionVerdict::Fail, "weapon released (no_fire objective lost)");
+      return Conclude(FBMissionVerdict::Fail, "weapon released (no_fire objective lost)", s);
     if (o.Kind != FBObjectiveKind::Protect) continue;
     for (int k = 0; k < s.Roster.Count; k++) {
       const FBUnitObservation &u = s.Roster.Units[k];
       if (u.CombatEffective || !FBObjectiveNames(o, u.Id, u.Team)) continue;
-      return Conclude(FBMissionVerdict::Fail, std::string("protected unit lost: ") + u.Id);
+      return Conclude(FBMissionVerdict::Fail, std::string("protected unit lost: ") + u.Id, s);
     }
   }
 
   /* A touchdown the physics judge accepted as survivable, but in the wrong place. */
   if (HaveRunway_ && s.AnyWow && !OnRunway(Runway_, s.LatDeg, s.LonDeg, 50.0, 30.0))
-    return Conclude(FBMissionVerdict::Fail, "touchdown off the assigned runway");
+    return Conclude(FBMissionVerdict::Fail, "touchdown off the assigned runway", s);
 
   /* A Land waypoint (always the LAST) does not capture-and-advance: it needs the aircraft to STOP on
    * the runway, so SUCCESS there is standalone, never ActiveIdx_ falling off the end of the plan. */
@@ -295,7 +322,7 @@ bool FBMissionMonitor::Tick(const FBMissionMonitorSample &s, double simTimeS) {
 
   /* SUCCESS needs BOTH halves; the deferred kinds can only be answered once the run is over (Finalize). */
   if (PlanDone_ && !HasDeferredObjective() && ObjectivesMet(s))
-    return Conclude(FBMissionVerdict::Success, SuccessDetail(PlanDetail_, !Objectives_.empty()));
+    return Conclude(FBMissionVerdict::Success, SuccessDetail(PlanDetail_, !Objectives_.empty()), s);
 
   if (simTimeS >= TimeoutS_) return Finalize(s, simTimeS);
 
@@ -316,9 +343,9 @@ bool FBMissionMonitor::Finalize(const FBMissionMonitorSample &s, double simTimeS
       if (Objectives_[i].Kind == FBObjectiveKind::Suppress)
         FBLog::Info("mission", "SUPPRESSED", {{"target", FBObjectiveStr(Objectives_[i])},
             {"emittingS", Dwell_[i].DwellS}, {"allowanceS", Objectives_[i].HoldS}});
-    return Conclude(FBMissionVerdict::Success, d);
+    return Conclude(FBMissionVerdict::Success, d, s);
   }
-  return Conclude(FBMissionVerdict::Timeout, "sim time exceeded the mission timeout");
+  return Conclude(FBMissionVerdict::Timeout, "sim time exceeded the mission timeout", s);
 }
 
 } // namespace FlightBox

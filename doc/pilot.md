@@ -1385,6 +1385,26 @@ do not encode taste: a tournament may try a bad idea, it may not try 6,000 nm.
 | `pilot_bfm_ctrl_max_nm` | 0.05…10.0 | far edge | gun position IN the funnel, missile position outside |
 | `pilot_attack_bias_s` | −10…+10 | release s seconds after the cue | deliberately WIDE and SIGNED: the parameter for a DELIBERATELY wrong release |
 | `pilot_attack_ccip_m` | 1…2000 | CCIP pipper tolerance | |
+| `pilot_energy_frac` | 0.7…1.2 | **`Scale`** — the speed the BFM throttle insists on, as a multiple of this jet's own `BfmCornerSpeedKt` | G4, [`doctrine-evolution.md`](doctrine-evolution.md) §2.1 |
+| `pilot_cover_frac` | 0…3.0 | **`Scale`** — how many of its OWN weapon's binding times a member holds its trigger for under the cover rule. 0 = rule off | G2, ditto |
+
+**Two entry KINDS since round `E1`, and the difference is a matter of syntax rather than of discipline**
+([`doctrine-evolution.md`](doctrine-evolution.md) §2.2):
+
+| Kind | Declared | Read through | It cannot |
+|---|---|---|---|
+| `Free` | `{key, param, Free, lo, hi, ""}` — a pure pilot decision | `Tuned(p, own)`, unchanged | — |
+| `Scale` | `{key, param, Scale, lo, hi, "<hook>"}` — a multiple of a NAMED airframe hook | `TunedScale(p, own)` = `own · Or(p, 1.0)` | **express an absolute.** The value never leaves the class unmultiplied, and two `static_assert`s refuse a `Scale` band that is not dimensionless (`0 ≤ lo < hi ≤ 3.0`) or that names no hook |
+
+The runtime half is measured as an exit code, not read off the source:
+`missions/genome-absolute-refused.fbm` writes the aircraft's OWN corner speed (380, the most plausible
+mistake there is) into `pilot_energy_frac` and **exits 1** with `SET_INVALID_VALUE` + `SET_REJECTED`
+before the run starts; `missions/genome-scale-flown.fbm` is the same file at 0.85 and flies, moving the
+throttle on [MESS] **2,979 of 3,001** ticks with a maximum |Δthrottle| of **0.680**.
+
+The whole table is readable from outside the binary: `fb-gym --pilot-keys` prints
+`<key> free|scale <lo> <hi> <hook>` per line, which is where `tools/fb_evolve.py` gets its genome —
+so no tool carries a second copy of the alphabet.
 
 **Why a population is a set of TEXT LINES.** A variant is thereby a LINE in a mission file instead of a
 class — nothing is compiled between two candidates, and there is no tournament code in the simulator.
@@ -1413,25 +1433,40 @@ Stdlib Python, not a build target, no dependency under `sim/build` except the `f
 - **Evaluation** exclusively from `telemetry*.csv` (the `eng_*` and `dmg_*` columns of the last line)
   plus the `UNIT_RESULT` lines from `events.log`.
 
-**The evaluation rule: outcome dominates, craft only orders within equal outcomes.**
+**The evaluation rule since round `E1`: the order is LEXICOGRAPHIC, not weighted.** The fitness moved
+out of this tool into `tools/fb_fitness.py`, which the tournament, the arena gate and the evolution
+runner all import — one scorer, no copies. Derivation, evidence and the two items that were REMOVED
+rather than re-tuned: [`doctrine-evolution.md`](doctrine-evolution.md) §1.
 
-| Item | Weight | Justification in the script |
+```
+key(unit, run) = ( V , M , C )        compared LEFT TO RIGHT; larger is better
+
+V ∈ {0..3}   the judge's verdict, read from UNIT_RESULT and never recomputed
+             3 SUCCESS · 2 TIMEOUT/NONE · 1 FAIL · 0 CRASH/LOC
+M ∈ {0..k}   how many of the objectives this unit DECLARED the judge marked `met`, counted off the
+             `mission OBJECTIVE` lines FBMissionMonitor publishes at every conclusion
+C ∈ ℝ        craft — bounded, and consulted ONLY when V and M are exactly equal
+```
+
+| Item | Weight | Note |
 |---|---|---|
-| `kill` | +1000 | the point of the sortie |
-| `lost` | −1200 | worth somewhat MORE than a kill — without the asymmetry a mutual kill would be worth as much as a stalemate, and "always trade" would be a stable strategy |
-| `hits landed` | +150 per hit | the anti-trigger-happy item and the only thing a shot gets anything for at all; not fakeable (a hit means having guided a round to within ten metres) and a sixth of a kill |
-| `no shot` | −250 | the anti-running-away item. Whoever never fires cannot be shot down either — a pure survival score has its optimum in leaving the area. Larger than all craft items together |
-| `rounds` | −25 per shot | an AIM-120 is not free |
-| `shot geometry` | ×100 | `q = zone · cos(ata)`, `zone = clamp((Raero − R)/(Raero − Rtr), 0, 1)`. 1.0 = at or inside Rtr, straight ahead. **Plateau** beyond Rtr: "closer is better" without a limit would pay for pressing in, which the outcome items already price higher |
-| `support` | ×80 | `eng_support_f` — the difference between a launch and a kill |
-| `shot lead` | ×40 | `tanh((t_foe − t_me)/15)`, RELATIVE to the opponent in the SAME run — a duel is a relative thing; the tanh prevents a 15 s lead from being worth ten times as much as a 5 s lead |
-| `defence` | ×40 | only where there WAS something to defend against and only if it worked: `max(0, 1 − react/8)` and survived. Not farmable — being shot at is the opponent's decision |
-| `energy` | ×40 | `eng_es_min / es_start`. Deliberately small: flying straight and level is perfect on this axis and hopeless on every other |
+| shot geometry | ×100 | `q = zone · cos(ata)`, plateaued at Rtr — unchanged |
+| support | ×80 | `eng_support_f`, a fraction, so unfarmable |
+| shot lead | ×40 | `tanh((t_foe − t_me)/15)`, relative to the opponent in the same run |
+| defence | ×40 | only where a warning existed and was survived |
+| energy | ×40 | `eng_es_min / es_start` |
+| rounds | −25 each, floored at −150 | bounded by the loadout, not by the run length |
+| **hits landed** | **REMOVED** | it paid per event on a count the simulator partitions into TICKS — measured at 900–1,278 fitness points per second of trigger |
+| **no shot** | **REMOVED, replaced by a GATE** | a price can be bought back; `C = −∞` for a unit that neither fired nor locked cannot be |
 
-The ranking is the MEAN over the runs of a variant (so it does not grow with the field size) and separates
-`outcome` (kill/lost/hits) from `craft` (the rest).
+**Aggregation is pairwise domination, not a mean.** Per pairing the two sides' keys are compared
+directly and the variant takes 1 / ½ / 0; the fitness is `Σ points / (2 · N_opponents) ∈ [0,1]`, a
+normalised win rate. A mean of ranks is a number in a currency that has no units, and it would make M
+and C dead code because two float means are never equal.
 
----
+**The tool now says which level decided.** Every run is counted, and a field in which no run was
+decided at V or M prints `SATURATED` and the instruction not to read the ranking — a rank change inside
+level C is expressly not a finding ([`doctrine-evolution.md`](doctrine-evolution.md) §6).
 
 ### 10. The mission control loop as a way of working
 

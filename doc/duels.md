@@ -173,6 +173,25 @@ On the `split` geometry (the 6,000 m / 150 kt energy difference) the picture inv
 `f16_base` 1085.1 with **7 kills**, every MiG variant negative. Energy is worth more to the side whose
 round is fire-and-forget.
 
+**RE-MEASURED under the lexicographic fitness (round `E1`, 2026-07-29, same 30 runs).** The old table's
+top two were separated by **1.5 points** with the LARGER "outcome" band on the loser — the defect
+[`doctrine-evolution.md`](doctrine-evolution.md) §1.1 calls Exhibit B. Under the new order the two carry
+the **identical result** (V = 2.40, M = 1.40 both), because the 900 points of bursts that killed nobody
+are not an outcome any more; they are ordered by craft, which is what craft is for.
+
+| variant | fitness (win rate) | V | M | craft | kill / lost / draw |
+|---|---|---|---|---|---|
+| `mig_long` | **1.000** | 2.40 | 1.40 | +125.0 | 4 / 0 / 6 |
+| `f16_long` | 0.800 | 2.40 | 1.40 | +193.3 | 4 / 0 / 6 |
+| `f16_base` | 0.600 | 2.40 | 1.40 | +151.8 | 4 / 0 / 6 |
+| `mig_base` | 0.400 | 1.60 | 0.60 | +96.3 | 2 / 6 / 2 |
+| `f16_deep` | 0.200 | 2.00 | 1.00 | +73.0 | 0 / 0 / 10 |
+| `mig_deep` | 0.000 | 1.20 | 0.20 | +79.4 | 0 / 8 / 2 |
+
+The symmetric F-16 field on the same arena now prints its own indictment instead of a ranking:
+`latelock` shows **`GATE x8`** — eight of its ten runs never fired and never locked, and the engagement
+GATE says so where the old −250 could be repaid by energy plus defence plus support.
+
 ### The flight extension of this campaign
 
 The duels are one against one by construction. Since this round they have a two- and four-ship
@@ -201,7 +220,7 @@ pairings.
 |---|---|---|
 | ~~**D1**~~ | **The merge is FLYABLE from both sides — closed as a control-law gap; what remains is a different gap.** Its three named blockers are gone in order: the MiG's close-combat departure (`pilot.md` §5.10), the MiG's acquisition (`FBMig29Radar::kAcm*` + `BfmRadarModeOrdinal`, `RADAR_LOCK` t=3.8, `lock_s` 14.2 → **79.4**) and — this round — the F-16's roll law, which carried a PEAK rate cap and no bound on the roll's EXTENT (`pilot.md` §5.7.3). `duel-merge` goes from **18.0 s to 232.3 s**, the F-16's departure is gone, and the MiG gets the campaign's first WVR employment away (12 GSh-301 rounds at t=195.2, miss). It is still not a weapon result, and the reason is now elsewhere: the viper is blind for 190.1 of 232.3 s, the fulcrum for 143.2 s, both at once for 133.6 s — after the first pass neither ACM box re-acquires, the fight becomes two blind sustained turns, both jets sink and the MiG hits the ground at t=232.3. Successor gaps: `pilot.md` 2.9 (close-combat re-acquisition + the BFM floor) and 2.8 (the lift-vector law's downward singularity, the mechanism that triggered the roll). | `duel-merge` |
 | **D2** | **An AIM-120's terminal miss is a strong function of closure**, and nothing in the tree says whether that is the round or the physics. [MESS, `duel-headon` with the MiG's cruise swept 330→600 kt TAS] target speed 169/206/237/268/288 m/s ⇒ closure 744/842/919/1000/1053 m/s ⇒ miss **1.37/2.13/4.74/3.15/7.66 m**. Since `core/FBDamageModel` is 1/r², those six metres are the difference between a kill and a jet that flies on with wrecked avionics — i.e. the single most outcome-sensitive number in the whole campaign. It belongs beside `bvr-duel-decided`'s terminal-loop finding | this campaign |
-| **D3** | **The pilot does not use the IRST.** `sensors/FBIrstSystem` publishes an `Irst` block and the only consumer in the tree is a missile seeker; `pilot/FBPilot`'s intercept picture is built from the Radar block alone. So the MiG's one genuinely passive sensor cannot cue anything, and "IRST-EMCON" is a doctrine the campaign could only test as "silent and blind" | `duel-emcon` |
+| **D3** | *(blocks G5 of [`doctrine-evolution.md`](doctrine-evolution.md); `tools/fb_evolve.py` prints the blocker at start and refuses the gene.)* **The pilot does not use the IRST.** `sensors/FBIrstSystem` publishes an `Irst` block and the only consumer in the tree is a missile seeker; `pilot/FBPilot`'s intercept picture is built from the Radar block alone. So the MiG's one genuinely passive sensor cannot cue anything, and "IRST-EMCON" is a doctrine the campaign could only test as "silent and blind" | `duel-emcon` |
 | **D4** | **Weapon selection is not a decision the pilot can make.** `FBCommandTarget::WeaponSelect` is `NotImplemented` on both modules, so the selected station is whatever the SMS's station step arrived at. A jet carrying an AIM-120 and an AIM-9 will offer whichever pylon comes first in the module's own list, and the missions in this family work around it by loading the racks in the order they want the rounds fired | this campaign |
 | ~~**D5**~~ | ~~The MiG has no dispenser.~~ — **closed this round.** The MiG has the BVP-30-26 (`modules/mig29/FBMig29Cmds`, 60 cartridges, [SET] 30/30 split), and its flares seduce the AIM-9 through the SAME deterministic model that seduces the R-73 (`sensors/FBIrstSystem::SelectFlare`): `mig29-defend.fbm` measures `FLARE_SEDUCED tgtIntensity=0.16` and the round expiring 16.0 m wide, against an astern control that detonates 0.04 m out. The defensive asymmetry is now TWO-SIDED. What it does NOT yet do is auto-defend in the merge (the 9-12 has no MAWS, defence-rwr-cm.md §5, so an infrared shot is answered only by a briefed throw), and the BVR duels do not arm it, so their outcomes are unchanged (only the MiG's `cmd_*` bookkeeping moves: its intercept CmDispense is no longer rejected `NotImplemented`) | this round |
 | **D7** | The campaign is 1v1 and the flight campaign is 2v2/4v4, and the two do not share a geometry table. The four-ship in `formation.md` is one geometry; the eight duel geometries have no flight counterpart, so nothing says whether the energy split or the offset behaves the same with two aircraft a side | this round |

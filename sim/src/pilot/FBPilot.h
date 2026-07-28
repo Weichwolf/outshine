@@ -146,6 +146,9 @@ protected:
 
   /* Der EINE Leser des Entscheidungspfads: der Wert der Variante, sonst die eigene Zahl des Aufrufers. */
   double Tuned(FBPilotParam p, double own) const { return Tune_.Or(p, own); }
+  /* Der Leser fuer einen `Scale`-Schluessel: `own` bleibt die Zahl des Flugzeugs, die Variante liefert
+   * nur ihr Vielfaches. Ein Absolutwert hat hier keine Syntax. doc/doctrine-evolution.md 2.2. */
+  double TunedScale(FBPilotParam p, double own) const { return Tune_.Scaled(p, own); }
 
   /* Die Zahlen der ZELLE — generische Platzhalter, FBF16Pilot ueberschreibt sie. NICHT der
    * Override-Punkt: das ist Config wie FBFlightControls Gain-Preset, nur als virtual ausgedrueckt, weil

@@ -4,10 +4,14 @@
 it is **allowed to change** (the genome), what stops the co-evolution from **circling** (the archive),
 and what an arena must be before any of it measures anything (the **saturation criterion**).
 
-**Status: SPEC ONLY. Nothing in this file is built.** No line of `sim/` was touched to write it. The
-tool it specifies (`sim/tools/fb_evolve.py`) does not exist; the tool it *reforms*
-(`sim/tools/fb_tournament.py`) does, and every claim below about the present fitness is read off that
-file or off a committed measurement.
+**Status: BUILT, round `E1` (2026-07-29).** The `## Spec` below is unchanged from the round that wrote
+it — it is the contract, and a contract that is edited to match what was built measures nothing.
+`## State` carries what the build measured against it, **including the five places the spec did not
+carry** (D1–D5) and the one exhibit that did not come out the way the spec predicted (A). Built:
+`sim/tools/fb_fitness.py` (the fitness), `sim/tools/fb_arena_check.py` (the gate),
+`sim/tools/fb_evolve.py` (the runner and the archive), the `Free`/`Scale` split in
+`sim/src/pilot/FBPilotTuning.*`, `mission OBJECTIVE` in `sim/src/core/FBMissionMonitor.*`, and the
+eight-geometry arena in `sim/tools/fb_tournament.py`.
 
 **Why the name, and why it is not `evolution.md`.** Exactly one thing evolves here: **doctrine** — the
 decisions a pilot makes with the aircraft he was given. The model, the deck, the weapon and the sensor
@@ -114,7 +118,7 @@ carries no such protection.
 **Honesty about C:** the bundle→`NoteHit` mapping is source-exact and the arithmetic is off published
 rates, but the count itself has not been read off that run's last telemetry line. `[TODO]` — one read
 of `dmg_hits` in `mig29-gun`'s telemetry settles it, and it is an acceptance item of the first
-evolution round. C is also **latent**: the tournaments that produced A and B are BVR and fire no gun,
+evolution round. **[READ 2026-07-29 — the mechanism holds and the number is 40 % high; §State.]** C is also **latent**: the tournaments that produced A and B are BVR and fire no gun,
 so C did not cause them. It is the gradient the genome is about to be pointed at the moment a
 gun-carrying arena exists, and it is listed here so that it is a prediction and not a post-hoc excuse.
 
@@ -524,20 +528,108 @@ fixed template with mandatory evidence per section.
 
 ## State
 
-**Nothing of this file is built.** What exists is the instrument it reforms and the measurements it
-rests on.
+**Built, round `E1` (2026-07-29).** The four contracts are implemented and measured; two of the five
+genes are live, two are BLOCKED by a named gap in another file, and the arena passes.
 
 | Piece | Status | Anchor |
 |---|---|---|
-| The weighted fitness (`Score()`, nine items) | **built, and this file is the case for replacing it** | `sim/tools/fb_tournament.py` |
-| Both-seat pairings, mirrored geometries, `--check-determinism` | **built and consumed unchanged** — §1.4 design C uses exactly this structure | [MESS] 0 of 60 files differ between `--threads 2` and `--threads 1` |
-| The genome as mission text (`FBPilotTuning`, 18 keys, band-checked, rejection ⇒ mission FAIL) | **built** — §2's `Free`/`Scale` split is an extension, not a replacement | [`pilot.md`](pilot.md) §9 |
-| Three of the five genes as mission text (`dl=`, `sort=`; the station as airframe hooks) | **partly built** — G1 needs F5 closed, G3 exists | [`formation.md`](formation.md) §§4–6, F5 |
-| Two of the five genes (G4 energy rule, G5 EMCON timing) | **not built, and both are named as missing by the files that own them** | [`pilot.md`](pilot.md) rejected-approaches; [`duels.md`](duels.md) D3 |
-| The attribution instrument (`band_deck`, `band_doctrine`, the control cell, the one-sided rule) | **built, repaired 2026-07-28** — §4 consumes it unchanged | [`modules/air/module.md`](modules/air/module.md) §Spec 11 |
-| The saturation blocker | **MEASURED** — 18 of 19 runs identical, `band_deck` = 0.0 | [`modules/air/module.md`](modules/air/module.md) §State B6 |
-| The fingerprint + refusal discipline the archive needs | **built** for campaigns and reusable verbatim | [`missions/campaign.md`](missions/campaign.md) §5 |
-| Per-objective met/unmet publication (level M's input) | **NOT built** — see Gaps E-1 | `core/FBMissionMonitor::ObjectivesMet` is all-or-nothing |
+| **Level M's input** — `mission OBJECTIVE unit=… kind=… state=met\|unmet\|violated`, one line per declared objective | **BUILT** at the ONE point every conclusion passes through (`FBMissionMonitor::Conclude`), not at `Finalize` — see the deviation note below | [MESS] 137 missions: **432/432 telemetry files byte-identical**, 77 `events.log` unchanged, 60 gained exactly **136** `OBJECTIVE` lines, 0 lines removed, 0 other lines moved |
+| **The lexicographic fitness** `(V, M, C)` + pairwise domination | **BUILT** as `sim/tools/fb_fitness.py`, the one scorer the tournament, the arena check and the evolution runner all import | `hits landed` and `no shot` are gone; the engagement gate replaces the latter |
+| **The order scalar** `V·10⁶ + M·10³ + C` | **BUILT** — order-isomorphic because \|C\| < 500, which is what gives the attribution instrument its bands back without a second fitness | `fb_fitness.order_scalar` |
+| **The genome's `Free`/`Scale` split** | **BUILT** in `FBPilotTuning`, plus `fb-gym --pilot-keys` so the runner reads its alphabet out of the ONE table | 20 keys, 2 of them `Scale`; two `static_assert`s |
+| **G4 `pilot_energy_frac`** (Scale × `BfmCornerSpeedKt`, 0.7…1.2) | **BUILT** — the BFM throttle's insisted-on speed | [MESS] `genome-scale-flown.fbm`: moves the throttle on **2,979 of 3,001** ticks, max \|Δthr\| **0.680** |
+| **G2 `pilot_cover_frac`** (Scale × the weapon's own binding time, 0…3) | **BUILT and MEASURED INERT on every arena this round flew** | [MESS] `flt_defer_s` = 0.0 in **132 of 132** unit traces over 12 runs at `xmirror --flight 2`. E-6 predicted it; this is the measurement |
+| **G3 `pilot_sort`** (`dl=` + `sort=`) | **exists unchanged** as mission text | [`formation.md`](formation.md) §§4–6 |
+| **G1, G5** | **REFUSED, and the runner prints the blocker at start** rather than silently dropping them | E-5 (`formation.md` F5), E-4 (`duels.md` D3) |
+| **The arena gate** `tools/fb_arena_check.py` | **BUILT**, and the arena was rebuilt until it passed | see the two tables below |
+| **The archive** (`tools/fb_evolve.py`, non-dominated admission, deterministic stride sample, cap 64) | **BUILT**, with all three circling instruments | [MESS] 4 generations × P = 4 at `xmirror --flight 2`: T = 0.0000, yardstick 0.667 flat, archive 16 members |
+| The attribution instrument | **consumed unchanged**, now on the order scalar | `sim/tools/fb_tournament.py` |
+| `git status --porcelain sim/assets` before and after every evolution run | **BUILT as a check, not a rule** — the runner refuses to start dirty and prints VOID if it ends dirty | both runs: clean/clean, `verify-models` green |
+
+### The two exhibits, re-measured
+
+**Exhibit C — the prediction was RIGHT about the mechanism and 40 % HIGH about the number.**
+[MESS, 2026-07-29, `gun-bfm` / `gun-turning` / `mig29-gun`, read off `events.log` + the last telemetry row]
+
+| Claim | Predicted | Measured | Verdict |
+|---|---|---|---|
+| a bundle is one TICK's rounds, not one squeeze's | 10 rd/tick at 6,000 rd/min | `gun BURST rounds=1` → `5` → `10` at 0.1 s spacing (the spool-up ramp, then the full rate) | **confirmed, source-exact** |
+| bundles per second of continuous fire | 10 | 10 — every burst span is a whole number of 0.1 s ticks; the F-16's spans are 0.5 s = `BfmGunBurstS` = 5 bundles per squeeze | **confirmed** |
+| `NoteHit()` once per bundle | 1 | `dmg_hits` = `gun HIT` line count exactly (8/8, 24/24, 23/23) | **confirmed** |
+| **fitness per second of on-target fire** | **1,500** | `gun-turning` 24 hits / 4.0 s = **900** · `gun-bfm` 9 / 1.3 s = **1,038** · `mig29-gun` 23 / 2.7 s = **1,278** | **the derivation is an UPPER BOUND, not a rate.** `kMinReportedHits` 0.1 filters the bundles that pass wide, so 60–85 % of bundles score |
+| the ≈9,000-point endpoint (full drum, jet flies on) | ~60 bundles | not reproduced: `mig29-gun` kills at **23** hits on 67 of 150 rounds | the endpoint stands as a [TODO] on the 571 m case, and the round it was derived from is not in `sim/missions/` |
+
+**The reading:** the defect is real and the fix (§1.3 removes the counter) is right — 900 points per second of trigger is still 0.9 kills per second in the old currency, which is the whole complaint. The specific figure 1,500 is a ceiling nobody reaches and this file now says so.
+
+**Exhibit A — it did NOT turn around, and that is the round's most important finding.**
+[MESS, `tools/variants-flight.txt`, both seats, `--flight 2`]
+
+| geometry | old weighted fitness | new order | margin, and what carries it |
+|---|---|---|---|
+| `mirror` | `f16_solo` **1097.8** > `f16_net` 977.1 | `f16_solo` **1.000** > `f16_net` 0.625 | **0.9 points of `shot lead`** on an exact tie at V = 4 and M = 2 in all 8 runs. Was 120.7 points of `hits landed` |
+| `split` | `f16_net` 940.9 > `f16_solo` 770.0 | `f16_net` **V = 4.25, M = 2.25** > `f16_solo` V = 4.00, M = 2.00 | the cooperative doctrine is strictly ahead at BOTH deciding levels; the head-to-head win rate ties 0.750 because each side wins its west seat |
+
+**What that means, stated without softening.** The mechanism §1.1 named is gone: the 120.7-point gap
+collapsed by a factor of 134, and `hits landed` no longer exists. But the DIRECTION did not flip on
+`mirror`, because level C still orders a field that ties at V and M — and two floats are never equal.
+On the geometry that decides anything (`split`) the cooperative doctrine IS ahead where it counts.
+
+**The consequence for the spec is stated in §Gaps as E-11:** §Knowledge 1's claim that the reformed
+fitness is *"honestly silent"* in a saturated arena is **false as specified**. §1.4's pairwise
+domination consults C on a tie, and C always differs. The tool now says so instead — every tournament
+prints `decided at level: V n  M n  C n  exact tie n`, and refuses to let the ranking be read when
+V and M decided nothing:
+
+```
+decided at level:  V 2   M 0   C 18   (of 20 runs)          mirror,  --flight 2
+decided at level:  V 14  M 0   C 6    (of 20 runs)          split,   --flight 2
+```
+
+**Exhibit B — resolved.** [MESS, `tools/variants-mixed.txt`, `mirror`, 30 runs, `--timeout 420`]
+`f16_base` and `f16_long` now carry the IDENTICAL result (V = 2.40, M = 1.40 both): the 900 points of
+bursts that killed nobody are not an outcome any more, so nothing overturns anything. The two are
+ordered by craft, which is what craft is for. `latelock` prints `GATE x8` — eight of its ten runs
+never engaged, and the gate says so where the old −250 could be repaid.
+
+### The arena, old against new
+
+Both measured with `tools/fb_arena_check.py`, the FIXED yardstick (`variants-bvr.txt`, six lines, both
+seats = 60 side-keys per geometry) and the nine declared doctrine levers.
+
+| | geometries | informative | verdict |
+|---|---|---|---|
+| **old** (`mirror`, `split`) | 2 | 1 | **REFUSED** — S4 2 < 6, S5 1 < 3 |
+| **new** (8, spanning aspect / energy / detection / weapon obligation) | 8 | **4** | **PASSED** |
+
+| geometry | distinct classes | modal | movers of 9 | S1 | S2 |
+|---|---|---|---|---|---|
+| `mirror` | 1 | **100.0 %** | 1 (`react-slow`) | NO | NO |
+| `stern` | 1 | 100.0 % | 0 | NO | NO |
+| `offset` | 3 | 93.3 % | 1 (`beam-hard`) | NO | NO |
+| `xsplit` | 3 | 41.7 % | 2 | ok | NO |
+| **`far`** | 4 | **40.0 %** | **4** | ok | ok |
+| **`xmirror`** | 3 | **56.7 %** | **5** | ok | ok |
+| **`split`** | 3 | **56.7 %** | **3** | ok | ok |
+| **`xclose`** | 3 | **60.0 %** | **3** | ok | ok |
+
+`mirror`'s 100 % / 1-of-9 is worse than the 94.7 % §4.1 quotes from the catalogue row, and it is the
+geometry every published F-16 doctrine result in this tree was measured on. **What desaturated the
+arena was not the geometry, it was the AIRFRAME:** the three best cells are the two mixed ones and the
+long approach, and eleven F-16-vs-F-16 candidates were flown and rejected before that was accepted
+(`low` 66.7 %/2, `farsplit` 70.0 %/2, `farsplit2` 66.7 %/2, `farhigh` 73.3 %/2, `hardsplit` 90.0 %/2,
+`fast` 70.0 %/1, `closesplit` 80.0 %/1, `high` 80.0 %/1, `close` 96.7 %/0, `lowfar` 96.7 %/0,
+`farfast` / `farlowsplit` / `beam` 100 %/0). That is §4.2's own weapon-obligation axis arriving at its
+consequence: two identical aircraft with the same weapon draw, and no geometry fixes that.
+
+### Deviations from the spec, found while building it
+
+| # | The spec says | What was built, and why |
+|---|---|---|
+| **D1** | E-1's line is emitted at `Finalize` | It is emitted in `Conclude`, the one point BOTH conclusion paths pass through. `Finalize` alone would publish nothing for a unit that FAILs in `Tick` (a shoot-down, a `no_fire` violation, a touchdown off the runway) — and those units have an M worth counting inside their own outcome class |
+| **D2** | S3 is *"unchanged, cited"* | **S3 is not computable on this arena.** Its instrument perturbs a GENERATED catalogue deck via `gen_air_decks.py`; the arena flies the F-16 and the MiG-29, whose decks are FlightBox's read-only model copies under principle 1 and carry no declared-ignorance band. The check prints `n/a` with the reason and never a 0.0 — a no-op is not a measurement. S3 stays live for a catalogue-row arena, where it was defined |
+| **D3** | §Knowledge 1: the reformed fitness is *"honestly silent"* in a saturated arena | False — see Exhibit A above and E-11 |
+| **D4** | §2.2 property 3: the runner prints `evolving 5 genes of 22 pilot keys; 17 refused as airframe-owned` | It prints `evolving 3 genes of 20 pilot keys; 18 keys not in the genome; 0 non-pilot keys reachable` plus one line per BLOCKED gene with its blocker. 3 not 5 because G1/G5 are blocked by E-4/E-5; *"refused as airframe-owned"* was not used because it is not true of the other 18 — they are pilot keys that simply are not genes |
+| **D5** | §4.2 S2 counts *"3 of the 9 doctrine levers"* | The nine are `pilot_*` intercept keys and are **not the genome**. [MESS] `xmirror` passes S2 with 5 of 9 while all four gene alleles produce the IDENTICAL key in 12 of 12 runs. `fb_arena_check.py --levers FILE` now sweeps whatever alleles are being evolved; the fixed nine remain the default. Booked as E-12 |
 
 ---
 
@@ -545,16 +637,19 @@ rests on.
 
 | # | Thing | Known from |
 |---|---|---|
-| **E-1** | **The judge does not publish WHICH objectives were met**, only one verdict and a prose `reason`. `ObjectivesMet()` is a single bool; `FBIdentifyProgress` is the only per-objective state and it is private. Level M therefore has no input today. The bounded fix is one event at `Finalize` — `mission OBJECTIVE unit=… kind=… state=met\|unmet\|violated`, one line per declared objective, no new judge logic and no new column. **Its cost is stated rather than hidden:** it adds lines to `events.log` for every mission that declares an objective, so the "events.log identical" half of the regression gate moves by exactly that many lines and the diff must be shown | this file |
-| **E-2** | **Exhibit C is derived, not read.** The bundle→`NoteHit` mapping is source-exact and the arithmetic is off published rates, but `dmg_hits` has not been read off `mig29-gun`'s last telemetry line. One read settles it, and it is an acceptance item of the first round | this file |
-| **E-3** | **The −1450.0 decomposition is derived, not read** off the tool's printed items. The four terms sum exactly and the reading ("flew straight and level into a missile") follows from them, but the confirmation is one `--attribution mig21` re-run with the item list kept | this file |
-| **E-4** | **G5 (EMCON) cannot be evolved before `duels.md` D3 closes.** The pilot's intercept picture is built from the Radar block alone, so a silent jet is a blind jet and the gene's band is degenerate at one rail | [`duels.md`](duels.md) D3 |
-| **E-5** | **G1 (formation shape) cannot be evolved before `formation.md` F5 closes**, and a four-ship is four abreast until it does (`FormationTrailM` = 0) | [`formation.md`](formation.md) F5 |
-| **E-6** | **G2's gradient is nearly flat on the only airframe that has the channel.** The cover rule is almost free for the AIM-120 (0.3 s) and unavailable to the MiG (no cooperative terminal, F3). The gene is therefore only measurable in a MIXED tournament, and its most interesting value is on an aircraft that cannot express it | [`formation.md`](formation.md) F3, [`duels.md`](duels.md) |
-| **E-7** | **The archive's arena fingerprint has no definition yet.** The campaign fingerprint is SHA-256 over telemetry + normalised events + exit code; an ARENA fingerprint must additionally bind the binary and the elevation record, and nothing computes one today | this file |
-| **E-8** | **Wall-clock cost is unmeasured.** The run COUNT is derived (324 per generation at P = 12, k = 8); the time is the arena timeout divided by the measured speedup and nobody has measured the speedup for a 420 s BVR duel | this file |
-| **E-9** | **`flt_dup` counts sharing, not the violation** (the acceptance metric is `dup ∧ free > 0`, computed in the analysis tool). A fitness or a gene report reading the raw column will misread it | [`formation.md`](formation.md) F4 |
-| **E-10** | **Level C's engagement gate has no channel for "committed but never locked".** `eng_shot_s ≥ 0 ∨ eng_lock_s ≥ 0` misses a pilot who pressed to the merge and never got a lock — which in this tree's stalemate arena is a real and defensible doctrine | this file |
+| **E-1** | **CLOSED.** `mission OBJECTIVE unit=… kind=… state=met\|unmet\|violated`, one line per declared objective, published in `FBMissionMonitor::Conclude`. Cost, as promised and measured: 136 lines over 60 of 137 missions; 432/432 telemetry files byte-identical | this file |
+| **E-2** | **CLOSED.** `dmg_hits` read off three gun missions; the mechanism is confirmed and the 1,500 points/s figure is an upper bound measured at 900–1,278. See §State | this file |
+| **E-3** | **The −1450.0 decomposition is derived, not read** off the tool's printed items — and it no longer decomposes that way at all, because `no shot` and `hits landed` are gone. The re-run is now `--attribution mig21` under the order scalar | this file |
+| **E-4** | **G5 (EMCON) cannot be evolved before `duels.md` D3 closes.** The runner prints the blocker at start | [`duels.md`](duels.md) D3 |
+| **E-5** | **G1 (formation shape) cannot be evolved before `formation.md` F5 closes.** The runner prints the blocker at start | [`formation.md`](formation.md) F5 |
+| **E-6** | **CONFIRMED BY MEASUREMENT, and it is worse than "nearly flat": G2 is INERT.** [MESS] `flt_defer_s` = 0.0 in 132 of 132 unit traces at `xmirror --flight 2`, both rails of the gene (0 and 3.0), identical keys. The AIM-120 binds 0.3 s, so the rule the gene scales never fires at all on the only airframe that has the channel. The gene is correct and its arena does not exist | [`formation.md`](formation.md) F3, this round |
+| **E-7** | **The archive's arena fingerprint has no definition yet.** The archive file names its arena and timeout in a header and a mismatched one must be refused by hand; nothing computes a fingerprint that binds the binary and the elevation record | this file |
+| **E-8** | **Wall-clock, now measured for the shapes this round flew** and still not for the specified P = 12 / k = 8: arena check 8 geometries × 39 runs = 312 runs in **2 m 33 s**; 4 generations × P = 4 at `--flight 2` (≈ 260 runs) in **5 m 39 s**; a 420 s 1v1 BVR duel costs ≈ 0.5 s wall at `--jobs 6` | this round |
+| **E-9** | **`flt_dup` counts sharing, not the violation** | [`formation.md`](formation.md) F4 |
+| **E-10** | **Level C's engagement gate has no channel for "committed but never locked"** | this file |
+| **E-11** | **The fitness is NOT silent in a saturated arena, and §Knowledge 1 claims it is.** Pairwise domination consults C whenever V and M tie, and two floats are never equal, so a dead arena still produces a full ranking. The mitigation built is a REPORT and not a change to the order: every tournament prints which level decided each run and shouts `SATURATED` when V and M decided none. Changing the order to abstain on a level-C tie was NOT done, because it would make the tournament silent about real craft differences in an informative arena too | this round |
+| **E-12** | **S2 tests the arena against the levers it sweeps, which are not the genome.** [MESS] a geometry can pass S2 with 5 of 9 while every gene allele produces the identical key. `--levers FILE` exists; nothing yet requires an evolution run to have passed S2 *with its own alphabet*, and that is the check E4 actually needs | this round |
+| **E-13** | **The genome and the arena do not intersect, and the first evolution run measured a total tie.** Every individual scored exactly 0.500 in both runs (4 generations × 6 at `--flight 1`, 4 × 4 at `--flight 2`), because G4 only acts in the `bfm` phase — which a BVR intercept that ends at timeout never enters — and G2 is E-6. The runner, the archive and all three circling instruments are proven to work; what is missing is a geometry that goes to the merge with a genome that acts there | this round |
 
 ### Exploits the evolution found
 
@@ -683,3 +778,6 @@ reading five lines of a `constexpr` table, which is the reason the table is wher
 | [`missions/campaign.md`](missions/campaign.md) | the fingerprint-and-refusal discipline the archive reuses verbatim; where a FINISHED doctrine is flown |
 | [`campaigns/INDEX.md`](campaigns/INDEX.md) | the Bekaa yardstick (`band`, `residue`) — the same measurement one level up, and the reason the arena check comes before the campaigns |
 | [`weapons.md`](weapons.md) | §3.1 the bundle, and the full-drum run that Exhibit C rests on |
+| `sim/tools/fb_fitness.py` | the fitness itself — the ONE scorer the tournament, the arena gate and the evolution runner all import |
+| `sim/tools/fb_arena_check.py` | §4's gate, and the tool that measured the old arena into a refusal |
+| `sim/tools/fb_evolve.py` | §2/§3's runner: the genome out of `fb-gym --pilot-keys`, the archive, the three circling instruments |

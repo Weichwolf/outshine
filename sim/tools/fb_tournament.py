@@ -14,22 +14,25 @@ result: the two runs of a pair are mirror images of each other, so the SUM over 
 variant and not the seat. Runs go through `fb-gym --threads N` — the simulator's own per-unit
 parallelism — and are byte-reproducible whatever N is (that is `--check-determinism`).
 
-THE FITNESS is derived and defended in `Score()` below. In one line: the outcome dominates (+1000 for
-a kill, -1200 for being killed), never engaging is punished harder than any craft term can repay, and
-everything else can only order runs whose outcome was the same.
+THE FITNESS lives in `tools/fb_fitness.py` and is LEXICOGRAPHIC: (V, M, C) — the judge's verdict, then
+how many of its own declared objectives the unit met, then craft. Compared left to right, so no craft
+value can ever cross a level, and a variant's score is a normalised WIN RATE over pairwise domination
+rather than a mean of numbers in a currency that has no units. doc/doctrine-evolution.md §1.
 
 Stdlib only, no build target, no dependency on anything under sim/build except the fb-gym binary.
 """
 
 import argparse
 import concurrent.futures
-import csv
 import math
 import os
 import re
 import shutil
 import subprocess
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import fb_fitness as fit
 
 SIM_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -41,13 +44,50 @@ SIM_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # seat swap cancels that.
 # ---------------------------------------------------------------------------------------------
 GEOMETRIES = {
-    # name: (west lat, west lon, west alt, west kt, east lat, east lon, east alt, east kt)
-    "mirror": (46.90, 6.40, 8000, 420, 46.90, 7.70, 8000, 420),
+    # A geometry is a QUESTION, and doc/doctrine-evolution.md §4 says which questions an arena has to
+    # be able to ask before anything measured on it means anything. Seat = (lat, lon, alt m, kt, hdg)
+    # plus, where the question needs a different aeroplane, the module that seat flies.
+    #
+    # THE ARENA IS ITS OWN MEASUREMENT: `tools/fb_arena_check.py` flies the fixed yardstick over every
+    # entry here and prints which of them are INFORMATIVE. The saturated ones are kept on purpose —
+    # S5 is a yield criterion and a yield needs a denominator, and two of them are the tree's own
+    # published findings about geometries that decide nothing (`mirror`, `offset`).
+    #
+    # --- ASPECT ------------------------------------------------------------------------------------
+    # Head-on, co-altitude, co-speed, both outside the APG-68's own search gate at t=0, so both runs
+    # start with a real search phase and neither side is handed a detection. [MESS] SATURATED: the
+    # symmetric F-16 field draws every cell (doc/duels.md, 30 runs, 0 kills, 0 losses).
+    "mirror": ((46.90, 6.40, 8000, 420, 90.0), (46.90, 7.70, 8000, 420, 270.0)),
+    # 50 deg of crossing. [MESS] SATURATED and known to be: a crossing target spends the round's energy
+    # on turning, and the geometry draws every doctrine cell head-on decides (doc/duels.md row 2).
+    "offset": ((46.90, 6.40, 8000, 420, 90.0), (46.55, 7.60, 8000, 420, 320.0)),
+    # Stern conversion — the one aspect with no head-on phase at all: both run east, the west jet 60 kt
+    # faster, so the whole engagement lives in somebody's rear hemisphere.
+    "stern": ((46.90, 6.40, 8000, 480, 90.0), (46.90, 7.70, 8000, 420, 90.0)),
+    #
+    # --- ENERGY ------------------------------------------------------------------------------------
     # The energy split of missions/bvr-duel-decided.fbm: the seat is worth a great deal here, which is
-    # precisely why both seats are flown. It asks a different question than `mirror` — not "who wins an
-    # even fight" but "who does better from both ends of an uneven one".
-    "split": (46.90, 6.40, 12000, 500, 46.90, 7.55, 6000, 350),
+    # precisely why both seats are flown. Not "who wins an equal fight" but "who does better from both
+    # ends of an unequal one".
+    "split": ((46.90, 6.40, 12000, 500, 90.0), (46.90, 7.55, 6000, 350, 270.0)),
+    #
+    # --- DETECTION SYMMETRY ------------------------------------------------------------------------
+    # The long approach: the search gate is crossed with 190 km of run-in, so a doctrine has time to be
+    # wrong twice. The opposite question to `close` below.
+    "far": ((46.90, 5.80, 8000, 420, 90.0), (46.90, 8.30, 8000, 420, 270.0)),
+    #
+    # --- WEAPON OBLIGATION -------------------------------------------------------------------------
+    # The axis with no other spelling: it is a property of the AIRCRAFT in the seat. [MESS] AIM-120
+    # 0.3 s of binding against R-27R 17.3 s, a factor of 58 (doc/formation.md §6), and the mixed
+    # tournament decides 12 of 30 runs where the symmetric one decides none (doc/duels.md).
+    "xmirror": ((46.90, 6.40, 8000, 420, 90.0), (46.90, 7.70, 8000, 420, 270.0, "mig29")),
+    # ...the same asymmetry with both jets already INSIDE each other's gate: no search phase, the fight
+    # starts at the commit.
+    "xclose": ((46.90, 6.95, 8000, 420, 90.0), (46.90, 7.30, 8000, 420, 270.0, "mig29")),
+    # ...and with the energy split under it, so the two asymmetries are also asked together.
+    "xsplit": ((46.90, 6.40, 12000, 500, 90.0), (46.90, 7.55, 6000, 350, 270.0, "mig29")),
 }
+
 
 # THE AIRFRAME BLOCK. A variant names the MODULE it flies, so the same tournament can pit an F-16
 # variant against a MiG-29 variant (`module=mig29`). Only the box-specific `set` lines differ, because
@@ -128,15 +168,39 @@ def side_calls(side, n):
     return [side] if n == 1 else ["%s%d" % (side, i + 1) for i in range(n)]
 
 
+# The briefed vector: 1.95 deg along the spawn heading, in plain degrees. At 90/270 that is exactly the
+# +-1.95 deg of longitude the two original geometries were written with, so their mission text is
+# unchanged to the byte; every other heading follows the same rule instead of getting a special case.
+def vector_of(lat, lon, hdg):
+    return (lat + 1.95 * math.cos(math.radians(hdg)), lon + 1.95 * math.sin(math.radians(hdg)))
+
+
+def seat(spec):
+    """A seat is (lat, lon, alt, kt, hdg) and, where the arena asks a question only a DIFFERENT
+    AIRFRAME can ask, a sixth entry naming the module that seat flies. doc/doctrine-evolution.md §4.2's
+    fifth axis — weapon obligation, 0.3 s against 17.3 s of binding — has no other spelling: it is a
+    property of the aircraft in the seat, not of where the seat is."""
+    return spec[:5], (spec[5] if len(spec) > 5 else None)
+
+
 def mission_text(name, timeout, geometry, west_var, east_var, n=1):
-    wlat, wlon, walt, wkt, elat, elon, ealt, ekt = GEOMETRIES[geometry]
+    wspec, espec = GEOMETRIES[geometry]
+    (wlat, wlon, walt, wkt, whdg), wmod = seat(wspec)
+    (elat, elon, ealt, ekt, ehdg), emod = seat(espec)
+    if wmod:
+        west_var = Variant(west_var.name, west_var.params, wmod, west_var.dl, west_var.sort)
+    if emod:
+        east_var = Variant(east_var.name, east_var.params, emod, east_var.dl, east_var.sort)
+    wvec, evec = vector_of(wlat, wlon, whdg), vector_of(elat, elon, ehdg)
     blocks = []
     for pos, call in enumerate(side_calls("west", n), 1):
-        blocks.append(unit_block(west_var, "west", call, "friendly", pos, n, wlat, wlon, walt, "90.0",
-                                 wkt, wlat, wlon + 1.95, "hostile", side_calls("east", n)[0]))
+        blocks.append(unit_block(west_var, "west", call, "friendly", pos, n, wlat, wlon, walt,
+                                 "%.1f" % whdg, wkt, wvec[0], wvec[1], "hostile",
+                                 side_calls("east", n)[0]))
     for pos, call in enumerate(side_calls("east", n), 1):
-        blocks.append(unit_block(east_var, "east", call, "hostile", pos, n, elat, elon, ealt, "270.0",
-                                 ekt, elat, elon - 1.95, "friendly", side_calls("west", n)[0]))
+        blocks.append(unit_block(east_var, "east", call, "hostile", pos, n, elat, elon, ealt,
+                                 "%.1f" % ehdg, ekt, evec[0], evec[1], "friendly",
+                                 side_calls("west", n)[0]))
     return ("name %s\ntimeout %d\n\n# generated by tools/fb_tournament.py — do not edit\n"
             "# west = %s   east = %s   geometry = %s   flight = %d\n\n%s" %
             (name, timeout, west_var.name, east_var.name, geometry, n, "\n".join(blocks)))
@@ -204,209 +268,11 @@ def load_variants(path):
 
 
 # ---------------------------------------------------------------------------------------------
-# Reading a run back
+# Reading a run back — every reader and the whole fitness live in tools/fb_fitness.py, so exactly one
+# of each exists and the evolution runner shares them rather than copying them.
 # ---------------------------------------------------------------------------------------------
-class Side:
-    """One unit's debrief, straight out of its own telemetry file plus the runner's verdict lines."""
-
-    def __init__(self, name):
-        self.name = name
-        self.result = "NONE"
-        self.reason = ""
-        self.effective = True
-        self.hits = 0
-        self.eng = {}
-        self.es_start = 0.0
-
-    def g(self, key, default=-1.0):
-        v = self.eng.get(key, default)
-        return default if v is None else v
-
-
-def read_side(path, name):
-    s = Side(name)
-    with open(path, newline="") as f:
-        rows = list(csv.reader(f))
-    head, last = rows[0], rows[-1]
-    idx = {h: i for i, h in enumerate(head)}
-
-    def num(row, key):
-        try:
-            return float(row[idx[key]])
-        except (KeyError, ValueError, IndexError):
-            return None
-
-    for h in head:
-        if h.startswith("eng_") and h != "eng_state":
-            s.eng[h] = num(last, h)
-    s.eng["eng_state"] = last[idx["eng_state"]] if "eng_state" in idx else "?"
-    s.effective = (num(last, "dmg_effective") or 0.0) > 0.5
-    s.hits = int(num(last, "dmg_hits") or 0)
-    # Energy height at the moment the engagement began, i.e. the first row that is no longer Idle —
-    # the reference the energy term is a fraction OF. Falls back to the first row of the run.
-    st = idx.get("eng_state")
-    es = idx.get("eng_es")
-    if st is not None and es is not None:
-        s.es_start = float(rows[1][es]) if len(rows) > 1 else 0.0
-        for r in rows[1:]:
-            if r[st] != "idle":
-                s.es_start = float(r[es])
-                break
-    return s
-
-
-RESULT_RE = re.compile(r'UNIT_RESULT unit=(\S+) result=(\S+) reason="([^"]*)"')
-
-
-class FlightView:
-    """The opposing FLIGHT as one side's score needs to see it. Only three things are asked of an
-    opponent — is it still combat-capable, how much of it was hit, and when it first shot — and all
-    three have a flight-level meaning: a flight is capable while ANY member is, hits add up, and the
-    first shot is the earliest of them. Every other weight stays a per-member quantity."""
-
-    def __init__(self, members):
-        self.name = members[0].name if len(members) == 1 else "%s x%d" % (members[0].name, len(members))
-        self.effective = any(m.effective for m in members)
-        self.hits = sum(m.hits for m in members)
-        shots = [m.g("eng_shot_s") for m in members if m.g("eng_shot_s") >= 0]
-        self.eng = {"eng_shot_s": min(shots) if shots else -1.0}
-
-    def g(self, key, default=-1.0):
-        v = self.eng.get(key, default)
-        return default if v is None else v
-
-
 def read_run(outdir, west_name, east_name, n=1):
-    calls_w, calls_e = side_calls("west", n), side_calls("east", n)
-    def path_of(call, idx):
-        return os.path.join(outdir, "telemetry.csv" if idx == 0 else "telemetry_%s.csv" % call)
-    west = [read_side(path_of(c, i), west_name) for i, c in enumerate(calls_w)]
-    east = [read_side(path_of(c, i + len(calls_w)), east_name) for i, c in enumerate(calls_e)]
-    by_call = dict(zip(calls_w, west))
-    by_call.update(zip(calls_e, east))
-    duration = 0.0
-    for line in open(os.path.join(outdir, "events.log")):
-        m = RESULT_RE.search(line)
-        if m and m.group(1) in by_call:
-            by_call[m.group(1)].result = m.group(2)
-            by_call[m.group(1)].reason = m.group(3)
-            by_call[m.group(1)].name = m.group(1)
-        if "mission SUMMARY" in line:
-            d = re.search(r"durationS=([0-9.]+)", line)
-            if d:
-                duration = float(d.group(1))
-    return west, east, duration
-
-
-# ---------------------------------------------------------------------------------------------
-# THE FITNESS
-# ---------------------------------------------------------------------------------------------
-# Every weight below is stated with the reason it has that size, and the SIZES are the design: the
-# outcome band (+1000 / -1200) is larger than everything else put together, so no amount of good
-# craft can out-score a kill and no amount of bad craft can talk one away. The craft terms exist to
-# ORDER runs that ended the same way, which — since most BVR engagements between equals end in a
-# draw — is most of them.
-W_KILL = 1000.0     # the point of the sortie
-W_DIED = 1200.0     # ...and losing the jet is worth slightly more than killing one: without the
-                    # asymmetry a mutual kill would score the same as a stalemate, and "trade every
-                    # time" is then a stable strategy against anybody who does not.
-W_HIT = 150.0       # THE ANTI-TRIGGER-HAPPY TERM, and the one that pays for AIM the way the outcome
-                    # terms pay for RESULT: a burst that went off on the other aircraft (its own
-                    # health register counted it) is worth something even when the jet flew on with
-                    # its avionics wrecked, and it is the only way a shot earns anything at all. It
-                    # cannot be faked — landing a burst means guiding a round to inside ten metres —
-                    # and it is a sixth of a kill, so it can never stand in for one.
-W_NOSHOT = 250.0    # THE ANTI-RUNNING-AWAY TERM. A pilot that never fires cannot be killed either,
-                    # so a pure survival score has its optimum in leaving the area. This is bigger
-                    # than every craft term added together, so running away is never a way to place.
-W_SHOT_COST = 25.0  # per round fired: an AIM-120 is not free, and a trigger-happy variant that gets
-                    # the same kill with three rounds ranks below one that got it with one.
-W_QUALITY = 100.0   # the launch geometry, see below
-W_SUPPORT = 80.0    # the discriminator between a launch and a kill
-W_LEAD = 40.0       # who got the first shot away (relative to the opponent in the SAME run)
-W_DEFENCE = 40.0    # answering a warning that was actually made, and living through it
-W_ENERGY = 40.0     # the state the engagement is left in
-
-
-def shot_quality(s):
-    """0..1 for the OPENING shot: where inside the launch zone it was taken, times how far off the
-    nose the target was. 1.0 = at or inside Rtr, dead ahead — a shot the target cannot outrun and a
-    round that does not have to spend its motor turning. 0.0 = fired at Raero, the maximum kinematic
-    range, which is the shot a target defeats by turning around. Between the two it is linear.
-    A shot deeper than Rtr does not score higher (the plateau): the SMS refuses inside Rmin anyway,
-    and rewarding "closer is better" without limit would pay for pressing in, which the outcome terms
-    already price far more heavily."""
-    r, rtr, raero = s.g("eng_shot_nm"), s.g("eng_shot_rtr_nm"), s.g("eng_shot_raero_nm")
-    if r < 0 or rtr < 0 or raero <= rtr:
-        return 0.0
-    zone = (raero - r) / (raero - rtr)
-    zone = max(0.0, min(1.0, zone))
-    ata = abs(s.g("eng_shot_ata", 0.0))
-    return zone * max(0.0, math.cos(math.radians(min(ata, 90.0))))
-
-
-def score(me, foe, duration):
-    """One side's fitness for one run, plus the itemised reasons — the report prints the items, not
-    just the total, because the point of the tournament is WHY."""
-    it = []
-    total = 0.0
-
-    def add(label, value, detail):
-        nonlocal total
-        if abs(value) < 1e-9:
-            return
-        total += value
-        it.append((label, value, detail))
-
-    killed_him = not foe.effective
-    i_died = not me.effective
-    add("kill", W_KILL if killed_him else 0.0, "%s combat-ineffective" % foe.name)
-    add("lost", -W_DIED if i_died else 0.0, "shot down (%d hit(s))" % me.hits)
-    add("hits landed", W_HIT * foe.hits, "%d burst(s) on %s" % (foe.hits, foe.name))
-
-    shots = int(me.g("eng_shots", 0.0))
-    add("no shot", -W_NOSHOT if shots == 0 else 0.0, "never fired a round")
-    add("rounds", -W_SHOT_COST * shots, "%d round(s) fired" % shots)
-
-    q = shot_quality(me)
-    add("shot geometry", W_QUALITY * q,
-        "opening shot %.1f nm (Rtr %.1f, Raero %.1f), %.0f deg off the nose -> q=%.2f" %
-        (me.g("eng_shot_nm"), me.g("eng_shot_rtr_nm"), me.g("eng_shot_raero_nm"),
-         abs(me.g("eng_shot_ata", 0.0)), q) if shots else "no shot")
-
-    sup = max(0.0, min(1.0, me.g("eng_support_f", 0.0)))
-    add("support", W_SUPPORT * sup,
-        "held the uplink %.0f%% of the way to the seeker (pitbull=%d)" % (100 * sup, int(me.g("eng_pitbull", 0.0))))
-
-    # WHO SHOT FIRST, measured against the opponent in this very run — a relative term, which is what
-    # a duel is. A side that shot while the other never did gets the full mark; the tanh keeps a
-    # fifteen-second head start from being worth ten times a five-second one.
-    mine, theirs = me.g("eng_shot_s"), foe.g("eng_shot_s")
-    if mine >= 0 or theirs >= 0:
-        a = mine if mine >= 0 else duration
-        b = theirs if theirs >= 0 else duration
-        lead = math.tanh((b - a) / 15.0)
-        add("shot lead", W_LEAD * lead,
-            "first shot at t=%.1f vs %.1f" % (a, b) if mine >= 0 and theirs >= 0
-            else ("shot while %s never did" % foe.name if mine >= 0 else "never shot, %s did" % foe.name))
-
-    # DEFENCE is only scored where there was something to defend against, and only if it worked. It
-    # cannot be farmed: being shot at is the opponent's decision, not this pilot's, and the term is
-    # capped well below what one kill is worth.
-    react = me.g("eng_react_s")
-    if me.g("eng_threat_s") >= 0 and not i_died:
-        d = max(0.0, 1.0 - react / 8.0) if react >= 0 else 0.0
-        add("defence", W_DEFENCE * d,
-            "answered the warning in %.1f s and lived" % react if react >= 0 else "never answered the warning")
-
-    # ENERGY: the low-water mark of energy height as a fraction of what it started the engagement
-    # with. Small on purpose — flying straight and level is perfect on this axis and hopeless on
-    # every other one.
-    if me.es_start > 1.0:
-        frac = max(0.0, min(1.0, me.g("eng_es_min", 0.0) / me.es_start))
-        add("energy", W_ENERGY * frac, "energy floor %.0f%% of entry (%.0f -> %.0f ft)" %
-            (100 * frac, me.es_start, me.g("eng_es_min", 0.0)))
-    return total, it
+    return fit.read_pair(outdir, side_calls("west", n), side_calls("east", n), west_name, east_name)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -569,31 +435,22 @@ def attr_mission(tag, row, params, control=None):
 # the four that are ACCEPTED. FOR `f15c` ITSELF THERE IS NO CELL — see the header's last paragraph.
 CONTROL_DONOR = "f15c"
 
-# Two outcomes closer than this are the SAME outcome. The duel score is of order 10^2..10^3 and its
-# smallest weighted term is of order 1, so half a point is well inside the noise floor of the arena.
+# Two outcomes closer than this are the SAME outcome — on the ORDER SCALAR's own scale, where the
+# smallest craft item is of order one and a level step is 1e3. Half a point is well inside the noise
+# floor of the arena and far below anything that could be a level change.
 kOutcomeTol = 0.5
 
 
-def attr_outcome(outdir):
-    """ONE number per run, and it is the SAME fitness the tournament ranks on — so a band computed here
-    and a duel result printed there are the same quantity. The catalogue row's score."""
+def attr_outcome(outdir, want_key=False):
+    """ONE number per run, and it is the SAME fitness the tournament ranks on: the catalogue row's
+    lexicographic key, written down through fb_fitness.order_scalar — order-isomorphic to the tuple
+    because C is bounded, so a BAND over it is a band over the order and not over a weighting."""
     try:
-        bandit = read_side(os.path.join(outdir, "telemetry.csv"), "bandit")
-        viper = read_side(os.path.join(outdir, "telemetry_viper.csv"), "viper")
+        west, east, duration = fit.read_pair(outdir, ["bandit"], ["viper"], "bandit", "viper")
     except (OSError, IndexError):
-        return None
-    duration = 0.0
-    ev = os.path.join(outdir, "events.log")
-    if os.path.exists(ev):
-        for line in open(ev):
-            m = RESULT_RE.search(line)
-            if m and m.group(1) in ("bandit", "viper"):
-                (bandit if m.group(1) == "bandit" else viper).result = m.group(2)
-            if "mission SUMMARY" in line:
-                d = re.search(r"durationS=([0-9.]+)", line)
-                if d:
-                    duration = float(d.group(1))
-    return score(bandit, viper, duration)[0]
+        return (None, None) if want_key else None
+    key, _ = fit.side_key(west, fit.FlightView(east), duration)
+    return (fit.order_scalar(key), key) if want_key else fit.order_scalar(key)
 
 
 def run_attr(gym, outroot, tag, text, deck=None, row=None):
@@ -759,28 +616,32 @@ def main():
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as ex:
             list(ex.map(run_one, alt))
 
-    totals = {v.name: 0.0 for v in variants}
-    outcomes = {v.name: 0.0 for v in variants}       # the kill/lost/hit part of the score, alone
+    points = {v.name: 0.0 for v in variants}     # pairwise-domination points, 1 / 0.5 / 0 per run
     runs = {v.name: 0 for v in variants}
-    record = {v.name: [0, 0, 0] for v in variants}   # kills, losses, draws
+    record = {v.name: [0, 0, 0] for v in variants}   # kills, losses, draws — a report column, not a term
+    keyseen = {v.name: [] for v in variants}
+    # WHICH LEVEL DECIDED, counted over every run. It is the instrument that stops a craft residue from
+    # reading as a result: a field in which no run is decided at V or M has been ranked by the level
+    # that was only ever meant to order ties, and doc/doctrine-evolution.md §6 says such a rank change
+    # is expressly NOT a finding.
+    decided = {"V": 0, "M": 0, "C": 0, "tie": 0}
     print("=" * 100)
-    print("PAIRINGS — every run, both seat assignments, with the itemised reason for each side")
+    print("PAIRINGS — every run, both seat assignments, with the itemised key for each side")
     print("=" * 100)
     for tag, west, east in meta:
         wm, em, duration = read_run(os.path.join(args.out, tag), west.name, east.name, args.flight)
-        wf, ef = FlightView(wm), FlightView(em)
-        # A FLIGHT's fitness is the SUM over its members, each scored against the opposing FLIGHT.
-        # With --flight 1 that is one member against one member, i.e. the previous arithmetic exactly.
-        wsi = [score(m, ef, duration) for m in wm]
-        esi = [score(m, wf, duration) for m in em]
-        ws, es = sum(x[0] for x in wsi), sum(x[0] for x in esi)
-        totals[west.name] += ws
-        totals[east.name] += es
+        wf, ef = fit.FlightView(wm), fit.FlightView(em)
+        wkey, witems = fit.side_key(wm, ef, duration)
+        ekey, eitems = fit.side_key(em, wf, duration)
+        wp, ep = fit.pair_points(wkey, ekey)
+        decided["V" if wkey[0] != ekey[0] else "M" if wkey[1] != ekey[1]
+                else "C" if wkey[2] != ekey[2] else "tie"] += 1
+        points[west.name] += wp
+        points[east.name] += ep
         runs[west.name] += 1
         runs[east.name] += 1
-        for pack, who in ((wsi, west.name), (esi, east.name)):
-            for _, items in pack:
-                outcomes[who] += sum(v for l, v, _ in items if l in ("kill", "lost", "hits landed"))
+        keyseen[west.name].append(wkey)
+        keyseen[east.name].append(ekey)
         for me, foe, who in ((wf, ef, west.name), (ef, wf, east.name)):
             if not foe.effective and me.effective:
                 record[who][0] += 1
@@ -788,12 +649,15 @@ def main():
                 record[who][1] += 1
             else:
                 record[who][2] += 1
-        print("\n%-28s exit=%d  %.1f sim-s" % (tag, exits[tag], duration))
-        rows = [(m, west, sc, items) for m, (sc, items) in zip(wm, wsi)] + \
-               [(m, east, sc, items) for m, (sc, items) in zip(em, esi)]
-        for side, var, sc, items in rows:
-            print("  %-6s %-14s %-8s %-42s score %+8.1f" %
-                  (side.name, var.name, side.result, side.reason[:42], sc))
+        print("\n%-28s exit=%d  %.1f sim-s   %s [%s]  vs  %s [%s]  ->  %.1f : %.1f" %
+              (tag, exits[tag], duration, west.name, fit.key_str(wkey), east.name, fit.key_str(ekey),
+               wp, ep))
+        rows = [(m, west, items) for m, items in zip(wm, witems)] + \
+               [(m, east, items) for m, items in zip(em, eitems)]
+        for side, var, items in rows:
+            print("  %-6s %-14s %-8s %-42s objectives %s" %
+                  (side.name, var.name, side.result, side.reason[:42],
+                   "/".join(side.objectives) or "-"))
             print("       detect %5s  lock %5s  shot %5s  supp %4s  threat %5s  react %5s  defend %5s  shots %d  chaff %d"
                   % (fmt(side.g("eng_detect_s")), fmt(side.g("eng_lock_s")), fmt(side.g("eng_shot_s")),
                      ("%.2f" % side.g("eng_support_f", 0.0)), fmt(side.g("eng_threat_s")),
@@ -803,18 +667,30 @@ def main():
                 print("       %+8.1f  %-14s %s" % (value, label, detail))
 
     print("\n" + "=" * 100)
-    print("RANKING — fitness is the MEAN over that variant's runs, so it does not grow with the field")
-    print("size; `outcome` is the kill/loss/hit part of it alone, `craft` the rest (the part that only")
-    print("orders runs which ended the same way).")
+    print("RANKING — the fitness is a normalised WIN RATE in [0,1]: per run the two sides' (V, M, C)")
+    print("keys are compared LEFT TO RIGHT and the winner takes 1, a tie a half. `V` and `M` are the")
+    print("means of the two levels that DECIDE; `craft` only ever orders runs that tied on both.")
     print("=" * 100)
-    print("%-16s %9s %9s %8s   %4s %4s %4s   %s" %
-          ("variant", "fitness", "outcome", "craft", "kill", "lost", "draw", "parameters"))
-    for v in sorted(variants, key=lambda x: -totals[x.name] / max(1, runs[x.name])):
+    print("%-16s %8s %6s %6s %8s   %4s %4s %4s   %s" %
+          ("variant", "fitness", "V", "M", "craft", "kill", "lost", "draw", "parameters"))
+    for v in sorted(variants, key=lambda x: -points[x.name] / max(1, runs[x.name])):
         k, l, d = record[v.name]
         n = max(1, runs[v.name])
-        print("%-16s %9.1f %9.1f %8.1f   %4d %4d %4d   %s" %
-              (v.name, totals[v.name] / n, outcomes[v.name] / n, (totals[v.name] - outcomes[v.name]) / n,
+        ks = keyseen[v.name]
+        gated = sum(1 for x in ks if x[2] == fit.GATE)
+        craft = [x[2] for x in ks if x[2] != fit.GATE]
+        print("%-16s %8.3f %6.2f %6.2f %8s   %4d %4d %4d   %s" %
+              (v.name, points[v.name] / n, sum(x[0] for x in ks) / n, sum(x[1] for x in ks) / n,
+               ("GATE x%d" % gated) if gated else "%+.1f" % (sum(craft) / max(1, len(craft))),
                k, l, d, " ".join("%s=%g" % kv for kv in sorted(v.params.items())) or "(airframe defaults)"))
+
+    n_runs = len(meta)
+    print("\ndecided at level:  V %d   M %d   C %d   exact tie %d   (of %d runs)"
+          % (decided["V"], decided["M"], decided["C"], decided["tie"], n_runs))
+    if decided["V"] == 0 and decided["M"] == 0:
+        print("SATURATED: not one run of this field was decided by the RESULT. The order above is a")
+        print("           craft residue and is expressly NOT a finding (doc/doctrine-evolution.md §6).")
+        print("           Fix the arena (§4), do not read the ranking.")
 
     if args.check_determinism:
         bad = 0

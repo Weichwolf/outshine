@@ -1,0 +1,36 @@
+name genome-scale-flown
+timeout 300
+
+# THE OTHER HALF OF `genome-absolute-refused.fbm`: the same gene, in band, flying — so the refusal
+# above is a BOUNDARY and not a broken key. doc/doctrine-evolution.md §2.1, G4.
+#
+# `bfm-basic.fbm` verbatim, plus one line on the attacker: `set pilot_energy_frac 0.85`. The gene is
+# the speed the pursuer INSISTS on keeping as a fraction of its own corner speed, so 0.85 x 380 kt =
+# 323 kt — a pilot who will not push the throttle as hard to hold the corner. The airframe's 380 never
+# appears in the mission text and cannot: the band is 0.7…1.2 and a `Scale` key leaves FBPilotTuning
+# only multiplied by the hook.
+#
+# READING RULE: exit 3 (TIMEOUT) is expected, exactly as for `bfm-basic` — the defender is a target,
+# not a mission. What the file proves is the DIFFERENCE against `bfm-basic`'s telemetry: the attacker's
+# throttle and its speed floor move, and nothing else in the tree does.
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.67485 6.85148 4000 90.0 380
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode acm_hud
+  set task bfm
+  set pilot_energy_frac 0.85
+
+unit bandit
+  module f16
+  team friendly
+  spawn 46.67485 6.90000 4000 90.0 300
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode off
+  wp 46.70000 6.90000 4000 300

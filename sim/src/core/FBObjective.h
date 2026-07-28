@@ -43,6 +43,22 @@ enum class FBObjectiveKind {
   Suppress
 };
 
+/* PER-OBJECTIVE, not per unit: what the judge decided about ONE declared goal. `Violated` is reserved
+ * for the three kinds that have a violation condition of their own (doc/missions/verdict.md's
+ * "Violated when" column) — everything else is simply unmet. It exists because an all-or-nothing bool
+ * cannot say WHICH of several goals a doctrine reached, which is the middle level of the fitness in
+ * doc/doctrine-evolution.md §1.3. */
+enum class FBObjectiveState { Unmet, Met, Violated };
+
+inline const char *FBObjectiveStateStr(FBObjectiveState s) {
+  switch (s) {
+    case FBObjectiveState::Unmet: return "unmet";
+    case FBObjectiveState::Met: return "met";
+    case FBObjectiveState::Violated: return "violated";
+  }
+  return "?";
+}
+
 /* Which side of `unit <callsign>` / `team <faction>` a kind that offers both was written on. KillUnit/
  * KillTeam predate it and carry the discriminator in the KIND; the new pair carries it here so that
  * `protect`/`deny release` stay ONE kind each, as doc/core.md §5.5 declares them. */
