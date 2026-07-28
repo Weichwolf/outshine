@@ -165,6 +165,14 @@ protected:
    * sich fuer sie nichts. doc/pilot.md, Abschnitt 5.7. */
   virtual double BfmRollPlantA() const { return 0.734; }        /* Rollzeitkonstante 0,323 s bei 10 Hz */
   virtual double BfmRollPlantKDegS() const { return 78.7; }     /* Rate je Vollausschlag, stationaer */
+  /* DER KOMMANDIERTE ROLLRATEN-DECKEL, jetzt HOOK: der Default 180/kBfmTurnTimeS = 90 deg/s ist die
+   * geschlossene Form (eine Umkehr = eine 180-deg-Rolle in der Zeitkonstante) und bleibt die F-16.
+   * Eine HAERTER rollende Zelle (MiG-29, K=201) ueberschiesst diesen Deckel zwischen zwei 10-Hz-
+   * Entscheidungen so weit, dass die Dauer-Rollrate der Verfolgung ueber die 60-deg/s-Departure-Schwelle
+   * des Monitors laeuft (gemessen ~118 deg/s, mig29-bfm) — der Pilot kommandiert die twitchy Zelle also
+   * konservativer, damit die 10-Hz-Schleife sie halten kann. Nur der LIMITER liest ihn; die Umkehr-
+   * Zonenlogik (kBfmReverseS) bleibt an kBfmTurnTimeS gebunden und damit bitgleich. doc/pilot.md 5.7. */
+  virtual double BfmRollRateMaxDegS() const { return 180.0 / 2.0; }
   /* GEOMETRIE. Die Kontrollposition: hinter ihm, nah, Nase drauf, Lock gehalten. */
   virtual double BfmControlMinNm() const { return 0.5; }
   virtual double BfmControlMaxNm() const { return 1.5; }
@@ -189,6 +197,12 @@ protected:
    * ein schnelles, weites Muster liesse den Piloten seiner eigenen Suche hinterherkurven statt schauen. */
   virtual double BfmScanAmplitudeDeg() const { return 8.0; }
   virtual double BfmScanPeriodS() const { return 30.0; }
+  /* ROLLDECKEL IM SUCHLAUF (Anteil vollen Ausschlags), als HOOK, weil eine haerter rollende Zelle
+   * sanfter scannen muss: das Such-aim ist eine VERMUTUNG, seine Rolle darf keinen Kampfzug fordern,
+   * sonst treibt die eigene Lagedrift einen Roll-Grenzzyklus (doc/pilot.md 5.4). Default 1,0 -> der
+   * Deckel greift nie, das Suchverhalten der F-16 bleibt bitgleich; eine Zelle mit hoher
+   * Roll-Verstaerkung (MiG-29) setzt ihn tief. Nur der SUCHLAUF ist betroffen, nicht die Verfolgung. */
+  virtual double BfmSearchRollCap() const { return 1.0; }
   virtual double BfmFloorFt() const { return 2000.0; }   /* AGL, darunter wird der Zug nach oben gezogen */
   /* Die Laenge EINES Abzugsdrucks. Der Bus erzwingt 0,5 s zwischen zwei Handlungen an einem Schalter,
    * also ist genau diese Laenge Dauerfeuer, solange der Trichter haelt. */

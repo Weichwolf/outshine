@@ -148,6 +148,20 @@ protected:
    * closed-loop 201 deg/s at BFM speeds sits between them where it should. */
   double BfmRollPlantA() const override { return 0.819; }
   double BfmRollPlantKDegS() const override { return 201.0; }
+  /* [SET] Der Rolldeckel im SUCHLAUF, und er ist die Konsequenz aus BfmRollPlantKDegS: diese Zelle
+   * rollt 2,6x haerter je Vollausschlag, also treibt ein Such-aim, das mit voller F-16-Rollautoritaet
+   * geflogen wird, ihre Lage in einen Roll-Grenzzyklus (gemessen, mig29-bfm/duel-merge: Dauerrolle bei
+   * gesunder Energie, nie ein Kontakt, Monitor-Departure). 0,20 * K(201) = ~40 deg/s stationaere
+   * Rollrate — gerade genug, dem gebrieften Vektor / Datum zu folgen und den Scan-Weave zu fliegen,
+   * sanft genug, dass die Nase steht und die N019 (RAD) den Kontakt aufbaut. Nur der SUCHLAUF ist
+   * gedeckelt; der Kampfzug nach dem Lock rollt voll. doc/pilot.md 5.4. */
+  double BfmSearchRollCap() const override { return 0.20; }
+  /* [SET] Der kommandierte Rollraten-Deckel, tiefer als die F-16-90 aus demselben Grund wie
+   * BfmSearchRollCap: K=201 laesst die Rate zwischen zwei 10-Hz-Entscheidungen auf ~118 deg/s
+   * ueberschiessen (gemessen, mig29-bfm), die Verfolgung PIOt in eine Dauer-Rollrate ueber der
+   * 60-deg/s-Departure-Schwelle des Monitors. 45 deg/s laesst nach dem Ueberschuss noch Rand zur
+   * Schwelle und reicht fuer eine Kampfrolle auf dieser Zelle. doc/pilot.md 5.7. */
+  double BfmRollRateMaxDegS() const override { return 60.0; }
 
 private:
   /* The briefed transmissions, consumed from the front in brief order — the same array-with-a-cursor

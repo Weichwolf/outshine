@@ -33,6 +33,7 @@ manoeuvre, the FBW moves the hands.
 | Without a brief he operates nothing | a mission that does not brief a switch gets the boot state |
 | Phases are the procedure skeleton | Idle/Preflight/Takeoff/Climb/Route/Approach/Flare/Rollout/Shutdown + Attack/Bfm/Intercept, per `doc/modules/f16/procedures-*.md` |
 | Airframe numbers are hooks, pilot numbers are not | corner speed, brake authority etc. are virtual airframe hooks; reaction time and operating cadence describe the PILOT and stay fixed |
+| The close-combat law (phase `Bfm`, `Guidance = Manual`) must be survivable on a RAW airframe | an airframe whose JSBSim deck carries no FLCS (the MiG-29) is protected only by what `systems/FBFlightControl` adds. The law commands raw stick, so the airframe's OWN authority limits — the α limiter AND the pitch-deflection cap `PitchStickMax` — must bind on the `Manual` path exactly as they bind on the FLCS path, and the commanded g may never exceed the α-limit-sustainable g at the current speed. Acceptance: `missions/mig29-bfm.fbm` flies a full BFM run with no `FBFlightMonitor` KO; the F-16 (`PitchStickMax` 1.0, its own deck FLCS) is byte-identical |
 | A pilot variant is mission text, not a class | `set pilot_*` → `FBPilotTuning`; an unset entry means "this pilot's own number", and a mission without `pilot_*` flies byte-identically |
 | Every fitness channel is computable from OWN perspective | `bfm_*` / `eng_*` telemetry — the basis of the evolutionary tournament |
 | A measured failure stays documented | rejected approaches remain under Gaps with their measurements |
@@ -55,6 +56,7 @@ refinement is the running work.
 | Brake-authority-derived closure cap (`BfmBrakeMs2`), conversion rule, absolute-value trigger | built, **not yet distilled below** | `658014d` |
 | Re-tune against `MODEL-DELTAS.md` D1: `BfmBrakeMs2` re-measured as a CLOSURE decay (2.4 → 1.2 m/s², cap 140 → 70 kt); the attack release holds the run-in attitude until the store has LEFT and leads the cue by the decision tick as well | built | `658014d`+ |
 | **The antenna is held against one's OWN attitude change while a contact is coasting** (§7.5) — the reported elevation is body-referenced and was measured at the attitude of the LOOK. Found by the asymmetric duel campaign; a fresh look is unchanged to the bit | built | this round, [`duels.md`](duels.md) M2 |
+| **The close-combat law survives a RAW airframe (MiG-29).** Four screws, each measured, F-16 byte-identical: (1) the airframe pitch-deflection cap `PitchStickMax` and (2) an α-limiter that may PUSH to recover both now bind on the `Manual` path of `systems/FBFlightControl`, not only its FLCS path; (3) a search-only roll cap hook `BfmSearchRollCap` and (4) a commanded roll-rate cap hook `BfmRollRateMaxDegS` keep the twitchy MiG (K=201) from a search/pursuit roll limit cycle the monitor reads as a departure | built | this round, [`duels.md`](duels.md) D1 |
 
 ## Gaps
 
@@ -843,6 +845,48 @@ inControl = validTrack && Locked && ctrlMin ≤ R ≤ ctrlMax
 Only `ctrlMin`/`ctrlMax` go through the variant table (`pilot_bfm_ctrl_min_nm`/`_max_nm`) — it is the one
 BFM number that a mission really has to change: a missile holding position lies OUTSIDE the gun funnel
 [DOK `weapons.md` §2.5: 600–3,000 ft], so a gun brief IS a different control position and nothing else.
+
+#### 5.10 Surviving the law on a RAW airframe — the four MiG-29 screws (D1)
+
+The whole of §5 is written for the F-16, whose JSBSim deck carries its own FLCS: the pilot commands raw
+`Manual` stick and the deck holds α and roll rate whatever the stick asks. The MiG-29's deck has NO FLCS
+— `systems/FBFlightControl` is the only thing between the BFM law and 35° of stabilator — so the law
+departed it in 22.8 s from a nose-on merge ([`duels.md`](duels.md) D1). The fix is **four measured
+screws, each airframe-scoped so the F-16 is byte-identical** (verified: 13 F-16 BFM/gun/BVR/attack
+missions unchanged to the bit). Diagnosed in order, each exposing the next:
+
+1. **The pitch-deflection cap `PitchStickMax` must bind at the handstick.** It bound only on the FLCS
+   path; the `Manual` path passed the pilot's up-to-1.0 pitch through, and on the MiG (`PitchStickMax`
+   0.6) that is 35° of stabilator = a tumble. Now clamped on both paths. F-16 `PitchStickMax` = 1.0,
+   BFM pitch ∈ [−0.3, 1.0] → no-op. [MESS] merge KO 24.7 s stall/mush → 7.7 s roll (the α tumble gone,
+   the next screw exposed).
+2. **The α limiter must be allowed to PUSH to recover.** The FLCS path let its `byAlpha` go negative
+   (active push); the `Manual` path clamped it to ≥ 0 (never push), leaving the raw airframe no
+   recovery authority when α overshot the 26° SOS at low speed — it ran to 150° and mushed. Now the
+   `Manual` limiter may push, bounded to −`PitchStickMax` (the airframe's own deflection, not the
+   −44.6 the first-tick `alphaDot` glitch once produced — that is caught by `AlphaPrimed`). [MESS,
+   `mig29-bfm`] pursuit α held to ≤ 27 instead of 150; the mush is gone, the next screw exposed.
+3. **`BfmSearchRollCap` — the search is a scan, not a combat roll.** The cold-search aim is a GUESS;
+   flown with full roll authority on a jet that rolls 2.6× harder (K=201), the platform's own attitude
+   drift drives the body-frame steering error into a roll limit cycle — the nose never settles on the
+   antenna, no contact is ever built, and the monitor reads the sustained roll rate as a departure.
+   Only the ROLL is capped (the g/pitch loop keeps holding altitude, else the scan drifts in pitch and
+   climbs/dives away — both measured). Hook, F-16 default 1.0 (no-op, its search legitimately uses full
+   roll — `bfm-blind` byte-identical), MiG 0.20 (≈40 °/s steady). [MESS] with it the MiG acquires and
+   locks a trail defender (lock_s 0 → 58+).
+4. **`BfmRollRateMaxDegS` — the commanded roll-rate cap is a hook.** The default `180/kBfmTurnTimeS`
+   = 90 °/s is the F-16's, and it stays the closed form (a reversal is a 180° roll in the time
+   constant). On the MiG the plant inversion's known intersample overshoot (§5.7) carries 90 °/s to
+   ~118 °/s between two 10 Hz ticks, and a pursuit PIO then sustains a rate past the monitor's
+   60 °/s-for-3 s threshold. The MiG commands 60 °/s so the loop can hold it. Only the LIMITER reads the
+   hook; the reversal-zone timing (`kBfmReverseS`) stays tied to `kBfmTurnTimeS` → byte-identical.
+   [MESS, `mig29-bfm`] cap 90 = departure at t=154; cap 60 = full run, lock_s 203, ctrl_s 5.3, no KO.
+
+Screws 1–2 live in `systems/FBFlightControl`'s `Manual` branch (the airframe layer); 3–4 are pilot
+hooks. The result: `mig29-bfm` flies a full BFM run with no flight-monitor KO, acquires, locks and works
+into the control position; `duel-merge` no longer departs the MiG (exit 2 → 3). Both the F-16 and the
+MiG's BVR/takeoff/landing missions keep their outcome (`mig29-full` touchdown 143.4 → 143.7 kt — the
+correct `PitchStickMax` now binding in the flare, within the documented band).
 
 ---
 

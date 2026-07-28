@@ -1,0 +1,53 @@
+name mig29-bfm-1
+timeout 300                                  # sim-seconds until TIMEOUT
+
+# THE MiG-29 BFM MEASURING RIG — the counterpart to bfm-basic, one airframe over. It exists to prove
+# what doc/duels.md D1 and modules/mig29/module.md gap 4h left open: that this jet's close-combat
+# control law is SURVIVABLE, and that from a trail position the MiG acquires, locks and leads a target
+# on its own sensor — the same claim bfm-basic makes for the F-16, measured the same way.
+#
+# WHY A TRAIL SETUP AND A STRAIGHT DEFENDER, not the nose-on merge of duel-merge. duel-merge is the
+# REPRODUCER (exit 2, a known departure); it stays as it is. This rig isolates the CONTROL LAW from the
+# ACQUISITION problem: a straight-flying, co-speed defender 2 nm ahead is the geometry the N019's RAD
+# pattern (+-30 deg az, +-6 deg el) can actually hold, so the MiG can build a track and DESIGNATE it
+# (pilot/FBPilot::BfmDesignate, over the bus — the RAD mode does not auto-lock, that is this aircraft's
+# own constraint, module.md gap 4h). With a lock the phase flies pursuit instead of the cold search
+# that departs it at a merge, and the run measures whether the law holds the airframe while it does.
+#
+# READING RULE: the run ends at its TIMEOUT, exit 3, BY DESIGN — a fight has no waypoint to arrive at
+# (see bfm-basic's head for the full argument). The verdict is read from the telemetry, NOT the exit:
+#   - fulcrum must NOT be KO'd by core/FBFlightMonitor at any point (no LOC line in events.log) — that
+#     is the departure claim of D1 closed;
+#   - bfm_lock_s and bfm_ctrl_s at the LAST row must be > 0 — the MiG acquired, locked and worked into
+#     a firing position on its own radar, the way bfm-basic reads the F-16;
+#   - the gun/track channels (bfm_pursuit, gun events) show it is FLYING the fight, not surviving it.
+#
+# GEOMETRY AT T=0: fulcrum sits 2 nm dead astern of bandit, co-altitude at 5,000 m, nose on, at its
+# measured corner speed (420 KCAS, `make test-mig29`). bandit runs straight east at 300 KCAS — a
+# defender that does not turn, so every degree fulcrum gains is the pursuit law's, and the acquisition
+# is the easy one.
+
+unit fulcrum
+  module mig29
+  team hostile
+  spawn 46.67485 6.85148 5000 90.0 420        # 2 nm in trail, co-altitude, this jet's corner speed
+  set gear up
+  set fuel_pct 60
+  set n019_mode rad                           # the only pattern wide enough to hold a manoeuvring jet
+  set n019_range_nm 10                         # the close-in gate; the fight is inside 2 nm
+  set n019_emission illum
+  set rwr on
+  set store 3 r73                             # helmet-cued IR round, the merge weapon
+  set store 4 r73
+  set brief_master_arm arm
+  set task bfm                                # FBPilot's fight phase instead of a waypoint route
+
+unit bandit
+  module f16
+  team friendly
+  spawn 46.67485 6.90000 5000 90.0 300        # 2 nm ahead, straight and level, does not turn
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off                            # the defender is a target, it does not look
+  set datalink off
+  wp 46.67485 8.40000 5000 300                # straight east: a stable, non-manoeuvring track to hold

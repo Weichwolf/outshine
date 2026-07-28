@@ -117,15 +117,29 @@ FBControls FBFlightControl::Run(const FBGuidance &g, const Fdm::fb_fdm_state &s)
       if (AlphaPrimed) AlphaDot += kSosRateFilter * ((s.alphaDeg - AlphaPrev) / 0.01 - AlphaDot);
       AlphaPrev = s.alphaDeg;
       AlphaPrimed = true;
-      /* AM HANDSTICK VERBIETET ER NUR ZIEHEN und erzwingt nie Druecken — genau der Satz aus dem
-       * Klassenkommentar, hier woertlich als Ausdruck. Der Unterschied zum Zweig unten ist kein
-       * Geschmack: dort ist `cmd` eine kleine Reglergroesse, hier ist es die HAND, und eine
-       * Sprungstelle in der abgetasteten Anstellwinkelrate (Trimm-Einschwingen im ersten Zehntel)
-       * wuerde sonst als Vollausschlag nach vorn ankommen — gemessen: -44,6 vor dieser Klammer. */
+      /* AM HANDSTICK DARF ER DRUECKEN, ABER NUR BIS ZUR AUSSCHLAGGRENZE DER ZELLE. Der fruehere Deckel
+       * `if (byAlpha < 0) byAlpha = 0` (nie Druecken) hatte einen echten Grund — eine Sprungstelle in der
+       * abgetasteten Anstellwinkelrate beim Trimm-Einschwingen kam als Vollausschlag nach vorn an (-44,6
+       * gemessen) —, aber er nahm dem Begrenzer die einzige RUECKHOLAUTORITAET, die eine Zelle ohne
+       * eigene FLCS hat: schiesst der Anstellwinkel im Kampf ueber 26 deg (dynamisch, bei niedriger
+       * Fahrt), reicht der -0,3-Druck des Piloten nicht, und der Anstellwinkel laeuft auf 150 deg in den
+       * Mush (gemessen, mig29-bfm t=67..76). Der FLCS-Zweig unten liess den Begrenzer schon immer
+       * druecken (kein 0-Deckel dort) — genau diese Zweiseitigkeit fehlte hier. Die Sprungstelle ist
+       * heute anders abgefangen: AlphaPrimed haelt AlphaDot im ersten Tick auf 0 (byAlpha dann positiv),
+       * und der Druck ist auf -PitchStickMax begrenzt, also im schlimmsten Fall der Ausschlag, den die
+       * Zelle ohnehin fahren darf, nicht -44,6. */
       double byAlpha = kSosKp * (AlphaLimitDeg - s.alphaDeg - kSosLeadS * AlphaDot);
-      if (byAlpha < 0.0) byAlpha = 0.0;
+      if (byAlpha < -PitchStickMax) byAlpha = -PitchStickMax;
       if (byAlpha < o.Pitch) o.Pitch = byAlpha;
     }
+    /* PitchStickMax ist eine AUTORITAETSGRENZE der Zelle, kein Modus-Tuning wie RollStickMax (0,15 ist
+     * eine Navigationsrolle, im Kampf falsch — die Rolle regelt der BFM-Rollratendeckel). Sie galt bis
+     * hierher nur im FLCS-Zweig; am Handstick fiel sie still weg, und auf einem Deck OHNE eigene FLCS
+     * (MiG-29) heisst 1,0 Nickstick 35 deg Stabilator = Tumble (doc/modules/mig29/module.md). Der
+     * Begrenzer haelt den ANSTELLWINKEL, dieser Deckel den AUSSCHLAG — beide gehoeren an den Handstick
+     * so wie an den Reglerausgang. Fuer die F-16 ist PitchStickMax 1,0 und der BFM-Nickstick liegt in
+     * [-0,3;1,0], der Ausdruck also bitgleich. */
+    o.Pitch = Clamp(o.Pitch, -PitchStickMax, PitchStickMax);
     return LastControls_ = o;
   }
   if (Flcs) {

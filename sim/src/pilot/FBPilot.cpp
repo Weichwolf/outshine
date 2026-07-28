@@ -403,10 +403,22 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
    * doc/pilot.md, Abschnitt 5.7. */
   if (st.p * rollCmd > 0.0) {
     double plantA = BfmRollPlantA(), plantK = BfmRollPlantKDegS();
-    double lim = Clamp((kBfmRollRateMaxDegS - plantA * std::fabs(st.p)) /
+    double lim = Clamp((BfmRollRateMaxDegS() - plantA * std::fabs(st.p)) /
                            (plantK * (1.0 - plantA)),
                        0.0, 1.0);
     if (std::fabs(rollCmd) > lim) rollCmd = rollCmd > 0.0 ? lim : -lim;
+  }
+  /* IM SUCHLAUF IST DIE ROLLE EIN SCAN, KEIN KAMPFZUG. Das aim ist eine Vermutung (Heading/Datum);
+   * fliegt eine haerter rollende Zelle (MiG-29, K=201) sie mit voller Rollautoritaet, treibt die eigene
+   * Lagedrift die koerperfesten Lenkfehler in einen Roll-Grenzzyklus — die Nase kommt nie auf die
+   * Antenne, es gibt nie einen Kontakt, und der Monitor sieht die Dauer-Rollrate als Departure
+   * (gemessen, mig29-bfm/duel-merge). Nur die ROLLE wird gedeckelt: der g-/Nickzweig haelt die Hoehe
+   * weiter ueber den vollen Auftriebsvektor, sonst driftet der Scan in Pitch weg. Der Deckel ist ein
+   * HOOK mit F-16-Default 1,0 (bitgleich, bfm-blind), die MiG setzt ihn tief. Nach dem Lock (jede andere
+   * Verfolgungsart) faellt er weg — der Kampfzug rollt voll. doc/pilot.md 5.4. */
+  if (mode == FBBfmPursuit::Search) {
+    double rc = BfmSearchRollCap();
+    rollCmd = Clamp(rollCmd, -rc, rc);
   }
   c.ManualRoll = rollCmd;
 

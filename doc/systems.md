@@ -465,13 +465,27 @@ mode the autopilot is in. It never showed because the manual phases (Takeoff, Fl
 pull; **BFM is the first phase that really does**, and the first airframe whose DECK carries no limiter
 of its own (the MiG-29) departed at 32° of incidence and 11.8 g after 8.9 s.
 
-The law is now applied in both branches — there is only one limiter — with ONE difference that the
-class comment always demanded: **at the hand stick it may only forbid PULL, never force a push**
-(`byAlpha` is floored at 0). Besides being what the comment says, it removes a transient: a
-discontinuity in the sampled incidence rate during the first tenth of a second would otherwise arrive
-as full forward stick (measured: −44.6 before the floor). For an airframe with its own FLCS in the deck
-`AlphaLimitDeg` is 0 (`F16()`), the branch is dead and the expression is bit-identical to the one
-without it — verified across the whole mission set.
+The law is now applied in both branches — there is only one limiter. Two refinements to the hand-stick
+branch landed with the MiG-29 BFM round ([`pilot.md`](pilot.md) §5.10 — the close-combat law departed
+the deckless airframe until they did):
+
+- **The limiter may PUSH to recover, bounded to −`PitchStickMax`.** It first only forbade pull
+  (`byAlpha` floored at 0) — the FLCS branch always let `byAlpha` go negative and push, and dropping that
+  at the hand stick left the raw airframe no recovery authority: when α overshot the 26° SOS at low speed
+  in a hard pull, the pilot's own −0.3 push could not arrest it and α ran to 150° into a mush. Now the
+  hand-stick limiter pushes too, but no harder than the airframe's own deflection cap (−`PitchStickMax`,
+  0.6 on the MiG) — so a genuine departure recovers, while the first-tenth transient the old floor was
+  defending against (a −44.6 spike from the sampled incidence-rate discontinuity) is caught by
+  `AlphaPrimed` and bounded by the cap, not by refusing to push.
+- **`PitchStickMax` binds at the hand stick too.** It is an AUTHORITY limit (unlike `RollStickMax`, a
+  nav-mode roll number the combat roll must not obey), and it bound only on the FLCS path; the Manual
+  path passed the pilot's up-to-1.0 pitch through, and on the deckless MiG that is 35° of stabilator = a
+  tumble. Now clamped on both.
+
+For an airframe with its own FLCS in the deck `AlphaLimitDeg` is 0 and `PitchStickMax` is 1.0 (`F16()`) —
+the α branch is dead, the clamp a no-op, and the whole expression is bit-identical, verified across the
+mission set (13 F-16 BFM/gun/BVR/attack missions byte-identical; `mig29-full` moves 143.4 → 143.7 kt at
+touchdown, the correct `PitchStickMax` now binding in the flare).
 
 #### 3.3 The FLCS law, step by step (all at a fixed 0.01 s)
 

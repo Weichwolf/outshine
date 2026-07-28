@@ -93,6 +93,24 @@ for the command blocks.
 |---|---|
 | `cac7b62` | pilot memory: the datum instead of the last measurement point; gun tracking with a rate term; roll-rate controller |
 | `9673e00` | guidance holds a track where a track is declared — cross-track error and waypoint capture |
+| *(this round)* | the close-combat law survives a raw airframe — the MiG-29 flies BFM without departing (`duels.md` D1) |
+
+### The MiG's close-combat law (D1) — surviving a deckless airframe
+
+**What it built.** The BFM control law is written for the F-16, whose JSBSim deck holds α and roll rate
+under any stick. The MiG-29's deck has no FLCS, so the law departed it in 22.8 s from a merge. Four
+measured, airframe-scoped screws close it, F-16 byte-identical: (1) the Manual-path pitch-deflection cap
+`PitchStickMax` and (2) an α limiter allowed to push to recover (both in `systems/FBFlightControl`), plus
+the pilot hooks (3) `BfmSearchRollCap` (0.20 — the search is a scan, not a combat roll) and (4)
+`BfmRollRateMaxDegS` (60 vs the F-16's 90 — the twitchy K=201 roll overshoots the 10 Hz cap into a PIO).
+Each was diagnosed by telemetry before it was turned, each exposed the next (α tumble → mush → search
+limit cycle → pursuit PIO). **What it measured.** `mig29-bfm.fbm` (new): full BFM run, no KO, α ≤ 27°,
+acquires and locks a trail defender (lock_s 203 / ctrl_s 5.3), deterministic over threads 1/2/4 × 3.
+`duel-merge`: exit 2 → 3, the MiG survives (aoaMax 24.6°); the F-16 dominates the angles (lock_s 298 /
+ctrl_s 78) but neither converts — a draw, the remaining blocker being gap 4h's ACQUISITION half (RAD
+cannot hold the target in a turning merge), not the flying. 13 F-16 BFM/gun/BVR/attack missions
+byte-identical; every other MiG mission's exit code unchanged (`mig29-full` touchdown 143.4 → 143.7 kt).
+`doc/pilot.md` §5.10, `doc/duels.md` D1, `doc/modules/mig29/module.md` gap 4h.
 
 ### One model root and the delta rule (27 Jul)
 

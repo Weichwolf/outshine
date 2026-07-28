@@ -64,7 +64,7 @@ All eight flown at `c637ed3`+this round, `fb-gym`, default elevation provider. V
 | 5 | `duel-emcon` | 3 | 24.0 / – | 156.6 / – | 9.57 / – | 9.77 / – | 8.29 m / – | **draw** |
 | 6 | `duel-doctrine-mig` | 0 | 24.0 / 105.2 | – / 141.5 | – / 14.41 | – / 10.60 | – / 9.35 m | **MiG wins** |
 | 7 | `duel-doctrine-f16` | 0 | 20.0 / 96.2 | 127.9 / 146.8 | 15.65 / 9.93 | 11.30 / 10.10 | 1.77 m / – | **F-16 wins** |
-| 8 | `duel-merge` | 2 | – / – | – / – | – | – | – | MiG departs (gap) |
+| 8 | `duel-merge` | 3 | – / – | – / – | – | – | – | **draw** (MiG survives; F-16 wins angles, neither converts) |
 
 **Why each cell came out that way**, one line each, every number off the run:
 
@@ -91,9 +91,12 @@ All eight flown at `c637ed3`+this round, `fb-gym`, default elevation provider. V
 5. **EMCON — draw, and the only run in which a MiG survives an AIM-120.** See §2 below.
 6. **MiG doctrine — MiG wins.** See §3.
 7. **F-16 doctrine + energy — F-16 wins.** See §3.
-8. **merge — reproducer, not a duel.** The F-16's ACM HUD auto-locks at t=1.9 (3.81 nm). The MiG gets
-   **zero** radar contacts and departs at t=24.7 s (roll 91.9°, p=−94.8 °/s, 29° of incidence,
-   vs −30.2 m/s). Two causes, both open in `modules/mig29/module.md`.
+8. **merge — draw, and now a real duel.** The MiG no longer departs (D1's control-law half closed,
+   [`pilot.md`](pilot.md) §5.10): it flies the whole merge, aoaMax 24.6°. The F-16's ACM HUD auto-locks
+   at t=1.9 and it dominates the angles (lock_s 298 / ctrl_s 78), but on an AIM-9-only loadout it never
+   gun-tracks and never converts. The MiG survives on its cold-search law but never acquires (lock_s 0)
+   — the nose-on pass and the defensive fight keep the F-16 out of the N019's ±30°/±6° RAD bar. Neither
+   converts → draw; the remaining blocker is gap 4h's acquisition half, not the flying.
 
 ### The one-sentence answer
 
@@ -171,7 +174,7 @@ pairings.
 
 | # | Thing | Known from |
 |---|---|---|
-| **D1** | **The merge is unflyable for the MiG**, and there are TWO causes, not one. `modules/mig29/module.md` gap 4h names the acquisition half (ACM patterns are azimuth pencils, RAD does not auto-lock, the cold-search law rolls the jet before its first two looks land). This campaign adds the second: on `duel-merge` the close-combat control law **departs the airframe** in 22.8 s from a nose-on start (roll −150°, 29° of incidence, stall/mush KO at t=24.7). Until both are closed, "the MiG-29 wins the merge" is an untested claim — and the merge is the only part of the envelope where its R-73 and GSh-301 are the better weapons | `duel-merge` |
+| **D1** | **The departure half is CLOSED; the acquisition half remains.** The close-combat control law no longer departs the MiG: four measured, airframe-scoped screws ([`pilot.md`](pilot.md) §5.10 — Manual-path `PitchStickMax` + α-push recovery, the `BfmSearchRollCap` and `BfmRollRateMaxDegS` hooks) let it fly a full BFM run (`missions/mig29-bfm.fbm`: no KO, α ≤ 27°, acquires and locks a trail defender, lock_s 203 / ctrl_s 5.3) and survive the merge (`duel-merge` exit 2 → 3, aoaMax 24.6°). F-16 byte-identical. **`duel-merge` is now a survivable DRAW**: the F-16 dominates the angles (lock_s 298 / ctrl_s 78) but on an AIM-9-only WVR loadout never gun-tracks, and the MiG survives but cannot ACQUIRE — the nose-on high-closure pass and the defensive turning fight keep the F-16 out of the N019's ±30°/±6° RAD bar (lock_s 0). So "the MiG-29 wins the merge" stays untested, but the blocker moved from a control-law departure to the acquisition half of `modules/mig29/module.md` gap 4h (ACM patterns are azimuth pencils, RAD does not auto-lock) — a sensor gap, not a flying one | `duel-merge`, `mig29-bfm` |
 | **D2** | **An AIM-120's terminal miss is a strong function of closure**, and nothing in the tree says whether that is the round or the physics. [MESS, `duel-headon` with the MiG's cruise swept 330→600 kt TAS] target speed 169/206/237/268/288 m/s ⇒ closure 744/842/919/1000/1053 m/s ⇒ miss **1.37/2.13/4.74/3.15/7.66 m**. Since `core/FBDamageModel` is 1/r², those six metres are the difference between a kill and a jet that flies on with wrecked avionics — i.e. the single most outcome-sensitive number in the whole campaign. It belongs beside `bvr-duel-decided`'s terminal-loop finding | this campaign |
 | **D3** | **The pilot does not use the IRST.** `sensors/FBIrstSystem` publishes an `Irst` block and the only consumer in the tree is a missile seeker; `pilot/FBPilot`'s intercept picture is built from the Radar block alone. So the MiG's one genuinely passive sensor cannot cue anything, and "IRST-EMCON" is a doctrine the campaign could only test as "silent and blind" | `duel-emcon` |
 | **D4** | **Weapon selection is not a decision the pilot can make.** `FBCommandTarget::WeaponSelect` is `NotImplemented` on both modules, so the selected station is whatever the SMS's station step arrived at. A jet carrying an AIM-120 and an AIM-9 will offer whichever pylon comes first in the module's own list, and the missions in this family work around it by loading the racks in the order they want the rounds fired | this campaign |
@@ -184,7 +187,7 @@ pairings.
 |---|---|
 | Making `InterceptShotRtrFactor` > 1.0 the MiG's DEFAULT hook | it wins, and it is not derivable. Rtr means "the round arrives even if he runs"; nothing in `doc/modules/mig29/` states a launch doctrine, so a number chosen because it wins a duel would be a fitted constant wearing a derivation's clothes. It lives where the tree already puts a doctrine: in mission text (`set pilot_shot_rtr`) and in the tournament |
 | Reading `duel-emcon` as "EMCON is better" | it is not: the MiG survived and never fired. The run measures a TRADE (warning + defence + life against blindness), and both halves are in its head |
-| A merge mission as a real duel | measured and rejected this round: the MiG departs in 22.8 s (D1). The file stays as a reproducer, the way `test-gear-up-crash.fbm` does for the flight monitor |
+| ~~A merge mission as a real duel~~ | **now built.** The departure that made it a reproducer is fixed (D1, [`pilot.md`](pilot.md) §5.10); `duel-merge` is a survivable draw and `mig29-bfm` is the BFM measuring rig. What remains untestable is the WEAPON thesis (R-73/GSh-301), because the MiG cannot yet acquire in a turning merge — gap 4h's acquisition half |
 
 ---
 

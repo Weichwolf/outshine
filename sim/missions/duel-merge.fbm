@@ -18,16 +18,21 @@ timeout 300
 # and finds him, but it does not auto-lock, so the pilot has to designate with his thumb over the
 # command bus (pilot/FBPilot::BfmDesignate). The F-16 is in ACM HUD, which auto-locks.
 #
-# READING RULE: exit 2, `fulcrum result=LOC`, and it is a REPRODUCER FOR A KNOWN GAP rather than a
-# duel — the same role missions/test-gear-up-crash.fbm plays for the flight monitor. The MiG cannot
-# fight a merge today and this file is the shortest statement of why.
-# MEASURED: the F-16's ACM HUD pattern auto-locks at t=1.9 (3.81 nm). The MiG gets ZERO radar contacts
-# in the whole run, and 22.8 s after the merge starts its close-combat law has rolled it through
-# -150 deg of bank at 29 deg of incidence and the flight monitor calls a stall/mush departure
-# (t=24.7 s, roll 91.9 deg, p=-94.8 deg/s, vs=-30.2 m/s). Two separate causes, both open in
-# modules/mig29/module.md: gap 4h (the ACM patterns are pencils in azimuth, the cold-search law rolls
-# the jet before its first two looks land) and the departure itself, which gap 4h did not yet name.
-# Until both are closed, "the MiG-29 wins the merge" is an untested claim and doc/duels.md says so.
+# READING RULE: exit 3 (TIMEOUT, a DRAW), and it is now a real merge duel rather than a departure
+# reproducer. The MiG's close-combat DEPARTURE is closed (doc/duels.md D1, this round): it flies the
+# whole merge without a flight-monitor KO (aoaMax 24.6 deg, under the 26 deg SOS limit). What the run
+# now measures is the OUTCOME once both airframes survive:
+#   VIPER (F-16): lock_s 298 / ctrl_s 78 — it DOMINATES the angles, auto-locking (ACM HUD) at t=1.9 and
+#     living in the control position, but on an AIM-9-only WVR loadout it never gun-tracks and never
+#     converts the angle advantage into a kill.
+#   FULCRUM (MiG): survives the whole run flying its cold-search law (search the whole time, lock_s 0) —
+#     the nose-on high-closure pass and the turning defensive fight keep the F-16 out of the N019's
+#     +-30 deg az / +-6 deg el RAD bar, so the MiG never acquires and never gets an R-73/GSh-301
+#     solution. That is the OTHER half of gap 4h (acquisition), now the sole blocker after the departure
+#     half was fixed.
+# So the merge is a DRAW for a NAMED reason: neither side converts. "The MiG-29 wins the merge" stays
+# untested — but the blocker moved from "the airframe departs" to "the MiG cannot yet acquire in a
+# turning merge with RAD", and that is a sensor gap (4h a), not a control-law one. doc/duels.md D1.
 
 unit viper
   team friendly
