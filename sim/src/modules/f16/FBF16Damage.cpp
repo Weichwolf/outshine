@@ -6,7 +6,7 @@ namespace {
 /* ---- THE FOUR FRAGILITY CLASSES: the actual modelling decision of this file. All [SET], in J/m^2 of
  * fragment energy. The ladder is chosen ONCE to read the way a blast-fragmentation warhead behaves
  * against this airframe; every intermediate case then follows from the 1/r^2 law rather than from
- * another number. Scale table: doc/flightbox/modules-f16.md §10.3. ---- */
+ * another number. Scale table: doc/modules-f16.md §10.3. ---- */
 constexpr double kAvionicsDegrade = 1.2e4;   /* a box: thin skin, no redundancy */
 constexpr double kAvionicsFail = 3.0e4;
 constexpr double kEngineDegrade = 5.0e4;     /* accessories/nozzle: military power only */

@@ -1,7 +1,7 @@
 /* The terrain chain's END STAGE: pure geometry, no GL. It takes only the HEIGHT FIELD of the ENU
  * mesh osmmesh already stitched, and re-projects EVERY node through the exact Mercator inverse and
  * geodetic->ECEF — so there is no tangent-plane error and no dependence on a fixed home origin.
- * Ausgabevertrag (verts/err/origin_out) und Schuerzen: doc/flightbox/world-and-terrain.md §5.2. */
+ * Ausgabevertrag (verts/err/origin_out) und Schuerzen: doc/world/terrain.md §5.2. */
 #ifndef FBCHUNKMESH_H
 #define FBCHUNKMESH_H
 #include "FBChunkVtx.h" /* FBChunkVtx, FBChunk, FBChunkFree -- no dependency on the ENU builder */

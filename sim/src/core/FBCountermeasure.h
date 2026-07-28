@@ -1,8 +1,8 @@
 /* The COUNTERMEASURE value types: a dispense program as DATA, and the chaff cloud a cartridge leaves.
  * The program schema is the AN/ALE-47's own, field for field and range for range
- * (doc/f16/defence-rwr-cm.md §2.2) — a program is mission/loadout data, not behaviour.
+ * (doc/modules/f16/defence-rwr-cm.md §2.2) — a program is mission/loadout data, not behaviour.
  * The CLOUD carries the entire physics a radar sees: a large return, and NO velocity of its own (it
- * does not move — FlightBox has no wind field). doc/flightbox/core.md, Abschnitt 8.5. */
+ * does not move — FlightBox has no wind field). doc/core.md, Abschnitt 8.5. */
 #ifndef FBCOUNTERMEASURE_H
 #define FBCOUNTERMEASURE_H
 

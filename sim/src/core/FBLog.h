@@ -3,7 +3,7 @@
  * touch the whole call graph for no gain. I/O-free: nothing is emitted without an INJECTED FBLogSink,
  * and the concrete sinks live in app/.
  * THREADING: the CONFIGURATION (sink, level) is process-wide, the CONTEXT (time, unit, capture buffer)
- * is thread_local. doc/flightbox/core.md, Abschnitt 3.1. */
+ * is thread_local. doc/core.md, Abschnitt 3.1. */
 #ifndef FBLOG_H
 #define FBLOG_H
 #include <initializer_list>

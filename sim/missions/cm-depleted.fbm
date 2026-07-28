@@ -1,7 +1,7 @@
 name cm-depleted-1
 timeout 60
 
-# THE REFUSAL. A dispense is a COMMAND (doc/f16/defence-rwr-cm.md §2.4's CMS switch, core/FBCommandBus),
+# THE REFUSAL. A dispense is a COMMAND (doc/modules/f16/defence-rwr-cm.md §2.4's CMS switch, core/FBCommandBus),
 # which means it can be turned down and the refusal is on the record — and the one refusal a defensive
 # system produces in the middle of being shot at is "there is nothing left". This mission is one jet,
 # no threat and no shot: six chaff cartridges loaded, PRGM 1 briefed three times, and a program that

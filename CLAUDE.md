@@ -5,16 +5,16 @@ die ganze Welt abbildet. Die Physik ist JSBSim; FlightBox ist die Welt drumherum
 Renderer, HUD, Avionik, Piloten-KI. **Genau zwei Qualitätsachsen zählen: korrektes Rendering und
 realistisches F-16-Flugverhalten.**
 
-## Das Wissen steht in doc/flightbox/
+## Das Wissen steht in doc/
 
 Diese Datei ist ein Session-Start-Zettel, kein Wissensspeicher. Alles Inhaltliche — Architektur, jedes
-Subsystem, Soll/Ist/Lücken, Herleitungen — steht in **`doc/flightbox/`** (englisch), Einstieg
-[`doc/flightbox/INDEX.md`](doc/flightbox/INDEX.md). Der Skill `flightbox` lädt es aufgabenbezogen.
+Subsystem, Soll/Ist/Lücken, Herleitungen — steht in **`doc/`** (englisch), Einstieg
+[`doc/INDEX.md`](doc/INDEX.md). **`doc/` spiegelt `sim/src/` 1:1**; der EINE Skill `flightbox` lädt es.
 
-**Widersprechen sich beide, hat `doc/flightbox/` recht und diese Datei ist nachzuführen.**
+**Widersprechen sich beide, hat `doc/` recht und diese Datei ist nachzuführen.**
 
-Daneben: `doc/f16/` (Skill `f16-systems`) dokumentiert den **echten** Jet aus den Handbüchern —
-Design-Ziele, keine Defektkriterien. `doc/mission-format.md` ist die Referenz des `.fbm`-Formats.
+Darin: `doc/modules/<jet>/` dokumentiert je den **echten** Jet aus den Handbüchern (Design-Ziele, keine
+Defektkriterien); `doc/missions/` ist die Referenz des `.fbm`-Formats.
 
 **Spec zuerst.** Jede Runde ändert ZUERST das `## Spec` ihrer Themendatei, baut, bis `## State` es
 erfüllt (gemessen an dessen Ankern), führt `## State`/`## Gaps` nach und trägt eine Zeile ins

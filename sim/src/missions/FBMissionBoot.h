@@ -4,7 +4,7 @@
  *
  * It is also the app-side half of the IC gate: it includes fdm/FBFdmBoot.h, the only way to produce an
  * FBFdm — which is why nothing under systems/ or modules/ can spawn or re-trim an airframe, and why
- * this header is the only producer of a complete actor. Ablauf: doc/flightbox/units-and-missions.md §6. */
+ * this header is the only producer of a complete actor. Ablauf: doc/units-and-missions.md §6. */
 #ifndef FBMISSIONBOOT_H
 #define FBMISSIONBOOT_H
 
@@ -24,7 +24,7 @@
 namespace FlightBox::Missions {
 
 /* Spawns ONE mission actor: the `unit` block at `unitIdx`, step by step in
- * doc/flightbox/units-and-missions.md §6. Returns nullptr with a human reason in *err; on success the
+ * doc/units-and-missions.md §6. Returns nullptr with a human reason in *err; on success the
  * caller owns the actor and everything in it. */
 inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnActor(const FBModelRoots &models, const FBMission &mission,
                                                       size_t unitIdx, double groundAsl, double timeoutS,
@@ -112,7 +112,7 @@ inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnActor(const FBModelRoots 
  * the IC comes from the CARRIER's state rather than a mission file, and the unit is a Weapon.
  * There is deliberately NO ejector impulse — no citable figure exists, so the store separates with the
  * carrier's motion and nothing invented on top; a source would add ONE body-axis term, here.
- * Der vollstaendige Separationszustand: doc/flightbox/units-and-missions.md §6. */
+ * Der vollstaendige Separationszustand: doc/units-and-missions.md §6. */
 inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnStore(const FBModelRoots &models, const FBStoreRelease &rel,
                                                       const Fdm::fb_fdm_state &carrier, double groundAsl,
                                                       int unitId, const std::string &name,

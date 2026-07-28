@@ -1,6 +1,6 @@
 /* FlightBox — FBF16Module: the F-16. Composes the systems/ DEFAULTS with the F-16 gain preset and
- * cycles every slot of the doc/f16/ inventory, each at its own rate — the rate table with its
- * justifications is doc/flightbox/modules-f16.md §2.2. This is where an F-16-specific override gets
+ * cycles every slot of the doc/modules/f16/ inventory, each at its own rate — the rate table with its
+ * justifications is doc/modules/f16/module.md §2.2. This is where an F-16-specific override gets
  * hung, by replacing one slot's default with a subclass. */
 #ifndef FBF16MODULE_H
 #define FBF16MODULE_H
@@ -98,7 +98,7 @@ public:
     NavSys->SetBullseye(rwy.ThresholdLatDeg, rwy.ThresholdLonDeg);
   }
 
-  /* The key set is doc/mission-format.md + doc/flightbox/modules-f16.md §2.6. An unknown key OR an
+  /* The key set is doc/missions/INDEX.md + doc/modules/f16/module.md §2.6. An unknown key OR an
    * unparsable/out-of-range value returns false (mission FAIL): a mission that declares a state this
    * airframe cannot take must not start silently in some other state. */
   bool ApplySetup(const std::string &key, const std::string &value) override;

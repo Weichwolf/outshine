@@ -2,7 +2,7 @@
  * DIFFERENT elevations, so a single flat constant is wrong for takeoff+landing in one run: this holds
  * every runway and answers with its own elevation inside footprint+margin, then a smoothstep falloff
  * onto a flat 0 m base. Overlapping plateaus follow the NEAREST runway — the simplest continuous
- * choice. doc/flightbox/core.md, Abschnitt 9. */
+ * choice. doc/core.md, Abschnitt 9. */
 #ifndef FBRUNWAYPLATEAUELEVATION_H
 #define FBRUNWAYPLATEAUELEVATION_H
 #include <vector>

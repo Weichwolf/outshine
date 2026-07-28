@@ -1,6 +1,6 @@
 /* FlightBox — FBUnit: the base interface every world entity shares. Identity is set once at
  * construction; a Unit is a VIEW onto whatever owns the ground truth, never a copy that can drift.
- * Details: doc/flightbox/units-and-missions.md */
+ * Details: doc/units-and-missions.md */
 #ifndef FBUNIT_H
 #define FBUNIT_H
 

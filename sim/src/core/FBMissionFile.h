@@ -1,6 +1,6 @@
-/* The .fbm mission format parser (doc/mission-format.md). Pure string-in/struct-out — the App reads the
+/* The .fbm mission format parser (doc/missions/syntax.md). Pure string-in/struct-out — the App reads the
  * file, so core/ stays platform-neutral. A mission is MISSION-WIDE data plus a LIST of per-actor
- * blocks: one block = one FBSimUnit. doc/flightbox/core.md, Abschnitt 5.1. */
+ * blocks: one block = one FBSimUnit. doc/core.md, Abschnitt 5.1. */
 #ifndef FBMISSIONFILE_H
 #define FBMISSIONFILE_H
 

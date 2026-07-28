@@ -28,7 +28,7 @@ const double kGearUpAglFt = 10.0;
 /* BFM-Innenschleife. Diese Phase fliegt Manual-Stick wie Takeoff/Flare/Rollout, weil Direct/Course
  * NAVIGATIONS-Modi sind, deren Querlagendeckel und sanfter Rolleinsatz fuer einen Kampf strukturell
  * falsch waeren. Das Gesetz — EIN Auftriebsvektor, EIN Lastvielfaches — und alle Zahlen unten:
- * doc/flightbox/pilot-ai.md, Abschnitt 5. */
+ * doc/pilot-ai.md, Abschnitt 5. */
 const double kBfmRollFullDeg = 60.0;      /* Rollfehler, der vollen Querausschlag verdient */
 const double kBfmTurnTimeS = 2.0;         /* in dieser Zeit will der Pilot den Lenkfehler weghaben */
 /* Eine Rollrate, die der Pilot auch STOPPEN kann. Groessenordnung folgt aus kBfmTurnTimeS (Zehner von
@@ -65,7 +65,7 @@ const double kBfmSpeedbrakeKt = 40.0;     /* Bremsklappe nur, wenn der Gashebel 
 /* INTERCEPT. Die Zahlen unten sind Eigenschaften des PILOTEN und der Geometrie, nicht der Zelle —
  * deshalb Konstanten statt virtueller Hooks: Kardanwinkel und Startbereiche unterscheiden zwei Jets,
  * eine menschliche Reaktionszeit tut es nicht. Beide Zeiten sind ueber die Variantentabelle
- * ueberschreibbar und liegen immer OBEN AUF der Bus-Latenz. doc/flightbox/pilot-ai.md, Abschnitt 11. */
+ * ueberschreibbar und liegen immer OBEN AUF der Bus-Latenz. doc/pilot-ai.md, Abschnitt 11. */
 const double kInterceptReactionS = 1.0;   /* wahrnehmen, erkennen, entscheiden, bewegen */
 const double kInterceptActionS = 0.5;     /* dasselbe fuer die HAENDE: ein Hebel nach dem anderen */
 /* Totband der Antennenhoehe: ein Suchmuster ist ±10,5° hoch, 2° liegen gut innerhalb der Keule. */
@@ -149,7 +149,7 @@ double FBPilot::CornerTurnRateDegS() const {
 /* Zwei Muster: OHNE Datum gibt es nichts zu zentrieren (Amplitude/Periode der Zelle, Phase auf der
  * Missionsuhr); MIT Datum ist die BREITE, was der Pilot nicht weiss (dessen Halbwinkel), die PERIODE
  * waechst mit, damit die Kursrate sanft bleibt, und die PHASE haengt am SUCHBEGINN, damit der Sweep auf
- * der wahrscheinlichsten Peilung beginnt. doc/flightbox/pilot-ai.md, Abschnitt 5.4. */
+ * der wahrscheinlichsten Peilung beginnt. doc/pilot-ai.md, Abschnitt 5.4. */
 double FBPilot::SearchWeaveDeg(const FBTrackDatum &datum, bool searching) {
   double base = std::fmax(BfmScanAmplitudeDeg(), 1e-3);
   if (!searching || !datum.Valid) {
@@ -189,7 +189,7 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
    * vorn heraus (gemessen: die absolute Regel kostete 250 von 268 s Kontrollposition). */
   bool lowEnergy = casKt < BfmMinSpeedKt() && (!validTrack || tgtSpeedMs > st.speed);
 
-  /* ---- 1. welche Verfolgungsart verlangt diese Geometrie? (doc/flightbox/pilot-ai.md 5.2) ----
+  /* ---- 1. welche Verfolgungsart verlangt diese Geometrie? (doc/pilot-ai.md 5.2) ----
    * Die KONTROLLPOSITION laeuft ueber die Variantentabelle statt direkt ueber die Hooks: sie ist die
    * eine BFM-Zahl, die eine Mission wirklich aendern muss (eine Raketen-Halteposition liegt AUSSERHALB
    * des Kanonentrichters). */
@@ -229,7 +229,7 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
     /* Die SUCHE fliegt eine RICHTUNG und eine HOEHE, nie einen Punkt, und sie fliegt das DATUM statt
      * der eingefrorenen letzten Messposition. Ohne je etwas gesehenes wird die kalte Suche VERANKERT —
      * auf „wohin meine Nase gerade zeigt" zu zielen ist ein Regelkreis ohne Referenz und endet in einem
-     * 80°-Schraeglagen-Orbit. doc/flightbox/pilot-ai.md, Abschnitt 5.4. */
+     * 80°-Schraeglagen-Orbit. doc/pilot-ai.md, Abschnitt 5.4. */
     double brgDeg;
     /* ...solange es noch ein ORT ist: INNERHALB des Gebiets ist die Peilung zu seinem Mittelpunkt keine
      * Information mehr, und auf einen Punkt zu steuern, auf dem man sitzt, macht aus der Suche einen
@@ -291,7 +291,7 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
      * Trichtertoleranz). Die Rate wird dort genommen, wo die eigene Lage GAR NICHT vorkommt: geforderte
      * Rohrrichtung in die WELT drehen, dort differenzieren, zurueck in den Koerper — nichts von der
      * eigenen Rolle/Nick/Gier ueberlebt den Rundweg, und das ist der Punkt (koerperbezogen differenziert
-     * maesse man den eigenen Zug). doc/flightbox/pilot-ai.md, Abschnitt 5.6. */
+     * maesse man den eigenen Zug). doc/pilot-ai.md, Abschnitt 5.6. */
     double az = fc.GunLeadAzDeg, el = fc.GunLeadElDeg;
     double be, bn, bu;
     FBBodyLosToEnu(st.roll, st.pitch, st.yaw, az, el, be, bn, bu);
@@ -342,7 +342,7 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
   if (BfmFloorFt() > 0.0 && ra.H.Readable() && ra.AglFt < BfmFloorFt())
     elErr += kBfmFloorPullDeg * Clamp(1.0 - ra.AglFt / BfmFloorFt(), 0.0, 1.0);
 
-  /* ---- 4. hinfliegen: EIN Auftriebsvektor, EIN Lastvielfaches (doc/flightbox/pilot-ai.md 5.1) ---- */
+  /* ---- 4. hinfliegen: EIN Auftriebsvektor, EIN Lastvielfaches (doc/pilot-ai.md 5.1) ---- */
   double errMag = std::sqrt(azErr * azErr + elErr * elErr);
   double vRatio = casKt / std::fmax(BfmCornerSpeedKt(), 1.0);
   double gAvail = Clamp(BfmCornerG() * vRatio * vRatio, 1.0, BfmMaxG());
@@ -364,7 +364,7 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
    * Sichtlinie dreht schneller, als die Zelle kurven kann (dann ist die Peilung kein verfolgbares Signal
    * mehr). GEKAPPT statt gespiegelt, damit es begrenzt bleibt: das Schlimmste, was es fordern kann, ist
    * „halte die Querlage und zieh weiter". Der Drehsinn braucht keine eigene Regel — es ist der, in den
-   * der Pilot beim Kreuzen ohnehin schon drehte. doc/flightbox/pilot-ai.md, Abschnitt 5. */
+   * der Pilot beim Kreuzen ohnehin schon drehte. doc/pilot-ai.md, Abschnitt 5. */
   double losRateDegS = 0.0;
   if (haveTrack) {
     double rr = std::fmax(g.RangeM, 1.0);
@@ -569,7 +569,7 @@ bool FBPilot::CanPressOn(const FBState &state) const {
 /* EIN Entscheidungstakt eines Abfangs, in der Reihenfolge, in der die Aufmerksamkeit eines Piloten
  * laeuft: was sehe ich, wer sieht mich, in welchen Zustand setzt mich das, wohin zeige ich, und erst
  * dann welchen Schalter fasse ich an. Alles Gesehene ist von simulierten Boxen geschrieben, nichts
- * davon Wahrheit. doc/flightbox/pilot-ai.md, Abschnitt 7. */
+ * davon Wahrheit. doc/pilot-ai.md, Abschnitt 7. */
 FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &avionics,
                                            const Fdm::fb_fdm_state &st, const FBFlightPlan &plan, double dt) {
   /* Die Fusion des gelockten Kontakts, fuer das, was ein einzelnes Echo nicht hergibt: die
@@ -685,7 +685,7 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
   int chaffOut = state.Cmds.H.Readable() ? state.Cmds.ChaffDispensed : IntSeenChaff_;
   if (chaffOut > IntSeenChaff_) { Eng_.NoteChaff(chaffOut - IntSeenChaff_); IntSeenChaff_ = chaffOut; }
 
-  /* ---- 5. die Zustandsmaschine (doc/flightbox/pilot-ai.md, Abschnitt 7.3) ---- */
+  /* ---- 5. die Zustandsmaschine (doc/pilot-ai.md, Abschnitt 7.3) ---- */
   if (defendDue) {
     EngState_ = FBEngageState::Defend;
   } else if (EngState_ == FBEngageState::Defend && TimeS_ - IntThreatLastS_ >= Tuned(FBPilotParam::DefendHoldS, InterceptDefendHoldS())) {
@@ -818,7 +818,7 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
 
 /* Der LUFT-BODEN-PASS: drei Teile und EINE Entscheidung. Diese Klasse rechnet keine Ballistik und haelt
  * keine Zielposition — sie liest ein Instrument (die Luft-Boden-Felder des FireControl-Blocks), genau
- * wie sie vor einem Flare den Radarhoehenmesser liest. doc/flightbox/pilot-ai.md, Abschnitt 4. */
+ * wie sie vor einem Flare den Radarhoehenmesser liest. doc/pilot-ai.md, Abschnitt 4. */
 FBPilotCommands FBPilot::AttackCommands(const FBState &state, FBCommandBus &avionics,
                                         const Fdm::fb_fdm_state &st, const FBFlightPlan &plan) {
   FBPilotCommands c{};
@@ -990,7 +990,7 @@ FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
       SetLegFromPlan(c, plan);
       /* JEDES AGL-Gate fragt zuerst den KOPF des Radarhoehen-Blocks: ohne gueltige Hoehe handelt der
        * Pilot NICHT — Fahrwerk bleibt unten, der Flare loest nicht aus, der BFM-Boden zieht nicht
-       * (doc/f16/controls-commands.md §6.4: der Sensor sperrt die Wirkung, nicht das Kommando). */
+       * (doc/modules/f16/controls-commands.md §6.4: der Sensor sperrt die Wirkung, nicht das Kommando). */
       if (st.vy > kPositiveRateMs && state.RadarAlt.H.Readable() &&
           state.RadarAlt.AglFt > kGearUpAglFt && st.cas * kMsToKt < GearUpLimitKt())
         c.GearDown = false;
@@ -1033,7 +1033,7 @@ FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
     case Phase::Flare: {
       if (airframe.GetWeightOnWheels()) { Transition(Phase::Rollout); return c; }
       c.Guidance = FBPilotGuidance::Manual;
-      c.ManualThr = 0.0;      /* Leerlauf (doc/f16/procedures-landing.md, Short Final) */
+      c.ManualThr = 0.0;      /* Leerlauf (doc/modules/f16/procedures-landing.md, Short Final) */
       c.ManualRoll = 0.0; c.ManualYaw = 0.0;
       c.ManualPitch = PitchHoldStick(FlareTargetPitchDeg(), st.pitch, st.q, kFlareStickMax);
       c.Speedbrake = ApproachSpeedbrakeNorm();
@@ -1044,7 +1044,7 @@ FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
       c.Guidance = FBPilotGuidance::Manual;
       c.ManualThr = 0.0;
       c.ManualRoll = 0.0; c.ManualYaw = 0.0;
-      c.Speedbrake = 1.0;   /* voll offen (doc/f16/procedures-landing.md, Roll-Out) */
+      c.Speedbrake = 1.0;   /* voll offen (doc/modules/f16/procedures-landing.md, Roll-Out) */
 
       /* Zwei-Punkt-Aerobrake oberhalb AerobrakeSpeedKt, darunter proportionales Absenken der Nase —
        * dasselbe PD wie Rotation und Flare, nur mit geschwindigkeitsgeplantem Ziel. */
@@ -1056,7 +1056,7 @@ FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
 
       if (runway) c.NosewheelSteer = NosewheelSteerCmd(*runway, st.lat, st.lon, st.yaw);
 
-      /* Radbremsen erst nach dem Absenken (doc/f16/procedures-landing.md, Roll-Out) — und das ist die
+      /* Radbremsen erst nach dem Absenken (doc/modules/f16/procedures-landing.md, Roll-Out) — und das ist die
        * NASE AM BODEN, nicht AerobrakeSpeedKt: in der Zwei-Punkt-Lage tragen die Fluegel das Flugzeug,
        * die Haupraeder sind also unbelastet und eine Bremse hat gar nichts zu greifen. Die Prozedur
        * nennt die ~100 kt als ERWARTUNG, wann die Nase faellt; faellt sie frueher, weil das

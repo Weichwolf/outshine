@@ -19,7 +19,7 @@ timeout 700
 #
 # `wx wind` is deliberately the crudest possible atmosphere: one vector everywhere, at every altitude,
 # no shear, no boundary layer. That is what makes it an instrument — the expected answer is a closed
-# form. Real weather is `wx fixture` (doc/mission-format.md).
+# form. Real weather is `wx fixture` (doc/missions/weather.md).
 
 wx wind 270 20
 

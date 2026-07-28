@@ -1,6 +1,6 @@
 /* FlightBox — die noch NoOp gebliebenen Systemslots eines Moduls (Input/HOTAS, Propulsion, Weapons).
  * Slots, deren Default REAL wurde, sind in eigene Dateien herausgewachsen.
- * doc/flightbox/systems.md, Abschnitt 10. */
+ * doc/systems.md, Abschnitt 10. */
 #ifndef FBSYSTEMSLOTS_H
 #define FBSYSTEMSLOTS_H
 
@@ -33,7 +33,7 @@ public:
 };
 
 /* Historischer SMS/Gun-Stub, ueberholt durch FBStoresSystem/FBGunSystem
- * (doc/flightbox/systems.md, Offene Punkte 1). */
+ * (doc/systems.md, Offene Punkte 1). */
 class FBWeaponSystem {
 public:
   virtual ~FBWeaponSystem() = default;

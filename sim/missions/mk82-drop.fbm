@@ -2,7 +2,7 @@ name mk82-drop-1
 timeout 320
 
 # THE BALLISTICS MISSION: a two-ship drops four Mk-82s from a DEFINED state, so that each trajectory can
-# be checked against an independent calculation (doc/f16/weapons.md §4.2's drag-free fall time) and the
+# be checked against an independent calculation (doc/modules/f16/weapons.md §4.2's drag-free fall time) and the
 # release path itself — master arm, the interlocks, the command receipt, the store becoming its own
 # unit — is exercised end to end.
 #

@@ -2,7 +2,7 @@
  * (< ~0.5 deg) and Paul Schlyter's lunar approximation (public domain,
  * http://www.stjarnhimlen.se/comp/ppcomp.html) deliberately WITHOUT his perturbation-term table —
  * good to about a degree, enough for a disc and a phase, not for navigation.
- * doc/flightbox/rendering.md, Abschnitt 4. */
+ * doc/render/renderer.md, Abschnitt 4. */
 #ifndef FB_EPHEMERIS_H
 #define FB_EPHEMERIS_H
 #include <cmath>

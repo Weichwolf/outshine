@@ -1,6 +1,6 @@
 /* Coordinate conversions: Web Mercator slippy tiles, MVT local coordinates, ENU tangent plane, WGS84
  * ECEF. Scope limits (ENU flat-earth range, Mercator latitude cap, MVT top-left origin):
- * doc/flightbox/world-and-terrain.md, Abschnitt 5. */
+ * doc/world/terrain.md, Abschnitt 5. */
 
 #ifndef OSMMESH_GEO_H
 #define OSMMESH_GEO_H

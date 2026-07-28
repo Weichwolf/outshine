@@ -5,7 +5,7 @@
  * fetch back into the very thread being emptied.
  * ONE build in flight at a time (the JS shim gates it): fbtw_build SUSPENDS on the synchronous fetch
  * under ASYNCIFY, and a re-entrant second build corrupts the shared result state.
- * doc/flightbox/world-and-terrain.md, Abschnitt 6. */
+ * doc/world/terrain.md, Abschnitt 6. */
 #include <emscripten.h>
 #include <emscripten/fetch.h>
 #include <stdio.h>

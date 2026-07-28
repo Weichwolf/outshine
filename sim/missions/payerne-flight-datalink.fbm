@@ -4,7 +4,7 @@ timeout 600                                  # sim-seconds until TIMEOUT
 
 # THE SWITCH MATRIX: five friendly F-16s in an echelon that stays well inside datalink range for the
 # whole run, so nothing about geometry can explain what each jet sees -- only its terminal's switches
-# (systems/FBDatalinkSystem, modules/f16/FBF16Datalink, doc/f16/datalink-iff.md). Three transmitters
+# (systems/FBDatalinkSystem, modules/f16/FBF16Datalink, doc/modules/f16/datalink-iff.md). Three transmitters
 # (LEAD, FOUR, FIVE) and the two special cases:
 #
 #   unit   power  XMT  filter   expected tracks (telemetry dl_tracks)

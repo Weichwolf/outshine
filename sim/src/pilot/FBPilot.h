@@ -2,7 +2,7 @@
  * im ~10-Hz-Entscheidungstakt als FBPilotCommands aus; die Phasen-Zustandsmaschine ist das
  * Prozedur-Geruest, Run() der EINE Override-Punkt. Die zellenspezifischen ZAHLEN sind die virtuellen
  * Hooks unten (Defaults = generische Platzhalter, nicht die Zahlen eines echten Flugzeugs).
- * Phasen, Regelgesetze, Herleitungen und die vollstaendige Hook-Tabelle: doc/flightbox/pilot-ai.md. */
+ * Phasen, Regelgesetze, Herleitungen und die vollstaendige Hook-Tabelle: doc/pilot-ai.md. */
 #ifndef FBPILOT_H
 #define FBPILOT_H
 
@@ -112,7 +112,7 @@ public:
 protected:
   /* g·sqrt(n²−1)/V an der Eckgeschwindigkeit. EINMAL hergeleitet, ZWEIMAL benutzt — deshalb eine
    * Methode statt zweier Konstanten: die schnellste Nasenbewegung dieses Jets UND die Annahme darueber,
-   * wie hart der andere kurvt (FBTrackDatum). doc/flightbox/pilot-ai.md, Abschnitt 6.2. */
+   * wie hart der andere kurvt (FBTrackDatum). doc/pilot-ai.md, Abschnitt 6.2. */
   double CornerTurnRateDegS() const;
 
   /* Der EINE Leser des Entscheidungspfads: der Wert der Variante, sonst die eigene Zahl des Aufrufers. */

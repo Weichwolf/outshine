@@ -1,7 +1,7 @@
 /* FlightBox — FBF16Datalink: the MIDS-LVT terminal, an override of systems/FBDatalinkSystem carrying
  * only the Link-16 reach and the HSD's contact filter. FLIGHT LEAD is a documented stand-in: the
  * simulator has no flight-structure concept to read a lead off, so FL ON keeps the flight's FIRST
- * participant. Details: doc/flightbox/modules-f16.md §5. */
+ * participant. Details: doc/modules-f16.md §5. */
 #ifndef FBF16DATALINK_H
 #define FBF16DATALINK_H
 

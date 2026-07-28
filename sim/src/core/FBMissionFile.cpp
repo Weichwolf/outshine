@@ -128,7 +128,7 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
         return fail("'team' needs friendly|hostile|neutral");
     } else if (kw == "spawn") {
       /* spawn <lat lon | threshold> <altM | ground> <hdgDeg> <speedKt> — the declarative IC. Neither
-       * keyword is a second syntax or a second code path (doc/mission-format.md). */
+       * keyword is a second syntax or a second code path (doc/missions/syntax.md). */
       if (unit->HaveSpawn) return fail("unit '" + unit->Id + "' already has a 'spawn'");
       std::string first;
       if (!(ls >> first)) return fail("'spawn' needs lat|threshold");

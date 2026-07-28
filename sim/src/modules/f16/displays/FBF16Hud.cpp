@@ -11,7 +11,7 @@ constexpr float kR2D = 57.29577951308232f;
 constexpr float kHudFovDeg = 80.0f;
 /* Combiner APERTURE — the real HUD is a small window, not the whole windscreen. Horizontal half-angle
  * is TFOV/2 [DOC]; the VERTICAL is DERIVED from IFOV's aspect ratio rather than set as a second magic
- * constant. doc/flightbox/modules-f16.md §12.1. */
+ * constant. doc/modules-f16.md §12.1. */
 constexpr float kApertureHalfWidthDeg = 12.5f;                                    /* TFOV/2 */
 constexpr float kApertureIfovH = 20.0f, kApertureIfovV = 13.5f;                   /* IFOV, for the ratio only */
 constexpr float kApertureHalfHeightDeg = kApertureHalfWidthDeg * (kApertureIfovV / kApertureIfovH);
@@ -65,7 +65,7 @@ void ClampToRect(const Aperture &ap, float px, float py, float insetX, float ins
 /* Every conformal element goes through ONE az/el projector built from the same camera basis the generic
  * HUD's horizon uses; "az/el" is WORLD-referenced (0=north, +el=up), so a world direction needs no
  * body-frame composition. Everything is then cropped to the combiner APERTURE — the pilot's own
- * eye-relative window, not the render target. Element table: doc/flightbox/modules-f16.md §12.2. */
+ * eye-relative window, not the render target. Element table: doc/modules-f16.md §12.2. */
 void FBF16Hud::BuildHud(const FBState &state, const Systems::FBHudEnv &env, Systems::FBHudGeometry &out) const {
   out.Reset();
   float cx = 0.5f * (float)env.Width, cy = 0.5f * (float)env.Height;

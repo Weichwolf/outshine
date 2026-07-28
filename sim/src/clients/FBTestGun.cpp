@@ -1,4 +1,4 @@
-/* fb-test-gun: the gun's arithmetic against doc/f16/weapons.md's numbers and against itself. No JSBSim
+/* fb-test-gun: the gun's arithmetic against doc/modules/f16/weapons.md's numbers and against itself. No JSBSim
  * and no mission — which is the point: the flight code's claims are checkable WITHOUT flying, and the
  * flying then only has to show the aircraft can reach the geometry these numbers describe.
  * Five checks: dispersion, ballistics, funnel geometry, the lead solution FLOWN, magazine + depletion.

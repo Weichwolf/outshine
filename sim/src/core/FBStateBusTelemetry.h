@@ -1,7 +1,7 @@
 /* The VALIDITY of the state bus as a measurable time series: one channel per FBState block, carrying
  * its FBBlockStatus ordinal. It exists because the VALUES cannot show it — a Held block carries the
  * same numbers as a Valid one, which is the whole point of Held. Borrows the bus, owns nothing.
- * doc/flightbox/core.md, Abschnitt 1.6. */
+ * doc/core.md, Abschnitt 1.6. */
 #ifndef FBSTATEBUSTELEMETRY_H
 #define FBSTATEBUSTELEMETRY_H
 

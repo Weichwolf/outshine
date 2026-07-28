@@ -1,5 +1,5 @@
 /* FlightBox — FBAirDataSystem: ADC-class air data (CAS/Mach/G) plus the FPM's world-referenced
- * direction. doc/flightbox/systems.md, Abschnitt 4. */
+ * direction. doc/systems.md, Abschnitt 4. */
 #ifndef FBAIRDATASYSTEM_H
 #define FBAIRDATASYSTEM_H
 

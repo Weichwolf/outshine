@@ -1,6 +1,6 @@
 /* FlightBox — FBFdm: ONE simulated airframe's JSBSim instance, the ONE-TU seam to the vendored engine.
  * Getters are not inline (FB convention) because the header may not name the pimpl'd type they read.
- * Details: doc/flightbox/fdm.md */
+ * Details: doc/fdm.md */
 #ifndef FBFDM_H
 #define FBFDM_H
 
@@ -56,7 +56,7 @@ public:
   void SetFuelPct(double pct);          /* 0..100 of total declared capacity */
 
   /* ---- External stores through JSBSim's own mass/external-force models; locations in the loaded
-   * model's STRUCTURAL frame (inches). doc/flightbox/fdm.md §9. ---- */
+   * model's STRUCTURAL frame (inches). doc/fdm.md §9. ---- */
 
   int  AddStorePointMass(const char *name, double xIn, double yIn, double zIn);   /* index, or -1 */
   void SetStorePointMassLbs(int index, double lbs);

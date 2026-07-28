@@ -10,7 +10,7 @@ runway 46.84335 6.91523 441.0 228.0 2889     # Payerne threshold RWY23 -- also t
 timeout 1200                                 # sim-seconds until TIMEOUT
 
 unit viper
-  module f16                                 # FBModuleRegistry key -> FBF16Module (doc/mission-format.md)
+  module f16                                 # FBModuleRegistry key -> FBF16Module (doc/missions/INDEX.md)
   spawn threshold ground 228.0 0             # ground start, brakes set, runway heading (Phase 1)
   wp 46.74293 6.75267 2500 350               # SW climb-out (matches payerne-takeoff-only.fbm)
   wp 46.99968 6.83204 2800 320               # turn north over the Broye/Jura foothills, still climbing

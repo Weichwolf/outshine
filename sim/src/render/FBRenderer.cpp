@@ -121,7 +121,7 @@ void FBRenderer::OnAdapter(wgpu::Adapter a) {
                                       {"maxTexDim2D", (int)lim.maxTextureDimension2D}});
   }
   /* rgba16float and not rg11b10ufloat: the cloud pass blends premultiplied alpha over the HDR target,
-   * and rg11b10 has no alpha channel. Herleitung: doc/flightbox/rendering.md §1.4. */
+   * and rg11b10 has no alpha channel. Herleitung: doc/render/renderer.md §1.4. */
   bool rg11 = false;
   HdrFormat = wgpu::TextureFormat::RGBA16Float;
   wgpu::DeviceDescriptor dd{};
@@ -287,7 +287,7 @@ void FBRenderer::SetStars(const uint8_t *hyg, int nbytes, double originLat, doub
 
 /* No bakes, no history, no textures: one pipeline over the atmosphere LUTs and the scene depth. Must
  * run after CreateTerrainPipeline (DepthTex) and CreateAtmosphere (the LUT views its bind group pins).
- * doc/flightbox/render/clouds.md. */
+ * doc/render/clouds.md. */
 void FBRenderer::CreateClouds(void) {
   FBGpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
   Clouds->Configure(gpu, AtmoBuf, LutSamp, SkyLUT.CreateView(), TransLUT.CreateView(), DepthTex.CreateView());
@@ -327,7 +327,7 @@ void FBRenderer::UpdateAtmosphere(const double eye[3], const double sunDir[3], c
 
 /* Camera-relative: vertices arrive pre-translated by (origin-cam), so the eye is at the ORIGIN and the
  * view is pure rotation — no absolute ECEF coordinate ever reaches float.
- * Herleitung: doc/flightbox/rendering.md §1.2. */
+ * Herleitung: doc/render/renderer.md §1.2. */
 static void MvpCamRel(float *m, const double R[3], const double Uc[3], const double F[3], int w, int h) {
   const float fov = 60.0f * 3.14159265f / 180.0f, asp = (float)w / (float)h;
   const float zn = 0.05f;
@@ -464,7 +464,7 @@ void FBRenderer::RenderFrame(void) {
   if (DeviceLost) return;   /* device gone (headless SwiftShader): CPU streaming lives on elsewhere */
 
   /* Its own short frame path, 2 passes: the app freezes JSBSim until the target cut is resident, so
-   * the first scene frame is already full resolution. doc/flightbox/rendering.md §2.2. */
+   * the first scene frame is already full resolution. doc/render/renderer.md §2.2. */
   if (LoadingScreen) {
     FrameNo++;
     FBFrameContext lctx{};   /* Upscale::Encode ignores ctx today; kept for interface uniformity */
@@ -574,7 +574,7 @@ void FBRenderer::RenderFrame(void) {
   /* PASS TOPOLOGY IS A CONTRACT: only this function opens and closes passes — a stage draws into the
    * borrowed encoder — and a stage split must never change this count. Hence the tally + the periodic
    * log below, so a before/after diff is readable straight from the telemetry.
-   * Vollständige Encode-Reihenfolge: doc/flightbox/rendering.md §2. */
+   * Vollständige Encode-Reihenfolge: doc/render/renderer.md §2. */
   int passCount = 0;
 
   /* Once per frame — TODO cache while the sun is static. */

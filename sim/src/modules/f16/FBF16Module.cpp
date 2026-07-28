@@ -50,7 +50,7 @@ bool FBF16Module::Due(double &accS, double dt, double hz) {
 
 /* Cycles every system slot, then the fixed 100 Hz FDM substeps (spiral guard, <=12/frame): guidance ->
  * FLCS-command -> JSBSim in lockstep. AP->Run()/FC->Run() are the only virtual dispatch INSIDE that
- * inner loop; every other slot is throttled outside it. Rate table: doc/flightbox/modules-f16.md §2.2. */
+ * inner loop; every other slot is throttled outside it. Rate table: doc/modules-f16.md §2.2. */
 void FBF16Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegistry *units, const World::FBWorld *world) {
   if (!Fdm_) return;               /* no airframe attached — nothing to fly */
   Fdm::FBFdm &fdm = *Fdm_;
@@ -72,7 +72,7 @@ void FBF16Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegis
     ServiceCommands(FBCommandGroup::Sensors);
     ServiceCommands(FBCommandGroup::Avionics);
     ServiceCommands(FBCommandGroup::Stores);
-    /* THE DAMAGE PATTERN, identical at every box below (doc/flightbox/modules-f16.md §2.4): a FAILED
+    /* THE DAMAGE PATTERN, identical at every box below (doc/modules-f16.md §2.4): a FAILED
      * system is not cycled at all and its block goes Invalid, so every consumer behaves as it already
      * does for a box that was never powered; a DEGRADED one runs at its one derivable restriction. */
     Fcr_->SetRangeFactor(SystemDegraded(FBSystemId::Radar) ? kRadarRangeDegraded : 1.0);
@@ -194,7 +194,7 @@ void FBF16Module::ServiceCommands(FBCommandGroup group) {
 
 /* Where the RANGE POLICY lives, next to the box that knows the domain: out of range is REJECTED and
  * named, never clamped behind the pilot's back. The one clamp is the documented BNGO ceiling, and it is
- * reported as Clamped rather than as success. Table: doc/flightbox/modules-f16.md §2.5. */
+ * reported as Clamped rather than as success. Table: doc/modules-f16.md §2.5. */
 namespace {
 /* False for a command whose owner is not a system the damage model tracks (UFC entry, master mode). */
 bool CommandOwner(FBCommandTarget t, FBSystemId &out) {

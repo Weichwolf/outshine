@@ -2,7 +2,7 @@
  * receiver made of it — the deliberate opposite of both FBRadarContact and FBDatalinkTrack.
  * THE TWO ABSENCES ARE THE MODEL: no RANGE (an RWR never transmitted anything to time a return, so the
  * scope's radial position is LETHALITY), and no certainty about WHO (Kind is ESTIMATED).
- * doc/flightbox/core.md, Abschnitt 8.4. */
+ * doc/core.md, Abschnitt 8.4. */
 #ifndef FBRWRTHREAT_H
 #define FBRWRTHREAT_H
 
@@ -30,7 +30,7 @@ inline const char *FBRwrThreatModeStr(FBRwrThreatMode m) {
 struct FBRwrThreat {
   int   Id = 0;               /* the receiver's own symbol number, 1.. — never a unit id */
   float BearingDeg = 0.0f;    /* RELATIVE to own nose, -180..180 (+ = right): the TWA is a relative-
-                               * bearing display, own nose at the top (doc/f16/defence-rwr-cm.md §1) */
+                               * bearing display, own nose at the top (doc/modules/f16/defence-rwr-cm.md §1) */
   float ElDeg = 0.0f;         /* body-referenced (+ = above) — not on the real azimuth-only scope, but
                                * the antenna coverage limit is decided on it, so it is published */
   float LethalityNorm = 0.0f; /* 0..1, the scope's radial position: 1 = centre (most lethal) */

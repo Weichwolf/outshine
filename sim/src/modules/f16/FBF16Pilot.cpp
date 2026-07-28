@@ -2,7 +2,7 @@
 
 namespace FlightBox::Modules {
 
-/* doc/f16/procedures-takeoff-taxi.md's weight/Vr table, piecewise-linear interpolated; clamped at the
+/* doc/modules/f16/procedures-takeoff-taxi.md's weight/Vr table, piecewise-linear interpolated; clamped at the
  * table's ends (20,000..44,000 lb) rather than extrapolated. */
 double FBF16Pilot::RotationSpeedKt(double grossWeightLbs) const {
   static const double kW[] = {20000, 24000, 28000, 32000, 36000, 40000, 44000};

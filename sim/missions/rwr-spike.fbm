@@ -2,7 +2,7 @@ name rwr-spike-1
 timeout 220
 
 # THE THREE WARNINGS, IN ORDER, OUT OF ONE UNCHANGING GEOMETRY. A radar searching, a radar tracking and
-# a missile seeker are three different things to be on the receiving end of (doc/f16/defence-rwr-cm.md
+# a missile seeker are three different things to be on the receiving end of (doc/modules/f16/defence-rwr-cm.md
 # §1's symbol table), and this mission produces all three from a single head-on pass with NOTHING
 # scripted in between — every transition is a consequence of range, and the analysis can recompute each
 # one from the two telemetry files alone.
@@ -45,7 +45,7 @@ unit spike
   set rwr on
   set rwr_display open
   # ...and it ANSWERS what it hears: CMDS in AUTO dispenses by itself while a threat is tracking or
-  # guiding (doc/f16/defence-rwr-cm.md §2.2 — consent is granted by turning the knob to AUTO), which is
+  # guiding (doc/modules/f16/defence-rwr-cm.md §2.2 — consent is granted by turning the knob to AUTO), which is
   # the RWR -> dispenser coupling in one line and nothing briefed. Head-on, so the chaff is rejected by
   # the seeker's Doppler filter and the intercept is unaffected: the effect of chaff has its own 2x2
   # experiment (missions/cm-*.fbm).

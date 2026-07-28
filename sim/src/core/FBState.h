@@ -1,7 +1,7 @@
 /* The ONE shared per-frame state: a set of typed OUTPUT BLOCKS (FBAvionicsBlocks.h), one per source
  * system, each with a validity head. Sensors WRITE, displays and the pilot READ; the only cross-block
  * reads are the ones a block comment names explicitly (documented fusion, not accidental coupling).
- * doc/flightbox/core.md, Abschnitt 1. */
+ * doc/core.md, Abschnitt 1. */
 #ifndef FB_FBSTATE_H
 #define FB_FBSTATE_H
 #include "FBAvionicsBlocks.h"

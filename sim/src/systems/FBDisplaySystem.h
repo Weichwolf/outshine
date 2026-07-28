@@ -1,6 +1,6 @@
 /* FlightBox — FBDisplaySystem: der Anzeigen-Slot. Run() ist die periodische Anzeigenlogik (20 Hz),
  * BuildHud das generische MIL-STD-1787-artige Default-HUD (1x je gerendertem Frame) und der zweite
- * Override-Punkt. doc/flightbox/systems.md, Abschnitt 8. */
+ * Override-Punkt. doc/systems.md, Abschnitt 8. */
 #ifndef FBDISPLAYSYSTEM_H
 #define FBDISPLAYSYSTEM_H
 

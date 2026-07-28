@@ -6,7 +6,7 @@
  * RATES: the seeker and the guidance run INSIDE the 100 Hz substep loop, because a round closing at
  * 1.5 km/s covers 15 m per 10 ms and a pilot's 10 Hz decision tick would be a 150 m guidance quantum.
  * The uplink runs once per Run() — the launcher cannot produce a fresher estimate than its radar frame.
- * doc/flightbox/weapons-and-damage.md §10.2. */
+ * doc/weapons-and-damage.md §10.2. */
 #ifndef FBMISSILEMODULE_H
 #define FBMISSILEMODULE_H
 

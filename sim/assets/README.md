@@ -22,8 +22,8 @@ analysis step f000). sha256 `acded0200d49926203d4548301a2fd1586b6e3c5ecbf61fbd03
 by its CYCLE, because that plus the format version is the whole identity of these bytes.
 
 - Consumer: `sim/src/core/FBFixedWeather.h/.cpp`; format mirror `sim/src/core/FBWxFormat.h`, contract
-  `tiles/src/wxfmt.h`, prose `doc/flightbox/world-and-terrain.md` §9.
-- A mission asks for it by name: `wx fixture wx-2026-07-27T00Z.wxb` (`doc/mission-format.md`).
+  `tiles/src/wxfmt.h`, prose `doc/world/terrain.md` §9.
+- A mission asks for it by name: `wx fixture wx-2026-07-27T00Z.wxb` (`doc/missions/weather.md`).
 - Verified by `make -C sim test-weather` → `build/fb-test-weather`, which re-derives §9's documented
   spot values from these bytes.
 - Refresh: fetch `/wx` from a running fb-tiles and copy the body in (`curl -s http://localhost:8081/wx

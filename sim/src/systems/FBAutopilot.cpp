@@ -8,7 +8,7 @@ static double Clamp(double v, double lo, double hi) { return v < lo ? lo : v > h
 
 /* Das Bahnfolge-Gesetz, eine Definition, zwei Nutzer (Localizer und Route-/Run-in-Leg). Kaskadiert
  * statt summiert, damit der Cap den Anfangswinkel begrenzt, den ein grosser Versatz fordern darf;
- * fuer kleine Fehler IST die Kaskade die Zweizustands-Rueckfuehrung. doc/flightbox/systems.md 2.4. */
+ * fuer kleine Fehler IST die Kaskade die Zweizustands-Rueckfuehrung. doc/systems.md 2.4. */
 static double TrackBankCmd(double courseDeg, double acrossM, double dirDeg, double kXtDegPerM,
                            double interceptMaxDeg, double kDir, double bankMaxDeg) {
   double intercept = Clamp(-kXtDegPerM * acrossM, -interceptMaxDeg, interceptMaxDeg);
@@ -18,7 +18,7 @@ static double TrackBankCmd(double courseDeg, double acrossM, double dirDeg, doub
 
 /* Die beiden Verstaerkungen einer Bahn sind HERGELEITET, nicht gewaehlt: zeta = 1/sqrt(2) plus die
  * Autoritaets-Aussage „Querablage-Term allein saettigt bei einem Kurvenradius Versatz" legen sie fest,
- * und k_chi faellt dabei unabhaengig von V und g heraus. doc/flightbox/systems.md, Abschnitt 2.4. */
+ * und k_chi faellt dabei unabhaengig von V und g heraus. doc/systems.md, Abschnitt 2.4. */
 const double kLegZeta = 0.70710678118654752;   /* 1/sqrt(2) */
 const double kLegG0 = 9.80665;
 /* Darunter hat der Geschwindigkeitsvektor keine regelungswuerdige Richtung -> Nase statt Bahnwinkel. */
@@ -73,7 +73,7 @@ FBGuidance FBAutopilot::Run(const Fdm::fb_fdm_state &s) {
     double distToGoM = -along;   /* positiv VOR dem Referenzpunkt */
     g.BankCmdDeg = TrackBankCmd(CourseDeg, across, s.yaw, KXt, CourseInterceptMaxDeg, KHdg, BankMaxDeg);
     /* Das VS-Feedforward nimmt dem P-Term den Schleppfehler gegen das RAMPENDE Ziel (gemessen ~56 m zu
-     * hoch an der Schwelle auf 9 nm Final). doc/flightbox/systems.md, Abschnitt 2.6. */
+     * hoch an der Schwelle auf 9 nm Final). doc/systems.md, Abschnitt 2.6. */
     double tanGp = std::tan(GlidepathDeg * kDeg2Rad);
     double targetAlt = RefElevM + tanGp * std::fmax(distToGoM, 0.0);
     g.AltErrM = targetAlt - s.elev;

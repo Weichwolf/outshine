@@ -5,7 +5,7 @@
  * is a static data load, the same category of I/O JSBSim does for its own model XML.
  *
  * NO tick-path allocation: the blob is loaded once, the field indices are resolved once, and a sample is
- * arithmetic on the bytes. doc/flightbox/world-and-terrain.md §9. */
+ * arithmetic on the bytes. doc/world/weather.md §9. */
 #ifndef FBFIXEDWEATHER_H
 #define FBFIXEDWEATHER_H
 #include <cstdint>

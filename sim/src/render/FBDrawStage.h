@@ -4,7 +4,7 @@
  * A stage SELF-GATES its own draw ("nothing visible" -> Encode records nothing) rather than the caller
  * deciding, because FBRenderer calls every stage in its slot unconditionally. Override whichever
  * Encode() form matches the shader kind; the other stays the inert default.
- * Vertrag + vollstaendige Encode-Reihenfolge: doc/flightbox/rendering.md, Abschnitt 2. */
+ * Vertrag + vollstaendige Encode-Reihenfolge: doc/render/renderer.md, Abschnitt 2. */
 #ifndef FBDRAWSTAGE_H
 #define FBDRAWSTAGE_H
 

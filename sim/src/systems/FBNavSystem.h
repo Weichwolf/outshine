@@ -1,5 +1,5 @@
 /* FlightBox — FBNavSystem: ein aktiver Steerpoint + Bullseye-Referenz (der Ein-Punkt-Platzhalter, mit
- * dem jedes Modul startet), plus die Wegpunkt-Sequenzierung. doc/flightbox/systems.md, Abschnitt 7. */
+ * dem jedes Modul startet), plus die Wegpunkt-Sequenzierung. doc/systems.md, Abschnitt 7. */
 #ifndef FBNAVSYSTEM_H
 #define FBNAVSYSTEM_H
 

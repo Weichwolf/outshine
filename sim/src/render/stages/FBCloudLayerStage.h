@@ -2,7 +2,7 @@
  * It marches the three weather decks as spherical shells (ray ∩ shell, analytic) and blends the result
  * straight into the HDR scene target, which is why the tonemap has nothing to do with clouds any more.
  * The density it marches is core/FBCloudDensity.h — the same function a sensor will evaluate.
- * Spec + state: doc/flightbox/render/clouds.md. */
+ * Spec + state: doc/render/clouds.md. */
 #ifndef FBCLOUDLAYERSTAGE_H
 #define FBCLOUDLAYERSTAGE_H
 

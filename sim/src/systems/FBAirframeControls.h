@@ -1,6 +1,6 @@
 /* FlightBox — FBAirframeControls: was die Haende des Piloten jenseits von Stick/Throttle und Guidance
  * anfassen (Interface + NoOp-Default), plus FBJsbsimAirframeControls als reale Ownship-Implementierung.
- * doc/flightbox/systems.md, Abschnitt 9. */
+ * doc/systems.md, Abschnitt 9. */
 #ifndef FBAIRFRAMECONTROLS_H
 #define FBAIRFRAMECONTROLS_H
 
@@ -24,7 +24,7 @@ public:
    * systems/ airframe- UND instanz-agnostisch. */
   virtual bool   GetWeightOnWheels() const { return false; }
   /* Nase am Boden = die Zwei-Punkt-Lage ist vorbei. Der Pilot fuehlt genau das, und die Prozedur
-   * haengt daran (doc/f16/procedures-landing.md, Roll-Out), nicht an einer Geschwindigkeit. */
+   * haengt daran (doc/modules/f16/procedures-landing.md, Roll-Out), nicht an einer Geschwindigkeit. */
   virtual bool   GetNoseWheelOnGround() const { return false; }
   virtual double GetGearPosition() const { return 0.0; }   /* 0=ein .. 1=aus, kinematisch verzoegert */
   virtual double GetSpeedbrake() const { return 0.0; }     /* 0..1, verzoegerter Readback */

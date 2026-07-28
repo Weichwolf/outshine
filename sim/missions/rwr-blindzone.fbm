@@ -1,7 +1,7 @@
 name rwr-blindzone-1
 timeout 170
 
-# THE BLIND ZONE, AS A CONTINUOUS SWEEP THROUGH IT. doc/f16/defence-rwr-cm.md §2.1: the ALR-56M's
+# THE BLIND ZONE, AS A CONTINUOUS SWEEP THROUGH IT. doc/modules/f16/defence-rwr-cm.md §2.1: the ALR-56M's
 # antennas cover 360 degrees in azimuth but only +-45 degrees in ELEVATION, and the consequence the
 # source spells out is that a hostile radar can end up in that hole and "silently drop lock/launch
 # warnings". This mission puts one emitter on a slow ramp through exactly that boundary, so the same run

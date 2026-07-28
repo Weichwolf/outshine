@@ -1,4 +1,4 @@
-/* The tile-streaming C ABI; full contract table: doc/flightbox/world-and-terrain.md, Abschnitt 3. */
+/* The tile-streaming C ABI; full contract table: doc/world/terrain.md, Abschnitt 3. */
 #ifndef FBTERRAINLOADER_H
 #define FBTERRAINLOADER_H
 #include <stdint.h>

@@ -6,7 +6,7 @@
  * WEATHER, unlike ground truth, is not injected but DECLARED: it is part of the scenario (app/
  * FBWeatherBoot.h), and both clients here default to calm so a measurement stays reproducible.
  * A caller wanting more than headless telemetry supplies an FBMissionTickHook, whose interface is
- * deliberately GPU-type-free. doc/flightbox/units-and-missions.md, Abschnitt 5-7. */
+ * deliberately GPU-type-free. doc/units-and-missions.md, Abschnitt 5-7. */
 #ifndef FBMISSIONRUNNER_H
 #define FBMISSIONRUNNER_H
 #include <string>

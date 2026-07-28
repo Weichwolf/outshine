@@ -1,4 +1,4 @@
-/* Asset layout: doc/flightbox/core.md, Abschnitt 9 ("Das Asset-Layout"). Every field is read at a
+/* Asset layout: doc/core.md, Abschnitt 9 ("Das Asset-Layout"). Every field is read at a
  * FIXED byte offset and never as a cast onto a C struct, so padding/alignment can never desync this
  * reader from tools/bake_swiss_dem.py's writer. */
 #include "FBBakedDemElevation.h"

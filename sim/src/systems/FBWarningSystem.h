@@ -1,5 +1,5 @@
 /* FlightBox — FBWarningSystem: der Warnsatz als Bitmaske; jede Bedingung ist eine Fusion fremder
- * Bloecke und kann daher UNAUSWERTBAR sein (Inhibited). doc/flightbox/systems.md, Abschnitt 6. */
+ * Bloecke und kann daher UNAUSWERTBAR sein (Inhibited). doc/systems.md, Abschnitt 6. */
 #ifndef FBWARNINGSYSTEM_H
 #define FBWARNINGSYSTEM_H
 

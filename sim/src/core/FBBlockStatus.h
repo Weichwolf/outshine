@@ -2,7 +2,7 @@
  * DOCUMENTED rather than invented: several CRUS-page fields freeze-at-last-value once the gear is down
  * — a failed system and a deliberately frozen one are different facts and a consumer reacts to them
  * differently. StampS is the last real UPDATE in both Valid and Held; Hold() never moves it, which is
- * what makes "how stale is this" answerable. doc/flightbox/core.md, Abschnitt 1.1. */
+ * what makes "how stale is this" answerable. doc/core.md, Abschnitt 1.1. */
 #ifndef FBBLOCKSTATUS_H
 #define FBBLOCKSTATUS_H
 

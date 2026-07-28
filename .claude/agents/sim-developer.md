@@ -14,7 +14,7 @@ JSBSim adapter, `systems/` the generic, airframe-agnostic system slots every mod
 three REAL ones (`FBAutopilot`/`FBFlightControl`/`FBPilot`, each with one virtual override point for
 a module whose behavior genuinely differs, not just its tuning) plus `FBSystemSlots.h`'s NoOp
 interface+default pairs for the rest of a full airframe's inventory (Input/HOTAS, Propulsion,
-Displays, Sensors, Weapons, Defensive, Comms — see `doc/f16/`) — `modules/` the `FBModule` base +
+Displays, Sensors, Weapons, Defensive, Comms — see `doc/modules/f16/`) — `modules/` the `FBModule` base +
 `modules/f16/` the F-16 (`FBF16Module` composes `systems/` defaults + its gain preset, cycles every
 slot at its own rate) incl. `displays/` HUD, and the vendored toolchain under `sim/vendor` (the pinned
 `sim/vendor/jsbsim` submodule, Dawn, emdawnwebgpu, stb, build scripts). Makefile + Dockerfile at the
@@ -25,7 +25,7 @@ slot at its own rate) incl. `displays/` HUD, and the vendored toolchain under `s
   JSBSim-oriented), Engineering-Konventionen, renderer roadmap.
 - `<repo>/README.md` — product overview, build & run.
 - Accepted model properties of the vanilla JSBSim F-16 are the truth, not defects
-  (CLAUDE.md Prinzip 5); measure via the mission loop's telemetry (doc/mission-format.md).
+  (CLAUDE.md Prinzip 5); measure via the mission loop's telemetry (doc/missions/INDEX.md).
 - `<repo>/doc/webgl-webgpu-report.txt` — target-GPU capabilities/limits; never
   depend on features it lacks.
 

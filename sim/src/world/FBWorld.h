@@ -4,7 +4,7 @@
  * THE CORRECTED walk.h SEMANTICS, because getting it wrong opens holes in the world: view distance may
  * only PREVENT a split — a child past the view radius makes the parent stay a drawn LEAF (detail
  * dropped, coverage NEVER), and children's viability is tested side-effect-free BEFORE the parent is
- * replaced. Refinement, Budgets und Konstanten: doc/flightbox/world-and-terrain.md, Abschnitt 2. */
+ * replaced. Refinement, Budgets und Konstanten: doc/world/terrain.md, Abschnitt 2. */
 #ifndef FBWORLD_H
 #define FBWORLD_H
 

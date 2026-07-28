@@ -3,7 +3,7 @@ runway 46.84335 6.91523 441.0 228.0 2889     # Payerne RWY23 -- mission-wide off
 timeout 600                                  # sim-seconds until TIMEOUT
 
 # THE DATALINK CASE: two friendly F-16s that start a nautical mile apart and then fly APART, so the
-# cooperative net (systems/FBDatalinkSystem, doc/f16/datalink-iff.md) can be watched doing all three of
+# cooperative net (systems/FBDatalinkSystem, doc/modules/f16/datalink-iff.md) can be watched doing all three of
 # the things that make it a simulated system rather than a peek at the world:
 #   - each jet carries the other as a TRACK whose position is the last 1 Hz network message, not the
 #     other jet's live position (telemetry dl_near/dl_age),

@@ -1,7 +1,7 @@
 /* FBElevationProvider's sibling: the ONE seam every core consumer of ATMOSPHERE goes through, so "what
  * is the air doing here" is an INJECTED dependency and not a hard fb-tiles wire. Same shape as the
  * elevation hook — small interface, data-local default, blob-backed and (browser) live implementations.
- * doc/flightbox/world-and-terrain.md §9. */
+ * doc/world/weather.md §9. */
 #ifndef FBWEATHERPROVIDER_H
 #define FBWEATHERPROVIDER_H
 

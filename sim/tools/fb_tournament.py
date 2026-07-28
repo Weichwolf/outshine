@@ -2,7 +2,7 @@
 """FlightBox — the pilot tournament: pit intercept-pilot VARIANTS against each other and read out of
 the telemetry WHY one of them won.
 
-A variant is a set of `set pilot_* <value>` lines (systems/FBPilotTuning, doc/mission-format.md), i.e.
+A variant is a set of `set pilot_* <value>` lines (systems/FBPilotTuning, doc/missions/combat.md), i.e.
 mission DATA — so this tool writes .fbm files and runs the existing headless client. Nothing is
 compiled between two candidates and there is no tournament code inside the simulator.
 

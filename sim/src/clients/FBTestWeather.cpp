@@ -1,6 +1,6 @@
 /* fb-test-weather: the sim-side FBWX mirror against the WIRE, not against a transcription. It parses the
  * committed fixture (assets/wx-2026-07-27T00Z.wxb, a byte copy of one real GET /wx body) and re-derives
- * the spot values doc/flightbox/world-and-terrain.md §9.7 published from an INDEPENDENT decoder
+ * the spot values doc/world/weather.md §9.7 published from an INDEPENDENT decoder
  * (ecCodes 2.41), so a drift between tiles/src/wxfmt.h and core/FBWxFormat.h shows up as a wrong number
  * rather than as silence. Then: header self-description (a synthetic blob with a different grid step and
  * a different raster must parse purely from its own header), missing-value handling, wrap/clamp at the

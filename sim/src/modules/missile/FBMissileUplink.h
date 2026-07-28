@@ -5,7 +5,7 @@
  * Published as the single datalink TRACK, because that is what the message is; ANONYMOUS, because the
  * shooter's radar does not know who it is looking at either. Losing it is not an error path — the
  * class simply stops publishing and the guidance sees the age grow.
- * doc/flightbox/weapons-and-damage.md §10.2. */
+ * doc/weapons-and-damage.md §10.2. */
 #ifndef FBMISSILEUPLINK_H
 #define FBMISSILEUPLINK_H
 

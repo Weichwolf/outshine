@@ -101,7 +101,7 @@ void FBRadarSystem::ScanFrame(const Fdm::fb_fdm_state &st, const Units::FBUnitRe
         tgtRadialMs = ownClosureMs - measuredClosureMs;
         /* KLEBRIGKEIT: hat sich das Tor einmal in den Clutterfilter gesetzt, bleibt es dort, solange
          * dort ein Echo ist. Ohne sie kippte der Test bei jedem Look (gemessen: Seduce/Resolve im
-         * 20-Hz-Takt alternierend). doc/flightbox/sensors.md, Abschnitt 4.7. */
+         * 20-Hz-Takt alternierend). doc/sensors.md, Abschnitt 4.7. */
         if (prev.Seduced || std::fabs(tgtRadialMs) < kDopplerNotchMs)
           decoy = SelectDecoy(sig.Chaff, st, v, simTimeS);
       }

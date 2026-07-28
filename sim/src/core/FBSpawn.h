@@ -1,4 +1,4 @@
-/* A unit's declarative initial condition (doc/mission-format.md's `spawn` line). Pure data: the Boot
+/* A unit's declarative initial condition (doc/missions/syntax.md's `spawn` line). Pure data: the Boot
  * turns it into exactly ONE JSBSim IC application, and there is no separate ground/air code path
  * beyond the one bool below. */
 #ifndef FBSPAWN_H

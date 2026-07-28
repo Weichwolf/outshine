@@ -1,7 +1,7 @@
 /* Periodically sampled state, a time series with a schema (FBLog.h is the discrete-event counterpart).
  * Classes DECLARE themselves a source; emission is CENTRAL, and the concrete sink is injected from
  * app/. A row is built by CONCATENATION, so declaration/registration order IS column order — no
- * string-keyed lookup at sample time. doc/flightbox/core.md, Abschnitt 3.2. */
+ * string-keyed lookup at sample time. doc/core.md, Abschnitt 3.2. */
 #ifndef FBTELEMETRY_H
 #define FBTELEMETRY_H
 #include <string>

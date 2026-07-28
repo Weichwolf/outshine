@@ -3,10 +3,10 @@ runway 46.84335 6.91523 441.0 228.0 2889     # Payerne threshold RWY23 (DEM-chec
 timeout 400                                  # sim-seconds until TIMEOUT
 
 unit viper
-  module f16                                 # FBModuleRegistry key -> FBF16Module (doc/mission-format.md)
+  module f16                                 # FBModuleRegistry key -> FBF16Module (doc/missions/INDEX.md)
   spawn 46.94354 7.07791 941.0 228.0 250     # ~9 nm out on RWY23's extended final, aligned on the runway
                                              # heading, ~500 m AGL -- below the nominal 3 deg glidepath at
-                                             # this range (doc/f16/navigation-ils.md), a realistic
+                                             # this range (doc/modules/f16/navigation-ils.md), a realistic
                                              # glideslope-capture-from-below case for FBPilot's Approach
                                              # phase (FBAutopilot::Course), not a spawn-on-rails freebie
   set gear up                                # a real air start has no taxi/gear-down yet

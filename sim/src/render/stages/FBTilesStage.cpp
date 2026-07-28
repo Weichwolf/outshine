@@ -11,7 +11,7 @@
 namespace FlightBox::Render {
 
 /* The terrain draw. Per-draw data, albedo array, grazing mip bias, RenderBundle signature and the
- * invariant counters: doc/flightbox/rendering.md, Abschnitt 6. */
+ * invariant counters: doc/render/renderer.md, Abschnitt 6. */
 static const char *kTerrainWGSL = R"(
 struct U { mvp : mat4x4f, sun : vec4f };
 @group(0) @binding(0) var<uniform> u : U;

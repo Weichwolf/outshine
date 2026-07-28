@@ -2,7 +2,7 @@
  * — never written — by the module that flies the aircraft.
  * THE WRITE GATE IS THE TYPE: every mutator is private with exactly one friend, core/FBDamageModel.
  * MONOTONE by decision: no repair in flight, so a run's damage picture is a function of the bursts it
- * took and nothing else. What the three states mean to a consumer: doc/flightbox/core.md, Abschnitt 6.1. */
+ * took and nothing else. What the three states mean to a consumer: doc/core.md, Abschnitt 6.1. */
 #ifndef FBSYSTEMHEALTH_H
 #define FBSYSTEMHEALTH_H
 

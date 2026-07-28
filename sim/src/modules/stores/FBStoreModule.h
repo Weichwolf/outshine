@@ -4,7 +4,7 @@
  * channel, so the trajectory is the model's own aero deck plus gravity, which is the entire point of
  * giving a weapon its own FDM instead of a hand-written ballistic formula. A guided weapon is a
  * DIFFERENT module, not a flag on this one. ONE CLASS, N CATALOGUE ENTRIES.
- * doc/flightbox/weapons-and-damage.md §10.1. */
+ * doc/weapons-and-damage.md §10.1. */
 #ifndef FBSTOREMODULE_H
 #define FBSTOREMODULE_H
 

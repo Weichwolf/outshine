@@ -9,7 +9,7 @@ timeout 200
 #
 # That single line is the whole experiment, and it is the right one because it removes the CAUSE rather
 # than the effect: a pilot who hears nothing neither turns nor throws, which is exactly the compounding
-# vulnerability doc/f16/defence-rwr-cm.md describes ("the RWR is a geometry-gated emission detector, not
+# vulnerability doc/modules/f16/defence-rwr-cm.md describes ("the RWR is a geometry-gated emission detector, not
 # a ground-truth threat oracle" — no warning, no answer). Everything else is identical, down to the
 # shot: the shooter is a SCRIPTED jet with a briefed release at a fixed second, so the round leaves the
 # rail from the same place at the same time with the same solution in both runs.

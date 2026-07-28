@@ -1,6 +1,6 @@
 /* FlightBox — FBBfmTrack: das Zielbild des Piloten, gebaut aus RADARKONTAKTEN UND SONST NICHTS (kein
  * FBWorld, keine Registry, kein Datalink-Track im Include-Baum), plus das BFM-Scoreboard und
- * FBTrackDatum. doc/flightbox/pilot-ai.md, Abschnitt 6. */
+ * FBTrackDatum. doc/pilot-ai.md, Abschnitt 6. */
 #ifndef FBBFMTRACK_H
 #define FBBFMTRACK_H
 
@@ -17,7 +17,7 @@ const char *FBBfmPursuitStr(FBBfmPursuit p);
 /* DAS DATUM: wo ein nicht mehr gesehenes Ziel jetzt sein KANN, und wie gross „kann" geworden ist. Der
  * Block beantwortet „wo ist er" und friert jenseits des Fensters ein — richtig fuer die VERFOLGUNG,
  * nutzlos fuer die SUCHE, die einen Punkt UND eine Breite braucht. Radius = min(0,5·V·ω·t², V·t), die
- * Haelften kreuzen bei t = 2/ω. Vollstaendige Herleitung: doc/flightbox/pilot-ai.md, Abschnitt 6.2. */
+ * Haelften kreuzen bei t = 2/ω. Vollstaendige Herleitung: doc/pilot-ai.md, Abschnitt 6.2. */
 struct FBTrackDatum {
   bool   Valid = false;         /* irgendwann wurde etwas gemessen; sonst gibt es nichts zurueckzugehen */
   double AgeS = 0.0;            /* seit dem LOOK, auf dem die Schaetzung steht */

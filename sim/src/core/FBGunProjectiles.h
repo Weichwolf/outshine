@@ -4,7 +4,7 @@
  * silently lost. A bundle is deliberately NOT a units/FBUnit (thousands of unguided lumps with no
  * systems and no decisions), and rounds are NOT tracked to the ground: this pool is for air-to-air
  * gunnery, and a strafing footprint nothing here computes would be worse than the stated absence.
- * doc/flightbox/core.md, Abschnitt 7.6. */
+ * doc/core.md, Abschnitt 7.6. */
 #ifndef FBGUNPROJECTILES_H
 #define FBGUNPROJECTILES_H
 

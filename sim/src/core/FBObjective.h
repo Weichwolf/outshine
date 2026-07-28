@@ -1,7 +1,7 @@
 /* A COMBAT objective as mission data: what a unit has to achieve against the OTHER units. It is what
  * makes one observed fact readable from two sides — the loser's FAIL and the shooter's SUCCESS are the
  * same shot. It stays an OBSERVATION: evaluated against the roster the client fills from the health
- * registers it owns. doc/flightbox/core.md, Abschnitt 5.5. */
+ * registers it owns. doc/core.md, Abschnitt 5.5. */
 #ifndef FBOBJECTIVE_H
 #define FBOBJECTIVE_H
 

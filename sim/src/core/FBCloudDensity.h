@@ -2,7 +2,7 @@
  * (render/stages/FBCloudDensityWGSL.h) is a literal transliteration whose CONSTANTS are emitted from the
  * ones below, so a number can never drift between the picture and a measurement. "How much cloud is at
  * this point" is the same question a future IR/radar sensor asks, which is why the model lives in core/
- * and not in the renderer. Spec: doc/flightbox/render/clouds.md.
+ * and not in the renderer. Spec: doc/render/clouds.md.
  *
  * Separable per deck: a 2-D wind-advected coverage FBM (optionally stretched and sheared along the wind
  * = cirrus fibres) x an analytic vertical profile, minus a procedural 3-D erosion term. No textures, no

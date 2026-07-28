@@ -35,7 +35,7 @@ timeout 300
 #   t=124.3  DETONATION 1.58 m — every system of the bandit fails, it is combat-ineffective
 #   t=124.4  the bandit's own mission monitor: FAIL, "combat ineffective (survive objective lost)"
 #   t=163.4  the wreck reaches the ground. That K.O. was somebody's DECLARED objective, so it ends the
-#            run without deciding it (doc/mission-format.md, "Urteil"): the viper is finalised instead
+#            run without deciding it (doc/missions/verdict.md, "Urteil"): the viper is finalised instead
 #            and concludes SUCCESS, "objectives met, survived". Exit 0.
 #
 # BOTH SIDES DECLARE THE SAME TWO OBJECTIVES, which is what makes this readable as a duel rather than as

@@ -1,7 +1,7 @@
 /* The WebGPU rendering system, one source and two link targets (emdawnwebgpu / native Dawn).
  * ORCHESTRATOR: it owns device/surface/targets and EVERY Begin/EndRenderPass boundary plus the encode
  * order; drawing lives in FBDrawStage-derived classes that record into the encoder it already opened.
- * A stage never begins or ends a pass. Pass-Topologie als Vertrag: doc/flightbox/rendering.md §2. */
+ * A stage never begins or ends a pass. Pass-Topologie als Vertrag: doc/render/renderer.md §2. */
 #ifndef FBRENDERER_H
 #define FBRENDERER_H
 
@@ -188,7 +188,7 @@ private:
   std::unique_ptr<FBUnitsStage> Units = std::make_unique<FBUnitsStage>();
   std::unique_ptr<FBSpritesStage> Sprites = std::make_unique<FBSpritesStage>();
 
-  /* THE cloud chain: one stage, one pass, straight into HdrTex. doc/flightbox/render/clouds.md. */
+  /* THE cloud chain: one stage, one pass, straight into HdrTex. doc/render/clouds.md. */
   std::unique_ptr<FBCloudLayerStage> Clouds = std::make_unique<FBCloudLayerStage>();
 
   /* FBHudStage is the WebGPU backend only; FBRenderer keeps the pose itself because sun/moon/cloud

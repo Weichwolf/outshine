@@ -1,7 +1,7 @@
 /* FlightBox — FBGunSystem: der Bordkanonen-Slot und FBStoresSystems Geschwister. Der Abzug ist ein
  * KOMMANDO (Wert = DAUER des Abzugsdrucks), die Rate wird INTEGRIERT statt pro Tick gezaehlt, und die
  * Klasse wertet NIE einen eigenen Treffer — sie legt FBGunBurst-Saetze in eine Warteschlange, die der
- * BESITZER der Simulation leert. doc/flightbox/weapons-and-damage.md, Abschnitt 3. */
+ * BESITZER der Simulation leert. doc/weapons-and-damage.md, Abschnitt 3. */
 #ifndef FBGUNSYSTEM_H
 #define FBGUNSYSTEM_H
 

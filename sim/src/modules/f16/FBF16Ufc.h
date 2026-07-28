@@ -2,7 +2,7 @@
  * (ALOW floor, BNGO threshold, selected steerpoint). The propose -> commit/reject cycle of the DED-class
  * avionics commands ends HERE. Two deliberately DIFFERENT failure shapes: the BNGO clamp is an
  * accept-with-clamp because that is what the jet does, an out-of-range entry is a REJECT because
- * silence is the one behaviour the material rules out. doc/flightbox/modules-f16.md §9.3. */
+ * silence is the one behaviour the material rules out. doc/modules-f16.md §9.3. */
 #ifndef FBF16UFC_H
 #define FBF16UFC_H
 

@@ -1,7 +1,7 @@
 /* One return as an ACTIVE radar reports it — the deliberate opposite of FBDatalinkTrack: a track is a
  * MESSAGE and identity is free, an echo is GEOMETRY and nothing else. No callsign, no team, no unit id,
  * and that absence is the MODEL. The one identity channel is IFF, and it is two-valued.
- * doc/flightbox/core.md, Abschnitt 8.1. */
+ * doc/core.md, Abschnitt 8.1. */
 #ifndef FB_FBRADARCONTACT_H
 #define FB_FBRADARCONTACT_H
 

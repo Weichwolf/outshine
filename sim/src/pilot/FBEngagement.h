@@ -1,6 +1,6 @@
 /* FlightBox — FBEngagement: EIN BVR-Gefecht als Daten plus sein Debriefing. Scoreboard, nicht Gehirn:
  * FBPilot::Run entscheidet, diese Klasse protokolliert. Jeder Kanal ist aus den EIGENEN Instrumenten
- * berechenbar. doc/flightbox/pilot-ai.md, Abschnitt 8. */
+ * berechenbar. doc/pilot-ai.md, Abschnitt 8. */
 #ifndef FBENGAGEMENT_H
 #define FBENGAGEMENT_H
 

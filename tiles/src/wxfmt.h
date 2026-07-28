@@ -5,7 +5,7 @@
 /* The /wx wire format ("FBWX"). This header IS the contract: fb-tiles writes it, the simulator
  * Sim-side mirror: sim/src/core/FBWxFormat.h — checked against this contract by sim's build/fb-test-weather.
  * reads it, and a baked gym fixture is a byte-for-byte copy of one response. Full prose in
- * doc/flightbox/world-and-terrain.md, section "Wetter -- /wx".
+ * doc/world/weather.md.
  *
  * Everything is little-endian. Layout is header (FB_WX_HEADER_BYTES) + field_count descriptors
  * (FB_WX_DESC_BYTES each) + the payload planes, each descriptor carrying its own absolute offset

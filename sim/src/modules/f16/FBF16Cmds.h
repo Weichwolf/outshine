@@ -2,7 +2,7 @@
  * magazine, the six programs and the briefed BINGO quantities. The program SCHEMA is [DOC]; the VALUES
  * are [SET], because the sources document the DED page and never what the programs are loaded with.
  * The threat->program mapping is deliberately NOT overridden — the generic doctrine is what this table
- * is built around. Programs and their jobs: doc/flightbox/modules-f16.md §7. */
+ * is built around. Programs and their jobs: doc/modules-f16.md §7. */
 #ifndef FBF16CMDS_H
 #define FBF16CMDS_H
 

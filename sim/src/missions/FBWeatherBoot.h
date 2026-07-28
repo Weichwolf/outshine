@@ -3,7 +3,7 @@
  *
  * THE PRECEDENCE RULE, one sentence, every client: a mission that DECLARES weather always wins; a
  * mission that does not gets the client's own default (fb-gym and the native oracle: calm, so a
- * measurement is reproducible — the browser: live /wx). doc/mission-format.md, "Wetter". */
+ * measurement is reproducible — the browser: live /wx). doc/missions/weather.md, "Wetter". */
 #ifndef FBWEATHERBOOT_H
 #define FBWEATHERBOOT_H
 

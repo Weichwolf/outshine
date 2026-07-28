@@ -2,7 +2,7 @@
  * than plus one — a released bomb has no pilot and no guidance but still integrates; this has not even
  * that. It is still a full FBModule: the slots exist because every module carries the same categories,
  * so a target that grows a radar one day fills one by derivation and not by a new kind of object.
- * Why it has NO AIRFRAME at all: doc/flightbox/weapons-and-damage.md §10.3. */
+ * Why it has NO AIRFRAME at all: doc/weapons-and-damage.md §10.3. */
 #ifndef FBGROUNDMODULE_H
 #define FBGROUNDMODULE_H
 

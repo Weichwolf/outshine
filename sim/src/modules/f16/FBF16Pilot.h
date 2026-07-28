@@ -1,7 +1,7 @@
 /* FlightBox — FBF16Pilot: this jet's pilot NUMBERS. It overrides systems/FBPilot's virtual hooks and
  * nothing else — the phase machine itself is generic. Every value below, its provenance marker
  * ([DOC]/[MESS]/[ABL]/[SET]) and the two accepted vanilla-model properties that shape the BFM figures:
- * doc/flightbox/modules-f16.md §3. */
+ * doc/modules-f16.md §3. */
 #ifndef FBF16PILOT_H
 #define FBF16PILOT_H
 
@@ -48,7 +48,7 @@ protected:
    * level-flight deceleration (2.4-2.53) that stood here before: the schedule bounds a closure, and a
    * closure carries the geometry as well as the drag. A braking LIMIT takes the pessimistic end of its
    * own distribution — a cap the pursuer meets half the time is one he breaks half the time.
-   * doc/flightbox/sim/pilot-ai.md 5.2. */
+   * doc/pilot.md 5.2. */
   double BfmBrakeMs2() const override { return 1.2; }
   double BfmLeadAspectDeg() const override { return 45.0; }
   double BfmLeadRangeNm() const override { return 3.0; }
@@ -61,7 +61,7 @@ protected:
   double BfmFloorFt() const override { return 2000.0; }
 
   /* INTERCEPT — every number [ABL] from the APG-68's geometry or the AIM-120's launch zone rather than
-   * chosen; the derivations are doc/flightbox/modules-f16.md §3.4. */
+   * chosen; the derivations are doc/modules-f16.md §3.4. */
   int    SearchRadarModeOrdinal() const override { return 1; }   /* FBF16FcrMode::Crm, as an ORDINAL:
                                                                   * the generic layer knows neither */
   double InterceptSpeedKt() const override { return 550.0; }
@@ -76,7 +76,7 @@ protected:
   double InterceptDefendHoldS() const override { return 12.0; }
 
   /* ATTACK — none of these touches where the round goes; that is the fire control's, and the pilot only
-   * reads it. Derivations: doc/flightbox/modules-f16.md §3.5. */
+   * reads it. Derivations: doc/modules-f16.md §3.5. */
   double AttackReleaseBiasS() const override { return 0.0; }
   double AttackCcipTolM() const override { return 45.0; }
   double AttackEgressTurnDeg() const override { return 135.0; }

@@ -4,7 +4,7 @@
  * constants, so this is testable against something other than the renderer's own configuration.
  *
  * Render space is ENU: E=+X, up=+Y, N=-Z; angles in degrees.
- * Herleitung: doc/flightbox/rendering.md, Abschnitt 8.1. */
+ * Herleitung: doc/render/renderer.md, Abschnitt 8.1. */
 #ifndef FBCAMERA_H
 #define FBCAMERA_H
 

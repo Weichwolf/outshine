@@ -2,7 +2,7 @@
  * shared mission loop, and critically carries NO Dawn/WebGPU symbol at all (the Makefile target's own
  * nm check enforces it). --elev picks the ground-truth provider; the default is `swiss` when the baked
  * asset is on disk and `const` otherwise, so a bare `fb-gym --mission FILE` always runs, network or
- * not. doc/flightbox/build-and-ops.md. */
+ * not. doc/build-and-ops.md. */
 #include "FBMissionRunner.h"
 #include "FBMissionFile.h"
 #include "FBRunwayPlateauElevation.h"

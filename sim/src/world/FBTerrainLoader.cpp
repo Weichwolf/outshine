@@ -1,6 +1,6 @@
 /* The tile-streaming C ABI: fb-tiles bytes -> osmmesh -> camera-relative ECEF meshes + albedo mip
  * pyramids, polled per pass by FBWorld. Vertrag, Plattform-Split und Worker-Pool:
- * doc/flightbox/world-and-terrain.md, Abschnitt 3. */
+ * doc/world/terrain.md, Abschnitt 3. */
 #include "FBTerrainLoader.h"
 #include "FBMips.h"
 #include "style_ver.h"
@@ -275,12 +275,12 @@ void fb_terrain_free(fb_terrain *t) {
 
 /* The streaming layer. fb_stream_* is COMMON to both platforms; only the three byte primitives
  * fbs_init/fbs_size/fbs_copy differ — WASM a non-blocking JS async cache, native blocking libcurl.
- * doc/flightbox/world-and-terrain.md §3.1. */
+ * doc/world/terrain.md §3.1. */
 #ifdef __EMSCRIPTEN__
 /* WASM: every blocking step runs in a worker pool; the render thread only posts requests and polls
  * finished results (whole vertex arrays + mip pyramids, zero-copy across postMessage). The ASYNCIFY
  * "one build in flight" rule holds PER worker instance, so N parallel builds are safe.
- * Pool-Struktur + Prioritaetsschluessel: doc/flightbox/world-and-terrain.md §3.2. */
+ * Pool-Struktur + Prioritaetsschluessel: doc/world/terrain.md §3.2. */
 EM_JS(void, fbw_init, (const char *base, double lat, double lon), {
   var N = Math.max(1, Math.min(((navigator.hardwareConcurrency || 4) - 2), 6));
   var T = { workers: [], readyCount: 0, q: [], done: new Map(),
@@ -481,7 +481,7 @@ static int fbs_cache_n = 0, fbs_cache_head = 0;
 static osmmesh_ctx *fbs_ctx = 0;
 
 /* [tileperf] (FB_TILEPERF=1): per-stage cold-boot timings of the SHARED pipeline the browser worker
- * wraps. Zero cost when off — one cached env check. doc/flightbox/world-and-terrain.md §3.4. */
+ * wraps. Zero cost when off — one cached env check. doc/world/terrain.md §3.4. */
 #include <time.h>
 static int fbtp_on_ = -1;
 static inline int fbtp(void) {

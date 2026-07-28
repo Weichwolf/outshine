@@ -1,6 +1,6 @@
 /* FlightBox — FBPilotTuning: die Piloten-VARIANTE als Missionsdaten, eine duenne Tabelle von
  * Ueberschreibungen, die `set pilot_* <wert>` fuellt. Ein NICHT gesetzter Eintrag ist keine Null,
- * sondern „die eigene Zahl dieses Piloten". doc/flightbox/pilot-ai.md, Abschnitt 9. */
+ * sondern „die eigene Zahl dieses Piloten". doc/pilot.md, Abschnitt 9. */
 #ifndef FBPILOTTUNING_H
 #define FBPILOTTUNING_H
 

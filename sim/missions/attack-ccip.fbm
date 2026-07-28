@@ -30,7 +30,7 @@ timeout 160
 #         this target class, so the gate means "a release from here would achieve something"). That is
 #         the judgement a pilot makes with the pipper in view, and it is why CCIP is the VISUAL mode.
 # So on a well-flown pass the two release within a tick of each other; on a badly-tracked one CCIP does
-# not release at all and CCRP does. Both behaviours are the documented ones (doc/f16/weapons.md §2.5).
+# not release at all and CCRP does. Both behaviours are the documented ones (doc/modules/f16/weapons.md §2.5).
 #
 # `objective survive` is what carries the run past the kill: it can only be answered at the END of the
 # run (core/FBMissionMonitor::Finalize), so the simulation keeps going through the whole egress — the

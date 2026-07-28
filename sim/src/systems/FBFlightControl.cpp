@@ -33,7 +33,7 @@ FBControls FBFlightControl::Run(const FBGuidance &g, const Fdm::fb_fdm_state &s)
   if (Flcs) {
     /* Vier Konstruktionsentscheidungen, jede gegen das nackte Modell gemessen: Kurven-g-Feedforward aus
      * der TATSAECHLICHEN Schraeglage, VS-Fehler-Integral, slew-limitiertes g-Kommando, und der g-Stick
-     * erst EINGEBLENDET, wenn die Schraeglage steht. doc/flightbox/systems.md, Abschnitt 3.3. */
+     * erst EINGEBLENDET, wenn die Schraeglage steht. doc/systems.md, Abschnitt 3.3. */
     double bc = std::fmin(std::fabs(s.roll), 80.0) * (M_PI / 180.0);
     double targetVs = g.TargetVsMs;
     double vsErr = targetVs - s.vy;

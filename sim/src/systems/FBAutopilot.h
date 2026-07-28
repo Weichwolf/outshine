@@ -1,6 +1,6 @@
 /* FlightBox — FBAutopilot: die aeussere Guidance (MANUAL / DIRECT auf Punkt oder Bahn / COURSE) ->
  * ein Guidance-Kommando, dem die innere FBW folgt. Herleitung des Bahngesetzes, die Begruendung „ein
- * Punkt ist keine Bahn" und die Gain-Tabelle: doc/flightbox/systems.md, Abschnitt 2. */
+ * Punkt ist keine Bahn" und die Gain-Tabelle: doc/systems.md, Abschnitt 2. */
 #ifndef FBAUTOPILOT_H
 #define FBAUTOPILOT_H
 

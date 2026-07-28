@@ -30,7 +30,7 @@ void FBNavSystem::Run(FBState &state, const Fdm::fb_fdm_state &fdm, double dt) {
     b.SteerDistNm = (float)(distM * kMToNm);
     b.SteerElevFt = (float)StElevFt;
     /* Bei ausgefahrenem Fahrwerk FRIERT der echte Jet das CRUS-Rechenfeld EIN statt es zu leeren
-     * (doc/f16/controls-commands.md, CRUS-Tabelle) — daher Held statt Invalid. */
+     * (doc/modules/f16/controls-commands.md, CRUS-Tabelle) — daher Held statt Invalid. */
     bool gearDown = state.Airframe.H.Readable() && state.Airframe.GearPosition > 0.5f;
     if (gearDown) {
       state.Cruise.H.Hold();
@@ -56,7 +56,7 @@ int FBNavSystem::AdvanceWaypoint(FBFlightPlan &plan, double lat, double lon, dou
   const char *by = "capture";
   /* ...ODER er liegt schlicht HINTER uns: ein Fangkreis kann einen Fix nicht beantworten, den das
    * Flugzeug physisch nie erreicht (Fix innerhalb des eigenen Kurvenradius). Der erste Wegpunkt hat
-   * keine einlaufende Bahn, also gibt es dort kein "hinter". doc/flightbox/systems.md, Abschnitt 7.5. */
+   * keine einlaufende Bahn, also gibt es dort kein "hinter". doc/systems.md, Abschnitt 7.5. */
   if (!reached && idx > 0) {
     const FBWaypoint &from = plan.At(idx - 1);
     double legM = FBPlanarDistM(from.LatDeg, from.LonDeg, wp->LatDeg, wp->LonDeg);

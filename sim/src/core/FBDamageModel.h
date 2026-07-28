@@ -2,7 +2,7 @@
  * owned by the client that owns the simulation. It is a MODEL, and it says so: only the inputs (burst
  * geometry, closure, warhead mass) are observed. Determinism is structural — no randomness, no time
  * dependence, no hidden state. Energy chain, zone rule and every constant below:
- * doc/flightbox/core.md, Abschnitt 6.2. */
+ * doc/core.md, Abschnitt 6.2. */
 #ifndef FBDAMAGEMODEL_H
 #define FBDAMAGEMODEL_H
 
@@ -32,7 +32,7 @@ struct FBDamageZoneSpec {
 
 /* The layout, plus the geometry only a projectile stream needs: what the airframe PRESENTS from a
  * given direction. Undeclared (the default, and every released store) = presents nothing, takes no gun
- * damage. doc/flightbox/core.md, Abschnitt 6.2. */
+ * damage. doc/core.md, Abschnitt 6.2. */
 struct FBDamageLayout {
   const FBDamageZoneSpec *Zones = nullptr;
   int ZoneCount = 0;
@@ -71,7 +71,7 @@ constexpr double kCaseFraction = 0.5;    /* warhead mass that becomes fragments 
 constexpr double kFragSpeedMs = 1800.0;  /* initial fragment ejection speed */
 
 /* ---- The PHYSICAL consequences, all applied through JSBSim and never by a second flight model.
- * Each derivation: doc/flightbox/core.md, Abschnitt 6.2 ("Die physischen Folgen"). ---- */
+ * Each derivation: doc/core.md, Abschnitt 6.2 ("Die physischen Folgen"). ---- */
 
 /* Half commanded deflection [SET, structural: the F-16 has two independent hydraulic systems]. */
 constexpr double kAuthorityDegraded = 0.5;
@@ -94,7 +94,7 @@ double FBFragmentFluxJm2(double warheadKg, double rangeM, double closureMs);
  * and this model derives the energy, a gun burst is known by the energy DENSITY the caller already
  * computed (core/FBGunBallistics.h). Shared destination (J/m^2 against the same thresholds) is a stated
  * modelling decision, not a claim that the two mechanisms are equivalent. It lands in a FOOTPRINT, not
- * on every zone. doc/flightbox/core.md, Abschnitt 6.2. */
+ * on every zone. doc/core.md, Abschnitt 6.2. */
 struct FBKineticBurst {
   double FwdM = 0.0;        /* where the stream's axis passed, along the airframe axis from the CG */
   double FluxJm2 = 0.0;     /* areal energy arriving there */

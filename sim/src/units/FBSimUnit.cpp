@@ -9,7 +9,7 @@ namespace FlightBox::Units {
 namespace {
 /* A WEAPON is given no ground to collide with: JSBSim's contact springs are a stiff ODE that diverges
  * inside one step at release speeds, leaving no impact state to report. A store does not bounce, it
- * detonates — the judge still tests the real elevation. Herleitung: doc/flightbox/units-and-missions.md
+ * detonates — the judge still tests the real elevation. Herleitung: doc/units-and-missions.md
  * §8. Far below any trajectory and finite, so nothing downstream sees an infinity. */
 constexpr double kWeaponNoGroundElevM = -100000.0;
 

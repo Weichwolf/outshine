@@ -5,7 +5,7 @@
  * OCCUPANCY (one head, one switch at a time -> ChannelBusy), and the MANOEUVRE GATE (above kDedMaxG the
  * pilot is flying, not typing -> SequencePrecondition). Everything else is the owning system's answer.
  * Also the command stream's RECORDER (FBTelemetrySource "cmd" + FBLog "cmd" events).
- * doc/flightbox/core.md, Abschnitt 2.6. */
+ * doc/core.md, Abschnitt 2.6. */
 #ifndef FBCOMMANDBUS_H
 #define FBCOMMANDBUS_H
 
@@ -16,10 +16,10 @@ namespace FlightBox {
 
 class FBCommandBus : public FBTelemetrySource {
 public:
-  /* The documented short/long press discriminator (doc/f16/controls-commands.md §5). */
+  /* The documented short/long press discriminator (doc/modules/f16/controls-commands.md §5). */
   static constexpr double kHotasLatencyS = 0.5;
   /* FlightBox's own numbers, derived not quoted — the guides give neither. Derivations:
-   * doc/flightbox/core.md, Abschnitt 2.6. */
+   * doc/core.md, Abschnitt 2.6. */
   static constexpr double kDedLatencyS = 4.0;
   static constexpr double kDedMaxG = 1.5;
   /* The one HOTAS action whose latency is NOT a press duration: the barrels' spool-up is modelled where

@@ -5,7 +5,7 @@
  *
  * Lives in app/ because only app/ boots an airframe: nothing under systems/ or modules/ reaches a model
  * path, any more than it reaches an initial condition.
- * doc/flightbox/units-and-missions.md, Abschnitt 11. */
+ * doc/units-and-missions.md, Abschnitt 11. */
 #ifndef FBMODELROOTS_H
 #define FBMODELROOTS_H
 

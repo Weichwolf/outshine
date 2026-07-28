@@ -2,7 +2,7 @@
  * BORROWED FBDisplaySystem to fill an FBHudGeometry — the symbology LOGIC lives there.
  * The HUD pass is entered by FBRenderer only when HudEnabled: an empty pass is still a pass, so the
  * PASS-COUNT invariant lives at that outer `if` and not in here.
- * Pipelines, Blend und Deckungsformel: doc/flightbox/rendering.md, Abschnitt 7.2. */
+ * Pipelines, Blend und Deckungsformel: doc/render/renderer.md, Abschnitt 7.2. */
 #ifndef FBHUDSTAGE_H
 #define FBHUDSTAGE_H
 

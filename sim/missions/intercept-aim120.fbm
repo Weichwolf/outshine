@@ -33,7 +33,7 @@ timeout 280
 # unchanged, column for column; what the missile did is measured exactly as before.
 #
 # WHOSE result that is, is what the viper's `objective kill unit bandit` line settles (core/FBObjective.h,
-# doc/mission-format.md): the bandit's FAIL is the viper's DECLARED objective, so it is reported as the
+# doc/missions/verdict.md): the bandit's FAIL is the viper's DECLARED objective, so it is reported as the
 # bandit's own verdict and does not decide the run — the viper concludes SUCCESS ("objectives met") in
 # the same tick and the mission exits 0. Before the objective line the same run exited 1: the shot
 # landed and the mission reported a failure, because nothing in the file said who the shot was FOR.

@@ -4,7 +4,7 @@ namespace FlightBox::Modules {
 
 FBF16Fcr::FBF16Fcr() { RebuildVolumes(); }
 
-/* The mode table [SET], doc/flightbox/modules-f16.md §4.2. What is NOT arbitrary in it: the frame times
+/* The mode table [SET], doc/modules-f16.md §4.2. What is NOT arbitrary in it: the frame times
  * follow the volumes, because a mechanically-scanned antenna needs longer for a wider pattern — that
  * RELATION, not the absolute seconds, is what the mode proof measures. */
 void FBF16Fcr::RebuildVolumes() {

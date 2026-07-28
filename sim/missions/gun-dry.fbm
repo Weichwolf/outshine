@@ -32,7 +32,7 @@ timeout 120
 #                                once airborne, over the bus, and the jet may refuse (it does refuse on
 #                                the ground: systems/FBGunSystem's weight-on-wheels interlock).
 #   set pilot_bfm_ctrl_min_nm    THE GUNS CONTROL POSITION. The default control band (0.5-1.5 nm) is a
-#   set pilot_bfm_ctrl_max_nm    missile-employment position: doc/f16/weapons.md §2.5 puts the EEGS
+#   set pilot_bfm_ctrl_max_nm    missile-employment position: doc/modules/f16/weapons.md §2.5 puts the EEGS
 #                                funnel's own range window at 600-3,000 ft (0.10-0.49 nm), so a pilot
 #                                flying the default band is never in gun range at all (measured on
 #                                bfm-basic: it settles at 0.655 nm and its closest approach in five

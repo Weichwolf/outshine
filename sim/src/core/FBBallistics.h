@@ -5,7 +5,7 @@
  * it. a = -g*u_up - (0.5*rho(h)*v^2*Cd*S/m)*v_hat, ISA density re-evaluated every step; no lift, no
  * wind, no Coriolis, no Mach dependence of Cd — omissions of the COMPUTER, not of the simulation.
  * The impact PLANE is handed in, never looked up: this file knows no terrain.
- * doc/flightbox/core.md, Abschnitt 7.3. */
+ * doc/core.md, Abschnitt 7.3. */
 #ifndef FBBALLISTICS_H
 #define FBBALLISTICS_H
 

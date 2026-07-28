@@ -19,7 +19,7 @@ timeout 300                                  # sim-seconds until TIMEOUT
 #
 # Regime 3 happens at the STT GIMBAL limit (+/-60 deg), not at the ACM box edge, because a lock takes
 # the antenna out of its little search box and onto the target -- which is exactly what a lock IS
-# (doc/f16/radar-sensors.md). payerne-radar-bore.fbm is this same file with one word changed
+# (doc/modules/f16/radar-sensors.md). payerne-radar-bore.fbm is this same file with one word changed
 # (acm_hud -> acm_bore): same geometry, a much narrower box, a measurably later acquisition.
 
 unit viper

@@ -1,5 +1,5 @@
 /* fb-test-mig29-envelope: the ACCEPTANCE TEST for sim/assets/aircraft/mig29, one measurement per
- * anchor of doc/mig29/flight-model-spec.md §8. That table is the deliverable the spec says outlives
+ * anchor of doc/modules/mig29/flight-model-spec.md §8. That table is the deliverable the spec says outlives
  * the rest of the file; this harness is the other half of it, and the model is only as built as the
  * numbers printed here.
  *

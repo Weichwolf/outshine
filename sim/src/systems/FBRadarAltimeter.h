@@ -1,5 +1,5 @@
 /* FlightBox — FBRadarAltimeter: AGL aus dem bereits aufgeloesten elev/ground-Paar der App, und der
- * Referenzfall des Busses fuer "Invalid". doc/flightbox/systems.md, Abschnitt 5. */
+ * Referenzfall des Busses fuer "Invalid". doc/systems.md, Abschnitt 5. */
 #ifndef FBRADARALTIMETER_H
 #define FBRADARALTIMETER_H
 

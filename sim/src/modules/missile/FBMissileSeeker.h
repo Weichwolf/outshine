@@ -7,7 +7,7 @@
  * to where the guidance points it rather than searching, a stare instead of a sweep, off until the
  * guidance activates it, and auto-locking because there is no operator to designate. It CANNOT tell
  * friend from foe — the contact is anonymous geometry and there is no interrogator.
- * doc/flightbox/weapons-and-damage.md §10.2. */
+ * doc/weapons-and-damage.md §10.2. */
 #ifndef FBMISSILESEEKER_H
 #define FBMISSILESEEKER_H
 

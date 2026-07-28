@@ -9,5 +9,5 @@
 #
 #   This IS the intended gym fixture: a blob is a pure function of (GFS run, format version, grid
 #   step), so re-fetching the same cycle reproduces these bytes exactly -- compare by checksum.
-#   Format: doc/flightbox/world-and-terrain.md, section "Wetter -- /wx"; constants: src/wxfmt.h.
+#   Format: doc/world/weather.md; constants: src/wxfmt.h.
 #   Spot values verified against ecCodes 2.41 and Open-Meteo (see the same doc section).

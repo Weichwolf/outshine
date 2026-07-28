@@ -13,7 +13,7 @@
  * losing the uplink drops back to Inertial on the last estimate rather than to a failure path.
  *
  * Full derivation of PN, of N, of the gain schedule and of the phase table:
- * doc/flightbox/weapons-and-damage.md §10.2. */
+ * doc/weapons-and-damage.md §10.2. */
 #ifndef FBMISSILEGUIDANCE_H
 #define FBMISSILEGUIDANCE_H
 

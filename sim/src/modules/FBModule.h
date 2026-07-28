@@ -1,7 +1,7 @@
 /* FlightBox — FBModule: one controllable module's per-frame update, held POLYMORPHICALLY by the client.
  * A module owns its systems and cycles them internally, each at its own rate; it never calls a peer's
  * Run(). Every accessor below is on the BASE so a caller that only knows "some FBModule" can wire,
- * command and observe it without naming a concrete type. doc/flightbox/units-and-missions.md §5. */
+ * command and observe it without naming a concrete type. doc/units-and-missions.md §5. */
 #ifndef FBMODULE_H
 #define FBMODULE_H
 

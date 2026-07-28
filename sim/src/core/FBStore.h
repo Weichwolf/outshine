@@ -1,6 +1,6 @@
 /* The STORE catalogue: what an external store IS, as data — mass, drag, a model name.
  * Every number is the store's own JSBSim model or derived from it by a stated formula;
- * derivations: doc/flightbox/core.md, Abschnitt 7.1. */
+ * derivations: doc/core.md, Abschnitt 7.1. */
 #ifndef FBSTORE_H
 #define FBSTORE_H
 
@@ -16,7 +16,7 @@ enum class FBStoreKind : uint8_t { None = 0, Mk82, Aim120 };
 /* The FIRE-CONTROL COMPUTER'S performance table for a round — deliberately a coarser copy of what the
  * weapon's JSBSim model does, so the prediction error stays measurable rather than tuned away.
  * An unguided store uses the same table and only its four falling-body entries.
- * doc/flightbox/core.md, Abschnitt 7.1. */
+ * doc/core.md, Abschnitt 7.1. */
 struct FBWeaponPerf {
   double BoostThrustN = 0.0, BoostS = 0.0;
   double SustainThrustN = 0.0, SustainS = 0.0;
@@ -44,9 +44,9 @@ struct FBStoreSpec {
   FBWeaponPerf Perf;
 };
 
-/* Mk-82, 500 lb GP bomb (doc/f16/weapons.md §3). Perf.ArmingS 2.0 [SET], WarheadKg [T3], and
+/* Mk-82, 500 lb GP bomb (doc/modules/f16/weapons.md §3). Perf.ArmingS 2.0 [SET], WarheadKg [T3], and
  * Perf.DragCoefA 0.142 [DERIVED, deliberately coarse — the prediction error is the measured thing];
- * every figure derived in doc/flightbox/core.md, Abschnitt 7.1. */
+ * every figure derived in doc/core.md, Abschnitt 7.1. */
 inline constexpr FBStoreSpec kMk82{FBStoreKind::Mk82, "mk82", "mk82", 500.0, 0.366, 300.0,
                                    /*Guided*/ false, /*RequiresLock*/ false, /*FuzeRadiusM*/ 0.0,
                                    /*WarheadKg*/ 87.0,
@@ -58,10 +58,10 @@ inline constexpr FBStoreSpec kMk82{FBStoreKind::Mk82, "mk82", "mk82", 500.0, 0.3
                                                 /*ActivationRangeM*/ 0.0, /*SeekerRangeM*/ 0.0,
                                                 /*ArmingS*/ 2.0}};
 
-/* AIM-120 AMRAAM (doc/f16/weapons.md §2.5, §3, §4.4); FlightBox-own model, flown by modules/missile.
+/* AIM-120 AMRAAM (doc/modules/f16/weapons.md §2.5, §3, §4.4); FlightBox-own model, flown by modules/missile.
  * FuzeRadiusM/MaxFlightS/MinSpeedMs/ActivationRangeM/SeekerRangeM/ArmingS are [SET] — the published
  * figures are a genuine gap; MassLbs/WarheadKg [T3], DragAreaFt2 [DERIVED].
- * Derivations: doc/flightbox/core.md, Abschnitt 7.1. */
+ * Derivations: doc/core.md, Abschnitt 7.1. */
 inline constexpr FBStoreSpec kAim120{
     FBStoreKind::Aim120, "aim120", "aim120", 335.0, 0.115, 120.0,
     /*Guided*/ true, /*RequiresLock*/ true, /*FuzeRadiusM*/ 10.0, /*WarheadKg*/ 20.5,
@@ -96,7 +96,7 @@ inline const char *FBDeliveryModeStr(FBDeliveryMode m) {
 }
 
 /* What an unguided release was aimed with — a RECORD, nothing here steers: the prediction leaves the
- * jet with the weapon so the measured impact can be put beside it (doc/flightbox/core.md, 7.2). */
+ * jet with the weapon so the measured impact can be put beside it (doc/core.md, 7.2). */
 struct FBReleaseSolution {
   bool   Valid = false;
   FBDeliveryMode Mode = FBDeliveryMode::Ccip;

@@ -14,13 +14,13 @@ adversarial and precise. You do not fix — you judge and report. You never modi
 - `<repo>/CLAUDE.md` — architecture, principles (esp. Prinzip 5: the reference is
   the VANILLA JSBSim F-16 model itself, not the real jet), Engineering-Konventionen.
 - Accepted model properties of the vanilla JSBSim F-16 are the truth — do NOT flag them
-  (CLAUDE.md Prinzip 5). Measure via the mission loop's telemetry (doc/mission-format.md),
+  (CLAUDE.md Prinzip 5). Measure via the mission loop's telemetry (doc/missions/INDEX.md),
   numeric lines over HUD-OCR, hash-locked artifacts.
-- `<repo>/doc/f16/` (INDEX.md) — F-16 systems knowledge: `hud-symbology.md` is the reference for
+- `<repo>/doc/modules/f16/` (INDEX.md) — F-16 systems knowledge: `hud-symbology.md` is the reference for
   judging HUD content, `flight-controls-flcs.md` for FLCS/autopilot behavior; researched real-jet
   values are design targets, NOT defect criteria against the vanilla model.
-- `<repo>/doc/mission-format.md` — the `.fbm` mission format (boot default: FBF16Pilot flies a mission
-  phase machine, doc/f16/procedures-*.md).
+- `<repo>/doc/missions/INDEX.md` — the `.fbm` mission format (boot default: FBF16Pilot flies a mission
+  phase machine, doc/modules/f16/procedures-*.md).
 - `<repo>/doc/webgl-webgpu-report.txt` — target-GPU capabilities.
 - `<repo>/README.md` — product overview.
 

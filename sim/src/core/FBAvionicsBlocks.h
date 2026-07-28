@@ -1,6 +1,6 @@
 /* The avionics OUTPUT blocks: the typed payload of core/FBState, one block per SOURCE system.
  * THE ONE RULE: every block has exactly ONE writer — named in its comment below — and any number of
- * readers. doc/flightbox/core.md, Abschnitt 1. */
+ * readers. doc/core.md, Abschnitt 1. */
 #ifndef FBAVIONICSBLOCKS_H
 #define FBAVIONICSBLOCKS_H
 
@@ -48,7 +48,7 @@ struct FBAirDataBlock {
 };
 
 /* ---- Radar altitude. WRITER: systems/FBRadarAltimeter. The reference case for Invalid: unpowered it
- * publishes no 0 ft (doc/f16/controls-commands.md §6.4). */
+ * publishes no 0 ft (doc/modules/f16/controls-commands.md §6.4). */
 struct FBRadarAltBlock {
   FBBlockHeader H;
   float AglFt = 0.0f;
@@ -68,7 +68,7 @@ struct FBNavBlock {
 
 /* ---- Cruise: the DED CRUS page's COMPUTED fields. WRITER: systems/FBNavSystem.
  * Own head because gear-down freezes exactly these while bearing/distance keep working — the origin of
- * FBBlockStatus::Held (doc/f16/controls-commands.md, CRUS-Tabelle). */
+ * FBBlockStatus::Held (doc/modules/f16/controls-commands.md, CRUS-Tabelle). */
 struct FBCruiseBlock {
   FBBlockHeader H;
   float SteerTtgS = 0.0f;   /* time-to-go to the steerpoint at the current groundspeed */
@@ -77,7 +77,7 @@ struct FBCruiseBlock {
 /* ---- Fire control: FOUR products under one head (ranging, DLZ, gun solution, air-to-ground release).
  * WRITER: modules/f16/FBF16FireControl. All four go invalid together with the sources they fuse; each
  * carries its own "is there a SOLUTION" bit on top. SI throughout; only displays convert to nm.
- * doc/flightbox/core.md, Abschnitt 1.3. */
+ * doc/core.md, Abschnitt 1.3. */
 struct FBFireControlBlock {
   FBBlockHeader H;
   float SteerSlantNm = 0.0f;
@@ -93,7 +93,7 @@ struct FBFireControlBlock {
   float TimeToImpactS = 0.0f;  /* predicted total time of flight; < 0 = no intercept from here */
   bool  InZone = false;        /* Rmin <= range <= Raero — what the SMS's launch interlock reads */
 
-  /* ---- The GUN solution (doc/f16/weapons.md §2.5's EEGS). The funnel is a SIGHT: its walls are the
+  /* ---- The GUN solution (doc/modules/f16/weapons.md §2.5's EEGS). The funnel is a SIGHT: its walls are the
    * target's wingspan drawn at the range the gun is correctly aimed for, so the out-of-range test is
    * literally GunSpanMr < GunFunnelBottomMr. */
   bool  GunValid = false;
@@ -131,7 +131,7 @@ struct FBFireControlBlock {
 struct FBUfcBlock {
   FBBlockHeader H;
   float AlowFt = 0.0f;         /* CARA ALOW floor */
-  /* Two numbers because the jet keeps two (doc/f16/controls-commands.md §6.8): the DED shows what was
+  /* Two numbers because the jet keeps two (doc/modules/f16/controls-commands.md §6.8): the DED shows what was
    * typed, the warning fires at the system ceiling. */
   float BingoLbs = 0.0f;       /* what was entered (0 = none) */
   float BingoEffectiveLbs = 0.0f;   /* what actually governs the warning */
@@ -222,7 +222,7 @@ struct FBRwrBlock {
   bool MissileLaunch = false;  /* any threat guiding a missile at this aircraft — the LAUNCH light */
   bool Activity = false;       /* any threat tracking — the ACT half of the ACT/PWR indicator */
   bool HiddenSearch = false;   /* heard but filtered off the display — suppression is distinguishable
-                                * from absence (doc/f16/defence-rwr-cm.md §2.1) */
+                                * from absence (doc/modules/f16/defence-rwr-cm.md §2.1) */
   FBRwrThreat Threats[kMaxRwrThreats]{};
 };
 

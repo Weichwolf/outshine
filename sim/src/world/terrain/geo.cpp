@@ -1,6 +1,6 @@
 /* Coordinate library implementation; API in geo.h. Das ENU-Modell, seine Fehlerschranken und der
  * BEKANNTE ~0,3-m-Restfehler des tile_enu_map-Fast-Path (eine Eigenschaft, kein Bug — nicht durch
- * Trigonometrie in der heissen Schleife "reparieren"): doc/flightbox/world-and-terrain.md, Abschnitt 5.0. */
+ * Trigonometrie in der heissen Schleife "reparieren"): doc/world/terrain.md, Abschnitt 5.0. */
 
 #include "geo.h"
 

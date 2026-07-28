@@ -5,7 +5,7 @@ gepinnte Submodul `sim/vendor/jsbsim` ist damit kein Ladepfad mehr, sondern die 
 gegen den jede Kopie dort gemessen wird. Diese Liste steht NEBEN `aircraft/`, nicht darin — das
 Verzeichnis wird als Ganzes in den WASM-Build eingebettet und enthält deshalb nur Modelle.
 
-**Die Regel** (`CLAUDE.md`, Prinzip 1; ausführlich in `doc/flightbox/architecture.md`): eine Kopie DARF vom Upstream abweichen —
+**Die Regel** (`CLAUDE.md`, Prinzip 1; ausführlich in `doc/architecture.md`): eine Kopie DARF vom Upstream abweichen —
 berechtigte Korrekturen und Erweiterungen sind zulässig. Aber jede Abweichung ist ein **benannter
 Eintrag in diesem Dokument**, mit Datei, Änderung, Grund und BELEG. Ein besserer Missionsausgang ist
 ausdrücklich kein Beleg; Beleg ist eine publizierte Quelle, ein nachweisbarer Fehler im Modell oder ein

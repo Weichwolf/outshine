@@ -1,6 +1,6 @@
 /* Terrarium-RGB PNG tile -> float height grid -> triangulated ENU mesh.
  * Höhenformel, Gitterorientierung und das Vorzeichen von scale_n:
- * doc/flightbox/world-and-terrain.md, Abschnitt 5.1. */
+ * doc/world/terrain.md, Abschnitt 5.1. */
 
 #ifndef OSMMESH_TERRAIN_H
 #define OSMMESH_TERRAIN_H
@@ -46,7 +46,7 @@ int osmmesh_terrain_build_mesh(const osmmesh_terrain_grid *grid,
  * float OFFSETS from `origin_ecef_out` (the tile centre, kept double) so a mesh can sit anywhere on
  * the planet. Normals are unit ECEF-axis, not world-up; no yoff lift — an ECEF vertex is absolute, so
  * the camera's own ECEF already carries its altitude. Gleiche Endstufen-Semantik wie
- * doc/flightbox/world-and-terrain.md §5.2. */
+ * doc/world/terrain.md §5.2. */
 int osmmesh_terrain_build_mesh_ecef(const osmmesh_terrain_grid *grid,
                                      uint8_t z, uint32_t x, uint32_t y,
                                      const osmmesh_terrain_build_opts *opts,

@@ -1,7 +1,7 @@
 /* FlightBox — FBStoresSystem: der Stores/SMS-Slot — Stationsinventar, Master-Arm-Verriegelung, der EINE
  * Abwurfpfad. Traegereffekt (Masse/Schwerpunkt/Widerstand) ist Physik der Engine; die Klasse SPAWNT
  * nichts (sie legt einen FBStoreRelease in eine Warteschlange, der BESITZER spawnt); der Pickle ist ein
- * KOMMANDO und damit ablehnbar. doc/flightbox/weapons-and-damage.md, Abschnitt 2. */
+ * KOMMANDO und damit ablehnbar. doc/weapons-and-damage.md, Abschnitt 2. */
 #ifndef FBSTORESSYSTEM_H
 #define FBSTORESSYSTEM_H
 

@@ -4,7 +4,7 @@
  * overridden hook. The taxonomy is [DOC]; the ANGLES are a declared MODEL PARAMETER SET [SET] — the
  * source documents the modes as MFD screenshots and gives no geometry. No HUD symbology, deliberately:
  * the symbology reference documents no TD box. Volumes, frame times and their justification:
- * doc/flightbox/modules-f16.md §4. */
+ * doc/modules-f16.md §4. */
 #ifndef FBF16FCR_H
 #define FBF16FCR_H
 
@@ -75,7 +75,7 @@ protected:
 private:
   void RebuildVolumes();
 
-  FBF16FcrMode Mode_ = FBF16FcrMode::Crm;   /* CRM is the power-up mode (doc/f16/radar-sensors.md) */
+  FBF16FcrMode Mode_ = FBF16FcrMode::Crm;   /* CRM is the power-up mode (doc/modules/f16/radar-sensors.md) */
   double SlewAzDeg_ = 0.0, SlewElDeg_ = 0.0;
   double RangeOverrideNm_ = 0.0;   /* 0 = use the mode table's own gate */
   Sensors::FBRadarScanVolume Modes_[6]{};

@@ -4,7 +4,7 @@
  *
  * A module wanting chip-specific quirks (interlace jitter, brightness curve) hooks in from ITS OWN
  * class (modules/f16/FBF16Max7456), never by forking this file.
- * Masse, Herkunft und die "sharp bilinear"-Deckung: doc/flightbox/rendering.md, Abschnitt 7.3. */
+ * Masse, Herkunft und die "sharp bilinear"-Deckung: doc/render/renderer.md, Abschnitt 7.3. */
 #ifndef FBHUDFONT_H
 #define FBHUDFONT_H
 

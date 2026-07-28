@@ -1,7 +1,7 @@
 /* FlightBox — FBF16Rwr: the AN/ALR-56M, an override of systems/FBRwrSystem carrying only the antenna
  * coverage and the display cap, both [DOC] defence-rwr-cm.md §2.1. The threat LIBRARY is deliberately
  * absent: the source describes its structure without transcribing it, and inventing symbol codes would
- * be inventing the one thing an RWR may not guess about. Details: doc/flightbox/modules-f16.md §6. */
+ * be inventing the one thing an RWR may not guess about. Details: doc/modules-f16.md §6. */
 #ifndef FBF16RWR_H
 #define FBF16RWR_H
 

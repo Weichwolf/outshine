@@ -1,6 +1,6 @@
 /* The native frame ORACLE: FBRenderer's offscreen mode through the same pipeline the browser runs,
  * dumping PNGs. This is the verification venue a headless-browser SwiftShader cannot give — native
- * Dawn actually renders. doc/flightbox/rendering.md, Abschnitt 1.1. */
+ * Dawn actually renders. doc/render/renderer.md, Abschnitt 1.1. */
 #include "FBRenderer.h"
 #include "FBWorld.h"
 #include "FBCamera.h"

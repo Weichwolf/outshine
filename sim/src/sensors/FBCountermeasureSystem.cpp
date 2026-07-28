@@ -40,7 +40,7 @@ void FBCountermeasureSystem::LoadGenericPrograms() {
   p.Flare = {1, 0.10, 1, 1.00};
   Programs_[4] = p;
 
-  /* BYP (doc/f16/defence-rwr-cm.md §2.2): genau eine Chaff und eine Fackel. */
+  /* BYP (doc/modules/f16/defence-rwr-cm.md §2.2): genau eine Chaff und eine Fackel. */
   p = FBCmProgram{};
   p.Chaff = {1, 0.10, 1, 1.00};
   p.Flare = {1, 0.10, 1, 1.00};

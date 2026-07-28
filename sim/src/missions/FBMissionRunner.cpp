@@ -51,7 +51,7 @@ bool FBEnsureDir(const std::string &dir) {
 }
 
 namespace {
-/* The one place the two independent monitors' verdicts combine; doc/flightbox/units-and-missions.md §5. */
+/* The one place the two independent monitors' verdicts combine; doc/units-and-missions.md §5. */
 FBMissionResult ToMissionResult(FBMissionVerdict v) {
   switch (v) {
     case FBMissionVerdict::Success: return FBMissionResult::Success;
@@ -73,7 +73,7 @@ const Units::FBSimUnit *FirstFlightKo(const Units::FBActorList &actors) {
 }
 
 /* Two observed facts plus a declaration, never a team heuristic: a duel has a winner and a loser rather
- * than two failures. Herleitung: doc/flightbox/units-and-missions.md §5, "Wie aus N Urteilen eines wird". */
+ * than two failures. Herleitung: doc/units-and-missions.md §5, "Wie aus N Urteilen eines wird". */
 bool ExpectedLoss(const Units::FBActorList &actors, const Units::FBSimUnit &a) {
   if (a.Health().CombatEffective()) return false;
   for (const auto &b : actors) {
@@ -117,7 +117,7 @@ const Units::FBSimUnit *FirstJudged(const Units::FBActorList &actors) {
 
 
 /* A released store, from separation to impact. The actor list's one runtime growth path; tick semantics:
- * doc/flightbox/units-and-missions.md §6. */
+ * doc/units-and-missions.md §6. */
 struct FBStoreTrack {
   size_t Index = 0;      /* into the actor list */
   double SpawnS = 0.0;
@@ -134,7 +134,7 @@ struct FBStoreTrack {
 
 /* Closest approach over the tick SEGMENT, not a per-tick distance test: at 0.1 s and >1500 m/s closure
  * consecutive samples are 150 m apart and a 10 m fuze radius would be missed almost every time.
- * Herleitung: doc/flightbox/units-and-missions.md §8, "ClosestApproach (CPA)". */
+ * Herleitung: doc/units-and-missions.md §8, "ClosestApproach (CPA)". */
 struct FBCpa {
   double MissM = 1e18;
   double ClosureMs = 0.0;
@@ -192,7 +192,7 @@ void ResolveBurst(Units::FBSimUnit &target, const FBCpa &c, const FBStoreSpec &s
         {"failed", (int)target.Health().FailedMask()}, {"altM", p.ElevM}, {"speedMs", p.SpeedMs}});
 }
 
-/* The three gun gates; Herleitung: doc/flightbox/units-and-missions.md §8, "ResolveGunHit". */
+/* The three gun gates; Herleitung: doc/units-and-missions.md §8, "ResolveGunHit". */
 constexpr double kMinReportedHits = 0.1;
 constexpr double kGunHitReachM = 8.0;
 constexpr double kGunNearMissM = 200.0;
@@ -242,7 +242,7 @@ bool ResolveGunHit(Units::FBSimUnit &target, const FBCpa &c, const FBGunProjecti
 
 /* ResolveBurst's unguided counterpart, same 1/r^2 fragment law. Deliberately does NOT reach aircraft:
  * a frag-vs-airframe geometry does not exist here, and an invented cutoff radius would be a number
- * pretending to be physics. Herleitung: doc/flightbox/units-and-missions.md §8. */
+ * pretending to be physics. Herleitung: doc/units-and-missions.md §8. */
 bool ResolveGroundBurst(Units::FBSimUnit &target, const Fdm::fb_fdm_state &burst, const FBStoreSpec &spec) {
   const Units::FBUnitPose &p = target.GetPose();
   double relE = 0.0, relN = 0.0;
@@ -286,7 +286,7 @@ bool ResolveGroundBurst(Units::FBSimUnit &target, const Fdm::fb_fdm_state &burst
 
 /* Where the round crossed the surface, as opposed to where it was first SEEN below it: on a 0.1 s tick a
  * Mk-82 penetrates 14 m before it is observed, i.e. ~20 m of horizontal travel — a fifth of the delivery
- * error the attack missions exist to measure. Herleitung: doc/flightbox/units-and-missions.md §8. */
+ * error the attack missions exist to measure. Herleitung: doc/units-and-missions.md §8. */
 Fdm::fb_fdm_state GroundCrossing(const Units::FBSimUnit &store, double &backS) {
   Fdm::fb_fdm_state s = store.State();
   backS = 0.0;
@@ -338,7 +338,7 @@ void LogStoreImpact(const Units::FBSimUnit &store, const FBStoreTrack &track, do
   }
 }
 
-/* One CSV per actor, the primary keeping the canonical name; doc/flightbox/units-and-missions.md §10. */
+/* One CSV per actor, the primary keeping the canonical name; doc/units-and-missions.md §10. */
 std::string TelemetryPath(const std::string &outDir, size_t index, const Units::FBSimUnit &unit) {
   if (index == 0) return outDir + "/telemetry.csv";
   return outDir + "/telemetry_" + unit.GetName() + ".csv";
@@ -352,7 +352,7 @@ bool ShotDownFirst(const Units::FBSimUnit &a) {
 }
 
 /* The per-unit breakdown's result string: the physical judge outranks the mission judge except after a
- * shootdown. Table: doc/flightbox/units-and-missions.md §5, "UNIT_RESULT". */
+ * shootdown. Table: doc/units-and-missions.md §5, "UNIT_RESULT". */
 const char *ActorResultStr(const Units::FBSimUnit &a) {
   if (a.GetKind() == Units::FBUnitKind::Weapon)
     return a.FlightMonitor().Tripped() ? "IMPACT" : "IN_FLIGHT";
@@ -579,7 +579,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
    * against the poses of the LAST completed tick and only PublishPose (the barrier) makes the new ones
    * visible, so tick ORDER cannot influence the result. That is what lets STEP run one thread per actor
    * while every other pass stays a sequential loop in actor order. Which pass is which and why:
-   * doc/flightbox/units-and-missions.md §7. The trailing timeout is the backstop for a cast with no
+   * doc/units-and-missions.md §7. The trailing timeout is the backstop for a cast with no
    * objectives at all; every judged actor's own monitor concludes TIMEOUT at exactly this sim time. */
   while (!FirstFlightKo(Actors) && !FirstDecidingFailure(Actors) && !AllJudgedConcluded(Actors) &&
          simT < timeoutS) {

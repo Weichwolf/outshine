@@ -7,7 +7,7 @@
  * structure, and a building has exactly one of the three — giving a SAM site a "radar" system would be
  * inventing a consumer that does not exist. The four thresholds are [SET] (no source in this tree gives
  * a lethal radius), ANCHORED to the open figure for a 500 lb bomb against unprotected targets; the radii
- * they correspond to, and the whole derivation, are doc/flightbox/weapons-and-damage.md §9. */
+ * they correspond to, and the whole derivation, are doc/weapons-and-damage.md §9. */
 #ifndef FBGROUNDTARGET_H
 #define FBGROUNDTARGET_H
 

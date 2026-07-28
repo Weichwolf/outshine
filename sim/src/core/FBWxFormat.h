@@ -1,5 +1,5 @@
 /* The SIM-SIDE MIRROR of the FBWX wire format. The authoritative contract is tiles/src/wxfmt.h (prose:
- * doc/flightbox/world-and-terrain.md §9); this file exists because core/ must not include anything from
+ * doc/world/weather.md §9); this file exists because core/ must not include anything from
  * tiles/. Drift between the two is caught by build/fb-test-weather, which parses the committed fixture
  * and re-derives §9's documented spot values instead of trusting either transcription.
  *

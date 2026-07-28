@@ -1,6 +1,6 @@
 /* FlightBox — FBDatalinkSystem: der Comms/Datalink-Slot, das KOOPERATIVE Netz (MIDS/Link-16) und
  * damit kein Sensor im Suchsinn: jeder Teilnehmer sendet seine EIGENE Loesung samt Identitaet.
- * doc/flightbox/sensors.md, Abschnitt 3. */
+ * doc/sensors.md, Abschnitt 3. */
 #ifndef FBDATALINKSYSTEM_H
 #define FBDATALINKSYSTEM_H
 

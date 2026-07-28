@@ -105,7 +105,7 @@ void FBF16FireControl::SolveGun(FBState &state, const Fdm::fb_fdm_state &own, co
 }
 
 /* One integration, both delivery modes, so the pipper and the release countdown can never disagree.
- * The three inputs are jet CONVENTIONS rather than arithmetic (doc/flightbox/modules-f16.md §8.4):
+ * The three inputs are jet CONVENTIONS rather than arithmetic (doc/modules-f16.md §8.4):
  * release state from the CG, aim point = the active steerpoint, impact plane = its own elevation. A
  * guided round or an empty station leaves the solution invalid, which is not an impact point of zero. */
 void FBF16FireControl::SolveGroundAttack(FBState &state, const Fdm::fb_fdm_state &own,

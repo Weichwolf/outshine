@@ -3,7 +3,7 @@
 namespace FlightBox::Modules {
 
 /* The six programs [SET], each for a stated job the automatic mapping picks between — full table with
- * those jobs: doc/flightbox/modules-f16.md §7. In order: BREAK LOCK, MIXED, FLARE, SUSTAINED, SLAP,
+ * those jobs: doc/modules-f16.md §7. In order: BREAK LOCK, MIXED, FLARE, SUSTAINED, SLAP,
  * BYPASS. */
 FBF16Cmds::FBF16Cmds() {
   SetLoadout(kTypicalChaff, kTypicalFlare);

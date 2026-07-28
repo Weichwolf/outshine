@@ -1,7 +1,7 @@
 /* FlightBox — FBSimUnit: ONE simulated unit, whole — airframe, module, state, ground truth, telemetry
  * and both incorruptible judges, one object with one owner. A client holds a LIST of these, one per
  * `unit` block the mission declares. THE AIRFRAME IS OPTIONAL (a static ground target has no flight
- * dynamics); everything else here is universal. Details: doc/flightbox/units-and-missions.md */
+ * dynamics); everything else here is universal. Details: doc/units-and-missions.md */
 #ifndef FBSIMUNIT_H
 #define FBSIMUNIT_H
 

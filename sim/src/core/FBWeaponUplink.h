@@ -2,7 +2,7 @@
  * publishes it in its unit signature and the missile READS it through its own comms slot — nothing
  * hands the missile a pointer to the shooter, and nothing hands either of them the truth.
  * What travels is an ESTIMATE, as old and as wrong as the shooter's sensor picture.
- * doc/flightbox/core.md, Abschnitt 7.7. */
+ * doc/core.md, Abschnitt 7.7. */
 #ifndef FBWEAPONUPLINK_H
 #define FBWEAPONUPLINK_H
 

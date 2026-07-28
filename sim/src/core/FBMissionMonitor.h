@@ -2,7 +2,7 @@
  * a DIFFERENT question: "did the MISSION succeed" (waypoints, off-runway touchdown, timeout, combat
  * objectives). Judged from a PRIVATE COPY of the mission FILE and observed position/roster alone, so no
  * module can self-report its way to SUCCESS. Check order, the three objective rules and the capture
- * geometry: doc/flightbox/core.md, Abschnitt 4.2. */
+ * geometry: doc/core.md, Abschnitt 4.2. */
 #ifndef FBMISSIONMONITOR_H
 #define FBMISSIONMONITOR_H
 #include <string>

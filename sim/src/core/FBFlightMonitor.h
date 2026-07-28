@@ -2,7 +2,7 @@
  * airframe-agnostic by construction: no module type, no module-declared numbers, only generic
  * FDM/ground-reaction quantities. Deliberately physics-only; "did the MISSION succeed" is
  * FBMissionMonitor's separate question. Instantiated and fed exclusively by the app-level driver.
- * Checks, thresholds and their derivation: doc/flightbox/core.md, Abschnitt 4.1. */
+ * Checks, thresholds and their derivation: doc/core.md, Abschnitt 4.1. */
 #ifndef FBFLIGHTMONITOR_H
 #define FBFLIGHTMONITOR_H
 #include <string>
@@ -56,7 +56,7 @@ private:
   double LocTimerS_ = 0.0;
   double StallTimerS_ = 0.0;
   /* Only the two BINARY, WOW-driven signals are confirmed over kContactConfirmS — a single-tick
-   * ground-elevation feed step can flip them (doc/flightbox/core.md, Abschnitt 4.1). */
+   * ground-elevation feed step can flip them (doc/core.md, Abschnitt 4.1). */
   double StructureTimerS_ = 0.0, GearUpTimerS_ = 0.0;
 };
 

@@ -1,6 +1,6 @@
 /* The elevation hook's offline-DEM implementation (`--elev swiss`): one baked island raster, bilinear,
  * 0 m outside its bbox. core/ and not world/ because it is a static asset load, the same category of
- * file I/O JSBSim does for its own model XML. doc/flightbox/core.md, Abschnitt 9. */
+ * file I/O JSBSim does for its own model XML. doc/core.md, Abschnitt 9. */
 #ifndef FBBAKEDDEMELEVATION_H
 #define FBBAKEDDEMELEVATION_H
 #include <cstdint>

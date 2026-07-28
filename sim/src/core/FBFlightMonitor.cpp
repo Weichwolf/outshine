@@ -1,5 +1,5 @@
 /* Every constant below is a generic, core-owned aviation-engineering bound — none sourced from or
- * tunable by an airframe's documentation. Derivations: doc/flightbox/core.md, Abschnitt 4.1. */
+ * tunable by an airframe's documentation. Derivations: doc/core.md, Abschnitt 4.1. */
 #include "FBFlightMonitor.h"
 #include "FBLog.h"
 #include <cmath>

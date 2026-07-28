@@ -1,7 +1,7 @@
 /* FlightBox — FBRadarSystem: der Sensors-Slot, das generische AKTIVE Luft-Luft-Radar und der bewusste
  * Gegenentwurf zum kooperativen Datalink (kooperativ = Identitaet geschenkt, aktiv = nur ein Echo).
  * Scanvolumen, Kontaktaufbau/-verlust, Anonymitaet, Abstrahlung, Doppler-Notch und die bewusst NICHT
- * modellierte Terrain-Maskierung: doc/flightbox/sensors.md, Abschnitt 4. */
+ * modellierte Terrain-Maskierung: doc/sensors.md, Abschnitt 4. */
 #ifndef FBRADARSYSTEM_H
 #define FBRADARSYSTEM_H
 
@@ -56,7 +56,7 @@ public:
   static constexpr double kTrackBeamHalfDeg = 3.0;
   /* [SET] Der Doppler-Notch, die EINE Zahl, an der das ganze Chaff-Modell haengt: eine Wolke ohne
    * Eigengeschwindigkeit liegt im Clutterfilter, ein Ziel ist genau solange unterscheidbar, wie seine
-   * eigene Radialgeschwindigkeit ausserhalb liegt. doc/flightbox/sensors.md, Abschnitt 4.7. */
+   * eigene Radialgeschwindigkeit ausserhalb liegt. doc/sensors.md, Abschnitt 4.7. */
   static constexpr double kDopplerNotchMs = 40.0;
   /* [SET] Das Dwell, ueber das der Notch-Test misst. Zwingend, weil Posen 10 Hz publiziert werden und
    * ein Sucher mit 20 Hz schaut — die Differenz zweier Looks alterniert sonst (gemessen: 446 m/s gegen
@@ -94,7 +94,7 @@ public:
 
   /* Der PILOTEN-Lock (TMS vorwaerts). `trackNum` = die VEROEFFENTLICHTE Track-Nummer, nie eine Unit-Id;
    * 0 = loesen. Ein DESIGNIERTER Lock, der verlorengeht, faellt in die SUCHE zurueck statt sich den
-   * naechsten Kontakt zu greifen. doc/flightbox/sensors.md, Abschnitt 4.5. */
+   * naechsten Kontakt zu greifen. doc/sensors.md, Abschnitt 4.5. */
   bool Designate(int trackNum, double simTimeS);
 
   /* `simTimeS` ist ABSOLUT, damit das Bild nicht am Slot-Takt haengt; `net` null = nichts zu sehen. */
@@ -177,7 +177,7 @@ private:
   FBUnitTeam SelfTeam_ = FBUnitTeam::Friendly;
   bool Powered_ = true;
   double RangeFactor_ = 1.0;     /* Kampfschaden, s. SetRangeFactor */
-  bool IffXpdr_ = true;         /* IFF Master NORM beim Start (doc/f16/procedures-startup.md, Schritt 46) */
+  bool IffXpdr_ = true;         /* IFF Master NORM beim Start (doc/modules/f16/procedures-startup.md, Schritt 46) */
   bool IffInterrogator_ = true;
   FBRadarScanVolume Search_{};
   double NextScanS_ = 0.0;       /* das eigene Frame-Raster der Antenne, unabhaengig vom Slot-Takt */

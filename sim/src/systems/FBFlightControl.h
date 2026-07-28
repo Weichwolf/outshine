@@ -1,6 +1,6 @@
 /* FlightBox — FBFlightControl: die FBW-Innenschleife. Guidance + JSBSim-Zustand -> normierte Stick-/
  * Throttle-Werte. Zwei innere Arten hinter dem `Flcs`-Flag (Konfiguration, keine Subklasse: Tuning
- * statt Verhalten). Gesetz und Gain-Tabellen: doc/flightbox/systems.md, Abschnitt 3. */
+ * statt Verhalten). Gesetz und Gain-Tabellen: doc/systems.md, Abschnitt 3. */
 #ifndef FBFLIGHTCONTROL_H
 #define FBFLIGHTCONTROL_H
 

@@ -1,7 +1,7 @@
 /* The terrain draw — the ONE stage with real per-frame CPU state: the growable albedo array, the
  * RenderBundle, the 2-phase-commit tile table and the mode-strictness invariant counters.
  * Its Configure() must run AFTER FBRenderer::CreateAtmosphere, whose LUT views it is handed.
- * doc/flightbox/rendering.md, Abschnitt 6. */
+ * doc/render/renderer.md, Abschnitt 6. */
 #ifndef FBTILESSTAGE_H
 #define FBTILESSTAGE_H
 

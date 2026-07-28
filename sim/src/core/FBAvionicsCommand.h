@@ -1,7 +1,7 @@
 /* The avionics COMMAND vocabulary: {target, proposed value} in, {committed, reason} out — the DED's
  * documented propose->commit/reject protocol. Nothing here executes: the OWNING system answers in its
  * own tick. Why a command path instead of a setter (refusable, costly, traceable, blockable):
- * doc/flightbox/core.md, Abschnitt 2. */
+ * doc/core.md, Abschnitt 2. */
 #ifndef FBAVIONICSCOMMAND_H
 #define FBAVIONICSCOMMAND_H
 
@@ -25,7 +25,7 @@ const char *FBCommandTargetStr(FBCommandTarget t);
 
 /* THE TWO LATENCY CLASSES: a HOTAS throw is sub-second and usable mid-manoeuvre, a DED edit is
  * select->type->ENTR with the head down. One class would let an AI type a steerpoint at 7 g — the
- * specific thing this split forbids (doc/f16/controls-commands.md §5). */
+ * specific thing this split forbids (doc/modules/f16/controls-commands.md §5). */
 enum class FBCommandClass : uint8_t { Hotas, Ded };
 
 FBCommandClass FBCommandClassOf(FBCommandTarget t);
@@ -42,8 +42,8 @@ enum class FBCommandOutcome : uint8_t { Pending, Accepted, Clamped, Inhibited, R
 
 const char *FBCommandOutcomeStr(FBCommandOutcome o);
 
-/* The first eight are doc/f16/controls-commands.md §6's documented patterns, one to one and in its
- * order; the last four are FlightBox's OWN and marked as such (doc/flightbox/core.md, Abschnitt 2.4). */
+/* The first eight are doc/modules/f16/controls-commands.md §6's documented patterns, one to one and in its
+ * order; the last four are FlightBox's OWN and marked as such (doc/core.md, Abschnitt 2.4). */
 enum class FBCommandReason : uint8_t {
   None = 0,
   PilotReject,            /* §6.1 RCL/RTN — the pilot changed their mind */

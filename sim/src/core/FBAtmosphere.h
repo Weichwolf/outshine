@@ -2,7 +2,7 @@
  * not currently flying in (a launch-zone integration and a missile gain schedule) — everything that
  * flies has JSBSim's own atmosphere behind it. Troposphere to 11 km at the standard 6.5 K/km lapse,
  * then the isothermal layer. No wind, no weather, no non-standard day.
- * doc/flightbox/core.md, Abschnitt 10.2. */
+ * doc/core.md, Abschnitt 10.2. */
 #ifndef FBATMOSPHERE_H
 #define FBATMOSPHERE_H
 

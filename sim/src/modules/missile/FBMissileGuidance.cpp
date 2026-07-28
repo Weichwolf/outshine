@@ -167,7 +167,7 @@ Pilot::FBPilotCommands FBMissileGuidance::Run(const FBState &state, FBCommandBus
   /* Integrate in FIN units and clamp there, so the anti-windup limit is the PHYSICAL one rather than a
    * number in error units that would have to be re-derived per gain. And CONDITIONALLY: a fin already
    * on its stop cannot answer more integral, so integrating into the stop only buys a reversal that
-   * has to be unwound afterwards. doc/flightbox/sim/weapons-and-damage.md 10.2. */
+   * has to be unwound afterwards. doc/weapons.md 10.2. */
   double pitchCmd = kp * ez + NzInt_ - kd * (st.q * kDeg2Rad);
   double yawCmd = kp * ey + NyInt_ - kd * (st.r * kDeg2Rad);
   if (std::fabs(pitchCmd) < 1.0 || ez * pitchCmd < 0.0) {

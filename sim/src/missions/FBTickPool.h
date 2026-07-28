@@ -15,7 +15,7 @@
  * in unit order at the barrier, so not even a line's position depends on scheduling.
  *
  * A plain condition-variable barrier ON MEASUREMENT, not taste: a bounded-spin variant was built and
- * moved nothing. Zahlen: doc/flightbox/units-and-missions.md, Abschnitt 9. */
+ * moved nothing. Zahlen: doc/units-and-missions.md, Abschnitt 9. */
 #ifndef FBTICKPOOL_H
 #define FBTICKPOOL_H
 #include <atomic>

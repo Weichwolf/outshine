@@ -20,7 +20,7 @@ static const double kEarthCirc = 40075016.686;
 /* LOD is PURELY distance-based: height variance is deliberately NOT in the decision, so a flat near
  * tile refines as far as a rugged one at the same distance (equal albedo resolution by distance).
  * kSseK = H / (2 tan(fov/2)) is the pixel focal length.
- * Herleitung + Konstantentabelle: doc/flightbox/world-and-terrain.md, Abschnitt 2.2. */
+ * Herleitung + Konstantentabelle: doc/world/terrain.md, Abschnitt 2.2. */
 static const double kSseK = 720.0 / (2.0 * 0.57735026919);   /* H / (2 tan(fov/2)) */
 static const double kEdgeTau = 384.0;   /* target max on-screen tile edge (px); lower = finer = more tiles */
 static const double kCosView = 0.5;            /* frustum weight: <60deg off-axis -> full priority */
@@ -223,7 +223,7 @@ void FBWorld::RequestSubtree(int z, long x, long y, const double eye[3], const d
 }
 
 /* The draw traversal; 1 = this node's area is fully covered by emitted tiles. No intermediate LOD
- * level is ever built — only the geometry-target leaves. Ablauf: doc/flightbox/world-and-terrain.md §2.3. */
+ * level is ever built — only the geometry-target leaves. Ablauf: doc/world/terrain.md §2.3. */
 int FBWorld::Descend(int z, long x, long y, const double eye[3], const double fwd[3]) {
   int idx = Ensure(z, x, y);
   Nodes[idx].touch = Pass;

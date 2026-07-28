@@ -5,7 +5,7 @@ namespace FlightBox::Pilot {
 namespace {
 /* Die ganze oeffentliche Flaeche einer Piloten-Variante in EINER Tabelle. Die Baender sind
  * Plausibilitaetsgelaender, kein Geschmack: ein Turnier darf eine schlechte Idee versuchen, es darf
- * nicht 6.000 nm versuchen. Bedeutung je Schluessel: doc/flightbox/pilot-ai.md, Abschnitt 9. */
+ * nicht 6.000 nm versuchen. Bedeutung je Schluessel: doc/pilot-ai.md, Abschnitt 9. */
 struct Entry {
   const char  *Key;
   FBPilotParam Param;

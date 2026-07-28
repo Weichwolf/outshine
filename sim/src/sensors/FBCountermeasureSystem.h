@@ -2,7 +2,7 @@
  * ALE-47-Programm-Zustandsmaschine, der Modus-Knopf und die geworfenen Wolken. In SEMI/AUTO triggert
  * sie auf den RWR-BLOCK, also auf die WARNUNG und nicht auf die Wahrheit; ob eine Wolke WIRKT,
  * entscheidet allein das gegnerische Radar. Fackeln werden gezaehlt und wirken (noch) nicht — es gibt
- * keinen IR-Sucher. doc/flightbox/sensors.md, Abschnitt 6. */
+ * keinen IR-Sucher. doc/sensors.md, Abschnitt 6. */
 #ifndef FBCOUNTERMEASURESYSTEM_H
 #define FBCOUNTERMEASURESYSTEM_H
 
@@ -16,7 +16,7 @@ namespace FlightBox::Sensors {
 
 class FBCountermeasureSystem : public FBTelemetrySource {
 public:
-  /* PRGM 1-4 plus Slap-Switch-Programm 5 und Bypass-Programm 6 (doc/f16/defence-rwr-cm.md §2.2). */
+  /* PRGM 1-4 plus Slap-Switch-Programm 5 und Bypass-Programm 6 (doc/modules/f16/defence-rwr-cm.md §2.2). */
   static constexpr int kProgramCount = 6;
   static constexpr int kBypassProgram = 6;
 

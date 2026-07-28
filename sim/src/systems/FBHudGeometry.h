@@ -3,7 +3,7 @@
  * Two primitive kinds matching the two pipelines: Strokes (x,y,d,hw,r,g,b) and Glyphs (x,y,u,v,r,g,b),
  * six vertices each. Vectors, not fixed arrays: Reset() keeps the capacity, so after the first frame
  * the bounded, deterministic symbology reallocates nothing.
- * Layouts, Deckungsformel und Clipping: doc/flightbox/rendering.md, Abschnitt 7.1. */
+ * Layouts, Deckungsformel und Clipping: doc/render/renderer.md, Abschnitt 7.1. */
 #ifndef FBHUDGEOMETRY_H
 #define FBHUDGEOMETRY_H
 

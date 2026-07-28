@@ -1,6 +1,6 @@
 /* The ONE definition of every conversion factor the simulator uses — header-only, constexpr.
  * Values are EXACT definitions where one exists: writing the ratio rather than a truncated decimal is
- * both more accurate and self-documenting. doc/flightbox/core.md, Abschnitt 10.3. */
+ * both more accurate and self-documenting. doc/core.md, Abschnitt 10.3. */
 #ifndef FBUNITS_H
 #define FBUNITS_H
 

@@ -4,7 +4,7 @@
  * The window is BODY-REFERENCED to the emitter, so a receiver rotates itself into that frame with the
  * same transform the antenna uses and asks the one question: am I inside the beam?
  * NO IDENTITY, NO POWER RATING, NO FREQUENCY — the same austerity FBRadarContact.h keeps on the other
- * side of the fence. doc/flightbox/core.md, Abschnitt 8.3. */
+ * side of the fence. doc/core.md, Abschnitt 8.3. */
 #ifndef FBEMITTER_H
 #define FBEMITTER_H
 

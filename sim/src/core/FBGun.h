@@ -4,7 +4,7 @@
  * THE ONE MODELLING DECISION: a burst IS one ballistic bundle — one launch point, one velocity, one
  * integration, carrying a COUNT and a DISPERSION that enter hit resolution as a DENSITY, never as a
  * position. What is physics, what is modelling and what is deliberately absent (barrel wear, round-to-
- * round spread, ammunition types, ammunition mass): doc/flightbox/core.md, Abschnitt 7.4. */
+ * round spread, ammunition types, ammunition mass): doc/core.md, Abschnitt 7.4. */
 #ifndef FBGUN_H
 #define FBGUN_H
 
@@ -30,10 +30,10 @@ struct FBGunSpec {
   double MaxBurstS = 0.0;       /* longest single trigger squeeze the box will honour */
 };
 
-/* THE M61A1 VULCAN (doc/f16/weapons.md §2.5, §3, §4.1). RoundMassKg, DragCoef and MaxBurstS are [SET],
+/* THE M61A1 VULCAN (doc/modules/f16/weapons.md §2.5, §3, §4.1). RoundMassKg, DragCoef and MaxBurstS are [SET],
  * DispersionSigmaRad is [DERIVED] from the MIL-DTL-45500/1A dispersion citation (circular normal,
  * sigma = 4 mil / sqrt(2*ln5)); source and confidence per number, plus why the ammunition's own MASS is
- * deliberately not modelled: doc/flightbox/core.md, Abschnitt 7.4. */
+ * deliberately not modelled: doc/core.md, Abschnitt 7.4. */
 inline constexpr FBGunSpec kM61A1{FBGunKind::M61A1, "m61a1",
                                   /*MuzzleVelMs*/ 1030.0, /*RoundsPerMin*/ 6000.0, /*Capacity*/ 510,
                                   /*SpoolUpS*/ 0.3, /*RoundMassKg*/ 0.100, /*RoundDiaM*/ 0.020,

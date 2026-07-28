@@ -1,7 +1,7 @@
 /* FlightBox — FBRwrSystem: die PASSIVE Haelfte des Defensiv-Slots und das Spiegelbild des Radars —
  * nicht „was ist da draussen", sondern „wer schaut mich an". Liest ausschliesslich publizierte
  * Emissions-Signaturen, prueft zwei Geometrien, meldet KEINE Entfernung.
- * doc/flightbox/sensors.md, Abschnitt 5. */
+ * doc/sensors.md, Abschnitt 5. */
 #ifndef FBRWRSYSTEM_H
 #define FBRWRSYSTEM_H
 

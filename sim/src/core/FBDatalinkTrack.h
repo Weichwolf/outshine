@@ -1,7 +1,7 @@
 /* One contact as a COOPERATIVE datalink reports it — NOT a sensor return: the sender broadcasts its own
  * fix and identity, so callsign and team come for free and the accuracy is the SENDER's. A receiver
  * adds only WHEN it heard it, which is why a track is never "live".
- * doc/flightbox/core.md, Abschnitt 8.2. */
+ * doc/core.md, Abschnitt 8.2. */
 #ifndef FB_FBDATALINKTRACK_H
 #define FB_FBDATALINKTRACK_H
 
@@ -10,7 +10,7 @@
 namespace FlightBox {
 
 constexpr int kMaxDatalinkTracks = 8;
-constexpr int kDatalinkCallsignLen = 25;   /* .fbm callsigns are 1..24 chars + NUL (doc/mission-format.md) */
+constexpr int kDatalinkCallsignLen = 25;   /* .fbm callsigns are 1..24 chars + NUL (doc/missions/syntax.md) */
 
 struct FBDatalinkTrack {
   int    UnitId = 0;                          /* the sender's unit id — the track's identity key */

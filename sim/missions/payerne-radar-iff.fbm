@@ -12,7 +12,7 @@ timeout 400                                  # sim-seconds until TIMEOUT
 #   silent   friendly  OFF           none             1 = unknown
 #   bandit   hostile   ON            none             1 = unknown   <-- NOT 2, and NOT "hostile"
 #
-# BANDIT IS THE POINT (doc/f16/datalink-iff.md): its transponder is switched ON and it still produces no
+# BANDIT IS THE POINT (doc/modules/f16/datalink-iff.md): its transponder is switched ON and it still produces no
 # valid reply, because Mode 4 is CRYPTOGRAPHIC -- an interrogator only gets an answer from a box holding
 # its own coalition's key. And SILENT is the other half of the point: a friendly with a dead transponder
 # is indistinguishable from the enemy. A valid reply proves friendly; the absence of one proves nothing,

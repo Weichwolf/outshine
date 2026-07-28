@@ -2,7 +2,7 @@
  *
  * NOT instance-safe in JSBSim itself (verified against vendor/jsbsim at the pinned commit); none of the
  * four carries physics state, and none is reachable from Step(), so N airframes may integrate
- * concurrently, one thread each — why and with what consequence: doc/flightbox/fdm.md §3.
+ * concurrently, one thread each — why and with what consequence: doc/fdm.md §3.
  *   - FGJSBBase::debug_lvl — static, SetDebugLevel() is process-wide in effect.
  *   - JSBSim::SetLogger/GetLogger — ONE logger, thread_local at the pinned commit.
  *   - Element::convert — static unit-conversion map, read with an INSERTING operator[] while parsing
@@ -87,7 +87,7 @@ FBFdm::FBFdm() : P(std::make_unique<Impl>()) { P->Exec.SetDebugLevel(0); }
 FBFdm::~FBFdm() = default;
 
 /* Exception firewall: caught by std::exception (JSBSim's hierarchy derives from it) plus a catch-all, so
- * no JSBSim type has to be named here. doc/flightbox/fdm.md §7. */
+ * no JSBSim type has to be named here. doc/fdm.md §7. */
 bool FBFdm::Load(const FBFdmSpawn &spawn) {
   try {
     return LoadUnguarded(spawn);

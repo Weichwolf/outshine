@@ -3,7 +3,7 @@
  * documents gun installation coordinates), and their SIZE is the point: metres of muzzle offset are
  * fractions of a milliradian at gun range. BORE ALIGNMENT is parallel to the fuselage reference line,
  * no depression: no source gives the angle, and inventing one would bias every burst ever fired.
- * Derivation: doc/flightbox/modules-f16.md §9.2. */
+ * Derivation: doc/modules-f16.md §9.2. */
 #ifndef FBF16GUN_H
 #define FBF16GUN_H
 

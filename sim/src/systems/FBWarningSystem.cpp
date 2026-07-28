@@ -13,7 +13,7 @@ void FBWarningSystem::Run(FBState &state, double dt) {
   }
 
   /* BINGO gegen die EFFEKTIVE Schwelle: das DED zeigt, was der Pilot tippte, gewarnt wird an der
-   * Systemobergrenze (doc/f16/controls-commands.md §6.8). */
+   * Systemobergrenze (doc/modules/f16/controls-commands.md §6.8). */
   if (state.Ufc.H.Readable() && state.Ufc.BingoEffectiveLbs > 0.0f) {
     if (!state.Airframe.H.Readable()) inhibited |= FBWarnBingo;
     else if (state.Airframe.FuelLbs <= state.Ufc.BingoEffectiveLbs) active |= FBWarnBingo;

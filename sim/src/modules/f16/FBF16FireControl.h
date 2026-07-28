@@ -2,7 +2,7 @@
  * the 'B' slant range, the air-to-air launch zone, the air-to-ground delivery solution and the target
  * estimate a launched round is programmed with. Not a generic slot: every convention in it is THIS
  * airframe's. Nothing here queries terrain; a fire-control computer cannot. Herleitung aller Zahlen und
- * Formeln: doc/flightbox/modules-f16.md §8. */
+ * Formeln: doc/modules-f16.md §8. */
 #ifndef FBF16FIRECONTROL_H
 #define FBF16FIRECONTROL_H
 
@@ -48,7 +48,7 @@ public:
 
   /* A free static: pure arithmetic on a weapon's performance table plus one engagement geometry, so a
    * harness or a future intercept AI can call it without a fire-control computer around it. Model,
-   * range formulas and the three deliberate omissions: doc/flightbox/modules-f16.md §8.2. */
+   * range formulas and the three deliberate omissions: doc/modules-f16.md §8.2. */
   static FBLaunchZone SolveLaunchZone(const FBWeaponPerf &perf, double ownSpeedMs, double altM,
                                       double rangeM, double closureMs, double ownLosMs,
                                       double tgtSpeedMs);
