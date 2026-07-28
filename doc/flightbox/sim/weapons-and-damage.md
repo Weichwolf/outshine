@@ -1316,7 +1316,7 @@ made) and twitchy where it is fast. So the fin-per-g gain is scaled with `qRef/q
 |---|---|---|
 | `kQRefPa` | 119,000 | the dynamic pressure at which the 13.8 g/unit was measured |
 | `kFinPerG` | 1/13.8 | fin command per g of demand at `kQRefPa` (the measured reciprocal) |
-| `kLoopP` / `kLoopI` | 1.2 / 2.0 | proportional and integral terms above it |
+| `kLoopP` / `kLoopI` | 1.2 / 1.5 | proportional and integral terms above it. `kLoopI` was 2.0 until the D1 re-tune round: past ~10 g the fins hit their stops and the integrator wound into a reversal (measured terminal tick-to-tick \|Δα\| 0.698°); integration is now CONDITIONAL (no wind-up against a saturated fin) and the gain sits on the stable side of the measured boundary (1.75 → 0.698°, 1.50 → 0.139°). Miss on `bvr-duel-decided` 7.09 → 2.36 m; collateral improvements `intercept-lostlock` 4.12 → 0.755 m, `damage-amraam` 1.90 → 1.49 m. |
 | `kRateGain` | 0.35 | fin per rad/s of body rate, scheduled the same way |
 | `kGainScaleMin/Max` | 0.15 / 20.0 | clamp of the scaling factor |
 | `kIntegralClamp` | 1.0 | anti-windup — the integration is in FIN units and clamped there, so that the limit is the physical one (a fin cannot go past its stops) instead of one that would have to be re-derived per gain |

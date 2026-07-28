@@ -43,11 +43,13 @@ protected:
   double BfmControlAtaDeg() const override { return 30.0; }
   double BfmClosureGainKtPerNm() const override { return 120.0; }
   double BfmMaxClosureKt() const override { return 200.0; }
-  /* [MESS] median of idle/speedbrake-out samples between 325 and 400 KCAS; the MEDIAN, not the
-   * conservative p10, because every knot the schedule gives away at range is one the pursuer must make
-   * up in the merge. Unmoved by MODEL-DELTAS.md D1 (2.531 -> 2.527 m/s^2 re-measured): the flaps only
-   * deploy below 250 KCAS, so this band never sees them. */
-  double BfmBrakeMs2() const override { return 2.4; }
+  /* [MESS] the decay of the CLOSURE under idle + speedbrake in the stern conversion (N=4595 one-second
+   * windows over the 16-approach gun sweep): median 1.86, p20 1.16, p90 5.76 m/s^2. Not the airframe's
+   * level-flight deceleration (2.4-2.53) that stood here before: the schedule bounds a closure, and a
+   * closure carries the geometry as well as the drag. A braking LIMIT takes the pessimistic end of its
+   * own distribution — a cap the pursuer meets half the time is one he breaks half the time.
+   * doc/flightbox/sim/pilot-ai.md 5.2. */
+  double BfmBrakeMs2() const override { return 1.2; }
   double BfmLeadAspectDeg() const override { return 45.0; }
   double BfmLeadRangeNm() const override { return 3.0; }
   double BfmLeadMaxS() const override { return 4.0; }

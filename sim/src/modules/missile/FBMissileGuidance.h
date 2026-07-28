@@ -43,7 +43,11 @@ public:
    * the term existed: ~900 m low at the merge). ---- */
   static constexpr double kQRefPa = 119000.0;
   static constexpr double kFinPerG = 1.0 / 13.8;
-  static constexpr double kLoopP = 1.2, kLoopI = 2.0;
+  /* kLoopI [MESS]: the largest integral gain at which the TERMINAL channel does not oscillate. The
+   * criterion is the round's own alpha excursion tick to tick in that phase: 1.75 -> 0.698 deg,
+   * 1.5 -> 0.139 deg on bvr-duel-decided (5x, a stability edge, not a trend). The old 2.0 sat on the
+   * wrong side of it and only showed once a beaming target drove the demand past 10 g. */
+  static constexpr double kLoopP = 1.2, kLoopI = 1.5;
   static constexpr double kRateGain = 0.35;
   static constexpr double kGainScaleMin = 0.15, kGainScaleMax = 20.0;
   static constexpr double kIntegralClamp = 1.0;

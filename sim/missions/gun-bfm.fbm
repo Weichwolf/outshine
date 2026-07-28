@@ -1,11 +1,15 @@
 name gun-bfm-1
 timeout 600
 
-# READING-RULE UPDATE (model delta D1, flaperon fix): this mission currently ends TIMEOUT, exit 3 —
-# the statement below that "a run that reaches its timeout means the tracking loop has regressed" is
-# SUSPENDED. D1 corrected the roll authority at combat speed (187.8 -> 156.4 deg/s at 400 KCAS) and
-# corner g (5.6 -> 5.4); the BFM gun tracker was tuned against the old, broken physics and no longer
-# converges. A re-tune round against the corrected model is queued (doc/flightbox/journal.md).
+# THE KILL IS BACK, AND WHAT MOVED IT (re-measured after model delta D1). D1 made the roll authority
+# symmetric, and the pursuer's first stern conversion therefore tips the OTHER way: what used to be a
+# recoverable overshoot became a fly-through that cost the ACM box its contact. Underneath sat a defect
+# the old asymmetry had masked — the pursuer arrived at the control band with 105-120 kt of overtake
+# against a schedule asking for 27, because `BfmBrakeMs2` was measured as the airframe's LEVEL-FLIGHT
+# deceleration (2.4 m/s^2) while the thing it bounds is the decay of a CLOSURE in a turning conversion
+# (measured: median 1.86, p20 1.16 m/s^2 over 4,595 one-second windows). The hook now carries the
+# pessimistic end of its own distribution, 1.2 m/s^2, and the schedule cap with it (140 -> 70 kt).
+# The pass: GUN_TRACK at t=59.5, two squeezes at t=65.9/66.6, KILL at t=66.7 on 70 rounds.
 
 # THE GUN ENGAGEMENT. bfm-basic.fbm's setup, flown to a firing conclusion: VIPER works its way into the
 # control position behind BANDIT on radar contacts alone, and this time it is allowed to shoot.
@@ -32,7 +36,7 @@ timeout 600
 #                                minutes is 0.574 nm). 0.15-0.40 nm puts the same pursuit law's target
 #                                position inside the funnel. Nothing else about the fight changes —
 #                                same law, same gains, one declared band (systems/FBPilotTuning).
-# THE RUN ENDS IN A KILL, exit 1 at t=414. exit 1 is the PASSING outcome here — a run that reaches its
+# THE RUN ENDS IN A KILL, exit 1 at t=66.8. exit 1 is the PASSING outcome here — a run that reaches its
 # timeout means the shooter stopped hitting. The detail is still read from the events and the telemetry,
 # not from the exit code.
 #

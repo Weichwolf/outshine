@@ -850,6 +850,19 @@ FBPilotCommands FBPilot::AttackCommands(const FBState &state, FBCommandBus &avio
   c.HaveLeg = true;
   c.LegLatDeg = AtkRunInLatDeg_; c.LegLonDeg = AtkRunInLonDeg_;
 
+  /* Die Ausweichkurve beginnt, wenn der Store WEG ist, nicht wenn der Daumen unten war: dazwischen liegt
+   * die Betaetigungslatenz, und wer in ihr schon rollt, wirft aus der Kurve ab (gemessen: 32 deg
+   * Querlage und -0,6 m/s im Ausloesemoment). Gesehen wird der Abwurf am SMS-Zaehler wie jeder andere
+   * Instrumentenwert — bis dahin faellt oben die Anflugbahn heraus, unveraendert. */
+  if (AtkPickled_) {
+    const FBStoresBlock &sms = state.Stores;
+    if (!sms.H.Readable() || sms.ReleasedCount > AtkReleasedSeen_) {
+      AtkReleased_ = true;                        /* kein Zaehler mehr = der Pass ist trotzdem vorbei */
+      StartAttackEgress(state, st);
+    }
+    return c;
+  }
+
   const FBFireControlBlock &fc = state.FireControl;
   if (!fc.H.Readable() || !fc.AgValid) return c;
   if (fc.AgArmMarginS <= 0.0) return c;   /* zu tief zum Schaerfen — von hier wird der Pass nicht geflogen */
@@ -865,8 +878,15 @@ FBPilotCommands FBPilot::AttackCommands(const FBState &state, FBCommandBus &avio
    * andersherum — der Pilot HAELT, und das FLUGZEUG loest aus. Das ist Wissen des Piloten ueber seine
    * eigenen Haende, kein Blick auf irgendetwas. */
   double bias = Tuned(FBPilotParam::AttackBiasS, AttackReleaseBiasS());
-  double leadS = FBCommandBus::LatencyS(FBCommandTarget::WeaponRelease);
-  bool cue = fc.AgTimeToReleaseS <= leadS - bias;
+  /* Zwischen der ZAHL und ihrer WIRKUNG liegt mehr als die Bus-Latenz, und beides ist dem Piloten
+   * bekannt: sein eigener Entscheidungstakt (er liest den Cue und drueckt einen Takt spaeter — die
+   * Betaetigung erreicht den Bus also erst dann) und das ALTER des Cues, das dessen Gueltigkeitskopf
+   * traegt. Ohne den ersten Term loest er systematisch einen Takt zu spaet aus: gemessen 63,7 m
+   * Laengsfehler gegen 42,8 m Rechnerfehler, also 21 m allein aus dem Takt bei 211 m/s. */
+  double leadS = FBCommandBus::LatencyS(FBCommandTarget::WeaponRelease) + DecisionDtS_;
+  double solAgeS = TimeS_ - fc.H.StampS;
+  if (solAgeS < 0.0 || solAgeS > 1.0) solAgeS = 0.0;
+  bool cue = fc.AgTimeToReleaseS - solAgeS <= leadS - bias;
   /* CCIPs Zusatzbedingung ist die QUER-Haelfte des Zielfehlers und nur sie: die Laengshaelfte ist das,
    * wofuer der Cue da ist, und im Moment des Druckens absichtlich ungleich null. */
   if (AtkMode_ == FBDeliveryMode::Ccip)
@@ -882,12 +902,17 @@ FBPilotCommands FBPilot::AttackCommands(const FBState &state, FBCommandBus &avio
       {"missM", (double)fc.AgMissM}, {"bombRangeM", (double)fc.AgRangeM},
       {"tofS", (double)fc.AgTofS}, {"armMarginS", (double)fc.AgArmMarginS},
       {"altM", st.elev}, {"gsMs", st.gs}});
-  AtkReleased_ = true;
-  AtkEgressUntilS_ = TimeS_ + AttackEgressS();
+  AtkPickled_ = true;
+  AtkReleasedSeen_ = state.Stores.H.Readable() ? state.Stores.ReleasedCount : -1;
+  if (r.Outcome == FBCommandOutcome::Rejected) { AtkReleased_ = true; StartAttackEgress(state, st); }
+  return c;
+}
 
-  /* EINMAL gerechnet, damit die Ausweichkurve ein fester Ort in der Welt ist statt eines Kurses, den die
-   * Guidance jeden Tick neu herleiten muesste. Immer nach rechts: eine Ausweichkurve muss irgendwohin,
-   * und die Seite aus der Geometrie zu waehlen waere eine Entscheidung ohne Quelle. */
+/* EINMAL gerechnet, damit die Ausweichkurve ein fester Ort in der Welt ist statt eines Kurses, den die
+ * Guidance jeden Tick neu herleiten muesste. Immer nach rechts: eine Ausweichkurve muss irgendwohin, und
+ * die Seite aus der Geometrie zu waehlen waere eine Entscheidung ohne Quelle. */
+void FBPilot::StartAttackEgress(const FBState &state, const Fdm::fb_fdm_state &st) {
+  AtkEgressUntilS_ = TimeS_ + AttackEgressS();
   double trackDeg = state.AirData.H.Readable() ? state.AirData.TrackDeg : st.yaw;
   double hdg = (trackDeg + AttackEgressTurnDeg()) * kDeg2Rad;
   double coslat = std::cos(st.lat * kDeg2Rad);
@@ -895,7 +920,6 @@ FBPilotCommands FBPilot::AttackCommands(const FBState &state, FBCommandBus &avio
   AtkEgressLatDeg_ = st.lat + rng * std::cos(hdg) / kMPerDeg;
   AtkEgressLonDeg_ = st.lon + (coslat > 1e-6 ? rng * std::sin(hdg) / (kMPerDeg * coslat) : 0.0);
   AtkEgressAltM_ = st.elev + AttackEgressClimbM();
-  return c;
 }
 
 FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
@@ -903,6 +927,7 @@ FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
                              const FBFlightPlan &plan, const FBRunway *runway, double dt) {
   PhaseElapsedS += dt;
   TimeS_ += dt;
+  DecisionDtS_ = dt;
   FBPilotCommands c{};
 
   /* Cockpitarbeit erst, wenn der Jet sich selbst fliegt: nicht in Idle (niemand sitzt drin) und nicht

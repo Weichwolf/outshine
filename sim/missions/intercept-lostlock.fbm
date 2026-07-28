@@ -22,6 +22,10 @@ timeout 280
 #   - whether the seeker (msl_seeker 1 -> 2) still finds the target inside its +-10 deg field of view
 #   - the DETONATION miss distance, or the MISS line with the closest approach it managed
 # The honest answer is whatever this prints; both outcomes are informative and neither is tuned for.
+# AS IT STANDS after the missile-guidance round it HITS: closest approach 4.12 -> 0.755 m, the bandit is
+# combat-ineffective and the run ends exit 1 instead of running both jets out to their waypoints. The
+# unsupported round still flies a constant-velocity extrapolation of a manoeuvring target; what changed
+# is that its own seeker, once it acquires, is no longer fighting a wound-up acceleration loop.
 
 unit viper
   team friendly

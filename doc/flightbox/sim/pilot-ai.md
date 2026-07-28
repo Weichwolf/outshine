@@ -52,7 +52,8 @@ refinement is the running work.
 | Objectives + evolutionary tournaments | built | `82df2e2` |
 | Pilot memory: the datum instead of the last measurement; gun tracking with rate term; roll-rate limiter | built | `cac7b62` |
 | Guidance holds a path where a path is declared | built | `9673e00` |
-| Brake-authority-derived closure cap (`BfmBrakeMs2` = 2.4 m/s²), conversion rule, absolute-value trigger | built, **not yet distilled below** | `658014d` |
+| Brake-authority-derived closure cap (`BfmBrakeMs2`), conversion rule, absolute-value trigger | built, **not yet distilled below** | `658014d` |
+| Re-tune against `MODEL-DELTAS.md` D1: `BfmBrakeMs2` re-measured as a CLOSURE decay (2.4 → 1.2 m/s², cap 140 → 70 kt); the attack release holds the run-in attitude until the store has LEFT and leads the cue by the decision tick as well | built | this round |
 
 ## Gaps
 
@@ -75,12 +76,16 @@ refinement is the running work.
 | Conversion mirroring the long way round | unbounded roll, departure at t=39 in `bfm-blind`, 2 of 16 approaches. |
 | Wingline commit without a LOS-rate gate | costs 2 of 11 kills. |
 | Gun integrator with ζ = 0.5 | better against the turner; against the straight flyer the loop rings and funnel time collapses. |
+| **Integral action on the BFM throttle** (the textbook fix for the P-only loop's standing error around a fixed trim of 0.6) | it works, and it costs more than it buys. [MESS, 16-approach sweep, Ki = 2·10⁻⁴…2·10⁻³ δ/(kt·s)] against the STRAIGHT defender 0/8 → **8/8** kills, because the pursuer stops arriving with 100+ kt and stops creeping through the funnel's minimum range; against the TURNING defender 8/8 → **0/8**, because exact speed matching leaves him at the defender's own 248 KCAS with nothing left to take the last 14° of angle with, and he empties all 510 rounds at 7–8 m of miss. The miss is time-of-flight driven and measurable: target manoeuvre during flight ≈ ½·V·ω·TOF² = 1.6 m at TOF 0.5 s against 4.8 m at 0.9 s (measured misses 1.6–4 m vs 7–8 m). The standing bias the loop leaves is therefore doing an ENERGY job by accident; before this can be corrected, the energy rule it stands in for has to exist. |
+| Speed floor from the turn rate the pursuer has to match (`ω_max(V) ≥ ω_target`, closed form off `BfmCornerG`/`BfmCornerSpeedKt`) — the intended replacement for that bias | too permissive AND too aggressive at once. The defender in `bfm-basic`'s break turns at only **5.4 °/s** (measured off its own velocity vector), so the floor solves to 191 KCAS and never binds; adding the aim error over the pursuit time constant (`ω_target + err/T`) makes it bind and then it binds everywhere — sweep 0/8 straight, 0/8 turning, 0 rounds fired. |
+| Lowering the shot's Rtr factor to buy a closer AIM-120 pass (`bvr-duel-decided`) | no trend: `pilot_shot_rtr` swept 1.0 → 0.5 gives miss distances 6.25 / 5.35 / 8.11 / 7.52 / 7.20 / 4.03 m. The endgame miss was not the shot's timing but the round's own terminal loop. |
 
 ### Documentation lag (from the retired `TODO.md` §7)
 
 This file describes state `9673e00`. Commit `658014d` has already changed three of its points
 (sign-correct trigger, derived brake cap `a/k` with the new hook `BfmBrakeMs2`, wingline conversion) —
-affected: §5.2, §5.7, §5.8, §11, §12 of the body below.
+affected: §5.2, §5.7, §5.8, §11, §12 of the body below. §5.2, §4.2 and §4.3 have since been brought up to
+the D1 re-tune round; §5.6–5.8 have not.
 
 ### Inventory (from the previous `Offene Punkte` section)
 
@@ -353,14 +358,25 @@ the cue is about — it is deliberately non-zero at the moment of the press (the
 thrown). Checking the combined miss distance would reject every correct release and then accept a late
 one.
 
-**The lead by one's own actuation latency.**
-`leadS = FBCommandBus::LatencyS(FBCommandTarget::WeaponRelease)` = 0.5 s. Pressing exactly on the cue
-would let the store leave the rail half a second too late: at 230 m/s that is 115 m — more than the whole
-computation is worth. **The real jet solves the same problem the other way round:** in CCRP the pilot
-HOLDS the button and the AIRCRAFT releases when the cue runs through [DOK `weapons.md` §2.5]. The
-intention is therefore expressed early and the moment belongs to the computer. On a bus where a command
-is a discrete event, "lead by exactly the channel latency" is the very same statement — and it is the
-pilot's knowledge of his own hands, not a look into something he may not see.
+**The lead by one's own actuation latency — and by one's own decision tick.**
+`leadS = FBCommandBus::LatencyS(FBCommandTarget::WeaponRelease) + DecisionDtS_` = 0.5 s + 0.1 s.
+Pressing exactly on the cue would let the store leave the rail half a second too late: at 230 m/s that is
+115 m — more than the whole computation is worth. **The real jet solves the same problem the other way
+round:** in CCRP the pilot HOLDS the button and the AIRCRAFT releases when the cue runs through
+[DOK `weapons.md` §2.5]. The intention is therefore expressed early and the moment belongs to the
+computer. On a bus where a command is a discrete event, "lead by exactly the channel latency" is the very
+same statement — and it is the pilot's knowledge of his own hands, not a look into something he may not
+see.
+
+The DECISION TICK is the second half of the same statement and was missing until this round: the pilot
+reads the cue in one slot and the press reaches the bus in the next, so the delay between the NUMBER and
+its EFFECT is latency + his own cadence. Alongside it the cue's own AGE is subtracted — the validity head
+carries it, so it is read like any other instrument value. [MESS, `attack-ccrp`] without the tick term the
+delivery was 63.7 m long against a fire-control prediction error of 42.8 m, i.e. **21 m came from the tick
+alone** at 211 m/s; with it, `aimLongM` 40.9 m against `predErrM` 43.6 m — the release-moment error is
+~0 and what is left IS the computer's own error. That distinction matters more than the number: the two
+used to hide inside one figure and cancel, which is precisely what `MODEL-DELTAS.md` D1 exposed when the
+cancellation stopped.
 
 **The pilot computes no ballistics.** He holds no target position and solves no trajectory: he reads the
 FireControl block like the radar altimeter before a flare. Who computes: `core/FBBallistics` (shared
@@ -371,6 +387,14 @@ mode, acceptance, `ttrS`, `leadS`, `biasS`, along/cross error, miss distance, th
 flight, arming margin, altitude and ground speed.
 
 #### 4.3 Egress
+
+**It starts when the store has LEFT, not when the thumb went down.** Between the two lies the actuation
+latency, and a pilot who is already rolling in it releases out of a turn: [MESS, before] 32° of bank and
+−0.6 m/s of vertical velocity at separation, 11.5 m of cross-track error and a total 79.7 m. The pilot
+watches his own SMS counter (`state.Stores.ReleasedCount`) like any other instrument and keeps flying the
+run-in leg until it moves; only then is the egress anchored. If the SMS block goes unreadable the pass
+counts as over anyway — a jet that cannot say what it is carrying will not be flown around for another
+countdown. [MESS, after] roll −0.16°, vertical velocity +0.01 m/s at separation, cross-track 9.6 m.
 
 After the release: compute the target point ONCE (`AttackEgressTurnDeg` against the current GROUND TRACK
 from the AirData block, `AttackEgressRangeM` ahead, `AttackEgressClimbM` higher), then `Direct` to it at
@@ -449,9 +473,27 @@ range, so that the closure rate has already been worked off by the time the cont
 
 ```
 ctrlMid = ½·(ctrlMin + ctrlMax)                          // control position, readable through the variant
-schedKt = clamp( (R_nm − ctrlMid) · BfmClosureGainKtPerNm , ±BfmMaxClosureKt )
+capKt   = min( BfmMaxClosureKt , BfmBrakeMs2 / (BfmClosureGainKtPerNm·kt/nm) )    // = a/k, see below
+schedKt = clamp( (R_nm − ctrlMid) · BfmClosureGainKtPerNm , ±capKt )
 overtaking = validTrack && closKt > schedKt + kBfmClosureDeadKt      // dead band 40 kt
 ```
+
+**What `BfmBrakeMs2` has to be a measurement OF** [MESS, this round]. The cap is `a/k` because the
+schedule `c = k·(R − Rctrl)` demands a deceleration `k·c`. The quantity being decelerated is the
+CLOSURE, and a closure carries the geometry as well as the drag — so the number may not be the
+airframe's level-flight deceleration, which is what it was (2.4 m/s², 238 samples at 325–400 KCAS).
+Measured on the thing itself — one-second windows in the stern conversion with the throttle at idle,
+the speedbrake fully out and a valid track, N = 4,595 over the 16-approach gun sweep — the distribution
+is **median 1.86, p20 1.16, p40 1.63, p90 5.76 m/s²**, i.e. far wider and centred lower. A braking
+LIMIT takes the pessimistic end of its own distribution (a cap the pursuer meets half the time is one
+he breaks half the time), so the F-16 hook is now **1.2 m/s² → cap 70.0 kt** instead of 140.
+
+[MESS] what the old cap did on `gun-bfm`: the pursuer accelerated to 427 KCAS in the first 13 s, held
+177–182 kt of closure against a schedule that never asked for more than 140, arrived at 0.5 nm with
+105–120 kt against a schedule asking for 27, and flew through at 0.11 nm. On the pre-D1 model that
+overshoot was recoverable because the roll asymmetry tipped it the other way; on symmetric roll it costs
+the ACM box its contact and the whole attack has to be flown again. With the corrected cap the same
+mission tracks at t=59.5 and kills at t=66.7 on 70 rounds.
 
 | Type | Condition | Aim point |
 |---|---|---|
@@ -1194,6 +1236,7 @@ overrides; pilot numbers are **constants in `FBPilot.cpp`**, because a human is 
 | `BfmMaxG` / `BfmUnloadG` | 6.0 / 3.0 | 9.0 / 3.0 | structural limit / [SETZ] |
 | `BfmControlMinNm`…`BfmControlAtaDeg` | 0.5 / 1.5 / 30° / 30° | identical | [SETZ] |
 | `BfmClosureGainKtPerNm` / `BfmMaxClosureKt` | 120 / 200 | identical | [SETZ] |
+| `BfmBrakeMs2` | 1.5 | **1.2** | [MESS] the decay of the CLOSURE under idle + full speedbrake in the stern conversion, N=4,595 one-second windows: median 1.86 / p20 1.16 / p90 5.76 m/s². The p20, because this number is a LIMIT (§ 5.2). Replaces the level-flight 2.4, which measured the airframe rather than the quantity the schedule bounds |
 | `BfmLead*`, `BfmLagTimeS`, `BfmYoYoHeightM` | 45°/3 nm/4 s, 2.5 s, 400 m | ditto, yo-yo 600 m | [SETZ] |
 | `BfmScanAmplitudeDeg` / `BfmScanPeriodS` | 8° / 30 s | identical (~1.7 °/s weave: a scan, not a turn) | [HERL] from `2π·A/T` |
 | `BfmFloorFt` | 2000 | 2000 | [SETZ] |

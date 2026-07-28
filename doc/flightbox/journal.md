@@ -258,3 +258,70 @@ was edited to make any of them green. Determinism 1/2/4 threads identical on fiv
 eight harnesses, `verify-models` (green WITH exactly one declared delta, and its negative directions
 re-checked), `verify-layers`, WASM + smoke (the corrected gain is in `gpu.wasm`, the old one is not)
 all pass.
+
+### 2026-07-28 — the re-tune against the corrected physics (this round)
+
+D1 left five missions on TIMEOUT with a suspended reading rule. All five are back — and none of them by
+a number chosen to make them green: each of the three faults it exposed was a real defect that the old,
+broken roll authority had been paying for.
+
+**`gun-bfm` — the closure schedule was capped on the wrong measurement.** Attribution first, by running
+the CURRENT code against the PRE-D1 model in a scratch tree: over a 16-approach sweep (8 geometries ×
+straight/turning defender) the pre-D1 model scores **4/8 straight + 8/8 turning**, post-D1 **0/8 + 8/8**
+— the whole regression sits against the STRAIGHT defender, and it is one event: the first stern
+conversion now tips the other way and becomes a fly-through that costs the ACM box its contact. Under it
+sat the real fault. `BfmBrakeMs2` bounds the closure schedule's cap `a/k`, but it had been measured as
+the airframe's LEVEL-FLIGHT deceleration (2.4 m/s², 238 samples) — a different quantity, because a
+closure carries the pursuit geometry as well as the drag. Measured on the thing itself (one-second
+windows in the conversion, idle + full speedbrake + valid track, N=4,595): **median 1.86, p20 1.16, p90
+5.76 m/s²**. A braking LIMIT takes the pessimistic end of its own distribution, so the hook is 1.2 and
+the cap 140 → 70 kt. `gun-bfm`: the pursuer used to arrive at 0.5 nm with 105–120 kt against a schedule
+asking for 27 and fly through at 0.11 nm; it now tracks at t=59.5 and KILLS at t=66.7 on 70 rounds.
+Sweep after: **3/8 + 8/8 = 11/16** against 12/16 pre-D1 and 8/16 post-D1, with mean tracking error
+41.1° → 25.5° (straight) and 7.2° → 4.6° (turning). The last kill does not come back and it is named as
+such, not papered over.
+
+**`bvr-duel-decided` — the round, not the shot.** The launch geometry is unchanged (24.8 km, the same
+beaming defender to within 2° of heading and 30 m of altitude); shooting closer was measured and does
+nothing (`pilot_shot_rtr` 1.0 → 0.5 gives 6.25 / 5.35 / 8.11 / 7.52 / 7.20 / 4.03 m — noise, no trend).
+What D1 exposed is an instability in the AIM-120's terminal acceleration loop: past ~10 g of demand the
+fins ran onto their stops, the integrator wound into a reversal, and the round's own alpha rang (mean
+tick-to-tick |Δα| in the terminal phase 0.70°). Two structural fixes, no damage-model change:
+**conditional integration** (a fin on its stop cannot answer more integral) and **`kLoopI` 2.0 → 1.5**,
+the largest gain on the stable side of the measured boundary (|Δα| 0.698 at 1.75 → 0.139 at 1.50 — an
+edge, not a trend). Miss 6.25/7.09 → **2.36 m, one shot, exit 0**. Everything else the round flies got
+better with it: `intercept-lostlock` 4.12 → 0.755 m, `damage-amraam` 1.90 → 1.49 m, `cm-beam-only` from
+no detonation at all to a 7.83 m hit — which is what its own 2×2 table claims (beam alone leaves the
+seeker nothing to be confused by; only chaff AND beam still defeat the shot, and that leg still does).
+Two verdicts follow: `cm-beam-only` 0 → 1 and `intercept-lostlock` 0 → 1, both explained in their heads.
+
+**The three attacks — two errors that used to cancel, now separated.** D1's report said the fire
+control's own table-vs-aero error (53–64 m) had stopped cancelling the aim error. Measured, the aim error
+had a cause and it was not the computer: the pilot set `AtkReleased_` when the pickle was POSTED, so the
+escape turn began during the actuation latency and the store left the rail at **32° of bank** and
+−0.6 m/s. He now flies the run-in until his own SMS counter says the store has LEFT (roll −0.16°,
+vertical +0.01 m/s at separation), and he leads the cue by his own DECISION TICK as well as the bus
+latency — between reading a number and pressing lies one slot, worth 21 m at 211 m/s. Result, per
+`stores DELIVERY`: `predErrM` 63.8 → **43.6 m** (inside the ~45 m the target requires, and NOT corrected
+— it is the declared property), `aimLongM` 78.8 → **40.9 m**, i.e. the release-moment error is now ~0 and
+what remains IS the computer's error. `attack-ccip`/`attack-ccrp`/`wx-ccrp-wind` exit 0.
+
+**Rejected, with their measurements** (now in `pilot-ai.md`'s Gaps): integral action on the BFM throttle
+— the textbook fix for a P-only loop, and it turns the straight-defender sweep 0/8 → 8/8 while turning
+the other one 8/8 → 0/8, because exact speed matching leaves the pursuer at the defender's own 248 KCAS
+and his rounds miss by 7–8 m instead of 1.6–4 (the miss is ½·V·ω·TOF², so it is the shooter's speed);
+and a turn-rate speed floor meant to replace that accidental energy bias, which does not bind (the
+"max-rate" defender actually turns at 5.4 °/s) and binds everywhere the moment the aim error is added.
+
+**Regression, all 53:** 7 verdicts changed — the five targets plus the two missile neighbours above; the
+other 46 keep theirs. 27 missions differ byte-wise, in exactly three families: the BFM-phase ones (the
+closure cap), the attack/store ones (the release timing) and every AIM-120 one (the terminal loop).
+Determinism: 9 runs each (1/2/4 threads × 3) on the five targets → one fingerprint each. Eight harnesses,
+`verify-models` (green, still exactly one declared delta), `verify-layers`, `nm` (0 GPU symbols in
+`fb-gym`), native + WASM green, and the WASM A/B is decisive: `gpu.wasm` built from this tree carries one
+more `1.2` double than one built with the old hook, and the two binaries differ. Proof frame:
+`gpu_native --mission attack-ccip.fbm --interval 20` → SUCCESS, bunker DESTROYED, eight PNGs.
+
+**Left stale on purpose:** `doc/flightbox/sim/weapons-and-damage.md` §10.2's gain table still prints
+`kLoopI = 2.0` and does not mention conditional integration — that file was outside this round's write
+permission.

@@ -25,6 +25,13 @@ timeout 200
 # spawn, i.e. the shot is taken ACROSS it from the start, and the shooter sits on its 3/9 line for the
 # whole engagement. The round has to solve a crossing intercept, which costs it accuracy — but with
 # nothing else in its beam there is nothing for the notch to matter about.
+#
+# THE 2x2, as it stands after the missile-guidance round (closest approach, `stores DETONATION`):
+#   clean 0.47 m hit | chaff only 0.47 m hit | BEAM ONLY 7.83 m HIT | chaff + beam: no detonation.
+# This leg used to run past the target without a detonation at all; the terminal loop's conditional
+# integration is what turned the crossing intercept back into a hit, and the table now says exactly
+# what the physics above claims — only the two TOGETHER take the round off. Exit 1 (the bandit's
+# decisive FAIL) is therefore this leg's expected outcome.
 
 unit viper
   team friendly

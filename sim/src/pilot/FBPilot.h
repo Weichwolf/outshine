@@ -236,6 +236,7 @@ private:
   void BfmGunfire(const FBState &state, FBCommandBus &avionics);
   FBPilotCommands AttackCommands(const FBState &state, FBCommandBus &avionics, const Fdm::fb_fdm_state &st,
                                  const FBFlightPlan &plan);
+  void StartAttackEgress(const FBState &state, const Fdm::fb_fdm_state &st);
   FBPilotCommands InterceptCommands(const FBState &state, FBCommandBus &avionics,
                                     const Fdm::fb_fdm_state &st, const FBFlightPlan &plan, double dt);
   /* EINE Bedienhandlung je Entscheidungstakt, in Prioritaetsreihenfolge: die defensiven zuerst, denn
@@ -292,6 +293,7 @@ private:
   double IntCrankSign_ = 1.0;       /* Richtung der Crank-Drehung, je Support-Eintritt einmal entschieden */
   bool   IntHaveCrankSign_ = false;
   double TimeS_ = 0.0;            /* die eigene Uhr des Piloten; der Tracker stempelt Looks absolut */
+  double DecisionDtS_ = 0.0;      /* der eigene Entscheidungstakt: zwischen Lesen und Betaetigen liegt genau er */
   double BfmGIterm_ = 0.0;
   double BfmRollCmdPrev_ = 0.0;
   /* Der festgelegte Drehsinn, solange das Ziel hinter der Fluegellinie steht. */
@@ -304,6 +306,10 @@ private:
 
   FBDeliveryMode AtkMode_ = FBDeliveryMode::Ccip;
   bool   AtkReleased_ = false;    /* der Pass ist verbraucht: ein Pickle je deklariertem Angriff */
+  /* Gedrueckt ist nicht abgeworfen: zwischen beidem liegt die Betaetigungslatenz, und in der wird die
+   * Anflugbahn WEITER geflogen. Der Zaehler ist das, was der Pilot davon sieht. */
+  bool   AtkPickled_ = false;
+  int    AtkReleasedSeen_ = -1;   /* der Stand beim Druecken; -1 = die Box sagte gar nichts */
   bool   AtkInRangeSeen_ = false;
   /* WOVON DER PASS BEGONNEN WURDE — der Bahnursprung des Anflugs. Die Mission deklariert keinen
    * Initialpunkt, also IST der Punkt, an dem der Anflug begann, der Initialpunkt. */

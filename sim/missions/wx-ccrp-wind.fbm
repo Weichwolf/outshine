@@ -1,13 +1,21 @@
 name wx-ccrp-wind-1
 timeout 200
 
-# READING-RULE UPDATE (model delta D1, flaperon fix): this mission currently ends TIMEOUT, exit 3.
-# The run-in roll no longer produces a lift step, release vertical velocity flipped sign, and the
-# fire-control's own table-vs-aero prediction error (53-64 m, a documented intentional property)
-# stopped CANCELLING the aim error and started adding (aim error now ~80 m vs the ~45 m the target
-# requires). This surfaced a PRE-EXISTING weakness that used to pass by cancellation; a fire-control
-# accuracy round is queued (see doc/flightbox/journal.md). Until it lands, TIMEOUT is the expected
-# outcome here and NOT a delivery regression marker.
+# THE DELIVERY ERROR, AND WHAT IT IS MADE OF (re-measured after model delta D1 and the release round
+# that followed it). Two errors used to hide inside one number; they are now separated and each is
+# reported by the `stores DELIVERY` line:
+#   predErrM  ~43 m  the FIRE CONTROL's own error: it integrates a stored table, the bomb flies the
+#                    model's aerodynamics, and the difference is a declared property of every delivery
+#                    (core/FBBallistics' banner). It is NOT corrected, and the ~45 m fragment radius
+#                    is what it has to stay inside.
+#   aimLongM  ~41 m  the delivered impact against the aim point. Its excess over predErrM is the
+#                    RELEASE-MOMENT error, and after this round it is ~0: the pilot leads the cue by
+#                    the bus latency PLUS his own decision tick, and he holds the run-in attitude until
+#                    the SMS counter says the store has LEFT (before, he rolled into the escape turn
+#                    during the actuation latency and released at 32 deg of bank: 64 m long, 11.5 m
+#                    across).
+# So the run ends SUCCESS again, and it does so because the release moment is right, not because two
+# errors happen to cancel. If predErrM ever grows past 45 m this mission fails, and that is correct.
 
 # THE SAME CCRP DELIVERY AS attack-ccrp.fbm, WITH A CROSSWIND — geometry, loadout, brief and target
 # identical, one `wx` line added. It is the pair that is the measurement: run both and subtract.

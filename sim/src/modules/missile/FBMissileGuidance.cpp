@@ -165,11 +165,19 @@ Pilot::FBPilotCommands FBMissileGuidance::Run(const FBState &state, FBCommandBus
   double kd = kRateGain * scale;
   double ez = nzCmd - st.nz, ey = nyCmd - st.ny;
   /* Integrate in FIN units and clamp there, so the anti-windup limit is the PHYSICAL one rather than a
-   * number in error units that would have to be re-derived per gain. */
-  NzInt_ = Clamp(NzInt_ + ki * ez * dt, -kIntegralClamp, kIntegralClamp);
-  NyInt_ = Clamp(NyInt_ + ki * ey * dt, -kIntegralClamp, kIntegralClamp);
+   * number in error units that would have to be re-derived per gain. And CONDITIONALLY: a fin already
+   * on its stop cannot answer more integral, so integrating into the stop only buys a reversal that
+   * has to be unwound afterwards. doc/flightbox/sim/weapons-and-damage.md 10.2. */
   double pitchCmd = kp * ez + NzInt_ - kd * (st.q * kDeg2Rad);
   double yawCmd = kp * ey + NyInt_ - kd * (st.r * kDeg2Rad);
+  if (std::fabs(pitchCmd) < 1.0 || ez * pitchCmd < 0.0) {
+    NzInt_ = Clamp(NzInt_ + ki * ez * dt, -kIntegralClamp, kIntegralClamp);
+    pitchCmd = kp * ez + NzInt_ - kd * (st.q * kDeg2Rad);
+  }
+  if (std::fabs(yawCmd) < 1.0 || ey * yawCmd < 0.0) {
+    NyInt_ = Clamp(NyInt_ + ki * ey * dt, -kIntegralClamp, kIntegralClamp);
+    yawCmd = kp * ey + NyInt_ - kd * (st.r * kDeg2Rad);
+  }
   double rollCmd = -kRollGain * st.roll - kRollRateGain * st.p;
 
   FinPitch_ = Clamp(pitchCmd, -1.0, 1.0);
