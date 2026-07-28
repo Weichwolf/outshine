@@ -35,6 +35,7 @@ ungeprüftes Modell und lässt `verify-models` fehlschlagen.
 | `f16/engine/direct.xml` | `engine/direct.xml` |
 | `mk82` | `aircraft/mk82` |
 | `aim120` | — |
+| `mig29` | — |
 
 Die beiden Engine-XML liegen als `f16/engine/` IM Modellverzeichnis statt in einer geteilten
 Engine-Wurzel: das ist JSBSims eigenes Pro-Flugzeug-Layout (`FGPropulsion::FindEngineFullPathname` und

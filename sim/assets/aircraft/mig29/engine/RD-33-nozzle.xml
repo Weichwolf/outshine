@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<!--
+  FlightBox — the RD-33's thruster. Thrust is computed entirely by the turbine model; this file only
+  says "apply it as a direct force", with the placement given per nacelle in mig29.xml. Identical in
+  role to the pinned F-16's engine/direct.xml.
+-->
+<direct name="RD-33 nozzle">
+</direct>

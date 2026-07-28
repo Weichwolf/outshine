@@ -106,6 +106,7 @@ RESTRICTED = {
         "clients/FBTestCornerSpeed.cpp",
         "clients/FBTestHardLanding.cpp",
         "clients/FBTestLocDeparture.cpp",
+        "clients/FBTestMig29Envelope.cpp",
         "clients/FBTestMissileAirframe.cpp",
         "clients/FBTestTwoFdm.cpp",
     ),
