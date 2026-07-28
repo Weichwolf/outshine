@@ -143,7 +143,8 @@ void FBRadarSystem::ScanFrame(const Fdm::fb_fdm_state &st, const Units::FBUnitRe
       /* Das Tor gegen DIESES Ziel: Rueckstrahlquerschnitt aus seiner publizierten Signatur, vierte
        * Wurzel (Radargleichung). Ein verfuehrter Look misst die WOLKE — deren Groesse steckt schon in
        * SelectDecoy's RCS/r^4-Vergleich, also bleibt fuer sie das unskalierte Tor stehen. */
-      bool inVolume = rangeM <= (decoy ? GateRangeM(v) : GateRangeM(v, sig.RcsM2)) &&
+      bool inVolume = rangeM <= (decoy ? GateRangeM(v) : GateRangeM(v, sig.RcsM2)) *
+                                    LookDownFactor(elevAngleDeg) &&
                       std::fabs(FBWrap180(azDeg - v.AzCenterDeg)) <= v.AzHalfDeg &&
                       std::fabs(elDeg - v.ElCenterDeg) <= v.ElHalfDeg;
 

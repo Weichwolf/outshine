@@ -51,6 +51,36 @@ ungeprüftes Modell und lässt `verify-models` fehlschlagen.
 | `cbu87` | — |
 | `fab250` | — |
 | `fab500` | — |
+| `f15c` | — |
+| `su27` | — |
+| `mig21` | — |
+| `mig23` | — |
+| `mig25` | — |
+| `mig17` | — |
+| `su7` | — |
+| `su22` | — |
+| `mirf1` | — |
+| `f5e` | — |
+| `k13` | — |
+| `r60` | — |
+| `r24r` | — |
+| `r40r` | — |
+| `aim7` | — |
+| `s530f` | — |
+| `magic1` | — |
+
+Die **zehn Katalog-Jets** (`f15c` `su27` `mig21` `mig23` `mig25` `mig17` `su7` `su22` `mirf1` `f5e`)
+sind FlightBox-eigene Modelle aus EINEM Rezept und werden nicht von Hand geschrieben, sondern
+GENERIERT: `sim/tools/gen_air_decks.py` erzeugt sie aus den je acht publizierten Ankern der Zeile
+(`doc/modules/air/catalogue.md`) durch geschlossene Inversion. `tools/gen_air_decks.py --check` prueft,
+dass die eingecheckten Decks exakt das sind, was das Rezept ausgibt — eine Handaenderung an einem
+generierten Deck ist ein Defekt, kein Delta. Verfahren, Analogien, Bänder: `doc/modules/air/flight-model-recipe.md`.
+
+Die **sieben Luft-Luft-Runden der Katalog-Jets** (`k13` `r60` `r24r` `r40r` `aim7` `s530f` `magic1`)
+kommen aus demselben Schlankkörper-Rezept wie die sechs Boden-Luft-Runden, generiert von
+`sim/tools/gen_air_stores.py`. Der eine Unterschied zur Boden-Variante steht in jedem Banner: dV ist
+hier ein DELTA ueber die 250-m/s-Trennungsgeschwindigkeit, denn diese Runden verlassen eine Schiene mit
+voller aerodynamischer Autoritaet.
 
 Die sechs Boden-Luft-Runden (`v750` `v601` `3m9` `9m33` `strela2` `igla`) sind FlightBox-eigene Modelle
 aus EINEM Rezept: der nicht-dimensionale Schlankkörper-Satz des AIM-120-Decks, je Zeile aus dem

@@ -146,7 +146,7 @@ void FBDatalinkSystem::Cycle(const Fdm::fb_fdm_state &st, const Units::FBUnitReg
 
 void FBDatalinkSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, const Units::FBUnitRegistry *net,
                            double simTimeS) {
-  FBDatalinkBlock &b = state.Datalink;
+  FBDatalinkBlock &b = Block(state);
   b.Powered = Powered_;
   b.Transmitting = Transmitting();
 

@@ -1,0 +1,30 @@
+name air-tier-refused
+timeout 60
+
+# THE TIER GATE BITES — doc/modules/air/module.md §Spec 5's admission rule, and it is a ZUSICHERUNG
+# rather than a comfort.
+#
+# doc/pilot.md's close-combat law INVERTS an identified roll plant (p_dot = -a*p + K*da). With another
+# aircraft's plant it is not a limiter but an oscillator, and the two numbers are per-airframe
+# MEASUREMENTS: the MiG-29 rolls 2.6x harder for the same stick than the F-16 (a = 0.819 / K = 201
+# against 0.734 / 78.7). A GENERATED deck has no plant at all until step 7 of the flight-model recipe
+# measures one on it — and step 8 grants the tier only once the deck has also passed the deviation bands
+# of recipe §7.1. TODAY NO CATALOGUE DECK HAS PASSED THEM (`make -C sim test-air`: ten of ten rows
+# ALPHA), so no row carries a plant and `set task bfm` is refused on ALL of them.
+#
+# `mig17` is a T2 row — a visual fighter, guns and eyes, the tier that OWNS `bfm` — and it is refused
+# anyway, which is the point: the gate reads the MEASUREMENT and not the tier label.
+#
+# READING RULE: exit 1 is the PASS. events.log must carry
+#   ERROR module SET_INVALID_VALUE key=task value=bfm reason="this row's ROLL PLANT IS UNMEASURED ..."
+#   ERROR mission SET_REJECTED key=task value=bfm
+# and the run must never start. A run that FLIES is the failure — that is a catalogue cell flying the
+# close-combat law on somebody else's aeroplane.
+
+unit fresco
+  team hostile
+  module mig17
+  spawn 46.90000 6.40000 4000 90.0 400
+  set gear up
+  set task bfm
+  wp 46.90000 7.00000 4000 400

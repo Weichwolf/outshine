@@ -15,7 +15,9 @@ enum class FBStoreKind : uint8_t { None = 0, Mk82, Aim120, Aim9, R73, R27r,
                                    /* the surface-to-air rounds (doc/modules/ground/catalogue.md) */
                                    V750, V601, M3m9, M9m33, Strela2, Igla,
                                    /* the air-to-ground stores (doc/air-to-ground.md §§2-3) */
-                                   Agm88, Mk84, Gbu12, Cbu87, Fab250, Fab500 };
+                                   Agm88, Mk84, Gbu12, Cbu87, Fab250, Fab500,
+                                   /* the catalogue aircraft's rounds (doc/modules/air/catalogue.md) */
+                                   K13, R60, R24r, R40r, Aim7, S530f, Magic1 };
 
 /* WHAT KIND OF SEEKER a guided round carries — and therefore which SENSOR SLOT modules/missile gives
  * it, which is the whole difference between the three guided weapons in the tree. Not a behaviour flag
@@ -515,11 +517,79 @@ inline constexpr FBStoreSpec kFab500{
     /*Seeker*/ FBSeekerKind::None, /*FovHalf*/ 0.0, /*GimbalHalf*/ 0.0, /*GatherS*/ 0.0,
     /*SeekerMemoryS*/ 0.0, /*ReleaseMinKt*/ 269.98, /*ReleaseMaxKt*/ 539.96};
 
+/* ---- THE SEVEN AIR-TO-AIR ROUNDS OF THE CATALOGUE AIRCRAFT (doc/modules/air/catalogue.md) ---------
+ * One recipe, seven rows, and it is the AIM-9/R-73/R-27R recipe unchanged — reference area = the body
+ * cross-section from the published diameter, DragAreaFt2 = 0.43 * S_ft2, DragCoefA 0.55 (they all fly
+ * the same slender-body deck), the motor sized by the rocket equation at Isp 235 s over a DELTA above
+ * the 250 m/s separation speed. Every number below is printed by `tools/gen_air_stores.py --cpp`, which
+ * also writes the decks, so the catalogue row and the XML cannot say two different things.
+ * FuzeRadiusM is [DERIVED] from the AIM-120's [SET] 10 m at 20.5 kg by r ~ sqrt(m), the identical
+ * relation the R-27R row above uses.
+ *
+ * FOUR OF THE SEVEN ARE SEMI-ACTIVE and therefore BIND THE SHOOTER TO IMPACT (FBSeekerHandoverS -1).
+ * That is the catalogue's normal case rather than its exception, and it is why doc/weapons.md needed
+ * NO new seeker kind for any of this. */
+
+/* K-13 / R-13M. The read source gives 0.97-3.5 km, which is SHORT against commonly quoted R-13M
+ * figures; carried as read and marked [TODO] for a second source (catalogue D9). Rear-aspect only —
+ * expressed by the 40 deg gimbal plus the infrared aspect law the seeker slot already runs. */
+inline constexpr FBStoreSpec kK13{
+    FBStoreKind::K13, "k13", "k13", 198.4, 0.0586, 60.0,
+    /*Guided*/ true, /*RequiresLock*/ true, /*FuzeRadiusM*/ 6.0, /*WarheadKg*/ 7.4,
+    FBWeaponPerf{7912.0, 5.0, 0.0, 0.0, 90.0, 72.8, 0.55, 0.012668, 200.0, 0.0, 3500.0, 1.0},
+    /*Seeker*/ FBSeekerKind::Infrared, /*FovHalf*/ 5.0, /*GimbalHalf*/ 40.0};
+
+/* R-60: the short, light, wide-gimbal round four eastern rows carry. */
+inline constexpr FBStoreSpec kR60{
+    FBStoreKind::R60, "r60", "r60", 97.0, 0.0523, 60.0,
+    /*Guided*/ true, /*RequiresLock*/ true, /*FuzeRadiusM*/ 3.8, /*WarheadKg*/ 3.0,
+    FBWeaponPerf{6341.0, 3.0, 0.0, 0.0, 44.0, 35.7, 0.55, 0.011310, 200.0, 0.0, 8000.0, 0.8},
+    /*Seeker*/ FBSeekerKind::Infrared, /*FovHalf*/ 5.0, /*GimbalHalf*/ 45.0};
+
+/* R-24R, "comparable to the AIM-7 Sparrow" [T4] — the MiG-23's BVR round, SARH, bound to impact. */
+inline constexpr FBStoreSpec kR24r{
+    FBStoreKind::R24r, "r24r", "r24r", 489.4, 0.1808, 90.0,
+    /*Guided*/ true, /*RequiresLock*/ true, /*FuzeRadiusM*/ 11.0, /*WarheadKg*/ 25.0,
+    FBWeaponPerf{24650.0, 3.0, 9860.0, 5.0, 222.0, 168.5, 0.55, 0.039057, 250.0, 0.0, 35000.0, 1.5},
+    /*Seeker*/ FBSeekerKind::SemiActiveRadar, /*FovHalf*/ 10.0, /*GimbalHalf*/ 50.0};
+
+/* R-40R: the biggest air-to-air round in the tree by a factor of two, and the reason the MiG-25 is
+ * worth having even though it cannot turn. WarheadKg 38 is the LOWER bound of the sourced 38-100 kg. */
+inline constexpr FBStoreSpec kR40r{
+    FBStoreKind::R40r, "r40r", "r40r", 1047.2, 0.3493, 120.0,
+    /*Guided*/ true, /*RequiresLock*/ true, /*FuzeRadiusM*/ 13.6, /*WarheadKg*/ 38.0,
+    FBWeaponPerf{56226.0, 4.0, 23001.0, 8.0, 475.0, 297.6, 0.55, 0.075477, 300.0, 0.0, 80000.0, 2.0},
+    /*Seeker*/ FBSeekerKind::SemiActiveRadar, /*FovHalf*/ 10.0, /*GimbalHalf*/ 50.0};
+
+/* AIM-7F/M Sparrow. THE PAIRING THIS ROUND EXISTS FOR: an F-15C with Sparrows fights the MiG-29's
+ * bound fight (cannot defend while supporting) and the same aircraft with AMRAAMs fights the F-16's. */
+inline constexpr FBStoreSpec kAim7{
+    FBStoreKind::Aim7, "aim7", "aim7", 509.3, 0.1498, 90.0,
+    /*Guided*/ true, /*RequiresLock*/ true, /*FuzeRadiusM*/ 14.0, /*WarheadKg*/ 40.0,
+    FBWeaponPerf{35363.0, 3.0, 11788.0, 6.0, 231.0, 154.3, 0.55, 0.032365, 250.0, 0.0, 70000.0, 1.5},
+    /*Seeker*/ FBSeekerKind::SemiActiveRadar, /*FovHalf*/ 10.0, /*GimbalHalf*/ 50.0};
+
+/* Super 530F: the Mirage F1's SARH round, and the western half of W2's problem. */
+inline constexpr FBStoreSpec kS530f{
+    FBStoreKind::S530f, "s530f", "s530f", 540.1, 0.2514, 60.0,
+    /*Guided*/ true, /*RequiresLock*/ true, /*FuzeRadiusM*/ 12.1, /*WarheadKg*/ 30.0,
+    FBWeaponPerf{54837.0, 2.5, 18455.0, 4.0, 245.0, 153.5, 0.55, 0.054325, 250.0, 0.0, 25000.0, 1.5},
+    /*Seeker*/ FBSeekerKind::SemiActiveRadar, /*FovHalf*/ 10.0, /*GimbalHalf*/ 50.0};
+
+/* R550 Magic 1: the widest gimbal in the catalogue, and free at launch like every infrared round. */
+inline constexpr FBStoreSpec kMagic1{
+    FBStoreKind::Magic1, "magic1", "magic1", 196.2, 0.0896, 60.0,
+    /*Guided*/ true, /*RequiresLock*/ true, /*FuzeRadiusM*/ 7.9, /*WarheadKg*/ 12.7,
+    FBWeaponPerf{12353.0, 4.0, 0.0, 0.0, 89.0, 67.6, 0.55, 0.019359, 200.0, 0.0, 10000.0, 1.0},
+    /*Seeker*/ FBSeekerKind::Infrared, /*FovHalf*/ 5.0, /*GimbalHalf*/ 55.0};
+
 inline constexpr const FBStoreSpec *kStoreCatalogue[] = {&kMk82, &kAim120, &kAim9, &kR73, &kR27r,
                                                          &kV750, &kV601, &k3m9, &k9m33, &kStrela2,
                                                          &kIgla,
                                                          &kAgm88, &kMk84, &kGbu12, &kCbu87,
-                                                         &kFab250, &kFab500};
+                                                         &kFab250, &kFab500,
+                                                         &kK13, &kR60, &kR24r, &kR40r, &kAim7,
+                                                         &kS530f, &kMagic1};
 
 inline const FBStoreSpec *FBFindStore(const char *key) {
   if (!key) return nullptr;

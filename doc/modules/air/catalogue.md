@@ -9,7 +9,11 @@ anchor set** — and nothing else.
 tiers and the anti-cheat argument are [`module.md`](module.md); the procedure that turns the
 performance anchors into a JSBSim deck is [`flight-model-recipe.md`](flight-model-recipe.md).
 
-**Status: SPECIFIED, NOT BUILT.** No row exists in code, no deck is generated, no `.fbm` flies one.
+**Status: BUILT 2026-07-28.** All eighteen rows exist as `core/FBAircraft.h` entries and
+`FBModuleRegistry` keys, ten decks and seven rounds are generated, and five `.fbm` files fly them.
+**Every deck row is `ALPHA`** — see [`flight-model-recipe.md`](flight-model-recipe.md) `## State` for
+the residual table. Two numbers in this file MOVED during the build and are marked below: the six guns'
+ballistics, declared `[TODO]` here and filled at [T4] because a gun cannot be built without them.
 
 **Schema:** the same as [`../mig29/`](../mig29/INDEX.md) and
 [`../ground/catalogue.md`](../ground/catalogue.md) — every number carries a **source** and a
@@ -353,6 +357,10 @@ important anchor. **It will be the recipe's worst row and that is predicted, not
 | **A7** | VK-1F: **26.5 kN / 33.8 kN AB** | [T4] |
 | **A8** | wing area **22.6 m²** · span 9.628 m · length 11.264 m | [T4] |
 | RWR / CM | **none / none** | [T4], by absence |
+
+**BUILT NOTE:** the N-37 is a `core/FBGun.h` row and is NOT what this aeroplane flies — `modules/air`
+composes ONE gun slot, so the row flies its NR-23 pair and the heavy cannon is stated rather than
+silently dropped. A second barrel group per airframe is a `weapons/` change, not a catalogue one.
 
 **FlightBox row:** `Motion = deck`, `Tier = **T2**`. `SearchRangeM = 0` — acquisition is `FBAirEye`, the
 `FBVisualSystem` verbatim, and therefore **3 784 m beam-on, 2 493 m head-on, zero at night**, measured
@@ -715,7 +723,7 @@ finite and it is here so nobody has to reconstruct it from eighteen rows.
 | Radar detection range | `f5e`, `su7`, `su22`, `ah64` | `[TODO]` — and for `f5e`/`su7`/`su22` the **eye binds instead**, which is a design and not a hole |
 | **Target RCS the range was measured against** | **every row except `su27`** | the catalogue's largest quiet uncertainty; §`su27` shows the conversion that the others cannot get |
 | Radar cross-section of the row itself | **all eighteen** | `[TODO]`, with the reason [`../ground/cast.md`](../ground/cast.md) already gave: two measured cross-sections exist in the tree and inventing sixteen more would not be cheap to spot |
-| Gun muzzle velocity, rate of fire, round mass | all six new gun rows | `[TODO]` — it multiplies every kinetic damage number linearly |
+| Gun muzzle velocity, rate of fire, round mass | all six new gun rows | **FILLED AT [T4] BY THE BUILD ROUND (2026-07-28)**, because a gun cannot be built without them and six rows that compile and do nothing are worse than six rows at the tier the rest of this file's weapon half sits at. `gsh23l` 715 m/s / 3 400 rpm / 0.175 kg · `nr23` 690 / 850 / 0.200 · `n37` 690 / 400 / 0.735 · `nr30` 780 / 900 / 0.410 · `defa553` 815 / 1 300 / 0.275 · `m39a2` 1 030 / 1 500 / 0.100. Dispersion is [SET] at the M61A1's measured sigma for all six, as the two ground guns already take it. A [T1] source would move these, and each multiplies its row's kinetic damage linearly |
 | Warning-receiver type | `mig21` `mig23` `mirf1` `f5e` `su22` `tu95` `ef111` `ah64` | `[TODO]` |
 | Countermeasure fit | all but `f15c` and `mig25` | `[TODO]` |
 | IRST reach | all but `mig25` | `[TODO]` |

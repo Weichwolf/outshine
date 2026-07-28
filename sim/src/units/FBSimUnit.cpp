@@ -168,7 +168,10 @@ void FBSimUnit::ApplyDamageToAirframe() {
 FBMissionMonitorSample FBSimUnit::BuildMissionSample(const FBMissionRoster &roster) const {
   FBMissionMonitorSample s;
   s.LatDeg = St_.lat; s.LonDeg = St_.lon; s.ElevM = St_.elev;
-  s.AnyWow = Fdm_ ? Fdm_->GetWow() : true;   /* no airframe = on the ground, by definition */
+  /* No airframe = on the ground, UNLESS the module says otherwise: a kinematic air mover has no
+   * FBFdm and is nonetheless flying, and a WOW bit that claimed otherwise would be wrong for
+   * every consumer of it (the release interlock is only the first). */
+  s.AnyWow = Fdm_ ? Fdm_->GetWow() : !Module_->Airborne();
   s.GroundSpeedKt = St_.gs * kMsToKt;
   s.CombatIneffective = !Health_.CombatEffective();
   s.ReleasedWeapon = ReleasedWeapon_;

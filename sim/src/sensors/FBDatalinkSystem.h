@@ -72,6 +72,13 @@ public:
   void SampleTelemetry(FBTelemetryRow &row) const override;
 
 protected:
+  /* WHICH FBState BLOCK THIS TERMINAL PUBLISHES INTO. A block has exactly ONE writer, and on a fighter
+   * the Datalink block already carries the Link-16 PPLI that station keeping, sort and cover deferral
+   * read — so a second terminal on the same aircraft (a ground controller's feed) would silently
+   * overwrite the flight picture. One hook, one line, and the default is the block this class has
+   * always written. doc/air-defence-network.md §2 design B, made due by doc/modules/air/module.md. */
+  virtual FBDatalinkBlock &Block(FBState &state) const { return state.Datalink; }
+
   /* Der Kontaktfilter. `flightIndex` = Ordinal des Absenders unter den Teilnehmern dieser Fraktion in
    * Registry- = Missionsreihenfolge, Index 0 also der Flight Lead. */
   virtual bool AcceptContact(const Units::FBUnit &sender, int flightIndex) const {

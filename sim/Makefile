@@ -23,6 +23,9 @@
 #                 -> build/fb-test-weather
 #   make test-mig29  measure the FlightBox MiG-29 model against every envelope anchor of
 #                 doc/mig29/flight-model-spec.md §8 -> build/fb-test-mig29-envelope
+#   make test-air  measure every GENERATED catalogue deck against its eight published anchors and the
+#                 deviation bands of doc/modules/air/flight-model-recipe.md §7.1
+#                 -> build/fb-test-air-envelope
 #   make verify-models  every model copy under assets/aircraft differs from the pinned submodule by
 #                 EXACTLY the deltas assets/MODEL-DELTAS.md names -- no unexplained byte
 #   make verify-layers  src/ is a stack and every #include points DOWN it -- the directory tree, the
@@ -74,7 +77,7 @@ JSB_HOST     := build/jsbsim-host
 # FBMissionBoot/FBTickPool); clients = the entry points; render = FBRenderer + the WebGPU stages;
 # world = FBWorld/tile streaming, with world/terrain the lean terrain API (flat) under it;
 # vendor/jsbsim/src = the JSBSim headers.
-INC_MODULES := -Isrc/core -Isrc/render -Isrc/world -Isrc/units -Isrc/systems -Isrc/sensors -Isrc/weapons -Isrc/pilot -Isrc/modules -Isrc/modules/f16 -Isrc/modules/f16/displays -Isrc/modules/mig29 -Isrc/modules/stores -Isrc/modules/missile -Isrc/modules/ground
+INC_MODULES := -Isrc/core -Isrc/render -Isrc/world -Isrc/units -Isrc/systems -Isrc/sensors -Isrc/weapons -Isrc/pilot -Isrc/modules -Isrc/modules/f16 -Isrc/modules/f16/displays -Isrc/modules/mig29 -Isrc/modules/stores -Isrc/modules/missile -Isrc/modules/ground -Isrc/modules/air
 # The two roots only a CLIENT link line needs: the orchestrator and the I/O sinks it attaches.
 INC_CLIENT := -Isrc/missions -Isrc/clients
 INC_WASM   := $(INC_MODULES) -Isrc/fdm -Isrc/world/terrain -I$(JSBSIM)/src
@@ -132,6 +135,8 @@ CORE_LIB_SRCS := \
   src/modules/stores/FBStoreModule.cpp src/modules/stores/FBStoreModuleRegistration.cpp \
   src/modules/ground/FBGroundModuleRegistration.cpp \
   src/modules/ground/FBSiteModule.cpp src/modules/ground/FBSiteFireControl.cpp \
+  src/modules/air/FBAirModule.cpp src/modules/air/FBAirMover.cpp src/modules/air/FBAirPilot.cpp \
+  src/modules/air/FBAirModuleRegistration.cpp \
   src/modules/missile/FBMissileModule.cpp src/modules/missile/FBMissileModuleRegistration.cpp \
   src/modules/missile/FBMissileSeeker.cpp src/modules/missile/FBMissileIrSeeker.cpp \
   src/modules/missile/FBMissileArSeeker.cpp \
@@ -140,7 +145,7 @@ CORE_LIB_SRCS := \
   src/modules/f16/displays/FBF16Hud.cpp \
   src/units/FBSimUnit.cpp
 
-.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun test-weather test-mig29 verify-models verify-layers image up down restart clean
+.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun test-weather test-mig29 test-air verify-models verify-layers image up down restart clean
 
 help:            ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
@@ -327,6 +332,16 @@ test-mig29: core-lib     ## measure the FlightBox MiG-29 model against the spec 
 	    -lpthread -ldl -lm \
 	    -o build/fb-test-mig29-envelope; \
 	  echo "test-mig29 -> build/fb-test-mig29-envelope"
+
+test-air: core-lib       ## measure every generated catalogue deck against its eight published anchors -> build/fb-test-air-envelope
+	@cd $(SELF_DIR); set -e; \
+	  c++ src/clients/FBTestAirEnvelope.cpp src/clients/FBLogSinks.cpp \
+	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
+	    -std=c++17 -O2 $(CXX_WARN) \
+	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
+	    -lpthread -ldl -lm \
+	    -o build/fb-test-air-envelope; \
+	  echo "test-air -> build/fb-test-air-envelope"
 
 test-missile: core-lib   ## fly the FlightBox AIM-120 model open-loop (motor/drag/trim proof) -> build/fb-test-missile-airframe
 	@cd $(SELF_DIR); set -e; \

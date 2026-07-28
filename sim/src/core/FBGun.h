@@ -14,7 +14,9 @@
 namespace FlightBox {
 
 /* Append only — the ordinal is telemetry-visible. None = this aircraft carries no gun. */
-enum class FBGunKind : uint8_t { None = 0, M61A1, Gsh301, Azp23, Zu23 };
+enum class FBGunKind : uint8_t { None = 0, M61A1, Gsh301, Azp23, Zu23,
+                                 /* the catalogue aircraft's guns (doc/modules/air/catalogue.md) */
+                                 Gsh23l, Nr23, N37, Nr30, Defa553, M39a2 };
 
 struct FBGunSpec {
   FBGunKind Kind = FBGunKind::None;
@@ -102,7 +104,71 @@ inline constexpr FBGunSpec kZu23{FBGunKind::Zu23, "zu23",
                                  /*DragCoef*/ 0.30, /*DispersionSigmaRad*/ 2.2295e-3,
                                  /*MaxBurstS*/ 1.0};
 
-inline constexpr const FBGunSpec *kGunCatalogue[] = {&kM61A1, &kGsh301, &kAzp23, &kZu23};
+/* ---- THE SIX GUNS OF THE CATALOGUE AIRCRAFT (doc/modules/air/catalogue.md) ------------------------
+ * THE CATALOGUE DECLARED ALL SIX ROWS' BALLISTICS [TODO] — round COUNTS are sourced, muzzle velocity,
+ * rate of fire and round mass are not — and named that "the catalogue's largest single gap". A gun
+ * cannot be BUILT without them, so this build filled them at [T4] (encyclopaedic consensus on the
+ * cartridge, which is the level the rest of the catalogue's weapon half sits at) rather than leaving
+ * six guns that compile and do nothing. Each number below is therefore [T4] and the catalogue's own
+ * gap list now says so; a [T1] source would move them, and it multiplies every kinetic damage figure
+ * linearly.
+ *
+ * DispersionSigmaRad is [SET] at the M61A1's measured value for all six, exactly as the two ground
+ * guns already take it: no dispersion figure was found for any of them, and six different invented
+ * ones would be worse than one shared measured one. MaxBurstS 1.0 [SET] throughout — a trigger command
+ * is ONE action and needs a duration. */
+
+/* GSh-23L, the twin-barrel Gryazev-Shipunov of the MiG-21 and MiG-23. 23x115 mm. */
+inline constexpr FBGunSpec kGsh23l{FBGunKind::Gsh23l, "gsh23l",
+                                   /*MuzzleVelMs*/ 715.0, /*RoundsPerMin*/ 3400.0, /*Capacity*/ 200,
+                                   /*SpoolUpS*/ 0.0, /*RoundMassKg*/ 0.175, /*RoundDiaM*/ 0.023,
+                                   /*DragCoef*/ 0.30, /*DispersionSigmaRad*/ 2.2295e-3,
+                                   /*MaxBurstS*/ 1.0};
+
+/* NR-23, the MiG-17F's pair of wing-root cannon. Capacity is the PAIR (2 x 80 [T4]). */
+inline constexpr FBGunSpec kNr23{FBGunKind::Nr23, "nr23",
+                                 /*MuzzleVelMs*/ 690.0, /*RoundsPerMin*/ 850.0, /*Capacity*/ 160,
+                                 /*SpoolUpS*/ 0.0, /*RoundMassKg*/ 0.200, /*RoundDiaM*/ 0.023,
+                                 /*DragCoef*/ 0.30, /*DispersionSigmaRad*/ 2.2295e-3,
+                                 /*MaxBurstS*/ 1.0};
+
+/* N-37, the MiG-17F's single heavy cannon. 37x155 mm, 40 rounds [T4]. IT IS A ROW AND NOT AN
+ * INSTALLATION: modules/air composes ONE gun slot, so the MiG-17 flies its NR-23 pair and this row
+ * exists so the difference is stated rather than silently dropped (module.md's "grob where it does not
+ * decide"). A second barrel group per airframe is a weapons/ change, not a catalogue one. */
+inline constexpr FBGunSpec kN37{FBGunKind::N37, "n37",
+                                /*MuzzleVelMs*/ 690.0, /*RoundsPerMin*/ 400.0, /*Capacity*/ 40,
+                                /*SpoolUpS*/ 0.0, /*RoundMassKg*/ 0.735, /*RoundDiaM*/ 0.037,
+                                /*DragCoef*/ 0.30, /*DispersionSigmaRad*/ 2.2295e-3,
+                                /*MaxBurstS*/ 1.0};
+
+/* NR-30, the Sukhoi strike pair. 30x155 mm — the heaviest projectile in the tree that still fits the
+ * gun path's 3 s / 3 000 m projectile-pool caps at 780 m/s (2 340 m of path). */
+inline constexpr FBGunSpec kNr30{FBGunKind::Nr30, "nr30",
+                                 /*MuzzleVelMs*/ 780.0, /*RoundsPerMin*/ 900.0, /*Capacity*/ 160,
+                                 /*SpoolUpS*/ 0.0, /*RoundMassKg*/ 0.410, /*RoundDiaM*/ 0.030,
+                                 /*DragCoef*/ 0.30, /*DispersionSigmaRad*/ 2.2295e-3,
+                                 /*MaxBurstS*/ 1.0};
+
+/* DEFA 553, the Mirage F1's pair. 30x113 mm, 150 rounds per gun [T4] -> 300 for the pair. */
+inline constexpr FBGunSpec kDefa553{FBGunKind::Defa553, "defa553",
+                                    /*MuzzleVelMs*/ 815.0, /*RoundsPerMin*/ 1300.0, /*Capacity*/ 300,
+                                    /*SpoolUpS*/ 0.0, /*RoundMassKg*/ 0.275, /*RoundDiaM*/ 0.030,
+                                    /*DragCoef*/ 0.30, /*DispersionSigmaRad*/ 2.2295e-3,
+                                    /*MaxBurstS*/ 1.0};
+
+/* M39A2, the F-5E's nose pair. 20x102 mm, 280 rounds per gun [T4] -> 560 for the pair. Same cartridge
+ * family as the M61A1, so it shares that gun's measured projectile numbers rather than inventing new
+ * ones — what differs is the rate and the count. */
+inline constexpr FBGunSpec kM39a2{FBGunKind::M39a2, "m39a2",
+                                  /*MuzzleVelMs*/ 1030.0, /*RoundsPerMin*/ 1500.0, /*Capacity*/ 560,
+                                  /*SpoolUpS*/ 0.0, /*RoundMassKg*/ 0.100, /*RoundDiaM*/ 0.020,
+                                  /*DragCoef*/ 0.30, /*DispersionSigmaRad*/ 2.2295e-3,
+                                  /*MaxBurstS*/ 1.0};
+
+inline constexpr const FBGunSpec *kGunCatalogue[] = {&kM61A1, &kGsh301, &kAzp23, &kZu23,
+                                                     &kGsh23l, &kNr23, &kN37, &kNr30, &kDefa553,
+                                                     &kM39a2};
 
 inline const FBGunSpec *FBFindGun(const char *key) {
   if (!key) return nullptr;

@@ -25,6 +25,7 @@ void FBRegisterMig29Module();
 void FBRegisterStoreModules();
 void FBRegisterMissileModules();
 void FBRegisterGroundModules();
+void FBRegisterAirModules();
 
 /* Every module this link target was built with. Idempotent; call once before the first Create(). */
 void FBRegisterBuiltinModules();

@@ -32,6 +32,9 @@ struct FBState {
    * appending here shifts nothing that was ever measured. */
   FBIrstBlock        Irst;
   FBVisualBlock      Visual;
+  /* The SECOND comms block, and the one interface price doc/modules/air/module.md §Spec 7 names in
+   * advance: a controller feed needs its own, because the one above it is occupied. */
+  FBNetLinkBlock     NetLink;
 };
 
 } // namespace FlightBox

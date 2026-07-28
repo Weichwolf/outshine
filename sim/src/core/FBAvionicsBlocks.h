@@ -293,5 +293,15 @@ struct FBVisualBlock {
   FBVisualContact Contacts[kMaxVisualContacts]{};
 };
 
+/* ---- NETLINK: what a GROUND CONTROLLER told this aircraft to look at. WRITER:
+ * sensors/FBNetLinkSystem, a thin derivation of FBDatalinkSystem that publishes HERE instead of into
+ * FBDatalinkBlock. Same type, different block, and the reason is the whole of it: a block has one
+ * writer, the Datalink block already carries the cooperative flight's Link-16 PPLI, and a controller
+ * feed written into it would overwrite the picture doc/formation.md's station keeping, sort and cover
+ * deferral all read. What arrives here is a POINT with an age and no identity (core/FBNetReport.h) —
+ * it moves an antenna and it is never a track. doc/modules/air/module.md §Spec 7.
+ * APPENDED LAST, same column rule as the two blocks above it. */
+using FBNetLinkBlock = FBDatalinkBlock;
+
 } // namespace FlightBox
 #endif

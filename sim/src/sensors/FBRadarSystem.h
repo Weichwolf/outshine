@@ -184,6 +184,15 @@ protected:
     return g * std::pow(targetRcsM2 / kRefRcsM2, 0.25);
   }
 
+  /* WHAT THIS SET CAN SEE BELOW ITSELF, as a factor on its own gate at that look angle. 1.0 = no
+   * limit, which is every set written before catalogue radars existed, so nothing measured moves.
+   * A hook and not a constant because it is the whole aircraft for two catalogue rows: the RP-22
+   * "couldn't intercept targets flying under the MiG" (factor 0 below the horizon) while the N003E
+   * manages 14 km head-on against a 52 km search range (factor 0.27). The argument is the target's
+   * elevation angle in the WORLD frame — a look-down limit is about ground clutter under the beam and
+   * therefore about the horizon, not about where the nose happens to point. doc/modules/air/module.md. */
+  virtual double LookDownFactor(double elevAngleDeg) const { (void)elevAngleDeg; return 1.0; }
+
 private:
   /* Eine interne Trackakte. UnitId ist der Korrelationsschluessel von Look zu Look und verlaesst dieses
    * Objekt NIE — publiziert wird der anonyme FBRadarContact aus dem Rest. */

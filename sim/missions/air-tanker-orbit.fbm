@@ -1,0 +1,34 @@
+name air-tanker-orbit
+timeout 300
+
+# A FLYING MOVER MUST NOT REPORT BODENKONTAKT — doc/modules/air/module.md §Gaps collision 1, measured.
+#
+# A unit without an FBFdm yields `AnyWow = true` BY CONSTRUCTION (units/FBSimUnit::BuildMissionSample),
+# which is right for a ground position — a launcher really is on the ground — and wrong for a tanker at
+# 9 000 m. The bit is not decorative: core/FBMissionMonitor reads it, and a unit that reports weight on
+# wheels away from the declared runway is judged to have TOUCHED DOWN OFF THE ASSIGNED RUNWAY and fails
+# on its first tick. So this file declares a runway 30 km from the orbit and asks the tanker to fly a
+# racetrack for five minutes.
+#
+# THE MEASUREMENT IS THE VERDICT ITSELF: exit 0 (SUCCESS, the route flown out) means the tanker was
+# airborne throughout. With the collision unresolved the same file exits 1 in its first second with
+# `touched down off the assigned runway` — one line of difference, and it is FBModule::Airborne(),
+# default false, so a ground position's `AnyWow = true` stays correct.
+#
+# WHAT ELSE THE FILE MEASURES, and it is the second half of the mover contract: the racetrack. `set
+# orbit 40000 600` closes a 40 km leg on the inbound bearing; the declared period is the STRAIGHT-LEG
+# time budget (the two semicircles add 2*pi*R/v on top), which is stated rather than solved because the
+# turn time depends on the speed it would be solving for.
+#
+# READING RULE: exit 0 with `air ORBIT axisDeg=90 legM=40000 periodS=600` in events.log is the pass.
+# Nothing in this file carries a weapon and nothing is meant to die; what a FAILURE looks like is exit 1
+# in the first second with a landing verdict on an aeroplane at 9 000 m.
+
+runway 46.84335 6.91523 441.0 228.0 2889
+
+unit shell
+  team friendly
+  module kc135
+  spawn 47.10000 6.40000 9000 90.0 460
+  set orbit 40000 600
+  wp 47.10000 6.90000 9000 460

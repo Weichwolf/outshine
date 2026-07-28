@@ -62,6 +62,13 @@ public:
    * the releasing path's statement. */
   virtual Units::FBUnitKind UnitKind() const { return Units::FBUnitKind::Aircraft; }
 
+  /* IS THIS UNIT IN THE AIR, asked of a module that has no airframe to ask. A unit without an FBFdm
+   * reports weight on wheels BY CONSTRUCTION (units/FBSimUnit::BuildMissionSample), which is right for
+   * a ground position — a launcher really is on the ground — and wrong for a kinematically integrated
+   * tanker at 25 000 ft. Default false, so every module written before this existed is unchanged.
+   * doc/modules/air/module.md §Gaps collision 1. */
+  virtual bool Airborne() const { return false; }
+
   /* WHO this module is flying — wiring, once, like AttachFdm; needed by any slot that observes OTHER
    * units (the datalink must recognise its own PPLI and know whose net it is on). */
   virtual void SetUnitIdentity(int unitId, FBUnitTeam team) { (void)unitId; (void)team; }

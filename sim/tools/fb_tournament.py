@@ -27,6 +27,7 @@ import csv
 import math
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -425,9 +426,236 @@ def run_one(job):
     return tag, r.returncode
 
 
+
+
+# =================================================================================================
+# THE ATTRIBUTION TEST — doc/modules/air/module.md §Spec 11, and the round's real acceptance.
+#
+# A catalogue opponent that decides a campaign BY BEING BADLY MODELLED turns every campaign result into
+# a measurement of our own error. Three instruments answer "did he lose as a MiG-21, or as a coarse
+# deck?", and the two this file carries are:
+#
+#   band_deck      the outcome spread when the row's DECLARED-IGNORANCE deck values are perturbed
+#                  (CD0 +-10 %, e +-10 %, Ixx +-10 %, thrust +-5 %) with the doctrine held FIXED
+#   band_doctrine  the outcome spread when the mission's DOCTRINE levers are swept with the deck held
+#                  fixed — the O1 yardstick, band = max_v O(v) - min_v O(v)
+#
+# THE VERDICT RULE: the row is admissible as an opponent iff band_deck <= 0.25 * band_doctrine. If
+# perturbing what we ADMIT WE DO NOT KNOW moves the result as far as changing the doctrine does, the
+# campaign is measuring the model — and this tool then PRINTS BOTH BANDS INSTEAD OF A RESULT. That is
+# built as the behaviour and not as a warning: `Attribution.result` is None below the threshold, and the
+# caller has nothing to print but the two numbers.
+#
+# THE THRESHOLD 0.25 IS [SET]: no source gives one, a quarter keeps the deck's contribution below the
+# doctrine's even when both extremes land the same way, and BOTH BANDS ARE PRINTED beside every result,
+# so a reader who disagrees with the number can re-decide without re-running anything.
+#
+# THE CONTROL CELL is the falsification: the same geometry flown with the row's deck REPLACED by the
+# pinned F-16 deck, keeping the row's sensors, weapons and pilot tier. If the outcome does not move, the
+# deck was not what decided and instrument 2 must have said so. A DISAGREEMENT BETWEEN THE TWO IS A
+# DEFECT OF THE INSTRUMENT, NOT A FINDING.
+# =================================================================================================
+
+# The deck perturbations, each naming the recipe quantity it moves.
+DECK_PERTURBATIONS = [
+    ("baseline", {}),
+    ("cd0-10%", {"cd0": 0.90}),
+    ("cd0+10%", {"cd0": 1.10}),
+    ("e-10%", {"e": 0.90}),
+    ("e+10%", {"e": 1.10}),
+    ("ixx-10%", {"ixx": 0.90}),
+    ("ixx+10%", {"ixx": 1.10}),
+    ("thrust-5%", {"thrust": 0.95}),
+    ("thrust+5%", {"thrust": 1.05}),
+]
+
+# The doctrine sweep, held on ONE side (the catalogue row's) so the two bands answer about the same
+# aircraft. Every lever is an existing `set pilot_*` key — mission data, not model.
+DOCTRINE_VARIANTS = [
+    ("baseline", {}),
+    ("shoot-early", {"pilot_shot_rtr": 1.6}),
+    ("shoot-late", {"pilot_shot_rtr": 0.7}),
+    ("commit-far", {"pilot_lock_nm": 30.0}),
+    ("commit-near", {"pilot_lock_nm": 8.0}),
+    ("react-fast", {"pilot_react_s": 1.0}),
+    ("react-slow", {"pilot_react_s": 8.0}),
+    ("beam-hard", {"pilot_beam_deg": 120.0}),
+    ("press-on", {"pilot_abort_nm": 1.0}),
+]
+
+# The arena the two bands are measured on: the catalogue row against one F-16, head-on, co-altitude,
+# both outside their own search gates at t=0. The F-16 side never changes, so every point of both bands
+# differs from every other in exactly one declared quantity.
+ATTR_TPL = """name attr-{tag}
+timeout 300
+
+unit bandit
+  team hostile
+  module {row}
+  spawn 46.90000 7.70000 8000 270.0 450
+  set gear up
+  set task intercept
+{stores}  set brief_master_arm arm
+{tuning}  wp 46.90000 5.90000 8000 450
+  objective survive
+
+unit viper
+  team friendly
+  module {control}
+  spawn 46.90000 6.40000 8000 90.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink off
+  set fcr_mode crm
+  set store 3 aim120
+  set store 7 aim120
+  set brief_master_arm arm
+  set task intercept
+  wp 46.90000 8.35000 8000 450
+  objective kill unit bandit
+  objective survive
+"""
+
+# What each catalogue row shoots, from its own catalogue entry — held FIXED across both bands, because
+# the control cell's whole point is that only the DECK changes.
+ROW_STORES = {
+    "mig17": "",
+    "mig21": "  set store 1 r60\n  set store 2 r60\n",
+    "mig23": "  set store 1 r24r\n  set store 2 r24r\n",
+    "mig25": "  set store 1 r40r\n  set store 2 r40r\n",
+    "su7": "",
+    "su22": "  set store 1 r60\n  set store 2 r60\n",
+    "mirf1": "  set store 1 s530f\n  set store 2 magic1\n",
+    "f5e": "  set store 1 aim9\n  set store 2 aim9\n",
+    "f15c": "  set store 1 aim7\n  set store 2 aim7\n",
+    "su27": "  set store 1 r27r\n  set store 2 r27r\n",
+}
+
+
+def attr_mission(tag, row, params, control=None):
+    return ATTR_TPL.format(
+        tag=tag, row=row, control=control or "f16", stores=ROW_STORES.get(row, ""),
+        tuning="".join("  set %s %g\n" % kv for kv in sorted(params.items())))
+
+
+# THE CONTROL CELL'S deck donor. A module key binds a deck AND its sensors, so the cell cannot be flown
+# by swapping the module — that would change the sensors and the weapons too, and the whole point is
+# that only the DECK moves. It is done by REGENERATING the row's own XML from ANOTHER row's anchors and
+# leaving the catalogue entry alone: same key, same radar, same rounds, same tier, a different
+# aeroplane underneath. The donor is `f15c`, whose deck is the recipe's cleanest turbofan row.
+CONTROL_DONOR = "f15c"
+
+
+def attr_outcome(outdir):
+    """ONE number per run, and it is the SAME fitness the tournament ranks on — so a band computed here
+    and a duel result printed there are the same quantity. The catalogue row's score."""
+    try:
+        bandit = read_side(os.path.join(outdir, "telemetry.csv"), "bandit")
+        viper = read_side(os.path.join(outdir, "telemetry_viper.csv"), "viper")
+    except (OSError, IndexError):
+        return None
+    duration = 0.0
+    ev = os.path.join(outdir, "events.log")
+    if os.path.exists(ev):
+        for line in open(ev):
+            m = RESULT_RE.search(line)
+            if m and m.group(1) in ("bandit", "viper"):
+                (bandit if m.group(1) == "bandit" else viper).result = m.group(2)
+            if "mission SUMMARY" in line:
+                d = re.search(r"durationS=([0-9.]+)", line)
+                if d:
+                    duration = float(d.group(1))
+    return score(bandit, viper, duration)[0]
+
+
+def run_attr(gym, outroot, tag, text, deck=None, row=None):
+    """One arena run. `deck` is the perturbation dict; regenerating the row's deck IN PLACE is the only
+    way to change a JSBSim model this tree offers (one model root, fdm/FBModelRoots.h), so the caller
+    MUST restore it afterwards — attribution() does, unconditionally."""
+    if deck:
+        cmd = [sys.executable, os.path.join(SIM_DIR, "tools", "gen_air_decks.py"), "--only", row]
+        for k, v in sorted(deck.items()):
+            cmd += ["--" + k, str(v)]
+        subprocess.run(cmd, cwd=SIM_DIR, capture_output=True, text=True, check=True)
+    d = os.path.join(outroot, tag)
+    os.makedirs(d, exist_ok=True)
+    path = os.path.join(d, "attr.fbm")
+    with open(path, "w") as f:
+        f.write(text)
+    subprocess.run([gym, "--mission", path, "--out", d, "--threads", "1"], cwd=SIM_DIR,
+                   capture_output=True, text=True)
+    return attr_outcome(d)
+
+
+def restore_decks():
+    """Put the asset tree back EXACTLY as the recipe writes it. The directories are removed first,
+    because the control cell writes a DONOR's engine file into the target row's directory and a plain
+    regeneration would leave it behind — measured: `tools/gen_air_decks.py --check` failed on three rows
+    after the first attribution run, with an F100 deck sitting next to a turbojet."""
+    for key in ROW_STORES:
+        shutil.rmtree(os.path.join(SIM_DIR, "assets", "aircraft", key), ignore_errors=True)
+    subprocess.run([sys.executable, os.path.join(SIM_DIR, "tools", "gen_air_decks.py")],
+                   cwd=SIM_DIR, capture_output=True, text=True, check=True)
+
+
+def attribution(gym, outroot, row, threshold=0.25):
+    try:
+        deck_pts, doc_pts = [], []
+        for name, pert in DECK_PERTURBATIONS:
+            o = run_attr(gym, outroot, "%s-deck-%s" % (row, name), attr_mission(row + name, row, {}),
+                         pert, row)
+            deck_pts.append((name, o))
+        restore_decks()
+        for name, params in DOCTRINE_VARIANTS:
+            o = run_attr(gym, outroot, "%s-doc-%s" % (row, name),
+                         attr_mission(row + name, row, params))
+            doc_pts.append((name, o))
+        subprocess.run([sys.executable, os.path.join(SIM_DIR, "tools", "gen_air_decks.py"),
+                        "--only", CONTROL_DONOR, "--as", row], cwd=SIM_DIR, capture_output=True,
+                       text=True, check=True)
+        control = run_attr(gym, outroot, "%s-control" % row, attr_mission(row + "control", row, {}))
+    finally:
+        restore_decks()
+
+    dv = [o for _, o in deck_pts if o is not None]
+    ov = [o for _, o in doc_pts if o is not None]
+    band_deck = (max(dv) - min(dv)) if dv else float("nan")
+    band_doc = (max(ov) - min(ov)) if ov else float("nan")
+    base = dict(deck_pts).get("baseline")
+
+    print("\n" + "=" * 96)
+    print("ATTRIBUTION — %s   (module.md §Spec 11: did he lose as a %s, or as a coarse deck?)" % (row, row))
+    print("=" * 96)
+    print("  deck perturbations (doctrine FIXED) — the four quantities the recipe declares it does not know")
+    for name, o in deck_pts:
+        print("    %-12s %s" % (name, "-" if o is None else "%+9.1f" % o))
+    print("  doctrine sweep (deck FIXED) — every lever is an existing `set pilot_*` key")
+    for name, o in doc_pts:
+        print("    %-12s %s" % (name, "-" if o is None else "%+9.1f" % o))
+    print("  control cell (the row's DECK replaced by the pinned F-16's, sensors/weapons/tier held): %s"
+          % ("-" if control is None else "%+.1f" % control))
+    print("  ---------------------------------------------------------------------------")
+    print("  band_deck      = %10.1f" % band_deck)
+    print("  band_doctrine  = %10.1f" % band_doc)
+    ratio = band_deck / band_doc if band_doc > 1e-9 else float("inf")
+    print("  ratio          = %10.3f   (admissible iff <= %.2f)" % (ratio, threshold))
+    if band_doc > 1e-9 and ratio <= threshold:
+        print("  VERDICT: ADMISSIBLE — the campaign is measuring the doctrine, and the result is")
+        print("           %+.1f, printed WITH both bands beside it." % (base if base is not None else float("nan")))
+        return 0
+    print("  VERDICT: NOT ADMISSIBLE AS A CAMPAIGN OPPONENT. Perturbing what we admit we do not know")
+    print("           moves the outcome as far as changing the doctrine does, so this file prints THE")
+    print("           TWO BANDS INSTEAD OF A RESULT. There is no result line above and that is the")
+    print("           output, not an omission.")
+    return 1
+
+
 def main():
     ap = argparse.ArgumentParser(description="pilot-variant tournament (see the module docstring)")
-    ap.add_argument("--variants", required=True, help="variant file: '<name> pilot_key=value ...' per line")
+    ap.add_argument("--attribution", action="append", default=[],
+                    help="run doc/modules/air/module.md §Spec 11's two-band attribution test for this "
+                         "catalogue row instead of a tournament (repeatable)")
+    ap.add_argument("--variants", help="variant file: '<name> pilot_key=value ...' per line")
     ap.add_argument("--out", required=True, help="output directory (one sub-directory per run)")
     ap.add_argument("--gym", default=os.path.join(SIM_DIR, "build", "fb-gym"))
     ap.add_argument("--geometry", default="mirror", choices=sorted(GEOMETRIES))
@@ -441,6 +669,15 @@ def main():
     ap.add_argument("--check-determinism", action="store_true",
                     help="re-fly every pairing at --threads 1 and 2 and compare the telemetry byte for byte")
     args = ap.parse_args()
+
+    if args.attribution:
+        os.makedirs(args.out, exist_ok=True)
+        rc = 0
+        for row in args.attribution:
+            rc |= attribution(args.gym, args.out, row)
+        return rc
+    if not args.variants:
+        sys.exit("--variants is required unless --attribution is given")
 
     variants = load_variants(args.variants)
     os.makedirs(args.out, exist_ok=True)

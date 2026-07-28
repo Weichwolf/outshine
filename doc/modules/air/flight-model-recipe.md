@@ -11,7 +11,11 @@ are [`catalogue.md`](catalogue.md); the method this file generalises is
 [`../mig29/flight-model-spec.md`](../mig29/flight-model-spec.md), and its `Documented` /
 `Derivation path` / `Open` three-column discipline is kept.
 
-**Status: SPECIFIED, NOT BUILT.** No deck exists. No line of `sim/` was touched.
+**Status: BUILT 2026-07-28 as an EXECUTABLE recipe — `sim/tools/gen_air_decks.py` IS this file, and the
+ten decks are its output.** `--check` regenerates into a temporary tree and diffs, so the committed
+decks are provably what the recipe produces; a hand edit to a generated deck is a defect, not a delta.
+**Every one of the ten rows is `ALPHA`**: `## State` carries the residuals, and §8 R11 carries the one
+step of the procedure that did not survive contact with the data.
 
 **Schema note — this file carries a thin four-section frame, for the same reason
 [`../mig29/flight-model-spec.md`](../mig29/flight-model-spec.md) does:** the procedure below *is* a
@@ -276,22 +280,49 @@ Two readings of that table, both of which have to be said:
 
 ## State
 
-**Nothing is built.** No deck, no `make -C sim test-air`, no measured anchor for any row.
+**BUILT.** `tools/gen_air_decks.py` (the recipe, executable) + `tools/gen_air_stores.py` (the seven
+rounds) + `make -C sim test-air` (`clients/FBTestAirEnvelope.cpp`, the anchor harness parameterised by
+row) + `src/clients/FBAirAnchors.h` (generated from the same anchor table the decks come from, so the
+harness and the recipe cannot drift).
 
-What exists that this recipe is assembled from, rather than invented:
+**THE RESIDUAL TABLE, ten rows, measured 2026-07-28** (`make -C sim test-air`, 17 s, 0 anchors
+unmeasurable). Deviation in per cent; **bold** = outside its §7.1 band.
 
-| Piece | Where | Contribution |
-|---|---|---|
-| the method — three columns, anchors as acceptance, `[SET]` as declared ignorance | [`../mig29/flight-model-spec.md`](../mig29/flight-model-spec.md) | the whole shape of this file |
-| the inertia derivation, applied once and measured | that file §3.2 + its `## State` | §3, verbatim |
-| the freeze-thrust / absorb-in-drag rule, and its **confirmed** failure mode | that file §5.4 step 4 + the A3/A4 misses | §0 |
-| a pinned turbofan thrust deck | `sim/assets/aircraft/f16/engine/F100-PW-229.xml` | §5's turbofan analogy, for the F-15C at one dash number's distance |
-| a FlightBox-own turbofan deck built by this method | `sim/assets/aircraft/mig29/engine/RD-33.xml` | the precedent, and the source of §7.1's bands |
-| seventeen FlightBox-own models from three recipes | `sim/assets/MODEL-DELTAS.md` | the proof that "N models from one recipe" is a **built form** |
-| the raw-airframe control path, hardened | `systems/FBFlightControl` `Manual` branch, `71cb99f` | §6, and the reason step 7 is a gate |
-| the anchor harness pattern | `clients/FBTestMig29Envelope.cpp` + `make test-mig29` | `make test-air` is that harness parameterised by row |
+| Row | A1 Vmax alt (±5 %) | A2 Vmax SL (±5 %) | A3 ceiling (±10 %) | A4 climb (±25 %) | A5 g (±10 %) | α (±5 %) | takeoff (±30 %) | mass (±1 %) | outside |
+|---|---|---|---|---|---|---|---|---|---|
+| `f15c` | **−18.4** | −1.1 | **−11.4** | **−71.8** | −4.4 | **−36.4** | — | −0.0 | 5/7 |
+| `su27` | **−17.7** | −1.1 | −6.5 | **−72.2** | **−13.8** | **−24.6** | — | −0.0 | 3/7 |
+| `mig21` | **−20.6** | −1.1 | **−16.6** | probe | **−47.9** | **−18.8** | **+128.3** | −0.0 | 5/7 |
+| `mig23` | **−18.1** | −0.9 | **−17.5** | **−58.4** | −6.4 | **−83.2** | **+125.6** | −0.0 | 5/8 |
+| `mig25` | **−58.1** | −1.3 | **−57.5** | **−61.0** | **outside** | **+6.8** | — | −0.0 | 5/7 |
+| `mig17` | −2.0 | −0.7 | +3.8 | +10.2 | **+14.9** | **−20.2** | — | −0.0 | **2/7** |
+| `su7` | **−20.2** | −0.3 | **−43.5** | **−53.9** | [TODO] | **−17.3** | — | −0.0 | 4/6 |
+| `su22` | **−9.5** | −1.4 | **+12.8** | **−68.1** | +8.1 | **+29.3** | — | −0.0 | 5/7 |
+| `mirf1` | **−28.6** | [TODO] | **−28.7** | **−62.6** | [TODO] | **+79.6** | — | −0.0 | 4/5 |
+| `f5e` | **−14.6** | [TODO] | +8.4 | **−54.1** | [TODO] | **−16.1** | **+92.9** | −0.0 | 4/6 |
 
----
+**Four readings, and all four have to be said:**
+
+1. **A2 IS INSIDE ITS BAND ON ALL EIGHT ROWS THAT PUBLISH ONE (−0.3 % … −1.4 %).** The closed-form
+   inversion of §4.2 reproduces itself where it was inverted, on every row, first try. That is the one
+   unambiguously good result of the round.
+2. **A1 misses on nine of ten**, from −9.5 % to −58.1 %, always LOW. The inversion put `T = D` at that
+   exact point, so the deck carries more drag on the way there than the model of it does: the transonic
+   knot dominates the acceleration path. `mig25`'s −58.1 % was PREDICTED by R2 in advance and is the
+   worst row in the set, exactly as written.
+3. **A4 could not be inverted for a single row** (§8 R11, found while building). The published maximum
+   climb rates are inconsistent with the published thrust and any plausible drag, so the anchor became a
+   probe and the measured misses of −54 % … −72 % are what a deck built without it does.
+4. **Mass closure is inside ±1 % on ten of ten** — including the two rows with no published empty mass,
+   whose closure is therefore a check on the DERIVATION and not on the source.
+
+**PROMOTION: 0 `ACCEPTED`, 10 `ALPHA`.** No catalogue row may answer a campaign question today, and the
+harness says so in its own output rather than leaving it to be inferred.
+
+What existed and was consumed rather than invented: the method and its three-column discipline, the
+inertia derivation, the freeze-thrust rule and its confirmed failure mode, the pinned turbofan deck, the
+raw-airframe control path, and the anchor-harness pattern — all as §Spec listed them.
+
 
 ## Gaps
 
@@ -307,6 +338,9 @@ What exists that this recipe is assembled from, rather than invented:
 | R8 | **Swing-wing rows carry one planform** | `mig23`, `su22`. The choice biases either Vmax (spread) or turn (swept), the direction is declared per row, and the second deck is a separate cheap round |
 | R9 | **Ram-recovery factors are settings** | inherited verbatim from the MiG-29 file's own caveat, and mitigated the same way: every inverted `CD0` is published beside the factor it assumed |
 | R10 | **Store drag is outside the deck** | as for every module: `fdm/FBFdm::SetStoresDrag`. Unvalidated for catalogue rows, as it is for the MiG-29 |
+| **R11** | **A4 INVERTS A SUBSONIC `CD0` FOR NO ROW IN THE CATALOGUE — found while building, and it is a step of §4.2 that did not survive the data** | Worked at the [SET] best-climb condition (M 0.9, sea level, full augmentation), the published maximum rates of climb imply a drag that is NEGATIVE for `f15c` and `mig23` and an order of magnitude below any real aircraft for `f5e` (0.0038 against that row's own published 0.0200). The published figures are zoom/optimum-condition numbers and not steady-state `Ps`. **Resolution taken:** A4 is demoted to a PROBE beside A3, and the subsonic level is taken from the catalogue's ONE published `CD0` (the F-5E's 0.0200) — the identical generalisation §4.1 already makes for `e`, from the identical row, declared the same way. Rows whose own A2 anchor is subsonic (`mig17`, `su7`) invert their own and do not use it |
+| **R12** | **The recipe produced no rotatable aeroplane until the gear was moved, and the gear is not in §2** | With the main gear at 0.06 L behind the CG the nose carried 22 % of the weight, and the elevator power §6 inverts (sized to TRIM the alpha limit, not to lever a nose off a runway) could not rotate the aircraft at all: `f5e`'s take-off run measured **4 643 m against a published 610**. The mains now sit 0.15 c̄ behind the CG (nose ~10 %, inside the documented 8–15 % band) and the run is 1 176 m. **§2 says nothing about landing gear and it has to**, because the gear geometry and the inverted control power are one inversion, not two |
+| **R13** | **A generated deck cannot light its afterburner unless the FCS carries a throttle channel, and §6 does not mention one** | FlightBox commands ONE lever in [0,1] (`fdm/FBFdm::SetControls`), and the pinned F-16 and MiG-29 decks both double it in a `Throttle` channel to reach augmentation. The first generated set had none: measured, `f5e` reached M 1.14 instead of M 1.63 and climbed at 43 m/s instead of 175. §6's "no FLCS inside the XML" must not be read as "no channels" |
 
 ---
 

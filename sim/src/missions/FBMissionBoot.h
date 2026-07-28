@@ -43,7 +43,12 @@ inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnActor(const FBModelRoots 
    * branch threaded through the IC, because everything below exists to put a JSBSim instance into a
    * state and this unit has none. Everything AFTER that is shared. */
   if (!module->FdmModelName() || module->FdmModelName()[0] == '\0') {
-    if (!sp.Ground) return fail("a unit with no airframe must spawn on the ground");
+    /* ...unless the MODULE says it is flying. A kinematic air mover (modules/air, the eight rows whose
+     * drag polar nobody published) has no FBFdm and is nonetheless airborne; a ground position has no
+     * airframe for the opposite reason and still may not be put in the sky.
+     * doc/modules/air/module.md §Gaps collision 1. */
+    if (!sp.Ground && !module->Airborne())
+      return fail("a unit with no airframe must spawn on the ground");
     /* The SAME setup path an airframe takes, and the same failure: the MODULE decides what it knows.
      * An inert target answers false to every key and therefore still fails exactly where it did. */
     for (const auto &kv : block.SetKV) {
@@ -54,6 +59,12 @@ inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnActor(const FBModelRoots 
     }
     Fdm::fb_fdm_state gst{};
     gst.lat = sp.LatDeg; gst.lon = sp.LonDeg; gst.elev = groundAsl; gst.yaw = sp.HeadingDeg;
+    if (module->Airborne() && !sp.Ground) {
+      /* The declarative spawn IS the whole truth about a mover: there is no airframe to trim into it. */
+      gst.elev = sp.AltM;
+      gst.speed = gst.gs = gst.cas = sp.SpeedKt * kKtToMs;
+      module->FlightPlan() = block.Plan;
+    }
     Units::FBUnitKind gkind = module->UnitKind();   /* read BEFORE the move: argument order is unspecified */
     auto gunit = std::make_unique<Units::FBSimUnit>((int)unitIdx + 1, block.Id, gkind, block.Team,
                                              nullptr, std::move(module), gst, groundAsl, block.Flight);

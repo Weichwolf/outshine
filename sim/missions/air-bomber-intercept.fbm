@@ -1,0 +1,56 @@
+name air-bomber-intercept
+timeout 400
+
+# THE OTHER INTERCEPT GEOMETRY, the one doc/modules/air/module.md carries as a case of its own: a
+# FIGHTER AGAINST A BOMBER. It is not a duel with a slower opponent — the target does not manoeuvre, does
+# not look and does not shoot, so what decides is reach, closure and the weapon's envelope, and nothing
+# the bomber does.
+#
+# THE CAST
+#   floggr  hostile `mig23` on the SPREAD planform, T3, and the N003E export set the catalogue takes
+#           because O1's anchor is the Syrian force: 52 km search, 39 km track, and 14 km head-on
+#           LOOK-DOWN. Two R-24R — SARH, "comparable to the AIM-7 Sparrow" [T4] — so the shooter is
+#           BOUND TO IMPACT (FBSeekerHandoverS = -1) and cannot defend while it supports. It is briefed
+#           by a controller (`set brief_gci`), because a GCI interceptor has no net: T3 carries no
+#           cooperative half at all, which is a DOCTRINE statement and not a gap.
+#   bear    friendly `tu95`, a MOVER at 8 000 m on a straight leg at its published 710 km/h cruise. Its
+#           50.1 m span is the row's decisive number everywhere else in the tree; here what decides is
+#           that it holds a line. ITS TAIL TURRET IS NOT MODELLED (module.md A6) — a stern conversion
+#           against a bomber that shoots back is a different problem, and it is the second thing to add.
+#
+# WHAT TO READ
+#   telemetry.csv   eng_* (the seven-state intercept machine WITHOUT its cooperative half: no PPLI, no
+#                   sort, no cover deferral — the MiG-29's own measured position), air_tier = 3,
+#                   air_cues = the briefed pointing
+#   events.log      `radar RADAR_CONTACT unit=floggr` -> `RADAR_DESIGNATE` -> `sms RELEASE` ->
+#                   `missile PHASE` -> `DETONATION` with the miss distance
+#
+# READING RULE — AND THIS FILE IS COMMITTED AS A FAILING PROOF, which is a result and not an omission.
+# The intended verdict is exit 1 with a FAIL on `bear` (the round arrived). What it produces TODAY is
+# exit 2, `CRASH ground penetration` on the interceptor at t = 242 s: doc/modules/air/module.md
+# `## State` B3. The MiG-23 holds its commanded 330 kt CAS with the THROTTLE AT IDLE (fuel burn over
+# the whole run: 51 lb) and pays for it out of altitude, 8 000 m down to 510 m at 1 g and −5 to −9 deg
+# of pitch. The cause is named: pilot/FBPilot's Intercept phase and systems/FBFlightControl's MiG-29
+# gain preset are not airframe-neutral enough for a GENERATED deck, and a per-row preset is a thing
+# this contract does not name. The file stays here because the measurement is the finding. What this file does NOT measure is
+# whether the MiG-23's DECK is right — it is ALPHA like every catalogue row today, and
+# `make -C sim test-air mig23` prints by how much, anchor by anchor.
+
+unit floggr
+  team hostile
+  module mig23
+  spawn 46.90000 6.30000 8000 90.0 480
+  set gear up
+  set task intercept
+  set brief_gci 90 70 8000            # the controller's call: bearing 090, 70 km, co-altitude
+  set store 1 r24r
+  set store 2 r24r
+  set brief_master_arm arm
+  wp 46.90000 7.90000 8000 480
+
+unit bear
+  team friendly
+  module tu95
+  spawn 46.90000 7.60000 9000 270.0 380
+  wp 46.90000 5.90000 9000 380
+  objective survive

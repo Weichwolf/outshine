@@ -130,6 +130,8 @@ const char *FBPilot::PhaseName(Phase p) {
     case Phase::Intercept: return "Intercept";
     case Phase::Attack: return "Attack";
     case Phase::Formation: return "Formation";
+    case Phase::Orbit: return "Orbit";
+    case Phase::Drag: return "Drag";
   }
   return "?";
 }

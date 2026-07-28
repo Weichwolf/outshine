@@ -52,7 +52,12 @@ class FBPilot : public FBTelemetrySource {
 public:
   /* Die Reihenfolge ist telemetrie-sichtbar: nur ANHAENGEN, nie umsortieren. */
   enum class Phase { Idle, Preflight, Takeoff, Climb, Route, Approach, Flare, Rollout, Shutdown, Bfm,
-                     Intercept, Attack, Formation };
+                     Intercept, Attack, Formation,
+                     /* APPENDED for the catalogue aircraft's two lowest tiers, and the only two states
+                      * modules/air/FBAirPilot adds: a station to hold and one reflex to run. Everything
+                      * above T1 is this machine unchanged with the row's own hooks.
+                      * doc/modules/air/module.md §Spec 5. */
+                     Orbit, Drag };
   static const char *PhaseName(Phase p);
 
   FBPilot() = default;
