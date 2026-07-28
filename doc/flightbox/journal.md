@@ -325,3 +325,26 @@ more `1.2` double than one built with the old hook, and the two binaries differ.
 **Left stale on purpose:** `doc/flightbox/sim/weapons-and-damage.md` §10.2's gain table still prints
 `kLoopI = 2.0` and does not mention conditional integration — that file was outside this round's write
 permission.
+
+### 2026-07-28 — R5 clouds merged (`9ca2c0e`), MiG-29 stage 1 merged (`b411b2b`)
+
+**Clouds:** the rebuild per the approved Spec — ONE bounded-volumetric stage, one separable density
+function evaluated in C++ AND WGSL (constants printed from the C++ side, max |Δ| 1.87e-5 over 12,288
+samples), the six FBCloud* stages and the tonemap's second pipeline deleted. Cost measured worst-case:
+8.8 ms full-res vs ~23 ms of the old quarter-res+temporal chain — 2.6× cheaper at 4× the marched
+pixels. Weather-driven via FBWorld::Weather() (no weather ⇒ no cloud pass, 6/7 passes). Five proof
+sets incl. seamless fly-through and cirrus fibres along the real 250 hPa wind (3.8° residual).
+Merged on its own branch against `ab40bac` by a dedicated agent (deletions win over namespace edits;
+`--wx` is the screenshot venue's weather, mission venue reads the .fbm — combining both is now an
+argv error). Known gaps: stored proof PNGs are stale vs the committed source (predecessor tuning
+drift — re-capture wanted), march grain 0.04–0.08 by design, one ceiling clamped into three decks.
+
+**MiG-29 stage 1:** the model exists — `sim/assets/aircraft/mig29/` (FlightBox-own, GPL-2.0-or-later,
+every table tagged INV/GEO/ANALOGY/SET) plus `make test-mig29` measuring 23 anchors. 10 hit or in
+band (Vmax SL +0.2 %, rotation/liftoff/ROC in band), 4 missed with diagnosis instead of anchor-fitting:
+Ps SL −24.8 % is the borrowed thrust analogy (needs aug factor 1.16, F100 surface gives 1.02 — NOT
+drag-closable without destroying Vmax SL), ceiling +8.7 % same family, takeoff run +29.8 % is the
+spec's own §12.3 doubt. Roll rate 241 °/s declared a model property — no anchor exists at any tier.
+Two JSBSim findings for the house: FGTrim drives `pitch-trim-cmd-norm` (a pitch channel without that
+summer cannot trim at all), and linear table interpolation overstates a quadratic drag rise ~4.5× at
+the first breakpoint. F-16 untouched (corner numbers byte-identical).
