@@ -281,6 +281,10 @@ private:
   /* Der Rumpf der Bfm-Phase: die einzige Phase mit EIGENEM Regelgesetz statt eines Autopilot-Ziels. */
   FBPilotCommands BfmCommands(const FBState &state, FBCommandBus &avionics, const Fdm::fb_fdm_state &st,
                               double dt);
+  /* Die vorzeichenbehaftete Rolle der letzten kBfmTurnTimeS, aus der GEMESSENEN Rate integriert — die
+   * Dauerschranke des Rollratendeckels liest sie (doc/pilot.md 5.7.3). Ringpuffer fester Groesse, kein
+   * Zustand ausser dem Verlauf selbst; bei leerem Fenster 0 und der Deckel damit unveraendert. */
+  double BfmRollWindowDeg(double pDegS, double dt);
   /* Der Abzugsfinger, getrennt vom Fliegen: eine Waffe zu bedienen ist kein Steuern. */
   void BfmDesignate(const FBState &state, FBCommandBus &avionics);
   void BfmSelectRadarMode(const FBState &state, FBCommandBus &avionics);
@@ -351,6 +355,13 @@ private:
   double BfmGIterm_ = 0.0;
   /* Der festgelegte Drehsinn, solange das Ziel hinter der Fluegellinie steht. */
   int    BfmTurnSense_ = 0;
+  /* Der Rollverlauf des Fensters: kumulierte Rolle + Zeitstempel, Ring fester Groesse (die Fenster-
+   * laenge ist eine ZEIT, der Entscheidungstakt darf sich also aendern, ohne dass der Index luegt). */
+  static const int kBfmRollHistN = 64;
+  double BfmRollCumDeg_ = 0.0;
+  double BfmRollHistDeg_[kBfmRollHistN]{};
+  double BfmRollHistS_[kBfmRollHistN]{};
+  int    BfmRollHistCount_ = 0, BfmRollHistHead_ = 0;
   double BfmSearchHdgDeg_ = 0.0;  /* verankerter Kurs + Hoehe der kalten Suche */
   double BfmSearchAltM_ = 0.0;
   bool   BfmSearchAnchored_ = false;

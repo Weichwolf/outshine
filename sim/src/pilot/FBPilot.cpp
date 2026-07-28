@@ -39,6 +39,18 @@ const double kBfmTurnTimeS = 2.0;         /* in dieser Zeit will der Pilot den L
  * gegen den korrigierten Deckel neu vermessen — 16-Anflug-Sweep, Deckel 60/75/82,5/90/97,5/105 °/s:
  * 8/9/11/12/9/10 Treffer, und nur bei 90 °/s kein einziges Departure in den acht BFM-Missionen. */
 const double kBfmRollRateMaxDegS = 180.0 / kBfmTurnTimeS;
+/* DIESELBE 180° ALS DAUERSCHRANKE. Der Deckel darueber ist ein SPITZENWERT: er sagt, wie schnell eine
+ * Umkehr geflogen werden darf, nicht wie lange. Gehalten wird er von einem Gesetz, dessen kommandierte
+ * Auftriebsrichtung sich MITDREHEN kann — steht das Ziel quer und wandert die Sichtlinie schneller, als
+ * die Zelle folgen kann, schliesst sich der Rollfehler nie und das Gesetz rollt weiter, Tick fuer Tick
+ * mit vollem Ausschlag (gemessen, duel-merge: 290° Rolle in 3,1 s bei einem Zielfehler von 10-20°). Eine
+ * Dauerrolle ist aber kein Manoever: nach 180° hat die Auftriebsachse jede Richtung einmal gezeigt, und
+ * das Gesetz nimmt immer den kurzen Weg — mehr als 180° in EINE Richtung kann keine Korrektur
+ * verlangen. Also gilt derselbe Satz ueber dasselbe Fenster: in kBfmTurnTimeS liegt nie mehr Rolle als
+ * eine Umkehr. Der Deckel wird mit dem verbleibenden Anteil skaliert (Restbudget ueber das Fenster
+ * verteilt), was bei leerem Fenster exakt der bisherige Spitzenwert ist und bei voll gehaltener Rolle
+ * gegen den Fixpunkt p = Deckel/2 laeuft (p = cap(1 - p*T/180) und cap*T = 180). doc/pilot.md 5.7.3. */
+const double kBfmRollExtentDeg = 180.0;
 /* Die Strecke Stick -> Rollrate, IDENTIFIZIERT statt angenommen — der Deckel braucht sie, weil er den
  * Stick stellt und die RATE meint. ARX(1)-Fit p[n+1] = a*p[n] + K*(1-a)*u[n] ueber 15.325 Zehn-Hz-
  * Proben aus acht BFM-Laeufen, ausschliesslich unterhalb des Deckels (dort ist der Regler inaktiv, der
@@ -171,6 +183,27 @@ double FBPilot::SearchWeaveDeg(const FBTrackDatum &datum, bool searching) {
   double amp = Clamp(datum.HalfWidthDeg, base, kBfmScanMaxAmpDeg);
   double period = std::fmax(BfmScanPeriodS() * amp / base, 1e-3);
   return amp * std::sin(2.0 * kPi * (TimeS_ - ScanSinceS_) / period);
+}
+
+/* Die Rolle der letzten kBfmTurnTimeS, aus der gemessenen Rate integriert. Der Ring haelt den KUMULIERTEN
+ * Stand mit Zeitstempel, die Fensterlaenge ist damit eine Zeit und kein Index — der Entscheidungstakt
+ * darf sich aendern. Ist die Vorgeschichte kuerzer als das Fenster, zaehlt nur, was da ist (beim ersten
+ * Tick also 0, und der Deckel ist dort unveraendert der Spitzenwert). doc/pilot.md 5.7.3. */
+double FBPilot::BfmRollWindowDeg(double pDegS, double dt) {
+  BfmRollCumDeg_ += pDegS * dt;
+  BfmRollHistDeg_[BfmRollHistHead_] = BfmRollCumDeg_;
+  BfmRollHistS_[BfmRollHistHead_] = TimeS_;
+  BfmRollHistHead_ = (BfmRollHistHead_ + 1) % kBfmRollHistN;
+  if (BfmRollHistCount_ < kBfmRollHistN) ++BfmRollHistCount_;
+
+  const double cutoff = TimeS_ - kBfmTurnTimeS;
+  double base = BfmRollCumDeg_;
+  for (int k = 0; k < BfmRollHistCount_; ++k) {
+    int i = (BfmRollHistHead_ - 1 - k + 2 * kBfmRollHistN) % kBfmRollHistN;
+    base = BfmRollHistDeg_[i];
+    if (BfmRollHistS_[i] <= cutoff) break;
+  }
+  return BfmRollCumDeg_ - base;
 }
 
 /* EIN Entscheidungstakt des Kampfes: Bild lesen -> Verfolgungsart waehlen -> Zielpunkt bilden -> mit der
@@ -400,12 +433,16 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
    * schwach gedaempfter Oszillator (z^2 - 2az + a = 0, also |z| = sqrt(a) = 0,86): gemessen hielt sie
    * 91 °/s gegen 60 °/s Deckel, mit einer Wiederkehr bei 0,70 s. REDUZIERT weiter nur — nie
    * Gegenruder, nie mehr als das rohe Kommando.
-   * doc/pilot.md, Abschnitt 5.7. */
+   * doc/pilot.md, Abschnitt 5.7. Der Deckel selbst ist seit dieser Runde kein fester Wert mehr, sondern
+   * der ANTEIL einer Umkehr, der im Fenster kBfmTurnTimeS noch offen ist (kBfmRollExtentDeg, 5.7.3) —
+   * bei leerem Fenster unveraendert der Spitzenwert, bei gehaltener Dauerrolle dessen Haelfte. */
+  double rollWinDeg = BfmRollWindowDeg(st.p, dt);
+  double rateCap = BfmRollRateMaxDegS();
+  if (rollWinDeg * rollCmd > 0.0)
+    rateCap *= Clamp(1.0 - std::fabs(rollWinDeg) / kBfmRollExtentDeg, 0.0, 1.0);
   if (st.p * rollCmd > 0.0) {
     double plantA = BfmRollPlantA(), plantK = BfmRollPlantKDegS();
-    double lim = Clamp((BfmRollRateMaxDegS() - plantA * std::fabs(st.p)) /
-                           (plantK * (1.0 - plantA)),
-                       0.0, 1.0);
+    double lim = Clamp((rateCap - plantA * std::fabs(st.p)) / (plantK * (1.0 - plantA)), 0.0, 1.0);
     if (std::fabs(rollCmd) > lim) rollCmd = rollCmd > 0.0 ? lim : -lim;
   }
   /* IM SUCHLAUF IST DIE ROLLE EIN SCAN, KEIN KAMPFZUG. Das aim ist eine Vermutung (Heading/Datum);

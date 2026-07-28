@@ -31,7 +31,51 @@ State of the entries below: commit `793e1fe` + the model-root/delta round (2026-
 
 ## Chronology
 
-### 2026-07-28 — MiG-29 value round: the merge acquisition and the second dispenser (this round)
+### 2026-07-28 — the F-16's roll law gets an END: the merge becomes two-sided (this round)
+
+The previous round moved the merge's blocker onto the F-16: with the MiG acquiring and flying aggressive
+locked pursuit, the F-16 departed `duel-merge` at t=18.0 (`LOC`). **Diagnosis first.** The regime is not
+"a reversal": it is a head-on pass at **898 kt of closure** whose line of sight sweeps at up to
+**543 °/s** — 34 × the airframe's corner turn rate — against `gun-bfm`'s 17.7 °/s and `bfm-basic`'s
+6.2 °/s. There the commanded lift direction rotates WITH the aircraft, the roll error never closes, and
+the law rolled **290° in 3.1 s** on a steering error of 10–20°. Neither existing guard sees it: the
+conversion guard has exactly this premise but tests the target's angular OFFSET (its zone floors at 90°,
+the merge never exceeded 76.6°) and only freezes the turn SENSE, which permits an unbounded roll in that
+sense; the rate cap did bind and held 103–109 °/s against its declared 90.
+
+**The fix is the missing half of the same closed form, not a fourth hook.** §5.7.2 derived the cap as
+"180° in `kBfmTurnTimeS`" and applied it as a PEAK — next to a judge whose rule is a SUSTAINED quantity
+(|ω| > 60 °/s for 3 s), so 90 °/s is 1.5 × the threshold and survivable only while no geometry holds it.
+The law always takes the short way, so no correction can require more than 180° of roll in one direction;
+the same sentence therefore also bounds the roll flown per window. The cap is scaled by the share of a
+reversal still open (`cap · (1 − |∫p dt over kBfmTurnTimeS| / 180)`), which is exact at an empty window
+and has the fixed point `p = cap/2` — 45 °/s for the F-16 — because `cap · T = 180`. That margin against
+the judge is thin on purpose: measured, it is what the softer variants do not have.
+
+**Measured.** `duel-merge`: longest |ω| > 60 stretch **2.9 → 0.8 s**, roll per 2 s window
+**195.8 → 110.8°**, run **18.0 → 232.3 s**, no F-16 departure; viper `lock_s` 16.1 → 28.2, fulcrum
+14.2 → **79.4** and the campaign's first WVR employment (12 GSh-301 rounds, t=195.2, miss). 16-approach
+sweep (now a committed tool, `sim/tools/fb_bfm_sweep.py`, instead of a scratch script every round has
+to guess back): departures **6 → 0**, kills **5/16 → 7/16**, peak roll rate **182.2 → 103.4 °/s** (2.02 × → 1.15 ×
+the cap), seconds above the cap **63.2 → 5.4**. Rejected with their numbers: the bang-bang form of the
+same constraint (sweep departures 3, `gun-bfm` loses its kill) and giving the MiG back the derived 90 °/s
+peak (restores `mig29-bfm`'s control position, costs a MiG departure at t=103.6).
+
+**Re-baseline:** 79 missions, **73 byte-identical**, 6 moved, ONE verdict change — `gun-dry` 1 → 3, whose
+twelve rounds all still arrive but into the nose zone at 25.7 kJ/m² instead of the centre at 153. Two
+costs are declared rather than explained away: `bfm-blind` and `mig29-bfm` lose their control position
+(`bfm_ctrl_s` 48.4/88.2 → 0.0), causally, because a sustained conversion roll is now half the peak. A
+matching chaos measurement bounds how much of the sweep is signal at all: perturbing `gun-bfm`'s spawn in
+0.8 m steps over ±3 m flips it between KILL (t=77.9…197.1) and no kill in 2 of 8 samples. Determinism
+1/2/4 threads × 3 on all six moved missions plus `payerne-pair`/`-four`; nine harnesses, `verify-models`,
+`verify-layers`, `nm`, native frame proof out of the merge, WASM rebuilt and hash-verified against the
+baseline build. What the merge STILL does not test is the R-73/GSh-301 thesis, and the reason is now
+honest: 190 of its 232 s have the F-16 blind, 143 the MiG, 133.6 both — after the first pass neither ACM
+box re-acquires, both jets sink and the MiG loses that race. New gaps: `pilot.md` 2.8 (the lift-vector
+law is singular for a downward demand above 1 g — the mechanism that TRIGGERED the roll) and 2.9
+(close-combat re-acquisition + the BFM floor).
+
+### 2026-07-28 — MiG-29 value round: the merge acquisition and the second dispenser
 
 Two coupled gaps, both closed. **(A) The N019 acquires in a turning merge.** Its documented close-combat
 modes (CC/VS/BORE) are azimuth PENCILS (±1.75°/±1.5°/±1.25° — the vertical reading DCS-FM p.12 forces),

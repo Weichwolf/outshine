@@ -12,29 +12,35 @@ timeout 300
 # THE SETUP: 8 km apart, head-on, co-altitude, both on `set task bfm` — the close-combat control law
 # on both sides, no BVR phase and no long shot. Both start inside every launch zone either side has.
 #
-# THE MiG NOW ACQUIRES IN THE MERGE. gap 4h's acquisition half is closed this round: the pilot switches
-# the N019 to ACM in the fight phase (pilot/FBPilot::BfmSelectRadarMode + FBMig29Pilot::BfmRadarModeOrdinal
-# = the broad forward auto-lock volume FBMig29Radar::kAcm*, ±37 deg az from T4 §7.1 read as azimuth, a
-# ±30 deg vertical band, Doppler-exempt like CC), so the auto-lock does the designation the earlier RAD
-# bar could never make. The narrow RAD/CC/VS/BORE pencils are unchanged and still used elsewhere
-# (mig29-r73). The F-16 is in ACM HUD as before.
+# THE MiG ACQUIRES IN THE MERGE (prior round). The pilot switches the N019 to ACM in the fight phase
+# (pilot/FBPilot::BfmSelectRadarMode + FBMig29Pilot::BfmRadarModeOrdinal = the broad forward auto-lock
+# volume FBMig29Radar::kAcm*, +-37 deg az from T4 7.1 read as azimuth, a +-30 deg vertical band,
+# Doppler-exempt like CC), so the auto-lock does the designation the earlier RAD bar could never make.
+# The narrow RAD/CC/VS/BORE pencils are unchanged and still used elsewhere (mig29-r73). The F-16 is in
+# ACM HUD as before.
 #
-# READING RULE: exit 2 (CRASH), and it is a NEW, DEEPER finding rather than the old departure reproducer
-# or the old acquisition draw. Measured this round:
-#   FULCRUM (MiG): ACQUIRES — n019 MODE acm at t=0.5, RADAR_LOCK at t=3.8 (3.32 nm, az -0.2, el -7.8),
-#     lock_s 14.2. The acquisition half of gap 4h is closed: the MiG locks the F-16 in a turning merge on
-#     its own radar, where before (RAD) it never got a contact (lock_s 0).
-#   VIPER (F-16): DEPARTS at t=18.0 — result=LOC "sustained high multi-axis body rate". Its own UNCAPPED
-#     BFM roll law (BfmRollRateMaxDegS 90, BfmSearchRollCap 1.0 — the F-16 defaults, unchanged this round)
-#     goes into a full-deflection roll-reversal PIO at the close-in high-closure reversal (rollCmd flips
-#     -1 -> +1 -> -1 from t=14.9). It is CAUSAL to the MiG's new acquisition: with the MiG's ACM disabled
-#     the F-16 does not depart and the run is exit 3 again (verified this round). The MiG flies aggressive
-#     locked pursuit now, and the F-16's roll law cannot hold the reversal.
-# So the merge's blocker MOVED AGAIN: departure half (control law) -> acquisition half (sensor, closed
-# this round) -> the F-16's own roll PIO at the reversal. The R-73/GSh-301 WEAPON thesis stays untested:
-# the fight ends in the F-16's departure before either side employs a WVR weapon. Per the campaign rule a
-# loss to an AI defect is not a result, so this is NOT "the MiG wins the merge" — it is a newly exposed
-# F-16 BFM roll-law limit, and the next merge blocker. doc/duels.md D1.
+# AND THE F-16 NOW SURVIVES IT (this round). Its BFM roll law had a PEAK rate cap (90 deg/s) and no bound
+# on how LONG a roll may last, while the judge's rule is a SUSTAINED rate (|w| > 60 deg/s for 3 s). At
+# 898 kt of closure the line of sight sweeps at up to 543 deg/s -- 34x the corner turn rate -- so the
+# commanded lift direction rotated WITH the aircraft, the roll error never closed and the law rolled
+# 290 deg in 3.1 s on a 10-20 deg steering error. The same 180 deg that gives the peak cap now also bounds
+# the roll flown per kBfmTurnTimeS (doc/pilot.md 5.7.3); the sustained rate follows as cap/2.
+#
+# READING RULE: exit 2 (CRASH) -- and it is the FULL merge now, decided on the OTHER side and for another
+# reason. Measured this round:
+#   VIPER (F-16): NO departure. Longest |w| > 60 deg/s stretch 2.9 s -> 0.8 s, roll per 2 s window
+#     195.8 -> 110.8 deg, and the run goes from 18.0 s to 232.3 s. lock_s 16.1 -> 28.2.
+#   FULCRUM (MiG): RADAR_LOCK t=3.8 (3.32 nm) as before, but now lock_s 14.2 -> 79.4, and it gets the
+#     campaign's FIRST WVR employment away -- a 12-round GSh-301 burst at t=195.2, which misses.
+#   THE END: the fulcrum descends out of a lost-contact turn and hits the ground at t=232.3 (CFIT). Under
+#     the native oracle's real terrain the same event reads ATTITUDE_CONTACT at t=232.2 -- one event, two
+#     elevation sources.
+# WHAT THIS RUN NOW MEASURES, and it is NOT the weapon thesis: the viper spends 190.1 of 232.3 s with
+# bfm_rng = -1, the fulcrum 143.2 s, 133.6 s both at once. After the first pass neither ACM box
+# re-acquires, the fight becomes two blind sustained turns, both jets sink (the viper settles at 474 m
+# AGL, below its own 2000 ft BFM floor) and the MiG loses that race. So the R-73/GSh-301 thesis stays untested for a FOURTH reason, and it is the honest one: the
+# pilots cannot hold each other in a knife fight. The blocker is no longer a control law on either side --
+# it is close-combat re-acquisition plus the BFM floor. doc/duels.md D1, doc/pilot.md gaps 2.9 + 2.8.
 
 unit viper
   team friendly

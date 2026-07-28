@@ -106,6 +106,16 @@ The target is deliberately NOT a prerequisite of the build targets: it only has 
 file under `assets/aircraft` or in the submodule changes, and putting a Python interpreter on the
 critical path of every C++ compile for that would be the wrong trade.
 
+### The committed measurement tools
+
+Not build targets, and deliberately so — they are analysis, not product.
+
+| Tool | What it measures |
+|---|---|
+| `sim/tools/fb_duel_report.py` | both sides' `eng_*` debriefing plus the EMCON timeline out of one duel run |
+| `sim/tools/fb_tournament.py` | the pilot-variant tournament over `variants-*.txt` |
+| `sim/tools/fb_bfm_sweep.py` | the **16-approach BFM/gun sweep** the close-combat roll law is measured against (`pilot.md` §5.7.2/§5.7.3): 8 pursuer geometries × straight/turning defender, printing kills, departures and the pooled roll-rate statistics. Read the departure count and the rate statistics, not the kill count — a ~1 m spawn perturbation flips a cell |
+
 ### Measurement discipline
 
 - Accepted properties of the vanilla JSBSim F-16 are the truth, not defects (CLAUDE.md, principle 5).

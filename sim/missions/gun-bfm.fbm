@@ -15,6 +15,15 @@ timeout 600
 # against its own 60 deg/s, the plant inversion holds its 90): the pursuer takes three tracking entries
 # (t=49.4 / 59.4 / 71.2) instead of settling on the first, squeezes at t=83.6 and KILLS at t=84.2. Later
 # and less tidy, but the same conclusion; the exit code is unchanged.
+#
+# RE-MEASURED AGAIN after the roll EXTENT bound (doc/pilot.md 5.7.3 — the cap was a PEAK, and a peak held
+# for 3 s is what the flight monitor calls a departure). This mission is one of only six in the tree that
+# move: its 2 s roll window peaked at 186.8 deg, i.e. just past the one reversal the bound allows, so the
+# taper bites late in the pursuit and the conversion tips differently. Four tracking entries
+# (t=49.4 / 52.1 / 57.0 / 61.3), three squeezes (t=64.4 / 105.6 / 106.3) and the KILL at t=106.4 on 71
+# rounds instead of 35. Later again, more rounds, same conclusion and the same exit code. What got
+# strictly better is the flying: peak roll rate 104.8 -> 97.6 deg/s, roll per 2 s window 186.8 -> 116.6,
+# longest stretch above the monitor's 60 deg/s threshold 1.9 -> 0.7 s.
 
 # THE GUN ENGAGEMENT. bfm-basic.fbm's setup, flown to a firing conclusion: VIPER works its way into the
 # control position behind BANDIT on radar contacts alone, and this time it is allowed to shoot.
@@ -41,7 +50,8 @@ timeout 600
 #                                minutes is 0.574 nm). 0.15-0.40 nm puts the same pursuit law's target
 #                                position inside the funnel. Nothing else about the fight changes —
 #                                same law, same gains, one declared band (systems/FBPilotTuning).
-# THE RUN ENDS IN A KILL, exit 1 at t=66.8. exit 1 is the PASSING outcome here — a run that reaches its
+# THE RUN ENDS IN A KILL, exit 1 (the time has moved three times — see the chronology at the top of
+# this header; it is t=106.5 today). exit 1 is the PASSING outcome here — a run that reaches its
 # timeout means the shooter stopped hitting. The detail is still read from the events and the telemetry,
 # not from the exit code.
 #

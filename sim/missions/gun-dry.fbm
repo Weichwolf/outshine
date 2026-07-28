@@ -10,13 +10,21 @@
 #   where a trigger is pulled anyway: `make -C sim test-gun`.
 # The counterpart of mk82-safe.fbm (the master-arm refusal) and cm-depleted.fbm (the empty dispenser).
 #
-# EXIT 1, NOT 3 — RE-MEASURED, and the reading rule changed with it. This file used to run out its clock
-# because the twelve rounds hurt the defender without killing it. Since the roll limiter became a limit
-# (doc/pilot.md 5.7) the pursuit arrives with a tighter solution and ALL TWELVE arrive: gun DRY at
-# t=83.9 with fired=12, and the defender is combat-ineffective 0.3 s later, so its own monitor concludes
-# FAIL and the run ends at t=84.3. Everything this file exists to show is unchanged and still in the
-# events — the three bursts, `remaining=0`, `gun DRY`, and NO refusal line, because the pilot stops
-# asking. What is NOT shown any more is the timeout; the drum still empties first, and that is the point.
+# EXIT 3, AND THE READING RULE IS THE SAME SENTENCE IT ALWAYS WAS: the drum empties first. What the exit
+# code says has now flipped twice, and neither flip touched what this file exists to show.
+#   3 (originally): twelve rounds hurt the defender without killing it, the clock ran out.
+#   1: once the roll limiter became a limit (doc/pilot.md 5.7) the pursuit arrived with a tighter
+#      solution, all twelve rounds arrived and the defender went combat-ineffective at t=84.2.
+#   3 (now): with the roll EXTENT bound (doc/pilot.md 5.7.3) the pursuit converges differently and the
+#      one squeeze this mission can afford falls 19 s earlier — TRIGGER t=64.4 instead of 83.6. All
+#      twelve rounds still arrive (4.0 of 6 at 0.62 m in the last burst), but they arrive in the FORWARD
+#      zone at 25.7 kJ/m^2 instead of the CENTER zone at 153 kJ/m^2, and that is below what disables.
+#      RADAR_LOST t=85.3, TIMEOUT t=120.1.
+# TWELVE ROUNDS ARE ONE SQUEEZE AND ONE SQUEEZE IS ONE GEOMETRY, so the KILL half of this run is not a
+# reproducible claim: perturbing the identical gun-bfm geometry's spawn by 0.8 m steps over +-3 m gives a
+# kill in six of eight samples and none in the other two (doc/pilot.md 5.7.3). Read the events, not the
+# exit code: the three bursts, `remaining=0`, `gun DRY`, and NO refusal line because the pilot stops
+# asking.
 
 name gun-dry-1
 timeout 120

@@ -26,6 +26,17 @@ timeout 300                                  # sim-seconds until TIMEOUT (by des
 # t=209.0 with nothing monotone in between: the pass throws the search into one of a few basins, and any
 # perturbation of the roll law reshuffles which. On the committed law it is RADAR_LOST at t=9.9 and
 # RADAR_LOCK again at t=209.0. What is reproducible is the SEQUENCE (1)-(4), and that is the claim.
+#
+# THE ROLL EXTENT BOUND (doc/pilot.md 5.7.3) moves this file's trace and NOT its two named times: still
+# RADAR_LOST t=9.9, still RADAR_LOCK t=209.0, and the sequence (1)-(4) complete. What moves is what
+# happens AFTER the reacquisition — a second loss at t=239.0 and a third lock at t=276.0 — and with it
+# the run's integrals: bfm_lock_s 99.1 -> 50.4 and bfm_ctrl_s 48.4 -> 0.0. That is CAUSAL and not chaos
+# (perturbing the spawn by 0.8 m steps over +-3 m gives 0.0 in all seven samples on the new law and 48.4
+# in six of seven on the old), and it is the DECLARED COST of the bound: a sustained roll is now half the
+# peak, so the long one-direction conversion this file's second engagement needs is flown slower and does
+# not arrive. The mission's own claim is untouched — it is about going blind and coming back, not about
+# the kill it never had. The flying itself got strictly quieter: peak roll 103.4 -> 98.7 deg/s, roll per
+# 2 s window 112.3 -> 111.8 deg, longest stretch above the monitor's 60 deg/s threshold 1.2 -> 0.8 s.
 
 unit viper
   module f16

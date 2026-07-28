@@ -12,6 +12,7 @@ The primary sources are the comment banners of the source code:
 | `sim/src/modules/f16/FBF16Pilot.h` | the F-16 numbers (all virtual hooks) |
 | `sim/src/modules/f16/FBF16Module.cpp` | rate wiring, `set` keys → brief/task/variant |
 | `sim/tools/fb_tournament.py` | the tournament runner (not a build target) |
+| `sim/tools/fb_bfm_sweep.py` | the **16-approach BFM/gun sweep** the roll law is measured against (§5.7.2/§5.7.3) — not a build target. It generates its 16 `.fbm` cells and prints kills, departures and the pooled roll statistics; cell `trail2-str` reproduces `gun-bfm.fbm` to the digit |
 | `doc/missions/combat.md` §§ combat/intercept/attack missions, pilot variants | the mission data side |
 
 Convention in this document: **[MESS]** = measured on the pinned model or in the mission control loop,
@@ -34,6 +35,7 @@ manoeuvre, the FBW moves the hands.
 | Phases are the procedure skeleton | Idle/Preflight/Takeoff/Climb/Route/Approach/Flare/Rollout/Shutdown + Attack/Bfm/Intercept, per `doc/modules/f16/procedures-*.md` |
 | Airframe numbers are hooks, pilot numbers are not | corner speed, brake authority etc. are virtual airframe hooks; reaction time and operating cadence describe the PILOT and stay fixed |
 | The close-combat law (phase `Bfm`, `Guidance = Manual`) must be survivable on a RAW airframe | an airframe whose JSBSim deck carries no FLCS (the MiG-29) is protected only by what `systems/FBFlightControl` adds. The law commands raw stick, so the airframe's OWN authority limits — the α limiter AND the pitch-deflection cap `PitchStickMax` — must bind on the `Manual` path exactly as they bind on the FLCS path, and the commanded g may never exceed the α-limit-sustainable g at the current speed. Acceptance: `missions/mig29-bfm.fbm` flies a full BFM run with no `FBFlightMonitor` KO; the F-16 (`PitchStickMax` 1.0, its own deck FLCS) is byte-identical |
+| The close-combat law may command a roll rate, never a sustained one | the judge's rule is a SUSTAINED body rate (|ω| > 60 °/s for 3 s), so a peak cap alone is not a bound. The commanded roll carries an EXTENT bound over the same window the peak is derived in — no more than one reversal (180°) per `kBfmTurnTimeS` — and the sustained fixed point that follows is half the peak. Acceptance: no departure over the 16-approach sweep, and `duel-merge` flown to its end instead of to t = 18 s (§5.7.3) |
 | A pilot variant is mission text, not a class | `set pilot_*` → `FBPilotTuning`; an unset entry means "this pilot's own number", and a mission without `pilot_*` flies byte-identically |
 | Every fitness channel is computable from OWN perspective | `bfm_*` / `eng_*` telemetry — the basis of the evolutionary tournament |
 | A measured failure stays documented | rejected approaches remain under Gaps with their measurements |
@@ -56,7 +58,8 @@ refinement is the running work.
 | Brake-authority-derived closure cap (`BfmBrakeMs2`), conversion rule, absolute-value trigger | built, **not yet distilled below** | `658014d` |
 | Re-tune against `MODEL-DELTAS.md` D1: `BfmBrakeMs2` re-measured as a CLOSURE decay (2.4 → 1.2 m/s², cap 140 → 70 kt); the attack release holds the run-in attitude until the store has LEFT and leads the cue by the decision tick as well | built | `658014d`+ |
 | **The antenna is held against one's OWN attitude change while a contact is coasting** (§7.5) — the reported elevation is body-referenced and was measured at the attitude of the LOOK. Found by the asymmetric duel campaign; a fresh look is unchanged to the bit | built | this round, [`duels.md`](duels.md) M2 |
-| **The close-combat law survives a RAW airframe (MiG-29).** Four screws, each measured, F-16 byte-identical: (1) the airframe pitch-deflection cap `PitchStickMax` and (2) an α-limiter that may PUSH to recover both now bind on the `Manual` path of `systems/FBFlightControl`, not only its FLCS path; (3) a search-only roll cap hook `BfmSearchRollCap` and (4) a commanded roll-rate cap hook `BfmRollRateMaxDegS` keep the twitchy MiG (K=201) from a search/pursuit roll limit cycle the monitor reads as a departure | built | this round, [`duels.md`](duels.md) D1 |
+| **The close-combat law survives a RAW airframe (MiG-29).** Four screws, each measured, F-16 byte-identical: (1) the airframe pitch-deflection cap `PitchStickMax` and (2) an α-limiter that may PUSH to recover both now bind on the `Manual` path of `systems/FBFlightControl`, not only its FLCS path; (3) a search-only roll cap hook `BfmSearchRollCap` and (4) a commanded roll-rate cap hook `BfmRollRateMaxDegS` keep the twitchy MiG (K=201) from a search/pursuit roll limit cycle the monitor reads as a departure | built | `71cb99f`, [`duels.md`](duels.md) D1 |
+| **The roll-rate cap became a bound instead of a peak** (§5.7.3). A high-closure merge (898 kt, LOS rate 543 °/s) rotates the commanded lift direction with the aircraft, so the roll error never closes and the law rolls 290° in 3.1 s on a 10–20° steering error. The same 180° that gives the peak cap now also bounds the roll flown per `kBfmTurnTimeS`; the sustained rate follows as `cap/2`. `duel-merge` no longer departs the F-16, sweep departures 6 → 0, 73 of 79 missions byte-identical | built | this round, [`duels.md`](duels.md) D1 |
 
 ## Gaps
 
@@ -65,10 +68,12 @@ refinement is the running work.
 | # | Thing | Known from |
 |---|---|---|
 | 2.1 | **Arrival closure still ~85 kt at the band edge.** The throttle controls a speed *difference*, the schedule is written in range *rate*; the two diverge as soon as the pursuer trades altitude (74 kt TAS difference against 157 kt closure). Two candidates measured and rejected (below). Next: lag angle only inside the band, where the estimate has converged. | `658014d` |
-| 2.2 | ~~Roll-rate limiter does not converge when the raw command oscillates in amplitude~~ — **CLOSED.** The recursion was an oscillator (|z| = √a), not a limiter; replaced by a memoryless one-step plant inversion off an identified plant, and the cap re-derived as a closed form and re-measured. §5.7. Remaining: the inversion still overshoots its cap by ~18 % at the 10 Hz decision rate (intersample build-up, not a loop mode), and its stability bound assumes a roll lag above ~0.13 s — a crisper airframe than the F-16's 0.32 s would need the two plant numbers to become airframe hooks. | this round |
+| 2.2 | ~~Roll-rate limiter does not converge when the raw command oscillates in amplitude~~ — **CLOSED.** The recursion was an oscillator (|z| = √a), not a limiter; replaced by a memoryless one-step plant inversion off an identified plant, and the cap re-derived as a closed form and re-measured. §5.7. Remaining: the inversion still overshoots its cap by ~18 % at the 10 Hz decision rate (intersample build-up, not a loop mode), and its stability bound assumes a roll lag above ~0.13 s — a crisper airframe than the F-16's 0.32 s would need the two plant numbers to become airframe hooks (**done**, `71cb99f`: `BfmRollPlantA`/`BfmRollPlantKDegS`). The over-hold itself is **still open and now quantified against the regime that exposed it**: at full deflection the F-16 holds 103–109 °/s against a declared 90 (1.15 ×) because the ARX(1) identification was restricted to samples BELOW the cap, i.e. small stick, while the limiter only ever operates AT full stick. An open-loop step inside `duel-merge` (six ticks of a constant −1.0 command) fits K ≈ 110–113 °/s against the declared 78.7. Re-identifying at full deflection would move every BFM mission and is a round of its own; §5.7.3's extent bound removes the CONSEQUENCE (a sustained over-cap rate) without touching the identification. | `71cb99f`, this round |
 | 2.3 | **The SYMMETRIC duel stays a stalemate** — every long shot is defeated in the notch, nothing ever reached fuze radius; re-measured this round, the F-16-only tournament produces **0 kills and 0 losses in 30 runs**. **ASYMMETRIC duels do decide**, and what decides them is the launch DOCTRINE rather than the geometry: [`duels.md`](duels.md) | `cac7b62`, [`duels.md`](duels.md) |
 | 2.6 | **An AIM-120's terminal miss is a strong function of closure, and nothing says whether that is the round or the physics.** [MESS, `duel-headon` with the target's cruise swept] target 169/206/237/268/288 m/s ⇒ closure 744/842/919/1000/1053 m/s ⇒ miss **1.37/2.13/4.74/3.15/7.66 m**. Against a 1/r² damage model those six metres are the difference between a kill and a jet that flies on with wrecked avionics | [`duels.md`](duels.md) D2 |
 | 2.7 | **The pilot does not use the IRST.** `sensors/FBIrstSystem` publishes an `Irst` block; the intercept picture is built from the Radar block alone, so a passive sensor cannot cue anything and "IRST + EMCON" can only be flown as "silent and blind" | [`duels.md`](duels.md) D3 |
+| 2.8 | **The lift-vector law is singular for a DOWNWARD demand above 1 g** — the mechanism that TRIGGERS the merge roll (§5.7.3 fixes the consequence, not this). `L = a_turn·dir + g_body`: if `dir` points below the nose and `a_turn > g`, `liftUp` goes negative and the commanded bank jumps past ±90°; for a purely downward error it is ±180° decided by the sign of an arbitrarily small lateral component. [MESS, `duel-merge` t = 14.7 → 14.8] the gun-track handover replaced the Lag aim (el +5.4°) with the EEGS lead solution (el −8.0°) — a 13.4° step on a 9° total error — and the commanded bank went **−4.2° → −131.3°** in one tick, full deflection. A 10° aim correction at 250 m/s legitimately costs 2.2 g, so the g is not the error; the error is that the law reaches "down" only by rolling, when unloading to 0 g already buys 1 g of it. Any fix touches §5.1's core expression and every BFM mission. | this round |
+| 2.9 | **A BFM fight that loses contact sinks.** Once both pilots are in `Search` the law flies a sustained ~80° bank at 4.9 g and the `BfmFloorFt` bias (a 30° elErr term, not a limit) does not hold altitude against it. [MESS, `duel-merge` after §5.7.3] the F-16 settles at 474 m AGL (min 449) — below its own 2,000 ft floor — and orbits there for the last 40 s; the MiG flies into the ground at t = 232.3 (CFIT), which is what ends the run. The fight also never re-acquires: the F-16 spends **190.1 of 232.3 s** with `bfm_rng = −1`, the MiG 143.2 s, and **133.6 s both at once**, because an ACM box of ±15°/±10° does not find a co-speed opponent in a turning fight. | this round |
 | 2.4 | Gun still misses ~1 in 8 approaches against the turning defender. | `658014d` |
 | 2.5 | AoA band 11–13° instead of a flat 11° on approach (ED-documented, `doc/modules/f16/procedures-landing.md`); porpoise after touchdown; `ApproachSpeed` should be weight-scheduled instead of fixed. | measurement |
 
@@ -87,6 +92,8 @@ refinement is the running work.
 | Roll limiter as a recursion on its own previous command (`cmd_prev·cap/rate`) | it is an oscillator, not a limiter: |z| = √a, and it held 1.37–1.52 × its own declared cap. Replaced by the plant inversion, §5.7.1. |
 | Keeping the 60 °/s cap once the limiter actually holds it | the number was the nominal of a loop that rang a third past it; enforcing it exactly starves the roll and `gun-bfm` departs at t = 214.6 s. §5.7.2. |
 | Reading `bfm-blind`'s reacquisition time as a regression metric | it is chaotic — 50.9 / 120.0 / 209.0 s across a six-value cap sweep with nothing monotone between. The reproducible claim of that mission is the SEQUENCE, not the interval. |
+| Enforcing the roll-extent bound EXACTLY (`|win| ≥ 180 ⇒ cap 0`) instead of tapering the cap with the remaining budget | it is the literal constraint and it moves fewer missions (3 instead of 6), but it spends the whole budget at the peak, stops for ~0.3 s while the window drains and re-arms — the duty cycle keeps the judge's timer running. [MESS] sweep departures **3** against **0** for the taper, kills 5/16 against 7/16, and `gun-bfm` loses its kill (1 → 3). §5.7.3. |
+| Reading a ±1–2 kill change in the 16-approach sweep as a result | measured chaos: perturbing `gun-bfm`'s spawn longitude in 0.8 m steps over ±3 m flips the outcome between KILL (t = 77.9…197.1 s) and no kill in 2 of 8 samples, one of them a LOC at t = 372.5 s in the committed geometry. Departure counts and pooled rate statistics are the parts of the sweep that carry information. (The same instrument, applied to `bfm-blind` and `mig29-bfm`, says the OPPOSITE about their `bfm_ctrl_s` loss under §5.7.3: 0.0 in all seven perturbations on the new law against 48.4/88.2 on the old — that one is causal, and it is declared as a cost rather than explained away.) |
 
 ### Documentation lag (from the retired `TODO.md` §7)
 
@@ -815,6 +822,93 @@ number is chaotic across every cap tested — 50.9 / 120.0 / 209.0 with nothing 
 mission's four claims all still hold), and one departure in a non-committed sweep geometry at t = 232.6 s
 where the old law had none.
 
+#### 5.7.3 The same 180° as a SUSTAINED bound — the roll extent
+
+§5.7.2's cap is a **peak**: it says how fast a reversal may be flown, not how long. Nothing in the law
+said a roll had to END. That is not an oversight one can leave standing next to a judge whose rule is a
+SUSTAINED quantity — `core/FBFlightMonitor` trips on |ω| > 60 °/s **held for 3 s**, so a cap of 90 °/s is
+1.5 × the judge's threshold and is survivable only as long as no geometry holds it. One does.
+
+**The regime, measured** [MESS, `duel-merge` at `71cb99f`, the F-16 pilot]: a head-on merge at **898 kt of
+closure**, range collapsing 0.79 → 0.03 nm in 3.2 s, LOS rate peaking at **543 °/s** against a corner turn
+rate of 15.8 °/s — 34 × more than the airframe can follow. The jet rolled **290° in 3.1 s** at 95–109 °/s
+with a steering error of only 10–20°, and departed at t = 18.0. Against that, the same instrument on the
+committed missions: `gun-bfm` peak LOS rate **17.7 °/s**, `bfm-basic` 6.2 °/s. The discriminator is not
+range and not the error — it is the LOS rate, and behind it the closure.
+
+Neither existing guard sees it. The **conversion guard** (§5.2) has exactly this premise ("the LOS turns
+faster than the airframe can") but tests the target's angular OFFSET: its zone floors at
+`kBfmConvertErrDeg` = 90° while the merge's error never exceeded 76.6°, so it never armed — and its
+action freezes the turn SENSE, which permits an unbounded roll in that sense forever. The **rate cap**
+did arm, and held 103–109 °/s against its declared 90 (1.15 ×, consistent with §5.7.1's measured 1.23 ×
+over the sweep: the plant identification is a small-signal fit and the limiter operates at full
+deflection).
+
+**The missing half of the same closed form.** The law always takes the short way, so no correction can
+ever require more than 180° of roll in one direction: after 180° the lift axis has pointed everywhere
+once. A demand that still asks for more is not being caught — it is rotating with the aircraft. So the
+sentence that gives the peak cap gives the sustained one over the same window:
+
+```
+kBfmRollExtentDeg = 180                                  // a reversal, the same 180° as the cap
+win  = ∫ p dt over the last kBfmTurnTimeS                // SIGNED, from the MEASURED rate (ring buffer)
+if (win · rollCmd > 0)  cap ← cap · clamp(1 − |win|/180, 0, 1)
+```
+
+and the existing plant inversion then flies that cap. Three properties, all of them consequences rather
+than choices:
+
+- **Empty window ⇒ unchanged.** `cap · 1.0` is exact, so a mission whose BFM roll never fills the window
+  is byte-identical. Measured: of 79 missions, **6 move and 73 do not** — and the 6 are exactly the BFM
+  runs whose 2 s roll window exceeded ~110°.
+- **A reversal keeps its full authority**, because the window is SIGNED: rolling the other way unwinds it.
+  A scissors does not accumulate; only a monotone roll does.
+- **The sustained fixed point is half the peak, exactly.** `p = cap·(1 − p·T/180)` with `cap·T = 180`
+  gives `p = cap − p`, i.e. `p = cap/2` = 45 °/s for the F-16 — and with the limiter's measured 1.15 ×
+  over-hold, ≈ 52 °/s, which with a hard pull's 20 °/s of q leaves |ω| ≈ 55 against the judge's 60. That
+  margin is thin and it is the whole point of the number; it is why the softer variants below fail.
+
+**Measured, `duel-merge`** (F-16 pilot): longest continuous |ω| > 60 stretch **2.9 s → 0.8 s**, roll per
+2 s window **195.8° → 110.8°**, and the departure is gone — the F-16 flies the full fight instead of
+18.0 s of it (§ the merge row in [`duels.md`](duels.md)).
+
+**Measured, the 16-approach sweep** (`sim/tools/fb_bfm_sweep.py`, 8 geometries × straight/turning
+defender — the sweep was a scratch script until this round and is now a committed tool, so the numbers
+below are reproducible): departures **6 → 0**, kills **5/16 → 7/16**, peak roll rate **182.2 → 103.4 °/s**
+(2.02 × → 1.15 × the cap), longest |ω| > 60 stretch **4.9 s → 1.5 s**, seconds spent above the 90 °/s cap
+**63.2 → 5.4**.
+
+**The sweep's kill count is a coarse instrument, and this is the measurement that says so.** Perturbing
+`gun-bfm`'s spawn longitude in 0.8 m steps over ±3 m gives KILL at t = 77.9 / 78.7 / 78.8 / **84.3** /
+81.6 / 197.1 s in six of eight cases and no kill in the other two (one of them a LOC at t = 372.5 s in
+the committed geometry itself). A ±2-kill band is therefore chaos, not signal; the DEPARTURE count and
+the pooled rate statistics are the parts of the sweep that carry information.
+
+**Costs, declared — the complete ledger.** 79 missions run, **6 move, 73 byte-identical**, and exactly
+one verdict changes.
+
+| Mission | verdict | what moved, and why |
+|---|---|---|
+| `gun-bfm` | 1 → 1 | its 2 s roll window peaked at 186.8°, just past the one reversal the bound allows, so the taper bites late in the pursuit and the conversion tips differently. Kill t = 84.3 → **106.5 s** on 71 rounds instead of 35; four tracking entries instead of three. Flying strictly better: peak 104.8 → 97.6 °/s, roll/2 s 186.8 → 116.6°, longest |ω| > 60 stretch 1.9 → 0.7 s, `bfm_ctrl_s` 12.9 → **23.7** |
+| `gun-dry` | **1 → 3** | the ONE squeeze twelve rounds buy falls 19 s earlier (t = 83.6 → 64.4). All twelve still arrive — 4.0 of 6 at 0.62 m — but into the FORWARD zone at 25.7 kJ/m² instead of the CENTER zone at 153 kJ/m², below what disables. `gun DRY` at t = 64.7 with `fired=12` and no refusal line: everything the file exists to show is intact, and twelve rounds are one squeeze, i.e. one geometry (see the chaos measurement above) |
+| `bfm-blind` | 3 → 3 | its two named times are unchanged (`RADAR_LOST` t = 9.9, `RADAR_LOCK` t = 209.0) and the sequence it claims is complete. `bfm_lock_s` 99.1 → 50.4 and `bfm_ctrl_s` 48.4 → **0.0**, causally: the long one-direction conversion of its SECOND engagement is now flown at the sustained half-cap and does not arrive |
+| `mig29-bfm` | 3 → 3 | no KO, `bfm_lock_s` 296.3 unchanged, pursuit (not search) for 296.3 s — but `bfm_ctrl_s` 88.2 → **0.0** and closest approach 1.19 → 1.70 nm. The MiG pays most because its peak hook is already 60 °/s (§5.10 screw 4), so its sustained roll is 30. Its reading rule was rewritten around what the run does support |
+| `bfm-pointblank` | 3 → 3 | the claim it exists for is **unchanged to the digit**: peak 80.5 °/s = 0.89 × its cap, 0.0 s above it. Only the trajectory after t = 5.6 differs |
+| `duel-merge` | 2 → 2 | the F-16's departure at t = 18.0 is gone and the run goes to 232.3 s; the exit code stays 2 because the MiG now ends it by flying into the ground. [`duels.md`](duels.md) row 8 |
+
+**Rejected: putting the MiG's `BfmRollRateMaxDegS` back on the derived 90 °/s** now that a law covers what
+§5.10 screw 4 covered with a number. It restores `mig29-bfm` (`bfm_ctrl_s` 0.0 → 86.2, closest approach
+1.34 nm) and costs a MiG **departure** in `duel-merge` at t = 103.6 (stall/mush) — i.e. it reopens the
+exact D1 claim screw 4 closed. The number is therefore not redundant: a lost control position is a fight
+that does not convert, a departure is a K.O.
+
+**Rejected: enforcing the constraint exactly** (`if |win| ≥ 180 → cap = 0`, bang-bang instead of the
+taper). It is the literal constraint and it moves only 3 missions instead of 6, but it does not solve the
+problem: the roll spends its whole budget at the full 90 °/s, stops for ~0.3 s while the window drains,
+and re-arms — a stutter whose duty cycle keeps |ω| above the judge's threshold. [MESS] sweep departures
+**3** (against 0 for the taper) and kills 5/16; `gun-bfm` loses its kill outright (1 → 3). The taper is
+kept because the sustained fixed point, not the budget, is what the judge measures.
+
 #### 5.8 The trigger (`BfmGunfire`)
 
 No second aiming — a finger. It does three things:
@@ -881,12 +975,22 @@ missions unchanged to the bit). Diagnosed in order, each exposing the next:
    60 °/s-for-3 s threshold. The MiG commands 60 °/s so the loop can hold it. Only the LIMITER reads the
    hook; the reversal-zone timing (`kBfmReverseS`) stays tied to `kBfmTurnTimeS` → byte-identical.
    [MESS, `mig29-bfm`] cap 90 = departure at t=154; cap 60 = full run, lock_s 203, ctrl_s 5.3, no KO.
+   Since §5.7.3 the hook is the PEAK of a cap that also carries an extent bound; the MiG's 60 is
+   unchanged as that peak, and its sustained fixed point follows the same `cap/2` (30 °/s). It was
+   RE-TESTED against the law rather than assumed: back on the derived 90 the MiG departs `duel-merge` at
+   t = 103.6 (stall/mush), so the number still carries something the law does not.
 
 Screws 1–2 live in `systems/FBFlightControl`'s `Manual` branch (the airframe layer); 3–4 are pilot
 hooks. The result: `mig29-bfm` flies a full BFM run with no flight-monitor KO, acquires, locks and works
 into the control position; `duel-merge` no longer departs the MiG (exit 2 → 3). Both the F-16 and the
 MiG's BVR/takeoff/landing missions keep their outcome (`mig29-full` touchdown 143.4 → 143.7 kt — the
 correct `PitchStickMax` now binding in the flare, within the documented band).
+
+**What screws 3–4 did NOT cover, and why the F-16 needed §5.7.3 anyway.** Both are per-airframe NUMBERS,
+and the F-16 kept its own — which was correct as far as it went: the MiG's failure was a limit cycle its
+own plant gain drove, and a number fixed it. The F-16's failure is a different thing in the same place: no
+number is wrong, the law simply has no notion that a roll must END. That is why the answer is a law and
+not a third hook, and why it applies to both airframes through their own peak.
 
 ---
 

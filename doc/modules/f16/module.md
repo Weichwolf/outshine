@@ -491,6 +491,9 @@ rate on THIS model: 85° bank, full deflection through the model's own FLCS, 20 
 | `BfmYoYoHeightM` | 600 | `[SET]` |
 | `BfmScanAfterS` / `AmplitudeDeg` / `PeriodS` | 3.0 / 8.0 / 30.0 | `[SET]` — 8° lies within the ACM box width, a 30 s period ≈ 1.7 °/s: a scan, not a turn |
 | `BfmFloorFt` | 2000 | `[SET]` hard deck |
+| `BfmRollPlantA` / `BfmRollPlantKDegS` | 0.734 / 78.7 | `[MESS]` ARX(1) over 15,325 ten-Hz samples below the cap — the plant the roll limiter INVERTS (`pilot.md` §5.7). Known limitation, recorded in gap 2.2: it is a small-signal fit and the limiter only ever operates at full deflection, where the same airframe fits K ≈ 110–113 and consequently holds 1.15 × its declared cap |
+| `BfmRollRateMaxDegS` | 90 | `[HERL]` `180° / kBfmTurnTimeS` — a reversal IS a 180° roll in the time constant the roll serves. Since `pilot.md` §5.7.3 this is the PEAK of a cap that also carries an extent bound (no more than one reversal per `kBfmTurnTimeS`), so the SUSTAINED rate this airframe flies is its half, 45 °/s. No new hook: the bound is a law and reads this same number |
+| `BfmSearchRollCap` | 1.0 | `[SET]` no-op — the F-16's cold search legitimately uses full roll authority (`pilot.md` §5.10 screw 3, where the MiG sets 0.20) |
 
 **Two accepted model properties** (principle 5, explicitly NOT defects to be fixed): the vanilla FLCS is
 a PITCH-RATE command (`f16.xml`'s pitch channel differentiates the stick against 6.2·q and only
