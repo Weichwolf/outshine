@@ -1,6 +1,6 @@
 # MiG-29 — the first opponent
 
-**Status: stages 1, 2a, 2b, 2c, 3 and 4 built, plus the value round that closes gaps 4g and 4h(a) —
+**Status: stages 1, 2a, 2b, 2c, 3, 4 and 5 built, plus the value round that closes gaps 4g and 4h(a) —
 the airframe, the module, the sensor suite (N019 / SPO-15 / KOLS), the GCI loop, the WEAPONS (R-27R /
 R-73 / GSh-301) plus the radar cross-section, the DUEL ([`../../duels.md`](../../duels.md)), and now the
 two pieces the merge needed: the N019's broad ACM auto-lock volume (the MiG ACQUIRES in a turning merge,
@@ -170,6 +170,23 @@ aircraft. What belongs here is what it said about the MiG-29:
    it is the campaign's second-largest finding:** with the 330 kt hook the F-16 won four of the five BVR
    geometries outright; correcting it turned all four into draws.
 
+**Stage 5 built: it flies in a PAIR — and the pair is where its doctrine hurts most.** The formation
+round ([`../../formation.md`](../../formation.md)) gave every module a flight identity, a wingman
+station, a target sort and a cover rule. What it said about THIS aircraft is a single sentence: the
+airframe whose weapon makes mutual cover most valuable is the one that cannot organise it.
+
+| Finding | Number |
+|---|---|
+| **The SARH obligation, per shot, side by side on one run** (`pair-2v2-asym.fbm`) | R-27R **17.3 s** bound with `eng_pitbull` 0 — it never goes autonomous — against the AIM-120's **0.3 s** with `eng_pitbull` 1. A factor of **58** |
+| **The cover rule is the same rule on both aircraft; only its price differs** | a member does not fire a round that would bind it while a mate is already bound. Measured F-16 deferral **7.8 s** (`pair-cover.fbm`), and the flight then never had nobody free (`flt_both_s` 0.0) |
+| **This aircraft cannot apply it.** "My leader is bound" travels in a PPLI, and the 9-12 has no cooperative terminal | so its `flt_defer_s` is 0 by construction rather than by choice, and both members of a pair can be bound — and therefore forbidden to defend — at the same time |
+| **Its sort is the briefed CONTRACT and nothing else** (`set brief_sort left`) — the controller's split, agreed on the ground, applied by each pilot to the picture he personally has | measured against the F-16's computed sort on the same 4v4 geometry: distinct targets per engaged member **0.750** against **0.962**. One in four contract shooters is prosecuting a target its own flight already has |
+| **The contract is still worth having** | in the flight tournament `mig_pair` (contract) beats `mig_solo` (nothing) on both geometries — `mirror` −480.6 against −534.2, `split` −1302.2 against −1400.4 |
+| `set task formation` is accepted and does nothing on this jet | deliberately: with no lead report to hold, the station keeping falls straight through to its own route. A module declares what it has |
+
+Nothing about the MiG's sensors, weapons or pilot numbers changed; the whole stage is generic
+machinery plus one `set` key (`brief_sort`) and one accepted `task` value.
+
 **Deliberately absent** (next stages): countermeasures (BVP-30-26), and any cooperative
 datalink — this aircraft has none, and its GCI is a voice channel, not a track picture. Those slots hold
 the NoOp/generic defaults, are not cycled, and their blocks stay `Invalid` — a module declares what it
@@ -218,6 +235,7 @@ reading rule in its own file header).
 | done (2a) | ~~SOS α limiter and the ARU-aware gains in `systems/FBFlightControl`~~ — `AlphaLimitDeg` is one preset number; 0 means the airframe has its own limiter and is what the F-16 sets | stage 2a |
 | done (2b) | ~~Radar (N019), RWR (SPO-15), IRST (KOLS) and the GCI loop~~ | stage 2b |
 | 4b | Own HUD symbology — the module flies the generic MIL-STD-1787 default | open |
+| 5a | **The cover channel this aircraft might actually have was not tried.** The SPO-15 has no IFF and warns of every radar, friendly included (`datalink-gci.md` §3), and a leader illuminating for an R-27R publishes a Guidance-mode emission — so a wingman could infer "my leader is bound" from its own receiver, with the documented ambiguity that it cannot tell that emitter from a hostile one. It is the only sourced candidate for MiG mutual support | open, [`../../formation.md`](../../formation.md) F3 |
 | ~~4g~~ | ~~**No dispensers.**~~ — **done** this round. The BVP-30-26 is `modules/mig29/FBMig29Cmds`, an override of `sensors/FBCountermeasureSystem`: 60 combined cartridges (2×30 PPI-26, [DOC] §3), a [SET] 30/30 chaff/flare split (the split is a named source gap), a 5/5 BINGO and the three geometry programmes mapped onto the generic slot machine with [SET] values (schema from the source, values set, exactly as the F-16's ALE-47). Wired into the module (cycled RWR→CMDS at 10 Hz, `CmDispense`/`CmConsent`/`CmdsMode` routed, `cmds_*`/`brief_flare_s` keys), gated on the `Countermeasures` health id the damage layout already zoned. Flares seduce the AIM-9 through the SAME deterministic model that seduces the R-73 (`sensors/FBIrstSystem::SelectFlare`): `mig29-defend.fbm` measures `irst FLARE_SEDUCED tgtIntensity=0.16` (head-on/dry) and the round expiring 16.0 m wide, against the astern control that detonates 0.04 m out. The defensive asymmetry ([`../../duels.md`](../../duels.md) D5) is now TWO-SIDED | done |
 | **4h** | **The control-law half AND the acquisition half are CLOSED; a NEW, deeper merge blocker is exposed.** (b) DEPARTURE — fixed a prior round ([`../../pilot.md`](../../pilot.md) §5.10). (a) ACQUISITION — **closed this round.** The N019's documented CC/VS/BORE modes are azimuth PENCILS (±1.75°/±1.5°/±1.25°) that cannot hold a manoeuvring merge target (measured, `duel-merge` lock_s 0), so a BROAD forward auto-lock volume was added — `FBMig29Radar::kAcm*`, ±37° az [T4 §7.1, read as azimuth against the vertical reading CC takes], a [SET] ±30° nose-centred vertical band, Doppler-EXEMPT like CC, frame 0.75 s [DERIVED from T4's "1-2 s lock" ÷ kHitsToFirm] — and the pilot SELECTS it in the fight phase (generic `FBPilot::BfmSelectRadarMode` on the new `BfmRadarModeOrdinal` hook; the F-16 leaves it −1 and is byte-identical). Measured: `duel-merge` fulcrum `n019 MODE acm` t=0.5, `RADAR_LOCK` t=3.8 (3.32 nm), **lock_s 14.2 where it was 0**; `mig29-bfm` improves 203→296 lock_s / 5.3→88 ctrl_s. **The new blocker:** with the MiG now flying aggressive locked pursuit, the F-16's own UNCAPPED BFM roll law (defaults 90 °/s, cap 1.0) goes into a full-deflection roll-reversal PIO at the close-in reversal and DEPARTS (`duel-merge` t=18, exit 3→2, causal — verified: MiG-ACM off ⇒ F-16 does not depart). So the R-73/GSh-301 thesis stays untested, but the blocker moved from the MiG's sensor to the F-16's roll law | an F-16 BFM roll-rate cap for the high-closure reversal (F-16-scoped, would touch its byte-identity) |
 | 4e | No `FBSystemId` for an optical station, so the IRST is the one sensor slot that is not damage-gated. Travels with 4d: both are a health-register change, and both move the `dmg_*` telemetry columns | needs a health-register change |

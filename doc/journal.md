@@ -20,7 +20,8 @@ State of the entries below: commit `793e1fe` + the model-root/delta round (2026-
 | FDM adapter | **finished** — instanceable, IC-sealed, damage and stores channels | [fdm.md](fdm.md) |
 | Core / avionics bus | **finished** — typed blocks with three-state validity, command bus with acknowledgement | [core.md](core.md) |
 | Mission orchestrator | **finished** — four steps, no mission knowledge in the code | [missions/runtime.md](missions/runtime.md) |
-| Multi-unit | **finished** — formation as mission data, thread per unit in the gym, deterministic | [missions/runtime.md](missions/runtime.md) |
+| Multi-unit | **finished** — cast as mission data, thread per unit in the gym, deterministic | [missions/runtime.md](missions/runtime.md) |
+| Formation | **built** — roles as mission data, station keeping, target sort, cover rule; rejoin and lead-level tactics missing | [formation.md](formation.md) |
 | Sensors | **built** — datalink, radar, RWR, IRST, countermeasures. Without terrain masking. | [sensors.md](sensors.md) |
 | Weapons | **built** — AIM-120, Mk-82, M61A1, ground targets, damage model | [weapons.md](weapons.md) |
 | Pilot AI | **in progress** — takeoff/route/landing, BFM, BVR intercept, air-to-ground all fly; refinement ongoing | [pilot.md](pilot.md) |
@@ -31,7 +32,54 @@ State of the entries below: commit `793e1fe` + the model-root/delta round (2026-
 
 ## Chronology
 
-### 2026-07-28 — the F-16's roll law gets an END: the merge becomes two-sided (this round)
+### 2026-07-28 — out of single fighters, an air force: the FLIGHT (this round)
+
+A "flight" was an appearance. `fl` in the datalink's contact filter meant "the first unit of that
+faction in mission order", two jets of one side flew two private wars, and nothing in the tree could
+tell whether they had prosecuted the same target while a third went unengaged. This round makes it a
+mechanism, in five pieces, and every one of them is a no-op without the declaration that turns it on.
+
+**Roles are mission data.** `flight <name> <position>` in a `.fbm` unit block, beside `team` and for
+the same reason: it is both mission data and world identity (`core/FBFlight.h`, `FBUnit`), so the
+cooperative datalink reads it off the registry as it reads the team. Position 1 is the lead, a flight
+without one is a parse error, and `fl` now selects it.
+
+**The wingman holds a station on a moving point**, in two channels that never talk to each other:
+across and vertical through the path law that already exists (`SetDirectLeg` onto the LEAD's course
+line through the station), along through the throttle at `sqrt(2·a·|e|)` with the airframe's own
+measured brake authority. That separation is the law — a `Direct` at the station is pursuit of a point
+moving at combat speed, which is the regime that produced the merge roll problem. Measured
+(`pair-formation.fbm`): **45.2 m** median station error on a straight leg, 1,937 m peak through a 90°
+turn, no standing offset.
+
+**The sort is three levels of information**, applied in order of worth: what a mate SAYS (a target
+POINT, correlated against one's own echoes — never an identity, because this radar does not know whom
+it sees), what the flight can WORK OUT (a greedy minimum-cost matching on time-to-a-shot, identical on
+every member), and what was AGREED before takeoff (`set brief_sort`, the only sort an aircraft without
+a cooperative terminal has). Measured: the cooperative pair holds different targets in **93 %** of the
+ticks both were assigned, and `dup && free` — a target engaged twice while another was free — is
+**0 over every unit of every formation mission**.
+
+**Cover is one rule whose price is the weapon.** A member does not fire a round that would bind it
+while a mate is already bound; a bound shooter flies at its own antenna and a flight with nobody free
+cannot answer a launch. Measured: an AIM-120 binds **0.3 s**, an R-27R **17.3 s** — a factor of 58 —
+and `pair-cover.fbm` measures **7.8 s** of real deferral with the flight never left uncovered. The
+MiG cannot apply the rule at all, because "I am bound" has no channel on its aircraft; that is the
+round's sharpest finding and it is the doctrine contrast arriving at its consequence.
+
+**The asymmetry as one number** (`four-4v4-asym.fbm`, same run, same geometry): distinct targets per
+engaged member, cooperative **0.962** against briefed contract **0.750**.
+
+Five missions (`pair-formation`, `pair-2v2-f16`, `pair-2v2-asym`, `pair-cover`, `four-4v4-asym`), one
+analysis tool (`fb_flight_report.py`), a `--flight N` mode for the tournament with `dl=`/`sort=` on a
+variant line, 14 appended `flt_*` columns. **All 79 stock missions byte-identical** on every column
+they ever had and line for line in `events.log`; one fingerprint per new mission over `--threads
+1/2/4` × 3. Rejected with their measurements: symmetric yielding (a 1 Hz oscillator, 60 consecutive
+swaps), age-compensating the contact range (switches 33 → 87), a blink hold (no effect), and capping
+the along-track correction at one spread (a wingman stuck 40 km out for 230 s). Full contract,
+derivations and gaps: [`formation.md`](formation.md).
+
+### 2026-07-28 — the F-16's roll law gets an END: the merge becomes two-sided
 
 The previous round moved the merge's blocker onto the F-16: with the MiG acquiring and flying aggressive
 locked pursuit, the F-16 departed `duel-merge` at t=18.0 (`LOC`). **Diagnosis first.** The regime is not

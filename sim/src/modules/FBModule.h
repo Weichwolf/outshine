@@ -57,6 +57,12 @@ public:
    * units (the datalink must recognise its own PPLI and know whose net it is on). */
   virtual void SetUnitIdentity(int unitId, FBUnitTeam team) { (void)unitId; (void)team; }
 
+  /* WHICH FLIGHT it flies in, same wiring step — and deliberately NOT virtual: a flight is something
+   * the PILOT holds (it decides where to sit and whom to shoot), so every module that has one gets
+   * this for free and a module whose pilot slot is the NoOp default is untouched by it. */
+  void SetFlight(const FBFlightId &flight) { PilotSystem().SetFlight(flight); }
+  FBFlightReport FlightReport() { return PilotSystem().FlightReport(); }
+
   /* ---- Battle damage: the module READS its own health and never writes it — every mutator on
    * FBSystemHealth is private to core/FBDamageModel. Unattached reads as fully intact. ---- */
   void AttachHealth(const FBSystemHealth &health) { Health_ = &health; }

@@ -1,0 +1,201 @@
+name four-4v4-asym-1
+timeout 700
+
+# THE FOUR-SHIP, and the only file in the tree in which the sort has more than one degree of freedom:
+# four shooters against four contacts is a real ASSIGNMENT problem rather than "he takes the other
+# one". It is pair-2v2-asym.fbm scaled up, same geometry, same doctrine on both sides.
+#
+# WHAT THE STATIONS ARE. A flight is decomposed into ELEMENTS of two (doc/formation.md section 4.2):
+# position 1 is the reference, 2 sits one spread to its right, and the second element (3 and 4) sits
+# two spreads to its LEFT with 4 tucked inside 3. Every position carries its own altitude step, so no
+# two aircraft in a flight are co-altitude. Each unit below spawns ON its own station, which is why
+# the lat/alt of the four blocks per side are what they are.
+#
+# READING RULE: exit 3 (TIMEOUT) or a decided side; either is a result. What is measured is whether
+# the SORT still holds with four:
+#   flt_dup & flt_free   a target shared while another was free — must stay 0 across all eight units
+#   flt_assign           four distinct values across the F-16 flight is a clean four-way split
+#   flt_switch           re-sorts. Four members re-sort more than two, and how much more is the number
+#   flt_both_s           how much of the fight the MiG flight spent with nobody free
+# and the same eng_*/dmg_* channels every duel carries.
+#
+# MEASURED (exit 3): distinct targets per engaged member — viper flight 0.962, fulcrum flight 0.750.
+# One in four contract shooters is on a target its own flight already has; the cooperative flight is
+# within 4 % of one target each. `dup && free` is 0 for all eight units. Four F-16 rounds arrive on
+# three distinct MiGs, four MiG rounds on two distinct F-16s with viper1 taking three of them.
+
+unit viper1
+  team friendly
+  flight viper 1
+  module f16
+  spawn 46.90000 6.40000 8000 90.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 3 aim120
+  set store 7 aim120
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set brief_master_arm arm
+  set task intercept
+  wp 46.90000 8.40000 8000 450
+  objective kill team hostile
+  objective survive
+
+unit viper2
+  team friendly
+  flight viper 2
+  module f16
+  spawn 46.88336 6.40000 8150 90.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 3 aim120
+  set store 7 aim120
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set brief_master_arm arm
+  set task intercept
+  wp 46.90000 8.40000 8000 450
+  objective kill team hostile
+  objective survive
+
+unit viper3
+  team friendly
+  flight viper 3
+  module f16
+  spawn 46.93327 6.40000 8300 90.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 3 aim120
+  set store 7 aim120
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set brief_master_arm arm
+  set task intercept
+  wp 46.90000 8.40000 8000 450
+  objective kill team hostile
+  objective survive
+
+unit viper4
+  team friendly
+  flight viper 4
+  module f16
+  spawn 46.91664 6.40000 8450 90.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 3 aim120
+  set store 7 aim120
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set brief_master_arm arm
+  set task intercept
+  wp 46.90000 8.40000 8000 450
+  objective kill team hostile
+  objective survive
+
+unit fulcrum1
+  team hostile
+  flight fulcrum 1
+  module mig29
+  spawn 46.90000 7.85000 8000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 27
+  set n019_emission illum
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r27r
+  set cmds_mode man
+  set cmds_chaff 30
+  set brief_master_arm arm
+  set task intercept
+  wp 46.90000 5.85000 8000 450
+  objective kill team friendly
+  objective survive
+
+unit fulcrum2
+  team hostile
+  flight fulcrum 2
+  module mig29
+  spawn 46.91664 7.85000 8150 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 27
+  set n019_emission illum
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r27r
+  set cmds_mode man
+  set cmds_chaff 30
+  set brief_master_arm arm
+  set task intercept
+  wp 46.90000 5.85000 8000 450
+  objective kill team friendly
+  objective survive
+
+unit fulcrum3
+  team hostile
+  flight fulcrum 3
+  module mig29
+  spawn 46.86673 7.85000 8300 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 27
+  set n019_emission illum
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r27r
+  set cmds_mode man
+  set cmds_chaff 30
+  set brief_master_arm arm
+  set task intercept
+  wp 46.90000 5.85000 8000 450
+  objective kill team friendly
+  objective survive
+
+unit fulcrum4
+  team hostile
+  flight fulcrum 4
+  module mig29
+  spawn 46.88336 7.85000 8450 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 27
+  set n019_emission illum
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r27r
+  set cmds_mode man
+  set cmds_chaff 30
+  set brief_master_arm arm
+  set task intercept
+  wp 46.90000 5.85000 8000 450
+  objective kill team friendly
+  objective survive

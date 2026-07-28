@@ -116,7 +116,7 @@ CORE_LIB_SRCS := \
   src/sensors/FBIrstSystem.cpp \
   src/weapons/FBStoresSystem.cpp src/weapons/FBGunSystem.cpp src/weapons/FBLaunchZone.cpp \
   src/pilot/FBPilot.cpp src/pilot/FBBfmTrack.cpp \
-  src/pilot/FBEngagement.cpp src/pilot/FBPilotTuning.cpp \
+  src/pilot/FBEngagement.cpp src/pilot/FBPilotTuning.cpp src/pilot/FBFlightPicture.cpp \
   src/modules/FBModuleRegistry.cpp \
   src/modules/f16/FBF16Fcr.cpp src/modules/f16/FBF16Cmds.cpp src/modules/f16/FBF16Damage.cpp \
   src/modules/f16/FBF16Max7456.cpp src/modules/f16/FBF16Module.cpp src/modules/f16/FBF16FireControl.cpp \

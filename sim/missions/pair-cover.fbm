@@ -1,0 +1,107 @@
+name pair-cover-1
+timeout 400
+
+# THE COVER RIG: the one file in which the flight's cover rule can be SEEN firing, and it is a rig in
+# the sense mig29-radar-notch is — a geometry built so that one mechanism is observable in isolation,
+# not a task anybody would fly.
+#
+# THE RULE (doc/formation.md section 6): a member does not fire a round that would BIND it while a
+# flight-mate is already bound, because a bound shooter is flying at its own antenna and a flight in
+# which nobody is free cannot answer a launch. It holds at most as long as its own shot would bind it;
+# after that two rounds in the air beat one.
+#
+# WHY IT NEEDS A RIG. The rule costs what the WEAPON costs, and on the AIM-120 that is almost nothing:
+# [MESS, pair-2v2-asym] a head-on shot at Rtr goes active 0.3 s after launch, so the binding is three
+# ticks long and two members practically never overlap. Two things are therefore set here, both taken
+# from the existing tree rather than invented:
+#   1. the EARLY-LAUNCH doctrine (`pilot_shot_rtr 1.4` / `pilot_lock_nm 20`, doc/duels.md section 3) —
+#      a shot from 15+ nm has a time-to-active of 8.75 s instead of 0.3 s [MESS], so a binding exists
+#      at all;
+#   2. the two bandits are staggered 3 km in range, so the two members reach their own firing
+#      parameters SEVERAL SECONDS apart instead of within the same second. That matters because the
+#      "mate is bound" bit travels in the PPLI: a member that shot less than one net cycle ago is not
+#      yet known to be bound, and the rule cannot act on what has not arrived. [MESS, the same file
+#      without the stagger] both vipers fired 0.4 s apart, spent 7.9 s bound TOGETHER, and the rule
+#      never fired once.
+#
+# READING RULE: exit 0 (SUCCESS) — the element's `kill team hostile` is met, both bandits are shot
+# down, and both vipers survive. That is a by-product; what the file is FOR is `flt_defer_s` on the
+# SECOND shooter — the seconds it held its own trigger — together with `events.log`'s
+# `flight COVER_DEFER` line and the cap it was holding against. `flt_both_s` is the same quantity from
+# the other side: seconds in which the flight had nobody free.
+# MEASURED: viper1 shoots at t=148.9 and is bound until t=162.0 (its AIM-120's time-to-active is
+# 13.0 s from that range). viper2 reaches its own parameters inside that window, logs
+# `COVER_DEFER ... capS=33.25` at t=154.4, holds for `flt_defer_s` = 7.8 s and fires at t=162.8 —
+# 0.8 s after the window closed. `flt_both_s` is 0.0 for both: the flight was never uncovered.
+
+unit viper1
+  team friendly
+  flight viper 1
+  module f16
+  spawn 46.90000 6.40000 8000 90.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 3 aim120
+  set store 7 aim120
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set brief_master_arm arm
+  set pilot_shot_rtr 1.4
+  set pilot_lock_nm 20
+  set task intercept
+  wp 46.90000 8.40000 8000 450
+  objective kill team hostile
+  objective survive
+
+unit viper2
+  team friendly
+  flight viper 2
+  module f16
+  spawn 46.88334 6.40000 8150 90.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 3 aim120
+  set store 7 aim120
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set brief_master_arm arm
+  set pilot_shot_rtr 1.4
+  set pilot_lock_nm 20
+  set task intercept
+  wp 46.90000 8.40000 8000 450
+  objective kill team hostile
+  objective survive
+
+# The two bandits fly straight and do not shoot: they are the geometry, not an opponent. The 0.04 deg
+# of longitude between them (~3 km) is the stagger that separates the two firing solutions in TIME.
+unit bandit1
+  team hostile
+  module f16
+  spawn 46.90000 7.85000 8000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink off
+  set fcr_mode crm
+  set rwr on
+  wp 46.90000 5.85000 8000 450
+
+unit bandit2
+  team hostile
+  module f16
+  spawn 46.88334 7.89000 8000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink off
+  set fcr_mode crm
+  set rwr on
+  wp 46.90000 5.85000 8000 450

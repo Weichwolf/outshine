@@ -76,6 +76,19 @@ carry the same `unit=` attribution as that unit.
   block: the scaling case for `fb-gym --threads` (four roughly equally expensive airframes).
 - `sim/missions/payerne-mixed.fbm` — deliberately unequal load: `roller` starts on the ground at the
   threshold, `cruiser` is already in cruise — the stress test of the lockstep barrier.
+- `sim/missions/pair-formation.fbm` — the station-keeping rig: a lead flying two 90° turns and a
+  wingman doing nothing but hold its combat-spread station on the lead's datalink report. Read
+  `flt_sta` (45.2 m median on a straight leg, ~1.9 km peak through a turn).
+- `sim/missions/pair-2v2-f16.fbm` — the SYMMETRIC formation reference case, `duel-headon`'s counterpart
+  with two aircraft a side: what the run measures is the SORT, not the kill. Its control is the same
+  file with the two `flight` lines deleted.
+- `sim/missions/pair-2v2-asym.fbm` — the same geometry against a MiG-29 element: the cooperative sort
+  against the briefed contract, and the SARH binding as a number (17.3 s against 0.3 s).
+- `sim/missions/pair-cover.fbm` — the cover rig: an early-launch F-16 element against two staggered
+  bandits, built so the deferral rule is observable at all (`flt_defer_s` 7.8 s).
+- `sim/missions/four-4v4-asym.fbm` — four shooters a side, i.e. the first real assignment problem:
+  distinct targets per engaged member 0.962 cooperative against 0.750 contract.
+  All five: [`../formation.md`](../formation.md).
 - `sim/missions/payerne-radar-acm.fbm` — the radar reference geometry: two jets on perpendicular,
   straight, equally high legs. The target starts outside every ACM box, swings through the nose and
   finally leaves the antenna range — no contact → build-up → lock → coast → loss in ONE run.

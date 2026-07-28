@@ -16,8 +16,8 @@ double FBDatalinkSystem::RadioHorizonM(double altAM, double altBM) {
 }
 
 namespace {
-void CopyCallsign(char *dst, const std::string &src) {
-  size_t n = std::min(src.size(), (size_t)kDatalinkCallsignLen - 1);
+void CopyName(char *dst, const std::string &src, size_t cap) {
+  size_t n = std::min(src.size(), cap - 1);
   std::memcpy(dst, src.data(), n);
   dst[n] = '\0';
 }
@@ -38,7 +38,11 @@ void FBDatalinkSystem::Cycle(const Fdm::fb_fdm_state &st, const Units::FBUnitReg
     if (u->GetKind() != Units::FBUnitKind::Aircraft) continue;
     flightIndex++;                                   /* Ordinal in der Rotte, eigene Einheit eingeschlossen */
     if (u->GetId() == SelfId_) continue;             /* die eigene PPLI ist kein Track auf dem eigenen Display */
-    if (!AcceptContact(*u, flightIndex)) continue;
+    /* DER FILTER-INDEX ist die DEKLARIERTE Position, sobald die Mission eine erklaert — vorher war er
+     * die Missionsreihenfolge, also ein Platzhalter fuer eine Fuehrung, die es nicht gab. Ohne
+     * `flight`-Zeile bleibt es exakt der alte Ordinal (doc/formation.md 1). */
+    int filterIndex = u->GetFlight().Declared() ? u->GetFlight().Position - 1 : flightIndex;
+    if (!AcceptContact(*u, filterIndex)) continue;
     if (n >= kMaxDatalinkTracks) break;
 
     Units::FBUnitPose p = u->GetPose();
@@ -53,13 +57,19 @@ void FBDatalinkSystem::Cycle(const Fdm::fb_fdm_state &st, const Units::FBUnitReg
     if (heard) {
       FBDatalinkTrack &t = fresh[n++];
       t.UnitId = u->GetId();
-      CopyCallsign(t.Callsign, u->GetName());
+      CopyName(t.Callsign, u->GetName(), kDatalinkCallsignLen);
       t.Team = u->GetTeam();
       t.LatDeg = p.LatDeg; t.LonDeg = p.LonDeg;
       t.AltM = (float)p.ElevM;
       t.HeadingDeg = (float)p.HeadingDeg;
       t.SpeedMs = (float)p.SpeedMs;
       t.ReportTimeS = (float)simTimeS;
+      /* Die ROTTEN-Haelfte derselben Nachricht: Identitaet aus der Registry (wie Callsign und
+       * Fraktion), Absicht aus der publizierten Signatur — beides nur, weil dies ein KOOPERATIVES
+       * Netz ist. Ein Ziel wird als PUNKT gemeldet, nie als Einheit. */
+      CopyName(t.FlightName, u->GetFlight().Name, kFlightNameLen);
+      t.FlightPos = u->GetFlight().Position;
+      t.Report = u->GetSignature().Flight;
     } else if (held && simTimeS - held->ReportTimeS < dropAgeS) {
       fresh[n++] = *held;   /* letzte Nachricht halten, Position und Zeitstempel unveraendert */
     }

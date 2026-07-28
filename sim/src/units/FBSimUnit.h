@@ -46,7 +46,8 @@ public:
   /* `fdm` must be spawned and trimmed (fdm/FBFdmBoot::Spawn), `module` already AttachFdm'd; a NULL
    * `fdm` means exactly one thing, that this unit has no flight dynamics. */
   FBSimUnit(int id, std::string name, FBUnitKind kind, FBUnitTeam team, std::unique_ptr<Fdm::FBFdm> fdm,
-            std::unique_ptr<Modules::FBModule> module, const Fdm::fb_fdm_state &initialState, double groundAslM);
+            std::unique_ptr<Modules::FBModule> module, const Fdm::fb_fdm_state &initialState, double groundAslM,
+            FBFlightId flight = FBFlightId{});
 
   /* ---- FBUnit ---- */
   FBUnitPose GetPose() const override { return Pose_; }

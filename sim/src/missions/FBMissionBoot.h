@@ -53,7 +53,7 @@ inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnActor(const FBModelRoots 
     gst.lat = sp.LatDeg; gst.lon = sp.LonDeg; gst.elev = groundAsl; gst.yaw = sp.HeadingDeg;
     Units::FBUnitKind gkind = module->UnitKind();   /* read BEFORE the move: argument order is unspecified */
     auto gunit = std::make_unique<Units::FBSimUnit>((int)unitIdx + 1, block.Id, gkind, block.Team,
-                                             nullptr, std::move(module), gst, groundAsl);
+                                             nullptr, std::move(module), gst, groundAsl, block.Flight);
     if (!block.Plan.Empty() || !block.Objectives.empty())
       gunit->SetMissionMonitor(std::make_unique<FBMissionMonitor>(block.Plan, block.Objectives,
                                                                   mission.Runway, mission.HaveRunway,
@@ -95,7 +95,7 @@ inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnActor(const FBModelRoots 
 
   Units::FBUnitKind kind = module->UnitKind();   /* read BEFORE the move: argument order is unspecified */
   auto unit = std::make_unique<Units::FBSimUnit>((int)unitIdx + 1, block.Id, kind, block.Team,
-                                          std::move(fdm), std::move(module), st, groundAsl);
+                                          std::move(fdm), std::move(module), st, groundAsl, block.Flight);
   /* An actor is JUDGED iff the mission gave it something to achieve; one with neither waypoints nor
    * objectives carries no monitor and never appears in the mission verdict. */
   if (!block.Plan.Empty() || !block.Objectives.empty())

@@ -1,0 +1,26 @@
+# FlightBox — the FLIGHT tournament: one element doctrine against another, run with
+#
+#     tools/fb_tournament.py --variants tools/variants-flight.txt --out /tmp/tflight --flight 2
+#
+# Same file format as variants-mixed.txt plus the two keys a FLIGHT doctrine needs. Both are mission
+# data, exactly like the `pilot_*` lines, so an element doctrine is a text line and not a class:
+#
+#   dl=on|off      whether the element uses its cooperative net. `on` gives the flight a shared
+#                  picture and therefore the computed, deconflicted sort AND the cover rule; `off`
+#                  leaves it two singles that happen to be spawned together. Only the F-16 has one
+#                  at all — a `dl=on` on a mig29 variant would be a lie, and the module rejects the
+#                  key outright (doc/modules/mig29/datalink-gci.md section 5.3)
+#   sort=<rule>    the briefed sort CONTRACT: none|left|right|near|far. It is what a flight without a
+#                  shared picture has left, and the MiG's only sort
+#
+# THE QUESTION this file asks, and it is the one the named missions cannot: does coordinating pay
+# ACROSS pairings and both seats, with a fitness written before flights existed? The three F-16 rows
+# are the same element three ways — networked, networked with an azimuth contract as well, and
+# deliberately unnetworked — so the difference between them is the CHANNEL and nothing else.
+
+f16_net       dl=on                        # cooperative sort + cover, the flight this round built
+f16_net_left  dl=on sort=left              # ...and an azimuth contract underneath it as a fallback
+f16_solo      dl=off                       # two singles in formation: the control for both of the above
+
+mig_pair      module=mig29 sort=left       # the contract sort, which is all this aircraft can have
+mig_solo      module=mig29                 # ...and the same element without even that

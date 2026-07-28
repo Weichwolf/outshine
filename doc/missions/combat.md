@@ -121,6 +121,25 @@ Rtr, shoots first, and the other never gets to shoot; SUCCESS against FAIL), `bv
 `bvr-defend-blind.fbm` (the defence pair: identical shot, ONE line of difference — `set rwr on|off` —
 i.e. reacting versus non-reacting AI).
 
+### Formation missions (`flight`, `set task formation`, `set brief_sort`)
+
+A unit that carries a `flight <name> <position>` line ([`syntax.md`](syntax.md)) flies as part of an
+ELEMENT, and three things change for it. All three are no-ops without the declaration, which is the
+regression condition of the whole feature.
+
+| Mission data | What it does |
+|---|---|
+| `flight <name> <pos>` | identity: position 1 is the lead. It makes the datalink's `fl` contact filter a statement rather than a mission-file ordinal, and it is what the sort, the station and the cover rule are all defined against |
+| `set task formation` | the pilot starts in phase `Formation`: a wingman holds a combat-spread station on the LEAD's datalink report, the lead flies the mission's own route. Available on `f16` and on `mig29` — but the MiG has no cooperative terminal, so it has no lead report to hold and falls straight through to its own plan, which is the doctrine and not a gap |
+| `set brief_sort left\|right\|near\|far` | the briefed sort CONTRACT: which end of the picture this member takes, measured against the FLIGHT's axis (the briefed vector). It is the only sort a flight without a shared picture has, and therefore the MiG-29's only sort. A flight WITH a shared picture never consults it |
+
+Inside `set task intercept` a declared flight additionally sorts its targets from what the flight
+collectively sees, and defers a shot that would leave the flight with nobody free. Fourteen `flt_*`
+telemetry columns and the `flight SORT_ASSIGN` / `SORT_DROP` / `COVER_DEFER` / `SPLIT` events report
+all of it. The rules, the derivations and the measurements are in [`../formation.md`](../formation.md);
+the missions are `sim/missions/pair-formation.fbm`, `pair-2v2-f16.fbm`, `pair-2v2-asym.fbm`,
+`pair-cover.fbm` and `four-4v4-asym.fbm`.
+
 ### Pilot variants (`set pilot_*`) and the tournament
 
 The decision numbers of an intercept are properties of the PILOT, not of the airframe. They stand as
@@ -166,6 +185,13 @@ sim/tools/fb_tournament.py --variants sim/tools/variants-bvr.txt --out /tmp/t --
     --threads 2 --check-determinism
 ```
 
+`--flight N` (1, 2 or 4) turns each side into an ELEMENT of N flying one doctrine, with the objective
+changed from `kill unit` to `kill team`; a variant line then also accepts `dl=on|off` (does the
+element use its cooperative net) and `sort=<contract>`, so a FLIGHT doctrine is a text line too.
+`--flight 1` writes byte-identical missions to the previous script (120 pairings compared, 0 differ),
+so `variants-bvr.txt` and `variants-mixed.txt` are unaffected. See
+[`../formation.md`](../formation.md) for the measured ranking.
+
 ## State
 
 | Item | State |
@@ -175,6 +201,7 @@ sim/tools/fb_tournament.py --variants sim/tools/variants-bvr.txt --out /tmp/t --
 | `set task attack` | built — see [`weapons.md`](weapons.md) |
 | `set pilot_*` | built; sixteen keys with bands, unknown key or out-of-band value = runtime FAIL |
 | Tournament | `sim/tools/fb_tournament.py`, a script — no build target, no production path |
+| `flight` / `set task formation` / `set brief_sort` | built; see [`../formation.md`](../formation.md) for the contract, the numbers and the gaps |
 
 ## Gaps
 

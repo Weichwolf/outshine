@@ -126,6 +126,25 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
       std::string t;
       if (!(ls >> t) || !FBUnitTeamFromString(t.c_str(), unit->Team))
         return fail("'team' needs friendly|hostile|neutral");
+    } else if (kw == "flight") {
+      /* The flight is IDENTITY, declared beside the team and for the same reason: the cooperative net
+       * reads both off the registry. Position 1 is the lead — which is what makes the datalink's
+       * flight-lead filter a statement instead of a mission-file ordinal. */
+      if (unit->Flight.Declared()) return fail("unit '" + unit->Id + "' already has a 'flight'");
+      std::string fname;
+      int pos = 0;
+      if (!(ls >> fname)) return fail("'flight' needs a name and a position (e.g. 'flight viper 2')");
+      if (!(ls >> pos)) return fail("'flight' needs a position after the name (1 = lead)");
+      if (!CallsignOk(fname) || fname.size() >= (size_t)kFlightNameLen)
+        return fail("flight name '" + fname + "' must be 1-" + std::to_string(kFlightNameLen - 1) +
+                    " chars of [A-Za-z0-9_-] (it travels in a PPLI)");
+      if (pos < 1 || pos > kMaxFlightPosition)
+        return fail("'flight' position must be 1.." + std::to_string(kMaxFlightPosition) + " (1 = lead)");
+      for (const auto &u : out.Units)
+        if (&u != unit && u.Flight.Name == fname && u.Flight.Position == pos)
+          return fail("flight '" + fname + "' already has a unit at position " + std::to_string(pos));
+      unit->Flight.Name = fname;
+      unit->Flight.Position = pos;
     } else if (kw == "spawn") {
       /* spawn <lat lon | threshold> <altM | ground> <hdgDeg> <speedKt> — the declarative IC. Neither
        * keyword is a second syntax or a second code path (doc/missions/syntax.md). */
@@ -222,6 +241,14 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
         return failFile("unit '" + u.Id + "': 'objective kill unit " + o.TargetId + "' names no unit "
                         "in this mission");
     }
+    /* A flight without a lead is not a flight: every piece of formation behaviour — the station a
+     * wingman holds, the datalink's `fl` filter — is defined against position 1. */
+    if (!u.Flight.Declared()) continue;
+    bool haveLead = false;
+    for (const auto &other : out.Units)
+      haveLead = haveLead || (other.Flight.Name == u.Flight.Name && other.Flight.IsLead());
+    if (!haveLead)
+      return failFile("flight '" + u.Flight.Name + "' has no unit at position 1 (the lead)");
   }
   return true;
 }

@@ -24,6 +24,7 @@ source directory. If you know where the code is, you know where its file is.
 | `weapons/` | [weapons.md](weapons.md) |
 | `pilot/` | [pilot.md](pilot.md) |
 | *(missions, not a source dir)* | [duels.md](duels.md) — the asymmetric duel campaign |
+| *(cross-cutting, not a source dir)* | [formation.md](formation.md) — the flight as a fighting unit |
 | `missions/` + `units/` | [missions/](missions/INDEX.md) |
 | `modules/` | [modules/](modules/f16/INDEX.md) |
 | `render/` | [render/](render/renderer.md) |
@@ -43,6 +44,10 @@ Every topic file carries the same four sections:
 | `## Knowledge` | derivations, formulas, measured constants | you need the number and where it came from |
 
 The working rule that binds a round to this shape is in [`conventions.md`](conventions.md).
+
+Two files are deliberately outside the mirror because their subject is: [`duels.md`](duels.md) (a
+PAIRING) and [`formation.md`](formation.md) (a FLIGHT — it cuts through core, units, sensors, pilot and
+missions at once, and belongs whole in one place rather than in fifths).
 
 Exceptions, all deliberate: the **meta files** (this index, `vision.md`, `roadmap.md`, `journal.md`,
 `conventions.md`) carry no Spec/State/Gaps — they *are* the direction, the order, the history and the
@@ -74,6 +79,7 @@ were translated in the Phase-3 split; no German prose remains in `doc/`.
 | [weapons.md](weapons.md) | weapon-as-unit, SMS and gun, shared ballistics, the **three resolution boundaries**, the damage model from geometry to system consequence, and the coupling "failure → block invalid" |
 | [pilot.md](pilot.md) | phase machine, attack, BFM with its own control law, the **datum** as the pilot's memory, BVR intercept, debriefing channels, variants and tournament, the mission control loop |
 | [duels.md](duels.md) | the **asymmetric measurement campaign** — `missions/duel-*.fbm`, the geometry × outcome table, the four asymmetries with their numbers, the EMCON timeline, the mixed tournament |
+| [formation.md](formation.md) | the **flight**: roles as mission data, the wingman's station on a moving point, target sorting from the shared picture against the briefed contract, the cover rule and why it is free for one weapon and unavailable for the other |
 
 ## Missions — `missions/`
 

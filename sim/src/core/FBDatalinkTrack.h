@@ -5,6 +5,7 @@
 #ifndef FB_FBDATALINKTRACK_H
 #define FB_FBDATALINKTRACK_H
 
+#include "FBFlight.h"
 #include "FBTeam.h"
 
 namespace FlightBox {
@@ -23,6 +24,12 @@ struct FBDatalinkTrack {
   float  BearingDeg = 0.0f;                   /* true bearing to the reported position */
   float  ReportTimeS = 0.0f;                  /* sim time of the message this track still stands on */
   float  AgeS = 0.0f;                         /* now - ReportTimeS; 0 only in the tick it arrived */
+  /* THE FLIGHT HALF of the same message: who the sender is in its own flight, and what it says it is
+   * doing. Position 0 = the sender is in no declared flight, and every consumer then behaves exactly
+   * as it did before this field existed. doc/formation.md, section 3. */
+  char   FlightName[kFlightNameLen] = {};
+  int    FlightPos = 0;
+  FBFlightReport Report;
 };
 
 } // namespace FlightBox

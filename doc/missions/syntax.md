@@ -26,8 +26,8 @@ One statement per line, `#` opens a comment to end of line, blank lines are igno
 indentation is purely cosmetic. **Two scopes:**
 
 - **mission-wide** — `name`, `runway`, `timeout`, `wx`. Must stand BEFORE the first `unit` block.
-- **actor-scoped** — `module`, `team`, `spawn`, `set`, `wp`, `land`, `objective`. Only INSIDE a
-  `unit` block; a block runs until the next `unit` or end of file.
+- **actor-scoped** — `module`, `team`, `flight`, `spawn`, `set`, `wp`, `land`, `objective`. Only
+  INSIDE a `unit` block; a block runs until the next `unit` or end of file.
 
 Both directions are hard parse errors (a `runway` line between two units would otherwise be silently
 "mission-wide, just declared late"; a `spawn` line before the first `unit` would have no owner).
@@ -83,6 +83,7 @@ unit two
 | Actor  | `unit`    | callsign | block start. 1–24 characters from `[A-Za-z0-9_-]` (the callsign also names the telemetry file and the `unit=` log attribution), unique mission-wide. |
 | Actor  | `module`  | rest of line | module name, resolved through `FBModuleRegistry` — determines both the `FBModule` and the JSBSim aircraft folder name (`sim/assets/aircraft/<module>`). Mandatory per block. |
 | Actor  | `team`    | `friendly`\|`hostile`\|`neutral` | team (`FBUnitTeam`, `core/FBTeam.h`) — lands in the unit registry that sensors and weapons read. Optional, default `friendly`. |
+| Actor  | `flight`  | name position | the FLIGHT this unit belongs to and the position it holds in it (`FBFlightId`, `core/FBFlight.h`) — identity beside the team, and read off the registry by the cooperative datalink for the same reason. Position 1 is the LEAD; 2..8 are wingmen (8 because a flight cannot be larger than the track list that carries it). Optional, at most once per block: a unit without it is in no flight, and every piece of formation behaviour is then a no-op. See [`../formation.md`](../formation.md). |
 | Actor  | `spawn`   | `<lat lon \| threshold>` `<altM \| ground>` `hdgDeg` `speedKt` | mandatory, exactly once per block: this unit's declarative IC — position, altitude-OR-ground, heading, speed. `threshold` takes lat/lon from the mission-wide `runway` line (pure writing convenience, not a second position syntax). `ground` resolves the altitude from terrain plus landing-gear geometry; a numeric value is a LITERAL ASL altitude (an air start). Both cases run through the same single JSBSim IC application. |
 | Actor  | `set`     | `key value...` | system state as mission data — the runner only parses the KV list and hands it, inside the spawn IC window, to `FBModule::ApplySetup(key, value)` of THIS unit; the MODULE interprets its own keys. An unknown key is a runtime FAIL (exit 1, `SET_REJECTED` event), not a parse error. The key sets live with their topics: [`sensors.md`](sensors.md), [`avionics.md`](avionics.md), [`weapons.md`](weapons.md), [`combat.md`](combat.md). |
 | Actor  | `wp`      | lat lon altM speedKt | an `FBWaypoint` of type `Enroute`, in THIS unit's flight plan |
@@ -98,7 +99,12 @@ off-runway check, `wx` defaults to `calm`).
 Parse errors (`FBParseMissionFile` returns `false` plus a message in `*err`) are: unknown keyword, an
 actor line without an open block, a mission-wide line after the first block, a duplicate or
 non-file-safe callsign, two `spawn` lines in one block, `spawn threshold`/`land` without `runway`, a
-`set` without a value, a `team` outside the three values, a missing mandatory field.
+`set` without a value, a `team` outside the three values, a missing mandatory field — and, for
+`flight`: a second `flight` line in one block, a position outside 1..8, a name that is not
+`[A-Za-z0-9_-]` or is 16 characters or longer (it travels in a fixed PPLI field), two units at the same
+(name, position), and — checked at end of file, like a `kill unit` forward reference — **a declared
+flight with no unit at position 1**. Every piece of formation behaviour is defined against the lead,
+so a flight without one is not a flight.
 
 A `module` that `FBModuleRegistry` does not know, or an unknown `set` key, is a runtime FAIL of the
 runner (not of the parser).
@@ -112,7 +118,7 @@ explicit `spawn` altitude below the resolved ground. `v=0` in the air is by cont
 
 `FBMission` = `Name` + optional `FBRunway` (`HaveRunway`) + `TimeoutS` + `FBWeatherSpec`
 (`HaveWeather`) + `Units` (list of `FBMissionUnit`). `FBMissionUnit` = `Id` (callsign) + `ModuleName`
-+ `Team` + `FBSpawn` (`HaveSpawn`) + `SetKV` (file order) + `FBFlightPlan` (the `wp`/`land` lines in
++ `Team` + `FBFlightId` (`Flight`, `Position` 0 = undeclared) + `FBSpawn` (`HaveSpawn`) + `SetKV` (file order) + `FBFlightPlan` (the `wp`/`land` lines in
 file order) + `Objectives` (the `objective` lines, `std::vector<FBObjective>`). A landing objective is
 not a flag of its own: the flight plan then ends on an `FBWaypointType::Land` waypoint, and that is
 exactly how the monitor recognises the standstill rule ([`verdict.md`](verdict.md)).

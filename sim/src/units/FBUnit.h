@@ -7,6 +7,7 @@
 #include <string>
 #include "FBCountermeasure.h"
 #include "FBEmitter.h"
+#include "FBFlight.h"
 #include "FBTeam.h"
 #include "FBWeaponUplink.h"
 
@@ -46,6 +47,10 @@ struct FBUnitSignature {
    * gate then behaves exactly as it did before this field existed. doc/sensors.md, Spec. */
   float RcsM2 = 0.0f;
   FBEmitterSignature Radar;   /* the BEAM incl. where it points; silent Mode::None by default */
+  /* WHAT THIS UNIT TELLS ITS OWN FLIGHT. It rides the cooperative terminal, so it reaches nobody
+   * unless `DatalinkXmt` is true and nobody outside the faction ever — the datalink is the only
+   * consumer. A unit in no flight leaves it empty and is invisible to all of it. */
+  FBFlightReport Flight;
   /* Chaff hangs off the DISPENSING unit rather than being units of its own — stated consequence: a
    * cloud can only decoy a radar looking at the aircraft that threw it. */
   FBChaffCloud Chaff[kMaxChaffClouds];
@@ -56,14 +61,17 @@ struct FBUnitSignature {
 
 class FBUnit {
 public:
-  FBUnit(int id, std::string name, FBUnitKind kind, FBUnitTeam team)
-      : Id(id), Name(std::move(name)), Kind(kind), Team(team) {}
+  FBUnit(int id, std::string name, FBUnitKind kind, FBUnitTeam team, FBFlightId flight = FBFlightId{})
+      : Id(id), Name(std::move(name)), Kind(kind), Team(team), Flight(std::move(flight)) {}
   virtual ~FBUnit() = default;
 
   int GetId() const { return Id; }
   const std::string &GetName() const { return Name; }   /* callsign — the .fbm `unit <id>` token */
   FBUnitKind GetKind() const { return Kind; }
   FBUnitTeam GetTeam() const { return Team; }
+  /* Identity, like the team: undeclared (Position 0) for every unit the mission does not put in a
+   * flight, and every consumer treats that as "no flight" rather than "flight 0". */
+  const FBFlightId &GetFlight() const { return Flight; }
 
   /* SNAPSHOT CONTRACT: the state of the LAST COMPLETED tick, never a half-integrated one — the client
    * steps every unit and only then publishes, so no result can depend on tick ORDER. */
@@ -81,6 +89,7 @@ private:
   std::string Name;
   FBUnitKind Kind;
   FBUnitTeam Team;
+  FBFlightId Flight;
 };
 
 } // namespace FlightBox::Units

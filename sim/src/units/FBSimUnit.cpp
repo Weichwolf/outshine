@@ -17,8 +17,8 @@ constexpr double kWeaponNoGroundElevM = -100000.0;
 
 FBSimUnit::FBSimUnit(int id, std::string name, FBUnitKind kind, FBUnitTeam team,
                      std::unique_ptr<Fdm::FBFdm> fdm, std::unique_ptr<Modules::FBModule> module,
-                     const Fdm::fb_fdm_state &initialState, double groundAslM)
-    : FBUnit(id, std::move(name), kind, team),
+                     const Fdm::fb_fdm_state &initialState, double groundAslM, FBFlightId flight)
+    : FBUnit(id, std::move(name), kind, team, std::move(flight)),
       Fdm_(std::move(fdm)),
       Module_(std::move(module)),
       St_(initialState),
@@ -28,6 +28,7 @@ FBSimUnit::FBSimUnit(int id, std::string name, FBUnitKind kind, FBUnitTeam team,
       HealthSrc_(Health_) {
   assert(Module_ && "FBSimUnit needs the module that flies the airframe");
   Module_->SetUnitIdentity(GetId(), GetTeam());   /* before the first Run */
+  Module_->SetFlight(GetFlight());                /* ...and which flight it flies in, same wiring step */
   Module_->AttachHealth(Health_);   /* read-only: the module sees its damage, never writes it */
   PublishPose();   /* the declarative spawn is already a valid pose — nobody ever reads an empty one */
 }
@@ -55,6 +56,9 @@ void FBSimUnit::PublishPose() {
   const FBFlareCloud *flares = Module_->Countermeasures().Flares();
   for (int i = 0; i < kMaxFlareClouds; i++) Sig_.Flare[i] = flares[i];
   Sig_.Uplink = Module_->Stores().Uplink();
+  /* What this jet tells its own flight — published at the same barrier as everything else it radiates,
+   * so no receiver ever reads half of it. Empty for a unit in no flight. */
+  Sig_.Flight = GetFlight().Declared() ? Module_->FlightReport() : FBFlightReport{};
 }
 
 void FBSimUnit::Run(double dt, const FBUnitRegistry *units, const World::FBWorld *world) {
@@ -198,6 +202,7 @@ void FBSimUnit::StartTelemetry(FBTelemetrySink *sink) {
   Bus_.Register(&HealthSrc_);
   Bus_.Register(&Module_->Guns());
   Bus_.Register(&Module_->Irst());
+  Bus_.Register(&Module_->PilotSystem().FlightPicture());
   Bus_.SetSink(sink);
   Bus_.Start();
 }

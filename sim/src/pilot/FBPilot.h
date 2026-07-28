@@ -11,6 +11,8 @@
 #include "FBBfmTrack.h"
 #include "FBCommandBus.h"
 #include "FBEngagement.h"
+#include "FBFlight.h"
+#include "FBFlightPicture.h"
 #include "FBFlightPlan.h"
 #include "FBPilotTuning.h"
 #include "FBRunway.h"
@@ -50,7 +52,7 @@ class FBPilot : public FBTelemetrySource {
 public:
   /* Die Reihenfolge ist telemetrie-sichtbar: nur ANHAENGEN, nie umsortieren. */
   enum class Phase { Idle, Preflight, Takeoff, Climb, Route, Approach, Flare, Rollout, Shutdown, Bfm,
-                     Intercept, Attack };
+                     Intercept, Attack, Formation };
   static const char *PhaseName(Phase p);
 
   FBPilot() = default;
@@ -111,6 +113,18 @@ public:
 
   FBEngagement &Engagement() { return Eng_; }
   const FBEngagement &Engagement() const { return Eng_; }
+
+  FBFlightPicture &FlightPicture() { return Flight_; }
+  const FBFlightPicture &FlightPicture() const { return Flight_; }
+
+  /* WIRING, not a brief: which flight this jet flies in is set once at boot from the mission file, the
+   * same way the unit id and the team are (units/FBSimUnit). Undeclared leaves every piece of flight
+   * behaviour a no-op. */
+  void SetFlight(const FBFlightId &f) { Flight_.SetFlight(f); }
+  FBFlightReport FlightReport() const { return Flight_.Report(); }
+  /* THE SORT CONTRACT is a BRIEF — what the controller said before takeoff, and the only sort a flight
+   * without a shared picture has. doc/formation.md, section 5.3. */
+  void BriefSort(FBSortContract c) { Flight_.SetContract(c); }
 
   /* DIE VARIANTE: von aussen schreibgeschuetzt-einseitig — gelesen wird die Tabelle ausschliesslich
    * ueber Tuned(), im Entscheidungspfad selbst. */
@@ -222,6 +236,16 @@ protected:
    * doc/modules/mig29/module.md gap 4h (a). */
   virtual int    BfmRadarModeOrdinal() const { return -1; }
 
+  /* DIE KAMPFFORMATION. Die seitliche Staffelung hat eine ABLEITBARE UNTERGRENZE und sonst nur eine
+   * Setzung: die Station wird auf einer MELDUNG gehalten, die bis kDropAfterCycles Netzzyklen alt sein
+   * darf (3 x 1 s), also traegt sie bei Reisegeschwindigkeit einen Positionsfehler von V*3 s — bei
+   * 450 kt TAS 695 m. Eine Staffelung darunter liesse den Rottenflieger durch den Fuehrenden
+   * hindurchsteuern, ohne dass irgendetwas falsch gerechnet haette. 1852 m (1 nm) ist dieselbe
+   * Groessenordnung mit 2,7-facher Marge [SET]. doc/formation.md, Abschnitt 4.2. */
+  virtual double FormationSpreadM() const { return 1852.0; }
+  virtual double FormationTrailM() const { return 0.0; }     /* Line abreast; ein zweites Element haengt zurueck */
+  virtual double FormationStackM() const { return 150.0; }   /* [SET] Hoehenversatz je Position */
+
   /* Die BVR-Zahlen. Der Suchmodus ist ein MODUL-Ordinal, die generische Schicht kann ihn also nicht
    * benennen, nur anfordern; -1 = „dieses Modul hat keinen eigenen nicht-lockenden Suchmodus". */
   virtual int    SearchRadarModeOrdinal() const { return -1; }
@@ -289,6 +313,14 @@ private:
   void BfmDesignate(const FBState &state, FBCommandBus &avionics);
   void BfmSelectRadarMode(const FBState &state, FBCommandBus &avionics);
   void BfmGunfire(const FBState &state, FBCommandBus &avionics);
+  /* Die Rotten-Position auf einem BEWEGTEN Punkt: der Fuehrende ist eine Datalink-MELDUNG mit Alter,
+   * kein Ort. Die Quer- und Hoehenhaelfte laeuft ueber die bestehende Bahnfuehrung (SetDirectLeg auf
+   * die Kurslinie DURCH die Station), die Laengshaelfte ueber die Geschwindigkeit — getrennt, weil
+   * genau diese Trennung den Verfolgungs-PIO ausschliesst. doc/formation.md, Abschnitt 4. */
+  FBPilotCommands FormationCommands(const Fdm::fb_fdm_state &st, const FBFlightPlan &plan);
+  /* Die Station relativ zum Fuehrenden, aus der eigenen Rottenposition. */
+  void FormationStation(const FBFlightMember &lead, double &latDeg, double &lonDeg, double &altM) const;
+
   FBPilotCommands AttackCommands(const FBState &state, FBCommandBus &avionics, const Fdm::fb_fdm_state &st,
                                  const FBFlightPlan &plan);
   void StartAttackEgress(const FBState &state, const Fdm::fb_fdm_state &st);
@@ -325,6 +357,7 @@ private:
 
   FBBfmTrack Bfm_;                /* Bild + Scoreboard des Kampfes; ausserhalb der Bfm-Phase inert */
   FBEngagement Eng_;              /* Zustand + Debriefing des Abfangs; ausserhalb inert */
+  FBFlightPicture Flight_;        /* die Rotte; ohne deklarierte Rotte in jeder Hinsicht inert */
   FBPilotTuning Tune_;            /* die Variante dieses Piloten — leer, wenn die Mission nichts setzte */
 
   /* Das eigene Gedaechtnis der Intercept-Phase (FBEngagement haelt das PROTOKOLL, dies ist der Zustand,
@@ -348,6 +381,9 @@ private:
   double IntCrankSign_ = 1.0;       /* Richtung der Crank-Drehung, je Support-Eintritt einmal entschieden */
   bool   IntHaveCrankSign_ = false;
   bool   IntSupportBound_ = false;   /* s. SupportInhibitsDefend: einmal melden, nicht je Tick */
+  double IntCoverSinceS_ = -1.0;    /* seit wann der eigene Schuss fuer die Deckung zurueckgehalten wird */
+  bool   FlightSplit_ = false;      /* der Fuehrende ist ausser Rottenreichweite — einmal melden */
+  bool   IntCoverLogged_ = false;
   double IntLookPitchDeg_ = 0.0;    /* eigener Nick im Moment des letzten ECHTEN Looks (s. 7.5) */
   bool   IntHaveLookPitch_ = false;
   double TimeS_ = 0.0;            /* die eigene Uhr des Piloten; der Tracker stempelt Looks absolut */

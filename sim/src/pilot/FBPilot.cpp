@@ -129,6 +129,7 @@ const char *FBPilot::PhaseName(Phase p) {
     case Phase::Bfm: return "Bfm";
     case Phase::Intercept: return "Intercept";
     case Phase::Attack: return "Attack";
+    case Phase::Formation: return "Formation";
   }
   return "?";
 }
@@ -699,6 +700,109 @@ bool FBPilot::CanPressOn(const FBState &state) const {
  * laeuft: was sehe ich, wer sieht mich, in welchen Zustand setzt mich das, wohin zeige ich, und erst
  * dann welchen Schalter fasse ich an. Alles Gesehene ist von simulierten Boxen geschrieben, nichts
  * davon Wahrheit. doc/pilot-ai.md, Abschnitt 7. */
+/* DIE STATION, aus der eigenen Rottenposition und sonst nichts. Eine Rotte ist in ELEMENTE geteilt (je
+ * zwei), das erste Element fliegt Line abreast um den Fuehrenden, jedes weitere seitlich versetzt und
+ * zurueckgestaffelt — dieselbe Zerlegung, aus der ein Vierer zwei Paare macht. Jede Position bekommt
+ * ihre eigene Hoehenstufe, damit keine zwei Maschinen ko-altitude sind. */
+void FBPilot::FormationStation(const FBFlightMember &lead, double &latDeg, double &lonDeg,
+                               double &altM) const {
+  int k = Flight_.Flight().Position - 1;          /* 0 = der Fuehrende selbst */
+  int element = k / 2, inElement = k % 2;
+  double lateralM = (inElement ? 1.0 : 0.0) * FormationSpreadM() - element * 2.0 * FormationSpreadM();
+  double aftM = element * FormationTrailM();
+  altM = lead.AltM + k * FormationStackM();
+
+  double h = lead.HeadingDeg * kDeg2Rad;
+  double fwdE = std::sin(h), fwdN = std::cos(h);   /* Kurslinie des Fuehrenden, ENU */
+  double rightE = fwdN, rightN = -fwdE;
+  double eM = -aftM * fwdE + lateralM * rightE;
+  double nM = -aftM * fwdN + lateralM * rightN;
+  double coslat = std::cos(lead.LatDeg * kDeg2Rad);
+  latDeg = lead.LatDeg + nM / kMPerDeg;
+  lonDeg = lead.LonDeg + eM / (kMPerDeg * (std::fabs(coslat) > 1e-6 ? coslat : 1e-6));
+}
+
+/* POSITIONSHALTEN AUF EINEM BEWEGTEN PUNKT, in zwei getrennten Kanaelen — und die Trennung IST das
+ * Gesetz. Ein Direct auf die Station waere reine Verfolgung eines Punktes, der sich mit
+ * Kampfgeschwindigkeit bewegt: der Kursfehler wuerde nie null, und der Regelkreis, der gerade den
+ * Merge-Rollfehler erzeugt hat, ist genau dieser.
+ *   QUER + HOCH: die Bahnfuehrung, die es schon gibt — SetDirectLeg auf die KURSLINIE des Fuehrenden
+ *     DURCH die Station (Ursprung = Station, Ziel = kInterceptAimM davor auf seinem Kurs). Damit regelt
+ *     der Autopilot einen Querabstand zu einer LINIE statt eine Peilung zu einem Punkt, und die
+ *     Herleitung dieses Gesetzes (doc/systems.md) gilt unveraendert.
+ *   LAENGS: die Geschwindigkeit. Der Vorhalt ist die Schliessrate, die diese Zelle auch wieder abbauen
+ *     kann — dv = sqrt(2*a*|e|) mit a = BfmBrakeMs2(), dieselbe Form wie der BFM-Closure-Fahrplan.
+ *     Kein Regelknopf, keine Zeitkonstante, kein Integrator, und BEWUSST kein Deckel: die Wurzel
+ *     begrenzt sich selbst (bei 100 m Fehler sind es 42 kt), und was oben herauskommt, deckelt die
+ *     Zelle. Ein Deckel bei sqrt(2*a*Spread) war gemessen zu eng — nach einer Verteidigung stand der
+ *     Rottenflieger 40 km hinter seiner Station und kam mit 94 m/s Vorhalt nicht mehr heran
+ *     ([MESS] four-4v4-asym, Stationsfehler 40-48 km ueber 230 s ohne Tendenz).
+ * OHNE FUEHRENDEN auf dem Netz gibt es keine Station: dann fliegt dieser Jet seinen eigenen Plan, denn
+ * eine Station auf einer Vermutung ist keine. doc/formation.md, Abschnitt 4. */
+FBPilotCommands FBPilot::FormationCommands(const Fdm::fb_fdm_state &st, const FBFlightPlan &plan) {
+  FBPilotCommands c{};
+  const FBFlightMember *lead = Flight_.Lead();
+  /* EINE STATION HAT EINE REICHWEITE. Zwei Jets stuetzen sich, solange sie im Erfassungsraum des
+   * jeweils anderen liegen; jenseits der eigenen Commit-Entfernung sind sie keine Rotte mehr, sondern
+   * zwei Einzelne, und ein Rottenflieger, der einer 40 km entfernten Station nachfliegt, tut gar
+   * nichts ([MESS] four-4v4-asym: 40-49 km Stationsfehler ueber 230 s ohne Tendenz, nachdem ihn eine
+   * Verteidigung herausgerissen hatte). Ist der Fuehrende weiter weg, faellt dieser Jet auf seinen
+   * eigenen Plan zurueck — die Rotte ist getrennt, und das ist eine Aussage, kein Fehler. */
+  double rejoinM = Tuned(FBPilotParam::LockRangeNm, InterceptLockRangeNm()) * kNmToM;
+  if (lead && !lead->Self &&
+      FBPlanarDistM(st.lat, st.lon, lead->LatDeg, lead->LonDeg) > rejoinM) {
+    if (!FlightSplit_) {
+      FlightSplit_ = true;
+      FBLog::Info("flight", "SPLIT", {{"t", TimeS_},
+          {"leadNm", FBPlanarDistM(st.lat, st.lon, lead->LatDeg, lead->LonDeg) * kMToNm},
+          {"rejoinNm", rejoinM * kMToNm}});
+    }
+    lead = nullptr;
+  } else if (lead && !lead->Self) {
+    FlightSplit_ = false;
+  }
+  if (!lead || lead->Self) {
+    /* Der Fuehrende selbst fliegt die Route — die Rotte folgt IHM, er folgt der Mission. */
+    Flight_.NoteStationErr(-1.0);
+    const FBWaypoint *wp = plan.ActiveWaypoint();
+    if (!wp) return c;
+    c.Guidance = FBPilotGuidance::Direct;
+    c.TargetLatDeg = wp->LatDeg; c.TargetLonDeg = wp->LonDeg;
+    c.TargetAltM = wp->AltM; c.TargetSpeedKt = wp->SpeedKt;
+    SetLegFromPlan(c, plan);
+    return c;
+  }
+
+  double staLat, staLon, staAlt;
+  FormationStation(*lead, staLat, staLon, staAlt);
+
+  double eastM, northM;
+  FBEnuOffsetM(st.lat, st.lon, staLat, staLon, eastM, northM);
+  Flight_.NoteStationErr(std::sqrt(eastM * eastM + northM * northM));
+
+  /* Der Laengsfehler ist die Projektion auf den Kurs des Fuehrenden; alles Uebrige erledigt die Bahn. */
+  double h = lead->HeadingDeg * kDeg2Rad;
+  double alongM = eastM * std::sin(h) + northM * std::cos(h);
+  double aMs2 = std::fmax(0.1, BfmBrakeMs2());
+  double dvMs = std::sqrt(2.0 * aMs2 * std::fabs(alongM));
+  if (alongM < 0.0) dvMs = -dvMs;
+
+  c.Guidance = FBPilotGuidance::Direct;
+  c.HaveLeg = true;
+  c.LegLatDeg = staLat; c.LegLonDeg = staLon;
+  /* Der Zielpunkt liegt auf der Bahn VON DER STATION AUS, nicht von hier: sonst waere die Linie, die
+   * der Autopilot haelt, nicht der Kurs des Fuehrenden, sondern die Verbindung Station-Eigenposition. */
+  {
+    double coslat = std::cos(staLat * kDeg2Rad);
+    c.TargetLatDeg = staLat + kInterceptAimM * std::cos(h) / kMPerDeg;
+    c.TargetLonDeg = staLon + kInterceptAimM * std::sin(h) /
+                              (kMPerDeg * (std::fabs(coslat) > 1e-6 ? coslat : 1e-6));
+  }
+  c.TargetAltM = staAlt;
+  c.TargetSpeedKt = std::fmax(0.0, (lead->SpeedMs + dvMs) * kMsToKt);
+  return c;
+}
+
 FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &avionics,
                                            const Fdm::fb_fdm_state &st, const FBFlightPlan &plan, double dt) {
   /* Die Fusion des gelockten Kontakts, fuer das, was ein einzelnes Echo nicht hergibt: die
@@ -725,6 +829,16 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
       if (c.Iff == FBIffReply::Friendly) continue;
       if (!tgt || c.RangeM < tgt->RangeM) tgt = &c;
     }
+  }
+  /* DIE ZUTEILUNG SCHLAEGT „der naechste": in einer Rotte ist der naechste Rueckstrahler genau der,
+   * den der Rottenkamerad auch nimmt. Sie schlaegt auch einen bestehenden Lock, denn ein Lock auf dem
+   * falschen Ziel ist das Doppelbekaempfen selbst. Track 0 = keine Rotte oder nichts zu teilen, dann
+   * bleibt alles daruber unveraendert. */
+  int assignTrack = Flight_.AssignedTrack();
+  if (radarUp && assignTrack != 0) {
+    for (int i = 0; i < fcr.ContactCount; i++)
+      if (fcr.Contacts[i].TrackNum == assignTrack) { tgt = &fcr.Contacts[i]; break; }
+    locked = locked && tgt == &fcr.Contacts[fcr.LockIndex];
   }
   if (locked) { if (IntLockSinceS_ < 0.0) IntLockSinceS_ = TimeS_; } else { IntLockSinceS_ = -1.0; }
   bool haveTgt = tgt != nullptr && tgt->LookAgeS < kInterceptLostS;
@@ -918,6 +1032,27 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
         if (!locked) designate = IntTrack_;
         wantShot = locked && inParams && TimeS_ - IntLockSinceS_ >= kInterceptTrackSettleS &&
                    TimeS_ - IntLastShotS_ >= Tuned(FBPilotParam::ShotSpacingS, InterceptShotSpacingS()) && TimeS_ >= IntNextShotS_;
+        /* DECKUNG: die Rotte haelt EINEN frei. Ein Schuetze, dessen Runde noch seine Beleuchtung
+         * braucht, fliegt an seiner eigenen Antenne — sind alle gebunden, hat die Rotte niemanden mehr,
+         * der eine Startwarnung beantworten kann. Die Regel ist fuer jedes Muster dieselbe; ihr PREIS
+         * ist die Laenge der Bindung, und die steht in der Waffe (aktiv: bis zur Suchereinschaltung,
+         * halbaktiv: bis zum Einschlag). Zurueckgehalten wird hoechstens so lange, wie der eigene
+         * Schuss selbst binden wuerde — danach sind zwei Runden in der Luft besser als eine.
+         * doc/formation.md, Abschnitt 6. */
+        if (wantShot && Flight_.MateBound()) {
+          if (IntCoverSinceS_ < 0.0) IntCoverSinceS_ = TimeS_;
+          double capS = std::fmax(Tuned(FBPilotParam::ShotSpacingS, InterceptShotSpacingS()),
+                                  fc.TimeToImpactS > 0.0f ? (double)fc.TimeToImpactS : 0.0);
+          if (TimeS_ - IntCoverSinceS_ < capS) {
+            wantShot = false;
+            Flight_.NoteDeferred(dt);
+            if (!IntCoverLogged_) {
+              IntCoverLogged_ = true;
+              FBLog::Info("flight", "COVER_DEFER", {{"t", TimeS_}, {"track", IntTrack_},
+                  {"rangeNm", tgtRangeM * kMToNm}, {"capS", capS}});
+            }
+          }
+        }
       }
       break;
     }
@@ -960,7 +1095,44 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
     }
   }
 
+  if (!Flight_.MateBound()) { IntCoverSinceS_ = -1.0; IntCoverLogged_ = false; }
+
+  /* WAS DIESER JET SEINER ROTTE MELDET: ein PUNKT und ein Zustand, nie eine Identitaet — dieses Radar
+   * weiss nicht, wen es sieht, also kann es das auch niemandem sagen. Die Meldung reist in der eigenen
+   * PPLI und erreicht damit nur, wer ohnehin auf diesem Netz ist. */
+  {
+    bool engaging = haveTgt && (EngState_ == FBEngageState::Closing || EngState_ == FBEngageState::Attack ||
+                                EngState_ == FBEngageState::Support);
+    double tLat = st.lat, tLon = st.lon;
+    if (engaging) {
+      double hb = tgtBrgDeg * kDeg2Rad;
+      double coslat = std::cos(st.lat * kDeg2Rad);
+      double gnd = tgtRangeM * std::cos(tgt->ElevAngleDeg * kDeg2Rad);
+      tLat = st.lat + gnd * std::cos(hb) / kMPerDeg;
+      tLon = st.lon + gnd * std::sin(hb) / (kMPerDeg * (std::fabs(coslat) > 1e-6 ? coslat : 1e-6));
+    }
+    Flight_.SetOwnEngagement(engaging, tLat, tLon, tgtAltM);
+  }
+
   AimAlongHeading(st, aimHdgDeg, c.TargetLatDeg, c.TargetLonDeg);
+
+  /* DER ROTTENFLIEGER SUCHT NICHT AUF EIGENE FAUST. Solange ihm nichts zugeteilt ist, ist seine
+   * Aufgabe die Station: zwei Jets, die unabhaengig denselben gebrieften Vektor absuchen, sind keine
+   * Rotte, sondern zwei Einzelkaempfer mit demselben Auftrag. Er faellt von selbst heraus, sobald sein
+   * EIGENES Radar etwas hat, das die Zuteilung ihm gibt — und die ANTENNE bleibt in jedem Fall seine,
+   * denn die Haende unten laufen unveraendert weiter. doc/formation.md, Abschnitt 4.3. */
+  if (searching && Flight_.Declared() && !Flight_.Flight().IsLead()) {
+    const FBFlightMember *lead = Flight_.Lead();
+    if (lead && !lead->Self) {
+      FBPilotCommands f = FormationCommands(st, plan);
+      if (f.Guidance == FBPilotGuidance::Direct) {
+        c.HaveLeg = f.HaveLeg;
+        c.LegLatDeg = f.LegLatDeg; c.LegLonDeg = f.LegLonDeg;
+        c.TargetLatDeg = f.TargetLatDeg; c.TargetLonDeg = f.TargetLonDeg;
+        c.TargetAltM = f.TargetAltM; c.TargetSpeedKt = f.TargetSpeedKt;
+      }
+    }
+  }
 
   /* ---- 7. die Haende ---- */
   bool acted = InterceptCockpit(state, avionics, designate, wantShot, wantChaff, wantElDeg);
@@ -1086,6 +1258,29 @@ FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
   TimeS_ += dt;
   DecisionDtS_ = dt;
   FBPilotCommands c{};
+
+  /* DIE ROTTE, vor allem anderen und in JEDER Phase: sie ist ein BILD, kein Manoever, und die Phase
+   * darunter liest es (Formation die Station, Intercept die Zuteilung). Ohne deklarierte Rotte kehrt
+   * das hier sofort zurueck. */
+  {
+    FBFlightPicture::FBSortParams sp;
+    sp.TurnRateDegS = CornerTurnRateDegS();
+    sp.CommitRangeM = Tuned(FBPilotParam::LockRangeNm, InterceptLockRangeNm()) * kNmToM;
+    sp.SwitchMarginS = kInterceptTrackSettleS;
+    const FBWaypoint *awp0 = plan.ActiveWaypoint();
+    sp.AxisDeg = awp0 ? FBBearingDeg(st.lat, st.lon, awp0->LatDeg, awp0->LonDeg) : st.yaw;
+    /* GEBUNDEN heisst: eine gestartete Runde braucht diesen Jet noch. WELCHE Runde, weiss FBEngagement
+     * (aktiv bis zur Suchereinschaltung, halbaktiv bis zum Einschlag) — die Regel ist also fuer beide
+     * Muster dieselbe und nur ihr PREIS unterscheidet sich. */
+    bool bound = Eng_.HaveShot() && !Eng_.SupportComplete();
+    bool threatened = false;
+    if (state.Rwr.H.Readable() && state.Rwr.Powered) {
+      for (int i = 0; i < state.Rwr.ThreatCount; i++)
+        if (state.Rwr.Threats[i].Mode != FBRwrThreatMode::Search) threatened = true;
+      threatened = threatened || state.Rwr.MissileLaunch;
+    }
+    Flight_.Update(state, st, TimeS_, dt, bound, threatened, sp);
+  }
 
   /* Cockpitarbeit erst, wenn der Jet sich selbst fliegt: nicht in Idle (niemand sitzt drin) und nicht
    * mit Gewicht auf dem Fahrwerk, wo die echte Checkliste diese Eingaben vor den Triebwerksstart legt. */
@@ -1234,6 +1429,9 @@ FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
 
     case Phase::Attack:
       return AttackCommands(state, avionics, st, plan);
+
+    case Phase::Formation:
+      return FormationCommands(st, plan);
 
     case Phase::Shutdown:
     default:

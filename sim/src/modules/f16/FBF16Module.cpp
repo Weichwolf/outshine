@@ -466,7 +466,18 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
     else if (value == "bfm") PilotSys->SetPhase(Pilot::FBPilot::Phase::Bfm);
     else if (value == "intercept") PilotSys->SetPhase(Pilot::FBPilot::Phase::Intercept);
     else if (value == "attack") PilotSys->SetPhase(Pilot::FBPilot::Phase::Attack);
-    else return RejectSetup("want route|bfm|intercept|attack", key, value);
+    else if (value == "formation") PilotSys->SetPhase(Pilot::FBPilot::Phase::Formation);
+    else return RejectSetup("want route|bfm|intercept|attack|formation", key, value);
+    return true;
+  }
+  /* THE SORT CONTRACT — what the flight agreed before takeoff, and the only sort a flight without a
+   * shared picture has left. A brief, not a switch: nothing in the jet is being operated.
+   * doc/formation.md, section 5.3. */
+  if (key == "brief_sort") {
+    Pilot::FBSortContract sc;
+    if (!Pilot::FBSortContractFromString(value.c_str(), sc))
+      return RejectSetup("want none|left|right|near|far", key, value);
+    PilotSys->BriefSort(sc);
     return true;
   }
   /* ONE line, TWO consumers — the pilot needs the cue to release on, the fire control needs it for the

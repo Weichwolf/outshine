@@ -173,6 +173,19 @@ On the `split` geometry (the 6,000 m / 150 kt energy difference) the picture inv
 `f16_base` 1085.1 with **7 kills**, every MiG variant negative. Energy is worth more to the side whose
 round is fire-and-forget.
 
+### The flight extension of this campaign
+
+The duels are one against one by construction. Since this round they have a two- and four-ship
+counterpart in [`formation.md`](formation.md), and it answers a question the 1v1 cannot: what the
+SARH obligation costs a FLIGHT rather than a jet.
+
+| Finding | Number |
+|---|---|
+| The obligation, side by side on one run (`pair-2v2-asym.fbm`) | R-27R **17.3 s** bound per shot, `eng_pitbull` 0; AIM-120 **0.3 s**, `eng_pitbull` 1. A factor of **58** |
+| The rule that keeps one member of a flight free is therefore almost free for the F-16 and would be expensive for the MiG — and the MiG cannot apply it at all | it has no cooperative terminal, so "my leader is bound" has no channel to travel on. Measured F-16 deferral: **7.8 s** (`pair-cover.fbm`); measured MiG deferral: 0 s, by construction |
+| The two sorts, on the same 4v4 geometry, as distinct targets per engaged member | cooperative **0.962**, briefed contract **0.750** — one in four contract shooters is doubled up |
+| The flight tournament reproduces the doctrine finding one level up | on the `split` geometry `f16_net` scores 940.9 with a flight kill against `f16_solo` 770.0 with none; `mig_pair` (contract) beats `mig_solo` (nothing) by an outcome band on both geometries |
+
 ### Determinism
 
 All eight duels: **one fingerprint** (SHA-256 over all `telemetry*.csv` + normalised `events.log` +
@@ -191,6 +204,7 @@ pairings.
 | **D3** | **The pilot does not use the IRST.** `sensors/FBIrstSystem` publishes an `Irst` block and the only consumer in the tree is a missile seeker; `pilot/FBPilot`'s intercept picture is built from the Radar block alone. So the MiG's one genuinely passive sensor cannot cue anything, and "IRST-EMCON" is a doctrine the campaign could only test as "silent and blind" | `duel-emcon` |
 | **D4** | **Weapon selection is not a decision the pilot can make.** `FBCommandTarget::WeaponSelect` is `NotImplemented` on both modules, so the selected station is whatever the SMS's station step arrived at. A jet carrying an AIM-120 and an AIM-9 will offer whichever pylon comes first in the module's own list, and the missions in this family work around it by loading the racks in the order they want the rounds fired | this campaign |
 | ~~**D5**~~ | ~~The MiG has no dispenser.~~ — **closed this round.** The MiG has the BVP-30-26 (`modules/mig29/FBMig29Cmds`, 60 cartridges, [SET] 30/30 split), and its flares seduce the AIM-9 through the SAME deterministic model that seduces the R-73 (`sensors/FBIrstSystem::SelectFlare`): `mig29-defend.fbm` measures `FLARE_SEDUCED tgtIntensity=0.16` and the round expiring 16.0 m wide, against an astern control that detonates 0.04 m out. The defensive asymmetry is now TWO-SIDED. What it does NOT yet do is auto-defend in the merge (the 9-12 has no MAWS, defence-rwr-cm.md §5, so an infrared shot is answered only by a briefed throw), and the BVR duels do not arm it, so their outcomes are unchanged (only the MiG's `cmd_*` bookkeeping moves: its intercept CmDispense is no longer rejected `NotImplemented`) | this round |
+| **D7** | The campaign is 1v1 and the flight campaign is 2v2/4v4, and the two do not share a geometry table. The four-ship in `formation.md` is one geometry; the eight duel geometries have no flight counterpart, so nothing says whether the energy split or the offset behaves the same with two aircraft a side | this round |
 | **D6** | The campaign measures BVR only. Nothing here exercises the gun on either side, and nothing exercises an IR shot that a flare could defeat — the R-73/AIM-9 rounds in these loadouts are fired at the end of an engagement that is already decided, from geometries where they expire | this campaign |
 
 ### Rejected / not attempted, with the measurement

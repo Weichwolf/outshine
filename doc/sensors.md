@@ -363,9 +363,13 @@ The WHOLE picture is rebuilt per cycle, registry in order:
 2. **Only `FBUnitKind::Aircraft`** — a released store belongs to the same faction but carries no
    terminal. The test stands BEFORE the ordinal counter, because `flightIndex` is the selection criterion
    of the FR/FL filter and a bomb would otherwise shift the flight lead numbering.
-3. `flightIndex++` — ordinal within the flight, **including one's own unit**; index 0 is the flight lead.
+3. `flightIndex++` — the fallback ordinal, **including one's own unit**, for a sender that declares no
+   flight.
 4. **skip one's own PPLI** (`GetId() == SelfId_`) — after the ordinal, not before.
-5. `AcceptContact(sender, flightIndex)` — the override point (§3.6).
+5. `AcceptContact(sender, index)` — the override point (§3.6). The index is the sender's **declared**
+   flight position minus one where the mission declared one (`core/FBFlight.h`,
+   [`formation.md`](formation.md) §1), and the ordinal of step 3 where it did not — so a mission
+   without `flight` lines behaves exactly as it did.
 6. Capacity limit 8, then `break`.
 7. **Heard?** `sig.DatalinkXmt && rangeM <= min(MaxRangeM_, RadioHorizonM(own, other altitude))`.
 8. Heard → fresh track with `ReportTimeS = simTimeS`. Not heard, but an old track exists and is younger
@@ -408,9 +412,23 @@ virtual bool AcceptContact(const FBUnit &sender, int flightIndex) const;   // de
 F-16 (`FBF16Datalink`, HSD contact filter [DOC part 13]): `fr` = all friendlies (default), `fl` = only
 `flightIndex == 0`, `off` = none.
 
-**Honestly noted:** the simulator has no formation concept — there is no element/flight assignment from
-which a lead could be derived. `fl` therefore keeps the FIRST participant of that faction in mission
-order. A documented placeholder for a lead assignment, not a model of one.
+**No longer a placeholder.** A `.fbm` unit block now declares its flight and its position in it
+(`flight <name> <position>`, [`formation.md`](formation.md)), so `fl` selects position 1 — the unit
+the mission says leads. Without a declaration it falls back to the old mission-order ordinal, which is
+what keeps every stock mission byte-identical.
+
+#### 3.6b The flight half of the PPLI
+
+The same message carries what a member tells its own FLIGHT, and nothing else was added to carry it:
+the range limit, the 1 Hz cycle, the three-cycle hold and the age all apply to it unchanged.
+`FBDatalinkTrack` gained the sender's `FlightName`/`FlightPos` (registry identity, like its callsign
+and team) and an `FBFlightReport` — *is it prosecuting something, does the round it launched still need
+it, and WHERE is the target*.
+
+The last field is a **point, never a track and never an identity**: this radar does not know whom it
+sees (§1.3), so it cannot tell anybody. The receiver correlates the reported point against its own
+echoes and may fail to — which is the honest property of a shared picture, and is modelled rather than
+assumed away. Rules, gate and measurements: [`formation.md`](formation.md) §§2, 5.
 
 #### 3.7 The second derivation: `FBMissileUplink`
 

@@ -416,8 +416,22 @@ bool FBMig29Module::ApplySetup(const std::string &key, const std::string &value)
     if (value == "route") { PilotSys->SetPhase(Pilot::FBPilot::Phase::Route); return true; }
     if (value == "intercept") { PilotSys->SetPhase(Pilot::FBPilot::Phase::Intercept); return true; }
     if (value == "bfm") { PilotSys->SetPhase(Pilot::FBPilot::Phase::Bfm); return true; }
-    return RejectSetup("want route|intercept|bfm (attack needs an air-to-ground computer this jet "
-                       "does not have)", key, value);
+    /* `formation` needs no datalink to be DECLARED — but this jet has none, so its station keeping has
+     * no lead report to hold and falls straight through to its own route. That is the doctrine, not a
+     * gap: a MiG-29 flight is held together by the controller, not by a net. */
+    if (value == "formation") { PilotSys->SetPhase(Pilot::FBPilot::Phase::Formation); return true; }
+    return RejectSetup("want route|intercept|bfm|formation (attack needs an air-to-ground computer "
+                       "this jet does not have)", key, value);
+  }
+  /* THE SORT CONTRACT. On this aircraft it is the ONLY sort there is: no cooperative terminal, so the
+   * controller's split is agreed on the ground and applied by each pilot to the picture he has.
+   * doc/formation.md, section 5.3. */
+  if (key == "brief_sort") {
+    Pilot::FBSortContract sc;
+    if (!Pilot::FBSortContractFromString(value.c_str(), sc))
+      return RejectSetup("want none|left|right|near|far", key, value);
+    PilotSys->BriefSort(sc);
+    return true;
   }
   /* ---- STAGE 2c: the weapons. Same key spellings the F-16 answers, because they name GENERIC
    * properties (a pylon, a drum, a switch) rather than this aircraft's boxes. */

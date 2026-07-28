@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include "FBFlight.h"
 #include "FBFlightPlan.h"
 #include "FBObjective.h"
 #include "FBRunway.h"
@@ -21,6 +22,9 @@ struct FBMissionUnit {
   std::string  Id;
   std::string  ModuleName;   /* `module <name>` — resolved via FBModuleRegistry, e.g. "f16" */
   FBUnitTeam   Team = FBUnitTeam::Friendly;   /* `team` omitted = friendly */
+  /* `flight <name> <position>` — omitted leaves Position 0, and every piece of flight behaviour is
+   * then a no-op: a mission written before flights existed flies byte-identically. */
+  FBFlightId   Flight;
   FBSpawn      Spawn;
   bool         HaveSpawn = false;
   FBFlightPlan Plan;         /* this actor's OWN waypoints; empty = an actor with nothing to fly to */
