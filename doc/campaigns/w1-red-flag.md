@@ -13,7 +13,7 @@ Confidence legend (identical in all ten campaign files): **[T1]** official/gover
 document · **[T2]** service or manufacturer publication, official history · **[T3]** established
 literature and specialist press · **[T4]** encyclopaedic/community consensus · **[DISPUTED]** sources
 conflict, both values given · **[SET]** a FlightBox setting chosen here, not sourced · **[DERIVED]**
-computed from a named relation. Gap IDs `C0…C21` are the shared catalogue in
+computed from a named relation. Gap IDs `C0…C24` are the shared catalogue in
 [`INDEX.md`](INDEX.md).
 
 **Temporal honesty:** none needed. The F-16 is Red Flag's most-flown participant and the

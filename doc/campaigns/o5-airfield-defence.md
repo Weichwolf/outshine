@@ -8,7 +8,7 @@ cast they need and the honest list of what FlightBox cannot do for them yet.
 | **Anchor sources** | the public record of Yugoslav MiG-29 operations from Batajnica, 24–26 March 1999, with the Iraqi 1991 case as the corroborating parallel | §Knowledge 1, cited and tiered |
 | **FlightBox sources** | what a `.fbm` can declare and what the MiG-29 module does | [`../modules/mig29/module.md`](../modules/mig29/module.md), [`../missions/verdict.md`](../missions/verdict.md), [`../missions/sensors.md`](../missions/sensors.md), [`../formation.md`](../formation.md), [`../duels.md`](../duels.md) |
 
-Confidence legend and gap IDs `C0…C21`: [`INDEX.md`](INDEX.md).
+Confidence legend and gap IDs `C0…C24`: [`INDEX.md`](INDEX.md).
 
 **Temporal honesty: none needed for the type.** The MiG-29 flew this exact mission, in this exact
 posture, twice in the modern record — Batajnica in 1999 and Iraq in 1991 — and lost both times. What
@@ -133,6 +133,8 @@ without ending the run; and the flight sort.
 | `D3` (`duels.md`) | **the pilot does not use the IRST** | mission 3 — a radarless MiG-29 should still be a threat, and today it is not |
 | `C15` | **no scramble timing mechanism** | staggering is done by giving units different spawn positions, which is a workaround with a different geometry |
 | `C3` | **no visual acquisition** | a night defensive intercept ends at visual range in reality |
+| `C22` | **no connected air defence** ([`../air-defence-network.md`](../air-defence-network.md)) | the airfield's point defence would be a net whose node is the field's own radar — which makes **killing that node the attacker's first objective** and gives mission 4's "no controller" experiment a ground-side twin. Today the defence has no node to lose |
+| `C23` | **no declared, judged belt geometry** | the campaign measures what the package did **not** achieve; the terminal zone's first-entry time is the time-on-target proxy [`../missions/verdict.md`](../missions/verdict.md) says must stay a telemetry read |
 
 ### The honest headline
 

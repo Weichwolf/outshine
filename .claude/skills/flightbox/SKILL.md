@@ -30,6 +30,7 @@ know where its file is.
 | `render/` | `render/` (+ `render/clouds-legacy/`, a closed archive) |
 | `world/` | `world/terrain.md`, `world/weather.md` |
 | `clients/` | `clients/clients.md` |
+| *(cross-cutting, no source dir)* | `duels.md` (a PAIRING), `formation.md` (a FLIGHT), `air-defence-network.md` (a NET) — three subjects that cut through core/units/sensors/pilot/missions at once and are kept whole |
 | *(no source dir)* | the meta files at the root: `INDEX.md`, `vision.md`, `roadmap.md`, `journal.md`, `conventions.md`, `architecture.md`, `build-and-ops.md` |
 
 ## The shape of every topic file
@@ -70,7 +71,9 @@ order, the history, the rules and a closed archive. Everything is English.
 | Pilot AI: phases, BFM, BVR intercept, attack, track estimation, tuning, tournaments | `pilot.md` |
 | **Writing or changing a `.fbm` mission** | `missions/INDEX.md` (leading rules + exit codes), then the topic file: `syntax.md`, `verdict.md`, `sensors.md`, `avionics.md`, `weapons.md`, `combat.md`, `weather.md`, `output.md` |
 | Mission runner, actors, multi-unit, threading, spawn, determinism | `missions/runtime.md` |
-| **A scenario with an anchor** — the ten campaign specs, the aggregated cast, the shared gap catalogue `C0…C21`, the identification anti-cheat test, Bekaa as a yardstick | `campaigns/INDEX.md`, then the campaign file. **Spec only — nothing built** |
+| **A scenario with an anchor** — the ten campaign specs, the aggregated cast, the shared gap catalogue `C0…C24`, the identification anti-cheat test, Bekaa as a yardstick | `campaigns/INDEX.md`, then the campaign file. **Spec only — nothing built** |
+| **Ground threat — one emitting, shooting position** (catalogue rows, envelopes, the engagement machine, damage) | `modules/ground/module.md` + `modules/ground/catalogue.md` (`C1`, spec only) |
+| **Ground threat — the NET above the positions**: cueing an antenna without inventing a track, layered belts declared as zones and judged, weapons control / sector responsibility / autonomy when the node dies, the bounded comms-jamming model, and what the attacking pilot may see | `air-defence-network.md` (`C22`/`C23`/`C24`, spec only) |
 | **The campaign layer above a mission** — carry, aggregation, replay determinism | `missions/campaign.md` (`C0`, spec only) |
 | The mission clock / time of day / sun position | `missions/syntax.md` §"The mission clock" (`C2`, spec only) + `clients/clients.md` §"Clock defaults per client" |
 | Visual acquisition, seeing an aircraft with the eye, visual identification | `sensors.md` §9 (`C3`, spec only) + `missions/sensors.md` |

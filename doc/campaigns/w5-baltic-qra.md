@@ -10,7 +10,7 @@ argument itself is stated once in [`INDEX.md`](INDEX.md) §"The identification t
 | **Anchor sources** | the public record of NATO Baltic Air Policing and QRA practice | §Knowledge 1, every fact cited and tiered |
 | **FlightBox sources** | what a `.fbm` can declare, and where the perception boundary runs | [`../sensors.md`](../sensors.md), [`../missions/sensors.md`](../missions/sensors.md), [`../missions/verdict.md`](../missions/verdict.md), [`../vision.md`](../vision.md) ("Anti-cheat is a game decision"), [`../modules/f16/datalink-iff.md`](../modules/f16/datalink-iff.md) |
 
-Confidence legend and gap IDs `C0…C21`: [`INDEX.md`](INDEX.md).
+Confidence legend and gap IDs `C0…C24`: [`INDEX.md`](INDEX.md).
 
 **Temporal honesty: none needed.** F-16s of several NATO air forces have flown Baltic Air Policing
 rotations, and the mission is current [T4]. What *is* unusual is that this campaign's success

@@ -8,7 +8,7 @@ cast they need and the honest list of what FlightBox cannot do for them yet.
 | **Anchor sources** | the public record of Operation Opera, 7 June 1981 | §Knowledge 1, every fact cited and tiered |
 | **FlightBox sources** | what a `.fbm` can declare and what the F-16 module can do | [`../missions/weapons.md`](../missions/weapons.md), [`../missions/syntax.md`](../missions/syntax.md), [`../missions/verdict.md`](../missions/verdict.md), [`../modules/f16/module.md`](../modules/f16/module.md), [`../modules/f16/weapons.md`](../modules/f16/weapons.md), [`../pilot.md`](../pilot.md), [`../fdm.md`](../fdm.md) |
 
-Confidence legend and gap IDs `C0…C21`: [`INDEX.md`](INDEX.md).
+Confidence legend and gap IDs `C0…C24`: [`INDEX.md`](INDEX.md).
 
 **Temporal honesty: none needed — this is the F-16's own raid.** Eight F-16A **Netz** flew it, and it
 is the type's first combat sortie of consequence [T4]. What does NOT match is the *model*: FlightBox

@@ -90,6 +90,27 @@ byte-identical; reference mission `sim/missions/clock-night-payerne.fbm`, refusa
 `sim/missions/negative/`. Details in [`../missions/syntax.md`](../missions/syntax.md),
 [`../clients/clients.md`](../clients/clients.md) and [`../journal.md`](../journal.md).
 
+**Run 4 — 2026-07-28, the connected air defence (spec only).** Nothing under `sim/` touched, and
+nothing under `doc/modules/ground/` either. New file
+[`../air-defence-network.md`](../air-defence-network.md), derived from the **five campaigns whose
+subject is the net and not the position** (O1, W3, W4, O5, O3) rather than from a textbook: each of its
+five capabilities names the mission question that is unanswerable without it.
+
+| Booked | What it is |
+|---|---|
+| `C22` | the net itself — cue, sector, weapons control, the node that can be killed or jammed |
+| `C23` | the belt as declared geometry (`zone`) and as a verdict (`objective avoid zone`, per-unit dwell) |
+| `C24` | communications jamming — the bounded subset of `C13`, which **splits**: the radar half stays wholly open |
+
+Also updated: the gap table and the cast table in [`INDEX.md`](INDEX.md); the Gaps tables of the five
+source campaigns; `C0…C21` → `C0…C24` in all ten campaign headers; two lines in `../INDEX.md` and two
+routing rows in the loader skill.
+
+**Sources: none new.** No document about a real air-defence network was read on this pass. The doctrine
+vocabulary is common terminology and the timings are `[SET]`; the file says so in its own §Knowledge 5
+and names the same unread [T1] material `../modules/ground/catalogue.md` does, plus the two CIA
+reading-room documents already listed below.
+
 ## What the next run should do
 
 Nothing in this directory needs re-writing. The next work is **outside** it:
@@ -101,9 +122,14 @@ Nothing in this directory needs re-writing. The next work is **outside** it:
 2. Build the four one-line experiments named in [`INDEX.md`](INDEX.md) — `o1-01/02`, `w3-07/08`,
    `w4-01/02`, `w5-02/03`. They need nothing that does not exist, and three of them answer questions
    the tree has been circling for rounds.
-3. `C1` — step 2 of the owner goal. Its round begins by changing the Spec of
-   [`../weapons.md`](../weapons.md), whose Gaps now carries the bounded entry and the five open
-   questions.
-4. Read the two CIA reading-room documents and re-tier O2's §Knowledge 1.
+3. ~~`C1` — step 2 of the owner goal.~~ **Specified 2026-07-28** in
+   [`../modules/ground/`](../modules/ground/INDEX.md); building it comes before anything in `C22`,
+   because the net needs at least two positions and one early-warning set before its first acceptance
+   run means anything.
+4. `C22`/`C23`/`C24` — build order inside the net file: the **link** first (it is three setters and one
+   test on a class that exists), then the **cue**, then `zone`/`avoid zone`, then weapons control and
+   autonomy, and the **jammer last** because it is worthless until there is a link to deny.
+5. Read the two CIA reading-room documents and re-tier O2's §Knowledge 1 — they are now also the
+   highest-value unread source for `C22`'s doctrine half.
 
 ~~3. Open a gap entry for `C1`…~~ — **done in run 2**, in [`../weapons.md`](../weapons.md).

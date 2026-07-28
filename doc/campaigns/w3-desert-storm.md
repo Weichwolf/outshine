@@ -8,7 +8,7 @@ cast they need and the honest list of what FlightBox cannot do for them yet.
 | **Anchor sources** | the public record of the opening of Operation Desert Storm, 17–19 January 1991 | §Knowledge 1, every fact cited and tiered |
 | **FlightBox sources** | what a `.fbm` can declare and what the modules can do | [`../missions/weapons.md`](../missions/weapons.md), [`../missions/sensors.md`](../missions/sensors.md), [`../missions/verdict.md`](../missions/verdict.md), [`../formation.md`](../formation.md), [`../modules/f16/module.md`](../modules/f16/module.md), [`../sensors.md`](../sensors.md) |
 
-Confidence legend and gap IDs `C0…C21`: [`INDEX.md`](INDEX.md).
+Confidence legend and gap IDs `C0…C24`: [`INDEX.md`](INDEX.md).
 
 **Temporal honesty:** the F-16 flew from the first hours [T4], so the *type* fits. What is stretched
 is the **date**: the campaign's centre of gravity is **Package Q, 19 January 1991**, not the night of
@@ -128,6 +128,9 @@ will push well past anything yet run.
 | `C2` | **no time of day** | every mission in this campaign is a night mission and none of them can say so |
 | `C15` | **no package coordination** — no time-on-target, no deconfliction, no lead tasking | the *definition* of a package |
 | `C18` | **no radio between units** | the anchor's third failure mode is a radio channel collapsing under 80 % of the calls; FlightBox has no such channel to collapse |
+| `C22` | **no connected air defence** ([`../air-defence-network.md`](../air-defence-network.md)) | **"Kari" is the campaign's named opponent and there is nothing network-shaped to represent it.** Mission 1 (the strike on an early-warning site — the opening move of the whole war) measures nothing today, because an EW radar cues nobody and killing it changes no other unit's behaviour. Mission 9's saturation question needs a defence that can be saturated |
+| `C23` | **no declared, judged belt geometry** | missions 4, 5 and 10 fly *through* a defence and can only report kills; where in the layer cake a striker was lost is not a quantity |
+| `C24` | **no communications jamming** | the EF-111s' comms half becomes a `set` key on any airframe — the radar half stays with `C13` |
 | `C0` | **no campaign layer** | attrition across ten nights is the campaign's arc |
 | `C14` | **no cruise missiles, no ships** | 100 TLAMs opened the war |
 | `C4` | **no terrain masking** | the Apaches' treetop ingress has no meaning |

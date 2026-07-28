@@ -11,7 +11,7 @@ question, in [`INDEX.md`](INDEX.md) §"Bekaa as the yardstick" and derived here 
 | **Anchor sources** | the public record of Operation Mole Cricket 19, 9 June 1982 | §Knowledge 1, cited and tiered, with the disputes left standing |
 | **FlightBox sources** | what a `.fbm` can declare and what the MiG-29 module does | [`../modules/mig29/module.md`](../modules/mig29/module.md), [`../modules/mig29/datalink-gci.md`](../modules/mig29/datalink-gci.md), [`../modules/mig29/defence-rwr-cm.md`](../modules/mig29/defence-rwr-cm.md), [`../duels.md`](../duels.md), [`../missions/combat.md`](../missions/combat.md) |
 
-Confidence legend and gap IDs `C0…C21`: [`INDEX.md`](INDEX.md).
+Confidence legend and gap IDs `C0…C24`: [`INDEX.md`](INDEX.md).
 
 ### Temporal honesty — read this before anything else
 
@@ -126,7 +126,10 @@ missions 1, 2 and 6 in single-ship form.
 | ID | What is missing | Blocks here |
 |---|---|---|
 | `C13` | **no jamming of any kind** | **the anchor's decisive mechanism.** Mission 2's deleted `brief_gci` is a stand-in whose difference is spelled out in §Knowledge 3 |
+| `C24` | **no communications jamming** — the half of `C13` this anchor actually names, specified in [`../air-defence-network.md`](../air-defence-network.md) §6 | it is what turns mission 2 from a stand-in into the experiment: the controller removed **mid-run, on geometry**, which is the "confidently blind" case §Knowledge 4 describes and the deleted brief cannot produce |
 | `C1` | **no active SAM belt** | the operation's target and the Syrian side's only shelter |
+| `C22` | **no connected air defence** — the belt is 30 unconnected positions, none of which knows the others exist ([`../air-defence-network.md`](../air-defence-network.md)) | mission 7 (`under-the-belt`) and mission 10. A belt whose sites do not cue each other is a set of independent envelopes, and the operation's own target was the **system** |
+| `C23` | **no declared, judged belt geometry** | mission 7 measures "the cost of staying inside the envelope with none of its benefit" and cannot say where inside it the flight was. The `zone` dwell is that number |
 | `C7` | **no MiG-21/23/Su-20, no E-2C, no RPV, no 707** | the substitution makes the defender stronger than history, which is stated but not free |
 | `C6` | **no live controller** | GCI is briefed text; a controller that re-vectors under pressure — or fails to — cannot be modelled, and "the controller was overwhelmed" is half of what happened |
 | `D3` (`duels.md`) | **the pilot does not use the IRST** | mission 5's "silent" is "silent and blind" |

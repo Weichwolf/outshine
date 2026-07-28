@@ -8,7 +8,7 @@ cast they need and the honest list of what FlightBox cannot do for them yet.
 | **Anchor sources** | the public record of the opening Arab air operations of 6 October 1973 | §Knowledge 1, cited and tiered |
 | **FlightBox sources** | what the MiG-29 module can and cannot do on a ground-attack sortie | [`../modules/mig29/weapons.md`](../modules/mig29/weapons.md), [`../modules/mig29/module.md`](../modules/mig29/module.md), [`../missions/weapons.md`](../missions/weapons.md), [`../weapons.md`](../weapons.md) |
 
-Confidence legend and gap IDs `C0…C21`: [`INDEX.md`](INDEX.md).
+Confidence legend and gap IDs `C0…C24`: [`INDEX.md`](INDEX.md).
 
 ### Temporal honesty — and the harder problem underneath it
 
@@ -121,6 +121,8 @@ late, no effect at all on `target_hard`), and the sub-tick impact reconstruction
 | `C9` | **the MiG-29 module cannot fly `set task attack`** — no CCIP/CCRP block, because the real aircraft's unguided delivery is a director rather than a release cue | **the campaign, entirely.** Not one mission runs |
 | `C8` | **no FAB-class bomb, no rocket pod** in the store catalogue | the aircraft has nothing to carry even once it can aim |
 | `C1` | **no SAM, no AAA** — and here it is needed on **both** sides: as our umbrella and as their defence | missions 5, 6 |
+| `C22` | **no connected air defence** ([`../air-defence-network.md`](../air-defence-network.md)) | >200 batteries massed to shield one crossing is a **system**, not a sum. This is also the one campaign where the net is **ours**, and the design must allow it — it does: a net declares its members by callsign and inherits their teams |
+| `C23` | **no declared, judged belt geometry** | mission 6's whole verdict is *"no striker leaves the declared box"*, which today has to be reconstructed from raw positions. `objective avoid zone` inverted — declare the OUTSIDE — is that verdict, and it needs no friendly-umbrella mechanism of its own |
 | `C7` | **no period aircraft at all**, on either side | the substitution is the largest in the whole set |
 | `C14` | **no moving ground units** | mission 8 |
 | `C20` | **no terrain-following guidance** | "came in very low" is the anchor's own description of the profile |

@@ -10,7 +10,7 @@ argument is stated once in [`INDEX.md`](INDEX.md) §"The identification task".
 | **Anchor sources** | the public record of Soviet PVO / ground-controlled interception practice, and the MiG-29's own documented GCI hardware | §Knowledge 1, cited and tiered |
 | **FlightBox sources** | the MiG-29 module's GCI chain, its sensors, and the mission format | [`../modules/mig29/datalink-gci.md`](../modules/mig29/datalink-gci.md), [`../modules/mig29/radar-sensors.md`](../modules/mig29/radar-sensors.md), [`../modules/mig29/module.md`](../modules/mig29/module.md), [`../missions/sensors.md`](../missions/sensors.md), [`../sensors.md`](../sensors.md) |
 
-Confidence legend and gap IDs `C0…C21`: [`INDEX.md`](INDEX.md).
+Confidence legend and gap IDs `C0…C24`: [`INDEX.md`](INDEX.md).
 
 **Temporal honesty:** this campaign has **no single historical event as its anchor** — it is an
 *exercise*, and its anchor is a **doctrine plus a piece of hardware**. That is stated openly rather

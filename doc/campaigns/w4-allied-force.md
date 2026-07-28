@@ -8,7 +8,7 @@ cast they need and the honest list of what FlightBox cannot do for them yet.
 | **Anchor sources** | the public record of Operation Allied Force, 24 March – 10 June 1999 | §Knowledge 1, every fact cited and tiered |
 | **FlightBox sources** | what a `.fbm` can declare and what the modules can do | [`../missions/weather.md`](../missions/weather.md), [`../missions/weapons.md`](../missions/weapons.md), [`../missions/sensors.md`](../missions/sensors.md), [`../world/weather.md`](../world/weather.md), [`../world/terrain.md`](../world/terrain.md), [`../render/clouds.md`](../render/clouds.md), [`../modules/f16/module.md`](../modules/f16/module.md) |
 
-Confidence legend and gap IDs `C0…C21`: [`INDEX.md`](INDEX.md).
+Confidence legend and gap IDs `C0…C24`: [`INDEX.md`](INDEX.md).
 
 **Temporal honesty: none needed.** The F-16C flew this campaign in both roles that matter here — the
 Block 40 strike jet and the **Block 50 F-16CJ** SEAD jet with the AGM-88 [T4]. It is the only
@@ -113,6 +113,8 @@ What exists but is inert for this campaign: the cloud data in the weather provid
 | `C15` | **no package coordination** | four flights on one target set with no timing |
 | `C0` | **no campaign layer** | 78 days of attrition against a defence that hides is *the* campaign-layer subject |
 | `C13` | **no jamming** | |
+| `C22` | **no connected air defence** ([`../air-defence-network.md`](../air-defence-network.md)) | mission 4's emitter that "emits and stops" is a **posture**, and a posture needs somebody to wake it: a net whose members stay dark until a node cues them is exactly the anchor's "dispersed, radars mostly not emitting". Mission 5's decoys gain their one honest discriminator from it — a decoy is never on the net, so it never comes up on a cue |
+| `C23` | **no declared, judged belt geometry** | **the 15,000 ft floor is this campaign's whole subject and today it is an arbitrary altitude.** With `zone` lines the floor becomes a measured trade: seconds inside the AAA band against seconds inside the SA-6 band, per striker, per route |
 
 ### The honest headline
 

@@ -8,7 +8,7 @@ cast they need and the honest list of what FlightBox cannot do for them yet.
 | **Anchor sources** | the public record of the Luftwaffe's MiG-29G operation and its dissimilar air combat training against western types, 1991–2003 | §Knowledge 1, cited and tiered |
 | **FlightBox sources** | the two flyable modules and everything already measured between them | [`../duels.md`](../duels.md), [`../formation.md`](../formation.md), [`../modules/mig29/module.md`](../modules/mig29/module.md), [`../modules/f16/module.md`](../modules/f16/module.md), [`../missions/combat.md`](../missions/combat.md) |
 
-Confidence legend and gap IDs `C0…C21`: [`INDEX.md`](INDEX.md).
+Confidence legend and gap IDs `C0…C24`: [`INDEX.md`](INDEX.md).
 
 **Temporal honesty: none needed, and uniquely so — this is the one campaign in which BOTH FlightBox
 airframes really flew against each other, in the configuration modelled, in the period named.** It is
