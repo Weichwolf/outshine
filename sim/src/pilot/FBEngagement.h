@@ -41,6 +41,10 @@ public:
   double ShotTtiS() const { return ShotTtiS_; }
   int  Shots() const { return Shots_; }
   bool Pitbull() const { return Pitbull_; }
+  /* Hat die letzte Runde den Schuetzen nicht mehr noetig? Bei einer aktiven Runde endet das Fenster mit
+   * der Suchereinschaltung, bei einer HALBAKTIVEN erst mit dem Einschlag — beides steckt schon in
+   * NoteSupport, und dies ist nur die Frage von aussen. */
+  bool SupportComplete() const { return SupportDone_; }
   double SupportS() const { return SupportS_; }
 
   void Reset();

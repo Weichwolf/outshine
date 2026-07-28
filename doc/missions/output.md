@@ -131,10 +131,22 @@ carry the same `unit=` attribution as that unit.
   sensor in FlightBox. TIMEOUT (exit 3) by design.
 - `sim/missions/mig29-intercept.fbm` — ground-controlled interception: the MiG starts SILENT, the
   controller's BRAA is typed in over three command-bus entries (8.0 s from call to radiating radar), the
-  N019 finds the target one frame later, and the opposing RWR lights up 0.1 s after ILLUM. Then the
-  generic intercept phase DISENGAGES, because this module composes no weapon — which is the phase
-  machine refusing to pretend, and the reason `RADAR_DESIGNATE` is absent from the trace. TIMEOUT
-  (exit 3) by design.
+  N019 finds the target one frame later, and the opposing RWR lights up 0.1 s after ILLUM. Since the jet
+  has R-27Rs on the rails (stage 2c) the same phase machine now runs the whole chain instead of
+  disengaging: `RADAR_DESIGNATE` at 58.4 s, shot at 60.9 s, support **to impact** (a semi-active round
+  never goes pitbull), `damage KILL` at 87.7 s. Exit 1 — the target is shot down.
+- `sim/missions/mig29-r73.fbm` / `f16-aim9.fbm` — the infrared round on both airframes, both branches in
+  one file each: a rear-quarter shot detonating at 0.138 m resp. 0.0196 m, and a head-on shot against a
+  flare-dispensing target seduced at `tgtIntensity=0.16` and missing by 22.8 m resp. 25.96 m. TIMEOUT
+  (exit 3) by design; the branches are read off events.log, because a miss is not a mission verdict.
+- `sim/missions/mig29-r27.fbm` — the semi-active chain, both branches: illumination held to impact
+  (28.56 s, `DETONATION missM=0.442`) and illumination broken in flight (`ILLUMINATION_LOST tofS=11.7`,
+  a 27.04 m miss against a 13.8 m fuze). TIMEOUT (exit 3) by design.
+- `sim/missions/mig29-gun.fbm` — the GSh-301 as a briefed burst from a stable trail position: 23 bundle
+  hits, a kill at t = 28.7 s on 67 of 150 rounds. Exit 0. Its header records the second, harder
+  measurement at 571 m of round path, where the full drum wipes the avionics without downing the target.
+- `sim/missions/duel-asym-probe.fbm` — F-16 vs MiG-29, one round each, both fire control computers, both
+  RWRs, both cross-sections. A SMOKE TEST for the asymmetry and expressly not a campaign.
 
 ## State
 

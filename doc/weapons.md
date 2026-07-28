@@ -42,6 +42,23 @@ warning set, command bus and flight physics.
 | Consequences run through JSBSim, not bookkeeping | cutoff, control authority, drag area — a shot-up jet keeps flying as long as physics allows |
 | Failure → block `Invalid` → visible everywhere | HUD dashes, warning reports INHIBITED, command into the dead box is rejected — none of that was written for damage |
 
+### The seeker decides what a round IS (the asymmetric-weapon round)
+
+A guided round is one module (`modules/missile`) and N catalogue entries; what makes an AIM-120, an
+AIM-9 and an R-27R three different weapons is not three classes but the **kind of seeker** the
+catalogue entry declares. Each kind is a derivation of a sensor slot that already exists, and each
+one's tactical property falls out of the sensor's own limits rather than out of a flag.
+
+| Contract | Acceptance / measurement anchor |
+|---|---|
+| **Active radar** (`FBSeekerKind::ActiveRadar`, AIM-120) — unchanged | seeker activates at its own range, the shooter's obligation ends there (`Pitbull`), midcourse over the uplink |
+| **Infrared** (`FBSeekerKind::Infrared`, R-73 / AIM-9) — an `sensors/FBIrstSystem` derivation | **angles only.** The law is PURE proportional navigation on the measured line-of-sight rate (`a = N·V_own·(Ω × û)`), because an angle-only head has neither range nor closure to put into `N·Vc·Ω`. No uplink, no midcourse: lock before launch, then fire-and-forget. Measured: a rear-quarter shot hits; the same shot against a target dispensing flares head-on misses |
+| **Semi-active radar** (`FBSeekerKind::SemiActiveRadar`, R-27R) — an `sensors/FBRadarSystem` derivation that **does not radiate** | its seeker is alive exactly while the SHOOTER illuminates. Illumination lost = seeker dead, and it **never comes back** (there is no transmitter of its own to switch on) — the round flies out its last information like an uplink loss, but without the second chance. Measured on both branches: an unbroken chain hits, a lock broken in mid-flight misses |
+| The support obligation is the shooter's, and it is a DOCTRINE hook, not a timer | a SARH round never goes `Pitbull`, so `pilot/FBEngagement`'s `Support` state runs to predicted IMPACT instead of to seeker activation; and for an airframe whose weapon needs it, `Support` and `Defend` become **mutually exclusive** — beaming breaks the illumination the round lives on. One state-transition guard, one module hook |
+| The crank ceiling is the ANTENNA, not a preference | the shooter may only turn as far as its own gimbal still tracks: the F-16's 45° comes off a 60° gimbal, the MiG-29's comes off the N019's 67° |
+| A gun row is a gun row | the GSh-301 enters `core/FBGun.h` field for field beside the M61A1, and the SAME kinetic path carries it — 30 mm changes the numbers (2.7× the energy per round, 0.68× the flux) and not one line of `core/FBDamageModel` |
+| Twin engines are two ids, appended | `core/FBSystemHealth` gains `Engine2` at the END of the enum (the `dmg_*` bitmask ordinals are telemetry); a single-engine airframe declares only `Engine` and every existing column keeps its meaning and its position |
+
 ## State
 
 Built: AIM-120, Mk-82, M61A1, ground targets, damage model.
@@ -53,6 +70,24 @@ Built: AIM-120, Mk-82, M61A1, ground targets, damage model.
 | Damage model: hits become failures, failures become invalidity | built | `6d84647` |
 | M61A1: derived ballistics, EEGS funnel, kinetic damage | built | `a1a8fbf` |
 | Air-to-ground: ground targets without FDM, CCIP/CCRP from one integration | built | `1eeff72` |
+| **The seeker as the thing that distinguishes weapons**: `FBSeekerKind` + the three catalogue entries AIM-9M / R-73 / R-27R, each with its own FlightBox-own JSBSim deck | built | MiG-29 stage 2c |
+| **Infrared seeker** (`modules/missile/FBMissileIrSeeker`) + the angle-only pure-PN law | built | MiG-29 stage 2c |
+| **Semi-active seeker**: illumination gate, no reactivation, `TimeToActiveS = -1` reaching the shooter's Support state | built | MiG-29 stage 2c |
+| GSh-301 catalogue row + `FBMig29Gun`/`FBMig29Sms`/`FBMig29FireControl` | built | MiG-29 stage 2c |
+| `FBSystemId::Engine2` + `PropulsionOut()` + the one-engine-out throttle ceiling | built | MiG-29 stage 2c |
+| `weapons/FBLaunchZone` — the DLZ arithmetic moved out of the F-16's box, so two fire controls share one | built | MiG-29 stage 2c |
+
+**Measured, stage 2c** (`mig29-r73`, `f16-aim9`, `mig29-r27`, `mig29-gun`, `duel-asym-probe`,
+`mig29-intercept`; every one deterministic over `--threads 1/2/4` × 3 repeats, one fingerprint each):
+
+| What | Measured |
+|---|---|
+| infrared round, rear quarter | R-73 `DETONATION missM=0.138` (fuze 3.5 m, tof 8.19 s); AIM-9 `missM=0.0196` (fuze 6.0 m, tof 7.72 s) |
+| infrared round against flares, head-on | both decoyed at `tgtIntensity=0.16`; R-73 misses by **22.80 m**, AIM-9 by **25.96 m** |
+| semi-active, unbroken chain | `ttaS=-1 ttiS=27.5` at launch → `DETONATION missM=0.442` after **28.56 s of unbroken illumination** |
+| semi-active, lock broken in flight | `ILLUMINATION_LOST tofS=11.7 rangeM=15499` → the round flies the last 15 km blind and misses by **27.04 m**. The AIM-120 with the same lock loss still hits (`intercept-lostlock`, 0.755 m) — that difference IS the semi-active penalty |
+| 30 mm kinetic path | at 294 m of round path: σ 1.77 m, ~0.8 rounds per 2-3 round bundle, 7,290 J/m² for the first, **kill at t = 28.7 s on 67 of 150 rounds**. At 571 m of path: σ 3.42 m, ~0.3-0.46 rounds/bundle, the FULL drum wipes the avionics (`dmg_failed 4016`) **without** downing the aircraft — the documented 200-790 m band emerging from the dispersion model rather than from a range limit |
+| the MiG-29 intercept, end to end | `RADAR_DESIGNATE` at t = 58.4 s → shot at 60.9 s → support to impact → `damage KILL` at 87.7 s. `eng_state`: search → closing → attack → support |
 
 Measured: CCIP/CCRP total error 22 m (10.6 m lateral) **against our own ballistic table** — see the
 Mk-82 fidelity caveat under Gaps before quoting that number.
@@ -73,8 +108,8 @@ Mk-82 fidelity caveat under Gaps before quoting that number.
 
 **Known gaps (named in the code, not hidden):**
 
-- **No IR seeker.** `FBCountermeasureSystem` counts flares and they have NO effect — there is no
-  IR-seeking missile against which they could work. It says so in the header.
+- ~~**No IR seeker.**~~ **CLOSED (stage 2c).** What remains, and it is a different gap: the MiG-29 has no
+  DISPENSERS, so it cannot answer an infrared shot at all.
 - **No lofting of the AIM-120.** The guidance law is pure PN plus a 1 g gravity bias; a climbing
   midcourse (which gives a BVR shot real range) does not exist. Every measured `Raero` is therefore that
   of a flat-flying round.
@@ -967,7 +1002,7 @@ race between two observers.
 
 | Ordinal | Id | means |
 |---|---|---|
-| 0 | `Engine` | propulsion: thrust |
+| 0 | `Engine` | propulsion: thrust — on a twin, the LEFT one |
 | 1 | `FlightControls` | FLCS/hydraulics: control authority |
 | 2 | `Structure` | airframe: drag |
 | 3 | `AirData` | ADC + probes |
@@ -980,6 +1015,26 @@ race between two observers.
 | 10 | `Rwr` | warning receiver |
 | 11 | `Countermeasures` | dispenser |
 | 12 | `Gun` | the gun: drum, feed, barrels (**appended**, per the enum's rule) |
+| 13 | `Engine2` | the SECOND engine of a twin (**appended**, same rule) — see below |
+
+**The twin-engine case, and why it needed a second question rather than a second threshold.** A
+single-engine airframe never declares `Engine2`, so the bit can never be set on one and every `dmg_*`
+mask ever measured keeps its meaning. What changes is that `CombatEffective` now asks
+`PropulsionOut()` instead of `Failed(Engine)`:
+
+```
+PropulsionOut() = Failed(Engine) && (!HasEngine2 || Failed(Engine2))
+```
+
+`HasEngine2` is learned from the only place that knows what the aircraft has — the MODULE's own damage
+layout, walked whole by `FBDamageModel::NoteLayout` before anything else is asked. Before the first
+burst the two readings are identical, so there is no window in which they can differ. The physical
+consequence is likewise not a threshold: ALL engines out is JSBSim's cutoff as before, ONE of two out
+is `kThrottleLimitOneEngineOut = 0.5` — half the installed thrust, expressed as half the commanded
+range on a deck whose engines share one `throttle-cmd-norm`, which also takes the afterburner with it.
+`FBMig29Damage` puts both ids in the AFT zone (the two RD-33s sit side by side; this model has no
+lateral resolution and does not pretend to one) with the mapping written down: `Engine` = left,
+`Engine2` = right.
 
 The list is deliberately the module SLOT set plus the three physical things whose consequence JSBSim can
 carry itself.
@@ -1441,6 +1496,63 @@ column of a jet's trace changes): `msl_phase`, `msl_range` (to the ESTIMATE, nev
 Events: `missile PROGRAMMED`, `missile PHASE` (every change with reason, time of flight, range, LOS),
 `missile SEEKER_ACTIVE`.
 
+##### The three seeker kinds — one module, three weapons
+
+`FBStoreSpec::Seeker` (`core/FBStore.h`) decides which SENSOR SLOT `FBMissileModule` cycles, and that
+is the whole difference between the guided rounds in the tree. Exactly one detector is powered on any
+round; the other publishes nothing, so a trace can never claim a sensor the weapon does not carry.
+
+| | **ActiveRadar** (AIM-120) | **Infrared** (AIM-9M, R-73) | **SemiActiveRadar** (R-27R) |
+|---|---|---|---|
+| slot | `FBMissileSeeker` (`sensors/FBRadarSystem`) | `FBMissileIrSeeker` (`sensors/FBIrstSystem`) | `FBMissileSeeker`, but it never transmits |
+| what it measures | range, bearing, closure | **angles only** | range, bearing, closure — of a REFLECTION |
+| guidance law | true PN, `a = N·Vc·(Ω × û)` | **pure PN**, `a = N·V_own·(Ω × û)` | true PN, unchanged |
+| gets on | activation range (a catalogue number) | uncaged at launch, slaved to the programming | the shooter's illumination |
+| loses it | never (it has its own transmitter) | when the mark leaves the field | when the illumination stops — **and never comes back** |
+| midcourse | uplink | none: lock-before-launch, then alone | uplink, which IS the illumination indicator |
+| shooter's obligation (`FBSeekerHandoverS`) | until activation | **0** — free at launch | **-1** — until impact |
+| deceived by | chaff (Doppler notch) | **flares** (irradiance, `doc/sensors.md` §6.6) | chaff, and by the shooter breaking off |
+
+**The angle-only law, and why it is the PURE form.** True PN needs the closing speed; an infrared head
+has none. So the line-of-sight rate is differentiated from consecutive LOOKS of the head — which is
+literally what a real seeker's rate gyro puts out, without a position ever existing —
+
+```
+u     = unit vector along the LOS, from the head's reported bearing/elevation
+Omega = (u_prev x u_now) / dt          [rad/s]
+a     = N * V_own * (Omega x u) + 1 g up
+```
+
+and the round's own speed takes `Vc`'s place. The rate is HELD between looks (`kLosRateHoldS` = 0.1 s,
+two head frames): the head reports at its frame time and the loop runs at 100 Hz, so differentiating
+inside a frame would read zero four times out of five and then a step. `msl_range` is **-1** for such a
+round throughout, and that is the point — the column says what the seeker cannot measure instead of
+printing a truth it never had. **And this is where a flare wins:** the law flies at whatever the head
+reports, with full authority and no idea anything happened.
+
+**The semi-active mechanic, in four lines of guidance.** `ActivationRangeM = 0` declares "there is
+nothing to activate"; the seeker is switched on while the shooter's uplink message is fresher than
+`kUplinkTimeoutS` and switched OFF for good the moment it is not (`missile ILLUMINATION_LOST`). That is
+the only asymmetry: an uplink loss on an AIM-120 is survivable because its own transmitter is still to
+come, and on an R-27R it is terminal. Upstream of it, `FBSeekerHandoverS` puts `-1` into
+`FBFireControlBlock::TimeToActiveS`, `pilot/FBEngagement::NoteSupport` therefore falls back to the
+predicted time of flight for its support window and `Pitbull` can never become true, and
+`FBPilot::SupportInhibitsDefend` (a module hook, `false` for everyone else) makes Support and Defend
+mutually exclusive on an airframe whose doctrine says so. **No new architecture: three hooks and one
+state-transition guard**, exactly as `doc/modules/mig29/weapons.md` §3.2 predicted.
+
+**The three decks** are FlightBox's own (`sim/assets/aircraft/{aim9,r73,r27r}`, MODEL-DELTAS provenance
+`—`), built from the AIM-120's slender-body set, which is NON-DIMENSIONAL and describes a finned
+cylindrical body. Per round only what depends on its own proportions is recomputed — the reference area
+`S = πd²/4`, the fin arm in calibres, and `Cm_de = -CN_de · arm` with `Cm_alpha` set to hold the same
+~0.41 rad trim design point at full fin. Every motor is sized by the rocket equation against the
+documented terminal Mach at `Isp` 235 s, so the round and the fire-control table that predicts it start
+from the SAME motor. Two omissions are named in the decks rather than papered over: the **R-73's
+thrust-vectoring vanes** (documented, but vane authority, gas-generator duration and blending law are
+all unpublished — so the deck understates it exactly where the real weapon is exceptional), and the
+fact that at equal dynamic pressure all three pull the same class of g the AIM-120 does, which is less
+than a short-range round really has.
+
 #### 10.3 `modules/ground` — the module that does not even integrate
 
 `FBGroundModule.h` + `FBGroundModuleRegistration.cpp`. Structurally `FBStoreModule` MINUS one thing instead
@@ -1541,3 +1653,7 @@ The station offset is computed in the SMS (structural → body-fixed, relative t
 | `damage-amraam` | the CONSEQUENCE: detonation, damage resolution, system failures, block invalidities and 340 s of aftermath until impact (exit 2) |
 | `make -C sim test-gun` | dispersion fit against MIL-DTL-45500/1A, time of flight, funnel geometry, lead solution against the flown trajectory, ammunition consumption, rejection on an empty drum |
 | `make -C sim test-missile` | the AIM-120 airframe open-loop (motor/drag/trim) |
+| `mig29-r73` / `f16-aim9` | the infrared round, BOTH branches: a rear-quarter hit and a flare-decoyed miss, on both airframes |
+| `mig29-r27` | the semi-active chain, BOTH branches: illumination held to impact, and illumination broken in flight |
+| `mig29-gun` | the GSh-301: a briefed burst, the 30 mm kinetic path, and the range dependence of the density model |
+| `duel-asym-probe` | F-16 vs MiG-29, one round each — a SMOKE TEST for the asymmetry, explicitly not a campaign |

@@ -27,6 +27,13 @@ enum class FBSystemId : uint8_t {
   Rwr,              /* the warning receiver */
   Countermeasures,  /* the dispenser */
   Gun,              /* the internal gun: drum, feed and barrels */
+  /* THE SECOND ENGINE, appended for exactly the reason this enum says to append: the ordinal is the
+   * bit position in the dmg_* telemetry masks, and every trace ever measured carries the old ones. A
+   * single-engine airframe declares only `Engine` in its zone table, so this bit can never be set on
+   * one, and CombatEffective (below) keeps its old meaning for it word for word. A TWIN declares both,
+   * and "one engine out" — the state a two-engine fighter is actually characterised by — finally has
+   * somewhere to live. Which nacelle is which is the MODULE's table, not this list's business. */
+  Engine2,
   Count
 };
 
@@ -49,11 +56,21 @@ public:
   uint32_t DegradedMask() const { return Degraded_; }
   int Hits() const { return Hits_; }
 
+  /* PROPULSION as a whole, which is not the same question as "is engine 0 out" on a twin. The register
+   * learns how many an airframe has from the only place that knows — the module's own damage layout,
+   * walked by FBDamageModel on the first burst. Before any burst the answer is the same either way, so
+   * there is no window in which the two readings differ. A single-engine airframe never declares
+   * Engine2, so this reduces to Failed(Engine) word for word. */
+  bool PropulsionOut() const {
+    if (!Failed(FBSystemId::Engine)) return false;
+    return !HasEngine2_ || Failed(FBSystemId::Engine2);
+  }
+
   /* A stated model decision: ineffective once the AIRFRAME cannot finish the sortie. Avionics losses,
    * however total, are explicitly NOT part of it — this judges the SORTIE, not the engagement, and a
    * unit is not "dead" when it turns false: it flies exactly as long as the physics lets it. */
   bool CombatEffective() const {
-    return !Failed(FBSystemId::Engine) && !Failed(FBSystemId::FlightControls) &&
+    return !PropulsionOut() && !Failed(FBSystemId::FlightControls) &&
            !Failed(FBSystemId::Structure);
   }
 
@@ -62,6 +79,9 @@ private:
   /* Monotone: a state only ever gets worse. Returns true if this call actually changed it. */
   bool Worsen(FBSystemId id, FBHealthState s);
   void NoteHit() { Hits_++; }
+  /* What this AIRFRAME has, learned from its layout rather than declared twice. Only Engine2 needs it:
+   * every other id means the same thing whether the aircraft carries one of the box or none. */
+  void NoteSystemPresent(FBSystemId id) { if (id == FBSystemId::Engine2) HasEngine2_ = true; }
   /* The one piece of damage state that is not a system's: cumulative PROJECTILE energy per zone. A gun
    * is a continuous stream cut into per-tick bundles, so judging each bundle alone would make the damage
    * a function of the tick rate. A warhead has no equivalent — a burst is ONE event. */
@@ -72,6 +92,7 @@ private:
   FBHealthState S_[(int)FBSystemId::Count]{};
   uint32_t Failed_ = 0, Degraded_ = 0;   /* the same information as S_, as the telemetry bitmasks */
   int Hits_ = 0;
+  bool HasEngine2_ = false;              /* see NoteSystemPresent/PropulsionOut */
 };
 
 /* Its own source, registered LAST by the unit: a new source appends columns and moves nothing that was

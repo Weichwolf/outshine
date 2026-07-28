@@ -49,6 +49,11 @@ architecture: drawn by include graph and type choice, checkable by grep.
 | What a set radiates is derived from what it is doing | `Emission()` from the pattern actually flown — antenna state and radiated signature cannot diverge |
 | The RWR sees only published emissions, never truth, and has a real blind zone | elevation coverage limit at the own antenna; no range, ever (an RWR measures power) |
 | Deception is a model, not a die | chaff works through the Doppler notch, measured from own quantities over a dwell |
+| **An infrared SEEKER is a sensor slot, not a weapon feature** | a heat-homing round carries a derivation of `sensors/FBIrstSystem` — the same aspect law, the same afterburner term, the same anonymity — and reaches the registry only through that base. The `RESTRICTED` list does not grow: the derivation adds no `#include "FBUnitRegistry.h"` of its own |
+| **A flare deceives deterministically, in the same currency the sensor already measures** | seduction is an inequality between two received IRRADIANCES (`I/r²`): the flare's published intensity from its own ageing curve against the aircraft's intensity from the aspect/afterburner law that already sets the detection range. No die, no break-lock probability. Consequence, measured on both branches: a tail-aspect afterburning target is barely deceivable, a head-on target without augmentation is deceived easily |
+| A seduced head follows the DECOY, and that is the whole effect | the look substitutes the flare's geometry (the chaff rule verbatim); the track is lost when the flare leaves the field or burns out with the aircraft no longer in it. Re-lock is not a special case, it is the next look |
+| **Radar reach follows the target's radar cross-section, by the FOURTH ROOT** | `R ∝ σ^¼` from the two-way radar equation (`Pr ∝ σ/R⁴`). The reference cross-section is the F-16's, so an F-16 looking at an F-16 measures exactly what it measured before this existed (`σ/σ_ref = 1` → factor 1.0, byte-identical); the asymmetry appears only against an airframe that declares a different one |
+| A cross-section is a unit PROPERTY, published like every other thing a foreign sensor may notice | `FBUnitSignature::RcsM2`, declared by the module (`FBModule::RadarCrossSectionM2`) and published at the tick barrier beside the afterburner bit and the chaff clouds — not a parameter of the looking radar |
 
 ## State
 
@@ -64,6 +69,19 @@ Built: datalink, radar with mode set, RWR, countermeasures — plus the two miss
 | `FBIrstSystem` + `FBMig29Irst` (KOLS: aspect law, laser range, cloud masking) | built | MiG-29 stage 2b |
 | `FBMig29Radar` (N019: five modes + STT, quantified notch, 6 s inertial track) | built | MiG-29 stage 2b |
 | `FBMig29Rwr` (SPO-15LM: forward blanking, channel bearings, channel-wide track marking) | built | MiG-29 stage 2b |
+| `FBMissileIrSeeker` (the infrared seeker as an `FBIrstSystem` derivation — one class, two rounds) | built | MiG-29 stage 2c |
+| Flare deception (`FBIrstSystem::SelectFlare`, the irradiance inequality) — flares finally DO something | built | MiG-29 stage 2c |
+| Radar cross-section as a unit property, fourth-root range scaling | built | MiG-29 stage 2c |
+
+**Measured, stage 2c:**
+
+| Anchor | Expected from the model | Measured |
+|---|---|---|
+| flare deception, head-on and dry | aircraft radiates `(10/25)² = 0.16` of the reference, a cartridge 1.0 → deceived | `irst FLARE_SEDUCED … tgtIntensity=0.16` at t = 9.7 s on **both** `mig29-r73` (R-73) and `f16-aim9` (AIM-9) — the identical number from the identical code |
+| the consequence of being deceived | the round flies at the cartridge | R-73 `stores EXPIRED … closestM=22.80` against a 3.5 m fuze; AIM-9 `closestM=25.96` against a 6.0 m fuze |
+| no deception from astern | aircraft radiates 1.0 (dry) or 2.25 (augmented) → a cartridge cannot win | rear-quarter shots hit: R-73 `missM=0.138`, AIM-9 `missM=0.0196` |
+| RCS reference calibration | F-16 against F-16 = factor exactly 1.0 | all 55 F-16 missions byte-identical, telemetry and events |
+| RCS asymmetry | MiG 4.0 m² against the 1.2 m² reference → `(4.0/1.2)^¼` = **1.351** one way, **0.740** the other | `duel-asym-probe`: both sets acquire, the F-16 first |
 
 ## Gaps
 
@@ -79,7 +97,7 @@ Built: datalink, radar with mode set, RWR, countermeasures — plus the two miss
 | Thing | Consequence |
 |---|---|
 | Terrain masking for radar, datalink and radio path | air-to-air line of sight is always clear; would need a DEM raymarch per contact per look |
-| No IR seeker | flares are counted and do nothing |
+| ~~No IR seeker~~ | closed in stage 2c; the MiG-29's own dispensers are still missing |
 | No ECM/jammer, no MWS, IFF Mode 4 only, no measurement noise on sensor data | the whole CMDS/CMS/ECM interaction of the source material is absent |
 | No formation concept — `fl` is simply the first unit | the datalink filter "flight leads only" is not real |
 
@@ -91,8 +109,12 @@ Built: datalink, radar with mode set, RWR, countermeasures — plus the two miss
    sample) nor the radio path of the datalink (`RadioHorizonM` knows only the geometric line of sight).
    Price: a DEM raymarch per contact and per look. Until then every air-to-air line of sight is clear;
    ground targets and low-flying units are thereby systematically too easy to see.
-2. **No IR seeker** → flares are dispensed, counted and have no effect. There is no weapon today that
-   they could decoy.
+2. ~~**No IR seeker** → flares are dispensed, counted and have no effect.~~ **CLOSED (stage 2c):**
+   `modules/missile/FBMissileIrSeeker` is an `FBIrstSystem` derivation, flares are published in
+   `FBUnitSignature::Flare` and `SelectFlare` decides deception on measured irradiance. What is still
+   absent is named separately: the **MiG-29 has no dispensers at all** (the BVP-30-26's programme
+   parameters are stated nowhere), so it can dispense neither chaff nor flares — the one place where
+   the asymmetry currently runs entirely one way.
 3. **No air-to-ground radar mode.** `FBRadarSystem` filters on `FBUnitKind::Aircraft`: stores in free
    flight and ground targets are invisible to every radar. A ground target can therefore only be
    approached via the steerpoint/fire control computation, never via a sensor.
@@ -623,6 +645,32 @@ The clouds come from the signature of the UNIT currently being looked at (`sig.C
 stated expressly in the code: **a cloud can only decoy a radar that is looking at the aircraft that
 dispensed it** — never one that is tracking somebody else nearby.
 
+#### 4.7b The RADAR CROSS-SECTION, and why the reference is the F-16
+
+`GateRangeM(volume)` was the range gate of the PATTERN; `GateRangeM(volume, targetRcsM2)` is the gate
+against a particular target. The two-way radar equation gives `Pr ∝ σ/R⁴`, hence
+
+```
+R(σ) = R_ref · (σ / σ_ref)^¼
+```
+
+`σ` comes from the observed unit's published signature (`FBUnitSignature::RcsM2`, declared by its
+module through `FBModule::RadarCrossSectionM2`) — never from a table inside the looking radar, which
+would be identity read out of the registry by the back door. `σ = 0` means "not declared" (a store, a
+ground target, any module written before this existed) and the gate then behaves exactly as before.
+
+**`kRefRcsM2 = 1.2` is the F-16's own declared cross-section, and that choice is the calibration.**
+Every radar range in this tree — every mode table, every measured acquisition — was measured against
+this aircraft, so making its cross-section the reference turns the whole mechanism into the IDENTITY
+for F-16 against F-16 (`pow(1.0, 0.25)` is exactly 1.0) and leaves an asymmetry only ACROSS types. Both
+numbers are `[SET]` classes rather than measurements: ~1.2 m² for a clean F-16 and ~4.0 m² for a MiG-29
+(the middle of the 3-5 m² band that gets quoted), T4-grade, and a two-decimal figure would be false
+precision. What follows from them is not: **1.351× the detection range one way and 0.740× the other.**
+
+The chaff comparison is deliberately NOT scaled by it: `SelectDecoy` already weighs a cloud against an
+aircraft through `RCS/r⁴`, so a seduced look keeps the unscaled gate and the cloud's own size is
+counted exactly once.
+
 #### 4.8 Deliberate non-modelling: terrain masking
 
 A real look-down picture is clipped by the horizon and by the terrain along the line of sight. This class
@@ -1020,9 +1068,49 @@ radar (§4.7) — this class does not learn it, exactly like the pilot.
 It is published in `FBUnitSignature::Chaff` (barrier), hence under the same contract as pose and transmit
 switch: no radar ever sees half a salvo.
 
-**Flares** are dispensed, counted and **have no effect** — and that is stated as such instead of being
-hidden: an infrared decoy needs an infrared seeker, which this simulator does not have. The books are
-kept honestly, so that on the day an AIM-9 exists nothing has to be changed here.
+**Flares** are the chaff cloud's twin and, since stage 2c, they work. The books had been kept honestly,
+so the day the AIM-9 arrived exactly one thing had to change here: the ejection now also fills an
+`FBFlareCloud` ring (`FBUnitSignature::Flare`), under the same publication contract as chaff. The
+difference to a chaff cloud is the one physical difference between the two expendables — chaff
+REFLECTS somebody else's transmitter, a flare RADIATES on its own — so the ageing curve is an
+INTENSITY rather than a reflectivity (`core/FBCountermeasure.h`, `FBFlareIrNorm`: ignition 0.15 s,
+burnout 4.0 s, both `[SET]`, the sources document dispense parameters only). Whether a cartridge WORKS
+is decided solely by the opposing seeker (§6.6) — this class does not learn it, exactly like the pilot.
+
+#### 6.6 The infrared decoy — `SelectFlare`, the mirror of the Doppler notch
+
+A flare is not a reflector, so there is no clutter filter to hide in: the only question an optical head
+has is which of the two hot spots in its field puts more power on the detector, and irradiance from a
+point source is `I/r²`. Both intensities are in ONE unit — `kFlarePeakIntensity`, defined as the
+intensity of a clean airframe seen **dead astern**, which is the case the documented reach figure is
+stated for — so the comparison needs no third number:
+
+```
+flare wins  ⟺  I_flare(age)/r_f²  >  I_aircraft(aspect, burner)/r_t²
+```
+
+and the ASPECT does the rest by itself, out of the detection law that was already there
+(`TargetIntensity` is `DetectRangeM` read the other way round, `intensity = (reach/reference)²`):
+
+| Geometry | Aircraft intensity | Against one cartridge |
+|---|---|---|
+| head-on, dry | `(10/25)²` = **0.16** | the cartridge wins **6×** |
+| dead astern, dry | **1.00** | a draw on intensity; range decides |
+| dead astern, afterburner | `1.5²` = **2.25** | the cartridge loses by 2.25× |
+
+Sequence per look, deliberately the radar's (§4.7) line for line: the decoy decision falls **before**
+the field test (a seduced look measures the CARTRIDGE, and then the CARTRIDGE has to lie in the field);
+the cartridge must additionally be bright enough to be seen at all, tested with its own intensity in
+the same reach law; and the seduction is **STICKY** (`kFlareSticky`) — once the tracking gate has
+walked onto a burning cartridge it stays there while that cartridge burns and stays in the field.
+Without the stickiness the decision would flip look by look, exactly as the chaff test did before its
+own. **The seduction ends when the flare burns out or leaves the field, and the next look is the
+re-lock** — no reacquisition path is written, because none is needed.
+
+Everything is measured on the head's OWN quantities. Events `irst FLARE_SEDUCED` / `FLARE_RESOLVED`
+carry the aircraft intensity, the cartridge's age and the angles, so the decision is reconstructable.
+The consequence stated in the code: **a cartridge can only decoy a seeker looking at the aircraft that
+threw it** — the same scope decision chaff carries.
 
 Events: `cmds PROGRAM_START` / `SALVO` / `PROGRAM_END` / `MAGAZINE_EMPTY`.
 

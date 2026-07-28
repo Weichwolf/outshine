@@ -596,8 +596,21 @@ Landing MeasureLanding(double grossKg) {
 
 struct SweepPoint {
   double EntryCasKt = 0.0, TurnRateDegS = 0.0, NzMean = 0.0, NzPeak = 0.0;
+  /* THE MEASUREMENT WINDOW'S OWN STATE, added to settle the corner-formula discrepancy of
+   * doc/modules/mig29/module.md gap 4c: the hooks quote the ENTRY speed, the formula uses "the" speed,
+   * and this pull is neither level nor constant-speed. Measuring the window instead of assuming it. */
+  double MeanCasKt = 0.0, MeanTasMs = 0.0, AltLossM = 0.0, MeanGammaDeg = 0.0;
+  /* The mean of the INSTANTANEOUS formula rate over the same samples — the answer to whether
+   * the gap is the window's state or the AVERAGING itself (sqrt(n^2-1) is convex in n). */
+  double FormulaInstDegS = 0.0;
+  /* The rate of the VELOCITY VECTOR's ground track, which is what the corner formula predicts —
+   * as opposed to TurnRateDegS above, which is the rate of the body's EULER HEADING. At 20+ deg
+   * of incidence in an 85 deg banked pull those are not the same quantity. */
+  double TrackRateDegS = 0.0;
   double AlphaMeanDeg = 0.0, AlphaPeakDeg = 0.0;
 };
+
+constexpr double kG0 = 9.80665;
 
 bool MeasureTurnPoint(double altM, double entryCasKt, double grossKg, double alphaLimDeg, double gLim,
                       SweepPoint &out) {
@@ -625,6 +638,9 @@ bool MeasureTurnPoint(double altM, double entryCasKt, double grossKg, double alp
   }
 
   double wrap = 0.0, prevPsi = st.yaw, nzSum = 0.0, nzPeak = 0.0, aSum = 0.0, aPeak = 0.0;
+  double casSum = 0.0, tasSum = 0.0, gammaSum = 0.0, alt0 = st.elev, instSum = 0.0;
+  double trkWrap = 0.0;
+  double prevTrk = std::atan2(st.vx, -st.vz) * kRad2Deg;
   int n = (int)(4.0 / kDt);
   for (int i = 0; i < n; i++) {
     f->SetControls(Clamp((kBankDeg - st.roll) / 45.0, -1.0, 1.0),
@@ -640,6 +656,19 @@ bool MeasureTurnPoint(double altM, double entryCasKt, double grossKg, double alp
     aSum += st.alphaDeg;
     if (st.nz > nzPeak) nzPeak = st.nz;
     if (st.alphaDeg > aPeak) aPeak = st.alphaDeg;
+    casSum += st.cas;
+    tasSum += st.speed;
+    /* Flight-path angle from the FDM's own velocity components (X-Plane local: +y up). */
+    double vh = std::sqrt(st.vx * st.vx + st.vz * st.vz);
+    gammaSum += std::atan2(st.vy, vh > 1e-6 ? vh : 1e-6) * kRad2Deg;
+    double trk = std::atan2(st.vx, -st.vz) * kRad2Deg;   /* X-Plane local: +x east, -z north */
+    double dtrk = trk - prevTrk;
+    while (dtrk > 180.0) dtrk -= 360.0;
+    while (dtrk < -180.0) dtrk += 360.0;
+    trkWrap += dtrk;
+    prevTrk = trk;
+    double nn = st.nz > 1.001 ? st.nz : 1.001;
+    instSum += kG0 * std::sqrt(nn * nn - 1.0) / (st.speed > 1.0 ? st.speed : 1.0) * kRad2Deg;
   }
   out.EntryCasKt = entryCasKt;
   out.TurnRateDegS = std::fabs(wrap) / 4.0;
@@ -647,6 +676,12 @@ bool MeasureTurnPoint(double altM, double entryCasKt, double grossKg, double alp
   out.NzPeak = nzPeak;
   out.AlphaMeanDeg = aSum / n;
   out.AlphaPeakDeg = aPeak;
+  out.MeanCasKt = casSum / n * kMsToKt;
+  out.MeanTasMs = tasSum / n;
+  out.AltLossM = alt0 - st.elev;
+  out.MeanGammaDeg = gammaSum / n;
+  out.FormulaInstDegS = instSum / n;
+  out.TrackRateDegS = std::fabs(trkWrap) / 4.0;
   return true;
 }
 
@@ -698,7 +733,20 @@ Corner MeasureCornerSweep(double altM, double grossKg) {
     bool dep = p.AlphaPeakDeg > 35.0;
     FBLog::Info("mig29", "CORNER_POINT", {{"entryCasKt", p.EntryCasKt},
         {"turnRateDegS", p.TurnRateDegS}, {"nzMean", p.NzMean}, {"nzPeak", p.NzPeak},
-        {"alphaMeanDeg", p.AlphaMeanDeg}, {"alphaPeakDeg", p.AlphaPeakDeg}, {"departed", dep}});
+        {"alphaMeanDeg", p.AlphaMeanDeg}, {"alphaPeakDeg", p.AlphaPeakDeg}, {"departed", dep},
+        {"meanCasKt", p.MeanCasKt}, {"meanTasMs", p.MeanTasMs}, {"altLossM", p.AltLossM},
+        {"meanGammaDeg", p.MeanGammaDeg},
+        /* The three readings of the same 4 s, side by side. formulaEntry is what the pilot's hooks
+         * feed CornerTurnRateDegS today (entry CAS as if it were a speed); formulaTas is the same
+         * formula on the speed actually flown; formulaGamma additionally divides by cos(gamma),
+         * which is the difference between the turn rate of the VELOCITY VECTOR and the rate of change
+         * of HEADING that this harness measures. */
+        {"formulaEntryDegS", kG0 * std::sqrt(p.NzMean * p.NzMean - 1.0) /
+                             (p.EntryCasKt * kKtToMs) * kRad2Deg},
+        {"formulaTasDegS", kG0 * std::sqrt(p.NzMean * p.NzMean - 1.0) / p.MeanTasMs * kRad2Deg},
+        {"formulaGammaDegS", kG0 * std::sqrt(p.NzMean * p.NzMean - 1.0) / p.MeanTasMs /
+                             std::cos(p.MeanGammaDeg * kDeg2Rad) * kRad2Deg},
+        {"formulaInstDegS", p.FormulaInstDegS}, {"trackRateDegS", p.TrackRateDegS}});
     if (dep) { out.Departed++; continue; }
     pts[count++] = p;
   }

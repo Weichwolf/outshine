@@ -5,6 +5,8 @@
 #ifndef FBRADARSYSTEM_H
 #define FBRADARSYSTEM_H
 
+#include <cmath>
+
 #include "FBCountermeasure.h"
 #include "FBEmitter.h"
 #include "FBRadarContact.h"
@@ -64,6 +66,11 @@ public:
    * ein Sucher mit 20 Hz schaut — die Differenz zweier Looks alterniert sonst (gemessen: 446 m/s gegen
    * wahre 654 m/s). Getrennt von FBRadarContact::ClosureMs, das die look-zu-look-Zahl bleibt. */
   static constexpr double kDopplerDwellS = 0.2;
+  /* Die REFERENZ des Rueckstrahlquerschnitts: der Wert, fuer den die Reichweite eines Musters gilt, wie
+   * sie in seinen Modus-Tabellen steht. Bewusst die F-16 (modules/f16/FBF16Module::RadarCrossSectionM2),
+   * denn genau gegen sie ist jede Zahl im Baum gemessen worden — damit ist die RCS-Erweiterung fuer
+   * F-16-gegen-F-16 die Identitaet und keine Neukalibrierung. [SET, Kalibrierungswahl] */
+  static constexpr double kRefRcsM2 = 1.2;
 
   ~FBRadarSystem() override = default;
 
@@ -164,6 +171,18 @@ protected:
   /* JEDER Entfernungstest dieser Klasse laeuft hierdurch — ein beschaedigtes Set kann nicht in einem
    * Codepfad weiter sehen als in einem anderen. */
   double GateRangeM(const FBRadarScanVolume &v) const { return v.RangeM * RangeFactor_; }
+
+  /* Dasselbe Tor GEGEN EIN BESTIMMTES ZIEL: die Zweiwege-Radargleichung sagt Pr ~ sigma/R^4, also
+   * R ~ sigma^(1/4). Die Referenz ist die des Musters, gegen das jede bestehende Messung im Baum
+   * gefahren wurde (kRefRcsM2 = die F-16), weshalb ein F-16-Tor gegen eine F-16 exakt 1.0 ergibt und
+   * jede Bestandsmission spaltengleich bleibt; die Asymmetrie entsteht erst zwischen zwei Mustern.
+   * rcs <= 0 = nicht deklariert (Store, Bodenziel, jedes vor dieser Etappe geschriebene Modul) und
+   * bedeutet „keine Skalierung", nicht „unsichtbar". doc/sensors.md, Spec. */
+  double GateRangeM(const FBRadarScanVolume &v, double targetRcsM2) const {
+    double g = GateRangeM(v);
+    if (targetRcsM2 <= 0.0 || kRefRcsM2 <= 0.0) return g;
+    return g * std::pow(targetRcsM2 / kRefRcsM2, 0.25);
+  }
 
 private:
   /* Eine interne Trackakte. UnitId ist der Korrelationsschluessel von Look zu Look und verlaesst dieses

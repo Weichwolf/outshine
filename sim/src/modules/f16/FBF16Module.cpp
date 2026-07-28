@@ -543,6 +543,16 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
     else PilotSys->BriefBingoLbs(v);
     return true;
   }
+  /* Ein MOMENT und eine DAUER: "<sekunden> <burstS>". Dieselbe Form wie brief_release_s und aus
+   * demselben Grund — ein Feuerstoss ist eine Handlung, kein Zustand. */
+  if (key == "brief_gun_s") {
+    std::istringstream in(value);
+    double atS = 0.0, burstS = 0.0;
+    if (!(in >> atS) || !(in >> burstS)) return RejectSetup("want '<atS> <burstS>'", key, value);
+    if (atS < 0.0 || burstS <= 0.0) return RejectSetup("want a time >= 0 and a burst > 0", key, value);
+    if (!PilotSys->BriefGun(atS, burstS)) return RejectSetup("too many briefed bursts", key, value);
+    return true;
+  }
   if (key == "brief_master_arm") {
     if (value != "arm" && value != "sim") return RejectSetup("want arm|sim", key, value);
     PilotSys->BriefMasterArm(value == "arm");

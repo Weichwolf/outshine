@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<!-- FlightBox — the R-27R motor's nozzle. JSBSim subtracts ambient pressure * exit area from the vacuum
+     thrust (FGNozzle::Calculate). area 0.239 FT2 [DERIVED] = 53.5 % of this round's 0.4472 ft^2 body
+     cross-section, the same proportion the AIM-120 nozzle occupies. The exit diameter is [SET].
+-->
+<nozzle name="R-27R nozzle (FlightBox)">
+  <area unit="FT2"> 0.239 </area>
+</nozzle>

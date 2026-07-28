@@ -9,22 +9,13 @@
 #include "FBBallistics.h"
 #include "FBBfmTrack.h"
 #include "FBGun.h"
+#include "FBLaunchZone.h"
 #include "FBState.h"
 #include "FBStore.h"
 #include "FBWeaponUplink.h"
 #include "FBFdm.h"
 
 namespace FlightBox::Modules {
-
-/* Metres and seconds; a time of -1 = "the round dies before it gets there", not zero. */
-struct FBLaunchZone {
-  bool   Valid = false;
-  double RaeroM = 0.0;
-  double RtrM = 0.0;
-  double RminM = 0.0;
-  double TimeToActiveS = -1.0;
-  double TimeToImpactS = -1.0;
-};
 
 class FBF16FireControl {
 public:
@@ -46,16 +37,9 @@ public:
   void SetDeliveryMode(FBDeliveryMode m) { Mode_ = m; }
   FBDeliveryMode DeliveryMode() const { return Mode_; }
 
-  /* A free static: pure arithmetic on a weapon's performance table plus one engagement geometry, so a
-   * harness or a future intercept AI can call it without a fire-control computer around it. Model,
-   * range formulas and the three deliberate omissions: doc/modules-f16.md §8.2. */
-  static FBLaunchZone SolveLaunchZone(const FBWeaponPerf &perf, double ownSpeedMs, double altM,
-                                      double rangeM, double closureMs, double ownLosMs,
-                                      double tgtSpeedMs);
-
-  /* Minimum-turn allowance added to Rmin [SET]: a just-armed round still has to pull its nose onto the
-   * target, and a few hundred metres is what that costs at launch speed. */
-  static constexpr double kMinTurnM = 300.0;
+  /* The launch-zone arithmetic itself lives in weapons/FBLaunchZone — it is the same physical question
+   * for every fire control in the tree, and the second airframe's Dr max1/max2/min are these three
+   * numbers under other names. What stays HERE is which round, which contact and which plane. */
 
   /* EEGS funnel limits [DOC] weapons.md §2.5 "Funnel geometry (Level II)", converted once. The span is
    * [MODELL] — the source says it must be configured and does not supply it, so a like-type target is

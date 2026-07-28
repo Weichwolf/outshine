@@ -44,8 +44,8 @@ const double kBfmRollRateMaxDegS = 180.0 / kBfmTurnTimeS;
  * Proben aus acht BFM-Laeufen, ausschliesslich unterhalb des Deckels (dort ist der Regler inaktiv, der
  * Fit also offen): a = 0,734 (Rollzeitkonstante 0,323 s), K = 78,7 °/s je Vollausschlag. Derselbe Fit
  * ueber ALLE Proben gibt 0,772/90,5 — die daraus folgende Deckelverstaerkung weicht um 7 % ab. */
-const double kBfmRollPlantA = 0.734;
-const double kBfmRollPlantKDegS = 78.7;
+/* Die F-16-Werte stehen jetzt als DEFAULTS der Hooks FBPilot::BfmRollPlantA/KDegS in FBPilot.h — die
+ * Herleitung darueber gilt unveraendert und beschreibt, wie ein zweites Muster seine eigenen misst. */
 const double kBfmGKp = 0.25, kBfmGKi = 0.5, kBfmGIMax = 0.6;
 const double kBfmPushMax = 0.3;           /* ein Jaeger zieht und entlastet, er drueckt nicht */
 const double kBfmSearchRangeM = 5556.0;   /* 3 nm: nur damit die kalte Suche einen Punkt hat */
@@ -402,8 +402,9 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
    * Gegenruder, nie mehr als das rohe Kommando.
    * doc/pilot.md, Abschnitt 5.7. */
   if (st.p * rollCmd > 0.0) {
-    double lim = Clamp((kBfmRollRateMaxDegS - kBfmRollPlantA * std::fabs(st.p)) /
-                           (kBfmRollPlantKDegS * (1.0 - kBfmRollPlantA)),
+    double plantA = BfmRollPlantA(), plantK = BfmRollPlantKDegS();
+    double lim = Clamp((kBfmRollRateMaxDegS - plantA * std::fabs(st.p)) /
+                           (plantK * (1.0 - plantA)),
                        0.0, 1.0);
     if (std::fabs(rollCmd) > lim) rollCmd = rollCmd > 0.0 ? lim : -lim;
   }
@@ -435,6 +436,7 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
   bool inControl = validTrack && g.Locked && rngNm >= ctrlMinNm && rngNm <= ctrlMaxNm &&
                    g.AspectDeg <= BfmControlAspectDeg() && std::fabs(g.AzDeg) <= BfmControlAtaDeg();
   Bfm_.Report(mode, inControl, gCmd, dt);
+  BfmDesignate(state, avionics);
   BfmGunfire(state, avionics);
   return c;
 }
@@ -442,6 +444,30 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
 /* Kein zweites Zielen — ein FINGER. Er prueft NIE, auf wen er schiesst, und kann es nicht: der Pilot
  * sieht einen Radarkontakt, keine Besetzungsliste. Die Mission deklariert die Besetzung, der Abzug
  * beantwortet den Trichter. */
+/* DER LOCK IM KURVENKAMPF, und er ist nicht immer geschenkt. Die ACM-Modi eines Musters, dessen Radar
+ * sie hat, locken den naechsten festen Track selbsttaetig (FBRadarScanVolume::AutoAcquire) — in einem
+ * Kurvenkampf bedient niemand ein Radar, und dieser Zweig laeuft dort nie, weil der Lock schon steht.
+ * Ein Muster, dessen Nahkampf-Muster NICHT selbst lockt, hat den Kontakt trotzdem auf dem Schirm und
+ * einen Daumen am TMS: dann ist die Designation eine BEDIENHANDLUNG wie jede andere — ueber den Bus,
+ * mit ihrer Latenz, ablehnbar, und mit dem Bedien-Takt des Piloten dazwischen statt 10 Hz Spam.
+ * Ohne das ist die BFM-Phase auf so einem Jet blind: ohne Lock kein FBBfmTrack, ohne Track kein
+ * Zielpunkt, und das Gesetz fliegt sein Suchmuster, waehrend der Gegner vor ihm steht (gemessen auf
+ * missions/mig29-gun: 0 Lock-Ticks in 134 s). doc/pilot.md, Abschnitt 5. */
+void FBPilot::BfmDesignate(const FBState &state, FBCommandBus &avionics) {
+  const FBRadarBlock &fcr = state.Radar;
+  if (!fcr.H.Readable() || fcr.ContactCount <= 0 || fcr.LockIndex >= 0) return;
+  if (TimeS_ < BfmDesignateNextS_) return;
+  const FBRadarContact *best = nullptr;
+  for (int i = 0; i < fcr.ContactCount; i++) {
+    const FBRadarContact &c = fcr.Contacts[i];
+    if (c.Iff == FBIffReply::Friendly) continue;   /* dieselbe Regel wie im Abfang: Schweigen beweist nichts */
+    if (!best || c.RangeM < best->RangeM) best = &c;
+  }
+  if (!best) return;
+  BfmDesignateNextS_ = TimeS_ + kInterceptActionS;
+  avionics.Post(FBCommandTarget::Designate, best->TrackNum, TimeS_);
+}
+
 void FBPilot::BfmGunfire(const FBState &state, FBCommandBus &avionics) {
   if (!state.Gun.H.Readable() || !state.Gun.Ready) return;
   const FBFireControlBlock &fc = state.FireControl;
@@ -519,6 +545,24 @@ bool FBPilot::BriefChaff(double atS) {
   if (DispenseCount_ >= kMaxBriefedDispenses) return false;
   DispenseAtS_[DispenseCount_++] = atS;
   return true;
+}
+
+bool FBPilot::BriefGun(double atS, double seconds) {
+  if (GunBriefCount_ >= kMaxBriefedGunBursts || seconds <= 0.0) return false;
+  GunBriefAtS_[GunBriefCount_] = atS;
+  GunBriefS_[GunBriefCount_] = seconds;
+  GunBriefCount_++;
+  return true;
+}
+
+/* Wie jeder Brief: ein abgelehnter Abzug wird NICHT wiederholt — der Jet hat nein gesagt (leere
+ * Trommel, Master Arm SAFE, Raeder am Boden), und die Ablehnung steht im Protokoll. */
+void FBPilot::FireBriefedGun(FBCommandBus &avionics) {
+  while (GunBriefNext_ < GunBriefCount_ && TimeS_ >= GunBriefAtS_[GunBriefNext_]) {
+    double burstS = GunBriefS_[GunBriefNext_];
+    GunBriefNext_++;
+    avionics.Post(FBCommandTarget::GunTrigger, burstS, TimeS_);
+  }
 }
 
 /* Wert 0 = das vom PRGM-Knopf gewaehlte Programm (CMS vorwaerts): der Pilot wirft, womit der Jet
@@ -701,7 +745,23 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
   int chaffOut = state.Cmds.H.Readable() ? state.Cmds.ChaffDispensed : IntSeenChaff_;
   if (chaffOut > IntSeenChaff_) { Eng_.NoteChaff(chaffOut - IntSeenChaff_); IntSeenChaff_ = chaffOut; }
 
-  /* ---- 5. die Zustandsmaschine (doc/pilot-ai.md, Abschnitt 7.3) ---- */
+  /* ---- 5. die Zustandsmaschine (doc/pilot-ai.md, Abschnitt 7.3) ----
+   * DIE HAERTE EINER HALBAKTIVEN RUNDE: solange eine gestartete Rakete die eigene Beleuchtung braucht,
+   * ist Wegdrehen kein Ausweichen, sondern das Aufgeben des Schusses. Ein Modul, dessen Waffe das
+   * verlangt, sperrt den Uebergang (SupportInhibitsDefend); fuer jedes andere ist der Ausdruck
+   * konstant false und die Maschine unveraendert. */
+  bool supportBinding = EngState_ == FBEngageState::Support && SupportInhibitsDefend() &&
+                        Eng_.HaveShot() && !Eng_.SupportComplete();
+  if (defendDue && supportBinding) {
+    if (!IntSupportBound_) {
+      IntSupportBound_ = true;
+      FBLog::Info("intercept", "SUPPORT_BINDING", {{"t", TimeS_}, {"threatBrgDeg", threatBrgDeg},
+          {"sinceShotS", TimeS_ - Eng_.ShotS()}});
+    }
+    defendDue = false;
+  } else if (!supportBinding) {
+    IntSupportBound_ = false;
+  }
   if (defendDue) {
     EngState_ = FBEngageState::Defend;
   } else if (EngState_ == FBEngageState::Defend && TimeS_ - IntThreatLastS_ >= Tuned(FBPilotParam::DefendHoldS, InterceptDefendHoldS())) {
@@ -952,6 +1012,7 @@ FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
     EnterBriefedItems(avionics);
     ReleaseBriefedStores(avionics);
     DispenseBriefedCm(avionics);
+    FireBriefedGun(avionics);
   }
 
   /* Telemetriecache: dieselbe Wegpunktdistanz, die der Missions-Runner frueher von aussen rechnete. */

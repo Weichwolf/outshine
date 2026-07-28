@@ -3,7 +3,7 @@
 namespace FlightBox::Modules {
 
 FBMissileModule::FBMissileModule(const FBStoreSpec &spec) : Spec_(spec) {
-  Guidance_.Bind(Spec_, Seeker_);
+  Guidance_.Bind(Spec_, Seeker_, Ir_);
   Rwr_.SetPowered(false);   /* a round carries no warning receiver — see the slot accessors */
 }
 
@@ -32,7 +32,10 @@ void FBMissileModule::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitR
   LastSub_ = 0;
   for (int k = 0; AccS_ >= Fdm::FBFdm::kStepS && k < 12; k++) {
     double tS = SimTimeS_ - AccS_ + Fdm::FBFdm::kStepS;
-    Seeker_.Run(State_, st, units, tS);   /* its antenna keeps its own frame grid on this clock */
+    /* ONE seeker runs, and which one is the catalogue entry's — the other stays dark and publishes
+     * nothing, so its block cannot be mistaken for a picture. */
+    if (Spec_.Seeker == FBSeekerKind::Infrared) Ir_.Run(State_, st, units, tS);
+    else Seeker_.Run(State_, st, units, tS);   /* its antenna keeps its own frame grid on this clock */
     Guidance_.SetTime(tS);
     Pilot::FBPilotCommands g = Guidance_.Run(State_, Cmds_, Ctrl_, st, Plan_, nullptr, Fdm::FBFdm::kStepS);
     AP_.SetManual(g.ManualRoll, g.ManualPitch, g.ManualYaw, g.ManualThr);

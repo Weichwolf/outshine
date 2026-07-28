@@ -425,6 +425,62 @@ gained the two measurements the module cites: 136.8 kt at the documented 11° to
 420 kt / 24.18 °/s / 7.83 g. F-16 byte-identical across all 53 stock missions.
 
 
+### 2026-07-28 — MiG-29 stage 2c: the weapons and the signature
+
+**What the round was for.** The MiG-29 had sensors and no weapons; the F-16 had no infrared round at
+all; flares had been dispensed and counted since the countermeasure round with nothing to work on; and
+`RADAR_DESIGNATE` was unreachable because the intercept pilot correctly disengages from a target it
+cannot shoot. All four are the same missing piece, and it is the SEEKER.
+
+**The one architectural idea.** A guided round is still ONE module and N catalogue entries; what makes
+an AIM-120, an AIM-9 and an R-27R three different weapons is `FBSeekerKind`, and each kind names a
+derivation of a SENSOR SLOT THAT ALREADY EXISTS. The infrared seeker is an `sensors/FBIrstSystem`, so
+it inherits the aspect law, the afterburner term, the cloud deck and the anonymity, and the perception
+boundary does not grow by a file (`verify_layers`'s `RESTRICTED` list is unchanged — the scan lives in
+the base). The semi-active seeker is an `sensors/FBRadarSystem` that never transmits. Two seeker kinds,
+no new architecture, and the tactical differences fall out of the sensors' own limits.
+
+**The measurements that decided things.**
+
+- **Flares now work, deterministically.** One inequality between two received irradiances in one unit
+  (a clean airframe seen dead astern = 1.0), so the ASPECT does the whole job: head-on and dry an
+  aircraft radiates 0.16 and a cartridge beats it six times over; astern in afterburner it radiates
+  2.25 and cannot be deceived. Both branches measured on BOTH airframes at exactly `tgtIntensity=0.16`
+  — the same number from the same code — and the decoyed rounds miss by 22.8 m (R-73, 3.5 m fuze) and
+  25.96 m (AIM-9, 6.0 m fuze).
+- **The semi-active penalty, as a number.** 28.56 s of unbroken illumination for one R-27R shot against
+  the AIM-120's 5-15 s; break the lock in flight and the round misses by 27.04 m where an AIM-120 with
+  the same loss still hits by 0.755 m.
+- **The RCS calibration is the identity for the F-16.** `σ^¼` scaling with the F-16's own 1.2 m² as the
+  reference, so all 55 F-16 missions came out byte-identical on every column and every event, and the
+  asymmetry (1.351× / 0.740×) exists only across types.
+- **30 mm is a different weapon in the same currency.** A kill on 67 of 150 rounds at 294 m of round
+  path; the FULL drum at 571 m wipes the target's avionics without downing it. The documented
+  200-790 m effective band emerging from the dispersion model rather than from a range limit.
+
+**Three defects the measurements found**, each fixed where it belonged rather than where it showed:
+the MiG's gun never learned its own unit id and therefore shot ITSELF down at the muzzle (the runner's
+shooter exclusion compares `LauncherId`); `FBFlightControl` returned before its alpha limiter in
+`Manual`, so every hand-stick phase on an airframe whose deck has no limiter was unbounded — invisible
+until BFM became the first phase that really pulls; and the BFM roll-rate cap inverts a PLANT, so with
+another aircraft's constants it is an oscillator rather than a cap (identified for this airframe:
+a = 0.819, K = 201 °/s against the F-16's 0.734 / 78.7).
+
+**One long-standing gap closed by measuring instead of arguing.** The MiG's corner formula read −16 %
+against the harness. Neither hypothesis survived: the altitude loss inside the window is worth +1.7 %
+and the convexity of `√(n²−1)` +0.4 %. The harness was measuring the rate of the body's EULER HEADING
+while the formula predicts the turn rate of the VELOCITY VECTOR, and at 22.7° of incidence in an
+85°-banked pull those differ by 18 %. Measured directly, the formula is right to **1.4 %** — better
+than the F-16's own −2 %. The correction went to the harness's reporting, not to the formula.
+
+**What is honestly not finished.** The MiG-29 has no dispensers at all (no source states the
+BVP-30-26's programme parameters), so the flare asymmetry currently runs entirely one way. And its BFM
+is unfinished: the N019's close-combat modes are pencils in azimuth and its wide mode does not
+auto-lock, so a manoeuvring MiG cannot acquire — 0 contact ticks in 134 s, measured.
+`FBPilot::BfmDesignate` gives the pilot the thumb he needs (a no-op on an auto-locking set), but the
+cold-search law still rolls the jet before the first two looks land. `mig29-gun` therefore measures the
+WEAPON from a stable position with a briefed burst, and says so in its header.
+
 ### 2026-07-28 — MiG-29 stage 2b: the sensors and the guidance
 
 Three real sensor derivations, **one new generic slot**, and GCI as mission data.

@@ -560,11 +560,25 @@ file contains.
 
 ## State
 
-**Nothing in this file is implemented.** FlightBox has no MiG-29 module, no
-`sim/src/modules/mig29/` and no JSBSim MiG-29 model. The airframe exists only as a **spec-first
-contract** — [`module.md`](module.md), whose own status
-line reads *"spec only. Nothing is built."* Everything below is therefore a **forward commitment**,
-not a description of code.
+**Implemented as of MiG-29 stage 2c: the R-27R, the R-73 and the GSh-301.** Each is a catalogue entry
+in the FlightBox core (`core/FBStore.h`, `core/FBGun.h`) with its own FlightBox-own JSBSim deck under
+`sim/assets/aircraft/`, and the aircraft carries them on `modules/mig29/FBMig29Sms`'s seven declared
+stations with `FBMig29Gun` in the port LERX. Behaviour is the generic `weapons/` code throughout; what
+this file supplied is the numbers and the two mechanics that are properties of these weapons rather
+than of any weapon:
+
+| From this file | Where it landed | Measured |
+|---|---|---|
+| §3.1 R-27R mass/geometry/warhead/range, §3.2 the SARH support obligation | `core/FBStore.h::kR27r` + `FBSeekerKind::SemiActiveRadar`; the illumination gate in `modules/missile/FBMissileGuidance` | 28.56 s of unbroken illumination for one shot; break it in flight and the round misses by 27.04 m |
+| §3.2 consequences 3 and 4 (the antenna-bounded crank, Support/Defend exclusivity) | `FBMig29Pilot::InterceptCrankAtaDeg` = 50° off 65°, and `SupportInhibitsDefend` = true | `mig29-intercept` runs designate → shot → support to impact |
+| §3.3 R-73 mass/geometry/warhead/3.5 m blast radius/75° gimbal | `core/FBStore.h::kR73` + `FBMissileIrSeeker` | rear-quarter hit at 0.138 m; decoyed head-on at `tgtIntensity=0.16` |
+| §4.1/§4.4 the GSh-301 row and its `[SET]` 6 mrad dispersion bound | `core/FBGun.h::kGsh301` | the documented 200-790 m effective band emerges from the dispersion: a kill at 294 m of round path, avionics-only at 571 m |
+| §2.1 the station map, flagged `[GAP]` and therefore a convention | `FBMig29Sms`, seven stations, stated as a convention | — |
+
+**Not implemented, and each named rather than approximated:** the pair-release semantics of §2.4 (the
+F-16's one-store-one-command path is used, which is §2.4's SINGLE case), the R-27T/ER/ET and the
+R-60M, every air-to-ground store, the release-envelope rejections of §5.1, and the §4.3 correction
+table as an acceptance target for the 30 mm drag coefficient (it remains an unspent check).
 
 | Roadmap stage | What it will take from this file |
 |---|---|

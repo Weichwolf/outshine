@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<!-- FlightBox — the R-73 motor's nozzle. JSBSim subtracts ambient pressure * exit area from the vacuum
+     thrust (FGNozzle::Calculate). area 0.131 FT2 [DERIVED] = 53.5 % of this round's 0.2443 ft^2 body
+     cross-section, the same proportion the AIM-120 nozzle occupies. The exit diameter itself is [SET].
+     The gas-dynamic vanes that sit in this exhaust on the real round are NOT modelled (see r73.xml).
+-->
+<nozzle name="R-73 nozzle (FlightBox)">
+  <area unit="FT2"> 0.131 </area>
+</nozzle>

@@ -18,6 +18,11 @@ FBMissileSeeker::FBMissileSeeker() {
   Track_.ElHalfDeg = kGimbalHalfDeg;
 }
 
+void FBMissileSeeker::Configure(double fovHalfDeg, double gimbalHalfDeg) {
+  if (fovHalfDeg > 0.0) { Vol_.AzHalfDeg = fovHalfDeg; Vol_.ElHalfDeg = fovHalfDeg; }
+  if (gimbalHalfDeg > 0.0) { Track_.AzHalfDeg = gimbalHalfDeg; Track_.ElHalfDeg = gimbalHalfDeg; }
+}
+
 void FBMissileSeeker::SetRangeM(double m) {
   Vol_.RangeM = m;
   Track_.RangeM = m;

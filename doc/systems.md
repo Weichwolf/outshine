@@ -456,6 +456,23 @@ loop, numerics verbatim.
   - Battle damage acts EXACTLY HERE: `roll/pitch/yaw *= Authority`, `thr` capped — the FCS commands
     unchanged, the aircraft no longer answers.
 
+#### 3.2b The alpha limiter also acts at the HAND STICK (MiG-29 stage 2c)
+
+`Run` returns early in `FBMode::Manual` — the pilot's stick is the command, and there is nothing to
+regulate. Until stage 2c the limiter returned early with it, and that was a defect rather than an
+omission: `AlphaLimitDeg` models the airframe's own STICK FORCE, and a stick force does not know which
+mode the autopilot is in. It never showed because the manual phases (Takeoff, Flare, Rollout) do not
+pull; **BFM is the first phase that really does**, and the first airframe whose DECK carries no limiter
+of its own (the MiG-29) departed at 32° of incidence and 11.8 g after 8.9 s.
+
+The law is now applied in both branches — there is only one limiter — with ONE difference that the
+class comment always demanded: **at the hand stick it may only forbid PULL, never force a push**
+(`byAlpha` is floored at 0). Besides being what the comment says, it removes a transient: a
+discontinuity in the sampled incidence rate during the first tenth of a second would otherwise arrive
+as full forward stick (measured: −44.6 before the floor). For an airframe with its own FLCS in the deck
+`AlphaLimitDeg` is 0 (`F16()`), the branch is dead and the expression is bit-identical to the one
+without it — verified across the whole mission set.
+
 #### 3.3 The FLCS law, step by step (all at a fixed 0.01 s)
 
 ```

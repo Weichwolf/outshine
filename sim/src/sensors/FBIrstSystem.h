@@ -84,6 +84,13 @@ public:
    * unaugmented aircraft. Stated that way so the number can be argued with instead of tuned. */
   static constexpr double kAfterburnerRangeFactor = 1.5;
 
+  /* [SET] Once the tracking gate has walked onto a burning cartridge it STAYS there while that
+   * cartridge still radiates and stays in the field — a real head does not re-decide from scratch
+   * twenty times a second, and without the rule the decision would flip look by look exactly as the
+   * radar's chaff test did before its own stickiness (doc/sensors.md §4.7). The seduction ends when the
+   * flare burns out or leaves the field, and the NEXT look is the re-lock. */
+  static constexpr bool kFlareSticky = true;
+
   /* [SET] The cover above which a cloud deck is treated as a LID. A deck below this is broken enough
    * that a line of sight through a hole is the normal case, and modelling that needs the horizontal
    * structure of the density field (core/FBCloudDensity), which is the declared next step. Same
@@ -145,6 +152,14 @@ protected:
    * overridable function. */
   bool CloudMasked(double ownAltM, double tgtAltM) const;
 
+  /* THE AIRCRAFT'S OWN RADIANT INTENSITY, in the units a flare is expressed in: 1.0 = a clean,
+   * unaugmented airframe seen DEAD ASTERN, which is the case the documented reach figure is stated for.
+   * The SAME law as DetectRangeM, read the other way round — for a point source range goes as the square
+   * root of intensity, so intensity is (reach/reference)^2 and the two cannot disagree about what this
+   * head is looking at. */
+  double TargetIntensity(const FBIrstFieldOfRegard &f, const Units::FBUnitPose &tgt, bool afterburner,
+                         double bearingDeg) const;
+
 private:
   struct Track {
     int    UnitId = 0;
@@ -156,7 +171,18 @@ private:
     double LaserRangeM = 0.0;
     int    Hits = 0;
     bool   Firm = false;
+    /* WHICH cartridge this file is sitting on, identified by its ejection time rather than by its ring
+     * index: the ring reuses slots, an ejection time does not. 0 = the head is on the aircraft. */
+    double SeducedBloomS = 0.0;
   };
+
+  /* The flare this look measures INSTEAD of the aircraft, or null. Both inputs are the head's own
+   * measurements: received irradiance I/r^2 from each burning cartridge against the same quantity from
+   * the airframe. Deterministic — no die, no break-lock probability, exactly as SelectDecoy is on the
+   * radar side. */
+  const FBFlareCloud *SelectFlare(const FBFlareCloud *flares, const Fdm::fb_fdm_state &st,
+                                  const FBIrstFieldOfRegard &f, double simTimeS, double tgtIntensity,
+                                  double tgtRangeM, double stickBloomS) const;
 
   void ScanFrame(const Fdm::fb_fdm_state &st, const Units::FBUnitRegistry &net, double simTimeS);
   void UpdateLock(double simTimeS, bool autoAcquire);
@@ -178,6 +204,7 @@ private:
   double NextScanS_ = 0.0;
 
   int MaskedCount_ = 0;
+  int SeducedCount_ = 0;
   int ContactCount_ = 0;
   float LockAzDeg_ = 0.0f, LockElDeg_ = 0.0f, LockAgeS_ = 0.0f, LockNm_ = -1.0f;
   int BlockStatus_ = 0;

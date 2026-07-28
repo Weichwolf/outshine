@@ -66,6 +66,13 @@ public:
   bool SystemWorking(FBSystemId id) const { return HealthOf(id) != FBHealthState::Failed; }
   bool SystemDegraded(FBSystemId id) const { return HealthOf(id) == FBHealthState::Degraded; }
 
+  /* WHAT A RADAR GETS BACK from this airframe, m^2. Module data for the same reason the damage layout
+   * is: how big an echo an aircraft makes is a property of the aircraft, and a radar that carried a
+   * table of it would be reading identity out of the registry. 0 = not declared (stores, ground
+   * targets, and any module written before cross-sections existed), which the radar reads as "no
+   * scaling" — exactly the behaviour it had before. doc/sensors.md, Spec. */
+  virtual double RadarCrossSectionM2() const { return 0.0; }
+
   /* WHERE this airframe's systems sit, for core/FBDamageModel — the module supplies the table, the core
    * applies it. Empty default: a released store has nothing to lose piecewise. */
   virtual const FBDamageLayout &DamageLayout() const {

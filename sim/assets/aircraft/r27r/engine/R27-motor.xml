@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<!-- FlightBox — R-27R boost-sustain solid rocket motor.
+
+     THE SPLIT IS [SET] and marked as such: the sources bound the class (2-15 s of burn, Mach 2-3) and
+     say nothing about how it is divided. 3 s of boost and 5 s of sustain, 60/40 by impulse, is the
+     shape that produces the two behaviours the employment doctrine needs — a launch acceleration that
+     is supersonic before the target can react, and a sustain that keeps it accelerating out towards the
+     documented 30-35 km.
+       total impulse  = m_p * Isp * g = 172 lb * 235 s = 40,420 lbf*s
+       boost   8,071 lbf x 3.00 s -> 24,213 lbf*s, burning 24213/235 = 103.0 lb
+       sustain 3,237 lbf x 5.00 s -> 16,185 lbf*s, burning 16185/235 =  68.9 lb
+     which is 35,900 N and 14,400 N — the two figures the fire-control catalogue (core/FBStore.h)
+     integrates, so the round and the computer that predicts it start from the same motor.
+     JSBSim's contract: indexed by PROPELLANT BURNED (lb), yielding VACUUM thrust (lbf); the engine
+     consumes wdot = thrust/Isp itself, so burn time is an outcome. Ignition is throttle == 1.0 and the
+     motor burns to depletion — which for a SEMI-ACTIVE round matters twice over: it cannot be told to
+     stop when the illumination it lives on goes away.
+-->
+<rocket_engine name="R-27R motor (FlightBox)">
+
+  <isp> 235 </isp>
+
+  <!-- Ignition transient, [SET] 60 ms: the order a solid motor's chamber takes to come up to pressure.
+       It exists so the first integration step is not a step input into the airframe's rotational ODE. -->
+  <builduptime> 0.06 </builduptime>
+
+  <thrust_table name="propulsion/thrust_prop_remain" type="internal">
+    <tableData><!--
+      propellant burned (lb)   vacuum thrust (lbf) -->
+       0.00    8071.0
+     102.80    8071.0
+     103.00    3237.0
+     171.80    3237.0
+     172.00       0.0
+    </tableData>
+  </thrust_table>
+
+</rocket_engine>

@@ -66,9 +66,16 @@ void FBEngagement::NoteShot(double nowS, double rangeM, double ataDeg, double as
  * Sekunden seit dem Start: wer die Nase drin behaelt, aber den Track durch den Kardanwinkel verliert,
  * stuetzt den Schuss nicht mehr. `Pitbull` ist das abgeleitete Urteil, genau einmal gefaellt. */
 void FBEngagement::NoteSupport(bool locked, double nowS, double dt) {
-  if (ShotS_ < 0.0 || ShotTtaS_ < 0.0 || SupportDone_) return;
+  if (ShotS_ < 0.0 || SupportDone_) return;
+  /* WIE LANGE die Runde den Schuetzen braucht — die Feuerleitung sagt es, nicht diese Klasse. Bei einer
+   * aktiven Runde ist es die Zeit bis zur Suchereinschaltung; bei einer HALBAKTIVEN gibt es die nicht
+   * (TimeToActiveS < 0 = „geht nie selbst aktiv"), und das Fenster ist die ganze vorhergesagte
+   * Flugzeit. Genauso wird PITBULL nur bei einer aktiven Runde je wahr: eine R-27R wird nie
+   * eigenstaendig, egal wie lange man sie stuetzt. */
+  double winS = ShotTtaS_ >= 0.0 ? ShotTtaS_ : ShotTtiS_;
+  if (winS < 0.0) return;
   /* Das Fenster schliesst VOR der Zaehlung dieses Ticks — die Summe kann es nie uebersteigen. */
-  if (nowS - ShotS_ >= ShotTtaS_) { SupportDone_ = true; Pitbull_ = locked; return; }
+  if (nowS - ShotS_ >= winS) { SupportDone_ = true; Pitbull_ = locked && ShotTtaS_ >= 0.0; return; }
   if (locked) SupportS_ += dt;
 }
 

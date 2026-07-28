@@ -49,8 +49,11 @@ void FBSimUnit::PublishPose() {
   Sig_.Radar = Module_->Radar().Emission();
   if (Sig_.Radar.Mode == FBEmitterMode::Track && Module_->Stores().Uplink().Active)
     Sig_.Radar.Mode = FBEmitterMode::Guidance;
+  Sig_.RcsM2 = (float)Module_->RadarCrossSectionM2();
   const FBChaffCloud *clouds = Module_->Countermeasures().Clouds();
   for (int i = 0; i < kMaxChaffClouds; i++) Sig_.Chaff[i] = clouds[i];
+  const FBFlareCloud *flares = Module_->Countermeasures().Flares();
+  for (int i = 0; i < kMaxFlareClouds; i++) Sig_.Flare[i] = flares[i];
   Sig_.Uplink = Module_->Stores().Uplink();
 }
 
@@ -103,13 +106,16 @@ FBDamageResult FBSimUnit::TakeKineticBurst(const FBKineticBurst &burst) {
  * ground target is wrecked in its register and nowhere else. */
 void FBSimUnit::ApplyDamageToAirframe() {
   if (!Fdm_) return;
-  switch (Health_.State(FBSystemId::Engine)) {
-    case FBHealthState::Failed:
-      Module_->Controls().EngineCutoff();   /* the same controls path a pilot would use */
-      Fdm_->SetThrottleLimit(0.0);
-      break;
-    case FBHealthState::Degraded: Fdm_->SetThrottleLimit(kThrottleLimitDegraded); break;
-    case FBHealthState::Intact: break;
+  /* PROPULSION, which on a twin is not the same question as "is engine 0 out": the register knows how
+   * many this airframe declared, and only ALL of them being out is a cutoff. One of two is a thrust
+   * loss the aircraft keeps flying with, which is the state a two-engine fighter is characterised by. */
+  if (Health_.PropulsionOut()) {
+    Module_->Controls().EngineCutoff();   /* the same controls path a pilot would use */
+    Fdm_->SetThrottleLimit(0.0);
+  } else if (Health_.Failed(FBSystemId::Engine) || Health_.Failed(FBSystemId::Engine2)) {
+    Fdm_->SetThrottleLimit(kThrottleLimitOneEngineOut);
+  } else if (Health_.Degraded(FBSystemId::Engine) || Health_.Degraded(FBSystemId::Engine2)) {
+    Fdm_->SetThrottleLimit(kThrottleLimitDegraded);
   }
   switch (Health_.State(FBSystemId::FlightControls)) {
     case FBHealthState::Failed: Fdm_->SetControlAuthority(kAuthorityFailed); break;

@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!-- FlightBox — the AIM-9M motor's nozzle. JSBSim subtracts ambient pressure * exit area from the
+     vacuum thrust (FGNozzle::Calculate), which is what makes a solid motor weaker at sea level than at
+     altitude. area 0.073 FT2 [DERIVED] = the same 53.5 % of the body cross-section the AIM-120 nozzle
+     occupies, applied to this round's 0.1364 ft^2 — a nozzle that fits inside a 5 in airframe with room
+     for the boattail. The exit diameter itself is [SET]; no public figure exists.
+-->
+<nozzle name="AIM-9M nozzle (FlightBox)">
+  <area unit="FT2"> 0.073 </area>
+</nozzle>

@@ -89,5 +89,44 @@ inline double FBChaffRcsNorm(double ageS) {
   return 1.0 - (ageS - kChaffBloomS) / (kChaffLifeS - kChaffBloomS);
 }
 
+/* ---- THE INFRARED HALF. Structurally the chaff cloud's twin — same publication path, same ring, same
+ * "it does not move" — and different in the ONE thing the two expendables differ in physically: a
+ * chaff cloud REFLECTS somebody else's transmitter, a flare RADIATES on its own. So the age curve is
+ * not a reflectivity but an intensity, and it is the shape of a pyrotechnic composition rather than of
+ * a dispersing dipole cloud: a fast rise to a peak, then a long decay to burnout. */
+constexpr int kMaxFlareClouds = 8;
+
+/* [SET] Ignition, peak and burnout. No source in the tree states a flare's radiometric time history —
+ * doc/modules/f16/defence-rwr-cm.md documents dispense PARAMETERS only, exactly as for chaff. The
+ * shape is the one a decoy grain has (it is lit by an igniter and burns out), the numbers are the
+ * order of magnitude of a magnesium/Teflon cartridge. */
+constexpr double kFlareIgniteS = 0.15;   /* ejection to full radiation */
+constexpr double kFlareLifeS = 4.0;      /* burnout: after this it radiates nothing at all */
+
+/* [SET] Peak radiant intensity of ONE cartridge, expressed in the only currency the seeker has: the
+ * intensity of a clean, unaugmented aircraft seen from DEAD ASTERN (sensors/FBIrstSystem's rear-aspect
+ * reference, which is what its documented reach figure is stated for). 1.0 therefore means "as bright
+ * as a nozzle, seen straight into it" — the calibration that makes every seduction outcome in the tree
+ * a consequence of ASPECT rather than of this number:
+ *   head-on, dry   : the aircraft radiates (10/25)^2 = 0.16 of the reference -> a flare is 6x brighter
+ *   astern, dry    : 1.00                                                    -> a flare merely equals it
+ *   astern, burner : 1.5^2 = 2.25                                            -> a flare loses by 2.25x
+ * Stated this way so the number can be argued with instead of tuned. */
+constexpr double kFlarePeakIntensity = 1.0;
+
+struct FBFlareCloud {
+  bool   Active = false;
+  double LatDeg = 0.0, LonDeg = 0.0, AltM = 0.0;   /* where it was ejected; it does not move */
+  double BloomS = 0.0;                             /* sim time of the ejection */
+};
+
+/* The same free-function reason as FBChaffRcsNorm: the dispenser needs to know when a cartridge has
+ * stopped counting and the SEEKER needs to weigh it against an aircraft — one curve, two readers. */
+inline double FBFlareIrNorm(double ageS) {
+  if (ageS < 0.0 || ageS >= kFlareLifeS) return 0.0;
+  if (ageS < kFlareIgniteS) return ageS / kFlareIgniteS;   /* the igniter, not yet the grain */
+  return 1.0 - (ageS - kFlareIgniteS) / (kFlareLifeS - kFlareIgniteS);
+}
+
 } // namespace FlightBox
 #endif

@@ -396,7 +396,8 @@ that *decide* something are.
 | Weapon effects | **built** — fragment area density → specific energy → per-zone damage against a system-health register; no dice, no timers | same, §6–§8 |
 | Station data (nine pylons) | **partially** — lateral offsets are modelled, longitudinally all nine sit on the CG station because §4.5's station data is itself flagged T4. A load therefore produces no pitching moment | [`module.md`](module.md) Gaps 9 |
 | Master modes, SPI, cursors, sighting points, SMS pages, inventory/jettison | **not implemented** — no display to hold them; the target is the active steerpoint, the "cursor" does not exist | — |
-| AIM-9, LGB, JDAM, JSOW, WCMD, HARM, Maverick, DTOS, strafe | **not implemented** — no AIM-9 at all (roadmap R6), no guided A-G weapon, and gun rounds give up before reaching the ground so strafing is impossible | [`../../weapons.md`](../../weapons.md) Gaps |
+| AIM-9 Sidewinder | **built** (MiG-29 stage 2c) — `set store <n> aim9`, an infrared seeker as an `sensors/FBIrstSystem` derivation, decoyed by the target's flares. §4.3's gimbal figure is the module hook; the mass/geometry/warhead/motor figures this file did NOT carry are tagged `[T3]` at their point of use in `core/FBStore.h` and in `sim/assets/aircraft/aim9/aim9.xml`, and are a source gap of this reference base |
+| LGB, JDAM, JSOW, WCMD, HARM, Maverick, DTOS, strafe | **not implemented** — no guided A-G weapon, and gun rounds give up before reaching the ground so strafing is impossible | [`../../weapons.md`](../../weapons.md) Gaps |
 
 **Caveat that must travel with any accuracy number:** the measured CCIP/CCRP error (22 m total, 10.6 m
 lateral) is measured against **our own ballistic table** with a Mk-82 model whose own note calls itself a
@@ -482,6 +483,14 @@ FAS, GlobalSecurity, peer-reviewed) · **T4** community/wiki — cross-check onl
   against a T1/T2 source; do not add a number without one.
 
 #### 4.3 AIM-9 Sidewinder — seeker system facts
+
+> **Source gap, recorded when the weapon was built (MiG-29 stage 2c).** This section carries the
+> SEEKER facts and no mass, geometry, warhead or motor figure — ED's overview (§3) gives only max
+> speed, max range and min range. The four numbers FlightBox needed are therefore tagged `[T3]` where
+> they are used (`core/FBStore.h::kAim9`, `sim/assets/aircraft/aim9/aim9.xml`): launch mass 85.3 kg
+> (188 lb), length 2.85 m, body diameter 0.127 m (5 in), fin span 0.63 m, WDU-17/B warhead 9.4 kg,
+> Mk 36 motor burning ~5.2 s. **TODO:** a T1/T2 citation for each.
+
 - **AIM-9M seeker gimbal limit ≈ ±30° (some T4 sources describe an off-boresight cueing figure closer
   to ±25°)**; AIM-9X gimbal significantly wider, commonly cited **up to ~90°** off-boresight given HMCS
   cueing — T4 (GlobalSecurity, Falcon BMS community technical threads; **TODO** find a T2 Raytheon

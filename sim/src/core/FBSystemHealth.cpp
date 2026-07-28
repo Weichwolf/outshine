@@ -17,6 +17,7 @@ const char *FBSystemIdStr(FBSystemId id) {
     case FBSystemId::Datalink: return "datalink";
     case FBSystemId::Rwr: return "rwr";
     case FBSystemId::Countermeasures: return "countermeasures";
+    case FBSystemId::Engine2: return "engine2";
     case FBSystemId::Count: break;
   }
   return "?";

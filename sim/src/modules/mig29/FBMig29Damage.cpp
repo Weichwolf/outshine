@@ -17,10 +17,17 @@ constexpr double kFlcsFail = 1.5e5;
 constexpr double kStructDegrade = 8.0e4;
 constexpr double kStructFail = 2.5e5;
 
-/* [GAP] THE TWIN-ENGINE CASE IS NOT MODELLED, and is flagged rather than fudged: core/FBSystemHealth
- * carries ONE FBSystemId::Engine, so "one RD-33 out, one running" — the single most characteristic
- * damage state of this airframe — has no state to live in. Halving the thresholds to fake redundancy
- * would be a number pretending to be physics. The engine zone therefore reads as the F-16's does. */
+/* ---- THE TWIN-ENGINE CASE, which core/FBSystemHealth now has state for (FBSystemId::Engine2,
+ * appended). The two RD-33s sit side by side in the aft fuselage, so BOTH ids live in the AFT zone and
+ * both see the same flux from the same burst — this model has no lateral resolution and does not
+ * pretend to one; what it buys is the state that matters, "one engine out and one running", which the
+ * register now distinguishes from "no thrust at all" (FBSystemHealth::PropulsionOut).
+ *
+ * The consequence is not a threshold: it is that CombatEffective stays TRUE on one engine, and that
+ * units/FBSimUnit caps the throttle at half the installed thrust instead of cutting the fuel
+ * (core/FBDamageModel::kThrottleLimitOneEngineOut). MAPPING, written down because it is a convention
+ * and not a fact: Engine = the LEFT nacelle, Engine2 = the RIGHT. The F-16 declares only Engine, so
+ * every one of its dmg_* masks means exactly what it meant before this id existed. ---- */
 
 constexpr FBZoneSystem kNoseSystems[] = {
     {FBSystemId::Radar, kAvionicsDegrade, kAvionicsFail},     /* N019 antenna + transmitter in the radome */
@@ -46,7 +53,8 @@ constexpr FBZoneSystem kCenterSystems[] = {
 };
 
 constexpr FBZoneSystem kAftSystems[] = {
-    {FBSystemId::Engine, kEngineDegrade, kEngineFail},
+    {FBSystemId::Engine, kEngineDegrade, kEngineFail},        /* left RD-33 */
+    {FBSystemId::Engine2, kEngineDegrade, kEngineFail},       /* right RD-33 */
     {FBSystemId::Rwr, kAvionicsFail, kAvionicsFail},          /* SPO-15 aft receivers */
     {FBSystemId::Countermeasures, kAvionicsFail, kAvionicsFail},
     {FBSystemId::FlightControls, kFlcsDegrade, kFlcsFail},    /* stabilator + rudder actuators */

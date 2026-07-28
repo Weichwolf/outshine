@@ -31,6 +31,11 @@ public:
 
   void SetRangeM(double m);
 
+  /* The round's own angles, from its catalogue entry. The class constants above stay as the AIM-120's
+   * values and as the argument for the FOV/gimbal split; a second round that states different ones
+   * needs no second class. */
+  void Configure(double fovHalfDeg, double gimbalHalfDeg);
+
   /* Body-referenced SLAVE: the guidance points the dish at the target it is flying toward, so it is
    * already there when the target enters detection range. Both zero = BORE. */
   void SlewTo(double azDeg, double elDeg);

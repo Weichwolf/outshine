@@ -23,9 +23,12 @@
 #include "FBFlightPlan.h"
 #include "FBMasterMode.h"
 #include "FBMig29Damage.h"
+#include "FBMig29FireControl.h"
+#include "FBMig29Gun.h"
 #include "FBMig29Irst.h"
 #include "FBMig29Pilot.h"
 #include "FBMig29Radar.h"
+#include "FBMig29Sms.h"
 #include "FBMig29Rwr.h"
 #include "FBModule.h"
 #include "FBNavSystem.h"
@@ -64,8 +67,8 @@ public:
   FBMig29Rwr &Rwr() override { return Rwr_; }
   FBMig29Irst &Irst() override { return Irst_; }
   Sensors::FBCountermeasureSystem &Countermeasures() override { return Cm_; }
-  Weapons::FBStoresSystem &Stores() override { return Stores_; }
-  Weapons::FBGunSystem &Guns() override { return Gun_; }
+  FBMig29Sms &Stores() override { return Stores_; }        /* covariant: pylon geometry only */
+  FBMig29Gun &Guns() override { return Gun_; }             /* covariant: installation only */
   const Systems::FBGuidance &LastGuidance() const override { return LastG; }
   int LastSubsteps() const override { return LastSub; }
 
@@ -74,13 +77,27 @@ public:
    * a deck. Handed straight down — the module keeps no copy it could let go stale. */
   void SetCloudSky(const FBCloudSky &sky) override { Irst_.SetSky(sky); }
 
-  /* Who this aircraft IS, for the three slots that observe other units. */
+  /* Who this aircraft IS, for the slots that observe other units — and, for the SMS, so a round it
+   * launches knows whose illumination to listen for. */
   void SetUnitIdentity(int unitId, FBUnitTeam team) override {
     Radar_.SetIdentity(unitId, team);
     Rwr_.SetIdentity(unitId, team);
     Irst_.SetIdentity(unitId, team);
     Datalink_.SetIdentity(unitId, team);
+    Stores_.SetUnitId(unitId);
+    /* And the GUN, for the same reason plus a sharper one: the owner of the simulation excludes the
+     * SHOOTER from a burst's hit resolution by comparing the bundle's LauncherId, so a gun that does
+     * not know who fired it shoots its own aircraft down at the muzzle (measured, before this line). */
+    Gun_.SetUnitId(unitId);
   }
+
+  /* [SET, a CLASS not a measurement] The radar cross-section this airframe presents, ~4 m^2 — the
+   * middle of the 3-5 m^2 band commonly quoted for an unmodified 9-12 (T4-grade: no primary source
+   * publishes one, and a two-decimal figure would be false precision). It is 3.3x the F-16's declared
+   * 1.2 m^2, which through the fourth root of the radar equation is 1.35x the detection range in one
+   * direction and 0.74x in the other — the asymmetry this stage exists to produce, and the whole of
+   * it. doc/sensors.md, Spec. */
+  double RadarCrossSectionM2() const override { return 4.0; }
 
   FBFlightPlan &FlightPlan() override { return Plan_; }
   /* The runway doubles as the mission's bullseye, exactly as on the F-16 — one briefed point per
@@ -127,8 +144,11 @@ private:
    * Invalid. */
   Sensors::FBDatalinkSystem Datalink_;
   Sensors::FBCountermeasureSystem Cm_;
-  Weapons::FBStoresSystem Stores_;
-  Weapons::FBGunSystem Gun_;
+  /* STAGE 2c: the weapons. The three slots are real from here on — pylon geometry, gun installation and
+   * this aircraft's own weapon-control computer; all the BEHAVIOUR is the generic weapons/ code. */
+  FBMig29Sms Stores_;
+  FBMig29Gun Gun_;
+  std::unique_ptr<FBMig29FireControl> FireCtrl_;
 
   Fdm::FBFdm *Fdm_ = nullptr;   /* borrowed, never owned */
   FBFlightPlan Plan_;

@@ -695,6 +695,22 @@ pursuit.
 (straight) resp. 0.0 → 21.6 s (turning); rounds on target 11.9 → 111.2 resp. 0.0 → 120.4; kills 0 → 5
 resp. 0 → 7 out of eight runs each; mean tracking error 10.5° → 6.9° resp. 11.9° → 4.1°.
 
+#### 5.6b The lock in a turning fight — `BfmDesignate` (MiG-29 stage 2c)
+
+The ACM modes of a set that has them lock the nearest firm track by themselves
+(`FBRadarScanVolume::AutoAcquire`) — in a knife fight nobody operates a radar — and on such an aircraft
+this branch never runs, because a lock already exists. A set whose close-combat patterns do NOT
+auto-lock still has the contact on the scope and a thumb on the TMS: the designation is then a piece of
+COCKPIT WORK like any other — over the command bus, with its latency, refusable, and at the pilot's own
+action rate (`kInterceptActionS`) rather than at 10 Hz. Friendly IFF replies are skipped, the same rule
+the intercept uses; silence proves nothing.
+
+Without it the BFM phase on such an aircraft is blind: no lock, no `FBBfmTrack`, no aim point, and the
+law flies its cold-search pattern with the opponent in front of it (measured on `mig29-gun`'s geometry:
+**0 lock ticks in 134 s**). With it the lock is available — though on the MiG-29 the remaining problem
+is ACQUISITION rather than designation, and that is recorded as a gap in
+[`modules/mig29/module.md`](modules/mig29/module.md) rather than papered over here.
+
 #### 5.7 The roll-rate limiter — the third law
 
 The lift vector command is an ANGLE error, the F-16 lateral stick a RATE command: a large error means
@@ -717,6 +733,13 @@ never more than the raw command.
 restricted to samples below the cap so the fit is open-loop]: `a` = 0.734 (roll lag 0.323 s), `K` = 78.7
 °/s per unit of stick. The same fit over ALL samples gives 0.772 / 90.5, i.e. a limiter gain 7 % away —
 the identification carries.
+
+The two plant constants are **module hooks** (`BfmRollPlantA`/`BfmRollPlantKDegS`) since a second
+airframe flies this law, and they must be: the cap INVERTS the plant, so with another aircraft's
+numbers it is not a cap but an oscillator. The MiG-29 rolls 2.6× harder for the same stick (a = 0.819,
+K = 201 °/s against the F-16's 0.734 / 78.7, identified from its own BFM samples by the same ARX(1)
+fit), and with the F-16's constants its cap never bit: ±130° of bank in a limit cycle and a departure
+after 8.9 s. The defaults are the F-16's identified numbers, so nothing changed for it.
 
 #### 5.7.1 Why the previous form had to go (rejected: `cmd_prev · cap/rate`)
 

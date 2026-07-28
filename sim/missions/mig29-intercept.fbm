@@ -30,13 +30,15 @@ timeout 420
 #   then     the generic intercept phase runs on what the N019 finds -- and then DISENGAGES, for a
 #            reason that is worth more than a kill would have been (see the reading rule).
 #
-# READING RULE: exit 3 = TIMEOUT is the verdict AND the pass, and what it records is the phase machine
-# refusing to pretend. THIS MODULE COMPOSES NO WEAPON (stage 2c): its Stores block is Invalid, so
-# pilot/FBPilot's own rule "a target on the scope and nothing on the rails -> Abort" fires on the first
-# contact, and `eng_state` goes search -> abort at exactly that tick. That is the correct answer, not a
-# missing feature: an unarmed fighter that kept closing would be a pilot flying an intercept it cannot
-# finish. The consequence is that RADAR_DESIGNATE never appears in this trace -- the lock is the one
-# step of the chain this stage cannot reach, and it is blocked by the armament, not by the sensor.
+# READING RULE, REWRITTEN FOR STAGE 2c. Until this stage the module composed no weapon, its Stores block
+# was Invalid, and pilot/FBPilot's own rule "a target on the scope and nothing on the rails -> Abort"
+# fired on the first contact: `eng_state` went search -> abort and RADAR_DESIGNATE never appeared. That
+# was the correct answer to an empty jet, and it was blocked by the ARMAMENT and not by the sensor —
+# which is exactly what this stage removes. With two R-27Rs on the rails the same phase machine now runs
+# the whole chain: search -> closing -> attack (designate, i.e. the lock this aircraft pays for with a
+# warning on the other jet's RWR) -> shot -> SUPPORT, and the support here runs to IMPACT rather than to
+# a seeker activation, because a semi-active round never has one (doc/modules/mig29/weapons.md §3.2).
+# exit 1 is the pass: the F-16 it was vectored onto is shot down and reported as its own FAIL.
 #
 # exit 0 would mean the MiG reached its waypoint instead of engaging; exit 2 (CRASH) would be a real
 # failure. What IS measured, all of it before the abort:
@@ -68,6 +70,9 @@ unit fulcrum
   set n019_mode rad                            # the long-range search pattern...
   set n019_emission off                        # ...but SILENT until the controller says otherwise
   set rwr on
+  set store 3 r27r                             # STAGE 2c: the jet finally has something on the rails,
+  set store 4 r27r                             # which is what `RADAR_DESIGNATE` was waiting for
+  set brief_master_arm arm
   set brief_gci 20 270 55 8                    # "bandits bearing 270 for 55, angels 8" -- in kilometres
   set brief_gci 90 270 25 8                    # the update as it closes
   wp 46.90000 6.60000 8000 400                 # the briefed vector: what Search flies while blind

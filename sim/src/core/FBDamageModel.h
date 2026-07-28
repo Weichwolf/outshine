@@ -80,6 +80,12 @@ constexpr double kAuthorityFailed = 0.0;
 /* AB gate in the model's own throttle-cmd-norm convention [DERIVED]; failed = JSBSim's own cutoff. */
 constexpr double kThrottleLimitDegraded = 0.6;
 
+/* ONE engine of a TWIN out [DERIVED]: half the installed thrust is gone, and on a deck whose engines
+ * share one throttle-cmd-norm the honest expression of that is half the commanded range. It sits below
+ * the augmentation gate, so it also takes the afterburner with it — which is what losing an engine
+ * does. A single-engine airframe never reaches this branch (its only engine failing is a cutoff). */
+constexpr double kThrottleLimitOneEngineOut = 0.5;
+
 /* Extra drag AREA through <external_reactions>, through the CG — no pitching moment claimed. [SET] */
 constexpr double kDamageDragFt2Degraded = 1.5;
 constexpr double kDamageDragFt2Failed = 6.0;
@@ -111,6 +117,11 @@ public:
   /* Same register, thresholds and monotone rules — only the geometry of what arrives differs. */
   static FBDamageResult ApplyKinetic(const FBKineticBurst &burst, const FBDamageLayout &layout,
                                      FBSystemHealth &health);
+
+private:
+  /* The layout is the airframe's declaration of WHAT IT HAS; the register needs one bit of it (a second
+   * engine). Walked whole rather than per-hit zone, so the answer cannot depend on where a burst landed. */
+  static void NoteLayout(const FBDamageLayout &layout, FBSystemHealth &health);
 };
 
 } // namespace FlightBox

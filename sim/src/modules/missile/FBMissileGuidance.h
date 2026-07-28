@@ -24,6 +24,7 @@
 namespace FlightBox::Modules {
 
 class FBMissileSeeker;
+class FBMissileIrSeeker;
 
 class FBMissileGuidance : public Pilot::FBPilot {
 public:
@@ -56,8 +57,15 @@ public:
    * support has STOPPED, not that one was missed. */
   static constexpr double kUplinkTimeoutS = 1.5;
 
-  /* Wiring, once, by the module; both borrowed. */
-  void Bind(const FBStoreSpec &spec, FBMissileSeeker &seeker);
+  /* [SET] How long a line-of-sight rate measured from ONE pair of looks stays valid. An angle-only
+   * head reports on its own frame grid (0.05 s) while the guidance runs at 100 Hz, so the rate is HELD
+   * between looks rather than differentiated to zero; past this it is stale and the round flies
+   * straight instead of on an old rate. Two head frames. */
+  static constexpr double kLosRateHoldS = 0.1;
+
+  /* Wiring, once, by the module; all borrowed. Which seeker is real is the catalogue entry's
+   * FBSeekerKind, and it is read here and in FBMissileModule::Run and nowhere else. */
+  void Bind(const FBStoreSpec &spec, FBMissileSeeker &seeker, FBMissileIrSeeker &irSeeker);
   /* The launch programming: where the shooter's fire control last saw the target, and whose uplink this
    * round listens to. Applied once, at spawn. */
   void Program(const FBWeaponTargetState &target, int launcherId, double launchS);
@@ -86,8 +94,32 @@ private:
   void UpdateTarget(const FBState &state, const Fdm::fb_fdm_state &st);
   void EnterPhase(Phase p, const char *why);
 
+  /* The ANGLE-ONLY law: PURE proportional navigation, because an infrared head measures neither range
+   * nor closure and `N*Vc*Omega` therefore has no Vc to put in. The line-of-sight rate is differentiated
+   * from consecutive LOOKS of the head (which is what a real seeker's gyro puts out directly) and the
+   * command is scaled with the round's OWN speed instead:  a = N * V_own * (Omega x u).
+   * Everything below it — the two acceleration loops, the gravity bias, the fins — is unchanged. */
+  bool AngleOnlyCommand(const FBState &state, const Fdm::fb_fdm_state &st, double &aE, double &aN,
+                        double &aU);
+  /* Everything BELOW whichever law produced the command: body resolution, the two acceleration loops,
+   * the roll holder, the fins. Shared, so the two laws cannot drift apart in their autopilot. */
+  void FlyCommand(Pilot::FBPilotCommands &c, const Fdm::fb_fdm_state &st, double aE, double aN,
+                  double aU, double dt);
+
   const FBStoreSpec *Spec_ = nullptr;   /* borrowed catalogue entry */
   FBMissileSeeker *Seeker_ = nullptr;   /* borrowed, owned by the module */
+  FBMissileIrSeeker *IrSeeker_ = nullptr;
+  FBSeekerKind Kind_ = FBSeekerKind::None;
+  /* SARH: the shooter's illumination is this round's ONLY source of energy on the target, so losing it
+   * kills the head for good — there is no transmitter of its own to switch back on. */
+  bool SarhDead_ = false;
+  /* The angle-only tracker's state: the last measured line of sight, when it was measured, and the
+   * rate held from the last pair. */
+  bool   IrTerminal_ = false;
+  double IrLosE_ = 0.0, IrLosN_ = 0.0, IrLosU_ = 0.0;
+  double IrLosStampS_ = -1e9;
+  double IrOmE_ = 0.0, IrOmN_ = 0.0, IrOmU_ = 0.0;
+  double IrOmStampS_ = -1e9;
 
   Phase  Phase_ = Phase::Inertial;
   int    LauncherId_ = 0;

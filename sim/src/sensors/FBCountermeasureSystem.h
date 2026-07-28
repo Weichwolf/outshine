@@ -52,6 +52,12 @@ public:
    * publiziert, wie der Datalink-Sender und die Radarkeule. */
   const FBChaffCloud *Clouds() const { return Clouds_; }
   int ActiveClouds() const { return ActiveClouds_; }
+  /* Die INFRAROT-Haelfte, seit es einen Sucher gibt, der sie sehen kann: strukturell dasselbe Ding und
+   * derselbe Veroeffentlichungsweg — eine Fackel STRAHLT allerdings selbst, statt fremde Sendeleistung
+   * zurueckzuwerfen, weshalb sie ihre eigene Alterskurve hat (core/FBCountermeasure.h). Ob sie WIRKT,
+   * entscheidet auch hier allein der gegnerische Sucher; diese Klasse erfaehrt es nie. */
+  const FBFlareCloud *Flares() const { return Flares_; }
+  int ActiveFlares() const { return ActiveFlares_; }
 
   /* `simTimeS` ist ABSOLUT — daran werden Salven-/Burst-Intervalle gemessen, damit ein Programm in
    * seiner deklarierten Rate spielt, egal wie oft das Modul den Slot taktet. */
@@ -106,6 +112,9 @@ private:
   FBChaffCloud Clouds_[kMaxChaffClouds];
   int  NextCloud_ = 0;          /* Ring: die frischesten kMaxChaffClouds Patronen */
   int  ActiveClouds_ = 0;
+  FBFlareCloud Flares_[kMaxFlareClouds];
+  int  NextFlare_ = 0;
+  int  ActiveFlares_ = 0;
   int  BlockStatus_ = 0;
 };
 

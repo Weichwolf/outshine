@@ -60,6 +60,14 @@ protected:
   /* [DOC T4 §7.1] The antenna's own azimuth gimbal is ±65°, so a crank has to stay inside it with the
    * reserve a manoeuvring target needs — the same construction as the F-16's 60-15. */
   double InterceptCrankAtaDeg() const override { return 50.0; }
+  /* TRUE, and it is this aircraft's defining tactical property rather than a preference. The R-27R is
+   * SEMI-ACTIVE: it homes on the reflection of THIS radar's illumination, so a beam manoeuvre does not
+   * merely hide the jet — it takes the missile's only source of energy away
+   * (doc/modules/mig29/weapons.md §3.2, consequence 4). The support obligation therefore runs to
+   * IMPACT and not to a seeker activation that never comes, and while it runs the pilot does not turn
+   * away. That is exactly the "jousting" the source names as the emergent behaviour of SARH-armed
+   * aircraft: both illuminate, and neither may break first. */
+  bool SupportInhibitsDefend() const override { return true; }
   /* [ABL] The BVR cruise speed. Not a documented number: the phase holds one speed, and this airframe's
    * measured corner is 420 KCAS, so the approach is flown at the same fraction of corner the F-16's
    * 300/380 is — 0.79 x 420 = 330. [SET] */
@@ -119,6 +127,16 @@ protected:
   /* [MESS] the same sweep departed (alpha peak > 35 deg) at every entry from 300 to 360 kt and held at
    * 380 and above: below that the SOS stand-in cannot hold 85 deg of bank on this deck. */
   double BfmMinSpeedKt() const override { return 380.0; }
+  /* [MESS] THIS AIRFRAME'S OWN ROLL PLANT, identified exactly as the F-16's was: an ARX(1) fit
+   * p[n+1] = a*p[n] + K*(1-a)*u[n] on 10 Hz samples of commanded roll against the differentiated bank
+   * angle, taken from this jet's own BFM runs. a = 0.819 (roll time constant 0.50 s against the F-16's
+   * 0.32), K = 201 deg/s per full deflection against 78.7 — this aircraft rolls 2.6x harder for the
+   * same stick, which is why the generic (F-16) numbers turned the rate cap into a limit cycle here.
+   * Cross-check against an INDEPENDENT measurement of the same airframe: `make -C sim test-mig29`'s
+   * open-loop roll anchor reads 157.8 deg/s at 300 kt and 240.9 deg/s at 450 kt with full stick, so a
+   * closed-loop 201 deg/s at BFM speeds sits between them where it should. */
+  double BfmRollPlantA() const override { return 0.819; }
+  double BfmRollPlantKDegS() const override { return 201.0; }
 
 private:
   /* The briefed transmissions, consumed from the front in brief order — the same array-with-a-cursor

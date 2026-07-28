@@ -53,8 +53,18 @@ double FBPresentedExtentM(const FBDamageLayout &layout, double fwd, double right
   return layout.FrontalExtentM * along + layout.LateralExtentM * across;
 }
 
+void FBDamageModel::NoteLayout(const FBDamageLayout &layout, FBSystemHealth &health) {
+  if (!layout.Zones) return;
+  for (int i = 0; i < layout.ZoneCount; i++)
+    for (int k = 0; k < layout.Zones[i].SystemCount; k++)
+      health.NoteSystemPresent(layout.Zones[i].Systems[k].Id);
+}
+
 FBDamageResult FBDamageModel::ApplyKinetic(const FBKineticBurst &burst, const FBDamageLayout &layout,
                                            FBSystemHealth &health) {
+  /* Tell the register what this airframe HAS before asking it anything: PropulsionOut() reads the
+   * difference between one engine and two, and the layout is the only declaration of it. */
+  NoteLayout(layout, health);
   FBDamageResult res;
   res.WasEffective = health.CombatEffective();
   res.NowEffective = res.WasEffective;
@@ -94,6 +104,7 @@ FBDamageResult FBDamageModel::ApplyKinetic(const FBKineticBurst &burst, const FB
 
 FBDamageResult FBDamageModel::Apply(const FBBurst &burst, const FBDamageLayout &layout,
                                     FBSystemHealth &health) {
+  NoteLayout(layout, health);
   FBDamageResult res;
   res.WasEffective = health.CombatEffective();
   res.NowEffective = res.WasEffective;

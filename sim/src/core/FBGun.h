@@ -14,7 +14,7 @@
 namespace FlightBox {
 
 /* Append only — the ordinal is telemetry-visible. None = this aircraft carries no gun. */
-enum class FBGunKind : uint8_t { None = 0, M61A1 };
+enum class FBGunKind : uint8_t { None = 0, M61A1, Gsh301 };
 
 struct FBGunSpec {
   FBGunKind Kind = FBGunKind::None;
@@ -40,7 +40,37 @@ inline constexpr FBGunSpec kM61A1{FBGunKind::M61A1, "m61a1",
                                   /*DragCoef*/ 0.30, /*DispersionSigmaRad*/ 2.2295e-3,
                                   /*MaxBurstS*/ 1.0};
 
-inline constexpr const FBGunSpec *kGunCatalogue[] = {&kM61A1};
+/* THE GSh-301 (9A-4071K), row for row against the M61A1 above so the two guns are comparable at a
+ * glance (doc/modules/mig29/weapons.md §4).
+ *   MuzzleVelMs 860        [T3] weaponsystems.net; T4 says 900 — the lower, better-sourced figure is
+ *                          taken and the difference recorded there rather than averaged
+ *   RoundsPerMin 1500      [DCS-FM p.64] and [DCS-EA p.86]; the hardware range is 1,500-1,800 [T3]
+ *   Capacity 150           [DCS-FM p.64], [DCS-EA p.86]
+ *   RoundMassKg 0.390      [T4, consistent across sources] — the projectile of the 30x165 mm round
+ *   RoundDiaM 0.030        [T3] 30x165 mm
+ *   SpoolUpS 0.0           a SINGLE-BARREL, short-recoil gun [DCS-FM p.64] has no rotating mass to spin
+ *                          up: the first round leaves on the first cycle. Zero is a statement about
+ *                          the mechanism, not a missing number
+ *   DragCoef 0.30          [SET], the same slender projectile coefficient the M61A1 row carries — and
+ *                          the §4.3 correction table is the acceptance target that says whether it is
+ *                          right: 14 Russian thousandths at 1,500 m / 432 kt / 20 deg dive, against
+ *                          the 6.0 a drag-free round would need
+ *   DispersionSigmaRad     [SET, DERIVED BOUND] — no T1-T3 dispersion figure exists (§8.4). Bounded
+ *                          from the documented 800 m effective air-target limit instead of guessed:
+ *                          a fighter presents ~10 m of span there, so keeping the bulk of a burst on
+ *                          it needs a full cone <= 12.5 mrad, i.e. a half-angle <= 6 mrad. Taken as
+ *                          the sigma of the circular-normal pattern, 6.0e-3 rad, which puts 80 % of a
+ *                          burst inside 9.0 mrad — the first number to replace when GAF T.O.
+ *                          1F-MIG29-1 becomes available
+ *   MaxBurstS 1.0          [SET], as the M61A1's: a trigger command is ONE action and needs a duration.
+ *                          Here it is 25 rounds rather than 100 — the drum lasts 6.0 s against 5.1 s */
+inline constexpr FBGunSpec kGsh301{FBGunKind::Gsh301, "gsh301",
+                                   /*MuzzleVelMs*/ 860.0, /*RoundsPerMin*/ 1500.0, /*Capacity*/ 150,
+                                   /*SpoolUpS*/ 0.0, /*RoundMassKg*/ 0.390, /*RoundDiaM*/ 0.030,
+                                   /*DragCoef*/ 0.30, /*DispersionSigmaRad*/ 6.0e-3,
+                                   /*MaxBurstS*/ 1.0};
+
+inline constexpr const FBGunSpec *kGunCatalogue[] = {&kM61A1, &kGsh301};
 
 inline const FBGunSpec *FBFindGun(const char *key) {
   if (!key) return nullptr;

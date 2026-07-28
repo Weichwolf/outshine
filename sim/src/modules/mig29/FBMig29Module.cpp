@@ -4,6 +4,7 @@
 #include <cerrno>
 #include <cmath>
 #include <cstdlib>
+#include <sstream>
 
 namespace FlightBox::Modules {
 
@@ -17,11 +18,15 @@ FBMig29Module::FBMig29Module()
       NavSys(std::make_unique<Systems::FBNavSystem>()),
       Warn_(std::make_unique<Systems::FBWarningSystem>()),
       PilotSys(std::make_unique<FBMig29Pilot>()),
-      AirframeCtrl(std::make_unique<Systems::FBAirframeControls>()) {}
+      AirframeCtrl(std::make_unique<Systems::FBAirframeControls>()),
+      FireCtrl_(std::make_unique<FBMig29FireControl>()) {}
 
 void FBMig29Module::AttachFdm(Fdm::FBFdm &fdm) {
   Fdm_ = &fdm;
   AirframeCtrl = std::make_unique<Systems::FBJsbsimAirframeControls>(fdm);
+  /* The pylons become real point masses on THIS airframe — every station empty until a mission loads
+   * one, so an unloaded jet computes exactly as it did before stage 2c. */
+  Stores_.AttachFdm(fdm);
 }
 
 bool FBMig29Module::Due(double &accS, double dt, double hz) {
@@ -63,8 +68,25 @@ void FBMig29Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitReg
     if (const FBWaypoint *swp = Plan_.ActiveWaypoint())
       NavSys->SetSteerpoint(swp->LatDeg, swp->LonDeg, GroundAslM * kMToFt);
     NavSys->Run(SharedState, st, dt);
+    /* The SELECTED station's round: the launch zone computed is for the weapon that would actually
+     * leave the jet if the pilot pressed the trigger now. */
+    if (SystemWorking(FBSystemId::FireControl))
+      FireCtrl_->Run(SharedState, st, FBStoreSpecOf(Stores_.StoreAt(Stores_.SelectedStation())),
+                     Gun_.Spec(), SimTimeS, dt);
+    else SharedState.FireControl.H.Invalidate();
+    /* What a launched round carries out of the jet — and, for a SEMI-ACTIVE round, what this jet then
+     * has to keep illuminating for the whole time of flight. */
+    Stores_.SetTargetState(FireCtrl_->TargetState());
+    ServiceCommands(FBCommandGroup::Stores);
+    if (SystemWorking(FBSystemId::Stores)) Stores_.Run(SharedState, dt);
+    else SharedState.Stores.H.Invalidate();
     Warn_->Run(SharedState, dt);   /* LAST: a pure consumer of everything above it */
   }
+  /* THE GUN, once per Run() with the FULL dt — deliberately unthrottled for the same reason the F-16's
+   * is: its output is a round count INTEGRATED over time, so any other cadence would drop rounds or
+   * invent them. */
+  if (SystemWorking(FBSystemId::Gun)) Gun_.Run(SharedState, st, SimTimeS, dt);
+  else SharedState.Gun.H.Invalidate();
   /* The PASSIVE half, and the one line that makes this jet's central defect real: what the world hears
    * from this aircraft is what deafens its own receiver forward. One bit, one source — the emission the
    * set derives from the pattern it is actually flying (FBRadarSystem::Emission), the same value the
@@ -283,9 +305,31 @@ void FBMig29Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &o
       if (c.Value != 0.0 && !Irst_.Locked()) { reject(FBCommandReason::OutOfContext); return; }
       Irst_.SetLaserArmed(c.Value != 0.0);
       return;
+    /* ---- STAGE 2c: the weapons. PSR-31's MASTER ARM is one switch for both weapon systems on this
+     * panel exactly as it is on the F-16's ([DCS-EA p.12] wires the stick's combat triggers, plural). */
+    case FBCommandTarget::MasterArm:
+      if (!SystemWorking(FBSystemId::Stores)) { reject(FBCommandReason::SystemFailed); return; }
+      Stores_.SetMasterArm(c.Value != 0.0 ? FBArmState::Arm : FBArmState::Sim);
+      Gun_.SetMasterArm(Stores_.MasterArm());
+      return;
+    case FBCommandTarget::StationSelect:
+      if (!SystemWorking(FBSystemId::Stores)) { reject(FBCommandReason::SystemFailed); return; }
+      /* The external-stores selector of [DCS-EA p.60] picks a PAIR, not a station; FlightBox releases
+       * one store per command (doc/modules/mig29/weapons.md §2.4's SINGLE case), so the value is a
+       * station number and the pair semantics are the named gap. */
+      if (!Stores_.SelectStation((int)c.Value)) reject(FBCommandReason::OutOfContext);
+      return;
+    case FBCommandTarget::WeaponRelease:
+      if (!SystemWorking(FBSystemId::Stores)) { reject(FBCommandReason::SystemFailed); return; }
+      Stores_.Release(SimTimeS, outcome, reason);   /* the BOX decides and says why; this only routes */
+      return;
+    case FBCommandTarget::GunTrigger:
+      if (!SystemWorking(FBSystemId::Gun)) { reject(FBCommandReason::SystemFailed); return; }
+      Gun_.Trigger(c.Value, SimTimeS, outcome, reason);
+      return;
     default:
-      /* Every remaining target names a box this aircraft does not compose (stores, gun, datalink,
-       * dispensers, UFC). Answering it would report success for a switch with nothing behind it. */
+      /* Every remaining target names a box this aircraft does not compose (datalink, dispensers, UFC).
+       * Answering it would report success for a switch with nothing behind it. */
       reject(FBCommandReason::NotImplemented);
       return;
   }
@@ -347,7 +391,68 @@ bool FBMig29Module::ApplySetup(const std::string &key, const std::string &value)
      * Invalid FireControl block forever is a jet that flies straight ahead. */
     if (value == "route") { PilotSys->SetPhase(Pilot::FBPilot::Phase::Route); return true; }
     if (value == "intercept") { PilotSys->SetPhase(Pilot::FBPilot::Phase::Intercept); return true; }
-    return RejectSetup("want route|intercept (bfm/attack need a weapon, stage 2c)", key, value);
+    if (value == "bfm") { PilotSys->SetPhase(Pilot::FBPilot::Phase::Bfm); return true; }
+    return RejectSetup("want route|intercept|bfm (attack needs an air-to-ground computer this jet "
+                       "does not have)", key, value);
+  }
+  /* ---- STAGE 2c: the weapons. Same key spellings the F-16 answers, because they name GENERIC
+   * properties (a pylon, a drum, a switch) rather than this aircraft's boxes. */
+  if (key == "store") {
+    std::istringstream in(value);
+    int station = 0;
+    std::string type;
+    if (!(in >> station) || !(in >> type)) return RejectSetup("want '<station> <type>'", key, value);
+    const FBStoreSpec *spec = FBFindStore(type.c_str());
+    if (!spec) return RejectSetup("unknown store type", key, value);
+    if (!Stores_.Load(station, *spec)) return RejectSetup("no such station, or already loaded", key, value);
+    return true;
+  }
+  if (key == "gun_rounds") {
+    double n = 0.0;
+    if (!ParseDouble(value, n)) return RejectSetup("not a number", key, value);
+    if (n < 0.0 || n != std::floor(n)) return RejectSetup("want a whole, non-negative round count", key, value);
+    if (!Gun_.SetRounds((int)n)) return RejectSetup("more rounds than the gun holds", key, value);
+    return true;
+  }
+  /* Briefed as a MOMENT and not a condition: mission-elapsed seconds, repeatable, travelling the
+   * command bus like every other brief item and refusable there. */
+  if (key == "brief_release_s") {
+    double t = 0.0;
+    if (!ParseDouble(value, t)) return RejectSetup("not a number", key, value);
+    if (t < 0.0) return RejectSetup("negative time", key, value);
+    if (!PilotSys->BriefRelease(t)) return RejectSetup("too many briefed releases", key, value);
+    return true;
+  }
+  /* Ein MOMENT und eine DAUER: "<sekunden> <burstS>". Dieselbe Form wie brief_release_s und aus
+   * demselben Grund — ein Feuerstoss ist eine Handlung, kein Zustand. */
+  if (key == "brief_gun_s") {
+    std::istringstream in(value);
+    double atS = 0.0, burstS = 0.0;
+    if (!(in >> atS) || !(in >> burstS)) return RejectSetup("want '<atS> <burstS>'", key, value);
+    if (atS < 0.0 || burstS <= 0.0) return RejectSetup("want a time >= 0 and a burst > 0", key, value);
+    if (!PilotSys->BriefGun(atS, burstS)) return RejectSetup("too many briefed bursts", key, value);
+    return true;
+  }
+  if (key == "brief_master_arm") {
+    if (value != "arm" && value != "sim") return RejectSetup("want arm|sim", key, value);
+    PilotSys->BriefMasterArm(value == "arm");
+    return true;
+  }
+  if (key == "brief_weapon") {
+    /* This aircraft's own inventory, not the F-16's: the numbers are the pilot's brief ordinals. */
+    if (value == "gun") PilotSys->BriefWeapon(1.0);
+    else if (value == "r73") PilotSys->BriefWeapon(2.0);
+    else if (value == "r27r") PilotSys->BriefWeapon(3.0);
+    else return RejectSetup("want gun|r73|r27r", key, value);
+    return true;
+  }
+  /* Forwarded WHOLE, exactly as the F-16 forwards it: the parameter set is a property of the PILOT. */
+  if (key.compare(0, 6, "pilot_") == 0) {
+    double v = 0.0;
+    if (!ParseDouble(value, v)) return RejectSetup("not a number", key, value);
+    if (!PilotSys->ApplyTuning(key, v)) return RejectSetup("no such pilot parameter, or out of range",
+                                                          key, value);
+    return true;
   }
   /* ---- The N019, its own key prefix. A key that names a GENERIC system property (iff_*) is shared
    * with the F-16; a key that names THIS aircraft's box is not, because `fcr_mode crm` means nothing on

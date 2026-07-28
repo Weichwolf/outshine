@@ -27,7 +27,9 @@ Two store classes, one mechanism — which class a catalogue entry is, its `Guid
 | Class | Model | Module | Behaviour in flight |
 |---|---|---|---|
 | unguided (`mk82`) | `sim/assets/aircraft/mk82` (copy of the pinned upstream) | `modules/stores/FBStoreModule` (all slots default/NoOp) | integrate, nothing else |
-| guided (`aim120`) | `sim/assets/aircraft/aim120` — FlightBox's OWN, the pinned submodule has no AMRAAM | `modules/missile/FBMissileModule` (seeker + guidance + uplink receiver) | seeker acquires, guidance law commands the simulated fins |
+| guided, active radar (`aim120`) | `sim/assets/aircraft/aim120` — FlightBox's OWN, the pinned submodule has no AMRAAM | `modules/missile/FBMissileModule` (seeker + guidance + uplink receiver) | seeker acquires, guidance law commands the simulated fins |
+| guided, infrared (`aim9`, `r73`) | `sim/assets/aircraft/{aim9,r73}` — FlightBox's OWN | the SAME module; the seeker slot is `FBMissileIrSeeker`, an `sensors/FBIrstSystem` | ANGLES only, pure PN on the measured line-of-sight rate, deceivable by the target's flares |
+| guided, semi-active (`r27r`) | `sim/assets/aircraft/r27r` — FlightBox's OWN | the SAME module; the radar seeker, gated by the shooter's illumination | dies with the shooter's lock and never comes back |
 
 ### Declaring a load-out
 
@@ -40,11 +42,17 @@ unit lead
   set brief_master_arm arm    # without ARM the SMS refuses the release
   set brief_release_s 30      # repeatable: one pickle per line
   set brief_release_s 60
+  set brief_gun_s 20 1.0      # repeatable: "<mission seconds> <burst seconds>" — a MOMENT and a
+                              # DURATION, the same shape brief_release_s has and for the same reason.
+                              # It exists so a gun can be measured without also having to win a
+                              # dogfight; the value is the trigger-squeeze duration the command bus
+                              # already carries, so every interlock and every rejection is unchanged.
 ```
 
 `store <station> <type>`: station = the pylon number OF THIS TYPE (F-16: 1..9, 1/9 wingtip,
-5 centreline — `modules/f16/FBF16Sms`), type = a catalogue key (`core/FBStore.h`; today `mk82` and
-`aim120`). Unknown station, doubly occupied station or unknown type = runtime FAIL at spawn, no silent
+5 centreline — `modules/f16/FBF16Sms`; MiG-29: 1..6 wing plus 7 centreline —
+`modules/mig29/FBMig29Sms`, whose numbering is a stated CONVENTION because no source establishes one),
+type = a catalogue key (`core/FBStore.h`; today `mk82`, `aim120`, `aim9`, `r73`, `r27r`). Unknown station, doubly occupied station or unknown type = runtime FAIL at spawn, no silent
 empty flight.
 
 **What the load-out does to the aircraft** (`weapons/FBStoresSystem`): every occupied station is a
@@ -414,7 +422,7 @@ component more than it lengthens the fall. The derivation is exactly what its ow
 | Ground-target thresholds are `[SET]` | anchored to the cited 50–60 m order of magnitude, but warhead internals are a real source gap |
 | The ballistics table is one Cd | the release computer carries one Cd for all Mach numbers and does not know the weathercocking round's lift — a declared omission of `core/FBBallistics`, worth 57.1 m short in the reference run |
 | Gun arrival speed still too fast | the throttle regulates a speed difference rather than the closure itself; two alternatives measured and rejected |
-| Only two store types | `mk82` unguided, `aim120` guided |
+| Five store types | `mk82` unguided; `aim120` active-radar, `aim9`/`r73` infrared, `r27r` semi-active |
 
 ## Knowledge
 

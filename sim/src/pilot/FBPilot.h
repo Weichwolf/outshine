@@ -93,6 +93,13 @@ public:
   static constexpr int kMaxBriefedDispenses = 8;
   bool BriefChaff(double atS);
 
+  /* DER KANONEN-BRIEF, in Form und Begruendung identisch zu BriefRelease: ein MOMENT, kein Zustand. Er
+   * existiert, weil ein Feuerstoss sonst nur als Ergebnis eines gewonnenen Kurvenkampfs messbar waere —
+   * und damit die WAFFE nur zusammen mit dem Piloten. Der Wert ist die DAUER des Abzugsdrucks, die der
+   * Kommandobus ohnehin traegt. */
+  static constexpr int kMaxBriefedGunBursts = 8;
+  bool BriefGun(double atS, double seconds);
+
   const char *TelemetryName() const override { return "pilot"; }
   void DeclareTelemetry(FBTelemetrySchema &schema) const override;
   void SampleTelemetry(FBTelemetryRow &row) const override;
@@ -148,6 +155,16 @@ protected:
   virtual double BfmMaxG() const { return 6.0; }
   virtual double BfmMinSpeedKt() const { return 220.0; }
   virtual double BfmUnloadG() const { return 3.0; }
+  /* DIE ROLLSTRECKE Stick -> Rollrate, als HOOK und nicht als Konstante, seit ein zweites Muster den
+   * BFM-Pfad fliegt. Der Deckel in FBPilot::BfmCommands INVERTIERT diese Strecke (p[n+1] = a*p[n] +
+   * K*(1-a)*u[n], nach u aufgeloest), also ist er nur dann ein Deckel, wenn die beiden Zahlen von DEM
+   * Flugzeug stammen, das er stellt. Mit den Zahlen eines anderen ist er ein Oszillator: die MiG-29
+   * rollt 2,6x haerter je Vollausschlag, der aus den F-16-Zahlen gerechnete Stick liegt dann weit ueber
+   * dem, was der Deckel meint, und die Zelle rollt durch die Solllage hindurch (gemessen: +-130 deg
+   * Grenzzyklus, Departure nach 8,9 s). Die Defaults sind die identifizierten F-16-Zahlen, also aendert
+   * sich fuer sie nichts. doc/pilot.md, Abschnitt 5.7. */
+  virtual double BfmRollPlantA() const { return 0.734; }        /* Rollzeitkonstante 0,323 s bei 10 Hz */
+  virtual double BfmRollPlantKDegS() const { return 78.7; }     /* Rate je Vollausschlag, stationaer */
   /* GEOMETRIE. Die Kontrollposition: hinter ihm, nah, Nase drauf, Lock gehalten. */
   virtual double BfmControlMinNm() const { return 0.5; }
   virtual double BfmControlMaxNm() const { return 1.5; }
@@ -197,6 +214,14 @@ protected:
   /* Der CRANK IST der Kardanwinkel der Antenne minus der Reserve, die ein manoevrierendes Ziel braucht:
    * weiter wegdrehen bricht den Track, und genau das darf die Support-Phase nicht. */
   virtual double InterceptCrankAtaDeg() const { return 45.0; }
+  /* SCHLIESSEN SICH STUETZEN UND VERTEIDIGEN AUS? Fuer eine aktive Runde nicht: der F-16-Schuetze
+   * crankt und darf trotzdem abdrehen, weil die AIM-120 ab der Suchereinschaltung allein weiterfliegt.
+   * Fuer eine HALBAKTIVE Runde schon — der Beam legt die eigene Radialgeschwindigkeit in den
+   * gegnerischen Clutterfilter UND nimmt der eigenen Rakete die Beleuchtung, von der sie lebt
+   * (doc/modules/mig29/weapons.md §3.2, Folge 4: „jousting"). Eine DOKTRIN-Frage, also ein
+   * Modul-Hook: es geht nicht darum, was die Waffe kann, sondern was dieser Pilot zu tun bereit ist.
+   * false = die bisherige, unveraenderte Verhaltensweise jedes Bestandsmoduls. */
+  virtual bool SupportInhibitsDefend() const { return false; }
   /* Darunter ist das Gefecht nicht mehr BVR: weiterdruecken ist ein Merge, kein Schuss. */
   virtual double InterceptAbortRangeNm() const { return 5.0; }
 
@@ -228,11 +253,13 @@ private:
 
   void ReleaseBriefedStores(FBCommandBus &avionics);
   void DispenseBriefedCm(FBCommandBus &avionics);
+  void FireBriefedGun(FBCommandBus &avionics);
 
   /* Der Rumpf der Bfm-Phase: die einzige Phase mit EIGENEM Regelgesetz statt eines Autopilot-Ziels. */
   FBPilotCommands BfmCommands(const FBState &state, FBCommandBus &avionics, const Fdm::fb_fdm_state &st,
                               double dt);
   /* Der Abzugsfinger, getrennt vom Fliegen: eine Waffe zu bedienen ist kein Steuern. */
+  void BfmDesignate(const FBState &state, FBCommandBus &avionics);
   void BfmGunfire(const FBState &state, FBCommandBus &avionics);
   FBPilotCommands AttackCommands(const FBState &state, FBCommandBus &avionics, const Fdm::fb_fdm_state &st,
                                  const FBFlightPlan &plan);
@@ -292,6 +319,7 @@ private:
   double IntDefendCueS_ = -1.0;     /* seit wann sie das tut — die Null der Reaktionszeit */
   double IntCrankSign_ = 1.0;       /* Richtung der Crank-Drehung, je Support-Eintritt einmal entschieden */
   bool   IntHaveCrankSign_ = false;
+  bool   IntSupportBound_ = false;   /* s. SupportInhibitsDefend: einmal melden, nicht je Tick */
   double TimeS_ = 0.0;            /* die eigene Uhr des Piloten; der Tracker stempelt Looks absolut */
   double DecisionDtS_ = 0.0;      /* der eigene Entscheidungstakt: zwischen Lesen und Betaetigen liegt genau er */
   double BfmGIterm_ = 0.0;
@@ -321,6 +349,7 @@ private:
   bool   GunTracking_ = false;    /* fliegt gerade den Trichter — beim Uebergang geloggt */
   double GunPrevErrDeg_ = 0.0, GunPrevS_ = 0.0;
   bool   GunHaveErr_ = false;
+  double BfmDesignateNextS_ = 0.0;   /* s. BfmDesignate: Bedien-Takt, kein 10-Hz-Spam */
   /* Der Ratenanteil der Kanonen-Nachfuehrung: die geforderte Rohrrichtung als WELT-Richtung und deren
    * eigene Drehrate. Weltbezogen mit Absicht — koerperbezogen maesse man den eigenen Zug, nicht die
    * Bewegung der Loesung. */
@@ -335,6 +364,9 @@ private:
   int    ReleaseCount_ = 0, ReleaseNext_ = 0;
   double DispenseAtS_[kMaxBriefedDispenses]{};
   int    DispenseCount_ = 0, DispenseNext_ = 0;
+  double GunBriefAtS_[kMaxBriefedGunBursts]{};
+  double GunBriefS_[kMaxBriefedGunBursts]{};
+  int    GunBriefCount_ = 0, GunBriefNext_ = 0;
 
   double BriefAlowFt_ = 0.0, BriefBingoLbs_ = 0.0, BriefWeapon_ = 0.0;
   bool   BriefArm_ = true;

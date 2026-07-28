@@ -1,0 +1,466 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="http://jsbsim.sourceforge.net/JSBSim.xsl"?>
+<!--
+  FlightBox — AIM-9M SIDEWINDER, a FlightBox-OWN JSBSim model.
+
+  WHY IT IS HERE AND NOT IN vendor/. The pinned JSBSim submodule carries no Sidewinder and is read-only
+  (CLAUDE.md Prinzip 1), so a model we had to write ourselves lives in our own asset tree, reached
+  through FBModule::FdmModelVendored() == false. Nothing under vendor/ is touched by its existence.
+
+  WHAT IS MODELLED: the whole flight mechanics — mass and its decrease over the burn, thrust over the
+  burn, axial and normal force over Mach and incidence, static stability, damping and the fin moments.
+  modules/missile/ writes fin commands and a throttle and reads back an accelerometer and rate gyros.
+
+  ===========================================================================================
+  PROVENANCE.
+    [T-ED]     ED EA Guide figure quoted in doc/modules/f16/weapons.md (max speed > Mach 2.5,
+               min range ~3,000 ft, argon-cooled seeker)
+    [T3]       public and multiply corroborated: launch mass 85.3 kg (188 lb), length 2.85 m,
+               body diameter 0.127 m (5 in), fin span 0.63 m, WDU-17/B warhead 9.4 kg, Mk 36 motor
+               burning ~5.2 s. doc/modules/f16/weapons.md §4.3 records these as a SOURCE GAP of the
+               reference base — they are not restated there as facts, and they are tagged here.
+    [DERIVED]  computed here from those by the stated formula
+    [SET]      a FlightBox engineering choice, with its reasoning and its measurable consequence
+  ===========================================================================================
+
+  GEOMETRY. Every coefficient below is non-dimensionalised against the BODY cross-section:
+    S = pi*d^2/4 = pi*0.127^2/4 = 0.0126677 m^2 = 0.136354 ft^2   [DERIVED]
+    chord := d = 0.4167 ft [DERIVED] — the reference length of the pitch/yaw moments
+    wingspan := fin span 0.63 m = 2.0669 ft [T3] — used only by the roll damping term
+    length 2.85 m = 112 in [T3]
+
+  MASS. Launch 188 lb [T3]; propellant 49 lb [DERIVED]: the rocket equation against the [T-ED] Mach 2.5
+  at Isp 235 s (ve = 2305 m/s) needs dV ~ 700 m/s over a M 0.9 launch, so m0/m1 = exp(700/2305) = 1.354
+  and m_p = 85.3*(1 - 1/1.354) = 22.3 kg = 49 lb. <emptywt> therefore carries 139 lb and JSBSim adds the
+  grain on top, so the all-up weight is 188 lb at launch and 139 lb at burnout without this file stating
+  either.
+    Iyy = Izz: m*L^2/12 = 85.3*2.85^2/12 = 57.7 kg*m^2 = 42.6 slug*ft^2, reduced by the same 0.84 the
+    AIM-120 deck argues (a uniform rod overstates a body whose heavy sections sit inboard) -> 36.
+    Ixx = m*r^2/2 = 85.3*0.0635^2/2 = 0.172 kg*m^2 = 0.13 slug*ft^2 [DERIVED].
+    CG at station 50 in [SET] — just forward of mid-body, seeker and warhead ahead of the motor.
+
+  AERODYNAMICS. The slender-body set is the AIM-120 deck's, unchanged and deliberately so: it is
+  NON-DIMENSIONAL and describes a finned cylindrical body, which both of these are. The two numbers that
+  are NOT shared are the ones that depend on this airframe's own proportions —
+    Cm_de = -CN_de * arm = -1.2 * (104 - 50) in / 5 in = -1.2 * 10.8 = -13.0 [DERIVED]
+    Cm_alpha = -13.8 [DERIVED] so that the trim relation alpha = -Cm_de*de/Cm_alpha still lands on the
+      ~0.41 rad (23.5 deg) design point at full fin, i.e. the same tail-control design point.
+  THE HONEST CONSEQUENCE, stated rather than tuned away: at equal dynamic pressure this deck pulls the
+  same class of g the AIM-120 does (~14 g at q = 119 kPa), which is well under the agility a real
+  short-range round has. No public aero deck exists for either; inflating CN to reach a quoted g would
+  be a number posing as physics. What it changes is that a hard-manoeuvring target is harder to hit here
+  than it should be — measured, not hidden.
+-->
+<fdm_config name="AIM-9M" version="2.0" release="ALPHA"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="http://jsbsim.sourceforge.net/JSBSim.xsd">
+
+  <fileheader>
+    <author> FlightBox </author>
+    <filecreationdate> 2026-07-28 </filecreationdate>
+    <version> 1.0 </version>
+    <description> AIM-9M — FlightBox's own model </description>
+    <note>
+      Built from public geometry and mass figures plus the slender-body aerodynamic set this tree's
+      AIM-120 model derives and documents; it is not derived from, and contains nothing out of, any
+      restricted source. Per-number provenance in the banner above.
+    </note>
+  </fileheader>
+
+  <metrics>
+    <wingarea  unit="FT2"> 0.136354 </wingarea>
+    <wingspan  unit="FT">  2.0669  </wingspan>
+    <chord     unit="FT">  0.4167 </chord>
+    <htailarea unit="FT2"> 0 </htailarea>
+    <htailarm  unit="FT">  0 </htailarm>
+    <vtailarea unit="FT2"> 0 </vtailarea>
+    <vtailarm  unit="FT">  0 </vtailarm>
+    <location name="AERORP" unit="IN">
+      <x> 50 </x>
+      <y> 0 </y>
+      <z> 0 </z>
+    </location>
+    <location name="VRP" unit="IN">
+      <x> 50 </x>
+      <y> 0 </y>
+      <z> 0 </z>
+    </location>
+  </metrics>
+
+  <mass_balance>
+    <ixx unit="SLUG*FT2">     0.13 </ixx>
+    <iyy unit="SLUG*FT2">    36.00 </iyy>
+    <izz unit="SLUG*FT2">    36.00 </izz>
+    <emptywt unit="LBS">     139.0 </emptywt>
+    <location name="CG" unit="IN">
+      <x> 50 </x>
+      <y> 0 </y>
+      <z> 0 </z>
+    </location>
+  </mass_balance>
+
+  <!-- Present so the model is complete, not so they fire: a weapon in flight is given no ground to
+       collide with by its owner (units/FBSimUnit's kWeaponNoGroundElevM), and the impact verdict is
+       core/FBFlightMonitor's rather than a spring's. Same values and same reasoning as the AIM-120. -->
+  <ground_reactions>
+    <contact type="STRUCTURE" name="NOSE_CONTACT">
+      <location unit="IN"> <x> 0 </x> <y> 0 </y> <z> 0 </z> </location>
+      <static_friction>  0 </static_friction>
+      <dynamic_friction> 0 </dynamic_friction>
+      <rolling_friction> 0 </rolling_friction>
+      <spring_coeff  unit="LBS/FT">      10000 </spring_coeff>
+      <damping_coeff unit="LBS/FT/SEC">  20000 </damping_coeff>
+      <max_steer unit="DEG"> 0.0 </max_steer>
+      <brake_group> NONE </brake_group>
+      <retractable> 0 </retractable>
+    </contact>
+    <contact type="STRUCTURE" name="TAIL_CONTACT">
+      <location unit="IN"> <x> 112 </x> <y> 0 </y> <z> 0 </z> </location>
+      <static_friction>  0 </static_friction>
+      <dynamic_friction> 0 </dynamic_friction>
+      <rolling_friction> 0 </rolling_friction>
+      <spring_coeff  unit="LBS/FT">      10000 </spring_coeff>
+      <damping_coeff unit="LBS/FT/SEC">  20000 </damping_coeff>
+      <max_steer unit="DEG"> 0.0 </max_steer>
+      <brake_group> NONE </brake_group>
+      <retractable> 0 </retractable>
+    </contact>
+  </ground_reactions>
+
+  <!-- The grain sits AT the CG so the burn changes mass without walking the centre of gravity: a
+       shifting CG is a real effect nobody can source a number for, and a wrong one would silently
+       change the static margin over the flight. -->
+  <propulsion>
+    <engine file="Mk36">
+      <feed> 0 </feed>
+      <thruster file="Mk36_nozzle">
+        <location unit="IN"> <x> 112 </x> <y> 0 </y> <z> 0 </z> </location>
+        <orient unit="DEG"> <roll> 0 </roll> <pitch> 0 </pitch> <yaw> 0 </yaw> </orient>
+      </thruster>
+    </engine>
+
+    <tank type="FUEL">
+      <location unit="IN"> <x> 50 </x> <y> 0 </y> <z> 0 </z> </location>
+      <radius unit="IN"> 2.5 </radius>
+      <grain_config type="CYLINDRICAL">
+        <length unit="IN"> 30 </length>
+        <bore_diameter unit="IN"> 1.5 </bore_diameter>
+      </grain_config>
+      <capacity unit="LBS"> 49.0 </capacity>
+      <contents unit="LBS"> 49.0 </contents>
+    </tank>
+  </propulsion>
+
+  <!-- The three normalised control channels every FlightBox airframe exposes (fdm/FBFdm.h), through a
+       first-order actuator (lag c1 = 60 1/s, ~17 ms) into a +-25 deg fin deflection. A cruciform
+       tail-controlled round mixes four fins into pitch/yaw/roll; the mixing is linear and adds nothing
+       to the physics, so the three axes are modelled directly. -->
+  <flight_control name="FCS: AIM-9M fins">
+    <channel name="Pitch">
+      <lag_filter name="fcs/elevator-actuator">
+        <input> fcs/elevator-cmd-norm </input>
+        <c1> 60.0 </c1>
+        <clipto> <min> -1.0 </min> <max> 1.0 </max> </clipto>
+      </lag_filter>
+      <aerosurface_scale name="fcs/elevator-scale">
+        <input> fcs/elevator-actuator </input>
+        <range> <min> -0.4363 </min> <max> 0.4363 </max> </range>
+        <output> fcs/elevator-pos-rad </output>
+      </aerosurface_scale>
+    </channel>
+    <channel name="Yaw">
+      <lag_filter name="fcs/rudder-actuator">
+        <input> fcs/rudder-cmd-norm </input>
+        <c1> 60.0 </c1>
+        <clipto> <min> -1.0 </min> <max> 1.0 </max> </clipto>
+      </lag_filter>
+      <aerosurface_scale name="fcs/rudder-scale">
+        <input> fcs/rudder-actuator </input>
+        <range> <min> -0.4363 </min> <max> 0.4363 </max> </range>
+        <output> fcs/rudder-pos-rad </output>
+      </aerosurface_scale>
+    </channel>
+    <channel name="Roll">
+      <lag_filter name="fcs/aileron-actuator">
+        <input> fcs/aileron-cmd-norm </input>
+        <c1> 60.0 </c1>
+        <clipto> <min> -1.0 </min> <max> 1.0 </max> </clipto>
+      </lag_filter>
+      <aerosurface_scale name="fcs/aileron-scale">
+        <input> fcs/aileron-actuator </input>
+        <range> <min> -0.4363 </min> <max> 0.4363 </max> </range>
+        <output> fcs/left-aileron-pos-rad </output>
+      </aerosurface_scale>
+    </channel>
+  </flight_control>
+
+  <aerodynamics>
+
+    <axis name="AXIAL">
+      <!-- CA(M): zero-lift axial force, body cross-section referenced [SET — a slender-body/finned-
+           missile profile: flat subsonic, the transonic wave-drag rise from M 0.95, the peak just past
+           M 1, then the classic supersonic decay. No public AMRAAM drag deck exists. The absolute level
+           is anchored by statement (3) above.] -->
+      <function name="aero/coefficient/CA">
+        <description> Axial force (zero lift) </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <table>
+            <independentVar> velocities/mach </independentVar>
+            <tableData>
+              0.0000  0.400
+              0.6000  0.410
+              0.8000  0.430
+              0.9000  0.470
+              0.9500  0.550
+              1.0500  0.820
+              1.2000  0.840
+              1.5000  0.780
+              2.0000  0.680
+              2.5000  0.600
+              3.0000  0.550
+              4.0000  0.470
+              5.0000  0.440
+            </tableData>
+          </table>
+        </product>
+      </function>
+      <!-- Induced axial force: an incidence-dependent addition on top of CA0, since a body at alpha
+           presents more frontal area and its fins carry induced drag. 0.9*alpha^2 [SET] is the
+           small-angle fit that keeps the total drag at 23 deg alpha near CA0 + CN*sin(alpha), i.e.
+           consistent with the force resolution the body-axis formulation already does. -->
+      <function name="aero/coefficient/CA_alpha">
+        <description> Axial force due to angle of attack </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <value> 0.9 </value>
+          <property> aero/alpha-rad </property>
+          <property> aero/alpha-rad </property>
+        </product>
+      </function>
+    </axis>
+
+    <axis name="NORMAL">
+      <!-- CN_alpha(M) per radian [SET — slender body + cruciform mid-body wings; the transonic peak and
+           the supersonic decay follow linear-theory behaviour, the level is anchored by statement (2)]. -->
+      <function name="aero/coefficient/CN_alpha">
+        <description> Normal force due to angle of attack </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <property> aero/alpha-rad </property>
+          <table>
+            <independentVar> velocities/mach </independentVar>
+            <tableData>
+              0.0000   9.00
+              0.8000   9.20
+              1.0500  11.00
+              1.2000  11.50
+              1.5000  10.50
+              2.0000   9.50
+              2.5000   8.80
+              3.0000   8.20
+              4.0000   7.40
+              5.0000   7.00
+            </tableData>
+          </table>
+        </product>
+      </function>
+      <!-- Crossflow (body vortex) term, 10.0*alpha*|alpha| per rad^2 [SET]: the nonlinear normal force
+           a cylindrical body develops at high incidence. Without it the missile would lose exactly the
+           lift it needs in the terminal turn, where it flies at 20+ deg. -->
+      <function name="aero/coefficient/CN_alpha2">
+        <description> Normal force, crossflow (nonlinear in alpha) </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <value> 10.0 </value>
+          <property> aero/alpha-rad </property>
+          <abs> <property> aero/alpha-rad </property> </abs>
+        </product>
+      </function>
+      <!-- Fin normal force, -1.2 per rad [SET, paired with Cm_de below by the moment arm]: a tail fin
+           deflected trailing-edge-down (positive) pushes the TAIL up, i.e. produces a nose-DOWN moment
+           AND an upward force. That is the non-minimum-phase behaviour of tail control — the airframe
+           first moves the wrong way — and it is modelled because the guidance loop has to be stable
+           with it. -->
+      <function name="aero/coefficient/CN_de">
+        <description> Normal force due to pitch fin deflection </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <value> 1.2 </value>
+          <property> fcs/elevator-pos-rad </property>
+        </product>
+      </function>
+    </axis>
+
+    <axis name="SIDE">
+      <!-- Cruciform symmetry: the yaw plane is the pitch plane, mirrored. beta > 0 (relative wind from
+           the right) produces a force to the LEFT, hence the negative signs. -->
+      <function name="aero/coefficient/CY_beta">
+        <description> Side force due to sideslip </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <property> aero/beta-rad </property>
+          <value> -1.0 </value>
+          <table>
+            <independentVar> velocities/mach </independentVar>
+            <tableData>
+              0.0000   9.00
+              0.8000   9.20
+              1.0500  11.00
+              1.2000  11.50
+              1.5000  10.50
+              2.0000   9.50
+              2.5000   8.80
+              3.0000   8.20
+              4.0000   7.40
+              5.0000   7.00
+            </tableData>
+          </table>
+        </product>
+      </function>
+      <function name="aero/coefficient/CY_beta2">
+        <description> Side force, crossflow (nonlinear in beta) </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <value> -10.0 </value>
+          <property> aero/beta-rad </property>
+          <abs> <property> aero/beta-rad </property> </abs>
+        </product>
+      </function>
+      <function name="aero/coefficient/CY_dr">
+        <description> Side force due to yaw fin deflection </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <value> -1.2 </value>
+          <property> fcs/rudder-pos-rad </property>
+        </product>
+      </function>
+    </axis>
+
+    <axis name="PITCH">
+      <!-- Cm_alpha = -13.8 per rad [SET]: the static margin, expressed directly as a moment about the
+           launch CG. Paired with Cm_de by statement (1) — the pair, not either number alone, is what
+           fixes the trim angle of attack and therefore the achievable g. A statically STABLE missile
+           (negative Cm_alpha) is what makes the airframe controllable with a first-order autopilot;
+           reducing this number would make it more agile and less stable, which is a design trade this
+           model does not pretend to have data for. -->
+      <function name="aero/coefficient/Cm_alpha">
+        <description> Pitch moment due to angle of attack </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <property> metrics/cbarw-ft </property>
+          <property> aero/alpha-rad </property>
+          <value> -13.8 </value>
+        </product>
+      </function>
+      <!-- Cm_q = -500 per rad [SET]: aerodynamic pitch damping. Deliberately LOW in damping-ratio terms
+           (zeta ~ 0.01 at Mach 2/6 km against a 6.6 rad/s airframe mode) because that is what a short,
+           finned body actually has — a real missile is stabilised by its autopilot's rate gyro, not by
+           its aerodynamics, and modules/missile/FBMissileGuidance therefore carries a rate-damping term
+           it genuinely needs. -->
+      <function name="aero/coefficient/Cm_q">
+        <description> Pitch moment due to pitch rate </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <property> metrics/cbarw-ft </property>
+          <property> aero/ci2vel </property>
+          <property> velocities/q-aero-rad_sec </property>
+          <value> -500.0 </value>
+        </product>
+      </function>
+      <!-- Cm_de = -13.0 per rad [DERIVED from the fin force above and its arm:
+           the tail fins sit at station 104 in and the launch CG at 50 in, so the arm is 54 in
+           = 10.8 calibers of the 5 in body, and Cm_de = -1.2 * 10.8 = -13.0]. Negative: positive (TE-down)
+           deflection pitches the nose DOWN, which is what makes FBFdm's existing "+pitch command =
+           nose up" mapping (it writes -pitch into fcs/elevator-cmd-norm) come out right. -->
+      <function name="aero/coefficient/Cm_de">
+        <description> Pitch moment due to pitch fin deflection </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <property> metrics/cbarw-ft </property>
+          <property> fcs/elevator-pos-rad </property>
+          <value> -13.0 </value>
+        </product>
+      </function>
+    </axis>
+
+    <axis name="YAW">
+      <!-- The pitch axis mirrored (cruciform). Cn_beta > 0 is weathercock stability: sideslip from the
+           right yaws the nose right, into the wind. -->
+      <function name="aero/coefficient/Cn_beta">
+        <description> Yaw moment due to sideslip </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <property> metrics/cbarw-ft </property>
+          <property> aero/beta-rad </property>
+          <value> 13.8 </value>
+        </product>
+      </function>
+      <function name="aero/coefficient/Cn_r">
+        <description> Yaw moment due to yaw rate </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <property> metrics/cbarw-ft </property>
+          <property> aero/ci2vel </property>
+          <property> velocities/r-aero-rad_sec </property>
+          <value> -500.0 </value>
+        </product>
+      </function>
+      <function name="aero/coefficient/Cn_dr">
+        <description> Yaw moment due to yaw fin deflection </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <property> metrics/cbarw-ft </property>
+          <property> fcs/rudder-pos-rad </property>
+          <value> 13.0 </value>
+        </product>
+      </function>
+    </axis>
+
+    <axis name="ROLL">
+      <!-- Roll is not a manoeuvre axis for a cruciform missile: it flies SKID-TO-TURN, pitching and
+           yawing without banking, and the roll channel exists only to hold the fin cross steady so the
+           two lateral channels stay decoupled. Cl_p = -12 per rad [SET] (strong damping, small span),
+           Cl_da = 0.05 per rad [SET] — together a steady roll rate of ~4 rad/s at full fin and Mach 2,
+           enough to arrest a roll disturbance in a fraction of a second and far too little to be used
+           for turning. -->
+      <function name="aero/coefficient/Cl_p">
+        <description> Roll moment due to roll rate </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <property> metrics/bw-ft </property>
+          <property> aero/bi2vel </property>
+          <property> velocities/p-aero-rad_sec </property>
+          <value> -12.0 </value>
+        </product>
+      </function>
+      <function name="aero/coefficient/Cl_da">
+        <description> Roll moment due to roll fin deflection </description>
+        <product>
+          <property> aero/qbar-psf </property>
+          <property> metrics/Sw-sqft </property>
+          <property> metrics/bw-ft </property>
+          <property> fcs/left-aileron-pos-rad </property>
+          <value> 0.05 </value>
+        </product>
+      </function>
+    </axis>
+
+  </aerodynamics>
+
+</fdm_config>

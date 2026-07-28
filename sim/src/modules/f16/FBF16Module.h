@@ -107,6 +107,15 @@ public:
    * airframe cannot take must not start silently in some other state. */
   bool ApplySetup(const std::string &key, const std::string &value) override;
 
+  /* [SET, a CLASS not a measurement] ~1.2 m^2, the figure most often quoted for a clean F-16 without
+   * the later low-observable treatments (T4-grade: no primary source publishes one). It is also the
+   * REFERENCE of the radar equation's fourth-root scaling (sensors/FBRadarSystem::kRefRcsM2) — which
+   * is the deliberate calibration choice, not a coincidence: every radar range in this tree was
+   * measured against this aircraft, so declaring its own cross-section as the reference makes the
+   * whole cross-section mechanism the identity for F-16 against F-16 and an asymmetry only across
+   * types. doc/sensors.md, Spec. */
+  double RadarCrossSectionM2() const override { return 1.2; }
+
   const FBDamageLayout &DamageLayout() const override { return FBF16DamageLayout(); }
 
 private:

@@ -13,6 +13,7 @@ FBCountermeasureSystem::FBCountermeasureSystem() {
   Flare_ = 30;   /* Platzhalter-Magazin; ein Modul nennt sein eigenes */
   LoadGenericPrograms();
   for (FBChaffCloud &c : Clouds_) c = FBChaffCloud{};
+  for (FBFlareCloud &f : Flares_) f = FBFlareCloud{};
 }
 
 /* Eine bewusst unauffaellige Platzhaltertabelle: jede Zahl liegt in den dokumentierten
@@ -152,6 +153,16 @@ void FBCountermeasureSystem::Eject(FBCmType type, const Fdm::fb_fdm_state &st, d
   } else {
     Flare_--;
     FlareOut_++;
+    /* Bis zu dieser Etappe wurden Fackeln GEZAEHLT und sonst nichts — es gab keinen Infrarotsucher,
+     * gegen den sie haetten wirken koennen, und das stand so im Header. Jetzt gibt es einen, und die
+     * Buchfuehrung war ehrlich genug, dass hier nur der Ring dazukommt. */
+    FBFlareCloud &f = Flares_[NextFlare_];
+    NextFlare_ = (NextFlare_ + 1) % kMaxFlareClouds;
+    f.Active = true;
+    f.LatDeg = st.lat;
+    f.LonDeg = st.lon;
+    f.AltM = st.elev;
+    f.BloomS = simTimeS;
   }
 }
 
@@ -253,6 +264,12 @@ void FBCountermeasureSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, do
     if (!c.Active) continue;
     if (FBChaffRcsNorm(simTimeS - c.BloomS) <= 0.0 && simTimeS - c.BloomS >= kChaffBloomS) c.Active = false;
     else ActiveClouds_++;
+  }
+  ActiveFlares_ = 0;
+  for (FBFlareCloud &f : Flares_) {
+    if (!f.Active) continue;
+    if (simTimeS - f.BloomS >= kFlareLifeS) f.Active = false;   /* ausgebrannt, nicht nur duenn */
+    else ActiveFlares_++;
   }
 
   FBCmdsBlock &b = state.Cmds;

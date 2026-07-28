@@ -1,7 +1,7 @@
 # MiG-29 — the first opponent
 
-**Status: stages 1, 2a, 2b and 3 built — the airframe, the module, the sensor suite (N019 / SPO-15 /
-KOLS) and the GCI loop. No weapons.** This is the first file written the new way round — the contract exists before the code,
+**Status: stages 1, 2a, 2b, 2c and 3 built — the airframe, the module, the sensor suite (N019 / SPO-15 /
+KOLS), the GCI loop and now the WEAPONS (R-27R / R-73 / GSh-301) plus the radar cross-section.** This is the first file written the new way round — the contract exists before the code,
 and the build rounds are measured against it instead of describing themselves afterwards.
 
 **Neighbours:** `doc/modules/mig29/` (the knowledge base about the real aircraft, from the two DCS manuals plus
@@ -48,6 +48,20 @@ asymmetric weapon round (R6) comes before the airframe round (R8).
 | JSBSim model built along the spec's build order, each step measured against one documented anchor | R3 | R8 lands; `MODEL-DELTAS` bookkeeping complete |
 | Module + GCI-led pilot behaviour | R6, R8 | flies a mission against the F-16 in the gym with a decided outcome |
 
+### Stage 2c — the weapons and the signature (the contract for this round)
+
+| Contract | Acceptance / measurement anchor |
+|---|---|
+| The R-27R's **support obligation is a mechanic, not a note** | its seeker sees only the reflection of this jet's own illumination: lock broken → seeker dead, no reactivation. Two measured branches on `mig29-r27.fbm`: unbroken chain = hit, lock broken mid-flight = miss |
+| Support and Defend are **mutually exclusive on this airframe** | while a round of this jet still needs illumination the `Defend` transition is inhibited; the F-16's `crank-and-defend` is not available here. One guard, one module hook, both named |
+| The crank ceiling comes off the **N019's own 67°**, not the F-16's 60° | `FBMig29Pilot::InterceptCrankAtaDeg` derived from 67° minus the same manoeuvre reserve the F-16 takes off 60° |
+| The R-73 is the first IR round, and it is the SAME class as the F-16's AIM-9 | one `modules/missile` seeker kind, two catalogue entries, different numbers; the helmet-sight cueing bound (±60° az) is the module hook that decides whether a shot is offered, not the 75° seeker gimbal |
+| **Flares become effective** the day this round lands | deterministic seduction on measured irradiance; measured on both branches (tail/afterburner = not deceived, head-on/dry = deceived), for the MiG's R-73 and for the F-16's AIM-9 alike |
+| The GSh-301 is a catalogue row, not a second gun system | 30×165 mm, 150 rounds, 1,500 rd/min, 860 m/s [T3]; `weapons/FBGunSystem` unchanged, `FBMig29Gun` supplies only where it is bolted. The kinetic damage path carries the heavier round without a new constant |
+| **RCS is a unit property**, and it is what makes the duel asymmetric | `FBUnitSignature::RcsM2` from the module; radar reach scales with `σ^¼`. Reference = the F-16's, so every F-16-against-F-16 measurement in the tree stays byte-identical and the asymmetry appears only across the two types |
+| Twin-engine damage gets its state | `core/FBSystemHealth::Engine2`, appended; `FBMig29Damage` wires both nacelles, the F-16 keeps one, and the mapping is written down |
+| `mig29-intercept` gets past `RADAR_DESIGNATE` | the rig's own reading rule changes: the intercept now designates, shoots and supports instead of aborting on first contact for want of a weapon |
+
 ## State
 
 **Stage 2a and 3 built: the module and the solo end-to-end proof** (merged as part of `11722e5`-follow-up).
@@ -83,7 +97,42 @@ GCI loop as mission data. Numbers, sources and what each one deliberately does N
 `set task intercept` is unlocked by this stage — the BVR phase machine needs a radar and this jet now
 has one. `bfm` and `attack` stay closed: both need a WEAPON.
 
-**Deliberately absent** (stage 2c): countermeasures (BVP-30-26), stores, gun, and any cooperative
+**Stage 2c built: the weapons and the signature.** Three real slots (`FBMig29Sms`, `FBMig29Gun`,
+`FBMig29FireControl`), three catalogue rounds, one unit property, and one behavioural hardness. What
+each piece is and what it measured:
+
+| Piece | What it is | The thing that makes it a different weapon, not a different number |
+|---|---|---|
+| **R-27R** | semi-active, `FBSeekerKind::SemiActiveRadar` | its seeker lives on THIS jet's illumination and dies with it, once and for good. `ttaS=-1` reaches the shooter's Support state, which then runs to IMPACT: **28.56 s of unbroken pointing for one shot** (measured), against the AIM-120's 5-15 s |
+| **`SupportInhibitsDefend`** | one module hook, one state-transition guard | while a launched round still needs illumination the pilot does not turn away. That is `DCS-FM p.65`'s "jousting", as a rule the phase machine obeys |
+| **R-73** | the first IR round, shared with the F-16's AIM-9 | ONE seeker class, two catalogue entries: gimbal ±75° [DOC] against the Sidewinder's ±30° [T4], a DOCUMENTED 3.5 m fuze radius against a derived 6.0 m |
+| **GSh-301** | a catalogue row beside the M61A1 | 2.7× the energy per round, 0.68× the flux, a 6 mrad cone against 2.23 — the documented 200-790 m effective band falls out of the DISPERSION rather than out of a range limit (measured, both ends) |
+| **`RadarCrossSectionM2` = 4.0** | a unit property, published like the afterburner bit | `σ^¼` scaling against the F-16's 1.2 m² reference: **1.351× the range one way, 0.740× the other**. The reference is the F-16's own, so every F-16-against-F-16 measurement in the tree is byte-identical |
+| **`FBSystemId::Engine2`** | appended, with `PropulsionOut()` | "one RD-33 out and one running" finally has a state: `CombatEffective` stays true, the throttle is capped at half the installed thrust. Both ids in the AFT zone, mapping written down |
+
+`set task bfm` is unlocked by this stage; `set task attack` stays closed, and now for a stated reason
+rather than a missing weapon — the 9-12 carries no guided air-to-ground store at all and its unguided
+delivery is a director the pilot flies rather than a release moment he reacts to
+([weapons.md](weapons.md) §5.3), so `FBMig29FireControl` publishes no CCIP/CCRP block.
+
+**Three defects this stage found by measuring**, each fixed where it belonged:
+
+1. **The gun did not know who fired it.** `FBGunSystem::SetUnitId` was never called by this module, so
+   its bursts carried `LauncherId 0`, the runner's shooter exclusion never matched, and the MiG shot
+   ITSELF down at the muzzle (measured: 6 hits, `damage KILL` on the shooter). One line.
+2. **The alpha limiter did not act on the hand stick.** `FBFlightControl::Run` returned early in
+   `Manual`, so every manual-stick phase on an airframe whose DECK has no limiter was unbounded. It
+   never showed because Takeoff/Flare/Rollout do not pull; BFM is the first phase that does, and the
+   aircraft departed at 32° of incidence and 11.8 g after 8.9 s. The limiter is a STICK FORCE and now
+   acts in both branches — at the hand stick it may only forbid PULL, never force a push, which is what
+   the class comment always said. `AlphaLimitDeg = 0` (the F-16) leaves the branch dead.
+3. **The BFM roll-rate cap inverted the wrong plant.** The cap solves `p[n+1] = a·p[n] + K(1−a)·u[n]`
+   for the stick, so with another aircraft's `a`/`K` it is not a cap but an oscillator. Identified for
+   this airframe from its own BFM samples: **a = 0.819 (τ = 0.50 s), K = 201 °/s per full deflection**
+   against the F-16's 0.734 / 78.7 — it rolls 2.6× harder for the same stick. Now a hook with the
+   F-16's numbers as the default.
+
+**Deliberately absent** (next stages): countermeasures (BVP-30-26), and any cooperative
 datalink — this aircraft has none, and its GCI is a voice channel, not a track picture. Those slots hold
 the NoOp/generic defaults, are not cycled, and their blocks stay `Invalid` — a module declares what it
 has. The F-16 is provably untouched: all **56** stock missions byte-identical on every column they ever
@@ -130,11 +179,14 @@ reading rule in its own file header).
 | done (2a) | ~~Module (`FBModule` derivation + registry name) and the systems it composes~~ | stage 2a |
 | done (2a) | ~~SOS α limiter and the ARU-aware gains in `systems/FBFlightControl`~~ — `AlphaLimitDeg` is one preset number; 0 means the airframe has its own limiter and is what the F-16 sets | stage 2a |
 | done (2b) | ~~Radar (N019), RWR (SPO-15), IRST (KOLS) and the GCI loop~~ | stage 2b |
-| 4b | Own HUD symbology — the module flies the generic MIL-STD-1787 default | stage 2c |
+| 4b | Own HUD symbology — the module flies the generic MIL-STD-1787 default | open |
+| **4g** | **No dispensers.** The BVP-30-26 exists on the aircraft and nowhere in FlightBox: no source states its programme parameters, so this jet can answer neither a radar shot with chaff nor an infrared shot with flares. It is now the single largest one-way asymmetry in the tree, and it is the next thing to close | needs a source, or a declared `[SET]` programme set |
+| **4h** | **BFM on this airframe is unfinished.** The N019's close-combat modes are pencils in azimuth, so a manoeuvring MiG cannot ACQUIRE with them, and its wide RAD mode does not auto-lock — measured on `mig29-gun`'s geometry with `set task bfm`: 0 contact ticks and 0 lock ticks in 134 s. `FBPilot::BfmDesignate` (new, generic, and a no-op for an auto-locking set) gives the pilot the thumb he needs, but the cold-search law still rolls the jet before the first two looks have landed. Until that is addressed, a MiG gun kill has to be flown from a stable position with a briefed burst (which is what `mig29-gun` does) | a search behaviour that keeps the platform steady until firm |
 | 4e | No `FBSystemId` for an optical station, so the IRST is the one sensor slot that is not damage-gated. Travels with 4d: both are a health-register change, and both move the `dmg_*` telemetry columns | needs a health-register change |
-| 4f | The intercept ends in `Abort` on first contact, because `pilot/FBPilot`'s own rule is "a target on the scope and nothing on the rails → disengage". Correct behaviour, but it means `RADAR_DESIGNATE` is unreachable until stage 2c gives this jet a weapon | R6 |
-| 4c | The corner formula `g·√(n²−1)/V` reads 20.2 °/s from the hooks against a measured 24.18 °/s (−16 %; the F-16's gap is −2 %). Cause: altitude loss inside this airframe's measurement window | stage 2c |
-| 4d | Twin-engine damage: `core/FBSystemHealth` carries ONE `Engine` id, so "one RD-33 out" — this airframe's most characteristic damage state — has no state to live in | needs a health-register change, not a module one |
+| ~~4f~~ | ~~The intercept ends in `Abort` on first contact~~ — **done** (2c). `mig29-intercept` now runs the whole chain: `RADAR_DESIGNATE` at t = 58.4 s, shot at 60.9 s, support to impact, `damage KILL` at 87.7 s; `eng_state` search → closing → attack → support | done |
+| ~~4c~~ | **SETTLED, and the formula was right.** The measurement window hypothesis is REFUTED and the harness was comparing two different quantities — see Knowledge below | closed, stage 2c |
+| ~~4d~~ | ~~Twin-engine damage~~ | **done** (2c): `FBSystemId::Engine2` + `PropulsionOut()` |
+| 4e' | The IRST is STILL not damage-gated: `Engine2` was the appended id this stage needed, and an optical-station id is a second append that would move the `dmg_*` bitmask meaning again for no measured benefit yet | open |
 
 In roadmap terms the remaining chain is **R6 → R8 stage 2/3 → R7**:
 
@@ -173,6 +225,31 @@ the MiG-29:
   harness therefore carries a throwaway SOS sketch; the real one belongs in `systems/FBFlightControl`
   (stage 2), which is what [`../../mig29/flight-model-spec.md`](flight-model-spec.md) §7.3
   specified before any of this was built.
+
+### The corner-formula discrepancy (gap 4c), settled by measurement
+
+The hooks fed `CornerTurnRateDegS` = `g·√(n²−1)/V` a corner of 420 KCAS and 7.8 g and got 20.2 °/s
+against a harness reading of 24.18 °/s — −16 %, where the F-16's gap is −2 %. The standing hypothesis
+was the measurement window: this airframe loses altitude inside the 4 s pull, so the "speed" in the
+formula is not the entry speed. `clients/FBTestMig29Envelope.cpp` now logs the window's own state and
+four readings of the same four seconds, and the answer is **neither the altitude nor the averaging**:
+
+| Quantity, at the corner point (entry 420 KCAS) | Value |
+|---|---|
+| harness `turnRateDegS` — rate of the body's EULER HEADING | **24.18 °/s** |
+| **`trackRateDegS` — rate of the VELOCITY VECTOR's ground track** | **20.49 °/s** |
+| formula on the entry CAS (what the pilot hooks feed it) | 20.20 °/s |
+| formula on the mean TAS actually flown (336 KCAS, 216 m/s) | 20.21 °/s |
+| formula evaluated instantaneously and averaged over the same samples | 20.29 °/s |
+| formula with the `1/cos γ` correction (γ = −10.4°, 154 m of loss) | 20.54 °/s |
+
+**The formula is right to 1.4 %** — better than the F-16's own −2 %. The altitude loss is worth +1.7 %,
+an order of magnitude too little; the convexity of `√(n²−1)` is worth +0.4 %. What the −16 % was is the
+harness measuring the rate of change of the body's Euler heading while the formula predicts the turn
+rate of the velocity vector, and at 22.7° of incidence in an 85°-banked pull those differ by 18 %. The
+correction is therefore to the ANCHOR's label and to what the harness reports, not to the formula or to
+the hooks: `BfmCornerG`/`BfmCornerSpeedKt` stay as measured, and `CORNER_POINT` now carries
+`trackRateDegS` beside `turnRateDegS` so the two are never confused again.
 
 The source split, worth stating once:
 

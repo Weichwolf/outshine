@@ -14,48 +14,6 @@ constexpr float kFtToNmF = 1.0f / 6076.12f;
 
 } // namespace
 
-FBLaunchZone FBF16FireControl::SolveLaunchZone(const FBWeaponPerf &perf, double ownSpeedMs, double altM,
-                                               double rangeM, double closureMs, double ownLosMs,
-                                               double tgtSpeedMs) {
-  FBLaunchZone z;
-  if (perf.LaunchMassKg <= 0.0 || perf.RefAreaM2 <= 0.0) return z;
-
-  /* ONE density for the whole integration: the round's altitude band over an engagement is small next
-   * to its range, and a stored fire-control model is not a trajectory simulator. */
-  const double rho = FBIsaDensity(altM);
-  const double burnS = perf.BoostS + perf.SustainS;
-  const double dt = 0.25;             /* coarse on purpose: a stored table's worth of fidelity */
-  const double maxS = 240.0;
-
-  /* The radar measures TOTAL closure; the launcher's own part is what the round inherits at launch. */
-  const double tgtLosMs = closureMs - ownLosMs;
-
-  double v = ownSpeedMs, s = 0.0, t = 0.0, r = rangeM;
-  for (; t < maxS; t += dt) {
-    double thrust = t < perf.BoostS ? perf.BoostThrustN : (t < burnS ? perf.SustainThrustN : 0.0);
-    double frac = burnS > 0.0 ? t / burnS : 1.0;
-    double mass = t >= burnS ? perf.BurnoutMassKg
-                             : perf.LaunchMassKg - (perf.LaunchMassKg - perf.BurnoutMassKg) * frac;
-    double drag = 0.5 * rho * v * v * perf.DragCoefA * perf.RefAreaM2;
-    v += (thrust - drag) / mass * dt;
-    if (v < 1.0) v = 1.0;
-    s += v * dt;
-    r -= (v + tgtLosMs) * dt;
-    if (z.TimeToActiveS < 0.0 && r <= perf.ActivationRangeM) z.TimeToActiveS = t + dt;
-    if (z.TimeToImpactS < 0.0 && r <= 0.0) z.TimeToImpactS = t + dt;
-    /* Dead: no closure left to run an intercept with. Only tested after the boost, since the round
-     * starts below MinSpeed whenever the launcher is subsonic. */
-    if (t > perf.BoostS && v < perf.MinSpeedMs) { t += dt; break; }
-  }
-
-  z.Valid = true;
-  z.RaeroM = s + tgtLosMs * t;
-  z.RtrM = s - tgtSpeedMs * t;
-  if (z.RtrM < 0.0) z.RtrM = 0.0;
-  z.RminM = (closureMs > 0.0 ? closureMs : 0.0) * perf.ArmingS + kMinTurnM;
-  return z;
-}
-
 /* Everything ballistic is core/FBGunBallistics' — the same arithmetic the rounds are then flown with,
  * which for an unguided projectile is what a fire-control computer genuinely solves. What is FIRE
  * CONTROL is the three answers the funnel gives: in range, how big in angle, how far off the nose. */
@@ -211,8 +169,9 @@ void FBF16FireControl::Run(FBState &state, const Fdm::fb_fdm_state &own, const F
      * and "his" uses no second notion of where the target is. */
     double ownLos = own.speed * std::cos(c.AzDeg * kDeg2Rad) * std::cos(c.ElDeg * kDeg2Rad);
     double tgtSpeed = std::sqrt(trk.VelE * trk.VelE + trk.VelN * trk.VelN + trk.VelU * trk.VelU);
-    FBLaunchZone z = SolveLaunchZone(selected->Perf, own.speed, own.elev, c.RangeM, c.ClosureMs, ownLos,
-                                     tgtSpeed);
+    Weapons::FBLaunchZone z = Weapons::FBSolveLaunchZone(selected->Perf, selected->Seeker, own.speed,
+                                                        own.elev, c.RangeM, c.ClosureMs, ownLos,
+                                                        tgtSpeed);
     if (z.Valid) {
       b.DlzValid = true;
       b.TargetRangeM = c.RangeM;

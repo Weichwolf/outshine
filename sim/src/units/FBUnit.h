@@ -39,10 +39,19 @@ struct FBUnitSignature {
    * legitimately notice about this unit? An infrared head may notice exactly this
    * (sensors/FBIrstSystem), and nothing else here tells it. */
   bool Afterburner = false;
+  /* WHAT A RADAR GETS BACK, as one number: the radar cross-section this airframe presents. It belongs
+   * here and not in the looking radar for the same reason the afterburner bit does — it is a property
+   * of the OBSERVED unit, and a sensor that carried a table of who reflects how much would be reading
+   * identity out of the registry by the back door. 0 = not declared (a store, a ground target): the
+   * gate then behaves exactly as it did before this field existed. doc/sensors.md, Spec. */
+  float RcsM2 = 0.0f;
   FBEmitterSignature Radar;   /* the BEAM incl. where it points; silent Mode::None by default */
   /* Chaff hangs off the DISPENSING unit rather than being units of its own — stated consequence: a
    * cloud can only decoy a radar looking at the aircraft that threw it. */
   FBChaffCloud Chaff[kMaxChaffClouds];
+  /* ...and the infrared half, under exactly the same rule and with the same consequence for an
+   * infrared seeker (sensors/FBIrstSystem). */
+  FBFlareCloud Flare[kMaxFlareClouds];
 };
 
 class FBUnit {

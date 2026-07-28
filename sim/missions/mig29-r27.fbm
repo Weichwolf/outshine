@@ -1,0 +1,101 @@
+name mig29-r27-1
+timeout 180
+
+# THE SEMI-ACTIVE CHAIN — the MiG-29's defining tactical property, measured on both of its branches.
+#
+# doc/modules/mig29/weapons.md §3.2, quoting DCS-FM p.65 verbatim: "for such missiles, it is necessary
+# that the supporting aircraft RETAIN RADAR LOCK UNTIL THE MISSILE HITS THE TARGET. This can often lead
+# to 'jousting' of SARH armed aircraft." Against the AIM-120, whose obligation ends at the 10-20 km
+# activation ring, that is the whole difference between the two weapons — and in FlightBox it is a
+# MECHANIC and not a note:
+#
+#   core/FBStore.h        the R-27R declares ActivationRangeM 0 and FBSeekerKind::SemiActiveRadar, so
+#                         FBSeekerHandoverS answers -1: this round never lets its shooter go.
+#   FBMissileGuidance     its seeker is alive exactly while the shooter's illumination arrives, and when
+#                         that stops it goes dark FOR GOOD — there is no transmitter of its own to
+#                         switch back on. The round flies out its last information like an uplink loss,
+#                         but without the second chance.
+#   weapons/FBLaunchZone  TimeToActiveS -1 therefore reaches pilot/FBEngagement, whose Support window
+#                         falls back to the predicted time of flight; Pitbull can never become true.
+#
+# BRANCH A — "strela" shoots "hawk" head-on and FLIES STRAIGHT ON. The lock holds, the illumination
+# holds, the round arrives. This is the shot that costs 20+ seconds of pointing at somebody who can see
+# you doing it.
+#
+# BRANCH B — "kopyo" fires the identical shot at "osprey" and then TURNS AWAY, exactly the manoeuvre
+# `intercept-lostlock.fbm` uses to drop an F-16's lock. Its target leaves the narrow beam, the lock
+# drops, the illumination stops and the round is blind from that second onward. An AIM-120 in the same
+# situation still hits (intercept-lostlock, measured); this one does not, and the difference is the
+# point of the file.
+#
+# Both shooters use the N019 close-combat pattern with the range gate opened (the device
+# intercept-aim120 uses on the F-16): a narrow auto-locking beam, so the run is about the WEAPON. Both
+# fire on a briefed pickle rather than through the intercept phase machine — one variable at a time.
+#
+# READING RULE: exit 3 = TIMEOUT is the pass. MEASURED (2026-07-28):
+#   branch A  sms LAUNCH_SOLUTION ... ttaS=-1 ttiS=27.5   <- the handover that never comes, as a NUMBER
+#             missile SEEKER_ACTIVE ... mode=semi-active at t+0.01 s (it lives on the beam from the rail)
+#             PHASE MIDCOURSE -> TERMINAL at tofS=3.18 ("own seeker acquired" — the reflection)
+#             stores DETONATION unit=strela_r27r_1 target=hawk missM=0.442 fuzeM=13.8 tofS=28.56
+#             i.e. 28.6 s of unbroken illumination for one shot; the reference derives ~26 s for the
+#             same geometry (§3.2 consequence 2), and the AIM-120's obligation on intercept-aim120's
+#             comparable shot ends after 5-15 s.
+#   branch B  missile ILLUMINATION_LOST unit=kopyo_r27r_2 tofS=11.7 rangeM=15499 -- the shooter's turn
+#             took the target out of its own beam, and from that second the round has no source of
+#             energy on the target at all and never gets one back
+#             stores EXPIRED ... closestM=27.04 against a 13.8 m fuze: it flew the last 15 km on the
+#             information it had when the beam went away and passed just under two fuze radii wide.
+#             An AIM-120 with the same lock loss still hits (intercept-lostlock, measured 0.755 m) —
+#             that difference IS the semi-active penalty, measured rather than asserted.
+
+unit strela
+  module mig29
+  team hostile
+  spawn 46.90000 6.60000 8000 90.0 420
+  set gear up
+  set fuel_pct 70
+  set n019_mode cc                             # narrow auto-locking pattern...
+  set n019_range_nm 40                         # ...gate opened to the search figure
+  set n019_emission illum
+  set store 3 r27r
+  set brief_master_arm arm
+  set brief_release_s 12                       # ~30 km head-on: inside Raero, far outside Rmin
+  wp 46.90000 7.60000 8000 420                 # STRAIGHT ON: the lock, and the illumination, hold
+  objective kill unit hawk                     # so the kill is expected and the run reaches its timeout
+
+unit hawk
+  module f16
+  team friendly
+  spawn 46.90000 7.05000 8000 270.0 400
+  set gear up
+  set fuel_pct 70
+  set fcr_mode off                             # a target, not a participant
+  wp 46.90000 6.30000 8000 400
+
+unit kopyo
+  module mig29
+  team hostile
+  spawn 47.20000 6.60000 8000 90.0 420         # a second pair 33 km north, identical geometry
+  set gear up
+  set fuel_pct 70
+  set n019_mode cc
+  set n019_range_nm 40
+  set n019_emission illum
+  set store 3 r27r
+  set brief_master_arm arm
+  set brief_release_s 12
+  # TWO waypoints, and the first one exists only to make the break happen AFTER the shot rather than
+  # before it: this jet's close-combat beam is +-1.75 deg wide, so any turn at all takes the target out
+  # of it. 3 km straight ahead is ~14 s at this speed — just past the pickle, so the break lands
+  # early in the round's flight and the answer is a decision rather than a near thing.
+  wp 47.20000 6.64000 8000 420                 # straight on: the lock holds, the shot goes
+  wp 46.30000 6.62000 8000 420                 # then 100 km SOUTH: the turn that drops it
+
+unit osprey
+  module f16
+  team friendly
+  spawn 47.20000 7.05000 8000 270.0 400
+  set gear up
+  set fuel_pct 70
+  set fcr_mode off
+  wp 47.20000 6.30000 8000 400

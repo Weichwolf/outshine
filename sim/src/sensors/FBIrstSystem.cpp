@@ -32,6 +32,61 @@ double FBIrstSystem::DetectRangeM(const FBIrstFieldOfRegard &f, const Units::FBU
   return reach;
 }
 
+/* The same law as DetectRangeM, read as an INTENSITY. Reference 1.0 = clean, dead astern. */
+double FBIrstSystem::TargetIntensity(const FBIrstFieldOfRegard &f, const Units::FBUnitPose &tgt,
+                                     bool afterburner, double bearingDeg) const {
+  if (f.RangeM <= 0.0) return 0.0;
+  double frac = DetectRangeM(f, tgt, afterburner, bearingDeg) / f.RangeM;
+  return frac * frac;
+}
+
+/* THE WHOLE INFRARED COUNTERMEASURE MODEL, and it rests on one inequality — the mirror image of the
+ * radar's chaff test (doc/sensors.md §4.7), in the currency an optical head actually measures.
+ *
+ * A flare is not a reflector: it RADIATES. So there is no Doppler filter to hide in and no clutter bin
+ * to be confused with — the only question is which of the two hot spots in the field puts more power
+ * on the detector, and irradiance from a point source is I/r^2. Both intensities are in the same unit
+ * (core/FBCountermeasure.h's kFlarePeakIntensity: 1.0 = a clean airframe seen dead astern), so the
+ * comparison needs no third number and no calibration of its own:
+ *
+ *     flare wins  <=>  I_flare(age)/r_f^2  >  I_aircraft(aspect, burner)/r_t^2
+ *
+ * and the ASPECT does the rest by itself: head-on and dry an aircraft radiates 0.16 of the reference
+ * and loses to a cartridge six times over; astern in afterburner it radiates 2.25 and cannot be
+ * deceived by one at all. That asymmetry is the point of the whole mechanism, and it comes out of the
+ * detection law that was already there rather than out of a new constant.
+ *
+ * Everything here is measured on THIS head's own quantities: an intensity it derives from geometry it
+ * can see, and a range it has (internally) to each source. Nothing is read out of the target's state. */
+const FBFlareCloud *FBIrstSystem::SelectFlare(const FBFlareCloud *flares, const Fdm::fb_fdm_state &st,
+                                              const FBIrstFieldOfRegard &f, double simTimeS,
+                                              double tgtIntensity, double tgtRangeM,
+                                              double stickBloomS) const {
+  if (!flares || tgtRangeM <= 1.0) return nullptr;
+  const FBFlareCloud *best = nullptr;
+  double bestIrr = tgtIntensity / (tgtRangeM * tgtRangeM);
+  for (int i = 0; i < kMaxFlareClouds; i++) {
+    const FBFlareCloud &c = flares[i];
+    if (!c.Active) continue;
+    double intensity = kFlarePeakIntensity * FBFlareIrNorm(simTimeS - c.BloomS);
+    if (intensity <= 0.0) continue;
+    double rangeM = 0.0, brg = 0.0, elevAngle = 0.0, az = 0.0, el = 0.0;
+    FBRadarSystem::RelativeLos(st, c.LatDeg, c.LonDeg, c.AltM, rangeM, brg, elevAngle, az, el);
+    if (rangeM < 1.0) rangeM = 1.0;
+    /* The cartridge has to be BOTH inside the field of regard and bright enough to be seen at all —
+     * the same two tests any source passes, with its own intensity in the reach law. */
+    if (std::fabs(FBWrap180(az - f.AzCenterDeg)) > f.AzHalfDeg) continue;
+    if (std::fabs(el - f.ElCenterDeg) > f.ElHalfDeg) continue;
+    if (rangeM > f.RangeM * std::sqrt(intensity)) continue;
+    double irr = intensity / (rangeM * rangeM);
+    /* STICKINESS: the cartridge the gate is already on keeps it while it burns, whatever the airframe
+     * is doing — see kFlareSticky. */
+    if (kFlareSticky && stickBloomS > 0.0 && c.BloomS == stickBloomS) return &c;
+    if (irr > bestIrr) { bestIrr = irr; best = &c; }
+  }
+  return best;
+}
+
 /* THE FIRST TACTICAL EFFECT WEATHER HAS ON A SENSOR IN THIS SIMULATOR, and it is deliberately the
  * crudest honest form: a deck whose cover is at or above "broken" is treated as a LID between the two
  * altitudes it spans. Two aircraft on the same side of every deck see each other; one above and one
@@ -59,7 +114,7 @@ void FBIrstSystem::ScanFrame(const Fdm::fb_fdm_state &st, const Units::FBUnitReg
                              double simTimeS) {
   const FBIrstFieldOfRegard &f = ActiveField();
   bool seen[kMaxIrstContacts] = {};
-  int masked = 0;
+  int masked = 0, seduced = 0;
 
   bool sttOnly = f.SingleTarget && LockedNum_ != 0;
 
@@ -81,9 +136,24 @@ void FBIrstSystem::ScanFrame(const Fdm::fb_fdm_state &st, const Units::FBUnitReg
       FBRadarSystem::RelativeLos(st, p.LatDeg, p.LonDeg, p.ElevM, rangeM, bearingDeg, elevAngleDeg,
                                  azDeg, elDeg);
 
+      /* THE DECOY DECISION FALLS BEFORE THE FIELD TEST, the same order the radar keeps: a seduced look
+       * measures the CARTRIDGE, and then the CARTRIDGE has to lie in the field. What follows is
+       * therefore the flare's geometry — which is exactly the effect, because the guidance above this
+       * block flies at what the head reports. */
+      double tgtIntensity = TargetIntensity(f, p, sig.Afterburner, bearingDeg);
+      double stickS = slot >= 0 ? Tracks_[slot].SeducedBloomS : 0.0;
+      const FBFlareCloud *decoy =
+          SelectFlare(sig.Flare, st, f, simTimeS, tgtIntensity, rangeM, stickS);
+      double decoyBloomS = decoy ? decoy->BloomS : 0.0;
+      if (decoy) {
+        FBRadarSystem::RelativeLos(st, decoy->LatDeg, decoy->LonDeg, decoy->AltM, rangeM, bearingDeg,
+                                   elevAngleDeg, azDeg, elDeg);
+        seduced++;
+      }
+
       bool inField = std::fabs(FBWrap180(azDeg - f.AzCenterDeg)) <= f.AzHalfDeg &&
                      std::fabs(elDeg - f.ElCenterDeg) <= f.ElHalfDeg &&
-                     rangeM <= DetectRangeM(f, p, sig.Afterburner, bearingDeg);
+                     (decoy || rangeM <= DetectRangeM(f, p, sig.Afterburner, bearingDeg));
       /* Counted even when the source would have been out of the field anyway is WRONG for a diagnostic,
        * so the mask is only tallied where it actually decided the outcome. */
       if (inField && CloudMasked(st.elev, p.ElevM)) { inField = false; masked++; }
@@ -105,6 +175,14 @@ void FBIrstSystem::ScanFrame(const Fdm::fb_fdm_state &st, const Units::FBUnitReg
       }
 
       Track &t = Tracks_[slot];
+      if (decoyBloomS != t.SeducedBloomS) {
+        if (decoy)
+          FBLog::Info("irst", "FLARE_SEDUCED", {{"track", t.TrackNum}, {"tgtIntensity", tgtIntensity},
+              {"flareAgeS", simTimeS - decoy->BloomS}, {"azDeg", azDeg}, {"elDeg", elDeg}});
+        else
+          FBLog::Info("irst", "FLARE_RESOLVED", {{"track", t.TrackNum}, {"tgtIntensity", tgtIntensity}});
+        t.SeducedBloomS = decoyBloomS;
+      }
       t.BearingDeg = bearingDeg;
       t.ElevAngleDeg = elevAngleDeg;
       t.AzDeg = azDeg;
@@ -149,6 +227,7 @@ void FBIrstSystem::ScanFrame(const Fdm::fb_fdm_state &st, const Units::FBUnitReg
     TrackCount_--;
   }
   MaskedCount_ = masked;
+  SeducedCount_ = seduced;
 }
 
 /* Without range there is no "nearest": the only ordering an angle-only sensor has is ANGLE, so the
@@ -232,7 +311,7 @@ void FBIrstSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, const Units:
     b.CloudMaskedCount = 0;
     /* A caged head has NO picture, not an empty one — the same distinction the radar makes. */
     b.H.Invalidate();
-    ContactCount_ = MaskedCount_ = 0;
+    ContactCount_ = MaskedCount_ = SeducedCount_ = 0;
     LockAzDeg_ = LockElDeg_ = LockAgeS_ = 0.0f;
     LockNm_ = -1.0f;
     BlockStatus_ = (int)b.H.Status;

@@ -102,6 +102,30 @@ FBControls FBFlightControl::Run(const FBGuidance &g, const Fdm::fb_fdm_state &s)
   FBControls o{};
   if (g.Mode == FBMode::Manual) {
     o.Roll = g.ManualRoll; o.Pitch = g.ManualPitch; o.Yaw = g.ManualYaw; o.Thr = g.ManualThr;
+    /* DER BEGRENZER GILT AUCH AM HANDSTICK, und dass er das bis hierher nicht tat war ein echter Fehler
+     * und keine Auslassung: er modelliert die STICK-KRAFT der Zelle (Klassenkommentar), und eine
+     * Stick-Kraft weiss nicht, welchen Modus der Autopilot gerade fliegt. Sichtbar wurde es erst, als
+     * ein Muster OHNE eigenen Begrenzer im Deck (die MiG-29, doc/mig29/flight-model-spec.md §7.3) die
+     * erste Phase flog, die wirklich zieht: BFM kommandiert Manual, der Zweig oben reichte den Stick
+     * ungefiltert durch, und die Zelle ging bei 32 deg Anstellwinkel und 11,8 g weg (gemessen,
+     * missions/mig29-gun). Takeoff/Flare/Rollout sind die anderen Manual-Phasen und ziehen nie in die
+     * Naehe des Grenzwinkels, weshalb es dort nie auffiel.
+     * DAS GESETZ IST DASSELBE wie unten, Zeile fuer Zeile — es gibt nur einen Begrenzer. Fuer eine
+     * Zelle mit eigener FLCS im Deck ist AlphaLimitDeg 0 (F16()), der Zweig also tot und der Ausdruck
+     * bitgleich zu dem ohne ihn. */
+    if (AlphaLimitDeg > 0.0) {
+      if (AlphaPrimed) AlphaDot += kSosRateFilter * ((s.alphaDeg - AlphaPrev) / 0.01 - AlphaDot);
+      AlphaPrev = s.alphaDeg;
+      AlphaPrimed = true;
+      /* AM HANDSTICK VERBIETET ER NUR ZIEHEN und erzwingt nie Druecken — genau der Satz aus dem
+       * Klassenkommentar, hier woertlich als Ausdruck. Der Unterschied zum Zweig unten ist kein
+       * Geschmack: dort ist `cmd` eine kleine Reglergroesse, hier ist es die HAND, und eine
+       * Sprungstelle in der abgetasteten Anstellwinkelrate (Trimm-Einschwingen im ersten Zehntel)
+       * wuerde sonst als Vollausschlag nach vorn ankommen — gemessen: -44,6 vor dieser Klammer. */
+      double byAlpha = kSosKp * (AlphaLimitDeg - s.alphaDeg - kSosLeadS * AlphaDot);
+      if (byAlpha < 0.0) byAlpha = 0.0;
+      if (byAlpha < o.Pitch) o.Pitch = byAlpha;
+    }
     return LastControls_ = o;
   }
   if (Flcs) {
