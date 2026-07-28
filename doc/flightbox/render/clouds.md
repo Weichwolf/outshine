@@ -54,27 +54,74 @@ extension of the three étages — recorded under Gaps as a deliberate omission.
 
 ## State
 
-Six `FBCloud*` stages exist and work (three bake once, two run per frame, one is an init helper); the
-whole branch is only built when `FB_CLOUDS=1`.
+**Built (roadmap R5).** The six `FBCloud*` stages are gone; the chain is ONE class,
+`render/stages/FBCloudLayerStage`, over ONE shared density function, `core/FBCloudDensity.h`. Armed by
+default; `FB_CLOUDS=0` disarms it at boot.
 
-Owner's verdict: **expensive and ugly** — the chain is demolition material, not a base. Default is off
-(`FB_CLOUDS=0`, user decision 2026-07-23), and no weather source is wired: `FBState.Env.Cloud*` stays
-zero, and `FBCloudMarchStage` reads "0" as "no weather report" and sets its own default deck.
+| Piece | Where | What it is |
+|---|---|---|
+| The density function | `core/FBCloudDensity.h` | C++ half: hashed gradient noise, the coverage FBM, the analytic column, the erosion, plus `FBCloudSkyFromWeather` (the three decks from one `FBWeatherProvider` sample). Includes nothing above `core/` — `verify-layers` holds it there. |
+| The same function in WGSL | `render/stages/FBCloudDensityWGSL.h` | a literal transliteration whose **constants are printed from the C++ ones** (`FBCloudDensityConstsWGSL()`), so a number cannot drift between the picture and a measurement |
+| The stage | `render/stages/FBCloudLayerStage.{h,cpp}` | ray ∩ shell per deck, ≤ 3 segments front-to-back, 6–12 steps, blue-noise entry jitter, 2 sun taps, HG phase, sky-LUT ambient, Koschmieder haze, dither out. Blends **premultiplied straight into `HdrTex`**. |
+| The weather seam | `clients/FBAppNative.cpp`, `clients/FBAppWasm.cpp` | the CLIENT samples `FBWorld::Weather()` where the camera is and hands the renderer an `FBCloudSky` (`FBRenderer::SetCloudSky`). The renderer never sees a provider; the same call is what a future IR sensor makes. |
+| The numeric gate | `gpu_native --cloudcheck` | evaluates both halves over 12 288 samples and prints the largest disagreement; also measures the FBM distribution the coverage remap is calibrated against |
+| The frame gate | `sim/missions/wx-clouds-proof.fbm` | four legs above / inside / below one real GFS deck, for `gpu_native --mission --interval` |
 
-The distilled description of the existing chain is kept below under Knowledge — it is the record of
-what is being replaced, plus the studies in `doc/clouds/01`–`10`.
+**Pass topology.** The cloud pass is a separate render pass because it must SAMPLE the depth texture
+that was an attachment a moment earlier; it writes back into `HdrTex` with premultiplied blending, so
+`FBTonemapStage` has nothing to composite any more and collapsed from two pipelines to one. Per frame:
+**6 passes with no weather, 7 with a deck** (was 6 / 8), and the pass exists only when the weather
+actually has a deck — `render/passcount` logs `passes`, `clouds` and `cloudPass` so a frame's topology
+is readable from the telemetry.
+
+**No weather = no cloud.** The old chain invented a default deck when `FBState.Env.Cloud*` was zero;
+this one does not. A mission without a `wx` line renders exactly as before the rebuild.
+
+### Measured (Apple A18 Pro, native Dawn, 1280×720, `--albedo photo`, 600 frames per run)
+
+| Configuration | ms/frame | cloud cost |
+|---|---|---|
+| clouds off (`FB_CLOUDS=0`) | 3.0–3.7 | — |
+| **R5, one stage, FULL resolution** | 11.9–12.7 | **≈ 8.8 ms** |
+| the old six-stage chain, QUARTER resolution + temporal resolve | 25.8–26.8 | ≈ 23 ms |
+
+Same scene, same camera, same cover: **2.6× cheaper than the chain it replaces while marching four
+times as many pixels**, with no bake at boot and no history textures. The scene is deliberately the
+worst case — the camera sits just above a 76 %-cover deck, so nearly every pixel marches a full
+segment. 8.8 ms is still more than half a 60 Hz budget on this iGPU; `SetCloudQuality` scales the step
+count (0.25…8) and is the knob for it.
+
+| Other measurement | Value |
+|---|---|
+| C++ ↔ WGSL density agreement | max |Δ| **1.87·10⁻⁵**, mean 4.3·10⁻⁷ over 12 288 samples (3 decks, ±300 km, h ∈ [0,1] incl. the endpoints); tolerance 10⁻⁴ |
+| coverage remap calibration | FBM mean 0.4999, σ 0.1323 measured over 40 000 samples; requested cover 0.75/0.40/0.95 → realised area 0.733/0.408/0.960 |
+| cirrus streak axis | field axis **133.4°** vs the fixture's 250 hPa wind **137.2°** (3.8° residual = the per-octave shear); orientation coherence **0.949** anisotropic vs **0.261** for the same field at stretch 1 |
+| banding (dusk scene, smooth 500×160 px cloud region) | jitter+dither **88 levels, longest run 3 px, 0.9 % identical neighbours**; the same frame without them **83 levels, longest run 70 px, 61.6 % identical neighbours** |
+| telemetry | 14 telemetry CSVs over 7 missions byte-identical to the base tree; `events.log` identical except `wallS`/`speedup` |
+
+### Frame proofs
+
+All deterministic: pinned `--utc`, the committed `assets/wx-2026-07-27T00Z.wxb`. Written to
+`sim/build/r5-proofs/` (gitignored).
+
+| # | File | What it shows |
+|---|---|---|
+| 1 | `p1-undercast-from-above.png` | 46.84 N/6.92 E, 8 450 m, −35°: the 76 % deck from above, terrain and a lake through the gaps, the far field dissolving into the reported 24 km visibility |
+| 2 | `p2-flythrough/mission_00{28,36,44,68}.png` | the fly-through: above → entering (ceiling overhead, deck below) → inside (white-out) → below (terrain back, clear air) |
+| 3 | `p3-underside-into-sun.png` | 2 800 m, +40° toward the sun: the base damped by Beer, with the HG forward lobe as a silver patch around the sun direction |
+| 4 | `p4-cirrus-horizon.png`, `p4-cirrus-plan.png`, `p4-cirrus-field-plan.png` | 49 N/14 E, 64 % high cloud: fibres along the 250 hPa wind, not isotropic mush. The third is the C++ half of the same function dumped as a plan view — that is where the 133.4° above is measured, free of the perspective and of the mid deck underneath. |
+| 5 | `p5-dusk-banding.png` vs `p5b-dusk-nojitter-nodither.png` | the banding A/B above |
 
 ## Gaps
 
-### Open work (from the retired `TODO.md` §4)
+### Open work
 
 | # | Thing |
 |---|---|
-| 4.4 | clouds off by default **and no weather source wired** — the rebuild depends on the weather provider of roadmap R4 |
-| 4.9 | the rebuild itself: the Spec above is the contract, nothing of it is built |
-
-Order: R2 (server `/wx`) → R4 (`FBWeatherProvider`) → R5 (this rebuild). Building the marcher before
-the data source would mean tuning against an invented sky.
+| 5.1 | **Residual march noise.** 6–12 steps against an optically thick deck put the first-hit position one step apart between neighbouring pixels; the jitter turns that into grain rather than banding, but the grain is visible (std/mean 0.043–0.070 over a flat deck). No temporal resolve exists to average it, by spec. Options if it must go: a single bisection refinement at the entry, or a fourth "quality" step budget. |
+| 5.2 | **One ceiling, three decks.** GFS reports ONE ceiling; the rule spends it on the lowest broken deck and CLAMPS it into that étage's band. When the reported ceiling walks out of the band along a track the base sticks at the clamp instead of following — visible as a deck that stops rising. The alternative (rejecting it) was measured and is worse: a 2.7 km jump in one frame. |
+| 5.3 | **Undercast relief is gentle.** The sun taps span at most one deck thickness horizontally, which is physically right for a 900 m deck, so a closed deck from above reads flat and bright. Cumulus-topped decks would need a taller column model, which is the `kCloudTopMin` knob and nothing else today. |
+| 5.4 | **The mid deck has no character of its own** — it is the low deck's constants with a bigger feature size. Altocumulus banding (its actual signature) is not modelled. |
 
 ### Deliberate omissions of the rebuild
 
@@ -83,6 +130,9 @@ the data source would mean tuning against an invented sky.
 | No impostors | accepted price: broken cumulus reads as a patchy sheet |
 | **Single dramatic formations** — towering Cb, anvil, storm front | a formation is a different object than a layer. Not an extension of the three étages; if ever wanted, a fourth thing of its own with its own spec. |
 | No temporal accumulation, no bakes | one pass, full resolution — the banding is handled by jitter + dither instead |
+| **No 64³ erosion texture** | the spec allowed one *optionally*; erosion is instead two procedural 3-D octaves in the shader. That keeps "no bakes" literal AND makes the C++ mirror exact — a texture would have had to be reproduced bit-for-bit on the CPU side for `--cloudcheck` to mean anything. |
+| Clouds draw in SVS as well as EVS | the old chain gated the march on the EVS flag. Weather is weather; a database view of the terrain is not a reason to delete the sky. The SVS sun (fixed 45°/180°) lights them, which is what makes the SVS proof frames deterministic. |
+| No cloud shadows on the terrain | a second consumer of the same function (the terrain shader would sample it toward the sun); not in this round |
 
 ### Inventory (from the previous `Open points` section)
 
@@ -94,57 +144,91 @@ full; the points that belong here are above under Gaps.)
 
 Derivations, formulas and measured constants — the distilled body of this file.
 
-### The existing chain
+### The density function, in full
 
-Six classes, one per shader. **Three bake once, two run per frame, one is an init helper.** The whole
-branch is only built when `FB_CLOUDS=1` — otherwise it costs neither boot time nor VRAM.
+Per deck, `FBCloudDensity(deck, eastM, northM, h)` where east/north are metres in the tangent plane of
+a fixed anchor and `h ∈ [0,1]` is the height fraction inside the deck. Separable, exactly as specified:
 
 ```
-FBCloudMipDownStage  (shared box downsample, init time)
-   ├─ FBCloudBaseBakeStage   128³ Perlin-Worley  ─┐
-   ├─ FBCloudDetailBakeStage  32³ Worley         ─┤
-   └─ (FBCloudCellBakeStage   512² F1 cells)     ─┤
-                                                  ▼
-                                        FBCloudMarchStage  → CloudLowTex (quarter resolution)
-                                                  ▼
-                                        FBCloudResolveStage → CloudHist/CloudWSum (ping-pong)
-                                                  ▼
-                                        FBTonemapStage (composite)
+  x, y   = (east - driftE) / featureM , (north - driftN) / featureM     advection
+  a      = ( x·wE + y·wN) / stretch                                     along the wind, stretched
+  b      =  -x·wN + y·wE                                                across the wind
+  a,b   += (noise(a,b · warpFreq) - ½) · warp · {1, warpCross}          domain warp (mares' tails)
+  f      = Σ_{i<4} 2^-i · noise( a + shear·i·b , b )  / Σ 2^-i          FBM, sheared and ROTATED per octave
+  c      = smoothstep(edge - width, edge + width, f)                    the coverage remap
+  top    = mix(topMin, 1, c)                                            a stronger column reaches higher
+  dens   = c · smoothstep(0, profBase, h/top) · smoothstep(1, 1-profTop, h/top)
+  dens  -= erosionFbm(a·erodeFreq, b·erodeFreq, h·erodeVert) · erosion · mix(erodeBase, 1, h)
 ```
 
-Bind-group order (for the same pinning reason as with the atmosphere): first the bakes, then march
-(whose bind group pins their views), then resolve (which pins march's `CloudLowTex` view).
+Three things in there are not decoration, and each was forced by a measured artefact:
 
-**The march** (`FBCloudMarchStage`):
+1. **Gradient noise, not value noise.** Value noise puts its extrema on the lattice points, so the
+   coverage threshold draws the lattice as square cells.
+2. **Perlin's own gradient sets** (8 directions in 2-D, the 12 cube edges in 3-D). Four diagonal
+   (±1,±1) gradients still draw an axis-aligned grid once the remap amplifies the finest octave.
+3. **A per-octave rotation** by the 3-4-5 angle (cos 0.8 / sin 0.6, exact in binary floating point).
+   Without it every octave shares one lattice.
 
-| Quantity | Value | Provenance |
+And one that is not in the field at all but in the *interface*: **the advection offset is wrapped**
+(`kCloudDriftWrapM = 4·10⁶ m`). Handing this function a unix timestamp as its time produces a drift of
+~1.8·10¹⁰ m, at which point one f32 ulp of the finest octave's coordinate is a whole lattice cell — the
+fractional part is gone and the field degenerates into flat rectangles. That was the single worst
+artefact of the round and it is not a shader bug; it is an argument-range bug.
+
+**The remap is calibrated, not guessed.** `FBCloudCalibrate` places the threshold against the FBM's own
+measured distribution using the logistic approximation of the normal quantile,
+`edge = μ − σ·ln(p/(1−p))/1.702`, so `Cover` is an AREA FRACTION (realised 0.733 for 0.75, 0.408 for
+0.40, 0.960 for 0.95). The half-width runs from 0.35 σ at cover → 0 (discrete, hard-edged elements) to
+2.2 σ at cover → 1 (a closed, soft veil) — the spec's "coverage drives the character".
+
+### The constants
+
+| Constant | Value | Provenance |
 |---|---|---|
-| Target resolution | `Width/4 × Height/4`, rgba16float | cost budget; the resolve reconstructs from it |
-| Shell radii | absolute: `groundR = \|eye\| − AltM`, `rBase = groundR + baseAGL`, `rTop = rBase + thick` | deliberately computed against the REAL WGS84 ground, not against Hillaire's simplified 6360 km |
-| Default base | 8000 m AGL (a high, broken cellular layer) | accepted setting 2026-07-23; `FB_CLOUD_BASE_M` sweeps it |
-| Thickness | `2600 + 1400 · CloudHigh` m | a setting; `FB_CLOUD_THICK_M` |
-| Material | density 18, extinction 0.06, sun intensity 18, detail 1.3 | settings, overridable via `SetCloudLab` |
-| Coverage | max(CloudCover, Low, Mid, High); 0 → 0.4 in EVS | "no weather report" = a presentable default deck |
-| Screen jitter | exact 4×4 sub-raster, `FrameNo % 16` | every full-resolution sub-pixel gets a direct sample exactly once every 16 frames |
-| Ray dither | `frac(FrameNo · 0.6180339887)` | golden ratio against banding |
-| Wind drift | `nowSec · 8` (km scale) | a setting |
-| Cell field | 40 km per tile (≈ 4 km cells), dome subtraction 0.5 | `FB_CELL_KM` / `FB_CELL_DOME` |
+| `kCloudOctaves` / lacunarity / gain | 4 / 2 / 0.5 | [SET] |
+| `kCloudShear` | 0.30 | [SET] — the fall-streak lean; costs 3.8° of streak-axis error, measured |
+| `kCloudRotC/S` | 0.8 / 0.6 | [SET], exact in f32 |
+| `kCloudFbmMean` / `Sigma` | 0.4986→0.5007 / 0.1331 | **measured**, 40 000 samples, `--cloudcheck` |
+| `kCloudRemapHard` / `Soft` | 0.35 σ / 2.20 σ | [SET] |
+| `kCloudProfBase` / `Top` / `TopMin` | 0.18 / 0.60 / 0.45 | [SET]; `Top` was raised from 0.35 because a sharp lid terraces under a 6–12 step march |
+| `kCloudErodeOct/Freq/Vert/Base` | 2 / 10 / 3 / 0.35 | [SET] |
+| `kCloudDriftWrapM` | 4·10⁶ m | derived from f32 precision, see above |
+| deck defaults (base / thickness) | low 1 200 / 900 m, mid 4 200 / 1 400 m, high 9 000 / 500 m | [SET]; high = the spec's ~9 km, 500 m = "a few hundred metres" |
+| étage bands for the ceiling | low 150–4 000, mid 2 000–7 500, high 5 500–13 000 m | [SET]; NOT the WMO limits — GFS' low-cloud diagnostic runs to ~642 hPa, and a 2.5 km low limit threw away a measured 2 991 m ceiling |
+| feature size | low 16 km, mid 26 km, high 12 km | [SET] |
+| stretch | 1.0 / 1.35 / **7.0** | [SET]; cirrus inside the spec's 5–10:1 |
+| warp / erosion | 0.25/0.35/0.30 · 0.35/0.25/0.15 | [SET] |
+| extinction σ at density 1 | 0.022 / 0.018 / 0.0060 m⁻¹ | chosen from the optical depth over the deck's own thickness: 20 / 25 (opaque) and 3.0 (a translucent veil = cirrostratus) |
+| 250 hPa sample level | 10 800 m | [SET]; the level the spec names for the cirrus axis, and the fixture's own 250 hPa geopotential in mid-latitudes |
+| `kSunIntensity` / `kAmbientFloor` | 18 / 0.18 | [SET] against `kSkyExposure` = 8 |
+| `kMaxSegM` | 60 km | [SET] longest marched span through one deck |
+| `kErodeFadeNear/FarM` | 8 km / 45 km | [SET] — erosion is the highest frequency and the first thing a 12-step march undersamples |
+| haze | σ₀ = 3.912 / visibility, thinned by exp(−z/8000) | **derived**: Koschmieder + the ISA density scale height. The visibility comes from the same weather sample. |
 
-Optional GPU timing: if the device feature `TimestampQuery` is present, **both** indices bracket the
-march pass (only this one — leaving one index at `kQuerySetIndexUndefined` makes this Dawn build
-discard the whole command buffer). Resolve before `Finish`, poll after `Submit`; the mean is logged
-every 120 frames.
+### The march
 
-**The resolve** (`FBCloudResolveStage`): reprojection of the history over the camera motion at the
-**shell midpoint** (`CloudMidR = (rBase + rTop)/2`), two ping-pong pairs (`CloudHist` rgba16float,
-`CloudWSum` r32float = accumulated splat weight per full-resolution pixel). `ResetHistory()` and
-`SetAccumMode(true)` (a true 1/N mean instead of an exponential blend) are lab tools for the parameter
-sweeps.
+One segment per deck (that is the spec's "at most three short segments"), from
+`shellSegment(rIn, rOut)` — two quadratics, and the "camera below / inside / above" cases fall out of
+them rather than out of a branch. `t1` is clamped to the scene depth, reconstructed from the
+reversed-Z infinite projection as `t = zNear / (depth · cos)`, `zNear = 0.05 m`.
 
-**The composite** lives in the tonemap, not in the cloud: `scene = scene·(1−cl.a) + cl.rgb`
-(premultiplied) before the ACES fit. `FBTonemapStage` therefore holds **two pipelines from one source**
-— the plain variant does not bind the cloud texture at all, so the disabled path cannot sample stale
-history either. Which one applies is a boot-time constant and is never switched mid-run.
+Step count `clamp(segLen / (thickness·0.35), 6, 12) · quality`: a near-vertical crossing gets 6, a
+grazing one 12, and the step size adapts by itself. Entry offset = interleaved-gradient noise of the
+pixel — **spatial only**, no frame term anywhere in the shader, because without a temporal resolve a
+per-frame jitter is flicker rather than antialiasing.
 
-Deeper derivations on noise, density, lighting, march strategy, temporal reprojection and the iGPU
-budget are in `doc/clouds/01`–`10`.
+Light, per lit sample, no secondary march: optical depth toward the sun in closed form over the
+remaining thickness `(1−h)·thickness / max(sunUp, 0.20)`, times the mean of the local density and two
+taps into the 2-D field at the horizontal legs of that slant path; then three Wrenninge multi-scatter
+octaves against a dual-lobe HG phase (g = 0.8 / −0.5), a powder term, and hemispheric ambient from the
+existing sky-view LUT (zenith + a warm horizon bounce toward the sun).
+
+### The chain that was removed
+
+Six classes — `FBCloudMipDownStage`, `FBCloudBaseBakeStage` (128³ Perlin-Worley),
+`FBCloudDetailBakeStage` (32³ Worley), `FBCloudCellBakeStage` (512² F1 cells), `FBCloudMarchStage`
+(quarter-res march), `FBCloudResolveStage` (temporal reprojection, ping-pong history + weight sum) —
+plus `FBCloudNoiseCommon.h`, `FBTonemapStage`'s second pipeline, and the `--cloudlab` / `--cell`
+parameter-sweep harness in `clients/FBAppNative.cpp`. Its studies stay in `doc/clouds/01`–`10` as the
+record of what was learned; the code is gone. Its cost is in the table above.

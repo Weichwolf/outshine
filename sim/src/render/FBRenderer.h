@@ -24,12 +24,7 @@
 #include "stages/FBSunStage.h"
 #include "stages/FBMoonStage.h"
 #include "stages/FBTilesStage.h"
-#include "stages/FBCloudMipDownStage.h"
-#include "stages/FBCloudBaseBakeStage.h"
-#include "stages/FBCloudDetailBakeStage.h"
-#include "stages/FBCloudCellBakeStage.h"
-#include "stages/FBCloudMarchStage.h"
-#include "stages/FBCloudResolveStage.h"
+#include "stages/FBCloudLayerStage.h"
 #include "stages/FBTonemapStage.h"
 
 namespace FlightBox {
@@ -51,7 +46,6 @@ public:
 
   /* Offscreen only: tightly packed W*H*4 RGBA8, already sRGB-encoded — ready for stb_image_write. */
   bool ReadPixels(std::vector<uint8_t> &rgba);
-  void ShapeStats(float cover, float low, float high) { BaseBake->ShapeStats(cover, low, high); }   /* numeric histogram of the base shape/density field over the shell */
 
   /* The STATIC terrain path. Call before Init; FBTilesStage uploads it at Configure(). */
   void SetTerrain(const float *verts, uint32_t nverts, int ntiles, const uint32_t *voff,
@@ -102,15 +96,11 @@ public:
   void SetMoonScale(double s) { MoonScale = s > 0.0 ? s : 1.0; }
 
   /* Scales the march step counts; 0 disables the cloud pass entirely. */
-  void SetCloudQuality(double q) { Cloud->SetQuality(q); }
+  void SetCloudQuality(double q) { Clouds->SetQuality(q); }
 
-  /* Cloud-lab override for the parameter sweep, bypassing the weather-derived values. */
-  void SetCloudLab(float cover, float density, float extinct, float sunI, float detail) {
-    Cloud->SetCloudLab(cover, density, extinct, sunI, detail);
-  }
-  /* Discard the temporal history — the lab resets accumulation before each parameter cell. */
-  void ResetCloudHistory(void) { Resolve->ResetHistory(); }
-  void SetAccumMode(bool on) { Resolve->SetAccumMode(on); }   /* lab proof: true 1/N average instead of exponential blend */
+  /* The weather sample the clouds are built from, sampled by the CLIENT (which knows where it is) via
+   * core/FBCloudDensity.h's FBCloudSkyFromWeather. Unset = no decks = no cloud pass at all. */
+  void SetCloudSky(const FBCloudSky &sky) { Clouds->SetSky(sky); }
 
   /* 6 B/star, mag-sorted. Call before Init; placed at true alt/az for the given origin. */
   void SetStars(const uint8_t *hyg, int nbytes, double originLat, double originLon);
@@ -145,7 +135,7 @@ private:
   void UpdateAtmosphere(const double eye[3], const double sunDir[3], const double right[3],
                         const double camUp[3], const double fwd[3], const double moonDir[3],
                         double dayF, double moonPh, double cloud);    /* per-frame atmosphere uniform */
-  void CreateClouds(void);            /* bakes the 3 noise volumes, Configure()s March + Resolve (dependency order) */
+  void CreateClouds(void);            /* Configure()s the one cloud stage (needs the LUTs + DepthTex) */
 
   void StartAdapterRequest(void);
   void OnAdapter(wgpu::Adapter a);
@@ -162,7 +152,7 @@ private:
   wgpu::TextureFormat SurfaceFormat;
   wgpu::TextureFormat HdrFormat;   /* offscreen scene target: rg11b10ufloat where renderable, else rgba16float */
   std::unique_ptr<FBTonemapStage> Tonemap = std::make_unique<FBTonemapStage>();
-  bool CloudsOn = false;   /* FB_CLOUDS=1 arms the whole volumetric+dome cloud path; default off (build the pass, skip it) */
+  bool CloudsOn = true;   /* FB_CLOUDS=0 disarms the cloud pass at boot; ON costs nothing without weather */
   wgpu::Sampler Samp;              /* shared linear sampler: FBTilesStage's albedo, tonemap's HdrTex read */
   wgpu::Texture DepthTex, HdrTex;  /* shared scene targets: FBTilesStage/FBSkyStage draw into them, clouds sample DepthTex */
   std::unique_ptr<FBTilesStage> Tiles = std::make_unique<FBTilesStage>();
@@ -198,14 +188,8 @@ private:
   std::unique_ptr<FBUnitsStage> Units = std::make_unique<FBUnitsStage>();
   std::unique_ptr<FBSpritesStage> Sprites = std::make_unique<FBSpritesStage>();
 
-  /* The cloud chain; SVS leaves CloudsOn false and none of this is built. doc/flightbox/rendering.md §5. */
-  std::unique_ptr<FBCloudMipDownStage> CloudMipDown = std::make_unique<FBCloudMipDownStage>();
-  std::unique_ptr<FBCloudBaseBakeStage> BaseBake = std::make_unique<FBCloudBaseBakeStage>();
-  std::unique_ptr<FBCloudDetailBakeStage> DetailBake = std::make_unique<FBCloudDetailBakeStage>();
-  std::unique_ptr<FBCloudCellBakeStage> CellBake = std::make_unique<FBCloudCellBakeStage>();
-  std::unique_ptr<FBCloudMarchStage> Cloud = std::make_unique<FBCloudMarchStage>();
-  std::unique_ptr<FBCloudResolveStage> Resolve = std::make_unique<FBCloudResolveStage>();
-  bool HasTimestamp = false;   /* device feature (OnAdapter) — passed into Cloud->Configure() */
+  /* THE cloud chain: one stage, one pass, straight into HdrTex. doc/flightbox/render/clouds.md. */
+  std::unique_ptr<FBCloudLayerStage> Clouds = std::make_unique<FBCloudLayerStage>();
 
   /* FBHudStage is the WebGPU backend only; FBRenderer keeps the pose itself because sun/moon/cloud
    * drive its own lighting math, not just the HUD. */

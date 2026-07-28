@@ -1,0 +1,40 @@
+name wx-clouds-proof-1
+timeout 900
+
+# THE CLOUD FLY-THROUGH, and it is a RENDER proof, not a flight one: `fb-gym` has no renderer and this
+# mission is byte-identical there to any other set of straight legs. Its purpose is `gpu_native
+# --mission --interval`, where every frame is the same deck from a different side.
+#
+# THE DECK. `wx fixture` is the committed GFS blob (assets/wx-2026-07-27T00Z.wxb). Along the corridor
+# 46.62 N/6.78 E -> 46.90 N/7.02 E that cycle reports 53-83 % low cloud with a ceiling that stays
+# between 2 954 m and 3 023 m; core/FBCloudDensity.h turns that into ONE low deck of ceiling + 900 m
+# (kCloudLowThickM). The corridor is chosen for that STABILITY: 20 km further east the reported ceiling
+# passes 4 000 m, and a deck that moves a kilometre between two frames would make the fly-through
+# unreadable as a proof of anything else.
+#
+# THE PROFILE, four legs up and down the same corridor, one deck:
+#   1. 5 800 m — ABOVE the deck: an undercast with terrain in the gaps.
+#   2. 3 250 m — INSIDE the band, a third of the way up: the segment starts at the camera, which is the
+#      one code path the spec asks to be seamless. Visibility collapses where a column is dense and
+#      opens where the field leaves a gap — both are the same code.
+#   3. 1 900 m — BELOW the base: the deck becomes a ceiling overhead and the terrain returns.
+# The two descents between them are what has to look continuous. There is no third state to switch
+# into: "camera outside" and "camera inside" come out of the same two quadratics.
+#
+# IT ENDS IN TIMEOUT (exit 3), BY CONSTRUCTION — the last leg is a hold below the deck, so the final
+# frames are not mid-descent. A CRASH (exit 2) would NOT be fine: the legs stay above the terrain
+# (Payerne plateau ~450 m, Jura ridges ~1 600 m) by design.
+
+wx fixture wx-2026-07-27T00Z.wxb
+
+unit viper
+  module f16
+  spawn 46.62000 6.78000 5800 50.0 210       # air start well above the deck top, north-east up the corridor
+  set gear up
+  set fuel_pct 70
+  set datalink off                           # nothing here is an engagement; keep the trace clean
+  set fcr_mode off
+  wp 46.90000 7.02000 5800 210               # leg 1: level ABOVE the deck (undercast from above)
+  wp 46.62000 6.78000 3250 200               # leg 2: turn back, descend INTO the band, level in it
+  wp 46.90000 7.02000 1900 200               # leg 3: turn again, descend BELOW the base
+  wp 46.62000 6.78000 1900 200               # leg 4: hold below it, ceiling overhead

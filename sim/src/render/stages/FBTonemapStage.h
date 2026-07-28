@@ -1,26 +1,21 @@
-/* ONE shader source, TWO pipelines: same ACES compress, with and without the cloud composite. Which
- * one applies is a BOOT-TIME constant, never toggled mid-run. */
+/* ONE shader, ONE pipeline: the ACES compress from the HDR scene target to the frame target. It used
+ * to carry a second variant that composited a separate cloud texture; since the cloud pass blends into
+ * HdrTex itself (render/stages/FBCloudLayerStage), there is nothing left to switch on. */
 #ifndef FBTONEMAPSTAGE_H
 #define FBTONEMAPSTAGE_H
 
 #include "FBDrawStage.h"
-#include "FBCloudResolveStage.h"
 
 namespace FlightBox {
 
 class FBTonemapStage : public FBDrawStage {
 public:
-  /* nullptr when the cloud path is not armed. */
-  void Configure(const FBGpu &gpu, wgpu::Sampler samp, wgpu::TextureView hdrView,
-                 bool cloudsOn, const FBCloudResolveStage *cloudResolve);
+  void Configure(const FBGpu &gpu, wgpu::Sampler samp, wgpu::TextureView hdrView);
   void Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pass) override;
 
 private:
-  bool CloudsOn = false;
-  const FBCloudResolveStage *CloudResolve = nullptr;
-
-  wgpu::RenderPipeline TonemapPipe, TonemapPlainPipe;
-  wgpu::BindGroup TonemapBindH[2], TonemapBindPlain;
+  wgpu::RenderPipeline TonemapPipe;
+  wgpu::BindGroup TonemapBind;
 };
 
 } // namespace FlightBox
