@@ -26,6 +26,7 @@ source directory. If you know where the code is, you know where its file is.
 | *(missions, not a source dir)* | [duels.md](duels.md) — the asymmetric duel campaign |
 | *(cross-cutting, not a source dir)* | [formation.md](formation.md) — the flight as a fighting unit |
 | *(cross-cutting, not a source dir)* | [air-defence-network.md](air-defence-network.md) — the net above the single ground position |
+| *(cross-cutting, not a source dir)* | [air-to-ground.md](air-to-ground.md) — the air-to-ground half: beating that defence down |
 | `missions/` + `units/` | [missions/](missions/INDEX.md) |
 | `modules/` | [modules/](modules/f16/INDEX.md) |
 | `render/` | [render/](render/renderer.md) |
@@ -46,11 +47,13 @@ Every topic file carries the same four sections:
 
 The working rule that binds a round to this shape is in [`conventions.md`](conventions.md).
 
-Three files are deliberately outside the mirror because their subject is: [`duels.md`](duels.md) (a
+Four files are deliberately outside the mirror because their subject is: [`duels.md`](duels.md) (a
 PAIRING), [`formation.md`](formation.md) (a FLIGHT — it cuts through core, units, sensors, pilot and
-missions at once, and belongs whole in one place rather than in fifths) and
+missions at once, and belongs whole in one place rather than in fifths),
 [`air-defence-network.md`](air-defence-network.md) (a NET — the same cut, on the ground side, and the
-sequel to `modules/ground/` rather than a part of it).
+sequel to `modules/ground/` rather than a part of it) and
+[`air-to-ground.md`](air-to-ground.md) (an ENGAGEMENT of the one by the other — a weapon family, a
+sensor function, a verdict kind and a pilot cue, which live in five layers and belong in one argument).
 
 Exceptions, all deliberate: the **meta files** (this index, `vision.md`, `roadmap.md`, `journal.md`,
 `conventions.md`) carry no Spec/State/Gaps — they *are* the direction, the order, the history and the
@@ -84,6 +87,7 @@ were translated in the Phase-3 split; no German prose remains in `doc/`.
 | [duels.md](duels.md) | the **asymmetric measurement campaign** — `missions/duel-*.fbm`, the geometry × outcome table, the four asymmetries with their numbers, the EMCON timeline, the mixed tournament |
 | [formation.md](formation.md) | the **flight**: roles as mission data, the wingman's station on a moving point, target sorting from the shared picture against the briefed contract, the cover rule and why it is free for one weapon and unavailable for the other |
 | [air-defence-network.md](air-defence-network.md) | the **connected air defence** (`C22`/`C23`/`C24`, spec only): the cue that aims a fire unit's antenna and can never create a track, the belt declared as zones and read out of the verdict, weapons control and sector responsibility, what a defence becomes when its node is killed or jammed, and the bounded comms-jamming model. **The net adds no seventh registry reader** |
+| [air-to-ground.md](air-to-ground.md) | the **air-to-ground half** (`C8`/`C25`/`C26`/`C27`, spec only): the anti-radiation weapon whose seeker IS the warning receiver and whose memory is a RATE and never a point — so a crew that goes dark can still escape, on a derived `(t_go/t_f)^4` law; the five other stores each with the one quantity that decides it; what an APG-68 and an N019 honestly do against dirt (ranging, and nothing); **suppressed against destroyed** as a mechanism plus one objective kind; and the pre-existing defect that makes a bunker and a falling bomb radiate a fighter radar |
 | [campaigns/](campaigns/INDEX.md) | the **ten scenario specifications** — five flown by the F-16, five by the MiG-29, ten missions each, every anchor cited and tiered; plus the aggregated cast list, the capability gaps ordered by blocking degree, the identification task as an anti-cheat test and Bekaa as a measurable yardstick. **Spec only, nothing built** |
 
 ## Missions — `missions/`

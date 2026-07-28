@@ -143,6 +143,25 @@ rule written for a pilot meets a machine that has none:
 **What `C1` is not:** not `C21` (no declarable initial damage), not `C14` (no moving ground units, no
 ships), not `C17` (a runway with state). Those are named separately and stay separate.
 
+### `C8` — the air-to-ground store family: **SPECIFIED 2026-07-28, and its home is elsewhere**
+
+The store catalogue's air-to-ground half (anti-radiation round, Mk-84, laser-guided bomb, cluster, the
+FAB rows, the rocket pod) is specified in [`air-to-ground.md`](air-to-ground.md) §§2–3, for the same
+reason `C1`'s contract moved to `modules/ground/`: the subject cuts through `core/`, `sensors/`,
+`missions/` and `pilot/` as well as this file, and it belongs in one argument. **This file owns the
+weapon half and still does** — every new round is a unit (§1), released through `FBStoresSystem` (§2),
+resolved by the three boundaries (§5) and applied by `FBDamageModel` (§6). What that spec asks of THIS
+file is two things, and both are defects of contracts written here:
+
+| Collision | Detail | Proposed resolution |
+|---|---|---|
+| **A proximity fuze is resolved against `Aircraft` only, so no air-to-ground weapon can burst above its target** | §5.1's gate is `FBUnitKind::Aircraft` and §5.3 resolves a store only where it crosses the ground. A round with a laser proximity fuze, a cluster functioning at altitude and every future air-burst weapon therefore have **no resolution path at all** | widen `ResolveGroundBurst`'s trigger: a store with `FuzeRadiusM > 0` also resolves against `Ground` units on closest approach, with the identical CPA machinery. **§5.4's refusal is untouched** — that one forbids a ground burst against *aircraft* for want of a fragment-against-airframe geometry, and this is its mirror image, not its exception |
+| **The release interlocks ask the FIRE CONTROL; an anti-radiation round's precondition is a SEEKER** | §2.4 checks 5–7 read the cached `FBFireControlBlock`. That weapon needs none of the three and needs one thing nothing here has: a **pre-launch seeker state on a store still on the rail** — the identical defect [`modules/ground/module.md`](modules/ground/module.md) B1 measured on MANPADS | `RequiresLock = false`, and the angular cue travels on `FBStoreRelease` (three fields) from the shooter's OWN receiver — the same construction a guided round's `Target` uses. The general fix stays open and is now a defect of two weapon families |
+
+Also booked there: the two constructors in `modules/ground/` and `modules/stores/` that leave their
+radar slot powered, so **a bunker and a falling Mk-82 each radiate an `AirborneFireControl` beam**
+([`air-to-ground.md`](air-to-ground.md) §6, with the two missions it breaks predicted in advance).
+
 ### Deliberately not modelled (from the retired `TODO.md` §3)
 
 | Thing | Consequence |

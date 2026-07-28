@@ -145,7 +145,13 @@ recovered from the event's own `sizeMrad`/`contrast`; "reported" = where the sec
    the asymmetry currently runs entirely one way.
 3. **No air-to-ground radar mode.** `FBRadarSystem` filters on `FBUnitKind::Aircraft`: stores in free
    flight and ground targets are invisible to every radar. A ground target can therefore only be
-   approached via the steerpoint/fire control computation, never via a sensor.
+   approached via the steerpoint/fire control computation, never via a sensor. **Specified 2026-07-28
+   as `C25` in [`air-to-ground.md`](air-to-ground.md) §4, and the filter STAYS**: what is added is
+   air-to-ground **ranging** — one slant range and one point where the commanded antenna line meets the
+   terrain — never a contact, never a track, never a map. The refusal list (ground map, DBS, GMT, SEA,
+   FTT, ground RCS, HTS geolocation) is exhaustive there, and the reason the ranging needs a *sensor* at
+   all is that the fire control may sample the elevation provider at a **briefed** steerpoint and
+   nowhere else without one.
 4. **No measurement errors.** Geometry is exact (poses are truth); simulated are exclusively
    availability, volume, time and ageing. There is no noise on range, bearing or closure rate, and hence
    no track confusion either.
