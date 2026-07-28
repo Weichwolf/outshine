@@ -7,7 +7,7 @@
 #include "FBFdm.h"
 #include "FBTelemetry.h"
 
-namespace FlightBox {
+namespace FlightBox::Systems {
 
 class FBAirframeControls : public FBTelemetrySource {
 public:
@@ -23,6 +23,9 @@ public:
   /* Der EINZIGE Kanal, ueber den etwas oberhalb dieses Interface die Zelle wahrnehmen darf — das haelt
    * systems/ airframe- UND instanz-agnostisch. */
   virtual bool   GetWeightOnWheels() const { return false; }
+  /* Nase am Boden = die Zwei-Punkt-Lage ist vorbei. Der Pilot fuehlt genau das, und die Prozedur
+   * haengt daran (doc/f16/procedures-landing.md, Roll-Out), nicht an einer Geschwindigkeit. */
+  virtual bool   GetNoseWheelOnGround() const { return false; }
   virtual double GetGearPosition() const { return 0.0; }   /* 0=ein .. 1=aus, kinematisch verzoegert */
   virtual double GetSpeedbrake() const { return 0.0; }     /* 0..1, verzoegerter Readback */
   virtual double GetGrossWeightLbs() const { return 0.0; }
@@ -40,7 +43,7 @@ public:
 
 class FBJsbsimAirframeControls : public FBAirframeControls {
 public:
-  explicit FBJsbsimAirframeControls(FBFdm &fdm) : Fdm(fdm) {}
+  explicit FBJsbsimAirframeControls(Fdm::FBFdm &fdm) : Fdm(fdm) {}
 
   void SetGear(bool down) override;
   void SetSpeedbrake(double norm) override;
@@ -50,14 +53,15 @@ public:
   void EngineCutoff() override;
 
   bool   GetWeightOnWheels() const override;
+  bool   GetNoseWheelOnGround() const override;
   double GetGearPosition() const override;
   double GetSpeedbrake() const override;
   double GetGrossWeightLbs() const override;
   bool   GetEngineRunning(int engineIndex) const override;
 
 private:
-  FBFdm &Fdm;   /* geborgt — Besitzer ist, wem die Einheit gehoert */
+  Fdm::FBFdm &Fdm;   /* geborgt — Besitzer ist, wem die Einheit gehoert */
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems
 #endif

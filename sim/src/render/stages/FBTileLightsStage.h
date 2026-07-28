@@ -5,7 +5,7 @@
 
 #include "FBDrawStage.h"
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 class FBTileLightsStage : public FBDrawStage {
 public:
@@ -28,5 +28,5 @@ private:
   int NLights = 0, InstCap = 0;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

@@ -3,7 +3,7 @@
 #include "FBLog.h"
 #include <cmath>
 
-namespace FlightBox {
+namespace FlightBox::Pilot {
 
 namespace {
 const double kPreflightHoldS = 2.0;
@@ -84,7 +84,7 @@ const double kInterceptTrackSettleS = 2.0;
 double Clamp(double v, double lo, double hi) { return v < lo ? lo : v > hi ? hi : v; }
 
 /* Aus einem Kurswunsch den Punkt machen, den die Direct-Guidance braucht. */
-void AimAlongHeading(const fb_fdm_state &st, double hdgDeg, double &latDeg, double &lonDeg) {
+void AimAlongHeading(const Fdm::fb_fdm_state &st, double hdgDeg, double &latDeg, double &lonDeg) {
   double h = hdgDeg * kDeg2Rad;
   double coslat = std::cos(st.lat * kDeg2Rad);
   latDeg = st.lat + kInterceptAimM * std::cos(h) / kMPerDeg;
@@ -165,7 +165,7 @@ double FBPilot::SearchWeaveDeg(const FBTrackDatum &datum, bool searching) {
 /* EIN Entscheidungstakt des Kampfes: Bild lesen -> Verfolgungsart waehlen -> Zielpunkt bilden -> mit der
  * vorhandenen Energie hinfliegen. Das Bild ist ein RADAR-TRACK und sonst nichts. */
 FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionics,
-                                    const fb_fdm_state &st, double dt) {
+                                    const Fdm::fb_fdm_state &st, double dt) {
   Bfm_.Update(state, st, TimeS_);
   const FBBfmBlock &g = Bfm_.Block();
   /* Der Kopf beantwortet die zwei Fragen, auf die sich das ganze Gesetz verzweigt: gibt es ueberhaupt
@@ -571,7 +571,7 @@ bool FBPilot::CanPressOn(const FBState &state) const {
  * dann welchen Schalter fasse ich an. Alles Gesehene ist von simulierten Boxen geschrieben, nichts
  * davon Wahrheit. doc/flightbox/pilot-ai.md, Abschnitt 7. */
 FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &avionics,
-                                           const fb_fdm_state &st, const FBFlightPlan &plan, double dt) {
+                                           const Fdm::fb_fdm_state &st, const FBFlightPlan &plan, double dt) {
   /* Die Fusion des gelockten Kontakts, fuer das, was ein einzelnes Echo nicht hergibt: die
    * Zielgeschwindigkeit und daraus der Aspekt, unter dem die Schussentscheidung faellt. */
   Bfm_.Update(state, st, TimeS_);
@@ -820,7 +820,7 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
  * keine Zielposition — sie liest ein Instrument (die Luft-Boden-Felder des FireControl-Blocks), genau
  * wie sie vor einem Flare den Radarhoehenmesser liest. doc/flightbox/pilot-ai.md, Abschnitt 4. */
 FBPilotCommands FBPilot::AttackCommands(const FBState &state, FBCommandBus &avionics,
-                                        const fb_fdm_state &st, const FBFlightPlan &plan) {
+                                        const Fdm::fb_fdm_state &st, const FBFlightPlan &plan) {
   FBPilotCommands c{};
 
   /* ---- der Weg hinaus, sobald der Store weg ist ---- */
@@ -899,7 +899,7 @@ FBPilotCommands FBPilot::AttackCommands(const FBState &state, FBCommandBus &avio
 }
 
 FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
-                             const FBAirframeControls &airframe, const fb_fdm_state &st,
+                             const Systems::FBAirframeControls &airframe, const Fdm::fb_fdm_state &st,
                              const FBFlightPlan &plan, const FBRunway *runway, double dt) {
   PhaseElapsedS += dt;
   TimeS_ += dt;
@@ -1031,9 +1031,14 @@ FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
 
       if (runway) c.NosewheelSteer = NosewheelSteerCmd(*runway, st.lat, st.lon, st.yaw);
 
-      /* Radbremsen erst nach dem Absenken: in der Zwei-Punkt-Lage macht die Aerobrake die Arbeit
-       * (doc/f16/procedures-landing.md: die Radbremsen der F-16 sind schwach). */
-      double brake = casKt <= brakeKt ? RolloutBrakeNorm() : 0.0;
+      /* Radbremsen erst nach dem Absenken (doc/f16/procedures-landing.md, Roll-Out) — und das ist die
+       * NASE AM BODEN, nicht AerobrakeSpeedKt: in der Zwei-Punkt-Lage tragen die Fluegel das Flugzeug,
+       * die Haupraeder sind also unbelastet und eine Bremse hat gar nichts zu greifen. Die Prozedur
+       * nennt die ~100 kt als ERWARTUNG, wann die Nase faellt; faellt sie frueher, weil das
+       * Hoehenruder die Lage nicht mehr haelt, ist die Aerobrake dort zu Ende und die Bremsen gehoeren
+       * dorthin. Gelatcht, damit ein Aufsetz-Huepfer sie nicht wieder loest. */
+      if (airframe.GetNoseWheelOnGround()) RolloutNoseDown_ = true;
+      double brake = RolloutNoseDown_ ? RolloutBrakeNorm() : 0.0;
       c.WheelBrakeLeft = brake; c.WheelBrakeRight = brake;
       return c;
     }
@@ -1065,4 +1070,4 @@ void FBPilot::SampleTelemetry(FBTelemetryRow &row) const {
   row.Push(DistToWpCache);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Pilot

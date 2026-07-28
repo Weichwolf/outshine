@@ -6,7 +6,7 @@
 
 #include "FBTelemetry.h"
 
-namespace FlightBox {
+namespace FlightBox::Pilot {
 
 /* Die Zustandsmaschine des Abfangs. Telemetrie-sichtbare Strings — anhaengen, nie umsortieren. */
 enum class FBEngageState { Idle, Search, Closing, Attack, Support, Defend, Abort };
@@ -66,5 +66,5 @@ private:
   int    Shots_ = 0, Chaff_ = 0;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Pilot
 #endif

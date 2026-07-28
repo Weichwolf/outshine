@@ -6,7 +6,7 @@
 #include "FBUnits.h"
 #include <cmath>
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 namespace {
 constexpr float kMToFtF = 3.280839895f;
@@ -59,7 +59,7 @@ FBLaunchZone FBF16FireControl::SolveLaunchZone(const FBWeaponPerf &perf, double 
 /* Everything ballistic is core/FBGunBallistics' — the same arithmetic the rounds are then flown with,
  * which for an unguided projectile is what a fire-control computer genuinely solves. What is FIRE
  * CONTROL is the three answers the funnel gives: in range, how big in angle, how far off the nose. */
-void FBF16FireControl::SolveGun(FBState &state, const fb_fdm_state &own, const FBGunSpec *gun,
+void FBF16FireControl::SolveGun(FBState &state, const Fdm::fb_fdm_state &own, const FBGunSpec *gun,
                                 const FBBfmBlock &trk) {
   FBFireControlBlock &b = state.FireControl;
   b.GunValid = false;
@@ -108,7 +108,7 @@ void FBF16FireControl::SolveGun(FBState &state, const fb_fdm_state &own, const F
  * The three inputs are jet CONVENTIONS rather than arithmetic (doc/flightbox/modules-f16.md §8.4):
  * release state from the CG, aim point = the active steerpoint, impact plane = its own elevation. A
  * guided round or an empty station leaves the solution invalid, which is not an impact point of zero. */
-void FBF16FireControl::SolveGroundAttack(FBState &state, const fb_fdm_state &own,
+void FBF16FireControl::SolveGroundAttack(FBState &state, const Fdm::fb_fdm_state &own,
                                          const FBStoreSpec *selected) {
   FBFireControlBlock &b = state.FireControl;
   b.AgValid = false;
@@ -171,7 +171,7 @@ void FBF16FireControl::SolveGroundAttack(FBState &state, const fb_fdm_state &own
 }
 
 /* Slant = sqrt(horizontal^2 + altDiff^2), the 'B' (baro/steerpoint-elevation) method. */
-void FBF16FireControl::Run(FBState &state, const fb_fdm_state &own, const FBStoreSpec *selected,
+void FBF16FireControl::Run(FBState &state, const Fdm::fb_fdm_state &own, const FBStoreSpec *selected,
                            const FBGunSpec *gun, double nowS, double dt) {
   (void)dt;
   if (!state.Nav.H.Readable() || !state.Platform.H.Readable()) {
@@ -233,4 +233,4 @@ void FBF16FireControl::Run(FBState &state, const fb_fdm_state &own, const FBStor
   b.H.Publish(state.NowS);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules

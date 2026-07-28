@@ -1,6 +1,6 @@
 #include "FBF16Fcr.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 FBF16Fcr::FBF16Fcr() { RebuildVolumes(); }
 
@@ -11,7 +11,7 @@ void FBF16Fcr::RebuildVolumes() {
   double acm = (RangeOverrideNm_ > 0.0 ? RangeOverrideNm_ : kAcmRangeNm) * kNmToM;
   double search = (RangeOverrideNm_ > 0.0 ? RangeOverrideNm_ : kSearchRangeNm) * kNmToM;
 
-  FBRadarScanVolume off;
+  Sensors::FBRadarScanVolume off;
   off.Active = false;
   off.FrameS = 1.0;   /* never swept; a nonzero frame keeps the base class's scan grid well-defined */
   Modes_[(int)FBF16FcrMode::Off] = off;
@@ -20,29 +20,29 @@ void FBF16Fcr::RebuildVolumes() {
    * window is a few thousand feet of altitude band, and pointing it wrong is the classic way to fly
    * past a target the radar could easily have seen. Azimuth stays nose-centred — ±60° already spans
    * everything the jet can turn to inside one search cycle. */
-  FBRadarScanVolume crm;
+  Sensors::FBRadarScanVolume crm;
   crm.AzHalfDeg = 60.0; crm.ElCenterDeg = SlewElDeg_; crm.ElHalfDeg = 10.5;
   crm.RangeM = search; crm.FrameS = 4.0;
   Modes_[(int)FBF16FcrMode::Crm] = crm;
 
-  FBRadarScanVolume hud;
+  Sensors::FBRadarScanVolume hud;
   hud.AzHalfDeg = 15.0; hud.ElHalfDeg = 10.0; hud.RangeM = acm; hud.FrameS = 1.0;
   hud.AutoAcquire = true;
   Modes_[(int)FBF16FcrMode::AcmHud] = hud;
 
-  FBRadarScanVolume bore;
+  Sensors::FBRadarScanVolume bore;
   bore.AzHalfDeg = 5.0; bore.ElHalfDeg = 5.0; bore.RangeM = acm; bore.FrameS = 0.3;
   bore.AutoAcquire = true;
   Modes_[(int)FBF16FcrMode::AcmBore] = bore;
 
   /* Deliberately ASYMMETRIC (-13..+47): it exists to be pulled THROUGH a target in a high-g turn, so it
    * reaches far above the boresight and barely below — the reason a volume carries a CENTRE at all. */
-  FBRadarScanVolume vert;
+  Sensors::FBRadarScanVolume vert;
   vert.AzHalfDeg = 5.0; vert.ElCenterDeg = 17.0; vert.ElHalfDeg = 30.0;
   vert.RangeM = acm; vert.FrameS = 1.2; vert.AutoAcquire = true;
   Modes_[(int)FBF16FcrMode::AcmVert] = vert;
 
-  FBRadarScanVolume slew;
+  Sensors::FBRadarScanVolume slew;
   slew.AzCenterDeg = SlewAzDeg_; slew.AzHalfDeg = 10.0;
   slew.ElCenterDeg = SlewElDeg_; slew.ElHalfDeg = 10.0;
   slew.RangeM = acm; slew.FrameS = 0.8; slew.AutoAcquire = true;
@@ -69,4 +69,4 @@ void FBF16Fcr::SetRangeOverrideNm(double nm) {
   RebuildVolumes();
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules

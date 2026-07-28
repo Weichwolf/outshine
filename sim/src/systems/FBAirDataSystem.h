@@ -7,13 +7,13 @@
 #include "FBTelemetry.h"
 #include "FBFdm.h"
 
-namespace FlightBox {
+namespace FlightBox::Systems {
 
 class FBAirDataSystem : public FBTelemetrySource {
 public:
   virtual ~FBAirDataSystem() = default;
 
-  virtual void Run(FBState &state, const fb_fdm_state &fdm, double dt);
+  virtual void Run(FBState &state, const Fdm::fb_fdm_state &fdm, double dt);
 
   const char *TelemetryName() const override { return "airdata"; }
   void DeclareTelemetry(FBTelemetrySchema &schema) const override;
@@ -25,5 +25,5 @@ private:
   float CasKt = 0.0f, Mach = 0.0f, Nz = 0.0f, AoaDeg = 0.0f;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems
 #endif

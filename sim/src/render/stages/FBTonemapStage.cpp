@@ -1,6 +1,6 @@
 #include "FBTonemapStage.h"
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 static const char *kTonemapWGSL = R"(
 @group(0) @binding(0) var samp : sampler;
@@ -58,4 +58,4 @@ void FBTonemapStage::Encode(const FBFrameContext &, wgpu::RenderPassEncoder &pas
   pass.Draw(3);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render

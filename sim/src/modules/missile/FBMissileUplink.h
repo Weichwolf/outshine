@@ -11,18 +11,18 @@
 
 #include "FBDatalinkSystem.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
-class FBMissileUplink : public FBDatalinkSystem {
+class FBMissileUplink : public Sensors::FBDatalinkSystem {
 public:
   /* 0 = none, and then nothing is ever received. */
   void SetLauncherId(int id) { LauncherId_ = id; }
 
-  void Run(FBState &state, const fb_fdm_state &st, const FBUnitRegistry *net, double simTimeS) override;
+  void Run(FBState &state, const Fdm::fb_fdm_state &st, const Units::FBUnitRegistry *net, double simTimeS) override;
 
 private:
   int LauncherId_ = 0;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif

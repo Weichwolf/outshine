@@ -1,7 +1,7 @@
 #include "FBModuleRegistry.h"
 #include <map>
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 namespace {
 /* Function-local static, populated explicitly at a known point: avoids both the static-init order
@@ -28,4 +28,4 @@ void FBRegisterBuiltinModules() {
   FBRegisterGroundModules();
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules

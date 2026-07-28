@@ -101,8 +101,12 @@ count (0.25…8) and is the knob for it.
 
 ### Frame proofs
 
-All deterministic: pinned `--utc`, the committed `assets/wx-2026-07-27T00Z.wxb`. Written to
-`sim/build/r5-proofs/` (gitignored).
+Deterministic in their LIGHTING and their weather: pinned `--utc`, the committed
+`assets/wx-2026-07-27T00Z.wxb`. NOT in their terrain — the screenshot venue streams tiles while it
+renders, so a short run frames a half-built quadtree and the deck marches to the far plane instead of
+onto ground. A frame is only comparable to another once `fbworld` reports `pending=0`; the p1 camera
+needs ~180 frames for that (`--seconds 3.0 --interval 0.75`). Written to `sim/build/r5-proofs/`
+(gitignored).
 
 | # | File | What it shows |
 |---|---|---|
@@ -122,6 +126,7 @@ All deterministic: pinned `--utc`, the committed `assets/wx-2026-07-27T00Z.wxb`.
 | 5.2 | **One ceiling, three decks.** GFS reports ONE ceiling; the rule spends it on the lowest broken deck and CLAMPS it into that étage's band. When the reported ceiling walks out of the band along a track the base sticks at the clamp instead of following — visible as a deck that stops rising. The alternative (rejecting it) was measured and is worse: a 2.7 km jump in one frame. |
 | 5.3 | **Undercast relief is gentle.** The sun taps span at most one deck thickness horizontally, which is physically right for a 900 m deck, so a closed deck from above reads flat and bright. Cumulus-topped decks would need a taller column model, which is the `kCloudTopMin` knob and nothing else today. |
 | 5.4 | **The mid deck has no character of its own** — it is the low deck's constants with a bigger feature size. Altocumulus banding (its actual signature) is not modelled. |
+| 5.5 | **The stored proof PNGs are older than the source.** `p1-undercast-from-above.png` was captured mid-tuning and the committed tree no longer reproduces it (99.9 % of pixels differ). Re-measured on the merge with `origin/systems`: the pre-merge R5 binary and the merged one write BYTE-IDENTICAL frames for both the 4-frame and the 180-frame p1 invocation, so the drift is tuning history, not the merge. The whole set wants one re-capture run against the committed source. |
 
 ### Deliberate omissions of the rebuild
 

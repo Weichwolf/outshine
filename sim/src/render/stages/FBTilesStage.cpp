@@ -8,7 +8,7 @@
 #include <cstring>
 #include <string>
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 /* The terrain draw. Per-draw data, albedo array, grazing mip bias, RenderBundle signature and the
  * invariant counters: doc/flightbox/rendering.md, Abschnitt 6. */
@@ -530,4 +530,4 @@ void FBTilesStage::Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pa
   }
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render

@@ -7,7 +7,7 @@
 #include <vector>
 #include "FBLog.h"
 
-namespace FlightBox {
+namespace FlightBox::Clients {
 
 /* Browser console / interactive stdout. */
 class FBStdoutLogSink : public FBLogSink {
@@ -76,5 +76,5 @@ inline FBFileHandle FBOpenFile(const char *path, const char *mode) {
   return FBFileHandle(fopen(path, mode), &fclose);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Clients
 #endif /* FBLOGSINKS_H */

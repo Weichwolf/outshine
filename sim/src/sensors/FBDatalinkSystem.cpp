@@ -8,7 +8,7 @@
 #include <cmath>
 #include <cstring>
 
-namespace FlightBox {
+namespace FlightBox::Sensors {
 
 double FBDatalinkSystem::RadioHorizonM(double altAM, double altBM) {
   double a = std::max(0.0, altAM) * kMToFt, b = std::max(0.0, altBM) * kMToFt;
@@ -25,23 +25,23 @@ void CopyCallsign(char *dst, const std::string &src) {
 
 /* Ein Netzzyklus: das GANZE Bild wird neu gebaut, Registry IN REIHENFOLGE — die Trackliste haengt damit
  * nie daran, wer zuerst gehoert wurde. */
-void FBDatalinkSystem::Cycle(const fb_fdm_state &st, const FBUnitRegistry &net, double simTimeS) {
+void FBDatalinkSystem::Cycle(const Fdm::fb_fdm_state &st, const Units::FBUnitRegistry &net, double simTimeS) {
   FBDatalinkTrack fresh[kMaxDatalinkTracks];
   int n = 0;
   int flightIndex = -1;
   const double dropAgeS = kDropAfterCycles * kNetPeriodS;
 
-  for (const FBUnit *u : net.Units()) {
+  for (const Units::FBUnit *u : net.Units()) {
     if (!u || u->GetTeam() != SelfTeam_) continue;   /* ein kooperatives Netz traegt nur die eigene Fraktion */
     /* Ein abgeworfener Store gehoert zur selben Fraktion, traegt aber kein Terminal — und der Test muss
      * VOR das Ordinal, weil der FR/FL-Filter genau darauf selektiert. */
-    if (u->GetKind() != FBUnitKind::Aircraft) continue;
+    if (u->GetKind() != Units::FBUnitKind::Aircraft) continue;
     flightIndex++;                                   /* Ordinal in der Rotte, eigene Einheit eingeschlossen */
     if (u->GetId() == SelfId_) continue;             /* die eigene PPLI ist kein Track auf dem eigenen Display */
     if (!AcceptContact(*u, flightIndex)) continue;
     if (n >= kMaxDatalinkTracks) break;
 
-    FBUnitPose p = u->GetPose();
+    Units::FBUnitPose p = u->GetPose();
     double rangeM = FBPlanarDistM(st.lat, st.lon, p.LatDeg, p.LonDeg);
     bool heard = u->GetSignature().DatalinkXmt &&
                  rangeM <= std::min(MaxRangeM_, RadioHorizonM(st.elev, p.ElevM));
@@ -87,7 +87,7 @@ void FBDatalinkSystem::Cycle(const fb_fdm_state &st, const FBUnitRegistry &net, 
   TrackCount_ = n;
 }
 
-void FBDatalinkSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegistry *net,
+void FBDatalinkSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, const Units::FBUnitRegistry *net,
                            double simTimeS) {
   FBDatalinkBlock &b = state.Datalink;
   b.Powered = Powered_;
@@ -149,4 +149,4 @@ void FBDatalinkSystem::SampleTelemetry(FBTelemetryRow &row) const {
   row.Push((double)NearestAgeS_);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Sensors

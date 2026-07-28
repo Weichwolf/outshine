@@ -47,13 +47,40 @@ def canonical_diff(rel, up_path, cp_path):
     return "".join(out)
 
 
+def strip_comments(text):
+    """Drop HTML comments — the file documents its own entry format inside one — but never touch the
+    inside of a ```diff fence: an aircraft XML is comment-heavy, so a legitimate delta may well move
+    `<!-- -->` lines, and eating those would make exactly that delta undeclarable. Whichever of the two
+    opens first wins, so the format template (a fence INSIDE a comment) still disappears whole."""
+    out, state = [], "text"
+    for line in text.splitlines(keepends=True):
+        if state == "comment":
+            if "-->" in line:
+                state = "text"
+                line = line.split("-->", 1)[1]
+            else:
+                continue
+        if state == "fence":
+            out.append(line)
+            if line.rstrip("\n") == "```":
+                state = "text"
+            continue
+        line = re.sub(r"<!--.*?-->", "", line)
+        if "<!--" in line:
+            state = "comment"
+            line = line.split("<!--", 1)[0]
+        elif line.startswith("```diff"):
+            state = "fence"
+        out.append(line)
+    return "".join(out)
+
+
 def parse_delta_doc(path):
     """-> (origins [(copy_rel, upstream_rel|None)], deltas {copy_rel: diff_text}, errors)."""
     errors = []
     with open(path, encoding="utf-8") as f:
         text = f.read()
-    # Strip HTML comments first: the file documents its own entry format inside one.
-    text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
+    text = strip_comments(text)
 
     origins = []
     m = re.search(r"^## Herkunft\s*$(.*?)^## ", text, flags=re.M | re.S)

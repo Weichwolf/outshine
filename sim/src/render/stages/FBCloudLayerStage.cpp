@@ -7,7 +7,7 @@
 #include <cstring>
 #include <string>
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 /* Look/material constants of the MARCH (the shape constants live in core/FBCloudDensity.h). All [SET]
  * except where a derivation is named. */
@@ -376,4 +376,4 @@ void FBCloudLayerStage::Encode(const FBFrameContext &, wgpu::RenderPassEncoder &
   pass.Draw(3);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render

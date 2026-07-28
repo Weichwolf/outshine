@@ -1,6 +1,6 @@
 #include "FBWarningSystem.h"
 
-namespace FlightBox {
+namespace FlightBox::Systems {
 
 void FBWarningSystem::Run(FBState &state, double dt) {
   (void)dt;
@@ -41,4 +41,4 @@ void FBWarningSystem::SampleTelemetry(FBTelemetryRow &row) const {
   row.Push((int)Inhibited_);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems

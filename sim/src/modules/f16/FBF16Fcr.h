@@ -11,7 +11,7 @@
 #include <cstring>
 #include "FBRadarSystem.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 /* Ordinals are the telemetry's `fcr_mode` column, so the order is observable schema — append, never
  * reorder. */
@@ -39,7 +39,7 @@ inline const char *FBF16FcrModeStr(FBF16FcrMode m) {
   return "?";
 }
 
-class FBF16Fcr : public FBRadarSystem {
+class FBF16Fcr : public Sensors::FBRadarSystem {
 public:
   /* Every close-in sub-mode is a 10 nm acquisition mode: the volume is the aiming device, not reach. */
   static constexpr double kAcmRangeNm = 10.0;
@@ -64,7 +64,7 @@ public:
 protected:
   /* THE override: the sub-mode's box while searching, the STT gimbal envelope once locked. That change
    * from "sweep a small box" to "stare at one target" IS the whole ACM->STT transition. */
-  const FBRadarScanVolume &ActiveVolume() const override {
+  const Sensors::FBRadarScanVolume &ActiveVolume() const override {
     /* Off outranks the lock: switching the set off must STOP the antenna, not leave it staring through
      * an OFF mode. Every other mode hands the lock over to STT. */
     if (Mode_ == FBF16FcrMode::Off) return Modes_[(int)FBF16FcrMode::Off];
@@ -78,9 +78,9 @@ private:
   FBF16FcrMode Mode_ = FBF16FcrMode::Crm;   /* CRM is the power-up mode (doc/f16/radar-sensors.md) */
   double SlewAzDeg_ = 0.0, SlewElDeg_ = 0.0;
   double RangeOverrideNm_ = 0.0;   /* 0 = use the mode table's own gate */
-  FBRadarScanVolume Modes_[6]{};
-  FBRadarScanVolume Stt_{};
+  Sensors::FBRadarScanVolume Modes_[6]{};
+  Sensors::FBRadarScanVolume Stt_{};
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif

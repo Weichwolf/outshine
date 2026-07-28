@@ -13,9 +13,9 @@
 #include "FBState.h"
 #include "FBFdm.h"
 
-namespace FlightBox {
+namespace FlightBox::World { class FBWorld; }   /* nur geborgt */
 
-class FBWorld;   /* nur geborgt */
+namespace FlightBox::Systems {
 
 /* HOTAS (SSC+TQS) + ICP: Stick-/Schalterereignisse nach aktivem Master-Mode geroutet. */
 class FBInputSystem {
@@ -29,7 +29,7 @@ public:
 class FBPropulsionSystem {
 public:
   virtual ~FBPropulsionSystem() = default;
-  virtual void Run(const fb_fdm_state &s, double dt) { (void)s; (void)dt; }
+  virtual void Run(const Fdm::fb_fdm_state &s, double dt) { (void)s; (void)dt; }
 };
 
 /* Historischer SMS/Gun-Stub, ueberholt durch FBStoresSystem/FBGunSystem
@@ -37,8 +37,8 @@ public:
 class FBWeaponSystem {
 public:
   virtual ~FBWeaponSystem() = default;
-  virtual void Run(FBMasterMode mode, const FBWorld *world, double dt) { (void)mode; (void)world; (void)dt; }
+  virtual void Run(FBMasterMode mode, const World::FBWorld *world, double dt) { (void)mode; (void)world; (void)dt; }
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems
 #endif

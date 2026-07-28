@@ -19,7 +19,7 @@
 #include "FBTelemetry.h"
 #include "FBFdm.h"
 
-namespace FlightBox {
+namespace FlightBox::Pilot {
 
 /* None = „den AP unangetastet lassen" — das Modul ruft den passenden Setter nur bei konkretem Modus. */
 enum class FBPilotGuidance { None, Manual, Direct, Course };
@@ -64,7 +64,7 @@ public:
    * MEHR STEHT NICHT IN DIESER SIGNATUR, und das ist der Punkt: ein Pilot fliegt auf Instrumenten und
    * hat keinen Pfad zur Welt oder zur Einheiten-Registry. */
   virtual FBPilotCommands Run(const FBState &state, FBCommandBus &avionics,
-                              const FBAirframeControls &airframe, const fb_fdm_state &st,
+                              const Systems::FBAirframeControls &airframe, const Fdm::fb_fdm_state &st,
                               const FBFlightPlan &plan, const FBRunway *runway, double dt);
 
   /* DER BRIEF: was dieser Pilot im Jet einstellen SOLL, und das Einzige, wofuer er je eine Avionikbox
@@ -230,14 +230,14 @@ private:
   void DispenseBriefedCm(FBCommandBus &avionics);
 
   /* Der Rumpf der Bfm-Phase: die einzige Phase mit EIGENEM Regelgesetz statt eines Autopilot-Ziels. */
-  FBPilotCommands BfmCommands(const FBState &state, FBCommandBus &avionics, const fb_fdm_state &st,
+  FBPilotCommands BfmCommands(const FBState &state, FBCommandBus &avionics, const Fdm::fb_fdm_state &st,
                               double dt);
   /* Der Abzugsfinger, getrennt vom Fliegen: eine Waffe zu bedienen ist kein Steuern. */
   void BfmGunfire(const FBState &state, FBCommandBus &avionics);
-  FBPilotCommands AttackCommands(const FBState &state, FBCommandBus &avionics, const fb_fdm_state &st,
+  FBPilotCommands AttackCommands(const FBState &state, FBCommandBus &avionics, const Fdm::fb_fdm_state &st,
                                  const FBFlightPlan &plan);
   FBPilotCommands InterceptCommands(const FBState &state, FBCommandBus &avionics,
-                                    const fb_fdm_state &st, const FBFlightPlan &plan, double dt);
+                                    const Fdm::fb_fdm_state &st, const FBFlightPlan &plan, double dt);
   /* EINE Bedienhandlung je Entscheidungstakt, in Prioritaetsreihenfolge: die defensiven zuerst, denn
    * wer beschossen wird, editiert keinen Radarmodus. */
   bool InterceptCockpit(const FBState &state, FBCommandBus &avionics, int designateTrack, bool wantShot,
@@ -248,7 +248,7 @@ private:
   /* Der Versatz des Such-Webens, verankert am Suchbeginn statt an der Missionsuhr, und auf die
    * Unsicherheitsbreite des Datums geweitet. */
   double SearchWeaveDeg(const FBTrackDatum &datum, bool searching);
-  void Transition(Phase p) { CurPhase = p; PhaseElapsedS = 0.0; }
+  void Transition(Phase p) { CurPhase = p; PhaseElapsedS = 0.0; RolloutNoseDown_ = false; }
 
   /* DIE EINLAUFENDE BAHN des aktiven Wegpunkts, falls die Mission eine deklariert hat. Ein Bein sind
    * zwei DEKLARIERTE Fixe und sonst nichts: zum ERSTEN Wegpunkt gibt es keine Bahn, und eine aus der
@@ -263,6 +263,7 @@ private:
 
   Phase CurPhase = Phase::Idle;
   double PhaseElapsedS = 0.0;
+  bool RolloutNoseDown_ = false;  /* gelatcht: die Zwei-Punkt-Lage ist vorbei, Radbremsen frei */
   int ActiveWpCache = -1;         /* Telemetriecache, in Run() gesetzt */
   double DistToWpCache = -1.0;
 
@@ -337,5 +338,5 @@ private:
   double BriefNextTryS_ = 0.0;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Pilot
 #endif

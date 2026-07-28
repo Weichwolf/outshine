@@ -42,20 +42,62 @@ The coding style follows JSBSim, because FlightBox fits into its ecosystem:
 | Classes | `FB` prefix (analogous to JSBSim's `FG`) | `FBFlightControl`, `FBRenderer` |
 | Methods | PascalCase | `Run()`, `GetLoadFactor()` |
 | Members | PascalCase | `LatDeg`, `EngState_` |
-| Namespace | one `namespace FlightBox` | — |
+| Namespace | `FlightBox` for `core/`, `FlightBox::<Layer>` above it — see below | `FlightBox::Systems` |
 | Files | one class per file | `FBName.h` / `FBName.cpp` |
 | Getters | inline in the header | — |
 | Header guards | yes | — |
 
 JSBSim's LGPL banner is not copied — our files carry our licence.
 
+### Namespaces mirror the layers
+
+Until the `src/` tree was cut into layers there was exactly **one** `namespace FlightBox`, because
+there was exactly one place a class could be. There no longer is: `src/` is a stack of twelve
+directories with an enforced include order (`sim/tools/verify_layers.py`), and the namespace now says
+the same thing to a **reader** that the include rank says to the **build**.
+
+`core/` keeps the root `namespace FlightBox`. Its value types — `FBState`, `FBLog`, `FBGeodesy`, the
+incorruptible judges — appear in the signatures of every layer above; nesting them would put a
+qualifier on nearly every line and carry no information, since "it is in core" is exactly what "it is
+everywhere" already means. Every layer **above** core nests one level, and one only:
+
+`FlightBox::Fdm` · `::Units` · `::Sensors` · `::Weapons` · `::Systems` · `::Pilot` · `::Modules` ·
+`::Missions` · `::Clients` · `::Render` · `::World`
+
+A cross-layer name therefore carries its layer where it is **used** — `Fdm::FBFdm`,
+`Sensors::FBRadarSystem`, `Units::FBUnitRegistry` — which is the point: the qualifier at the call site
+is the layer boundary made visible. Inside its own layer a class is spelled bare, as before.
+
+There is **no second level per airframe**. `FlightBox::Modules::F16` would be the only member of that
+level with more than a handful of files, the `FB` prefix already carries the airframe (`FBF16Fcr`,
+`FBStoreModule`, `FBGroundModule`), and nothing outside `modules/` names any of those types anyway —
+the whole layer is reached through `FBModule*` and the registry's string key. A level that only ever
+appears in its own directory buys nothing.
+
+Two consequences, both machine-checked:
+
+* **`using namespace` never appears in a header.** It would leak into every translation unit that
+  includes it and delete the qualifier at exactly the call sites the boundary is made of. In a `.cpp`
+  it is allowed but rare — today only in the entry-point TUs, where the global `main` and the
+  `extern "C"` exports force file scope anyway.
+* **The C island is named, not tolerated.** `world/terrain/` (the `osmmesh_*` leaf library),
+  `world/FBTerrainLoader.*` (the tile-streaming C ABI), `clients/FBTileWorkerMain.cpp` (the tile
+  worker's `extern "C"` exports), `clients/FBSimHost.cpp` and `fdm/em_compat.h` carry an `extern "C"`
+  contract or are force-included into vendored C sources. Their namelessness is the contract, so they
+  are listed by name with their reason in `verify_layers.py` — and a namespace appearing in one of
+  them is an error, the same as a missing one anywhere else.
+
 ## `extern "C"`
 
 Only for functions called from JavaScript **by name**. `EMSCRIPTEN_KEEPALIVE` alone is not enough —
 mangling breaks exports silently.
 
-Today this concerns exactly two symbols: `fb_toggle_ground` and `fb_set_ground` in `FBAppWasm.cpp`. The
-FDM adapter is explicitly **not** such a case and lives in `namespace FlightBox`.
+The truth is the Makefile's `EXPORTED_FUNCTIONS`, in two link targets: the app
+(`fb_toggle_ground`, `fb_set_ground`, `fb_wx_ready`, `fb_wx_failed` in `FBAppWasm.cpp`, plus `main`)
+and the tile worker (the ten `fbtw_*` in `FBTileWorkerMain.cpp`). Every one of them is an
+`extern "C"` definition, and every one appears unmangled in the built `.wasm`.
+
+The FDM adapter is explicitly **not** such a case and lives in `namespace FlightBox::Fdm`.
 
 ## No scattered output
 

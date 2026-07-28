@@ -12,7 +12,7 @@
 #include "FBTelemetry.h"
 #include "FBFdm.h"
 
-namespace FlightBox {
+namespace FlightBox::Sensors {
 
 class FBCountermeasureSystem : public FBTelemetrySource {
 public:
@@ -55,7 +55,7 @@ public:
 
   /* `simTimeS` ist ABSOLUT — daran werden Salven-/Burst-Intervalle gemessen, damit ein Programm in
    * seiner deklarierten Rate spielt, egal wie oft das Modul den Slot taktet. */
-  virtual void Run(FBState &state, const fb_fdm_state &st, double simTimeS);
+  virtual void Run(FBState &state, const Fdm::fb_fdm_state &st, double simTimeS);
 
   const char *TelemetryName() const override { return "cm"; }
   void DeclareTelemetry(FBTelemetrySchema &schema) const override;
@@ -84,9 +84,9 @@ private:
   void LoadGenericPrograms();
   void StartProgram(int n, double nowS, const char *why);
   void StopProgram(const char *why);
-  bool PlayType(FBCmType type, const FBCmProgramType &p, Player &pl, const fb_fdm_state &st,
+  bool PlayType(FBCmType type, const FBCmProgramType &p, Player &pl, const Fdm::fb_fdm_state &st,
                 double simTimeS);
-  void Eject(FBCmType type, const fb_fdm_state &st, double simTimeS);
+  void Eject(FBCmType type, const Fdm::fb_fdm_state &st, double simTimeS);
   void ServiceAutomatic(const FBState &state, double simTimeS);
   bool Low(FBCmType type) const;
 
@@ -109,5 +109,5 @@ private:
   int  BlockStatus_ = 0;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Sensors
 #endif

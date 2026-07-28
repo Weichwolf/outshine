@@ -8,7 +8,7 @@
 #include <string>
 #include "FBModule.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 using FBModuleFactory = std::function<std::unique_ptr<FBModule>()>;
 
@@ -28,5 +28,5 @@ void FBRegisterGroundModules();
 /* Every module this link target was built with. Idempotent; call once before the first Create(). */
 void FBRegisterBuiltinModules();
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif

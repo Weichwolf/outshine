@@ -1,6 +1,6 @@
 #include "FBTelemetrySinks.h"
 
-namespace FlightBox {
+namespace FlightBox::Clients {
 
 namespace {
 void WriteJoined(FILE *f, const std::vector<std::string> &fields) {
@@ -20,4 +20,4 @@ void FBCsvTelemetrySink::Row(const std::vector<std::string> &fields) {
   if (F) WriteJoined(F, fields);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Clients

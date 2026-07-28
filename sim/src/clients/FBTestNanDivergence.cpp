@@ -48,7 +48,7 @@ void ExpectDiverged(const char *field, const FBFlightMonitorSample &s) { Expect(
 } // namespace
 
 int main() {
-  FBStdoutLogSink sink;
+  Clients::FBStdoutLogSink sink;
   FBLog::SetSink(&sink);
   FBLog::SetLevel(FBLogLevel::Debug);
   FBLog::SetTime(1.0);

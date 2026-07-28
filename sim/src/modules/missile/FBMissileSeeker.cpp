@@ -1,6 +1,6 @@
 #include "FBMissileSeeker.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 FBMissileSeeker::FBMissileSeeker() {
   Vol_.AzHalfDeg = kFovHalfDeg;
@@ -28,4 +28,4 @@ void FBMissileSeeker::SlewTo(double azDeg, double elDeg) {
   Vol_.ElCenterDeg = elDeg;
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules

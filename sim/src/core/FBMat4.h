@@ -6,12 +6,14 @@
 #include <math.h>
 #include <string.h>
 
-static void m_identity(float *m) {
+namespace FlightBox {
+
+inline void FBMat4Identity(float *m) {
   memset(m, 0, 64);
   m[0] = m[5] = m[10] = m[15] = 1;
 }
 
-static void m_mul(float *o, const float *a, const float *b) {
+inline void FBMat4Mul(float *o, const float *a, const float *b) {
   float r[16];
   for (int c = 0; c < 4; c++)
     for (int rr = 0; rr < 4; rr++) {
@@ -27,7 +29,7 @@ static void m_mul(float *o, const float *a, const float *b) {
  * z-row). With GL_GEQUAL and a 32-bit float depth buffer the 1/z curve cancels the mantissa
  * distribution, giving near-uniform precision over 0.01 m..240 km. x/y and w are unchanged, so screen
  * projection, the HUD's manual projection and frustum extraction are unaffected. */
-static void m_persp(float *m, float fovy, float asp, float zn, float zf) {
+inline void FBMat4Perspective(float *m, float fovy, float asp, float zn, float zf) {
   float f = 1.f / tanf(fovy * 0.5f);
   memset(m, 0, 64);
   m[0] = f / asp;
@@ -37,7 +39,7 @@ static void m_persp(float *m, float fovy, float asp, float zn, float zf) {
   m[14] = (2 * zn * zf) / (zf - zn);
 }
 
-static void v_norm(float *v) {
+inline void FBVec3Normalize(float *v) {
   float l = sqrtf(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
   if (l > 1e-6f) {
     v[0] /= l;
@@ -46,22 +48,22 @@ static void v_norm(float *v) {
   }
 }
 
-static void v_cross(float *o, const float *a, const float *b) {
+inline void FBVec3Cross(float *o, const float *a, const float *b) {
   o[0] = a[1] * b[2] - a[2] * b[1];
   o[1] = a[2] * b[0] - a[0] * b[2];
   o[2] = a[0] * b[1] - a[1] * b[0];
 }
 
 /* World -> view. Camera at eye, looking at ctr, with up roughly `up`. */
-static void m_lookat(float *m, const float *eye, const float *ctr, const float *up) {
+inline void FBMat4LookAt(float *m, const float *eye, const float *ctr, const float *up) {
   float f[3] = {ctr[0] - eye[0], ctr[1] - eye[1], ctr[2] - eye[2]};
-  v_norm(f);
+  FBVec3Normalize(f);
   float s[3];
-  v_cross(s, f, up);
-  v_norm(s);
+  FBVec3Cross(s, f, up);
+  FBVec3Normalize(s);
   float u[3];
-  v_cross(u, s, f);
-  m_identity(m);
+  FBVec3Cross(u, s, f);
+  FBMat4Identity(m);
   m[0] = s[0];
   m[4] = s[1];
   m[8] = s[2];
@@ -76,4 +78,5 @@ static void m_lookat(float *m, const float *eye, const float *ctr, const float *
   m[14] = (f[0] * eye[0] + f[1] * eye[1] + f[2] * eye[2]);
 }
 
+} // namespace FlightBox
 #endif /* FBMAT4_H */

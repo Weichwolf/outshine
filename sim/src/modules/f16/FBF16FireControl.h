@@ -14,7 +14,7 @@
 #include "FBWeaponUplink.h"
 #include "FBFdm.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 /* Metres and seconds; a time of -1 = "the round dies before it gets there", not zero. */
 struct FBLaunchZone {
@@ -32,7 +32,7 @@ public:
 
   /* `selected` null or unguided = no launch zone to compute; `gun` null = no gun solution either.
    * `nowS` is absolute sim time, because the target track ages against it. */
-  virtual void Run(FBState &state, const fb_fdm_state &own, const FBStoreSpec *selected,
+  virtual void Run(FBState &state, const Fdm::fb_fdm_state &own, const FBStoreSpec *selected,
                    const FBGunSpec *gun, double nowS, double dt);
 
   /* What the SMS programs a round with and then radiates as its midcourse uplink; invalid whenever the
@@ -67,14 +67,14 @@ public:
 private:
   /* Split out because each asks a different question against the same box's picture: whether a missile
    * would arrive, where the gun has to point, and where a bomb would land. */
-  void SolveGun(FBState &state, const fb_fdm_state &own, const FBGunSpec *gun, const FBBfmBlock &trk);
-  void SolveGroundAttack(FBState &state, const fb_fdm_state &own, const FBStoreSpec *selected);
+  void SolveGun(FBState &state, const Fdm::fb_fdm_state &own, const FBGunSpec *gun, const FBBfmBlock &trk);
+  void SolveGroundAttack(FBState &state, const Fdm::fb_fdm_state &own, const FBStoreSpec *selected);
 
-  FBBfmTrack Track_;                  /* this box's own fused picture of the locked contact */
+  Pilot::FBBfmTrack Track_;                  /* this box's own fused picture of the locked contact */
   FBWeaponTargetState Target_{};
   FBReleaseSolution Solution_{};
   FBDeliveryMode Mode_ = FBDeliveryMode::Ccip;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif

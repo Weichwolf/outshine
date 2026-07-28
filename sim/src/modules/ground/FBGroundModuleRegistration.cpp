@@ -3,7 +3,7 @@
 #include "FBGroundTarget.h"
 #include "FBModuleRegistry.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 void FBRegisterGroundModules() {
   for (const FBGroundTargetSpec *spec : kGroundTargetCatalogue) {
@@ -13,4 +13,4 @@ void FBRegisterGroundModules() {
   }
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules

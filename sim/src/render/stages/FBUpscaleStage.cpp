@@ -1,6 +1,6 @@
 #include "FBUpscaleStage.h"
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 /* A fullscreen triangle sampling FrameTex linearly onto the target at display resolution. */
 static const char *kUpscaleWGSL = R"(
@@ -60,4 +60,4 @@ void FBUpscaleStage::Encode(const FBFrameContext &, wgpu::RenderPassEncoder &pas
   pass.Draw(3);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render

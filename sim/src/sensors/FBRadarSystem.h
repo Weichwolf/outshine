@@ -14,10 +14,9 @@
 #include "FBUnits.h"
 #include "FBFdm.h"
 
-namespace FlightBox {
+namespace FlightBox::Units { class FBUnit; class FBUnitRegistry; }
 
-class FBUnit;
-class FBUnitRegistry;
+namespace FlightBox::Sensors {
 
 /* Ein vollstaendiges Antennenmuster — ein MODUS IST eines davon. Elevation als Mitte+Halb statt
  * symmetrischem Halbwinkel, weil ein Vertical-Scan-Muster nicht um die Rumpfreferenzlinie zentriert ist
@@ -99,7 +98,7 @@ public:
   bool Designate(int trackNum, double simTimeS);
 
   /* `simTimeS` ist ABSOLUT, damit das Bild nicht am Slot-Takt haengt; `net` null = nichts zu sehen. */
-  virtual void Run(FBState &state, const fb_fdm_state &st, const FBUnitRegistry *net, double simTimeS);
+  virtual void Run(FBState &state, const Fdm::fb_fdm_state &st, const Units::FBUnitRegistry *net, double simTimeS);
 
   /* Aus dem gerade geflogenen Muster ABGELEITET — ein Radar kann nicht das eine strahlen und das andere
    * melden, also kann kein Modul die beiden auseinanderlaufen lassen. */
@@ -124,7 +123,7 @@ protected:
 
   /* Schraegentfernung + WELT-Paar (Peilung, Elevationswinkel) + KOERPER-Paar (Az/El). Koerperbezogen
    * heisst: volle Roll/Nick/Gier-Rotation, also was die ANTENNE sieht. */
-  static void RelativeLos(const fb_fdm_state &own, double tgtLatDeg, double tgtLonDeg, double tgtAltM,
+  static void RelativeLos(const Fdm::fb_fdm_state &own, double tgtLatDeg, double tgtLonDeg, double tgtAltM,
                           double &rangeM, double &bearingDeg, double &elevAngleDeg, double &azDeg,
                           double &elDeg);
 
@@ -154,19 +153,19 @@ private:
   /* Liefert die Wolke, die dieser Look statt des Flugzeugs misst, oder null. Beide Eingaben sind EIGENE
    * Messungen; uebergeben wird das Wolken-Array statt der ganzen Signatur, weil ein Reflektor alles ist,
    * worueber ein Radar hier zu entscheiden hat. */
-  const FBChaffCloud *SelectDecoy(const FBChaffCloud *clouds, const fb_fdm_state &st,
+  const FBChaffCloud *SelectDecoy(const FBChaffCloud *clouds, const Fdm::fb_fdm_state &st,
                                   const FBRadarScanVolume &v, double simTimeS) const;
   /* Eigengeschwindigkeit auf die Sichtlinie projiziert (+ = Annaeherung an einen STEHENDEN Punkt):
    * die Clutter-Doppler, gegen die der Notch gemessen wird. */
-  static double OwnClosureOn(const fb_fdm_state &st, double bearingDeg, double elevAngleDeg);
+  static double OwnClosureOn(const Fdm::fb_fdm_state &st, double bearingDeg, double elevAngleDeg);
 
-  void ScanFrame(const fb_fdm_state &st, const FBUnitRegistry &net, double simTimeS);
+  void ScanFrame(const Fdm::fb_fdm_state &st, const Units::FBUnitRegistry &net, double simTimeS);
   void UpdateLock(double simTimeS, bool autoAcquire);
   void DropAllTracks(const char *reason, double simTimeS);
   /* Mode-4: gueltig nur von einem eingeschalteten Transponder mit der Crypto DERSELBEN Koalition. Alles
    * andere ist ein und dasselbe NoReply. Die einzige Zeile der Klasse, die eine Fraktion liest — und sie
    * macht daraus eine zweiwertige Antwort, die keinen Feind benennen kann. */
-  FBIffReply Interrogate(const FBUnit &u) const;
+  FBIffReply Interrogate(const Units::FBUnit &u) const;
 
   Track Tracks_[kMaxRadarContacts]{};
   int TrackCount_ = 0;
@@ -190,5 +189,5 @@ private:
   int ContactCount_ = 0;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Sensors
 #endif

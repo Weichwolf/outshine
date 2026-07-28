@@ -5,7 +5,7 @@
 #include "FBModuleRegistry.h"
 #include "FBStore.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 void FBRegisterMissileModules() {
   for (const FBStoreSpec *spec : kStoreCatalogue) {
@@ -16,4 +16,4 @@ void FBRegisterMissileModules() {
   }
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules

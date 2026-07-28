@@ -92,12 +92,14 @@ for the turning/final segments:
 | Rollout on final | 11° AoA | **11–13° AoA** (range) |
 | Touchdown | ≤13° AoA | ≤13° AoA (match) |
 
-**Implication for `FBF16Pilot`**: our measured on-speed CAS of 165 kt for 11° AoA is a **model
+**Implication for `FBF16Pilot`**: our measured on-speed CAS for 11° AoA is a **model
 measurement**, not a documented number in either guide — neither ED nor Chuck states an approach CAS
 by weight; the F-16's approach law is explicitly **AoA-referenced, not speed-referenced** (per
-`flight-controls-flcs.md`'s takeoff/landing pitch-rate/AoA-command gains). Nothing here contradicts our
-165 kt measurement; it simply confirms neither source gives an independent number to cross-check it
-against — 165 kt @ 11° AoA remains a JSBSim-model fact (CLAUDE.md Prinzip 5), not a documentation fact.
+`flight-controls-flcs.md`'s takeoff/landing pitch-rate/AoA-command gains). The measurement moved with
+model delta D1 (the flaperon mixer fix, `sim/assets/MODEL-DELTAS.md`): with working TEF the model trims
+11.0° AoA at **154 kt** (gear down, 40 % fuel) — the earlier 165 kt was measured against flaps that
+produced no lift. 154 kt @ 11° AoA is the current JSBSim-model fact (CLAUDE.md Prinzip 5), not a
+documentation fact.
 What ED **does** newly support: our pilot could legitimately target an **11–13° AoA band** rather than
 a single 11° setpoint through the base/final turn (tighter to 13° max approaching touchdown), which is
 closer to real procedure than a flat 11° all the way to flare.

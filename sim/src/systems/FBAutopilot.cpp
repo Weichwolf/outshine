@@ -2,7 +2,7 @@
 #include "FBGeodesy.h"
 #include <cmath>
 
-namespace FlightBox {
+namespace FlightBox::Systems {
 
 static double Clamp(double v, double lo, double hi) { return v < lo ? lo : v > hi ? hi : v; }
 
@@ -57,7 +57,7 @@ void FBAutopilot::SetCourse(double refLat, double refLon, double courseDeg, doub
   GlidepathDeg = glidepathDeg; SpeedMs = speedMs;
 }
 
-FBGuidance FBAutopilot::Run(const fb_fdm_state &s) {
+FBGuidance FBAutopilot::Run(const Fdm::fb_fdm_state &s) {
   FBGuidance g{};
   g.Mode = Mode;
   g.TargetSpeedMs = SpeedMs;
@@ -110,4 +110,4 @@ FBGuidance FBAutopilot::Run(const fb_fdm_state &s) {
   return g;
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems

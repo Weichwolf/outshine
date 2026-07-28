@@ -14,8 +14,8 @@ using namespace FlightBox;
 
 namespace {
 
-FBFdmSpawn MakeSpawn(double lat, double lon, double groundM, double hdgDeg) {
-  FBFdmSpawn ic;
+Fdm::FBFdmSpawn MakeSpawn(double lat, double lon, double groundM, double hdgDeg) {
+  Fdm::FBFdmSpawn ic;
   ic.ModelsRoot = "assets/aircraft";
   ic.Aircraft = "f16";
   ic.LatDeg = lat; ic.LonDeg = lon;
@@ -28,7 +28,7 @@ FBFdmSpawn MakeSpawn(double lat, double lon, double groundM, double hdgDeg) {
 }
 
 /* A constant aileron deflection, everything else neutral. */
-void Fly(FBFdm &fdm, double roll, fb_fdm_state &st) {
+void Fly(Fdm::FBFdm &fdm, double roll, Fdm::fb_fdm_state &st) {
   fdm.SetControls(roll, 0.0, 0.0, 0.6);
   fdm.Step(st);
 }
@@ -36,15 +36,15 @@ void Fly(FBFdm &fdm, double roll, fb_fdm_state &st) {
 } // namespace
 
 int main() {
-  FBStdoutLogSink sink;
+  Clients::FBStdoutLogSink sink;
   FBLog::SetSink(&sink);
   FBLog::SetLevel(FBLogLevel::Debug);
 
   /* A rolls right, B rolls left 300 km away at a different ground elevation, C is A's twin — spawned
    * and stepped alongside both. */
-  std::unique_ptr<FBFdm> a = FBFdmBoot::Spawn(MakeSpawn(46.84335, 6.91523, 441.0, 90.0));
-  std::unique_ptr<FBFdm> b = FBFdmBoot::Spawn(MakeSpawn(49.50000, 9.50000, 250.0, 270.0));
-  std::unique_ptr<FBFdm> c = FBFdmBoot::Spawn(MakeSpawn(46.84335, 6.91523, 441.0, 90.0));
+  std::unique_ptr<Fdm::FBFdm> a = Fdm::FBFdmBoot::Spawn(MakeSpawn(46.84335, 6.91523, 441.0, 90.0));
+  std::unique_ptr<Fdm::FBFdm> b = Fdm::FBFdmBoot::Spawn(MakeSpawn(49.50000, 9.50000, 250.0, 270.0));
+  std::unique_ptr<Fdm::FBFdm> c = Fdm::FBFdmBoot::Spawn(MakeSpawn(46.84335, 6.91523, 441.0, 90.0));
   if (!a || !b || !c) {
     FBLog::Error("test", "RESULT", {{"result", "SETUP_FAILED"}, {"reason", "jsbsim init"}});
     return 2;
@@ -57,7 +57,7 @@ int main() {
   b->SetFuelPct(20.0);
   c->SetFuelPct(80.0);
 
-  fb_fdm_state sa{}, sb{}, sc{};
+  Fdm::fb_fdm_state sa{}, sb{}, sc{};
   /* Long enough for an unambiguous bank split, short enough that neither angle wraps past +-180 deg
    * at the model's ~190 deg/s roll rate. */
   const int steps = 100;

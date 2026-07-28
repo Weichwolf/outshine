@@ -10,7 +10,7 @@ extern "C" {
 #define FB_TERRAIN_MAX_TILES 64
 
 typedef struct {
-  float   *verts;    /* merged w3_vtx: pos3+uv2+norm3 (8 floats), pos = ECEF offset from tile origin */
+  float   *verts;    /* merged Render::FBChunkVtx: pos3+uv2+norm3 (8 floats), pos = ECEF offset from tile origin */
   uint32_t nverts;   /* total vertices across all tiles */
   int      ntiles;
   uint32_t voff[FB_TERRAIN_MAX_TILES];      /* first vertex of tile i in verts[] */

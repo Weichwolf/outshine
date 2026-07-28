@@ -5,7 +5,7 @@
 #include "FBElevationProvider.h"
 #include "FBTerrainLoader.h"
 
-namespace FlightBox {
+namespace FlightBox::World {
 
 class FBTilesElevation : public FBElevationProvider {
 public:
@@ -18,5 +18,5 @@ public:
   }
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::World
 #endif

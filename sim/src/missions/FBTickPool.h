@@ -25,7 +25,7 @@
 #include <thread>
 #include <vector>
 
-namespace FlightBox {
+namespace FlightBox::Missions {
 
 /* RunIndex may be entered from ANY pool thread, and for a given index exactly once per RunTick. */
 class FBTickJob {
@@ -60,5 +60,5 @@ private:
   bool Stop_ = false;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Missions
 #endif /* FBTICKPOOL_H */

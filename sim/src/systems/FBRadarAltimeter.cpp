@@ -1,6 +1,6 @@
 #include "FBRadarAltimeter.h"
 
-namespace FlightBox {
+namespace FlightBox::Systems {
 
 namespace {
 constexpr float kMToFt = 3.280839895f;
@@ -14,4 +14,4 @@ void FBRadarAltimeter::Run(FBState &state, float elevAslM, float groundAslM) {
   state.RadarAlt.H.Publish(state.NowS);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems

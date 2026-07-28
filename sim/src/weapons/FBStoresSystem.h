@@ -11,7 +11,7 @@
 #include "FBTelemetry.h"
 #include "FBFdm.h"
 
-namespace FlightBox {
+namespace FlightBox::Weapons {
 
 class FBStoresSystem : public FBTelemetrySource {
 public:
@@ -26,7 +26,7 @@ public:
    * muessen VOR AttachFdm deklariert sein. */
   void DeclareStation(int number, double xIn, double yIn, double zIn);
   /* Bindet die Zelle und legt je deklarierter Station eine JSBSim-Punktmasse an (Gewicht 0 = leer). */
-  void AttachFdm(FBFdm &fdm);
+  void AttachFdm(Fdm::FBFdm &fdm);
 
   bool Load(int station, const FBStoreSpec &spec);   /* false: unbekannte oder belegte Station */
   int  StationCount() const { return Count_; }
@@ -83,7 +83,7 @@ private:
   FBArmState Arm_ = FBArmState::Sim;   /* ein Jet faehrt mit Master Arm SAFE hoch */
   int Selected_ = -1;
   bool Wow_ = true;                    /* bis die Luftdaten anderes sagen: am Boden */
-  FBFdm *Fdm_ = nullptr;               /* geborgt, nie besessen */
+  Fdm::FBFdm *Fdm_ = nullptr;               /* geborgt, nie besessen */
 
   /* Die DLZ-Felder sind die in Run() gecachte Antwort der FEUERLEITUNG: Release() wird vom Kommandobus
    * zwischen zwei Ticks gerufen und darf nicht selbst nach dem Bus greifen. */
@@ -102,5 +102,5 @@ private:
   int Released_ = 0;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Weapons
 #endif

@@ -18,6 +18,10 @@
 #include <unistd.h>
 #endif
 
+/* A C ABI cannot live in a namespace, but the types it borrows do — see the C-ISLAND note in
+ * tools/verify_layers.py. */
+using namespace FlightBox;
+
 /* stb_image's implementation lives in terrain.cpp — declared here, never re-implemented: two
  * implementations in one link would collide. */
 extern "C" {
@@ -202,18 +206,18 @@ int fb_terrain_load(const char *base, double lat, double lon, int z, int grid, f
         ground = (double)best;
         have_ground = 1;
       }
-      w3_chunk chunk = {};
+      Render::FBChunk chunk = {};
       double origin[3];
-      int ok = w3_chunk_build_ecef(t.terrain, z, tx, ty, grid, &chunk, origin);
+      int ok = Render::FBChunkBuildEcef(t.terrain, z, tx, ty, grid, &chunk, origin);
       osmmesh_free_tile(&t);
       if (!ok || chunk.nverts <= 0) {
         FlightBox::FBLog::Warn("world", "mesh_build_failed", {{"z", z}, {"x", (int)tx}, {"y", (int)ty}});
-        w3_chunk_free(&chunk);
+        Render::FBChunkFree(&chunk);
         continue;
       }
       int idx = out->ntiles;
       float *grow = (float *)realloc(merged, (size_t)(total + (uint32_t)chunk.nverts) * 8 * sizeof(float));
-      if (!grow) { w3_chunk_free(&chunk); free(merged); free(out->albedo); out->albedo = 0; osmmesh_destroy(ctx); return 0; }
+      if (!grow) { Render::FBChunkFree(&chunk); free(merged); free(out->albedo); out->albedo = 0; osmmesh_destroy(ctx); return 0; }
       merged = grow;
       memcpy(merged + (size_t)total * 8, chunk.verts, (size_t)chunk.nverts * 8 * sizeof(float));
       out->voff[idx] = total;
@@ -225,7 +229,7 @@ int fb_terrain_load(const char *base, double lat, double lon, int z, int grid, f
       out->ntiles = idx + 1;
       FlightBox::FBLog::Debug("world", "tile_meshed", {{"z", z}, {"x", (int)tx}, {"y", (int)ty},
                                                        {"nverts", chunk.nverts}, {"errM", (double)chunk.err}});
-      w3_chunk_free(&chunk);
+      Render::FBChunkFree(&chunk);
 
       uint8_t *lay = out->albedo + (size_t)idx * layerBytes;
       if (fb_load_albedo(z, tx, ty, TS, lay))
@@ -595,13 +599,13 @@ int fb_stream_build(int z, uint32_t x, uint32_t y, int grid, float **verts, int 
     osmmesh_free_tile(&t);
     return 0;
   }
-  w3_chunk chunk = {};
+  Render::FBChunk chunk = {};
   double o[3];
   double tm = fbtp() ? fbtp_ms() : 0;
-  int ok = w3_chunk_build_ecef(t.terrain, z, x, y, grid, &chunk, o);
+  int ok = Render::FBChunkBuildEcef(t.terrain, z, x, y, grid, &chunk, o);
   if (fbtp()) { fbtp_.mesh += fbtp_ms() - tm; fbtp_.nmesh++; }
   osmmesh_free_tile(&t);
-  if (!ok || chunk.nverts <= 0) { w3_chunk_free(&chunk); return 0; }
+  if (!ok || chunk.nverts <= 0) { Render::FBChunkFree(&chunk); return 0; }
   *verts = (float *)chunk.verts;
   *nverts = chunk.nverts;
   origin[0] = o[0];
@@ -633,10 +637,10 @@ int fb_stream_pyramid(int z, uint32_t x, uint32_t y, int mode, int ts, uint8_t *
   if (!px) return 0;
   if (w != ts || h != ts) { stbi_image_free(px); return 0; }
   double tp = fbtp() ? fbtp_ms() : 0;
-  fb_build_pyramid(px, ts, dst);
+  Render::fb_build_pyramid(px, ts, dst);
   if (fbtp()) { fbtp_.mips += fbtp_ms() - tp; if (++fbtp_.npyr % 32 == 0) fbtp_report(); }
   stbi_image_free(px);
-  return fb_pyramid_bytes(ts);
+  return Render::fb_pyramid_bytes(ts);
 }
 
 /* The whole body must be ONE finite number: atof() alone returns 0.0 for an error page, and 0.0 passes

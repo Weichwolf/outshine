@@ -46,20 +46,20 @@ static const char *kSandboxModule = "f16";   /* ?ap=manual has no .fbm to name a
 /* A path in emscripten's embedded FS, filled by the wasm target's --embed-file line. */
 /* No asset root: the browser embeds the model tree and nothing else, so a mission's `wx fixture` has
  * nothing to resolve against here — live /wx is this client's weather (app/FBWeatherBoot.h). */
-static const FlightBox::FBModelRoots kWasmModelRoots{"/fb/aircraft", ""};
+static const FlightBox::Missions::FBModelRoots kWasmModelRoots{"/fb/aircraft", ""};
 static const char *kDefaultMissionUrl = "/missions/payerne-full.fbm";   /* the full autonomous sortie:
     ground start, waypoint loop, landing to a full stop. web/missions/ is a build-time copy of
     sim/missions/ (make wasm) served by fb-sim's web/ mount — editable without a WASM rebuild */
 
-static FBRenderer R;
-static FBWorld W;
+static Render::FBRenderer R;
+static World::FBWorld W;
 /* The mission's whole cast, one entry per `unit` block. gOwnship is the FIRST actor and only that: the
  * browser has ONE eye and ONE HUD, so camera and HUD ride actors[0] while the rest are stepped
  * alongside. A mission trip only logs RESULT — the browser has no process exit. */
-static FBActorList gActors;
-static FBUnitRegistry gUnits;
+static Units::FBActorList gActors;
+static Units::FBUnitRegistry gUnits;
 static std::vector<FBUnitObservation> gRoster;   /* reserved at boot, refilled in place every frame */
-static FBSimUnit *gOwnship = nullptr;
+static Units::FBSimUnit *gOwnship = nullptr;
 /* Monotonic sim clock for the monitors' sustain timers: this loop has no discrete 10 Hz mission tick,
  * it integrates whatever the rAF period gives it. */
 static double gSimT = 0.0;
@@ -148,7 +148,7 @@ static void frame(void) {
   static double gLoadStart = 0.0;
   if (gLoading) {
     if (gLoadStart == 0.0) gLoadStart = now;
-    FBUnitPose lp = gOwnship->GetPose();
+    Units::FBUnitPose lp = gOwnship->GetPose();
     double leye[3], lfwd[3], lright[3], lup[3];
     FBGeoToEcef(lp.LatDeg, lp.LonDeg, lp.ElevM, leye);
     FBCameraBasisEcef(lp.YawDeg, lp.PitchDeg, lp.RollDeg, lp.LatDeg, lp.LonDeg, lfwd, lright, lup);
@@ -193,8 +193,8 @@ static void frame(void) {
    * runner uses, so tick order cannot change the outcome. */
   for (auto &a : gActors) { FBLogUnitScope us(a->LogLabel()); a->Run(dt, &gUnits, &W); }
   for (auto &a : gActors) a->PublishPose();
-  const fb_fdm_state &St = gOwnship->State();
-  FBGuidance g = gOwnship->Module().LastGuidance();
+  const Fdm::fb_fdm_state &St = gOwnship->State();
+  Systems::FBGuidance g = gOwnship->Module().LastGuidance();
   int nSub = gOwnship->Module().LastSubsteps();
   double cp_c = emscripten_get_now();   /* end: jsbsim substeps */
 
@@ -203,7 +203,7 @@ static void frame(void) {
   gSimT += dt;
   gRoster.clear();
   for (auto &a : gActors)
-    if (a->GetKind() != FBUnitKind::Weapon)
+    if (a->GetKind() != Units::FBUnitKind::Weapon)
       gRoster.push_back({a->GetName().c_str(), a->GetTeam(), a->Health().CombatEffective()});
   FBMissionRoster roster{gRoster.data(), (int)gRoster.size()};
   for (auto &a : gActors) { FBLogUnitScope us(a->LogLabel()); a->RunMonitors(gSimT, roster); }
@@ -211,7 +211,7 @@ static void frame(void) {
   R.SetAgl((float)gOwnship->AglM());   /* the unit's own AGL, so FBRadarAltimeter and the HUD agree */
 
   /* Camera = the aircraft eye. */
-  FBUnitPose p = gOwnship->GetPose();
+  Units::FBUnitPose p = gOwnship->GetPose();
   double eye[3], fwd[3], right[3], up[3];
   FBGeoToEcef(p.LatDeg, p.LonDeg, p.ElevM, eye);
   FBCameraBasisEcef(p.YawDeg, p.PitchDeg, p.RollDeg, p.LatDeg, p.LonDeg, fwd, right, up);
@@ -239,12 +239,12 @@ static void frame(void) {
           {"mode", ModeLabel(g.Mode)}});
       FBLog::Info("flight", "home", {{"dist", (double)hs.Platform.HomeDistM}, {"brg", (double)hs.Platform.HomeBearingDeg},
           {"hdg", St.yaw}, {"lon", St.lon}});
-      FBLog::Info("pilot", "phase", {{"phase", FBPilot::PhaseName(gOwnship->Module().PilotSystem().GetPhase())}});
+      FBLog::Info("pilot", "phase", {{"phase", Pilot::FBPilot::PhaseName(gOwnship->Module().PilotSystem().GetPhase())}});
     } }
   /* Used only in photo mode; SVS pins a constant day. */
   time_t utc = SimUtc ? SimUtc : time(nullptr);
-  SunPos(St.lat, St.lon, utc, &hs.Env.SunElDeg, &hs.Env.SunAzDeg);
-  MoonPos(St.lat, St.lon, utc, &hs.Env.MoonElDeg, &hs.Env.MoonAzDeg, &hs.Env.MoonPhase);
+  Render::SunPos(St.lat, St.lon, utc, &hs.Env.SunElDeg, &hs.Env.SunAzDeg);
+  Render::MoonPos(St.lat, St.lon, utc, &hs.Env.MoonElDeg, &hs.Env.MoonAzDeg, &hs.Env.MoonPhase);
   R.SetSkyClock((double)utc);
   /* Same seam as the native oracle: the CLIENT samples the weather where the camera is and hands the
    * renderer the resulting decks — the renderer never sees a provider. core/FBCloudDensity.h. */
@@ -287,7 +287,7 @@ static void frame(void) {
 
 int main() {
   /* Debug level: the browser console must not visibly change. */
-  static FBStdoutLogSink gLogSink;
+  static Clients::FBStdoutLogSink gLogSink;
   FBLog::SetSink(&gLogSink);
   FBLog::SetLevel(FBLogLevel::Debug);
 
@@ -317,7 +317,7 @@ int main() {
   const char *jap = emscripten_run_script_string("(new URLSearchParams(location.search).get('ap')||'')");
   bool manualMode = jap && jap[0] == 'm';   /* only 'manual' is a recognised value */
 
-  FBRegisterBuiltinModules();
+  Modules::FBRegisterBuiltinModules();
 
   /* Still air is what the session STARTS in, whatever it ends up flying: the fetch below is in flight
    * while the first frames already run, and a null provider would be a branch in the tick path. */
@@ -326,28 +326,28 @@ int main() {
   if (manualMode) {
     /* No mission file, so this builds its actor by hand — the ONE place this client touches the IC
      * directly, and it ends in the same state minus a plan to judge (hence no FBMissionMonitor). */
-    std::unique_ptr<FBModule> module = FBModuleRegistry::Create(kSandboxModule);
+    std::unique_ptr<Modules::FBModule> module = Modules::FBModuleRegistry::Create(kSandboxModule);
     if (!module) {
       FBLog::Error("gpu", "unknown_module", {{"module", kSandboxModule}, {"source", "?ap=manual sandbox"}});
       return 1;
     }
     double altAsl = kConfigGroundM + kAglM;
     double slat = olat + kRadiusM / kMPerDeg, slon = olon;   /* 8 km due N, heading E */
-    FBFdmSpawn ic;
+    Fdm::FBFdmSpawn ic;
     ic.ModelsRoot = kWasmModelRoots.Aircraft;
     ic.Aircraft = module->FdmModelName();
     ic.LatDeg = slat; ic.LonDeg = slon; ic.GroundElevM = altAsl;
     ic.HeightOffsetM = 0.0;   /* airborne, no explicit offset — the IC's own provisional margin applies */
     ic.SpeedMs = kSpeedMs; ic.HeadingDeg = 90.0;
-    std::unique_ptr<FBFdm> fdm = FBFdmBoot::Spawn(ic);
+    std::unique_ptr<Fdm::FBFdm> fdm = Fdm::FBFdmBoot::Spawn(ic);
     if (!fdm) {
       FBLog::Error("gpu", "jsbsim_init_failed");
       return 1;
     }
     module->AttachFdm(*fdm);
     module->Autopilot().SetManual(0.0, 0.0, 0.0, 0.85);
-    gActors.push_back(std::make_unique<FBSimUnit>(1, "sandbox", FBUnitKind::Aircraft, FBUnitTeam::Friendly, std::move(fdm),
-                                                  std::move(module), fb_fdm_state{}, altAsl));
+    gActors.push_back(std::make_unique<Units::FBSimUnit>(1, "sandbox", Units::FBUnitKind::Aircraft, FBUnitTeam::Friendly, std::move(fdm),
+                                                  std::move(module), Fdm::fb_fdm_state{}, altAsl));
     FBLog::Info("gpu", "manual_boot", {{"lat", olat}, {"lon", olon}, {"altM", altAsl}, {"speedMs", kSpeedMs}});
   } else {
     static char missionText[8192];
@@ -373,7 +373,7 @@ int main() {
       /* The SAME spawn the headless runner performs, so the browser cannot drift from fb-gym's notion
        * of what a mission start IS. */
       std::string serr;
-      std::unique_ptr<FBSimUnit> unit =
+      std::unique_ptr<Units::FBSimUnit> unit =
           FBMissionSpawnActor(kWasmModelRoots, mission, i, groundAsl, mission.TimeoutS, &serr);
       if (!unit) {
         FBLog::Error("gpu", "mission_boot_failed", {{"url", kDefaultMissionUrl}, {"reason", serr}});

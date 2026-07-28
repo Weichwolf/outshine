@@ -3,10 +3,10 @@
 #include "FBModuleRegistry.h"
 #include "FBF16Module.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 void FBRegisterF16Module() {
   FBModuleRegistry::Register("f16", [] { return std::make_unique<FBF16Module>(); });
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules

@@ -9,7 +9,7 @@
 #include <string>
 #include "FBCloudDensity.h"
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 /* Mirrors FBCloudDeckParams field for field, in declaration order — the uniform/storage upload is a
  * straight memcpy of the C++ struct, so the two layouts must agree (16 tight f32 = 64 B, which is the
@@ -201,5 +201,5 @@ inline std::string FBCloudDensityConstsWGSL(void) {
   return std::string(buf);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

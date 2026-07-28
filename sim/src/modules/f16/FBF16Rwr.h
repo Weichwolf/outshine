@@ -7,7 +7,7 @@
 
 #include "FBRwrSystem.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 /* Ordinals are telemetry-visible — append, never reorder. */
 enum class FBF16RwrDisplay { Priority, Open };
@@ -18,7 +18,7 @@ inline bool FBF16RwrDisplayFromString(const char *s, FBF16RwrDisplay &out) {
   return false;
 }
 
-class FBF16Rwr : public FBRwrSystem {
+class FBF16Rwr : public Sensors::FBRwrSystem {
 public:
   /* 360 deg azimuth but only +-45 in ELEVATION — a genuine blind spot above and below the fuselage
    * that the jet's own defensive manoeuvring rotates a hostile radar into, silently dropping the
@@ -42,5 +42,5 @@ private:
   FBF16RwrDisplay Display_ = FBF16RwrDisplay::Priority;   /* the jet powers up in PRIORITY */
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif

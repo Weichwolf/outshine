@@ -7,35 +7,36 @@
 #ifndef FBCHUNKVTX_H
 #define FBCHUNKVTX_H
 #include <stddef.h>
+#include <stdlib.h>
 
-typedef struct {
+namespace FlightBox::Render {
+
+struct FBChunkVtx {
   float pos[3];
   float uv[2];
   float norm[3];
-} w3_vtx;
+};
 
 /* Here with the layout because BOTH builders (ENU and ECEF) produce it, and neither should have to
  * include the other just for the struct. */
-#include <stdlib.h>
-typedef struct {
-  w3_vtx *verts;
+struct FBChunk {
+  FBChunkVtx *verts;
   int nverts;
   float err; /* max |drawn surface - source height| in METRES; drives the LOD.
               * 0 for the irregular-mesh fallback: nothing was decimated there. */
-} w3_chunk;
-static inline void w3_chunk_free(w3_chunk *c) {
+};
+inline void FBChunkFree(FBChunk *c) {
   if (!c) return;
   free(c->verts);
   c->verts = 0;
   c->nverts = 0;
   c->err = 0.f;
 }
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
-_Static_assert(sizeof(w3_vtx) == 8 * sizeof(float),
-               "terrain vertex must be tightly packed (no padding)");
-_Static_assert(offsetof(w3_vtx, pos) == 0, "aPos offset");
-_Static_assert(offsetof(w3_vtx, uv) == 12, "aUV offset");
-_Static_assert(offsetof(w3_vtx, norm) == 20, "aNorm offset");
-#endif
+static_assert(sizeof(FBChunkVtx) == 8 * sizeof(float),
+              "terrain vertex must be tightly packed (no padding)");
+static_assert(offsetof(FBChunkVtx, pos) == 0, "aPos offset");
+static_assert(offsetof(FBChunkVtx, uv) == 12, "aUV offset");
+static_assert(offsetof(FBChunkVtx, norm) == 20, "aNorm offset");
 
+} // namespace FlightBox::Render
 #endif /* FBCHUNKVTX_H */

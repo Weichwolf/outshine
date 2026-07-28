@@ -31,7 +31,7 @@
 
 using namespace JSBSim;
 
-namespace FlightBox {
+namespace FlightBox::Fdm {
 
 namespace {
 constexpr double kFt    = kFtToM;              /* ft -> m */
@@ -411,6 +411,18 @@ bool FBFdm::GetStructureContact() const {
   return false;
 }
 
+bool FBFdm::GetNoseGearOnGround() const {
+  auto gr = P->Exec.GetGroundReactions();
+  std::shared_ptr<JSBSim::FGLGear> fwd;
+  for (int i = 0; i < gr->GetNumGearUnits(); i++) {
+    auto lg = gr->GetGearUnit(i);
+    if (!lg || !lg->IsBogey()) continue;
+    /* body x, +forward: the largest one IS the nose gear, whatever the model calls it */
+    if (!fwd || lg->GetBodyLocation(1) > fwd->GetBodyLocation(1)) fwd = lg;
+  }
+  return fwd && fwd->GetWOW();
+}
+
 double FBFdm::GetMaxGearForceLbs() const {
   auto gr = P->Exec.GetGroundReactions();
   double maxF = 0.0;
@@ -453,4 +465,4 @@ double FBFdm::GetFuelCapacityLbs() const {
   return sum;
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Fdm

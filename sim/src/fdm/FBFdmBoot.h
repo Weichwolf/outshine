@@ -8,7 +8,7 @@
 #include <string>
 #include "FBFdm.h"
 
-namespace FlightBox {
+namespace FlightBox::Fdm {
 
 /* The initial condition, as data (core/FBSpawn is the mission-level declaration this is resolved into). */
 struct FBFdmSpawn {
@@ -38,5 +38,5 @@ public:
   static std::unique_ptr<FBFdm> Spawn(const FBFdmSpawn &spawn);
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Fdm
 #endif

@@ -4,7 +4,7 @@
 #include "FBUnits.h"
 #include <cassert>
 
-namespace FlightBox {
+namespace FlightBox::Units {
 
 namespace {
 /* A WEAPON is given no ground to collide with: JSBSim's contact springs are a stiff ODE that diverges
@@ -16,8 +16,8 @@ constexpr double kWeaponNoGroundElevM = -100000.0;
 } // namespace
 
 FBSimUnit::FBSimUnit(int id, std::string name, FBUnitKind kind, FBUnitTeam team,
-                     std::unique_ptr<FBFdm> fdm, std::unique_ptr<FBModule> module,
-                     const fb_fdm_state &initialState, double groundAslM)
+                     std::unique_ptr<Fdm::FBFdm> fdm, std::unique_ptr<Modules::FBModule> module,
+                     const Fdm::fb_fdm_state &initialState, double groundAslM)
     : FBUnit(id, std::move(name), kind, team),
       Fdm_(std::move(fdm)),
       Module_(std::move(module)),
@@ -50,7 +50,7 @@ void FBSimUnit::PublishPose() {
   Sig_.Uplink = Module_->Stores().Uplink();
 }
 
-void FBSimUnit::Run(double dt, const FBUnitRegistry *units, const FBWorld *world) {
+void FBSimUnit::Run(double dt, const FBUnitRegistry *units, const World::FBWorld *world) {
   Module_->Run(St_, dt, units, world);
 }
 
@@ -191,4 +191,4 @@ void FBSimUnit::StartTelemetry(FBTelemetrySink *sink) {
   Bus_.Start();
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Units

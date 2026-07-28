@@ -9,7 +9,7 @@
 #include "FBDrawStage.h"
 #include "FBCloudDensity.h"
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 class FBCloudLayerStage : public FBDrawStage {
 public:
@@ -51,5 +51,5 @@ private:
   double AxisE[3] = {1, 0, 0}, AxisN[3] = {0, 1, 0};
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

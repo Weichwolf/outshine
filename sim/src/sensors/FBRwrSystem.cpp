@@ -5,7 +5,7 @@
 #include "FBUnitRegistry.h"
 #include <cmath>
 
-namespace FlightBox {
+namespace FlightBox::Sensors {
 
 void FBRwrSystem::SetPowered(bool on) {
   if (Powered_ == on) return;
@@ -42,7 +42,7 @@ double FBRwrSystem::Lethality(FBRwrThreatMode mode, double signalNorm) const {
   return v > 1.0 ? 1.0 : v;
 }
 
-void FBRwrSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegistry *net,
+void FBRwrSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, const Units::FBUnitRegistry *net,
                       double simTimeS) {
   FBRwrBlock &b = state.Rwr;
   b.Powered = Powered_;
@@ -64,12 +64,12 @@ void FBRwrSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegist
 
   /* Registry IN REIHENFOLGE, damit die Symbolnummer an der Missionsdeklaration haengt und nie daran,
    * wer zuerst strahlte. */
-  for (const FBUnit *u : net->Units()) {
+  for (const Units::FBUnit *u : net->Units()) {
     if (!u || u->GetId() == SelfId_) continue;   /* das eigene Set ist keine Bedrohung fuer sich selbst */
-    FBUnitSignature sig = u->GetSignature();
+    Units::FBUnitSignature sig = u->GetSignature();
     if (sig.Radar.Mode == FBEmitterMode::None) continue;   /* stumme Einheit: nichts zu hoeren */
 
-    FBUnitPose p = u->GetPose();
+    Units::FBUnitPose p = u->GetPose();
     double e = 0.0, n = 0.0;
     FBEnuOffsetM(p.LatDeg, p.LonDeg, st.lat, st.lon, e, n);   /* emitter -> self */
     double up = st.elev - p.ElevM;
@@ -239,4 +239,4 @@ void FBRwrSystem::SampleTelemetry(FBTelemetryRow &row) const {
   row.Push(Activity_);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Sensors

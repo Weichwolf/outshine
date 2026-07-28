@@ -8,7 +8,7 @@
 
 #include "FBState.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 class FBF16Ufc {
 public:
@@ -45,5 +45,5 @@ private:
   int StNum = 1;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif

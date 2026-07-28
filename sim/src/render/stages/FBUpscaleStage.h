@@ -5,7 +5,7 @@
 
 #include "FBDrawStage.h"
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 class FBUpscaleStage : public FBDrawStage {
 public:
@@ -20,5 +20,5 @@ private:
   wgpu::Sampler Samp;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace FlightBox {
+namespace FlightBox::Units {
 
 class FBUnit;
 
@@ -25,5 +25,5 @@ private:
   std::vector<const FBUnit *> Units_;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Units
 #endif

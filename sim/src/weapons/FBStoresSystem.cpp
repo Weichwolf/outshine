@@ -2,7 +2,7 @@
 #include "FBLog.h"
 #include "FBUnits.h"
 
-namespace FlightBox {
+namespace FlightBox::Weapons {
 
 namespace {
 constexpr double kInToM = 0.0254;
@@ -21,7 +21,7 @@ int FBStoresSystem::IndexOf(int station) const {
   return -1;
 }
 
-void FBStoresSystem::AttachFdm(FBFdm &fdm) {
+void FBStoresSystem::AttachFdm(Fdm::FBFdm &fdm) {
   Fdm_ = &fdm;
   for (int i = 0; i < Count_; i++) {
     char name[24];
@@ -256,4 +256,4 @@ void FBStoresSystem::SampleTelemetry(FBTelemetryRow &row) const {
   row.Push(Fdm_ ? Fdm_->GetWeightLbs() : 0.0);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Weapons

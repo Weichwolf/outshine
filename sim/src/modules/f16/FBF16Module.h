@@ -31,40 +31,40 @@
 #include "FBWarningSystem.h"
 #include "FBMasterMode.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 class FBF16Module : public FBModule {
 public:
   FBF16Module();
 
   /* Also swaps the NoOp airframe-controls default for the real, FDM-bound one. */
-  void AttachFdm(FBFdm &fdm) override;
+  void AttachFdm(Fdm::FBFdm &fdm) override;
 
   /* Deliberately NOT derived from the registry name: the two coincide today, they are not one thing. */
   const char *FdmModelName() const override { return "f16"; }
 
-  void Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units = nullptr,
-           const FBWorld *world = nullptr) override;
+  void Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegistry *units = nullptr,
+           const World::FBWorld *world = nullptr) override;
 
   /* The HUD's telemetry chain writes HERE, so a client seeds its per-frame FBState from this BEFORE
    * overwriting the fields it computes itself. */
   const FBState &Telemetry() const override { return SharedState; }
 
-  FBAutopilot &Autopilot() override { return *AP; }
-  FBFlightControl &FlightControl() override { return *FC; }
-  FBDisplaySystem &Displays() override { return *Disp; }
+  Systems::FBAutopilot &Autopilot() override { return *AP; }
+  Systems::FBFlightControl &FlightControl() override { return *FC; }
+  Systems::FBDisplaySystem &Displays() override { return *Disp; }
   FBF16Max7456 &Max7456() { return *Chip; }
-  FBNavSystem &NavSystem() override { return *NavSys; }
-  FBDatalinkSystem &Datalink() override { return *Datalink_; }
+  Systems::FBNavSystem &NavSystem() override { return *NavSys; }
+  Sensors::FBDatalinkSystem &Datalink() override { return *Datalink_; }
   FBF16Fcr &Radar() override { return *Fcr_; }   /* covariant: the base returns FBRadarSystem& */
   FBF16Rwr &Rwr() override { return *Rwr_; }
   FBF16Cmds &Countermeasures() override { return *Cmds_; }
   FBF16Ufc &Ufc() { return *UfcSys; }
   FBF16Sms &Sms() { return *SmsSys; }
-  FBStoresSystem &Stores() override { return *SmsSys; }
+  Weapons::FBStoresSystem &Stores() override { return *SmsSys; }
   FBF16Gun &Gun() { return *GunSys; }
-  FBGunSystem &Guns() override { return *GunSys; }
-  const FBGuidance &LastGuidance() const override { return LastG; }
+  Weapons::FBGunSystem &Guns() override { return *GunSys; }
+  const Systems::FBGuidance &LastGuidance() const override { return LastG; }
   int LastSubsteps() const override { return LastSub; }
 
   /* The SAME DEM sample the client already resolved for the renderer — FBRadarAltimeter reuses it
@@ -85,11 +85,11 @@ public:
   void SetMasterMode(FBMasterMode m) { Mode = m; }
 
   FBF16Pilot &PilotSystem() override { return *PilotSys; }   /* covariant: the base returns FBPilot& */
-  FBAirframeControls &Controls() override { return *AirframeCtrl; }
-  FBAirDataSystem &AirDataSystem() override { return *AirData; }
-  FBWarningSystem &WarningSystem() override { return *Warn_; }
+  Systems::FBAirframeControls &Controls() override { return *AirframeCtrl; }
+  Systems::FBAirDataSystem &AirDataSystem() override { return *AirData; }
+  Systems::FBWarningSystem &WarningSystem() override { return *Warn_; }
   FBCommandBus &Commands() override { return CmdBus_; }
-  FBRadarAltimeter &RadarAltimeter() override { return *RadarAlt; }
+  Systems::FBRadarAltimeter &RadarAltimeter() override { return *RadarAlt; }
   FBFlightPlan &FlightPlan() override { return Plan_; }
   /* The runway doubles as the mission's BULLSEYE: a .fbm declares none, and the runway is the one
    * briefed point every unit shares. Without one the HUD's bearing/range pair stays at the origin. */
@@ -106,8 +106,8 @@ public:
   const FBDamageLayout &DamageLayout() const override { return FBF16DamageLayout(); }
 
 private:
-  void ApplyPilotCommands(const FBPilotCommands &c);
-  void PublishPlatform(const fb_fdm_state &st);
+  void ApplyPilotCommands(const Pilot::FBPilotCommands &c);
+  void PublishPlatform(const Fdm::fb_fdm_state &st);
   void PublishAirframe();
   /* Hands every DUE command of one group to the system that owns it, in that system's own slot tick,
    * and answers with the outcome the box itself decided. */
@@ -116,34 +116,34 @@ private:
   static bool Due(double &accS, double dt, double hz);
 
   /* Base pointers, not value members, so a future module can substitute an override without slicing. */
-  std::unique_ptr<FBAutopilot> AP;
-  std::unique_ptr<FBFlightControl> FC;
+  std::unique_ptr<Systems::FBAutopilot> AP;
+  std::unique_ptr<Systems::FBFlightControl> FC;
 
-  std::unique_ptr<FBInputSystem> Input;
-  std::unique_ptr<FBPropulsionSystem> Propulsion;
-  std::unique_ptr<FBDisplaySystem> Disp;
+  std::unique_ptr<Systems::FBInputSystem> Input;
+  std::unique_ptr<Systems::FBPropulsionSystem> Propulsion;
+  std::unique_ptr<Systems::FBDisplaySystem> Disp;
   std::unique_ptr<FBF16Max7456> Chip;
   std::unique_ptr<FBF16Fcr> Fcr_;
-  std::unique_ptr<FBWeaponSystem> Weapons;
+  std::unique_ptr<Systems::FBWeaponSystem> Weapons;
   /* Defensive is TWO systems, cycled receiver-then-dispenser: the second reads what the first wrote. */
   std::unique_ptr<FBF16Rwr> Rwr_;
   std::unique_ptr<FBF16Cmds> Cmds_;
   std::unique_ptr<FBF16Datalink> Datalink_;
 
   /* The HUD's telemetry chain: generic systems/ defaults + the F-16-specific boxes. */
-  std::unique_ptr<FBAirDataSystem> AirData;
-  std::unique_ptr<FBRadarAltimeter> RadarAlt;
-  std::unique_ptr<FBNavSystem> NavSys;
+  std::unique_ptr<Systems::FBAirDataSystem> AirData;
+  std::unique_ptr<Systems::FBRadarAltimeter> RadarAlt;
+  std::unique_ptr<Systems::FBNavSystem> NavSys;
   std::unique_ptr<FBF16FireControl> FireCtrl;
   std::unique_ptr<FBF16Ufc> UfcSys;
   std::unique_ptr<FBF16Sms> SmsSys;
   std::unique_ptr<FBF16Gun> GunSys;
-  std::unique_ptr<FBWarningSystem> Warn_;
+  std::unique_ptr<Systems::FBWarningSystem> Warn_;
   float GroundAslM = 0.0f;
 
   std::unique_ptr<FBF16Pilot> PilotSys;
-  std::unique_ptr<FBAirframeControls> AirframeCtrl;   /* NoOp until AttachFdm, FDM-bound after */
-  FBFdm *Fdm_ = nullptr;                              /* borrowed, never owned */
+  std::unique_ptr<Systems::FBAirframeControls> AirframeCtrl;   /* NoOp until AttachFdm, FDM-bound after */
+  Fdm::FBFdm *Fdm_ = nullptr;                              /* borrowed, never owned */
   FBFlightPlan Plan_;
   FBRunway Rwy_;
   bool HaveRunway_ = false;
@@ -153,7 +153,7 @@ private:
   FBMasterMode Mode = FBMasterMode::Nav;
   FBState SharedState{};   /* Sensors WRITE, Displays READ — no display queries a sensor directly */
 
-  FBGuidance LastG{};
+  Systems::FBGuidance LastG{};
   double AccS = 0.0;
   int LastSub = 0;
   double DisplayAccS = 0.0, SensorAccS = 0.0, WeaponAccS = 0.0, DefensiveAccS = 0.0, CommsAccS = 0.0;
@@ -162,5 +162,5 @@ private:
   double SimTimeS = 0.0;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif

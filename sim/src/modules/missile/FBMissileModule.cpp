@@ -1,6 +1,6 @@
 #include "FBMissileModule.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 FBMissileModule::FBMissileModule(const FBStoreSpec &spec) : Spec_(spec) {
   Guidance_.Bind(Spec_, Seeker_);
@@ -15,11 +15,11 @@ void FBMissileModule::ProgramRelease(const FBStoreRelease &rel) {
 
 /* The uplink once, then fixed 100 Hz substeps of seeker -> guidance -> FCS -> FDM; same accumulator and
  * spiral guard as every other module. */
-void FBMissileModule::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units,
-                          const FBWorld *world) {
+void FBMissileModule::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegistry *units,
+                          const World::FBWorld *world) {
   (void)world;
   if (!Fdm_) return;
-  FBFdm &fdm = *Fdm_;
+  Fdm::FBFdm &fdm = *Fdm_;
   SimTimeS_ += dt;
   State_.NowS = SimTimeS_;
   /* `units` reaches this slot and the seeker below, and nothing else in the module. */
@@ -30,19 +30,19 @@ void FBMissileModule::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *uni
 
   AccS_ += dt;
   LastSub_ = 0;
-  for (int k = 0; AccS_ >= FBFdm::kStepS && k < 12; k++) {
-    double tS = SimTimeS_ - AccS_ + FBFdm::kStepS;
+  for (int k = 0; AccS_ >= Fdm::FBFdm::kStepS && k < 12; k++) {
+    double tS = SimTimeS_ - AccS_ + Fdm::FBFdm::kStepS;
     Seeker_.Run(State_, st, units, tS);   /* its antenna keeps its own frame grid on this clock */
     Guidance_.SetTime(tS);
-    FBPilotCommands g = Guidance_.Run(State_, Cmds_, Ctrl_, st, Plan_, nullptr, FBFdm::kStepS);
+    Pilot::FBPilotCommands g = Guidance_.Run(State_, Cmds_, Ctrl_, st, Plan_, nullptr, Fdm::FBFdm::kStepS);
     AP_.SetManual(g.ManualRoll, g.ManualPitch, g.ManualYaw, g.ManualThr);
     LastG_ = AP_.Run(st);
-    FBControls c = FC_.Run(LastG_, st);
+    Systems::FBControls c = FC_.Run(LastG_, st);
     fdm.SetControls(c.Roll, c.Pitch, c.Yaw, c.Thr);
     fdm.Step(st);
-    AccS_ -= FBFdm::kStepS;
+    AccS_ -= Fdm::FBFdm::kStepS;
     LastSub_++;
   }
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules

@@ -1,6 +1,6 @@
 #include "FBLogSinks.h"
 
-namespace FlightBox {
+namespace FlightBox::Clients {
 
 namespace {
 const char *LevelStr(FBLogLevel l) {
@@ -51,4 +51,4 @@ void FBBufferedLogSink::Drain(FBLogSink &out) {
   Lines.clear();
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Clients

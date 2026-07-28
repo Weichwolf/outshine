@@ -13,7 +13,7 @@
 
 #include "FBHudFontRom.h"
 
-namespace FlightBox {
+namespace FlightBox::Systems {
 
 /* The 1-texel transparent gutter keeps a glyph's edge texels reachable under LINEAR filtering
  * without ever sampling a neighbour's ink. */
@@ -60,5 +60,5 @@ inline void FBHudFontAppendText(std::vector<float> &out, float x, float y, float
   }
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems
 #endif /* FBHUDFONT_H */

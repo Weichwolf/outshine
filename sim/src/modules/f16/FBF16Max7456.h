@@ -4,7 +4,7 @@
 #ifndef FBF16MAX7456_H
 #define FBF16MAX7456_H
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 class FBF16Max7456 {
 public:
@@ -14,5 +14,5 @@ public:
   virtual void StyleGlyph(float &x, float &y, float &r, float &g, float &b) const;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif

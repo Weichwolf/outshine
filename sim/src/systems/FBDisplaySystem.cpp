@@ -3,7 +3,7 @@
 #include <cmath>
 #include <cstdio>
 
-namespace FlightBox {
+namespace FlightBox::Systems {
 
 namespace {
 constexpr float kRad = 3.14159265358979323846f / 180.f;
@@ -30,10 +30,10 @@ void FBDisplaySystem::BuildHud(const FBState &state, const FBHudEnv &env, FBHudG
    * Hoehe ueber der Kruemmungsreferenz (ASL), NICHT an AGL — sonst atmet er mit dem Gelaenderelief. */
   {
     static const float kEyeOrigin[3] = {0, 0, 0};
-    w3_cam cam = w3_cam_from(state.Platform.YawDeg, state.Platform.PitchDeg, state.Platform.RollDeg, kEyeOrigin, kHudFovDeg,
+    FBCameraBasis cam = FBCameraBasisFrom(state.Platform.YawDeg, state.Platform.PitchDeg, state.Platform.RollDeg, kEyeOrigin, kHudFovDeg,
                              (float)env.Width / (float)env.Height, 1.f, 1000.f);
     float Kc = ((float)env.Height * 0.5f) / tanf(kHudFovDeg * 0.5f * kRad), p[2][2];
-    float dip = w3_horizon_dip_rad(state.Platform.AltM > 1 ? state.Platform.AltM : env.Agl), cd = cosf(dip), sd = sinf(dip);
+    float dip = FBHorizonDipRad(state.Platform.AltM > 1 ? state.Platform.AltM : env.Agl), cd = cosf(dip), sd = sinf(dip);
     for (int k = 0; k < 2; k++) {
       float az = (state.Platform.YawDeg + (k ? 20.f : 0.f)) * kRad;
       float d[3] = {cd * sinf(az), -sd, -cd * cosf(az)};
@@ -130,4 +130,4 @@ void FBDisplaySystem::BuildHud(const FBState &state, const FBHudEnv &env, FBHudG
   }
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems

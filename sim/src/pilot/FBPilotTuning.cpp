@@ -1,6 +1,6 @@
 #include "FBPilotTuning.h"
 
-namespace FlightBox {
+namespace FlightBox::Pilot {
 
 namespace {
 /* Die ganze oeffentliche Flaeche einer Piloten-Variante in EINER Tabelle. Die Baender sind
@@ -46,4 +46,4 @@ bool FBPilotTuning::Set(const std::string &key, double value) {
   return false;
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Pilot

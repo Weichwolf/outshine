@@ -2,7 +2,7 @@
 #include "FBLog.h"
 #include <cmath>
 
-namespace FlightBox {
+namespace FlightBox::Sensors {
 
 namespace {
 const char *TypeName(FBCmType t) { return t == FBCmType::Chaff ? "chaff" : "flare"; }
@@ -138,7 +138,7 @@ void FBCountermeasureSystem::StopProgram(const char *why) {
 
 /* Der Ring behaelt die FRISCHESTEN Patronen — auch die richtige Auswahl, denn eine alte Wolke ist eine
  * duenne. */
-void FBCountermeasureSystem::Eject(FBCmType type, const fb_fdm_state &st, double simTimeS) {
+void FBCountermeasureSystem::Eject(FBCmType type, const Fdm::fb_fdm_state &st, double simTimeS) {
   if (type == FBCmType::Chaff) {
     Chaff_--;
     ChaffOut_++;
@@ -156,7 +156,7 @@ void FBCountermeasureSystem::Eject(FBCmType type, const fb_fdm_state &st, double
 }
 
 bool FBCountermeasureSystem::PlayType(FBCmType type, const FBCmProgramType &p, Player &pl,
-                                      const fb_fdm_state &st, double simTimeS) {
+                                      const Fdm::fb_fdm_state &st, double simTimeS) {
   if (!pl.Running) return false;
   int fired = 0;
   /* Absolutzeit-Fahrplan mit Nachhol-Waechter: ein Burst-Intervall unter der Slot-Taktung wirft
@@ -238,7 +238,7 @@ void FBCountermeasureSystem::ServiceAutomatic(const FBState &state, double simTi
   if (Mode_ == FBCmdsMode::Semi) Consent_ = false;   /* in SEMI gilt die Zustimmung je Abwurf */
 }
 
-void FBCountermeasureSystem::Run(FBState &state, const fb_fdm_state &st, double simTimeS) {
+void FBCountermeasureSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, double simTimeS) {
   ServiceAutomatic(state, simTimeS);
 
   if (Running_) {
@@ -306,4 +306,4 @@ void FBCountermeasureSystem::SampleTelemetry(FBTelemetryRow &row) const {
   row.Push(ActiveClouds_);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Sensors

@@ -7,34 +7,34 @@
 #include <cstdlib>
 #include <sstream>
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 FBF16Module::FBF16Module()
-    : AP(std::make_unique<FBAutopilot>()),
-      FC(std::make_unique<FBFlightControl>(FBFlightControl::F16())),
-      Input(std::make_unique<FBInputSystem>()),
-      Propulsion(std::make_unique<FBPropulsionSystem>()),
+    : AP(std::make_unique<Systems::FBAutopilot>()),
+      FC(std::make_unique<Systems::FBFlightControl>(Systems::FBFlightControl::F16())),
+      Input(std::make_unique<Systems::FBInputSystem>()),
+      Propulsion(std::make_unique<Systems::FBPropulsionSystem>()),
       Disp(std::make_unique<FBF16Hud>()),
       Chip(std::make_unique<FBF16Max7456>()),
       Fcr_(std::make_unique<FBF16Fcr>()),
-      Weapons(std::make_unique<FBWeaponSystem>()),
+      Weapons(std::make_unique<Systems::FBWeaponSystem>()),
       Rwr_(std::make_unique<FBF16Rwr>()),
       Cmds_(std::make_unique<FBF16Cmds>()),
       Datalink_(std::make_unique<FBF16Datalink>()),
-      AirData(std::make_unique<FBAirDataSystem>()),
-      RadarAlt(std::make_unique<FBRadarAltimeter>()),
-      NavSys(std::make_unique<FBNavSystem>()),
+      AirData(std::make_unique<Systems::FBAirDataSystem>()),
+      RadarAlt(std::make_unique<Systems::FBRadarAltimeter>()),
+      NavSys(std::make_unique<Systems::FBNavSystem>()),
       FireCtrl(std::make_unique<FBF16FireControl>()),
       UfcSys(std::make_unique<FBF16Ufc>()),
       SmsSys(std::make_unique<FBF16Sms>()),
       GunSys(std::make_unique<FBF16Gun>()),
-      Warn_(std::make_unique<FBWarningSystem>()),
+      Warn_(std::make_unique<Systems::FBWarningSystem>()),
       PilotSys(std::make_unique<FBF16Pilot>()),
-      AirframeCtrl(std::make_unique<FBAirframeControls>()) {}   /* NoOp until an airframe is attached */
+      AirframeCtrl(std::make_unique<Systems::FBAirframeControls>()) {}   /* NoOp until an airframe is attached */
 
-void FBF16Module::AttachFdm(FBFdm &fdm) {
+void FBF16Module::AttachFdm(Fdm::FBFdm &fdm) {
   Fdm_ = &fdm;
-  AirframeCtrl = std::make_unique<FBJsbsimAirframeControls>(fdm);
+  AirframeCtrl = std::make_unique<Systems::FBJsbsimAirframeControls>(fdm);
   /* The pylons become real point masses on THIS airframe — every station empty until a mission loads
    * one, so an unloaded jet is unchanged. */
   SmsSys->AttachFdm(fdm);
@@ -51,9 +51,9 @@ bool FBF16Module::Due(double &accS, double dt, double hz) {
 /* Cycles every system slot, then the fixed 100 Hz FDM substeps (spiral guard, <=12/frame): guidance ->
  * FLCS-command -> JSBSim in lockstep. AP->Run()/FC->Run() are the only virtual dispatch INSIDE that
  * inner loop; every other slot is throttled outside it. Rate table: doc/flightbox/modules-f16.md §2.2. */
-void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, const FBWorld *world) {
+void FBF16Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegistry *units, const World::FBWorld *world) {
   if (!Fdm_) return;               /* no airframe attached — nothing to fly */
-  FBFdm &fdm = *Fdm_;
+  Fdm::FBFdm &fdm = *Fdm_;
   SimTimeS += dt;
   SharedState.NowS = SimTimeS;     /* the bus time every block header is stamped against */
   /* The DED gate: unpublished air data reads as 1 g — a jet with no ADC is not manoeuvring by any
@@ -146,17 +146,17 @@ void FBF16Module::Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units, 
 
   AccS += dt;
   LastSub = 0;
-  for (int k = 0; AccS >= FBFdm::kStepS && k < 12; k++) {
+  for (int k = 0; AccS >= Fdm::FBFdm::kStepS && k < 12; k++) {
     LastG = AP->Run(st);
-    FBControls c = FC->Run(LastG, st);
+    Systems::FBControls c = FC->Run(LastG, st);
     fdm.SetControls(c.Roll, c.Pitch, c.Yaw, c.Thr);
     fdm.Step(st);
-    AccS -= FBFdm::kStepS;
+    AccS -= Fdm::FBFdm::kStepS;
     LastSub++;
   }
 }
 
-void FBF16Module::PublishPlatform(const fb_fdm_state &st) {
+void FBF16Module::PublishPlatform(const Fdm::fb_fdm_state &st) {
   FBPlatformBlock &b = SharedState.Platform;
   b.RollDeg = (float)st.roll; b.PitchDeg = (float)st.pitch; b.YawDeg = (float)st.yaw;
   b.AltM = (float)st.elev;
@@ -290,7 +290,7 @@ void FBF16Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &out
       GunSys->Trigger(c.Value, SimTimeS, outcome, reason);
       return;
     case FBCommandTarget::CmDispense:
-      if (c.Value < 0.0 || c.Value > (double)FBCountermeasureSystem::kProgramCount) {
+      if (c.Value < 0.0 || c.Value > (double)Sensors::FBCountermeasureSystem::kProgramCount) {
         outcome = FBCommandOutcome::Rejected;
         reason = FBCommandReason::OutOfRange;
         return;
@@ -349,23 +349,23 @@ void FBF16Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &out
 
 /* Only the fields actually SET — which is what keeps an un-started pilot (Phase::Idle, everything
  * default) bit-identical to not having one. */
-void FBF16Module::ApplyPilotCommands(const FBPilotCommands &c) {
+void FBF16Module::ApplyPilotCommands(const Pilot::FBPilotCommands &c) {
   switch (c.Guidance) {
-    case FBPilotGuidance::Manual:
+    case Pilot::FBPilotGuidance::Manual:
       AP->SetManual(c.ManualRoll, c.ManualPitch, c.ManualYaw, c.ManualThr);
       break;
-    case FBPilotGuidance::Direct:
+    case Pilot::FBPilotGuidance::Direct:
       if (c.HaveLeg)
         AP->SetDirectLeg(c.LegLatDeg, c.LegLonDeg, c.TargetLatDeg, c.TargetLonDeg, c.TargetAltM,
                          c.TargetSpeedKt * kKtToMs);
       else
         AP->SetDirect(c.TargetLatDeg, c.TargetLonDeg, c.TargetAltM, c.TargetSpeedKt * kKtToMs);
       break;
-    case FBPilotGuidance::Course:
+    case Pilot::FBPilotGuidance::Course:
       AP->SetCourse(c.TargetLatDeg, c.TargetLonDeg, c.CourseDeg, c.TargetAltM, c.GlidepathDeg,
                     c.TargetSpeedKt * kKtToMs);
       break;
-    case FBPilotGuidance::None:
+    case Pilot::FBPilotGuidance::None:
       break;   /* leave whatever guidance is already running untouched */
   }
   if (c.GearDown) AirframeCtrl->SetGear(*c.GearDown);
@@ -455,10 +455,10 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
   /* Which phase the pilot starts in. Declared as mission data rather than inferred from the loadout:
    * two jets with identical setup lines can have opposite jobs. */
   if (key == "task") {
-    if (value == "route") PilotSys->SetPhase(FBPilot::Phase::Route);
-    else if (value == "bfm") PilotSys->SetPhase(FBPilot::Phase::Bfm);
-    else if (value == "intercept") PilotSys->SetPhase(FBPilot::Phase::Intercept);
-    else if (value == "attack") PilotSys->SetPhase(FBPilot::Phase::Attack);
+    if (value == "route") PilotSys->SetPhase(Pilot::FBPilot::Phase::Route);
+    else if (value == "bfm") PilotSys->SetPhase(Pilot::FBPilot::Phase::Bfm);
+    else if (value == "intercept") PilotSys->SetPhase(Pilot::FBPilot::Phase::Intercept);
+    else if (value == "attack") PilotSys->SetPhase(Pilot::FBPilot::Phase::Attack);
     else return RejectSetup("want route|bfm|intercept|attack", key, value);
     return true;
   }
@@ -607,4 +607,4 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
   return false;   /* unknown key: FBMissionBoot.h logs SET_UNKNOWN_KEY with the key AND value */
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules

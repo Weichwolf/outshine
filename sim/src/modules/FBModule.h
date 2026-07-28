@@ -29,10 +29,10 @@
 #include "FBUnit.h"
 #include "FBFdm.h"
 
-namespace FlightBox {
+namespace FlightBox::World { class FBWorld; }          /* borrowed only — the module never owns it */
+namespace FlightBox::Units { class FBUnitRegistry; }   /* likewise: the cast of the world, for the module's SENSORS only */
 
-class FBWorld;          /* borrowed only — the module never owns it */
-class FBUnitRegistry;   /* likewise: the cast of the world, for the module's SENSORS only */
+namespace FlightBox::Modules {
 
 class FBModule {
 public:
@@ -41,7 +41,7 @@ public:
   /* Binds the module to the airframe it flies, ONCE, before the first Run(). Registry factories take no
    * arguments, so this is the module's constructor injection — and the point at which it can hand a
    * real `FBFdm&` to the systems whose association to an airframe IS fixed. The FDM is BORROWED. */
-  virtual void AttachFdm(FBFdm &fdm) = 0;
+  virtual void AttachFdm(Fdm::FBFdm &fdm) = 0;
 
   /* The JSBSim model this module flies — module-owned, because only the module knows which aircraft.xml
    * its systems/gains were written against; the registry name stays a pure key. */
@@ -50,7 +50,7 @@ public:
   /* Ground also declares that there is NO airframe, which the empty FdmModelName() then says where the
    * spawn path reads it. Weapon is NOT set here: a store is a kind by having been RELEASED, which is
    * the releasing path's statement. */
-  virtual FBUnitKind UnitKind() const { return FBUnitKind::Aircraft; }
+  virtual Units::FBUnitKind UnitKind() const { return Units::FBUnitKind::Aircraft; }
 
   /* WHO this module is flying — wiring, once, like AttachFdm; needed by any slot that observes OTHER
    * units (the datalink must recognise its own PPLI and know whose net it is on). */
@@ -75,33 +75,33 @@ public:
   /* Advances the module's FDM at its own substep rate for `dt` wall-seconds; `st` is the shared live
    * state the client reads back. `units`/`world` are borrowed, may be null, and the module hands each
    * one only to the slots entitled to it. */
-  virtual void Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units = nullptr,
-                   const FBWorld *world = nullptr) = 0;
+  virtual void Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegistry *units = nullptr,
+                   const World::FBWorld *world = nullptr) = 0;
 
   /* The three REAL system slots; a concrete module may covariantly return a more-derived pilot type. */
-  virtual FBAutopilot &Autopilot() = 0;
-  virtual FBFlightControl &FlightControl() = 0;
-  virtual FBPilot &PilotSystem() = 0;
+  virtual Systems::FBAutopilot &Autopilot() = 0;
+  virtual Systems::FBFlightControl &FlightControl() = 0;
+  virtual Pilot::FBPilot &PilotSystem() = 0;
 
-  virtual FBAirframeControls &Controls() = 0;
-  virtual FBDisplaySystem &Displays() = 0;
-  virtual FBAirDataSystem &AirDataSystem() = 0;
-  virtual FBNavSystem &NavSystem() = 0;
-  virtual FBWarningSystem &WarningSystem() = 0;
-  virtual FBRadarAltimeter &RadarAltimeter() = 0;
+  virtual Systems::FBAirframeControls &Controls() = 0;
+  virtual Systems::FBDisplaySystem &Displays() = 0;
+  virtual Systems::FBAirDataSystem &AirDataSystem() = 0;
+  virtual Systems::FBNavSystem &NavSystem() = 0;
+  virtual Systems::FBWarningSystem &WarningSystem() = 0;
+  virtual Systems::FBRadarAltimeter &RadarAltimeter() = 0;
   virtual FBCommandBus &Commands() = 0;
-  virtual FBDatalinkSystem &Datalink() = 0;
-  virtual FBRadarSystem &Radar() = 0;
-  virtual FBRwrSystem &Rwr() = 0;
-  virtual FBCountermeasureSystem &Countermeasures() = 0;
+  virtual Sensors::FBDatalinkSystem &Datalink() = 0;
+  virtual Sensors::FBRadarSystem &Radar() = 0;
+  virtual Sensors::FBRwrSystem &Rwr() = 0;
+  virtual Sensors::FBCountermeasureSystem &Countermeasures() = 0;
   /* The client drains these two queues: a released store and a fired burst become part of the world,
    * and only the client may create units (fdm/FBFdmBoot.h) or decide what a round hits. */
-  virtual FBStoresSystem &Stores() = 0;
-  virtual FBGunSystem &Guns() = 0;
+  virtual Weapons::FBStoresSystem &Stores() = 0;
+  virtual Weapons::FBGunSystem &Guns() = 0;
   virtual const FBState &Telemetry() const = 0;
 
   /* Diagnostics of the INTERFACE, not of one airframe: every module issues guidance and steps an FDM. */
-  virtual const FBGuidance &LastGuidance() const = 0;
+  virtual const Systems::FBGuidance &LastGuidance() const = 0;
   virtual int LastSubsteps() const = 0;
 
   virtual FBFlightPlan &FlightPlan() = 0;
@@ -121,5 +121,5 @@ private:
   const FBSystemHealth *Health_ = nullptr;   /* borrowed, read-only — see AttachHealth */
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif

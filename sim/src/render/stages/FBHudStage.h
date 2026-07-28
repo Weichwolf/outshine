@@ -12,7 +12,7 @@
 #include "FBState.h"
 #include <vector>
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 class FBHudStage : public FBDrawStage {
 public:
@@ -20,7 +20,7 @@ public:
 
   void SetState(const FBState &s, bool have) { State = s; Have = have; }
   /* Borrowed, never owned; the client wires it from the active module. nullptr -> empty HUD. */
-  void SetDisplaySystem(const FBDisplaySystem *disp) { Disp = disp; }
+  void SetDisplaySystem(const Systems::FBDisplaySystem *disp) { Disp = disp; }
   void SetAgl(float agl) { Agl = agl; }   /* feeds FBHudEnv, for the horizon-dip calc + AGL readout */
 
   /* Regenerates the symbology for THIS frame's State, then draws. */
@@ -40,10 +40,10 @@ private:
   FBState State{};
   bool Have = false;
   float Agl = 0.0f;
-  const FBDisplaySystem *Disp = nullptr;
-  FBHudGeometry Geometry;
+  const Systems::FBDisplaySystem *Disp = nullptr;
+  Systems::FBHudGeometry Geometry;
   std::vector<float> LoadingGlyphs;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

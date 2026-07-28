@@ -1,6 +1,6 @@
 #include "FBTileLightsStage.h"
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 /* The vs subtracts (eye - anchor), so the field is camera-relative without a per-frame re-upload.
  * Depth-tested but depth-WRITE off: terrain occludes far lights, a light never occludes another. */
@@ -119,4 +119,4 @@ void FBTileLightsStage::Encode(const FBFrameContext &ctx, wgpu::RenderPassEncode
   pass.Draw(6, (uint32_t)NLights);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render

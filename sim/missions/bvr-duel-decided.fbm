@@ -1,6 +1,11 @@
 name bvr-duel-decided-1
 timeout 300
 
+# READING-RULE UPDATE (model delta D1, flaperon fix): this mission currently ends TIMEOUT, exit 3.
+# The launch geometry rides on the corrected roll behaviour; the decisive shot now misses by 7.09 m —
+# still inside the 10 m fuze, but the 1/r^2 damage no longer kills. A re-tune round against the
+# corrected model is queued (doc/flightbox/journal.md).
+
 # THE DECIDED DUEL: the same two intercept pilots as bvr-duel.fbm, the same code on both sides, the same
 # loadout, the same countermeasure programme, the same objectives — and a different STARTING GEOMETRY.
 # bvr-duel is a near-mirror (1,000 m and 50 kt of asymmetry) and ends in a stalemate: both shoot, both

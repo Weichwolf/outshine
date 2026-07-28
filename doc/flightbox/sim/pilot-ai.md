@@ -125,7 +125,9 @@ At the time of this file another agent is changing `sim/src/systems/FBPilot.{h,c
 documented here:
 
 - a new airframe hook `BfmBrakeMs2()` (F-16 2.4 m/s², [MESS] 238 samples at 4,000 m between 325 and
-  400 KCAS, median 2.39 / p10 1.64 / p90 3.80) and a closure cap **derived** from it, `a/k`, instead of
+  400 KCAS, median 2.39 / p10 1.64 / p90 3.80; re-measured across `MODEL-DELTAS.md` D1 as 2.531 →
+  2.527 m/s² — unmoved, because the trailing edge flaps only deploy below 250 KCAS and this band never
+  sees them) and a closure cap **derived** from it, `a/k`, instead of
   the flat 200 kt cap → affects point 4 above;
 - a **conversion rule** with a committed turn direction (`BfmTurnSense_`, `kBfmConvertErrDeg` = 90°, zone
   width from `180° − LOS rate · kBfmReverseS`) → affects point 3 above;
@@ -276,7 +278,18 @@ stores, warnings, cmds, datalink. The header of every block (`Invalid`/`Valid`/`
 | `Route` | `Direct` (+ leg from WP 2) | to the active waypoint at ITS altitude AND speed | waypoint of type `Land` → `Approach`; no waypoint left → `Shutdown` |
 | `Approach` | `Course` | extended runway centreline + `GlidepathAngleDeg` descent to the threshold, speed = `ApproachSpeedKt`, speedbrake `ApproachSpeedbrakeNorm`, gear down | radar altitude ≤ `FlareStartAglFt` → `Flare`; WOW before that → `Rollout`; no runway → `Shutdown` |
 | `Flare` | `Manual` | thrust idle, pitch PD onto `FlareTargetPitchDeg` with damped authority (`kFlareStickMax` 0.6) | WOW → `Rollout` |
-| `Rollout` | `Manual` | speedbrake full, two-point aerobrake onto `AerobrakePitchDeg` until `AerobrakeSpeedKt`, then proportional lowering of the nose; wheel brakes `RolloutBrakeNorm` only below that; nosewheel steering as in take-off | none — `core/FBMissionMonitor` judges "standing on the runway" |
+| `Rollout` | `Manual` | speedbrake full, two-point aerobrake onto `AerobrakePitchDeg` until `AerobrakeSpeedKt`, then proportional lowering of the nose; wheel brakes `RolloutBrakeNorm` from the moment `FBAirframeControls::GetNoseWheelOnGround()` is true (latched); nosewheel steering as in take-off | none — `core/FBMissionMonitor` judges "standing on the runway" |
+
+**Why the brakes hang on the NOSEWHEEL and not on `AerobrakeSpeedKt`.** In the two-point attitude the
+wings still carry the aircraft — measured on the roll-out, wheel normal load 0 lbf while 12° is held —
+so a wheel brake has no normal force to work against and the aerobrake is the whole budget (2.4 m/s² of
+drag). The moment the nose falls, drag collapses (1,477 lbf instead of 5,295) and the mains take load;
+that is the instant braking becomes possible, and `doc/f16/procedures-landing.md` sequences it exactly
+so ("reduce back stick, lower nosewheel … apply moderate-heavy wheel braking"). The ~100 kt in the
+procedure is the EXPECTATION of when the nose comes down, not an independent gate — the elevator
+actually loses the attitude at ~106 KCAS, and the old speed gate therefore left a **361 m / 6.7 s
+coasting segment at 0.45 m/s²** between the two. `GetNoseWheelOnGround` is the forwardmost bogey's WOW,
+selected by geometry rather than by a gear name, so it stays airframe-agnostic.
 | `Shutdown` | `None` | nothing | — |
 | `Bfm` | `Manual` (own law) | § 5 | none: a combat phase, entered by mission declaration |
 | `Intercept` | `Direct` | § 7 | none (except internally `Abort`) |
@@ -787,11 +800,12 @@ different questions, one answer.
 
 ```
 ω = g·√(n² − 1) / V        (n, V = the airframe's OWN corner hooks)
-F-16: n = 5.6, V = 380 kt = 195.5 m/s → 9.80665·√30.36/195.5 = 0.2764 rad/s = 15.8 °/s
+F-16: n = 5.4, V = 380 kt = 195.5 m/s → 9.80665·√28.16/195.5 = 0.2663 rad/s = 15.3 °/s
 ```
 
-[MESS] `make -C sim test-corner` measures 16.2 °/s directly on the same model — the derivation checks out
-against the model. The same method is used TWICE and is therefore a method and not two constants: it is
+[MESS] `make -C sim test-corner` measures 16.18 °/s directly on the same model — the derivation checks
+out against the model to within 6 %. (Both numbers are post-`MODEL-DELTAS.md`-D1; before it they read
+5.6 g → 15.8 °/s derived against 16.22 °/s measured.) The same method is used TWICE and is therefore a method and not two constants: it is
 the fastest nose movement this jet can use to track a travelling gun solution, AND the assumption about
 the other one.
 
@@ -1172,11 +1186,11 @@ overrides; pilot numbers are **constants in `FBPilot.cpp`**, because a human is 
 | `RotationSpeedKt(w)` | 65 | table 128…198 KIAS over 20,000…44,000 lb, interpolated | [DOK] `procedures-takeoff-taxi.md` |
 | `RotationLeadKt` / `RotationPitchDeg` | 10 / 8° | 15 kt / 10° | [DOK] "~15 kt below Vr in AB", "8–12° rotation attitude" |
 | `GearUpLimitKt` / `ClimbSpeedKt` / `TakeoffThrottleNorm` | 150 / 100 / 1.0 | 300 / 350 / 1.0 | [DOK] / mission profile / [DOK] "full afterburner" |
-| `ApproachSpeedKt` | 90 | **165** | [MESS] trimmed level, gear down, ~40 % fuel: 11.0° AoA at 164.9 KCAS — an open-loop substitute for a closed AoA loop, faithful to the model's trim curve instead of to a copied number |
+| `ApproachSpeedKt` | 90 | **154** | [MESS] trimmed level, gear down, ~40 % fuel: 11.0° AoA at 154 KCAS — an open-loop substitute for a closed AoA loop, faithful to the model's trim curve instead of to a copied number. Was 165 while `MODEL-DELTAS.md` D1's flaperon mixer kept the trailing edge flaps from lifting |
 | `GlidepathAngleDeg` | 3° | 3° | [DOK] `navigation-ils.md` |
 | `FlareTargetPitchDeg` / `AerobrakePitchDeg` / `AerobrakeSpeedKt` | 8 / 10 / 100 | 12.5 / 12.0 / 100 | [DOK] short final/roll-out (≤13° AoA, hold ~13° until ~100 kt) with margin against the flight monitor's 15° attitude knockout |
-| `BfmCornerSpeedKt` / `BfmCornerG` | 300 / 4.0 | **380 / 5.6** | [MESS] `make -C sim test-corner`: 280→12.8 °/s @3.2 g \| 340→14.9 @4.6 \| **380→16.2 @5.6 (peak)** \| 420→14.7 @5.8 \| 500→11.7 @5.6 \| 620→12.9 @7.5 |
-| `BfmMinSpeedKt` | 220 | 300 | [MESS] there the rate is ~17 % below the peak |
+| `BfmCornerSpeedKt` / `BfmCornerG` | 300 / 4.0 | **380 / 5.4** | [MESS] `make -C sim test-corner`, re-run after `MODEL-DELTAS.md` D1: 280→13.7 °/s @3.5 g \| 340→15.2 @4.6 \| **380→16.2 @5.4 (corner)** \| 400→16.4 @5.8 (peak) \| 420→15.0 @5.7 \| 500→11.5 @5.4 \| 620→12.8 @7.3. The corner SPEED did not move; the g at it did |
+| `BfmMinSpeedKt` | 220 | 300 | [MESS] there the rate is ~13 % below the peak |
 | `BfmMaxG` / `BfmUnloadG` | 6.0 / 3.0 | 9.0 / 3.0 | structural limit / [SETZ] |
 | `BfmControlMinNm`…`BfmControlAtaDeg` | 0.5 / 1.5 / 30° / 30° | identical | [SETZ] |
 | `BfmClosureGainKtPerNm` / `BfmMaxClosureKt` | 120 / 200 | identical | [SETZ] |

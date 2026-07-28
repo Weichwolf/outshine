@@ -10,7 +10,7 @@
 #include "FBModule.h"
 #include "FBSystemSlots.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 class FBGroundModule : public FBModule {
 public:
@@ -21,36 +21,36 @@ public:
   /* The EMPTY model name is the signal to the spawn path that there is nothing to load, so AttachFdm
    * is never called. */
   const char *FdmModelName() const override { return ""; }
-  void AttachFdm(FBFdm &fdm) override { (void)fdm; }
-  FBUnitKind UnitKind() const override { return FBUnitKind::Ground; }
+  void AttachFdm(Fdm::FBFdm &fdm) override { (void)fdm; }
+  Units::FBUnitKind UnitKind() const override { return Units::FBUnitKind::Ground; }
 
   /* Empty on purpose: the whole per-tick behaviour of a target is that its pose is the declared one. */
-  void Run(fb_fdm_state &st, double dt, const FBUnitRegistry *units = nullptr,
-           const FBWorld *world = nullptr) override {
+  void Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegistry *units = nullptr,
+           const World::FBWorld *world = nullptr) override {
     (void)st; (void)dt; (void)units; (void)world;
   }
 
   /* The ONE non-default accessor, and what makes a target a real participant rather than a marker. */
   const FBDamageLayout &DamageLayout() const override { return Spec_.Layout; }
 
-  FBAutopilot &Autopilot() override { return AP_; }
-  FBFlightControl &FlightControl() override { return FC_; }
-  FBPilot &PilotSystem() override { return Pilot_; }
-  FBAirframeControls &Controls() override { return Ctrl_; }
-  FBDisplaySystem &Displays() override { return Disp_; }
-  FBAirDataSystem &AirDataSystem() override { return AirData_; }
-  FBNavSystem &NavSystem() override { return Nav_; }
-  FBWarningSystem &WarningSystem() override { return Warn_; }
-  FBRadarAltimeter &RadarAltimeter() override { return RadarAlt_; }
+  Systems::FBAutopilot &Autopilot() override { return AP_; }
+  Systems::FBFlightControl &FlightControl() override { return FC_; }
+  Pilot::FBPilot &PilotSystem() override { return Pilot_; }
+  Systems::FBAirframeControls &Controls() override { return Ctrl_; }
+  Systems::FBDisplaySystem &Displays() override { return Disp_; }
+  Systems::FBAirDataSystem &AirDataSystem() override { return AirData_; }
+  Systems::FBNavSystem &NavSystem() override { return Nav_; }
+  Systems::FBWarningSystem &WarningSystem() override { return Warn_; }
+  Systems::FBRadarAltimeter &RadarAltimeter() override { return RadarAlt_; }
   FBCommandBus &Commands() override { return Cmds_; }
-  FBDatalinkSystem &Datalink() override { return Datalink_; }
-  FBRadarSystem &Radar() override { return Radar_; }
-  FBRwrSystem &Rwr() override { return Rwr_; }
-  FBCountermeasureSystem &Countermeasures() override { return Cm_; }
-  FBStoresSystem &Stores() override { return Stores_; }
-  FBGunSystem &Guns() override { return Gun_; }
+  Sensors::FBDatalinkSystem &Datalink() override { return Datalink_; }
+  Sensors::FBRadarSystem &Radar() override { return Radar_; }
+  Sensors::FBRwrSystem &Rwr() override { return Rwr_; }
+  Sensors::FBCountermeasureSystem &Countermeasures() override { return Cm_; }
+  Weapons::FBStoresSystem &Stores() override { return Stores_; }
+  Weapons::FBGunSystem &Guns() override { return Gun_; }
   const FBState &Telemetry() const override { return State_; }
-  const FBGuidance &LastGuidance() const override { return LastG_; }
+  const Systems::FBGuidance &LastGuidance() const override { return LastG_; }
   int LastSubsteps() const override { return 0; }
 
   FBFlightPlan &FlightPlan() override { return Plan_; }
@@ -65,26 +65,26 @@ public:
 private:
   const FBGroundTargetSpec &Spec_;
 
-  FBAutopilot AP_;
-  FBFlightControl FC_;
-  FBPilot Pilot_;
-  FBAirframeControls Ctrl_;
-  FBDisplaySystem Disp_;
-  FBAirDataSystem AirData_;
-  FBNavSystem Nav_;
-  FBWarningSystem Warn_;
-  FBRadarAltimeter RadarAlt_;
+  Systems::FBAutopilot AP_;
+  Systems::FBFlightControl FC_;
+  Pilot::FBPilot Pilot_;
+  Systems::FBAirframeControls Ctrl_;
+  Systems::FBDisplaySystem Disp_;
+  Systems::FBAirDataSystem AirData_;
+  Systems::FBNavSystem Nav_;
+  Systems::FBWarningSystem Warn_;
+  Systems::FBRadarAltimeter RadarAlt_;
   FBCommandBus Cmds_;
-  FBDatalinkSystem Datalink_;
-  FBRadarSystem Radar_;
-  FBRwrSystem Rwr_;
-  FBCountermeasureSystem Cm_;
-  FBStoresSystem Stores_;
-  FBGunSystem Gun_;
+  Sensors::FBDatalinkSystem Datalink_;
+  Sensors::FBRadarSystem Radar_;
+  Sensors::FBRwrSystem Rwr_;
+  Sensors::FBCountermeasureSystem Cm_;
+  Weapons::FBStoresSystem Stores_;
+  Weapons::FBGunSystem Gun_;
   FBFlightPlan Plan_;
   FBState State_{};
-  FBGuidance LastG_{};
+  Systems::FBGuidance LastG_{};
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif

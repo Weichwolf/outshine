@@ -24,7 +24,7 @@
 #include <sys/stat.h>
 #include <vector>
 
-namespace FlightBox {
+namespace FlightBox::Missions {
 
 const char *FBMissionResultStr(FBMissionResult r) {
   switch (r) {
@@ -63,9 +63,9 @@ FBMissionResult ToMissionResult(FBMissionVerdict v) {
 }
 
 /* A physical K.O. of ANY aircraft ends the run; returns WHOSE, because that decides the RESULT line. */
-const FBSimUnit *FirstFlightKo(const FBActorList &actors) {
+const Units::FBSimUnit *FirstFlightKo(const Units::FBActorList &actors) {
   for (const auto &a : actors) {
-    if (a->GetKind() != FBUnitKind::Aircraft) continue;   /* a store's K.O. is its impact; a ground
+    if (a->GetKind() != Units::FBUnitKind::Aircraft) continue;   /* a store's K.O. is its impact; a ground
                                                            * target has no flight to lose */
     if (a->FlightMonitor().Tripped()) return a.get();
   }
@@ -74,7 +74,7 @@ const FBSimUnit *FirstFlightKo(const FBActorList &actors) {
 
 /* Two observed facts plus a declaration, never a team heuristic: a duel has a winner and a loser rather
  * than two failures. Herleitung: doc/flightbox/units-and-missions.md §5, "Wie aus N Urteilen eines wird". */
-bool ExpectedLoss(const FBActorList &actors, const FBSimUnit &a) {
+bool ExpectedLoss(const Units::FBActorList &actors, const Units::FBSimUnit &a) {
   if (a.Health().CombatEffective()) return false;
   for (const auto &b : actors) {
     if (b.get() == &a) continue;
@@ -87,7 +87,7 @@ bool ExpectedLoss(const FBActorList &actors, const FBSimUnit &a) {
 }
 
 /* An actor is JUDGED iff the mission gave it objectives; an expected loss does not decide the run. */
-const FBSimUnit *FirstDecidingFailure(const FBActorList &actors) {
+const Units::FBSimUnit *FirstDecidingFailure(const Units::FBActorList &actors) {
   for (const auto &a : actors) {
     const FBMissionMonitor *m = a->MissionMonitor();
     if (!m || !m->Concluded() || m->Verdict() == FBMissionVerdict::Success) continue;
@@ -95,7 +95,7 @@ const FBSimUnit *FirstDecidingFailure(const FBActorList &actors) {
   }
   return nullptr;
 }
-bool AllJudgedConcluded(const FBActorList &actors) {
+bool AllJudgedConcluded(const Units::FBActorList &actors) {
   bool anyJudged = false;
   for (const auto &a : actors) {
     const FBMissionMonitor *m = a->MissionMonitor();
@@ -107,7 +107,7 @@ bool AllJudgedConcluded(const FBActorList &actors) {
 }
 /* Whose verdict the combined RESULT quotes when nothing decided the run: the first judged actor whose
  * loss was NOT somebody's objective — and if every one lost that way (a mutual exchange), the first. */
-const FBSimUnit *FirstJudged(const FBActorList &actors) {
+const Units::FBSimUnit *FirstJudged(const Units::FBActorList &actors) {
   for (const auto &a : actors)
     if (a->MissionMonitor() && !ExpectedLoss(actors, *a)) return a.get();
   for (const auto &a : actors)
@@ -144,8 +144,8 @@ struct FBCpa {
   double RelE = 0.0, RelN = 0.0, RelU = 0.0;
 };
 
-FBCpa ClosestApproach(const FBUnitPose &a0, const FBUnitPose &b0, const FBUnitPose &a1,
-                      const FBUnitPose &b1, double dt) {
+FBCpa ClosestApproach(const Units::FBUnitPose &a0, const Units::FBUnitPose &b0, const Units::FBUnitPose &a1,
+                      const Units::FBUnitPose &b1, double dt) {
   double p0e = 0.0, p0n = 0.0, p1e = 0.0, p1n = 0.0;
   FBEnuOffsetM(b0.LatDeg, b0.LonDeg, a0.LatDeg, a0.LonDeg, p0e, p0n);
   FBEnuOffsetM(b1.LatDeg, b1.LonDeg, a1.LatDeg, a1.LonDeg, p1e, p1n);
@@ -166,8 +166,8 @@ FBCpa ClosestApproach(const FBUnitPose &a0, const FBUnitPose &b0, const FBUnitPo
 
 /* Geometry -> damage, resolved by the OWNER of the simulation on the published poses: letting a weapon
  * score itself on its own seeker estimate would be the purest form of cheating. */
-void ResolveBurst(FBSimUnit &target, const FBCpa &c, const FBStoreSpec &spec) {
-  const FBUnitPose &p = target.GetPose();
+void ResolveBurst(Units::FBSimUnit &target, const FBCpa &c, const FBStoreSpec &spec) {
+  const Units::FBUnitPose &p = target.GetPose();
   FBBurst b;
   FBEnuToBodyVec(p.RollDeg, p.PitchDeg, p.YawDeg, c.RelE, c.RelN, c.RelU, b.FwdM, b.RightM, b.DownM);
   b.ClosureMs = c.ClosureMs;
@@ -199,9 +199,9 @@ constexpr double kGunNearMissM = 200.0;
 
 /* ResolveBurst's kinetic twin: a warhead is a mass the model derives an energy from, a burst is a COUNT
  * of rounds in a pattern, so the energy density is computed here and the damage model handed the result. */
-bool ResolveGunHit(FBSimUnit &target, const FBCpa &c, const FBGunProjectiles::Bundle &bundle,
+bool ResolveGunHit(Units::FBSimUnit &target, const FBCpa &c, const FBGunProjectiles::Bundle &bundle,
                    double sigmaM, double relSpeedMs) {
-  const FBUnitPose &p = target.GetPose();
+  const Units::FBUnitPose &p = target.GetPose();
   double fwd = 0.0, right = 0.0, down = 0.0;
   FBEnuToBodyVec(p.RollDeg, p.PitchDeg, p.YawDeg, c.RelE, c.RelN, c.RelU, fwd, right, down);
   const FBDamageLayout &layout = target.Module().DamageLayout();
@@ -243,8 +243,8 @@ bool ResolveGunHit(FBSimUnit &target, const FBCpa &c, const FBGunProjectiles::Bu
 /* ResolveBurst's unguided counterpart, same 1/r^2 fragment law. Deliberately does NOT reach aircraft:
  * a frag-vs-airframe geometry does not exist here, and an invented cutoff radius would be a number
  * pretending to be physics. Herleitung: doc/flightbox/units-and-missions.md §8. */
-bool ResolveGroundBurst(FBSimUnit &target, const fb_fdm_state &burst, const FBStoreSpec &spec) {
-  const FBUnitPose &p = target.GetPose();
+bool ResolveGroundBurst(Units::FBSimUnit &target, const Fdm::fb_fdm_state &burst, const FBStoreSpec &spec) {
+  const Units::FBUnitPose &p = target.GetPose();
   double relE = 0.0, relN = 0.0;
   FBEnuOffsetM(p.LatDeg, p.LonDeg, burst.lat, burst.lon, relE, relN);
   double relU = burst.elev - p.ElevM;
@@ -287,8 +287,8 @@ bool ResolveGroundBurst(FBSimUnit &target, const fb_fdm_state &burst, const FBSt
 /* Where the round crossed the surface, as opposed to where it was first SEEN below it: on a 0.1 s tick a
  * Mk-82 penetrates 14 m before it is observed, i.e. ~20 m of horizontal travel — a fifth of the delivery
  * error the attack missions exist to measure. Herleitung: doc/flightbox/units-and-missions.md §8. */
-fb_fdm_state GroundCrossing(const FBSimUnit &store, double &backS) {
-  fb_fdm_state s = store.State();
+Fdm::fb_fdm_state GroundCrossing(const Units::FBSimUnit &store, double &backS) {
+  Fdm::fb_fdm_state s = store.State();
   backS = 0.0;
   double depth = store.GroundAslM() - s.elev;
   if (!(depth > 0.0) || !(s.vy < -0.1)) return s;
@@ -301,9 +301,9 @@ fb_fdm_state GroundCrossing(const FBSimUnit &store, double &backS) {
   return s;
 }
 
-void LogStoreImpact(const FBSimUnit &store, const FBStoreTrack &track, double simT,
-                    const fb_fdm_state &cross, double backS) {
-  const fb_fdm_state &st = store.State();
+void LogStoreImpact(const Units::FBSimUnit &store, const FBStoreTrack &track, double simT,
+                    const Fdm::fb_fdm_state &cross, double backS) {
+  const Fdm::fb_fdm_state &st = store.State();
   double horizMs = std::sqrt(st.vx * st.vx + st.vz * st.vz);
   double angleDeg = std::atan2(-st.vy, horizMs > 1e-6 ? horizMs : 1e-6) * kRad2Deg;
   FBKoReason r = store.FlightMonitor().Reason();
@@ -339,32 +339,32 @@ void LogStoreImpact(const FBSimUnit &store, const FBStoreTrack &track, double si
 }
 
 /* One CSV per actor, the primary keeping the canonical name; doc/flightbox/units-and-missions.md §10. */
-std::string TelemetryPath(const std::string &outDir, size_t index, const FBSimUnit &unit) {
+std::string TelemetryPath(const std::string &outDir, size_t index, const Units::FBSimUnit &unit) {
   if (index == 0) return outDir + "/telemetry.csv";
   return outDir + "/telemetry_" + unit.GetName() + ".csv";
 }
 
 /* Was the ground the cause or the consequence? The shootdown explains the crash, the crash explains
  * nothing — so the physical judge steps aside for a concluded, combat-ineffective unit. */
-bool ShotDownFirst(const FBSimUnit &a) {
+bool ShotDownFirst(const Units::FBSimUnit &a) {
   const FBMissionMonitor *m = a.MissionMonitor();
   return m && m->Concluded() && !a.Health().CombatEffective();
 }
 
 /* The per-unit breakdown's result string: the physical judge outranks the mission judge except after a
  * shootdown. Table: doc/flightbox/units-and-missions.md §5, "UNIT_RESULT". */
-const char *ActorResultStr(const FBSimUnit &a) {
-  if (a.GetKind() == FBUnitKind::Weapon)
+const char *ActorResultStr(const Units::FBSimUnit &a) {
+  if (a.GetKind() == Units::FBUnitKind::Weapon)
     return a.FlightMonitor().Tripped() ? "IMPACT" : "IN_FLIGHT";
-  if (a.GetKind() == FBUnitKind::Ground)
+  if (a.GetKind() == Units::FBUnitKind::Ground)
     return a.Health().CombatEffective() ? "INTACT" : "DESTROYED";
   const FBMissionMonitor *m = a.MissionMonitor();
   if (a.FlightMonitor().Tripped() && !ShotDownFirst(a))
     return a.FlightMonitor().Reason() == FBKoReason::Loc ? "LOC" : "CRASH";
   return m ? FBMissionVerdictStr(m->Verdict()) : "NONE";
 }
-std::string ActorReason(const FBSimUnit &a) {
-  if (a.GetKind() == FBUnitKind::Ground) {
+std::string ActorReason(const Units::FBSimUnit &a) {
+  if (a.GetKind() == Units::FBUnitKind::Ground) {
     if (a.Health().CombatEffective()) return "still standing";
     char buf[64];
     snprintf(buf, sizeof buf, "structure destroyed by %d hit(s)", a.Health().Hits());
@@ -378,16 +378,16 @@ std::string ActorReason(const FBSimUnit &a) {
 
 /* The file + sink behind one actor's telemetry bus: app/ owns the I/O, the unit owns the bus. */
 struct FBActorTelemetry {
-  FBFileHandle File{nullptr, &fclose};
-  std::unique_ptr<FBCsvTelemetrySink> Sink;
+  Clients::FBFileHandle File{nullptr, &fclose};
+  std::unique_ptr<Clients::FBCsvTelemetrySink> Sink;
 };
 
 /* The tick's STEP phase as one job (app/FBTickPool.h): index i steps actor i and nothing else. The sim
  * time is stamped inside RunIndex because FBLog's clock is thread-local. */
 class FBActorStepJob : public FBTickJob {
 public:
-  FBActorStepJob(FBActorList &actors, const FBUnitRegistry &units,
-                 std::vector<FBBufferedLogSink> &logs, double dt)
+  FBActorStepJob(Units::FBActorList &actors, const Units::FBUnitRegistry &units,
+                 std::vector<Clients::FBBufferedLogSink> &logs, double dt)
       : Actors_(actors), Units_(units), Logs_(logs), Dt_(dt) {}
 
   void SetTime(double simT) { TimeS_ = simT; }
@@ -401,9 +401,9 @@ public:
   }
 
 private:
-  FBActorList &Actors_;
-  const FBUnitRegistry &Units_;
-  std::vector<FBBufferedLogSink> &Logs_;
+  Units::FBActorList &Actors_;
+  const Units::FBUnitRegistry &Units_;
+  std::vector<Clients::FBBufferedLogSink> &Logs_;
   double Dt_;
   double TimeS_ = 0.0;
 };
@@ -413,17 +413,17 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
                  const FBModelRoots &models, FBElevationProvider &elevation,
                  FBMissionTickHook *hook, size_t threads) {
   std::string evPath = outDir + "/events.log";
-  FBFileHandle evf = FBOpenFile(evPath.c_str(), "w");
+  Clients::FBFileHandle evf = Clients::FBOpenFile(evPath.c_str(), "w");
   if (!evf) { fprintf(stderr, "mission: cannot open %s for writing\n", evPath.c_str()); return 1; }
 
   /* Declaration order IS the cleanup contract: the scope is declared last, so FBLog's sink pointer is
    * cleared before the sinks and the FILE* behind them go away — on EVERY return below. */
-  FBFileLogSink fileSink(evf.get());
-  FBStdoutLogSink stdoutSink;
-  FBCompositeLogSink logSink;
+  Clients::FBFileLogSink fileSink(evf.get());
+  Clients::FBStdoutLogSink stdoutSink;
+  Clients::FBCompositeLogSink logSink;
   logSink.Add(&fileSink);
   logSink.Add(&stdoutSink);
-  FBLogSinkScope logScope(&logSink);
+  Clients::FBLogSinkScope logScope(&logSink);
   FBLog::SetTime(0.0);
 
   /* ---- Step 1: load the mission ---- */
@@ -464,8 +464,8 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
 
   /* ---- Step 2: set up the world with its actors ----
    * The list's ORDER is the mission file's order and stays the tick order for the whole run. */
-  FBRegisterBuiltinModules();
-  FBActorList Actors;
+  Modules::FBRegisterBuiltinModules();
+  Units::FBActorList Actors;
   Actors.reserve(mission.Units.size());
   for (size_t i = 0; i < mission.Units.size(); i++) {
     const FBMissionUnit &block = mission.Units[i];
@@ -491,7 +491,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
         {"hdg", sp.HeadingDeg}, {"speedKt", sp.SpeedKt}});
 
     std::string serr;
-    std::unique_ptr<FBSimUnit> unit = FBMissionSpawnActor(models, mission, i, groundAsl, timeoutS, &serr);
+    std::unique_ptr<Units::FBSimUnit> unit = FBMissionSpawnActor(models, mission, i, groundAsl, timeoutS, &serr);
     if (!unit) {
       FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", serr}});
       return 1;
@@ -517,12 +517,12 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     std::string TargetName;
   };
   std::vector<FBGunPass> GunPasses(FBGunProjectiles::kMaxBundles);
-  std::vector<FBUnitPose> PrevPose(maxActors);   /* last tick's poses, for ClosestApproach */
+  std::vector<Units::FBUnitPose> PrevPose(maxActors);   /* last tick's poses, for ClosestApproach */
   bool HavePrevPose = false;
 
   /* The run's ONE unit registry, in mission-declaration order, borrowed by everything that observes
    * units: the modules' sensors through the step job, and (native only) the hook's FBWorld. */
-  FBUnitRegistry UnitReg;
+  Units::FBUnitRegistry UnitReg;
   for (const auto &a : Actors) UnitReg.Register(a.get());
 
   /* The OBSERVED roster a combat objective is judged against: callsign, faction, and the one bit the
@@ -533,7 +533,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   auto BuildRoster = [&]() {
     RosterBuf.clear();
     for (const auto &a : Actors) {
-      if (a->GetKind() == FBUnitKind::Weapon) continue;
+      if (a->GetKind() == Units::FBUnitKind::Weapon) continue;
       RosterBuf.push_back({a->GetName().c_str(), a->GetTeam(), a->Health().CombatEffective()});
     }
     return FBMissionRoster{RosterBuf.data(), (int)RosterBuf.size()};
@@ -549,12 +549,12 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   ActorTelemetry.resize(Actors.size());
   for (size_t i = 0; i < Actors.size(); i++) {
     std::string path = TelemetryPath(outDir, i, *Actors[i]);
-    ActorTelemetry[i].File = FBOpenFile(path.c_str(), "w");
+    ActorTelemetry[i].File = Clients::FBOpenFile(path.c_str(), "w");
     if (!ActorTelemetry[i].File) {
       FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "cannot open telemetry.csv"}});
       return 1;
     }
-    ActorTelemetry[i].Sink = std::make_unique<FBCsvTelemetrySink>(ActorTelemetry[i].File.get());
+    ActorTelemetry[i].Sink = std::make_unique<Clients::FBCsvTelemetrySink>(ActorTelemetry[i].File.get());
     Actors[i]->StartTelemetry(ActorTelemetry[i].Sink.get());
   }
 
@@ -571,7 +571,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
    * job they were handed are still alive. */
   if (threads < 1) threads = 1;
   if (threads > Actors.size()) threads = Actors.size();
-  std::vector<FBBufferedLogSink> actorLogs(maxActors);
+  std::vector<Clients::FBBufferedLogSink> actorLogs(maxActors);
   FBActorStepJob stepJob(Actors, UnitReg, actorLogs, dt);
   FBTickPool pool(threads);
 
@@ -625,12 +625,12 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
           continue;
         }
         if (!pass.Live) { pass = FBGunPass{}; pass.Live = true; }
-        FBUnitPose b0{}, b1{};
+        Units::FBUnitPose b0{}, b1{};
         b0.LatDeg = bundle.PrevLatDeg; b0.LonDeg = bundle.PrevLonDeg; b0.ElevM = bundle.PrevAltM;
         b1.LatDeg = bundle.LatDeg; b1.LonDeg = bundle.LonDeg; b1.ElevM = bundle.AltM;
         for (size_t k = 0; k < Actors.size(); k++) {
-          FBSimUnit &tgt = *Actors[k];
-          if (tgt.GetKind() != FBUnitKind::Aircraft || !tgt.Active()) continue;
+          Units::FBSimUnit &tgt = *Actors[k];
+          if (tgt.GetKind() != Units::FBUnitKind::Aircraft || !tgt.Active()) continue;
           if (tgt.GetId() == bundle.LauncherId) continue;   /* nobody shoots himself down */
           FBCpa c = ClosestApproach(b0, PrevPose[k], b1, tgt.GetPose(), dt);
           /* The pattern's size at this point of the flight: dispersion times the path flown. */
@@ -656,7 +656,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     /* A store's flight ends where its own judge says: an impact or its catalogue lifetime cap. AFTER
      * this tick's telemetry sample, so the impact tick is the last ROW of its trace and not a gap. */
     for (auto &t : StoreTracks) {
-      FBSimUnit &store = *Actors[t.Index];
+      Units::FBSimUnit &store = *Actors[t.Index];
       if (!store.Active()) continue;
       FBLogUnitScope us(store.LogLabel());
       /* The proximity fuze first: a round that passed inside its radius this tick detonated there,
@@ -665,15 +665,15 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
       if (t.Spec && t.Spec->FuzeRadiusM > 0.0 && HavePrevPose &&
           simT - t.SpawnS >= t.Spec->Perf.ArmingS) {
         for (size_t k = 0; k < Actors.size(); k++) {
-          FBSimUnit &tgt = *Actors[k];
-          if (k == t.Index || tgt.GetKind() != FBUnitKind::Aircraft || !tgt.Active()) continue;
+          Units::FBSimUnit &tgt = *Actors[k];
+          if (k == t.Index || tgt.GetKind() != Units::FBUnitKind::Aircraft || !tgt.Active()) continue;
           FBCpa c = ClosestApproach(PrevPose[t.Index], PrevPose[k], store.GetPose(), tgt.GetPose(), dt);
           if (c.MissM < t.MinMissM && tgt.GetId() != t.LauncherId) {
             t.MinMissM = c.MissM;
             t.MinMissUnit = tgt.GetId();
           }
           if (c.MissM > t.Spec->FuzeRadiusM) continue;
-          const fb_fdm_state &ms = store.State();
+          const Fdm::fb_fdm_state &ms = store.State();
           double aspect = FBWrap180(tgt.GetPose().YawDeg - ms.yaw);
           FBLog::Info("stores", "DETONATION", {{"target", tgt.GetName()},
               {"missM", c.MissM}, {"fuzeM", t.Spec->FuzeRadiusM}, {"closureMs", c.ClosureMs},
@@ -689,7 +689,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
       if (detonated) continue;
       if (store.FlightMonitor().Tripped()) {
         double backS = 0.0;
-        fb_fdm_state cross = GroundCrossing(store, backS);
+        Fdm::fb_fdm_state cross = GroundCrossing(store, backS);
         LogStoreImpact(store, t, simT, cross, backS);
         if (t.MinMissM < 1e17)
           FBLog::Info("stores", "MISS", {{"closestM", t.MinMissM}, {"unitId", t.MinMissUnit},
@@ -702,7 +702,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
                         kr == FBKoReason::AttitudeContact;
         if (onGround && t.Spec && t.Spec->WarheadKg > 0.0) {
           for (auto &g : Actors) {
-            if (g->GetKind() != FBUnitKind::Ground || !g->Active()) continue;
+            if (g->GetKind() != Units::FBUnitKind::Ground || !g->Active()) continue;
             (void)ResolveGroundBurst(*g, cross, *t.Spec);
           }
         }
@@ -720,7 +720,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
      * FIFO, so ids/files/tick order are identical no matter how many threads stepped the tick. */
     size_t declaredActors = Actors.size();
     for (size_t i = 0; i < declaredActors; i++) {
-      FBSimUnit &carrier = *Actors[i];
+      Units::FBSimUnit &carrier = *Actors[i];
       FBGunBurst gb;
       while (carrier.Module().Guns().TakeBurst(gb)) {
         if (Bullets.Launch(gb)) {
@@ -741,7 +741,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
         snprintf(name, sizeof name, "%s_%s_%d", carrier.GetName().c_str(), spec->Key,
                  (int)StoreTracks.size() + 1);
         std::string serr;
-        std::unique_ptr<FBSimUnit> store =
+        std::unique_ptr<Units::FBSimUnit> store =
             FBMissionSpawnStore(models, rel, carrier.State(), carrier.GroundAslM(),
                                 (int)Actors.size() + 1, name, carrier.GetTeam(), &serr);
         if (!store) {
@@ -752,9 +752,9 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
         std::string path = TelemetryPath(outDir, Actors.size(), *store);
         ActorTelemetry.emplace_back();
         FBActorTelemetry &tel = ActorTelemetry.back();
-        tel.File = FBOpenFile(path.c_str(), "w");
+        tel.File = Clients::FBOpenFile(path.c_str(), "w");
         if (tel.File) {
-          tel.Sink = std::make_unique<FBCsvTelemetrySink>(tel.File.get());
+          tel.Sink = std::make_unique<Clients::FBCsvTelemetrySink>(tel.File.get());
           store->StartTelemetry(tel.Sink.get());
         } else {
           store->StartTelemetry(nullptr);   /* it still flies; only its trace is missing */
@@ -772,8 +772,8 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   }
 
   /* ---- Step 4: validate the world — the monitors already did; combine their verdicts ---- */
-  const FBSimUnit &primary = *Actors.front();
-  const FBSimUnit *ko = FirstFlightKo(Actors);
+  const Units::FBSimUnit &primary = *Actors.front();
+  const Units::FBSimUnit *ko = FirstFlightKo(Actors);
   /* A K.O. always ENDS the run but only DECIDES it when it was nobody's declared objective. When it is
    * expected, the monitors still waiting on a `survive` are asked here — the run to survive is over. */
   if (ko && ExpectedLoss(Actors, *ko)) {
@@ -784,10 +784,10 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     }
     ko = nullptr;
   }
-  const FBSimUnit *failed = ko ? nullptr : FirstDecidingFailure(Actors);
+  const Units::FBSimUnit *failed = ko ? nullptr : FirstDecidingFailure(Actors);
   /* Null on a clean success: nobody decided anything alone, so RESULT carries no unit attribution. */
-  const FBSimUnit *deciding = ko ? ko : failed;
-  const FBSimUnit *judged = FirstJudged(Actors);
+  const Units::FBSimUnit *deciding = ko ? ko : failed;
+  const Units::FBSimUnit *judged = FirstJudged(Actors);
   FBMissionResult result;
   std::string reason;
   if (ko) {
@@ -803,12 +803,12 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     result = FBMissionResult::Timeout;   /* no actor carried objectives — only the clock could end this */
     reason = "sim time exceeded the mission timeout";
   }
-  const fb_fdm_state &st = primary.State();
+  const Fdm::fb_fdm_state &st = primary.State();
 
   /* With a single actor the RESULT line below IS that actor's verdict, so a breakdown would repeat it. */
   if (Actors.size() > 1) {
     for (size_t i = 0; i < Actors.size(); i++) {
-      const FBSimUnit &a = *Actors[i];
+      const Units::FBSimUnit &a = *Actors[i];
       FBLogUnitScope us(a.LogLabel());
       FBLog::Info("mission", "UNIT_RESULT", {{"result", ActorResultStr(a)}, {"reason", ActorReason(a)},
           {"team", FBUnitTeamStr(a.GetTeam())}, {"decisive", &a == deciding},
@@ -835,4 +835,4 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   return 1;
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Missions

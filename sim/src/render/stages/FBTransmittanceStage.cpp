@@ -2,7 +2,7 @@
 #include "FBAtmoCommon.h"
 #include <string>
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 static const char *kTransmittanceCS = R"(
 @group(0) @binding(0) var tOut : texture_storage_2d<rgba16float, write>;
@@ -63,4 +63,4 @@ void FBTransmittanceStage::EncodeCompute(const FBFrameContext &, wgpu::ComputePa
   pass.DispatchWorkgroups(32, 8, 1);   /* 256x64 / 8x8 */
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render

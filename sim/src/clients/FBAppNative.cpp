@@ -43,6 +43,8 @@ void Usage(const char *argv0) {
           "usage: %s [--lat D] [--lon D] [--ground M] [--agl M] [--view KM] [--yaw DEG] [--pitch DEG]\n"
           "          [--albedo osm|photo] [--utc SECS] [--cloud C] [--cloudq Q] [--moonscale S] [--moon PATH]\n"
           "          [--base URL] [--seconds N] [--interval M] [--out DIR] [--wx BLOB]\n"
+          "  --wx BLOB  the SCREENSHOT venue's weather (an FBWX blob). A mission carries its own in its\n"
+          "    `wx` line (missions/FBWeatherBoot.h), so --wx with --mission is rejected, not ignored.\n"
           "  --cloudcheck  evaluate core/FBCloudDensity.h and its WGSL twin over a sample set on the GPU\n"
           "    and print the largest disagreement; exit 0 iff it is inside the stated tolerance.\n"
           "  --mission FILE [--timeout N] [--interval S]  ground-spawn a .fbm mission (doc/mission-format.md)\n"
@@ -156,7 +158,7 @@ int RunCloudDensityCheck(void) {
   gOut[i] = cloudDensity(gDecks[u32(s.w)], s.x, s.y, s.z);
 }
 )";
-  const std::string src = FBCloudDensityConstsWGSL() + kCloudDensityWGSL + kCheckWGSL;
+  const std::string src = FlightBox::Render::FBCloudDensityConstsWGSL() + FlightBox::Render::kCloudDensityWGSL + kCheckWGSL;
   wgpu::ShaderSourceWGSL wgsl{};
   wgsl.code = src.c_str();
   wgpu::ShaderModuleDescriptor smd{};
@@ -224,7 +226,7 @@ int RunCloudDensityCheck(void) {
 
 /* The concrete FBMissionTickHook, implemented ONLY in this translation unit — which is what keeps
  * fb-gym's link GPU-free while both clients share one mission loop. */
-class FBNativeMissionHook : public FlightBox::FBMissionTickHook {
+class FBNativeMissionHook : public FlightBox::Missions::FBMissionTickHook {
 public:
   FBNativeMissionHook(std::string base, std::string outDir, double intervalS, int width = 1280, int height = 720)
       : Base(std::move(base)), OutDir(std::move(outDir)), IntervalS(intervalS), Width(width), Height(height) {}
@@ -233,10 +235,10 @@ public:
    * FBWorld is created. Only the DATA side: nothing draws weather yet. */
   void OnWeather(const FlightBox::FBWeatherProvider &weather) override { Wx = &weather; }
 
-  void OnMissionStart(const FlightBox::FBSpawn &spawn, const FlightBox::FBActorList &actors,
-                      const FlightBox::FBUnitRegistry &units) override {
-    const FlightBox::FBSimUnit &primary = *actors.front();   /* the camera's actor (FBMissionRunner.h) */
-    R = std::make_unique<FlightBox::FBRenderer>();
+  void OnMissionStart(const FlightBox::FBSpawn &spawn, const FlightBox::Units::FBActorList &actors,
+                      const FlightBox::Units::FBUnitRegistry &units) override {
+    const FlightBox::Units::FBSimUnit &primary = *actors.front();   /* the camera's actor (FBMissionRunner.h) */
+    R = std::make_unique<FlightBox::Render::FBRenderer>();
     R->SetDefaultMode(0);
     R->SetGroundMode(0);
     R->SetStreaming(512);
@@ -244,7 +246,7 @@ public:
     R->SetSkyClock((double)clk);
     { uint8_t *moon = 0; int mw = 0, mh = 0;
       if (fb_load_image_file("flightbox/web/moon.jpg", &moon, &mw, &mh)) { R->SetMoonTexture(moon, mw, mh); free(moon); } }
-    W = std::make_unique<FlightBox::FBWorld>();
+    W = std::make_unique<FlightBox::World::FBWorld>();
     if (!W->Open(R.get(), Base.c_str(), spawn.LatDeg, spawn.LonDeg, 32, 30000.0, 512)) {
       FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "world open"}});
       R.reset(); W.reset();
@@ -268,21 +270,21 @@ public:
     for (int i = 0; i < 60; i++) W->Update(spawn.LatDeg, spawn.LonDeg, eye0, fwd0, (double)i * 1000.0 / 15.0);
   }
 
-  void OnTick(const FlightBox::FBActorList &actors, double simT) override {
+  void OnTick(const FlightBox::Units::FBActorList &actors, double simT) override {
     if (!R || !W) return;   /* OnMissionStart already logged the failure */
     Acc += 0.1;   /* dt = the runner's fixed 10 Hz decision tick, see FBMissionRunner.cpp */
     if (Acc < IntervalS) return;
     Acc = 0.0;
-    const FlightBox::FBSimUnit &primary = *actors.front();
-    FlightBox::FBUnitPose p = primary.GetPose();   /* the camera rides the unit, not a raw FDM POD */
+    const FlightBox::Units::FBSimUnit &primary = *actors.front();
+    FlightBox::Units::FBUnitPose p = primary.GetPose();   /* the camera rides the unit, not a raw FDM POD */
     double eye[3], fwd[3], right[3], up[3];
     FBGeoToEcef(p.LatDeg, p.LonDeg, p.ElevM, eye);
     FBCameraBasisEcef(p.YawDeg, p.PitchDeg, p.RollDeg, p.LatDeg, p.LonDeg, fwd, right, up);
     R->SetCameraBasis(eye, fwd, right, up);
     FlightBox::FBState hs = primary.HudState();   /* module telemetry + this tick's live pose */
     hs.Platform.Mode = FlightBox::FBMode::Manual;
-    FlightBox::SunPos(p.LatDeg, p.LonDeg, time(nullptr), &hs.Env.SunElDeg, &hs.Env.SunAzDeg);
-    FlightBox::MoonPos(p.LatDeg, p.LonDeg, time(nullptr), &hs.Env.MoonElDeg, &hs.Env.MoonAzDeg, &hs.Env.MoonPhase);
+    FlightBox::Render::SunPos(p.LatDeg, p.LonDeg, time(nullptr), &hs.Env.SunElDeg, &hs.Env.SunAzDeg);
+    FlightBox::Render::MoonPos(p.LatDeg, p.LonDeg, time(nullptr), &hs.Env.MoonElDeg, &hs.Env.MoonAzDeg, &hs.Env.MoonPhase);
     /* The renderer never asks the weather anything: the CLIENT samples it where the camera is and hands
      * over the resulting decks (core/FBCloudDensity.h) — the same call an IR sensor would make. */
     if (const FlightBox::FBWeatherProvider *wx = W->Weather()) {
@@ -312,8 +314,8 @@ private:
   double IntervalS;
   int Width, Height;
   const FlightBox::FBWeatherProvider *Wx = nullptr;   /* borrowed for the run (OnWeather) */
-  std::unique_ptr<FlightBox::FBRenderer> R;
-  std::unique_ptr<FlightBox::FBWorld> W;
+  std::unique_ptr<FlightBox::Render::FBRenderer> R;
+  std::unique_ptr<FlightBox::World::FBWorld> W;
   double Acc = 0.0;
   int Shot = 0;
 };
@@ -322,12 +324,12 @@ private:
  * here, never a dependency of the physics or the termination logic. */
 int RunMission(const std::string &missionPath, double timeoutOverride, double renderIntervalS,
               const std::string &base, const std::string &outDir) {
-  FlightBox::FBTilesElevation elevation(base.c_str());
+  FlightBox::World::FBTilesElevation elevation(base.c_str());
   if (renderIntervalS > 0.0) {
     FBNativeMissionHook hook(base, outDir, renderIntervalS);
-    return FlightBox::FBRunMission(missionPath, timeoutOverride, outDir, FlightBox::FBNativeModelRoots(), elevation, &hook);
+    return FlightBox::Missions::FBRunMission(missionPath, timeoutOverride, outDir, FlightBox::Missions::FBNativeModelRoots(), elevation, &hook);
   }
-  return FlightBox::FBRunMission(missionPath, timeoutOverride, outDir, FlightBox::FBNativeModelRoots(), elevation, nullptr);
+  return FlightBox::Missions::FBRunMission(missionPath, timeoutOverride, outDir, FlightBox::Missions::FBNativeModelRoots(), elevation, nullptr);
 }
 
 }  // namespace
@@ -366,16 +368,24 @@ int main(int argc, char **argv) {
     else if (a == "--timeout" && i + 1 < argc) missionTimeout = atof(argv[++i]);   /* --mission: overrides the .fbm's own timeout */
     else { Usage(argv[0]); return 1; }
   }
-  if (!FlightBox::FBEnsureDir(outDir)) { fprintf(stderr, "gpu_native: cannot create --out %s\n", outDir.c_str()); return 1; }
+  if (!FlightBox::Missions::FBEnsureDir(outDir)) { fprintf(stderr, "gpu_native: cannot create --out %s\n", outDir.c_str()); return 1; }
 
   /* FBRunMission installs its OWN sink; everything else here just wants console visibility. */
-  static FlightBox::FBStdoutLogSink gStdoutSink;
+  static FlightBox::Clients::FBStdoutLogSink gStdoutSink;
   FlightBox::FBLog::SetSink(&gStdoutSink);
   FlightBox::FBLog::SetLevel(FlightBox::FBLogLevel::Debug);
 
   if (cloudCheck) return RunCloudDensityCheck();
-  if (!missionPath.empty())
+  if (!missionPath.empty()) {
+    /* Two weather sources cannot both be the mission's. The .fbm owns its own (missions/
+     * FBWeatherBoot.h, and its precedence rule); --wx belongs to the mission-less screenshot venue. */
+    if (!wxPath.empty()) {
+      fprintf(stderr, "gpu_native: --wx is the screenshot venue's weather; a mission declares its own "
+                      "with a `wx` line (doc/mission-format.md)\n");
+      return 1;
+    }
     return RunMission(missionPath, missionTimeout, intervalSet ? interval : 0.0, base, outDir);
+  }
 
   const int width = 1280, height = 720, fps = 60;
 
@@ -401,13 +411,13 @@ int main(int argc, char **argv) {
   hs.Env.CloudCover = (float)cloudCover;
   /* EVS only; SVS renders a constant day regardless. */
   time_t clk = utc ? utc : time(nullptr);
-  FlightBox::SunPos(lat, lon, clk, &hs.Env.SunElDeg, &hs.Env.SunAzDeg);
-  FlightBox::MoonPos(lat, lon, clk, &hs.Env.MoonElDeg, &hs.Env.MoonAzDeg, &hs.Env.MoonPhase);
+  FlightBox::Render::SunPos(lat, lon, clk, &hs.Env.SunElDeg, &hs.Env.SunAzDeg);
+  FlightBox::Render::MoonPos(lat, lon, clk, &hs.Env.MoonElDeg, &hs.Env.MoonAzDeg, &hs.Env.MoonPhase);
   FlightBox::FBLog::Info("gpu", "ephemeris", {{"utc", (int)clk}, {"sunEl", (double)hs.Env.SunElDeg},
       {"sunAz", (double)hs.Env.SunAzDeg}, {"moonEl", (double)hs.Env.MoonElDeg}, {"moonAz", (double)hs.Env.MoonAzDeg},
       {"moonPhase", (double)hs.Env.MoonPhase}});
 
-  FlightBox::FBRenderer R;
+  FlightBox::Render::FBRenderer R;
   R.SetStreaming(512);
   R.SetDefaultMode(groundPhoto);   /* the --albedo mode is both the eager base and the initial view */
   R.SetGroundMode(groundPhoto);
@@ -427,12 +437,12 @@ int main(int argc, char **argv) {
   }
   R.SetCamera(eye, target);
   R.SetHud(hs, true);
-  static FlightBox::FBDisplaySystem hudDisplay;   /* no live module here — the generic default HUD */
+  static FlightBox::Systems::FBDisplaySystem hudDisplay;   /* no live module here — the generic default HUD */
   R.SetHudDisplay(&hudDisplay);
   R.InitOffscreen(width, height);
   if (!R.Ready()) { FlightBox::FBLog::Error("gpu", "device_init_failed"); return 1; }
 
-  FlightBox::FBWorld W;
+  FlightBox::World::FBWorld W;
   if (!W.Open(&R, base.c_str(), lat, lon, 32, viewKm * 1000.0, 512)) {
     FlightBox::FBLog::Error("gpu", "world_open_failed", {{"base", base}});
     return 1;

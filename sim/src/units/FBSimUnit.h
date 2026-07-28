@@ -20,11 +20,11 @@
 #include "FBTelemetry.h"
 #include "FBUnit.h"
 
-namespace FlightBox {
+namespace FlightBox::Units {
 
 /* Free + inline because the monitor test harnesses are miniature units: they must build the sample the
  * same way a real one does, so there is no second, drifting copy of what the judge is shown. */
-inline FBFlightMonitorSample FBBuildFlightMonitorSample(const FBFdm &fdm, const fb_fdm_state &st,
+inline FBFlightMonitorSample FBBuildFlightMonitorSample(const Fdm::FBFdm &fdm, const Fdm::fb_fdm_state &st,
                                                         double groundAsl) {
   FBFlightMonitorSample s;
   s.LatDeg = st.lat; s.LonDeg = st.lon;
@@ -45,14 +45,14 @@ class FBSimUnit : public FBUnit {
 public:
   /* `fdm` must be spawned and trimmed (fdm/FBFdmBoot::Spawn), `module` already AttachFdm'd; a NULL
    * `fdm` means exactly one thing, that this unit has no flight dynamics. */
-  FBSimUnit(int id, std::string name, FBUnitKind kind, FBUnitTeam team, std::unique_ptr<FBFdm> fdm,
-            std::unique_ptr<FBModule> module, const fb_fdm_state &initialState, double groundAslM);
+  FBSimUnit(int id, std::string name, FBUnitKind kind, FBUnitTeam team, std::unique_ptr<Fdm::FBFdm> fdm,
+            std::unique_ptr<Modules::FBModule> module, const Fdm::fb_fdm_state &initialState, double groundAslM);
 
   /* ---- FBUnit ---- */
   FBUnitPose GetPose() const override { return Pose_; }
   FBUnitSignature GetSignature() const override { return Sig_; }
   /* The module cycles its own FDM + systems; `units` reaches only its sensor slots. */
-  void Run(double dt, const FBUnitRegistry *units, const FBWorld *world) override;
+  void Run(double dt, const FBUnitRegistry *units, const World::FBWorld *world) override;
 
   /* The tick barrier. A client calls it for EVERY unit only once every unit has run — that ORDERING,
    * not this function, is what makes a multi-unit tick order-independent. */
@@ -72,13 +72,13 @@ public:
   void Retire() { Active_ = false; Sig_ = FBUnitSignature{}; }
 
   /* ---- state + ground truth ---- */
-  const fb_fdm_state &State() const { return St_; }
-  const FBFdm *Fdm() const { return Fdm_.get(); }   /* read-only handle; null = no airframe */
-  FBModule &Module() { return *Module_; }
-  const FBModule &Module() const { return *Module_; }
+  const Fdm::fb_fdm_state &State() const { return St_; }
+  const Fdm::FBFdm *Fdm() const { return Fdm_.get(); }   /* read-only handle; null = no airframe */
+  Modules::FBModule &Module() { return *Module_; }
+  const Modules::FBModule &Module() const { return *Module_; }
   /* FBModule's accessors are non-const by design (systems are COMMANDED through them), so the read-only
    * view a display consumer needs is surfaced here instead of const_cast at call sites. */
-  const FBDisplaySystem &Displays() const { return Module_->Displays(); }
+  const Systems::FBDisplaySystem &Displays() const { return Module_->Displays(); }
 
   /* An unresolved sample keeps the last good value: ONE number reaches both JSBSim's contact floor and
    * the module's HUD/radar-alt path, so the two can never disagree about where the ground is. */
@@ -133,9 +133,9 @@ private:
 
   /* DECLARATION ORDER IS LOAD-BEARING: the airframe outlives the module that only borrows it, and each
    * telemetry source is declared below everything it borrows. */
-  std::unique_ptr<FBFdm> Fdm_;
-  std::unique_ptr<FBModule> Module_;
-  fb_fdm_state St_;
+  std::unique_ptr<Fdm::FBFdm> Fdm_;
+  std::unique_ptr<Modules::FBModule> Module_;
+  Fdm::fb_fdm_state St_;
   FBUnitPose Pose_;                    /* published: the last completed tick */
   FBUnitSignature Sig_;                /* published with it */
   std::string LogLabel_;
@@ -144,7 +144,7 @@ private:
    * boots in, so a calm run never writes this channel at all. */
   FBWindNed Wind_;
   FBSystemHealth Health_;              /* written only by core/FBDamageModel */
-  FBFdmTelemetrySource FdmSrc_;
+  Fdm::FBFdmTelemetrySource FdmSrc_;
   FBStateBusTelemetry BusSrc_;
   FBSystemHealthTelemetry HealthSrc_;
   FBTelemetryBus Bus_;
@@ -158,5 +158,5 @@ private:
  * camera's eye). Every client that runs a sim loop owns one. */
 using FBActorList = std::vector<std::unique_ptr<FBSimUnit>>;
 
-} // namespace FlightBox
+} // namespace FlightBox::Units
 #endif

@@ -12,7 +12,7 @@
 #include "FBTelemetry.h"
 #include "FBFdm.h"
 
-namespace FlightBox {
+namespace FlightBox::Weapons {
 
 class FBGunSystem : public FBTelemetrySource {
 public:
@@ -45,7 +45,7 @@ public:
   bool TakeBurst(FBGunBurst &out);
 
   /* Aus `st` kommen Muendungsposition und Startgeschwindigkeit — mehr liest diese Klasse dort nicht. */
-  virtual void Run(FBState &state, const fb_fdm_state &st, double nowS, double dt);
+  virtual void Run(FBState &state, const Fdm::fb_fdm_state &st, double nowS, double dt);
 
   const char *TelemetryName() const override { return "gun"; }
   void DeclareTelemetry(FBTelemetrySchema &schema) const override;
@@ -74,5 +74,5 @@ private:
   int PendingCount_ = 0;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Weapons
 #endif

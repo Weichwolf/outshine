@@ -5,11 +5,11 @@
 
 #include "FBDrawStage.h"
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 class FBSpritesStage : public FBDrawStage {
   /* FBDrawStage's defaults already do nothing. */
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

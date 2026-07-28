@@ -15,7 +15,7 @@
 using namespace FlightBox;
 
 int main() {
-  FBStdoutLogSink sink;
+  Clients::FBStdoutLogSink sink;
   FBLog::SetSink(&sink);
   FBLog::SetLevel(FBLogLevel::Debug);
 
@@ -25,11 +25,11 @@ int main() {
   const double speedMs = 45.0;       /* slow (~87 kt) — near the low-speed/high-alpha corner the anti-
                                       * spin rudder logic itself keys off (doc/f16: <170 kt) */
 
-  FBFdmSpawn ic;
+  Fdm::FBFdmSpawn ic;
   ic.ModelsRoot = "assets/aircraft"; ic.Aircraft = "f16";
   ic.LatDeg = lat; ic.LonDeg = lon; ic.GroundElevM = groundAsl; ic.HeightOffsetM = spawnAglM;
   ic.SpeedMs = speedMs; ic.HeadingDeg = 0.0; ic.FbwOverride = true;
-  std::unique_ptr<FBFdm> fdm = FBFdmBoot::Spawn(ic);
+  std::unique_ptr<Fdm::FBFdm> fdm = Fdm::FBFdmBoot::Spawn(ic);
   if (!fdm) {
     FBLog::Error("test", "RESULT", {{"result", "SETUP_FAILED"}, {"reason", "jsbsim init"}});
     return 2;
@@ -37,10 +37,10 @@ int main() {
   fdm->SetGroundElevM(groundAsl);
 
   FBFlightMonitor monitor;
-  fb_fdm_state st{};
+  Fdm::fb_fdm_state st{};
   fdm->Step(st);
 
-  const double dt = FBFdm::kStepS;
+  const double dt = Fdm::FBFdm::kStepS;
   const double timeoutS = 20.0;
   double simT = 0.0;
   bool tripped = false;
@@ -54,7 +54,7 @@ int main() {
     simT += dt;
     FBLog::SetTime(simT);
 
-    if (monitor.Tick(FBBuildFlightMonitorSample(*fdm, st, groundAsl), simT)) {
+    if (monitor.Tick(Units::FBBuildFlightMonitorSample(*fdm, st, groundAsl), simT)) {
       tripped = true;
       break;
     }

@@ -21,20 +21,20 @@
 #include "FBFdmBoot.h"
 #include "FBModelRoots.h"
 
-namespace FlightBox {
+namespace FlightBox::Missions {
 
 /* Spawns ONE mission actor: the `unit` block at `unitIdx`, step by step in
  * doc/flightbox/units-and-missions.md §6. Returns nullptr with a human reason in *err; on success the
  * caller owns the actor and everything in it. */
-inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const FBModelRoots &models, const FBMission &mission,
+inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnActor(const FBModelRoots &models, const FBMission &mission,
                                                       size_t unitIdx, double groundAsl, double timeoutS,
                                                       std::string *err) {
-  auto fail = [err](std::string reason) -> std::unique_ptr<FBSimUnit> {
+  auto fail = [err](std::string reason) -> std::unique_ptr<Units::FBSimUnit> {
     if (err) *err = std::move(reason);
     return nullptr;
   };
   const FBMissionUnit &block = mission.Units[unitIdx];
-  std::unique_ptr<FBModule> module = FBModuleRegistry::Create(block.ModuleName);
+  std::unique_ptr<Modules::FBModule> module = Modules::FBModuleRegistry::Create(block.ModuleName);
   if (!module) return fail("unknown module '" + block.ModuleName + "'");
 
   const FBSpawn &sp = block.Spawn;
@@ -49,10 +49,10 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const FBModelRoots &models
                                                {"value", block.SetKV.front().second}});
       return fail("spawn failed (this module takes no 'set' lines)");
     }
-    fb_fdm_state gst{};
+    Fdm::fb_fdm_state gst{};
     gst.lat = sp.LatDeg; gst.lon = sp.LonDeg; gst.elev = groundAsl; gst.yaw = sp.HeadingDeg;
-    FBUnitKind gkind = module->UnitKind();   /* read BEFORE the move: argument order is unspecified */
-    auto gunit = std::make_unique<FBSimUnit>((int)unitIdx + 1, block.Id, gkind, block.Team,
+    Units::FBUnitKind gkind = module->UnitKind();   /* read BEFORE the move: argument order is unspecified */
+    auto gunit = std::make_unique<Units::FBSimUnit>((int)unitIdx + 1, block.Id, gkind, block.Team,
                                              nullptr, std::move(module), gst, groundAsl);
     if (!block.Plan.Empty() || !block.Objectives.empty())
       gunit->SetMissionMonitor(std::make_unique<FBMissionMonitor>(block.Plan, block.Objectives,
@@ -62,7 +62,7 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const FBModelRoots &models
     return gunit;
   }
 
-  FBFdmSpawn ic;
+  Fdm::FBFdmSpawn ic;
   /* The MODULE names its JSBSim model; `module <name>` in the .fbm stays a pure registry key
    * (FBModule::FdmModelName under the client's one model root, app/FBModelRoots.h). */
   ic.ModelsRoot = models.Aircraft;
@@ -73,7 +73,7 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const FBModelRoots &models
   ic.HeightOffsetM = sp.Ground ? -1.0 : (sp.AltM - groundAsl);
   ic.SpeedMs = sp.SpeedKt * kKtToMs;
   ic.HeadingDeg = sp.HeadingDeg;
-  std::unique_ptr<FBFdm> fdm = FBFdmBoot::Spawn(ic);
+  std::unique_ptr<Fdm::FBFdm> fdm = Fdm::FBFdmBoot::Spawn(ic);
   if (!fdm) return fail("spawn failed (jsbsim init, a bad model, or a rejected 'set' line)");
   fdm->SetGroundElevM(groundAsl);
   module->AttachFdm(*fdm);   /* before any Controls()/ApplySetup call below reaches the airframe */
@@ -82,7 +82,7 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const FBModelRoots &models
   module->Autopilot().SetManual(0.0, 0.0, 0.0, 0.0);
   module->Controls().SetGear(true);
   module->Controls().SetWheelBrakes(1.0, 1.0);
-  module->PilotSystem().SetPhase(sp.Ground ? FBPilot::Phase::Preflight : FBPilot::Phase::Route);
+  module->PilotSystem().SetPhase(sp.Ground ? Pilot::FBPilot::Phase::Preflight : Pilot::FBPilot::Phase::Route);
   for (const auto &kv : block.SetKV) {
     /* The module already logged WHY — only it knows its keys; this is "the spawn is void". */
     if (!module->ApplySetup(kv.first, kv.second)) {
@@ -90,11 +90,11 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const FBModelRoots &models
       return fail("spawn failed (jsbsim init, a bad model, or a rejected 'set' line)");
     }
   }
-  fb_fdm_state st{};
+  Fdm::fb_fdm_state st{};
   st.lat = sp.LatDeg; st.lon = sp.LonDeg; st.elev = sp.Ground ? groundAsl : sp.AltM;
 
-  FBUnitKind kind = module->UnitKind();   /* read BEFORE the move: argument order is unspecified */
-  auto unit = std::make_unique<FBSimUnit>((int)unitIdx + 1, block.Id, kind, block.Team,
+  Units::FBUnitKind kind = module->UnitKind();   /* read BEFORE the move: argument order is unspecified */
+  auto unit = std::make_unique<Units::FBSimUnit>((int)unitIdx + 1, block.Id, kind, block.Team,
                                           std::move(fdm), std::move(module), st, groundAsl);
   /* An actor is JUDGED iff the mission gave it something to achieve; one with neither waypoints nor
    * objectives carries no monitor and never appears in the mission verdict. */
@@ -113,17 +113,17 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnActor(const FBModelRoots &models
  * There is deliberately NO ejector impulse — no citable figure exists, so the store separates with the
  * carrier's motion and nothing invented on top; a source would add ONE body-axis term, here.
  * Der vollstaendige Separationszustand: doc/flightbox/units-and-missions.md §6. */
-inline std::unique_ptr<FBSimUnit> FBMissionSpawnStore(const FBModelRoots &models, const FBStoreRelease &rel,
-                                                      const fb_fdm_state &carrier, double groundAsl,
+inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnStore(const FBModelRoots &models, const FBStoreRelease &rel,
+                                                      const Fdm::fb_fdm_state &carrier, double groundAsl,
                                                       int unitId, const std::string &name,
                                                       FBUnitTeam team, std::string *err) {
-  auto fail = [err](std::string reason) -> std::unique_ptr<FBSimUnit> {
+  auto fail = [err](std::string reason) -> std::unique_ptr<Units::FBSimUnit> {
     if (err) *err = std::move(reason);
     return nullptr;
   };
   const FBStoreSpec *spec = FBStoreSpecOf(rel.Kind);
   if (!spec) return fail("released store is not in the catalogue");
-  std::unique_ptr<FBModule> module = FBModuleRegistry::Create(spec->Key);
+  std::unique_ptr<Modules::FBModule> module = Modules::FBModuleRegistry::Create(spec->Key);
   if (!module) return fail(std::string("no module registered for store '") + spec->Key + "'");
 
   double offE = 0.0, offN = 0.0, offU = 0.0;
@@ -138,7 +138,7 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnStore(const FBModelRoots &models
   FBBodyVecToEnu(carrier.roll, carrier.pitch, carrier.yaw, rotFwd, rotRight, rotDown, rotE, rotN, rotU);
 
   double coslat = std::cos(carrier.lat * kDeg2Rad);
-  FBFdmSpawn ic;
+  Fdm::FBFdmSpawn ic;
   ic.ModelsRoot = models.Aircraft;
   ic.Aircraft = module->FdmModelName();
   ic.LatDeg = carrier.lat + offN / kMPerDeg;
@@ -156,7 +156,7 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnStore(const FBModelRoots &models
   ic.VelEastMs = carrier.vx + rotE;
   ic.VelDownMs = -carrier.vy - rotU;
 
-  std::unique_ptr<FBFdm> fdm = FBFdmBoot::Spawn(ic);
+  std::unique_ptr<Fdm::FBFdm> fdm = Fdm::FBFdmBoot::Spawn(ic);
   if (!fdm) return fail(std::string("store spawn failed (jsbsim init or a bad model: ") + ic.Aircraft + ")");
   fdm->SetGroundElevM(groundAsl);
   module->AttachFdm(*fdm);
@@ -164,10 +164,10 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnStore(const FBModelRoots &models
    * estimate from it. This file names no weapon type. */
   module->ProgramRelease(rel);
 
-  fb_fdm_state st{};
+  Fdm::fb_fdm_state st{};
   st.lat = ic.LatDeg; st.lon = ic.LonDeg; st.elev = groundAsl + ic.HeightOffsetM;
   st.roll = ic.RollDeg; st.pitch = ic.PitchDeg; st.yaw = ic.HeadingDeg;
-  auto unit = std::make_unique<FBSimUnit>(unitId, name, FBUnitKind::Weapon, team, std::move(fdm),
+  auto unit = std::make_unique<Units::FBSimUnit>(unitId, name, Units::FBUnitKind::Weapon, team, std::move(fdm),
                                           std::move(module), st, groundAsl);
   /* A store never flies alone, so its lines are always attributed. */
   unit->SetLogAttribution(true);
@@ -178,5 +178,5 @@ inline std::unique_ptr<FBSimUnit> FBMissionSpawnStore(const FBModelRoots &models
   return unit;
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Missions
 #endif

@@ -2,10 +2,10 @@
 #include "FBUnits.h"
 #include <cmath>
 
-namespace FlightBox {
+namespace FlightBox::Systems {
 
 /* vx/vy/vz sind X-Plane-lokal (+x Ost, +y auf, +z Sued) = bereits ENU, keine Geodaesie noetig. */
-void FBAirDataSystem::Run(FBState &state, const fb_fdm_state &fdm, double dt) {
+void FBAirDataSystem::Run(FBState &state, const Fdm::fb_fdm_state &fdm, double dt) {
   (void)dt;
   FBAirDataBlock &b = state.AirData;
   b.CasKt = (float)(fdm.cas * kMsToKt);
@@ -38,4 +38,4 @@ void FBAirDataSystem::SampleTelemetry(FBTelemetryRow &row) const {
   row.Push((double)AoaDeg);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems

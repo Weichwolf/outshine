@@ -639,7 +639,15 @@ allerdings längst auf ihrem 45°-Klemmwert.
 `[XML]`, Normierung ×2,864789 (= 1/0,349 `[ABL]`), Kinematik 3 s. **Ohne Fahrwerksbezug** — die
 Klappen fahren allein auf Fahrtmesser.
 
-#### 7.9 Der Flaperon-Mixer — ein Vorzeichenfehler mit erster Ordnung Wirkung
+#### 7.9 Der Flaperon-Mixer — behoben per Modell-Delta D1
+
+> **Status: BEHOBEN.** Der hier beschriebene Vorzeichenfehler ist seit `sim/assets/MODEL-DELTAS.md` **D1**
+> nicht mehr Teil des geflogenen Modells. Der Abschnitt bleibt als BEFUND stehen — er ist der Beleg des
+> Deltas —, aber alles unter „Der Befund" beschreibt den UPSTREAM-Stand (`sim/vendor/jsbsim`), nicht das,
+> was FlightBox fliegt. Was heute fliegt, steht unter „Nach dem Delta". Die Folgen für §8 und §9 sind dort
+> nachgemessen.
+
+##### Der Befund (Upstream-Stand)
 
 ```
 left-flaperon-norm  = −tef-control − aileron-speed-compensated
@@ -672,10 +680,35 @@ flaperon-mix-rad    = 1,4324 · flaperon-summer = −2,8648 · ail_sc
    Und weil das Vorzeichen an `ail_sc` hängt, ist der Effekt **asymmetrisch**: Rollen nach rechts
    entlastet und schiebt an, Rollen nach links belastet und bremst.
 
-Das ist die folgenreichste Einzelheit dieser Datei. Sie ist nach Prinzip 5 **eine akzeptierte
-Modell-Eigenschaft, kein zu behebender Defekt** (`sim/vendor` ist read-only) — aber jeder BFM-,
-Abfang- oder Anflug-Regler zahlt bei jedem Rollmanöver einen realen Auftriebs-/Energie-Preis, und
-wer Telemetrie liest, muss wissen, woher der Knick kommt.
+Das ist die folgenreichste Einzelheit dieser Datei.
+
+##### Nach dem Delta (der geflogene Stand)
+
+```
+left-flaperon-norm  = +tef-control + aileron-speed-compensated
+right-flaperon-norm = +tef-control − aileron-speed-compensated
+flaperon-summer     = left + right = +2 · tef-control            ← der QUERRUDER-Anteil kürzt sich weg
+flaperon-mix-rad    = 0,1745329 · flaperon-summer = 0,349 · tef  = der kommandierte Klappenwinkel in rad
+```
+
+Herleitung, Beleg und der exakte Diff: `sim/assets/MODEL-DELTAS.md`, Eintrag **D1**. Nachgemessen am
+geflogenen Modell, gleiches Profil wie oben `[MESS]`:
+
+| Größe | vorher | nachher |
+|---|---|---|
+| `flaperon-mix-rad` bei reinem Rollkommando ±0,5 | −1,28 / +1,29 | **0,0000** |
+| `Nz`-Spitze im Rollansatz (Roll rechts / links) | −1,54 g / +3,46 g | **+0,97 g / +0,97 g** |
+| `fbx-aero` im Rollansatz (rechts) | **+6.420 lbf** (Schub!) | **−5.267 lbf** (Widerstand) |
+| `flaperon-mix-rad` bei voll ausgefahrenem TEF | −0,0002 rad | **0,3490 rad** (= 20°) |
+| ΔCL / ΔCD der Landeklappen | ≈ 0 | **0,122 / 0,028** |
+| Auftriebszuwachs der Klappen bei 202 KCAS | −3 lbf | **+5.059 lbf** |
+| Rollrate 400 KCAS rechts / links | +187,8 / −132,3 °/s (Asym. **55,5**) | +156,4 / −156,6 °/s (Asym. **0,2**) |
+| 11°-AoA-Trimmgeschwindigkeit, Fahrwerk aus, 40 % Sprit | 165 KCAS | **154 KCAS** |
+
+NICHT gefallen ist die **Reiseflug-Restasymmetrie**: Median |φ| auf eingeschwungenen Routenbeinen
+0,186° → 0,185° über 60.900 Proben `[MESS]`. Sie hängt nicht am Mixer — bei |φ| < 2° ist `ail_sc` so
+klein, dass der frühere Symmetrieanteil selbst klein war; die 0,18° sind der stationäre Rest des
+Roll-PID (§7.2), nicht des Mixers.
 
 #### 7.10 Was `fcs/fbw-override` wirklich überbrückt
 
@@ -735,19 +768,27 @@ ist.
 Methode (`sim/src/app/FBTestCornerSpeed.cpp`): Luftstart getrimmt bei **5.000 m**, Rollen auf **85°
 Schräglage**, dann Vollausschlag `fcs/elevator-cmd-norm = −1` **durch die modelleigene FLCS**,
 Mittelung über **4 s**; Corner = die langsamste Eintrittsgeschwindigkeit innerhalb 3 % der besten
-Rate. Lauf vom 2026-07-27, 23 Punkte `[MESS]`:
+Rate. Lauf am geflogenen Modell **nach Delta D1**, 23 Punkte `[MESS]`:
 
 | KCAS | 260 | 300 | 340 | 360 | **380** | 400 | 440 | 500 | 560 | 620 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Drehrate °/s | 12,06 | 13,50 | 14,93 | 15,60 | **16,22** | 15,86 | 13,73 | 11,68 | 12,18 | 12,94 |
-| nz (Mittel) | 2,85 | 3,69 | 4,63 | 5,13 | **5,63** | 5,84 | 5,73 | 5,57 | 6,48 | 7,54 |
-| nz (Spitze) | 3,28 | 4,21 | 5,27 | 5,77 | **6,32** | 6,58 | 6,57 | 6,30 | 7,30 | 8,12 |
-| α ° | 13,91 | 13,54 | 13,21 | 13,06 | **12,96** | 11,87 | 9,18 | 6,61 | 6,54 | 6,57 |
+| Drehrate °/s | 13,30 | 14,24 | 15,20 | 15,70 | **16,18** | 16,37 | 13,93 | 11,51 | 11,95 | 12,77 |
+| nz (Mittel) | 3,13 | 3,81 | 4,59 | 5,01 | **5,44** | 5,77 | 5,60 | 5,38 | 6,24 | 7,32 |
+| nz (Spitze) | 3,71 | 4,42 | 5,20 | 5,66 | **6,13** | 6,52 | 6,10 | 5,71 | 6,71 | 7,92 |
+| α ° | 12,89 | 12,75 | 12,79 | 12,81 | **12,83** | 12,44 | 9,53 | 6,78 | 6,57 | 6,61 |
 
 ```
-RESULT result=CORNER_FOUND cornerCasKt=380 cornerTurnRateDegS=16,2214
-       cornerNz=5,6251 cornerAlphaDeg=12,959 bestTurnRateDegS=16,2214 points=23
+RESULT result=CORNER_FOUND cornerCasKt=380 cornerTurnRateDegS=16,1805
+       cornerNz=5,43589 cornerAlphaDeg=12,834 bestTurnRateDegS=16,3652 points=23
 ```
+
+Derselbe Lauf am Upstream-Stand ergab `cornerCasKt=380 cornerTurnRateDegS=16,2214 cornerNz=5,6251
+cornerAlphaDeg=12,959 bestTurnRateDegS=16,2214` `[MESS]`. **Die Corner-GESCHWINDIGKEIT ist unverändert
+380 KCAS**; das g an ihr fällt von 5,63 auf 5,44, weil der Rollansatz in die Schräglage keinen
+Auftriebssprung mehr mitbringt. Der SCHEITEL der Kurve wandert dabei von 380 auf 400 KCAS
+(bestTurnRateDegS 16,37) — 380 bleibt Corner, weil es das langsamste Band innerhalb 3 % des Besten ist.
+Das Kriterium des Harness (Corner gefunden, Kurve monoton-dann-flach) hält unverändert, Exit 0; es
+musste nicht nachgezogen werden.
 
 **Wie das zu den Tabellen passt.** Das Modell hätte den Auftrieb: `CLDh` gibt bei α = 30° und
 δh = −25° ein CL von 1,804, bei α = 13° nur ≈ 0,66 `[XML]`. Die Grenze ist also **nicht
@@ -762,19 +803,27 @@ kein Handbuch tabelliert.
 
 #### 8.2 Maximale Rollrate
 
-Direkt an diesem Modell gemessen (JSBSim-CLI-Sonde, getrimmter Horizontalflug bei 10.000 ft,
-`fcs/aileron-cmd-norm = 1,0` als Sprung, Spitzenwert über 4 s) `[MESS]`:
+Direkt am geflogenen Modell gemessen (JSBSim-CLI-Sonde, getrimmter Horizontalflug bei 10.000 ft,
+`fcs/aileron-cmd-norm = ±1,0` als Sprung, Spitzenwert über 4 s), **nach Delta D1** und in BEIDE
+Richtungen — die Richtungsspalte ist der eigentliche Messwert geworden `[MESS]`:
 
-| Eintritt (KCAS) | 250 | 300 | 350 | 400 | **450** | 500 | 550 | 600 |
+| Eintritt (KCAS) | 250 | 300 | 350 | 400 | 450 | 500 | 550 | **600** |
 |---|---|---|---|---|---|---|---|---|
-| Spitzen-p (°/s) | 79,5 | 99,6 | 118,8 | 159,8 | **186,1** | 186,4 | 184,8 | 183,3 |
-| Mach dabei | 0,45 | 0,56 | 0,64 | 0,73 | 0,79 | 0,85 | 0,91 | 0,96 |
+| Spitzen-p rechts (°/s) | 107,0 | 118,8 | 130,3 | 156,4 | 166,3 | 168,5 | 173,8 | **181,8** |
+| Spitzen-p links (°/s) | −106,8 | −118,9 | −130,6 | −156,6 | −166,4 | −168,4 | −173,7 | **−181,7** |
+| Asymmetrie (°/s) | 0,2 | 0,1 | 0,2 | 0,2 | 0,1 | 0,1 | 0,2 | 0,1 |
+| Mach dabei | 0,52 | 0,61 | 0,69 | 0,77 | 0,84 | 0,91 | 0,98 | 1,05 |
 
-**Das Plateau bei ~186 °/s ist kein Zufall, sondern die Kommando-Normierung**: 1/0,31821 rad/s =
-180,06 °/s, die der PID (kp = 3,0) überschwingt `[ABL]`. CLAUDE.mds „Rollrate ~190 °/s = akzeptierte
-Modell-Eigenschaft" ist damit erklärt und belegt: es ist die Sättigung des Rollratenkommandos, keine
-Aerodynamik. Unter 400 KCAS erreicht das Flugzeug das Kommando gar nicht — dort ist die
-Querruderautorität (`Clda`, §6.7) die Grenze.
+Zum Vergleich derselbe Sweep am Upstream-Stand `[MESS]`: rechts 98,3 / 126,5 / 176,7 / 187,8 / 186,8 /
+185,0 / 183,8 / 186,2, links −105,4 / −116,0 / −129,0 / −132,3 / −136,8 / −148,1 / −160,2 / −174,4 —
+**bis zu 55,5 °/s Unterschied je nach Rollrichtung**, weil der Auftriebssprung aus §7.9 den Anstellwinkel
+und damit `Clda` mitzog. Genau diese Asymmetrie ist verschwunden (≤ 0,2 °/s über den ganzen Sweep).
+
+**Die Kommando-Normierung bleibt der Deckel**: 1/0,31821 rad/s = 180,06 °/s `[ABL]`, den der PID
+(kp = 3,0) leicht überschwingt; erreicht wird er jetzt aber erst bei ~600 KCAS statt scheinbar schon bei
+350–400. CLAUDE.mds „Rollrate ~190 °/s" ist damit als die alte, artefaktgetragene Rechts-Rollrate zu
+lesen — der geflogene Wert ist **~182 °/s im Kommando-Sättigungsbereich, ~156 °/s bei 400 KCAS**. Unter
+diesem Bereich ist die Querruderautorität (`Clda`, §6.7) die Grenze.
 
 #### 8.3 Weitere belegte Messungen
 
@@ -782,9 +831,11 @@ Alle aus `doc/flightbox/sim/pilot-ai.md` bzw. `doc/flightbox/aircraft/f16.md`, d
 
 | Größe | Wert | Herkunft |
 |---|---|---|
-| Corner-Drehrate für den ω-Ansatz | 16,2 °/s gemessen gegen 15,8 °/s aus `g·√(n²−1)/V` | `pilot-ai.md` §„ω = er kurvt wie ich" |
-| `BfmMinSpeedKt` | 300 KCAS (dort ~17 % unter dem Peak) | `modules-f16.md` §3.3 |
-| Bremsverzögerung `BfmBrakeMs2` | 2,4 m/s², 238 Proben bei 4.000 m zwischen 325 und ~190 kt | `pilot-ai.md` |
+| Corner-Drehrate für den ω-Ansatz | 16,18 °/s gemessen gegen 15,3 °/s aus `g·√(n²−1)/V` (n = 5,4) | `pilot-ai.md` §„ω = er kurvt wie ich" |
+| `BfmMinSpeedKt` | 300 KCAS (dort ~13 % unter dem Peak) | `modules-f16.md` §3.3 |
+| Bremsverzögerung `BfmBrakeMs2` | 2,4 m/s²; nachgemessen über D1 hinweg 2,531 → 2,527 m/s² (Median, 163 Proben 325–400 KCAS bei 4.000 m) — die Klappen fahren erst unter 250 KCAS, das Band sieht sie nie | `pilot-ai.md` |
+| Anfluggeschwindigkeit bei 11° AoA | 154 KCAS (Fahrwerk aus, 40 % Sprit) — vor D1 165 KCAS | §7.9 `[MESS]` |
+| Landerollstrecke ab Aufsetzen, Payerne RWY23 | 785–928 m (D1 + Bremsfahrplan), vorher 1.341–1.597 m | `journal.md` |
 | LOC-K.O.-Schwelle des Physik-Monitors | 150 °/s Rollrate | `pilot-ai.md` §5.7 |
 | Kosten eines F-16-Steps | ~95–100 µs, phasenunabhängig (±7 %) | CLAUDE.md „Etappe 4" |
 
@@ -797,12 +848,12 @@ sind zu KENNEN, nicht zu reparieren.
 
 | # | Eigenschaft | Beleg | Praktische Folge |
 |---|---|---|---|
-| 1 | Vollausschlag kauft am Corner **5,6 g**, nicht 9 g | §8.1 `[MESS]` | Jeder g-Ansatz im Piloten muss die 5,6 benutzen; `BfmMaxG = 9,0` ist nur die Strukturgrenze `[DOC]` |
-| 2 | Beste Drehrate **~16 °/s**, nicht ~20+ | §8.1 `[MESS]` | Die Kurvenzeit-Konstante der BFM-Phase leitet sich hieraus ab |
-| 3 | Rollrate sättigt bei **~186 °/s** | §8.2 `[MESS]` | Der Rollratenregler in `FBPilot` regelt gegen dieses Plateau |
+| 1 | Vollausschlag kauft am Corner **5,4 g**, nicht 9 g | §8.1 `[MESS]` | Jeder g-Ansatz im Piloten muss die 5,4 benutzen; `BfmMaxG = 9,0` ist nur die Strukturgrenze `[DOC]` |
+| 2 | Beste Drehrate **~16,4 °/s**, nicht ~20+ | §8.1 `[MESS]` | Die Kurvenzeit-Konstante der BFM-Phase leitet sich hieraus ab |
+| 3 | Rollrate sättigt am **Kommando** bei ~182 °/s, und zwar erst um 600 KCAS | §8.2 `[MESS]` | Der Rollratenregler in `FBPilot` regelt gegen dieses Plateau; bei Kampfgeschwindigkeit (400 KCAS) sind es ~156 °/s |
 | 4 | α wird im Zug faktisch bei **~13°** begrenzt, nicht bei 25° | §8.1 `[MESS]` | Das Modell kann seinen eigenen `CL_max` nie erreichen |
-| 5 | **Rollen erzeugt Auftriebs-/Widerstandssprünge** (±2 g, ∓10.000 lbf) | §7.9 `[MESS]` | Rollmanöver kosten Energie asymmetrisch; Telemetrie-Knicke haben hier ihre Ursache |
-| 6 | **Landeklappen wirken aerodynamisch nicht** | §7.9 `[MESS]` | Anflugleistung folgt allein α, LEF und Fahrwerkswiderstand |
+| 5 | ~~Rollen erzeugt Auftriebs-/Widerstandssprünge~~ | §7.9, **behoben per Delta D1** | Entfällt: `flaperon-mix-rad` bleibt bei reinem Rollkommando 0,0000, Rollrichtungs-Asymmetrie ≤ 0,2 °/s |
+| 6 | ~~Landeklappen wirken aerodynamisch nicht~~ | §7.9, **behoben per Delta D1** | Entfällt: 20° TEF geben ΔCL 0,122 / ΔCD 0,028; die Anfluggeschwindigkeit bei 11° AoA fällt 165 → 154 KCAS |
 | 7 | **Kein Deep Stall** — Tabellen enden bei α = 45° | §1.1 `[ABL]` | Ein „Deep-Stall-Test" prüft nichts; der Physik-Monitor entscheidet vorher |
 | 8 | **Fanghaken ohne Kraft** | §4.4 `[MESS]` | Kein Fanghaken-Szenario möglich |
 | 9 | **Kein ARI, keine Anti-Spin-Logik, kein CAT III** | §7.11 `[XML]` | Departure-Verhalten ist reine Aerodynamik + drei PIDs |
@@ -935,7 +986,6 @@ fehlend, widersprüchlich, unplausibel — plus das, was nicht untersucht wurde.
 |---|---|---|
 | Nachstall α > 45° / Deep Stall | 1.1, 6.10 | Widerspricht der Erwartung, die `aerodynamics-performance.md` aus TP-1538 ableitet |
 | ARI, Anti-Spin, CAT I/III, MPO, DBU, Gun-Kompensation | 7.11 | die gesamte Schutzschicht der echten FLCS |
-| Aerodynamische Wirkung der Landeklappen | 7.9 | Vorzeichenfehler im Mixer |
 | Fanghakenkraft | 4.4 | deklariert, nicht verdrahtet |
 | Außenlast-Aerodynamik im Deck | 6.10 | FlightBox ersetzt sie extern |
 | Bodeneffekt auf Widerstand und Nickmoment | 6.3 | nur Auftrieb |
@@ -947,7 +997,7 @@ fehlend, widersprüchlich, unplausibel — plus das, was nicht untersucht wurde.
 | Befund | § | Belegzeile |
 |---|---|---|
 | `n-pilot-z-norm` ist −1 im Horizontalflug; der „Schwerkraftkorrektur"-Summer zieht `cos·cos` ab statt es zu addieren und verdoppelt den Offset | 7.3 | `[MESS]` `g-load-corrected = −1,482` bei `Nz = +1,000` |
-| Der Flaperon-Mixer kürzt die Klappen weg und verdoppelt die Querruder — die Vorzeichen sind vertauscht | 7.9 | `[ABL]` `flaperon-summer = −2·ail_sc` |
+| ~~Der Flaperon-Mixer kürzt die Klappen weg und verdoppelt die Querruder~~ — **behoben per `MODEL-DELTAS.md` D1** | 7.9 | `[ABL]` `flaperon-summer = −2·ail_sc` (Upstream) |
 | `fcs/rudder-pos-norm` hat zwei Schreiber im selben Kanal | 7.4 | `[XML]` PID-`<output>` und Kinematik-`<output>` |
 | `fcs/dht-left/right-pos-rad` werden gerechnet und von nichts gelesen | 7.3 | `[MESS]` Grep |
 | Spannweite in `<metrics>` (30 ft) gegen Flügelspitzen-Kontakte (31,5 ft) | 4.2 | `[ABL]` |
@@ -972,9 +1022,10 @@ fehlend, widersprüchlich, unplausibel — plus das, was nicht untersucht wurde.
   Corner-Messung zeigt oberhalb 580 KCAS „udot doesn't appear to be trimmable" `[MESS]` — die
   betroffenen Punkte fliegen ungetrimmt an.
 - Ob und wie stark `Cma_M`s Machtuck-Sprung bei M 1,0 die geschlossene Nickschleife destabilisiert.
-- Die Wechselwirkung zwischen dem Flaperon-Artefakt (§7.9) und der Corner-Messung (§8.1) — letztere
-  rollt zuerst auf 85° und misst DANACH; der Auftriebssprung fällt in die Rolleinleitung, nicht in
-  das Messfenster, ist aber nicht quantifiziert.
+- ~~Die Wechselwirkung zwischen dem Flaperon-Artefakt (§7.9) und der Corner-Messung (§8.1)~~ —
+  QUANTIFIZIERT und erledigt: der Auftriebssprung fiel in die Rolleinleitung und hob das gemessene g im
+  Messfenster; nach Delta D1 fällt `cornerNz` 5,63 → 5,44 bei unveränderter Corner-Geschwindigkeit
+  (§8.1).
 
 ## Knowledge
 

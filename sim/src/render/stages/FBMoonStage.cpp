@@ -2,7 +2,7 @@
 #include "FBAtmoCommon.h"
 #include <string>
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 /* Reconstruct the front-hemisphere normal, sample the albedo, light it with the REAL sun direction —
  * so phase and terminator emerge physically instead of being drawn. */
@@ -108,4 +108,4 @@ void FBMoonStage::Encode(const FBFrameContext &, wgpu::RenderPassEncoder &pass) 
   pass.Draw(3);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render

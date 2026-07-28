@@ -6,7 +6,7 @@
 
 #include <string>
 
-namespace FlightBox {
+namespace FlightBox::Pilot {
 
 /* Nur anhaengen — die `.fbm`-Schluessel in FBPilotTuning.cpp sind die oeffentlichen Namen. */
 enum class FBPilotParam {
@@ -46,5 +46,5 @@ private:
   double Value_[(int)FBPilotParam::Count]{};
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Pilot
 #endif

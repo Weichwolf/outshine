@@ -6,7 +6,7 @@
 #include "FBTelemetry.h"
 #include "FBFdm.h"
 
-namespace FlightBox {
+namespace FlightBox::Fdm {
 
 class FBFdmTelemetrySource : public FBTelemetrySource {
 public:
@@ -23,5 +23,5 @@ private:
   const double &GroundAslM;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Fdm
 #endif /* FBFDMTELEMETRYSOURCE_H */

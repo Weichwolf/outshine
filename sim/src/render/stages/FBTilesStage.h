@@ -9,7 +9,7 @@
 #include <vector>
 #include "FBDrawStage.h"
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 class FBTilesStage : public FBDrawStage {
 public:
@@ -95,5 +95,5 @@ private:
   long NotReadyDraws = 0, WrongModeDraws = 0, BlackDraws = 0;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

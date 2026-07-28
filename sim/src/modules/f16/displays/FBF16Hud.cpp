@@ -3,7 +3,7 @@
 #include <cmath>
 #include <cstdio>
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
 namespace {
 constexpr float kRad = 3.14159265358979323846f / 180.f;
@@ -34,7 +34,7 @@ float Wrap180(float d) {
   return d;
 }
 
-void DashedLine(FBHudGeometry &out, float x0, float y0, float x1, float y1, int n, float r, float g, float b) {
+void DashedLine(Systems::FBHudGeometry &out, float x0, float y0, float x1, float y1, int n, float r, float g, float b) {
   for (int i = 0; i < n; i++) {
     float t0 = (float)i / (float)n, t1 = ((float)i + 0.5f) / (float)n;
     out.Line(x0 + (x1 - x0) * t0, y0 + (y1 - y0) * t0, x0 + (x1 - x0) * t1, y0 + (y1 - y0) * t1, r, g, b);
@@ -43,7 +43,7 @@ void DashedLine(FBHudGeometry &out, float x0, float y0, float x1, float y1, int 
 
 /* "6,020"-style thousands comma; the sign works out because C++ division and modulo both truncate
  * toward zero. */
-void PrintThousands(FBHudGeometry &out, float x, float y, float s, float r, float g, float b, int v) {
+void PrintThousands(Systems::FBHudGeometry &out, float x, float y, float s, float r, float g, float b, int v) {
   if (v <= -1000 || v >= 1000) out.Printf(x, y, s, r, g, b, "%d,%03d", v / 1000, v % 1000 < 0 ? -(v % 1000) : v % 1000);
   else out.Printf(x, y, s, r, g, b, "%d", v);
 }
@@ -66,7 +66,7 @@ void ClampToRect(const Aperture &ap, float px, float py, float insetX, float ins
  * HUD's horizon uses; "az/el" is WORLD-referenced (0=north, +el=up), so a world direction needs no
  * body-frame composition. Everything is then cropped to the combiner APERTURE — the pilot's own
  * eye-relative window, not the render target. Element table: doc/flightbox/modules-f16.md §12.2. */
-void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry &out) const {
+void FBF16Hud::BuildHud(const FBState &state, const Systems::FBHudEnv &env, Systems::FBHudGeometry &out) const {
   out.Reset();
   float cx = 0.5f * (float)env.Width, cy = 0.5f * (float)env.Height;
   if (!env.Have) {
@@ -75,7 +75,7 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
   }
 
   static const float kEyeOrigin[3] = {0, 0, 0};
-  w3_cam cam = w3_cam_from(state.Platform.YawDeg, state.Platform.PitchDeg, state.Platform.RollDeg, kEyeOrigin, kHudFovDeg,
+  FBCameraBasis cam = FBCameraBasisFrom(state.Platform.YawDeg, state.Platform.PitchDeg, state.Platform.RollDeg, kEyeOrigin, kHudFovDeg,
                            (float)env.Width / (float)env.Height, 1.f, 1000.f);
   float Kc = ((float)env.Height * 0.5f) / tanf(kHudFovDeg * 0.5f * kRad);
 
@@ -103,7 +103,7 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
 
   /* ----- Horizon: two segments flanking the boresight, gap for the FPM/ladder. ----- */
   {
-    float dip = w3_horizon_dip_rad(state.Platform.AltM > 1 ? state.Platform.AltM : env.Agl) * kR2D;
+    float dip = FBHorizonDipRad(state.Platform.AltM > 1 ? state.Platform.AltM : env.Agl) * kR2D;
     Proj p0 = Project(state.Platform.YawDeg, -dip), p1 = Project(state.Platform.YawDeg + 20.f, -dip);
     float ddx = p1.sx - p0.sx, ddy = p1.sy - p0.sy, LL = sqrtf(ddx * ddx + ddy * ddy);
     if (LL > 1.f) {
@@ -339,4 +339,4 @@ void FBF16Hud::BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry
   out.ClearClip();
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules

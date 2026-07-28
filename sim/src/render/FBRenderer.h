@@ -27,7 +27,7 @@
 #include "stages/FBCloudLayerStage.h"
 #include "stages/FBTonemapStage.h"
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 class FBRenderer {
 public:
@@ -73,7 +73,7 @@ public:
   void SetHud(const FBState &s, bool have);
   void SetHudEnabled(bool e) { HudEnabled = e; }   /* draw the HUD overlay (off for the cloud lab) */
   /* Borrowed from the active module and forwarded to FBHudStage; nullptr draws an empty HUD. */
-  void SetHudDisplay(const FBDisplaySystem *disp) { Hud->SetDisplaySystem(disp); }
+  void SetHudDisplay(const Systems::FBDisplaySystem *disp) { Hud->SetDisplaySystem(disp); }
   /* While on, RenderFrame draws only the loading text and the client keeps JSBSim frozen. §2.2 */
   void SetLoadingScreen(bool on, float pct, int ready, int total) { LoadingScreen = on; LoadPct = pct; LoadReady = ready; LoadTotal = total; }
 
@@ -218,5 +218,5 @@ private:
   unsigned FrameNo;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif

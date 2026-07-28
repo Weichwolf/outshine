@@ -12,10 +12,9 @@
 #include "FBUnits.h"
 #include "FBFdm.h"
 
-namespace FlightBox {
+namespace FlightBox::Units { class FBUnit; class FBUnitRegistry; }
 
-class FBUnit;
-class FBUnitRegistry;
+namespace FlightBox::Sensors {
 
 class FBRwrSystem : public FBTelemetrySource {
 public:
@@ -50,7 +49,7 @@ public:
   bool SearchShown() const { return SearchShown_; }
 
   /* `net` null = nichts zu hoeren; `simTimeS` ist die absolute Simuhr des Moduls. */
-  virtual void Run(FBState &state, const fb_fdm_state &st, const FBUnitRegistry *net, double simTimeS);
+  virtual void Run(FBState &state, const Fdm::fb_fdm_state &st, const Units::FBUnitRegistry *net, double simTimeS);
 
   const char *TelemetryName() const override { return "rwr"; }
   void DeclareTelemetry(FBTelemetrySchema &schema) const override;
@@ -103,5 +102,5 @@ private:
   int   BlockStatus_ = 0;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Sensors
 #endif

@@ -8,7 +8,7 @@
 #include <cmath>
 #include <ctime>
 
-namespace FlightBox {
+namespace FlightBox::Render {
 
 /* Solar elevation/azimuth in degrees at (lat,lon) for a UTC epoch. */
 static inline void SunPos(double lat, double lon, time_t utc, float *el, float *az) {
@@ -66,5 +66,5 @@ static inline void MoonPos(double lat, double lon, time_t utc, float *el, float 
   *phase = (float)((1.0 - cos(elong)) * 0.5);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Render
 #endif /* FB_EPHEMERIS_H */

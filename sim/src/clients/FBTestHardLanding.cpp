@@ -15,7 +15,7 @@
 using namespace FlightBox;
 
 int main() {
-  FBStdoutLogSink sink;
+  Clients::FBStdoutLogSink sink;
   FBLog::SetSink(&sink);
   FBLog::SetLevel(FBLogLevel::Debug);
 
@@ -26,11 +26,11 @@ int main() {
   const double speedMs = 40.0;      /* a mild forward glide (~78 kt) — not hovering, not a dive */
 
   /* HeightOffsetM > 0 is the explicit AIRBORNE IC, not the ground-spawn-on-gear path (which uses < 0). */
-  FBFdmSpawn ic;
+  Fdm::FBFdmSpawn ic;
   ic.ModelsRoot = "assets/aircraft"; ic.Aircraft = "f16";
   ic.LatDeg = lat; ic.LonDeg = lon; ic.GroundElevM = groundAsl; ic.HeightOffsetM = spawnAglM;
   ic.SpeedMs = speedMs; ic.HeadingDeg = 0.0; ic.FbwOverride = true;
-  std::unique_ptr<FBFdm> fdm = FBFdmBoot::Spawn(ic);
+  std::unique_ptr<Fdm::FBFdm> fdm = Fdm::FBFdmBoot::Spawn(ic);
   if (!fdm) {
     FBLog::Error("test", "RESULT", {{"result", "SETUP_FAILED"}, {"reason", "jsbsim init"}});
     return 2;
@@ -38,10 +38,10 @@ int main() {
   fdm->SetGroundElevM(groundAsl);
 
   FBFlightMonitor monitor;
-  fb_fdm_state st{};
+  Fdm::fb_fdm_state st{};
   fdm->Step(st);   /* prime st */
 
-  const double dt = FBFdm::kStepS;   /* the FDM's own fixed bridge step */
+  const double dt = Fdm::FBFdm::kStepS;   /* the FDM's own fixed bridge step */
   const double timeoutS = 8.0;
   double simT = 0.0;
   bool tripped = false;
@@ -57,7 +57,7 @@ int main() {
     simT += dt;
     FBLog::SetTime(simT);
 
-    if (monitor.Tick(FBBuildFlightMonitorSample(*fdm, st, groundAsl), simT)) {
+    if (monitor.Tick(Units::FBBuildFlightMonitorSample(*fdm, st, groundAsl), simT)) {
       tripped = true;
       break;
     }

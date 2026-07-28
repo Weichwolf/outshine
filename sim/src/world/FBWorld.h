@@ -11,11 +11,11 @@
 #include <cstdint>
 #include <vector>
 
-namespace FlightBox {
+namespace FlightBox::Render { class FBRenderer; }
+namespace FlightBox::Units { class FBUnitRegistry; }
+namespace FlightBox { class FBWeatherProvider; }
 
-class FBRenderer;
-class FBUnitRegistry;
-class FBWeatherProvider;
+namespace FlightBox::World {
 
 class FBWorld {
 public:
@@ -23,8 +23,8 @@ public:
 
   /* BORROWED: the cast of the world is simulation state and lives in the core library, owned by the
    * client — fb-gym needs the same registry without linking any of world/. This is the drawing side. */
-  void SetUnits(const FBUnitRegistry *units) { Units_ = units; }
-  const FBUnitRegistry *Units() const { return Units_; }
+  void SetUnits(const Units::FBUnitRegistry *units) { Units_ = units; }
+  const Units::FBUnitRegistry *Units() const { return Units_; }
 
   /* BORROWED for the same reason: the atmosphere is simulation state (core/FBWeatherProvider), and the
    * drawing side only ever ASKS it — cover, cloud base and wind for the cloud rebuild. Null until a
@@ -33,7 +33,7 @@ public:
   const FBWeatherProvider *Weather() const { return Weather_; }
 
   /* `viewMeters` = the view radius (FB_VIEW_KM * 1000). */
-  bool Open(FBRenderer *renderer, const char *tilesBase, double lat, double lon, int grid,
+  bool Open(Render::FBRenderer *renderer, const char *tilesBase, double lat, double lon, int grid,
             double viewMeters, int albedoTS);
 
   /* One budgeted refinement pass; `nowMs` drives the 1 Hz counter log. */
@@ -106,10 +106,10 @@ private:
   double SpanM(int z) const;
   void BuildLights(int idx);   /* fetch + decode /t/lights for node idx into its lightInst (rel Anchor) */
 
-  const FBUnitRegistry *Units_ = nullptr;   /* borrowed, see SetUnits' banner */
+  const Units::FBUnitRegistry *Units_ = nullptr;   /* borrowed, see SetUnits' banner */
   const FBWeatherProvider *Weather_ = nullptr;   /* borrowed, see SetWeather's banner */
 
-  FBRenderer *R;
+  Render::FBRenderer *R;
   bool Photo;            /* currently viewed mode (SetGroundMode) */
   bool DefaultPhoto;     /* boot default = eager base source (SetDefaultMode) */
   int Grid, TS;
@@ -135,5 +135,5 @@ private:
   int LightsResident;                /* count emitted last pass (log) */
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::World
 #endif

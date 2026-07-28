@@ -7,7 +7,7 @@
 #include "FBFdm.h"
 #include "FBMode.h"
 
-namespace FlightBox {
+namespace FlightBox::Systems {
 
 struct FBGuidance {
   FBMode Mode;
@@ -39,7 +39,7 @@ public:
                  double speedMs);
 
   /* Der EINE Override-Punkt; alles andere hier ist Config, die jeder Override verbatim teilt. */
-  virtual FBGuidance Run(const fb_fdm_state &s);
+  virtual FBGuidance Run(const Fdm::fb_fdm_state &s);
 
   FBMode GetMode(void) const { return Mode; }
   double GetTargetAlt(void) const { return AltM; }
@@ -63,5 +63,5 @@ private:
   double LegLatDeg, LegLonDeg, LegCourseDeg;
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Systems
 #endif

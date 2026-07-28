@@ -5,11 +5,11 @@
 #include "FBUnitRegistry.h"
 #include <cmath>
 
-namespace FlightBox {
+namespace FlightBox::Sensors {
 
 /* Das WELT-Paar ist die gemeldete Position (der Konsument muesste sonst einen look-alten Koerpervektor
  * durch eine jetzt-aktuelle Lage zurueckdrehen); das KOERPER-Paar ist die Groesse der Antenne. */
-void FBRadarSystem::RelativeLos(const fb_fdm_state &own, double tgtLatDeg, double tgtLonDeg,
+void FBRadarSystem::RelativeLos(const Fdm::fb_fdm_state &own, double tgtLatDeg, double tgtLonDeg,
                                 double tgtAltM, double &rangeM, double &bearingDeg, double &elevAngleDeg,
                                 double &azDeg, double &elDeg) {
   double e = 0.0, n = 0.0;
@@ -23,7 +23,7 @@ void FBRadarSystem::RelativeLos(const fb_fdm_state &own, double tgtLatDeg, doubl
 }
 
 /* Die CLUTTER-Doppler: was ein STEHENDER Punkt in dieser Richtung schliessen wuerde. */
-double FBRadarSystem::OwnClosureOn(const fb_fdm_state &st, double bearingDeg, double elevAngleDeg) {
+double FBRadarSystem::OwnClosureOn(const Fdm::fb_fdm_state &st, double bearingDeg, double elevAngleDeg) {
   double cb = std::cos(bearingDeg * kDeg2Rad), sb = std::sin(bearingDeg * kDeg2Rad);
   double ce = std::cos(elevAngleDeg * kDeg2Rad), se = std::sin(elevAngleDeg * kDeg2Rad);
   double ue = sb * ce, un = cb * ce, uu = se;
@@ -32,7 +32,7 @@ double FBRadarSystem::OwnClosureOn(const fb_fdm_state &st, double bearingDeg, do
 
 /* Jede Wolke gegen DASSELBE Volumen wie das Flugzeug, staerkster Rueckstrahler gewinnt: Zweiweg-
  * Radargleichung RCS/r^4. Deterministisch — kein Wurf, keine Wahrscheinlichkeit. */
-const FBChaffCloud *FBRadarSystem::SelectDecoy(const FBChaffCloud *clouds, const fb_fdm_state &st,
+const FBChaffCloud *FBRadarSystem::SelectDecoy(const FBChaffCloud *clouds, const Fdm::fb_fdm_state &st,
                                                const FBRadarScanVolume &v, double simTimeS) const {
   const FBChaffCloud *best = nullptr;
   double bestPower = 0.0;
@@ -57,7 +57,7 @@ void FBRadarSystem::SetPowered(bool on) {
   if (!on) NextScanS_ = 0.0;   /* ein wieder hochgefahrenes Set startet ein frisches Frame-Raster */
 }
 
-FBIffReply FBRadarSystem::Interrogate(const FBUnit &u) const {
+FBIffReply FBRadarSystem::Interrogate(const Units::FBUnit &u) const {
   if (!IffInterrogator_) return FBIffReply::NotInterrogated;
   bool validReply = u.GetSignature().IffXpdr && u.GetTeam() == SelfTeam_;
   return validReply ? FBIffReply::Friendly : FBIffReply::NoReply;
@@ -65,7 +65,7 @@ FBIffReply FBRadarSystem::Interrogate(const FBUnit &u) const {
 
 /* Ein Antennen-Frame. Registry IN REIHENFOLGE, damit die Tracknummer einer Neuerfassung an der
  * Missionsdeklaration haengt und nie daran, wer zuerst gesehen wurde. */
-void FBRadarSystem::ScanFrame(const fb_fdm_state &st, const FBUnitRegistry &net, double simTimeS) {
+void FBRadarSystem::ScanFrame(const Fdm::fb_fdm_state &st, const Units::FBUnitRegistry &net, double simTimeS) {
   const FBRadarScanVolume &v = ActiveVolume();
   bool seen[kMaxRadarContacts] = {};
 
@@ -73,18 +73,18 @@ void FBRadarSystem::ScanFrame(const fb_fdm_state &st, const FBUnitRegistry &net,
   bool sttOnly = v.SingleTarget && LockedNum_ != 0;
 
   if (v.Active) {
-    for (const FBUnit *u : net.Units()) {
+    for (const Units::FBUnit *u : net.Units()) {
       if (!u || u->GetId() == SelfId_) continue;   /* das Set malt sich nicht selbst */
       /* Ein Luft-Luft-Set sucht FLUGZEUGE; eine Bombe als Kontakt zu malen waere Erfindung. */
-      if (u->GetKind() != FBUnitKind::Aircraft) continue;
+      if (u->GetKind() != Units::FBUnitKind::Aircraft) continue;
 
       int slot = -1;
       for (int i = 0; i < TrackCount_; i++)
         if (Tracks_[i].UnitId == u->GetId()) { slot = i; break; }
       if (sttOnly && (slot < 0 || Tracks_[slot].TrackNum != LockedNum_)) continue;
 
-      FBUnitPose p = u->GetPose();
-      FBUnitSignature sig = u->GetSignature();
+      Units::FBUnitPose p = u->GetPose();
+      Units::FBUnitSignature sig = u->GetSignature();
       double rangeM = 0.0, bearingDeg = 0.0, elevAngleDeg = 0.0, azDeg = 0.0, elDeg = 0.0;
       RelativeLos(st, p.LatDeg, p.LonDeg, p.ElevM, rangeM, bearingDeg, elevAngleDeg, azDeg, elDeg);
 
@@ -270,7 +270,7 @@ void FBRadarSystem::DropAllTracks(const char *reason, double simTimeS) {
   Designated_ = false;
 }
 
-void FBRadarSystem::Run(FBState &state, const fb_fdm_state &st, const FBUnitRegistry *net,
+void FBRadarSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, const Units::FBUnitRegistry *net,
                         double simTimeS) {
   const FBRadarScanVolume &v = ActiveVolume();
   FBRadarBlock &b = state.Radar;
@@ -393,4 +393,4 @@ void FBRadarSystem::SampleTelemetry(FBTelemetryRow &row) const {
   row.Push(IffXpdr_);
 }
 
-} // namespace FlightBox
+} // namespace FlightBox::Sensors

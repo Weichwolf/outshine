@@ -8,12 +8,12 @@
 
 #include "FBStoresSystem.h"
 
-namespace FlightBox {
+namespace FlightBox::Modules {
 
-class FBF16Sms : public FBStoresSystem {
+class FBF16Sms : public Weapons::FBStoresSystem {
 public:
   FBF16Sms();
 };
 
-} // namespace FlightBox
+} // namespace FlightBox::Modules
 #endif
