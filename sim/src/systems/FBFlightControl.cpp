@@ -5,15 +5,25 @@ namespace FlightBox::Systems {
 
 static double Clamp(double v, double lo, double hi) { return v < lo ? lo : v > hi ? hi : v; }
 
+/* Das Gesetz des Anstellwinkel-Begrenzers, gemessen auf einer Zelle OHNE eigenen (s. Run()). Keine
+ * Preset-Zahlen: der Begrenzer hat EINE Stellgroesse, seinen Grenzwinkel, und die ist AlphaLimitDeg.
+ * kSosRateFilter ~ 0,07 s Zeitkonstante bei 100 Hz — eine rohe Differenz ist ueberwiegend Quantisierung. */
+static const double kSosKp = 0.20, kSosLeadS = 0.45, kSosRateFilter = 0.15;
+
 FBFlightControl::FBFlightControl()
-  : Flcs(0), RollStickMax(1.0),
+  : Flcs(0), RollStickMax(1.0), PitchStickMax(1.0),
     KRollRate(0.06), KG(0.4), KGi(2.0), KVs2g(0.05), KVsi(0.02), KNy(1.5), KNyi(2.0),
     KTi(0.002), KpSpd(0.03), ThrTrim(0.55),
     KpRoll(0.022), KdRoll(0.004), KpPitch(0.06), KdPitch(0.010), KdYaw(0.006), KCoord(0.004),
-    PitchMaxDeg(15), KAltRaw(0.05), NzSlew(1.5),
-    GIterm(0), VsIterm(0), NyIterm(0), ThrIterm(0), NzPrev(0) {}
+    PitchMaxDeg(15), KAltRaw(0.05), NzSlew(1.5), KqDamp(0.0), KpDampRoll(0.0), AlphaLimitDeg(0.0),
+    GIterm(0), VsIterm(0), NyIterm(0), ThrIterm(0), NzPrev(0),
+    AlphaDot(0), AlphaPrev(0), AlphaPrimed(false) {}
 
-void FBFlightControl::Reset(void) { GIterm = VsIterm = NyIterm = ThrIterm = NzPrev = 0; }
+void FBFlightControl::Reset(void) {
+  GIterm = VsIterm = NyIterm = ThrIterm = NzPrev = 0;
+  AlphaDot = AlphaPrev = 0;
+  AlphaPrimed = false;
+}
 
 FBFlightControl FBFlightControl::F16(void) {
   FBFlightControl c;
@@ -21,6 +31,70 @@ FBFlightControl FBFlightControl::F16(void) {
   c.RollStickMax = 0.15;   /* gemessen: nz bleibt 0,7..1,9 g; bei 0,35 waren es -1,1..+3,0 g */
   c.KRollRate = 0.05; c.KG = 0.25; c.KGi = 0.8;
   c.KpSpd = 0.02; c.ThrTrim = 0.85;
+  return c;
+}
+
+/* DAS MiG-29-PRESET. Es unterscheidet sich vom F-16-Preset an genau EINER strukturellen Stelle, und
+ * alles andere folgt daraus: die F-16 hat eine echte FLCS, dieser Ausgang ist dort ein g-WUNSCH an
+ * einen schnellen inneren Kreis, der ihn ausregelt und dabei den Anstellwinkel selbst begrenzt. Die
+ * MiG-29 ist mechanisch gesteuert (assets/aircraft/mig29/mig29.xml §7, doc/mig29/flight-controls.md) —
+ * derselbe Ausgang IST der Ausschlag, hinter nichts als der ARU-Uebersetzung und deren 2,0/s
+ * Stellratenbegrenzung. Zwischen Kommando und g liegen damit zwei Verzoegerungen, die es bei der F-16
+ * nicht gibt, und die drei Unterschiede unten sind genau die Antwort darauf.
+ *
+ * WIE DIE ZAHLEN ENTSTANDEN SIND: gemessen, im Missions-Regelkreis, an missions/mig29-full.fbm. Die
+ * drei gemessenen Fehlschlaege stehen hier, weil sie das Ergebnis erklaeren (CLAUDE.md: ein gemessener
+ * Fehlschlag ist Wissen):
+ *
+ *   1. DER RUDDER-ZWEIG MUSS AUS (KNy = KNyi = 0). Mit den generischen 1,5/2,0 saettigte das
+ *      Seitenruder in einem ~1,2-s-Zyklus und riss die Zelle ueber die Rollachse in ein Departure
+ *      (t=28 s, LOC). Die Gains stammen aus dem Rest-ny der F-16; dieses Ruder (zwei Flossen, +-30 deg,
+ *      gegen den Fall asymmetrischen Schubs ausgelegt) ist deutlich staerker. Der Stufe-1-Abnahmelauf
+ *      hat die ganze Huellkurve dieser Zelle mit yaw = 0 vermessen, und genau das steht hier.
+ *   2. ES DARF NUR EINEN INTEGRATOR GEBEN (KVsi = 0). Mit VS- UND g-Integrator hinter den zwei Lags
+ *      lief der Anflug in einen Grenzzyklus von ~20 s Periode: Nicklage -6..+28 deg, VS -24..+15 m/s,
+ *      CAS 127..163 kt, dazu ein Gashebel im Gegentakt — gemessen ueber die letzten 250 s von
+ *      mig29-full. Weder ein kleineres KVs2g (0,015..0,035) noch mehr Nickdaempfung hat ihn beseitigt;
+ *      das Streichen des VS-Integrators hat es. KGi bleibt bei 0,05 (6 % des F-16-Werts): genug, um
+ *      einen stationaeren Bahnfehler ueber ein Bein wegzunehmen, zu wenig, um den Kreis zu fuehren.
+ *   3. DER BEGRENZER IST PFLICHT (AlphaLimitDeg = 26). Ohne ihn beantwortete jeder Wegpunkt-Einrollvorgang
+ *      den g-Sprung beim Wiedereinblenden des Nickzweigs mit vollem Stabilator und die Zelle tumbelte
+ *      (Anstellwinkel-Spitzen 30..90 deg, LOC bei t=122 s). 26 deg ist die dokumentierte SOS-Grenze
+ *      [T4, gestuetzt durch die 25-deg-Marke der Anzeige, DCS-EA p.19].
+ *
+ *   NICKDAEMPFUNG. KqDamp = 0,050 je deg/s. Der Stufe-1-Harness fliegt dieselbe Zelle mit 0,030..0,040
+ *   (clients/FBTestMig29Envelope.cpp, alle drei Regler) — das ist die Groessenordnung, sie stammt von
+ *   diesem Flugzeug, und der hoehere Wert ist gegen den Grenzzyklus oben gemessen. KG = 0,25 ist
+ *   der F-16-Wert und traegt hier unveraendert: die Aufgabe des g-Zweigs ist dieselbe, nur was er
+ *   antreibt, ist ein Ruder statt einer FLCS.
+ *
+ *   PitchStickMax = 0,60. Das Gegenstueck zu RollStickMax, und hier eine ECHTE Grenze: der Begrenzer
+ *   haelt den Anstellwinkel, dieser Deckel haelt den Ausschlag. Gemessen wurde er von unten — 0,30
+ *   liess die Zelle einen 400-m-Bahnfehler nicht mehr aufholen (sie flog mit gesaettigtem Kommando bei
+ *   exakt 1,00 g ins Gelaende), 0,60 kann es.
+ *
+ *   ROLLEN. KRollRate = 0,030 und KpDampRoll = 0,010 sind der Wingslevel-Regler des Stufe-1-Harness,
+ *   Gain fuer Gain — es ist dasselbe PD auf denselben Fehler. Sein +-0,5-Deckel ist NICHT uebernommen:
+ *   der Harness hat nie eine Schraeglage KOMMANDIERT, sein Deckel wurde nie erreicht, und mit 0,5
+ *   schaukelte sich die Wegpunkt-Kurve in eine Roll-PIO auf (+-0,5 Kommando, Schraeglage -15..+27 deg
+ *   in 1 s). 0,15 sind bei 300 kt ~24 deg/s Rollrate ([MESS] GAP-ROLL: 157,8 deg/s bei vollem
+ *   Ausschlag, linear in V) — eine Navigationsrolle, keine Kampfrolle.
+ *
+ *   SCHUB. ThrTrim = 0,5 = MILITAERSCHUB in der Konvention, die dieses Deck ausdruecklich mit dem
+ *   F-16-Deck teilt (fcs/throttle-pos = 2 * cmd). Der Integrator hat damit von der Trimmstellung aus
+ *   nach beiden Seiten denselben Weg — zum Leerlauf wie in den vollen Nachbrenner. Die 0,85 der F-16
+ *   liegen tief im Nachbrenner und gehoeren zu deren Schub-Gewichts-Verhaeltnis, nicht zu diesem. */
+FBFlightControl FBFlightControl::Mig29(void) {
+  FBFlightControl c;
+  c.Flcs = 1;
+  c.RollStickMax = 0.15;
+  c.KRollRate = 0.030; c.KpDampRoll = 0.010;
+  c.PitchStickMax = 0.60;
+  c.KG = 0.25; c.KGi = 0.050; c.KqDamp = 0.050;
+  c.KNy = 0.0; c.KNyi = 0.0;
+  c.KVs2g = 0.050; c.KVsi = 0.000;
+  c.AlphaLimitDeg = 26.0;
+  c.KpSpd = 0.02; c.ThrTrim = 0.5;
   return c;
 }
 
@@ -46,9 +120,31 @@ FBControls FBFlightControl::Run(const FBGuidance &g, const Fdm::fb_fdm_state &s)
     double gErr = nzCmd - s.nz;
     double bankErr = std::fabs(g.BankCmdDeg - s.roll);
     double blend = Clamp(1.0 - (bankErr - 5.0) / 15.0, 0.0, 1.0);
+    /* Die beiden Daempferglieder sind fuer eine Zelle mit eigener FLCS EXAKT 0 (F16()), der Ausdruck
+     * ist dort also bitgleich zu dem ohne sie — nachgemessen ueber den vollen Missions-Sweep. */
+    o.Roll = Clamp(KRollRate * (g.BankCmdDeg - s.roll) - KpDampRoll * s.p, -RollStickMax, RollStickMax);
+    double gHold = GIterm;
     GIterm = Clamp(GIterm + blend * KGi * gErr * 0.01, -1.0, 1.0);
-    o.Roll = Clamp(KRollRate * (g.BankCmdDeg - s.roll), -RollStickMax, RollStickMax);
-    o.Pitch = blend * Clamp(KG * gErr + GIterm, -1.0, 1.0);
+    double cmd = KG * gErr + GIterm - KqDamp * s.q;
+    /* DER BEGRENZER, und er ist der KLEINERE VON ZWEI ZWEIGEN statt eines Deckels auf dem ersten: er
+     * verbietet Ziehen, erzwingt aber nie Druecken. Sein Vorhalt ist die ABLEITUNG DER BEGRENZTEN
+     * GROESSE und nicht die Nickrate — die ist im stationaeren Zug ungleich null und wuerde dort als
+     * drohende Ueberschreitung gelesen, waehrend der Anstellwinkel selbst stillsteht. Gesetz, Gains und
+     * dieser Fehlschlag sind auf DIESER Zelle gemessen: clients/FBTestMig29Envelope.cpp trug sie als
+     * ausdrueckliche Wegwerf-Skizze, weil ihr Platz hier ist (flight-model-spec.md §7.3).
+     * ANTI-WINDUP: fuehrt der Begrenzer, behaelt der Integrator seinen Stand von VOR diesem Schritt —
+     * sonst kommandiert er nach dem Manoever genau den Zug nach, den der Begrenzer eben verboten hat. */
+    if (AlphaLimitDeg > 0.0) {
+      if (AlphaPrimed) AlphaDot += kSosRateFilter * ((s.alphaDeg - AlphaPrev) / 0.01 - AlphaDot);
+      AlphaPrev = s.alphaDeg;
+      AlphaPrimed = true;
+      double byAlpha = kSosKp * (AlphaLimitDeg - s.alphaDeg - kSosLeadS * AlphaDot);
+      if (byAlpha < cmd) {
+        cmd = byAlpha;
+        if (gErr > 0.0) GIterm = gHold;
+      }
+    }
+    o.Pitch = blend * Clamp(cmd, -PitchStickMax, PitchStickMax);
     /* Pedale nullen den Querlastfaktor; ein Rest-ny von ~-0,10 g bleibt modell-intrinsisch (Prinzip 5). */
     NyIterm = Clamp(NyIterm + KNyi * s.ny * 0.01, -0.6, 0.6);
     o.Yaw = Clamp(KNy * s.ny + NyIterm, -1.0, 1.0);

@@ -492,6 +492,28 @@ bool MeasureApproachAoA(double casKt, double grossKg, double &alphaDeg) {
   return true;
 }
 
+/* ---- M1: the APPROACH SPEED HOOK of modules/mig29/FBMig29Pilot. ----
+ * [DCS-EA p.79] states the touchdown as "140 kts at 11 deg AoA" — a speed AND an attitude, which for a
+ * given weight are one statement, not two. MeasureApproachAoA above asks it one way round (what AoA at
+ * 140 kt); the pilot needs the other (what speed at 11 deg), because FBPilot's Approach phase holds a
+ * SPEED down the glidepath. A secant search on the same trimmed-level rig, because the AoA/speed
+ * relation is monotone and smooth in this band — two brackets and it is inside a knot. */
+bool MeasureSpeedForAoA(double targetAlphaDeg, double grossKg, double &casKt) {
+  double loKt = 130.0, hiKt = 190.0, aLo = 0.0, aHi = 0.0;
+  if (!MeasureApproachAoA(loKt, grossKg, aLo) || !MeasureApproachAoA(hiKt, grossKg, aHi)) return false;
+  if ((aLo - targetAlphaDeg) * (aHi - targetAlphaDeg) > 0.0) return false;   /* target outside the bracket */
+  for (int i = 0; i < 8 && hiKt - loKt > 0.5; i++) {
+    double mid = 0.5 * (loKt + hiKt), aMid = 0.0;
+    if (!MeasureApproachAoA(mid, grossKg, aMid)) return false;
+    if ((aLo - targetAlphaDeg) * (aMid - targetAlphaDeg) <= 0.0) { hiKt = mid; aHi = aMid; }
+    else { loKt = mid; aLo = aMid; }
+  }
+  casKt = 0.5 * (loKt + hiKt);
+  FBLog::Info("mig29", "AOA_SPEED", {{"targetAlphaDeg", targetAlphaDeg}, {"grossKg", grossKg},
+      {"casKt", casKt}, {"alphaLo", aLo}, {"alphaHi", aHi}});
+  return true;
+}
+
 /* ================================ Step 5: landing roll ================================ */
 
 struct Landing {
@@ -645,6 +667,62 @@ bool MeasureRollRate(double entryCasKt, double grossKg, double &peakDegS) {
   return true;
 }
 
+/* ---- M2: the CORNER HOOKS of modules/mig29/FBMig29Pilot (BfmCornerSpeedKt/BfmCornerG). ----
+ * clients/FBTestCornerSpeed.cpp's method, point for point — 5,000 m, 85 deg of bank, 4 s of measured
+ * pull, corner = the SLOWEST entry still within 3 % of the sweep's best rate — with its 20 kt step
+ * instead of the 40 kt of the A9 anchor sweep above, because a hook wants the knee resolved and an
+ * anchor only wants the peak. ONE difference, and it is forced: test-corner pulls FULL AFT STICK and
+ * lets the F-16's own FLCS limit alpha, and this deck has no limiter at all (spec §7.3), so the pull is
+ * commanded through the same PullLimiter stand-in at the same documented 26 deg / 9 g. What comes out
+ * is therefore the airframe's turn performance AT THE DOCUMENTED LIMITS, which is exactly what the
+ * pilot's energy schedule quotes.
+ * A point whose alpha ran past 35 deg is a DEPARTURE, not a turn, and is excluded — same rule and same
+ * threshold as the anchor sweep, so the two are comparable. */
+struct Corner {
+  double CasKt = 0.0, TurnRateDegS = 0.0, Nz = 0.0, AlphaDeg = 0.0, BestRateDegS = 0.0;
+  int Points = 0, Departed = 0;
+  bool Ok = false;
+};
+
+Corner MeasureCornerSweep(double altM, double grossKg) {
+  const double kBandFrac = 0.97;   /* clients/FBTestCornerSpeed.cpp's kCornerBandFrac */
+  Corner out;
+  SweepPoint pts[32];
+  int count = 0;
+  for (double cas = 200.0; cas <= 620.0 + 1e-9 && count < 32; cas += 20.0) {
+    SweepPoint p;
+    if (!MeasureTurnPoint(altM, cas, grossKg, 26.0, 9.0, p)) {
+      FBLog::Warn("mig29", "CORNER_POINT_FAILED", {{"entryCasKt", cas}});
+      continue;
+    }
+    bool dep = p.AlphaPeakDeg > 35.0;
+    FBLog::Info("mig29", "CORNER_POINT", {{"entryCasKt", p.EntryCasKt},
+        {"turnRateDegS", p.TurnRateDegS}, {"nzMean", p.NzMean}, {"nzPeak", p.NzPeak},
+        {"alphaMeanDeg", p.AlphaMeanDeg}, {"alphaPeakDeg", p.AlphaPeakDeg}, {"departed", dep}});
+    if (dep) { out.Departed++; continue; }
+    pts[count++] = p;
+  }
+  out.Points = count;
+  if (count < 3) return out;
+  for (int i = 0; i < count; i++)
+    out.BestRateDegS = pts[i].TurnRateDegS > out.BestRateDegS ? pts[i].TurnRateDegS : out.BestRateDegS;
+  for (int i = 0; i < count; i++) {
+    if (pts[i].TurnRateDegS < kBandFrac * out.BestRateDegS) continue;
+    out.CasKt = pts[i].EntryCasKt;
+    out.TurnRateDegS = pts[i].TurnRateDegS;
+    out.Nz = pts[i].NzMean;
+    out.AlphaDeg = pts[i].AlphaMeanDeg;
+    out.Ok = true;
+    break;
+  }
+  FBLog::Info("mig29", "CORNER_SWEEP", {{"altM", altM}, {"grossKg", grossKg},
+      {"cornerCasKt", out.CasKt}, {"cornerTurnRateDegS", out.TurnRateDegS}, {"cornerNz", out.Nz},
+      {"cornerAlphaDeg", out.AlphaDeg}, {"bestTurnRateDegS", out.BestRateDegS},
+      {"bandFrac", kBandFrac}, {"points", (double)count}, {"departedPoints", (double)out.Departed},
+      {"ok", out.Ok}});
+  return out;
+}
+
 } // namespace
 
 int main() {
@@ -782,6 +860,24 @@ int main() {
    * a MEASURED MODEL PROPERTY with no target. Target 0 marks "no anchor exists". */
   Record("GAP-ROLL", "peak roll rate at 450 kt (NO documented anchor exists)", 0.0, roll450,
          "deg/s", rollOk, false);
+
+  /* ---- M1/M2: the two measurements modules/mig29/FBMig29Pilot QUOTES. They are recorded here and not
+   * in the module for the same reason the F-16's corner speed is: a pilot hook that carries a number
+   * nobody can reproduce is a guess with a comment on it. ---- */
+  double aoaSpeedKt = 0.0;
+  if (MeasureSpeedForAoA(11.0, 12000.0, aoaSpeedKt))
+    Record("M1", "CAS at the documented 11 deg touchdown AoA, landing config, 12 t [DCS-EA p.79]",
+           140.0, aoaSpeedKt, "kt", true);
+  else { Record("M1", "CAS at 11 deg AoA, landing config, 12 t", 140.0, 0.0, "kt", false); failed++; }
+
+  Corner corner = MeasureCornerSweep(5000.0, 13000.0);
+  /* NO documented anchor exists for either (spec §8.3 for the turn rate; nothing at all for the g at
+   * it), so both are recorded as MEASURED MODEL PROPERTIES against target 0, like GAP-ROLL. */
+  Record("M2-VC", "corner speed at 5,000 m under the documented limits (NO anchor exists)", 0.0,
+         corner.CasKt, "kt", corner.Ok, false);
+  Record("M2-G", "sustained normal load at that corner (NO anchor exists)", 0.0, corner.Nz, "g",
+         corner.Ok, false);
+  if (!corner.Ok) failed++;
 
   int missing = 0;
   for (int i = 0; i < gAnchorCount; i++)
