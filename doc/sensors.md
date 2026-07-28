@@ -1270,7 +1270,9 @@ and it does not pretend to a terrain-albedo model that does not exist.
 `t²(3−2t)`; full day above ≈ +3°, dark from ≈ −9° (nautical twilight). It is already **one** number for
 sky, ground and star fade; the eye becomes its fourth consumer rather than the tree's second twilight
 definition. `C_eff` is multiplied by it, so the channel fades out through dusk instead of switching.
-**Needs `C2`** — there is no sun elevation in the gym today.
+**Needed `C2`**, which landed on 2026-07-28: `FBEnvironmentBlock.SunElDeg`/`SunAzDeg` are written per
+actor per decision tick in `fb-gym` whenever the mission declares a `time`, from `core/FBEphemeris.h`.
+A mission WITHOUT a clock still has no sun, and this sensor has to say what it does then.
 
 **(b) Looking into the sun, as its own hard case.** Not a multiplier on the general daylight term but a
 separate, angle-dependent one, because it is a different physical mechanism: intraocular scatter raises

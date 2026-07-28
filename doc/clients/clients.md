@@ -16,7 +16,7 @@ Nothing about the physics or the verdict may depend on which client is running.
 | Contract | Acceptance / measurement anchor |
 |---|---|
 | The simulation is identical across clients | same mission, same result; the renderer is a bolt-on, never a dependency of the physics or the termination logic |
-| **A mission-declared clock binds all three clients** (`C2`, specified, not built) | one `time` line, one instant, one sun angle in gym / native / wasm; a client flag that contradicts it is a boot error, never a precedence — see below |
+| **A mission-declared clock binds all three clients** (`C2`, built) | one `time` line, one instant, one sun angle in gym / native / wasm; a client flag that contradicts it is a boot error, never a precedence — see below |
 | Both judges are fed by every client that runs a sim loop | `FBRunMission` and the WASM frame loop each feed `FBFlightMonitor` + `FBMissionMonitor` — one definition, no parallel test |
 | Only a client may apply initial conditions | `FBFdmBoot` is reachable from `missions/` and `clients/` only |
 | A client owns exactly one unit registry and passes it down at tick time | `FBSimUnit::Run` → `FBModule::Run` → sensor slot; `FBWorld` only borrows it for drawing |
@@ -53,9 +53,10 @@ Nothing about the physics or the verdict may depend on which client is running.
 
 | Client | State | Anchor |
 |---|---|---|
-| `fb-gym` | **built and load-bearing.** All 50 missions, all seven harnesses and the tournament runner drive it. Threading proven deterministic. | `705c90a`, `6d7ed5a` |
+| `fb-gym` | **built and load-bearing.** All 85 missions, all seven harnesses and the tournament runner drive it. Threading proven deterministic. | `705c90a`, `6d7ed5a` |
 | `gpu_native` | **built.** Terrain + HUD frames; last proof `gpu_native --mission payerne-takeoff --interval 20` → 28 PNGs. | `c9206eb`…`2099cb0` |
 | wasm | **built, but partial.** Flies, renders, trims (`trimConverged=1` from the embedded `/fb/aircraft`); no weapon release path, no damage path, no cockpit displays, no bound HOTAS. | `705c90a` + model-root round |
+| the mission clock (`C2`) | **built in all three.** `missions/FBClockBoot.h` decides, `core/FBEphemeris.h` computes, `FBEnvironmentBlock` carries it. The 84 pre-round missions are byte-identical; the flag collision is a boot error with a printed reason | this round |
 
 ## Gaps
 
@@ -76,10 +77,8 @@ Nothing about the physics or the verdict may depend on which client is running.
 
 ### Specified, not built
 
-| # | Client | Thing |
-|---|---|---|
-| `C2` | all three | **the mission clock.** `fb-gym` has no ephemeris at all; native and wasm each carry their own private wall-clock override, so the same file already means three different skies. Contract above and in [`../missions/syntax.md`](../missions/syntax.md) |
-| `C2` | — | `render/FBEphemeris.h` must move to `core/FBEphemeris.h`, because `core/`/`sensors/` may not include `render/` and a sensor is about to need the sun. Pure functions, no dependencies — a relocation with a `verify-layers` consequence, not a rewrite |
+None open for the clients themselves. The clock (`C2`) closed in this round; its consumer (`C3`,
+visual acquisition) is a `sensors/` gap, not a client one.
 
 ### Unverified
 
@@ -117,28 +116,27 @@ substeps. A dead endpoint is a warning, never a boot failure (the `/elev` lesson
 decision: weather is part of the SCENARIO like the runway and the spawn — a flag would let a
 measurement silently run in air the file did not declare.
 
-### Clock defaults per client (`C2`) — **specified, not built**
+### Clock defaults per client (`C2`) — **built**
 
 The contract of the `time` line is in [`../missions/syntax.md`](../missions/syntax.md); what belongs
 *here* is which clock a client runs when the mission declares none, and what happens when a client flag
 and a mission line both speak.
 
-**Today** there is no mission-side clock at all, and the three clients disagree by construction:
+Each client's own path when the mission declares nothing — unchanged by the round, deliberately:
 
-| Client | Today |
+| Client | No `time` in the mission |
 |---|---|
-| `fb-gym` | **no clock and no ephemeris.** `FBEnvironmentBlock` is never written; the sun does not exist in the only client that runs the mission loop |
+| `fb-gym` | **no clock and no ephemeris.** `FBEnvironmentBlock` stays `Invalid`, `blk_env` stays 0, nothing is computed — the reason the 84 pre-round missions are byte-identical |
 | `gpu_native` | `--utc SECS` (Unix seconds; `0`/absent = the host wall clock) |
 | wasm | `window.FB_SIM_UTC` (Unix seconds; `0`/unset = the host wall clock) |
 
-**Specified**, precedence in ONE place on the `missions` side (`FBClockBoot.h`, the sibling of
-`FBWeatherBoot.h`):
+Precedence in ONE place on the `missions` side (`FBClockBoot.h`, the sibling of `FBWeatherBoot.h`):
 
 | Situation | Rule |
 |---|---|
 | mission declares `time` | that instant, on **all three clients**, identically |
 | mission declares no `time` | the client default: gym **none** (no ephemeris, exactly as today), native/wasm **their existing wall-clock or flag path**, unchanged |
-| mission declares `time` **and** `--utc` / `FB_SIM_UTC` is also set | **hard boot error, exit 1.** Not a precedence |
+| mission declares `time` **and** `--utc` / `FB_SIM_UTC` is also set | **hard boot error, exit 1.** Not a precedence. Checked BEFORE the spawn, so it needs neither terrain nor a GPU; fixture `sim/missions/negative/clock-flag-collision.fbm` |
 
 That last row is where this rule deliberately differs from `wx`, and the difference is worth stating.
 Weather has **no flag at all**, so no conflict can arise; the clock has one, and it has to keep it,
@@ -151,4 +149,16 @@ shell history able to move a measured detection range without a line in the outp
 Consequence for the gym, and it is the load-bearing one: as soon as a **sensor** consumes the clock
 (`C3` visual acquisition, [`../sensors.md`](../sensors.md) §9) the clock stops being a renderer switch.
 `fb-gym` must then compute the same ephemeris the renderer does, from the same pure functions — which
-is why those functions move down to `core/` in the C2 round.
+is why those functions moved down to `core/` in the C2 round.
+
+**How the clock reaches a client.** It is pushed by the OWNER, never pulled by a system: the runner (and
+the WASM frame loop) samples `FBSolarAt(lat, lon, T0 + simT)` per actor per decision tick, beside the
+cloud sample and for the same reason, and hands it down `FBSimUnit::UpdateSolar` → `FBModule::SetSolar`
+→ `FBEnvironmentBlock`. **No system below the owner holds a clock**, exactly as no sensor queries the
+world. The native hook takes the resolved clock through `FBMissionTickHook::OnClock` before
+`OnMissionStart`, so the first drawn frame already stands at the declared instant.
+
+**Where the layer move landed.** `core/FBEphemeris.h` (namespace `FlightBox`, `FBSunPos`/`FBMoonPos`,
+`double` Unix seconds), plus `core/FBCivilTime.h` for the calendar. `render/` no longer contains an
+ephemeris; both clients include it from below. Proof that the move changed nothing: the screenshot
+venue's PNGs at `--utc 922312800`, SVS and EVS, are byte-identical to the pre-round binary.

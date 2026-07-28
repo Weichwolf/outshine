@@ -2,6 +2,7 @@
 #include "FBMissionFile.h"
 #include "FBMissionBoot.h"
 #include "FBMissionMonitor.h"
+#include "FBEphemeris.h"
 #include "FBWeatherBoot.h"
 #include "FBModuleRegistry.h"
 #include "FBTelemetry.h"
@@ -411,7 +412,7 @@ private:
 
 int FBRunMission(const std::string &missionPath, double timeoutOverride, const std::string &outDir,
                  const FBModelRoots &models, FBElevationProvider &elevation,
-                 FBMissionTickHook *hook, size_t threads) {
+                 FBMissionTickHook *hook, size_t threads, bool clientClockOverride) {
   std::string evPath = outDir + "/events.log";
   Clients::FBFileHandle evf = Clients::FBOpenFile(evPath.c_str(), "w");
   if (!evf) { fprintf(stderr, "mission: cannot open %s for writing\n", evPath.c_str()); return 1; }
@@ -442,6 +443,28 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   }
   double timeoutS = timeoutOverride > 0.0 ? timeoutOverride : mission.TimeoutS;
   FBLog::Info("mission", "MISSION_START", {{"name", mission.Name}, {"timeout", timeoutS}});
+
+  /* The run's clock. Only a DECLARED one produces a line — a mission without `time` has no clock and
+   * its events.log stays byte-identical to one from before the clock existed. The sun elevation is
+   * logged with it because the file may only say Zulu: this is where "22:00Z over Batajnica is night"
+   * becomes checkable without the author doing spherical trigonometry. */
+  FBMissionClock clock;
+  std::string cerr;
+  if (!FBResolveMissionClock(mission, clientClockOverride, clock, &cerr)) {
+    FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", cerr}});
+    return 1;
+  }
+  if (clock.Have) {
+    char iso[21];
+    const FBSpawn &sp0 = mission.Units.front().Spawn;
+    const FBSolar s0 = FBSolarAt(sp0.LatDeg, sp0.LonDeg, clock.At(0.0));
+    /* The instant is logged as TEXT only: the log's numeric fields are %g, and 9.22313e+08 is a Unix
+     * second rounded past the hour it names. */
+    FBLog::Info("mission", "CLOCK", {{"utc", FBFormatIsoUtc(clock.T0S, iso, sizeof iso)},
+        {"sunElDeg", (double)s0.SunElDeg}, {"sunAzDeg", (double)s0.SunAzDeg},
+        {"moonElDeg", (double)s0.MoonElDeg}, {"moonPhase", (double)s0.MoonPhase}});
+  }
+  if (hook) hook->OnClock(clock);
 
   /* The mission's atmosphere, or still air. A DECLARED fixture that will not load is a FAIL and not a
    * quiet fallback: a run measured in the wrong weather is worse than no run. */
@@ -594,6 +617,11 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
        * Nothing reads it unless the module composes a sensor that does (FBModule::SetCloudSky is a
        * no-op by default), so a mission with no weather and no optical sensor is unaffected. */
       a->UpdateSky(FBCloudSkyFromWeather(*weather, a->State().lat, a->State().lon, simT));
+      /* The sky's two LIGHTS, from the mission clock and this actor's own position, on the same tick
+       * as the decks. Skipped entirely without a declared clock — no clock, no ephemeris, no channel
+       * touched (doc/missions/syntax.md). */
+      if (clock.Have)
+        a->UpdateSolar(FBSolarAt(a->State().lat, a->State().lon, clock.At(simT)));
     }
     stepJob.SetTime(simT);
     pool.RunTick(stepJob, Actors.size());

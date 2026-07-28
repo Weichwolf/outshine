@@ -2,7 +2,7 @@
 
 **Sources of this file:** `sim/src/render/` (14 files: `FBRenderer.h/.cpp`, `FBCamera.h`,
 `FBDrawStage.h`, `FBFrameContext.h`, `FBGpu.h`, `FBHudGeometry.h/.cpp`, `FBHudFont.h`,
-`FBHudFontRom.h`, `FBChunkMesh.h`, `FBChunkVtx.h`, `FBMips.h`, `FBEphemeris.h`) and
+`FBHudFontRom.h`, `FBChunkMesh.h`, `FBChunkVtx.h`, `FBMips.h`) and
 `sim/src/render/stages/` (39 files), plus CLAUDE.md's `render/`, `render/stages/` and "Rendering (das
 Herzstück)" sections. Every number below appears verbatim in the source; derivations and settings are
 marked as such. Contradictions between CLAUDE.md and the code are in *Gaps* — they are not resolved
@@ -349,7 +349,7 @@ absorption `4.4`, ozone `(0.650, 1.881, 0.085)`.
 | Mode | Ground source | Sun | Additional effects |
 |---|---|---|---|
 | SVS (`GroundPhoto = 0`) | OSM render | fixed 45° elevation, azimuth 180° | day factor pinned to 1, no stars/lights/clouds |
-| EVS (`GroundPhoto = 1`) | aerial imagery | real ephemeris (`FBEphemeris.h`, via `SetHud`) | stars, night lights, clouds, moonlight |
+| EVS (`GroundPhoto = 1`) | aerial imagery | real ephemeris (`core/FBEphemeris.h`, via `SetHud`) | stars, night lights, clouds, moonlight |
 
 Rationale in the code: SVS is a **time-independent database view**; only EVS is "the real camera", so
 only there does dawn/dusk have to match the picture's brightness.
@@ -367,8 +367,10 @@ Transmittance (owns TransLUT)
 …only then CreateTerrainPipeline() → FBTilesStage::Configure(… TransLUT, SkyLUT …)
 ```
 
-Ephemerides (`render/FBEphemeris.h`, pure functions): `SunPos` is a verbatim port of the NOAA
-approximation formulas (< ~0.5° error); `MoonPos`/`MoonPhase` are a port of Paul Schlyter's
+Ephemerides (`core/FBEphemeris.h`, pure functions — moved down out of `render/` in the C2 round
+because `core/`/`sensors/` may not include `render/` and visual acquisition needs the sun,
+[`../missions/syntax.md`](../missions/syntax.md)): `FBSunPos` is a verbatim port of the NOAA
+approximation formulas (< ~0.5° error); `FBMoonPos`/`MoonPhase` are a port of Paul Schlyter's
 approximation (public domain) **without** its long perturbation-term table — good to about a degree,
 enough for a disc plus phase, not for navigation. The phase is `(1 − cos(elongation))/2`.
 

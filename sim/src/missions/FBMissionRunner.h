@@ -10,6 +10,7 @@
 #ifndef FBMISSIONRUNNER_H
 #define FBMISSIONRUNNER_H
 #include <string>
+#include "FBClockBoot.h"
 #include "FBElevationProvider.h"
 #include "FBModelRoots.h"
 #include "FBWeatherProvider.h"
@@ -42,6 +43,11 @@ public:
    * this interface stays GPU-type-free. */
   virtual void OnWeather(const FBWeatherProvider &weather) { (void)weather; }
 
+  /* The run's CLOCK, once, before everything above: `Have == false` means the mission declared none
+   * and the hook keeps whatever clock its client already had. A hook that draws a sky needs this
+   * before the first frame, which is why it precedes OnMissionStart. */
+  virtual void OnClock(const FBMissionClock &clock) { (void)clock; }
+
   /* After the pose barrier and this tick's telemetry sample, so every pose the hook reads is this
    * tick's. A camera has ONE eye and rides actors[0]; the list is here for everything that is not the
    * camera. The hook sets its own cadence for anything expensive. */
@@ -57,10 +63,15 @@ bool FBEnsureDir(const std::string &dir);
  *
  * `threads` sizes the STEP-phase pool INCLUDING the calling thread. No caller can get a different
  * RESULT out of a larger one: everything with a cross-actor reach stays sequential and log output is
- * replayed in actor order at the barrier. Clamped to the actor count. */
+ * replayed in actor order at the barrier. Clamped to the actor count.
+ *
+ * `clientClockOverride` says only whether this client's own clock flag (--utc / FB_SIM_UTC) is set;
+ * combined with the mission's `time` line it is resolved in FBClockBoot.h, and a contradiction ends
+ * the run before the first tick. */
 int FBRunMission(const std::string &missionPath, double timeoutOverride, const std::string &outDir,
                  const FBModelRoots &models, FBElevationProvider &elevation,
-                 FBMissionTickHook *hook = nullptr, size_t threads = 1);
+                 FBMissionTickHook *hook = nullptr, size_t threads = 1,
+                 bool clientClockOverride = false);
 
 } // namespace FlightBox::Missions
 #endif

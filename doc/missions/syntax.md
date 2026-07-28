@@ -80,7 +80,7 @@ unit two
 | Mission | `runway`  | lat lon elevM trueHdgDeg lengthM | optional landing geometry (`FBRunway`) — needed for `spawn threshold`, `land`, and `FBMissionMonitor`'s off-runway-touchdown FAIL check; a pure air-start mission without landing intent needs no `runway` line. Mission-wide: all units share it. Width unused (0, default fallback in the monitor). |
 | Mission | `timeout` | seconds (>0) | sim time until TIMEOUT if the mission does not end earlier. Applies to every unit. |
 | Mission | `wx`      | `calm` \| `fixture <name\|path>` \| `wind <dirDegFROM> <speedKt>` | the ATMOSPHERE of the mission (`core/FBWeatherProvider`), optional, at most once, default `calm`. See [`weather.md`](weather.md). |
-| Mission | `time`    | `<YYYY-MM-DDThh:mm:ssZ>` | **[SPEC, NOT BUILT — gap `C2`]** the CLOCK of the mission: the UTC instant at `simT = 0`. Optional, at most once; absent = no clock at all (see below). Consumed by the ephemeris and by everything that depends on where the sun is; it changes no physics. |
+| Mission | `time`    | `<YYYY-MM-DDThh:mm:ssZ>` | the CLOCK of the mission: the UTC instant at `simT = 0`. Optional, at most once; absent = no clock at all (see below). Consumed by the ephemeris and by everything that depends on where the sun is; it changes no physics. |
 | Actor  | `unit`    | callsign | block start. 1–24 characters from `[A-Za-z0-9_-]` (the callsign also names the telemetry file and the `unit=` log attribution), unique mission-wide. |
 | Actor  | `module`  | rest of line | module name, resolved through `FBModuleRegistry` — determines both the `FBModule` and the JSBSim aircraft folder name (`sim/assets/aircraft/<module>`). Mandatory per block. |
 | Actor  | `team`    | `friendly`\|`hostile`\|`neutral` | team (`FBUnitTeam`, `core/FBTeam.h`) — lands in the unit registry that sensors and weapons read. Optional, default `friendly`. |
@@ -95,12 +95,11 @@ unit two
 mandatory. `runway`, `wx` and `time` are optional (`runway` only needed for `spawn threshold`/`land`/the
 off-runway check, `wx` defaults to `calm`, `time` defaults to *no clock*).
 
-### The mission clock (`time`) — gap `C2`
+### The mission clock (`time`)
 
-**Status: specified here, nothing built.** Written as the contract a build round has to satisfy, per
-[`../conventions.md`](../conventions.md)'s spec-first rule. The consumer side is
-[`../sensors.md`](../sensors.md) §9 (visual acquisition) and the renderer's ephemeris; the per-client
-default lives with the clients ([`../clients/clients.md`](../clients/clients.md)).
+**Status: built** (round `C2`). The consumer side is [`../sensors.md`](../sensors.md) §9 (visual
+acquisition, still `C3`) and the renderer's ephemeris; the per-client default lives with the clients
+([`../clients/clients.md`](../clients/clients.md)).
 
 ```
 time 1999-03-24T22:00:00Z        # mission-wide, at most once, before the first `unit` block
@@ -132,8 +131,10 @@ checkable in the output without the author doing spherical trigonometry.
 year 1901…2099. Anything else is a parse error, not a best-effort read. The conversion to Unix seconds
 is a **calendar computation in `core/`** (days-from-civil), never `mktime`/`timegm`: those read the
 host time zone or the host's leap-second view, and the same file would then mean a different sky in
-Zurich and in a container. `[SET]` bounds; the range is the one over which the NOAA approximation the
-ephemeris ports is stated to hold.
+Zurich and in a container. `[SET]` bounds, declared as `kEphemerisMinYear`/`kEphemerisMaxYear` next to
+the formulae they bound (`core/FBEphemeris.h`) so the range and its reason sit in one place. The
+conversion is `core/FBCivilTime.h` — `FBParseIsoUtc`/`FBFormatIsoUtc` over `FBDaysFromCivil`, the same
+calendar in both directions, so a logged instant re-reads as the instant that was declared.
 
 #### The default is *no clock*, and that is what makes the 84 missions byte-identical
 
@@ -141,26 +142,30 @@ ephemeris ports is stated to hold.
 |---|---|
 | default = a fixed epoch constant | every existing frame proof moves, the browser's live sky is pinned to 1970, and `gpu_native --utc`'s "0 = wall clock" sentinel changes meaning |
 | default = the client's current behaviour, expressed as a value | same problem one level down: the gym has no ephemeris at all today, so there is no value to express |
-| **default = `HaveTime = false`, no channel touched** | **recommended.** Nothing is computed, nothing is published, nothing is logged — the same mechanism by which `wx calm` is byte-identical to the tree before the weather hook existed ("the wind is only written on change", [`weather.md`](weather.md)) |
+| **default = `HaveTime = false`, no channel touched** | **built.** Nothing is computed, nothing is published, nothing is logged — the same mechanism by which `wx calm` is byte-identical to the tree before the weather hook existed ("the wind is only written on change", [`weather.md`](weather.md)) |
 
-**How that is checked, concretely.** `sim/missions/` holds **84** `.fbm` files today. The acceptance of
-the C2 round is the regression gate of [`../build-and-ops.md`](../build-and-ops.md) applied at full
-strength:
+**How that was checked, concretely.** `sim/missions/` held **84** `.fbm` files before the round. The
+acceptance was the regression gate of [`../build-and-ops.md`](../build-and-ops.md) at full strength,
+run against the PRE-ROUND `fb-gym` binary kept aside for the purpose:
 
-| Check | Requirement |
-|---|---|
-| Telemetry | all `telemetry*.csv` of all 84 missions **byte-identical** to the pre-round tree. C2 adds **no column** — a per-run constant does not belong in a 10 Hz time series, and a column would break this line for a value nobody reads |
-| Events | all `events.log` byte-identical modulo `wallS`/`speedup`. The `mission CLOCK` line is emitted **only when a clock is declared**, so a mission without the line produces no line |
-| Determinism | unchanged single fingerprint over `--threads 1/2/4` × repetitions |
-| Frame proofs | `gpu_native` without `--mission` is untouched (no mission file, hence no `time` line, hence today's `--utc` path verbatim) |
+| Check | Requirement | Measured |
+|---|---|---|
+| Telemetry | all `telemetry*.csv` of all 84 missions **byte-identical** to the pre-round tree. C2 adds **no column** — a per-run constant does not belong in a 10 Hz time series | **259/259 files byte-identical** (84 missions, the multi-unit ones contributing one CSV per actor), at `--threads` 1, 2 and 4 |
+| Events | all `events.log` byte-identical modulo `wallS`/`speedup`. The `mission CLOCK` line is emitted **only when a clock is declared**, so a mission without the line produces no line | **84/84 identical** modulo `wallS`, `speedup` and the absolute `--out` path |
+| Determinism | unchanged single fingerprint over `--threads 1/2/4` | identical exit-code set and identical telemetry across all three, the new clock mission included |
+| Frame proofs | `gpu_native` without `--mission` is untouched | `--utc 922312800` over Payerne, SVS and EVS: **PNG byte-identical** to the pre-round binary |
+
+The one thing a clock DOES change is measurable in the same place: `clock-night-payerne.fbm` and
+`payerne-airstart.fbm` fly the identical spawn and route, and their 2 167 telemetry rows differ in
+**exactly one column, `blk_env`** (1 versus 0). The clock is a stamp, not an input.
 
 #### Who consumes it
 
 | Consumer | What it takes | State |
 |---|---|---|
-| Ephemeris → `FBEnvironmentBlock` (sun/moon el/az, moon phase) | the instant + the unit's position | exists (`FBEphemeris.h`), fed from a client-side clock today |
-| Cloud drift advection (`FBRenderer::SetSkyClock`) | the instant | exists, fed from the same client-side clock |
-| **Visual acquisition** (`C3`, [`../sensors.md`](../sensors.md) §9) | sun elevation for the day factor, the sun's direction for the glare term | **specified, not built — and it is why the clock must reach `fb-gym`, which has no ephemeris at all today** |
+| Ephemeris → `FBEnvironmentBlock` (sun/moon el/az, moon phase) | the instant + the unit's position | **built.** `core/FBEphemeris.h`, fed from the mission clock in all three clients; the `blk_env` telemetry column is 1 exactly when a clock was declared |
+| Cloud drift advection (`FBRenderer::SetSkyClock`) | the instant | **built.** Follows the declared clock where there is one, the client's own where there is not |
+| **Visual acquisition** (`C3`, [`../sensors.md`](../sensors.md) §9) | sun elevation for the day factor, the sun's direction for the glare term | **specified, not built** — but the channel it will read now exists in `fb-gym` |
 | Terrain/cloud lighting, night lighting, an infrared background term | the instant | future; named so the clock is not re-invented for each |
 
 **The wiring, and the one structural consequence.** The clock is a mission-wide datum that the OWNER
@@ -169,11 +174,12 @@ samples and pushes down — the identical shape ground elevation and the cloud s
 with a small value block, computed per unit per decision tick from `(lat, lon, T0 + simT)`. **No system
 below the owner ever holds a clock**, exactly as no sensor queries the world.
 
-That forces one move: the ephemeris is `render/FBEphemeris.h` today, and `core/`, `sensors/` and
-`systems/` may not include `render/` (`verify-layers`). The pure functions therefore move **down** to
-`core/FBEphemeris.h` and `render/` includes them from below. They are already dependency-free, so this
-is a relocation, not a rewrite — but it is a layer change and it belongs in the C2 round rather than
-being discovered inside the C3 round.
+That forced one move, **done in this round**: the ephemeris was `render/FBEphemeris.h`, and `core/`,
+`sensors/` and `systems/` may not include `render/` (`verify-layers`). The pure functions now live in
+`core/FBEphemeris.h` (namespace `FlightBox`, `FBSunPos`/`FBMoonPos`, `double` Unix seconds instead of
+`time_t`), and the clients include them from below. That it was a relocation and not a rewrite is
+MEASURED, not claimed: the screenshot venue's PNGs at a pinned `--utc 922312800` are byte-identical
+before and after the move, in SVS and in EVS.
 
 #### What it explicitly does NOT do
 
@@ -237,7 +243,7 @@ explicit `spawn` altitude below the resolved ground. `v=0` in the air is by cont
 ### Data model
 
 `FBMission` = `Name` + optional `FBRunway` (`HaveRunway`) + `TimeoutS` + `FBWeatherSpec`
-(`HaveWeather`) + [`C2`: `UtcT0S` + `HaveTime`] + `Units` (list of `FBMissionUnit`). `FBMissionUnit` = `Id` (callsign) + `ModuleName`
+(`HaveWeather`) + `UtcT0S` + `HaveTime` + `Units` (list of `FBMissionUnit`). `FBMissionUnit` = `Id` (callsign) + `ModuleName`
 + `Team` + `FBFlightId` (`Flight`, `Position` 0 = undeclared) + `FBSpawn` (`HaveSpawn`) + `SetKV` (file order) + `FBFlightPlan` (the `wp`/`land` lines in
 file order) + `Objectives` (the `objective` lines, `std::vector<FBObjective>`). A landing objective is
 not a flag of its own: the flight plan then ends on an `FBWaypointType::Land` waypoint, and that is
@@ -280,14 +286,13 @@ the same order.
 | Spawn | one IC application for ground and air (`missions/FBMissionBoot.h::FBMissionSpawnActor`) |
 | Tick order | as specified; the gym parallelises only the STEP phase and is bit-identical over `--threads 1..4` |
 | Consistency validation | today exactly one rule: explicit spawn altitude below resolved ground |
-| `time` line (`C2`) | **not built.** Specified above; no clock reaches the gym at all today |
+| `time` line | **built** (`C2`). Parser + `core/FBCivilTime.h`; precedence and the flag collision in `missions/FBClockBoot.h`; pushed per actor per decision tick (`FBSimUnit::UpdateSolar` → `FBModule::SetSolar` → `FBEnvironmentBlock`) by the runner and by the WASM frame loop. Reference mission `missions/clock-night-payerne.fbm`, the two refusal fixtures in `missions/negative/` |
 | The four new objective kinds (`C12`) | **not built.** Grammar above, semantics in [`verdict.md`](verdict.md) |
 
 ## Gaps
 
 | Gap | Detail |
 |---|---|
-| **`C2` — no mission clock** | 30+ missions across the ten campaign specs are night missions and not one can say so ([`../campaigns/INDEX.md`](../campaigns/INDEX.md)). The renderer already owns the ephemeris; the gym owns nothing. Contract above |
 | **`C12` — the objective vocabulary is four kinds** | five campaigns cannot state what they measured. Grammar above, contract in [`verdict.md`](verdict.md) |
 | `FBWaypointType` declares four values, the parser produces two | `Takeoff`, `Enroute`, `Approach`, `Land` are declared in `core/FBFlightPlan.h`; `wp` always produces `Enroute` and `land` always `Land`. There is no syntax for `Takeoff` or `Approach`. |
 | Runway width is unused | the `runway` line carries no width; the monitor falls back to a default footprint margin |

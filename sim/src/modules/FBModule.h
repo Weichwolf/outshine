@@ -14,6 +14,7 @@
 #include "FBCountermeasureSystem.h"
 #include "FBDatalinkSystem.h"
 #include "FBDisplaySystem.h"
+#include "FBEphemeris.h"
 #include "FBFlightControl.h"
 #include "FBFlightPlan.h"
 #include "FBGunSystem.h"
@@ -129,6 +130,11 @@ public:
    * sensor that cares about it does anything with it — the default is deliberately a no-op, so a
    * module without one is unchanged by the existence of weather. */
   virtual void SetCloudSky(const FBCloudSky &sky) { (void)sky; }
+
+  /* Where the sun and the moon stand over this unit, from the mission CLOCK its owner samples — the
+   * sibling of SetCloudSky, same cadence, same reason. A mission that declares no `time` never calls
+   * it, so nothing is published and nothing changes for every mission written before the clock. */
+  virtual void SetSolar(const FBSolar &solar) { (void)solar; }
 
   /* The launch programming a released store is handed at separation, once, before its first tick.
    * Default: an unguided store has nothing to program. */

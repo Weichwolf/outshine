@@ -15,6 +15,8 @@
 #include "FBMissionBoot.h"
 #include "FBMissionMonitor.h"
 #include "FBWeatherBoot.h"
+#include "FBCivilTime.h"
+#include "FBClockBoot.h"
 #include "FBCloudDensity.h"
 #include "FBElevationProvider.h"
 #include "FBEphemeris.h"
@@ -67,6 +69,9 @@ static constexpr double kConfigGroundM = 430.0;   /* boot fallback until the fir
 static double LastMs = 0.0;
 static double Olat = 47.179846, Olon = 7.411427;   /* ENU/home origin (config.js) */
 static time_t SimUtc = 0;                /* FB_SIM_UTC override; 0 = real wall clock (live sky) */
+/* The MISSION's clock, when the .fbm declares one — it outranks nothing, it EXCLUDES the override
+ * above (missions/FBClockBoot.h): declaring both is a boot error, not a precedence. */
+static Missions::FBMissionClock SimClock;
 
 /* THE BROWSER'S WEATHER, and the one client whose default is LIVE. Three objects and one rule: `gWeather`
  * is what the sim flies in right now (calm until something better exists), `gWxIncoming` is a parsed blob
@@ -242,10 +247,10 @@ static void frame(void) {
       FBLog::Info("pilot", "phase", {{"phase", Pilot::FBPilot::PhaseName(gOwnship->Module().PilotSystem().GetPhase())}});
     } }
   /* Used only in photo mode; SVS pins a constant day. */
-  time_t utc = SimUtc ? SimUtc : time(nullptr);
-  Render::SunPos(St.lat, St.lon, utc, &hs.Env.SunElDeg, &hs.Env.SunAzDeg);
-  Render::MoonPos(St.lat, St.lon, utc, &hs.Env.MoonElDeg, &hs.Env.MoonAzDeg, &hs.Env.MoonPhase);
-  R.SetSkyClock((double)utc);
+  double utc = SimClock.Have ? SimClock.At(gSimT) : (double)(SimUtc ? SimUtc : time(nullptr));
+  FBSunPos(St.lat, St.lon, utc, &hs.Env.SunElDeg, &hs.Env.SunAzDeg);
+  FBMoonPos(St.lat, St.lon, utc, &hs.Env.MoonElDeg, &hs.Env.MoonAzDeg, &hs.Env.MoonPhase);
+  R.SetSkyClock(utc);
   /* Same seam as the native oracle: the CLIENT samples the weather where the camera is and hands the
    * renderer the resulting decks — the renderer never sees a provider. core/FBCloudDensity.h. */
   if (gWeather) {
@@ -383,6 +388,18 @@ int main() {
           {"lat", sp.LatDeg}, {"lon", sp.LonDeg}, {"groundM", groundAsl},
           {"waypoints", mission.Units[i].Plan.Size()}});
       gActors.push_back(std::move(unit));
+    }
+    /* The mission's CLOCK, resolved in the one place all three clients share. A file that declares
+     * `time` while window.FB_SIM_UTC is set stops the boot: a sky nobody asked for is worse than no
+     * picture (missions/FBClockBoot.h). */
+    std::string clkErr;
+    if (!Missions::FBResolveMissionClock(mission, SimUtc != 0, SimClock, &clkErr)) {
+      FBLog::Error("gpu", "mission_boot_failed", {{"url", kDefaultMissionUrl}, {"reason", clkErr}});
+      return 1;
+    }
+    if (SimClock.Have) {
+      char iso[21];
+      FBLog::Info("gpu", "mission_clock", {{"utc", FBFormatIsoUtc(SimClock.T0S, iso, sizeof iso)}});
     }
     /* THE PRECEDENCE RULE (app/FBWeatherBoot.h): a mission that declares its weather keeps it, in the
      * browser exactly as in fb-gym. Only a mission that does NOT gets this client's live default. */

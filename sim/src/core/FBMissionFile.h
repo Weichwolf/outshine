@@ -4,6 +4,7 @@
 #ifndef FBMISSIONFILE_H
 #define FBMISSIONFILE_H
 
+#include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
@@ -51,6 +52,11 @@ struct FBMission {
   double       TimeoutS = 0.0;   /* sim-seconds until TIMEOUT; 0 = unset (a parse error, not a mission) */
   FBWeatherSpec Weather;
   bool         HaveWeather = false;   /* declared explicitly — the ONE thing that outranks a client default */
+  /* `time <YYYY-MM-DDThh:mm:ssZ>` — the UTC instant at simT = 0. ABSENT MEANS NO CLOCK, not a default
+   * epoch: nothing is then computed, published or logged, which is what keeps every mission written
+   * before the clock existed byte-identical. doc/missions/syntax.md, "The mission clock". */
+  int64_t      UtcT0S = 0;
+  bool         HaveTime = false;
   std::vector<FBMissionUnit> Units;
 };
 

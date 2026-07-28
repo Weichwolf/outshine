@@ -80,7 +80,7 @@ Three clients link or compile against it:
 |---|---|---|
 | `sim/src/missions/` | the mission orchestrator, spawn, model roots, the gym thread pool | [missions/runtime.md](missions/runtime.md) |
 | `sim/src/clients/` | entry points, app lifecycle, sink implementations, the test harnesses | [clients/clients.md](clients/clients.md), [build-and-ops.md](build-and-ops.md) |
-| `sim/src/core/` | avionics bus, command bus, log, telemetry, the two judges, mission-data types, damage model, ballistics, elevation hook, base types. **Never points into `systems/` or `modules/`.** | [core.md](core.md) |
+| `sim/src/core/` | avionics bus, command bus, log, telemetry, the two judges, mission-data types, damage model, ballistics, elevation hook, calendar + sun/moon ephemeris (`FBCivilTime.h`/`FBEphemeris.h`, moved down out of `render/` in the C2 round), base types. **Never points into `systems/` or `modules/`.** | [core.md](core.md) |
 | `sim/src/math/` | value maths (`FBMat4`) | [core.md](core.md) |
 | `sim/src/fdm/` | the JSBSim adapter. The one translation unit with JSBSim headers. | [fdm.md](fdm.md) |
 | `sim/src/units/` | world entities: `FBUnit`, `FBSimUnit`, `FBUnitRegistry` | [missions/runtime.md](missions/runtime.md) |

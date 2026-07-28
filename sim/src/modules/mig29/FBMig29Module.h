@@ -77,6 +77,7 @@ public:
   /* The one consumer of weather above the FDM in this tree: the optical head, which cannot see through
    * a deck. Handed straight down — the module keeps no copy it could let go stale. */
   void SetCloudSky(const FBCloudSky &sky) override { Irst_.SetSky(sky); }
+  void SetSolar(const FBSolar &solar) override { FBSolarToEnv(solar, SharedState); }
 
   /* Who this aircraft IS, for the slots that observe other units — and, for the SMS, so a round it
    * launches knows whose illumination to listen for. */

@@ -26,7 +26,7 @@ const char *kDefaultSwissDem = "assets/swiss-dem-90m.bin";
 void Usage(const char *argv0) {
   fprintf(stderr,
           "usage: %s --mission FILE [--out DIR] [--timeout N] [--threads N] [--elev tiles|const|swiss] [--base URL]\n"
-          "  --mission FILE   ground-spawn a .fbm mission (doc/mission-format.md) on its runway threshold\n"
+          "  --mission FILE   ground-spawn a .fbm mission (doc/missions/syntax.md) on its runway threshold\n"
           "                   and run headless (JSBSim + the module's FBPilot phase machine) until SUCCESS/CRASH/\n"
           "                   TIMEOUT/FAIL; writes --out/telemetry.csv + --out/events.log, exit 0/1/2/3.\n"
           "  --timeout N      overrides the mission file's own timeout (sim-seconds)\n"

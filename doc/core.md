@@ -50,6 +50,7 @@ Built and in service; 53 files plus `math/FBMat4.h`.
 | Gun catalogue, gun ballistics, projectile pool | built | `a1a8fbf` |
 | Free-fall ballistics (the shared CCIP/CCRP primitive) | built | `1eeff72` |
 | Elevation providers: constant, runway plateau, baked Swiss DEM | built (the tiles provider lives in `world/` and is **not** part of the core lib) | `705c90a` |
+| Calendar (`FBCivilTime.h`: days-from-civil, strict ISO-8601-Zulu parse/format) + sun/moon ephemeris (`FBEphemeris.h`) | built. The ephemeris moved DOWN from `render/` in the C2 round: `core/`/`sensors/` may not include `render/`, and visual acquisition needs the sun. Pure functions, no state — the move is proven pixel-exact (`--utc 922312800`, SVS + EVS PNGs byte-identical) | this round |
 
 Everything below under Knowledge is the distilled per-file detail, every constant with its provenance.
 

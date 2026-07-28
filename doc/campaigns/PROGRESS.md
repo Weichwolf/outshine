@@ -83,12 +83,19 @@ Named here so that nobody later mistakes one for a fact:
 
 ---
 
+**Run 3 — 2026-07-28, `C2` built.** The first code round of the foundation. The `time` line parses, the
+clock binds all three clients, the flag collision is a boot error, `FBEphemeris` moved from `render/` to
+`core/`, and `fb-gym` writes `FBEnvironmentBlock` for the first time. All 84 pre-round missions
+byte-identical; reference mission `sim/missions/clock-night-payerne.fbm`, refusal fixtures in
+`sim/missions/negative/`. Details in [`../missions/syntax.md`](../missions/syntax.md),
+[`../clients/clients.md`](../clients/clients.md) and [`../journal.md`](../journal.md).
+
 ## What the next run should do
 
 Nothing in this directory needs re-writing. The next work is **outside** it:
 
-1. **Build the four foundation contracts**, in the order their dependencies allow: `C2` (nothing depends
-   on it, everything else does) → `C12` (self-contained) → `C3` (needs `C2`'s clock in the gym) → `C0`
+1. **Build the remaining three foundation contracts**, in the order their dependencies allow: ~~`C2`~~
+   (built, run 3) → `C12` (self-contained) → `C3` (has `C2`'s clock in the gym now) → `C0`
    (needs nothing, but is worth least until there are campaigns to run).
 2. Build the four one-line experiments named in [`INDEX.md`](INDEX.md) — `o1-01/02`, `w3-07/08`,
    `w4-01/02`, `w5-02/03`. They need nothing that does not exist, and three of them answer questions

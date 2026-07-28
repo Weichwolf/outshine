@@ -75,6 +75,10 @@ public:
    * rather than re-querying terrain. */
   void SetGroundAsl(float m) override { GroundAslM = m; }
 
+  /* Onto the bus, not into a member: FBEnvironmentBlock is where everything that reads daylight looks,
+   * and the block's status is what says a clock was declared at all. */
+  void SetSolar(const FBSolar &solar) override { FBSolarToEnv(solar, SharedState); }
+
   /* Every slot that observes other units needs its own identity: to skip its own PPLI/echo, to know
    * whose IFF crypto it holds, whose uplink a launched round listens to, and who fired a burst. */
   void SetUnitIdentity(int unitId, FBUnitTeam team) override {

@@ -95,6 +95,11 @@ public:
    * handed to the MODULE (FBModule::SetCloudSky) rather than to the FDM: wind is physics, cloud is
    * something a SENSOR looks through. Only a module with such a sensor does anything with it. */
   void UpdateSky(const FBCloudSky &sky) { Module_->SetCloudSky(sky); }
+
+  /* The sun and moon over this unit at the mission clock's instant, sampled by its OWNER on the same
+   * decision tick as the sky. Only called for a mission that DECLARES a `time`; without one no unit
+   * has a clock at all, and FBEnvironmentBlock stays Invalid exactly as it was. */
+  void UpdateSolar(const FBSolar &solar) { Module_->SetSolar(solar); }
   double AglM() const { return St_.elev - GroundAslM_; }
 
   FBState HudState() const;

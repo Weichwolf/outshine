@@ -2,16 +2,21 @@
  * (< ~0.5 deg) and Paul Schlyter's lunar approximation (public domain,
  * http://www.stjarnhimlen.se/comp/ppcomp.html) deliberately WITHOUT his perturbation-term table —
  * good to about a degree, enough for a disc and a phase, not for navigation.
- * doc/render/renderer.md, Abschnitt 4. */
+ * In core/ and not in render/ because a SENSOR needs the sun (doc/sensors.md, visual acquisition) and
+ * neither core/ nor sensors/ may include render/. doc/render/renderer.md, Abschnitt 4. */
 #ifndef FB_EPHEMERIS_H
 #define FB_EPHEMERIS_H
 #include <cmath>
-#include <ctime>
+#include "FBState.h"
 
-namespace FlightBox::Render {
+namespace FlightBox {
 
-/* Solar elevation/azimuth in degrees at (lat,lon) for a UTC epoch. */
-static inline void SunPos(double lat, double lon, time_t utc, float *el, float *az) {
+/* [SET] doc/missions/syntax.md: outside this span the linear-in-days terms of both approximations are
+ * no longer stated to hold, and a mission clock outside it would carry a sky nobody can defend. */
+constexpr int kEphemerisMinYear = 1901, kEphemerisMaxYear = 2099;
+
+/* Solar elevation/azimuth in degrees at (lat,lon) for a UTC instant in Unix seconds. */
+inline void FBSunPos(double lat, double lon, double utc, float *el, float *az) {
   double D2R = M_PI / 180.0, jd = utc / 86400.0 + 2440587.5, n = jd - 2451545.0;
   double L = fmod(280.460 + 0.9856474 * n, 360.0), g = fmod(357.528 + 0.9856003 * n, 360.0) * D2R;
   double lam = (L + 1.915 * sin(g) + 0.020 * sin(2 * g)) * D2R, eps = (23.439 - 0.0000004 * n) * D2R;
@@ -23,9 +28,9 @@ static inline void SunPos(double lat, double lon, time_t utc, float *el, float *
   *az = (float)(fmod(atan2(-sin(ha), tan(dec) * cos(la) - sin(la) * cos(ha)) / D2R + 360.0, 360.0));
 }
 
-/* Phase fraction 0 = new .. 1 = full. Same (lat,lon,utc) convention as SunPos, so both read the
+/* Phase fraction 0 = new .. 1 = full. Same (lat,lon,utc) convention as FBSunPos, so both read the
  * identical time base. */
-static inline void MoonPos(double lat, double lon, time_t utc, float *el, float *az, float *phase) {
+inline void FBMoonPos(double lat, double lon, double utc, float *el, float *az, float *phase) {
   double D2R = M_PI / 180.0, jd = utc / 86400.0 + 2440587.5;
   double d = jd - 2451543.5;   /* days since Schlyter's epoch (1999-12-31 00:00 UT) */
 
@@ -59,12 +64,34 @@ static inline void MoonPos(double lat, double lon, time_t utc, float *el, float 
   *el = (float)(asin(sinel) / D2R);
   *az = (float)(fmod(atan2(-sin(ha), tan(dec) * cos(la) - sin(la) * cos(ha)) / D2R + 360.0, 360.0));
 
-  /* Phase from the sun-moon ecliptic-longitude elongation (Sun's mean ecliptic longitude, SunPos's
+  /* Phase from the sun-moon ecliptic-longitude elongation (Sun's mean ecliptic longitude, FBSunPos'
    * own L formula, same time base n) -- (1-cos elong)/2, the standard low-precision approximation. */
   double Lsun = fmod(280.460 + 0.9856474 * n, 360.0) * D2R;
   double elong = lonecl - Lsun;
   *phase = (float)((1.0 - cos(elong)) * 0.5);
 }
 
-} // namespace FlightBox::Render
+/* One sample of the sky's two lights over one point, the value block the mission clock travels in
+ * from the unit's OWNER down into its module. */
+struct FBSolar {
+  float SunElDeg = 0.0f, SunAzDeg = 0.0f;
+  float MoonElDeg = 0.0f, MoonAzDeg = 0.0f, MoonPhase = 0.0f;
+};
+
+inline FBSolar FBSolarAt(double lat, double lon, double utc) {
+  FBSolar s;
+  FBSunPos(lat, lon, utc, &s.SunElDeg, &s.SunAzDeg);
+  FBMoonPos(lat, lon, utc, &s.MoonElDeg, &s.MoonAzDeg, &s.MoonPhase);
+  return s;
+}
+
+/* The ONE place the ephemeris reaches the state bus, so every module publishes the same five fields
+ * with the same stamp. The cloud half of FBEnvironmentBlock is written by whoever samples the weather. */
+inline void FBSolarToEnv(const FBSolar &s, FBState &st) {
+  st.Env.SunElDeg = s.SunElDeg;   st.Env.SunAzDeg = s.SunAzDeg;
+  st.Env.MoonElDeg = s.MoonElDeg; st.Env.MoonAzDeg = s.MoonAzDeg; st.Env.MoonPhase = s.MoonPhase;
+  st.Env.H.Publish(st.NowS);
+}
+
+} // namespace FlightBox
 #endif /* FB_EPHEMERIS_H */

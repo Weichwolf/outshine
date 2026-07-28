@@ -776,3 +776,20 @@ DISENGAGES on first contact: `pilot/FBPilot`'s own rule is "a target on the scop
 rails → Abort", and this jet has no weapon yet. F-16 byte-identical across all **56** stock missions on
 every column they ever had; the four MiG missions move exactly once, because the N019's power-up
 emission position is OFF and this aircraft now starts silent by doctrine.
+
+### 2026-07-28 — C2: the mission clock, and the ephemeris moved down a layer (this round)
+
+One mission-wide `time 1999-03-24T22:00:00Z` line, Zulu only, 1901…2099, converted by a
+days-from-civil calendar in `core/FBCivilTime.h` rather than by `timegm` (which would read the host's
+zone and make the same file mean a different sky in a container); absent means **no clock at all**, which
+is why all **84** pre-round missions stay byte-identical — 259/259 telemetry files bit-for-bit, 84/84
+`events.log` identical modulo `wallS`/`speedup`/path, at `--threads` 1, 2 and 4 — and a client `--utc`
+that contradicts a declared `time` is a **boot error** (`missions/FBClockBoot.h`), not a precedence.
+The price of the round was structural, not the parser: `render/FBEphemeris.h` became
+`core/FBEphemeris.h` (`FBSunPos`/`FBMoonPos`, `double` seconds) so `sensors/` can reach the sun for
+`C3`, proven pixel-exact by identical `--utc 922312800` PNGs in SVS and EVS; and `fb-gym`, which had
+no ephemeris at all, now writes `FBEnvironmentBlock` through `FBSimUnit::UpdateSolar` →
+`FBModule::SetSolar`. `missions/clock-night-payerne.fbm` proves arrival twice — `mission CLOCK
+utc=1999-03-24T22:00:00Z sunElDeg=-37.0489` in the log, `blk_env`=1 for all 2 167 rows — and proves
+the clock is a stamp and not an input: against `payerne-airstart.fbm`, same spawn and route, the two
+telemetry files differ in **exactly that one column**.

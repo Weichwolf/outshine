@@ -1,4 +1,6 @@
 #include "FBMissionFile.h"
+#include "FBCivilTime.h"
+#include "FBEphemeris.h"
 #include <sstream>
 
 namespace FlightBox {
@@ -68,7 +70,7 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
       continue;
     }
 
-    if (kw == "name" || kw == "runway" || kw == "timeout" || kw == "wx") {
+    if (kw == "name" || kw == "runway" || kw == "timeout" || kw == "wx" || kw == "time") {
       if (inBlock) return fail("'" + kw + "' is mission-wide and must come before the first 'unit' block");
       if (kw == "name") {
         std::string rest;
@@ -106,6 +108,22 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
           return fail("'wx' needs calm|fixture|wind");
         }
         out.HaveWeather = true;
+      } else if (kw == "time") {
+        /* ZULU ONLY, exact shape, no best-effort read: the consumers are functions of (lat, lon, utc),
+         * and a local spelling would need an offset FlightBox cannot source. */
+        if (out.HaveTime) return fail("mission already has a 'time' line");
+        std::string tok, extra;
+        if (!(ls >> tok)) return fail("'time' needs a UTC instant, e.g. 'time 1999-03-24T22:00:00Z'");
+        if (ls >> extra) return fail("'time' takes exactly one token (UTC only, no offset)");
+        if (!FBParseIsoUtc(tok.c_str(), out.UtcT0S))
+          return fail("'time " + tok + "' is not YYYY-MM-DDThh:mm:ssZ (Zulu only, seconds mandatory, "
+                      "no fractional seconds)");
+        const int64_t lo = FBDaysFromCivil(kEphemerisMinYear, 1, 1) * 86400;
+        const int64_t hi = FBDaysFromCivil(kEphemerisMaxYear + 1, 1, 1) * 86400;
+        if (out.UtcT0S < lo || out.UtcT0S >= hi)
+          return fail("'time " + tok + "' is outside " + std::to_string(kEphemerisMinYear) + ".." +
+                      std::to_string(kEphemerisMaxYear) + ", where the ephemeris holds");
+        out.HaveTime = true;
       } else {
         double t;
         if (!(ls >> t) || t <= 0.0) return fail("'timeout' needs a positive seconds value");
