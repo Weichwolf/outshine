@@ -312,7 +312,7 @@ exactly ONE, and `FBWorld` only **borrows** it (`SetUnits`/`Units()`) for the dr
 | Ownership | borrowed, never owned — the client owns the `FBActorList` |
 | Order | registration order = mission declaration order, never changes during a run (growth only at the end, §8) |
 | Element type | `const FBUnit *` — read-only **by construction**: a system can observe identity and the PUBLISHED pose/signature of the last completed tick, nothing else. It cannot tick, control or write another unit. |
-| Who may hold it | only a simulated SENSOR, and that is why it travels down the module's system cycle as a `Run()` ARGUMENT instead of being a member everyone can reach. Today four files in `systems/`+`modules/`: `FBDatalinkSystem.cpp`, `FBRadarSystem.cpp`, `FBRwrSystem.cpp`, `modules/missile/FBMissileUplink.cpp`. |
+| Who may hold it | only a simulated SENSOR, and that is why it travels down the module's system cycle as a `Run()` ARGUMENT instead of being a member everyone can reach. Today six files in `systems/`+`modules/`: `FBDatalinkSystem.cpp`, `FBRadarSystem.cpp`, `FBRwrSystem.cpp`, `FBIrstSystem.cpp`, `FBVisualSystem.cpp`, `modules/missile/FBMissileUplink.cpp`. |
 
 #### The snapshot discipline
 

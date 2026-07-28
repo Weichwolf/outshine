@@ -794,6 +794,36 @@ utc=1999-03-24T22:00:00Z sunElDeg=-37.0489` in the log, `blk_env`=1 for all 2 16
 the clock is a stamp and not an input: against `payerne-airstart.fbm`, same spawn and route, the two
 telemetry files differ in **exactly that one column**.
 
+### 2026-07-28 — C3: the eye — the sixth registry reader, and what measuring it corrected (this round)
+
+`sensors/FBVisualSystem` is built to the contract of `sensors.md` §9 and is the SIXTH file allowed to
+read `FBUnitRegistry`, declared in the gate before a line was written. One inequality — presented extent
+over range against a contrast-scaled 12-arcmin threshold — fed by a chain of laws that were all already
+in the tree: the presented dimensions come from `FBDamageLayout` (which gained the plan extent, so the
+gun and the eye read ONE table), the haze from Koschmieder + the ISA scale height, the daylight from
+`FBDaylightFactor` moved out of the renderer into `core/FBEphemeris.h` (its fourth consumer, not a
+second dusk), the glare from Stiles–Holladay collapsed into one readable half-angle, and the cloud from
+a MARCH through `core/FBCloudDensity` — the price §6.5 declined for the IRST. **Measured, not asserted:**
+head-on 2 493 m against side-on 3 784 m (the ratio IS the two presented dimensions); zero contacts at
+night against nine by day on byte-identical geometry; 1 206 m against 2 373 m looking into a 6.6° sun
+(the reach ratio 1.97 equals the contrast ratio 1.94 — exactly inverse-linear, as specified); a crossing
+line of sight through a deck at optical depth 22.5, never seen, with `vis_masked` marking exactly the
+window in which the same air without the deck would have shown it. The anonymity claim `w5-03`/`o2-08`
+hang on is now a measurement: two runs differing only in the target's `team` token produce
+**byte-identical telemetry and identical `vis` lines**, both naming `mig29`.
+
+**Three places the contract was wrong, corrected in `sensors.md` rather than quietly satisfied.** §9.4's
+worked ranges used dimensions the layout does not declare and left out its own haze term. §9.6c bought
+the march on "a 40 % deck is mostly hole" — measured over the whole committed fixture the opposite
+holds: at 40–50 % cover every ray is optically closed while a LID calls it clear, so the march differs
+from a lid only in the 20–50 % band and there it is STRICTER. And §9.9's promise that `events.log` stays
+byte-identical "because no mission declares a visual scenario" is false: 38 of 93 missions have aircraft
+inside a few km of each other. The requirement BEHIND it held exactly — 285/285 telemetry files carry
+every pre-existing column identical position-for-position with nine appended, 93/93 `events.log` have no
+pre-existing line changed, and no trajectory moved, because nothing consumes the block yet (deliberate,
+the D3 precedent). Determinism `--threads 1/2/4` byte-identical; the march costs −1.1 % on an
+8-aircraft mission, i.e. below the run-to-run noise.
+
 ### 2026-07-28 — C12: the target vocabulary — four objective kinds, and a cover rule with an exit code
 
 `identify unit X range <m> hold <s>`, `protect unit|team`, `no_fire` and `deny release unit|team` are

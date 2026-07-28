@@ -1,4 +1,5 @@
 #include "FBRenderer.h"
+#include "FBEphemeris.h"
 #include "FBLog.h"
 #include <cstdint>
 #include <algorithm>
@@ -355,14 +356,6 @@ static void Norm3(double v[3]) {
   if (l < 1e-9) l = 1.0;
   v[0] /= l; v[1] /= l; v[2] /= l;
 }
-/* ONE daylight factor from sun elevation, shared by sky, ground and star fade: full day above ~+3°,
- * dark by nautical twilight (~-9°). */
-static double DaylightFactor(double sunElDeg) {
-  double t = (sunElDeg + 9.0) / 12.0;
-  if (t < 0.0) t = 0.0;
-  if (t > 1.0) t = 1.0;
-  return t * t * (3.0 - 2.0 * t);
-}
 
 void FBRenderer::ConfigureSurface(void) {
   wgpu::EmscriptenSurfaceSourceCanvasHTMLSelector canv{};
@@ -539,7 +532,7 @@ void FBRenderer::RenderFrame(void) {
   u[16] = (float)sun[0]; u[17] = (float)sun[1]; u[18] = (float)sun[2]; u[19] = 0;
   /* Moon direction + real-sky factors, EVS only: SVS pins day=1 and the sky pass gates the extras off. */
   double sunElDeg = std::asin(std::max(-1.0, std::min(1.0, sun[0] * up[0] + sun[1] * up[1] + sun[2] * up[2]))) * 180.0 / 3.14159265;
-  double dayF = GroundPhoto ? DaylightFactor(sunElDeg) : 1.0;
+  double dayF = GroundPhoto ? FBDaylightFactor(sunElDeg) : 1.0;
   double moon[3];
   {
     double mel = HudState.Env.MoonElDeg * 3.14159265 / 180.0, maz = HudState.Env.MoonAzDeg * 3.14159265 / 180.0;

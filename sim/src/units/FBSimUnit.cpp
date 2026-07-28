@@ -56,6 +56,21 @@ void FBSimUnit::PublishPose() {
   const FBFlareCloud *flares = Module_->Countermeasures().Flares();
   for (int i = 0; i < kMaxFlareClouds; i++) Sig_.Flare[i] = flares[i];
   Sig_.Uplink = Module_->Stores().Uplink();
+  /* WHAT AN EYE GETS. The three dimensions are the damage layout read as geometry — the layout states
+   * HALF-extents (how far the airframe reaches from the CG), an eye measures the WHOLE dimension of a
+   * silhouette — so the gun and the eye cannot end up with two tables about one aeroplane. The type is
+   * the module's registry key and nothing else; only a sensor that has EARNED it by angular resolution
+   * may repeat it (doc/sensors.md §9.7). */
+  const FBDamageLayout &lay = Module_->DamageLayout();
+  Sig_.Visual.FrontalM = (float)(2.0 * lay.FrontalExtentM);
+  Sig_.Visual.LateralM = (float)(2.0 * lay.LateralExtentM);
+  Sig_.Visual.PlanM = (float)(2.0 * (lay.PlanExtentM > 0.0 ? lay.PlanExtentM : lay.LateralExtentM));
+  {
+    const std::string &tn = Module_->TypeName();
+    std::size_t n = 0;
+    while (n + 1 < (std::size_t)kVisualTypeNameLen && n < tn.size()) { Sig_.Visual.TypeName[n] = tn[n]; n++; }
+    Sig_.Visual.TypeName[n] = '\0';
+  }
   /* What this jet tells its own flight — published at the same barrier as everything else it radiates,
    * so no receiver ever reads half of it. Empty for a unit in no flight. */
   Sig_.Flight = GetFlight().Declared() ? Module_->FlightReport() : FBFlightReport{};
@@ -204,6 +219,7 @@ void FBSimUnit::StartTelemetry(FBTelemetrySink *sink) {
   Bus_.Register(&Module_->Guns());
   Bus_.Register(&Module_->Irst());
   Bus_.Register(&Module_->PilotSystem().FlightPicture());
+  Bus_.Register(&Module_->Visual());
   Bus_.SetSink(sink);
   Bus_.Start();
 }

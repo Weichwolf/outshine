@@ -142,6 +142,24 @@ carry the same `unit=` attribution as that unit.
   laser stepping `irst_lock_nm` from −1 to 3.2 nm at its 6 km limit, and a fourth aircraft above a GFS
   cloud deck that is never detected at all (`irst_masked`). The first tactical effect weather has on a
   sensor in FlightBox. TIMEOUT (exit 3) by design.
+- `sim/missions/vis-day.fbm` / `vis-night.fbm` — the eye, and the same three-target geometry with one
+  line changed. By day (sun el 65.8°, behind): head-on detection at 2 493 m geometric, tail-on at
+  2 469 m, side-on at 3 784 m — one threshold, two presented dimensions — and the slow overtake resolves
+  the whole Johnson ladder (`CONTACT` → `RECOGNISED` at 673 m → `IDENTIFIED` at 445 m, the type reading
+  `f16`). At night (sun el −19.5°): **zero `vis` lines**, because nothing in the tree emits light. The
+  two runs' telemetry differ in the nine `vis_*` columns and in nothing else. TIMEOUT (exit 3) by design.
+- `sim/missions/vis-sun.fbm` — `vis-day`'s slow-overtake geometry flown into a 6.6° sun. Contrast 0.481
+  against 0.931, detection at 1 206 m against 2 373 m: the reach ratio 1.97 is the contrast ratio 1.94,
+  which is what "exactly inverse-linear in contrast" means. TIMEOUT (exit 3) by design.
+- `sim/missions/vis-cloud.fbm` — the cloud MARCH, control and case under one sky. The co-altitude target
+  below the deck is seen at 1 989 m; the crossing target 1 350 m higher, whose line of sight cuts the
+  GFS deck, is **never** seen — `vis MASKED … transmittance=1.65e-10` and `vis_masked = 1` for exactly
+  the window in which the same air without the deck would have shown it. TIMEOUT (exit 3) by design.
+- `sim/missions/vis-anon-friend.fbm` / `vis-anon-hostile.fbm` — the anti-cheat pair, differing in ONE
+  token: the MiG-29 ahead is friendly in one and hostile in the other. Both telemetry files are
+  **byte-identical**, the seven `vis` lines are identical, and the type reported is `mig29` in both. The
+  only differing lines in `events.log` are the mission name and the mission JUDGE's own `team=` field.
+  TIMEOUT (exit 3) by design.
 - `sim/missions/mig29-intercept.fbm` — ground-controlled interception: the MiG starts SILENT, the
   controller's BRAA is typed in over three command-bus entries (8.0 s from call to radiating radar), the
   N019 finds the target one frame later, and the opposing RWR lights up 0.1 s after ILLUM. Since the jet

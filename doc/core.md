@@ -258,6 +258,8 @@ answerable question.
 | `FBCmdsBlock Cmds` | `sensors/FBCountermeasureSystem` | `FBCmdsMode`, `FBCmdsStatus`, selected program, chaff/flare remaining, `ChaffLow`/`FlareLow` ("LO" lamp), `Dispensing`, counts expended, `ActiveClouds` |
 | `FBDatalinkBlock Datalink` | `sensors/FBDatalinkSystem` | `Powered`, `Transmitting`, track count, `FBDatalinkTrack Tracks[8]` |
 | `FBBfmBlock Bfm` | `pilot/FBBfmTrack` (published onto the bus by the module after the pilot decision tick) | `Locked`, range, az/el (body-referenced = ATA), closure, aspect (AT THE TARGET: 0 = we sit on his tail, 180 = head-on), HCA, estimated ENU offset + estimated target velocity vector |
+| `FBIrstBlock Irst` | `sensors/FBIrstSystem` | `Powered`, `Searching`, `ModeOrdinal`, contact count, `LockIndex` (−1 = none), `LaserArmed`, `CloudMaskedCount`, `FBIrstContact Contacts[8]` |
+| `FBVisualBlock Visual` | `sensors/FBVisualSystem` | `Powered`, contact count, `CloudMaskedCount`, `GlareFactor` (1 = no glare), `FBVisualContact Contacts[8]`. **The one block whose writer READS another** — `FBEnvironmentBlock`'s sun angles decide whether an eye works at all; documented, one-way, and named in the block's own comment |
 
 **Where `Held` is the NORMAL case, not the exception:**
 
@@ -382,6 +384,8 @@ telemetry source, which the bus registers at the END:
 | `Rwr` | `blk_rwr`, first column of `sensors/FBRwrSystem`'s source `"rwr"` |
 | `Cmds` | `blk_cmds`, first column of `sensors/FBCountermeasureSystem`'s source `"cm"` |
 | `Gun` | `blk_gun`, first column of `weapons/FBGunSystem`'s source `"gun"` |
+| `Irst` | `blk_irst`, first column of `sensors/FBIrstSystem`'s source `"irst"` |
+| `Visual` | `blk_vis`, first column of `sensors/FBVisualSystem`'s source `"vis"` |
 
 A block whose head is not in this list is not unobservable; it is observed one column further to the
 right.
@@ -1187,6 +1191,7 @@ reference; nothing allocates.
 | `LateralAreaM2` | presented area from the side/from above |
 | `FrontalExtentM` | how far the airframe REACHES in this view: half the wingspan from astern |
 | `LateralExtentM` | half the length from the side |
+| `PlanExtentM` | ...and the third orthogonal view, from directly above or below. It exists because an EYE measures the largest DIMENSION of a silhouette rather than its area (`sensors/FBVisualSystem`, [`sensors.md`](sensors.md) §9.4), and the plan view's largest dimension is a separate fact from the side view's. **It lives here and not in a table of its own: the gun and the eye look at the same aeroplane, and two presented-geometry tables would be two truths about one airframe.** Undeclared = the lateral figure, i.e. exactly a two-view layout's behaviour. For both current airframes the two coincide (each is longer than it is wide) |
 
 A warhead sprays isotropically, and the airframe's cross-section never appears in its arithmetic. A
 burst is a narrow pattern that either lands on the aircraft or does not — there the PRESENTED AREA

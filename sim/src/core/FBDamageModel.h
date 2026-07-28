@@ -42,6 +42,14 @@ struct FBDamageLayout {
    * much material, extent how far out it is scattered — the two-scale hit model needs both. */
   double FrontalExtentM = 0.0;
   double LateralExtentM = 0.0;
+  /* The THIRD orthogonal view, from directly above or below. The gun's area law folds it into
+   * LateralAreaM2 (its `across` term is one number for side and top), which is why there is no plan
+   * AREA here — but an EYE measures the largest DIMENSION of a silhouette rather than its area
+   * (doc/sensors.md §9.4), and the plan view's largest dimension is a separate fact from the side
+   * view's. It sits here and not in a table of its own because the gun and the eye look at the same
+   * aeroplane: two presented-geometry tables would be two truths about one airframe. Undeclared = the
+   * lateral figure, i.e. exactly the behaviour of a two-view layout. */
+  double PlanExtentM = 0.0;
 };
 
 /* Direction is in the target's BODY frame and need not be normalised. |cos|*frontal + |sin|*lateral:

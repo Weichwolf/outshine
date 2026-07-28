@@ -814,6 +814,7 @@ Per bundle × per aircraft (not the shooter itself):
 | pre-check | `MissM > 3·sigma + kGunHitReachM (8 m)` → skip (beyond the airframe's own reach; the density computation could only deliver a number there that no report should carry) |
 | presented area | `FBPresentedAreaM2(layout, fwd,right,down)` in the target's body frame; `<= 0` → no target at all (a store, a unit without a declared airframe) |
 | presented extent | `FBPresentedExtentM(…)`, same interpolation |
+| *(not this path)* | `FBDamageLayout` also declares a **plan extent**, read ONLY by `sensors/FBVisualSystem` ([`sensors.md`](sensors.md) §9.4). The gun's two-view area law is untouched by it: the eye and the gun read one table because they look at one aeroplane, but they ask it different questions — an AREA proxy against the LARGEST DIMENSION of a silhouette |
 | expected hits | `FBGunExpectedHits(...)`; `< kMinReportedHits (0.1)` → **near miss**, nothing is resolved |
 | energy density | `FBGunFluxJm2(...)` |
 | application | `FBSimUnit::TakeKineticBurst` → `FBDamageModel::ApplyKinetic` |

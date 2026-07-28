@@ -62,6 +62,9 @@ public:
    * its block stays Invalid — a module declares what it HAS, and the alternative (leaving the accessor
    * out) would mean a caller holding an FBModule& could not ask. */
   Sensors::FBIrstSystem &Irst() override { return Irst_; }
+  /* ...and the one sensor no airframe carries and every pilot has. It is composed like any other slot
+   * because it must sit INSIDE the perception boundary (doc/sensors.md §9.1). */
+  Sensors::FBVisualSystem &Visual() override { return Visual_; }
   FBF16Cmds &Countermeasures() override { return *Cmds_; }
   FBF16Ufc &Ufc() { return *UfcSys; }
   FBF16Sms &Sms() { return *SmsSys; }
@@ -75,6 +78,10 @@ public:
    * rather than re-querying terrain. */
   void SetGroundAsl(float m) override { GroundAslM = m; }
 
+  /* The cloud decks over this jet: the EYE marches them for a line-of-sight transmittance (this
+   * airframe has no IRST to hand them to). Never called = a clear sky. */
+  void SetCloudSky(const FBCloudSky &sky) override { Visual_.SetSky(sky); }
+
   /* Onto the bus, not into a member: FBEnvironmentBlock is where everything that reads daylight looks,
    * and the block's status is what says a clock was declared at all. */
   void SetSolar(const FBSolar &solar) override { FBSolarToEnv(solar, SharedState); }
@@ -87,6 +94,7 @@ public:
     Rwr_->SetIdentity(unitId, team);
     SmsSys->SetUnitId(unitId);
     GunSys->SetUnitId(unitId);
+    Visual_.SetIdentity(unitId);   /* the id only — an eye is given no team to read */
   }
 
   FBMasterMode GetMasterMode() const { return Mode; }
@@ -145,6 +153,7 @@ private:
   /* Defensive is TWO systems, cycled receiver-then-dispenser: the second reads what the first wrote. */
   std::unique_ptr<FBF16Rwr> Rwr_;
   Sensors::FBIrstSystem Irst_;
+  Sensors::FBVisualSystem Visual_;
   std::unique_ptr<FBF16Cmds> Cmds_;
   std::unique_ptr<FBF16Datalink> Datalink_;
 

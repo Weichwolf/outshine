@@ -38,9 +38,9 @@ architecture: drawn by include graph and type choice, checkable by grep.
 
 | Contract | Acceptance / measurement anchor |
 |---|---|
-| The unit registry reaches the SENSOR slots and nothing else | `#include "FBUnitRegistry.h"` / `.Units()` appear in exactly **five** files under `sim/src/sensors` + `sim/src/modules` (the four sensor slots + the missile's uplink receiver), and the list is pinned in `tools/verify_layers.py`'s `RESTRICTED` table — the gate FAILS on a sixth. **`C3` raises that number to SIX and to exactly one named file, `sensors/FBVisualSystem.cpp` (§9) — declared here as a decision, not discovered at the gate** |
+| The unit registry reaches the SENSOR slots and nothing else | `#include "FBUnitRegistry.h"` / `.Units()` appear in exactly **six** files under `sim/src/sensors` + `sim/src/modules` (the five sensor slots + the missile's uplink receiver), and the list is pinned in `tools/verify_layers.py`'s `RESTRICTED` table — the gate FAILS on a seventh. **`C3` raised that number from five to six, to exactly the one file it declared in advance, `sensors/FBVisualSystem.cpp` (§9)** |
 | Every widening of that list is a decision with a price, not a convenience | a slot joins the list only by being a SENSOR whose limits are modelled: `FBIrstSystem` pays in range (25 km at best against the radar's 50), in identity (it cannot interrogate IFF at all) and in weather (a cloud deck ends the line of sight). **`FBVisualSystem` pays in all four currencies at once and in a fifth nobody else pays — §9.2** |
-| **A passive VISUAL contact is anonymous, rangeless AND typeless until the geometry earns the type** (`C3`, specified, not built) | `core/FBVisualContact` carries angles, an angular size and a look age; `HasRange` is structurally always false. A type name appears only when the observed angular size crosses a threshold DERIVED from the detection threshold — never from a table keyed on what the target is |
+| **A passive VISUAL contact is anonymous, rangeless AND typeless until the geometry earns the type** | `core/FBVisualContact` carries angles, an angular size and a look age; `HasRange` is structurally always false. A type name appears only when the observed angular size crosses a threshold DERIVED from the detection threshold — never from a table keyed on what the target is |
 | A radar contact is anonymous | `core/FBRadarContact` carries range/bearing/az/el/closure and a radar-owned track number — no unit id, no callsign, no team |
 | A passive optical contact is anonymous AND has no range | `core/FBIrstContact` carries angles only; `RangeM` exists solely behind a `HasRange` bit that only the laser rangefinder sets |
 | A documented sensor defect is behaviour, not a comment | the N019's range-dependent Doppler envelope REJECTS detections; the SPO-15's forward hemisphere goes dark while the own radar radiates |
@@ -73,7 +73,7 @@ Built: datalink, radar with mode set, RWR, countermeasures — plus the two miss
 | `FBMissileIrSeeker` (the infrared seeker as an `FBIrstSystem` derivation — one class, two rounds) | built | MiG-29 stage 2c |
 | Flare deception (`FBIrstSystem::SelectFlare`, the irradiance inequality) — flares finally DO something | built | MiG-29 stage 2c |
 | Radar cross-section as a unit property, fourth-root range scaling | built | MiG-29 stage 2c |
-| `FBVisualSystem` (the eye — `C3`) | **nothing built.** Contract in §9 | — |
+| `FBVisualSystem` (the eye — `C3`): angular-size threshold, Koschmieder haze, a cloud-density MARCH, Stiles–Holladay glare, the shared daylight factor, Johnson N50 ladder | built | this round, §9 State |
 
 **Measured, stage 2c:**
 
@@ -84,6 +84,21 @@ Built: datalink, radar with mode set, RWR, countermeasures — plus the two miss
 | no deception from astern | aircraft radiates 1.0 (dry) or 2.25 (augmented) → a cartridge cannot win | rear-quarter shots hit: R-73 `missM=0.138`, AIM-9 `missM=0.0196` |
 | RCS reference calibration | F-16 against F-16 = factor exactly 1.0 | all 55 F-16 missions byte-identical, telemetry and events |
 | RCS asymmetry | MiG 4.0 m² against the 1.2 m² reference → `(4.0/1.2)^¼` = **1.351** one way, **0.740** the other | `duel-asym-probe`: both sets acquire, the F-16 first |
+
+**Measured, `C3` (the eye).** Detection ranges are RECONSTRUCTED from the two units' pose columns — the
+channel publishes no range and never will. "Geometric" = the range at which `θ_obs` crossed `θ_req`,
+recovered from the event's own `sizeMrad`/`contrast`; "reported" = where the second confirming look fell.
+
+| Anchor | Expected from the model | Measured |
+|---|---|---|
+| aspect (`vis-day`) | one threshold, two presented dimensions: 14.60 m side against 9.14 m front (`FBDamageLayout`, doubled), so the reach ratio is 1.60 before the haze correction | head-on `closer` **2 493 m** geometric / 1 976 m reported; tail-on `trail` **2 469 m** / 2 373 m; side-on `crosser` **3 784 m** / 3 427 m. Ratio 3 784 / 2 481 = **1.525** = 1.60 × the two contacts' own contrast ratio |
+| Johnson ladder (`vis-day`, `trail`) | recognise at ¼, identify at 1/6.4 of the detection range | detected 2 373 m → recognised **673 m** (÷3.53) → identified **445 m** (÷1.51 on the previous rung; Johnson says 1.60). The shortfall is the 1 Hz look raster, not the law — see §9.9 |
+| night (`vis-night`) | `FBDaylightFactor(−19.5°) = 0` → contrast 0 → nothing, at any range | **zero `vis` lines in the whole run**, against nine from the byte-identical daytime geometry. Both runs' telemetry differ in the nine `vis_*` columns and in nothing else — the flight is identical |
+| glare (`vis-sun`) | sun at el 6.6°, line of sight ~10° off the disc → contrast × ~0.5, so the reach halves | contrast **0.481** against 0.931 in the same geometry with the sun behind; detection **1 206 m** against 2 373 m. Ratio 1.97 = the contrast ratio 1.94 — the model is exactly inverse-linear in contrast |
+| cloud (`vis-cloud`) | a line of sight crossing a deck is damped by `exp(−Σσρ ds)`, not by a lid | the crossing target is **never detected**; `vis MASKED … transmittance=1.65e-10` (optical depth 22.5) and `vis_masked = 1` for exactly the 11 s window in which the same air without the deck would have shown it. The co-altitude control under the deck is seen normally at 1 989 m |
+| anonymity (`vis-anon-friend` / `vis-anon-hostile`) | only the target's `team` token differs → the visual channel cannot notice | `telemetry.csv` and `telemetry_bandit.csv` **byte-identical**; the seven `vis` event lines identical; the type reported is `mig29` in both. The only differing lines in `events.log` are the mission NAME and the mission JUDGE's own `team=` field |
+| cost of the march | bounded by the eye's own reach; to be measured, not assumed | 8-aircraft `four-4v4-asym`, eyes on vs `set visual off`, 6 interleaved runs each: **−1.1 %** (7.687 ± 0.307 s against 7.771 ± 0.132 s) — not resolvable above the run-to-run noise |
+| determinism | no die anywhere in the chain | `--threads 1/2/4` on `vis-day`, `vis-cloud`, `vis-anon-hostile`, `four-4v4-asym`, `duel-merge`: every telemetry CSV byte-identical, `events.log` identical modulo `wallS`/`speedup` |
 
 ## Gaps
 
@@ -98,7 +113,7 @@ Built: datalink, radar with mode set, RWR, countermeasures — plus the two miss
 
 | ID | Gap | Detail |
 |---|---|---|
-| **`C3`** | **There is no eye.** The sensor set is radar, IRST, RWR and datalink; every merge in the tree is more sensor-driven than the thing it models, and every real identification ends in a visual pass | blocks W5 and O2's visual pass outright, degrades four more campaigns ([`campaigns/INDEX.md`](campaigns/INDEX.md)). **The contract is §9 below**; it depends on `C2` (the mission clock) for the sun and on `core/FBCloudDensity` for the cloud transmittance |
+| ~~**`C3`**~~ | ~~There is no eye.~~ **CLOSED this round:** `sensors/FBVisualSystem` is the sixth registry reader, the contract of §9 is built and measured (§9 State). What it did NOT close is booked separately below — the pilot does not consume the block (§9.9's deliberate D3 precedent), there is no night lighting model (§9.8), and the cloud march bought less than §9.6c predicted (see the entry under "Deliberately not modelled") |
 
 ### Deliberately not modelled (from the retired `TODO.md` §3)
 
@@ -108,6 +123,10 @@ Built: datalink, radar with mode set, RWR, countermeasures — plus the two miss
 | ~~No IR seeker~~ | closed in stage 2c; the MiG-29's own dispensers are still missing |
 | No ECM/jammer, no MWS, IFF Mode 4 only, no measurement noise on sensor data | the whole CMDS/CMS/ECM interaction of the source material is absent |
 | No formation concept — `fl` is simply the first unit | the datalink filter "flight leads only" is not real |
+| **Nothing consumes the visual block.** The channel writes `FBState::Visual` and no reader exists — the same state `duels.md` defect **D3** records for the IRST. DELIBERATE: a channel is a measurement, a behaviour change is its own round with its own measurement, booked in [`pilot.md`](pilot.md) | no trajectory in the tree moved when `C3` landed, which is what made the round measurable column-for-column against the existing 93 missions |
+| **The visual channel contributes nothing at night** (§9.8) | nothing in the tree emits light: no navigation or anti-collision lights, no plume as a visual cue, no city glow. Measured: `vis-night` produces zero `vis` lines against `vis-day`'s nine. Every W5/O5 night merge is therefore flown without eyes — a finding about those missions, and the cheapest first fix is the afterburner bit that `FBUnitSignature` already publishes |
+| **The cloud march did not buy what §9.6c said it would.** Measured over the whole committed GFS fixture (8 rays per cell, 1.8 km horizontal, deck base −350 m to top +100 m): rays with `T > 0.1` are 100 % below 20 % cover, 98.6 % at 20–30 %, **32.6 % at 30–40 %, 0 % at 40–50 %, 0 % above 50 %** | the premise was "a 40 % deck is mostly hole, so a lid over-reports blindness". At 900 m of deck and σ = 0.022 /m the opposite holds: at 40–50 % cover a LID (`kCloudMaskCover` 0.5) reports a clear line of sight where the march reports optical depth > 5, and the two agree everywhere above 50 %. The march is still the right model — it is wrong in neither direction — but the band in which it differs from the lid is 20–50 % and there it is STRICTER, not more permissive |
+| **The renderer and the sensor evaluate one cloud field from two anchors.** `FBCloudSky` now carries the anchor the horizontal field is measured from, and `FBMissionRunner` gives every actor of a cast the same one (the primary actor's spawn); the cloud STAGE keeps pinning its own ECEF anchor at the first camera frame | consequence: picture and sensor agree about the field's STATISTICS and about every deck's geometry, and disagree about its PHASE. Closing it means moving the stage onto the sky's anchor, which moves every committed cloud PNG — a separate round with its own baseline |
 
 ### Inventory (from the previous `Offene Punkte` section)
 
@@ -213,7 +232,7 @@ there.
 `FBPilot::Run` carries neither `FBUnitRegistry` nor `FBWorld` in its signature and holds neither of them
 as a member.
 
-#### 1.2 The five files
+#### 1.2 The six files
 
 ```
 $ cd sim && grep -rln "FBUnitRegistry.h" src/sensors src/systems src/modules
@@ -221,11 +240,12 @@ src/sensors/FBDatalinkSystem.cpp
 src/sensors/FBIrstSystem.cpp
 src/sensors/FBRadarSystem.cpp
 src/sensors/FBRwrSystem.cpp
+src/sensors/FBVisualSystem.cpp
 src/modules/missile/FBMissileUplink.cpp
 ```
 
-**It was four until the MiG-29's passive optical station landed, and the fifth entry is a deliberate,
-recorded widening rather than an erosion.** The rule was never "at most N files" — it is *a pilot sees
+**It was four until the MiG-29's passive optical station landed and five until the eye did, and each
+entry is a deliberate, recorded widening rather than an erosion.** The rule was never "at most N files" — it is *a pilot sees
 other units only through simulated sensors*, and the list is the enumeration of what counts as one. The
 gate that enforces it (`sim/tools/verify_layers.py`, `RESTRICTED["units/FBUnitRegistry.h"]`) FAILED on
 the new include until the file was added to it by name, which is exactly the intended cost of the
@@ -242,9 +262,9 @@ The admission test a slot has to pass is that it has REAL limits, and `FBIrstSys
 and it gives one thing back that no other sensor here does: it costs the observer NOTHING. Nobody is
 warned, because nothing is transmitted.
 
-Five hits, there must be no more. Otherwise `FBUnitRegistry` appears in `systems/`/`modules/` only as a
+Six hits, there must be no more. Otherwise `FBUnitRegistry` appears in `systems/`/`modules/` only as a
 forward declaration or as a passed-through parameter (`FBModule::Run` → `FBF16Module::Run` → sensor
-slot). **Whoever violates this check with a fifth hit tears down the architecture — not a convention.**
+slot). **Whoever violates this check with a seventh hit tears down the architecture — not a convention.**
 
 | File | Why it may see the registry |
 |---|---|
@@ -252,9 +272,10 @@ slot). **Whoever violates this check with a fifth hit tears down the architectur
 | `FBRadarSystem.cpp` | tests poses against a scan volume — active echo |
 | `FBRwrSystem.cpp` | reads exclusively published emission signatures — passive |
 | `FBIrstSystem.cpp` | tests poses against a field of regard and an aspect-dependent reach — passive, no emission of its own |
+| `FBVisualSystem.cpp` | tests poses against a body-fixed cone and an angular-size threshold — passive, and it pays in all five currencies of §9.2 |
 | `FBMissileUplink.cpp` | listens to the published guidance-link transmission of ITS shooter |
 
-**Why the fourth belongs there.** A missile is structurally a unit like any other; its comms slot
+**Why the missile's receiver belongs there.** A missile is structurally a unit like any other; its comms slot
 derivation receives the midcourse uplink. An uplink is an EMISSION (`FBUnitSignature::Uplink`), not
 access to the private state of the shooter: the receiver looks for the ONE unit with
 `GetId() == LauncherId_`, takes `GetSignature().Uplink` by value and reads nothing else from that unit —
@@ -274,6 +295,7 @@ contact type itself is the second barrier:
 | `FBRadarContact` | **no** — only `TrackNum` + geometry | An echo. No field for id, callsign, team. The absence IS the model. |
 | `FBRwrThreat` | **no** — only `Id` + direction | A heard waveform. `Kind` is an ESTIMATE of the receiver. |
 | `FBIrstContact` | **no** — only `TrackNum` + angles | A hot spot. It carries no range either, except behind the laser's own `HasRange` bit, and there is no IFF field: passive detection costs identity, and the type says so. |
+| `FBVisualContact` | **no** — `TrackNum` + angles + an angular SIZE, and a type NAME once the size earns it | A shape. It has no range field at all and no `HasRange` bit, because no path could ever set one. The name is the target module's registry key: WHAT, never WHO and never WHOSE (§9.7). |
 
 `FBRadarSystem::Track` (private) holds `UnitId` as the correlation key from look to look — this key
 **never leaves the object**. The same applies to `FBRwrSystem::Threat::UnitId`. The published numbers
@@ -307,7 +329,7 @@ radiation than the real box has).
   COMPLETED tick (barrier `FBSimUnit::PublishPose`). No sensor ever sees a half-integrated pose or a
   switch that was thrown mid-tick. With that, tick order cannot influence a sensor result — the
   precondition for `fb-gym --threads`.
-- **The registry order is determinism, not information.** All four systems walk the registry IN ORDER, so
+- **The registry order is determinism, not information.** All six readers walk the registry IN ORDER, so
   track/symbol numbers hang on the declaration order of the mission and never on who was heard/seen first.
 
 ---
@@ -1142,28 +1164,28 @@ Events: `cmds PROGRAM_START` / `SALVO` / `PROGRAM_END` / `MAGAZINE_EMPTY`.
 
 ---
 
-### 8. The five systems compared
+### 8. The six systems compared
 
-| | **Datalink** (cooperative) | **Radar/FCR** (active) | **RWR** (passive) | **IRST** (passive optical) | **CMDS** (active-defensive) |
-|---|---|---|---|---|---|
-| Class | `sensors/FBDatalinkSystem` | `sensors/FBRadarSystem` | `sensors/FBRwrSystem` | `sensors/FBIrstSystem` | `sensors/FBCountermeasureSystem` |
-| F-16 | `FBF16Datalink` (MIDS-LVT) | `FBF16Fcr` (APG-68) | `FBF16Rwr` (ALR-56M) | *none — the jet has no IRST; the slot is the NoOp default and its block stays Invalid* | `FBF16Cmds` (ALE-47) |
-| MiG-29 | *none — no cooperative terminal; its GCI is a VOICE channel typed in by the pilot* | `FBMig29Radar` (N019) | `FBMig29Rwr` (SPO-15LM) | `FBMig29Irst` (OEPS-29/KOLS) | *stage 2c (BVP-30-26)* |
-| Question | "where are my people" | "what is out there" | "who is looking at ME" | "what is out there, without asking" | "what do I dispense" |
-| **Sees** | own faction, aircraft only, transmitting senders only, within min(terminal, radio horizon) | aircraft in the scan volume (az×el body-fixed) within the range gate | every unit whose beam hits this jet AND whose angle of arrival is covered by one's own antenna | aircraft in the field of regard within an ASPECT-dependent reach, with no cloud deck between the two altitudes | nothing — reads the RWR BLOCK of its own bus |
-| **Gets** | id, callsign, team, position, heading, speed, age | **anonymous geometry**: track no., range, bearing, elevation angle, az/el, closure, look age, IFF | relative bearing, elevation, signal, lethality, mode, estimated emitter type, "new" | **angles only**: track no., bearing, elevation angle, az/el, look age — plus metres ONLY behind the laser's own validity bit | — |
-| **Gives away** | its own PPLI (position + identity) as long as XMT is on | its own beam: search volume resp. ±3° pencil onto exactly one target; plus the IFF transponder reply | **nothing** (purely passive) | **nothing** — not even the laser, which no warning receiver can detect | chaff clouds behind the aircraft (published in the signature) |
-| **Ageing** | 1 Hz net cycle; hold over 3 cycles; `AgeS` runs up; block `Held` | antenna frame (0.1–4.0 s per mode); build-up 2 looks; coast `CoastS()` (generic `max(1 s, 3 frames)`, N019 6 s); `LookAgeS`; block `Held` | continuous; hold 2 s after last hearing; `AgeS`; "new" 1 s | head frame (0.5–5.0 s per mode); build-up 2 looks; coast `max(1 s, 3 frames)`; `LookAgeS`; block `Held` | program schedule in absolute time; cloud: bloom 0.3 s, life 8 s |
-| **Operating latency** | POWER/XMT/filter/range over the bus (DED class) | mode/range/slew/IFF (DED), emission switch (DED), `Designate` (HOTAS) | POWER/display/search (DED) | `IrstMode`/`IrstDesignate`/`IrstLaser` over the bus | `CmDispense`/`CmConsent` (HOTAS), `CmdsMode` (DED) |
-| **CANNOT** | see opponents; go beyond the radio horizon; terrain masking; carry stores/ground targets | supply identity (except IFF friendly/unknown); see bombs or ground targets; terrain masking; more than 8 track files; see anything else in STT | measure range; hear a transmitter outside its beam; hear outside its elevation coverage; name WHO is there; distinguish faction | **measure range at all** without the laser; ask IFF (there is no interrogator and no field); see through a broken deck; see bombs or ground targets; see a cold target far off aspect | know whether it worked; react to a threat the RWR does not hear; decoy an IR seeker (no IR in the sim) |
-| **Failed** | block `Invalid` | block `Invalid`, all tracks dropped | block `Invalid`, table empty | block `Invalid`, all tracks dropped (no `FBSystemId` yet — see the gaps) | block `Invalid`, status `NoGo` |
-| **Degraded** | — | range × 0.7071 [DERIVED] | — | — | — |
-| Override point | `AcceptContact` | **`ActiveVolume()`** (+ `ModeOrdinal`, `EmitterKind`, `DopplerNotchMs`, `NotchRejectsDetection`, `CoastS`) | `Run` (+ `ElevCoverageDeg`, `MaxDisplayed`, `Classify`, `Blanked`, `ReportBearingDeg`, `ClassifyMode`, `PriorityRank`) | **`ActiveField()`** (+ `ModeOrdinal`, `LaserRangeM`, `DetectRangeM`) | `Run` (+ `AutomaticProgram`) |
-| Telemetry | `dl_*` (5) | `fcr_*`, `iff_xpdr` (11) | `blk_rwr` + `rwr_*` (10) | `blk_irst` + `irst_*` (11), appended LAST | `blk_cmds` + `cm_*` (11) |
+| | **Datalink** (cooperative) | **Radar/FCR** (active) | **RWR** (passive) | **IRST** (passive optical) | **VISUAL** (the eye) | **CMDS** (active-defensive) |
+|---|---|---|---|---|---|---|
+| Class | `sensors/FBDatalinkSystem` | `sensors/FBRadarSystem` | `sensors/FBRwrSystem` | `sensors/FBIrstSystem` | `sensors/FBVisualSystem` | `sensors/FBCountermeasureSystem` |
+| F-16 | `FBF16Datalink` (MIDS-LVT) | `FBF16Fcr` (APG-68) | `FBF16Rwr` (ALR-56M) | *none — the jet has no IRST; the slot is the NoOp default and its block stays Invalid* | `FBVisualSystem` (the generic default — there is no airframe in an eye) | `FBF16Cmds` (ALE-47) |
+| MiG-29 | *none — no cooperative terminal; its GCI is a VOICE channel typed in by the pilot* | `FBMig29Radar` (N019) | `FBMig29Rwr` (SPO-15LM) | `FBMig29Irst` (OEPS-29/KOLS) | `FBVisualSystem`, the identical class and the identical constants | *stage 2c (BVP-30-26)* |
+| Question | "where are my people" | "what is out there" | "who is looking at ME" | "what is out there, without asking" | "what does it LOOK like" | "what do I dispense" |
+| **Sees** | own faction, aircraft only, transmitting senders only, within min(terminal, radio horizon) | aircraft in the scan volume (az×el body-fixed) within the range gate | every unit whose beam hits this jet AND whose angle of arrival is covered by one's own antenna | aircraft in the field of regard within an ASPECT-dependent reach, with no cloud deck between the two altitudes | aircraft inside a fixed ±60°/±40° body cone whose PRESENTED EXTENT over range beats a contrast-scaled 0.2° threshold | nothing — reads the RWR BLOCK of its own bus |
+| **Gets** | id, callsign, team, position, heading, speed, age | **anonymous geometry**: track no., range, bearing, elevation angle, az/el, closure, look age, IFF | relative bearing, elevation, signal, lethality, mode, estimated emitter type, "new" | **angles only**: track no., bearing, elevation angle, az/el, look age — plus metres ONLY behind the laser's own validity bit | **angles and a SIZE**: track no., bearing, elevation angle, az/el, angular subtense, look age, a state (detected/recognised/identified) and — only above the Johnson multiples — a TYPE NAME. No range field exists | — |
+| **Gives away** | its own PPLI (position + identity) as long as XMT is on | its own beam: search volume resp. ±3° pencil onto exactly one target; plus the IFF transponder reply | **nothing** (purely passive) | **nothing** — not even the laser, which no warning receiver can detect | **nothing**, and it cannot even interrogate | chaff clouds behind the aircraft (published in the signature) |
+| **Ageing** | 1 Hz net cycle; hold over 3 cycles; `AgeS` runs up; block `Held` | antenna frame (0.1–4.0 s per mode); build-up 2 looks; coast `CoastS()` (generic `max(1 s, 3 frames)`, N019 6 s); `LookAgeS`; block `Held` | continuous; hold 2 s after last hearing; `AgeS`; "new" 1 s | head frame (0.5–5.0 s per mode); build-up 2 looks; coast `max(1 s, 3 frames)`; `LookAgeS`; block `Held` | look raster 1.0 s; build-up 2 looks; coast `max(1 s, 3 frames)`; `LookAgeS`; block `Held` | program schedule in absolute time; cloud: bloom 0.3 s, life 8 s |
+| **Operating latency** | POWER/XMT/filter/range over the bus (DED class) | mode/range/slew/IFF (DED), emission switch (DED), `Designate` (HOTAS) | POWER/display/search (DED) | `IrstMode`/`IrstDesignate`/`IrstLaser` over the bus | none — `set visual` and the two cone keys are spawn-time settings; there is nothing to slew and nothing to lock | `CmDispense`/`CmConsent` (HOTAS), `CmdsMode` (DED) |
+| **CANNOT** | see opponents; go beyond the radio horizon; terrain masking; carry stores/ground targets | supply identity (except IFF friendly/unknown); see bombs or ground targets; terrain masking; more than 8 track files; see anything else in STT | measure range; hear a transmitter outside its beam; hear outside its elevation coverage; name WHO is there; distinguish faction | **measure range at all** without the laser; ask IFF (there is no interrogator and no field); see through a broken deck; see bombs or ground targets; see a cold target far off aspect | measure a range, EVER (no `HasRange` bit exists); see at night; see through a deck; see into the sun; see outside the cone; see bombs or ground targets; tell you WHO or WHOSE | know whether it worked; react to a threat the RWR does not hear; decoy an IR seeker (no IR in the sim) |
+| **Failed** | block `Invalid` | block `Invalid`, all tracks dropped | block `Invalid`, table empty | block `Invalid`, all tracks dropped (no `FBSystemId` yet — see the gaps) | block `Invalid`, all tracks dropped (no `FBSystemId`: a pilot's sight is not a box this airframe carries) | block `Invalid`, status `NoGo` |
+| **Degraded** | — | range × 0.7071 [DERIVED] | — | — | — | — |
+| Override point | `AcceptContact` | **`ActiveVolume()`** (+ `ModeOrdinal`, `EmitterKind`, `DopplerNotchMs`, `NotchRejectsDetection`, `CoastS`) | `Run` (+ `ElevCoverageDeg`, `MaxDisplayed`, `Classify`, `Blanked`, `ReportBearingDeg`, `ClassifyMode`, `PriorityRank`) | **`ActiveField()`** (+ `ModeOrdinal`, `LaserRangeM`, `DetectRangeM`) | **none, deliberately** — an eye is not equipment; the cone is a setting | `Run` (+ `AutomaticProgram`) |
+| Telemetry | `dl_*` (5) | `fcr_*`, `iff_xpdr` (11) | `blk_rwr` + `rwr_*` (10) | `blk_irst` + `irst_*` (11), appended LAST | `blk_vis` + `vis_*` (9), appended LAST | `blk_cmds` + `cm_*` (11) |
 
 ---
 
-### 9. Visual acquisition — `FBVisualSystem` (`C3`, **specified, nothing built**)
+### 9. Visual acquisition — `FBVisualSystem` (`C3`, **built**)
 
 The fourth question, and the one the other three were built around avoiding. The radar asks "what is
 out there" and transmits. The RWR asks "who is looking at me" and can only hear. The IRST asks the
@@ -1173,6 +1195,16 @@ there is.**
 This section is a **contract**, written before any code, per [`conventions.md`](conventions.md)'s
 spec-first rule. Numbers marked `[SET]` are settings; `[DERIVED]` names the relation; `[T3]`/`[T4]`
 carry a public source with its link in §9.9.
+
+**It is now also the built thing, and where building it proved the contract wrong the contract is
+corrected here rather than quietly satisfied.** Four such places, each measured:
+
+| Contract said | Build found |
+|---|---|
+| §9.4's worked table: beam-on 4 300 m, head-on 2 700 m, from span 9.45 m / length 15.03 m | the ONE presented-geometry table (`FBDamageLayout`, §9.4's own rule) declares 9.14 m / 14.60 m, and the table ignored the haze term §9.5 requires. Measured with both: **3 784 m** side-on, **2 493 m** head-on. The ratio the section is actually about survives unchanged |
+| §9.6c: "a 40 % deck is mostly hole", so a LID over-reports blindness | measured over the whole committed fixture the opposite holds — at 40–50 % cover every ray is optically closed while the lid calls it clear. The march is still right; the band where it differs from a lid is 20–50 % and there it is STRICTER. Full table in this file's Gaps |
+| §9.9: `events.log` stays byte-identical "because the channel emits no event when it sees nothing — which it does not, in 84 missions that declare no visual scenario" | **false.** 38 of the 93 committed missions have aircraft inside a few km of each other — every formation, every BFM setup, every duel. They gained `vis` lines. What DID hold is the requirement behind the sentence: no pre-existing line changed, and no trajectory moved |
+| §9.9's contact field names (`ElevDeg`, `AzBodyDeg`, `ElBodyDeg`) | built as `ElevAngleDeg`, `AzDeg`, `ElDeg` — `FBRadarContact`/`FBIrstContact`'s spelling, so the three anonymous contact types read alike |
 
 #### 9.1 Why it is a sensor slot and not a pilot feature
 
@@ -1418,6 +1450,20 @@ last of those only holds because the channel emits no event when it sees nothing
 84 missions that declare no visual scenario.
 
 Mission switches and telemetry columns: [`missions/sensors.md`](missions/sensors.md).
+
+#### 9.10 State — what was built, and the two settings the build had to add
+
+Built exactly as §9.1–9.9 specify, with these additions the contract did not name:
+
+| Piece | Value | Origin |
+|---|---|---|
+| the look raster | `FrameS = 1.0 s`, `kHitsToFirm = 2` | `[SET]` from §9.6c's own budget sentence ("≤ 8 contacts at ≤ 1 Hz"), read as the raster rather than only as a cost bound. It is the conservative reading — fewer looks means later detection. **Measured consequence:** at a 358 m/s head-on closure the Johnson rungs are sampled every ~360 m, so a merge can pass through recognition into identification between two looks; at the ~50 m/s closure of a slow overtake all three rungs are resolved (§9 State) |
+| the contrast floor | `kContrastPenaltyMax = 10` does double duty: it is the clamp of §9.3's `g(C)` AND the floor below which the channel reports nothing | one constant, two consequences, and no region where the model reports a capability it cannot defend. Without a floor a `DaylightFactor` of 0 would still leave the clamp reporting a target at 1/10 of the clear-air range — i.e. an eye at night |
+| the two inherent contrasts | `kContrastLookUp = 1.0` (and the reference the 0.2° threshold is stated at), `kContrastLookDown = 0.35` | `[SET]`, §9.5's two-value binary. The horizon it is decided against is `FBHorizonDipRad` from `core/FBCamera.h` — the same dip the conformal HUD draws, so the tree has one horizon |
+| the cloud march | 12 samples per deck segment, only over the parameter window each deck's altitude band cuts out of the line of sight | `[SET]`. Cost measured at −1.1 % on an 8-aircraft mission, i.e. below the run-to-run noise |
+| the cloud field's ANCHOR | `FBCloudSky::AnchorLatDeg/AnchorLonDeg`, set by `FBMissionRunner` to the primary actor's spawn for the whole cast | new, and required: `core/FBCloudDensity`'s horizontal coordinate is tangent-plane metres from a point, so anchoring per observer would nail the field to each aircraft (it could never fly out from under a hole) and would let two aircraft disagree about one sky |
+| the presented geometry | `FBDamageLayout` gained `PlanExtentM`; `FBUnitSignature` gained `FBVisualSignature` (three dimensions + the type name), published at the tick barrier beside `RcsM2` | §9.4's rule that the gun and the eye read ONE table. For both current airframes the plan extent equals the lateral one (both are longer than they are wide); it exists so a flying wing is not silently wrong |
+| the type name's source | `FBModule::TypeName()`, stamped by `FBModuleRegistry::Create` from the map key and by nothing else | so the key a mission spells and the key a module answers with cannot be two strings. A module built outside the registry (the test harnesses) has none, and the eye then never names a type |
 
 **Sources for this section**
 

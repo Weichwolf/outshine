@@ -47,9 +47,10 @@ Die KI darf nicht an der Simulation vorbeigreifen. Strukturell gesichert, wo mö
   Plankopie). Jeder Client, der eine Sim-Schleife fährt, füttert beide.
 - **Wirken nur über simulierte Systeme.** Einziger State-Schreiber ist der Boot-Spawn: `FBFdm`s
   ladender Konstruktor ist privat, einziger Friend `FBFdmBoot`, das nur `missions/` und `clients/` nennen.
-- **Sehen nur über Sensoren.** Die Unit-Registry erreicht genau vier Dateien (Datalink, Radar, RWR,
-  Flugkörper-Uplink). Ein Radarkontakt trägt keine Identität; die einzige Identitätsquelle ist IFF
-  Mode 4, und die kennt kein „hostile".
+- **Sehen nur über Sensoren.** Die Unit-Registry erreicht genau sechs Dateien (Datalink, Radar, RWR,
+  IRST, Auge, Flugkörper-Uplink). Ein Radarkontakt trägt keine Identität; die einzige Identitätsquelle
+  ist IFF Mode 4, und die kennt kein „hostile". Ein Sichtkontakt trägt nicht einmal eine Entfernung —
+  nur einen TYP, sobald die Winkelgröße ihn hergibt, und der ist der Modul-Registry-Schlüssel.
 - **Schaden ist typgeschützt.** `core/FBSystemHealth` ist monoton, alle Mutatoren privat, genau ein
   Friend (`FBDamageModel`). Selbstheilung kompiliert nicht.
 

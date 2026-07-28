@@ -1,0 +1,53 @@
+name vis-sun-1
+timeout 200
+
+# LOOKING INTO THE SUN -- the eye's own hard case, and the one damping term that is NOT a multiplier on
+# the general daylight factor. doc/sensors.md §9.6b.
+#
+# The mechanism is different from dusk: intraocular scatter raises the BACKGROUND luminance, and
+# contrast is measured against the background. Stiles-Holladay [T3] gives L_veil = 10*E/theta^2, and
+# since neither the source illuminance nor the ambient luminance exists in absolute units in this tree,
+# the whole relation collapses into ONE readable setting --
+#
+#     C_eff = C / (1 + k/theta_sun^2),   k = (10 deg)^2
+#
+# so the setting IS the off-sun angle at which contrast is halved. 45 deg -> 0.95, 30 -> 0.90,
+# 10 -> 0.50, 5 -> 0.20, 2 -> 0.04, and inside 2 deg of the disc a hard cut: there the eye is not
+# degraded, it is out of action.
+#
+# THE CONTROL IS vis-day.fbm's `trail`, AND THE GEOMETRY IS ITS VERBATIM COPY: a target 3 km ahead on
+# the same heading, 100 kt slower, overtaken slowly enough that the 1 Hz look raster samples the closure
+# every ~50 m. The ONE difference is where the sun stands. At 04:30Z on midsummer's day over the Broye
+# it is at el 6.6 / az 62.6 -- low, and straight down the nose of an aircraft tracking 063, so the line
+# of sight to the target runs within a few degrees of the disc. In vis-day.fbm the identical geometry is
+# flown with the sun at el 65.8 / az 160.5, i.e. high and behind, and the glare factor is 0.99.
+#
+# WHAT TO READ:
+#   telemetry    vis_glare -- the factor at the worst-placed contact, 1.0 = no glare
+#   events.log   the `vis CONTACT` line and the `contrast` it carries; recompute the range from the pose
+#                columns of the two telemetry files (this channel publishes no range, ever), and put it
+#                beside vis-day.fbm's `trail` figure measured under the identical geometry
+#
+# READING RULE: exit 3 = TIMEOUT is the verdict AND the pass. A measurement rig, not a task.
+
+time 2026-06-21T04:30:00Z
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.60000 6.90000 3000 63.0 300         # tracking 063 -- straight into the low sun
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set rwr off
+  wp 46.76313 7.36597 3000 300
+
+unit dazzled
+  module f16
+  team friendly
+  spawn 46.61103 6.93583 3000 63.0 200         # 3 km ahead ON the sun bearing, 100 kt slower
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set rwr off
+  wp 46.76193 7.36686 3000 200

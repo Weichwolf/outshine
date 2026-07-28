@@ -1,0 +1,53 @@
+name vis-anon-friend-1
+timeout 200
+
+# THE ANONYMITY OF A VISUAL CONTACT, HALF ONE OF TWO. The pair is:
+#
+#   vis-anon-friend.fbm    the MiG-29 ahead is `team friendly`
+#   vis-anon-hostile.fbm   the SAME MiG-29 is `team hostile`
+#
+# and the two files differ in exactly that one token. doc/sensors.md §9.7 makes the claim; this pair is
+# what makes it checkable instead of asserted:
+#
+#   * the visual channel names a TYPE and never a side. What appears at 4x the detection threshold is
+#     `mig29` -- the target module's own FBModuleRegistry key, the same string the mission file already
+#     spells out in its `module` line. It says WHAT. It never says WHO and never says WHOSE.
+#   * so the `vis` lines of events.log and the nine vis_* telemetry columns must be IDENTICAL between the
+#     two runs, tick for tick and value for value. A single differing character in that channel would be
+#     a leak of the registry's team through a sensor, which is the one thing the whole perception
+#     boundary exists to prevent (CLAUDE.md "Kein Cheaten").
+#   * and the FLIGHT must be identical too: every emitter is switched off in both files, so no other
+#     channel can react to the faction either.
+#
+# The visual system is not even GIVEN a team: FBVisualSystem::SetIdentity takes a unit id and nothing
+# else, so there is no member for a faction to be read out of. The mission pair measures what the type
+# system already forbids -- both, because the type system can be changed and this measurement notices.
+#
+# WHAT TO READ: diff the two output directories. `events.log` differs only in the run's own wall-clock
+# fields; `telemetry.csv` must be byte-identical.
+#
+# READING RULE: exit 3 = TIMEOUT is the verdict AND the pass. A measurement rig, not a task.
+
+time 2026-06-21T11:00:00Z
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.60000 6.90000 3000 0.0 300
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off                             # radar silent: nothing but the eyes may find anything
+  set rwr off
+  set datalink off                             # ...and no cooperative net, which WOULD know the faction
+  wp 46.95932 6.90000 3000 300
+
+unit bandit
+  module mig29
+  team friendly
+  spawn 46.62695 6.89673 3000 0.0 200          # 3 km ahead, same heading, 100 kt slower
+  set gear up
+  set fuel_pct 60
+  set n019_emission off
+  set rwr off
+  set task route
+  wp 46.95932 6.89673 3000 200

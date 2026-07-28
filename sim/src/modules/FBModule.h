@@ -25,6 +25,7 @@
 #include "FBRadarSystem.h"
 #include "FBRwrSystem.h"
 #include "FBStoresSystem.h"
+#include "FBVisualSystem.h"
 #include "FBWarningSystem.h"
 #include "FBRunway.h"
 #include "FBState.h"
@@ -48,6 +49,12 @@ public:
   /* The JSBSim model this module flies — module-owned, because only the module knows which aircraft.xml
    * its systems/gains were written against; the registry name stays a pure key. */
   virtual const char *FdmModelName() const = 0;
+
+  /* THE REGISTRY KEY this module was created under ("f16", "mig29", "aim120"), stamped once by
+   * FBModuleRegistry::Create and by nothing else — so the key a mission spells and the key a module
+   * answers with cannot be two different strings. Empty for a module built directly (the test
+   * harnesses), and an eye then never names its type: the registry is the only source. */
+  const std::string &TypeName() const { return TypeName_; }
 
   /* Ground also declares that there is NO airframe, which the empty FdmModelName() then says where the
    * spawn path reads it. Weapon is NOT set here: a store is a kind by having been RELEASED, which is
@@ -109,6 +116,9 @@ public:
   virtual Sensors::FBRadarSystem &Radar() = 0;
   virtual Sensors::FBRwrSystem &Rwr() = 0;
   virtual Sensors::FBIrstSystem &Irst() = 0;
+  /* The pilot's own EYES — a sensor slot and not a pilot feature, because a "visual" derived outside
+   * the perception boundary is the cheat the whole architecture exists to prevent (doc/sensors.md §9.1). */
+  virtual Sensors::FBVisualSystem &Visual() = 0;
   virtual Sensors::FBCountermeasureSystem &Countermeasures() = 0;
   /* The client drains these two queues: a released store and a fired burst become part of the world,
    * and only the client may create units (fdm/FBFdmBoot.h) or decide what a round hits. */
@@ -145,7 +155,11 @@ public:
   virtual bool ApplySetup(const std::string &key, const std::string &value) = 0;
 
 private:
+  friend class FBModuleRegistry;   /* the ONE writer of TypeName_, at creation */
+  void SetTypeName(std::string name) { TypeName_ = std::move(name); }
+
   const FBSystemHealth *Health_ = nullptr;   /* borrowed, read-only — see AttachHealth */
+  std::string TypeName_;
 };
 
 } // namespace FlightBox::Modules

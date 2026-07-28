@@ -14,7 +14,7 @@ namespace FlightBox::Modules {
 
 class FBGroundModule : public FBModule {
 public:
-  explicit FBGroundModule(const FBGroundTargetSpec &spec) : Spec_(spec) { Rwr_.SetPowered(false); }
+  explicit FBGroundModule(const FBGroundTargetSpec &spec) : Spec_(spec) { Rwr_.SetPowered(false); Visual_.SetPowered(false); }
 
   const FBGroundTargetSpec &Spec() const { return Spec_; }
 
@@ -47,6 +47,9 @@ public:
   Sensors::FBRadarSystem &Radar() override { return Radar_; }
   Sensors::FBRwrSystem &Rwr() override { return Rwr_; }
   Sensors::FBIrstSystem &Irst() override { return Irst_; }
+  /* An unmanned round/store/target has no eyes; the slot exists because every module carries the same
+   * categories, and it is powered OFF so nothing it holds can be mistaken for a picture. */
+  Sensors::FBVisualSystem &Visual() override { return Visual_; }
   Sensors::FBCountermeasureSystem &Countermeasures() override { return Cm_; }
   Weapons::FBStoresSystem &Stores() override { return Stores_; }
   Weapons::FBGunSystem &Guns() override { return Gun_; }
@@ -80,6 +83,7 @@ private:
   Sensors::FBRadarSystem Radar_;
   Sensors::FBRwrSystem Rwr_;
   Sensors::FBIrstSystem Irst_;
+  Sensors::FBVisualSystem Visual_;
   Sensors::FBCountermeasureSystem Cm_;
   Weapons::FBStoresSystem Stores_;
   Weapons::FBGunSystem Gun_;

@@ -67,6 +67,7 @@ public:
   FBMig29Radar &Radar() override { return Radar_; }        /* covariant, like the F-16's */
   FBMig29Rwr &Rwr() override { return Rwr_; }
   FBMig29Irst &Irst() override { return Irst_; }
+  Sensors::FBVisualSystem &Visual() override { return Visual_; }   /* generic: an eye is not a box */
   FBMig29Cmds &Countermeasures() override { return Cm_; }   /* covariant, like the F-16's */
   FBMig29Sms &Stores() override { return Stores_; }        /* covariant: pylon geometry only */
   FBMig29Gun &Guns() override { return Gun_; }             /* covariant: installation only */
@@ -76,7 +77,7 @@ public:
   void SetGroundAsl(float m) override { GroundAslM = m; }
   /* The one consumer of weather above the FDM in this tree: the optical head, which cannot see through
    * a deck. Handed straight down — the module keeps no copy it could let go stale. */
-  void SetCloudSky(const FBCloudSky &sky) override { Irst_.SetSky(sky); }
+  void SetCloudSky(const FBCloudSky &sky) override { Irst_.SetSky(sky); Visual_.SetSky(sky); }
   void SetSolar(const FBSolar &solar) override { FBSolarToEnv(solar, SharedState); }
 
   /* Who this aircraft IS, for the slots that observe other units — and, for the SMS, so a round it
@@ -85,6 +86,7 @@ public:
     Radar_.SetIdentity(unitId, team);
     Rwr_.SetIdentity(unitId, team);
     Irst_.SetIdentity(unitId, team);
+    Visual_.SetIdentity(unitId);   /* the id only — an eye is given no team to read */
     Datalink_.SetIdentity(unitId, team);
     Stores_.SetUnitId(unitId);
     /* And the GUN, for the same reason plus a sharper one: the owner of the simulation excludes the
@@ -140,6 +142,7 @@ private:
   FBMig29Radar Radar_;   /* N019 "Rubin" — the ACTIVE one, and the one that gives the jet away */
   FBMig29Rwr Rwr_;       /* SPO-15LM "Beryoza" — the PASSIVE warning half */
   FBMig29Irst Irst_;     /* OEPS-29 / KOLS — the PASSIVE optical one, this aircraft's own asymmetry */
+  Sensors::FBVisualSystem Visual_;
   /* Still absent: the cooperative terminal this jet does not have at all — its GCI link is a VOICE
    * channel the pilot types in (doc/modules/mig29/datalink-gci.md), not a track picture. Never cycled,
    * block stays Invalid. */

@@ -93,5 +93,16 @@ inline void FBSolarToEnv(const FBSolar &s, FBState &st) {
   st.Env.H.Publish(st.NowS);
 }
 
+/* ONE daylight factor from sun elevation: full day above ~+3 deg, dark by nautical twilight (~-9 deg).
+ * It was the renderer's private static until an EYE needed it (doc/sensors.md §9.6a); it is one number
+ * for sky, ground, star fade and now for visual contrast, and a second twilight definition beside it
+ * would be a tree with two dusks. */
+inline double FBDaylightFactor(double sunElDeg) {
+  double t = (sunElDeg + 9.0) / 12.0;
+  if (t < 0.0) t = 0.0;
+  if (t > 1.0) t = 1.0;
+  return t * t * (3.0 - 2.0 * t);
+}
+
 } // namespace FlightBox
 #endif /* FB_EPHEMERIS_H */

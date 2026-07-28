@@ -61,10 +61,13 @@ constexpr FBDamageZoneSpec kZones[] = {
 
 /* What a stream of gunfire sees. The two AREAS are [SET] EQUIVALENTS derived from the model's own
  * geometry — no projection of the actual shape is computed anywhere — and they scale the expected round
- * count linearly, which is why they are named once, here. The two EXTENTS are the model's geometry
- * outright: half its <wingspan> from astern, half its length from the side. §10.4. */
+ * count linearly, which is why they are named once, here. The THREE EXTENTS are the model's geometry
+ * outright: half its <wingspan> from astern, half its length from the side, and from ABOVE the length
+ * again — this aeroplane is longer than it is wide, so its plan silhouette's largest dimension is the
+ * same 14.6 m the side view shows. §10.4. */
 constexpr FBDamageLayout kLayout{kZones, Count(kZones), /*FrontalAreaM2*/ 4.0, /*LateralAreaM2*/ 14.0,
-                                 /*FrontalExtentM*/ 4.57, /*LateralExtentM*/ 7.3};
+                                 /*FrontalExtentM*/ 4.57, /*LateralExtentM*/ 7.3,
+                                 /*PlanExtentM*/ 7.3};
 } // namespace
 
 const FBDamageLayout &FBF16DamageLayout() { return kLayout; }

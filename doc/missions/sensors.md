@@ -270,7 +270,7 @@ unchanged), `missions/mig29-irst.fbm` (aspect, laser range, and a target hidden 
 **All four end in TIMEOUT (exit 3) by construction** — they are measurement rigs, not tasks, and each
 file's header states its own reading rule.
 
-### Visual acquisition (`C3`) — **specified, nothing built**
+### Visual acquisition (`C3`) — **built**
 
 The eye as a passive sensor channel beside radar / IRST / RWR / datalink. The model, its thresholds and
 their sources are in [`../sensors.md`](../sensors.md) §9; here only the mission author's view.
@@ -302,6 +302,20 @@ transmittance that rejected the look. `telemetry.csv`, appended at the END of th
 | `vis_best_state` | 0 none / 1 detected / 2 recognised / 3 identified |
 | `vis_masked` | contacts rejected this frame by cloud transmittance |
 | `vis_glare` | the current sun-glare contrast factor (1.0 = no glare) |
+
+**What the built channel adds to the table above.** The `set` keys and the nine columns are exactly as
+specified. Three practical notes a mission author needs:
+
+- **The default really is ON, on both airframes**, and a target 2–4 km away is inside the eye's reach.
+  38 of the 93 committed missions therefore gained `vis` lines the day the channel landed — every
+  formation, every BFM setup, every duel. That is not a scenario switch being left on by accident; it is
+  what "a pilot has eyes" costs in the log. `set visual off` is the control run.
+- **`vis MASKED` is the COUNTERFACTUAL, not a rejection notice.** It fires once, on the rising edge, for
+  a target that the same air WITHOUT the deck would have shown — never for one that was out of reach
+  anyway. `vis_masked` counts those per frame. A target that is never detected at all therefore still
+  leaves a trace, which is the case worth logging.
+- **The channel publishes no range and never will**, so a measurement rig has to recompute it from the
+  pose columns of the two units' telemetry files, exactly as `mig29-irst.fbm` does for the KOLS.
 
 **Two scenario dependencies a mission author must know:**
 
@@ -340,7 +354,7 @@ They are appended at the END of the row (`blk_irst` declared by the IRST system 
 | SPO-15 (MiG-29) | built; ±30° elevation, channel-centre bearings, forward blanking by the own radar |
 | IRST / KOLS | built as a NEW generic slot (`sensors/FBIrstSystem`) + the MiG derivation; aspect law, 6 km laser, cloud masking, eleven telemetry columns |
 | GCI | built as `set brief_gci` + typed command-bus entries; **no** track picture and **no** block of its own |
-| Visual acquisition (`C3`) | **nothing built.** Contract above and in [`../sensors.md`](../sensors.md) §9 |
+| Visual acquisition (`C3`) | built as a NEW generic slot (`sensors/FBVisualSystem`), composed by BOTH airframes; three `set` keys, nine telemetry columns, five events. Reference runs: `vis-day` / `vis-night` (the same geometry with one line changed), `vis-sun`, `vis-cloud`, and the pair `vis-anon-friend` / `vis-anon-hostile` |
 
 ## Gaps
 
@@ -354,7 +368,8 @@ They are appended at the END of the row (`blk_irst` declared by the IRST system 
 | The IRST is not damage-gated | `core/FBSystemHealth` has no id for an optical station; adding one moves the `dmg_*` columns and waits for the twin-engine health change |
 | The MiG-29 has no dispensers yet | BVP-30-26 is stage 2c, and its programme parameters are a documented source gap |
 | GCI is one-way and unverified | the controller is always right, always heard, and never asked for a repeat; the pilot can type it late but not wrong |
-| **`C3` — no eye at all** | every real identification ends in a visual pass; eight of W5's ten missions and four of O2's measure the *approach* to an identification instead. Contract above |
+| ~~**`C3` — no eye at all**~~ | closed. What is left of it is booked in [`../sensors.md`](../sensors.md): nothing CONSUMES the block yet (deliberate — a behaviour change is its own round), the channel contributes nothing at night because nothing in the tree emits light, and the cloud march differs from a lid only in the 20–50 % cover band |
+| The eye's look raster is 1 Hz | a head-on merge at ~360 m/s closure moves ~360 m between two looks, so the recognition and identification rungs can be crossed between them. A rig that wants to measure the Johnson ladder needs a SLOW closure — `vis-day`'s `trail` (100 kt overtake) resolves all three rungs, its `closer` (head-on) does not |
 
 ## Knowledge
 

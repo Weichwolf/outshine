@@ -10,7 +10,7 @@ struct FBFrameContext {
   double Up[3];            /* geographic/radial up at the eye (NOT CamUp — that's rolled); cloud tangent basis */
   float Mvp20[20];        /* camera-relative view-projection (0..15, column-major) + sun dir (16..18) + pad */
   double SunDir[3], MoonDir[3];
-  double DayFactor;        /* 0 night .. 1 day (DaylightFactor(sunElDeg)), EVS only; SVS pins 1.0 */
+  double DayFactor;        /* 0 night .. 1 day (core/FBEphemeris.h FBDaylightFactor), EVS only; SVS pins 1.0 */
   double MoonPhase, Cloud;
   float CloudCover;        /* FBState.Env total cover; drives the sky dome's noise sheet */
   float CloudLow, CloudMid, CloudHigh, CloudBaseAGL;  /* the weather deck mix as the client sampled it */

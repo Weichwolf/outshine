@@ -11,7 +11,8 @@ The layers, bottom to top (RANK below). The order is the measured include graph,
               maths. Includes NOTHING above itself — that is what makes it the anti-cheat anchor.
   fdm         the JSBSim adapter (one FBFdm per airframe).
   units       world-entity identity + the registry of who exists.
-  sensors     the slots that may READ that registry: datalink, radar, RWR, IRST, countermeasures.
+  sensors     the slots that may READ that registry: datalink, radar, RWR, IRST, visual,
+              countermeasures.
   weapons     the stores + gun slots.
   systems     the airframe-agnostic flight/avionics slots + the CPU-side HUD geometry/font.
               ABOVE sensors because FBSystemSlots.h aggregates the sensor slots for FBModule.
@@ -23,8 +24,8 @@ The layers, bottom to top (RANK below). The order is the measured include graph,
   world       FBWorld + tile streaming, on world/terrain (a LEAF: it includes nothing of ours).
 
 Four rules from CLAUDE.md's "Kein Cheaten" become directory rules here, each enforced by name:
-  * units/FBUnitRegistry.h reaches ONLY the sensor slots (datalink, radar, RWR, IRST) and the
-    missile's uplink RECEIVER.
+  * units/FBUnitRegistry.h reaches ONLY the sensor slots (datalink, radar, RWR, IRST, visual) and
+    the missile's uplink RECEIVER.
   * pilot/ includes neither units/ nor sensors/ — a pilot sees the world only through FBState.
   * fdm/FBFdmBoot.h (the only door to a JSBSim IC) is named only by missions/ and clients/.
   * core/ includes nothing above itself.
@@ -91,14 +92,17 @@ EXCEPTIONS = ()
 # FBFdmBoot's friend by declaration, so hiding the header from it would be theatre).
 RESTRICTED = {
     "units/FBUnitRegistry.h": (
-        # Cross-unit truth reaches only simulated SENSORS (CLAUDE.md "Kein Cheaten"). FIVE files since
-        # the passive optical slot landed: the boundary was never a COUNT, it is "a sensor slot, and
-        # each one pays a stated price" -- FBIrstSystem pays in range, in identity (it cannot
-        # interrogate IFF at all) and in weather. Argued in doc/sensors.md 1.2.
+        # Cross-unit truth reaches only simulated SENSORS (CLAUDE.md "Kein Cheaten"). SIX files since
+        # the EYE landed: the boundary was never a COUNT, it is "a sensor slot, and each one pays a
+        # stated price" -- FBIrstSystem pays in range, in identity (it cannot interrogate IFF at all)
+        # and in weather; FBVisualSystem pays in all four of those at once (the shortest reach of the
+        # five, no identity, no range measurement that could ever exist, cloud AND haze AND sun) and in
+        # a fifth nobody else pays: it stops working at night. Argued in doc/sensors.md 1.2 and 9.2.
         "sensors/FBDatalinkSystem.cpp",
         "sensors/FBRadarSystem.cpp",
         "sensors/FBRwrSystem.cpp",
         "sensors/FBIrstSystem.cpp",
+        "sensors/FBVisualSystem.cpp",
         "modules/missile/FBMissileUplink.cpp",  # a RECEIVER listening to a published emission
         "missions/FBMissionRunner.h",
         "missions/FBMissionRunner.cpp",

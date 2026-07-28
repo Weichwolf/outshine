@@ -1,0 +1,78 @@
+name vis-cloud-1
+timeout 200
+
+# THROUGH A CLOUD DECK -- the price doc/sensors.md §6.5 named for the IRST and declined, and the one
+# this channel pays: a MARCH along the line of sight through core/FBCloudDensity for a real
+# transmittance, instead of the lid a broken deck is to the KOLS.
+#
+#     T_cloud = exp( -sum sigma_deck * rho * ds )
+#
+# with the per-deck extinction the cloud stage already publishes (0.022 / 0.018 / 0.0060 1/m at
+# density 1) and rho the SAME closed-form field the renderer draws -- one function, two evaluators.
+# T multiplies the contrast in the same currency as the Koschmieder haze term, so nothing new is
+# calibrated. The march is bounded by the eye's own reach: at most three shell segments, a path of a few
+# km, <= 8 contacts at 1 Hz.
+#
+# THE CONTROL AND THE CASE ARE IN THE SAME RUN, UNDER THE SAME SKY:
+#
+#   under   3 km ahead at the observer's own altitude, 100 kt slower -- the whole line of sight stays
+#           BELOW the deck base. It is seen normally, and its detection range is what this air's
+#           visibility is worth.
+#   over    crossing left to right 1350 m HIGHER, so its line of sight climbs through the deck. It is
+#           inside the +-60/+-40 cone throughout and its presented dimension is the LARGER one (a side
+#           view, 14.6 m against 9.14) -- everything is in its favour except the cloud.
+#
+# `wx fixture` is the committed GFS blob; over this corridor the 2026-07-27T00Z cycle reports ~49-53 %
+# low cloud with a ceiling near 2 980 m, which core/FBCloudDensity turns into one deck of roughly
+# 2 977 ... 3 877 m. The observer flies at 2 600 m, under it, and `over` at 3 950 m, above it.
+#
+# MEASURED, AND IT CONTRADICTS THE REASON THE MARCH WAS BOUGHT. doc/sensors.md §9.6c argued that a lid
+# OVER-reports blindness because "a 40 % deck is mostly hole". Over the whole fixture the opposite holds:
+# rays with T > 0.1 are 100 % below 20 % cover, 32.6 % at 30-40 %, and **0 % at 40-50 %** -- 900 m of
+# deck at 0.022 /m closes any ray that crosses it. So at THIS cell's ~50 % cover the lid rule
+# (kCloudMaskCover 0.5) sits exactly on the fence while the march reports optical depth 22.5. The march
+# is still the right model; the band in which it differs from a lid is 20-50 %, and there it is
+# STRICTER, not more permissive. That finding is in the file's Gaps, not hidden here.
+#
+# WHAT TO READ:
+#   vis_masked        counts contacts this frame that the CLOUD TRANSMITTANCE rejected -- i.e. that
+#                     would have been detected in the same air with a clear line of sight. It is only
+#                     tallied where the cloud is what decided the outcome, never for a target that was
+#                     never going to be seen anyway.
+#   events.log        `vis CONTACT` for `under`, `vis MASKED` for `over` with the subtense it had
+#   telemetry         vis_contacts never counts `over`
+#
+# READING RULE: exit 3 = TIMEOUT is the verdict AND the pass. A measurement rig, not a task.
+
+wx fixture wx-2026-07-27T00Z.wxb
+time 2026-06-21T11:00:00Z
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.60000 6.90000 2600 0.0 300          # under the deck
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set rwr off
+  wp 46.95932 6.90000 2600 300
+
+unit under
+  module f16
+  team friendly
+  spawn 46.62695 6.89673 2600 0.0 200          # 3 km ahead, co-altitude: no cloud on the line of sight
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set rwr off
+  wp 46.95932 6.89673 2600 200
+
+unit over
+  module f16
+  team friendly
+  spawn 46.68085 6.81634 3950 90.0 300         # crossing, 1350 m higher: the line of sight cuts the deck
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set rwr off
+  wp 46.68085 7.21378 3950 300

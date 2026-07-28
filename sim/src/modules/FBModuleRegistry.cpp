@@ -18,7 +18,12 @@ void FBModuleRegistry::Register(const std::string &name, FBModuleFactory factory
 
 std::unique_ptr<FBModule> FBModuleRegistry::Create(const std::string &name) {
   auto it = Registry().find(name);
-  return it == Registry().end() ? nullptr : it->second();
+  if (it == Registry().end()) return nullptr;
+  std::unique_ptr<FBModule> m = it->second();
+  /* The key is stamped HERE, from the map key the caller asked for — a module that spelled its own
+   * name would be a second truth about the same string, and an eye reports that string verbatim. */
+  if (m) m->SetTypeName(name);
+  return m;
 }
 
 void FBRegisterBuiltinModules() {

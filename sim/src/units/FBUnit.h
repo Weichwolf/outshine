@@ -9,6 +9,7 @@
 #include "FBEmitter.h"
 #include "FBFlight.h"
 #include "FBTeam.h"
+#include "FBVisualContact.h"
 #include "FBWeaponUplink.h"
 
 namespace FlightBox::World { class FBWorld; }
@@ -28,6 +29,36 @@ struct FBUnitPose {
   double SpeedMs = 0.0;      /* true airspeed/ground speed as the unit type defines it */
   double HeadingDeg = 0.0;   /* ground track, true, deg 0..360 */
 };
+
+/* WHAT AN EYE COULD SEE OF THIS UNIT, published like the radar cross-section beside it and for the
+ * identical reason: how big an aeroplane looks and what kind of aeroplane it is are properties of the
+ * OBSERVED unit, and a sensor carrying a table of them would be reading the registry's identity by the
+ * back door. The three numbers are the largest dimension of the silhouette in each of the three
+ * orthogonal views, metres — the target module's damage layout read as geometry, not a second table.
+ *
+ * `TypeName` is the module's FBModuleRegistry key and NOTHING else: no callsign, no unit id, no team.
+ * It is public mission data (the `module` line spells it), which is why publishing it hands nothing
+ * over — and why only a sensor that has EARNED it by angular resolution may copy it into a contact
+ * (doc/sensors.md §9.7). All zero / empty = nothing to see: a released store, a ground target, any
+ * module with no damage layout. */
+struct FBVisualSignature {
+  float FrontalM = 0.0f;   /* head-on / from astern: the wingspan of a conventional aeroplane */
+  float LateralM = 0.0f;   /* from the side: its length */
+  float PlanM = 0.0f;      /* from directly above or below */
+  char  TypeName[kVisualTypeNameLen] = {};
+};
+
+/* The presented dimension along a line of sight given in the TARGET's body frame (+fwd/+right/+down,
+ * need not be normalised). Weights are the squared direction cosines, which sum to exactly one: the
+ * result is a convex combination of the three views, exact on each axis and never larger than the
+ * largest of them. Deliberately NOT the |cos|+sin law FBPresentedAreaM2 uses — that one is an AREA
+ * proxy and reports 1.41x the larger view at 45 deg, which for a DIMENSION would be an aeroplane
+ * bigger than itself. */
+inline float FBPresentedDimensionM(const FBVisualSignature &v, double fwd, double right, double down) {
+  double l2 = fwd * fwd + right * right + down * down;
+  if (l2 < 1e-18) return v.FrontalM;
+  return (float)((fwd * fwd * v.FrontalM + right * right * v.LateralM + down * down * v.PlanM) / l2);
+}
 
 /* What this unit RADIATES — the part of its system state another unit's sensors may legitimately
  * notice, published at the same barrier as the pose so no receiver ever reads half of it. */
@@ -57,6 +88,8 @@ struct FBUnitSignature {
   /* ...and the infrared half, under exactly the same rule and with the same consequence for an
    * infrared seeker (sensors/FBIrstSystem). */
   FBFlareCloud Flare[kMaxFlareClouds];
+  /* ...and what an EYE gets: a shape and a kind, nothing that names this unit. */
+  FBVisualSignature Visual;
 };
 
 class FBUnit {

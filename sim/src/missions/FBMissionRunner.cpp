@@ -601,6 +601,12 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   }
 
   /* ---- Step 3: execute the actors ---- */
+  /* ONE cloud field for the whole cast. The decks are still sampled over each actor (that is its own
+   * weather), but the horizontal field is measured from a single anchor — the primary actor's spawn —
+   * so two aircraft cannot disagree about where the holes in one deck are. core/FBCloudDensity.h,
+   * FBCloudSky::AnchorLatDeg. */
+  const double skyAnchorLat = Actors.empty() ? 0.0 : Actors.front()->State().lat;
+  const double skyAnchorLon = Actors.empty() ? 0.0 : Actors.front()->State().lon;
   const double dt = 0.1;
   double simT = 0.0;
   /* steady_clock, not clock(): the latter sums every thread's CPU time and would report a FASTER
@@ -635,7 +641,8 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
       /* The cloud decks over this actor, from the SAME sample rate and the same provider as the wind.
        * Nothing reads it unless the module composes a sensor that does (FBModule::SetCloudSky is a
        * no-op by default), so a mission with no weather and no optical sensor is unaffected. */
-      a->UpdateSky(FBCloudSkyFromWeather(*weather, a->State().lat, a->State().lon, simT));
+      a->UpdateSky(FBCloudSkyFromWeather(*weather, a->State().lat, a->State().lon, simT,
+                                         skyAnchorLat, skyAnchorLon));
       /* The sky's two LIGHTS, from the mission clock and this actor's own position, on the same tick
        * as the decks. Skipped entirely without a declared clock — no clock, no ephemeris, no channel
        * touched (doc/missions/syntax.md). */

@@ -90,7 +90,7 @@ campaign set.
 
 What exists and carries this campaign: IFF as a two-valued reply with no "hostile" value; anonymous
 radar contacts carrying no unit id, callsign or team; the perception boundary enforced by the include
-graph (`FBUnitRegistry` reaches exactly four files, none of them the pilot); the RWR that reports
+graph (`FBUnitRegistry` reaches exactly six files, none of them the pilot); the RWR that reports
 bearing and mode but **never range**; the cooperative datalink limited to one's own faction; and the
 determinism infrastructure (one fingerprint over `--threads 1/2/4` × 3 repeats) that makes the
 byte-identical comparison of mission 2 against mission 3 a mechanical check rather than an opinion.
@@ -163,7 +163,7 @@ campaign's favour:
 |---|---|---|
 | A radar contact carries range, bearing, azimuth, elevation, closure and a radar-local track number — **no unit id, no callsign, no team** | `core/FBRadarContact` | the interceptor genuinely does not know who that is |
 | IFF Mode 4 is **two-valued** — friendly, or no reply. There is no "hostile" | `core/FBIffReply` | silence is ambiguity, and the campaign's whole subject is what a pilot does with ambiguity |
-| The unit registry reaches **four files** in `systems/`+`modules/`, all of them sensors | grep-checked, [`../sensors.md`](../sensors.md) | the pilot has no path to the truth even if it wanted one |
+| The unit registry reaches **six files** in `systems/`+`modules/`, all of them sensors | grep-checked, [`../sensors.md`](../sensors.md) §1.2 | the pilot has no path to the truth even if it wanted one |
 | The cooperative datalink is faction-filtered | `sensors/FBDatalinkSystem` | a friendly picture cannot identify a non-friendly |
 
 So the **test** writes itself: change the intruder's `team` and require the interceptor's own

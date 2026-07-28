@@ -52,6 +52,9 @@ public:
    * cycled and powered down at construction so nothing they hold can be mistaken for a picture. */
   Sensors::FBRwrSystem &Rwr() override { return Rwr_; }
   FBMissileIrSeeker &Irst() override { return Ir_; }                          /* covariant */
+  /* An unmanned round/store/target has no eyes; the slot exists because every module carries the same
+   * categories, and it is powered OFF so nothing it holds can be mistaken for a picture. */
+  Sensors::FBVisualSystem &Visual() override { return Visual_; }
   Sensors::FBCountermeasureSystem &Countermeasures() override { return Cm_; }
   Weapons::FBStoresSystem &Stores() override { return Stores_; }             /* a round carries no stores */
   Weapons::FBGunSystem &Guns() override { return Gun_; }                     /* a round carries no gun */
@@ -81,7 +84,8 @@ private:
   Systems::FBFlightControl FC_;
   FBMissileGuidance Guidance_;
   FBMissileSeeker Seeker_;      /* active/semi-active rounds; dark on an infrared one */
-  FBMissileIrSeeker Ir_;        /* infrared rounds; caged on the other two */
+  FBMissileIrSeeker Ir_;                  /* infrared rounds; caged on the other two */
+  Sensors::FBVisualSystem Visual_;
   Sensors::FBRwrSystem Rwr_;
   Sensors::FBCountermeasureSystem Cm_;
   FBMissileUplink Uplink_;

@@ -113,7 +113,7 @@ CORE_LIB_SRCS := \
   src/systems/FBAirframeControls.cpp src/systems/FBWarningSystem.cpp src/systems/FBHudGeometry.cpp \
   src/sensors/FBDatalinkSystem.cpp src/sensors/FBRadarSystem.cpp \
   src/sensors/FBRwrSystem.cpp src/sensors/FBCountermeasureSystem.cpp \
-  src/sensors/FBIrstSystem.cpp \
+  src/sensors/FBIrstSystem.cpp src/sensors/FBVisualSystem.cpp \
   src/weapons/FBStoresSystem.cpp src/weapons/FBGunSystem.cpp src/weapons/FBLaunchZone.cpp \
   src/pilot/FBPilot.cpp src/pilot/FBBfmTrack.cpp \
   src/pilot/FBEngagement.cpp src/pilot/FBPilotTuning.cpp src/pilot/FBFlightPicture.cpp \

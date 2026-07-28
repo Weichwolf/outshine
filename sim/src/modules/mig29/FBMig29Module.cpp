@@ -63,6 +63,7 @@ void FBMig29Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitReg
     if (SystemWorking(FBSystemId::Radar)) Radar_.Run(SharedState, st, units, SimTimeS);
     else SharedState.Radar.H.Invalidate();
     Irst_.Run(SharedState, st, units, SimTimeS);
+    Visual_.Run(SharedState, st, units, SimTimeS);   /* the eyes, ungated: not a box this jet carries */
     AirData->Run(SharedState, st, dt);
     RadarAlt->Run(SharedState, (float)st.elev, GroundAslM);
     if (const FBWaypoint *swp = Plan_.ActiveWaypoint())
@@ -578,6 +579,22 @@ bool FBMig29Module::ApplySetup(const std::string &key, const std::string &value)
     if (chaff + flare > FBMig29Cmds::kMaxCombined)
       return RejectSetup("chaff + flare exceeds the 60-cartridge magazine", key, value);
     Cm_.SetLoadout(chaff, flare);
+    return true;
+  }
+  /* ---- The EYES: the same generic three keys the F-16 answers, unprefixed because they name a
+   * property of the pilot rather than a box of this aircraft (doc/missions/sensors.md). */
+  if (key == "visual") {
+    if (value != "on" && value != "off") return RejectSetup("want on|off", key, value);
+    Visual_.SetPowered(value == "on");
+    return true;
+  }
+  if (key == "visual_cone_az" || key == "visual_cone_el") {
+    char *end = nullptr;
+    double v = std::strtod(value.c_str(), &end);
+    if (end == value.c_str() || *end != '\0' || v <= 0.0 || v > 180.0)
+      return RejectSetup("want half-angle 0..180 deg", key, value);
+    if (key == "visual_cone_az") Visual_.SetCone(v, Visual_.Field().ElHalfDeg);
+    else Visual_.SetCone(Visual_.Field().AzHalfDeg, v);
     return true;
   }
   /* ---- The KOLS. */

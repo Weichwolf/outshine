@@ -12,6 +12,7 @@
 #include "FBMode.h"
 #include "FBRadarContact.h"
 #include "FBRwrThreat.h"
+#include "FBVisualContact.h"
 #include <cstdint>
 
 namespace FlightBox {
@@ -271,6 +272,21 @@ struct FBIrstBlock {
   bool LaserArmed = false;      /* the rangefinder is ON — the one ACTIVE thing this sensor can do */
   int  CloudMaskedCount = 0;    /* sources rejected this frame because a deck stood in the line of sight */
   FBIrstContact Contacts[kMaxIrstContacts]{};
+};
+
+/* ---- VISUAL: what the pilot's own eyes have. WRITER: sensors/FBVisualSystem.
+ * The austerity of the contact type (no id, no team, no range, no closure) is doc/sensors.md §9's whole
+ * argument; the block adds only what the CHANNEL as a whole measured. It is the one block whose writer
+ * READS another: FBEnvironmentBlock's sun angles decide whether an eye works at all and how badly it is
+ * dazzled — a documented cross-block read, not accidental coupling, and it is one-way.
+ * APPENDED LAST, same column rule as the IRST block above it. */
+struct FBVisualBlock {
+  FBBlockHeader H;
+  bool  Powered = false;
+  int   ContactCount = 0;
+  int   CloudMaskedCount = 0;   /* contacts rejected this frame by the cloud transmittance */
+  float GlareFactor = 1.0f;     /* the sun's contrast factor at the WORST-placed contact; 1 = no glare */
+  FBVisualContact Contacts[kMaxVisualContacts]{};
 };
 
 } // namespace FlightBox

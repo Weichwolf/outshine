@@ -240,7 +240,13 @@ Derivations, formulas and measured constants — the distilled body of this file
 ### The density function, in full
 
 Per deck, `FBCloudDensity(deck, eastM, northM, h)` where east/north are metres in the tangent plane of
-a fixed anchor and `h ∈ [0,1]` is the height fraction inside the deck. Separable, exactly as specified:
+a fixed anchor and `h ∈ [0,1]` is the height fraction inside the deck. **Which anchor is now carried by
+the sample** (`FBCloudSky::AnchorLatDeg/AnchorLonDeg`): `sensors/FBVisualSystem` marches this field along
+a line of sight, and anchoring per observer would nail the field to each aircraft. `FBMissionRunner`
+gives a whole cast the primary actor's spawn; the cloud STAGE keeps pinning its own ECEF anchor at the
+first camera frame, so picture and sensor share the field's statistics and every deck's geometry and
+differ in its PHASE — stated in [`../sensors.md`](../sensors.md) Gaps, not closed here, because closing
+it moves every committed cloud PNG. Separable, exactly as specified:
 
 ```
   x, y   = (east - driftE) / featureM , (north - driftN) / featureM     advection

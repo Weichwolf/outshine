@@ -31,6 +31,7 @@ struct FBState {
   /* APPENDED LAST — a new block's telemetry column is declared by its own system (see FBIrstBlock), so
    * appending here shifts nothing that was ever measured. */
   FBIrstBlock        Irst;
+  FBVisualBlock      Visual;
 };
 
 } // namespace FlightBox

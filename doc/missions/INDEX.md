@@ -64,7 +64,7 @@ build artefacts — copies, never sources.
 |---|---|
 | [syntax.md](syntax.md) | the line syntax, the two scopes, the keyword table, parse errors versus runtime FAIL, the data model, the tick order and the snapshot rule |
 | [verdict.md](verdict.md) | the two judges, the combination rule, when a waypoint counts as reached, combat objectives, the expected-loss rule, shoot-down as a mission verdict, the landing standstill rule |
-| [sensors.md](sensors.md) | the `set` keys and rules for datalink, FCR/IFF, RWR and countermeasures — scan volumes, net cycle, anonymity of a contact, the blind zone, the six CMDS programs |
+| [sensors.md](sensors.md) | the `set` keys and rules for datalink, FCR/IFF, RWR, the KOLS, countermeasures and the EYE — scan volumes, net cycle, anonymity of a contact, the blind zone, the six CMDS programs, and the three `visual*` keys with their nine columns |
 | [avionics.md](avionics.md) | three-state block validity, the command bus with its four outcomes and the rejection catalogue, and the `brief_*` lines the pilot enters in flight |
 | [weapons.md](weapons.md) | load-out, release, the gun, the store initial condition and life cycle, the guided round, ground targets, the air-to-ground attack and its measured error budget |
 | [combat.md](combat.md) | `set task bfm`, `set task intercept`, the engagement state machine, the `bfm_*`/`eng_*` columns, the sixteen `pilot_*` variant keys and the tournament runner |

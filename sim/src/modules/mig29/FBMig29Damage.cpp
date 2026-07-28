@@ -83,13 +83,14 @@ constexpr FBDamageZoneSpec kZones[] = {
     {FBDamageZone::Aft, -8.03, -1.63, kAftSystems, Count(kAftSystems)},
 };
 
-/* The two EXTENTS are the deck's geometry outright: half of <wingspan> 11.36 m from astern, half of the
- * documented 17.32 m length from the side. The two AREAS are the F-16's declared [SET] equivalents
+/* The three EXTENTS are the deck's geometry outright: half of <wingspan> 11.36 m from astern, half of
+ * the documented 17.32 m length from the side, and the length again from above (17.32 > 11.36). The two AREAS are the F-16's declared [SET] equivalents
  * scaled by ONE linear factor built from this aircraft's own two dimensions —
  * k = sqrt((11.36/9.14) * (17.32/14.60)) = 1.214, k^2 = 1.474 — so 4.0 -> 5.90 and 14.0 -> 20.64. One
  * formula, both areas, and it says only what it can: this airframe is ~21 % larger in linear size. */
 constexpr FBDamageLayout kLayout{kZones, Count(kZones), /*FrontalAreaM2*/ 5.90, /*LateralAreaM2*/ 20.64,
-                                 /*FrontalExtentM*/ 5.68, /*LateralExtentM*/ 8.66};
+                                 /*FrontalExtentM*/ 5.68, /*LateralExtentM*/ 8.66,
+                                 /*PlanExtentM*/ 8.66};
 } // namespace
 
 const FBDamageLayout &FBMig29DamageLayout() { return kLayout; }

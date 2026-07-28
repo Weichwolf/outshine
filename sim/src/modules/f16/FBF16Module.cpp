@@ -78,6 +78,10 @@ void FBF16Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegis
     Fcr_->SetRangeFactor(SystemDegraded(FBSystemId::Radar) ? kRadarRangeDegraded : 1.0);
     if (SystemWorking(FBSystemId::Radar)) Fcr_->Run(SharedState, st, units, SimTimeS);
     else SharedState.Radar.H.Invalidate();
+    /* THE EYES, on the sensor cadence and deliberately NOT health-gated: core/FBSystemHealth has ids
+     * for the boxes this aircraft carries, and a pilot's sight is not one of them. Its own look raster
+     * is absolute, so how often this module happens to cycle it changes nothing it reports. */
+    Visual_.Run(SharedState, st, units, SimTimeS);
     /* One throttle group so FireControl always reads Nav's SAME-tick output; `st` is the FDM state as
      * of the END of the previous Run(), the one-tick lag every Sensor-cadence write has. */
     if (SystemWorking(FBSystemId::AirData)) AirData->Run(SharedState, st, dt);
@@ -540,6 +544,21 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
   }
   /* The one mission-declarable way to make a source block INVALID, which is what a consumer's handling
    * of that state can be measured against. */
+  /* THE EYES. Generic properties of a pilot, not of a box this airframe carries — so the keys carry no
+   * airframe prefix and the MiG answers the identical three (doc/missions/sensors.md). */
+  if (key == "visual") {
+    if (value != "on" && value != "off") return false;
+    Visual_.SetPowered(value == "on");
+    return true;
+  }
+  if (key == "visual_cone_az" || key == "visual_cone_el") {
+    char *end = nullptr;
+    double v = std::strtod(value.c_str(), &end);
+    if (end == value.c_str() || *end != '\0' || v <= 0.0 || v > 180.0) return false;
+    if (key == "visual_cone_az") Visual_.SetCone(v, Visual_.Field().ElHalfDeg);
+    else Visual_.SetCone(Visual_.Field().AzHalfDeg, v);
+    return true;
+  }
   if (key == "radalt") {
     if (value != "on" && value != "off") return RejectSetup("want on|off", key, value);
     RadarAlt->SetPowered(value == "on");

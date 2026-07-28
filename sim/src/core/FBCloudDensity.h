@@ -85,6 +85,14 @@ struct FBCloudDeckParams {
 struct FBCloudSky {
   FBCloudDeckParams Deck[3];            /* 0 = low, 1 = mid, 2 = high (cirrus) */
   float VisibilityM = 100000.0f;        /* surface visibility -> the haze the far field dissolves into */
+  /* WHERE the horizontal field's origin sits. The density function's east/north are tangent-plane
+   * metres from a point, and WHICH point decides where the holes are: anchoring at the observer would
+   * nail the field to the aircraft (it could never fly out from under a hole), and anchoring each
+   * observer at its own position would let two aircraft disagree about one sky. So the anchor travels
+   * WITH the sample, and whoever resolves the weather for a whole cast gives them all the same one.
+   * doc/render/clouds.md. The renderer pins its own ECEF anchor at the first frame and ignores this
+   * pair — a stated phase offset between picture and sensor, not a second field. */
+  double AnchorLatDeg = 0.0, AnchorLonDeg = 0.0;
   bool Any(void) const { return Deck[0].Cover > 0.0f || Deck[1].Cover > 0.0f || Deck[2].Cover > 0.0f; }
 };
 
@@ -341,9 +349,12 @@ constexpr double kCloudHighWindSampleM = 10800.0;   /* [SET] ~250 hPa geopotenti
  * At the wrap below the finest octave sits near 2e3, where an ulp is 1e-4 of a cell. */
 constexpr double kCloudDriftWrapM = 4.0e6;   /* [SET] ~2 days of drift at 20 m/s */
 
-/* Builds the three decks for one point and one instant. `timeS` drives the advection only. */
+/* Builds the three decks for one point and one instant. `timeS` drives the advection only; the DECKS
+ * are sampled at (latDeg,lonDeg) while the horizontal FIELD is measured from (anchorLat,anchorLon) —
+ * see FBCloudSky::AnchorLatDeg. The three-argument overload below anchors at the sample point, which is
+ * what a single-observer caller (the renderer) wants. */
 inline FBCloudSky FBCloudSkyFromWeather(const FBWeatherProvider &wx, double latDeg, double lonDeg,
-                                        double timeS) {
+                                        double timeS, double anchorLatDeg, double anchorLonDeg) {
   const FBCloudLayers L = wx.CloudLayers(latDeg, lonDeg);
   const float cover[3] = {(float)(L.LowPct * 0.01), (float)(L.MidPct * 0.01), (float)(L.HighPct * 0.01)};
   const float defBase[3] = {kCloudLowDefaultBaseM, kCloudMidDefaultBaseM, kCloudHighDefaultBaseM};
@@ -400,7 +411,14 @@ inline FBCloudSky FBCloudSkyFromWeather(const FBWeatherProvider &wx, double latD
     else { d.WindDirE = 1.0f; d.WindDirN = 0.0f; }   /* calm: no preferred axis, stretch reads as arbitrary */
     FBCloudCalibrate(d);
   }
+  sky.AnchorLatDeg = anchorLatDeg;
+  sky.AnchorLonDeg = anchorLonDeg;
   return sky;
+}
+
+inline FBCloudSky FBCloudSkyFromWeather(const FBWeatherProvider &wx, double latDeg, double lonDeg,
+                                        double timeS) {
+  return FBCloudSkyFromWeather(wx, latDeg, lonDeg, timeS, latDeg, lonDeg);
 }
 
 } // namespace FlightBox
