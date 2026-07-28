@@ -113,18 +113,18 @@ it.
 | **AAA / short-range and man-portable air defence** | 6 | **no — specified** | the reason for every altitude decision in W2, W3, W4, O3, O5, W1. Rows `zsu23` `zu23` `sa7` `sa18` |
 | **SAM battery, fixed (SA-2 / SA-3 class)** | 5 | **no — specified** | W3, W4, O1, O3, O5. Rows `sa2` `sa3` |
 | **SAM battery, mobile (SA-6 / SA-8 class)** | 5 | **no — specified** | W3, W4, O1, O3 — and in O3 it is **ours**, which the design must allow (it does: a site declares its own `team` like any unit). Rows `sa6` `sa8`; mobility is expressed in TIME (`set scoot_s`), not in space — `C14` stays open |
-| **AEW aircraft (E-3 / E-2C class)** | 4 | **no** | W1, W3, W4, O1 |
-| **F-15 class** | 4 | **no** | escort in W2/W3, opposition in O1/O5 — the aircraft that historically shot down every MiG in O5's two anchors |
-| **Period Soviet types (MiG-21 / MiG-23 / MiG-25 / MiG-17 / Su-7 / Su-20)** | 3 | **no** | W3, O1, O3 — one module family would serve all three |
-| **Tanker (KC-135 class) + a boom** | 3 | **no** | W1, W3, W4 |
+| **AEW aircraft (E-3 / E-2C class)** | 4 | **no — specified** | W1, W3, W4, O1. Rows `e3` `e2c` in [`../modules/air/catalogue.md`](../modules/air/catalogue.md). **The most dangerous row in that catalogue**: it sees 400 km and tells somebody, so the ground net's rule applies verbatim — *the cue moves an antenna, it never creates a track* — and its one price is a second comms slot on the receiving fighter ([`../modules/air/module.md`](../modules/air/module.md) §Spec 7) |
+| **F-15 class** | 4 | **no — specified** | escort in W2/W3, opposition in O1/O5 — the aircraft that historically shot down every MiG in O5's two anchors. Row `f15c`, tier **T4** (the full pilot machine), and its engine is the **same F100 one dash number** from the deck the tree already pins |
+| **Period Soviet types (MiG-21 / MiG-23 / MiG-25 / MiG-17 / Su-7 / Su-20)** | 3 | **no — specified** | W3, O1, O3 (+W2). **Five rows on one class**, not one module family: `mig21` `mig23` `mig25` `mig17` `su7` `su22` — and their differences are exactly the five decisive quantities (the MiG-21's sourced ±30°×±10° radar field is a quarter of an F-16's sky; the MiG-25's sourced **+4.5 g** limit means it loses every turning fight it enters) |
+| **Tanker (KC-135 class) + a boom** | 3 | **no — specified, minus the boom** | W1, W3, W4. Row `kc135`, a kinematic mover with no weapon — **and `C5` is untouched, so it cannot give fuel.** It is also O1's Boeing 707 ECM aircraft for free: same airframe family, `set jam_comm_m` (`C24`), **zero new rows** |
 | **Cruise missile / one-way vehicle** | 3 | **no** | W3, O5, O2 — already on the roadmap as R7 |
 | **Runway / airfield as a STATEFUL, closable object** | 3 | **no** | W1, W3, O5 |
-| **Large subject aircraft (bomber, ELINT, transport)** | 2 | **no** | W5, O2 — the actual subject of a real intercept, and a completely different intercept geometry from a fighter |
+| **Large subject aircraft (bomber, ELINT, transport)** | 2 | **no — specified** | W5, O2 — the actual subject of a real intercept, and a completely different intercept geometry from a fighter. Rows `tu95` `an26`; the Il-20 ELINT maps onto `an26` because an ELINT aircraft **receives** and FlightBox has no ESM emission to model. Their decisive quantity is their **span** against the eye's resolution law (a Tu-95 is recognised at ~7× a MiG-21's range, [DERIVED]) — and the eye is the one sensor whose per-row input the catalogue sources completely |
 | **Anti-radiation shooter (F-4G / F-16CJ with HARM)** | 2 | **module yes, weapon no** | W3, W4 |
-| **Jammer aircraft (EF-111 / Boeing 707 class)** | 2 | **no — but no longer needs an airframe** | W3, O1 — in O1 it is the **decisive** mechanism of the whole battle. `C24` makes comms jamming a published **scalar on any unit** (`set jam_comm_m`), so an F-16 stands in for the 707 without `C7`; the radar-jamming half still has no representation |
+| **Jammer aircraft (EF-111 / Boeing 707 class)** | 2 | **no — specified, and it never needed an airframe** | W3, O1 — in O1 it is the **decisive** mechanism of the whole battle. `C24` makes comms jamming a published **scalar on any unit** (`set jam_comm_m`), so an F-16 stands in for the 707 without `C7`; the radar-jamming half still has no representation. Row `ef111` exists only because its **flight profile** differs in kind (supersonic, swing-wing, at strike speed), which is precisely what a mover row carries |
 | **Moving ground column** | 2 | **no** | W4, O3 |
 | **Ships** | 2 | **no** | W5, W3 |
-| **Helicopter (Mi-8 / AH-64 class)** | 2 | **no** | W3, O3 |
+| **Helicopter (Mi-8 / AH-64 class)** | 2 | **no — specified** | W3, O3. Rows `mi8` `ah64`, movers (a rotorcraft is outside the deck recipe's fixed-wing set entirely). **The one thing they do that decides is free**: at 240 km/h = 66.7 m/s their radial rate sits inside the Doppler notch of every radar in the tree at any aspect but nearly head-on, so a helicopter is a visual and infrared target and not a radar one, without a line written for it |
 | **Radar decoy (ground, emitting, not lethal)** | 1 | **no — specified** | W4 — named by the anchor as a decisive Serbian measure. Costs one catalogue row: the `p18` row with `rounds 0` and a small range gate ([`../modules/ground/cast.md`](../modules/ground/cast.md)) |
 | **RPV / expendable decoy air vehicle** | 1 | **no** | O1 — the operation's opening move |
 
@@ -132,6 +132,16 @@ it.
 exist — the next four rows are the same thing four times: **something on the ground that emits and
 shoots.** Nothing else in the list appears in more than five campaigns. The unit build order is
 therefore not a list of aircraft; it is one system.
+
+**And the rows below them are the same thing eighteen times.** `C7` was specified on 2026-07-28 the way
+`C1` was: **not** as a list of airframe projects but as **one parametric class with eighteen catalogue
+rows** ([`../modules/air/`](../modules/air/INDEX.md)). Ten rows fly a JSBSim deck generated from one
+recipe against eight published anchors; eight move kinematically, because their manoeuvre decides
+nothing and their drag polar was never published. The pilot is staffled in five tiers rather than built
+once. **What that does NOT do is make the opponents equal** — a generated deck carries the linear
+aerodynamic range and stops at the α limiter, so a catalogue fighter is most faithful in the BVR arena
+and least faithful in a knife fight, which is the same staggered scale
+[`../vision.md`](../vision.md) already declares, one level down.
 
 ---
 
@@ -163,11 +173,22 @@ has to die first. It gives `C8` a home and books `C25`/`C26`/`C27`. **Spec only,
 its own headline is that the air gains a weapon which needs no sight, not sight: after it, a position is
 still *heard* and not *seen*.
 
+**The cast in the air.** Those three files together give the ground half of every campaign a threat, a
+net and a way to be beaten down. The other half of every cast table is aircraft, and it is
+[`../modules/air/`](../modules/air/INDEX.md), specified 2026-07-28: the third level below the module
+(one parametric class, eighteen catalogue rows), the two-part test that decides whether a row flies on
+JSBSim, the recipe that generates the decks that do, five pilot tiers instead of one, and — the sharpest
+line in it — **the early-warning aircraft**, which is where a perception boundary falls by accident and
+where `../air-defence-network.md`'s rule (*the cue moves an antenna, it never creates a track*) has to
+carry with the sender airborne. It gives `C7` a home. **Spec only, nothing built**, and its own headline
+is that presence is not parity: it also carries the acceptance test that says when a campaign result is
+publishable at all.
+
 | ID | Gap | Blocks | Degrades | Verdict |
 |---|---|---:|---:|---|
 | ~~`C1`~~ | **CLOSED 2026-07-28.** Nine air-defence positions, one class, one catalogue: `modules/ground/FBSiteModule` + `core/FBSite.h`. They find with a rotating acquisition set, track with a second antenna that radiates AT THE SAME TIME (`FBUnitSignature` now carries two beams), gate on the four envelope numbers plus the round's own endurance, wait out a sourced reaction time and fire a doctrinal SALVO out of a finite MAGAZINE that has to be reloaded — through the fire-control state machine on the command bus, never a scripted release. `emcon hold` comes up on the position's own passive receiver, `scoot_s` puts it dark again. Eight proof missions, `sam-*.fbm`. Home: [`../modules/ground/`](../modules/ground/INDEX.md). **The layer above it is `C22`** ([`../air-defence-network.md`](../air-defence-network.md)) | — | — | six campaigns get their threat; what they still do NOT get is a way to shoot FIRST — **now specified** as `C8`/`C25`/`C26`/`C27` in [`../air-to-ground.md`](../air-to-ground.md) and still unbuilt — and no pilot reaction to a SAM (`C1`'s own G11) |
 | ~~`C12`~~ | **CLOSED 2026-07-28.** The vocabulary is eight kinds: `identify`, `protect`, `no_fire` and `deny release` are built beside the original four — [`../missions/verdict.md`](../missions/verdict.md), grammar in [`../missions/syntax.md`](../missions/syntax.md). What stays refused (a general `deny`, `escort`, time windows, target value) is listed there with a reason each | — | — | W5/O2 can now declare the identification pass and the weapons hold, O5 the denial. O5's timing half remains a telemetry read, as its own spec says |
-| `C7` | **Only two flyable modules.** Every other aircraft in every cast list is absent | **1** (O3's period force) | 9 | blocks nothing outright because substitutions exist — but every substitution changes the answer, and each is declared in its mission header |
+| `C7` | **SPECIFIED 2026-07-28, not built.** Only two flyable modules today; every other aircraft in every cast list is absent. The contract is **one parametric class with eighteen catalogue rows** — `modules/air/FBAirModule` + `core/FBAircraft.h` — home [`../modules/air/`](../modules/air/INDEX.md). **The central decision:** a row flies on a GENERATED JSBSim deck iff *(its own manoeuvre decides an outcome)* ∧ *(its envelope is published)* — ten fighters get one, eight large or rotary aircraft get a kinematic mover, and the test never splits a row because fighter data IS envelope data. The deck comes from ONE recipe against eight anchors with a closed-form drag inversion, and its acceptance bands are **derived from the MiG-29 deck's own measured misses** rather than chosen. Pilot is **staffled in five tiers**, and a tier is a declared task set plus the hooks a row's own MEASURED deck supplies. Cost to the rest of the tree: 7 store rows, 7 generated missile decks, 6 gun rows, 2 `set` keys, 1 sensor derivation — and **zero** new seeker kinds, emitter kinds or health ids | **1** (O3's period force) | 9 | blocks nothing outright because substitutions exist — but every substitution changes the answer, and each is declared in its mission header. **What the spec adds beyond presence:** an acceptance test that separates *"he lost as a MiG-21"* from *"he lost as a coarse deck"* (`band_deck ≤ 0.25 × band_doctrine` on the tournament instrument [`../duels.md`](../duels.md) already runs), so a campaign result is publishable or explicitly is not. **It stays open until every row is measured against its own bands** |
 | ~~`C2`~~ | **CLOSED 2026-07-28.** `time <ISO8601 Z>` is mission data, the clock binds all three clients, `FBEphemeris` sits in `core/` and `fb-gym` publishes `FBEnvironmentBlock` — [`../missions/syntax.md`](../missions/syntax.md), [`../clients/clients.md`](../clients/clients.md) | — | — | a night mission can now say so |
 | `C6` | **No live controller.** GCI is `set brief_gci`, static text fixed before the run: nothing re-vectors, nothing goes silent mid-intercept, nothing is wrong *halfway through*. **Its GROUND half is specified in [`../air-defence-network.md`](../air-defence-network.md)** — a node that can be killed, jammed or fall out of range mid-run; the AIRBORNE half (a jet subscribing to a controller) is untouched and is that file's §2 design B | **1** (O2's subject) | 6 | the difference between "blind" and **"confidently blind"** — see [`o1-bekaa-1982.md`](o1-bekaa-1982.md) §Knowledge 4, the cheapest addition that would raise O1 from a stand-in to the real experiment |
 | `C9` | **The MiG-29 module cannot fly `set task attack`** — no CCIP/CCRP block, because the real aircraft's unguided delivery is a *director*, not a release cue | **1** (all of O3) | 2 | **the only gap that zeroes an entire campaign** |

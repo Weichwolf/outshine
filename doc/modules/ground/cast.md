@@ -5,6 +5,18 @@ resolution the campaigns actually decide with, and no deeper. The source is the 
 [`../../campaigns/INDEX.md`](../../campaigns/INDEX.md); the number in the *Camp.* column is how many of
 the ten campaigns need the type.
 
+**Home migration, 2026-07-28 — the AIR rows moved out.** Everything below under *"Air — the 'no' rows"*
+and *"Air — the 'yes' rows"* is superseded by [`../air/`](../air/INDEX.md), which specifies `C7` as one
+parametric class with eighteen sourced catalogue rows. Three things this file said were **kept and
+sharpened** there: the dividing question (*does it have to react to what the player does?* → the
+two-part test *manoeuvre decides ∧ envelope published*), the kinematic mover (design A, adopted for
+eight of the eighteen rows), and the refusal to give every type a cheap JSBSim deck (design B, rejected
+there for the same reason and for a second one — six rows publish nothing a drag polar can be inverted
+from). **One thing is corrected:** design A proposed `FBUnitKind::Vehicle` for a mover. That value stays
+a GROUND concept — an AIRBORNE mover must remain `FBUnitKind::Aircraft` or no radar in the tree can see
+it, so **the mover is a motion property and not a kind**. The Sea and Ground sections below stand
+unchanged.
+
 **This file is deliberately shallow.** [`catalogue.md`](catalogue.md) carries manual-grade depth for the
 nine ground threat rows because those decide six campaigns' central question. Nothing here decides more
 than a mission's shape, so nothing here gets more than four quantities. **A row that a campaign later
@@ -116,4 +128,5 @@ one catalogue row.
 |---|---|
 | [`module.md`](module.md) | the class every "no" row is a catalogue entry of |
 | [`catalogue.md`](catalogue.md) | the nine rows that got manual-grade depth, and why |
+| [`../air/`](../air/INDEX.md) | **where the air rows went.** `C7` as one class with eighteen rows: the two-part flight-model test, the deck recipe, the five pilot tiers, the early-warning boundary and the attribution test |
 | [`../../campaigns/INDEX.md`](../../campaigns/INDEX.md) | the aggregated cast table this file is the answer to, and the gap ids (`C5`, `C7`, `C8`, `C13`, `C14`, `C17`) each row hangs on |
