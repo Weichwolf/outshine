@@ -98,6 +98,7 @@ The `.fbm` format and the runtime that consumes it. Entry point: [missions/INDEX
 | [missions/weather.md](missions/weather.md) | the `wx` line, the three providers, the precedence rule, the measured crosswind and release cases |
 | [missions/output.md](missions/output.md) | the files per run, damage events, unit attribution, `UNIT_RESULT`, the example-mission catalogue |
 | [missions/runtime.md](missions/runtime.md) | `FBUnit`/`FBSimUnit`/`FBUnitRegistry`, the snapshot barrier, the four-step orchestrator, multi-unit incl. thread pool and scaling numbers, detonation and impact resolution |
+| [missions/campaign.md](missions/campaign.md) | the **campaign layer** (`C0`, spec only): `.fbc`, the three carried facts, the overlay rule, the campaign fingerprint |
 
 ## Modules — `modules/`
 

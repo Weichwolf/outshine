@@ -270,6 +270,48 @@ unchanged), `missions/mig29-irst.fbm` (aspect, laser range, and a target hidden 
 **All four end in TIMEOUT (exit 3) by construction** — they are measurement rigs, not tasks, and each
 file's header states its own reading rule.
 
+### Visual acquisition (`C3`) — **specified, nothing built**
+
+The eye as a passive sensor channel beside radar / IRST / RWR / datalink. The model, its thresholds and
+their sources are in [`../sensors.md`](../sensors.md) §9; here only the mission author's view.
+
+**What a mission can declare:**
+
+| `set` key | Values | Effect |
+|---|---|---|
+| `visual` | `on`/`off` | the channel. Default **on** — a pilot has eyes — but nothing consumes the block yet, so no trajectory moves. `off` is the control run of every C3 experiment |
+| `visual_cone_az` / `visual_cone_el` | degrees | the field of regard, for measuring rigs only. Defaults `[SET]` ±60 / ±40 |
+
+**What a mission deliberately CANNOT declare, and why:**
+
+| Not declarable | Reason |
+|---|---|
+| acuity, the detection threshold, the recognition multiple | they are model constants with provenance (`[T3]`/`[T4]`/Johnson), not scenario data. A mission able to dial the eye's reach could declare its own answer to the question it is supposed to measure |
+| the range at which a type becomes known | same reason, and see [`../sensors.md`](../sensors.md) §9.7, where that design is named and rejected |
+| a target's "visibility" or a paint scheme | there is no albedo model; the inherent contrast is the two-value look-up/look-down setting and nothing else |
+
+**What becomes observable.** `events.log`: `vis CONTACT` / `RECOGNISED` / `IDENTIFIED` / `DROP`, each
+carrying the two numbers the decision was made on (`sizeMrad`, `contrast`), plus `vis MASKED` with the
+transmittance that rejected the look. `telemetry.csv`, appended at the END of the row:
+
+| Column | Meaning |
+|---|---|
+| `blk_vis` | block validity — `Invalid` when the channel is off, `Held` between frames |
+| `vis_on`, `vis_contacts` | power, firm contacts |
+| `vis_best_mrad`, `vis_best_az`, `vis_best_el` | the largest contact's angular size and its ANGLES. **No range column exists** — there is no path that could fill one |
+| `vis_best_state` | 0 none / 1 detected / 2 recognised / 3 identified |
+| `vis_masked` | contacts rejected this frame by cloud transmittance |
+| `vis_glare` | the current sun-glare contrast factor (1.0 = no glare) |
+
+**Two scenario dependencies a mission author must know:**
+
+1. **It needs a `time` line** ([`syntax.md`](syntax.md), gap `C2`) or it runs under the client's clock,
+   and the sun elevation is what decides whether the channel works at all. A C3 mission without a `time`
+   line is not a measurement.
+2. **At night it contributes nothing** and that is the model, not a bug: there is no aircraft-lighting
+   model. A night identification mission (`w5-09`, `w5-10`, every O5 mission) therefore measures a merge
+   without eyes, and its header comment must say so.
+
 ### The IRST telemetry columns
 
 | Column | Meaning |
@@ -298,6 +340,7 @@ They are appended at the END of the row (`blk_irst` declared by the IRST system 
 | SPO-15 (MiG-29) | built; ±30° elevation, channel-centre bearings, forward blanking by the own radar |
 | IRST / KOLS | built as a NEW generic slot (`sensors/FBIrstSystem`) + the MiG derivation; aspect law, 6 km laser, cloud masking, eleven telemetry columns |
 | GCI | built as `set brief_gci` + typed command-bus entries; **no** track picture and **no** block of its own |
+| Visual acquisition (`C3`) | **nothing built.** Contract above and in [`../sensors.md`](../sensors.md) §9 |
 
 ## Gaps
 
@@ -311,6 +354,7 @@ They are appended at the END of the row (`blk_irst` declared by the IRST system 
 | The IRST is not damage-gated | `core/FBSystemHealth` has no id for an optical station; adding one moves the `dmg_*` columns and waits for the twin-engine health change |
 | The MiG-29 has no dispensers yet | BVP-30-26 is stage 2c, and its programme parameters are a documented source gap |
 | GCI is one-way and unverified | the controller is always right, always heard, and never asked for a repeat; the pilot can type it late but not wrong |
+| **`C3` — no eye at all** | every real identification ends in a visual pass; eight of W5's ten missions and four of O2's measure the *approach* to an identification instead. Contract above |
 
 ## Knowledge
 

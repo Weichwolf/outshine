@@ -140,19 +140,24 @@ therefore not a list of aircraft; it is one system.
 The shared catalogue used by all ten files. Ordered by **blocking degree**: first how many campaigns
 it *blocks* (a mission cannot run or cannot be read), then how many it *degrades*.
 
+**Home files.** Five of these now have one, written in the foundation round (2026-07-28) — the gap is
+still open, but the *contract* it must satisfy exists and is linked in the table below. `C2`, `C3`,
+`C12` and `C0` carry a full spec; `C1` carries a bounded gap entry only, because it is step 2 of the
+owner goal and gets its own round.
+
 | ID | Gap | Blocks | Degrades | Verdict |
 |---|---|---:|---:|---|
-| `C1` | **No active surface-to-air threat.** Ground units are inert: nothing emits, nothing launches, nothing shoots. `target_soft`/`target_hard` have only a structure state | **6** | 3 | **the single most blocking gap in the set.** Six campaigns lose named missions; every campaign loses the *reason* for its altitude and route decisions |
-| `C12` | **The objective vocabulary is four kinds** (`survive`, `waypoints`, `kill unit`, `kill team`). No *identify*, *escort*, *protect*, *deny*, no time window, no *do-not-fire* | **5** | 3 | W5, O2 and O5 cannot state what they measured. O5's entire success condition is "something did not happen" |
+| `C1` | **No active surface-to-air threat.** Ground units are inert: nothing emits, nothing launches, nothing shoots. `target_soft`/`target_hard` have only a structure state — **home: [`../weapons.md`](../weapons.md) Gaps, as a bounded gap entry** | **6** | 3 | **the single most blocking gap in the set.** Six campaigns lose named missions; every campaign loses the *reason* for its altitude and route decisions |
+| `C12` | **The objective vocabulary is four kinds** (`survive`, `waypoints`, `kill unit`, `kill team`). No *identify*, *escort*, *protect*, *deny*, no time window, no *do-not-fire* — **specified: [`../missions/verdict.md`](../missions/verdict.md)** (`identify`, `protect`, `no_fire`, `deny release`; grammar in [`../missions/syntax.md`](../missions/syntax.md)) | **5** | 3 | W5, O2 and O5 cannot state what they measured. O5's entire success condition is "something did not happen" |
 | `C7` | **Only two flyable modules.** Every other aircraft in every cast list is absent | **1** (O3's period force) | 9 | blocks nothing outright because substitutions exist — but every substitution changes the answer, and each is declared in its mission header |
-| `C2` | **No time of day or date in mission data.** `.fbm` has no clock; the renderer's ephemeris is a client-side switch | 0 | **10** | 30+ missions across the set are night missions and not one can say so. Cheap to add, and it mislabels more artefacts than any other gap |
+| `C2` | **No time of day or date in mission data.** `.fbm` has no clock; the renderer's ephemeris is a client-side switch — **specified: [`../missions/syntax.md`](../missions/syntax.md)** (`time <ISO8601 Z>`, per-client precedence in [`../clients/clients.md`](../clients/clients.md)) | 0 | **10** | 30+ missions across the set are night missions and not one can say so. Cheap to add, and it mislabels more artefacts than any other gap |
 | `C6` | **No live controller.** GCI is `set brief_gci`, static text fixed before the run: nothing re-vectors, nothing goes silent mid-intercept, nothing is wrong *halfway through* | **1** (O2's subject) | 6 | the difference between "blind" and **"confidently blind"** — see [`o1-bekaa-1982.md`](o1-bekaa-1982.md) §Knowledge 4, the cheapest addition that would raise O1 from a stand-in to the real experiment |
 | `C9` | **The MiG-29 module cannot fly `set task attack`** — no CCIP/CCRP block, because the real aircraft's unguided delivery is a *director*, not a release cue | **1** (all of O3) | 2 | **the only gap that zeroes an entire campaign** |
 | `C5` | **No aerial refuelling, no external fuel tank in the store catalogue** | **1** (W2's subject) | 3 | W2's defining constraint is exactly the thing that cannot be expressed |
-| `C3` | **No visual acquisition.** The sensor set is radar, IRST, RWR, datalink — there is no eye | **2** (W5, O2's visual pass) | 4 | every real identification ends in a visual pass, and every merge in the set is more sensor-driven than the thing it models |
+| `C3` | **No visual acquisition.** The sensor set is radar, IRST, RWR, datalink — there is no eye — **specified: [`../sensors.md`](../sensors.md) §9** (`FBVisualSystem`, the sixth registry reader, with its price; mission switches in [`../missions/sensors.md`](../missions/sensors.md)) | **2** (W5, O2's visual pass) | 4 | every real identification ends in a visual pass, and every merge in the set is more sensor-driven than the thing it models. **Recognition is a resolution test (Johnson N50), never a type table — which is what keeps `w5-03`/`o2-08` valid after it lands** |
 | `C8` | **Store catalogue is Mk-82 / AIM-120 / AIM-9 / R-73 / R-27R.** No HARM, no LGB, no Mk-84, no cluster, no rocket pod, no FAB-class bomb | **2** (W3/W4 SEAD, O3 stores) | 2 | there is no such thing as a suppression element in the tree |
 | `C15` | **No package coordination** — no time-on-target, no deconfliction, no lead tasking; formation is combat spread only, no rejoin | 0 | **7** | the *definition* of a package, and every large-force mission is affected |
-| `C0` | **No campaign layer.** Ten `.fbm` files are ten unrelated runs: nothing carries losses, damage, stores, fuel or a destroyed target from one mission to the next | 0 | **10** | the campaigns are not campaigns yet. Roadmap R9 is the nearest home for it |
+| `C0` | **No campaign layer.** Ten `.fbm` files are ten unrelated runs: nothing carries losses, damage, stores, fuel or a destroyed target from one mission to the next — **specified: [`../missions/campaign.md`](../missions/campaign.md)** (`.fbc`, three carried facts, the campaign fingerprint) | 0 | **10** | the campaigns are not campaigns yet. **Damage and fuel are refused with a reason, not deferred**; a campaign attrites the named cast and does not manage a force |
 | `C4` | **No terrain masking.** The hook (`const FBWorld*`) reaches every sensor slot; the computation does not exist | 0 | 5 | already named as next in [`../roadmap.md`](../roadmap.md) R6. W4 and O1 are its acceptance tests |
 | `C14` | **No moving ground units and no ships** | 0 | 4 | W4's armour hunt, O3's column, W5's Baltic |
 | `C18` | **No radio between units.** Only the datalink PPLI and typed GCI entries | 0 | 4 | Package Q's third failure mode was a radio net collapsing under 80 % of the calls; there is no such net to collapse |
@@ -164,6 +169,19 @@ it *blocks* (a mission cannot run or cannot be read), then how many it *degrades
 | `C20` | **No terrain-following guidance.** `Direct` holds an ASL altitude, so a 30 m AGL ingress over varying terrain is not flyable | **1** (W2-02) | 1 | |
 | `C11` | **No strafing** — gun bundles are not resolved against ground targets | 0 | 2 | |
 | `C21` | **No declarable initial damage** — a jet can be switched off, not broken | 0 | 2 | |
+
+### The foundation round (2026-07-28) — what it decided
+
+Step 1 of the owner goal was a **spec round, no code**: the contracts for `C2`, `C3`, `C12` and `C0`
+were written into the files that own them, and `C1` was given a home with a boundary. The decisions
+worth knowing before reading them:
+
+| Contract | The decision |
+|---|---|
+| `C2` | **Zulu only, and the default is *no clock at all*.** The absent-value case touches no channel, which is what makes the 84 existing missions byte-identical by construction rather than by hope. A client flag that contradicts a `time` line is a **boot error**, not a precedence |
+| `C3` | **Recognition is a resolution test, not a lookup.** One quantity (presented extent over range) with Johnson N50 multiples for detect/recognise/identify; the type name is the module registry key, so two MiG-29s on opposite teams produce the identical string, and the anti-cheat pair survives |
+| `C12` | four kinds — `identify`, `protect`, `no_fire`, `deny release` — costing **one monotone bit and one float** on the roster. `identify` measures the **geometry**, not a sensor event, because the judge measures what the aircraft DID and never what it knew. A general `deny` and `escort` are refused, each with a reason |
+| `C0` | a campaign carries **three** facts (units, ground targets, stores) and refuses the rest by a three-part test. The overlay may delete a line, never add one. Determinism is proven twice: one fingerprint over 9 runs, and each step re-runnable **standalone** |
 
 ### The four things to build first, and why in this order
 

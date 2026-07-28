@@ -5,6 +5,22 @@ What was researched, what was written, and what was identified but **not read**.
 **Run 1 — 2026-07-28.** Directory created; all ten campaign specs plus [`INDEX.md`](INDEX.md)
 written. Nothing under `sim/` touched. One line added to `../INDEX.md`.
 
+**Run 2 — 2026-07-28, the foundation round (step 1 of the owner goal).** Spec only, no code, nothing
+under `sim/` touched. Four contracts written into the files that own them, and the fifth gap given a
+home:
+
+| Gap | Home file | What landed |
+|---|---|---|
+| `C2` | [`../missions/syntax.md`](../missions/syntax.md) + [`../clients/clients.md`](../clients/clients.md) | the `time` line: Zulu-only ISO-8601, `HaveTime=false` as the default, per-client precedence with the flag collision as a boot error, the consumer list, the `FBEphemeris` layer move, and what it explicitly does not do |
+| `C3` | [`../sensors.md`](../sensors.md) §9 + [`../missions/sensors.md`](../missions/sensors.md) | `FBVisualSystem` as the sixth registry reader with its five-currency price; angular-size/aspect/contrast model with public sources; sun, glare (Stiles–Holladay) and a cloud **transmittance march**; Johnson-N50 recognition; the eight things not modelled; the `set` keys and columns |
+| `C12` | [`../missions/verdict.md`](../missions/verdict.md) + [`../missions/syntax.md`](../missions/syntax.md) | `identify` / `protect` / `no_fire` / `deny release`, their roster cost, the rejected `identify` design, four candidates refused with reasons, and the five-part conservation argument |
+| `C0` | [`../missions/campaign.md`](../missions/campaign.md) **(new file)** | `.fbc`, the three carried facts and the test that rejects the rest, the overlay rule, the campaign fingerprint and the standalone-replay criterion |
+| `C1` | [`../weapons.md`](../weapons.md) Gaps | **gap entry only, with an explicit boundary** — five open questions named and deliberately left to step 2 |
+
+Also updated: the gap table in [`INDEX.md`](INDEX.md) now links every one of the five to its home, and a
+"foundation round" subsection records the four decisions. One line added to `../INDEX.md`,
+`../missions/INDEX.md` and the loader skill.
+
 ---
 
 ## Campaign coverage
@@ -71,9 +87,15 @@ Named here so that nobody later mistakes one for a fact:
 
 Nothing in this directory needs re-writing. The next work is **outside** it:
 
-1. Build the four one-line experiments named in [`INDEX.md`](INDEX.md) — `o1-01/02`, `w3-07/08`,
+1. **Build the four foundation contracts**, in the order their dependencies allow: `C2` (nothing depends
+   on it, everything else does) → `C12` (self-contained) → `C3` (needs `C2`'s clock in the gym) → `C0`
+   (needs nothing, but is worth least until there are campaigns to run).
+2. Build the four one-line experiments named in [`INDEX.md`](INDEX.md) — `o1-01/02`, `w3-07/08`,
    `w4-01/02`, `w5-02/03`. They need nothing that does not exist, and three of them answer questions
    the tree has been circling for rounds.
-2. Read the two CIA reading-room documents and re-tier O2's §Knowledge 1.
-3. Open a gap entry for `C1` in whichever topic file will own an emitting, shooting ground unit —
-   `doc/weapons.md` or a new one. It is the top of the build order and it currently has no home file.
+3. `C1` — step 2 of the owner goal. Its round begins by changing the Spec of
+   [`../weapons.md`](../weapons.md), whose Gaps now carries the bounded entry and the five open
+   questions.
+4. Read the two CIA reading-room documents and re-tier O2's §Knowledge 1.
+
+~~3. Open a gap entry for `C1`…~~ — **done in run 2**, in [`../weapons.md`](../weapons.md).

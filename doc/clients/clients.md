@@ -16,6 +16,7 @@ Nothing about the physics or the verdict may depend on which client is running.
 | Contract | Acceptance / measurement anchor |
 |---|---|
 | The simulation is identical across clients | same mission, same result; the renderer is a bolt-on, never a dependency of the physics or the termination logic |
+| **A mission-declared clock binds all three clients** (`C2`, specified, not built) | one `time` line, one instant, one sun angle in gym / native / wasm; a client flag that contradicts it is a boot error, never a precedence — see below |
 | Both judges are fed by every client that runs a sim loop | `FBRunMission` and the WASM frame loop each feed `FBFlightMonitor` + `FBMissionMonitor` — one definition, no parallel test |
 | Only a client may apply initial conditions | `FBFdmBoot` is reachable from `missions/` and `clients/` only |
 | A client owns exactly one unit registry and passes it down at tick time | `FBSimUnit::Run` → `FBModule::Run` → sensor slot; `FBWorld` only borrows it for drawing |
@@ -73,6 +74,13 @@ Nothing about the physics or the verdict may depend on which client is running.
 |---|---|---|
 | 4.2 | native/gym | **`payerne-full` crashes under `--elev tiles`.** Three suspect areas named: z13 bilinear against the 90 m raster, the 33 m cache cell, a 503 on cold start. While this is open, the mission control loop effectively hangs on `const`/`swiss` — i.e. the loop that decides pilot-AI questions never sees real terrain. |
 
+### Specified, not built
+
+| # | Client | Thing |
+|---|---|---|
+| `C2` | all three | **the mission clock.** `fb-gym` has no ephemeris at all; native and wasm each carry their own private wall-clock override, so the same file already means three different skies. Contract above and in [`../missions/syntax.md`](../missions/syntax.md) |
+| `C2` | — | `render/FBEphemeris.h` must move to `core/FBEphemeris.h`, because `core/`/`sensors/` may not include `render/` and a sensor is about to need the sun. Pure functions, no dependencies — a relocation with a `verify-layers` consequence, not a rewrite |
+
 ### Unverified
 
 - **The WASM loop has never been compared line by line with the runner's phase order.** It demonstrably
@@ -108,3 +116,39 @@ and adopts it ATOMICALLY at a frame boundary — under ASYNCIFY a callback can l
 substeps. A dead endpoint is a warning, never a boot failure (the `/elev` lesson). No CLI flag, by
 decision: weather is part of the SCENARIO like the runway and the spawn — a flag would let a
 measurement silently run in air the file did not declare.
+
+### Clock defaults per client (`C2`) — **specified, not built**
+
+The contract of the `time` line is in [`../missions/syntax.md`](../missions/syntax.md); what belongs
+*here* is which clock a client runs when the mission declares none, and what happens when a client flag
+and a mission line both speak.
+
+**Today** there is no mission-side clock at all, and the three clients disagree by construction:
+
+| Client | Today |
+|---|---|
+| `fb-gym` | **no clock and no ephemeris.** `FBEnvironmentBlock` is never written; the sun does not exist in the only client that runs the mission loop |
+| `gpu_native` | `--utc SECS` (Unix seconds; `0`/absent = the host wall clock) |
+| wasm | `window.FB_SIM_UTC` (Unix seconds; `0`/unset = the host wall clock) |
+
+**Specified**, precedence in ONE place on the `missions` side (`FBClockBoot.h`, the sibling of
+`FBWeatherBoot.h`):
+
+| Situation | Rule |
+|---|---|
+| mission declares `time` | that instant, on **all three clients**, identically |
+| mission declares no `time` | the client default: gym **none** (no ephemeris, exactly as today), native/wasm **their existing wall-clock or flag path**, unchanged |
+| mission declares `time` **and** `--utc` / `FB_SIM_UTC` is also set | **hard boot error, exit 1.** Not a precedence |
+
+That last row is where this rule deliberately differs from `wx`, and the difference is worth stating.
+Weather has **no flag at all**, so no conflict can arise; the clock has one, and it has to keep it,
+because `gpu_native` also runs **without a mission** (the cloud proof cameras `p1`…`p5` are free-camera
+runs with no file to declare anything). Keeping the flag and making the collision an error costs one
+comparison and buys the same guarantee the `wx` rule buys by deletion: *a measurement can never
+silently run under a sky the file did not declare.* Silent precedence would leave a stale `--utc` in a
+shell history able to move a measured detection range without a line in the output.
+
+Consequence for the gym, and it is the load-bearing one: as soon as a **sensor** consumes the clock
+(`C3` visual acquisition, [`../sensors.md`](../sensors.md) §9) the clock stops being a renderer switch.
+`fb-gym` must then compute the same ephemeris the renderer does, from the same pure functions — which
+is why those functions move down to `core/` in the C2 round.

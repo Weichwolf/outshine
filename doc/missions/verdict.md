@@ -118,6 +118,116 @@ callsign, the team and the one bit that its own health register publishes (`FBUn
 `core/FBObjective.h`). The runner builds it once per tick from the registers HE owns and shows it to
 every monitor — no module is asked about its opponent and none about itself.
 
+### The four new objective kinds (`C12`) — **specified, nothing built**
+
+Five of the ten campaign specs cannot state what they measured
+([`../campaigns/INDEX.md`](../campaigns/INDEX.md)): W5 and O2 have no *identify* and no *do-not-fire*,
+O5's entire success condition is **something not happening**. This is the contract that closes it;
+the grammar is in [`syntax.md`](syntax.md).
+
+#### The rule that constrains every candidate
+
+> **A judge measures what the aircraft DID, never what it knew.** Every existing objective obeys it — a
+> waypoint is a position, a `kill` is a health bit. A new kind is admissible only if it is checkable
+> against **observed** facts: this unit's own sample, its private plan copy, and the roster the OWNER
+> fills from registers it holds itself.
+
+That is the whole test, and it is what decides the shape of `identify` below.
+
+#### The four kinds
+
+| Objective | Fulfilled when | Violated when | Decided |
+|---|---|---|---|
+| `identify unit <callsign> range <m> hold <s>` | this unit has held a planar range ≤ `<m>` to the named unit for a cumulative `<s>` | — | latches on fulfilment |
+| `protect unit <callsign>` / `protect team <t>` | the named unit(s) are still combat-effective at the END of the run — at least one must exist | any named unit goes combat-ineffective → immediate FAIL of THIS unit | `Finalize` |
+| `no_fire` | this unit released no weapon and fired no gun burst for the whole run | any release or burst → immediate FAIL | latches on violation, confirmed at `Finalize` |
+| `deny release unit <callsign>` / `deny release team <t>` | the named unit(s) released nothing for the whole run | — | `Finalize` |
+
+#### What each one costs the roster — and where the honesty line runs
+
+The roster is `FBUnitObservation { Id, Team, CombatEffective }` per non-weapon actor
+([`../core.md`](../core.md) §5.5). Two of the four need nothing; two need exactly one field each, and
+both new fields are filled by the OWNER from facts the owner already holds — never asked of a module.
+
+| Kind | Needs | Verdict |
+|---|---|---|
+| `protect` | **nothing.** It is the exact dual of `kill`: the same bit, read the other way | free. This is why it is first |
+| `no_fire` | one **monotone bit**, `ReleasedWeapon` | the runner already drains `Stores().TakeRelease()` and `Guns().TakeBurst()` itself in the growth phase ([`runtime.md`](runtime.md) §7 step 11). The bit is a by-product of a loop that exists |
+| `deny release` | the **same bit**, pointed at another unit | one bit buys both, which is why they are specified as a pair rather than as two mechanisms |
+| `identify` | one **float**, `RangeM` — the planar range from the judged unit to that roster entry, per tick | the owner computes ranges between published poses already (`ClosestApproach`, the CPA resolution). Same currency, same truth |
+
+**Net cost of the whole vocabulary: one monotone bit and one float on `FBUnitObservation`.** Both are
+observations of the same kind the health bit already is. Nothing else about the judges changes.
+
+#### `identify` — the design decision, and the one that was rejected
+
+Two designs exist and they are not equivalent.
+
+| | **(A) the judge measures the GEOMETRY** — recommended | (B) the judge measures a SENSOR EVENT |
+|---|---|---|
+| Check | planar range between two published poses, held for a declared dwell | "this unit obtained a discriminating event on unit N" |
+| Who supplies it | the owner, from the same poses the CPA runs on | the owner, by correlating an anonymous contact back to a unit |
+| Anti-cheat | **safe by construction.** It asks nothing of any module and needs no sensor at all | **hazardous.** Producing the observation means building a contact→unit correlation function. Even though the judge is allowed to know the truth, that function's *existence* is the identity leak the architecture is shaped to prevent |
+| What it measures | the ACT — you flew the pass | the RESULT — you saw it |
+| Cost of the difference | a pilot that flies the box with its eyes shut still scores | — |
+
+**Recommendation: (A), and pay the stated cost.** The sensor half is not lost — it is read out of
+`events.log` (`iff IFF_REPLY`, `vis RECOGNISED`, `vis IDENTIFIED`), which is how every combat mission in
+the tree is already read ([`INDEX.md`](INDEX.md) rule 5: the file's header comment carries the binding
+reading rule). A verdict that cannot be cheated plus a measurement that can be grepped beats one
+verdict that can be cheated.
+
+**Aspect is deliberately left out.** A real identification pass is abeam, not astern, and the bearing
+would be free from the same poses. It is not taken because nothing in W5's sources gives an aspect
+(§Knowledge 2 of that file already marks the abeam box `[SET]`), and a second `[SET]` number multiplies
+the arbitrariness without adding a measurement. Named as a one-line extension if a source turns up.
+
+#### What is deliberately NOT in the vocabulary
+
+| Candidate | Verdict |
+|---|---|
+| **`escort`** | **not a kind.** It is `protect unit X` plus a station requirement, and the station requirement is exactly `identify`'s geometry test with a long dwell. Two lines express it; a fifth kind whose check is the union of two existing checks earns nothing |
+| **A general `deny`** — "the opponent did not achieve his objective" | **not checkable and not invented.** It would require one monitor to read another's verdict, and a judge consulting a judge is not a judge. `deny release` is the checkable part of what O5 means; `protect` is the rest |
+| **Time windows** (`before <s>` / `after <s>`) | deferred. A window is a *modifier* on any kind, so it multiplies the grammar by the number of kinds — and no campaign mission in the set needs it as a **verdict**. O5's time-on-target slip is a measurement out of telemetry, not a pass/fail |
+| **`no_fire` with an exception** ("unless fired upon first") | deferred with a reason: "fired upon" is an RWR *warning*, not a fact, and making a verdict depend on what a unit heard breaks the rule at the top of this section. W5-10 declares the exception in its header as a reading rule instead |
+| **Target priority / value** | that is `C15`/formation work, not a verdict |
+
+#### What the vocabulary still cannot say, stated plainly
+
+O5 asks for three things in descending order of value: the ordnance did not reach the target, the
+package's timing was broken, the defender survived. After `C12` the vocabulary expresses **the first
+and the third**. The second is still a telemetry read, and `o5-10`'s "three numbers, no single verdict"
+remains the correct form for that mission. A jettisoning striker counts as having released, so
+`deny release` scores it as a failure of the denial — a real false negative, named rather than hidden.
+
+#### The conservation rule, and how it is enforced
+
+> **A mission without a new line judges byte-identically to today.**
+
+Not hoped for — structural, on five separate counts:
+
+| Mechanism | Effect |
+|---|---|
+| Every new spelling is a NEW token | `objective kill unit X` parses and behaves exactly as before |
+| `PlanJudged_ = Objectives_.empty() \|\| HasObjective(Waypoints)` is **unchanged** | the new kinds do not touch whether the flight plan is judged, so no existing verdict moves |
+| The new roster fields default to "nothing happened" (`ReleasedWeapon = false`, `RangeM = +inf`) and are read **only** by the new kinds | a mission with no new objective never reaches the new branches |
+| `FBObjectiveCovers` returns false for all four | **the load-bearing one** — see below |
+| The SUCCESS strings are extended, never rewritten | the existing sentences (`"all waypoints reached"`, `"stopped on the runway"`, the `", objectives met"` suffix) are in every measured `events.log` and stay byte-for-byte |
+
+**The `FBObjectiveCovers` rule, spelled out because missing it silently breaks every duel verdict.**
+"Covers" means *somebody declared this unit's loss as their objective*, and that is what makes a loss
+EXPECTED and therefore non-decisive. `Survive`, `Waypoints`, `Identify`, `Protect`, `NoFire` and
+`DenyRelease` **never** cover a unit; only `KillUnit`/`KillTeam` do. A `protect` declaration must not
+make the protected unit's loss expected — it is the exact opposite of a declaration that it should die.
+
+**Acceptance:** the regression gate at full strength — all `telemetry*.csv` of the **84** existing
+`sim/missions/*.fbm` byte-identical, all `events.log` byte-identical modulo `wallS`/`speedup`, the
+determinism fingerprint unchanged over `--threads 1/2/4`. Same bar as `C2`, and reachable for the same
+reason: nothing new is written unless something new is declared.
+
+**When it is built,** [`../core.md`](../core.md) §5.5 gains the four `FBObjectiveKind` values and the two
+new `FBUnitObservation` fields; that file is the type reference and is updated in the same round.
+
 ### Two teams with opposed objectives — a duel has a winner
 
 The rule that turns two opposed verdicts into one is **a single one and it is declaration-based**, not
@@ -182,12 +292,14 @@ the VERDICT stays with the monitor.
 | Combination in the runner | built; the expected-loss rule is declaration-based |
 | Waypoint passage rule | built and measured (`test-wp-inside-turn.fbm`, 15.1 s `by=passed`) |
 | Landing standstill rule | built; margins 0 m longitudinal / 15 m lateral |
+| The four new objective kinds (`C12`) | **nothing built.** Contract in the Spec above |
 
 ## Gaps
 
 | Gap | Detail |
 |---|---|
-| Only four objective kinds | `survive`, `waypoints`, `kill unit`, `kill team` — no "protect", no time window, no area objective |
+| **`C12` — only four objective kinds** | `survive`, `waypoints`, `kill unit`, `kill team`. The four replacements (`identify`, `protect`, `no_fire`, `deny release`) are **specified above and not built**; what stays out of the vocabulary even then (a general `deny`, time windows, `escort`, target value) is listed there with a reason each |
+| Still no time window and no area objective | deliberate, see above |
 | `survive` produces TIMEOUT, not FAIL, when the objectives are unmet at the end | the run has no verdict class for "survived but achieved nothing" |
 | Runway footprint margin is fixed | 0 m longitudinal / 15 m lateral; the mission cannot declare it, and the `runway` line carries no width |
 | A trade reports the FAIL of the first unit | deliberate (no invented winner), but the line does not say "trade" as such |
@@ -205,6 +317,12 @@ the VERDICT stays with the monitor.
 - **Why `survive` is evaluated only at the end.** "Still combat-capable" is not monotone during the
   run: an opponent's missile can be in the air after the opponent is dead. Evaluating early would let
   a unit bank a SUCCESS it can still lose.
+- **Why the objective vocabulary is bounded by the roster and not by what a mission would like to say.**
+  Every kind that exists is a comparison against something the OWNER observes: a position, a health bit.
+  The moment a kind needs something else, the honest move is to say which field it needs and let that be
+  the price — `identify` needs one float, `no_fire`/`deny release` share one monotone bit. A kind whose
+  price is "the judge reads another judge" or "the judge correlates an anonymous contact" is not
+  expensive, it is inadmissible, and it is refused rather than approximated (`C12` Spec above).
 - **Why the leg, and not the waypoint, carries the passage rule.** The passage test needs a direction
   to define "beyond the perpendicular". The first waypoint of a plan has no declared inbound
   direction, so the test has no definition there — and that absence is exactly what the BFM missions

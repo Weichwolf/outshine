@@ -25,7 +25,7 @@ know where its file is.
 | `sensors/` | `sensors.md` |
 | `weapons/` | `weapons.md` |
 | `pilot/` | `pilot.md` |
-| `missions/` + `units/` | `missions/` (9 files, entry `missions/INDEX.md`) |
+| `missions/` + `units/` | `missions/` (10 files, entry `missions/INDEX.md`) |
 | `modules/` | `modules/f16/`, `modules/mig29/`, `modules/stores.md` |
 | `render/` | `render/` (+ `render/clouds-legacy/`, a closed archive) |
 | `world/` | `world/terrain.md`, `world/weather.md` |
@@ -70,6 +70,10 @@ order, the history, the rules and a closed archive. Everything is English.
 | Pilot AI: phases, BFM, BVR intercept, attack, track estimation, tuning, tournaments | `pilot.md` |
 | **Writing or changing a `.fbm` mission** | `missions/INDEX.md` (leading rules + exit codes), then the topic file: `syntax.md`, `verdict.md`, `sensors.md`, `avionics.md`, `weapons.md`, `combat.md`, `weather.md`, `output.md` |
 | Mission runner, actors, multi-unit, threading, spawn, determinism | `missions/runtime.md` |
+| **A scenario with an anchor** — the ten campaign specs, the aggregated cast, the shared gap catalogue `C0…C21`, the identification anti-cheat test, Bekaa as a yardstick | `campaigns/INDEX.md`, then the campaign file. **Spec only — nothing built** |
+| **The campaign layer above a mission** — carry, aggregation, replay determinism | `missions/campaign.md` (`C0`, spec only) |
+| The mission clock / time of day / sun position | `missions/syntax.md` §"The mission clock" (`C2`, spec only) + `clients/clients.md` §"Clock defaults per client" |
+| Visual acquisition, seeing an aircraft with the eye, visual identification | `sensors.md` §9 (`C3`, spec only) + `missions/sensors.md` |
 | The F-16 module and its overrides, HUD symbology implementation | `modules/f16/module.md` |
 | An opponent aircraft, or the MiG-29 module | `modules/mig29/module.md` (spec only — nothing built) |
 | Store models, MODEL-DELTAS discipline, model fidelity caveats | `modules/stores.md` |

@@ -94,6 +94,38 @@ Mk-82 fidelity caveat under Gaps before quoting that number.
 
 ## Gaps
 
+### `C1` — the active surface-to-air threat has its home here, and it is a GAP entry only
+
+**This is a placeholder with a boundary, not a specification.** `C1` is **step 2 of the owner goal** and
+gets its own round; writing its contract here would pre-empt that round's first act, which is to change
+the Spec of this file by decision.
+
+**Why this file owns it.** An emitting, shooting ground unit is three things, and the decisive one is
+the third: a module (`modules/ground/`), an emitter (one already-published `FBUnitSignature` field), and
+**a launcher of a guided round that is itself a unit** — the rule "a fired weapon IS a unit" (§1), the
+stores/uplink/seeker apparatus, the three resolution boundaries (§5) and `FBDamageModel` (§6) all live
+in this file. The sensor half is one field; the weapon half is a chapter.
+
+**What it is, in the campaign catalogue's words** ([`campaigns/INDEX.md`](campaigns/INDEX.md)): *ground
+units are inert — nothing emits, nothing launches, nothing shoots; `target_soft`/`target_hard` have only
+a structure state.* It **blocks 6** campaigns and degrades 3, which makes it the most blocking gap in
+the set, and the top four rows of the aggregated cast table (ground radar / EW / GCI as an emitter, AAA
+and MANPADS, fixed SAM, mobile SAM) are one system four times over.
+
+**The boundary of this entry** — what the C1 round will have to decide and what is deliberately NOT
+decided here:
+
+| Open question | Where it will be answered |
+|---|---|
+| Does a SAM battery emit through `FBEmitterSignature` unchanged, or does a surface emitter need fields an airborne one does not have? | that round, against [`sensors.md`](sensors.md) §4 — note that `FBMig29Rwr`'s assumed-altitude priority rule (gap 25 there) *cannot bite until the first surface emitter exists*, so the two are coupled |
+| Is a SAM a store module with a seeker (like the AIM-120) or a new kind? | that round, against §1 and `modules/missile/` |
+| What launches it — a ground module with a fire-control state machine, or a scripted release? | that round |
+| Does a ground unit acquire through a sensor slot, and if so does the `RESTRICTED` list grow again? | that round, and the price rule of [`sensors.md`](sensors.md) applies unchanged |
+| AAA as a gun (`FBGunSystem` against an airborne target) versus a SAM as a round | that round; note §5.4's standing refusal — a ground burst is **not** resolved against aircraft, and an AAA model runs straight into it |
+
+**What it is not:** it is not the `C21` gap (no declarable initial damage), not `C14` (no moving ground
+units, no ships), and not `C17` (a runway with state). Those are named separately and stay separate.
+
 ### Deliberately not modelled (from the retired `TODO.md` §3)
 
 | Thing | Consequence |

@@ -13,6 +13,12 @@ loop. Everything a mission can declare is here; everything the runner does with 
 
 ## The leading rules
 
+**0 — Four contracts in this directory are specified and not built.** The mission clock `time` (`C2`,
+[syntax.md](syntax.md)), the visual sensor channel (`C3`, [`../sensors.md`](../sensors.md) §9 with its
+mission switches in [sensors.md](sensors.md)), the four new objective kinds (`C12`,
+[verdict.md](verdict.md)) and the campaign layer (`C0`, [campaign.md](campaign.md)). Each says so in its
+own section; nothing below has changed because of them.
+
 **1 — A mission describes a FLIGHT, not a jet.** Mission-wide data (name, optional runway, timeout,
 weather) plus a **list of actor blocks** (`unit <callsign>`). Every block is exactly one simulated unit
 with its own module, team, initial state and objectives. A single flight is the special case "one
@@ -65,6 +71,7 @@ build artefacts — copies, never sources.
 | [weather.md](weather.md) | the `wx` line, the three providers, the precedence rule, how the wind acts and the measured crosswind and release cases |
 | [output.md](output.md) | the files per run, damage events and columns, unit attribution, `UNIT_RESULT`, and the catalogue of example missions |
 | [runtime.md](runtime.md) | the machinery behind the format: `FBUnit`/`FBSimUnit`/`FBUnitRegistry`, the snapshot barrier, the four-step orchestrator, the multi-unit stages incl. the thread pool and the honest scaling numbers, detonation and impact resolution |
+| [campaign.md](campaign.md) | **the layer above a mission** (`C0`, spec only): the `.fbc` file, the three carried facts and the rule that rejected the rest, the overlay that may delete but never add, and the campaign fingerprint that makes a campaign replayable |
 
 ## Related
 

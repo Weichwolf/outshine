@@ -38,8 +38,9 @@ architecture: drawn by include graph and type choice, checkable by grep.
 
 | Contract | Acceptance / measurement anchor |
 |---|---|
-| The unit registry reaches the SENSOR slots and nothing else | `#include "FBUnitRegistry.h"` / `.Units()` appear in exactly **five** files under `sim/src/sensors` + `sim/src/modules` (the four sensor slots + the missile's uplink receiver), and the list is pinned in `tools/verify_layers.py`'s `RESTRICTED` table — the gate FAILS on a sixth |
-| Every widening of that list is a decision with a price, not a convenience | a slot joins the list only by being a SENSOR whose limits are modelled: `FBIrstSystem` pays in range (25 km at best against the radar's 50), in identity (it cannot interrogate IFF at all) and in weather (a cloud deck ends the line of sight) |
+| The unit registry reaches the SENSOR slots and nothing else | `#include "FBUnitRegistry.h"` / `.Units()` appear in exactly **five** files under `sim/src/sensors` + `sim/src/modules` (the four sensor slots + the missile's uplink receiver), and the list is pinned in `tools/verify_layers.py`'s `RESTRICTED` table — the gate FAILS on a sixth. **`C3` raises that number to SIX and to exactly one named file, `sensors/FBVisualSystem.cpp` (§9) — declared here as a decision, not discovered at the gate** |
+| Every widening of that list is a decision with a price, not a convenience | a slot joins the list only by being a SENSOR whose limits are modelled: `FBIrstSystem` pays in range (25 km at best against the radar's 50), in identity (it cannot interrogate IFF at all) and in weather (a cloud deck ends the line of sight). **`FBVisualSystem` pays in all four currencies at once and in a fifth nobody else pays — §9.2** |
+| **A passive VISUAL contact is anonymous, rangeless AND typeless until the geometry earns the type** (`C3`, specified, not built) | `core/FBVisualContact` carries angles, an angular size and a look age; `HasRange` is structurally always false. A type name appears only when the observed angular size crosses a threshold DERIVED from the detection threshold — never from a table keyed on what the target is |
 | A radar contact is anonymous | `core/FBRadarContact` carries range/bearing/az/el/closure and a radar-owned track number — no unit id, no callsign, no team |
 | A passive optical contact is anonymous AND has no range | `core/FBIrstContact` carries angles only; `RangeM` exists solely behind a `HasRange` bit that only the laser rangefinder sets |
 | A documented sensor defect is behaviour, not a comment | the N019's range-dependent Doppler envelope REJECTS detections; the SPO-15's forward hemisphere goes dark while the own radar radiates |
@@ -72,6 +73,7 @@ Built: datalink, radar with mode set, RWR, countermeasures — plus the two miss
 | `FBMissileIrSeeker` (the infrared seeker as an `FBIrstSystem` derivation — one class, two rounds) | built | MiG-29 stage 2c |
 | Flare deception (`FBIrstSystem::SelectFlare`, the irradiance inequality) — flares finally DO something | built | MiG-29 stage 2c |
 | Radar cross-section as a unit property, fourth-root range scaling | built | MiG-29 stage 2c |
+| `FBVisualSystem` (the eye — `C3`) | **nothing built.** Contract in §9 | — |
 
 **Measured, stage 2c:**
 
@@ -91,6 +93,12 @@ Built: datalink, radar with mode set, RWR, countermeasures — plus the two miss
 |---|---|
 | `core/FBRadarContact.h` | banner claims track numbers are reused after a drop; `FBRadarSystem::NextTrackNum_` counts monotonically and never does. Consumers rely on uniqueness **undocumented**. |
 | `sensors/FBRwrSystem` | `SelfTeam_` is stored and deliberately never read — dead state with cheat potential the moment somebody touches it |
+
+### Specified, not built
+
+| ID | Gap | Detail |
+|---|---|---|
+| **`C3`** | **There is no eye.** The sensor set is radar, IRST, RWR and datalink; every merge in the tree is more sensor-driven than the thing it models, and every real identification ends in a visual pass | blocks W5 and O2's visual pass outright, degrades four more campaigns ([`campaigns/INDEX.md`](campaigns/INDEX.md)). **The contract is §9 below**; it depends on `C2` (the mission clock) for the sun and on `core/FBCloudDensity` for the cloud transmittance |
 
 ### Deliberately not modelled (from the retired `TODO.md` §3)
 
@@ -1155,7 +1163,278 @@ Events: `cmds PROGRAM_START` / `SALVO` / `PROGRAM_END` / `MAGAZINE_EMPTY`.
 
 ---
 
-### 9. Determinism — what is guaranteed
+### 9. Visual acquisition — `FBVisualSystem` (`C3`, **specified, nothing built**)
+
+The fourth question, and the one the other three were built around avoiding. The radar asks "what is
+out there" and transmits. The RWR asks "who is looking at me" and can only hear. The IRST asks the
+radar's question and pays nothing. **The eye asks "what does it look like" and pays in every currency
+there is.**
+
+This section is a **contract**, written before any code, per [`conventions.md`](conventions.md)'s
+spec-first rule. Numbers marked `[SET]` are settings; `[DERIVED]` names the relation; `[T3]`/`[T4]`
+carry a public source with its link in §9.9.
+
+#### 9.1 Why it is a sensor slot and not a pilot feature
+
+Because it must sit **inside** the perception boundary or it is worthless. A "visual" that the pilot
+derives from the registry is the cheat the whole architecture exists to prevent; a "visual" bolted onto
+the radar block hands the radar an identity. So it is the sixth `#include "FBUnitRegistry.h"` under
+`sensors/`, declared in `tools/verify_layers.py`'s `RESTRICTED` table with its price in the comment —
+the same act by which `FBIrstSystem` joined the list, for the same stated reason.
+
+#### 9.2 What it pays, itemised — the price that buys the widening
+
+| Currency | The eye's payment |
+|---|---|
+| **Range** | the shortest of all five. A fighter beam-on is at the detection threshold at ~2.3 nm, head-on at ~1.5 nm (§9.4) — against the radar's 40 nm and the KOLS's 13.5 |
+| **Identity** | none, and unlike the radar it cannot even interrogate. It can eventually say WHAT (a type) and never WHO or WHOSE (§9.7) |
+| **Range measurement** | none, ever. `HasRange` is structurally false — there is no laser, no second eye baseline, no ranging method at all |
+| **Weather** | the only sensor damped by cloud **and** haze **and** the sun, and the only one for which cloud is a transmittance rather than a lid (§9.6) |
+| **Light** | the only sensor that stops working when the sun goes down. Below the twilight floor it contributes nothing, and the tree has no aircraft-lighting model to give it back (§9.8) |
+
+Five currencies. That is what makes the sixth entry a decision with a cost rather than a convenience.
+
+#### 9.3 What it measures — three inputs, one decision
+
+```
+detected  ⇔  θ_obs ≥ θ_detect · g(C_eff)          and the target is inside the field of regard
+```
+
+| Symbol | Quantity | Origin |
+|---|---|---|
+| `θ_obs` | observed angular subtense of the target's LARGEST presented dimension | `[DERIVED]`, §9.4 |
+| `θ_detect` | the base angular threshold at reference contrast | `0.2°` = 12 arcmin `[T4]`, §9.4 |
+| `C_eff` | effective contrast against the background after haze, cloud and glare | `[DERIVED]` from a chain of documented laws, §9.5–9.6 |
+| `g(C)` | how much MORE angle a poor-contrast target needs | `clamp(C_ref / C, 1, g_max)` `[SET]` shape, §9.5 |
+
+The split is not FlightBox's invention: **size and contrast are the two primary factors, and size is the
+more important** — CAAP 166-2, quoted in the ATSB cockpit-visibility study `[T3]`. Modelling them as one
+fudge factor would collapse exactly the distinction the sources make.
+
+#### 9.4 Angular size and aspect — the presented extent
+
+An eye does not see an area, it resolves an **extent**. NTSB (1987, via the ATSB study) puts the
+threshold at **> 12 arcmin (0.2°) of the aircraft's largest dimension**; the same study reports
+**24–36 arcmin (0.4–0.6°) as more realistic under sub-optimal conditions** `[T3]/[T4]`. FlightBox takes
+the 0.2° figure as `θ_detect` and lets the contrast term (§9.5) carry the degradation, rather than
+carrying two competing thresholds — one number with a stated modulation instead of two `[SET]` values.
+
+```
+θ_obs = L(â) / R                                 small-angle, radians
+L(â)  = the largest dimension of the silhouette presented along the line of sight â
+```
+
+`â` is the unit line-of-sight vector expressed in the **target's** body frame (the same rotation
+`FBEnuToBodyVec` already performs for a warhead burst). `L` is interpolated over the three orthogonal
+reference extents of the airframe — frontal, side, plan — exactly as the RCS became a published unit
+property in stage 2c.
+
+**Where those numbers come from, and the rule that keeps them honest: from `FBDamageLayout`, not from a
+second table.** The damage model already declares the F-16's presented areas (4.0 / 14.0 m², `[SET]`,
+`weapons.md`) because a gun bundle needs a silhouette. **The eye and the gun look at the same aeroplane;
+two presented-area tables would be two truths about one airframe.** So the layout gains a plan figure
+and both consumers read the one table. A module that has no layout has no visual signature either, and
+that is correct — a bomb is not seen.
+
+Worked, so the magnitude is on the record rather than assumed (F-16C, span 9.45 m, length 15.03 m):
+
+| Aspect | `L` | `θ_detect` = 0.2° | detection range |
+|---|---|---|---|
+| beam-on | ≈ 15 m | 3.49 mrad | **4,300 m ≈ 2.3 nm** |
+| head-on | ≈ 9.45 m | 3.49 mrad | **2,700 m ≈ 1.5 nm** |
+
+That ratio — a fighter head-on is worth a fraction of the same fighter side-on — is the single most
+cited fact about visual air combat, and here it is a consequence of the geometry rather than a
+coefficient. The absolute numbers are deliberately at the pessimistic end of the literature (the
+`[T3]` SSO study puts a **DC-3 silhouette against bright sky at 17–23 km** under optimal conditions);
+they describe an unalerted look at a fighter, which is the case every campaign mission actually poses.
+
+#### 9.5 Contrast — Koschmieder, and nothing invented
+
+`C = |L_tgt − L_bg| / L_bg`. FlightBox has no luminance field and will not acquire one for this. What
+it has is exactly the right law, already in the tree:
+
+| Term | Model | Origin |
+|---|---|---|
+| Inherent contrast `C₀` | two values by background class: **look-up** (target against sky) and **look-down** (target against terrain clutter) | `[SET]`, two numbers; the binary is decided by the sign of the contact's elevation angle against the horizon dip, which `FBGeodesy` already computes |
+| Haze attenuation | `C(R) = C₀ · exp(−σ·R)`, `σ₀ = 3.912 / visibility`, thinned by `exp(−z/8000)` | **Koschmieder + the ISA density scale height — already derived and in use by the cloud stage** (`render/clouds.md`). Visibility comes from the same weather sample the wind does |
+| Threshold coupling | `θ_required = θ_detect · clamp(C_ref/C_eff, 1, g_max)` | `[SET]` shape. **Stated honestly: the true relation is the contrast sensitivity function** (the SSO model's CSF, `[T3]`), and this linear inverse is its stand-in. A CSF would need a spatial-frequency decomposition of a silhouette FlightBox does not render on the CPU |
+
+The look-up/look-down binary is crude and it is the right crudeness: it reproduces the one thing every
+source agrees on (a target against ground clutter is far harder) with one comparison and two settings,
+and it does not pretend to a terrain-albedo model that does not exist.
+
+#### 9.6 What damps it — sun, glare, cloud
+
+**(a) Daylight.** Reuse `DaylightFactor` verbatim — `t = clamp((sunElDeg + 9)/12, 0, 1)`, then
+`t²(3−2t)`; full day above ≈ +3°, dark from ≈ −9° (nautical twilight). It is already **one** number for
+sky, ground and star fade; the eye becomes its fourth consumer rather than the tree's second twilight
+definition. `C_eff` is multiplied by it, so the channel fades out through dusk instead of switching.
+**Needs `C2`** — there is no sun elevation in the gym today.
+
+**(b) Looking into the sun, as its own hard case.** Not a multiplier on the general daylight term but a
+separate, angle-dependent one, because it is a different physical mechanism: intraocular scatter raises
+the *background*, and contrast is measured against the background.
+
+Stiles–Holladay, the classical disability-glare relation `[T3]`:
+
+```
+L_veil(θ_sun) = 10 · E / θ_sun²          θ_sun in degrees, E the source illuminance
+```
+
+Neither `E` nor the ambient `L_bg` exists in absolute units here, so their ratio collapses into **one**
+setting with a stated meaning:
+
+```
+C_eff = C / (1 + k / θ_sun²)             k = θ_½²  ,  θ_½ = 10°  [SET]
+```
+
+`k = 100 deg²`. `θ_½` is defined as *the off-sun angle at which contrast is halved*, so the setting is
+readable rather than magic. What it produces:
+
+| `θ_sun` | contrast factor |
+|---|---|
+| 45° | 0.95 |
+| 30° | 0.90 |
+| 10° | **0.50** |
+| 5° | 0.20 |
+| 2° | 0.04 |
+
+Plus a **hard cut** inside a stated cone about the sun's centre (`[SET]`, ≥ the 0.53° solar disc): there
+the eye is not degraded, it is out of action, and a smooth function through that region would report a
+faint capability that does not exist. Smooth, closed-form, deterministic — no dice, per
+`conventions.md`.
+
+**(c) Cloud — and this is where the eye buys the march the IRST declined.**
+
+The KOLS treats a broken-or-more deck between the two altitudes as a **lid** (`kCloudMaskCover` 0.5,
+`[SET]`), and `sensors.md` §6.5 already names the omission: the deck's horizontal structure, declined at
+a price of one integration per contact per look. **The visual channel must pay that price**, and the
+recommendation is explicit:
+
+> Integrate `core/FBCloudDensity` along the line of sight and produce a transmittance
+> `T_cloud = exp(−Σ σ_deck · ρ · ds)`, with the per-deck extinction the cloud stage already publishes
+> (0.022 / 0.018 / 0.0060 m⁻¹ at density 1). Multiply it into `C_eff` in the same currency as the haze
+> term. **The density function is not touched** — it is a shared, closed-form field with a C++ and a
+> WGSL half kept numerically identical by `--cloudcheck`, and this is a fifth reader of it.
+
+Three reasons, in order:
+
+1. **The whole point of the channel is that an eye does not see through cloud.** A lid over-reports
+   blindness at exactly the coverage where W4's measurement lives — a 40 % deck is mostly hole.
+2. **The cost is bounded by the eye's own reach.** The march runs over ≤ 3 shell segments, the sensor's
+   own range is a few km, and it looks at ≤ 8 contacts at ≤ 1 Hz. That is a different budget from a
+   50 nm radar marching every contact every look. **The budget is to be measured, not assumed** — and if
+   it does not hold, falling back to the IRST's lid is a documented retreat with a number attached.
+3. **It is a shared investment.** Terrain masking (`C4` / roadmap R6) wants the same line-of-sight
+   integration machinery. Building it for the sensor that most needs it is cheaper than building it
+   twice.
+
+The sample is resolved by the OWNER once per decision tick and pushed down (`FBSimUnit::UpdateSky` →
+`FBModule::SetCloudSky`), exactly as today. **The sensor never queries the world.**
+
+#### 9.7 Identification — a resolution test, not a lookup
+
+W5 and O2 need "a contact" to become "a MiG-29" without that being a path to `team`. The mechanism:
+
+> **Recognition is the same measurement as detection, at a higher threshold.** Both come from one
+> quantity — presented extent over range. When `θ_obs` crosses a multiple of `θ_detect`, the contact
+> gains the **type name the target's own module already publishes** (its `FBModuleRegistry` key:
+> `"f16"`, `"mig29"`). It says WHAT. It never says WHO and never says WHOSE.
+
+The multiple is **derived, not set**: Johnson's criteria (1958), the standard sizing rule for
+electro-optical systems `[T4]`, give N50 values in cycles across the target's critical dimension —
+detection 1.0, orientation 1.4, **recognition 4.0**, **identification 6.4**.
+
+```
+θ_recognise = 4.0 · θ_detect      [DERIVED, Johnson N50]
+θ_identify  = 6.4 · θ_detect      [DERIVED, Johnson N50]
+```
+
+Consequence, on the beam-on F-16 of §9.4: detected at 4,300 m, **recognised at 1,075 m, identified at
+670 m**. That is the answer W5 is actually asking for — *how close must you get* — expressed as a
+geometry instead of a mission-author's guess, and it turns the campaign's `[SET]` "abeam box" from a
+convention into a physical requirement.
+
+**Why this holds the anti-cheat line, stated as the test:**
+
+| Claim | Argument |
+|---|---|
+| The type is not the team | the string is a registry key already written in the mission file and already public. **Two MiG-29s, one `team friendly` and one `team hostile`, produce the identical string** |
+| The type is not the identity | no callsign, no unit id. A flight of four MiG-29s is four contacts each labelled `"mig29"` |
+| `w5-03` / `o2-08` stay valid **after** C3 lands | in both runs of the pair the visual channel recognises `"mig29"` at the identical tick, so a recognition is not a divergence. The first legitimate divergence is still the first tick at which a sensor *discriminates between the two cases*, and no channel in the tree can — IFF answers "no reply" in both |
+| Nothing is fused | the visual block is its own block, correlated with **nothing**. A "this radar contact is that visual contact" association would hand identity to the radar through the back door, and that association is exactly the leak `w5-03` was written to catch |
+
+**The alternative, named and rejected:** a per-mission `set visual_id_range_nm`, i.e. the author
+declares the range at which the type becomes known. Rejected because (a) it is a type-name table wearing
+a different hat, (b) it makes the identification range a property of the *mission* rather than of the
+*geometry*, and (c) it structurally cannot answer W5's question, since the answer would be whatever was
+typed into the file.
+
+#### 9.8 What is NOT modelled — named, not approximated
+
+| Not modelled | Why, and which direction the error runs |
+|---|---|
+| **Peripheral vision / the detection lobe** | the field of regard is a uniform cone; a real detection probability falls with eccentricity (the SSO's second principle, `[T3]`). **Over-reports** at the cone edge — the one place the model is generous |
+| **Gaze direction, head position, helmet, scan pattern** | an attention model is a *pilot* model, not a sensor model, and it would need a decision channel that does not exist. A fixed body-referenced cone under-reports (no check-six) and never over-reports |
+| **Canopy frame, bow, combiner obscuration, canopy dirt and distortion** | there is no cockpit geometry in the tree to obscure with |
+| **Acuity dispersion** — pilot to pilot, age, fatigue, hypoxia, empty-field myopia | `conventions.md` forbids a die; a per-pilot acuity would be a variant parameter, and that is a different round |
+| **Motion** | a moving object is far more detectable than a static one; the model is purely static-contrast. **The largest known omission**, and it under-reports a crossing target — the safe direction |
+| **Lighting at night** — navigation and anti-collision lights, city glow | nothing in the tree emits light. The consequence is stated rather than papered over: *the visual channel contributes nothing at night*, so W5-09/W5-10 and every O5 night mission measure a merge without eyes, which is a **finding about the mission**, not a defect |
+| **The afterburner plume as a visual cue** | the augmentation bit is already published in `FBUnitSignature` and the IRST already reads it — the cheapest possible first night cue, named as the obvious next step and **not** taken in this round |
+| **Smoke and contrails** | the RD-33's smoke is a real, citable and tactically decisive visual signature; there is no plume model to hang it on |
+
+#### 9.9 The contact type, the block, and the rules that keep it from becoming a second radar
+
+```
+FBVisualContact { TrackNum, BearingDeg, ElevDeg, AzBodyDeg, ElBodyDeg,
+                  SizeMrad, State, TypeName, LookAgeS }
+State ∈ { Detected, Recognised, Identified }
+```
+
+| Rule | Reason |
+|---|---|
+| No unit id, no callsign, no team, **no range**, **no closure** | closure needs range or a rate; an eye has neither. `HasRange` does not exist as a bit, because there is no path that could ever set it |
+| Field of regard: a fixed body-referenced cone, `[SET]` ±60° az / ±40° el, no slew and no auto-acquire | there is nothing to slew and nothing to lock. The pilot's use of this channel is the DECISION to press in, not a designation |
+| It never sees a unit outside the cone, at any range | no omniscient bubble; the geometry is the same `ActiveVolume()`-shaped test the radar and the IRST already use |
+| Track build-up costs looks, like every other scanning sensor (`kHitsToFirm`, coast, look age) | a scanning sensor's properties, not a transmitter's — the identical argument `FBIrstSystem` §6.3 makes |
+| It sees only `FBUnitKind::Aircraft` in this round | ground targets and stores are excluded, exactly as for the radar and the IRST. Widening it is a separate decision with its own price (a ground target has no presented-extent triple and no aspect) |
+| Type name comes from the module registry key, `State` from the geometry | §9.7 |
+| Cloud is a transmittance, never a probability; glare is a closed form, never a die | `conventions.md`: no randomness in a deterministic simulation |
+
+**The pilot does not consume it in this round, and that is deliberate.** The channel writes its block and
+nothing reads it — the same state `duels.md` defect **D3** already records for the IRST. Two consequences,
+both wanted: (a) no trajectory in the tree moves, so the C3 round is measurable against the existing 84
+missions column-for-column; (b) the behaviour change gets its **own** round with its own measurement,
+booked in [`pilot.md`](pilot.md), where a behaviour change belongs.
+
+**The regression gate of the C3 round is therefore weaker than C2's, and it is stated as such:** adding a
+telemetry source appends columns to every unit's CSV, so `telemetry*.csv` cannot be byte-identical.
+The requirement is *every pre-existing column identical, position for position and value for value; the
+appended columns carrying their sentinels; `events.log` byte-identical modulo `wallS`/`speedup`.* The
+last of those only holds because the channel emits no event when it sees nothing — which it does not, in
+84 missions that declare no visual scenario.
+
+Mission switches and telemetry columns: [`missions/sensors.md`](missions/sensors.md).
+
+**Sources for this section**
+
+- [ATSB — Cockpit Visibility Study, AO-2023-001](https://www.atsb.gov.au/investigations/2023-001) `[T3]` —
+  the 0.02°–0.2° detection band, the NTSB 12-arcmin figure, the 24–36 arcmin realistic band, and
+  CAAP 166-2's "size and contrast, size the more important".
+- [Predicting Visibility of Aircraft (PLOS ONE, 2009)](https://pmc.ncbi.nlm.nih.gov/articles/PMC2680596)
+  `[T3]` — the Spatial Standard Observer: contrast sensitivity function, eccentricity, non-linear spatial
+  pooling; the DC-3-against-bright-sky figure of 17–23 km.
+- [CIE equations for disability glare / Stiles–Holladay](https://www.researchgate.net/publication/288969413_CIE_equations_for_disability_glare)
+  `[T3]` — `L_veil = 10·E/θ²`, and the age/pigmentation extensions FlightBox does **not** take.
+- Johnson's criteria (1958), N50 cycles across the critical dimension: detection 1.0 / orientation 1.4 /
+  recognition 4.0 / identification 6.4 `[T4]` — the source of the two multiples in §9.7.
+- In-tree, not re-derived: Koschmieder and the ISA scale height (`render/clouds.md`), `DaylightFactor`
+  (`render/renderer.md`), the presented-area table (`weapons.md`), `core/FBCloudDensity`.
+
+---
+
+### 10. Determinism — what is guaranteed
 
 - **No randomness in the perception chain.** No die, no break-lock probability, no detection probability.
   Chaff effect is an inequality on measured quantities; the stronger cloud wins via `RCS/r⁴`.
