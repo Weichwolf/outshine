@@ -80,6 +80,7 @@ were translated in the Phase-3 split; no German prose remains in `doc/`.
 | [pilot.md](pilot.md) | phase machine, attack, BFM with its own control law, the **datum** as the pilot's memory, BVR intercept, debriefing channels, variants and tournament, the mission control loop |
 | [duels.md](duels.md) | the **asymmetric measurement campaign** — `missions/duel-*.fbm`, the geometry × outcome table, the four asymmetries with their numbers, the EMCON timeline, the mixed tournament |
 | [formation.md](formation.md) | the **flight**: roles as mission data, the wingman's station on a moving point, target sorting from the shared picture against the briefed contract, the cover rule and why it is free for one weapon and unavailable for the other |
+| [campaigns/](campaigns/INDEX.md) | the **ten scenario specifications** — five flown by the F-16, five by the MiG-29, ten missions each, every anchor cited and tiered; plus the aggregated cast list, the capability gaps ordered by blocking degree, the identification task as an anti-cheat test and Bekaa as a measurable yardstick. **Spec only, nothing built** |
 
 ## Missions — `missions/`
 
