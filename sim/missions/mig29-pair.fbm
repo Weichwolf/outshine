@@ -1,0 +1,27 @@
+name mig29-pair-1
+# READING RULE: exit 0 = SUCCESS is the verdict, and it is the MULTI-MODULE proof — payerne-mixed.fbm
+# does this for f16+f16, this does it for f16+mig29. TWO DIFFERENT MODULES in one formation, cycled by
+# the same runner through the same FBModule* dispatch, judged by the same two monitors, each with its
+# own FDM instance on its OWN aircraft deck and its own telemetry file. Both friendly, both flying the
+# route: the point is not a fight, it is that neither airframe notices the other is there.
+runway 46.84335 6.91523 441.0 228.0 2889     # Payerne RWY23 -- VIPER's departure runway
+timeout 900                                  # sim-seconds until TIMEOUT
+
+# The load is deliberately uneven, as in payerne-mixed: VIPER sits on its gear and spends the first
+# minute on the ground-reaction path while FULCRUM is already airborne in clean cruise.
+
+unit viper
+  module f16
+  team friendly
+  spawn threshold ground 228.0 0             # on gear at the runway threshold, runway heading, v=0
+  wp 46.74293 6.75267 2500 350               # ~9 nm SW on the runway heading, climbing out
+  wp 46.66467 6.62666 3000 350               # ~16 nm SW, higher
+
+unit fulcrum
+  module mig29                               # the SECOND module -- the whole point of the file
+  team friendly
+  spawn 46.73202 6.73455 2500 48.0 300       # already airborne SW of the field, heading back in
+  set gear up
+  set fuel_pct 60
+  wp 46.84335 6.91523 2500 300
+  wp 46.95000 7.05000 2800 300

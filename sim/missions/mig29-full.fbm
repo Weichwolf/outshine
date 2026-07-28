@@ -1,0 +1,19 @@
+name mig29-full-1
+# READING RULE: exit 0 = SUCCESS is the verdict, and this file is the STAGE-3 ACCEPTANCE of the MiG-29
+# line: takeoff from the Payerne threshold, three waypoints, approach, flare, rollout to a stop on the
+# runway. It is payerne-full.fbm waypoint for waypoint -- the SAME route, the SAME runway, the SAME
+# return leg onto RWY23's extended final -- with `module mig29` in place of `module f16`, so a
+# difference between the two telemetry files is a difference between two AIRCRAFT.
+runway 46.84335 6.91523 441.0 228.0 2889     # Payerne threshold RWY23 -- also the landing runway: the
+                                             # return leg (wp3) sits on its own extended final, and
+                                             # RWY05's approach crosses the Jura foothills that
+                                             # straight-line Course guidance would fly through.
+timeout 1200                                 # sim-seconds until TIMEOUT
+
+unit fulcrum
+  module mig29                               # FBModuleRegistry key -> FBMig29Module
+  spawn threshold ground 228.0 0             # ground start, brakes set, runway heading
+  wp 46.74293 6.75267 2500 350               # SW climb-out (payerne-full.fbm's wp1)
+  wp 46.99968 6.83204 2800 320               # turn north over the Broye/Jura foothills, still climbing
+  wp 46.95467 7.09598 1450 280               # NE leg, descending onto RWY23's final approach course
+  land                                       # Approach -> Flare -> Rollout to a stop on RWY23

@@ -1,0 +1,14 @@
+name mig29-takeoff-1
+# READING RULE: exit 0 = SUCCESS is the verdict. This is payerne-takeoff-only.fbm flown by the OTHER
+# module -- same runway, same two waypoints, no `land` keyword, so what is being measured is the
+# TAKEOFF and the climb-out and nothing else. It exists so that the difference between the two runs is
+# the AIRCRAFT and nothing else.
+runway 46.84335 6.91523 441.0 228.0 2889     # lat lon elevM trueHdgDeg lengthM (Payerne RWY23, the
+                                             # DEM-checked threshold every payerne-* mission uses)
+timeout 600                                  # sim-seconds until TIMEOUT
+
+unit fulcrum
+  module mig29                               # FBModuleRegistry key -> FBMig29Module
+  spawn threshold ground 228.0 0             # sat on gear at the runway threshold, runway heading, v=0
+  wp 46.74293 6.75267 2500 350               # ~9 nm SW on the runway heading, climbing out
+  wp 46.66467 6.62666 3000 350               # ~16 nm SW, higher -- no land keyword: SUCCESS = both reached

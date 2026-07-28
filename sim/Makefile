@@ -74,7 +74,7 @@ JSB_HOST     := build/jsbsim-host
 # FBMissionBoot/FBTickPool); clients = the entry points; render = FBRenderer + the WebGPU stages;
 # world = FBWorld/tile streaming, with world/terrain the lean terrain API (flat) under it;
 # vendor/jsbsim/src = the JSBSim headers.
-INC_MODULES := -Isrc/core -Isrc/render -Isrc/world -Isrc/units -Isrc/systems -Isrc/sensors -Isrc/weapons -Isrc/pilot -Isrc/modules -Isrc/modules/f16 -Isrc/modules/f16/displays -Isrc/modules/stores -Isrc/modules/missile -Isrc/modules/ground
+INC_MODULES := -Isrc/core -Isrc/render -Isrc/world -Isrc/units -Isrc/systems -Isrc/sensors -Isrc/weapons -Isrc/pilot -Isrc/modules -Isrc/modules/f16 -Isrc/modules/f16/displays -Isrc/modules/mig29 -Isrc/modules/stores -Isrc/modules/missile -Isrc/modules/ground
 # The two roots only a CLIENT link line needs: the orchestrator and the I/O sinks it attaches.
 INC_CLIENT := -Isrc/missions -Isrc/clients
 INC_WASM   := $(INC_MODULES) -Isrc/fdm -Isrc/world/terrain -I$(JSBSIM)/src
@@ -122,6 +122,8 @@ CORE_LIB_SRCS := \
   src/modules/f16/FBF16Ufc.cpp src/modules/f16/FBF16Sms.cpp src/modules/f16/FBF16Gun.cpp \
   src/modules/f16/FBF16Pilot.cpp \
   src/modules/f16/FBF16ModuleRegistration.cpp \
+  src/modules/mig29/FBMig29Module.cpp src/modules/mig29/FBMig29Damage.cpp \
+  src/modules/mig29/FBMig29ModuleRegistration.cpp \
   src/modules/stores/FBStoreModule.cpp src/modules/stores/FBStoreModuleRegistration.cpp \
   src/modules/ground/FBGroundModuleRegistration.cpp \
   src/modules/missile/FBMissileModule.cpp src/modules/missile/FBMissileModuleRegistration.cpp \

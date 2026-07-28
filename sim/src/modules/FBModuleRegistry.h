@@ -21,6 +21,7 @@ public:
 /* One entry point per module FAMILY, each defined in that family's own *Registration.cpp — the only
  * files allowed to name a concrete module type. */
 void FBRegisterF16Module();
+void FBRegisterMig29Module();
 void FBRegisterStoreModules();
 void FBRegisterMissileModules();
 void FBRegisterGroundModules();
