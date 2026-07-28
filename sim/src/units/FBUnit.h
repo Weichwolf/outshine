@@ -8,6 +8,7 @@
 #include "FBCountermeasure.h"
 #include "FBEmitter.h"
 #include "FBFlight.h"
+#include "FBNetReport.h"
 #include "FBTeam.h"
 #include "FBVisualContact.h"
 #include "FBWeaponUplink.h"
@@ -28,6 +29,11 @@ struct FBUnitPose {
   double RollDeg = 0.0, PitchDeg = 0.0, YawDeg = 0.0;
   double SpeedMs = 0.0;      /* true airspeed/ground speed as the unit type defines it */
   double HeadingDeg = 0.0;   /* ground track, true, deg 0..360 */
+  /* THE SURFACE UNDER THIS UNIT, from the owner's own elevation hook — terrain, not identity. It is
+   * here because a radio horizon is measured from the antenna's height above the reflecting SURFACE,
+   * and ElevM alone cannot say what that is: two positions at 936 m ASL are not 252 km apart in line of
+   * sight, they are on the same hillside. doc/air-defence-network.md §Gaps collision 1. */
+  double GroundAslM = 0.0;
 };
 
 /* WHAT AN EYE COULD SEE OF THIS UNIT, published like the radar cross-section beside it and for the
@@ -93,6 +99,16 @@ struct FBUnitSignature {
   FBFlareCloud Flare[kMaxFlareClouds];
   /* ...and what an EYE gets: a shape and a kind, nothing that names this unit. */
   FBVisualSignature Visual;
+  /* WHAT THIS UNIT PUTS ON AN AIR-DEFENCE NET. It rides the cooperative terminal like FBFlightReport
+   * beside it, so it reaches nobody unless `DatalinkXmt` is true; Reporting false is every unit that is
+   * on no net. It carries a POINT and never an identity — core/FBNetReport.h. */
+  FBNetReport Net;
+  /* COMMUNICATIONS JAMMING, as a property of any unit rather than a unit type — the same decision the
+   * radar cross-section beside it makes, and the reason an F-16 can stand in for a 707 without a new
+   * airframe. Metres of denial radius; 0 = not a jammer. It is INAUDIBLE: no FBEmitterSignature is
+   * published for it, so nothing can bear on it and there is no home-on-jam.
+   * doc/air-defence-network.md §6. */
+  float CommJamM = 0.0f;
 };
 
 class FBUnit {

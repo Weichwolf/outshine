@@ -4,6 +4,7 @@
 #include <cerrno>
 #include <cmath>
 #include <cstdlib>
+#include <sstream>
 
 namespace FlightBox::Modules {
 
@@ -80,7 +81,11 @@ FBSiteModule::FBSiteModule(const FBSiteSpec &spec) : Spec_(spec) {
   Esm_.SetPowered(true);
 
   Irst_.SetPowered(false);
+  /* THE TERMINAL, off until a mission puts this position on a net. A ground unit hears another ground
+   * unit only because the slot was told that a `Ground` kind carries one — the default is Aircraft
+   * alone, which is why the class as built could not carry a ground net at all. */
   Datalink_.SetPowered(false);
+  Datalink_.SetCarriesTerminal(/*aircraft*/ false, /*ground*/ true);
 
   if (Spec_.Store != FBStoreKind::None) {
     const FBStoreSpec *store = FBStoreSpecOf(Spec_.Store);
@@ -119,6 +124,13 @@ void FBSiteModule::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegi
   if (SystemWorking(FBSystemId::Rwr)) Esm_.Run(State_, st, units, SimTimeS_);
   else State_.Rwr.H.Invalidate();
 
+  /* THE NET, before the antennas that a cue may move. A position on no net never touches this slot at
+   * all, which is what keeps its telemetry and its events identical to the pre-net binary's. */
+  if (NetTerminal_) {
+    Datalink_.SetPowered(SystemWorking(FBSystemId::Datalink) && SystemWorking(FBSystemId::Structure));
+    Datalink_.Run(State_, st, units, SimTimeS_);
+  }
+
   Search_.SetPowered(radarOk && Fc_.SearchRadiating());
   Track_.SetPowered(radarOk && Fc_.TrackRadiating());
   if (Fc_.HaveAim()) Track_.SlewTo(Fc_.AimAzDeg(), Fc_.AimElDeg());
@@ -149,6 +161,7 @@ void FBSiteModule::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegi
     Rails_.SetTargetState(Fc_.Target());
   }
 
+  ServiceCommands(FBCommandGroup::Sensors);    /* the two entries a net cue costs */
   ServiceCommands(FBCommandGroup::Avionics);   /* the master arm */
   ServiceCommands(FBCommandGroup::Stores);     /* the pickle and the trigger */
 
@@ -186,6 +199,17 @@ void FBSiteModule::ServiceCommands(FBCommandGroup group) {
 void FBSiteModule::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &outcome,
                                 FBCommandReason &reason) {
   switch (c.Target) {
+    /* THE CUE, arriving as what it is: an antenna azimuth and an antenna elevation, typed in, each with
+     * its own latency and each refusable. Nothing about a track crosses this seam. */
+    case FBCommandTarget::RadarSlewAz:
+    case FBCommandTarget::RadarSlewEl:
+      if (!NetTerminal_) {
+        outcome = FBCommandOutcome::Rejected;
+        reason = FBCommandReason::OutOfContext;
+        return;
+      }
+      Fc_.NoteNetAimApplied(c.Target == FBCommandTarget::RadarSlewAz, c.Value);
+      return;
     case FBCommandTarget::MasterArm:
       Rails_.SetMasterArm(c.Value != 0.0 ? FBArmState::Arm : FBArmState::Sim);
       Gun_.SetMasterArm(Rails_.MasterArm());
@@ -256,6 +280,67 @@ bool FBSiteModule::ApplySetup(const std::string &key, const std::string &value) 
     if (!ParseDouble(value, s)) return RejectSetup("not a number", key, value);
     if (s < 0.0) return RejectSetup("negative scoot time", key, value);
     Fc_.SetScootS(s);
+    return true;
+  }
+
+  /* ---- THE RUNNER-GENERATED NET KEYS. Not author-written and not part of the SIX the C1 contract
+   * declares: they are produced from the mission's `net` block, because membership, sector, fallback
+   * and link kind are properties of the NET and not of the position.
+   * doc/air-defence-network.md §8. ---- */
+  if (key == "net_link") {
+    std::istringstream ls(value);
+    std::string kind;
+    double rangeM = 0.0, mastM = 0.0;
+    if (!(ls >> kind)) return RejectSetup("want wire|radio", key, value);
+    if (kind == "wire") {
+      if (!(ls >> mastM)) return RejectSetup("want 'wire <mastM>'", key, value);
+      Datalink_.SetLinkMode(Sensors::FBDatalinkSystem::LinkMode::Wire, mastM);
+    } else if (kind == "radio") {
+      if (!(ls >> rangeM >> mastM) || rangeM <= 0.0)
+        return RejectSetup("want 'radio <rangeM> <mastM>'", key, value);
+      Datalink_.SetLinkMode(Sensors::FBDatalinkSystem::LinkMode::Radio, mastM);
+      Datalink_.SetMaxRangeM(rangeM);
+    } else {
+      return RejectSetup("want wire|radio", key, value);
+    }
+    NetTerminal_ = true;
+    return true;
+  }
+  if (key == "net_period_s") {
+    double s = 0.0;
+    if (!ParseDouble(value, s) || s <= 0.0) return RejectSetup("want positive seconds", key, value);
+    Datalink_.SetNetPeriodS(s);
+    return true;
+  }
+  if (key == "net_hold") {
+    double n = 0.0;
+    if (!ParseDouble(value, n) || n <= 0.0) return RejectSetup("want a positive cycle count", key, value);
+    Datalink_.SetHoldCycles(n);
+    return true;
+  }
+  if (key == "net_sector") {
+    std::istringstream ls(value);
+    double centre = 0.0, half = 0.0;
+    if (!(ls >> centre >> half) || half <= 0.0)
+      return RejectSetup("want '<centreDeg> <halfDeg>'", key, value);
+    Fc_.SetSector(centre, half);
+    return true;
+  }
+  if (key == "net_autonomy") {
+    FBWeaponsControl w = FBWeaponsControl::Hold;
+    if (!FBWeaponsControlFromString(value.c_str(), w)) return RejectSetup("want free|tight|hold", key, value);
+    Fc_.SetAutonomy(w);
+    return true;
+  }
+  if (key == "net_control") {
+    Fc_.SetControlNode(value);
+    Datalink_.SetControlNode(value);   /* logging only — WHY the node went quiet, never a decision */
+    return true;
+  }
+  if (key == "net_wcs") {
+    FBWeaponsControl w = FBWeaponsControl::Free;
+    if (!FBWeaponsControlFromString(value.c_str(), w)) return RejectSetup("want free|tight|hold", key, value);
+    Fc_.SetNodeWcs(w);
     return true;
   }
   return false;   /* unknown key: the boot path logs SET_REJECTED with the key AND value */

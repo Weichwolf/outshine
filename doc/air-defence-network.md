@@ -5,8 +5,8 @@ unit's antenna, the layered belt a mission can declare and a judge can read, the
 that decides who shoots, what the defence becomes when the net is taken from it, and the minimum
 jamming model that makes that last question measurable.
 
-**Status: SPECIFIED, NOT BUILT.** No line of `sim/` was touched to write this file, and no line of
-[`modules/ground/`](modules/ground/INDEX.md) either.
+**Status: BUILT.** The five capabilities of §0 are built and measured; the numbers are in §State and the
+eight proof missions are `sim/missions/net-*.fbm`.
 
 **Delimitation, and it is the whole reason this file exists separately.**
 [`modules/ground/module.md`](modules/ground/module.md) specifies **one position**: two antennas, an
@@ -459,20 +459,41 @@ its own radar, firmed over its own looks, and gated by its own envelope.
 
 ## State
 
-**Nothing is built.** `sim/src/` has no net, no zone, no jammer, and no ground site to put on a net —
-`C1` itself is specified and unbuilt.
+**BUILT.** `sim/src/` grows two value headers (`core/FBNetReport.h`, `core/FBZone.h`), four setters plus
+one test on the existing link (`sensors/FBDatalinkSystem`), four short steps on the existing engagement
+machine (`modules/ground/FBSiteFireControl`), one objective kind, two mission scopes and one published
+scalar. **No new class walks the registry, and no new class was needed at all.**
 
-What already exists and is consumed **unchanged**, which is why this is a bounded round rather than a
-subsystem:
+| Measured | Number |
+|---|---|
+| Existing missions untouched | **336/336** `telemetry*.csv` byte-identical and **112/112** `events.log` identical modulo `wallS`/`speedup`/path, against the pre-round binary |
+| Determinism, all 120 missions | **371/371** telemetry and **120/120** events identical over `--threads 1/2/4`, exit codes identical |
+| Perception boundary | `verify-layers`: *"3 restricted header(s) respected, **6 registry reader(s) inside the perception boundary**"* — the tuple is unchanged, and a seventh reader added anywhere is **rejected** (counter-checked: `systems/FBSystemSlots.h -> units/FBUnitRegistry.h is not on that header's includer list`, rc=1) |
+| The zone gate is a NARROWING | `core/FBZone.h` is `RESTRICTED` to an EMPTY outside-includer list. Counter-checked: a `#include "FBZone.h"` in `pilot/FBPilot.h` is rejected, rc=1 |
+| **The cue is worth everything** (`net-cue` vs `net-cue-unnetted`) | one geometry, the `net` block the only difference. Netted: `net JOIN` t=3.9 s, `net CUE` t=8.0 s, `site RADIATE` t=8.0 s, `site TRACK` t=145.1 s, **2** `site LAUNCH` (t=172.0 / 198.9), viper FAIL at t=201.8. Unnetted: **0** `net`, **0** `site RADIATE`, **0** `site TRACK`, **0** `site LAUNCH`, viper SUCCESS. That is criterion 3 in its strongest form — not *later*, **never** |
+| **The cue cannot invent a track** (`net-blind-cue`) | one Mk 82 at **52.32 m**, **2 086.81 J/m²**: `Radar` **FAILED**, `FireControl`/`Structure`/`Stores` only degraded. `net_cue` = 1 from t=8.1 s to the end of the run with **no further transition**, and **ZERO** `site TRACK` lines. Criterion 4 |
+| **Where in the layer cake** (`net-belt-low` vs `net-belt-high`) | identical route, altitude the only difference. Low (1 200 m ASL, 259 m over the position): `zone_flak_s` = **34.5 s**, `zone_sambelt_s` = **0.0 s**, **54** `gun BURST`, **0** `site LAUNCH`, `avoid zone flak` LOST. High (5 000 m): `zone_flak_s` = **0.0 s**, `zone_sambelt_s` = **320.0 s**, **0** `gun BURST`, **1** `site LAUNCH`, `avoid zone flak` MET, SUCCESS. The altitude that escapes the AAA does put you in the SAM, and the verdict says which storey |
+| **Blind against confidently blind** (`net-jam-late` vs `net-jam-start`) | jammed **mid-run**: `net JOIN` t=3.9, `site RADIATE` t=8.0, `net LOST reason=jammed` t=128.0 (distM 21 027 against reachM 23 341 — not the horizon), `net AUTONOMOUS fallback=hold`, `site TRACK` t=143.1, **0** launches. Jammed **from t=0**: **0** `net JOIN`, **0** `net CUE`, **0** `site RADIATE`, **0** `site TRACK`, **0** launches. Same nil result, opposite cost: the mid-run loss bought the attacker the battery's position on his RWR |
+| **Jamming denies the link and nothing else** | `net-jam-late` against `net-jam-wire`, one line apart: the `site TRACK` line is **byte-identical** in both — `t=143.1 site TRACK unit=sam brgDeg=206.713 rangeM=21977.2 closureMs=223.135 altM=6000 reactionS=26`. The runs diverge at the WCS gate alone (t=169.2: `net WCS state=hold effect="launch inhibited"` against `site STATE to=ENGAGE`) |
+| **A wire is not jammable** | `net-jam-wire`, the same jammer on the same geometry: **0** `net LOST`, 2 launches. Criterion 9 |
+| The mast is what makes a ground radio link exist | 21.0 km between two 8 m masts gives `reachM` **23 340.7 m** by the 4/3-earth rule. With the pre-round ASL formula the same pair would have read 2×1.23·√(2 208 ft) = **114 km** — a number about the map's absolute height and not about the two antennas |
+
+**The seven runner-generated `set` keys**, not four (§8 named four and could not carry the node's own
+identity or its transmitted WCS): `net_link` · `net_period_s` · `net_hold` · `net_sector` ·
+`net_autonomy` · and exactly one of `net_control` (a member: whom it subscribes to) or `net_wcs` (the
+node: what it transmits). They are generated by the PARSER rather than by the runner, so every client
+— `fb-gym`, `gpu_native` and the browser — sees the same configured net from the same file. The site
+module's six AUTHOR-facing keys are untouched.
+
+What already existed and was consumed **unchanged**:
 
 | Piece | Where | Used for |
 |---|---|---|
 | the cooperative net with cycle, hold, age, faction filter, three-state block | `sensors/FBDatalinkSystem` | the whole link |
-| a reported **point** and its correlation gate (`1 000 m + age·300 m/s`, plus ambiguity) | `pilot/FBFlightPicture`, [`formation.md`](formation.md) §5.2 | the `tight` WCS |
-| a signature published at the barrier, extensible by one field | `units/FBSimUnit::PublishPose` | the report and the jam scalar |
+| a reported **point** and its correlation gate (`1 000 m + age·300 m/s`, plus ambiguity) | [`formation.md`](formation.md) §5.2 | the `tight` WCS |
+| a signature published at the barrier | `units/FBSimUnit::PublishPose` | the report and the jam scalar |
 | the terminal as a damageable system | `core/FBSystemHealth::Datalink` (id 9) | killing the net with **no new id** |
-| a cue that is typed, latency-charged, rejectable and supersedable | the GCI chain, [MESS] 8.0 s call→radiating | the cue's cost |
-| the antenna elevation as the quantity a cue sets | `fcr_slew_el`, `n019_elev` | the cue's effect |
+| a cue that is typed, latency-charged, rejectable and supersedable | `FBCommandBus` (`RadarSlewAz`/`RadarSlewEl`, 0.5 s each, entered one after the other) | the cue's cost |
 | a judge with its own private plan copy and pose-only measurement | `core/FBMissionMonitor` | the zone dwell and `avoid zone` |
 | deferred objectives, `FBObjectiveCovers`, the conservation argument | `C12`, [`missions/verdict.md`](missions/verdict.md) | `avoid zone` costs the roster nothing |
 
@@ -482,11 +503,15 @@ subsystem:
 
 ### The honest headline
 
-**This file specifies the channel, and the tree has nothing on either end of it.** `C1` is unbuilt, so
-there is no node and no subscriber; `C6` is open, so no *aircraft* can ride the net and O1's decisive
-jamming still cannot reach a fighter; `C4` is open, so a belt has no terrain to hide behind and a cue
-travels through mountains. **The net is worth building second, not first** — after `C1`, and its first
-acceptance run needs at least two sites and one EW set.
+**The channel is built and its two ends exist; what the tree still cannot do is measure the cue as a
+DETECTION advantage.** With no terrain masking (`C4`) a 50 km acquisition set finds anything inside
+50 km whatever its elevation window, so "the cue found what my own set could not" has no geometry in
+this tree. What the cue IS measurably worth here is the **wake-up of a silent position** (`net-cue`
+against `net-cue-unnetted`: everything against nothing) and the **fire-control authority** — and both of
+those are doctrine rather than detection. That limit is `C4`'s, not this file's, and it is stated rather
+than papered over with an invented clutter floor.
+
+`C6` is still open: no *aircraft* rides the net, so O1's jamming reaches a battery and not a fighter.
 
 And one asymmetry must be said out loud, because it compounds the one `C1` already declared: `C1` gives
 the ground the ability to shoot back before the air can shoot first; **this file makes the ground
@@ -497,9 +522,9 @@ neither is in this round.
 
 | ID | Gap | Home |
 |---|---|---|
-| `C22` | **No connected air defence.** No cue between positions, no sector responsibility, no fire-control authority, no control node — and therefore no experiment in which a defence loses its net | this file, §§2/3/5 |
-| `C23` | **No declared, judged threat geometry.** A mission cannot say what its belt is, and a verdict cannot say whether the flight went through it or round it | this file, §4 |
-| `C24` | **No communications jamming.** The bounded subset of `C13` that O1's anchor actually names | this file, §6 |
+| `C22` | **CLOSED.** A cue between positions, sector responsibility, fire-control authority and a control node that can be killed, jammed or fall out of range mid-run. Measured in §State | this file, §§2/3/5 |
+| `C23` | **CLOSED.** `zone` declares the belt, `objective avoid zone` judges it, `zone_<name>_in`/`_s` measure it — and `core/FBZone.h` is RESTRICTED so no unit can read one | this file, §4 |
+| `C24` | **CLOSED.** `set jam_comm_m` denies a link on geometry, mid-run, with no die. The radar half of `C13` stays wholly open | this file, §6 |
 
 ### Existing gaps this file touches
 
@@ -510,6 +535,14 @@ neither is in this round.
 | `C18` | the ground-to-ground half of "no radio between units" is specified here | there is still **no voice net**, no call volume, and nothing that saturates under 80 % of the calls — Package Q's third failure mode remains a telemetry read |
 | `C19` | the vocabulary `free`/`tight`/`hold` is defined here and gated here **for ground units** | aircraft have no ROE state; W5 and O2 stay blocked |
 | `C1` | gains a second legal wake-up cue (§3) and four runner-generated `set` keys (§8) | its six author-facing keys, its five-state machine, its two beams and its nine rows are untouched |
+
+### Found while BUILDING (new, and measured)
+
+| # | Gap | Detail |
+|---|---|---|
+| B1 | **An inert ground target and a falling bomb radiate a FIGHTER radar** | `FBGroundModule` and `FBStoreModule` leave their `Radar()` slot at `Powered_ = true`, and `FBSimUnit::PublishPose` publishes `Radar().Emission()` unconditionally — so a `target_soft` and a released Mk 82 both put an `AirborneFireControl` beam on the air. It is PRE-EXISTING and visible in the committed baseline (`sam-radar-kill.fbm`, `t=41.1 rwr THREAT_NEW unit=ew … kind=fire-control elDeg=40.56` — that is the bomb). It did not bite before because nothing listened: the datalink walked aircraft only and no ground unit had an ESM that acted on a bearing. It bites now, and it is why `net-blind-cue.fbm` needs `set alert cold` rather than `emcon hold` alone. **NOT fixed in this round**: the fix (`Radar_.SetPowered(false)` in both modules) changes committed `events.log` files and belongs to whichever round owns `modules/ground`/`weapons`, with its own conservation argument |
+| B2 | **The cue cannot be measured as a DETECTION advantage** | with no terrain masking (`C4`) a 50 km acquisition set finds anything inside 50 km whatever its elevation window, and every long-range search set in the catalogue is heard by an ESM at twice its own range — so a fire unit inside a node's cue range is ALWAYS inside that node's own emission. §10 criterion 3 is therefore satisfied in its wake-up form (`site RADIATE` at t=8.0 s against never) and not in its detection-time form. The number that would close it is `C4`'s |
+| B3 | **`node_dead` is not distinguishable from `terminal` at the receiver** | §5 names four `net LOST` reasons; the built set is three (`jammed`, `terminal`, `horizon`). A node killed outright and a node whose terminal was shot away are the same silence on the air, and telling them apart would mean reading the sender's health register — which is the registry read the whole architecture exists to prevent. Named rather than faked |
 
 ### Named, quantified, refused for a reason
 
@@ -523,6 +556,7 @@ neither is in this round.
 | N6 | **One report per node per cycle** | a node reports **one** point — its own most significant contact. A mission that wants more throughput declares more nodes, the same rule `C1` uses for launchers. The consequence is a genuine capacity limit, which is arguably a feature (`w3-09`), but it is a `[SET]` shape and not a sourced one |
 | N7 | **No sourced timing anywhere in the net** | reporting cycle, hold, entry latency and mast height are all `[SET]` or inherited. The one measured analogue in the tree is the MiG-29's 8.0 s call→radiating chain, and it is an aircraft's number being borrowed by a battery |
 | N8 | **The zone is authored twice** | `spawn` places a site, `zone` declares the geometry, and nothing checks that they agree. A mission can declare a belt where there is none |
+| N8a | **Only a JUDGED unit gets zone telemetry** | the dwell lives in `FBMissionMonitor`, and a unit with neither waypoints nor objectives carries no monitor. §9's "per unit" is in practice "per judged unit" — which is every unit whose route a belt is a statement about, and no ground position |
 | N9 | **No campaign-scope net state** | `C0` carries units, ground targets and stores across steps. A node killed on night one is alive on night two, and "the IADS was rolled back over 78 days" — Allied Force's actual subject — is not expressible |
 | N10 | **The attacker gains nothing** | the pilot AI consumes no threat picture, no zone, no RWR-derived route change. Every question in §0 is answered by *measuring* an AI that flies its briefed route into the belt. That is the `D3`/G11 precedent and it is deliberate, but it means the first results describe geometry more than tactics |
 

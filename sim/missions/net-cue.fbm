@@ -1,0 +1,63 @@
+name net-cue-1
+timeout 320
+
+# THE NET MOVES AN ANTENNA. One early-warning set, one fire unit, one buried cable between them, and an
+# attacker that radiates nothing at all. doc/air-defence-network.md, sections 2 and 3.
+#
+# THE EXPERIMENT is this file against `net-cue-unnetted.fbm`, which is the identical geometry with the
+# `net` block deleted and nothing else changed. The 2K12 is under `emcon hold`, so it is DARK until
+# something it RECEIVED tells it to come up; the viper flies with `fcr_mode off`, so the position's own
+# passive receiver never hears an AIRBORNE emitter, and the P-18 next door is a surface one. Without the
+# cable the battery therefore never radiates, never tracks and never shoots — with it, it does all
+# three: RADIATE at t = 8.0 s, TRACK at t = 145.1 s, two LAUNCHes at t = 172.0 / 198.9 s.
+#
+# WHAT THE NET MAY AND MAY NOT DO: the P-18 publishes a POINT its own antenna measured, with its own
+# look age. The 2K12 turns that into an antenna azimuth and an antenna elevation, types both over its
+# command bus at 0.5 s each, and then has to FIND the aircraft with its own radar, firm it over its own
+# looks and pass its own envelope test. No track is ever created from a message.
+#
+# WHAT TO READ:
+#   events.log      `net JOIN node=ew` -> `net CUE brgDeg=... rngM=... lookAgeS=...` -> `site STATE
+#                   from=DARK to=SEARCH why="passive cue"` -> `to=TRACK` -> `to=ENGAGE` -> `sms RELEASE`
+#   telemetry_sam.csv  net_state (0 unnetted / 1 netted / 2 silent), net_cue, net_cue_brg,
+#                   net_cue_age_s (the SENDER's own look age), net_wcs, site_state, site_launches
+#
+# READING RULE: the viper carries no weapons and flies a straight line into an engagement it cannot see
+# coming. Exit 1 = FAIL with `combat ineffective (weapon damage)` at t = 201.8 s is the EXPECTED verdict
+# — the 3M9 arrives. What this file MEASURES is the pair (`site LAUNCH` count, first `site RADIATE`
+# time) against `net-cue-unnetted.fbm`, where both are zero and never; the run is a failure of the
+# MECHANISM only if the position never leaves DARK.
+
+zone sa6belt 46.75000 6.90000 22000 100 7000    # the mobile layer, as the judge sees it
+
+net iads
+  control ew                                    # the node: a search set and a telephone
+  link wire                                     # a buried cable: no horizon, and nothing can jam it
+  period 4.0                                    # [SET] a ground reporting cycle is not a fighter's PPLI
+  hold 3                                        # [SET] cycles of silence before the member is on its own
+  wcs free                                      # what the node transmits: engage what you can see
+  member ew
+  member sam autonomy hold                      # [SET] cut off from control, this battery waits
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.25000 6.90000 3000 0.0 450
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off                              # NOTHING on this jet radiates: the ESM cue never fires
+  set rwr on
+  wp 46.85000 6.90000 3000 450
+
+unit ew
+  module p18
+  team hostile
+  spawn 46.30000 7.20000 ground 0.0 0           # 23 km east of the track: never in its own cone of silence
+  set emcon free
+
+unit sam
+  module sa6
+  team hostile
+  spawn 46.75000 6.90000 ground 0.0 0
+  set emcon hold                                # dark until something it RECEIVED says otherwise
+  set rounds 3

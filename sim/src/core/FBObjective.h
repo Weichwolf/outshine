@@ -27,7 +27,12 @@ enum class FBObjectiveKind {
   Identify,     /* hold a planar range to a named unit for a cumulative dwell — the flown pass */
   Protect,      /* the named unit(s) are still combat-effective at the END of the run */
   NoFire,       /* this unit released nothing and fired no burst for the whole run */
-  DenyRelease   /* the named unit(s) released nothing for the whole run */
+  DenyRelease,  /* the named unit(s) released nothing for the whole run */
+  /* Cumulative dwell inside a DECLARED cylinder stays at or below an exposure budget. Admissible under
+   * doc/missions/verdict.md's own test — it measures what the aircraft DID, in the identical currency
+   * `identify`'s planar range already uses — and it costs the roster nothing, because it asks about the
+   * declaring unit's own sample. doc/air-defence-network.md §4. */
+  AvoidZone
 };
 
 /* Which side of `unit <callsign>` / `team <faction>` a kind that offers both was written on. KillUnit/
@@ -77,7 +82,8 @@ inline bool FBObjectiveNames(const FBObjective &o, const char *id, FBUnitTeam te
       return o.Scope == FBObjectiveScope::Unit ? (id && o.TargetId == id) : o.TargetTeam == team;
     case FBObjectiveKind::Survive:
     case FBObjectiveKind::Waypoints:
-    case FBObjectiveKind::NoFire: return false;   /* they are about the declaring unit itself */
+    case FBObjectiveKind::NoFire:
+    case FBObjectiveKind::AvoidZone: return false;   /* they are about the declaring unit itself */
   }
   return false;
 }
@@ -95,7 +101,8 @@ inline bool FBObjectiveCovers(const FBObjective &o, const char *id, FBUnitTeam t
     case FBObjectiveKind::Identify:
     case FBObjectiveKind::Protect:
     case FBObjectiveKind::NoFire:
-    case FBObjectiveKind::DenyRelease: return false;
+    case FBObjectiveKind::DenyRelease:
+    case FBObjectiveKind::AvoidZone: return false;
   }
   return false;
 }
@@ -114,7 +121,8 @@ inline bool FBObjectiveMet(const FBObjective &o, const FBMissionRoster &roster) 
     case FBObjectiveKind::Survive:
     case FBObjectiveKind::Waypoints:
     case FBObjectiveKind::Identify:
-    case FBObjectiveKind::NoFire: return false;
+    case FBObjectiveKind::NoFire:
+    case FBObjectiveKind::AvoidZone: return false;
   }
   bool any = false;
   for (int i = 0; i < roster.Count; i++) {
@@ -148,6 +156,11 @@ inline std::string FBObjectiveStr(const FBObjective &o) {
     case FBObjectiveKind::Protect:     return "protect " + target();
     case FBObjectiveKind::NoFire:      return "no_fire";
     case FBObjectiveKind::DenyRelease: return "deny release " + target();
+    case FBObjectiveKind::AvoidZone: {
+      std::ostringstream os;
+      os << "avoid zone " << o.TargetId << " exposure " << o.HoldS;
+      return os.str();
+    }
   }
   return "?";
 }

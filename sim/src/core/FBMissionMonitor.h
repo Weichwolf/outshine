@@ -10,8 +10,27 @@
 #include "FBFlightPlan.h"
 #include "FBObjective.h"
 #include "FBRunway.h"
+#include "FBTelemetry.h"
+#include "FBZone.h"
 
 namespace FlightBox {
+
+class FBMissionMonitor;
+
+/* The `zone` telemetry source, a class of its own because FBMissionMonitor already IS one thing to the
+ * telemetry bus's caller and a source may carry only one name. It reads the judge's own dwell record —
+ * the judge is allowed the truth by construction, and this is that truth being WRITTEN OUT, not handed
+ * to anybody who could act on it. doc/air-defence-network.md §9. */
+class FBZoneTelemetry : public FBTelemetrySource {
+public:
+  explicit FBZoneTelemetry(const FBMissionMonitor &owner) : Owner_(owner) {}
+  const char *TelemetryName() const override { return "zone"; }
+  void DeclareTelemetry(FBTelemetrySchema &schema) const override;
+  void SampleTelemetry(FBTelemetryRow &row) const override;
+
+private:
+  const FBMissionMonitor &Owner_;
+};
 
 enum class FBMissionVerdict { None, Success, Fail, Timeout };
 const char *FBMissionVerdictStr(FBMissionVerdict v);
@@ -19,6 +38,7 @@ const char *FBMissionVerdictStr(FBMissionVerdict v);
 /* One tick's OBSERVED truth — deliberately narrow, nothing module-specific. */
 struct FBMissionMonitorSample {
   double LatDeg = 0.0, LonDeg = 0.0;
+  double ElevM = 0.0;           /* m ASL — the third dimension a declared zone is a cylinder in */
   bool   AnyWow = false;
   double GroundSpeedKt = 0.0;   /* the stillstand-on-the-runway SUCCESS gate for a Land waypoint */
   /* The shootdown as a MISSION fact: whether the SORTIE is over. Nothing is stopped, frozen or marked
@@ -37,7 +57,8 @@ public:
   /* Everything is COPIED from the mission file at construction. `wpCaptureM` matches the guidance-side
    * capture radius (FBNavSystem's default) so verdict and flown trajectory agree on "reached". */
   FBMissionMonitor(FBFlightPlan plan, std::vector<FBObjective> objectives, FBRunway runway,
-                   bool haveRunway, double timeoutS, double wpCaptureM = 500.0);
+                   bool haveRunway, double timeoutS, std::vector<FBZone> zones = {},
+                   double wpCaptureM = 500.0);
 
   /* Returns true the ONE tick a verdict is reached, then latches like FBFlightMonitor::Tick. */
   bool Tick(const FBMissionMonitorSample &s, double simTimeS);
@@ -54,7 +75,17 @@ public:
   FBMissionVerdict   Verdict() const { return Verdict_; }
   const std::string &Detail() const { return Detail_; }
 
+  /* Null unless the mission declared zones, which is what keeps every existing telemetry.csv identical. */
+  FBTelemetrySource *ZoneTelemetry() { return Zones_.empty() ? nullptr : &ZoneSrc_; }
+
 private:
+  /* The ONE reader of the declared belt outside this class, and it only writes it to a file. */
+  friend class FBZoneTelemetry;
+  const std::vector<FBZone> &Zones() const { return Zones_; }
+  const std::vector<FBZoneDwell> &ZoneDwell() const { return Dwell2_; }
+  /* Cumulative dwell per declared zone, from the observed position alone. Pure bookkeeping, no verdict. */
+  void NoteZones(const FBMissionMonitorSample &s, double dtS);
+
   bool Conclude(FBMissionVerdict v, const std::string &detail);
   /* The approach record to the ACTIVE fix — this class's OWN statement of FBNavSystem's orbit rule,
    * computed from its own plan copy and the observed position alone. doc/systems.md, section 7.5.1. */
@@ -87,6 +118,11 @@ private:
    * that time sets. Sized once in the constructor, never resized. */
   struct FBIdentifyProgress { double DwellS = 0.0; bool Met = false; };
   std::vector<FBIdentifyProgress> Dwell_;
+  /* THE DECLARED BELT, this judge's own copy and nobody else's — index-parallel dwell, monotone, sized
+   * once. `avoid zone` is decided against it and the `zone` source writes it out. */
+  std::vector<FBZone>      Zones_;
+  std::vector<FBZoneDwell> Dwell2_;
+  FBZoneTelemetry          ZoneSrc_{*this};
   double       PrevSimT_ = 0.0;     /* the tick length is the caller's, so it is measured, not assumed */
 
   std::string  PlanDetail_;         /* HOW the plan was completed — the legacy SUCCESS wording */

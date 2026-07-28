@@ -60,7 +60,7 @@ inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnActor(const FBModelRoots 
     if (!block.Plan.Empty() || !block.Objectives.empty())
       gunit->SetMissionMonitor(std::make_unique<FBMissionMonitor>(block.Plan, block.Objectives,
                                                                   mission.Runway, mission.HaveRunway,
-                                                                  timeoutS));
+                                                                  timeoutS, mission.Zones));
     gunit->SetLogAttribution(mission.Units.size() > 1);
     return gunit;
   }
@@ -104,7 +104,7 @@ inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnActor(const FBModelRoots 
   if (!block.Plan.Empty() || !block.Objectives.empty())
     unit->SetMissionMonitor(std::make_unique<FBMissionMonitor>(block.Plan, block.Objectives,
                                                                mission.Runway, mission.HaveRunway,
-                                                               timeoutS));
+                                                               timeoutS, mission.Zones));
   /* THE one place the log-attribution rule is decided: a single actor's lines stay unattributed
    * (they are the mission's own), a flight labels every line with its callsign. */
   unit->SetLogAttribution(mission.Units.size() > 1);

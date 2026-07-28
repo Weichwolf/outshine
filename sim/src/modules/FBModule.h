@@ -5,6 +5,7 @@
 #ifndef FBMODULE_H
 #define FBMODULE_H
 
+#include <cstdlib>
 #include <string>
 #include "FBAirDataSystem.h"
 #include "FBAirframeControls.h"
@@ -133,6 +134,23 @@ public:
    * the set is doing, not stored. */
   virtual FBEmitterSignature TrackBeamEmission() { return {}; }
 
+  /* WHAT THIS UNIT PUTS ON AN AIR-DEFENCE NET, published beside the two beams into
+   * FBUnitSignature::Net. Silent by default, which is every airframe: a jet is on no ground net, and
+   * the field a receiver reads then says `Reporting == false` exactly as it did before it existed. A
+   * position that IS on one fills it from its own acquisition set — a POINT, never a track.
+   * doc/air-defence-network.md §3. */
+  virtual FBNetReport NetReport() { return {}; }
+
+  /* THE JAMMER, as a property of a unit rather than a unit type — one radius, published like the radar
+   * cross-section beside it and for the same reason. 0 = not a jammer, which is every module written
+   * before this existed. doc/air-defence-network.md §6. */
+  double CommJamM() const { return CommJamM_; }
+
+  /* ONE MORE TELEMETRY SOURCE a module may own, appended after everything FBSimUnit registers by name.
+   * Null is the default and is every airframe; a netted position returns its `net` source. Null-return
+   * keeps every existing telemetry.csv identical column for column. */
+  virtual FBTelemetrySource *NetTelemetry() { return nullptr; }
+
   /* HOW MANY UNITS THIS MODULE CAN STILL PUT INTO THE WORLD — the client sizes its per-actor buffers
    * from it before the first tick, and a store that found no room would be a store that vanished.
    * Default: what is on the rails, which for an aircraft is the whole answer. A ground position
@@ -167,12 +185,26 @@ public:
    * own keys. False iff unrecognized, which the caller turns into a mission FAIL, never a silent no-op. */
   virtual bool ApplySetup(const std::string &key, const std::string &value) = 0;
 
+protected:
+  /* The ONE mission key that is a fact about a UNIT and not about an airframe, so it is answered here
+   * once instead of by every module that could carry a jamming pod. A module opts in by calling it from
+   * its own ApplySetup; one that does not is simply not a jammer. Returns false for any other key. */
+  bool ApplyJammerSetup(const std::string &key, const std::string &value) {
+    if (key != "jam_comm_m") return false;
+    char *end = nullptr;
+    double m = std::strtod(value.c_str(), &end);
+    if (end != value.c_str() + value.size() || !(m >= 0.0)) return false;
+    CommJamM_ = m;
+    return true;
+  }
+
 private:
   friend class FBModuleRegistry;   /* the ONE writer of TypeName_, at creation */
   void SetTypeName(std::string name) { TypeName_ = std::move(name); }
 
   const FBSystemHealth *Health_ = nullptr;   /* borrowed, read-only — see AttachHealth */
   std::string TypeName_;
+  double CommJamM_ = 0.0;
 };
 
 } // namespace FlightBox::Modules

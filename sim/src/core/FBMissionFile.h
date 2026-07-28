@@ -10,10 +10,12 @@
 #include <vector>
 #include "FBFlight.h"
 #include "FBFlightPlan.h"
+#include "FBNetReport.h"
 #include "FBObjective.h"
 #include "FBRunway.h"
 #include "FBSpawn.h"
 #include "FBTeam.h"
+#include "FBZone.h"
 
 namespace FlightBox {
 
@@ -45,6 +47,30 @@ struct FBWeatherSpec {
   double        WindFromDeg = 0.0, WindSpeedKt = 0.0;   /* `wx wind <dirFROM> <kt>` */
 };
 
+/* One member of a `net` block: which position, the arc it is responsible for, and what it does when the
+ * node goes quiet. Nothing here is a performance figure — capability stays catalogue data. */
+struct FBNetMember {
+  std::string      Id;
+  bool             HaveSector = false;   /* false = all-round; a cue is then never out of sector */
+  double           SectorCentreDeg = 0.0, SectorHalfDeg = 180.0;
+  FBWeaponsControl Autonomy = FBWeaponsControl::Hold;   /* the fallback doctrine, [SET] per mission */
+};
+
+/* `net <name>` — the DOCTRINE of one connected air defence, and deliberately not `set` keys on the
+ * positions: a battery does not know it is in a net until somebody puts it in one, and the C1 contract
+ * declares exactly six author-facing site keys. doc/air-defence-network.md §8. */
+struct FBNetSpec {
+  std::string  Name;
+  std::string  Control;                 /* the node's callsign; empty = no node, every member autonomous */
+  bool         Wire = false;            /* `link wire` — no horizon test, and unjammable */
+  double       RangeM = 0.0;            /* `link radio <rangeM>`; 0 with radio = the terminal's own reach */
+  double       MastM = 0.0;             /* [SET] antenna height above ground, both ends of the link */
+  double       PeriodS = 1.0;           /* [SET] the net's reporting cycle */
+  double       HoldCycles = 3.0;        /* [SET] cycles of silence before a member goes Silent */
+  FBWeaponsControl Wcs = FBWeaponsControl::Free;   /* what the NODE transmits */
+  std::vector<FBNetMember> Members;
+};
+
 struct FBMission {
   std::string  Name;
   FBRunway     Runway;       /* optional: landing-relevant geometry, `spawn threshold ...`'s reference */
@@ -57,6 +83,10 @@ struct FBMission {
    * before the clock existed byte-identical. doc/missions/syntax.md, "The mission clock". */
   int64_t      UtcT0S = 0;
   bool         HaveTime = false;
+  /* Declared geometry the JUDGE reads and no unit ever does, and the doctrine of the nets over the
+   * cast. Both are mission-wide and both are empty for every file written before they existed. */
+  std::vector<FBZone>    Zones;
+  std::vector<FBNetSpec> Nets;
   std::vector<FBMissionUnit> Units;
 };
 

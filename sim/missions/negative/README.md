@@ -11,6 +11,8 @@ REFUSED, so their pass criterion is an exit code and a message, not telemetry.
 | `objective-self-protect.fbm` | `fb-gym --mission missions/negative/objective-self-protect.fbm` | exit 1, `reason="parse: line 14: unit 'viper' cannot have itself as a target"` — `protect`/`identify`/`deny release` on oneself; `survive` is the spelling that exists |
 | `objective-identify-unknown.fbm` | `fb-gym --mission missions/negative/objective-identify-unknown.fbm` | exit 1, `reason="parse: unit 'viper': 'objective identify unit ghost range 2000 hold 30' names no unit in this mission"` — resolved against the whole cast at end of file, exactly like `kill unit` |
 | `objective-identify-nobox.fbm` | `fb-gym --mission missions/negative/objective-identify-nobox.fbm` | exit 1, `reason="parse: line 14: 'objective identify' needs 'range <metres>' with a positive value"` — there is no default box, and a zero one is a geometry nothing can be inside |
+| `net-member-unknown.fbm` | `fb-gym --mission missions/negative/net-member-unknown.fbm` | exit 1, `reason="parse: net 'iads': 'member ghost' names no unit in this mission"` — a net's membership is resolved against the whole cast at end of file, exactly like `kill unit` |
+| `net-zone-flat.fbm` | `fb-gym --mission missions/negative/net-zone-flat.fbm` | exit 1, `reason="parse: line 8: zone 'belt' needs altMin < altMax (a band, not a plane)"` — a cylinder no route can be inside would make every `avoid zone` vacuously true |
 
 The same file **without** `--utc` is a normal, valid mission — which is the point: the error is the
 COLLISION, not the file.

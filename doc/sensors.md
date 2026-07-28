@@ -383,6 +383,7 @@ navigation accuracy of the SENDER; what the receiver contributes is only the tim
 | `kNetPeriodS` | 1.0 s | Link-16 PPLI: the own-position report of a fighter is around one per second [DOC] |
 | `kDropAfterCycles` | 3.0 | a terminal holds a contact briefly instead of blanking it on one lost message [SET, behavioural rule from DOC] |
 | `kGenericRangeNm` | 150 nm | an explicit PLACEHOLDER ("some cooperative net"), not a real terminal number |
+| `SetNetPeriodS` / `SetHoldCycles` | default 1.0 s / 3.0 | a ground reporting cycle is not a fighter's PPLI rate and no source gives one, so the MISSION declares it — `[SET]` per `.fbm`, not a constant declaring it for every scenario |
 | `FBF16Datalink::kMidsRangeNm` | 300 nm | MIDS-LVT/Link-16 air-to-air LOS range [DOC datalink-iff.md] |
 
 #### 3.3 The net cycle (`Cycle`)
@@ -391,27 +392,47 @@ The WHOLE picture is rebuilt per cycle, registry in order:
 
 1. **Faction filter** — `u->GetTeam() != SelfTeam_` → skipped. A cooperative net is one's own; an
    opponent can never appear in it.
-2. **Only `FBUnitKind::Aircraft`** — a released store belongs to the same faction but carries no
-   terminal. The test stands BEFORE the ordinal counter, because `flightIndex` is the selection criterion
-   of the FR/FL filter and a bomb would otherwise shift the flight lead numbering.
-3. `flightIndex++` — the fallback ordinal, **including one's own unit**, for a sender that declares no
-   flight.
+2. **Which KINDS carry a terminal** (`SetCarriesTerminal(aircraft, ground)`, default `Aircraft` only) —
+   a released store belongs to the same faction but carries no terminal. The test stands BEFORE the
+   ordinal counter, because `flightIndex` is the selection criterion of the FR/FL filter and a bomb would
+   otherwise shift the flight lead numbering. An AIR-DEFENCE POSITION sets `(false, true)`, which is the
+   whole reason the class as built could not carry a ground net
+   ([`air-defence-network.md`](air-defence-network.md) §2).
+3. `flightIndex++` **for aircraft only** — the fallback ordinal, **including one's own unit**, for a
+   sender that declares no flight. A ground terminal never moves it.
 4. **skip one's own PPLI** (`GetId() == SelfId_`) — after the ordinal, not before.
 5. `AcceptContact(sender, index)` — the override point (§3.6). The index is the sender's **declared**
    flight position minus one where the mission declared one (`core/FBFlight.h`,
    [`formation.md`](formation.md) §1), and the ordinal of step 3 where it did not — so a mission
    without `flight` lines behaves exactly as it did.
 6. Capacity limit 8, then `break`.
-7. **Heard?** `sig.DatalinkXmt && rangeM <= min(MaxRangeM_, RadioHorizonM(own, other altitude))`.
-8. Heard → fresh track with `ReportTimeS = simTimeS`. Not heard, but an old track exists and is younger
-   than `3 × 1 s` → **taken over unchanged** (position and timestamp stay standing; the age keeps
-   running up). Otherwise it drops.
-9. The difference old/new produces `datalink TRACK_GAINED` / `TRACK_LOST`.
+7. **Jammed?** Before the walk: any unit of ANOTHER faction whose published `CommJamM > 0` and whose
+   planar range to this RECEIVER is inside it denies the whole cycle — the block goes `Invalid`, not
+   empty, and the hold of step 8 does not apply. A `wire` link is exempt.
+   ([`air-defence-network.md`](air-defence-network.md) §6.)
+8. **Heard?** `sig.DatalinkXmt && rangeM <= reach`, where `reach = MaxRangeM_` for a `wire` link and
+   `min(MaxRangeM_, RadioHorizonM(ownAgl + mast, theirAgl + mast))` for a `radio` one.
+9. Heard → fresh track with `ReportTimeS = simTimeS`, carrying the sender's `FBNetReport` verbatim
+   (a POINT, an own look age and a weapons control state — no id, no team, no type). Not heard, but an
+   old track exists and is younger than `HoldCycles × PeriodS` → **taken over unchanged** (position and
+   timestamp stay standing; the age keeps running up). Otherwise it drops.
+10. The difference old/new produces `datalink TRACK_GAINED` / `TRACK_LOST`, and — for the DECLARED
+   control node only — `net JOIN` / `net LOST reason=jammed|terminal|horizon`. That reason is written for
+   the ANALYST and never enters `FBState`: the member's block is `Invalid` either way and it cannot tell
+   the causes apart.
 
 **Radio horizon** (`RadioHorizonM`, static, protected):
 `d[nm] = 1.23 · (√h₁[ft] + √h₂[ft])`, the 4/3-earth line-of-sight rule, summed over both antenna heights
-[DERIVED]. A UHF net has no path of its own over the horizon. **Terrain masking along the path is NOT
-modelled** — it would need the DEM along the route.
+[DERIVED]. **BOTH ARGUMENTS ARE HEIGHTS ABOVE GROUND, not above sea level** — the horizon is measured
+against the reflecting SURFACE, and the pre-2026-07-28 ASL form made the reach of a ground net a function
+of the absolute map elevation: two positions at sea level saw each other 0 m, two on the same 936 m
+hillside 252 km. The surface under each end comes from the owner's own elevation hook
+(`FBUnitPose::GroundAslM` for the far end, `SetOwnGroundAslM` for the near one), and the declared
+`mast` height of the net is added to both. **Measured: this changed no air range** — 336/336
+`telemetry*.csv` and 112/112 `events.log` byte-identical, because at fighter altitudes the horizon
+(> 400 km for two aircraft at 2 500 m) never binds against the terminal's own 150 nm reach.
+A UHF net has no path of its own over the horizon. **Terrain masking along the path is NOT modelled** —
+it would need the DEM along the route.
 
 #### 3.4 Between the cycles
 

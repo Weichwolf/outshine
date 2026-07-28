@@ -19,6 +19,44 @@ const char *FBSiteFireControl::StateName(State s) {
   return "?";
 }
 
+const char *FBSiteFireControl::NetStateName(NetState s) {
+  switch (s) {
+    case NetState::Unnetted: return "UNNETTED";
+    case NetState::Netted: return "NETTED";
+    case NetState::Silent: return "SILENT";
+  }
+  return "?";
+}
+
+void FBSiteFireControl::SetControlNode(const std::string &callsign) {
+  std::size_t n = 0;
+  while (n + 1 < (std::size_t)kDatalinkCallsignLen && n < callsign.size()) {
+    ControlNode_[n] = callsign[n];
+    n++;
+  }
+  ControlNode_[n] = '\0';
+  NetState_ = NetState::Silent;   /* subscribed and not yet hearing anybody is exactly Silent */
+}
+
+/* WHO MAY SHOOT. Unnetted is today's behaviour verbatim; a node transmits its own declared state; a
+ * member takes the node's while it hears it and its own declared fallback the moment it does not. */
+FBWeaponsControl FBSiteFireControl::EffectiveWcs() const {
+  if (IsNode_) return NodeWcs_;
+  if (ControlNode_[0] == '\0') return FBWeaponsControl::Free;
+  return NetState_ == NetState::Netted ? NetWcs_ : Autonomy_;
+}
+
+void FBSiteFireControl::NoteNetAimApplied(bool azimuth, double deg) {
+  if (azimuth) {
+    NetAimAzDeg_ = deg;
+    if (Entry_ == CueEntry::WaitAz) Entry_ = CueEntry::PostEl;
+  } else {
+    NetAimElDeg_ = deg;
+    NetAimValid_ = true;
+    if (Entry_ == CueEntry::WaitEl) Entry_ = CueEntry::Idle;
+  }
+}
+
 void FBSiteFireControl::Bind(const FBSiteSpec &spec, const FBState &trackBus) {
   Spec_ = &spec;
   TrackBus_ = &trackBus;
@@ -88,6 +126,162 @@ bool FBSiteFireControl::InEnvelope(double rangeM, double tgtAltM, double siteAlt
   return true;
 }
 
+/* ---- THE NET, in four short steps, and not one of them writes a contact ---- */
+
+/* RECEIVE. The control node's message is found in this terminal's OWN datalink block by the sender's
+ * callsign — a cooperative net gives the SENDER's identity away and says nothing about the target. What
+ * comes out is a direction, a range and two staleness terms. */
+void FBSiteFireControl::ReceiveNet(const FBState &state, const Fdm::fb_fdm_state &st) {
+  NetHeld_ = false;
+  NetCue_ = false;
+  InSector_ = false;
+  NetAgeS_ = -1.0;
+  CueAgeS_ = -1.0;
+  if (IsNode_) { NetState_ = NetState::Netted; return; }   /* a node is its own picture */
+  if (ControlNode_[0] == '\0') { NetState_ = NetState::Unnetted; return; }
+
+  const FBDatalinkBlock &dl = state.Datalink;
+  const FBDatalinkTrack *node = nullptr;
+  if (dl.H.Readable())
+    for (int i = 0; i < dl.TrackCount; i++)
+      if (std::strcmp(dl.Tracks[i].Callsign, ControlNode_) == 0) { node = &dl.Tracks[i]; break; }
+
+  NetState old = NetState_;
+  NetState_ = node ? NetState::Netted : NetState::Silent;
+  if (NetState_ != old) {
+    FBLog::Info("net", "STATE", {{"from", NetStateName(old)}, {"to", NetStateName(NetState_)},
+        {"node", std::string(ControlNode_)}});
+    if (NetState_ == NetState::Silent) {
+      CueLoggedS_ = -1e9;   /* the next cue is a NEW one and says so, however long the silence lasted */
+      FBLog::Warn("net", "AUTONOMOUS", {{"node", std::string(ControlNode_)},
+          {"fallback", FBWeaponsControlStr(Autonomy_)}});
+    }
+  }
+  if (!node) return;
+
+  NetHeld_ = true;
+  NetAgeS_ = node->AgeS;
+  NetWcs_ = node->Net.Wcs;
+  if (!node->Net.Reporting) return;   /* the node is up and has nothing: a picture, and it is empty */
+
+  CueLatDeg_ = node->Net.LatDeg;
+  CueLonDeg_ = node->Net.LonDeg;
+  CueAltM_ = node->Net.AltM;
+  CueAgeS_ = node->Net.TgtLookAgeS;
+  CueRngM_ = FBPlanarDistM(st.lat, st.lon, CueLatDeg_, CueLonDeg_);
+  CueBrgDeg_ = FBBearingDeg(st.lat, st.lon, CueLatDeg_, CueLonDeg_);
+  /* THE ELEVATION IS THE POINT of the whole mechanism, and the equation is the MiG-29 manual's own for
+   * the same act: putting the window on the wrong altitude band is how a set flies past a target it
+   * could easily have seen. */
+  CueElDeg_ = std::atan2(CueAltM_ - st.elev, CueRngM_ > 1.0 ? CueRngM_ : 1.0) * kRad2Deg;
+  CueAzDeg_ = FBWrap180(CueBrgDeg_ - st.yaw);
+
+  InSector_ = !HaveSector_ || std::fabs(FBWrap180(CueBrgDeg_ - SectorCentreDeg_)) <= SectorHalfDeg_;
+  if (!InSector_) {
+    Entry_ = CueEntry::Idle;   /* abandoned, not queued: a cue for the neighbour is not this one's */
+    if (WasInSector_ || OutLoggedS_ < 0.0) {
+      OutLoggedS_ = NowS_;
+      WasInSector_ = false;
+      FBLog::Info("net", "CUE_OUT_OF_SECTOR", {{"brgDeg", CueBrgDeg_},
+          {"centreDeg", SectorCentreDeg_}, {"halfDeg", SectorHalfDeg_}});
+    }
+    return;
+  }
+  WasInSector_ = true;
+  NetCue_ = true;
+}
+
+/* ENTER. Two entries over the command bus, one after the other, each charged its own latency — the cue
+ * therefore costs TIME, and a cue superseded while still being typed is abandoned rather than queued. */
+void FBSiteFireControl::EnterCue(FBCommandBus &avionics) {
+  if (!NetCue_) return;
+  double movedM = FBPlanarDistM(CueLatDeg_, CueLonDeg_, EnteredLatDeg_, EnteredLonDeg_);
+  bool moved = !NetAimValid_ && Entry_ == CueEntry::Idle ? true : movedM > kCueSupersedeM;
+  if (moved && Entry_ != CueEntry::Idle) {
+    FBLog::Info("net", "CUE_SUPERSEDED", {{"movedM", movedM}, {"brgDeg", CueBrgDeg_}});
+    Entry_ = CueEntry::Idle;
+  }
+  if (Entry_ == CueEntry::PostEl) {
+    /* The SECOND entry, and only once the first has been committed: the cost of a cue is two of these,
+     * one after the other, and that is what makes a fresher net worth something. */
+    FBCommandAck ack = avionics.Post(FBCommandTarget::RadarSlewEl, CueElDeg_, NowS_);
+    if (ack.Outcome != FBCommandOutcome::Rejected) Entry_ = CueEntry::WaitEl;
+    return;
+  }
+  if (Entry_ != CueEntry::Idle || !moved) return;
+  FBCommandAck ack = avionics.Post(FBCommandTarget::RadarSlewAz, CueAzDeg_, NowS_);
+  if (ack.Outcome == FBCommandOutcome::Rejected) return;
+  EnteredLatDeg_ = CueLatDeg_;
+  EnteredLonDeg_ = CueLonDeg_;
+  Entry_ = CueEntry::WaitAz;
+  /* A CONTINUOUS cue is one event, not one per reporting cycle: the line is written when the position
+   * starts being cued and then at the sampling rate a reader can use. What happened in between is in
+   * `net_cue*`, which is a time series and is the right shape for it. */
+  if (NowS_ - CueLoggedS_ >= kCueLogS) {
+    CueLoggedS_ = NowS_;
+    FBLog::Info("net", "CUE", {{"brgDeg", CueBrgDeg_}, {"rngM", CueRngM_}, {"altM", CueAltM_},
+        {"elDeg", CueElDeg_}, {"lookAgeS", CueAgeS_}, {"msgAgeS", NetAgeS_},
+        {"wcs", FBWeaponsControlStr(EffectiveWcs())}});
+  }
+}
+
+/* PUBLISH. What this position's own acquisition set measured, as a POINT — no id, no team, no type,
+ * because the FBRadarContact it is built from has none of the three. */
+void FBSiteFireControl::PublishNet(const FBState &state, const Fdm::fb_fdm_state &st) {
+  MyReport_ = FBNetReport{};
+  MyReport_.Wcs = IsNode_ ? NodeWcs_ : EffectiveWcs();
+  const FBRadarBlock &acq = state.Radar;
+  const FBRadarContact *best = nullptr;
+  if (acq.H.Readable())
+    for (int i = 0; i < acq.ContactCount; i++)
+      if (!best || acq.Contacts[i].RangeM < best->RangeM) best = &acq.Contacts[i];
+  if (!best && TrackBus_ && TrackBus_->Radar.H.Readable()) {
+    const FBRadarBlock &fcr = TrackBus_->Radar;
+    if (fcr.LockIndex >= 0 && fcr.LockIndex < fcr.ContactCount) best = &fcr.Contacts[fcr.LockIndex];
+  }
+  if (!best) return;
+  double brg = best->BearingDeg * kDeg2Rad, elv = best->ElevAngleDeg * kDeg2Rad;
+  double horiz = best->RangeM * std::cos(elv);
+  double coslat = std::cos(st.lat * kDeg2Rad);
+  MyReport_.Reporting = true;
+  MyReport_.LatDeg = st.lat + horiz * std::cos(brg) / kMPerDeg;
+  MyReport_.LonDeg = st.lon + (std::fabs(coslat) > 1e-6 ? horiz * std::sin(brg) / (kMPerDeg * coslat) : 0.0);
+  MyReport_.AltM = (float)(st.elev + best->RangeM * std::sin(elv));
+  MyReport_.TgtLookAgeS = (float)best->LookAgeS;
+}
+
+/* CORRELATE. doc/formation.md §5.2's gate verbatim, second consumer: is the point somebody else
+ * reported the same aircraft this set is holding? Ambiguity is a coin toss and claims nothing. */
+void FBSiteFireControl::CorrelateNet(const FBState &trackBus, const Fdm::fb_fdm_state &st) {
+  Correlated_ = false;
+  if (!NetCue_) return;
+  const FBRadarBlock &fcr = trackBus.Radar;
+  if (!fcr.H.Readable() || fcr.ContactCount <= 0) return;
+  double ageS = std::max(0.0, CueAgeS_) + std::max(0.0, NetAgeS_);
+  double gateM = kCorrelateM + ageS * kCorrelateSpeedMs;
+  double bestM = 1e18, secondM = 1e18;
+  double coslat = std::cos(st.lat * kDeg2Rad);
+  for (int i = 0; i < fcr.ContactCount; i++) {
+    const FBRadarContact &c = fcr.Contacts[i];
+    double brg = c.BearingDeg * kDeg2Rad, elv = c.ElevAngleDeg * kDeg2Rad;
+    double horiz = c.RangeM * std::cos(elv);
+    double lat = st.lat + horiz * std::cos(brg) / kMPerDeg;
+    double lon = st.lon + (std::fabs(coslat) > 1e-6 ? horiz * std::sin(brg) / (kMPerDeg * coslat) : 0.0);
+    double alt = st.elev + c.RangeM * std::sin(elv);
+    double planarM = FBPlanarDistM(lat, lon, CueLatDeg_, CueLonDeg_);
+    double dAlt = alt - CueAltM_;
+    double d = std::sqrt(planarM * planarM + dAlt * dAlt);
+    if (d < bestM) { secondM = bestM; bestM = d; }
+    else if (d < secondM) { secondM = d; }
+  }
+  if (bestM > gateM) return;
+  if (secondM < 2.0 * bestM) {
+    FBLog::Info("net", "CORRELATE_AMBIGUOUS", {{"bestM", bestM}, {"secondM", secondM}, {"gateM", gateM}});
+    return;
+  }
+  Correlated_ = true;
+}
+
 Pilot::FBPilotCommands FBSiteFireControl::Run(const FBState &state, FBCommandBus &avionics,
                                               const Systems::FBAirframeControls &airframe,
                                               const Fdm::fb_fdm_state &st, const FBFlightPlan &plan,
@@ -102,14 +296,33 @@ Pilot::FBPilotCommands FBSiteFireControl::Run(const FBState &state, FBCommandBus
   /* ---- THE CUE. A passive bearing and a power, never a range: the position still has to search for
    * what it heard, which is the difference between a receiver and a timer. ---- */
   const FBRwrBlock &esm = state.Rwr;
-  bool heard = esm.H.Readable() && esm.ThreatCount > 0;
+  /* AN AIRBORNE EMITTER, and the word is the contract's: a battery does not scramble because its own
+   * early-warning set next door is sweeping, and after this round there IS such a set next door. The
+   * discriminator is the receiver's own estimated KIND — the two airborne values against the two
+   * surface ones — and nothing that names a unit. doc/modules/ground/module.md §Spec 5. */
+  const FBRwrThreat *airborne = nullptr;
+  if (esm.H.Readable())
+    for (int i = 0; i < esm.ThreatCount; i++)
+      if (esm.Threats[i].Kind == FBEmitterKind::AirborneFireControl ||
+          esm.Threats[i].Kind == FBEmitterKind::MissileSeeker) { airborne = &esm.Threats[i]; break; }
+  bool heard = airborne != nullptr;
   if (heard) {
     if (NowS_ - CueS_ > kCueHoldS)
-      FBLog::Info("site", "CUE", {{"brgDeg", esm.Threats[0].BearingDeg},
-          {"signal", esm.Threats[0].SignalNorm}, {"threats", esm.ThreatCount}});
+      FBLog::Info("site", "CUE", {{"brgDeg", airborne->BearingDeg},
+          {"signal", airborne->SignalNorm}, {"threats", esm.ThreatCount}});
     CueS_ = NowS_;
   }
   Cue_ = heard;
+
+  /* ---- THE NET. A DIRECTION TO LOOK and never a track: nothing below writes a contact, and the
+   * position's own radar still has to detect, firm and pass its own envelope test. ---- */
+  ReceiveNet(state, st);
+  EnterCue(avionics);
+  /* THE SECOND LEGAL WAKE-UP, and it is legal for the same reason the passive receiver is: a received
+   * signal with a range, an age and a sender that can be killed — not a timer and not a registry read.
+   * doc/air-defence-network.md §3, the EMCON interaction. */
+  if (NetCue_) CueS_ = NowS_;
+
   const bool cued = !EmconHold_ || NowS_ - CueS_ <= kCueHoldS;
 
   /* ---- THE PICTURE. Two sources, never fused into one file: the acquisition set (or the eye, for a
@@ -135,6 +348,13 @@ Pilot::FBPilotCommands FBSiteFireControl::Run(const FBState &state, FBCommandBus
     for (int i = 0; i < eye.ContactCount; i++)
       if (!best || eye.Contacts[i].SizeMrad > best->SizeMrad) best = &eye.Contacts[i];
     if (best) { haveCue = true; cueAz = best->AzDeg; cueEl = best->ElDeg; }
+  }
+  /* THE CUE MOVES THE ANTENNA — and only when this position's own sets have nothing of their own. What
+   * is used is the COMMITTED entry, not the message: the crew acts on what it typed. */
+  if (!haveCue && NetCue_ && NetAimValid_) {
+    haveCue = true;
+    cueAz = NetAimAzDeg_;
+    cueEl = NetAimElDeg_;
   }
   TrackCount_ = contacts;
   Handover_ = haveCue && (State_ == State::Search || State_ == State::Track || State_ == State::Engage);
@@ -213,6 +433,8 @@ Pilot::FBPilotCommands FBSiteFireControl::Run(const FBState &state, FBCommandBus
   }
   Lock_ = locked;
   if (locked) LastTrackS_ = NowS_;
+  CorrelateNet(*TrackBus_, st);
+  PublishNet(state, st);
 
   /* ---- MASTER ARM, once: a position that came up armed is one whose crew did it, and it travels the
    * command bus at that action's own latency exactly as a pilot's hand would. ---- */
@@ -256,8 +478,23 @@ Pilot::FBPilotCommands FBSiteFireControl::Run(const FBState &state, FBCommandBus
         break;
       }
       if (NowS_ - TrackSinceS_ >= reactionS && Rounds_ > 0 && RailsLeft_ > 0) {
-        SalvoLeft_ = Spec_->RoundsPerEngagement;
-        Enter(State::Engage, "reaction time elapsed");
+        /* THE FIRE-CONTROL AUTHORITY sits IN FRONT OF the existing launch decision and adds no launch
+         * path. `free` is what every position did before nets existed; `tight` needs the track to
+         * CORRELATE with a live cue; `hold` never launches and still radiates, which is what makes a
+         * position a decoy that costs the attacker a weapon. */
+        FBWeaponsControl wcs = EffectiveWcs();
+        bool release = wcs == FBWeaponsControl::Free ||
+                       (wcs == FBWeaponsControl::Tight && Correlated_);
+        if (release) {
+          LoggedInhibit_ = false;
+          SalvoLeft_ = Spec_->RoundsPerEngagement;
+          Enter(State::Engage, "reaction time elapsed");
+        } else if (!LoggedInhibit_) {
+          LoggedInhibit_ = true;
+          FBLog::Info("net", "WCS", {{"state", FBWeaponsControlStr(wcs)},
+              {"netState", NetStateName(NetState_)}, {"correlated", Correlated_},
+              {"effect", "launch inhibited"}, {"rangeM", TrackRangeM_}});
+        }
       }
       break;
     }
@@ -324,6 +561,30 @@ Pilot::FBPilotCommands FBSiteFireControl::Run(const FBState &state, FBCommandBus
   Beam0_ = SearchRadiating() ? 1 : 0;
   Beam1_ = TrackRadiating() ? (State_ == State::Engage ? 3 : 2) : 0;
   return c;
+}
+
+void FBSiteNetTelemetry::DeclareTelemetry(FBTelemetrySchema &schema) const {
+  schema.Add("net_state");            /* FBSiteFireControl::NetState ordinal */
+  schema.Add("net_age_s", "s");       /* how long ago the node's message was heard */
+  schema.Add("net_cue");
+  schema.Add("net_cue_brg", "deg");
+  schema.Add("net_cue_rng_m", "m");
+  schema.Add("net_cue_age_s", "s");   /* the SENDER's own look age — the second staleness term */
+  schema.Add("net_wcs");              /* FBWeaponsControl ordinal, as it EFFECTIVELY applies here */
+  schema.Add("net_in_sector");
+  schema.Add("net_correlated");
+}
+
+void FBSiteNetTelemetry::SampleTelemetry(FBTelemetryRow &row) const {
+  row.Push((int)Fc_.NetState_);
+  row.Push(Fc_.NetAgeS_);
+  row.Push(Fc_.NetCue_);
+  row.Push(Fc_.NetCue_ ? Fc_.CueBrgDeg_ : -1.0);
+  row.Push(Fc_.NetCue_ ? Fc_.CueRngM_ : -1.0);
+  row.Push(Fc_.CueAgeS_);
+  row.Push((int)Fc_.EffectiveWcs());
+  row.Push(Fc_.InSector_);
+  row.Push(Fc_.Correlated_);
 }
 
 void FBSiteFireControl::DeclareTelemetry(FBTelemetrySchema &schema) const {

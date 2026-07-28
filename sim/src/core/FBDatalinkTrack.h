@@ -6,6 +6,7 @@
 #define FB_FBDATALINKTRACK_H
 
 #include "FBFlight.h"
+#include "FBNetReport.h"
 #include "FBTeam.h"
 
 namespace FlightBox {
@@ -30,6 +31,11 @@ struct FBDatalinkTrack {
   char   FlightName[kFlightNameLen] = {};
   int    FlightPos = 0;
   FBFlightReport Report;
+  /* THE AIR-DEFENCE HALF of the same message: a point the SENDER's own radar measured, with the
+   * sender's own look age — no id, no team, no type. Reporting stays false for every unit that is on
+   * no net, and every consumer then behaves exactly as it did before this field existed.
+   * doc/air-defence-network.md §3. */
+  FBNetReport Net;
 };
 
 } // namespace FlightBox

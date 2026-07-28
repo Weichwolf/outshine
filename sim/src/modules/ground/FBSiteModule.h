@@ -53,6 +53,14 @@ public:
     return Fc_.TrackRadiating() ? Track_.Emission() : FBEmitterSignature{};
   }
 
+  /* WHAT THIS POSITION PUTS ON THE NET, and the terminal is the ONE gate: a position with no net has no
+   * terminal, a position whose terminal was shot away transmits nothing. That is FBSystemId::Datalink
+   * doing its existing job — no new type, no new friend, no new id. */
+  FBNetReport NetReport() override {
+    return Datalink_.Transmitting() ? Fc_.NetReport() : FBNetReport{};
+  }
+  FBTelemetrySource *NetTelemetry() override { return NetTerminal_ ? &Fc_.NetTelemetrySource() : nullptr; }
+
   Systems::FBAutopilot &Autopilot() override { return AP_; }
   Systems::FBFlightControl &FlightControl() override { return FC_; }
   FBSiteFireControl &PilotSystem() override { return Fc_; }   /* covariant: FBPilot& on the base */
@@ -81,6 +89,7 @@ public:
     Search_.SetIdentity(unitId, team);
     Track_.SetIdentity(unitId, team);
     Esm_.SetIdentity(unitId, team);
+    Datalink_.SetIdentity(unitId, team);   /* whose net this position is on — a net is one side's */
     Optics_.SetIdentity(unitId);   /* the id only — an eye is given no team to read */
     Rails_.SetUnitId(unitId);
     Gun_.SetUnitId(unitId);
@@ -105,6 +114,10 @@ private:
 
   const FBSiteSpec &Spec_;
   double SimTimeS_ = 0.0;
+  /* Set by the runner-generated `net_link` key and by nothing else: this position is on a net. Without
+   * it the terminal stays unpowered, the slot is never cycled and the position is byte-identical to one
+   * from before nets existed. */
+  bool NetTerminal_ = false;
 
   Systems::FBAutopilot AP_;
   Systems::FBFlightControl FC_;

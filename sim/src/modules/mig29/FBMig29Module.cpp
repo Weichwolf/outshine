@@ -404,6 +404,7 @@ bool RejectSetup(const char *reason, const std::string &key, const std::string &
  * mission FAIL, which is what the caller does with the false. */
 bool FBMig29Module::ApplySetup(const std::string &key, const std::string &value) {
   if (!Fdm_) return false;
+  if (ApplyJammerSetup(key, value)) return true;
   if (key == "gear") {
     if (value != "up" && value != "down") return RejectSetup("want up|down", key, value);
     AirframeCtrl->SetGear(value == "down");

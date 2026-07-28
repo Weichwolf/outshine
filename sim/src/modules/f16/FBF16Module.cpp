@@ -411,6 +411,9 @@ bool RejectSetup(const char *reason, const std::string &key, const std::string &
 
 bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
   if (!Fdm_) return false;   /* setup lines describe the airframe's state — none to apply without one */
+  /* The one key that is a fact about a UNIT and not about this airframe: a jamming radius, answered on
+   * the base so an F-16 can stand in for a 707 without a new module (doc/air-defence-network.md §6). */
+  if (ApplyJammerSetup(key, value)) return true;
   /* POWER and XMT are two switches because the real terminal has two: power off blinds this jet, XMT
    * off only stops it being heard. */
   if (key == "datalink" || key == "datalink_xmt") {

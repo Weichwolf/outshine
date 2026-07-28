@@ -38,6 +38,9 @@ void FBSimUnit::PublishPose() {
   Pose_.RollDeg = St_.roll; Pose_.PitchDeg = St_.pitch; Pose_.YawDeg = St_.yaw;
   Pose_.SpeedMs = St_.speed;
   Pose_.HeadingDeg = St_.yaw;   /* no ground-track field on fb_fdm_state; yaw is the flown heading */
+  /* The surface under this unit, from the owner's own elevation hook: a radio horizon is a height above
+   * the SURFACE, and no receiver can measure the terrain under a sender it only hears. */
+  Pose_.GroundAslM = GroundAslM_;
   Sig_.DatalinkXmt = Module_->Datalink().Transmitting();
   Sig_.IffXpdr = Module_->Radar().IffTransponder();
   /* Not an emission but the same question: what may a foreign sensor notice? A plume is visible to an
@@ -78,6 +81,10 @@ void FBSimUnit::PublishPose() {
   /* What this jet tells its own flight — published at the same barrier as everything else it radiates,
    * so no receiver ever reads half of it. Empty for a unit in no flight. */
   Sig_.Flight = GetFlight().Declared() ? Module_->FlightReport() : FBFlightReport{};
+  /* ...and what a POSITION tells its air-defence net: a point, an age and a weapons control state, and
+   * nothing that names the target. Silent for every module that is on no net. */
+  Sig_.Net = Module_->NetReport();
+  Sig_.CommJamM = (float)Module_->CommJamM();
 }
 
 void FBSimUnit::Run(double dt, const FBUnitRegistry *units, const World::FBWorld *world) {
@@ -87,6 +94,9 @@ void FBSimUnit::Run(double dt, const FBUnitRegistry *units, const World::FBWorld
 void FBSimUnit::UpdateGroundAsl(double sampleM) {
   if (FBElevationResolved(sampleM)) GroundAslM_ = sampleM;
   Module_->SetGroundAsl((float)GroundAslM_);
+  /* The terminal's OWN end of the radio horizon, from the same sample and on the same tick — pushed
+   * here rather than through every module, because it is the owner's terrain and not the module's. */
+  Module_->Datalink().SetOwnGroundAslM(GroundAslM_);
   if (Fdm_) Fdm_->SetGroundElevM(GetKind() == FBUnitKind::Weapon ? kWeaponNoGroundElevM : GroundAslM_);
 }
 
@@ -154,7 +164,7 @@ void FBSimUnit::ApplyDamageToAirframe() {
 
 FBMissionMonitorSample FBSimUnit::BuildMissionSample(const FBMissionRoster &roster) const {
   FBMissionMonitorSample s;
-  s.LatDeg = St_.lat; s.LonDeg = St_.lon;
+  s.LatDeg = St_.lat; s.LonDeg = St_.lon; s.ElevM = St_.elev;
   s.AnyWow = Fdm_ ? Fdm_->GetWow() : true;   /* no airframe = on the ground, by definition */
   s.GroundSpeedKt = St_.gs * kMsToKt;
   s.CombatIneffective = !Health_.CombatEffective();
@@ -224,6 +234,11 @@ void FBSimUnit::StartTelemetry(FBTelemetrySink *sink) {
   Bus_.Register(&Module_->Irst());
   Bus_.Register(&Module_->PilotSystem().FlightPicture());
   Bus_.Register(&Module_->Visual());
+  /* THE TWO CONDITIONAL SOURCES, and they are conditional so that a mission which declares neither a
+   * net nor a zone writes the identical file it wrote before either existed: a module that is on no net
+   * returns null, and a judge with no declared zones returns null. */
+  if (FBTelemetrySource *net = Module_->NetTelemetry()) Bus_.Register(net);
+  if (Mission_) if (FBTelemetrySource *zones = Mission_->ZoneTelemetry()) Bus_.Register(zones);
   Bus_.SetSink(sink);
   Bus_.Start();
 }

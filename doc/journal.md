@@ -956,3 +956,40 @@ Schiene keinen Sucher-Ton hat — die Lücke steht als B1 in `## Gaps` statt als
 Code. Ein Abnahmekriterium des Vertrags maß nichts: `verify-layers` druckte die Zahl der geschützten
 Header (zwei), nicht die Länge der Registry-Leserliste (sechs); das Werkzeug druckt jetzt die Liste
 selbst, und sie ist unverändert **6**.
+
+## 2026-07-28 — Verbundene Luftabwehr: das Netz bewegt eine Antenne, es erzeugt nie einen Track
+
+`C22`/`C23`/`C24` gebaut, `C13` halbiert. Der ganze Bau ist ZWEI Wertheader (`core/FBNetReport.h`,
+`core/FBZone.h`), vier Setter plus ein Test am bestehenden `sensors/FBDatalinkSystem`, vier kurze
+Schritte an der bestehenden `modules/ground/FBSiteFireControl`, eine Zielart, zwei Missionsgeltungs-
+bereiche und ein publizierter Skalar. **Keine neue Klasse liest die Registry** — `verify-layers` meldet
+weiterhin *6 registry reader(s) inside the perception boundary*, und ein siebter wird nachweislich
+abgewiesen (gegengeprüft, rc=1). `core/FBZone.h` kommt als geschützter Header mit LEERER Includer-Liste
+dazu: ein Pilot, der einen deklarierten Gürtel läse, wüsste ohne Sensor, wo die SAMs stehen — auch das
+gegengeprüft (rc=1).
+
+Der tragende Satz ist gemessen: `net-blind-cue.fbm` legt eine Mk 82 auf 52,32 m neben eine eingewiesene
+Stellung (2 086,81 J/m² — `Radar` FAILED, `FireControl`/`Structure`/`Stores` nur degradiert), die
+Einweisung liegt von t=8,1 s bis zum Ende ununterbrochen an (`net_cue` = 1, keine weitere Transition),
+und es entstehen **null** `site TRACK`-Zeilen.
+
+Was das Netz wert ist, in einer Zahl: dieselbe Geometrie mit und ohne `net`-Block ergibt 2 `site LAUNCH`
+gegen 0 und `site RADIATE` bei t=8,0 s gegen nie. Der Schichtkuchen: dieselbe Route, nur die Höhe
+verschieden, ergibt 34,5 s in `flak` / 0 Starts / 54 Feuerstöße gegen 0,0 s in `flak`, 320,0 s in
+`sambelt` / 1 Start / 0 Feuerstöße. Blind gegen zuversichtlich blind: mitten im Lauf gestört verliert
+die Stellung ihren Knoten bei t=128,0 s, nachdem sie sich seit t=8,0 s durch Strahlen verraten hat; von
+Anfang an gestört bleibt sie stumm und unsichtbar. Und Störung nimmt NUR die Leitung: die `site
+TRACK`-Zeile ist byte-identisch zur ungestörten (`brgDeg=206.713 rangeM=21977.2 closureMs=223.135`).
+
+Zwei Funde beim Bauen. Erstens: `RadioHorizonM` rechnete mit NN-Höhen — zwei Stellungen auf 936 m ASL
+„sahen" einander 252 km weit. Jetzt sind beide Argumente Höhen ÜBER GRUND plus die deklarierte
+Masthöhe des Netzes; **die Luftreichweiten ändert das nachweislich nicht** (336/336 Telemetrien,
+112/112 events.log byte-identisch), weil der Horizont auf Jägerhöhe nie gegen die 150 nm des Terminals
+bindet. Zweitens: `emcon hold` prüfte `ThreatCount > 0` statt „airborne emitter", wie die Spec es sagt —
+eine Batterie ging hoch, weil das eigene Frühwarnradar nebenan drehte. Ab dieser Runde steht so eines
+nebenan; korrigiert, byte-identisch.
+
+Verworfen mit Messung: die Einweisung als DETEKTIONS-Vorteil ist in diesem Baum nicht messbar. Ohne
+Terrainmaskierung (`C4`) findet ein 50-km-Suchset alles innerhalb von 50 km, gleich welches
+Elevationsfenster — was der Cue messbar wert ist, ist das AUFWECKEN einer stummen Stellung und die
+Feuerleitautorität, also Doktrin statt Detektion. Steht so in `## Gaps`.

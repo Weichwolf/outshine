@@ -1,0 +1,71 @@
+name net-jam-wire-1
+timeout 320
+
+# A WIRE IS NOT JAMMABLE, and that is a modelling STATEMENT rather than a waiver.
+# doc/air-defence-network.md §2 and acceptance criterion 9.
+#
+# This file is `net-jam-late.fbm` with ONE line changed — `link radio 60000 mast 8` becomes `link wire`
+# — and nothing else. The same jammer flies the same geometry into the same radius. A buried cable is
+# not subject to a radio horizon and cannot be swamped at the receiver's front end, so the link simply
+# does not notice.
+#
+# A second F-16 carries `set jam_comm_m 25000`. It is INAUDIBLE — it publishes no emitter signature at
+# all, so nothing can bear on it and there is no home-on-jam — and it denies exactly one thing: the
+# RECEIVER's link, on geometry, with no die and no ramp. Radar, RWR, IRST, the eye and every seeker are
+# untouched, which is what `net-jam-wire.fbm` and the `site` lines here are the proof of.
+#
+# It is also the second half of "jamming denies the link and NOTHING else": the `site` chain here is
+# the unjammed baseline every other run of the trio is compared against.
+#
+# WHAT TO READ:
+#   events.log      ZERO `net LOST` lines, and the full `site STATE ... to=TRACK -> to=ENGAGE ->
+#                   site LAUNCH` chain the radio run loses
+#
+# READING RULE: the battery engages whichever aircraft its own radar holds, and on this geometry that is
+# the JAMMER — which is exactly the point of an inaudible jammer that has to fly close. Exit 1 = FAIL
+# with `UNIT_RESULT jammer FAIL` is the EXPECTED verdict. The MEASUREMENT is the count of `net LOST`
+# lines (the only passing value is ZERO) and the `site TRACK` line, which is byte-identical to the one
+# `net-jam-late.fbm` produces under jamming.
+
+net iads
+  control ew
+  link wire                                     # a buried cable: the SAME geometry, unjammable
+  period 4.0
+  hold 3
+  wcs free
+  member ew
+  member sam autonomy hold                      # cut off from control, this battery waits
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.25000 6.90000 3000 0.0 450
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set rwr on
+  wp 46.85000 6.90000 3000 450
+
+unit jammer
+  module f16
+  team friendly
+  spawn 46.30000 6.60000 6000 30.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set rwr off
+  set jam_comm_m 25000                          # [SET] one radius, one geometry, no J/S and no ramp
+  wp 46.90000 6.95000 6000 450
+
+unit ew
+  module p18
+  team hostile
+  spawn 46.62000 7.10000 ground 0.0 0
+  set emcon free
+
+unit sam
+  module sa6
+  team hostile
+  spawn 46.75000 6.90000 ground 0.0 0
+  set emcon hold
+  set rounds 3

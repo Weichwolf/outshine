@@ -1,0 +1,68 @@
+name net-blind-cue-1
+timeout 400
+
+# THE ONE THING A NET MAY NOT DO, and the criterion the whole contract hangs on: THE NET MOVES AN
+# ANTENNA, IT NEVER CREATES A TRACK. doc/air-defence-network.md, acceptance criterion 4.
+#
+# A 2K12 is on a buried cable to a P-18 and is responsible for the SOUTHERN arc. It boots COLD, so for
+# its 60 s warm-up not one of its antennas is powered and it can see nothing at all; the viper comes
+# down from the NORTH while it is still cold, so the cue reaches a battery that cannot act on it yet.
+# Two Mk 82 go down 50-odd metres beside the position — close enough to wreck the antenna, far enough
+# that the van and its fire-control computer survive — and the viper flies on SOUTH, into the very arc
+# this battery is responsible for.
+#
+# From that moment the cue is perfect and continuous: `net_cue` = 1, a bearing, a range, an elevation
+# and two independent ages, refreshed every reporting cycle to the end of the run. The battery has
+# `FBSystemId::Radar` FAILED, so it produces ZERO `site TRACK` lines, however good the message is. A net
+# that could invent a track would produce them, and that is exactly what this file rules out.
+#
+# WHAT TO READ:
+#   events.log      `damage SYSTEM unit=sam system=radar state=failed`
+#                   (and NOT `structure`) -> `net CUE unit=sam ...`, and NOT ONE `site TRACK` line
+#   telemetry_sam.csv  net_cue = 1 and net_state = 1 (NETTED) over the whole tail of the run, while
+#                   site_state never reaches 3 (TRACK) and site_lock stays 0. (site_beam0/1 report what
+#                   the engagement MACHINE is doing, not what the antenna radiates — a set whose Radar
+#                   is failed is not cycled at all, so its published emission is silent and the viper's
+#                   own rwr_* columns are where that is read.)
+#
+# READING RULE: the viper carries no objectives beyond its route, so exit 0 = SUCCESS is the pass. The
+# MEASUREMENT is the count of `site TRACK` lines in events.log, and the only passing value is ZERO.
+
+net iads
+  control ew
+  link wire
+  period 4.0
+  hold 3
+  wcs free
+  member ew
+  member sam autonomy free                      # all-round: nothing but the dead antenna gates this run
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.85000 6.90000 3000 180.0 450
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 7 mk82
+  set task attack
+  set attack_mode ccip
+  set brief_master_arm arm
+  wp 46.75000 6.90068 3000 450                  # the aim point, tuned against the MEASURED crossing
+  wp 46.55000 6.90000 3000 450                  # on south, into the battery's own sector
+
+unit ew
+  module p18
+  team hostile
+  spawn 46.75000 7.20000 ground 0.0 0
+  set emcon free
+
+unit sam
+  module sa6
+  team hostile
+  spawn 46.750472 6.899801 ground 0.0 0        # 52.2 m WEST of the measured bomb crossing
+  set emcon hold
+  set alert cold                                # 60 s of warm-up: blind while the bomb is on its way
+  set rounds 3

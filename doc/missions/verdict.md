@@ -142,6 +142,7 @@ That is the whole test, and it is what decides the shape of `identify` below.
 | `protect unit <callsign>` / `protect team <t>` | the named unit(s) are still combat-effective at the END of the run — at least one must exist | any named unit goes combat-ineffective → immediate FAIL of THIS unit | `Finalize` |
 | `no_fire` | this unit released no weapon and fired no gun burst for the whole run | any release or burst → immediate FAIL | latches on violation, confirmed at `Finalize` |
 | `deny release unit <callsign>` / `deny release team <t>` | the named unit(s) released nothing for the whole run | — | `Finalize` |
+| `avoid zone <name> [exposure <s>]` | this unit's cumulative dwell inside the DECLARED cylinder `<name>` stays at or below `<s>` (default 0) | — | `Finalize` (a zone can still be entered) |
 
 #### What each one costs the roster — and where the honesty line runs
 
@@ -152,6 +153,7 @@ both new fields are filled by the OWNER from facts the owner already holds — n
 | Kind | Needs | Verdict |
 |---|---|---|
 | `protect` | **nothing.** It is the exact dual of `kill`: the same bit, read the other way | free. This is why it is first |
+| `avoid zone` | one **monotone dwell** per declared zone, from the judge's own copy of the geometry and the observed position — the identical currency `identify`'s planar range already uses. **Roster cost: nothing**, it asks about the declaring unit's own sample, like `waypoints`. `FBObjectiveCovers` returns false for it, like every non-`kill` kind (round `C23`, [`../air-defence-network.md`](../air-defence-network.md) §4) |
 | `no_fire` | one **monotone bit**, `ReleasedWeapon` | the runner already drains `Stores().TakeRelease()` and `Guns().TakeBurst()` itself in the growth phase ([`runtime.md`](runtime.md) §7 step 11). The bit is a by-product of a loop that exists |
 | `deny release` | the **same bit**, pointed at another unit | one bit buys both, which is why they are specified as a pair rather than as two mechanisms |
 | `identify` | one **float**, `RangeM` — the planar range from the judged unit to that roster entry, per tick | the owner computes ranges between published poses already (`ClosestApproach`, the CPA resolution). Same currency, same truth |

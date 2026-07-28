@@ -21,16 +21,51 @@
 #ifndef FBSITEFIRECONTROL_H
 #define FBSITEFIRECONTROL_H
 
+#include "FBNetReport.h"
 #include "FBPilot.h"
 #include "FBSite.h"
 
 namespace FlightBox::Modules {
+
+class FBSiteFireControl;
+
+/* The `net` telemetry source. A separate class for the same reason the judge's zone source is one: the
+ * engagement machine already IS the `site` source, and a source carries one name. */
+class FBSiteNetTelemetry : public FBTelemetrySource {
+public:
+  explicit FBSiteNetTelemetry(const FBSiteFireControl &fc) : Fc_(fc) {}
+  const char *TelemetryName() const override { return "net"; }
+  void DeclareTelemetry(FBTelemetrySchema &schema) const override;
+  void SampleTelemetry(FBTelemetryRow &row) const override;
+
+private:
+  const FBSiteFireControl &Fc_;
+};
 
 class FBSiteFireControl : public Pilot::FBPilot {
 public:
   /* Telemetry ordinals — append, never reorder. */
   enum class State { Cold = 0, Dark, Search, Track, Engage, Scoot, Reload };
   static const char *StateName(State s);
+
+  /* THE THREE NET STATES, and the third is the conservation rule: a position the mission put on no net
+   * behaves exactly as it did before nets existed. doc/air-defence-network.md §5. */
+  enum class NetState { Unnetted = 0, Netted, Silent };
+  static const char *NetStateName(NetState s);
+
+  /* [SET] How far a reported point must move before it is a NEW cue worth re-entering rather than the
+   * same one refreshed. Below it the crew would be typing numbers it already typed; above it the entry
+   * never completes against a moving target. Half a kilometre is well inside a fire-control set's own
+   * beam at engagement range, so a superseded cue is one that would actually point elsewhere. */
+  static constexpr double kCueSupersedeM = 500.0;
+  /* The correlation gate of doc/formation.md §5.2, verbatim and for the second consumer: a reported
+   * point and an own echo are the same aircraft if they are within this, and unambiguous if the
+   * second-best echo is not within twice the distance of the best. */
+  static constexpr double kCorrelateM = 1000.0;
+  static constexpr double kCorrelateSpeedMs = 300.0;
+  /* [SET] How often a CONTINUOUS cue is worth a line. A cue that is refreshed every reporting cycle is
+   * one event, not fifty; the time series `net_cue*` carries what happened between two of these. */
+  static constexpr double kCueLogS = 30.0;
 
   /* [SET] How long a firm track may go unrefreshed before the engagement is declared broken. Two
    * fire-control frames: shorter and a single missed look would count as a break, longer and a beam
@@ -62,6 +97,26 @@ public:
   void SetReactionS(double s) { ReactionS_ = s; }
   void SetScootS(double s) { ScootS_ = s; }
 
+  /* ---- The RUNNER-GENERATED net keys (doc/air-defence-network.md §8). Never author-written: they are
+   * produced from the mission's `net` block, because membership is a property of the NET and the C1
+   * contract's six author-facing keys stay six. ---- */
+  void SetControlNode(const std::string &callsign);
+  void SetNodeWcs(FBWeaponsControl w) { IsNode_ = true; NodeWcs_ = w; }
+  void SetSector(double centreDeg, double halfDeg) {
+    HaveSector_ = true; SectorCentreDeg_ = centreDeg; SectorHalfDeg_ = halfDeg;
+  }
+  void SetAutonomy(FBWeaponsControl w) { Autonomy_ = w; }
+
+  /* WHAT THIS POSITION PUTS ON THE AIR — read by the module at the pose barrier. A point its own
+   * acquisition set measured, with that set's own look age. There is no field for an identity. */
+  const FBNetReport &NetReport() const { return MyReport_; }
+
+  /* The committed end of the two bus entries the cue costs: the module answers RadarSlewAz/El and hands
+   * the value back here, so the antenna acts on what was ENTERED and not on what was heard. */
+  void NoteNetAimApplied(bool azimuth, double deg);
+
+  FBTelemetrySource &NetTelemetrySource() { return NetSrc_; }
+
   /* The one override point, as every pilot's. `plan`/`runway` unused — a position goes nowhere. */
   Pilot::FBPilotCommands Run(const FBState &state, FBCommandBus &avionics,
                              const Systems::FBAirframeControls &airframe, const Fdm::fb_fdm_state &st,
@@ -85,8 +140,20 @@ public:
   void SampleTelemetry(FBTelemetryRow &row) const override;
 
 private:
+  friend class FBSiteNetTelemetry;
   void Enter(State s, const char *why);
   int  RailsAtMost() const;
+  /* Receive: the control node's message -> a bearing, an elevation and two staleness terms. Never a
+   * track: nothing here writes a contact, and the member's own radar still has to find what it heard. */
+  void ReceiveNet(const FBState &state, const Fdm::fb_fdm_state &st);
+  /* Enter: the cue reaches the antenna through the command bus, one entry at a time, each charged its
+   * own latency and each refusable — the identical construction the GCI chain uses. */
+  void EnterCue(FBCommandBus &avionics);
+  /* Publish: what this position's OWN acquisition set measured, as a point. */
+  void PublishNet(const FBState &state, const Fdm::fb_fdm_state &st);
+  /* The formation's correlation gate, second consumer: is the cued point the echo this set is holding? */
+  void CorrelateNet(const FBState &trackBus, const Fdm::fb_fdm_state &st);
+  FBWeaponsControl EffectiveWcs() const;
   /* The envelope test, all four numbers plus the round's own reach in TIME. Returns false with a reason
    * so the trace says WHY a position that saw a target did not shoot at it. */
   bool InEnvelope(double rangeM, double tgtAltM, double siteAltM, const char **why) const;
@@ -121,6 +188,36 @@ private:
   double AimAzDeg_ = 0.0, AimElDeg_ = 0.0;
   double TrackRangeM_ = 0.0, TrackBearingDeg_ = 0.0, TrackClosureMs_ = 0.0;
   FBWeaponTargetState Target_{};
+
+  /* ---- THE NET. Everything below defaults to "this position is on no net", which is the whole
+   * conservation argument: an Unnetted position takes exactly the decisions it took before. ---- */
+  char   ControlNode_[kDatalinkCallsignLen] = {};
+  bool   IsNode_ = false;
+  FBWeaponsControl NodeWcs_ = FBWeaponsControl::Free;   /* what a NODE transmits */
+  FBWeaponsControl Autonomy_ = FBWeaponsControl::Hold;  /* the declared fallback when the node is gone */
+  FBWeaponsControl NetWcs_ = FBWeaponsControl::Free;    /* what the node last transmitted to US */
+  bool   HaveSector_ = false;
+  double SectorCentreDeg_ = 0.0, SectorHalfDeg_ = 180.0;
+  NetState NetState_ = NetState::Unnetted;
+  bool   NetHeld_ = false;              /* a report from the node was readable this tick */
+  bool   NetCue_ = false;               /* ...and it fell inside this member's declared sector */
+  bool   InSector_ = false, Correlated_ = false;
+  bool   LoggedInhibit_ = false;
+  double NetAgeS_ = -1.0;               /* the MESSAGE's age: how long ago we heard it */
+  double CueLatDeg_ = 0.0, CueLonDeg_ = 0.0, CueAltM_ = 0.0;
+  double CueBrgDeg_ = 0.0, CueRngM_ = 0.0, CueAgeS_ = -1.0;   /* CueAgeS_ = the SENDER's own look age */
+  double CueAzDeg_ = 0.0, CueElDeg_ = 0.0;
+  /* The two-entry state machine: a cue is TYPED, and a cue superseded while still being typed is
+   * abandoned rather than queued. */
+  enum class CueEntry { Idle = 0, WaitAz, PostEl, WaitEl };
+  CueEntry Entry_ = CueEntry::Idle;
+  double EnteredLatDeg_ = 0.0, EnteredLonDeg_ = 0.0;   /* the point the pending entry belongs to */
+  double CueLoggedS_ = -1e9, OutLoggedS_ = -1.0;
+  bool   WasInSector_ = true;
+  bool   NetAimValid_ = false;
+  double NetAimAzDeg_ = 0.0, NetAimElDeg_ = 0.0;       /* what was COMMITTED, not what was heard */
+  FBNetReport MyReport_{};
+  FBSiteNetTelemetry NetSrc_{*this};
 
   /* Telemetry copies. */
   int   TrackCount_ = 0, Beam0_ = 0, Beam1_ = 0, Launches_ = 0;

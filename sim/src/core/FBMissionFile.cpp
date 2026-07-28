@@ -29,6 +29,7 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
   out = FBMission{};
   int lineNo = 0;
   bool haveTimeout = false;
+  bool inNet = false;
   auto fail = [&](const std::string &msg) {
     if (err) *err = "line " + std::to_string(lineNo) + ": " + msg;
     return false;
@@ -57,6 +58,68 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
     const bool inBlock = !out.Units.empty();
     FBMissionUnit *unit = inBlock ? &out.Units.back() : nullptr;
 
+    /* THE THIRD SCOPE, and it is a sub-scope of the first: `net <name>` opens a block whose own
+     * keywords are legal only inside it, so `link` or `member` outside one is a parse error rather
+     * than a keyword that quietly attaches to the last net declared far above. */
+    if (inNet && (kw == "control" || kw == "link" || kw == "period" || kw == "hold" ||
+                  kw == "wcs" || kw == "member")) {
+      FBNetSpec &nb = out.Nets.back();
+      if (kw == "control") {
+        if (!nb.Control.empty()) return fail("net '" + nb.Name + "' already has a 'control'");
+        if (!(ls >> nb.Control)) return fail("'control' needs the node's callsign");
+      } else if (kw == "link") {
+        std::string kind;
+        if (!(ls >> kind)) return fail("'link' needs wire|radio");
+        if (kind == "wire") {
+          nb.Wire = true;
+        } else if (kind == "radio") {
+          nb.Wire = false;
+          if (!(ls >> nb.RangeM) || nb.RangeM <= 0.0) return fail("'link radio' needs a positive rangeM");
+        } else {
+          return fail("'link' needs wire|radio");
+        }
+        std::string mastKw;
+        if (ls >> mastKw) {
+          if (mastKw != "mast") return fail("'link' takes only an optional 'mast <m>' after it");
+          if (!(ls >> nb.MastM) || nb.MastM < 0.0) return fail("'link ... mast' needs a non-negative height");
+        }
+      } else if (kw == "period") {
+        if (!(ls >> nb.PeriodS) || nb.PeriodS <= 0.0) return fail("'period' needs positive seconds");
+      } else if (kw == "hold") {
+        if (!(ls >> nb.HoldCycles) || nb.HoldCycles <= 0.0) return fail("'hold' needs a positive cycle count");
+      } else if (kw == "wcs") {
+        std::string w;
+        if (!(ls >> w) || !FBWeaponsControlFromString(w.c_str(), nb.Wcs))
+          return fail("'wcs' needs free|tight|hold");
+      } else {
+        FBNetMember m;
+        if (!(ls >> m.Id)) return fail("'member' needs a unit callsign");
+        std::string tok;
+        while (ls >> tok) {
+          if (tok == "sector") {
+            if (!(ls >> m.SectorCentreDeg >> m.SectorHalfDeg))
+              return fail("'member ... sector' needs <centreDeg> <halfDeg>");
+            if (m.SectorCentreDeg < 0.0 || m.SectorCentreDeg > 360.0 || m.SectorHalfDeg <= 0.0 ||
+                m.SectorHalfDeg > 180.0)
+              return fail("'member ... sector' wants centre 0..360 and half 0..180");
+            m.HaveSector = true;
+          } else if (tok == "autonomy") {
+            std::string a;
+            if (!(ls >> a) || !FBWeaponsControlFromString(a.c_str(), m.Autonomy))
+              return fail("'member ... autonomy' needs free|tight|hold");
+          } else {
+            return fail("unknown 'member' token '" + tok + "'");
+          }
+        }
+        for (const auto &net : out.Nets)
+          for (const auto &had : net.Members)
+            if (had.Id == m.Id) return fail("unit '" + m.Id + "' is already a member of a net");
+        nb.Members.push_back(std::move(m));
+      }
+      continue;
+    }
+    inNet = false;
+
     if (kw == "unit") {
       std::string id, extra;
       if (!(ls >> id)) return fail("'unit' needs a callsign (e.g. 'unit lead')");
@@ -67,6 +130,34 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
         if (u.Id == id) return fail("duplicate unit callsign '" + id + "'");
       out.Units.push_back(FBMissionUnit{});
       out.Units.back().Id = id;
+      continue;
+    }
+
+    if (kw == "zone" || kw == "net") {
+      if (inBlock) return fail("'" + kw + "' is mission-wide and must come before the first 'unit' block");
+      if (kw == "zone") {
+        FBZone z;
+        if (!(ls >> z.Name >> z.LatDeg >> z.LonDeg >> z.RadiusM >> z.AltMinM >> z.AltMaxM))
+          return fail("'zone' needs <name> <lat> <lon> <radiusM> <altMinM> <altMaxM>");
+        if (!CallsignOk(z.Name)) return fail("zone name '" + z.Name + "' must be 1-24 chars of "
+                                             "[A-Za-z0-9_-] (it names a telemetry column)");
+        if (z.RadiusM <= 0.0) return fail("zone '" + z.Name + "' needs a positive radius");
+        if (z.AltMinM >= z.AltMaxM)
+          return fail("zone '" + z.Name + "' needs altMin < altMax (a band, not a plane)");
+        for (const auto &had : out.Zones)
+          if (had.Name == z.Name) return fail("duplicate zone name '" + z.Name + "'");
+        out.Zones.push_back(std::move(z));
+      } else {
+        FBNetSpec n;
+        std::string extra;
+        if (!(ls >> n.Name)) return fail("'net' needs a name (e.g. 'net iads')");
+        if (ls >> extra) return fail("'net' takes exactly one name");
+        if (!CallsignOk(n.Name)) return fail("net name '" + n.Name + "' must be 1-24 chars of [A-Za-z0-9_-]");
+        for (const auto &had : out.Nets)
+          if (had.Name == n.Name) return fail("duplicate net name '" + n.Name + "'");
+        out.Nets.push_back(std::move(n));
+        inNet = true;
+      }
       continue;
     }
 
@@ -199,7 +290,8 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
     } else if (kw == "objective") {
       /* `kill` takes an EXPLICIT unit/team discriminator rather than guessing from the next word: a
        * callsign is allowed to be "hostile", and that must not silently change what the line means. */
-      const std::string kinds = "'objective' needs survive|waypoints|kill|identify|protect|no_fire|deny";
+      const std::string kinds =
+          "'objective' needs survive|waypoints|kill|identify|protect|no_fire|deny|avoid";
       std::string what;
       if (!(ls >> what)) return fail(kinds);
       FBObjective o;
@@ -254,6 +346,20 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
           return fail("'objective deny' needs 'release unit <callsign>' or 'release team <faction>'");
         o.Kind = FBObjectiveKind::DenyRelease;
         if (!readTarget("'objective deny release' needs 'unit <callsign>' or 'team <faction>'")) return false;
+      } else if (what == "avoid") {
+        /* `zone` is a word of its own for the same reason `release` is: a later `avoid <something-else>`
+         * must be a new spelling, not a re-reading of this one. */
+        std::string sub;
+        if (!(ls >> sub) || sub != "zone")
+          return fail("'objective avoid' needs 'zone <name> [exposure <s>]'");
+        o.Kind = FBObjectiveKind::AvoidZone;
+        if (!(ls >> o.TargetId)) return fail("'objective avoid zone' needs a zone name");
+        std::string expKw;
+        if (ls >> expKw) {
+          if (expKw != "exposure") return fail("'objective avoid zone' takes only 'exposure <s>' after the name");
+          if (!(ls >> o.HoldS) || o.HoldS < 0.0)
+            return fail("'objective avoid zone ... exposure' needs non-negative seconds");
+        }
       } else {
         return fail(kinds);
       }
@@ -285,6 +391,14 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
     /* Resolved against the WHOLE cast, not the blocks seen so far, or a duel would be an ordering
      * puzzle. A target that does not exist is a mission that can never be won: a parse error. */
     for (const auto &o : u.Objectives) {
+      if (o.Kind == FBObjectiveKind::AvoidZone) {
+        bool haveZone = false;
+        for (const auto &z : out.Zones) haveZone = haveZone || z.Name == o.TargetId;
+        if (!haveZone)
+          return failFile("unit '" + u.Id + "': 'objective " + FBObjectiveStr(o) + "' names no 'zone' "
+                          "in this mission");
+        continue;
+      }
       bool byName = o.Kind == FBObjectiveKind::KillUnit || o.Kind == FBObjectiveKind::Identify ||
                     ((o.Kind == FBObjectiveKind::Protect || o.Kind == FBObjectiveKind::DenyRelease) &&
                      o.Scope == FBObjectiveScope::Unit);
@@ -303,6 +417,50 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
       haveLead = haveLead || (other.Flight.Name == u.Flight.Name && other.Flight.IsLead());
     if (!haveLead)
       return failFile("flight '" + u.Flight.Name + "' has no unit at position 1 (the lead)");
+  }
+
+  /* ---- THE NETS, resolved against the WHOLE cast for the same reason the objectives are ---- */
+  for (const FBNetSpec &n : out.Nets) {
+    if (n.Members.empty()) return failFile("net '" + n.Name + "' has no 'member'");
+    for (const FBNetMember &m : n.Members) {
+      bool found = false;
+      for (const auto &u : out.Units) found = found || u.Id == m.Id;
+      if (!found)
+        return failFile("net '" + n.Name + "': 'member " + m.Id + "' names no unit in this mission");
+    }
+    if (n.Control.empty()) continue;
+    bool isMember = false;
+    for (const FBNetMember &m : n.Members) isMember = isMember || m.Id == n.Control;
+    if (!isMember)
+      return failFile("net '" + n.Name + "': 'control " + n.Control + "' is not also a 'member' of it");
+  }
+
+  /* ---- The one interface consequence, GENERATED rather than smuggled ----
+   * A net block is doctrine ABOUT positions and not a property OF one, so the author writes it once in
+   * one place; the only mission-data->module path is ApplySetup, so the keys a member's link slot needs
+   * are produced here. They are never author-written — an author's `set net_*` line would simply be
+   * overwritten by the block's own, since these are appended last. doc/air-defence-network.md §8. */
+  for (const FBNetSpec &n : out.Nets) {
+    for (const FBNetMember &m : n.Members) {
+      for (auto &u : out.Units) {
+        if (u.Id != m.Id) continue;
+        std::ostringstream link;
+        if (n.Wire) link << "wire " << n.MastM;
+        else link << "radio " << n.RangeM << " " << n.MastM;
+        u.SetKV.emplace_back("net_link", link.str());
+        u.SetKV.emplace_back("net_period_s", std::to_string(n.PeriodS));
+        u.SetKV.emplace_back("net_hold", std::to_string(n.HoldCycles));
+        if (m.HaveSector)
+          u.SetKV.emplace_back("net_sector",
+                               std::to_string(m.SectorCentreDeg) + " " + std::to_string(m.SectorHalfDeg));
+        u.SetKV.emplace_back("net_autonomy", FBWeaponsControlStr(m.Autonomy));
+        /* A member subscribes to the node; the NODE transmits a weapons control state and subscribes to
+         * nobody. Exactly one of the two keys is generated per member, which is also how the position
+         * learns which of the two it is without ever being told its own callsign. */
+        if (!n.Control.empty() && n.Control == m.Id) u.SetKV.emplace_back("net_wcs", FBWeaponsControlStr(n.Wcs));
+        else if (!n.Control.empty()) u.SetKV.emplace_back("net_control", n.Control);
+      }
+    }
   }
   return true;
 }

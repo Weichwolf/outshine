@@ -10,8 +10,8 @@
 
 namespace FlightBox::Sensors {
 
-double FBDatalinkSystem::RadioHorizonM(double altAM, double altBM) {
-  double a = std::max(0.0, altAM) * kMToFt, b = std::max(0.0, altBM) * kMToFt;
+double FBDatalinkSystem::RadioHorizonM(double aglAM, double aglBM) {
+  double a = std::max(0.0, aglAM) * kMToFt, b = std::max(0.0, aglBM) * kMToFt;
   return 1.23 * (std::sqrt(a) + std::sqrt(b)) * kNmToM;
 }
 
@@ -23,20 +23,42 @@ void CopyName(char *dst, const std::string &src, size_t cap) {
 }
 } // namespace
 
+void FBDatalinkSystem::SetControlNode(const std::string &callsign) {
+  CopyName(ControlNode_, callsign, kDatalinkCallsignLen);
+}
+
 /* Ein Netzzyklus: das GANZE Bild wird neu gebaut, Registry IN REIHENFOLGE — die Trackliste haengt damit
  * nie daran, wer zuerst gehoert wurde. */
 void FBDatalinkSystem::Cycle(const Fdm::fb_fdm_state &st, const Units::FBUnitRegistry &net, double simTimeS) {
   FBDatalinkTrack fresh[kMaxDatalinkTracks];
   int n = 0;
   int flightIndex = -1;
-  const double dropAgeS = kDropAfterCycles * kNetPeriodS;
+  const double dropAgeS = HoldCycles_ * NetPeriodS_;
+  const double ownAglM = std::max(0.0, st.elev - OwnGroundAslM_) + MastM_;
+
+  /* THE JAM TEST, in the function that already walks the registry and reading one more field off a
+   * published signature — like DatalinkXmt and RcsM2 beside it. It is about the RECEIVER: barrage
+   * jamming swamps a front end, and denying the transmitter would model a different physical thing.
+   * A WIRE cannot be jammed, which is the whole reason the mode exists. */
+  Jammed_ = false;
+  if (Mode_ == LinkMode::Radio) {
+    for (const Units::FBUnit *u : net.Units()) {
+      if (!u || u->GetTeam() == SelfTeam_) continue;
+      float rM = u->GetSignature().CommJamM;
+      if (rM <= 0.0f) continue;
+      Units::FBUnitPose jp = u->GetPose();
+      if (FBPlanarDistM(st.lat, st.lon, jp.LatDeg, jp.LonDeg) <= rM) { Jammed_ = true; break; }
+    }
+  }
 
   for (const Units::FBUnit *u : net.Units()) {
     if (!u || u->GetTeam() != SelfTeam_) continue;   /* ein kooperatives Netz traegt nur die eigene Fraktion */
     /* Ein abgeworfener Store gehoert zur selben Fraktion, traegt aber kein Terminal — und der Test muss
-     * VOR das Ordinal, weil der FR/FL-Filter genau darauf selektiert. */
-    if (u->GetKind() != Units::FBUnitKind::Aircraft) continue;
-    flightIndex++;                                   /* Ordinal in der Rotte, eigene Einheit eingeschlossen */
+     * VOR das Ordinal, weil der FR/FL-Filter genau darauf selektiert. Welche KINDS ein Terminal tragen
+     * ist seit dem Netz eine Einstellung; der Default ist Aircraft allein, also genau wie zuvor. */
+    const bool isAir = u->GetKind() == Units::FBUnitKind::Aircraft;
+    if (!(isAir ? CarryAir_ : (CarryGround_ && u->GetKind() == Units::FBUnitKind::Ground))) continue;
+    if (isAir) flightIndex++;                        /* Ordinal in der Rotte, eigene Einheit eingeschlossen */
     if (u->GetId() == SelfId_) continue;             /* die eigene PPLI ist kein Track auf dem eigenen Display */
     /* DER FILTER-INDEX ist die DEKLARIERTE Position, sobald die Mission eine erklaert — vorher war er
      * die Missionsreihenfolge, also ein Platzhalter fuer eine Fuehrung, die es nicht gab. Ohne
@@ -47,8 +69,30 @@ void FBDatalinkSystem::Cycle(const Fdm::fb_fdm_state &st, const Units::FBUnitReg
 
     Units::FBUnitPose p = u->GetPose();
     double rangeM = FBPlanarDistM(st.lat, st.lon, p.LatDeg, p.LonDeg);
-    bool heard = u->GetSignature().DatalinkXmt &&
-                 rangeM <= std::min(MaxRangeM_, RadioHorizonM(st.elev, p.ElevM));
+    /* Der Horizont gilt gegen die OBERFLAECHE unter beiden Antennen; ein vergrabenes Kabel kennt keinen.
+     * Die Masthoehe ist die des NETZES (eine Deklaration, beide Enden), nicht die des Absenders — der
+     * Empfaenger kann die fremde nicht messen und wuerde sie sonst erfinden. */
+    double reachM = MaxRangeM_;
+    if (Mode_ == LinkMode::Radio) {
+      double theirAglM = std::max(0.0, p.ElevM - p.GroundAslM) + MastM_;
+      reachM = std::min(MaxRangeM_, RadioHorizonM(ownAglM, theirAglM));
+    }
+    bool heard = !Jammed_ && u->GetSignature().DatalinkXmt && rangeM <= reachM;
+
+    /* WHY THE NODE WENT QUIET, for the analyst and for nobody else: it is logged here and never enters
+     * FBState, so the member goes on being unable to tell its Silent causes apart. The set is what this
+     * RECEIVER measured — a node killed outright and a node whose terminal was shot away are the same
+     * silence on the air, and claiming to distinguish them would mean reading the sender's health.
+     * doc/air-defence-network.md §5. */
+    if (ControlNode_[0] && std::strcmp(ControlNode_, u->GetName().c_str()) == 0) {
+      if (heard != NodeHeard_) {
+        if (heard) FBLog::Info("net", "JOIN", {{"node", u->GetName()}, {"distM", rangeM}});
+        else FBLog::Warn("net", "LOST", {{"node", u->GetName()},
+            {"reason", Jammed_ ? "jammed" : !u->GetSignature().DatalinkXmt ? "terminal" : "horizon"},
+            {"distM", rangeM}, {"reachM", reachM}});
+        NodeHeard_ = heard;
+      }
+    }
 
     FBDatalinkTrack *held = nullptr;
     for (int i = 0; i < TrackCount_; i++)
@@ -70,7 +114,10 @@ void FBDatalinkSystem::Cycle(const Fdm::fb_fdm_state &st, const Units::FBUnitReg
       CopyName(t.FlightName, u->GetFlight().Name, kFlightNameLen);
       t.FlightPos = u->GetFlight().Position;
       t.Report = u->GetSignature().Flight;
-    } else if (held && simTimeS - held->ReportTimeS < dropAgeS) {
+      /* Die LUFTVERTEIDIGUNGS-Haelfte, unter derselben Regel und mit derselben Grenze: ein PUNKT, das
+       * eigene Blickalter des Absenders und seine Waffenfreigabe. Kein Id-Feld, kein Team-Feld. */
+      t.Net = u->GetSignature().Net;
+    } else if (!Jammed_ && held && simTimeS - held->ReportTimeS < dropAgeS) {
       fresh[n++] = *held;   /* letzte Nachricht halten, Position und Zeitstempel unveraendert */
     }
   }
@@ -119,8 +166,17 @@ void FBDatalinkSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, const Un
   bool cycled = false;
   while (NextCycleS_ <= simTimeS) {
     Cycle(st, *net, simTimeS);
-    NextCycleS_ += kNetPeriodS;
+    NextCycleS_ += NetPeriodS_;
     cycled = true;
+  }
+
+  /* EIN GESTOERTER EMPFAENGER hat kein Bild, nicht ein leeres — dieselbe Unterscheidung, die das
+   * stromlose Terminal oben macht, und der Grund, warum der Halte-Zweig unter Stoerung nicht greift. */
+  if (Jammed_) {
+    b.TrackCount = 0;
+    b.H.Invalidate();
+    NearestNm_ = NearestAgeS_ = -1.0f;
+    return;
   }
 
   /* Zwischen den Zyklen bewegt sich nur das ALTER — Entfernung/Peilung gegen die EIGENE neue Position,

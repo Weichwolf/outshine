@@ -118,6 +118,11 @@ REGISTRY_OWNERS = (
 # FBFdmBoot's friend by declaration, so hiding the header from it would be theatre).
 RESTRICTED = {
     "units/FBUnitRegistry.h": PERCEPTION_READERS + REGISTRY_OWNERS,
+    # A DECLARED BELT is judge data. core/ reaches it inside its own directory (FBMissionFile parses it,
+    # FBMissionMonitor judges it); OUTSIDE core/ nobody may name it at all -- not a module, not a pilot,
+    # not a sensor. This entry is a NARROWING: a pilot able to read a declared zone would know where the
+    # SAMs are without a sensor. doc/air-defence-network.md 7.
+    "core/FBZone.h": (),
     "fdm/FBFdmBoot.h": (
         # The only door to a JSBSim initial condition: mission boot and the test harnesses.
         "missions/FBMissionBoot.h",

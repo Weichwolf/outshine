@@ -35,14 +35,41 @@ const char *FBMissionVerdictStr(FBMissionVerdict v) {
 }
 
 FBMissionMonitor::FBMissionMonitor(FBFlightPlan plan, std::vector<FBObjective> objectives,
-                                   FBRunway runway, bool haveRunway, double timeoutS, double wpCaptureM)
+                                   FBRunway runway, bool haveRunway, double timeoutS,
+                                   std::vector<FBZone> zones, double wpCaptureM)
     : Plan_(std::move(plan)), Objectives_(std::move(objectives)), Runway_(runway),
-      HaveRunway_(haveRunway), TimeoutS_(timeoutS), WpCaptureM_(wpCaptureM) {
+      HaveRunway_(haveRunway), TimeoutS_(timeoutS), WpCaptureM_(wpCaptureM), Zones_(std::move(zones)) {
   /* Without `objective` lines the plan is the WHOLE verdict; with them it is judged only if declared —
    * a BVR mission's `wp` line is a briefed vector, not a place the fighter has to arrive at. */
   PlanJudged_ = Objectives_.empty() || HasObjective(FBObjectiveKind::Waypoints);
   PlanDone_ = !PlanJudged_ || Plan_.Empty();
   Dwell_.resize(Objectives_.size());
+  Dwell2_.resize(Zones_.size());
+}
+
+void FBZoneTelemetry::DeclareTelemetry(FBTelemetrySchema &schema) const {
+  for (const FBZone &z : Owner_.Zones()) {
+    schema.Add("zone_" + z.Name + "_in");
+    schema.Add("zone_" + z.Name + "_s", "s");
+  }
+}
+
+void FBZoneTelemetry::SampleTelemetry(FBTelemetryRow &row) const {
+  const std::vector<FBZoneDwell> &d = Owner_.ZoneDwell();
+  for (size_t i = 0; i < d.size(); i++) { row.Push(d[i].In); row.Push(d[i].DwellS); }
+}
+
+/* WHERE IN THE LAYER CAKE, in seconds. The declared cylinder is geometry the judge owns a copy of; the
+ * sample is the observed position. No unit is asked and no unit is told. */
+void FBMissionMonitor::NoteZones(const FBMissionMonitorSample &s, double dtS) {
+  for (size_t i = 0; i < Zones_.size(); i++) {
+    bool in = FBZoneContains(Zones_[i], s.LatDeg, s.LonDeg, s.ElevM);
+    if (in) Dwell2_[i].DwellS += dtS;
+    if (in == Dwell2_[i].In) continue;
+    Dwell2_[i].In = in;
+    FBLog::Info("zone", in ? "ENTER" : "EXIT", {{"zone", Zones_[i].Name}, {"altM", s.ElevM},
+        {"dwellS", Dwell2_[i].DwellS}});
+  }
 }
 
 bool FBMissionMonitor::HasObjective(FBObjectiveKind kind) const {
@@ -64,7 +91,10 @@ bool FBMissionMonitor::HasDeferredObjective() const {
       case FBObjectiveKind::Survive:
       case FBObjectiveKind::Protect:
       case FBObjectiveKind::NoFire:
-      case FBObjectiveKind::DenyRelease: return true;
+      case FBObjectiveKind::DenyRelease:
+      /* A zone can still be entered while the run lasts, so an exposure budget is never banked early —
+       * the same argument `no_fire` makes about a trigger that can still be pulled. */
+      case FBObjectiveKind::AvoidZone: return true;
       case FBObjectiveKind::KillUnit:
       case FBObjectiveKind::KillTeam:
       case FBObjectiveKind::Waypoints:
@@ -103,6 +133,13 @@ bool FBMissionMonitor::ObjectivesMet(const FBMissionMonitorSample &s) const {
       case FBObjectiveKind::Waypoints: continue;
       case FBObjectiveKind::Identify:  if (!Dwell_[i].Met) return false; continue;
       case FBObjectiveKind::NoFire:    if (s.ReleasedWeapon) return false; continue;
+      case FBObjectiveKind::AvoidZone: {
+        double dwell = 0.0;
+        for (size_t z = 0; z < Zones_.size(); z++)
+          if (Zones_[z].Name == o.TargetId) dwell = Dwell2_[z].DwellS;
+        if (dwell > o.HoldS) return false;
+        continue;
+      }
       case FBObjectiveKind::KillUnit:
       case FBObjectiveKind::KillTeam:
       case FBObjectiveKind::Protect:
@@ -147,6 +184,7 @@ bool FBMissionMonitor::Tick(const FBMissionMonitorSample &s, double simTimeS) {
   if (Concluded()) return false;   /* latched */
 
   NoteIdentify(s.Roster, simTimeS - PrevSimT_);
+  NoteZones(s, simTimeS - PrevSimT_);
   PrevSimT_ = simTimeS;
 
   /* Shot down — checked FIRST, because everything below assumes an aircraft that could still get there.
