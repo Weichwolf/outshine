@@ -111,6 +111,7 @@ base** (what the real aircraft documentably does).
 | [modules/f16/INDEX.md](modules/f16/INDEX.md) | the **real F-16C** reference base — 19 files distilled from the DCS Viper Guide and the ED EA Guide plus researched engineering depth, incl. `flight-model.md` (the pinned JSBSim model itself) |
 | [modules/mig29/module.md](modules/mig29/module.md) | the first opponent — **spec only, nothing built**. BVR scale, model per `flight-model-spec.md`, module per the registry pattern, GCI-led doctrine. |
 | [modules/mig29/INDEX.md](modules/mig29/INDEX.md) | the **real MiG-29A (9-12)** reference base — 12 files from the two DCS manuals plus research |
+| [modules/ground/](modules/ground/INDEX.md) | **`C1` — the ground unit that emits and shoots. Specified, nothing built.** The line between a module and a unit; one data-driven class with nine sourced catalogue rows (`p18` `sa2` `sa3` `sa6` `sa8` `zsu23` `zu23` `sa7` `sa18`); how it sees without widening the registry gate; and the rest of the campaign cast at four quantities per type |
 | [modules/stores.md](modules/stores.md) | the model side of mk82/aim120, the **MODEL-DELTAS discipline** and its gate, and the Mk-82 fidelity caveat |
 
 ## Rendering — `render/`

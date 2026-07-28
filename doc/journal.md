@@ -889,3 +889,46 @@ The campaign itself is the demonstration: two of its four steps change verdict b
 worked — the DLZ rig finds its bandit dead and flies with the one round the first sortie left it (0 →
 3), and the CCIP pass finds the bunker already rubble (0 → 3). `fb_tournament.py` stays where it is;
 one measures a pilot over independent geometries, the other a force over a dependent sequence.
+
+### 2026-07-28 — C1: the unit level, specified — one class, nine rows, and two collisions (spec only)
+
+Step 2 of the owner goal, and a **spec round with no code**: `doc/modules/ground/` (`INDEX.md`,
+`module.md`, `catalogue.md`, `cast.md`). `C1` blocks six campaigns and is the top four rows of the
+aggregated cast table collapsed into one system; the gap entry that stood in `weapons.md` with five open
+questions is now a pointer, and the five are answered.
+The decision the round exists for is a **line**, not a feature: a module is a *flown* airframe (FDM,
+avionics bus, pilot phase machine, one class per type, a reference base of its own); a unit is one
+data-driven class with N catalogue rows. The test is not importance but **"does anybody fly it"**. Both
+levels share the whole of `FBSimUnit` — identity, published pose and signature, health register, damage
+model, roster, telemetry, mission judge, the `.fbm` `unit` block, the registry key — and differ in exactly
+the four things a jet has because somebody sits in it.
+Three structural answers carry the round. **The registry gate does not widen:** the site's four detectors
+derive from `FBRadarSystem` (×2), `FBVisualSystem` and `FBRwrSystem`, and a derivation adds no include —
+`verify-layers` printing *6 restricted header(s) respected* is an acceptance criterion, not an intention.
+**The health register is used, not inherited:** `FBSystemHealth` stays monotone, private-mutator,
+one-friend and untouched, and killing a site's `Radar` silences it through §8's coupling, written years
+before this. **Doctrine is a sensor:** `set emcon hold` means the set is dark until the site's own passive
+receiver hears an airborne emitter — a timer or a range trigger would be the site knowing something it
+never measured, and the resulting experiment (a silent attacker never cues the defence) is `w4-01/02` from
+the defender's side.
+The round asks the tree for **one** core change and two enum values: `FBUnitSignature` carries two emitter
+beams (a battery is two antennas; collapsing them by precedence deletes the search→track transition for
+every observer except the tracked one), `FBSeekerKind::CommandGuided` (the uplink branch of the existing
+phase machine, forever), and `FBEmitterKind::SurfaceEarlyWarning`/`SurfaceFireControl` — the discriminator
+`sensors.md` gap 25 was waiting for, deliberately left unwired.
+**Two collisions found by writing it, both booked in `weapons.md`:** the weight-on-wheels interlock refuses
+100 % of ground launches (a unit without an airframe reports `AnyWow = true` by definition), and the SMS
+declares its station masses through an `FBFdm` a site does not have. Both are rules written for a pilot
+meeting a machine that has none. A third finding stays open: `CombatEffective()` is `Structure` alone on a
+site, so **suppressed and destroyed are the same word** — and SEAD is precisely the difference.
+Two things fell out of existing measurements without being tuned. The eye's measured reach (3 784 m
+beam-on, 2 493 m head-on, **zero at night**) is shorter than every MANPADS envelope, so the *sensor* binds
+a MANPADS engagement and the weapon becomes a last-two-kilometres daylight weapon. And on a stationary
+mount `OwnClosureOn = 0`, so the Doppler notch degenerates to "the target's own range rate" — the beam
+manoeuvre works against a ground set with no new code, and a conical-scan row declaring notch 0 is simply
+not notchable, which is the honest statement about that hardware.
+The catalogue is nine rows with a source and a tier each, seven disputes carried unresolved, and thin
+sourcing declared: eight rows rest on [T4], one has a [T3] monograph that disagrees with the [T4] entry on
+the envelope, and no [T1] threat handbook was read. The honest headline of the whole spec: a site can be
+**heard and not seen** (no air-to-ground radar mode, no HARM), so `C1` gives the ground the ability to
+shoot back long before it gives the air the ability to shoot first.

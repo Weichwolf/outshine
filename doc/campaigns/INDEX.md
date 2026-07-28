@@ -109,10 +109,10 @@ it.
 | **MiG-29 (9-12)** | 10 | **yes** (`mig29`) | flown by O1–O5, opposed by W1, W3, W4, W5 |
 | **`target_soft`** | 10 | **yes** | vehicle parks, radar vans, artillery positions, coastal sites, range pits |
 | **`target_hard`** | 10 | **yes** | bunkers, shelters, bridges, a reactor dome, a runway |
-| **Ground radar / EW / GCI site as an EMITTER** | 7 | **no** | today `target_soft` that does not radiate; needed by W2, W3, W4, W5, O1, O2, O5 |
-| **AAA / short-range and man-portable air defence** | 6 | **no** | the reason for every altitude decision in W2, W3, W4, O3, O5, W1 |
-| **SAM battery, fixed (SA-2 / SA-3 class)** | 5 | **no** | W3, W4, O1, O3, O5 |
-| **SAM battery, mobile (SA-6 / SA-8 class)** | 5 | **no** | W3, W4, O1, O3 — and in O3 it is **ours**, which the design must allow |
+| **Ground radar / EW / GCI site as an EMITTER** | 7 | **no — specified** | today `target_soft` that does not radiate; needed by W2, W3, W4, W5, O1, O2, O5. Row `p18` in [`../modules/ground/catalogue.md`](../modules/ground/catalogue.md) |
+| **AAA / short-range and man-portable air defence** | 6 | **no — specified** | the reason for every altitude decision in W2, W3, W4, O3, O5, W1. Rows `zsu23` `zu23` `sa7` `sa18` |
+| **SAM battery, fixed (SA-2 / SA-3 class)** | 5 | **no — specified** | W3, W4, O1, O3, O5. Rows `sa2` `sa3` |
+| **SAM battery, mobile (SA-6 / SA-8 class)** | 5 | **no — specified** | W3, W4, O1, O3 — and in O3 it is **ours**, which the design must allow (it does: a site declares its own `team` like any unit). Rows `sa6` `sa8`; mobility is expressed in TIME (`set scoot_s`), not in space — `C14` stays open |
 | **AEW aircraft (E-3 / E-2C class)** | 4 | **no** | W1, W3, W4, O1 |
 | **F-15 class** | 4 | **no** | escort in W2/W3, opposition in O1/O5 — the aircraft that historically shot down every MiG in O5's two anchors |
 | **Period Soviet types (MiG-21 / MiG-23 / MiG-25 / MiG-17 / Su-7 / Su-20)** | 3 | **no** | W3, O1, O3 — one module family would serve all three |
@@ -125,7 +125,7 @@ it.
 | **Moving ground column** | 2 | **no** | W4, O3 |
 | **Ships** | 2 | **no** | W5, W3 |
 | **Helicopter (Mi-8 / AH-64 class)** | 2 | **no** | W3, O3 |
-| **Radar decoy (ground, emitting, not lethal)** | 1 | **no** | W4 — named by the anchor as a decisive Serbian measure |
+| **Radar decoy (ground, emitting, not lethal)** | 1 | **no — specified** | W4 — named by the anchor as a decisive Serbian measure. Costs one catalogue row: the `p18` row with `rounds 0` and a small range gate ([`../modules/ground/cast.md`](../modules/ground/cast.md)) |
 | **RPV / expendable decoy air vehicle** | 1 | **no** | O1 — the operation's opening move |
 
 **Reading of that table.** After the two flyable jets and the two ground-target kinds — all of which
@@ -142,12 +142,13 @@ it *blocks* (a mission cannot run or cannot be read), then how many it *degrades
 
 **Home files.** Five of these got one in the foundation round (2026-07-28), and four of the five are now
 CLOSED: `C2`, `C12`, `C3` and `C0` were specified and then built, each against its own file's Spec.
-`C1` carries a bounded gap entry only, because it is step 2 of the owner goal and gets its own round —
-**it is now the only open contract of the foundation.**
+`C1` got its own round the same day and is now **SPECIFIED, not built**: the contract, the nine sourced
+catalogue rows and the rest of the cast live in [`../modules/ground/`](../modules/ground/INDEX.md). It
+stays open in this table until it is measured against its own ten acceptance criteria.
 
 | ID | Gap | Blocks | Degrades | Verdict |
 |---|---|---:|---:|---|
-| `C1` | **No active surface-to-air threat.** Ground units are inert: nothing emits, nothing launches, nothing shoots. `target_soft`/`target_hard` have only a structure state — **home: [`../weapons.md`](../weapons.md) Gaps, as a bounded gap entry** | **6** | 3 | **the single most blocking gap in the set.** Six campaigns lose named missions; every campaign loses the *reason* for its altitude and route decisions |
+| `C1` | **No active surface-to-air threat.** Ground units are inert: nothing emits, nothing launches, nothing shoots. `target_soft`/`target_hard` have only a structure state. **SPECIFIED 2026-07-28, NOT BUILT — home: [`../modules/ground/`](../modules/ground/INDEX.md)** (contract, nine sourced catalogue rows, and the rest of the cast at four quantities per type); the entry in [`../weapons.md`](../weapons.md) is now a pointer plus the two collisions the spec found in that file's own contracts | **6** | 3 | **the single most blocking gap in the set.** Six campaigns lose named missions; every campaign loses the *reason* for its altitude and route decisions |
 | ~~`C12`~~ | **CLOSED 2026-07-28.** The vocabulary is eight kinds: `identify`, `protect`, `no_fire` and `deny release` are built beside the original four — [`../missions/verdict.md`](../missions/verdict.md), grammar in [`../missions/syntax.md`](../missions/syntax.md). What stays refused (a general `deny`, `escort`, time windows, target value) is listed there with a reason each | — | — | W5/O2 can now declare the identification pass and the weapons hold, O5 the denial. O5's timing half remains a telemetry read, as its own spec says |
 | `C7` | **Only two flyable modules.** Every other aircraft in every cast list is absent | **1** (O3's period force) | 9 | blocks nothing outright because substitutions exist — but every substitution changes the answer, and each is declared in its mission header |
 | ~~`C2`~~ | **CLOSED 2026-07-28.** `time <ISO8601 Z>` is mission data, the clock binds all three clients, `FBEphemeris` sits in `core/` and `fb-gym` publishes `FBEnvironmentBlock` — [`../missions/syntax.md`](../missions/syntax.md), [`../clients/clients.md`](../clients/clients.md) | — | — | a night mission can now say so |
@@ -182,13 +183,18 @@ worth knowing before reading them:
 | `C3` | **Recognition is a resolution test, not a lookup.** One quantity (presented extent over range) with Johnson N50 multiples for detect/recognise/identify; the type name is the module registry key, so two MiG-29s on opposite teams produce the identical string, and the anti-cheat pair survives. **Built and measured the same day; the two places the contract was wrong are corrected in [`../sensors.md`](../sensors.md) §9 rather than quietly satisfied** |
 | `C12` | four kinds — `identify`, `protect`, `no_fire`, `deny release` — costing **one monotone bit and one float** on the roster. `identify` measures the **geometry**, not a sensor event, because the judge measures what the aircraft DID and never what it knew. A general `deny` and `escort` are refused, each with a reason |
 | `C0` | a campaign carries **three** facts (units, ground targets, stores) and refuses the rest by a three-part test. The overlay may delete a line, never add one. Determinism is proven twice: one fingerprint over 9 runs, and each step re-runnable **standalone**. **Built the same day; the overlay ended up narrower than the contract allowed — it only ever deletes** |
+| `C1` | **one data-driven class, nine catalogue rows** — not nine classes and not a module. It sees through **derivations** of bases that already read the registry, so the gate stays at six files; it **uses** `FBSystemHealth` unchanged rather than inheriting anything; it asks for exactly **one** core change (two emitter beams per unit, because a battery is two antennas) and **one** new enum value on each of `FBSeekerKind` (command guidance) and `FBEmitterKind` (surface search / surface fire control). `emcon hold` is a **passive receiver**, never a timer or a range trigger |
 
 ### The four things to build first, and why in this order
 
-1. **`C1` — an emitting, shooting ground unit.** It blocks six campaigns, it is the top four rows of
-   the cast table collapsed into one system, and it is the only gap whose absence removes the *reason*
-   for tactical decisions rather than the ability to make them. Without it W2, W3, W4, O1, O3 and O5
-   are air-to-air campaigns wearing strike names.
+1. **`C1` — an emitting, shooting ground unit. SPECIFIED 2026-07-28 in
+   [`../modules/ground/`](../modules/ground/INDEX.md), not built.** It blocks six campaigns, it is the top
+   four rows of the cast table collapsed into one system, and it is the only gap whose absence removes the
+   *reason* for tactical decisions rather than the ability to make them. Without it W2, W3, W4, O1, O3 and
+   O5 are air-to-air campaigns wearing strike names. **The spec's own honest headline:** a site can be
+   *heard* and not *seen* (no air-to-ground radar mode, no HARM — `C8`), so `C1` gives the ground the
+   ability to shoot back long before it gives the air the ability to shoot first. That is the right order
+   to build in and it is not a SEAD capability.
 2. ~~**`C12` — three more objective kinds.**~~ **BUILT 2026-07-28** (four kinds). Small, self-contained,
    and it makes five campaigns *readable*. `deny`/`protect` is checked against the roster the `kill`
    objectives already use; `identify` needed a definition, and W5/O2 supplied one.

@@ -94,37 +94,40 @@ Mk-82 fidelity caveat under Gaps before quoting that number.
 
 ## Gaps
 
-### `C1` — the active surface-to-air threat has its home here, and it is a GAP entry only
+### `C1` — the active surface-to-air threat: **SPECIFIED, not built**, and its home moved
 
-**This is a placeholder with a boundary, not a specification.** `C1` is **step 2 of the owner goal** and
-gets its own round; writing its contract here would pre-empt that round's first act, which is to change
-the Spec of this file by decision.
+**The gap entry that stood here was a placeholder with a boundary and five open questions. All five are
+answered, and the contract now lives where the class will:
+[`modules/ground/module.md`](modules/ground/module.md)** — with the nine sourced catalogue rows beside it
+in [`modules/ground/catalogue.md`](modules/ground/catalogue.md) and the rest of the campaign cast in
+[`modules/ground/cast.md`](modules/ground/cast.md). Nothing is built.
 
-**Why this file owns it.** An emitting, shooting ground unit is three things, and the decisive one is
-the third: a module (`modules/ground/`), an emitter (one already-published `FBUnitSignature` field), and
-**a launcher of a guided round that is itself a unit** — the rule "a fired weapon IS a unit" (§1), the
-stores/uplink/seeker apparatus, the three resolution boundaries (§5) and `FBDamageModel` (§6) all live
-in this file. The sensor half is one field; the weapon half is a chapter.
+**Why the home moved.** This file owns the *weapon* half of `C1` and still does: every launched round is a
+unit (§1), released through `FBStoresSystem` (§2), resolved by the three boundaries (§5) and applied by
+`FBDamageModel` (§6) — all unchanged. But the thing itself is a **module in `modules/ground/`**, and a
+contract belongs with the class it constrains. What stays here is this entry and the two collisions below,
+which are defects of *this* file's contracts.
 
-**What it is, in the campaign catalogue's words** ([`campaigns/INDEX.md`](campaigns/INDEX.md)): *ground
-units are inert — nothing emits, nothing launches, nothing shoots; `target_soft`/`target_hard` have only
-a structure state.* It **blocks 6** campaigns and degrades 3, which makes it the most blocking gap in
-the set, and the top four rows of the aggregated cast table (ground radar / EW / GCI as an emitter, AAA
-and MANPADS, fixed SAM, mobile SAM) are one system four times over.
+**The five answers, in one line each** (the argument is in `modules/ground/module.md` §Knowledge 1):
 
-**The boundary of this entry** — what the C1 round will have to decide and what is deliberately NOT
-decided here:
-
-| Open question | Where it will be answered |
+| Open question | Answer |
 |---|---|
-| Does a SAM battery emit through `FBEmitterSignature` unchanged, or does a surface emitter need fields an airborne one does not have? | that round, against [`sensors.md`](sensors.md) §4 — note that `FBMig29Rwr`'s assumed-altitude priority rule (gap 25 there) *cannot bite until the first surface emitter exists*, so the two are coupled |
-| Is a SAM a store module with a seeker (like the AIM-120) or a new kind? | that round, against §1 and `modules/missile/` |
-| What launches it — a ground module with a fire-control state machine, or a scripted release? | that round |
-| Does a ground unit acquire through a sensor slot, and if so does the `RESTRICTED` list grow again? | that round, and the price rule of [`sensors.md`](sensors.md) applies unchanged |
-| AAA as a gun (`FBGunSystem` against an airborne target) versus a SAM as a round | that round; note §5.4's standing refusal — a ground burst is **not** resolved against aircraft, and an AAA model runs straight into it |
+| Does a surface emitter need fields an airborne one lacks? | **No** — `FBEmitterSignature` unchanged. Two things change around it: the signature carries **two** beams (a battery is two antennas), and `FBEmitterKind` gains `SurfaceEarlyWarning`/`SurfaceFireControl`, appended. That second value is also the discriminator [`sensors.md`](sensors.md) gap 25 was waiting for |
+| Is a SAM a store module with a seeker, or a new kind? | **A store with a seeker.** Three of four guidance families are already built; radio command is **one** new `FBSeekerKind::CommandGuided` — the uplink branch of the existing phase machine, forever, with `TERMINAL` unreachable |
+| What launches it? | **A fire-control state machine**, `FBSiteFireControl : pilot/FBPilot`, six states, commanding through the command bus. Not a scripted release: that would be a world write path outside the simulation |
+| Does it acquire through a sensor slot, and does `RESTRICTED` grow? | **Yes, and no.** Four detectors, all derivations of bases that already hold the include (`FBRadarSystem` ×2, `FBVisualSystem`, `FBRwrSystem`). The gate stays at **six** files, and printing *6 restricted header(s) respected* is an acceptance criterion of the round |
+| AAA as a gun, against §5.4's refusal | **AAA is a gun, and §5.4 does not bite.** That refusal forbids resolving a *ground burst* (a bomb detonating on the ground) against aircraft. A gun **bundle** fired from the ground is a different object and runs through `ResolveGunHit` with the shooter's own velocity simply zero. What *does* bite is `FBGunProjectiles`' `3 s / 3000 m` cap: it admits 23 mm AAA and excludes every 57/100 mm gun, whose employment is a fuzed bursting shell and therefore wants the store path |
 
-**What it is not:** it is not the `C21` gap (no declarable initial damage), not `C14` (no moving ground
-units, no ships), and not `C17` (a runway with state). Those are named separately and stay separate.
+**Two collisions with this file's own contracts**, found while writing that spec. Both are places where a
+rule written for a pilot meets a machine that has none:
+
+| Collision | Detail | Proposed resolution |
+|---|---|---|
+| **The weight-on-wheels interlock refuses every ground launch** | §2.4 check #2 rejects a release on weight on wheels with `hardware_precedence`, and a unit without an airframe reports `AnyWow = true` by definition ([`missions/runtime.md`](missions/runtime.md) §3). A launcher is permanently on the ground | a virtual `FBStoresSystem::GroundInterlockApplies()`, default `true`, `false` for a launcher. The interlock stays first in the order for everything that flies |
+| **The SMS assumes an airframe** | §2.1/§2.2: `AttachFdm` declares one JSBSim point mass per station and `PublishLoadout` pushes mass and drag into the deck. A site has no `FBFdm` | `AttachFdm` becomes optional; with no airframe no station masses are declared and `PublishLoadout` is a no-op. A rail's mass is not a flight-mechanical fact for a thing that does not fly |
+
+**What `C1` is not:** not `C21` (no declarable initial damage), not `C14` (no moving ground units, no
+ships), not `C17` (a runway with state). Those are named separately and stay separate.
 
 ### Deliberately not modelled (from the retired `TODO.md` §3)
 
