@@ -28,19 +28,28 @@ struct FBMissionClock {
   double At(double simT) const { return (double)T0S + simT; }   /* the clock ADVANCES with sim time */
 };
 
-/* False = the client flag contradicts the file; *err then says so in the terms the caller must print. */
+/* False = the client flag contradicts the file; *err then says so in the terms the caller must print.
+ *
+ * A campaign's own `time` (doc/missions/campaign.md §6) enters here and nowhere else: it fills in for a
+ * mission that declares none, never overrides one that does, and never advances with the campaign's
+ * elapsed sim time — an advancing campaign clock would be a calendar the mission files cannot see. It
+ * is a DECLARATION like the mission's, so it collides with the client flag by the same rule. */
 inline bool FBResolveMissionClock(const FBMission &mission, bool clientClockOverride,
-                                  FBMissionClock &out, std::string *err) {
+                                  FBMissionClock &out, std::string *err,
+                                  int64_t campaignT0S = 0, bool haveCampaignTime = false) {
   if (err) err->clear();
   out = FBMissionClock{};
-  if (mission.HaveTime && clientClockOverride) {
+  const bool declared = mission.HaveTime || haveCampaignTime;
+  const int64_t t0 = mission.HaveTime ? mission.UtcT0S : campaignT0S;
+  if (declared && clientClockOverride) {
     char iso[21];
     if (err)
-      *err = std::string("mission declares 'time ") + FBFormatIsoUtc(mission.UtcT0S, iso, sizeof iso) +
+      *err = std::string(mission.HaveTime ? "mission" : "campaign") + " declares 'time " +
+             FBFormatIsoUtc(t0, iso, sizeof iso) +
              "' and a client clock override (--utc / FB_SIM_UTC) is set — drop one of the two";
     return false;
   }
-  if (mission.HaveTime) { out.Have = true; out.T0S = mission.UtcT0S; }
+  if (declared) { out.Have = true; out.T0S = t0; }
   return true;
 }
 

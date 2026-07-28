@@ -13,11 +13,11 @@ loop. Everything a mission can declare is here; everything the runner does with 
 
 ## The leading rules
 
-**0 — Two contracts in this directory are specified and not built.** The visual sensor channel (`C3`,
-[`../sensors.md`](../sensors.md) §9 with its mission switches in [sensors.md](sensors.md)) and the
-campaign layer (`C0`, [campaign.md](campaign.md)). Each says so in its own section; nothing below has
-changed because of them. The mission clock `time` (`C2`, [syntax.md](syntax.md)) and the four new
-objective kinds (`C12`, [verdict.md](verdict.md)) are BUILT.
+**0 — All four foundation contracts of this directory are BUILT.** The mission clock `time` (`C2`,
+[syntax.md](syntax.md)), the four objective kinds (`C12`, [verdict.md](verdict.md)), the visual sensor
+channel (`C3`, [`../sensors.md`](../sensors.md) §9 with its mission switches in [sensors.md](sensors.md))
+and the campaign layer (`C0`, [campaign.md](campaign.md)). Each round left the missions below untouched:
+a `.fbm` run singly judges exactly as it did before, which is measured every time.
 
 **1 — A mission describes a FLIGHT, not a jet.** Mission-wide data (name, optional runway, timeout,
 weather) plus a **list of actor blocks** (`unit <callsign>`). Every block is exactly one simulated unit
@@ -58,6 +58,11 @@ build artefacts — copies, never sources.
 (`units/FBSimUnit::StartTelemetry`) so that no measured column ever loses its position
 ([`output.md`](output.md)).
 
+**7 — A campaign never edits a mission.** `sim/campaigns/*.fbc` name `.fbm` files in `sim/missions/`
+and carry three facts between them; the files themselves stay the statement of what was flown, and rule
+5's header comment stays true. A `.fbc` carries its own binding header for the same reason
+([campaign.md](campaign.md)).
+
 ## The files
 
 | File | Content |
@@ -71,7 +76,7 @@ build artefacts — copies, never sources.
 | [weather.md](weather.md) | the `wx` line, the three providers, the precedence rule, how the wind acts and the measured crosswind and release cases |
 | [output.md](output.md) | the files per run, damage events and columns, unit attribution, `UNIT_RESULT`, and the catalogue of example missions |
 | [runtime.md](runtime.md) | the machinery behind the format: `FBUnit`/`FBSimUnit`/`FBUnitRegistry`, the snapshot barrier, the four-step orchestrator, the multi-unit stages incl. the thread pool and the honest scaling numbers, detonation and impact resolution |
-| [campaign.md](campaign.md) | **the layer above a mission** (`C0`, spec only): the `.fbc` file, the three carried facts and the rule that rejected the rest, the overlay that may delete but never add, and the campaign fingerprint that makes a campaign replayable |
+| [campaign.md](campaign.md) | **the layer above a mission** (`C0`, built): the `.fbc` file, the three carried facts and the rule that rejected the rest, the overlay that may delete but never add, the campaign fingerprint that makes a campaign replayable, and `fb-gym --campaign` / `--state` with their two measured determinism proofs |
 
 ## Related
 

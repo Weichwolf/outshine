@@ -94,9 +94,10 @@ byte-identical; reference mission `sim/missions/clock-night-payerne.fbm`, refusa
 
 Nothing in this directory needs re-writing. The next work is **outside** it:
 
-1. **Build the remaining three foundation contracts**, in the order their dependencies allow: ~~`C2`~~
-   (built, run 3) → `C12` (self-contained) → `C3` (has `C2`'s clock in the gym now) → `C0`
-   (needs nothing, but is worth least until there are campaigns to run).
+1. ~~**Build the remaining three foundation contracts**, in the order their dependencies allow: `C2`
+   → `C12` → `C3` → `C0`.~~ — **all four built 2026-07-28.** `C0` closed last, with
+   `sim/campaigns/viper-attrition.fbc` as its first campaign; the ten campaigns of this directory now
+   lack their `.fbm` files and nothing else.
 2. Build the four one-line experiments named in [`INDEX.md`](INDEX.md) — `o1-01/02`, `w3-07/08`,
    `w4-01/02`, `w5-02/03`. They need nothing that does not exist, and three of them answer questions
    the tree has been circling for rounds.

@@ -140,10 +140,10 @@ therefore not a list of aircraft; it is one system.
 The shared catalogue used by all ten files. Ordered by **blocking degree**: first how many campaigns
 it *blocks* (a mission cannot run or cannot be read), then how many it *degrades*.
 
-**Home files.** Five of these now have one, written in the foundation round (2026-07-28) — the gap is
-still open, but the *contract* it must satisfy exists and is linked in the table below. `C2`, `C3`,
-`C0` carries a full spec (and `C12` did, until it was built); `C1` carries a bounded gap entry only,
-because it is step 2 of the owner goal and gets its own round.
+**Home files.** Five of these got one in the foundation round (2026-07-28), and four of the five are now
+CLOSED: `C2`, `C12`, `C3` and `C0` were specified and then built, each against its own file's Spec.
+`C1` carries a bounded gap entry only, because it is step 2 of the owner goal and gets its own round —
+**it is now the only open contract of the foundation.**
 
 | ID | Gap | Blocks | Degrades | Verdict |
 |---|---|---:|---:|---|
@@ -157,7 +157,7 @@ because it is step 2 of the owner goal and gets its own round.
 | ~~`C3`~~ | **CLOSED 2026-07-28.** `sensors/FBVisualSystem` is built and is the SIXTH registry reader, declared in advance and paid for in five currencies — [`../sensors.md`](../sensors.md) §9, mission switches in [`../missions/sensors.md`](../missions/sensors.md). Recognition is the resolution test it was specified to be: measured, a beam-on F-16 is detected at 3 784 m, recognised at ~950 m and identified at ~590 m, and the name it gains is the module registry key. **`w5-03`/`o2-08` survive by measurement, not by argument**: two runs differing only in the target's `team` produce byte-identical telemetry | — | — | what is NOT closed: nothing consumes the block yet (deliberate, its own round in [`../pilot.md`](../pilot.md)), and the channel contributes nothing at night because nothing in the tree emits light — so W5's and O5's night merges are measured to be eyeless |
 | `C8` | **Store catalogue is Mk-82 / AIM-120 / AIM-9 / R-73 / R-27R.** No HARM, no LGB, no Mk-84, no cluster, no rocket pod, no FAB-class bomb | **2** (W3/W4 SEAD, O3 stores) | 2 | there is no such thing as a suppression element in the tree |
 | `C15` | **No package coordination** — no time-on-target, no deconfliction, no lead tasking; formation is combat spread only, no rejoin | 0 | **7** | the *definition* of a package, and every large-force mission is affected |
-| `C0` | **No campaign layer.** Ten `.fbm` files are ten unrelated runs: nothing carries losses, damage, stores, fuel or a destroyed target from one mission to the next — **specified: [`../missions/campaign.md`](../missions/campaign.md)** (`.fbc`, three carried facts, the campaign fingerprint) | 0 | **10** | the campaigns are not campaigns yet. **Damage and fuel are refused with a reason, not deferred**; a campaign attrites the named cast and does not manage a force |
+| ~~`C0`~~ | **CLOSED 2026-07-28.** The `.fbc` file, the three carried facts and the aggregating runner are built — [`../missions/campaign.md`](../missions/campaign.md), driven by `fb-gym --campaign`. Both determinism criteria measured on both ground bases: 9 runs one campaign fingerprint, and all 4 steps of `sim/campaigns/viper-attrition.fbc` reproduce standalone from their state file plus the ground the run recorded | — | — | a sequence of missions is now a campaign. What is NOT closed: the ten campaigns still have no `.fbm` files, damage and fuel stay refused with a reason, and there is no campaign-scope objective |
 | `C4` | **No terrain masking.** The hook (`const FBWorld*`) reaches every sensor slot; the computation does not exist | 0 | 5 | already named as next in [`../roadmap.md`](../roadmap.md) R6. W4 and O1 are its acceptance tests |
 | `C14` | **No moving ground units and no ships** | 0 | 4 | W4's armour hunt, O3's column, W5's Baltic |
 | `C18` | **No radio between units.** Only the datalink PPLI and typed GCI entries | 0 | 4 | Package Q's third failure mode was a radio net collapsing under 80 % of the calls; there is no such net to collapse |
@@ -181,7 +181,7 @@ worth knowing before reading them:
 | `C2` | **Zulu only, and the default is *no clock at all*.** The absent-value case touches no channel, which is what makes the 84 existing missions byte-identical by construction rather than by hope. A client flag that contradicts a `time` line is a **boot error**, not a precedence |
 | `C3` | **Recognition is a resolution test, not a lookup.** One quantity (presented extent over range) with Johnson N50 multiples for detect/recognise/identify; the type name is the module registry key, so two MiG-29s on opposite teams produce the identical string, and the anti-cheat pair survives. **Built and measured the same day; the two places the contract was wrong are corrected in [`../sensors.md`](../sensors.md) §9 rather than quietly satisfied** |
 | `C12` | four kinds — `identify`, `protect`, `no_fire`, `deny release` — costing **one monotone bit and one float** on the roster. `identify` measures the **geometry**, not a sensor event, because the judge measures what the aircraft DID and never what it knew. A general `deny` and `escort` are refused, each with a reason |
-| `C0` | a campaign carries **three** facts (units, ground targets, stores) and refuses the rest by a three-part test. The overlay may delete a line, never add one. Determinism is proven twice: one fingerprint over 9 runs, and each step re-runnable **standalone** |
+| `C0` | a campaign carries **three** facts (units, ground targets, stores) and refuses the rest by a three-part test. The overlay may delete a line, never add one. Determinism is proven twice: one fingerprint over 9 runs, and each step re-runnable **standalone**. **Built the same day; the overlay ended up narrower than the contract allowed — it only ever deletes** |
 
 ### The four things to build first, and why in this order
 

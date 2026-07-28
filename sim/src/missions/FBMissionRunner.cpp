@@ -413,7 +413,8 @@ private:
 
 int FBRunMission(const std::string &missionPath, double timeoutOverride, const std::string &outDir,
                  const FBModelRoots &models, FBElevationProvider &elevation,
-                 FBMissionTickHook *hook, size_t threads, bool clientClockOverride) {
+                 FBMissionTickHook *hook, size_t threads, bool clientClockOverride,
+                 const FBMissionCarry *carry) {
   std::string evPath = outDir + "/events.log";
   Clients::FBFileHandle evf = Clients::FBOpenFile(evPath.c_str(), "w");
   if (!evf) { fprintf(stderr, "mission: cannot open %s for writing\n", evPath.c_str()); return 1; }
@@ -445,13 +446,35 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   double timeoutS = timeoutOverride > 0.0 ? timeoutOverride : mission.TimeoutS;
   FBLog::Info("mission", "MISSION_START", {{"name", mission.Name}, {"timeout", timeoutS}});
 
+  /* ---- The campaign carry, between the parse and everything else ----
+   * It may only take away (core/FBCampaignState.h), and every removal is logged here so the EFFECTIVE
+   * mission is reconstructible from this file alone. A mission run standalone sees none of this. */
+  if (carry && carry->In) {
+    std::vector<FBCarryChange> changes;
+    FBApplyCampaignCarry(*carry->In, carry->Mask, mission, changes);
+    for (const FBCarryChange &c : changes) {
+      if (c.What == FBCarryChange::Action::DropUnit)
+        FBLog::Info("campaign", "CARRY", {{"unit", c.UnitId}, {"action", "drop"},
+            {"reason", "destroyed in an earlier mission"}});
+      else
+        FBLog::Info("campaign", "CARRY", {{"unit", c.UnitId}, {"action", "stores"},
+            {"store", c.Store}, {"station", c.Station}, {"reason", "expended in an earlier mission"}});
+    }
+    if (mission.Units.empty()) {
+      FBLog::Error("mission", "RESULT", {{"result", "FAIL"},
+          {"reason", "the campaign carry removed every unit block — this mission has no cast left"}});
+      return 1;
+    }
+  }
+
   /* The run's clock. Only a DECLARED one produces a line — a mission without `time` has no clock and
    * its events.log stays byte-identical to one from before the clock existed. The sun elevation is
    * logged with it because the file may only say Zulu: this is where "22:00Z over Batajnica is night"
    * becomes checkable without the author doing spherical trigonometry. */
   FBMissionClock clock;
   std::string cerr;
-  if (!FBResolveMissionClock(mission, clientClockOverride, clock, &cerr)) {
+  if (!FBResolveMissionClock(mission, clientClockOverride, clock, &cerr,
+                             carry ? carry->CampaignUtcT0S : 0, carry && carry->HaveCampaignTime)) {
     FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", cerr}});
     return 1;
   }
@@ -877,6 +900,33 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
           {"team", FBUnitTeamStr(a.GetTeam())}, {"decisive", &a == deciding},
           {"lat", a.State().lat}, {"lon", a.State().lon}, {"altM", a.State().elev},
           {"telemetry", TelemetryPath(outDir, i, a)}});
+    }
+  }
+
+  /* What the campaign layer takes away from this run — read off the SAME actors the verdict was read
+   * off, so nothing is derived twice. Only the DECLARED blocks are asked; a released store became an
+   * actor of its own and is nobody's cast. */
+  if (carry && carry->Out) {
+    for (size_t i = 0; i < mission.Units.size() && i < Actors.size(); i++) {
+      Units::FBSimUnit &a = *Actors[i];
+      Weapons::FBStoresSystem &sms = a.Module().Stores();
+      int remaining[kFBStoreKinds], declared[kFBStoreKinds] = {};
+      for (int k = 0; k < kFBStoreKinds; k++) remaining[k] = 0;
+      for (const auto &kv : mission.Units[i].SetKV) {
+        int station = 0, kind = -1;
+        if (kv.first == "store" && FBParseStoreSetValue(kv.second, station, kind)) declared[kind]++;
+      }
+      for (int s = 1; s <= sms.StationCount(); s++) {
+        const FBStoreSpec *spec = FBStoreSpecOf(sms.StoreAt(s));
+        const int k = spec ? FBStoreKindIndex(spec->Key) : -1;
+        if (k >= 0) remaining[k]++;
+      }
+      /* A kind this sortie never carried keeps whatever the book already said about it. */
+      for (int k = 0; k < kFBStoreKinds; k++)
+        if (declared[k] == 0) remaining[k] = -1;
+        else carry->Out->ExpendedByKind[k] += declared[k] - remaining[k];
+      carry->Out->State.Note(a.GetName(), a.GetKind() == Units::FBUnitKind::Ground,
+                             !a.Health().CombatEffective(), remaining);
     }
   }
 

@@ -71,7 +71,8 @@ Three clients link or compile against it:
 | **`gpu_native`** | `clients/FBAppNative.cpp` | `make -C sim native` | reference renderer and frame oracle. `--mission --interval` produces PNG proof frames through a GPU-free tick hook on the same `FBRunMission` loop. Without `--interval` it is headless. |
 | **wasm** | `clients/FBAppWasm.cpp` | `make -C sim wasm` | the browser. |
 
-`fb-gym` options: `--mission FILE [--out DIR] [--timeout N] [--threads N] [--elev tiles|const|swiss]`.
+`fb-gym` options: `--mission FILE | --campaign FILE [--out DIR] [--timeout N] [--threads N]
+[--state FILE] [--carry LIST] [--elev tiles|const|swiss]`.
 `--threads` is **gym-only**.
 
 ### Directories

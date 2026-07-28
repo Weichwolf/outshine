@@ -10,6 +10,7 @@
 #ifndef FBMISSIONRUNNER_H
 #define FBMISSIONRUNNER_H
 #include <string>
+#include "FBCampaignState.h"
 #include "FBClockBoot.h"
 #include "FBElevationProvider.h"
 #include "FBModelRoots.h"
@@ -57,6 +58,27 @@ public:
 /* mkdir -p: creates every missing path component. */
 bool FBEnsureDir(const std::string &dir);
 
+/* What a finished run leaves for the campaign layer. `State` is the carried part and the ONLY thing
+ * that reaches the next mission; `ExpendedByKind` is an observation of THIS run that the aggregate
+ * report adds up and nobody carries. */
+struct FBMissionOutcome {
+  FBCampaignState State;
+  int ExpendedByKind[kFBStoreKinds] = {};
+};
+
+/* The campaign layer's ONE seam into an otherwise unchanged run: what the earlier missions left
+ * (borrowed, applied to the parsed mission BEFORE the spawn and logged line by line), the campaign
+ * clock for a mission that declares none, and where this run's own outcome goes. A null `carry` is an
+ * ordinary standalone mission, byte-identical to one from before this existed — which is what lets a
+ * campaign step be re-run as a normal `fb-gym --mission` with the same state file. */
+struct FBMissionCarry {
+  const FBCampaignState *In = nullptr;
+  uint8_t   Mask = kFBCarryAll;
+  int64_t   CampaignUtcT0S = 0;
+  bool      HaveCampaignTime = false;
+  FBMissionOutcome *Out = nullptr;
+};
+
 /* Steps the mission headless at 10 Hz, writing outDir/telemetry.csv + events.log; installs its own
  * FBLog sink. `timeoutOverride` > 0 beats the file's own timeout. Returns 0/1/2/3 =
  * Success/Fail/Crash/Timeout.
@@ -71,7 +93,7 @@ bool FBEnsureDir(const std::string &dir);
 int FBRunMission(const std::string &missionPath, double timeoutOverride, const std::string &outDir,
                  const FBModelRoots &models, FBElevationProvider &elevation,
                  FBMissionTickHook *hook = nullptr, size_t threads = 1,
-                 bool clientClockOverride = false);
+                 bool clientClockOverride = false, const FBMissionCarry *carry = nullptr);
 
 } // namespace FlightBox::Missions
 #endif

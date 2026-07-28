@@ -341,9 +341,12 @@ Both renderer clients follow the same discipline: `clients/FBAppWasm.cpp` holds 
 
 ### 5. The mission runner as a pure orchestrator
 
-`FBRunMission(missionPath, timeoutOverride, outDir, models, elevation, hook, threads)` —
-shared by `fb-gym` and `gpu_native --mission`. **Exactly four steps**, no mission specifics in the
-code.
+`FBRunMission(missionPath, timeoutOverride, outDir, models, elevation, hook, threads, clientClockOverride,
+carry)` — shared by `fb-gym` and `gpu_native --mission`. **Exactly four steps**, no mission specifics in
+the code. The last argument is the campaign layer's only seam (`const FBMissionCarry *`,
+[campaign.md](campaign.md)): null for every ordinary run, and when set it applies the carried state to
+the parsed mission BETWEEN step 1 and step 2 and reads the run's own outcome off the same actors step 4
+judges. It adds no step and no phase.
 
 | Step | What happens |
 |---|---|

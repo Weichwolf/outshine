@@ -1,0 +1,33 @@
+name viper-attrition
+carry units ground stores
+stop_on never
+
+# FOUR SORTIES OF ONE CALLSIGN, AND WHAT IS LEFT AFTER EACH. The first campaign file in the tree, built
+# from four missions that already existed and are not touched by it — that is the point of the format
+# (doc/missions/campaign.md §1): a campaign is an ORDER plus a carry, never a new mission dialect.
+#
+# WHAT IT PROVES: that all three carried facts reach the next mission and change a measurable outcome.
+#   01 intercept-aim120  viper (2x AIM-120) kills bandit with one round.        exit 0, standalone 0
+#   02 intercept-dlz     bandit is DEAD, so its block is dropped and the DLZ rig
+#                        flies alone; viper declares 3 rounds and gets the ONE
+#                        the first sortie left him — two `set store` lines gone. exit 3, standalone 0
+#   03 attack-ccrp       mk82 has never been on this jet's books, so the strike
+#                        loads its full pair: a kind enters the stock when it is
+#                        first declared, and only then can it fall.              exit 0, standalone 0
+#   04 attack-ccip       the bunker is rubble from 03 and is dropped; one Mk-82
+#                        is left of the two declared. The pass that SUCCEEDS on
+#                        its own finds nothing to kill.                          exit 3, standalone 0
+#
+# EXPECTED OUTCOME: campaign exit 3 — the worst step's code, and by the same reading rule a combat
+# mission carries (doc/missions/INDEX.md rule 4): the verdict is the ATTRITION and MISSION_RESULT lines,
+# not the code. Two of the four steps are non-zero BECAUSE the campaign worked.
+#
+# The exit column above holds over BOTH ground bases — measured under `--elev swiss` (fb-gym's own
+# default) and `--elev const`; all four standalone exits are 0 under both. The NUMBERS differ, and the
+# fingerprints with them: run the measurement under `--elev const`, like the four missions it is made
+# of, and never compare a fingerprint across two bases (doc/missions/campaign.md §5).
+
+mission ../missions/intercept-aim120.fbm
+mission ../missions/intercept-dlz.fbm
+mission ../missions/attack-ccrp.fbm
+mission ../missions/attack-ccip.fbm

@@ -847,3 +847,45 @@ be violated: 0/3 for the identification box, 1 for the broken weapons hold, 0/1 
 Conservation held at full strength against the pre-round binary: **260/260 telemetry files and 85/85
 `events.log` of the 85 pre-round missions byte-identical** (modulo `wallS`/`speedup`/path) at
 `--threads` 1, 2 and 4.
+
+### 2026-07-28 — C0: the campaign layer — an order, three facts, and two determinism proofs (this round)
+
+The fourth and last foundation contract, built where its spec put it: `core/FBCampaignFile` parses the
+`.fbc`, `core/FBCampaignState` holds the three carried facts as canonical text and applies them,
+`missions/FBCampaignRunner` loops `FBRunMission` and aggregates, `fb-gym --campaign` drives it. The
+mission runner grew **one** optional parameter (`const FBMissionCarry *`) and no phase: the overlay
+lands between step 1 and step 2, the outcome is read off the same actors step 4 judges. Null carry =
+the run that existed before — measured over all **104** `sim/missions/*.fbm` + `negative/*.fbm`
+against a reference binary built from the same tree with the five touched files reverted: **104/104
+fingerprints identical** (exit code, telemetry bytes, `events.log`).
+The overlay came out NARROWER than the contract allowed: the spec permitted changing the value of an
+existing `set` line, nothing needed it, and `FBApplyCampaignCarry` therefore contains no path that
+writes a value — it erases a `unit` block or a `set store` line and asserts afterwards that neither
+count grew. That is measured in both directions: `viper-attrition` drops `bandit`, `bunker` and three
+`set store` lines with a `campaign CARRY` line each, while a hand-written state file demanding
+`mk82=9`, a unit `ghost` and a `ground newtarget` produces the **identical fingerprint to the run with
+no state at all** and zero `CARRY` lines. Stores land as a per-(unit, kind) stock that enters the book
+on the first sortie declaring the kind — so a type the jet has never carried is not capped, which is
+the difference between attrition and inventing state.
+Both acceptance criteria of §5 held, on BOTH ground bases: criterion 1 gives **9 runs, one campaign
+fingerprint** each (`f6dda7e6…` under `swiss`, fb-gym's own default, `0811c2cc…` under `const`, what
+the four missions declare), 7.9 s for nine runs; criterion 2, the one that matters, gives **4/4 steps
+reproducing STANDALONE** from the previous step's `campaign-state.txt` alone, fingerprint and exit code,
+under both. The layer adds no hidden state.
+The first version of criterion 2 was a FALSE PASS that a central re-check turned into a false alarm:
+`fb_campaign_verify.py` defaulted its own `--elev` to `const` while `fb-gym` defaults to `swiss`, so a
+campaign started the way a human starts it replayed 4/4 DIVERGED on `groundAsl=782.97` against
+`groundAsl=0`. The lesson is not a better default. A fingerprint compares two runs over the SAME ground
+or nothing, so the run now RECORDS the ground beside its state (`elev`/`swiss_dem`/`base`/`threads` in
+`campaign-summary.txt`, carried in by `FBCampaignEnv` because the runner sees only an
+`FBElevationProvider&`), the check READS it, `--elev` became an override, and a tree without the record
+is refused instead of replayed against an assumption. The comparability rule is now in the Spec, as a
+fourth way determinism can be lost. Result-relevant switches, enumerated: `--elev`, `--swiss-dem`,
+`--base` (recorded); `--threads` recorded and result-neutral by criterion 1; `--timeout` structurally
+unreachable for a campaign step; weather and clock have no gym flag at all. The tool also names the
+fingerprint's normalisation exactly (`wallS`/`speedup` and the `--out` path inside `telemetry=`,
+nothing else) — without the second, criterion 2 cannot even be stated.
+The campaign itself is the demonstration: two of its four steps change verdict because the carry
+worked — the DLZ rig finds its bandit dead and flies with the one round the first sortie left it (0 →
+3), and the CCIP pass finds the bunker already rubble (0 → 3). `fb_tournament.py` stays where it is;
+one measures a pilot over independent geometries, the other a force over a dependent sequence.

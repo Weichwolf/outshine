@@ -30,6 +30,7 @@ Nothing about the physics or the verdict may depend on which client is running.
 | `--threads N` parallelises exactly the STEP phase; everything else stays sequential | identical fingerprint over `--threads 1..4` × 5 repetitions |
 | Runs without a network | `--elev swiss` when the baked DEM asset exists, else `const`; a bare `fb-gym --mission FILE` always runs |
 | This is the mission control loop | mission → telemetry → analysis → correction (`../build-and-ops.md`) |
+| **`--campaign` is gym-only** (`C0`, built) | `missions/FBCampaignRunner` is on the gym link line and in neither `libfbcore.a` nor the wasm build, for `FBTickPool`'s reason: a campaign is a sequence of headless runs, and neither the frame oracle nor the browser has one. Every step it runs is reachable as an ordinary `--mission … --state …` |
 
 ### `gpu_native` — the frame oracle
 
@@ -56,7 +57,8 @@ Nothing about the physics or the verdict may depend on which client is running.
 | `fb-gym` | **built and load-bearing.** All 85 missions, all seven harnesses and the tournament runner drive it. Threading proven deterministic. | `705c90a`, `6d7ed5a` |
 | `gpu_native` | **built.** Terrain + HUD frames; last proof `gpu_native --mission payerne-takeoff --interval 20` → 28 PNGs. | `c9206eb`…`2099cb0` |
 | wasm | **built, but partial.** Flies, renders, trims (`trimConverged=1` from the embedded `/fb/aircraft`); no weapon release path, no damage path, no cockpit displays, no bound HOTAS. | `705c90a` + model-root round |
-| the mission clock (`C2`) | **built in all three.** `missions/FBClockBoot.h` decides, `core/FBEphemeris.h` computes, `FBEnvironmentBlock` carries it. The 84 pre-round missions are byte-identical; the flag collision is a boot error with a printed reason | this round |
+| the mission clock (`C2`) | **built in all three.** `missions/FBClockBoot.h` decides, `core/FBEphemeris.h` computes, `FBEnvironmentBlock` carries it. The 84 pre-round missions are byte-identical; the flag collision is a boot error with a printed reason | `26dd3f2` |
+| the campaign layer (`C0`) | **built in the gym only, by decision.** `fb-gym --campaign` loops `FBRunMission`; the 104 missions run singly stay byte-identical, 9 campaign runs give 1 fingerprint and every step replays standalone, under `swiss` as well as `const` | this round |
 
 ## Gaps
 
@@ -91,7 +93,7 @@ visual acquisition) is a `sensors/` gap, not a client one.
 
 | Fact | Source |
 |---|---|
-| `fb-gym` options: `--mission FILE [--out DIR] [--timeout N] [--threads N] [--elev tiles\|const\|swiss]`; `--threads` is gym-only | [`../architecture.md`](../architecture.md) |
+| `fb-gym` options: `--mission FILE \| --campaign FILE [--out DIR] [--timeout N] [--threads N] [--state FILE] [--carry LIST] [--elev tiles\|const\|swiss]`; `--threads`, `--campaign` and `--state` are gym-only | [`../architecture.md`](../architecture.md) |
 | Exit codes 0/1/2/3 = SUCCESS/FAIL/CRASH+LOC/TIMEOUT | [`../missions/runtime.md`](../missions/runtime.md) |
 | Per-run output: `telemetry.csv` (10 Hz, fixed column count) + `telemetry_<callsign>.csv` per further unit + `events.log` | [`../missions/runtime.md`](../missions/runtime.md) |
 | Threading measurements (2 units 1.29–1.41× at 2 threads; 4 units up to 1.77× at 4 threads; the ceiling is the machine) | [`../missions/runtime.md`](../missions/runtime.md) |

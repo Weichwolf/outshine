@@ -115,6 +115,7 @@ Not build targets, and deliberately so — they are analysis, not product.
 | `sim/tools/fb_duel_report.py` | both sides' `eng_*` debriefing plus the EMCON timeline out of one duel run |
 | `sim/tools/fb_tournament.py` | the pilot-variant tournament over `variants-*.txt` |
 | `sim/tools/capture_cloud_proofs.sh` | the **cloud frame-proof set** and the recipe that makes it reproducible: every shot holds the camera still for 180 frames and keeps only the last, so the tile streamer is at `pending=0` and a second run writes the same bytes (measured: 12/12 sha256-identical). Needs `fb-tiles` on :8081 |
+| `sim/tools/fb_campaign_verify.py` | the **campaign layer's instrument** ([`missions/campaign.md`](missions/campaign.md) §5). `fingerprint DIR --exit N` = one run's SHA-256 over all `telemetry*.csv` + the normalised `events.log` + the exit code (normalisation = `wallS`/`speedup` and the absolute path in `telemetry=`, nothing else); `campaign DIR` = the campaign fingerprint over that tree; `determinism FBC` drives 3 × `--threads 1/2/4` and expects ONE hash; `replay FBC --ref DIR` re-runs every step STANDALONE from the previous step's state file and compares per-mission fingerprints. Exit 0 = every comparison held. **It never guesses the environment**: the elevation source is read from the reference tree's `campaign-summary.txt`, `--elev` is an override, and a tree without that record is refused — a fingerprint compares two runs over the SAME ground or nothing |
 | `sim/tools/fb_bfm_sweep.py` | the **16-approach BFM/gun sweep** the close-combat roll law is measured against (`pilot.md` §5.7.2/§5.7.3): 8 pursuer geometries × straight/turning defender, printing kills, departures and the pooled roll-rate statistics. Read the departure count and the rate statistics, not the kill count — a ~1 m spawn perturbation flips a cell |
 
 ### Measurement discipline
@@ -133,6 +134,14 @@ define mission  →  simulate headless  →  analyse telemetry mechanically  →
 
 Format `.fbm`, line-based, zero-dependency — [`doc/missions/INDEX.md`](missions/INDEX.md). Parsed by
 `core/FBMissionFile.h` (a pure text→`FBMission` function, no file I/O — that is the app's job).
+
+A SEQUENCE of missions is a campaign, `sim/campaigns/*.fbc`, run with `fb-gym --campaign FILE --out DIR`
+([`missions/campaign.md`](missions/campaign.md)): the same loop N times, with destroyed units, destroyed
+ground targets and expended stores carried between the steps through a text state file. It writes
+`DIR/NN-<mission>/` per step (the ordinary per-run files plus `campaign-state.txt`) and
+`campaign.log` + `campaign-summary.txt` at the root; its exit code is the worst step's. Any single step
+is an ordinary run again with `fb-gym --mission FILE --state DIR/NN-…/campaign-state.txt`, which is what
+makes a campaign debuggable and is measured every round.
 
 Termination → exit codes:
 

@@ -104,6 +104,7 @@ RENDER_STAGE_SRCS := $(wildcard src/render/stages/*.cpp)
 CORE_LIB_SRCS := \
   src/fdm/FBFdm.cpp src/fdm/FBFdmBoot.cpp src/fdm/FBFdmTelemetrySource.cpp \
   src/core/FBLog.cpp src/core/FBTelemetry.cpp src/core/FBMissionFile.cpp src/core/FBCommandBus.cpp src/core/FBStateBusTelemetry.cpp \
+  src/core/FBCampaignFile.cpp src/core/FBCampaignState.cpp \
   src/core/FBRunwayPlateauElevation.cpp src/core/FBBakedDemElevation.cpp src/core/FBFixedWeather.cpp \
   src/core/FBFlightMonitor.cpp \
   src/core/FBMissionMonitor.cpp src/core/FBSystemHealth.cpp src/core/FBDamageModel.cpp \
@@ -239,7 +240,7 @@ gym: core-lib    ## build the headless mission client (Mission in, Telemetrie ra
 	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core -isystem vendor -c -o "$$o"; done; \
 	  c++ src/world/FBTerrainLoader.cpp $(CXXSTD) -O2 $(CXX_WARN) $(INC_NATIVE) $(INC_TILES) \
 	    -isystem $(CURL_COMPAT) -c -o build/obj-gym/FBTerrainLoader.o; \
-	  c++ src/clients/FBAppGym.cpp src/missions/FBMissionRunner.cpp src/missions/FBTickPool.cpp src/clients/FBLogSinks.cpp src/clients/FBTelemetrySinks.cpp \
+	  c++ src/clients/FBAppGym.cpp src/missions/FBMissionRunner.cpp src/missions/FBCampaignRunner.cpp src/missions/FBTickPool.cpp src/clients/FBLogSinks.cpp src/clients/FBTelemetrySinks.cpp \
 	    build/obj-gym/*.o build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
 	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(CURL_COMPAT) -isystem $(JSB_HOST)/include/JSBSim \

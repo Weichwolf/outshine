@@ -1,9 +1,10 @@
 # The campaign layer — `.fbc` and the aggregating runner (`C0`)
 
-**Status: specified here, nothing built.** Written as the contract a build round has to satisfy, per
-[`../conventions.md`](../conventions.md)'s spec-first rule. It mirrors `sim/src/missions/` like every
-other file in this directory: the parser would be `core/FBCampaignFile.h` beside `core/FBMissionFile.h`,
-the runner `missions/FBCampaignRunner` beside `missions/FBMissionRunner`.
+**Status: BUILT 2026-07-28, exactly where the spec put it** — the parser in `core/FBCampaignFile.h`
+beside `core/FBMissionFile.h`, the carried state in `core/FBCampaignState.h`, the runner in
+`missions/FBCampaignRunner` beside `missions/FBMissionRunner`, driven by `fb-gym --campaign`. The Spec
+below is unchanged and is what was built against; `## State` names the four places the implementation is
+NARROWER or more explicit than the text, and both acceptance criteria of §5 with their numbers.
 
 **The problem, in one line.** Ten `.fbm` files are ten unrelated runs
 ([`../campaigns/INDEX.md`](../campaigns/INDEX.md), gap `C0`): nothing carries a loss, a destroyed target
@@ -123,10 +124,19 @@ Criterion 2 is the statement that *the campaign layer adds no hidden state*. If 
 diverges, the layer has leaked something into the mission, and the diff names the file and the column.
 It is also what makes debugging a campaign tractable: any step is a normal `fb-gym --mission` run.
 
-**Three named ways determinism can be lost, each with its rule:**
+**A fingerprint is comparable only within ONE environment base.** It says "these two runs computed the
+same thing", never "this is the campaign's number in the absolute" — the ground alone changes every
+byte of it. The campaign therefore **records the ground it was flown over** beside its state
+(`campaign-summary.txt`: `elev`, `swiss_dem`, `base`, `threads`), and every comparison READS that record
+instead of assuming one. A comparison across two bases is not a divergence, it is a category error, and
+a tool that guesses the base manufactures exactly that error. This is part of the contract because it
+decides what criterion 2 below even means.
+
+**Four named ways determinism can be lost, each with its rule:**
 
 | Hazard | Rule |
 |---|---|
+| **Environment drift** | the elevation source (and, under `swiss`/`tiles`, the asset path resp. the server) decides every number in the run. It is WRITTEN DOWN by the runner; a replay reads it, and an output tree without the record is REFUSED rather than replayed against a default. `--threads` is recorded too, but is result-neutral by criterion 1; `--timeout` is deliberately not reachable for a campaign step — the step's timeout is its own file's |
 | **Wall-clock leakage** | a campaign must never read the host clock. This is where `C0` and `C2` meet: a campaign whose missions declare no `time` and whose client falls back to the wall clock is reproducible only **within one day**. The runner therefore **warns at start** when neither the campaign nor a mission declares a clock, and a campaign meant as a measurement declares one |
 | **Output ordering** | per-mission output directories are `NN-<missionname>/`, index-prefixed, so the fingerprint's file order is the campaign's order and never the filesystem's |
 | **State ordering** | the state file is written in mission declaration order, canonically formatted, one fact per line |
@@ -160,23 +170,83 @@ ten runs into one 0/1 would be exactly the invented single verdict O5 refuses.
 
 ## State
 
-**Nothing built.** No `.fbc` file exists, no parser, no runner. What exists and carries this layer, all
-of it unchanged:
+**Built.** Four files, one CLI flag, one measurement tool, one example campaign.
 
-| Piece | Why it carries |
+| Piece | What it is |
 |---|---|
-| The per-run fingerprint over telemetry + normalised log + exit code | the campaign fingerprint is a concatenation of it |
-| Determinism over `--threads 1..4`, measured on four missions × 5 repetitions | criterion 1 is that measurement, one level up |
-| The roster (`FBUnitObservation`: id, team, the one health bit) | two of the three carried facts are that bit |
-| `FBStoresBlock` (`Station[12]`, loaded count, `ReleasedCount`) | the third |
-| `set store …` and the `unit` block as declarations | the two places the carry lands |
-| `FBRunMission` as a pure four-step orchestrator taking a path and returning a result | a campaign runner is a loop over it, not a second engine |
+| `core/FBCampaignFile.h/.cpp` | the `.fbc` parser — `name`/`time`/`carry`/`stop_on`/`mission`, same line discipline as `.fbm`, unknown keyword is a parse error |
+| `core/FBCampaignState.h/.cpp` | `FBCampaignState` (the three carried facts as text) + `FBApplyCampaignCarry`, the overlay |
+| `missions/FBCampaignRunner.h/.cpp` | the loop over `FBRunMission` and the aggregate report. **Gym-only**, like `FBTickPool`: it is not in `libfbcore.a` and never reaches wasm |
+| `missions/FBMissionRunner` | grew ONE optional parameter, `const FBMissionCarry *` (state in, campaign clock, outcome out). Null = the run that existed before, byte for byte |
+| `fb-gym --campaign FILE` | runs a campaign; `--mission FILE --state FILE [--carry LIST]` runs ONE step standalone with the same overlay — the two halves of §5 criterion 2 |
+| `sim/campaigns/viper-attrition.fbc` | the first campaign file: four existing missions, all three carried facts demonstrated |
+| `sim/tools/fb_campaign_verify.py` | the instrument: `fingerprint` / `campaign` / `determinism` / `replay` |
+
+**Output per campaign** (`--out DIR`): `NN-<missionfile>/` per step with the ordinary per-run files plus
+`campaign-state.txt` (the state AFTER that step — so the state BEFORE step *k* is step *k−1*'s file, which
+is exactly what `--state` takes), plus `campaign.log` and `campaign-summary.txt` at the root. The summary
+carries the **environment record** (`elev`, `swiss_dem`, `base`, `threads`) the comparability rule of §5
+requires; `FBCampaignEnv` is how the client tells the runner which ground it injected, because the runner
+sees only an `FBElevationProvider&` and could not name it.
+
+### The four places the implementation is narrower or more explicit than the Spec
+
+| # | Spec says | Built |
+|---|---|---|
+| 1 | the overlay may delete a `unit` block **or change the value of a `set` line** | **only deletion.** Nothing needed the value change, so `FBApplyCampaignCarry` has no path that writes a value: it erases a `unit` block or a `set store` line, and asserts afterwards that neither the block count nor the `set`-line count grew. A narrower permission is a smaller door |
+| 2 | stores land on the `set store …` lines the mission declares | **as a per-(unit, store kind) STOCK.** A kind enters the book on the first sortie that DECLARES it and can only fall; a kind never carried is uncapped, so re-loading a type the jet has never flown with is not "inventing state" but the mission's own declaration. Surplus lines are dropped from the END of file order, so the effective load is a PREFIX of what the file says and never a selection |
+| 3 | the fingerprint is over telemetry + "normalised" `events.log` + exit code | the normalisation is now **named, and it is exactly two field classes**: `wallS`/`speedup` (host speed) and the absolute path inside `telemetry=` (the `--out` directory). Without the second, criterion 2 cannot even be stated — a standalone re-run necessarily writes into a different directory. Nothing else is touched, so every other byte is compared raw |
+| 4 | `campaign ATTRITION` carries "stores expended per type" | one `campaign EXPENDED store=… count=…` line per type beside `ATTRITION`. The store catalogue is a list, not a fixed field set, and a log line with a variable field set is worse than N lines |
+
+One case the Spec did not cover: a carry that would remove **every** unit block of a mission. That is a
+mission `FAIL` with the reason spelled out, before the spawn — not an empty run.
+
+### The two acceptance criteria, measured
+
+Measured on **both** ground bases, because one base proves one base — `swiss` is what `fb-gym` picks by
+itself (the baked DEM is on disk), `const` is what `viper-attrition`'s four missions declare in their
+headers:
+
+| # | Criterion | `--elev swiss` (fb-gym's own default) | `--elev const` |
+|---|---|---|---|
+| **1** | one campaign fingerprint over 3 reps × `--threads 1/2/4` | **9 runs, 1 fingerprint** `f6dda7e6510f0d1e…` | **9 runs, 1 fingerprint** `0811c2cc79448df3…` |
+| **2** | each step's per-mission fingerprint equals the same mission run STANDALONE with step *k−1*'s state | **4/4 match**: `69209e01…`/0, `5176c214…`/3, `938892b0…`/0, `943f036e…`/3 | **4/4 match**: `4deb7101…`/0, `0b492548…`/3, `70886a46…`/0, `b835dcce…`/3 |
+
+Campaign exit 3 and the same four verdicts under both. The layer adds no hidden state — a fresh process
+handed only the text state file and the recorded ground reproduces the step bit for bit.
+
+**The first version of this measurement was wrong, and the way it was wrong is the reason for the
+comparability rule in §5.** `fb_campaign_verify.py` defaulted its own `--elev` to `const` while `fb-gym`
+defaults to `swiss`, so a campaign started the way a human starts it replayed as **4/4 DIVERGED**
+(`groundAsl=782.97` against `groundAsl=0`) — a false alarm on the one measurement the whole campaign
+programme rests on, and the kind that hides a real leak behind noise. The fix is not a better default:
+the environment is now RECORDED by the run and READ by the check, `--elev` is an override, and a tree
+without the record is refused.
+
+### The overlay can remove and cannot add — measured, not asserted
+
+Removal: in `viper-attrition` the overlay drops `bandit` (shot down in step 01) from step 02 and `bunker`
+(destroyed in step 03) from step 04, and two of step 02's three `set store … aim120` lines plus one of
+step 04's two Mk-82 lines. Every one is a `campaign CARRY` line in that step's `events.log`.
+
+Addition: a hand-written state file claiming `unit viper alive stores mk82=9 aim120=4`, a unit `ghost`
+the mission does not declare and a `ground newtarget` was handed to `attack-ccrp` via `--state`. Result:
+**the identical fingerprint to the run without any state at all** (`70886a4672c4c8bc…`), zero `CARRY`
+lines, two `SPAWN` lines. A state file that asks for more produces exactly the unchanged mission.
+
+### Conservation
+
+All **104** `sim/missions/*.fbm` + `missions/negative/*.fbm`, run singly as before, produce
+**fingerprints identical to the pre-round binary** — same exit code, same telemetry bytes, same
+`events.log`. The reference binary was built from the same tree with the five touched files reverted.
 
 ## Gaps
 
 | Gap | Detail |
 |---|---|
-| The whole layer | see Spec. All ten campaign specs list `C0`; it degrades ten and blocks none, which is why it is the last of the four foundation contracts and not the first |
+| Only one campaign file exists | `sim/campaigns/viper-attrition.fbc`, built from four missions that already existed. The ten campaigns of [`../campaigns/INDEX.md`](../campaigns/INDEX.md) still have no `.fbm` files of their own — this layer removes their `C0` blocker, it does not write them |
+| The environment record names the DEM, it does not fingerprint it | `swiss_dem assets/swiss-dem-90m.bin` is a path. Re-bake the asset and every fingerprint changes while the record still reads the same — the comparison would then be across two grounds calling themselves one. Under `--elev tiles` it is worse and unfixable here: the ground is a live server's answer, so a `tiles` campaign is not replayable across time at all. **Never measured under `tiles`** |
+| Both criteria are measured on ONE campaign | four steps, two modules, `swiss` and `const`. That is a measurement, not a theorem: every further campaign re-runs `tools/fb_campaign_verify.py replay` for itself |
 | Damage does not carry (`C21`) | double-blocked: no repair model, and no `.fbm` syntax to spawn a damaged jet. The first extension once either closes |
 | No replacement pool | a lost unit is dropped. Correct for O5, under-modelled for W3/W4's multi-week arcs — their headers must say so |
 | No campaign-level objective | the campaign verdict is an aggregate of mission verdicts; there is no way to declare "the belt is down by mission 5". Deliberately out of this round: it would need a campaign-scope objective vocabulary on top of `C12`'s, and one vocabulary at a time |
@@ -198,3 +268,24 @@ of it unchanged:
 - **Why the campaign exit code is the worst mission's and not a computed score.** A score needs weights;
   weights are `[SET]` numbers that would silently decide what a campaign "means". The aggregate lines
   carry the raw counts and the analysis lives in a tool, exactly as `fb_duel_report.py` does for a duel.
+- **What `viper-attrition` actually showed, step by step.** It is the demonstration the layer was
+  accepted on, and each step's outcome is a consequence of the previous one:
+
+  | # | Mission | Carry applied on entry | Exit (standalone → in campaign) | State after |
+  |---|---|---|---|---|
+  | 01 | `intercept-aim120` | — | 0 → 0 | `viper alive aim120=1`, `bandit destroyed` |
+  | 02 | `intercept-dlz` | `bandit` dropped; 2 of 3 `aim120` lines dropped | 0 → **3** | unchanged (nothing to shoot, nothing shot) |
+  | 03 | `attack-ccrp` | nothing — `mk82` has never been on this jet's books | 0 → 0 | `+ mk82=1`, `bunker destroyed` |
+  | 04 | `attack-ccip` | `bunker` dropped; 1 of 2 `mk82` lines dropped | 0 → **3** | `mk82=0` |
+
+  Campaign exit 3, `ATTRITION unitsHostile=1 groundHostile=1`, `EXPENDED aim120=1 mk82=2`. Two of the
+  four steps changed their verdict **because** the campaign worked; step 03 shows the other half of the
+  rule — a store type the jet has never carried is not capped, because the mission's own declaration is
+  the briefed load and the carry only ever takes away.
+- **Why the campaign clock enters through `FBClockBoot.h` and not through the overlay.** Filling in a
+  clock for a mission that declares none is the one thing that looks like "adding a line", so it happens
+  in the ONE file that already owns clock precedence (`FBResolveMissionClock`, two extra defaulted
+  arguments) and nowhere near `FBApplyCampaignCarry`. Measured both ways: a campaign `time` reaches a
+  mission without one (`payerne-takeoff-only` gains a `CLOCK` line at the campaign's instant) and never
+  displaces a mission that has one (`clock-night-payerne` keeps `1999-03-24T22:00:00Z` under a campaign
+  declaring `2001-06-21T12:00:00Z`).
