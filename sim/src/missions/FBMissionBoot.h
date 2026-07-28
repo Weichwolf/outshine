@@ -44,10 +44,13 @@ inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnActor(const FBModelRoots 
    * state and this unit has none. Everything AFTER that is shared. */
   if (!module->FdmModelName() || module->FdmModelName()[0] == '\0') {
     if (!sp.Ground) return fail("a unit with no airframe must spawn on the ground");
-    if (!block.SetKV.empty()) {
-      FBLog::Error("mission", "SET_REJECTED", {{"key", block.SetKV.front().first},
-                                               {"value", block.SetKV.front().second}});
-      return fail("spawn failed (this module takes no 'set' lines)");
+    /* The SAME setup path an airframe takes, and the same failure: the MODULE decides what it knows.
+     * An inert target answers false to every key and therefore still fails exactly where it did. */
+    for (const auto &kv : block.SetKV) {
+      if (!module->ApplySetup(kv.first, kv.second)) {
+        FBLog::Error("mission", "SET_REJECTED", {{"key", kv.first}, {"value", kv.second}});
+        return fail("spawn failed (this module takes no 'set' lines)");
+      }
     }
     Fdm::fb_fdm_state gst{};
     gst.lat = sp.LatDeg; gst.lon = sp.LonDeg; gst.elev = groundAsl; gst.yaw = sp.HeadingDeg;
@@ -147,10 +150,10 @@ inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnStore(const FBModelRoots 
   double aglM = carrier.elev + offU - groundAsl;
   ic.HeightOffsetM = aglM > 0.5 ? aglM : 0.5;   /* the IC needs a positive offset; below this it is
                                                  * about to hit the ground anyway */
-  ic.HeadingDeg = carrier.yaw;
+  ic.HeadingDeg = rel.HaveRail ? rel.RailYawDeg : carrier.yaw;
   ic.Ballistic = true;
-  ic.PitchDeg = carrier.pitch;
-  ic.RollDeg = carrier.roll;
+  ic.PitchDeg = rel.HaveRail ? rel.RailPitchDeg : carrier.pitch;
+  ic.RollDeg = rel.HaveRail ? 0.0 : carrier.roll;
   /* fb_fdm_state velocity is X-Plane local (+x east, +y up, +z south) — see fdm/FBFdm.h. */
   ic.VelNorthMs = -carrier.vz + rotN;
   ic.VelEastMs = carrier.vx + rotE;

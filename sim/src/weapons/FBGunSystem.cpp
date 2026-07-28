@@ -35,7 +35,7 @@ bool FBGunSystem::Trigger(double seconds, double nowS, FBCommandOutcome &outcome
     Refused_++;
     return false;
   }
-  if (Wow_) {
+  if (Wow_ && !GroundMount_) {
     outcome = FBCommandOutcome::Rejected; reason = FBCommandReason::HardwarePrecedence;
     Refused_++;
     return false;
@@ -151,7 +151,7 @@ void FBGunSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, double nowS, 
   b.RoundsRemaining = Rounds_;
   b.RoundsFired = Fired_;
   b.Firing = FireUntilS_ > 0.0;
-  b.Ready = Spec_ != nullptr && Arm_ == FBArmState::Arm && Rounds_ > 0 && !Wow_;
+  b.Ready = Spec_ != nullptr && Arm_ == FBArmState::Arm && Rounds_ > 0 && (!Wow_ || GroundMount_);
   b.H.Publish(state.NowS);
   BlockStatus_ = (int)b.H.Status;
   /* Nur ein LESEN eines fremden Blocks, fuer die Telemetrie. Es sitzt auf der Quelle der Kanone, weil

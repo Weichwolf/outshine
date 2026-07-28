@@ -16,8 +16,17 @@ namespace FlightBox {
 enum class FBEmitterMode : uint8_t { None = 0, Search, Track, Guidance };
 
 /* What is radiating, as the emitter itself knows it. A receiver only ever ESTIMATES this — it hears a
- * waveform, not a nameplate — hence FBRwrSystem's own estimated copy. */
-enum class FBEmitterKind : uint8_t { Unknown = 0, AirborneFireControl, MissileSeeker };
+ * waveform, not a nameplate — hence FBRwrSystem's own estimated copy. The two SURFACE values name what
+ * sits BEHIND the antenna: a telephone, or a launcher. */
+enum class FBEmitterKind : uint8_t { Unknown = 0, AirborneFireControl, MissileSeeker,
+                                     SurfaceEarlyWarning, SurfaceFireControl };
+
+/* HOW MANY ANTENNAS one unit may radiate from at once. Two, because an air-defence position is two
+ * sets by construction — the acquisition radar keeps sweeping while the fire control stares — and
+ * collapsing them into one would delete the search->track transition for every observer except the one
+ * being tracked. An airframe carries one antenna and writes index 0 only, so its signature is the
+ * scalar it always was. doc/modules/ground/module.md §Spec 6. */
+constexpr int kMaxEmitterBeams = 2;
 
 inline const char *FBEmitterModeStr(FBEmitterMode m) {
   switch (m) {
@@ -34,6 +43,8 @@ inline const char *FBEmitterKindStr(FBEmitterKind k) {
     case FBEmitterKind::Unknown: return "unknown";
     case FBEmitterKind::AirborneFireControl: return "fire-control";
     case FBEmitterKind::MissileSeeker: return "missile-seeker";
+    case FBEmitterKind::SurfaceEarlyWarning: return "surface-search";
+    case FBEmitterKind::SurfaceFireControl: return "surface-fire-control";
   }
   return "?";
 }

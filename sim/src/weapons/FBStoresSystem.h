@@ -11,6 +11,8 @@
 #include "FBTelemetry.h"
 #include "FBFdm.h"
 
+namespace FlightBox::Modules { class FBSiteModule; }
+
 namespace FlightBox::Weapons {
 
 class FBStoresSystem : public FBTelemetrySource {
@@ -54,6 +56,13 @@ public:
 
   /* Wirft den Store der GEWAEHLTEN Station ab oder lehnt mit dem Grund ab, den der Jet geben wuerde. */
   bool Release(double nowS, FBCommandOutcome &outcome, FBCommandReason &reason);
+
+  /* WOHIN DIE SCHIENE ZEIGT, koerperfest in Grad. Fuer eine Zelle gibt es das nicht — ein Pylon zeigt
+   * nach vorn, und gezielt wird mit dem Flugzeug —, also bleibt es ungesetzt und die Runde separiert
+   * mit der Lage des Traegers, exakt wie bisher. Ein Werfer richtet statt dessen die Schiene. */
+  void SetRailAttitude(double pitchDeg, double yawDeg) {
+    RailPitchDeg_ = pitchDeg; RailYawDeg_ = yawDeg; HaveRail_ = true;
+  }
   /* Der Drain des Besitzers: der aelteste noch nicht genommene Abwurf, FIFO. */
   bool TakeRelease(FBStoreRelease &out);
 
@@ -64,6 +73,21 @@ public:
   void SampleTelemetry(FBTelemetryRow &row) const override;
 
 private:
+  /* DIE EINZIGE AUSNAHME VON DER GEWICHTS-AUF-RAEDERN-VERRIEGELUNG, und sie ist keine Lockerung: die
+   * Verriegelung fragt nach RAEDERN. Eine Stellung hat keine Zelle, meldet daher per Definition
+   * Bodenkontakt (missions/runtime.md §3) und wuerde 100 % aller Bodenstarts abgelehnt bekommen.
+   *
+   * WARUM SO ENG: privat, mit genau EINEM Freund — dasselbe Schreibtor, mit dem core/FBSystemHealth
+   * seine Monotonie haelt. Ein Flugzeugmodul kann diese Zeile nicht einmal AUFRUFEN, es kompiliert
+   * nicht; und wer sie doch erreichte, bekaeme false, sobald je eine Zelle gebunden wurde. Die zwei
+   * Zustaende schliessen sich in beide Richtungen aus (s. AttachFdm). */
+  friend class Modules::FBSiteModule;
+  bool DeclareGroundLauncher() {
+    if (Fdm_) return false;   /* diese Rampe haengt an einer Zelle: sie hat Raeder */
+    GroundLauncher_ = true;
+    return true;
+  }
+
   struct Station {
     double XIn = 0.0, YIn = 0.0, ZIn = 0.0;
     int    PointMass = -1;                       /* Index im FDM, -1 = nicht gebunden */
@@ -83,6 +107,9 @@ private:
   FBArmState Arm_ = FBArmState::Sim;   /* ein Jet faehrt mit Master Arm SAFE hoch */
   int Selected_ = -1;
   bool Wow_ = true;                    /* bis die Luftdaten anderes sagen: am Boden */
+  bool GroundLauncher_ = false;        /* s. DeclareGroundLauncher */
+  bool HaveRail_ = false;
+  double RailPitchDeg_ = 0.0, RailYawDeg_ = 0.0;
   Fdm::FBFdm *Fdm_ = nullptr;               /* geborgt, nie besessen */
 
   /* Die DLZ-Felder sind die in Run() gecachte Antwort der FEUERLEITUNG: Release() wird vom Kommandobus

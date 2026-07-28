@@ -28,7 +28,7 @@ this file; that entry now points here.
 |---|---|
 | A ground threat is **one class with N catalogue rows**, never N classes | `modules/ground/FBSiteModule` + `core/FBSite.h`'s `kSiteCatalogue`; the registration file walks the catalogue exactly as `FBStoreModuleRegistration` walks `kStoreCatalogue`. A second C++ class in this directory is a defect, not a precedent |
 | It is a `FBModule`, and it is **not a module in the documentation sense** | it has no FDM, no avionics bus worth the name, no pilot phase machine and no reference base directory. The line is drawn in §Spec 1 and it is the file's central decision |
-| It sees through a sensor slot **or not at all**, and the registry reader list does **not** grow | its three detectors derive from `sensors/FBRadarSystem`, `sensors/FBVisualSystem` and `sensors/FBRwrSystem`; a derivation adds no `#include "FBUnitRegistry.h"`. `tools/verify_layers.py`'s `RESTRICTED` table stays at **six** files — measured by running the gate, not by argument |
+| It sees through a sensor slot **or not at all**, and the registry reader list does **not** grow | **BUILT, measured: 6.** The two radars are configured instances of one `FBSiteRadar : FBRadarSystem`; the eye is `FBVisualSystem` and the passive receiver `FBRwrSystem` **verbatim, not derived** — an empty derivation would be noise (`CLAUDE.md`, "no empty derivation for tuning"). `tools/verify_layers.py` now prints the list's length itself |
 | It radiates through the published signature, and **search and track are audible at the same time** | `FBUnitSignature` carries **two** emitter beams; a battery is two antennas by construction. The RWR reads the array with the same two geometry tests it uses today |
 | A launched round is a **unit**, by the rule that already governs every weapon | `weapons.md` §1 unchanged: own `FBFdm` on its own pinned deck, own module from the same registry, own telemetry file, the same two judges |
 | Command guidance is **one new seeker kind**, not a new architecture | `FBSeekerKind::CommandGuided` — no detector powered, guidance = uplink for the whole flight, uplink lost = inertial and it never comes back. Measured on both branches, as `SemiActiveRadar` was |
@@ -316,7 +316,7 @@ The round is done when these are **measured**, not argued:
 
 | # | Criterion | Measurement |
 |---|---|---|
-| 1 | The gate did not widen | `make -C sim verify-layers` prints *6 restricted header(s) respected* |
+| 1 | The gate did not widen | `make -C sim verify-layers` prints *6 registry reader(s) inside the perception boundary*. **Corrected in the build round:** the criterion originally read the wrong number off the wrong line — the head's *"N restricted header(s) respected"* counts protected HEADERS (two) and is green however many readers are added. `tools/verify_layers.py` now names the perception boundary as its own list (`PERCEPTION_READERS`) and prints its LENGTH, so the number the anti-cheat promise hangs on is visible in the output |
 | 2 | Existing missions are untouched | all `telemetry*.csv` of all committed `.fbm` byte-identical to the pre-round binary; `events.log` identical modulo `wallS`/`speedup` |
 | 3 | The three-symbol sequence exists | one mission, one F-16, one `sa6`: `rwr THREAT_NEW mode=Search` → `THREAT_MODE …Track` → `…Missile`, with the elapsed time between the first two equal to the declared `reaction_s` ± one tick |
 | 4 | The envelope decides | the same geometry flown at `AltMin − 100 m` produces no launch and at `AltMin + 100 m` produces one |
@@ -331,9 +331,25 @@ The round is done when these are **measured**, not argued:
 
 ## State
 
-**Nothing is built.** `sim/src/modules/ground/` today contains `FBGroundModule.h` +
-`FBGroundModuleRegistration.cpp` — the inert `target_soft`/`target_hard` pair whose `Run()` is empty
-(`weapons.md` §10.3). Ground units emit nothing, launch nothing and shoot nothing.
+**BUILT.** `sim/src/modules/ground/` holds the inert `target_soft`/`target_hard` pair plus four new
+files: `FBSiteModule.h/.cpp` (the position), `FBSiteFireControl.h/.cpp` (the engagement machine) and
+`FBSiteRadar.h` (one parametric radar, two configured instances). `core/FBSite.h` carries the nine
+catalogue rows; `core/FBStore.h` six new rounds and `FBSeekerKind::CommandGuided`; `core/FBGun.h` the
+two 23 mm guns. Six FlightBox-own JSBSim decks under `sim/assets/aircraft/` from one generated recipe.
+
+| Measured | Number |
+|---|---|
+| Existing missions unchanged | **303/303** `telemetry*.csv` byte-identical and **104/104** `events.log` identical modulo `wallS`/`speedup`/path, against the pre-round binary, at `--threads` 1, 2 and 4 |
+| Determinism, all 112 missions | one signature over `--threads 1/2/4` (336/336 telemetry, 112/112 events) |
+| Perception boundary | `verify-layers`: **6 registry reader(s) inside the perception boundary** — unchanged |
+| The three stages (`sam-sa6-engage`) | first firm track t=11.8 s -> `ENGAGE` t=37.8 s (**26.0 s = the row's `ReactionS`**) -> `sms RELEASE` t=38.4 s. The attacker's receiver: `search` t=0.1 -> `track` t=6.9 -> `missile` t=38.5, so the pilot gets **31.6 s** between the boxed symbol and the launch light — MORE than `ReactionS`, because the illuminator starts painting 4.9 s before the position has its own firm track |
+| Two beams at once | while tracking, `site_beam0` = 1 AND `site_beam1` = 2; the search sweep stays audible to every other aircraft |
+| Doppler notch on a mount | `radar CHAFF_SEDUCED unit=sam ... ownClosMs=0 measClosMs=32.89 tgtRadialMs=-32.89 notchMs=40` — own closure is EXACTLY zero, so the notch degenerates to the target's own range rate. Not one line was written for it |
+| The eye binds a MANPADS | `sam-manpads-day`: first firm `vis CONTACT` at 4.44 mrad = **3 288 m** (F-16 lateral 14.6 m), inside the eye's measured 3 784 m beam-on and well inside the Strela's 4 200 m envelope. `sam-manpads-night`, identical but for the `time` line: **zero** `vis` lines, zero `site` lines, no launch |
+| The altitude gate | `sam-flak-ceiling`: two identical run-ins 600 m apart over one `zsu23` (ceiling 1 500 m). It tracks and fires at the 1 400 m one and never at the 2 000 m one |
+| Killing the emitter silences it | `sam-radar-kill`: one Mk 82 fails `Radar`/`FireControl`/`Structure` in one zone, `UNIT_RESULT ew DESTROYED`, and the attacker's `rwr` drops the threat by the existing failure->`Invalid` coupling |
+| Salvo and magazine | `sam-sa2-command`: two salvos of **3** at the row's 3.0 s spacing, `salvoLeft` 2/1/0, then `site DEPLETED launches=6` |
+| Emission discipline | `sam-emcon-hold`: `site CUE` (a bearing and a power) -> `DARK`->`SEARCH` -> `RADIATE`; after the salvo `GO_DARK`, and `RADIATE` again exactly `scoot_s` = 60 s later |
 
 What **already exists and is consumed unchanged** by this contract, which is why it is a bounded round
 rather than a subsystem:
@@ -362,6 +378,14 @@ catalogue) and `C4` (no terrain masking), the consequence is stark and must be s
 that consumes this: **`C1` gives the ground the ability to shoot back long before it gives the air the
 ability to shoot first.** That asymmetry is real, it is the correct order to build in (the threat is what
 six campaigns are missing), and it is not a SEAD capability.
+
+### Found while BUILDING (new, and measured)
+
+| # | Gap | Detail |
+|---|---|---|
+| B1 | **A MANPADS launches without a seeker tone, and therefore mostly misses** | measured on `sam-manpads-day`: the gunner acquires at 3 288 m, the row's `reaction_s` 8 s is spent, and the round is launched at a PHANTOM placed along the measured bearing at the seeker's own reach. `msl_seeker` stays 1 (uncaged, never locked) and both rounds miss by 883 m / no detonation. The real weapon acquires BEFORE launch — the gunner has a tone — and FlightBox has no pre-launch seeker state on a store still on the rail. Named rather than papered over with a wider seeker field |
+| B2 | **A command-guided round is close but not lethal at long range** | `sam-sa2-command`, six V-750 at 23-15 km against a non-manoeuvring target: closest approaches 17 226 / 16 585 / 15 940 m (the first salvo, fired at 23 km and outrun) and **14.2 / 597 / 1 504 m** (the second, fired at 15 km) against a 12 m fuze. The nearest round missed by 2.2 m. The estimate the round flies is the position's own track with no measurement error, so what is missing is not accuracy but the round's KINEMATICS at the top of its envelope |
+| B3 | **An optical position applies no envelope test at all** | `FBSiteFireControl::InEnvelope` returns true immediately for a row with no tracking radar, because an eye publishes no range and no altitude, ever. What binds such a position is its gunner's sight and afterwards the round's own seeker or the barrel's own reach. Stating a range there would have been the cheat |
 
 ### Named, quantified, refused for a reason
 

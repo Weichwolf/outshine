@@ -1,0 +1,46 @@
+name sam-radar-kill-1
+timeout 220
+
+# A RADAR SITE WITH NO WEAPON, AND WHAT KILLING IT DOES. doc/modules/ground/catalogue.md, `p18`.
+#
+# The P-18 is the cheapest row in the catalogue and the one seven campaigns want: a 250 km search set on
+# a sourced 6 s antenna revolution, a health register, and nothing else. Behind this antenna sits a
+# telephone. It cues nobody in FlightBox — the only legal cross-unit channel is a sensor — so it is a
+# WARNING and a TARGET, never a network.
+#
+# The viper hears it from the first tick, flies to it and drops two Mk 82. When the burst fails the
+# position's `Radar`, the system is not cycled at all, its block goes Invalid, `Emission()` returns
+# None, and the attacker's receiver drops the threat. NOT ONE LINE was written for that chain: it is
+# doc/weapons.md §8's failure->Invalid coupling, which predates this round by a whole stage.
+#
+# WHAT TO READ:
+#   events.log   `rwr THREAT_NEW ... kind=surface-search` at t = 0.1, `stores DELIVERY`, `damage ...`,
+#                then `rwr THREAT_DROP` — the silence is the proof
+#   telemetry.csv  rwr_threats going 1 -> 0; telemetry_ew.csv  site_beam0 going 1 -> 0, blk_dmg
+#
+# READING RULE: exit 0 = SUCCESS with `objective kill unit ew` met is the pass. `UNIT_RESULT ew
+# DESTROYED` is the second half of it.
+
+runway 46.84335 6.91523 441.0 228.0 2889
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.55000 6.90000 2500 0.0 350
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 7 mk82
+  set task attack
+  set attack_mode ccip
+  set brief_master_arm arm
+  objective kill unit ew
+  wp 46.63000 6.90000 2500 350
+
+unit ew
+  module p18
+  team hostile
+  spawn 46.63000 6.90000 ground 0.0 0
+  set emcon free

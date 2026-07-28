@@ -39,6 +39,19 @@ ungeprüftes Modell und lässt `verify-models` fehlschlagen.
 | `aim9` | — |
 | `r73` | — |
 | `r27r` | — |
+| `v750` | — |
+| `v601` | — |
+| `3m9` | — |
+| `9m33` | — |
+| `strela2` | — |
+| `igla` | — |
+
+Die sechs Boden-Luft-Runden (`v750` `v601` `3m9` `9m33` `strela2` `igla`) sind FlightBox-eigene Modelle
+aus EINEM Rezept: der nicht-dimensionale Schlankkörper-Satz des AIM-120-Decks, je Zeile aus dem
+publizierten Durchmesser, der Masse und der Endgeschwindigkeit dimensioniert. Der eine physikalische
+Unterschied zum luftgestarteten Rezept steht in jedem Banner: dV IST die ganze Endgeschwindigkeit statt
+eines Deltas über eine Abschussgeschwindigkeit, denn diese Runden verlassen eine SCHIENE bei
+Fahrt null. Quellen und Vertrauensstufen je Zahl: `doc/modules/ground/catalogue.md`.
 
 Die beiden Engine-XML liegen als `f16/engine/` IM Modellverzeichnis statt in einer geteilten
 Engine-Wurzel: das ist JSBSims eigenes Pro-Flugzeug-Layout (`FGPropulsion::FindEngineFullPathname` und

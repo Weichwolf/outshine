@@ -72,7 +72,6 @@ void FBRwrSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, const Units::
   for (const Units::FBUnit *u : net->Units()) {
     if (!u || u->GetId() == SelfId_) continue;   /* das eigene Set ist keine Bedrohung fuer sich selbst */
     Units::FBUnitSignature sig = u->GetSignature();
-    if (sig.Radar.Mode == FBEmitterMode::None) continue;   /* stumme Einheit: nichts zu hoeren */
 
     Units::FBUnitPose p = u->GetPose();
     double e = 0.0, n = 0.0;
@@ -80,16 +79,36 @@ void FBRwrSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, const Units::
     double up = st.elev - p.ElevM;
     double rangeM = std::sqrt(e * e + n * n + up * up);
 
-    /* Hoerweite = das Tor des Senders mal dem Einwegvorteil. Diese Zahl verlaesst die Klasse NIE —
-     * publiziert wird die Leistung, die sie erzeugt, nie die Entfernung dahinter. */
-    double hearM = sig.Radar.RangeM * kBeamRangeFactor;
-    if (hearM <= 0.0 || rangeM > hearM) continue;
-
     int slot = -1;
     for (int i = 0; i < Count_; i++)
       if (Threats_[i].UnitId == u->GetId()) { slot = i; break; }
 
-    if (!BeamCovers(sig.Radar, p.RollDeg, p.PitchDeg, p.YawDeg, e, n, up)) continue;   /* zeigt woanders hin */
+    /* JEDE Keule dieser Einheit einzeln, dieselben zwei Geometrien wie bisher — und EIN Symbol je
+     * Sender, denn ein Empfaenger trennt zwei Antennen desselben Standorts nicht. Gewaehlt wird nach
+     * dem, was der SENDER tut (Modus-Ordinal, dann Empfangsleistung): eine Stellung, die sucht UND
+     * verfolgt, erzeugt das Verfolgungssymbol, und ihr Suchsweep bleibt fuer alle ANDEREN hoerbar.
+     * Bewusst NICHT nach dem klassifizierten Modus sortiert — ClassifyMode() ist ein Geraete-Hook mit
+     * Gedaechtnis (FBMig29Rwr markiert einen Azimutkanal), und er darf je Sender und Tick genau EINMAL
+     * laufen, mit der endgueltigen Ankunftsrichtung. */
+    const FBEmitterSignature *beam = nullptr;
+    double signal = 0.0;
+    for (int bi = 0; bi < kMaxEmitterBeams; bi++) {
+      const FBEmitterSignature &b = sig.Radar[bi];
+      if (b.Mode == FBEmitterMode::None) continue;   /* stumme Antenne: nichts zu hoeren */
+      /* Hoerweite = das Tor des Senders mal dem Einwegvorteil. Diese Zahl verlaesst die Klasse NIE —
+       * publiziert wird die Leistung, die sie erzeugt, nie die Entfernung dahinter. */
+      double hearM = b.RangeM * kBeamRangeFactor;
+      if (hearM <= 0.0 || rangeM > hearM) continue;
+      if (!BeamCovers(b, p.RollDeg, p.PitchDeg, p.YawDeg, e, n, up)) continue;   /* zeigt woanders hin */
+      /* Empfangsleistung, normiert auf die Hoerweite: Einwegausbreitung, Leistung ~ 1/r². Die EINE
+       * Naeherungsandeutung, die die Box hat. */
+      double ratio = rangeM / hearM;
+      double s = 1.0 - ratio * ratio;
+      if (s < 0.0) s = 0.0;
+      if (beam && !(b.Mode > beam->Mode || (b.Mode == beam->Mode && s > signal))) continue;
+      beam = &b; signal = s;
+    }
+    if (!beam) continue;
 
     /* Die Abdeckung des EMPFAENGERS: 360° Azimut, begrenzte Elevation — eine echte BLINDZONE, die das
      * eigene Manoevrieren aufreisst, samt einer Warnung, die man eine Sekunde zuvor noch hatte. */
@@ -106,14 +125,8 @@ void FBRwrSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, const Units::
       continue;
     }
 
-    /* Empfangsleistung, normiert auf die Hoerweite: Einwegausbreitung, Leistung ~ 1/r². Die EINE
-     * Naeherungsandeutung, die die Box hat. */
-    double ratio = rangeM / hearM;
-    double signal = 1.0 - ratio * ratio;
-    if (signal < 0.0) signal = 0.0;
-
-    FBEmitterKind kind = Classify(sig.Radar);
-    FBRwrThreatMode mode = ClassifyMode(sig.Radar, kind, rxAz, simTimeS);
+    FBEmitterKind kind = Classify(*beam);
+    FBRwrThreatMode mode = ClassifyMode(*beam, kind, rxAz, simTimeS);
     double reportBrg = ReportBearingDeg(rxAz);
 
     if (slot < 0) {

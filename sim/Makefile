@@ -131,6 +131,7 @@ CORE_LIB_SRCS := \
   src/modules/mig29/FBMig29ModuleRegistration.cpp \
   src/modules/stores/FBStoreModule.cpp src/modules/stores/FBStoreModuleRegistration.cpp \
   src/modules/ground/FBGroundModuleRegistration.cpp \
+  src/modules/ground/FBSiteModule.cpp src/modules/ground/FBSiteFireControl.cpp \
   src/modules/missile/FBMissileModule.cpp src/modules/missile/FBMissileModuleRegistration.cpp \
   src/modules/missile/FBMissileSeeker.cpp src/modules/missile/FBMissileIrSeeker.cpp \
   src/modules/missile/FBMissileGuidance.cpp \

@@ -126,6 +126,19 @@ public:
   virtual Weapons::FBGunSystem &Guns() = 0;
   virtual const FBState &Telemetry() const = 0;
 
+  /* THE SECOND ANTENNA, published beside Radar()'s into FBUnitSignature::Radar[1]. Silent by default,
+   * which is every airframe: a jet has one set, and its signature is the scalar it always was. A ground
+   * battery fills it, because its acquisition radar keeps sweeping while its fire control stares —
+   * doc/modules/ground/module.md §Spec 6. Non-const like the slot accessors: it is derived from what
+   * the set is doing, not stored. */
+  virtual FBEmitterSignature TrackBeamEmission() { return {}; }
+
+  /* HOW MANY UNITS THIS MODULE CAN STILL PUT INTO THE WORLD — the client sizes its per-actor buffers
+   * from it before the first tick, and a store that found no room would be a store that vanished.
+   * Default: what is on the rails, which for an aircraft is the whole answer. A ground position
+   * reloads ONE rail out of a magazine, so its answer is the magazine and not the rail. */
+  virtual int MaxReleases() { return Stores().LoadedCount(); }
+
   /* Diagnostics of the INTERFACE, not of one airframe: every module issues guidance and steps an FDM. */
   virtual const Systems::FBGuidance &LastGuidance() const = 0;
   virtual int LastSubsteps() const = 0;

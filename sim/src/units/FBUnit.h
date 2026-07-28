@@ -77,7 +77,10 @@ struct FBUnitSignature {
    * identity out of the registry by the back door. 0 = not declared (a store, a ground target): the
    * gate then behaves exactly as it did before this field existed. doc/sensors.md, Spec. */
   float RcsM2 = 0.0f;
-  FBEmitterSignature Radar;   /* the BEAM incl. where it points; silent Mode::None by default */
+  /* THE BEAMS incl. where each points; every entry silent Mode::None by default. Index 0 is the unit's
+   * own Radar() slot and is the ONLY one an airframe ever writes; index 1 is the second antenna a
+   * ground battery radiates from at the same time (core/FBEmitter.h, kMaxEmitterBeams). */
+  FBEmitterSignature Radar[kMaxEmitterBeams];
   /* WHAT THIS UNIT TELLS ITS OWN FLIGHT. It rides the cooperative terminal, so it reaches nobody
    * unless `DatalinkXmt` is true and nobody outside the faction ever — the datalink is the only
    * consumer. A unit in no flight leaves it empty and is invisible to all of it. */

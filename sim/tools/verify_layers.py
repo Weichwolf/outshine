@@ -90,25 +90,34 @@ EXCEPTIONS = ()
 # The include is legal by rank AND the target is restricted to an explicit list of includers OUTSIDE
 # its own directory (inside it, the header is the seam's own implementation detail — FBFdm.cpp is
 # FBFdmBoot's friend by declaration, so hiding the header from it would be theatre).
+# THE PERCEPTION BOUNDARY, as a LIST and not as a sentence: the files that may read who exists in the
+# world. Every one of them is a simulated SENSOR (or a weapon's RECEIVER), and each pays a stated price
+# for the privilege — doc/sensors.md 1.2/9.2. Its LENGTH is the number the whole anti-cheat promise
+# hangs on, so it is printed at the end of a run: a reader added anywhere in the tree moves it, and a
+# human reading the gate's output sees that it moved.
+PERCEPTION_READERS = (
+    "sensors/FBDatalinkSystem.cpp",
+    "sensors/FBRadarSystem.cpp",
+    "sensors/FBRwrSystem.cpp",
+    "sensors/FBIrstSystem.cpp",
+    "sensors/FBVisualSystem.cpp",
+    "modules/missile/FBMissileUplink.cpp",  # a RECEIVER listening to a published emission
+)
+
+# The OWNER side of the same header, which is a different thing and is deliberately counted separately:
+# the client that OWNS the simulation builds the registry and hands it out. It perceives nothing.
+REGISTRY_OWNERS = (
+    "missions/FBMissionRunner.h",
+    "missions/FBMissionRunner.cpp",
+    "missions/FBMissionBoot.h",
+    "clients/FBAppWasm.cpp",
+)
+
+# The include is legal by rank AND the target is restricted to an explicit list of includers OUTSIDE
+# its own directory (inside it, the header is the seam's own implementation detail — FBFdm.cpp is
+# FBFdmBoot's friend by declaration, so hiding the header from it would be theatre).
 RESTRICTED = {
-    "units/FBUnitRegistry.h": (
-        # Cross-unit truth reaches only simulated SENSORS (CLAUDE.md "Kein Cheaten"). SIX files since
-        # the EYE landed: the boundary was never a COUNT, it is "a sensor slot, and each one pays a
-        # stated price" -- FBIrstSystem pays in range, in identity (it cannot interrogate IFF at all)
-        # and in weather; FBVisualSystem pays in all four of those at once (the shortest reach of the
-        # five, no identity, no range measurement that could ever exist, cloud AND haze AND sun) and in
-        # a fifth nobody else pays: it stops working at night. Argued in doc/sensors.md 1.2 and 9.2.
-        "sensors/FBDatalinkSystem.cpp",
-        "sensors/FBRadarSystem.cpp",
-        "sensors/FBRwrSystem.cpp",
-        "sensors/FBIrstSystem.cpp",
-        "sensors/FBVisualSystem.cpp",
-        "modules/missile/FBMissileUplink.cpp",  # a RECEIVER listening to a published emission
-        "missions/FBMissionRunner.h",
-        "missions/FBMissionRunner.cpp",
-        "missions/FBMissionBoot.h",
-        "clients/FBAppWasm.cpp",
-    ),
+    "units/FBUnitRegistry.h": PERCEPTION_READERS + REGISTRY_OWNERS,
     "fdm/FBFdmBoot.h": (
         # The only door to a JSBSim initial condition: mission boot and the test harnesses.
         "missions/FBMissionBoot.h",
@@ -330,6 +339,7 @@ def main():
     print(f"verify-layers: {len(files)} files, {n_edges} internal include(s), "
           f"{len(set(RANK.values()))} layers — no upward include, "
           f"{len(RESTRICTED)} restricted header(s) respected, "
+          f"{len(PERCEPTION_READERS)} registry reader(s) inside the perception boundary, "
           f"{n_ns} file(s) in their layer's namespace ({len(C_ISLAND)} C-island file(s) exempt)")
     return 0
 

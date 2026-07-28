@@ -14,7 +14,7 @@
 namespace FlightBox {
 
 /* Append only — the ordinal is telemetry-visible. None = this aircraft carries no gun. */
-enum class FBGunKind : uint8_t { None = 0, M61A1, Gsh301 };
+enum class FBGunKind : uint8_t { None = 0, M61A1, Gsh301, Azp23, Zu23 };
 
 struct FBGunSpec {
   FBGunKind Kind = FBGunKind::None;
@@ -70,7 +70,39 @@ inline constexpr FBGunSpec kGsh301{FBGunKind::Gsh301, "gsh301",
                                    /*DragCoef*/ 0.30, /*DispersionSigmaRad*/ 6.0e-3,
                                    /*MaxBurstS*/ 1.0};
 
-inline constexpr const FBGunSpec *kGunCatalogue[] = {&kM61A1, &kGsh301};
+/* ---- THE TWO GROUND GUNS (doc/modules/ground/catalogue.md) ---------------------------------------
+ * Both fire the same 23 x 152B round, so they share every ballistic number and differ only in barrels
+ * and feed. They fit the projectile pool by arithmetic and not by luck: FBGunProjectiles retires a
+ * bundle at 3 s / 3 000 m, and 970 m/s covers 2 910 m in 3 s against a published 2-2.5 km effective
+ * slant range. Every heavier AAA piece (57 mm, 100 mm) is excluded by the same caps, which is why
+ * doc/modules/ground/module.md G6 books it as a separate round with the STORE path.
+ *
+ * RoundMassKg 0.100 [TODO], carried over from the M61A1's own declared [SET] rather than invented a
+ * second time — every kinetic damage number hangs on it linearly, and there is one wrong number in the
+ * tree instead of two. DispersionSigmaRad likewise [SET] at the M61A1's value: no figure was found for
+ * either gun, and two different invented ones would be worse than one shared one. */
+
+/* THE AZP-23 QUAD, the ZSU-23-4's armament. RoundsPerMin 3 400 [T4] — the LOWER bound of the sourced
+ * 3,400-4,000 pair, stated. Capacity 2 000 [T4]. MuzzleVelMs 970 [T4]. SpoolUpS 0 [SET]: gas-operated
+ * autocannon, no rotating mass. MaxBurstS 1.0 [SET], as every other gun in the tree — a trigger
+ * command is ONE action and needs a duration; here that is 57 rounds. */
+inline constexpr FBGunSpec kAzp23{FBGunKind::Azp23, "azp23",
+                                  /*MuzzleVelMs*/ 970.0, /*RoundsPerMin*/ 3400.0, /*Capacity*/ 2000,
+                                  /*SpoolUpS*/ 0.0, /*RoundMassKg*/ 0.100, /*RoundDiaM*/ 0.023,
+                                  /*DragCoef*/ 0.30, /*DispersionSigmaRad*/ 2.2295e-3,
+                                  /*MaxBurstS*/ 1.0};
+
+/* THE ZU-23-2 TWIN, hand-laid over the ZAP-23 optical sight. RoundsPerMin 800 [DERIVED] = 2 x the
+ * sourced 400 rpm PRACTICAL rate: the cyclic 2 000 rpm empties a 50-round belt in 1.5 s, so sustained
+ * fire is the practical figure and this gun's whole employment is sustained. Capacity 100 [T4], two
+ * 50-round belts. */
+inline constexpr FBGunSpec kZu23{FBGunKind::Zu23, "zu23",
+                                 /*MuzzleVelMs*/ 970.0, /*RoundsPerMin*/ 800.0, /*Capacity*/ 100,
+                                 /*SpoolUpS*/ 0.0, /*RoundMassKg*/ 0.100, /*RoundDiaM*/ 0.023,
+                                 /*DragCoef*/ 0.30, /*DispersionSigmaRad*/ 2.2295e-3,
+                                 /*MaxBurstS*/ 1.0};
+
+inline constexpr const FBGunSpec *kGunCatalogue[] = {&kM61A1, &kGsh301, &kAzp23, &kZu23};
 
 inline const FBGunSpec *FBFindGun(const char *key) {
   if (!key) return nullptr;

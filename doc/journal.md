@@ -932,3 +932,27 @@ sourcing declared: eight rows rest on [T4], one has a [T3] monograph that disagr
 the envelope, and no [T1] threat handbook was read. The honest headline of the whole spec: a site can be
 **heard and not seen** (no air-to-ground radar mode, no HARM), so `C1` gives the ground the ability to
 shoot back long before it gives the air the ability to shoot first.
+
+## 2026-07-28 — `C1` gebaut: die aktive Bodenbedrohung
+
+Neun Stellungen, EINE Klasse (`modules/ground/FBSiteModule` + `core/FBSite.h`), gebaut gegen das am
+selben Tag geschriebene `## Spec`. Die drei benannten Hindernisse haben getragen, zwei davon anders als
+vorgeschlagen: `FBUnitSignature` trägt jetzt `Radar[2]` und **303/303 Telemetriedateien plus 104/104
+`events.log` aller Bestandsmissionen bleiben byte-gleich** (Threads 1/2/4) — bauartbedingt, weil ein
+Flugzeug nur Index 0 schreibt und die RWR-Schleife bei einer Keule dieselbe Arbeit tut wie der
+Skalarzugriff vorher. Die Gewichts-auf-Rädern-Verriegelung wurde NICHT gelockert, sondern als
+unanwendbar erklärt: `DeclareGroundLauncher()` ist privat mit genau EINEM Freund (dasselbe Schreibtor
+wie `FBSystemHealth`), gibt false zurück, sobald je eine Zelle gebunden wurde, und `AttachFdm`
+assertiert die Gegenrichtung — ein Flugzeug kann die Zeile nicht einmal aufrufen. Die zweite Kollision
+(„der SMS setzt eine Zelle voraus") war bereits gelöst: `PublishLoadout` und `Release` halten ihre
+`Fdm_`-Wächter seit jeher.
+
+Zwei vorhergesagte Effekte, beide reproduziert ohne eine Zeile dafür: der Doppler-Notch auf stehendem
+Mast degeneriert zur reinen Zielradialgeschwindigkeit (`ownClosMs=0`, gemessen), und das Auge bindet die
+MANPADS auf 3 288 m am Tag und auf NICHTS in der Nacht (dieselbe Datei, eine Zeile Unterschied).
+
+Verworfen mit Messung: eine MANPADS trifft in dieser Geometrie NICHT (883 m), weil eine Runde auf der
+Schiene keinen Sucher-Ton hat — die Lücke steht als B1 in `## Gaps` statt als breiteres Sucherfeld im
+Code. Ein Abnahmekriterium des Vertrags maß nichts: `verify-layers` druckte die Zahl der geschützten
+Header (zwei), nicht die Länge der Registry-Leserliste (sechs); das Werkzeug druckt jetzt die Liste
+selbst, und sie ist unverändert **6**.

@@ -47,9 +47,13 @@ void FBSimUnit::PublishPose() {
   /* The beam is derived by the SET, so the emission cannot disagree with the pattern the antenna flies.
    * Combined here only because a tracking radar that is also supporting a shot is a different warning to
    * receive, and whether this jet supports one is the STORES system's knowledge, not the radar's. */
-  Sig_.Radar = Module_->Radar().Emission();
-  if (Sig_.Radar.Mode == FBEmitterMode::Track && Module_->Stores().Uplink().Active)
-    Sig_.Radar.Mode = FBEmitterMode::Guidance;
+  Sig_.Radar[0] = Module_->Radar().Emission();
+  /* The SECOND antenna, silent for every airframe (FBModule's default) — a position radiates its
+   * acquisition set and its fire control at the same time, and the RWR has to hear both. */
+  Sig_.Radar[1] = Module_->TrackBeamEmission();
+  for (int i = 0; i < kMaxEmitterBeams; i++)
+    if (Sig_.Radar[i].Mode == FBEmitterMode::Track && Module_->Stores().Uplink().Active)
+      Sig_.Radar[i].Mode = FBEmitterMode::Guidance;
   Sig_.RcsM2 = (float)Module_->RadarCrossSectionM2();
   const FBChaffCloud *clouds = Module_->Countermeasures().Clouds();
   for (int i = 0; i < kMaxChaffClouds; i++) Sig_.Chaff[i] = clouds[i];

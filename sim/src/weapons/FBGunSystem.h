@@ -12,6 +12,8 @@
 #include "FBTelemetry.h"
 #include "FBFdm.h"
 
+namespace FlightBox::Modules { class FBSiteModule; }
+
 namespace FlightBox::Weapons {
 
 class FBGunSystem : public FBTelemetrySource {
@@ -51,7 +53,19 @@ public:
   void DeclareTelemetry(FBTelemetrySchema &schema) const override;
   void SampleTelemetry(FBTelemetryRow &row) const override;
 
+  /* WOHIN DAS ROHR ZEIGT, koerperfest. Ein Flugzeug zielt mit der NASE — sein Bore steht seit Install()
+   * fest und niemand ruft dies —, eine Lafette dreht statt dessen den Turm. Dieselbe Konvention wie
+   * Install(): Senkung positiv nach unten, Schraenkung positiv nach rechts. */
+  void SetBore(double downDeg, double rightDeg) { BoreDownDeg_ = downDeg; BoreRightDeg_ = rightDeg; }
+
 private:
+  /* DIE EINZIGE AUSNAHME VON DER GEWICHTS-AUF-RAEDERN-VERRIEGELUNG, wortgleich zu FBStoresSystems und
+   * mit demselben Schreibtor: privat, genau EIN Freund. Eine Lafette steht per Definition auf dem
+   * Boden; die Verriegelung fragt nach RAEDERN und hat hier nichts zu fragen. Ein Flugzeugmodul kann
+   * die Zeile nicht aufrufen — es kompiliert nicht. */
+  friend class Modules::FBSiteModule;
+  void DeclareGroundMount() { GroundMount_ = true; }
+
   const FBGunSpec *Spec_ = nullptr;
   double MuzzleFwdM_ = 0.0, MuzzleRightM_ = 0.0, MuzzleDownM_ = 0.0;
   double BoreDownDeg_ = 0.0, BoreRightDeg_ = 0.0;
@@ -60,6 +74,7 @@ private:
   int    SelfId_ = 0;
   int    Rounds_ = 0, Fired_ = 0;
   bool   Wow_ = true;                  /* bis die Luftdaten anderes sagen: am Boden */
+  bool   GroundMount_ = false;         /* s. DeclareGroundMount */
   double FireUntilS_ = 0.0;            /* Ende des Abzugsdrucks, absolute Simzeit; 0 = feuert nicht */
   double FireStartS_ = 0.0;            /* ...und sein Beginn, fuer die Hochlauframpe */
   double Fraction_ = 0.0;              /* geschuldete, noch nicht ganze Schuesse */

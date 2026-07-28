@@ -11,7 +11,9 @@
 namespace FlightBox {
 
 /* Append only — the ordinal is telemetry-visible; None must stay 0 (a zeroed block = "nothing loaded"). */
-enum class FBStoreKind : uint8_t { None = 0, Mk82, Aim120, Aim9, R73, R27r };
+enum class FBStoreKind : uint8_t { None = 0, Mk82, Aim120, Aim9, R73, R27r,
+                                   /* the surface-to-air rounds (doc/modules/ground/catalogue.md) */
+                                   V750, V601, M3m9, M9m33, Strela2, Igla };
 
 /* WHAT KIND OF SEEKER a guided round carries — and therefore which SENSOR SLOT modules/missile gives
  * it, which is the whole difference between the three guided weapons in the tree. Not a behaviour flag
@@ -24,8 +26,12 @@ enum class FBStoreKind : uint8_t { None = 0, Mk82, Aim120, Aim9, R73, R27r };
  *                   flare exactly as a radar is by chaff.
  *   SemiActiveRadar an sensors/FBRadarSystem that never transmits: it sees the reflection of the
  *                   SHOOTER's illumination and nothing else, so a broken lock kills it for good.
+ *   CommandGuided   NO detector at all: the round is steered from the ground for its whole flight, so
+ *                   FBMissileGuidance's strict priority (own seeker > uplink > last known) degenerates
+ *                   to its middle branch. It therefore cannot be chaff-decoyed — the cloud seduces the
+ *                   SITE's tracking radar instead, which is where such an engagement really breaks.
  * Append only — telemetry-visible through the round's own trace. doc/weapons.md, Spec. */
-enum class FBSeekerKind : uint8_t { None = 0, ActiveRadar, Infrared, SemiActiveRadar };
+enum class FBSeekerKind : uint8_t { None = 0, ActiveRadar, Infrared, SemiActiveRadar, CommandGuided };
 
 /* The FIRE-CONTROL COMPUTER'S performance table for a round — deliberately a coarser copy of what the
  * weapon's JSBSim model does, so the prediction error stays measurable rather than tuned away.
@@ -49,12 +55,14 @@ struct FBWeaponPerf {
  *   Infrared        0  — self-guiding from the rail; the obligation ends at launch
  *   ActiveRadar    >0  — until its own seeker goes active at ActivationRangeM (the "pitbull")
  *   SemiActiveRadar -1 — NEVER. The round has no transmitter, so the shooter owes it illumination to
- *                        impact, and the Support state falls back to the predicted time of flight. */
+ *                        impact, and the Support state falls back to the predicted time of flight.
+ *   CommandGuided   -1 — the same answer for the stronger reason: it has no seeker at all. */
 inline double FBSeekerHandoverS(FBSeekerKind k, double timeToActivationS) {
   switch (k) {
     case FBSeekerKind::Infrared: return 0.0;
     case FBSeekerKind::ActiveRadar: return timeToActivationS;
     case FBSeekerKind::SemiActiveRadar:
+    case FBSeekerKind::CommandGuided:
     case FBSeekerKind::None: break;
   }
   return -1.0;
@@ -80,6 +88,13 @@ struct FBStoreSpec {
   FBSeekerKind Seeker = FBSeekerKind::None;
   double SeekerFovHalfDeg = 0.0;      /* the instantaneous cone the head sees around where it is aimed */
   double SeekerGimbalHalfDeg = 0.0;   /* the MECHANICAL stop, a different and much larger angle */
+
+  /* THE GATHERING PHASE: guidance inhibited for this long after launch, so the round flies the RAIL
+   * direction on thrust alone. Zero for every air-launched store, which separates at 250 m/s with full
+   * aerodynamic authority; a surface round leaves the rail at zero airspeed and a fin command at 20 m/s
+   * would be an authority nobody claims. Declared last, so every entry written before it keeps its
+   * positional initialiser. doc/modules/ground/module.md §Spec 4. */
+  double GatherS = 0.0;
 };
 
 /* Mk-82, 500 lb GP bomb (doc/modules/f16/weapons.md §3). Perf.ArmingS 2.0 [SET], WarheadKg [T3], and
@@ -197,7 +212,116 @@ inline constexpr FBStoreSpec kR27r{
                  /*ArmingS*/ 1.5},
     /*Seeker*/ FBSeekerKind::SemiActiveRadar, /*FovHalf*/ 10.0, /*GimbalHalf*/ 50.0};
 
-inline constexpr const FBStoreSpec *kStoreCatalogue[] = {&kMk82, &kAim120, &kAim9, &kR73, &kR27r};
+/* ---- THE SIX SURFACE-TO-AIR ROUNDS (doc/modules/ground/catalogue.md) -----------------------------
+ * One recipe, six rows, and it is the AIM-9/R-73/R-27R recipe unchanged: reference area = the body
+ * cross-section from the published diameter, DragAreaFt2 = 0.43 * S_ft2, DragCoefA 0.55 (all of them
+ * fly the same slender-body deck), and the motor sized by the rocket equation at Isp 235 s.
+ * THE ONE DIFFERENCE, and it is physical: dV is the whole terminal speed instead of a delta over a
+ * launch speed, because these leave a RAIL at zero airspeed. Every per-round derivation stands in the
+ * round's own XML banner under sim/assets/aircraft/<key>/.
+ *
+ * RequiresLock is FALSE for all six, and that is not a relaxation: it selects the SMS's air-to-air
+ * DLZ interlock (FBStoresSystem::Release), which reads FBFireControlBlock — a box a battery does not
+ * have. The envelope that decides a surface launch is the SITE's, four numbers per catalogue row
+ * (core/FBSite.h), tested by modules/ground/FBSiteFireControl before it ever presses the button. */
+
+/* V-750V — the S-75's command-guided round. WarheadKg 195 [T4]; FuzeRadiusM 12 [SET], the largest gate
+ * in the tree for by far the largest head. MinSpeedMs 300 / MaxFlightS 120 / ArmingS 3.0 [SET]. */
+inline constexpr FBStoreSpec kV750{
+    FBStoreKind::V750, "v750", "v750", 4768.6, 0.9088, 120.0,
+    /*Guided*/ true, /*RequiresLock*/ false, /*FuzeRadiusM*/ 12.0, /*WarheadKg*/ 195.0,
+    FBWeaponPerf{/*BoostThrustN*/ 239556.0, /*BoostS*/ 4.5,
+                 /*SustainThrustN*/ 32667.0, /*SustainS*/ 22.0,
+                 /*LaunchMassKg*/ 2163.0, /*BurnoutMassKg*/ 1383.5,
+                 /*DragCoefA*/ 0.55, /*RefAreaM2*/ 0.196350,
+                 /*MinSpeedMs*/ 300.0,
+                 /*ActivationRangeM*/ 0.0, /*SeekerRangeM*/ 0.0,
+                 /*ArmingS*/ 3.0},
+    /*Seeker*/ FBSeekerKind::CommandGuided, /*FovHalf*/ 0.0, /*GimbalHalf*/ 0.0, /*GatherS*/ 3.0};
+
+/* V-601 (5V27) — the S-125's round. WarheadKg 70 [T4], FuzeRadiusM 10 [SET] (the AIM-120's figure for
+ * a comparable-order head). MinSpeedMs 280 / MaxFlightS 90 / ArmingS 2.5 [SET]. */
+inline constexpr FBStoreSpec kV601{
+    FBStoreKind::V601, "v601", "v601", 2101.0, 0.5112, 90.0,
+    /*Guided*/ true, /*RequiresLock*/ false, /*FuzeRadiusM*/ 10.0, /*WarheadKg*/ 70.0,
+    FBWeaponPerf{/*BoostThrustN*/ 179435.0, /*BoostS*/ 2.5,
+                 /*SustainThrustN*/ 16614.0, /*SustainS*/ 18.0,
+                 /*LaunchMassKg*/ 953.0, /*BurnoutMassKg*/ 628.6,
+                 /*DragCoefA*/ 0.55, /*RefAreaM2*/ 0.110447,
+                 /*MinSpeedMs*/ 280.0,
+                 /*ActivationRangeM*/ 0.0, /*SeekerRangeM*/ 0.0,
+                 /*ArmingS*/ 2.5},
+    /*Seeker*/ FBSeekerKind::CommandGuided, /*FovHalf*/ 0.0, /*GimbalHalf*/ 0.0, /*GatherS*/ 2.5};
+
+/* 3M9 — the 2K12's round, and the ONE surface round FlightBox already had the weapon side for: the
+ * SemiActiveRadar seeker built in stage 2c, unchanged. It lives on the site's CW illumination and dies
+ * with it, for good. WarheadKg 59 [T4], FuzeRadiusM 8 [SET]. SeekerRangeM 20 000 [SET, inside the
+ * sourced 28 km illumination range]. MinSpeedMs 250 / MaxFlightS 90 / ArmingS 2.0 [SET]. */
+inline constexpr FBStoreSpec k3m9{
+    FBStoreKind::M3m9, "3m9", "3m9", 1320.6, 0.3959, 90.0,
+    /*Guided*/ true, /*RequiresLock*/ false, /*FuzeRadiusM*/ 8.0, /*WarheadKg*/ 59.0,
+    FBWeaponPerf{/*BoostThrustN*/ 51978.0, /*BoostS*/ 4.0,
+                 /*SustainThrustN*/ 11551.0, /*SustainS*/ 18.0,
+                 /*LaunchMassKg*/ 599.0, /*BurnoutMassKg*/ 418.6,
+                 /*DragCoefA*/ 0.55, /*RefAreaM2*/ 0.085530,
+                 /*MinSpeedMs*/ 250.0,
+                 /*ActivationRangeM*/ 0.0, /*SeekerRangeM*/ 20000.0,
+                 /*ArmingS*/ 2.0},
+    /*Seeker*/ FBSeekerKind::SemiActiveRadar, /*FovHalf*/ 10.0, /*GimbalHalf*/ 45.0, /*GatherS*/ 2.0};
+
+/* 9M33 — the 9K33's round. WarheadKg 19 [T4] (the earlier variant), FuzeRadiusM 6 [SET] (the AIM-9's
+ * figure for a comparable head). MinSpeedMs 200 / MaxFlightS 60 / ArmingS 1.5 [SET]. */
+inline constexpr FBStoreSpec k9m33{
+    FBStoreKind::M9m33, "9m33", "9m33", 277.8, 0.1597, 60.0,
+    /*Guided*/ true, /*RequiresLock*/ false, /*FuzeRadiusM*/ 6.0, /*WarheadKg*/ 19.0,
+    FBWeaponPerf{/*BoostThrustN*/ 27028.0, /*BoostS*/ 2.0,
+                 /*SustainThrustN*/ 2772.0, /*SustainS*/ 13.0,
+                 /*LaunchMassKg*/ 126.0, /*BurnoutMassKg*/ 86.9,
+                 /*DragCoefA*/ 0.55, /*RefAreaM2*/ 0.034504,
+                 /*MinSpeedMs*/ 200.0,
+                 /*ActivationRangeM*/ 0.0, /*SeekerRangeM*/ 0.0,
+                 /*ArmingS*/ 1.5},
+    /*Seeker*/ FBSeekerKind::CommandGuided, /*FovHalf*/ 0.0, /*GimbalHalf*/ 0.0, /*GatherS*/ 1.5};
+
+/* 9M32M STRELA-2M — the rear-aspect MANPADS round, FBSeekerKind::Infrared unchanged. WarheadKg 1.15
+ * [T4], FuzeRadiusM 2.0 [SET] — below the R-73's documented 3.5 m for a head several times larger.
+ * SeekerRangeM 4 200 = its own published envelope [T4], which is what makes the aspect law bite: the
+ * head's reach is scaled by the target's infrared aspect, so 4.2 km astern is ~1.7 km head-on and the
+ * "revenge weapon" property falls out of the existing law rather than out of a new gate.
+ * FovHalf 0.95 [T4, the documented 1.9 deg field]; GimbalHalf 30 [SET]. MinSpeedMs 120 /
+ * MaxFlightS 30 / ArmingS 0.6 [SET]. */
+inline constexpr FBStoreSpec kStrela2{
+    FBStoreKind::Strela2, "strela2", "strela2", 21.6, 0.0188, 30.0,
+    /*Guided*/ true, /*RequiresLock*/ false, /*FuzeRadiusM*/ 2.0, /*WarheadKg*/ 1.15,
+    FBWeaponPerf{/*BoostThrustN*/ 2202.0, /*BoostS*/ 2.0,
+                 /*SustainThrustN*/ 0.0, /*SustainS*/ 0.0,
+                 /*LaunchMassKg*/ 9.8, /*BurnoutMassKg*/ 7.9,
+                 /*DragCoefA*/ 0.55, /*RefAreaM2*/ 0.004072,
+                 /*MinSpeedMs*/ 120.0,
+                 /*ActivationRangeM*/ 0.0, /*SeekerRangeM*/ 4200.0,
+                 /*ArmingS*/ 0.6},
+    /*Seeker*/ FBSeekerKind::Infrared, /*FovHalf*/ 0.95, /*GimbalHalf*/ 30.0, /*GatherS*/ 0.6};
+
+/* 9M39 IGLA — the all-aspect MANPADS round. It differs from the Strela in exactly two numbers, its
+ * reach and its head's field, and NOT in flare resistance: FlightBox's flare model is an irradiance
+ * inequality with no rejection term, so the Igla is here as flare-defeatable as the Strela. That is a
+ * declared understatement (doc/modules/ground/module.md G8), not an oversight. WarheadKg 1.17 [T4],
+ * SeekerRangeM 5 200 [T4], FovHalf 2.0 / GimbalHalf 40 [SET]. */
+inline constexpr FBStoreSpec kIgla{
+    FBStoreKind::Igla, "igla", "igla", 23.8, 0.0188, 30.0,
+    /*Guided*/ true, /*RequiresLock*/ false, /*FuzeRadiusM*/ 2.0, /*WarheadKg*/ 1.17,
+    FBWeaponPerf{/*BoostThrustN*/ 2727.0, /*BoostS*/ 2.0,
+                 /*SustainThrustN*/ 0.0, /*SustainS*/ 0.0,
+                 /*LaunchMassKg*/ 10.8, /*BurnoutMassKg*/ 8.4,
+                 /*DragCoefA*/ 0.55, /*RefAreaM2*/ 0.004072,
+                 /*MinSpeedMs*/ 130.0,
+                 /*ActivationRangeM*/ 0.0, /*SeekerRangeM*/ 5200.0,
+                 /*ArmingS*/ 0.6},
+    /*Seeker*/ FBSeekerKind::Infrared, /*FovHalf*/ 2.0, /*GimbalHalf*/ 40.0, /*GatherS*/ 0.6};
+
+inline constexpr const FBStoreSpec *kStoreCatalogue[] = {&kMk82, &kAim120, &kAim9, &kR73, &kR27r,
+                                                         &kV750, &kV601, &k3m9, &k9m33, &kStrela2,
+                                                         &kIgla};
 
 inline const FBStoreSpec *FBFindStore(const char *key) {
   if (!key) return nullptr;
@@ -249,6 +373,12 @@ struct FBStoreRelease {
   int    LauncherId = 0;
   FBWeaponTargetState Target;
   FBReleaseSolution Solution;
+  /* THE RAIL, for a launcher that HAS one. A store leaves a pylon with the carrier's attitude, which is
+   * why this is false for every air-launched release and the spawn path is untouched by it; a surface
+   * round leaves a rail that was ELEVATED and TRAINED, and the position's own body attitude (roll =
+   * pitch = 0, yaw = its mount heading) says nothing about where the launcher points. */
+  bool   HaveRail = false;
+  double RailPitchDeg = 0.0, RailYawDeg = 0.0;
 };
 
 } // namespace FlightBox

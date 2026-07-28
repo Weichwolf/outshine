@@ -1,0 +1,44 @@
+name sam-sa2-command-1
+timeout 260
+
+# COMMAND GUIDANCE, AND WHAT BREAKING IT DOES. doc/modules/ground/module.md §Spec 4.
+#
+# `FBSeekerKind::CommandGuided` is ONE new enum value and no new architecture: the round powers NO
+# detector at all, so FBMissileGuidance's existing strict priority (own seeker > uplink > last known)
+# degenerates to its middle branch for the whole flight. `msl_seeker` is 0 from launch to impact and
+# `FBSeekerHandoverS` is -1 — the position owes it guidance to impact, exactly as a semi-active shooter
+# owes illumination. The consequence, and it is the tactically interesting one: such a round CANNOT be
+# chaff-decoyed, because it has nothing to decoy. What a cloud seduces is the POSITION's tracking radar,
+# one level up — and against an `sa2` not even that, because a conical-scan Fan Song has no Doppler gate
+# to hide in (G4).
+#
+# THE GEOMETRY IS THE SOURCED ONE: the S-75's envelope is 8-30 km and 450-25 000 m, and it fires a
+# doctrinal salvo of THREE rounds at one target [T4]. The viper runs in at 6 000 m, well inside the
+# altitude band and outside the 8 km minimum for most of the approach.
+#
+# WHAT TO READ:
+#   events.log   `site LAUNCH ... salvoLeft=` counting 2, 1, 0 at the row's 3 s salvo spacing — the
+#                salvo is catalogue data, not code; `missile PHASE ... to=MIDCOURSE why="uplink from
+#                launcher"` and NEVER a `to=TERMINAL`, because there is no seeker to acquire with
+#   telemetry_sam_v750_1.csv  msl_seeker = 0 for every row; msl_phase never reaches 2
+#
+# READING RULE: exit 2 = CRASH is the expected verdict. If the viper survives, read `stores MISS` and
+# the closest approach before calling anything a defect — a command-guided round is only as good as the
+# position's own track.
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.30000 6.90000 6000 0.0 420
+  set gear up
+  set fuel_pct 70
+  set fcr_mode off
+  set rwr on
+  wp 46.80000 6.90000 6000 420
+
+unit sam
+  module sa2
+  team hostile
+  spawn 46.62000 6.90000 ground 0.0 0
+  set emcon free
+  set rounds 6

@@ -1,6 +1,7 @@
 #include "FBStoresSystem.h"
 #include "FBLog.h"
 #include "FBUnits.h"
+#include <cassert>
 
 namespace FlightBox::Weapons {
 
@@ -21,7 +22,10 @@ int FBStoresSystem::IndexOf(int station) const {
   return -1;
 }
 
+/* Die Gegenrichtung der Ausnahme in DeclareGroundLauncher: was eine Zelle bekommt, kann keine Stellung
+ * sein. Assertion statt Ausnahme — kontrollierte Umgebung, und der Fall ist ein Programmierfehler. */
 void FBStoresSystem::AttachFdm(Fdm::FBFdm &fdm) {
+  assert(!GroundLauncher_ && "a ground launcher has no airframe to attach");
   Fdm_ = &fdm;
   for (int i = 0; i < Count_; i++) {
     char name[24];
@@ -107,7 +111,7 @@ bool FBStoresSystem::Release(double nowS, FBCommandOutcome &outcome, FBCommandRe
    * Software-Zustand darf sich daran vorbeireden. */
   if (Arm_ != FBArmState::Arm)
     return refuse(FBCommandReason::HardwarePrecedence, "master arm not in ARM");
-  if (Wow_)
+  if (Wow_ && !GroundLauncher_)
     return refuse(FBCommandReason::HardwarePrecedence, "weight on wheels");
   int i = IndexOf(Selected_);
   if (i < 0 || Stations_[i].Kind == FBStoreKind::None)
@@ -143,6 +147,10 @@ bool FBStoresSystem::Release(double nowS, FBCommandOutcome &outcome, FBCommandRe
   rel.OffFwdM = (cgXIn - s.XIn) * kInToM;
   rel.OffRightM = s.YIn * kInToM;
   rel.OffDownM = -s.ZIn * kInToM;
+  /* Die SCHIENE, falls es eine gibt: eine Stellung richtet ihren Werfer, ein Pylon zeigt nach vorn. */
+  rel.HaveRail = HaveRail_;
+  rel.RailPitchDeg = RailPitchDeg_;
+  rel.RailYawDeg = RailYawDeg_;
   /* Die Startprogrammierung: eine gelenkte Runde nimmt die Zielschaetzung des Schuetzen mit, eine
    * ungelenkte die Abwurfloesung, mit der sie gezielt wurde. */
   if (rspec && rspec->Guided) {

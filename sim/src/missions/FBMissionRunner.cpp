@@ -550,7 +550,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
    * one more — a store can be released once. Everything index-parallel below is sized for it, so no
    * store appearing mid-run ever resizes a buffer a worker thread is holding a reference to. */
   size_t maxActors = Actors.size();
-  for (const auto &a : Actors) maxActors += (size_t)a->Module().Stores().LoadedCount();
+  for (const auto &a : Actors) maxActors += (size_t)a->Module().MaxReleases();
   Actors.reserve(maxActors);
   std::vector<FBStoreTrack> StoreTracks;
   StoreTracks.reserve(maxActors - Actors.size());

@@ -94,13 +94,27 @@ Mk-82 fidelity caveat under Gaps before quoting that number.
 
 ## Gaps
 
-### `C1` — the active surface-to-air threat: **SPECIFIED, not built**, and its home moved
+### `C1` — the active surface-to-air threat: **BUILT 2026-07-28**, and its home moved
 
 **The gap entry that stood here was a placeholder with a boundary and five open questions. All five are
 answered, and the contract now lives where the class will:
 [`modules/ground/module.md`](modules/ground/module.md)** — with the nine sourced catalogue rows beside it
 in [`modules/ground/catalogue.md`](modules/ground/catalogue.md) and the rest of the campaign cast in
 [`modules/ground/cast.md`](modules/ground/cast.md). Nothing is built.
+
+**BUILT, and what this file gained by it:** `FBSeekerKind::CommandGuided` — ONE enum value, no new
+architecture. The round powers no detector at all, so `FBMissileGuidance::UpdateTarget`'s existing strict
+priority (own seeker > uplink > last known) degenerates to its middle branch for the whole flight;
+`FBSeekerHandoverS` answers −1 as for a semi-active round, and `msl_seeker` is 0 from launch to impact
+(measured on `sam-sa2-command`). Six new rows in `core/FBStore.h` (`v750` `v601` `3m9` `9m33` `strela2`
+`igla`) with one new field, `GatherS` — guidance inhibited after launch, because a round leaving a rail
+at zero airspeed has no fin authority — and `FBStoreRelease` gained the RAIL attitude a launcher aims
+with (`HaveRail` false for every air-launched store, so the separation path is unchanged). Two new gun
+rows (`azp23`, `zu23`). The two collisions this file's contracts had with a ground launcher resolved:
+the weight-on-wheels interlock is not RELAXED but declared inapplicable behind a private one-friend write
+gate (`FBStoresSystem::DeclareGroundLauncher`, refused outright once an airframe was ever bound, with
+`AttachFdm` asserting the converse), and the second collision turned out not to exist — `PublishLoadout`
+and `Release` have carried their `Fdm_` guards since they were written.
 
 **Why the home moved.** This file owns the *weapon* half of `C1` and still does: every launched round is a
 unit (§1), released through `FBStoresSystem` (§2), resolved by the three boundaries (§5) and applied by

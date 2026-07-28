@@ -5,7 +5,16 @@ its two radars separated, its envelope, its timing, whether its guidance **binds
 target, and what happens when it is killed or countered.
 
 **Delimitation:** this file is the DATA. The class that consumes it, the layer it lives in, the hooks it
-needs and the anti-cheat argument are [`module.md`](module.md). Nothing here is built.
+needs and the anti-cheat argument are [`module.md`](module.md).
+
+**Status: BUILT.** All nine rows are `core/FBSite.h`, all six rounds `core/FBStore.h`, both guns
+`core/FBGun.h`, and the six missile decks `sim/assets/aircraft/<key>/` from one generated recipe.
+FOUR fields were added while building and they are named here rather than discovered in a result:
+`RailCount` and `ReloadS` (the magazine: how many rounds leave before the crew has to work, and for how
+long the position is then out of action), `SalvoS` (the spacing inside a doctrinal salvo) and `WarmupS`
+(`set alert cold`). Three launch masses — V-601 953 kg, 9M32M 9.8 kg, 9M39 10.8 kg — are **[T4\*]**:
+they come from the row's ALREADY-CITED page and were NOT re-read in this round. The 3M9's diameter
+(330 mm) and length (5.8 m) carry the same mark.
 
 **Schema:** the same as [`../mig29/`](../mig29/INDEX.md) — every number carries a **source** and a
 **confidence tier**, values that disagree between sources are carried **both**, and a value nobody

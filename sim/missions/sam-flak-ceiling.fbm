@@ -1,0 +1,48 @@
+name sam-flak-ceiling-1
+timeout 200
+
+# THE ALTITUDE GATE, and it is why "15 000 ft" is a decision and not an arbitrary floor.
+# doc/modules/ground/catalogue.md, `zsu23`.
+#
+# TWO IDENTICAL RUN-INS OVER ONE ZSU-23-4, 500 m apart in altitude and in nothing else. Its envelope is
+# 0-2 500 m horizontally and 0-1 500 m of ALTITUDE ABOVE THE POSITION [T4]; `low` crosses at 1 400 m AGL
+# and `high` at 2 000 m AGL. The position's Gun Dish sees both — its radar reaches 20 km — and it may
+# only shoot at one of them.
+#
+# WHAT TO READ:
+#   events.log   `site TRACK` / `site STATE ... to=ENGAGE` / `gun BURST` naming `low` and NOT `high`;
+#                `site BREAK reason="above the altitude ceiling"` is the gate saying so out loud
+#   telemetry_flak.csv  site_state, site_trk_rng
+#
+# The ceiling is 1 500 m and the campaigns' 15 000 ft floor is 4 572 m — three times it. That margin is
+# the whole reason a package accepts SAM exposure to stay out of the flak, and this file is the number
+# behind it.
+#
+# READING RULE: exit 3 = TIMEOUT is the verdict AND the pass; a measurement rig. `low` may or may not be
+# hit — what is measured is WHICH of the two the position engages at all.
+
+unit low
+  module f16
+  team friendly
+  spawn 46.60000 6.90000 2336 90.0 350         # 1 400 m above the position (ground 936 m)
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set rwr on
+  wp 46.60000 7.10000 2336 350
+
+unit high
+  module f16
+  team friendly
+  spawn 46.61500 6.90000 2936 90.0 350         # 2 000 m above it: outside the ceiling, same run-in
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set rwr on
+  wp 46.61500 7.10000 2936 350
+
+unit flak
+  module zsu23
+  team hostile
+  spawn 46.60300 6.94000 ground 90.0 0
+  set emcon free

@@ -1,0 +1,58 @@
+name sam-emcon-hold-1
+timeout 160
+
+# EMCON IS A RECEIVER, NOT A CLOCK. doc/modules/ground/module.md §Knowledge 5.
+#
+# `set emcon hold` means the position's sets stay UNPOWERED until its own PASSIVE receiver hears an
+# airborne emitter. A timer would work and would tell the truth about nothing; a range trigger on the
+# unit registry is the read the whole architecture exists to prevent. What is left is the only honest
+# cue: something the position MEASURED.
+#
+# TWO AIRCRAFT, one line apart. `loud` runs in with its fire-control radar in CRM; `quiet` runs in with
+# it off, 8 km to the east on the identical profile. The position hears the first, comes up, and works
+# it. It never hears the second — and a `quiet` that flew alone would cross the position untouched.
+#
+# WHAT TO READ:
+#   events.log   `site CUE ... brgDeg=...` (a BEARING and a POWER, never a range), then
+#                `site STATE from=DARK to=SEARCH why="passive cue"` and `site RADIATE`. Every `site`
+#                line's time is AFTER the cue, and the position's own search still has to find the
+#                target the receiver only pointed at.
+#   telemetry_sam.csv  site_cue rising before site_beam0 does
+#
+# THE COUNTERFACTUAL, MEASURED: the identical file with the `loud` block deleted produces ZERO `site`
+# lines, ZERO `site RADIATE` and ZERO launches over the whole 160 s. The cue is the only thing that ever
+# switches this position on.
+#
+# THE TRADE IS THE POINT AND IT CUTS BOTH WAYS: `quiet` bought its silence by having no radar picture at
+# all. That is W4's one-line experiment, on the defender's side of the line.
+#
+# READING RULE: exit 2 = CRASH (`loud` is engaged and hit) is the expected verdict. The measurement is
+# the ORDER — cue, then radiate, then track — and that `quiet` is never the reason for any of it.
+
+unit loud
+  module f16
+  team friendly
+  spawn 46.40000 6.90000 3000 0.0 400
+  set gear up
+  set fuel_pct 60
+  set fcr_mode crm
+  set rwr on
+  wp 46.75000 6.90000 3000 400
+
+unit quiet
+  module f16
+  team friendly
+  spawn 46.40000 7.00000 3000 0.0 400
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set rwr on
+  wp 46.75000 7.00000 3000 400
+
+unit sam
+  module sa6
+  team hostile
+  spawn 46.62000 6.90000 ground 0.0 0
+  set emcon hold
+  set rounds 3
+  set scoot_s 60
