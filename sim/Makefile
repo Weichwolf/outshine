@@ -21,6 +21,8 @@
 #                 solution against doc/f16/weapons.md -> build/fb-test-gun
 #   make test-weather  check the FBWX format mirror against the committed /wx fixture
 #                 -> build/fb-test-weather
+#   make test-mig29  measure the FlightBox MiG-29 model against every envelope anchor of
+#                 doc/mig29/flight-model-spec.md §8 -> build/fb-test-mig29-envelope
 #   make verify-models  every model copy under assets/aircraft differs from the pinned submodule by
 #                 EXACTLY the deltas assets/MODEL-DELTAS.md names -- no unexplained byte
 #   make verify-layers  src/ is a stack and every #include points DOWN it -- the directory tree, the
@@ -128,7 +130,7 @@ CORE_LIB_SRCS := \
   src/modules/f16/displays/FBF16Hud.cpp \
   src/units/FBSimUnit.cpp
 
-.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun test-weather verify-models verify-layers image up down restart clean
+.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun test-weather test-mig29 verify-models verify-layers image up down restart clean
 
 help:            ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
@@ -305,6 +307,16 @@ test-weather: core-lib   ## check the FBWX mirror against the committed /wx fixt
 	    -lpthread -ldl -lm \
 	    -o build/fb-test-weather; \
 	  echo "test-weather -> build/fb-test-weather"
+
+test-mig29: core-lib     ## measure the FlightBox MiG-29 model against the spec §8 envelope anchors -> build/fb-test-mig29-envelope
+	@cd $(SELF_DIR); set -e; \
+	  c++ src/clients/FBTestMig29Envelope.cpp src/clients/FBLogSinks.cpp \
+	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
+	    -std=c++17 -O2 $(CXX_WARN) \
+	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
+	    -lpthread -ldl -lm \
+	    -o build/fb-test-mig29-envelope; \
+	  echo "test-mig29 -> build/fb-test-mig29-envelope"
 
 test-missile: core-lib   ## fly the FlightBox AIM-120 model open-loop (motor/drag/trim proof) -> build/fb-test-missile-airframe
 	@cd $(SELF_DIR); set -e; \

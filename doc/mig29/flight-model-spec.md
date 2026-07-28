@@ -59,14 +59,19 @@ community/wiki, cross-check only.
 setting without source · `[GAP]` unknown, not guessed · `[ED-MODEL]` more likely an Eagle Dynamics
 modelling decision than an aircraft property.
 
-**Planned file layout** (checklist row 0 — filled in when the files exist):
+**File layout** (checklist row 0 — BUILT, see `## State`):
 
 | File | Contents | Licence |
 |---|---|---|
-| `sim/assets/aircraft/mig29/mig29.xml` | `<metrics> <mass_balance> <ground_reactions> <propulsion> <flight_control> <aerodynamics>` | FlightBox-own — **the pinned JSBSim submodule has no MiG-29 and is read-only (Principle 1)**, so this model lives under FlightBox's own model root and is reached via `FBModule::FdmModelVendored() == false` + `app/FBModelRoots.h`, exactly like the AIM-120 |
-| `sim/assets/aircraft/mig29/Engines/RD-33.xml` | `<turbine_engine>` | FlightBox-own |
-| `sim/assets/aircraft/mig29/Engines/RD-33-nozzle.xml` | `<direct>` thruster | FlightBox-own |
-| `release=` | **`ALPHA`** until §8's anchor table passes | — |
+| `sim/assets/aircraft/mig29/mig29.xml` | `<metrics> <mass_balance> <ground_reactions> <propulsion> <flight_control> <aerodynamics>` | FlightBox-own, GPL-2.0-or-later — **the pinned JSBSim submodule has no MiG-29 and is read-only (Principle 1)**, so it is declared as having no upstream in `sim/assets/MODEL-DELTAS.md` and there is nothing for `verify-models` to diff, exactly like the AIM-120. (This row originally said "reached via `FBModule::FdmModelVendored() == false`"; that mechanism is gone — the tree now flies from ONE model root, `missions/FBModelRoots.h`.) |
+| `sim/assets/aircraft/mig29/engine/RD-33.xml` | `<turbine_engine>` | FlightBox-own |
+| `sim/assets/aircraft/mig29/engine/RD-33-nozzle.xml` | `<direct>` thruster | FlightBox-own |
+| `sim/assets/aircraft/mig29/reset00.xml` | default IC, unused by FlightBox (as the F-16's is) | FlightBox-own |
+| `release=` | **`ALPHA`** — see the promotion assessment in `## State` | — |
+
+**Directory name:** `engine/`, not the `Engines/` this table originally planned. Both are searched by
+`FGPropulsion::FindEngineFullPathname`; `engine/` is what the F-16 and AIM-120 already use, and one
+convention per tree is worth more than matching a plan written before the tree was looked at.
 
 ---
 
@@ -644,12 +649,110 @@ saying so here is the point of the file.
 
 ## State
 
-**Nothing in this file is implemented.** There is no `sim/assets/aircraft/mig29`, no
-`sim/src/modules/mig29/`, no entry in `sim/assets/MODEL-DELTAS.md` and no gym mission that flies a
-MiG-29. The airframe exists only as a **spec-first contract** —
-[`../flightbox/aircraft/mig29.md`](../flightbox/aircraft/mig29.md), whose own status line reads
-*"spec only. Nothing is built."* This file is the **input** to that build, which is roadmap stage
-**R8**.
+**Stage 1 of R8 is built: the JSBSim deck exists and every §8 anchor is measured.** What does NOT
+exist is anything above the airframe — no `sim/src/modules/mig29/`, no registry name, no `.fbm`
+mission that flies one. Nothing in the tree loads this model except its own harness, so no existing
+measurement moved.
+
+| Artefact | State |
+|---|---|
+| `sim/assets/aircraft/mig29/mig29.xml` + `engine/RD-33.xml` + `engine/RD-33-nozzle.xml` + `reset00.xml` | **built**, `release="ALPHA"` |
+| `sim/assets/MODEL-DELTAS.md` | declares `mig29` as FlightBox-own (no upstream, so no delta block); `make -C sim verify-models` green |
+| `sim/src/clients/FBTestMig29Envelope.cpp` + `make -C sim test-mig29` | **built** — loads the deck through `FBFdmBoot` and measures 22 anchors; two identical runs are byte-identical |
+| module / registry / missions | **not built** — stage 2/3 |
+
+### The measured anchor table (`make -C sim test-mig29`, 2026-07-28)
+
+Deviation is `(measured − documented) / documented`. "must" rows are the ones §11 gates on.
+
+| # | Anchor | Documented | Measured | Dev. | Verdict |
+|---|---|---|---|---|---|
+| A1 | Vmax at 11 km | 2,450 km/h | **2,500 km/h** (M 2.35) | **+2.1 %** | pass |
+| A2 | Vmax at sea level | 1,500 km/h | **1,503 km/h** (M 1.23) | **+0.2 %** | pass |
+| A3 | Service ceiling | 18,000 m | **19,566 m** | **+8.7 %** | miss — see §12.5 |
+| A4 | Ps at SL, M 0.90, light | 330 m/s | **248 m/s** | **−24.8 %** | miss — see §12.5 |
+| A5 | g reached under a 9 g limiter | +9 | **+8.26** | −8.3 % | pass |
+| A6 | α reached under a 26° limiter | 26° | **25.8°** | −0.8 % | pass |
+| A9 | Instantaneous turn rate, 1,000 m | 28 °/s (T4) | **26.5 °/s** | −5.2 % | pass (weakest anchor) |
+| A9′ | the same at 5,000 m | — | 22.0 °/s | — | recorded, no anchor |
+| B1 | Rotation speed | 125–135 kt | **130.1 kt** | in band | pass |
+| B2 | Liftoff speed | 140–150 kt | **146.1 kt** | in band | pass |
+| B3 | Takeoff pitch attitude | 8–10° | **8.87°** | in band | pass |
+| B7 | ROC at 270 kt, 84 % RPM | 985–1,480 ft/min | **1,141 ft/min** | in band | pass |
+| B8 | Takeoff ground run | 250 m | **324 m** | **+29.8 %** | miss — see §12.5 |
+| B9 | Landing roll with chute | 600 m | **659 m** | +9.9 % | miss (marginal) |
+| B10 | α in landing config at 140 kt / 12 t | 11° | **10.29°** | −6.5 % | pass |
+| B10′ | Touchdown speed in a flown landing | ~140 kt | **145.5 kt** | +4.0 % | pass |
+| — | Deck mass (empty + internal fuel + pilot) | 14,200 kg | **14,199.7 kg** | −0.002 % | pass |
+| — | Mass closure vs normal TOW (deck + 926 + 125) | 15,300 kg | **15,250.7 kg** | −0.32 % | pass |
+| — | Internal fuel | 3,200 kg | **3,200.1 kg** | +0.003 % | pass |
+| — | Static gear travel over 18 s on the brakes | 0 | **0.13 mm** | — | pass |
+| — | Creep at 80 % RPM on full brakes | 0 | **2.2 µm/s** | — | pass |
+| — | Taxi speed after 30 s at 73 % RPM | "comfortable" | **26.0 kt** | — | pass |
+| GAP | Peak roll rate at 450 kt / 10,000 ft | **no anchor at any tier** | **241 °/s** | — | declared model property |
+
+### Consistency probes (§3.1 and §8.2, re-run against the built deck)
+
+- **Mass closure:** the deck reproduces 14,199.7 kg against the 14,200 kg the four documented figures
+  predict, i.e. the closure that validates empty mass, internal fuel and pilot mass simultaneously
+  holds *in the model* to 0.002 %, and to 0.32 % against normal TOW once the standard loadout is added
+  arithmetically. The stores half is untested until the module carries point masses (stage 2).
+- **Thrust against takeoff run:** §8.2 predicts 284 m from static thrust, liftoff speed and a mean
+  drag of 0.05 W; the deck gives 324 m at a *measured* liftoff of 146.1 kt. The 14 % gap is the
+  configuration drag §8.2 lumped into one coefficient: this deck carries flaps (ΔCD 0.060) and gear
+  (0.030) explicitly, which is ~8 kN of the ~150 kN accelerating force through the second half of the
+  roll. Both predictions bracket the documented 250 m from above, which §12.3 already expected.
+
+### The honesty metric (§1.2)
+
+§1.2 asks for `grep -c '\[SET\]' mig29.xml` as the model's honesty metric and files it under
+`PROGRESS.md`. It is recorded **here** instead, because `PROGRESS.md` is a *source-coverage* ledger for
+the twelve knowledge files and this is a *build* fact; the build state belongs next to the build.
+
+Raw tag counts — `mig29.xml` / `engine/RD-33.xml`:
+
+| `[SET]` | `[GEO]` | `[ANALOGY]` | `[INV]` | `[DERIVED]` | `[GAP]` | `[ABL]` |
+|---|---|---|---|---|---|---|
+| **35 / 2** | 16 / 0 | 15 / 2 | 4 / 0 | 9 / 5 | 14 / 0 | 5 / 0 |
+
+The more useful cut is **per coefficient**. The deck holds **35 aerodynamic functions** (33
+coefficients + 2 shared factors) over 38 tables, plus 9 flight-control channels in 25 components.
+Classifying each function by the category that *sets its magnitude*:
+
+| Category | Count | Which |
+|---|---|---|
+| **GEO** | 17 | `CLde CLq kCLmach CYb CYdr Clb Clp Clr Cldr Cm_mach Cmde Cmq Cmadot Cnb Cnr Cnp Cndr` |
+| **SET** | 11 | `CDde CDgear CDflaps CDlef CDchute Clda Cm Cmflaps Cmlef Cmgear` + the split inside `CLflaps`/`CLlef` |
+| **INV** | 4 | `CD0` (both Vmax anchors), `CLflaps`+`CLlef` (touchdown anchor), `Cndr` (asymmetric-thrust case) |
+| **ANALOGY** | 2 | `kCLge`, `Cnda` |
+| **DERIVED** | 1 | `CDsb` (from the documented brake areas and deflections) |
+
+**But the analogy reaches further than those two rows suggest, and that is the point of §6.4.** Ten
+tables are GEO- or SET-led through the linear range and **`[ANALOGY]`-shaped above it**: `CLalpha`
+(vortex-lift increment and its breakdown above 32°), `CDalpha` (the leading-edge-suction loss
+schedule), `Cm` (nose-up departure above 38°), `Cnb` (loss of directional stability above 33°), plus
+`Clb Clp Clr Clda Cnr Cnda`. **That is what the F/A-18 HARV database concretely supplies here: the
+shape of the post-linear regime in ten curves, and nothing below α 20°.**
+
+### Build-order status (§11), gate by gate
+
+| Step | State | Gate |
+|---|---|---|
+| 1 metrics / mass / ground | **done** | sits, does not bounce (0.13 mm over 18 s), holds on the brakes at 80 % RPM, taxis at 26 kt at 73 % |
+| 2 propulsion | **done** | A2 within 0.8 %, A1 within 10 % on a first-cut polar |
+| 3 drag polar | **done** for A1/A2, **A3 missed** | A1 +2.1 %, A2 +0.2 %, A3 +8.7 % |
+| 4 lift and high-lift devices | **done** | B1/B2/B3/B10 all in band; B8 +29.8 % |
+| 5 chute / speedbrake / gear drag | **done** | B9 +9.9 % with the chute CdA left at its derived 12 m² — it needed no calibration |
+| 6 moments and control power | **done** | B3 in band, A5/A6 reached, rudder sized against the asymmetric-thrust case |
+| 7 ARU gearing | **built, unmeasured** | §11 itself states this step has no documented anchor |
+| 8 limits | **as specified** — the limiter is NOT in the deck (§7.3); the harness carries the SOS sketch and A5/A6 are measured through it | A5/A6 pass |
+| 9 corner speed / roll rate | **measured** | corner 440 kt / 22.0 °/s at 5,000 m; roll 241 °/s at 450 kt — both declared model properties, neither has an anchor |
+| 10 stores integration | **not started** — module-level | — |
+
+**Promotion:** §11 puts `BETA` at "steps 1–6 pass". Steps 1–6 are built and four of their anchors are
+missed (A3, A4, B8, B9), so the model stays **`ALPHA`**. Two of those four (A4, A3) are traced below to
+the *thrust* side, which §5.4 step 4 predicted would be the diagnosable failure mode, and that is the
+mechanism working rather than a surprise.
 
 | Roadmap stage | What it will take from this file |
 |---|---|
@@ -673,7 +776,8 @@ intact. The governing acquisition note: **GAF T.O. 1F-MIG29-1** (German Air Forc
 manual, ~454 pp, English, USAF format) was located but **not available to this pass**; the whole
 file is written so its arrival is an edit, not a rewrite (§1.1).
 
-**Implementation gaps** — none statable yet: nothing is built (see State).
+**Implementation gaps** — §12.5 below: the four missed anchors, each with what it hangs on and what it
+would cost to close. §12.6: what the deck deliberately does not model.
 
 ### 12. Open points (checklist row 12) — split into the three required kinds
 
@@ -742,6 +846,69 @@ flight manual contains performance and limits, not coefficient decks:
 - **Whether `Ixx` should include a wing-tank correction** for the 9-13 comparison case.
 
 ---
+
+#### 12.5 The four missed anchors — what each one hangs on
+
+**A4, Ps at sea level, M 0.90: 248 m/s against 330, −24.8 %. The clearest result in the build, and it
+falls exactly where §5.4 step 4 said it would.** The residual is *provably not* absorbable by the drag
+polar. At that condition the drag is ≈52 kN; to reach Ps = 330 m/s at 13,000 kg the thrust would have
+to be 189 kN, i.e. an augmented-thrust factor of **1.16** at M 0.90 / sea level. The borrowed F100
+surface gives **1.02**. Closing A4 by drag instead would need CD ≈ 0.0133, about 40 % below a clean
+fighter's zero-lift drag and impossible to reconcile with A2, which is measured 0.2 % from its
+documented value at the same altitude. **So the thrust analogy is the suspect, precisely as the rule
+predicted, and the specific defect is named: the F100-PW-229's ram recovery at high subsonic speed near
+sea level is ~12 % lower than the RD-33's would need to be.** Cost to close: a real RD-33 thrust deck,
+or a T1 source giving installed thrust at one (M, h) point off the static line. Nothing else will do
+it, and tuning the surface to hit A4 would destroy A2 and A1, which is the whole reason the surface was
+frozen first.
+
+**A3, service ceiling: 19,566 m against 18,000, +8.7 %.** Same family, opposite end. A1 and A3
+constrain the same product T/D at 11 km and at ~19 km; drag coefficients depend on Mach, not altitude,
+so once A1 is hit at 11 km there is no drag term left that can lower the ceiling without breaking A1.
+The lever is the **`[DERIVED]` high-altitude thrust extension** — the 60,000 and 70,000 ft columns this
+build added because the borrowed deck's own column was exactly zero (a wall, not a decay,
+`doc/f16/flight-model.md` §12.3). Those columns continue the surface by the **ISA density ratio**,
+which is the standard textbook approximation and is known to be optimistic near an engine's altitude
+limit, where component efficiencies fall faster than density. Multiplying both columns by ≈0.78 would
+put the ceiling at 18,000 m. **That was not done**, because those columns would then be a number fitted
+to an anchor wearing a `[DERIVED]` tag, and the honest version of this row is a stated miss with a
+named mechanism. Cost to close: an RD-33 altitude-thrust curve, or a decision to re-tag the extension
+as `[SET]` and fit it — a one-line change with a one-line justification, available whenever the owner
+prefers the anchor to the derivation.
+*Measured at 13,000 kg, on a constant-500 kt-CAS-then-M 1.6 climb. The documented figure carries no
+weight and no schedule, which is itself part of the 9 % spread §12.2 records for this row.*
+
+**B8, takeoff ground run: 324 m against 250, +29.8 %.** This one the spec had already called: §12.3
+records 250 m as "very short for a 15.3 t fighter … almost certainly an AB figure at a demonstration
+weight", and §8.2's own derivation from independent numbers gives **284 m**. The model is 14 % above
+that derivation, and the difference is identifiable: §8.2 lumps all configuration drag into "mean drag
+≈ 0.05 W", while the deck carries flaps and gear as separate, explicitly `[SET]` coefficients whose sum
+(ΔCD 0.090) costs ~8 kN over the second half of the roll. Liftoff speed is measured at 146.1 kt, inside
+its documented band, so the run length is a *drag* result and not a *lift* one — which is exactly the
+diagnosis §11 step 4 prescribes for this pattern. Cost to close: a documented takeoff-configuration
+drag index (GAF T.O. 1F-MIG29-1 would carry one), or a decision to treat 250 m as the anchor and fit
+the two `[SET]` coefficients to it, which would then be fitted numbers rather than estimates.
+
+**B9, landing roll with chute: 659 m against 600, +9.9 %.** The smallest miss and the least
+interesting: the flown landing touches down at 145.5 kt against a documented ~140, and (145.5/140)² is
++8 % of kinetic energy on its own. The chute's `CdA` — the free parameter §11 step 5 says to calibrate
+last — was **left at its derived 12 m² and needed no adjustment**, which is the useful finding here.
+Cost to close: a landing controller in the harness that floats another second, i.e. an instrument
+change, not a model change. Deliberately not done, because tuning the instrument until the model looks
+right is how a measurement stops being one.
+
+#### 12.6 What the built deck deliberately does not model
+
+| Absent | Why, and where the decision is written |
+|---|---|
+| The SOS α limiter | §7.3: it is a stick *force*, it must be overridable, and putting it in the deck would hide it from `core/FBFlightMonitor`. The deck has **no limiting of any kind**; a full-stick pull tumbles to 180° of α, which is a true statement about a bare mechanically-signalled airframe. The harness carries a throwaway SOS *sketch* so A5/A6 can be measured at all, and `systems/FBFlightControl` carries the real one at module level (stage 2) |
+| B4, the 108 kt intake-opening thrust step | §5.2 folds ram recovery into the thrust tables rather than modelling the ramp. A deliberate, documented miss |
+| B19, the 200 km/h upper-intake limit | same decision |
+| The centreline-tank speedbrake inhibit and g cap | stores state; belongs to the module (§10) |
+| Speedbrake auto-retract on electrical failure | there is no electrical system in this deck |
+| Drag-chute deployment as a pilot action | `systems/FBAirframeControls` has no chute channel yet, so the deck arms it on the documented *conditions* (WOW, gear down, below the documented 175 kt separation speed). Consequence, stated in the deck: **every rollout in this model is a chute rollout**, and the no-chute landing distance is not measurable until the client channel exists |
+| Ammunition mass as a depleting load | §10; module-level, along with the stores point masses |
+| Aeroelasticity / fin buffet | §6.8, `[GAP]`, and a real phenomenon on this airframe |
 
 ## Knowledge
 

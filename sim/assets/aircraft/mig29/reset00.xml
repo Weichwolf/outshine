@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<initialize name="reset00">
+  <!--
+    Standing start on the runway. Present for the same reason the pinned F-16 model carries one — a
+    JSBSim model is expected to ship a default IC — and used by FlightBox for exactly as much as the
+    F-16's is: nothing. Every initial condition in FlightBox comes from fdm/FBFdmBoot, which is the
+    only path to a placed and trimmed airframe.
+    Altitude 7.3 ft = the CG height with the gear compressed (2.20 m contact drop, ~0.03 m squat).
+  -->
+  <ubody unit="FT/SEC">    0.0  </ubody>
+  <vbody unit="FT/SEC">    0.0  </vbody>
+  <wbody unit="FT/SEC">    0.0  </wbody>
+  <latitude unit="DEG">   46.7  </latitude>
+  <longitude unit="DEG">   6.8  </longitude>
+  <phi unit="DEG">         0.0  </phi>
+  <theta unit="DEG">       1.0  </theta>
+  <psi unit="DEG">         0.0  </psi>
+  <altitude unit="FT">     7.3  </altitude>
+</initialize>

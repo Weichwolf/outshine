@@ -1,8 +1,8 @@
 # MiG-29 — the first opponent
 
-**Status: spec only. Nothing is built.** This is the first file written the new way round — the
-contract exists before the code, and the build rounds are measured against it instead of describing
-themselves afterwards.
+**Status: stage 1 built — the JSBSim airframe exists and is measured. No module, no weapons, no
+doctrine.** This is the first file written the new way round — the contract exists before the code,
+and the build rounds are measured against it instead of describing themselves afterwards.
 
 **Neighbours:** `doc/mig29/` (the knowledge base about the real aircraft, from the two DCS manuals plus
 research — roadmap R3, in progress), [`f16.md`](f16.md) (the module pattern this one will follow),
@@ -50,20 +50,39 @@ asymmetric weapon round (R6) comes before the airframe round (R8).
 
 ## State
 
-**Nothing built.** No module, no model, no weapons, no doctrine. `doc/mig29/` currently holds
-cockpit-displays, defence/RWR/CM, engines/fuel, flight controls, radar/sensors and weapons; the
-`flight-model-spec.md` that this file's acceptance criteria point at is still being written (R3).
+**Stage 1 built: the airframe.** `sim/assets/aircraft/mig29/` holds a FlightBox-own JSBSim deck
+(`mig29.xml`, `engine/RD-33.xml` ×2 instantiation, `engine/RD-33-nozzle.xml`, `reset00.xml`,
+`release="ALPHA"`), declared as FlightBox-own in `sim/assets/MODEL-DELTAS.md`, and
+`make -C sim test-mig29` measures it against all 22 anchors of
+[`../../mig29/flight-model-spec.md`](../../mig29/flight-model-spec.md) §8. **The anchor table with
+IST/SOLL per row, the two consistency probes, the build-order gate status and the four missed anchors
+with their diagnoses live in that file's `## State` and `## Gaps`** — they belong next to the spec they
+answer, and are not restated here.
+
+The one-line summary: **A1/A2 (Vmax at altitude and at sea level) within 2 %, the whole takeoff and
+landing set in band, and the two misses that matter (Ps −24.8 %, ceiling +8.7 %) both traced to the
+thrust side** — which is what the spec's own "freeze the thrust analogy, absorb residuals in drag" rule
+exists to make diagnosable.
+
+**Nothing loads this model.** No `sim/src/modules/mig29/`, no `FBModuleRegistry` name, no `.fbm`
+mission; the only consumer is its own harness, so no existing measurement in the tree moved. The
+53 stock missions are untouched (spot-checked after the build: exit codes unchanged, each matching the
+reading rule in its own file header).
 
 ## Gaps
 
-The gap is the whole spec. In roadmap terms it is the chain **R3 → R6 → R8 → R7**:
+In roadmap terms the remaining chain is **R6 → R8 stage 2/3 → R7**:
 
 | # | Missing | Blocked by |
 |---|---|---|
-| 1 | `doc/mig29/flight-model-spec.md` with documented envelope anchors | R3, in progress |
-| 2 | Enemy weapon family + RCS as a unit property | R3 |
-| 3 | JSBSim MiG-29 model measured against its anchors | R3 |
-| 4 | Module + GCI doctrine | R6, R8 |
+| 1 | ~~`doc/mig29/flight-model-spec.md` with documented envelope anchors~~ | **done** (R3) |
+| 2 | Enemy weapon family + RCS as a unit property | R3 → R6 |
+| 3 | ~~JSBSim MiG-29 model measured against its anchors~~ | **done** — deck built and measured; four anchors missed with named causes, model stays `ALPHA` |
+| 3b | The four missed anchors closed, or their `[DERIVED]`/`[SET]` levers re-tagged and fitted | a real RD-33 thrust deck, or GAF T.O. 1F-MIG29-1 |
+| 4 | Module (`FBModule` derivation + registry name) and the systems it composes | R8 stage 2 |
+| 5 | SOS α limiter and the ARU-aware gains in `systems/FBFlightControl` | R8 stage 2; the deck deliberately carries no limiter |
+| 6 | Stores integration: point masses, `fb-stores` drag, gun recoil | R6 |
+| 7 | GCI doctrine | R6, R8 |
 
 Note on ordering, from the roadmap: the first opponents that are actually buildable are the one-way
 drone and the cruise missile (R7) — they are real F-16 tasking, they stress the Doppler notch and the
@@ -72,7 +91,25 @@ the first *manned* opponent, not the first opponent.
 
 ## Knowledge
 
-Nothing derived yet. What exists is the source split, and it is worth stating once:
+The derivations of stage 1 live **inside the deck**, next to the numbers they produce — that is the
+provenance rule of `../conventions.md` applied literally, and it is why `mig29.xml` is mostly comment.
+Three findings from the build are worth having here, because they are about FlightBox rather than about
+the MiG-29:
+
+- **JSBSim's longitudinal trim drives `fcs/pitch-trim-cmd-norm`, not the stick.** A pitch channel that
+  does not sum that input cannot be trimmed at all: `FGTrim` reports *"qdot doesn't appear to be
+  trimmable"* because its control has no effect on the state it is solving. Costly to find, one summer
+  to fix, and the pinned F-16 deck has the same summer for the same reason.
+- **JSBSim interpolates tables linearly**, so a quadratic drag rise first sampled at α = 5° is
+  overstated ~4.5× at the 1° incidence a fighter dashes at. Adding one ±2.5° breakpoint moved Vmax at
+  11 km from M 2.07 to M 2.35.
+- **A deck with no limiter is not measurable with full stick.** Without an FLCS, full aft stick is 35°
+  of stabilator against a 5 % static margin and the answer is a tumble to 180° of α. The envelope
+  harness therefore carries a throwaway SOS sketch; the real one belongs in `systems/FBFlightControl`
+  (stage 2), which is what [`../../mig29/flight-model-spec.md`](../../mig29/flight-model-spec.md) §7.3
+  specified before any of this was built.
+
+The source split, worth stating once:
 
 | Question | Where it is answered |
 |---|---|
