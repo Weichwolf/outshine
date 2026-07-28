@@ -1,0 +1,65 @@
+name escort-protect-lost-1
+timeout 200
+
+# `objective protect` VIOLATED — and the proof that a protect declaration does NOT make the protected
+# unit's loss expected (round C12). Byte-identical to escort-protect.fbm except for ONE number: the CAP's
+# briefed pickle is at t=5 instead of t=20.
+#
+# READING RULE (binding): FAIL/exit 1 is the pass criterion, the reason must be
+# "protected unit lost: depot", `decisive=1` must stand on the CAP's UNIT_RESULT line, and the run must
+# END at that tick. Two failure modes are being watched for here and both would be silent otherwise: an
+# exit 0 means a lost protectee was scored as met, and an exit 3 (or a run that continues past the
+# depot's destruction) means `protect` has started COVERING the loss — i.e. that the declaration "this
+# must not happen" is being read as "this was the plan". That is the inversion doc/missions/verdict.md
+# calls the load-bearing rule, and this file is where it is measured.
+#
+# THE CHAIN, MEASURED: the CAP pickles at t=5.0, the head-on range is 31.6 km and Raero is 26.9 km, so
+# the SMS refuses — `sms LAUNCH_OUT_OF_ZONE rangeM=31563 raeroM=26925.7`, `RELEASE_REJECTED
+# reason=out_of_context detail="target beyond Raero"`. A briefed pickle is a SCHEDULE, not a decision, so
+# there is no second attempt: the CAP flies the merge with both rounds still on the rails. The striker
+# releases on the CCIP cue at t=72.0, the Mk-82 impacts 32.4 m from the installation at t=82.3, and
+# `damage KILL unit=depot reason="structure destroyed"` follows in the same tick. The CAP's monitor reads
+# the roster on the next one and concludes at t=82.4.
+#
+# WHAT IT COSTS TO STATE IT THIS WAY: the shot that was never taken is 15 s of geometry, not a mistake in
+# the pilot -- the interceptor was told when to shoot and it shot then. That is the honest version of an
+# intercept that arrives too late, and it is one number away from the one that arrives in time.
+
+unit depot
+  module target_soft                         # the protected: an installation, not an airframe
+  team friendly
+  spawn 46.90000 7.05000 ground 90.0 0
+
+unit striker
+  module f16
+  team hostile
+  spawn 46.90000 6.80000 900 90.0 450        # attack-ccip.fbm's run-in: 19 km out, co-track
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode off
+  set store 3 mk82
+  set store 7 mk82
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccip
+  wp 46.90000 7.05000 900 450                # the aim point IS the active steerpoint
+  wp 46.95000 7.20000 3000 400               # the briefed egress beyond it
+
+unit cap
+  module f16
+  team friendly
+  spawn 46.90000 7.25000 900 270.0 450       # head-on, 34 km east of the striker, co-altitude
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode acm_hud
+  set fcr_range_nm 40
+  set store 3 aim120
+  set store 7 aim120
+  set brief_master_arm arm
+  set brief_release_s 5                      # <<< THE ONE NUMBER that differs from escort-protect
+  wp 46.90000 6.60000 900 450
+  objective protect unit depot
+  objective kill unit striker
+  objective survive

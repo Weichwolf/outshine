@@ -24,6 +24,9 @@ struct FBMissionMonitorSample {
   /* The shootdown as a MISSION fact: whether the SORTIE is over. Nothing is stopped, frozen or marked
    * dead by it — the unit goes on being integrated until the physics judge has its own say. */
   bool   CombatIneffective = false;
+  /* This unit's own release register, the same shape as the health bit above and from the same owner:
+   * monotone, true from the first store or burst it ever let go. What `no_fire` is judged against. */
+  bool   ReleasedWeapon = false;
   /* The other units as OBSERVED — what a `kill` objective is judged against. A unit is never asked about
    * its opponent, and its opponent never about itself. Empty without combat objectives. */
   FBMissionRoster Roster;
@@ -56,8 +59,14 @@ private:
   /* The approach record to the ACTIVE fix — this class's OWN statement of FBNavSystem's orbit rule,
    * computed from its own plan copy and the observed position alone. doc/systems.md, section 7.5.1. */
   int NoteApproach(double distM);
-  /* Survive and Waypoints are deliberately skipped here — see Finalize resp. PlanJudged_. */
-  bool KillObjectivesMet(const FBMissionRoster &roster) const;
+  /* The cumulative dwell of every `identify`, from the ranges the owner published this tick. Pure
+   * bookkeeping, no verdict — and monotone, which is what makes the objective latch. */
+  void NoteIdentify(const FBMissionRoster &roster, double dtS);
+  /* Survive, Waypoints and Identify are deliberately not decided against the roster — see Finalize,
+   * PlanJudged_ and Dwell_. */
+  bool ObjectivesMet(const FBMissionMonitorSample &s) const;
+  /* The kinds that can only be answered when there is no run left in which to lose them. */
+  bool HasDeferredObjective() const;
   bool HasObjective(FBObjectiveKind kind) const;
   bool HasSurviveObjective() const;
 
@@ -74,6 +83,11 @@ private:
   int          AppFails_ = 0;
   bool         PlanJudged_ = true;  /* is the flight plan part of the verdict? (set in the constructor) */
   bool         PlanDone_ = false;   /* every waypoint captured (trivially true if it is not judged) */
+  /* Index-parallel to Objectives_, used by Identify alone: the time spent inside its box and the latch
+   * that time sets. Sized once in the constructor, never resized. */
+  struct FBIdentifyProgress { double DwellS = 0.0; bool Met = false; };
+  std::vector<FBIdentifyProgress> Dwell_;
+  double       PrevSimT_ = 0.0;     /* the tick length is the caller's, so it is measured, not assumed */
 
   std::string  PlanDetail_;         /* HOW the plan was completed — the legacy SUCCESS wording */
 

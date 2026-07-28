@@ -139,6 +139,7 @@ FBMissionMonitorSample FBSimUnit::BuildMissionSample(const FBMissionRoster &rost
   s.AnyWow = Fdm_ ? Fdm_->GetWow() : true;   /* no airframe = on the ground, by definition */
   s.GroundSpeedKt = St_.gs * kMsToKt;
   s.CombatIneffective = !Health_.CombatEffective();
+  s.ReleasedWeapon = ReleasedWeapon_;
   s.Roster = roster;
   return s;
 }

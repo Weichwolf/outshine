@@ -116,6 +116,13 @@ public:
   FBDamageResult TakeKineticBurst(const FBKineticBurst &burst);
   const FBSystemHealth &Health() const { return Health_; }
 
+  /* ---- the release register ----
+   * MONOTONE, like the health register beside it, and written by the OWNER at the one place it drains
+   * this unit's release/burst queues (the growth phase) — never by the module, which is why `no_fire`
+   * and `deny release` cannot be talked out of. */
+  void NoteWeaponRelease() { ReleasedWeapon_ = true; }
+  bool ReleasedWeapon() const { return ReleasedWeapon_; }
+
   /* ---- the two incorruptible judges (fed here, never handed to the module) ---- */
   void SetMissionMonitor(std::unique_ptr<FBMissionMonitor> monitor) { Mission_ = std::move(monitor); }
   const FBFlightMonitor &FlightMonitor() const { return Flight_; }
@@ -163,6 +170,7 @@ private:
   std::unique_ptr<FBMissionMonitor> Mission_;   /* absent for a unit with no mission to judge */
   bool WarnedStall_ = false, WarnedOverspeed_ = false, WarnedSink_ = false;
   bool Active_ = true;
+  bool ReleasedWeapon_ = false;
 };
 
 /* A mission's cast in declaration order; index 0 is the PRIMARY actor (canonical telemetry name, the

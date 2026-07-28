@@ -1,0 +1,14 @@
+name objective-self-protect-1
+timeout 300
+
+# MUST NOT PARSE. A unit cannot `protect`, `identify` or `deny release` ITSELF. Protecting oneself is
+# `survive` and has a spelling already; identifying or denying oneself is meaningless. The check is the
+# same one `kill unit` has carried since the objectives existed, and it is a PARSE error rather than a
+# never-met objective: a mission that cannot be won should not start.
+# Required outcome: exit 1, RESULT result=FAIL reason="parse: line 14: unit 'viper' cannot have itself
+# as a target". See ./README.md.
+
+unit viper
+  module f16
+  spawn 46.73202 6.73455 2500 48.0 300
+  objective protect unit viper

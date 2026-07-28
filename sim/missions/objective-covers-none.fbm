@@ -1,0 +1,55 @@
+name objective-covers-none-1
+timeout 280
+
+# THE COVER RULE, AS A RUN (round C12). "Covers" means SOMEBODY DECLARED THIS UNIT'S LOSS AS THEIR
+# OBJECTIVE, and that is what makes a loss EXPECTED and therefore stops it deciding the run
+# (doc/missions/verdict.md). Exactly two kinds may do that — `kill unit` and `kill team`. This file is
+# the measurement that the C12 kinds do NOT, and it is built so that the difference is an EXIT CODE
+# rather than a reading of the source.
+#
+# THE CONSTRUCTION: the defender names the striker TWICE — `identify unit striker` and
+# `deny release unit striker` — and declares no `kill` at all. The striker declares `survive` and is then
+# shot down. Nobody's `kill` covers it, so its loss is UNEXPECTED and its own FAIL decides the run.
+#
+# READING RULE (binding): FAIL/exit 1 at t=70.7, RESULT reason "combat ineffective (survive objective
+# lost)", and `decisive=1` on the STRIKER's UNIT_RESULT line — not the defender's. If either C12 kind
+# ever starts covering, this run exits 0 instead: the loss becomes expected, the run continues to the
+# timeout and the defender's Finalize scores a denial that was only "achieved" because the unit it was
+# denying is dead. MEASURED COUNTERFACTUAL: with FBObjectiveCovers patched to return true for Identify
+# and DenyRelease this file exits 0 with RESULT "objectives met, survived" — one line of source, two
+# different verdicts, which is why the rule gets a regression file of its own instead of a comment.
+#
+# `identify` is deliberately declared with a box so wide (60 km, hold 5 s) that it latches at t=5.1, long
+# before the shot. That is not laziness: it puts a MET C12 objective and a dead named unit in the same
+# run, so the file cannot pass by accident of an objective that was never evaluated.
+
+unit defender
+  team friendly
+  module f16
+  spawn 46.90000 6.60000 8000 90.0 400
+  set gear up
+  set fuel_pct 60
+  set fcr_mode acm_hud
+  set fcr_range_nm 40
+  set store 3 aim120
+  set store 7 aim120
+  set brief_master_arm arm
+  set brief_release_s 20
+  wp 46.90000 7.15000 8000 400
+  objective identify unit striker range 60000 hold 5
+  objective deny release unit striker
+  objective survive
+
+unit striker
+  team hostile
+  module f16
+  spawn 46.90000 7.30000 8000 270.0 400
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set store 3 mk82
+  set store 7 mk82
+  set brief_master_arm arm
+  set brief_release_s 90
+  wp 46.90000 6.75000 8000 400
+  objective survive                          # so it CARRIES a monitor: only a judged unit can decide

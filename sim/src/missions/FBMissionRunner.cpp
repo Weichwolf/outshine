@@ -19,6 +19,7 @@
 #include <chrono>
 #include <cstdio>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <cmath>
@@ -552,14 +553,32 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
    * actor's own health register publishes. Weapons are out — a round in the air is not somebody's
    * target. The Id borrows the unit's own name, which outlives the run. */
   std::vector<FBUnitObservation> RosterBuf;
+  std::vector<const Units::FBSimUnit *> RosterUnit;   /* index-parallel: whose pose each entry is */
   RosterBuf.reserve(maxActors);
+  RosterUnit.reserve(maxActors);
   auto BuildRoster = [&]() {
     RosterBuf.clear();
+    RosterUnit.clear();
     for (const auto &a : Actors) {
       if (a->GetKind() == Units::FBUnitKind::Weapon) continue;
-      RosterBuf.push_back({a->GetName().c_str(), a->GetTeam(), a->Health().CombatEffective()});
+      RosterBuf.push_back({a->GetName().c_str(), a->GetTeam(), a->Health().CombatEffective(),
+                           a->ReleasedWeapon(), std::numeric_limits<double>::infinity()});
+      RosterUnit.push_back(a.get());
     }
     return FBMissionRoster{RosterBuf.data(), (int)RosterBuf.size()};
+  };
+  /* `identify` is the only kind that reads a range, so the ranges are only computed for a mission that
+   * declares one — the roster a mission without one sees is the one it saw before this round, entry for
+   * entry. Aimed FROM the judged unit, out of the published poses, right before its monitor runs. */
+  bool NeedRanges = false;
+  for (const auto &u : mission.Units)
+    for (const auto &o : u.Objectives) NeedRanges = NeedRanges || o.Kind == FBObjectiveKind::Identify;
+  auto AimRoster = [&](const Units::FBSimUnit &self) {
+    Units::FBUnitPose p = self.GetPose();
+    for (size_t i = 0; i < RosterBuf.size(); i++) {
+      Units::FBUnitPose q = RosterUnit[i]->GetPose();
+      RosterBuf[i].RangeM = FBPlanarDistM(p.LatDeg, p.LonDeg, q.LatDeg, q.LonDeg);
+    }
   };
 
   if (hook) {
@@ -635,6 +654,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
       if (!a->Active()) continue;
       FBLogUnitScope us(a->LogLabel());
       a->CheckEnvelope();   /* generic envelope diagnostics — per actor, not per run */
+      if (NeedRanges) AimRoster(*a);
       a->RunMonitors(simT, roster);
     }
     for (auto &a : Actors)
@@ -755,6 +775,9 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
       Units::FBSimUnit &carrier = *Actors[i];
       FBGunBurst gb;
       while (carrier.Module().Guns().TakeBurst(gb)) {
+        /* The trigger was pulled — noted before anything can go wrong with the rounds, because what
+         * `no_fire` forbids is the pull, not the bundle finding a free slot. */
+        carrier.NoteWeaponRelease();
         if (Bullets.Launch(gb)) {
           FBLogUnitScope us(carrier.LogLabel());
           FBLog::Info("gun", "BURST", {{"rounds", gb.Rounds}, {"altM", gb.AltM},
@@ -767,6 +790,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
       }
       FBStoreRelease rel;
       while (carrier.Module().Stores().TakeRelease(rel)) {
+        carrier.NoteWeaponRelease();   /* the store left the rail; a jettison is a release too */
         const FBStoreSpec *spec = FBStoreSpecOf(rel.Kind);
         if (!spec) continue;
         char name[64];

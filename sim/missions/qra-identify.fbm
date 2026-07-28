@@ -1,0 +1,55 @@
+name qra-identify-1
+timeout 300
+
+# THE IDENTIFICATION PASS AS A VERDICT (`objective identify` + `objective no_fire`, round C12). The QRA
+# shape of doc/campaigns/w5-baltic-qra.md: an unknown that does not answer, an interceptor that has to
+# put itself beside it and bring its weapons home.
+#
+# READING RULE (binding): SUCCESS/exit 0 is the pass criterion, and it must be reached with BOTH lines
+# in the verdict — `events.log` has to carry `mission IDENTIFIED` before the run ends and the RESULT
+# reason must read "objectives met". A TIMEOUT here means the pass was never flown; a FAIL means the
+# interceptor fired. The sensor half of the intercept is NOT the verdict and is read out of the log
+# instead (`radar IFF_REPLY ... reply=none`) — that is the whole point of the design decision in
+# doc/missions/verdict.md: the judge measures the GEOMETRY, never the sensor event, because producing
+# the second one would mean building a contact->unit correlation and that function's existence is the
+# identity leak the tree is shaped to prevent. A pilot that flies the box with its eyes shut scores.
+#
+# THE GEOMETRY, and why it is a stern conversion and not a formation join: viper starts 9.1 km in trail,
+# 300 m below and 500 m offset to the north, 150 kt faster. The range therefore closes, holds and opens
+# again — a PASS, not a parking position — and the objective's `hold 30` has to be earned inside that
+# window. MEASURED: inside the 2,000 m box from t=100.8 to t=151.5 (50.7 s), closest approach 454.0 m at
+# t=126.3, so the objective latches at t=130.8 with 20.7 s of window to spare. The box and the dwell are
+# [SET] per mission (there is no default, and W5 §Knowledge 2 marks the abeam box [SET] too).
+#
+# WHY THE RUN GOES TO THE TIMEOUT ANYWAY: `no_fire` is not monotone until the run is over — a trigger can
+# still be pulled at t=299 — so a monitor carrying one stays open and is answered in Finalize, exactly
+# like `survive`. The identification is already latched at t=130.8; what the remaining 169 s prove is
+# that nothing was fired in them.
+#
+# ITS SIBLING: qra-identify-tight.fbm is this file with ONE number changed (range 2000 -> 300) and
+# exits 3. Together they are the measurement that the box is a gate and not decoration.
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.90450 6.88000 7700 90.0 450       # 9.1 km in trail, 300 m below, 500 m north of the track
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode acm_hud                       # it looks, but the LOOK is not the verdict
+  set fcr_range_nm 40
+  set iff_interrogator on                    # the challenging half of the APX-113
+  wp 46.90450 7.55000 7700 450               # its own track, parallel to the subject's
+  objective identify unit subject range 2000 hold 30
+  objective no_fire
+
+unit subject
+  module f16
+  team neutral                               # unknown: neither friend nor declared enemy
+  spawn 46.90000 7.00000 8000 90.0 300
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode off
+  set iff_xpdr off                           # it cannot answer -- silence is the ambiguity, not a hint
+  wp 46.90000 7.40000 8000 300               # straight ahead; reached at t=180.6

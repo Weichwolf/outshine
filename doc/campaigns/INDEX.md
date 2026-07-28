@@ -142,13 +142,13 @@ it *blocks* (a mission cannot run or cannot be read), then how many it *degrades
 
 **Home files.** Five of these now have one, written in the foundation round (2026-07-28) — the gap is
 still open, but the *contract* it must satisfy exists and is linked in the table below. `C2`, `C3`,
-`C12` and `C0` carry a full spec; `C1` carries a bounded gap entry only, because it is step 2 of the
-owner goal and gets its own round.
+`C0` carries a full spec (and `C12` did, until it was built); `C1` carries a bounded gap entry only,
+because it is step 2 of the owner goal and gets its own round.
 
 | ID | Gap | Blocks | Degrades | Verdict |
 |---|---|---:|---:|---|
 | `C1` | **No active surface-to-air threat.** Ground units are inert: nothing emits, nothing launches, nothing shoots. `target_soft`/`target_hard` have only a structure state — **home: [`../weapons.md`](../weapons.md) Gaps, as a bounded gap entry** | **6** | 3 | **the single most blocking gap in the set.** Six campaigns lose named missions; every campaign loses the *reason* for its altitude and route decisions |
-| `C12` | **The objective vocabulary is four kinds** (`survive`, `waypoints`, `kill unit`, `kill team`). No *identify*, *escort*, *protect*, *deny*, no time window, no *do-not-fire* — **specified: [`../missions/verdict.md`](../missions/verdict.md)** (`identify`, `protect`, `no_fire`, `deny release`; grammar in [`../missions/syntax.md`](../missions/syntax.md)) | **5** | 3 | W5, O2 and O5 cannot state what they measured. O5's entire success condition is "something did not happen" |
+| ~~`C12`~~ | **CLOSED 2026-07-28.** The vocabulary is eight kinds: `identify`, `protect`, `no_fire` and `deny release` are built beside the original four — [`../missions/verdict.md`](../missions/verdict.md), grammar in [`../missions/syntax.md`](../missions/syntax.md). What stays refused (a general `deny`, `escort`, time windows, target value) is listed there with a reason each | — | — | W5/O2 can now declare the identification pass and the weapons hold, O5 the denial. O5's timing half remains a telemetry read, as its own spec says |
 | `C7` | **Only two flyable modules.** Every other aircraft in every cast list is absent | **1** (O3's period force) | 9 | blocks nothing outright because substitutions exist — but every substitution changes the answer, and each is declared in its mission header |
 | ~~`C2`~~ | **CLOSED 2026-07-28.** `time <ISO8601 Z>` is mission data, the clock binds all three clients, `FBEphemeris` sits in `core/` and `fb-gym` publishes `FBEnvironmentBlock` — [`../missions/syntax.md`](../missions/syntax.md), [`../clients/clients.md`](../clients/clients.md) | — | — | a night mission can now say so |
 | `C6` | **No live controller.** GCI is `set brief_gci`, static text fixed before the run: nothing re-vectors, nothing goes silent mid-intercept, nothing is wrong *halfway through* | **1** (O2's subject) | 6 | the difference between "blind" and **"confidently blind"** — see [`o1-bekaa-1982.md`](o1-bekaa-1982.md) §Knowledge 4, the cheapest addition that would raise O1 from a stand-in to the real experiment |
@@ -189,9 +189,9 @@ worth knowing before reading them:
    the cast table collapsed into one system, and it is the only gap whose absence removes the *reason*
    for tactical decisions rather than the ability to make them. Without it W2, W3, W4, O1, O3 and O5
    are air-to-air campaigns wearing strike names.
-2. **`C12` — three more objective kinds.** Small, self-contained, and it makes five campaigns
-   *readable*. `deny`/`protect` is checkable against the roster the `kill` objectives already use;
-   `identify` needs a definition, and W5/O2 supply one.
+2. ~~**`C12` — three more objective kinds.**~~ **BUILT 2026-07-28** (four kinds). Small, self-contained,
+   and it makes five campaigns *readable*. `deny`/`protect` is checked against the roster the `kill`
+   objectives already use; `identify` needed a definition, and W5/O2 supplied one.
 3. **`C2` — a mission clock.** One line in the format. It mislabels more artefacts than anything else
    in the list, and the renderer already has the ephemeris to consume it.
 4. **`C6` — a controller that can change or vanish during a run.** It converts O1's stand-in into the
@@ -244,19 +244,20 @@ exist**, which is why both campaigns nominate them as the first pair to build.
 | a **geometry** the interceptor must reach and hold (the abeam box) — `[SET]`, declared per mission | |
 | a rules-of-engagement state (needs `C19`) | |
 
-### What the victory condition must become (needs `C12`)
+### What the victory condition became (`C12`, built)
 
-Today neither campaign has a declarable verdict. What it must be:
-
-| Proposed objective | Fulfilled when | Violated when |
+| Objective | Fulfilled when | Violated when |
 |---|---|---|
-| `identify unit <callsign>` | this unit obtained a **discriminating sensor event** on the named unit — an IFF reply, or the declared geometry held for a declared duration | — |
-| `no_fire` | no weapon event by this unit for the whole run | any release, unless a declared exception (fired upon first) applies |
+| `identify unit <callsign> range <m> hold <s>` | this unit held the declared geometry for the declared cumulative duration | — |
+| `no_fire` | no release and no burst by this unit for the whole run | any release or burst → immediate FAIL |
 
-Both are checkable against things the runner already owns: the IFF reply lives in the sensor block,
-the geometry is the published poses the monitor already reads, and weapon events are already logged.
-Neither needs the module to be asked anything about itself — which is the condition every objective
-in the tree meets and this one must too.
+The sensor half was **deliberately dropped from the verdict**: producing "a discriminating sensor event
+on unit N" means correlating an anonymous contact back to a unit, and that function's existence is the
+identity leak these two campaigns exist to test. The IFF reply is therefore read out of `events.log`
+(`radar IFF_REPLY … reply=none`) beside the verdict rather than inside it — the full argument, and the
+price ("a pilot that flies the box with its eyes shut still scores"), is in
+[`../missions/verdict.md`](../missions/verdict.md). `sim/missions/qra-identify.fbm` is the shape both
+campaigns can now be written against; `qra-weapons-hold.fbm` is the same intercept with the hold broken.
 
 ### The eastern version is the harder one
 

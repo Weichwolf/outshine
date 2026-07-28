@@ -745,7 +745,8 @@ path agree about "reached".
 | `AnyWow` | is any gear currently carrying weight |
 | `GroundSpeedKt` | the standstill-on-the-runway SUCCESS gate |
 | `CombatIneffective` | **the shoot-down as a MISSION fact** (`FBSystemHealth::CombatEffective` negated). It belongs here and not in the physics judge, for exactly the reason that separates the two: the physics judge asks whether the airframe survived, and a jet whose engine has just been shot out is still flying and has survived nothing. Whether its SORTIE is over is a mission question. **The unit is not stopped, frozen or declared dead by it** — it keeps being integrated until the physics judge has its own say. |
-| `Roster` | `FBMissionRoster` — the other units as observed: id, faction, the one bit of their own health register. Empty for a mission without combat objectives. |
+| `ReleasedWeapon` | **this unit's own release register**, monotone over the run and filled by the owner from the queue it drains itself — what `no_fire` is judged against. Structurally the twin of the line above: the monitor has no identity and so cannot look itself up in the roster. |
+| `Roster` | `FBMissionRoster` — the other units as observed: id, faction, the one bit of their own health register, plus (round `C12`) their release bit and their planar range from THIS unit. Empty for a mission without combat objectives. |
 
 **The check order in `Tick()`:**
 
@@ -758,13 +759,22 @@ path agree about "reached".
    | `objective survive` | `FAIL "combat ineffective (survive objective lost)"` |
    | only `objective kill …` | **nothing** — this unit was not tasked with coming home, its own loss ends nothing. A simultaneous exchange is thereby a trade instead of a mutual failure: a mission design decision of the FILE, not of this class. |
 
-2. **Ground contact away from the assigned runway** → `FAIL "touchdown off the assigned runway"`. A
+2. **The two kinds that are lost the instant they are broken** (round `C12`), both reading a MONOTONE
+   register so that the conclusion is safe to latch: `no_fire` against the sample's own release bit →
+   `FAIL "weapon released (no_fire objective lost)"`, and `protect` against the roster →
+   `FAIL "protected unit lost: <id>"`, naming the one that went.
+3. **Ground contact away from the assigned runway** → `FAIL "touchdown off the assigned runway"`. A
    landing that the pure physics judge accepted (survivable) but which took place in the wrong place
    has missed the mission objective.
-3. **Waypoint progress** against its own copy of the plan, purely from the observed position.
-4. **SUCCESS needs BOTH halves**: plan complete AND all `kill` objectives met (and no `survive`
-   objective open, see below).
-5. **Timeout** (`simTimeS >= TimeoutS_`) → calls `Finalize()`.
+4. **Waypoint progress** against its own copy of the plan, purely from the observed position.
+5. **SUCCESS needs BOTH halves**: plan complete AND every objective met AND no DEFERRED objective open
+   (`survive`, `protect`, `no_fire`, `deny release` — none of them is monotone until the run is over).
+6. **Timeout** (`simTimeS >= TimeoutS_`) → calls `Finalize()`.
+
+Before all of it, and before any verdict: the `identify` dwell is accumulated from the roster's ranges
+over the elapsed tick (`NoteIdentify`, `Dwell_` index-parallel to the objectives). It is bookkeeping,
+not a verdict — and because a flown pass cannot be un-flown, it latches on FULFILMENT, which is what
+makes `identify` the one new kind that can conclude a run early.
 
 **`OnRunway` geometry** (unchanged geometry of the predecessor crash gate): project (lat,lon) onto the
 longitudinal/lateral axis of the runway (centreline from the threshold on `TrueHeadingDeg`,
@@ -806,15 +816,17 @@ the guidance, not a place the fighter has to arrive at, and reading it as an obj
 would make a decided engagement run into a timeout.
 
 **`Finalize(s, simTimeS)` — the end of the run, when it was not this unit's own clock.** `survive` is
-the one objective that CANNOT be met early — "still combat-effective" is only true when there is no
+the FIRST objective that CANNOT be met early (round `C12` adds `protect`, `no_fire` and `deny release`
+to the same class, for the same reason and through the same gate) — "still combat-effective" is only true when there is no
 run left in which one could be shot down (a missile still in the air when its shooter died is exactly
 why there is no shortcut here). A unit with `survive` therefore deliberately stays undecided while the
 engagement runs, and is asked here. Idempotent and latching like `Tick`.
 
-**`KillObjectivesMet` deliberately skips two kinds**: `Survive` (answered only in `Finalize`) and
+**`ObjectivesMet` deliberately skips two kinds**: `Survive` (answered only in `Finalize`) and
 `Waypoints` (answered by `PlanJudged_`/`PlanDone_`). If either were let into `FBObjectiveMet`, it would
 be permanently unmet — a unit declaring `kill` AND `waypoints` (the documented way to have the flight
-plan judged and still have a combat objective) could then never reach SUCCESS.
+plan judged and still have a combat objective) could then never reach SUCCESS. `Identify` is answered
+from `Dwell_` and `NoFire` from the sample; the other three go to `FBObjectiveMet` against the roster.
 
 **The SUCCESS wording** is word-for-word backwards compatible: without objectives exactly the plan's
 sentence, byte for byte (these strings are in every measured `events.log`) — `"all waypoints reached"`
@@ -957,26 +969,54 @@ and the shooter's SUCCESS are the same shot.
 | `KillUnit` | `kill unit <callsign>` | render a named unit combat-ineffective |
 | `KillTeam` | `kill team <faction>` | every unit of a faction |
 | `Waypoints` | `waypoints` | reach every `wp`/`land` line of one's own flight plan — what a unit WITHOUT objectives is implicitly judged on; declared explicitly it is the way to KEEP that when declaring other objectives |
+| `Identify` | `identify unit <callsign> range <m> hold <s>` | hold a planar range ≤ `<m>` to a named unit for a cumulative `<s>` — the flown pass, not a sensor event (`doc/missions/verdict.md`, round `C12`) |
+| `Protect` | `protect unit <callsign>` / `protect team <t>` | the named unit(s) are still combat-effective at the END of the run; any one of them lost ⇒ immediate FAIL of the DECLARING unit |
+| `NoFire` | `no_fire` | this unit released no store and fired no burst for the whole run |
+| `DenyRelease` | `deny release unit <callsign>` / `deny release team <t>` | the named unit(s) released nothing for the whole run |
+
+`Protect`/`DenyRelease` offer both target scopes without becoming two kinds each: the discriminator is
+`FBObjectiveScope { Unit, Team }` on the objective. `KillUnit`/`KillTeam` predate it and keep carrying it
+in the KIND — one mechanism where the spelling is older than the enum, one where it is not, and the
+addressing question itself is asked in exactly one place (`FBObjectiveNames`).
 
 **The observation types — deliberately minimal:**
 
 ```cpp
-struct FBUnitObservation { const char *Id; FBUnitTeam Team; bool CombatEffective; };
+struct FBUnitObservation { const char *Id; FBUnitTeam Team; bool CombatEffective;
+                           bool ReleasedWeapon; double RangeM; };
 struct FBMissionRoster   { const FBUnitObservation *Units; int Count; };
 ```
 
 `FBUnitObservation` carries **no position, no self-declaration, no module handle** — only who it is,
-whose side it is on, and whether it can still fight (`FBSystemHealth::CombatEffective`). `Id` BORROWS
-the unit's name for the tick. `FBMissionRoster` is a borrowed VIEW onto the caller's per-tick buffer (a
-container instead of a view would allocate per judged unit per tick — the client fills ONE reused
-vector, nothing allocates in the tick path).
+whose side it is on, whether it can still fight (`FBSystemHealth::CombatEffective`), whether it has ever
+let anything go, and how far away it is. `Id` BORROWS the unit's name for the tick. `FBMissionRoster` is
+a borrowed VIEW onto the caller's per-tick buffer (a container instead of a view would allocate per
+judged unit per tick — the client fills ONE reused vector, nothing allocates in the tick path).
 
-**The two predicates:**
+The two `C12` fields are of exactly the same kind as the health bit, and both are filled by the OWNER
+from registers the owner holds itself:
+
+| Field | Filled from | Default |
+|---|---|---|
+| `ReleasedWeapon` | `FBSimUnit::NoteWeaponRelease()`, called by the runner at the ONE place it drains `Stores().TakeRelease()` / `Guns().TakeBurst()` (the growth phase). **Monotone** — set-only, never cleared, so a violation cannot be un-observed | `false` |
+| `RangeM` | the planar distance between two PUBLISHED poses, aimed FROM the judged unit right before its monitor runs. Per judged unit, hence rewritten per unit per tick — and only computed at all when some unit in the mission declares an `identify` | `+inf` |
+
+Both defaults mean "nothing happened", and only the `C12` kinds read them: a mission that declares none
+of them reaches none of the branches, which is what makes the round byte-identical over the whole
+pre-round mission tree.
+
+`no_fire` asks about the DECLARING unit, and the monitor has no id with which to find itself in the
+roster (it deliberately has no identity at all). The same bit therefore also travels on
+`FBMissionMonitorSample`, beside `CombatIneffective`, filled in the same line of
+`FBSimUnit::BuildMissionSample`.
+
+**The three predicates:**
 
 | Function | Contract |
 |---|---|
-| `FBObjectiveCovers(o, id, team)` | Does this objective name that unit? The one shared primitive behind BOTH questions asked of an objective: the monitor's "is it already met" and the runner's combination rule "was this loss somebody's declared objective" (`missions/FBMissionRunner.cpp`). `Survive`/`Waypoints` never cover a unit. |
-| `FBObjectiveMet(o, roster)` | Is a KILL objective met? Every named unit has to be combat-ineffective, AND there has to be at least one — an objective against a faction to which nobody in this mission belongs is **never** met instead of trivially true, because a mission that misspells its enemy should not pass. `Survive`/`Waypoints` are NOT decided here. |
+| `FBObjectiveNames(o, id, team)` | Pure ADDRESSING: is that unit in this objective's target set? No verdict at all, which is what lets `kill` and `protect` share it while meaning opposite things. `Survive`/`Waypoints`/`NoFire` name nobody — they are about the declaring unit. |
+| `FBObjectiveCovers(o, id, team)` | Did somebody declare this unit's LOSS as their objective? Read by the runner's combination rule to decide whether a loss was expected and therefore stops deciding the run (`missions/FBMissionRunner.cpp`). **Only `KillUnit`/`KillTeam` cover.** `Protect` naming a unit is the exact opposite declaration, and letting it cover would make the protected unit's death the expected outcome — the inversion `doc/missions/verdict.md` calls the load-bearing rule and measures as an exit code (`missions/objective-covers-none.fbm`). The `switch` is exhaustive, so a future kind that forgets its case does not compile. |
+| `FBObjectiveMet(o, roster)` | The roster-decidable kinds — `KillUnit`/`KillTeam` (every named unit combat-ineffective), `Protect` (every named one still effective), `DenyRelease` (none of them released) — always with at least one named unit, so an objective against a faction to which nobody in this mission belongs is **never** met instead of trivially true, because a mission that misspells its enemy should not pass. `Survive`/`Waypoints`/`NoFire`/`Identify` are NOT decided here: the first two by construction, `NoFire` because it reads the sample rather than the roster, `Identify` because it needs a dwell no roster can carry. |
 
 `FBObjectiveStr(o)` returns the `.fbm` spelling — for logs and parser error messages.
 

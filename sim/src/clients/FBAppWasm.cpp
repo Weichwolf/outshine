@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
+#include <limits>
 #include <memory>
 #include <string>
 #include <emscripten.h>
@@ -61,6 +62,10 @@ static World::FBWorld W;
 static Units::FBActorList gActors;
 static Units::FBUnitRegistry gUnits;
 static std::vector<FBUnitObservation> gRoster;   /* reserved at boot, refilled in place every frame */
+static std::vector<const Units::FBSimUnit *> gRosterUnit;   /* index-parallel: whose pose each entry is */
+/* Only a mission that declares `identify` has anything to read a range with, and only then is one
+ * computed — the same gate the headless runner uses (missions/FBMissionRunner.cpp). */
+static bool gNeedRanges = false;
 static Units::FBSimUnit *gOwnship = nullptr;
 /* Monotonic sim clock for the monitors' sustain timers: this loop has no discrete 10 Hz mission tick,
  * it integrates whatever the rAF period gives it. */
@@ -207,11 +212,25 @@ static void frame(void) {
    * neither stops or special-cases the render loop below; a console RESULT is the whole verdict here. */
   gSimT += dt;
   gRoster.clear();
+  gRosterUnit.clear();
   for (auto &a : gActors)
-    if (a->GetKind() != Units::FBUnitKind::Weapon)
-      gRoster.push_back({a->GetName().c_str(), a->GetTeam(), a->Health().CombatEffective()});
+    if (a->GetKind() != Units::FBUnitKind::Weapon) {
+      gRoster.push_back({a->GetName().c_str(), a->GetTeam(), a->Health().CombatEffective(),
+                         a->ReleasedWeapon(), std::numeric_limits<double>::infinity()});
+      gRosterUnit.push_back(a.get());
+    }
   FBMissionRoster roster{gRoster.data(), (int)gRoster.size()};
-  for (auto &a : gActors) { FBLogUnitScope us(a->LogLabel()); a->RunMonitors(gSimT, roster); }
+  for (auto &a : gActors) {
+    FBLogUnitScope us(a->LogLabel());
+    if (gNeedRanges) {
+      Units::FBUnitPose self = a->GetPose();
+      for (size_t i = 0; i < gRoster.size(); i++) {
+        Units::FBUnitPose q = gRosterUnit[i]->GetPose();
+        gRoster[i].RangeM = FBPlanarDistM(self.LatDeg, self.LonDeg, q.LatDeg, q.LonDeg);
+      }
+    }
+    a->RunMonitors(gSimT, roster);
+  }
 
   R.SetAgl((float)gOwnship->AglM());   /* the unit's own AGL, so FBRadarAltimeter and the HUD agree */
 
@@ -389,6 +408,9 @@ int main() {
           {"waypoints", mission.Units[i].Plan.Size()}});
       gActors.push_back(std::move(unit));
     }
+    for (const auto &u : mission.Units)
+      for (const auto &o : u.Objectives)
+        gNeedRanges = gNeedRanges || o.Kind == FBObjectiveKind::Identify;
     /* The mission's CLOCK, resolved in the one place all three clients share. A file that declares
      * `time` while window.FB_SIM_UTC is set stops the boot: a sky nobody asked for is worse than no
      * picture (missions/FBClockBoot.h). */

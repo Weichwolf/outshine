@@ -13,11 +13,11 @@ loop. Everything a mission can declare is here; everything the runner does with 
 
 ## The leading rules
 
-**0 — Four contracts in this directory are specified and not built.** The mission clock `time` (`C2`,
-[syntax.md](syntax.md)), the visual sensor channel (`C3`, [`../sensors.md`](../sensors.md) §9 with its
-mission switches in [sensors.md](sensors.md)), the four new objective kinds (`C12`,
-[verdict.md](verdict.md)) and the campaign layer (`C0`, [campaign.md](campaign.md)). Each says so in its
-own section; nothing below has changed because of them.
+**0 — Two contracts in this directory are specified and not built.** The visual sensor channel (`C3`,
+[`../sensors.md`](../sensors.md) §9 with its mission switches in [sensors.md](sensors.md)) and the
+campaign layer (`C0`, [campaign.md](campaign.md)). Each says so in its own section; nothing below has
+changed because of them. The mission clock `time` (`C2`, [syntax.md](syntax.md)) and the four new
+objective kinds (`C12`, [verdict.md](verdict.md)) are BUILT.
 
 **1 — A mission describes a FLIGHT, not a jet.** Mission-wide data (name, optional runway, timeout,
 weather) plus a **list of actor blocks** (`unit <callsign>`). Every block is exactly one simulated unit

@@ -793,3 +793,27 @@ no ephemeris at all, now writes `FBEnvironmentBlock` through `FBSimUnit::UpdateS
 utc=1999-03-24T22:00:00Z sunElDeg=-37.0489` in the log, `blk_env`=1 for all 2 167 rows — and proves
 the clock is a stamp and not an input: against `payerne-airstart.fbm`, same spawn and route, the two
 telemetry files differ in **exactly that one column**.
+
+### 2026-07-28 — C12: the target vocabulary — four objective kinds, and a cover rule with an exit code
+
+`identify unit X range <m> hold <s>`, `protect unit|team`, `no_fire` and `deny release unit|team` are
+built. The whole price is what the spec said it would be — one monotone bit (`ReleasedWeapon`) and one
+float (`RangeM`) on `FBUnitObservation`, both filled by the OWNER from registers it holds itself: the
+bit at the one place the runner drains `Stores().TakeRelease()`/`Guns().TakeBurst()`, the range from the
+published poses the CPA already runs on, and only when some unit declares an `identify`. One correction
+against the estimate: `no_fire` asks about the DECLARING unit, and the monitor has no identity with
+which to find itself in the roster, so the same bit also rides on `FBMissionMonitorSample` beside
+`CombatIneffective` — a field more than counted, in the struct that already carries the twin. `identify`
+measures the GEOMETRY and not the sensor event, at the stated price and for the stated reason; the IFF
+half is beside the verdict in the log (`radar IFF_REPLY … reply=none`), never inside it.
+**`FBObjectiveCovers` returns false for all four**, and that is measured rather than asserted:
+`missions/objective-covers-none.fbm` exits 1 with `decisive=1` on the shot-down striker, and with the
+predicate patched to cover, the same file exits 0 — one line of source, two verdicts. Honest limit,
+measured too: inside a single mission a wrong `protect` cover is invisible, because the protector's own
+FAIL is decisive either way; that half is held by the exhaustive `switch` (`-Werror=switch`). Eight new
+missions, seven of them a pair ONE number apart, cover fulfilment and violation of every kind that can
+be violated: 0/3 for the identification box, 1 for the broken weapons hold, 0/1 for `protect`, 0/3 for
+`deny release` — the last pair being the one thing `kill` cannot say, since the kill succeeds in both.
+Conservation held at full strength against the pre-round binary: **260/260 telemetry files and 85/85
+`events.log` of the 85 pre-round missions byte-identical** (modulo `wallS`/`speedup`/path) at
+`--threads` 1, 2 and 4.

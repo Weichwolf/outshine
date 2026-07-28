@@ -1,0 +1,42 @@
+name qra-identify-tight-1
+timeout 300
+
+# THE BOX IS A GATE, AND THIS FILE IS THE MEASUREMENT OF IT. Byte-identical to qra-identify.fbm except
+# for ONE number: the identification box is 300 m instead of 2,000 m. Nothing else differs -- same
+# spawns, same routes, same speeds, same `no_fire` line.
+#
+# READING RULE (binding): TIMEOUT/exit 3 is the pass criterion, and `events.log` must contain NO
+# `mission IDENTIFIED` line. The reason must be "sim time exceeded the mission timeout": the interceptor
+# flew the whole pass, never fired (so `no_fire` held), and still has no verdict because the geometry it
+# was told to hold was never held. An exit 0 here means the dwell is being credited from outside the box.
+#
+# WHY 300 m IS OUT OF REACH ON THIS TRACK, and it is geometry rather than a guess: the two aircraft are
+# offset 500 m in latitude and fly parallel tracks, so the CLOSEST APPROACH IS THAT OFFSET. Measured on
+# the sibling: 454.0 m at t=126.3 (the 46 m below 500 m is the cross-track error of the route the viper
+# is flying). 300 m is 154 m inside that floor, and the run is bit-identical over --threads 1/2/4, so
+# "never" here is a measured never and not a probable one.
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.90450 6.88000 7700 90.0 450       # 9.1 km in trail, 300 m below, 500 m north of the track
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode acm_hud                       # it looks, but the LOOK is not the verdict
+  set fcr_range_nm 40
+  set iff_interrogator on                    # the challenging half of the APX-113
+  wp 46.90450 7.55000 7700 450               # its own track, parallel to the subject's
+  objective identify unit subject range 300 hold 30
+  objective no_fire
+
+unit subject
+  module f16
+  team neutral                               # unknown: neither friend nor declared enemy
+  spawn 46.90000 7.00000 8000 90.0 300
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode off
+  set iff_xpdr off                           # it cannot answer -- silence is the ambiguity, not a hint
+  wp 46.90000 7.40000 8000 300               # straight ahead; reached at t=180.6

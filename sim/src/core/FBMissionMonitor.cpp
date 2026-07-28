@@ -42,6 +42,7 @@ FBMissionMonitor::FBMissionMonitor(FBFlightPlan plan, std::vector<FBObjective> o
    * a BVR mission's `wp` line is a briefed vector, not a place the fighter has to arrive at. */
   PlanJudged_ = Objectives_.empty() || HasObjective(FBObjectiveKind::Waypoints);
   PlanDone_ = !PlanJudged_ || Plan_.Empty();
+  Dwell_.resize(Objectives_.size());
 }
 
 bool FBMissionMonitor::HasObjective(FBObjectiveKind kind) const {
@@ -54,12 +55,59 @@ bool FBMissionMonitor::HasSurviveObjective() const {
   return HasObjective(FBObjectiveKind::Survive);
 }
 
-bool FBMissionMonitor::KillObjectivesMet(const FBMissionRoster &roster) const {
-  for (const auto &o : Objectives_) {
-    /* Neither is decided against the roster, and falling through to FBObjectiveMet's "no" would leave
-     * them permanently unmet: `survive` is answered in Finalize, `waypoints` by PlanJudged_/PlanDone_. */
-    if (o.Kind == FBObjectiveKind::Survive || o.Kind == FBObjectiveKind::Waypoints) continue;
-    if (!FBObjectiveMet(o, roster)) return false;
+/* None of these is monotone during the run: an opponent's round can still be in the air, a protected
+ * unit can still be hit, and a trigger can still be pulled. Banking any of them early would let a unit
+ * keep a SUCCESS it can still lose, so a monitor carrying one stays open until Finalize. */
+bool FBMissionMonitor::HasDeferredObjective() const {
+  for (const auto &o : Objectives_)
+    switch (o.Kind) {
+      case FBObjectiveKind::Survive:
+      case FBObjectiveKind::Protect:
+      case FBObjectiveKind::NoFire:
+      case FBObjectiveKind::DenyRelease: return true;
+      case FBObjectiveKind::KillUnit:
+      case FBObjectiveKind::KillTeam:
+      case FBObjectiveKind::Waypoints:
+      case FBObjectiveKind::Identify: break;
+    }
+  return false;
+}
+
+void FBMissionMonitor::NoteIdentify(const FBMissionRoster &roster, double dtS) {
+  for (size_t i = 0; i < Objectives_.size(); i++) {
+    const FBObjective &o = Objectives_[i];
+    if (o.Kind != FBObjectiveKind::Identify || Dwell_[i].Met) continue;
+    for (int k = 0; k < roster.Count; k++) {
+      if (!FBObjectiveNames(o, roster.Units[k].Id, roster.Units[k].Team)) continue;
+      if (roster.Units[k].RangeM > o.RangeM) break;
+      Dwell_[i].DwellS += dtS;
+      /* `hold 0` is met by the first tick inside the box; the comparison is against the dwell AFTER
+       * this tick, so a hold is never satisfied by standing outside. */
+      if (Dwell_[i].DwellS >= o.HoldS) {
+        Dwell_[i].Met = true;
+        FBLog::Info("mission", "IDENTIFIED", {{"unit", o.TargetId}, {"rangeM", roster.Units[k].RangeM},
+                                              {"boxM", o.RangeM}, {"heldS", Dwell_[i].DwellS}});
+      }
+      break;
+    }
+  }
+}
+
+bool FBMissionMonitor::ObjectivesMet(const FBMissionMonitorSample &s) const {
+  for (size_t i = 0; i < Objectives_.size(); i++) {
+    const FBObjective &o = Objectives_[i];
+    switch (o.Kind) {
+      /* Not decided against the roster, and falling through to FBObjectiveMet's "no" would leave them
+       * permanently unmet: `survive` is answered in Finalize, `waypoints` by PlanJudged_/PlanDone_. */
+      case FBObjectiveKind::Survive:
+      case FBObjectiveKind::Waypoints: continue;
+      case FBObjectiveKind::Identify:  if (!Dwell_[i].Met) return false; continue;
+      case FBObjectiveKind::NoFire:    if (s.ReleasedWeapon) return false; continue;
+      case FBObjectiveKind::KillUnit:
+      case FBObjectiveKind::KillTeam:
+      case FBObjectiveKind::Protect:
+      case FBObjectiveKind::DenyRelease: if (!FBObjectiveMet(o, s.Roster)) return false; continue;
+    }
   }
   return true;
 }
@@ -98,6 +146,9 @@ std::string SuccessDetail(const std::string &planDetail, bool haveObjectives) {
 bool FBMissionMonitor::Tick(const FBMissionMonitorSample &s, double simTimeS) {
   if (Concluded()) return false;   /* latched */
 
+  NoteIdentify(s.Roster, simTimeS - PrevSimT_);
+  PrevSimT_ = simTimeS;
+
   /* Shot down — checked FIRST, because everything below assumes an aircraft that could still get there.
    * WHOSE failure it is depends on what the mission declared. */
   if (s.CombatIneffective) {
@@ -105,6 +156,19 @@ bool FBMissionMonitor::Tick(const FBMissionMonitorSample &s, double simTimeS) {
       return Conclude(FBMissionVerdict::Fail, "combat ineffective (weapon damage)");
     if (HasSurviveObjective())
       return Conclude(FBMissionVerdict::Fail, "combat ineffective (survive objective lost)");
+  }
+
+  /* The two kinds that are lost the instant they are broken. Both read a MONOTONE register of the
+   * owner's, so neither can be un-broken later and the conclusion is safe to latch here. */
+  for (const auto &o : Objectives_) {
+    if (o.Kind == FBObjectiveKind::NoFire && s.ReleasedWeapon)
+      return Conclude(FBMissionVerdict::Fail, "weapon released (no_fire objective lost)");
+    if (o.Kind != FBObjectiveKind::Protect) continue;
+    for (int k = 0; k < s.Roster.Count; k++) {
+      const FBUnitObservation &u = s.Roster.Units[k];
+      if (u.CombatEffective || !FBObjectiveNames(o, u.Id, u.Team)) continue;
+      return Conclude(FBMissionVerdict::Fail, std::string("protected unit lost: ") + u.Id);
+    }
   }
 
   /* A touchdown the physics judge accepted as survivable, but in the wrong place. */
@@ -159,8 +223,8 @@ bool FBMissionMonitor::Tick(const FBMissionMonitorSample &s, double simTimeS) {
     }
   }
 
-  /* SUCCESS needs BOTH halves; `survive` can only be answered once the run is over (Finalize). */
-  if (PlanDone_ && !HasSurviveObjective() && KillObjectivesMet(s.Roster))
+  /* SUCCESS needs BOTH halves; the deferred kinds can only be answered once the run is over (Finalize). */
+  if (PlanDone_ && !HasDeferredObjective() && ObjectivesMet(s))
     return Conclude(FBMissionVerdict::Success, SuccessDetail(PlanDetail_, !Objectives_.empty()));
 
   if (simTimeS >= TimeoutS_) return Finalize(s, simTimeS);
@@ -172,7 +236,7 @@ bool FBMissionMonitor::Finalize(const FBMissionMonitorSample &s, double simTimeS
   (void)simTimeS;
   if (Concluded()) return false;
   /* `survive` is met exactly here and only here: not combat-ineffective at the end = it survived. */
-  if (PlanDone_ && KillObjectivesMet(s.Roster) &&
+  if (PlanDone_ && ObjectivesMet(s) &&
       !(HasSurviveObjective() && s.CombatIneffective)) {
     std::string d = SuccessDetail(PlanDetail_, !Objectives_.empty());
     if (HasSurviveObjective()) d += ", survived";

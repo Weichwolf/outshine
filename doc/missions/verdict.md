@@ -118,7 +118,7 @@ callsign, the team and the one bit that its own health register publishes (`FBUn
 `core/FBObjective.h`). The runner builds it once per tick from the registers HE owns and shows it to
 every monitor — no module is asked about its opponent and none about itself.
 
-### The four new objective kinds (`C12`) — **specified, nothing built**
+### The four new objective kinds (`C12`) — **built**
 
 Five of the ten campaign specs cannot state what they measured
 ([`../campaigns/INDEX.md`](../campaigns/INDEX.md)): W5 and O2 have no *identify* and no *do-not-fire*,
@@ -159,6 +159,22 @@ both new fields are filled by the OWNER from facts the owner already holds — n
 **Net cost of the whole vocabulary: one monotone bit and one float on `FBUnitObservation`.** Both are
 observations of the same kind the health bit already is. Nothing else about the judges changes.
 
+**One correction from building it.** The price above counts the ROSTER, and the roster answers "what
+about the OTHERS". `no_fire` asks about the declaring unit itself, and the monitor does not know which
+roster entry it is — it has no id, deliberately. So the same bit also travels on
+`FBMissionMonitorSample`, next to `CombatIneffective`, which is the identical construction the health
+bit already uses (`FBSimUnit::BuildMissionSample` fills both from registers the owner holds). One bit,
+two views, no third mechanism — but it is a field more than the estimate said, and the estimate was
+counting the wrong struct rather than the wrong number.
+
+**One rule the price table did not name.** Three of the four are "deferred" in the same sense `survive`
+is: `protect`, `no_fire` and `deny release` cannot be banked early, because none of them is monotone
+until the run is over (the protectee can still be hit, the trigger can still be pulled). The SUCCESS
+gate in `Tick` therefore reads `!HasDeferredObjective()` where it read `!HasSurviveObjective()` — for a
+mission that declares none of the new kinds the two are the same predicate over the same objectives,
+which is why nothing moved. `identify` is NOT deferred: a dwell that has been flown cannot be un-flown,
+so it latches the tick it completes.
+
 #### `identify` — the design decision, and the one that was rejected
 
 Two designs exist and they are not equivalent.
@@ -171,7 +187,7 @@ Two designs exist and they are not equivalent.
 | What it measures | the ACT — you flew the pass | the RESULT — you saw it |
 | Cost of the difference | a pilot that flies the box with its eyes shut still scores | — |
 
-**Recommendation: (A), and pay the stated cost.** The sensor half is not lost — it is read out of
+**Built as (A), and the stated cost is paid.** The sensor half is not lost — it is read out of
 `events.log` (`iff IFF_REPLY`, `vis RECOGNISED`, `vis IDENTIFIED`), which is how every combat mission in
 the tree is already read ([`INDEX.md`](INDEX.md) rule 5: the file's header comment carries the binding
 reading rule). A verdict that cannot be cheated plus a measurement that can be grepped beats one
@@ -220,13 +236,46 @@ EXPECTED and therefore non-decisive. `Survive`, `Waypoints`, `Identify`, `Protec
 `DenyRelease` **never** cover a unit; only `KillUnit`/`KillTeam` do. A `protect` declaration must not
 make the protected unit's loss expected — it is the exact opposite of a declaration that it should die.
 
-**Acceptance:** the regression gate at full strength — all `telemetry*.csv` of the **84** existing
-`sim/missions/*.fbm` byte-identical, all `events.log` byte-identical modulo `wallS`/`speedup`, the
-determinism fingerprint unchanged over `--threads 1/2/4`. Same bar as `C2`, and reachable for the same
-reason: nothing new is written unless something new is declared.
+**And it is measured as an exit code, not as a reading of the source.**
+`missions/objective-covers-none.fbm` is built for nothing else: a defender that names the striker twice
+(`identify` + `deny release`) and declares no `kill`, a striker that declares `survive` and is then shot
+down. Its loss is covered by nobody, so its own FAIL decides the run — exit 1 at t=70.7 with
+`decisive=1` on the STRIKER's `UNIT_RESULT`. **Counterfactual, run:** with `FBObjectiveCovers` patched
+to return `FBObjectiveNames` for the C12 kinds, the same file exits **0** ("objectives met, survived") —
+the loss becomes expected, the run runs to the timeout and the defender is credited with a denial it
+only achieved because the unit it was denying is dead. One line of source, two verdicts.
 
-**When it is built,** [`../core.md`](../core.md) §5.5 gains the four `FBObjectiveKind` values and the two
-new `FBUnitObservation` fields; that file is the type reference and is updated in the same round.
+The same counterfactual over `escort-protect-lost.fbm` returns **exit 1 either way**, and that is worth
+recording rather than hiding: inside a single mission a wrong `protect` cover is NOT observable, because
+the protector's own immediate FAIL is decisive whatever the protectee's loss counts as. `protect`'s half
+of the rule is therefore carried by the exhaustive `switch` (a new kind that forgets a case does not
+compile, `-Werror=switch`) plus the two kinds that CAN be isolated, not by a mission of its own.
+
+**Acceptance, measured (round `C12`):** the regression gate at full strength against the pre-round
+binary — **260/260** `telemetry*.csv` of the **85** pre-round `sim/missions/*.fbm` byte-identical and
+**85/85** `events.log` identical modulo `wallS`/`speedup`/`--out` path, at `--threads` **1, 2 and 4**
+(three full passes, all three identical). The eight new missions are deterministic over the same three
+thread counts (285/285 telemetry files, 93/93 logs between the 1- and the 4-thread pass). Same bar as
+`C2`, and green for the same reason: nothing new is written unless something new is declared.
+
+[`../core.md`](../core.md) §5.5 carries the four `FBObjectiveKind` values, the `FBObjectiveScope`
+discriminator and the two new `FBUnitObservation` fields; that file is the type reference.
+
+#### The eight missions the round left behind
+
+Seven of them are two files apart by ONE number, which is the tree's usual way of turning a rule into a
+measurement; the eighth is the cover proof above.
+
+| Mission | Exit | What it measures |
+|---|---|---|
+| `qra-identify.fbm` | 0 | the pass: inside the 2,000 m box from t=100.8 to t=151.5, closest approach 454.0 m, `mission IDENTIFIED` at t=130.8 with `heldS=30.1`; `no_fire` held to the timeout. The sensor half is beside it in the log (`radar IFF_REPLY … reply=none`, t=1.9) and is deliberately NOT the verdict |
+| `qra-identify-tight.fbm` | 3 | the same file with `range 300`: the parallel tracks are offset 500 m, so the box is never entered, zero `IDENTIFIED` lines, TIMEOUT |
+| `qra-weapons-hold.fbm` | 1 | the same intercept, armed, briefed pickle at t=20: `sms RELEASE` t=20.4 → FAIL "weapon released (no_fire objective lost)" at t=20.6, 110.2 s before the identification would have latched |
+| `escort-protect.fbm` | 0 | CAP kills the inbound striker at t=54.3, 17.7 s before its CCIP release point; the installation lives; `protect` answered in `Finalize` |
+| `escort-protect-lost.fbm` | 1 | the same file with the CAP's pickle 15 s early — refused as `out_of_context` ("target beyond Raero", 31.6 km vs 26.9 km), so the striker releases at t=72.0, the depot dies at t=82.3 and the CAP FAILs at t=82.4, `decisive=1` |
+| `deny-release.fbm` | 0 | the striker is killed at t=70.6; its own briefed pickle at t=90 is refused by its own SMS (`CMD_ACK … reason=system_failed`) — the denial is earned inside the simulation |
+| `deny-release-broken.fbm` | 3 | the same file with the striker's pickle at t=15: the kill still succeeds, `survive` still holds, and the run is still not a success. This is the one thing `kill` cannot say |
+| `objective-covers-none.fbm` | 1 | the cover rule, above |
 
 ### Two teams with opposed objectives — a duel has a winner
 
@@ -292,14 +341,18 @@ the VERDICT stays with the monitor.
 | Combination in the runner | built; the expected-loss rule is declaration-based |
 | Waypoint passage rule | built and measured (`test-wp-inside-turn.fbm`, 15.1 s `by=passed`) |
 | Landing standstill rule | built; margins 0 m longitudinal / 15 m lateral |
-| The four new objective kinds (`C12`) | **nothing built.** Contract in the Spec above |
+| The four new objective kinds (`C12`) | **built.** `identify`/`protect`/`no_fire`/`deny release` in `core/FBObjective.h` + `core/FBMissionMonitor`, the two roster fields filled by the runner (`missions/FBMissionRunner.cpp`) and by the browser loop; eight missions, one per case; the pre-round tree byte-identical at `--threads 1/2/4` |
+| `FBObjectiveCovers` for the C12 kinds | built as an exhaustive `switch` returning false, and measured as an exit code (`missions/objective-covers-none.fbm`, 1 correct / 0 under the patched counterfactual) |
 
 ## Gaps
 
 | Gap | Detail |
 |---|---|
-| **`C12` — only four objective kinds** | `survive`, `waypoints`, `kill unit`, `kill team`. The four replacements (`identify`, `protect`, `no_fire`, `deny release`) are **specified above and not built**; what stays out of the vocabulary even then (a general `deny`, time windows, `escort`, target value) is listed there with a reason each |
-| Still no time window and no area objective | deliberate, see above |
+| Still no time window and no area objective | deliberate, see above. A window is a modifier on every kind, so it multiplies the grammar; O5's time-on-target slip stays a telemetry read |
+| Nothing out of the C12 refusal list moved | a general `deny`, `escort`, target value, `no_fire` with an exception — each still refused for the reason in the Spec, not for lack of time |
+| `identify` carries no ASPECT | a real identification pass is abeam, not astern, and the bearing would be free from the same poses. Left out because no source in the set gives an aspect (a second `[SET]` number would multiply the arbitrariness). One-line extension when one turns up |
+| `no_fire` does not reject a trailing token | `objective no_fire tomorrow` parses as `no_fire`, exactly as `objective survive tomorrow` has always parsed as `survive`. Making one keyword strict would be an asymmetry; making all of them strict is a separate, format-wide decision |
+| A `protect` cover cannot be isolated in one mission | measured, see the counterfactual above: the protector's own FAIL is decisive whatever the protectee's loss counts as. The rule is held by the exhaustive `switch` and by the two kinds that can be isolated |
 | `survive` produces TIMEOUT, not FAIL, when the objectives are unmet at the end | the run has no verdict class for "survived but achieved nothing" |
 | Runway footprint margin is fixed | 0 m longitudinal / 15 m lateral; the mission cannot declare it, and the `runway` line carries no width |
 | A trade reports the FAIL of the first unit | deliberate (no invented winner), but the line does not say "trade" as such |

@@ -89,7 +89,7 @@ unit two
 | Actor  | `set`     | `key value...` | system state as mission data — the runner only parses the KV list and hands it, inside the spawn IC window, to `FBModule::ApplySetup(key, value)` of THIS unit; the MODULE interprets its own keys. An unknown key is a runtime FAIL (exit 1, `SET_REJECTED` event), not a parse error. The key sets live with their topics: [`sensors.md`](sensors.md), [`avionics.md`](avionics.md), [`weapons.md`](weapons.md), [`combat.md`](combat.md). |
 | Actor  | `wp`      | lat lon altM speedKt | an `FBWaypoint` of type `Enroute`, in THIS unit's flight plan |
 | Actor  | `land`    | — | an `FBWaypoint` of type `Land` AT the runway threshold (needs the mission-wide `runway` line) |
-| Actor  | `objective` | `survive` \| `waypoints` \| `kill unit <callsign>` \| `kill team <team>` | COMBAT OBJECTIVE of this unit (`core/FBObjective.h`) — repeatable, see [`verdict.md`](verdict.md). `kill unit` must name a unit OF THIS MISSION (forward reference allowed, checked at end of file) and not itself; `objective waypoints` needs `wp`/`land` lines above it. A doubly declared objective is a parse error. **Four further kinds are specified and not built (gap `C12`): `identify`, `protect`, `no_fire`, `deny release` — grammar below, semantics in [`verdict.md`](verdict.md).** |
+| Actor  | `objective` | `survive` \| `waypoints` \| `kill unit <callsign>` \| `kill team <team>` \| `identify unit <callsign> range <m> hold <s>` \| `protect unit\|team <x>` \| `no_fire` \| `deny release unit\|team <x>` | COMBAT OBJECTIVE of this unit (`core/FBObjective.h`) — repeatable, see [`verdict.md`](verdict.md). Every unit-scoped target must name a unit OF THIS MISSION (forward reference allowed, checked at end of file) and not itself; `objective waypoints` needs `wp`/`land` lines above it. A doubly declared objective is a parse error. The last four are round `C12`; their grammar is below. |
 
 `name`, `timeout` and at least one `unit` block are mandatory; per block `module` and `spawn` are
 mandatory. `runway`, `wx` and `time` are optional (`runway` only needed for `spawn threshold`/`land`/the
@@ -198,8 +198,8 @@ before and after the move, in SVS and in EVS.
 
 ### The four new objective kinds (`C12`) — grammar only
 
-**Status: specified, nothing built.** The semantics, the check order and the conservation argument are
-in [`verdict.md`](verdict.md); here only what the parser must accept.
+**Status: built.** The semantics, the check order and the conservation argument are
+in [`verdict.md`](verdict.md); here only what the parser accepts.
 
 ```
 objective identify unit <callsign> range <metres> hold <seconds>
@@ -217,8 +217,13 @@ objective deny release team <friendly|hostile|neutral>
 | Named units are resolved against the WHOLE cast at end of file | same rule as `kill unit`; an objective naming nobody is a parse error, never a silently unmeetable objective |
 | A unit may not `identify`, `protect` or `deny release` **itself** | `protect` on oneself is `survive` and has a spelling already; `identify`/`deny` on oneself are meaningless |
 | `range` > 0, `hold` ≥ 0, both mandatory on `identify` | there is no default box — it is `[SET]` per mission and must be visible in the file (W5 §Knowledge 2) |
-| Exact duplicates are a parse error | unchanged rule; two `identify` lines on the same unit with different numbers are NOT duplicates and are legal (a coarse pass and a close pass) |
-| `no_fire` takes no argument | it is about this unit only |
+| Exact duplicates are a parse error | unchanged rule; two `identify` lines on the same unit with different numbers are NOT duplicates and are legal (a coarse pass and a close pass). Measured: a file with both `range 2000 hold 30` and `range 500 hold 5` runs, latches the coarse one and TIMEOUTs on the close one |
+| `no_fire` takes no argument | it is about this unit only. Note that a trailing token is IGNORED rather than refused, exactly as it is on `survive` — the parser's laxness here is format-wide and older than this round ([`verdict.md`](verdict.md) Gaps) |
+
+The refusals have three fixtures in `missions/negative/`: `objective-self-protect.fbm` (a unit naming
+itself), `objective-identify-unknown.fbm` (a target nobody in the cast answers to) and
+`objective-identify-nobox.fbm` (`range 0`). Each states its required exit code and message in its own
+header; the table is in that directory's `README.md`.
 
 ### Parse errors versus runtime FAIL
 
@@ -230,7 +235,10 @@ non-file-safe callsign, two `spawn` lines in one block, `spawn threshold`/`land`
 `[A-Za-z0-9_-]` or is 16 characters or longer (it travels in a fixed PPLI field), two units at the same
 (name, position), and — checked at end of file, like a `kill unit` forward reference — **a declared
 flight with no unit at position 1**. Every piece of formation behaviour is defined against the lead,
-so a flight without one is not a flight.
+so a flight without one is not a flight. For `objective`: an unknown kind word, a missing or non-`unit`/
+`team` scope word, an `identify` without `range`/`hold` or with `range <= 0` / `hold < 0`, a `deny`
+without `release`, a unit-scoped target naming ITSELF, an exact duplicate — and, at end of file, a
+unit-scoped target naming nobody in the cast.
 
 A `module` that `FBModuleRegistry` does not know, or an unknown `set` key, is a runtime FAIL of the
 runner (not of the parser).
@@ -287,13 +295,12 @@ the same order.
 | Tick order | as specified; the gym parallelises only the STEP phase and is bit-identical over `--threads 1..4` |
 | Consistency validation | today exactly one rule: explicit spawn altitude below resolved ground |
 | `time` line | **built** (`C2`). Parser + `core/FBCivilTime.h`; precedence and the flag collision in `missions/FBClockBoot.h`; pushed per actor per decision tick (`FBSimUnit::UpdateSolar` → `FBModule::SetSolar` → `FBEnvironmentBlock`) by the runner and by the WASM frame loop. Reference mission `missions/clock-night-payerne.fbm`, the two refusal fixtures in `missions/negative/` |
-| The four new objective kinds (`C12`) | **not built.** Grammar above, semantics in [`verdict.md`](verdict.md) |
+| The four new objective kinds (`C12`) | **built.** Parser + `FBObjectiveScope` in `core/FBObjective.h`; unit-scoped targets resolved against the whole cast at end of file, three refusal fixtures in `missions/negative/`; eight reference missions in `sim/missions/` ([`verdict.md`](verdict.md)) |
 
 ## Gaps
 
 | Gap | Detail |
 |---|---|
-| **`C12` — the objective vocabulary is four kinds** | five campaigns cannot state what they measured. Grammar above, contract in [`verdict.md`](verdict.md) |
 | `FBWaypointType` declares four values, the parser produces two | `Takeoff`, `Enroute`, `Approach`, `Land` are declared in `core/FBFlightPlan.h`; `wp` always produces `Enroute` and `land` always `Land`. There is no syntax for `Takeoff` or `Approach`. |
 | Runway width is unused | the `runway` line carries no width; the monitor falls back to a default footprint margin |
 | Only one runway per mission | `FBRunwayPlateauElevation` can already hold several (start + a future `dest_runway`), the format declares only one |

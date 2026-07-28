@@ -161,6 +161,16 @@ carry the same `unit=` attribution as that unit.
 - `sim/missions/duel-asym-probe.fbm` — F-16 vs MiG-29, one round each, both fire control computers, both
   RWRs, both cross-sections. A SMOKE TEST for the asymmetry and expressly not a campaign.
 
+- **The `C12` objective set, eight files, seven of them a PAIR one number apart** ([`verdict.md`](verdict.md)
+  has the table with every measured tick): `qra-identify.fbm` / `qra-identify-tight.fbm` (the
+  identification box as a gate: `range 2000` latches at t=130.8, `range 300` never does, exits 0 and 3),
+  `qra-weapons-hold.fbm` (the same intercept, armed: FAIL at t=20.6, two ticks after the release),
+  `escort-protect.fbm` / `escort-protect-lost.fbm` (the CAP's briefed pickle at t=20 versus t=5 — in
+  zone versus refused as out of zone, exits 0 and 1), `deny-release.fbm` /
+  `deny-release-broken.fbm` (the raider's pickle at t=90 versus t=15: the kill succeeds in BOTH and only
+  one of them is a success, exits 0 and 3), and `objective-covers-none.fbm`, which exists only to keep
+  the C12 kinds from ever COVERING a loss and whose counterfactual is a different exit code.
+
 ## State
 
 | Item | State |

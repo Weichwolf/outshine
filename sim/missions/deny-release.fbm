@@ -1,0 +1,59 @@
+name deny-release-1
+timeout 280
+
+# `objective deny release` — THE ONE THING `kill` CANNOT SAY (round C12). O5's success condition is
+# something NOT happening: the ordnance did not reach the target. Killing the raider is not the same
+# statement — a raider killed one second after the bombs are away is a dead raider and a dead target.
+# This file and its sibling deny-release-broken.fbm are that difference, ONE number apart.
+#
+# READING RULE (binding): SUCCESS/exit 0 is the pass criterion, and the RESULT reason must be
+# "objectives met, survived". `events.log` must contain NO `sms RELEASE unit=striker` line anywhere. The
+# denial is decided in Finalize, never earlier — the striker could pickle at t=279 — so an early SUCCESS
+# would itself be the defect.
+#
+# THE CHAIN, MEASURED: head-on at 8,000 m, 53 km apart, closing at ~630 m/s (intercept-aim120.fbm's
+# geometry, unchanged). The defender pickles at t=20.4 at 42 km, the round detonates 0.33 m from the
+# striker at t=70.6, and every one of the striker's systems fails in that tick. Its own briefed pickle is
+# at t=90: the HOTAS command is issued (`cmd CMD_ISSUE ... target=weapon_release`, t=90.0) and REFUSED by
+# its own SMS 0.6 s later — `cmd CMD_ACK ... outcome=rejected reason=system_failed`. The denial is
+# therefore EARNED inside the simulation, not arranged by the clock: the striker tried and could not.
+#
+# WHY THE DEFENDER ALSO DECLARES `kill unit striker`: so that the striker's loss is somebody's declared
+# objective and does not decide the run (the expected-loss rule, doc/missions/verdict.md). Note what the
+# two objectives do NOT share: in deny-release-broken.fbm the kill still succeeds and the denial does
+# not, and that run exits 3.
+#
+# A JETTISONING STRIKER WOULD COUNT AS HAVING RELEASED. That is a named false negative of the kind
+# (doc/missions/verdict.md) and not an oversight: the register behind it is the runner's own release
+# queue, which cannot tell a delivery from a panic jettison, and inventing that distinction in the judge
+# would be inventing knowledge.
+
+unit defender
+  team friendly
+  module f16
+  spawn 46.90000 6.60000 8000 90.0 400
+  set gear up
+  set fuel_pct 60
+  set fcr_mode acm_hud
+  set fcr_range_nm 40
+  set store 3 aim120
+  set store 7 aim120
+  set brief_master_arm arm
+  set brief_release_s 20                     # ~22 nm head-on: inside the launch zone
+  wp 46.90000 7.15000 8000 400
+  objective kill unit striker
+  objective deny release unit striker
+  objective survive
+
+unit striker
+  team hostile
+  module f16
+  spawn 46.90000 7.30000 8000 270.0 400
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set store 3 mk82
+  set store 7 mk82
+  set brief_master_arm arm
+  set brief_release_s 90                     # <<< THE ONE NUMBER that differs from deny-release-broken
+  wp 46.90000 6.75000 8000 400

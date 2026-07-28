@@ -1,0 +1,53 @@
+name qra-weapons-hold-1
+timeout 300
+
+# WEAPONS HOLD, BROKEN — the violation half of `objective no_fire` (round C12). The same QRA intercept as
+# qra-identify.fbm, on the same track, against the same silent unknown; the interceptor is ARMED and its
+# brief contains a pickle at t=20.
+#
+# READING RULE (binding): FAIL/exit 1 is the pass criterion, and the reason must be
+# "weapon released (no_fire objective lost)" with `decisive=1` on the viper's UNIT_RESULT. The run has to
+# END there — a broken hold is decided the tick it is broken, because the register behind it is monotone
+# and nothing later can un-fire the round. An exit 0/3 here means a release was not observed, which is
+# the one failure mode that would make `no_fire` unfalsifiable.
+#
+# MEASURED: `sms RELEASE` at t=20.4 (station 3, aim120), the release drains into the runner's growth
+# phase at the end of the tick that queues it and the monitor reads the bit on the next one — FAIL at
+# t=20.6, i.e. 110.2 s before the identification pass this interceptor was ALSO briefed for would have
+# latched (t=130.8 in qra-identify.fbm). That ordering is the point of the file: the ROE decides the run
+# long before the task does, and the `identify` line is left in deliberately so the record shows an
+# objective that was still reachable when the run was thrown away.
+#
+# WHAT `no_fire` DOES NOT SAY: nothing about being fired upon first. That exception is deliberately not
+# in the vocabulary (doc/missions/verdict.md) because "fired upon" is an RWR WARNING, not a fact, and a
+# verdict that depends on what a unit heard is a verdict that can be talked out of. A mission that wants
+# the exception states it in its own header, as a reading rule, and this one has no exception at all.
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.90450 6.88000 7700 90.0 450       # qra-identify.fbm's geometry, unchanged
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode acm_hud
+  set fcr_range_nm 40
+  set iff_interrogator on
+  set store 3 aim120
+  set store 7 aim120
+  set brief_master_arm arm
+  set brief_release_s 20                     # <<< THE LINE qra-identify.fbm does not have
+  wp 46.90450 7.55000 7700 450
+  objective identify unit subject range 2000 hold 30
+  objective no_fire
+
+unit subject
+  module f16
+  team neutral
+  spawn 46.90000 7.00000 8000 90.0 300
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode off
+  set iff_xpdr off
+  wp 46.90000 7.40000 8000 300

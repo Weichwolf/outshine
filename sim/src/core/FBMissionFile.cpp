@@ -199,34 +199,67 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
     } else if (kw == "objective") {
       /* `kill` takes an EXPLICIT unit/team discriminator rather than guessing from the next word: a
        * callsign is allowed to be "hostile", and that must not silently change what the line means. */
+      const std::string kinds = "'objective' needs survive|waypoints|kill|identify|protect|no_fire|deny";
       std::string what;
-      if (!(ls >> what)) return fail("'objective' needs survive|waypoints|kill");
+      if (!(ls >> what)) return fail(kinds);
       FBObjective o;
+      /* The unit/team discriminator of every kind that offers both, read the same way for all of them:
+       * a callsign may legally be spelled `hostile`, so the scope word is never guessed. */
+      auto readTarget = [&](const std::string &line) -> bool {
+        std::string scope, target;
+        if (!(ls >> scope) || !(ls >> target)) return fail(line);
+        if (scope == "unit") {
+          o.Scope = FBObjectiveScope::Unit;
+          o.TargetId = target;
+          if (target == unit->Id) return fail("unit '" + unit->Id + "' cannot have itself as a target");
+        } else if (scope == "team") {
+          o.Scope = FBObjectiveScope::Team;
+          if (!FBUnitTeamFromString(target.c_str(), o.TargetTeam))
+            return fail("'" + what + "' team needs friendly|hostile|neutral");
+        } else {
+          return fail(line);
+        }
+        return true;
+      };
       if (what == "survive") {
         o.Kind = FBObjectiveKind::Survive;
       } else if (what == "waypoints") {
         o.Kind = FBObjectiveKind::Waypoints;
         if (unit->Plan.Empty()) return fail("'objective waypoints' needs 'wp'/'land' lines above it");
       } else if (what == "kill") {
-        std::string scope, target;
-        if (!(ls >> scope) || !(ls >> target))
-          return fail("'objective kill' needs 'unit <callsign>' or 'team <faction>'");
-        if (scope == "unit") {
-          o.Kind = FBObjectiveKind::KillUnit;
-          o.TargetId = target;
-          if (target == unit->Id) return fail("unit '" + unit->Id + "' cannot have itself as a target");
-        } else if (scope == "team") {
-          o.Kind = FBObjectiveKind::KillTeam;
-          if (!FBUnitTeamFromString(target.c_str(), o.TargetTeam))
-            return fail("'objective kill team' needs friendly|hostile|neutral");
-        } else {
-          return fail("'objective kill' needs 'unit <callsign>' or 'team <faction>'");
-        }
+        if (!readTarget("'objective kill' needs 'unit <callsign>' or 'team <faction>'")) return false;
+        o.Kind = o.Scope == FBObjectiveScope::Unit ? FBObjectiveKind::KillUnit : FBObjectiveKind::KillTeam;
+      } else if (what == "identify") {
+        /* No default box: it is [SET] per mission and has to be visible in the file. */
+        o.Kind = FBObjectiveKind::Identify;
+        std::string scope, target, rangeKw, holdKw;
+        if (!(ls >> scope) || !(ls >> target) || scope != "unit")
+          return fail("'objective identify' needs 'unit <callsign> range <m> hold <s>'");
+        o.TargetId = target;
+        if (target == unit->Id) return fail("unit '" + unit->Id + "' cannot have itself as a target");
+        if (!(ls >> rangeKw >> o.RangeM) || rangeKw != "range" || o.RangeM <= 0.0)
+          return fail("'objective identify' needs 'range <metres>' with a positive value");
+        if (!(ls >> holdKw >> o.HoldS) || holdKw != "hold" || o.HoldS < 0.0)
+          return fail("'objective identify' needs 'hold <seconds>' with a non-negative value");
+      } else if (what == "protect") {
+        o.Kind = FBObjectiveKind::Protect;
+        if (!readTarget("'objective protect' needs 'unit <callsign>' or 'team <faction>'")) return false;
+      } else if (what == "no_fire") {
+        o.Kind = FBObjectiveKind::NoFire;
+      } else if (what == "deny") {
+        /* `release` is a word of its own so that a later `deny <something-else>` is a new spelling and
+         * not a re-reading of this one. */
+        std::string sub;
+        if (!(ls >> sub) || sub != "release")
+          return fail("'objective deny' needs 'release unit <callsign>' or 'release team <faction>'");
+        o.Kind = FBObjectiveKind::DenyRelease;
+        if (!readTarget("'objective deny release' needs 'unit <callsign>' or 'team <faction>'")) return false;
       } else {
-        return fail("'objective' needs survive|waypoints|kill");
+        return fail(kinds);
       }
       for (const auto &have : unit->Objectives)
-        if (have.Kind == o.Kind && have.TargetId == o.TargetId && have.TargetTeam == o.TargetTeam)
+        if (have.Kind == o.Kind && have.Scope == o.Scope && have.TargetId == o.TargetId &&
+            have.TargetTeam == o.TargetTeam && have.RangeM == o.RangeM && have.HoldS == o.HoldS)
           return fail("unit '" + unit->Id + "' declares '" + FBObjectiveStr(o) + "' twice");
       unit->Objectives.push_back(std::move(o));
     } else if (kw == "set") {
@@ -252,11 +285,14 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
     /* Resolved against the WHOLE cast, not the blocks seen so far, or a duel would be an ordering
      * puzzle. A target that does not exist is a mission that can never be won: a parse error. */
     for (const auto &o : u.Objectives) {
-      if (o.Kind != FBObjectiveKind::KillUnit) continue;
+      bool byName = o.Kind == FBObjectiveKind::KillUnit || o.Kind == FBObjectiveKind::Identify ||
+                    ((o.Kind == FBObjectiveKind::Protect || o.Kind == FBObjectiveKind::DenyRelease) &&
+                     o.Scope == FBObjectiveScope::Unit);
+      if (!byName) continue;
       bool found = false;
       for (const auto &other : out.Units) found = found || other.Id == o.TargetId;
       if (!found)
-        return failFile("unit '" + u.Id + "': 'objective kill unit " + o.TargetId + "' names no unit "
+        return failFile("unit '" + u.Id + "': 'objective " + FBObjectiveStr(o) + "' names no unit "
                         "in this mission");
     }
     /* A flight without a lead is not a flight: every piece of formation behaviour — the station a
