@@ -1,5 +1,6 @@
 /* The browser client: a live in-process F-16 flying the WebGPU engine, camera on the aircraft's eye,
  * FBWorld streaming z14 fb-tiles around it. */
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -14,6 +15,7 @@
 #include "FBMissionBoot.h"
 #include "FBMissionMonitor.h"
 #include "FBWeatherBoot.h"
+#include "FBCloudDensity.h"
 #include "FBElevationProvider.h"
 #include "FBEphemeris.h"
 #include "FBGeodesy.h"
@@ -244,6 +246,17 @@ static void frame(void) {
   Render::SunPos(St.lat, St.lon, utc, &hs.Env.SunElDeg, &hs.Env.SunAzDeg);
   Render::MoonPos(St.lat, St.lon, utc, &hs.Env.MoonElDeg, &hs.Env.MoonAzDeg, &hs.Env.MoonPhase);
   R.SetSkyClock((double)utc);
+  /* Same seam as the native oracle: the CLIENT samples the weather where the camera is and hands the
+   * renderer the resulting decks — the renderer never sees a provider. core/FBCloudDensity.h. */
+  if (gWeather) {
+    const FBCloudSky sky = FBCloudSkyFromWeather(*gWeather, p.LatDeg, p.LonDeg, gSimT);
+    R.SetCloudSky(sky);
+    hs.Env.CloudLow = sky.Deck[0].Cover;
+    hs.Env.CloudMid = sky.Deck[1].Cover;
+    hs.Env.CloudHigh = sky.Deck[2].Cover;
+    hs.Env.CloudCover = std::max(sky.Deck[0].Cover, std::max(sky.Deck[1].Cover, sky.Deck[2].Cover));
+    hs.Env.CloudBaseAglM = sky.Deck[0].Cover > 0.0f ? sky.Deck[0].BaseM : 0.0f;
+  }
   R.SetHud(hs, true);
 
   double cp_d = emscripten_get_now();   /* end: pose/HUD/ephemeris */

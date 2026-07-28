@@ -13,6 +13,10 @@
 #include "FBLog.h"
 #include "FBLogSinks.h"
 #include "FBFdm.h"
+#include "FBCloudDensity.h"
+#include "FBFixedWeather.h"
+#include "stages/FBCloudDensityWGSL.h"   /* the shader half of the density function, for --cloudcheck */
+#include <algorithm>
 #include <cerrno>
 #include <cmath>
 #include <cstdio>
@@ -38,9 +42,11 @@ void Usage(const char *argv0) {
   fprintf(stderr,
           "usage: %s [--lat D] [--lon D] [--ground M] [--agl M] [--view KM] [--yaw DEG] [--pitch DEG]\n"
           "          [--albedo osm|photo] [--utc SECS] [--cloud C] [--cloudq Q] [--moonscale S] [--moon PATH]\n"
-          "          [--base URL] [--seconds N] [--interval M] [--out DIR]\n"
-          "  --cloudlab [--labx PARAM] [--laby PARAM]  render an N x M cloud-parameter grid to ONE PNG.\n"
-          "    PARAM in {coverage,density,extinct,suni,detail}; fixed cloud-bank camera, no terrain.\n"
+          "          [--base URL] [--seconds N] [--interval M] [--out DIR] [--wx BLOB]\n"
+          "  --wx BLOB  the SCREENSHOT venue's weather (an FBWX blob). A mission carries its own in its\n"
+          "    `wx` line (missions/FBWeatherBoot.h), so --wx with --mission is rejected, not ignored.\n"
+          "  --cloudcheck  evaluate core/FBCloudDensity.h and its WGSL twin over a sample set on the GPU\n"
+          "    and print the largest disagreement; exit 0 iff it is inside the stated tolerance.\n"
           "  --mission FILE [--timeout N] [--interval S]  ground-spawn a .fbm mission (doc/mission-format.md)\n"
           "    on its runway threshold and run headless (JSBSim + the module's FBPilot phase machine, NO renderer/\n"
           "    GPU device unless --interval > 0, in which case PNGs are written every --interval sim-\n"
@@ -50,125 +56,172 @@ void Usage(const char *argv0) {
           argv0);
 }
 
-/* A lab parameter's sweep range. */
-static void LabRange(const std::string &p, float &lo, float &hi) {
-  if (p == "coverage") { lo = 0.30f; hi = 0.82f; }
-  else if (p == "density") { lo = 2.0f; hi = 10.0f; }
-  else if (p == "extinct") { lo = 0.03f; hi = 0.16f; }
-  else if (p == "suni") { lo = 6.0f; hi = 40.0f; }
-  else if (p == "detail") { lo = 0.4f; hi = 2.6f; }
-  else { lo = 0.0f; hi = 1.0f; }
-}
+/* --cloudcheck: the acceptance test of the SHARED cloud density function. The same sample set goes
+ * through core/FBCloudDensity.h on the CPU and through its WGSL transliteration on the GPU; the largest
+ * disagreement is printed. Not a picture — the point of a shared function is that it is a NUMBER a
+ * sensor could read, so the proof has to be numeric. */
+static constexpr double kCloudCheckTolerance = 1.0e-4;   /* [SET] f32 round-off incl. possible FMA fusion */
 
-/* A cols x rows grid of parameter variants in ONE PNG: fixed camera, no terrain streaming. */
-int RunCloudLab(double lat, double lon, time_t utc, double cloudQ, double ground, double aglM,
-                const std::string &labx, const std::string &laby, const std::string &moonPath,
-                const std::string &outDir, bool singleCell = false, float cov0 = 0.6f,
-                float den0 = 5.0f, float det0 = 1.3f, double pitchOverrideDeg = -999.0,
-                double camBelowM = -5000.0, double bankKm = 12.0, int frames = 24) {   /* default: view the deck from ABOVE (AC7 vantage) */
-  const int W = 1280, H = 720;
-  const double kPi2 = kPi;   /* was a 15-digit truncation of the same pi (core/FBUnits.h) */
-  /* FRONTAL framing, below the deck base and aimed at a bank ~12 km ahead: the silhouette reads
-   * face-on instead of grazing the deck edge-on. Deck-relative, so it is deterministic across runs. */
-  const double deckBaseAGL = 1500.0, deckTopAGL = 4100.0, deckMidAGL = 0.5 * (deckBaseAGL + deckTopAGL);
-  const double camAGL = deckBaseAGL - camBelowM, bankDistM = bankKm * 1000.0;
-  (void)aglM;
-  double altMSL = ground + camAGL;
-  double eye[3];
-  FBGeoToEcef(lat, lon, altMSL, eye);
-  FlightBox::FBState hs{};
-  hs.Platform.AltM = (float)altMSL; hs.Platform.GsMs = 220.f; hs.Platform.TasMs = 220.f; hs.Platform.Mode = FlightBox::FBMode::Manual;
-  FlightBox::Render::SunPos(lat, lon, utc, &hs.Env.SunElDeg, &hs.Env.SunAzDeg);
-  FlightBox::Render::MoonPos(lat, lon, utc, &hs.Env.MoonElDeg, &hs.Env.MoonAzDeg, &hs.Env.MoonPhase);
-  double E3[3], N3[3], U3[3];
-  FBEnuAxesEcef(lat, lon, E3, N3, U3);
-  /* 42 deg OFF the sun azimuth: side-lit shows edge light and self-shadow instead of a blinding disc. */
-  double yawDeg = hs.Env.SunAzDeg + 42.0, yaw = yawDeg * kPi2 / 180.0;
-  double riseM = (pitchOverrideDeg > -900.0) ? bankDistM * std::tan(pitchOverrideDeg * kPi2 / 180.0)
-                                             : deckMidAGL - camAGL;
-  hs.Platform.YawDeg = (float)yawDeg; hs.Platform.PitchDeg = (float)(std::atan2(riseM, bankDistM) * 180.0 / kPi2);
-  double hdir[3], target[3];
-  for (int a = 0; a < 3; a++) hdir[a] = N3[a] * std::cos(yaw) + E3[a] * std::sin(yaw);
-  for (int a = 0; a < 3; a++) target[a] = eye[a] + hdir[a] * bankDistM + U3[a] * riseM;
+int RunCloudDensityCheck(void) {
+  static constexpr auto kTimedWaitAny = wgpu::InstanceFeatureName::TimedWaitAny;
+  wgpu::InstanceDescriptor id{};
+  id.requiredFeatureCount = 1;
+  id.requiredFeatures = &kTimedWaitAny;
+  wgpu::Instance instance = wgpu::CreateInstance(&id);
+  wgpu::Adapter adapter;
+  wgpu::RequestAdapterOptions ao{};
+  instance.WaitAny(instance.RequestAdapter(&ao, wgpu::CallbackMode::WaitAnyOnly,
+      [&adapter](wgpu::RequestAdapterStatus st, wgpu::Adapter a, wgpu::StringView) {
+        if (st == wgpu::RequestAdapterStatus::Success) adapter = a;
+      }), UINT64_MAX);
+  if (!adapter) { FBLog::Error("cloudcheck", "no_adapter"); return 1; }
+  wgpu::Device device;
+  wgpu::DeviceDescriptor dd{};
+  dd.SetUncapturedErrorCallback([](const wgpu::Device &, wgpu::ErrorType t, wgpu::StringView m) {
+    FBLog::Error("cloudcheck", "gpu_error", {{"type", (int)t}, {"msg", std::string(m.data, m.length)}});
+  });
+  instance.WaitAny(adapter.RequestDevice(&dd, wgpu::CallbackMode::WaitAnyOnly,
+      [&device](wgpu::RequestDeviceStatus st, wgpu::Device d, wgpu::StringView) {
+        if (st == wgpu::RequestDeviceStatus::Success) device = d;
+      }), UINT64_MAX);
+  if (!device) { FBLog::Error("cloudcheck", "no_device"); return 1; }
+  wgpu::Queue queue = device.GetQueue();
 
-  FlightBox::Render::FBRenderer R;
-  R.SetStreaming(512);
-  R.SetDefaultMode(1);
-  R.SetGroundMode(1);      /* EVS -> the cloud pass runs */
-  R.SetSkyClock((double)utc);
-  R.SetCloudQuality(cloudQ);
-  { uint8_t *moon = 0; int mw = 0, mh = 0;
-    if (fb_load_image_file(moonPath.c_str(), &moon, &mw, &mh)) { R.SetMoonTexture(moon, mw, mh); free(moon); } }
-  R.SetCamera(eye, target);
-  R.SetHud(hs, true);
-  R.SetHudEnabled(false);   /* no HUD clutter in the lab cells */
-  R.InitOffscreen(W, H);
-  if (!R.Ready()) { FlightBox::FBLog::Error("cloudlab", "device_init_failed"); return 1; }
-
-  if (getenv("FB_SHAPEHIST")) {   /* numeric base-shape histogram, then exit (numbers, not eyes) */
-    R.SetCloudLab(cov0, den0, 0.06f, 18.0f, det0);
-    R.RenderFrame();   /* ensure clouds/noise are created */
-    R.ShapeStats(cov0, 0.0f, 0.0f);
-    return 0;
+  /* Three decks that exercise every branch of the function: an isotropic low deck with erosion, a mid
+   * deck with a moderate stretch, and the cirrus case (7:1 stretch, strong warp, thin sheet). */
+  FBCloudDeckParams decks[3];
+  for (int i = 0; i < 3; i++) {
+    decks[i].BaseM = i == 0 ? 1200.0f : (i == 1 ? 4200.0f : 9000.0f);
+    decks[i].TopM = decks[i].BaseM + (i == 0 ? 900.0f : (i == 1 ? 1400.0f : 500.0f));
+    decks[i].Cover = i == 0 ? 0.75f : (i == 1 ? 0.40f : 0.95f);
+    decks[i].DriftEastM = 1234.5f * (float)(i + 1);
+    decks[i].DriftNorthM = -876.25f * (float)(i + 1);
+    decks[i].WindDirE = i == 2 ? 0.8823f : 0.6f;
+    decks[i].WindDirN = i == 2 ? 0.4707f : -0.8f;
+    decks[i].Stretch = kCloudStretch[i];
+    decks[i].FeatureM = kCloudFeatureM[i];
+    decks[i].Warp = kCloudWarp[i];
+    decks[i].Erosion = kCloudErosion[i];
+    decks[i].SigmaPerM = kCloudSigma[i];
+    FBCloudCalibrate(decks[i]);
   }
-  if (singleCell) {   /* one FULL-RES cell — no 4x downscale hiding the shard geometry */
-    R.SetCloudLab(cov0, den0, 0.06f, 18.0f, det0);
-    if (getenv("FB_CLOUD_ACCUM")) R.SetAccumMode(true);   /* TAA proof: true 1/N average over the jitter phases */
-    R.ResetCloudHistory();
-    for (int f = 0; f < frames; f++) R.RenderFrame();
-    std::vector<uint8_t> img;
-    if (!R.ReadPixels(img)) { FlightBox::FBLog::Error("cloudlab", "readback_failed"); return 1; }
-    char cpath[512];
-    snprintf(cpath, sizeof cpath, "%s/cloudcell_cov%.2f_den%.1f_det%.1f_p%.1f.png",
-             outDir.c_str(), cov0, den0, det0, (double)hs.Platform.PitchDeg);
-    stbi_write_png(cpath, W, H, 4, img.data(), W * 4);
-    FlightBox::FBLog::Info("cloudlab", "wrote_cell", {{"path", cpath}, {"w", W}, {"h", H}, {"cov", (double)cov0},
-        {"den", (double)den0}, {"det", (double)det0}, {"pitch", (double)hs.Platform.PitchDeg}, {"camBelow", camBelowM},
-        {"bankKm", bankKm}, {"sunEl", (double)hs.Env.SunElDeg}});
-    return 0;
-  }
-  const int cols = 4, rows = 3, cw = W / 4, ch = H / 4, gw = cols * cw, gh = rows * ch;
-  std::vector<uint8_t> grid((size_t)gw * gh * 4, 25);
-  float lox, hix, loy, hiy;
-  LabRange(labx, lox, hix);
-  LabRange(laby, loy, hiy);
-  FlightBox::FBLog::Info("cloudlab", "grid", {{"cols", cols}, {"rows", rows}, {"labx", labx}, {"lox", (double)lox},
-      {"hix", (double)hix}, {"laby", laby}, {"loy", (double)loy}, {"hiy", (double)hiy}, {"sunEl", (double)hs.Env.SunElDeg}});
-  for (int r = 0; r < rows; r++)
-    for (int c = 0; c < cols; c++) {
-      float cov = 0.55f, den = 5.0f, ext = 0.06f, sun = 18.0f, det = 1.3f;
-      float vx = lox + (hix - lox) * (float)c / (float)(cols - 1);
-      float vy = loy + (hiy - loy) * (float)r / (float)(rows - 1);
-      auto apply = [&](const std::string &p, float v) {
-        if (p == "coverage") cov = v; else if (p == "density") den = v; else if (p == "extinct") ext = v;
-        else if (p == "suni") sun = v; else if (p == "detail") det = v;
-      };
-      apply(labx, vx); apply(laby, vy);
-      R.SetCloudLab(cov, den, ext, sun, det);
-      R.ResetCloudHistory();                 /* fresh accumulation per cell */
-      for (int f = 0; f < 24; f++) R.RenderFrame();   /* let the temporal history converge */
-      std::vector<uint8_t> img;
-      if (!R.ReadPixels(img)) { FlightBox::FBLog::Error("cloudlab", "readback_failed"); return 1; }
-      for (int y = 0; y < ch; y++)
-        for (int x = 0; x < cw; x++) {   /* 4x4 box downscale W*H -> cw*ch */
-          int sr = 0, sg = 0, sb = 0;
-          for (int dy = 0; dy < 4; dy++)
-            for (int dx = 0; dx < 4; dx++) {
-              const uint8_t *s = &img[(((size_t)(y * 4 + dy) * W) + x * 4 + dx) * 4];
-              sr += s[0]; sg += s[1]; sb += s[2];
-            }
-          uint8_t *d = &grid[(((size_t)(r * ch + y) * gw) + c * cw + x) * 4];
-          d[0] = (uint8_t)(sr / 16); d[1] = (uint8_t)(sg / 16); d[2] = (uint8_t)(sb / 16); d[3] = 255;
-        }
-      FlightBox::FBLog::Debug("cloudlab", "cell", {{"col", c}, {"row", r}, {"labx", labx}, {"vx", (double)vx},
-                                                   {"laby", laby}, {"vy", (double)vy}});
+  /* The two calibration constants are claimed as MEASURED, so measure them here: the FBM's own mean and
+   * sigma, and — the number that matters — whether "cover" really is the area fraction it says it is. */
+  { double sum = 0.0, sum2 = 0.0;
+    const int kM = 40000;
+    std::vector<float> field((size_t)kM);
+    uint32_t r2 = 0x2468aceu;
+    auto nx = [&r2](void) { r2 ^= r2 << 13; r2 ^= r2 >> 17; r2 ^= r2 << 5; return (float)(r2 >> 8) / 16777216.0f; };
+    int above[3] = {0, 0, 0};
+    for (int i = 0; i < kM; i++) {
+      const float a = (nx() - 0.5f) * 400.0f, b = (nx() - 0.5f) * 400.0f;
+      field[(size_t)i] = FBCloudFbmShear(a, b, 3u);
+      sum += field[(size_t)i];
+      sum2 += (double)field[(size_t)i] * field[(size_t)i];
+      for (int k = 0; k < 3; k++) if (field[(size_t)i] > decks[k].RemapEdge) above[k]++;
     }
-  char path[512];
-  snprintf(path, sizeof path, "%s/cloudlab_%s_x_%s.png", outDir.c_str(), labx.c_str(), laby.c_str());
-  stbi_write_png(path, gw, gh, 4, grid.data(), gw * 4);
-  FlightBox::FBLog::Info("cloudlab", "wrote_grid", {{"path", path}, {"w", gw}, {"h", gh},
-      {"ref", "cauliflower silhouette, flat-ish base, self-shadow, sun-side edge light, no straight edges >20px"}});
-  return 0;
+    const double mean = sum / kM, sigma = std::sqrt(sum2 / kM - mean * mean);
+    FBLog::Info("cloudcheck", "FBM_DISTRIBUTION", {{"samples", kM}, {"mean", mean}, {"sigma", sigma},
+        {"constMean", (double)kCloudFbmMean}, {"constSigma", (double)kCloudFbmSigma},
+        {"cover0", (double)decks[0].Cover}, {"area0", (double)above[0] / kM},
+        {"cover1", (double)decks[1].Cover}, {"area1", (double)above[1] / kM},
+        {"cover2", (double)decks[2].Cover}, {"area2", (double)above[2] / kM}});
+  }
+  /* A deterministic spread over +-300 km and the full height fraction, including h exactly 0 and 1. */
+  const int kN = 12288;
+  std::vector<float> samples((size_t)kN * 4);
+  std::vector<float> cpu((size_t)kN);
+  uint32_t rng = 0x13579bdfu;
+  auto next = [&rng](void) { rng ^= rng << 13; rng ^= rng >> 17; rng ^= rng << 5; return (float)(rng >> 8) / 16777216.0f; };
+  for (int i = 0; i < kN; i++) {
+    const int deck = i % 3;
+    const float east = (next() - 0.5f) * 600000.0f;
+    const float north = (next() - 0.5f) * 600000.0f;
+    float h = next();
+    if (i % 97 == 0) h = 0.0f;
+    if (i % 101 == 0) h = 1.0f;
+    samples[(size_t)i * 4 + 0] = east;
+    samples[(size_t)i * 4 + 1] = north;
+    samples[(size_t)i * 4 + 2] = h;
+    samples[(size_t)i * 4 + 3] = (float)deck;
+    cpu[(size_t)i] = FBCloudDensity(decks[deck], east, north, h);
+  }
+
+  const char *kCheckWGSL = R"(
+@group(0) @binding(0) var<storage, read> gDecks : array<CloudDeck>;
+@group(0) @binding(1) var<storage, read> gSamples : array<vec4f>;
+@group(0) @binding(2) var<storage, read_write> gOut : array<f32>;
+@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) gid : vec3u) {
+  let i = gid.x;
+  if (i >= arrayLength(&gOut)) { return; }
+  let s = gSamples[i];
+  gOut[i] = cloudDensity(gDecks[u32(s.w)], s.x, s.y, s.z);
+}
+)";
+  const std::string src = FlightBox::Render::FBCloudDensityConstsWGSL() + FlightBox::Render::kCloudDensityWGSL + kCheckWGSL;
+  wgpu::ShaderSourceWGSL wgsl{};
+  wgsl.code = src.c_str();
+  wgpu::ShaderModuleDescriptor smd{};
+  smd.nextInChain = &wgsl;
+  wgpu::ComputePipelineDescriptor cpd{};
+  cpd.compute.module = device.CreateShaderModule(&smd);
+  wgpu::ComputePipeline pipe = device.CreateComputePipeline(&cpd);
+
+  auto mkbuf = [&](uint64_t size, wgpu::BufferUsage usage) {
+    wgpu::BufferDescriptor bd{};
+    bd.size = size;
+    bd.usage = usage;
+    return device.CreateBuffer(&bd);
+  };
+  wgpu::Buffer deckBuf = mkbuf(sizeof decks, wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst);
+  wgpu::Buffer sampBuf = mkbuf(samples.size() * sizeof(float), wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst);
+  wgpu::Buffer outBuf = mkbuf((uint64_t)kN * sizeof(float), wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopySrc);
+  wgpu::Buffer readBuf = mkbuf((uint64_t)kN * sizeof(float), wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead);
+  queue.WriteBuffer(deckBuf, 0, decks, sizeof decks);
+  queue.WriteBuffer(sampBuf, 0, samples.data(), samples.size() * sizeof(float));
+
+  wgpu::BindGroupEntry be[3] = {};
+  be[0].binding = 0; be[0].buffer = deckBuf; be[0].size = sizeof decks;
+  be[1].binding = 1; be[1].buffer = sampBuf; be[1].size = samples.size() * sizeof(float);
+  be[2].binding = 2; be[2].buffer = outBuf; be[2].size = (uint64_t)kN * sizeof(float);
+  wgpu::BindGroupDescriptor bgd{};
+  bgd.layout = pipe.GetBindGroupLayout(0);
+  bgd.entryCount = 3;
+  bgd.entries = be;
+  wgpu::BindGroup bind = device.CreateBindGroup(&bgd);
+
+  wgpu::CommandEncoder enc = device.CreateCommandEncoder();
+  { wgpu::ComputePassEncoder cp = enc.BeginComputePass();
+    cp.SetPipeline(pipe);
+    cp.SetBindGroup(0, bind);
+    cp.DispatchWorkgroups((kN + 63) / 64);
+    cp.End(); }
+  enc.CopyBufferToBuffer(outBuf, 0, readBuf, 0, (uint64_t)kN * sizeof(float));
+  wgpu::CommandBuffer cmd = enc.Finish();
+  queue.Submit(1, &cmd);
+
+  bool mapped = false;
+  instance.WaitAny(readBuf.MapAsync(wgpu::MapMode::Read, 0, (uint64_t)kN * sizeof(float),
+      wgpu::CallbackMode::WaitAnyOnly,
+      [&mapped](wgpu::MapAsyncStatus st, wgpu::StringView) { mapped = (st == wgpu::MapAsyncStatus::Success); }),
+      UINT64_MAX);
+  if (!mapped) { FBLog::Error("cloudcheck", "readback_failed"); return 1; }
+  const float *gpu = static_cast<const float *>(readBuf.GetConstMappedRange(0, (uint64_t)kN * sizeof(float)));
+
+  double maxAbs = 0.0, sumAbs = 0.0;
+  int worst = 0, nonZero = 0;
+  for (int i = 0; i < kN; i++) {
+    const double diff = std::fabs((double)gpu[i] - (double)cpu[(size_t)i]);
+    if (cpu[(size_t)i] > 0.0f) nonZero++;
+    sumAbs += diff;
+    if (diff > maxAbs) { maxAbs = diff; worst = i; }
+  }
+  FBLog::Info("cloudcheck", "RESULT", {{"samples", kN}, {"nonZero", nonZero}, {"maxAbsDiff", maxAbs},
+      {"meanAbsDiff", sumAbs / kN}, {"tolerance", kCloudCheckTolerance},
+      {"worstCpu", (double)cpu[(size_t)worst]}, {"worstGpu", (double)gpu[worst]},
+      {"verdict", maxAbs <= kCloudCheckTolerance ? "AGREE" : "DISAGREE"}});
+  readBuf.Unmap();
+  return maxAbs <= kCloudCheckTolerance ? 0 : 1;
 }
 
 /* The concrete FBMissionTickHook, implemented ONLY in this translation unit — which is what keeps
@@ -232,6 +285,17 @@ public:
     hs.Platform.Mode = FlightBox::FBMode::Manual;
     FlightBox::Render::SunPos(p.LatDeg, p.LonDeg, time(nullptr), &hs.Env.SunElDeg, &hs.Env.SunAzDeg);
     FlightBox::Render::MoonPos(p.LatDeg, p.LonDeg, time(nullptr), &hs.Env.MoonElDeg, &hs.Env.MoonAzDeg, &hs.Env.MoonPhase);
+    /* The renderer never asks the weather anything: the CLIENT samples it where the camera is and hands
+     * over the resulting decks (core/FBCloudDensity.h) — the same call an IR sensor would make. */
+    if (const FlightBox::FBWeatherProvider *wx = W->Weather()) {
+      const FlightBox::FBCloudSky sky = FlightBox::FBCloudSkyFromWeather(*wx, p.LatDeg, p.LonDeg, simT);
+      R->SetCloudSky(sky);
+      hs.Env.CloudLow = sky.Deck[0].Cover;
+      hs.Env.CloudMid = sky.Deck[1].Cover;
+      hs.Env.CloudHigh = sky.Deck[2].Cover;
+      hs.Env.CloudCover = std::max(sky.Deck[0].Cover, std::max(sky.Deck[1].Cover, sky.Deck[2].Cover));
+      hs.Env.CloudBaseAglM = sky.Deck[0].Cover > 0.0f ? sky.Deck[0].BaseM : 0.0f;
+    }
     R->SetHud(hs, true);
     R->SetAgl((float)primary.AglM());
     W->Update(p.LatDeg, p.LonDeg, eye, fwd, simT * 1000.0);
@@ -273,14 +337,10 @@ int RunMission(const std::string &missionPath, double timeoutOverride, double re
 int main(int argc, char **argv) {
   double lat = 47.18, lon = 7.41, seconds = 3.0, interval = 1.0;
   double ground = 430.0, aglM = 1500.0, viewKm = 240.0, yawDeg = 0.0, pitchDeg = -3.0, cloudCover = 0.0, moonScale = 1.0, cloudQ = 1.0;
-  int groundPhoto = 0, cloudLab = 0, cloudCell = 0;
-  float cellCov = 0.6f, cellDen = 5.0f, cellDet = 1.3f;
-  double cellPitch = -999.0, cellBelow = -5000.0, cellBank = 12.0;   /* default: above the deck (AC7 vantage) */
-  int cellFrames = 24;
-  std::string labx = "coverage", laby = "density";
+  int groundPhoto = 0, cloudCheck = 0;
   time_t utc = 0;   /* 0 = real wall clock */
   std::string base = "http://localhost:8081", outDir = ".", moonPath = "flightbox/web/moon.jpg";
-  std::string missionPath;
+  std::string missionPath, wxPath;
   double missionTimeout = 0.0;
   bool intervalSet = false;   /* --mission: renderer/GPU device is opt-in ONLY when --interval was given */
   for (int i = 1; i < argc; i++) {
@@ -294,14 +354,8 @@ int main(int argc, char **argv) {
     else if (a == "--moon" && i + 1 < argc) moonPath = argv[++i];
     else if (a == "--moonscale" && i + 1 < argc) moonScale = atof(argv[++i]);
     else if (a == "--cloudq" && i + 1 < argc) cloudQ = atof(argv[++i]);
-    else if (a == "--cloudlab") cloudLab = 1;
-    else if (a == "--cell" && i + 3 < argc) { cloudCell = 1; cellCov = atof(argv[++i]); cellDen = atof(argv[++i]); cellDet = atof(argv[++i]); }
-    else if (a == "--cellpitch" && i + 1 < argc) cellPitch = atof(argv[++i]);
-    else if (a == "--cellbelow" && i + 1 < argc) cellBelow = atof(argv[++i]);
-    else if (a == "--cellbank" && i + 1 < argc) cellBank = atof(argv[++i]);
-    else if (a == "--cellframes" && i + 1 < argc) cellFrames = atoi(argv[++i]);
-    else if (a == "--labx" && i + 1 < argc) labx = argv[++i];
-    else if (a == "--laby" && i + 1 < argc) laby = argv[++i];
+    else if (a == "--cloudcheck") cloudCheck = 1;
+    else if (a == "--wx" && i + 1 < argc) wxPath = argv[++i];   /* screenshot mode: an FBWX blob = real decks */
     else if (a == "--agl" && i + 1 < argc) aglM = atof(argv[++i]);
     else if (a == "--view" && i + 1 < argc) viewKm = atof(argv[++i]);
     else if (a == "--yaw" && i + 1 < argc) yawDeg = atof(argv[++i]);
@@ -321,13 +375,17 @@ int main(int argc, char **argv) {
   FlightBox::FBLog::SetSink(&gStdoutSink);
   FlightBox::FBLog::SetLevel(FlightBox::FBLogLevel::Debug);
 
-  if (!missionPath.empty())
+  if (cloudCheck) return RunCloudDensityCheck();
+  if (!missionPath.empty()) {
+    /* Two weather sources cannot both be the mission's. The .fbm owns its own (missions/
+     * FBWeatherBoot.h, and its precedence rule); --wx belongs to the mission-less screenshot venue. */
+    if (!wxPath.empty()) {
+      fprintf(stderr, "gpu_native: --wx is the screenshot venue's weather; a mission declares its own "
+                      "with a `wx` line (doc/mission-format.md)\n");
+      return 1;
+    }
     return RunMission(missionPath, missionTimeout, intervalSet ? interval : 0.0, base, outDir);
-  if (cloudLab)
-    return RunCloudLab(lat, lon, utc ? utc : time(nullptr), cloudQ, ground, aglM, labx, laby, moonPath, outDir);
-  if (cloudCell)
-    return RunCloudLab(lat, lon, utc ? utc : time(nullptr), cloudQ, ground, aglM, labx, laby, moonPath,
-                       outDir, true, cellCov, cellDen, cellDet, cellPitch, cellBelow, cellBank, cellFrames);
+  }
 
   const int width = 1280, height = 720, fps = 60;
 
@@ -395,10 +453,25 @@ int main(int argc, char **argv) {
   FlightBox::FBLog::Info("gpu", "streaming_quadtree", {{"lat", lat}, {"lon", lon}, {"aglM", aglM},
       {"viewKm", viewKm}, {"albedo", groundPhoto ? "photo" : "osm"}, {"night", groundPhoto && hs.Env.SunElDeg < -3.0f}});
 
+  /* The screenshot venue's OWN weather: a committed FBWX blob, so a cloud frame is as deterministic as
+   * the pinned --utc that lights it. The mission path gets its weather from the .fbm instead. */
+  std::unique_ptr<FlightBox::FBFixedWeather> shotWx;
+  if (!wxPath.empty()) {
+    shotWx = std::make_unique<FlightBox::FBFixedWeather>(wxPath);
+    if (!shotWx->Ok()) { fprintf(stderr, "gpu_native: cannot read --wx %s\n", wxPath.c_str()); return 1; }
+    const FlightBox::FBCloudLayers cl = shotWx->CloudLayers(lat, lon);
+    FlightBox::FBLog::Info("gpu", "weather", {{"path", wxPath}, {"lowPct", cl.LowPct}, {"midPct", cl.MidPct},
+        {"highPct", cl.HighPct}, {"ceilingM", cl.HaveCeiling ? cl.CeilingM : -1.0},
+        {"visM", shotWx->VisibilityM(lat, lon)}});
+  }
+
   const int totalFrames = (int)(seconds * fps + 0.5);
   const int everyFrames = interval > 0.0 ? (int)(interval * fps + 0.5) : 0;
   int shot = 0;
   for (int f = 0; f < totalFrames; f++) {
+    /* Advection time is the FRAME's own time, not the wall clock: a screenshot is a deterministic
+     * venue, and the drift has to be a small number (core/FBCloudDensity.h, kCloudDriftWrapM). */
+    if (shotWx) R.SetCloudSky(FlightBox::FBCloudSkyFromWeather(*shotWx, lat, lon, (double)f / fps));
     W.Update(lat, lon, eye, fwd, (double)f * 1000.0 / fps);
     R.RenderFrame();
     bool last = (f == totalFrames - 1);

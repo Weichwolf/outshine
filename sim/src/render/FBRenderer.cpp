@@ -127,8 +127,6 @@ void FBRenderer::OnAdapter(wgpu::Adapter a) {
   wgpu::DeviceDescriptor dd{};
   std::vector<wgpu::FeatureName> feats;
   if (rg11) feats.push_back(wgpu::FeatureName::RG11B10UfloatRenderable);
-  HasTimestamp = a.HasFeature(wgpu::FeatureName::TimestampQuery);   /* cloud-pass GPU timing (WASM iGPU number) */
-  if (HasTimestamp) feats.push_back(wgpu::FeatureName::TimestampQuery);
   if (!feats.empty()) { dd.requiredFeatureCount = feats.size(); dd.requiredFeatures = feats.data(); }
   /* The multi-LOD albedo array outgrows the default 256-layer cap; ask for the adapter's real max. */
   wgpu::Limits adapterLimits{};
@@ -170,8 +168,8 @@ void FBRenderer::OnDevice(wgpu::Device d) {
   Units->Init(gpu);
   Sprites->Init(gpu);
   CreateTerrainPipeline();   /* creates DepthTex, which the cloud pass samples */
-  { const char *e = getenv("FB_CLOUDS"); CloudsOn = e && atoi(e) != 0; }   /* default off — user judgment 2026-07-23 */
-  if (CloudsOn) CreateClouds();   /* skip the noise-volume gen + cloud pipelines entirely when off (no boot/VRAM cost) */
+  { const char *e = getenv("FB_CLOUDS"); CloudsOn = !e || atoi(e) != 0; }   /* armed by default; the pass only exists when the weather has a deck */
+  if (CloudsOn) CreateClouds();
   CreateTonemapPipeline();
   CreatePresent();          /* also Init()s Upscale (needs FrameTex, created here) */
   Hud->Init(gpu);
@@ -223,11 +221,11 @@ int FBRenderer::UploadTilePhoto(int slot, const uint8_t *photo, int ts, int z) {
 void FBRenderer::SetGroundMode(int photo) { GroundPhoto = photo != 0; }
 
 
-/* Lighting stays linear upstream; this is the only place display encoding happens. Depends on
- * Resolve's CloudHist views when CloudsOn, so it must run AFTER CreateClouds(). */
+/* Lighting stays linear upstream; this is the only place display encoding happens. It knows nothing
+ * about clouds any more: the cloud pass blends into HdrTex itself, so there is ONE pipeline again. */
 void FBRenderer::CreateTonemapPipeline(void) {
   FBGpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
-  Tonemap->Configure(gpu, Samp, HdrTex.CreateView(), CloudsOn, CloudsOn ? Resolve.get() : nullptr);
+  Tonemap->Configure(gpu, Samp, HdrTex.CreateView());
 }
 
 void FBRenderer::CreatePresent(void) {
@@ -287,18 +285,12 @@ void FBRenderer::SetStars(const uint8_t *hyg, int nbytes, double originLat, doub
   Stars->SetCatalogue(hyg, nbytes, originLat, originLon);
 }
 
-/* Bakes the 3 noise volumes once and wires the per-frame cloud stages in the Init-order their bind
- * groups require: bakes, then March, then Resolve. Skipped whole when CloudsOn is false (no VRAM
- * cost). Kette: doc/flightbox/rendering.md §5. */
+/* No bakes, no history, no textures: one pipeline over the atmosphere LUTs and the scene depth. Must
+ * run after CreateTerrainPipeline (DepthTex) and CreateAtmosphere (the LUT views its bind group pins).
+ * doc/flightbox/render/clouds.md. */
 void FBRenderer::CreateClouds(void) {
   FBGpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
-  CloudMipDown->Configure(gpu);
-  BaseBake->Configure(gpu, *CloudMipDown);
-  DetailBake->Configure(gpu, *CloudMipDown);
-  CellBake->Configure(gpu);
-  Cloud->Configure(gpu, AtmoBuf, LutSamp, SkyLUT.CreateView(), TransLUT.CreateView(), DepthTex.CreateView(),
-                    BaseBake->GetView(), DetailBake->GetView(), CellBake->GetView(), HasTimestamp);
-  Resolve->Configure(gpu, AtmoBuf, Samp, Cloud->GetLowView());
+  Clouds->Configure(gpu, AtmoBuf, LutSamp, SkyLUT.CreateView(), TransLUT.CreateView(), DepthTex.CreateView());
 }
 
 
@@ -562,7 +554,7 @@ void FBRenderer::RenderFrame(void) {
   Stars->Update(SkyClock);
 
   /* The shared per-frame state every stage's Encode() reads; built before the cloud update so
-   * FBCloudMarchStage::Update() can read it too. */
+   * FBCloudLayerStage::Update() can read it too. */
   FBFrameContext ctx{};
   for (int a = 0; a < 3; a++) { ctx.Eye[a] = eye[a]; ctx.Fwd[a] = fwd[a]; ctx.Right[a] = right[a]; ctx.CamUp[a] = camUp[a]; ctx.Up[a] = up[a]; }
   for (int i = 0; i < 20; i++) ctx.Mvp20[i] = u[i];
@@ -574,7 +566,8 @@ void FBRenderer::RenderFrame(void) {
   ctx.CloudBaseAGL = HudState.Env.CloudBaseAglM; ctx.AltM = HudState.Platform.AltM;
   ctx.FrameNo = FrameNo; ctx.Width = Width; ctx.Height = Height;
 
-  if (CloudsOn) Cloud->Update(ctx);
+  if (CloudsOn) Clouds->Update(ctx);
+  const bool cloudPass = CloudsOn && Clouds->Active();
 
   wgpu::CommandEncoder enc = Device.CreateCommandEncoder();
 
@@ -634,49 +627,23 @@ void FBRenderer::RenderFrame(void) {
   Sprites->Encode(ctx, scene);
   scene.End();
 
-  /* A SEPARATE pass because it must SAMPLE the depth texture that was an attachment a moment ago. */
-  if (CloudsOn) {
-  {
+  /* A SEPARATE pass because it must SAMPLE the depth texture that was an attachment a moment ago —
+   * and it blends premultiplied straight back into HdrTex, so nothing downstream knows about clouds.
+   * It exists only when the weather actually has a deck: no weather, no pass, and the passcount log
+   * below carries both numbers so a frame's topology is readable from the telemetry. */
+  if (cloudPass) {
     wgpu::RenderPassColorAttachment cca{};
-    cca.view = Cloud->GetLowView();
-    cca.loadOp = wgpu::LoadOp::Clear;
+    cca.view = HdrTex.CreateView();
+    cca.loadOp = wgpu::LoadOp::Load;     /* the scene stays; the cloud goes OVER it */
     cca.storeOp = wgpu::StoreOp::Store;
-    cca.clearValue = {0, 0, 0, 0};
     wgpu::RenderPassDescriptor cp{};
     cp.colorAttachmentCount = 1;
     cp.colorAttachments = &cca;
-    wgpu::PassTimestampWrites tw{};   /* BOTH indices here: leaving one at kQuerySetIndexUndefined trips
-       this Dawn build's validation and rejects every command buffer. */
-    if (Cloud->WantsTimestamp()) { tw.querySet = Cloud->GetQuerySet(); tw.beginningOfPassWriteIndex = 0; tw.endOfPassWriteIndex = 1; cp.timestampWrites = &tw; }
     wgpu::RenderPassEncoder cl = enc.BeginRenderPass(&cp);
     passCount++;
-    Cloud->Encode(ctx, cl);
+    Clouds->Encode(ctx, cl);
     cl.End();
   }
-
-  /* Temporal resolve: accumulate the fresh jittered march into the reprojected history (kills the
-   * per-frame "static"). Writes into WriteIndex(), reads ReadIndex() as the previous. */
-  {
-    int w = Resolve->WriteIndex();
-    wgpu::RenderPassColorAttachment rca[2]{};
-    rca[0].view = Resolve->GetHistView(w);
-    rca[0].loadOp = wgpu::LoadOp::Clear;
-    rca[0].storeOp = wgpu::StoreOp::Store;
-    rca[0].clearValue = {0, 0, 0, 0};
-    rca[1].view = Resolve->GetWSumView(w);
-    rca[1].loadOp = wgpu::LoadOp::Clear;
-    rca[1].storeOp = wgpu::StoreOp::Store;
-    rca[1].clearValue = {0, 0, 0, 0};
-    wgpu::RenderPassDescriptor rp2{};
-    rp2.colorAttachmentCount = 2;
-    rp2.colorAttachments = rca;
-    /* no timestampWrites on the resolve pass — both timestamps live on the cloud-march pass above */
-    wgpu::RenderPassEncoder rz = enc.BeginRenderPass(&rp2);
-    passCount++;
-    Resolve->Encode(ctx, rz, Cloud->GetCloudMidR());
-    rz.End();
-  }
-  }   /* end if (CloudsOn) — cloud march + resolve */
 
   wgpu::RenderPassColorAttachment tca{};   /* tonemap -> FrameTex: ACES, sRGB-encode on store, no depth */
   tca.view = frameView;
@@ -723,20 +690,17 @@ void FBRenderer::RenderFrame(void) {
   upscale.End();
 
   /* Logged on the first SCENE frame (FrameNo==1 is usually the loading screen, and a short
-   * native-oracle run must still capture it), then every 300. Expected: 6 / 8 with clouds / 5 no HUD. */
+   * native-oracle run must still capture it), then every 300. Expected: 6 / 7 with a cloud deck /
+   * 5 no HUD. */
   static bool loggedFirstPassCount = false;
   if (!loggedFirstPassCount || FrameNo % 300 == 0) {
     loggedFirstPassCount = true;
-    FBLog::Debug("render", "passcount", {{"passes", passCount}, {"clouds", CloudsOn}, {"hud", HudEnabled}});
+    FBLog::Debug("render", "passcount", {{"passes", passCount}, {"clouds", CloudsOn},
+                                         {"cloudPass", cloudPass}, {"hud", HudEnabled}});
   }
 
-  if (CloudsOn) Cloud->ResolveTimestamps(enc);   /* resolve the 2 timestamps; copy to the readback buffer only when it's free */
   wgpu::CommandBuffer cmd = enc.Finish();
   Queue.Submit(1, &cmd);
-  if (CloudsOn) Cloud->PollTimestamps();   /* async map -> accumulate GPU cloud-pass ms, log avg every 120 frames */
-
-  /* AFTER the tonemap read this frame's result: flips the ping-pong index and snapshots view-proj/eye. */
-  if (CloudsOn) Resolve->Advance(ctx);
 
   /* 2-phase-commit assertion (once/sec): no frame should ever have drawn an uncommitted layer. */
   if (Tiles->IsStreaming() && FrameNo % 60 == 0) {

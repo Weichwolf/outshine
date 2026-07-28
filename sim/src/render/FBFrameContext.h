@@ -12,8 +12,8 @@ struct FBFrameContext {
   double SunDir[3], MoonDir[3];
   double DayFactor;        /* 0 night .. 1 day (DaylightFactor(sunElDeg)), EVS only; SVS pins 1.0 */
   double MoonPhase, Cloud;
-  float CloudCover;        /* HudState.cloud (raw overall coverage), for FBCloudMarchStage's deck cover */
-  float CloudLow, CloudMid, CloudHigh, CloudBaseAGL;  /* weather deck mix (HudState.cloud_*), for FBCloudMarchStage */
+  float CloudCover;        /* FBState.Env total cover; drives the sky dome's noise sheet */
+  float CloudLow, CloudMid, CloudHigh, CloudBaseAGL;  /* the weather deck mix as the client sampled it */
   float AltM;               /* HudState.alt (m ASL) — the cloud shell radii are absolute, referenced off it */
   bool GroundPhoto;         /* SVS (false, constant-day database view) vs EVS (true, real ephemeris) */
   double SkyClock;          /* sim UTC (unix seconds) driving sidereal placement */
