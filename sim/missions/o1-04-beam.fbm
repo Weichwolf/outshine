@@ -1,0 +1,248 @@
+name o1-04-beam-1
+timeout 600
+
+# CAMPAIGN O1, SORTIE 4 OF 10 - THE BEAM ATTACK, WITH THE CONTROLLER STILL TALKING.
+# CONTROL: o1-01-controlled.fbm. THE ONE CHANGED LEVER: the entry geometry. Blue no longer comes down
+# the MiGs' nose; it runs north at 9 000 m on a constant 225-deg bearing from them, and the four GCI
+# calls carry that bearing instead of 270. The Red spawn, the Red route, both loadouts, the belt, the
+# net and the jammer are byte-identical to the control.
+#
+# THE ARENA, and every coordinate in it is [SET]. The Bekaa runs NNE-SSW between the Lebanon and the
+# Anti-Lebanon; FlightBox flies it as a parallel at 33.90 N because it has NO TERRAIN MASKING (gap C4),
+# so the two ridges that are the valley's whole geography do not exist in this tree and a mission that
+# pretended otherwise would be lying with coordinates. The campaign is flown with `--elev const`, i.e.
+# on a 0 m datum: the real valley floor is ~900 m, so every altitude here is height above the DECLARED
+# datum and not above the real Bekaa. Rayak is 33.85 N 35.99 E and Damascus/Mezzeh 33.48 N 36.22 E [T4];
+# the SAM belt of this campaign stands at 36.20-36.40 E, i.e. the eastern group, between the two.
+#
+# THE SUBSTITUTION, AND ITS DIRECTION — this is the binding disclosure of doc/campaigns/o1-bekaa-1982.md
+# and it is repeated in every file of this campaign because a reader who skips it will read the result
+# backwards. The MiG-29 was NOT at Bekaa: it entered Soviet service in 1983, and on 9 June 1982 the
+# Syrian side flew MiG-21, MiG-23 and Su-20 [T4]. Those aircraft had "only nose and tail alert radar
+# systems and no side warnings or look-up and look-down systems" [T4]. FlightBox's MiG-29 has the SPO-15
+# with eight azimuth channels, a look-down-capable N019 and an IRST. THE SUBSTITUTION THEREFORE MAKES THE
+# DEFENDER STRONGER THAN HISTORY. A FlightBox Bekaa that still ends in a rout says something STRONGER
+# than 1982 did; one that ends well for Red says NOTHING about 1982 and must not be read as if it did.
+#
+# THE GEOMETRY: a 45-degree entry on a CONSTANT BEARING, which is what a controlled intercept actually
+# looks like. Blue runs north at 9 000 m along 35.03 E; Red holds its westward CAP at 2 000 m along
+# 33.90 N. The bearing from Red to Blue stays at 225 deg from t=0 to the merge (measured: 224.8 / 224.9 /
+# 224.7 / 224.5 deg at t = 20 / 80 / 140 / 200 s) while the range falls 88 -> 29 km. Red's nose is on
+# 270, so the raid sits a steady -45 deg off it: OUTSIDE the N019's uncued +-30 deg RAD sector and INSIDE
+# the sector the ZONE switch reaches when somebody tells the pilot which third of the sky to look in.
+# That is the anchor's "attack from the beam, where Syrian radar warning had no coverage" [T4] expressed
+# as the one mechanism FlightBox owns.
+#
+# THE BELT IS IN EVERY MISSION (campaign contract rule: ground targets throughout) and it is REAL, not
+# scenery: five positions on one radio net with a P-18 as the control node, `wcs free` transmitted and
+# `autonomy hold` declared for every fire unit — the doctrine of a force whose batteries wait for orders
+# (doc/air-defence-network.md section 5). In the fighter sorties 01-07 the belt fires NOTHING, and that
+# is a measurement rather than an omission: the Syrian CAP is committed FORWARD of its own umbrella, so
+# the fighters' fight happens 60-100 km west of the westernmost battery and the belt is what both sides
+# are fighting ABOUT rather than what either side is fighting IN.
+#
+# THE ONE TACTICAL QUESTION - and it is the anchor's core tactic. The E-2Cs "guided Israeli fighters to
+# attack from the beam, where Syrian radar warning had no coverage" [T4]. FlightBox's SPO-15 has EIGHT
+# azimuth channels, so the beam is NOT a warning blind spot for this defender: the substitution has
+# handed Red a receiver the 1982 MiGs did not have. What the beam still costs Red is the RADAR: the
+# N019's RAD pattern is one ZONE third, +-30 deg about a centre the pilot selects from three positions
+# [DCS-FM p.43-44], so a raid steady at -45 deg off the nose is outside the sector nobody aimed and
+# inside the one somebody did. How much of the Israeli advantage survives an opponent who can HEAR you
+# from the side but must still be TOLD where to look?
+#
+# MEASURED (fingerprint bdb015442e8a2f87): Red's first radar contact at t = 108.1 s, 26.0 nm,
+# azDeg -48.8, elDeg +7.2 - i.e. found where the controller said, 48.8 deg off the nose and outside the
+# uncued sector. Both MiGs release an R-27R at t = 189.1 / 190.3; NEITHER ARRIVES, and Blue never fires
+# at all. `gci ENTER_ZONE offDeg` reads -45.0 / -45.1 on the first two calls and -14.5 on the third,
+# the nose having turned onto the contact by then. NOBODY IS LOST ON EITHER SIDE: the 45-degree entry
+# costs Blue its shot and buys Red one it cannot convert.
+#
+# READING RULE: read `gci ENTER_ZONE` (its `offDeg` is the raid's angle off the nose, and it should sit
+# near -45 on every call), then the first `radar RADAR_CONTACT` on either MiG, then the shots. The
+# companion file o1-05-beam-blind.fbm is this file with the brief deleted; the PAIR is the measurement
+# and neither half is a result on its own. exit 3 expected.
+
+zone flak    33.90000 36.30000  9000    0  2500   # under the SAMs, above nothing
+zone sa6belt 33.90000 36.30000 24000  100  7000   # the mobile layer
+zone sa2belt 33.90000 36.30000 30000  450 25000   # the strategic layer
+
+net iads
+  control swp18                                # the node: a search set and a radio
+  link radio 60000 mast 8                       # [SET] 8 m masts -> 23.3 km of horizon. RADIO, because
+  period 4.0                                    # a buried cable is unjammable and the anchor's decisive
+  hold 3                                        # mechanism was jamming the RADIO net
+  wcs free                                      # what the node transmits
+  member swp18
+  member swsa6a autonomy hold
+  member swsa6b autonomy hold
+  member swsa2  autonomy hold
+  member swsa3  autonomy hold
+
+unit hunter4a
+  team hostile
+  flight syr4 1
+  module mig29
+  spawn 33.90000 35.75000 2000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad                           # the wide non-locking search pattern
+  set n019_range_nm 27                        # the set's own documented search reach
+  set n019_emission illum                     # LOUD from t=0: see the header on why this is the baseline
+  set rwr on
+  set brief_sort left                         # the briefed contract; this jet has no cooperative channel
+  set store 3 r27r                            # FIRING ORDER, not a pylon map (doc/duels.md D4)
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set store 1 r73
+  set store 2 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30                           # BVP-30-26, 30/30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 225 88 9
+  set brief_gci 80 225 68 9
+  set brief_gci 140 225 48 9
+  set brief_gci 200 225 29 9
+  wp 33.90000 34.90000 2000 450
+  objective kill team friendly
+  objective survive
+
+unit hunter4b
+  team hostile
+  flight syr4 2
+  module mig29
+  spawn 33.91666 35.75000 2150 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad                           # the wide non-locking search pattern
+  set n019_range_nm 27                        # the set's own documented search reach
+  set n019_emission illum                     # LOUD from t=0: see the header on why this is the baseline
+  set rwr on
+  set brief_sort left                         # the briefed contract; this jet has no cooperative channel
+  set store 3 r27r                            # FIRING ORDER, not a pylon map (doc/duels.md D4)
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set store 1 r73
+  set store 2 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30                           # BVP-30-26, 30/30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 225 88 9
+  set brief_gci 80 225 68 9
+  set brief_gci 140 225 48 9
+  set brief_gci 200 225 29 9
+  wp 33.90000 34.90000 2000 450
+  objective kill team friendly
+  objective survive
+
+unit dagger4a
+  team friendly
+  flight isr4 1
+  module f16
+  spawn 33.30000 35.03000 9000 0.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink on                             # the cooperative half of the asymmetry
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60                           # ALE-47, 60/60 - twice the MiG's magazine
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 34.10000 35.03000 9000 450
+  wp 33.90000 36.35000 9000 450
+  objective kill team hostile
+  objective survive
+
+unit dagger4b
+  team friendly
+  flight isr4 2
+  module f16
+  spawn 33.28334 35.04500 9150 0.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink on                             # the cooperative half of the asymmetry
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60                           # ALE-47, 60/60 - twice the MiG's magazine
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 34.10000 35.03000 9000 450
+  wp 33.90000 36.35000 9000 450
+  objective kill team hostile
+  objective survive
+
+unit sentry4
+  team friendly
+  module ef111                                # the Boeing 707 ECM aircraft's stand-in: a catalogue row
+  spawn 33.30000 34.90000 9000 90.0 480       # whose ONLY weapon is `jam_comm_m` (doc/modules/air)
+  set drag_threat_s 0                         # ordered to hold the leg: the honest way to say "never runs"
+  set jam_comm_m 0
+  wp 33.30000 36.60000 9000 480                # three legs, so the leg it is on never runs out: a mover
+  wp 33.60000 35.60000 9000 480                # that reaches its last waypoint enters an ORBIT and
+  wp 33.30000 36.60000 9000 480                # drifts, and a drifting jammer un-jams (measured: the
+
+unit swp18
+  module p18                                  # P-18 "Spoon Rest D": the net's control node - the
+  team hostile                                # LEADERSHIP the Israeli plan attacked, and it is killable
+  spawn 33.90000 36.30000 ground 0.0 0
+  set emcon free
+
+unit swsa6a
+  module sa6                                  # 2K12 Kub - the mobile layer, the type that made Bekaa
+  team hostile
+  spawn 33.94000 36.25000 ground 0.0 0
+  set emcon hold                              # dark until something it RECEIVED says otherwise
+  set rounds 3
+
+unit swsa6b
+  module sa6
+  team hostile
+  spawn 33.86000 36.35000 ground 0.0 0
+  set emcon hold
+  set rounds 3
+
+unit swsa2
+  module sa2                                  # S-75 - the strategic layer, 450-25 000 m
+  team hostile
+  spawn 33.90000 36.40000 ground 0.0 0
+  set emcon hold
+  set rounds 3
+
+unit swsa3
+  module sa3                                  # S-125 - the low/medium layer, 100-18 000 m
+  team hostile
+  spawn 33.90000 36.20000 ground 0.0 0
+  set emcon hold
+  set rounds 3
+
+unit swhq
+  module target_hard                          # the site command post - a hardened aim point [SET]
+  team hostile
+  spawn 33.90500 36.30500 ground 0.0 0

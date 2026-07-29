@@ -1380,3 +1380,68 @@ GELESEN, Empfänger ist `fb-gym --campaign-time ISO` — Kampagnendaten, nie ein
 Vorzustand nachgespielt. Konservierung: **515/515 `telemetry*.csv` und 150/150 `events.log`
 byte-identisch** gegen ein Binary mit den zwei berührten Quellen zurückgesetzt, 0 Unterschiede über
 `--threads 1/2/4`. `viper-attrition` unverändert (9 Läufe 1 Fingerabdruck, 4/4 Replays).
+
+## 2026-07-29 — Kampagne O1 gebaut und geflogen: die kanonische Niederlage hängt an 3,5 Sekunden
+
+**Zehn `.fbm` + eine `.fbc`, ohne eine Zeile C++.** `sim/missions/o1-*.fbm` +
+`sim/campaigns/o1-bekaa-1982.fbc` — Bekaa-Tal, 9. Juni 1982, die syrische Seite. `git status
+--porcelain` listet elf unverfolgte und **null geänderte** Dateien: die Kampagne ist reiner
+Missionstext, genau wie ihr eigenes Spec es vorhergesagt hatte. Konservierung ist damit keine Messung,
+sondern eine Konstruktion — das Binary, das O1 flog, ist das Binary, das alles davor flog.
+
+**Der Aufbau: ein Baseline, sechs Ein-Hebel-Varianten, ein Kontrollpaar, eine Zwei-Schritt-Kette.**
+Jede Mission nennt ihre Kontrolle im Kopf. Die Regel, die dabei herausfiel und die die übrigen acht
+Kampagnen erben: **ein Kettenschritt kann nicht zugleich eine kontrollierte Variante sein** — der
+Übertrag ist auf den Rufnamen geschlüsselt, also unterscheidet sich ein erbender Schritt von jedem
+Geschwister in zwei Dingen. Zehn Plätze fassen deshalb genau das obige, und O1 musste ein Spec-Paar
+(gestaffelt gegen massiert) STREICHEN. Es sagt im `.fbc`-Kopf welches und warum.
+
+**Das Spec irrte sich über seinen eigenen Mechanismus.** Es sagte, „zuversichtlich blind" brauche einen
+Leitoffizier, der mitten im Lauf verstummen kann (`C6`). Falsch: `set brief_gci <atS> …` trägt seit
+jeher seine eigene Zeit, also IST ein abgeschnittener Brief genau dieses Experiment. Die Fähigkeit
+wurde gelesen, nicht gebaut.
+
+**Die Hebel-Tabelle, gegen die Baseline (2 MiG kampfunfähig, 0 F-16):**
+
+| Hebel | Rot verliert | Blau verliert | bewegt |
+|---|---:|---:|---|
+| — Baseline `o1-01` | 2 | 0 | — |
+| GCI gelöscht, frontal | 1 | 0 | Rot-Kontakte 8→4, Schüsse 2→1; die Ausgangsänderung ist ein **Sort-Artefakt** (beide AMRAAM auf dieselbe MiG) |
+| GCI abgeschnitten, frontal | 2 | 0 | **nichts** |
+| Eintritt 45° | 0 | 0 | Blaus ganzen Schuss |
+| GCI gelöscht bei 45° | 0 | 0 | **die ganze Begegnung**: 9→0 Kontakte, 2→0 Schüsse |
+| RWR aus | 2 | 0 | **nichts** |
+| `pilot_shot_rtr 1.4`, `lock_nm 16` | **0** | **2** | **die ganze Schlacht**, um 3,5 s Tempo |
+| Kommunikationsstörung 0→90 km | — | — | `site LAUNCH` **5→0**, Cues 79→32 — **Bodenschaden auf den Meter und den Tick identisch** |
+
+**Was übrig bleibt, wenn nichts es bewegt.** Der gesamte Ausgang sitzt in einer 3,5-Sekunden-
+Abschussentscheidung. Alles andere — Leitoffizier frontal, Warnempfänger, Gürtel, Netz, die vom Anker
+als entscheidend benannte Störung, der Kampagnen-Übertrag — bewegt Mechanismen und **keinen Ausgang**.
+Zwei dieser Nullen sind Modelleigenschaften (der SPO-15 warnt 13 s vor dem Einschlag, weniger als
+Reaktion + erste Abwehr + Düppelprogramm; frontal zeigt der gebriefte Wegpunkt die Nase schon auf den
+Gegner), zwei sind Defekte.
+
+**Der größte Fund ist vorbestehend und stand in einer eingecheckten Mission.** Die 3M9 des 2K12 und die
+V-601 der S-125 kippen nach vorn und erreichen den Boden **an den eigenen Startkoordinaten**, 0,8–1,6 s
+nach dem Abschuss; der 59-kg-Gefechtskopf der 3M9 wird dann als `damage KILL` auf der eigenen Batterie
+verbucht. Sichtbar in `net-cue.fbm`, t = 172.8 s. Fünf Starts in Sortie 08, **null Ankünfte**, zwei
+Selbsttötungen. Das macht vier geschlossene Lücken (`C1`/`C22`/`C23`/`C24`) und eine ganze Themendatei
+unfähig, irgendeinen Ausgang zu bewegen. **Nicht behoben** — die Decks liegen unter
+`sim/assets/aircraft/`, das diese Runde nicht anfassen darf.
+
+**Zweiter Fund: eine Batterie hat kein IFF.** `FBSiteModule` setzt `SetIffInterrogator(false)`, ein
+`FBRadarContact` trägt keine Identität — also beschießt eine Stellung die nächste feste Spur in ihrer
+Hülle, egal wem sie gehört. Gemessen auf dem ersten Layout: drei V-750 in die eigene Kampfpatrouille
+binnen 7 s. O1 weicht geometrisch aus und **kann damit die eigentliche syrische Taktik des Ankers
+(„zurück unter den Schirm") gar nicht fliegen.**
+
+**Dritter Fund: `FirstFlightKo` beendet den ganzen Lauf.** Ein Jagdduell und ein SEAD-Anflug in einer
+Datei messen das Duell zweimal — die erste Fassung von Sortie 08 endete bei t = 237.0 s, mit den
+Angreifern 130 km vor dem Ziel. Konsequenz: die SEAD-Paarung fliegt ohne Jäger, und die große Sortie
+setzt ihre Angreifer hinter die Patrouillenlinie.
+
+**Tore.** `core-lib gym native wasm` warnungsfrei, `verify-layers` (297 Dateien, 12 Schichten, 3
+restricted, 6 Registry-Leser) und `verify-models` grün, sechs Harnesses rc=0, `git status --porcelain
+sim/assets` leer. Determinismus: **9 Läufe, 1 Kampagnen-Fingerabdruck**
+`81b549fd04c4591987b9dadf233deffdabbbfb01f9dc89f4f7f0d4486d7bba8e`, und **10/10 Schritte** beim ersten
+Versuch einzeln aus dem Vorzustand nachgespielt — das Uhrenloch, das O4 gefunden hat, blieb geschlossen.

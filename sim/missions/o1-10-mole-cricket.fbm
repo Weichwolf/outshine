@@ -1,0 +1,623 @@
+name o1-10-mole-cricket-1
+timeout 900
+
+# CAMPAIGN O1, SORTIE 10 OF 10 - THE WHOLE BATTLE, AND THE CAMPAIGN'S ACTUAL ANSWER.
+# THIS FILE IS THE TERMINUS OF THE CARRY CHAIN. It flies over the belt sortie 08 left standing, with
+# the aircraft sortie 08 left alive, on the magazines sortie 08 left loaded. Its control is not another
+# mission: it is ITSELF, run standalone with no carried state, which is what
+# `tools/fb_campaign_verify.py replay` produces for every step of a campaign. The difference between
+# the two runs of this one file IS the campaign's attrition, isolated.
+#
+# THE ARENA, and every coordinate in it is [SET]. The Bekaa runs NNE-SSW between the Lebanon and the
+# Anti-Lebanon; FlightBox flies it as a parallel at 33.90 N because it has NO TERRAIN MASKING (gap C4),
+# so the two ridges that are the valley's whole geography do not exist in this tree and a mission that
+# pretended otherwise would be lying with coordinates. The campaign is flown with `--elev const`, i.e.
+# on a 0 m datum: the real valley floor is ~900 m, so every altitude here is height above the DECLARED
+# datum and not above the real Bekaa. Rayak is 33.85 N 35.99 E and Damascus/Mezzeh 33.48 N 36.22 E [T4];
+# the SAM belt of this campaign stands at 36.20-36.40 E, i.e. the eastern group, between the two.
+#
+# THE SUBSTITUTION, AND ITS DIRECTION — this is the binding disclosure of doc/campaigns/o1-bekaa-1982.md
+# and it is repeated in every file of this campaign because a reader who skips it will read the result
+# backwards. The MiG-29 was NOT at Bekaa: it entered Soviet service in 1983, and on 9 June 1982 the
+# Syrian side flew MiG-21, MiG-23 and Su-20 [T4]. Those aircraft had "only nose and tail alert radar
+# systems and no side warnings or look-up and look-down systems" [T4]. FlightBox's MiG-29 has the SPO-15
+# with eight azimuth channels, a look-down-capable N019 and an IRST. THE SUBSTITUTION THEREFORE MAKES THE
+# DEFENDER STRONGER THAN HISTORY. A FlightBox Bekaa that still ends in a rout says something STRONGER
+# than 1982 did; one that ends well for Red says NOTHING about 1982 and must not be read as if it did.
+#
+# WHY RED NEVER FLIES OVER ITS OWN BELT, AND IT IS A GAP AND NOT A CHOICE. A FlightBox SAM site has no
+# IFF interrogator (`modules/ground/FBSiteModule`: "a battery has no IFF interrogator in this tree") and
+# a radar contact carries no identity by construction, so a battery engages the nearest firm track in its
+# envelope WHOEVER IT BELONGS TO. Measured on this campaign's own first layout: with the Syrian CAP at
+# 8 000 m over the belt, `swsa2` put three V-750 into its own fighters inside 7 s. Every mission of O1 is
+# therefore laid out so that no Red aircraft is ever inside a friendly envelope — which DELETES the
+# anchor's own Syrian tactic ("do what they can, then run back for cover" inside the protective missile
+# envelope [T4]). That is stated here rather than hidden in a gap table: the campaign cannot fly the one
+# thing the Syrians actually did.
+#
+# NO AIRCRAFT IN THIS SORTIE DECLARES `objective survive`, AND NO FIGHTER FLIES IN IT AT ALL. Both are
+# consequences of one runner property rather than of doctrine: `FBMissionRunner` ENDS THE WHOLE RUN at
+# the first flight-monitor K.O. and at the first failed `survive` (`FirstFlightKo` / `FirstDecidingFailure`).
+# MEASURED on this campaign's own first layout of this sortie: with four MiG-29 and two escorts in the
+# file, the fighter engagement produced its first combat-ineffective jet at t = 169.9 s and that jet hit
+# the ground at t = 237.0 s - so every strike sortie ended at t = 237.0 with the strikers still 130 km
+# short of the belt and the belt with nothing to shoot at. Putting a fighter duel and a SEAD run in one
+# file therefore does not measure the SEAD run; it measures the duel twice. The fighters have their own
+# seven sorties, and sorties 08 and 09 are the SEAD pair the operation was actually named after.
+# The loss of an aircraft is carried by the campaign regardless of any objective (the carry reads the
+# roster's CombatEffective bit), so dropping the line costs the campaign nothing.
+#
+# THE ONE TACTICAL QUESTION - THE YARDSTICK. With every lever set to the best value measured in sorties
+# 01 to 09, what is the RESIDUE? doc/campaigns/o1-bekaa-1982.md section Knowledge 3 defines it: with the
+# Red doctrine vector at its measured optimum and Blue flown to its own, whatever outcome is LEFT is the
+# structural part of Bekaa - the part no decision on either side removes. If the residue is small,
+# FlightBox is saying 1982 was a doctrine and architecture defeat that better decisions could have
+# changed. If it is large, FlightBox is saying the Syrian force was outmatched in materiel before
+# anybody decided anything. Either answer is publishable; refusing to compute it is not.
+#
+# WHAT "BEST" MEANS HERE, and every one of them is a measurement from this campaign and not a taste:
+#   Red doctrine   `pilot_lock_nm 16` + `pilot_shot_rtr 1.4` - sortie 07, the ONLY lever of the seven
+#                  that inverted the baseline (2 Red mission-killed / 0 Blue became 0 / 2).
+#   Red control    the full four-call GCI brief - sortie 05 measured its absence as ZERO contacts and
+#                  ZERO shots on the entry geometry a controller exists for.
+#   Blue jamming   `set jam_comm_m 90000` - sortie 09 measured the netted belt at 5 launches and the
+#                  jammed one at 0, with no firm track at all.
+#   Blue package   escorts high and forward, strikers already past the CAP line and 32 km from their
+#                  aim points, so the SEAD run and the fighter engagement resolve in PARALLEL and 90 km
+#                  apart. That is not a convenience: `FBMissionRunner` ends the whole run at the first
+#                  flight-monitor K.O., so a file in which the fighter fight must FINISH before the
+#                  strike begins measures the fighter fight and nothing else (MEASURED: t = 237.0 s).
+#
+# THE FORCE: eight MiG-29 in two flights of four against four F-16 escorts and four F-16 strikers, plus
+# the EF-111 and the belt. The Israeli order of battle at Bekaa was 96 aircraft against roughly 100
+# Syrian [T4]; this is that ratio at 1:12 scale, and the scale is declared rather than implied.
+#
+# MEASURED (fingerprint 36c498ac10e1ab79 as campaign step 10, `--elev const`): WITH EVERY LEVER AT ITS
+# MEASURED BEST, RED LOSES NOTHING AND BLUE LOSES TWO. Thirteen R-27R away from eight MiGs against two
+# AIM-120 from four escorts; seven detonations; `eagle2` mission-killed by a 2.03 m arrival at
+# t = 168.5 and `eagle3` by 2.56 / 3.63 / 3.25 m at t = 178.7-181.0. Zero Red losses. The run ends at
+# t = 203.1 s on `eagle2`'s ground contact, which is `FirstFlightKo` and not the clock.
+#
+# THE CARRY, AND WHAT IT WAS WORTH. Five `campaign CARRY` lines on entry: `bksa6a`, `bksa6b` and
+# `bksa3` dropped (destroyed in sortie 08 - two of them by their own rounds), and one `set store mk82`
+# line dropped from each of `bolt1` and `bolt2`. Against the same file run STANDALONE with no carried
+# state, the ONE measured difference is the belt: `site LAUNCH` 5 -> 3, and the two self-destructions
+# 2 -> 0 because the batteries that would have killed themselves were already dead. EVERY AIR NUMBER IS
+# UNCHANGED - same 13 shots, same 2 shots, same two escorts lost, same end tick. The attrition arc is
+# visible, it is auditable line by line, and IT MOVED NO OUTCOME.
+#
+# THE RESIDUE, WHICH IS THE CAMPAIGN'S ACTUAL ANSWER, IS THEREFORE NOT A RESIDUE OF BEKAA. With the
+# best doctrine measured in 01-07 the defender wins outright; but the doctrine that produced that win
+# is `pilot_shot_rtr 1.4`, a launch discipline available to BOTH sides and given to only one, and the
+# defender is an aircraft that postdates the battle by a year and carries a radar the real one did not
+# have. What the number says is that in THIS tree, on THIS geometry, the whole outcome sits inside a
+# 3.5-second launch decision - and nothing about the ground, the net, the jamming or the warning
+# receiver reaches it at all.
+#
+# READING RULE: the exit code is not the verdict. Read, in this order: (1) the `campaign CARRY` lines in
+# this step's own events.log - they ARE the attrition arc; (2) `site LAUNCH` and `net LOST` on the belt;
+# (3) `objective kill unit` on the four strikers; (4) the per-jet `eng_*` debriefing and the DETONATION
+# lines; (5) the ATTRITION line of the campaign report. exit 2 would be a defect.
+
+wx fixture wx-2026-07-27T00Z.wxb
+
+zone flak    33.90000 36.30000  9000    0  2500   # under the SAMs, above nothing
+zone sa6belt 33.90000 36.30000 24000  100  7000   # the mobile layer
+zone sa2belt 33.90000 36.30000 30000  450 25000   # the strategic layer
+
+net iads
+  control bkp18                                # the node: a search set and a radio
+  link radio 60000 mast 8                       # [SET] 8 m masts -> 23.3 km of horizon. RADIO, because
+  period 4.0                                    # a buried cable is unjammable and the anchor's decisive
+  hold 3                                        # mechanism was jamming the RADIO net
+  wcs free                                      # what the node transmits
+  member bkp18
+  member bksa6a autonomy hold
+  member bksa6b autonomy hold
+  member bksa2  autonomy hold
+  member bksa3  autonomy hold
+
+unit hawk1
+  team hostile
+  flight syr10a 1
+  module mig29
+  spawn 33.88334 35.75000 2000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad                           # the wide non-locking search pattern
+  set n019_range_nm 27                        # the set's own documented search reach
+  set n019_emission illum                     # LOUD from t=0: see the header on why this is the baseline
+  set rwr on
+  set brief_sort left                         # the briefed contract; this jet has no cooperative channel
+  set store 3 r27r                            # FIRING ORDER, not a pylon map (doc/duels.md D4)
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set store 1 r73
+  set store 2 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30                           # BVP-30-26, 30/30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set pilot_lock_nm 16                        # THE BEST DOCTRINE MEASURED IN 01-07: sortie 07
+  set pilot_shot_rtr 1.4                      # is the only lever that inverted the baseline
+  set brief_gci 20 270 97 9
+  set brief_gci 80 270 69 9
+  set brief_gci 140 270 42 9
+  set brief_gci 200 270 14 9
+  wp 33.90000 34.90000 2000 450
+  objective kill team friendly
+
+unit hawk2
+  team hostile
+  flight syr10a 2
+  module mig29
+  spawn 33.90000 35.75000 2050 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad                           # the wide non-locking search pattern
+  set n019_range_nm 27                        # the set's own documented search reach
+  set n019_emission illum                     # LOUD from t=0: see the header on why this is the baseline
+  set rwr on
+  set brief_sort left                         # the briefed contract; this jet has no cooperative channel
+  set store 3 r27r                            # FIRING ORDER, not a pylon map (doc/duels.md D4)
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set store 1 r73
+  set store 2 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30                           # BVP-30-26, 30/30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set pilot_lock_nm 16                        # THE BEST DOCTRINE MEASURED IN 01-07: sortie 07
+  set pilot_shot_rtr 1.4                      # is the only lever that inverted the baseline
+  set brief_gci 20 270 97 9
+  set brief_gci 80 270 69 9
+  set brief_gci 140 270 42 9
+  set brief_gci 200 270 14 9
+  wp 33.90000 34.90000 2000 450
+  objective kill team friendly
+
+unit hawk3
+  team hostile
+  flight syr10a 3
+  module mig29
+  spawn 33.91666 35.75000 2100 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad                           # the wide non-locking search pattern
+  set n019_range_nm 27                        # the set's own documented search reach
+  set n019_emission illum                     # LOUD from t=0: see the header on why this is the baseline
+  set rwr on
+  set brief_sort left                         # the briefed contract; this jet has no cooperative channel
+  set store 3 r27r                            # FIRING ORDER, not a pylon map (doc/duels.md D4)
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set store 1 r73
+  set store 2 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30                           # BVP-30-26, 30/30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set pilot_lock_nm 16                        # THE BEST DOCTRINE MEASURED IN 01-07: sortie 07
+  set pilot_shot_rtr 1.4                      # is the only lever that inverted the baseline
+  set brief_gci 20 270 97 9
+  set brief_gci 80 270 69 9
+  set brief_gci 140 270 42 9
+  set brief_gci 200 270 14 9
+  wp 33.90000 34.90000 2000 450
+  objective kill team friendly
+
+unit hawk4
+  team hostile
+  flight syr10a 4
+  module mig29
+  spawn 33.93332 35.75000 2150 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad                           # the wide non-locking search pattern
+  set n019_range_nm 27                        # the set's own documented search reach
+  set n019_emission illum                     # LOUD from t=0: see the header on why this is the baseline
+  set rwr on
+  set brief_sort left                         # the briefed contract; this jet has no cooperative channel
+  set store 3 r27r                            # FIRING ORDER, not a pylon map (doc/duels.md D4)
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set store 1 r73
+  set store 2 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30                           # BVP-30-26, 30/30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set pilot_lock_nm 16                        # THE BEST DOCTRINE MEASURED IN 01-07: sortie 07
+  set pilot_shot_rtr 1.4                      # is the only lever that inverted the baseline
+  set brief_gci 20 270 97 9
+  set brief_gci 80 270 69 9
+  set brief_gci 140 270 42 9
+  set brief_gci 200 270 14 9
+  wp 33.90000 34.90000 2000 450
+  objective kill team friendly
+
+unit hawk5
+  team hostile
+  flight syr10b 1
+  module mig29
+  spawn 34.06334 35.75000 2000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad                           # the wide non-locking search pattern
+  set n019_range_nm 27                        # the set's own documented search reach
+  set n019_emission illum                     # LOUD from t=0: see the header on why this is the baseline
+  set rwr on
+  set brief_sort left                         # the briefed contract; this jet has no cooperative channel
+  set store 3 r27r                            # FIRING ORDER, not a pylon map (doc/duels.md D4)
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set store 1 r73
+  set store 2 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30                           # BVP-30-26, 30/30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set pilot_lock_nm 16                        # THE BEST DOCTRINE MEASURED IN 01-07: sortie 07
+  set pilot_shot_rtr 1.4                      # is the only lever that inverted the baseline
+  set brief_gci 20 270 97 9
+  set brief_gci 80 270 69 9
+  set brief_gci 140 270 42 9
+  set brief_gci 200 270 14 9
+  wp 34.08000 34.90000 2000 450
+  objective kill team friendly
+
+unit hawk6
+  team hostile
+  flight syr10b 2
+  module mig29
+  spawn 34.08000 35.75000 2050 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad                           # the wide non-locking search pattern
+  set n019_range_nm 27                        # the set's own documented search reach
+  set n019_emission illum                     # LOUD from t=0: see the header on why this is the baseline
+  set rwr on
+  set brief_sort left                         # the briefed contract; this jet has no cooperative channel
+  set store 3 r27r                            # FIRING ORDER, not a pylon map (doc/duels.md D4)
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set store 1 r73
+  set store 2 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30                           # BVP-30-26, 30/30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set pilot_lock_nm 16                        # THE BEST DOCTRINE MEASURED IN 01-07: sortie 07
+  set pilot_shot_rtr 1.4                      # is the only lever that inverted the baseline
+  set brief_gci 20 270 97 9
+  set brief_gci 80 270 69 9
+  set brief_gci 140 270 42 9
+  set brief_gci 200 270 14 9
+  wp 34.08000 34.90000 2000 450
+  objective kill team friendly
+
+unit hawk7
+  team hostile
+  flight syr10b 3
+  module mig29
+  spawn 34.09666 35.75000 2100 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad                           # the wide non-locking search pattern
+  set n019_range_nm 27                        # the set's own documented search reach
+  set n019_emission illum                     # LOUD from t=0: see the header on why this is the baseline
+  set rwr on
+  set brief_sort left                         # the briefed contract; this jet has no cooperative channel
+  set store 3 r27r                            # FIRING ORDER, not a pylon map (doc/duels.md D4)
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set store 1 r73
+  set store 2 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30                           # BVP-30-26, 30/30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set pilot_lock_nm 16                        # THE BEST DOCTRINE MEASURED IN 01-07: sortie 07
+  set pilot_shot_rtr 1.4                      # is the only lever that inverted the baseline
+  set brief_gci 20 270 97 9
+  set brief_gci 80 270 69 9
+  set brief_gci 140 270 42 9
+  set brief_gci 200 270 14 9
+  wp 34.08000 34.90000 2000 450
+  objective kill team friendly
+
+unit hawk8
+  team hostile
+  flight syr10b 4
+  module mig29
+  spawn 34.11332 35.75000 2150 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad                           # the wide non-locking search pattern
+  set n019_range_nm 27                        # the set's own documented search reach
+  set n019_emission illum                     # LOUD from t=0: see the header on why this is the baseline
+  set rwr on
+  set brief_sort left                         # the briefed contract; this jet has no cooperative channel
+  set store 3 r27r                            # FIRING ORDER, not a pylon map (doc/duels.md D4)
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set store 1 r73
+  set store 2 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30                           # BVP-30-26, 30/30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set pilot_lock_nm 16                        # THE BEST DOCTRINE MEASURED IN 01-07: sortie 07
+  set pilot_shot_rtr 1.4                      # is the only lever that inverted the baseline
+  set brief_gci 20 270 97 9
+  set brief_gci 80 270 69 9
+  set brief_gci 140 270 42 9
+  set brief_gci 200 270 14 9
+  wp 34.08000 34.90000 2000 450
+  objective kill team friendly
+
+unit eagle1
+  team friendly
+  flight isr10 1
+  module f16
+  spawn 33.88334 34.60000 9000 90.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink on                             # the cooperative half of the asymmetry
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60                           # ALE-47, 60/60 - twice the MiG's magazine
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.90000 36.35000 9000 450
+  objective kill team hostile
+
+unit eagle2
+  team friendly
+  flight isr10 2
+  module f16
+  spawn 33.90000 34.60000 9050 90.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink on                             # the cooperative half of the asymmetry
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60                           # ALE-47, 60/60 - twice the MiG's magazine
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.90000 36.35000 9000 450
+  objective kill team hostile
+
+unit eagle3
+  team friendly
+  flight isr10 3
+  module f16
+  spawn 33.91666 34.60000 9100 90.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink on                             # the cooperative half of the asymmetry
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60                           # ALE-47, 60/60 - twice the MiG's magazine
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.90000 36.35000 9000 450
+  objective kill team hostile
+
+unit eagle4
+  team friendly
+  flight isr10 4
+  module f16
+  spawn 33.93332 34.60000 9150 90.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink on                             # the cooperative half of the asymmetry
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60                           # ALE-47, 60/60 - twice the MiG's magazine
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.90000 36.35000 9000 450
+  objective kill team hostile
+
+unit bolt1
+  team friendly
+  flight str10 1
+  module f16
+  spawn 33.90000 36.00000 4000 90.0 450
+  set gear up
+  set fuel_pct 80
+  set datalink on
+  set fcr_mode off                            # a striker's radar is not the package's eyes
+  set rwr on
+  set store 3 mk82                            # a strike element carries no air-to-air round: see header
+  set store 7 mk82
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 33.90000 36.30000 4000 450                       # THE TARGET: the active steerpoint IS the aim point
+  objective kill unit bkp18
+
+unit bolt2
+  team friendly
+  flight str10 2
+  module f16
+  spawn 33.92000 36.00000 4000 90.0 450
+  set gear up
+  set fuel_pct 80
+  set datalink on
+  set fcr_mode off                            # a striker's radar is not the package's eyes
+  set rwr on
+  set store 3 mk82                            # a strike element carries no air-to-air round: see header
+  set store 7 mk82
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 33.90000 36.40000 4000 450                       # THE TARGET: the active steerpoint IS the aim point
+  objective kill unit bksa2
+
+unit bolt3
+  team friendly
+  flight str10 3
+  module f16
+  spawn 33.88000 36.00000 4000 90.0 450
+  set gear up
+  set fuel_pct 80
+  set datalink on
+  set fcr_mode off                            # a striker's radar is not the package's eyes
+  set rwr on
+  set store 3 mk82                            # a strike element carries no air-to-air round: see header
+  set store 7 mk82
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 33.90500 36.30500 4000 450                       # THE TARGET: the active steerpoint IS the aim point
+  objective kill unit bkhq
+
+unit bolt4
+  team friendly
+  flight str10 4
+  module f16
+  spawn 33.94000 36.00000 4000 90.0 450
+  set gear up
+  set fuel_pct 80
+  set datalink on
+  set fcr_mode off                            # a striker's radar is not the package's eyes
+  set rwr on
+  set store 3 mk82                            # a strike element carries no air-to-air round: see header
+  set store 7 mk82
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 33.90000 36.30000 4000 450                       # THE TARGET: the active steerpoint IS the aim point
+  objective kill unit bkp18
+
+unit boeing
+  team friendly
+  module ef111                                # the Boeing 707 ECM aircraft's stand-in: a catalogue row
+  spawn 33.30000 34.90000 9000 90.0 480       # whose ONLY weapon is `jam_comm_m` (doc/modules/air)
+  set drag_threat_s 0                         # ordered to hold the leg: the honest way to say "never runs"
+  set jam_comm_m 90000
+  wp 33.30000 36.60000 9000 480                # three legs, so the leg it is on never runs out: a mover
+  wp 33.60000 35.60000 9000 480                # that reaches its last waypoint enters an ORBIT and
+  wp 33.30000 36.60000 9000 480                # drifts, and a drifting jammer un-jams (measured: the
+
+unit bkp18
+  module p18                                  # P-18 "Spoon Rest D": the net's control node - the
+  team hostile                                # LEADERSHIP the Israeli plan attacked, and it is killable
+  spawn 33.90000 36.30000 ground 0.0 0
+  set emcon free
+
+unit bksa6a
+  module sa6                                  # 2K12 Kub - the mobile layer, the type that made Bekaa
+  team hostile
+  spawn 33.94000 36.25000 ground 0.0 0
+  set emcon hold                              # dark until something it RECEIVED says otherwise
+  set rounds 3
+
+unit bksa6b
+  module sa6
+  team hostile
+  spawn 33.86000 36.35000 ground 0.0 0
+  set emcon hold
+  set rounds 3
+
+unit bksa2
+  module sa2                                  # S-75 - the strategic layer, 450-25 000 m
+  team hostile
+  spawn 33.90000 36.40000 ground 0.0 0
+  set emcon hold
+  set rounds 3
+
+unit bksa3
+  module sa3                                  # S-125 - the low/medium layer, 100-18 000 m
+  team hostile
+  spawn 33.90000 36.20000 ground 0.0 0
+  set emcon hold
+  set rounds 3
+
+unit bkhq
+  module target_hard                          # the site command post - a hardened aim point [SET]
+  team hostile
+  spawn 33.90500 36.30500 ground 0.0 0

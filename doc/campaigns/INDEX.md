@@ -1,10 +1,11 @@
 # Campaigns — the ten scenario specifications
 
-**Status: one of ten BUILT (O4, 2026-07-29), nine spec only.** `sim/missions/o4-*.fbm` +
-`sim/campaigns/o4-gaf-mig29g-dact.fbc` exist, run, replay and are measured
-([`o4-gaf-mig29g-dact.md`](o4-gaf-mig29g-dact.md) §State); no other campaign has a `.fbm` file. The
-directory exists because the missions must not be invented: a campaign without a cited anchor is a
-mood, and a mood cannot be measured.
+**Status: two of ten BUILT (O4 and O1, both 2026-07-29), eight spec only.** `sim/missions/o4-*.fbm` +
+`sim/campaigns/o4-gaf-mig29g-dact.fbc` and `sim/missions/o1-*.fbm` +
+`sim/campaigns/o1-bekaa-1982.fbc` exist, run, replay and are measured
+([`o4-gaf-mig29g-dact.md`](o4-gaf-mig29g-dact.md) §State, [`o1-bekaa-1982.md`](o1-bekaa-1982.md)
+§State); no other campaign has a `.fbm` file. The directory exists because the missions must not be
+invented: a campaign without a cited anchor is a mood, and a mood cannot be measured.
 
 ### What O4 established, and what the other nine inherit from it
 
@@ -26,6 +27,24 @@ campaign.** O4's first replay was 9 of 10 DIVERGED, and the cause was a real hol
 that `viper-attrition` could not expose ([`../missions/campaign.md`](../missions/campaign.md), "the clock
 was missing from the replay half").
 
+### What O1 added, and the other eight inherit it too
+
+O1 was built second, took all five rules unchanged and passed both criteria on the first attempt (9 runs
+one fingerprint, 10/10 replays). It contributed three constraints that are properties of the machinery
+rather than of the Bekaa:
+
+| Rule | Why it exists |
+|---|---|
+| **A chain step cannot also be a controlled variant, so budget the ten slots before writing a file** | the carry is keyed by callsign; a mission that inherits a predecessor's state differs from any sibling in two things at once. Ten slots hold one baseline + N single-lever variants + one controlled pair + one chain, and O1 had to DROP a spec mission (piecemeal/massed) to fit. It says which one and why, in the `.fbc` header |
+| **Two engagements in one file must be separated in TIME, not only in space** | `FBMissionRunner` ends the whole run at the first flight-monitor K.O. (`FirstFlightKo`). O1's first strike sortie ended at t = 237.0 s with the strikers 130 km short of their targets, because a fighter duel 90 km away produced a crash. Its fix — no fighters in the SEAD pair, and the strikers of the big sortie already past the CAP line — is the shape every mixed package needs |
+| **Re-check the SPEC's own mechanism, not just its blockers** | O1's spec said the "confidently blind" case needed a controller that could be silenced mid-run (`C6`). It never did: `set brief_gci <atS> …` has always carried its own time, so a TRUNCATED brief is exactly that experiment. The capability was read, not built |
+
+And one warning of its own: **a campaign is the first thing that fires a subsystem in anger.** O1 is the
+first campaign in which ground SAMs shoot, and it found that the 2K12's and S-125's rounds reach the
+ground at their own launcher's coordinates seconds after release — pre-existing, visible in the
+committed `net-cue.fbm`, and enough to make four closed gaps (`C1`/`C22`/`C23`/`C24`) unable to move any
+outcome. Expect the eight remaining campaigns to find one of these each.
+
 This directory is **step 4 of the owner goal** and its specification comes first, per
 [`../conventions.md`](../conventions.md)'s spec-first rule: *change the Spec of the topic file first;
 if a round cannot say what the contract becomes, it is not ready to start.*
@@ -43,7 +62,7 @@ Five in which the **F-16** flies, five in which the **MiG-29** flies. Ten missio
 | **W3** | [Desert Storm, the first nights](w3-desert-storm.md) | 17 January 1991 + Package Q, 19 January | a package against an integrated air defence, and the three named ways Package Q came apart |
 | **W4** | [Allied Force 1999](w4-allied-force.md) | 24 March – 10 June 1999 | mountains, cloud and an air defence that refuses to emit — the campaign the weather hook was built for |
 | **W5** | [Baltic Air Policing / QRA](w5-baltic-qra.md) | NATO air policing, 30 March 2004– | **identification as the task**, and the sharpest anti-cheat test in the set |
-| **O1** | [Bekaa 1982, the Syrian side](o1-bekaa-1982.md) | Operation Mole Cricket 19, 9 June 1982 | the canonical defeat, reframed as a measurable question: **what in the doctrine moves the outcome, and what is left when nothing does** |
+| **O1** | [Bekaa 1982, the Syrian side](o1-bekaa-1982.md) **— BUILT** | Operation Mole Cricket 19, 9 June 1982 | the canonical defeat, reframed as a measurable question: **what in the doctrine moves the outcome, and what is left when nothing does**. **Flown 2026-07-29:** the baseline reproduces the rout; ONE lever (launch at 1.4 × Rtr) inverts it; the controller is worth everything on a 45° entry and nothing head-on; the warning receiver, the belt, the net and the anchor's own jamming move mechanisms and no outcome |
 | **O2** | [PVO intercept exercise](o2-pvo-intercept.md) | Soviet GCI doctrine + the MiG-29's own guidance panel | ground control in its pure form, and identity that always costs surprise |
 | **O3** | [Yom Kippur 1973](o3-yom-kippur-1973.md) | the opening strikes, 6 October 1973 | ground attack under a friendly SAM umbrella — **the only campaign with zero runnable missions**, and the requirement that says why |
 | **O4** | [GAF MiG-29G DACT](o4-gaf-mig29g-dact.md) **— BUILT** | JG 73 Laage, 1991–2003 | the one campaign in which **both** FlightBox airframes really flew against each other — and the cheapest to build, because half of it is already measured. **Flown 2026-07-29:** the ten-mile claim holds at ten miles, trades at five and loses at two |
@@ -99,13 +118,13 @@ declared again rather than hidden.
 
 ## What is buildable today
 
-**50 of the 100 missions when this table was written; 10 of them are now BUILT and the O4 row is
-re-counted against the tree rather than against the spec.** Per campaign:
+**50 of the 100 missions when this table was written; 20 of them are now BUILT and the O4 and O1 rows
+are re-counted against the tree rather than against the spec.** Per campaign:
 
 | Campaign | Runnable today | Blocked | The first pair to build |
 |---|---:|---:|---|
 | O4 GAF DACT | **10 — BUILT** | 0 (1 runs but cannot answer) | done: ten `.fbm` + one `.fbc`, both determinism criteria measured |
-| O1 Bekaa | **7** | 3 | `o1-01` / `o1-02` — the GCI-deletion experiment |
+| O1 Bekaa | **10 — BUILT** | 0 (the ground half runs and cannot decide — see its §Gaps row 1) | done: ten `.fbm` + one `.fbc`, both determinism criteria measured on the first attempt |
 | O2 PVO | **7** | 3 | `o2-06` / `o2-08` — the identification anti-cheat pair |
 | O5 Airfield defence | **7** | 3 | `o5-01` / `o5-02` — alert versus CAP, one `spawn` line apart |
 | W3 Desert Storm | **5** | 5 | `w3-07` / `w3-08` — the same GCI experiment, another theatre |
