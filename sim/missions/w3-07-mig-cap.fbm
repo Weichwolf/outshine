@@ -1,0 +1,333 @@
+name w3-07-mig-cap-1
+timeout 520
+time 1991-01-19T00:00:00Z
+
+# CAMPAIGN W3, SORTIE 7 OF 10 - THE DEFENDING CAP, FLOWN THE WAY THE TYPE WAS DESIGNED TO BE FLOWN.
+# Spec, anchor and sources: doc/campaigns/w3-desert-storm.md. Format: doc/missions/campaign.md.
+# CONTROL: none - it IS the control, of w3-08-mig-alone.fbm.
+#
+# THE ANCHOR: about 55 Iraqi fighters were aloft in the Package Q area on 19 January (25 MiG-23,
+# 20 MiG-25, 10 MiG-29) [T4]; across the opening days six Iraqi MiG-29s were shot down by F-15Cs and
+# NONE scored an air-to-air kill, and the explanation the sources give is not the aeroplane: poor
+# training, NO AEW SUPPORT, and flying "essentially alone, without the tactical architecture the design
+# assumed" [T4]. This file and w3-08 are that sentence turned into an experiment.
+#
+# THE ONE DELETED LINE, AND THE POLICY IT IS MEASURED UNDER (rule 11, and it is the reason this pair is
+# in the campaign at all). `o1-02`, `o1-03`, `o5-03` and `o2-04` already ran "the same deleted line"
+# (`set brief_gci`) in four theatres and DISAGREED. O2 found why: the deciding line is not the brief but
+# `set n019_emission`. O1 and O5 spawned their MiGs `illum`, so deleting the brief left the antenna
+# badly AIMED; O2 spawned them in the documented power-up state `off`, where the brief's THIRD typed
+# entry is the only thing in the tree that ever turns the radar on. W3 IS THE FIFTH THEATRE AND IT
+# DECLARES ITS POLICY IN ADVANCE: `set n019_emission off`, O2's. The comparable quantity is therefore
+# "what the controller is worth GIVEN a silent power-up state", and the campaign predicts O2's answer
+# rather than O1's. ATTRIBUTION RUN A3 is w3-08 with that one token changed to `illum`, so this campaign
+# measures the policy instead of assuming it.
+#
+# THE SUBSTITUTION AND ITS DIRECTION: the MiG-29 stands in for the MiG-23/MiG-25 that were ~45 of the 55
+# [T4]. FlightBox's MiG-29 has a look-down N019, an IRST and the SPO-15; a MiG-23ML has a 23 km look-down
+# set and a MiG-25PD a +4.5 g limit (doc/modules/air/catalogue.md). RED IS THEREFORE MATERIALLY STRONGER
+# THAN HISTORY, and a FlightBox result that still goes badly for Red says something STRONGER than the
+# record did, while one that goes well says nothing about 1991. The catalogue rows for those two types
+# EXIST and are deliberately NOT used: both are `ALPHA` (doc/modules/air/module.md, A10), and an ALPHA
+# row may not answer a campaign question.
+#
+# THE ARENA is w3-03's, with the target set moved to 44.36-44.52 E and the CAP holding east of it; every
+# coordinate is [SET]. `--elev const`, 0 m datum, no terrain masking (C4).
+# WHICH DEFENSIVE LAYER THIS FILE MEASURES: the FIGHTER layer. The surface layer is present and briefed
+# to hold - a P-18 that radiates from t = 0 and a ZSU-23-4 that cannot reach a 5 000 m ingress at all -
+# and it fires nothing. O5's rule that two layers cannot be measured in one file holds here too.
+# NIGHT: 03:00 local, sun about -48 deg [DERIVED]. Nothing in this tree emits light, so BOTH MERGES IN
+# THIS PAIR ARE EYELESS: `sensors/FBVisualSystem` contributes nothing after dark, and every detection in
+# both files is a radar or an infrared one. That is a limit on the CLAIM, not on the mechanism.
+#
+# THE TWO ENGAGEMENTS ARE SEPARATED IN TIME (O1's rule): the strikers release at t = 172 / 188 s at
+# 44.36-44.40 E; the fighter merge runs from t = 194 s onward, 100 km further east and 6 s later. A run
+# ends at the FIRST flight-monitor K.O. and a mission-killed fighter takes ~50-120 s to reach the ground,
+# so the strike had to be complete before the first kill or it would not be in the record at all.
+#
+# THE ONE TACTICAL QUESTION: AGAINST AN OPPONENT FLOWN THE WAY THE TYPE WAS DESIGNED TO BE FLOWN -
+# ground-vectored, radar silent until the controller's third call - does the F-16's earlier detection
+# still convert into an earlier shot?
+#
+# MEASURED (fingerprint 38a02bbbe00b3e99):
+#   Red's first look   `radar RADAR_CONTACT unit=q7mig1 track=1 rangeNm=52.76` at t = 54.9 s. 50 Red
+#                      contact lines over the run
+#   Red's shots        five launch solutions - `q7mig2` R-27R t = 195.4 at 15.05 km, `q7mig3` t = 204.8
+#                      at 13.38 km, `q7mig4` t = 205.8 at 13.51 km, then two R-73 at t = 210.1 / 219.5
+#   Red's arrivals     ONE, `q7mig2_r27r_3` on `q7escb` at 12.94 m against a 13.8 m fuze - INSIDE the
+#                      fuze and NOT a kill, which is O2's rule 13 arriving in a sixth theatre
+#   Blue               first solution t = 196.5, i.e. 1.1 s AFTER Red's; one AIM-120 at 2.47 m kills
+#                      `q7mig1` at t = 211.3
+#   the strike         2 of 2 released at t = 174.6 / 190.0, both aim points destroyed, 21 s and 5 s
+#                      before Red's first shot - the time separation held
+#   the run            ends t = 272.8 on `q7mig1`'s ground contact, 61.5 s after its combat kill
+# SO THE ANSWER TO THIS FILE'S QUESTION IS NO, AND SHARPLY: with the controller present the F-16's
+# detection advantage does NOT convert into an earlier shot. Red shoots first, by 1.1 s. What Blue has
+# instead is the round: 2.47 m and a kill against 12.94 m and none.
+#
+# WHAT TO READ:
+#   events.log      the FIRST `radar RADAR_CONTACT unit=q7mig*` (the quantity this pair compares),
+#                   `sms LAUNCH_SOLUTION` per side with its range, `stores DETONATION` with `missM`
+#                   against the round's own `fuzeM`
+#   telemetry_q7mig1.csv  n019_emission and the antenna commands - the brief's three typed entries
+#
+# READING RULE: exit 3 = TIMEOUT is expected; this file is a measuring rig. THE MEASUREMENT IS THE
+# TRIPLE (first Red radar contact, Red shots, Red arrivals) read beside w3-08-mig-alone.fbm, which is
+# this file with one line deleted. Read the DETECTION TIMES, not the kills: O2 measured two R-27R inside
+# their own fuze that did not kill and one further out that did, so an outcome axis ordered by kills is
+# reading warhead arrival geometry.
+
+net kari7
+  control q7nod
+  link wire
+  period 4.0
+  hold 3
+  wcs free
+  member q7nod
+  member q7flk autonomy hold
+
+unit q7stra
+  module f16
+  team friendly
+  flight st7 1
+  spawn 33.20000 43.85000 5000 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set attack_mode ccrp
+  set rwr on
+  set datalink on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  wp 33.20000 44.36000 5000 450
+  wp 33.20000 43.90000 5000 450
+  objective kill unit q7tgt
+  objective survive
+
+unit q7strb
+  module f16
+  team friendly
+  flight st7 2
+  spawn 33.24000 43.85000 5150 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set attack_mode ccrp
+  set rwr on
+  set datalink on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  wp 33.24000 44.40000 5150 450
+  wp 33.24000 43.90000 5150 450
+  objective kill unit q7ref
+  objective survive
+
+unit q7esca
+  module f16
+  team friendly
+  flight es7 1
+  spawn 33.22000 43.90000 6000 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.22000 44.90000 6000 480
+  objective kill team hostile
+  objective survive
+
+unit q7escb
+  module f16
+  team friendly
+  flight es7 2
+  spawn 33.18000 43.90000 6150 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.18000 44.90000 6150 480
+  objective kill team hostile
+  objective survive
+
+unit q7mig1
+  module mig29
+  team hostile
+  flight fk7 1
+  spawn 33.22000 45.30000 6000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 120 0
+  set brief_gci 60 270 90 0
+  set brief_gci 100 270 60 0
+  wp 33.22000 43.95000 6000 450
+  objective kill team friendly
+  objective survive
+
+unit q7mig2
+  module mig29
+  team hostile
+  flight fk7 2
+  spawn 33.18000 45.30000 6150 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 120 0
+  set brief_gci 60 270 90 0
+  set brief_gci 100 270 60 0
+  wp 33.18000 43.95000 6150 450
+  objective kill team friendly
+  objective survive
+
+unit q7mig3
+  module mig29
+  team hostile
+  flight fk7 3
+  spawn 33.26000 45.34000 6300 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 120 0
+  set brief_gci 60 270 90 0
+  set brief_gci 100 270 60 0
+  wp 33.26000 43.95000 6300 450
+  objective kill team friendly
+  objective survive
+
+unit q7mig4
+  module mig29
+  team hostile
+  flight fk7 4
+  spawn 33.14000 45.34000 6450 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 120 0
+  set brief_gci 60 270 90 0
+  set brief_gci 100 270 60 0
+  wp 33.14000 43.95000 6450 450
+  objective kill team friendly
+  objective survive
+
+unit q7nod
+  module p18
+  team hostile
+  spawn 33.34000 44.10000 ground 0.0 0
+  set emcon free
+
+unit q7flk
+  module zsu23
+  team hostile
+  spawn 33.20000 44.36000 ground 0.0 0
+  set emcon hold
+  set rounds 40
+
+unit q7tgt
+  module target_soft
+  team hostile
+  spawn 33.20000 44.36000 ground 0.0 0
+
+unit q7ref
+  module target_soft
+  team hostile
+  spawn 33.24000 44.40000 ground 0.0 0
+
+unit q7hgr
+  module target_hard
+  team hostile
+  spawn 33.20000 44.52000 ground 0.0 0

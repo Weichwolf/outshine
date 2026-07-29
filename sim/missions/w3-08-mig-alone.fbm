@@ -1,0 +1,303 @@
+name w3-08-mig-alone-1
+timeout 520
+time 1991-01-19T00:00:00Z
+
+# CAMPAIGN W3, SORTIE 8 OF 10 - THE SAME FIGHT WITH THE GROUND CONTROL DELETED.
+# Spec, anchor and sources: doc/campaigns/w3-desert-storm.md. Format: doc/missions/campaign.md.
+# CONTROL: w3-07-mig-cap.fbm. THE ONE THING THAT DIFFERS: the three `set brief_gci` lines are gone from
+# all four MiG-29. Everything else - both packages, the load-outs, the ground set, the clock, the
+# weather - is the control's, line for line. The cast is pairwise disjoint from the control's in every
+# unit it can lose (`q8*` against `q7*`), which is rule 1 and not decoration: the campaign carry is keyed
+# by callsign.
+#
+# THE ANCHOR'S OWN EXPLANATION OF A 6-FOR-0 RESULT, ISOLATED. Soviet doctrine assumed tight ground
+# control, and the Iraqis flew "essentially alone, without the tactical architecture the design assumed"
+# [T4]. In FlightBox that dependency is not a modifier but a TYPED, LATENCY-CHARGED COMMAND CHAIN: three
+# entries over the MiG's own command bus, 8.0 s from the call to a radiating radar
+# (doc/modules/mig29/datalink-gci.md, measured). Delete them and the N019 never receives its scan
+# elevation, its range scale or its ZONE.
+#
+# THE POLICY THIS PAIR IS MEASURED UNDER IS DECLARED IN THE CONTROL'S HEADER AND REPEATED HERE, because
+# four earlier campaigns ran this same deleted line and disagreed: `set n019_emission off`, the
+# documented power-up state, which is O2's policy and not O1's or O5's. Under `off` the brief's third
+# entry is the only thing in the tree that ever turns the radar on, so this file is not a badly aimed
+# radar - it is a radar that never radiates. ATTRIBUTION RUN A3 is this file with that one token changed
+# to `illum`, and it is what makes the claim a measurement instead of an inheritance.
+#
+# THE ARENA, the substitution and its direction, the layer this file measures, the night's cost and the
+# time separation of the two engagements are stated in w3-07-mig-cap.fbm and hold unchanged.
+#
+# THE ONE TACTICAL QUESTION: HOW MUCH OF THE HISTORICAL 6-FOR-0 IS THE ARCHITECTURE AND HOW MUCH IS THE
+# AIRCRAFT? One deleted line is the whole experiment, and the answer is a detection time.
+#
+# MEASURED (fingerprint 8cfb0b73f1ecdcbf), AND IT IS THE CONTROL'S EXACT MIRROR:
+#   Red's first look   NEVER. ZERO `radar RADAR_CONTACT unit=q8mig*` lines in the whole run, against
+#                      the control's 50
+#   Red's shots        ZERO launch solutions, against the control's five. Every R-27R and R-73 lands
+#                      back at base on the rail
+#   Blue               unchanged to a tenth of a second: first solution t = 196.3 against 196.5. The
+#                      controller does not move Blue's timeline at all; it decides whether Red is in the
+#                      fight
+#   the kill           `q8esca_aim120_6` on `q8mig1` at 8.94 m at t = 315.3 - 104.0 s LATER than the
+#                      control's, because Blue had to run its target down instead of meeting it
+#   the strike         2 of 2 released at t = 174.6 / 190.0, byte-identical ticks to the control's
+#   the run            ends t = 370.4, 97.6 s longer than the control's
+# THE CONTROLLER IS WORTH THE ENTIRE ENGAGEMENT ON AN AIRCRAFT THAT STARTS SILENT - which is O2's
+# result and NOT O1's or O5's, and W3 is the first campaign to measure BOTH POLICIES IN ONE ROUND.
+# ATTRIBUTION RUN A3 is this file with `set n019_emission illum`: 50 Red contacts, 7 launch solutions,
+# `q8mig1` killed at the SAME t = 272.8 run end as the control - i.e. under `illum` the deleted brief
+# costs NOTHING measurable, and under `off` it costs everything. The lever is the emission policy, and
+# the four earlier campaigns that disagreed were each right about their own file.
+#
+# WHAT TO READ:
+#   events.log      the count of `radar RADAR_CONTACT unit=q8mig*` lines - in the control it is 20, and
+#                   what it is here is the answer; then `sms LAUNCH_SOLUTION` per side
+#   telemetry_q8mig1.csv  the antenna and emission columns: a radar that was never switched on
+#
+# READING RULE: exit 3 = TIMEOUT is expected; this file is a measuring rig. THE MEASUREMENT IS THE
+# TRIPLE (first Red radar contact, Red shots, Red arrivals) read beside w3-07-mig-cap.fbm. A run in
+# which Red still shoots would falsify the campaign's prediction and would be the more interesting
+# result; it is reported either way.
+
+net kari8
+  control q8nod
+  link wire
+  period 4.0
+  hold 3
+  wcs free
+  member q8nod
+  member q8flk autonomy hold
+
+unit q8stra
+  module f16
+  team friendly
+  flight st8 1
+  spawn 33.20000 43.85000 5000 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set attack_mode ccrp
+  set rwr on
+  set datalink on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  wp 33.20000 44.36000 5000 450
+  wp 33.20000 43.90000 5000 450
+  objective kill unit q8tgt
+  objective survive
+
+unit q8strb
+  module f16
+  team friendly
+  flight st8 2
+  spawn 33.24000 43.85000 5150 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set attack_mode ccrp
+  set rwr on
+  set datalink on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  wp 33.24000 44.40000 5150 450
+  wp 33.24000 43.90000 5150 450
+  objective kill unit q8ref
+  objective survive
+
+unit q8esca
+  module f16
+  team friendly
+  flight es8 1
+  spawn 33.22000 43.90000 6000 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.22000 44.90000 6000 480
+  objective kill team hostile
+  objective survive
+
+unit q8escb
+  module f16
+  team friendly
+  flight es8 2
+  spawn 33.18000 43.90000 6150 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.18000 44.90000 6150 480
+  objective kill team hostile
+  objective survive
+
+unit q8mig1
+  module mig29
+  team hostile
+  flight fk8 1
+  spawn 33.22000 45.30000 6000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  wp 33.22000 43.95000 6000 450
+  objective kill team friendly
+  objective survive
+
+unit q8mig2
+  module mig29
+  team hostile
+  flight fk8 2
+  spawn 33.18000 45.30000 6150 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  wp 33.18000 43.95000 6150 450
+  objective kill team friendly
+  objective survive
+
+unit q8mig3
+  module mig29
+  team hostile
+  flight fk8 3
+  spawn 33.26000 45.34000 6300 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  wp 33.26000 43.95000 6300 450
+  objective kill team friendly
+  objective survive
+
+unit q8mig4
+  module mig29
+  team hostile
+  flight fk8 4
+  spawn 33.14000 45.34000 6450 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  wp 33.14000 43.95000 6450 450
+  objective kill team friendly
+  objective survive
+
+unit q8nod
+  module p18
+  team hostile
+  spawn 33.34000 44.10000 ground 0.0 0
+  set emcon free
+
+unit q8flk
+  module zsu23
+  team hostile
+  spawn 33.20000 44.36000 ground 0.0 0
+  set emcon hold
+  set rounds 40
+
+unit q8tgt
+  module target_soft
+  team hostile
+  spawn 33.20000 44.36000 ground 0.0 0
+
+unit q8ref
+  module target_soft
+  team hostile
+  spawn 33.24000 44.40000 ground 0.0 0
+
+unit q8hgr
+  module target_hard
+  team hostile
+  spawn 33.20000 44.52000 ground 0.0 0

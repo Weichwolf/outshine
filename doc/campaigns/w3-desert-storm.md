@@ -3,6 +3,10 @@
 **What this file is:** a **campaign spec** — ten missions derived from one historical anchor, plus the
 cast they need and the honest list of what FlightBox cannot do for them yet.
 
+**Status: BUILT AND FLOWN 2026-07-29** — `sim/missions/w3-*.fbm` + `sim/campaigns/w3-desert-storm.fbc`,
+ten of ten runnable against a spec that called five blocked, both determinism criteria on the first
+attempt. §State carries the numbers; the Spec below is left standing as written.
+
 | Source class | What it is | Where |
 |---|---|---|
 | **Anchor sources** | the public record of the opening of Operation Desert Storm, 17–19 January 1991 | §Knowledge 1, every fact cited and tiered |
@@ -103,45 +107,277 @@ its name is blocked.
 
 ## State
 
-**Nothing built.**
+**BUILT AND FLOWN, 2026-07-29 — the sixth of the ten campaigns to exist as files, and the first whose
+opponent is a SYSTEM rather than an aircraft.** Ten `.fbm` in `sim/missions/w3-*.fbm` plus
+`sim/campaigns/w3-desert-storm.fbc`, run as a campaign, replayed step by step, and measured. **No file
+under `sim/src/`, `sim/tools/` or `sim/assets/` was touched** (`git status --porcelain` lists eleven new
+untracked files and **no modified one**), so the **195** pre-existing `sim/missions/*.fbm` are
+byte-identical **by construction rather than by comparison**.
 
-Reused when they are: the GCI entry chain (`set brief_gci`, three typed entries over the command bus
-with latency — [`../modules/mig29/datalink-gci.md`](../modules/mig29/datalink-gci.md) §2.2, measured
-at 8.0 s from call to radiating radar in `mig29-intercept.fbm`), the flight sort and cover rule
-([`../formation.md`](../formation.md)), the air-to-ground release path
-([`../missions/weapons.md`](../missions/weapons.md)), and the thread pool's measured scaling (4 units
-1.49–1.77× on 2–4 threads — [`../missions/runtime.md`](../missions/runtime.md)), which mission 10
-will push well past anything yet run.
+### The spec's own headline is superseded, and by measurement
 
----
+This file said: *"Of the three things that actually went wrong on Package Q, FlightBox can measure ZERO
+today."* Rule 7 says a blocked mission is re-checked against the **tree** rather than against a gap's
+status line. Every blocker was re-checked one by one:
+
+| The spec said | The tree says, 2026-07-29 |
+|---|---|
+| `C1` — nothing emits, launches or shoots | **CLOSED.** Nine positions; `sa2` `sa3` `zsu23` `p18` fly in this campaign. The ground-launch fix of 2026-07-29 gave their rounds a trajectory: W3's S-125 puts four V-601 inside 8.4 m of an F-16 |
+| `C22`/`C23`/`C24` — no connected defence | **CLOSED.** `net` with `link wire`, `control`, `period`, `hold`, `wcs`, per-member `autonomy`. W3's whole sortie 01/02 pair is that mechanism |
+| `C8` — no HARM, no Mk-84 | **BUILT** minus the rocket pod. `agm88` and `mk84` are the campaign's two weapons; the anti-radiation round hits a battery at **2.8 mm** from 20 km |
+| `C26`/`C27` — no suppressed-vs-destroyed, no ARM cue | **CLOSED.** `objective suppress … emitting <s>`, `set emcon free <offS> [<onS>]`, `set attack_mode arm`, `set arm_class` — all four decide a W3 sortie |
+| `C2` — no time of day | **CLOSED.** All ten declare a night clock |
+| `C0` — no campaign layer | **CLOSED.** This campaign has a `.fbc` and a one-step chain |
+| `C5` — no tanker | **STILL OPEN**, and sortie 06 measures what is underneath it |
+| `C18` — no radio between units | **STILL OPEN.** Sortie 09 says so and measures the substitute instead |
+| `C15` — no package coordination | **STILL OPEN**, and sortie 10 puts a price on it |
+| `C7` — only two flyable modules | **BUILT-and-open**, and W3 flies **no catalogue row at all** — see below |
+
+**So the spec's count of five runnable missions is now ten, and the headline is exactly inverted for
+two of the three failure modes.**
+
+### The three Package Q failure modes: which FlightBox can stage and which it cannot
+
+| # | The anchor's failure | Can FlightBox stage it? | What W3 did |
+|---|---|---|---|
+| **2** | **the Wild Weasels left early on fuel**, leaving the strikers without suppression | **YES, fully.** Every ingredient exists: an emitting, shooting, magazine-limited battery; an anti-radiation round whose reach is measurable; a suppression verdict | sorties **03 / 04 / 05** + attribution run **A2**. It is the campaign's strongest result and it produced an answer the anchor does not contain |
+| **1** | **tanker weather and early arrival**; four fighters aborted | **NO, and it is blocked twice over.** `C5` blocks the cause (no tanker, no boom, no external tank, no fuel-driven RTB). Underneath it, the EFFECT is blocked too: `FBPilot::CanPressOn` is the only line that reads the BINGO warning, and the state-machine branch that calls it is unreachable | sortie **06** + attribution run **A4**: the warning is ON for 5 200 telemetry rows and `eng_state` is byte-identical to a run without it |
+| **3** | **the mission commander took 80 % of the calls**, an impossible workload | **NO.** `C18`: there is no voice net, so nothing with a call capacity exists to saturate | sortie **09** re-scopes it to the ONLY saturable command object in the tree — the flight's cooperative sort — and says in its own header that this is not an equivalence |
+
+**One of three, and the campaign says which.**
+
+### Why no catalogue row flies, in a campaign whose cast table asks for four
+
+`f15c` (the anchor's escort), `mig23`/`mig25` (~45 of the 55 Iraqi fighters aloft) and `ef111` (the
+jammer) all exist as rows since 2026-07-28, and W3 uses **none** of them:
+
+| Row | Why refused |
+|---|---|
+| `f15c` | `ACCEPTED` — **as a flight model.** Its promotion gate measures eight aerodynamic anchors plus a roll plant and **nothing about weapons** (`../modules/air/module.md` A13). It can now shoot, but no gate has ever measured whether it shoots *like an F-15C* |
+| `mig23` / `mig25` | **`ALPHA`.** An `ALPHA` row may not answer a campaign question at all, and W3's whole Red side would have been one |
+| `ef111` | a mover with **no radar-jamming half** (`C13`). Its comms half is a `set` key on any airframe and needs no airframe |
+| any gun-only row | `A15`: **no campaign may score a catalogue gun engagement.** W3 scores none |
+
+**The substitution direction, stated once for the whole campaign:** MiG-29s stand in for MiG-23/MiG-25,
+which makes **Red materially stronger than history**; F-16s stand in for F-15C, F-4G and EF-111, which
+makes **Blue no weaker**; and a ZSU-23-4 stands in for the anchor's 100 mm AAA, which makes the AAA
+layer **materially weaker** — at 5 000 m it cannot reach the ingress at all.
+
+### The arena
+
+Al-Tuwaitha nuclear research centre ≈ 33.20 N 44.52 E [T4, approximate]; Baghdad 33.31 N 44.36 E [T4].
+Ingress west→east along 33.0–33.4 N. `--elev const`, 0 m datum (the Baghdad plain is ~34 m), **no
+terrain masking (`C4`)**. Scale: 1° of longitude = **93 145 m**, 1° of latitude = 111 132 m [DERIVED].
+The forward early-warning set stands 86 km west of Tuwaitha and 67 km outside the S-75's envelope,
+which is the anchor's own geometry: border radars were killed because they were reachable.
+
+**The net is a buried cable (`link wire`) and that is sourced doctrine, not convenience.** A
+`link radio … mast 12` over the same 67 km would have a 28.5 km horizon [DERIVED,
+`4.12·(√12+√12)`] — i.e. no link. Kari was hardwired and centralised, which is precisely why its radars
+had to be destroyed rather than talked over.
+
+**Night, once, for all ten:** 1991-01-17/19 at 00:00 Z = 03:00 local, sun ≈ **−48°** [DERIVED]. Nothing
+in this tree emits light, so `sensors/FBVisualSystem` contributes nothing and **every W3 merge is
+eyeless**. The campaign has therefore measured **radar and radio warfare, not night warfare**, and that
+is a limit on the claim rather than on any mechanism. Package Q itself was a morning strike; the night
+is the campaign's setting and W3's own §3 puts all ten sorties there.
+
+### The ten sorties, their fingerprints and their answers
+
+Campaign exit **3**, step exits `0 3 3 3 3 3 3 3 3 3`. Campaign fingerprint under `--elev const`:
+`3490c4fab3f25f533ead565e393cc23d234067e827e5ea7ba733408988f1fa1a`. Wall clock for the whole campaign:
+**53.2 s**.
+
+| # | Mission | ctrl | exit | fingerprint | The answer to its one tactical question |
+|---|---|---|---:|---|---|
+| 1 | `w3-01-ew-radar` | — | 0 | `77df6f2fe18f1f2e` | **One bomb on the forward early-warning set is worth the whole strike.** Node killed t = 104.7 at `aimErrM` 43.3 m; the ring's three `emcon hold` positions had come up 8.0 s into the run on the cable's cue and go `AUTONOMOUS fallback=hold` at t = 116.0. **0 `site TRACK`, 0 `site LAUNCH`.** The second wave releases at t = 421.0 and is never fired at |
+| 2 | `w3-02-net-intact` | 01 | 3 | `2b7bb7d497a4dde8` | **[ctrl 01, ONE token: `brief_master_arm arm → sim`.]** Node alive: **10 `site LAUNCH`**, four V-601 at 8.35 / 8.17 / 7.28 / 7.42 m against a 10 m fuze. **And the result is not a shoot-down**: `q2pen` survives and its `stores` system FAILS at t = 392.4, so it reaches its aim point at t = 448.3 with nothing to drop. **0 of 2 strikers reached release; 0 ground targets killed** |
+| 3 | `w3-03-weasel-close` | — | 3 | `90bba24b8bf76fee` | **The Weasel that presses in kills the battery at 2.8 MILLIMETRES from 20 km** (`tofS` 52.08), t = 59.7, orphaning two V-601 fired 20 s earlier. `mission SUPPRESSED emittingS=59.7 allowanceS=120` — met, and met because the site died. 2 of 2 strikers released; `q3tgt` destroyed at 23.6 m, `q3hgr` (`target_hard`) INTACT at 21.5 m |
+| 4 | `w3-04-weasels-leave` | 03 | 3 | `c0eff8b98797bab1` | **[ctrl 03, one fact: where the pair is.]** From 42 km both AGM-88 fall **10.5 and 7.3 km SHORT** — the round's reach is bracketed between 20 km (a hit) and 42 km (dirt). The battery lives, `SUPPRESSION_LOST` at t = 120.1 — **and it still fires all four rounds at the DEPARTING WEASELS** (brg 277–280°), so the strikers release unopposed and kill the same target at the same tick as the control |
+| 5 | `w3-05-emcon` | 03 | 3 | `f9a9770250eaa961` | **[ctrl 03, one line: `set emcon free` → `free 30 200`.]** Off the air at t = 29.9 = **57.4 % of the round's 52.08 s flight**; the AGM-88 coasts and hits dirt **214 m short**. Site INTACT. It comes back at t = 200.0 and spends its whole magazine at 25.7–34.3 km on the **departing** Weasels (brg 268–270°), zero arrivals. `SUPPRESSION_LOST` at t = 290.2. Strikers unaffected |
+| 6 | `w3-06-bingo` | — | 3 | `f5b0904ebe45f0b1` | **A fuel state is not a decision in this tree, and the reason is a preempted branch.** `warn_active` = 2 (BINGO) for all 5 200 rows; `eng_state` search→closing→attack→support→**defend**→search at t = 40.0 / 156.1 / 180.1 / 181.1 / **210.0** — **the identical seven transitions at the identical seven ticks** as A4, which deletes the bingo line. Total price of the brief: **7 of 184 columns** and zero metres |
+| 7 | `w3-07-mig-cap` | — | 3 | `38a02bbbe00b3e99` | **With its controller, Red shoots FIRST — by 1.1 s.** First Red contact t = **54.9 at 52.76 nm**; five Red launch solutions from t = 195.4 (15.05 km); Blue's first at 196.5. What Blue has is the round: 2.47 m and a kill against Red's 12.94 m **inside a 13.8 m fuze and no kill**. Strike complete at t = 190.0, 5 s before Red's first shot |
+| 8 | `w3-08-mig-alone` | 07 | 3 | `8cfb0b73f1ecdcbf` | **[ctrl 07, ONE deleted line.]** **0 Red radar contacts and 0 Red launch solutions**, against 50 and 5. Blue's own timeline does not move (first solution t = 196.3 against 196.5); its kill comes **104.0 s later** (t = 315.3 at 8.94 m) because it has to run the target down. The run lasts 97.6 s longer |
+| 9 | `w3-09-saturation` | — | 3 | `0f206445e4f38ef1` | **The four-ship sort does not collapse — it CHURNS, and the churn sits on the lead.** `flt_switch` peaks at **57 / 37 / 19 / 6** for positions 1–4 (one re-sort every 5.8 s on the lead) and `flt_dup` reaches 1 on **all four**: every member held a duplicate the cost function flags and never resolves. 4 of 4 released, all four aim points destroyed, one F-16 lost to an R-27R at 0.93 m |
+| 10 | `w3-10-package-q` | chain | 3 | `35eff34494823487` | **The package works at 24 aircraft, and the spec's condition is met on both halves: 8 of 8 strikers released, 15 of 16 recovered.** 66 actors, 308.5 s of sim in **11.7 s** of wall clock. Three findings sit inside it: `C15` priced (three of four AGM-88 into one battery, two of them after it died), the Weasel absorbing a second magazine (all six V-750 fired SOUTH at the SEAD flight), and **Red killing one of its own** |
+
+### What a suppression element is worth — the campaign's strongest result
+
+Four runs on one geometry, three of them among the ten and one an attribution run:
+
+| run | the SEAD element | the battery | strikers reaching release | target |
+|---|---|---|---:|---|
+| **03** | presses to 20 km, shoots, hits | **DESTROYED** t = 59.7 | **2 of 2** | destroyed |
+| **04** | shoots from 42 km, round falls 10 km short, turns home | alive — **magazine emptied at the WEASELS** | **2 of 2** | destroyed |
+| **05** | presses to 20 km; the battery goes dark at 57.4 % of the flight | alive — **magazine emptied at the DEPARTING WEASELS** | **2 of 2** | destroyed |
+| **A2** | **none** | alive — **magazine emptied at the STRIKERS**, four arrivals at 5.84–7.99 m | **1 of 2** | **INTACT** |
+
+**The suppression element is worth one striker's release and the target — and it is worth that even
+when its missile falls 10 km short**, because a FlightBox battery has no IFF interrogator and no threat
+priority and splits a finite magazine over whatever is in reach. *Being shot at is most of what a
+Weasel does here.* That is a mechanism result, not a doctrine one, and it is the sharpest thing this
+campaign found.
+
+### What emission discipline is worth to a position under a package
+
+| | `03` radiates throughout | `05` dark from t = 29.9 to 200.0 |
+|---|---|---|
+| the anti-radiation round | arrives at **0.0028 m** | hits dirt **214 m short** |
+| the position | **DESTROYED** at t = 59.7 | **INTACT** at the end of the run |
+| `site LAUNCH` | 2 (both orphaned by its own death) | 4, all at 25.7–34.3 km at the departing Weasels |
+| arrivals on an aircraft | 0 | 0 |
+| `objective suppress … emitting 120` | **met** — because it died | **lost** at t = 290.2 |
+| strikers reaching release | 2 of 2 | 2 of 2 |
+
+**Emission discipline is worth the position and nothing else.** The crew survives by suppressing
+itself for 170 s, and when it comes back it spends its magazine on the aircraft that are leaving. That
+is `C26`'s *suppressed against destroyed* with a number on both sides, and it says the honest thing:
+in this tree a battery that dodges a HARM has bought its own life and paid for it with the engagement.
+
+**The 214 m is a MARGIN on one shutdown time on one geometry, and the campaign does not generalise it
+into a percentage.** `../air-to-ground.md`'s bisected boundaries (85.0 % frontal, 88.1 % at 35°) are the
+weapon's own numbers on the weapon's own proof geometry; here the shot is dead on the nose
+(`brgDeg` −0.057), so the zero-effort miss at launch is ≈ 20 m and almost the whole 214 m is the coast.
+
+### Rule 11 applied, and this time BOTH policies were measured in one round
+
+`o1-02`, `o1-03`, `o5-03` and `o2-04` are the same deleted line (`set brief_gci`) in four theatres, and
+they disagreed. O2 found the reason: the deciding line is `set n019_emission`. W3 is the fifth theatre
+and it declared its policy **before** flying — `off`, the documented power-up state — and then measured
+the other one:
+
+| run | `n019_emission` | `brief_gci` | Red contacts | Red launch solutions | Blue's first shot | run ends |
+|---|---|---|---:|---:|---|---|
+| `w3-07` | `off` | **present** | 50 | 5 | t = 196.5 | 272.8 s |
+| `w3-08` | `off` | **deleted** | **0** | **0** | t = 196.3 | 370.4 s |
+| **A3** | **`illum`** | deleted | **50** | 7 | — | **272.8 s** |
+
+**Under `illum` the deleted brief costs nothing measurable; under `off` it costs every contact and
+every shot.** The four earlier campaigns were each right about their own file, and the comparable
+quantity across all five is *"what the controller is worth GIVEN an emission policy"*. W3 is the first
+of the five to fly both sides of that in one campaign instead of inheriting the answer.
+
+### The carry: one callsign, and its value is a property of the net's topology
+
+`carry units ground stores`, not narrowed. The chain is **01 → 10** and carries exactly one callsign,
+`karinod`. Sorties 02–09 are pairwise disjoint from both ends and from each other in every unit they
+can lose, aircraft *and* ground; sortie 01's own second aim point `kariref` exists in no other file, so
+nothing this campaign destroys arrives later as an objective naming a deleted unit.
+
+`campaign CARRY unit=karinod action=drop reason="destroyed in an earlier mission"` — one line, and this
+is what it is worth, measured by running sortie 10 **twice**, as campaign step 10 and standalone:
+
+| quantity | in campaign (node dead) | standalone (node alive) |
+|---|---:|---:|
+| `net CUE` | **16** | **25** |
+| `site RADIATE` / `site TRACK` / `site LAUNCH` | 3 / 2 / 8 | 3 / 2 / 8 |
+| first `site RADIATE` / `TRACK` / `CUE` / `LAUNCH` | 0.0 / 6.8 / 8.0 / 37.5 s | **identical** |
+| strikers reaching release | 8 of 8 | 8 of 8 |
+| aircraft lost / ground killed | 3 / 5 | 3 / 5 |
+| run length | 308.5 s | 308.5 s |
+| telemetry | 30 of 58 files byte-identical; the other 28 differ in **1 to 13 of 184–193 columns, every one of them RWR or datalink bookkeeping**. **No trajectory column moves** | |
+
+**So killing a forward early-warning radar is worth the whole strike when it is the net's only node
+(sorties 01/02) and 36 % of the cue traffic when it is not (sortie 10).** The value of that bomb is a
+property of the net's TOPOLOGY, not of the bomb — which is the same shape as rule 11 one layer down,
+and it is a direct qualification of O5's *"one Mk-84 on the field's P-18 costs its missile layer every
+launch for two nights"*: O5's field had one node.
+
+### Both determinism criteria, measured on the first attempt
+
+Under `--elev const`, read out of `campaign-summary.txt` rather than assumed:
+
+| # | Criterion | Result |
+|---|---|---|
+| **1** | 3 repetitions × `--threads 1/2/4` produce one campaign fingerprint | **9 runs, 1 fingerprint** `3490c4fab3f25f533ead565e393cc23d234067e827e5ea7ba733408988f1fa1a`, exit 3 in all nine |
+| **2** | every step's per-mission fingerprint equals that mission run STANDALONE with step *k−1*'s state | **10/10 MATCH**, exit codes included, on the first attempt |
+
+**And the replay was run after the FIRST mission**, on a throwaway one-step `.fbc`
+(`sim/campaigns/w3-step1-check.fbc`, deleted afterwards): `01 … campaign fp=77df6f2fe18f1f2e standalone
+fp=77df6f2fe18f1f2e MATCH`. **Annotating the ten files with their MEASURED blocks after the runs left
+all ten per-mission fingerprints and the campaign fingerprint unchanged** — the check that a comment is
+a comment.
+
+### What this campaign found while building, none of it fixed here
+
+Rule 9: *the defect sits in the seam you did not look at.* W3 found four, and none is in the air-defence
+network the campaign was written about.
+
+| # | Finding | The measurement that pinned it |
+|---|---|---|
+| **1** | **`FBPilot::CanPressOn` is unreachable, so the BINGO warning — the only fuel signal in the tree — can never decide anything.** The intercept state machine reads it at exactly one branch, `EngState_ == Defend && TimeS_ − IntThreatLastS_ >= DefendHoldS`; the chain ends in `else if (EngState_ != Abort)`, which fires on the first tick after `defendDue` goes false, and `IntThreatLastS_` is refreshed on every tick `mustDefend` holds — so the elapsed time is still one tick when the general branch takes the state away. The same branch also gates *"out of weapons → abort"* | `w3-06` against **A4**, one line apart: `warn_active` = 2 (`FBWarnBingo`) for **5 200 of 5 200** telemetry rows, and both escorts' `eng_state` columns are **byte-identical**, Defend held 28.9 s (181.1 → 210.0) and recovered into `search`. **7 of 184 columns** move in total, all of them `warn_active` plus command-bus counters |
+| **2** | **A proximity fuze has no team test, and at package density that is an attrition channel.** The fuze is resolved by the runner against every published pose except the launcher's — the same boundary that makes a seeker blind to identity — but there is no fire-control inhibition anywhere above it | `w3-10`: `qamia1_r27r_25`, launched t = 275.0 with a solution at 32.98 N 44.63 E (a Blue escort), detonated **11.74 m from `qamib2`** — a MiG-29 of the *other Red flight* — at t = 293.2 and killed it. **1 of the 3 aircraft lost in the capstone was killed by its own side.** A 2v2 campaign cannot see this; 24 aircraft can |
+| **3** | **`C15` has a price and it is now a number.** With no deconfliction and no lead tasking, a four-ship SEAD flight is four aircraft that happen to be aimed at the same thing | `w3-10`: three AGM-88 into `karisa3` at **0.0028 / 0.0052 / 1.10 m**, arriving at t = 60.2 / 61.0 / 65.7. **The site died on the first**; two thirds of the expenditure that arrived went into a corpse |
+| **4** | **A battery has no threat priority, so the nearest firm track empties the magazine — whoever it is.** Measured four times in four sorties, in three different directions | `w3-04`: all four V-601 west at the departing Weasels. `w3-05`: all four at 25.7–34.3 km, also west, also departing. `w3-10`: all six V-750 SOUTH (brg 147–182°) at the SEAD flight while eight strikers ran in. `w3-02` vs **A1**: deleting a striker that never dropped anything and stayed 95 km from every fire unit changes the belt from **10 launches** to **8** and turns its wingman's outcome from *survived with a dead SMS* into *shot down at t = 358.9* |
+
+**A fifth thing is a measurement rather than a defect, and it is the one a strike campaign most needs
+to know:** in this tree **a striker is stopped by system damage far more often than by destruction.**
+`w3-02`'s `q2pen` takes four V-601 inside 8.4 m, survives all four, and arrives over its target with
+eleven systems failed including `stores`. Read as a loss table the sortie is 0–0; read as a package
+result it is a total failure. Every W3 header therefore reports *strikers that reached release*.
+
+### Where the built campaign departs from §3's table, and why
+
+The Spec above is **left standing as written** and the departures are listed here, because each was
+discovered by building:
+
+| §3 says | Built as | Reason |
+|---|---|---|
+| mission 1 carries **2 × Mk-82** against a soft point target plus a bunker | **2 × Mk-84** against a `p18` that radiates and cues, plus the ring it cues | `C8` built the Mk-84 and `C1`/`C22` built the thing worth attacking. The spec's own question ("can a level laydown kill a soft point target reliably enough…") is answered on the way: `aimErrM` 43.3 m, and it killed |
+| mission 2 is a **two-ship strike, no opposition**, 3 aim points | the **control run of mission 1**, one token apart | the campaign needed the node's value as a number, and §2's contract says the subject is the package. A no-opposition release-accuracy sortie measures the bomb, which `attack-ccrp.fbm` already does |
+| mission 3 is a **fighter sweep 10 minutes ahead of a strike** | dropped; its slot went to the SEAD control | `C15`: there is no way to declare "10 minutes ahead", so the sweep's own question ("does it clear the corridor or drag the fight onto the strikers") is not askable. Sorties 07/09 measure the fighter layer instead |
+| missions 4/5 measure **the size of the SEAD hole** | measure what a suppression element is **worth** | the hole closed. Rule 7 |
+| mission 6 asks whether **the pilot's BINGO rule turns a fuel state into a decision** | asks the same question and answers **no**, with the branch named | the question survived the re-check; the answer did not |
+| mission 9's Red is **6 MiG-29 in two flights** and Blue **8 F-16 in two flights** | exactly that | unchanged |
+| mission 10 is **16 F-16 + 8 MiG-29 + SAM/AAA** | exactly that, plus a second early-warning node | the chain needs a node sortie 01 cannot reach, or the capstone's defence would simply be absent |
+
+### Conservation, and the gates
+
+`git status --porcelain` lists **eleven new untracked files and no modified one**: ten
+`sim/missions/w3-*.fbm` and one `sim/campaigns/*.fbc`. Gates: `make core-lib gym native wasm`
+warning-free; `verify-layers` *"301 files, 828 internal include(s), 12 layers — no upward include, 3
+restricted header(s) respected, 6 registry reader(s) inside the perception boundary, 1 antenna-cue
+poster(s), 288 file(s) in their layer's namespace (5 C-island file(s) exempt)"*; `verify-models` *"4
+upstream-backed model path(s) match assets/MODEL-DELTAS.md (1 declared delta(s), 34 FlightBox-own)"*;
+eight harnesses rc = 0.
 
 ## Gaps
 
+**Re-checked against the tree on 2026-07-29 and struck through where the round measured them closed.
+Ten of ten missions ran.**
+
 | ID | What is missing | Blocks here |
 |---|---|---|
-| `C1` | **no active surface-to-air threat** — nothing emits, nothing launches, nothing shoots | **the campaign's opponent.** Missions 4, 5, 8, 10 are hollow without it; 1, 2, 6, 9 lose their reason for the profile |
-| `C8` | **no HARM, no LGB, no Mk-84, no cluster** | there is no such thing as a SEAD element in the tree — missions 4 and 5 can only measure the absence |
-| `C13` | **no ECM/jamming of any kind** | the EF-111s have no representation; the anchor's electronic half is missing entirely |
-| `C5` | **no tanker, no boom, no external tank** | Package Q's first failure mode |
-| `C6` | **no live AWACS/GCI unit** | the command-saturation question (mission 9) has no command channel to saturate; `set brief_gci` is static text |
-| `C7` | **only two flyable modules** | MiG-23/25, F-15, F-4G, EF-111, KC-135, E-3 all absent |
-| `C2` | **no time of day** | every mission in this campaign is a night mission and none of them can say so |
-| `C15` | **no package coordination** — no time-on-target, no deconfliction, no lead tasking | the *definition* of a package |
-| `C18` | **no radio between units** | the anchor's third failure mode is a radio channel collapsing under 80 % of the calls; FlightBox has no such channel to collapse |
-| `C22` | **no connected air defence** ([`../air-defence-network.md`](../air-defence-network.md)) | **"Kari" is the campaign's named opponent and there is nothing network-shaped to represent it.** Mission 1 (the strike on an early-warning site — the opening move of the whole war) measures nothing today, because an EW radar cues nobody and killing it changes no other unit's behaviour. Mission 9's saturation question needs a defence that can be saturated |
-| `C23` | **no declared, judged belt geometry** | missions 4, 5 and 10 fly *through* a defence and can only report kills; where in the layer cake a striker was lost is not a quantity |
-| `C24` | **no communications jamming** | the EF-111s' comms half becomes a `set` key on any airframe — the radar half stays with `C13` |
-| `C0` | **no campaign layer** | attrition across ten nights is the campaign's arc |
-| `C14` | **no cruise missiles, no ships** | 100 TLAMs opened the war |
-| `C4` | **no terrain masking** | the Apaches' treetop ingress has no meaning |
+| ~~`C1`~~ | **CLOSED and FLOWN.** `sa2` `sa3` `zsu23` `p18` emit, cue, track, gate an envelope and fire out of a finite magazine in eight of the ten sorties | — |
+| ~~`C8`~~ | **BUILT and FLOWN** (minus the rocket pod). `agm88` and `mk84` are this campaign's two weapons | — |
+| ~~`C22`~~/~~`C23`~~/~~`C24`~~ | **CLOSED.** The `net` block is the whole subject of sorties 01/02 and the capstone | — |
+| ~~`C26`~~/~~`C27`~~ | **CLOSED.** `objective suppress`, `set emcon free <offS> [<onS>]`, `set attack_mode arm`, `set arm_class` each decide a sortie | — |
+| ~~`C2`~~ | **CLOSED.** All ten declare a night clock | — |
+| ~~`C0`~~ | **CLOSED.** `w3-desert-storm.fbc`, a one-step chain, both criteria passed | — |
+| `C5` | **no tanker, no boom, no external tank, no fuel-driven RTB** | **Package Q's first failure mode, and it is blocked TWICE.** Below `C5` sits the finding of sortie 06: `FBPilot::CanPressOn` is the only line in the pilot that reads the BINGO warning and its branch is unreachable, so even a declared fuel number decides nothing. Fixing `C5` alone would not make failure mode 1 measurable |
+| `C18` | **no radio between units** | **Package Q's third failure mode.** There is no channel with a capacity, so nothing can saturate. Sortie 09 re-scopes the question onto `pilot/FBFlightPicture` — the only saturable command object in the tree — and says in its own header that this is not an equivalence |
+| `C15` | **no package coordination** — no time-on-target, no deconfliction, no lead tasking | the *definition* of a package, and now with a price: sortie 10 put three of a four-ship's four AGM-88 into one battery, two of them **after** it was destroyed. It also deletes the spec's own mission 3 (a sweep "10 minutes ahead" cannot be declared), whose slot went to the SEAD control |
+| `C7` | **`ALPHA` rows and an unmeasured weapon half** | W3 flies **no catalogue row at all**. `f15c` is `ACCEPTED` **as a flight model** and no gate has measured its weapons (`A13`); `mig23`/`mig25` are `ALPHA` and may not answer a campaign question; `A15` forbids scoring any catalogue gun engagement. Substitutions are declared per file with their direction |
+| `C13` | **no RADAR jamming** (the comms half is `C24` and closed) | the EF-111s' decisive half. `ef111` exists as a mover and has nothing to jam with |
+| `C6` | **no live controller** | `set brief_gci` is static text with its own timestamps, which is enough for the 07/08 experiment and not enough for a controller that fails *during* an engagement |
+| `C4` | **no terrain masking** | over the Iraqi plain a smaller lie than over the Bekaa, but it is why the Apache ingress became an F-16 laydown and why no sortie can hide behind anything |
+| `C14` | **no cruise missiles, no ships, no moving ground units** | 100 TLAMs opened the war and none of them can be flown |
+| `C17` | **an airfield has no state** | not used by W3: no sortie attacks a runway, because a `target_hard` whose death changes nothing is not a target |
 
-### The honest headline
+### The honest headline, replaced by measurement
 
-**Of the three things that actually went wrong on Package Q, FlightBox can measure zero today**:
-tanker timing needs `C5`, the departing Weasels need `C1`+`C8`, the saturated command net needs
-`C18`. What it *can* measure — and no other campaign in the set can — is the **MiG-29 with and
-without its ground control** (missions 7/8), which is a one-line experiment on two existing modules
-and speaks directly to the anchor's own explanation of a 6-for-0 result.
+**The old one said: "Of the three things that actually went wrong on Package Q, FlightBox can measure
+zero today." It is now ONE OF THREE, and the campaign names which and why:**
+
+| failure mode | status | the measurement |
+|---|---|---|
+| **the Weasels left early** | **stageable in full** | four runs on one geometry; the suppression element is worth one striker's release and the target, and it is worth that even when its round falls 10 km short |
+| **the tanker/fuel timing** | **not stageable, and blocked twice** | `C5` blocks the cause; `FBPilot::CanPressOn`'s unreachable branch blocks the effect. Measured: the BINGO bit set for 5 200 rows and a byte-identical `eng_state` column |
+| **the saturated command net** | **not stageable at all** | `C18`. What was measured instead is the flight sort: `flt_switch` 57 / 37 / 19 / 6 across a four-ship and `flt_dup` = 1 on every member |
+
+**And the thing this campaign found that was in no spec:** a proximity fuze has no team test, so at
+24 aircraft a side's own missile becomes an attrition channel — one of the three aircraft lost in the
+capstone was killed by a MiG of the other Red flight, at 11.74 m against a 13.8 m fuze.
 
 ---
 

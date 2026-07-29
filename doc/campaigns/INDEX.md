@@ -1,12 +1,13 @@
 # Campaigns — the ten scenario specifications
 
-**Status: five of ten BUILT (O4, O1, O5, O2 and W5, all 2026-07-29), five spec only.** `sim/missions/o4-*.fbm`,
-`sim/missions/o1-*.fbm`, `sim/missions/o5-*.fbm`, `sim/missions/o2-*.fbm` and `sim/missions/w5-*.fbm`
-with their five `.fbc` files
+**Status: six of ten BUILT (O4, O1, O5, O2, W5 and W3, all 2026-07-29), four spec only.** `sim/missions/o4-*.fbm`,
+`sim/missions/o1-*.fbm`, `sim/missions/o5-*.fbm`, `sim/missions/o2-*.fbm`, `sim/missions/w5-*.fbm` and
+`sim/missions/w3-*.fbm` with their six `.fbc` files
 exist, run, replay and are measured ([`o4-gaf-mig29g-dact.md`](o4-gaf-mig29g-dact.md) §State,
 [`o1-bekaa-1982.md`](o1-bekaa-1982.md) §State, [`o5-airfield-defence.md`](o5-airfield-defence.md)
 §State, [`o2-pvo-intercept.md`](o2-pvo-intercept.md) §State,
-[`w5-baltic-qra.md`](w5-baltic-qra.md) §State); no other campaign has a `.fbm` file. The
+[`w5-baltic-qra.md`](w5-baltic-qra.md) §State, [`w3-desert-storm.md`](w3-desert-storm.md) §State); no
+other campaign has a `.fbm` file. The
 directory exists because the missions must not be invented: a campaign without a cited anchor is a mood,
 and a mood cannot be measured.
 
@@ -110,6 +111,25 @@ definition of an identification pass — measured, the interceptor turns away at
 all ten W5 files is a route a human wrote, and any campaign whose subject is presence rather than
 combat should expect to author its geometry rather than fly it.
 
+### What W3 added, and the other four inherit it too
+
+W3 was built sixth — **the first campaign whose opponent is a SYSTEM rather than an aircraft**, and the
+first to be built entirely out of capabilities that did not exist when its own spec was written. It took
+all sixteen rules unchanged and passed both criteria on the first attempt. Its two contributions are
+about **the value of a lever being a property of the topology it is pulled in**:
+
+| Rule | Why it exists |
+|---|---|
+| **A lever's value is a property of the STRUCTURE it acts on, and a campaign that measures it once has measured one structure** | W3 killed the same early-warning radar twice. Against a net with ONE node it was worth the entire strike (0 launches against 10; 2 of 2 strikers reaching release against 0 of 2). Against a net with a second node it was worth **9 of 25 cue messages and nothing else** — same file, same bomb, run as campaign step and standalone, 30 of 58 telemetry files byte-identical and not one trajectory column moved. This is rule 11 one layer down, and it is the direct qualification of O5's *"one Mk-84 on the P-18 costs the missile layer two nights"*: **O5's field had one node** |
+| **A campaign must state which of its subject's failure modes it can STAGE, before it reports what it measured** | W3's anchor names three, and W3 can stage exactly one. The other two are not "hard" — one has no channel to saturate (`C18`) and one is blocked *twice*, by `C5` and by a pilot branch that is unreachable. Writing that table first is what stopped the campaign from reporting a substitute as an equivalent |
+
+And one warning of its own, which only a large mission can produce: **density is a mechanism.** A
+proximity fuze is resolved against every published pose except the launcher's, with no team test — the
+same boundary that makes a seeker blind to identity — and at 24 aircraft that becomes an attrition
+channel. In W3's capstone **one of the three aircraft lost was killed by its own side's missile**
+(11.74 m against a 13.8 m fuze, a MiG-29 of the other Red flight). No 2v2 campaign in this set could
+have seen it.
+
 This directory is **step 4 of the owner goal** and its specification comes first, per
 [`../conventions.md`](../conventions.md)'s spec-first rule: *change the Spec of the topic file first;
 if a round cannot say what the contract becomes, it is not ready to start.*
@@ -124,7 +144,7 @@ Five in which the **F-16** flies, five in which the **MiG-29** flies. Ten missio
 |---|---|---|---|
 | **W1** | [Red Flag / Nellis](w1-red-flag.md) | the USAF aggressor enterprise, 1975– | the training ladder — and the inversion that at Nellis the "MiG-29" is an F-16 pretending, while here it is the real module |
 | **W2** | [Osirak 1981](w2-osirak.md) | Operation Opera, 7 June 1981 | reach, not combat: 1,600 km, a 30 m ingress and tanks that ran dry — **the one campaign whose subject FlightBox cannot express at all** |
-| **W3** | [Desert Storm, the first nights](w3-desert-storm.md) | 17 January 1991 + Package Q, 19 January | a package against an integrated air defence, and the three named ways Package Q came apart |
+| **W3** | [Desert Storm, the first nights](w3-desert-storm.md) **— BUILT** | 17 January 1991 + Package Q, 19 January | a package against an integrated air defence, and the three named ways Package Q came apart. **Flown 2026-07-29, the first campaign whose opponent is a SYSTEM:** its spec called five of ten blocked and every blocker had closed; of Package Q's three failure modes FlightBox can stage **one**, and the campaign says which and why. **A suppression element is worth one striker's release and the target — and it is worth that even when its missile falls 10 km short**, because a battery with no IFF and no threat priority empties its magazine at whatever is nearest; **emission discipline is worth the position and nothing else** (dark at 57.4 % of the round's flight, the HARM lands 214 m short, the crew comes back and shoots at the departing Weasels); the same bomb on the same radar is worth the whole strike against a one-node net and **36 % of the cue traffic** against a two-node one; and at 24 aircraft **Red killed one of its own with an R-27R** |
 | **W4** | [Allied Force 1999](w4-allied-force.md) | 24 March – 10 June 1999 | mountains, cloud and an air defence that refuses to emit — the campaign the weather hook was built for |
 | **W5** | [Baltic Air Policing / QRA](w5-baltic-qra.md) **— BUILT** | NATO air policing, 30 March 2004– | **identification as the task**, and the sharpest anti-cheat test in the set. **Flown 2026-07-29, the first campaign in which the F-16 flies:** the task turned out to be blocked on a CAST ROW and not on a sensor — a transport is named by eye at **1 086 m** and a bomber at **2 049 m** where a fighter is not recognised at 1 600; the anti-cheat pair is **byte-identical in 6 of 6 telemetry files with 1 differing log line of 75**, and its control run moves **5 of 184 columns and zero metres**; **zero rounds expended over ten sorties**; and the one task with no weapon in its success condition is the exact geometry `FBPilot` calls an ABORT |
 | **O1** | [Bekaa 1982, the Syrian side](o1-bekaa-1982.md) **— BUILT** | Operation Mole Cricket 19, 9 June 1982 | the canonical defeat, reframed as a measurable question: **what in the doctrine moves the outcome, and what is left when nothing does**. **Flown 2026-07-29:** the baseline reproduces the rout; ONE lever (launch at 1.4 × Rtr) inverts it; the controller is worth everything on a 45° entry and nothing head-on; the warning receiver, the belt, the net and ~~the anchor's own jamming~~ move mechanisms and no outcome. **AMENDED 2026-07-29:** the belt's nullity was a defect, not a doctrine — the ground-launch fix gave the rounds a trajectory, and the jamming lever now costs the belt 8 launches, 7 detonations and 2 positions. See the file's §"The ground half, re-measured" |
@@ -183,8 +203,8 @@ declared again rather than hidden.
 
 ## What is buildable today
 
-**50 of the 100 missions when this table was written; 50 of them are now BUILT and the O4, O1, O5, O2 and
-W5 rows are re-counted against the tree rather than against the spec.** Per campaign:
+**50 of the 100 missions when this table was written; 60 of them are now BUILT and the O4, O1, O5, O2,
+W5 and W3 rows are re-counted against the tree rather than against the spec.** Per campaign:
 
 | Campaign | Runnable today | Blocked | The first pair to build |
 |---|---:|---:|---|
@@ -192,7 +212,7 @@ W5 rows are re-counted against the tree rather than against the spec.** Per camp
 | O1 Bekaa | **10 — BUILT** | 0 (the ground half runs and cannot decide — see its §Gaps row 1) | done: ten `.fbm` + one `.fbc`, both determinism criteria measured on the first attempt |
 | O2 PVO | **10 — BUILT** | 0 (the spec's mission 9 folded into the chain, named in the `.fbc` header) | done: ten `.fbm` + one `.fbc`, both determinism criteria measured on the first attempt |
 | O5 Airfield defence | **10 — BUILT** | 0 (2 spec missions dropped with reasons in the `.fbc` header) | done: ten `.fbm` + one `.fbc`, both determinism criteria measured on the first attempt |
-| W3 Desert Storm | **5** | 5 | `w3-07` / `w3-08` — the same GCI experiment, another theatre |
+| W3 Desert Storm | **10 — BUILT** | 0 (the spec called 5 blocked; all 5 blockers had closed, and 1 spec mission was dropped for `C15` with its slot named in the `.fbc` header) | done: ten `.fbm` + one `.fbc`, both determinism criteria on the first attempt, the replay run after the FIRST mission |
 | W1 Red Flag | **4** | 6 | `w1-01` … `w1-04`, the ladder |
 | W2 Osirak | **4** | 6 | `w2-03` / `w2-04` — combat radius clean and loaded |
 | W4 Allied Force | **4** | 6 | `w4-01` / `w4-02` — one `wx` line apart |
@@ -200,7 +220,8 @@ W5 rows are re-counted against the tree rather than against the spec.** Per camp
 | **O3 Yom Kippur** | **0** | 10 | — blocked at the module (`C9`) |
 
 Four of the ten "first pairs" are **one-line experiments**: `o1-01/02`, `w3-07/08`, `w4-01/02`,
-`w5-02/03` (built). That is the pattern this directory was written to produce.
+`w5-02/03` (all four now built except `w4-01/02`). That is the pattern this directory was written to
+produce.
 
 ---
 
@@ -552,7 +573,15 @@ with no normalisation.
 **If the three disagree, the answer is a property of the geometry rather than of the doctrine, and
 that is itself the finding.**
 
-**FOUR now, and they disagree — and the reason is neither geometry nor doctrine.** `o2-04-no-gci` runs
+**FIVE now, and W3 is the first to fly BOTH SIDES of the deciding line in one campaign.** `w3-07`/`w3-08`
+declare `set n019_emission off` in advance and produce O2's answer at full strength — 50 Red radar
+contacts and 5 launch solutions against **0 and 0** — while W3's attribution run A3, the same file with
+that one token set to `illum`, produces O1's and O5's answer just as cleanly: 50 contacts, 7 solutions
+and a run that ends at the *identical* t = 272.8 s as the briefed control. So the four earlier campaigns
+were each right about their own file, the quantity is *"what the controller is worth GIVEN an emission
+policy"*, and it is now measured on both sides rather than inferred.
+
+**FOUR then, and they disagreed — and the reason is neither geometry nor doctrine.** `o2-04-no-gci` runs
 the same deleted line in a fourth theatre and produces **zero radar contacts, zero emissions and an
 intruder that never learns a fighter was there**, against o1-02's 8 → 4 contacts, o1-03's identical
 outcome and o5-03's six seconds. The mechanism is one other line in the file: O1 and O5 spawn their MiGs

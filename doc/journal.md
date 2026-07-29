@@ -1832,3 +1832,68 @@ Beide Determinismus-Kriterien beim ersten Versuch: 9 Läufe eine Kampagnen-Signa
 `49d3320f5e9761db2f1df85a12d9008e0d8559395c141c31e2e06903b9fe0200`, 10/10 Schritte standalone
 bit-identisch — **und der `replay` lief diesmal nach der ERSTEN Mission**, auf einer
 Wegwerf-Ein-Schritt-`.fbc`, was zwei Vorrunden eingestanden hatten zu versäumen.
+
+## 2026-07-29 — Kampagne W3 gebaut und geflogen: der Wert eines Hebels ist eine Eigenschaft der Topologie
+
+Zehn `sim/missions/w3-*.fbm` plus `sim/campaigns/w3-desert-storm.fbc` — die sechste der zehn Kampagnen,
+und die erste, deren Gegner ein **System** ist statt eines Flugzeugs. **Keine Datei unter `sim/src/`,
+`sim/tools/` oder `sim/assets/` angefasst**: elf neue unversionierte Dateien, null geänderte, also sind
+die 195 bestehenden Missionen bit-identisch per Konstruktion.
+
+**Die eigene Schlagzeile der Spec ist widerlegt.** Sie sagte: *„Von den drei Dingen, die an Package Q
+schiefgingen, kann FlightBox heute NULL messen."* Regel 7 — jeder Blocker gegen den **Baum** geprüft,
+nicht gegen eine Statuszeile: `C1` `C8` `C22` `C23` `C24` `C26` `C27` `C2` `C0` sind seither geschlossen.
+**Zehn von zehn Missionen liefen**, und von den drei Fehlerarten kann FlightBox **genau eine** stellen —
+die Kampagne sagt welche und warum. Fehlerart 2 (die Weasels gingen früh) ist vollständig stellbar.
+Fehlerart 1 (Tanker/Sprit) ist **doppelt** blockiert: `C5` blockiert die Ursache, und darunter blockiert
+ein unerreichbarer Zweig die Wirkung. Fehlerart 3 (der gesättigte Funkkanal) ist gar nicht stellbar, weil
+es keinen Kanal mit Kapazität gibt (`C18`); Einsatz 09 sagt das und misst stattdessen das einzige
+sättigbare Kommandoobjekt im Baum.
+
+**Was ein Unterdrückungselement wert ist — vier Läufe auf einer Geometrie.** Drängt es auf 20 km vor,
+trifft die AGM-88 die S-125 auf **2,8 Millimeter** und alle Bomber kommen durch. Schießt es aus 42 km,
+fällt die Runde **10,5 km zu kurz** — und die Batterie feuert trotzdem ihr ganzes Magazin auf die
+**abdrehenden** Weasels, also kommen die Bomber ebenfalls durch. Erst ohne SEAD (Zuordnungslauf A2)
+kippt es: vier V-601 zwischen 5,86 und 7,99 m auf einen Bomber, **1 von 2** erreicht den Auslösepunkt,
+das Ziel bleibt stehen. **Das Element ist eine Auslösung und das Ziel wert — auch dann, wenn seine
+Rakete 10 km zu kurz fällt**, denn eine FlightBox-Batterie hat keinen Freund-Feind-Abfrager und keine
+Bedrohungsrangfolge und verteilt ein endliches Magazin auf das, was in Reichweite ist.
+
+**Was Emissionsdisziplin wert ist.** Bei **57,4 %** der 52,08 s Flugzeit dunkel: die AGM-88 rollt aus und
+schlägt **214 m** vor der Stellung ein, die Stellung lebt. Sie kommt bei t = 200 zurück und verschießt
+ihr Magazin auf 25,7–34,3 km — wieder auf die abdrehenden Weasels, null Ankünfte. **Sie ist die Stellung
+wert und sonst nichts**: wer einer HARM ausweicht, hat sich selbst 170 s lang unterdrückt.
+
+**Und derselbe Hebel, zweimal gezogen, ist zweimal etwas anderes wert.** Eine Mk 84 auf denselben
+Frühwarnradar: gegen ein Netz mit EINEM Knoten die ganze Operation (0 Starts gegen 10; 2 von 2 Bomber am
+Auslösepunkt gegen 0 von 2), gegen ein Netz mit einem zweiten Knoten **9 von 25 Einweisungen und sonst
+nichts** — dieselbe Datei als Kampagnenschritt und standalone, 30 von 58 Telemetriedateien bit-identisch,
+keine einzige Bahnspalte bewegt. Das ist Regel 11 eine Schicht tiefer und die direkte Einschränkung von
+O5s *„eine Mk 84 auf die P-18 kostet die Flugkörperschicht zwei Nächte"*: **O5s Platz hatte einen Knoten.**
+
+**Regel 11 diesmal auf beiden Seiten gemessen.** `w3-07`/`w3-08` unter der vorab erklärten Politik
+`n019_emission off`: **50 rote Radarkontakte und 5 Startlösungen gegen 0 und 0**. Zuordnungslauf A3,
+dieselbe Datei mit `illum`: 50 Kontakte, 7 Lösungen, Lauf endet beim **identischen** t = 272,8 s wie die
+gebriefte Kontrolle. Der Fünf-Theater-Widerspruch ist damit gemessen statt geerbt.
+
+**Vier Funde, keiner behoben.** (1) **`FBPilot::CanPressOn` ist unerreichbar** — die einzige Zeile im
+Piloten, die die BINGO-Warnung liest, hängt an `EngState_ == Defend && elapsed >= DefendHoldS`, und der
+allgemeine Zweig `else if (EngState_ != Abort)` nimmt den Zustand im ersten Takt weg, nachdem `defendDue`
+fällt. Gemessen: das Bit über **5 200 von 5 200** Zeilen gesetzt, `eng_state` bit-identisch zum Lauf ohne
+Brief, sieben von 184 Spalten Unterschied und null Meter. (2) **Ein Näherungszünder hat keinen
+Team-Test** — bei 24 Flugzeugen detonierte `qamia1`s R-27R **11,74 m** neben einer MiG-29 der anderen
+roten Rotte und tötete sie; 1 von 3 Verlusten des Schlusseinsatzes ist eigenes Feuer. (3) **`C15` hat
+jetzt einen Preis**: drei von vier AGM-88 einer Viererrotte gingen in dieselbe Batterie, zwei davon,
+nachdem sie schon tot war. (4) **Eine Batterie hat keine Bedrohungsrangfolge** — viermal gemessen, in
+drei verschiedene Richtungen.
+
+**Und die Zahl, die eine Schlagkampagne wirklich braucht:** ein Bomber wird in diesem Baum häufiger von
+**Systemschaden** gestoppt als von Zerstörung. `w3-02`s zweite Welle nimmt vier V-601 innerhalb 8,4 m,
+überlebt alle vier und steht 56 s später über ihrem Ziel mit elf ausgefallenen Systemen, `stores`
+darunter. Als Verlustliste gelesen: 0–0. Als Paketergebnis gelesen: Totalausfall.
+
+Beide Determinismus-Kriterien beim ersten Versuch: 9 Läufe eine Kampagnen-Signatur
+`3490c4fab3f25f533ead565e393cc23d234067e827e5ea7ba733408988f1fa1a`, 10/10 Schritte standalone
+bit-identisch — und der `replay` lief nach der **ersten** Mission, auf einer Wegwerf-Ein-Schritt-`.fbc`.
+Der Schlusseinsatz fliegt **24 Flugzeuge + 8 Bodenobjekte + 34 Waffen** in 11,7 s Wanduhr, **8 von 8**
+Bombern am Auslösepunkt und **15 von 16** zurück.

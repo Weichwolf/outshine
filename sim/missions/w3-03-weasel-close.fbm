@@ -1,0 +1,216 @@
+name w3-03-weasel-close-1
+timeout 520
+time 1991-01-19T00:00:00Z
+
+# CAMPAIGN W3, SORTIE 3 OF 10 - THE SUPPRESSION ELEMENT THAT PRESSES IN.
+# Spec, anchor and sources: doc/campaigns/w3-desert-storm.md. Format: doc/missions/campaign.md.
+# CONTROL: none - it IS the control, of BOTH w3-04-weasels-leave.fbm and w3-05-emcon.fbm.
+#
+# THE ANCHOR: Package Q, 19 January 1991. Six F-4G Wild Weasel covered 56 F-16 against Baghdad, and the
+# second of the three things that went wrong is that THE WEASELS LEFT EARLY ON FUEL, leaving the
+# strikers without suppression [T4]. This file is the case in which they do not leave; sortie 04 is the
+# case in which they do; sortie 05 is the defence's own answer to both.
+#
+# WHAT W3'S OWN SPEC SAID ABOUT THIS PAIR, AND WHY IT IS NOW WRONG (rule 7 - a blocked mission is
+# re-checked against the TREE, not against a gap's status line). The spec wrote missions 4 and 5 as
+# `2 F-16 "SEAD" (no HARM - C8)` and gave them the task of making the size of that hole explicit:
+# "with no anti-radiation weapon and no emitting SAM, WHAT IS LEFT OF SEAD?". Both blockers closed on
+# 2026-07-28. `agm88` is a store row whose seeker IS a warning receiver, `sa3` is a battery that
+# radiates, tracks, gates an envelope and fires a doctrinal salvo out of a finite magazine, and
+# `set attack_mode arm` is a release cue the pilot can take. There is no hole left to measure; there is
+# a suppression element, and this campaign measures what it is WORTH instead.
+#
+# THE SUBSTITUTION, AND ITS DIRECTION: the F-4G does not exist (C7), so the Weasels are F-16s with
+# AGM-88 - which is the F-16CJ, an aircraft that flew this mission from 1993. The substitution therefore
+# moves the campaign FORWARD in time on the attacker's side and makes the attacker no weaker.
+# The F-15C escort of the anchor is absent and is NOT substituted by a catalogue row: `modules/air/`'s
+# `f15c` is `ACCEPTED` as a FLIGHT MODEL only, and its promotion gate measures nothing about weapons
+# (doc/modules/air/module.md, A13/A15). NO W3 FILE FLIES A CATALOGUE ROW AT ALL, as a combatant or
+# otherwise; the campaign file states the three rows it would have wanted and why each is refused.
+#
+# THE ARENA is w3-01-ew-radar.fbm's, moved 0.2 deg north-west so that the SEAD pair, the strikers and
+# the battery all fit inside one 520 s window; every coordinate is [SET]. `--elev const`, 0 m datum, no
+# terrain masking (C4). Scale: 1 deg of longitude = 93 145 m [DERIVED].
+#   `q3sa3` S-125           33.20000 44.20000, `emcon free`, four rounds - the type the anchor confirms
+#                           on at least one downed F-16 [T4]
+#   the Weasels             spawn 43.98500, i.e. 20.0 km west of the battery, 5 000 m, 480 kt
+#   the strikers            spawn 43.60000, i.e. 70.8 km west of their aim point, 5 000 m, 450 kt
+#   `q3flk` ZSU-23-4        33.23000 44.35000, on the target, and it CANNOT REACH a 5 000 m ingress
+#                           (0-2 500 m). It is here because the anchor's AAA is real and because a
+#                           reader must see that this campaign's AAA layer is weaker than the 100 mm
+#                           the anchor names
+#
+# THE TWO ENGAGEMENTS ARE SEPARATED IN TIME (O1's rule, and it is the sharpest constraint on a package):
+# the SEAD engagement runs t = 7 .. 60 s at 44.20 E; the strike release is at t = 275 / 291 s at 44.36 E.
+# `FBMissionRunner` ends the whole run at the FIRST flight-monitor K.O., and a mission-killed F-16 falls
+# from 5 000 m in about 122 s, so an engagement placed inside 122 s of a release point deletes the
+# release from the record. Every W3 file with more than one fight in it is laid out on that clock.
+#
+# WHICH DEFENSIVE LAYER THIS FILE MEASURES: the MISSILE layer. No fighter flies in 03, 04 or 05.
+# NIGHT: 03:00 local, sun about -48 deg [DERIVED]; nothing in this tree emits light, so the night costs
+# the visual channel and NOTHING ELSE - see w3-01's header for the full statement.
+#
+# THE ONE TACTICAL QUESTION: WHAT IS A SUPPRESSION ELEMENT WORTH TO THE STRIKERS BEHIND IT? Measured in
+# strikers that reached release, not in sites destroyed.
+#
+# MEASURED (fingerprint 90bba24b8bf76fee):
+#   the shot          `pilot ATTACK_RELEASE mode=arm class=fire_control kind=surface-fire-control
+#                     brgDeg=-0.0572 signal=0.945 fovDeg=40` at t = 6.9 - a BEARING and a CONE, and no
+#                     range anywhere on the line, because this seeker has none. ONLY THE LEAD SHOOTS:
+#                     `q3wsb`, 3.3 km off its lead's line, never takes the gate at this geometry and
+#                     does in sortie 04, which is a formation effect and is reported rather than tuned
+#   the arrival       `stores DETONATION ... target=q3sa3 missM=0.00281 tofS=52.08` - 2.8 MILLIMETRES
+#                     from 20.0 km. `damage KILL unit=q3sa3` at t = 59.7
+#   the battery       2 V-601 away at t = 37.5 / 40.0 from 16.1 / 16.4 km, both orphaned by the kill
+#                     20 s later; 0 arrivals
+#   the objective     `mission SUPPRESSED ... emittingS=59.7 allowanceS=120` - MET, and met because the
+#                     site DIED. Sorties 04 and 05 both lose it, and 05's way of losing it is the
+#                     interesting one
+#   the strikers      2 of 2 released (t = 275.2 / 290.6), `q3tgt` DESTROYED at `aimErrM` 23.6 m
+#   the hard target   `q3hgr` INTACT at `aimErrM` 21.5 m - a Mk 84 at 21.5 m does not kill a
+#                     `target_hard`, and at 23.6 m it kills a `target_soft`. The fragility classes are a
+#                     model, not decoration
+#
+# WHAT TO READ:
+#   events.log      `pilot ATTACK_RELEASE ... mode=arm`, `missile SEEKER_ACTIVE ... mode=anti-radiation`,
+#                   `stores DETONATION ... target=q3sa3`, then the two `pilot ATTACK_RELEASE mode=ccrp`
+#   telemetry_q3wsa_agm88_1.csv  msl_range = -1 for the whole flight: this seeker has no range at all
+#
+# READING RULE: exit 3 = TIMEOUT is the expected verdict, because one of the two `kill unit` objectives
+# is on a `target_hard` that survives its miss distance. THE MEASUREMENT IS THE PAIR (strikers that
+# reached release, `UNIT_RESULT unit=q3sa3`), read beside w3-04 and w3-05 and beside attribution run A2
+# (this file with the Weasel pair deleted), which is the only run in which nobody suppresses anything.
+
+net kari3
+  control q3nod
+  link wire
+  period 4.0
+  hold 3
+  wcs free
+  member q3nod
+  member q3sa3 autonomy free
+  member q3flk autonomy free
+
+unit q3wsa
+  module f16
+  team friendly
+  flight ws3 1
+  spawn 33.20000 43.98500 5000 90.0 480
+  set gear up
+  set fuel_pct 70
+  set fcr_mode off
+  set rwr on
+  set store 3 agm88
+  set store 7 agm88
+  set arm_class fire_control
+  set brief_master_arm arm
+  set task attack
+  set attack_mode arm
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 33.20000 44.06000 5000 480
+  wp 33.20000 43.40000 5000 480
+  objective suppress unit q3sa3 emitting 120
+  objective survive
+
+unit q3wsb
+  module f16
+  team friendly
+  flight ws3 2
+  spawn 33.17000 43.98500 5150 90.0 480
+  set gear up
+  set fuel_pct 70
+  set fcr_mode off
+  set rwr on
+  set store 3 agm88
+  set store 7 agm88
+  set arm_class fire_control
+  set brief_master_arm arm
+  set task attack
+  set attack_mode arm
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 33.17000 44.06000 5150 480
+  wp 33.17000 43.40000 5150 480
+  objective suppress unit q3sa3 emitting 120
+  objective survive
+
+unit q3stra
+  module f16
+  team friendly
+  flight st3 1
+  spawn 33.23000 43.60000 5000 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set rwr on
+  set store 3 mk84
+  set store 7 mk84
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 33.23000 44.36000 5000 450
+  wp 33.23000 43.90000 5000 450
+  objective kill unit q3tgt
+  objective survive
+
+unit q3strb
+  module f16
+  team friendly
+  flight st3 2
+  spawn 33.26000 43.60000 5150 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set rwr on
+  set store 3 mk84
+  set store 7 mk84
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 33.26000 44.40000 5150 450
+  wp 33.26000 43.90000 5150 450
+  objective kill unit q3hgr
+  objective survive
+
+unit q3nod
+  module p18
+  team hostile
+  spawn 33.32000 43.98000 ground 0.0 0
+  set emcon free
+
+unit q3sa3
+  module sa3
+  team hostile
+  spawn 33.20000 44.20000 ground 0.0 0
+  set emcon free
+  set rounds 4
+
+unit q3flk
+  module zsu23
+  team hostile
+  spawn 33.23000 44.35000 ground 0.0 0
+  set emcon free
+  set rounds 40
+
+unit q3tgt
+  module target_soft
+  team hostile
+  spawn 33.23000 44.36000 ground 0.0 0
+
+unit q3hgr
+  module target_hard
+  team hostile
+  spawn 33.26000 44.40000 ground 0.0 0

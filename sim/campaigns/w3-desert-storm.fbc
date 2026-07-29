@@ -1,0 +1,139 @@
+name w3-desert-storm
+time 1991-01-17T00:00:00Z
+carry units ground stores
+stop_on never
+
+# CAMPAIGN W3 - DESERT STORM, THE FIRST NIGHTS: A PACKAGE AGAINST AN INTEGRATED AIR DEFENCE.
+# Spec, anchor, sources and disputes: doc/campaigns/w3-desert-storm.md. Format: doc/missions/campaign.md.
+#
+# THE SIXTH OF THE TEN CAMPAIGNS TO BE BUILT, AND THE FIRST WHOSE OPPONENT IS A SYSTEM RATHER THAN AN
+# AIRCRAFT. Its subject is the PACKAGE: every sortie reports how many strikers reached release and how
+# many came home, and a sortie whose result changes when one jet flies better is measuring the wrong
+# thing. Its three questions are the three things that actually went wrong on Package Q, 19 January
+# 1991 - the tanker/fuel timing, a suppression element that left early, and a command channel that
+# saturated - and each of the three gets its own file and its own number instead of a narration.
+#
+# WHY W3 IS BUILDABLE NOW AND WAS NOT WHEN ITS SPEC WAS WRITTEN. The spec listed FIVE of ten missions as
+# runnable and closed on the sentence: "Of the three things that actually went wrong on Package Q,
+# FlightBox can measure ZERO today." Rule 7 says a blocked mission is re-checked against the TREE and
+# not against a gap's status line, and the whole prerequisite chain has been built since:
+#   C1  CLOSED 2026-07-28 - nine air-defence positions that find, track, gate an envelope and fire a
+#       doctrinal salvo out of a finite magazine; the ground-launch fix of 2026-07-29 gave their rounds
+#       a trajectory, and O1 measured that the same lever went from moving nothing to moving everything
+#   C22/C23/C24 CLOSED - the cue that aims a fire unit's antenna and can never create a track, the belt
+#       as declared geometry, and comms jamming as one published scalar
+#   C8  BUILT except the rocket pod - `agm88` `mk84` `gbu12` `cbu87` `fab250` `fab500`; the
+#       anti-radiation seeker IS the warning receiver and its memory is a RATE, never a point
+#   C26/C27 CLOSED - `set emcon react`, `objective suppress`, and `set attack_mode arm`
+#   C2  CLOSED - a night mission can say that it is night
+#   C0  CLOSED - this file exists at all
+# WHAT IS STILL MISSING AND WHAT EACH SORTIE DOES ABOUT IT IS IN ITS OWN HEADER. The three that matter:
+# C5 (no tanker, no external tank, no fuel-driven RTB), C18 (no voice net at all) and C15 (no
+# time-on-target, no deconfliction, no lead tasking - i.e. no package COORDINATION).
+#
+# THE THREE PACKAGE Q FAILURE MODES AND WHAT THIS CAMPAIGN CAN ACTUALLY STAGE:
+#   FM2  the Weasels left early    -> SORTIES 03/04/05 + attribution run A2. FULLY STAGEABLE, and it is
+#                                     the campaign's strongest result
+#   FM1  the tanker/fuel timing    -> SORTIE 06 + attribution run A4. STAGEABLE ONLY AS ITS EFFECT, and
+#                                     the effect turns out not to exist: see that file
+#   FM3  the command net saturated -> SORTIE 09. NOT STAGEABLE. There is no voice net (C18), so nothing
+#                                     with a call capacity exists to collapse. What 09 measures instead
+#                                     is the only saturable command object in the tree - the flight's
+#                                     cooperative sort - and it says so rather than claiming an
+#                                     equivalence
+#
+# TEMPORAL HONESTY, and it is the spec's own. The F-16 flew from the first hours, so the TYPE fits; what
+# is stretched is the DATE. The campaign's centre of gravity is Package Q on 19 January, not the night
+# of 17 January, because Package Q is the best-documented large F-16 package against an integrated air
+# defence and it failed in ways a simulator can measure. The first-night material (the Apaches on the
+# early-warning radars, the F-117s, the Tomahawks) supplies the SETTING and sorties 01/02; the package
+# structure and its failure modes supply the rest. AND PACKAGE Q ITSELF WAS FLOWN IN DAYLIGHT: the night
+# is the campaign's setting and W3's own spec puts all ten missions at night, so all ten declare a night
+# clock and every header says what that is worth.
+#
+# WHAT NIGHT IS WORTH IN THIS TREE, ONCE, FOR ALL TEN FILES: nothing emits light
+# (doc/sensors.md section 9), so `sensors/FBVisualSystem` contributes NOTHING after dark and every
+# detection in this campaign is a radar or an infrared one. EVERY W3 MERGE IS EYELESS. That is a limit
+# on what the campaign may CLAIM - it has measured radar and radio warfare, not night warfare - and it
+# is not a limit on any mechanism in it.
+#
+# THE CATALOGUE ROWS ARE PRESENT IN THE CAST TABLE AND FLY IN NO FILE, and the reason is measured rather
+# than assumed. `f15c` (the anchor's escort), `mig23`/`mig25` (about 45 of the 55 Iraqi fighters aloft)
+# and `ef111` (the anchor's jammer) all exist as rows. `f15c` is one of four `ACCEPTED` rows - accepted
+# as a FLIGHT MODEL, by a gate that measures eight aerodynamic anchors and a roll plant and NOTHING about
+# weapons (doc/modules/air/module.md, A13). `mig23` and `mig25` are `ALPHA` and an ALPHA row may not
+# answer a campaign question at all. And A15 is explicit: no campaign may score a catalogue gun
+# engagement. SO W3 USES NO CATALOGUE ROW AS A COMBATANT, in any file, and substitutes F-16s and
+# MiG-29s with the direction of each substitution stated in the file that makes it.
+#
+# THE GROUND is `--elev const` on a 0 m datum and every fingerprint below is comparable only against
+# runs whose campaign-summary.txt records `elev const`. There is NO TERRAIN MASKING (C4), which over
+# Iraq is a smaller lie than it would be over the Bekaa but is a lie all the same.
+#
+# CALLSIGN AND CARRY TOPOLOGY, STATED BEFORE THE FIRST MISSION FILE:
+#   THE CHAIN IS 01 -> 10 AND IT CARRIES EXACTLY ONE CALLSIGN, `karinod`, the forward early-warning set.
+#   Sorties 02-09 are pairwise disjoint from both ends of the chain and from each other in EVERY unit
+#   they can lose, aircraft AND ground (`q2*`/`k2*`, `q4*`, `q5*`, `q6*`, `q7*`, `q8*`, `q9*`), which is
+#   O5's rule: a controlled variant's cast must be disjoint in every unit it can lose, not only in its
+#   aircraft. Sortie 01's own second aim point `kariref` exists in no other file, so nothing this
+#   campaign destroys can arrive later as an objective naming a unit the overlay has deleted.
+#   CONTROLLED PAIRS: 01 -> 02 (one token), 03 -> 04 and 03 -> 05 (one fact each), 07 -> 08 (one deleted
+#   line). A CHAIN STEP IS NEVER A CONTROLLED VARIANT: 01 is a control and inherits nothing, 10
+#   inherits and has no sibling.
+#
+# WHY THE CARRY IS NOT NARROWED, AND WHERE THE CAMPAIGN HAS A QUESTION ABOUT IT. Rule 2: the carry
+# belongs where the campaign asks about it. W3 asks about it in exactly one place - whether the opening
+# night's bomb on an early-warning radar is still worth anything two nights later - so the chain is one
+# step long and lands on one callsign, and sortie 10 is measured BOTH in campaign and standalone so that
+# the difference is a number and not a claim. `units` and `stores` are carried too because narrowing
+# them would cost the campaign its `campaign ATTRITION` and `campaign EXPENDED` aggregates, which are
+# the only package-scale numbers the runner computes rather than the reader.
+#
+# WHAT THE SPEC ASKED FOR AND DID NOT GET, NAMED HERE RATHER THAN QUIETLY DROPPED. The spec's §3 lists
+# `w3-03-sweep`, a fighter sweep "10 minutes ahead of the strikers", whose question is whether the sweep
+# clears the corridor or drags the fight back onto them. IT IS NOT BUILT, and the reason is `C15`: there
+# is no way to declare "10 minutes ahead" - no time-on-target, no deconfliction, no lead tasking - so
+# the only thing a FlightBox sweep can be is a second fighter flight spawned further west, and the
+# question would be answered by the author's arithmetic rather than by the run. Its slot went to
+# w3-03-weasel-close, the control of the campaign's strongest experiment. The spec's §3 also puts a
+# two-ship no-opposition strike in slot 2; that slot went to sortie 01's control run, because §2's
+# contract says the subject is the PACKAGE and release accuracy on an empty sky is already measured by
+# `attack-ccrp.fbm`. Both departures are listed with their reasons in the campaign file's §State.
+#
+# THE TEN SORTIES AND THE ONE THING EACH CHANGES - each file's own header carries its binding reading
+# rule (doc/missions/INDEX.md rule 5) and this list is the campaign's index only:
+#   01 ew-radar        the opening move: one bomb on the forward EW set        <- CHAIN HEAD, ctrl of 02
+#   02 net-intact      [ctrl 01] ONE token: the striker's master arm
+#   03 weasel-close    SEAD presses to 20 km and kills the S-125               <- ctrl of 04 and 05
+#   04 weasels-leave   [ctrl 03] the SEAD pair's position: the shot falls short  <- FM2
+#   05 emcon           [ctrl 03] ONE line: the battery's briefed emission plan
+#   06 bingo           a fuel number that should become a decision              <- FM1
+#   07 mig-cap         four MiG-29 under ground control                        <- ctrl of 08
+#   08 mig-alone       [ctrl 07] ONE deleted line: `set brief_gci`
+#   09 saturation      8 v 6: the flight sort with more contacts than shooters  <- FM3, re-scoped
+#   10 package-q       24 aircraft, both defensive layers live                 <- CHAIN TERMINUS
+#
+# FOUR ATTRIBUTION RUNS ARE NOT PART OF THE TEN and live in doc/campaigns/w3-desert-storm.md, State:
+#   A1  sortie 02 with the un-armed striker DELETED - the belt's inputs, isolated (rule 4)
+#   A2  sortie 03 with the SEAD pair DELETED - the package with no suppression element at all
+#   A3  sortie 08 with `set n019_emission illum` - which POLICY the deleted GCI line was measured under
+#   A4  sortie 06 with the bingo line deleted - whether a fuel number moves anything
+#
+# READING RULE FOR THE CAMPAIGN. Most of these sorties are MEASURING RIGS and their exit code is not
+# their verdict: a TIMEOUT usually means a `target_hard` survived its miss distance, which is a measured
+# property of the fragility classes and not a failure. THE CAMPAIGN EXIT IS THE WORST STEP'S. Read, per
+# sortie and in this order: (1) how many strikers reached release, (2) how many aircraft were lost,
+# (3) the `site LAUNCH` count and WHO the rounds were aimed at, (4) `campaign ATTRITION` and
+# `campaign EXPENDED` for the whole run. Do NOT read kills as a lever's effect - O2 measured two rounds
+# inside their own fuze that did not kill and one further out that did.
+
+mission ../missions/w3-01-ew-radar.fbm
+mission ../missions/w3-02-net-intact.fbm
+mission ../missions/w3-03-weasel-close.fbm
+mission ../missions/w3-04-weasels-leave.fbm
+mission ../missions/w3-05-emcon.fbm
+mission ../missions/w3-06-bingo.fbm
+mission ../missions/w3-07-mig-cap.fbm
+mission ../missions/w3-08-mig-alone.fbm
+mission ../missions/w3-09-saturation.fbm
+mission ../missions/w3-10-package-q.fbm

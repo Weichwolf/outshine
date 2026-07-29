@@ -44,7 +44,7 @@ on this run; the anchor is Run 1's and unchanged, and the forum test-report thre
 |---|---|---|---:|---|---|---|
 | W1 Red Flag | [w1-red-flag.md](w1-red-flag.md) | yes ([T3]/[T4]; primary fact sheet **403**) | 10 | yes | yes | **complete, one source blocked** |
 | W2 Osirak | [w2-osirak.md](w2-osirak.md) | yes ([T4] primary + 3 cross-checks, 1 [DISPUTED] value) | 10 | yes | yes | **complete** |
-| W3 Desert Storm | [w3-desert-storm.md](w3-desert-storm.md) | yes ([T4] primary; one [T3] PDF unread) | 10 | yes | yes | **complete, one source unread** |
+| W3 Desert Storm | [w3-desert-storm.md](w3-desert-storm.md) | yes ([T4] primary; one [T3] PDF unread) | 10 | yes | yes | **BUILT AND FLOWN** — ten `.fbm` + one `.fbc`, both determinism criteria on the first attempt, the replay run after the FIRST mission, four findings. One [T3] source still unread |
 | W4 Allied Force | [w4-allied-force.md](w4-allied-force.md) | yes ([T1] + [T3] + [T4]) | 10 | yes | yes | **complete** |
 | W5 Baltic QRA | [w5-baltic-qra.md](w5-baltic-qra.md) | yes ([T3]/[T4]) | 10 | yes | yes | **BUILT AND FLOWN** — ten `.fbm` + one `.fbc`, both determinism criteria on the first attempt, the replay run after the FIRST mission, four findings |
 | O1 Bekaa 1982 | [o1-bekaa-1982.md](o1-bekaa-1982.md) | yes ([T4] primary; disputes carried) | 10 | yes | yes | **BUILT AND FLOWN** — ten `.fbm` + one `.fbc`, both determinism criteria measured on the first attempt |
@@ -54,9 +54,9 @@ on this run; the anchor is Run 1's and unchanged, and the forum test-report thre
 | O5 Airfield defence | [o5-airfield-defence.md](o5-airfield-defence.md) | yes ([T4]; totals [DISPUTED] and deliberately omitted) | 10 | yes | yes | **BUILT AND FLOWN** — ten `.fbm` + one `.fbc`, both determinism criteria on the first attempt, three defects found |
 | — | [INDEX.md](INDEX.md) | — | — | aggregated | aggregated | **complete**: map, reading rules, cast by frequency, gaps by blocking degree, the identification section, the Bekaa yardstick |
 
-**100 missions specified. 50 BUILT (O4, O1, O5, O2, W5). 50 were counted runnable when the specs were
-written; all five built campaigns came out at 10 of 10 when re-checked against the tree** (per-campaign
-breakdown in [`INDEX.md`](INDEX.md)).
+**100 missions specified. 60 BUILT (O4, O1, O5, O2, W5, W3). 50 were counted runnable when the specs
+were written; all six built campaigns came out at 10 of 10 when re-checked against the tree**
+(per-campaign breakdown in [`INDEX.md`](INDEX.md)).
 
 **Run 4 — 2026-07-29, O1 BUILT.** The second campaign to exist as files: ten `sim/missions/o1-*.fbm` +
 `sim/campaigns/o1-bekaa-1982.fbc` ([`o1-bekaa-1982.md`](o1-bekaa-1982.md) §State). **No `sim/src/` file,
@@ -242,3 +242,26 @@ rig's TIMEOUT, because `identify` + `no_fire` (round `C12`) were built for exact
 | The three-run counter-check | **`w5-02` vs `w5-03`, one token apart: 6 of 6 `telemetry*.csv` byte-identical, 1 differing `events.log` line of 75.** The control run `w5-01` (the subject ANSWERS) moves **5 of 184 telemetry columns and zero metres** — and that is a DISAGREEMENT with O2, where the same experiment moved zero columns. Rule 11 resolves it: the F-16 flies in a flight and `FBFlightPicture` sorts on the tracks' IFF field, so the quantity is *"what an identity is worth to a FLIGHT"* |
 | Found while building | **four findings, none fixed here.** (1) On the SPAWN tick every RWR reports the emitter's **TRUE** bearing instead of the relative one, because the attitude the body transform reads is not published yet — isolated at **180° against −95.5° on the identical geometry, an error of 275.5°**, held 2.0 s; pre-existing and visible in the committed `pair-2v2-f16.fbm`. (2) `FBPilot` has no behaviour for this task: `FBPilot.cpp:1040` calls *inside 5.0 nm and never shot* an ABORT, so `set task intercept` turns the interceptor away at t = 5.1 s and every W5 pass is an authored route. (3) A flight cannot sort two targets that only one member each can see — `FBFlightPicture::Assign` matches all members against the computing aircraft's own contact list, so both jets report `dup=1` on two aeroplanes 17.8 km apart. (4) The guidance does not crab: one 176 km leg bows **3.4 km** downwind and misses a 2 km box by 4 038 m, where the same aeroplane on 34 km vectors identifies at 677.7 m |
 | Also measured | the accepted price of judging the GEOMETRY instead of the sensor, paid in public: the night sortie has **0** `vis` lines against 9, differs in **6 of 184** telemetry columns, and produces `mission IDENTIFIED` at the **identical tick, range and dwell**. And a fifth thing that is an asymmetry rather than a defect: `modules/air/FBAirMover` has no wind at all, so in wind a declared formation comes apart and a briefed co-speed leg is co-speed in the wrong frame |
+
+
+---
+
+**Run 9 — 2026-07-29, W3 BUILT: the first campaign whose opponent is a system, and the first built
+entirely out of capabilities that did not exist when its own spec was written.** The sixth campaign to
+exist as files: ten `sim/missions/w3-*.fbm` plus `sim/campaigns/w3-desert-storm.fbc`
+([`w3-desert-storm.md`](w3-desert-storm.md) §State). **No `sim/src/` file, no tool and no asset was
+touched** — `git status --porcelain` lists eleven new untracked files and no modified one, so the 195
+pre-existing missions are byte-identical by construction. No new source was researched; the anchor is
+Run 1's and unchanged, and the Air Force Magazine PDF listed below is still unread.
+
+| Measured | Value |
+|---|---|
+| Campaign exit / step exits | 3 / `0 3 3 3 3 3 3 3 3 3`; whole campaign 53.2 s of wall clock |
+| Determinism criterion 1 | 9 runs (3 × `--threads 1/2/4`), **1** campaign fingerprint `3490c4fab3f25f533ead565e393cc23d234067e827e5ea7ba733408988f1fa1a`, `--elev const` |
+| Determinism criterion 2 | **10/10** steps replay standalone bit for bit, on the first attempt — **and the replay was run after the FIRST mission**, on a throwaway one-step `.fbc` that was deleted afterwards |
+| Conservation | nothing to compare: 11 new untracked files, 0 modified. Annotating the ten files with their MEASURED blocks afterwards left all ten per-mission fingerprints and the campaign fingerprint unchanged |
+| The spec's own headline, inverted | it said *"of the three things that went wrong on Package Q, FlightBox can measure ZERO today"*. Re-checked blocker by blocker against the tree (`C1` `C8` `C22` `C23` `C24` `C26` `C27` `C2` `C0` all closed since): **10 of 10 missions ran**, and of the three failure modes FlightBox can stage **exactly one** — the campaign names which and why |
+| The campaign's own answer | **a suppression element is worth one striker's release and the target, and it is worth that even when its missile falls 10 km short** (four runs on one geometry, the fourth being the attribution run with no SEAD at all); **emission discipline is worth the position and nothing else** — dark at 57.4 % of the round's flight, the AGM-88 lands 214 m short, the crew returns and empties its magazine at the departing Weasels; **the same bomb on the same early-warning radar is worth the whole strike against a one-node net and 36 % of the cue traffic against a two-node one**; and the capstone runs 24 aircraft + 8 ground + 34 stores in 11.7 s with 8 of 8 strikers releasing and 15 of 16 recovering |
+| Rule 11, settled on both sides | `w3-07`/`w3-08` under the declared policy `n019_emission off`: **50 Red contacts and 5 launch solutions against 0 and 0**. Attribution run A3, the same file with `illum`: **50 contacts, 7 solutions, run ends at the identical t = 272.8 s** as the briefed control. The five-theatre disagreement is closed by measurement rather than by inheritance |
+| Found while building | **four, none fixed here.** (1) **`FBPilot::CanPressOn` is unreachable** — the only line that reads the BINGO warning sits behind `EngState_ == Defend && elapsed >= DefendHoldS`, a branch the general `else if (EngState_ != Abort)` preempts on the first tick after `defendDue` clears. Measured: the bit set for 5 200 of 5 200 rows and a byte-identical `eng_state` column against a run without the brief. (2) **A proximity fuze has no team test** — at 24 aircraft `qamia1`'s R-27R detonated 11.74 m from a MiG-29 of the other Red flight and killed it; 1 of the capstone's 3 losses is friendly fire. (3) **`C15` priced**: three of a four-ship's AGM-88 went into one battery, two of them after it was destroyed. (4) **A battery has no threat priority**: measured four times — all four V-601 west at departing Weasels, all six V-750 south at the SEAD flight while eight strikers ran in, and deleting one striker that never dropped anything changed 10 launches into 8 and its wingman from *survived* into *shot down* |
+| Also measured | **a striker is stopped by system damage more often than by destruction.** `w3-02`'s second wave takes four V-601 inside 8.4 m, survives all four, and arrives over its target 56 s later with eleven systems failed including `stores`. Read as a loss table: 0–0. Read as a package result: total failure |
