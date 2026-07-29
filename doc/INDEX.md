@@ -29,6 +29,7 @@ source directory. If you know where the code is, you know where its file is.
 | *(cross-cutting, not a source dir)* | [air-to-ground.md](air-to-ground.md) — the air-to-ground half: beating that defence down |
 | *(cross-cutting, not a source dir)* | [doctrine-evolution.md](doctrine-evolution.md) — what the tournament optimises, may change, and must not measure on |
 | *(cross-cutting, not a source dir)* | [player-layer.md](player-layer.md) — FlightBox as a playable game: **specified, not built, deliberately last** |
+| *(cross-cutting, not a source dir)* | [persistent-world.md](persistent-world.md) — world snapshots and the mission as a window into them: **ideas and constraints, not a design** |
 | `missions/` + `units/` | [missions/](missions/INDEX.md) |
 | `modules/` | [modules/](modules/f16/INDEX.md) |
 | `render/` | [render/](render/renderer.md) |
@@ -49,7 +50,7 @@ Every topic file carries the same four sections:
 
 The working rule that binds a round to this shape is in [`conventions.md`](conventions.md).
 
-Six files are deliberately outside the mirror because their subject is: [`duels.md`](duels.md) (a
+Seven files are deliberately outside the mirror because their subject is: [`duels.md`](duels.md) (a
 PAIRING), [`formation.md`](formation.md) (a FLIGHT — it cuts through core, units, sensors, pilot and
 missions at once, and belongs whole in one place rather than in fifths),
 [`air-defence-network.md`](air-defence-network.md) (a NET — the same cut, on the ground side, and the
@@ -59,7 +60,10 @@ sensor function, a verdict kind and a pilot cue, which live in five layers and b
 [`doctrine-evolution.md`](doctrine-evolution.md) (a MEASUREMENT — a fitness sits on `pilot/`'s
 genome, `core/`'s judge, `missions/`' arena text and `tools/`, which is not in the mirror at all) and
 [`player-layer.md`](player-layer.md) (a VIEW — it sits on the judge's output, both mission formats, the
-browser and a UI half that has no source directory yet).
+browser and a UI half that has no source directory yet) and
+[`persistent-world.md`](persistent-world.md) (a WORLD ABOVE THE RUN — a snapshot artefact, the cut into
+a mission, the class boundary and an offline generator, which touch `core/`, `units/`, `sensors/`,
+`missions/` and `tools/` at once).
 
 Exceptions, all deliberate: the **meta files** (this index, `vision.md`, `roadmap.md`, `journal.md`,
 `conventions.md`) carry no Spec/State/Gaps — they *are* the direction, the order, the history and the
