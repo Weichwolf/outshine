@@ -161,6 +161,12 @@ def cmd_determinism(a):
             fp, _, _, _ = campaign_fingerprint(out)
             fps.setdefault(fp, []).append(f"threads={threads} rep={rep} exit={code}")
             print(f"threads={threads} rep={rep} exit={code} campaign-fp={fp}")
+            # The fingerprint is the product; the tree it was read from is not. A campaign of ten
+            # missions with per-unit telemetry is ~0.5 GB, and this loop makes nine of them, so
+            # keeping them fills a disk in one command. --keep holds the run that DISAGREES, which is
+            # the only one anybody ever wants to look at.
+            if not a.keep and len(fps) == 1:
+                shutil.rmtree(out, ignore_errors=True)
     print(f"\n{sum(len(v) for v in fps.values())} runs, {len(fps)} distinct campaign fingerprint(s)")
     for fp, runs in fps.items():
         print(f"  {fp}\n    " + "\n    ".join(runs))
@@ -193,6 +199,8 @@ def cmd_replay(a):
               f"standalone exit={code} fp={fp[:16]}  {'MATCH' if ok else 'DIVERGED'}")
         if not ok:
             print(f"     state-in: {state}\n     out: {out}")
+        elif not a.keep:
+            shutil.rmtree(out, ignore_errors=True)   # same rule: keep only what diverged
     return 0 if bad == 0 else 1
 
 
@@ -230,6 +238,8 @@ def main():
         p.add_argument("--elev", default=None, help="OVERRIDE the elevation source (default: "
                                                     "fb-gym's own for determinism, the recorded one for replay)")
         p.add_argument("--work", default="build/campaign-verify")
+        p.add_argument("--keep", action="store_true",
+                       help="keep every run tree, not only the diverging ones (disk-hungry)")
         if name == "determinism":
             p.add_argument("--reps", type=int, default=3)
             p.add_argument("--threads", type=int, nargs="+", default=[1, 2, 4])
