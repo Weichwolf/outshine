@@ -30,7 +30,7 @@ know where its file is.
 | `render/` | `render/` (+ `render/clouds-legacy/`, a closed archive) |
 | `world/` | `world/terrain.md`, `world/weather.md` |
 | `clients/` | `clients/clients.md` |
-| *(cross-cutting, no source dir)* | `duels.md` (a PAIRING), `formation.md` (a FLIGHT), `air-defence-network.md` (a NET) — three subjects that cut through core/units/sensors/pilot/missions at once and are kept whole |
+| *(cross-cutting, no source dir)* | `duels.md` (a PAIRING), `formation.md` (a FLIGHT), `air-defence-network.md` (a NET), `air-to-ground.md` (SUPPRESSION), `doctrine-evolution.md` (the FITNESS), `player-layer.md` (the GAME as a view) — subjects that cut through core/units/sensors/pilot/missions at once and are kept whole |
 | *(no source dir)* | the meta files at the root: `INDEX.md`, `vision.md`, `roadmap.md`, `journal.md`, `conventions.md`, `architecture.md`, `build-and-ops.md` |
 
 ## The shape of every topic file

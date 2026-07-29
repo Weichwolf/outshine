@@ -28,6 +28,7 @@ source directory. If you know where the code is, you know where its file is.
 | *(cross-cutting, not a source dir)* | [air-defence-network.md](air-defence-network.md) — the net above the single ground position |
 | *(cross-cutting, not a source dir)* | [air-to-ground.md](air-to-ground.md) — the air-to-ground half: beating that defence down |
 | *(cross-cutting, not a source dir)* | [doctrine-evolution.md](doctrine-evolution.md) — what the tournament optimises, may change, and must not measure on |
+| *(cross-cutting, not a source dir)* | [player-layer.md](player-layer.md) — FlightBox as a playable game: **specified, not built, deliberately last** |
 | `missions/` + `units/` | [missions/](missions/INDEX.md) |
 | `modules/` | [modules/](modules/f16/INDEX.md) |
 | `render/` | [render/](render/renderer.md) |
@@ -48,15 +49,17 @@ Every topic file carries the same four sections:
 
 The working rule that binds a round to this shape is in [`conventions.md`](conventions.md).
 
-Five files are deliberately outside the mirror because their subject is: [`duels.md`](duels.md) (a
+Six files are deliberately outside the mirror because their subject is: [`duels.md`](duels.md) (a
 PAIRING), [`formation.md`](formation.md) (a FLIGHT — it cuts through core, units, sensors, pilot and
 missions at once, and belongs whole in one place rather than in fifths),
 [`air-defence-network.md`](air-defence-network.md) (a NET — the same cut, on the ground side, and the
 sequel to `modules/ground/` rather than a part of it),
 [`air-to-ground.md`](air-to-ground.md) (an ENGAGEMENT of the one by the other — a weapon family, a
 sensor function, a verdict kind and a pilot cue, which live in five layers and belong in one argument)
-and [`doctrine-evolution.md`](doctrine-evolution.md) (a MEASUREMENT — a fitness sits on `pilot/`'s
-genome, `core/`'s judge, `missions/`' arena text and `tools/`, which is not in the mirror at all).
+[`doctrine-evolution.md`](doctrine-evolution.md) (a MEASUREMENT — a fitness sits on `pilot/`'s
+genome, `core/`'s judge, `missions/`' arena text and `tools/`, which is not in the mirror at all) and
+[`player-layer.md`](player-layer.md) (a VIEW — it sits on the judge's output, both mission formats, the
+browser and a UI half that has no source directory yet).
 
 Exceptions, all deliberate: the **meta files** (this index, `vision.md`, `roadmap.md`, `journal.md`,
 `conventions.md`) carry no Spec/State/Gaps — they *are* the direction, the order, the history and the
@@ -92,6 +95,7 @@ were translated in the Phase-3 split; no German prose remains in `doc/`.
 | [air-defence-network.md](air-defence-network.md) | the **connected air defence** (`C22`/`C23`/`C24`, **BUILT** — that file's §State; three of its measured runs are pre-fix and marked): the cue that aims a fire unit's antenna and can never create a track, the belt declared as zones and read out of the verdict, weapons control and sector responsibility, what a defence becomes when its node is killed or jammed, and the bounded comms-jamming model. **The net adds no seventh registry reader** |
 | [air-to-ground.md](air-to-ground.md) | the **air-to-ground half** — `C8` (built, minus the rocket pod), `C26` and `C27` closed, `C25` still open: the anti-radiation weapon whose seeker IS the warning receiver and whose memory is a RATE and never a point, so a crew that goes dark still escapes — MEASURED at 85.0 % / 88.1 % of the flight against a predicted 61 % / 76 %, with the deviation's three causes named; five more stores each with the one quantity that decides it; **suppressed against destroyed** as a mechanism plus one objective kind; and the pre-existing defect that made a bunker and a falling bomb radiate a fighter radar |
 | [doctrine-evolution.md](doctrine-evolution.md) | **what the evolutionary tournament optimises, and the proof that today it optimises the wrong thing** (spec only): the present fitness ranks the doctrine that abandons the sort ABOVE the one that keeps it, and lets craft overturn outcome by 1.5 points — replaced by a **lexicographic** order (judge's verdict → objectives met → craft, which orders and never decides); the **five doctrine genes** (formation, cover, sort, energy rule, EMCON timing) with the `Free`/`Scale` split that makes an airframe number inexpressible rather than merely forbidden; the **non-dominated archive** against co-evolutionary circling with its exact cyclic-triple statistic; and the **saturation criterion** an arena must pass before any of it measures anything — today 18 of 19 runs return one number |
+| [player-layer.md](player-layer.md) | **FlightBox as a playable game — SPECIFIED, NOT BUILT, deliberately last** (roadmap R9). The player layer is a **VIEW on a run**, never a second truth: it reads, omits and summarises, and may add nothing the run did not contain. **No score** — completion is a RULE over the judge's own `mission OBJECTIVE` vector plus the briefing's primary marks, so a measuring rig whose passing value is a TIMEOUT carries a playable task without one byte changing. Primary/secondary is an ANNOTATION outside `.fbm`/`.fbc`, which is what keeps the game grade out of the fitness by construction. Difficulty is declared with a reference run, never computed; the unlock graph is the `.fbc` order; a retry re-enters at step *k−1*'s state file. The **two-part view**: an OSM map that draws only what the own faction has detected — with age, `held`/`valid` uncertainty and anonymous contacts — and TAB into a unit is an INFORMATION change, not a camera move. Commanding is a **proposal on the existing command bus**, so the player stands on the AI's side of the anti-cheat boundary and nothing has to be relaxed for him |
 | [campaigns/](campaigns/INDEX.md) | the **ten scenario specifications** — five flown by the F-16, five by the MiG-29, ten missions each, every anchor cited and tiered; plus the aggregated cast list, the capability gaps ordered by blocking degree, the identification task as an anti-cheat test and Bekaa as a measurable yardstick. **Spec only, nothing built** |
 
 ## Missions — `missions/`

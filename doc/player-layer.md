@@ -1,0 +1,760 @@
+# The player layer — FlightBox as a playable game
+
+**Status: SPECIFIED, NOT BUILT — deliberately last.** Nothing in this file may block or pre-empt the
+campaign and evolution work; it adds no keyword to `.fbm`, no field to `.fbc`, no line to any judge and
+no column to any telemetry file. It is written now so that the layer's *boundaries* are decided before
+anything is built against them.
+
+**Subject:** the layer between a finished run and a human — campaign select, mission select with a
+difficulty ladder and an unlock rule, primary and secondary objectives, and a debriefing. Explicitly
+**no score**.
+
+### The owner's three sentences, verbatim, and they are the whole contract
+
+> „Die saubere Trennung zwischen Fitness und Gamer-Score finde ich gut. Die Spielerschicht bauen wir
+> zuletzt. … Wir brauchen dann ein paar Menüs, Kampagnen-Select, Mission-Select (nach Schwierigkeit
+> gestaffelt und mit Freischaltmechanismus) und Debriefing für den Spieler. **Einen Score brauchen wir
+> nicht.** Einfach welche Ziele erreicht wurden und ob es für einen erfolgreichen Abschluss der Mission
+> reicht."
+
+> „FlightBox soll komplexe Szenarien realistisch durchrechnen können. **Der spielbare Teil ist eine
+> vereinfachte Repräsentation.**"
+
+> „Für das Gym zum Trainieren und Simulieren gibt es Szenarien mit **tausenden Akteuren**, in denen
+> komplexe Gefechte durchgerechnet werden können und Systeme optimiert, verbessert, ausgetestet und auch
+> die KI verbessert wird. **Das Spiel sind vereinfachte Missionen mit Unterhaltungswert.**"
+
+The second sentence decides the architecture: the player layer is a **VIEW on a run**, not a second
+truth. Same simulation, same two judges, same reading rules underneath; above them a representation
+that **omits and summarises**. That is what §1 turns into a rule with a check.
+
+The third sentence decides the **scope**, and it is the one that stops this layer from growing into a
+second simulator:
+
+| | **Gym scenario** | **Game mission** |
+|---|---|---|
+| Purpose | compute a complex engagement; optimise, test and improve systems and the AI | entertainment |
+| Size | up to thousands of actors — that is the gym's own scaling question | **small, and small is the property, not the shortfall**: it has to be *understandable*, not exhaustive |
+| Verdict | the file's header reading rule + the telemetry | the completion rule of §3, over the judge's own lines |
+| Who reads it | an engineer, once, with `grep` | a player, in the cockpit and then on one screen |
+| Fidelity | full. Nothing below is simplified for either | full — identical, because the game changes nothing below itself |
+
+**The scaling question is a GYM question and this layer does not inherit it.** A game mission is not a
+cut-down gym scenario and does not have to survive one; what a `.fbm` costs per actor, where the tick
+barrier stops paying and what "thousands of actors" costs is measured in
+[`missions/runtime.md`](missions/runtime.md) (today: 2 units 1.29–1.41× at 2 threads, 4 units up to
+1.77× at 4) and is **being quantified by a parallel round** — no number for it is invented here.
+
+What follows for a game mission's shape, and each is a consequence rather than a preference:
+
+| Property | Consequence |
+|---|---|
+| Cast | as many actors as the player can hold in his head and no more. A cast he cannot account for turns the debrief into a report about strangers |
+| Length | short enough that a failed attempt is worth retrying. §4.2's retry rule is only humane if the run is |
+| Objectives | few, and each nameable in one line of the briefing (§2.2). A seat with eight declared objectives has no primary |
+| Threat | it must be *possible to notice*. A threat that only exists in a telemetry column is a measurement, not a mission |
+| **What it does NOT have to do** | carry a controlled variable, isolate one lever, or answer anything. That is the gym scenario's job, and the game must not be asked to do it as well |
+
+| What it reads | Where that is specified |
+|---|---|
+| the judge's per-objective vector, `mission OBJECTIVE unit=… kind="…" state=met\|unmet\|violated` | [`missions/verdict.md`](missions/verdict.md) §State (`E1`) |
+| the per-unit verdict, `UNIT_RESULT result=… reason=… decisive=…` | [`missions/output.md`](missions/output.md) |
+| the ordered mission list and the three carried facts of a campaign | [`missions/campaign.md`](missions/campaign.md) |
+| the seat's own telemetry columns, incl. `eng_*` | [`pilot.md`](pilot.md) §8 |
+| what the browser can and cannot do today | [`clients/clients.md`](clients/clients.md) |
+| what it must never become | [`doctrine-evolution.md`](doctrine-evolution.md) §1.2, [`vision.md`](vision.md) |
+
+**Where this file sits, and why at the root.** The player layer is not a source directory: it cuts
+through `core/`'s judge output, `missions/`' two file formats, `clients/`' browser and a UI half that
+exists nowhere yet. That is the same cut [`duels.md`](duels.md), [`formation.md`](formation.md),
+[`air-defence-network.md`](air-defence-network.md), [`air-to-ground.md`](air-to-ground.md) and
+[`doctrine-evolution.md`](doctrine-evolution.md) already make, and the same reason they are root files.
+
+---
+
+## Spec
+
+### 0. The ten contracts
+
+| # | Contract | Acceptance / measurement anchor |
+|---|---|---|
+| **P1** | **The layer is one-way: it reads a run, omits from it, and adds nothing** | §1's three checks, the third of which is a byte-identity |
+| **P2** | **Primary/secondary is an ANNOTATION over objectives the mission already declares, and lives outside `.fbm` and `.fbc`** | §2. Acceptance: no `.fbm` and no `.fbc` gains a token; a briefing naming an objective the file does not declare is a parse error |
+| **P3** | **The judge judges once. The game re-reads the judge's own output and never recomputes a state** | §3. Acceptance: for a briefing that marks every objective primary, "completed" equals `exit == 0` over every `sim/missions/*.fbm` with exactly one judged unit |
+| **P4** | **No score, anywhere** | §3. There is no number to print: the debrief shows a list of objectives with three states and one boolean. A field whose value is a total does not exist in the data model |
+| **P5** | **The game grade can never reach the fitness** | §2.3. Acceptance: the fitness's inputs (`UNIT_RESULT`, `mission OBJECTIVE`, `eng_*`/`dmg_*` columns) are byte-identical whether a briefing exists or not — which is trivially true because the runner never sees one, and is *measured* rather than argued |
+| **P6** | **The debrief shows nothing the seat did not see, except what the judge is entitled to say** | §5's three information classes and their refusal list |
+| **P7** | **A game mission is SMALL, and smallness is a property** | §0's second table. The gym's scaling question is not inherited |
+| **P8** | **Entertainment SELECTS, it never GRADES** | §8. Acceptance: no entertainment property appears anywhere in §3's completion rule, and the two live in different files |
+| **P9** | **The map draws the OWN FORCE's picture, with age and uncertainty — never the truth** | §9.2. Acceptance: every map symbol resolves to a published block, a datalink track or a net report; the map adds **no** registry reader (`verify-layers` still prints six) |
+| **P10** | **A player order is a PROPOSAL on the existing command path, never a state write** | §9.3. Acceptance: the set of state writers is unchanged — `FBFdmBoot` stays the only one, and every order produces `CMD_ISSUE`/`CMD_ACK` like any AI order |
+
+### 1. The one-way rule
+
+> **The player layer READS a run and MAY OMIT. It may never add a fact the run does not contain, and it
+> may never write into anything below it.**
+
+The tree already owns this shape: the campaign overlay *"may delete a `unit` block or change the value
+of a `set` line … It may never add a line"*, and the built version is narrower still — it only deletes,
+and asserts afterwards that neither the block count nor the `set`-line count grew
+([`missions/campaign.md`](missions/campaign.md) §4 and §State 1). The player layer is the same move one
+level up, with three checks instead of one argument:
+
+| # | Check | How it is run |
+|---|---|---|
+| **1** | **Nothing below it changes.** The runner, the judges and the FDM never see a briefing | the same mission, run with and without a briefing present, produces byte-identical `telemetry*.csv` and `events.log`. Same gate shape as `C2`/`C12` conservation |
+| **2** | **The view's postcondition.** Every row the view emits carries a PROVENANCE KEY naming the artefact line or column it came from | a debrief row without a source key cannot be constructed (the key is a constructor argument, not a field to fill in later — *"a narrower permission is a smaller door"*). After building: displayed objective rows **==** `mission OBJECTIVE` lines for the seat; displayed unit rows **⊆** units the seat's own sensors or the judge reported. **No set grew** |
+| **3** | **The briefing resolves, it does not declare.** There is no syntax in a briefing for creating an objective, a unit, a zone or a value | every `primary`/`secondary` line must resolve to an objective the `.fbm` declares for that seat — the identical end-of-file resolution `kill unit` already gets ([`missions/syntax.md`](missions/syntax.md)). Unresolvable = parse error. The move is the genome's `Scale` key: *"it cannot express an absolute. There is no syntax for it"* ([`doctrine-evolution.md`](doctrine-evolution.md) §2.2) |
+
+The run directory is opened **read-only**. The only thing the layer writes is its own save (§6).
+
+### 2. Primary against secondary — and the line the fitness may never cross
+
+#### 2.1 Where the line runs
+
+| Layer | Knows primary/secondary? | Why |
+|---|---|---|
+| `core/FBMissionMonitor` (the judge) | **no** | it publishes an UNORDERED vector, one line per declared objective. Ordering the nine kinds against each other is the exchange rate [`doctrine-evolution.md`](doctrine-evolution.md) §1.2 refuses |
+| `.fbm` | **no** | no new token. The conservation rule of [`missions/verdict.md`](missions/verdict.md) ("a mission without a new line judges byte-identically to today") stays true by having nothing to add |
+| `.fbc` | **no** | a game key in the campaign file would enter the campaign fingerprint's own input and tempt the runner to read it |
+| fitness / tournament / evolution (`tools/fb_fitness.py`) | **no** | level `M` stays an UNWEIGHTED COUNT because there is no mark in its inputs to weight by |
+| **the briefing (`.fbp`, §6) and the menus/debrief that read it** | **yes, and only here** | the ladder a game needs exists exactly where a game is |
+
+#### 2.2 The annotation, in one shape
+
+```
+campaign o4-gaf-mig29g-dact
+title "GAF MiG-29G against the Viper"
+
+mission o4-04-entry-10nm
+  seat        fulcrum                 # the callsign the human flies; must be a unit of that .fbm
+  difficulty  3                       # 1..5, [SET] and evidenced — §4
+  ref         exit 0 met 2 of 2 fp d6f2052cf8f42ffd
+  primary     kill unit viper         # must be an objective THIS seat declares in the .fbm
+  secondary   survive
+  brief       "Baltic range period. The bandit enters at ten miles."
+```
+
+Line discipline as `.fbm`/`.fbc`: one statement per line, `#` to end of line, unknown keyword is a
+parse error. One file per campaign, `sim/campaigns/<name>.fbp`, beside the `.fbc` and never inside it.
+
+**An objective the briefing does not mention is PRIMARY** `[SET]` — because that default makes the
+game's rule degrade exactly into the judge's rule (§3.2), so every relaxation is a visible line and no
+briefing can silently claim more than the run did.
+
+#### 2.3 What structurally stops the game grade from flowing back into the fitness
+
+Not discipline — three independent facts, and the first alone is sufficient:
+
+| Mechanism | Effect |
+|---|---|
+| **The grade is not a fact about the run at all** | it is a fact about the *briefing*, computed by the reader. The run's artefacts contain no mark, so there is nothing in the fitness's input for a future author to weight. This is the load-bearing one |
+| A RESTRICTED header, in the shape `core/FBZone.h` already has | the briefing parser is declared in `tools/verify_layers.py`'s `RESTRICTED` table with an includer list of exactly the player-facing files — a NARROWING, like the zone gate's empty outside-includer list ([`air-defence-network.md`](air-defence-network.md) §4). `core/`, `missions/`, `pilot/` cannot name it |
+| The Python half prints its own alphabet | the debrief tool imports the briefing parser and **not** `fb_fitness`; `fb_fitness` imports neither. Each prints what it can reach at start, in the shape of `fb_evolve.py`'s *"5 genes of 22 pilot keys; 0 non-pilot keys reachable"* ([`doctrine-evolution.md`](doctrine-evolution.md) §2.2) |
+
+### 3. What "successfully completed" means — a rule, not a number
+
+#### 3.1 The rule
+
+> A mission is **COMPLETED** for its seat iff
+> **(a)** every objective the briefing marks PRIMARY has `state=met`, **and**
+> **(b)** no objective of that seat has `state=violated`, **and**
+> **(c)** that seat's `UNIT_RESULT result` is neither `CRASH` nor `LOC`.
+
+Every term is read off lines the judge already emits; nothing is recomputed. Three notes:
+
+- **(b)** costs nothing new: `violated` is reserved for the three kinds that have a violation condition
+  of their own (`survive`, `no_fire`, `protect`) — the judge's own "you decisively broke a rule you
+  declared".
+- **(c)** is `[SET]`, and it is the one outcome no briefing may absolve: `CRASH`/`LOC` in a
+  `UNIT_RESULT` means an **undamaged** wreck, because for a shot-down unit the mission verdict takes
+  precedence over the later impact ([`missions/verdict.md`](missions/verdict.md)). So (c) fails exactly
+  when the player flew a serviceable jet into the ground or departed it.
+- The rule can therefore say **"mission accomplished, aircraft lost"**, and it should — that is the
+  trade case the judge already distinguishes (a unit with `kill` but without `survive` declares that its
+  own loss is not a failure).
+
+**Secondary objectives change nothing about completion.** They are reported met/unmet and are the only
+thing that distinguishes two completions from each other. That is the whole of "no score": the
+distinction is a LIST, not a total.
+
+#### 3.2 Why the rule degrades into the judge's verdict, and how that is measured
+
+With the default of §2.2 (unmarked = primary) and a briefing that marks nothing, completion is *"every
+declared objective met, none violated, the jet not thrown away"* — which is the judge's SUCCESS.
+
+> **Acceptance:** over every `sim/missions/*.fbm` that declares objectives on **exactly one** unit,
+> `COMPLETED == (exit == 0)`. A divergence is a defect in this rule, not in the judge.
+
+The restriction to one judged unit is not a hedge: the run verdict quantifies over *all* judged units
+(the AI wingman, the opponent), the completion rule over *one seat*. Those are different questions and
+only coincide when there is one seat.
+
+#### 3.3 The TIMEOUT case — the annotation reads it, nobody rewrites it
+
+Many campaign and combat missions have **TIMEOUT (exit 3) as their passing value**, with the binding
+reading rule in the file's own header ([`missions/INDEX.md`](missions/INDEX.md) rules 4 and 5). The
+completion rule above does **not** disqualify on `TIMEOUT` or on `FAIL`, and that is deliberate: it is
+precisely what lets a measuring rig carry a playable task without a byte changing.
+
+**Worked, on a rig whose seat declares `survive` + `kill unit X`:**
+
+| Reader | Reads | Says |
+|---|---|---|
+| the rig (header rule 5) | exit code + the `eng_*` columns | exit 3 by construction; the verdict is the telemetry |
+| the judge | its own two lines | `UNIT_RESULT result=TIMEOUT`, `OBJECTIVE survive=met`, `OBJECTIVE kill=unmet` |
+| the game, briefing `primary survive` / `secondary kill unit X` | those same two lines | **COMPLETED** — "you came home; the bandit did not" |
+
+The primary is phrased differently from the exit code, and neither reading disturbs the other.
+
+**Worked, on `sim/missions/net-blind-cue.fbm`** — the case whose pass criterion is *something not
+happening*:
+
+| Reader | Reads | Says |
+|---|---|---|
+| the rig | `grep -c "site TRACK" events.log` | passes iff **0**. This is the measurement, and it is not the exit code |
+| the judge | the seat declares no `objective` line, so the flight plan is the entire verdict | `UNIT_RESULT result=SUCCESS reason="all waypoints reached"`; **zero** `mission OBJECTIVE` lines |
+| the game | that one line + the briefing's prose | **COMPLETED** — "you flew the corridor south through the battery's own arc" |
+| the game's debrief (view, §5) | the seat's own release lines and store telemetry | "two Mk 82 away, both impacted 52 m from your aim point; the position was **not** destroyed" |
+
+Three properties of that table are the point of this whole section:
+
+1. **The file is untouched.** No objective added, no header rewritten, no measurement moved.
+2. **The game says LESS than the rig, never more.** The zero-TRACK criterion stays a rig reading; the
+   game does not promote it to a pass condition, because promoting an event-log grep to a verdict would
+   make the game a second judge (P3).
+3. **A game author who wants "kill the radar" as a pass criterion must declare it as an objective in a
+   mission file** — and that is mission authoring, which produces a NEW file with its own header. The
+   player layer itself never forks, edits or shadows a flown `.fbm`.
+
+> **Retracted from the first draft of this file, and named because it was wrong.** That draft had a
+> rule "a game mission that needs a different objective block gets a sibling file". Under the owner's
+> ruling the player layer is a view, so it has no conversion mechanism at all: one mission, one file,
+> one judge, two readings.
+
+### 4. Difficulty and unlocking
+
+#### 4.1 Where difficulty is read from — declared with evidence, never computed
+
+Two designs:
+
+| | **A — a formula over declared mission features** | **B — a declared tier with a mandatory reference run (RECOMMENDED)** |
+|---|---|---|
+| Mechanism | weight hostile count, ground threat, `wx`, `time`, loadout, timeout into a number | the briefing declares `difficulty 1..5` `[SET]` **and** `ref exit … met … of … fp …` from a recorded AI-flown run of that file |
+| Failure mode | it is a weighted sum, i.e. the exact defect `doctrine-evolution.md` §1.2 removed: the exchange rate between "one more MiG" and "night" has no answer, and whatever is chosen silently decides what "hard" means | a tier that contradicts its own reference run is a defect, exactly as a mission whose result contradicts its header is a finding (rule 5) |
+| Provenance | a number with no derivation | `[SET]` + a measurement, which is one of the three admissible forms ([`conventions.md`](conventions.md)) |
+
+**Recommended: B.** The features below are then the **evidence a reviewer reads**, never terms of a
+sum, and every one of them is declared in the mission file or measured, so none is guessed:
+
+| Evidence | Where it is read | Note |
+|---|---|---|
+| opposing cast: count, module/catalogue row, `flight` structure | the `.fbm`'s `unit` blocks | |
+| ground threat: `net` block, site rows, `zone` cylinders | the `.fbm` | the belt is the difference between airspace and a corridor |
+| sky and light: `wx`, `time` | the `.fbm` | **and the honest caveat:** night today moves 6 of 184 telemetry columns and reaches no decision ([`campaigns/o4-gaf-mig29g-dact.md`](campaigns/o4-gaf-mig29g-dact.md) sortie 9). A night tier would be a claim the tree cannot back |
+| own loadout and timeout | the `.fbm` `set store` lines, `timeout` | O4 measured the magazine as worth more than any doctrine lever |
+| the AI's own outcome on that file | the reference run's exit code + objective vector | the only ordinal input that is actually about difficulty |
+| **`ACCEPTED` vs `ALPHA` of every catalogue row in the cast** | [`modules/air/flight-model-recipe.md`](modules/air/flight-model-recipe.md) | **not a difficulty input — an ADMISSION filter.** An `ALPHA` row *"may fly in a mission; it may not answer a campaign question"*. A mission whose opponent is `ALPHA` may be offered, and its briefing must carry that word, because the player's loss might be the deck rather than the pilot |
+
+#### 4.2 The unlock rule, and there is no new graph
+
+| Item | Rule |
+|---|---|
+| Order | **the campaign's own `mission` order in the `.fbc`.** It is already ordered, already carried, already the fingerprint's order. Inventing a second graph would put the campaign's sequence in two places |
+| Unlock | step *k+1* unlocks when step *k* is COMPLETED (§3.1). Step 1 of every campaign is always unlocked |
+| Campaign unlock | a campaign is unlocked when its `require` line (optional, naming another campaign) is completed; absent = unlocked. Difficulty tiers stagger the *presentation*, the `.fbc` order is the *mechanism* |
+| Failure | a failed attempt is **retried from the same entry state** and appends nothing `[SET]` — a player expects a retry, where a measuring campaign's `stop_on never` deliberately wants the arc *after* the loss ([`missions/campaign.md`](missions/campaign.md) §Knowledge). Those are different questions and the difference is named rather than merged |
+
+#### 4.3 How this sits on the campaign carry — nothing new is needed
+
+The carry is three monotone facts and its currency is `campaign-state.txt`; the state **before** step
+*k* is step *k−1*'s file, which is exactly what `fb-gym --mission … --state` consumes, and criterion 2
+of the layer says a step re-run standalone from that file is bit-identical to the campaign's own step.
+
+| Player action | Mechanism it uses | New? |
+|---|---|---|
+| fly step *k* | that mission + step *k−1*'s state file (+ `--campaign-time`) | **nothing new** |
+| retry step *k* | the same two inputs again | nothing new — and this is *why* the retry is legitimate: the entry state is a file, not a memory of the failed attempt |
+| advance | write the completed attempt's state file as step *k*'s | nothing new |
+
+**One honesty note that must not be skipped.** Determinism criterion 1 (nine runs, one fingerprint)
+**does not apply to a played run**: a human's inputs are not a declared quantity, so a played run is a
+fresh trajectory whose fingerprint means nothing. What stays deterministic is the *carry* — given the
+same entry state and the same declared file, the layer adds no hidden state. Fingerprints certify AI and
+replay runs; a played run is certified by nothing but its judge output, and the layer must never present
+one as a measurement.
+
+### 5. The debriefing — every line with its source, and a refusal list
+
+#### 5.1 What the player sees
+
+| Row | Source | Class |
+|---|---|---|
+| campaign, mission, attempt number | `.fbp` + the save | own |
+| **COMPLETED / NOT COMPLETED** | §3.1 over the seat's judge lines | judge |
+| primary objectives, each `met`/`unmet`/`violated` | `mission OBJECTIVE unit=<seat> kind="…" state=…` + the briefing's marks | judge |
+| secondary objectives, the same | ″ | judge |
+| how the run ended | the seat's `UNIT_RESULT result=` + `reason=` | judge |
+| time airborne, distance, fuel remaining, max g, landing state | the seat's own `telemetry*.csv` | own |
+| what he shot and when | his own `sms RELEASE` / gun burst lines, his stores' telemetry files | own |
+| the engagement debrief: time to detect, time to lock, shot range and the launch envelope at the shot, support fraction, reaction time, energy floor | the seat's `eng_*` columns — *"each is computable from one's OWN instruments and is a quantity a real debriefing would argue about"* ([`pilot.md`](pilot.md) §8) | own |
+| his own exposure inside a declared zone | `zone_<name>_in` / `zone_<name>_s` of his own telemetry — **his own dwell, not the geometry** | own |
+| BDA at roster granularity: which units his own weapons made combat-ineffective | `damage KILL` attributed to his stores | judge, by decision |
+
+#### 5.2 The three information classes, and the boundary
+
+He sat in the cockpit. A debrief that shows him what he never saw is a **different decision** from a
+display, and it is taken here explicitly:
+
+| Class | Rule |
+|---|---|
+| **1 — own-ship facts** | always shown. His telemetry, his `eng_*`, his releases, his radar/RWR picture, his damage |
+| **2 — the judge's own statements** | shown, and this is the decision: the game is entitled to quote the outside judge, because a post-flight BDA exists in reality and because §3's whole point is that the judge already decided. Scope: the objective vector, `UNIT_RESULT`, and the roster-level "destroyed / not destroyed" for units **his own weapons** hit |
+| **3 — opponent-interior facts** | **refused by default** |
+
+The refusal list, stated as items rather than as a principle:
+
+| Refused | Why |
+|---|---|
+| the opponent's telemetry and his `eng_*` (when he locked you, when he fired, his energy, his fuel) | it is the information the perception boundary exists to keep out of a pilot's hands, one layer up. A player who reads it learns the opponent's doctrine without flying against it |
+| per-system damage breakdown of another unit (`damage SYSTEM … system=radar state=failed`) | interior. Class 2 stops at the roster bit; the debrief is **coarser** than the log, which is what "simplified representation" means |
+| the truth position of a unit his sensors never held, and any miss distance measured against it | his own aim point and his own impact point are his; the target's real position is not. Where both are unknown to him, the row is omitted, not approximated |
+| the declared `zone` geometry (centre, radius, floor, ceiling) | `core/FBZone.h` is RESTRICTED with an EMPTY outside-includer list; a belt drawn on a debrief map is the SAM ring handed over without a sensor. His own dwell columns are published per judged unit and are his |
+| the identity of a contact his IFF did not answer for | *"a radar contact carries no identity; the only identity source is IFF Mode 4, and it knows no 'hostile'"* |
+| anything at all about a mission he has not completed | see below |
+
+**No in-game exception exists.** An earlier draft of this file offered an opt-in instructor track
+(`debrief full`) showing both sides on a completed mission. It is **withdrawn** by the owner's ruling
+that the view sees only what the own faction detected: an omniscient reading is an **engineering tool**
+— gym, debugging, after-action analysis of a measured run — and it lives on the gym side with the other
+instruments (`fb_duel_report.py`'s two-sided `eng_*` debrief is exactly that tool and already exists).
+It is not reachable from the game client, so there is no switch to get wrong.
+
+### 6. The menus — three screens, and most of the state already exists
+
+| Screen | Shows | State source | New? |
+|---|---|---|---|
+| **Campaign select** | one row per `.fbc` with title, mission count, difficulty span, completed/total, locked/unlocked | `sim/campaigns/*.fbc` (exists) + `.fbp` title/`require` (new) + the save | the `.fbp` |
+| **Mission select** | the campaign's missions in `.fbc` order, each with tier, primary/secondary list, locked/unlocked, best attempt | `.fbc` order (exists) + `.fbp` marks (new) + the save | the `.fbp` |
+| **Debriefing** | §5's rows | computed at run end from the run's own artefacts; nothing persisted except the completion facts | the view |
+
+| State | Where it lives | Shape |
+|---|---|---|
+| campaign order, carried facts, entry states | `.fbc` + `campaign-state.txt` per step | **exists, untouched** |
+| seat, tier, marks, brief prose, `require`, `debrief full` | `.fbp` beside the `.fbc` | new, text, one statement per line |
+| unlocks, attempts, completions, which primaries fell | the player save — client state, canonical text, one fact per line, in campaign declaration order (the same discipline `campaign-state.txt` has, for the same reason: it is diffable and exportable) | new, and it is the ONLY new mutable state in the layer |
+| the debrief itself | runtime only | not persisted |
+
+### 7. The expensive part, named honestly
+
+**There is no way to fly FlightBox today.** Not "partially" — no bound input device exists. What is
+missing, from the tree's own gap tables, ordered by how hard it blocks a playable combat mission:
+
+| # | Missing | Where it is stated | Blocks |
+|---|---|---|---|
+| 1 | **wasm has no release and no damage path.** `FBAppWasm.cpp` drains neither `Stores().TakeRelease()` nor `Guns().TakeBurst()`, holds no projectile pool, resolves no burst | [`clients/clients.md`](clients/clients.md) 5.1 | every combat mission. The browser can carry a weapon; nothing leaves the jet |
+| 2 | **Units and weapons are invisible.** `FBUnitsStage`/`FBSpritesStage` are NoOp | [`render/units-visual.md`](render/units-visual.md) | you would fly against aircraft that are not drawn |
+| 3 | **No bound input.** `FBInputSystem` is the NoOp default in `systems/FBSystemSlots.h`; `?ap=manual` routes a stick through the FBW but nothing fills it | [`clients/clients.md`](clients/clients.md) 5.3, [`architecture.md`](architecture.md) | flying at all |
+| 3b | **No control curve.** The real jet's stick is a force sensor; the mapping from a gamepad axis to that command does not exist as a decision | [`modules/f16/hotas.md`](modules/f16/hotas.md), [`modules/f16/controls-commands.md`](modules/f16/controls-commands.md) | flying *the F-16* rather than a stick |
+| 4 | **No cockpit displays in wasm**, and no lock/TD-box HUD symbology anywhere — *and it will not be invented* | [`clients/clients.md`](clients/clients.md) 5.2/5.4 | employing a weapon by eye |
+| 5 | **`payerne-full` crashes under `--elev tiles`** | [`clients/clients.md`](clients/clients.md) 4.2 | flying over real terrain reliably |
+| 6 | **`FBCampaignRunner` is gym-only by decision** and never reaches wasm | [`missions/campaign.md`](missions/campaign.md) §State, [`clients/clients.md`](clients/clients.md) | campaign progression in the client that would show the menus |
+
+**What makes sense without an input path, and what it is not.** Campaign select, mission select, the
+completion rule, the unlock state and the debrief all consume run **artefacts** — and an AI-flown run
+produces the same artefacts a played run will. So the whole layer is buildable and byte-checkable
+against gym runs before a single axis is bound.
+
+> That is a **preview, not a game**, and it must be labelled as one wherever it appears. Its only real
+> value is that none of it changes when input arrives.
+
+### 8. Selection — the actual work of this layer
+
+**"Entertainment value" is a SELECTION criterion and never a grading criterion.** Without a score, what
+decides whether a mission is passed is §3's rule and nothing else. Entertainment decides **which** runs
+are marked up as game missions and **how they are told** — the two must not touch, because the shortest
+route back to a score is an entertainment property that starts influencing whether you passed.
+
+| Question | Answered by | Lives in |
+|---|---|---|
+| Is this mission worth offering to a player? | entertainment properties, §8.1 | the `.fbp` — a mission is a game mission iff a briefing names it |
+| Did the player pass it? | §3.1, over the judge's own lines | the run's artefacts |
+
+#### 8.1 The properties a selector reads — all of them declared or measured
+
+Not one of them is a new measurement; every row is a line in a file or a number a run already produced:
+
+| Property | Read from | Why it matters for a player |
+|---|---|---|
+| **Something decides** | the reference run's `damage KILL` / `UNIT_RESULT` lines, or the objective vector moving at all | a run in which nothing happens is unplayable, whatever it proves |
+| **When it decides** | the tick of the deciding event against `timeout` | a decision at t = 6.5 s is a knife fight; one at t = 549.8 s is a patrol with a surprise. Both can be good; a decision at 95 % of the timeout usually is not |
+| **The seat has a task it can affect** | the seat's declared objectives, and whether the reference run met them | a seat whose objectives are met or lost independently of how it is flown is a cutscene |
+| **Cast size** | the `.fbm`'s `unit` blocks | §0: as many as the player can account for |
+| **The threat is noticeable** | the reference run's `rwr`/`vis`/`site`/`net` lines from the seat's own instruments | a threat that exists only in a column is a measurement, not a mission |
+| **One sentence describes it** | the author | if the brief needs a paragraph, the mission is a gym scenario |
+| **Fidelity admission** | `ACCEPTED`/`ALPHA` of every catalogue row in the cast (§4.1) | orthogonal to entertainment, and it is a veto rather than a preference |
+
+#### 8.2 Who selects
+
+**An author selects; a tool proposes.** The `.fbp` is written by a human, because "understandable" and
+"worth flying" are not computable and a formula over the table above would be exactly the weighted sum
+§4.1 refused. A tool may **rank candidates** out of existing run artefacts (decide/no-decide, decision
+tick, objective movement, cast size) and print them for a human to accept — the same division the
+tournament already uses: the instrument measures, the reader judges.
+
+#### 8.3 The honest case, stated so nobody has to rediscover it
+
+> A rig that flies 400 seconds and hits nobody can be **valuable as a measurement and useless as a game
+> mission**, and neither of those is wrong.
+
+Examples already in the tree, from their own published rows: `duel-merge` — the full 300 s with no K.O.
+on either side and 231.6 s of it blind, which is precisely the finding; `net-cue-unnetted` — 0 contacts,
+0 launches, viper SUCCESS, which is the whole point of its pair; `o1-05-beam-blind` — *"zero contacts,
+zero shots, zero detonations, zero losses; the package walks past them"*, the sharpest measurement in
+that campaign. Each is a first-class result, and none of the three should ever appear in a mission
+select. The selection layer exists so that this can be said without either side being demoted.
+
+### 9. The two-part view — map and cockpit
+
+> The owner: *"Wir bauen später eine zweigeteilte Ansicht. TAB schaltet von der Kamera der Einheit auf
+> eine OSM-Karte mit der kompletten Situationsübersicht um. Dort können alle Einheiten auf strategischer
+> Ebene befehligt werden. Wenn ich eine Einheit selektiere und TAB drücke, sehe ich die Welt aus der
+> Sicht der Einheit. Armored Fist hatte das so gemacht."*
+
+#### 9.1 The map is not a new data product
+
+Everything a situation map draws already exists as a published quantity. The map **renders** it; it
+computes no picture of its own:
+
+| Map element | Existing source | State |
+|---|---|---|
+| the base map | OSM tiles from `fb-tiles` | **exists**, the client already streams them |
+| own units: position, heading, altitude, fuel, damage | each unit's own published blocks / its telemetry | **exists** |
+| air tracks the force holds | `pilot/FBFlightPicture` — the shared picture, *"built from `FBState` blocks only"*, with the datalink's `dl_age` and its `TRACK_LOST` | **exists**, per FLIGHT |
+| ground-net tracks | `FBNetReport` — a POINT with the sender's own `TgtLookAgeS`, **no id field and no team field** | **exists** |
+| threat bearings | the seat's own RWR: a bearing and a class, **no range** | **exists** |
+| own exposure inside a declared belt | `zone_<name>_in` / `zone_<name>_s` of the judged unit — his own dwell, never the geometry | **exists** (§5.2 refuses the geometry) |
+| **a FORCE-level merge of several flights' pictures** | — | **missing.** The picture is per flight; there is no object that merges two flights and the ground net into one force view |
+| **a 2D map stage in the client** | `render/` has no map stage; `FBUnitsStage`/`FBSpritesStage` are NoOp | **missing** |
+
+**The structural line, and it is the one that a careless build crosses first:** the map is fed by
+**published state**, never by `units/FBUnitRegistry`. The registry has exactly six readers inside the
+perception boundary, pinned in `verify_layers.py`'s `RESTRICTED` table, and `verify-layers` prints the
+number. **The map must leave it at six.** A map that reads the registry is not a map, it is the truth
+with a map's icon set.
+
+#### 9.2 What "our faction has detected" is — a union of unequal sources
+
+> The owner: *"Die Karte sieht natürlich nur, was unsere Fraktion auch erfasst hat!"* — **binding.**
+> There is no omniscient game view, and none is specified.
+
+That decides the collision with §1 in the only direction that keeps the one-way rule: a map showing
+units the own force never detected would **add** a fact the run does not contain. It is also the better
+game, because early warning, the datalink and emission discipline become perceptible for the first
+time. **A picture with holes in it is the content, not the limitation.**
+
+"Detected" is not one source but a union, and the sources are **not equally certain**. The map must
+show the difference, because the difference is the gameplay:
+
+| Source | What it contributes | Certainty the map must show |
+|---|---|---|
+| own radar, firm track | position, altitude, velocity, updated at the sweep rate | the strongest thing on the map — and it means the unit is **radiating** |
+| own radar, coasting | the last position, extrapolated | the block goes `held`: the numbers are real but old, and the track dies at the coast limit (documented: 6 s on the N019) |
+| **IRST / KOLS** | a bearing and, with the laser, a range inside its limit | passive: seeing without being seen — and blinded by a cloud deck (`irst_masked`, measured) |
+| **the eye** | contact → recognised → identified, with a TYPE at close range | a type is not an allegiance (see §9.3) |
+| **RWR** | a **bearing and a class, never a range** | a wedge on the map, not a point. Also the launch warning — which in this tree arises only from a *supporting* emitter, because there is no MWS |
+| **datalink between own units** | another unit's track, delayed by the net cycle | carries `dl_age`; `TRACK_LOST` when the terminal range is exceeded |
+| **the controller (GCI)** | a call typed into the box, with its own latency | it is a *message*, not a sensor: it can be stale, wrong, or absent |
+| **ground net cue** (`FBNetReport`) | a POINT plus the sender's own `TgtLookAgeS`, **no id, no team** | the age is part of the datum by construction |
+
+**The uncertainty vocabulary already exists and must be used rather than re-invented:** the block bus is
+three-state — `invalid` / `valid` / `held` — and `held` means *deliberately frozen: last good values,
+last timestamp, no new computation*. The map's three symbol strengths are those three states plus the
+ages the sources already carry (`dl_age`, `TgtLookAgeS`, the coast clock). Nothing new is computed.
+
+#### 9.3 A contact carries no identity — on the map too
+
+The perception boundary does not weaken because the information is being drawn instead of flown:
+a radar contact is anonymous, **the only identity source is IFF Mode 4, and it knows no "hostile"**.
+
+| Map class | When | Drawn as |
+|---|---|---|
+| **own** | it is one of your own units | full symbol, full data — you own it |
+| **friendly** | your interrogator got a reply | friend symbol |
+| **unknown** | everything else — no reply, no interrogation, or an enemy who happens to carry a working transponder | one neutral symbol, and it never becomes "hostile" on its own |
+
+**Misidentification is therefore possible, and that makes it game content rather than a defect.** It is
+already measured, in one run with three targets crossing the nose (`payerne-radar-iff.fbm`): a friend
+with a transponder reads **friendly**, a friend *without* one reads **unknown**, and an enemy **with**
+one also reads **unknown — not hostile**. Two consequences a player will feel:
+
+- you can shoot a friend who is not answering, and the map will not have warned you;
+- you can hesitate over an enemy the map cannot name, which is exactly the identification task the
+  campaign set uses as its anti-cheat test.
+
+The eye adds a **type** at close range (`vis IDENTIFIED`, reading `f16` / `mig29`, measured at 445 m) —
+and a type is not an allegiance. The map may show the type; it may not colour the symbol from it.
+
+#### 9.4 Losing information is the mechanic
+
+A picture that only grows is a scoreboard. This one shrinks, and the shrinking is what the player learns
+to read:
+
+| Event | What the player sees | Where it is built and measured |
+|---|---|---|
+| nobody holds a contact any more | it ages, coasts, then goes | radar coast (6 s documented on the N019), `TRACK_LOST` on the datalink |
+| a unit's link is jammed | **it drops out of the shared picture while still flying**, and falls back to declared autonomy | `net LOST reason=jammed` → `net AUTONOMOUS fallback=hold`, measured four times over in O1's sortie 09 |
+| your own radar goes silent (EMCON, or an order you gave) | your own picture stops growing — and the opponent stops hearing you | the RWR's whole subject |
+| a set is destroyed | its block goes `invalid`; its symbols stop | *"failure → block invalid"*, the coupling in [`weapons.md`](weapons.md) |
+| the controller stops talking | the calls simply stop; there is no announcement | O1's sortie 03: a truncated brief IS *"a controller who stops talking at a declared instant with the aircraft already committed"* |
+
+**Emission discipline becomes a dilemma the player can feel:** radiate and you see, radiate and you are
+seen. Today that trade is a `[SET]` number in a mission file and an evolution gene; on this map it is a
+button with a visible cost on both sides.
+
+#### 9.5 The counter-check for the build — two runs, one line apart
+
+In the shape the tree already uses for every rule it takes seriously:
+
+> **Two runs that differ in exactly one line must be VISIBLY different on the map.**
+
+The map view is a pure function of published state, so it can be dumped as a deterministic text trace
+per tick by a gym-side tool and diffed — no GPU, no screenshot. Two pairs already exist and both are
+measured:
+
+| Pair | The one line | What the map must show |
+|---|---|---|
+| `net-cue.fbm` / `net-cue-unnetted.fbm` | the `net` block | netted: a cue at t = 8.0 s, a firm track at t = 145.1 s, two launches. Unnetted: **0 radiate, 0 track, 0 launch** — the battery never finds anything, *"not later, never"*. The two traces must differ from t = 8.0 s onward |
+| `o1-08` / `o1-09` (`jam_comm_m`) | the jammer | four members leave the shared picture at t = 244.0…319.9 and go autonomous; `net CUE` 79 → 32, `site LAUNCH` 5 → 0 |
+
+A build in which those two traces look alike has an omniscient map, whatever its symbols say.
+
+#### 9.6 Commanding — the player writes no state, he talks to the unit's AI
+
+> The owner: *"Und ja, ich kann **nur Befehle an die KI der Einheiten** geben."*
+
+**The design decision, stated as one and not as a side effect:** the player stands on the **same side of
+the anti-cheat boundary as an AI**. He sees only through simulated sensors (§9.2), he acts only through
+simulated systems (this section), and he is judged by the same two incorruptible judges. **Nothing in
+the anti-cheat structure has to be relaxed for a human, and nothing has to be duplicated for him.** For
+a game that is unusual, and it is the whole reason FlightBox can afford a strategic map at all.
+
+> **A player order takes the same path an AI order takes: a PROPOSAL, which can be accepted, clamped,
+> inhibited, rejected, delayed — or never arrive.**
+
+There is no player-only write path. `FBFdmBoot` stays the single state writer at spawn, and the
+acceptance criterion is that this list does not grow.
+
+**(a) An order can be refused, and the refusal is the mechanic.** The command bus has four outcomes
+(`accepted`, `clamped`, `inhibited`, `rejected`), a closed rejection catalogue and two latency classes
+(HOTAS 0.5 s, DED 4 s). Two of its existing rules will be felt immediately: a DED-class entry is
+**rejected above 1.5 g** — you cannot re-task a pilot in the middle of a break turn — and an order into
+a destroyed box acks `rejected/system_failed`.
+
+**What the player is shown, and the boundary inside it:** he sees his order's *acknowledgement* — the
+outcome and the reason the receiving unit's own box gave, because that is the unit's own knowledge and
+it already travels in `events.log`. He is **not** shown a reason the unit does not have. If nothing
+comes back, the display says exactly that — *no acknowledgement* — and never *"jammed by the emitter at
+X"*.
+
+**(b) An order can fail to arrive at all.** Then the unit falls back to its **declared autonomy** — built
+and measured on the ground net — and does something other than what was ordered. On the map it has
+dropped out of the shared picture (§9.4). Those two symptoms together are the core loop of commanding
+under jamming, and neither of them is new code.
+
+**(c) The order kinds, each checked against what exists:**
+
+| Order | Exists today | What would be new |
+|---|---|---|
+| **Emission state** (radar on/off/mode, EMCON) | **yes** — a command-bus entry with its latency class; `set emcon`, `fcr_mode`, `n019_emission` are the mission-data spellings of the same thing | nothing but the button |
+| **Fire authority** (`free` / `tight` / `hold`) | **yes** — the net node TRANSMITS a `wcs`, every member has a declared `autonomy` fallback | nothing. It is the model case: a doctrine word on a channel that can fail |
+| **Route / vector** | **yes in shape** — `set brief_gci <atS> …` is a controller's call typed into the box, measured at **8.0 s from call to radiating radar** over three entries | the player is a second source of the same message |
+| **Task** (`bfm` / `intercept` / `attack`) | **no** — `set task` is spawn-time mission data only | a runtime task command. This is the order a player will want most, and it is the layer's largest genuinely new write |
+| **Formation station** (wedge / trail / wall) | **partly** — roles and positions are mission data (`flight`), but the station SHAPE is an airframe hook and *"a mission cannot brief a wedge, a trail or a wall"* | the same gap `pilot_flight_shape` (gene G1) already names |
+| **Target assignment** ("you take the left one") | **no, and the price is already named** — a recipient field on the report, a member-readiness word, a minimum-cost matching | the matching is free (`FBFlightPicture::Assign` does it); the ADDRESSING is the new payload |
+
+**Orders reach the player's own side only.** There is no mechanism to command another team and none is
+specified — the identity to address one with does not exist in this tree.
+
+#### 9.7 TAB is an information change, not a camera change
+
+**This is the sentence a careless build deletes.** Going from the map into a unit means seeing what
+**that unit** has: its own radar picture with its own ages, its own RWR, its own datalink tracks — not
+the force's merged view, and not the map's. Coming back out means seeing only what the force has
+actually collected.
+
+| View | Data source | Hazard if merged |
+|---|---|---|
+| map | the force's merged picture (§9.1), own-force only | — |
+| unit | that unit's own `FBState` blocks, i.e. **the same source the HUD already draws from** | one shared scene graph with a moving camera hands the map's knowledge to the cockpit and the cockpit's to the map, and the perception boundary is gone without a single line saying so |
+
+The check is mechanical, in the shape of §1's check 2: **a symbol in the unit view whose provenance is
+not that unit's own blocks is a defect**, and every symbol carries its provenance key. Selecting a unit
+on the map and entering it must therefore *lose* information — if it gains any, the build is wrong.
+
+*(The interaction precedent the owner names, Armored Fist, is exactly this shape: one map, one seat, and
+the seat sees less than the map. FlightBox's addition is that the map sees less than the world.)*
+
+### 10. The control path — planned, and subordinate
+
+> The owner: *"Steuerpfad kommt, ist aber erstmal zweitrangig."*
+
+So it is **not** an open question: a human will fly a unit. It is simply later than everything else, and
+this section exists so the design does not narrow around its absence.
+
+**Two rules that hold the shape open:** the view must be complete without it (§§9.1–9.7 all work on a
+run flown entirely by unit AI), and nothing specified here may assume that the seat is AI-flown. The
+missing pieces are §7's list — bound input plus a stick→command mapping, the client's release/gun/damage
+path, visible units, displays and the symbology that *will not be invented*.
+
+#### 10.1 What changes about the verdict when a human flies — nothing, and that is the point
+
+**Both judges judge every unit regardless of who steers it**, and this is written down rather than
+assumed: `FBFlightMonitor` is physical and module-agnostic (*the K.O. of ANY unit ends the run*), and
+`FBMissionMonitor` reads observed position and an observed roster. **The physical judge knows no "but I
+am the player":** a human who flies a serviceable jet into the ground produces `CRASH`, exit 2, and
+§3.1's completion rule refuses it for the same `[SET]` reason it refuses it from an AI. Mission
+objectives apply unchanged; the objective vector is published for a human seat exactly as for any other.
+
+**What does change is the FLIGHT, because the human is the only actor without a phase machine.** The
+cooperative machinery keys on observable states rather than on promises, so nothing breaks — but three
+things degrade in ways a measurement must not be quoted through:
+
+| Mechanism | With a human lead / member |
+|---|---|
+| **Station keeping** | the wingman holds station on the lead's datalink report, i.e. on a *moving point*. A human lead simply moves that point less predictably; the wingman still follows and `flt_sta` degrades. The published numbers (45.2 m median on a straight leg, ~1.9 km peak through a turn) are **AI-lead numbers** and may not be quoted for a human lead |
+| **The sort** | assignments come from the shared picture, not from the lead's intent — `FBFlightPicture::Assign` ranks the cooperative sort above the briefed contract. A human who shoots whoever he likes can duplicate a target, and the existing violation metric says so: `flt_dup ∧ flt_free > 0` stops being zero |
+| **The cover rule** | it defers on a *mate being bound*, which is a measurable state and not a pledge. So the AI holds up its end of the cover for a human it flies with, and the human owes it nothing back. The asymmetry is visible in `flt_defer_s` / `flt_both_s`, and it is honest: **cooperation is not a contract the human is bound by** |
+
+Consequence, stated once: **a flight containing a human is not a formation measurement.** It is a game.
+
+#### 10.2 What stays the same on the command path — and which half of it is only discipline
+
+A human at the stick steers directly, but he must get **no more rights than the AI he replaces**: same
+systems, same interlocks, same perception. Some of that is carried by the structure and some would not
+be, and the difference is worth having in writing before anyone builds it:
+
+| Boundary | Carried by | Verdict |
+|---|---|---|
+| **Perception** — he sees only what the blocks hold | the registry is reachable from six files, pinned in `RESTRICTED`, and the gate prints the number | **structural.** A UI reads published state and cannot widen it |
+| **Damage** — he cannot repair himself | `FBSystemHealth` is monotone, all mutators private, exactly one friend; *self-healing does not compile* | **structural** |
+| **Verdict** — he cannot be excused | both judges are outside every module and see no seats | **structural** |
+| **State writing** — he cannot teleport, refuel or re-arm mid-run | `FBFdm`'s loading constructor is private with `FBFdmBoot` as its only friend — **but `FBFdmBoot` is reachable from `clients/`, and the player client IS a client** | **discipline today.** The boot-only usage is a convention, not a compiler error. The cheap gate, named so it is not improvised later: make the boot path refuse after the spawn window, in the shape the other gates take |
+| **Avionics** — his switch actions obey the same latency, the same rejection catalogue, the same 1.5 g DED rule | only if the UI goes through `FBCommandBus`. A UI calling a system setter directly would bypass all three | **discipline today.** Same cheap gate: the setters private, the bus their friend |
+| **Control inputs** — his stick goes through the FLCS like the autopilot's commands | only if the input path writes the same `fcs/*-cmd-norm` seam. Nothing structurally stops a client from touching an FDM property | **discipline today**, and the one most likely to be violated by accident in a hurry |
+
+#### 10.3 One thing to build with it, not after it
+
+The `eng_*` debrief channels — time to detect, time to lock, the launch envelope at the shot, support
+fraction, reaction time, energy floor — are recorded by `pilot/FBEngagement`, whose `Note*` methods are
+called from `FBPilot::Run`. A human seat calls none of them, so §5.1's engagement block would be
+**empty for exactly the seat the player cares about**. The class is a scoreboard and not a brain
+(*"`FBPilot::Run` decides, this class records"*), so feeding it from the human's own actions is the
+natural fix — and it belongs in the same round as the control path, not a round later.
+
+Determinism ends at the stick and only there: a played run has no fingerprint (§4.3), while the same
+mission flown by AI stays bit-reproducible. That is what keeps the measuring half intact.
+
+---
+
+## State
+
+**Nothing built, by decision.** No file, no tool, no menu, no format. What exists that the layer will
+consume, and which is the reason the layer is cheap once it starts:
+
+| Piece | State | Anchor |
+|---|---|---|
+| the per-objective vector `mission OBJECTIVE unit=… kind="…" state=…` | **built** (`E1`, 2026-07-29), one line per declared objective, emitted at the one point every conclusion passes through | 432/432 telemetry files byte-identical, 60 of 137 missions gained exactly 136 lines |
+| `UNIT_RESULT` with `result`/`reason`/`decisive` | built | [`missions/output.md`](missions/output.md) |
+| the nine objective kinds | built | [`missions/verdict.md`](missions/verdict.md) |
+| the campaign layer: ordered missions, three carried facts, a text entry state per step, standalone replay of any step | built | [`missions/campaign.md`](missions/campaign.md), 2 campaigns, both criteria measured |
+| two real campaigns as material | built and flown | [`campaigns/o4-gaf-mig29g-dact.md`](campaigns/o4-gaf-mig29g-dact.md), [`campaigns/o1-bekaa-1982.md`](campaigns/o1-bekaa-1982.md) |
+| the seat's own debrief channels (`eng_*`, 27 columns) | built | [`pilot.md`](pilot.md) §8 |
+| a browser that flies, renders and trims | built, partial | [`clients/clients.md`](clients/clients.md) |
+| the force's own picture, per flight, from `FBState` blocks only | built | `pilot/FBFlightPicture`, [`formation.md`](formation.md) §3 |
+| the ground net's cue as a point with a look age, no identity | built | `core/FBNetReport.h`, [`air-defence-network.md`](air-defence-network.md) |
+| the command bus: proposal, four outcomes, closed rejection catalogue, two latency classes | built | [`missions/avionics.md`](missions/avionics.md) §2 |
+| fire authority on a channel that can fail (`wcs` + `autonomy`) | built and measured | [`air-defence-network.md`](air-defence-network.md), O1 sortie 09 |
+| OSM tiles in the client | built | [`world/terrain.md`](world/terrain.md) |
+| **everything in §§1–10 of the Spec** | **not built** | this file |
+
+## Gaps
+
+| Gap | Detail |
+|---|---|
+| **Most measuring rigs are not playable tasks, and the annotation cannot change that** | a combat rig ends in TIMEOUT *by construction*, which §3.3 handles — but a rig whose seat declares **no** objective and **no** plan is judged `NONE` and has nothing to complete. Those missions can only be offered as free flight or not at all. The playable set will therefore be built mostly from missions written for it, and writing them is mission authoring, not this layer |
+| **The objective key may not be unique — UNVERIFIED** | a seat may legally declare two `identify` lines differing only in `range`/`hold` ([`missions/syntax.md`](missions/syntax.md)). If `kind="…"` does not carry the arguments, a briefing cannot name one of them. The cheap fix (`idx=` on the line) would move `events.log` bytes on the 60 missions `E1` was accepted on. **Preferred, and to be checked before anything is built:** the ordinal is recoverable from the ORDER of a unit's `mission OBJECTIVE` lines, if that order is the file's declaration order. This is a **TODO against `FBMissionMonitor::Conclude`**, not an assumption |
+| **The client that would show the menus is the client that cannot fly the missions** | §7 items 1, 2 and 6 together. The gym can fly everything and has no UI; the browser has the UI and can neither shoot nor be shot nor run a campaign |
+| No briefing prose exists anywhere | every mission's header comment is a *reading rule* for an engineer, not a briefing for a pilot. The `.fbp` `brief` line is a second text with a different audience, and writing 100 of them is real work |
+| Difficulty tiers have no reference runs recorded | §4.1's design B requires one recorded AI run per offered mission. O4 and O1 already publish per-step exit codes and fingerprints, so those twenty are nearly free; nothing else is |
+| A played run has no fingerprint | §4.3. Stated, not solved — there is nothing to solve, but a tool that compares a played run to a measured one is a category error and must be refused rather than approximated |
+| Night is a tier the tree cannot back | 6 of 184 columns move and nothing consumes them (`C3`'s consumer gap). A "night = harder" tier would be manufactured |
+| **Rejected: a score, in any form** | not an omission — the owner's decision, and it happens to be the same decision `doctrine-evolution.md` §1.2 reached independently for the fitness: a weighted sum answers *"how many secondary objectives is a primary worth"*, which has no answer, and whatever rate is chosen becomes a standing offer. A list of objectives with three states cannot be farmed because there is nothing to accumulate |
+| **Rejected: primary/secondary as a token in `.fbm`** | it would put the ladder into the file the judge parses and the fitness's inputs are generated from, one careless round away from a weighted `M`. It also breaks *"a mission without a new line judges byte-identically to today"* the moment anything reads the token |
+| **Rejected: game keys inside `.fbc`** | the campaign file is a measurement artefact whose parser refuses unknown keywords and whose content is an input to the campaign fingerprint |
+| **Rejected: the player layer forking a `.fbm` to make it playable** | superseded by the owner's ruling: the layer is a view, so it has no conversion mechanism. Kept here with its reason because the first draft of this file contained it |
+| **Rejected: promoting a header reading rule (e.g. `net-blind-cue`'s zero `site TRACK`) to a pass criterion** | it would make the game a second judge over facts the judge did not judge. It stays a debrief line |
+| **No force-level picture exists** | `pilot/FBFlightPicture` merges a FLIGHT; the map needs a merge of several flights plus the ground net's reports into one own-force view. It is an aggregation over published state — no new sensor, no new registry reader — but it is a new object |
+| **No map stage in the renderer** | `render/` has no 2D map; `FBUnitsStage`/`FBSpritesStage` are NoOp, so even the 3D symbols do not exist. The OSM source is not the problem, the drawing is |
+| **A runtime TASK order does not exist** | `set task` is spawn-time mission data. It is the order a player will want most and the layer's largest genuinely new write. Target ADDRESSING and formation STATION are the other two, and both have their price already named elsewhere (`air-defence-network.md` §3, `formation.md` F5 / gene G1) |
+| **Two anti-cheat boundaries are discipline, not structure, the moment a client can steer** | §10.2: `FBFdmBoot` is reachable from `clients/` with no boot-window check, and nothing forces a UI's switch actions through `FBCommandBus` or its stick through the `fcs/*-cmd-norm` seam. Named with its cheap gate in each case, so it is closed deliberately rather than improvised under time pressure |
+| **`eng_*` would be empty for a hand-flown seat** | `pilot/FBEngagement`'s `Note*` methods are called from `FBPilot::Run`. Feeding the recorder from a human's actions belongs in the control-path round, not after it (§10.3) |
+| **Withdrawn: an in-game omniscient view** | an earlier draft had `debrief full` as a completed-mission opt-in. The owner's ruling (*"die Karte sieht natürlich nur, was unsere Fraktion auch erfasst hat"*) makes omniscience an engineering tool on the gym side only, where `fb_duel_report.py` already is one |
+
+## Knowledge
+
+- **Why the game may have a ladder where the fitness may not.** The fitness is a SEARCH TARGET: whatever
+  exchange rate it declares, an optimiser is a machine for finding the cheapest way to accept it
+  ([`doctrine-evolution.md`](doctrine-evolution.md) §1.2). A briefing's ladder is read by a human once,
+  after the fact, and optimised against by nobody. The danger is not the ladder — it is the ladder
+  entering an input the optimiser reads, which §2.3 makes structurally impossible.
+- **Why "the judge re-read, not re-judged" is the whole design.** The collapsed exit code cannot express
+  *"primaries met, secondaries missed"*, because SUCCESS quantifies over every declared objective. The
+  vector the judge publishes is finer than the code it produces, and `ObjectivesMet()` is *defined* in
+  terms of `StateOf`, so the vector and the verdict cannot disagree
+  ([`missions/verdict.md`](missions/verdict.md) `E1`). The game reads the finer output. It computes no
+  state of its own, which is why P3 is checkable as an equality rather than argued.
+- **The measuring-instrument question, answered.** *Do campaigns lose their value as instruments when
+  they are "formulated for a game"?* **No — because the game does not replace them.** The player layer
+  is a view: same simulation, same judges, same reading rules underneath. Three reasons it holds, and
+  one case where the answer flips:
+  1. the run's artefacts — the telemetry bytes, `events.log`, the exit code, and every fingerprint over
+     them — are produced by a runner that never sees a briefing (check 1 of §1);
+  2. rule 7 already forbids a campaign editing a mission; the annotation is one level further out and
+     edits nothing;
+  3. the two readings use different keys on the same output: the rig reads its header's rule and the
+     telemetry, the game reads the judge's vector and the marks.
+  It flips **iff** a flown file is edited — an objective block changed for playability, a mission order
+  changed for pacing, a cast changed for drama. Then the file stops proving what its header says and
+  every published fingerprint dies. Hence the one-sentence rule: **a game may add files and briefings;
+  it may never edit a flown one.**
+- **Why simplification is one-way, and how that is not a slogan.** "Simplify" would otherwise cover both
+  omitting (fewer rows than the log) and inventing (a summary the run does not support). The direction
+  is fixed by the postcondition in check 2: every displayed row names its source line, and no displayed
+  set is larger than the set it was built from. The precedent is `FBApplyCampaignCarry`, which is allowed
+  to delete and *asserts afterwards that nothing grew* — the same assert, on a different set.
+- **Why the unmarked-objective default is PRIMARY and not secondary.** With that default the game's rule
+  is the judge's rule, and a briefing can only ever RELAX it, one visible line at a time. With the other
+  default a silent briefing would inflate completions, and the inflation would be invisible in the file.
+- **Why the player standing on the AI's side of the anti-cheat boundary is the enabling decision, not a
+  restriction.** He sees through simulated sensors, acts through simulated systems and is judged by the
+  same two outside judges — so **nothing has to be relaxed for him and nothing has to be duplicated for
+  him.** Every mechanism the layer needs already exists because an AI needed it first: the shared
+  picture, the command bus with its rejections, the autonomy fallback under jamming, the objective
+  vector. That is why a strategic map plus commanding costs this tree an aggregation and a renderer
+  rather than a subsystem.
+- **Why entertainment must not touch the completion rule, in one line.** The moment an entertainment
+  property ("it was close", "it took long enough") influences whether you passed, it is a score with
+  another name — and a score needs weights, which are `[SET]` numbers that silently decide what the game
+  means. Selection and grading therefore live in different files and are read by different code paths
+  (§8).
+- **Why the map's uncertainty vocabulary is not invented.** Three states plus an age is exactly what the
+  block bus already publishes (`invalid` / `valid` / `held`, plus `dl_age`, `TgtLookAgeS` and the coast
+  clock). A map that invented its own confidence scale would be adding a fact — the thing §1 forbids —
+  and would drift away from what the systems below actually did.
+- **Why the perception boundary survives one layer up.** [`vision.md`](vision.md) states that anti-cheat
+  is a **game** decision: *"a cheating opponent is noticed immediately"*. The dual is that a cheating
+  debrief is not noticed at all — the player simply gets better at a mission for a reason he cannot
+  name, and the sim's carefully anonymous contacts become identified by a screen he reads afterwards.
+  The layer's whole value proposition is that the *representation* is simplified while the *world* is
+  not; showing him the world's interior would trade away exactly the thing he is paying for.
