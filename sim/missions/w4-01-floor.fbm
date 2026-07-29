@@ -1,0 +1,151 @@
+name w4-01-floor
+timeout 420
+time 1999-03-24T10:00:00Z
+
+# CAMPAIGN W4, SORTIE 1 OF 10 - ALLIED FORCE 1999: MOUNTAINS, CLOUD, AND AN AIR DEFENCE THAT WILL NOT EMIT.
+# THE 15,000 FT FLOOR, PRICED IN BOTH CURRENCIES.
+# Spec, anchor and sources: doc/campaigns/w4-allied-force.md. Format: doc/missions/campaign.md.
+# CONTROL: none - it IS the control, of BOTH w4-02-overcast.fbm (one `wx` line) and
+# w4-03-below-floor.fbm (one fact: the ingress altitude).
+#
+# THE ANCHOR: NATO flew Allied Force under a hard altitude floor of 15,000 ft or higher, forced by
+# heavy MANPADS and AAA [T3]. 15,000 ft = 4,572.0 m [DERIVED, 0.3048 m/ft], and that number is the
+# spawn and every waypoint altitude in this file. W4's spec says the floor "is declared in every
+# striker's `wp` altitudes and is the thing the missions push against"; this sortie is where it is
+# PRICED, because its own §Gaps says that without a short-range threat the floor is "an arbitrary
+# altitude". `C1` closed on 2026-07-28 and the floor now has its cause standing under it.
+#
+# THE ONE TACTICAL QUESTION: WHAT DOES THE FLOOR COST THE BOMB, AND WHAT DOES IT BUY AGAINST THE
+# LAYER THAT CAUSED IT? Two numbers, both out of this file: `stores DELIVERY aimErrM`, and the pair
+# `zone_flak_s` / `zone_sambelt_s` beside the short-range positions' own `site` lines.
+#
+# THE ARENA, and every coordinate in it is [SET] inside the anchor's Kosovo engagement zone
+# (~42.2-43.2 N, 20.2-21.8 E [T4, approximate]). Ingress west->east along 42.70 N, which is the
+# direction the packages came from. Scale: 1 deg of latitude = 111,320 m, 1 deg of longitude at
+# 42.70 N = 111,320 * cos(42.70) = 81,833 m [DERIVED].
+#   `k1tgt` target_soft      42.70000 21.10000 - a dispersed vehicle park, the archetype (W4 Knowledge 2:
+#                            no specific target list was sourced, and none is invented)
+#   `k1man` 9K32 Strela-2M   42.70000 21.06000, 3.3 km short of the aim point, 2 rounds. Ceiling 2,300 m
+#   `k1flk` ZU-23-2          42.70000 21.09000, on the target, 40 rounds. Ceiling 1,500 m
+#   `k1sam` 2K12 Kub         42.66000 20.98000, 3 rounds, `emcon free`. Ceiling 7,000 m, 6-22 km
+# The two `zone` cylinders are the floor written down as geometry (`C23`): `flak` 0-3,500 m and
+# `sambelt` 3,500-8,000 m, both 14 km around 42.70/20.98. The band edge is [SET] at 3,500 m because
+# that is the highest MANPADS ceiling in the catalogue (9K38 Igla) - i.e. the top of the layer the
+# anchor names as the floor's cause, not a round number.
+#
+# THE FOUR STRUCTURAL DISCLOSURES OF THIS CAMPAIGN, repeated in all ten files because a reader who
+# skips them reads every result backwards:
+#   1. THERE IS NO TERRAIN MASKING (gap C4), AND W4 IS ITS ACCEPTANCE TEST. The anchor's own phrase
+#      for the Yugoslav method is "concealment under weather and mountainous terrain". A mountain
+#      that breaks no line of sight is this campaign's central shortfall: every detection below is a
+#      detection over a flat, transparent world, so every range at which something is found here is an
+#      UPPER BOUND on what the real geometry would have given, and every "the position saw it" is a
+#      statement about the catalogue's range gate and nothing else.
+#   2. THE GROUND IS A 0 m PLANE. Flown under `--elev const`. The real Kosovo under this arena is
+#      546-1,193 m (MEASURED off `fb-tiles` /elev at 42.70/21.10 = 546.34 m, 42.60/20.90 = 586.42 m,
+#      42.70/20.70 = 588.60 m, 43.00/21.00 = 1,192.75 m), so a "4,572 m" ingress here is 4,572 m over
+#      a plane and about 3,980 m over the real ridge line. The campaign file says why the campaign is
+#      not flown on tiles.
+#   3. CLOUD REACHES ONLY THE EYE (gap C16). Cloud data gets to `FBWorld::SetWeather` and to
+#      `sensors/FBVisualSystem`'s transmittance march, and to nothing else - not the radar, not the
+#      release, not the fuze. Sortie 02 is where that is measured rather than asserted.
+#   4. `FBMissionRunner` ends the WHOLE run at the first flight-monitor K.O. (`FirstFlightKo`), so
+#      every engagement in a W4 file with two of them is laid out on that clock.
+#
+# WHICH LAYER THIS FILE MEASURES: the SHORT-RANGE one, and it measures it by being out of its reach.
+# There is no fighter in 01, 02 or 03.
+#
+# READING RULE (binding): exit 0 is the pass and it is NOT the answer. Read, in this order:
+# (1) `stores DELIVERY aimErrM` against attack-ccrp.fbm's own low-level number on the same ground,
+# (2) `zone_flak_s` and `zone_sambelt_s` on the striker's telemetry, (3) how many `site TRACK` and
+# `site LAUNCH` lines `k1man` and `k1flk` produced, and (4) how many rounds `k1sam` fired and how many
+# arrived. Do NOT read "the striker survived" as a defensive failure - read WHY.
+#
+# MEASURED (fingerprint bc669334ab3c0186, exit 0): THE FLOOR COSTS 2.4 m OF PREDICTION ERROR PER
+# KILOMETRE OF ALTITUDE AND BUYS THE ENTIRE SHORT-RANGE LAYER.
+#   the bomb          `stores DELIVERY ... predErrM=58.05 aimErrM=41.09 aimLongM=36.80 aimAcrossM=18.28`
+#                     at t=183.1. `k1tgt` DESTROYED - 41.09 m is inside an Mk-82's ~45 m fragment
+#                     radius, and that margin is what the floor spends. THE CLEAN QUANTITY IS THE
+#                     COMPUTER'S OWN ERROR, `predErrM`, because the delivered error is quantised by the
+#                     release tick; measured on a threat-free ladder over this arena (attribution A2b),
+#                     48.62 m at 600 m / 49.27 at 900 / 49.91 at 1,200 / 51.51 at 2,000 / 53.69 at
+#                     3,000 / **58.08 at 4,572** / 63.45 at 6,000, i.e. **+2.38 m per 1,000 m**
+#                     [DERIVED from the ladder] and +19.4 % from 600 m to the floor. The lateral half
+#                     scales with the throw and is monotone throughout: `aimAcrossM` 8.33 m at 600 m
+#                     against 21.68 m at 6,000 m. W4's spec quotes 22.2 m for `attack-ccrp.fbm` as the
+#                     low-level reference; that figure is superseded by the frame round of 2026-07-29
+#                     and the same mission re-measured under this binary with `--elev const` gives
+#                     **30.89 m** - but it is a DIFFERENT arena, and the ladder above is the control
+#                     that actually answers the spec's question
+#   the short layer   `k1man` (Strela-2M) and `k1flk` (ZU-23-2): **0 `site TRACK`, 0 `site LAUNCH`.**
+#                     The gun's own eye DOES see the jet - `site CUE unit=k1flk brgDeg=3.40
+#                     signal=0.773` at t=110.3 - and it never engages, because 4,572 m is above its
+#                     1,500 m ceiling. THE FLOOR IS NOT A DETERRENT, IT IS AN ENVELOPE WALL, and the
+#                     cue line is the proof that the wall is the envelope and not a blind sensor
+#   the zones         `zone_flak_s` = **0.0 s**, `zone_sambelt_s` = **285.2 s** (t=72.9-224.9 and
+#                     t=260.9-394.1). `objective avoid zone flak exposure 0` MET
+#   the SAM layer     `k1sam` tracks at t=42.7 from 21.9 km and fires **3 of 3** 3M9 at t=69.5 / 96.4 /
+#                     123.3 - and not one arrives
+#   THE DEFECT THIS SORTIE FOUND, and it is not in the subsystem the sortie was written about. At the
+#   third launch the position goes `site STATE ... from=ENGAGE to=RELOAD why="rails empty"` (2K12
+#   `RailCount` 3, `ReloadS` 600), Reload radiates beam 0 ONLY, and 0.2 s later all three rounds log
+#   `missile ILLUMINATION_LOST`. Round 2 was **1,776.6 m from the aircraft with 27.1 s of flight behind
+#   it** - about 9.6 s from arrival at its 185 m/s closure. ATTRIBUTED WITH A CONTROL RUN (rule 4,
+#   attribution A4): the identical file with `set rounds 4`, so the MAGAZINE is not empty, loses the
+#   illumination at the IDENTICAL tick t=123.5 with identical `tofS`/`rangeM` on all three rounds. IT
+#   IS THE RAILS, NOT THE MAGAZINE: a semi-active battery that starts a reload throws away every round
+#   it has in the air, and a 2K12's effective magazine against one target is therefore 2 and not 3.
+#   Reported, not fixed, and not tuned around.
+
+zone flak 42.70000 20.98000 14000 0 3500
+zone sambelt 42.70000 20.98000 14000 3500 8000
+
+unit k1str
+  module f16
+  team friendly
+  spawn 42.70000 20.60000 4572 90.0 450     # 40.9 km west of the aim point, AT the anchor's floor
+  set gear up
+  set fuel_pct 70
+  set datalink off
+  set fcr_mode off                          # a single striker on a briefed steerpoint radiates nothing
+  set rwr on
+  set store 3 mk82
+  set store 7 mk82
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.70000 21.10000 4572 450             # THE AIM POINT: the active steerpoint IS the target
+  wp 42.70000 20.70000 4572 450             # egress, flown after the break turn
+  objective kill unit k1tgt
+  objective survive
+  objective avoid zone flak
+
+unit k1man
+  module sa7
+  team hostile
+  spawn 42.70000 21.06000 ground 270.0 0
+  set emcon free
+  set rounds 2
+
+unit k1flk
+  module zu23
+  team hostile
+  spawn 42.70000 21.09000 ground 270.0 0
+  set emcon free
+  set rounds 40
+
+unit k1sam
+  module sa6
+  team hostile
+  spawn 42.66000 20.98000 ground 270.0 0
+  set emcon free
+  set rounds 3
+
+unit k1tgt
+  module target_soft
+  team hostile
+  spawn 42.70000 21.10000 ground 90.0 0

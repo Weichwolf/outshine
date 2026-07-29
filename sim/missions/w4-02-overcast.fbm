@@ -1,0 +1,129 @@
+name w4-02-overcast
+timeout 420
+time 1999-03-24T10:00:00Z
+wx fixture wx-2026-07-27T00Z.wxb
+
+# CAMPAIGN W4, SORTIE 2 OF 10 - ALLIED FORCE 1999.
+# THE SAME STRIKE UNDER A REAL CLOUD DECK - AND THE HONEST ANSWER IS "THE WIND".
+# Spec, anchor and sources: doc/campaigns/w4-allied-force.md. Format: doc/missions/campaign.md.
+# CONTROL: w4-01-floor.fbm - identical but for ONE line, `wx`, and the callsign prefix.
+#
+# THE ANCHOR: Lt Gen Michael C. Short, CFACC: "the stormy spring weather just kicked our butts for the
+# first 45 days" [T3]; many crews came home with their bombs. Allied Force is the only campaign in this
+# set whose WEATHER is as well documented as its order of battle, and W4's own §Knowledge 3 nominates
+# this file and sortie 01 as the pair to build first, because they are one `wx` line apart and produce
+# the number the cloud rebuild will be measured against.
+#
+# W4'S OWN SPEC PREDICTS THE ANSWER AND THIS FILE IS HERE TO PUT IT ON RECORD: "Does the deck change
+# anything measurable? Expected answer today: no (C16 - cloud affects only the IRST). The mission
+# exists so that the answer is on record before the cloud rebuild lands." Rule 7 says re-check a
+# blocked mission against the TREE - and the re-check moves the sentence one notch: cloud reaches
+# `sensors/FBVisualSystem` too (built 2026-07-28, the transmittance march through `core/FBCloudDensity`,
+# doc/sensors.md 9.6c), which is the sensor that binds a MANPADS gunner and an optical gun. So the
+# honest form of the prediction is: cloud changes nothing about a BOMB, and it can change something
+# about an EYE. Sortie 03 is where the eye is in reach; here it is not.
+#
+# THE FIXTURE IS A JULY ANALYSIS FLOWN UNDER A MARCH CLOCK, and it is stated rather than hidden:
+# `wx fixture` carries a GFS f000 analysis and has NO time axis (doc/missions/weather.md), so the
+# atmosphere is a fixed field sampled at these coordinates and not a Balkan March. SAMPLED HERE
+# (`build/fb-test-weather assets/wx-2026-07-27T00Z.wxb 42.70 20.90 4572`): total cover 75.8 %, mid
+# 72.6 %, low 0 %, ceiling 6,861 m, visibility 19.1 km, wind 23.64 m/s from 272.4 deg = 46.0 kt.
+# The deck sits ABOVE the floor here, which is itself the anchor's own problem: a 15,000 ft ingress
+# under a mid deck is an ingress inside cloud.
+#
+# THE FIXTURE CARRIES TWO THINGS AT ONCE - CLOUD AND WIND - AND RULE 4 SAYS THAT GETS A CONTROL RUN
+# RATHER THAN AN ARGUMENT. Attribution run A1 is this file with `wx wind 272 46`, i.e. the fixture's
+# own 4,572 m wind restated as a closed form and no cloud at all. THE SEPARATION IS NOT CLEAN AND THE
+# FILE SAYS SO BEFORE IT REPORTS: `wx wind` is ONE VECTOR at every altitude and the fixture is a
+# PROFILE, so A1 minus 02 is cloud PLUS the profile. The campaign closes that hole with a sensitivity
+# ladder rather than with an argument - see MEASURED.
+#
+# THE FOUR STRUCTURAL DISCLOSURES: see w4-01-floor.fbm. Unchanged here, and #3 is the one this file
+# exists to measure.
+#
+# THE ONE TACTICAL QUESTION: DOES A REAL 76 % DECK CHANGE ANYTHING MEASURABLE ABOUT A STRIKE?
+#
+# READING RULE (binding): exit 0 is the pass and it is not the answer. Read `stores DELIVERY` against
+# 01's and against A1's, then count the `vis` lines (there are none to count on a jet with no aircraft
+# to look at), then read `zone_sambelt_s`. A sortie that differs from its control ONLY by the wind is
+# the finding, not a null result.
+#
+# MEASURED (fingerprint 89f1997ab141e9de, exit 3): THE DECK IS SCENERY AND THE WIND IS THE WEATHER.
+#   01 (calm)                 `predErrM` 58.08   `aimErrM` **41.09 m**   `aimLongM` 36.80   target DESTROYED
+#   02 (fixture: wind+cloud)  `predErrM` 275.4   `aimErrM` **257.30 m**  `aimLongM` 256.47  target INTACT
+#   A1 (wind only, 272/46)    `predErrM` 304.2   `aimErrM` **284.15 m**  `aimLongM` 282.63  target INTACT
+#   THE SENSITIVITY LADDER, run to turn the two-cause problem into an attribution instead of an
+#   argument (rule 4) - this file with `wx wind 272 <kt>` and nothing else changed:
+#     0 kt (= 01)  aimLongM  36.80 m      30 kt  aimLongM 192.81 m
+#     10 kt        aimLongM 102.13 m      40 kt  aimLongM 246.38 m
+#     20 kt        aimLongM 153.62 m      46 kt  aimLongM 282.63 m
+#   The slope over 10-46 kt is **5.014 m of along-track error per knot** [DERIVED]. The fixture's own
+#   release-altitude wind is 46.0 kt and it produces 256.47 m, which on that slope is the behaviour of
+#   a constant **40.8 kt**: THE 26.2 m BY WHICH THE CONSTANT-WIND CONTROL EXCEEDS THE FIXTURE IS 5.2 kt
+#   OF WIND PROFILE - the fixture decays from 23.64 m/s at 4,572 m to 8.54 m/s at 1,200 m over the same
+#   point, and the bomb falls through all of it - AND IT IS NOT CLOUD.
+#   THE CLOUD'S CONTRIBUTION IS STRUCTURALLY ZERO AND THE FILE SAYS SO RATHER THAN INFERRING IT: the
+#   deck's only consumer in the tree is `sensors/FBVisualSystem`'s transmittance march, this file has
+#   ONE aircraft and no visual engagement, and it logs **0 `vis` lines**. The fire control takes no
+#   weather input at all, by design (doc/missions/weather.md: "the fire control gets no wind").
+#   THE HONEST LIMIT, STATED: the campaign CANNOT separate cloud from wind by a control run, because
+#   there is no "fixture without cloud" provider and `wx wind` is a single vector where the fixture is
+#   a profile. What it can do is what it did - price the wind on its own ladder and show that the
+#   residual is the profile - and point at the one geometry where the cloud does bite, which is sortie
+#   07's transmittance of 8.0e-13 through a mid deck.
+#   AND THE ANCHOR ARRIVES AS A NUMBER: under its own real atmosphere this campaign's unguided laydown
+#   from the anchor's own altitude floor misses by 257 m and the target lives. Short's "the stormy
+#   spring weather just kicked our butts" is, in this tree, not an abort - it is a miss.
+
+zone flak 42.70000 20.98000 14000 0 3500
+zone sambelt 42.70000 20.98000 14000 3500 8000
+
+unit k2str
+  module f16
+  team friendly
+  spawn 42.70000 20.60000 4572 90.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink off
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 7 mk82
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.70000 21.10000 4572 450
+  wp 42.70000 20.70000 4572 450
+  objective kill unit k2tgt
+  objective survive
+  objective avoid zone flak
+
+unit k2man
+  module sa7
+  team hostile
+  spawn 42.70000 21.06000 ground 270.0 0
+  set emcon free
+  set rounds 2
+
+unit k2flk
+  module zu23
+  team hostile
+  spawn 42.70000 21.09000 ground 270.0 0
+  set emcon free
+  set rounds 40
+
+unit k2sam
+  module sa6
+  team hostile
+  spawn 42.66000 20.98000 ground 270.0 0
+  set emcon free
+  set rounds 3
+
+unit k2tgt
+  module target_soft
+  team hostile
+  spawn 42.70000 21.10000 ground 90.0 0

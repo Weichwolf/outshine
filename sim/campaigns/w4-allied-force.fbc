@@ -1,0 +1,148 @@
+name w4-allied-force
+time 1999-03-24T10:00:00Z
+carry units ground stores
+stop_on never
+
+# CAMPAIGN W4 - ALLIED FORCE 1999: MOUNTAINS, CLOUD, AND AN AIR DEFENCE THAT WILL NOT EMIT.
+# Spec, anchor, sources and disputes: doc/campaigns/w4-allied-force.md. Format: doc/missions/campaign.md.
+#
+# THE SEVENTH OF THE TEN CAMPAIGNS TO BE BUILT, AND THE ONE WHOSE SUBJECT IS FINDING RATHER THAN
+# KILLING. Its own §2 contract: "an air defence that does not emit and a target under cloud are the
+# same problem twice. Every mission reports what was DETECTED, not only what was hit." Every sortie
+# below therefore reports emitter seconds, cue counts and detection ranges beside its kills, and the
+# three sorties 04/05/06 are one geometry with one lever pulled three ways.
+#
+# WHY W4 IS BUILDABLE NOW AND WAS NOT WHEN ITS SPEC WAS WRITTEN. The spec listed FOUR of ten missions
+# as runnable and called missions 4, 5, 7 and 10 blocked outright on `C1`. Rule 7 says a blocked
+# mission is re-checked against the TREE and not against a gap's status line:
+#   C1  CLOSED 2026-07-28 - nine positions that find, track, gate an envelope and fire a doctrinal
+#       salvo out of a finite magazine, with `set emcon hold` as a PASSIVE RECEIVER. That is the
+#       spec's "radar that emits and stops", and it is also its decoy: a `p18` has no weapon at all
+#   C22/C23/C24 CLOSED - the cue that aims a fire unit's antenna and can never create a track, the
+#       belt as declared and judged `zone` geometry, comms jamming as one published scalar
+#   C8/C26/C27 BUILT 2026-07-28 except the rocket pod - `agm88` whose seeker IS a warning receiver,
+#       `set emcon free <offS> [<onS>]`, `objective suppress`, `set attack_mode arm`
+#   C2  CLOSED - all ten declare their own clock; sortie 10 is the night package the spec asked for
+#   C0  CLOSED - this file exists
+# WHAT IS STILL MISSING AND WHAT EACH SORTIE DOES ABOUT IT:
+#   C4  NO TERRAIN MASKING, and W4 IS ITS ACCEPTANCE TEST. The anchor's own phrase for the Yugoslav
+#       method is "concealment under weather and mountainous terrain". Every W4 file carries the
+#       disclosure in its header and states what it does to that file's claim; sortie 10 says plainly
+#       that it stages THREE of its own four antagonists. THIS IS THE CAMPAIGN'S CENTRAL SHORTFALL
+#       and it is not written around
+#   C16 CLOUD REACHES ONLY THE EYE. Sortie 02 measures it against a control run; sortie 07 is the one
+#       geometry in the campaign where the eye looks THROUGH the deck and the transmittance is logged
+#   C14 NO MOVING GROUND UNITS - sortie 09's armour hunt is a hunt for parked vehicles and says so
+#   C5/C7/C15 no tanker, no other modules, no package coordination - declared where they bite
+#
+# THE GROUND, ONCE, FOR ALL TEN: `--elev const`, a 0 m plane. Every fingerprint below is comparable
+# ONLY against runs whose campaign-summary.txt records `elev const`. THE REAL KOSOVO UNDER THIS ARENA
+# IS 546-1,193 m and it was MEASURED rather than assumed (fb-tiles /elev: 42.70/21.10 = 546.34 m,
+# 42.60/20.90 = 586.42 m, 42.70/20.70 = 588.60 m, 43.00/21.00 = 1,192.75 m). The campaign is NOT flown
+# on `--elev tiles`, and the reason is not convenience: the tile server serves the Balkan DEM lazily
+# and answers "no dem" on a cold cache, so a nine-run determinism sweep over it would be measuring a
+# cache. What tiles WOULD add is ground ELEVATION and not masking, because `C4` is a computation that
+# does not exist - so the thing this campaign is missing is not in the DEM.
+#
+# THE ARENA is the anchor's Kosovo engagement zone, ~42.2-43.2 N 20.2-21.8 E [T4, approximate], flown
+# west->east because that is the direction the packages came from. Scale: 1 deg of latitude =
+# 111,320 m, 1 deg of longitude at 42.70 N = 81,833 m [DERIVED].
+#
+# THE ALTITUDE FLOOR IS THIS CAMPAIGN'S SPINE. 15,000 ft = 4,572.0 m [DERIVED, 0.3048 m/ft] is the
+# spawn and waypoint altitude of every striker in every sortie. Sorties 01 and 03 price it in both
+# directions; sortie 04 measures the thing nobody expected, which is that the SEAD element cannot
+# obey it and still hold a P-18; sorties 08 and 10 fly the split that follows.
+#
+# NO CATALOGUE ROW FLIES IN ANY W4 FILE. `modules/air/`'s eighteen rows exist since 2026-07-28 and W4
+# uses none of them, for the reasons W3 established: `ACCEPTED` means "accepted as a FLIGHT MODEL" and
+# its gate measures nothing about weapons (modules/air/module.md A13); `ALPHA` rows may not answer a
+# campaign question at all; and A15 forbids scoring a catalogue GUN engagement. W4 does not need them:
+# the F-16C, the F-16CJ's airframe and the MiG-29 (9-12) are all this anchor's own types, and the
+# ground rows are `modules/ground/`, which is a different catalogue with its own measured acceptance.
+# THE SUBSTITUTIONS AND THEIR DIRECTIONS, stated once and repeated in the file that makes each:
+#   F-16CJ Block 50   -> the `f16` module + `agm88`. SAME TYPE. Direction: none
+#   MiG-29 of the 127th -> the `mig29` module, with `set n019_mode off` on the unserviceable jets.
+#                        SAME TYPE. Direction: none. FlightBox's MiG-29 has a better warning receiver
+#                        and a working look-down radar, so a serviceable one here is STRONGER than the
+#                        1999 aircraft, and a bad Blue result therefore says less than it seems to
+#   SA-2/SA-3/SA-6/AAA -> the `modules/ground/` rows of the same designations. SAME TYPES
+#   E-3, EA-6B, KC-135, F-117 -> ABSENT, not substituted (`C5`, `C7`). Direction: Blue is WEAKER than
+#                        history in every sortie, and no W4 result should be read as "NATO could not"
+#
+# CALLSIGN AND CARRY TOPOLOGY, STATED BEFORE THE FIRST MISSION FILE:
+#   THE CHAIN IS 08 -> 10 AND IT CARRIES EXACTLY ONE CALLSIGN, `kosnod`, the forward early-warning
+#   node. Every other sortie is `k1*`..`k9*`/`ka*` and pairwise disjoint from both ends of the chain
+#   and from every sibling in EVERY unit it can lose, aircraft AND ground - which is O5's rule, and it
+#   matters here because W4 attacks ground objects in eight of ten files.
+#   CONTROLLED VARIANTS: 01 -> 02 (one `wx` line) and 01 -> 03 (one fact: the ingress altitude);
+#   04 -> 05 (one line: the node's `set emcon`) and 04 -> 06 (one fact: three more emitters).
+#   A CHAIN STEP IS NEVER A CONTROLLED VARIANT: 08 is a control of nothing, 10 inherits and has no
+#   sibling. Sorties 07 and 09 stand alone; 07 carries its own control INSIDE it (two MiG-29s one
+#   line apart).
+#
+# WHY THE CARRY IS NOT NARROWED, AND WHERE THE CAMPAIGN HAS A QUESTION ABOUT IT. Rule 2: the carry
+# belongs where the campaign asks about it. W4 asks in exactly one place - whether killing a forward
+# early-warning node is still worth anything to a net that has a second one - so the chain is one step
+# long and lands on one callsign, and sortie 10 is run BOTH as a campaign step and STANDALONE so the
+# difference is a number rather than a claim. `units` and `stores` stay carried because narrowing them
+# would cost the campaign its `campaign ATTRITION` and `campaign EXPENDED` aggregates.
+#
+# WHAT THE SPEC ASKED FOR AND DID NOT GET, NAMED HERE RATHER THAN QUIETLY DROPPED. Eight of the spec's
+# ten missions are built with their own tactical questions (the slot NUMBERS shift, because two of the
+# ten are dropped and two are new). TWO ARE DROPPED, and neither for difficulty:
+#   spec 3 `w4-03-valley`, "strike in a mountain valley", asking how much of the miss is wind and how
+#     much terrain-relative geometry. NOT BUILT: `C4` means no terrain masks anything and `--elev const`
+#     means there is no valley - the ground is one plane - so the question would have been answered by
+#     the author's arithmetic. Its slot went to `w4-03-below-floor`, the other side of the altitude
+#     trade, which is the thing §2's contract calls "the thing the missions push against". The wind
+#     half of the dropped question is measured in full by sortie 02 and its six-point ladder
+#   spec 8 `w4-08-weather-abort`, "can the pilot decide not to release?". NOT BUILT: the answer is
+#     known without a run and this file says so - `FBPilot`'s attack phase pickles on its cue and has
+#     no branch that declines, which is the same shape W3 measured for the BINGO warning
+#     (`FBPilot::CanPressOn` unreachable). W4 §Knowledge 2 also records that the sortie-abort
+#     PERCENTAGE was never established by any source, so the mission's own difficulty would have been
+#     `[SET]` on top of an absence. Its slot went to `w4-06-decoy`, which the anchor names as a
+#     decisive Yugoslav measure
+# AND TWO SORTIES ARE NEW: `w4-03-below-floor` and `w4-05-emcon`, both single-lever controlled variants
+# of a sortie the spec does list, and both about the campaign's own declared subject.
+#
+# THE TEN SORTIES AND THE ONE THING EACH CHANGES - each file's own header carries its binding reading
+# rule (doc/missions/INDEX.md rule 5) and this list is the campaign's index only:
+#   01 floor          the 15,000 ft floor priced in both currencies      <- ctrl of 02 and 03
+#   02 overcast       [ctrl 01] ONE line: `wx fixture`
+#   03 below-floor    [ctrl 01] ONE fact: the ingress altitude
+#   04 emitter-hunt   a net whose only live antenna is its node          <- ctrl of 05 and 06
+#   05 emcon          [ctrl 04] ONE line: the node's `set emcon` -> hold
+#   06 decoy          [ctrl 04] ONE fact: three more emitters
+#   07 cap-intercept  a fighter with no radar, and a deck to look through
+#   08 package        4 F-16 + 2 MiG-29 + a hiding belt + a bridge       <- CHAIN HEAD
+#   09 kez            4 aircraft, 6 dispersed targets, 1 bomb each
+#   10 allied-force   the full night package, 8 v 4 + the belt           <- CHAIN TERMINUS
+#
+# FIVE ATTRIBUTION RUNS ARE NOT PART OF THE TEN and live in doc/campaigns/w4-allied-force.md, State:
+#   A1  sortie 02 with `wx wind 272 46` - the fixture's own release-altitude wind, no cloud
+#   A2  a lone `p18` and one AGM-88 at 20.0 km, launch altitude the only variable (9 runs) - the
+#       elevation-coverage boundary that decides sorties 04, 08 and 10
+#   A3  sortie 09 with `wx calm` - the wind's share of a four-ship's total failure
+#   A4  sortie 01 with `set rounds 4` on the 2K12 - rails against magazine in the illumination loss
+#   A5  sortie 10 STANDALONE - what the carried node was worth
+#
+# READING RULE FOR THE CAMPAIGN. Most of these sorties are MEASURING RIGS and their exit code is not
+# their verdict: exit 3 = TIMEOUT usually means a `target_hard` survived its miss distance or a
+# measuring rig ran out its clock, both of which are measured properties and not failures. THE
+# CAMPAIGN EXIT IS THE WORST STEP'S. Read, per sortie and in this order: (1) how many strikers reached
+# release AND what the delivery error was, (2) how long each position was on the air (`site RADIATE`,
+# `mission SUPPRESSED emittingS`), (3) `site LAUNCH` counts and WHO the rounds were aimed at, (4)
+# which emitter each AGM-88 latched, (5) `campaign ATTRITION` and `campaign EXPENDED`. Do NOT read
+# kills as a lever's effect - O2 measured two rounds inside their own fuze that did not kill.
+
+mission ../missions/w4-01-floor.fbm
+mission ../missions/w4-02-overcast.fbm
+mission ../missions/w4-03-below-floor.fbm
+mission ../missions/w4-04-emitter-hunt.fbm
+mission ../missions/w4-05-emcon.fbm
+mission ../missions/w4-06-decoy.fbm
+mission ../missions/w4-07-cap-intercept.fbm
+mission ../missions/w4-08-package.fbm
+mission ../missions/w4-09-kez.fbm
+mission ../missions/w4-10-allied-force.fbm

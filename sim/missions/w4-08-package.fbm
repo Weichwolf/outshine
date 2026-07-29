@@ -1,0 +1,277 @@
+name w4-08-package
+timeout 600
+time 1999-05-02T10:00:00Z
+wx fixture wx-2026-07-27T00Z.wxb
+
+# CAMPAIGN W4, SORTIE 8 OF 10 - ALLIED FORCE 1999. THE PACKAGE, AND THE PRICE OF MAKING THE WEAPON WORK.
+# Spec, anchor and sources: doc/campaigns/w4-allied-force.md. Format: doc/missions/campaign.md.
+# CHAIN HEAD: 08 -> 10. This file is a control of nothing and inherits nothing; what it destroys is
+# what sortie 10 does not have to face. THE CHAIN CARRIES EXACTLY ONE CALLSIGN, `kosnod`, the forward
+# early-warning node; it exists in no other file of this campaign. Everything else here is `k8*` and is
+# pairwise disjoint from every other sortie in every unit it can lose, aircraft AND ground (O5's rule).
+#
+# THE ANCHOR: a NATO strike package of the middle period - Block 40 strikers under the 15,000 ft floor
+# rule, a Block 50 SEAD element with AGM-88, MiG-29s of the 127th, and a bridge. The date is 2 May
+# 1999, the day an F-16C Block 40 was shot down over Serbia [T4].
+#
+# W4'S SPEC ASKS: "Is a suppression element that cannot suppress worth the airframes? The mission is
+# the honest form of 'we have no HARM'." RULE 7: `C8` closed on 2026-07-28 and the element CAN
+# suppress. The question therefore changes to the one this campaign actually has, and the campaign
+# file says so: IS IT WORTH THE AIRFRAMES, AND WHAT DOES IT COST TO MAKE ITS WEAPON WORK?
+#
+# THE COST IS THE FLOOR, MEASURED IN SORTIE 04: an AGM-88 launched from 4,572 m against a P-18 loses
+# the emitter at exactly the radar's own +15 deg elevation limit and lands 2.5 km away; the shot works
+# from 4,150 m and below. So the Weasels in this file fly at 3,000/3,150 m - BELOW the anchor's own
+# altitude floor and inside the band sortie 03 measured as full of MANPADS and AAA - while the
+# strikers stay at 4,572 m. That split is the campaign's central trade written into one file.
+#
+# THE ARENA, [SET], Kosovo engagement zone, ingress west->east.
+#   `kosnod` P-18       42.78000 20.95000 `emcon free`   - the net's control, and the carried callsign
+#   `k8sa6` 2K12 Kub   42.70000 21.10000 `emcon hold` `autonomy hold`, 3 rounds
+#   `k8sa3` S-125      42.62000 21.05000 `emcon hold` `autonomy hold`, 4 rounds
+#   `k8brg`  target_hard 42.70000 21.20000 - the bridge, the package's reason to be here
+#   `k8tgt`  target_soft 42.66000 21.16000 - the approach's vehicle park
+#   `k8flk`  ZU-23-2    42.78000 20.90000, 40 rounds - it is on the WEASELS' run-in, at their altitude
+#
+# THE ENGAGEMENTS ARE SEPARATED IN TIME (O1's rule, the sharpest constraint on a package):
+# `FBMissionRunner` ends the whole run at the first flight-monitor K.O. The SEAD engagement runs
+# t = 0..70 s at 20.95 E; the strike release is at t ~ 190 s at 21.20 E; the MiG-29s spawn 61 km east
+# of the aim point at 450 kt and cannot reach the strikers before t ~ 265 s. Everything this file
+# measures has happened before the fighters arrive, and the header says so rather than the reader
+# discovering it.
+#
+# THE FOUR STRUCTURAL DISCLOSURES: see w4-01-floor.fbm.
+#
+# THE ONE TACTICAL QUESTION: IS A SUPPRESSION ELEMENT WORTH THE AIRFRAMES AGAINST A DEFENCE THAT HIDES
+# - AND WHAT DOES IT COST TO PUT ITS WEAPON WHERE IT WORKS?
+#
+# READING RULE (binding): the exit code is not the verdict; read the package. In order: (1) strikers
+# that reached release, (2) `UNIT_RESULT` for `kosnod`/`k8sa6`/`k8sa3`, (3) every `site LAUNCH` and
+# WHO it was aimed at (bearing), (4) the Weasels' own exposure - `gun BURST` from `k8flk` and any
+# arrival inside a fuze, (5) aircraft lost. Do NOT read kills as a lever's effect (O2's rule).
+#
+# MEASURED (fingerprint b74545eca5c8144f, exit 3): THE SUPPRESSION ELEMENT IS WORTH THE NODE AND THE
+# WHOLE MISSILE LAYER'S CUE, AND ITS PRICE IS THAT IT CANNOT FLY THE MISSION IT IS BRIEFED FOR.
+#   the suppression   both AGM-88 away at t=0.1 from 3,000/3,150 m; `stores DETONATION ... target=kosnod
+#                     missM=0.0249` at t=63.7 (`damage KILL`) and `missM=0.0160` at t=64.4. 2.5 and
+#                     1.6 CENTIMETRES from 20.0 km. `mission SUPPRESSED ... emittingS=63.7
+#                     allowanceS=120` MET, and met because the node died
+#   what the node's death cost the belt   the S-125 fires its first salvo (t=40.8 / 43.3, brg 287-289,
+#                     i.e. WEST at the Weasels) and then stops: `net CUE` totals **4** and the 2K12
+#                     fires **nothing at all** - it is still inside its 26 s reaction when the cue
+#                     stops. Two of four rounds and one of two batteries, out of one bomb-sized
+#                     warhead at 2.5 cm
+#   the strikers      **2 of 2 reached release**, both at the floor. AND BOTH BOMBS MISS: `aimErrM`
+#                     **244.68 m** (Mk-84 at the bridge) and **188.75 m** (Mk-82 at the vehicle park),
+#                     under the fixture's 46 kt. `k8brg` and `k8tgt` both INTACT. That is sortie 02's
+#                     number arriving at package scale
+#   the cost          `k8stra` is killed at t=204.2 by an R-73 at **1.30 m against a 3.5 m fuze** - 14 s
+#                     AFTER its own release, which is what the file's timing was laid out to guarantee.
+#                     The two R-27R that arrived first passed at 11.24 m and 12.25 m inside a 13.8 m
+#                     fuze and did NOT kill (O2's rule: read the arrival geometry, not the kill)
+#   THE ANSWER: the suppression element is worth its airframes - it deletes the net's head for the cost
+#   of two rounds and takes no losses itself - and the price of making its weapon work is that it flies
+#   1,572 m below the altitude floor the rest of the package obeys. On this arena that is free, because
+#   the only thing in the AAA band is a ZU-23-2 that never fires (the Weasels pass 4.1 km north of it at
+#   3,000 m, above its 1,500 m ceiling). SORTIE 03 IS WHERE THAT BAND IS NOT FREE, and the campaign
+#   does not generalise this file's zero into a claim that the floor is optional.
+
+net kosbelt
+  control kosnod
+  link wire
+  period 4.0
+  hold 3
+  wcs free
+  member kosnod
+  member k8sa6 autonomy hold
+  member k8sa3 autonomy hold
+
+unit k8wsa
+  module f16
+  team friendly
+  flight ws8 1
+  spawn 42.78000 20.70560 3000 90.0 480     # 20.0 km west of the node, 1,572 m UNDER the floor
+  set gear up
+  set fuel_pct 70
+  set fcr_mode off
+  set rwr on
+  set store 3 agm88
+  set store 7 agm88
+  set arm_class any
+  set brief_master_arm arm
+  set task attack
+  set attack_mode arm
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.78000 20.90000 3000 480
+  wp 42.78000 20.50000 3000 480
+  objective suppress unit kosnod emitting 120
+  objective survive
+
+unit k8wsb
+  module f16
+  team friendly
+  flight ws8 2
+  spawn 42.75000 20.70560 3150 90.0 480
+  set gear up
+  set fuel_pct 70
+  set fcr_mode off
+  set rwr on
+  set store 3 agm88
+  set store 7 agm88
+  set arm_class any
+  set brief_master_arm arm
+  set task attack
+  set attack_mode arm
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.75000 20.90000 3150 480
+  wp 42.75000 20.50000 3150 480
+  objective survive
+
+unit k8stra
+  module f16
+  team friendly
+  flight st8 1
+  spawn 42.70000 20.55000 4572 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set rwr on
+  set store 3 mk84
+  set store 7 mk84
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.70000 21.20000 4572 450
+  wp 42.70000 20.60000 4572 450
+  objective kill unit k8brg
+  objective survive
+
+unit k8strb
+  module f16
+  team friendly
+  flight st8 2
+  spawn 42.66000 20.55000 4720 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 7 mk82
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.66000 21.16000 4720 450
+  wp 42.66000 20.60000 4720 450
+  objective kill unit k8tgt
+  objective survive
+
+unit k8mig1
+  module mig29
+  team hostile
+  flight kn8 1
+  spawn 42.70000 21.90000 5000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set kols_mode ir
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 40 270 110 0
+  set brief_gci 100 270 80 0
+  set brief_gci 160 270 50 0
+  wp 42.70000 20.60000 5000 450
+  objective kill team friendly
+  objective survive
+
+unit k8mig2
+  module mig29
+  team hostile
+  flight kn8 2
+  spawn 42.66000 21.90000 5150 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set kols_mode ir
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 40 270 110 0
+  set brief_gci 100 270 80 0
+  set brief_gci 160 270 50 0
+  wp 42.66000 20.60000 5150 450
+  objective kill team friendly
+  objective survive
+
+unit kosnod
+  module p18
+  team hostile
+  spawn 42.78000 20.95000 ground 270.0 0
+  set emcon free
+
+unit k8sa6
+  module sa6
+  team hostile
+  spawn 42.70000 21.10000 ground 270.0 0
+  set emcon hold
+  set rounds 3
+
+unit k8sa3
+  module sa3
+  team hostile
+  spawn 42.62000 21.05000 ground 270.0 0
+  set emcon hold
+  set rounds 4
+
+unit k8flk
+  module zu23
+  team hostile
+  spawn 42.78000 20.90000 ground 270.0 0
+  set emcon free
+  set rounds 40
+
+unit k8brg
+  module target_hard
+  team hostile
+  spawn 42.70000 21.20000 ground 90.0 0
+
+unit k8tgt
+  module target_soft
+  team hostile
+  spawn 42.66000 21.16000 ground 90.0 0

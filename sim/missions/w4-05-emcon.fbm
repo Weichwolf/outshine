@@ -1,0 +1,183 @@
+name w4-05-emcon
+timeout 500
+time 1999-04-14T10:00:00Z
+
+# CAMPAIGN W4, SORTIE 5 OF 10 - ALLIED FORCE 1999. THE DOCTRINE ITSELF.
+# CONTROL: w4-04-emitter-hunt.fbm - identical but for ONE line, the node's `set emcon free` -> `hold`,
+# and the callsign prefix. Spec: doc/campaigns/w4-allied-force.md. Format: doc/missions/campaign.md.
+#
+# THE ANCHOR, in one sentence: "dispersed, radars mostly not emitting" [T3]. Sortie 04 flies a defence
+# whose NODE is on the air and whose fire units are not; this file takes the last antenna off the air
+# too. Every position in it is on `set emcon hold`, i.e. it comes up ONLY on its own passive receiver
+# hearing an airborne emitter - not on a timer, not on a range trigger (doc/modules/ground/module.md
+# Knowledge 5). And no Blue aircraft in this package radiates anything: four F-16 on `fcr_mode off`.
+# So this file is the pure form of the campaign's subject: A DEFENCE THAT WILL NOT EMIT, AGAINST A
+# PACKAGE THAT GIVES IT NOTHING TO HEAR.
+#
+# THE FOUR STRUCTURAL DISCLOSURES: see w4-01-floor.fbm. Disclosure 1 matters less here than anywhere
+# else in the campaign, and that is worth saying: this result does not depend on line of sight,
+# because nothing looks.
+#
+# THE ONE TACTICAL QUESTION: WHAT DOES A DEFENCE THAT WILL NOT EMIT GAIN, AND WHAT DOES IT GIVE UP?
+#
+# READING RULE (binding): exit 3 = TIMEOUT, and the ABSENCES are the measurement. Count, against 04:
+# `site RADIATE`, `site TRACK`, `site LAUNCH`, `net CUE`, `pilot ATTACK_RELEASE ... mode=arm`,
+# `UNIT_RESULT` per position, and strikers that reached release. Rule 15 applies to every one of them:
+# name WHICH nothing it is. Here it is `absent`, not `restrained`, and the file says so.
+#
+# MEASURED (fingerprint 26815af6f6698f06, exit 3): THE DEFENCE KEEPS EVERYTHING AND SPENDS EVERYTHING.
+#   against 04, one token apart:
+#     `site RADIATE`   3 -> **0**        `site TRACK`     2 -> **0**
+#     `site LAUNCH`    4 -> **0**        `net CUE`        4 -> **0**   (`net JOIN` 2 -> 2, unchanged:
+#                                        a buried cable connects whether anybody transmits or not)
+#     AGM-88 released  2 -> **0**        positions lost   1 (`k4nod`) -> **0**
+#     strikers reaching release          2 of 2 -> **2 of 2**, at the identical ticks and the identical
+#                                        `aimErrM` 48.07 / 54.15 m, and `k5tgt` dies exactly as `k4tgt` did
+#   WHAT IT GAINS: **its early-warning node.** That is the whole purchase, and it is real - in 04 the
+#   node is dead at t=66.5 and here it is intact at t=500.
+#   WHAT IT GIVES UP: **four V-601, two firm tracks, four cue messages and the entire engagement.** The
+#   S-125 that fires all four of its rounds in 04 fires none here, because nothing ever tells it where
+#   to look and its own `emcon hold` receiver hears nothing: no Blue aircraft in this package radiates.
+#   AND IT BUYS NOTHING AGAINST THE STRIKE. The two strikers arrive at the same two aim points at the
+#   same two ticks in both files. THE DOCTRINE IS WORTH THE POSITIONS AND NOTHING ELSE - which is W3's
+#   "emission discipline is worth the position and nothing else" arriving at DOCTRINE scale, on a whole
+#   net instead of one battery, with the cue traffic and the magazine as the price.
+#   ONE THING IT BREAKS, and it is a finding about the VERDICT rather than about the defence:
+#   `objective suppress unit k5nod emitting 120` reads **MET with emittingS=0**. The position was never
+#   suppressed, it was never on. `FBMissionMonitor` accumulates emitting seconds and compares them with
+#   an allowance, so "we held it down" and "it never came up" are the same verdict. That is W5's rule 15
+#   - name WHICH nothing it is - arriving in the objective vocabulary, and the reading rule above tells
+#   the reader to count `site RADIATE` beside the objective line rather than instead of it.
+
+net kosnet
+  control k5nod
+  link wire
+  period 4.0
+  hold 3
+  wcs free
+  member k5nod
+  member k5sam autonomy hold
+  member k5sa3 autonomy hold
+
+unit k5wsa
+  module f16
+  team friendly
+  flight ws4 1
+  spawn 42.78000 20.70560 3000 90.0 480     # 20.0 km west of the node, AT the floor
+  set gear up
+  set fuel_pct 70
+  set fcr_mode off
+  set rwr on
+  set store 3 agm88
+  set store 7 agm88
+  set arm_class any
+  set brief_master_arm arm
+  set task attack
+  set attack_mode arm
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.78000 20.90000 3000 480
+  wp 42.78000 20.50000 3000 480
+  objective suppress unit k5nod emitting 120
+  objective survive
+
+unit k5wsb
+  module f16
+  team friendly
+  flight ws4 2
+  spawn 42.75000 20.70560 3150 90.0 480
+  set gear up
+  set fuel_pct 70
+  set fcr_mode off
+  set rwr on
+  set store 3 agm88
+  set store 7 agm88
+  set arm_class any
+  set brief_master_arm arm
+  set task attack
+  set attack_mode arm
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.75000 20.90000 3150 480
+  wp 42.75000 20.50000 3150 480
+  objective survive
+
+unit k5stra
+  module f16
+  team friendly
+  flight st4 1
+  spawn 42.70000 20.55000 4572 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 7 mk82
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.70000 21.15000 4572 450
+  wp 42.70000 20.60000 4572 450
+  objective kill unit k5tgt
+  objective survive
+
+unit k5strb
+  module f16
+  team friendly
+  flight st4 2
+  spawn 42.67000 20.55000 4720 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 7 mk82
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.67000 21.18000 4720 450
+  wp 42.67000 20.60000 4720 450
+  objective kill unit k5hgr
+  objective survive
+
+unit k5nod
+  module p18
+  team hostile
+  spawn 42.78000 20.95000 ground 270.0 0
+  set emcon hold
+
+unit k5sam
+  module sa6
+  team hostile
+  spawn 42.70000 21.10000 ground 270.0 0
+  set emcon hold
+  set rounds 3
+
+unit k5sa3
+  module sa3
+  team hostile
+  spawn 42.62000 21.05000 ground 270.0 0
+  set emcon hold
+  set rounds 4
+
+unit k5tgt
+  module target_soft
+  team hostile
+  spawn 42.70000 21.15000 ground 90.0 0
+
+unit k5hgr
+  module target_hard
+  team hostile
+  spawn 42.67000 21.18000 ground 90.0 0

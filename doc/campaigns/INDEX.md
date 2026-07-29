@@ -1,12 +1,13 @@
 # Campaigns — the ten scenario specifications
 
-**Status: six of ten BUILT (O4, O1, O5, O2, W5 and W3, all 2026-07-29), four spec only.** `sim/missions/o4-*.fbm`,
-`sim/missions/o1-*.fbm`, `sim/missions/o5-*.fbm`, `sim/missions/o2-*.fbm`, `sim/missions/w5-*.fbm` and
-`sim/missions/w3-*.fbm` with their six `.fbc` files
+**Status: seven of ten BUILT (O4, O1, O5, O2, W5, W3 and W4, all 2026-07-29), three spec only.** `sim/missions/o4-*.fbm`,
+`sim/missions/o1-*.fbm`, `sim/missions/o5-*.fbm`, `sim/missions/o2-*.fbm`, `sim/missions/w5-*.fbm`,
+`sim/missions/w3-*.fbm` and `sim/missions/w4-*.fbm` with their seven `.fbc` files
 exist, run, replay and are measured ([`o4-gaf-mig29g-dact.md`](o4-gaf-mig29g-dact.md) §State,
 [`o1-bekaa-1982.md`](o1-bekaa-1982.md) §State, [`o5-airfield-defence.md`](o5-airfield-defence.md)
 §State, [`o2-pvo-intercept.md`](o2-pvo-intercept.md) §State,
-[`w5-baltic-qra.md`](w5-baltic-qra.md) §State, [`w3-desert-storm.md`](w3-desert-storm.md) §State); no
+[`w5-baltic-qra.md`](w5-baltic-qra.md) §State, [`w3-desert-storm.md`](w3-desert-storm.md) §State,
+[`w4-allied-force.md`](w4-allied-force.md) §State); no
 other campaign has a `.fbm` file. The
 directory exists because the missions must not be invented: a campaign without a cited anchor is a mood,
 and a mood cannot be measured.
@@ -130,6 +131,28 @@ channel. In W3's capstone **one of the three aircraft lost was killed by its own
 (11.74 m against a 13.8 m fuze, a MiG-29 of the other Red flight). No 2v2 campaign in this set could
 have seen it.
 
+### What W4 added, and the other three inherit it too
+
+W4 was built seventh — **the campaign whose subject is finding rather than killing**, and the first
+whose central number came out of the collision between two of its own anchor's facts. It took all
+eighteen rules unchanged and passed both criteria on the first attempt. Its two contributions are about
+**a countermeasure that is cheaper than the doctrine it replaces**, and about naming the arena's own
+absence in the file rather than in the report:
+
+| Rule | Why it exists |
+|---|---|
+| **Total emission discipline and a decoy buy the same survival, and only one of them also keeps the fight — so a campaign that measures "going dark" has measured the EXPENSIVE option** | one geometry, one lever, three ways: with the node radiating the suppression pair kills it in 66.5 s; with everything on `emcon hold` the defence keeps every position and gives up **6 rounds, 2 firm tracks and every cue message**; with three `p18` decoys in front of it the defence keeps the node AND fires **7 launches against 4** while both AGM-88 die on a tin shed. And **none of the three moves the strike** — the same two strikers reach the same aim points at the same ticks with the same `aimErrM` in all three files. This is W3's *"emission discipline is worth the position and nothing else"* one level out, and the level out is where the alternative appears |
+| **An absence that decides a result belongs in the mission file, priced, not in the report as a caveat** | W4 is `C4`'s acceptance test and it cannot mask anything, so every W4 header carries the disclosure AND its consequence for that file's claim, and the capstone states that it stages **three** of its own four antagonists. The campaign then measured what the missing half would have cost: two runs under `--elev tiles` over the real Kosovo (ground 547.88 m against a 0 m plane) move `predErrM` by 11.6 m and produce **zero masks**, because masking is a computation and not data. An unbuildable thing that has a number attached is a gap; one that does not is a mood |
+
+And one warning of its own, and it is the sharpest thing the campaign found: **two anchor facts can be
+mutually exclusive, and a campaign that flies both without measuring the overlap publishes a fiction.**
+NATO's 15 000 ft floor and the F-16CJ's AGM-88 are both [T3]/[T4] facts of this operation. Measured on
+a nine-point ladder, an AGM-88 launched at 20 km holds a P-18 up to **4 150 m** and loses it at
+**4 200 m** — because the last fresh look of every failing shot is at exactly **15.00°**, the radar's
+own published elevation limit. **15 000 ft = 4 572 m.** Every W4 Weasel therefore flies 1 572 m below
+the floor the rest of its package obeys, and the campaign says so in the header of every file that does
+it.
+
 This directory is **step 4 of the owner goal** and its specification comes first, per
 [`../conventions.md`](../conventions.md)'s spec-first rule: *change the Spec of the topic file first;
 if a round cannot say what the contract becomes, it is not ready to start.*
@@ -145,7 +168,7 @@ Five in which the **F-16** flies, five in which the **MiG-29** flies. Ten missio
 | **W1** | [Red Flag / Nellis](w1-red-flag.md) | the USAF aggressor enterprise, 1975– | the training ladder — and the inversion that at Nellis the "MiG-29" is an F-16 pretending, while here it is the real module |
 | **W2** | [Osirak 1981](w2-osirak.md) | Operation Opera, 7 June 1981 | reach, not combat: 1,600 km, a 30 m ingress and tanks that ran dry — **the one campaign whose subject FlightBox cannot express at all** |
 | **W3** | [Desert Storm, the first nights](w3-desert-storm.md) **— BUILT** | 17 January 1991 + Package Q, 19 January | a package against an integrated air defence, and the three named ways Package Q came apart. **Flown 2026-07-29, the first campaign whose opponent is a SYSTEM:** its spec called five of ten blocked and every blocker had closed; of Package Q's three failure modes FlightBox can stage **one**, and the campaign says which and why. **A suppression element is worth one striker's release and the target — and it is worth that even when its missile falls 10 km short**, because a battery with no IFF and no threat priority empties its magazine at whatever is nearest; **emission discipline is worth the position and nothing else** (dark at 57.4 % of the round's flight, the HARM lands 214 m short, the crew comes back and shoots at the departing Weasels); the same bomb on the same radar is worth the whole strike against a one-node net and **36 % of the cue traffic** against a two-node one; and at 24 aircraft **Red killed one of its own with an R-27R** |
-| **W4** | [Allied Force 1999](w4-allied-force.md) | 24 March – 10 June 1999 | mountains, cloud and an air defence that refuses to emit — the campaign the weather hook was built for |
+| **W4** | [Allied Force 1999](w4-allied-force.md) **— BUILT** | 24 March – 10 June 1999 | mountains, cloud and an air defence that refuses to emit — the campaign the weather hook was built for. **Flown 2026-07-29, and its two anchor facts turned out to be mutually exclusive:** an AGM-88 holds a P-18 from 4 150 m and loses it at 4 200 m, at the radar's own published **+15.00°** elevation limit, so the **15 000 ft floor sits above the ceiling of its own SEAD weapon**; **a decoy is the same catalogue row as the node it protects** and three of them absorb the whole suppression element while the belt fires 7 rounds instead of 4; **total silence keeps the positions and gives up the entire engagement**, and neither policy moves the strike by one metre; the weather that is MEASURED is the **wind** (5.014 m of bomb miss per knot, and 0 of 6 kills where calm gives 3 of 6), and the deck is scenery except for **one** line of sight closed to 8.0e-13; and the carried node is worth **25 % of the cue traffic and nothing else** |
 | **W5** | [Baltic Air Policing / QRA](w5-baltic-qra.md) **— BUILT** | NATO air policing, 30 March 2004– | **identification as the task**, and the sharpest anti-cheat test in the set. **Flown 2026-07-29, the first campaign in which the F-16 flies:** the task turned out to be blocked on a CAST ROW and not on a sensor — a transport is named by eye at **1 086 m** and a bomber at **2 049 m** where a fighter is not recognised at 1 600; the anti-cheat pair is **byte-identical in 6 of 6 telemetry files with 1 differing log line of 75**, and its control run moves **5 of 184 columns and zero metres**; **zero rounds expended over ten sorties**; and the one task with no weapon in its success condition is the exact geometry `FBPilot` calls an ABORT |
 | **O1** | [Bekaa 1982, the Syrian side](o1-bekaa-1982.md) **— BUILT** | Operation Mole Cricket 19, 9 June 1982 | the canonical defeat, reframed as a measurable question: **what in the doctrine moves the outcome, and what is left when nothing does**. **Flown 2026-07-29:** the baseline reproduces the rout; ONE lever (launch at 1.4 × Rtr) inverts it; the controller is worth everything on a 45° entry and nothing head-on; the warning receiver, the belt, the net and ~~the anchor's own jamming~~ move mechanisms and no outcome. **AMENDED 2026-07-29:** the belt's nullity was a defect, not a doctrine — the ground-launch fix gave the rounds a trajectory, and the jamming lever now costs the belt 8 launches, 7 detonations and 2 positions. See the file's §"The ground half, re-measured" |
 | **O2** | [PVO intercept exercise](o2-pvo-intercept.md) **— BUILT** | Soviet GCI doctrine + the MiG-29's own guidance panel (**doctrine half raised to [T1] 2026-07-29**: the two CIA reading-room documents were read) | ground control in its pure form, and identity that always costs surprise. **Flown 2026-07-29:** the loop is **11.0 s and splits 8.0 + 3.0**; the controller is worth the ENTIRE intercept on an aircraft that starts silent, which is why three earlier campaigns measured him at nothing; a wrong azimuth third deletes the intercept outright and a wrong altitude band deletes it for one aircraft of two, recovered 28 s late by a dead-band accident; a late commit buys 45.3 s of the target's silence and costs 77 % of the detection range; and the faction swap is **byte-identical in 5 of 5 telemetry files with 1 differing log line of 53** |
@@ -203,8 +226,8 @@ declared again rather than hidden.
 
 ## What is buildable today
 
-**50 of the 100 missions when this table was written; 60 of them are now BUILT and the O4, O1, O5, O2,
-W5 and W3 rows are re-counted against the tree rather than against the spec.** Per campaign:
+**50 of the 100 missions when this table was written; 70 of them are now BUILT and the O4, O1, O5, O2,
+W5, W3 and W4 rows are re-counted against the tree rather than against the spec.** Per campaign:
 
 | Campaign | Runnable today | Blocked | The first pair to build |
 |---|---:|---:|---|
@@ -213,14 +236,14 @@ W5 and W3 rows are re-counted against the tree rather than against the spec.** P
 | O2 PVO | **10 — BUILT** | 0 (the spec's mission 9 folded into the chain, named in the `.fbc` header) | done: ten `.fbm` + one `.fbc`, both determinism criteria measured on the first attempt |
 | O5 Airfield defence | **10 — BUILT** | 0 (2 spec missions dropped with reasons in the `.fbc` header) | done: ten `.fbm` + one `.fbc`, both determinism criteria measured on the first attempt |
 | W3 Desert Storm | **10 — BUILT** | 0 (the spec called 5 blocked; all 5 blockers had closed, and 1 spec mission was dropped for `C15` with its slot named in the `.fbc` header) | done: ten `.fbm` + one `.fbc`, both determinism criteria on the first attempt, the replay run after the FIRST mission |
+| W4 Allied Force | **10 — BUILT** | 0 (the spec called 6 blocked; 4 of those blockers had closed and 2 spec missions were dropped with their reasons in the `.fbc` header) | done: ten `.fbm` + one `.fbc`, both determinism criteria on the first attempt, the replay run after the FIRST mission |
 | W1 Red Flag | **4** | 6 | `w1-01` … `w1-04`, the ladder |
 | W2 Osirak | **4** | 6 | `w2-03` / `w2-04` — combat radius clean and loaded |
-| W4 Allied Force | **4** | 6 | `w4-01` / `w4-02` — one `wx` line apart |
 | W5 Baltic QRA | **10 — BUILT** | 0 (the spec called 6 blocked; 4 of those blockers had closed and the other 2 were re-scoped in their headers) | done: ten `.fbm` + one `.fbc`, both determinism criteria measured on the first attempt, and the replay run after the FIRST mission |
 | **O3 Yom Kippur** | **0** | 10 | — blocked at the module (`C9`) |
 
 Four of the ten "first pairs" are **one-line experiments**: `o1-01/02`, `w3-07/08`, `w4-01/02`,
-`w5-02/03` (all four now built except `w4-01/02`). That is the pattern this directory was written to
+`w5-02/03` (**all four now built**). That is the pattern this directory was written to
 produce.
 
 ---
@@ -253,7 +276,7 @@ it.
 | **Moving ground column** | 2 | **no** | W4, O3 |
 | **Ships** | 2 | **no** | W5, W3 |
 | **Helicopter (Mi-8 / AH-64 class)** | 2 | **no — specified** | W3, O3. Rows `mi8` `ah64`, movers (a rotorcraft is outside the deck recipe's fixed-wing set entirely). **The one thing they do that decides is free**: at 240 km/h = 66.7 m/s their radial rate sits inside the Doppler notch of every radar in the tree at any aspect but nearly head-on, so a helicopter is a visual and infrared target and not a radar one, without a line written for it |
-| **Radar decoy (ground, emitting, not lethal)** | 1 | **no — specified** | W4 — named by the anchor as a decisive Serbian measure. Costs one catalogue row: the `p18` row with `rounds 0` and a small range gate ([`../modules/ground/cast.md`](../modules/ground/cast.md)) |
+| **Radar decoy (ground, emitting, not lethal)** | 1 | **yes, and it cost nothing — MEASURED by W4 2026-07-29** | W4 — named by the anchor as a decisive Serbian measure. `cast.md` costed it at *"the `p18` row with `rounds 0` and a small range gate"* and **both halves were wrong**: a `p18` already has `Channels 0`/`RoundsDefault 0`, so `rounds 0` is unnecessary; and a small range gate is not declarable and not needed, because what makes the decoy work is that it is IDENTICAL to the node — the receiver's power law is `1 − (r/2R)²`, so at equal gates the loudest admissible symbol is the NEAREST one. Measured: two AGM-88 into one decoy at 0.019 m and 4.75 m, the node and both batteries intact, `net CUE` 26 against 4, belt expenditure 7 launches against 4. The limits are the seeker's binary `arm_class` sort and the audibility floor `alt/tan(15°)` = **17.1 km at 15 000 ft** |
 | **RPV / expendable decoy air vehicle** | 1 | **no** | O1 — the operation's opening move |
 
 **Reading of that table.** After the two flyable jets and the two ground-target kinds — all of which
@@ -328,8 +351,8 @@ publishable at all.
 | ~~`C27`~~ | **CLOSED 2026-07-28.** One gate and one `attack_mode` value: `arm` reads the RWR block like any other instrument and presses when a threat of the declared `arm_class` sits inside the round's own seeker cone. No range is learned because none exists. Proof `arm-pilot-cue.fbm`. Everything above it — a turn onto a threat bearing, a reaction to a launch, weapon selection, re-attack — is still the pilot's own round | 0 | 2 | **the weapon is measurable before the pilot learns anything**, which is why this is a separate ID and a separate round |
 | `C15` | **No package coordination** — no time-on-target, no deconfliction, no lead tasking; formation is combat spread only, no rejoin | 0 | **7** | the *definition* of a package, and every large-force mission is affected. **MEASURED by W5 2026-07-29 at the two-ship scale:** with three contacts the flight's only free variable is the sort, it ranks by time-to-arrive, and a deliberate split collapses onto the nearest contact in **1.0 s** (`w5-04`); with two subjects 17.8 km apart, one on each member's radar, **both** members report `track=1 free=0 dup=1`, because `FBFlightPicture::Assign` matches every member against the *computing* aircraft's own contact list (`w5-06`) |
 | ~~`C0`~~ | **CLOSED 2026-07-28.** The `.fbc` file, the three carried facts and the aggregating runner are built — [`../missions/campaign.md`](../missions/campaign.md), driven by `fb-gym --campaign`. Both determinism criteria measured on both ground bases: 9 runs one campaign fingerprint, and all 4 steps of `sim/campaigns/viper-attrition.fbc` reproduce standalone from their state file plus the ground the run recorded | — | — | a sequence of missions is now a campaign. What is NOT closed: the ten campaigns still have no `.fbm` files, damage and fuel stay refused with a reason, and there is no campaign-scope objective |
-| `C4` | **No terrain masking.** The hook (`const FBWorld*`) reaches every sensor slot; the computation does not exist | 0 | 5 | already named as next in [`../roadmap.md`](../roadmap.md) R6. W4 and O1 are its acceptance tests |
-| `C14` | **No moving ground units and no ships** | 0 | 4 | W4's armour hunt, O3's column, W5's Baltic |
+| `C4` | **No terrain masking.** The hook (`const FBWorld*`) reaches every sensor slot; the computation does not exist | 0 | 5 | already named as next in [`../roadmap.md`](../roadmap.md) R6. W4 and O1 are its acceptance tests. **W4 FLEW ITS ACCEPTANCE TEST 2026-07-29 and it is a NEGATIVE:** every W4 header carries the disclosure and its consequence for that file's claim, and the capstone states that it stages **three** of its four antagonists. The one thing that CAN be measured today was: two runs of `w4-01` under `--elev tiles` over the real Kosovo (ground 547.88 m against a 0 m plane) move `predErrM` **58.08 → 46.50 m** and produce **zero masks** — the missing half is a computation, not data, so closing `C4` cannot be done by improving the DEM |
+| `C14` | **No moving ground units and no ships** | 0 | 4 | W4's armour hunt, O3's column, W5's Baltic. **MEASURED by W4 2026-07-29**: `w4-09` is a hunt for PARKED vehicles and reports an upper bound — 4 of 4 released, `aimErrM` 69–79 m in 20 kt of crosswind and **0 of 6 killed**, against **3 of 6** in the same file with `wx calm`. A column that moved would have moved during the 33 s the bomb is in the air |
 | `C18` | **No radio between units.** Only the datalink PPLI and typed GCI entries. The **ground-to-ground** half is specified as `C22`; what stays open is the VOICE net — call volume, a channel that saturates | 0 | 4 | Package Q's third failure mode was a radio net collapsing under 80 % of the calls; there is no such net to collapse |
 | ~~`C22`~~ | **CLOSED 2026-07-28.** An early-warning set cues a fire unit: the node publishes a POINT its own antenna measured, the member types it into its own antenna over the command bus (two entries, 0.5 s each) and must still find, firm and gate the target with its own radar. Sector responsibility, a `free`/`tight`/`hold` fire-control authority transmitted by the node, a declared `autonomy` fallback, and a node that can be killed, jammed or fall out of range **mid-run**. Home: [`../air-defence-network.md`](../air-defence-network.md) | — | — | *Is killing an early-warning radar worth a sortie?* MEASURED: the same geometry with and without the cable is `2` `site LAUNCH` against `0`, and `site RADIATE` at t=8.0 s against never (`net-cue.fbm` / `net-cue-unnetted.fbm`). What is still NOT measurable is the cue as a DETECTION advantage — that needs `C4` |
 | ~~`C23`~~ | **CLOSED 2026-07-28.** `zone <name> <lat> <lon> <radiusM> <altMinM> <altMaxM>` declares a cylinder, `objective avoid zone <name> [exposure <s>]` judges it, and `zone_<name>_in`/`zone_<name>_s` measure it per judged unit. `core/FBZone.h` is RESTRICTED with an EMPTY outside-includer list — a NARROWING: no module, no pilot and no sensor can name it | — | — | MEASURED (`net-belt-low.fbm` / `net-belt-high.fbm`, identical route, altitude the only difference): low = 34.5 s in `flak` / 0.0 s in `sambelt` / 54 gun bursts / 0 SAM launches; high = 0.0 s / 320.0 s / 0 bursts / 1 launch. The altitude that escapes the AAA does put you in the SAM |
@@ -337,7 +360,7 @@ publishable at all.
 | `C10` | **No dive or pop-up delivery.** The attack phase is a level laydown, by design and for a stated reason | **1** (W2's profile) | 3 | |
 | `C17` | **One runway per mission; no divert field; a runway cannot be cratered or closed and an airfield has no state** | **1** (O5-07) | 1 | **O5 dropped that mission rather than build it** (`.fbc` header): it would be a `target_hard` nothing in the package can kill whose death changes nothing. It also costs O5's sortie 10 the word *recovered* — "combat-effective at the end" is not "landed" |
 | `C13` | **No RADAR jamming.** **SPLIT 2026-07-28 and halved:** the communications half is `C24` and is CLOSED; what stays wholly open here is the RADAR half — noise, deception, range-gate pull-off, angle-of-jam, burn-through, home-on-jam | **1** (O1's mechanism) | 1 | the decisive Israeli move at Bekaa is the one thing in the set with no substitute at all |
-| `C16` | **Cloud affects only the IRST** — not radar, not weapon delivery, not a visual pickup; the cloud rebuild is unbuilt | **1** (W4-08) | 1 | roadmap R5 |
+| `C16` | **Cloud affects only the EYE** (the `C3` round moved it there from the IRST) — not radar, not weapon delivery, not a decision to bring the bombs home; the cloud rebuild is unbuilt | **1** (W4's spec mission 8, dropped for it) | 1 | roadmap R5. **MEASURED BY W4 2026-07-29 on both sides:** in a strike file the deck has NO consumer at all (`w4-02`: 0 `vis` lines, and the whole 216 m of extra delivery error is wind, priced at **5.014 m per knot** on a six-point ladder); in the one geometry where an eye looks THROUGH the deck it closes the path completely (`w4-07`: `vis MASKED … transmittance=8.00571e-13` between an aircraft at 5 150 m and one at 8 000 m). `irst_masked` stays **0** in all ten files. **So a "bad weather campaign" in this tree is a WIND campaign**, and W4's spec mission 8 was dropped rather than flown as a measurement of an absence |
 | `C19` | **No rules-of-engagement state** — nothing expresses weapons hold / tight / free. The vocabulary is now defined and gated **for ground units** in [`../air-defence-network.md`](../air-defence-network.md) §5; aircraft still have none | **2** (W5, O2) | 0 | **MEASURED by W5 2026-07-29 and it is worse than "no state": there is no BEHAVIOUR to restrain.** `w5-07` puts two armed F-16s with the master arm on under a fighter radar for 300 s and gets zero releases — with `eng_state` = `idle` for all 3 001 rows, because a pilot on `set task route` never enters the engagement machine. The alternative task does not become trigger-happy either: `set task intercept` ABORTS the identification geometry (`FBPilot.cpp:1040`, *inside 5.0 nm and never shot*) at t = 5.1 s |
 | `C20` | **No terrain-following guidance.** `Direct` holds an ASL altitude, so a 30 m AGL ingress over varying terrain is not flyable | **1** (W2-02) | 1 | |
 | `C11` | **No strafing** — gun bundles are not resolved against ground targets | 0 | 2 | |

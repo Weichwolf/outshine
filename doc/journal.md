@@ -1897,3 +1897,62 @@ Beide Determinismus-Kriterien beim ersten Versuch: 9 Läufe eine Kampagnen-Signa
 bit-identisch — und der `replay` lief nach der **ersten** Mission, auf einer Wegwerf-Ein-Schritt-`.fbc`.
 Der Schlusseinsatz fliegt **24 Flugzeuge + 8 Bodenobjekte + 34 Waffen** in 11,7 s Wanduhr, **8 von 8**
 Bombern am Auslösepunkt und **15 von 16** zurück.
+
+## 2026-07-29 — Kampagne W4 gebaut und geflogen: die Höhenuntergrenze steht über der Decke ihrer eigenen Waffe
+
+Siebte von zehn, zehn `.fbm` + eine `.fbc`, nichts unter `sim/src/`, `sim/tools/` oder `sim/assets/`
+angefasst (`git status --porcelain`: elf neue, null geänderte Dateien), also sind die 205 vorhandenen
+Missionen bauartbedingt byte-identisch. Die Spec nannte **vier** von zehn flugfähig und vier Missionen
+auf `C1` blockiert; nach Regel 7 gegen den heutigen Baum geprüft liefen **zehn von zehn**. Zwei
+Spec-Missionen wurden nicht blockiert, sondern **verworfen** — das Gebirgstal (`C4` + `--elev const`:
+es gibt kein Tal) und der Wetterabbruch (`FBPilot` hat keinen Zweig, der die Auslösung verweigert, dieselbe
+Form, die W3 an der BINGO-Warnung gemessen hat) — beides mit Begründung im `.fbc`-Kopf.
+
+**Der zentrale Fund ist eine Kollision zweier Ankertatsachen.** Beide sind belegt: NATO flog mit einer
+harten Untergrenze von 15 000 ft, und die F-16CJ trug die AGM-88. Auf einer Neun-Punkte-Leiter (ein
+`p18`, eine Runde, 20,0 km, Abschusshöhe die einzige Variable) trifft die Runde von 3 000 bis 4 150 m
+(0,009–4,47 m), verfehlt bei **4 200 m um 74,8 m** und bei **4 572 m um 2 484 m** — und der letzte
+FRISCHE Blick jedes fehlschlagenden Schusses liegt bei exakt **15,00°**, gemessen an der Stellung: der
+publizierten Elevationsabdeckung des P-18 (`SearchElCenterDeg 5 + SearchElHalfDeg 10`). 15 000 ft =
+4 572 m. **Die Untergrenze liegt 372–422 m über der Decke ihrer eigenen SEAD-Waffe**, also fliegt jeder
+Weasel dieser Kampagne auf 3 000 m und schreibt es in seinen Kopf.
+
+**Was ein Verteidiger gewinnt, der grundsätzlich nicht strahlt — eine Geometrie, ein Hebel, drei
+Stellungen.** Knoten strahlt: nach 66,5 s tot. Alles auf `emcon hold`:
+`site RADIATE`/`TRACK`/`LAUNCH`/`net CUE` **3/2/4/4 → 0/0/0/0**, Stellungsverluste 1 → 0. Knoten plus
+drei `p18`-Attrappen: beide AGM-88 sterben auf einer Attrappe (0,019 m und 4,75 m), der Knoten lebt,
+`net CUE` **26 gegen 4**, der Gürtel verschießt **7 statt 4** Runden. **Und keine der drei Politiken
+bewegt den Angriff** — dieselben zwei Bomber, dieselben Takte, dasselbe `aimErrM`. Die Doktrin ist die
+Stellung wert und sonst nichts; die Attrappe kauft dieselbe Überlebensfähigkeit und behält das Gefecht.
+
+**Der Radarköder funktioniert und kostet nichts.** `cast.md` veranschlagte ihn als *"`p18` mit
+`rounds 0` und kleinem Tor"* — beides falsch: ein `p18` hat ohnehin `Channels 0`, ein Suchreichweiten-Key
+existiert nicht, und was ihn wirken lässt, ist gerade, dass er dieselbe Zeile ist wie der Knoten
+(`1 − (r/2R)²`, also gewinnt schlicht der nächste). Zwei Grenzen sind gemessen: die `arm_class`-Sortierung
+ist binär, und unterhalb von `Höhe/tan(15°)` — **17,1 km von der Untergrenze aus** — ist eine Attrappe
+überhaupt nicht hörbar.
+
+**Vom Schlechtwetter ist der WIND gemessen, die Decke ist Kulisse.** Sechs-Punkte-Leiter auf einer Datei:
+**5,014 m Bombenfehler pro Knoten** auf 4 572 m; die 46 kt der Fixture kosten 216 m, und jeder
+`wx fixture`-Angriff dieser Kampagne verfehlt; 20 kt Seitenwind machen aus **3 von 6** Treffern **0 von
+6**. Die Wolke wird genau **einmal** gemessen, am Auge: `vis MASKED … transmittance=8,00571e-13`.
+`irst_masked` ist in allen zehn Dateien 0, und eine reine Angriffsdatei protokolliert überhaupt keine
+`vis`-Zeile.
+
+**Drei Funde, keiner behoben.** (1) Eine halbaktive Batterie, die einen **Schienen**-Nachladevorgang
+beginnt, verwaist jede Runde in der Luft — beim dritten Start geht die 2K12 in `RELOAD`, der Beleuchter
+schweigt, 0,2 s später melden alle drei 3M9 `ILLUMINATION_LOST`, Runde 2 **1 776,6 m vor dem Ziel nach
+27,1 s Flug**; mit einem `set rounds 4`-Kontrolllauf zugeordnet, der beim identischen Takt verliert. (2)
+`objective suppress … emitting <s>` liest **MET mit `emittingS=0`** — es unterscheidet nicht, ob wir sie
+niedergehalten haben oder ob sie nie an war. (3) Der „erstes zulässiges Symbol"-Rastvorgang der
+Antiradarwaffe hat kein Gedächtnis für ihr Startziel: gegen einen verteilten Gürtel rastete sie
+**sechsmal in 11 s** auf vier Symbole, das letzte 36,7° neben der Nase.
+
+Beide Determinismus-Kriterien beim ersten Versuch: 9 Läufe eine Kampagnen-Signatur
+`6185addc27ec3ef896cd1aed4750d7a6bdf8555f9a3a1e2c6b12971533b8d80a`, 10/10 Schritte standalone
+bit-identisch — und der `replay` lief nach der **ersten** Mission. Der Übertrag ist eine Rufkennung
+(`kosnod`, 08 → 10) und **25 % des Meldeverkehrs** wert (60 gegen 80 `net CUE`), sonst nichts: 21 von 41
+Telemetriedateien byte-identisch, die übrigen 2–6 von 184–202 Spalten, alle sieben RWR- oder
+Datenlink-Buchhaltung, **keine Bahnspalte bewegt sich**. Und `--elev tiles` über das echte Kosovo
+(Boden 547,88 m) verschiebt `predErrM` 58,08 → 46,50 m und erzeugt **null Maskierungen** — die fehlende
+Hälfte von `C4` ist eine Rechnung, keine Datenlage.

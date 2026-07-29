@@ -1,0 +1,499 @@
+name w4-10-allied-force
+timeout 700
+time 1999-05-02T21:00:00Z
+wx fixture wx-2026-07-27T00Z.wxb
+
+# CAMPAIGN W4, SORTIE 10 OF 10 - ALLIED FORCE 1999. THE FULL NIGHT PACKAGE.
+# Spec, anchor and sources: doc/campaigns/w4-allied-force.md. Format: doc/missions/campaign.md.
+# CHAIN TERMINUS: 08 -> 10. It inherits and has no sibling. What sortie 08's suppression element
+# killed is DELETED from this file by the campaign overlay before the spawn (`campaign CARRY
+# unit=... action=drop`), and this file is also run STANDALONE so that the difference is a number.
+#
+# THE ANCHOR: W4's spec, mission 10 - "with every one of the campaign's four antagonists present at
+# once - cloud, mountains, an emitter that hides, and a fighter that only sometimes works - does the
+# package still find its targets?" 8 F-16 in four flights (4 strike, 2 escort, 2 SEAD), 4 MiG-29,
+# SAM/AAA, a bridge, four IADS nodes and two decoys.
+#
+# ONE OF THE FOUR ANTAGONISTS IS NOT PRESENT AND CANNOT BE: THE MOUNTAINS. `C4` - no terrain masking -
+# and `--elev const` - a 0 m plane where the real ground is 546-1,193 m. This file is the campaign's
+# capstone and it says plainly that it stages THREE of the four. That is the honest form of W4's own
+# §Gaps headline, and it is why this campaign is `C4`'s acceptance test rather than its proof.
+#
+# NIGHT, ONCE, FOR THIS FILE: 1999-05-02 at 21:00 Z over 42.70 N 21.15 E. Solar noon at this longitude
+# is 21.15/15 = 1.41 h before 12:00 Z, so 21:00 Z is about 10.4 h past local noon - full night, and
+# the runner logs the computed sun elevation at `MISSION_START`. WHAT NIGHT IS WORTH IN THIS TREE:
+# nothing emits light, so `sensors/FBVisualSystem` contributes nothing after dark and every detection
+# here is a radar or an infrared one. THE ONE MECHANISM IT DOES TAKE AWAY is the optical air-defence
+# layer: a ZU-23-2 and a MANPADS see with an eye and are therefore absent from this file by physics
+# rather than by omission (measured for the tree in `sam-manpads-night.fbm`). The AAA here is a
+# ZSU-23-4, which has a radar.
+#
+# THE CAST, [SET], Kosovo engagement zone, ingress west->east:
+#   `koshub` P-18       42.86000 21.35000 `emcon free`   - the deep node, the net's CONTROL. It is
+#                       105 km east of the SEAD spawn and out of the AGM-88's measured reach, which is
+#                       why the net still has a head after sortie 08 killed the forward one
+#   `kosnod` P-18       42.78000 20.95000 `emcon free`   - THE ONE CARRIED CALLSIGN, from sortie 08
+#   `kasa6`  2K12       42.70000 21.36000 `emcon hold` `autonomy hold`, `engage_max_m 12000`
+#   `kasa3`  S-125      42.64000 21.36000 `emcon hold` `autonomy hold`, `engage_max_m 12000`
+#                       BOTH SIT EAST OF THE AIM POINTS AND BOTH ARE CLAMPED, and the clamp is a
+#                       DOCTRINE declared as one: `set engage_max_m` may only narrow a published
+#                       envelope and never widen it, and a belt told to hold its fire until 12 km is
+#                       exactly the engagement discipline this campaign is about. The geometric
+#                       consequence is stated rather than discovered: it keeps the belt off the
+#                       strikers' RUN-IN and puts it on their egress and on the escorts, which is what
+#                       a belt defending a bridge does and what `FirstFlightKo` requires of a package
+#   `kosflk` ZSU-23-4   42.70000 21.18000, 40 rounds - radar-directed, so it works at night
+#   `kadka`/`kadkb`     two P-18 decoys at 42.78000 20.93000 and 42.76000 20.93500
+#   `kabrg`  target_hard 42.70000 21.20000 - the bridge
+#   `kan1..kan4` four `target_soft` IADS nodes on the approach
+#
+# THE PACKAGE: `kawsa`/`kawsb` SEAD at 3,000/3,150 m (under the floor, where the AGM-88 works - see
+# sortie 04), `kastra..kastrd` four strikers at 4,572 m (AT the floor) spawning 27-34 km short of their
+# aim points, `kaesca`/`kaescb` two escorts at 6,000 m, four MiG-29 from the east. THE STRIKERS' SPAWN
+# RANGE IS A `FirstFlightKo` DECISION AND IS DECLARED AS ONE: a mission-killed jet takes ~120 s to
+# reach the ground and ends the whole run when it does, so a package file has to put every release AND
+# every 33 s bomb flight before the first fatal hit. A first cut spawned them 57 km out and the run
+# ended with three bombs still in the air.
+#
+# THE FOUR STRUCTURAL DISCLOSURES: see w4-01-floor.fbm. All four apply; #4 is what bounds this file's
+# run length.
+#
+# THE ONE TACTICAL QUESTION: WITH CLOUD, A HIDING DEFENCE AND A HALF-BLIND FIGHTER ALL PRESENT AT
+# ONCE, DOES THE PACKAGE STILL FIND ITS TARGETS?
+#
+# READING RULE (binding): the exit code is the worst thing that happened and is not the verdict. Read
+# (1) strikers that reached release and how many aim points died, (2) aircraft lost on both sides,
+# (3) `net CUE` and `site LAUNCH` counts against the STANDALONE run of this same file (the carry's own
+# measurement), (4) which emitter each AGM-88 latched. Do NOT read a kill as a lever's effect.
+#
+# MEASURED (fingerprint 50de24225ef47473, exit 3): THE PACKAGE FINDS EVERY TARGET, RELEASES ON ALL
+# FOUR, DESTROYS NONE, AND COMES HOME COMPLETE.
+#   the package       **4 of 4 strikers reached release** (t=76.6 / 87.4 / 96.5 / 106.2) and **8 of 8
+#                     aircraft recovered** - the spec's ">= 7 of 8 recover" met, its ">= 3 of 4 IADS
+#                     nodes + the bridge" **not met, 0 of 5**
+#   the delivery      `aimErrM` **275.08 / 264.40 / 270.19 / 181.57 m** under the fixture's 46 kt. The
+#                     Mk-84 on the bridge is the closest at 181.57 m and a `target_hard` needs ~17.7 m
+#                     from that warhead. This is sortie 02's ladder at eight-ship scale and it is the
+#                     campaign's answer to its own capstone question: THE PACKAGE FINDS ITS TARGETS AND
+#                     CANNOT HIT THEM, and what stops it is the weather rather than the defence
+#   the SEAD          both AGM-88 latch and kill a DECOY (`target=kadka`, 2 hits). `kosnod` - the
+#                     carried node - is untouched in the standalone run and already dead in the
+#                     campaign one. Sortie 06's mechanism at capstone scale, and the campaign's two
+#                     anti-radiation rounds bought a second tin shed
+#   the defence       `site LAUNCH` **5** (S-125 x4, 2K12 x1), zero arrivals; `kosflk` (ZSU-23-4, the
+#                     one AAA row that works at night) never engages a 4,572 m package
+#   the fighters      4 MiG-29 up, 5 AIM-120 and 1 R-27R fired, **zero aircraft lost on either side**;
+#                     one AIM-120 departs (`monitor KO ... reason=LOC ... departure`) and one 3M9 mushes
+#   THE CARRY, MEASURED BY RUNNING THIS FILE TWICE - as campaign step 10 and STANDALONE (attribution
+#   A5). `campaign CARRY unit=kosnod action=drop reason="destroyed in an earlier mission"`:
+#     `net CUE`                    **60** in campaign against **80** standalone  (-25 %)
+#     `net JOIN`                   3 against 4
+#     `site RADIATE` / `TRACK` / `LAUNCH`   3 / 3 / 5  -  **identical**
+#     `stores DELIVERY` and all four `aimErrM`         **identical**
+#     aircraft lost / positions lost                   **identical** (0 / 1 decoy)
+#     telemetry                    **21 of 41 files byte-identical**; the other 20 differ in 2 to 6 of
+#                                  184-202 columns, and the union of every differing column in the
+#                                  whole run is SEVEN: `rwr_threats`, `rwr_mode`, `rwr_brg`, `rwr_el`,
+#                                  `rwr_leth`, `rwr_new`, `dl_near`. **NOT ONE TRAJECTORY COLUMN MOVES**
+#   SO KILLING A FORWARD EARLY-WARNING NODE IS WORTH 25 % OF THE CUE TRAFFIC AND NOTHING ELSE WHEN THE
+#   NET HAS A SECOND NODE - which is W3's own finding (36 % on its topology) reproduced on a second
+#   one, and the direct qualification of O5's "one Mk-84 on the P-18 costs the missile layer two
+#   nights": that field had ONE node.
+
+net kosair
+  control koshub
+  link wire
+  period 4.0
+  hold 3
+  wcs free
+  member koshub
+  member kosnod
+  member kasa6 autonomy hold
+  member kasa3 autonomy hold
+  member kosflk autonomy free
+
+unit kawsa
+  module f16
+  team friendly
+  flight ws10 1
+  spawn 42.78000 20.70560 3000 90.0 480
+  set gear up
+  set fuel_pct 70
+  set fcr_mode off
+  set rwr on
+  set store 3 agm88
+  set store 7 agm88
+  set arm_class any
+  set brief_master_arm arm
+  set task attack
+  set attack_mode arm
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.78000 20.90000 3000 480
+  wp 42.78000 20.50000 3000 480
+  objective survive
+
+unit kawsb
+  module f16
+  team friendly
+  flight ws10 2
+  spawn 42.75000 20.70560 3150 90.0 480
+  set gear up
+  set fuel_pct 70
+  set fcr_mode off
+  set rwr on
+  set store 3 agm88
+  set store 7 agm88
+  set arm_class any
+  set brief_master_arm arm
+  set task attack
+  set attack_mode arm
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.75000 20.90000 3150 480
+  wp 42.75000 20.50000 3150 480
+  objective survive
+
+unit kastra
+  module f16
+  team friendly
+  flight st10 1
+  spawn 42.70000 20.78000 4572 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set rwr on
+  set store 3 mk84
+  set store 7 mk84
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.70000 21.20000 4572 450
+  wp 42.70000 20.60000 4572 450
+  objective kill unit kabrg
+  objective survive
+
+unit kastrb
+  module f16
+  team friendly
+  flight st10 2
+  spawn 42.73000 20.78000 4720 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 7 mk82
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.73000 21.14000 4720 450
+  wp 42.73000 20.60000 4720 450
+  objective kill unit kan1
+  objective survive
+
+unit kastrc
+  module f16
+  team friendly
+  flight st10c 1
+  spawn 42.66000 20.78000 4870 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 7 mk82
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.66000 21.17000 4870 450
+  wp 42.66000 20.60000 4870 450
+  objective kill unit kan2
+  objective survive
+
+unit kastrd
+  module f16
+  team friendly
+  flight st10c 2
+  spawn 42.63000 20.78000 5020 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 7 mk82
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.63000 21.11000 5020 450
+  wp 42.63000 20.60000 5020 450
+  objective kill unit kan3
+  objective survive
+
+unit kaesca
+  module f16
+  team friendly
+  flight es10 1
+  spawn 42.70000 20.80000 6000 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set iff_interrogator on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 42.70000 21.60000 6000 480
+  objective kill team hostile
+  objective survive
+
+unit kaescb
+  module f16
+  team friendly
+  flight es10 2
+  spawn 42.66000 20.80000 6150 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set iff_interrogator on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 42.66000 21.60000 6150 480
+  objective kill team hostile
+  objective survive
+
+unit kamig1
+  module mig29
+  team hostile
+  flight kn10 1
+  spawn 42.70000 21.95000 5000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set kols_mode ir
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 40 270 120 0
+  set brief_gci 110 270 85 0
+  set brief_gci 180 270 55 0
+  wp 42.70000 20.60000 5000 450
+  objective kill team friendly
+  objective survive
+
+unit kamig2
+  module mig29
+  team hostile
+  flight kn10 2
+  spawn 42.66000 21.95000 5150 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode off
+  set n019_range_nm 54
+  set n019_emission off
+  set kols_mode ir
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 40 270 120 0
+  set brief_gci 110 270 85 0
+  set brief_gci 180 270 55 0
+  wp 42.66000 20.60000 5150 450
+  objective kill team friendly
+  objective survive
+
+unit kamig3
+  module mig29
+  team hostile
+  flight kn10b 1
+  spawn 42.76000 21.95000 5300 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set kols_mode ir
+  set rwr on
+  set brief_sort right
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 40 270 120 0
+  set brief_gci 110 270 85 0
+  set brief_gci 180 270 55 0
+  wp 42.76000 20.60000 5300 450
+  objective kill team friendly
+  objective survive
+
+unit kamig4
+  module mig29
+  team hostile
+  flight kn10b 2
+  spawn 42.80000 21.95000 5450 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode off
+  set n019_range_nm 54
+  set n019_emission off
+  set kols_mode ir
+  set rwr on
+  set brief_sort right
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 40 270 120 0
+  set brief_gci 110 270 85 0
+  set brief_gci 180 270 55 0
+  wp 42.80000 20.60000 5450 450
+  objective kill team friendly
+  objective survive
+
+unit koshub
+  module p18
+  team hostile
+  spawn 42.86000 21.35000 ground 270.0 0
+  set emcon free
+
+unit kosnod
+  module p18
+  team hostile
+  spawn 42.78000 20.95000 ground 270.0 0
+  set emcon free
+
+unit kasa6
+  module sa6
+  team hostile
+  spawn 42.70000 21.36000 ground 270.0 0
+  set emcon hold
+  set rounds 3
+  set engage_max_m 12000
+
+unit kasa3
+  module sa3
+  team hostile
+  spawn 42.64000 21.36000 ground 270.0 0
+  set emcon hold
+  set rounds 4
+  set engage_max_m 12000
+
+unit kosflk
+  module zsu23
+  team hostile
+  spawn 42.70000 21.18000 ground 270.0 0
+  set emcon free
+  set rounds 40
+
+unit kadka
+  module p18
+  team hostile
+  spawn 42.78000 20.93000 ground 270.0 0
+  set emcon free
+
+unit kadkb
+  module p18
+  team hostile
+  spawn 42.76000 20.93500 ground 270.0 0
+  set emcon free
+
+unit kabrg
+  module target_hard
+  team hostile
+  spawn 42.70000 21.20000 ground 90.0 0
+
+unit kan1
+  module target_soft
+  team hostile
+  spawn 42.73000 21.14000 ground 90.0 0
+
+unit kan2
+  module target_soft
+  team hostile
+  spawn 42.66000 21.17000 ground 90.0 0
+
+unit kan3
+  module target_soft
+  team hostile
+  spawn 42.63000 21.11000 ground 90.0 0
+
+unit kan4
+  module target_soft
+  team hostile
+  spawn 42.74000 21.22000 ground 90.0 0

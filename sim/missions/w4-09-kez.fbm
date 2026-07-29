@@ -1,0 +1,199 @@
+name w4-09-kez
+timeout 600
+time 1999-05-27T10:00:00Z
+wx wind 180 20
+
+# CAMPAIGN W4, SORTIE 9 OF 10 - ALLIED FORCE 1999. THE KOSOVO ENGAGEMENT ZONE.
+# FOUR AIRCRAFT, SIX DISPERSED TARGETS, ONE BOMB EACH.
+# Spec, anchor and sources: doc/campaigns/w4-allied-force.md. Format: doc/missions/campaign.md.
+# CONTROL: none, and it needs none - its answer is arithmetic that the run either meets or does not.
+#
+# THE ANCHOR: the Kosovo engagement zone, ~42.2-43.2 N 20.2-21.8 E [T4, approximate], where NATO hunted
+# dispersed Yugoslav armour from above 15,000 ft for weeks. W4's spec asks: "Against dispersed, small,
+# moving targets from 15,000 ft, how many passes does a four-ship need - and how much of the answer is
+# the store rather than the pilot?"
+#
+# THE TARGETS ARE STATIC AND THAT IS DECLARED, NOT WORKED AROUND (`C14`): there are no moving ground
+# units in this tree, so this is a hunt for parked vehicles and every number below is an UPPER bound
+# on what the same package would do against a column that moves. The dispersal is real, though, and it
+# is the half that decides: six `target_soft` at 42.55-42.60 N / 21.05-21.30 E, no two closer than
+# 1.9 km, against an Mk-82's ~45 m fragment radius. NO BOMB IN THIS FILE CAN KILL TWO TARGETS.
+#
+# THE ARITHMETIC, STATED BEFORE THE RUN so that the result is a measurement and not a surprise:
+# `FBPilot`'s attack phase flies ONE pass and pickles ONCE (see `attack-ccrp.fbm`'s own header: "the
+# second is never dropped: one pass"). Four aircraft therefore release four bombs at four aim points,
+# and the spec's condition of >= 4 of 6 is exactly achievable and not more. WHAT DECIDES IS WHETHER
+# EACH BOMB LANDS INSIDE 45 m, and sortie 02 measured that a 46 kt wind costs 5.0 m of along-track
+# error per knot at this altitude. THIS FILE FLIES 20 kt FROM 180 deg, i.e. a pure CROSSWIND on an
+# eastbound run - the component the fire control's stored table also does not have.
+#
+# THE WIND IS [SET] at the fixture's own low-level magnitude (8.54 m/s = 16.6 kt at 1,200 m over this
+# arena) rounded to 20 kt, and its direction is chosen to be across the run rather than along it,
+# because sortie 02 already measured the along-track case in full with a sensitivity ladder.
+#
+# `k9flk` is a ZSU-23-4 in the middle of the column - radar-directed AAA, 1,500 m ceiling, which at a
+# 4,572 m ingress can do nothing at all. It is here because a real armoured column carried its own air
+# defence and because the reader must see WHICH layer the floor is a wall against (sortie 01 measured
+# that; this file only re-states it at package scale).
+#
+# THE FOUR STRUCTURAL DISCLOSURES: see w4-01-floor.fbm. Disclosure 1 is worth repeating here: real
+# armour in Kosovo hid in terrain and under trees, and this arena has neither.
+#
+# THE ONE TACTICAL QUESTION: HOW MANY OF SIX DIE, AND HOW MUCH OF THE ANSWER IS THE STORE RATHER THAN
+# THE PILOT?
+#
+# READING RULE (binding): exit 3 = TIMEOUT is expected. Read (1) the number of `stores DELIVERY` lines
+# - that is releases, not kills, (2) each one's `aimErrM` against the ~45 m fragment radius, (3)
+# `UNIT_RESULT` for the six targets, (4) `zone_flak_s` (there is no zone here; read `k9flk`'s `site`
+# lines instead: zero engagement from 4,572 m). A target that survives a 60 m miss is the STORE's
+# answer and not the pilot's.
+#
+# MEASURED (fingerprint ae101b182ff6aa83, exit 3): ZERO OF SIX IN WIND, THREE OF SIX IN CALM, AND
+# FOUR OF SIX IS THE MOST THE STORE ALLOWS.
+#   the releases      **4 of 4 aircraft released**, one bomb each, at t=165.9 / 194.2 / 222.6 / 251.0.
+#                     The arithmetic in the header held exactly: four aircraft, four aim points, and
+#                     no way to reach the other two
+#   the delivery      `aimErrM` **69.03 / 68.40 / 71.89 / 78.76 m** against an Mk-82's ~45 m fragment
+#                     radius. `predErrM` 84.27 / 85.46 / 86.66 / 87.82 m
+#   the kills         **0 of 6.** Every aim point survives, and so do the two nobody aimed at
+#   THE ATTRIBUTION (rule 4, run A3 - this file with `wx calm` and nothing else changed):
+#                     `aimErrM` **57.98 / 40.67 / 50.37 / 43.28 m** and **3 of 6 DESTROYED**. So 20 kt
+#                     of crosswind is the difference between three of six and none of six, and the
+#                     campaign's answer to "how much of it is the store rather than the pilot" is:
+#                     the CEILING is the store (4 of 6 is the most four aircraft can do with one pass
+#                     each), and everything below that ceiling is the wind
+#   the AAA           `k9flk` (ZSU-23-4, 1,500 m ceiling) sits in the middle of the column and produces
+#                     **0 `site TRACK`, 0 `site LAUNCH`, 0 `gun BURST`** against a 4,572 m ingress -
+#                     sortie 01's envelope wall, restated at package scale
+#   AND THE HONEST CAVEAT REPEATED: these are PARKED vehicles (`C14`). A column that moves would have
+#   moved during the 33 s the bomb is in the air, and 69 m of miss would be the smaller half of the
+#   problem.
+
+unit k9stra
+  module f16
+  team friendly
+  flight kz9 1
+  spawn 42.55000 20.60000 4572 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 7 mk82
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.55000 21.05000 4572 450
+  wp 42.55000 20.65000 4572 450
+  objective kill unit k9t1
+  objective survive
+
+unit k9strb
+  module f16
+  team friendly
+  flight kz9 2
+  spawn 42.57000 20.60000 4720 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 7 mk82
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.57000 21.13000 4720 450
+  wp 42.57000 20.65000 4720 450
+  objective kill unit k9t2
+  objective survive
+
+unit k9strc
+  module f16
+  team friendly
+  flight kz9b 1
+  spawn 42.59000 20.60000 4870 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 7 mk82
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.59000 21.21000 4870 450
+  wp 42.59000 20.65000 4870 450
+  objective kill unit k9t3
+  objective survive
+
+unit k9strd
+  module f16
+  team friendly
+  flight kz9b 2
+  spawn 42.61000 20.60000 5020 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 7 mk82
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.61000 21.29000 5020 450
+  wp 42.61000 20.65000 5020 450
+  objective kill unit k9t4
+  objective survive
+
+unit k9t1
+  module target_soft
+  team hostile
+  spawn 42.55000 21.05000 ground 90.0 0
+
+unit k9t2
+  module target_soft
+  team hostile
+  spawn 42.57000 21.13000 ground 90.0 0
+
+unit k9t3
+  module target_soft
+  team hostile
+  spawn 42.59000 21.21000 ground 90.0 0
+
+unit k9t4
+  module target_soft
+  team hostile
+  spawn 42.61000 21.29000 ground 90.0 0
+
+unit k9t5
+  module target_soft
+  team hostile
+  spawn 42.56000 21.09000 ground 90.0 0
+
+unit k9t6
+  module target_soft
+  team hostile
+  spawn 42.60000 21.25000 ground 90.0 0
+
+unit k9flk
+  module zsu23
+  team hostile
+  spawn 42.58000 21.17000 ground 270.0 0
+  set emcon free
+  set rounds 40

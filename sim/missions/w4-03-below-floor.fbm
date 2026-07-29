@@ -1,0 +1,111 @@
+name w4-03-below-floor
+timeout 420
+time 1999-03-24T10:00:00Z
+
+# CAMPAIGN W4, SORTIE 3 OF 10 - ALLIED FORCE 1999.
+# THE SAME STRIKE FROM UNDER THE FLOOR - THE OTHER HALF OF THE TRADE.
+# Spec, anchor and sources: doc/campaigns/w4-allied-force.md. Format: doc/missions/campaign.md.
+# CONTROL: w4-01-floor.fbm - identical but for ONE fact, the ingress altitude (4,572 -> 1,200 m,
+# spawn and both waypoints), and the callsign prefix.
+#
+# THE ANCHOR: the 15,000 ft floor was a COMMAND decision, taken because of heavy MANPADS and AAA [T3],
+# and it was argued about for the whole 78 days because it cost accuracy against dispersed targets.
+# W4's §Gaps says the floor "is this campaign's whole subject and today it is an arbitrary altitude";
+# `C1` and `C23` closed on 2026-07-28 and this pair is where the argument becomes two numbers.
+#
+# WHY THIS FILE AND NOT A `wx` LINE. W4's spec §3 puts a mountain-valley strike in slot 3 and asks how
+# much of the miss is the wind and how much the terrain-relative geometry. THAT QUESTION IS NOT
+# ASKABLE IN THIS TREE and the campaign says so rather than dressing a straight line up as a valley:
+# `C4` means no terrain masks anything, and `--elev const` means there is no valley at all - the
+# ground is one plane. The wind half of it is measured, in full and with a sensitivity ladder, by
+# sortie 02 and attribution A1. The slot went to the other side of the floor, which is the thing §2's
+# contract calls "the thing the missions push against".
+#
+# 1,200 m is [SET]: it is below the ZU-23-2's 1,500 m ceiling and below the Strela-2M's 2,300 m one,
+# i.e. inside BOTH short-range layers, which is what "under the floor" has to mean for the trade to
+# be a trade. The cast, the aim point, the two `zone` cylinders and the timeout are 01's, unchanged.
+#
+# THE FOUR STRUCTURAL DISCLOSURES: see w4-01-floor.fbm. Disclosure 1 bites hardest here - a 1,200 m
+# ingress is exactly the profile real terrain would have masked, and this arena has none.
+#
+# THE ONE TACTICAL QUESTION: WHAT DOES GOING UNDER THE FLOOR BUY, AND WHAT DOES IT COST?
+#
+# READING RULE (binding): exit 3 = TIMEOUT is the expected verdict and it is NOT a failure - the
+# striker survives and kills its target, and the run simply has nowhere else to go. Read
+# `stores DELIVERY aimErrM` against 01's, then `zone_flak_s` against 01's 0.0 s, then every `site` and
+# `gun` line the two short-range positions produced, then the closest approach of the SA-6's rounds.
+# Do NOT read "it survived" as "it was safe".
+#
+# MEASURED (fingerprint 858393e587dae283, exit 3): UNDER THE FLOOR THE BOMB IS NO BETTER AND THE
+# AIRCRAFT IS INSIDE EVERYTHING.
+#   the bomb          `aimErrM` **46.99 m** against 01's **41.09 m** - the low run is 5.9 m WORSE, and
+#                     the campaign reports that rather than the result it expected. `predErrM` 49.91 m
+#                     against 58.08 m, i.e. the COMPUTER is better low by 8.2 m and the DELIVERY is
+#                     not: the release tick quantises the difference away. See 01's ladder
+#   the short layer   `k3man` (Strela-2M) TRACKs at t=153.0 and **LAUNCHES twice** (t=161.9, 267.7);
+#                     `k3flk` (ZU-23-2) TRACKs at t=164.0 and empties **40 of 40 rounds** in three
+#                     bursts from t=172.3. In 01 both produced 0 TRACK and 0 LAUNCH. THE FLOOR IS AN
+#                     ENVELOPE WALL AND 3,372 m OF ALTITUDE IS THE WHOLE OF IT
+#   the zones         `zone_flak_s` = **347.3 s** against 01's 0.0 s; `zone_sambelt_s` = **0.0 s**
+#                     against 01's 285.2 s. `objective avoid zone flak exposure 0` **UNMET** - the one
+#                     objective in this campaign a route decision alone decides
+#   the SAM layer     the 2K12 still reaches, and it reaches BETTER: 3 launches, and the two that flew
+#                     pass the aircraft at **9.22 m and 13.57 m against an 8 m fuze**. In 01 the same
+#                     battery fired the same three rounds and none came near. The low route is worse in
+#                     BOTH currencies at once
+#   THE HONEST SUMMARY: on this arena, under this catalogue, going below the floor buys NOTHING. Every
+#   SAM row in `modules/ground/catalogue.md` reaches down to 100-450 m, so a low ingress leaves no
+#   envelope and enters two more. What the real low ingress bought was TERRAIN, and terrain is `C4`.
+
+zone flak 42.70000 20.98000 14000 0 3500
+zone sambelt 42.70000 20.98000 14000 3500 8000
+
+unit k3str
+  module f16
+  team friendly
+  spawn 42.70000 20.60000 1200 90.0 450     # the ONE fact that differs from w4-01: 1,200 m
+  set gear up
+  set fuel_pct 70
+  set datalink off
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 7 mk82
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  wp 42.70000 21.10000 1200 450
+  wp 42.70000 20.70000 1200 450
+  objective kill unit k3tgt
+  objective survive
+  objective avoid zone flak
+
+unit k3man
+  module sa7
+  team hostile
+  spawn 42.70000 21.06000 ground 270.0 0
+  set emcon free
+  set rounds 2
+
+unit k3flk
+  module zu23
+  team hostile
+  spawn 42.70000 21.09000 ground 270.0 0
+  set emcon free
+  set rounds 40
+
+unit k3sam
+  module sa6
+  team hostile
+  spawn 42.66000 20.98000 ground 270.0 0
+  set emcon free
+  set rounds 3
+
+unit k3tgt
+  module target_soft
+  team hostile
+  spawn 42.70000 21.10000 ground 90.0 0
