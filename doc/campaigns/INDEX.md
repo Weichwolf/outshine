@@ -1,11 +1,12 @@
 # Campaigns — the ten scenario specifications
 
-**Status: three of ten BUILT (O4, O1 and O5, all 2026-07-29), seven spec only.** `sim/missions/o4-*.fbm`,
-`sim/missions/o1-*.fbm` and `sim/missions/o5-*.fbm` with their three `.fbc` files exist, run, replay and
-are measured ([`o4-gaf-mig29g-dact.md`](o4-gaf-mig29g-dact.md) §State,
+**Status: four of ten BUILT (O4, O1, O5 and O2, all 2026-07-29), six spec only.** `sim/missions/o4-*.fbm`,
+`sim/missions/o1-*.fbm`, `sim/missions/o5-*.fbm` and `sim/missions/o2-*.fbm` with their four `.fbc` files
+exist, run, replay and are measured ([`o4-gaf-mig29g-dact.md`](o4-gaf-mig29g-dact.md) §State,
 [`o1-bekaa-1982.md`](o1-bekaa-1982.md) §State, [`o5-airfield-defence.md`](o5-airfield-defence.md)
-§State); no other campaign has a `.fbm` file. The directory exists because the missions must not be
-invented: a campaign without a cited anchor is a mood, and a mood cannot be measured.
+§State, [`o2-pvo-intercept.md`](o2-pvo-intercept.md) §State); no other campaign has a `.fbm` file. The
+directory exists because the missions must not be invented: a campaign without a cited anchor is a mood,
+and a mood cannot be measured.
 
 ### What O4 established, and what the other nine inherit from it
 
@@ -71,6 +72,24 @@ look at.** O5 found three, and none of them is in the subsystem the campaign was
 in the pilot's phase machine, one in the air catalogue's composition, one in a coordinate frame inside
 the GCI entry chain that every eastern campaign depends on.
 
+### What O2 added, and the other six inherit it too
+
+O2 was built fourth, took all eleven rules unchanged and passed both criteria on the first attempt (9
+runs one fingerprint, 10/10 replays). Its three contributions are about **what a measurement is worth**
+rather than about layout or claims:
+
+| Rule | Why it exists |
+|---|---|
+| **A campaign result that contradicts three earlier ones is a different QUANTITY until proved otherwise** | O1 and O5 measured the controller at nothing, three times. O2 measures him at the entire intercept — and the difference is not the theatre. In all three earlier files the MiG's radar was already `illum` at spawn, so deleting the brief left it badly AIMED; O2 flies the documented power-up state (`n019_emission off`), where the brief's third entry is the only thing that turns the radar on at all. The deciding line is `set n019_emission`, not `set brief_gci`, and a campaign that had not looked would have published a contradiction |
+| **A "read the source" item is worth a round of its own, and the blocked path is not the only path** | `PROGRESS.md` had carried two CIA documents as *"the highest-value unread source in the directory"* since run 1, marked "not retrieved this pass". They are Akamai-blocked on `cia.gov` and completely available on the Wayback Machine. Reading them moved O2's doctrine half from [T4] to [T1], supplied the corridor unit that sortie 09 and 10 fly, and — the sharpest of the four — gave the campaign's own result its proportion: FlightBox times a **cockpit** loop at 8.0 s against an anchor whose **ground** loop took 10–15 minutes |
+| **A defect that is in the way must be measured on BOTH sides of its threshold** | O5 found the GCI world/body elevation frame and measured it where it bites (0 contacts in 700 s). O2 needed the same chain and measured it where it does NOT: the error is exactly `st.pitch`, `FBAutopilot` holds a 5.36…5.89° climb pitch band, the RAD bar is ±6.0°, and the margin is **0.11 to 0.64 degrees**. The bite condition — `|pitch| + |target body-frame offset| > 6.0°` — is a number the fix can be tested against, which a single bitten case was not |
+
+And one warning of its own, which is the third rule turned around: **the outcome axis of an air-to-air
+campaign is not ordered by the quality of its inputs.** O2's baseline put two R-27R inside the fuze at
+4.85 m and 4.75 m and did not kill; its *degraded* sibling put one in at 2.48 m and did. The deciding
+variable is the damage ZONE, so any campaign that reads "kills" as a lever's effect is reading a
+warhead's arrival geometry. Read the detection times.
+
 This directory is **step 4 of the owner goal** and its specification comes first, per
 [`../conventions.md`](../conventions.md)'s spec-first rule: *change the Spec of the topic file first;
 if a round cannot say what the contract becomes, it is not ready to start.*
@@ -89,7 +108,7 @@ Five in which the **F-16** flies, five in which the **MiG-29** flies. Ten missio
 | **W4** | [Allied Force 1999](w4-allied-force.md) | 24 March – 10 June 1999 | mountains, cloud and an air defence that refuses to emit — the campaign the weather hook was built for |
 | **W5** | [Baltic Air Policing / QRA](w5-baltic-qra.md) | NATO air policing, 30 March 2004– | **identification as the task**, and the sharpest anti-cheat test in the set |
 | **O1** | [Bekaa 1982, the Syrian side](o1-bekaa-1982.md) **— BUILT** | Operation Mole Cricket 19, 9 June 1982 | the canonical defeat, reframed as a measurable question: **what in the doctrine moves the outcome, and what is left when nothing does**. **Flown 2026-07-29:** the baseline reproduces the rout; ONE lever (launch at 1.4 × Rtr) inverts it; the controller is worth everything on a 45° entry and nothing head-on; the warning receiver, the belt, the net and ~~the anchor's own jamming~~ move mechanisms and no outcome. **AMENDED 2026-07-29:** the belt's nullity was a defect, not a doctrine — the ground-launch fix gave the rounds a trajectory, and the jamming lever now costs the belt 8 launches, 7 detonations and 2 positions. See the file's §"The ground half, re-measured" |
-| **O2** | [PVO intercept exercise](o2-pvo-intercept.md) | Soviet GCI doctrine + the MiG-29's own guidance panel | ground control in its pure form, and identity that always costs surprise |
+| **O2** | [PVO intercept exercise](o2-pvo-intercept.md) **— BUILT** | Soviet GCI doctrine + the MiG-29's own guidance panel (**doctrine half raised to [T1] 2026-07-29**: the two CIA reading-room documents were read) | ground control in its pure form, and identity that always costs surprise. **Flown 2026-07-29:** the loop is **11.0 s and splits 8.0 + 3.0**; the controller is worth the ENTIRE intercept on an aircraft that starts silent, which is why three earlier campaigns measured him at nothing; a wrong azimuth third deletes the intercept outright and a wrong altitude band deletes it for one aircraft of two, recovered 28 s late by a dead-band accident; a late commit buys 45.3 s of the target's silence and costs 77 % of the detection range; and the faction swap is **byte-identical in 5 of 5 telemetry files with 1 differing log line of 53** |
 | **O3** | [Yom Kippur 1973](o3-yom-kippur-1973.md) | the opening strikes, 6 October 1973 | ground attack under a friendly SAM umbrella — **the only campaign with zero runnable missions**, and the requirement that says why |
 | **O4** | [GAF MiG-29G DACT](o4-gaf-mig29g-dact.md) **— BUILT** | JG 73 Laage, 1991–2003 | the one campaign in which **both** FlightBox airframes really flew against each other — and the cheapest to build, because half of it is already measured. **Flown 2026-07-29:** the ten-mile claim holds at ten miles, trades at five and loses at two |
 | **O5** | [Airfield defence](o5-airfield-defence.md) **— BUILT** | Batajnica 24–26 March 1999, with Iraq 1991 as the parallel | a defender whose success is something **not happening**. **Flown 2026-07-29:** the vocabulary turned out to be the easy half — a pair already on station denies half a two-ship and nothing else comes close; the controller is worth 6 s; **one bomb on the field's P-18 costs its missile layer every launch for two nights**; and the campaign's own most important parameter, the scramble, **cannot be declared at all** |
@@ -144,14 +163,14 @@ declared again rather than hidden.
 
 ## What is buildable today
 
-**50 of the 100 missions when this table was written; 20 of them are now BUILT and the O4 and O1 rows
-are re-counted against the tree rather than against the spec.** Per campaign:
+**50 of the 100 missions when this table was written; 40 of them are now BUILT and the O4, O1, O5 and O2
+rows are re-counted against the tree rather than against the spec.** Per campaign:
 
 | Campaign | Runnable today | Blocked | The first pair to build |
 |---|---:|---:|---|
 | O4 GAF DACT | **10 — BUILT** | 0 (1 runs but cannot answer) | done: ten `.fbm` + one `.fbc`, both determinism criteria measured |
 | O1 Bekaa | **10 — BUILT** | 0 (the ground half runs and cannot decide — see its §Gaps row 1) | done: ten `.fbm` + one `.fbc`, both determinism criteria measured on the first attempt |
-| O2 PVO | **7** | 3 | `o2-06` / `o2-08` — the identification anti-cheat pair |
+| O2 PVO | **10 — BUILT** | 0 (the spec's mission 9 folded into the chain, named in the `.fbc` header) | done: ten `.fbm` + one `.fbc`, both determinism criteria measured on the first attempt |
 | O5 Airfield defence | **10 — BUILT** | 0 (2 spec missions dropped with reasons in the `.fbc` header) | done: ten `.fbm` + one `.fbc`, both determinism criteria measured on the first attempt |
 | W3 Desert Storm | **5** | 5 | `w3-07` / `w3-08` — the same GCI experiment, another theatre |
 | W1 Red Flag | **4** | 6 | `w1-01` … `w1-04`, the ladder |
@@ -392,6 +411,19 @@ The tree's own restrictions make the test possible, and every one of them helps:
 `w5-03` and `o2-08` are that experiment, on the two airframes. They need **nothing that does not
 exist**, which is why both campaigns nominate them as the first pair to build.
 
+**`o2-08` was flown 2026-07-29 and the criterion holds in its STRONG form.** Two runs differing in one
+token (`team neutral` → `team friendly`): **5 of 5 `telemetry*.csv` byte-identical**, and `events.log`
+differing in **exactly one line of 53** — `mission UNIT_RESULT … team=`, written by the RUNNER and
+readable by no simulated system. Four perception channels were live for the whole 300 s (N019 plus its
+interrogator, KOLS, the eye, SPO-15) and none of them moved. There is no first discriminator to be
+identical *up to*, because IFF Mode 4 is two-valued and a stranger and an enemy are the same silence.
+
+**And the pair needed a third file, which is now a rule.** A byte-identical pair has two possible causes —
+no leak, or a dead channel — so `o2-07` is the control run: the same intercept with a subject that
+ANSWERS. It differs from `o2-06` in exactly two log lines (`reply=none` → `reply=friendly` at the same
+tick, plus the same `team=` field) and in **zero** telemetry bytes on the interceptor. The channel fires;
+the pilot does nothing with it; and `w5-03` should budget the same third slot.
+
 ### What mission data must carry, and what it must not
 
 | Must be declarable | Must NOT be declarable |
@@ -486,6 +518,17 @@ with no normalisation.
 
 **If the three disagree, the answer is a property of the geometry rather than of the doctrine, and
 that is itself the finding.**
+
+**FOUR now, and they disagree — and the reason is neither geometry nor doctrine.** `o2-04-no-gci` runs
+the same deleted line in a fourth theatre and produces **zero radar contacts, zero emissions and an
+intruder that never learns a fighter was there**, against o1-02's 8 → 4 contacts, o1-03's identical
+outcome and o5-03's six seconds. The mechanism is one other line in the file: O1 and O5 spawn their MiGs
+with `set n019_emission illum`, so deleting the brief leaves the antenna badly AIMED; O2 spawns them in
+the documented power-up position `off`, where the brief's THIRD typed entry is the only thing in the
+tree that ever turns the radar on. **The comparable quantity across the four is therefore not "what the
+controller is worth" but "what the controller is worth GIVEN an emission policy",** and the three
+earlier files should be read as measuring the aiming and this one as measuring the existence. The
+one-line experiment is still one line; it is just not the same line in all four.
 
 ---
 

@@ -1,0 +1,285 @@
+name o2-10-exercise-two-1
+timeout 500
+time 1984-06-16T20:00:00Z
+
+# CAMPAIGN O2, SORTIE 10 OF 10 - PVO INTERCEPT EXERCISE: GROUND CONTROL IN ITS PURE FORM.
+# THE EXERCISE, WAVE TWO, AT NIGHT: THE SAME FOUR AIRCRAFT WITH WHAT WAVE ONE LEFT THEM.
+# Spec, anchor and sources: doc/campaigns/o2-pvo-intercept.md. Format: doc/missions/campaign.md.
+# CONTROL: none. CHAIN TERMINUS - it inherits `pvo1`..`pvo4` and the `pvo*` complex from o2-09.
+#
+# THE CHAIN, AND WHY IT IS TWO WAVES AND NOT THREE. Sorties 09 and 10 are one roster (`pvo1`..`pvo4`)
+# and one defended complex (`pvoews`, `pvocp`, `pvoveh`) flown twice, with `carry units ground stores`
+# NOT narrowed: wave two flies with what wave one left. The carry sits here and nowhere else, because
+# this is the only place the campaign has a QUESTION about it - IS THE CONTROLLER WORTH THE SAME TO A
+# FORCE THAT HAS ALREADY SPENT ITS MAGAZINES AND LOST AIRCRAFT? Ten slots hold one baseline, four
+# single-lever variants, one control pair plus its own control run, and this chain; a third wave did not
+# fit. WHAT THAT COSTS IS STATED: two points give a DIFFERENCE, never a TREND, so this campaign cannot
+# show a force-state curve and does not claim one.
+#
+# THE CORRIDOR FRIENDLY IS THE T1 ANCHOR ARRIVING AS A UNIT. Mitronin (Warsaw Pact journal 12/1976, read
+# in this round) writes that corridors are established through the air-defence zone to guarantee the
+# safety of one's own flights, that the enemy may discover and exploit them, and that they must be
+# covered by units WITH IDENTIFICATION MEANS. Each wave therefore carries one aircraft on OUR team,
+# transponder on, flying inside the raid's piece of sky. It has `objective survive`, its loss is covered
+# by nobody, and a fratricide therefore ENDS THE RUN AS A FAIL. That is not a hazard of the design; it is
+# the measurement.
+#
+# THE ARENA, and every coordinate in it is [SET]. An exercise has no battlefield, so this campaign flies
+# over the Soviet air-defence firing range at Ashuluk, Astrakhan oblast [T4], taken as ~47.30 N 47.90 E
+# and NOT improved on. Flown under `--elev const` on a 0 m datum and with NO TERRAIN MASKING (gap C4).
+#   the defended complex   a command post (target_hard) and a vehicle park (target_soft) - the objects
+#                          the vector exists to protect
+#   the early-warning set  a P-18, `set emcon free`, deployed forward of the complex on the approach
+#                          axis. GAP C1 IS CLOSED AND THIS CAMPAIGN RE-CHECKED IT: the spec still says
+#                          "target_soft only, the EW radar that generates the vector is inert". It is
+#                          not inert any more - it radiates, it is heard by the intruder's RWR as
+#                          `kind=surface-search` from t = 0.1, it builds its own tracks, and it can be
+#                          killed. Every ground object in this campaign is OURS and none is a target
+# Scale at this latitude: 1 deg of longitude = 75 490 m, 1 deg of latitude = 111 132 m [DERIVED].
+#
+# TEMPORAL HONESTY AND ITS DIRECTION. The PVO's own subject was a large, slow, high, unmanoeuvring
+# aircraft - a bomber or an ELINT platform - and FlightBox has neither as a flyable module (gap C7: the
+# catalogue's `tu95` row is a KINEMATIC MOVER, not an airframe). The intruder here is an F-16: faster,
+# smaller and far harder to find than the aircraft the doctrine was written against. THE SUBSTITUTION
+# MAKES THE INTERCEPT HARDER THAN HISTORY, so a FlightBox result in which the loop still closes says
+# something WEAKER than the doctrine claimed, and one in which it does not close says nothing about it.
+#
+# AND THE CATALOGUE IS NOT A WAY ROUND IT. Four `air` rows are ACCEPTED, and ACCEPTED in
+# doc/modules/air/flight-model-recipe.md means ACCEPTED AS A FLIGHT MODEL - the promotion gate measures
+# the DECK and nothing else. It measures no weapon, no sensor and no engagement, and four of the ten
+# armed rows cannot employ anything at all. A campaign citing a catalogue row as a COMBATANT would be
+# citing something no gate has ever checked, so this campaign cites none: every aircraft in all ten
+# files is one of the two flyable modules.
+#
+# THE STRUCTURAL DISCLOSURE, repeated in all ten files because a reader who skips it reads every result
+# backwards:
+#   1. THE CONTROLLER IS A STRING (gap C6). `set brief_gci` is fixed before the run: nothing re-vectors,
+#      nothing goes silent mid-intercept, nothing is wrong halfway through. Every wrong brief in this
+#      campaign is wrong FROM THE START, which is the easy case, and the campaign says so.
+#   2. THE PILOT CANNOT DISAGREE WITH HIS BRIEF, AND WHAT LOOKS LIKE A RECOVERY IS A DEAD-BAND ACCIDENT.
+#      `FBMig29Pilot` types what it was given and has no path to re-enter a call it has reason to doubt.
+#      `FBPilot`'s own uncued search law does keep posting an elevation, but only when ITS OWN wanted
+#      angle has moved more than `kInterceptElDeadDeg` = 2.0 deg from ITS OWN last command - and that
+#      cache is per aircraft. MEASURED in sortie 02: the wingman's cache sat at 0.0, drifted past the
+#      band at t = 55.9 and pulled the antenna back down; the leader's sat at -2.0 from t = 3.5, never
+#      drifted, and never looked at the raid again. One aircraft of two recovered, 28 s late, and not
+#      because anybody doubted the controller. So 02 and 03 measure the cost of a wrong entry AND the
+#      absence of any deliberate recovery, and the two cannot be separated inside one file.
+#   3. THE GCI ELEVATION ENTRY IS A WORLD-FRAME ANGLE IN A BODY-FRAME COMMAND (doc/pilot.md 2.15, found
+#      by O5 and STILL OPEN on the tree this campaign was flown against). Every interceptor in all ten
+#      files is therefore laid out in LEVEL flight, and what that costs is measured in this campaign's
+#      own attribution run rather than argued (see doc/campaigns/o2-pvo-intercept.md, State).
+#   4. `FBMissionRunner` ends the whole run at the first flight-monitor K.O. (`FirstFlightKo`).
+#
+# THE ONE TACTICAL QUESTION: IS THE CONTROLLER WORTH THE SAME TO A FORCE THAT HAS ALREADY PAID? The
+# brief is correct, the geometry is head-on for the southern pair and a 60 deg crossing for the northern
+# one, and the only thing that differs from a fresh force is what step 09 spent and lost. THIS FILE MUST
+# THEREFORE BE READ TWICE - once as campaign step 10 and once STANDALONE - and the difference between
+# those two runs is the entire measurement. Run standalone it is a fully loaded four-ship; run in the
+# campaign it is whatever came home.
+#
+# THE NIGHT IS DECLARED AND IS MEASURED AT ZERO. O4 priced it at six visual telemetry columns out of 184,
+# none of them read by any pilot, and nothing in this tree emits light. It is here because the spec's
+# tenth mission is a night exercise and because a declared clock costs nothing; no claim below rests on
+# it.
+#
+# READING RULE (binding): exit 1 or 3 are both expected. The verdict is the PAIR OF READINGS:
+#   1. the `campaign CARRY` lines this step receives - which aircraft were dropped, which `set store`
+#      lines were deleted, and whether any ground object of the complex is gone,
+#   2. the same five readings as sortie 09, taken twice: in the campaign and standalone,
+#   3. `campaign ATTRITION` and `campaign EXPENDED` at the end of the campaign log.
+# A step that reads identically in both runs would mean the carry moved nothing, and that is a
+# publishable answer as long as it is MEASURED and not assumed.
+#
+# MEASURED (fingerprint 09e71efe2a0791ec as campaign step 10, exit 3): THE MAGAZINE DECIDES THE WEAPON,
+# AND THE WEAPON DECIDES THE RANGE. The carry entering this step is 10 `campaign CARRY ... action=stores`
+# lines and NOTHING else - `units` and `ground` carried nothing, because wave one lost nobody and the
+# complex was never touched. pvo1 enters with 1 R-27R, pvo2 with 0, pvo3 with 0 R-27R and 1 R-73, pvo4
+# with 0 AND 0: an empty aeroplane on a correct vector.
+#
+#   |                    | STANDALONE (full magazines) | AS CAMPAIGN STEP 10 |
+#   | releases           | 7  (5 R-27R, 2 R-73)        | 4  (1 R-27R, 3 R-73) |
+#   | detonations        | 5                           | 2                    |
+#   | first kill         | `w2a` t = 80.6, R-27R, 3.46 m | `w2a` t = 182.3, R-73, 1.37 m |
+#   | run length         | 328.1 s                     | 304.6 s              |
+#
+#   THE SAME FILE, THE SAME BRIEF, THE SAME GEOMETRY, THE SAME CONTROLLER - and the kill moves 101.7 s
+#   later and from a semi-active radar round fired at BVR to an infrared round fired at the merge,
+#   because that is what was left on the rails. THE CONTROLLER'S WORTH DID NOT CHANGE (both waves take
+#   the identical 8.0 s and reach a firm track at the identical 3.0 s after it); WHAT THE FORCE COULD
+#   DO WITH HIS VECTOR DID. That is the entire content of this campaign's carry, and it is one
+#   difference and not a trend - two points cannot be a curve, and the `.fbc` header says so.
+#   `deny release team friendly` MET on all four in both runs; the corridor aircraft `w2c` recovered in
+#   both. The night contributed nothing measurable, as declared.
+
+unit pvo1
+  team hostile
+  flight sok1 1
+  module mig29
+  spawn 47.30000 48.10000 8000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_emission off
+  set rwr on
+  set iff_interrogator on
+  set kols_mode ir
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 32 8
+  set brief_gci 50 270 18 8
+  set brief_gci 75 270 7 8
+  wp 47.30000 47.50000 8000 450
+  objective kill team friendly
+  objective deny release team friendly
+  objective survive
+
+unit pvo2
+  team hostile
+  flight sok1 2
+  module mig29
+  spawn 47.31200 48.11500 8150 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_emission off
+  set rwr on
+  set iff_interrogator on
+  set kols_mode ir
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 32 8
+  set brief_gci 50 270 18 8
+  set brief_gci 75 270 7 8
+  wp 47.30000 47.50000 8000 450
+  objective kill team friendly
+  objective deny release team friendly
+  objective survive
+
+unit pvo3
+  team hostile
+  flight sok2 1
+  module mig29
+  spawn 47.50000 48.20000 8000 250.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_emission off
+  set rwr on
+  set iff_interrogator on
+  set kols_mode ir
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 40 239 36 8
+  set brief_gci 70 227 24 8
+  set brief_gci 95 204 16 8
+  wp 47.35000 47.80000 8000 450
+  objective kill team friendly
+  objective deny release team friendly
+  objective survive
+
+unit pvo4
+  team hostile
+  flight sok2 2
+  module mig29
+  spawn 47.51200 48.21500 8150 250.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_emission off
+  set rwr on
+  set iff_interrogator on
+  set kols_mode ir
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 40 239 36 8
+  set brief_gci 70 227 24 8
+  set brief_gci 95 204 16 8
+  wp 47.35000 47.80000 8000 450
+  objective kill team friendly
+  objective deny release team friendly
+  objective survive
+
+unit w2a
+  team friendly
+  flight raid2 1
+  module f16
+  spawn 47.30000 47.55000 8000 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set rwr on
+  set datalink on
+  set store 3 mk84
+  set store 7 mk84
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 47.67500 48.53000 8000 450
+  objective kill unit pvocp
+
+unit w2b
+  team friendly
+  flight raid2 2
+  module f16
+  spawn 47.28000 47.56500 8150 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set rwr on
+  set datalink on
+  set store 3 aim120
+  set store 7 aim120
+  set brief_master_arm arm
+  set task intercept
+  wp 47.60000 48.60000 8150 450
+  objective survive
+
+unit w2c
+  team hostile
+  module f16
+  spawn 47.33000 47.52000 7800 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set rwr on
+  set datalink off
+  set iff_xpdr on                           # THE CORRIDOR, wave two: same rule, darker sky
+  wp 47.62000 48.48000 7800 450
+  objective survive
+
+unit pvoews
+  module p18
+  team hostile
+  spawn 47.55000 48.20000 ground 0.0 0
+  set emcon free
+
+unit pvocp
+  module target_hard
+  team hostile
+  spawn 47.67500 48.53000 ground 0.0 0
+
+unit pvoveh
+  module target_soft
+  team hostile
+  spawn 47.68500 48.52000 ground 0.0 0

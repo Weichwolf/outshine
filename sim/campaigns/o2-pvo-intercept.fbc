@@ -1,0 +1,117 @@
+name o2-pvo-intercept
+time 1984-06-14T06:00:00Z
+carry units ground stores
+stop_on never
+
+# CAMPAIGN O2 - PVO INTERCEPT EXERCISE: GROUND CONTROL IN ITS PURE FORM.
+# Spec, anchor, sources and disputes: doc/campaigns/o2-pvo-intercept.md. Format: doc/missions/campaign.md.
+#
+# THE QUESTION THIS CAMPAIGN ASKS IS NOT "DOES THE MIG WIN". It is: WHEN IS THE GROUND CONTROLLER WORTH
+# ANYTHING? He was measured at exactly nothing in three previous campaigns (o1-02 head-on, o1-03 brief
+# truncated, o5-03 defender 4 000 m high), and this is the campaign whose whole subject he is. Its
+# second half is the other thing only this aircraft can teach: on a MiG-29 identity has ONE source, that
+# source is the radar, and using it warns the target. EVERY INCREMENT OF CERTAINTY IS PAID FOR IN
+# SURPRISE, and this campaign prices both halves in seconds.
+#
+# THE ANCHOR IS A DOCTRINE PLUS A PIECE OF HARDWARE AND NOT A BATTLE, and the doctrine half was
+# [T4]-only when the spec was written - by its own admission the thinnest sourcing in the whole
+# directory. IT IS [T1] NOW. The two CIA reading-room documents the spec listed as "identified, NOT
+# read" were retrieved (the cia.gov path is Akamai-blocked; the Wayback Machine's captures are not) and
+# read in full:
+#   - Mitronin, "The Organization of Cooperation Between Air Defense Troops of the Ground Forces and
+#     Fighter Aviation", Warsaw Pact journal issue 12/1976, CIA translation 16 Feb 1979 [T1]
+#   - Pstygo / Ganichev / Reshetnikov, "Air Support of Ground Forces and Control of Combat Actions of
+#     Front Aviation", Military Thought 5(66)/1962, CIA translation 12 Oct 1976 [T1]
+# Four things in them changed this campaign rather than decorating it, and each is used somewhere:
+#   1. SAME-ZONE COOPERATION IS ALLOCATED IN FIVE CURRENCIES - altitude, axis/sector, control line, time
+#      and target - and "the upper flight echelons are preferably assigned to the fighter aircraft".
+#   2. THE FRATRICIDE PROBLEM IS THE DOCUMENT'S OWN CENTRAL PROBLEM: same-zone work "demands ... the
+#      availability of reliable means of control and IDENTIFICATION; otherwise, the firing capability of
+#      the surface-to-air missile units might be restricted due to the danger of hitting our own
+#      aircraft", and fighter action inside the firing zones of regimental air defence is "inadvisable,
+#      since these air defense means frequently DO NOT HAVE IDENTIFICATION SYSTEMS". A FlightBox battery
+#      has no IFF interrogator, and O5 measured it firing east at its own MiGs. That is now a SOURCED
+#      property of the doctrine rather than a FlightBox simplification.
+#   3. CORRIDORS are established for one's own aircraft, must be covered by units WITH identification
+#      means, and "the enemy may discover and exploit the corridors to his own advantage". Sorties 09
+#      and 10 each fly one corridor aircraft inside the raid, and it is the only unit in the campaign
+#      whose loss would be a FAIL that nobody declared.
+#   4. THE GROUND PICTURE IS SLOW, WITH A NUMBER: at exercise DRUZHBA-76 it took 10 TO 15 MINUTES for
+#      the division's air-defence chief to pass own-aircraft data down to the gunners, because it went
+#      by code table. FlightBox's `set brief_gci` has no latency of its own at all - the whole cost sits
+#      in the pilot's three typed entries - so the campaign's measured 8.0 s call-to-radiating is the
+#      AIRCRAFT half of a loop whose ground half is two to three orders of magnitude slower and is not
+#      modelled. That is gap C6 restated with a source attached, and no number below hides it.
+#
+# TEMPORAL HONESTY AND ITS DIRECTION. The PVO's own subject was large, slow, high and unmanoeuvring - a
+# bomber or an ELINT aircraft - and FlightBox has neither (C7: the catalogue's `tu95` row is a KINEMATIC
+# MOVER, not an airframe). Every intruder here is an F-16, which is faster, smaller and much harder to
+# find. THE SUBSTITUTION MAKES THE INTERCEPT HARDER THAN HISTORY, so a result in which the loop closes
+# says something WEAKER than the doctrine claimed and one in which it does not says nothing about 1976.
+# THE CATALOGUE IS NOT A WAY ROUND IT: `ACCEPTED` in doc/modules/air/flight-model-recipe.md means
+# ACCEPTED AS A FLIGHT MODEL, the promotion gate measures the deck and nothing else, and four of the ten
+# armed rows employ nothing at all. Citing a catalogue row as a COMBATANT is citing something no gate
+# checks, so this campaign cites none.
+#
+# THE CLOCK is a June morning at Ashuluk (06:00 Z = 09:11 local) for nine sorties and 20:00 Z for the
+# tenth, which is night there. Every mission declares its own `time`, so the campaign clock above never
+# has to fill one in. THE GROUND is `--elev const` on a 0 m datum, and every fingerprint below is
+# comparable only against runs whose campaign-summary.txt records `elev const`.
+#
+# THE STRUCTURAL DISCLOSURE, repeated in all ten files:
+#   1. THE CONTROLLER IS A STRING (C6). Every wrong brief here is wrong FROM THE START - the easy case.
+#   2. THE GCI ELEVATION ENTRY IS A WORLD-FRAME ANGLE IN A BODY-FRAME COMMAND (doc/pilot.md 2.15, found
+#      by O5, STILL OPEN on the tree this campaign flew against). It is the campaign's own subject and
+#      it is in the way of it: every interceptor in all ten files is therefore laid out LEVEL and
+#      CO-ALTITUDE, and what that costs is MEASURED in an attribution run rather than argued.
+#   3. `FBMissionRunner` ends the run at the first flight-monitor K.O.
+#
+# CALLSIGN AND CARRY TOPOLOGY, STATED BEFORE THE FIRST MISSION FILE:
+#   sorties 01-05  THE GCI LEVER SET. Five pairwise-disjoint casts (`p1*`..`p5*`), aircraft AND ground,
+#                  nothing carried in or out. 01 is the baseline; 02, 03, 04 and 05 are 01 with exactly
+#                  ONE declared change each and each names 01 as its control. The ground callsigns are
+#                  per-sortie too even though nothing here attacks the ground - it costs nothing and it
+#                  removes a whole class of leak by construction.
+#   sorties 06-08  THE IDENTIFICATION SET, three disjoint casts (`p6*`, `p7*`, `p8*`). 06 is the
+#                  control; 08 is 06 with ONE token changed (the subject's `team`) and is the anti-cheat
+#                  pair; 07 is the CONTROL RUN that makes 08's result readable at all.
+#   sorties 09-10  THE CHAIN, and the ONLY place the carry lands: one roster (`pvo1`..`pvo4`) and one
+#                  complex (`pvoews`, `pvocp`, `pvoveh`) flown twice, `carry units ground stores` NOT
+#                  narrowed. Each wave's raid has its own callsigns (`w1*`, `w2*`) because the exercise
+#                  provides fresh target aircraft, not a second attrited force.
+#
+# THE PRICE OF THAT LAYOUT, STATED. Ten slots hold one baseline + four single-lever variants + one
+# controlled pair + that pair's own control run + a TWO-step chain. WHAT DID NOT FIT: a third wave, so
+# THIS CAMPAIGN CANNOT SHOW A FORCE-STATE TREND - two points give a difference and never a curve, and no
+# reading below claims one. And the spec's mission 9 (two contacts, one interrogator, one friendly among
+# them) is not built as a file of its own: it is the geometry of sorties 09 and 10, where the corridor
+# aircraft sits inside the raid, and building it twice would have cost the chain.
+#
+# THE TEN SORTIES AND THE ONE CHANGE EACH MAKES - each file's own header carries its binding reading
+# rule (doc/missions/INDEX.md rule 5) and this list is the campaign's index only:
+#   01 vector             the baseline: correct brief, silent power-up, the loop timed  <- control of 02-05
+#   02 wrong-altitude     [ctrl 01] the briefed altitude band, 8 km -> 13 km
+#   03 wrong-zone         [ctrl 01] the briefed bearing, 250 -> 290 (the offset's sign)
+#   04 no-gci             [ctrl 01] the six `set brief_gci` lines deleted - and the radar with them
+#   05 late-radar         [ctrl 01] the commit moved from 38 km to 19 km
+#   06 identify           a contact that does not answer                                <- control of 07, 08
+#   07 identify-friendly  [ctrl 06] the same contact answers - THE CONTROL RUN of 08
+#   08 team-swap          [ctrl 06] one token: the subject's `team`                     <- THE ANTI-CHEAT PAIR
+#   09 exercise-one       four interceptors, two vectors, one corridor friendly         <- CHAIN HEAD
+#   10 exercise-two       the same four aircraft at night with what wave one left       <- CHAIN TERMINUS
+#
+# READING RULE FOR THE CAMPAIGN. The exit code is the WORST step's and is expected to be non-zero: nine
+# of the ten sorties are measuring rigs whose own header says the verdict is the telemetry. The
+# campaign's verdict is the `campaign MISSION_RESULT`, `campaign CARRY`, `campaign ATTRITION` and
+# `campaign EXPENDED` lines plus the per-sortie readings, never the code.
+
+mission ../missions/o2-01-vector.fbm
+mission ../missions/o2-02-wrong-altitude.fbm
+mission ../missions/o2-03-wrong-zone.fbm
+mission ../missions/o2-04-no-gci.fbm
+mission ../missions/o2-05-late-radar.fbm
+mission ../missions/o2-06-identify.fbm
+mission ../missions/o2-07-identify-friendly.fbm
+mission ../missions/o2-08-team-swap.fbm
+mission ../missions/o2-09-exercise-one.fbm
+mission ../missions/o2-10-exercise-two.fbm

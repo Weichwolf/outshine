@@ -1,0 +1,164 @@
+name o2-04-no-gci-1
+timeout 400
+time 1984-06-14T06:00:00Z
+
+# CAMPAIGN O2, SORTIE 4 OF 10 - PVO INTERCEPT EXERCISE: GROUND CONTROL IN ITS PURE FORM.
+# THE CONTROLLER, DELETED - AND ON THIS AIRCRAFT THAT ALSO DELETES THE RADAR.
+# Spec, anchor and sources: doc/campaigns/o2-pvo-intercept.md. Format: doc/missions/campaign.md.
+# CONTROL: o2-01-vector.fbm - identical but for the six `set brief_gci` lines, which are gone.
+#
+# THE ARENA, and every coordinate in it is [SET]. An exercise has no battlefield, so this campaign flies
+# over the Soviet air-defence firing range at Ashuluk, Astrakhan oblast [T4], taken as ~47.30 N 47.90 E
+# and NOT improved on. Flown under `--elev const` on a 0 m datum and with NO TERRAIN MASKING (gap C4).
+#   the defended complex   a command post (target_hard) and a vehicle park (target_soft) - the objects
+#                          the vector exists to protect
+#   the early-warning set  a P-18, `set emcon free`, deployed forward of the complex on the approach
+#                          axis. GAP C1 IS CLOSED AND THIS CAMPAIGN RE-CHECKED IT: the spec still says
+#                          "target_soft only, the EW radar that generates the vector is inert". It is
+#                          not inert any more - it radiates, it is heard by the intruder's RWR as
+#                          `kind=surface-search` from t = 0.1, it builds its own tracks, and it can be
+#                          killed. Every ground object in this campaign is OURS and none is a target
+# Scale at this latitude: 1 deg of longitude = 75 490 m, 1 deg of latitude = 111 132 m [DERIVED].
+#
+# TEMPORAL HONESTY AND ITS DIRECTION. The PVO's own subject was a large, slow, high, unmanoeuvring
+# aircraft - a bomber or an ELINT platform - and FlightBox has neither as a flyable module (gap C7: the
+# catalogue's `tu95` row is a KINEMATIC MOVER, not an airframe). The intruder here is an F-16: faster,
+# smaller and far harder to find than the aircraft the doctrine was written against. THE SUBSTITUTION
+# MAKES THE INTERCEPT HARDER THAN HISTORY, so a FlightBox result in which the loop still closes says
+# something WEAKER than the doctrine claimed, and one in which it does not close says nothing about it.
+#
+# AND THE CATALOGUE IS NOT A WAY ROUND IT. Four `air` rows are ACCEPTED, and ACCEPTED in
+# doc/modules/air/flight-model-recipe.md means ACCEPTED AS A FLIGHT MODEL - the promotion gate measures
+# the DECK and nothing else. It measures no weapon, no sensor and no engagement, and four of the ten
+# armed rows cannot employ anything at all. A campaign citing a catalogue row as a COMBATANT would be
+# citing something no gate has ever checked, so this campaign cites none: every aircraft in all ten
+# files is one of the two flyable modules.
+#
+# THE STRUCTURAL DISCLOSURE, repeated in all ten files because a reader who skips it reads every result
+# backwards:
+#   1. THE CONTROLLER IS A STRING (gap C6). `set brief_gci` is fixed before the run: nothing re-vectors,
+#      nothing goes silent mid-intercept, nothing is wrong halfway through. Every wrong brief in this
+#      campaign is wrong FROM THE START, which is the easy case, and the campaign says so.
+#   2. THE PILOT CANNOT DISAGREE WITH HIS BRIEF, AND WHAT LOOKS LIKE A RECOVERY IS A DEAD-BAND ACCIDENT.
+#      `FBMig29Pilot` types what it was given and has no path to re-enter a call it has reason to doubt.
+#      `FBPilot`'s own uncued search law does keep posting an elevation, but only when ITS OWN wanted
+#      angle has moved more than `kInterceptElDeadDeg` = 2.0 deg from ITS OWN last command - and that
+#      cache is per aircraft. MEASURED in sortie 02: the wingman's cache sat at 0.0, drifted past the
+#      band at t = 55.9 and pulled the antenna back down; the leader's sat at -2.0 from t = 3.5, never
+#      drifted, and never looked at the raid again. One aircraft of two recovered, 28 s late, and not
+#      because anybody doubted the controller. So 02 and 03 measure the cost of a wrong entry AND the
+#      absence of any deliberate recovery, and the two cannot be separated inside one file.
+#   3. THE GCI ELEVATION ENTRY IS A WORLD-FRAME ANGLE IN A BODY-FRAME COMMAND (doc/pilot.md 2.15, found
+#      by O5 and STILL OPEN on the tree this campaign was flown against). Every interceptor in all ten
+#      files is therefore laid out in LEVEL flight, and what that costs is measured in this campaign's
+#      own attribution run rather than argued (see doc/campaigns/o2-pvo-intercept.md, State).
+#   4. `FBMissionRunner` ends the whole run at the first flight-monitor K.O. (`FirstFlightKo`).
+#
+# THE ONE TACTICAL QUESTION: this is the SAME ONE-LINE EXPERIMENT as `o1-02-no-gci`, `o1-03-gci-cut`
+# and `o5-03-no-gci`, in a fourth geometry - and here it is sharper than in any of the three, because
+# of one line the other three did not have. THE BASELINE POWERS UP WITH `n019_emission off`, which is
+# the documented power-up position of the PUR-31 switch [DCS-EA p.63], and the ONLY thing that ever
+# turns the radar on is the THIRD typed entry of a GCI call. Delete the controller from o1 or o5 and
+# the MiG is badly aimed; delete him from THIS campaign and the MiG never radiates at all.
+#   So this file is simultaneously the campaign's no-controller experiment AND its spec mission 4, the
+#   SILENT RUN - the doctrine's own promise that Lazur exists so the fighter need not switch its radar
+#   on. It keeps its KOLS and its SPO-15, and gap D3 (`doc/duels.md`: the pilot does not consume the
+#   IRST block) says what that is worth. The measurement decides whether "silent" is "blind".
+#
+# THE ONE LEVER: the six `set brief_gci` lines are deleted. Nothing else changes.
+#
+# READING RULE (binding): read, in this order - (1) `n019 EMISSION` (expected: NEVER), (2)
+# `radar RADAR_CONTACT unit=p4kn*` (expected: none), (3) `irst_contacts` in both MiG telemetry files
+# (the KOLS is the only sensor left, and D3 predicts the pilot reads nothing from it), (4)
+# `rwr THREAT_NEW unit=p4int kind=fire-control` (expected: none - the intruder never learns it was
+# there). exit 3 expected. A silent MiG that finds nothing is the ANSWER, not a broken file.
+#
+# MEASURED (fingerprint 41eba66be05f75df, exit 3): SILENT IS NOT BLIND. SILENT IS UNREAD.
+#   Zero `gci` lines, zero `n019 EMISSION`, zero radar contacts, zero shots, and the intruder is never
+#   warned by anything but the ground: it reaches its own waypoints at t=379.5 without ever hearing a
+#   fighter radar. Deleting the controller from THIS campaign does not degrade the search, it deletes
+#   the radar - the emission switch powers up `off` and the third typed entry is the only thing in the
+#   tree that turns it on. That is a stronger version of the same one-line experiment o1-02, o1-03 and
+#   o5-03 ran, and the fourth geometry agrees with the first three on the outcome and disagrees with
+#   them on the MECHANISM.
+#   THE DOCTRINE'S OWN PROMISE, PRICED: the wingman's KOLS held the raid from t=105.0 to t=195.0 -
+#   NINETY SECONDS of a passive, un-warning contact at brgDeg 241.8, byte-for-byte the same window
+#   sortie 03 measured with the radar aimed at the wrong third. It cost nothing and it bought nothing,
+#   because `FBPilot` does not consume the IRST block (`doc/duels.md` D3). Lazur's promise is that the
+#   fighter need not switch its radar on; FlightBox's answer is that it need not, and that nothing will
+#   happen either way.
+#   AND POWERING THE WHOLE PASSIVE SENSOR MOVES NOTHING ELSE, MEASURED AS A BYTE DIFF: adding
+#   `set kols_mode ir` to sorties 01-05 changed exactly 4 of 184 telemetry columns (`blk_irst`,
+#   `irst_on`, `irst_mode`, `irst_contacts`) and not one metre of any trajectory, not one shot, not one
+#   event. D3 is not an omission in a report, it is a sensor wired to nothing.
+
+unit p4kna
+  team hostile
+  flight brk1 1
+  module mig29
+  spawn 47.30000 48.20000 8000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_emission off              # POWER-UP POSITION BY DOCTRINE: this jet starts silent
+  set rwr on
+  set iff_interrogator on
+  set kols_mode ir
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r27r
+  set brief_master_arm arm
+  set task intercept
+  wp 47.30000 47.60000 8000 450      # the briefed vector: what Search flies while blind
+  objective kill team friendly
+  objective protect unit p4cp
+  objective survive
+
+unit p4knb
+  team hostile
+  flight brk1 2
+  module mig29
+  spawn 47.31200 48.21500 8150 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_emission off
+  set rwr on
+  set iff_interrogator on
+  set kols_mode ir
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r27r
+  set brief_master_arm arm
+  set task intercept
+  wp 47.30000 47.60000 8000 450
+  objective kill team friendly
+  objective protect unit p4cp
+  objective survive
+
+unit p4int
+  team friendly
+  module f16
+  spawn 47.15500 47.61500 8000 50.0 450
+  set gear up
+  set fuel_pct 70
+  set fcr_mode off                   # it radiates NOTHING: every warning it gets came from the barrier
+  set rwr on                         # the price meter
+  set datalink off
+  wp 47.67500 48.53000 8000 450      # running in on the defended complex
+
+unit p4ews
+  module p18
+  team hostile
+  spawn 47.55000 48.20000 ground 0.0 0
+  set emcon free
+
+unit p4cp
+  module target_hard
+  team hostile
+  spawn 47.67500 48.53000 ground 0.0 0
+
+unit p4veh
+  module target_soft
+  team hostile
+  spawn 47.68500 48.52000 ground 0.0 0

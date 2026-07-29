@@ -48,7 +48,7 @@ on this run; the anchor is Run 1's and unchanged, and the forum test-report thre
 | W4 Allied Force | [w4-allied-force.md](w4-allied-force.md) | yes ([T1] + [T3] + [T4]) | 10 | yes | yes | **complete** |
 | W5 Baltic QRA | [w5-baltic-qra.md](w5-baltic-qra.md) | yes ([T3]/[T4]) | 10 | yes | yes | **complete** |
 | O1 Bekaa 1982 | [o1-bekaa-1982.md](o1-bekaa-1982.md) | yes ([T4] primary; disputes carried) | 10 | yes | yes | **BUILT AND FLOWN** — ten `.fbm` + one `.fbc`, both determinism criteria measured on the first attempt |
-| O2 PVO intercept | [o2-pvo-intercept.md](o2-pvo-intercept.md) | partial — doctrine [T3]/[T4], hardware [T2] via `doc/modules/mig29/`; **[T1] material unread** | 10 | yes | yes | **complete, thinnest sourcing in the set** |
+| O2 PVO intercept | [o2-pvo-intercept.md](o2-pvo-intercept.md) | **yes — doctrine [T1] since run 7** (both CIA reading-room documents read), hardware [T2] via `doc/modules/mig29/` | 10 | yes | yes | **BUILT AND FLOWN** — ten `.fbm` + one `.fbc`, both determinism criteria on the first attempt, three findings |
 | O3 Yom Kippur | [o3-yom-kippur-1973.md](o3-yom-kippur-1973.md) | yes ([T1] Marine Corps study + [T4]) | 10 | yes | yes | **complete** |
 | O4 GAF DACT | [o4-gaf-mig29g-dact.md](o4-gaf-mig29g-dact.md) | yes ([T3]/[T4]; one forum test-report thread unread) | 10 | yes | yes | **BUILT AND FLOWN** — ten `.fbm` + one `.fbc`, both determinism criteria measured |
 | O5 Airfield defence | [o5-airfield-defence.md](o5-airfield-defence.md) | yes ([T4]; totals [DISPUTED] and deliberately omitted) | 10 | yes | yes | **BUILT AND FLOWN** — ten `.fbm` + one `.fbc`, both determinism criteria on the first attempt, three defects found |
@@ -98,7 +98,7 @@ Each of these would raise a claim's tier. None was reachable or retrieved on thi
 |---|---|---|
 | [414th CTS "Red Flag" fact sheet (nellis.af.mil)](https://www.nellis.af.mil/About/Fact-Sheets/Display/Article/2605882/414th-combat-training-squadron-red-flag/) | W1's exercise cadence, package sizes, participant counts, the "first ten missions" rationale at [T1] | **HTTP 403** to automated retrieval |
 | [Package Q (Air Force Magazine, Jan 2016, PDF)](https://www.airandspaceforces.com/PDF/MagazineArchive/Documents/2016/January%202016/0116packageq.pdf) | W3's package composition, tanker and SEAD detail at [T3] instead of [T4] | not retrieved this pass |
-| [CIA reading room 1979-02-16A](https://cia.gov/readingroom/docs/1979-02-16A.pdf) and [1976-10-12a](https://www.cia.gov/readingroom/docs/1976-10-12a.pdf) | **O2's entire doctrine half at [T1]** — cooperation between PVO troops and fighter aviation; control of front aviation's combat actions | not retrieved this pass. **The highest-value unread source in the directory** |
+| ~~[CIA reading room 1979-02-16A](https://cia.gov/readingroom/docs/1979-02-16A.pdf) and [1976-10-12a](https://www.cia.gov/readingroom/docs/1976-10-12a.pdf)~~ | ~~O2's entire doctrine half at [T1]~~ | **READ 2026-07-29 (run 7).** The `cia.gov/readingroom/docs/…` path is Akamai-blocked to automated retrieval (302 → *Access Denied*); the **Wayback Machine's captures of the identical URLs are not**, and both came back complete (11 and 13 pages). Content, citations and what each contributes: [o2-pvo-intercept.md](o2-pvo-intercept.md) §1 and §Knowledge 1. **The blocked path was not the only path, and that is the transferable part** |
 | [Ground controlled interception & IADS (archive.org PDF)](https://archive.org/download/history-of-the-electro-optical-guided-missiles/IADS,%20GCI.pdf) | O2's GCI mechanism | not retrieved this pass |
 | [F-16 vs MiG-29 energy manoeuvrability from a test report (f-16.net forum)](https://www.f-16.net/forum/viewtopic.php?f=30&t=53852) | O4's missions 4/5 expectations at [T3] | not retrieved this pass |
 | [Official review of Serb MiG-29 kills, 26 March 1999 (Google Groups)](https://groups.google.com/g/rec.aviation.military/c/JpXMVIrCenY) | O5's loss/claim record | not retrieved this pass |
@@ -123,7 +123,8 @@ Named here so that nobody later mistakes one for a fact:
   step, not reproduced from any air tasking order.
 - W5's "abeam box" geometry (the range/aspect an interceptor must reach and hold).
 - W4's mission-8 weather severity, and mission 4/5's emitter timings.
-- O2's ten-mission structure in full — no PVO exercise syllabus was sourced.
+- O2's ten-mission structure in full — no PVO exercise syllabus was sourced, and the [T1] round did not
+  change that: Mitronin names DRUZHBA-76 and says what was learnt at it, never how it was run or scored.
 - O3's every altitude and speed ("very low" is all the strongest source says).
 - O5's degradation pattern across missions 3, 8 and 10.
 
@@ -175,8 +176,11 @@ Nothing in this directory needs re-writing. The next work is **outside** it:
 4. `C22`/`C23`/`C24` — build order inside the net file: the **link** first (it is three setters and one
    test on a class that exists), then the **cue**, then `zone`/`avoid zone`, then weapons control and
    autonomy, and the **jammer last** because it is worthless until there is a link to deny.
-5. Read the two CIA reading-room documents and re-tier O2's §Knowledge 1 — they are now also the
-   highest-value unread source for `C22`'s doctrine half.
+5. ~~Read the two CIA reading-room documents and re-tier O2's §Knowledge 1~~ — **done 2026-07-29 in
+   run 7.** They are still the highest-value source for `C22`'s doctrine half and that file has not
+   consumed them yet: Mitronin's identification argument is the [T1] anchor for *why a FlightBox
+   battery without an interrogator is faithful rather than simplified*, and O5's measured
+   fratricide is its illustration.
 
 ~~3. Open a gap entry for `C1`…~~ — **done in run 2**, in [`../weapons.md`](../weapons.md).
 
@@ -196,3 +200,25 @@ Run-5 fix made able to move an outcome.
 | The campaign's own answer | **a fighter pair already on station denies half a two-ship and nothing else in this tree comes close.** The controller is worth 6 s of one wingman's first look; the night, the inner gun, the hardened shelters and the runway are worth nothing measurable. **The belt denies one striker of three — and one Mk-84 on its P-18 node on night one costs it every launch on nights two and three** (7 → 0 and 6 → 0, measured standalone against in-campaign) |
 | Found while building | **three defects, all on FlightBox's side of the seam, none fixed here.** (1) The alert scramble is not expressible: `FBPilot` has no `Route` → `Intercept` transition and `set task` applies at spawn, so a ground start plus a combat task FAILs at t = 11.1 s or cartwheels at t = 35.4 s. (2) `modules/air/FBAirModule` composes **no fire control**, so no catalogue row can employ any weapon — an `f15c` holds a firm lock for 28 s from 18.6 to 8.8 nm and never presses. (3) `FBMig29Pilot` posts the GCI's **world-frame** scan elevation into a **body-frame** antenna command; on a climbing interceptor that is worth the whole ±6° RAD bar — 0 contacts in 700 s over a 726 m closest approach |
 | Also measured | the field's own belt fires its **first three rounds at its own fighters** (`brgDeg` 116.5 / 90.6 / 91.0) — a FlightBox battery has no IFF interrogator, and an airfield is the one geometry where that cannot be laid around |
+
+---
+
+**Run 7 — 2026-07-29, O2 BUILT, and the first run since run 1 to read a new source.** The fourth
+campaign to exist as files: ten `sim/missions/o2-*.fbm` + `sim/campaigns/o2-pvo-intercept.fbc`
+([`o2-pvo-intercept.md`](o2-pvo-intercept.md) §State). **No `sim/src/` file, no tool and no asset was
+touched.** The two CIA reading-room documents this ledger has carried as *"the highest-value unread
+source in the directory"* since run 1 were retrieved and read, and O2's doctrine half moved from
+[T3]/[T4] to [T1].
+
+| Measured | Value |
+|---|---|
+| Campaign exit / step exits | 3 / `3 0 3 3 3 0 0 0 3 3` |
+| Determinism criterion 1 | 9 runs (3 × `--threads 1/2/4`), **1** campaign fingerprint `93b5869298b6b8a5924…`, `--elev const` |
+| Determinism criterion 2 | **10/10** steps replay standalone bit for bit, on the first attempt |
+| Conservation | nothing to compare: `git status --porcelain` lists 11 new untracked files and 0 modified; 173 pre-existing missions byte-identical by construction |
+| The campaign's own answer | **the loop is 11.0 s and it splits 8.0 + 3.0** — and **the controller is worth the ENTIRE intercept on an aircraft that starts silent**, which is why three earlier campaigns measured him at nothing: they all flew with `n019_emission illum` at spawn and were measuring the AIMING of a radar, not its existence. Wrong azimuth third → 0 contacts in 400 s; controller deleted → 0 emissions and 0 contacts; late commit → 45.3 s of the target's silence bought for 77 % of the detection range |
+| The identification counter-check | **`o2-06` vs `o2-08`, one token apart: 5 of 5 `telemetry*.csv` byte-identical, 1 differing `events.log` line of 53** (the runner's own `team=` field). Four perception channels live for 300 s and none moved. `o2-07` is the control run that proves the channel could have discriminated — and needing it is the new rule |
+| Sources | **two, both [T1], both previously listed here as unread**: Mitronin (Warsaw Pact journal 12/1976, CIA translation 16 Feb 1979) and Pstygo/Ganichev/Reshetnikov (*Military Thought* 5(66)/1962, CIA translation 12 Oct 1976). Four of their facts changed a mission or a header; the sharpest is that the anchor's **ground** picture took **10–15 minutes** (DRUZHBA-76) against FlightBox's zero, which is `C6` with a number attached |
+| Found while building | **three findings, none fixed here.** (1) A wrong brief has **no deliberate recovery** — what looks like one is `FBPilot`'s 2.0° elevation dead band drifting, and it saved one aircraft of two, 28 s late. (2) `D3` priced as a byte diff: powering the KOLS across five sorties changed **4 of 184 telemetry columns and nothing else**, while that sensor held a 90 s contact nobody read. (3) An R-27R **inside its own fuze is not a kill** — 4.85 m and 4.75 m in the FORWARD zone left the target combat-effective, 2.48 m elsewhere killed, so an outcome axis ordered by kills is reading warhead geometry |
+| Also measured | the GCI world/body elevation defect on the **other** side of its threshold: the error is exactly `st.pitch`, the climb pitch band is **5.36…5.89°**, the RAD bar is ±6.0°, so O2's margin is **0.11–0.64°** and the bite condition is `|pitch| + |target body-frame offset| > 6.0°` |
+

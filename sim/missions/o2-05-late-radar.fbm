@@ -1,0 +1,164 @@
+name o2-05-late-radar-1
+timeout 400
+time 1984-06-14T06:00:00Z
+
+# CAMPAIGN O2, SORTIE 5 OF 10 - PVO INTERCEPT EXERCISE: GROUND CONTROL IN ITS PURE FORM.
+# THE COMMIT IS LATE: THE CONTROLLER HOLDS HIS FIGHTER SILENT UNTIL 20 KM.
+# Spec, anchor and sources: doc/campaigns/o2-pvo-intercept.md. Format: doc/missions/campaign.md.
+# CONTROL: o2-01-vector.fbm - identical but for the TIMES and the RANGES of the six `set brief_gci` lines.
+#
+# THE ARENA, and every coordinate in it is [SET]. An exercise has no battlefield, so this campaign flies
+# over the Soviet air-defence firing range at Ashuluk, Astrakhan oblast [T4], taken as ~47.30 N 47.90 E
+# and NOT improved on. Flown under `--elev const` on a 0 m datum and with NO TERRAIN MASKING (gap C4).
+#   the defended complex   a command post (target_hard) and a vehicle park (target_soft) - the objects
+#                          the vector exists to protect
+#   the early-warning set  a P-18, `set emcon free`, deployed forward of the complex on the approach
+#                          axis. GAP C1 IS CLOSED AND THIS CAMPAIGN RE-CHECKED IT: the spec still says
+#                          "target_soft only, the EW radar that generates the vector is inert". It is
+#                          not inert any more - it radiates, it is heard by the intruder's RWR as
+#                          `kind=surface-search` from t = 0.1, it builds its own tracks, and it can be
+#                          killed. Every ground object in this campaign is OURS and none is a target
+# Scale at this latitude: 1 deg of longitude = 75 490 m, 1 deg of latitude = 111 132 m [DERIVED].
+#
+# TEMPORAL HONESTY AND ITS DIRECTION. The PVO's own subject was a large, slow, high, unmanoeuvring
+# aircraft - a bomber or an ELINT platform - and FlightBox has neither as a flyable module (gap C7: the
+# catalogue's `tu95` row is a KINEMATIC MOVER, not an airframe). The intruder here is an F-16: faster,
+# smaller and far harder to find than the aircraft the doctrine was written against. THE SUBSTITUTION
+# MAKES THE INTERCEPT HARDER THAN HISTORY, so a FlightBox result in which the loop still closes says
+# something WEAKER than the doctrine claimed, and one in which it does not close says nothing about it.
+#
+# AND THE CATALOGUE IS NOT A WAY ROUND IT. Four `air` rows are ACCEPTED, and ACCEPTED in
+# doc/modules/air/flight-model-recipe.md means ACCEPTED AS A FLIGHT MODEL - the promotion gate measures
+# the DECK and nothing else. It measures no weapon, no sensor and no engagement, and four of the ten
+# armed rows cannot employ anything at all. A campaign citing a catalogue row as a COMBATANT would be
+# citing something no gate has ever checked, so this campaign cites none: every aircraft in all ten
+# files is one of the two flyable modules.
+#
+# THE STRUCTURAL DISCLOSURE, repeated in all ten files because a reader who skips it reads every result
+# backwards:
+#   1. THE CONTROLLER IS A STRING (gap C6). `set brief_gci` is fixed before the run: nothing re-vectors,
+#      nothing goes silent mid-intercept, nothing is wrong halfway through. Every wrong brief in this
+#      campaign is wrong FROM THE START, which is the easy case, and the campaign says so.
+#   2. THE PILOT CANNOT DISAGREE WITH HIS BRIEF, AND WHAT LOOKS LIKE A RECOVERY IS A DEAD-BAND ACCIDENT.
+#      `FBMig29Pilot` types what it was given and has no path to re-enter a call it has reason to doubt.
+#      `FBPilot`'s own uncued search law does keep posting an elevation, but only when ITS OWN wanted
+#      angle has moved more than `kInterceptElDeadDeg` = 2.0 deg from ITS OWN last command - and that
+#      cache is per aircraft. MEASURED in sortie 02: the wingman's cache sat at 0.0, drifted past the
+#      band at t = 55.9 and pulled the antenna back down; the leader's sat at -2.0 from t = 3.5, never
+#      drifted, and never looked at the raid again. One aircraft of two recovered, 28 s late, and not
+#      because anybody doubted the controller. So 02 and 03 measure the cost of a wrong entry AND the
+#      absence of any deliberate recovery, and the two cannot be separated inside one file.
+#   3. THE GCI ELEVATION ENTRY IS A WORLD-FRAME ANGLE IN A BODY-FRAME COMMAND (doc/pilot.md 2.15, found
+#      by O5 and STILL OPEN on the tree this campaign was flown against). Every interceptor in all ten
+#      files is therefore laid out in LEVEL flight, and what that costs is measured in this campaign's
+#      own attribution run rather than argued (see doc/campaigns/o2-pvo-intercept.md, State).
+#   4. `FBMissionRunner` ends the whole run at the first flight-monitor K.O. (`FirstFlightKo`).
+#
+# THE ONE TACTICAL QUESTION: the whole point of a late emission is measured ON THE OTHER JET, and
+# cross-unit measurement is this campaign's METHOD here rather than its problem. The declared range is
+# 20 km: the controller says nothing until the raid is inside it, so the barrier's first entry falls at
+# t = 65 s instead of t = 20 s. HOW MUCH SURPRISE DOES THAT BUY, IN SECONDS AND IN KILOMETRES - and
+# what does it cost in the only currency an intercept has, the time left to shoot?
+#   The intruder's warning receiver is the instrument. It already carries the P-18 as
+#   `kind=surface-search` from t = 0.1, so the two emitters are separated in the log by their KIND and
+#   not by a bearing argument: the barrier appears as `kind=fire-control`, 0.1 s after `n019 EMISSION`.
+#
+# THE ONE LEVER: the commit time. (20 s, 38 km) (50 s, 25 km) (80 s, 12 km) -> (65 s, 19 km)
+# (80 s, 12 km) (90 s, 8 km). It moves three numbers per line and it is ONE lever, because a call made
+# later necessarily reports the range that is true then; a late call carrying the old range would be a
+# WRONG call, which is sortie 02's and 03's experiment and not this one's.
+#
+# READING RULE (binding): read `rwr THREAT_NEW unit=p5int kind=fire-control` - its timestamp is the
+# answer - and convert it to a range from the two telemetry files' positions at that tick. Then read
+# `radar RADAR_CONTACT`, `sms RELEASE` and any `stores DETONATION`, and compare all four against
+# o2-01. exit 3 expected.
+#
+# MEASURED (fingerprint 9e637d7baa2a6c13, exit 3): THE LATE COMMIT BUYS 45.3 SECONDS AND COSTS THE
+# WHOLE ENGAGEMENT.
+#   gci BRAA t=64.9 -> n019 EMISSION t=73.2 (8.3 s, the chain's own cost, 0.3 s above the control's 8.0
+#   because one entry waited a decision tick longer) -> first firm track t=76.3 at 3.68 nm (6.82 km).
+#   THE PURCHASE, measured on the OTHER jet: `rwr THREAT_NEW unit=p5int kind=fire-control` at t=73.3
+#   against t=28.0 in the control - 45.3 s in which the intruder heard only the ground.
+#   THE PRICE, measured on this one: the first track comes at 6.82 km instead of 29.78 km, i.e. 23.0 km
+#   and 77 % of the detection range are gone. ZERO shots (the control fired two and hit twice), no
+#   detonation, and the intruder reaches its waypoints at t=379.5.
+#   Read together with sortie 01 this is the campaign's cleanest trade and it is not a close one: the
+#   emission is what makes this aircraft exist, and holding it until 19 km on a 435 m/s closure means
+#   arriving at the merge with a target and no solution.
+
+unit p5kna
+  team hostile
+  flight brk1 1
+  module mig29
+  spawn 47.30000 48.20000 8000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_emission off              # POWER-UP POSITION BY DOCTRINE: this jet starts silent
+  set rwr on
+  set iff_interrogator on
+  set kols_mode ir
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r27r
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 65 250 19 8
+  set brief_gci 80 250 12 8
+  set brief_gci 90 250 8 8
+  wp 47.30000 47.60000 8000 450      # the briefed vector: what Search flies while blind
+  objective kill team friendly
+  objective protect unit p5cp
+  objective survive
+
+unit p5knb
+  team hostile
+  flight brk1 2
+  module mig29
+  spawn 47.31200 48.21500 8150 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_emission off
+  set rwr on
+  set iff_interrogator on
+  set kols_mode ir
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r27r
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 65 250 19 8
+  set brief_gci 80 250 12 8
+  set brief_gci 90 250 8 8
+  wp 47.30000 47.60000 8000 450
+  objective kill team friendly
+  objective protect unit p5cp
+  objective survive
+
+unit p5int
+  team friendly
+  module f16
+  spawn 47.15500 47.61500 8000 50.0 450
+  set gear up
+  set fuel_pct 70
+  set fcr_mode off                   # it radiates NOTHING: every warning it gets came from the barrier
+  set rwr on                         # the price meter
+  set datalink off
+  wp 47.67500 48.53000 8000 450      # running in on the defended complex
+
+unit p5ews
+  module p18
+  team hostile
+  spawn 47.55000 48.20000 ground 0.0 0
+  set emcon free
+
+unit p5cp
+  module target_hard
+  team hostile
+  spawn 47.67500 48.53000 ground 0.0 0
+
+unit p5veh
+  module target_soft
+  team hostile
+  spawn 47.68500 48.52000 ground 0.0 0

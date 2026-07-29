@@ -1678,3 +1678,56 @@ gebaut). Und mit dem per Rezept-Schritt 8 eingetragenen, gemessenen Rollwerk feu
 ihre GSh-23L (vier Treffer, `structure degraded`) — danach greift sie nie wieder an, braucht 76 s für
 3,0 → 0,9 sm und sinkt aus 5000 m in den Boden (A15). Eine Katalogzeile kann ihre Kanone **abfeuern** und
 nicht mit ihr **kämpfen**. Keine Kampagne darf ein Kanonenduell werten.
+
+## 2026-07-29 — Kampagne O2 gebaut und geflogen: der Lotse ist alles wert, wenn der Jet still startet
+
+Zehn `sim/missions/o2-*.fbm` plus `sim/campaigns/o2-pvo-intercept.fbc`, vierte der zehn Kampagnen, kein
+`sim/src/`, kein Werkzeug, kein Asset angefasst — 11 neue Dateien, 0 geänderte, also sind die 173
+bestehenden Missionen byte-identisch **per Konstruktion**. Beide Determinismus-Kriterien beim ersten
+Versuch: 9 Läufe ein Fingerabdruck (`93b5869298b6b8a5924…`, `--elev const`), 10/10 Schritte replayen
+allein. Kampagnen-Exit 3, Schritt-Exits `3 0 3 3 3 0 0 0 3 3`.
+
+**Die Schleife ist 11,0 s und sie teilt sich 8,0 + 3,0.** `gci BRAA` → drei getippte Eingaben →
+`n019 EMISSION` = 8,0 s, und das reproduziert `mig29-intercept.fbm` auf einer anderen Geometrie, ist also
+eine Eigenschaft der Eingabekette. Von dort bis zum festen Track: 3,0 s, ein RAD-Rahmen. Der Preis steht
+auf dem anderen Jet: dessen RWR meldet `kind=fire-control` **0,1 s** nach der Emission.
+
+**Und damit dreht sich der Befund dreier Vorkampagnen um.** O1 und O5 haben den Lotsen dreimal bei null
+gemessen — weil in allen dreien `set n019_emission illum` beim Spawn stand: die gelöschte Peilung ließ
+die Antenne **falsch gerichtet** zurück. O2 fliegt die dokumentierte Einschaltstellung `off`, und dort ist
+die dritte getippte Eingabe das Einzige im Baum, das das Radar überhaupt anschaltet. Falscher
+Azimut-Sektor: **0 Kontakte in 400 s**. Lotse gelöscht: 0 Emissionen, 0 Kontakte, und der Eindringling
+erfährt nie, dass jemand da war. Später Einsatzbefehl: **45,3 s Schweigen gekauft, 77 % der
+Erfassungsreichweite bezahlt**, null Schüsse gegen zwei Treffer. Die vergleichbare Größe über alle vier
+Kampagnen ist nicht *"was der Lotse wert ist"*, sondern *"was er bei gegebener Emissionspolitik wert
+ist"* — drei Dateien maßen die Richtung, diese misst die Existenz.
+
+**Die Identifizierungs-Gegenprobe hält in der starken Form.** `o2-06` gegen `o2-08`, ein Token
+Unterschied (`team neutral` → `team friendly`): **5 von 5 `telemetry*.csv` byte-identisch**, `events.log`
+in **genau einer Zeile von 53** verschieden — `mission UNIT_RESULT … team=`, geschrieben vom Runner,
+lesbar von keinem simulierten System. Vier Wahrnehmungskanäle liefen 300 s lang (N019 mit Abfrager, KOLS,
+Auge, SPO-15), keiner bewegte sich. Es gibt keinen ersten Diskriminator, bis zu dem man identisch sein
+könnte: IFF Mode 4 ist zweiwertig, ein Fremder und ein Feind sind dasselbe Schweigen. **Ein solches Paar
+braucht eine dritte Datei** — `o2-07`, derselbe Anflug mit einem Kontakt, der ANTWORTET: zwei Logzeilen
+Unterschied, null Telemetriebytes auf dem Abfangjäger. Ohne sie hätte "identisch" zwei mögliche Ursachen.
+
+**Zwei CIA-Dokumente, seit Lauf 1 als „höchstwertige ungelesene Quelle des Verzeichnisses" geführt,
+gelesen.** Der `cia.gov`-Pfad ist Akamai-geblockt (302 → *Access Denied*); die Wayback-Aufnahmen
+derselben URLs sind es nicht. Mitronin (Warschauer-Pakt-Journal 12/1976) trägt die Kampagne: zwei Formen
+der Zusammenarbeit, fünf Zuteilungswährungen, die **Identifizierung als das zentrale Problem** ("sonst
+müsste die Feuerfähigkeit der Flaraketenverbände wegen der Gefahr, eigene Flugzeuge zu treffen,
+eingeschränkt werden"), die Korridore für eigene Flugzeuge — und **10 bis 15 Minuten** (DRUŽBA-76), um
+die eigene Luftlage über eine Codetabelle bis zum Richtschützen zu bringen. Damit hat `C6` eine Zahl:
+FlightBox misst eine **Cockpit**-Schleife mit der Stoppuhr und einen Gefechtsstand mit gar nichts.
+
+Drei Funde, keiner behoben. (1) **Ein falscher Brief hat keine absichtliche Korrektur** — was danach
+aussieht, ist das 2,0°-Totband von `FBPilot`s eigenem Suchgesetz, das driftet; es rettete eine von zwei
+Maschinen, 28 s zu spät, die andere schaute 400 s lang 7,5° über ihr Ziel. (2) **D3 als Byte-Differenz
+bepreist**: `set kols_mode ir` über fünf Einsätze ändert **4 von 184 Telemetriespalten und sonst nichts**
+— während genau dieser Sensor 90 s lang einen Kontakt hielt, den niemand las. (3) **Eine R-27R innerhalb
+ihres eigenen Zünders ist kein Abschuss**: 4,85 m und 4,75 m in die Vorderzone ließen das Ziel
+kampffähig, 2,48 m anderswo töteten. Eine Ergebnisachse nach Abschüssen liest Sprengkopfgeometrie.
+
+Und der Elevations-Defekt aus `pilot.md` 2.15 wurde auf der **anderen** Seite seiner Schwelle vermessen:
+der Fehler ist exakt `st.pitch`, das Steigflug-Nickband liegt bei **5,36…5,89°**, der RAD-Balken bei
+±6,0° — Rand **0,11–0,64°**. Beißbedingung: `|pitch| + |Zielelevation im Körperrahmen| > 6,0°`.
