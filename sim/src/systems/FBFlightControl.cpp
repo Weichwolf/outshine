@@ -157,6 +157,28 @@ FBControls FBFlightControl::Run(const FBGuidance &g, const Fdm::fb_fdm_state &s)
   FBControls o{};
   if (g.Mode == FBMode::Manual) {
     o.Roll = g.ManualRoll; o.Pitch = g.ManualPitch; o.Yaw = g.ManualYaw; o.Thr = g.ManualThr;
+    /* DER DAEMPFER GILT AUCH AM HANDSTICK — dieselbe Auslassung wie beim Begrenzer darunter, eine Ebene
+     * tiefer. KqDamp/KpDampRoll sind der DAEMPFER DER ZELLE (MiG-29: SAU-451 „DAMPER", drei Achsen,
+     * doc/modules/mig29/flight-model-spec.md §7.4 nennt ihn woertlich „FBFlightControl's inner rate
+     * loop"; DCS-FM p.34: verbesserte Stabilitaet „mit MANUELLER Steuerung ueber den ganzen Bereich",
+     * DCS-EA p.64: „in most cases of operations it must be enabled"). Ein Kurzperioden-Daempfer weiss so
+     * wenig, welchen Modus der Autopilot fliegt, wie eine Stick-Kraft. Bis hierher stand er nur im
+     * FLCS-Zweig, und BFM ist Manual: die Zelle flog jeden Nahkampf MIT AUSGESCHALTETEM DAEMPFER.
+     * [MESS, isolierter kalter Suchlauf, 300 s, drei Starthoehen] ohne ihn mittleres g-Kommando 4,57,
+     * mittlere Querlage 76 deg, p95 |VS| 183 m/s, CFIT in allen drei Laeufen; mit ihm 1,11 / 24 deg /
+     * 4 m/s und kein KO — die F-16 fliegt denselben Suchlauf mit 1,22 / 40 deg / 9 m/s. Der Nickanteil
+     * traegt die Bindung (allein: 2 von 3 Laeufen gerettet), der Rollanteil den dritten.
+     * DIE GAINS TORREN SICH SELBST, wie AlphaLimitDeg und GLimitG darunter: eine Zelle, deren Deck den
+     * Daempfer selbst traegt (F16()), hat beide exakt 0 und laeuft den Zweig gar nicht — bitgleich als
+     * STRUKTUR, nicht als IEEE-Argument (ohne das Tor kippte `-0,0 - 0,0*p` genau ein rollCmd-Feld in
+     * gun-bfm/gun-dry von -0.000000 auf 0.000000; physikalisch nichts, im Byte-Gate alles).
+     * Der Rollanteil braucht den Deckel, weil der Handstick-Zweig kein RollStickMax kennt (0,15 ist eine
+     * Navigationsrolle; im Kampf deckelt der Pilot die Rate) — die Summe muss trotzdem ein Stick bleiben.
+     * DIE GIERACHSE BLEIBT AUS: der Daempfer der Zelle hat drei, FlightBox' Ruderzweig ist auf dieser
+     * Zelle GEMESSEN abgeschaltet (KNy = KNyi = 0, sonst Departure bei t=28 s, s. Preset oben). Ein
+     * Gier-Gain waere hier erfunden. */
+    if (KqDamp > 0.0) o.Pitch -= KqDamp * s.q;
+    if (KpDampRoll > 0.0) o.Roll = Clamp(o.Roll - KpDampRoll * s.p, -1.0, 1.0);
     /* DER BEGRENZER GILT AUCH AM HANDSTICK, und dass er das bis hierher nicht tat war ein echter Fehler
      * und keine Auslassung: er modelliert die STICK-KRAFT der Zelle (Klassenkommentar), und eine
      * Stick-Kraft weiss nicht, welchen Modus der Autopilot gerade fliegt. Sichtbar wurde es erst, als

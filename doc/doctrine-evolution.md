@@ -4,13 +4,17 @@
 it is **allowed to change** (the genome), what stops the co-evolution from **circling** (the archive),
 and what an arena must be before any of it measures anything (the **saturation criterion**).
 
-**Status: BUILT, rounds `E1` and `E2` (2026-07-29).** The `## Spec` below is unchanged from the round
+**Status: BUILT, rounds `E1`, `E2` and `E3` (2026-07-29).** The `## Spec` below is unchanged from the round
 that wrote it — it is the contract, and a contract that is edited to match what was built measures
 nothing. `E2` cut the genome against the arena: it measured every gene's lever one at a time, found
 that `E1`'s total tie was the COMPARISON and not the genome (deviation D6), built the merge profile and
 three merge geometries, ran the gate with the genome's own alphabet (E-12) and got a REFUSAL, and
 produced the first evolution run whose population does not tie. Its measurements are the second
-`## State` block.
+`## State` block. `E3` took the merge apart: E-15's *"what the merge decides is a CFIT"* was exactly
+right at n = 120 runs (**77 monitor KOs, the MiG-29 in 77 of 77**), the cause was one line of the
+airframe layer (`FBFlightControl` bound this jet's own rate damper only on its FLCS path while BFM
+commands `Manual`), and closing it took the merge's S1 pass away with it. Its measurements are the
+third `## State` block; nothing in the fitness, the genome, the archive or the gate moved.
 `## State` carries what the build measured against it, **including the five places the spec did not
 carry** (D1–D5) and the one exhibit that did not come out the way the spec predicted (A). Built:
 `sim/tools/fb_fitness.py` (the fitness), `sim/tools/fb_arena_check.py` (the gate),
@@ -884,6 +888,108 @@ this round.** The product is the two defects above and the arena row.
 
 ---
 
+## State — round `E3` (2026-07-29): the merge was a defect, and now it is a gunfight that cannot kill
+
+`E2` closed with two readings about the merge: E-14 (*"G4 has no publishable geometry"*, three blockers)
+and E-15 (*"what the merge geometries decide is a CFIT"*). Both were right, and this round measured what
+was underneath them. Nothing in the fitness, the genome, the archive or the gate changed; the arena's
+one profile line and one line of `systems/FBFlightControl` did.
+
+### 1. The CFIT was one line of the airframe layer, and it was ONLY ever the MiG
+
+[MESS, `fb_arena_check --geometry merge --geometry xmerge --geometry xmergesplit --levers
+levers-merge.txt`, 120 runs per pass]
+
+| | monitor KOs | who | gun bursts | `gun HIT` |
+|---|---|---|---|---|
+| before | **77** | **MiG-29 in 77 of 77** (38 `ATTITUDE_CONTACT`, 37 `CFIT`, 2 `STRUCTURE_CONTACT`) | 191 | **0** |
+| damper on the `Manual` path | **0** | — | 386 | 0 |
+| + the merge profile briefs the GUN control position | **0** | — | **2 652** | **897** |
+
+The F-16 was never KO'd in a merge cell, in either seat, before or after. The seat was excluded first:
+the MiG dies in the WEST seat too (`xmerge` mirrored: CRASH at t = 351.2), and a MiG-versus-MiG merge
+survives at 420 s, so it was neither the seat nor the airframe alone but the airframe under a live
+opponent.
+
+**The isolating experiment is one aeroplane and no fight at all** — a MiG-29 on `set task bfm` with the
+nearest hostile 100 km away, i.e. `FBPilot`'s cold anchored search and nothing else, 300 s, three start
+altitudes; the same mission text one module over for the F-16:
+
+| cold BFM search, 300 s | mean `bfm_gcmd` | mean \|bank\| | p95 \|VS\| | 1 000 / 1 500 / 3 000 m |
+|---|---|---|---|---|
+| **MiG-29, as it was** | **4.57 g** | **76°** | **183 m/s** | CFIT at **12.7 / 15.1 / 188.6 s** |
+| MiG-29, damper at the hand stick | 1.11 g | 24° | 4 m/s | survives all three |
+| F-16 | 1.22 g | 40° | 9 m/s | survives all three |
+
+`KqDamp`/`KpDampRoll` are the SAU-451 DAMPER and bound only on `FBFlightControl`'s FLCS path, while BFM
+commands `Manual` — the aircraft fought every close engagement with its damper off, the pilot's F-16 g
+loop rang against an undamped short period, and the fight ended in the ground.
+[`pilot.md`](pilot.md) §5.10a carries the mechanism and the derivation; `CLAUDE.md` principle 1 was not
+touched — `sim/assets` is byte-identical and `verify-models` green.
+
+**The temptation, named and declined:** the fastest way to make these numbers pretty was the deck. The
+MiG's own `Cmq`/`Cnr` would have damped the short period too, and nobody would have noticed. It is not
+a delta with a source, a better mission result is expressly not evidence, and the defect was on our side
+of the seam — the same seam the two earlier screws were fixed at.
+
+### 2. What the merge decides now: nothing, and that is the honest reading
+
+| geometry, `levers-merge.txt` | before: distinct / modal / class | after: distinct / modal / class | S1 |
+|---|---|---|---|
+| `merge` | 1 / 100.0 % / (2,1) | 1 / 100.0 % / (2,1) | NO → NO |
+| `xmerge` | 2 / **50.0 %** / (2,0) | 1 / 100.0 % / (2,1) | **ok → NO** |
+| `xmergesplit` | 2 / **50.0 %** / (2,0) | 1 / 100.0 % / (2,1) | **ok → NO** |
+
+The two cells that passed S1 passed it **on the CFIT** — the deciding class `(2,0)` was one seat rank-0
+for having been lost to nobody. With the defect gone the merge is three saturated cells, `G4` has 0
+movers of 9 on all three, and `E2` §4's declined temptations stand unchanged: the gate was not loosened,
+`kMoversMin` was not lowered, and no merge-flavoured yardstick was written. The rest of the arena did
+not move at all — the full 12-geometry gate at `--flight 1` with the declared nine is identical to
+`E2`'s table on every other row (`far` 4/40.0 %, `split` 3/56.7 %, `xclose` 3/60.0 %, `xmirror`
+3/56.7 %, `xfarsplit` 4/40.0 % (1,0), `xsplit` 3/41.7 % (3,2)) and still **PASSES with 4 informative** —
+the merge cells never counted toward S5, because they always failed S2.
+
+### 3. G4 now has a lever in the merge, and no outcome to move it
+
+The merge profile briefs the GUN control position (`pilot_bfm_ctrl_min_nm 0.15` / `_max_nm 0.40`).
+The reason is not the gene: `Phase::Bfm` ends its tick in `BfmGunfire` and has **no missile shot at
+all**, so the default 0.5–1.5 nm band is a holding position for a weapon the phase cannot employ, and it
+lies outside the EEGS funnel (600–3 000 ft). [MESS, `xmergesplit`] with the missile band the MiG held
+**132.4 s of control position at a median 2.64 nm and \|ata\| 0.4°** with `gun_in_funnel` 0 in 4 200
+ticks and 0 triggers — a perfect tail chase that can never squeeze. `missions/gun-bfm.fbm`'s header
+already carries the rule and the two numbers are its own.
+
+Three-point sweep of `pilot_energy_frac` at 0.7 / 0.95 / 1.2, both seats, after both changes:
+
+| geometry | MiG `bfm_es` (ft) | MiG `bfm_ctrl_s` (s) | rounds fired | hits landed on the F-16 |
+|---|---|---|---|---|
+| `merge` (F-16 v F-16, east seat) | 35 104 / 40 608 / 48 184 | 0.0 / 0.0 / 0.0 | 0 / 0 / 0 | 0 / 0 / 0 |
+| `xmerge` | 21 552 / 38 384 / 26 179 | **145.4 / 0.0 / 0.0** | **150 / 12 / 12** | **10 / 0 / 0** |
+| `xmergesplit` | 33 592 / 39 358 / 42 492 | 34.2 / 31.9 / 2.1 | **150 / 150 / 0** | **23 / 23 / 0** |
+
+The gene grips hard and the reading is mechanical: **the LOW rail converts.** Insisting on 0.7× corner
+keeps the MiG inside the F-16's turn and empties the drum into it; 1.2× (above the overspeed clamp)
+abandons the fight — `ctrl_s` collapses to 2.1 s and nothing is fired.
+
+**And the outcome class does not move, because the gun lands and cannot kill.** [MESS,
+`xmergesplit`, energy 0.7] 23 `gun HIT` lines carrying **6.37 rounds of the 150-round drum** at a mean
+miss of 3.41 m; the F-16 ends with 3 systems degraded, one failed component and `dmg_effective` **1.00**.
+Level V sees `TIMEOUT` on both sides, level M sees `survive` met on both, and the whole sweep sits in
+one class. So §6's binding rule applies to G4 for the second round running and **no §1 is published** —
+but the blocker is now ONE named thing instead of three, and it is not a defect of this arena: it is
+`weapons.md`'s kinetic path and `pilot.md` 2.4.
+
+### 4. What this round did NOT do
+
+- The deck was not touched (`git status --porcelain sim/assets` empty, `verify-models` green).
+- The gate was not loosened: `fb_arena_check.py` is unchanged, and the merge cells are reported as
+  REFUSED rather than re-classified.
+- No geometry was added, removed or re-selected. The three merge cells are `E2`'s.
+- 134 of 139 stock missions are byte-identical; the five that move are all MiG-29 and each is justified
+  in [`pilot.md`](pilot.md) §5.10a / [`duels.md`](duels.md) D1.
+
+---
+
 ## Gaps
 
 | # | Thing | Known from |
@@ -901,8 +1007,8 @@ this round.** The product is the two defects above and the arena row.
 | **E-11** | **The fitness is NOT silent in a saturated arena, and §Knowledge 1 claims it is.** Pairwise domination consults C whenever V and M tie, and two floats are never equal, so a dead arena still produces a full ranking. The mitigation built is a REPORT and not a change to the order: every tournament prints which level decided each run and shouts `SATURATED` when V and M decided none. Changing the order to abstain on a level-C tie was NOT done, because it would make the tournament silent about real craft differences in an informative arena too | this round |
 | **E-12** | **RUN, and the arena FAILS it.** `tools/levers-genome.txt` (the three live genes at three points each) plus `fb_arena_check.py --flight N`. [MESS] at `--flight 2` under the genome's own alphabet the arena has **1 informative geometry of 12** against S5's 3 and is **REFUSED**; at `--flight 1` under the declared nine it has 4 and PASSES. **Still open:** nothing in the runner yet REQUIRES the genome-alphabet gate to have passed — `fb_evolve.py` still only prints the reminder. Making it a hard refusal would stop every run this tree can currently fly, so it is booked rather than built | `E1`, `E2` |
 | **E-13** | **DIAGNOSIS REPLACED (`E2`).** The total tie was the AGGREGATION, not the genome: §1.4's cross-seat comparison returns the SEAT in both mirrored runs wherever the seat carries the key, so every variant takes one point of two. [MESS, same telemetry, only the comparison changed] cross-seat 0.500 × 12, same-seat 0.227…0.773. Three of the five genes grip when measured one at a time (§State 1). What remains true of E-13's second half: the genome and the arena still barely intersect — of the five genes exactly **one** (G3) moves an outcome class on exactly **one** geometry (`xfarsplit`) | `E1`, `E2` |
-| **E-14** | **G4 has no publishable geometry, and the blocker is three things.** (a) `FBPilot` has no transition from the intercept phase into `Phase::Bfm` — the merge is only reachable as a briefed task at spawn; (b) the merge writes no `eng_*` column, so level C is `GATE` on both sides and the fitness is blind to everything the merge moves; (c) the gun fires 6 times in 70 merge runs and lands 0 hits, so two of the three BFM doctrine keys are inert and only the gene itself moves a class — 2 movers of 9 on `xmergesplit`, against S2's 3 | `E2` |
-| **E-15** | **What the merge geometries decide is a CFIT, not a gunfight.** [MESS] 9 of 11 east results on `xmerge`/`xmergesplit` are `CRASH` ("extreme attitude at ground contact" / "ground penetration" / "structure contact") — the MiG-29 flies into the ground out of a lost-contact turn, which is [`pilot.md`](pilot.md) 2.9's live defect class. Their S1 pass at a 50.0 % modal share is carried by it, so it is a measurement of a defect and may not be read as a doctrine result | `E2`, [`pilot.md`](pilot.md) 2.9 |
+| **E-14** | **G4 still has no publishable geometry — but blocker (c) is now a different, sharper thing (`E3`).** (a) and (b) are unchanged: `FBPilot` has no transition from the intercept phase into `Phase::Bfm`, and the merge writes no `eng_*` column, so level C is `GATE` on both sides. (c) is no longer "the gun barely fires": with the MiG's CFIT closed (E-15) and the merge profile briefing the GUN control position (0.15–0.40 nm — the default 0.5–1.5 nm is a MISSILE holding position outside the funnel, `missions/gun-bfm.fbm`'s own rule), the same 120-run merge arena goes from **191 bursts / 0 `gun HIT`** to **2,652 bursts / 897 `gun HIT`**. **And still 0 kills**, because a whole GSh-301 drum puts **6.37 rounds of 150** on an F-16 at a mean miss of 3.41 m — 3 systems failed, `dmg_effective` 1.00. The gene's LEVER is now large and monotone in the merge [MESS, three-point sweep on `xmergesplit`, both seats] `bfm_es` 33 592 / 39 358 / 42 492 ft, `bfm_ctrl_s` 34.2 / 31.9 / 2.1 s, rounds fired 150 / 150 / 0, hits landed 23 / 23 / 0 — the LOW-energy rail is the one that converts. What is missing is an OUTCOME for it to move: level V and M cannot see a gun that lands and cannot kill. Also standing: `Phase::Bfm` has **no missile shot at all** — the fight tick ends in `BfmGunfire`, so the AIM-9/R-73 on the rails have no employment path | `E2`, `E3` |
+| **E-15** | **CLOSED (`E3`), and closing it CONFIRMED the reading: the merge's S1 pass WAS the CFIT.** At n = 120 runs per pass the merge cells produced **77 monitor KOs and every single one was the MiG-29** (38 `ATTITUDE_CONTACT`, 37 `CFIT`, 2 `STRUCTURE_CONTACT`); zero F-16 KOs, in either seat. The cause was not the pilot and not the floor: `systems/FBFlightControl` bound this airframe's own rate damper only on its FLCS path while `Phase::Bfm` commands `Manual` ([`pilot.md`](pilot.md) §5.10a). With it on the hand stick the same 120 runs produce **0 KOs** — and `xmerge`/`xmergesplit` fall from 2 outcome classes at a 50.0 % modal share to **1 class at 100 %**, i.e. they lose their S1 pass with the defect that was carrying it. That is the finding stated forwards: a geometry whose informativeness comes from one side dying of a bug is a measurement of the bug | `E2`, `E3` |
 | **E-16** | **A converged population and a circling one look alike in instrument (c).** The `E2` run's champion never changed, so "min distance to a champion 3+ generations back" is 0.0000 — the reading §3.6c gives a CYCLER. T = 0.0000 and the yardstick was flat, so this one is a fixed point; the instrument cannot tell the two apart on its own and the file now says so | `E2` |
 
 ### Exploits the evolution found

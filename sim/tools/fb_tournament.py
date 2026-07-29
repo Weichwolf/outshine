@@ -126,6 +126,14 @@ GEOMETRIES = {
 # pilot, the WVR round on the rails, chaff and flares loaded) with the tournament's flight, sort,
 # tuning and objective machinery around them. The `wp` is not steered to — a fight has no waypoint —
 # it is the nav solution the fire-control block gates the EEGS gun funnel on (doc/missions/gun-bfm.fbm).
+#
+# AND IT BRIEFS THE GUN CONTROL POSITION, because the gun is the ONLY weapon Phase::Bfm can employ:
+# FBPilot's fight tick ends in BfmGunfire and there is no WVR missile shot anywhere in it. The default
+# band (0.5-1.5 nm) is a MISSILE holding position and lies outside the EEGS funnel (600-3,000 ft), so a
+# merge briefed with it flies a perfect tail chase that can never squeeze — [MESS, xmergesplit] the MiG
+# held 132.4 s of control position at a median 2.64 nm and |ata| 0.4 deg, `gun_in_funnel` 0 in 4,200
+# ticks, 0 triggers. The two numbers are missions/gun-bfm.fbm's own, and its header carries the rule.
+# [MESS, same geometry, only these two lines added] 63 bursts and 23 `gun HIT` lines against 0 and 0.
 UNIT_TPL = {
   "bvr": {
     "f16": """unit {call}
@@ -186,6 +194,8 @@ UNIT_TPL = {
   set cmds_chaff 60
   set cmds_flare 60
 {sort}  set task bfm
+  set pilot_bfm_ctrl_min_nm 0.15
+  set pilot_bfm_ctrl_max_nm 0.40
 {tuning}  wp {wplat:.5f} {wplon:.5f} {alt} {kt}
   objective {objective}
   objective survive
@@ -207,6 +217,8 @@ UNIT_TPL = {
   set cmds_chaff 30
   set cmds_flare 30
 {sort}  set task bfm
+  set pilot_bfm_ctrl_min_nm 0.15
+  set pilot_bfm_ctrl_max_nm 0.40
 {tuning}  wp {wplat:.5f} {wplon:.5f} {alt} {kt}
   objective {objective}
   objective survive

@@ -993,14 +993,24 @@ because a held value otherwise looks like a fresh one.
 
 ### FBFlightControl: the `Mig29()` preset and why it exists (stage 2a)
 
-The `Flcs` branch now carries four airframe-dependent numbers that are **zero for an aircraft with its
-own FLCS**, and the F-16 is that aircraft: `KqDamp` and `KpDampRoll` (rate feedback inside the g
-branch), `PitchStickMax` (the pitch-axis counterpart of `RollStickMax`) and `AlphaLimitDeg` (the α
-limiter). The reason is structural rather than tuning: on the F-16 this branch's output is a **g
-request** into a fast inner loop that regulates rate and limits α itself; on a mechanically signalled
-airframe the same output **is** the surface deflection, with nothing behind it but a gearing unit and
-its rate limit. With all four at their F-16 values the expression is arithmetically the one that was
-there before — verified across all 53 stock missions, byte for byte.
+The class carries four airframe-dependent numbers that are **zero for an aircraft with its own FLCS**,
+and the F-16 is that aircraft: `KqDamp` and `KpDampRoll` (rate feedback — the SAU-451 DAMPER),
+`PitchStickMax` (the pitch-axis counterpart of `RollStickMax`) and `AlphaLimitDeg` (the α limiter). The
+reason is structural rather than tuning: on the F-16 the branch's output is a **g request** into a fast
+inner loop that regulates rate and limits α itself; on a mechanically signalled airframe the same output
+**is** the surface deflection, with nothing behind it but a gearing unit and its rate limit. With all
+four at their F-16 values the expression is arithmetically the one that was there before — verified
+across all stock missions, byte for byte.
+
+**All four are devices of the AIRCRAFT, so all four bind on the `Manual` path as well as the FLCS one,
+and each of the three rounds that learned this learned it the hard way.** A hand stick does not know
+which mode the autopilot is flying; neither does a stick force, an α limiter or a damper. `PitchStickMax`
+and the α limiter were moved onto that path when the MiG-29 first flew BFM
+([`pilot.md`](pilot.md) §5.10 screws 1–2); `KqDamp`/`KpDampRoll` followed only when the merge kept
+killing it ([`pilot.md`](pilot.md) §5.10a) — BFM commands `Manual`, so until then the airframe fought
+every close engagement with its damper switched off. Each of the four is **gated on its own gain or
+limit being non-zero**, which is what makes the F-16 byte-identical as a structure rather than as an
+IEEE argument.
 
 Three measured failures determine the preset and live in its header comment: a saturating generic
 yaw branch (1.2 s cycle → roll coupling → LOC at t=28 s; the stage-1 harness measured this

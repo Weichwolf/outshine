@@ -26,21 +26,28 @@ timeout 300
 # 290 deg in 3.1 s on a 10-20 deg steering error. The same 180 deg that gives the peak cap now also bounds
 # the roll flown per kBfmTurnTimeS (doc/pilot.md 5.7.3); the sustained rate follows as cap/2.
 #
-# READING RULE: exit 2 (CRASH) -- and it is the FULL merge now, decided on the OTHER side and for another
-# reason. Measured this round:
-#   VIPER (F-16): NO departure. Longest |w| > 60 deg/s stretch 2.9 s -> 0.8 s, roll per 2 s window
-#     195.8 -> 110.8 deg, and the run goes from 18.0 s to 232.3 s. lock_s 16.1 -> 28.2.
-#   FULCRUM (MiG): RADAR_LOCK t=3.8 (3.32 nm) as before, but now lock_s 14.2 -> 79.4, and it gets the
-#     campaign's FIRST WVR employment away -- a 12-round GSh-301 burst at t=195.2, which misses.
-#   THE END: the fulcrum descends out of a lost-contact turn and hits the ground at t=232.3 (CFIT). Under
-#     the native oracle's real terrain the same event reads ATTITUDE_CONTACT at t=232.2 -- one event, two
-#     elevation sources.
-# WHAT THIS RUN NOW MEASURES, and it is NOT the weapon thesis: the viper spends 190.1 of 232.3 s with
-# bfm_rng = -1, the fulcrum 143.2 s, 133.6 s both at once. After the first pass neither ACM box
-# re-acquires, the fight becomes two blind sustained turns, both jets sink (the viper settles at 474 m
-# AGL, below its own 2000 ft BFM floor) and the MiG loses that race. So the R-73/GSh-301 thesis stays untested for a FOURTH reason, and it is the honest one: the
-# pilots cannot hold each other in a knife fight. The blocker is no longer a control law on either side --
-# it is close-combat re-acquisition plus the BFM floor. doc/duels.md D1, doc/pilot.md gaps 2.9 + 2.8.
+# AND THE MiG NOW SURVIVES IT TOO (this round), which is why the exit code moved 2 -> 3. It used to fly
+# into the ground at t=232.3 out of a lost-contact turn, and the cause was NOT the pilot and NOT the
+# floor: systems/FBFlightControl applied this airframe's own rate DAMPER (KqDamp/KpDampRoll -- the
+# SAU-451 "DAMPER", doc/modules/mig29/flight-model-spec.md 7.4 names it "FBFlightControl's inner rate
+# loop") only on its FLCS path, and BFM commands Manual. The jet fought every merge with the damper off.
+# Measured in isolation, one MiG alone in a cold BFM search, 300 s: mean g command 4.57, mean bank
+# 76 deg, p95 |VS| 183 m/s, CFIT from all three start altitudes -- against 1.11 / 24 deg / 4 m/s and no
+# KO with the damper, and 1.22 / 40 deg / 9 m/s for the F-16 flying the identical search.
+#
+# READING RULE: exit 3 (TIMEOUT), and the verdict is the telemetry. Measured this round:
+#   NO monitor KO on either side, the run goes to its full 300 s (was 232.3).
+#   VIPER (F-16): lock_s 28.2 -> 47.6, min AGL 449 -> 4487 m. It no longer settles below its own
+#     2000 ft BFM floor, because the fight no longer spirals down.
+#   FULCRUM (MiG): RADAR_LOCK t=3.8 (3.31 nm) unchanged, lock_s 79.4 -> 70.6, min AGL -4 -> 4548 m,
+#     and it still gets a GSh-301 burst away (24 rounds over two triggers), which still misses.
+# WHAT THIS RUN MEASURES, and it is STILL NOT the weapon thesis: the viper spends 231.6 of 300.1 s with
+# bfm_rng = -1, the fulcrum 223.7 s, 220.1 s both at once -- worse as a FRACTION than before (73 %
+# against 82 % for the viper, 75 % against 62 % for the fulcrum), because the two jets now climb away
+# from each other instead of sinking together. After the first pass neither ACM box re-acquires. So the
+# R-73/GSh-301 thesis stays untested for a FIFTH reason, and it is again the honest one: the pilots
+# cannot hold each other in a knife fight. The blocker is close-combat re-acquisition -- the floor and
+# the airframe are both off the list. doc/duels.md D1, doc/pilot.md gaps 2.9 + 2.8.
 
 unit viper
   team friendly

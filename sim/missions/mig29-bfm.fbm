@@ -21,18 +21,20 @@ timeout 300                                  # sim-seconds until TIMEOUT
 #   - bfm_lock_s at the LAST row must be > 0 — the MiG acquired, designated and HELD the lock on its own
 #     radar. Measured: 296.3 s of 300, and robust (291.8-296.3 across +-3 m of spawn perturbation);
 #   - bfm_pursuit must be a PURSUIT and not `search` for essentially the whole run — measured 296.3 s;
-#   - the gun/track channels (bfm_pursuit, gun events) show it is FLYING the fight, not surviving it.
+#   - the gun/track channels (bfm_pursuit, gun events) show it is FLYING the fight, not surviving it;
+#   - bfm_ctrl_s at the LAST row must be > 0 — measured 287.6 s of 300, closing to 0.65 nm.
 #
-# WHAT THIS FILE NO LONGER CLAIMS, and why. bfm_ctrl_s used to be part of the rule above (88.2 s, closing
-# to 1.19 nm). Since the roll EXTENT bound (doc/pilot.md 5.7.3) it is 0.0 and the closest approach is
-# 1.70 nm — outside the 0.5-1.5 nm control band. That is CAUSAL, not chaos (0.0 in all seven samples of a
-# +-3 m spawn perturbation), and it is the declared cost of the bound on THIS airframe: its commanded
-# roll-rate cap hook is already 60 deg/s (doc/pilot.md 5.10, screw 4), and the bound makes a SUSTAINED
-# roll half the peak, so this jet converts at 30 deg/s and the long one-direction pursuit roll no longer
-# arrives. The obvious trade was measured and REJECTED: putting the hook back on the derived 90 deg/s
-# restores this file (ctrl_s 86.2, 1.34 nm) and costs a MiG DEPARTURE in duel-merge at t=103.6
-# (stall/mush), i.e. it reopens exactly the D1 claim screw 4 closed. A lost control position is a fight
-# that does not convert; a departure is a K.O. The hook stays at 60.
+# THE CONTROL POSITION CAME BACK, and it is the evidence that the last round's cost was never the roll
+# bound. Until this round bfm_ctrl_s was 0.0 here and the closest approach 1.70 nm, and that was booked
+# as the declared price of the roll EXTENT bound (doc/pilot.md 5.7.3) on an airframe whose rate cap is
+# already 60 deg/s. The trade of putting the cap back on the derived 90 deg/s was measured and rejected
+# (it restored ctrl_s 86.2 and cost a MiG departure in duel-merge at t=103.6). Both readings were right
+# about their measurement and wrong about the cause: systems/FBFlightControl applied this airframe's own
+# rate damper (KqDamp/KpDampRoll = the SAU-451 "DAMPER") only on its FLCS path, and BFM commands Manual —
+# so every close fight was flown with the damper OFF, the pilot's g loop rang against an undamped short
+# period, and no pursuit converged. With the damper on the hand stick and the cap unchanged at 60 deg/s,
+# ctrl_s is 0.0 -> 287.6 s and the closest approach 1.70 -> 0.65 nm, i.e. well past the 88.2 s the roll
+# bound was blamed for costing. lock_s is unchanged to the digit (296.3 s).
 #
 # GEOMETRY AT T=0: fulcrum sits 2 nm dead astern of bandit, co-altitude at 5,000 m, nose on, at its
 # measured corner speed (420 KCAS, `make test-mig29`). bandit runs straight east at 300 KCAS — a

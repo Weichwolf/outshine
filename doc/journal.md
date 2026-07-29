@@ -1227,3 +1227,52 @@ Hebel-Familie.
 `verify-models` grün, fünf Harnesses rc=0, `git status --porcelain sim/assets` vor und nach jedem
 Evolutionslauf leer, Determinismus `--threads 1/2/4` über `xfarsplit`/`merge`/`xmerge`/`xmergesplit`/
 `split` byte-gleich, und alle 140 bestehenden `.fbm`-Dateien unverändert.
+
+## 2026-07-29 — Der Merge starb an einem Dämpfer, den nur der Autopilot hatte
+
+**Der Befund kam vor der Korrektur, und er hat den Schuldigen ausgeschlossen statt ihn zu vermuten.**
+E-15 las „was die Merge-Geometrien entscheiden, ist ein CFIT" — bei n = 120 Läufen je Durchgang sind es
+**77 Monitor-K.O.s, und in 77 von 77 ist es die MiG-29** (38 ATTITUDE_CONTACT, 37 CFIT, 2
+STRUCTURE_CONTACT). Die F-16 stirbt in keiner Merge-Zelle, in keinem Sitz. Sitztausch: die MiG stirbt
+auch im Westsitz (t = 351,2); MiG gegen MiG überlebt 420 s. Also weder Geometrie noch Sitz.
+
+**Der isolierende Versuch hat gar keinen Gegner.** Eine MiG-29 auf `set task bfm`, nächster Feind
+100 km weg — nur der kalte verankerte Suchlauf, 300 s, drei Starthöhen, derselbe Missionstext ein Modul
+weiter für die F-16: mittleres g-Kommando **4,57** gegen 1,22, mittlere Querlage **76°** gegen 40°,
+p95 |VS| **183 m/s** gegen 9, **CFIT aus allen drei Höhen** gegen keinem. Die Ursache steht in den
+ersten acht Sekunden: 0,32 Nickstick erzeugten **3,05 g auf ein 0,37-g-Kommando**, danach schlägt die
+Schleife im 1,5-s-Takt zwischen +PitchStickMax und −kBfmPushMax um.
+
+**Die Ursache war eine Zeile in der Zellenschicht, nicht im Piloten und nicht am Boden-Deckel.**
+`KqDamp`/`KpDampRoll` sind der Dämpfer DIESER Zelle (SAU-451 „DAMPER", drei Achsen; flight-model-spec
+§7.4 nennt ihn wörtlich „FBFlightControl's inner rate loop") und banden nur im FLCS-Zweig — BFM
+kommandiert `Manual`. **Die MiG flog jeden Nahkampf mit ausgeschaltetem Dämpfer.** Es ist dieselbe
+Auslassung wie bei `PitchStickMax` und dem Anstellwinkel-Begrenzer, eine Ebene tiefer (pilot.md §5.10a,
+die fünfte Schraube). Beide Gains sind auf sich selbst getort; die F-16 hat sie exakt 0 und läuft den
+Zweig nicht. Die Gierachse bleibt aus: dieser Ruderzweig ist GEMESSEN abgeschaltet.
+
+**Was das Deck angeht: nicht angefasst.** Ein `Cmq` hätte dieselbe Kurzperiode gedämpft und niemand
+hätte es gemerkt — es wäre kein belegtes Delta gewesen, und ein besseres Missionsergebnis ist kein
+Beleg. `verify-models` grün, `sim/assets` byte-gleich.
+
+**Vorher/nachher, dieselben 120 Läufe je Durchgang:** K.O.s **77 → 0**; Kanonen-Salven **191 → 386**,
+und **→ 2 652** mit `gun HIT` **0 → 897**, nachdem das Merge-Profil die KANONEN-Kontrollposition brieft
+(0,15–0,40 nm; die Vorgabe 0,5–1,5 nm ist eine Raketen-Halteposition außerhalb des Trichters, und
+`Phase::Bfm` hat überhaupt keinen Raketenschuss — gemessen: 132,4 s Kontrollposition bei median 2,64 nm,
+`gun_in_funnel` 0 in 4 200 Takten). `duel-merge` Exit 2 → 3, volle 300 s, kein K.O.; `mig29-bfm`
+`bfm_ctrl_s` **0,0 → 287,6 s** bei unverändertem 60-°/s-Rolldeckel — die Kontrollposition, die §5.7.3
+als Preis der Roll-Schranke verbucht hatte, war nie deren Preis.
+
+**Und die Energieregel? Der Hebel greift, das Ergebnis nicht.** Dreipunkt-Sweep auf `xmergesplit`:
+`bfm_es` 33 592 / 39 358 / 42 492 ft, `bfm_ctrl_s` 34,2 / 31,9 / 2,1 s, Schuss 150 / 150 / 0, Treffer
+23 / 23 / 0 — **die NIEDRIGE Schiene konvertiert.** Die Ergebnisklasse bewegt sich trotzdem nicht: die
+ganze Trommel legt **6,37 Schuss von 150** bei 3,41 m mittlerem Fehlabstand auf die F-16, drei Systeme
+aus, `dmg_effective` 1,00. Also kein §1 veröffentlicht — und die Merge-Zellen verlieren ihren S1-Pass
+mit dem Defekt, der ihn getragen hat (2 Klassen bei 50,0 % → 1 Klasse bei 100 %). Das Tor wurde NICHT
+gelockert. Der Blocker ist jetzt ein einziger benannter: eine Kanone, die trifft und nicht tötet.
+
+**Tore.** `core-lib gym native wasm` warnungsfrei, `verify-layers` (297 Dateien, 12 Schichten) und
+`verify-models` grün, zehn Harnesses rc=0, Determinismus `--threads 1/2/4` über alle 139 Missionen
+byte-gleich, und **134 von 139 Missionen byte-identisch** — die fünf, die sich bewegen, sind alle
+MiG-29 und je einzeln begründet (`duel-merge` 2 → 3, `mig29-bfm` ctrl_s 0 → 287,6, `mig29-full` /
+`mig29-landing` weichere Aufsetzer bei 143,2 → 143,3 bzw. 141,0 → 142,2 kt, `mig29-takeoff` −0,2 s).

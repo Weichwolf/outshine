@@ -64,7 +64,7 @@ All eight flown at `c637ed3`+this round, `fb-gym`, default elevation provider. V
 | 5 | `duel-emcon` | 3 | 24.0 / – | 156.6 / – | 9.57 / – | 9.77 / – | 8.29 m / – | **draw** |
 | 6 | `duel-doctrine-mig` | 0 | 24.0 / 105.2 | – / 141.5 | – / 14.41 | – / 10.60 | – / 9.35 m | **MiG wins** |
 | 7 | `duel-doctrine-f16` | 0 | 20.0 / 96.2 | 127.9 / 146.8 | 15.65 / 9.93 | 11.30 / 10.10 | 1.77 m / – | **F-16 wins** |
-| 8 | `duel-merge` | 2 | – / 3.8 | – / – | – | – | – / – | **both fly the whole merge; the MiG flies itself into the ground at t = 232.3** (see §row 8 below) |
+| 8 | `duel-merge` | 3 | – / 3.8 | – / – | – | – | – / – | **both fly the whole merge to its timeout; nobody is KO'd and nobody hits** (see §row 8 below) |
 
 **Why each cell came out that way**, one line each, every number off the run:
 
@@ -91,24 +91,29 @@ All eight flown at `c637ed3`+this round, `fb-gym`, default elevation provider. V
 5. **EMCON — draw, and the only run in which a MiG survives an AIM-120.** See §2 below.
 6. **MiG doctrine — MiG wins.** See §3.
 7. **F-16 doctrine + energy — F-16 wins.** See §3.
-8. **merge — BOTH sides now fly the whole fight; the MiG ends it by flying into the ground (this round).**
-   The three earlier blockers are all closed: the MiG's close-combat departure (its control law,
+8. **merge — BOTH sides now fly the whole fight to its timeout, and nobody is lost (this round).**
+   The four earlier blockers are all closed: the MiG's close-combat departure (its control law,
    [`pilot.md`](pilot.md) §5.10), the MiG's acquisition (`n019 MODE acm` t=0.5, `RADAR_LOCK` t=3.8 at
-   3.32 nm) and — this round — **the F-16's own roll law**, which had no bound on how LONG a roll may
-   last: [`pilot.md`](pilot.md) §5.7.3. The F-16's departure at t=18 is gone (longest |ω| > 60 stretch
-   **2.9 s → 0.8 s**, roll per 2 s window **195.8° → 110.8°**) and the run goes from **18.0 s to 232.3 s**.
-   What that bought, both sides: viper `lock_s` **16.1 → 28.2**, fulcrum `lock_s` **14.2 → 79.4** and its
-   first WVR employment in the whole campaign — a 12-round GSh-301 burst at t=195.2, which misses.
-   The run still ends at exit 2, but on the other side and for another reason: the fulcrum descends out
-   of a lost-contact turn and hits the ground at t=232.3 (`CFIT`; `ATTITUDE_CONTACT` at t=232.2 under the
-   native oracle's real terrain, i.e. the same event through a different elevation source).
-   **So the merge is now genuinely two-sided and still not a weapon result.** The viper spends 190.1 of
-   232.3 s with `bfm_rng = −1`, the fulcrum 143.2 s, **133.6 s both at once**: after the first pass
-   neither ACM box re-acquires, the fight degenerates into two blind sustained turns, both jets sink (the
-   viper settles at 474 m AGL, below its own 2,000 ft BFM floor) and the MiG loses that race. The R-73/GSh-301 thesis therefore stays untested for a FOURTH
-   reason, and it is the honest one: **the pilots cannot hold each other in a knife fight.** The blocker
-   is no longer a control law on either side — it is close-combat re-acquisition plus the BFM floor
-   ([`pilot.md`](pilot.md) gaps 2.9 and 2.8).
+   3.31 nm), the F-16's roll law ([`pilot.md`](pilot.md) §5.7.3, longest |ω| > 60 stretch
+   **2.9 s → 0.8 s**, roll per 2 s window **195.8° → 110.8°**, run **18.0 s → 232.3 s**) and — this
+   round — **the MiG's missing rate damper** ([`pilot.md`](pilot.md) §5.10a). `KqDamp`/`KpDampRoll` model
+   the SAU-451 DAMPER and bound only on `FBFlightControl`'s FLCS path, while BFM commands `Manual`: the
+   MiG fought every merge undamped, its g loop rang against an undamped short period, and the fight ended
+   in the ground. It was NOT the floor and NOT the pilot — measured on one MiG alone in a cold BFM search
+   with no opponent at all: mean `bfm_gcmd` **4.57 → 1.11**, mean bank **76° → 24°**, p95 |VS|
+   **183 → 4 m/s**, CFIT from all three start altitudes → none (the F-16 flies the identical search at
+   1.22 / 40° / 9 m/s).
+   **The run now goes to its full 300 s with no monitor KO on either side** (exit 2 → 3). Min AGL fulcrum
+   **−4 → 4,548 m**, viper **449 → 4,487 m**; viper `lock_s` **28.2 → 47.6**, fulcrum `lock_s`
+   **79.4 → 70.6**, and the fulcrum still gets a GSh-301 burst away (24 rounds, two triggers) which still
+   misses.
+   **So the merge is two-sided, survivable, and still not a weapon result.** The viper spends 231.6 of
+   300.1 s with `bfm_rng = −1`, the fulcrum 223.7 s, **220.1 s both at once** — worse as a FRACTION than
+   before (77 % against 82 %, 75 % against 62 %), because the two jets now climb apart instead of
+   spiralling down together. After the first pass neither ACM box re-acquires. The R-73/GSh-301 thesis
+   therefore stays untested for a FIFTH reason, and it is again the honest one: **the pilots cannot hold
+   each other in a knife fight.** The blocker is close-combat re-acquisition alone — the floor and the
+   airframe are both off the list ([`pilot.md`](pilot.md) gaps 2.9 and 2.8).
 
 ### The one-sentence answer
 
@@ -218,7 +223,7 @@ pairings.
 
 | # | Thing | Known from |
 |---|---|---|
-| ~~**D1**~~ | **The merge is FLYABLE from both sides — closed as a control-law gap; what remains is a different gap.** Its three named blockers are gone in order: the MiG's close-combat departure (`pilot.md` §5.10), the MiG's acquisition (`FBMig29Radar::kAcm*` + `BfmRadarModeOrdinal`, `RADAR_LOCK` t=3.8, `lock_s` 14.2 → **79.4**) and — this round — the F-16's roll law, which carried a PEAK rate cap and no bound on the roll's EXTENT (`pilot.md` §5.7.3). `duel-merge` goes from **18.0 s to 232.3 s**, the F-16's departure is gone, and the MiG gets the campaign's first WVR employment away (12 GSh-301 rounds at t=195.2, miss). It is still not a weapon result, and the reason is now elsewhere: the viper is blind for 190.1 of 232.3 s, the fulcrum for 143.2 s, both at once for 133.6 s — after the first pass neither ACM box re-acquires, the fight becomes two blind sustained turns, both jets sink and the MiG hits the ground at t=232.3. Successor gaps: `pilot.md` 2.9 (close-combat re-acquisition + the BFM floor) and 2.8 (the lift-vector law's downward singularity, the mechanism that triggered the roll). | `duel-merge` |
+| ~~**D1**~~ | **The merge is FLYABLE AND SURVIVABLE from both sides — closed as a control-law gap; what remains is a different gap.** Its four named blockers are gone in order: the MiG's close-combat departure (`pilot.md` §5.10), the MiG's acquisition (`FBMig29Radar::kAcm*` + `BfmRadarModeOrdinal`, `RADAR_LOCK` t=3.8, `lock_s` 14.2 → **79.4**), the F-16's roll law (`pilot.md` §5.7.3, run **18.0 s → 232.3 s**) and — this round — **the MiG's missing rate damper** (`pilot.md` §5.10a): `KqDamp`/`KpDampRoll` bound only on `FBFlightControl`'s FLCS path while BFM commands `Manual`, so the jet fought every merge with the SAU-451 DAMPER off. `duel-merge` now runs its full **300 s with no monitor KO on either side** (exit 2 → 3), min AGL fulcrum **−4 → 4,548 m** and viper **449 → 4,487 m**. It is still not a weapon result, and the reason is now a single one: the viper is blind for 231.6 of 300.1 s, the fulcrum for 223.7 s, both at once for 220.1 s — after the first pass neither ACM box re-acquires. Successor gaps: `pilot.md` 2.9 (close-combat re-acquisition; its floor/sink half is closed) and 2.8 (the lift-vector law's downward singularity). | `duel-merge` |
 | **D2** | **An AIM-120's terminal miss is a strong function of closure**, and nothing in the tree says whether that is the round or the physics. [MESS, `duel-headon` with the MiG's cruise swept 330→600 kt TAS] target speed 169/206/237/268/288 m/s ⇒ closure 744/842/919/1000/1053 m/s ⇒ miss **1.37/2.13/4.74/3.15/7.66 m**. Since `core/FBDamageModel` is 1/r², those six metres are the difference between a kill and a jet that flies on with wrecked avionics — i.e. the single most outcome-sensitive number in the whole campaign. It belongs beside `bvr-duel-decided`'s terminal-loop finding | this campaign |
 | **D3** | *(blocks G5 of [`doctrine-evolution.md`](doctrine-evolution.md); `tools/fb_evolve.py` prints the blocker at start and refuses the gene. **CONFIRMED as a hard block, round `E2`:** `set pilot_emcon_frac 0.5` gets `SET_INVALID_VALUE` + `SET_REJECTED` at t = 0.0 and the run **exits 1** — the key does not exist, so the degenerate band is not even reachable.)* **The pilot does not use the IRST.** `sensors/FBIrstSystem` publishes an `Irst` block and the only consumer in the tree is a missile seeker; `pilot/FBPilot`'s intercept picture is built from the Radar block alone. So the MiG's one genuinely passive sensor cannot cue anything, and "IRST-EMCON" is a doctrine the campaign could only test as "silent and blind" | `duel-emcon` |
 | **D4** | **Weapon selection is not a decision the pilot can make.** `FBCommandTarget::WeaponSelect` is `NotImplemented` on both modules, so the selected station is whatever the SMS's station step arrived at. A jet carrying an AIM-120 and an AIM-9 will offer whichever pylon comes first in the module's own list, and the missions in this family work around it by loading the racks in the order they want the rounds fired | this campaign |
@@ -232,7 +237,7 @@ pairings.
 |---|---|
 | Making `InterceptShotRtrFactor` > 1.0 the MiG's DEFAULT hook | it wins, and it is not derivable. Rtr means "the round arrives even if he runs"; nothing in `doc/modules/mig29/` states a launch doctrine, so a number chosen because it wins a duel would be a fitted constant wearing a derivation's clothes. It lives where the tree already puts a doctrine: in mission text (`set pilot_shot_rtr`) and in the tournament |
 | Reading `duel-emcon` as "EMCON is better" | it is not: the MiG survived and never fired. The run measures a TRADE (warning + defence + life against blindness), and both halves are in its head |
-| ~~A merge mission as a real duel~~ | **built; both sides now fly it (this round).** Departure, acquisition and — this round — the F-16's roll law are all closed; `duel-merge` runs 232.3 s instead of 18.0 and produces the campaign's first WVR employment (12 GSh-301 rounds, t=195.2, miss). The WEAPON thesis (R-73/GSh-301) is still untested, and the reason is no longer a control law: neither ACM box re-acquires after the first pass (blind 190.1 s of 232.3 for the viper, 143.2 s for the fulcrum, 133.6 s simultaneously), so the fight becomes two blind sustained turns and the MiG loses the sink race. Next blocker: close-combat re-acquisition and the BFM floor, `pilot.md` gaps 2.9/2.8 |
+| ~~A merge mission as a real duel~~ | **built; both sides now fly it to the end and both survive (this round).** Departure, acquisition, the F-16's roll law and — this round — the MiG's missing rate damper are all closed; `duel-merge` runs its full 300 s instead of 18.0 or 232.3, with no KO on either side, and still produces a GSh-301 burst (24 rounds, miss). The WEAPON thesis (R-73/GSh-301) is still untested, and the reason is no longer a control law nor the floor: neither ACM box re-acquires after the first pass (blind 231.6 s of 300.1 for the viper, 223.7 s for the fulcrum, 220.1 s simultaneously). Next blocker: close-combat re-acquisition alone, `pilot.md` gaps 2.9/2.8 |
 
 ---
 
