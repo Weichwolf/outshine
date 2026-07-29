@@ -136,7 +136,11 @@ priority (own seeker > uplink > last known) degenerates to its middle branch for
 (measured on `sam-sa2-command`). Six new rows in `core/FBStore.h` (`v750` `v601` `3m9` `9m33` `strela2`
 `igla`) with one new field, `GatherS` — guidance inhibited after launch, because a round leaving a rail
 at zero airspeed has no fin authority — and `FBStoreRelease` gained the RAIL attitude a launcher aims
-with (`HaveRail` false for every air-launched store, so the separation path is unchanged). Two new gun
+with (`HaveRail` false for every air-launched store, so the separation path is unchanged).
+**`GatherS` was not READ by anything until 2026-07-29** — declared, filled, specified twice, never built;
+it is now the early return in `FBMissileGuidance::FlyCommand` (§10.2 "The gathering phase"). `HaveRail`
+gained a second consumer in the same round: it is what tells a rail launch from an air launch for
+`FBFdmSpawn::MotorRunning`. Two new gun
 rows (`azp23`, `zu23`). The two collisions this file's contracts had with a ground launcher resolved:
 the weight-on-wheels interlock is not RELAXED but declared inapplicable behind a private one-friend write
 gate (`FBStoresSystem::DeclareGroundLauncher`, refused outright once an airframe was ever bound, with
@@ -310,18 +314,33 @@ exists for exactly those things that belong to the OWNER of the simulation:
 | ground burst resolved against it | **no** (see §5.4) | no | yes |
 | in the roster for `objective kill …` | yes | **no** | yes |
 | ticked by JSBSim | yes | yes | no (`Airframe` optional) |
-| ground elevation for the FDM | real elevation | `kWeaponNoGroundElevM` = −100000 m | — |
+| ground elevation for the FDM | real elevation | `FBFdm::kNoGroundElevM` = −100 000 m, **from the initial condition onwards** | — |
 
 What the distinction does NOT do: it is not a second code path, not a behaviour flag and not an exception
 in the tick. A missile is computed by the same loop, judged by the same judges and documented with the
 same log lines as a jet; `UNIT_RESULT` calls it `IMPACT` instead of `CRASH`, and that is the whole
 difference in the verdict.
 
-The last point of the table is a deliberate decision with a justification (`units/FBSimUnit.cpp`,
-`kWeaponNoGroundElevM`): JSBSim's ground reactions describe a RESTING object. The spring/damper values of
-the mk82 model (10,000 lbf/ft, 200,000 lbf/ft/s) diverge within one step at a 150 m/s impact — no impact
-state would be left to report. A bomb does not bounce, it detonates. The store therefore flies
-ballistically through the ground, and WHERE the impact was is reconstructed sub-tick by the runner (§5.3).
+The last point of the table is a deliberate decision with a justification: JSBSim's ground reactions
+describe a RESTING object. The spring/damper values of the mk82 model (10,000 lbf/ft, 200,000 lbf/ft/s)
+diverge within one step at a 150 m/s impact — no impact state would be left to report. A bomb does not
+bounce, it detonates. The store therefore flies ballistically through the ground, and WHERE the impact was
+is reconstructed sub-tick by the runner (§5.3).
+
+**AMENDED 2026-07-29 — the rule was one call too late, and where the constant lives says so.**
+
+| Before | Now |
+|---|---|
+| `constexpr double kWeaponNoGroundElevM` in an anonymous namespace in `units/FBSimUnit.cpp`, plus a second copy in `clients/FBTestMissileAirframe.cpp` | **one** `static constexpr double FBFdm::kNoGroundElevM` in `fdm/FBFdm.h`. Three callers must say the same number — the unit's per-tick `UpdateGroundAsl`, the store spawn, and the airframe harness — so it belongs to the class that hands the number to JSBSim |
+| applied only per tick, i.e. AFTER `FBFdm::LoadUnguarded` had already run `RunIC()` | applied **inside** `LoadUnguarded`, before the IC, through the new `FBFdmSpawn::TerrainElevM` field |
+
+`FGLGear` resolves its contacts **inside** `RunIC()`. A store spawned nose-up on a rail therefore had a
+structure point metres below a ground it was never supposed to have, the contact spring answered with an
+angular impulse, and the integrator carried that impulse out of step 1 — see the measured probe in
+[`modules/ground/module.md`](modules/ground/module.md) §4. `TerrainElevM` is a **separate** field from
+`GroundElevM` (which only *places* the spawn) and defaults to JSBSim's own datum, so every spawn that ever
+ran in this tree keeps running its IC against exactly what it ran against before; only a released store
+sets it.
 
 ---
 
@@ -1502,6 +1521,42 @@ is enough depends on how long ago it was and what the target did since — the w
 measured instead of claimed: `missions/intercept-lostlock.fbm` still hits with it,
 `missions/intercept-defeated.fbm` no longer does.
 
+##### The gathering phase — BUILT 2026-07-29, and it is orthogonal to those three phases
+
+`FBStoreSpec::GatherS` was declared, filled for all six surface rounds and specified in two doc files
+**and read by no line of code**. It is now read, in `FBMissileGuidance::FlyCommand`:
+
+| | Rule |
+|---|---|
+| **Test** | `Spec_ && Spec_->GatherS > 0.0 && NowS_ - LaunchS_ < Spec_->GatherS` |
+| **Effect** | `FinPitch_ = FinYaw_ = 0`, `ManualPitch = ManualYaw = ManualRoll = 0`, and `FlyCommand` returns **before** the two lateral-acceleration loops and the roll holder. The fins TRAIL; the round flies the rail direction on thrust alone |
+| **What still runs** | the guidance law above it. `NzCmdG_`/`NyCmdG_` are written as always, so **`msl_nz_cmd` nonzero beside a zero `msl_fin_pitch` IS the phase** in the trace — the phase is observable without a new telemetry channel |
+| **Why it sits below the law and not in `UpdateTarget`** | `INERTIAL`/`MIDCOURSE`/`TERMINAL` name the **data source**; the gathering phase names whether the **fins are connected**. The two are independent, so they are not one enum |
+| **Second reason it must return early** | the two loops integrate. Against an airframe with no dynamic pressure to answer them the `kLoopI` integrators wind straight into `kIntegralClamp` — the same failure mode the D1 re-tune measured at the other end of the flight |
+| **Air launches are untouched by construction** | `GatherS = 0.0` for every air-launched catalogue row, so the test is false for every store that ever left a pylon. Measured: **150 of 160 committed missions byte-identical**, the 10 that moved are exactly the ones with a ground launch |
+
+**The six values are not a new number.** They already stood in the catalogue with their `[SET]`
+provenance before this round; building an unread field introduces nothing. Beside them the burn time each
+deck actually computes, `t = P·Isp/T`:
+
+| Row | `GatherS` | burn time `P·Isp/T` | relation |
+|---|---:|---:|---|
+| `v750` | 3.0 | 4.499 s | gathering ends **during** the burn |
+| `v601` | 2.5 | 2.498 s | the only row where the two **coincide** |
+| `3m9` | 2.0 | 3.995 s | during |
+| `9m33` | 1.5 | 1.992 s | during |
+| `strela2` | 0.6 | 1.975 s | during |
+| `igla` | 0.6 | 1.982 s | during |
+
+**They are deliberately NOT aligned.** "Gathering ends at booster separation" is a plausible-sounding rule
+and it is simply false for a shoulder-launched round, which has no booster to separate; `GatherS` is the
+time the fins are useless, and burnout is the time the thrust stops. Two quantities, two numbers.
+
+**Measured, V-601 on a 70° rail** (pre-fix against post-fix): pitch +70° → −41° in 1.6 s and an impact 7 m
+under the ground, against **70.00 / 69.97 / 69.95°** held through the phase and **868.8 kt = 447 m/s** at
+its end — i.e. the round reaches full fin authority *before* the first steering command is allowed
+through, which is the entire point of the phase.
+
 ##### The seeker
 
 `FBMissileSeeker` is structurally THE SAME class as the jet's FCR (`sensors/FBRadarSystem`) — not a
@@ -1582,6 +1637,10 @@ phases is `[SET]` (the public source situation says "boost-sustain" and nothing 
 **No throttle for a solid-fuel motor**: the guidance commands `ManualThr = 1.0` every tick, and the
 throttle slew in `FBFdm` (0.5 s from idle) IS the safety separation delay before ignition. It is commanded
 every tick because that is the one channel there is, not because anything could switch it off again.
+**A RAIL launch has no such delay** (2026-07-29): `FBFdmSpawn::MotorRunning`, set from `HaveRail`, lights
+the motor at the initial condition, because a round leaves a rail *because* the motor pushed it off. The
+0.5 s remains what an air-launched round drops through — see [`fdm.md`](fdm.md) §6 step 6 for the measured
+1.48 m of sink the missing distinction used to cost a surface round.
 
 **Its own telemetry columns** `msl_*` instead of the pilot channels (the bus is built PER UNIT, so no
 column of a jet's trace changes): `msl_phase`, `msl_range` (to the ESTIMATE, never to the truth),

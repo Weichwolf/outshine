@@ -1445,3 +1445,80 @@ restricted, 6 Registry-Leser) und `verify-models` grün, sechs Harnesses rc=0, `
 sim/assets` leer. Determinismus: **9 Läufe, 1 Kampagnen-Fingerabdruck**
 `81b549fd04c4591987b9dadf233deffdabbbfb01f9dc89f4f7f0d4486d7bba8e`, und **10/10 Schritte** beim ersten
 Versuch einzeln aus dem Vorzustand nachgespielt — das Uhrenloch, das O4 gefunden hat, blieb geschlossen.
+
+---
+
+## 2026-07-29 — Der Bodenstart: drei Defekte auf unserer Seite der Naht, kein Deck angefasst
+
+**Der größte Fund der O1-Runde ist behoben, und die Prognose dieser Runde war falsch.** „Das Beheben
+heißt `sim/assets/aircraft/` anfassen" stand in `o1-bekaa-1982.md` und in diesem Journal — es hieß
+nichts dergleichen. Sieben Dateien unter `sim/src/`, kein Deck, `verify-models` unverändert grün
+(1 deklariertes Delta, 34 FlightBox-eigen).
+
+**Defekt 1: die „kein Boden"-Regel der Waffe griff einen Aufruf zu spät.** `FBFdm::LoadUnguarded` rief
+`RunIC()`, während JSBSims Gelände noch auf seinem eigenen Vorgabewert stand; die Geländehöhe kam erst
+danach. `FGLGear` löst seine Kontakte **innerhalb** von `RunIC()` auf. Eine 6,09 m lange V-601 auf einer
+70°-Schiene hat ihren Heckpunkt damit (6,09/2)·sin 70° = **2,86 m unter** dem Datum, die Feder antwortet
+mit einem Drehimpuls, und der Integrator trägt ihn aus Schritt 1 heraus. Belegt mit einer **rohen
+JSBSim-Sonde ohne jede FlightBox-Lenkung** — die Zahl gehört der Zelle, nicht dem Regler:
+
+| Runde | Schiene | q bei Schritt 1 |
+|---|---:|---:|
+| `v601` | 90° | **0,000 °/s** |
+| `v601` | 70° | **−79,284 °/s** |
+| `v601` | 45° | **−114,76 °/s** |
+| `3m9` | 45° | **−179,81 °/s** |
+
+Behoben durch ein **eigenes** Feld `FBFdmSpawn::TerrainElevM`, vor der Anfangsbedingung angewandt und
+getrennt von `GroundElevM`, das nur den Spawn platziert. Vorgabe ist JSBSims eigenes Datum — also genau
+das, wogegen jeder Spawn in diesem Baum seine IC immer schon gerechnet hat. Die Konstante zog von zwei
+anonymen Namensräumen in **eine** Klasse: `FBFdm::kNoGroundElevM`.
+
+**Defekt 2: der Motor war 0,55 s kalt.** Bei t = 0,51 s war die Runde noch im freien Fall
+(**4,98 m/s = 9,81·0,51**); aus 0,5 m Starthöhe sind das ½·9,81·0,55² = **1,48 m Sinken durch den Boden,
+bevor überhaupt Schub anliegt**. Ein luftgestarteter Flugkörper fällt frei und zündet dann — genau das
+ist die Schubrampe. Ein **Schienenstart** trennt sich, *weil* der Motor ihn von der Schiene geschoben
+hat. Neues `FBFdmSpawn::MotorRunning`, gesetzt aus `FBStoreRelease::HaveRail`, also falsch für jeden
+Speicher, der je einen Pylon verlassen hat.
+
+**Defekt 3: `FBStoreSpec::GatherS` wurde von keiner Zeile Code gelesen.** Deklariert, für alle sechs
+Bodenrunden mit Wert belegt, in zwei Doku-Dateien spezifiziert, nie gebaut — die Sammelphase existierte
+nur auf dem Papier. Jetzt der frühe Rücksprung in `FBMissileGuidance::FlyCommand`: die Ruder **schleppen**,
+das Gesetz darüber läuft weiter, und `msl_nz_cmd` ungleich null neben `msl_fin_pitch` gleich null **ist**
+die Phase in der Spur. **Keine neue Zahl:** die sechs Werte standen bereits belegt im Katalog. Neben den
+gerechneten Brenndauern `t = P·Isp/T` (4,499 / 2,498 / 3,995 / 1,992 / 1,975 / 1,982 s) fällt nur beim
+V-601 beides zusammen; die fünf anderen bleiben bewusst unangeglichen — „Sammelphase endet bei
+Boosterabwurf" ist bei einer Schulterwaffe schlicht falsch.
+
+**Gemessen.**
+
+| Prüfung | Ergebnis |
+|---|---|
+| V-601 im Flug, vorher/nachher | +70° → **−41°** in 1,6 s, Einschlag 7 m unter Grund **gegen** 70,00 / 69,97 / 69,95° gehalten und **868,8 kt = 447 m/s** am Ende der 2,5-s-Sammelphase |
+| Selbstzerstörung | **null** — keine Stellung zerstört sich mehr, in keiner Mission |
+| `o1-08` Detonationen am Angreifer | **9,15 / 8,57 / 4,87 m** (V-601, Zünder 10 m) und **0,28 / 4,09 m** (3M9, Zünder 8 m) |
+| Der Störsender kostet jetzt alles | `o1-08` ungestört: 8 Starts, 7 Detonationen, `bolt1` abgeschossen, **alle fünf Bodenziele intakt**. `o1-09` gestört: **0 Starts, 0 Detonationen**, beide Angreifer „objectives met", **zwei Stellungen zerstört**. Vorher war der Bodenschaden beider auf den Meter und den Tick identisch — die Messung, die O1 als Defekt gebucht hatte, ist aufgelöst |
+| Konservierung | **10 von 160** Missionen geändert, **150 byte-identisch**, alle zehn mit Bodenstart. Zwei Exit-Codes bewegen sich: `o1-08` 3→2 (der Angreifer wird abgeschossen und trifft *dann* den Boden), `sam-sa2-command` 0→1 |
+| Determinismus | `--threads 1/2/4` auf vier bewegten Missionen: je ein Hash. Beide Kampagnen bestehen weiterhin beide Kriterien (O1: 9 Läufe ein Fingerabdruck, 10/10 Schritte; O4: 10/10) |
+| Tore | `verify-layers` (297 Dateien, 6 Registry-Leser), `verify-models` grün, Bau warnungsfrei |
+
+**Drei Defekte werden JETZT ERST SICHTBAR, und keiner davon ist der behobene.** Der Bodenkontakt hat sie
+verdeckt — die Runde starb, bevor sie sie zeigen konnte. Alle drei stehen als Lücken B4/B5/B6 in
+`modules/ground/module.md`:
+
+1. **Die V-750 kann ihr eigenes Überkippen nicht ausführen.** Flach fordert die Lenkung nie mehr als
+   **0,53 g** — eine 80°-Schiene wird gegen eine 2,5°-Sichtlinie nie herumgeholt; steil erreicht sie
+   −1,23 g, geht von 80° auf 42° und trifft. Reine Proportionalnavigation plus Schwerkraftvorspannung hat
+   **keinen Mechanismus** für ein großes kommandiertes Überkippen; eine echte S-75 fliegt ein
+   **programmiertes**.
+2. **Eine tragbare Runde mit ungültigem Feuerleitzustand beim Start entkäfigt ihren Sucher nie.** Der
+   frühe Rücksprung `if (!HaveTarget_)` liegt **über** dem Block, der den Infrarotkopf entkäfigt; Sucher
+   und Querbeschleunigung bleiben den ganzen Flug null. Das ist die genaue Ursache der älteren Lücke
+   „MANPADS ohne Sucherton" (B1), die damit **offen bleibt**.
+3. **Die geteilten Flugkörper-Reglerbeiwerte lassen die 9,8-kg-Schulterwaffe departieren** —
+   Kontrollverlust bei 5,1 s Flugzeit, Ruder an den Anschlägen, Anstellwinkel ±4°. Ein Beiwertsatz über
+   drei Größenordnungen Masse.
+
+**Die Lehre, und sie korrigiert eine Regel im Kampagnen-Index:** nicht *ein* Fund pro Kampagne, sondern
+ein **Stapel** — der erste Defekt verdeckt den nächsten. Und: ein deklariertes, belegtes, zweimal
+spezifiziertes Feld, das niemand liest, ist keine Spezifikation, sondern eine Lüge mit Herleitung.

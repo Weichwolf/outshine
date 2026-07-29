@@ -165,6 +165,12 @@ inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnStore(const FBModelRoots 
   ic.Ballistic = true;
   ic.PitchDeg = rel.HaveRail ? rel.RailPitchDeg : carrier.pitch;
   ic.RollDeg = rel.HaveRail ? 0.0 : carrier.roll;
+  /* The weapon rule, applied where it has to hold FIRST: a store has no ground, and the initial
+   * condition is part of "no ground" (units/FBSimUnit says the same for every later tick). */
+  ic.TerrainElevM = Fdm::FBFdm::kNoGroundElevM;
+  /* A rail launch separates because the motor pushed the round off it; an air launch drops clear and
+   * lights afterwards, which is what the slew is. The rail is what tells the two apart. */
+  ic.MotorRunning = rel.HaveRail;
   /* fb_fdm_state velocity is X-Plane local (+x east, +y up, +z south) — see fdm/FBFdm.h. */
   ic.VelNorthMs = -carrier.vz + rotN;
   ic.VelEastMs = carrier.vx + rotE;
@@ -172,7 +178,7 @@ inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnStore(const FBModelRoots 
 
   std::unique_ptr<Fdm::FBFdm> fdm = Fdm::FBFdmBoot::Spawn(ic);
   if (!fdm) return fail(std::string("store spawn failed (jsbsim init or a bad model: ") + ic.Aircraft + ")");
-  fdm->SetGroundElevM(groundAsl);
+  fdm->SetGroundElevM(Fdm::FBFdm::kNoGroundElevM);
   module->AttachFdm(*fdm);
   /* Generic launch programming: a bomb ignores it, a guided round takes its launcher id and target
    * estimate from it. This file names no weapon type. */

@@ -568,6 +568,19 @@ void FBMissileGuidance::FlyCommand(Pilot::FBPilotCommands &c, const Fdm::fb_fdm_
   double nyCmd = Clamp(aRightBody / kG, -kMaxCommandG, kMaxCommandG);
   NzCmdG_ = nzCmd; NyCmdG_ = nyCmd;
 
+  /* THE GATHERING PHASE, and it is the ONE thing a surface launch has that an air launch does not: for
+   * the row's GatherS the fins TRAIL and the round flies the rail direction on thrust alone. The law
+   * above still ran and its ask is already in the trace — `msl_nz_cmd` nonzero beside a zero
+   * `msl_fin_pitch` IS the phase — but nothing steers, and the two integrators below therefore cannot
+   * wind up against an airframe with no dynamic pressure to answer them. GatherS is zero for every
+   * air-launched row, so this test is false for every store that ever left a pylon.
+   * doc/modules/ground/module.md §4. */
+  if (Spec_ && Spec_->GatherS > 0.0 && NowS_ - LaunchS_ < Spec_->GatherS) {
+    FinPitch_ = FinYaw_ = 0.0;
+    c.ManualPitch = c.ManualYaw = c.ManualRoll = 0.0;
+    return;
+  }
+
   /* ---- The two lateral-acceleration loops + the roll holder, closed on the round's own accelerometer
    * (st.nz/st.ny) and rate gyros (st.q/st.r): exactly the two instruments a missile has. ---- */
   double qbar = FBDynamicPressure(st.speed, st.elev);

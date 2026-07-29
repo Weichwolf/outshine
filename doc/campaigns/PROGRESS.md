@@ -73,6 +73,21 @@ anchor is Run 1's and unchanged.
 | The campaign's own answer | the baseline reproduces the rout (2 Red mission-killed, 0 Blue); **one lever inverts it** (`pilot_shot_rtr 1.4` → 0 Red, 2 Blue, on 3.5 s of tempo); the GCI is worth the entire engagement on a 45° entry and **nothing** head-on; the RWR, the belt, the net, the jamming and the carry move mechanisms and **no outcome** |
 | Found while building | the 2K12's 3M9 and the S-125's V-601 reach the ground **at their own launcher** 0.8–1.6 s after release, and the 3M9 kills its own battery — **pre-existing, visible in the committed `net-cue.fbm`**, and the reason four closed gaps cannot decide anything |
 
+**Run 5 — 2026-07-29, the ground-launch fix documented (a `sim/src/` round, not a campaign round).**
+Run 4's largest finding is closed: three defects, all on FlightBox's side of the seam, **no deck
+touched**. Seven files under `sim/src/`; the build account lives in
+[`../modules/ground/module.md`](../modules/ground/module.md) §4.1 and
+[`../weapons.md`](../weapons.md) §1 / §10.2.
+
+| Measured | Value |
+|---|---|
+| Conservation | **10 of 160** missions changed, **150 byte-identical**. All ten have a ground launch: `net-belt-high`, `net-cue`, `net-jam-wire`, `o1-08-belt-netted`, `o1-10-mole-cricket`, `sam-beam-notch`, `sam-emcon-hold`, `sam-manpads-day`, `sam-sa2-command`, `sam-sa6-engage`. Exit codes moved twice: `o1-08` **3 → 2**, `sam-sa2-command` **0 → 1** |
+| Determinism | `--threads 1/2/4` on four moving missions: one hash each. **Both campaigns still pass both criteria** — O1: 9 runs one fingerprint, 10/10 steps replayed; O4: 10/10 |
+| Gates | `verify-layers` 297 files / 6 registry readers, `verify-models` 1 declared delta / 34 FlightBox-own, warning-free build |
+| What it does to O1 | `o1-08` unjammed: **8** launches, **7** detonations, `bolt1` shot down, **all five ground positions intact**. `o1-09` jammed: **0** launches, **0** detonations, both attackers meet their objectives, **two positions destroyed**. The pre-fix pair's *"ground damage identical to the metre and the tick"* is **superseded** — [`o1-bekaa-1982.md`](o1-bekaa-1982.md) §"The ground half, re-measured" |
+| Left open | the post-fix O1 campaign fingerprint and the two moved per-mission fingerprints are **not written down** (TODO in that file); the carry-versus-standalone delta of step 10 is not re-measured |
+| Newly visible | three defects the ground contact was hiding, none of them the fixed one: a caged MANPADS seeker (`module.md` B4), a V-750 that cannot fly its own pitch-over (B5), one missile gain set shared across three orders of magnitude of mass (B6) |
+
 ---
 
 ## Sources identified but NOT read

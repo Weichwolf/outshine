@@ -19,10 +19,6 @@ namespace {
 constexpr double kReleaseAltM = 6000.0;   /* the altitude every number in the model banner is stated at */
 constexpr double kHighAltM = 15000.0;     /* where a spec-sheet max-speed figure is actually made */
 constexpr double kReleaseSpeedMs = 270.0; /* ~M 0.9 at 6 km — a fighter's launch speed */
-/* The same "a weapon has no ground to hit" rule FBSimUnit applies: a 20,000 lbf/ft/s contact damper
- * met at 800 m/s is a stiff ODE that diverges inside ONE step. */
-constexpr double kNoGroundElevM = -100000.0;
-
 std::unique_ptr<Fdm::FBFdm> SpawnMissile(double altM) {
   Fdm::FBFdmSpawn ic;
   ic.ModelsRoot = "assets/aircraft";
@@ -34,7 +30,7 @@ std::unique_ptr<Fdm::FBFdm> SpawnMissile(double altM) {
   ic.Ballistic = true;                    /* a released store's IC: attitude + velocity vector, no trim */
   ic.VelEastMs = kReleaseSpeedMs;
   std::unique_ptr<Fdm::FBFdm> m = Fdm::FBFdmBoot::Spawn(ic);
-  if (m) m->SetGroundElevM(kNoGroundElevM);
+  if (m) m->SetGroundElevM(Fdm::FBFdm::kNoGroundElevM);
   return m;
 }
 

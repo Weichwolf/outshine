@@ -162,6 +162,53 @@ airspeed. Two catalogue fields:
 
 Aim azimuth is the fire control's, not a field: the rail points at the current track bearing.
 
+#### 4.1 The launch initial condition, as BUILT (2026-07-29)
+
+**The paragraph above was written as a spec and shipped only half built.** Three defects, all on
+FlightBox's side of the seam, **no deck touched** (`verify-models`: 1 declared delta, 34 FlightBox-own):
+
+| # | Defect | Fix | File |
+|---|---|---|---|
+| 1 | `LoadUnguarded` ran `RunIC()` while JSBSim still held its **own default ground datum**; the real elevation arrived one call later, and `FGLGear` resolves its contacts *inside* `RunIC()` | new `FBFdmSpawn::TerrainElevM`, applied **before** the IC; the store spawn passes `FBFdm::kNoGroundElevM` | `fdm/FBFdm.{h,cpp}`, `fdm/FBFdmBoot.h`, `missions/FBMissionBoot.h` |
+| 2 | the motor was **cold for 0.55 s** — the air-launch safe-separation slew applied to a rail launch too | new `FBFdmSpawn::MotorRunning`, set from `FBStoreRelease::HaveRail`: `ThrottleApplied = 1.0` and `InitRunning` at the IC | `fdm/FBFdmBoot.h`, `fdm/FBFdm.cpp`, `missions/FBMissionBoot.h` |
+| 3 | **`GatherS` was read by no line of code** — declared, filled for all six rows, specified in this file and in `weapons.md`, never built | the early return in `FBMissileGuidance::FlyCommand`: fins trail, the law above still runs and its ask stays in the trace | `modules/missile/FBMissileGuidance.cpp` |
+
+**Defect 1, measured with a raw JSBSim probe** — no FlightBox guidance in the loop at all, so the number
+is the airframe's and not the autopilot's. Body pitch rate at the first step, with a ground contact force
+reported in every non-zero row:
+
+| Round | Rail elevation | q at step 1 |
+|---|---:|---:|
+| `v601` | 90° | **0.000 °/s** — vertical, nothing hangs below the datum |
+| `v601` | 70° | **−79.284 °/s** |
+| `v601` | 45° | **−114.76 °/s** |
+| `3m9` | 45° | **−179.81 °/s** |
+
+Derivation of the cause: a **6.09 m** long V-601 on a **70°** rail puts its tail structure point
+(6.09/2)·sin 70° = **2.86 m below the datum**. The contact spring resolves *inside* the initial
+condition and the integrator carries the resulting angular impulse out of step 1.
+
+**Defect 2, measured:** at t = 0.51 s the round was still in free fall — **4.98 m/s = 9.81·0.51**. From a
+0.5 m launcher height that is ½·9.81·0.55² = **1.48 m of sink through the ground before thrust exists**.
+
+**Defect 3 is not a new number.** All six `GatherS` values already stood in
+[`catalogue.md`](catalogue.md) with their `[SET]` provenance; reading a field that was already filled
+introduces nothing. The mechanics and the burn-time comparison are in
+[`../../weapons.md`](../../weapons.md) §10.2 "The gathering phase".
+
+**Result, V-601 on a 70° rail, before against after:** pitch +70° → −41° in 1.6 s with an impact 7 m under
+the ground, against **70.00 / 69.97 / 69.95°** held and **868.8 kt = 447 m/s** reached at the end of the
+2.5 s gathering phase. **No position destroys itself in any mission any more.** In `o1-08-belt-netted`:
+zero ground impacts, and detonations on the attacker at **9.15 / 8.57 / 4.87 m** (V-601 against its 10 m
+fuze) and **0.28 / 4.09 m** (3M9 against its 8 m fuze).
+
+**Conservation:** 10 of 160 committed missions changed, 150 byte-identical. All ten have a ground launch:
+`net-belt-high`, `net-cue`, `net-jam-wire`, `o1-08-belt-netted`, `o1-10-mole-cricket`, `sam-beam-notch`,
+`sam-emcon-hold`, `sam-manpads-day`, `sam-sa2-command`, `sam-sa6-engage`. Two exit codes moved: `o1-08`
+**3 → 2** (the attacker is shot down and *then* meets the ground) and `sam-sa2-command` **0 → 1**.
+Determinism re-measured over `--threads 1/2/4` on four moving missions: one hash each. Both campaigns
+still pass both criteria (O1: 9 runs one fingerprint, 10/10 steps; O4: 10/10).
+
 ### 5. The engagement machine
 
 `FBSiteFireControl`, a `pilot/FBPilot` derivation — the same relationship `modules/missile`'s
@@ -350,6 +397,7 @@ two 23 mm guns. Six FlightBox-own JSBSim decks under `sim/assets/aircraft/` from
 | Killing the emitter silences it | `sam-radar-kill`: one Mk 82 fails `Radar`/`FireControl`/`Structure` in one zone, `UNIT_RESULT ew DESTROYED`, and the attacker's `rwr` drops the threat by the existing failure->`Invalid` coupling |
 | Salvo and magazine | `sam-sa2-command`: two salvos of **3** at the row's 3.0 s spacing, `salvoLeft` 2/1/0, then `site DEPLETED launches=6` |
 | Emission discipline | `sam-emcon-hold`: `site CUE` (a bearing and a power) -> `DARK`->`SEARCH` -> `RADIATE`; after the salvo `GO_DARK`, and `RADIATE` again exactly `scoot_s` = 60 s later |
+| **The launch IC, 2026-07-29** | the half of §4 that was specified but not built is now built — §4.1. **The rounds no longer destroy their own launchers**: V-601 holds 70.00 / 69.97 / 69.95° through the gathering phase and reaches 868.8 kt = 447 m/s at its end; `o1-08` shows 0 ground impacts and detonations at 9.15 / 8.57 / 4.87 m and 0.28 / 4.09 m. 10 of 160 missions moved, 150 byte-identical, no deck touched. **Three defects the ground contact was hiding are now visible: B4, B5, B6** |
 
 What **already exists and is consumed unchanged** by this contract, which is why it is a bounded round
 rather than a subsystem:
@@ -383,9 +431,20 @@ six campaigns are missing), and it is not a SEAD capability.
 
 | # | Gap | Detail |
 |---|---|---|
-| B1 | **A MANPADS launches without a seeker tone, and therefore mostly misses** | measured on `sam-manpads-day`: the gunner acquires at 3 288 m, the row's `reaction_s` 8 s is spent, and the round is launched at a PHANTOM placed along the measured bearing at the seeker's own reach. `msl_seeker` stays 1 (uncaged, never locked) and both rounds miss by 883 m / no detonation. The real weapon acquires BEFORE launch — the gunner has a tone — and FlightBox has no pre-launch seeker state on a store still on the rail. Named rather than papered over with a wider seeker field |
+| B1 | **A MANPADS launches without a seeker tone, and therefore mostly misses** | measured on `sam-manpads-day` *(pre-fix, 2026-07-28; this mission is one of the ten whose bytes the ground-launch fix moved)*: the gunner acquires at 3 288 m, the row's `reaction_s` 8 s is spent, and the round is launched at a PHANTOM placed along the measured bearing at the seeker's own reach. `msl_seeker` stays 1 (uncaged, never locked) and both rounds miss by 883 m / no detonation. The real weapon acquires BEFORE launch — the gunner has a tone — and FlightBox has no pre-launch seeker state on a store still on the rail. Named rather than papered over with a wider seeker field. **STILL OPEN 2026-07-29, and now with its exact cause: B4.** The ground-launch fix gave the round a trajectory, not a seeker |
 | B2 | **A command-guided round is close but not lethal at long range** | `sam-sa2-command`, six V-750 at 23-15 km against a non-manoeuvring target: closest approaches 17 226 / 16 585 / 15 940 m (the first salvo, fired at 23 km and outrun) and **14.2 / 597 / 1 504 m** (the second, fired at 15 km) against a 12 m fuze. The nearest round missed by 2.2 m. The estimate the round flies is the position's own track with no measurement error, so what is missing is not accuracy but the round's KINEMATICS at the top of its envelope |
 | B3 | **An optical position applies no envelope test at all** | `FBSiteFireControl::InEnvelope` returns true immediately for a row with no tracking radar, because an eye publishes no range and no altitude, ever. What binds such a position is its gunner's sight and afterwards the round's own seeker or the barrel's own reach. Stating a range there would have been the cheat |
+
+### Found by the ground-launch fix — three defects the ground contact was HIDING (2026-07-29)
+
+None of these is the defect that was fixed. Each was invisible while the round destroyed itself in the
+first two seconds, and each is measured on the current binary.
+
+| # | Gap | Detail |
+|---|---|---|
+| B4 | **A round whose fire-control state is invalid at launch never uncages its seeker** | `FBMissileGuidance::Run`'s `if (!HaveTarget_)` early return — *"fins centred, motor lit: it flies straight and the lifetime cap ends it"* — sits **above** the block that uncages the infrared head. A shoulder round separated with no valid handover therefore flies its whole life with a **caged** seeker: measured **seeker state 0 and lateral acceleration 0 for the entire flight**. This is the exact mechanism behind B1. The fix is an ordering question (uncaging is not guidance) and is not built |
+| B5 | **The V-750 cannot fly its own pitch-over** | the round leaves an **80°** rail and must be brought down onto a line of sight that can be **2.5°**. Measured: on the flat geometry the law never asks for more than **0.53 g**, so the round is never brought around and never arrives; on the steep one it reaches **−1.23 g**, goes 80° → 42° and hits. Pure proportional navigation plus a gravity bias ([`../../weapons.md`](../../weapons.md) §10.2) has **no mechanism for a large commanded pitch-over** — the real S-75 flies a **programmed** one, i.e. an open-loop attitude schedule between the rail and the beam. `LaunchElevDeg` and the engagement geometry are therefore coupled through a law that does not know the rail exists |
+| B6 | **The shared missile controller gains depart the 9.8 kg shoulder round** | one gain set (`kFinPerG`, `kLoopP/I`, `kRateGain`, scheduled on `qRef/q`) serves every round in the tree, from a 2 300 kg V-750 to a 9.8 kg Igla. Measured on the Igla: **loss of control at 5.1 s of flight time, fins at the stops, angle of attack ±4°**. The gain schedule normalises dynamic pressure but not the airframe's own control power per unit inertia; two mass classes three orders of magnitude apart cannot share one set. The fix is a per-row schedule and it is not built |
 
 ### Named, quantified, refused for a reason
 

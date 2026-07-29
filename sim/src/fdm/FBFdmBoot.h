@@ -23,12 +23,24 @@ struct FBFdmSpawn {
   double HeadingDeg = 0.0;
   bool   FbwOverride = false;  /* engage fcs/fbw-override: FlightBox's FCS, not the aircraft's own */
 
+  /* The ground JSBSim is told about BEFORE the initial condition is run — a SEPARATE number from
+   * GroundElevM, which only places the spawn. The default is JSBSim's own datum, i.e. what every spawn
+   * in this tree has always run its IC against; only a caller whose object must not meet the ground at
+   * the IC itself (a released store: FBFdm::kNoGroundElevM) sets it. Applying it afterwards is a tick
+   * too late — FGLGear resolves its contacts inside RunIC. */
+  double TerrainElevM = 0.0;
+
   /* ---- The RELEASE initial condition: the same one IC application with the fields a released object
    * needs — carrier attitude and full velocity VECTOR instead of heading + calibrated speed, and no
    * trim search. Ignored entirely when Ballistic is false. ---- */
   bool   Ballistic = false;
   double PitchDeg = 0.0, RollDeg = 0.0;              /* attitude at separation (yaw = HeadingDeg) */
   double VelNorthMs = 0.0, VelEastMs = 0.0, VelDownMs = 0.0;   /* NED velocity at separation */
+  /* The motor is ALREADY BURNING at the initial condition. An air-launched round drops clear and then
+   * lights, which is what the throttle slew below models; a RAIL-launched one separates BECAUSE the
+   * motor pushed it off the rail, so it cannot be born with a cold engine and a spool ramp in front of
+   * it. doc/modules/ground/module.md §4. */
+  bool   MotorRunning = false;
 };
 
 class FBFdmBoot {

@@ -251,6 +251,14 @@ Step by step, because every step carries a justification:
    path). The earlier probing (does `<ac>/engine` exist? otherwise `<parent>/engine`) including parent
    truncation went away with the single model root; a model without an engine (`mk82`) simply never
    resolves the path.
+1b. **`SetGroundElevM(spawn.TerrainElevM)` — BEFORE the IC** (added 2026-07-29). `FGLGear` resolves its
+   contacts **inside** `RunIC()`, so a ground told to JSBSim afterwards is one call too late: a store
+   spawned nose-up on a rail has a structure point metres under a ground it is not supposed to have, the
+   contact spring answers with an angular impulse, and step 1 carries it out. `TerrainElevM` is a
+   **separate** field from `GroundElevM` — the latter only *places* the spawn — and defaults to `0.0`,
+   i.e. JSBSim's own datum, which is what every spawn in this tree has always run its IC against. Only a
+   caller whose object must not meet the ground at the IC sets it, and today there is exactly one:
+   `FBMissionSpawnStore` passes `FBFdm::kNoGroundElevM` ([`weapons.md`](weapons.md) §1).
 2. **Set IC:** geodetic lat/lon, ASL altitude = `GroundElevM + max(HeightOffsetM, 3 m)`, psi.
 3. **Ballistic** (release): theta/phi directly from the carrier attitude, plus the full NED velocity
    VECTOR. **Otherwise**: calibrated airspeed + flight path angle 0 (level).
@@ -266,6 +274,14 @@ Step by step, because every step carries a justification:
    MOTOR (`FGRocket`: ignition = throttle == 1, and once ignited it burns to exhaustion) that would mean
    the motor is already burning in the IC and no command could hold it. An unpowered store has no engines,
    so for every store that flew before the first missile this is bit-identical.
+   **And since 2026-07-29 there is one caller that asks for exactly that**: `FBFdmSpawn::MotorRunning`
+   makes the condition `!Ballistic || MotorRunning` and sets `ThrottleApplied = 1.0` at the IC. A
+   **rail** launch separates *because* the motor pushed the round off the rail, so it cannot be born with
+   a cold engine and a spool ramp in front of it; an air launch drops clear and then lights, which is
+   what the throttle slew below models. `HaveRail` is what tells the two apart, and it is false for every
+   air-launched store — so this is bit-identical for everything that ever left a pylon. Measured cost of
+   *not* having it: at t = 0.51 s the round was still in free fall at **4.98 m/s = 9.81·0.51**, i.e.
+   ½·9.81·0.55² = **1.48 m of sink** from a 0.5 m launcher height before any thrust existed.
 7. `fcs/fbw-override` = 1, if requested. `Setdt(kStepS)`.
 8. **Trim** — only if `SpeedMs > 0` AND not `Ballistic`. Mode `tLongitudinal` (pitch/throttle/alpha, wings
    level): more robust than `tFull` on light/slow airframes. In `try/catch`, a throw = not trimmed.

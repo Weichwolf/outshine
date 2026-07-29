@@ -123,6 +123,16 @@ what the tree can now do rather than around what it could when the spec was writ
 
 ## State
 
+> **RE-MEASURED 2026-07-29, after the ground-launch fix (`fdm/FBFdm`, `fdm/FBFdmBoot`,
+> `missions/FBMissionBoot`, `modules/missile/FBMissileGuidance`, `units/FBSimUnit`).** The campaign's
+> largest finding — *the SAM rounds destroy their own launchers* — **was a defect on FlightBox's side of
+> the seam and it is closed.** Everything below that was measured on the pre-fix binary is kept **with
+> its date**, because a measured failure is knowledge; every superseded statement is marked in place and
+> the replacement measurement stands in
+> [§The ground half, re-measured](#the-ground-half-re-measured-after-the-ground-launch-fix-2026-07-29).
+> The air half of the campaign is untouched: of 160 committed missions only 10 changed a byte, and the
+> two that belong to O1 are `o1-08-belt-netted` and `o1-10-mole-cricket`.
+
 **BUILT AND FLOWN, 2026-07-29 — the second of the ten campaigns to exist as files.** Ten `.fbm` in
 `sim/missions/o1-*.fbm` plus `sim/campaigns/o1-bekaa-1982.fbc`, run as a campaign, replayed step by
 step, and measured. **No file under `sim/src/` and none under `sim/assets/` was touched**
@@ -154,7 +164,17 @@ protective missile envelope [T4]. The campaign cannot fly the one thing the Syri
 
 Campaign exit **3** (the worst step's; every step is a measuring rig whose own header says the verdict is
 the telemetry). Campaign fingerprint under `--elev const`:
-`81b549fd04c4591987b9dadf233deffdabbbfb01f9dc89f4f7f0d4486d7bba8e`.
+`81b549fd04c4591987b9dadf233deffdabbbfb01f9dc89f4f7f0d4486d7bba8e` (pre-fix); after the
+ground-launch fix of 2026-07-29 it is `4b9582ac805564cbef8e6991ea76c1f9100cfb1e070d6dc5a50a7819a114af9a`.
+**Eight of the ten step fingerprints are unchanged** — only steps 8 and 10, the two that launch from
+the ground, moved. That is the fix's blast radius inside this campaign, measured rather than argued.
+
+> **PRE-FIX, 2026-07-29.** The whole table below is the pre-fix binary's. Two of its rows moved with the
+> ground-launch fix: **row 8's exit is now 2** (its attacker is shot down and *then* meets the ground) and
+> rows **8 and 10** are two of the ten missions whose bytes changed. Both post-fix fingerprints have since
+> been read out and stand beside the pre-fix ones in the table; the other eight are byte-for-byte the
+> values below. Both determinism criteria were re-measured after the fix and still hold
+> (§Both determinism criteria).
 
 | # | Mission | control | exit | fingerprint | The answer to its one tactical question |
 |---|---|---|---:|---|---|
@@ -165,9 +185,49 @@ the telemetry). Campaign fingerprint under `--elev const`:
 | 5 | `o1-05-beam-blind` | 04 | 3 | `9e2488d960888f0a` | **ZERO.** Zero contacts, zero shots, zero detonations, zero losses; the MiGs fly their CAP west to 33.75 E and the package walks past them. Against sortie 04's 9 contacts and 2 shots on the identical geometry, **the controller is worth the entire engagement** — not later, never |
 | 6 | `o1-06-blind` | 01 | 3 | `3806c59ea9511976` | **Identical to its control in every measured quantity**: the warning receiver is worth nothing here, and the reason is a clock. Blue releases at t = 156.6 and the round arrives at 169.8, so the SPO-15's warning at t ≈ 157 leaves **13 s** — less than the reaction time plus the first defensive input plus the chaff programme. A receiver that warns you inside your opponent's time of flight is a receiver you cannot spend |
 | 7 | `o1-07-early-launch` | 01 | 3 | `99458ae11963c2b1` | **THE ONLY LEVER OF THE SEVEN THAT INVERTS THE BASELINE.** Red releases at t = **153.1** against 160.7 — 7.6 s earlier and **3.5 s before Blue's own release would have fallen**. Blue then never fires at all. Five R-27R away against two; arrivals **2.75 / 1.54 / 2.50 / 10.42 m** against a 13.8 m fuze; **both F-16 mission-killed, both MiGs alive.** 2–0 against becomes 0–2 for, on two lines of mission text |
-| 8 | `o1-08-belt-netted` | — (it IS 09's control) | 3 | `cf0e95b1e1f8f910` | **The netted belt works exactly as specified and destroys itself.** `net JOIN` ×4 at t = 3.9, 79 `net CUE`, first firm track t = **508.5 s at 34.9 km**, **five `site LAUNCH`**. Not one round reached an aircraft: all three V-601 nosed over into the ground **at their own launcher** within 1.6 s, and both 3M9 did the same and **killed the batteries that fired them** (0.375 m and 0.372 m). The strike killed two positions with Mk 82 at 22.87 m and 18.41 m |
-| 9 | `o1-09-comms-jam` | 08 | 3 | `00d7bf504f76ab67` | **The anchor's decisive mechanism reproduces perfectly and changes nothing.** Four `net LOST reason=jammed` at t = 244.0 / 284.0 / 288.0 / 319.9 (distM 9 239.7 and 6 418.0 against reachM 23 340.7 — the horizon is not the cause and the log says which is), `net AUTONOMOUS fallback=hold` on all four, all DARK by t = 439.8, `net CUE` **79 → 32**, **`site LAUNCH` 5 → 0**, no firm track at all. **And the strike is byte-identical to its control's**: the same two Mk 82 on the same two batteries at t = 664.9 and 684.7, at 22.87 m and 18.41 m |
-| 10 | `o1-10-mole-cricket` | its own standalone run | 3 | `36c498ac10e1ab79` | **With every lever at its measured best, Red loses nothing and Blue loses two.** 13 R-27R from eight MiGs against 2 AIM-120 from four escorts; `eagle2` mission-killed by a **2.03 m** arrival at t = 168.5, `eagle3` by 2.56 / 3.63 / 3.25 m at t = 178.7–181.0; **zero Red losses**. The run ends at t = 203.1 on `eagle2`'s ground contact — `FirstFlightKo`, not the clock |
+| 8 | `o1-08-belt-netted` | — (it IS 09's control) | 3 → **2** | `cf0e95b1e1f8f910` → **`fd1375cb9d7f9488`** (post-fix, 2026-07-29) | **[SUPERSEDED 2026-07-29 — see §The ground half, re-measured. Kept as the pre-fix measurement.]** **The netted belt works exactly as specified and destroys itself.** `net JOIN` ×4 at t = 3.9, 79 `net CUE`, first firm track t = **508.5 s at 34.9 km**, **five `site LAUNCH`**. Not one round reached an aircraft: all three V-601 nosed over into the ground **at their own launcher** within 1.6 s, and both 3M9 did the same and **killed the batteries that fired them** (0.375 m and 0.372 m). The strike killed two positions with Mk 82 at 22.87 m and 18.41 m |
+| 9 | `o1-09-comms-jam` | 08 | 3 | `00d7bf504f76ab67` | **[The last sentence is SUPERSEDED 2026-07-29 — the jamming now costs the belt everything; see §The ground half, re-measured. Kept as the pre-fix measurement.]** **The anchor's decisive mechanism reproduces perfectly and changes nothing.** Four `net LOST reason=jammed` at t = 244.0 / 284.0 / 288.0 / 319.9 (distM 9 239.7 and 6 418.0 against reachM 23 340.7 — the horizon is not the cause and the log says which is), `net AUTONOMOUS fallback=hold` on all four, all DARK by t = 439.8, `net CUE` **79 → 32**, **`site LAUNCH` 5 → 0**, no firm track at all. **And the strike is byte-identical to its control's**: the same two Mk 82 on the same two batteries at t = 664.9 and 684.7, at 22.87 m and 18.41 m |
+| 10 | `o1-10-mole-cricket` | its own standalone run | 3 | `36c498ac10e1ab79` → **`8d68f7975a3ec6ed`** (post-fix, 2026-07-29) | **With every lever at its measured best, Red loses nothing and Blue loses two.** 13 R-27R from eight MiGs against 2 AIM-120 from four escorts; `eagle2` mission-killed by a **2.03 m** arrival at t = 168.5, `eagle3` by 2.56 / 3.63 / 3.25 m at t = 178.7–181.0; **zero Red losses**. The run ends at t = 203.1 on `eagle2`'s ground contact — `FirstFlightKo`, not the clock |
+
+### The ground half, re-measured after the ground-launch fix (2026-07-29)
+
+**The campaign's largest finding was three defects, all of them on FlightBox's side of the seam, and no
+deck was touched to close them** (`git status --porcelain sim/assets` still empty, `verify-models`
+green). The full build and its derivations live in [`../weapons.md`](../weapons.md) §"Rail launch" and
+[`../modules/ground/module.md`](../modules/ground/module.md) §4; only what O1 measures is repeated here.
+
+| # | Defect | The measurement that pinned it |
+|---|---|---|
+| 1 | `FBFdm::LoadUnguarded` ran `RunIC()` while JSBSim still held **its own default ground datum**; the terrain elevation arrived one call too late, so `FGLGear` resolved a contact **inside the initial condition** | a raw JSBSim probe with no FlightBox guidance in it at all: rail 90° → **0.000 °/s**, 70° → **−79.284 °/s**, 45° → **−114.76 °/s**, 3M9 at 45° → **−179.81 °/s**, each with a ground contact force reported. A 6.09 m V-601 on a 70° rail has its tail structure point (6.09/2)·sin 70° = **2.86 m under the datum** |
+| 2 | the motor was **cold for 0.55 s** — an air-launched store drops clear and *then* lights, and a rail launch inherited that slew | at t = 0.51 s the round is still in free fall: **4.98 m/s = 9.81·0.51**. From a 0.5 m launcher height that is ½·9.81·0.55² = **1.48 m of sink through the ground before any thrust exists** |
+| 3 | `FBStoreSpec::GatherS` **was read by no line of code** — declared, filled for all six surface rounds, specified in two doc files, never built | the gathering phase existed on paper only; the guidance law steered from tick 1 against an airframe with no dynamic pressure |
+
+**What the V-601 does now, one round, before against after:**
+
+| Quantity | Pre-fix | Post-fix |
+|---|---|---|
+| pitch, first 1.6 s | +70° → **−41°** | **70.00 / 69.97 / 69.95°** — it flies the rail |
+| where it ends | impact **7 m under the ground** | at the end of the 2.5 s gathering phase: **868.8 kt = 447 m/s**, i.e. full fin authority before the first steering command |
+
+**And what that does to sortie 08 against sortie 09 — the pair that exists to price the anchor's own
+decisive mechanism:**
+
+| | `o1-08` unjammed (control) | `o1-09` `jam_comm_m = 90 000` |
+|---|---|---|
+| `site LAUNCH` | **8** | **0** |
+| detonations | **7** | **0** |
+| ground impacts by a SAM | **0** | — |
+| the attackers | `bolt1` **shot down** | both report **objectives met** |
+| the belt | **all five ground positions intact** | **two positions destroyed** |
+
+Arrival distances on the attacker: **9.15 / 8.57 / 4.87 m** for the V-601 against its 10 m fuze, and
+**0.28 / 4.09 m** for the 3M9 against its 8 m fuze. **No position destroys itself in any mission any
+more.**
+
+> **The lever that used to move nothing now moves everything.** The pre-fix pair measured the belt's
+> ground damage as *identical to the metre and the tick* with the jammer on and off — which is exactly
+> the measurement that made this campaign book the ground half as a defect. It is resolved: turning the
+> jammer on now costs the belt every launch it would have made and costs the campaign two positions.
 
 ### The carry, where it lands, and what it was worth
 
@@ -182,11 +242,13 @@ it neither takes from 08 nor gives to 10. Five `campaign CARRY` lines land on st
 
 | Carried | Value |
 |---|---|
-| `ground` | `bksa6a`, `bksa6b`, `bksa3` **dropped** — destroyed in sortie 08, **two of them by their own rounds** |
+| `ground` | `bksa6a`, `bksa6b`, `bksa3` **dropped** — destroyed in sortie 08, **two of them by their own rounds** *(pre-fix, 2026-07-29; post-fix no round reaches the ground at all, so the carried set is a re-measure — **TODO**)* |
 | `stores` | one `set store … mk82` line dropped from each of `bolt1` and `bolt2` |
 | `units` | nothing: sortie 08 has no fighters (see below), and both strikers came home |
 
-**And the honest measurement of what that was worth.** The same file run STANDALONE with no carried
+**And the honest measurement of what that was worth** *(pre-fix, 2026-07-29 — sortie 10 is one of the
+two O1 files whose bytes moved with the ground-launch fix; the standalone-versus-campaign delta below is
+**not** re-measured, **TODO**)*. The same file run STANDALONE with no carried
 state against the same file as campaign step 10 differs in **exactly one quantity — the belt**:
 `site LAUNCH` **5 → 3**, and the belt's self-destructions **2 → 0**, because the two batteries that would
 have killed themselves were already dead. **Every air number is unchanged** — 13 R-27R, 2 AIM-120, the
@@ -210,10 +272,12 @@ aircraft made combat-ineffective.
 | GCI brief on 45° | deleted (`o1-05`) | 0 | 0 | **0** | **0** | 0 | **the entire engagement** — 9 → 0 contacts, 2 → 0 shots |
 | RWR | off (`o1-06`) | 2 | 0 | 8 | 2 | 2 | **nothing at all** |
 | launch doctrine | `shot_rtr 1.4`, `lock_nm 16` (`o1-07`) | **0** | **2** | 10 | **5** | **0** | **the whole battle**, by 3.5 s of tempo |
-| comms jamming | `jam_comm_m` 0 → 90 000 (`o1-08`→`o1-09`) | — | — | — | — | — | `site LAUNCH` **5 → 0**, `net CUE` 79 → 32, first firm track 508.5 s → never. **Ground damage: identical to the metre and the tick** |
+| comms jamming | `jam_comm_m` 0 → 90 000 (`o1-08`→`o1-09`) | — | — | — | — | — | ~~`site LAUNCH` **5 → 0**, `net CUE` 79 → 32, first firm track 508.5 s → never. **Ground damage: identical to the metre and the tick**~~ **(pre-fix, 2026-07-29 — the last clause is WRONG on the current binary.)** Post-fix: `site LAUNCH` **8 → 0**, detonations **7 → 0**, the attacker `bolt1` shot down → **both attackers meet their objectives**, ground positions lost **0 → 2**. **This lever moves the outcome** |
 | the campaign carry | step 10 standalone → in campaign | 0 → 0 | 2 → 2 | — | 13 → 13 | 2 → 2 | `site LAUNCH` **5 → 3**. Every air number unchanged |
 
-**Two levers move the outcome and four move nothing, and the four are the interesting half.**
+**Two levers move the outcome and four move nothing, and the four are the interesting half** — *stated
+pre-fix, 2026-07-29. On the current binary it is **three**: comms jamming joined them the moment the
+belt got rounds that fly.*
 
 ### What is left when nothing moves it
 
@@ -221,16 +285,23 @@ aircraft made combat-ineffective.
    trigger and nothing else, and the engagement inverts from 2–0 against to 0–2 for. Every other lever in
    the campaign — the controller, the receiver, the belt, the net, the jamming, the carried attrition —
    is measured against that and is worth less.
-2. **The entire ground half of Bekaa is inert in this tree, and the reason is a defect rather than a
+2. ~~**The entire ground half of Bekaa is inert in this tree, and the reason is a defect rather than a
    doctrine.** The 2K12's 3M9 and the S-125's V-601 nose over and hit the ground **at their own
    launcher** seconds after release; the 3M9's 59 kg warhead then destroys the battery that fired it.
    That is why the net, the cueing, the emission discipline, the fire-control authority and the anchor's
    own decisive jamming all move mechanisms (5 launches → 0, 79 cues → 32, 76.6 s and 13.0 km of
    earlier warning) and move **no outcome**: a belt whose rounds fall on its own launchers had nothing
-   to lose. **This is pre-existing and visible in a committed mission** — `net-cue.fbm`, t = 172.8 s,
-   `monitor KO unit=sam_3m9_1 reason=CFIT` 0.8 s after that battery's own first launch, followed by
-   `damage KILL unit=sam reason="structure destroyed"` at rangeM 0.0018 — and it is **not fixed here**,
-   because fixing it means touching `sim/assets/aircraft/`.
+   to lose.~~
+   **SUPERSEDED 2026-07-29 by the ground-launch fix. The measurement above is kept because it is what
+   found the defect** — it was pre-existing and visible in a committed mission (`net-cue.fbm`,
+   t = 172.8 s, `monitor KO unit=sam_3m9_1 reason=CFIT` 0.8 s after that battery's own first launch,
+   followed by `damage KILL unit=sam reason="structure destroyed"` at rangeM 0.0018), and this campaign
+   is what forced it to be read. Its diagnosis, contrary to the sentence "fixing it means touching
+   `sim/assets/aircraft/`", cost **no deck change at all**: the cause was three defects on FlightBox's
+   own side of the seam (initial condition run against the wrong ground, a motor cold for 0.55 s, and an
+   unread `GatherS`). **The corrected statement:** the belt is live, the jamming lever now moves the
+   outcome, and what remains inert is only the *air* half's conclusion in point 1. See §The ground half,
+   re-measured.
 3. **The warning receiver is inside the AMRAAM's time of flight.** 13 s from first warning to impact is
    less than reaction plus the first defensive input plus the chaff programme, so deleting the SPO-15
    changes not one measured number. The anchor's "no side warnings" handicap therefore costs nothing on
@@ -250,10 +321,19 @@ Under `--elev const`, read out of `campaign-summary.txt` rather than assumed
 
 | # | Criterion | Result |
 |---|---|---|
-| **1** | 3 repetitions × `--threads 1/2/4` produce one campaign fingerprint | **9 runs, 1 fingerprint** `81b549fd04c4591987b9dadf233deffdabbbfb01f9dc89f4f7f0d4486d7bba8e` |
+| **1** | 3 repetitions × `--threads 1/2/4` produce one campaign fingerprint | **9 runs, 1 fingerprint** — `81b549fd04c459198…` pre-fix, `4b9582ac805564cbe…` post-fix (both re-measured 2026-07-29) |
 | **2** | every step's per-mission fingerprint equals that mission run STANDALONE with step *k−1*'s state | **10/10 MATCH**, exit codes included, on the first attempt — O4's clock hole stayed closed for the first clocked campaign built after it |
 
+**Re-measured after the ground-launch fix, 2026-07-29: both criteria still hold — 9 runs, one campaign
+fingerprint, and 10/10 steps replayed individually.** The fingerprint *value* changed (steps 8 and 10
+carry new bytes) and is not written down yet — TODO above.
+
 ### Conservation
+
+*(This section describes the round that BUILT O1, 2026-07-29. The ground-launch fix that came after it is
+a `sim/src/` round with its own conservation argument: 7 files under `sim/src/`, no deck, **10 of 160
+missions changed and 150 byte-identical**; `verify-layers` 297 files and 6 registry readers unchanged,
+`verify-models` 1 declared delta / 34 FlightBox-own, warning-free build.)*
 
 **Nothing to compare, and that is the strongest form of it.** `git status --porcelain` lists eleven
 untracked files and no modified one: ten `sim/missions/o1-*.fbm` and one `sim/campaigns/*.fbc`. No
@@ -307,12 +387,20 @@ anchor calls decisive, and not the campaign's own attrition. Two of those four n
 properties worth publishing; two are defects, and both are named below with the committed mission that
 already showed them.
 
+> **UPDATE 2026-07-29 — the weapon defect is fixed and one of the nulls was it.** The jamming null is
+> gone: on the current binary `o1-08`→`o1-09` moves 8 launches to 0, 7 detonations to 0 and 0 lost
+> positions to 2. The trigger parameter (sortie 07) is untouched and still the largest single lever.
+> Three *new* defects became visible underneath the fixed one; they are rows in the table below.
+
 | ID | What is missing | State here |
 |---|---|---|
-| **new — the SAM rounds destroy their own launchers** | the 2K12's **3M9** and the S-125's **V-601** pitch over and reach the ground at their launcher's own coordinates within 0.8–1.6 s of release; the 3M9's 59 kg warhead then registers as a `damage KILL` on the battery that fired it | **THE LARGEST FINDING OF THIS CAMPAIGN AND IT IS PRE-EXISTING.** Visible in a committed mission of the round that built the net: `net-cue.fbm` t = 172.8 s. O1 measured it because it is the first campaign to fire ground SAMs in anger: 5 launches in sortie 08, **0 arrivals**, 2 self-kills. It makes `C1`+`C22`+`C23`+`C24` — four closed gaps and one whole file — unable to move any outcome. **Not fixed here**: the decks live under `sim/assets/aircraft/`, which this round may not touch. It belongs to whichever round owns `modules/ground`/`weapons`, with its own conservation argument |
+| ~~**new — the SAM rounds destroy their own launchers**~~ | the 2K12's **3M9** and the S-125's **V-601** pitch over and reach the ground at their launcher's own coordinates within 0.8–1.6 s of release; the 3M9's 59 kg warhead then registers as a `damage KILL` on the battery that fired it | **CLOSED 2026-07-29**, and the diagnosis contradicts this row's own prognosis: **no deck was touched**. Three defects on FlightBox's side of the seam — the IC run against JSBSim's default ground, a motor cold for 0.55 s, and an unread `GatherS`. Post-fix: **0 ground impacts, 0 self-kills, 7 detonations on the attacker in sortie 08**. `C1`+`C22`+`C23`+`C24` are mechanisms **with** consequences now. Build: [`../weapons.md`](../weapons.md) §"Rail launch", [`../modules/ground/module.md`](../modules/ground/module.md) §4 |
+| **new — the V-750 cannot fly its own pitch-over** | the round is spawned on an **80°** rail and must be brought down onto a line of sight that can be **2.5°**. Pure proportional navigation plus a gravity bias has no mechanism for a large *commanded* pitch-over; the real S-75 flies a **programmed** one | **MEASURED 2026-07-29.** Flat geometry: the law never asks for more than **0.53 g**, so the round is never brought around and never arrives. Steep geometry: it reaches **−1.23 g**, goes 80° → 42°, and hits. The rail angle and the engagement geometry are therefore coupled through a law that does not know the rail exists. Belongs to `modules/missile` |
+| **new — a MANPADS launched with an invalid fire-control state never uncages** | `FBMissileGuidance::Run`'s `if (!HaveTarget_)` early return sits **above** the block that uncages the infrared head, so a shoulder round handed no valid target at separation flies its whole life with a caged seeker | **MEASURED 2026-07-29:** seeker state and lateral acceleration **zero for the entire flight**. It is the exact cause of the older *"MANPADS without a seeker tone"* gap in [`../modules/ground/module.md`](../modules/ground/module.md), which is therefore still **open** — the ground-launch fix gave those rounds a trajectory, not a seeker |
+| **new — the shared missile controller gains depart the 9.8 kg shoulder round** | one set of autopilot gains serves every round in the tree, from a 2 300 kg V-750 to a 9.8 kg Igla | **MEASURED 2026-07-29:** loss of control at **5.1 s** of flight time, fins **at the stops**, angle of attack **±4°**. Two mass classes cannot share one gain set; the fix is a per-row schedule and it is not built |
 | **new — a SAM battery has no IFF and cannot be given a sector against its own side** | `FBSiteModule` sets `SetIffInterrogator(false)` on both antennas and an `FBRadarContact` has no identity field, so a battery engages the nearest firm track in its envelope whoever it is. A `net … member … sector` gates the CUE, not the member's own autonomous engagement | **DELETES THE ANCHOR'S SYRIAN TACTIC.** MEASURED: three V-750 into its own CAP within 7 s on this campaign's first layout. O1 works around it by geometry — no Red aircraft is ever inside a friendly envelope — and therefore cannot fly "run back for cover inside the missile envelope" at all |
-| ~~`C13`~~ / `C24` | **comms jamming** | **CLOSED and consumed**: sortie 09 is `set jam_comm_m` 0 → 90 000 as a clean controlled pair. The RADAR half of `C13` stays wholly open. What the closure bought is measured and is smaller than the spec expected — see the lever table |
-| ~~`C1`~~ ~~`C22`~~ ~~`C23`~~ | active belt, connected defence, judged belt geometry | **all CLOSED and all consumed** — and all three are, in this campaign, mechanisms without consequences because of the first row of this table |
+| ~~`C13`~~ / `C24` | **comms jamming** | **CLOSED and consumed**: sortie 09 is `set jam_comm_m` 0 → 90 000 as a clean controlled pair. The RADAR half of `C13` stays wholly open. ~~What the closure bought is measured and is smaller than the spec expected~~ *(pre-fix, 2026-07-29)* — **post-fix the closure buys the whole ground engagement**: 8 launches → 0, 7 detonations → 0, 0 → 2 positions lost. See the lever table |
+| ~~`C1`~~ ~~`C22`~~ ~~`C23`~~ | active belt, connected defence, judged belt geometry | **all CLOSED and all consumed** — ~~and all three are, in this campaign, mechanisms without consequences because of the first row of this table~~ *(pre-fix, 2026-07-29; with the first row closed they have consequences: the jamming lever costs the belt 8 launches and the campaign 2 positions)* |
 | `C6` | **no live controller, and no aircraft rides a net** | halved rather than closed. The FIGHTER half of "cut off from ground control" is flown as a deleted (`o1-02`, `o1-05`) or truncated (`o1-03`) brief, which is a real mechanism with real timing; the JAMMED half reaches only the belt, because the MiG-29 module has no `FBNetLinkSystem` slot. The two are not the same thing and the mission headers say so |
 | `C7` | **no MiG-21/23/Su-20, no E-2C, no RPV** | the substitution stands, declared in all ten headers with its direction. **The `ef111` row closed the 707 for free** — a mover with no weapon but `jam_comm_m`. `mig21` is one of the four `ACCEPTED` decks and would make a substitution-direction control run possible; **it was not built here**, and that is the first thing a second O1 round should add |
 | `C4` | **no terrain masking** | the Bekaa is a valley between two ridges and this campaign flies a plane. It is the single largest geographic omission in the set and it is stated in every header rather than in a footnote |

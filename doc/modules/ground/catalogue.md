@@ -58,6 +58,30 @@ row has one engagement channel, so a package saturates it by arithmetic — and 
 MANPADS rows **binds its emitter to its target for the whole flight of the round**, so breaking the track
 breaks the shot.
 
+### `GatherS` is READ since 2026-07-29 — the field, and what it is not
+
+Every row below carries a `LaunchElevDeg / GatherS` pair. **`GatherS` was declared, filled here for all
+six rounds, specified in [`module.md`](module.md) §4 and in [`../../weapons.md`](../../weapons.md) — and
+read by no line of code** until the ground-launch fix. It is now the early return in
+`FBMissileGuidance::FlyCommand`: for that long the fins **trail** and the round flies the rail direction
+on thrust alone (mechanics: `weapons.md` §10.2 "The gathering phase"). **No value in this file changed** —
+reading a field that was already filled introduces no number.
+
+Beside each setting, the burn time the row's own deck computes, `t = P·Isp/T`:
+
+| Row | `GatherS` | burn time | |
+|---|---:|---:|---|
+| `v750` | 3.0 s | 4.499 s | gathering ends **during** the burn |
+| `v601` | 2.5 s | 2.498 s | the only row where the two **coincide**, and it is a coincidence |
+| `3m9` | 2.0 s | 3.995 s | during |
+| `9m33` | 1.5 s | 1.992 s | during |
+| `strela2` | 0.6 s | 1.975 s | during |
+| `igla` | 0.6 s | 1.982 s | during |
+
+**The two are deliberately NOT aligned.** "Gathering ends at booster separation" sounds like a rule and is
+simply false for a shoulder-launched round, which has no booster to separate. `GatherS` is how long the
+fins are useless; burnout is when the thrust stops. Two quantities, two numbers.
+
 ---
 
 ## `p18` — P-18 "Spoon Rest D", the emitter with no weapon
@@ -129,7 +153,7 @@ a warning, not a network. The network is `C6`/`C18`.
 | `RoundsPerEngagement` | 3 | [T4] "three missiles at the same time, albeit all at a single target" |
 | `RoundsDefault` | 6 | [T4] six launchers per battalion |
 | `ReactionS` | **30** | **[SET, TODO]** — no source found. Deliberately a free mission lever (`set reaction_s`), because this is the number every anchor argues about and none quantifies |
-| `LaunchElevDeg` / `GatherS` | 80 / 3.0 | **[SET]** — the launcher is near-vertical in every photograph of the type; 3 s of gathering for a two-stage round whose booster burns ~4–5 s. Both are settings and both are visible in telemetry |
+| `LaunchElevDeg` / `GatherS` | 80 / 3.0 | **[SET]** — the launcher is near-vertical in every photograph of the type; 3 s of gathering for a two-stage round whose booster burns ~4–5 s (measured burn time 4.499 s). Both are settings and both are visible in telemetry. **The 80° is what the guidance cannot answer** — see [`module.md`](module.md) B5: against a 2.5° line of sight the law asks for 0.53 g and the round is never brought around; the real S-75 flies a *programmed* pitch-over |
 | `Mobile` | false | it is a battalion with a hexagonal earthwork |
 
 **Binds the shooter:** **yes, to impact.** Command guidance means the Fan Song must track target *and*
@@ -355,7 +379,14 @@ tree today is the R-73's 3.5 m for a head several times larger, so this row gets
 800 / 4 200`, `EnvAltMinM/MaxM = 50 / 2 300` [T4]. `ReactionS = 8` [T4] (mid-band of the sourced 6–10 s).
 `SearchRangeM = 0` — acquisition is the eye. `RoundsDefault = 2` **[SET]**, a gunner and a reload.
 `LaunchElevDeg / GatherS = 30 / 0.6` **[SET]** — a shoulder launch is nearly line of sight, and the
-sourced ejection-then-ignition sequence of the type is not quantified.
+sourced ejection-then-ignition sequence of the type is not quantified. (Measured burn time 1.975 s, i.e.
+the gathering phase is over long before burnout — deliberately, see §`GatherS` is READ.)
+
+**Two defects sit on this row and on `sa18`, both measured 2026-07-29 and neither fixed**
+([`module.md`](module.md) B4/B6): a shoulder round handed no valid target at separation **never uncages**
+(seeker state and lateral acceleration zero for the whole flight — the exact cause of the older
+*"MANPADS without a seeker tone"* gap B1), and the tree's **one shared** missile gain set departs a 9.8 kg
+airframe at **5.1 s** of flight time, fins at the stops, α ±4°.
 
 **The rear-aspect limitation is modelled, and it costs nothing:** `FBIrstSystem`'s aspect law already
 gives an afterburning tail aspect 2.25 and a dry head-on aspect 0.16 of the reference intensity

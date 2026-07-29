@@ -114,6 +114,10 @@ bool FBFdm::LoadUnguarded(const FBFdmSpawn &spawn) {
     return false;
   }
 
+  /* BEFORE the IC, because FGLGear resolves its contacts inside RunIC: a round leaving a rail at 45-80
+   * deg has its own tail structure point metres under a ground it is not supposed to have, and the
+   * spring answers with an angular impulse the round then flies out. */
+  SetGroundElevM(spawn.TerrainElevM);
   auto ic = ex.GetIC();
   ic->SetGeodLatitudeDegIC(spawn.LatDeg);
   ic->SetLongitudeDegIC(spawn.LonDeg);
@@ -140,11 +144,12 @@ bool FBFdm::LoadUnguarded(const FBFdmSpawn &spawn) {
     double gc = GetGroundClearanceM(true);
     if (gc > 0.1) { ic->SetAltitudeASLFtIC((spawn.GroundElevM + gc) / kFt); ex.RunIC(); }
   }
-  P->ThrottleApplied = 0.0;
+  P->ThrottleApplied = spawn.MotorRunning ? 1.0 : 0.0;
   /* Running engines before trim: no thrust during FGTrim means "udot not trimmable" and a violent
    * departure on the first advance. NOT for a released store — InitRunning slams the throttle to 1, and
-   * for a SOLID rocket that means the motor is already lit at the IC with no command able to hold it. */
-  if (!spawn.Ballistic) {
+   * for a SOLID rocket that means the motor is already lit at the IC with no command able to hold it.
+   * Which is exactly what a RAIL launch asks for, so that one says so. */
+  if (!spawn.Ballistic || spawn.MotorRunning) {
     auto pr = ex.GetPropulsion();
     for (unsigned i = 0; i < pr->GetNumEngines(); i++) pr->InitRunning(i);
   }

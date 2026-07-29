@@ -6,15 +6,6 @@
 
 namespace FlightBox::Units {
 
-namespace {
-/* A WEAPON is given no ground to collide with: JSBSim's contact springs are a stiff ODE that diverges
- * inside one step at release speeds, leaving no impact state to report. A store does not bounce, it
- * detonates — the judge still tests the real elevation. Herleitung: doc/units-and-missions.md
- * §8. Far below any trajectory and finite, so nothing downstream sees an infinity. */
-constexpr double kWeaponNoGroundElevM = -100000.0;
-
-} // namespace
-
 FBSimUnit::FBSimUnit(int id, std::string name, FBUnitKind kind, FBUnitTeam team,
                      std::unique_ptr<Fdm::FBFdm> fdm, std::unique_ptr<Modules::FBModule> module,
                      const Fdm::fb_fdm_state &initialState, double groundAslM, FBFlightId flight)
@@ -100,7 +91,7 @@ void FBSimUnit::UpdateGroundAsl(double sampleM) {
   /* The terminal's OWN end of the radio horizon, from the same sample and on the same tick — pushed
    * here rather than through every module, because it is the owner's terrain and not the module's. */
   Module_->Datalink().SetOwnGroundAslM(GroundAslM_);
-  if (Fdm_) Fdm_->SetGroundElevM(GetKind() == FBUnitKind::Weapon ? kWeaponNoGroundElevM : GroundAslM_);
+  if (Fdm_) Fdm_->SetGroundElevM(GetKind() == FBUnitKind::Weapon ? Fdm::FBFdm::kNoGroundElevM : GroundAslM_);
 }
 
 /* Written through only on a CHANGE: in still air (every mission that declares no weather) the airframe

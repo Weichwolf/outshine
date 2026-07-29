@@ -45,6 +45,15 @@ ground at their own launcher's coordinates seconds after release — pre-existin
 committed `net-cue.fbm`, and enough to make four closed gaps (`C1`/`C22`/`C23`/`C24`) unable to move any
 outcome. Expect the eight remaining campaigns to find one of these each.
 
+**FIXED 2026-07-29, and the fix is the second half of that lesson: the finding was three defects on
+FlightBox's side of the seam and cost no deck change** — an initial condition run against JSBSim's own
+default ground, a motor cold for 0.55 s, and a `GatherS` that no line of code read
+([`../modules/ground/module.md`](../modules/ground/module.md) §4.1). O1's own §State says which of its
+numbers that supersedes. **And underneath the fixed defect three more became visible** (a caged MANPADS
+seeker, a V-750 that cannot fly its own pitch-over, one gain set shared across three orders of magnitude
+of missile mass) — so the corrected expectation for the remaining eight campaigns is not *one* finding
+each but *a stack*: the first defect hides the next.
+
 This directory is **step 4 of the owner goal** and its specification comes first, per
 [`../conventions.md`](../conventions.md)'s spec-first rule: *change the Spec of the topic file first;
 if a round cannot say what the contract becomes, it is not ready to start.*
@@ -62,7 +71,7 @@ Five in which the **F-16** flies, five in which the **MiG-29** flies. Ten missio
 | **W3** | [Desert Storm, the first nights](w3-desert-storm.md) | 17 January 1991 + Package Q, 19 January | a package against an integrated air defence, and the three named ways Package Q came apart |
 | **W4** | [Allied Force 1999](w4-allied-force.md) | 24 March – 10 June 1999 | mountains, cloud and an air defence that refuses to emit — the campaign the weather hook was built for |
 | **W5** | [Baltic Air Policing / QRA](w5-baltic-qra.md) | NATO air policing, 30 March 2004– | **identification as the task**, and the sharpest anti-cheat test in the set |
-| **O1** | [Bekaa 1982, the Syrian side](o1-bekaa-1982.md) **— BUILT** | Operation Mole Cricket 19, 9 June 1982 | the canonical defeat, reframed as a measurable question: **what in the doctrine moves the outcome, and what is left when nothing does**. **Flown 2026-07-29:** the baseline reproduces the rout; ONE lever (launch at 1.4 × Rtr) inverts it; the controller is worth everything on a 45° entry and nothing head-on; the warning receiver, the belt, the net and the anchor's own jamming move mechanisms and no outcome |
+| **O1** | [Bekaa 1982, the Syrian side](o1-bekaa-1982.md) **— BUILT** | Operation Mole Cricket 19, 9 June 1982 | the canonical defeat, reframed as a measurable question: **what in the doctrine moves the outcome, and what is left when nothing does**. **Flown 2026-07-29:** the baseline reproduces the rout; ONE lever (launch at 1.4 × Rtr) inverts it; the controller is worth everything on a 45° entry and nothing head-on; the warning receiver, the belt, the net and ~~the anchor's own jamming~~ move mechanisms and no outcome. **AMENDED 2026-07-29:** the belt's nullity was a defect, not a doctrine — the ground-launch fix gave the rounds a trajectory, and the jamming lever now costs the belt 8 launches, 7 detonations and 2 positions. See the file's §"The ground half, re-measured" |
 | **O2** | [PVO intercept exercise](o2-pvo-intercept.md) | Soviet GCI doctrine + the MiG-29's own guidance panel | ground control in its pure form, and identity that always costs surprise |
 | **O3** | [Yom Kippur 1973](o3-yom-kippur-1973.md) | the opening strikes, 6 October 1973 | ground attack under a friendly SAM umbrella — **the only campaign with zero runnable missions**, and the requirement that says why |
 | **O4** | [GAF MiG-29G DACT](o4-gaf-mig29g-dact.md) **— BUILT** | JG 73 Laage, 1991–2003 | the one campaign in which **both** FlightBox airframes really flew against each other — and the cheapest to build, because half of it is already measured. **Flown 2026-07-29:** the ten-mile claim holds at ten miles, trades at five and loses at two |

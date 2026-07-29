@@ -29,6 +29,14 @@ public:
 
   static constexpr double kStepS = 0.01;   /* 100 Hz — the ONE definition of the bridge step rate */
 
+  /* THE GROUND A WEAPON IS GIVEN, and it is none: JSBSim's contact springs are a stiff ODE that
+   * diverges inside one step at release speeds, leaving no impact state to report. A store does not
+   * bounce, it detonates — the judge still tests the real elevation. Far below any trajectory and
+   * finite, so nothing downstream sees an infinity. It belongs to THIS class because the rule is only
+   * true for what is handed to JSBSim, and because three callers (the unit, the store spawn and the
+   * airframe harness) must say the same number. doc/weapons.md §1. */
+  static constexpr double kNoGroundElevM = -100000.0;
+
   /* Advances one kStepS step; `out` keeps its last good value if the engine raised (latched Faulted_),
    * so the step never throws into the module's substep loop. */
   void Step(fb_fdm_state &out);

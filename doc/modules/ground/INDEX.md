@@ -1,8 +1,11 @@
 # `modules/ground/` — the unit level
 
 **`C1`: one ground unit that emits and shoots.** Step 2 of the owner goal, and the only open contract the
-foundation round left behind. **Specified here, not built.** No line of `sim/` was touched to write this
-directory.
+foundation round left behind. ~~**Specified here, not built.** No line of `sim/` was touched to write this
+directory.~~ **BUILT** on 2026-07-28 ([`module.md`](module.md) §State) — that line described the round
+that wrote this directory and was already stale. **The launch initial condition, the half of the contract
+that shipped unbuilt, followed on 2026-07-29** ([`module.md`](module.md) §4.1): the rounds no longer
+destroy their own launchers, and three defects the ground contact was hiding are now named (B4/B5/B6).
 
 Why this and not something else: after the two flyable jets and the two ground-target kinds, the next
 **four rows** of [`../../campaigns/INDEX.md`](../../campaigns/INDEX.md)'s cast table — a radiating

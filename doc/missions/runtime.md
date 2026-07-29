@@ -287,7 +287,7 @@ A `nullptr` sink leaves the bus a cheap no-op (the browser case).
 
 | Method | Contract |
 |---|---|
-| `UpdateGroundAsl(sampleM)` | An unresolved sample keeps the last good value (`FBElevationResolved`). **ONE number** reaches both JSBSim's contact ground and the module's HUD/radar-altitude path — the two cannot disagree about the ground. For `FBUnitKind::Weapon`, JSBSim is instead given `kWeaponNoGroundElevM = −100000 m` (§8). |
+| `UpdateGroundAsl(sampleM)` | An unresolved sample keeps the last good value (`FBElevationResolved`). **ONE number** reaches both JSBSim's contact ground and the module's HUD/radar-altitude path — the two cannot disagree about the ground. For `FBUnitKind::Weapon`, JSBSim is instead given `FBFdm::kNoGroundElevM = −100 000 m` (§8) — **renamed and moved 2026-07-29** out of two anonymous namespaces (`units/FBSimUnit.cpp`, `clients/FBTestMissileAirframe.cpp`) into the one class that hands the number to JSBSim; and it is now also applied **at the initial condition** through `FBFdmSpawn::TerrainElevM` ([`../fdm.md`](../fdm.md) §6 step 1b). |
 | `HudState()` | The module's bus with THIS frame's pose folded in — the module publishes the Platform block at its own rate, the client re-publishes it at the frame rate, so that the conformal symbology is drawn against the pose actually rendered. Same block, same writer role — no second copy of the truth. |
 | `PrimeState()` | Boot-only: one FDM step + `PublishPose`, so that the first frame does not read an empty pose. |
 | `SetLogAttribution(bool)` | Sets the `unit=` label — once at boot, never per tick. Empty with exactly one actor. |
@@ -529,13 +529,16 @@ is `FBUnitKind::Weapon`.
 | Quantity | Derivation |
 |---|---|
 | **Position** | Carrier position + station offset, rotated out of body axes with the carrier attitude (`FBBodyVecToEnu`). A store leaves the pylon, not the CG. Metres → degrees via `kMPerDeg` resp. `kMPerDeg·cos(lat)`. |
-| **Attitude** | That of the carrier, unchanged. Nothing tips it off the carrier; whatever the airframe was doing at that moment, the store keeps doing. |
+| **Attitude** | That of the carrier, unchanged. Nothing tips it off the carrier; whatever the airframe was doing at that moment, the store keeps doing. **Unless the release declares a RAIL** (`FBStoreRelease::HaveRail`): then pitch is `RailPitchDeg` and roll is 0 — a launcher aims, a pylon does not. |
+| **Ground** | `ic.TerrainElevM = FBFdm::kNoGroundElevM`, i.e. the "a weapon has no ground" rule applied **at the initial condition** and not one call later (2026-07-29). `SetGroundElevM` afterwards is the same number, so the rule holds for the IC and for every later tick — [`weapons.md`](../weapons.md) §1. |
+| **Motor** | `ic.MotorRunning = rel.HaveRail` (2026-07-29). A rail launch separates *because* the motor pushed the round off the rail, so it is born burning; an air launch drops clear and lights afterwards, which is the throttle slew. `HaveRail` is what tells the two apart, and it is false for every air-launched store. |
 | **Velocity** | Carrier velocity **at this station**, i.e. CG velocity + **ω × r**. The rotational component counts at the moment a release happens in a roll; leaving it out would be a silent simplification instead of a modelling decision. Computed in body axes (`p,q,r` deg/s → rad/s), then the same rotation into ENU. |
 | **Ejector impulse** | **deliberately NONE.** A real pylon pushes the store down at a few ft/s, and `doc/modules/f16/weapons.md` has no quotable number for it (§4.5's station data are T4 at best). So the store separates with the carrier motion and nothing else. If a source turns up, it is ONE additional body-fixed velocity term, here, at this one place. |
 
 `HeightOffsetM` is raised to at least 0.5 m (the IC needs a positive offset; below that the store hits
 immediately anyway). `ic.Ballistic = true` switches off trim and engine start in the adapter (→
-[`fdm.md`](../fdm.md) §6). `module->ProgramRelease(rel)` is the generic launch programming: a bomb ignores
+[`fdm.md`](../fdm.md) §6) — **engine start only when `MotorRunning` is false**, the condition there being
+`!Ballistic || MotorRunning`. `module->ProgramRelease(rel)` is the generic launch programming: a bomb ignores
 it, a guided round takes shooter id and target estimate from it — this file names no weapon type. Logged
 as `stores SEPARATION` with the full state vector.
 
@@ -613,7 +616,7 @@ itself on its own estimate would be the purest form of cheating.
   entire release error the attack missions are supposed to measure, and a pure sampling artefact.
   Reconstruction: depth / sink rate = `backS`, position projected back linearly (the curvature of the arc
   over ~0.1 s is worth centimetres). That is only possible because a weapon **deliberately gets no ground
-  to collide with** (`kWeaponNoGroundElevM`) and therefore flies ballistically to the last.
+  to collide with** (`FBFdm::kNoGroundElevM`) and therefore flies ballistically to the last.
   **Deliberately NOT** interpolated between the last two published poses: by the time the physics judge
   concludes, the previous pose is already below the surface too, so there is no bracketing pair.
 - **Why a weapon gets no ground:** JSBSim's ground reactions model a RESTING object — the two STRUCTURE

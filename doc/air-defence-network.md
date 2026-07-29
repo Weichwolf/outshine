@@ -464,18 +464,28 @@ one test on the existing link (`sensors/FBDatalinkSystem`), four short steps on 
 machine (`modules/ground/FBSiteFireControl`), one objective kind, two mission scopes and one published
 scalar. **No new class walks the registry, and no new class was needed at all.**
 
+> **PRE-FIX, and three rows of the table below rest on rounds that used to destroy themselves.** The
+> ground-launch fix of 2026-07-29 ([`modules/ground/module.md`](modules/ground/module.md) §4.1) moved the
+> bytes of **`net-cue`, `net-belt-high` and `net-jam-wire`** — three of the ten missions out of 160 that
+> changed at all. Everything those rows say about the LINK (join, cue, sector, WCS, autonomy, `net LOST`,
+> the mast arithmetic) is upstream of the launch and stands; everything they say about what happened
+> AFTER a `site LAUNCH` — a `viper FAIL`, a mission verdict, a launch count that depends on rounds
+> surviving — was measured on a binary whose SAM rounds nosed into the ground within 1.6 s and is
+> **not re-measured**. **TODO**, and marked per row. `net-cue-unnetted`, `net-blind-cue`, `net-belt-low`,
+> `net-jam-late` and `net-jam-start` are byte-identical and their rows are untouched.
+
 | Measured | Number |
 |---|---|
 | Existing missions untouched | **336/336** `telemetry*.csv` byte-identical and **112/112** `events.log` identical modulo `wallS`/`speedup`/path, against the pre-round binary |
 | Determinism, all 120 missions | **371/371** telemetry and **120/120** events identical over `--threads 1/2/4`, exit codes identical |
 | Perception boundary | `verify-layers`: *"3 restricted header(s) respected, **6 registry reader(s) inside the perception boundary**"* — the tuple is unchanged, and a seventh reader added anywhere is **rejected** (counter-checked: `systems/FBSystemSlots.h -> units/FBUnitRegistry.h is not on that header's includer list`, rc=1) |
 | The zone gate is a NARROWING | `core/FBZone.h` is `RESTRICTED` to an EMPTY outside-includer list. Counter-checked: a `#include "FBZone.h"` in `pilot/FBPilot.h` is rejected, rc=1 |
-| **The cue is worth everything** (`net-cue` vs `net-cue-unnetted`) | one geometry, the `net` block the only difference. Netted: `net JOIN` t=3.9 s, `net CUE` t=8.0 s, `site RADIATE` t=8.0 s, `site TRACK` t=145.1 s, **2** `site LAUNCH` (t=172.0 / 198.9), viper FAIL at t=201.8. Unnetted: **0** `net`, **0** `site RADIATE`, **0** `site TRACK`, **0** `site LAUNCH`, viper SUCCESS. That is criterion 3 in its strongest form — not *later*, **never** |
+| **The cue is worth everything** (`net-cue` vs `net-cue-unnetted`) | one geometry, the `net` block the only difference. Netted: `net JOIN` t=3.9 s, `net CUE` t=8.0 s, `site RADIATE` t=8.0 s, `site TRACK` t=145.1 s, **2** `site LAUNCH` (t=172.0 / 198.9), viper FAIL at t=201.8 **[pre-fix — the second half of this run is where `monitor KO unit=sam_3m9_1 reason=CFIT` used to appear at t=172.8; TODO re-measure]**. Unnetted: **0** `net`, **0** `site RADIATE`, **0** `site TRACK`, **0** `site LAUNCH`, viper SUCCESS. That is criterion 3 in its strongest form — not *later*, **never** |
 | **The cue cannot invent a track** (`net-blind-cue`) | one Mk 82 at **52.32 m**, **2 086.81 J/m²**: `Radar` **FAILED**, `FireControl`/`Structure`/`Stores` only degraded. `net_cue` = 1 from t=8.1 s to the end of the run with **no further transition**, and **ZERO** `site TRACK` lines. Criterion 4 |
-| **Where in the layer cake** (`net-belt-low` vs `net-belt-high`) | identical route, altitude the only difference. Low (1 200 m ASL, 259 m over the position): `zone_flak_s` = **34.5 s**, `zone_sambelt_s` = **0.0 s**, **54** `gun BURST`, **0** `site LAUNCH`, `avoid zone flak` LOST. High (5 000 m): `zone_flak_s` = **0.0 s**, `zone_sambelt_s` = **320.0 s**, **0** `gun BURST`, **1** `site LAUNCH`, `avoid zone flak` MET, SUCCESS. The altitude that escapes the AAA does put you in the SAM, and the verdict says which storey |
+| **Where in the layer cake** (`net-belt-low` vs `net-belt-high`) | identical route, altitude the only difference. Low (1 200 m ASL, 259 m over the position): `zone_flak_s` = **34.5 s**, `zone_sambelt_s` = **0.0 s**, **54** `gun BURST`, **0** `site LAUNCH`, `avoid zone flak` LOST. High (5 000 m): `zone_flak_s` = **0.0 s**, `zone_sambelt_s` = **320.0 s**, **0** `gun BURST`, **1** `site LAUNCH`, `avoid zone flak` MET, SUCCESS. The altitude that escapes the AAA does put you in the SAM, and the verdict says which storey. **[`net-belt-high` is pre-fix: the round now flies, so the SUCCESS verdict is the quantity to re-check; TODO]** |
 | **Blind against confidently blind** (`net-jam-late` vs `net-jam-start`) | jammed **mid-run**: `net JOIN` t=3.9, `site RADIATE` t=8.0, `net LOST reason=jammed` t=128.0 (distM 21 027 against reachM 23 341 — not the horizon), `net AUTONOMOUS fallback=hold`, `site TRACK` t=143.1, **0** launches. Jammed **from t=0**: **0** `net JOIN`, **0** `net CUE`, **0** `site RADIATE`, **0** `site TRACK`, **0** launches. Same nil result, opposite cost: the mid-run loss bought the attacker the battery's position on his RWR |
 | **Jamming denies the link and nothing else** | `net-jam-late` against `net-jam-wire`, one line apart: the `site TRACK` line is **byte-identical** in both — `t=143.1 site TRACK unit=sam brgDeg=206.713 rangeM=21977.2 closureMs=223.135 altM=6000 reactionS=26`. The runs diverge at the WCS gate alone (t=169.2: `net WCS state=hold effect="launch inhibited"` against `site STATE to=ENGAGE`) |
-| **A wire is not jammable** | `net-jam-wire`, the same jammer on the same geometry: **0** `net LOST`, 2 launches. Criterion 9 |
+| **A wire is not jammable** | `net-jam-wire`, the same jammer on the same geometry: **0** `net LOST`, 2 launches. Criterion 9. **[pre-fix; the criterion is about the LINK and stands — what the two rounds then did is TODO]** |
 | The mast is what makes a ground radio link exist | 21.0 km between two 8 m masts gives `reachM` **23 340.7 m** by the 4/3-earth rule. With the pre-round ASL formula the same pair would have read 2×1.23·√(2 208 ft) = **114 km** — a number about the map's absolute height and not about the two antennas |
 
 **The seven runner-generated `set` keys**, not four (§8 named four and could not carry the node's own
