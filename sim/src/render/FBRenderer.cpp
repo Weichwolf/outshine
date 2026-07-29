@@ -183,6 +183,13 @@ void FBRenderer::OnDevice(wgpu::Device d) {
 
 /* Creates the SCENE's shared targets and injects FBTilesStage's dependencies. Must run AFTER
  * CreateAtmosphere: Tiles' bind group pins the LUT views that method created. */
+/* ONE weather sample, two consumers: the deck the cloud pass marches and the air the terrain fades
+ * into are the same atmosphere, so they are set from the same call rather than sampled twice. */
+void FBRenderer::SetCloudSky(const FBCloudSky &sky) {
+  Clouds->SetSky(sky);
+  Tiles->SetSky(sky);
+}
+
 void FBRenderer::CreateTerrainPipeline(void) {
   wgpu::TextureDescriptor td{};
   td.size = {(uint32_t)Width, (uint32_t)Height, 1};
@@ -194,7 +201,7 @@ void FBRenderer::CreateTerrainPipeline(void) {
   HdrTex = Device.CreateTexture(&td);
 
   FBGpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
-  Tiles->Configure(gpu, Samp, TransLUT.CreateView(), SkyLUT.CreateView(), AtmoBuf, MaxLayers);
+  Tiles->Configure(gpu, Samp, LutSamp, SkyLUT.CreateView(), AtmoBuf, MaxLayers);
 }
 
 void FBRenderer::CreateTileTexture(void) {

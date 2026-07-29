@@ -1,9 +1,9 @@
 # Rendering — the WebGPU renderer
 
-**Sources of this file:** `sim/src/render/` (14 files: `FBRenderer.h/.cpp`, `FBCamera.h`,
-`FBDrawStage.h`, `FBFrameContext.h`, `FBGpu.h`, `FBHudGeometry.h/.cpp`, `FBHudFont.h`,
-`FBHudFontRom.h`, `FBChunkMesh.h`, `FBChunkVtx.h`, `FBMips.h`) and
-`sim/src/render/stages/` (39 files), plus CLAUDE.md's `render/`, `render/stages/` and "Rendering (das
+**Sources of this file:** `sim/src/render/` (8 files: `FBRenderer.h/.cpp`, `FBDrawStage.h`,
+`FBFrameContext.h`, `FBGpu.h`, `FBChunkMesh.h`, `FBChunkVtx.h`, `FBMips.h` — the HUD geometry/font and
+`FBCamera.h` moved to `systems/` and `core/`) and
+`sim/src/render/stages/` (30 files), plus CLAUDE.md's `render/`, `render/stages/` and "Rendering (das
 Herzstück)" sections. Every number below appears verbatim in the source; derivations and settings are
 marked as such. Contradictions between CLAUDE.md and the code are in *Gaps* — they are not resolved
 silently.
@@ -59,7 +59,7 @@ Built; the stage split is finished (zero inline shaders in `FBRenderer.cpp`).
 | # | Thing |
 |---|---|
 | 4.3 | transmittance LUT is recomputed every frame although it only depends on altitude and sun cos θ |
-| 4.4 | aerial perspective off by default (`FB_AP=0`) although the whole LUT infrastructure exists and runs |
+| 4.4 | ~~aerial perspective off by default (`FB_AP=0`)~~ **closed** — the switch and the dead Rayleigh/Mie block are gone; the terrain now runs a WEATHER-driven haze out of the same `FBAtmoHaze.h` the cloud deck uses (§6, [`clouds.md`](clouds.md)). Its scale height was corrected the same day: two summed terms (molecular 8 km, aerosol 1.2 km) instead of one, and the molecular one carries λ⁻⁴, which closes `clouds.md` Gaps 5.7 **and** 5.8 — the per-channel extinction the deleted block had is back, from the physics rather than from a LUT |
 | 4.5 | upscale is bilinear only (`TODO bicubic/sharpen`) |
 | 4.6 | dead code `w3_frustum_from`, `w3_aabb_visible`; the static terrain path is untested inheritance |
 
@@ -91,10 +91,16 @@ parked in [`../roadmap.md`](../roadmap.md) until `world/` is split.
    `w3_basis_from`, `w3_horizon_dip_rad` (all three by the HUD symbology) and `FBCameraBasisEcef`.
    Whether the frustum helpers are reserved for a future `FBUnitsStage` or should be dropped without
    replacement is open.
-5. **Aerial perspective is OFF by default** (`FB_AP=0`), although the entire transmittance LUT
-   infrastructure for it exists and is computed every frame. The terrain is "lit albedo pure, full
-   brightness to the horizon" — an explicit user decision (2026-07-23), but physically wrong. The LUT is
-   computed anyway, because sky and sun need it.
+5. **Aerial perspective — resolved, and by REPLACEMENT rather than by arming the old one.** The
+   `FB_AP` switch and the whole tLUT-ratio/inscatter/glow block it gated are removed. The block was a
+   CLEAR-AIR model (a Rayleigh/Mie transmittance-LUT ratio) that could not see the weather at all; the
+   terrain now runs the same weather-driven haze the cloud deck runs, out of one shared header
+   (`stages/FBAtmoHaze.h`, §6). The one capability of the removed block that the first cut lost — a
+   per-CHANNEL extinction — came back with the scale-height correction: splitting σ₀ into a molecular
+   and an aerosol term lets the molecular one carry its own λ⁻⁴, so distant terrain loses its blue
+   because of Rayleigh and not because of a lookup ([`clouds.md`](clouds.md) Gaps 5.7/5.8, both
+   closed). The transmittance LUT is still computed every frame because sky, sun and the cloud march
+   need it; the terrain no longer binds it.
 7. **The transmittance LUT is recomputed every frame.** It depends only on altitude and the sun's
    cos θ; a `TODO cache while the sun is static` is in the header and is open.
 8. **Upscale is bilinear.** `TODO bicubic/sharpen` in the header; likewise missing is the HUD's 8-tap
@@ -196,7 +202,6 @@ resource/pipeline group is **not built at all**.
 | Switch | Default | Effect | Place |
 |---|---|---|---|
 | `FB_CLOUDS` | **1 (armed)** | arms the cloud layer pass. Off = no pipeline, no VRAM. Armed is not the same as drawn: the pass only exists when the weather sample has a deck | `FBRenderer::OnDevice` |
-| `FB_AP` | 0 (off) | terrain aerial perspective. `const AP_ON : f32 = 0.0` is substituted in the terrain shader; off = the whole tLUT/inscatter/glow block strips away | `FBTilesStage.cpp` |
 | `--cloudq` (native) / `SetCloudQuality` | 1.0 | scales the NODE count of the march, 0.25…8 | `FBCloudLayerStage` |
 | `FB_MOON_SCALE` | 1.0 | multiplier on the real lunar angular radius (0.0045 rad ≈ 0.5°) | `FBRenderer::UpdateAtmosphere` |
 | `FB_PHOTO_ZMAX` | 11 | from which zoom an aerial-imagery tile counts as "bright enough" (gain calculation) | `FBTilesStage.cpp` |
@@ -302,16 +307,19 @@ consumer concatenates them in front of its own code):
 
 | Header | Content | Consumers |
 |---|---|---|
-| `FBAtmoCommon.h` | `Atmo` uniform struct + scattering physics | transmittance, sky view, sky, tiles (aerial perspective) |
-| `FBAtmoSample.h` | sky-view LUT sampling + exposure (`kSkyExposure = 8.0`) | sky, tiles |
-| `FBCloudDensityWGSL.h` | the shared cloud density function plus the constants printed from its C++ half | `FBCloudLayerStage` |
+| `FBAtmoCommon.h` | `Atmo` uniform struct + scattering physics | transmittance, sky view, sky, sun, moon, tiles, clouds |
+| `FBAtmoSample.h` | sky-view LUT sampling + exposure (`kSkyExposure = 8.0`) | sky, sun, tiles, clouds |
+| `FBAtmoHaze.h` | **THE air**: Koschmieder σ₀, its molecular/aerosol split, the two scale heights (8 km / 1.2 km), `kMinSunUp`, the per-channel extinction law, the inscatter colour, and the deck's sun transmittance — C++ AND WGSL, like the density below. Its Rayleigh coefficients ARE `FBAtmoCommon.h`'s, read directly in WGSL and tied to the C++ mirror by a `const_assert` | `FBTilesStage`, `FBCloudLayerStage`, `--cloudcheck` |
+| `FBCloudDensityWGSL.h` | the shared cloud density function plus the constants printed from its C++ half | `FBCloudLayerStage`, `--cloudcheck` |
 
 ---
 
 ### 4 The atmosphere (Hillaire 2020)
 
-Two compute LUTs plus one fullscreen sky pass; the same transmittance LUT also drives the terrain's
-aerial perspective, so that sky and ground see the same air.
+Two compute LUTs plus one fullscreen sky pass. The sky-view LUT is also what the terrain's and the
+cloud deck's haze dissolve INTO (`FBAtmoHaze.h`), so sky, ground and cloud converge on one colour; the
+transmittance LUT feeds sky, sun and the cloud march's sun colour, and since the `FB_AP` removal no
+longer the terrain.
 
 **Shared resources owned by `FBRenderer`** (because 3+ consumers read them):
 
@@ -364,8 +372,13 @@ Transmittance (owns TransLUT)
         └─ Sky  (reads SkyLUT + AtmoBuf)
    ├─ Sun       (reads TransLUT for the sun colour + AtmoBuf)
    └─ Moon      (builds the albedo texture from the bytes staged by SetMoonTexture + AtmoBuf)
-…only then CreateTerrainPipeline() → FBTilesStage::Configure(… TransLUT, SkyLUT …)
+…only then CreateTerrainPipeline() → FBTilesStage::Configure(… LutSamp, SkyLUT …)
 ```
+
+The terrain takes the **LUT sampler**, not the albedo one, and that is a correctness detail rather
+than tidiness: the sky-view LUT wraps in azimuth (`AddressMode::Repeat`) and its seam sits at u = 0 —
+which is the SUN's own azimuth. The removed `FB_AP` block sampled it with the ClampToEdge tile
+sampler, i.e. with a filtered seam through the brightest part of the far field.
 
 Ephemerides (`core/FBEphemeris.h`, pure functions — moved down out of `render/` in the C2 round
 because `core/`/`sensors/` may not include `render/` and visual acquisition needs the sun,
@@ -400,6 +413,28 @@ through the exact inverse Mercator and geodetic→ECEF — no tangent-plane erro
 origin. Normals are real ECEF cross products of the neighbouring offsets and therefore carry the tile's
 curvature for free. `err` = maximum height error of the decimation in metres — projection-independent,
 and exactly the number the streamer's LOD builds on.
+
+**The frame uniform** (`U`, 36 floats = 144 B, written once per frame in `Encode`): the camera-relative
+MVP + sun (the `FBFrameContext`'s own `Mvp20`), then the ATMOSPHERE as numbers —
+`haze = (σ₀, camera altitude ASL, ground radius under the camera in Mm, –)` and one `vec4` per weather
+deck, `(baseM, topM, sun optical depth, cover)`. The decks arrive through `FBRenderer::SetCloudSky`,
+which hands the SAME `FBCloudSky` to the cloud stage and to this one — the seam that makes "deck and
+ground see one atmosphere" a fact of the wiring rather than a claim.
+
+**Light and air in the fragment shader** (all of it out of `stages/FBAtmoHaze.h`, shared verbatim with
+the cloud march):
+
+| Step | Formula | Note |
+|---|---|---|
+| deck attenuation | `sunThru = Π_i [(1−cover_i) + cover_i·exp(−τ_i·frac_i)]`, `frac_i = clamp((top_i − z_frag)/thick_i, 0, 1)` | statistical, per deck, per fragment — **not** a shadow map. `cover` is calibrated to be an area fraction, so `1−cover` really is the share of sun rays that miss the deck; `frac` is what makes a ridge inside the deck partly lit and one above its top fully lit |
+| lit albedo | `albedo · (0.4 + 0.15·(1−sunThru) + 3.0·N·L·sunThru) · light` | the direct term is what a deck takes away; `0.15` is what it gives back as diffuse (derivation in the shader comment: overcast diffuse illuminance ≈ 1.0–1.5× clear-sky diffuse) |
+| haze | `T₁₃ = exp(−[β_R·exp(−z̄/8000) + σ_A·exp(−z̄/1200)]·d)`, `c = c·T + inscatter·(1−T)` | σ₀ = 3.912/visibility (Koschmieder) split into a fixed molecular part β_R and the aerosol remainder σ_A; two scale heights, and β_R is a **vec3** (λ⁻⁴) so the extinction colours. `z̄` = mean altitude of the sight line, `d` = the camera-relative fragment distance. Derivations + citations: [`clouds.md`](clouds.md) |
+| inscatter | `skyViewSample(dir↓horizon) + the sun halo × EVS` | identical to what the sky pass paints, so the horizon has no edge; a below-horizon direction is projected onto the horizon, because the LUT's below-horizon branch answers a different question (`FBAtmoHaze.h` comment) |
+
+Telemetry: `FBLog::Debug("render","terrain_light")` on change — `visM`, `sigma0PerM`, the three decks'
+`τ`, `groundSunThru` and `groundLitFrac` (the share of ground radiance that is direction-dependent
+direct light). That last number is how "flat and grey under a closed deck" is measured instead of
+eyeballed: 0.882 clear → **3.6·10⁻⁶** under 100 % low cover.
 
 **Per-draw data** (storage buffer `TileBuf`, one `Tile{a: vec4f, b: vec4f}` per draw, 32 B):
 
@@ -536,5 +571,6 @@ shader idea can no longer wander "just quickly" into the orchestrator, because t
 visible immediately.
 
 Distribution today: **13 WGSL blocks over 12 stage files** (one carries two: `FBHudStage`, stroke and
-text) plus **3 pure splice headers** without a class of their own (`FBAtmoCommon.h`, `FBAtmoSample.h`,
-`FBCloudDensityWGSL.h`).
+text) plus **4 pure splice headers** without a class of their own (`FBAtmoCommon.h`, `FBAtmoSample.h`,
+`FBAtmoHaze.h`, `FBCloudDensityWGSL.h`). Two of the four carry a C++ half of the same formula and are
+checked against their shader twin by `gpu_native --cloudcheck`.

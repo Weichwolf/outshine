@@ -1566,3 +1566,74 @@ der Angreifer in Nacht eins den Knoten zerstört hat, der die Starts freigegeben
 `protect`, `avoid zone`, `no_fire`, alle vier. Was es ersetzt hat, ist kleiner und härter: die Kampagne
 konnte ihre eigene Hauptfrage nicht stellen, weil das Format den Alarmstart nicht kennt. Erwarte den
 Defekt in der Naht, in die du nicht geschaut hast.
+
+## 2026-07-29 — Ferne Berge waren nicht vernebelt: eine Luft für Decke und Gelände
+
+Der Eigner hat es gesehen, die Messung hat es bestätigt: **`FBTilesStage` hatte null Referenzen auf
+Sichtweite, Dunst oder Extinktion.** Die drei Stellen, an denen der Renderer die gemeldete Sichtweite
+las, lagen alle in `FBCloudLayerStage.cpp`. Zwei Bilder derselben Kamera bei **5 km und bei 80 km
+Sicht waren sha256-gleich** — null von 921 600 Pixeln verschieden. Genauso zwei Bilder bei 0 % und
+100 % Bewölkung: der Geländeausschnitt **byte-identisch**, weil der Boden nicht wusste, dass eine
+geschlossene Decke zwischen ihm und der Sonne stand.
+
+An der Stelle lag `FB_AP`: eine vollständige, seit dem 23.07. abgeschaltete Luftperspektive. Sie ist
+gelöscht, Schalter und Block. Der Grund ist nicht, dass sie kaputt war — sie war ein **Klarluftmodell**
+aus der Rayleigh/Mie-Tabelle und konnte das Wetter prinzipiell nicht sehen. Ersetzt durch
+`render/stages/FBAtmoHaze.h`: σ₀ = 3,912/Sichtweite (Koschmieder), ausgedünnt mit 8 km Skalenhöhe,
+Einstreufarbe aus derselben Himmelstabelle — **eine Funktion, von beiden Shadern gespliced**, C++-Hälfte
+danebengelegt und von `--cloudcheck AIR_RESULT` gegen ihren Shader-Zwilling gemessen (max |Δ| 1,19·10⁻⁷).
+Danach: 100 % der Pixel verschieden, +57,6 % Helligkeit im Nahband zwischen 5 und 80 km.
+
+Die Beleuchtung unter der Decke ist **keine Schattenkarte**, sondern der Anteil der Sonnenstrahlen, der
+die Decke verfehlt: `(1−cover) + cover·exp(−τ·frac)`, pro Deck und pro Fragment. `frac` ist der Anteil
+des Decks über dem Fragment — und genau der macht die Messung, die den Ansatz belegt: unter der Decke
+**−30,8 %** Helligkeit, auf den Gipfeln über ihrer Obergrenze **+0,8 %**. Der richtungsabhängige
+Direktanteil der Bodenstrahlung fällt von 0,882 auf **3,6·10⁻⁶**. Kosten: +0,36 ms fürs Gelände,
++0,29 ms zahlt der Wolkenpass für die geteilte Einstreufarbe — +4,1 % auf den Frame.
+
+**Zwei Funde, die teurer sind als der Umbau.** Erstens: ein WGSL-Übersetzungsfehler
+(`step(f32, vec3f)`) hat die Terrain-Pipeline still ungültig gemacht — das Bild sah plausibel aus, es
+war nur der Himmel ohne Gelände. Seitdem bricht das Aufnahmeskript bei jedem `gpu_error` ab, statt ihn
+zu protokollieren. Zweitens, und das ist die eigentliche Rechnung: **8 km ist die ISA-*Dichte*-Skalenhöhe,
+Aerosol dünnt rund sechsmal schneller aus.** Mit den 24,1 km der Fixture überträgt Gelände 13,9 km unter
+dem Flugzeug **0,275** bei H = 8000 m gegen **0,946** bei H = 1200 m. Das ist der Unterschied zwischen
+„Neuenburgersee durch die Lücken" und Milchglas — und `p1` ist jetzt Milchglas. Die Konstante war
+vorgegeben und wird geteilt wie verlangt; die Zahl steht als Lücke 5.7, nicht als Kommentar.
+
+## 2026-07-29 — Zwei Skalenhöhen: der Dunst hört auf, ein Milchglas zu sein
+
+Die Vorgabe der Runde davor war falsch, und zwar meine: **8 km ist die Dichte-Skalenhöhe der Luft, nicht
+die des Aerosols**, das bei 24,1 km gemeldeter Sicht 92 % der Extinktion stellt. Der Mechanismus blieb —
+eine Datei, beide Shader spleißen sie —, nur das Gesetz darin ist jetzt eine **Summe zweier Terme**:
+molekular mit 8 000 m, Aerosol mit 1 200 m. Beide Zahlen sind veröffentlicht und stehen ohnehin schon im
+Renderer: `FBAtmoCommon.h` baut seine Himmelstabelle mit `exp(-h/8.0)` und `exp(-h/1.2)` (Bruneton &
+Neyret 2008; die 8 km zusätzlich Bucholtz 1995, die 1,2 km zusätzlich Elterman 1968).
+
+**Die Aufteilung ist hergeleitet, nicht gestellt.** Die molekulare Extinktion sauberer Luft ist eine
+Naturkonstante — dieselbe, mit der die Himmelstabelle rechnet, 1,3558·10⁻⁵ /m bei 550 nm, also 288 km
+Rayleigh-Sichtweite. Also ist der molekulare Anteil fest und das **Aerosol trägt den Rest**: 8,4 % zu
+91,6 % bei 24,1 km, 27,7 % bei 80 km, bei über 288 km ist der Aerosolterm exakt null. Bei z = 0 und
+550 nm summieren sich beide **genau** auf σ₀ — die gemeldete Sichtweite bleibt unangetastet, gemessen:
+T = 0,0200 auf 24,1 km horizontal, vorher wie nachher.
+
+Zahlen am `p1`-Kamerastand: Gelände 13,9 km entfernt **0,274 → 0,853**, die Decke 9 km entfernt
+**0,499 → 0,935**. Der Neuenburgersee steht wieder in der Lücke; die Luminanz-Struktur in den drei
+Lückenausschnitten stieg um Faktor 2,4 / 6,8 / **26,5** (der letzte war vorher ein toter Wisch, σ = 0,34).
+
+**Und die Kanaltrennung fiel als Nebenprodukt an.** Ein getrennt geführter molekularer Term kann sein
+eigenes λ⁻⁴ tragen — die Koeffizienten stehen schon da, ihre Verhältnisse SIND das Gesetz. Am
+`p1`-Standort transmittiert Rot 0,908 gegen Blau 0,730. Lücke 5.8 ist damit zu, aber mit einer Korrektur
+ihrer eigenen Prämisse: die Extinktion rötet, das **Bild wird trotzdem blauer** mit der Entfernung, weil
+der Kanal mit dem größten Transmittanzverlust am meisten von einer himmelblauen Einstreuung dazugewinnt,
+die heller ist als das Gelände dahinter. Deshalb sind ferne Berge blau. Gegen ein Kontrollbinary, das
+sich NUR im grau erzwungenen Kanal unterscheidet: 99,5–100 % der Pixel verschieden, max 35/255.
+
+Kosten des zweiten Terms: **+0,050 ± 0,027 ms** auf den reinen Geländeframe, auf dem vollen 17-ms-Frame
+nicht vom Rauschen zu trennen (|Δ| < 0,4 ms). Drei zusätzliche `exp` pro Fragment, mehr ist es nicht.
+
+Der eigene Vorschlag der Vorrunde ist mitgezogen: `capture_cloud_proofs.sh` **bricht** bei jedem
+`gpu_error` ab statt zu protokollieren, und `VERIFY=1` nimmt den Satz zweimal auf und scheitert an jedem
+Frame, der sich bewegt hat — 12/12 byte-gleich. Beim Bauen dieser Sperre gleich der nächste Fund
+derselben Sorte: `grep | grep -q` liefert unter `pipefail` das SIGPIPE des ersten greps, ein `if` liest
+einen echten Fehler dann als „kein Fehler". Die erste Fassung der Abbruchprüfung ließ deshalb sieben
+kaputte Frames durch. Prüfvorrichtungen brauchen ihre eigene Prüfvorrichtung.

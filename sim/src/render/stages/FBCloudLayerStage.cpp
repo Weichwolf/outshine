@@ -1,6 +1,7 @@
 #include "FBCloudLayerStage.h"
 #include "FBAtmoCommon.h"
 #include "FBAtmoSample.h"
+#include "FBAtmoHaze.h"
 #include "FBCloudDensityWGSL.h"
 #include "FBLog.h"
 #include <cmath>
@@ -9,19 +10,17 @@
 
 namespace FlightBox::Render {
 
-/* Look/material constants of the MARCH (the shape constants live in core/FBCloudDensity.h). All [SET]
- * except where a derivation is named. */
+/* Look/material constants of the MARCH (the shape constants live in core/FBCloudDensity.h, and the
+ * AIR — Koschmieder, the two haze scale heights, kMinSunUp — in FBAtmoHaze.h, shared with the terrain). All
+ * [SET] except where a derivation is named. */
 static constexpr float kSunIntensity   = 18.0f;   /* [SET] against kSkyExposure = 8 (FBAtmoSample.h) */
 static constexpr float kMaxSegM        = 60000.0f;/* [SET] longest marched span through one deck */
-static constexpr float kMinSunUp       = 0.20f;   /* [SET] floor on the sun's elevation cosine in the Beer path */
 static constexpr float kAmbientFloor   = 0.18f;   /* [SET] a dense base is mid-grey, not black */
 static constexpr float kDitherRel      = 0.0025f;  /* ~1/255 relative — one 8-bit step at the output */
-static constexpr float kHazeScaleHM    = 8000.0f; /* ISA density scale height: the haze thins with it */
 static constexpr float kErodeFadeNearM = 8000.0f; /* [SET] erosion starts fading out at 8 km ... */
 static constexpr float kErodeFadeFarM  = 45000.0f;/* [SET] ... and is gone by 45 km (undersampled) */
 static constexpr float kErodeNyqLo     = 0.15f;   /* [SET] erosion cells crossed per step: full amplitude below ... */
 static constexpr float kErodeNyqHi     = 0.60f;   /* [SET] ... gone at (just under) one cell per step = Nyquist */
-static constexpr float kKoschmieder    = 3.912f;  /* ln(1/0.02): visibility -> extinction */
 
 /* Prepends kAtmoCommon (Atmo, PI, groundRadiusMM, tLUTuv) + kAtmoSample (skyViewSample) + the shared
  * density function and its emitted constants. */
@@ -305,16 +304,13 @@ fn marchDeck(accIn : Acc, d : CloudDeck, seg : vec2f) -> Acc {
   var alpha = clamp(1.0 - acc.transm, 0.0, 1.0);
   if (alpha < 0.001) { return vec4f(0.0); }
 
-  /* Aerial perspective on the cloud itself: the deck dissolves into the haze the weather reported.
-   * sigma0 = 3.912 / visibility (Koschmieder), thinned with the ISA density scale height along the
-   * mean of the camera's and the cloud's own altitude. */
+  /* Aerial perspective on the cloud itself: the deck dissolves into the haze the weather reported —
+   * THE shared air (FBAtmoHaze.h), the identical two calls the terrain makes, so a ridge and the deck
+   * over it fade at one rate into one colour. */
   let meanDistM = acc.wDist / max(acc.wSum, 1.0e-6) * 1.0e6;
   let meanAltM = acc.wAlt / max(acc.wSum, 1.0e-6);
-  let zEff = 0.5 * (camAltMm * 1.0e6 + meanAltM);
-  let hazeOd = S.p0.z * exp(-max(zEff, 0.0) / kHazeScaleHM) * meanDistM;
-  let hz = exp(-hazeOd);
-  let hazeCol = skyViewSample(svLUT, lsamp, A, gDir);
-  var rgb = acc.scat * hz + hazeCol * (1.0 - hz) * alpha;
+  let hz = hazeTransmittance3(S.p0.z, 0.5 * (camAltMm * 1.0e6 + meanAltM), meanDistM);
+  var rgb = acc.scat * hz + hazeInscatter(svLUT, lsamp, A, gDir) * (vec3f(1.0) - hz) * alpha;
 
   /* Dither at the output, relative so it costs one 8-bit step wherever the value lands after ACES. */
   let dth = (ignoise(in.pos.xy + vec2f(37.0, 17.0)) - 0.5) * kDitherRel;
@@ -338,15 +334,14 @@ void FBCloudLayerStage::Configure(const FBGpu &gpu, wgpu::Buffer atmoBuf, wgpu::
   char mats[1024];
   snprintf(mats, sizeof mats,
            "const kSunIntensity : f32 = %.9g;\nconst kMaxSegM : f32 = %.9g;\n"
-           "const kMinSunUp : f32 = %.9g;\nconst kAmbientFloor : f32 = %.9g;\n"
-           "const kDitherRel : f32 = %.9g;\nconst kHazeScaleHM : f32 = %.9g;\n"
+           "const kAmbientFloor : f32 = %.9g;\nconst kDitherRel : f32 = %.9g;\n"
            "const kErodeFadeNearM : f32 = %.9g;\nconst kErodeFadeFarM : f32 = %.9g;\n"
            "const kErodeNyqLo : f32 = %.9g;\nconst kErodeNyqHi : f32 = %.9g;\n",
-           (double)kSunIntensity, (double)kMaxSegM, (double)kMinSunUp, (double)kAmbientFloor,
-           (double)kDitherRel, (double)kHazeScaleHM, (double)kErodeFadeNearM, (double)kErodeFadeFarM,
+           (double)kSunIntensity, (double)kMaxSegM, (double)kAmbientFloor,
+           (double)kDitherRel, (double)kErodeFadeNearM, (double)kErodeFadeFarM,
            (double)kErodeNyqLo, (double)kErodeNyqHi);
-  const std::string src = std::string(kAtmoCommon) + kAtmoSample + FBCloudDensityConstsWGSL() + mats +
-                          kCloudDensityWGSL + kCloudLayerWGSL;
+  const std::string src = std::string(kAtmoCommon) + kAtmoSample + FBHazeConstsWGSL() + kHazeWGSL +
+                          FBCloudDensityConstsWGSL() + mats + kCloudDensityWGSL + kCloudLayerWGSL;
 
   wgpu::ShaderSourceWGSL wgsl{};
   wgsl.code = src.c_str();
@@ -429,8 +424,7 @@ void FBCloudLayerStage::Update(const FBFrameContext &ctx) {
   u[4] = (float)AxisN[0]; u[5] = (float)AxisN[1]; u[6] = (float)AxisN[2]; u[7] = (float)camN;
   u[8] = (float)(groundR / 1.0e6);
   u[9] = (float)Quality;
-  const float vis = Sky.VisibilityM > 1.0f ? Sky.VisibilityM : 1.0f;
-  u[10] = kKoschmieder / vis;
+  u[10] = FBHazeSigma0(Sky.VisibilityM);
   u[11] = ctx.AltM;
   u[12] = 0.0f; u[13] = 0.0f; u[14] = 0.0f; u[15] = 0.0f;
   static_assert(sizeof(FBCloudDeckParams) == 16 * sizeof(float),

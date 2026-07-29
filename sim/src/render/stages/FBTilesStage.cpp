@@ -2,7 +2,9 @@
 #include "FBMips.h"
 #include "FBAtmoCommon.h"
 #include "FBAtmoSample.h"
+#include "FBAtmoHaze.h"
 #include "FBLog.h"
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -13,7 +15,10 @@ namespace FlightBox::Render {
 /* The terrain draw. Per-draw data, albedo array, grazing mip bias, RenderBundle signature and the
  * invariant counters: doc/render/renderer.md, Abschnitt 6. */
 static const char *kTerrainWGSL = R"(
-struct U { mvp : mat4x4f, sun : vec4f };
+/* haze:  x = sigma0 (1/m, Koschmieder of the reported visibility), y = camera altitude ASL (m),
+ *        z = the WGS84 ground radius under the camera (Mm), w = spare.
+ * dk0..2: one weather deck each as (baseM, topM, sun optical depth, cover) — FBAtmoHaze.h. */
+struct U { mvp : mat4x4f, sun : vec4f, haze : vec4f, dk0 : vec4f, dk1 : vec4f, dk2 : vec4f };
 @group(0) @binding(0) var<uniform> u : U;
 // per-draw storage entry: a.xyz = camera-relative ECEF offset (origin_ecef - cam_ecef, float),
 // a.w = albedo array LAYER; b.x = per-tile PHOTO brightness GAIN (1.0 for OSM / bright tiles). The draw
@@ -22,14 +27,23 @@ struct Tile { a : vec4f, b : vec4f };
 @group(0) @binding(1) var<storage, read> tiles : array<Tile>;
 @group(0) @binding(2) var samp : sampler;
 @group(0) @binding(3) var albedo : texture_2d_array<f32>;
-@group(0) @binding(4) var tLUT : texture_2d<f32>;
+/* The LUT sampler, NOT the albedo one: the sky-view LUT wraps in azimuth (AddressMode::Repeat) and its
+ * seam sits at u = 0, which is the SUN's own azimuth — sampling it clamped puts a filtered seam right
+ * across the brightest part of the far field. */
+@group(0) @binding(4) var lsamp : sampler;
 @group(0) @binding(5) var svLUT : texture_2d<f32>;
 @group(0) @binding(6) var<uniform> A : Atmo;
-/* Terrain aerial-perspective switch, baked at shader build from env FB_AP (CreateTerrainPipeline):
- * 0.0 = OFF (default, user directive 2026-07-23) — terrain is lit albedo pure, full brightness to the
- * horizon, the whole tLUT/inscatter/glow block dead-strips (no per-pixel cost). FB_AP=1 arms it (Lab/
- * A-B; code stays intact, same mechanism as FB_CLOUDS). The SKY pass is unaffected either way. */
-const AP_ON : f32 = 0.0;
+/* The lit-albedo weights: 0.4 ambient + 3.0 x N.L direct, unchanged from the clear-air terrain. Only
+ * kOvercastAmb is new — see the deck block in fs(). */
+const kTerrainAmb : f32 = 0.4;
+const kTerrainDir : f32 = 3.0;
+/* Extra DIFFUSE the ground gains for every unit of direct beam a deck takes away. Derived from the
+ * illuminance ratio, not tuned: clear sun at 45 deg gives 0.4 + 3.0*cos45 = 2.52 here, of which 0.4 is
+ * the diffuse share; measured overcast diffuse illuminance runs about 1.0-1.5x the clear-sky diffuse,
+ * so the diffuse term gains ~35 % of 0.4 = 0.14 under a closed deck. The resulting ground under full
+ * overcast is 0.55/2.52 = 22 % of the sunlit clear case, inside the 10-25 % that overcast/clear global
+ * illuminance measures. */
+const kOvercastAmb : f32 = 0.15;
 struct VOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f, @location(1) nrm : vec3f,
               @location(2) @interpolate(flat) layer : u32, @location(3) wpos : vec3f,
               @location(4) @interpolate(flat) gain : f32 };
@@ -77,39 +91,29 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f, @location
   // coarse LOD tiles) catch the below-horizon sun via (0.4+3*diff) -> a bright brightness-step at LOD
   // seams. SVS is a constant daylit database view -> full diff. (Day EVS: skyExtra.x~1 -> unchanged.)
   let diffGate = select(1.0, A.skyExtra.x, A.skyExtra.y > 0.5);
-  let diff = max(dot(nrmN, normalize(u.sun.xyz)), 0.0) * diffGate;
+  // The fragment's OWN altitude: which decks stand between it and the sun is a property of where it
+  // is, and in the Alps a ridge really does poke through a 2 991 m base while the valley does not.
+  let fragAltM = (length(A.camPosMm.xyz + in.wpos * 1.0e-6) - u.haze.z) * 1.0e6;
+  // WEATHER LIGHT. A deck above this fragment attenuates the DIRECT beam (Beer over the slant path,
+  // weighted by the fraction of sun rays that hit cloud at all) and converts what it removes into
+  // DIFFUSE. Statistical per deck and per frame — deliberately NOT a shadow map: the quantity here is
+  // "how much of the sun reaches the ground under this sky", which is an average over the whole deck,
+  // and a per-pixel answer would need the march the cloud pass already pays for.
+  let sunThru = deckSunThru(u.dk0, fragAltM) * deckSunThru(u.dk1, fragAltM) * deckSunThru(u.dk2, fragAltM);
+  let diff = max(dot(nrmN, normalize(u.sun.xyz)), 0.0) * diffGate * sunThru;
   // EVS ground tracks the real light level (atmo.h: 0.08 night floor .. 1 day) so night is genuinely
   // dark under the star field; SVS (OSM) stays a constant daylit database view.
   let light = select(1.0, 0.08 + 0.92 * A.skyExtra.x, A.skyExtra.y > 0.5);
-  var c = base * (0.4 + 3.0 * diff) * light;   // scene RADIANCE in linear — the tonemap compresses
-  if (AP_ON > 0.5) {
-  // Aerial perspective (analytic first stage): view-ray transmittance from the LUT ratio + sky-view
-  // inscatter. The Hillaire transmittance LUT is parametrised by the RAY's cos-zenith to space, so it
-  // is only valid on its UPWARD branch — a downward view dir hits the "ray into the ground" edge
-  // (T~0) and blacks out near terrain. Sample with the upward direction (-dir) and take the ratio
-  // T(cam->frag) = T(frag->space) / T(cam->space) along it (frag is lower -> ratio < 1 = the segment
-  // transmittance). TODO: the full 32^3 aerial-perspective LUT.
-  let viewDist = length(in.wpos);
-  let dir = in.wpos / max(viewDist, 1.0);    // camera -> fragment (often below the horizon)
-  let upDir = -dir;                          // fragment -> camera -> space: the LUT's valid branch
-  let camPos = A.camPosMm.xyz;
-  let fragPos = camPos + in.wpos / 1e6;      // Mm
-  let tCamU = textureSampleLevel(tLUT, samp, tLUTuv(camPos, upDir), 0.0).rgb;
-  let tFragU = textureSampleLevel(tLUT, samp, tLUTuv(fragPos, upDir), 0.0).rgb;
-  let viewTrans = clamp(tFragU / max(tCamU, vec3f(1e-4)), vec3f(0.0), vec3f(1.0));
-  // Inscatter must converge to the SAME colour the sky pass paints, or the farthest terrain (viewTrans
-  // ->0) lands on a different colour than the sky just above the ridge = the ~5px horizon-edge band.
-  // The sky pass is skyViewSample + a warm sun-glow halo (exp forward-scatter, tint 1,0.80,0.55); the
-  // terrain inscatter had only skyViewSample, so the far band stayed cooler/bluer than the sky = the
-  // blue rim. Add the identical glow term so terrain -> sky as viewTrans->0 (seamless); it scales with
-  // (1-viewTrans) like the rest of the inscatter, so near/steep terrain (viewTrans~=1) is unaffected.
-  let sa = acos(clamp(dot(dir, A.sunDir.xyz), -1.0, 1.0));
-  let sup = smoothstep(-0.06, 0.0, dot(A.sunDir.xyz, A.up.xyz));
-  let glow = (exp(-sa * 7.0) * 0.35 + exp(-sa * 1.5) * 0.12 * A.skyExtra.x) * kSkyExposure;
-  let skyCol = skyViewSample(svLUT, samp, A, dir) + glow * vec3f(1.0, 0.80, 0.55) * sup;
-  let inscat = skyCol * (1.0 - viewTrans);
-  c = c * viewTrans + inscat;
-  }   // end if (AP_ON) — off by default: lit albedo pure to the horizon
+  let ambW = kTerrainAmb + kOvercastAmb * (1.0 - sunThru);
+  var c = base * (ambW + kTerrainDir * diff) * light;   // scene RADIANCE in linear — the tonemap compresses
+  // AERIAL PERSPECTIVE, from the weather rather than from a clear-air table: the same sigma0, the same
+  // two scale heights and the same inscatter colour the cloud deck dissolves into (FBAtmoHaze.h). That
+  // is the whole point of the shared header — deck and ground see ONE atmosphere, so a mountain and the
+  // cloud above it fade at the same rate and the horizon has no edge. Per channel, so the ridge fifty
+  // kilometres out loses its blue on the way here instead of going uniformly grey.
+  let distM = length(in.wpos);
+  let hz = hazeTransmittance3(u.haze.x, 0.5 * (u.haze.y + fragAltM), distM);
+  c = c * hz + hazeInscatter(svLUT, lsamp, A, vdir) * (vec3f(1.0) - hz);
   return vec4f(c, 1.0);
 }
 )";
@@ -127,13 +131,13 @@ static float fbTileYlin(const uint8_t *pyramid, int ts) {
   return 0.2126f * fb_srgb_lin_[top[0]] + 0.7152f * fb_srgb_lin_[top[1]] + 0.0722f * fb_srgb_lin_[top[2]];
 }
 
-void FBTilesStage::Configure(const FBGpu &gpu, wgpu::Sampler samp, wgpu::TextureView transLutView,
+void FBTilesStage::Configure(const FBGpu &gpu, wgpu::Sampler samp, wgpu::Sampler lutSamp,
                              wgpu::TextureView skyLutView, wgpu::Buffer atmoBuf, int maxLayers) {
   Device = gpu.Device;
   Queue = gpu.Queue;
   HdrFormat = gpu.HdrFormat;
   Samp = samp;
-  TransLutView = transLutView;
+  LutSamp = lutSamp;
   SkyLutView = skyLutView;
   AtmoBuf = atmoBuf;
   MaxLayers = maxLayers;
@@ -197,7 +201,7 @@ void FBTilesStage::Configure(const FBGpu &gpu, wgpu::Sampler samp, wgpu::Texture
     Queue.WriteBuffer(Vtx, 0, TerrainVerts.data(), (size_t)TerrainNVerts * 8 * sizeof(float));
   }
 
-  bd.size = 80; /* mat4 + vec4 */
+  bd.size = kUniFloats * sizeof(float);   /* mat4 + sun + haze + deck bases + deck transmittances */
   bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
   Uni = Device.CreateBuffer(&bd);
 
@@ -207,11 +211,10 @@ void FBTilesStage::Configure(const FBGpu &gpu, wgpu::Sampler samp, wgpu::Texture
   bd.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
   TileBuf = Device.CreateBuffer(&bd);
 
-  std::string terrSrc = std::string(kAtmoCommon) + kAtmoSample + kTerrainWGSL;   /* AP helpers + struct */
-  if (const char *e = getenv("FB_AP"); e && atoi(e) != 0) {   /* arm the aerial-perspective path (default off) */
-    const std::string from = "const AP_ON : f32 = 0.0;", to = "const AP_ON : f32 = 1.0;";
-    auto p = terrSrc.find(from); if (p != std::string::npos) terrSrc.replace(p, from.size(), to);
-  }
+  /* Atmo struct + sky-view sampling + THE shared air (constants, extinction law, inscatter colour) —
+   * the same three splices the cloud pass makes, in the same order. */
+  const std::string terrSrc = std::string(kAtmoCommon) + kAtmoSample + FBHazeConstsWGSL() + kHazeWGSL
+                            + kTerrainWGSL;
   wgpu::ShaderSourceWGSL wgsl{};
   wgsl.code = terrSrc.c_str();
   wgpu::ShaderModuleDescriptor smd{};
@@ -305,12 +308,12 @@ void FBTilesStage::RebuildBind(void) {
   wgpu::TextureViewDescriptor avd{};
   avd.dimension = wgpu::TextureViewDimension::e2DArray;
   wgpu::BindGroupEntry be[7] = {};
-  be[0].binding = 0; be[0].buffer = Uni; be[0].size = 80;
+  be[0].binding = 0; be[0].buffer = Uni; be[0].size = kUniFloats * sizeof(float);
   be[1].binding = 1; be[1].buffer = TileBuf; be[1].size = TileBuf.GetSize();
   be[2].binding = 2; be[2].sampler = Samp;
   be[3].binding = 3; be[3].textureView = Albedo.CreateView(&avd);
-  be[4].binding = 4; be[4].textureView = TransLutView;   /* aerial perspective */
-  be[5].binding = 5; be[5].textureView = SkyLutView;
+  be[4].binding = 4; be[4].sampler = LutSamp;            /* azimuth-wrapping, for the sky-view LUT */
+  be[5].binding = 5; be[5].textureView = SkyLutView;     /* the haze's inscatter colour */
   be[6].binding = 6; be[6].buffer = AtmoBuf; be[6].size = 11 * 4 * sizeof(float);
   wgpu::BindGroupDescriptor bgd{};
   bgd.layout = Pipe.GetBindGroupLayout(0);
@@ -485,7 +488,40 @@ void FBTilesStage::Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pa
   }
   if (nDraw > 0) Queue.WriteBuffer(TileBuf, 0, off.data(), off.size() * sizeof(float));
 
-  Queue.WriteBuffer(Uni, 0, ctx.Mvp20, sizeof ctx.Mvp20);
+  /* The camera-relative MVP + sun (0..19, as the frame context carries them) plus the ATMOSPHERE the
+   * fragment shader needs as numbers: one Koschmieder sigma0, the geometry to turn a fragment offset
+   * into an altitude, and the three decks' sun transmittance. Reused stack array — no per-frame heap. */
+  float uni[kUniFloats];
+  std::memcpy(uni, ctx.Mvp20, sizeof ctx.Mvp20);
+  const double eyeLen = std::sqrt(ctx.Eye[0] * ctx.Eye[0] + ctx.Eye[1] * ctx.Eye[1] + ctx.Eye[2] * ctx.Eye[2]);
+  uni[20] = FBHazeSigma0(Sky.VisibilityM);
+  uni[21] = ctx.AltM;
+  uni[22] = (float)((eyeLen - (double)ctx.AltM) / 1.0e6);   /* the REAL WGS84 radius under the camera */
+  uni[23] = 0.0f;
+  const float sunUp = (float)(ctx.SunDir[0] * ctx.Up[0] + ctx.SunDir[1] * ctx.Up[1] + ctx.SunDir[2] * ctx.Up[2]);
+  float groundThru = 1.0f;
+  for (int i = 0; i < 3; i++) {
+    const FBCloudDeckParams &d = Sky.Deck[i];
+    const float tau = FBDeckSunOpticalDepth(d, sunUp);
+    uni[24 + i * 4 + 0] = d.BaseM;
+    uni[24 + i * 4 + 1] = d.TopM;
+    uni[24 + i * 4 + 2] = tau;
+    uni[24 + i * 4 + 3] = d.Cover;
+    groundThru *= FBDeckSunTransmittance(tau, d.Cover, 1.0f);   /* the value at sea level = the log's */
+  }
+  /* The air and the light this frame, as NUMBERS: what the picture does with them is measurable off a
+   * PNG, but why it does it is not. Logged when the atmosphere actually changes, like cloud_decks. */
+  if (std::fabs(uni[20] - LoggedSigma0) > 1e-9f || std::fabs(groundThru - LoggedSunThru) > 1e-4f) {
+    LoggedSigma0 = uni[20];
+    LoggedSunThru = groundThru;
+    FBLog::Debug("render", "terrain_light",
+                 {{"visM", (double)Sky.VisibilityM}, {"sigma0PerM", (double)uni[20]},
+                  {"camAltM", (double)ctx.AltM}, {"sunUp", (double)sunUp},
+                  {"lowTau", (double)uni[26]}, {"midTau", (double)uni[30]}, {"highTau", (double)uni[34]},
+                  {"groundSunThru", (double)groundThru},
+                  {"groundLitFrac", (double)(3.0f * groundThru / (0.4f + 0.15f * (1.0f - groundThru) + 3.0f * groundThru))}});
+  }
+  Queue.WriteBuffer(Uni, 0, uni, sizeof uni);
 
   /* Signature = the draw STRUCTURE only. TileBuf/uniform CONTENTS change every frame, but the bundle
    * references those buffers by HANDLE — so only a structural change forces a re-record. */

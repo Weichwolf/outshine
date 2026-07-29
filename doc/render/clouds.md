@@ -21,6 +21,8 @@ flying through with consequences, and the fog underneath you.
 | Camera inside the band | the segment starts at the camera — ONE code path for outside/inside/transition, fly-through seamless by construction |
 | Explicitly NOT | impostors. Price: broken cumulus reads as a patchy sheet. Accepted. |
 | Shared evaluation | the density function must be evaluable in WGSL **and** C++ (shared constants) — "how far can I see" is the same question sensors/IR will ask later |
+| **ONE atmosphere** (added 2026-07-29, project owner) | the deck and the TERRAIN under it dissolve into the same air: one σ₀ = 3.912/visibility from the same weather sample, one inscatter colour, in ONE shared function both shaders splice. And the ground must know that a deck stands between it and the sun — direct light attenuated, diffuse raised, **no shadow map** |
+| **TWO scale heights** (corrected 2026-07-29, project owner — the single 8 km constant was the owner's own directive and is withdrawn) | σ₀ is split into a molecular term at ~8 km and an aerosol term at ~1.2 km, summed. Both scale heights must be **published and cited**, and the rule that divides σ₀ between them must be argued, not tuned. The molecular term may carry its own wavelength dependence; the shared-function requirement stands (`--cloudcheck AIR_RESULT` = AGREE) |
 
 Acceptance: a frame proof through the deck (fly-through without a seam), and a C++ evaluation of the
 same function agreeing with the shader for a given sample set.
@@ -63,13 +65,20 @@ Three things changed in the follow-up round, each with its measurement below: th
 against the march's own step** (a new deck parameter `ErodeFlat` in the shared function), and the one
 reported ceiling is spent on the étages by a **continuous ownership weight** instead of a clamp.
 
+**2026-07-29 — the air stopped being the cloud's private property.** The chain now spans two stages:
+the deck's haze and the TERRAIN's haze are one function in one header (`render/stages/FBAtmoHaze.h`),
+and the ground is lit through the deck instead of under it. The disabled `FB_AP` clear-air aerial
+perspective is deleted. Its measurements are their own section below.
+
 | Piece | Where | What it is |
 |---|---|---|
 | The density function | `core/FBCloudDensity.h` | C++ half: hashed gradient noise, the coverage FBM, the analytic column, the erosion, plus `FBCloudSkyFromWeather` (the three decks from one `FBWeatherProvider` sample). Includes nothing above `core/` — `verify-layers` holds it there. |
 | The same function in WGSL | `render/stages/FBCloudDensityWGSL.h` | a literal transliteration whose **constants are printed from the C++ ones** (`FBCloudDensityConstsWGSL()`), so a number cannot drift between the picture and a measurement |
+| **The air** | `render/stages/FBAtmoHaze.h` | the second shared function, same construction: Koschmieder σ₀, the molecular/aerosol **split rule**, the two scale heights, `kMinSunUp`, `hazeOpticalDepth3`/`hazeTransmittance3` (per channel) and their photopic scalar face, the inscatter colour, and the deck's sun optical depth + transmittance. C++ half and WGSL half in one file, constants emitted by `FBHazeConstsWGSL()`. Spliced by **both** `FBCloudLayerStage` and `FBTilesStage` — the terrain haze is not a copy of the cloud haze, it is the same three lines |
 | The stage | `render/stages/FBCloudLayerStage.{h,cpp}` | ray ∩ shell per deck, ≤ 3 segments front-to-back, 6–12 **nodes** of a composite trapezoid, blue-noise entry jitter on the interior nodes, 2 sun taps, HG phase, sky-LUT ambient, Koschmieder haze, dither out. Blends **premultiplied straight into `HdrTex`**. |
 | The weather seam | `clients/FBAppNative.cpp`, `clients/FBAppWasm.cpp` | the CLIENT samples `FBWorld::Weather()` where the camera is and hands the renderer an `FBCloudSky` (`FBRenderer::SetCloudSky`). The renderer never sees a provider; the same call is what a future IR sensor makes. |
-| The numeric gate | `gpu_native --cloudcheck` | evaluates both halves over 12 288 samples and prints the largest disagreement; also measures the three constants that are claimed as MEASURED — the coverage FBM's distribution, the erosion FBM's mean (the value the band-limit fades toward), and the **cirrus streak axis** against the deck's own wind, with an isotropic control |
+| The numeric gate | `gpu_native --cloudcheck` | evaluates both halves over 12 288 samples and prints the largest disagreement — **twice**, once for the density (`RESULT`) and once for the air (`AIR_RESULT`, the haze × deck-light product over 0.2–200 km visibility, ±14 km altitude, sight lines to 250 km and sun elevations crossing the `kMinSunUp` floor). Also measures the three constants that are claimed as MEASURED — the coverage FBM's distribution, the erosion FBM's mean (the value the band-limit fades toward), and the **cirrus streak axis** against the deck's own wind, with an isotropic control |
+| The weather instruments | `gpu_native --vis KM` / `--cover FRAC` | override the `--wx` sample's visibility / low-deck cover for ONE screenshot, deck geometry untouched. Screenshot venue only — a mission's weather is its own. Without them "the same camera under two atmospheres" is not measurable at all, which is how the missing terrain haze stayed invisible |
 | The frame gate | `sim/missions/wx-clouds-proof.fbm` | four legs above / inside / below one real GFS deck, for `gpu_native --mission --interval` |
 
 **Pass topology.** The cloud pass is a separate render pass because it must SAMPLE the depth texture
@@ -124,6 +133,87 @@ Still **2.3× cheaper than the chain it replaces while marching four times as ma
 at boot and no history textures. 10 ms is more than half a 60 Hz budget on this iGPU; `SetCloudQuality`
 scales the node count (0.25…8) and is the knob for it.
 
+### The shared air (2026-07-29 round: terrain haze + light under the deck)
+
+The terrain had **no** reference to visibility, haze or extinction at all — 3 uses of the visibility in
+the whole renderer, all three inside `FBCloudLayerStage.cpp`. What stood in its place was `FB_AP`, a
+complete but **disabled** clear-air aerial perspective (a Rayleigh/Mie transmittance-LUT ratio) that
+could not see the weather. It is deleted, switch and block; what replaced it shares
+`FBAtmoHaze.h` with the cloud march.
+
+**Measured before, then after, at the same cameras** (`gpu_native`, 1280×720, `--albedo osm`, the
+180-frame converged still of `tools/capture_cloud_proofs.sh`; `--vis`/`--cover` are the instruments):
+
+| Question | Before | After |
+|---|---|---|
+| **Two frames, one camera, visibility 5 km vs 80 km** (46.84 N/6.92 E, 8 450 m, −35°) | **sha256 identical**, 0 of 921 600 pixels differ | 100 % of pixels differ; mean sRGB luminance of the near terrain band +57.6 %, of the far band +47.2 % |
+| the fixture's own 24.1 km vs 80 km | — | far band +32.5 %, near band +6.0 % |
+| **Two frames, one camera, cover 0 % vs 100 %, in a terrain-only crop with no cloud in it** (46.84/6.92, 1 500 m, −10°; deck 2 991…3 891 m, crop 750×180 px at y 520) | **0 pixels differ** | 100 % differ, mean luminance **−20.9 %**; at 50 % cover −4.8 % |
+| the same on RELIEF, cloud pass disarmed so only the terrain lighting is in it (46.62/7.95, 2 950 m; deck 2 411…3 311 m) | — | terrain **below** the deck −30.8 %; summits **above** its top **+0.8 %** — the per-fragment `frac` at work, not a global dimmer |
+| how much of the ground's radiance is direction-dependent DIRECT light (`render/terrain_light`) | 0.882 always | 0.882 at cover 0 · 0.762 at 0.5 · **3.6·10⁻⁶** at cover 1 |
+| C++ ↔ WGSL agreement of the shared air | — | max \|Δ\| **1.19·10⁻⁷**, mean 7.6·10⁻⁹ over 12 288 samples; tolerance 10⁻⁴ → **AGREE** |
+
+**Cost**, same camera and method as the table above but timed by the DIFFERENCE of a 5 s and a 35 s
+run (1 800 frames apart, which cancels device bring-up and the terrain stream-in), 5 repetitions per
+configuration, and the two full configurations additionally re-run alternating to rule out thermal
+drift:
+
+| Configuration | ms/frame (min…max over 5) | Δ |
+|---|---|---|
+| terrain only (`FB_CLOUDS=0`), before | 1.27…1.67, median **1.45** | — |
+| terrain only, after | 1.62…1.97, median **1.85** | **+0.36 ms** |
+| full frame with the 76 % deck, before | 15.64…15.81, median **15.72** (alternating re-run 15.88) | — |
+| full frame with the deck, after | 16.27…16.55, median **16.36** (alternating re-run 16.54) | **+0.65 ms, +4.1 %** |
+
+So the terrain haze itself costs **0.36 ms** and the remaining **≈0.29 ms** is the cloud pass paying
+for the shared inscatter — it now carries the sun halo it did not have, which is the price of deck and
+ground converging on one colour. Against the cloud march's own ~14 ms at this camera, +4 %.
+
+Pass topology unchanged: `passes=7 clouds=1 cloudPass=1` with a deck, `passes=6 … cloudPass=0`
+without. Telemetry unchanged: **11 telemetry CSVs over 6 mission runs byte-identical** to the binary
+built from `HEAD` (`payerne-full`, `wx-gfs-fixture`, `wx-clouds-proof`, `bvr-duel`, `attack-ccip`, plus
+`wx-clouds-proof --interval 30` with the GPU device live), `events.log` identical except `wallS`,
+`speedup` and the `--out` path; `--threads 1/2/4` identical.
+
+### The scale-height correction (2026-07-29, same day, project owner)
+
+The round above was specified with ONE scale height and it was the wrong one; the correction is Gap 5.7
+and 5.8, both now closed. The mechanism did not move — one shared header, both shaders splice it — only
+the law inside it: **σ₀ is split into a molecular term at 8 km and an aerosol term at 1.2 km**, and the
+molecular one carries λ⁻⁴ per channel. Derivations and citations are in the constants table below.
+
+| Measurement | Single 8 km term | Two terms |
+|---|---|---|
+| terrain 13.9 km away, 4 450 m mean sight-line altitude, fixture visibility 24.1 km (the `p1` geometry) | T = **0.2743** | T = **0.8532** green — R **0.9076**, B **0.7302** |
+| the deck 9.0 km away, 5 943 m mean altitude, same air | T = **0.4991** | T = **0.9347** green — R 0.9663, B 0.8597 |
+| horizontal at the surface, 24.1 km (Koschmieder's own definition) | T = **0.0200** | T = **0.0200** — the split is exact at z = 0, by construction |
+| `p1` gap crops: luminance detail (σ of Y) in the Lac de Neuchâtel gap / the NW terrain gap / the NE gap | 5.86 / 2.96 / **0.34** (a dead flat wash) | 14.32 / 20.08 / 9.03 — **×2.4 / ×6.8 / ×26.5** |
+| `p1` gap colour, mean R/G/B | 163/175/195 (that is the haze, not the ground) | 178/186/191 |
+| two frames, one camera, 5 km vs 80 km visibility — **1 200 m**, Jura→Alps, 40 km sight line | — | **99.99 %** of pixels differ, mid band −6.4 % |
+| the same pair at 8 450 m (the `p1` camera) | — | 99.70 % differ, but only 0.6 % in luminance — Gap 5.11 |
+| under a closed deck, terrain-only crop, cover 0 % vs 100 % (46.84/6.92, 1 500 m) | −21.0 % (−4.9 % at 50 %) | **−21.3 %** (−4.6 % at 50 %) — the deck light is untouched, as intended |
+| the same on RELIEF, cloud pass disarmed (46.62/7.95, 2 950 m, deck 2 411…3 311 m) | valley −22.7 %, summits above the deck top **+1.7 %** | valley **−31.8 %**, summits **+3.8 %** — the per-fragment `frac` survives and reads stronger now that the haze no longer washes the crop |
+| the channel split, isolated against a control binary identical except `hazeTransmittance3` forced to its own green channel | — | 99.5–100 % of pixels differ, max **35/255**; green channel identical to the last bit |
+| C++ ↔ WGSL agreement of the shared air (`--cloudcheck AIR_RESULT`) | max \|Δ\| 1.19·10⁻⁷ | max \|Δ\| **1.19·10⁻⁷**, mean 1.17·10⁻⁸ → **AGREE** |
+| `--cloudcheck RESULT` (density, untouched) | 1.90·10⁻⁵ | 1.90·10⁻⁵ → AGREE |
+
+**Cost of the second term**, same 5 s vs 35 s difference method, but INTERLEAVED A/B (one pair per
+binary per round, alternating) because the effect is close to the noise floor of the venue:
+
+| Configuration | rounds | one term | two terms | Δ |
+|---|---|---|---|---|
+| terrain only (`FB_CLOUDS=0`) | 9 | median **2.289** ms | median **2.309** ms | **+0.050 ± 0.027 ms** (mean of the 9 paired differences ± sem) |
+| full frame with the 76 % deck | 5 usable of 6 (one round thermally throttled and is discarded, both binaries) | median **16.96** ms | median **17.25** ms | mean of the paired differences **+0.13 ms**, median +0.33, one of five negative — **not separable from noise; bounded at \|Δ\| < 0.4 ms ≈ 2 %** |
+
+That is what the arithmetic predicts: the change is 3 extra `exp` per terrain fragment (2 → 5) and
+nothing else — ~4 M extra transcendentals per frame at 1280×720. The round's TOTAL against `HEAD`
+therefore still stands at the ≈ +0.65 ms measured above.
+
+Telemetry re-checked against the single-term binary: **10 CSVs over 5 `gpu_native --mission` runs
+byte-identical** (`payerne-full`, `wx-gfs-fixture`, `wx-clouds-proof`, `bvr-duel`, `attack-ccip`),
+`events.log` identical except `wallS`, `speedup` and the `--out` path. `passcount passes=7 clouds=1
+cloudPass=1` unchanged.
+
 | Other measurement | Value |
 |---|---|
 | C++ ↔ WGSL density agreement | max \|Δ\| **1.90·10⁻⁵**, mean 4.0·10⁻⁷ over 12 288 samples (3 decks, ±300 km, h ∈ [0,1] incl. the endpoints, and the `ErodeFlat` branch crossed at 0.0/0.55/1.0); tolerance 10⁻⁴ → **AGREE** |
@@ -172,6 +262,32 @@ and `--albedo photo`. The capture script is committed — `sim/tools/capture_clo
 rather than a build target — and logs the camera, the sun, the deck geometry, `pending=` and the sha256
 per frame. Written to `sim/build/r6-cloud-proofs/` (gitignored, `build/` is).
 
+**Re-taken on 2026-07-29** for the shared-air round: all 12 frames moved (the terrain now hazes and the
+deck's inscatter colour changed with it), and the reproducibility claim was re-measured the same way —
+**0 of 12 differing between two fresh independent runs.** What the set shows now that it did not:
+`p2f-below` and `p1` carry real depth cueing instead of a full-brightness horizon, and `p3`'s
+underside shows the sun's position through the air in FRONT of the deck (the haze inscatter's halo),
+where before it was a featureless dark base.
+
+**Re-taken again the same day** after the scale-height correction, and the reproducibility claim is no
+longer a footnote: `VERIFY=1 tools/capture_cloud_proofs.sh` takes the set TWICE into sibling
+directories and fails on any frame that moved. Result: **12/12 byte-identical across two independent
+runs.** All 12 frames moved against the single-term set (62.8–100 % of pixels), and the luminance
+detail rose in 11 of them — most at `p5-dusk-banding` (σ of Y **×2.09**: the dusk terrain is visible
+through the deck's gaps instead of a flat purple wash) and `p4a-cirrus-across-wind` (×1.23). The one
+frame that did not gain detail is `p3-underside-into-sun` (×0.98, mean luminance **−12 %**) — the milky
+veil in front of the deck is largely gone at 2 000 m looking up, which is right for a 1.2 km aerosol
+profile and is the single largest look change in the set.
+
+The script now **ABORTS the whole set** on any `gpu_error` other than the deliberate teardown
+`device_lost`, on a non-zero exit, on a missing frame, and on a residual `pending`. That is the direct
+lesson of the round before it, in which a WGSL type error (`step(f32, vec3f)`) invalidated the terrain
+pipeline and the venue produced a complete set of PLAUSIBLE frames — sky and HUD, no terrain — costing
+a full round of measurements. Proved by pointing the script at a deliberately broken binary: it dies on
+shot 1 with exit 1 and writes no frame. Note in the script's own comment: the checks read their
+evidence through command substitution rather than `grep | grep -q`, because under `pipefail` that
+pipeline returns the first `grep`'s SIGPIPE and an `if` then reads a real error as "no error".
+
 The fly-through is a LADDER through one column rather than a flown mission, and deliberately so: a
 mission-driven `--interval` run moves the camera, so its terrain never converges and its frames cannot
 be reproduced. The property under test — "one code path for outside / inside / transition" — is a
@@ -199,6 +315,11 @@ function of the camera's altitude relative to the band, which is exactly what th
 | 5.4 | **The mid deck has no character of its own** — it is the low deck's constants with a bigger feature size. Altocumulus banding (its actual signature) is not modelled. |
 | 5.5 | **A flown fly-through cannot be a reproducible proof.** The reproducibility recipe needs a STILL camera for ~180 frames; a `--mission --interval` run moves, so its terrain never converges and its frames differ run to run. The ladder (p2a…p2f) proves the same code path at the same cost, but "seamless while moving" is now an eyeball claim, not a hash. A settle-then-fly venue (converge at the spawn, then fly with the streamer's budget raised) would fix it and does not exist. |
 | 5.6 | **Grazing views are the worst-sampled case and the band-limit cannot help them.** A ray nearly tangent to the shell gets a segment up to `kMaxSegM` = 60 km long over at most 12 nodes — 5 km steps, against a 16 km feature size. That is where the residual weave sits in `p2c`. A per-segment length cap would need more nodes, i.e. the quality knob again. |
+| 5.7 | ~~**The haze's 8 km scale height is the ISA DENSITY scale height, and aerosol does not thin that slowly.**~~ **CLOSED 2026-07-29** (project owner: the constant came from the brief, not from the implementation). Measurement that stands: a single `kHazeScaleHM = 8000 m` thinned a Koschmieder SURFACE extinction — 92 % aerosol at the fixture's 24.1 km — at the molecular rate, and at the `p1` camera the terrain 13.9 km away below the aircraft transmitted **0.275** at H = 8 000 m against **0.946** at H = 1 200 m, the deck 9 km away **0.499** against **0.990**. `p1` was a white-out. Replaced by the two summed terms below; the same two geometries now transmit **0.853** and **0.935** (green), and `p1` shows the Lac de Neuchâtel through the gaps again (2.4–26.5× the luminance detail in the three gap crops). |
+| 5.8 | ~~**The haze is GREY, and the aerial perspective it replaced was not.**~~ **CLOSED 2026-07-29 — the split of 5.7 paid for it.** Once the molecular term is carried separately it can carry its own λ⁻⁴, so the extinction is per-channel again and the reddening comes from the physics rather than a table: at the `p1` geometry T = (**0.908**, 0.853, **0.730**) for R/G/B, at 60 km and z̄ = 1 500 m (0.058, 0.040, 0.015). Isolated against a control binary whose only difference is `hazeTransmittance3` forced to its own green channel: **99.5–100 % of pixels differ, max 35/255** (dusk). One correction to this gap's own premise, and it matters: the extinction reddens the transmitted beam, but the *picture* still goes BLUER with distance, because the channel that loses the most transmittance gains the most of a sky-blue inscatter that outshines the terrain behind it — measured d(R−B) = −5 … −14 against the grey control at every band of a 40 km Jura→Alps sight line. That is why real distant mountains are blue, and the deleted `FB_AP` had the same sign for the same reason. |
+| 5.9 | **The under-deck light is a per-frame statistical scalar, so a broken deck dims the whole ground evenly** instead of drawing cloud shadows. That is deliberate (the round's brief: attenuation plus diffuse, explicitly no shadow map) and it is right on the average — `cover` is a calibrated area fraction — but at 30–70 % cover the eye expects moving patches and gets a uniform 4.8 % dimming (measured at 50 % cover). A shadow would need the same march the cloud pass already pays for, sampled toward the sun; it stays under "no cloud shadows on the terrain" in the omissions below. |
+| 5.10 | **The aerosol profile is a pure exponential, and a real mixed layer is not.** `exp(−z/1200)` has already lost a third of the aerosol at 500 m, whereas the boundary layer is roughly well mixed to the inversion and then drops hard. Measured consequence at the fixture's 24.1 km: a 20 km sight line whose mean height is 500 m transmits **0.109** where a strict surface path transmits 0.047 — a low-level view hazes visibly less than its reported visibility alone would suggest, while the exactly-horizontal surface path is still 0.020 at 24.1 km by construction. Fixing it means a mixed-layer height, and no published universal value exists for it; a weather sample that reported its own inversion height could carry one. |
+| 5.11 | **Aloft the air is now almost empty.** At 8 km the aerosol term is `exp(−6.7)` = 0.12 % of its surface value, so cruise altitude sees essentially the molecular atmosphere alone and the visibility the weather reports barely moves the picture: the same camera at 8 450 m over the Payerne deck changes the near band's luminance by only **0.6 %** between 5 km and 80 km reported visibility (at 1 200 m the same pair moves **100 % of pixels** and the mid band by 6.4 %). Physically that is what the profile says; whether a cockpit at FL280 should still see a haze deck below it (it does, and it is the top of the layer, not the layer) is a separate feature — a layer TOP, not a scale height. |
 
 ### Rejected, with the measurement that rejected it
 
@@ -225,7 +346,7 @@ committed R5 march) 0.0388 grain / 18 px run.
 | No temporal accumulation, no bakes | one pass, full resolution — the banding is handled by jitter + dither instead |
 | **No 64³ erosion texture** | the spec allowed one *optionally*; erosion is instead two procedural 3-D octaves in the shader. That keeps "no bakes" literal AND makes the C++ mirror exact — a texture would have had to be reproduced bit-for-bit on the CPU side for `--cloudcheck` to mean anything. |
 | Clouds draw in SVS as well as EVS | the old chain gated the march on the EVS flag. Weather is weather; a database view of the terrain is not a reason to delete the sky. The SVS sun (fixed 45°/180°) lights them, which is what makes the SVS proof frames deterministic. |
-| No cloud shadows on the terrain | a second consumer of the same function (the terrain shader would sample it toward the sun); not in this round |
+| No cloud shadows on the terrain | a second consumer of the same function (the terrain shader would sample it toward the sun); not in this round. **The 2026-07-29 round did the half of it that needs no march**: the ground's DIRECT light is attenuated and its diffuse raised, per deck and per fragment, from `cover` and the deck's mean-field optical depth. What is still missing is the spatial pattern — Gaps 5.9 |
 
 ### Inventory (from the previous `Open points` section)
 
@@ -308,7 +429,13 @@ measured distribution using the logistic approximation of the normal quantile,
 | `kSunIntensity` / `kAmbientFloor` | 18 / 0.18 | [SET] against `kSkyExposure` = 8 |
 | `kMaxSegM` | 60 km | [SET] longest marched span through one deck |
 | `kErodeFadeNear/FarM` | 8 km / 45 km | [SET] — erosion is the highest frequency and the first thing a 12-step march undersamples |
-| haze | σ₀ = 3.912 / visibility, thinned by exp(−z/8000) | **derived**: Koschmieder + the ISA density scale height. The visibility comes from the same weather sample. |
+| haze σ₀ | 3.912 / visibility | **derived**: 3.912 = ln(1/0.02) is the contrast threshold that DEFINES meteorological visual range. The visibility comes from the weather sample, so the haze is weather-driven and not tabulated. `FBAtmoHaze.h`, shared with the terrain |
+| `kHazeScaleRM` (molecular) | 8 000 m | **published**: the ISA density scale height is R·T/(M·g) = 8 434 m at 288 K, and its standard exponential fit over the mass-bearing 0–30 km is 8 km (Bucholtz, *Appl. Opt.* **34**(15), 1995). Air scatters in proportion to its own density, so nothing here is a choice. It is also literally the number this renderer's own sky is built on — `kAtmoCommon`'s `exp(−h/8.0)`, from Bruneton & Neyret, *Precomputed Atmospheric Scattering*, EGSR 2008 |
+| `kHazeScaleAM` (aerosol) | 1 200 m | **published**: boundary-layer aerosol is confined to the mixed layer and thins ≈ 6.7× faster than the air carrying it — Elterman's measured attenuation profiles (AFCRL, 1968), the fit Bruneton & Neyret 2008 adopt as H_M = 1.2 km and `kAtmoCommon` already uses as `exp(−h/1.2)`. Simplification named as Gap 5.10 |
+| the SPLIT of σ₀ between the two | σ_R = min(σ₀, **1.3558·10⁻⁵ /m**), σ_A = σ₀ − σ_R | **derived, no free parameter.** Clean air's molecular coefficient at 550 nm is a constant of nature, and it is the *same* number the sky LUT uses (`rayleighScatteringBase.g`, Bruneton & Neyret 2008 for 550 nm; ⇒ a Rayleigh-limited visual range of 3.912/1.3558·10⁻⁵ = **288 km**). So the molecular part is fixed and the AEROSOL carries whatever the weather adds on top: 1.7 % molecular at 5 km visibility, **8.4 % at the fixture's 24.1 km**, 27.7 % at 80 km, 100 % beyond 288 km where the aerosol term is simply zero. The two sum to σ₀ **exactly** at z = 0 and 550 nm, so the split never changes the reported visual range — measured: T = 0.0200 at 24.1 km horizontal, before and after. The WGSL half reads `rayleighScatteringBase` directly and a **`const_assert`** ties the C++ mirror to it (proved: perturbing the mirror by 0.4 % fails the shader compile) |
+| the CHANNELS | σ_R × (5.802, 13.558, 33.1)/13.558 | **derived**: those are `kAtmoCommon`'s per-channel coefficients for (680, 550, 440) nm, and their ratios are λ⁻⁴ exactly — 13.558/5.802 = (680/550)⁴, 33.1/13.558 = (550/440)⁴. Aerosol extinction stays grey (Mie on a broad size distribution is near-neutral across the visible). The scalar face of the law is its **green channel by construction**, which is the wavelength Koschmieder's definition is about and the one `--cloudcheck AIR_RESULT` measures |
+| `kMinSunUp` | 0.20 | [SET]; floor on the sun's elevation cosine in EVERY Beer path — the march's sun taps and the terrain's deck attenuation, which is why it moved into the shared header |
+| terrain ambient / direct weights | 0.4 / 3.0, plus **0.15** under a closed deck | the first two are the terrain's own, unchanged. The 0.15 is **derived**: measured overcast diffuse illuminance is ~1.0–1.5× the clear-sky diffuse, so the 0.4 diffuse term gains ~35 % ⇒ +0.14, and the resulting ground under full overcast is 0.55/2.52 = **22 %** of the sunlit clear case — inside the 10–25 % that overcast/clear global illuminance measures |
 
 ### The march
 

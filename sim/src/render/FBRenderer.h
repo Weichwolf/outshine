@@ -99,8 +99,9 @@ public:
   void SetCloudQuality(double q) { Clouds->SetQuality(q); }
 
   /* The weather sample the clouds are built from, sampled by the CLIENT (which knows where it is) via
-   * core/FBCloudDensity.h's FBCloudSkyFromWeather. Unset = no decks = no cloud pass at all. */
-  void SetCloudSky(const FBCloudSky &sky) { Clouds->SetSky(sky); }
+   * core/FBCloudDensity.h's FBCloudSkyFromWeather. Unset = no decks = no cloud pass at all; the
+   * TERRAIN gets the same sample (haze + how much sun a deck lets down to it). */
+  void SetCloudSky(const FBCloudSky &sky);
 
   /* 6 B/star, mag-sorted. Call before Init; placed at true alt/az for the given origin. */
   void SetStars(const uint8_t *hyg, int nbytes, double originLat, double originLon);

@@ -8,13 +8,19 @@
 #include <cstdint>
 #include <vector>
 #include "FBDrawStage.h"
+#include "FBCloudDensity.h"
 
 namespace FlightBox::Render {
 
 class FBTilesStage : public FBDrawStage {
 public:
-  void Configure(const FBGpu &gpu, wgpu::Sampler samp, wgpu::TextureView transLutView,
+  void Configure(const FBGpu &gpu, wgpu::Sampler samp, wgpu::Sampler lutSamp,
                 wgpu::TextureView skyLutView, wgpu::Buffer atmoBuf, int maxLayers);
+
+  /* The SAME weather sample the cloud pass marches (FBRenderer::SetCloudSky hands it to both): the
+   * terrain reads its visibility for the haze and its decks for how much sun reaches the ground.
+   * Unset = 100 km visibility, no deck — a clear standard atmosphere, not "no atmosphere". */
+  void SetSky(const FBCloudSky &sky) { Sky = sky; }
 
   /* The static path: upload the merged mesh once. */
   void SetStaticMesh(const float *verts, uint32_t nverts, int ntiles, const uint32_t *voff,
@@ -49,6 +55,8 @@ private:
   struct DynTile { wgpu::Buffer Vtx; uint32_t NVerts; double Origin[3]; int Layer; int PhotoLayer;
                    unsigned PhotoUpTick; bool Used; };
 
+  static constexpr int kUniFloats = 36;   /* mat4 + sun + haze + three decks; the WGSL `U` verbatim */
+
   void EnsureAlbedoCap(int need);
   void RebuildBind(void);
   int AllocLayer(void);
@@ -61,8 +69,10 @@ private:
   wgpu::Queue Queue;
   wgpu::TextureFormat HdrFormat;
   wgpu::Sampler Samp;   /* borrowed from FBRenderer, shared with the (not yet extracted) tonemap pass */
-  wgpu::TextureView TransLutView, SkyLutView;
+  wgpu::Sampler LutSamp;
+  wgpu::TextureView SkyLutView;
   wgpu::Buffer AtmoBuf;
+  FBCloudSky Sky;
 
   wgpu::RenderPipeline Pipe;
   wgpu::BindGroup Bind;
@@ -90,6 +100,7 @@ private:
   std::vector<int8_t> LayerKind;
   double PhotoYTarget = 0.0;
   bool PhotoYValid = false;
+  float LoggedSigma0 = -1.0f, LoggedSunThru = -1.0f;
   std::vector<int> DrawList;
 
   long NotReadyDraws = 0, WrongModeDraws = 0, BlackDraws = 0;
