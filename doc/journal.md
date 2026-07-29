@@ -1637,3 +1637,44 @@ Frame, der sich bewegt hat — 12/12 byte-gleich. Beim Bauen dieser Sperre gleic
 derselben Sorte: `grep | grep -q` liefert unter `pipefail` das SIGPIPE des ersten greps, ein `if` liest
 einen echten Fehler dann als „kein Fehler". Die erste Fassung der Abbruchprüfung ließ deshalb sieben
 kaputte Frames durch. Prüfvorrichtungen brauchen ihre eigene Prüfvorrichtung.
+
+## 2026-07-29 — Achtzehn Katalogzeilen flogen, keine konnte schießen: die grobe Feuerleitung
+
+Der Befund kam aus O5 und war schärfer als er aussah: eine `f15c` mit vier AIM-120 erfasst bei 18,64 sm,
+hält `eng_locked=1` über 28 Sekunden bis auf 8,8 sm herunter — und drückt nie. Ursache eine Ebene tiefer
+als die Mission vermutete: `FBAirModule` komponierte **keine** Feuerleitung, `FBState::FireControl` wurde
+für keine der achtzehn Zeilen je geschrieben, und alle drei Freigabetore von `FBPilot` lesen genau diesen
+Block. Vier Zeilen waren `ACCEPTED` — als **Flugmodelle**. Kein Eintrag war ein Kämpfer.
+
+`modules/air/FBAirFireControl` ist bewusst kleiner als die der F-16. Drei Produkte mit je einem
+benannten Leser: die Startzone (Freigabesperre + Schusstor), die Zielschätzung (der Midcourse-Uplink —
+**und damit die Bindung**), die Kanonenlösung. Weggelassen und begründet: die ganze Luft-Boden-Hälfte
+(keine Katalogstufe akzeptiert `attack`, kein Katalogradar sieht den Boden), die Steuerpunkt-Entfernung
+(ein Anzeigeprodukt für ein Cockpit, das eine Katalogzelle nicht hat). Der Trichter wurde von zwei
+Entfernungen auf zwei **Flugzeiten** verallgemeinert — 600/3000 ft durch die 1030 m/s der M61A1 sind
+0,178 s / 0,888 s, und dieselben 0,888 s ergeben an der GSh-301 764 m gegen deren belegte 800-m-Grenze.
+Eine Zeile bekommt die Feuerleitung genau dann, wenn sie eine Waffe deklariert: zehn Decks ja, alle acht
+Mover nein. Der Tanker hat keinen Rechner, und das ist in einer Spalte prüfbar.
+
+**Ob eine Runde ihren Schützen bindet, ist eine Ladungs- und keine Zelleneigenschaft.** Dieselbe F-15C,
+dieselbe Geometrie, vier `store`-Zeilen Unterschied: AIM-7 `ttaS = −1`, 39,2 s an das Ziel gefesselt, bis
+zum Einschlag; AIM-120 `ttaS = +8,25 s`, nach 8,6 s frei. Beide töten (Fehlabstand 1,72 m / 0,905 m). Was
+ein **Abbruch** der Führung kostet, zeigt dieselbe Mission, die den Defekt aufzeichnete: die MiG-23
+schießt bei 20,78 km, verliert die Beleuchtung 16,9 s in einen 26,8-s-Flug hinein — die Runde kommt bei
+nichts an. Und zwar aus einem belegten Grund: das ±6°-Elevationsfeld des N003E kann einen 1000 m höher
+fliegenden Bomber im Anflug nicht halten.
+
+Auf dem Weg dorthin ein zweiter Fund derselben Sorte wie `pilot.md` 2.15, nur in der anderen Achse:
+`set brief_gci 90` ist eine **rechtweisende** Peilung und wurde als körperbezogener Azimut gepostet. Die
+±30°-Antenne der MiG-23 stand damit 90° neben der eigenen Nase, und die Abfangmaschine kommandiert nur
+Elevation — sie kam nie zurück. Vorher null Radarkontakte, nachher erster Kontakt bei 27,37 sm, an einer
+unveränderten Missionsdatei. Ein gebriefter Anruf sind zwei Zahlen im Rahmen des LOTSEN, und beide müssen
+gegen die eigenen Instrumente umgerechnet werden.
+
+Was **nicht** geht, gemessen statt behauptet: `mig17` und `su7` — die zwei reinen Kanonenzeilen — haben
+kein Radar, eine Kanonenlösung braucht eine Entfernung, und das Auge veröffentlicht eine Winkelgröße und
+keine (A14; der Mechanismus heißt Kreiselvisier mit eingestellter Spannweite und ist benannt, nicht
+gebaut). Und mit dem per Rezept-Schritt 8 eingetragenen, gemessenen Rollwerk feuert eine `mig21` zwar
+ihre GSh-23L (vier Treffer, `structure degraded`) — danach greift sie nie wieder an, braucht 76 s für
+3,0 → 0,9 sm und sinkt aus 5000 m in den Boden (A15). Eine Katalogzeile kann ihre Kanone **abfeuern** und
+nicht mit ihr **kämpfen**. Keine Kampagne darf ein Kanonenduell werten.

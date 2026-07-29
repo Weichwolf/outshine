@@ -20,6 +20,16 @@ timeout 300
 # time budget (the two semicircles add 2*pi*R/v on top), which is stated rather than solved because the
 # turn time depends on the speed it would be solving for.
 #
+# AND A THIRD THING SINCE 2026-07-29: A T0 ROW GETS NO FIRE CONTROL AT ALL. `FBAircraftSpec::CanEmploy`
+# is the tier and the armament and nothing else — a row below T2, or a row with no station and no gun,
+# never composes a modules/air/FBAirFireControl, so FBState::FireControl is never written for it. That
+# is the pilot staffelung of doc/modules/air/module.md §Spec 5 expressed as a member rather than as a
+# branch, and it is checkable in one column: over all 1 965 rows of this run `blk_firecontrol` is 0
+# (Invalid) and every `fc_*` column holds its "nothing here" value (fc_dlz 0, fc_rng_nm -1,
+# fc_gun_err_deg -1). The same columns on air-eagle-amraam.fbm's F-15C read 1 (Valid) and carry a live
+# launch zone. A tanker that grew a fire-control computer because the class it shares with a fighter has
+# one would be the defect this line guards against.
+#
 # READING RULE: exit 0 with `air ORBIT axisDeg=90 legM=40000 periodS=600` in events.log is the pass.
 # Nothing in this file carries a weapon and nothing is meant to die; what a FAILURE looks like is exit 1
 # in the first second with a landing verdict on an aeroplane at 9 000 m.

@@ -136,6 +136,7 @@ CORE_LIB_SRCS := \
   src/modules/ground/FBGroundModuleRegistration.cpp \
   src/modules/ground/FBSiteModule.cpp src/modules/ground/FBSiteFireControl.cpp \
   src/modules/air/FBAirModule.cpp src/modules/air/FBAirMover.cpp src/modules/air/FBAirPilot.cpp \
+  src/modules/air/FBAirFireControl.cpp \
   src/modules/air/FBAirModuleRegistration.cpp \
   src/modules/missile/FBMissileModule.cpp src/modules/missile/FBMissileModuleRegistration.cpp \
   src/modules/missile/FBMissileSeeker.cpp src/modules/missile/FBMissileIrSeeker.cpp \

@@ -35,6 +35,7 @@
 #include <string>
 
 #include "FBAircraft.h"
+#include "FBAirFireControl.h"
 #include "FBAirMover.h"
 #include "FBAirPilot.h"
 #include "FBAirRadar.h"
@@ -138,6 +139,9 @@ private:
    * rejectable — re-centre the own search volume's azimuth on the bearing to the cued point and its
    * elevation on atan2(dAlt, planar range). NOTHING ELSE crosses. */
   void ConsumeCue(const Fdm::fb_fdm_state &st);
+  /* The BRIEFED half of the same seam: the controller's call as mission data, entered through the same
+   * two command-bus pointings the live cue uses, on the first decision tick this aircraft flies. */
+  void EnterBriefedGci(const Fdm::fb_fdm_state &st);
   static bool Due(double &accS, double dt, double hz);
 
   const FBAircraftSpec &Spec_;
@@ -153,6 +157,10 @@ private:
   Sensors::FBCountermeasureSystem Cm_;
   Weapons::FBStoresSystem Stores_;
   Weapons::FBGunSystem Gun_;
+  /* NULL FOR EVERY ROW THAT DECLARES NO WEAPON, and that is the tier expressed as a member rather than
+   * as a branch: a tanker has no fire-control computer, so FBState::FireControl stays Invalid for it
+   * and every employment gate in pilot/FBPilot reads that as "this aeroplane cannot shoot". */
+  std::unique_ptr<FBAirFireControl> Fc_;
   FBAirPilot Pilot_;
   std::unique_ptr<Systems::FBAirframeControls> Ctrl_;   /* NoOp until AttachFdm, FDM-bound after */
   Systems::FBDisplaySystem Disp_;
@@ -182,6 +190,11 @@ private:
   double CueAzDeg_ = 0.0, CueElDeg_ = 0.0;
   bool   HaveCue_ = false;
   int    CueCount_ = 0;
+  /* THE BRIEFED CALL IS TYPED WHEN THE AEROPLANE IS FLYING, not when the mission file is parsed: a BRAA
+   * is a TRUE bearing and an ABSOLUTE altitude, and both become antenna angles only against this
+   * aircraft's own heading and altimeter — neither of which exists at ApplySetup time. */
+  bool   GciPending_ = false;
+  double GciBrgDeg_ = 0.0, GciRangeM_ = 0.0, GciAltM_ = 0.0;
   double NextCueS_ = 0.0;   /* one antenna pointing per NET cycle: a cue is a transmission, not a tick */
 };
 

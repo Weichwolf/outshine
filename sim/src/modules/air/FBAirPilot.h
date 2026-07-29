@@ -21,6 +21,7 @@
 
 #include "FBAircraft.h"
 #include "FBPilot.h"
+#include "FBStore.h"
 
 namespace FlightBox::Modules {
 
@@ -38,6 +39,10 @@ public:
   double DragHeadingDeg() const { return Dragging_ ? DragHdgDeg_ : -1.0; }
   bool Dragging() const { return Dragging_; }
   double DragElapsedS() const { return Dragging_ ? DragElapsedS_ : 0.0; }
+
+  /* Whether the round this aircraft last fired still owes it illumination — telemetry only; the pilot's
+   * own use of it is the SupportInhibitsDefend hook below. */
+  bool Bound() const { return Bound_; }
 
   Pilot::FBPilotCommands Run(const FBState &state, FBCommandBus &avionics,
                              const Systems::FBAirframeControls &airframe, const Fdm::fb_fdm_state &st,
@@ -60,12 +65,23 @@ protected:
   double ApproachSpeedKt() const override { return Own(Spec_ ? Spec_->Perf.ApproachKt : 0.0, FBPilot::ApproachSpeedKt()); }
   double InterceptSpeedKt() const override { return Own(Spec_ ? Spec_->Perf.ClimbSpeedKt : 0.0, FBPilot::InterceptSpeedKt()); }
 
+  /* DOES THE ROUND IN THE AIR BIND ITS SHOOTER — the one hook whose answer is a per-LOADOUT fact rather
+   * than a per-airframe one, and the reason it is derived here instead of hardcoded like the MiG-29's.
+   * The SAME F-15C fights two different fights: with AIM-7 it cannot defend while it supports, with
+   * AIM-120 it can. The answer is the round's own FBSeekerHandoverS (-1 = never lets go), latched at
+   * the shot rather than read off the rail, because what binds a shooter is the round already flying. */
+  bool SupportInhibitsDefend() const override { return Bound_; }
+
 private:
   /* An UNMEASURED hook is zero and falls back to the base's generic placeholder — which is honest
    * (nothing about this row is claimed) and is exactly the state the tier gate reads. */
   static double Own(double own, double fallback) { return own > 0.0 ? own : fallback; }
+  void LatchBinding(const FBState &state);
 
   const FBAircraftSpec *Spec_ = nullptr;
+  FBStoreKind RailKind_ = FBStoreKind::None;   /* what was on the selected rail LAST tick */
+  int    SeenReleases_ = -1;
+  bool   Bound_ = false;
   double DragThreatS_ = 0.0;
   double DragHdgDeg_ = 0.0;
   double DragElapsedS_ = 0.0;

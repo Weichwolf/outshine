@@ -83,7 +83,11 @@ struct FBAirPerf {
    * rows and 0.70 on the tenth, and nothing read it — FBAirModule flew every row on the MiG-29's
    * preset, which cost air-bomber-intercept.fbm 8 000 m of altitude in 242 s. */
   double PitchStickMax = 0.0;
-  double RollPlantA = 0.0;        /* 0 = UNMEASURED. Recipe step 7 has not been run on this row. */
+  /* 0 = UNMEASURED, and the tier gate then refuses `set task bfm` on this row. A number here was
+   * MEASURED by `make -C sim test-air` (anchors ROLL-A / ROLL-K) on this row's own generated deck and
+   * written back by recipe STEP 8, which grants a tier only once the deck has also passed the deviation
+   * bands of §7.1 — so an ALPHA row keeps a zero even though the harness can print its plant. */
+  double RollPlantA = 0.0;
   double RollPlantKDegS = 0.0;
 };
 
@@ -138,6 +142,14 @@ struct FBAircraftSpec {
   FBDamageLayout Layout{};
 
   bool IsMover() const { return FdmModel[0] == '\0'; }
+  /* WHETHER THIS ROW GETS A FIRE CONTROL AT ALL, and the rule is the two facts the row already states:
+   * a tier that has a combat phase, and a weapon declared. A T0 tanker and a T1 early-warning node
+   * therefore never write FBState::FireControl, which is not an omission but the tier — the pilot
+   * staffelung of doc/modules/air/module.md §Spec 5 says T0 reacts to nothing and T1 gets exactly one
+   * reflex. Ten deck rows in, all eight movers out. */
+  bool CanEmploy() const {
+    return Tier >= FBAirTier::Visual && (Stations > 0 || Gun != FBGunKind::None);
+  }
 };
 
 namespace Aircraft {
@@ -242,7 +254,7 @@ inline constexpr FBAircraftSpec kF15c{
     FBAirRadarSpec{160000.0, 80000.0, 60.0, 0.0, 10.5, 4.0, -1.0, 40.0, false},
     /*HasRwr*/ true, /*Irst*/ 0.0, 0.0, /*NetNode*/ false, /*NetMember*/ true,
     /*Stations*/ 8, FBGunKind::M61A1, 940,
-    FBAirPerf{330.0, 7.0, 9.0, 22.0, 200.0, 350.0, 150.0, 0.273, 0.0, 0.0},
+    FBAirPerf{330.0, 7.0, 9.0, 22.0, 200.0, 350.0, 150.0, 0.273, 0.680712, 176.220},
     FBAirMoverSpec{}, /*RcsM2*/ 0.0, FB_AIR_LAYOUT(F15c, 13.05, 19.43)};
 
 /* Su-27S: NO CAMPAIGN FILE NAMES THIS TYPE (catalogue A11) — it is in the catalogue because the round
@@ -268,7 +280,7 @@ inline constexpr FBAircraftSpec kMig21{
     FBAirRadarSpec{20000.0, 10000.0, 30.0, 0.0, 10.0, 2.0, /*LookDown*/ 0.0, 0.0, false},
     /*HasRwr*/ true, 0.0, 0.0, false, true,
     /*Stations*/ 4, FBGunKind::Gsh23l, 200,
-    FBAirPerf{300.0, 6.0, 8.5, 20.0, 190.0, 330.0, 145.0, 0.203, 0.0, 0.0},
+    FBAirPerf{300.0, 6.0, 8.5, 20.0, 190.0, 330.0, 145.0, 0.203, 0.724278, 318.528},
     FBAirMoverSpec{}, 0.0, FB_AIR_LAYOUT(Mig21, 7.154, 14.7)};
 
 /* MiG-23MLD, the N003E export set [SET] because O1's anchor is the Syrian force and the source names
@@ -341,7 +353,7 @@ inline constexpr FBAircraftSpec kMirf1{
     FBAirRadarSpec{96000.0, 40000.0, 60.0, 0.0, 10.5, 4.0, -1.0, 40.0, false},
     /*HasRwr*/ true, 0.0, 0.0, false, true,
     /*Stations*/ 5, FBGunKind::Defa553, 300,
-    FBAirPerf{330.0, 6.0, 0.0, 20.0, 200.0, 340.0, 160.0, 0.209, 0.0, 0.0},
+    FBAirPerf{330.0, 6.0, 0.0, 20.0, 200.0, 340.0, 160.0, 0.209, 0.745189, 273.051},
     FBAirMoverSpec{}, 0.0, FB_AIR_LAYOUT(Mirf1, 8.4, 15.3)};
 
 /* F-5E Tiger II: NO CAMPAIGN NAMES THIS TYPE either (catalogue A11) — W1's aggressors are F-16s
@@ -355,7 +367,7 @@ inline constexpr FBAircraftSpec kF5e{
     FBAirRadarSpec{0.0, 0.0, 0.0, 0.0, 0.0, 4.0, -1.0, 0.0, false},
     /*HasRwr*/ false, 0.0, 0.0, false, false,
     /*Stations*/ 7, FBGunKind::M39a2, 560,
-    FBAirPerf{300.0, 6.0, 0.0, 22.0, 180.0, 320.0, 145.0, 0.200, 0.0, 0.0},
+    FBAirPerf{300.0, 6.0, 0.0, 22.0, 180.0, 320.0, 145.0, 0.200, 0.757465, 322.722},
     FBAirMoverSpec{}, 0.0, FB_AIR_LAYOUT(F5e, 8.13, 14.69)};
 
 /* ============================ THE EIGHT MOVER ROWS ============================

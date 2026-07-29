@@ -9,8 +9,10 @@ anchor set** — and nothing else.
 tiers and the anti-cheat argument are [`module.md`](module.md); the procedure that turns the
 performance anchors into a JSBSim deck is [`flight-model-recipe.md`](flight-model-recipe.md).
 
-**Status: BUILT 2026-07-28.** All eighteen rows exist as `core/FBAircraft.h` entries and
-`FBModuleRegistry` keys, ten decks and seven rounds are generated, and five `.fbm` files fly them.
+**Status: BUILT 2026-07-28, ARMED 2026-07-29.** All eighteen rows exist as `core/FBAircraft.h` entries
+and `FBModuleRegistry` keys, ten decks and seven rounds are generated, and eight `.fbm` files fly them.
+**Ten rows now carry a fire control** and can employ what they declare — see "What each row's fire
+control can actually do" below, which also names the four armed rows that still cannot.
 **Four deck rows are `ACCEPTED` and may answer a campaign question — `f15c` · `mig21` · `mirf1` ·
 `f5e`; six are `ALPHA`, each on one or two NAMED anchors** — see
 [`flight-model-recipe.md`](flight-model-recipe.md) `## State` for the residual table and R14–R17 for the
@@ -88,6 +90,36 @@ staffelung of [`module.md`](module.md) §Spec 5.
    2 493 m head-on, **zero at night**), and nothing about it is tuned.
 3. **Two rows are in the catalogue without a campaign asking for them** (`su27`, `f5e`) and the table
    says so in its own `Camp.` column.
+
+## What each row's fire control can actually do
+
+Added 2026-07-29 with [`module.md`](module.md) §Spec 12. `FC` = the row composes a
+`modules/air/FBAirFireControl` at all, which is `FBAircraftSpec::CanEmploy()` — tier ≥ T2 **and** (a
+station **or** a gun) — so every mover is out by construction and a tanker has no computer.
+`Zone` = a launch zone can exist for a round on its rail; it needs a **radar lock**, so a row with
+`SearchRangeM = 0` can never produce one. `Gun sol.` = the same lock feeds `FBGunSolveLead`.
+`Employable today` is the honest column: it is `Zone`/`Gun sol.` **and** a pilot phase that presses the
+button, and the two things that block it are the tier gate's plant (recipe step 8) and A14/A15.
+
+| Key | FC | Launch zone | Gun solution | Binds, **as flown** | Employable today |
+|---|---|---|---|---|---|
+| `f15c` | **yes** | yes (160 km set) | yes | **AIM-7 yes / AIM-120 no** — the round in the air decides, not the airframe | **missiles: measured kill.** Gun: plant written (step 8), A15 |
+| `su27` | **yes** | yes (79.5 km set) | yes | R-27R yes / R-73 no | missiles yes; `bfm` refused — deck `ALPHA`, no plant |
+| `mig21` | **yes** | yes (20 km set) | yes | K-13/R-60 no (IR) | **missiles + cannon: both measured** (`air-fishbed-guns.fbm`) |
+| `mig23` | **yes** | yes (52 km set) | yes | **R-24R yes, to impact** | **measured, both ends** — shot at 20.78 km, and the break in the illumination measured too |
+| `mig25` | **yes** | yes (120 km set) | — (no gun) | **R-40R yes, to impact** | missiles yes; deck `ALPHA` |
+| `mirf1` | **yes** | yes (96 km set) | yes | **S530F yes** | missiles yes; gun plant written (step 8), A15 |
+| `mig17` | **yes** | **never** (no radar) | **never** (A14: no ranging source) | trivially | **NO — A14.** A gun with no range is not a gun |
+| `su7` | **yes** | **never** | **never** (A14) | trivially | **NO — A14** |
+| `su22` | **yes** | **never** | **never** (A14) | K-13/R-60 no (IR) | **NO — A14** |
+| `f5e` | **yes** | **never** | **never** (A14) | AIM-9 no (IR) | **NO — A14**, though its plant is written |
+| `e3` `e2c` `kc135` `tu95` `an26` `ef111` `mi8` `ah64` | **no** | — | — | — | **no, and that is the tier** (`blk_firecontrol` = 0 for the whole run) |
+
+**The two facts that column forces into the open.** First, **binding is per-loadout**: the same F-15C is
+tied to its target for 39.2 s with a Sparrow and for 8.6 s with an AMRAAM, on the same geometry with four
+`store` lines changed — which is the pairing this row was put in the catalogue for. Second, **four of the
+ten armed rows cannot use a weapon at all**, and it is one missing mechanism, not four: a gun and an IR
+round both need a *range* the eye does not publish (A14).
 
 ---
 

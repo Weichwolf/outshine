@@ -44,6 +44,19 @@ public:
     schema.Add("air_cue_age_s", "s");   /* the two staleness terms summed; -1 = uncued */
     schema.Add("air_cues");         /* how many antenna pointings this aircraft has been given */
     schema.Add("air_drag_s", "s");
+    /* ---- THE FIRE CONTROL'S LIVE ANSWER. A13 was found because there was no column to find it in:
+     * eng_* carries the shot's own snapshot and therefore says nothing at all about an aircraft that
+     * never shot. These nine say, tick by tick, whether this row COULD have. A row with no fire control
+     * (every mover, every T0/T1) reports the same all-zero line it reported before they existed. ---- */
+    schema.Add("fc_dlz");             /* 1 = a launch zone exists for the round on the selected rail */
+    schema.Add("fc_in_zone");         /* 1 = Rmin <= range <= Raero, what the release interlock reads */
+    schema.Add("fc_rng_nm", "nm");
+    schema.Add("fc_rtr_nm", "nm");
+    schema.Add("fc_raero_nm", "nm");
+    schema.Add("fc_tta_s", "s");      /* -1 = this round NEVER lets go: the shooter is bound to impact */
+    schema.Add("fc_gun_err_deg", "deg");
+    schema.Add("fc_gun_funnel");      /* 1 = in range AND inside the lead solution's own tolerance */
+    schema.Add("fc_bound");           /* 1 = a round in flight still owes this aircraft its illumination */
   }
   void SampleTelemetry(FBTelemetryRow &row) const override {
     row.Push((int)M_.Spec_.Tier);
@@ -51,6 +64,17 @@ public:
     row.Push(M_.CueAgeS_);
     row.Push(M_.CueCount_);
     row.Push(M_.Pilot_.DragElapsedS());
+    const FBFireControlBlock &fc = M_.State_.FireControl;
+    bool ok = fc.H.Readable();
+    row.Push(ok && fc.DlzValid ? 1 : 0);
+    row.Push(ok && fc.InZone ? 1 : 0);
+    row.Push(ok && fc.DlzValid ? fc.TargetRangeM * kMToNm : -1.0);
+    row.Push(ok && fc.DlzValid ? fc.RtrM * kMToNm : -1.0);
+    row.Push(ok && fc.DlzValid ? fc.RaeroM * kMToNm : -1.0);
+    row.Push(ok && fc.DlzValid ? (double)fc.TimeToActiveS : 0.0);
+    row.Push(ok && fc.GunValid ? (double)fc.GunAimErrorDeg : -1.0);
+    row.Push(ok && fc.GunInFunnel ? 1 : 0);
+    row.Push(M_.Pilot_.Bound() ? 1 : 0);
   }
 
 private:
@@ -91,6 +115,14 @@ FBAirModule::FBAirModule(const FBAircraftSpec &spec)
   Datalink_.SetPowered(spec.Tier == FBAirTier::Peer || spec.NetNode);
   NetLink_.SetPowered(spec.NetMember);
   NetLink_.SetTransmit(false);   /* a member LISTENS to the controller; it does not report back */
+
+  /* THE FIRE CONTROL IS A DECLARED WEAPON'S COMPANION, and a row without one gets no computer at all —
+   * see FBAircraftSpec::CanEmploy. Until this existed, FBState::FireControl was never written for ANY
+   * row and all three of pilot/FBPilot's employment gates stayed shut on all eighteen (module.md A13). */
+  if (spec.CanEmploy()) {
+    Fc_ = std::make_unique<FBAirFireControl>();
+    Fc_->Configure(spec);
+  }
 
   Pilot_.Configure(spec);
   /* T0 holds a station and T1 holds a station with one reflex — both start in Orbit, and every tier
@@ -231,6 +263,22 @@ void FBAirModule::ConsumeCue(const Fdm::fb_fdm_state &st) {
                              {"rangeM", planar}, {"ageS", CueAgeS_}});
 }
 
+/* The controller's call, converted where the two halves of each number finally exist: the bearing
+ * against this aircraft's own heading, the elevation against its own altitude. It goes over the SAME
+ * command bus the live cue uses — two pointings, each latency-charged and each rejectable — because a
+ * briefed call and a transmitted one are the same act, and neither is a track. */
+void FBAirModule::EnterBriefedGci(const Fdm::fb_fdm_state &st) {
+  GciPending_ = false;
+  CueAzDeg_ = FBWrap180(GciBrgDeg_ - st.yaw);
+  CueElDeg_ = std::atan2(GciAltM_ - st.elev, GciRangeM_) * kRad2Deg;
+  Cmds_.Post(FBCommandTarget::RadarSlewAz, CueAzDeg_, SimTimeS_);
+  Cmds_.Post(FBCommandTarget::RadarSlewEl, CueElDeg_, SimTimeS_);
+  CueCount_++;
+  FBLog::Info("gci", "BRAA", {{"brgDeg", GciBrgDeg_}, {"rangeKm", GciRangeM_ * 0.001},
+                              {"altM", GciAltM_}, {"ownHdgDeg", st.yaw},
+                              {"azDeg", CueAzDeg_}, {"elDeg", CueElDeg_}});
+}
+
 void FBAirModule::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegistry *units,
                       const World::FBWorld *world) {
   (void)world;
@@ -240,6 +288,10 @@ void FBAirModule::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegis
 
   if (Due(SensorAccS_, dt, 10.0)) {
     PublishPlatform(st);
+    /* ...but not before the airframe has been integrated once: the boot hands the module a state that
+     * carries position only, so on the very first tick this aircraft's own heading is still 0 and the
+     * BRAA would be converted against a heading it is not flying. */
+    if (GciPending_ && LastSub_ > 0) EnterBriefedGci(st);
     ServiceCommands(FBCommandGroup::Sensors);
     ServiceCommands(FBCommandGroup::Avionics);
 
@@ -273,6 +325,18 @@ void FBAirModule::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegis
     Nav_.Run(State_, st, dt);
 
     ServiceCommands(FBCommandGroup::Stores);
+    /* THE COMPUTER BEFORE THE RAILS, so the release interlock reads THIS tick's launch zone rather than
+     * the previous one, and the round on the SELECTED station is the one the zone was solved for. */
+    if (Fc_ && SystemWorking(FBSystemId::FireControl)) {
+      Fc_->Run(State_, st, FBStoreSpecOf(Stores_.StoreAt(Stores_.SelectedStation())), Gun_.Spec(),
+               SimTimeS_);
+      Stores_.SetTargetState(Fc_->TargetState());
+    } else {
+      State_.FireControl.H.Invalidate();
+      /* THE BINDING, and it costs one line: an invalid estimate stops the midcourse uplink, so a
+       * semi-active round in flight loses its guidance the moment its shooter loses the track. */
+      Stores_.SetTargetState(FBWeaponTargetState{});
+    }
     if (SystemWorking(FBSystemId::Stores)) Stores_.Run(State_, dt);
     else State_.Stores.H.Invalidate();
     Warn_.Run(State_, dt);
@@ -541,17 +605,22 @@ bool FBAirModule::ApplySetup(const std::string &key, const std::string &value) {
    * gate, not a designation. `set brief_gci <bearingDeg> <rangeKm> <altKm>`. */
   if (key == "brief_gci") {
     std::istringstream in(value);
-    double brgDeg = 0.0, rangeKm = 0.0, altKm = 0.0;
-    if (!(in >> brgDeg >> rangeKm >> altKm))
+    double brgDeg = 0.0, rangeKm = 0.0, altM = 0.0;
+    if (!(in >> brgDeg >> rangeKm >> altM))
       return RejectSetup("want '<bearingDeg> <rangeKm> <altM>'", key, value);
     if (rangeKm <= 0.0) return RejectSetup("range <= 0", key, value);
     if (Spec_.Tier < FBAirTier::Gci)
       return RejectSetup("only a T3 row is a GCI interceptor", key, value);
-    CueAzDeg_ = FBWrap180(brgDeg);
-    CueElDeg_ = std::atan2(altKm, rangeKm * 1000.0) * kRad2Deg;
-    Cmds_.Post(FBCommandTarget::RadarSlewAz, CueAzDeg_, 0.0);
-    Cmds_.Post(FBCommandTarget::RadarSlewEl, CueElDeg_, 0.0);
-    CueCount_++;
+    /* HELD, NOT ENTERED. A BRAA is a TRUE bearing and an ABSOLUTE altitude; an antenna takes a
+     * BODY-relative azimuth and a RELATIVE elevation, and both conversions need this aircraft's own
+     * heading and altimeter, which do not exist before it flies. Entering the raw numbers is what
+     * air-bomber-intercept.fbm measured for a round: `set brief_gci 90 ...` parked a MiG-23's +-30 deg
+     * antenna 90 deg off its own nose, nothing ever re-centred the azimuth, and an interceptor with a
+     * 52 km set closed head-on to 11 km without one radar contact. */
+    GciBrgDeg_ = brgDeg;
+    GciRangeM_ = rangeKm * 1000.0;
+    GciAltM_ = altM;
+    GciPending_ = true;
     return true;
   }
   if (key == "fuel_pct") {

@@ -7,10 +7,30 @@
 
 namespace FlightBox::Modules {
 
+/* Latched at the SHOT and off the station that was selected the tick BEFORE it — FBStoresSystem
+ * deselects an emptied rail inside Release(), so the round that just left is no longer the round the
+ * block reports. What binds a shooter is what is FLYING, so the flag is set once per launch and stands
+ * until the next one; the intercept machine only ever reads it while it is supporting its own shot. */
+void FBAirPilot::LatchBinding(const FBState &state) {
+  const FBStoresBlock &sms = state.Stores;
+  if (!sms.H.Readable()) return;
+  if (SeenReleases_ < 0) SeenReleases_ = sms.ReleasedCount;
+  if (sms.ReleasedCount > SeenReleases_) {
+    SeenReleases_ = sms.ReleasedCount;
+    const FBStoreSpec *fired = FBStoreSpecOf(RailKind_);
+    Bound_ = fired && fired->Guided && FBSeekerHandoverS(fired->Seeker, 0.0) < 0.0;
+  }
+  RailKind_ = sms.SelectedStation >= 1 && sms.SelectedStation <= kMaxStoreStations
+                  ? (FBStoreKind)sms.Station[sms.SelectedStation - 1]
+                  : FBStoreKind::None;
+}
+
 Pilot::FBPilotCommands FBAirPilot::Run(const FBState &state, FBCommandBus &avionics,
                                        const Systems::FBAirframeControls &airframe,
                                        const Fdm::fb_fdm_state &st, const FBFlightPlan &plan,
                                        const FBRunway *runway, double dt) {
+  LatchBinding(state);
+
   /* ---- THE ONE REFLEX, and it is a SENSOR READ and not a clock. The trigger is this aircraft's own
    * warning receiver reporting an AIRBORNE FIRE CONTROL that is doing more than sweeping; the direction
    * is the REPORTED relative bearing, which is all an RWR ever has (no range, ever); the duration is

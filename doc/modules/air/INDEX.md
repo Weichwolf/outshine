@@ -5,7 +5,10 @@
 missing type is replaced by a present one, every replacement changes the answer, and each is declared
 one at a time in a mission header.
 
-**Specified here, not built.** No line of `sim/` was touched to write this directory.
+**Built and armed.** The class exists (`sim/src/modules/air/`), four of the ten deck rows are inside
+their anchor bands, and since 2026-07-29 the armed rows can employ what they declare — `module.md`
+§Spec 12's fire control, first catalogue kill measured. Two limits are named there and not glossed: the
+two pure-cannon rows cannot RANGE a gun (A14), and no row can yet FIGHT with one (A15).
 
 Why now: [`../ground/`](../ground/INDEX.md) proved the build form — **one parametric class, nine
 catalogue rows, six FlightBox-own missile decks from one generated recipe.** This directory does the
@@ -17,7 +20,7 @@ same for airframes.
 |---|---|
 | [`module.md`](module.md) | **the contract.** The third level (module / catalogue cell / unit); the two-part flight-model test; the five pilot tiers and the gate that admits a row to one; how it sees without widening the registry gate; **the early-warning row and the one interface price it costs**; damage; the mission grammar; and the **attribution test** that separates "he lost as a MiG-21" from "he lost as a coarse deck" |
 | [`flight-model-recipe.md`](flight-model-recipe.md) | **the procedure.** Eight anchors per row, the closed-form drag inversion, `e` derived from the catalogue's only published `CD0`/`(L/D)max` pair, two thrust analogies and one turbojet reference to build, the nine build steps, and the deviation bands — **derived from the one existing generated deck's measured misses, not chosen** |
-| [`catalogue.md`](catalogue.md) | **the data.** Eighteen rows, each with acquisition range and frame time, weapon envelope, whether the weapon binds the shooter, warning receiver and countermeasures, and the eight performance anchors. Every number with a source and a tier; ten disputes carried unresolved |
+| [`catalogue.md`](catalogue.md) | **the data.** Eighteen rows, each with acquisition range and frame time, weapon envelope, whether the weapon binds the shooter, warning receiver and countermeasures, and the eight performance anchors. Every number with a source and a tier; ten disputes carried unresolved. A second table says, per row, what its FIRE CONTROL can do and which rows still cannot employ anything |
 
 ## The one-sentence answers
 

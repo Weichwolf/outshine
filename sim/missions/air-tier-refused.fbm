@@ -9,11 +9,16 @@ timeout 60
 # MEASUREMENTS: the MiG-29 rolls 2.6x harder for the same stick than the F-16 (a = 0.819 / K = 201
 # against 0.734 / 78.7). A GENERATED deck has no plant at all until step 7 of the flight-model recipe
 # measures one on it — and step 8 grants the tier only once the deck has also passed the deviation bands
-# of recipe §7.1. TODAY NO CATALOGUE DECK HAS PASSED THEM (`make -C sim test-air`: ten of ten rows
-# ALPHA), so no row carries a plant and `set task bfm` is refused on ALL of them.
+# of recipe §7.1.
+#
+# SINCE 2026-07-29 FOUR ROWS HAVE PASSED THEM and carry their measured plant (`f15c` 0.680712/176.220,
+# `mig21` 0.724278/318.528, `mirf1` 0.745189/273.051, `f5e` 0.757465/322.722, all printed by
+# `make -C sim test-air` as anchors ROLL-A / ROLL-K). SIX HAVE NOT, and `mig17` is one of them — 2 of
+# its 7 judged anchors are outside their band, so step 8 has not run on it and its plant is still zero.
 #
 # `mig17` is a T2 row — a visual fighter, guns and eyes, the tier that OWNS `bfm` — and it is refused
-# anyway, which is the point: the gate reads the MEASUREMENT and not the tier label.
+# anyway, which is the point twice over: the gate reads the MEASUREMENT and not the tier label, and it
+# keeps biting on exactly the rows whose decks have not earned the phase.
 #
 # READING RULE: exit 1 is the PASS. events.log must carry
 #   ERROR module SET_INVALID_VALUE key=task value=bfm reason="this row's ROLL PLANT IS UNMEASURED ..."

@@ -21,23 +21,39 @@ timeout 400
 # WHAT TO READ
 #   telemetry.csv   eng_* (the seven-state intercept machine WITHOUT its cooperative half: no PPLI, no
 #                   sort, no cover deferral — the MiG-29's own measured position), air_tier = 3,
-#                   air_cues = the briefed pointing
-#   events.log      `radar RADAR_CONTACT unit=floggr` -> `RADAR_DESIGNATE` -> `sms RELEASE` ->
-#                   `missile PHASE` -> `DETONATION` with the miss distance
+#                   air_cues = the briefed pointing, and fc_* — the LIVE launch zone, with fc_tta_s = -1
+#                   (this round never lets go) and fc_bound = 1 from the shot on
+#   events.log      `gci BRAA` -> `radar RADAR_CONTACT unit=floggr` -> `RADAR_DESIGNATE` ->
+#                   `sms RELEASE` + `LAUNCH_SOLUTION` -> `missile PHASE` -> `ILLUMINATION_LOST`
 #
-# READING RULE — AND IT CHANGED ON 2026-07-28, because the failure this file was committed to record is
-# fixed and the one it records now is a different one.
+# READING RULE — AND IT CHANGED AGAIN ON 2026-07-29, because this file has now recorded three different
+# failures and the third is the one it exists for. The two it has retired stay written down, because a
+# measured failure is knowledge:
 #
-# WAS: exit 2, `CRASH ground penetration` on the interceptor at t = 242 s. The MiG-23 held its commanded
-# 330 kt CAS with the THROTTLE AT IDLE (fuel burn over the whole run: 51 lb) and paid for it out of
-# altitude, 8 000 m down to 510 m at 1 g. Cause, named at the time and now built: every catalogue row
-# flew on systems/FBFlightControl's MiG-29 gain preset, and a per-row preset was a thing the contract
-# did not name. It does now — doc/modules/air/flight-model-recipe.md §6.1, FBFlightControl::Raw.
+#   2026-07-27  exit 2, `CRASH ground penetration` at t = 242 s. The MiG-23 held its commanded 330 kt
+#               CAS with the THROTTLE AT IDLE and paid for it out of altitude, 8 000 m down to 510 m at
+#               1 g. Cause: every catalogue row flew on systems/FBFlightControl's MiG-29 gain preset.
+#               Fixed by the per-row preset (recipe §6.1, FBFlightControl::Raw).
+#   2026-07-28  exit 3, TIMEOUT at 8 002.8 m. The aeroplane flew and the two aircraft passed head-on
+#               without the MiG-23's own set ever firming the bomber. Attributed here to the intercept
+#               GEOMETRY. THAT ATTRIBUTION WAS WRONG, and this file was the evidence: `set brief_gci 90`
+#               is a TRUE bearing, FBAirModule entered it as a BODY-RELATIVE one, and a +-30 deg antenna
+#               parked 90 deg off the nose sees nothing however good the geometry is. Nothing ever
+#               re-centred the azimuth, because the intercept machine commands elevation only.
+#   2026-07-29  the file's own subject, and it is a WEAPON result at last.
 #
-# IS: exit 3, TIMEOUT, with the interceptor at 8 002.8 m after 400 s. THE AEROPLANE FLIES. What it does
-# not do is shoot: the two aircraft close head-on, pass, and the MiG-23's own set never firms the
-# bomber. That is the finding this file now carries, and it is an INTERCEPT-GEOMETRY finding rather
-# than a flight-model one. The intended verdict is still exit 1 with a FAIL on `bear`.
+# IS: exit 3, TIMEOUT. The MiG-23 acquires at t = 114.0 s / 27.4 nm, designates at t = 153.1 s /
+# 19.95 nm and RELEASES an R-24R at t = 195.3 s at 20.78 km — `ttaS = -1`, the semi-active round that
+# BINDS ITS SHOOTER TO IMPACT. At t = 212.3 s, 16.9 s into a predicted 26.8 s time of flight, the
+# MiG-23 loses the track and `missile ILLUMINATION_LOST` follows within the tick: the uplink stops
+# because the fire control's own target estimate went invalid, and the round flies the rest of its
+# life at nothing. THE SHOT IS SPOILED BY THE BREAK IN THE GUIDANCE, and that is the measurement
+# air-eagle-sparrow.fbm is the positive half of.
+#
+# WHY THE TRACK BREAKS, and it is a SOURCED property rather than a defect: the N003E's elevation field
+# is +-6 deg. The bomber is 1 000 m ABOVE the interceptor, so its elevation angle grows as they close —
+# +1.15 deg at 50 km, +6.9 deg at 8.3 km — and it climbs out of the antenna's own window at exactly the
+# range the log reports. An interceptor that wants this kill has to be vectored CO-ALTITUDE.
 #
 # What this file does NOT measure is whether the MiG-23's DECK is right — `make -C sim test-air mig23`
 # prints that anchor by anchor (today: one of seven outside, the service ceiling, and the cause is the
