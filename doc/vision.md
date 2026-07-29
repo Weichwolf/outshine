@@ -33,6 +33,26 @@ comparison is not a defect; a MiG-29 with the wrong envelope is.
 | `sim/missions/*.fbm` | **measuring rigs for the gym** — the control loop works with these | they stay exactly as strict as they are: declared spawn, declared objectives, machine-readable verdict |
 | Missions for humans | scenarios, later and looser | a scenario layer **over** the `.fbm` format (roadmap R9), not a second dialect |
 
+The owner put the split in one sentence, and it decides more than it looks like:
+
+> **The gym** — for training and simulating — has scenarios with **thousands of actors**, in which
+> complex engagements are computed and systems are optimised, improved, tested, and the AI made better.
+> **The game is simplified missions with entertainment value.**
+
+Two consequences follow, and both are load-bearing.
+
+**FlightBox computes; the game is a VIEW of what was computed.** The playable part does not replace the
+measurement and does not run a second truth: same simulation, same two judges, same reading rules
+underneath. Simplification is therefore **one-directional** — the player layer may read and leave out,
+never add what the run did not contain and never change anything below it. The tree already has that
+shape once: the campaign carry may delete a line and never add one, secured by a postcondition rather
+than by intent ([`missions/campaign.md`](missions/campaign.md)).
+
+**Scale is a gym question the game does not inherit.** Thousands of actors is a target for the
+simulation side; a playable mission is small, and that is a property rather than a shortcoming. A rig
+that flies 400 seconds without anyone being hit can be valuable as a measurement and useless as a game
+mission, with neither of the two being wrong.
+
 ## Anti-cheat is a game decision
 
 The anti-cheat structure — the pilot sees only through simulated sensors, writes only through
