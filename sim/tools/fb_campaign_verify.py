@@ -16,9 +16,10 @@ accepted on and drives the two proofs:
                              file, per-mission fingerprint compared against the campaign's own. This is
                              the statement that the campaign layer adds no hidden state.
 
-A fingerprint is only comparable between runs over the SAME GROUND, so the elevation source is read
-from the reference tree's campaign-summary.txt and never guessed; --elev is an OVERRIDE, not a default,
-and a tree without the record is refused rather than replayed against an assumption.
+A fingerprint is only comparable between runs over the SAME GROUND AND THE SAME SKY, so the elevation
+source and the campaign clock are read from the reference tree's campaign-summary.txt and never guessed;
+--elev is an OVERRIDE, not a default, and a tree without the record is refused rather than replayed
+against an assumption.
 
 Stdlib only. Exit 0 = every comparison held, 1 = at least one diverged.
 """
@@ -79,7 +80,7 @@ def read_summary(campaign_dir):
                 exit_code = int(tok[1])
             elif tok[0] == "carry":
                 carry = tok[1]
-            elif tok[0] in ("elev", "swiss_dem", "base", "threads"):
+            elif tok[0] in ("elev", "swiss_dem", "base", "threads", "time"):
                 env[tok[0]] = tok[1] if len(tok) > 1 else ""
     return steps, exit_code, carry, env
 
@@ -128,6 +129,10 @@ def run_mission(gym, mission, out, threads, env, state=None, carry=None):
         shutil.rmtree(out)
     os.makedirs(out)
     cmd = [gym, "--mission", mission, "--out", out, "--threads", str(threads)] + env_flags(env)
+    # The campaign's own `time` is part of the environment a step ran in, exactly as the ground is, and
+    # it is READ from the record rather than guessed. Absent or "none" = the campaign declared no clock.
+    if env.get("time") and env["time"] != "none":
+        cmd += ["--campaign-time", env["time"]]
     if state:
         cmd += ["--state", state]
         if carry:
@@ -175,7 +180,7 @@ def cmd_replay(a):
         print(f"note: --elev {a.elev} OVERRIDES the recorded '{read_summary(a.ref)[3]['elev']}'")
     carry_list = ",".join(carry.split("+"))
     missions = campaign_missions(a.campaign)
-    print(f"replaying against {a.ref} — elev={env['elev']} (recorded)")
+    print(f"replaying against {a.ref} — elev={env['elev']}, time={env.get('time', 'none')} (recorded)")
     bad = 0
     for i, s in enumerate(steps):
         state = None if i == 0 else os.path.join(a.ref, steps[i - 1]["dir"], "campaign-state.txt")

@@ -1,0 +1,76 @@
+name o4-gaf-mig29g-dact
+time 1997-06-18T10:00:00Z
+carry ground stores
+stop_on never
+
+# CAMPAIGN O4 — GAF MiG-29G AGAINST THE F-16, JG 73 "Steinhoff" at Laage, 1991-2003.
+# Spec, anchor and sources: doc/campaigns/o4-gaf-mig29g-dact.md. Format: doc/missions/campaign.md.
+#
+# WHY THIS ONE FIRST OF THE TEN. It is the only campaign in the set in which BOTH FlightBox airframes
+# really flew against each other, in the configuration modelled, in the period named — ~450 sorties
+# against the F-16 alone [T4] — so it needs no temporal-honesty note and no substitution. And its
+# anchor is itself a MEASUREMENT exercise, which means the campaign measures rather than stages: its
+# ten missions are experiments and their results go beside doc/duels.md's table, not into a narrative.
+#
+# THE ARENA is a block of Baltic airspace centred 55.20 N 13.60 E [SET], ~145 km NNE of Laage. It is
+# over water, so the campaign is flown with `--elev const`: 0 m is sea level and not an approximation.
+# Two moored range hulks stand at its ends in every sortie (campaign rule 3 — a fight with nothing on
+# the ground has no reason to be where it is), and each side's briefed run is to the OTHER side's hulk.
+#
+# THE CLOCK is a June morning inside the anchor's own period; the sun stands ~56 deg over the block, so
+# every sortie that does not declare its own clock is flown in full daylight. o4-09-night.fbm declares
+# its own, and that is the ONLY line by which it differs from o4-04.
+#
+# `carry ground stores` — UNITS ARE DELIBERATELY NOT CARRIED, and the reason is the anchor rather than
+# convenience: a DACT sortie ends with both aircraft landing at Laage. A "kill" on a training range is a
+# call, not a loss of the airframe, and JG 73 flew its 450 sorties without losing a jet to an F-16. The
+# format permits `carry` to be NARROWED and never widened (doc/missions/campaign.md §2), so this is the
+# narrowing the scenario asks for. The PRICE is stated rather than hidden: O4 therefore shows no
+# attrition arc at all, and it is not an attrition campaign. O1 and O5 are, and they will not narrow it.
+#
+# WHAT ACTUALLY CARRIES, AND WHERE. `ground` carries and moves nothing: no mission in O4 has an
+# air-to-ground weapon (the MiG-29 module cannot fly `set task attack` at all — gap C9), so the hulks
+# stand through all ten sorties. `stores` is the carry that BITES, and it bites in exactly one place by
+# design: sorties 1, 2 and 3 are flown by ONE pair of airframes (`viper`/`fulcrum`) as a single range
+# period without rearming, so the magazine each sortie lands with is the magazine the next one takes off
+# with. Every other sortie carries FRESH callsigns, and that is a rule this campaign had to learn:
+#
+#   A CONTROLLED VARIANT MUST NOT SHARE A STORE BOOK WITH ITS CONTROL.
+#
+# o4-05 is o4-04 with one entry range changed; o4-08 is o4-04 with one `wx` line; o4-09 is o4-04 with
+# one `time` line. If any of them flew the same callsign as o4-04 it would also inherit o4-04's
+# expenditure, and a variant that differs from its control in TWO things is not a control. The callsign
+# suffixes are therefore not decoration: they are the boundary between the campaign's carry and its
+# experiments. That is the pattern the other nine campaigns should inherit.
+#
+# THE TEN SORTIES AND THE ONE TACTICAL QUESTION EACH ANSWERS — each mission's own header carries its
+# binding reading rule (doc/missions/INDEX.md rule 5), and this list is the campaign's index only:
+#   01 bvr-headon    does duels.md's head-on baseline reproduce on this arena and this rack?
+#   02 bvr-offset    what does a 50 deg crossing cost each radar? (two different kinds of answer)
+#   03 energy-split  is energy worth more to the fire-and-forget side? AND: what does the range
+#                    period's spent magazine do to the answer? This is where the carry lands.
+#   04 entry-10nm    at the range the Fulcrum pilot's quotation names, does the outcome move?
+#   05 entry-5nm     inside the claim: what decides when both rounds are in envelope from t=0?
+#   06 merge         2.00 nm, everything inside every envelope. What is left to decide it?
+#   07 flares        the smaller magazine, run dry on purpose, and then shot at.
+#   08 weather       the conceded asymmetry, the half that can be flown.
+#   09 night         the other half — runnable at last, and still unanswerable. It measures the hole.
+#   10 two-v-two     the whole campaign one level up, with the cooperative channel only one side has.
+#
+# READING RULE FOR THE CAMPAIGN. The exit code is the WORST step's code and it is expected to be
+# non-zero: nine of the ten sorties are measuring rigs whose own headers say the verdict is the
+# telemetry. The campaign's verdict is the `campaign MISSION_RESULT`, `campaign CARRY` and
+# `campaign EXPENDED` lines plus the per-sortie readings, never the code. A campaign fingerprint is
+# comparable only within ONE ground base (doc/missions/campaign.md §5): compare only against runs whose
+# campaign-summary.txt records `elev const`.
+
+mission ../missions/o4-01-bvr-headon.fbm
+mission ../missions/o4-02-bvr-offset.fbm
+mission ../missions/o4-03-energy-split.fbm
+mission ../missions/o4-04-entry-10nm.fbm
+mission ../missions/o4-05-entry-5nm.fbm
+mission ../missions/o4-06-merge.fbm
+mission ../missions/o4-07-flares.fbm
+mission ../missions/o4-08-weather.fbm
+mission ../missions/o4-09-night.fbm
+mission ../missions/o4-10-two-v-two.fbm

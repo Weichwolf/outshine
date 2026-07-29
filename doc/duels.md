@@ -198,6 +198,18 @@ The symmetric F-16 field on the same arena now prints its own indictment instead
 `latelock` shows **`GATE x8`** — eight of its ten runs never fired and never locked, and the engagement
 GATE says so where the old −250 could be repaid by energy plus defence plus support.
 
+### The campaign extension, and the entry-range sweep this family never had
+
+[`campaigns/o4-gaf-mig29g-dact.md`](campaigns/o4-gaf-mig29g-dact.md) re-frames this family around its
+historical anchor and was BUILT on 2026-07-29 (`sim/missions/o4-*.fbm`). Three of its results belong
+beside the table above rather than in a campaign narrative:
+
+| Finding | Number |
+|---|---|
+| **The head-on draw of row 1 was a MAGAZINE, not a stalemate.** The same geometry with four AIM-120 instead of two reproduces every sensor and trigger number to within 0.05 nm — and then the F-16 re-merges at t = 540 and kills with its second round | arrival **6.54 m** (no kill) then **2.23 m** (`damage KILL`), `o4-01-bvr-headon` exit 0 |
+| **The entry-range sweep**, which this family only ever probed at 8 km and 2.2 km | 10.00 nm **MiG wins** (its shot is offered at t = 1.5 / 17,796 m against the AIM-9's t = 12.5 / 11,963 m — Raero 20,000 against 12,000 m, cueing ±60° against ±30°); 5.00 nm **trade** 0.1 s apart; 2.00 nm **F-16 wins** on 1.40 m against 2.61 m |
+| **`D6`'s remaining half NARROWED**: the IR shot a flare defeats, measured against one it does not — inside an engagement, though still not inside a merge (no MAWS) | `o4-07-flares` runs both dispensers dry on the identical briefed schedule: the BVP-30-26 is empty at t = **23.8 s** and the ALE-47 at **42.7 s**. A round arriving in that 18.9 s window detonates **0.0035 m** from the dry MiG and is seduced nine times away from the still-throwing F-16 |
+
 ### The flight extension of this campaign
 
 The duels are one against one by construction. Since this round they have a two- and four-ship
@@ -231,7 +243,7 @@ pairings.
 | **D4** | **Weapon selection is not a decision the pilot can make.** `FBCommandTarget::WeaponSelect` is `NotImplemented` on both modules, so the selected station is whatever the SMS's station step arrived at. A jet carrying an AIM-120 and an AIM-9 will offer whichever pylon comes first in the module's own list, and the missions in this family work around it by loading the racks in the order they want the rounds fired | this campaign |
 | ~~**D5**~~ | ~~The MiG has no dispenser.~~ — **closed this round.** The MiG has the BVP-30-26 (`modules/mig29/FBMig29Cmds`, 60 cartridges, [SET] 30/30 split), and its flares seduce the AIM-9 through the SAME deterministic model that seduces the R-73 (`sensors/FBIrstSystem::SelectFlare`): `mig29-defend.fbm` measures `FLARE_SEDUCED tgtIntensity=0.16` and the round expiring 16.0 m wide, against an astern control that detonates 0.04 m out. The defensive asymmetry is now TWO-SIDED. What it does NOT yet do is auto-defend in the merge (the 9-12 has no MAWS, defence-rwr-cm.md §5, so an infrared shot is answered only by a briefed throw), and the BVR duels do not arm it, so their outcomes are unchanged (only the MiG's `cmd_*` bookkeeping moves: its intercept CmDispense is no longer rejected `NotImplemented`) | this round |
 | **D7** | The campaign is 1v1 and the flight campaign is 2v2/4v4, and the two do not share a geometry table. The four-ship in `formation.md` is one geometry; the eight duel geometries have no flight counterpart, so nothing says whether the energy split or the offset behaves the same with two aircraft a side | this round |
-| ~~**D6**~~ | ~~The campaign measures BVR only.~~ — **HALVED this round.** The IR shot is exercised and it DECIDES: `duel-merge` (head-on, F-16 wins on 1.93 m) and `duel-merge-stern` (rear quarter, MiG wins on 1.86 m). The gun is exercised too and no longer wastes its drum ([`pilot.md`](pilot.md) §5.8: merge-arena rounds on target 139.8 → 449.1), but it still decides nothing — it needs 17.0 landed 30 mm rounds and delivers 9.53. **What is still untested is the IR shot a FLARE defeats inside a merge**: neither jet auto-dispenses against an infrared launch (the F-16 has no MAWS in the tree either, `defence-rwr-cm.md` §5), so the two decided merges are undefended shots | this campaign, this round |
+| **D6** | ~~The campaign measures BVR only.~~ — **HALVED, and the remaining half NARROWED on 2026-07-29.** `o4-07-flares.fbm` (O4) measures an IR shot a flare defeats and one it does not, in one file, at the same aspect, with the magazine as the only difference — so the DEFENDED infrared shot is no longer untested. What is still untested is that shot **inside a merge**, and the blocker is unchanged and structural: neither jet has a MAWS, so an infrared launch can only be answered by a BRIEFED throw, which a merging pilot cannot schedule. Was: The IR shot is exercised and it DECIDES: `duel-merge` (head-on, F-16 wins on 1.93 m) and `duel-merge-stern` (rear quarter, MiG wins on 1.86 m). The gun is exercised too and no longer wastes its drum ([`pilot.md`](pilot.md) §5.8: merge-arena rounds on target 139.8 → 449.1), but it still decides nothing — it needs 17.0 landed 30 mm rounds and delivers 9.53. neither jet auto-dispenses against an infrared launch (the F-16 has no MAWS in the tree either, `defence-rwr-cm.md` §5), so the two decided merges are undefended shots | this campaign, + O4 |
 
 ### Rejected / not attempted, with the measurement
 

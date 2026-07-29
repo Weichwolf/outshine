@@ -13,6 +13,7 @@
 #include "FBLog.h"
 #include "FBLogSinks.h"
 #include "FBPilotTuning.h"
+#include "FBCivilTime.h"
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -29,13 +30,18 @@ const char *kDefaultSwissDem = "assets/swiss-dem-90m.bin";
 void Usage(const char *argv0) {
   fprintf(stderr,
           "usage: %s --mission FILE | --campaign FILE [--out DIR] [--timeout N] [--threads N]\n"
-          "          [--state FILE] [--carry LIST] [--elev tiles|const|swiss] [--base URL]\n"
+          "          [--state FILE] [--carry LIST] [--campaign-time ISO] [--elev tiles|const|swiss]\n"
+          "          [--base URL]\n"
           "  --campaign FILE  run a .fbc campaign (doc/missions/campaign.md): its missions in file order\n"
           "                   into --out/NN-<mission>/, carrying destroyed units, destroyed ground targets\n"
           "                   and expended stores from each into the next. Exit = the worst mission's.\n"
           "  --state FILE     run ONE mission with a campaign state file applied — the standalone replay\n"
           "                   of a campaign step (--mission only; the campaign writes its own)\n"
           "  --carry LIST     which facts --state applies, comma-separated units,ground,stores (default all)\n"
+          "  --campaign-time ISO  the CAMPAIGN clock this step ran under (`time` in the .fbc), YYYY-MM-DDThh:mm:ssZ.\n"
+          "                   --mission only, and it is campaign DATA, not a client clock: it fills in for a\n"
+          "                   mission that declares no `time` and never displaces one that does. Without it a\n"
+          "                   step of a clocked campaign cannot be replayed standalone (campaign.md §5 crit. 2)\n"
           "  --mission FILE   ground-spawn a .fbm mission (doc/missions/syntax.md) on its runway threshold\n"
           "                   and run headless (JSBSim + the module's FBPilot phase machine) until SUCCESS/CRASH/\n"
           "                   TIMEOUT/FAIL; writes --out/telemetry.csv + --out/events.log, exit 0/1/2/3.\n"
@@ -99,7 +105,7 @@ bool ParseCarryList(const std::string &list, uint8_t &out) {
 } // namespace
 
 int main(int argc, char **argv) {
-  std::string missionPath, campaignPath, statePath, carryList;
+  std::string missionPath, campaignPath, statePath, carryList, campaignTime;
   std::string outDir = ".", base = "http://localhost:8081", elevMode, swissDemPath = kDefaultSwissDem;
   double timeout = 0.0;
   long threads = 1;
@@ -118,6 +124,7 @@ int main(int argc, char **argv) {
     else if (a == "--campaign" && i + 1 < argc) campaignPath = argv[++i];
     else if (a == "--state" && i + 1 < argc) statePath = argv[++i];
     else if (a == "--carry" && i + 1 < argc) carryList = argv[++i];
+    else if (a == "--campaign-time" && i + 1 < argc) campaignTime = argv[++i];
     else if (a == "--out" && i + 1 < argc) outDir = argv[++i];
     else if (a == "--timeout" && i + 1 < argc) timeout = atof(argv[++i]);
     else if (a == "--elev" && i + 1 < argc) elevMode = argv[++i];
@@ -126,8 +133,9 @@ int main(int argc, char **argv) {
     else { Usage(argv[0]); return 1; }
   }
   if (missionPath.empty() == campaignPath.empty()) { Usage(argv[0]); return 1; }
-  if (!campaignPath.empty() && (!statePath.empty() || !carryList.empty())) {
-    fprintf(stderr, "fb-gym: --state/--carry belong to a single --mission; a campaign carries its own\n");
+  if (!campaignPath.empty() && (!statePath.empty() || !carryList.empty() || !campaignTime.empty())) {
+    fprintf(stderr, "fb-gym: --state/--carry/--campaign-time belong to a single --mission; a campaign "
+                    "carries its own\n");
     return 1;
   }
   if (threads < 1) { fprintf(stderr, "fb-gym: --threads must be >= 1\n"); return 1; }
@@ -177,9 +185,19 @@ int main(int argc, char **argv) {
                                    (size_t)threads, env);
   }
 
-  /* The standalone replay of a campaign step: the same run the campaign made, from the same text. */
+  /* The standalone replay of a campaign step: the same run the campaign made, from the same text. The
+   * campaign's own `time` is part of that text and reaches the step through the same struct the carried
+   * state does — without it a step of a CLOCKED campaign is unreplayable, which is how this flag was
+   * found (doc/missions/campaign.md §5, criterion 2, and O4 is the campaign that found it). */
   FBCampaignState carried;
   Missions::FBMissionCarry carry;
+  if (!campaignTime.empty()) {
+    if (!FBParseIsoUtc(campaignTime.c_str(), carry.CampaignUtcT0S)) {
+      fprintf(stderr, "fb-gym: --campaign-time %s is not YYYY-MM-DDThh:mm:ssZ\n", campaignTime.c_str());
+      return 1;
+    }
+    carry.HaveCampaignTime = true;
+  }
   if (!statePath.empty()) {
     std::ifstream in(statePath);
     if (!in) { fprintf(stderr, "fb-gym: cannot open --state %s\n", statePath.c_str()); return 1; }
@@ -195,6 +213,7 @@ int main(int argc, char **argv) {
     }
     carry.In = &carried;
   }
+  const bool asStep = !statePath.empty() || carry.HaveCampaignTime;
   return FBRunMission(missionPath, timeout, outDir, Missions::FBNativeModelRoots(), *elevation, nullptr,
-                      (size_t)threads, false, statePath.empty() ? nullptr : &carry);
+                      (size_t)threads, false, asStep ? &carry : nullptr);
 }

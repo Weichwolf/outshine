@@ -95,47 +95,178 @@ missions: the two entry-range probes (4, 5), the weather probe (8) and the night
 That is worth stating plainly because it changes the build order: **O4 is the cheapest campaign in
 the set**, and the one that would produce a result soonest.
 
+**Amended by the build (2026-07-29), and the amendment is the point of a Spec that is written first.**
+Both missions this section calls blocked were re-checked against the tree instead of trusted:
+
+| Spec said | Today |
+|---|---|
+| mission 6 is blocked by close-combat re-acquisition | **runs and DECIDES.** The blocker was overtaken by [`../pilot.md`](../pilot.md) §5.11 (`Phase::Bfm` had no missile employment path at all): the merge is now settled on the FIRST pass, so re-acquisition never becomes the question. `o4-06` exits 0 at t = 6.5 s |
+| mission 9 "cannot be flown" (`C2` + `C3`) | **runs, and still cannot ANSWER.** Both gaps are closed as capabilities — `time` is mission data and `FBVisualSystem` exists — so the file is a legal, running mission. But nothing consumes the visual block and nothing in the tree emits light, so darkness reaches no decision. The mission is kept at full size with its own reading rule, and what it publishes is the SIZE of the hole (6 of 184 columns) rather than a tactical claim |
+
+**Ten of ten are buildable today; nine of ten are answerable.**
+
 ---
 
 ## State
 
-Unusually for this directory, **partly built already** — not as a campaign, but as the measurements
-it would consume:
+**BUILT AND FLOWN, 2026-07-29 — the first of the ten campaigns to exist as files.** Ten `.fbm` in
+`sim/missions/o4-*.fbm` plus `sim/campaigns/o4-gaf-mig29g-dact.fbc`, run as a campaign, replayed
+step by step, and measured. Nothing under `sim/assets/` was touched (`git status --porcelain sim/assets`
+empty, `verify-models` green) and every pre-existing mission is byte-identical.
+
+### The arena, and why it is where it is
+
+A block of Baltic airspace centred **55.20 N 13.60 E** `[SET]`, ~145 km NNE of Laage, flown with
+`--elev const` because it is over water and 0 m **is** sea level there rather than an approximation.
+Two moored range hulks stand at its ends in every sortie (rule 3), and each side's briefed run is to the
+OTHER side's hulk, which is what stops the degenerate "both jets drift to the merge". The campaign clock
+is a June morning inside the anchor's own period; mission 9 declares its own December night.
+
+### The ten sorties, their exit codes and their answers
+
+Campaign exit **3** (the worst step's, and the campaign's verdict is the lines below rather than the
+code). Fingerprint of the whole campaign under `--elev const`:
+`461e0ff5299d83d03b7fe303842e019f02699f096bccfe45acdbd35a7a203724`.
+
+| # | Mission | exit | fingerprint | The answer to its one tactical question |
+|---|---|---:|---|---|
+| 1 | `o4-01-bvr-headon` | **0** | `3fbca77e269de1f6` | The baseline REPRODUCES to within a rounding error — detect 24.0 s / 52.19 nm against 108.2 s / 25.41 nm, shot 9.56 nm at Rtr 9.79 against 10.07 at Rtr 10.26 ([`../duels.md`](../duels.md) row 1: 9.57/9.78 and 10.02/10.25). What does NOT reproduce is the outcome: `duel-headon` draws, this file is an F-16 kill at t = 549.8. **The draw was a magazine.** With four AIM-120 instead of two the F-16 still has rounds when the two jets re-merge at t = 540 and its second AMRAAM arrives **2.23 m** out where the first arrived 6.54 m |
+| 2 | `o4-02-bvr-offset` | 3 | `29a03f130d5f2907` | A 50° crossing costs each radar a different KIND of thing, exactly as row 2 says. The AIM-120 arrives **6.57 m** out (the round spends its energy on the turn); the R-27R arrives **11.96 m** against a 13.8 m fuze — inside the ring, outside the lethal radius. Draw |
+| 3 | `o4-03-energy-split` | 3 | `951e9f9203258a71` | **Standalone: 6,000 m and 100 kt let the MiG shoot and the F-16 not shoot at all** (fulcrum releases at t = 147.4 and 393.1, R-27R 10.16 m out; viper releases nothing — row 4 reproduced). **In the campaign the same file inverts**, and that is the carry: see below |
+| 4 | `o4-04-entry-10nm` | **0** | `d6f2052cf8f42ffd` | **At exactly ten miles the outcome moves, and the mechanism is nameable.** The MiG's shot is accepted at **t = 1.5 s, 17,796 m, cueDeg 60**; the F-16's not until **t = 12.5 s, 11,963 m, cueDeg 30**. 11.0 s and 5.8 km of first shot, and neither number is mission data: the R-73's Raero is 20,000 m against the AIM-9's 12,000, and the Shchel-3UM cues to ±60° where the AIM-9 sees ±30°. The second R-73 kills at **1.65 m**. **MiG-29 wins** |
+| 5 | `o4-05-entry-5nm` | 1 | `bcd2cbc888e3d25c` | Inside the claim both rounds are in envelope from t = 0 (shots at t = 1.5 and t = 1.9) and the hook that decided sortie 4 decides nothing. **A TRADE**: AIM-9 1.63 m at t = 11.8, R-73 2.00 m at t = 11.9 — 0.1 s apart, both dead. Exit 1 is the verdict layer refusing to invent a winner |
+| 6 | `o4-06-merge` | **0** | `e3147e607fd50377` | At 2.00 nm the MiG still shoots first (t = 1.5 against 1.9) and **loses**. R-73 **2.608 m** against its own 2.08 m kill radius → degraded; AIM-9 **1.396 m** against 2.32 m → `damage KILL` at t = 6.5. What decides the knife fight is the warhead, not the cueing envelope and not the gun. **F-16 wins** |
+| 7 | `o4-07-flares` | 3 | `207b10cb3d944f99` | **Yes, the magazine shows up, and it is worth 18.9 seconds.** Both jets throw PRGM 3 at the identical rate on the identical schedule; the BVP-30-26 is dry at **t = 23.8 s** (four dispenses accepted, the rest `rejected reason=depleted`), the ALE-47 at **t = 42.7 s**. Both rounds are pickled at t = 32. The AIM-9 finds a MiG with nothing in the air and detonates **0.0035 m** out; the R-73 is seduced repeatedly (`irst FLARE_SEDUCED` ×9), walks onto a cartridge and never arrives |
+| 8 | `o4-08-weather` | 1 | `5d5fd1fddef31e44` | **The outcome moves — and the cloud is not what moves it.** See the attribution below. What the deck DOES take away is measured: the MiG's eye goes from **50 contact frames and a RECOGNISED state** to **0 contacts and 7 `vis MASKED` frames at transmittance 0.011** |
+| 9 | `o4-09-night` | **0** | `efbb190c451c9cfa` | **Runnable at last, and still unanswerable — measured as a column count.** Of **184 telemetry columns**, the night run differs from the identical daylight run in **six**, all of them visual: `vis_glare` on both jets, plus `vis_contacts` / `vis_best_mrad` / `vis_best_az` / `vis_best_el` / `vis_best_state` on the MiG (50 rows each). Every flight, sensor, weapon and engagement column is byte-identical, and the two runs kill the same jet at the same tick |
+| 10 | `o4-10-two-v-two` | 3 | `7c2f5bb13660c049` | Four arrivals, no kill: two AIM-120 at **5.09 m** and **6.19 m** (both on `fulcrum9` — the cooperative sort did NOT split them), an R-27R at 12.20 m and an R-73 at 2.64 m against the F-16's 2.32 m radius. The channel asymmetry is visible as thrash rather than as advantage: **52 and 19 `flt_switch` on the cooperative pair against 2 and 1 on the contract pair, 74 `SORT_ASSIGN` lines and 0 `COVER_DEFER`** |
+
+### The carry, and where it lands
+
+`carry ground stores`. **Units are deliberately not carried** — a DACT sortie ends with both aircraft
+landing at Laage, and JG 73 flew its ~450 sorties against F-16s without losing a jet to one — so O4
+shows no attrition arc at all and is not an attrition campaign. `ground` carries and moves nothing (no
+mission in O4 has an air-to-ground weapon; the MiG cannot fly `set task attack` at all, `C9`), and the
+campaign says so rather than implying an arc it does not have.
+
+**`stores` is the carry that bites, and it bites in sortie 3.** Sorties 1–3 are one pair of airframes
+flying a range period without rearming; sortie 3 therefore takes off with what sorties 1 and 2 landed
+with — three `set store` lines dropped from the F-16, two from the MiG, every one logged as
+`campaign CARRY`:
+
+| Sortie 3 | standalone | inside the campaign |
+|---|---|---|
+| F-16 rack at spawn | 4 × AIM-120 + 2 × AIM-9 | **1 × AIM-120** + 2 × AIM-9 |
+| MiG rack at spawn | 2 × R-27R + 4 × R-73 | **0 × R-27R** + 4 × R-73 |
+| who shoots | fulcrum 2 × R-27R + 1 × R-73; **viper never fires** | viper 1 × AIM-120 + 1 × AIM-9; fulcrum one R-73 launched at **16,713 m**, a heat-seeker at nine miles |
+| closest arrival | R-27R **10.16 m** on the F-16 | AIM-120 **5.13 m** on the MiG |
+
+The engagement inverts. Both runs draw, and they draw for opposite reasons: standalone the MiG owns the
+shot, in the campaign it has nothing to shoot with. **The F-16's BVR advantage in this tree is a
+magazine as much as a radar**, and a magazine is precisely what a sequence of sorties can take away.
+
+### The attribution of sortie 8, because a weather result must not be assumed
+
+The fixture changes two things — cloud and wind — and only one of them can be blamed. It was measured
+rather than argued: the identical file with `wx wind 247 21.9` (the fixture's own vector at the fight's
+own level, so wind WITHOUT cloud) reproduces the weather run's every event to three decimals —
+detonations at t = 22.9 / 25.0 / 29.5 with missM **3.033 / 1.615 / 2.026** against the fixture's
+**3.007 / 1.608 / 2.027**, same exit 1, same trade. **The outcome flip from sortie 4 is entirely the
+wind.** The cloud's contribution is exactly zero because both channels it can touch — the KOLS and the
+eye — have no consumer in `pilot/FBPilot`.
+
+The KOLS is worse off than that: on this geometry it never had a contact to lose in EITHER run
+(`irst_contacts` = 0 throughout both), because an IRST's reach is an aspect function and head-on is its
+worst case, 10 km against 25 km astern. **The quotation's third reason contributes nothing to a head-on
+WVR entry even in clear air.**
+
+### Both determinism criteria, measured
+
+Under `--elev const`, which is what the campaign's own header declares and what every comparison must
+read out of `campaign-summary.txt` rather than assume:
+
+| # | Criterion | Result |
+|---|---|---|
+| **1** | 3 repetitions × `--threads 1/2/4` produce one campaign fingerprint | **9 runs, 1 fingerprint** `461e0ff5299d83d03b7fe303842e019f02699f096bccfe45acdbd35a7a203724` |
+| **2** | every step's per-mission fingerprint equals that mission run STANDALONE with step *k−1*'s state | **10/10 MATCH**, exit codes included |
+
+**Criterion 2 failed 9 of 10 on the first attempt, and the failure was a real hole in the campaign
+layer rather than in this campaign.** `fb-gym --mission --state` had no way to receive the CAMPAIGN
+CLOCK, so every step of a campaign that declares a `time` line replayed under a different sky; only
+mission 9, which declares its own clock, matched. `viper-attrition` declares no `time`, which is why the
+`C0` round never saw it. Closed the way §5 already closes the ground: the clock is **recorded** by the
+runner (`campaign-summary.txt`: `time …`) and **read** by the checker, with `fb-gym --campaign-time ISO`
+as the receiving flag — campaign data, never a client clock, so it fills in for a mission without a
+`time` and never displaces one that has it. Details in [`../missions/campaign.md`](../missions/campaign.md).
+
+### Conservation
+
+`fb-gym` built from the same tree with the two touched sources reverted, both binaries run over all
+**150** `sim/missions/*.fbm`: **515/515 `telemetry*.csv` byte-identical, 150/150 `events.log` identical
+modulo `wallS`/`speedup`/the `--out` path, exit codes identical.** The same 150 missions at
+`--threads 1`, `2` and `4`: **0 differing files.** `viper-attrition` re-verified: 9 runs one fingerprint
+(`dfa2f97d026e0fa2…`), 4/4 standalone replays MATCH.
+
+### What the ten runs say about the pair — against the anchor
+
+The anchor's headline claim is *"inside ten nautical miles I'm hard to defeat, and with the IRST, helmet
+sight and 'Archer' … I can't be beaten"* [T4]. Converted into the falsifiable form of §Spec 2 and flown,
+the entry-range sweep answers it in a way no interview would:
+
+| entry | outcome | why |
+|---|---|---|
+| 10.00 nm | **MiG-29 wins** | the R-73's 20 km Raero and ±60° helmet cueing offer a shot 11.0 s before the AIM-9's 12 km Raero and ±30° offer one |
+| 5.00 nm | **trade**, 0.1 s apart | both rounds in envelope from t = 0; the hook that decided 10 nm decides nothing |
+| 2.00 nm | **F-16 wins** | 9.4 kg of AIM-9M warhead (2.32 m kill radius) against 7.4 kg of R-73 (2.08 m), on arrivals of 1.40 m and 2.61 m |
+
+**The claim is true at its own outer boundary and false at the knife-fight end, and the two halves have
+different mechanisms.** What makes the Fulcrum hard to beat at ten miles is the ENVELOPE and the CUEING —
+the two of the quotation's three reasons FlightBox models — and what beats it at two miles is a warhead
+mass the quotation never mentions. The third reason, the IRST, contributes nothing at any range in this
+tree, and sortie 8 measures why twice over (no consumer, and no aspect).
+
+**Where our result contradicts the anchor, plainly.** The Germans conceded the night and the weather.
+FlightBox can say nothing at all about the night — six visual columns out of 184, none of them read by
+anybody — and what it measures about the weather is the WIND, not the cloud. Any O4 statement about
+either half of that concession would be manufactured, and none is made. Against that, the campaign
+produces one asymmetry the anchor does not mention at all and which is not about flying: **the F-16
+carries a three-sortie BVR magazine and the MiG-29 a one-sortie one**, and over a range period that is
+worth more than any doctrine lever measured in [`../duels.md`](../duels.md).
+
+### What the tree already had, and this campaign consumed unchanged
 
 | Already measured | Where | Value |
 |---|---|---|
-| Eight BVR geometries, F-16 vs MiG-29, with outcomes | [`../duels.md`](../duels.md) | five draws, two decided by doctrine, one merge |
+| Eight BVR geometries, F-16 vs MiG-29, with outcomes | [`../duels.md`](../duels.md) | five draws, two decided by doctrine, two decided merges |
 | The four structural asymmetries with their numbers | ″ §Knowledge 1 | radar reach 100.1 km vs 50.0 km; search bar ±60°/±10.5° vs ±30°/±6°; AIM-120 activation 0.3 s vs R-27R support to impact; warhead 20.5 kg/10 m vs 39 kg/13.8 m |
-| The doctrine matrix over three geometries | ″ §Knowledge 4 | `{base, early} × {base, early}`, with the F-16-high geometry drawing when both sides move their trigger out |
-| The mixed tournament, 30 runs, both seats | ″ | early launch worth an outcome band to the MiG (−393.7 → +585.0), essentially nothing to the F-16 (601.8 → 603.3) |
+| The mixed tournament, 30 runs, both seats | ″ | early launch worth an outcome band to the MiG, essentially nothing to the F-16 |
 | The flight level | [`../formation.md`](../formation.md) | SARH binding 17.3 s vs 0.3 s; sort quality cooperative 0.962 vs contract 0.750 |
 | Flare seduction, both directions | `mig29-r73.fbm`, `f16-aim9.fbm`, `mig29-defend.fbm` | deterministic, measured on both branches |
-
-**Nothing is built as a campaign**: no ordered file set, no entry-range sweep, no weather probe.
 
 ---
 
 ## Gaps
 
-| ID | What is missing | Blocks here |
+| ID | What is missing | State here |
 |---|---|---|
-| `C2` + `C3` | **no time of day and no visual channel** | mission 9. The anchor's own concession — "the Americans owned the night" — is the one claim in this campaign FlightBox cannot examine at all, because darkness degrades a sensor the tree does not have |
-| `D3` (`duels.md`) | **the pilot does not use the IRST** | the quotation names the IRST as one of three reasons the Fulcrum is hard to beat inside 10 nm. Two of the three (helmet-cued R-73, gun) are modelled; the third is published to a block nobody reads |
-| `pilot.md` 2.9 / 2.8 | **neither ACM box re-acquires after the first merge pass; the lift-vector law has a downward singularity; there is a BFM floor both jets sink through** | mission 6 — the WVR half of the campaign, which is *the* half the anchor is famous for |
-| `D4` (`duels.md`) | **weapon selection is not a pilot decision** | missions 4/5/7 need a jet carrying both a radar and an IR round to *choose*; today it fires whatever pylon the SMS stepped to, and the missions must load the racks in firing order |
-| `D6` (`duels.md`) | the existing campaign measures BVR only; nothing exercises a decided gun or IR engagement | missions 5, 6, 7 are exactly that gap's closure |
-| `C7` | no F-15, no F/A-18 | the anchor's other 750 sorties |
-| `C0` | no campaign layer | |
-| `C12` | no objective for "won the engagement" — a WVR fight ends in TIMEOUT by construction | missions 5–7 are read from telemetry, as `duels.md` already does |
+| ~~`C0`~~ | no campaign layer | **CLOSED before this round** and consumed by it: `sim/campaigns/o4-gaf-mig29g-dact.fbc`, both criteria measured above. This campaign found and closed the layer's clock hole |
+| ~~`pilot.md` 2.9~~ (for mission 6) | neither ACM box re-acquires after the first pass | **NO LONGER BLOCKING.** The merge is decided on the FIRST pass (`o4-06` exit 0 at t = 6.5 s), so there is no second pass to acquire for. The gap itself is open and still owns any fight that survives a merge |
+| `C2` + `C3` (for mission 9) | **now BUILT, and mission 9 runs — and cannot answer its question** | the hole moved from "cannot be declared" to "is declared and reaches nobody". MEASURED: 6 of 184 columns, 0 visual contacts at night, identical kill at an identical tick. What is missing is a CONSUMER of `FBVisualBlock` in `pilot/FBPilot`, plus an aircraft-lighting model without which the channel is empty after sunset regardless |
+| `D3` (`duels.md`) | **the pilot does not use the IRST** | the sharpest gap this campaign hit, and it now has two independent measurements: no consumer (so masking it changes nothing) and no aspect (so on a head-on entry there was nothing to mask — `irst_contacts` = 0 in both sortie-4 and sortie-8) |
+| `D4` (`duels.md`) | weapon selection is not a pilot decision | worked around exactly as the spec predicted: every rack in all ten files is declared in FIRING ORDER, and each header says so. It is the single largest piece of authoring artifice in the campaign |
+| **new — the cooperative sort thrashes** | on `o4-10`'s geometry the F-16 pair re-assigns **52** and **19** times against the MiG pair's **2** and **1**, and both AMRAAMs still went to the same target | the sort is dynamic and unhysteresised. It costs nothing here because neither round killed, but it is the first measurement in the tree that says the cooperative channel can be NOISIER than the briefed contract |
+| **new — `brief_flare_s` is a MiG-only spelling** | `modules/f16/FBF16Module` accepts only `brief_chaff_s`; `modules/mig29/FBMig29Module` accepts both | a symmetric two-branch mission must use the spelling both modules answer to, which reads as chaff while throwing flares (the dispense plays the SELECTED programme). One alias would fix it |
+| `C7` | no F-15, no F/A-18 | the anchor's other ~750 sorties are still out of reach, and the substitution is not attempted |
+| `C12` | no objective for "won the engagement" | unchanged and unproblematic: eight of the ten missions carry their reading rule in their own header and are read from telemetry |
 
 ### The honest headline
 
-**O4 is where FlightBox is already standing.** Eight missions buildable, six of them substantially
-measured, and the two remaining questions are the two the tree has been circling for rounds: **the
-merge** (blocked by re-acquisition, not by control law any more) and **the night** (blocked by having
-no eye at all). If any campaign in this set should be built first, it is this one — and its first
-deliverable is not a mission file but the entry-range sweep at 10 and 5 nm, which is two `.fbm` files
-against modules that exist.
+**O4 exists, it runs, it replays, and its result is not the one the anchor implies.** The Fulcrum's
+famous ten-mile claim survives at ten miles and dies at two, for reasons that are a launch envelope, a
+cueing limit and a warhead mass — all three of them catalogue numbers rather than flying. The two things
+the campaign genuinely cannot examine are the two the Germans themselves conceded, and FlightBox's
+inability is now a MEASUREMENT (six columns, zero consumers) instead of an assertion. The one finding
+that belongs to nobody's anchor is the magazine: three sorties of AMRAAM against one of R-27R.
 
 ---
 

@@ -1,0 +1,111 @@
+name o4-08-weather-1
+timeout 300
+
+# CAMPAIGN O4, SORTIE 8 OF 10 — THE CONCEDED ASYMMETRY, THE HALF THAT CAN BE FLOWN.
+# doc/campaigns/o4-gaf-mig29g-dact.md mission 8. This is o4-04-entry-10nm.fbm plus ONE mission-wide
+# line — `wx fixture` — and fresh callsigns, for the reason o4-04's header states.
+#
+# THE ANCHOR'S CONCESSION, in the German pilots' own words [T4]: "American pilots had the advantage at
+# night and in adverse weather." Like the claim in o4-04 it is an unconditioned interview statement, and
+# FlightBox can examine exactly half of it. This file is the weather half; o4-09-night.fbm is the other
+# half and its header says what it can and cannot show.
+#
+# THE ONE TACTICAL QUESTION: does weather move the WVR result? The MiG's KOLS is the ONLY sensor in the
+# tree a cloud deck can blind (sensors/FBIrstSystem::CloudMasked; measured in mig29-irst.fbm), so on
+# paper this mission takes away one of the quotation's three reasons.
+#
+# THE ATMOSPHERE IS THE COMMITTED GFS BLOB, not a hand-set deck. Over this block the 2026-07-27T00Z
+# analysis reports 97 % mid cloud and 89 % low cloud with a ceiling near 864 m, which core/FBCloudDensity
+# turns into a low deck at ~864-1,764 m and a MID deck at 4,200-5,600 m. The fight is briefed at 5,000 m,
+# i.e. INSIDE the mid deck, so CloudMasked is true for every own-to-target line of sight in it. That is
+# why o4-04 is flown at 5,000 m in the first place.
+#
+# READ THIS FILE WITH ITS TWO HONEST LIMITS IN FRONT OF THE RESULT, both structural rather than
+# statistical:
+#   1. THE FIXTURE CHANGES TWO THINGS. It carries WIND (13-16 m/s over this block at these levels) as
+#      well as cloud, and wind moves every trajectory. Any outcome difference against o4-04 is therefore
+#      the WIND's until something says otherwise — and something does: see 2.
+#   2. NOBODY READS THE IRST. pilot/FBPilot builds its picture from the Radar block alone; the only
+#      consumer of an Irst block anywhere in the tree is a missile seeker (doc/duels.md D3, and
+#      tools/fb_evolve.py refuses the EMCON gene over the same hole). So blinding the KOLS cannot change
+#      a single control input, and `irst_masked` counting up is a measurement of a channel with no
+#      consumer. The mission is built anyway, because the number it produces is the SIZE of that gap.
+#
+# MEASURED (2026-07-29): exit 1, a TRADE where the identical calm file (o4-04) is a MiG win — and the
+# CLOUD IS NOT WHAT MOVED IT. Attribution, measured rather than argued: the same file with
+# `wx wind 247 21.9` (the fixture's own vector at 5,000 m, so wind WITHOUT cloud) reproduces this run's
+# every event to three decimals — detonations at t=22.9/25.0/29.5 with missM 3.033/1.615/2.026 against
+# this run's 3.007/1.608/2.027, same exit, same trade. THE OUTCOME FLIP IS ENTIRELY THE WIND. What the
+# deck does take away is measured too and is inert: the MiG's EYE goes from 50 contact frames and a
+# RECOGNISED state (o4-04) to 0 contacts and 7 `vis MASKED` frames at transmittance 0.011. The KOLS is
+# worse off than inert — `irst_contacts` is 0 in BOTH runs, so on a head-on entry the cloud had nothing
+# to blind. Reproduce the control with:
+#   sed 's/^wx fixture.*/wx wind 247 21.9/' missions/o4-08-weather.fbm > /tmp/ctl.fbm
+#   build/fb-gym --mission /tmp/ctl.fbm --out /tmp/ctl --elev const
+#
+# READING RULE: the verdict is the TELEMETRY. Read `irst_masked` and the `irst IRST_CONTACT` count on
+# the MiG against o4-04's, then the BFM_SHOT and DETONATION lines of both files side by side. A DIFFERENT
+# outcome from o4-04 is a wind result and must be reported as one; the SAME outcome with `irst_masked`
+# non-zero is the D3 gap measured. exit 2 would be a defect.
+
+wx fixture wx-2026-07-27T00Z.wxb
+
+unit viper7
+  team friendly
+  module f16
+  spawn 55.20000 13.45420 5000 90.0 380       # 10.00 nm apart, head-on, co-altitude
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode acm_hud
+  set fcr_range_nm 10
+  set rwr on
+  set store 1 aim9                            # firing order: the infrared rounds first
+  set store 2 aim9
+  set store 3 aim120
+  set store 4 aim120
+  set cmds_mode man
+  set cmds_program 3
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task bfm
+  wp 55.20000 14.60000 5000 380               # hulkeast: the MiG's own range target
+  objective kill unit fulcrum7
+  objective survive
+
+unit fulcrum7
+  team hostile
+  module mig29
+  spawn 55.20000 13.74580 5000 270.0 380
+  set gear up
+  set fuel_pct 60
+  set n019_mode acm                           # briefed INTO the fight: the close-combat auto-lock volume
+  set n019_range_nm 10
+  set n019_emission illum
+  set rwr on
+  set kols_mode ir_cc                         # the KOLS in its close-combat field — the third of the
+  set kols_laser on                           # quotation's three reasons, and the one o4-08 can blind
+  set store 1 r73
+  set store 2 r73
+  set store 3 r27r
+  set store 4 r27r
+  set cmds_mode man
+  set cmds_program 3
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task bfm
+  wp 55.20000 12.60000 5000 380               # hulkwest: the F-16's own range target
+  objective kill unit viper7
+  objective survive
+
+unit hulkwest
+  module target_soft
+  team friendly
+  spawn 55.20000 12.60000 ground 90.0 0
+
+unit hulkeast
+  module target_soft
+  team hostile
+  spawn 55.20000 14.60000 ground 270.0 0

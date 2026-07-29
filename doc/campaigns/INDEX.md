@@ -1,8 +1,30 @@
 # Campaigns — the ten scenario specifications
 
-**Status: spec only. Nothing is built.** No `.fbm` file of any campaign exists; no line of `sim/` was
-touched to write this directory. It exists because the missions must not be invented: a campaign
-without a cited anchor is a mood, and a mood cannot be measured.
+**Status: one of ten BUILT (O4, 2026-07-29), nine spec only.** `sim/missions/o4-*.fbm` +
+`sim/campaigns/o4-gaf-mig29g-dact.fbc` exist, run, replay and are measured
+([`o4-gaf-mig29g-dact.md`](o4-gaf-mig29g-dact.md) §State); no other campaign has a `.fbm` file. The
+directory exists because the missions must not be invented: a campaign without a cited anchor is a
+mood, and a mood cannot be measured.
+
+### What O4 established, and what the other nine inherit from it
+
+O4 was built first because it is the only campaign in which BOTH FlightBox airframes really flew against
+each other and because its spec listed 8 of 10 missions as runnable. It came out at **10 of 10 runnable,
+9 of 10 answerable**, and it left five rules behind that are properties of the machinery rather than of
+the Baltic:
+
+| Rule | Why it exists |
+|---|---|
+| **A controlled variant must not share a callsign with its control** | the store carry is keyed by callsign, so "the same file plus one `wx` line" would also inherit the sibling's expenditure and stop being a control. Carry chains and controlled pairs must not overlap, and the `.fbc` header has to say where each one lives |
+| **The carry belongs where the campaign has a QUESTION about it** | O4 puts it on one three-sortie range period and nowhere else, and that one chain inverted a whole engagement (see its §State). A carry sprinkled over every mission destroys the experiments and demonstrates nothing extra |
+| **Narrow `carry` when the scenario says so, and pay the price out loud** | O4 drops `units` because a DACT kill is a call and not a lost airframe — and therefore says plainly that it shows no attrition arc. O1 and O5, whose subject IS attrition, must not narrow it |
+| **Every result that has two possible causes gets a control run** | O4's weather sortie changes cloud AND wind; the attribution was measured with a wind-only control rather than argued, and the answer was that the cloud contributed exactly zero |
+| **A blocked mission is re-checked against the tree, not trusted** | both missions O4's spec called blocked had been overtaken by other rounds. One now decides; one runs and still cannot answer, and it is kept at full size so that the hole has a number (6 of 184 telemetry columns) |
+
+The sixth is not a rule but a warning: **`tools/fb_campaign_verify.py replay` is not optional per
+campaign.** O4's first replay was 9 of 10 DIVERGED, and the cause was a real hole in the campaign layer
+that `viper-attrition` could not expose ([`../missions/campaign.md`](../missions/campaign.md), "the clock
+was missing from the replay half").
 
 This directory is **step 4 of the owner goal** and its specification comes first, per
 [`../conventions.md`](../conventions.md)'s spec-first rule: *change the Spec of the topic file first;
@@ -24,7 +46,7 @@ Five in which the **F-16** flies, five in which the **MiG-29** flies. Ten missio
 | **O1** | [Bekaa 1982, the Syrian side](o1-bekaa-1982.md) | Operation Mole Cricket 19, 9 June 1982 | the canonical defeat, reframed as a measurable question: **what in the doctrine moves the outcome, and what is left when nothing does** |
 | **O2** | [PVO intercept exercise](o2-pvo-intercept.md) | Soviet GCI doctrine + the MiG-29's own guidance panel | ground control in its pure form, and identity that always costs surprise |
 | **O3** | [Yom Kippur 1973](o3-yom-kippur-1973.md) | the opening strikes, 6 October 1973 | ground attack under a friendly SAM umbrella — **the only campaign with zero runnable missions**, and the requirement that says why |
-| **O4** | [GAF MiG-29G DACT](o4-gaf-mig29g-dact.md) | JG 73 Laage, 1991–2003 | the one campaign in which **both** FlightBox airframes really flew against each other — and the cheapest to build, because half of it is already measured |
+| **O4** | [GAF MiG-29G DACT](o4-gaf-mig29g-dact.md) **— BUILT** | JG 73 Laage, 1991–2003 | the one campaign in which **both** FlightBox airframes really flew against each other — and the cheapest to build, because half of it is already measured. **Flown 2026-07-29:** the ten-mile claim holds at ten miles, trades at five and loses at two |
 | **O5** | [Airfield defence](o5-airfield-defence.md) | Batajnica 24–26 March 1999, with Iraq 1991 as the parallel | a defender whose success is something **not happening** — which the verdict vocabulary has no word for |
 
 ---
@@ -77,11 +99,12 @@ declared again rather than hidden.
 
 ## What is buildable today
 
-**50 of the 100 missions.** Per campaign:
+**50 of the 100 missions when this table was written; 10 of them are now BUILT and the O4 row is
+re-counted against the tree rather than against the spec.** Per campaign:
 
 | Campaign | Runnable today | Blocked | The first pair to build |
 |---|---:|---:|---|
-| O4 GAF DACT | **8** | 2 | `o4-04` / `o4-05` — the entry-range sweep at 10 and 5 nm |
+| O4 GAF DACT | **10 — BUILT** | 0 (1 runs but cannot answer) | done: ten `.fbm` + one `.fbc`, both determinism criteria measured |
 | O1 Bekaa | **7** | 3 | `o1-01` / `o1-02` — the GCI-deletion experiment |
 | O2 PVO | **7** | 3 | `o2-06` / `o2-08` — the identification anti-cheat pair |
 | O5 Airfield defence | **7** | 3 | `o5-01` / `o5-02` — alert versus CAP, one `spawn` line apart |

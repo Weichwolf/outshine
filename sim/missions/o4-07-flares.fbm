@@ -1,0 +1,126 @@
+name o4-07-flares-1
+timeout 120
+
+# CAMPAIGN O4, SORTIE 7 OF 10 — THE INFRARED SHOT AGAINST A DEFENDING TARGET, and the campaign's only
+# mission whose subject is a MAGAZINE. doc/campaigns/o4-gaf-mig29g-dact.md mission 7.
+#
+# THE ONE TACTICAL QUESTION, as the spec states it: both dispensers already work through the same
+# deterministic seduction model (sensors/FBIrstSystem::SelectFlare — two received irradiances, I/r^2, no
+# die), so the asymmetry is no longer PRESENCE but SIZE: ALE-47 60/60 against BVP-30-26 30/30. Does that
+# difference show up over a full engagement?
+#
+# IT CANNOT BE ANSWERED BY ONE SHOT, so this file is built to run the smaller magazine dry and then
+# shoot. TWO BRANCHES, 22 km apart, identical in every number but the airframes:
+#   BRANCH A — viper5 (F-16) 4 km astern of fulcrum5 (MiG-29), 40 kt in hand, pickle at t=32.
+#              fulcrum5 throws PRGM 3 at t = 6, 11, 16, 21, 26, 31, 36, 41.
+#   BRANCH B — fulcrum6 (MiG-29) 4 km astern of viper6 (F-16), the same 40 kt, the same pickle at t=32.
+#              viper6 throws the SAME eight dispenses at the SAME eight instants.
+# PRGM 3 is FLARE-only and IDENTICAL on both modules (2 cartridges per burst, 4 salvos 1.0 s apart =
+# 8 per dispense — modules/f16/FBF16Cmds.cpp, modules/mig29/FBMig29Cmds.cpp), so the two jets throw at
+# exactly the same rate and the only thing that differs is how long they can keep it up. [MESS] the MiG
+# is DRY at t = 23.8 s (cm_flare 30 -> 0, and the dispenses briefed for t = 26, 31, 36, 41 come back
+# `cm_dispense rejected reason=depleted`); the F-16 is dry at t = 42.7 s, all eight dispenses accepted.
+# 18.9 seconds of magazine. The round is pickled at t=32 and arrives at t=41.0 — inside that window.
+#
+# THE DISPENSE LINE IS SPELLED `brief_chaff_s` ON BOTH SIDES, and it throws FLARES: the briefed
+# dispense plays the SELECTED programme, and PRGM 3 is flare-only. The spelling is not a choice —
+# modules/f16/FBF16Module accepts only `brief_chaff_s` while modules/mig29/FBMig29Module accepts both
+# spellings, so the symmetric file has to use the one both modules answer to. mig29-r73.fbm's `flint`
+# does the same thing for the same reason.
+#
+# THE ASTERN GEOMETRY IS THE R-73's OWN DOCUMENTED EMPLOYMENT (doc/modules/mig29/weapons.md §3.3, and
+# duel-merge-stern.fbm measures it as a fight), and it is used for BOTH branches so the two rounds are
+# compared at the same aspect. NEITHER DEFENDER AUTO-DISPENSES and neither could: the 9-12 has no
+# missile-approach warning system (doc/modules/mig29/defence-rwr-cm.md §5) and the F-16 has none in this
+# tree either, so an infrared launch is answered only by a BRIEFED throw. That is the honest limit of
+# this mission and it is the reason the schedule is briefed rather than triggered.
+#
+# READING RULE: the verdict is events.log, not the exit code. Read `cmds DISPENSE` counts per unit and
+# the `cmds_flare` telemetry column going to zero, then `irst FLARE_SEDUCED` / `FLARE_RESOLVED` on each
+# round's own seeker, then the two DETONATION lines' missM. Expect exit 3 (TIMEOUT): one branch's
+# shooter meets its `kill`, the other's does not, and a miss is not a mission verdict. Both shooters
+# declare `kill unit` as BOOKKEEPING only — without it a defender's destruction is an unexpected loss
+# and would end the run before the other branch has flown (doc/missions/verdict.md).
+
+unit viper5
+  team friendly
+  module f16
+  spawn 55.20000 13.53000 5000 90.0 340       # BRANCH A shooter: 4.0 km astern, 40 kt in hand
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode acm_hud
+  set fcr_range_nm 40
+  set store 1 aim9
+  set brief_master_arm arm
+  set brief_release_s 32                      # after the MiG's magazine is out, before the F-16's is
+  wp 55.20000 14.60000 5000 340
+  objective kill unit fulcrum5
+
+unit fulcrum5
+  team hostile
+  module mig29
+  spawn 55.20000 13.59300 5000 90.0 300       # BRANCH A defender: straight, level, dispensing
+  set gear up
+  set fuel_pct 60
+  set n019_mode off
+  set cmds_mode man
+  set cmds_program 3                          # FLARE only — an infrared shot; chaff has nothing to work on
+  set cmds_chaff 30
+  set cmds_flare 30                           # BVP-30-26: HALF the F-16's magazine, and the subject
+  set brief_chaff_s 6
+  set brief_chaff_s 11
+  set brief_chaff_s 16
+  set brief_chaff_s 21
+  set brief_chaff_s 26
+  set brief_chaff_s 31
+  set brief_chaff_s 36
+  set brief_chaff_s 41
+  wp 55.20000 14.60000 5000 300
+
+unit fulcrum6
+  team hostile
+  module mig29
+  spawn 55.40000 13.53000 5000 90.0 340       # BRANCH B shooter, 22 km north: the identical geometry
+  set gear up
+  set fuel_pct 60
+  set n019_mode cc                            # the narrow auto-locking pattern with the gate opened,
+  set n019_range_nm 40                        # as mig29-r73.fbm uses for the same shot
+  set n019_emission illum
+  set store 1 r73
+  set brief_master_arm arm
+  set brief_release_s 32
+  wp 55.40000 14.60000 5000 340
+  objective kill unit viper6
+
+unit viper6
+  team friendly
+  module f16
+  spawn 55.40000 13.59300 5000 90.0 300       # BRANCH B defender: the same schedule, twice the magazine
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode off
+  set cmds_mode man
+  set cmds_program 3
+  set cmds_chaff 60
+  set cmds_flare 60                           # ALE-47: 60/60
+  set brief_chaff_s 6
+  set brief_chaff_s 11
+  set brief_chaff_s 16
+  set brief_chaff_s 21
+  set brief_chaff_s 26
+  set brief_chaff_s 31
+  set brief_chaff_s 36
+  set brief_chaff_s 41
+  wp 55.40000 14.60000 5000 300
+
+unit hulkwest
+  module target_soft
+  team friendly
+  spawn 55.20000 12.60000 ground 90.0 0
+
+unit hulkeast
+  module target_soft
+  team hostile
+  spawn 55.20000 14.60000 ground 270.0 0

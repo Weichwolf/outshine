@@ -193,6 +193,10 @@ int FBRunCampaign(const std::string &campaignPath, const std::string &outDir,
   summary << "campaign " << campaign.Name << "\n"
           << "carry " << FBCarryMaskStr(campaign.Carry) << "\n"
           << "stop_on " << FBCampaignStopStr(campaign.StopOn) << "\n"
+          /* The campaign CLOCK travels with the environment for the same reason the ground does: a step
+           * replayed without it runs under a different sky and reports a divergence that is the
+           * replay's own. `none` where the campaign declares none, so the record is always present. */
+          << "time " << (campaign.HaveTime ? FBFormatIsoUtc(campaign.UtcT0S, iso, sizeof iso) : "none") << "\n"
           << "elev " << env.Elev << "\n"
           << "swiss_dem " << env.SwissDem << "\n"
           << "base " << env.Base << "\n"

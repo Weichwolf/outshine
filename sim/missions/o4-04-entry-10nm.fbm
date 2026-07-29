@@ -1,0 +1,109 @@
+name o4-04-entry-10nm-1
+timeout 300
+
+# CAMPAIGN O4, SORTIE 4 OF 10 — THE CLAIM'S OUTER EDGE. doc/campaigns/o4-gaf-mig29g-dact.md mission 4.
+#
+# THE ANCHOR'S HEADLINE CLAIM, in the Fulcrum pilot's own words [T4], is a QUOTATION and not a
+# measurement: "Inside ten nautical miles I'm hard to defeat, and with the IRST, helmet sight and
+# 'Archer' ... I can't be beaten." It carries no geometry, no energy state and no number of aircraft.
+# The campaign converts it into the one falsifiable form it has: AT ENTRY RANGES BELOW 10 NM, IS THE
+# MiG-29'S OUTCOME SHARE HIGHER THAN AT ENTRY RANGES ABOVE IT? This file is the range the quotation
+# names; o4-05-entry-5nm.fbm is the identical file with the two entry longitudes moved inward, and
+# NOTHING else differs between them.
+#
+# THE ONE TACTICAL QUESTION: at exactly 10 nm, does the outcome start to move?
+#
+# THE SET-UP: 10.00 nm apart (18.53 km), head-on, co-altitude at 5,000 m, both on `set task bfm` — the
+# close-combat control law on both sides, no intercept phase and no long shot. Both radars are in their
+# close-combat box from the spawn (the F-16's ACM HUD, the N019's ACM), because both jets are briefed
+# INTO the fight rather than searching for it: duel-merge.fbm keeps the MiG in RAD and lets its pilot
+# switch, and that head-on case stays measured there.
+#
+# THE RACKS ARE LOADED IN FIRING ORDER — two infrared rounds, then two radar rounds. That is
+# doc/duels.md D4 and not a pylon map: weapon selection is not a decision either pilot can make, so the
+# SMS steps through the occupied stations in ascending order and the mission decides what is offered
+# first. A WVR entry offers the infrared round first, which is exactly the choice the quotation is
+# about.
+#
+# THE 5,000 M BAND IS NOT ARBITRARY: it is the band the campaign's weather probe needs. Over this block
+# the committed GFS fixture puts a 4,200-5,600 m mid deck with 97 % cover, so o4-08-weather.fbm is this
+# file plus ONE `wx` line and the two jets then fight inside cloud. o4-09-night.fbm is this file plus one
+# `time` line. Both are controlled variants of THIS geometry and they carry their own callsigns for one
+# reason only: a shared callsign would share a magazine through the campaign carry, and a controlled
+# variant that inherits its control's expenditure is not controlled.
+#
+# MEASURED (2026-07-29): exit 0, THE MiG-29 WINS, and the mechanism is two catalogue numbers rather
+# than any flying. Its BFM_SHOT is accepted at t=1.5 s, rangeM 17,796, cueDeg 60; the F-16's not until
+# t=12.5 s, rangeM 11,963, cueDeg 30 — 11.0 s and 5,833 m of first shot, because the R-73's Raero is
+# 20,000 m against the AIM-9's 12,000 and the Shchel-3UM cues to +-60 deg where the AIM-9 sees +-30.
+# The first R-73 arrives 2.98 m out (against its own 2.08 m kill radius) and only degrades; the second,
+# fired at 5,987 m, arrives 1.65 m out -> damage KILL at t=29.3. The AIM-9 fired at t=12.5 misses by
+# 1,720 m. THE KOLS CONTRIBUTES NOTHING: `irst_contacts` is 0 for the whole run, because an IRST's reach
+# is an aspect function and head-on is its worst case (10 km against 25 km astern). Two of the
+# quotation's three reasons decide this fight; the third was never in it.
+#
+# READING RULE: the verdict is the TELEMETRY, not the exit code (doc/missions/INDEX.md rule 4). Read, in
+# order: the BFM_SHOT lines with their range and off-boresight angle, the DETONATION lines with missM
+# against the round's own fuze radius, and bfm_rng / eng_shots on both sides. exit 0 means one side was
+# killed and the other met `kill` + `survive`; exit 3 means neither round arrived close enough, and that
+# is a result. exit 2 (a physical K.O. of a healthy jet) would be a defect.
+
+unit viper2
+  team friendly
+  module f16
+  spawn 55.20000 13.45420 5000 90.0 380       # 10.00 nm apart, head-on, co-altitude
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode acm_hud
+  set fcr_range_nm 10
+  set rwr on
+  set store 1 aim9                            # firing order: the infrared rounds first
+  set store 2 aim9
+  set store 3 aim120
+  set store 4 aim120
+  set cmds_mode man
+  set cmds_program 3
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task bfm
+  wp 55.20000 14.60000 5000 380               # hulkeast: the MiG's own range target
+  objective kill unit fulcrum2
+  objective survive
+
+unit fulcrum2
+  team hostile
+  module mig29
+  spawn 55.20000 13.74580 5000 270.0 380
+  set gear up
+  set fuel_pct 60
+  set n019_mode acm                           # briefed INTO the fight: the close-combat auto-lock volume
+  set n019_range_nm 10
+  set n019_emission illum
+  set rwr on
+  set kols_mode ir_cc                         # the KOLS in its close-combat field — the third of the
+  set kols_laser on                           # quotation's three reasons, and the one o4-08 can blind
+  set store 1 r73
+  set store 2 r73
+  set store 3 r27r
+  set store 4 r27r
+  set cmds_mode man
+  set cmds_program 3
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task bfm
+  wp 55.20000 12.60000 5000 380               # hulkwest: the F-16's own range target
+  objective kill unit viper2
+  objective survive
+
+unit hulkwest
+  module target_soft
+  team friendly
+  spawn 55.20000 12.60000 ground 90.0 0
+
+unit hulkeast
+  module target_soft
+  team hostile
+  spawn 55.20000 14.60000 ground 270.0 0

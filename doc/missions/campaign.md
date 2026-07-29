@@ -178,14 +178,14 @@ ten runs into one 0/1 would be exactly the invented single verdict O5 refuses.
 | `core/FBCampaignState.h/.cpp` | `FBCampaignState` (the three carried facts as text) + `FBApplyCampaignCarry`, the overlay |
 | `missions/FBCampaignRunner.h/.cpp` | the loop over `FBRunMission` and the aggregate report. **Gym-only**, like `FBTickPool`: it is not in `libfbcore.a` and never reaches wasm |
 | `missions/FBMissionRunner` | grew ONE optional parameter, `const FBMissionCarry *` (state in, campaign clock, outcome out). Null = the run that existed before, byte for byte |
-| `fb-gym --campaign FILE` | runs a campaign; `--mission FILE --state FILE [--carry LIST]` runs ONE step standalone with the same overlay — the two halves of §5 criterion 2 |
+| `fb-gym --campaign FILE` | runs a campaign; `--mission FILE --state FILE [--carry LIST] [--campaign-time ISO]` runs ONE step standalone with the same overlay AND the same clock — the two halves of §5 criterion 2 |
 | `sim/campaigns/viper-attrition.fbc` | the first campaign file: four existing missions, all three carried facts demonstrated |
 | `sim/tools/fb_campaign_verify.py` | the instrument: `fingerprint` / `campaign` / `determinism` / `replay` |
 
 **Output per campaign** (`--out DIR`): `NN-<missionfile>/` per step with the ordinary per-run files plus
 `campaign-state.txt` (the state AFTER that step — so the state BEFORE step *k* is step *k−1*'s file, which
 is exactly what `--state` takes), plus `campaign.log` and `campaign-summary.txt` at the root. The summary
-carries the **environment record** (`elev`, `swiss_dem`, `base`, `threads`) the comparability rule of §5
+carries the **environment record** (`time`, `elev`, `swiss_dem`, `base`, `threads`) the comparability rule of §5
 requires; `FBCampaignEnv` is how the client tells the runner which ground it injected, because the runner
 sees only an `FBElevationProvider&` and could not name it.
 
@@ -214,6 +214,30 @@ headers:
 
 Campaign exit 3 and the same four verdicts under both. The layer adds no hidden state — a fresh process
 handed only the text state file and the recorded ground reproduces the step bit for bit.
+
+### The clock was missing from the replay half, and the second campaign found it (2026-07-29)
+
+Criterion 2 is a statement about the campaign layer, and it was only ever tested on `viper-attrition`,
+which declares **no** `time`. The first campaign that does — `sim/campaigns/o4-gaf-mig29g-dact.fbc`
+([`../campaigns/o4-gaf-mig29g-dact.md`](../campaigns/o4-gaf-mig29g-dact.md)) — replayed **9 of 10 steps
+DIVERGED** on the first attempt, and the one that matched was the only mission declaring its own clock.
+The cause is exactly what criterion 2 exists to catch: `FBMissionCarry` has carried `CampaignUtcT0S` /
+`HaveCampaignTime` since the layer was built, and **`fb-gym --mission --state` had no way to fill them**,
+so every standalone step of a clocked campaign ran under no sky at all.
+
+Closed the way §5 closes the ground rather than by a better default, because it is the same rule:
+
+| Half | Where |
+|---|---|
+| the clock is **RECORDED** by the run | `campaign-summary.txt` gains `time <ISO>` (or `time none`), beside `elev`/`swiss_dem`/`base`/`threads` |
+| the clock is **READ** by the replay, never guessed | `tools/fb_campaign_verify.py` passes what it read; a summary without the field is the pre-round shape and reads as `none` |
+| the receiving flag | `fb-gym --mission … --campaign-time <YYYY-MM-DDThh:mm:ssZ>`. It is campaign DATA, not a client clock: it goes into the same two `FBMissionCarry` fields the runner fills, so `FBResolveMissionClock` applies it by §6's rule — it fills in for a mission that declares no `time` and never displaces one that does. `--campaign-time` beside `--campaign` is the same refusal `--state` already gets |
+
+MEASURED after the fix: O4's ten steps **10/10 MATCH**, and `viper-attrition` is unchanged — 9 runs one
+campaign fingerprint, 4/4 standalone replays MATCH. Conservation for the flag itself: `fb-gym` built with
+the two touched sources reverted, both binaries over all **150** `sim/missions/*.fbm` — **515/515
+`telemetry*.csv` byte-identical, 150/150 `events.log` identical modulo `wallS`/`speedup`/`--out`**, exit
+codes identical. A `--mission` run without the flag takes the same `nullptr` path it always did.
 
 **The first version of this measurement was wrong, and the way it was wrong is the reason for the
 comparability rule in §5.** `fb_campaign_verify.py` defaulted its own `--elev` to `const` while `fb-gym`
@@ -244,9 +268,10 @@ All **104** `sim/missions/*.fbm` + `missions/negative/*.fbm`, run singly as befo
 
 | Gap | Detail |
 |---|---|
-| Only one campaign file exists | `sim/campaigns/viper-attrition.fbc`, built from four missions that already existed. The ten campaigns of [`../campaigns/INDEX.md`](../campaigns/INDEX.md) still have no `.fbm` files of their own — this layer removes their `C0` blocker, it does not write them |
+| ~~Only one campaign file exists~~ | **TWO as of 2026-07-29.** `sim/campaigns/o4-gaf-mig29g-dact.fbc` is the first of the ten real campaigns: ten new `.fbm`, both criteria measured on it, and it is the run that found the clock hole above. The other nine campaigns still have no `.fbm` files |
+| **A controlled variant cannot share a callsign with its control** | learnt building O4 and worth stating here, because it is a property of the LAYER: the store carry is keyed by callsign, so a mission that is "its sibling plus one line" ALSO inherits that sibling's expenditure and stops being a control. The rule that falls out — carry chains and controlled pairs must not overlap — is a campaign-authoring constraint the format cannot enforce |
 | The environment record names the DEM, it does not fingerprint it | `swiss_dem assets/swiss-dem-90m.bin` is a path. Re-bake the asset and every fingerprint changes while the record still reads the same — the comparison would then be across two grounds calling themselves one. Under `--elev tiles` it is worse and unfixable here: the ground is a live server's answer, so a `tiles` campaign is not replayable across time at all. **Never measured under `tiles`** |
-| Both criteria are measured on ONE campaign | four steps, two modules, `swiss` and `const`. That is a measurement, not a theorem: every further campaign re-runs `tools/fb_campaign_verify.py replay` for itself |
+| ~~Both criteria are measured on ONE campaign~~ | **two campaigns, and the second one earned its keep**: O4's ten steps under `--elev const` (9 runs / 1 fingerprint `461e0ff5299d83d03b…`, 10/10 replays). The advice stands unchanged — every further campaign re-runs `tools/fb_campaign_verify.py replay` for itself, and O4 is the reason it is not optional |
 | Damage does not carry (`C21`) | double-blocked: no repair model, and no `.fbm` syntax to spawn a damaged jet. The first extension once either closes |
 | No replacement pool | a lost unit is dropped. Correct for O5, under-modelled for W3/W4's multi-week arcs — their headers must say so |
 | No campaign-level objective | the campaign verdict is an aggregate of mission verdicts; there is no way to declare "the belt is down by mission 5". Deliberately out of this round: it would need a campaign-scope objective vocabulary on top of `C12`'s, and one vocabulary at a time |

@@ -1,0 +1,106 @@
+name o4-09-night-1
+timeout 300
+
+# CAMPAIGN O4, SORTIE 9 OF 10 — THE OTHER HALF OF THE CONCESSION, AND THE SPEC LISTED IT AS THE ONE
+# MISSION THAT CANNOT BE FLOWN. doc/campaigns/o4-gaf-mig29g-dact.md mission 9. It is now RUNNABLE and it
+# is still not ANSWERABLE, and the difference between those two words is what this file measures.
+#
+# WHAT CHANGED SINCE THE SPEC. The spec blocked this mission on `C2` (no time of day) and, more deeply,
+# on `C3` (no visual channel for darkness to degrade). BOTH are closed: `time <ISO8601 Z>` is mission
+# data (doc/missions/syntax.md) and sensors/FBVisualSystem is built and is the sixth registry reader
+# (doc/sensors.md §9). So the file below is o4-04-entry-10nm.fbm plus ONE mission-wide line — the clock
+# — and fresh callsigns.
+#
+# WHAT DID NOT CHANGE. NOTHING CONSUMES THE VISUAL BLOCK. pilot/FBPilot never reads it, exactly as it
+# never reads the Irst block (doc/duels.md D3). And there is no aircraft-lighting model, so at night the
+# channel contributes nothing at all — which is the model and not a bug (doc/missions/sensors.md,
+# "at night it contributes nothing"). The two consequences are the mission's whole content:
+#   a. FBDaylightFactor is a smoothstep in sun elevation that reaches ZERO at -9 deg
+#      (core/FBEphemeris.h). At 55.20 N on 1997-12-10 at 22:00Z the sun sits far below that, so the
+#      eye's day factor is 0 and no visual contact can form.
+#   b. Because no pilot reads the block, every flight column of this run must be IDENTICAL to o4-04's.
+#      That is the acceptance test of this mission, and a divergence in any column other than the
+#      environment and visual ones would be a defect.
+#
+# THE ONE TACTICAL QUESTION, therefore, is not "who wins at night" — nothing in the tree can answer
+# that. It is: HOW BIG IS THE HOLE? The answer is a column count and a contact count, and it is
+# published beside the campaign result rather than dressed up as a tactical finding.
+#
+# THE DATE IS INSIDE THE ANCHOR'S OWN PERIOD (JG 73 operated the MiG-29G from 1991 to 2003) and it is
+# December because December is when 55 N has a real night; the campaign's own clock, declared in
+# o4-gaf-mig29g-dact.fbc, is a June morning. Both are [SET].
+#
+# MEASURED (2026-07-29, both runs as campaign steps so both carry a clock): of 184 telemetry columns the
+# night run differs from the daylight run in SIX, and every one of them is visual — `vis_glare` on both
+# jets, plus `vis_contacts` / `vis_best_mrad` / `vis_best_az` / `vis_best_el` / `vis_best_state` on the
+# MiG (50 rows each, RECOGNISED by day, nothing at night). Every flight, sensor, weapon and engagement
+# column is byte-identical; both runs fire at the same instants from the same ranges and kill the same
+# jet at the same tick (t=29.3, missM 1.65047). exit 0 either way. THAT NUMBER IS THE MISSION: darkness
+# reaches six columns and no decision.
+#
+# READING RULE: the verdict is a DIFF, not an exit code. Compare this run's telemetry column by column
+# against o4-04's: expect `blk_vis`/`vis_*` and the environment columns to differ and NOTHING else.
+# Read `vis CONTACT`/`RECOGNISED`/`IDENTIFIED` counts (o4-04 has them, this file must have none) and the
+# MISSION_START sun elevation. exit 2 would be a defect.
+
+time 1997-12-10T22:00:00Z
+
+unit viper8
+  team friendly
+  module f16
+  spawn 55.20000 13.45420 5000 90.0 380       # 10.00 nm apart, head-on, co-altitude
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode acm_hud
+  set fcr_range_nm 10
+  set rwr on
+  set store 1 aim9                            # firing order: the infrared rounds first
+  set store 2 aim9
+  set store 3 aim120
+  set store 4 aim120
+  set cmds_mode man
+  set cmds_program 3
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task bfm
+  wp 55.20000 14.60000 5000 380               # hulkeast: the MiG's own range target
+  objective kill unit fulcrum8
+  objective survive
+
+unit fulcrum8
+  team hostile
+  module mig29
+  spawn 55.20000 13.74580 5000 270.0 380
+  set gear up
+  set fuel_pct 60
+  set n019_mode acm                           # briefed INTO the fight: the close-combat auto-lock volume
+  set n019_range_nm 10
+  set n019_emission illum
+  set rwr on
+  set kols_mode ir_cc                         # the KOLS in its close-combat field — the third of the
+  set kols_laser on                           # quotation's three reasons, and the one o4-08 can blind
+  set store 1 r73
+  set store 2 r73
+  set store 3 r27r
+  set store 4 r27r
+  set cmds_mode man
+  set cmds_program 3
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task bfm
+  wp 55.20000 12.60000 5000 380               # hulkwest: the F-16's own range target
+  objective kill unit viper8
+  objective survive
+
+unit hulkwest
+  module target_soft
+  team friendly
+  spawn 55.20000 12.60000 ground 90.0 0
+
+unit hulkeast
+  module target_soft
+  team hostile
+  spawn 55.20000 14.60000 ground 270.0 0

@@ -1333,3 +1333,50 @@ restricted headers, 6 Registry-Leser) und `verify-models` grün, acht Harnesses 
 `--threads 1/2/4` je ein Fingerabdruck, `git status --porcelain sim/assets` leer, **130 von 139
 Missionen byte-identisch** — die neun, die sich bewegen, je einzeln begründet, plus eine neue
 (`duel-merge-stern`). Ein Exit-Code bewegt sich: `duel-merge` 3 → 0.
+
+## 2026-07-29 — Kampagne O4 gebaut und geflogen: die Zehn-Meilen-Behauptung, vermessen
+
+**Schritt 4 des Eigner-Ziels beginnt, und O4 ist die erste**, weil sie als einzige der zehn Kampagnen
+beide FlightBox-Zellen zeigt, die historisch wirklich gegeneinander flogen (JG 73 "Steinhoff", Laage,
+~450 Einsätze gegen F-16 [T4]). Zehn `sim/missions/o4-*.fbm` plus `sim/campaigns/o4-gaf-mig29g-dact.fbc`,
+Arena über der Ostsee (55,20 N 13,60 E [SET], `--elev const`, weil 0 m dort die Wahrheit ist), Bodenziele
+in jeder Mission, jede Mission mit ihrer verbindlichen Leseregel im Kopf.
+
+**Das Ergebnis ist eine Aussage, keine Zahl.** Die berühmte Behauptung des Fulcrum-Piloten — *"inside ten
+nautical miles I'm hard to defeat"* — hält an ihrer eigenen Außenkante und stirbt im Messerkampf:
+**10 nm MiG (R-73 Raero 20 km und ±60° Helmvisier bieten den Schuss 11,0 s vor der AIM-9), 5 nm
+gegenseitiger Abschuss 0,1 s auseinander, 2 nm F-16 (9,4 kg gegen 7,4 kg Gefechtskopf, Ankunft 1,40 m
+gegen 2,61 m).** Zwei der drei Gründe, die das Zitat nennt, sind modelliert und entscheiden; der dritte,
+das IRST, trägt bei KEINER Entfernung etwas bei — kein Konsument im Piloten UND bei Frontalanflug 10 km
+Reichweite statt 25 km von hinten (`irst_contacts` = 0 in beiden Läufen).
+
+**Was die Kampagne findet und der Anker nicht nennt: das Magazin.** Die F-16 trägt einen
+Drei-Einsatz-BVR-Vorrat, die MiG-29 einen Ein-Einsatz-Vorrat. Einsatz 3 fliegt mit dem, was 1 und 2
+übrig ließen, und das Gefecht KIPPT: allein geflogen schießt die MiG zweimal und die F-16 nie
+(R-27R 10,16 m), in der Kampagne schießt die F-16 (AIM-120 5,13 m) und die MiG hat keinen Radarflugkörper
+mehr. Beide unentschieden, aus entgegengesetzten Gründen.
+
+**Die zwei blockierten Missionen, gegen den heutigen Baum geprüft statt geglaubt.** Mission 6 (Merge)
+läuft und ENTSCHEIDET — der Blocker war Wiedererfassung, und die Frage stellt sich nicht mehr, weil der
+Kampf auf dem ersten Pass fällt. Mission 9 (Nacht) läuft, `C2` und `C3` sind gebaut — und kann ihre Frage
+weiterhin nicht beantworten: von **184 Telemetriespalten unterscheiden sich sechs**, alle visuell, und
+beide Läufe töten denselben Jet im selben Tick. Das Loch hat jetzt eine Zahl statt einer Behauptung.
+
+**Kein Ergebnis mit zwei möglichen Ursachen ohne Kontrolllauf.** Das Wetter-Fixture ändert Wolke UND
+Wind; der Wind-ohne-Wolke-Kontrolllauf reproduziert den Wetterlauf auf drei Dezimalstellen
+(3,033/1,615/2,026 gegen 3,007/1,608/2,027 m). **Der Umschwung ist zu 100 % der Wind.** Was die Wolke
+nimmt, ist gemessen und folgenlos: das AUGE der MiG, 50 Kontaktframes und RECOGNISED auf 0 Kontakte und
+7 `vis MASKED` bei Transmission 0,011.
+
+**Der Fingerabdruck fand einen echten Defekt in der Kampagnenschicht.** Kriterium 2 war beim ersten
+Versuch **9 von 10 DIVERGED** — `fb-gym --mission --state` konnte die KAMPAGNENUHR nicht empfangen, und
+nur Mission 9 (eigene Uhr) passte. `viper-attrition` deklariert keine `time` und konnte das nie zeigen.
+Geschlossen wie §5 den Boden schließt: die Uhr wird AUFGEZEICHNET (`campaign-summary.txt: time`) und
+GELESEN, Empfänger ist `fb-gym --campaign-time ISO` — Kampagnendaten, nie eine Client-Uhr.
+
+**Tore.** `core-lib gym native wasm` warnungsfrei, `verify-layers` (297 Dateien, 12 Schichten) und
+`verify-models` grün, acht Harnesses rc=0, `git status --porcelain sim/assets` leer. Determinismus:
+**9 Läufe, 1 Kampagnen-Fingerabdruck** `461e0ff5299d83d03b…`, und **10/10 Schritte** einzeln aus dem
+Vorzustand nachgespielt. Konservierung: **515/515 `telemetry*.csv` und 150/150 `events.log`
+byte-identisch** gegen ein Binary mit den zwei berührten Quellen zurückgesetzt, 0 Unterschiede über
+`--threads 1/2/4`. `viper-attrition` unverändert (9 Läufe 1 Fingerabdruck, 4/4 Replays).

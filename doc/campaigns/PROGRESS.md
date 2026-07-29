@@ -21,6 +21,21 @@ Also updated: the gap table in [`INDEX.md`](INDEX.md) now links every one of the
 "foundation round" subsection records the four decisions. One line added to `../INDEX.md`,
 `../missions/INDEX.md` and the loader skill.
 
+**Run 3 — 2026-07-29, O4 BUILT (step 4 of the owner goal).** The first campaign to exist as files:
+ten `sim/missions/o4-*.fbm` + `sim/campaigns/o4-gaf-mig29g-dact.fbc`, run, replayed and measured
+([`o4-gaf-mig29g-dact.md`](o4-gaf-mig29g-dact.md) §State). Two `sim/src` files and one tool changed —
+the campaign layer could not hand a campaign's own `time` to a standalone step replay, so criterion 2
+was unsatisfiable for any clocked campaign and O4 was the first to declare one. No source was researched
+on this run; the anchor is Run 1's and unchanged, and the forum test-report thread below is still unread.
+
+| Measured | Value |
+|---|---|
+| Campaign exit / step exits | 3 / `0 3 3 0 1 0 3 1 0 3` |
+| Determinism criterion 1 | 9 runs (3 × `--threads 1/2/4`), **1** campaign fingerprint `461e0ff5299d83d03b…`, `--elev const` |
+| Determinism criterion 2 | **10/10** steps replay standalone bit for bit (9/10 DIVERGED before the clock fix) |
+| Conservation | 515/515 `telemetry*.csv` and 150/150 `events.log` byte-identical against a reverted binary; 0 diffs over `--threads 1/2/4` |
+| The campaign's own answer | the ten-mile claim: **MiG wins at 10 nm, trade at 5, F-16 at 2** |
+
 ---
 
 ## Campaign coverage
@@ -35,11 +50,12 @@ Also updated: the gap table in [`INDEX.md`](INDEX.md) now links every one of the
 | O1 Bekaa 1982 | [o1-bekaa-1982.md](o1-bekaa-1982.md) | yes ([T4] primary; disputes carried) | 10 | yes | yes | **complete** |
 | O2 PVO intercept | [o2-pvo-intercept.md](o2-pvo-intercept.md) | partial — doctrine [T3]/[T4], hardware [T2] via `doc/modules/mig29/`; **[T1] material unread** | 10 | yes | yes | **complete, thinnest sourcing in the set** |
 | O3 Yom Kippur | [o3-yom-kippur-1973.md](o3-yom-kippur-1973.md) | yes ([T1] Marine Corps study + [T4]) | 10 | yes | yes | **complete** |
-| O4 GAF DACT | [o4-gaf-mig29g-dact.md](o4-gaf-mig29g-dact.md) | yes ([T3]/[T4]; one forum test-report thread unread) | 10 | yes | yes | **complete** |
+| O4 GAF DACT | [o4-gaf-mig29g-dact.md](o4-gaf-mig29g-dact.md) | yes ([T3]/[T4]; one forum test-report thread unread) | 10 | yes | yes | **BUILT AND FLOWN** — ten `.fbm` + one `.fbc`, both determinism criteria measured |
 | O5 Airfield defence | [o5-airfield-defence.md](o5-airfield-defence.md) | yes ([T4]; totals [DISPUTED] and deliberately omitted) | 10 | yes | yes | **complete** |
 | — | [INDEX.md](INDEX.md) | — | — | aggregated | aggregated | **complete**: map, reading rules, cast by frequency, gaps by blocking degree, the identification section, the Bekaa yardstick |
 
-**100 missions specified. 50 runnable against the tree as it stands** (per-campaign breakdown in
+**100 missions specified. 10 BUILT (O4). 50 were counted runnable when the specs were written; O4's own
+count came out at 10 of 10 when re-checked against the tree** (per-campaign breakdown in
 [`INDEX.md`](INDEX.md)).
 
 ---
