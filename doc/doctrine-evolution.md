@@ -4,8 +4,13 @@
 it is **allowed to change** (the genome), what stops the co-evolution from **circling** (the archive),
 and what an arena must be before any of it measures anything (the **saturation criterion**).
 
-**Status: BUILT, round `E1` (2026-07-29).** The `## Spec` below is unchanged from the round that wrote
-it — it is the contract, and a contract that is edited to match what was built measures nothing.
+**Status: BUILT, rounds `E1` and `E2` (2026-07-29).** The `## Spec` below is unchanged from the round
+that wrote it — it is the contract, and a contract that is edited to match what was built measures
+nothing. `E2` cut the genome against the arena: it measured every gene's lever one at a time, found
+that `E1`'s total tie was the COMPARISON and not the genome (deviation D6), built the merge profile and
+three merge geometries, ran the gate with the genome's own alphabet (E-12) and got a REFUSAL, and
+produced the first evolution run whose population does not tie. Its measurements are the second
+`## State` block.
 `## State` carries what the build measured against it, **including the five places the spec did not
 carry** (D1–D5) and the one exhibit that did not come out the way the spec predicted (A). Built:
 `sim/tools/fb_fitness.py` (the fitness), `sim/tools/fb_arena_check.py` (the gate),
@@ -621,6 +626,250 @@ long approach, and eleven F-16-vs-F-16 candidates were flown and rejected before
 `farfast` / `farlowsplit` / `beam` 100 %/0). That is §4.2's own weapon-obligation axis arriving at its
 consequence: two identical aircraft with the same weapon draw, and no geometry fixes that.
 
+---
+
+## State — round `E2` (2026-07-29): the genome and the arena cut
+
+`E1` closed with E-13: *"the genome and the arena do not intersect, and the first evolution run
+measured a total tie — every individual 0.500."* That reading was **half right and the wrong half was
+the diagnosis.** Measured per gene, three of the five levers do grip; what did not grip was the
+COMPARISON. Both halves are below, in the order the round measured them.
+
+### 1. Per gene: does the lever grip at all?
+
+Each gene against the channel §2.1 names for it, at both of its rails, on ONE mission — no tournament,
+no aggregation, nothing that could hide a movement or manufacture one.
+
+| Gene | Where it was measured | Rails | The channel §2.1 names | Verdict |
+|---|---|---|---|---|
+| **G1** `pilot_flight_shape` | `bvr-intercept` + the `set` line | — | — | **BLOCKED, and it is not even a key.** `set pilot_flight_shape 1` → `module SET_INVALID_VALUE … reason="no such pilot parameter, or out of range"` + `mission SET_REJECTED` at t = 0.0, **exit 1**, the run never starts. Cause unchanged: [`formation.md`](formation.md) F5 |
+| **G5** `pilot_emcon_frac` | `bvr-intercept` + the `set` line | — | — | **BLOCKED, identically.** `set pilot_emcon_frac 0.5` → the same two lines, **exit 1**. Cause unchanged: [`duels.md`](duels.md) D3 |
+| **G4** `pilot_energy_frac` | `bfm-basic`, `bfm-offset`, and a live 1v1 merge (both seats `set task bfm`) | 0.7 / 1.0 / 1.2 | `bfm_ctrl_s` and `eng_es_min/es_start` "unchanged to the digit" = inert | **GRIPS in the `bfm` phase, and hard.** `bfm-basic` `bfm_ctrl_s` **267.4 / 267.9 / 268.8** s and `bfm_es` **17 397 / 17 392 / 17 378** ft, both monotone in the gene; `bfm-offset` 293.5 / 293.5 / 293.6 and 17 393 / 17 384 / 17 375. Against a LIVE opponent the movement is a different order: head-on merge `bfm_es` **42 690 / 44 976 / 46 360** ft (span 3 670 ft = 8.6 %), `bfm_lock_s` 48.7 / 46.3 / 43.8 s; mixed merge `bfm_es` 9 156 / 25 176 / 13 574 ft and the OPPONENT's `bfm_ctrl_s` 59.3 / 0.0 / 14.7 s |
+| **G3** `sort` (`dl=` + `sort=`) | 2v2 F-16 against 2v2 F-16, 420 s | six alleles | the assignment source and the split | **GRIPS, and the allele table was wrong.** `SORT_ASSIGN` lines per element and their `src=`: (off,none) **0**, none · (off,left) **2**, contract · (off,near) **6**, contract · (on,none) **41**, cooperative · (on,left) **41**, cooperative · (on,near) **41**, cooperative. **The three `on` rows are identical to the last digit** — `FBFlightPicture::Assign` ranks the cooperative sort above the briefed contract, so a contract beside a live net is dead text |
+| **G2** `pilot_cover_frac` | five tournament geometries, `--flight 2`, `dl=on` on BOTH sides | 0 / 1.0 / 3.0 | `flt_defer_s` > 0 **and** `flt_both_s` = 0 | **GRIPS on `split`, and only on the lower half of its band.** See the table below |
+
+**G2, per geometry — and this is E-6's correction.** The gene holds the trigger only while a mate is
+already bound, so it needs a BINDING LONGER THAN THE SPREAD between the two members' firing solutions.
+The AIM-120's binding is its time-to-active and that is a function of LAUNCH RANGE, so the geometry
+decides whether the gene has anything to act on:
+
+| geometry, `--flight 2` | `flt_both_s` at rail 0 | `flt_defer_s` at 0 / 1.0 / 3.0 | craft C |
+|---|---|---|---|
+| `mirror` | 0.4 · 1.6 s | 0.0 / 0.0 / 0.0 | 432.9 flat |
+| `far` | 1.5 · 1.7 s | 0.0 / 0.0 / 0.0 | 418.6 flat |
+| `xclose` | 0.0 · 0.3 s | 0.0 / 0.0 / 0.0 | 454.5 flat |
+| `xmirror` | 0.0 · 0.0 s | 0.0 / 0.0 / 0.0 | 362.5 flat |
+| **`split`** | **5.6 · 4.6 s** | **0.0 / 6.3 / 6.3** | **525.5 / 525.1 / 525.1** |
+
+E-6 read *"the gene is correct and its arena does not exist"* off `xmirror`, whose east seat is a
+MiG-29 — an aircraft with **no datalink at all**, so the element being measured never had a mate's
+bound-bit to act on. It exists: it is the geometry with a 12 000 m / 500 kt seat, where the launch is
+far enough that the round binds 5–6 s instead of 0.3. **The upper half of the band is still flat** —
+at 1.0 the cap already outlasts the mate's binding, so 3.0 buys nothing. A gene with half a live band
+is reported as such rather than as a working gene.
+
+### 2. The tie was the COMPARISON, not the genome
+
+[MESS, `split --flight 2`, the population round robin of a four-individual generation, 12 pairings]
+
+| | value |
+|---|---|
+| west key, craft | C = +505.5 … +526.7 — **four distinct values for four genomes** |
+| east key, craft | C = **+69.0 in 12 of 12** |
+| cross-seat comparison | west wins **12 of 12** (over the whole run, 132 of 144) |
+| the seat is worth | **457 craft points**; the genome **21.2** |
+
+§1.4 design C compares "the two units' keys" **inside one run**, i.e. ACROSS THE SEATS. Where the seat
+carries the key, that comparison returns the seat in BOTH mirrored runs, each variant therefore takes
+exactly one point of two, and **the whole population scores 0.500 by construction, whatever it
+carries.** That is E-13's total tie, exactly and arithmetically.
+
+**What was built:** `fb_fitness.match_points` — a MATCH is the pair of mirrored runs and the comparison
+inside it is **seat against the same seat** (A-as-west against B-as-west, A-as-east against B-as-east,
+summed and halved). It is the aggregation, not the order: `(V, M, C)`, `compare` and `pair_points` are
+untouched, and no craft value crosses a level. Booked as deviation **D6**.
+
+**The A/B, on the SAME telemetry — no re-flight, only the comparison changed:**
+
+```
+xfarsplit --flight 2, generation 0   cross-seat  0.500 0.500 0.500 0.500 0.500 0.500
+                                     same-seat   0.700 0.400 0.400 0.400 0.700 0.400
+xfarsplit --flight 2, generation 2   cross-seat  0.500 × 12
+                                     same-seat   0.773 0.417 0.417 0.417 0.417 0.417
+                                                 0.417 0.773 0.500 0.500 0.500 0.227
+```
+
+The published tournaments do NOT move: `variants-flight` on `mirror --flight 2` is `f16_solo` **1.000**
+> `f16_net` 0.625 and on `split` the three F-16 rows tie at **0.750** over `mig_pair` 0.250 /
+`mig_solo` 0.000 — the same numbers §State's Exhibit A carries. `variants-mixed` on `mirror` orders
+`mig_long` 1.000 > `f16_long` 0.800 > `f16_base` 0.600 > `mig_base` 0.400 > `f16_deep` 0.200 >
+`mig_deep` 0.000, with `f16_base`/`f16_long` still on the identical result (V = 2.40, M = 1.40). A
+heterogeneous field does not collapse under the cross-seat rule; a homogeneous one collapses totally,
+which is why the defect surfaced only in the evolution runner.
+
+### 3. The merge — built, measured, and it does not decide a doctrine
+
+The arena had no geometry that enters close combat, and it could not have one by accident:
+**`FBPilot` has exactly ONE transition into `Phase::Bfm` and it is the briefed task at spawn.** The
+intercept phase turns around at `InterceptAbortRangeNm` (5 nm) and there is no `Transition(Phase::Bfm)`
+anywhere in `InterceptCommands`. So a geometry that asks a merge question has to say so, and
+`fb_tournament` now carries a second unit-block **profile** (`merge`, doc/missions/duel-merge.fbm's own
+box settings) plus three geometries that use it: `merge`, `xmerge`, `xmergesplit`.
+
+**What they measure** [MESS, 70 merge runs over seven candidate geometries]:
+
+| | |
+|---|---|
+| gun bursts fired, all 70 runs | **6** |
+| `gun HIT` lines | **0** |
+| missile launches | **0** |
+| `dmg_hits` | **0** |
+| what the deciding class `(2,0)` actually is | **the MiG-29 flying into the ground** — 9 of 11 east results `CRASH`, reasons "extreme attitude at ground contact" / "ground penetration" / "structure contact" |
+
+So the merge DECIDES (`xmerge` and `xmergesplit` both pass S1 at a 50.0 % modal share where every BVR
+symmetric cell sits at 100 %) and what it decides is [`pilot.md`](pilot.md) 2.9's CFIT defect class, not
+a doctrine. And it fails S2 whichever alphabet it is swept with:
+
+| geometry | levers | movers of 9 | S1 | S2 |
+|---|---|---|---|---|
+| `merge` (F-16 v F-16) | the declared nine | 0 | NO (100 %) | NO |
+| `merge` | `levers-merge.txt` | 0 | NO | NO |
+| `xmerge` (F-16 v MiG-29) | the declared nine | 0 | ok (50.0 %) | NO |
+| `xmerge` | `levers-merge.txt` | **1** (`energy-low`) | ok | NO |
+| `xmergesplit` | `levers-merge.txt` | **2** (`energy-low`, `energy-high`) | ok (50.0 %) | NO |
+
+`tools/levers-merge.txt` is the nine points of the phase's OWN alphabet, because the declared nine are
+`pilot_shot_rtr` / `pilot_lock_nm` / `pilot_react_s` / `pilot_beam_deg` / `pilot_abort_nm` and **not one
+of them is read inside `BfmCommands`** — sweeping them on a merge geometry re-flies the identical
+aeroplane nine times. The phase reads exactly five keys and only three carry a command
+(`pilot_gun_tol_frac`, `pilot_gun_burst_s`, `pilot_energy_frac`); of those three, **only the energy gene
+ever moves an outcome class**, because the gun never scores.
+
+**The consequence, stated without softening: G4 has no publishable geometry.** Its lever grips (§1), it
+moves the outcome class on `xmergesplit` (2 of 9), and every geometry it moves fails S2 — so §6's
+*"anything measured on a geometry that failed S1–S3 is expressly NOT a finding"* applies to it. G4 stays
+**blocked**, and the blocker is now three named things instead of one suspicion: no intercept→merge
+transition, no `eng_*` channel in the merge (so level C is `GATE` for both sides and the fitness is
+blind to everything the merge moves), and a gun that fires 6 times in 70 runs and hits nothing.
+
+### 4. The arena, `E1` against `E2`
+
+**At `--flight 1` with the declared nine levers — the gate as `E1` ran it. PASSED.**
+
+```
+geometry   distinct     modal modal class    movers of 9                          S1 S2 S3
+far               4     40.0% (2, 1)              4 shoot-early,shoot-late,…      ok ok n/a
+merge             1    100.0% (2, 1)              0 -                             NO NO n/a
+mirror            1    100.0% (2, 1)              1 react-slow                    NO NO n/a
+offset            3     93.3% (2, 1)              1 beam-hard                     NO NO n/a
+split             3     56.7% (2, 1)              3 shoot-early,shoot-late,…      ok ok n/a
+stern             1    100.0% (2, 1)              0 -                             NO NO n/a
+xclose            3     60.0% (2, 1)              3 shoot-early,react-slow,…      ok ok n/a
+xfarsplit         4     40.0% (1, 0)              2 shoot-late,commit-near        ok NO n/a
+xmerge            2     50.0% (2, 0)              0 -                             ok NO n/a
+xmergesplit       2     50.0% (2, 0)              0 -                             ok NO n/a
+xmirror           3     56.7% (2, 1)              5 shoot-early,shoot-late,…      ok ok n/a
+xsplit            3     41.7% (3, 2)              2 shoot-late,commit-near        ok NO n/a
+
+S4 12 geometries (>= 6) ok · S5 4 informative (>= 3) ok [far, split, xclose, xmirror]
+S6 0 identical pair(s) ok · ARENA: PASSED
+```
+
+**At `--flight 2` with the GENOME's own alphabet — the check E4 actually needs (E-12). REFUSED, and the
+refusal is the finding.** `tools/levers-genome.txt` is the three live genes at three points each;
+`fb_arena_check.py` gained `--flight N`, because two of the three live genes do not exist below a
+two-ship and an arena passed at `--flight 1` says nothing about the arena a `--flight 2` run uses.
+
+```
+geometry   distinct     modal modal class    movers of 9                          S1 S2 S3
+far               2     71.7% (4, 2)              1 sort-net                       NO NO n/a
+merge             1    100.0% (4, 2)              0 -                              NO NO n/a
+mirror            2     90.0% (4, 2)              0 -                              NO NO n/a
+offset            2     86.7% (4, 2)              3 sort-net,sort-left,sort-near   NO ok n/a
+split             2     70.0% (4, 2)              0 -                              NO NO n/a
+stern             1    100.0% (4, 2)              0 -                              NO NO n/a
+xclose            2     63.3% (4, 2)              0 -                              NO NO n/a
+xfarsplit         4     48.3% (3, 1)              3 sort-net,sort-left,sort-near   ok ok n/a
+xmerge            2     50.0% (4, 0)              0 -                              ok NO n/a
+xmergesplit       2     50.0% (4, 0)              1 energy-low                     ok NO n/a
+xmirror           2     70.0% (4, 2)              0 -                              NO NO n/a
+xsplit            4     60.0% (4, 2)              0 -                              ok NO n/a
+
+S4 12 geometries (>= 6) ok · S5 1 informative (>= 3) NO [xfarsplit] · ARENA: REFUSED
+```
+
+| | at `--flight 1`, declared nine | at `--flight 2`, genome alphabet |
+|---|---|---|
+| informative | **4** | **1** (`xfarsplit`) |
+| verdict | PASSED | **REFUSED** — S5 1 < 3 |
+
+Two rows are worth reading beside each other. **A 2v2 is MORE saturated than a 1v1, not less:** at
+`--flight 2` eight of the twelve geometries put every run in `(4,2)` — both members TIMEOUT with
+`survive` met — where at `--flight 1` the same geometries spread three and four classes. And `offset`,
+which the arena keeps as a documented dead cell, is the only other geometry the genome moves at all
+(3 of 9, again all three sort alleles) — on a field that sits at an 86.7 % modal share.
+
+`xfarsplit` is the one cell the genome moves: **3 movers of 9, all three of G3's alleles**, over the
+classes (3,1)/(4,2)/(6,4), on a field that spreads **4 classes at a 48.3 % modal share**. It asks three
+of §4.2's five axes at once — the long run-in, the energy split and the weapon obligation. **Seventeen
+candidate geometries were screened for a second one and sixteen returned 0 or 1 mover**
+(`deepsplit`, `offsplit`, `xdeepsplit`, `xoffset`, `xoffsplit`, `xstern`, `xfar` 1, `farsplit` 1,
+`xfarsplit2` 1, `xfarhigh`, `xfarlow`, `xfaroffset`, `xfarstern`, and the four merge cells), so the
+arena's yield **under the alphabet that is actually evolved** is 1 of 12, not 4 of 12.
+
+**Where the temptation to build the arena around a gene was, and what was done instead.** Three places,
+all of them declined and all of them recorded here so a reader can check the decision rather than trust
+it:
+
+1. **A merge yardstick for S1.** The BVR yardstick cannot distinguish two merge doctrines, so a merge
+   geometry is saturated against it. Writing a merge-flavoured FIXED FIELD would have made `xmerge`
+   informative on paper. Not done — `--variants` was left at `variants-bvr.txt` for every number above,
+   and only S2's lever set was given a phase-appropriate file, which is what E-12 already asked for.
+2. **Lowering `kMoversMin` from 3 to 2**, which would have made `xmergesplit` informative and published
+   G4. Not done, not proposed: the gate is not loosened, and the movers it would have counted are the
+   gene's own two rails.
+3. **Selecting the evolution geometry by which ALLELE wins on it.** Not done: `xfarsplit` was selected
+   on S1 (a property of the fixed yardstick, which no genome can influence) and on S2's mover COUNT.
+   Which allele wins was read afterwards and is reported below.
+
+### 5. The evolution run — the population does not tie
+
+`tools/fb_evolve.py --geometry xfarsplit --flight 2 --generations 4 --population 6`, 4 gens × 6, archive
+20 members, 7 m 0 s.
+
+| generation | fitness distribution (sorted) | spread |
+|---|---|---|
+| 0 | **0.700** 0.700 0.400 0.400 0.400 0.400 | 1.75× |
+| 1 | **0.600** 0.600 0.500 0.500 0.400 0.400 | 1.50× |
+| 2 | **0.773** 0.773 0.500 0.500 0.500 0.227 | **3.40×** |
+| 3 | **0.650** 0.650 0.550 0.550 0.550 0.550 | 1.18× |
+
+Not a mean — the distribution, because a mean of six 0.500s and a mean of {0.773, 0.227, …} are the
+same number and only one of them is a measurement.
+
+**And it is decided by the RESULT, not by craft.** Over the four population round robins,
+**312 seat comparisons: V 96 · M 0 · C 152 · exact tie 64.** Ninety-six comparisons — 31 % — turn on
+the judge's verdict; the outcome classes over all 720 side keys are (6,4) 218 · (2,0) 218 · (3,1) 194 ·
+(4,2) 90, i.e. four classes with no modal class above 30 %.
+
+**Which gene moves the outcome, per geometry** — the round's third deliverable, and two of five rows are
+a refusal:
+
+| Gene | The geometry it moves the outcome on | Evidence |
+|---|---|---|
+| **G3** `sort` | **`xfarsplit`** | 3 movers of 9 at `--flight 2`, all three alleles, classes (3,1)→(4,2)/(6,4). The evolution run's ranking is carried by it: every generation's bottom is a `sort=left` or a `dl=on` row and its top is `dl=off` |
+| **G2** `pilot_cover_frac` | **none yet — it moves level C on `split`, never V or M** | `flt_defer_s` 0 → 6.3 s and C 525.5 → 525.1, i.e. −0.4 craft points. §6: a rank change inside level C is expressly not a finding. Its band is also half dead (flat above 1.0) |
+| **G4** `pilot_energy_frac` | **none — `xmergesplit` is the only one and it fails S2** | §3 above |
+| **G1**, **G5** | **none — not keys** | §1 above |
+
+**The champion, and why it is not published as a doctrine shift.** `g0_00`
+(`pilot_cover_frac=1.11 pilot_energy_frac=0.7`, `dl=off`, no contract) held the championship in all four
+generations, the fixed yardstick was **0.583 flat**, T = 0.0000 and the trajectory distance to a
+champion three generations back is 0.0000 — a FIXED POINT, not a cycle, and §6's binding rule applies:
+the mechanism section would have to name a chain of published channels, and the one channel that moved
+(G3) moved on a geometry whose informative status rests on a single lever family. **No §1 is published
+this round.** The product is the two defects above and the arena row.
+
 ### Deviations from the spec, found while building it
 
 | # | The spec says | What was built, and why |
@@ -630,6 +879,8 @@ consequence: two identical aircraft with the same weapon draw, and no geometry f
 | **D3** | §Knowledge 1: the reformed fitness is *"honestly silent"* in a saturated arena | False — see Exhibit A above and E-11 |
 | **D4** | §2.2 property 3: the runner prints `evolving 5 genes of 22 pilot keys; 17 refused as airframe-owned` | It prints `evolving 3 genes of 20 pilot keys; 18 keys not in the genome; 0 non-pilot keys reachable` plus one line per BLOCKED gene with its blocker. 3 not 5 because G1/G5 are blocked by E-4/E-5; *"refused as airframe-owned"* was not used because it is not true of the other 18 — they are pilot keys that simply are not genes |
 | **D5** | §4.2 S2 counts *"3 of the 9 doctrine levers"* | The nine are `pilot_*` intercept keys and are **not the genome**. [MESS] `xmirror` passes S2 with 5 of 9 while all four gene alleles produce the IDENTICAL key in 12 of 12 runs. `fb_arena_check.py --levers FILE` now sweeps whatever alleles are being evolved; the fixed nine remain the default. Booked as E-12 |
+| **D6** (`E2`) | §1.4 design C: *"per PAIRING, compare the two units' keys directly"* — i.e. the two SIDES of one run | **The comparison is seat against the SAME seat**, across the two mirrored runs (`fb_fitness.match_points`). The spec's form measures the SEAT wherever the seat carries the key, and then returns the same winner in both mirrored runs, so every variant takes one point of two and the field ties at 0.500 by construction — E-13's total tie, arithmetically. [MESS, `split --flight 2`] west C = +505.5…+526.7, east C = +69.0 in 12 of 12, seat worth 457 craft points against the genome's 21.2. The ORDER is untouched: `(V, M, C)`, `compare` and `pair_points` are the same functions and no craft value crosses a level. The published tournaments do not move (§State 2) |
+| **D7** (`E2`) | §4.2 assumes one geometry table, swept at one force ratio | A geometry now carries its **profile** — `bvr` or `merge` — because the phase the pilots fly it in is part of the question and cannot be a flag on the runner: `FBPilot` has exactly one transition into `Phase::Bfm` and it is the briefed task at spawn. `fb_arena_check.py` gained `--flight N` for the same reason: two of the three live genes do not exist below a two-ship, so a gate passed at `--flight 1` says nothing about the arena a `--flight 2` run uses |
 
 ---
 
@@ -642,14 +893,17 @@ consequence: two identical aircraft with the same weapon draw, and no geometry f
 | **E-3** | **The −1450.0 decomposition is derived, not read** off the tool's printed items — and it no longer decomposes that way at all, because `no shot` and `hits landed` are gone. The re-run is now `--attribution mig21` under the order scalar | this file |
 | **E-4** | **G5 (EMCON) cannot be evolved before `duels.md` D3 closes.** The runner prints the blocker at start | [`duels.md`](duels.md) D3 |
 | **E-5** | **G1 (formation shape) cannot be evolved before `formation.md` F5 closes.** The runner prints the blocker at start | [`formation.md`](formation.md) F5 |
-| **E-6** | **CONFIRMED BY MEASUREMENT, and it is worse than "nearly flat": G2 is INERT.** [MESS] `flt_defer_s` = 0.0 in 132 of 132 unit traces at `xmirror --flight 2`, both rails of the gene (0 and 3.0), identical keys. The AIM-120 binds 0.3 s, so the rule the gene scales never fires at all on the only airframe that has the channel. The gene is correct and its arena does not exist | [`formation.md`](formation.md) F3, this round |
+| **E-6** | **CORRECTED (`E2`): G2 is not inert, it was measured on the wrong geometry — and half its band is dead.** The 132/132 zeros were taken on `xmirror`, whose east seat is a MiG-29, an aircraft with **no datalink at all**, so the element being measured never had a mate's bound-bit to act on. [MESS, `--flight 2`, `dl=on` both sides] `flt_defer_s` at rails 0 / 1.0 / 3.0 is 0.0 / **6.3** / 6.3 s on `split` with `flt_both_s` (5.6, 4.6) → (0, 0), and 0 / 0 / 0 on `mirror`, `far`, `xclose`, `xmirror` — the binding is the round's time-to-active and only a 12 000 m / 500 kt seat launches far enough for it to outlast the spread between the two members' solutions. **Still open:** the band is flat above 1.0 (the cap already outlasts the mate's binding there), and the 6.3 s of deferral buy −0.4 craft points and never an outcome class | [`formation.md`](formation.md) F3, `E1`, `E2` |
 | **E-7** | **The archive's arena fingerprint has no definition yet.** The archive file names its arena and timeout in a header and a mismatched one must be refused by hand; nothing computes a fingerprint that binds the binary and the elevation record | this file |
 | **E-8** | **Wall-clock, now measured for the shapes this round flew** and still not for the specified P = 12 / k = 8: arena check 8 geometries × 39 runs = 312 runs in **2 m 33 s**; 4 generations × P = 4 at `--flight 2` (≈ 260 runs) in **5 m 39 s**; a 420 s 1v1 BVR duel costs ≈ 0.5 s wall at `--jobs 6` | this round |
 | **E-9** | **`flt_dup` counts sharing, not the violation** | [`formation.md`](formation.md) F4 |
 | **E-10** | **Level C's engagement gate has no channel for "committed but never locked"** | this file |
 | **E-11** | **The fitness is NOT silent in a saturated arena, and §Knowledge 1 claims it is.** Pairwise domination consults C whenever V and M tie, and two floats are never equal, so a dead arena still produces a full ranking. The mitigation built is a REPORT and not a change to the order: every tournament prints which level decided each run and shouts `SATURATED` when V and M decided none. Changing the order to abstain on a level-C tie was NOT done, because it would make the tournament silent about real craft differences in an informative arena too | this round |
-| **E-12** | **S2 tests the arena against the levers it sweeps, which are not the genome.** [MESS] a geometry can pass S2 with 5 of 9 while every gene allele produces the identical key. `--levers FILE` exists; nothing yet requires an evolution run to have passed S2 *with its own alphabet*, and that is the check E4 actually needs | this round |
-| **E-13** | **The genome and the arena do not intersect, and the first evolution run measured a total tie.** Every individual scored exactly 0.500 in both runs (4 generations × 6 at `--flight 1`, 4 × 4 at `--flight 2`), because G4 only acts in the `bfm` phase — which a BVR intercept that ends at timeout never enters — and G2 is E-6. The runner, the archive and all three circling instruments are proven to work; what is missing is a geometry that goes to the merge with a genome that acts there | this round |
+| **E-12** | **RUN, and the arena FAILS it.** `tools/levers-genome.txt` (the three live genes at three points each) plus `fb_arena_check.py --flight N`. [MESS] at `--flight 2` under the genome's own alphabet the arena has **1 informative geometry of 12** against S5's 3 and is **REFUSED**; at `--flight 1` under the declared nine it has 4 and PASSES. **Still open:** nothing in the runner yet REQUIRES the genome-alphabet gate to have passed — `fb_evolve.py` still only prints the reminder. Making it a hard refusal would stop every run this tree can currently fly, so it is booked rather than built | `E1`, `E2` |
+| **E-13** | **DIAGNOSIS REPLACED (`E2`).** The total tie was the AGGREGATION, not the genome: §1.4's cross-seat comparison returns the SEAT in both mirrored runs wherever the seat carries the key, so every variant takes one point of two. [MESS, same telemetry, only the comparison changed] cross-seat 0.500 × 12, same-seat 0.227…0.773. Three of the five genes grip when measured one at a time (§State 1). What remains true of E-13's second half: the genome and the arena still barely intersect — of the five genes exactly **one** (G3) moves an outcome class on exactly **one** geometry (`xfarsplit`) | `E1`, `E2` |
+| **E-14** | **G4 has no publishable geometry, and the blocker is three things.** (a) `FBPilot` has no transition from the intercept phase into `Phase::Bfm` — the merge is only reachable as a briefed task at spawn; (b) the merge writes no `eng_*` column, so level C is `GATE` on both sides and the fitness is blind to everything the merge moves; (c) the gun fires 6 times in 70 merge runs and lands 0 hits, so two of the three BFM doctrine keys are inert and only the gene itself moves a class — 2 movers of 9 on `xmergesplit`, against S2's 3 | `E2` |
+| **E-15** | **What the merge geometries decide is a CFIT, not a gunfight.** [MESS] 9 of 11 east results on `xmerge`/`xmergesplit` are `CRASH` ("extreme attitude at ground contact" / "ground penetration" / "structure contact") — the MiG-29 flies into the ground out of a lost-contact turn, which is [`pilot.md`](pilot.md) 2.9's live defect class. Their S1 pass at a 50.0 % modal share is carried by it, so it is a measurement of a defect and may not be read as a doctrine result | `E2`, [`pilot.md`](pilot.md) 2.9 |
+| **E-16** | **A converged population and a circling one look alike in instrument (c).** The `E2` run's champion never changed, so "min distance to a champion 3+ generations back" is 0.0000 — the reading §3.6c gives a CYCLER. T = 0.0000 and the yardstick was flat, so this one is a fixed point; the instrument cannot tell the two apart on its own and the file now says so | `E2` |
 
 ### Exploits the evolution found
 
@@ -781,3 +1035,5 @@ reading five lines of a `constexpr` table, which is the reason the table is wher
 | `sim/tools/fb_fitness.py` | the fitness itself — the ONE scorer the tournament, the arena gate and the evolution runner all import |
 | `sim/tools/fb_arena_check.py` | §4's gate, and the tool that measured the old arena into a refusal |
 | `sim/tools/fb_evolve.py` | §2/§3's runner: the genome out of `fb-gym --pilot-keys`, the archive, the three circling instruments |
+| `sim/tools/levers-merge.txt` | the merge phase's OWN nine lever points — the declared nine are all intercept keys and not one of them is read in `BfmCommands` |
+| `sim/tools/levers-genome.txt` | the three live genes as a lever set: the file that turns E-12 from a note into a gate run |

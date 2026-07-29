@@ -1172,3 +1172,58 @@ bindet und die Regel damit nie feuert. Genom und Arena schneiden sich noch nicht
 `--threads 1/2/4` (434 Telemetriedateien, 139 Logs, 0 Unterschiede), und die von
 `fb_tournament.py` erzeugten Missionen sind gegen das HEAD-Skript über beide Altgeometrien
 **480 verglichen, 0 verschieden**.
+
+
+### 2026-07-29 — Doktrin-Evolution `E2`: der Gleichstand war der VERGLEICH, nicht das Genom
+
+**Der Auftrag war „Genom und Arena zum Schneiden bringen".** Die Diagnose der Vorrunde — jedes
+Individuum 0,500, weil die Gene in dieser Arena nicht wirken — ist zur Hälfte falsch, und die falsche
+Hälfte war die Ursache.
+
+**Erst je Gen der Hebel, an einer Einzelmission, ohne Aggregation.** G1 und G5 sind keine Schlüssel:
+`set pilot_flight_shape 1` bzw. `set pilot_emcon_frac 0.5` liefern `SET_INVALID_VALUE` +
+`SET_REJECTED` bei t = 0,0 und **Exit 1** — harte Sperren (F5, D3), nichts zu messen. G4 greift, aber nur
+in der `bfm`-Phase: `bfm_ctrl_s` 267,4 / 267,9 / **268,8** s und `bfm_es` 17.397 / 17.392 / **17.378** ft
+über das Band, gegen einen LEBENDEN Gegner `bfm_es` 42.690 / 44.976 / **46.360** ft. G3 greift und die
+Allel-Tabelle war falsch: `SORT_ASSIGN` 0 / 2 / 6 / 41 / 41 / 41 — die drei `dl=on`-Zeilen sind bis auf
+die letzte Stelle identisch, weil die kooperative Zuweisung den gebrieften Vertrag überstimmt. Vier
+Allele waren zwei. G2 ist NICHT inert: die 132/132 Nullen der Vorrunde standen auf `xmirror`, dessen
+Ostsitz eine MiG ohne Datalink ist — mit Netz auf beiden Seiten `flt_defer_s` 0,0 → **6,3** s und
+`flt_both_s` (5,6; 4,6) → (0; 0) auf `split`. Die obere Hälfte des Bandes bleibt tot.
+
+**Und dann die eigentliche Ursache.** Auf `split --flight 2` trägt der WESTSITZ den Schlüssel:
+West-C = +505,5…+526,7, Ost-C = **+69,0 in 12 von 12**. §1.4 vergleicht die beiden SEITEN EINES Laufs,
+also über die Sitze hinweg — und gibt damit in beiden gespiegelten Läufen denselben Sieger zurück, jede
+Variante nimmt genau einen von zwei Punkten, das Feld steht **konstruktionsbedingt** bei 0,500. Der Sitz
+ist dort 457 Handwerkspunkte wert, das Genom 21,2. Gebaut: `fb_fitness.match_points` — ein MATCH ist das
+gespiegelte Laufpaar, verglichen wird **Sitz gegen denselben Sitz**. Die Ordnung ist unangetastet.
+A/B auf DENSELBEN Telemetrien: quer 0,500 × 12, gleich-Sitz **0,227…0,773**. Die veröffentlichten
+Turniere bewegen sich nicht (Beleg A und B bit-gleich in ihren Zahlen) — ein heterogenes Feld kollabiert
+unter der Querregel nicht, ein homogenes total.
+
+**Der Nahkampf ist gebaut und entscheidet keine Doktrin.** Drei neue Geometrien mit eigenem
+Missions-Profil (`merge`, `xmerge`, `xmergesplit`), weil `FBPilot` genau EINEN Übergang nach `Phase::Bfm`
+hat und das der gebriefte Task beim Spawn ist. Gemessen über 70 Nahkampfläufe: **6 Feuerstöße, 0 Treffer,
+0 Startvorgänge**, und was die Klasse `(2,0)` wirklich ist, ist die MiG-29 im Boden — 9 von 11
+Ost-Ergebnissen `CRASH`. G4 bewegt als einziger Hebel eine Ergebnisklasse (2 von 9 auf `xmergesplit`),
+und jede Geometrie, auf der es das tut, fällt durch S2. **Das Tor wurde nicht gelockert** — G4 bleibt
+gesperrt, jetzt mit drei benannten Ursachen statt einer Vermutung.
+
+**Die Arena, zweimal gemessen.** Bei `--flight 1` mit den erklärten neun Hebeln: 12 Geometrien, **4
+informativ, BESTANDEN**. Bei `--flight 2` mit dem ALPHABET DES GENOMS (`tools/levers-genome.txt`,
+`--flight N` neu im Tor — E-12): **1 informativ von 12, ABGELEHNT.** Die eine ist `xfarsplit` (langer
+Anflug + Energiesplit + Waffenbindung, 3 Beweger von 9, alle drei G3-Allele, Feld 4 Klassen bei 48,3 %
+Modalanteil); 17 Kandidaten wurden dafür gesiebt, 16 lieferten 0 oder 1. Ein 2v2 ist **gesättigter** als
+ein 1v1: acht von zwölf Geometrien legen bei `--flight 2` jeden Lauf in dieselbe Klasse.
+
+**Der Schnitt-Nachweis.** `xfarsplit --flight 2`, 4 Generationen × 6: Verteilung statt Mittelwert —
+Gen 0 `0,700 0,700 0,400 0,400 0,400 0,400`, Gen 2 `0,773 0,773 0,500 0,500 0,500 0,227`. Entschieden
+wird beim ERGEBNIS, nicht beim Handwerk: **312 Sitzvergleiche, V 96 · M 0 · C 152 · exakt gleich 64**,
+vier Ergebnisklassen über 720 Seitenschlüssel. Kein §1 veröffentlicht: der Champion ist ein Fixpunkt
+(Maßstab 0,583 flach, T = 0,0000), und die eine bewegende Geometrie hängt an einer einzigen
+Hebel-Familie.
+
+**Tore.** `core-lib gym native wasm` warnungsfrei, `verify-layers` (297 Dateien, 12 Schichten) und
+`verify-models` grün, fünf Harnesses rc=0, `git status --porcelain sim/assets` vor und nach jedem
+Evolutionslauf leer, Determinismus `--threads 1/2/4` über `xfarsplit`/`merge`/`xmerge`/`xmergesplit`/
+`split` byte-gleich, und alle 140 bestehenden `.fbm`-Dateien unverändert.

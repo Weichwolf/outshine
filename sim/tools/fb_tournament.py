@@ -77,6 +77,13 @@ GEOMETRIES = {
     "far": ((46.90, 5.80, 8000, 420, 90.0), (46.90, 8.30, 8000, 420, 270.0)),
     #
     # --- WEAPON OBLIGATION -------------------------------------------------------------------------
+    # Three of the five axes at once — the long run-in, the energy split and the weapon obligation —
+    # and it is the ONLY cell in this table that a GENOME allele moves the outcome class on. [MESS,
+    # --flight 2, tools/levers-genome.txt] 3 movers of 9, all three of G3's alleles, over the classes
+    # (3,1)/(4,2)/(6,4); the fixed yardstick spreads 4 classes at a 48.3 % modal share. Seventeen
+    # candidates were screened for this and sixteen returned 0 or 1 mover, so it is a find and not a
+    # family: doc/doctrine-evolution.md §State "The arena under the genome's own alphabet".
+    "xfarsplit": ((46.90, 5.80, 12000, 500, 90.0), (46.90, 8.30, 6000, 350, 270.0, "mig29")),
     # The axis with no other spelling: it is a property of the AIRCRAFT in the seat. [MESS] AIM-120
     # 0.3 s of binding against R-27R 17.3 s, a factor of 58 (doc/formation.md §6), and the mixed
     # tournament decides 12 of 30 runs where the symmetric one decides none (doc/duels.md).
@@ -86,6 +93,21 @@ GEOMETRIES = {
     "xclose": ((46.90, 6.95, 8000, 420, 90.0), (46.90, 7.30, 8000, 420, 270.0, "mig29")),
     # ...and with the energy split under it, so the two asymmetries are also asked together.
     "xsplit": ((46.90, 6.40, 12000, 500, 90.0), (46.90, 7.55, 6000, 350, 270.0, "mig29")),
+    #
+    # --- THE MERGE ---------------------------------------------------------------------------------
+    # The only geometries that ENTER close combat, and they must say so in the profile: the intercept
+    # phase turns around at 5 nm and there is no transition from it into Phase::Bfm anywhere in
+    # FBPilot. 8 km apart, head-on, co-altitude, both on `set task bfm` — doc/missions/duel-merge.fbm's
+    # own setup, which is where these two numbers come from.
+    "merge": ((46.90, 6.95, 5000, 380, 90.0), (46.90, 7.055, 5000, 380, 270.0), "merge"),
+    # ...and the mixed one, where the MiG's weapon set is not the inferior one (R-73 off the helmet,
+    # 2.7x the round energy, 24.2 deg/s against 16.2).
+    "xmerge": ((46.90, 6.95, 5000, 380, 90.0), (46.90, 7.055, 5000, 380, 270.0, "mig29"), "merge"),
+    # ...the mixed merge entered with 2,000 m and 70 kt in hand: the one merge cell in which a lever
+    # moves the outcome class at all. [MESS] 2 movers of 9 on tools/levers-merge.txt, and BOTH are the
+    # energy gene's two rails. READ THE §State ROW BEFORE USING IT: what it decides is a MiG-29 CFIT
+    # (9 of 11 east results), not a gunfight — 70 merge runs produced 6 gun bursts and 0 hits.
+    "xmergesplit": ((46.90, 6.95, 7000, 450, 90.0), (46.90, 7.055, 5000, 380, 270.0, "mig29"), "merge"),
 }
 
 
@@ -96,7 +118,16 @@ GEOMETRIES = {
 # the spawn, the master-arm call, `set task intercept`, the vector, the objectives, the `pilot_*`
 # lines — is shared text, so a mixed pairing differs from a same-type one in exactly the things the
 # two aircraft differ in.
+#
+# THE SECOND PROFILE IS THE MERGE. A geometry that asks a close-combat question cannot ask it with
+# `set task intercept`: FBPilot has exactly ONE transition into Phase::Bfm and it is the briefed task
+# at spawn — the intercept phase turns AROUND at InterceptAbortRangeNm (5 nm) and never merges. The
+# `merge` blocks are doc/missions/duel-merge.fbm's own box settings (ACM HUD / N019 ACM via the BFM
+# pilot, the WVR round on the rails, chaff and flares loaded) with the tournament's flight, sort,
+# tuning and objective machinery around them. The `wp` is not steered to — a fight has no waypoint —
+# it is the nav solution the fire-control block gates the EEGS gun funnel on (doc/missions/gun-bfm.fbm).
 UNIT_TPL = {
+  "bvr": {
     "f16": """unit {call}
   team {team}
 {flight}  module f16
@@ -135,6 +166,52 @@ UNIT_TPL = {
   objective {objective}
   objective survive
 """,
+  },
+  "merge": {
+    "f16": """unit {call}
+  team {team}
+{flight}  module f16
+  spawn {lat:.5f} {lon:.5f} {alt} {hdg} {kt}
+  set gear up
+  set fuel_pct 60
+  set datalink {dl}
+  set fcr_mode acm_hud
+  set fcr_range_nm 10
+  set rwr on
+  set store 3 aim9
+  set store 7 aim9
+  set brief_master_arm arm
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+{sort}  set task bfm
+{tuning}  wp {wplat:.5f} {wplon:.5f} {alt} {kt}
+  objective {objective}
+  objective survive
+""",
+    "mig29": """unit {call}
+  team {team}
+{flight}  module mig29
+  spawn {lat:.5f} {lon:.5f} {alt} {hdg} {kt}
+  set gear up
+  set fuel_pct 60
+  set n019_mode rad
+  set n019_range_nm 10
+  set n019_emission illum
+  set rwr on
+  set store 3 r73
+  set store 4 r73
+  set brief_master_arm arm
+  set cmds_mode man
+  set cmds_chaff 30
+  set cmds_flare 30
+{sort}  set task bfm
+{tuning}  wp {wplat:.5f} {wplon:.5f} {alt} {kt}
+  objective {objective}
+  objective survive
+""",
+  },
 }
 
 # THE COMBAT SPREAD the tournament flies when --flight > 1: one nautical mile abeam, 150 m stacked,
@@ -145,7 +222,8 @@ SPREAD_DEG = 1852.0 / 111320.0
 STACK_M = 150.0
 
 
-def unit_block(var, side, call, team, pos, n, lat, lon, alt, hdg, kt, wplat, wplon, foeteam, foe):
+def unit_block(var, side, call, team, pos, n, lat, lon, alt, hdg, kt, wplat, wplon, foeteam, foe,
+               profile="bvr"):
     """One actor block. With n == 1 the text is EXACTLY what it was before flights existed — no
     `flight` line, the single-ship `kill unit` objective, the datalink off — so `variants-bvr.txt`
     keeps producing the missions it produced."""
@@ -156,7 +234,7 @@ def unit_block(var, side, call, team, pos, n, lat, lon, alt, hdg, kt, wplat, wpl
         lateral = SPREAD_DEG * (pos - 1)
         lat = lat - lateral if hdg == "90.0" else lat + lateral
         alt = alt + STACK_M * (pos - 1)
-    return UNIT_TPL[var.module].format(
+    return UNIT_TPL[profile][var.module].format(
         call=call, team=team, flight=flight, lat=lat, lon=lon, alt=alt, hdg=hdg, kt=kt,
         wplat=wplat, wplon=wplon, foe=foe,
         dl=var.dl, sort=("" if not var.sort else "  set brief_sort %s\n" % var.sort),
@@ -183,8 +261,16 @@ def seat(spec):
     return spec[:5], (spec[5] if len(spec) > 5 else None)
 
 
+def profile_of(geometry):
+    """`bvr` unless the geometry names its own — a geometry is a QUESTION and the phase the pilots fly
+    it in is part of the question, not a flag on the runner."""
+    g = GEOMETRIES[geometry]
+    return g[2] if len(g) > 2 else "bvr"
+
+
 def mission_text(name, timeout, geometry, west_var, east_var, n=1):
-    wspec, espec = GEOMETRIES[geometry]
+    wspec, espec = GEOMETRIES[geometry][:2]
+    profile = profile_of(geometry)
     (wlat, wlon, walt, wkt, whdg), wmod = seat(wspec)
     (elat, elon, ealt, ekt, ehdg), emod = seat(espec)
     if wmod:
@@ -196,11 +282,11 @@ def mission_text(name, timeout, geometry, west_var, east_var, n=1):
     for pos, call in enumerate(side_calls("west", n), 1):
         blocks.append(unit_block(west_var, "west", call, "friendly", pos, n, wlat, wlon, walt,
                                  "%.1f" % whdg, wkt, wvec[0], wvec[1], "hostile",
-                                 side_calls("east", n)[0]))
+                                 side_calls("east", n)[0], profile))
     for pos, call in enumerate(side_calls("east", n), 1):
         blocks.append(unit_block(east_var, "east", call, "hostile", pos, n, elat, elon, ealt,
                                  "%.1f" % ehdg, ekt, evec[0], evec[1], "friendly",
-                                 side_calls("west", n)[0]))
+                                 side_calls("west", n)[0], profile))
     return ("name %s\ntimeout %d\n\n# generated by tools/fb_tournament.py — do not edit\n"
             "# west = %s   east = %s   geometry = %s   flight = %d\n\n%s" %
             (name, timeout, west_var.name, east_var.name, geometry, n, "\n".join(blocks)))
@@ -251,9 +337,9 @@ def load_variants(path):
                 sort = "" if v == "none" else v
                 continue
             if k == "module":
-                if v not in UNIT_TPL:
+                if v not in UNIT_TPL["bvr"]:
                     sys.exit("%s:%d: no arena block for module '%s' (have %s)"
-                             % (path, lineno, v, "/".join(sorted(UNIT_TPL))))
+                             % (path, lineno, v, "/".join(sorted(UNIT_TPL["bvr"]))))
                 module = v
                 continue
             if not k.startswith("pilot_"):
@@ -616,8 +702,9 @@ def main():
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as ex:
             list(ex.map(run_one, alt))
 
-    points = {v.name: 0.0 for v in variants}     # pairwise-domination points, 1 / 0.5 / 0 per run
+    points = {v.name: 0.0 for v in variants}     # pairwise-domination points, 1 / 0.5 / 0 per SEAT
     runs = {v.name: 0 for v in variants}
+    seatkey = {}                                 # (west, east) -> (west key, east key), for the match
     record = {v.name: [0, 0, 0] for v in variants}   # kills, losses, draws — a report column, not a term
     keyseen = {v.name: [] for v in variants}
     # WHICH LEVEL DECIDED, counted over every run. It is the instrument that stops a craft residue from
@@ -633,11 +720,7 @@ def main():
         wf, ef = fit.FlightView(wm), fit.FlightView(em)
         wkey, witems = fit.side_key(wm, ef, duration)
         ekey, eitems = fit.side_key(em, wf, duration)
-        wp, ep = fit.pair_points(wkey, ekey)
-        decided["V" if wkey[0] != ekey[0] else "M" if wkey[1] != ekey[1]
-                else "C" if wkey[2] != ekey[2] else "tie"] += 1
-        points[west.name] += wp
-        points[east.name] += ep
+        seatkey[(west.name, east.name)] = (wkey, ekey)
         runs[west.name] += 1
         runs[east.name] += 1
         keyseen[west.name].append(wkey)
@@ -649,9 +732,8 @@ def main():
                 record[who][1] += 1
             else:
                 record[who][2] += 1
-        print("\n%-28s exit=%d  %.1f sim-s   %s [%s]  vs  %s [%s]  ->  %.1f : %.1f" %
-              (tag, exits[tag], duration, west.name, fit.key_str(wkey), east.name, fit.key_str(ekey),
-               wp, ep))
+        print("\n%-28s exit=%d  %.1f sim-s   %s [%s]  vs  %s [%s]" %
+              (tag, exits[tag], duration, west.name, fit.key_str(wkey), east.name, fit.key_str(ekey)))
         rows = [(m, west, items) for m, items in zip(wm, witems)] + \
                [(m, east, items) for m, items in zip(em, eitems)]
         for side, var, items in rows:
@@ -666,10 +748,25 @@ def main():
             for label, value, detail in items:
                 print("       %+8.1f  %-14s %s" % (value, label, detail))
 
+    # THE MATCH: the two mirrored runs of a pairing, compared SEAT AGAINST THE SAME SEAT. Comparing the
+    # two sides inside one run scores the SEAT wherever the seat carries the key, and then no doctrine
+    # can move the result — fb_fitness.match_points carries the measurement.
+    for i in range(len(variants)):
+        for j in range(i + 1, len(variants)):
+            a, b = variants[i].name, variants[j].name
+            (aw, be), (bw, ae) = seatkey[(a, b)], seatkey[(b, a)]
+            ap, bp = fit.match_points(aw, ae, bw, be)
+            points[a] += 2.0 * ap
+            points[b] += 2.0 * bp
+            for x, y in ((aw, bw), (ae, be)):
+                decided["V" if x[0] != y[0] else "M" if x[1] != y[1]
+                        else "C" if x[2] != y[2] else "tie"] += 1
+
     print("\n" + "=" * 100)
-    print("RANKING — the fitness is a normalised WIN RATE in [0,1]: per run the two sides' (V, M, C)")
-    print("keys are compared LEFT TO RIGHT and the winner takes 1, a tie a half. `V` and `M` are the")
-    print("means of the two levels that DECIDE; `craft` only ever orders runs that tied on both.")
+    print("RANKING — the fitness is a normalised WIN RATE in [0,1]: per MATCH (the two mirrored runs of")
+    print("a pairing) the two variants' (V, M, C) keys are compared SEAT AGAINST THE SAME SEAT, left to")
+    print("right, and the winner of a seat takes 1, a tie a half. `V` and `M` are the means of the two")
+    print("levels that DECIDE; `craft` only ever orders seats that tied on both.")
     print("=" * 100)
     print("%-16s %8s %6s %6s %8s   %4s %4s %4s   %s" %
           ("variant", "fitness", "V", "M", "craft", "kill", "lost", "draw", "parameters"))
@@ -684,11 +781,11 @@ def main():
                ("GATE x%d" % gated) if gated else "%+.1f" % (sum(craft) / max(1, len(craft))),
                k, l, d, " ".join("%s=%g" % kv for kv in sorted(v.params.items())) or "(airframe defaults)"))
 
-    n_runs = len(meta)
-    print("\ndecided at level:  V %d   M %d   C %d   exact tie %d   (of %d runs)"
-          % (decided["V"], decided["M"], decided["C"], decided["tie"], n_runs))
+    n_cmp = sum(decided.values())
+    print("\ndecided at level:  V %d   M %d   C %d   exact tie %d   (of %d seat comparisons)"
+          % (decided["V"], decided["M"], decided["C"], decided["tie"], n_cmp))
     if decided["V"] == 0 and decided["M"] == 0:
-        print("SATURATED: not one run of this field was decided by the RESULT. The order above is a")
+        print("SATURATED: not one seat of this field was decided by the RESULT. The order above is a")
         print("           craft residue and is expressly NOT a finding (doc/doctrine-evolution.md §6).")
         print("           Fix the arena (§4), do not read the ranking.")
 

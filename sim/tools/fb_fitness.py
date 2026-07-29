@@ -169,6 +169,23 @@ def pair_points(a, b):
     return (1.0, 0.0) if r > 0 else (0.0, 1.0) if r < 0 else (0.5, 0.5)
 
 
+def match_points(a_west, a_east, b_west, b_east):
+    """A MATCH is the PAIR of mirrored runs, and the comparison inside it is SEAT AGAINST THE SAME
+    SEAT — A as west against B as west, A as east against B as east — summed and halved.
+
+    Comparing the two sides INSIDE one run measures the SEAT wherever the seat carries the key, and
+    then no genome can move the result: [MESS, `split --flight 2`, 12 pairings] the west key is
+    C = +505.5…+526.7 and the east key C = +69.0 in 12 of 12, so the cross-seat comparison returns
+    `west` in both mirrored runs of every pairing, every variant takes exactly one point of two, and
+    the whole population scores 0.500 whatever it carries. The seat is worth 457 craft points there
+    and the four genomes 21.2 — like against like keeps the 21.2 and drops the 457.
+
+    `a_west` is A's key in the run it flew west (B east); `a_east` is A's key in the mirrored run."""
+    aw, bw = pair_points(a_west, b_west)
+    ae, be = pair_points(a_east, b_east)
+    return (aw + ae) / 2.0, (bw + be) / 2.0
+
+
 def outcome_class(key):
     """The (V, M) pair — what "the same outcome" means, and the unit the saturation criterion of §4.2
     counts modal shares in."""

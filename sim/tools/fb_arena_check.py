@@ -52,7 +52,7 @@ kGeometriesMin = 6    # [DERIVED] 50 % measured informative rate x 3 required in
 kInformativeMin = 3
 
 
-def run_field(gym, outroot, geometry, timeout, variants, jobs, threads):
+def run_field(gym, outroot, geometry, timeout, variants, jobs, threads, flight=1):
     """Every unordered pair of the yardstick, both seats. Returns one (V, M) class per SIDE per run —
     60 samples for six variants, which is the population S1 counts a modal share in."""
     jobslist, meta = [], []
@@ -61,13 +61,15 @@ def run_field(gym, outroot, geometry, timeout, variants, jobs, threads):
             for w, e in ((variants[i], variants[j]), (variants[j], variants[i])):
                 tag = "%s-%s_vs_%s" % (geometry, w.name, e.name)
                 jobslist.append((gym, outroot, tag,
-                                 tour.mission_text(tag, timeout, geometry, w, e, 1), threads))
+                                 tour.mission_text(tag, timeout, geometry, w, e, flight),
+                                 threads))
                 meta.append((tag, w, e))
     with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as ex:
         list(ex.map(tour.run_one, jobslist))
     classes = []
     for tag, w, e in meta:
-        wm, em, dur = fit.read_pair(os.path.join(outroot, tag), ["west"], ["east"], w.name, e.name)
+        wm, em, dur = fit.read_pair(os.path.join(outroot, tag), tour.side_calls("west", flight),
+                                    tour.side_calls("east", flight), w.name, e.name)
         wk, _ = fit.side_key(wm, fit.FlightView(em), dur)
         ek, _ = fit.side_key(em, fit.FlightView(wm), dur)
         classes.append((tag, w.name, fit.outcome_class(wk)))
@@ -75,7 +77,7 @@ def run_field(gym, outroot, geometry, timeout, variants, jobs, threads):
     return classes
 
 
-def run_levers(gym, outroot, geometry, timeout, jobs, threads, levers=None):
+def run_levers(gym, outroot, geometry, timeout, jobs, threads, levers=None, flight=1):
     """The doctrine levers on the WEST seat against a baseline east, on this geometry. By default the
     nine the attribution instrument uses (fb_tournament.DOCTRINE_VARIANTS), so a geometry is tested
     with the levers the tree already declared.
@@ -90,22 +92,24 @@ def run_levers(gym, outroot, geometry, timeout, jobs, threads, levers=None):
     for name, params in (levers if levers is not None else tour.DOCTRINE_VARIANTS):
         v = params if isinstance(params, tour.Variant) else tour.Variant(name, dict(params))
         tag = "%s-lever-%s" % (geometry, name)
-        jobslist.append((gym, outroot, tag, tour.mission_text(tag, timeout, geometry, v, base, 1),
-                         threads))
+        jobslist.append((gym, outroot, tag,
+                         tour.mission_text(tag, timeout, geometry, v, base, flight), threads))
         meta.append((tag, name, v))
     with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as ex:
         list(ex.map(tour.run_one, jobslist))
     out = []
     for tag, name, v in meta:
-        wm, em, dur = fit.read_pair(os.path.join(outroot, tag), ["west"], ["east"], v.name, "baseline")
+        wm, em, dur = fit.read_pair(os.path.join(outroot, tag), tour.side_calls("west", flight),
+                                    tour.side_calls("east", flight), v.name, "baseline")
         wk, _ = fit.side_key(wm, fit.FlightView(em), dur)
         out.append((name, fit.outcome_class(wk)))
     return out
 
 
-def check_geometry(gym, outroot, geometry, timeout, variants, jobs, threads, leverset=None):
-    classes = run_field(gym, outroot, geometry, timeout, variants, jobs, threads)
-    levers = run_levers(gym, outroot, geometry, timeout, jobs, threads, leverset)
+def check_geometry(gym, outroot, geometry, timeout, variants, jobs, threads, leverset=None,
+                   flight=1):
+    classes = run_field(gym, outroot, geometry, timeout, variants, jobs, threads, flight)
+    levers = run_levers(gym, outroot, geometry, timeout, jobs, threads, leverset, flight)
 
     counts = collections.Counter(c for _, _, c in classes)
     modal_class, modal_n = counts.most_common(1)[0]
@@ -138,20 +142,25 @@ def main():
     ap.add_argument("--timeout", type=int, default=420)
     ap.add_argument("--jobs", type=int, default=6)
     ap.add_argument("--threads", type=int, default=2)
+    ap.add_argument("--flight", type=int, default=1, choices=(1, 2, 4),
+                    help="element size per side. THE GATE MUST BE RUN IN THE SHAPE THE EVOLUTION RUN "
+                         "FLIES: two of the three live genes (cover, sort) do not exist below 2, so an "
+                         "arena passed at 1 says nothing about the arena a --flight 2 run uses")
     args = ap.parse_args()
 
     variants = tour.load_variants(args.variants)
     geoms = args.geometry or sorted(tour.GEOMETRIES)
     os.makedirs(args.out, exist_ok=True)
 
-    print("arena check: %d geometries x (%d yardstick runs + %d lever runs), timeout %ds"
-          % (len(geoms), len(variants) * (len(variants) - 1), len(tour.DOCTRINE_VARIANTS), args.timeout))
     leverset = None
     if args.levers:
         lv = tour.load_variants(args.levers)
         leverset = [("baseline", tour.Variant("baseline", {}))] + [(v.name, v) for v in lv]
+    print("arena check: %d geometries x (%d yardstick runs + %d lever runs), timeout %ds, flight %d"
+          % (len(geoms), len(variants) * (len(variants) - 1),
+             len(leverset) if leverset else len(tour.DOCTRINE_VARIANTS), args.timeout, args.flight))
     res = [check_geometry(args.gym, args.out, g, args.timeout, variants, args.jobs, args.threads,
-                          leverset) for g in geoms]
+                          leverset, args.flight) for g in geoms]
 
     print("\n" + "=" * 104)
     print("PER GEOMETRY — the outcome class is (V, M): the two levels of the fitness that DECIDE")

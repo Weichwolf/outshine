@@ -1,0 +1,27 @@
+# FlightBox — THE GENOME'S OWN ALPHABET as a lever set, for tools/fb_arena_check.py --levers.
+#
+#     tools/fb_arena_check.py --out /tmp/arena --levers tools/levers-genome.txt --flight 2
+#
+# WHY. S2 asks whether a geometry separates DOCTRINES and answers with the levers it is handed, and
+# doc/doctrine-evolution.md E-12 books the consequence: a geometry can pass S2 with 5 of 9 of the
+# declared intercept levers while every ALLELE OF THE GENOME produces the identical key. E4 — "no
+# evolution run starts on a saturated arena" — is only met when the geometry is sensitive to the
+# alphabet that run will actually mutate, and that alphabet is this file.
+#
+# THE NINE POINTS are the three live genes at three values each: the two `Scale` genes at both rails
+# and the middle of their own bands, and G3 at three of its four alleles. G1 (`pilot_flight_shape`) and
+# G5 (`pilot_emcon_frac`) are absent because they do not exist as keys — a mission naming either one
+# exits 1 with SET_INVALID_VALUE, which is the blocker itself and not a lever.
+#
+# TWO OF THE NINE NEED --flight 2 AND WILL DO NOTHING BELOW IT: the cover rule has no mate to cover for
+# and the sort has nobody to sort against, so a single-ship sweep of this file measures G4 alone.
+
+cover-off    pilot_cover_frac=0            # the cover rule off: fire whenever the parameters are met
+cover-one    pilot_cover_frac=1.0          # hold for exactly one of one's own bindings
+cover-three  pilot_cover_frac=3.0          # the far rail
+energy-low   pilot_energy_frac=0.7         # 266 kt insisted on, below the F-16's own BfmMinSpeedKt
+energy-mid   pilot_energy_frac=0.95
+energy-high  pilot_energy_frac=1.2         # 456 kt, above the overspeed clamp
+sort-net     dl=on                         # the cooperative sort out of the shared picture
+sort-left    sort=left                     # the briefed azimuth contract, on no net
+sort-near    sort=near                     # the briefed range contract, on no net

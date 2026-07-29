@@ -57,7 +57,13 @@ GENES = [
                          "'silent' means 'silent and blind' and the band is degenerate at one rail"),
 ]
 
-SORT_ALLELES = [("off", ""), ("on", ""), ("on", "left"), ("on", "near")]   # (dl, sort)
+# G3's alphabet, and the four entries are the four BEHAVIOURALLY DISTINCT ones. [MESS, 2v2 F-16 both
+# sides, 420 s] the assignment source and the number of assignments per element: (off,none) 0 and no
+# source at all, (off,left) 2 by contract, (off,near) 6 by contract, (on,*) 41 cooperative — and the
+# three `on` rows are IDENTICAL to the last digit, because the cooperative sort outranks the briefed
+# contract in FBFlightPicture::Assign and the contract is dead text beside a live net. The earlier set
+# [(off,""),(on,""),(on,left),(on,near)] therefore carried FOUR alleles that were TWO.
+SORT_ALLELES = [("off", ""), ("off", "left"), ("off", "near"), ("on", "")]   # (dl, sort)
 kArchiveMax = 64
 kArchiveSample = 8
 kYardstick = os.path.join(SIM_DIR, "tools", "variants-bvr.txt")
@@ -174,7 +180,10 @@ def fly(gym, outroot, geometry, timeout, pairs, jobs, threads, flight=1):
 def round_robin(gym, outroot, geometry, timeout, contenders, opponents, jobs, threads, tagpfx,
                 flight=1):
     """Both seats of every contender against every opponent. Returns a win vector per contender —
-    the archive's admission test and the CIAO matrix need exactly this, and it costs no extra run."""
+    the archive's admission test and the CIAO matrix need exactly this, and it costs no extra run.
+    The two mirrored runs are ONE match and are compared seat against the same seat (fb_fitness.
+    match_points); comparing the two sides inside one run scored the seat, which is what made the
+    first evolution run tie at 0.500 for every individual."""
     pairs = []
     for c in contenders:
         for o in opponents:
@@ -188,10 +197,9 @@ def round_robin(gym, outroot, geometry, timeout, contenders, opponents, jobs, th
         for o in opponents:
             if c.name == o.name:
                 continue
-            a = keys["%s-%s_vs_%s" % (tagpfx, c.name, o.name)]
-            b = keys["%s-%s_vs_%s" % (tagpfx, o.name, c.name)]
-            pts = fit.pair_points(a[0], a[1])[0] + fit.pair_points(b[1], b[0])[0]
-            win[c.name][o.name] = pts / 2.0
+            a = keys["%s-%s_vs_%s" % (tagpfx, c.name, o.name)]   # c west, o east
+            b = keys["%s-%s_vs_%s" % (tagpfx, o.name, c.name)]   # o west, c east
+            win[c.name][o.name] = fit.match_points(a[0], b[1], b[0], a[1])[0]
     return win
 
 

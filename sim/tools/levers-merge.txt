@@ -1,0 +1,29 @@
+# FlightBox — the MERGE lever set: the nine doctrine points a close-combat geometry is tested with,
+# for tools/fb_arena_check.py --levers.
+#
+#     tools/fb_arena_check.py --out /tmp/arena --geometry xmerge --levers tools/levers-merge.txt
+#
+# WHY IT HAS TO EXIST. S2 asks whether a geometry separates DOCTRINES, and it answers with the levers it
+# is given. The default nine (fb_tournament.DOCTRINE_VARIANTS) are `pilot_shot_rtr`, `pilot_lock_nm`,
+# `pilot_react_s`, `pilot_beam_deg`, `pilot_abort_nm` — every one of them read inside
+# FBPilot::InterceptCommands and NOT ONE of them read inside BfmCommands. Sweeping them on a merge
+# geometry re-flies the identical aeroplane nine times and then reports the geometry as saturated, which
+# is a statement about the LEVER SET and not about the geometry. [MESS] `xmerge`, the nine BVR levers:
+# 0 movers of 9 beside 2 distinct outcome classes at a 50.0 % modal share.
+#
+# THE ALPHABET IS THE PHASE'S OWN, and it is exactly five keys — `pilot_bfm_ctrl_min_nm` and
+# `pilot_bfm_ctrl_max_nm` (the control-position SCOREBOARD, no command behind them), `pilot_gun_tol_frac`
+# and `pilot_gun_burst_s` (the trigger finger) and `pilot_energy_frac` (the speed the pursuer insists
+# on). Three of the five carry a command, so the nine points below are three values on each of those
+# three. The two scoreboard keys are left out on purpose: a lever that moves no command would pass S2
+# by moving a number the fitness does not read.
+
+gun-tight   pilot_gun_tol_frac=0.10       # fire only through the middle of the funnel
+gun-mid     pilot_gun_tol_frac=0.60
+gun-loose   pilot_gun_tol_frac=0.90       # squeeze at anything inside the span of the target
+burst-tap   pilot_gun_burst_s=0.1         # one bundle per squeeze
+burst-mid   pilot_gun_burst_s=0.75
+burst-long  pilot_gun_burst_s=1.0         # the longest burst FBGun honours
+energy-low  pilot_energy_frac=0.7         # 266 kt insisted on: below the F-16's own BfmMinSpeedKt
+energy-mid  pilot_energy_frac=0.95
+energy-high pilot_energy_frac=1.2         # 456 kt: above the overspeed clamp, corner speed abandoned
