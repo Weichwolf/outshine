@@ -46,7 +46,7 @@ on this run; the anchor is Run 1's and unchanged, and the forum test-report thre
 | W2 Osirak | [w2-osirak.md](w2-osirak.md) | yes ([T4] primary + 3 cross-checks, 1 [DISPUTED] value) | 10 | yes | yes | **complete** |
 | W3 Desert Storm | [w3-desert-storm.md](w3-desert-storm.md) | yes ([T4] primary; one [T3] PDF unread) | 10 | yes | yes | **complete, one source unread** |
 | W4 Allied Force | [w4-allied-force.md](w4-allied-force.md) | yes ([T1] + [T3] + [T4]) | 10 | yes | yes | **complete** |
-| W5 Baltic QRA | [w5-baltic-qra.md](w5-baltic-qra.md) | yes ([T3]/[T4]) | 10 | yes | yes | **complete** |
+| W5 Baltic QRA | [w5-baltic-qra.md](w5-baltic-qra.md) | yes ([T3]/[T4]) | 10 | yes | yes | **BUILT AND FLOWN** — ten `.fbm` + one `.fbc`, both determinism criteria on the first attempt, the replay run after the FIRST mission, four findings |
 | O1 Bekaa 1982 | [o1-bekaa-1982.md](o1-bekaa-1982.md) | yes ([T4] primary; disputes carried) | 10 | yes | yes | **BUILT AND FLOWN** — ten `.fbm` + one `.fbc`, both determinism criteria measured on the first attempt |
 | O2 PVO intercept | [o2-pvo-intercept.md](o2-pvo-intercept.md) | **yes — doctrine [T1] since run 7** (both CIA reading-room documents read), hardware [T2] via `doc/modules/mig29/` | 10 | yes | yes | **BUILT AND FLOWN** — ten `.fbm` + one `.fbc`, both determinism criteria on the first attempt, three findings |
 | O3 Yom Kippur | [o3-yom-kippur-1973.md](o3-yom-kippur-1973.md) | yes ([T1] Marine Corps study + [T4]) | 10 | yes | yes | **complete** |
@@ -54,8 +54,8 @@ on this run; the anchor is Run 1's and unchanged, and the forum test-report thre
 | O5 Airfield defence | [o5-airfield-defence.md](o5-airfield-defence.md) | yes ([T4]; totals [DISPUTED] and deliberately omitted) | 10 | yes | yes | **BUILT AND FLOWN** — ten `.fbm` + one `.fbc`, both determinism criteria on the first attempt, three defects found |
 | — | [INDEX.md](INDEX.md) | — | — | aggregated | aggregated | **complete**: map, reading rules, cast by frequency, gaps by blocking degree, the identification section, the Bekaa yardstick |
 
-**100 missions specified. 30 BUILT (O4, O1, O5). 50 were counted runnable when the specs were written;
-all three built campaigns came out at 10 of 10 when re-checked against the tree** (per-campaign
+**100 missions specified. 50 BUILT (O4, O1, O5, O2, W5). 50 were counted runnable when the specs were
+written; all five built campaigns came out at 10 of 10 when re-checked against the tree** (per-campaign
 breakdown in [`INDEX.md`](INDEX.md)).
 
 **Run 4 — 2026-07-29, O1 BUILT.** The second campaign to exist as files: ten `sim/missions/o1-*.fbm` +
@@ -222,3 +222,23 @@ source in the directory"* since run 1 were retrieved and read, and O2's doctrine
 | Found while building | **three findings, none fixed here.** (1) A wrong brief has **no deliberate recovery** — what looks like one is `FBPilot`'s 2.0° elevation dead band drifting, and it saved one aircraft of two, 28 s late. (2) `D3` priced as a byte diff: powering the KOLS across five sorties changed **4 of 184 telemetry columns and nothing else**, while that sensor held a 90 s contact nobody read. (3) An R-27R **inside its own fuze is not a kill** — 4.85 m and 4.75 m in the FORWARD zone left the target combat-effective, 2.48 m elsewhere killed, so an outcome axis ordered by kills is reading warhead geometry |
 | Also measured | the GCI world/body elevation defect on the **other** side of its threshold: the error is exactly `st.pitch`, the climb pitch band is **5.36…5.89°**, the RAD bar is ±6.0°, so O2's margin is **0.11–0.64°** and the bite condition is `|pitch| + |target body-frame offset| > 6.0°` |
 
+
+---
+
+**Run 8 — 2026-07-29, W5 BUILT: the first campaign in which the F-16 flies, and the only one whose
+success condition contains no weapon.** The fifth campaign to exist as files: ten `sim/missions/w5-*.fbm`
+plus `sim/campaigns/w5-baltic-qra.fbc` ([`w5-baltic-qra.md`](w5-baltic-qra.md) §State). **No `sim/src/`
+file, no tool and no asset was touched.** No new source was researched; the anchor is Run 1's and
+unchanged. It is the first campaign whose sorties mostly return a REAL verdict rather than a measuring
+rig's TIMEOUT, because `identify` + `no_fire` (round `C12`) were built for exactly this task.
+
+| Measured | Value |
+|---|---|
+| Campaign exit / step exits | 3 / `0 0 0 0 0 0 0 0 0 3` — nine passes and one capstone that identified 2 of 3 contacts |
+| Determinism criterion 1 | 9 runs (3 × `--threads 1/2/4`), **1** campaign fingerprint `49d3320f5e9761db2f1df85a12d9008e0d8559395c141c31e2e06903b9fe0200`, `--elev const` |
+| Determinism criterion 2 | **10/10** steps replay standalone bit for bit, on the first attempt — **and the replay was run after the FIRST mission**, on a throwaway one-step `.fbc`, which two previous rounds confessed skipping |
+| Conservation | nothing to compare: `git status --porcelain` lists 11 new untracked files and 0 modified; 183 pre-existing missions byte-identical by construction. Annotating the ten files with their MEASURED blocks left all ten per-mission fingerprints and the campaign fingerprint unchanged |
+| The campaign's own answer | **the task was blocked on a CAST ROW, not on a sensor.** The eye names an An-26 at **1 086 m** and a Tu-95 at **2 049 m** where a MiG-29 is not recognised at 1 600 — one resolution law and two published spans. What an identification costs (40 km run-down, 900 s): **412.9 s and 243.5 lb of fuel** to the visual identification, **494.3 m** of separation, and **zero risk**, because a stern conversion is flown into the one place a forward-looking radar does not point (the subject's beam first reaches the interceptor 30 s AFTER the pass) |
+| The three-run counter-check | **`w5-02` vs `w5-03`, one token apart: 6 of 6 `telemetry*.csv` byte-identical, 1 differing `events.log` line of 75.** The control run `w5-01` (the subject ANSWERS) moves **5 of 184 telemetry columns and zero metres** — and that is a DISAGREEMENT with O2, where the same experiment moved zero columns. Rule 11 resolves it: the F-16 flies in a flight and `FBFlightPicture` sorts on the tracks' IFF field, so the quantity is *"what an identity is worth to a FLIGHT"* |
+| Found while building | **four findings, none fixed here.** (1) On the SPAWN tick every RWR reports the emitter's **TRUE** bearing instead of the relative one, because the attitude the body transform reads is not published yet — isolated at **180° against −95.5° on the identical geometry, an error of 275.5°**, held 2.0 s; pre-existing and visible in the committed `pair-2v2-f16.fbm`. (2) `FBPilot` has no behaviour for this task: `FBPilot.cpp:1040` calls *inside 5.0 nm and never shot* an ABORT, so `set task intercept` turns the interceptor away at t = 5.1 s and every W5 pass is an authored route. (3) A flight cannot sort two targets that only one member each can see — `FBFlightPicture::Assign` matches all members against the computing aircraft's own contact list, so both jets report `dup=1` on two aeroplanes 17.8 km apart. (4) The guidance does not crab: one 176 km leg bows **3.4 km** downwind and misses a 2 km box by 4 038 m, where the same aeroplane on 34 km vectors identifies at 677.7 m |
+| Also measured | the accepted price of judging the GEOMETRY instead of the sensor, paid in public: the night sortie has **0** `vis` lines against 9, differs in **6 of 184** telemetry columns, and produces `mission IDENTIFIED` at the **identical tick, range and dwell**. And a fifth thing that is an asymmetry rather than a defect: `modules/air/FBAirMover` has no wind at all, so in wind a declared formation comes apart and a briefed co-speed leg is co-speed in the wrong frame |

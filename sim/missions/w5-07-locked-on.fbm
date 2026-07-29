@@ -1,0 +1,175 @@
+name w5-07-locked-on
+timeout 300
+time 2018-01-15T10:00:00Z
+
+# CAMPAIGN W5, SORTIE 7 OF 10 - BALTIC AIR POLICING / QRA: IDENTIFICATION AS THE TASK.
+# THE SUBJECT PAINTS THE INTERCEPTOR - AND A CONTACT THAT LOCKS YOU IS NOT THEREBY HOSTILE.
+# Spec, anchor and sources: doc/campaigns/w5-baltic-qra.md. Format: doc/missions/campaign.md.
+# CONTROL: none - its own cast. Attribution run A1 is this geometry with `set task intercept`.
+#
+# THE ARENA, and every coordinate in it is [SET]. NATO Baltic Air Policing flies out of Siauliai
+# (Zokniai) AB, Lithuania, ~55.89 N 23.39 E [T4]; the intercept happens over the Baltic west of the
+# Lithuanian coast, on a track running east toward the airspace boundary. Flown under `--elev const`
+# on a 0 m datum and with NO TERRAIN MASKING (gap C4).
+#   the coastal surveillance radar  a P-18, `set emcon free`, 55.80 N 21.05 E. GAP C1 IS CLOSED AND
+#                                   THIS CAMPAIGN RE-CHECKED IT: W5's own spec still says "coastal
+#                                   radars do not emit ... what the QRA protects is scenery". It is not
+#                                   scenery any more - it radiates, it is heard on the intruder's
+#                                   receiver, it builds its own tracks and it can be killed
+#   the port                        Klaipeda, ~55.70 N 21.13 E [T4], a `target_hard`
+#   the second coastal site         Palanga, ~55.92 N 21.07 E [T4], a `target_soft`
+# NOTHING ON THE GROUND IS A TARGET IN THIS CAMPAIGN. They are what the intercept protects, and they
+# are declared so the protection has objects. `objective protect` is deliberately NOT used: it names a
+# UNIT, and a policing sortie protects an AREA.
+# Scale at this latitude: 1 deg of latitude = 111 132 m, 1 deg of longitude = 62 411 m [DERIVED].
+# THERE ARE NO SHIPS (gap C14) and the Baltic is full of them: the one cast item this campaign asks
+# for and cannot have.
+#
+# THE SUBJECT IS A TRANSPORT, AND THAT IS THE WHOLE DIFFERENCE. W5's spec lists this campaign as
+# blocked on gap C7 - "no transport, ELINT or bomber module ... the subject of a real intercept is not
+# a fighter, and substituting one changes the geometry, the closure and the whole point". RULE 7 SAYS
+# RE-CHECK A BLOCKED MISSION AGAINST THE TREE AND NOT AGAINST THE GAP'S STATUS LINE, and the re-check
+# says the capability is here: `an26` is a catalogue row (doc/modules/air/catalogue.md), it is a MOVER,
+# and a mover has no generated deck - so the `ALPHA` verdict that keeps ten catalogue rows out of a
+# campaign is a statement about GENERATED DECKS and there is none in this file. What the row has to do
+# here is fly a straight line at a published speed, carry a transponder state and present a span to an
+# eye; all three are sourced [T4]. It is also the anchor's Il-20 ELINT aircraft, because an ELINT
+# aircraft RECEIVES and FlightBox has no ESM emission to model.
+# ITS SPAN IS 29.3 m AND THAT IS THE NUMBER THIS CAMPAIGN TURNS ON: the eye resolves on presented
+# extent, so the transport is IDENTIFIED where a fighter is not even recognised.
+#
+# WHAT IS DECLARED AND WHAT IS NOT. `objective identify` measures the GEOMETRY - a planar range held
+# for a cumulative dwell - and never a sensor event, because producing "this unit discriminated that
+# unit" would mean building a contact->unit correlation, and that function's EXISTENCE is the identity
+# leak the tree is shaped to prevent (doc/missions/verdict.md). The sensor half is read BESIDE the
+# verdict, out of `radar IFF_REPLY` and `vis RECOGNISED`/`vis IDENTIFIED`. THE PRICE IS KNOWN AND
+# ACCEPTED: a pilot that flies the box with its eyes shut still scores - and sortie 09 turns that
+# sentence into a measurement instead of a caveat. The box (2 000 m) and the dwell are [SET] per
+# mission; there is no default, and W5's Knowledge 2 marks the abeam geometry [SET] because no source
+# in the set publishes one. Aspect is deliberately not in the objective.
+#
+# THE STRUCTURAL DISCLOSURE, repeated in all ten files because a reader who skips it reads every
+# result backwards:
+#   1. THE PASS IS FLOWN BY ROUTE, NOT BY THE PILOT. `FBPilot` has no intercept-and-shadow behaviour,
+#      and `set task intercept` is a SHOOTING task whose own machine calls this exact geometry an
+#      ABORT: FBPilot.cpp:1040, "inside InterceptAbortRangeNm = 5.0 nm and never shot - that is no
+#      longer an intercept". MEASURED in attribution run A1 (w5-baltic-qra.md, State): the identical
+#      pass with `set task intercept` goes `eng_state=abort` at t = 5.1 s at 4.52 nm, turns away, and
+#      identifies nothing in 300 s. So every pass in all ten files is a declared ROUTE, and what the
+#      campaign measures is a geometry an author flew, never one a pilot chose.
+#   2. THERE IS NO SCRAMBLE (gap C6). A `.fbm` spawns aircraft, it does not alert them, so the
+#      sub-15-minute reaction that IS the real mission is in none of these files. Where a sortie needs
+#      two flights at different readiness it expresses the delay as DISTANCE (sortie 10).
+#   3. THERE IS NO RULES-OF-ENGAGEMENT STATE (gap C19). Nothing in the tree says "weapons hold".
+#      `objective no_fire` JUDGES a hold, it cannot IMPOSE one, and a pilot on `route` never consults
+#      its own warning receiver at all. The discipline this campaign is about is therefore OBSERVED and
+#      never COMMANDED - sortie 07 is where that is measured rather than asserted.
+#   4. `FBMissionRunner` ends the whole run at the first flight-monitor K.O. (`FirstFlightKo`).
+#
+# THE SUBJECT IS A MiG-29 AND IT RADIATES FROM THE FIRST TICK (`set n019_emission illum`), which is
+# the one thing an An-26 cannot do. It carries no weapon and it flies a route: it is a fighter that
+# looks at you and nothing more.
+# THE INTERCEPTORS ARE ARMED AND THE MASTER ARM IS ON. That is the only way the question can be asked
+# at all - an unarmed jet holds its fire trivially. `set brief_release_s` is NOT declared, so nothing
+# in the mission text presses anything: whatever happens here is the pilot's.
+# AND THE SUBJECT IS A FIGHTER, WHICH COSTS THE EYE EVERYTHING. Span 11.36 m against the An-26's 29.3:
+# the same pass that IDENTIFIES a transport does not even RECOGNISE this one. That contrast is the
+# second measurement in the file and it was not arranged - it is the resolution law.
+#
+# THE ONE TACTICAL QUESTION: does the pilot's RWR-driven defend rule fire on a mere lock? It should
+# not - doc/pilot.md 7.2 makes a SEEKER on one's own aircraft non-negotiable and says nothing about a
+# search or track beam - and this file is where that is checked instead of believed.
+#
+# READING RULE (binding): exit 0 is the pass and it needs BOTH objectives. A `sms RELEASE` or a
+# `gun BURST` from either interceptor is an immediate FAIL and would be the campaign's most important
+# result. Read the `rwr THREAT_NEW ... kind=fire-control` lines on the interceptors (the warning
+# arrives), then the absence of any release (nothing is done with it), then `eng_state` in the
+# telemetry - which never leaves `search`, because a pilot on `route` has no engagement machine
+# running at all. THAT ABSENCE IS THE HONEST ANSWER, and A1 is what the alternative costs.
+#
+# MEASURED (fingerprint 682daa03665cb8d1, exit 0): NOTHING WAS FIRED, AND THE REASON IS TWO REASONS -
+# THE ENGAGEMENT MACHINE NEVER RAN, AND THE BEAM NEVER ARRIVED UNTIL IT WAS OVER.
+#   `eng_state` IS `idle` FOR ALL 3 001 ROWS. A pilot on `set task route` does not enter the engagement
+#   state machine at all, so the RWR-driven defend rule is not merely restrained - it is not executing.
+#   With two AIM-120 on the rails, the master arm ARMED and a fighter radar in `illum` 9 km ahead, the
+#   count of `sms RELEASE` and `gun BURST` lines in this file is ZERO, and that zero costs the pilot no
+#   decision whatsoever. THE DISCIPLINE THIS CAMPAIGN MEASURES IS NOT BEING EXERCISED; IT IS ABSENT
+#   FROM THE MACHINE (gap C19), and this is the file that says so with a column instead of a claim.
+#   AND THE GEOMETRY PROTECTS THE INTERCEPTOR FOR FREE. The subject radiates from t=0, and the lead's
+#   receiver logs its first fire-control threat from it at t=201.3 (brg 158.6, el +16.6) - 30.1 s AFTER
+#   `mission IDENTIFIED` latched at t=171.2 and 22.4 s after the closest approach of 491.2 m at t=178.9.
+#   A stern conversion is flown into the one place a forward-looking radar does not point, so the
+#   subject's radar becomes a threat only once the pass is over and the interceptor is in front of it.
+#   THE FIGHTER SUBJECT COSTS THE EYE ALMOST EVERYTHING: `vis RECOGNISED ... type=mig29` at t=166.0 at
+#   825.3 m, and NEVER `vis IDENTIFIED`, on a pass whose closest approach was 491 m. The same box, the
+#   same dwell and the same weather identified an An-26 at 1 086 m in sortie 02.
+# ONE DEFECT FOUND HERE AND IT IS PRE-EXISTING: the `rwr THREAT_NEW ... brgDeg=-180` line at t=0.0.
+#   On the SPAWN tick the receiver's report is computed against an attitude that has not been published
+#   yet, so it carries the emitter's TRUE bearing instead of the relative one. Isolated (three-unit
+#   fixture, receiver on heading 270 with the emitter due south): brgDeg=180 at t=0.0 against -95.5 at
+#   t=1.1 on the identical geometry - an error of 275.5 deg, held for the receiver's 2.0 s hold time
+#   and then dropped. Visible in the committed `pair-2v2-f16.fbm` and not fixed here.
+
+unit q7lead
+  team friendly
+  module f16
+  flight qra 1
+  spawn 55.90450 19.85419 5700 90.0 400
+  set gear up
+  set fuel_pct 60
+  set datalink on
+  set fcr_mode acm_hud                       # it looks, and the LOOK is not the verdict
+  set fcr_range_nm 40
+  set iff_interrogator on                    # the challenging half of the APX-113
+  set store 3 aim120
+  set store 7 aim9
+  set brief_master_arm arm                   # ARMED, because an unarmed jet holds its fire trivially
+  wp 55.90450 20.70000 5700 400
+  objective identify unit q7sub range 2000 hold 30
+  objective no_fire
+
+unit q7two
+  team friendly
+  module f16
+  flight qra 2
+  spawn 55.88784 19.85419 5850 90.0 400
+  set gear up
+  set fuel_pct 60
+  set datalink on
+  set fcr_mode acm_hud                       # it looks, and the LOOK is not the verdict
+  set fcr_range_nm 40
+  set iff_interrogator on                    # the challenging half of the APX-113
+  set task formation
+  set store 3 aim120
+  set store 7 aim9
+  set brief_master_arm arm
+  objective no_fire
+
+unit q7sub
+  team neutral
+  module mig29
+  spawn 55.90000 20.00000 6000 90.0 300
+  set gear up
+  set fuel_pct 60
+  set task route                             # it flies a line: it looks at you and nothing more
+  set n019_mode rad
+  set n019_emission illum                    # <<< THE LINE THIS FILE IS ABOUT
+  set rwr on
+  set iff_xpdr off
+  wp 55.90000 20.50000 6000 300
+
+unit q7rad
+  module p18
+  team friendly
+  spawn 55.80000 21.05000 ground 0.0 0
+  set emcon free
+
+unit q7port
+  module target_hard
+  team friendly
+  spawn 55.70000 21.13000 ground 0.0 0
+
+unit q7site
+  module target_soft
+  team friendly
+  spawn 55.92000 21.07000 ground 0.0 0

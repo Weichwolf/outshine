@@ -1731,3 +1731,57 @@ kampffähig, 2,48 m anderswo töteten. Eine Ergebnisachse nach Abschüssen liest
 Und der Elevations-Defekt aus `pilot.md` 2.15 wurde auf der **anderen** Seite seiner Schwelle vermessen:
 der Fehler ist exakt `st.pitch`, das Steigflug-Nickband liegt bei **5,36…5,89°**, der RAD-Balken bei
 ±6,0° — Rand **0,11–0,64°**. Beißbedingung: `|pitch| + |Zielelevation im Körperrahmen| > 6,0°`.
+
+## 2026-07-29 — Kampagne W5 gebaut und geflogen: die Aufgabe hing an einer Besetzungszeile, nicht am Auge
+
+**W5 Baltic Air Policing / QRA** ist die fünfte gebaute Kampagne, die erste, in der die **F-16** fliegt,
+und die einzige der zehn, deren Siegbedingung **keine Waffe** enthält. Zehn `sim/missions/w5-*.fbm` plus
+`sim/campaigns/w5-baltic-qra.fbc`; **keine Datei unter `sim/src/`, `sim/tools/` oder `sim/assets/`
+angefasst**, elf neue Dateien, null geänderte. Kampagnen-Exit 3, Schritt-Exits `0 0 0 0 0 0 0 0 0 3` —
+die erste Kampagne, deren Einsätze überwiegend ein **echtes Urteil** liefern statt eines Messstands, weil
+`identify` + `no_fire` (Runde `C12`) für genau diese Aufgabe gebaut wurden.
+
+**Die eigene Überschrift der Spec war falsch, und die Messung sagt warum.** Sie führte W5 als „die
+Kampagne, deren Gegenstand FlightBox nicht simulieren kann", weil es kein Auge gab. Das Auge existiert
+seit dem 28.07. — und es war trotzdem nicht das Entscheidende. Entscheidend ist die **Spannweite des
+Gegenstands**: eine An-26 wird mit dem Auge bei **1 086 m** identifiziert, eine Tu-95 bei **2 049 m**,
+während zwei MiG-29 im selben Verband bei 1 600 m nicht einmal *erkannt* werden. Ein Auflösungsgesetz,
+zwei veröffentlichte Maße. Der Blocker war eine **Katalogzeile** (`an26`, ein MOVER — und ein Mover hat
+kein generiertes Deck, also greift `C7`s `ALPHA`-Urteil nicht), kein Sensor.
+
+**Die Gegenprobe, dreiläufig von Anfang an geplant.** `w5-02` gegen `w5-03`, ein Token Unterschied:
+**6 von 6 `telemetry*.csv` byte-identisch, 1 abweichende `events.log`-Zeile von 75** — das `team=`-Feld
+des Runners. Der Kontrolllauf `w5-01` (der Gegenstand ANTWORTET) bewegt **5 von 184 Telemetriespalten
+und null Meter**. Das ist ein **Widerspruch zu O2**, wo derselbe Versuch null Spalten bewegte, und
+Regel 11 löst ihn auf: die F-16 fliegt im Verband, `FBFlightPicture` sortiert über Tracks mit
+IFF-Feld, ein `friendly` antwortender Track wird nie zugewiesen. Gemessen wird also *„was eine Identität
+einem VERBAND wert ist"*. Auf beiden Flugzeugen gilt: **kein Meter Flugweg bewegt sich.**
+
+**Was eine Identifizierung kostet** (40-km-Nachlauf, 900 s): **412,9 s und 243,5 lb** bis zur visuellen
+Identifizierung, **494,3 m** Annäherung, **null Risiko** — ein Nachflug wird in genau die Richtung
+geflogen, in die ein vorwärtsblickendes Radar nicht zeigt: der Gegenstand strahlt ab t=0, seine Keule
+erreicht den Abfangjäger erst bei t=201,3, **30 s NACH** dem gerasteten Urteil. Der Anflug vom Platz
+steht nicht in der Rechnung (`C6`).
+
+**Vier Funde, keiner behoben.** (1) **Im Spawn-Tick meldet jeder Radarwarnempfänger die WAHRE statt der
+relativen Peilung** — die Lage, gegen die transformiert wird, ist noch nicht publiziert; isoliert
+gemessen **180° gegen −95,5°** bei identischer Geometrie, Fehler **275,5°**, 2,0 s gehalten,
+vorbestehend und im eingecheckten `pair-2v2-f16.fbm` sichtbar. (2) **`FBPilot` hat für diese Aufgabe
+kein Verhalten**: `FBPilot.cpp:1040` nennt *innerhalb 5,0 nm und nie geschossen* einen ABBRUCH — also
+genau die Identifizierungsgeometrie; mit `set task intercept` dreht der Abfangjäger bei t=5,1 s weg.
+Jeder Anflug in allen zehn Dateien ist eine von Hand geschriebene Route. (3) **Ein Verband kann zwei
+Ziele nicht sortieren, die jeweils nur ein Mitglied sieht** — `FBFlightPicture::Assign` matcht alle
+Mitglieder gegen die Kontaktliste des *rechnenden* Flugzeugs, also melden beide Jets `dup=1` über zwei
+Maschinen in 17,8 km Abstand. (4) **Die Führung krabbt nicht**: ein 176-km-Bein biegt **3,4 km** nach Lee
+und verfehlt eine 2-km-Box um 4 038 m, wo dieselbe Maschine auf 34-km-Vektoren bei 677,7 m identifiziert.
+
+**Und der akzeptierte Preis wurde öffentlich bezahlt.** `doc/missions/verdict.md` urteilt über die
+GEOMETRIE statt über das Sensorereignis und nennt den Preis: „wer die Box mit geschlossenen Augen
+fliegt, punktet". Der Nachteinsatz hat **0** `vis`-Zeilen gegen 9, unterscheidet sich in **6 von 184**
+Spalten — und liefert `mission IDENTIFIED` beim **identischen Tick, Bereich und Verweilwert**. Genau der
+Preis, kein Cent mehr.
+
+Beide Determinismus-Kriterien beim ersten Versuch: 9 Läufe eine Kampagnen-Signatur
+`49d3320f5e9761db2f1df85a12d9008e0d8559395c141c31e2e06903b9fe0200`, 10/10 Schritte standalone
+bit-identisch — **und der `replay` lief diesmal nach der ERSTEN Mission**, auf einer
+Wegwerf-Ein-Schritt-`.fbc`, was zwei Vorrunden eingestanden hatten zu versäumen.
