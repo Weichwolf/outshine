@@ -351,7 +351,7 @@ private:
   /* EINE Bedienhandlung je Entscheidungstakt, in Prioritaetsreihenfolge: die defensiven zuerst, denn
    * wer beschossen wird, editiert keinen Radarmodus. */
   bool InterceptCockpit(const FBState &state, FBCommandBus &avionics, int designateTrack, bool wantShot,
-                        bool wantChaff, double wantElDeg);
+                        bool wantChaff, FBBodyAngle wantEl);
   /* Steckt in diesem Jet noch ein Kampf? Waffen, Sprit, ein strahlendes Radar — fehlt eines davon, ist
    * Umdrehen kein Mut, sondern ein Jet ohne Auftrag im Startbereich eines anderen. Liest nur Bloecke. */
   bool CanPressOn(const FBState &state) const;

@@ -104,8 +104,22 @@ inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnActor(const FBModelRoots 
       return fail("spawn failed (jsbsim init, a bad model, or a rejected 'set' line)");
     }
   }
+  /* THE SPAWN STATE IS THE AIRFRAME'S OWN, read out of the engine that was just trimmed into it — not
+   * a hand-filled subset of it. Until this line the boot published POSITION ONLY, so for the whole of
+   * tick 0 every unit in the mission was a jet standing still and pointing due north, and every
+   * body-frame transform in the tree ran against that identity rotation: each warning receiver reported
+   * the TRUE bearing of its emitter instead of the relative one, and each emitter's own beam was aimed
+   * off the same zero attitude. [MESS, the committed pair-2v2-f16.fbm] viper1 heard a fire control at
+   * brgDeg = -180.0 with signal 0.9998 where the flown geometry is -0.0, held for the receiver's 2.0 s
+   * hold time. doc/sensors.md §Frames.
+   *
+   * IT IS THE WHOLE STATE AND NOT ONLY THE ATTITUDE. Taking three fields would fix the frame and leave
+   * the artefact behind it standing — an aeroplane at 5 deg of trimmed pitch and 0 kt, which is what
+   * this unit's own autopilot and FCS would still be regulating against in the first 0.01 s. Measured
+   * both ways: attitude only moves 158 of 193 missions, the whole state moves 190 and REMOVES the
+   * transient instead of re-rolling it. */
   Fdm::fb_fdm_state st{};
-  st.lat = sp.LatDeg; st.lon = sp.LonDeg; st.elev = sp.Ground ? groundAsl : sp.AltM;
+  fdm->Sample(st);
 
   Units::FBUnitKind kind = module->UnitKind();   /* read BEFORE the move: argument order is unspecified */
   auto unit = std::make_unique<Units::FBSimUnit>((int)unitIdx + 1, block.Id, kind, block.Team,

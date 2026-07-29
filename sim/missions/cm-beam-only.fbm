@@ -31,7 +31,15 @@ timeout 200
 # This leg used to run past the target without a detonation at all; the terminal loop's conditional
 # integration is what turned the crossing intercept back into a hit, and the table now says exactly
 # what the physics above claims — only the two TOGETHER take the round off. Exit 1 (the bandit's
-# decisive FAIL) is therefore this leg's expected outcome.
+# decisive FAIL) was therefore this leg's expected outcome until 2026-07-29.
+#
+# RE-MEASURED 2026-07-29 after the spawn-tick frame fix (doc/sensors.md 10, item 24). This leg was the
+# 2x2's marginal cell all along and it has now crossed: closest approach 7.83 -> 9.94 m against the 10 m
+# fuze. The round still detonates, the damage no longer mission-kills, the bandit completes its route,
+# and the exit moves 1 -> 0. THE TABLE'S STATEMENT IS UNCHANGED IN DIRECTION and weaker in strength:
+#   clean 0.47 m | chaff only 0.47 m | BEAM ONLY 9.94 m (detonation, no kill) | chaff + beam: none.
+# The beam manoeuvre alone now costs the round its kill rather than only its accuracy, which sharpens
+# rather than contradicts the claim; what the leg can no longer carry is the word "hit".
 
 unit viper
   team friendly

@@ -24,9 +24,16 @@ timeout 600
 # 27 nm search reach less the margin a manoeuvring target needs, the same construction the default
 # 13.5 uses one ladder step lower.
 #
-# READING RULE: exit 1 with fulcrum SUCCESS. This is THE decided duel in the MiG's direction, and the
-# campaign needs it: without it the table would say the F-16 dominates, when what it dominates is a
-# MiG flying the F-16's doctrine. MEASURED — see doc/duels.md for the full debriefing.
+# READING RULE (PRE-2026-07-29): exit 1 with fulcrum SUCCESS. This is THE decided duel in the MiG's
+# direction, and the campaign needs it: without it the table would say the F-16 dominates, when what it
+# dominates is a MiG flying the F-16's doctrine. MEASURED — see doc/duels.md for the full debriefing.
+#
+# RE-MEASURED 2026-07-29 after the spawn-tick frame fix (doc/sensors.md 10, item 24). THE DECISION SAT
+# INSIDE THE R-27R's FUZE RADIUS: closest approach 9.35 -> 13.22 m against a 13.8 m fuze. The round still
+# detonates, the damage no longer kills, and the exit moves 0 -> 3 (both alive at the timeout). The
+# doctrine lever still does what the file claims — the MiG shoots first, from further out, and holds the
+# viper defensive — but this arena no longer DECIDES, and a campaign that needs a decided MiG win has to
+# say so with a geometry rather than with 4 m of burst distance.
 
 unit viper
   team friendly

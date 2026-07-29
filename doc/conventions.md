@@ -146,6 +146,35 @@ A number without one of these three statements is a defect.
 - The renderer's pass topology is a contract: only `FBRenderer` sets pass boundaries, no stage split may
   multiply them.
 
+## Frames
+
+An angle carries the frame it is measured in, and the frame lives in the **type**, not in a comment.
+
+- **World** ("true"): bearing 0 = north, elevation above the local horizontal.
+- **Body**: azimuth off the nose (+ right), elevation off the boresight plane (+ above).
+
+Three consecutive rounds each wrote one world angle into one body-frame command. All three compiled:
+both frames are `double`, both are degrees, and the two spellings differ by a subtraction that nobody
+can see missing. So the subtraction became a constructor and the write became a single door.
+
+- `core/FBBodyAngle` is obtainable in exactly three ways, each naming its provenance:
+  `FromTrueBearing(trueDeg, ownYawDeg)`, `FromWorldElevation(worldElDeg, ownPitchDeg)`, and
+  `Measured(bodyDeg)` — the one escape hatch, named so that an unearned use is visible at the call site.
+  There is no syntax for "just take this double".
+- `FBCommandBus::PostAntennaAz/El` take that type and nothing else; they are the **only** place in
+  `sim/src` that may name `FBCommandTarget::RadarSlewAz/El` in a post expression.
+- `make -C sim verify-layers` prints **`1 antenna-cue poster(s)`** and FAILS on a second, exactly as it
+  prints the number of registry readers inside the perception boundary.
+- A sensor publishes BOTH pairs where a consumer may need either (`FBRadarContact` and `FBIrstContact`
+  carry `BearingDeg`/`ElevAngleDeg` world **and** `AzDeg`/`ElDeg` body), and each field states its frame
+  in the struct. `FBRwrThreat` publishes only the body pair, because that is all an RWR ever measures.
+- The exact transform both ways is `core/FBGeodesy.h` (`FBEnuToBodyLos` / `FBBodyLosToEnu`) and it is
+  spelled once. `FBBodyAngle`'s arithmetic is the antenna-KNOB's — exact at zero roll and on the nose —
+  and is used only where the producer has two numbers rather than a vector (a controller's call).
+
+The complete inventory of the tree's angle handovers, with the frame pair and the verdict for each,
+is [`sensors.md`](sensors.md) §10.
+
 ## Architectural style
 
 Build systems, not features. Minimal public API, maximal encapsulation. State machines instead of

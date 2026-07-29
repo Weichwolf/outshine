@@ -205,6 +205,11 @@ void FBFdm::StepUnguarded(fb_fdm_state &o) {
     ex.SetPropertyValue(std::string("external_reactions/") + kDamageForce + "/magnitude",
                         P->DamageCdA * ex.GetPropertyValue("aero/qbar-psf"));
   ex.Run();
+  Sample(o);
+}
+
+void FBFdm::Sample(fb_fdm_state &o) const {
+  FGFDMExec &ex = P->Exec;
   o.roll  = ex.GetPropertyValue("attitude/phi-deg");
   o.pitch = ex.GetPropertyValue("attitude/theta-deg");
   o.yaw   = ex.GetPropertyValue("attitude/psi-deg");

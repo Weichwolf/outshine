@@ -165,7 +165,7 @@ protective missile envelope [T4]. The campaign cannot fly the one thing the Syri
 Campaign exit **3** (the worst step's; every step is a measuring rig whose own header says the verdict is
 the telemetry). Campaign fingerprint under `--elev const`:
 `81b549fd04c4591987b9dadf233deffdabbbfb01f9dc89f4f7f0d4486d7bba8e` (pre-fix); after the
-ground-launch fix of 2026-07-29 it is `4b9582ac805564cbef8e6991ea76c1f9100cfb1e070d6dc5a50a7819a114af9a`.
+ground-launch fix of 2026-07-29 it is `4b9582ac805564cbef8e6991ea76c1f9100cfb1e070d6dc5a50a7819a114af9a`. **The FRAME round of 2026-07-29 moved it again** — the spawn state is now the trimmed airframe's own rather than position only, so the first 0.01 s of guidance moved in every mission with an airframe (`sensors.md` §10, item 24). Post-frame-round value, both criteria re-measured and still holding: `c0f0ba51ecf76fa8e94d0327125771167374365bc43028ac1d5629a56484ffbc`.
 **Eight of the ten step fingerprints are unchanged** — only steps 8 and 10, the two that launch from
 the ground, moved. That is the fix's blast radius inside this campaign, measured rather than argued.
 
@@ -321,8 +321,8 @@ Under `--elev const`, read out of `campaign-summary.txt` rather than assumed
 
 | # | Criterion | Result |
 |---|---|---|
-| **1** | 3 repetitions × `--threads 1/2/4` produce one campaign fingerprint | **9 runs, 1 fingerprint** — `81b549fd04c459198…` pre-fix, `4b9582ac805564cbe…` post-fix (both re-measured 2026-07-29) |
-| **2** | every step's per-mission fingerprint equals that mission run STANDALONE with step *k−1*'s state | **10/10 MATCH**, exit codes included, on the first attempt — O4's clock hole stayed closed for the first clocked campaign built after it |
+| **1** | 3 repetitions × `--threads 1/2/4` produce one campaign fingerprint | **9 runs, 1 fingerprint** — `81b549fd04c459198…` pre-fix, `4b9582ac805564cbe…` post-fix (both re-measured 2026-07-29); **re-measured after the frame round of 2026-07-29: 9 runs, 1 fingerprint** `c0f0ba51ecf76fa8e…`, exit 3 in all nine |
+| **2** | every step's per-mission fingerprint equals that mission run STANDALONE with step *k−1*'s state | **10/10 MATCH**, exit codes included, on the first attempt — O4's clock hole stayed closed for the first clocked campaign built after it; **10/10 again after the frame round of 2026-07-29** |
 
 **Re-measured after the ground-launch fix, 2026-07-29: both criteria still hold — 9 runs, one campaign
 fingerprint, and 10/10 steps replayed individually.** The fingerprint *value* changed (steps 8 and 10

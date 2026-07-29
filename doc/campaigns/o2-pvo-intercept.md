@@ -165,7 +165,7 @@ argued.
 
 Campaign exit **3** (the worst step's; nine of the ten are measuring rigs whose own header says the
 verdict is the telemetry). Campaign fingerprint under `--elev const`:
-`93b5869298b6b8a59248a1b906447e27a183b526c745959b6edbdce98bea43bc`.
+`93b5869298b6b8a59248a1b906447e27a183b526c745959b6edbdce98bea43bc`. **The FRAME round of 2026-07-29 moved it again** — the spawn state is now the trimmed airframe's own rather than position only, so the first 0.01 s of guidance moved in every mission with an airframe (`sensors.md` §10, item 24). Post-frame-round value, both criteria re-measured and still holding: `b582a3694f36b33837168b5ecdb2275ed993eaad10eafe7babcdfc80de5544de`.
 
 | # | Mission | ctrl | exit | fingerprint | The answer to its one tactical question |
 |---|---|---|---:|---|---|
@@ -294,8 +294,8 @@ Under `--elev const`, read out of `campaign-summary.txt` rather than assumed:
 
 | # | Criterion | Result |
 |---|---|---|
-| **1** | 3 repetitions × `--threads 1/2/4` produce one campaign fingerprint | **9 runs, 1 fingerprint** `93b5869298b6b8a59248a1b906447e27a183b526c745959b6edbdce98bea43bc`, exit 3 in all nine |
-| **2** | every step's per-mission fingerprint equals that mission run STANDALONE with step *k−1*'s state | **10/10 MATCH**, exit codes included, on the first attempt |
+| **1** | 3 repetitions × `--threads 1/2/4` produce one campaign fingerprint | **9 runs, 1 fingerprint** `93b5869298b6b8a59248a1b906447e27a183b526c745959b6edbdce98bea43bc`, exit 3 in all nine; **re-measured after the frame round of 2026-07-29: 9 runs, 1 fingerprint** `b582a3694f36b3383…`, exit 3 in all nine |
+| **2** | every step's per-mission fingerprint equals that mission run STANDALONE with step *k−1*'s state | **10/10 MATCH**, exit codes included, on the first attempt; **10/10 again after the frame round of 2026-07-29** |
 
 **One process deviation, stated, and it is the same one O5 confessed:** `INDEX.md`'s rule 5 says run
 `fb_campaign_verify.py replay` after the FIRST mission. It was run after all ten. It passed 10/10 on the

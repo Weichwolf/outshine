@@ -716,7 +716,7 @@ void FBPilot::DispenseBriefedCm(FBCommandBus &avionics) {
 /* HOECHSTENS EINE Bedienhandlung je Entscheidungstakt, in Prioritaetsreihenfolge: wer beschossen wird,
  * wirft Duppel, bevor er sich um einen Radarmodus kuemmert. */
 bool FBPilot::InterceptCockpit(const FBState &state, FBCommandBus &avionics, int designateTrack,
-                               bool wantShot, bool wantChaff, double wantElDeg) {
+                               bool wantShot, bool wantChaff, FBBodyAngle wantEl) {
   if (TimeS_ - IntLastActionS_ < Tuned(FBPilotParam::ActionSpacingS, kInterceptActionS)) return false;
   auto post = [&](FBCommandTarget t, double v) {
     IntLastActionS_ = TimeS_;
@@ -738,9 +738,10 @@ bool FBPilot::InterceptCockpit(const FBState &state, FBCommandBus &avionics, int
   if (designateTrack > 0 && !locked) { post(FBCommandTarget::Designate, designateTrack); return true; }
   if (designateTrack < 0 && locked) { post(FBCommandTarget::Designate, 0.0); return true; }
   /* Totband, weil ein Knopf, der alle zehntel Sekunden angetippt wird, nicht geflogen wird. */
-  if (std::fabs(wantElDeg - IntCmdElDeg_) > kInterceptElDeadDeg) {
-    IntCmdElDeg_ = wantElDeg;
-    post(FBCommandTarget::RadarSlewEl, wantElDeg);
+  if (std::fabs(wantEl.Deg() - IntCmdElDeg_) > kInterceptElDeadDeg) {
+    IntCmdElDeg_ = wantEl.Deg();
+    IntLastActionS_ = TimeS_;
+    avionics.PostAntennaEl(wantEl, TimeS_);
     return true;
   }
   /* ...und, EINMAL, der Suchmodus: diese Phase wird in einem Modus geflogen, der alles findet und nichts
@@ -1054,7 +1055,10 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
   c.TargetSpeedKt = Tuned(FBPilotParam::InterceptSpeedKt, InterceptSpeedKt());
   c.TargetAltM = IntBriefAltM_;
   double aimHdgDeg = IntBriefHdgDeg_;
-  double wantElDeg = 0.0;
+  /* DIE ANTENNENHOEHE IST KOERPERFEST, und der Typ sagt das jetzt: jeder Zweig unten muss benennen,
+   * WORAUS er sie gewinnt — aus einem Weltwinkel gegen die eigene Nicklage, oder aus einem
+   * Rueckkehrwinkel, der schon koerperfest gemessen wurde. core/FBBodyAngle.h. */
+  FBBodyAngle wantEl;
   int designate = 0;
   bool wantShot = false, wantChaff = false;
 
@@ -1074,7 +1078,8 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
         aimHdgDeg = datum.BearingDeg + searchWeaveDeg;
         c.TargetAltM = datum.AltM;
       }
-      wantElDeg = std::atan2(bandAltM - st.elev, distM) * kRad2Deg - st.pitch;
+      wantEl = FBBodyAngle::FromWorldElevation(std::atan2(bandAltM - st.elev, distM) * kRad2Deg,
+                                               st.pitch);
       break;
     }
     case FBEngageState::Closing:
@@ -1096,7 +1101,8 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
        * nach EINEM Look fest, waehrend der Jet 6.000 m auf Ziel-Hoehe sank und dabei 7 deg Nick
        * abgab: der Kontakt kam nie wieder, coastete 6 s und fiel — ein Track je Anflug, kein Schuss. */
       if (haveTgt && tgt->LookAgeS <= 0.0f) { IntLookPitchDeg_ = st.pitch; IntHaveLookPitch_ = true; }
-      wantElDeg = tgtElDeg - (IntHaveLookPitch_ ? st.pitch - IntLookPitchDeg_ : 0.0);
+      wantEl = FBBodyAngle::Measured(tgtElDeg -
+                                     (IntHaveLookPitch_ ? st.pitch - IntLookPitchDeg_ : 0.0));
       if (EngState_ == FBEngageState::Attack) {
         if (!locked) designate = IntTrack_;
         wantShot = locked && inParams && TimeS_ - IntLockSinceS_ >= kInterceptTrackSettleS &&
@@ -1139,7 +1145,8 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
         aimHdgDeg = st.yaw + FBWrap180(tgtAzDeg - wantAz);
         c.TargetAltM = tgtAltM;
         if (tgt->LookAgeS <= 0.0f) { IntLookPitchDeg_ = st.pitch; IntHaveLookPitch_ = true; }
-        wantElDeg = tgtElDeg - (IntHaveLookPitch_ ? st.pitch - IntLookPitchDeg_ : 0.0);
+        wantEl = FBBodyAngle::Measured(tgtElDeg -
+                                       (IntHaveLookPitch_ ? st.pitch - IntLookPitchDeg_ : 0.0));
       } else {
         /* Nichts mehr, wogegen der Crank-Winkel gehalten werden koennte: den erreichten Kurs behalten,
          * statt auf einen gebrieften Vektor zurueckzuschnappen, der dahin zeigt, wo der Kampf WAR. */
@@ -1207,7 +1214,7 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
   }
 
   /* ---- 7. die Haende ---- */
-  bool acted = InterceptCockpit(state, avionics, designate, wantShot, wantChaff, wantElDeg);
+  bool acted = InterceptCockpit(state, avionics, designate, wantShot, wantChaff, wantEl);
   if (acted && (wantChaff || EngState_ == FBEngageState::Defend))
     Eng_.NoteDefensiveAction(TimeS_, IntDefendCueS_ >= 0.0 ? IntDefendCueS_ : IntThreatLastS_);
 

@@ -172,9 +172,13 @@ void FBSiteFireControl::ReceiveNet(const FBState &state, const Fdm::fb_fdm_state
   CueBrgDeg_ = FBBearingDeg(st.lat, st.lon, CueLatDeg_, CueLonDeg_);
   /* THE ELEVATION IS THE POINT of the whole mechanism, and the equation is the MiG-29 manual's own for
    * the same act: putting the window on the wrong altitude band is how a set flies past a target it
-   * could easily have seen. */
-  CueElDeg_ = std::atan2(CueAltM_ - st.elev, CueRngM_ > 1.0 ? CueRngM_ : 1.0) * kRad2Deg;
-  CueAzDeg_ = FBWrap180(CueBrgDeg_ - st.yaw);
+   * could easily have seen. Both halves go through core/FBBodyAngle, which for a MOUNT is arithmetically
+   * a no-op in elevation (a ground mount publishes roll = pitch = 0) — and that is exactly why it is
+   * written: the rule then holds because the transform says so, not because the number happens to be
+   * zero on this one platform. */
+  CueElDeg_ = FBBodyAngle::FromWorldElevation(
+      std::atan2(CueAltM_ - st.elev, CueRngM_ > 1.0 ? CueRngM_ : 1.0) * kRad2Deg, st.pitch).Deg();
+  CueAzDeg_ = FBBodyAngle::FromTrueBearing(CueBrgDeg_, st.yaw).Deg();
 
   InSector_ = !HaveSector_ || std::fabs(FBWrap180(CueBrgDeg_ - SectorCentreDeg_)) <= SectorHalfDeg_;
   if (!InSector_) {
@@ -204,12 +208,12 @@ void FBSiteFireControl::EnterCue(FBCommandBus &avionics) {
   if (Entry_ == CueEntry::PostEl) {
     /* The SECOND entry, and only once the first has been committed: the cost of a cue is two of these,
      * one after the other, and that is what makes a fresher net worth something. */
-    FBCommandAck ack = avionics.Post(FBCommandTarget::RadarSlewEl, CueElDeg_, NowS_);
+    FBCommandAck ack = avionics.PostAntennaEl(FBBodyAngle::Measured(CueElDeg_), NowS_);
     if (ack.Outcome != FBCommandOutcome::Rejected) Entry_ = CueEntry::WaitEl;
     return;
   }
   if (Entry_ != CueEntry::Idle || !moved) return;
-  FBCommandAck ack = avionics.Post(FBCommandTarget::RadarSlewAz, CueAzDeg_, NowS_);
+  FBCommandAck ack = avionics.PostAntennaAz(FBBodyAngle::Measured(CueAzDeg_), NowS_);
   if (ack.Outcome == FBCommandOutcome::Rejected) return;
   EnteredLatDeg_ = CueLatDeg_;
   EnteredLonDeg_ = CueLonDeg_;

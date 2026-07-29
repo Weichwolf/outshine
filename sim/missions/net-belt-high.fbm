@@ -27,6 +27,14 @@ timeout 320
 # READING RULE: `objective avoid zone flak exposure 0` is declared and this route KEEPS it — the flak
 # storey is never entered — so exit 0 = SUCCESS is the pass, and the price is paid in the other storey.
 # The MEASUREMENT is the pair (zone_flak_s, zone_sambelt_s) against the same pair in `net-belt-low.fbm`.
+#
+# RE-MEASURED 2026-07-29 after the spawn-tick frame fix (doc/sensors.md 10, item 24). THE ZONE
+# MEASUREMENT IS UNCHANGED — the flak storey is still never entered and the belt dwell is what it was —
+# but the V-750 that hits the viper at t = 70.1 now bursts at 7.82 m instead of 11.55 m against its 12 m
+# fuze, and 3.7 m of burst distance is the difference between `flight_controls degraded` and
+# `flight_controls failed`. The viper flies on damaged and meets the ground at t = 304.9, so the exit is
+# 2 (CRASH) where it was 0. EXIT 2 DOES NOT INVALIDATE THIS FILE: the objective it declares was met
+# before the aircraft was lost, and the pair of dwell numbers is what it measures.
 
 zone flak    46.62500 6.90000  4000  900 2440
 zone sambelt 46.62500 6.90000 30000 2440 8000

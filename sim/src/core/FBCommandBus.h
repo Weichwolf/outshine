@@ -10,6 +10,7 @@
 #define FBCOMMANDBUS_H
 
 #include "FBAvionicsCommand.h"
+#include "FBBodyAngle.h"
 #include "FBTelemetry.h"
 
 namespace FlightBox {
@@ -40,6 +41,17 @@ public:
   /* The pilot's one verb: Pending if the command entered the queue, final Rejected if the bus itself
    * refused it. */
   FBCommandAck Post(FBCommandTarget target, double value, double nowS);
+
+  /* WHERE THE ANTENNA IS POINTED, and the ONE door to it: an antenna command is BODY-referenced, so it
+   * takes core/FBBodyAngle and not a double. RadarSlewAz/El are named here and nowhere else in the tree
+   * (tools/verify_layers.py counts the files that may), which is what turns "a world angle must be
+   * converted first" from a comment into a thing that cannot be written. */
+  FBCommandAck PostAntennaAz(FBBodyAngle az, double nowS) {
+    return Post(FBCommandTarget::RadarSlewAz, az.Deg(), nowS);
+  }
+  FBCommandAck PostAntennaEl(FBBodyAngle el, double nowS) {
+    return Post(FBCommandTarget::RadarSlewEl, el.Deg(), nowS);
+  }
 
   /* The module's side: hand out the next command of `group` whose latency has elapsed. Returns false
    * when there is nothing due. */

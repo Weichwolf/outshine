@@ -84,7 +84,15 @@ time 1999-03-24T21:00:00Z
 # NO SINGLE COMPONENT BLINDS THE PAIR, all three together delete the engagement, and deleting the
 # controller does not restore it.
 #
-# READING RULE: exit 3 expected, and the verdict is the DIFFERENCE from o5-01 in three numbers -
+# RE-MEASURED 2026-07-29, AND THE THIRD DEFECT ABOVE IS FIXED. The GCI scan elevation is now converted
+# against the pilot's own pitch attitude (doc/pilot.md 2.15, doc/modules/mig29/datalink-gci.md 2.2a):
+# entered -2.754 / -3.027 / -3.661 deg instead of +2.891 / +2.832 / +2.331. THE SCRAMBLE NO LONGER COSTS
+# THE ENGAGEMENT: first contact t = 48.0 s at 25.70 sm (was NEVER), both R-27R away by t = 106.3, and the
+# exit code moves 3 -> 0 on an UNCHANGED mission file. The five attribution runs above are the pre-fix
+# binary's and are kept as the measurement that pinned the defect; the "all three + GCI deleted" line is
+# the one that still stands unchanged, because deleting a controller cannot be fixed by a frame.
+#
+# READING RULE (PRE-FIX): exit 3 expected, and the verdict is the DIFFERENCE from o5-01 in three numbers -
 # `eng_detect_s` and `eng_shot_s` on the pair, the count of `sms RELEASE ... store=mk84`, and
 # `mission OBJECTIVE ... deny release`. A pair that arrives late is not a pair that fights badly, and the
 # file separates the two by changing nothing else. exit 2 would be a defect.

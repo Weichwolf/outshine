@@ -10,6 +10,14 @@ timeout 300
 # timing, which was measured to be irrelevant: an Rtr factor swept 1.0 -> 0.5 moved the miss around
 # inside 4-9 m without a trend): conditional integration, so a fin on its stop stops integrating, and
 # an integral gain on the stable side of the measured oscillation boundary. Miss now 2.36 m, one shot.
+#
+# RE-MEASURED 2026-07-29 after the spawn-tick frame fix (doc/sensors.md 10, item 24): the boot state is
+# now the trimmed airframe's own instead of position only, which moves the first 0.01 s of guidance in
+# EVERY mission. THIS FILE'S ENDGAME IS A KNIFE EDGE ON THE FUZE RADIUS and it fell the other way:
+# closest approach 2.36 -> 9.67 m against the 10 m fuze, so the round still detonates but no longer
+# mission-kills; a second shot at t = 285.6 misses by 7.59 m, and the exit moves 0 -> 3 (TIMEOUT, both
+# alive). The file's SUBJECT - that the higher, faster jet reaches its Rtr first and shoots first - is
+# unchanged and still measured; what moved is only whether that shot killed.
 
 # THE DECIDED DUEL: the same two intercept pilots as bvr-duel.fbm, the same code on both sides, the same
 # loadout, the same countermeasure programme, the same objectives — and a different STARTING GEOMETRY.

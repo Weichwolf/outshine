@@ -249,33 +249,42 @@ void FBAirModule::ConsumeCue(const Fdm::fb_fdm_state &st) {
   FBEnuOffsetM(st.lat, st.lon, best->Net.LatDeg, best->Net.LonDeg, e, n);
   double planar = std::sqrt(e * e + n * n);
   double brgDeg = std::atan2(e, n) * kRad2Deg;
-  CueAzDeg_ = FBWrap180(brgDeg - st.yaw);
-  CueElDeg_ = std::atan2(best->Net.AltM - st.elev, planar > 1.0 ? planar : 1.0) * kRad2Deg;
+  /* BOTH halves against this aircraft's own instruments. The cue names a POINT in the world; the
+   * antenna is bolted to the nose, so the heading converts the one number and the pitch attitude the
+   * other. Converting only the azimuth left the elevation carrying the aircraft's whole pitch angle —
+   * the same defect as the MiG-29's, in the other axis (doc/pilot.md 2.15). */
+  CueAzDeg_ = FBBodyAngle::FromTrueBearing(brgDeg, st.yaw).Deg();
+  CueElDeg_ = FBBodyAngle::FromWorldElevation(
+                  std::atan2(best->Net.AltM - st.elev, planar > 1.0 ? planar : 1.0) * kRad2Deg,
+                  st.pitch).Deg();
   /* BOTH staleness terms, summed and published: the node's own look age at the moment it reported, plus
    * the age the receiving terminal computed. A mission can read which half hurt. */
   CueAgeS_ = (double)best->Net.TgtLookAgeS + (double)best->AgeS;
   HaveCue_ = true;
 
-  Cmds_.Post(FBCommandTarget::RadarSlewAz, CueAzDeg_, SimTimeS_);
-  Cmds_.Post(FBCommandTarget::RadarSlewEl, CueElDeg_, SimTimeS_);
+  Cmds_.PostAntennaAz(FBBodyAngle::Measured(CueAzDeg_), SimTimeS_);
+  Cmds_.PostAntennaEl(FBBodyAngle::Measured(CueElDeg_), SimTimeS_);
   CueCount_++;
   FBLog::Info("net", "CUE", {{"azDeg", CueAzDeg_}, {"elDeg", CueElDeg_},
                              {"rangeM", planar}, {"ageS", CueAgeS_}});
 }
 
-/* The controller's call, converted where the two halves of each number finally exist: the bearing
- * against this aircraft's own heading, the elevation against its own altitude. It goes over the SAME
- * command bus the live cue uses — two pointings, each latency-charged and each rejectable — because a
- * briefed call and a transmitted one are the same act, and neither is a track. */
+/* The controller's call, converted where BOTH halves of each number finally exist: the bearing against
+ * this aircraft's own heading, the elevation against its own altimeter AND its own pitch attitude. It
+ * goes over the SAME command bus the live cue uses — two pointings, each latency-charged and each
+ * rejectable — because a briefed call and a transmitted one are the same act, and neither is a track. */
 void FBAirModule::EnterBriefedGci(const Fdm::fb_fdm_state &st) {
   GciPending_ = false;
-  CueAzDeg_ = FBWrap180(GciBrgDeg_ - st.yaw);
-  CueElDeg_ = std::atan2(GciAltM_ - st.elev, GciRangeM_) * kRad2Deg;
-  Cmds_.Post(FBCommandTarget::RadarSlewAz, CueAzDeg_, SimTimeS_);
-  Cmds_.Post(FBCommandTarget::RadarSlewEl, CueElDeg_, SimTimeS_);
+  FBBodyAngle az = FBBodyAngle::FromTrueBearing(GciBrgDeg_, st.yaw);
+  FBBodyAngle el = FBBodyAngle::FromWorldElevation(
+      std::atan2(GciAltM_ - st.elev, GciRangeM_) * kRad2Deg, st.pitch);
+  CueAzDeg_ = az.Deg();
+  CueElDeg_ = el.Deg();
+  Cmds_.PostAntennaAz(az, SimTimeS_);
+  Cmds_.PostAntennaEl(el, SimTimeS_);
   CueCount_++;
   FBLog::Info("gci", "BRAA", {{"brgDeg", GciBrgDeg_}, {"rangeKm", GciRangeM_ * 0.001},
-                              {"altM", GciAltM_}, {"ownHdgDeg", st.yaw},
+                              {"altM", GciAltM_}, {"ownHdgDeg", st.yaw}, {"ownPitchDeg", st.pitch},
                               {"azDeg", CueAzDeg_}, {"elDeg", CueElDeg_}});
 }
 

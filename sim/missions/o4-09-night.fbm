@@ -38,6 +38,15 @@ timeout 300
 # jet at the same tick (t=29.3, missM 1.65047). exit 0 either way. THAT NUMBER IS THE MISSION: darkness
 # reaches six columns and no decision.
 #
+# RE-MEASURED 2026-07-29 after the spawn-tick frame fix (doc/sensors.md 10, item 24). THE DIRECTION OF
+# THE FINDING SURVIVES AND ITS SIZE DOES NOT: the daylight control o4-04 now ends at t = 29.5 s instead
+# of 76.9 s (its AIM-9 arrives and the fight becomes a trade), so the eye has a third of the run it had.
+# By day o4-04 still produces ONE `vis` line and this run still produces ZERO — but the telemetry diff
+# is now ONE column (`blk_env`) instead of six, because with no daylight contact held for long enough
+# the five `vis_*` columns are identical zeros in both. Both exits are 1. THE MISSION STILL SHOWS THAT
+# DARKNESS DECIDES NOTHING; it can no longer show HOW MUCH darkness reaches, and restoring that needs a
+# geometry whose fight lasts longer than its acquisition.
+#
 # READING RULE: the verdict is a DIFF, not an exit code. Compare this run's telemetry column by column
 # against o4-04's: expect `blk_vis`/`vis_*` and the environment columns to differ and NOTHING else.
 # Read `vis CONTACT`/`RECOGNISED`/`IDENTIFIED` counts (o4-04 has them, this file must have none) and the

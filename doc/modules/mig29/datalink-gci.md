@@ -92,6 +92,36 @@ So the *real* GCI loop, as documented, is:
 latency class*. A MiG-29 `FBPilot` that receives a GCI vector must **spend real seconds** entering it,
 and can enter it **wrong**.
 
+#### 2.2a What the entry actually commands — the frame, and the defect it cost
+
+The manual's worked example produces a **world** angle: `atan2(relative altitude, entered range)`, i.e.
+the angle above the LOCAL HORIZONTAL. The knob it is typed into moves the **antenna**, and an antenna is
+bolted to the nose — the scan window is body-referenced (`sensors/FBRadarSystem`'s volume test rotates
+every contact into the body frame with `FBEnuToBodyLos`). The two agree only in level flight, which is
+where the worked example is written and where every level CAP flies.
+
+`FBMig29Pilot` posted the world angle straight into `FBCommandTarget::RadarSlewEl` from the day the GCI
+loop was built until **2026-07-29**. The error is exactly the aircraft's own **pitch attitude**, so it is
+free in a cruise and lethal in a climb:
+
+| `o5-02-scramble` (the alert pair, climbing) | before | after |
+|---|---|---|
+| own pitch at the three GCI calls | +5.646° / +5.858° / +5.992° | unchanged |
+| entered scan elevation | **+2.891° / +2.832° / +2.331°** (world) | **−2.754° / −3.027° / −3.661°** (body) |
+| the raid's elevation in the body frame | −3.41…−3.74° | −3.41…−3.74° |
+| the N019 RAD bar (±6.0°) reaches down to | −3.109° — the raid sits 0.3–0.6° BELOW it | −8.754° |
+| radar contacts in the whole run | **0** | first at **t = 48.0 s, 25.70 nm** |
+| shots | none | both R-27R away by t = 106.3 |
+| mission exit | 3 (TIMEOUT) | 0 (SUCCESS) |
+
+The entry now reads the pilot's own pitch attitude beside his own altimeter, which is what the manual's
+own sentence implies once the knob is understood as an antenna and not as a map: the controller's two
+numbers are in the CONTROLLER's frame and both halves are converted against the aircraft's own
+instruments. The azimuth half (the ZONE switch, §2.2) always did this against the heading. Structurally,
+the conversion is now the only way to obtain the value at all — `core/FBBodyAngle` plus the single door
+`FBCommandBus::PostAntennaAz/El`, counted by `make -C sim verify-layers`
+([`../../conventions.md`](../../conventions.md) §Frames).
+
 #### 2.3 Range-only cueing under jamming
 The same manual mechanism is reused when the radar cannot measure range at all: under an AOJ (angle-of-
 jam) lock, *"the target range displayed in the HUD … is **not measured by the radar but rather provided

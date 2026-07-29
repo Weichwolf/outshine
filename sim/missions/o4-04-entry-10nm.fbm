@@ -42,6 +42,16 @@ timeout 300
 # is an aspect function and head-on is its worst case (10 km against 25 km astern). Two of the
 # quotation's three reasons decide this fight; the third was never in it.
 #
+# RE-MEASURED 2026-07-29 after the spawn-tick frame fix (doc/sensors.md 10, item 24): exit 0 -> 1, i.e.
+# a TRADE. WHAT THE FILE MEASURES IS UNCHANGED AND IS THE SAME TWO CATALOGUE NUMBERS: the MiG's shot is
+# still accepted at t = 1.5 s at 17,796 m and the F-16's not until t = 12.4 s at 11,985 m — 10.9 s and
+# 5,811 m of first shot, from the R-73's 20,000 m Raero against the AIM-9's 12,000 and the 60 deg cue
+# against 30. WHAT MOVED is the AIM-9 fired AT ITS OWN RAERO: at 11,985 of 12,000 m it either just
+# reaches or just does not, and it now does — 1.61 m out, damage KILL on the fulcrum at t = 24.9 —
+# where before it missed by 1,720 m. The third R-73 then kills the viper at t = 29.4 (1.65 m), so both
+# die and the verdict is the trade rather than the MiG. A shot taken at 99.9 % of its own kinematic
+# range is not a claim this file can make; the first-shot advantage above still is.
+#
 # READING RULE: the verdict is the TELEMETRY, not the exit code (doc/missions/INDEX.md rule 4). Read, in
 # order: the BFM_SHOT lines with their range and off-boresight angle, the DETONATION lines with missM
 # against the round's own fuze radius, and bfm_rng / eng_shots on both sides. exit 0 means one side was

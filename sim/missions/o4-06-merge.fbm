@@ -35,6 +35,15 @@ timeout 300
 # it. Read beside o4-04 (MiG at 10 nm) and o4-05 (trade at 5 nm): the anchor's claim holds at its own
 # outer edge and fails at the inner one.
 #
+# RE-MEASURED 2026-07-29 after the spawn-tick frame fix (doc/sensors.md 10, item 24): exit 0 -> 1, the
+# TRADE this file's own reading rule already names. The two shots are unchanged in time and range
+# (t = 0.8 / 1.0, 3,309 / 3,211 m). What moved is 1 m of arrival: the R-73 now arrives 1.646 m out
+# INSIDE its own 2.08 m kill radius instead of 2.608 m outside it, and the AIM-9 2.067 m inside its
+# 2.32 m. Both kill, 0.1 s apart. THE WARHEAD CLAIM ABOVE IS THEREFORE WITHDRAWN AS MEASURED HERE: at
+# 380 kt head-on inside 3.5 km this arena decides nothing, because both rounds arrive inside both kill
+# radii and which K.O. is declared first is which round was fired first minus its time of flight. A
+# campaign that wants the warhead priced needs a geometry where only one round arrives.
+#
 # READING RULE: the verdict is the TELEMETRY. Read the two BFM_SHOT times, then the DETONATION missM
 # against each round's own fuze radius, then the damage KILL lines. exit 0 = one side decided it,
 # exit 1 = a TRADE (both dead; doc/missions/verdict.md refuses to invent a winner and reports the first

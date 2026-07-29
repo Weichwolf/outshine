@@ -138,6 +138,19 @@ RESTRICTED = {
     ),
 }
 
+# WHERE AN ANTENNA MAY BE POINTED FROM, and it is one file. An antenna command is BODY-referenced;
+# three rounds in a row wrote a WORLD angle into one (a controller's true bearing, a range-angle
+# elevation, a spawn-tick pose that was still the identity — doc/pilot.md 2.15, doc/sensors.md). Every
+# one of them compiled, because both frames are `double` and both are degrees.
+#
+# So the frame became a TYPE (core/FBBodyAngle.h, obtainable only through a named conversion) and the
+# posting became a single door (FBCommandBus::PostAntennaAz/El). This list is the door's own guard: the
+# tokens RadarSlewAz/RadarSlewEl may appear in a POST expression in exactly these files. A fourth cue
+# source cannot reach the antenna without either going through the conversion or moving this number —
+# and the number is printed at the end of a run, exactly like the registry-reader count above it.
+SLEW_POSTERS = ("core/FBCommandBus.h",)
+RE_SLEW_POST = re.compile(r"Post\w*\(\s*FBCommandTarget::RadarSlew(?:Az|El)")
+
 # Layers that may not appear ANYWHERE in a directory's include closure, regardless of rank.
 FORBIDDEN_DIRS = {
     # A pilot sees other units only through FBState, written by the sensor slots.
@@ -342,12 +355,19 @@ def main():
     ns_errors, n_ns = check_namespaces(files, text)
     errors += ns_errors
 
+    for p in sorted(text):
+        if RE_SLEW_POST.search(text[p]) and p not in SLEW_POSTERS:
+            errors.append(f"ANTENNA FRAME: {p} posts a RadarSlew target directly — an antenna command "
+                          f"is body-referenced, so it goes through FBCommandBus::PostAntennaAz/El with "
+                          f"a core/FBBodyAngle (see that header)")
+
     if errors:
         return report(errors)
     print(f"verify-layers: {len(files)} files, {n_edges} internal include(s), "
           f"{len(set(RANK.values()))} layers — no upward include, "
           f"{len(RESTRICTED)} restricted header(s) respected, "
           f"{len(PERCEPTION_READERS)} registry reader(s) inside the perception boundary, "
+          f"{len(SLEW_POSTERS)} antenna-cue poster(s), "
           f"{n_ns} file(s) in their layer's namespace ({len(C_ISLAND)} C-island file(s) exempt)")
     return 0
 

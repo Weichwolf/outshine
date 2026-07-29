@@ -78,16 +78,21 @@ Pilot::FBPilotCommands FBMig29Pilot::Run(const FBState &state, FBCommandBus &avi
        * instrument. A pilot who cannot read his own altimeter does not type a scan elevation. */
       if (!state.Platform.H.Readable()) break;
       double relM = g.AltM - (double)state.Platform.AltM;
-      double elDeg = std::atan2(relM, g.RangeM) * kRad2Deg;
-      refused = avionics.Post(FBCommandTarget::RadarSlewEl, elDeg, GciClockS_).Outcome ==
-                FBCommandOutcome::Rejected;
-      FBLog::Info("gci", "ENTER_ELEV", {{"relM", relM}, {"rangeM", g.RangeM}, {"elDeg", elDeg}});
+      /* THE RANGE-ANGLE METHOD PRODUCES A WORLD ANGLE and the knob is BODY-referenced, so the pilot's
+       * own pitch attitude is the second half of the entry — exactly as his own uncued search law has
+       * always done it, and as the AZIMUTH entry below has always done it with his heading. A climbing
+       * interceptor that skipped it aimed the whole of its pitch away from the raid
+       * (doc/pilot.md 2.15). */
+      double worldElDeg = std::atan2(relM, g.RangeM) * kRad2Deg;
+      FBBodyAngle el = FBBodyAngle::FromWorldElevation(worldElDeg, st.pitch);
+      refused = avionics.PostAntennaEl(el, GciClockS_).Outcome == FBCommandOutcome::Rejected;
+      FBLog::Info("gci", "ENTER_ELEV", {{"relM", relM}, {"rangeM", g.RangeM},
+          {"worldElDeg", worldElDeg}, {"ownPitchDeg", st.pitch}, {"elDeg", el.Deg()}});
     } else if (GciStep_ == 1) {
-      double offDeg = FBWrap180(g.BrgDeg - st.yaw);
-      refused = avionics.Post(FBCommandTarget::RadarSlewAz, offDeg, GciClockS_).Outcome ==
-                FBCommandOutcome::Rejected;
+      FBBodyAngle az = FBBodyAngle::FromTrueBearing(g.BrgDeg, st.yaw);
+      refused = avionics.PostAntennaAz(az, GciClockS_).Outcome == FBCommandOutcome::Rejected;
       FBLog::Info("gci", "ENTER_ZONE", {{"brgDeg", g.BrgDeg}, {"ownHdgDeg", st.yaw},
-          {"offDeg", offDeg}});
+          {"offDeg", az.Deg()}});
     } else {
       refused = avionics.Post(FBCommandTarget::RadarEmission, (double)FBMig29Emission::Illum,
                               GciClockS_).Outcome == FBCommandOutcome::Rejected;

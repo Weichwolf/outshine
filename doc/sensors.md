@@ -100,6 +100,17 @@ recovered from the event's own `sizeMrad`/`contrast`; "reported" = where the sec
 | cost of the march | bounded by the eye's own reach; to be measured, not assumed | 8-aircraft `four-4v4-asym`, eyes on vs `set visual off`, 6 interleaved runs each: **−1.1 %** (7.687 ± 0.307 s against 7.771 ± 0.132 s) — not resolvable above the run-to-run noise |
 | determinism | no die anywhere in the chain | `--threads 1/2/4` on `vis-day`, `vis-cloud`, `vis-anon-hostile`, `four-4v4-asym`, `duel-merge`: every telemetry CSV byte-identical, `events.log` identical modulo `wallS`/`speedup` |
 
+**Measured, the frame round (2026-07-29).** The complete inventory of angle handovers is §10; the
+summary is that of **41** handovers **4** were wrong and all four in the same direction (a world angle
+in a body-frame slot).
+
+| Anchor | Before | After |
+|---|---|---|
+| the spawn tick's own attitude, read by every body transform and every emitter | `FBMissionBoot` published position only ⇒ roll = pitch = yaw = 0 for the whole of tick 0. `pair-2v2-f16`: viper1 reports a fire control at **brgDeg = −180.0**, signal 0.9998 | the trimmed airframe's own state (`FBFdm::Sample`, the same read `Step()` ends with). Same geometry: **brgDeg = −0.0**, and the phantom that used to be held for the receiver's 2.0 s hold time is gone |
+| the MiG-29's briefed scan elevation | `o5-02-scramble`: antenna at **+2.891°**, raid at −3.41…−3.74° body, RAD bar ±6.0° ⇒ **0 radar contacts in the run** | **−2.754°** ⇒ first contact **t = 48.0 s at 25.70 nm**, both R-27R away by t = 106.3, exit **3 → 0** |
+| the catalogue aircraft's live net cue elevation | `air-awacs-cue`, a MiG-25 climbing at 3.38°: cue **+0.025°** | **−3.358°** |
+| the ground battery's cue | correct already — a mount publishes roll = pitch = 0 | routed through the same conversion; arithmetically a no-op, **byte-identical on all 10 SAM missions** |
+
 ## Gaps
 
 **A seventh reader was NOT added on 2026-07-28** and that is worth a line, because the round that came
@@ -1526,7 +1537,74 @@ Built exactly as §9.1–9.9 specify, with these additions the contract did not 
 
 ---
 
-### 10. Determinism — what is guaranteed
+### 10. Frames — every angle handed from one subsystem to another
+
+Three consecutive rounds each found ONE defect of a single kind — a **world** angle written into a
+**body-frame** command, or the reverse — so on 2026-07-29 the whole tree was walked instead of the next
+one being patched. What follows is the complete inventory of angle HANDOVERS: every place a subsystem
+produces an angle another subsystem consumes. It lists the correct ones too, because a list of only the
+defects says nothing about coverage.
+
+**The two frames.** *World* (also "true"): bearing 0 = north, elevation above the local horizontal.
+*Body*: azimuth off the nose (+ right), elevation off the boresight plane (+ above). The exact transform
+both ways is `core/FBGeodesy.h`'s `FBEnuToBodyLos` / `FBBodyLosToEnu`, which every sensor uses; the
+antenna-knob arithmetic (`true − own heading`, `world el − own pitch`) is exact at zero roll and on the
+nose and is now a type: `core/FBBodyAngle`.
+
+| # | Handover | Produced | Expected | Verdict |
+|---|---|---|---|---|
+| 1 | `FBMig29Pilot` GCI scan elevation → `RadarSlewEl` → `FBMig29Radar` antenna | **world** (`atan2(Δh, R)`) | **body** | **WAS WRONG — fixed.** The error was `st.pitch` exactly. `o5-02-scramble`: 0 contacts in the whole run → first contact t = 48.0 s at 25.70 nm |
+| 2 | `FBMig29Pilot` GCI zone → `RadarSlewAz` | body (`brg − st.yaw`) | body | correct, and always was |
+| 3 | `FBAirModule::ConsumeCue` net cue elevation → `RadarSlewEl` → `FBAirRadar` volume | **world** | **body** | **WAS WRONG — fixed.** `air-awacs-cue`, a climbing MiG-25: **+0.025° → −3.358°** |
+| 4 | `FBAirModule::EnterBriefedGci` elevation → `RadarSlewEl` | **world** | **body** | **WAS WRONG — fixed.** Latent on every committed mission (all fly level: −0.014° on `air-bomber-intercept`) |
+| 5 | `FBAirModule::EnterBriefedGci` azimuth → `RadarSlewAz` | body | body | correct since `fc219a4` — the round that found the class |
+| 6 | `FBPilot::InterceptCommands` uncued search elevation → `RadarSlewEl` | body (`atan2(…) − st.pitch`) | body | correct, and is the law the three above now agree with |
+| 7 | `FBPilot` coast-corrected antenna elevation → `RadarSlewEl` | body (contact `ElDeg`, corrected by own pitch CHANGE since the look) | body | correct |
+| 8 | `FBSiteFireControl` net cue az/el → `RadarSlewAz/El` → `FBSiteRadar` | body / world | body | **correct, but only because a mount publishes roll = pitch = 0.** Now routed through the same conversion, so it is correct by transform rather than by coincidence — arithmetically a no-op, byte-identical |
+| 9 | `FBSiteFireControl` own-contact aim → `FBSiteRadar::SlewTo` | body (`FBRadarContact::AzDeg/ElDeg`) | body | correct |
+| 10 | `FBSiteModule` launcher rail → `FBStoresSystem::SetRailAttitude` | world (`st.yaw + AimAzDeg`) | world | correct |
+| 11 | `FBSiteModule` gun bore → `FBGunSystem::SetBore` | body | body | correct |
+| 12 | `FBF16Module` FCR cursor → `FBF16Fcr::SetSlewAz/El` → scan volume | body (pilot's, item 6/7) | body | correct |
+| 13 | `FBRadarSystem::ScanFrame` volume test | body (`FBEnuToBodyLos`) | body | correct |
+| 14 | `FBRadarSystem::Emission` beam centre → `FBUnitSignature::Radar[]` | body | body (`FBEmitter.h` states it) | correct |
+| 15 | `FBRwrSystem::BeamCovers` — the emitter's beam, rotated at the RECEIVING end | body, using the EMITTER's published attitude | body | correct |
+| 16 | `FBRwrSystem` reported threat bearing → `FBRwrThreat::BearingDeg` | body (`FBEnuToBodyLos` with own attitude) | body | correct — **but it read a ZERO attitude on the spawn tick**, see item 24 |
+| 17 | `FBMig29Rwr::ReportBearingDeg` — SPO-15 channel centres | body | body | correct |
+| 18 | `FBIrstSystem` field-of-regard test + published `AzDeg/ElDeg` | body | body | correct |
+| 19 | `FBIrstSystem::DetectRangeM` aspect law (`bearing − target heading`) | world / world | world | correct |
+| 20 | `FBVisualSystem` cone test / `GlareFactor` (contact vs. sun az-el) | body / world+world | body / world | correct |
+| 21 | `FBBfmTrack::Update` echo → estimated position, then `Blk_.AzDeg/ElDeg` | world in, body out via `FBEnuToBodyLos` | — | correct, and the comment beside it says why the body pair may NOT be differentiated |
+| 22 | `FBF16/FBMig29/FBAirFireControl` gun lead → `GunLeadAzDeg/ElDeg` | body (`FBEnuToBodyLos` of the bore vector) | body | correct |
+| 23 | `FBPilot` gun tracking: lead → ENU → differentiate → back to body | body → world → body | — | correct, and the round trip is the point (§5.6) |
+| 24 | **The SPAWN TICK's own attitude** — read by items 13–21 and by every emitter | `missions/FBMissionBoot.h` published POSITION ONLY, so roll = pitch = yaw = 0 | the trimmed airframe's | **WAS WRONG — fixed.** Every body transform in the tree ran against the identity rotation for the whole of tick 0 |
+| 25 | `FBMissileGuidance` PN seeker slaving → `FBMissileSeeker::SlewTo` | body (`FBEnuToBodyLos` of the estimate) | body | correct |
+| 26 | `FBMissileGuidance::AngleOnlyCommand` (infrared) | world (`FBIrstContact::BearingDeg/ElevAngleDeg`) → ENU unit vector | world | correct, and the class banner argues why an IR head reports world and an RWR body |
+| 27 | `FBMissileGuidance::AntiRadiationCommand` | body (`FBRwrThreat`) → ENU via `FBBodyLosToEnu` with the ROUND's own attitude | — | correct |
+| 28 | `FBMissileGuidance::LaserCommand` | world spot → ENU → `FBEnuToBodyVec` | — | correct |
+| 29 | `FBStoresSystem` anti-radiation seeker cue (`SetSeekerCue`) | body (RWR) | body, and it is only RECORDED — nothing steers on it | correct |
+| 30 | `FBStoresSystem` designator field-of-view test (`brg − OwnYawDeg`) | body | body | correct |
+| 31 | `FBAirPilot` drag reflex heading (`st.yaw + t.BearingDeg + 180`) | body → world | world | correct |
+| 32 | `FBPilot` Defend/Abort heading off the RWR (`st.yaw + threatBrgDeg`) | body → world | world | correct |
+| 33 | `FBPilot` Attack/Closing heading = contact `BearingDeg` | world | world (a heading command) | correct |
+| 34 | `FBPilot` anti-radiation release gate (`\|cue->BearingDeg\| > seeker FOV`) | body | body | correct |
+| 35 | `FBFlightPicture::ContractPick` (`contact bearing − flight axis`) | world / world | world | correct — and the comment states why the axis may not be a nose |
+| 36 | `FBFlightPicture::CostS` / `Assign` correlation | world throughout | world | correct |
+| 37 | `FBNavSystem` steerpoint bearing/elevation → `FBNavBlock` | world | world (the HUD projects world az-el) | correct |
+| 38 | `FBF16Hud` conformal projection (horizon, ladder, FPM, steerpoint) | world | world | correct |
+| 39 | `FBAutopilot` heading hold (`brg − s.yaw`) and track hold | world / world | — | correct |
+| 40 | `FBMissionMonitor` waypoint capture, runway alignment, zones | world only; it consumes no body angle at all | — | correct by construction |
+| 41 | `FBDatalinkSystem` / `FBMissileUplink` reported bearings | world | world | correct |
+
+**Result: 41 handovers, 4 defects, all four of one kind and all four fixed.** Three of the four were
+already known one at a time (this file's §Gaps, [`pilot.md`](pilot.md) §Gaps 2.15,
+[`campaigns/w5-baltic-qra.md`](campaigns/w5-baltic-qra.md) §Findings); the fourth (item 4) was found by
+the walk. The structural answer is in [`conventions.md`](conventions.md) §Frames: the frame is a TYPE
+(`core/FBBodyAngle`), the antenna is reachable through ONE door (`FBCommandBus::PostAntennaAz/El`), and
+`make -C sim verify-layers` prints the number of files that may name a slew target — **1**.
+
+---
+
+### 11. Determinism — what is guaranteed
 
 - **No randomness in the perception chain.** No die, no break-lock probability, no detection probability.
   Chaff effect is an inequality on measured quantities; the stronger cloud wins via `RCS/r⁴`.

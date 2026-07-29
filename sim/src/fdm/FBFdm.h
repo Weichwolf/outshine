@@ -42,6 +42,13 @@ public:
   void Step(fb_fdm_state &out);
   bool Faulted() const { return Faulted_; }
 
+  /* WHAT THE ENGINE SAYS RIGHT NOW, without advancing it — the same read Step() ends with, so there is
+   * exactly one spelling of "the airframe's state". It exists for the BOOT: a freshly trimmed airframe
+   * already has an attitude and a velocity, and a spawn state hand-filled with position only published
+   * a jet pointing north at zero knots until the first integration (measured: every warning receiver
+   * reported a TRUE bearing on tick 0, error 275.5 deg on the committed pair-2v2-f16.fbm). */
+  void Sample(fb_fdm_state &out) const;
+
   /* ---- Commanded inputs: the ONLY way anything above this class influences the physics. ---- */
 
   /* roll/pitch/yaw in [-1,1], thr in [0,1]; the throttle is slew-limited before it reaches the engine. */
