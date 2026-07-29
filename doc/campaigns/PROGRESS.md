@@ -51,12 +51,12 @@ on this run; the anchor is Run 1's and unchanged, and the forum test-report thre
 | O2 PVO intercept | [o2-pvo-intercept.md](o2-pvo-intercept.md) | partial — doctrine [T3]/[T4], hardware [T2] via `doc/modules/mig29/`; **[T1] material unread** | 10 | yes | yes | **complete, thinnest sourcing in the set** |
 | O3 Yom Kippur | [o3-yom-kippur-1973.md](o3-yom-kippur-1973.md) | yes ([T1] Marine Corps study + [T4]) | 10 | yes | yes | **complete** |
 | O4 GAF DACT | [o4-gaf-mig29g-dact.md](o4-gaf-mig29g-dact.md) | yes ([T3]/[T4]; one forum test-report thread unread) | 10 | yes | yes | **BUILT AND FLOWN** — ten `.fbm` + one `.fbc`, both determinism criteria measured |
-| O5 Airfield defence | [o5-airfield-defence.md](o5-airfield-defence.md) | yes ([T4]; totals [DISPUTED] and deliberately omitted) | 10 | yes | yes | **complete** |
+| O5 Airfield defence | [o5-airfield-defence.md](o5-airfield-defence.md) | yes ([T4]; totals [DISPUTED] and deliberately omitted) | 10 | yes | yes | **BUILT AND FLOWN** — ten `.fbm` + one `.fbc`, both determinism criteria on the first attempt, three defects found |
 | — | [INDEX.md](INDEX.md) | — | — | aggregated | aggregated | **complete**: map, reading rules, cast by frequency, gaps by blocking degree, the identification section, the Bekaa yardstick |
 
-**100 missions specified. 20 BUILT (O4, O1). 50 were counted runnable when the specs were written; both
-built campaigns came out at 10 of 10 when re-checked against the tree** (per-campaign breakdown in
-[`INDEX.md`](INDEX.md)).
+**100 missions specified. 30 BUILT (O4, O1, O5). 50 were counted runnable when the specs were written;
+all three built campaigns came out at 10 of 10 when re-checked against the tree** (per-campaign
+breakdown in [`INDEX.md`](INDEX.md)).
 
 **Run 4 — 2026-07-29, O1 BUILT.** The second campaign to exist as files: ten `sim/missions/o1-*.fbm` +
 `sim/campaigns/o1-bekaa-1982.fbc` ([`o1-bekaa-1982.md`](o1-bekaa-1982.md) §State). **No `sim/src/` file,
@@ -179,3 +179,20 @@ Nothing in this directory needs re-writing. The next work is **outside** it:
    highest-value unread source for `C22`'s doctrine half.
 
 ~~3. Open a gap entry for `C1`…~~ — **done in run 2**, in [`../weapons.md`](../weapons.md).
+
+**Run 6 — 2026-07-29, O5 BUILT.** The third campaign to exist as files: ten `sim/missions/o5-*.fbm` +
+`sim/campaigns/o5-airfield-defence.fbc` ([`o5-airfield-defence.md`](o5-airfield-defence.md) §State).
+**No `sim/src/` file, no tool and no asset was touched.** No new source was researched; the anchor is
+Run 1's and unchanged, and the claim-review thread flagged there is still unread. It is the first
+campaign to fly the `C12` vocabulary in anger and the first whose subject is the ground defence the
+Run-5 fix made able to move an outcome.
+
+| Measured | Value |
+|---|---|
+| Campaign exit / step exits | 3 / `3 3 3 3 3 1 1 3 3 3` |
+| Determinism criterion 1 | 9 runs (3 × `--threads 1/2/4`), **1** campaign fingerprint `f59fc642c86ccecd2691…`, `--elev const` |
+| Determinism criterion 2 | **10/10** steps replay standalone bit for bit, on the first attempt |
+| Conservation | nothing to compare: `git status --porcelain` lists 11 new untracked files and 0 modified; 160 pre-existing missions byte-identical by construction |
+| The campaign's own answer | **a fighter pair already on station denies half a two-ship and nothing else in this tree comes close.** The controller is worth 6 s of one wingman's first look; the night, the inner gun, the hardened shelters and the runway are worth nothing measurable. **The belt denies one striker of three — and one Mk-84 on its P-18 node on night one costs it every launch on nights two and three** (7 → 0 and 6 → 0, measured standalone against in-campaign) |
+| Found while building | **three defects, all on FlightBox's side of the seam, none fixed here.** (1) The alert scramble is not expressible: `FBPilot` has no `Route` → `Intercept` transition and `set task` applies at spawn, so a ground start plus a combat task FAILs at t = 11.1 s or cartwheels at t = 35.4 s. (2) `modules/air/FBAirModule` composes **no fire control**, so no catalogue row can employ any weapon — an `f15c` holds a firm lock for 28 s from 18.6 to 8.8 nm and never presses. (3) `FBMig29Pilot` posts the GCI's **world-frame** scan elevation into a **body-frame** antenna command; on a climbing interceptor that is worth the whole ±6° RAD bar — 0 contacts in 700 s over a 726 m closest approach |
+| Also measured | the field's own belt fires its **first three rounds at its own fighters** (`brgDeg` 116.5 / 90.6 / 91.0) — a FlightBox battery has no IFF interrogator, and an airfield is the one geometry where that cannot be laid around |

@@ -1522,3 +1522,47 @@ verdeckt — die Runde starb, bevor sie sie zeigen konnte. Alle drei stehen als 
 **Die Lehre, und sie korrigiert eine Regel im Kampagnen-Index:** nicht *ein* Fund pro Kampagne, sondern
 ein **Stapel** — der erste Defekt verdeckt den nächsten. Und: ein deklariertes, belegtes, zweimal
 spezifiziertes Feld, das niemand liest, ist keine Spezifikation, sondern eine Lüge mit Herleitung.
+
+## 2026-07-29 — Kampagne O5 gebaut und geflogen: das Vokabular war die leichte Hälfte
+
+Zehn `sim/missions/o5-*.fbm` + `sim/campaigns/o5-airfield-defence.fbc`, Batajnica 24.–26. März 1999,
+`--elev const`, drei erklärte Nächte. Kein `sim/src/`, kein Deck, keine Zeile an den 160 bestehenden
+Missionen — die Binärdatei, die O5 geflogen hat, ist die, die alles vorher geflogen hat. Beide
+Determinismus-Kriterien beim ersten Versuch: 9 Läufe eine Kampagnen-Signatur
+(`f59fc642c86ccecd2691…`), 10/10 Schritte einzeln reproduziert. Vollständige Messung in
+[`campaigns/o5-airfield-defence.md`](campaigns/o5-airfield-defence.md) `## State`.
+
+**Die Antwort auf die eigene Frage — was hält den Flugplatz?** Eine Rotte, die schon oben steht. Sie
+verweigert einem Zweierpack die Hälfte seiner Bomben, und nichts sonst in diesem Baum kommt in die
+Nähe. **Was umsonst ist:** der Lotse (6 s auf den ersten Blick des Flügelmanns, kein Ergebnis — die
+dritte Kampagne, die das sagt), die Nacht, die innere Rohrwaffe, die gehärteten Shelter und die Bahn.
+Der Gürtel verweigert einem von drei Angreifern die Freigabe — und **eine Mk 84 auf seinen P-18-Knoten
+in Nacht eins kostet ihn zwei Nächte lang jeden Start** (7 → 0 und 6 → 0, standalone gegen Kampagne
+gemessen). Genau die `C22`-Vorhersage der eigenen Spec, angekommen als Zahl.
+
+**Drei Defekte, alle auf unserer Seite der Naht, keiner hier repariert:**
+
+1. **Der Alarmstart ist nicht ausdrückbar.** `set task` setzt die Phase BEIM SPAWN und `FBPilot` hat
+   keinen Übergang `Route` → `Intercept`. Ein Bodenstart mit Kampfauftrag rollt von der Bahn (FAIL bei
+   t = 11,1 s) oder überschlägt sich (`ATTITUDE_CONTACT`, t = 35,4 s). Das ist der Parameter, den die
+   Spec selbst den wichtigsten der Kampagne nennt.
+2. **Keine Katalog-Zelle kann eine Waffe einsetzen.** `modules/air/FBAirModule` komponiert *keine*
+   Feuerleitung, also wird `FBState::FireControl` nie geschrieben und alle drei Einsatztore in
+   `FBPilot` bleiben zu. Eine `f15c` mit vier AIM-120 hält 28 s einen festen Lock von 18,6 auf 8,8 nm
+   und drückt nie. Vier Zeilen sind `ACCEPTED` — als **Flugmodelle**, nicht als Kämpfer.
+3. **Die GCI-Suchelevation ist ein Weltwinkel in einem Körperkommando.** `FBMig29Pilot` postet
+   `atan2(Δh, R)` direkt auf `RadarSlewEl`; das eigene Suchgesetz in `FBPilot` zieht dort ausdrücklich
+   `st.pitch` ab. Im waagerechten CAP fällt der Unterschied in die Kommando-Totzone — bei einem
+   steigenden Abfangjäger ist er der ganze ±6°-Balken: **null Kontakte in 700 s über 726 m minimalen
+   Abstand.**
+
+**Und die Messung, die O5 als einzige Geometrie erzwingen konnte:** eine FlightBox-Stellung hat keinen
+IFF-Abfrager, und ein Flugplatz ist der eine Ort, an dem das eigene Flugzeug die nächste feste Spur
+ist. Der Gürtel schießt seine **ersten drei Runden nach Osten** (`brgDeg` 116,5 / 90,6 / 91,0) — auf die
+eigenen MiG-29. Dass die Kette keine Maschine an eigene Flugkörper verliert, liegt einzig daran, dass
+der Angreifer in Nacht eins den Knoten zerstört hat, der die Starts freigegeben hätte.
+
+**Die Lehre:** das Zielvokabular (`C12`) war die leichte Hälfte und ist geflogen — `deny release`,
+`protect`, `avoid zone`, `no_fire`, alle vier. Was es ersetzt hat, ist kleiner und härter: die Kampagne
+konnte ihre eigene Hauptfrage nicht stellen, weil das Format den Alarmstart nicht kennt. Erwarte den
+Defekt in der Naht, in die du nicht geschaut hast.

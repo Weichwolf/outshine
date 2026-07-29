@@ -28,6 +28,13 @@ None of the three is "shoot down the escort", and FlightBox's objective vocabula
 **only the third** today (`C12`). That is the campaign's central gap and it is stated up front rather
 than discovered in mission 7.
 
+> **SUPERSEDED 2026-07-29 by the build, and kept because the sentence above is what commissioned `C12`.**
+> The vocabulary now expresses the **first and the third**: `deny release` is O5's primary measure and
+> `protect` states the field's survival as a verdict. The second — broken timing — is still a telemetry
+> read, and O5 read it: the terminal zone's first entry is t = 198.6 s with and without the jammer, to
+> the tick. What replaced this as the campaign's central gap is **that the scramble itself cannot be
+> declared** — see `## State`, defect 1.
+
 ---
 
 ## Spec
@@ -105,44 +112,263 @@ because the campaign's subject is a *posture*, and posture is spawn data plus `s
 and 2 are the pair to build first: they differ by one `spawn` line and they produce the campaign's
 calibration number.
 
+> **SUPERSEDED 2026-07-29 by the build.** Ten of ten were built and ten ran; what the ten slots actually
+> hold is one fighter baseline + four single-change variants + one control pair + a three-night chain,
+> and the two spec missions that did **not** fit are named in the `.fbc` header (mission 7, the runway,
+> because `C17` makes it a target nothing can kill whose death changes nothing; mission 6, saturation,
+> because the first wreck ends the run and a six-ship raid is measured for exactly as long as a two-ship
+> one). And the sentence *"they differ by one `spawn` line"* did not survive contact: **missions 1 and 2
+> cannot differ by a spawn line, because the format cannot spawn an aircraft on alert at all.**
+
 ---
 
 ## State
 
-**Nothing built.**
+**BUILT AND FLOWN, 2026-07-29 — the third of the ten campaigns to exist as files.** Ten `.fbm` in
+`sim/missions/o5-*.fbm` plus `sim/campaigns/o5-airfield-defence.fbc`, run as a campaign, replayed step
+by step, and measured. **No file under `sim/src/` and none under `sim/assets/` was touched**
+(`git status --porcelain sim/assets` empty, `verify-models` *"4 upstream-backed model path(s) match …
+(1 declared delta(s), 34 FlightBox-own)"*, `verify-layers` unchanged word for word), so the 160
+pre-existing missions are byte-identical **by construction rather than by comparison**: the binary is
+the one that was already there.
 
-What exists and carries it: ground start with the runway geometry and the full takeoff phase machine;
-per-unit spawn with independent timing expressible as an offset position on the route; all four
-degradation switches (`n019_mode`, `n019_emission`, `rwr`, `fuel_pct`); the GCI brief chain; the
-declaration-based expected-loss rule that lets a defender's death be somebody's declared objective
-without ending the run; and the flight sort.
+### The arena, and the two disclosures that belong in the first paragraph
+
+Batajnica at **44.93000 N 20.26000 E** `[SET]`, flown under `--elev const` on a **0 m datum** (the real
+field is ~80 m) with **no terrain masking** (`C4`), so the Fruska Gora and every mask a Serbian battery
+used do not exist. The package ingresses due east along 44.93 N from 19.60000 (52.0 km out) at 5 000 m
+and 450 kt; the field's point defence is a P-18 node on the field, an S-125 7.9 km west, a 2K12 5.7 km
+west and a ZSU-23-4 0.7 km west. Scale: 1° of longitude = 78 800 m [DERIVED].
+
+**Two layers cannot both be live in one file, and that is this campaign's structural finding rather
+than a layout preference.**
+
+1. A FlightBox SAM site has **no IFF interrogator** and an `FBRadarContact` carries no identity, so a
+   battery engages the **nearest firm track** whoever it belongs to. An airfield is exactly the geometry
+   in which the friendly aircraft are the nearest track — O1 could lay its CAP outside its own umbrella,
+   **O5 cannot, because the defenders live under it.** MEASURED, in this campaign's own standalone
+   sortie 09: of the belt's first three launches, **all three go east** (`brgDeg` 116.5 / 90.6 / 91.0)
+   at the field's own MiG-29s, and only the next four go west (258.6 / 271.5 / 272.4 / 258.8) at the
+   package. Sortie 10 standalone: **3 of 6** (81.9 / 90.6 / 91.0).
+2. `FBMissionRunner` ends the run at the first flight-monitor K.O., and a mission-killed F-16 falls from
+   5 000 m in about **122 s**. An air engagement and a bomb run in one file are therefore one measurement
+   plus a truncation. The budget is arithmetic: with a 34 s bomb time of flight, a defender may kill at
+   most **88 s** before the release point and still leave the strike observable.
+
+The campaign's answer is the one a real airfield takes and the only one the format can express: the
+missiles are **held while the fighters are up** (`set emcon hold <offS> <onS>`) and free when they are
+not. Sorties 01–05 measure the fighter layer with the belt briefed quiet; 06–07 measure the missile
+layer with nothing friendly airborne; the chain lets the campaign's own attrition decide which layer is
+left. **O5 never measures both at once, and no statement below claims it did.**
+
+### The ten sorties, their fingerprints and their answers
+
+Campaign exit **3** (the worst step's; every sortie is a measuring rig whose own header says the verdict
+is the telemetry). Campaign fingerprint under `--elev const`:
+`f59fc642c86ccecd2691371c3c4c2dd41d6f04c891702316b85d32badb7070f4`.
+
+| # | Mission | ctrl | exit | fingerprint | The answer to its one tactical question |
+|---|---|---|---:|---|---|
+| 1 | `o5-01-cap` | — | 3 | `35ed72fcab3aa924` | **The fighter layer denies half a two-ship and no more.** Contact t = 21.0 s at 25.58 nm, both R-27R away at t = 66.2 — and **both onto the same striker** (the sort does not split, exactly as in `o1-02` and `o4-10`): arrivals **3.23 m** and **10.50 m** against a 13.8 m fuze, `m1strb` dead at t = 90.2. The survivor is unmolested, releases at t = 160.7 and destroys the S-125 at t = 195.0 with a **45.87 m** Mk-84. `deny release` **unmet** |
+| 2 | `o5-02-scramble` | 01 | 3 | `e3e4b10c79c7cf6f` | **THE SCRAMBLE COSTS THE ENTIRE ENGAGEMENT — and the mechanism is a defect, not a delay.** Zero radar contacts in 700 s over a **726 m** closest approach; zero shots; **both** strikers release and both aim points die. The cause is measured below (§The three defects, #3): the pair climbs at 25.0 m/s at +5.9…+6.1° of pitch and the GCI's scan-elevation entry is a **world-frame** angle posted to a **body-frame** antenna command |
+| 3 | `o5-03-no-gci` | 01 | 3 | `fa3de2437bd7ab45` | **The controller is worth six seconds of the wingman's first look and nothing else.** Lead's first contact identical (t = 21.0), wingman's **24.0 → 30.0 s**; both shots at the identical t = 66.2; same kill, same release, same aim point, run length 216.7 → 216.6 s. On a collision course, confident blindness and full control are the same state — **the third campaign to say so, after `o1-03`, and the second geometry in which deleting the brief changes no outcome** |
+| 4 | `o5-04-no-radar` | 01 | 3 | `ee634cab56b128ce` | **Zero, and the zero is the point.** No contact, no shot, `irst_contacts` = **0** for the whole run — the KOLS never had anything to offer and nothing would have read it if it had (`duels.md` D3). Both strikers release. A radarless MiG-29 is not a degraded interceptor in this tree, it is **an absent one**, and that prices the Batajnica serviceability claim exactly |
+| 5 | `o5-05-escorted` | 01 | 3 | `8854dae7dda355a8` | **The defender goes for the escort, and all four rounds go to the same aeroplane.** First contact on the escort at t = 9.1 (11.9 s before the strikers appear), four R-27R away, `m5esca` dead at t = 75.8 at **3.86 m**; the second escort is untouched and the strikers are never engaged. **`deny release` reads MET and this campaign refuses the reading**: the run ended 35.6 s after the hit with both strikers still 27 km short of their release point. What this sortie measures is the SORT and nothing downstream of it |
+| 6 | `o5-06-belt` | — | 1 | `7fc2aa31eca722b7` | **The missile layer alone denies one striker of three and then loses the field.** `net JOIN` ×3 at t = 3.9, 12 `net CUE`, first firm track t = 39.0, **7 `site LAUNCH`** (4 × V-601 at 28.1/27.5/20.5/19.9 km, 3 × 3M9 at 16.2/10.6/11.2 km) — **all seven at the same aircraft**, one engagement channel. `m6stra` killed at t = 139.3 by a **2.31 m** arrival against a 10.0 m fuze (the V-601 salvo: 6.87 / 6.09 / 2.31 / 2.20 m). The two survivors release; `protect unit m6ful` is **violated at t = 226.1** and that timestamp is the verdict. `zone_umbrella_s` = **188.2–188.5 s** per striker: an ingress with no way round |
+| 7 | `o5-07-jammed` | 06 | 1 | `fee713cf08e8509a` | **One line takes the whole missile layer away.** `set jam_comm_m 90000` on the lead striker: **0 `net JOIN`, 0 `net CUE`, 0 `site LAUNCH`, 0 detonations** against 3 / 12 / 7 / 5 — the belt never comes up at all (O1's `net-jam-start` case, not its `net-jam-late` one). Ordnance on the field **2 → 3** Mk-84 and the striker the belt killed comes home. **And it buys ordnance, not time:** the terminal zone's first entry is t = **198.6 s in both runs**, to the tick |
+| 8 | `o5-08-night-one` | — | 3 | `f8e818f931519561` | **CHAIN HEAD. Nobody dies and the field loses its eyes.** 3 R-27R + 3 R-73 against 2 AIM-120, no aircraft on either side made combat-ineffective, and two Mk-84 destroy **`batnod` (the P-18) and `batsa3` (the S-125)**. Against the anchor this is the wrong answer — the 127th lost two aircraft that night — and it is reported rather than tuned away |
+| 9 | `o5-09-night-two` | — | 3 | `4db885e9157b58c3` | **CHAIN. The missiles were released and there were no missiles left to release.** The carry drops `batnod` and `batsa3`, so the surviving 2K12 has no node: `net WCS unit=batsa6 state=hold netState=SILENT correlated=0 effect="launch inhibited" rangeM=6591.55` at t = 33.0 — **it holds a firm track on one of its own fighters at 6.6 km and the missing node is what stops it firing.** 0 launches against 7 standalone. `knight1` is lost to an AIM-120 |
+| 10 | `o5-10-batajnica` | — | 3 | `2ed7d6b2a84e3a42` | **CHAIN TERMINUS. Three numbers: 4 of 6 targets surviving, 0 of 4 strikers denied, 4 of 5 defenders recovered.** Four Mk-84 released, `bathgr` and `batful` destroyed, `knight3` lost, 0 `site LAUNCH`. **Standalone the same file is a different night**: the belt fires 6 times, no bomb is released at all and the run ends at t = 116.6 on a dead escort. The difference is the campaign |
+
+### The carry, where it lands, and what it was worth
+
+`carry units ground stores` — **O5 does not narrow it**, for O1's reason and against O4's: attrition is
+the subject. Sorties 01–07 are seven pairwise-disjoint casts (`m1*`…`m7*`) that carry nothing in or out —
+**including their ground callsigns**, which is the one place O5 had to be stricter than O1: O5's field is
+attacked in every sortie, so a shared belt would let sortie 01's damage leak into sortie 02 and destroy
+the experiment. The chain is **08 → 09 → 10** over one defending roster (`knight1`…`knight5`) and one
+field (`bat*`); the attacker does not carry, because each night's package has its own callsigns.
+
+| Entering | `campaign CARRY` lines |
+|---|---|
+| step 09 | 6 × `action=stores` (knight1 r27r; knight3 r27r + r73; knight4 r27r + 2 × r73) · 2 × `action=drop` (`batnod`, `batsa3`) |
+| step 10 | 8 × `action=stores` · 1 × `action=drop` on an **aircraft** (`knight1`) · 2 × `action=drop` on the field |
+
+Campaign totals: `ATTRITION unitsFriendly=4 unitsHostile=2 groundFriendly=0 groundHostile=15`,
+`EXPENDED mk84=17 r27r=12 r73=9 aim120=7`.
+
+**And the honest measurement of what the carry was worth** — the same file run STANDALONE with no
+carried state against the same file as a campaign step:
+
+| | 09 standalone | 09 in campaign | 10 standalone | 10 in campaign |
+|---|---|---|---|---|
+| `site LAUNCH` | **7** | **0** | **6** | **0** |
+| rounds fired at the field's OWN fighters | **3** of 7 | — | **3** of 6 | — |
+| Mk-84 released | 2 | 0 | **0** | **4** |
+| ground positions/installations destroyed | `batsa3`, `batful` | — | — | `bathgr`, `batful` |
+| aircraft lost | `n2esca` | `knight1` | `n3escb` | `knight3` |
+| run length | 536.2 s | 121.3 s | 116.6 s | 486.1 s |
+
+> **The campaign's headline, and it is the `C22` prediction arriving as a number: one Mk-84 on the P-18
+> on night one is worth the field's entire missile layer on nights two and three.** The node dies at
+> t ≈ 900 s of sortie 08; the carry drops it; the 2K12 that survives both later nights holds firm tracks
+> and fires **nothing**, because `autonomy hold` without a node is a battery with a radar and no orders.
+> The attacker's first bomb also bought the defender's fratricide protection — the three rounds that
+> would have gone east at its own MiGs are the three rounds it never launched.
+
+### The scramble, attributed rather than argued
+
+Sortie 02 changes three things in one lever (13.89 km of position, −7 000 m of altitude, −100 kt) and
+says so in its own header. Four attribution runs, none of them one of the ten, separate them — the same
+discipline O4 used on its weather sortie:
+
+| variant | spawn | first MiG contact | R-27R | Mk-84 on the field |
+|---|---|---|---:|---:|
+| `o5-01` baseline | 20.35000 / 9 000 m / 450 kt | **t = 21.0 s** | 2 | 1 |
+| **a** — late only | 20.52640 / 9 000 m / 450 kt | t = 48.0 s | 3 | 1 |
+| **b** — low only | 20.35000 / 2 000 m / 450 kt | t = 24.0 s | 4 | **0** |
+| **c** — slow only | 20.35000 / 9 000 m / 350 kt | t = 21.0 s | 4 | 1 |
+| `o5-02` — all three | 20.52640 / 2 000 m / 350 kt | **never** | **0** | **2** |
+| **d** — all three, GCI deleted | ″ | **never** | **0** | 2 |
+
+**No single component blinds the pair; all three together delete the engagement, and deleting the
+controller does not restore it.** The effect is superadditive and its mechanism is defect #3 below.
+
+### The three defects this campaign found, none of them fixed here
+
+Rule: *a campaign is the first thing that fires a subsystem in anger.* O1 found one and a stack under it;
+O5 found three, all on FlightBox's side of the seam, all reported rather than built around.
+
+| # | Defect | The measurement that pinned it |
+|---|---|---|
+| **1** | **The alert scramble is not expressible.** `set task <combat>` sets the pilot's phase AT SPAWN and `FBPilot`'s phase machine has **no transition from `Route` into `Intercept`**, so a `spawn ground` unit with a combat task never runs Preflight/Takeoff/Climb at all | with a `runway` line the MiG steers off the strip and FAILs *"touchdown off the assigned runway"* at **t = 11.1 s** (59.3 m of lateral error 357 m down the roll); without one it rolls, lifts and cartwheels — `monitor KO … reason=ATTITUDE_CONTACT` at **t = 35.4 s**. **This is the parameter §Spec 2 calls the campaign's most important single one** |
+| **2** | **No catalogue aircraft can employ any weapon.** `modules/air/FBAirModule` composes **no fire control**, so `FBState::FireControl` is never written and all three of `FBPilot`'s employment gates (`InterceptCommands`' `inParams`, `BfmMissileShot`, the gun's `GunTolDeg`) stay shut for every one of the eighteen rows | an `f15c` with 4 × AIM-120 designates at **t = 8.6 s at 18.64 nm**, holds `eng_locked = 1` from t = 12.1 to t = 40.1 while closing **18.6 → 8.8 nm**, and never posts a `WeaponRelease`; its telemetry carries **no `fc_*` column at all**. `flight-model-recipe.md`'s promotion gate measures the DECK, so **four rows are `ACCEPTED` as flight models and none of them is a combatant.** `air-bomber-intercept.fbm`'s header already records the symptom and attributes it to the MiG-23's radar; the cause is one layer lower |
+| **3** | **The MiG-29's GCI scan-elevation entry is a WORLD-frame angle posted to a BODY-frame antenna command.** `FBMig29Pilot` computes `elDeg = atan2(g.AltM − ownAlt, g.RangeM)` and posts it to `RadarSlewEl`; `FBPilot`'s own uncued search law posts the same geometry **minus `st.pitch`** ( *"der eigene Nick macht daraus ein Kommando statt einer Konstante"* ). On a level CAP the two agree inside the command deadband, which is why no committed mission has ever exposed it | sortie 02: the pair climbs at **25.0 m/s** at **+5.86…+6.13°** of pitch; the raid sits at **−3.1…−4.2° in the body frame** at 57 → 25 km, well inside the N019's ±6.0° RAD bar — and the antenna is commanded to **+2.83°** where the pilot's own law would command **−3.03°**, leaving the bar's lower edge at −3.17° and the raid 0.5–1.0° outside it for the whole closure. **Zero contacts in 700 s over a 726 m closest approach** |
+
+### What holds the airfield, and what is free
+
+The campaign's own question, answered in the currency of ordnance that did not arrive. "Bombs on the
+field" counts Mk-84 released against the field's installations in each sortie.
+
+| Layer | Setting | Bombs on the field | What it moved |
+|---|---|---:|---|
+| — | nothing (sortie 02/04's condition) | **2 of 2** | the reference: an undefended field takes everything |
+| **fighters, on station** | `o5-01` | **1 of 2** | **half the package.** The most any single layer achieves in this campaign |
+| fighters, GCI deleted | `o5-03` | 1 of 2 | **nothing** — 6 s of one wingman's first look |
+| fighters, radar off | `o5-04` | 2 of 2 | **the whole layer.** A radarless MiG-29 is an absent one |
+| fighters, scrambled late | `o5-02` | 2 of 2 | **the whole layer**, and by defect #3 rather than by geometry |
+| fighters vs an escorted package | `o5-05` | not measurable | the sort takes the escort and the strikers are never engaged |
+| **missiles, netted and cued** | `o5-06` | **2 of 3** | **one striker of three**, at the cost of 7 rounds and the S-125 |
+| missiles, net jammed | `o5-07` | 3 of 3 | **the whole layer**, on one line |
+| **the node** | chain 08 → 09/10 | 0 → 4 | **the whole layer, for two nights, from one bomb** |
+
+**What holds the airfield: a fighter pair that is already on station, and nothing else in this tree comes
+close.** It denies one striker of two, and it does it with a radar and a magazine — not with a
+controller, not with a warning receiver, not with the missiles at its feet.
+
+**What is free, and the list is long and specific:**
+
+- **The controller.** Six seconds of one wingman's first look, no outcome. Three campaigns now agree
+  (`o1-02`, `o1-03`, `o5-03`) and the three geometries are head-on, 45° and high-to-low.
+- **The night.** Declared in every file, and O4 measured its worth: six visual telemetry columns out of
+  184, none read by any pilot. No sortie of O5 is different from its daylight twin in any flight, sensor,
+  weapon or engagement column.
+- **The inner gun.** `objective no_fire` on the ZSU-23-4 is **met in every sortie that publishes it**
+  (01, 05, 10) and it is met for a reason that has nothing to do with discipline: the package runs in at
+  5 000 m and the Shilka's ceiling is 1 500 m. The false positive is named, and what the line actually
+  measures is **the altitude decision** — which is why a package accepts SAM exposure to stay out of the
+  flak.
+- **The hardened shelters and the runway.** They stand in every one of the ten files and **nothing in
+  the package can kill them**: a Mk-84 CCRP delivery on this arena lands 38–51 m out and a `target_hard`
+  needs ~8 m (`attack-hardened.fbm`). Add `C17` — a runway has no state and cannot be closed — and
+  "the shelters survived" is never reported here as a defensive success.
+- **The belt, the moment its node is gone.** Not free in itself — it denies a striker in `o5-06` — but
+  worth exactly zero for two consecutive nights after one bomb, because `autonomy hold` without a node
+  is a battery with a radar and no orders.
+
+**And the one thing that is worse than free:** on this geometry a live belt fires its first three rounds
+at its own fighters. The only reason O5's chain does not lose aircraft to its own missiles is that the
+attacker destroyed the node that would have authorised the launches.
+
+### Both determinism criteria, measured
+
+Under `--elev const`, read out of `campaign-summary.txt` rather than assumed:
+
+| # | Criterion | Result |
+|---|---|---|
+| **1** | 3 repetitions × `--threads 1/2/4` produce one campaign fingerprint | **9 runs, 1 fingerprint** `f59fc642c86ccecd2691371c3c4c2dd41d6f04c891702316b85d32badb7070f4`, exit 3 in all nine |
+| **2** | every step's per-mission fingerprint equals that mission run STANDALONE with step *k−1*'s state | **10/10 MATCH**, exit codes included, on the first attempt |
+
+**One process deviation, stated:** `INDEX.md`'s rule 5 says run `fb_campaign_verify.py replay` after the
+FIRST mission rather than after all ten. It was run after all ten. It passed 10/10 on the first attempt,
+so nothing was lost — but the rule exists to bound the damage when it does not, and this round did not
+earn its luck.
+
+### Conservation, and one control that had to be run
+
+**Nothing to compare, and that is the strongest form of it.** `git status --porcelain` lists eleven new
+untracked files and **no modified one**: ten `sim/missions/o5-*.fbm` and one `sim/campaigns/*.fbc`. No
+`sim/src/` file, no tool and no asset was touched, so the binary that flew O5 is the binary that flew
+everything before it and the 160 pre-existing missions are byte-identical by construction. Gates:
+`make core-lib gym native wasm` warning-free; `verify-layers` *"297 files, 805 internal include(s), 12
+layers — no upward include, 3 restricted header(s) respected, 6 registry reader(s) inside the perception
+boundary, 284 file(s) in their layer's namespace (5 C-island file(s) exempt)"*; `verify-models` *"4
+upstream-backed model path(s) match assets/MODEL-DELTAS.md (1 declared delta(s), 34 FlightBox-own)"*;
+eight harnesses rc = 0 (`test-monitor` `test-fdm` `test-corner` `test-gun` `test-missile` `test-weather`
+`test-mig29` `test-air`).
+
+**The control the objective lines needed.** Sorties 06 and 07 declare `no_fire` and `protect` on units
+that also fly the experiment, so the question *"did the declaration change what happened?"* is real.
+Measured: `o5-06-belt` with the `objective no_fire` line removed produces **20 of 20 `telemetry*.csv`
+byte-identical** to the campaign step. An objective is a declaration, not a behaviour — it can change
+what a run is CALLED and, when it is violated, when a run STOPS, and nothing else.
+
+### What the tree already had, and this campaign consumed unchanged
+
+| Already built | Where | Used for |
+|---|---|---|
+| the four `C12` objective kinds + `avoid zone` | [`../missions/verdict.md`](../missions/verdict.md) | `deny release` (01–05, 08–10), `protect` (06, 07), `no_fire` (the field's gun), `avoid zone` (every striker) |
+| the connected air defence: `net`, cue, `wcs`, `autonomy`, `net WCS … "launch inhibited"` | [`../air-defence-network.md`](../air-defence-network.md) | the field's point defence in all ten sorties |
+| the briefed emission plan `set emcon <mode> <offS> [<onS>]` | ″, round `C26` | the weapons-hold that makes an airfield defence expressible at all |
+| `set jam_comm_m` | ″ §6 (`C24`) | sortie 07, one number against sortie 06, at O1's own 90 000 m |
+| the ground-launch fix of 2026-07-29 | [`../modules/ground/module.md`](../modules/ground/module.md) §4.1 | **every launch in this campaign.** On the pre-fix binary sortie 06's seven rounds would have hit their own launchers |
+| the campaign layer, its overlay and its two fingerprints | [`../missions/campaign.md`](../missions/campaign.md) | the three-night chain and both criteria |
+| `mission OBJECTIVE` per declared objective (`E1`) | [`../missions/verdict.md`](../missions/verdict.md) | the whole reading of this campaign |
 
 ---
 
 ## Gaps
 
+**Re-checked against the tree on 2026-07-29, not trusted** (`INDEX.md`'s inherited rule). Six of the
+twelve rows below were closed by other rounds between the spec and the build, and one that was listed as
+present turned out not to be.
+
 | ID | What is missing | Blocks here |
 |---|---|---|
-| `C12` | **no `protect` / `deny` objective** | the campaign's success condition. Today "the shelter survived" can only be read as the attacker's failed `kill`, which works but is backwards and unreadable at a glance |
-| `C17` | **a runway cannot be closed, an airfield has no state, there is no divert field** | mission 7 entirely; the reason an airfield is attacked in the first place |
-| `C1` | **no airfield air defence** | both anchors' bases were defended; here they are not |
-| `C7` | **no F-15C, no F-117, no cruise missile** | the attacker is an F-16 stand-in for three different threats |
-| `C6` | **no live controller** | the scramble order itself, and the vector that would follow it |
-| `C2` | **no time of day** | **every mission in this campaign is a night mission** — Batajnica's five scrambled in the dark |
-| `C0` | **no campaign layer** | an air force being destroyed over three nights is precisely a campaign-layer subject: losses must carry |
-| `D3` (`duels.md`) | **the pilot does not use the IRST** | mission 3 — a radarless MiG-29 should still be a threat, and today it is not |
-| `C15` | **no scramble timing mechanism** | staggering is done by giving units different spawn positions, which is a workaround with a different geometry |
-| `C3` | **no visual acquisition** | a night defensive intercept ends at visual range in reality |
-| `C22` | **no connected air defence** ([`../air-defence-network.md`](../air-defence-network.md)) | the airfield's point defence would be a net whose node is the field's own radar — which makes **killing that node the attacker's first objective** and gives mission 4's "no controller" experiment a ground-side twin. Today the defence has no node to lose |
-| `C23` | **no declared, judged belt geometry** | the campaign measures what the package did **not** achieve; the terminal zone's first-entry time is the time-on-target proxy [`../missions/verdict.md`](../missions/verdict.md) says must stay a telemetry read |
+| ~~`C12`~~ | **CLOSED and flown.** All four kinds plus `avoid zone` are declared in O5's files; `deny release` is the campaign's primary measure | — |
+| ~~`C1`~~ / ~~`C22`~~ / ~~`C23`~~ / ~~`C24`~~ | **CLOSED and flown**, and the ground-launch fix of 2026-07-29 made them able to move an outcome. The field's point defence is a real net with a killable node — and sortie 08 kills it | — |
+| ~~`C2`~~ / ~~`C0`~~ | **CLOSED and flown.** Three declared nights, one `.fbc`, both determinism criteria | — |
+| **NEW — the alert scramble** | `FBPilot` has **no `Route` → `Intercept` transition**, and `set task` applies AT SPAWN, so a ground start plus a combat task destroys the aircraft (§State, defect 1) | mission 1's whole subject. Expressed as a spawn DISPLACEMENT with its arithmetic and four attribution runs |
+| **NEW — no catalogue aircraft can shoot** | `FBAirModule` composes no fire control (§State, defect 2) | the F-15C, the aircraft that historically shot down every MiG in both anchors, is present and useless. `C7` is therefore **not** closed for this campaign, and for a different reason than the spec gave |
+| **NEW — the GCI elevation frame** | world-frame angle into a body-frame antenna command (§State, defect 3) | any interceptor that is not in level flight when its controller calls — i.e. every scramble |
+| `C17` | **a runway cannot be closed, an airfield has no state, there is no divert field** | the spec's mission 7, **not built**: it would be a `target_hard` nothing in the package can kill whose death changes nothing. "Defenders recovered" in sortie 10 means *combat-effective at the end*, never *landed* |
+| `C4` | **no terrain masking** | Batajnica sits in the Pannonian plain, so this campaign loses less to `C4` than O1 or W4 — but a Serbian battery's whole survival tactic was terrain, and there is none |
+| `C6` | **no live controller** | the brief is written against the CAP's altitude and a scrambling aircraft is by definition not at it. With a live controller defect 3 would still be a defect, but it would be recoverable |
+| `D3` (`duels.md`) | **the pilot does not use the IRST** | sortie 04 measured it at exactly zero: `irst_contacts` = 0 for 700 s |
+| `C15` | **no package coordination, no scramble timing** | the chain's three nights are three spawn sets, not a tasking order |
+| `C3` | **visual acquisition contributes nothing at night** | every merge in this campaign is eyeless, and the campaign is entirely nocturnal |
+| **the runner's first-wreck rule** | not a gap ID, but the constraint that shaped every file: `FirstFlightKo` ends the run ~122 s after a kill at 5 000 m | sortie 05 cannot report a denial it earned; the chain's nights are each measured for as long as their first casualty takes to fall |
+| the belt's magazine does not carry | `set rounds` is not `set store` and the campaign layer's store carry is keyed on `set store` ([`../missions/campaign.md`](../missions/campaign.md) §4) | a battery that shot itself dry is full again the next night. Inherited from O1, unchanged |
 
 ### The honest headline
 
-**O5 is the campaign where FlightBox's verdict vocabulary breaks down most visibly.** Seven of its ten
-missions will run today, and none of them can *say* what it measured: the defender's whole purpose is
-to make something not happen, and `objective` has no word for that. `C12` is therefore this
-campaign's first deliverable, and it is a small one — a `deny`/`protect` objective checked against the
-same roster the `kill` objectives already use.
+**The vocabulary was the easy half.** `C12` closed before this campaign was built and all four of its
+words are flown here — the defender's success really is expressible now. What replaced it as O5's worst
+hole is smaller and harder: **the campaign's declared most-important parameter, the scramble, cannot be
+declared at all**, and the substitute for it is blinded by a coordinate-frame error in the one entry
+chain the whole eastern half of the tree depends on. O5 was built to measure a posture and it measured
+three defects instead — which is what a campaign is for, and the reason the other seven should expect a
+stack rather than a finding.
 
 ---
 

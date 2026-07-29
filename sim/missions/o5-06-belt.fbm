@@ -1,0 +1,232 @@
+name o5-06-belt-1
+timeout 900
+time 1999-03-24T21:00:00Z
+
+# CAMPAIGN O5, SORTIE 6 OF 10 - AIRFIELD DEFENCE: BATAJNICA, 24-26 MARCH 1999.
+# THE MISSILE LAYER, ALONE. THIS FILE IS THE CONTROL OF o5-07-jammed.fbm.
+# Spec, anchor and sources: doc/campaigns/o5-airfield-defence.md. Format: doc/missions/campaign.md.
+# CONTROL: none - it IS the control, of o5-07.
+#
+# THE ARENA, and every coordinate in it is [SET]. Batajnica lies at ~44.93 N 20.26 E [T4, approximate -
+# doc/campaigns/o5-airfield-defence.md says so and this campaign does not improve on it]. FlightBox flies
+# it under `--elev const` on a 0 m datum (the real field is ~80 m) and with NO TERRAIN MASKING (gap C4),
+# so the Fruska Gora, the Danube valley and every mask a Serbian battery used do not exist here. The
+# field's runway heading (110 deg) and length (3 000 m) are [SET]; nothing in this campaign lands.
+#   the field       44.93000 20.26000, with the fuel farm, a hangar row, one hardened shelter and the
+#                   runway aim point around it
+#   the point defence  P-18 node at 20.24000 (on the field), S-125 at 20.16000 (7.9 km W), 2K12 at
+#                   20.19000/44.95500 (5.7 km W, 2.8 km N), ZSU-23-4 at 20.25200 (0.7 km W)
+#   the package     ingresses due east along 44.93 N from 19.60000 (52.0 km out) at 5 000 m and 450 kt
+# Scale at this latitude: 1 deg of longitude = 78 800 m, 1 deg of latitude = 111 132 m [DERIVED].
+#
+# THE SUBSTITUTION, AND ITS DIRECTION. The package that attacked Batajnica was F-15C, F-117 and cruise
+# missiles [T4]; FlightBox flies F-16s for all three, which is declared and not hidden. THE F-15C ROW
+# EXISTS AND IS DELIBERATELY NOT USED, and the reason was MEASURED in this round rather than assumed:
+# `modules/air/FBAirModule` composes NO FIRE CONTROL, so `FBState::FireControl` is never written and all
+# three of FBPilot's weapon-employment gates stay shut. Measured: an `f15c` with four AIM-120 designates
+# at t = 8.6 s at 18.64 nm, holds `eng_locked = 1` for 28 s from 18.6 down to 8.8 nm, and never posts a
+# WeaponRelease. A catalogue row is ACCEPTED as a FLIGHT MODEL, not as a combatant.
+# The defender is the MiG-29 the 127th "Knights" actually flew - so unlike O1 and O3 the substitution
+# here is on the ATTACKER's side, and it makes the attacker WEAKER than history (no F-117, no cruise
+# missile, no AIM-7/AMRAAM mix from a 160 km radar). A FlightBox Batajnica in which the field still
+# loses says something WEAKER than 1999 did, not stronger.
+#
+# THE TWO LAYERS CANNOT BOTH BE LIVE, AND IT IS THIS CAMPAIGN'S STRUCTURAL DISCLOSURE - stated in every
+# file because a reader who skips it will read every result backwards.
+#   1. A FlightBox SAM site has NO IFF INTERROGATOR (`modules/ground/FBSiteModule`: "a battery has no
+#      IFF interrogator in this tree") and an FBRadarContact carries no identity by construction, so a
+#      battery engages the NEAREST FIRM TRACK in its envelope whoever it belongs to. An AIRFIELD is
+#      exactly the geometry in which the friendly aircraft are the nearest track: O1 could lay its CAP
+#      outside its own umbrella, O5 cannot, because the defenders live under it.
+#   2. `missions/FBMissionRunner` ENDS THE WHOLE RUN at the first flight-monitor K.O. (`FirstFlightKo`),
+#      and a mission-killed F-16 falls from 5 000 m in about 122 s. So an air engagement and a bomb run
+#      in one file are not two measurements, they are one measurement and a truncation.
+# The answer taken is the one a real airfield takes and the only one this format can express: the
+# missiles are HELD while the fighters are up (`set emcon hold <offS> <onS>`, the briefed emission plan
+# of round C26) and free when they are not. Sorties 01-05 therefore measure the FIGHTER layer with the
+# belt briefed quiet; 06-07 measure the MISSILE layer with no fighter airborne; the chain 08-10 lets the
+# campaign's own attrition decide which layer is left. THE CAMPAIGN NEVER MEASURES BOTH AT ONCE, and any
+# claim that it did would be manufactured.
+#
+# THE ONE TACTICAL QUESTION: WITH NO FIGHTER AIRBORNE, WHAT DOES THE FIELD'S OWN POINT DEFENCE DO TO A
+# STRIKE PACKAGE? This is the first sortie of O5 in which the ground fires at all, and it is the layer
+# the campaign's title is about. Three strikers, three aim points, one netted belt whose emission plan
+# has been removed: `set emcon hold` alone, dark until something it RECEIVES wakes it.
+#
+# THE DOCTRINE IS DECLARED AND NOT PREFERRED. Every fire unit is `emcon hold` (a passive receiver, never
+# a timer) and `autonomy hold` (cut off from the node it waits); the node transmits `wcs free`.
+# doc/air-defence-network.md section 5 carries `free` and `hold` as the two poles and refuses to rank
+# them; this campaign flies one of them and says which.
+#
+# THE OBJECTIVES ARE THE POINT OF THIS FILE, and they are the vocabulary round C12 built for O5:
+#   `objective protect unit <fuel farm>` on both SAM positions - the defender's success is that
+#      something does NOT happen, and this is the only line in the format that says so. It is VIOLATED
+#      the instant the fuel farm dies, and the run ends there; the TIME of that line is the measurement.
+#   `objective no_fire` on the ZSU-23-4 - the field's inner gun under weapons hold. Its false positive is
+#      named rather than hidden: the package runs in at 5 000 m and the Shilka's ceiling is 1 500 m, so
+#      it could not have fired at the package even if it were free. What the line therefore measures is
+#      the ALTITUDE DECISION, and it is why a package accepts SAM exposure to stay out of the flak.
+#   `objective avoid zone umbrella` on every striker - the exposure, in seconds, of an ingress that has
+#      no way round the S-125's 35 km envelope.
+#
+# WHY NO HARDENED TARGET IS AN AIM POINT. `attack-hardened.fbm` measures it: a Mk 82's fragment field
+# finishes an unprotected installation out to ~45 m and a hardened one needs ~8 m. The shelter and the
+# runway are in every O5 file and NOTHING IN THIS PACKAGE CAN KILL THEM - a Mk 84 CCRP delivery on this
+# arena lands 38-51 m out, which finishes a soft installation and leaves a shelter standing. That, plus
+# `C17` (a runway has no state and cannot be closed), is why "the shelters survived" is never reported as
+# a defensive success in this campaign.
+#
+# MEASURED (fingerprint 7fc2aa31eca722b7): ONE STRIKER OF THREE DENIED, AND THEN THE FIELD.
+# `net JOIN` x3 at t = 3.9, 12 `net CUE`, first firm track t = 39.0 s, SEVEN `site LAUNCH` - four V-601
+# at 28.1 / 27.5 / 20.5 / 19.9 km and three 3M9 at 16.2 / 10.6 / 11.2 km, each after its own sourced
+# reaction time (`trackToLaunchS` 30.8 / 33.4 / 30.9 / 33.5 for the S-125 and 26.9 for the 2K12). ALL
+# SEVEN GO TO THE SAME AIRCRAFT - one engagement channel, and the log says so rather than the doctrine.
+# `m6stra` is combat-ineffective at t = 139.3 by a 2.31 m arrival against a 10.0 m fuze, the third of
+# four V-601 (6.87 / 6.09 / 2.31 / 2.20 m). The two survivors release; `m6sa3` dies at t = 195.0 and
+# `m6ful` at t = 226.0, and `protect unit m6ful` is VIOLATED at t = 226.1 - that timestamp is the
+# verdict. `zone_umbrella_s` = 188.2-188.5 s per striker and the terminal zone is first entered at
+# t = 198.6 s.
+# ONE HONEST ABSENCE: the run ends at the `protect` violation, so the flak's `no_fire` and the strikers'
+# own objectives are never CONCLUDED and publish no `mission OBJECTIVE` line at all. Read that as
+# unknown, not as zero (doc/missions/verdict.md Gaps says so).
+#
+# READING RULE: exit 1 is the expected shape - it is the `protect` objective being lost, i.e. the FIELD
+# BEING HIT, and its timestamp is the verdict. Read in this order: `net JOIN` (the belt comes up),
+# `net CUE` with its two staleness terms, `site STATE ... to=TRACK/ENGAGE`, `site LAUNCH` with
+# `trackToLaunchS`, the DETONATION lines with missM against each round's own fuze (V-601 10.0 m,
+# 3M9 8.0 m), then `sms RELEASE ... store=mk84` and which aim points died. exit 2 would be a defect.
+
+zone umbrella 44.93000 20.16000 35000 100 18000   # the S-125's published envelope, as geometry
+zone field    44.93000 20.26000  6000   0  6000   # the terminal box: first entry is the time-on-target
+
+net batajnica
+  control m6nod
+  link radio 60000 mast 8
+  period 4.0
+  hold 3
+  wcs free
+  member m6nod
+  member m6sa3 autonomy hold
+  member m6sa6 autonomy hold
+  member m6flk autonomy hold
+
+unit m6stra
+  team friendly
+  flight st6 1
+  module f16
+  spawn 44.93000 19.60000 5000 90.0 450
+  set gear up
+  set fuel_pct 80
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 44.94000 20.24000 5000 450
+  objective kill unit m6nod
+  objective avoid zone umbrella
+
+unit m6strb
+  team friendly
+  flight st6 2
+  module f16
+  spawn 44.94500 19.60000 5150 90.0 450
+  set gear up
+  set fuel_pct 80
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 44.93000 20.16000 5150 450
+  objective kill unit m6sa3
+  objective avoid zone umbrella
+
+unit m6strc
+  team friendly
+  flight st6 3
+  module f16
+  spawn 44.91500 19.60000 5000 90.0 450
+  set gear up
+  set fuel_pct 80
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 44.93800 20.25000 5000 450
+  objective kill unit m6ful
+  objective avoid zone umbrella
+
+unit m6nod
+  module p18
+  team hostile
+  spawn 44.94000 20.24000 ground 0.0 0
+  set emcon free
+
+unit m6sa3
+  module sa3
+  team hostile
+  spawn 44.93000 20.16000 ground 0.0 0
+  set emcon hold
+  set rounds 4
+  objective protect unit m6ful
+  objective survive
+
+unit m6sa6
+  module sa6
+  team hostile
+  spawn 44.95500 20.19000 ground 0.0 0
+  set emcon hold
+  set rounds 3
+  objective protect unit m6ful
+  objective survive
+
+unit m6flk
+  module zsu23
+  team hostile
+  spawn 44.93300 20.25200 ground 0.0 0
+  set emcon hold
+  objective no_fire
+  objective survive
+
+unit m6ful
+  module target_soft
+  team hostile
+  spawn 44.93800 20.25000 ground 0.0 0
+
+unit m6hgr
+  module target_soft
+  team hostile
+  spawn 44.93200 20.23500 ground 0.0 0
+
+unit m6has
+  module target_hard
+  team hostile
+  spawn 44.93500 20.27000 ground 0.0 0
+
+unit m6rwy
+  module target_hard
+  team hostile
+  spawn 44.92700 20.27500 ground 0.0 0

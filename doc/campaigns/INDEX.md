@@ -1,9 +1,9 @@
 # Campaigns — the ten scenario specifications
 
-**Status: two of ten BUILT (O4 and O1, both 2026-07-29), eight spec only.** `sim/missions/o4-*.fbm` +
-`sim/campaigns/o4-gaf-mig29g-dact.fbc` and `sim/missions/o1-*.fbm` +
-`sim/campaigns/o1-bekaa-1982.fbc` exist, run, replay and are measured
-([`o4-gaf-mig29g-dact.md`](o4-gaf-mig29g-dact.md) §State, [`o1-bekaa-1982.md`](o1-bekaa-1982.md)
+**Status: three of ten BUILT (O4, O1 and O5, all 2026-07-29), seven spec only.** `sim/missions/o4-*.fbm`,
+`sim/missions/o1-*.fbm` and `sim/missions/o5-*.fbm` with their three `.fbc` files exist, run, replay and
+are measured ([`o4-gaf-mig29g-dact.md`](o4-gaf-mig29g-dact.md) §State,
+[`o1-bekaa-1982.md`](o1-bekaa-1982.md) §State, [`o5-airfield-defence.md`](o5-airfield-defence.md)
 §State); no other campaign has a `.fbm` file. The directory exists because the missions must not be
 invented: a campaign without a cited anchor is a mood, and a mood cannot be measured.
 
@@ -54,6 +54,23 @@ seeker, a V-750 that cannot fly its own pitch-over, one gain set shared across t
 of missile mass) — so the corrected expectation for the remaining eight campaigns is not *one* finding
 each but *a stack*: the first defect hides the next.
 
+### What O5 added, and the other seven inherit it too
+
+O5 was built third, took all eight rules unchanged and passed both criteria on the first attempt (9 runs
+one fingerprint, 10/10 replays). It contributed three constraints, and unlike O4's and O1's they are
+about what a campaign may CLAIM rather than about how it is laid out:
+
+| Rule | Why it exists |
+|---|---|
+| **If the campaign attacks the ground objects, the ground callsigns must be per-mission too** | the carry drops a destroyed unit by callsign. O1 could share one belt set across its seven controlled variants because its belt was never hit in them; **O5's field is attacked in every sortie**, so a shared set would leak sortie 01's damage into sortie 02 and destroy the experiment. The rule is: a controlled variant's cast is disjoint in EVERY unit it can lose, not only in its aircraft |
+| **Two defensive layers cannot be measured in one file, and the campaign must say which one it measured** | a battery has no IFF interrogator and an airfield is the one geometry where the friendly aircraft is the nearest firm track (MEASURED: the belt's first three launches go east at its own MiG-29s). Plus `FirstFlightKo`: a mission-killed F-16 falls from 5 000 m in ~122 s, so a defender may kill at most **88 s** before a 34 s bomb's release point and still leave the strike observable. O5 splits its ten slots by layer and states the split in every header |
+| **A "closed" gap is closed for the reason it names, not for the campaign** | `C7` is booked CLOSED-with-`ALPHA`-rows, and four rows are `ACCEPTED` — as **flight models**. O5 wanted the F-15C as an escort and measured that no catalogue row can fire a weapon at all (`FBAirModule` composes no fire control). Re-checking a blocker means re-checking the CAPABILITY the mission needs, not the gap's status line |
+
+And one warning of its own, which is O1's sharpened: **expect the defect to be in the seam you did not
+look at.** O5 found three, and none of them is in the subsystem the campaign was written about — one is
+in the pilot's phase machine, one in the air catalogue's composition, one in a coordinate frame inside
+the GCI entry chain that every eastern campaign depends on.
+
 This directory is **step 4 of the owner goal** and its specification comes first, per
 [`../conventions.md`](../conventions.md)'s spec-first rule: *change the Spec of the topic file first;
 if a round cannot say what the contract becomes, it is not ready to start.*
@@ -75,7 +92,7 @@ Five in which the **F-16** flies, five in which the **MiG-29** flies. Ten missio
 | **O2** | [PVO intercept exercise](o2-pvo-intercept.md) | Soviet GCI doctrine + the MiG-29's own guidance panel | ground control in its pure form, and identity that always costs surprise |
 | **O3** | [Yom Kippur 1973](o3-yom-kippur-1973.md) | the opening strikes, 6 October 1973 | ground attack under a friendly SAM umbrella — **the only campaign with zero runnable missions**, and the requirement that says why |
 | **O4** | [GAF MiG-29G DACT](o4-gaf-mig29g-dact.md) **— BUILT** | JG 73 Laage, 1991–2003 | the one campaign in which **both** FlightBox airframes really flew against each other — and the cheapest to build, because half of it is already measured. **Flown 2026-07-29:** the ten-mile claim holds at ten miles, trades at five and loses at two |
-| **O5** | [Airfield defence](o5-airfield-defence.md) | Batajnica 24–26 March 1999, with Iraq 1991 as the parallel | a defender whose success is something **not happening** — which the verdict vocabulary has no word for |
+| **O5** | [Airfield defence](o5-airfield-defence.md) **— BUILT** | Batajnica 24–26 March 1999, with Iraq 1991 as the parallel | a defender whose success is something **not happening**. **Flown 2026-07-29:** the vocabulary turned out to be the easy half — a pair already on station denies half a two-ship and nothing else comes close; the controller is worth 6 s; **one bomb on the field's P-18 costs its missile layer every launch for two nights**; and the campaign's own most important parameter, the scramble, **cannot be declared at all** |
 
 ---
 
@@ -135,7 +152,7 @@ are re-counted against the tree rather than against the spec.** Per campaign:
 | O4 GAF DACT | **10 — BUILT** | 0 (1 runs but cannot answer) | done: ten `.fbm` + one `.fbc`, both determinism criteria measured |
 | O1 Bekaa | **10 — BUILT** | 0 (the ground half runs and cannot decide — see its §Gaps row 1) | done: ten `.fbm` + one `.fbc`, both determinism criteria measured on the first attempt |
 | O2 PVO | **7** | 3 | `o2-06` / `o2-08` — the identification anti-cheat pair |
-| O5 Airfield defence | **7** | 3 | `o5-01` / `o5-02` — alert versus CAP, one `spawn` line apart |
+| O5 Airfield defence | **10 — BUILT** | 0 (2 spec missions dropped with reasons in the `.fbc` header) | done: ten `.fbm` + one `.fbc`, both determinism criteria measured on the first attempt |
 | W3 Desert Storm | **5** | 5 | `w3-07` / `w3-08` — the same GCI experiment, another theatre |
 | W1 Red Flag | **4** | 6 | `w1-01` … `w1-04`, the ladder |
 | W2 Osirak | **4** | 6 | `w2-03` / `w2-04` — combat radius clean and loaded |
@@ -165,7 +182,7 @@ it.
 | **SAM battery, fixed (SA-2 / SA-3 class)** | 5 | **no — specified** | W3, W4, O1, O3, O5. Rows `sa2` `sa3` |
 | **SAM battery, mobile (SA-6 / SA-8 class)** | 5 | **no — specified** | W3, W4, O1, O3 — and in O3 it is **ours**, which the design must allow (it does: a site declares its own `team` like any unit). Rows `sa6` `sa8`; mobility is expressed in TIME (`set scoot_s`), not in space — `C14` stays open |
 | **AEW aircraft (E-3 / E-2C class)** | 4 | **no — specified** | W1, W3, W4, O1. Rows `e3` `e2c` in [`../modules/air/catalogue.md`](../modules/air/catalogue.md). **The most dangerous row in that catalogue**: it sees 400 km and tells somebody, so the ground net's rule applies verbatim — *the cue moves an antenna, it never creates a track* — and its one price is a second comms slot on the receiving fighter ([`../modules/air/module.md`](../modules/air/module.md) §Spec 7) |
-| **F-15 class** | 4 | **no — specified** | escort in W2/W3, opposition in O1/O5 — the aircraft that historically shot down every MiG in O5's two anchors. Row `f15c`, tier **T4** (the full pilot machine), and its engine is the **same F100 one dash number** from the deck the tree already pins |
+| **F-15 class** | 4 | **row built, and it cannot shoot** | escort in W2/W3, opposition in O1/O5 — the aircraft that historically shot down every MiG in O5's two anchors. Row `f15c`, tier **T4**, `ACCEPTED` as a flight model. **MEASURED by O5 2026-07-29: `modules/air/FBAirModule` composes no fire control, so `FBState::FireControl` is never written and none of `FBPilot`'s three employment gates ever opens.** An `f15c` with four AIM-120 designates at 18.64 nm, holds a firm lock for 28 s down to 8.8 nm and never presses. O5 flies F-16s for the escort and says so |
 | **Period Soviet types (MiG-21 / MiG-23 / MiG-25 / MiG-17 / Su-7 / Su-20)** | 3 | **no — specified** | W3, O1, O3 (+W2). **Five rows on one class**, not one module family: `mig21` `mig23` `mig25` `mig17` `su7` `su22` — and their differences are exactly the five decisive quantities (the MiG-21's sourced ±30°×±10° radar field is a quarter of an F-16's sky; the MiG-25's sourced **+4.5 g** limit means it loses every turning fight it enters) |
 | **Tanker (KC-135 class) + a boom** | 3 | **no — specified, minus the boom** | W1, W3, W4. Row `kc135`, a kinematic mover with no weapon — **and `C5` is untouched, so it cannot give fuel.** It is also O1's Boeing 707 ECM aircraft for free: same airframe family, `set jam_comm_m` (`C24`), **zero new rows** |
 | **Cruise missile / one-way vehicle** | 3 | **no** | W3, O5, O2 — already on the roadmap as R7 |
@@ -258,7 +275,7 @@ publishable at all.
 | ~~`C23`~~ | **CLOSED 2026-07-28.** `zone <name> <lat> <lon> <radiusM> <altMinM> <altMaxM>` declares a cylinder, `objective avoid zone <name> [exposure <s>]` judges it, and `zone_<name>_in`/`zone_<name>_s` measure it per judged unit. `core/FBZone.h` is RESTRICTED with an EMPTY outside-includer list — a NARROWING: no module, no pilot and no sensor can name it | — | — | MEASURED (`net-belt-low.fbm` / `net-belt-high.fbm`, identical route, altitude the only difference): low = 34.5 s in `flak` / 0.0 s in `sambelt` / 54 gun bursts / 0 SAM launches; high = 0.0 s / 320.0 s / 0 bursts / 1 launch. The altitude that escapes the AAA does put you in the SAM |
 | ~~`C24`~~ | **CLOSED 2026-07-28.** `set jam_comm_m <rangeM>` on any flying unit: one published scalar, receiver-side, other teams only, a distance test with no die. It is INAUDIBLE (no emitter signature, so no home-on-jam) and it denies the LINK and nothing else — the `site TRACK` line of a jammed run is byte-identical to the unjammed one's. A `wire` link is not jammable | — | — | MEASURED: `net-jam-late.fbm` loses the node **mid-run** (`net LOST reason=jammed` t=128.0, `net AUTONOMOUS fallback=hold`, 0 launches after having radiated since t=8.0) against `net-jam-start.fbm`, jammed from t=0 (0 JOIN, 0 CUE, 0 RADIATE, 0 launches). Blind against confidently blind, and the second one paid with its position |
 | `C10` | **No dive or pop-up delivery.** The attack phase is a level laydown, by design and for a stated reason | **1** (W2's profile) | 3 | |
-| `C17` | **One runway per mission; no divert field; a runway cannot be cratered or closed and an airfield has no state** | **1** (O5-07) | 1 | |
+| `C17` | **One runway per mission; no divert field; a runway cannot be cratered or closed and an airfield has no state** | **1** (O5-07) | 1 | **O5 dropped that mission rather than build it** (`.fbc` header): it would be a `target_hard` nothing in the package can kill whose death changes nothing. It also costs O5's sortie 10 the word *recovered* — "combat-effective at the end" is not "landed" |
 | `C13` | **No RADAR jamming.** **SPLIT 2026-07-28 and halved:** the communications half is `C24` and is CLOSED; what stays wholly open here is the RADAR half — noise, deception, range-gate pull-off, angle-of-jam, burn-through, home-on-jam | **1** (O1's mechanism) | 1 | the decisive Israeli move at Bekaa is the one thing in the set with no substitute at all |
 | `C16` | **Cloud affects only the IRST** — not radar, not weapon delivery, not a visual pickup; the cloud rebuild is unbuilt | **1** (W4-08) | 1 | roadmap R5 |
 | `C19` | **No rules-of-engagement state** — nothing expresses weapons hold / tight / free. The vocabulary is now defined and gated **for ground units** in [`../air-defence-network.md`](../air-defence-network.md) §5; aircraft still have none | **2** (W5, O2) | 0 | |

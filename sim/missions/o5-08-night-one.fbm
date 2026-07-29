@@ -1,0 +1,369 @@
+name o5-08-night-one-1
+timeout 900
+time 1999-03-24T21:00:00Z
+
+# CAMPAIGN O5, SORTIE 8 OF 10 - AIRFIELD DEFENCE: BATAJNICA, 24-26 MARCH 1999.
+# CHAIN HEAD - THE NIGHT OF 24/25 MARCH 1999. Sorties 09 and 10 fly with the aircraft, the positions and
+# the magazines this sortie leaves.
+# Spec, anchor and sources: doc/campaigns/o5-airfield-defence.md. Format: doc/missions/campaign.md.
+# CONTROL: none - it is the head of the campaign's only carry chain (08 -> 09 -> 10).
+#
+# THE ARENA, and every coordinate in it is [SET]. Batajnica lies at ~44.93 N 20.26 E [T4, approximate -
+# doc/campaigns/o5-airfield-defence.md says so and this campaign does not improve on it]. FlightBox flies
+# it under `--elev const` on a 0 m datum (the real field is ~80 m) and with NO TERRAIN MASKING (gap C4),
+# so the Fruska Gora, the Danube valley and every mask a Serbian battery used do not exist here. The
+# field's runway heading (110 deg) and length (3 000 m) are [SET]; nothing in this campaign lands.
+#   the field       44.93000 20.26000, with the fuel farm, a hangar row, one hardened shelter and the
+#                   runway aim point around it
+#   the point defence  P-18 node at 20.24000 (on the field), S-125 at 20.16000 (7.9 km W), 2K12 at
+#                   20.19000/44.95500 (5.7 km W, 2.8 km N), ZSU-23-4 at 20.25200 (0.7 km W)
+#   the package     ingresses due east along 44.93 N from 19.60000 (52.0 km out) at 5 000 m and 450 kt
+# Scale at this latitude: 1 deg of longitude = 78 800 m, 1 deg of latitude = 111 132 m [DERIVED].
+#
+# THE SUBSTITUTION, AND ITS DIRECTION. The package that attacked Batajnica was F-15C, F-117 and cruise
+# missiles [T4]; FlightBox flies F-16s for all three, which is declared and not hidden. THE F-15C ROW
+# EXISTS AND IS DELIBERATELY NOT USED, and the reason was MEASURED in this round rather than assumed:
+# `modules/air/FBAirModule` composes NO FIRE CONTROL, so `FBState::FireControl` is never written and all
+# three of FBPilot's weapon-employment gates stay shut. Measured: an `f15c` with four AIM-120 designates
+# at t = 8.6 s at 18.64 nm, holds `eng_locked = 1` for 28 s from 18.6 down to 8.8 nm, and never posts a
+# WeaponRelease. A catalogue row is ACCEPTED as a FLIGHT MODEL, not as a combatant.
+# The defender is the MiG-29 the 127th "Knights" actually flew - so unlike O1 and O3 the substitution
+# here is on the ATTACKER's side, and it makes the attacker WEAKER than history (no F-117, no cruise
+# missile, no AIM-7/AMRAAM mix from a 160 km radar). A FlightBox Batajnica in which the field still
+# loses says something WEAKER than 1999 did, not stronger.
+#
+# THE TWO LAYERS CANNOT BOTH BE LIVE, AND IT IS THIS CAMPAIGN'S STRUCTURAL DISCLOSURE - stated in every
+# file because a reader who skips it will read every result backwards.
+#   1. A FlightBox SAM site has NO IFF INTERROGATOR (`modules/ground/FBSiteModule`: "a battery has no
+#      IFF interrogator in this tree") and an FBRadarContact carries no identity by construction, so a
+#      battery engages the NEAREST FIRM TRACK in its envelope whoever it belongs to. An AIRFIELD is
+#      exactly the geometry in which the friendly aircraft are the nearest track: O1 could lay its CAP
+#      outside its own umbrella, O5 cannot, because the defenders live under it.
+#   2. `missions/FBMissionRunner` ENDS THE WHOLE RUN at the first flight-monitor K.O. (`FirstFlightKo`),
+#      and a mission-killed F-16 falls from 5 000 m in about 122 s. So an air engagement and a bomb run
+#      in one file are not two measurements, they are one measurement and a truncation.
+# The answer taken is the one a real airfield takes and the only one this format can express: the
+# missiles are HELD while the fighters are up (`set emcon hold <offS> <onS>`, the briefed emission plan
+# of round C26) and free when they are not. Sorties 01-05 therefore measure the FIGHTER layer with the
+# belt briefed quiet; 06-07 measure the MISSILE layer with no fighter airborne; the chain 08-10 lets the
+# campaign's own attrition decide which layer is left. THE CAMPAIGN NEVER MEASURES BOTH AT ONCE, and any
+# claim that it did would be manufactured.
+#
+# WHAT CARRIES, AND IT IS THE CAMPAIGN'S SUBJECT. `carry units ground stores`, not narrowed - a defender
+# that loses aircraft defends worse the next night, and that sentence is the whole reason this chain
+# exists. Three nights share ONE defending roster (`knight1`..`knight5`) and ONE set of ground callsigns
+# (`bat*`), so every MiG killed and every position destroyed is DROPPED from the next file by the
+# campaign overlay, and every `set store` line spent is dropped from the next spawn.
+# THE ATTACKER DOES NOT CARRY, and that is a declaration rather than an omission: each night's package
+# has its own callsigns (`n1*`, `n2*`, `n3*`), because NATO flew ~38 000 sorties over 78 days against a
+# squadron that had a dozen airframes, and a campaign layer that attrited both sides equally would be
+# modelling a war that did not happen. The asymmetry is in the CALLSIGNS, where a reader can see it.
+# WHAT DOES NOT CARRY AND SHOULD: a battery's expended rounds. `set rounds` is not `set store`, and the
+# campaign layer's store carry is keyed on `set store` lines (doc/missions/campaign.md section 4), so a
+# battery that shot itself dry is full again the next night. Gap, named here, inherited from O1.
+#
+# THE ONE TACTICAL QUESTION: THE ANCHOR'S OWN FIRST NIGHT. Four MiG-29 are up against a package that has
+# an escort - so for the first time in this campaign the defender can be KILLED, which is what makes an
+# attrition chain possible at all. Does a defender that cannot win still cost the package its ordnance?
+#
+# THE BELT IS BRIEFED QUIET tonight, for the reason in the disclosure above and for a second one that is
+# the chain's own: four friendly fighters are airborne over the field, so the field's missiles are the
+# most dangerous thing in the sky FOR THE DEFENDER. Sortie 09 releases them and measures exactly that.
+#
+# MEASURED (fingerprint f8e818f931519561): NOBODY DIES AND THE FIELD LOSES ITS EYES. 3 R-27R + 3 R-73
+# against 2 AIM-120; no aircraft on either side is made combat-ineffective - the two AIM-120 arrive at
+# 5.22 m and 3.53 m against a 10.0 m fuze and strip `knight1`'s and `knight3`'s radar, fire control,
+# stores, warning receiver and countermeasures while leaving engine and flight controls DEGRADED, so the
+# health register still reads effective and the carry keeps both airframes. Two Mk 84 destroy `batnod`
+# (the P-18) and `batsa3` (the S-125) - and that is this sortie's real output, because it is what the
+# next two nights inherit.
+# AGAINST THE ANCHOR THIS IS THE WRONG ANSWER and it is reported rather than tuned away: the 127th lost
+# Maj. Nikolic on the night of 24/25 March and this file loses nobody.
+#
+# READING RULE: exit 1, 2 or 3 - the shape is not the verdict. Read: `sms RELEASE ... store=mk84` (what
+# got through), the DETONATION lines with their targets and missM, `damage KILL` per side, and then the
+# `campaign CARRY` lines in SORTIE 09's log, which are this sortie's real output. exit 2 is EXPECTED
+# here rather than a defect: a shot-down MiG reaches the ground and `FirstFlightKo` ends the run, and
+# whether that K.O. is "covered" depends on which side died first.
+
+zone umbrella 44.93000 20.16000 35000 100 18000   # the S-125's published envelope, as geometry
+zone field    44.93000 20.26000  6000   0  6000   # the terminal box: first entry is the time-on-target
+
+net batajnica
+  control batnod
+  link radio 60000 mast 8
+  period 4.0
+  hold 3
+  wcs free
+  member batnod
+  member batsa3 autonomy hold
+  member batsa6 autonomy hold
+  member batflk autonomy hold
+
+unit knight1
+  team hostile
+  flight kn1 1
+  module mig29
+  spawn 44.93000 20.35000 6000 270.0 450
+  set gear up
+  set fuel_pct 60
+  set n019_mode rad
+  set n019_range_nm 27
+  set n019_emission illum
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 50 5
+  set brief_gci 60 270 31 5
+  set brief_gci 100 270 13 5
+  wp 44.93000 19.40000 6000 450
+  objective kill team friendly
+  objective deny release team friendly
+  objective survive
+
+unit knight2
+  team hostile
+  flight kn1 2
+  module mig29
+  spawn 44.94500 20.35000 6150 270.0 450
+  set gear up
+  set fuel_pct 60
+  set n019_mode off
+  set n019_range_nm 27
+  set n019_emission illum
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 50 5
+  set brief_gci 60 270 31 5
+  set brief_gci 100 270 13 5
+  wp 44.93000 19.40000 6000 450
+  objective kill team friendly
+  objective deny release team friendly
+  objective survive
+
+unit knight3
+  team hostile
+  flight kn2 1
+  module mig29
+  spawn 44.91000 20.35000 6000 270.0 450
+  set gear up
+  set fuel_pct 60
+  set n019_mode rad
+  set n019_range_nm 27
+  set n019_emission illum
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 50 5
+  set brief_gci 60 270 31 5
+  set brief_gci 100 270 13 5
+  wp 44.93000 19.40000 6000 450
+  objective kill team friendly
+  objective deny release team friendly
+  objective survive
+
+unit knight4
+  team hostile
+  flight kn2 2
+  module mig29
+  spawn 44.89500 20.35000 6150 270.0 450
+  set gear up
+  set fuel_pct 60
+  set n019_mode rad
+  set n019_range_nm 27
+  set n019_emission illum
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 50 5
+  set brief_gci 60 270 31 5
+  set brief_gci 100 270 13 5
+  wp 44.93000 19.40000 6000 450
+  objective kill team friendly
+  objective deny release team friendly
+  objective survive
+
+unit n1esca
+  team friendly
+  flight es1 1
+  module f16
+  spawn 44.93000 19.68000 6000 90.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 44.93000 20.45000 6000 450
+  objective kill team hostile
+  objective survive
+
+unit n1escb
+  team friendly
+  flight es1 2
+  module f16
+  spawn 44.91500 19.68000 6150 90.0 450
+  set gear up
+  set fuel_pct 70
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 44.93000 20.45000 6150 450
+  objective kill team hostile
+  objective survive
+
+unit n1stra
+  team friendly
+  flight st1 1
+  module f16
+  spawn 44.93000 19.60000 5000 90.0 450
+  set gear up
+  set fuel_pct 80
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 44.93000 20.16000 5000 450
+  objective kill unit batsa3
+  objective avoid zone umbrella
+
+unit n1strb
+  team friendly
+  flight st1 2
+  module f16
+  spawn 44.94500 19.60000 5150 90.0 450
+  set gear up
+  set fuel_pct 80
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 44.94000 20.24000 5150 450
+  objective kill unit batnod
+  objective avoid zone umbrella
+
+unit batnod
+  module p18
+  team hostile
+  spawn 44.94000 20.24000 ground 0.0 0
+  set emcon free
+
+unit batsa3
+  module sa3
+  team hostile
+  spawn 44.93000 20.16000 ground 0.0 0
+  set emcon hold 1 3600
+  set rounds 4
+
+unit batsa6
+  module sa6
+  team hostile
+  spawn 44.95500 20.19000 ground 0.0 0
+  set emcon hold 1 3600
+  set rounds 3
+
+unit batflk
+  module zsu23
+  team hostile
+  spawn 44.93300 20.25200 ground 0.0 0
+  set emcon hold 1 3600
+  objective no_fire
+  objective survive
+
+unit batful
+  module target_soft
+  team hostile
+  spawn 44.93800 20.25000 ground 0.0 0
+
+unit bathgr
+  module target_soft
+  team hostile
+  spawn 44.93200 20.23500 ground 0.0 0
+
+unit bathas
+  module target_hard
+  team hostile
+  spawn 44.93500 20.27000 ground 0.0 0
+
+unit batrwy
+  module target_hard
+  team hostile
+  spawn 44.92700 20.27500 ground 0.0 0
