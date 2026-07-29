@@ -59,6 +59,10 @@ protected:
    * co-speed Merges. Der Auto-Lock macht die Designation, die im Nahkampf niemand von Hand faehrt.
    * doc/modules/mig29/module.md gap 4h (a). */
   int BfmRadarModeOrdinal() const override { return (int)FBMig29RadarMode::Acm; }
+  /* [DOC DCS-EA p.92] Das Helmvisier Shchel-3UM cued ±60° Azimut, der Kardan des R-73 kann 75° — und die
+   * Quelle sagt selbst, dass die niedrigere Zahl entscheidet, ob ein Schuss ANGEBOTEN wird
+   * (doc/modules/mig29/weapons.md §3.3). Also steht hier das Visier und nicht die Waffe. */
+  double BfmWvrCueDeg() const override { return 60.0; }
   /* [DOC DCS-EA p.89] The set's own range-scale ladder is 54 / 27 / 13.5 / 5.4 nm; 13.5 nm is the step
    * at which the scale switches for the last time before the close-combat scale, and the radar's own
    * documented search reach is 27 nm, so the lock is taken one ladder step inside it. That is the same

@@ -42,6 +42,15 @@ FBLaunchZone FBSolveLaunchZone(const FBWeaponPerf &perf, FBSeekerKind seeker, do
   z.RaeroM = s + tgtLosMs * t;
   z.RtrM = s - tgtSpeedMs * t;
   if (z.RtrM < 0.0) z.RtrM = 0.0;
+  /* EIN INFRAROTKOPF MUSS VOR DEM START ERFASST HABEN ("lock before launch, then fire-and-forget",
+   * doc/weapons.md Spec), also kann eine solche Runde nicht weiter gestartet werden, als ihr eigener
+   * Kopf reicht — die Kinematik ist dann nicht mehr die Grenze. Fuer eine aktive Runde gilt das NICHT
+   * (der Uplink traegt sie bis zum Aktivierungsring) und fuer eine halbaktive auch nicht (der Schuetze
+   * beleuchtet); deshalb haengt es an der Sucherart und nicht an der Runde. */
+  if (seeker == FBSeekerKind::Infrared && perf.SeekerRangeM > 0.0) {
+    if (z.RaeroM > perf.SeekerRangeM) z.RaeroM = perf.SeekerRangeM;
+    if (z.RtrM > perf.SeekerRangeM) z.RtrM = perf.SeekerRangeM;
+  }
   z.RminM = (closureMs > 0.0 ? closureMs : 0.0) * perf.ArmingS + kLaunchZoneMinTurnM;
   /* The SHOOTER's obligation, not the seeker's power-up: a seeker kind decides it, and one of the three
    * answers is "never" (core/FBStore.h). */

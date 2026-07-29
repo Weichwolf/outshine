@@ -1,0 +1,85 @@
+name duel-merge-stern-1
+timeout 300
+
+# THE ASYMMETRIC DUEL, GEOMETRY 9: THE STERN MERGE — and it exists for exactly one reason. duel-merge
+# is now DECIDED (this round: Phase::Bfm can employ the round on the rail, doc/pilot.md 5.11), and it is
+# decided by the F-16 in 40 of 40 arena runs. A close fight only one cell can win is a defect and not a
+# result, so this file asks the mirror question: can the MiG-29 kill an F-16 inside two miles?
+#
+# WHY THE HEAD-ON MERGE GOES TO THE F-16, measured rather than asserted (duel-merge, and p_acm with the
+# N019 already in ACM so the MiG shoots FIRST at t=1.5 against the viper's t=1.9):
+#   AIM-9M  9.4 kg warhead, 6.0 m fuze   -> arrives 1.78-1.93 m out, 218,781 J/m^2 -> flight controls
+#                                            FAIL -> damage KILL
+#   R-73    7.4 kg warhead, 3.5 m fuze   -> arrives 2.10-2.64 m out,  94,388 J/m^2 -> flight controls
+#                                            DEGRADED, the jet flies on
+# Both numbers are the catalogue's own [DCS-FM p.72 for the R-73, doc/modules/f16/weapons.md for the
+# AIM-9], and core/FBDamageModel is 1/r^2: the R-73 kills this airframe inside 2.08 m and the AIM-9
+# inside 2.32 m. Shooting first does not close a 27 % warhead difference on a 1,050 m/s head-on pass,
+# because a head-on pass gives the terminal loop the least time to work with (doc/duels.md D2).
+#
+# SO THE GEOMETRY IS THE DOCUMENTED EMPLOYMENT INSTEAD. The R-73's own reference is the rear hemisphere
+# (doc/modules/mig29/weapons.md 3.3: "steers to a point forward of the target's nozzles"), and
+# mig29-r73.fbm already measures the round there in isolation (missM 0.138). This file measures it as a
+# FIGHT: the MiG enters 2.2 km astern of a co-heading F-16 with 40 kt in hand, both on `set task bfm`,
+# both with the close-combat radar mode already selected, and nothing else briefed. No scripted shot -
+# the pilot decides, over the bus, through the five gates of doc/pilot.md 5.11.
+#
+# READING RULE: exit 0 is the pass, and the pass is the MiG's. MEASURED (2026-07-29):
+#   BFM_SHOT t=1.5   r73 at 2,247 m, ata -0.51 deg, inside the Shchel-3UM's own 60 deg cueing limit
+#   BFM_SHOT t=14.1  the second round, after the first has had its full time of flight
+#   DETONATION t=21.3 missM 1.860, closure 590 m/s, aspect -6.9 deg -> damage KILL unit=viper
+#   viper FAIL (survive lost), fulcrum SUCCESS at t=53.6
+# The closure is the point: 590 m/s astern against 1,050 m/s head-on, so the same round arrives 0.24 m
+# closer and crosses the threshold the head-on shot misses by. What this file proves is NOT that the
+# MiG is better - it is that BOTH cells can die in close combat, which duel-merge alone does not show.
+
+unit viper
+  team friendly
+  module f16
+  spawn 46.90000 6.98000 5000 90.0 380
+  set gear up
+  set fuel_pct 60
+  set datalink off
+  set fcr_mode acm_hud
+  set fcr_range_nm 10
+  set rwr on
+  set store 3 aim9
+  set store 7 aim9
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task bfm
+  set pilot_bfm_ctrl_min_nm 0.15
+  set pilot_bfm_ctrl_max_nm 0.40
+  wp 46.90000 8.93000 5000 380
+  objective kill unit fulcrum
+  objective survive
+
+unit fulcrum
+  team hostile
+  module mig29
+  spawn 46.90000 6.95000 5000 90.0 420
+  set gear up
+  set fuel_pct 60
+  # ACM from the spawn, and that is mission data rather than a favour: this jet is already IN the fight
+  # at t=0, so its BVR search mode would be the wrong switch position for the situation it is briefed
+  # into. duel-merge keeps `rad` and lets the pilot switch, which is the head-on case and stays measured
+  # there (RADAR_LOCK t=3.8).
+  set n019_mode acm
+  set n019_range_nm 10
+  set n019_emission illum
+  set rwr on
+  set store 3 r73
+  set store 4 r73
+  set cmds_mode man
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task bfm
+  set pilot_bfm_ctrl_min_nm 0.15
+  set pilot_bfm_ctrl_max_nm 0.40
+  wp 46.90000 8.90000 5000 420
+  objective kill unit viper
+  objective survive

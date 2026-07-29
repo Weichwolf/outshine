@@ -1276,3 +1276,60 @@ gelockert. Der Blocker ist jetzt ein einziger benannter: eine Kanone, die trifft
 byte-gleich, und **134 von 139 Missionen byte-identisch** — die fünf, die sich bewegen, sind alle
 MiG-29 und je einzeln begründet (`duel-merge` 2 → 3, `mig29-bfm` ctrl_s 0 → 287,6, `mig29-full` /
 `mig29-landing` weichere Aufsetzer bei 143,2 → 143,3 bzw. 141,0 → 142,2 kt, `mig29-takeoff` −0,2 s).
+
+---
+
+## 2026-07-29 — Der Kurvenkampf kann töten: eine Waffe, die nie eingesetzt wurde, und ein Abzug, der in die Zukunft zielte
+
+**Zwei Befunde, und der erste ist eine Herleitung, keine Zahl.** Die GSh-301 legte 6,37 von 150 Schuss
+bei 3,41 m mittlerem Fehlabstand auf die F-16 und tötete nie. Aufgeteilt: ein `damage KILL` durch 30 mm
+kostet **17,0 Treffer** in einer Zone (`kFlcsFail` 1,5·10⁵ J/m² gegen 8 803 J/m² je Treffer) — und bei
+der Streuung, mit der der Merge tatsächlich gefochten wird (σ 3,78 m auf 630 m Geschossweg), landet eine
+**perfekt gezielte** Trommel 20,2 Schuss und tötet. Also ist die Wirkung nicht der Deckel, die **Zielgüte**
+ist es: die Trommel tötet bei einem mittleren Fehlabstand ≤ 2,38 m, gemessen wurden 8,72 m. Und
+`missM ≈ RangeM·tan(GunAimErrorDeg)` auf den weiten Bündeln beweist, warum: der Zielfehler **an der
+Mündung** IST der Fehlabstand.
+
+**Der Abzug sagte etwas voraus, das die Geschosse nichts anging.** `pred = err + rate·(Latenz +
+Flugzeit)` extrapolierte eine EIN-TICK-Ableitung eine volle Sekunde weit. `FBGunSolveLead` beantwortet
+aber „wohin muss das Rohr zeigen, damit eine JETZT abgefeuerte Runde später trifft" — die Zielbewegung
+während der Flugzeit steckt bereits in der Lösung, eine abgeflogene Runde hat von einer sich danach
+bessernden Zielung nichts. **11 von 13 Feuerstößen wurden außerhalb des eigenen Trichtertors
+kommandiert, der erste 14,6-fach.** Der Horizont ist Latenz + halber Feuerstoß. Ergebnis über die
+120-Lauf-Merge-Arena: Schuss auf dem Ziel **139,8 → 449,1** bei **6 318 → 5 850** verfeuerten (2,21 %
+→ 7,68 %); `gun-turning` behält seinen Abschuss auf **279 → 209** Schuss.
+
+**Der zweite Befund war ein fehlender Pfad, kein fehlender Wert.** `Phase::Bfm` endete im Kanonenfeuer;
+AIM-9 und R-73 hingen ohne Einsatzweg an den Schienen. Erst spezifiziert (`pilot.md` §5.11), dann gebaut:
+fünf Tore, jedes ein Instrumentenwert, keine neue Rechnung — gewählter Store ist Infrarot, Lock, in der
+Startzone, im **Cueing**-Winkel der ZELLE (`BfmWvrCueDeg`, MiG 60° vom Schtschel-3UM, F-16 der Kardan der
+Runde), und die vorige Runde hatte ihre Flugzeit. **Aspekt ist kein Tor** (beide Runden sind dokumentiert
+allaspektfähig) und **eigene Last auch nicht** — dafür gibt es keinen Mechanismus, und eine Zahl ohne
+Mechanismus wäre erfunden. Nach dem Start bindet nichts: `FBSeekerHandoverS(Infrared) = 0`.
+
+**Der Kurvenkampf wird jetzt entschieden, und beide Zellen können sterben.** `duel-merge` Exit 3 → 0:
+die AIM-9 kommt 1,93 m heran, 218 781 J/m², Flugsteuerung ausgefallen, Abschuss bei t = 10,5 s. Die neue
+`duel-merge-stern.fbm` ist der Gegenbeweis — die R-73 auf der dokumentierten Heckviertel-Geometrie, 590
+m/s Annäherung statt 1 050, kommt 1,86 m heran und tötet die F-16 bei t = 21,3 s. Frontal verliert die
+MiG **auch wenn sie zuerst schießt**: die Abschussradien gegen diese Zelle sind 2,32 m (AIM-9M, 9,4 kg)
+und 2,08 m (R-73, 7,4 kg). Über die Arena: Ergebnisklassen 60/60 (2,1) auf allen drei Zellen →
+`xmerge` **30 (3,2) + 30 (1,0)**, jeder Lauf entschieden, alle 40 Abschüsse durch Flugkörper, keiner
+durch die Kanone.
+
+**Und die Energieregel bewegt jetzt die Ergebnisklasse — auf `merge`, mit allen drei Allelen, und der
+Beweger ist ein CFIT.** Drei von 43 Monitor-K.O.s sind gesunde Zellen, und genau diese drei sind es; die
+anderen 40 sind bereits abgeschossene Jets, die fallen. E-15s Regel gilt unverändert: eine Geometrie,
+deren Klasse ein CFIT bewegt, misst den CFIT. G4 wird nicht veröffentlicht, `kMoversMin` nicht gesenkt,
+`fb_arena_check.py` unverändert REFUSED.
+
+**Die Versuchung, benannt und abgelehnt.** Die schnellste Art, die Kanone tödlich zu machen, war die
+Fragilitätsleiter in `FBF16Damage` — vier `[SET]`-Zahlen, die auch jeden Gefechtskopf im Baum bepreisen.
+Sie zu heben hätte AIM-120 und R-27R neu bewertet, um ein Ergebnis zu kaufen. Die Messung sagt, dass sie
+nicht der Deckel ist. Ebenso abgelehnt: Rtr als WVR-Tor (die gespeicherte Tabelle gibt der AIM-9 22 740 m
+Rtr auf 3,2 km Startentfernung — ein Tor, das nichts misst) und ein g-Limit ohne Trennmodell.
+
+**Tore.** `core-lib gym native wasm` warnungsfrei, `verify-layers` (297 Dateien, 12 Schichten, 3
+restricted headers, 6 Registry-Leser) und `verify-models` grün, acht Harnesses rc=0, Determinismus
+`--threads 1/2/4` je ein Fingerabdruck, `git status --porcelain sim/assets` leer, **130 von 139
+Missionen byte-identisch** — die neun, die sich bewegen, je einzeln begründet, plus eine neue
+(`duel-merge-stern`). Ein Exit-Code bewegt sich: `duel-merge` 3 → 0.

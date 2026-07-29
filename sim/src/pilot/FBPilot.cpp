@@ -494,7 +494,11 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
   Bfm_.Report(mode, inControl, gCmd, dt);
   BfmSelectRadarMode(state, avionics);
   BfmDesignate(state, avionics);
-  BfmGunfire(state, avionics);
+  /* EINE Hand, EINE Waffenhandlung je Takt, und die Kanone hat Vorrang: ihr Tor ist das engere (der
+   * Trichter ist ein Bruchteil der Zielspannweite) und ihr Fenster endet dort, wo die Mindestentfernung
+   * der Rakete beginnt. „Beides in Parametern" ist damit ein schmales Band, und darin gewinnt die
+   * Waffe, die ohnehin schon nachfuehrt. doc/pilot.md 5.11. */
+  if (!BfmGunfire(state, avionics)) BfmMissileShot(state, avionics);
   return c;
 }
 
@@ -544,19 +548,25 @@ void FBPilot::BfmDesignate(const FBState &state, FBCommandBus &avionics) {
   avionics.Post(FBCommandTarget::Designate, best->TrackNum, TimeS_);
 }
 
-void FBPilot::BfmGunfire(const FBState &state, FBCommandBus &avionics) {
-  if (!state.Gun.H.Readable() || !state.Gun.Ready) return;
+bool FBPilot::BfmGunfire(const FBState &state, FBCommandBus &avionics) {
+  if (!state.Gun.H.Readable() || !state.Gun.Ready) return false;
   const FBFireControlBlock &fc = state.FireControl;
-  if (!fc.H.Readable() || !fc.GunValid) { GunHaveErr_ = false; return; }
+  if (!fc.H.Readable() || !fc.GunValid) { GunHaveErr_ = false; return false; }
 
+  double burstS = Tuned(FBPilotParam::GunBurstS, BfmGunBurstS());
   /* Der Abzug kostet die Zeit eines Fingers: jede HOTAS-Handlung trifft eine Latenz spaeter ein, und bei
    * ~2 °/s Zielfehlerbewegung sind das auf 300 m zehn Meter Fehlabstand je Sekunde Verzug. Also wird der
-   * Fehler ueber Bus-Latenz + Flugzeit VORHERGESAGT. */
+   * Fehler VORHERGESAGT — aber nur bis zu dem Moment, in dem die Geschosse den Lauf VERLASSEN.
+   * FBGunSolveLead beantwortet „wohin muss das Rohr zeigen, damit eine JETZT abgefeuerte Runde das Ziel
+   * SPAETER trifft": die Zielbewegung waehrend der Flugzeit steckt bereits in der Loesung, eine
+   * abgefeuerte Runde hat von einer sich danach bessernden Zielung also nichts. Der Horizont ist damit
+   * Bus-Latenz + halber Feuerstoss (die mittlere Runde dieses Drucks), nicht + fc.GunTofS.
+   * doc/pilot.md 5.8. */
   double predErrDeg = fc.GunAimErrorDeg;
   if (GunHaveErr_ && TimeS_ > GunPrevS_) {
     double rate = (fc.GunAimErrorDeg - GunPrevErrDeg_) / (TimeS_ - GunPrevS_);
     predErrDeg = fc.GunAimErrorDeg +
-                 rate * (FBCommandBus::LatencyS(FBCommandTarget::GunTrigger) + fc.GunTofS);
+                 rate * (FBCommandBus::LatencyS(FBCommandTarget::GunTrigger) + 0.5 * burstS);
     /* Der publizierte Fehler ist ein BETRAG, seine Extrapolation muss also als einer gelesen werden:
      * −1,5° heisst nicht „genau drauf", sondern „1,5° daran vorbei". */
     predErrDeg = std::fabs(predErrDeg);
@@ -564,15 +574,68 @@ void FBPilot::BfmGunfire(const FBState &state, FBCommandBus &avionics) {
   GunPrevErrDeg_ = fc.GunAimErrorDeg;
   GunPrevS_ = TimeS_;
   GunHaveErr_ = true;
-  if (!fc.GunInRange) return;
+  if (!fc.GunInRange) return false;
   /* Der Trichter ist die Toleranz des VISIERS, nicht die des Piloten: seine Waende sind die SPANNWEITE
    * des Ziels, eine Loesung knapp innerhalb setzt das Muster eine halbe Spannweite neben seine Mitte. */
-  if (predErrDeg > Tuned(FBPilotParam::GunFireTolFrac, BfmGunFireTolFrac()) * fc.GunTolDeg) return;
-  if (TimeS_ < GunNextS_) return;
-  double burstS = Tuned(FBPilotParam::GunBurstS, BfmGunBurstS());
+  if (predErrDeg > Tuned(FBPilotParam::GunFireTolFrac, BfmGunFireTolFrac()) * fc.GunTolDeg) return false;
+  if (TimeS_ < GunNextS_) return false;
   if (avionics.Post(FBCommandTarget::GunTrigger, burstS, TimeS_).Outcome == FBCommandOutcome::Rejected)
-    return;
+    return false;
   GunNextS_ = TimeS_ + burstS;
+  return true;
+}
+
+/* DER KURZSTRECKENSCHUSS IM KURVENKAMPF. Fuenf Tore, jedes ein Instrumentenwert, keine neue Rechnung —
+ * die Startzone ist die des Feuerleitrechners (weapons/FBLaunchZone, dieselben drei Zahlen, die die
+ * Abfangphase liest), der Lock ist der, den die Verriegelung des SMS ohnehin verlangt, und die Grenzen
+ * der Runde stehen in ihrer Katalogzeile.
+ *   1. der GEWAEHLTE Store ist eine Infrarotrunde — er prueft, was auf der Schiene haengt, statt eine zu
+ *      verlangen: die Waffenwahl ist keine Entscheidung, die dieser Pilot hat (doc/duels.md D4);
+ *   2. ein LOCK, derselbe, den die Verriegelung liest;
+ *   3. IN DER ZONE (Rmin <= R <= Raero). Die Rtr-Disziplin der Abfangphase gilt hier AUSDRUECKLICH
+ *      NICHT: Rtr heisst „die Runde kommt an, auch wenn er umdreht und wegrennt", und wer schon im
+ *      Kurvenkampf steckt, rennt nicht weg;
+ *   4. im CUEING-Winkel dieser ZELLE (BfmWvrCueDeg, sonst der Kardan der Runde);
+ *   5. die vorige Runde hatte ihre Flugzeit.
+ * ASPEKT ist kein Tor — beide Runden im Baum sind dokumentiert allaspektfaehig; was den Frontalschuss
+ * schlechter macht, modelliert sensors/FBIrstSystem und nicht der Pilot. EIGENE LAST ist kein Tor,
+ * weil es dafuer keinen Mechanismus gibt: eine Runde verlaesst die Schiene mit Lage und Geschwindigkeit
+ * des Traegers, und Schienenlast oder Trennstoerung modelliert der Freigabepfad nirgends.
+ * NACH dem Start bindet nichts: FBSeekerHandoverS(Infrared) == 0. doc/pilot.md 5.11. */
+void FBPilot::BfmMissileShot(const FBState &state, FBCommandBus &avionics) {
+  const FBStoresBlock &sms = state.Stores;
+  const FBFireControlBlock &fc = state.FireControl;
+  if (!sms.H.Readable()) return;
+  /* Gesehen wird der eigene Schuss am ZAEHLER, nicht am eigenen Daumen — dieselbe Regel wie im Angriff. */
+  if (BfmSeenReleases_ < 0) BfmSeenReleases_ = sms.ReleasedCount;
+  if (sms.ReleasedCount > BfmSeenReleases_) {
+    BfmSeenReleases_ = sms.ReleasedCount;
+    BfmShotNextS_ = TimeS_ + std::fmax(Tuned(FBPilotParam::ShotSpacingS, InterceptShotSpacingS()),
+                                       fc.H.Readable() && fc.TimeToImpactS > 0.0f
+                                           ? (double)fc.TimeToImpactS : 0.0);
+  }
+  if (TimeS_ < BfmShotNextS_) return;
+  if (sms.SelectedStation <= 0 || sms.SelectedStation > kMaxStoreStations) return;
+  const FBStoreSpec *sel = FBStoreSpecOf((FBStoreKind)sms.Station[sms.SelectedStation - 1]);
+  if (!sel || sel->Seeker != FBSeekerKind::Infrared) return;
+  if (!state.Radar.H.Readable() || state.Radar.LockIndex < 0) return;
+  if (!fc.H.Readable() || !fc.DlzValid || !fc.InZone) return;
+  const FBBfmBlock &g = Bfm_.Block();
+  if (!g.H.Readable() || !g.Locked) return;
+  double cueDeg = BfmWvrCueDeg();
+  if (cueDeg < 0.0) cueDeg = sel->SeekerGimbalHalfDeg;
+  if (cueDeg > 0.0 && std::fabs(g.AzDeg) > cueDeg) return;
+
+  FBCommandAck r = avionics.Post(FBCommandTarget::WeaponRelease, 1.0, TimeS_);
+  FBLog::Info("pilot", "BFM_SHOT", {{"store", sel->Key}, {"rangeM", (double)fc.TargetRangeM},
+      {"rminM", (double)fc.RminM}, {"raeroM", (double)fc.RaeroM}, {"ataDeg", g.AzDeg},
+      {"aspectDeg", g.AspectDeg}, {"cueDeg", cueDeg}, {"ttiS", (double)fc.TimeToImpactS},
+      {"accepted", r.Outcome != FBCommandOutcome::Rejected}});
+  /* Der Abstand gilt AB DEM DRUCK und nicht erst ab dem Zaehler: zwischen beiden liegt die
+   * Betaetigungslatenz, und ein Pilot, der in ihr weiterdrueckt, leert die Schienen in einer halben
+   * Sekunde (gemessen: sechs Starts in 0,6 s). Abgelehnt wird ebenso wenig wiederholt — der Jet hat
+   * nein gesagt, wie bei jeder anderen Waffenhandlung. */
+  BfmShotNextS_ = TimeS_ + Tuned(FBPilotParam::ShotSpacingS, InterceptShotSpacingS());
 }
 
 /* EIN Kommando je Tick, in fester Reihenfolge: deterministisch, und ein Pilot bedient einen Hebel nach

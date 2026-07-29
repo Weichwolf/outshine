@@ -238,6 +238,13 @@ protected:
    * den Rumpf statt irgendwo ueber die Spannweite. */
   virtual double BfmGunFireTolFrac() const { return 0.35; }
 
+  /* WIE WEIT VON DER NASE WEG diese ZELLE einer Kurzstreckenrunde ihr Ziel uebergeben kann. Es ist eine
+   * Eigenschaft des FLUGZEUGS und nicht der Waffe, und die Quelle sagt das woertlich: die Hochwinkel-
+   * faehigkeit der 9-12 ist durch das Helmvisier (+-60 deg Azimut) begrenzt, nicht durch den 75-deg-
+   * Kardan des R-73 (doc/modules/mig29/weapons.md 3.3). < 0 = kein eigenes Visier, es gilt der Kardan
+   * der Runde selbst — die F-16 laesst das so, weil kein HMCS modelliert ist. doc/pilot.md 5.11. */
+  virtual double BfmWvrCueDeg() const { return -1.0; }
+
   /* Der NAHKAMPF-Radarmodus: das Modul-Ordinal des selbst-lockenden ACM-Musters, das die BFM-Phase
    * WAEHLT, sobald sie in den Kurvenkampf geht — die Erfassungs-Haelfte, die im Merge fehlte. Im
    * Nahkampf bedient niemand ein Radar von Hand, also uebernimmt der Auto-Lock des Modus die
@@ -323,7 +330,11 @@ private:
   /* Der Abzugsfinger, getrennt vom Fliegen: eine Waffe zu bedienen ist kein Steuern. */
   void BfmDesignate(const FBState &state, FBCommandBus &avionics);
   void BfmSelectRadarMode(const FBState &state, FBCommandBus &avionics);
-  void BfmGunfire(const FBState &state, FBCommandBus &avionics);
+  /* Gibt true zurueck, wenn dieser Takt einen Feuerstoss kommandiert hat — die Hand ist dann belegt. */
+  bool BfmGunfire(const FBState &state, FBCommandBus &avionics);
+  /* Der Kurzstreckenschuss: fuenf Instrumentenwerte, keine neue Rechnung, und nach dem Start bindet er
+   * nichts (FBSeekerHandoverS(Infrared) == 0). doc/pilot.md 5.11. */
+  void BfmMissileShot(const FBState &state, FBCommandBus &avionics);
   /* Die Rotten-Position auf einem BEWEGTEN Punkt: der Fuehrende ist eine Datalink-MELDUNG mit Alter,
    * kein Ort. Die Quer- und Hoehenhaelfte laeuft ueber die bestehende Bahnfuehrung (SetDirectLeg auf
    * die Kurslinie DURCH die Station), die Laengshaelfte ueber die Geschwindigkeit — getrennt, weil
@@ -436,6 +447,8 @@ private:
   bool   GunHaveErr_ = false;
   double BfmDesignateNextS_ = 0.0;   /* s. BfmDesignate: Bedien-Takt, kein 10-Hz-Spam */
   double BfmModeNextS_ = 0.0;        /* s. BfmSelectRadarMode: Bedien-Takt fuer die Modus-Wahl */
+  double BfmShotNextS_ = -1e9;       /* s. BfmMissileShot: erst wenn die vorige Runde ihre Chance hatte */
+  int    BfmSeenReleases_ = -1;      /* der SMS-Zaehler, ueber den der Schuss GESEHEN wird */
   /* Der Ratenanteil der Kanonen-Nachfuehrung: die geforderte Rohrrichtung als WELT-Richtung und deren
    * eigene Drehrate. Weltbezogen mit Absicht — koerperbezogen maesse man den eigenen Zug, nicht die
    * Bewegung der Loesung. */

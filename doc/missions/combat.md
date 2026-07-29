@@ -26,6 +26,14 @@ offset, aspect ~90° = angular disadvantage), `bfm-merge.fbm` (head-on merge, as
 `bfm-blind.fbm` (offset merge — the pass BREAKS THE LOCK and shows extrapolation + search +
 reacquisition).
 
+**The phase employs TWO weapons since 2026-07-29** — the gun (`BfmGunfire`, the funnel) and a
+**short-range infrared round** (`BfmMissileShot`), whichever is in parameters, at most one action per
+decision tick and the gun first. The missile shot needs nothing new in the mission text: master arm
+briefed, an IR round on a rail and the same auto-lock mode the phase already requires. Its five gates
+and their derivation are [`../pilot.md`](../pilot.md) §5.11; what a mission author sees is that a
+`set task bfm` unit carrying `aim9`/`r73` now fires them and that such a fight can end in exit 0 rather
+than only in TIMEOUT (`sim/missions/duel-merge.fbm`, `duel-merge-stern.fbm`).
+
 **The search is target-motion aware.** It does not fly to the last MEASURED position (he is long gone
 from there) but to the DATUM from `pilot/FBBfmTrack::Datum`: last vector propagated forward as long
 as that prediction is worth more than the last look (up to 2/ω), uncertainty radius

@@ -47,12 +47,13 @@ model of the two systems produces decided engagements for reasons that can be na
 
 ## State
 
-**Built and measured this round.** Eight missions, three AI defects found and fixed, two decided
-duels, one gap reproducer. The mixed tournament runs.
+**Built and measured.** NINE missions, three AI defects found and fixed, FOUR decided duels, one gap
+reproducer. The mixed tournament runs. The ninth mission and the two decided merges are this round's:
+the close fight can now employ the round on the rail ([`pilot.md`](pilot.md) §5.11).
 
 ### The table: geometry × outcome
 
-All eight flown at `c637ed3`+this round, `fb-gym`, default elevation provider. Values are
+Rows 1-8 flown at `c637ed3`+this round, row 9 is this round's, `fb-gym`, default elevation provider. Values are
 **viper (F-16) / fulcrum (MiG-29)**; `-` means the channel never got a value.
 
 | # | Mission | exit | detect s | shot s | shot nm | Rtr nm | closest arrival | outcome |
@@ -64,7 +65,8 @@ All eight flown at `c637ed3`+this round, `fb-gym`, default elevation provider. V
 | 5 | `duel-emcon` | 3 | 24.0 / – | 156.6 / – | 9.57 / – | 9.77 / – | 8.29 m / – | **draw** |
 | 6 | `duel-doctrine-mig` | 0 | 24.0 / 105.2 | – / 141.5 | – / 14.41 | – / 10.60 | – / 9.35 m | **MiG wins** |
 | 7 | `duel-doctrine-f16` | 0 | 20.0 / 96.2 | 127.9 / 146.8 | 15.65 / 9.93 | 11.30 / 10.10 | 1.77 m / – | **F-16 wins** |
-| 8 | `duel-merge` | 3 | – / 3.8 | – / – | – | – | – / – | **both fly the whole merge to its timeout; nobody is KO'd and nobody hits** (see §row 8 below) |
+| 8 | `duel-merge` | **0** | 1.9 / 3.8 | – / – | – | – | – / – | **F-16 wins.** Its AIM-9 arrives 1.93 m out at t = 10.5 s → `damage KILL`; the MiG's R-73 arrives 2.64 m out at t = 11.7 s and only degrades. See §row 8 |
+| 9 | `duel-merge-stern` | **0** | – / 1.5 | – / 1.5 | – | – | – / 1.86 m | **MiG wins.** The documented R-73 employment (2.2 km astern, 590 m/s closure) → `damage KILL` at t = 21.3 s. The mission this campaign needed so the merge is not one-sided |
 
 **Why each cell came out that way**, one line each, every number off the run:
 
@@ -91,29 +93,28 @@ All eight flown at `c637ed3`+this round, `fb-gym`, default elevation provider. V
 5. **EMCON — draw, and the only run in which a MiG survives an AIM-120.** See §2 below.
 6. **MiG doctrine — MiG wins.** See §3.
 7. **F-16 doctrine + energy — F-16 wins.** See §3.
-8. **merge — BOTH sides now fly the whole fight to its timeout, and nobody is lost (this round).**
-   The four earlier blockers are all closed: the MiG's close-combat departure (its control law,
-   [`pilot.md`](pilot.md) §5.10), the MiG's acquisition (`n019 MODE acm` t=0.5, `RADAR_LOCK` t=3.8 at
-   3.31 nm), the F-16's roll law ([`pilot.md`](pilot.md) §5.7.3, longest |ω| > 60 stretch
-   **2.9 s → 0.8 s**, roll per 2 s window **195.8° → 110.8°**, run **18.0 s → 232.3 s**) and — this
-   round — **the MiG's missing rate damper** ([`pilot.md`](pilot.md) §5.10a). `KqDamp`/`KpDampRoll` model
-   the SAU-451 DAMPER and bound only on `FBFlightControl`'s FLCS path, while BFM commands `Manual`: the
-   MiG fought every merge undamped, its g loop rang against an undamped short period, and the fight ended
-   in the ground. It was NOT the floor and NOT the pilot — measured on one MiG alone in a cold BFM search
-   with no opponent at all: mean `bfm_gcmd` **4.57 → 1.11**, mean bank **76° → 24°**, p95 |VS|
-   **183 → 4 m/s**, CFIT from all three start altitudes → none (the F-16 flies the identical search at
-   1.22 / 40° / 9 m/s).
-   **The run now goes to its full 300 s with no monitor KO on either side** (exit 2 → 3). Min AGL fulcrum
-   **−4 → 4,548 m**, viper **449 → 4,487 m**; viper `lock_s` **28.2 → 47.6**, fulcrum `lock_s`
-   **79.4 → 70.6**, and the fulcrum still gets a GSh-301 burst away (24 rounds, two triggers) which still
-   misses.
-   **So the merge is two-sided, survivable, and still not a weapon result.** The viper spends 231.6 of
-   300.1 s with `bfm_rng = −1`, the fulcrum 223.7 s, **220.1 s both at once** — worse as a FRACTION than
-   before (77 % against 82 %, 75 % against 62 %), because the two jets now climb apart instead of
-   spiralling down together. After the first pass neither ACM box re-acquires. The R-73/GSh-301 thesis
-   therefore stays untested for a FIFTH reason, and it is again the honest one: **the pilots cannot hold
-   each other in a knife fight.** The blocker is close-combat re-acquisition alone — the floor and the
-   airframe are both off the list ([`pilot.md`](pilot.md) gaps 2.9 and 2.8).
+8. **merge — DECIDED (this round), and by the round on the rail.** The four earlier control-law
+   blockers are all closed (the MiG's departure, its acquisition, the F-16's roll law, the MiG's rate
+   damper — [`pilot.md`](pilot.md) §5.10/§5.10a, §5.7.3), and what was still missing was an employment
+   path: `Phase::Bfm` ended its tick in `BfmGunfire` and the AIM-9/R-73 on the rails had none.
+   [`pilot.md`](pilot.md) §5.11 gives it one. `duel-merge` **exit 3 → 0**: both jets fire at the merge
+   (viper t = 1.9 s at 7,061 m, fulcrum t = 3.8 s at 6,125 m — the 1.9 s is the F-16 spawning in
+   `acm_hud` while the MiG's pilot must switch the N019 to ACM over the bus), and both rounds arrive.
+   The AIM-9 at **1.93 m** puts 218,781 J/m² into the centre zone → flight controls FAIL → `damage KILL`
+   at t = 10.5 s; the R-73 at **2.64 m** puts 94,388 J/m² in → flight controls DEGRADED, and the F-16
+   flies on to `SUCCESS` at t = 68.2 s. The gun is no longer what the merge turns on, but it is not
+   silent either: the same fix round corrected the trigger's prediction horizon, and over the 120-run
+   merge arena the rounds ON TARGET go **139.8 → 449.1** off **6,318 → 5,850** fired.
+
+9. **merge-stern — the mirror, and the reason it exists.** A close fight only the F-16 can win is a
+   defect and not a result, and the head-on merge IS one-sided: [MESS] with the N019 already in ACM the
+   MiG shoots FIRST (t = 1.5 against 1.9) and still loses, because the two rounds' kill radii against
+   this airframe are **2.32 m (AIM-9M, 9.4 kg)** and **2.08 m (R-73, 7.4 kg)** and a 1,050 m/s head-on
+   pass gives the terminal loop the least time to close on either. So the mission asks the question on
+   the geometry the R-73 is documented for: 2.2 km astern, co-heading, 40 kt in hand. Closure **590 m/s**
+   instead of 1,050, the round arrives **1.86 m** out, and the F-16 dies at t = 21.3 s. **Both cells can
+   die in close combat**, and the reason either one does is a warhead mass and an arrival geometry that
+   are both in the catalogue.
 
 ### The one-sentence answer
 
@@ -212,8 +213,9 @@ SARH obligation costs a FLIGHT rather than a jet.
 
 ### Determinism
 
-All eight duels: **one fingerprint** (SHA-256 over all `telemetry*.csv` + normalised `events.log` +
-exit code) over `--threads 1/2/4` × 3 repeats each — 72 runs, 8 fingerprints. The mixed tournament's
+All NINE duels: **one fingerprint** (SHA-256 over all `telemetry*.csv` + normalised `events.log` +
+exit code) over `--threads 1/2/4` — re-measured this round for `duel-merge` and `duel-merge-stern`,
+one fingerprint each. The mixed tournament's
 own `--check-determinism`: 0 of 60 files differ between `--threads 2` and `--threads 1` over 30
 pairings.
 
@@ -223,21 +225,24 @@ pairings.
 
 | # | Thing | Known from |
 |---|---|---|
-| ~~**D1**~~ | **The merge is FLYABLE AND SURVIVABLE from both sides — closed as a control-law gap; what remains is a different gap.** Its four named blockers are gone in order: the MiG's close-combat departure (`pilot.md` §5.10), the MiG's acquisition (`FBMig29Radar::kAcm*` + `BfmRadarModeOrdinal`, `RADAR_LOCK` t=3.8, `lock_s` 14.2 → **79.4**), the F-16's roll law (`pilot.md` §5.7.3, run **18.0 s → 232.3 s**) and — this round — **the MiG's missing rate damper** (`pilot.md` §5.10a): `KqDamp`/`KpDampRoll` bound only on `FBFlightControl`'s FLCS path while BFM commands `Manual`, so the jet fought every merge with the SAU-451 DAMPER off. `duel-merge` now runs its full **300 s with no monitor KO on either side** (exit 2 → 3), min AGL fulcrum **−4 → 4,548 m** and viper **449 → 4,487 m**. It is still not a weapon result, and the reason is now a single one: the viper is blind for 231.6 of 300.1 s, the fulcrum for 223.7 s, both at once for 220.1 s — after the first pass neither ACM box re-acquires. Successor gaps: `pilot.md` 2.9 (close-combat re-acquisition; its floor/sink half is closed) and 2.8 (the lift-vector law's downward singularity). | `duel-merge` |
+| ~~**D1**~~ | **The merge is DECIDED from both sides — closed.** Its five named blockers are gone in order: the MiG's close-combat departure (`pilot.md` §5.10), its acquisition (`FBMig29Radar::kAcm*`), the F-16's roll law (`pilot.md` §5.7.3), the MiG's missing rate damper (`pilot.md` §5.10a) and — this round — the missing WEAPON path (`pilot.md` §5.11: `Phase::Bfm` ended its tick in `BfmGunfire` and the rounds on the rails had no employment). `duel-merge` **exit 3 → 0** and `duel-merge-stern` **exit 0**; over the 120-run merge arena the outcome classes go from **60/60 (2,1)** on all three cells to `xmerge` **30 (3,2) + 30 (1,0)** — every run decided. What the closure did NOT fix, and is now `pilot.md` 2.9 alone: both fights are decided on the FIRST pass, because neither ACM box re-acquires afterwards. |
 | **D2** | **An AIM-120's terminal miss is a strong function of closure**, and nothing in the tree says whether that is the round or the physics. [MESS, `duel-headon` with the MiG's cruise swept 330→600 kt TAS] target speed 169/206/237/268/288 m/s ⇒ closure 744/842/919/1000/1053 m/s ⇒ miss **1.37/2.13/4.74/3.15/7.66 m**. Since `core/FBDamageModel` is 1/r², those six metres are the difference between a kill and a jet that flies on with wrecked avionics — i.e. the single most outcome-sensitive number in the whole campaign. It belongs beside `bvr-duel-decided`'s terminal-loop finding | this campaign |
 | **D3** | *(blocks G5 of [`doctrine-evolution.md`](doctrine-evolution.md); `tools/fb_evolve.py` prints the blocker at start and refuses the gene. **CONFIRMED as a hard block, round `E2`:** `set pilot_emcon_frac 0.5` gets `SET_INVALID_VALUE` + `SET_REJECTED` at t = 0.0 and the run **exits 1** — the key does not exist, so the degenerate band is not even reachable.)* **The pilot does not use the IRST.** `sensors/FBIrstSystem` publishes an `Irst` block and the only consumer in the tree is a missile seeker; `pilot/FBPilot`'s intercept picture is built from the Radar block alone. So the MiG's one genuinely passive sensor cannot cue anything, and "IRST-EMCON" is a doctrine the campaign could only test as "silent and blind" | `duel-emcon` |
 | **D4** | **Weapon selection is not a decision the pilot can make.** `FBCommandTarget::WeaponSelect` is `NotImplemented` on both modules, so the selected station is whatever the SMS's station step arrived at. A jet carrying an AIM-120 and an AIM-9 will offer whichever pylon comes first in the module's own list, and the missions in this family work around it by loading the racks in the order they want the rounds fired | this campaign |
 | ~~**D5**~~ | ~~The MiG has no dispenser.~~ — **closed this round.** The MiG has the BVP-30-26 (`modules/mig29/FBMig29Cmds`, 60 cartridges, [SET] 30/30 split), and its flares seduce the AIM-9 through the SAME deterministic model that seduces the R-73 (`sensors/FBIrstSystem::SelectFlare`): `mig29-defend.fbm` measures `FLARE_SEDUCED tgtIntensity=0.16` and the round expiring 16.0 m wide, against an astern control that detonates 0.04 m out. The defensive asymmetry is now TWO-SIDED. What it does NOT yet do is auto-defend in the merge (the 9-12 has no MAWS, defence-rwr-cm.md §5, so an infrared shot is answered only by a briefed throw), and the BVR duels do not arm it, so their outcomes are unchanged (only the MiG's `cmd_*` bookkeeping moves: its intercept CmDispense is no longer rejected `NotImplemented`) | this round |
 | **D7** | The campaign is 1v1 and the flight campaign is 2v2/4v4, and the two do not share a geometry table. The four-ship in `formation.md` is one geometry; the eight duel geometries have no flight counterpart, so nothing says whether the energy split or the offset behaves the same with two aircraft a side | this round |
-| **D6** | The campaign measures BVR only. Nothing here exercises the gun on either side, and nothing exercises an IR shot that a flare could defeat — the R-73/AIM-9 rounds in these loadouts are fired at the end of an engagement that is already decided, from geometries where they expire | this campaign |
+| ~~**D6**~~ | ~~The campaign measures BVR only.~~ — **HALVED this round.** The IR shot is exercised and it DECIDES: `duel-merge` (head-on, F-16 wins on 1.93 m) and `duel-merge-stern` (rear quarter, MiG wins on 1.86 m). The gun is exercised too and no longer wastes its drum ([`pilot.md`](pilot.md) §5.8: merge-arena rounds on target 139.8 → 449.1), but it still decides nothing — it needs 17.0 landed 30 mm rounds and delivers 9.53. **What is still untested is the IR shot a FLARE defeats inside a merge**: neither jet auto-dispenses against an infrared launch (the F-16 has no MAWS in the tree either, `defence-rwr-cm.md` §5), so the two decided merges are undefended shots | this campaign, this round |
 
 ### Rejected / not attempted, with the measurement
 
 | Approach | Why |
 |---|---|
+| Gating the WVR shot on Rtr, as the intercept phase does | Rtr means "the round arrives even if he turns and runs". Inside two miles that is not the question, and the number is not the answer either: [MESS] the AIM-9's stored table gives `rtrM` **22,740 m** at a 3.2 km launch and the R-73's **16,212 m**, because the integration runs until the round drops below `MinSpeed`. For a WVR round Rtr and Raero are both vacuous and only **Rmin** binds. Declining Rtr is therefore not a relaxation; adopting it would have been a gate that measures nothing |
+| A load-factor gate on the WVR launch | there is no mechanism to gate on — [`pilot.md`](pilot.md) 2.13. A round leaves with the launcher's attitude and velocity and the release path models no rail load, so every candidate number would have been fitted |
+| Raising `core/FBDamageModel`'s fragility ladder so the gun kills | it is four `[SET]` numbers that also price every warhead in the tree, and the measurement says they are not the limiter: a perfectly aimed GSh-301 drum at the range the merge is fought at lands **20.2** rounds against a **17.0**-round threshold. The gun's problem was the aim, and the aim had a derivation error in it ([`pilot.md`](pilot.md) §5.8) |
 | Making `InterceptShotRtrFactor` > 1.0 the MiG's DEFAULT hook | it wins, and it is not derivable. Rtr means "the round arrives even if he runs"; nothing in `doc/modules/mig29/` states a launch doctrine, so a number chosen because it wins a duel would be a fitted constant wearing a derivation's clothes. It lives where the tree already puts a doctrine: in mission text (`set pilot_shot_rtr`) and in the tournament |
 | Reading `duel-emcon` as "EMCON is better" | it is not: the MiG survived and never fired. The run measures a TRADE (warning + defence + life against blindness), and both halves are in its head |
-| ~~A merge mission as a real duel~~ | **built; both sides now fly it to the end and both survive (this round).** Departure, acquisition, the F-16's roll law and — this round — the MiG's missing rate damper are all closed; `duel-merge` runs its full 300 s instead of 18.0 or 232.3, with no KO on either side, and still produces a GSh-301 burst (24 rounds, miss). The WEAPON thesis (R-73/GSh-301) is still untested, and the reason is no longer a control law nor the floor: neither ACM box re-acquires after the first pass (blind 231.6 s of 300.1 for the viper, 223.7 s for the fulcrum, 220.1 s simultaneously). Next blocker: close-combat re-acquisition alone, `pilot.md` gaps 2.9/2.8 |
+| ~~A merge mission as a real duel~~ | **built, and since this round DECIDED on both sides.** The five earlier blockers are closed in order: the MiG's departure, its acquisition, the F-16's roll law, the MiG's rate damper, and — this round — the missing employment path ([`pilot.md`](pilot.md) §5.11). `duel-merge` exit 3 → 0 (F-16, AIM-9 at 1.93 m), `duel-merge-stern` exit 0 (MiG, R-73 at 1.86 m). The WEAPON thesis is measured at last, and its answer is not the one the mission header guessed: it is the WARHEAD, not the gun and not the turn rate. What is still true of the old entry is the re-acquisition — the fight is decided on the FIRST pass, and neither ACM box finds the other again afterwards (`pilot.md` 2.9) |
 
 ---
 
@@ -357,7 +362,7 @@ in parameters, and the engagement dissolves.
 
 ```
 make -C sim gym
-for m in headon offset viper-high fulcrum-high emcon doctrine-mig doctrine-f16 merge; do
+for m in headon offset viper-high fulcrum-high emcon doctrine-mig doctrine-f16 merge merge-stern; do
     build/fb-gym --mission missions/duel-$m.fbm --out /tmp/duel/$m
 done
 tools/fb_duel_report.py --table /tmp/duel/*          # geometry x outcome

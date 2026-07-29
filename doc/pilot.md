@@ -37,6 +37,8 @@ manoeuvre, the FBW moves the hands.
 | Airframe numbers are hooks, pilot numbers are not | corner speed, brake authority etc. are virtual airframe hooks; reaction time and operating cadence describe the PILOT and stay fixed |
 | The close-combat law (phase `Bfm`, `Guidance = Manual`) must be survivable on a RAW airframe | an airframe whose JSBSim deck carries no FLCS (the MiG-29) is protected only by what `systems/FBFlightControl` adds. The law commands raw stick, so EVERY device that class models for the airframe — the α limiter, the pitch-deflection cap `PitchStickMax` AND the rate damper `KqDamp`/`KpDampRoll` (the SAU-451 DAMPER) — must bind on the `Manual` path exactly as it binds on the FLCS path, because each is a property of the aeroplane and none of them knows which mode the autopilot is flying, and the commanded g may never exceed the α-limit-sustainable g at the current speed. Acceptance: `missions/mig29-bfm.fbm` flies a full BFM run with no `FBFlightMonitor` KO AND holds a control position (`bfm_ctrl_s` > 0), and a MiG-29 alone in a cold BFM search does not sink into the ground; the F-16 (`PitchStickMax` 1.0, its own deck FLCS) is byte-identical |
 | The close-combat law may command a roll rate, never a sustained one | the judge's rule is a SUSTAINED body rate (|ω| > 60 °/s for 3 s), so a peak cap alone is not a bound. The commanded roll carries an EXTENT bound over the same window the peak is derived in — no more than one reversal (180°) per `kBfmTurnTimeS` — and the sustained fixed point that follows is half the peak. Acceptance: no departure over the 16-approach sweep, and `duel-merge` flown to its end instead of to t = 18 s (§5.7.3) |
+| **A trigger squeeze is predicted to the moment its rounds LEAVE, never to the moment they arrive** | `FBGunSolveLead` answers "where must the bore point for a round fired NOW to meet the target LATER" — the target's motion over the time of flight is already inside the solution, so a round that has left cannot benefit from the aim improving behind it. The horizon of §5.8's prediction is therefore the bus latency plus half the squeeze, and `fc.GunTofS` has no place in it. Acceptance: `R·tan(GunAimErrorDeg)` read at the tick a bundle left predicts that bundle's own closest approach, and no squeeze is commanded from outside the funnel gate the fire control publishes |
+| **The close-combat phase can employ the round on the rail, and the round decides how long it binds** | `Phase::Bfm` offers an infrared shot on five instrument readings and no new arithmetic (§5.11): the selected store is an IR round, a lock exists, the fire control's own launch zone says in-zone, the target is inside the CUEING limit of this aircraft, and the previous shot has had its time of flight. Aspect is not a gate (both rounds are documented all-aspect) and own g is not a gate (nothing in the release path models a rail load). An infrared round's `FBSeekerHandoverS` is 0, so the phase is unchanged after the release: no Support state, no illumination, nothing held. Acceptance: a merge decided by an IR round from EITHER seat, and every mission without a WVR round on a BFM task byte-identical |
 | A pilot variant is mission text, not a class | `set pilot_*` → `FBPilotTuning`; an unset entry means "this pilot's own number", and a mission without `pilot_*` flies byte-identically |
 | Every fitness channel is computable from OWN perspective | `bfm_*` / `eng_*` telemetry — the basis of the evolutionary tournament |
 | A measured failure stays documented | rejected approaches remain under Gaps with their measurements |
@@ -63,6 +65,8 @@ refinement is the running work.
 | **The FLIGHT** — roles as mission data, the wingman's station on a moving point, target sorting from the shared picture, and the cover rule that keeps one member free. `pilot/FBFlightPicture` is `FBBfmTrack`'s sibling: built from `FBState` blocks only. Measured: 45.2 m straight-leg station error, 93 % target split in a cooperative pair, 0.962 vs 0.750 distinct targets per shooter cooperative against contract, 7.8 s of measured shot deferral, all 79 stock missions byte-identical | built | this round, [`formation.md`](formation.md) |
 | **The roll-rate cap became a bound instead of a peak** (§5.7.3). A high-closure merge (898 kt, LOS rate 543 °/s) rotates the commanded lift direction with the aircraft, so the roll error never closes and the law rolls 290° in 3.1 s on a 10–20° steering error. The same 180° that gives the peak cap now also bounds the roll flown per `kBfmTurnTimeS`; the sustained rate follows as `cap/2`. `duel-merge` no longer departs the F-16, sweep departures 6 → 0, 73 of 79 missions byte-identical | built | this round, [`duels.md`](duels.md) D1 |
 | **The airframe's own rate DAMPER binds at the hand stick too** (§5.10a) — the fifth screw, and the one that was killing the MiG in the merge. `KqDamp`/`KpDampRoll` model the SAU-451 DAMPER and were FLCS-path-only, while BFM commands `Manual`: the jet fought every close engagement undamped. [MESS, one MiG alone in a cold BFM search, 300 s] mean `bfm_gcmd` 4.57 → 1.11, mean bank 76° → 24°, p95 \|VS\| 183 → 4 m/s, CFIT from all three start altitudes → none (F-16 on the identical search: 1.22 / 40° / 9 m/s). `duel-merge` exit 2 → 3, `mig29-bfm` `bfm_ctrl_s` 0.0 → 287.6 s. 134 of 139 missions byte-identical; the five that move are all MiG-29 | this round, [`duels.md`](duels.md) D1 |
+| **The trigger's prediction horizon was the ROUND's and is now the SQUEEZE's** (§5.8). `pred = err + rate·(latency + GunTofS)` extrapolated a ONE-TICK derivative a full second, and the time of flight had no business in it: the lead solution at the muzzle already carries the target's motion, so a round that has left cannot benefit from the aim improving behind it. [MESS, `xmergesplit`] **11 of 13** squeezes were commanded with the aim OUTSIDE the funnel gate, the first **14.6×** outside it. With `latency + burstS/2`: rounds landed per drum **6.37 → 9.53** on the same 150 fired, and over the whole 120-run merge arena **139.8 → 449.1 rounds on target off 6,318 → 5,850 fired (2.21 % → 7.68 %)**. `gun-turning` keeps its kill at t = 64.4 on **279 → 209** rounds; `gun-bfm` keeps its kill (t = 106.4 → 106.5) | built | this round |
+| **`Phase::Bfm` can employ the round on the rail** (§5.11) — five instrument gates, one module hook (`BfmWvrCueDeg`, the MiG's Shchel-3UM 60° against the F-16's default "the round's own gimbal"), no new arithmetic and nothing held after the launch. `duel-merge` **exit 3 → 0**: the viper's AIM-9 arrives 1.93 m out, 218,781 J/m² → flight controls fail → `damage KILL` at t = 10.5 s. `missions/duel-merge-stern.fbm` is the mirror proof — the MiG's R-73 arrives 1.86 m out at 590 m/s of closure and kills the F-16 at t = 21.3 s | built | this round, [`duels.md`](duels.md) D6 |
 
 ## Gaps
 
@@ -77,10 +81,11 @@ refinement is the running work.
 | 2.7 | **The pilot does not use the IRST.** `sensors/FBIrstSystem` publishes an `Irst` block; the intercept picture is built from the Radar block alone, so a passive sensor cannot cue anything and "IRST + EMCON" can only be flown as "silent and blind" | [`duels.md`](duels.md) D3 |
 | 2.8 | **The lift-vector law is singular for a DOWNWARD demand above 1 g** — the mechanism that TRIGGERS the merge roll (§5.7.3 fixes the consequence, not this). `L = a_turn·dir + g_body`: if `dir` points below the nose and `a_turn > g`, `liftUp` goes negative and the commanded bank jumps past ±90°; for a purely downward error it is ±180° decided by the sign of an arbitrarily small lateral component. [MESS, `duel-merge` t = 14.7 → 14.8] the gun-track handover replaced the Lag aim (el +5.4°) with the EEGS lead solution (el −8.0°) — a 13.4° step on a 9° total error — and the commanded bank went **−4.2° → −131.3°** in one tick, full deflection. A 10° aim correction at 250 m/s legitimately costs 2.2 g, so the g is not the error; the error is that the law reaches "down" only by rolling, when unloading to 0 g already buys 1 g of it. Any fix touches §5.1's core expression and every BFM mission. | this round |
 | 2.9 | **HALVED (this round): the sink was the MiG's undamped short period; the re-acquisition is still open.** The MiG half is CLOSED by §5.10a — the damper was FLCS-only, the fight was flown without it, and the CFIT is gone: [MESS] `duel-merge` min AGL fulcrum **−4 → 4,548 m**, viper **449 → 4,487 m**, no monitor KO, exit 2 → 3. Nobody settles below the 2,000 ft floor any more, so the floor bias (a 30° elErr term, not a limit) has not been tested against a real sink since and stays unproven. **Still open, and now the whole of it:** the fight never re-acquires. [MESS, `duel-merge` after §5.10a] the F-16 spends **231.6 of 300.1 s** with `bfm_rng = −1`, the MiG 223.7 s, **220.1 s both at once** — worse as a FRACTION than before (77 % against 82 %, 75 % against 62 %), because the two jets now climb apart instead of spiralling down together. An ACM box of ±15°/±10° does not find a co-speed opponent in a turning fight. | this round |
-| 2.12 | **There is still no path from the intercept into the merge; the merge is now a GUNFIGHT and still cannot be scored.** `FBPilot` has exactly ONE transition into `Phase::Bfm` and it is the briefed `set task bfm` at spawn: `InterceptCommands` aborts at `InterceptAbortRangeNm` (5 nm) and never transitions, so no BVR mission in this tree enters close combat, and the BFM phase writes no `eng_*` column (every `FBEngagement` note sits in the intercept path) so the tournament fitness reads level C as `GATE` on both sides. **What changed this round:** the merge is no longer decided by a CFIT (§5.10a) and it now fires. [MESS, the three merge cells of `fb_tournament`, 120 runs each] gun bursts **191 → 386** with the damper and **→ 2,652** once the profile briefs the GUN control position, `gun HIT` lines **0 → 0 → 897**, monitor KOs **77 → 0** (all 77 were the MiG). **The new blocker is a single thing:** the gun lands and cannot kill — a whole GSh-301 drum puts **6.37 rounds of 150** on an F-16 at a mean miss of 3.41 m, which fails 3 systems and leaves `dmg_effective` at 1.00. Also unchanged: `Phase::Bfm` has NO missile shot at all — the fight tick ends in `BfmGunfire` and the AIM-9/R-73 on the rails have no employment path. Until one of those closes, `pilot_energy_frac` has a lever but no outcome to move | [`doctrine-evolution.md`](doctrine-evolution.md) E-14, E-15 |
+| 2.12 | **The merge is DECIDED, and what still has no path is the INTERCEPT into it.** Unchanged: `FBPilot` has exactly ONE transition into `Phase::Bfm` and it is the briefed `set task bfm` at spawn — `InterceptCommands` aborts at `InterceptAbortRangeNm` (5 nm) and never transitions, and the BFM phase writes no `eng_*` column, so the tournament reads level C as `GATE` on both sides. **Closed this round:** the phase now employs the IR round (§5.11) and `duel-merge` goes exit 3 → 0. [MESS, the 120-run merge arena] outcome classes **60/60 (2,1) on all three cells → `xmerge` 30 (3,2) + 30 (1,0), every run decided**; `merge` and `xmergesplit` stay 60/60 (2,1). **Still open beside the transition:** the symmetric F-16 merge is a mutual WVR exchange that kills nobody (both AIM-9s arrive 2.7–3.4 m out against a 2.32 m threshold — §2.3's stalemate, now WVR instead of BVR), and `xmergesplit` never decides because the F-16 entering 2,000 m high never acquires at all (§2.9). | [`doctrine-evolution.md`](doctrine-evolution.md) E-14, this round |
 | 2.10 | **A separated wingman rejoins badly.** The station law has no rejoin behaviour — a member pulled out by a defensive turn tail-chases up the lead's course line and cannot close: [MESS, `four-4v4-asym`] 20.4 km median station error for 1,894 ticks. Full list of formation gaps: [`formation.md`](formation.md) | this round |
 | 2.11 | **The attack phase cannot release on a BEARING**, so no suppression shot is possible. Specified as `C27` in [`air-to-ground.md`](air-to-ground.md) §7 and deliberately bounded to **one gate**: `set attack_mode arm` beside `ccip`/`ccrp`, the RWR block read like any other instrument (readable ∧ a threat of the declared class ∧ its bearing inside the seeker's cone at the predicted moment of release), the release lead unchanged, and the shot MOMENT still briefed by `set brief_release_s` — so the weapon is measurable before this phase changes at all. What is expressly **not** in that round, and is therefore this file's: turning to put a threat inside the cone, any defensive reaction to a launch (`modules/ground/module.md` G11), weapon selection between an ARM and a bomb, and re-attack | [`air-to-ground.md`](air-to-ground.md) §7 |
-| 2.4 | Gun still misses ~1 in 8 approaches against the turning defender. | `658014d` |
+| 2.4 | **Gun: the fire discipline is fixed, the AIM at range is not — and the split is now measured.** §5.8's horizon defect is closed (State above). What remains is arithmetic and it is stated once: a `damage KILL` by 30 mm needs **17.0 landed rounds** in one zone [HERL] — `kFlcsFail` 1.5·10⁵ J/m² against 0.5·0.39·795²/14.0 m² = 8,803 J/m² per round — and the merge delivers **9.53 of 150**. The two halves, both measured on `xmergesplit`: (a) **effect is not the limiter** — at the σ the fight is actually fought at (3.78 m, 630 m of round path) a PERFECTLY aimed drum lands 20.2 rounds and kills, so the ceiling is above the threshold; (b) **aim is** — the drum kills at a mean miss ≤ **2.38 m** and the measured median over all 150 rounds is **6.41 m** (was 8.72). And `missM ≈ RangeM·tan(GunAimErrorDeg)` to within 10 % on the far bundles, so the aim error at the muzzle IS the miss: the remaining work is §5.6's tracking loop at 400–770 m, not the damage ladder. The old reading ("~1 in 8 approaches misses") stands unchanged for the F-16 sweep. | `658014d`, this round |
+| 2.13 | **A WVR launch has no load-factor gate, and that is a missing MECHANISM rather than a missing number** (§5.11). A round leaves with the launcher's attitude and velocity (`FBStoreRelease`, `HaveRail` false for every air launch); the release path models no rail load, no separation transient and no seeker-cage disturbance, so a g limit would be a constant with nothing behind it. What would make one derivable is a separation model — until then the phase shoots at any g the airframe is holding. | this round |
 | 2.5 | AoA band 11–13° instead of a flat 11° on approach (ED-documented, `doc/modules/f16/procedures-landing.md`); porpoise after touchdown; `ApproachSpeed` should be weight-scheduled instead of fixed. | measurement |
 
 ### Rejected approaches (do not retry without a new argument)
@@ -921,10 +926,25 @@ No second aiming — a finger. It does three things:
 
 1. Checks whether the gun is armed and loaded (`Gun.H.Readable() && Gun.Ready`) and a valid solution
    exists.
-2. **Predicts the aim error**: `pred = err + (dErr/dt)·(LatencyS(GunTrigger) + fc.GunTofS)`.
+2. **Predicts the aim error to the moment the rounds LEAVE**:
+   `pred = |err + (dErr/dt)·(LatencyS(GunTrigger) + burstS/2)|`.
    Every HOTAS action arrives one latency later, and at a fighter's tracking rates the aim error moves
    ~2 °/s — at 300 m that is ten metres of miss distance per second of delay.
    [MESS] bursts commanded on a 0.35° solution arrived on a 1.7° solution and missed by 8 m.
+
+   **The horizon is the squeeze's, not the round's — and it used to be the round's.** `FBGunSolveLead`
+   answers *"where must the bore point for a round fired NOW to meet the target LATER"*: the target's
+   motion over the time of flight is **already inside the solution**, so a round leaving the muzzle at
+   τ misses by about `R·tan(err(τ))` and nothing that happens to `err` afterwards reaches it. The
+   squeeze commanded at t produces rounds over `[t+L, t+L+burstS]`, whose mean leaves at
+   `t + L + burstS/2` — **0.35 s**, against the `L + GunTofS` ≈ **1.0 s** the form carried before.
+   [MESS, `xmergesplit`, the five bundles of the first squeeze] `R·tan(GunAimErrorDeg)` read at the tick
+   each bundle left predicts that bundle's own closest approach: **54.9 / 47.5 / 39.6 / 37.3 / 36.6 m**
+   predicted against **48.7 / 42.2 / 37.2 / 34.6 / 34.9 m** measured.
+   [MESS, same run, 13 squeezes] with the round's horizon, **11 of 13** were commanded with the measured
+   aim OUTSIDE the trigger's own gate — the first one **14.6×** outside it (4.808° against 0.329° at
+   766 m) — because a ONE-TICK derivative was extrapolated a full second. The drum was 88 rounds down by
+   the time the range came inside 630 m.
 3. **Holds the pipper tighter than the funnel.** The funnel walls are the target's WINGSPAN; a solution
    just inside puts the pattern half a wingspan beside its centre.
    `pred > Tuned(GunFireTolFrac, BfmGunFireTolFrac()) · fc.GunTolDeg` → do not fire.
@@ -1043,6 +1063,54 @@ the roll-extent bound. [MESS] `bfm_ctrl_s` **0.0 → 287.6 s** of 300 and closes
 nm**, with `BfmRollRateMaxDegS` unchanged at 60 and `bfm_lock_s` unchanged to the digit (296.3 s) —
 i.e. past the 88.2 s the bound was blamed for costing. Both earlier readings measured correctly and
 attributed wrongly: no pursuit on this airframe could converge while the short period was undamped.
+
+#### 5.11 The WVR missile shot (`BfmMissileShot`) — the phase's second weapon
+
+**Written as a specification before it was built**, because the question this round had to answer is not
+"can the fight fire a missile" but "what may it fire at, and what does the shot then cost the shooter".
+
+**Five gates, each an instrument reading, no new arithmetic.** Everything below already exists: the
+launch zone is `weapons/FBLaunchZone`'s (the same three numbers the intercept phase gets), the lock is
+the one the SMS's `RequiresLock` interlock reads, and the round's own limits are its catalogue row.
+
+| # | Gate | Where it comes from |
+|---|---|---|
+| 1 | the SELECTED store is an INFRARED round | `state.Stores.Station[SelectedStation−1]` → `FBStoreSpecOf` → `Seeker == FBSeekerKind::Infrared`. He checks what is on the rail rather than asking for a rail: [`duels.md`](duels.md) D4 says `WeaponSelect` is `NotImplemented` on both modules, so weapon choice is not a decision this pilot has. A radar round in a knife fight is a different weapon with a different rule and this gate declines it |
+| 2 | a LOCK | `state.Radar.LockIndex >= 0` — the same bit the interlock reads, so the pilot cannot ask for something the jet will refuse |
+| 3 | inside the LAUNCH ZONE | `fc.DlzValid && fc.InZone`, i.e. Rmin ≤ R ≤ Raero. In a merge this reduces to **Rmin**, which is `closure · ArmingS + kLaunchZoneMinTurnM` — at 700 m/s of head-on closure, 1,000 m. **The intercept's Rtr discipline is expressly NOT applied**: Rtr means "the round arrives even if he turns and runs", which buys a first shot from far out against somebody who might leave. A target already in a turning fight is not going to run, and demanding Rtr inside two miles would decline every shot the phase exists to take |
+| 4 | inside this aircraft's CUEING limit | `\|ATA\| ≤ BfmWvrCueDeg()`, a module hook, because the documented limit is the AIRCRAFT's and not the round's: [`modules/mig29/weapons.md`](modules/mig29/weapons.md) §3.3 states it in as many words — *"the 9-12's high-off-boresight capability is bounded by the HMS (±60° az) rather than by the missile (75° gimbal) … the CUEING limit is the module hook that decides whether a shot is offered"*. The generic default is **< 0 = the round's own `GimbalHalf`** (AIM-9M ±30° [T4], R-73 ±75°), the MiG-29 overrides with the Shchel-3UM's **60**, and the F-16 keeps the default because no HMCS is modelled |
+| 5 | one shot at a time | `TimeS_ ≥ BfmShotNextS_`, re-armed on the OBSERVED release (`Stores.ReleasedCount`, an instrument, not a memory of one's own thumb) to `max(InterceptShotSpacingS(), fc.TimeToImpactS)`. At a 1–4 s WVR time of flight it is the time of flight that binds, which is the rule the intercept phase already carries |
+
+**Aspect is NOT a gate, and that is a finding rather than an omission.** Both rounds in the tree are
+documented all-aspect (AIM-9M; R-73 *"30 km forward hemisphere at high altitude"*, `DCS-FM p.72`), so a
+rear-quarter rule would be a restriction the sources do not carry. What genuinely makes the head-on shot
+worse is modelled and is not the pilot's business: `sensors/FBIrstSystem`'s aspect law makes the target
+dimmer from the front, and a flare seduces the head more easily there — measured, both rounds decoyed at
+`tgtIntensity = 0.16` ([`weapons.md`](weapons.md) State, [`duels.md`](duels.md) D5).
+
+**Own load factor is NOT a gate, and the reason is that there is no mechanism.** A round leaves with the
+launcher's attitude and velocity (`FBStoreRelease`, `HaveRail` false for every air launch) and the
+release path models no rail load, no separation transient and no seeker-cage disturbance. A g limit here
+would be a number with nothing behind it — the class of thing this file's Gaps exist for. Booked as 2.13.
+
+**When the shot breaks off: it does not have to, and that is the second finding.** An infrared round's
+`FBSeekerHandoverS` is **0** — the shooter's obligation ends at the rail — so:
+
+- the phase does not change. `BfmCommands` runs its next tick exactly as before the release: no
+  `Support` state, no illumination, no uplink, nothing held. This is the *opposite* of the R-27R, whose
+  `−1` makes `Support` and `Defend` mutually exclusive for the whole time of flight
+  ([`weapons.md`](weapons.md) §Spec);
+- the pilot does not look for his own round. He learns a shot happened the way he learns everything —
+  off an instrument, `Stores.ReleasedCount`;
+- the refusal path is the SMS's and is already complete: master arm, weight on wheels, no lock, no
+  zone, empty rail, each a `RELEASE_REJECTED` with its reason. A refused shot is **not retried**, the
+  same rule every other weapon action in this file has.
+
+**One hand, one action.** The gun trigger and the missile release are both cockpit actions and both can
+be satisfied in the same tick. **The gun has precedence**, for two reasons that are geometry and not
+preference: its gate is the tighter one (the funnel is a fraction of the target's own span, §5.8) and
+its window ends about where the missile's own Rmin begins (funnel max 914 m / 790 m against a merge Rmin
+near 1,000 m), so "both in parameters" is a narrow band and the weapon already tracking owns it.
 
 ---
 

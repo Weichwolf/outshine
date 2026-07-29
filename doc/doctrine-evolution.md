@@ -990,6 +990,83 @@ but the blocker is now ONE named thing instead of three, and it is not a defect 
 
 ---
 
+## State — round `E4` (2026-07-29): the merge decides, and the gene that moves it moves a CFIT
+
+`E3` closed with E-14: *"the gene's LEVER is now large and monotone in the merge … what is missing is an
+OUTCOME for it to move"*, and one named blocker — **the gun lands and cannot kill**, plus `Phase::Bfm`
+having no missile shot at all. Both are addressed this round in [`pilot.md`](pilot.md) (§5.8 the trigger's
+prediction horizon, §5.11 the WVR missile shot). Nothing in the fitness, the genome, the archive or the
+gate changed, and `fb_arena_check.py` is byte-identical.
+
+### 1. The arena, same 3 × (30 + 10) runs, before and after
+
+| geometry | before: distinct / modal / class / movers | after: distinct / modal / class / movers | S1 | S2 |
+|---|---|---|---|---|
+| `merge` | 1 / 100.0 % / (2,1) / **0** | 1 / 100.0 % / (2,1) / **3** (`energy-low`, `energy-mid`, `energy-high`) | NO → NO | NO → **ok** |
+| `xmerge` | 1 / 100.0 % / (2,1) / 0 | **2 / 50.0 % / (3,2)** / 0 | NO → **ok** | NO → NO |
+| `xmergesplit` | 1 / 100.0 % / (2,1) / 0 | 1 / 100.0 % / (2,1) / 0 | NO → NO | NO → NO |
+
+The full per-side outcome-class distribution over the yardstick field, 60 samples per cell, which is the
+number the modal share is taken in:
+
+| geometry | before | after |
+|---|---|---|
+| `merge` (F-16 v F-16) | (2,1) 60 (100 %) | (2,1) 60 (100 %) |
+| `xmerge` (F-16 v MiG-29) | (2,1) 60 (100 %) | **(3,2) 30 (50 %) + (1,0) 30 (50 %)** |
+| `xmergesplit` | (2,1) 60 (100 %) | (2,1) 60 (100 %) |
+
+**`xmerge` is decided in 30 of 30 runs, and every one of them the same way** — 40 `damage KILL` lines in
+the arena, all against the east seat, none against the west, and **none of them by the gun** (the line
+before every kill is a `DETONATION`, not a `gun HIT`). The F-16 spawns in `acm_hud` and the MiG must
+switch its N019 over the bus, so the AIM-9 goes 1.9 s early; and the AIM-9's 9.4 kg warhead kills this
+airframe inside 2.32 m where the R-73's 7.4 kg needs 2.08 m. That the MiG can win a close fight at all is
+proved on the geometry its round is documented for and not here:
+`missions/duel-merge-stern.fbm`, [`duels.md`](duels.md) row 9.
+
+### 2. G4: the gene moves the outcome class, and the mover is a CFIT
+
+**Answer to the question `E3` left open: yes on `merge`, and no, the gene is not free.** All three
+`pilot_energy_frac` alleles change the outcome class there, which is S2's first pass on any merge cell.
+What they change it BY is the reading that matters, and it is `E-15`'s finding one layer up:
+
+| allele | class | what actually happened |
+|---|---|---|
+| baseline | (2,1) | both jets exchange AIM-9s at t = 1.9 s, both rounds arrive **2.7–3.4 m** out against a 2.32 m kill radius, both survive blinded, both time out at 420 s |
+| `energy-low` 0.7 | (2,0) | same exchange, then the east jet flies 400 s below its own `BfmMinSpeedKt` and meets the ground — `monitor KO ATTITUDE_CONTACT` at t = 412.3 |
+| `energy-mid` 0.95 | (2,0) | the same, at t = 417.2 |
+| `energy-high` 1.2 | (0,0) | the WEST jet, `monitor KO ATTITUDE_CONTACT` at t = 226.6 |
+
+Three of the arena's 43 monitor KOs are healthy aircraft and all three are these; the other **40 are jets
+that had already taken a `damage KILL`** and then fell, which is `core/FBSystemHealth`'s monotonicity
+doing what it says. So the honest statement is the one `E-15` taught this file to make: **a geometry
+whose class is moved by a CFIT is measuring the CFIT.** G4 is therefore still not published, `kMoversMin`
+was not lowered, no merge-flavoured yardstick was written, and the arena is REFUSED exactly as before
+(3 geometries, 0 informative — S1 and S2 pass on different cells and `informative` is their conjunction).
+
+### 3. What the gun did, since E-14 named it
+
+The trigger's prediction horizon was the ROUND's time of flight and is now the SQUEEZE's
+([`pilot.md`](pilot.md) §5.8). Over the same 120-run merge arena:
+
+| | rounds fired | rounds ON TARGET | hit rate |
+|---|---|---|---|
+| before | 6,318 | 139.8 | 2.21 % |
+| after | 5,850 | **449.1** | **7.68 %** |
+
+**Still 0 gun kills**, and the shortfall is now arithmetic rather than a mystery: a `damage KILL` costs
+**17.0** landed 30 mm rounds in one zone and a drum delivers **9.53**. The ladder was not touched and
+[`weapons.md`](weapons.md) carries why.
+
+### 4. What this round did NOT do
+
+- The deck was not touched (`git status --porcelain sim/assets` empty, `verify-models` green).
+- The gate was not loosened: `fb_arena_check.py` is unchanged and the merge cells are still REFUSED.
+- No geometry was added, removed or re-selected. The three merge cells are `E2`'s.
+- 130 of 139 stock missions are byte-identical; the nine that move are named in
+  [`pilot.md`](pilot.md) State and [`duels.md`](duels.md), and one mission is new.
+
+---
+
 ## Gaps
 
 | # | Thing | Known from |
@@ -1007,7 +1084,7 @@ but the blocker is now ONE named thing instead of three, and it is not a defect 
 | **E-11** | **The fitness is NOT silent in a saturated arena, and §Knowledge 1 claims it is.** Pairwise domination consults C whenever V and M tie, and two floats are never equal, so a dead arena still produces a full ranking. The mitigation built is a REPORT and not a change to the order: every tournament prints which level decided each run and shouts `SATURATED` when V and M decided none. Changing the order to abstain on a level-C tie was NOT done, because it would make the tournament silent about real craft differences in an informative arena too | this round |
 | **E-12** | **RUN, and the arena FAILS it.** `tools/levers-genome.txt` (the three live genes at three points each) plus `fb_arena_check.py --flight N`. [MESS] at `--flight 2` under the genome's own alphabet the arena has **1 informative geometry of 12** against S5's 3 and is **REFUSED**; at `--flight 1` under the declared nine it has 4 and PASSES. **Still open:** nothing in the runner yet REQUIRES the genome-alphabet gate to have passed — `fb_evolve.py` still only prints the reminder. Making it a hard refusal would stop every run this tree can currently fly, so it is booked rather than built | `E1`, `E2` |
 | **E-13** | **DIAGNOSIS REPLACED (`E2`).** The total tie was the AGGREGATION, not the genome: §1.4's cross-seat comparison returns the SEAT in both mirrored runs wherever the seat carries the key, so every variant takes one point of two. [MESS, same telemetry, only the comparison changed] cross-seat 0.500 × 12, same-seat 0.227…0.773. Three of the five genes grip when measured one at a time (§State 1). What remains true of E-13's second half: the genome and the arena still barely intersect — of the five genes exactly **one** (G3) moves an outcome class on exactly **one** geometry (`xfarsplit`) | `E1`, `E2` |
-| **E-14** | **G4 still has no publishable geometry — but blocker (c) is now a different, sharper thing (`E3`).** (a) and (b) are unchanged: `FBPilot` has no transition from the intercept phase into `Phase::Bfm`, and the merge writes no `eng_*` column, so level C is `GATE` on both sides. (c) is no longer "the gun barely fires": with the MiG's CFIT closed (E-15) and the merge profile briefing the GUN control position (0.15–0.40 nm — the default 0.5–1.5 nm is a MISSILE holding position outside the funnel, `missions/gun-bfm.fbm`'s own rule), the same 120-run merge arena goes from **191 bursts / 0 `gun HIT`** to **2,652 bursts / 897 `gun HIT`**. **And still 0 kills**, because a whole GSh-301 drum puts **6.37 rounds of 150** on an F-16 at a mean miss of 3.41 m — 3 systems failed, `dmg_effective` 1.00. The gene's LEVER is now large and monotone in the merge [MESS, three-point sweep on `xmergesplit`, both seats] `bfm_es` 33 592 / 39 358 / 42 492 ft, `bfm_ctrl_s` 34.2 / 31.9 / 2.1 s, rounds fired 150 / 150 / 0, hits landed 23 / 23 / 0 — the LOW-energy rail is the one that converts. What is missing is an OUTCOME for it to move: level V and M cannot see a gun that lands and cannot kill. Also standing: `Phase::Bfm` has **no missile shot at all** — the fight tick ends in `BfmGunfire`, so the AIM-9/R-73 on the rails have no employment path | `E2`, `E3` |
+| **E-14** | **HALVED (`E4`): the merge now has an OUTCOME, and G4's mover is a CFIT.** (a) and (b) are unchanged — no transition from the intercept phase into `Phase::Bfm`, and the merge writes no `eng_*` column, so level C is `GATE` on both sides. (c) is CLOSED: `Phase::Bfm` employs the round on the rail ([`pilot.md`](pilot.md) §5.11) and `xmerge` goes from 60/60 `(2,1)` to **30 (3,2) + 30 (1,0)** — every run decided, all 40 kills by a missile, none by the gun. The gun itself went 2.21 % → **7.68 %** of its rounds on target (§5.8) and still needs 17.0 landed 30 mm rounds against 9.53 delivered. **The new half of this gap:** all three `pilot_energy_frac` alleles now move the class on `merge` — S2's first pass on a merge cell — and all three do it with a `monitor KO ATTITUDE_CONTACT` of a jet the AIM-9 exchange had already blinded. `E-15`'s rule applies unchanged and G4 is not published |
 | **E-15** | **CLOSED (`E3`), and closing it CONFIRMED the reading: the merge's S1 pass WAS the CFIT.** At n = 120 runs per pass the merge cells produced **77 monitor KOs and every single one was the MiG-29** (38 `ATTITUDE_CONTACT`, 37 `CFIT`, 2 `STRUCTURE_CONTACT`); zero F-16 KOs, in either seat. The cause was not the pilot and not the floor: `systems/FBFlightControl` bound this airframe's own rate damper only on its FLCS path while `Phase::Bfm` commands `Manual` ([`pilot.md`](pilot.md) §5.10a). With it on the hand stick the same 120 runs produce **0 KOs** — and `xmerge`/`xmergesplit` fall from 2 outcome classes at a 50.0 % modal share to **1 class at 100 %**, i.e. they lose their S1 pass with the defect that was carrying it. That is the finding stated forwards: a geometry whose informativeness comes from one side dying of a bug is a measurement of the bug | `E2`, `E3` |
 | **E-16** | **A converged population and a circling one look alike in instrument (c).** The `E2` run's champion never changed, so "min distance to a champion 3+ generations back" is 0.0000 — the reading §3.6c gives a CYCLER. T = 0.0000 and the yardstick was flat, so this one is a fixed point; the instrument cannot tell the two apart on its own and the file now says so | `E2` |
 
