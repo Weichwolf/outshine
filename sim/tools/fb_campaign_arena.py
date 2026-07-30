@@ -36,6 +36,7 @@ import sys
 import threading
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import fb_evolve as evo
 import fb_fitness as fit
 import fb_tournament as tour
 
@@ -80,6 +81,19 @@ def campaign_time(prefix):
             if line.startswith("time "):
                 return line.split()[1]
     return ""
+
+
+def undisplaced_genes(field):
+    """E15 (doc/doctrine-evolution.md §9): the genes NO member of a fixed field moves off the field's
+    own baseline. A field may only gate a genome it is commensurate with, and this is the whole check —
+    read out of `fb_evolve.GENES`, so it can never drift from the genome it is asked about."""
+    base = field[0]
+    displaced = set()
+    for v in field[1:]:
+        displaced |= {k for k, val in v.params.items() if val != base.params.get(k)}
+        if (v.dl, v.sort) != (base.dl, base.sort):
+            displaced.add("sort")
+    return sorted({k for k, blocked in evo.GENES if not blocked} - displaced)
 
 
 def load_levers(path):
@@ -446,11 +460,23 @@ def main():
     if not tree_clean():
         sys.exit("sim/missions or sim/assets is dirty BEFORE the run")
 
+    yard = load_levers(args.variants) if args.variants else []
+    blind = undisplaced_genes(yard) if yard else []
+    if blind:
+        sys.exit("E15 (doc/doctrine-evolution.md §9): the fixed field %s is INCOMMENSURATE with the "
+                 "genome — no member displaces %s from the field's own baseline, so S1 would ask "
+                 "whether the cell is spread over doctrines the evolution cannot express while S2 asks "
+                 "whether the genome moves it. Their conjunction would be empty for a reason that "
+                 "belongs to the instrument. Extend the field (E16); do not loosen S1."
+                 % (os.path.basename(args.variants), ", ".join(blind)))
+
     print("campaign arena: %d cells x %d levers = %d runs, elev %s"
           % (len(cells), len(levers), len(cells) * len(levers), args.elev))
+    if yard:
+        print("fixed field: %d members, commensurate — every gene of the genome is displaced by one"
+              % len(yard))
     keys = fly(args.gym, args.out, cells, levers, args.jobs, args.threads, args.elev,
                args.keep, "", Sink(args.channels))
-    yard = load_levers(args.variants) if args.variants else []
     ykeys = fly(args.gym, args.out, cells, yard, args.jobs, args.threads, args.elev, args.keep,
                 "y-", Sink(args.variant_channels or args.channels + ".yardstick")) if yard else {}
 

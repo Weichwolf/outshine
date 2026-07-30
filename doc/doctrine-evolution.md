@@ -616,6 +616,43 @@ identical channel the item is computed from, so gate and item cannot disagree.
 
 ---
 
+### 9. Round `E7` — S1 and S2 are asked in disjoint alphabets, and that is an instrument defect
+
+**Added 2026-07-30, before the round's first run and before the field it changes was touched.** §§0–8
+are untouched. This section adds three contracts, and the measurement that forces them needs **no runs
+at all** — it is two files read against each other:
+
+| | the keys its members DIFFER in |
+|---|---|
+| S1's fixed field (`variants-bvr.txt`, six members) | `pilot_shot_rtr`, `pilot_lock_nm`, `pilot_react_s` |
+| the genome (§2.1, `fb_evolve.GENES`) | `pilot_energy_frac`, `pilot_cover_frac`, `sort`/`dl`, `pilot_attack_bias_s`, `pilot_attack_ccip_m` |
+| **intersection** | **empty** |
+
+All six members carry `dl=off sort=""`, i.e. the field names the one gene it touches and holds it
+**constant**, so no member displaces any gene at all. `informative = S1 ∧ S2` is therefore a conjunction
+of two questions about **different things**: S1 asks whether a cell's outcome is spread over six
+doctrines the evolution cannot express, S2 whether the baseline moves under levers of the genome. An
+empty conjunction is then a property of the INSTRUMENT before it is a property of any cell — and the
+tree has already written the symptom down twice without naming the cause (`E4`: *"S1 and S2 pass on
+different cells and `informative` is their conjunction"*; `E5` D9, which read the same emptiness as a
+ground-versus-air problem and proposed to leave it).
+
+| # | Contract | Acceptance / measurement anchor |
+|---|---|---|
+| **E15** | **A fixed field is COMMENSURATE with the genome or it does not gate it.** For every gene of §2.1 at least one member of the field must displace that gene from the field's own baseline. Commensurability is CHECKED mechanically out of `fb-gym --pilot-keys` and `GENES`, never asserted in prose | the arena refuses to print an S1 verdict against an incommensurate field and names the genes no member displaces. Today that list is four of five |
+| **E16** | **The field is EXTENDED, never rewritten, and the extension may not consult a result.** The six BVR members stay byte-identical; members are added until E15 holds. A member is one lever, and its value is argued from the GENE's meaning and its declared band alone — no cell, no campaign, no run output may appear in the reason for a member | the proof is the COMMIT ORDER: the extended field is committed **before** the first run that reads it, so no number of this arena can have influenced a member. `git log` is the audit, not this paragraph |
+| **E17** | **What commensurability costs is booked in advance, not discovered afterwards.** (a) S1 and S2 stop being independent — they were independent only because they were disjoint, which is the defect. What each still adds is stated: S1 is DISTRIBUTIONAL (no outcome class owns the field), S2 is DIFFERENTIAL (the baseline is not in a flat spot), and a cell can pass either without the other. (b) The field becomes a function of the ALPHABET, so growing the genome moves S1 and cross-round S1 numbers are comparable only within an alphabet version | every S1 number published from here carries its field's own line count; `E2`–`E6`'s S1 numbers keep their date and are not restated |
+
+**What this round may NOT do, stated in advance because it is again the cheap way out.** A member added
+at a gene's far rail (`pilot_attack_bias_s = 10 s`, which throws a bomb 2.3 km wide) would split almost
+every strike cell into two outcome classes and buy S1 passes wholesale. The rails belong to the LEVER
+set, whose job is to sweep a band; a member of the fixed field must be a doctrine somebody argues for in
+a debrief, which is the rule `variants-bvr.txt` was already written under and which is why its `slowhand`
+is 4.0 s and not 60. **A field that passes S1 everywhere has stopped measuring, exactly like one that
+passes it nowhere.**
+
+---
+
 ## State
 
 **Built, round `E1` (2026-07-29).** The four contracts are implemented and measured; two of the five

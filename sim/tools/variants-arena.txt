@@ -1,0 +1,45 @@
+# FlightBox — the ARENA's fixed field for S1, doc/doctrine-evolution.md §9 (round `E7`), contract E16.
+#
+# This file is `variants-bvr.txt` EXTENDED, never rewritten: the first six lines below are that file's
+# six members byte-identical, and everything after them exists for one reason — E15. A fixed field may
+# only gate a genome it is COMMENSURATE with, and the BVR six displace no gene at all: they differ from
+# one another in `pilot_shot_rtr`, `pilot_lock_nm` and `pilot_react_s`, none of which is a gene, and all
+# six carry the same `sort`/`dl` allele, so the one gene they name is held CONSTANT across the field.
+#
+# The rule for a member is `variants-bvr.txt`'s own and is not relaxed here: ONE lever, and a doctrine
+# somebody argues for in a debrief. The value is argued from the GENE's meaning and its declared band
+# (`fb-gym --pilot-keys`) — never from a cell, a campaign or a run. The far rails belong to the LEVER
+# set, whose job is to sweep a band; a field that passes S1 everywhere has stopped measuring exactly
+# like one that passes it nowhere, and `pilot_attack_bias_s = 10` would buy S1 wholesale.
+#
+# THE AUDIT IS THE COMMIT ORDER, not this comment: this file is committed BEFORE the first run that
+# reads it, so no number of this arena can have influenced a member.
+#
+# Where a member's value coincides with a lever of `levers-campaign.txt`, that is the band being swept
+# through the doctrine and not a choice: the argument "one decision tick early" gives -0.1 s in both
+# files. E17(a) books what that costs — S1 and S2 were independent only because they were disjoint.
+
+baseline                              # FBF16Pilot as it stands: designate at 16 nm, shoot at Rtr,
+                                      # crank 45 deg, 1.0 s to answer a warning
+longshot   pilot_shot_rtr=1.6         # MAXIMUM RANGE: pull the trigger at 1.6x Rtr — a shot the
+                                      # target can outrun, taken to put him on the defensive first
+deepshot   pilot_shot_rtr=0.7         # THE OPPOSITE: hold the trigger until deep inside Rtr, where
+                                      # the round arrives whatever he does — if he lets you get there
+earlylock  pilot_lock_nm=26           # spend the lock early: a long-settled track before the shot
+                                      # range arrives, at the price of warning him far sooner
+latelock   pilot_lock_nm=9            # spend it as late as possible: minimum warning, minimum time
+slowhand   pilot_react_s=4.0          # a pilot who takes four seconds to answer a launch warning
+
+# --- the five members E15 requires, one per gene the six above hold constant ---------------------
+
+netsort    dl=on                      # G3: sort out of the SHARED picture rather than off the line
+                                      # the brief drew. The argument against it is in the file: a
+                                      # netted element radiates, and a contract costs nothing
+holdcover  pilot_cover_frac=1.0       # G2: hold for exactly ONE of your own binding times — do not
+                                      # take a second shot while the first still needs your antenna
+cornerfight pilot_energy_frac=1.1     # G4: never fight below 110 % of corner. Buy energy with nose
+                                      # position; the man who is slow first loses the second turn
+earlypickle pilot_attack_bias_s=-0.1  # G6: your own hands are one decision tick late, so pickle a
+                                      # tick early. 0.1 s is 23 m of track at run-in speed
+tightcross pilot_attack_ccip_m=10     # G7: half a hardened radius of cross error and no
+                                      # more — wider than that you have not aimed, you have hoped
