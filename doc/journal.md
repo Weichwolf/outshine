@@ -2328,3 +2328,18 @@ CCIP (102 × `ccrp`, 32 × `opt`, 20 × `arm`), obwohl Modus und Rig existieren 
 zuerst eine **Realismuslücke** der Kampagnen und darum baubar, ohne die Arena um ein Gen herum zu bauen.
 Neu gebucht: E-19 — S1s Schwelle ist ein Anteil, und ein Anteil ist nicht invariant unter der Größe des
 Feldes, in dem er genommen wird. Nicht hier repariert, mit Absicht.
+
+**Nachtrag `E7`, gleicher Tag.** Die Runde hat auch die *andere* Arena gefragt, und sie ist ebenfalls
+verweigert: die generierten Geometrien haben bei `--flight 1` noch **1 informative von 12**, gegen die
+**4**, die E-12 verzeichnet. Die drei fehlenden sind an den eigenen Reparaturen des Baums verloren
+gegangen (E-15s FLCS-Dämpfer, X-1s Richter) — E-15s eigener Satz, auf E-15 angewandt: eine Geometrie,
+deren Informativität daher kommt, dass eine Seite an einem Bug stirbt, ist eine Messung des Bugs.
+
+Sind **beide** Arenen zu, kann die Ursache keine Eigenschaft einer Arena sein. Sie ist das Genom, und
+die Zählung ist exakt: von den fünf Erweiterungen, die der Eigner-Auftrag nennt, sind **zwei überhaupt
+keine Schlüssel** — `set pilot_flight_shape` und `set pilot_emcon_frac` werden bei t = 0.0 abgelehnt und
+der Lauf endet mit exit 1, blockiert von `formation.md` F5 und `duels.md` D3. G2 ist mangels
+Waffenbindung inert (0 Beweger auf 154 Zellen), G4 lebt nur in `Phase::Bfm` (9 Zellen), und G3 allein
+bewegt die Breite (30 Zellen). Das erklärt vier Runden ohne veröffentlichbare Doktrinverschiebung
+vollständig — und es ist ein Baurückstand, kein Torproblem. Als E-20 gebucht, mit einer nach
+Freischaltwirkung geordneten Liste; der erste Posten ist F5, der zweite D3.

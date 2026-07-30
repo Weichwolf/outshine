@@ -1561,7 +1561,44 @@ The CCIP gap is a **realism** gap of the campaigns before it is a gate gap — C
 visual delivery and 54 attack missions fly without it — which is what makes building it legitimate under
 §7's rule that a round may not build the arena around a gene.
 
-### 5. The cost, and what this round did not touch
+### 5. Both arenas are refused, and the cause is the GENOME rather than either arena
+
+The campaign breadth is not the only arena, so the round asked the other one too [MESS,
+`fb_arena_check.py --flight 1 --levers levers-genome.txt`, the generated geometries]:
+
+| arena | informative | against |
+|---|---:|---|
+| the ten campaigns, 154 cells | **0** | S5's 3 |
+| the generated geometries, 12 | **1** (`merge`, and its single mover is `energy-low`) | S5's 3, and against the **4** E-12 recorded |
+
+The generated arena lost three informative geometries since E-12 was written, and the tree already owns
+the reason: `E-15` closed the FLCS-damper defect and `E-18`/X-1 closed the judge's, and *"a geometry
+whose informativeness comes from one side dying of a bug is a measurement of the bug"*. Repairing this
+simulator removed the signal the gate was reading.
+
+With both arenas refused the diagnosis cannot be a property of either. It is the genome, and the census
+is exact — the five growths the owner goal names, measured rather than assumed:
+
+| the goal's name | gene | state, measured |
+|---|---|---|
+| **Verband** | G1 `pilot_flight_shape` | **not a key at all.** `set pilot_flight_shape 1` → `module SET_INVALID_VALUE` + `mission SET_REJECTED` at t = 0.0, **exit 1** before the first tick. Blocked by [`formation.md`](formation.md) F5: `FormationSpreadM/TrailM/StackM` are airframe hooks, not mission data |
+| **Deckung** | G2 `pilot_cover_frac` | live key, **0 movers on 154 cells**. `flt_defer_s` is 0.0 in all 2,464 runs — the netted element carries the AIM-120 and its binding is 0.3 s |
+| **Sortierung** | G3 `sort` + `dl` | **live, 30 cells.** The one gene that moves the breadth |
+| **Energieregel** | G4 `pilot_energy_frac` | live, **9 cells** — it exists only inside `Phase::Bfm`, which six campaign files declare |
+| **EMCON-Timing** | G5 `pilot_emcon_frac` | **not a key at all**, same rejection and exit. Blocked by [`duels.md`](duels.md) D3: `pilot/FBPilot`'s picture is built from the Radar block alone, so "silent" means "silent and blind" and the band is degenerate at one rail |
+
+**Two of the five are not reachable, one is inert for want of a weapon binding, one lives only in BFM,
+and exactly one acts broadly.** That is the complete explanation for four rounds without a publishable
+doctrine shift, and it is an engineering backlog rather than a gate problem. Ordered by what it unblocks:
+
+| # | build | unblocks | why it is not "building the arena around a gene" |
+|---|---|---|---|
+| 1 | **F5** — a flight can be BRIEFED a shape (mission vocabulary → pilot) | G1, the goal's *Verband* | a four-ship that cannot be given anything but combat spread is a formation defect on its own terms; `FormationTrailM` defaults to 0, so a four-ship flies four abreast |
+| 2 | **D3** — the pilot's picture reads the IRST block that `sensors/FBIrstSystem` already publishes | G5, the goal's *EMCON-Timing* | the MiG-29's one genuinely passive sensor is today consumed only by a missile seeker. This is a sensor defect, and fixing it makes the pilot see LESS artificially, not more |
+| 3 | a rung that delivers in **CCIP** | G7 | §4 above. **Stated with its own limit:** the daylight cells it would convert have 2 movers today and would reach 4, so this alone does NOT open S2's 5 — and the one cell that would (`w3-10-package-q:f16`, 4 movers, two families) flies at 00:00 and may not be converted for that reason |
+| 4 | a long-binding round on a netted element | G2 | §4 above |
+
+### 6. The cost, and what this round did not touch
 
 | | |
 |---|---|
@@ -1598,6 +1635,7 @@ visual delivery and 54 attack missions fly without it — which is what makes bu
 | **E-14** | **HALVED (`E4`): the merge now has an OUTCOME, and G4's mover is a CFIT.** (a) and (b) are unchanged — no transition from the intercept phase into `Phase::Bfm`, and the merge writes no `eng_*` column, so level C is `GATE` on both sides. (c) is CLOSED: `Phase::Bfm` employs the round on the rail ([`pilot.md`](pilot.md) §5.11) and `xmerge` goes from 60/60 `(2,1)` to **30 (3,2) + 30 (1,0)** — every run decided, all 40 kills by a missile, none by the gun. The gun itself went 2.21 % → **7.68 %** of its rounds on target (§5.8) and still needs 17.0 landed 30 mm rounds against 9.53 delivered. **The new half of this gap:** all three `pilot_energy_frac` alleles now move the class on `merge` — S2's first pass on a merge cell — and all three do it with a `monitor KO ATTITUDE_CONTACT` of a jet the AIM-9 exchange had already blinded. `E-15`'s rule applies unchanged and G4 is not published |
 | **E-15** | **CLOSED (`E3`), and closing it CONFIRMED the reading: the merge's S1 pass WAS the CFIT.** At n = 120 runs per pass the merge cells produced **77 monitor KOs and every single one was the MiG-29** (38 `ATTITUDE_CONTACT`, 37 `CFIT`, 2 `STRUCTURE_CONTACT`); zero F-16 KOs, in either seat. The cause was not the pilot and not the floor: `systems/FBFlightControl` bound this airframe's own rate damper only on its FLCS path while `Phase::Bfm` commands `Manual` ([`pilot.md`](pilot.md) §5.10a). With it on the hand stick the same 120 runs produce **0 KOs** — and `xmerge`/`xmergesplit` fall from 2 outcome classes at a 50.0 % modal share to **1 class at 100 %**, i.e. they lose their S1 pass with the defect that was carrying it. That is the finding stated forwards: a geometry whose informativeness comes from one side dying of a bug is a measurement of the bug | `E2`, `E3` |
 | **E-17** | **The campaign breadth is REFUSED as an arena, and 89 of its 154 cells are not moved by the genome at all.** [MESS, `E5`, 2026-07-30] 0 informative cells under both the published `levers-genome.txt` and that round's 15-point file; 2 under the loosest reading the gate admits, which is W1's own verdict. **The three checkable points, with their state after `E6`:** (a) **CLOSED** — level C was `GATE` on 32 of the 46 cells that aim a bomb and is now `GATE` on **0 of 46**, with the two deciding levels unmoved on all 154 cells (§State `E6` 1); (b) **OPEN, unchanged** — S1 needs a fixed field that acts on the cell it judges, and the only frozen one is six BVR intercept doctrines; a ground-flavoured yardstick would fix it on paper and is refused for `E2`'s reason; (c) **OPEN, unchanged** — G2 and G7 need an arena that does not exist in the campaigns at all (a long-binding round on a netted element; a CCIP delivery). **The debt is PAID (`E7`)**: the 154-cell gate is re-run in full, 4,158 runs, and the answer refutes the prediction it was booked with — the X-1 fix moves the mover distribution by **two cells** (89·46·15·3·1 → 89·46·16·2·1), because a mover count is a difference and the fix shifted baseline and levers across the boundary together. **(b) is CLOSED (`E7`) and the closing INVERTED it**: the field was not merely ground-blind, it was disjoint from the genome in every gene, and a commensurate field passes S1 on **0 of 154** cells where the incommensurate six passed 13 — all thirteen false positives, traceable one by one (§State `E7` 2). **(c) is now the ONLY thing standing**, and it is the binding constraint: S2 does not read the field at all, 0 of 154 cells reach its 5 movers, the best in the whole breadth has 4, and **5 of the 15 levers are structurally dead everywhere** (G2's three, G7's two) | `E5`, `E6`, `E7`, [`campaigns/w1-red-flag.md`](campaigns/w1-red-flag.md) |
+| **E-20** | **BOTH arenas are refused, so the blocker is the GENOME.** [MESS, `E7`] the campaign breadth 0 informative of 154, the generated geometries **1 of 12** at `--flight 1` against the **4** E-12 recorded — three were lost to the tree's own repairs (`E-15`'s FLCS damper, X-1's judge), which is `E-15`'s rule applied to itself. Of the five genome growths the owner goal names, **two are not keys at all** (G1 blocked by [`formation.md`](formation.md) F5, G5 by [`duels.md`](duels.md) D3 — both `SET_REJECTED` at t = 0.0, exit 1), G2 is inert for want of a weapon binding, G4 lives only in `Phase::Bfm`, and G3 alone acts broadly. The backlog that follows is ordered in §State `E7` 5 | `E7`, `E-12`, `E-15` |
 | **E-19** | **S1's threshold is a SHARE, and a share is not invariant under the size of the field it is taken in.** [MESS, `E7`] adding five members that are inert on a cell raises its modal share from `m/n` to `(m+5)/(n+5)`: the thirteen cells that passed S1 kept their outcome-class count EXACTLY (2→2, 3→3, 4→4) and went 50.0 % → 72.7 % and 33.3 % → 63.6 %. The direction is right — an inert member must not certify a cell — but `kModalMax = 0.60` was calibrated against a field of six, and no constant in the gate knows how large its field is. **Not fixed here on purpose:** a threshold retuned at the end of the round that its own field made fail is exactly what E10 forbids | `E7` |
 | **E-18** | **CLOSED (`E6`, 2026-07-30). Level M could not tell "judged and unmet" from "never judged"** — both read 0, and the difference was worth 8 points of M on `w4-10`. The runner now asks every open judge after the loop, whatever ended the run, and always AFTER the combination so no verdict can move. [MESS] `w4-10-allied-force:f16` baseline goes from `V = 16, M = 0` to `V = 18, M = 8`, which is what its three levers already read; 251 missions with 0 telemetry values and 0 exit codes moved | `E5`, X-1 |
 | **E-16** | **A converged population and a circling one look alike in instrument (c).** The `E2` run's champion never changed, so "min distance to a champion 3+ generations back" is 0.0000 — the reading §3.6c gives a CYCLER. T = 0.0000 and the yardstick was flat, so this one is a fixed point; the instrument cannot tell the two apart on its own and the file now says so | `E2` |
