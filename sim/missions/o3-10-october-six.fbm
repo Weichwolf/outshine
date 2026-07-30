@@ -1,0 +1,493 @@
+name o3-10-october-six-1
+timeout 700
+time 1973-10-06T12:30:00Z
+
+# CAMPAIGN O3, SORTIE 10 OF 10 - YOM KIPPUR 1973: GROUND ATTACK IN CONTESTED AIRSPACE.
+# THE OPENING STRIKE. THIS FILE IS THE CHAIN TERMINUS: it inherits o3-09-two-fronts.fbm's strike force
+# (yxa..yxh) and its umbrella (yxnod / yxsa3 / yxsa6), so whoever the first wave lost is not here and
+# whatever it expended is not aboard. It has no controlled sibling - a chain step never does (O1's rule).
+# Spec, anchor and sources: doc/campaigns/o3-yom-kippur-1973.md. Format: doc/missions/campaign.md.
+#
+# THE ANCHOR, and it is this campaign's whole reason for existing: at ~14:00 on 6 October 1973 about 220
+# Egyptian aircraft - MiG-21, Su-7, MiG-17, Hawker Hunter - struck command posts, observation points,
+# artillery positions, armour and fortifications east of the canal, with NO OPPOSITION FROM THE ISRAELI
+# AIR FORCE and LIGHT LOSSES [T4/T1]. This file is that shape at 1/18 scale: twelve Red aircraft in two
+# layers, eight aim points, the crossing's own missile umbrella overhead, and four Israeli fighters that
+# are simply TOO FAR AWAY at t = 0.
+#
+# THE SPEC'S OWN QUESTION, verbatim: "Can FlightBox reproduce a strike that succeeds because the defender
+# was late - which is a statement about spawn timing, not about flying?" That framing is exactly right
+# and it is why the CAP here is not weaker, not blinder and not worse-armed than in sortie 09. It is 85
+# km away instead of 45. There is no schedule in this format (`C2`: the clock is a stamp, not a trigger;
+# `C15`: no time-on-target), so LATENESS IS A DISTANCE and this file makes it one, out loud.
+#
+# THE SUBSTITUTION AND ITS DIRECTION (stated in every O3 file), and the capstone is where it costs most.
+# The MiG-29 stands in for the MiG-17 / Su-7 / Su-20 / MiG-21, whose own catalogue rows are ALPHA and may
+# not answer a campaign question - here it plays BOTH the fighter-bomber (low, silent, FAB-500) and the
+# top cover (high, radiating, R-27R/R-73), so the anchor's own layer DIFFERENCE is erased.
+#   DIRECTION: the ATTACKER is materially STRONGER than history in both layers. This is a strike by
+#   twelve fourth-generation fighters, and the anchor's was not. SO IF THIS FILE REPRODUCES "the strike
+#   succeeded and losses were light", THAT IS NOT A VALIDATION OF 1973 - it is the weaker statement that
+#   a much better force also gets through. A BAD result here would have been the interesting one.
+# The Israeli CAP is `f16` (the real defenders flew F-4, Mirage and A-4): Blue is stronger too.
+# The umbrella is not substituted; three positions stand for >200, and no `sa2` is present because
+# o3-04 MEASURED that an S-75's 450 m floor cannot engage anything at O3's forced 300 m.
+#
+# WHAT THIS FILE STAGES AND WHAT IT DOES NOT, before any number below. The anchor has FIVE antagonists
+# for this strike and this file stages TWO:
+#   staged:      the Israeli fighter layer (as F-16s, arriving late) and the crossing's own SAM umbrella
+#                (as three netted positions with no IFF)
+#   NOT staged:  the Hawk batteries and the scattered AAA that actually produced the anchor's "light
+#                losses" - there is no Hawk row in doc/modules/ground/catalogue.md and o3-08 measured
+#                that the one gun row that exists lands zero hits on a 231 m/s crosser
+#   NOT staged:  the ~100 Mi-8 assault helicopters (`C7`) and the 208 other aircraft (scale)
+#   NOT staged:  terrain (`C4`, `--elev const`) - the Sinai here is a 0 m plane
+#
+# THE ARENA (all coordinates [SET]). Suez sector, `--elev const`, 0 m datum, no terrain masking (C4).
+#   the strike    yxa..yxh, 300 m, 450 kt, on a 20.0 km front from 30.70 to 30.88 N, each 6.02 km due
+#                 west of ITS OWN aim point at 32.62000 E, straight finals only (o3-03 and attribution
+#                 A2 measured what a dog-leg costs, and o3-03 what a long leg costs)
+#   the aim points six `target_soft` (artillery and observation positions) plus TWO `target_hard`
+#                 (a command post and a fortification) - the anchor's own five-item target list, mapped
+#                 onto the two fragility classes this tree has
+#   the top cover yxk1..yxk4, 5 000 m, radiating, 14.1 km behind the strikers [DERIVED]
+#   the umbrella  yxnod / yxsa3 / yxsa6, `emcon free`, node `wcs free` - o3-04's policy, so the
+#                 fratricide channel is OPEN at twelve friendly aircraft
+#   the CAP       yx0b1..yx0b4 at 5 000 m on the 33.45000 E line: 79.3 km east of the aim points and
+#                 85.3 km from the strikers at t = 0. Head-on closure to the cover is 463 m/s, so the
+#                 earliest possible merge is t = 158 s [DERIVED] against a release at t ~ 26 s
+# Scale: 1 deg lat = 111 132 m, 1 deg lon at 30.80 N = 95 619 m [DERIVED].
+#
+# WHY NOTHING DECLARES `survive`, `protect` OR `avoid zone` HERE. All three are DEFERRED objectives whose
+# violation is a DECIDING FAILURE, and `missions/FBMissionRunner` ends the whole run at the first one -
+# in a 25-unit file that would delete twenty-four units' story at the first casualty. The two zones are
+# declared anyway, because a `zone` with no objective still writes `zone_<name>_in`/`zone_<name>_s` per
+# judged unit and `zone ENTER`/`EXIT` events, so the exposure is MEASURED without being judged.
+# Attrition is therefore read off `UNIT_RESULT` and `campaign ATTRITION`, and the strike is read off
+# W3's metric - STRIKERS THAT REACHED RELEASE.
+#
+# THE ONE TACTICAL QUESTION: CAN A STRIKE SUCCEED IN THIS TREE BECAUSE THE DEFENDER WAS LATE, AND WHAT IS
+# THE CARRIED FIRST WAVE WORTH?
+#
+# MEASURED (2026-07-30, --elev const, campaign step 10, fingerprint d73b57fd0e8ddbe0, exit 1):
+#   25 units and 48 actors, 160.7 s of sim in 4.1 s of wall clock.
+#   THE CARRY: 8 x `campaign CARRY unit=yx? action=stores store=fab500 station=6` - every one of
+#     o3-09's strikers comes back with ONE FAB-500 instead of two, because it dropped the other one
+#     three hours earlier. NO unit was dropped: sortie 09 lost nobody, which is itself one of this
+#     campaign's findings (four AIM-120 arrived inside their own 10 m fuze there and killed nothing).
+#   8 OF 8 STRIKERS REACHED RELEASE at t = 26.2, `aimErrM` 46.37-59.59 m.
+#   6 OF 8 AIM POINTS DESTROYED - all six `target_soft`, neither `target_hard`. THE SPEC'S BAR (>= 6 of 8)
+#     IS MET EXACTLY, AND IT IS MET AT THE CEILING: the two that live are the two the store provably
+#     cannot kill (o3-02: 12.1 m needed, 66 m delivered), so 6 of 8 is not a good score, it is the ONLY
+#     score this loadout can produce.
+#   10 OF 12 RED AIRCRAFT RECOVERED (the spec's bar was >= 9 of 12); zero Blue losses. `yxd` at t = 127.8
+#     and `yxk3` at t = 160.6.
+#   THE CAP SAW AT ONCE AND COULD NOT REACH: first Blue `radar RADAR_CONTACT` at t = 3.9 s at 45.16 nm
+#     (83.6 km) with elDeg -4.x - it had the low strikers from the first sweep - and first `sms RELEASE`
+#     at t = 148.4 s, 122.2 s AFTER THE LAST BOMB WAS ALREADY ON THE GROUND. SO "LATE" IN THIS TREE IS
+#     NOT A DETECTION FACT, IT IS A CLOSURE FACT: 85 km of separation buys the whole strike, and it buys
+#     it against a defender who was watching the entire time.
+#   AND THE ONE THING THE FRIENDLY UMBRELLA FINALLY DID: `stores DETONATION unit=yxsa6_3m9_13
+#     target=yxd missM=4.73732 fuzeM=8` at t = 127.8, fluxJm2 191 540, `damage KILL unit=yxd reason=
+#     "combat ineffective"`. THE CROSSING'S OWN 2K12 SHOT DOWN ONE OF ITS OWN STRIKERS. Seven launches,
+#     all seven at its own aircraft, and the second 3M9 arrived. That is the fratricide channel of
+#     o3-04 / o3-05 / o3-06 / o3-09 finally closing, at the fifth attempt and on the biggest file.
+#   -> YES: A STRIKE SUCCEEDS BECAUSE THE DEFENDER WAS LATE, and in this tree "late" is purely a
+#      distance. And the honest half of that sentence is that ALMOST nothing else in this file could have
+#      stopped it either - the store decided the target list before anybody flew, the gun layer is
+#      absent, and the only Red aircraft that fell to a surface-to-air round fell to its OWN.
+#
+# AND THE CARRY IS THE MOST DECISIVE ONE IN THE EIGHT BUILT CAMPAIGNS, which is not what was expected of
+# it. Run STANDALONE (attribution A4, fingerprint 0e7a46e6a4277174, exit 2) the same file has 16 FAB-500
+# instead of 8, and:
+#   telemetry            0 OF 48 FILES BYTE-IDENTICAL. W3's carried node left 30 of 58 identical and
+#                        moved no trajectory column; this carry changes the MASS AND THE LATERAL BALANCE
+#                        of eight aircraft, so the physics diverge at the first substep.
+#   `aimAcrossM`         +48.31...+48.37 m with two stores  ->  -39.11...-39.22 m with one.
+#                        AN 87.5 M SWING, AND THE SIGN FLIPS. A single store on the left inboard pylon
+#                        with its mirror station empty is a lateral asymmetry, and the standing
+#                        cross-track offset this airframe already has (yaw channel measured OFF,
+#                        doc/modules/mig29/module.md gap 4i) reverses under it. The swing is LARGER than
+#                        the FAB-500's own 68.4 m kill radius.
+#   `aimErrM`            54.01-66.39 m -> 46.37-59.59 m; mean 60.0 -> 55.4 m, and NOT uniformly: three
+#                        aircraft got worse by 3.7-4.4 m and five better by 9.6-10.1 m. The campaign
+#                        does not claim a uniform improvement.
+#   aim points killed    6 of 8 in BOTH runs. The swing is big enough to move the miss to the other side
+#                        of the target and still not big enough to change a verdict.
+#   Red losses           2 (yxd to its OWN 2K12, yxk3 to an AIM-120) -> 2 (yxf, yxh, both to AIM-120 at
+#                        0.19 and 0.84 m, at t = 385.8 and 382.2). SAME COUNT, DIFFERENT AIRCRAFT, AND A
+#                        DIFFERENT CAUSE: standalone, the 2K12's three 3M9 all MISS.
+#   run length           160.7 s -> 398.8 s; exit 1 -> exit 2
+#   -> SO ONE UNEXPENDED BOMB IS WORTH ONE AIRCRAFT AND 238 SECONDS OF RUN, and the aircraft it is worth
+#      was killed by its own side's missile. That is `carry stores` doing something no other campaign in
+#      the set has measured it doing.
+#
+# READING RULE: exit 1 = FAIL is the EXPECTED shape AS A CAMPAIGN STEP and it is not a defect: the run
+# ends when a Red aircraft with no objectives of its own becomes combat-ineffective (`yxk3` at t = 160.7),
+# which is a deciding failure. STANDALONE the same file gives exit 2 = CRASH, because the aircraft that
+# falls there reaches the ground first. NEITHER CODE IS THE VERDICT. THE MEASUREMENT
+# is, in this order: (1) every `campaign CARRY` line (this file's only source of inherited state);
+# (2) strikers that reached release with their `aimErrM`; (3) which of the eight aim points died, BY
+# CLASS; (4) the first Blue `radar RADAR_CONTACT` and the first Blue `sms RELEASE`, against the release
+# tick; (5) every `site LAUNCH` attributed to a callsign; (6) `UNIT_RESULT` for all twelve Red aircraft.
+# Read standalone, this file has 16 stores instead of 8 and that difference is the campaign - and it is
+# worth an aircraft, measured above and in doc/campaigns/o3-yom-kippur-1973.md §State (attribution run
+# A4). exit 0 is impossible: the two hardened aim points can never be killed.
+
+zone umbrella 30.84000 32.31000 35000 100 18000
+zone ceiling  30.80000 32.45000 90000 2200 20000
+
+net crossing
+  control yxnod
+  link wire
+  period 4.0
+  hold 3
+  wcs free
+  member yxnod
+  member yxsa3
+  member yxsa6
+
+# ---- THE STRIKE: eight aircraft, eight aim points, one 20.0 km front ----
+unit yxa
+  module mig29
+  team hostile
+  flight wave 1
+  spawn 30.74000 32.55700 300 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_emission off
+  set rwr on
+  set store 3 fab500
+  set store 6 fab500
+  set brief_master_arm arm
+  set task attack
+  set attack_mode opt
+  wp 30.74000 32.62000 300 450
+  wp 30.68000 32.30000 300 450
+  objective kill unit yx0t1
+
+unit yxb
+  module mig29
+  team hostile
+  flight wave 2
+  spawn 30.76000 32.55700 300 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_emission off
+  set rwr on
+  set store 3 fab500
+  set store 6 fab500
+  set brief_master_arm arm
+  set task attack
+  set attack_mode opt
+  wp 30.76000 32.62000 300 450
+  wp 30.70000 32.30000 300 450
+  objective kill unit yx0t2
+
+unit yxc
+  module mig29
+  team hostile
+  flight wave 3
+  spawn 30.78000 32.55700 300 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_emission off
+  set rwr on
+  set store 3 fab500
+  set store 6 fab500
+  set brief_master_arm arm
+  set task attack
+  set attack_mode opt
+  wp 30.78000 32.62000 300 450
+  wp 30.72000 32.30000 300 450
+  objective kill unit yx0t3
+
+unit yxd
+  module mig29
+  team hostile
+  flight wave 4
+  spawn 30.80000 32.55700 300 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_emission off
+  set rwr on
+  set store 3 fab500
+  set store 6 fab500
+  set brief_master_arm arm
+  set task attack
+  set attack_mode opt
+  wp 30.80000 32.62000 300 450
+  wp 30.74000 32.30000 300 450
+  objective kill unit yx0t4
+
+unit yxe
+  module mig29
+  team hostile
+  flight wave 5
+  spawn 30.82000 32.55700 300 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_emission off
+  set rwr on
+  set store 3 fab500
+  set store 6 fab500
+  set brief_master_arm arm
+  set task attack
+  set attack_mode opt
+  wp 30.82000 32.62000 300 450
+  wp 30.88000 32.30000 300 450
+  objective kill unit yx0t5
+
+unit yxf
+  module mig29
+  team hostile
+  flight wave 6
+  spawn 30.84000 32.55700 300 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_emission off
+  set rwr on
+  set store 3 fab500
+  set store 6 fab500
+  set brief_master_arm arm
+  set task attack
+  set attack_mode opt
+  wp 30.84000 32.62000 300 450
+  wp 30.90000 32.30000 300 450
+  objective kill unit yx0t6
+
+unit yxg
+  module mig29
+  team hostile
+  flight wave 7
+  spawn 30.70000 32.55700 300 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_emission off
+  set rwr on
+  set store 3 fab500
+  set store 6 fab500
+  set brief_master_arm arm
+  set task attack
+  set attack_mode opt
+  wp 30.70000 32.62000 300 450
+  wp 30.64000 32.30000 300 450
+  objective kill unit yx0h1
+
+unit yxh
+  module mig29
+  team hostile
+  flight wave 8
+  spawn 30.88000 32.55700 300 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_emission off
+  set rwr on
+  set store 3 fab500
+  set store 6 fab500
+  set brief_master_arm arm
+  set task attack
+  set attack_mode opt
+  wp 30.88000 32.62000 300 450
+  wp 30.94000 32.30000 300 450
+  objective kill unit yx0h2
+
+# ---- THE TOP COVER: the anchor's MiG-21 layer, radiating, 4 700 m above the strike ----
+unit yxk1
+  module mig29
+  team hostile
+  flight cover 1
+  spawn 30.76000 32.41000 5000 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_emission illum
+  set rwr on
+  set store 3 r27r
+  set store 6 r27r
+  set store 2 r73
+  set store 7 r73
+  set brief_master_arm arm
+  set task intercept
+  wp 30.76000 32.95000 5000 450
+
+unit yxk2
+  module mig29
+  team hostile
+  flight cover 2
+  spawn 30.78000 32.41000 5000 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_emission illum
+  set rwr on
+  set store 3 r27r
+  set store 6 r27r
+  set store 2 r73
+  set store 7 r73
+  set brief_master_arm arm
+  set task intercept
+  wp 30.78000 32.95000 5000 450
+
+unit yxk3
+  module mig29
+  team hostile
+  flight cover 3
+  spawn 30.82000 32.41000 5000 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_emission illum
+  set rwr on
+  set store 3 r27r
+  set store 6 r27r
+  set store 2 r73
+  set store 7 r73
+  set brief_master_arm arm
+  set task intercept
+  wp 30.82000 32.95000 5000 450
+
+unit yxk4
+  module mig29
+  team hostile
+  flight cover 4
+  spawn 30.84000 32.41000 5000 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_emission illum
+  set rwr on
+  set store 3 r27r
+  set store 6 r27r
+  set store 2 r73
+  set store 7 r73
+  set brief_master_arm arm
+  set task intercept
+  wp 30.84000 32.95000 5000 450
+
+# ---- THE AIM POINTS: the anchor's own five-item target list, in two fragility classes ----
+unit yx0t1
+  module target_soft
+  team friendly
+  spawn 30.74000 32.62000 ground 90.0 0
+
+unit yx0t2
+  module target_soft
+  team friendly
+  spawn 30.76000 32.62000 ground 90.0 0
+
+unit yx0t3
+  module target_soft
+  team friendly
+  spawn 30.78000 32.62000 ground 90.0 0
+
+unit yx0t4
+  module target_soft
+  team friendly
+  spawn 30.80000 32.62000 ground 90.0 0
+
+unit yx0t5
+  module target_soft
+  team friendly
+  spawn 30.82000 32.62000 ground 90.0 0
+
+unit yx0t6
+  module target_soft
+  team friendly
+  spawn 30.84000 32.62000 ground 90.0 0
+
+unit yx0h1
+  module target_hard
+  team friendly
+  spawn 30.70000 32.62000 ground 90.0 0
+
+unit yx0h2
+  module target_hard
+  team friendly
+  spawn 30.88000 32.62000 ground 90.0 0
+
+# ---- THE OWN UMBRELLA, carried from sortie 09, weapons free ----
+unit yxnod
+  module p18
+  team hostile
+  spawn 30.80000 32.26000 ground 0.0 0
+  set emcon free
+
+unit yxsa3
+  module sa3
+  team hostile
+  spawn 30.84000 32.31000 ground 0.0 0
+  set emcon free
+  set rounds 4
+
+unit yxsa6
+  module sa6
+  team hostile
+  spawn 30.80000 32.40000 ground 0.0 0
+  set emcon free
+  set rounds 3
+
+# ---- THE ISRAELI CAP: not weaker, not blinder - 85.3 km away ----
+unit yx0b1
+  module f16
+  team friendly
+  flight cap 1
+  spawn 30.78000 33.45000 5000 270.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set datalink on
+  set rwr on
+  set store 3 aim120
+  set store 7 aim120
+  set brief_master_arm arm
+  set task intercept
+  wp 30.78000 32.40000 5000 450
+  objective deny release unit yxa
+
+unit yx0b2
+  module f16
+  team friendly
+  flight cap 2
+  spawn 30.80000 33.45000 5000 270.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set datalink on
+  set rwr on
+  set store 3 aim120
+  set store 7 aim120
+  set brief_master_arm arm
+  set task intercept
+  wp 30.80000 32.40000 5000 450
+  objective deny release unit yxd
+
+unit yx0b3
+  module f16
+  team friendly
+  flight cap 3
+  spawn 30.82000 33.45000 5000 270.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set datalink on
+  set rwr on
+  set store 3 aim120
+  set store 7 aim120
+  set brief_master_arm arm
+  set task intercept
+  wp 30.82000 32.40000 5000 450
+  objective deny release unit yxe
+
+unit yx0b4
+  module f16
+  team friendly
+  flight cap 4
+  spawn 30.84000 33.45000 5000 270.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set datalink on
+  set rwr on
+  set store 3 aim120
+  set store 7 aim120
+  set brief_master_arm arm
+  set task intercept
+  wp 30.84000 32.40000 5000 450
+  objective deny release unit yxf

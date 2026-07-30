@@ -1,14 +1,15 @@
 # Campaigns — the ten scenario specifications
 
-**Status: seven of ten BUILT (O4, O1, O5, O2, W5, W3 and W4, all 2026-07-29), three spec only.** `sim/missions/o4-*.fbm`,
+**Status: eight of ten BUILT (O4, O1, O5, O2, W5, W3 and W4 on 2026-07-29; O3 on 2026-07-30), two spec
+only.** `sim/missions/o4-*.fbm`,
 `sim/missions/o1-*.fbm`, `sim/missions/o5-*.fbm`, `sim/missions/o2-*.fbm`, `sim/missions/w5-*.fbm`,
-`sim/missions/w3-*.fbm` and `sim/missions/w4-*.fbm` with their seven `.fbc` files
+`sim/missions/w3-*.fbm`, `sim/missions/w4-*.fbm` and `sim/missions/o3-*.fbm` with their eight `.fbc` files
 exist, run, replay and are measured ([`o4-gaf-mig29g-dact.md`](o4-gaf-mig29g-dact.md) §State,
 [`o1-bekaa-1982.md`](o1-bekaa-1982.md) §State, [`o5-airfield-defence.md`](o5-airfield-defence.md)
 §State, [`o2-pvo-intercept.md`](o2-pvo-intercept.md) §State,
 [`w5-baltic-qra.md`](w5-baltic-qra.md) §State, [`w3-desert-storm.md`](w3-desert-storm.md) §State,
-[`w4-allied-force.md`](w4-allied-force.md) §State); no
-other campaign has a `.fbm` file. The
+[`w4-allied-force.md`](w4-allied-force.md) §State,
+[`o3-yom-kippur-1973.md`](o3-yom-kippur-1973.md) §State); only **W1** and **W2** have no `.fbm` file. The
 directory exists because the missions must not be invented: a campaign without a cited anchor is a mood,
 and a mood cannot be measured.
 
@@ -153,6 +154,26 @@ own published elevation limit. **15 000 ft = 4 572 m.** Every W4 Weasel therefor
 the floor the rest of its package obeys, and the campaign says so in the header of every file that does
 it.
 
+### What O3 added, and the other two inherit it too
+
+O3 was built eighth — **the campaign that had ZERO runnable missions until the day it was flown**, and
+the only one of the ten whose surface-to-air umbrella belongs to its own side. It took all twenty rules
+unchanged and passed both criteria on the first attempt. Its two contributions are about **what an
+absence of identification does to a force that owns the missiles**, and about the carry:
+
+| Rule | Why it exists |
+|---|---|
+| **A friendly weapon system with no identification is not a degraded shield, it is a NEGATIVE one — and the measurement has to count rounds by INTENDED TARGET, not by outcome** | O5 measured a belt firing east at its own MiG-29s and W3 a proximity fuze killing a MiG-29 of the other Red flight. O3 is the file where that is the SUBJECT, and at campaign scale the number is total: **28 surface-to-air launches, 28 of 28 aimed at its own aircraft, 0 ever aimed at an enemy**, one own MiG-29 destroyed and one enemy F-16's avionics destroyed by a round fired at a MiG-29. The mechanism is two facts, both re-checkable: `FBSiteFireControl` has no IFF path at all, and every SAM row has `Channels = 1` — so a friend inside the envelope does not degrade the engagement, **it deletes it**. Counting kills would have reported "harmless"; counting `sms LAUNCH_SOLUTION … tgtLat/tgtLon` against both sides' telemetry reported the truth |
+| **`carry stores` can be the most decisive thing in a campaign, and whether it is depends on whether the carried quantity has MASS** | W3's carried node moved 28 of 58 telemetry files in bookkeeping columns and no trajectory. O3 carries one unexpended FAB-500 per aircraft into a 25-unit capstone and **0 of 48 telemetry files are byte-identical**: the store is 499 kg on ONE inboard pylon, so it changes the mass AND the lateral balance, `aimAcrossM` goes **+48.3 → −39.2 m** (an 87.5 m swing that FLIPS SIGN, larger than the store's own 68.4 m kill radius), and the two aircraft the campaign loses are different aircraft with a different cause. **One unexpended bomb is worth one aircraft and 238 seconds of run** |
+
+And one warning of its own, and it is about reading a campaign's own arena rather than its levers:
+**check the mission spawn altitudes against the elevation source you are about to fingerprint.** Every
+O3 striker is at 300 m ASL because a 6 km rangefinder caps this airframe's level-bombing altitude at
+2.0–2.2 km — and `fb-gym`'s OWN default is `--elev swiss` when the baked DEM is on disk, which validates
+an explicit spawn altitude against the resolved ground and FAILS the mission before it flies. `--elev
+const` is not a comparability convention for this campaign, it is a precondition, and every command in
+its record passes it explicitly.
+
 This directory is **step 4 of the owner goal** and its specification comes first, per
 [`../conventions.md`](../conventions.md)'s spec-first rule: *change the Spec of the topic file first;
 if a round cannot say what the contract becomes, it is not ready to start.*
@@ -172,7 +193,7 @@ Five in which the **F-16** flies, five in which the **MiG-29** flies. Ten missio
 | **W5** | [Baltic Air Policing / QRA](w5-baltic-qra.md) **— BUILT** | NATO air policing, 30 March 2004– | **identification as the task**, and the sharpest anti-cheat test in the set. **Flown 2026-07-29, the first campaign in which the F-16 flies:** the task turned out to be blocked on a CAST ROW and not on a sensor — a transport is named by eye at **1 086 m** and a bomber at **2 049 m** where a fighter is not recognised at 1 600; the anti-cheat pair is **byte-identical in 6 of 6 telemetry files with 1 differing log line of 75**, and its control run moves **5 of 184 columns and zero metres**; **zero rounds expended over ten sorties**; and the one task with no weapon in its success condition is the exact geometry `FBPilot` calls an ABORT |
 | **O1** | [Bekaa 1982, the Syrian side](o1-bekaa-1982.md) **— BUILT** | Operation Mole Cricket 19, 9 June 1982 | the canonical defeat, reframed as a measurable question: **what in the doctrine moves the outcome, and what is left when nothing does**. **Flown 2026-07-29:** the baseline reproduces the rout; ONE lever (launch at 1.4 × Rtr) inverts it; the controller is worth everything on a 45° entry and nothing head-on; the warning receiver, the belt, the net and ~~the anchor's own jamming~~ move mechanisms and no outcome. **AMENDED 2026-07-29:** the belt's nullity was a defect, not a doctrine — the ground-launch fix gave the rounds a trajectory, and the jamming lever now costs the belt 8 launches, 7 detonations and 2 positions. See the file's §"The ground half, re-measured" |
 | **O2** | [PVO intercept exercise](o2-pvo-intercept.md) **— BUILT** | Soviet GCI doctrine + the MiG-29's own guidance panel (**doctrine half raised to [T1] 2026-07-29**: the two CIA reading-room documents were read) | ground control in its pure form, and identity that always costs surprise. **Flown 2026-07-29:** the loop is **11.0 s and splits 8.0 + 3.0**; the controller is worth the ENTIRE intercept on an aircraft that starts silent, which is why three earlier campaigns measured him at nothing; a wrong azimuth third deletes the intercept outright and a wrong altitude band deletes it for one aircraft of two, recovered 28 s late by a dead-band accident; a late commit buys 45.3 s of the target's silence and costs 77 % of the detection range; and the faction swap is **byte-identical in 5 of 5 telemetry files with 1 differing log line of 53** |
-| **O3** | [Yom Kippur 1973](o3-yom-kippur-1973.md) | the opening strikes, 6 October 1973 | ground attack under a friendly SAM umbrella — **the only campaign with zero runnable missions**, and the requirement that says why |
+| **O3** | [Yom Kippur 1973](o3-yom-kippur-1973.md) **— BUILT** | the opening strikes, 6 October 1973 | ground attack under a **friendly** SAM umbrella — the only campaign in the set where the missiles are ours, and until 2026-07-30 the only one with **zero** runnable missions. **Flown 2026-07-30, the day its blocker closed:** the friendly umbrella fires **28 rounds, 28 of 28 at its own aircraft**, kills one MiG-29 and never once aims at an enemy — and its only effect on the enemy is a round fired at a MiG-29 that failed ten of an F-16's systems; **weapons hold costs nothing and gives up everything**; a hardened position is unreachable by a factor of 5.2 and **a 66 m miss on one is not even a recorded event**; this airframe's cross-track error is **48.3 m + 33.9 m per degree of dog-leg**, so the longest usable final is under 12 km and the largest admissible turn inside it is **0.59°** — the anchor's own 220-aircraft coordinated approach is not flyable here; the top cover engages 43 s after the bombs are down, hits nothing with 8 rounds and ends 103 km away; and **the defender's lateness is a CLOSURE fact, not a detection one** (Blue has the 300 m strikers at 45.16 nm at t = 3.9 s and cannot shoot until 122 s after the last bomb lands) |
 | **O4** | [GAF MiG-29G DACT](o4-gaf-mig29g-dact.md) **— BUILT** | JG 73 Laage, 1991–2003 | the one campaign in which **both** FlightBox airframes really flew against each other — and the cheapest to build, because half of it is already measured. **Flown 2026-07-29:** the ten-mile claim holds at ten miles, trades at five and loses at two |
 | **O5** | [Airfield defence](o5-airfield-defence.md) **— BUILT** | Batajnica 24–26 March 1999, with Iraq 1991 as the parallel | a defender whose success is something **not happening**. **Flown 2026-07-29:** the vocabulary turned out to be the easy half — a pair already on station denies half a two-ship and nothing else comes close; the controller is worth 6 s; **one bomb on the field's P-18 costs its missile layer every launch for two nights**; and the campaign's own most important parameter, the scramble, **cannot be declared at all** |
 
@@ -226,8 +247,8 @@ declared again rather than hidden.
 
 ## What is buildable today
 
-**50 of the 100 missions when this table was written; 70 of them are now BUILT and the O4, O1, O5, O2,
-W5, W3 and W4 rows are re-counted against the tree rather than against the spec.** Per campaign:
+**50 of the 100 missions when this table was written; 80 of them are now BUILT and the O4, O1, O5, O2,
+W5, W3, W4 and O3 rows are re-counted against the tree rather than against the spec.** Per campaign:
 
 | Campaign | Runnable today | Blocked | The first pair to build |
 |---|---:|---:|---|
@@ -240,7 +261,7 @@ W5, W3 and W4 rows are re-counted against the tree rather than against the spec.
 | W1 Red Flag | **4** | 6 | `w1-01` … `w1-04`, the ladder |
 | W2 Osirak | **4** | 6 | `w2-03` / `w2-04` — combat radius clean and loaded |
 | W5 Baltic QRA | **10 — BUILT** | 0 (the spec called 6 blocked; 4 of those blockers had closed and the other 2 were re-scoped in their headers) | done: ten `.fbm` + one `.fbc`, both determinism criteria measured on the first attempt, and the replay run after the FIRST mission |
-| **O3 Yom Kippur** | **see note** | — | `C9` closed 2026-07-30, so the module no longer blocks it; the cast does. Not re-counted — that is the next O3 round's first job |
+| **O3 Yom Kippur** | **10 — BUILT** | 0 | done: ten `.fbm` + one `.fbc`, both determinism criteria on the first attempt, the replay run after the FIRST mission. **The spec called ZERO runnable and the count is now ten**; 3 spec missions were dropped with their reasons in the `.fbc` header, 1 was folded into two others, and 4 are new. It flies **no catalogue row at all** — the cast did not stop it, the substitution did, and it is declared in all eleven files |
 
 Four of the ten "first pairs" are **one-line experiments**: `o1-01/02`, `w3-07/08`, `w4-01/02`,
 `w5-02/03` (**all four now built**). That is the pattern this directory was written to
@@ -294,6 +315,12 @@ aerodynamic range and stops at the α limiter, so a catalogue fighter is most fa
 and least faithful in a knife fight, which is the same staggered scale
 [`../vision.md`](../vision.md) already declares, one level down.
 
+**And O3 is where the `ALPHA` verdict cost the most.** Five of its cast rows (`mig17` `su7` `su22`
+`mig21` `mig23`) are the actual force of 6 October 1973, and because an `ALPHA` row may not answer a
+campaign question O3 flies the MiG-29 in BOTH of the anchor's two layers — the low fighter-bomber and
+the top cover — which erases the layer difference the anchor's own sentence is about. Its files say so
+eleven times.
+
 ---
 
 ## The aggregated capability gaps — the build order for the engine
@@ -342,7 +369,7 @@ publishable at all.
 | `C7` | **BUILT 2026-07-28 — and STILL OPEN, because the gate it wrote for itself is not passed: `make -C sim test-air` puts 10 of 10 generated decks OUTSIDE their §7.1 bands, so every row is `ALPHA` and none is campaign-admissible. The presence half is done (18 rows, 10 decks, 8 movers, 5 tiers, the early-warning boundary, both attribution instruments); the FIDELITY half is measured and named. Was:** Only two flyable modules today; every other aircraft in every cast list is absent. The contract is **one parametric class with eighteen catalogue rows** — `modules/air/FBAirModule` + `core/FBAircraft.h` — home [`../modules/air/`](../modules/air/INDEX.md). **The central decision:** a row flies on a GENERATED JSBSim deck iff *(its own manoeuvre decides an outcome)* ∧ *(its envelope is published)* — ten fighters get one, eight large or rotary aircraft get a kinematic mover, and the test never splits a row because fighter data IS envelope data. The deck comes from ONE recipe against eight anchors with a closed-form drag inversion, and its acceptance bands are **derived from the MiG-29 deck's own measured misses** rather than chosen. Pilot is **staffled in five tiers**, and a tier is a declared task set plus the hooks a row's own MEASURED deck supplies. Cost to the rest of the tree: 7 store rows, 7 generated missile decks, 6 gun rows, 2 `set` keys, 1 sensor derivation — and **zero** new seeker kinds, emitter kinds or health ids | **1** (O3's period force) | 9 | blocks nothing outright because substitutions exist — but every substitution changes the answer, and each is declared in its mission header. **What the spec adds beyond presence:** an acceptance test that separates *"he lost as a MiG-21"* from *"he lost as a coarse deck"* (`band_deck ≤ 0.25 × band_doctrine` on the tournament instrument [`../duels.md`](../duels.md) already runs), so a campaign result is publishable or explicitly is not. **It stays open until every row is measured against its own bands** |
 | ~~`C2`~~ | **CLOSED 2026-07-28.** `time <ISO8601 Z>` is mission data, the clock binds all three clients, `FBEphemeris` sits in `core/` and `fb-gym` publishes `FBEnvironmentBlock` — [`../missions/syntax.md`](../missions/syntax.md), [`../clients/clients.md`](../clients/clients.md) | — | — | a night mission can now say so |
 | `C6` | **No live controller.** GCI is `set brief_gci`, static text fixed before the run: nothing re-vectors, nothing goes silent mid-intercept, nothing is wrong *halfway through*. **Its GROUND half is specified in [`../air-defence-network.md`](../air-defence-network.md)** — a node that can be killed, jammed or fall out of range mid-run; the AIRBORNE half (a jet subscribing to a controller) is untouched and is that file's §2 design B | **1** (O2's subject) | 6 | the difference between "blind" and **"confidently blind"** — see [`o1-bekaa-1982.md`](o1-bekaa-1982.md) §Knowledge 4, the cheapest addition that would raise O1 from a stand-in to the real experiment |
-| `C9` | ~~**The MiG-29 module cannot fly `set task attack`**~~ — **CLOSED 2026-07-30.** The director is built (`core/FBDirector.h`, `modules/mig29/FBMig29Director.*`) as a director and **not** as a release cue: the aircraft picks the moment, the pilot flies an instruction. Proved by the one comparison that could expose a shortcut — same geometry, same store, F-16 CCRP **34.02 m** against MiG-29 OPT **65.65 m** (1.93×, `missions/mig29-opt-low.fbm`). A director that came out *better* than a computer would have been a release cue with Cyrillic labels. Refusal fires as its own case (`mig29-opt-refused.fbm`: the marginal run releases at 102.9 m, the refused run never releases). Byte-identity held — a MiG-29 without an attack task does not move, same column count | 0 | 2 | O3 is no longer zeroed **at the module**; what still blocks it is its cast (the period Soviet types are `ALPHA` and may not answer a campaign question) |
+| ~~`C9`~~ | ~~**The MiG-29 module cannot fly `set task attack`**~~ — **CLOSED 2026-07-30, and O3 FLEW ON 2026-07-30: thirty FAB-500 delivered by the OPT director at `aimErrM` 46.4-94.0 m.** The director is built (`core/FBDirector.h`, `modules/mig29/FBMig29Director.*`) as a director and **not** as a release cue: the aircraft picks the moment, the pilot flies an instruction. Proved by the one comparison that could expose a shortcut — same geometry, same store, F-16 CCRP **34.02 m** against MiG-29 OPT **65.65 m** (1.93×, `missions/mig29-opt-low.fbm`). A director that came out *better* than a computer would have been a release cue with Cyrillic labels. Refusal fires as its own case (`mig29-opt-refused.fbm`: the marginal run releases at 102.9 m, the refused run never releases). Byte-identity held — a MiG-29 without an attack task does not move, same column count | 0 | 2 | O3 is no longer zeroed **at the module**; what still blocks it is its cast (the period Soviet types are `ALPHA` and may not answer a campaign question) |
 | `C5` | **No aerial refuelling, no external fuel tank in the store catalogue** | **1** (W2's subject) | 3 | W2's defining constraint is exactly the thing that cannot be expressed |
 | ~~`C3`~~ | **CLOSED 2026-07-28.** `sensors/FBVisualSystem` is built and is the SIXTH registry reader, declared in advance and paid for in five currencies — [`../sensors.md`](../sensors.md) §9, mission switches in [`../missions/sensors.md`](../missions/sensors.md). Recognition is the resolution test it was specified to be: measured, a beam-on F-16 is detected at 3 784 m, recognised at ~950 m and identified at ~590 m, and the name it gains is the module registry key. **`w5-03`/`o2-08` survive by measurement, not by argument**: two runs differing only in the target's `team` produce byte-identical telemetry | — | — | what is NOT closed: nothing consumes the block yet (deliberate, its own round in [`../pilot.md`](../pilot.md)), and the channel contributes nothing at night because nothing in the tree emits light — so W5's and O5's night merges are measured to be eyeless |
 | `C8` | **BUILT 2026-07-28, except the rocket pod.** Six rows exist and fly: `agm88` `mk84` `gbu12` `cbu87` `fab250` `fab500`, with both new `FBSeekerKind` values and the FAB release envelope as `FBStoresSystem::Release` check 8. Twelve proof missions (`arm-*`, `mk84-radius`, `mk82-radius`, `cbu87-footprint`, `lgb-*`, `fab-envelope-*`). **STILL OPEN: `hydra70`/`s8`** — the pod is a MAGAZINE on one station (design C, [`../air-to-ground.md`](../air-to-ground.md) §3.5) and neither the field group nor a model was built | **2** (W3/W4 SEAD, O3 stores) | 1 | there is no such thing as a suppression element in the tree. **The contract's own headline:** the anti-radiation seeker is the RWR, so it has a bearing and never a range — which makes the real AGM-88 memory mode unbuildable here and the crew's shutdown a real countermeasure, on a derived law rather than a setting |

@@ -1,0 +1,178 @@
+name o3-06-umbrella-sort-1
+timeout 600
+time 1973-10-06T12:00:00Z
+
+# CAMPAIGN O3, SORTIE 6 OF 10 - YOM KIPPUR 1973: GROUND ATTACK IN CONTESTED AIRSPACE.
+# THE SORT: WHOSE AIRCRAFT DOES A BELT WITH NO IFF ENGAGE WHEN BOTH ARE INSIDE IT?
+# CONTROL: o3-04-umbrella.fbm. ONE FACT CHANGES - one HOSTILE F-16 is added, inside the same batteries'
+# same envelopes, at the same altitude as the striker. Everything else is o3-04 to the token: same
+# striker, same spawn, same store, same three batteries with the same magazines, same `wcs free`, same
+# clock, same zones. Callsigns are y6* because a controlled variant must not share a callsign with its
+# control (O4's first rule).
+# Spec, anchor and sources: doc/campaigns/o3-yom-kippur-1973.md. Format: doc/missions/campaign.md.
+#
+# THIS IS THE SORTIE O3 WAS KEPT ALIVE FOR TWO ROUNDS TO ASK. o3-04 measured a friendly umbrella
+# spending its whole magazine on its own striker with no enemy in the sky, which is a statement about
+# EXPENDITURE. The question that decides whether such an umbrella is protection or risk is the next one:
+# WITH AN ENEMY AND A FRIEND BOTH INSIDE THE ENVELOPE, WHICH ONE DOES A BATTERY THAT CANNOT
+# INTERROGATE PUT ITS ONE ENGAGEMENT CHANNEL ON?
+# The two structural facts that make it a real question, both re-checked against the tree this round:
+#   1. `modules/ground/FBSiteFireControl` contains NO IFF path of any kind, and `FBRadarSystem` reads a
+#      unit's team in exactly one place - the IFF transponder reply (`FBRadarSystem.cpp:69`), which no
+#      site ever asks for. So a fire unit's target choice is a function of GEOMETRY alone.
+#   2. Every SAM row in the catalogue has `Channels = 1`. A battery is a ONE-TARGET machine, so putting
+#      it on the wrong aircraft does not degrade the engagement, it DELETES it.
+#
+# THE SUBSTITUTION AND ITS DIRECTION (stated in every O3 file): the MiG-29 stands in for the MiG-17 /
+# Su-7 / Su-20 / MiG-21 of 6 October 1973, whose own catalogue rows are ALPHA and may not answer a
+# campaign question. It makes the ATTACKER materially STRONGER than history; a bad O3 result therefore
+# says more than the record did, a good one says nothing. The F-16 stands in for the Israeli F-4 /
+# Mirage / A-4, which makes BLUE stronger too. The umbrella is not substituted (`sa2` / `sa3` / `sa6`
+# are the anchor's own designations) but three batteries stand for >200, so every count is per-battery.
+#
+# WHAT THE F-16 IS HERE, DECLARED BEFORE THE RESULT SO IT CANNOT BE READ AS MORE. It is a SECOND RADAR
+# CONTACT and nothing else: `set task route` down a straight line at 300 m across the belt, and
+# `objective no_fire` so its restraint is a machine verdict rather than an accident. W5's rule applies
+# and is stated rather than hidden - a `no_fire` met by an aircraft on `set task route` is the WEAK
+# kind of nothing: `FBPilot` never enters its engagement machine on that task at all, so this file
+# measures the belt's sort and NOT what an Israeli fighter would have done. Sortie 07 is where Blue
+# fights.
+#
+# THE ARENA is o3-04's, unchanged (Suez sector, `--elev const`, 0 m datum, no terrain masking - C4).
+# THE ONE ADDED UNIT, and its geometry is chosen to make the sort HARD rather than easy:
+#   y6blu  F-16   spawns 30.88000 32.75000 at 300 m heading 270, i.e. FURTHER from every battery than
+#                 the striker at t = 0 and CLOSING, so the two aircraft cross over inside the envelope
+#                 and a geometric sort has to change its mind halfway through if it is going to.
+# Scale: 1 deg lat = 111 132 m, 1 deg lon at 30.80 N = 95 619 m [DERIVED].
+#
+# THE ONE TACTICAL QUESTION: HOW DO A FRIENDLY BELT'S ROUNDS SPLIT BETWEEN ITS OWN STRIKER AND AN ENEMY
+# FIGHTER IN THE SAME ENVELOPE?
+#
+# MEASURED (2026-07-30, --elev const, campaign step 6, fingerprint fae132b551cd43d8, exit 0), against
+# o3-04 and against attribution run A1 (this file with the friendly striker deleted, in
+# doc/campaigns/o3-yom-kippur-1973.md §State):
+#   `site LAUNCH`                    7, and SEVEN OF SEVEN AT THE FRIENDLY STRIKER. Attributed by
+#                                    comparing every `sms LAUNCH_SOLUTION ... tgtLat/tgtLon` against
+#                                    both aircraft's own telemetry at that tick: the solutions sit
+#                                    23-69 m from the MiG-29 and 8 297-10 817 m from the F-16.
+#   the belt's DECISIONS             ALL 44 `site STATE` / `site TRACK` / `site LAUNCH` LINES ARE
+#                                    IDENTICAL TO o3-04's, tick for tick and field for field (diffed).
+#                                    ADDING A HOSTILE AIRCRAFT TO THIS BELT'S ENVELOPE CHANGED NOT ONE
+#                                    OF ITS DECISIONS. The F-16 is never firmed, never engaged, never
+#                                    counted.
+#   A1, the same file without the friendly striker   the belt fires the SAME SEVEN ROUNDS, all at the
+#                                    F-16, from t = 61.4 instead of t = 37.5, and ZERO arrive - the
+#                                    F-16 transits and is not scratched.
+#   -> SO THE PRICE OF A MISSING IFF INTERROGATOR, MEASURED, IS THE WHOLE ENGAGEMENT: with one of its
+#      own aircraft in the box the belt does not merely mis-prioritise, it never considers the enemy at
+#      all, and the enemy crosses the entire umbrella unengaged. `Channels = 1` on every SAM row is why
+#      putting a battery on the wrong aircraft DELETES the engagement rather than degrading it.
+#   AND THEN THE ONE THING THAT DID ARRIVE, WHICH NOBODY AIMED: `stores DETONATION unit=y6sa3_v601_4
+#      target=y6blu missM=9.50561 fuzeM=10` at t = 137.1 - a V-601 launched at its OWN MiG-29 at
+#      t = 100.7 passed 9.51 m from the F-16 and fuzed. It failed TEN of the F-16's systems (air data,
+#      radar altimeter, nav, radar, fire control, stores, datalink, RWR, countermeasures, plus flight
+#      controls degraded, fluxJm2 59 514 at 9.07 m) and did NOT kill it: `UNIT_RESULT unit=y6blu
+#      result=SUCCESS`, because `CombatEffective` asks about structure. THE ROUND FIRED AT ITS OWN SIDE
+#      IS THE ONLY ROUND IN THIS FILE THAT DID ANYTHING TO THE ENEMY, and it did it through a proximity
+#      fuze that has no target test and no faction test - W3's finding 2 arriving from the other
+#      direction, and the only reason the fratricide channel is not a pure loss here.
+#      NOTE the second-order consequence, because it is the sharpest thing in the file: the SAME round
+#      also came 3.25 m closer to the enemy (13.25 m `closestM` on its own aimed pass at the MiG-29's
+#      egress; 9.51 m on the F-16) than the belt's best AIMED shot of the whole campaign.
+#
+# READING RULE: exit 0 = SUCCESS is the expected shape and it is NOT the verdict - a striker that
+# delivers, a belt that survives and an F-16 that holds its fire all score, and the file's subject is
+# none of those. THE MEASUREMENT is, in this order: (1) every `sms LAUNCH_SOLUTION ... tgtLat/tgtLon`
+# compared against the two aircraft's positions, which is the only thing that says WHO a round was aimed
+# at; (2) a DIFF of this file's `site STATE` / `site TRACK` / `site LAUNCH` lines against o3-04's, which
+# is what turns "the enemy was ignored" from an impression into a byte comparison; (3)
+# `stores DETONATION ... target=`; (4) the `damage SYSTEM unit=y6blu` block. Do NOT read `no_fire` met
+# as Israeli discipline - see above. exit 1 or 2 would be a defect.
+
+zone umbrella 30.84000 32.31000 35000 100 18000
+zone ceiling  30.80000 32.45000 60000 2200 20000
+
+net crossing
+  control y6nod
+  link wire
+  period 4.0
+  hold 3
+  wcs free
+  member y6nod
+  member y6sa2
+  member y6sa3
+  member y6sa6
+
+unit y6str
+  module mig29
+  team hostile
+  spawn 30.80000 32.55700 300 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_emission off
+  set rwr on
+  set store 3 fab500
+  set store 6 fab500
+  set brief_master_arm arm
+  set task attack
+  set attack_mode opt
+  wp 30.80000 32.62000 300 450
+  wp 30.86000 32.30000 300 450
+  wp 30.86000 32.15000 400 400
+  objective kill unit y6art
+  objective survive
+  objective avoid zone ceiling
+
+unit y6art
+  module target_soft
+  team friendly
+  spawn 30.80000 32.62000 ground 90.0 0
+
+# THE ONE ADDED FACT: an enemy fighter inside the same envelopes, at the same altitude, closing.
+unit y6blu
+  module f16
+  team friendly
+  spawn 30.88000 32.75000 300 270.0 450
+  set gear up
+  set fuel_pct 70
+  set fcr_mode crm
+  set rwr on
+  set store 3 aim120
+  set store 7 aim120
+  set brief_master_arm arm
+  set task route
+  wp 30.88000 32.30000 300 450
+  wp 30.88000 32.10000 300 450
+  objective survive
+  objective no_fire                      # a machine verdict on a presence, not a claim about discipline
+
+unit y6nod
+  module p18
+  team hostile
+  spawn 30.80000 32.26000 ground 0.0 0
+  set emcon free
+  objective survive
+
+unit y6sa2
+  module sa2
+  team hostile
+  spawn 30.76000 32.28000 ground 0.0 0
+  set emcon free
+  set rounds 6
+  objective survive
+
+unit y6sa3
+  module sa3
+  team hostile
+  spawn 30.84000 32.31000 ground 0.0 0
+  set emcon free
+  set rounds 4
+  objective survive
+
+unit y6sa6
+  module sa6
+  team hostile
+  spawn 30.80000 32.40000 ground 0.0 0
+  set emcon free
+  set rounds 3
+  objective survive

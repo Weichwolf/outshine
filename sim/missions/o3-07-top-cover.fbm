@@ -1,0 +1,225 @@
+name o3-07-top-cover-1
+timeout 600
+time 1973-10-06T12:00:00Z
+
+# CAMPAIGN O3, SORTIE 7 OF 10 - YOM KIPPUR 1973: GROUND ATTACK IN CONTESTED AIRSPACE.
+# THE ANCHOR'S OWN STRUCTURE, FLOWN: LOW FIGHTER-BOMBERS WITH FIGHTER COVER ABOVE THEM.
+# CONTROL: none. Spec, anchor and sources: doc/campaigns/o3-yom-kippur-1973.md.
+# Format: doc/missions/campaign.md.
+#
+# THE SENTENCE THIS FILE IS BUILT FROM is the strongest-sourced line in the whole campaign, and it is
+# [T1]: "Su-7 and MiG-17 fighter-bombers came in very low while MiG-21s provided top cover"
+# (Marine Corps study of air operations in the 1973 war, via GlobalSecurity). Two facts in one clause -
+# a two-layer package with a hard altitude split - and it is the only structural claim in O3's anchor
+# that comes with a [T1] source rather than an encyclopaedia.
+#
+# THE SUBSTITUTION AND ITS DIRECTION (stated in every O3 file), and here it is at its most violent:
+# ONE MODULE STANDS IN FOR BOTH LAYERS. The MiG-29 plays the Su-7/MiG-17 fighter-bomber low AND the
+# MiG-21 fighter high, because `mig17` / `su7` / `mig21` are ALPHA rows in doc/modules/air/catalogue.md
+# (`make -C sim test-air`: 10 of 10 generated decks outside their own bands) and an ALPHA row may not
+# answer a campaign question. DIRECTION: the ATTACKER is materially STRONGER than history in BOTH
+# layers, and the anchor's own layer DIFFERENCE - a subsonic bomb truck under a lightweight
+# point-defence interceptor - is ERASED: here the two layers are the same aircraft with different
+# loadouts. So this file can measure whether a two-layer package WORKS, and it cannot measure the trade
+# the real package was making. That is stated before the result rather than after it.
+# The Israeli CAP is the `f16` module (the real defenders flew F-4, Mirage and A-4), which makes BLUE
+# stronger than history too.
+#
+# THE ARENA (all coordinates [SET]). Suez sector, `--elev const`, 0 m datum, no terrain masking (C4).
+# Axis WEST -> EAST for both Red layers, egress WEST.
+#   the strikers   y7sa / y7sb, 300 m, 450 kt, each 6.02 km short of its own artillery position
+#                  (o3-01 and o3-03 say why 300 m and why 6 km - both are derived, neither is taste)
+#   the top cover  y7ca / y7cb, 5 000 m, 450 kt, 10.5 km BEHIND and ABOVE the strikers, radiating
+#                  (`set n019_emission illum`), 2 x R-27R + 2 x R-73 each
+#   the CAP        y7ba / y7bb, 5 000 m, 450 kt, 52.6 km east of the cover and closing head-on
+# Scale: 1 deg lat = 111 132 m, 1 deg lon at 30.80 N = 95 619 m [DERIVED].
+#
+# THE TIME BUDGET, AND IT IS THE REASON THIS FILE IS BUILT THE WAY IT IS. `missions/FBMissionRunner`
+# ends the WHOLE run at the first flight-monitor K.O. (`FirstFlightKo`), and O3's strikers fly at 300 m:
+# a mission-killed MiG-29 at 300 m reaches the ground in single-digit seconds, against the ~122 s O5
+# budgeted for an F-16 falling out of 5 000 m. So in THIS campaign an air engagement over the strike is
+# not a truncation risk, it is an EXTINCTION risk - the entire remainder of the file disappears.
+# THE ANSWER, and it is O1's rule (separate two engagements in TIME, not only in space) sharpened by an
+# order of magnitude: the geometry is laid out so the strike is COMPLETE BEFORE THE FIRST WEAPON FLIES.
+# Head-on closure between the two fighter layers is 2 x 231.5 = 463 m/s over 52.6 km, so the merge
+# cannot happen before t ~ 114 s [DERIVED]; the bombs are gone at t ~ 26 s. The 88 s of margin is
+# declared, not discovered. AND THE FIGHT IS HIGH BY DESIGN: a K.O. at 5 000 m leaves the run alive long
+# enough to be read.
+#
+# THE ONE TACTICAL QUESTION: DOES THE TOP COVER ENGAGE EARLY ENOUGH TO MATTER, OR DOES IT FOLLOW THE
+# STRIKERS DOWN? Measured as three times and one count: when the cover first sees the CAP, when it
+# first shoots, when the CAP first shoots - and whether the CAP ever reaches a striker at all.
+#
+# MEASURED (2026-07-30, --elev const, campaign step 7, fingerprint 3582a2521f2d72f0, exit 1):
+#   THE STRIKE: both strikers deliver at t = 26.2, `aimErrM` 66.83 and 65.96 (across +48.34 on both),
+#     y7ta and y7tb DESTROYED. Within 0.44 m of o3-01's single unopposed pass - the fighter layer above
+#     them and the CAP in front of them change the delivery by nothing measurable.
+#   THE SEQUENCE, and it is the answer: BLUE SEES FIRST, SEES THE STRIKERS FIRST, AND SHOOTS FIRST.
+#     t =   3.9  Blue's first `radar RADAR_CONTACT`: tracks 1 and 2 at 21.94 nm, elDeg -7.44 - THE
+#                LOW STRIKERS - and only then track 3 at 27.18 nm, elDeg -0.79, the cover. The
+#                "came in very low" profile is the FIRST thing an F-16 radar sees here, 5.24 nm nearer
+#                than the escort, because the profile is derived from a 6 km rangefinder and not from
+#                anything to do with being hidden
+#     t =   9.1  the cover's first contact, 25.50 nm - 5.2 s AFTER Blue's
+#     t =  26.2  both bombs are on the ground and both aim points are dead
+#     t =  28.4  Blue's first `RADAR_DESIGNATE`, 15.19 nm, on a STRIKER
+#     t =  48.5  the cover's first designate, 12.96 nm - 20.1 s after Blue's
+#     t =  57.5  Blue's first AIM-120 pair, one per striker: THE SORT SPLITS CORRECTLY (y7ba->y7sa,
+#                y7bb->y7sb, solutions 28 m from their own target and 2.2 km from the other). Both
+#                rounds miss and hit the ground at t = 115
+#     t =  69-181 the cover empties itself: 4 R-27R and 4 R-73, two per aircraft, its sort also split
+#                correctly (y7ca->y7ba, y7cb->y7bb, solutions 4-6 m from their own target). ZERO
+#                ARRIVALS. All eight rounds expire or fall
+#     t = 487-496 Blue's second AIM-120 pair, again one per striker, again the correct sort
+#     t = 500.6  y7sa hit at 4.51 m: engine and flight controls DEGRADED, stores/RWR/countermeasures
+#                FAILED - and it is still combat-effective, the O2 case
+#     t = 512.6  y7sb hit at 4.33 m and combat-ineffective. `survive` violated, `protect unit y7sb`
+#                violated on y7cb, run ends
+#   AND WHERE THE COVER ENDED UP: 29.87 N, i.e. 103 km SOUTH of the strike it was covering, with an
+#     empty rack, having never been engaged by Blue at all.
+#   -> SO THE COVER DOES NOT COVER. It engaged 43 s AFTER the bombs were already down, it hit nothing
+#      with eight rounds, and Blue - which never fired at it once - killed a striker on the way home.
+#      The anchor's two-layer structure holds together in this tree for a reason that is not protection:
+#      THE STRIKE SUCCEEDS BECAUSE IT IS OVER BEFORE ANYTHING CAN REACH IT, 31.3 s BEFORE THE FIRST
+#      WEAPON OF THE AIR BATTLE LEAVES A RAIL. The escort's whole contribution is 474 s of delay on the
+#      egress, which is not what an escort is for.
+#   -> AND THE SUBSTITUTION DIRECTION IS DOING WORK HERE, so it is said again: the F-16's look-down
+#      radar found a 300 m target at 21.94 nm. An F-4 or a Mirage of 1973 would not have, and that is
+#      exactly why the anchor's low profile worked in 1973 and buys nothing in this file.
+#
+# READING RULE: exit 1 = FAIL is the EXPECTED shape and it is NOT a defect of the run - it is `survive`
+# violated on y7sb plus `protect unit y7sb` violated on its escort, i.e. THE SORTIE'S OWN SUBJECT
+# failing, and the TIMESTAMP of those two lines (t = 512.7) is the verdict. THE MEASUREMENT is, in this
+# order: (1) both `stores DELIVERY` lines and whether y7ta / y7tb died, read against o3-01's; (2) the
+# first `radar RADAR_CONTACT` on each side WITH ITS elDeg, because that is what says whether the low
+# profile hid anything; (3) every `sms LAUNCH_SOLUTION`'s `tgtLat/tgtLon` attributed to a callsign, which
+# is the only way to see that Blue shot at strikers and the cover shot at Blue; (4) the `stores
+# DETONATION` lines with missM against each round's own fuze (R-27R 13.8 m, AIM-120 10.0 m). Do NOT read
+# the strikers' survival to t = 500 as evasion - nothing evaded anything. exit 0 would mean nobody was
+# hit at all; exit 2 would mean the run ended on a wreck reaching the ground before the verdict.
+
+unit y7sa
+  module mig29
+  team hostile
+  flight strike 1
+  spawn 30.79000 32.55700 300 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_emission off                  # the strikers are silent: that is the whole point of the pair
+  set rwr on
+  set store 3 fab500
+  set store 6 fab500
+  set brief_master_arm arm
+  set task attack
+  set attack_mode opt
+  wp 30.79000 32.62000 300 450
+  wp 30.85000 32.30000 300 450
+  wp 30.85000 32.15000 400 400
+  objective kill unit y7ta
+  objective survive
+
+unit y7sb
+  module mig29
+  team hostile
+  flight strike 2
+  spawn 30.81000 32.55700 300 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_emission off
+  set rwr on
+  set store 3 fab500
+  set store 6 fab500
+  set brief_master_arm arm
+  set task attack
+  set attack_mode opt
+  wp 30.81000 32.62000 300 450
+  wp 30.87000 32.30000 300 450
+  wp 30.87000 32.15000 400 400
+  objective kill unit y7tb
+  objective survive
+
+unit y7ta
+  module target_soft
+  team friendly
+  spawn 30.79000 32.62000 ground 90.0 0
+
+unit y7tb
+  module target_soft
+  team friendly
+  spawn 30.81000 32.62000 ground 90.0 0
+
+# THE TOP COVER: the anchor's MiG-21s, 4 700 m above the strikers and radiating.
+unit y7ca
+  module mig29
+  team hostile
+  flight cover 1
+  spawn 30.80000 32.45000 5000 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_emission illum
+  set rwr on
+  set store 3 r27r
+  set store 6 r27r
+  set store 2 r73
+  set store 7 r73
+  set brief_master_arm arm
+  set task intercept
+  wp 30.80000 32.90000 5000 450
+  objective protect unit y7sa
+  objective survive
+
+unit y7cb
+  module mig29
+  team hostile
+  flight cover 2
+  spawn 30.82000 32.45000 5000 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_emission illum
+  set rwr on
+  set store 3 r27r
+  set store 6 r27r
+  set store 2 r73
+  set store 7 r73
+  set brief_master_arm arm
+  set task intercept
+  wp 30.82000 32.90000 5000 450
+  objective protect unit y7sb
+  objective survive
+
+# THE ISRAELI CAP: two fighters on station east of the canal, head-on to the cover.
+unit y7ba
+  module f16
+  team friendly
+  flight cap 1
+  spawn 30.80000 33.00000 5000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set fcr_mode crm
+  set datalink on
+  set rwr on
+  set store 3 aim120
+  set store 7 aim120
+  set brief_master_arm arm
+  set task intercept
+  wp 30.80000 32.40000 5000 450
+  objective deny release unit y7sa
+  objective survive
+
+unit y7bb
+  module f16
+  team friendly
+  flight cap 2
+  spawn 30.82000 33.00000 5000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set fcr_mode crm
+  set datalink on
+  set rwr on
+  set store 3 aim120
+  set store 7 aim120
+  set brief_master_arm arm
+  set task intercept
+  wp 30.82000 32.40000 5000 450
+  objective deny release unit y7sb
+  objective survive

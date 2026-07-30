@@ -1987,3 +1987,52 @@ bevor sie das prüfen konnte, und es ist beim Nachfahren aufgefallen. Und O3 ist
 mehr blockiert, wohl aber an ihrer Besetzung: die Zeitgenossen sind ALPHA und dürfen keine
 Kampagnenfrage beantworten. Die Zahl der lauffähigen O3-Missionen ist bewusst **nicht** neu gezählt
 worden — das ist die erste Aufgabe der O3-Runde selbst.
+
+## 2026-07-30 — Kampagne O3: ein befreundeter Flugkörperschirm ist keine Deckung, er kostet ein Flugzeug
+
+O3 war die einzige der zehn Kampagnen mit **null** lauffähigen Missionen — blockiert nicht an einer
+Mission, sondern am Modul (`C9`). Mit dem Direktor von heute Morgen ist sie gebaut: zehn `.fbm`, eine
+`.fbc`, beide Determinismus-Kriterien im ersten Versuch (**9 Läufe, ein Fingerabdruck**
+`01e4f956…`; **10/10** Schritte reproduzieren standalone), Replay nach der **ersten** Mission, kein
+Byte unter `sim/src/` angefasst. Die Zahl lauffähiger O3-Missionen ist damit **10 von 10**, und alle
+zehn sind auch beantwortbar.
+
+**Die Frage, die keine andere der zehn stellen kann, hat eine Zahl.** Der Schirm über dem Kanalübergang
+gehört *uns*. Über zehn Einsätze: **28 Boden-Luft-Starts, 28 von 28 auf die eigenen Flugzeuge gerichtet**
+— zugeordnet über jede `sms LAUNCH_SOLUTION`-Zielkoordinate gegen die Telemetrie beider Seiten, 22–95 m
+zur gemeinten MiG-29 und 1,1–10,8 km zum Gegner —, **null** je auf einen Gegner, **null** Gegner je in
+einer festen Spur, **eine eigene MiG-29 abgeschossen** (3M9 auf 4,74 m gegen 8 m Zünderradius) und **ein
+gegnerischer F-16 mit zehn ausgefallenen Systemen** — getroffen von einer V-601, die auf eine MiG-29
+geschossen wurde. Der Mechanismus sind zwei nachprüfbare Sätze: `FBSiteFireControl` enthält überhaupt
+keinen IFF-Pfad, und jede SAM-Zeile hat `Channels = 1`. Ein Freund im Bereich **verschlechtert** die
+Bekämpfung nicht, er **löscht** sie: die 44 Entscheidungszeilen von `o3-06` sind byte-identisch mit denen
+von `o3-04`, das keinen Gegner enthält.
+
+Regel 11 beidseitig geflogen: `wcs hold` (o3-05, ein Token gegen o3-04) kostet **nichts** und behält das
+Magazin — und gibt die Fähigkeit auf, überhaupt jemanden zu bekämpfen. Und die zweite Hälfte derselben
+Regel: „der Schirm ist harmlos" ist nur um **1,1–5,2 m** wahr. Eine Leiter über 300/1 000/3 000/5 000 m
+misst `closestM` 9,07 m gegen 8 m Zünder und 11,4–15,2 m gegen 10 m — dieselbe Batterie, die 27-mal
+vorbeischoss, tötete beim 28. Mal, und die Entscheidung darüber lag bei 500 kg unabgeworfener Bombe.
+
+**Der zweite Befund ist nicht der Schirm, sondern das Flugzeug: dieses Muster kann die Operation seines
+eigenen Ankers nicht fliegen.** Querabweichung gegen 68,4 m Wirkradius: **+48,3 m** auf 6 km geradem
+Endanflug, +87,2 m auf 12 km, +90,9 m auf 24 km — und **48,3 m + 33,9 m je Grad Knick** [abgeleitet,
+Drei-Punkt-Leiter]. Größter zulässiger Kurswechsel im Endanflug: **0,59°**. Der Eröffnungsschlag des
+6. Oktober waren 220 Flugzeuge auf koordinierten Anflugwegen; so etwas trifft hier nichts. Der Direktor
+selbst wird dabei *besser* (`openLoopAlongM` −70,3 → −1,0 m) — es gewinnt die Achse, die gegen einen
+Wirkradius gemessen wird.
+
+Drei Funde, keiner behoben: (1) eine bodengestartete kommandogelenkte Runde verfehlt einen tief
+fliegenden, nicht manövrierenden Querflieger um **knapp mehr als ihren eigenen Zünderradius** — dritte
+sichtbare Schicht der Bodenstart-Familie aus O1, jetzt mit Zahlen auf **beiden** Seiten der Schwelle;
+(2) **eine unabgeworfene Bombe auf einer Innenstation kehrt den stehenden Querversatz des Flugzeugs um**,
++48,3 → −39,2 m, ein Schwung von 87,5 m gegen 68,4 m Wirkradius — deshalb ist dieser `carry` der
+wirksamste der acht gebauten Kampagnen (**0 von 48** Telemetriedateien byte-identisch, gegen W3s 30 von
+58) und **eine unabgeworfene Bombe ist ein Flugzeug wert**; (3) der FAB-Kommentar in `core/FBStore.h`
+behauptet weiterhin, die MiG-29 könne `set task attack` nicht fliegen — dreißig Abwürfe später.
+
+Und eine Ehrlichkeit zum Gelände, die gestern zwei Missionen stilllegte und heute Voraussetzung war:
+alle O3-Angreifer spawnen auf 300 m, weil ein 6-km-Entfernungsmesser die Wurfhöhe dieses Flugzeugs auf
+2,0–2,2 km deckelt. `fb-gym`s **eigener** Standard ist `--elev swiss`, und der prüft eine explizite
+Spawnhöhe gegen den aufgelösten Boden. `--elev const` ist für diese Kampagne keine
+Vergleichbarkeitskonvention, sondern Bedingung — und steht in jedem Befehl ihres Protokolls.
