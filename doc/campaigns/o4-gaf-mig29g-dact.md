@@ -189,6 +189,9 @@ read out of `campaign-summary.txt` rather than assume:
 |---|---|---|
 | **1** | 3 repetitions × `--threads 1/2/4` produce one campaign fingerprint | **9 runs, 1 fingerprint** `461e0ff5299d83d03b7fe303842e019f02699f096bccfe45acdbd35a7a203724`; **re-measured after the frame round of 2026-07-29: 9 runs, 1 fingerprint** `7ad40b31d572574cf…`, exit 3 in all nine |
 | **2** | every step's per-mission fingerprint equals that mission run STANDALONE with step *k−1*'s state | **10/10 MATCH**, exit codes included; **10/10 again after the frame round of 2026-07-29** |
+| **1 — re-run 2026-07-30** | the same criterion under the branch-order change of `b433950` ([`../pilot.md`](../pilot.md) §7.4a) | **9 runs, 1 fingerprint** `9c994069f01595c2291755fc6dc573733ba8c0e0bf3122369cb5aa4a03854f85`, `--elev const`. **The value above is kept with its date; this is the current one.** Step exits `0 3 3 1 1 1 3 1 1 3` — unchanged |
+| **2 — re-run 2026-07-30** | every step re-run STANDALONE against the new reference tree | **10/10 MATCH**, exit codes included |
+| Per-step fingerprints, 2026-07-30 | | `0bdcf37a93d411f7 86a8fd8944c61e33 64b28b2b4321b687 c397e62f2d40b1f7 c071f9b210642eb8 4f2d93487a3eba2e 177f53387eb13368 15eb7f14e31ab95a 27a23c6d0fa78e3a 7cd6ad00af518446` |
 
 **Criterion 2 failed 9 of 10 on the first attempt, and the failure was a real hole in the campaign
 layer rather than in this campaign.** `fb-gym --mission --state` had no way to receive the CAMPAIGN

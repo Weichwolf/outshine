@@ -229,6 +229,16 @@ Under `--elev const`, read out of `campaign-summary.txt` rather than assumed:
 |---|---|---|
 | **1** | 3 repetitions × `--threads 1/2/4` produce one campaign fingerprint | **9 runs, 1 fingerprint** `6185addc27ec3ef896cd1aed4750d7a6bdf8555f9a3a1e2c6b12971533b8d80a`, exit 3 in all nine |
 | **2** | every step's per-mission fingerprint equals that mission run STANDALONE with step *k−1*'s state | **10/10 MATCH**, exit codes included, on the first attempt |
+| **1 — re-run 2026-07-30** | the same criterion under the branch-order change of `b433950` ([`../pilot.md`](../pilot.md) §7.4a) | **9 runs, 1 fingerprint** `f9fc71a35e93315c927d2ac19f32957b4e065bd6f1a5e0779613af0d07a31830`, `--elev const`. **The value above is kept with its date; this is the current one.** Step exits `0 3 3 3 3 3 3 3 3 2`, and the last of those is new: **STEP 10's EXIT MOVED, 3 → 2** — see the note under the table |
+| **2 — re-run 2026-07-30** | every step re-run STANDALONE against the new reference tree | **10/10 MATCH**, exit codes included |
+| Per-step fingerprints, 2026-07-30 | | `bc669334ab3c0186 89f1997ab141e9de 858393e587dae283 77782e76709d55f7 26815af6f6698f06 77232651160faceb b56890970077654f b74545eca5c8144f ae101b182ff6aa83 258058e7820d9c74` |
+
+> **STEP 10's EXIT MOVED, 3 -> 2.** `w4-10-allied-force` no longer times out with everybody alive:
+> `kamig4` departs (`monitor KO … stall/mush`) at t = **695.3 s**, **4.7 s** before the 700 s timeout
+> would have ended the run. Same displaced trajectory, landing on the known MiG-29 fragility
+> ([`../pilot.md`](../pilot.md) §Gaps 2.9); everything the capstone measures — four strikers, two
+> Weasels, four ground objects — is unchanged up to that tick. **It is a worse ending on the same
+> substance**, booked in `pilot.md` §7.4b on 2026-07-30 and recorded here.
 
 **And the replay was run after the FIRST mission**, on a throwaway one-step `.fbc`
 (`sim/campaigns/w4-step1-check.fbc`, deleted afterwards): `01 … campaign fp=bc669334ab3c0186 standalone

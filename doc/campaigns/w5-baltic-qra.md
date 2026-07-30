@@ -218,6 +218,9 @@ Under `--elev const`, read out of `campaign-summary.txt` rather than assumed:
 |---|---|---|
 | **1** | 3 repetitions × `--threads 1/2/4` produce one campaign fingerprint | **9 runs, 1 fingerprint** `49d3320f5e9761db2f1df85a12d9008e0d8559395c141c31e2e06903b9fe0200`, exit 3 in all nine; **re-measured after the frame round of 2026-07-29: 9 runs, 1 fingerprint** `786b979426614e5ea…`, exit 3 in all nine |
 | **2** | every step's per-mission fingerprint equals that mission run STANDALONE with step *k−1*'s state | **10/10 MATCH**, exit codes included, on the first attempt; **10/10 again after the frame round of 2026-07-29** |
+| **1 — re-run 2026-07-30** | the same criterion under the branch-order change of `b433950` ([`../pilot.md`](../pilot.md) §7.4a) | **9 runs, 1 fingerprint** `786b979426614e5ea6ffb4fed65c0b189f464f02b62c361fc4ad67b0b03db367`, `--elev const`. **The value above is kept with its date; this is the current one.** Step exits `0 0 0 0 0 0 0 0 0 3` — unchanged - **and so is the FINGERPRINT: W5 is the one campaign of the nine that did not move at all** |
+| **2 — re-run 2026-07-30** | every step re-run STANDALONE against the new reference tree | **10/10 MATCH**, exit codes included |
+| Per-step fingerprints, 2026-07-30 | | `077a07561aef0307 f4046f5ae9226503 a3a8ba1009d89f20 35cdecfdbb031205 820132863aaf0943 1d27b6c9554c1749 081a5338c098a955 35a6479242106a2a 77236d173700af84 9389a0d974d32d89` |
 
 **And the replay was run after the FIRST mission this time.** `sim/campaigns/w5-step1-check.fbc`, a
 throwaway one-step campaign containing only `w5-01`, was run and replayed **before** the ten were

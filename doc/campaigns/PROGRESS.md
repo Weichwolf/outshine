@@ -345,3 +345,78 @@ through the Wayback Machine.
 | The carry | **kill removal, and it runs the other way from O4's.** 7 `campaign CARRY` lines (one unit dropped + six store lines) are worth **one F-16**: standalone the capstone loses two Blue aircraft, in campaign one. **1 of 17** common telemetry files byte-identical, the run 246.8 s against 175.2 s, the three surviving aggressors differing in 90/62/88 of 184 columns — and the ground result identical both ways. Attributed with `--carry` one fact at a time: `units` alone → 1 loss, `stores` alone → 1 loss, neither → 2 |
 | Found while building | **three, none fixed here.** (1) **A `set task bfm` jet with no `wp` line has no fire control at all, silently** — `FBF16FireControl.cpp:141` invalidates the whole block when `state.Nav` is unreadable and `FBNavSystem.cpp:53` publishes nothing without a steerpoint, so the gun solution, the DLZ and the WVR missile gate all hang off a navigation waypoint. Measured on this campaign's own first cut: `blk_firecontrol` 0 for 3,001 rows, 0 `BFM_SHOT`, 0 rounds, exit 3 after **14.8 s of unbroken lock from 7.5 km to 185 m**; one `wp` line and nothing else → exit 0 at t = 1.0 s. **Pre-existing: the shooters of `bfm-basic`, `bfm-merge`, `bfm-offset` and `bfm-blind` all declare no `wp`, while `gun-bfm` and `gun-turning` — the two that fire — both do.** (2) **The MiG-29's OPT director releases on a solution it has already computed as a miss**: `aimMissM=97.87` and `99.03` logged before the pickle, both accepted, both landing 101–102 m out against a 68.4 m radius. (3) **An air-to-air hit that degrades a striker's radar costs the strike nothing** — 9.469 m, `system=radar state=degraded`, on a jet declared `n019_emission off`; 11 of 184 columns and 0 metres |
 | Also measured | five rounds arrive INSIDE their own fuze radius and kill nobody (R-27R at 12.00 / 13.51 / 13.66 / 13.75 m against 13.8 m), so O2's rule holds five more times; the fixture's wind costs **~40 m of CROSS-track** on the F-16/Mk-84 pair (`aimAcrossM` 44–47 m against 7.25 m in calm air); the striker cross-track ladder O3 measured extends to **+99.7 / +101.2 m at a 44 km ingress**; and at merge closure the eye is a spectator — `vis RECOGNISED type=f16` at t = 14.0 s, **3.9 s after the AIM-9 had already killed** |
+
+---
+
+**Run 13 — 2026-07-30, PART A: the outstanding re-verification of the nine, and it found two moved
+exits.** `b433950` re-ordered one branch in `FBPilot::InterceptCommands` and booked the consequence as
+the next round's first task: *"the fingerprints of all nine campaigns have moved and are not yet
+carried into their State sections, and criterion 1 has been run on only two of nine since the change."*
+Both criteria were therefore run on all nine, `--elev const`, `tools/fb_campaign_verify.py`.
+
+| campaign | criterion 1 | criterion 2 | new campaign fingerprint | step exits |
+|---|---|---|---|---|
+| O4 | 9 runs / 1 fp | 10/10 | `9c994069f01595c2…` | `0 3 3 1 1 1 3 1 1 3` — unchanged |
+| O1 | 9 runs / 1 fp | 10/10 | `362c29a14f1ac0b3…` | `3 3 3 3 3 3 3 2 3 3` — unchanged |
+| O5 | 9 runs / 1 fp | 10/10 | `9c635c594f708420…` | `3 0 3 3 3 1 1 3 3 3` — unchanged |
+| O2 | 9 runs / 1 fp | 10/10 | `f2fbb47e952f778a…` | `3 0 3 3 3 0 0 0 3 3` — unchanged |
+| W5 | 9 runs / 1 fp | 10/10 | `786b979426614e5e…` | `0 0 0 0 0 0 0 0 0 3` — unchanged |
+| W3 | 9 runs / 1 fp | 10/10 | `bfe4938ed9017229…` | `0 3 3 3 3 3 3 3 3 3` — unchanged |
+| W4 | 9 runs / 1 fp | 10/10 | `f9fc71a35e93315c…` | `0 3 3 3 3 3 3 3 3 2` — **STEP 10 MOVED, 3 → 2** |
+| O3 | 9 runs / 1 fp | 10/10 | `f6e8767579e1982b…` | `0 3 3 0 0 0 3 0 3 1` — **STEP 7 MOVED, 1 → 3** |
+| W1 | 9 runs / 1 fp | 10/10 | `0e32e6a8c02b153e…` | `0 0 0 3 3 3 3 3 3 3` — unchanged |
+
+**81 campaign runs, 90 standalone replays, 0 divergences.** Every new fingerprint is written into its
+own file's §State **beside** the old one, which is kept with its date.
+
+Four things the re-verification established that the commit could not:
+
+1. **The claim *"the step patterns of all nine campaigns still match the documented ones"* was FALSE
+   for two of them**, and both were already known one layer down: `pilot.md` §7.4b names
+   `o3-07-top-cover` (exit 1 → 3) and `w4-10-allied-force` (exit 3 → 2) as the two verdict changes of
+   the branch re-order. What had not happened is the booking: neither campaign's §State said so. Both
+   now do, each with the tick-by-tick cause `pilot.md` traced.
+2. **Eight of the nine fingerprints moved; W5's did not, byte for byte.** `786b979426614e5ea…` is the
+   same value it carried before the change — and the reason is W5's own published property: **zero
+   rounds expended over ten sorties**, and no jet in the campaign ever enters `Defend`, which is the
+   state the re-ordered branch owns.
+3. **The campaign fingerprint and the stock-mission regression are different instruments and a list
+   from one cannot predict the other.** `pilot.md` §7.4b names five W1 files as movers; the campaign
+   fingerprint moved **eight of ten**, adding steps 03, 06 and 07. `tools/fb_regress.sh` runs every
+   mission standalone and **unclocked**, and nine of ten W1 files declare no `time`; measured directly
+   on `w1-03`, the campaign clock alone moves 2 columns on one jet and 7 on the other (`blk_env`,
+   `vis_*`) and **zero trajectory columns**. Booked in `w1-red-flag.md` §State.
+4. **The campaign layer itself is untouched by the change**: 90 of 90 steps replay standalone bit for
+   bit against the new reference trees, which is the statement `C0` was accepted on.
+
+---
+
+**Run 13 — 2026-07-30, PART B: W2 BUILT — the tenth and last campaign, and the only one whose
+antagonist is fuel.** Ten `sim/missions/w2-*.fbm` plus `sim/campaigns/w2-osirak.fbc`
+([`w2-osirak.md`](w2-osirak.md) §State). **No `sim/src/` file, no tool and no asset was touched** —
+`git status --porcelain` lists eleven new untracked files, so the 241 pre-existing missions are
+byte-identical by construction. No new anchor source was researched; the anchor is Run 1's, and its own
+internal contradiction (1,600 km round trip against ~1,090 km each way against 982.9 km measured between
+its own coordinates) is carried three ways rather than resolved.
+
+| Measured | Value |
+|---|---|
+| Campaign exit / step exits | 3 / `3 0 0 2 0 1 0 3 0 1`; whole campaign **76.0 s** of wall clock |
+| Determinism criterion 1 | 9 runs (3 × `--threads 1/2/4`), **1** campaign fingerprint `bdf58c2e58c05d7dc23c15afa6f477dcbdbc58aef45f3a1f036ecc66ecb93d76`, `--elev const`, `time 1981-06-07T12:55:00Z` |
+| Determinism criterion 2 | **10/10** steps replay standalone bit for bit, on the first attempt |
+| Conservation | 11 new untracked files, 0 modified. Annotating all ten files with their MEASURED blocks afterwards left the campaign fingerprint **unchanged**, re-read after the annotation |
+| The spec's own count, inverted | it called **four** of ten runnable and its headline read *"the campaign FlightBox is furthest from being able to fly"*. Re-checked blocker by blocker: `C5` half closed (tank yes, boom no), `C8` `C1` `C22` `C2` `C12` `C0` all closed, and the pilot's BINGO branch became reachable the same day. **10 of 10 ran and 10 of 10 answered.** One spec mission was dropped (`pair-pop`: `C10` deletes the pop and the 5 s spacing is measured at full scale in the capstone) and one is new in its slot (`w2-05-tanks`, the campaign's own subject) |
+| **The range, five configurations, one 240 m / 400 kt leg to flameout** | clean **1,492.6 km** (4.6708 lb/km) · 2 × Mk-84 **1,162.3 km** (5.9984) · 2 × tank370 **2,173.4 km** (5.3022) · tanks dropped when dry **2,327.9 km** (4.9503) · **the war load 1,748.8 km** (6.5896). Radii, half, zero reserve: **746.3 / 581.2 / 1,086.7 / 1,164.0 / 874.4 km** |
+| **The campaign's central number, and it is negative** | **the war-load radius is 874.4 km against the anchor's 982.9 km each way — 108.5 km short, 11.0 %** — with zero reserve, zero combat allowance, an air start that burns nothing on the ground and a straight line where the raid flew a dog-leg. Against the anchor's own *lower* figure (1,600 km round trip = 800 km each way) the war load clears by 74.4 km and the clean jet is still 53.7 km short |
+| The biggest lever is not the tanks | **the ingress altitude costs 43.2 % of the range** (1,492.6 against 2,627.4 km clean at 8,000 m) — more than the tanks give back (+45.6 %) and more than the bombs take away (−22.1 %). The raid's own defining tactical choice is the most expensive thing in it |
+| The tank, priced three ways | +680.8 km clean (+45.6 %), **+586.5 km on the war load (+50.5 %)** on +65.3 % more fuel, and **+154.5 km (+7.1 %) more for letting them go when dry**. The externals run dry at **675.8 km** under the war load [MEASURED], against the anchor's *"about 1,000 km into the flight"* [T4] |
+| The [DISPUTED] ingress altitude, both halves put to the tree | **neither is flyable over the ground the raid crossed.** Under `--elev tiles` over the real Jordan/Iraq, `w2-02` fails at boot: `reason="spawn altitude is below ground" altM=240 groundM=487.48`, and the route's ground reaches **1,599.22 m**. Over the campaign's own 0 m plane the 30 m variant IS flyable and turns out not to be a terrain problem but a **fuzing** one: `armMarginS` **0.486 s** of the Mk-84's 2.0 s arming time |
+| The hardened target, derived then measured | `2.81e7/r²` against `target_hard`'s 9.0e4 J/m² fail threshold ⇒ **17.7 m fail radius, 33.5 m degrade** [DERIVED]. Over seventeen Mk-84 released, `aimErrM` runs **6.36–50.83 m**, 96–99 % of it ALONG track; `predErrM` is ground speed × a constant **0.228–0.241 s**, i.e. a latency. **The capstone puts 5 of 8 inside 17.7 m and the dome dies** |
+| The capstone | 8 releases, **5 of 8 inside the lethal radius, dome DESTROYED, 8 of 8 strikers alive**, escort lost. Pairs release at **290.8 / 295.8 / 300.8 / 305.9 s** — the authored 1,029 m spacing comes out at **5.00 s four times, to the tick** (`C15`: it works and nothing maintains it). Time over target **15.1 s** against the anchor's "under 2 minutes" |
+| The AAA, and it is W4's shape again | four guns, 39 of 40 rounds fired, and against the gun-free control the striker's telemetry differs in **7 of 184 columns — all RWR — and `aimErrM` is 36.3772 in both, to four decimals**. `C1`'s own G11: there is no pilot reaction to a ground threat |
+| The blind spot | **not expressible, and `C4` is not the reason.** The node holds the raid from **294.6 km** and sends 12 `net CUE` to a 2.5 km gun 200 km away; the two briefed MiG-29 log `fcr_contacts` **max 0.0 over 700 s**. `C6`'s airborne half means there is no channel between a radar and a fighter to be blind in |
+| The BINGO line, alive at last | `intercept BINGO_ABORT … t=4.1 fuelLbs=2773.81 bingoLbs=4000 **from=closing haveTgt=1**` — from `closing`, with a target, which is the strongest form of the branch W3 measured dead. Its in-file control, one line apart, fires an AIM-120 and ends on its way home; the aborting jet ends **199.2 km from its own home waypoint, 87.1 km BEYOND the target it was leaving** and does not even save fuel over the window |
+| The carry | one `campaign CARRY … action=drop`. Standalone the escort element ends **1 of 2 alive**; in campaign **0 of 1** — removing the aircraft that would have died kills the one that would have lived. **8 of 29** common telemetry files byte-identical, and the eight are **exactly the eight bombs**: the carry moves the air half and not one metre of the strike |
+| The carry's own hole, and it is this campaign's alone | `campaign.md` refuses **fuel** as a carried fact, correctly and for a stated reason. The consequence stands: **the one campaign whose antagonist is fuel is the one whose campaign layer is blind to it**, and every W2 fuel number is a within-sortie number |
+| Found while building | **four, none fixed.** (1) **A jettison on a bomb-carrying jet drops the BOMB** — `FBStoresSystem::Release` goes in station order, measured: `sms RELEASE station=3 store=mk84` at t=3,295.6 before `TANK_JETTISON station=4` at t=3,300.6, so the anchor's own selective jettison is not expressible. (2) **A gun's acquisition set takes a falling bomb for an aircraft**: `site TRACK … rangeM=1250 closureMs=0 altM=111.256`, in two files. (3) **An early-warning node cues a fire unit it can see is out of reach** — 12 cues at `rngM` 294,623…204,912 to a 2.5 km gun. (4) **The attack phase's one release per pass is a campaign-scale number**: the anchor's 16 bombs become 8 from the same 8 aircraft with the same 16 stores |
+| What stays unmeasurable | **aerial refuelling** (`C5`'s other half, deliberately unbuilt): no W2 number says what a tanker would have been worth, and the 108.5 km shortfall is exactly the size of hole a boom fills. **Terrain-following** (`C20`): the campaign's arena is a plane under a route whose real ground reaches 1,599 m. **The dive** (`C10`): the anchor's own answer to the 17.7 m problem. **A divert field** (`C17`) and **initial damage** (`C21`) |

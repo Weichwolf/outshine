@@ -323,6 +323,9 @@ Under `--elev const`, read out of `campaign-summary.txt` rather than assumed
 |---|---|---|
 | **1** | 3 repetitions × `--threads 1/2/4` produce one campaign fingerprint | **9 runs, 1 fingerprint** — `81b549fd04c459198…` pre-fix, `4b9582ac805564cbe…` post-fix (both re-measured 2026-07-29); **re-measured after the frame round of 2026-07-29: 9 runs, 1 fingerprint** `c0f0ba51ecf76fa8e…`, exit 3 in all nine |
 | **2** | every step's per-mission fingerprint equals that mission run STANDALONE with step *k−1*'s state | **10/10 MATCH**, exit codes included, on the first attempt — O4's clock hole stayed closed for the first clocked campaign built after it; **10/10 again after the frame round of 2026-07-29** |
+| **1 — re-run 2026-07-30** | the same criterion under the branch-order change of `b433950` ([`../pilot.md`](../pilot.md) §7.4a) | **9 runs, 1 fingerprint** `362c29a14f1ac0b3743439baab2a4c035e9cdf23d740ae14ae2272118f298d27`, `--elev const`. **The value above is kept with its date; this is the current one.** Step exits `3 3 3 3 3 3 3 2 3 3` — unchanged from the post-fix pattern this file already records (step 8 = 2) |
+| **2 — re-run 2026-07-30** | every step re-run STANDALONE against the new reference tree | **10/10 MATCH**, exit codes included |
+| Per-step fingerprints, 2026-07-30 | | `a8c61a98f8ae18a1 93196b527d3de44b 3b49587ef51eb174 61198c8e892c00d8 f9ed9b6116827fee 7e853c5cd5726c99 87df0a8d960b2a23 c437e7a3c83a9dd3 5280bba5d2b369e2 662fe96581c524e6` |
 
 **Re-measured after the ground-launch fix, 2026-07-29: both criteria still hold — 9 runs, one campaign
 fingerprint, and 10/10 steps replayed individually.** The fingerprint *value* changed (steps 8 and 10

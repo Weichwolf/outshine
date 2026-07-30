@@ -1,0 +1,179 @@
+name w2-08-flak
+timeout 300
+time 1981-06-07T12:55:00Z
+
+# CAMPAIGN W2, SORTIE 8 OF 10 - OSIRAK 1981 (OPERATION OPERA): REACH, NOT COMBAT.
+# THE SAME ATTACK UNDER THE ONLY DEFENCE THE RAID ACTUALLY MET.
+# Spec, anchor and sources: doc/campaigns/w2-osirak.md. Format: doc/missions/campaign.md.
+# CONTROL: w2-01-dome.fbm. ONE FACT DIFFERS - four anti-aircraft positions stand on the site. Same
+# jet, same load, same run-in, same altitude, same speed, same objectives; the callsigns and the
+# ground objects are disjoint from the control's, per O5's rule (a controlled variant's cast is
+# disjoint in EVERY unit it can lose, not only in its aircraft).
+#
+# THE ANCHOR: eight F-16A released sixteen Mk-84 with delay fuzing in a 35 deg dive at ~594 kt,
+# pickling at 1,100 m after a pop-up to 2,100 m from 20 km out; "at least eight" struck the dome [T4].
+# THIS FILE FLIES ONE JET, TWO Mk-84, LEVEL, AT 240 m. The difference is not hidden: it is the
+# campaign's declared deviation (`C10`, no dive and no pop-up delivery - the attack phase is a level
+# laydown by design) and the number below is what that deviation is worth.
+#
+# THE ONE TACTICAL QUESTION: WHAT DOES THE DELIVERY ALTITUDE COST WHEN THE LOW DELIVERY IS THE
+# DANGEROUS ONE? The spec called this mission "UNANSWERABLE TODAY" and said it was "specified so that
+# the gap is visible rather than invisible" - the gap being `C1`, no active surface-to-air threat.
+# `C1` CLOSED ON 2026-07-28. Nine positions exist that find with a rotating acquisition set, gate on
+# four envelope numbers and fire a doctrinal salvo out of a finite magazine, and four of them are
+# guns. THE MISSION IS ANSWERABLE, and rule 7 - a blocked mission is re-checked against the TREE and
+# not against a gap's status line - has now been paid nine times over.
+#
+# WHAT STANDS ON THE SITE, and every number is the catalogue row's own:
+#   two `zsu23` (Shilka, radar-directed, ceiling 1,500 m) and two `zu23` (optical, ceiling 1,500 m),
+#   ringed 2.0-4.0 km around the dome, all four `emcon free` with full magazines. THE STRIKER FLIES
+#   AT 240 m, i.e. 1,260 m INSIDE the published ceiling of all four - which is the whole point: the
+#   anchor's ingress altitude is the one at which the anchor's own defence can reach.
+#
+# THE ARITHMETIC THIS SORTIE IS MEASURED AGAINST, derived before the run from the two committed
+# constants and not from its own result:
+#   core/FBDamageModel's fragment law with the Mk-84's own WarheadKg, as quoted by mk84-radius.fbm:
+#     flux(r) = 0.5 * (0.5 * 428.6) / (4*pi*r^2) * (1800^2 + v_impact^2) = 2.81e7 / r^2 [J/m^2]
+#   `target_hard`'s thresholds (modules/ground/FBGroundTarget.h): degrade 2.5e4, fail 9.0e4
+#     -> FAIL RADIUS sqrt(2.81e7/9.0e4) = 17.7 m, DEGRADE RADIUS sqrt(2.81e7/2.5e4) = 33.5 m [DERIVED]
+#   the same law for the Mk-82 (87.0 kg) is 5.70e6/r^2 -> a FAIL RADIUS OF 8.0 m against `target_hard`,
+#     which is why the spec's own note says a good Mk-82 release does nothing to one
+#   `target_soft` (degrade 1.2e3, fail 2.8e3) under an Mk-84: fail 100.2 m, degrade 153.0 m [DERIVED]
+# So the dome dies iff a bomb lands inside 17.7 m of it, and the two support buildings are placed at
+# 80 m and 160 m to bracket the soft fail radius. THAT IS THE MEASUREMENT.
+#
+# THE ARENA, and it is the anchor's own geography rather than a box: Etzion AB 29.94000 34.87000 and
+# the Osirak reactor at Al-Tuwaitha 33.20000 44.52000 [T4, both approximate in the source and carried
+# as given]. Flat-earth track between them: bearing 068.37 deg, 984.6 km; great circle 982.9 km
+# [DERIVED, 1 deg lat = 111,320 m, 1 deg lon at 31.570 N = 94,845 m]. EVERY W2 file runs in on 068.37,
+# which is the raid's own inbound bearing and not a convenience.
+#   `w2dom8` target_hard   33.20000 44.52000 - the reactor containment dome
+#   `w2bld8` target_soft   33.20026 44.52080 -  80 m along the run-in track
+#   `w2bld9` target_soft   33.19866 44.52063 - 160 m across it
+#   `w2flka` zsu23         33.19172 44.49505 - 2.5 km up-track of the dome, radar-directed
+#   `w2flkb` zsu23         33.17495 44.53187 - 3.0 km abeam, radar-directed
+#   `w2flkc` zu23          33.21670 44.51208 - 2.0 km abeam the other side, optical
+#   `w2flkd` zu23          33.21325 44.55992 - 4.0 km beyond the dome, optical
+#
+# THE SIX STRUCTURAL DISCLOSURES OF THIS CAMPAIGN, repeated in all ten files:
+#   1. THE TANK EXISTS, THE BOOM DOES NOT (`C5`, half closed 2026-07-30). `tank370` is a catalogue row
+#      that feeds the engine's own fuel books; AERIAL REFUELLING IS NOT BUILT AND IS NOT APPROXIMATED.
+#      What stays unmeasurable because of it: every W2 range number is a number about an aircraft that
+#      launched full and never took another pound, so nothing here says what a tanker would have been
+#      worth, and the anchor's own tanks-dry-at-1,000-km fact is reproduced by CARRYING tanks that run
+#      dry, never by filling anything in flight.
+#   2. THERE IS NO TERRAIN-FOLLOWING GUIDANCE (`C20`) AND THE GROUND IS A 0 m PLANE. Flown under
+#      `--elev const`, so a "240 m" leg is 240 m over a plane. THE REAL GROUND UNDER THIS ROUTE WAS
+#      MEASURED rather than assumed (fb-tiles /elev): Etzion 523.59 m, 30.50/36.50 = 896.99 m,
+#      31.00/38.00 = 578.06 m, 31.50/39.50 = 865.62 m, 32.00/41.00 = 622.15 m, 32.50/42.50 = 301.25 m,
+#      33.00/44.00 = 42.83 m, the dome 46.70 m, and 30.20/35.50 = 1,599.22 m. The guidance holds an ASL
+#      altitude, so THE ANCHOR'S 30 m INGRESS IS NOT FLYABLE HERE AT ALL and the 240 m one is only
+#      flyable because the plane is flat. w2-02 is where that is measured instead of asserted.
+#   3. THE DELIVERY IS A LEVEL LAYDOWN (`C10`). No dive, no pop-up, no 1,100 m release out of 2,100 m.
+#   4. NO F-15 (`C7`). The escort of w2-06 and w2-10 is a second F-16 flight, declared in those files.
+#   5. `FBMissionRunner` ends the WHOLE run at the first flight-monitor K.O. (`FirstFlightKo`).
+#   6. AN AIR-TO-AIR RESULT ABOVE TWO AIRCRAFT A SIDE IS A FIXED POINT IN THIS TREE (W1's saturation
+#      gate, doc/campaigns/w1-red-flag.md). Every W2 engagement that is meant to GRADE is laid out at
+#      2v1 or smaller; the capstone's air half is declared outcome-blind in its own header.
+# Disclosures 4, 5 and 6 do not bite in this file: there is nothing hostile in the AIR. Disclosure 2
+# does bite hard here - a gun's ceiling is a height above ITS OWN ground, and both the gun and the
+# jet stand on the same 0 m plane, so the 1,260 m of margin below is a margin over a plane.
+#
+# WHY `set fuel_int_pct` AND NEVER `set fuel_pct`, IN ALL TEN FILES. `fuel_pct` distributes over every
+# tank the model declares, and the pinned f16 declares two INTERNAL and two EXTERNAL; `set fuel_pct 100`
+# therefore fuels a clean jet with 12,954 lb, of which 5,982 lb sit in containers it is not carrying
+# (doc/modules/stores.md §Gaps 3). In a campaign whose subject is fuel that is not a rounding error,
+# it is the answer. Every W2 file declares `fuel_int_pct`.
+#
+# READING RULE (binding): exit 0 is the pass and it is NOT the answer. Read, in this order:
+# (1) `stores DELIVERY predErrM/aimErrM/aimLongM/aimAcrossM` for both bombs, (2) the three
+# `UNIT_RESULT` lines - dome, then the two buildings - against the four derived radii above,
+# (3) how many `site TRACK` and `site LAUNCH`/burst lines each of the four guns produced and at what
+# range, (4) `fuelLbs` in the last telemetry row. THE COMPARISON THAT MATTERS is against w2-01, which
+# is this file minus the four guns: if the delivery is unchanged, the guns cost the attack NOTHING and
+# the anchor's altitude choice bought nothing measurable here - and that, not the survival, is the
+# answer. Do NOT read "the striker survived" as a defensive failure; read WHY.
+#
+
+# MEASURED (fingerprint 6cbec31db6bf0bf5, exit 3): THIRTY-NINE ROUNDS, SEVEN OF 184 COLUMNS, ZERO METRES.
+#   the gun       `w2flka` (ZSU-23-4) goes `site STATE from=SEARCH to=TRACK why="firm track inside the
+#                 envelope"`, then `to=ENGAGE why="reaction time elapsed"`, `gun TRIGGER burstS=1
+#                 rounds=40`, and empties its magazine in 7 bursts - 39 of 40 rounds. Three `site
+#                 TRACK` lines in the whole file; the other three positions never engage
+#   THE ATTRIBUTION, against w2-01-dome.fbm which is this file minus the four guns: the striker's
+#                 telemetry differs in 7 OF 184 COLUMNS - `rwr_threats`, `rwr_mode`, `rwr_brg`,
+#                 `rwr_el`, `rwr_leth`, `rwr_new`, `rwr_act` - over 3,001 rows, and `aimErrM` is
+#                 36.3772 IN BOTH, TO FOUR DECIMALS. Not one trajectory cell moves, and `w2dom8`,
+#                 `w2bld8` and `w2bld9` end exactly as their control's do
+#   why           there is no pilot reaction to a ground threat at all (`C1`'s own gap G11). The layer
+#                 that decided the anchor's ingress altitude decides nothing here, and the seven RWR
+#                 columns are the exact price of a threat that is heard and not answered
+#   THE DEFECT THIS SORTIE FOUND, and it is not in the subsystem the sortie was written about:
+#                 `site TRACK unit=w2flkc brgDeg=200.202 rangeM=1250 closureMs=0 altM=111.256` -
+#                 111 m of altitude with ZERO closure is a Mk-84 in the last seconds of its fall, not
+#                 a 450 kt striker at 240 m. A GUN'S ACQUISITION SET TAKES A FALLING BOMB FOR AN
+#                 AIRCRAFT and spends its reaction time on it. The same line appears in w2-10 on
+#                 `w2flk9`. Reported, not fixed, and not tuned around
+#   fuel          6,971.8 -> 6,511.4 lb, identical to the control's
+
+unit w2vip8
+  module f16
+  team friendly
+  spawn 33.06756 44.12111 240 68.4 450        # 40.0 km short of the dome, on the raid's own bearing
+  set gear up
+  set fuel_int_pct 100                        # 6,972 lb internal, no external tank on this sortie
+  set datalink off
+  set fcr_mode off                            # a single striker on a briefed steerpoint radiates nothing
+  set rwr on
+  set store 3 mk84                            # the anchor's own weapon, two of them, as the raid flew
+  set store 7 mk84
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 33.20000 44.52000 240 450                # THE AIM POINT: the active steerpoint IS the dome
+  wp 33.00132 43.92190 240 450                # egress south-west, 60 km back down the inbound track
+  objective kill unit w2dom8
+  objective survive
+
+unit w2dom8
+  module target_hard
+  team hostile
+  spawn 33.20000 44.52000 ground 68.4 0
+
+unit w2bld8
+  module target_soft
+  team hostile
+  spawn 33.20026 44.52080 ground 68.4 0       # 80 m from the dome, along the run-in track
+
+unit w2bld9
+  module target_soft
+  team hostile
+  spawn 33.19866 44.52063 ground 68.4 0       # 160 m from the dome, across it
+
+unit w2flka
+  module zsu23
+  team hostile
+  spawn 33.19172 44.49505 ground 248.4 0      # 2.5 km up-track of the dome, radar-directed
+  set emcon free
+  set rounds 40
+
+unit w2flkb
+  module zsu23
+  team hostile
+  spawn 33.17495 44.53187 ground 338.4 0      # 3.0 km abeam
+  set emcon free
+  set rounds 40
+
+unit w2flkc
+  module zu23
+  team hostile
+  spawn 33.21670 44.51208 ground 158.4 0      # 2.0 km abeam the other side, optical sight
+  set emcon free
+  set rounds 40
+
+unit w2flkd
+  module zu23
+  team hostile
+  spawn 33.21325 44.55992 ground 248.4 0      # 4.0 km beyond the dome, optical sight
+  set emcon free
+  set rounds 40

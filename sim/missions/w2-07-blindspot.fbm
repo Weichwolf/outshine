@@ -1,0 +1,214 @@
+name w2-07-blindspot
+timeout 700
+time 1981-06-07T12:55:00Z
+
+# CAMPAIGN W2, SORTIE 7 OF 10 - OSIRAK 1981 (OPERATION OPERA): REACH, NOT COMBAT.
+# THE EARLY-WARNING GAP: IS "A RADAR BLIND SPOT" EXPRESSIBLE IN THIS TREE AT ALL?
+# Spec, anchor and sources: doc/campaigns/w2-osirak.md. Format: doc/missions/campaign.md.
+# CONTROL: none. It stands alone; its cast is disjoint from every other W2 sortie, ground included.
+#
+# THE ANCHOR: the package "exploited a radar blind spot on the Saudi border", and the Iraqi
+# air-defence crews were reported absent at a meal break; no SAM engagement is documented and the only
+# fire the raid met was anti-aircraft artillery [T4].
+#
+# THE ONE TACTICAL QUESTION, AND THE SPEC ALREADY NAMED THE ALTERNATIVE IT WOULD SETTLE FOR: "without
+# terrain masking (`C4`), is 'a radar blind spot' expressible at all - or does the campaign have to
+# declare the CAP's `brief_gci` wrong instead of the radar blind?" THE ANSWER IS THE THIRD ONE, AND IT
+# IS STRUCTURAL: THERE IS NO CHANNEL FROM AN EARLY-WARNING RADAR TO A FIGHTER TO BE BLIND IN.
+#   `C22` (closed 2026-07-28) gives a node a real cue, and it goes over the GROUND command bus to a
+#   ground fire unit's antenna. `C6`'s AIRBORNE half is explicitly untouched: a MiG-29 cannot
+#   subscribe to anything, and `set brief_gci` is static text an author wrote before the run.
+#   So this sortie can measure exactly two things - what the node itself SEES, and what its cue is
+#   worth to the one receiver that exists (the site's own AAA) - and it CANNOT measure the anchor's
+#   claim, because the anchor's claim is about what the interceptors were told.
+# `C4` IS ALSO STILL OPEN AND NOTHING HERE MASKS ANYTHING: the ingress is flown over a flat,
+# transparent world, so every detection range below is an UPPER BOUND on what the real border
+# geometry would have given, and "a blind spot" has no representation as line of sight either.
+#
+# WHAT IS DECLARED INSTEAD, and it is the node's own published geometry rather than an invention: an
+# early-warning `p18` sits ON the inbound track 200 km short of the dome and radiates (`emcon free`);
+# a `zsu23` at the site is its netted member with `autonomy hold`, so the gun engages on the node's
+# cue and not otherwise - which makes the cable, and only the cable, decide whether the site's own
+# defence ever points the right way. The AAA is the anchor's own and only documented defence.
+#
+# WHY THE AIR FIGHT IS 2 v 2 AND NOT THE SPEC'S 4 v 2. W1's saturation gate, 2026-07-30: an
+# air-to-air result above two aircraft a side is a FIXED POINT in this tree, and the spec's four-ship
+# would have produced an outcome no lever on either side could have changed. Cut to 2 v 2, which is
+# the boundary. THE AIR HALF IS STILL EXPECTED TO SATURATE and the campaign says so; the quantity
+# this file is read for is the NET's traffic, which does not.
+#
+# THE ARENA: the raid's inbound track, bearing 068.37 deg, from 300 km short of the dome inward.
+#   `w2nod7` p18          32.53774 42.53157 - the early-warning node, 200 km short of the dome
+#   `w2ewv7` target_soft  32.53774 42.53157 - the node's own van, the aim point of BOTH strikers
+#   `w2dom7` target_hard  32.53708 42.52959 - a hardened shelter 200 m from it, the second aim point
+#   `w2flk7` zsu23        33.19172 44.49505 - the site's AAA at Al-Tuwaitha, netted, on hold
+#   `w2mg71` mig29        33.53113 45.51985 - CAP, 100 km BEYOND the dome
+#   `w2mg72` mig29        33.52000 45.54000 - its wingman
+# THE CAP IS BEYOND THE TARGET AND NOT BETWEEN, AND THAT IS O1'S RULE APPLIED RATHER THAN OBEYED BY
+# LUCK: MEASURED, a CAP 150 km short of the dome killed the lead striker at t = 268.4 s, 165 s before
+# its own release, and `FirstFlightKo` ended the run there. The strikers now release at ~433 s and the
+# nearest merge is 400 km of closure away.
+#
+# THE SIX STRUCTURAL DISCLOSURES, in short form (full text in w2-01-dome.fbm): `C5` half closed - the
+# tank exists, AERIAL REFUELLING DOES NOT; `C20` open, `--elev const`, a 0 m plane under a route whose
+# real ground is 42.83-1,599.22 m (MEASURED); `C10` level laydown; `C7` no F-15 - not needed, both
+# sides fly their own types; `FirstFlightKo` - the lead striker's aim point is 100 km short of the
+# CAP's own position, so its release comes first by construction; W1's fixed point - declared above.
+# Fuel discipline: `set fuel_int_pct`, never `set fuel_pct`.
+#
+# READING RULE (binding): exit 3 is expected. Read, in this order: (1) `net JOIN` / `net CUE` counts
+# and the tick of the first one, (2) `site RADIATE` / `site CUE` / `site TRACK` on the node and on the
+# gun, and how many bursts the gun fired, (3) the two strikers' `stores DELIVERY` and the ground
+# `UNIT_RESULT` lines, (4) the interceptors' first `radar CONTACT` tick against the node's own first
+# detection - THE GAP BETWEEN THOSE TWO NUMBERS IS THE MISSING CHANNEL, and it is the sortie's answer.
+# Do NOT read the air outcome as a lever's effect: it is a fixed point by W1's measurement.
+
+net tuwaitha
+  control w2nod7
+  link wire
+  period 4.0
+  hold 3
+  wcs free
+  member w2nod7
+  member w2flk7 autonomy hold
+
+# MEASURED (fingerprint 7ec2fe1cf5759c1f, exit 0): A BLIND SPOT IS NOT EXPRESSIBLE, AND NOT BECAUSE
+# OF `C4`. THERE IS NO CHANNEL BETWEEN THE RADAR AND THE FIGHTERS TO BE BLIND IN.
+#   the node      `net JOIN unit=w2flk7 node=w2nod7 distM=196868` at t=3.9, then 12 `net CUE`, the
+#                 first at t=8.0 carrying `rngM=294623 altM=240.365 elDeg=0.0467 wcs=free`. THE NODE
+#                 HOLDS THE RAID FROM 294.6 km and keeps holding it down to 204.9 km, where the
+#                 strikers kill it
+#   the receiver  the only one that exists is a ZSU-23-4 at Al-Tuwaitha whose own effective range is
+#                 2.5 km. It is told, twelve times, about something 200-295 km away
+#   the fighters  `w2mg71`/`w2mg72`, fully briefed (3 `gci BRAA` -> `ENTER_ELEV` -> `ENTER_ZONE` ->
+#                 `RADAR_ILLUM` each): `fcr_contacts` MAX 0.0 OVER THE WHOLE 700 s. The gap between
+#                 the node's 294.6 km and the fighters' nothing is `C6`'s airborne half, not terrain
+#                 masking - a MiG-29 cannot subscribe to anything and `set brief_gci` is text an
+#                 author wrote before the run
+#   the strike    `w2str9` 11.2135 m on the hardened shelter -> `damage ... rangeM=5.49862
+#                 fluxJm2=927396` -> DESTROYED; `w2str8` 27.1881 m -> the van and the node both
+#                 DESTROYED. Both strikers SUCCESS, exit 0
+#   fuel          both strikers 6,971.8 -> 5,965.7 lb over 100 km of run-in plus egress
+
+unit w2nod7
+  module p18
+  team hostile
+  spawn 32.53774 42.53157 ground 68.4 0
+  set emcon free
+
+unit w2flk7
+  module zsu23
+  team hostile
+  spawn 33.19172 44.49505 ground 248.4 0
+  set emcon free
+  set rounds 40
+
+unit w2str8
+  module f16
+  team friendly
+  flight str7 1
+  spawn 32.20668 41.54287 240 68.4 450        # 300 km short of the dome
+  set gear up
+  set fuel_int_pct 100
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 32.53774 42.53157 240 450                # THE AIM POINT: the early-warning van itself
+  wp 32.30000 41.80000 240 450                # egress back down the track
+  objective kill unit w2ewv7
+  objective survive
+
+unit w2str9
+  module f16
+  team friendly
+  flight str7 2
+  spawn 32.19416 41.54880 240 68.4 450        # 1.5 km across track from the lead
+  set gear up
+  set fuel_int_pct 100
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 32.53708 42.52959 240 450                # THE AIM POINT: the hardened shelter beside the van
+  wp 32.30000 41.80000 240 450
+  objective kill unit w2dom7
+  objective survive
+
+unit w2mg71
+  module mig29
+  team hostile
+  flight cap7 1
+  spawn 33.53113 45.51985 4000 248.4 450      # CAP on the track, 100 km BEYOND the dome
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_emission off                       # the documented power-up state: the brief turns it on
+  set rwr on
+  set store 3 r27r
+  set store 7 r27r
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set brief_gci 20 248.4 150 4                # a controller's call, typed by the author before the run
+  set brief_gci 60 248.4 100 4                # - and there is no node in this file that could send it
+  set brief_gci 100 248.4 60 4
+  set task intercept
+  wp 32.20668 41.54287 4000 450
+  objective survive
+
+unit w2mg72
+  module mig29
+  team hostile
+  flight cap7 2
+  spawn 33.52000 45.54000 4000 248.4 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_emission off
+  set rwr on
+  set store 3 r27r
+  set store 7 r27r
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set brief_gci 20 248.4 150 4
+  set brief_gci 60 248.4 100 4
+  set brief_gci 100 248.4 60 4
+  set task intercept
+  wp 32.20668 41.54287 4000 450
+  objective survive
+
+unit w2ewv7
+  module target_soft
+  team hostile
+  spawn 32.53774 42.53157 ground 68.4 0
+
+unit w2dom7
+  module target_hard
+  team hostile
+  spawn 32.53708 42.52959 ground 68.4 0

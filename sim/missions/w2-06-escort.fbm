@@ -1,0 +1,210 @@
+name w2-06-escort
+timeout 500
+time 1981-06-07T12:55:00Z
+
+# CAMPAIGN W2, SORTIE 6 OF 10 - OSIRAK 1981 (OPERATION OPERA): REACH, NOT COMBAT.
+# THE ESCORT: DOES IT BREAK AWAY FAR ENOUGH TO MATTER AND GET BACK BEFORE THE STRIKERS ARE EXPOSED?
+# Spec, anchor and sources: doc/campaigns/w2-osirak.md. Format: doc/missions/campaign.md.
+# CONTROL: none. It is the HEAD OF THE CAMPAIGN'S ONE CHAIN: w2-06 -> w2-10, carrying the escort pair
+# `w2esc1`/`w2esc2` with whatever this sortie leaves them. What that chain claims and what it does not
+# is stated in sim/campaigns/w2-osirak.fbc; the short form is that the raid flew ONE sortie, so the
+# chain is the CAMPAIGN's experiment ("is an escort that has already fought still an escort?") and not
+# the anchor's procedure. Every other W2 sortie has pairwise disjoint callsigns, ground objects
+# included, per O5's rule.
+#
+# THE ANCHOR: six F-15A escorted the eight F-16A - two in close escort, the rest dispersed as a
+# diversion [T4]. No air-to-air engagement is documented; the only defence the raid met was AAA.
+#
+# THE SUBSTITUTION AND ITS DIRECTION, stated because the header comment is binding (`C7`):
+#   F-15A escort -> a second F-16 FLIGHT. There is no F-15 module; the catalogue row `f15c` exists and
+#     was MEASURED BY O5 to compose no fire control at all, so it designates, holds a lock for 28 s
+#     and never presses. An F-16 escort is therefore WEAKER in radar reach and missile than the
+#     historical one and STRONGER than the alternative of a jet that cannot shoot.
+#   the Iraqi interceptor -> the `mig29` module. Iraq flew MiG-21/MiG-23/Mirage F1 in 1981; the
+#     Fulcrum is a materially BETTER interceptor than any of them, with a look-down radar, an R-73 and
+#     a helmet cue none of them had. A bad Blue result here therefore says LESS than it seems to.
+#
+# THE ONE TACTICAL QUESTION: DOES THE ESCORT BREAK AWAY FAR ENOUGH TO MATTER AND GET BACK BEFORE THE
+# STRIKERS ARE EXPOSED? Two numbers: the separation escort<->striker at the strikers' release, and the
+# separation at the end of the run.
+#
+# WHY THE AIR FIGHT IS 2 v 1 AND NOT LARGER, AND IT IS NOT A SIMPLIFICATION. W1's saturation gate was
+# pointed at a campaign's own ten missions on 2026-07-30 and REFUSED the arena: 2 informative
+# geometries against a required 3, and the only rungs that decided anything at all were the ones at
+# 1v1 and 2v1. AN AIR-TO-AIR RESULT ABOVE TWO AIRCRAFT A SIDE IS A FIXED POINT IN THIS TREE. This
+# sortie is the one W2 engagement that is MEANT to grade, so it is laid out at the largest size that
+# still can: two escorts against one scrambled interceptor.
+#
+# AND THE TWO ENGAGEMENTS ARE SEPARATED IN TIME, WHICH IS O1'S RULE. `FBMissionRunner` ends the whole
+# run at the first flight-monitor K.O. (`FirstFlightKo`), so a fighter killed early would cut the
+# strike off before it releases. MEASURED AND CORRECTED: at a 60 km spawn the interceptor killed the
+# escort lead at t = 144.0 s with the strikers still 6 km short of the dome, and the run ended there.
+# The interceptor now spawns 150 km BEYOND the site; the escort's own outbound leg plus the closure
+# puts the merge past t = 300 s, and the strikers release inside ~175 s.
+#
+# THE ARENA: the reactor site and the approach to it on the raid's own bearing 068.37 deg.
+#   `w2dom6` target_hard  33.20000 44.52000 - the dome
+#   `w2bld6` target_soft  33.20026 44.52080 - a support building 80 m from it
+#   `w2mig6` mig29        33.69669 46.02121 - scrambled from the north-east, 150 km beyond the site
+#
+# THE SIX STRUCTURAL DISCLOSURES, in short form (full text in w2-01-dome.fbm): `C5` half closed (tank
+# yes, boom no - this sortie flies internal fuel and says nothing about either); `C20` open and the
+# ground a 0 m plane under `--elev const`, real ground 42.83-1,599.22 m; `C10` level laydown, no dive;
+# `C7` the escort substitution above; `FirstFlightKo` handled by the time split above; W1's fixed
+# point handled by the 2v1 layout above. Fuel discipline: `set fuel_int_pct`, never `set fuel_pct`.
+#
+# READING RULE (binding): exit 3 is expected - an intercept has no waypoint objective and ends on the
+# clock (doc/missions/INDEX.md rule 4). Read, in this order: (1) the striker/escort separation at the
+# release tick and at the end, (2) `stores DELIVERY aimErrM` and the dome's `UNIT_RESULT` against the
+# 17.7 m fail radius derived in w2-01, (3) which rounds left and where they arrived, (4) `fuelLbs` in
+# the last row of every jet. Do NOT read a kill as a lever's effect: O2 measured two rounds inside
+# their own fuze that did not kill.
+
+# MEASURED (fingerprint 2ea54fe711951a11, exit 1): IT BREAKS AWAY, IT DOES NOT COME BACK - AND THE
+# STRIKE IS ALREADY DONE WHEN IT DIES.
+#   separation    striker <-> escort lead 9.99 km at spawn -> 15.11 km at t=100 -> 18.40 km at the
+#                 release -> 26.91 km at t=200 -> 74.06 km at the end. Monotone, never a rejoin
+#   the strike    both Mk-84 away, `aimErrM` 36.3772 and 45.3202; `w2bld6` DESTROYED by 2 hits,
+#                 `w2dom6` INTACT (both outside the 17.7 m fail radius). The lead's number is
+#                 IDENTICAL to sortie 01's to four decimals - same geometry, same jet, same tick
+#   the loss      `w2esc1` combat-ineffective at t=296.2 s, 131 s AFTER the last bomb left. O1's rule
+#                 working as designed: `FirstFlightKo` ends the run and by then the strike is
+#                 complete. At the first cut's 60 km interceptor spawn it did not - the escort died at
+#                 t=144.0 with the strikers 6 km short - and this file records that correction
+#   fuel          every F-16 6,971.8 -> 6,516-6,605 lb; the MiG 4,938.2 -> 4,105.1
+#   THE AIR RESULT IS 2 v 1 ON PURPOSE and is the one W2 engagement meant to grade (W1's gate).
+
+unit w2str6
+  module f16
+  team friendly
+  flight str6 1
+  spawn 33.06756 44.12111 240 68.4 450        # 40.0 km short of the dome
+  set gear up
+  set fuel_int_pct 100
+  set datalink on
+  set fcr_mode off                            # a striker does not radiate
+  set rwr on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 33.20000 44.52000 240 450                # THE AIM POINT: the dome
+  wp 33.00132 43.92190 240 450                # egress back down the inbound track
+  objective kill unit w2dom6
+  objective survive
+
+unit w2str7
+  module f16
+  team friendly
+  flight str6 2
+  spawn 33.05503 44.12704 240 68.4 450        # 1.5 km across track from the lead
+  set gear up
+  set fuel_int_pct 100
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 33.20026 44.52080 240 450                # ITS aim point: the support building
+  wp 32.99000 43.93000 240 450
+  objective kill unit w2bld6
+  objective survive
+
+unit w2esc1
+  module f16
+  team friendly
+  flight esc6 1
+  spawn 33.10066 44.22078 3000 68.4 480       # 30 km short of the site, high and ahead of the strikers
+  set gear up
+  set fuel_int_pct 100
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim9
+  set store 2 aim120
+  set store 3 aim120
+  set store 7 aim120
+  set store 8 aim120
+  set store 9 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.69669 46.02121 3000 480               # toward the scramble field, i.e. into the threat
+  objective kill unit w2mig6
+  objective protect unit w2str6
+  objective survive
+
+unit w2esc2
+  module f16
+  team friendly
+  flight esc6 2
+  spawn 33.08814 44.22671 3000 68.4 480       # 1.5 km across track from the escort lead
+  set gear up
+  set fuel_int_pct 100
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim9
+  set store 2 aim120
+  set store 3 aim120
+  set store 7 aim120
+  set store 8 aim120
+  set store 9 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.69669 46.02121 3000 480
+  objective protect unit w2str7
+  objective survive
+
+unit w2mig6
+  module mig29
+  team hostile
+  spawn 33.69669 46.02121 4000 248.4 450      # 150 km beyond the site, inbound down the raid's track
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_emission illum
+  set rwr on
+  set store 3 r27r
+  set store 7 r27r
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  wp 33.06756 44.12111 4000 450               # vectored down the inbound track toward the raid
+  objective survive
+
+unit w2dom6
+  module target_hard
+  team hostile
+  spawn 33.20000 44.52000 ground 68.4 0
+
+unit w2bld6
+  module target_soft
+  team hostile
+  spawn 33.20026 44.52080 ground 68.4 0

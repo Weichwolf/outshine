@@ -208,8 +208,22 @@ eight sorties carry fresh callsigns, ground objects included.
 |---|---|---|
 | **1** | one campaign fingerprint over 3 reps × `--threads 1/2/4` | **9 runs, 1 fingerprint** `5de43dd58a859b51319ebd3a4b7c27bbe5c0e2c42c7010cb67a0b3b1d8d89a32`, `--elev const`, `time 2022-08-16T17:00:00Z` |
 | **2** | each step's per-mission fingerprint equals the same mission run STANDALONE with step *k−1*'s state | **10/10 MATCH** — and **the replay was run after the FIRST mission**, on a throwaway one-step `.fbc` that was deleted afterwards (`01 … fp=3555795c02ef346f MATCH`) |
+| **1 — re-run 2026-07-30** | the same criterion under the branch-order change of `b433950` ([`../pilot.md`](../pilot.md) §7.4a) | **9 runs, 1 fingerprint** `0e32e6a8c02b153eddaa1b7fcf00278fa0f7318e3ebf088ea95bd181d3677add`, `--elev const`. **The value above is kept with its date; this is the current one.** Step exits `0 0 0 3 3 3 3 3 3 3` — unchanged; **8 of 10 step fingerprints moved, steps 1 and 5 held** |
+| **2 — re-run 2026-07-30** | every step re-run STANDALONE against the new reference tree | **10/10 MATCH**, exit codes included |
 | Conservation | annotating all ten files with their MEASURED blocks afterwards left **all ten per-mission fingerprints and the campaign fingerprint unchanged** |
-| Per-step fingerprints | `3555795c02ef346f 63fe25362f2c83c8 74c5812afdbd87e7 b690acd9c60de591 b43917d0e0581b44 423844acb453ed54 f50b23b55b6c7495 900fbe8e4af71bf8 ca0cbbcdf7f02fd5 a9ad699a4e298df5` |
+| Per-step fingerprints, as built | `3555795c02ef346f 63fe25362f2c83c8 74c5812afdbd87e7 b690acd9c60de591 b43917d0e0581b44 423844acb453ed54 f50b23b55b6c7495 900fbe8e4af71bf8 ca0cbbcdf7f02fd5 a9ad699a4e298df5` |
+| Per-step fingerprints, 2026-07-30 | `3555795c02ef346f e081ae58576df8d2 f2db17354494b8a4 1f0eb659cfab9be5 b43917d0e0581b44 d73c4369619330bf 0e76d1dc5ba38cf3 0916c5c1e98de80b 9879e7b636b6b42a c5afe4cfef819b66` |
+
+**And the two instruments do not measure the same run, which the re-run made visible.**
+[`../pilot.md`](../pilot.md) §7.4b's regression names `w1-02`, `w1-04`, `w1-08`, `w1-09` and `w1-10` as
+the W1 files the branch order moved; the campaign fingerprint moved **eight** of ten, adding steps 03,
+06 and 07. There is no contradiction: `tools/fb_regress.sh` runs every mission **standalone and
+unclocked**, and nine of the ten W1 files declare no `time` of their own — the campaign supplies
+`2022-08-16T17:00:00Z` through `--campaign-time`. Measured directly on `w1-03`, the clock alone moves
+**2 columns on the shooter and 7 on the aggressor** (`blk_env`, `vis_glare`, `vis_contacts`,
+`vis_best_*`) and **zero trajectory columns**. The regression compares flight columns of an unclocked
+run; the fingerprint hashes all 184 columns plus the log of a clocked one. **A mission list from the
+one cannot predict the other, and this is where that was paid.**
 
 ### The saturation gate — the one measurement W1 owes the other nine
 

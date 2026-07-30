@@ -302,6 +302,22 @@ Under `--elev const`, read out of `campaign-summary.txt` rather than assumed:
 |---|---|---|
 | **1** | 3 repetitions × `--threads 1/2/4` produce one campaign fingerprint | **9 runs, 1 fingerprint** `01e4f956ca915c6a984178df782a2e07d52ed0e7ddd6485717edd177c5f9cb13`, exit 3 in all nine |
 | **2** | every step's per-mission fingerprint equals that mission run STANDALONE with step *k−1*'s state | **10/10 MATCH**, exit codes included, on the first attempt |
+| **1 — re-run 2026-07-30** | the same criterion under the branch-order change of `b433950` ([`../pilot.md`](../pilot.md) §7.4a) | **9 runs, 1 fingerprint** `f6e8767579e1982b5453591dd6180be69f2f4a7fa0931cb63cf6f47962495f85`, `--elev const`. **The value above is kept with its date; this is the current one.** Step exits `0 3 3 0 0 0 3 0 3 1`, and the seventh of those is new: **STEP 7's EXIT MOVED, 1 → 3** — see the note under the table |
+| **2 — re-run 2026-07-30** | every step re-run STANDALONE against the new reference tree | **10/10 MATCH**, exit codes included |
+| Per-step fingerprints, 2026-07-30 | | `cc5682956b788fc9 91e8fea172d46813 12edfcf6f8e45792 2beb4142c7a02e79 0397c8e6ce78a6ec fae132b551cd43d8 b8cc757093a225cb ea1d1ac898e38bf6 71f3375870fe5be8 7809098bcc4cde76` |
+
+> **STEP 7's EXIT MOVED, AND IT IS THE ONE SHIFT IN NINE CAMPAIGNS THAT CHANGES A VERDICT.**
+> `o3-07-top-cover` was exit **1** and is exit **3**: the run reaches its 600 s timeout with all four
+> Egyptians reporting SUCCESS instead of losing `y7sb` and its escort at t = 512.6 s. The cause was
+> traced tick by tick when the branch was re-ordered and is NOT the fuel line
+> ([`../pilot.md`](../pilot.md) §7.4b): `y7ba` now holds its beam to the end of its 12 s defence hold
+> instead of snapping back into the intercept at t = 189.3, which puts it somewhere else at
+> t = 220.6, where an R-73 arrives at **2.67 m / 67,285 J/m²** — the first arrival this campaign's top
+> cover has ever scored. Its radar degrades, the resumption test is reachable for the first time and
+> answers *"no sensor"*, and the remaining CAP jet alone does not get the second pair away in time.
+> **The mission's answer changed and its own header no longer describes it.** `pilot.md` booked the
+> change here on 2026-07-30 and this is the entry it was booked into; the row's text above is the
+> pre-change measurement and is kept.
 
 **And the replay was run after the FIRST mission**, on a throwaway one-step `.fbc`
 (`sim/campaigns/o3-step1-check.fbc`, deleted afterwards): `01 … campaign fp=cc5682956b788fc9 standalone

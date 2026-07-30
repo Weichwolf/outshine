@@ -2084,3 +2084,80 @@ Zuschnitt dieser Kampagne: `blk_firecontrol` 0 über 3 001 Zeilen, 0 Schüsse, E
 ununterbrochenem Lock von 7,5 km bis 185 m** — eine `wp`-Zeile je Jet, sonst nichts, und der Lauf endet
 0 bei t = 1,0 s. **Vorbestehend:** die Schützen von `bfm-basic`, `bfm-merge`, `bfm-offset` und `bfm-blind`
 deklarieren alle keinen `wp`, `gun-bfm` und `gun-turning` — die beiden, die schießen — beide.
+
+## 2026-07-30 — Kampagne W2 Osirak: die zehnte, und ihr Ergebnis ist eine Subtraktion
+
+Die letzte der zehn. Zuvor aber die Nachprüfung, die die vorige Runde ausdrücklich offen gebucht hatte:
+**beide Determinismus-Kriterien auf allen neun gebauten Kampagnen**, unter der Zweig-Umkehrung von
+`b433950`. **81 Kampagnenläufe, 90 Einzelnachspiele, null Abweichungen**; jeder neue Fingerabdruck steht
+jetzt im jeweiligen `## State` **neben** dem alten, der mit Datum stehen bleibt.
+
+Und die Nachprüfung widerlegt eine Zeile der vorigen Runde. Sie hatte behauptet, die Schrittmuster aller
+neun stimmten weiter; **zwei stimmen nicht**: `o3-07-top-cover` geht von Exit 1 auf 3 und
+`w4-10-allied-force` von 3 auf 2. Beides war eine Ebene tiefer längst hergeleitet (`pilot.md` §7.4b, Zeile
+für Zeile), nur nirgends in den Kampagnen gebucht. Jetzt steht es dort, mit Ursache. **Acht von neun
+Fingerabdrücken haben sich bewegt, W5s nicht — byte-identisch** — und der Grund ist W5s eigene publizierte
+Eigenschaft: null verschossene Waffen über zehn Einsätze, also kein Jet, der je in `Defend` geht, den
+Zustand also, den der umgestellte Zweig besitzt. Dritter Befund: **Kampagnen-Fingerabdruck und
+Missions-Regression messen nicht denselben Lauf.** `pilot.md` nennt fünf W1-Dateien als Bewegte, der
+Fingerabdruck bewegt **acht von zehn** — `fb_regress.sh` fährt jede Mission standalone und **ohne Uhr**,
+neun der zehn W1-Dateien deklarieren keine `time`, und die Kampagnenuhr allein bewegt 2 bzw. 7 Spalten
+(`blk_env`, `vis_*`) und **null Bahnspalten**. Eine Missionsliste aus dem einen Instrument sagt über das
+andere nichts.
+
+**Dann W2.** Die Kampagne, deren eigene Spezifikation über sie schrieb, sie sei *„die, von der FlightBox
+am weitesten entfernt ist"*, und deren erste Lieferung *„keine Missionsdatei, sondern ein
+Zusatztank-Eintrag und ein Betankungsausleger"* sei. Die Hälfte davon ist am Vortag gelandet, und die
+Kampagne fliegt: zehn `.fbm`, eine `.fbc`, Schritt-Exits `3 0 0 2 0 1 0 3 0 1`, beide Kriterien im ersten
+Versuch (**9 Läufe, ein Fingerabdruck** `bdf58c2e…`; **10/10** Schritte reproduzieren standalone), kein
+Byte unter `sim/src/` angefasst. Vier der zehn galten als baubar, zehn liefen, zehn antworteten.
+
+**Das zentrale Ergebnis ist negativ und es ist eine Subtraktion.** Fünf Konfigurationen, ein und dieselbe
+Strecke auf 240 m bei 400 kt bis zum Verlöschen: sauber **1 492,6 km**, mit zwei Mk-84 **1 162,3 km**, mit
+zwei Tanks **2 173,4 km**, mit abgeworfenen leeren Tanks **2 327,9 km**, mit der vollen Kriegslast
+**1 748,8 km**. Halbiert, ohne jede Reserve, ergibt das einen Kampfradius von **874,4 km gegen die 982,9 km,
+die der Anker je Richtung braucht — 108,5 km zu wenig, 11,0 %**, und zwar bei Luftstart ohne Rollen,
+Starten und Steigen, ohne Reserve, ohne Gefechtszuschlag und auf gerader Linie statt auf dem Dogleg, das
+der Verband wirklich flog. Der Einsatz ist in diesem Baum nicht fliegbar, und das Loch hat exakt die Größe
+der ungebauten Hälfte von `C5`.
+
+**Der größte Hebel ist nicht der, nach dem die Kampagne gebaut wurde.** Die Tanks bringen +45,6 % sauber
+und +50,5 % unter Kriegslast; sie fallenzulassen, wenn sie leer sind, noch einmal 7,1 % — und die Außentanks
+sind nach **675,8 km** trocken gegen die *„etwa 1 000 km"* des Ankers, also dieselbe Größenordnung aus
+völlig unabhängiger Richtung. Aber **die Anflughöhe allein kostet 43,2 % der Reichweite** (1 492,6 gegen
+2 627,4 km auf 8 000 m). Die eigene taktische Entscheidung des Einsatzes ist das Teuerste an ihm, und keine
+seiner Quellen sagt das.
+
+**Der strittige Wert wurde in beiden Hälften geflogen, nicht gemittelt.** 30 m gegen 240 m, Faktor acht.
+Über der Ebene der Kampagne hält die Lenkung 240 m auf **0,85 m über 300 km** und 30 m ebenso — und der
+30-m-Fall ist dort kein Geländefolgeproblem, sondern ein **Zünderproblem**: `armMarginS` **0,486 s** von
+2,0 s Schärfzeit. Über dem Boden, den der Einsatz wirklich überflog, ist **keine der beiden Höhen
+fliegbar**: unter `--elev tiles` scheitert die Mission vor dem ersten Takt
+(`spawn altitude is below ground, altM=240 groundM=487.48`), und die Strecke erreicht **1 599,22 m**.
+
+Die Bodenhälfte ist eine Herleitung, die aufgeht: `target_hard` fällt innerhalb **17,7 m** einer Mk-84
+(`2,81e7/r²` gegen 9,0e4 J/m²). Über siebzehn Abwürfe liegt `aimErrM` in einem Band von **6,36 bis
+50,83 m**, zu 96–99 % längs, und `predErrM` ist Bodengeschwindigkeit mal konstant **0,228–0,241 s**, also
+eine Latenz. Die Kuppel ist damit mit einer **Rate** zu töten: der Schlussangriff legt **fünf von acht**
+Bomben innerhalb 17,7 m und die Kuppel fällt, bei acht von acht zurückgekehrten Angreifern. Die vier Pärchen
+lösen auf **290,8 / 295,8 / 300,8 / 305,9 s** aus — die vom Autor gerechneten 1 029 m Abstand ergeben
+**5,00 s, viermal, auf den Takt**; genau das heißt `C15`.
+
+Die Mindestsprit-Entscheidung, tags zuvor erreichbar gemacht, ist jetzt in ihrer schärfsten Form gemessen:
+`BINGO_ABORT … from=closing haveTgt=1` — der Pilot bricht **aus dem Anflug auf ein Ziel** ab. Seine
+Kontrolle eine Zeile daneben schießt und fliegt heim; der Abbrecher endet **199,2 km von seinem eigenen Heimatwegpunkt**, 87,1 km jenseits des Ziels,
+das es gerade verließ und spart über das Fenster nicht einmal Sprit.
+
+Vier Befunde, keiner behoben: ein Abwurf an einem bombentragenden Jet wirft **die Bombe** (Stationsordnung,
+`station=3 mk84` vor `TANK_JETTISON station=4`), sodass der selektive Abwurf des Ankers unausdrückbar ist;
+die Zielerfassung einer Kanone hält **eine fallende Bombe für ein Flugzeug** (`rangeM=1250 closureMs=0
+altM=111.256`); ein Frühwarnknoten weist eine Feuereinheit auf ein Ziel ein, das er selbst 200 km außerhalb
+ihrer Reichweite misst; und die Angriffsphase löst **einmal je Anflug** aus, womit aus den sechzehn Bomben
+des Ankers acht werden.
+
+Und der Riss, der nur dieser Kampagne gehört: **die Übertragsschicht trägt genau das nicht, worum es hier
+geht.** `campaign.md` verweigert Sprit als übertragene Tatsache, mit gutem und genanntem Grund — die Folge
+bleibt, dass die eine Kampagne, deren Gegner der Sprit ist, von der Schicht über ihren Missionen blind
+gesehen wird. Was der Übertrag kann, hat er scharf gezeigt: eine `action=drop`-Zeile, und **das Streichen
+des Begleiters, der gestorben wäre, tötet den, der überlebt hätte** (standalone 1 von 2, in der Kampagne
+0 von 1) — bei **8 von 29** byte-identischen Telemetriedateien, und die acht sind genau die acht Bomben.
