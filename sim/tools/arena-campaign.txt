@@ -1,0 +1,174 @@
+# FlightBox — THE CAMPAIGN ARENA, one cell per line, for tools/fb_campaign_arena.py.
+#
+#     <mission> <team> <module>      the units the doctrine is FLOWN BY and SCORED OVER
+#
+# THE RULE THAT GENERATED IT, so that the list is auditable rather than curated: every
+# (mission, team, module) group of the ten campaigns' 100 committed missions in which the module is
+# one FlightBox flies (`f16`, `mig29`) AND the group declares at least one `objective` — a unit
+# nothing was asked of is excluded from the fitness by doc/doctrine-evolution.md §1.3's last row, so
+# it cannot be an arena cell either. Both sides of a rung are cells: five of the ten campaigns put
+# their own subject on the hostile team, and W1 measured that where a lever bites is a property of
+# the seat.
+#
+# NOTHING HERE IS SELECTED ON A RESULT. The gate reads this file and reports; which cells are
+# informative is its output, not its input.
+#
+# TWO CELLS THE RULE PRODUCED AND THIS FILE DOES NOT CARRY, named rather than silently dropped:
+# `o2-09-exercise-one hostile f16` and `o2-10-exercise-two hostile f16`. Both are the single F-16 that
+# O2 flies as the exercise SUBJECT on the eastern team — one aircraft, no `set task`, and therefore no
+# phase in which any gene of the genome is read. They also collide with their own mission's friendly
+# f16 group on (mission, module), which is the identity a result table is keyed by.
+o1-01-controlled         hostile   mig29
+o1-01-controlled         friendly  f16
+o1-02-no-gci             hostile   mig29
+o1-02-no-gci             friendly  f16
+o1-03-gci-cut            hostile   mig29
+o1-03-gci-cut            friendly  f16
+o1-04-beam               hostile   mig29
+o1-04-beam               friendly  f16
+o1-05-beam-blind         hostile   mig29
+o1-05-beam-blind         friendly  f16
+o1-06-blind              hostile   mig29
+o1-06-blind              friendly  f16
+o1-07-early-launch       hostile   mig29
+o1-07-early-launch       friendly  f16
+o1-08-belt-netted        friendly  f16
+o1-09-comms-jam          friendly  f16
+o1-10-mole-cricket       hostile   mig29
+o1-10-mole-cricket       friendly  f16
+o2-01-vector             hostile   mig29
+o2-02-wrong-altitude     hostile   mig29
+o2-03-wrong-zone         hostile   mig29
+o2-04-no-gci             hostile   mig29
+o2-05-late-radar         hostile   mig29
+o2-06-identify           hostile   mig29
+o2-07-identify-friendly  hostile   mig29
+o2-08-team-swap          hostile   mig29
+o2-09-exercise-one       hostile   mig29
+o2-09-exercise-one       friendly  f16
+o2-10-exercise-two       hostile   mig29
+o2-10-exercise-two       friendly  f16
+o3-01-unopposed          hostile   mig29
+o3-02-command-post       hostile   mig29
+o3-03-ingress            hostile   mig29
+o3-04-umbrella           hostile   mig29
+o3-05-umbrella-held      hostile   mig29
+o3-06-umbrella-sort      hostile   mig29
+o3-06-umbrella-sort      friendly  f16
+o3-07-top-cover          hostile   mig29
+o3-07-top-cover          friendly  f16
+o3-08-armour             hostile   mig29
+o3-09-two-fronts         hostile   mig29
+o3-09-two-fronts         friendly  f16
+o3-10-october-six        hostile   mig29
+o3-10-october-six        friendly  f16
+o4-01-bvr-headon         friendly  f16
+o4-01-bvr-headon         hostile   mig29
+o4-02-bvr-offset         friendly  f16
+o4-02-bvr-offset         hostile   mig29
+o4-03-energy-split       friendly  f16
+o4-03-energy-split       hostile   mig29
+o4-04-entry-10nm         friendly  f16
+o4-04-entry-10nm         hostile   mig29
+o4-05-entry-5nm          friendly  f16
+o4-05-entry-5nm          hostile   mig29
+o4-06-merge              friendly  f16
+o4-06-merge              hostile   mig29
+o4-07-flares             friendly  f16
+o4-07-flares             hostile   mig29
+o4-08-weather            friendly  f16
+o4-08-weather            hostile   mig29
+o4-09-night              friendly  f16
+o4-09-night              hostile   mig29
+o4-10-two-v-two          friendly  f16
+o4-10-two-v-two          hostile   mig29
+o5-01-cap                hostile   mig29
+o5-01-cap                friendly  f16
+o5-02-scramble           hostile   mig29
+o5-02-scramble           friendly  f16
+o5-03-no-gci             hostile   mig29
+o5-03-no-gci             friendly  f16
+o5-04-no-radar           hostile   mig29
+o5-04-no-radar           friendly  f16
+o5-05-escorted           hostile   mig29
+o5-05-escorted           friendly  f16
+o5-06-belt               friendly  f16
+o5-07-jammed             friendly  f16
+o5-08-night-one          hostile   mig29
+o5-08-night-one          friendly  f16
+o5-09-night-two          hostile   mig29
+o5-09-night-two          friendly  f16
+o5-10-batajnica          hostile   mig29
+o5-10-batajnica          friendly  f16
+w1-01-merge              friendly  f16
+w1-01-merge              hostile   mig29
+w1-02-two-v-one          friendly  f16
+w1-02-two-v-one          hostile   mig29
+w1-03-bvr-single         friendly  f16
+w1-03-bvr-single         hostile   mig29
+w1-04-bvr-pair           friendly  f16
+w1-04-bvr-pair           hostile   mig29
+w1-05-defensive-ca       friendly  f16
+w1-05-defensive-ca       hostile   mig29
+w1-06-strike-escort      friendly  f16
+w1-06-strike-escort      hostile   mig29
+w1-07-emcon              friendly  f16
+w1-07-emcon              hostile   mig29
+w1-08-degraded           friendly  f16
+w1-08-degraded           hostile   mig29
+w1-09-lfe-four           friendly  f16
+w1-09-lfe-four           hostile   mig29
+w1-10-graduation         friendly  f16
+w1-10-graduation         hostile   mig29
+w2-01-dome               friendly  f16
+w2-02-ingress            friendly  f16
+w2-03-radius             friendly  f16
+w2-04-loaded             friendly  f16
+w2-05-tanks              friendly  f16
+w2-06-escort             friendly  f16
+w2-06-escort             hostile   mig29
+w2-07-blindspot          friendly  f16
+w2-07-blindspot          hostile   mig29
+w2-08-flak               friendly  f16
+w2-09-bingo              friendly  f16
+w2-09-bingo              hostile   mig29
+w2-10-opera              friendly  f16
+w2-10-opera              hostile   mig29
+w3-01-ew-radar           friendly  f16
+w3-02-net-intact         friendly  f16
+w3-03-weasel-close       friendly  f16
+w3-04-weasels-leave      friendly  f16
+w3-05-emcon              friendly  f16
+w3-06-bingo              friendly  f16
+w3-06-bingo              hostile   mig29
+w3-07-mig-cap            friendly  f16
+w3-07-mig-cap            hostile   mig29
+w3-08-mig-alone          friendly  f16
+w3-08-mig-alone          hostile   mig29
+w3-09-saturation         friendly  f16
+w3-09-saturation         hostile   mig29
+w3-10-package-q          friendly  f16
+w3-10-package-q          hostile   mig29
+w4-01-floor              friendly  f16
+w4-02-overcast           friendly  f16
+w4-03-below-floor        friendly  f16
+w4-04-emitter-hunt       friendly  f16
+w4-05-emcon              friendly  f16
+w4-06-decoy              friendly  f16
+w4-07-cap-intercept      friendly  f16
+w4-07-cap-intercept      hostile   mig29
+w4-08-package            friendly  f16
+w4-08-package            hostile   mig29
+w4-09-kez                friendly  f16
+w4-10-allied-force       friendly  f16
+w4-10-allied-force       hostile   mig29
+w5-01-cooperative        friendly  f16
+w5-02-silent             friendly  f16
+w5-03-team-swap          friendly  f16
+w5-04-escorted           friendly  f16
+w5-05-shadow             friendly  f16
+w5-06-two-subjects       friendly  f16
+w5-07-locked-on          friendly  f16
+w5-08-weather-id         friendly  f16
+w5-09-night-id           friendly  f16
+w5-10-alpha              friendly  f16

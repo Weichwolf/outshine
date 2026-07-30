@@ -2161,3 +2161,66 @@ bleibt, dass die eine Kampagne, deren Gegner der Sprit ist, von der Schicht übe
 gesehen wird. Was der Übertrag kann, hat er scharf gezeigt: eine `action=drop`-Zeile, und **das Streichen
 des Begleiters, der gestorben wäre, tötet den, der überlebt hätte** (standalone 1 von 2, in der Kampagne
 0 von 1) — bei **8 von 29** byte-identischen Telemetriedateien, und die acht sind genau die acht Bomben.
+
+## 2026-07-30 — Doktrin-Evolution `E5`: die Kampagnenbreite als Arena, und das Tor verweigert sie
+
+**Schritt 5 des Eigner-Ziels, und sein Ergebnis ist eine begründete Verweigerung mit Zahlen.** Gebaut
+wurde das Instrument, das `w1-red-flag.md` als fehlend benannt hatte: `tools/fb_campaign_arena.py`
+spleißt ein Genom in eine **Kopie** einer committeten Mission, fliegt sie, liest sie im Worker und
+löscht sie wieder. Eine Zelle ist `(Mission, Team, Modul)`; die Liste entsteht aus einer genannten
+Regel und nicht aus einer Auswahl — **154 Zellen aus den 100 Missionen der zehn Kampagnen**.
+
+**Zuerst gemessen, welche Gene überhaupt wirken können — 2 464 Läufe, je Gen sein veröffentlichter
+Kanal.** G2 (`pilot_cover_frac`): `flt_defer_s` ist **0,0 in allen 2 464 Läufen auf allen 154 Zellen** —
+das netzfähige Element trägt die AIM-120, deren Bindung 0,3 s dauert. G7 (`pilot_attack_ccip_m`):
+strukturell tot, weil **keine der 54 Angriffsmissionen CCIP fliegt** (42 Dateien `ccrp`, 12 `opt`, 9 `arm`) und
+`FBPilot.cpp:1368` den Schlüssel nur im CCIP-Zweig liest. G4 wirkt auf genau den zwölf Zellen, die
+`set task bfm` erklären. G6 ist F-16-only: `FBMig29Pilot` überschreibt den Angriffsdurchgang mit
+eigenem `ATTACK_CONSENT` und liest `AttackBiasS` nie. Bleibt G3, und nur seine Vertragshälfte auf der
+**MiG-29** — 75 Kanal-, 33 Klassenbewegungen.
+
+**Das Sättigungstor, mit dem festen Maßstab als S1-Population wie §4.2 es definiert (924 weitere
+Läufe): 0 informative Zellen von 154.** In drei Lesarten geprüft, damit die Zahl nicht am Hebelfile
+hängt: mit E2s eigenem `levers-genome.txt` 0, mit dieser Runde 15 Punkten 0, und in der lockersten
+Lesart, die das Tor zulässt, **2** — genau das Urteil, das W1 auf seinen zehn Sprossen erreichte. Die
+Verteilung ist die ehrliche Form: **89 Zellen bewegt kein Hebel, 46 einer, 15 zwei, 3 drei, 1 vier.**
+Das Tor wurde nicht gelockert; `fb_arena_check.py` ist byte-identisch, und ein bodentauglicher
+Maßstab, der 46 Zellen auf dem Papier informativ gemacht hätte, wurde aus E2s Grund nicht geschrieben.
+
+**Keine Doktrinverschiebung wird veröffentlicht.** Die bindende Regel gilt: was auf einer Zelle
+gemessen ist, die S1–S3 nicht besteht, ist ausdrücklich kein Befund.
+
+**Was die Selektion trotzdem fand, und es ist die zweite Pflichtlieferung.** Vier Einträge, jeder mit
+Kanal und Zahl. Der schärfste ist ein Exploit **unserer eigenen Fitness**: `FBMissionRunner` endet am
+ersten Flugmonitor-K.O., und `ExpectedLoss` verzeiht nur einem bereits kampfunfähigen Flugzeug — ein
+gesunder Strömungsabriss der **Gegenseite** beendet den Lauf, bevor irgendein Monitor abschließt, es
+wird **keine einzige `mission OBJECTIVE`-Zeile** veröffentlicht, und Stufe M liest 0. In
+`w4-10-allied-force` fällt `kamig4` bei t = 695,3 von 700 s: acht F-16 stehen bei `V = 16, M = 0`. Drei
+unabhängige Hebel halten die MiG in der Luft — darunter einer, der die Bomben **2 794 m** danebenwirft
+— und dieselben acht Jets stehen bei `V = 18, M = 8`. **17 von 154 Zellen** haben einen Hebel, der
+diese Grenze überschreitet.
+
+**Und zwei Defekte der Abwurfkette, gemessen als konstante ZEIT und nicht als Strecke.** Über acht
+Angriffszellen, vier Kampagnen, zwei Waffen und vier Höhen liegt das Minimum von `aimErrM(bias)` bei
+**−0,20 ± 0,05 s** — das ist eine Latenz, und es ist dieselbe, die W2 als `predErrM = Grundgeschwindigkeit
+× 0,228…0,241 s` gemessen hat. Der Hook des Moduls (`AttackReleaseBiasS()`) steht auf **0,0 s**. Mit
+−0,20 s fällt die gehärtete Kuppel von W2 (36,38 → **10,06 m**, Klasse (2,1) → (3,2)); X1 besser auf 2
+von 8 Zellen und **auf keiner schlechter**, X4a acht Spawn-Störungen über ±3 m ohne Klassenwechsel,
+X4b mit +50 % Zeitlimit gehalten. Darunter liegt eine Quantisierung: der Abwurf wird einmal je
+Entscheidungstakt geprüft, `aimErrM(bias)` ist eine **Treppe** mit einer Stufe je 0,1 s, und eine Stufe
+ist bei 231 m/s **23,1 m** — breiter als der 17,7-m-Radius, den eine Mk-84 gegen ein gehärtetes Ziel
+braucht.
+
+**Vierter Befund, unbequem und mit Kanal:** auf der EMCON-Sprosse `w1-07` kostet das kooperative
+Datenlink einen F-16 — bei `flt_assign` = `sort_assign` = `eng_shots` = **0 in beiden Varianten**, also
+nicht über die Zielaufteilung. Die Divergenzkette ist veröffentlicht und beginnt bei t = 0,1
+(`dl_on` → `dl_tracks`/`flt_mates` → `rwr_brg` → Bahn), das Datenlink ist nicht hörbar, also bewegt
+sich die **Verbandsgeometrie**. Determinismus über `--threads 1/2/4` an beiden Messpunkten: identische
+Telemetrie-Prüfsumme.
+
+`sim/src/` wurde nicht angefasst, `sim/assets` und `sim/missions` sind vor und nach jedem Lauf
+byte-identisch, `verify-models` und `verify-layers` grün, sieben Harnesses rc = 0,
+`core-lib`/`gym`/`native`/`wasm` warnungsfrei. Was einen Lauf möglich machen würde, steht als E-17 in
+den Gaps: eine Fitness, die zwei Angriffsdoktrinen ordnen kann (Stufe C ist auf **32 der 46**
+bombenwerfenden Zellen `GATE`), ein fester Maßstab, der auf der Zelle wirkt, die er beurteilt, und für
+G2/G7 eine Arena, die es in den Kampagnen nicht gibt.

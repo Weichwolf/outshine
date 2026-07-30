@@ -3,7 +3,7 @@
 
     tools/fb_evolve.py --out /tmp/evo --generations 4 --geometry xmirror
 
-WHAT IT IS ALLOWED TO CHANGE. Five genes and nothing else. The alphabet is not written here — it is
+WHAT IT IS ALLOWED TO CHANGE. Seven genes and nothing else. The alphabet is not written here — it is
 read out of the BINARY (`fb-gym --pilot-keys`), which is the one table `FBPilotTuning` compiles, so a
 genome cannot drift away from what the simulator will accept. The runner prints that alphabet at start
 in the shape doc/doctrine-evolution.md §2.2 asks for.
@@ -44,13 +44,19 @@ import fb_tournament as tour
 SIM_DIR = tour.SIM_DIR
 REPO_DIR = os.path.dirname(SIM_DIR)
 
-# THE FIVE GENES of §2.1. Three are buildable today; two are BLOCKED by a named gap in another file and
-# are listed here with the blocker rather than silently omitted — a genome that quietly drops a gene is
-# a genome nobody can audit.
+# THE GENES: §2.1's five plus §7's two. Five are buildable today; two are BLOCKED by a named gap in
+# another file and are listed here with the blocker rather than silently omitted — a genome that quietly
+# drops a gene is a genome nobody can audit. Adding G6/G7 moved this file's own seed spread, so `E2`'s
+# run is not byte-reproducible against today's genome; its measurements stand with their date.
 GENES = [
     ("pilot_energy_frac", None),          # G4 — Scale on BfmCornerSpeedKt
     ("pilot_cover_frac", None),           # G2 — Scale on the weapon's own binding time
     ("sort", None),                       # G3 — the briefed contract + the channel bit
+    # G6/G7 — the GROUND half's two decisions (doc/doctrine-evolution.md §7, E8). They are here and not
+    # in a second list because the genome is ONE thing: an arena on which a gene cannot act reports it
+    # as inert, which is a measurement, where a second list would be a place to hide one.
+    ("pilot_attack_bias_s", None),        # G6 — the pickle's lead over one's own actuation
+    ("pilot_attack_ccip_m", None),        # G7 — the cross error the pilot will accept before pressing
     ("pilot_flight_shape", "doc/formation.md F5: FormationSpreadM/TrailM/StackM are airframe hooks, "
                            "not mission data, so a flight cannot be briefed a shape at all"),
     ("pilot_emcon_frac", "doc/duels.md D3: the pilot's picture is built from the Radar block alone, so "
@@ -143,7 +149,11 @@ def seed_population(alphabet, size):
 def mutate(parent, alphabet, index, generation):
     """One gene moved by a fixed fraction of its own band, chosen by index — the deterministic stand-in
     for a mutation operator. The clamp is the band's, which is also FBPilotTuning's, so a mutant that
-    left the band would not fly rather than silently flying the default."""
+    left the band would not fly rather than silently flying the default.
+
+    ITS LIMIT IS MEASURED and lives in `fb_campaign_evolve.grid_poll`: a +-step poll cannot cross a
+    plateau, so a gene whose declared band is 200x its useful scale needs a poll that spans the band
+    rather than a neighbourhood of the champion. doc/doctrine-evolution.md D8."""
     keys = [k for k, blocked in GENES if not blocked and k in alphabet]
     child = Genome("g%d_%02d" % (generation, index), parent.params, parent.dl, parent.sort)
     if not keys:

@@ -287,6 +287,15 @@ half:
 | Rounds that arrive INSIDE their own fuze radius and do not kill | **five** (R-27R at 12.00, 13.51, 13.66, 13.75 m against 13.8 m; plus 14.85 m just outside). O2's rule, five more times |
 | Ground objects destroyed | 2 of 3 attacked on rung 6, 3 of 4 on rung 10 — the ground half decides at every scale |
 
+**CONFIRMED OVER THE OTHER NINE, 2026-07-30** ([`../doctrine-evolution.md`](../doctrine-evolution.md)
+§State `E5`): the same gate, with the fixed yardstick as S1's population instead of the lever set W1
+had to substitute, was pointed at **all 154 cells of the ten campaigns** — 3,388 runs. **0 informative
+cells** under the genome's own alphabet and **2** under the loosest reading the gate admits, i.e. W1's
+own verdict reproduced at fifteen times the size. 89 of the 154 cells are moved by no lever at all,
+and the two that pass both criteria are `w3-09-saturation` and `w3-10-package-q` — two capstone
+packages, both far above two aircraft a side, both moved by the GROUND gene and the channel bit. W1's
+sentence below is therefore not a property of Nellis.
+
 **The honest verdict:** W1's difficulty rises monotonically as a syllabus, and its measured outcome
 saturates from rung 4 on for a reason the ladder did not choose — a 2v2 in this tree is more saturated
 than a 1v1, which is exactly what [`../doctrine-evolution.md`](../doctrine-evolution.md) already measured

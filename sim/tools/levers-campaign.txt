@@ -1,0 +1,35 @@
+# FlightBox — THE GENOME'S ALPHABET ON A CAMPAIGN CELL, for tools/fb_campaign_arena.py --levers.
+#
+#     tools/fb_campaign_arena.py --out /tmp/arena --levers tools/levers-campaign.txt
+#
+# WHY IT IS NOT `levers-genome.txt`. Two differences, both forced by the arena rather than chosen:
+#
+#   1. A campaign rung DECLARES its own datalink briefing, so `dl=on` is a no-op on nine of the ten
+#      W-campaign pair rungs. The channel bit is swept at BOTH of its values here, and the loader
+#      leaves a line that says nothing about `dl=` on the mission's own setting.
+#   2. The genome grew by the two GROUND decisions the campaigns actually grade (doc/doctrine-
+#      evolution.md §7, G6/G7). Both are `Free` keys that have been in `FBPilotTuning`'s compiled
+#      table since the attack phase was built; neither is new syntax and neither can name a model
+#      number.
+#
+# THE SCALE OF G6, because a rail of its band is not the interesting value: `pilot_attack_bias_s`
+# shifts the pickle in TIME, so a second of it is a ground speed of track — at the 230 m/s a loaded
+# F-16 crosses an aim point with, 1.0 s = 230 m against a Mk-84's 17.7 m hardened-target radius
+# (doc/campaigns/w2-osirak.md). The three points are therefore both rails and ONE DECISION TICK
+# (0.1 s = 23 m), which is the smallest step the pilot can actually take.
+
+cover-off    pilot_cover_frac=0            # the cover rule off: fire whenever the parameters are met
+cover-one    pilot_cover_frac=1.0          # hold for exactly one of one's own bindings
+cover-three  pilot_cover_frac=3.0          # the far rail
+energy-low   pilot_energy_frac=0.7         # 266 kt insisted on, below the F-16's own BfmMinSpeedKt
+energy-mid   pilot_energy_frac=0.95
+energy-high  pilot_energy_frac=1.2         # 456 kt, above the overspeed clamp
+net-on       dl=on                         # the cooperative sort out of the shared picture
+net-off      dl=off                        # own sensors only, whatever the rung briefed
+sort-left    sort=left                     # the briefed azimuth contract
+sort-near    sort=near                     # the briefed range contract
+bias-early   pilot_attack_bias_s=-0.1      # pickle one decision tick early  (23 m short)
+bias-late    pilot_attack_bias_s=0.1       # ...and one tick late
+bias-rail    pilot_attack_bias_s=10        # the far rail: 2.3 km of track, i.e. no delivery at all
+ccip-tight   pilot_attack_ccip_m=1         # refuse the release at more than 1 m of CROSS error
+ccip-open    pilot_attack_ccip_m=2000      # accept any cross error the director offers

@@ -10,7 +10,14 @@ nothing. `E2` cut the genome against the arena: it measured every gene's lever o
 that `E1`'s total tie was the COMPARISON and not the genome (deviation D6), built the merge profile and
 three merge geometries, ran the gate with the genome's own alphabet (E-12) and got a REFUSAL, and
 produced the first evolution run whose population does not tie. Its measurements are the second
-`## State` block. `E3` took the merge apart: E-15's *"what the merge decides is a CFIT"* was exactly
+`## State` block. **`E5` (2026-07-30) is step 5 of the owner goal — evolution over the CAMPAIGN BREADTH — and its
+result is a refusal with numbers:** the gate was pointed at all **154 cells of the ten campaigns**
+(3,388 runs), the genome grew the two ground decisions the campaigns actually grade (§7), and
+**0 cells are informative** — 2 under the loosest reading the gate admits, which is exactly the verdict
+`campaigns/w1-red-flag.md` reached on its own ten rungs. No doctrine shift is published; the round's
+product is that measurement, the per-gene reach table, and four findings in
+§Gaps → "Exploits the evolution found", one of which is an exploit of this file's own level M.
+`E3` took the merge apart: E-15's *"what the merge decides is a CFIT"* was exactly
 right at n = 120 runs (**77 monitor KOs, the MiG-29 in 77 of 77**), the cause was one line of the
 airframe layer (`FBFlightControl` bound this jet's own rate damper only on its FLCS path while BFM
 commands `Manual`), and closing it took the merge's S1 pass away with it. Its measurements are the
@@ -19,8 +26,10 @@ third `## State` block; nothing in the fitness, the genome, the archive or the g
 carry** (D1–D5) and the one exhibit that did not come out the way the spec predicted (A). Built:
 `sim/tools/fb_fitness.py` (the fitness), `sim/tools/fb_arena_check.py` (the gate),
 `sim/tools/fb_evolve.py` (the runner and the archive), the `Free`/`Scale` split in
-`sim/src/pilot/FBPilotTuning.*`, `mission OBJECTIVE` in `sim/src/core/FBMissionMonitor.*`, and the
-eight-geometry arena in `sim/tools/fb_tournament.py`.
+`sim/src/pilot/FBPilotTuning.*`, `mission OBJECTIVE` in `sim/src/core/FBMissionMonitor.*`, the
+eight-geometry arena in `sim/tools/fb_tournament.py`, and (`E5`) `sim/tools/fb_campaign_arena.py` +
+`fb_campaign_evolve.py` + `fb_campaign_exploit.py` with `tools/arena-campaign.txt` and
+`tools/levers-campaign.txt`.
 
 **Why the name, and why it is not `evolution.md`.** Exactly one thing evolves here: **doctrine** — the
 decisions a pilot makes with the aircraft he was given. The model, the deck, the weapon and the sensor
@@ -532,6 +541,33 @@ fixed template with mandatory evidence per section.
   perturbation flips the outcome in 2 of 8 samples. Departure counts and pooled rate statistics are the
   parts of a sweep that carry information;
 - anything measured on a geometry that failed S1–S3.
+
+---
+
+### 7. Round `E5` — the arena is the campaigns, and the genome grows a ground half
+
+**Added 2026-07-30, before the round's first run.** §§0–6 are untouched: they are the contract and a
+contract edited to match what was built measures nothing. This section adds five contracts of its own,
+and every one of them exists because a MEASUREMENT of an earlier round forced it.
+
+| # | Contract | Acceptance / measurement anchor |
+|---|---|---|
+| **E7** | **The arena is the campaigns' own committed missions.** A cell is `(mission, team, module)`: a hand-authored rung, the side the doctrine is flown by, and the units its key is summed over | the cell list is produced by a STATED RULE and not curated (every group of the 100 missions that flies a FlightBox module and declares an objective), and the committed files are never written: `git status --porcelain sim/missions sim/assets` empty before and after, or the run is VOID |
+| **E8** | **The genome may name a GROUND decision, because that is the half the campaigns grade.** [MESS, [`campaigns/w1-red-flag.md`](campaigns/w1-red-flag.md)] *"the air half of a training ladder cannot be graded above two aircraft a side in this tree; the ground half can"* — and the five genes of §2.1 are all air-to-air. **G6** `pilot_attack_bias_s` (the pickle's lead over one's own actuation) and **G7** `pilot_attack_ccip_m` (the cross-error the pilot will accept before pressing) | both are EXISTING `Free` keys of `FBPilotTuning`'s compiled table with no new syntax and no dimensioned aircraft number; §2.2's boundary is unchanged and the runner prints its alphabet out of `fb-gym --pilot-keys` as before |
+| **E9** | **Which genes can act is MEASURED before the run, per cell, in the published channel §2.1 names for each gene** — never assumed from the mission text | one table, one channel and one number per gene per cell; a gene with no live channel anywhere in the arena is reported as structurally inert WITH the source line that makes it so |
+| **E10** | **The gate is not loosened, and where the lever set is larger than nine it is TIGHTENED.** S1's 60 %, S2's 3 movers, S4's 6 geometries and S5's 3 informative are the same constants | S2 passes only when the movers are ≥ 3 **and** ≥ 3/9 of the levers swept, so a longer lever file cannot buy a pass |
+| **E11** | **A campaign cell is not co-evolutionary, and the round must say what that does to §3's three instruments** | the opposing side is committed mission text and cannot answer, so instrument (a) is EXACT rather than a proxy and the Red Queen is excluded by construction; (b) and (c) stay live, because a pairwise order over a multi-cell arena can still be intransitive |
+
+**What E8 is not.** It is not a widening of §2.2's boundary and it may not become one. Both keys are
+PILOT properties in [`pilot.md`](pilot.md) §11's sense — one is the pilot's knowledge of his own hands
+(`AttackReleaseBiasS`, a module hook the F-16 sets to 0.0 s), the other is the error he is willing to
+accept — and neither can express a mass, a drag, a warhead or a range. The two `Scale` genes stay the
+only ones that touch an airframe number at all.
+
+**The one thing this round may NOT do, stated in advance because it is the cheap way out.** A campaign
+cell has a scripted opponent, so a doctrine can be fitted to ONE file's script. A shift is publishable
+only if it survives §5's X1 on cells the champion was not selected on, and the burden of proof stays
+inverted: no chain of published channels ⇒ exploit.
 
 ---
 
@@ -1067,6 +1103,121 @@ The trigger's prediction horizon was the ROUND's time of flight and is now the S
 
 ---
 
+## State — round `E5` (2026-07-30): the arena is the ten campaigns, and it is REFUSED
+
+Step 5 of the owner goal: evolve doctrine **over the campaign breadth**. The instrument
+[`campaigns/w1-red-flag.md`](campaigns/w1-red-flag.md) said the gate did not have is built
+(`tools/fb_campaign_arena.py`), the genome grew the two GROUND decisions the campaigns actually grade
+(§7 E8), and the gate was pointed at **all 154 cells of the ten campaigns**. It refuses them. Nothing
+in the fitness, the archive or the gate's numbers changed; `fb_arena_check.py` is byte-identical and
+`sim/src/` was not touched at all.
+
+**The one-sentence result: no doctrine shift is published, because no cell of the campaign breadth is
+informative — 0 of 154 under the genome's own alphabet, and 2 of 154 under the loosest reading the
+gate admits, which is the identical verdict W1 reached on its own ten rungs.**
+
+### 1. Which genes can act, MEASURED per cell rather than read off the mission text (E9)
+
+[MESS, 154 cells × 16 lever points = **2,464 runs**, `--elev const`, each campaign's own clock,
+`tools/fb_campaign_arena.py --channels`] "Channel" counts the cells on which the gene moved the
+published column §2.1 names for it; "class" counts the cells on which it moved the outcome class.
+
+| Gene | its published channel | channel moves | class moves | why the number is what it is |
+|---|---|---:|---:|---|
+| **G2** `pilot_cover_frac` | `flt_defer_s`, `flt_cover_s` | **0** | **0** | `flt_defer_s` is 0.0 in **all 2,464 runs on all 154 cells**. E-6's condition — a binding longer than the spread between two members' firing solutions — is met by no campaign geometry: the cooperative element that has a live net (the F-16) carries the AIM-120, whose binding is 0.3 s |
+| **G3** `sort` + `dl` | `flt_src`, `flt_assign`, `flt_switch`, `SORT_ASSIGN` | **75** | **33** | the only gene family that moves the breadth, and the half that moves it is the BRIEFED CONTRACT on the **MiG-29** — an aircraft with no datalink, where E2's *"a contract beside a live net is dead text"* does not apply |
+| **G4** `pilot_energy_frac` | `bfm_ctrl_s`, `bfm_es` | **12** | **9** | it exists only inside `Phase::Bfm`, and the campaigns declare `set task bfm` in exactly **six** files (`o4-04…09`, `w1-01`) — twelve cells with both seats. The reach is the whole population of BFM cells |
+| **G6** `pilot_attack_bias_s` | `ATTACK_RELEASE biasS`, `stores DELIVERY aimErrM` | **34** | **26** | F-16 only. `FBMig29Pilot` overrides the attack pass with its own `ATTACK_CONSENT` path and never reads `AttackBiasS`, so the gene is structurally absent on every O3 striker — E-6's *"the gradient is airframe-shaped"*, a second time and for a different reason |
+| **G7** `pilot_attack_ccip_m` | `deliveries`, `aimErrM` | **0** | **0** | `FBPilot.cpp:1368` reads it only when `AtkMode_ == Ccip`, and **not one of the 54 attack missions in the ten campaigns flies CCIP** — they are `ccrp` (42 files), `opt` (12, the MiG's optical director) and `arm` (9). Structurally inert, with the source line and the census |
+
+**The two blocked genes are unchanged and the runner still prints their blockers**: G1 (`formation.md`
+F5) and G5 (`duels.md` D3) are not keys at all. The runner's alphabet line now reads *"evolving 5 genes
+of 20 pilot keys; 16 keys not in the genome; 0 non-pilot keys reachable"* — and the consequence is
+stated rather than hidden: adding G6/G7 moves `fb_evolve.seed_population`'s spread, so **`E2`'s
+evolution run is not byte-reproducible against today's genome.** Its measurements stand with their date,
+which is the rule this file already applies to an archive whose arena moved.
+
+### 2. The gate over the campaign breadth — REFUSED, and the number is robust across three readings
+
+The cell list is generated by a stated rule and not curated (`tools/arena-campaign.txt`): every
+`(mission, team, module)` group of the 100 committed missions that flies a FlightBox module and
+declares an objective. **S1 is taken in the FIXED YARDSTICK** (`variants-bvr.txt`, six frozen
+doctrines, 924 further runs) — §4.2's own construction, which W1 could not use and had to substitute
+the lever population for.
+
+| reading | S2 lever set | S2 threshold | cells passing S2 | of those, S1 ok | informative | verdict |
+|---|---|---|---:|---:|---:|---|
+| this round's contract (E10) | `levers-campaign.txt`, 15 points | ≥ 3 **and** ≥ 3/9 of 15 = 5 | 0 | — | **0** | REFUSED |
+| `E2`'s own published alphabet | `levers-genome.txt`, 9 points | ≥ 3 of 9 | 1 (`o4-06-merge:f16`) | 0 | **0** | REFUSED |
+| the loosest the gate admits | `levers-campaign.txt`, 15 points | ≥ 3, ratio waived | 4 | 2 | **2** | REFUSED (S5 2 < 3) |
+
+`S4 154 cells ≥ 6 ok · S5 0 informative ≥ 3 NO · S6 0 identical pair(s) ok · S3 n/a (D2)`
+
+**The distribution of movers, which is the honest form of "the genome and the arena do not intersect":**
+
+| movers of 15 | 0 | 1 | 2 | 3 | 4 |
+|---|---:|---:|---:|---:|---:|
+| cells | **89** | 46 | 15 | 3 | 1 |
+
+The four cells above two are `o4-06-merge:f16` (3 — all three energy alleles), `w3-09-saturation:f16`
+(3), `w4-10-allied-force:f16` (3) and `w3-10-package-q:f16` (4). Twelve cells pass S1; the two that
+pass both under the loosest reading are `w3-09-saturation:f16` and `w3-10-package-q:f16` — **both
+capstone packages, both above two aircraft a side, and both moved by the GROUND gene and the channel
+bit rather than by anything the air half does.** That is W1's sentence measured on nine more
+campaigns: *the air half of this tree cannot be graded above two aircraft a side; the ground half can.*
+
+### 3. Why the ground half has no gradient either, and it is the fitness rather than the arena
+
+[MESS, the same 154 baselines] level **C is `GATE` on 74 of 154 cells**, and on **32 of the 46 cells
+that actually aim a bomb**. Every craft item of §1.3 is an air-to-air quantity — shot geometry,
+uplink support, shot lead, defence, energy, rounds — so a strike cell's key is `(V, M, GATE)` and two
+doctrines that both survive and both miss are EXACTLY tied. The graded channel is the objective count
+alone, which is binary per aim point.
+
+The consequence is a search property and it was measured before the gate's verdict was in, on a
+two-cell probe (`w2-01-dome` + `w1-01-merge`, 94 runs, 8 generations): a `fb_evolve`-style ±step poll
+that halves on stagnation **never moved its champion off `pilot_attack_bias_s = −7.2`**, because every
+value outside a ±0.08 s window produces the identical class and the step shrinks around wherever the
+first champion sat. Replacing the operator with a coordinate-wise GRID poll over the current bracket,
+halving the bracket per generation (`fb_campaign_evolve.grid_poll`, booked as **D8**), crossed the
+plateau at generation 6 and found **−0.1562 s**. Both probes are reported as what they are — probes of
+the SEARCH OPERATOR on an arena that had not passed — and neither publishes anything.
+
+### 4. What the search found anyway: one instrument exploit and two delivery defects
+
+All three are in §Gaps → "Exploits the evolution found" with their channels. The headline of the three,
+because it is the one the fitness itself is exposed to:
+
+**A healthy aircraft — on EITHER side — departing controlled flight deletes level M for everybody.**
+`FBMissionRunner`'s loop ends at `FirstFlightKo`, and `ExpectedLoss` forgives a K.O. only when the unit
+was already combat-ineffective, so a stall/mush of a MiG-29 stops the run before any monitor
+`Conclude`s: **zero `mission OBJECTIVE` lines are published** and every unit reads `NONE`. [MESS,
+`w4-10-allied-force`] the baseline ends at t = 695.3 of 700 s with `kamig4 LOC "stall/mush"` and the
+eight Blue F-16s score `V = 16, M = 0`; three unrelated levers (`net-off`, `bias-early`, **and
+`bias-rail`, which throws the bombs 2,794 m wide**) all keep the MiG flying, the run reaches its own
+timeout, and the identical eight jets score `V = 18, M = 8`. **17 of 154 cells have a lever that
+crosses that boundary; 5 baselines sit on the wrong side of it.**
+
+### 5. The cost, and what it did not touch
+
+| | |
+|---|---|
+| runs | **2,464** lever + **924** yardstick + 64 bias sweep + 26 exploit-detector + 94 + 350 probe = **3,922** |
+| wall clock | 37 min (lever pass, `--jobs 7 --threads 2`) + 16 min (yardstick) on 6 cores |
+| determinism | `--threads 1/2/4` at both measurement points: `w1-07-emcon` baseline/`net-off` and `w2-01-dome` at `bias −0.2` — **identical telemetry MD5 and identical events at all three**, 6 + 3 runs |
+| `git status --porcelain sim/assets sim/missions` | **empty before and after every run**; `verify-models` green (1 declared delta), `verify-layers` green (*"304 files, 841 internal include(s), 12 layers — no upward include, 3 restricted header(s) respected, 6 registry reader(s) inside the perception boundary, 1 antenna-cue poster(s), 291 file(s) in their layer's namespace (5 C-island file(s) exempt)"*) |
+| `sim/src/` | **not touched**. The round is three tools, two data files and this section |
+| first tool crash, and the fix | the first full pass was killed at cell 140 of 154 after 65 min and printed nothing. The gate now appends every finished run to its channels CSV and RESUMES from it |
+
+### Deviations from the spec, found while building it
+
+| # | The spec says | What was built, and why |
+|---|---|---|
+| **D8** (`E5`) | §2's genome is searched by `fb_evolve.mutate`'s ±quarter-band step | The campaign runner polls a coordinate-wise GRID over each gene's current bracket and halves the bracket per generation. `mutate` is unchanged and its default `scale=1.0` is the old step exactly. The reason is measured (§3): with a gene whose declared band is 200× its useful scale, a local ±step poll on a plateau shrinks around its own starting point — 94 runs, 8 generations, champion unmoved — while a bracket that always spans the band reaches 0.078 s of a 20 s band in six |
+| **D9** (`E5`) | §4.2 S1 is measured *"against a fixed field (the yardstick of §3.6a)"* | Built exactly so on a campaign cell, which W1 could not do — and the consequence is stated rather than worked around: the frozen field is six BVR intercept doctrines, so it is INERT on every strike cell, and a strike cell can therefore never pass S1. Writing a ground-flavoured yardstick would have made 46 cells informative on paper; it was not done, for the reason `E2` declined the merge yardstick |
+
+---
+
 ## Gaps
 
 | # | Thing | Known from |
@@ -1086,12 +1237,30 @@ The trigger's prediction horizon was the ROUND's time of flight and is now the S
 | **E-13** | **DIAGNOSIS REPLACED (`E2`).** The total tie was the AGGREGATION, not the genome: §1.4's cross-seat comparison returns the SEAT in both mirrored runs wherever the seat carries the key, so every variant takes one point of two. [MESS, same telemetry, only the comparison changed] cross-seat 0.500 × 12, same-seat 0.227…0.773. Three of the five genes grip when measured one at a time (§State 1). What remains true of E-13's second half: the genome and the arena still barely intersect — of the five genes exactly **one** (G3) moves an outcome class on exactly **one** geometry (`xfarsplit`) | `E1`, `E2` |
 | **E-14** | **HALVED (`E4`): the merge now has an OUTCOME, and G4's mover is a CFIT.** (a) and (b) are unchanged — no transition from the intercept phase into `Phase::Bfm`, and the merge writes no `eng_*` column, so level C is `GATE` on both sides. (c) is CLOSED: `Phase::Bfm` employs the round on the rail ([`pilot.md`](pilot.md) §5.11) and `xmerge` goes from 60/60 `(2,1)` to **30 (3,2) + 30 (1,0)** — every run decided, all 40 kills by a missile, none by the gun. The gun itself went 2.21 % → **7.68 %** of its rounds on target (§5.8) and still needs 17.0 landed 30 mm rounds against 9.53 delivered. **The new half of this gap:** all three `pilot_energy_frac` alleles now move the class on `merge` — S2's first pass on a merge cell — and all three do it with a `monitor KO ATTITUDE_CONTACT` of a jet the AIM-9 exchange had already blinded. `E-15`'s rule applies unchanged and G4 is not published |
 | **E-15** | **CLOSED (`E3`), and closing it CONFIRMED the reading: the merge's S1 pass WAS the CFIT.** At n = 120 runs per pass the merge cells produced **77 monitor KOs and every single one was the MiG-29** (38 `ATTITUDE_CONTACT`, 37 `CFIT`, 2 `STRUCTURE_CONTACT`); zero F-16 KOs, in either seat. The cause was not the pilot and not the floor: `systems/FBFlightControl` bound this airframe's own rate damper only on its FLCS path while `Phase::Bfm` commands `Manual` ([`pilot.md`](pilot.md) §5.10a). With it on the hand stick the same 120 runs produce **0 KOs** — and `xmerge`/`xmergesplit` fall from 2 outcome classes at a 50.0 % modal share to **1 class at 100 %**, i.e. they lose their S1 pass with the defect that was carrying it. That is the finding stated forwards: a geometry whose informativeness comes from one side dying of a bug is a measurement of the bug | `E2`, `E3` |
+| **E-17** | **The campaign breadth is REFUSED as an arena, and 89 of its 154 cells are not moved by the genome at all.** [MESS, `E5`] 0 informative cells under both the published `levers-genome.txt` and this round's 15-point file; 2 under the loosest reading the gate admits, which is W1's own verdict. **What would make a run possible, named so it can be checked rather than hoped for:** (a) a fitness that can order two strike doctrines — level C is `GATE` on 32 of the 46 cells that aim a bomb, so a bomb 20 m out and a bomb 2 km out are EXACTLY tied; (b) S1 needs a fixed field that acts on the cell it judges, and the only frozen one is six BVR intercept doctrines — a ground-flavoured yardstick would fix it on paper and is refused for `E2`'s reason; (c) G2 and G7 need an arena that does not exist in the campaigns at all (a long-binding round on a netted element; a CCIP delivery) | `E5`, [`campaigns/w1-red-flag.md`](campaigns/w1-red-flag.md) |
+| **E-18** | **Level M cannot tell "judged and unmet" from "never judged".** Both read 0, and the difference is worth 8 points of M on `w4-10`. The judge publishes `OBJECTIVE` lines only from `Conclude`, and `FBMissionRunner` skips every `FinalizeMission` when a healthy unit's K.O. ends the run. Until that is closed, every campaign-cell fitness contains a term that is a property of the OPPONENT's airmanship | `E5`, X-1 |
 | **E-16** | **A converged population and a circling one look alike in instrument (c).** The `E2` run's champion never changed, so "min distance to a champion 3+ generations back" is 0.0000 — the reading §3.6c gives a CYCLER. T = 0.0000 and the yardstick was flat, so this one is a fixed point; the instrument cannot tell the two apart on its own and the file now says so | `E2` |
 
 ### Exploits the evolution found
 
-*(Empty — nothing has been run. This section is where §5's failures land, one row each: the champion,
-the channel it rode, the file that owns the defect, and whether it was fixed or bounded.)*
+**Round `E5`, over the ten campaigns.** One is an exploit of the INSTRUMENT and rides no physics at
+all; two are defects of the delivery chain that a genome value buys back; one is a doctrine effect
+whose channel is published and whose reading is uncomfortable. Each row carries the channel, the
+number and the file that owns the defect. **Nothing here was fixed** — this round did not touch
+`sim/src/`, and a fix is a round of its own.
+
+| # | What the search found | The channel it rides, with its number | Owner | X3 |
+|---|---|---|---|---|
+| **X-1** | **A healthy departure of ANY unit, on either side, deletes level M for the whole mission** — so a doctrine is paid for keeping the OPPONENT flying | `FBMissionRunner`'s loop ends at `FirstFlightKo`; `ExpectedLoss` forgives a K.O. only for a unit that is already combat-ineffective, so nobody `Conclude`s and **0 `mission OBJECTIVE` lines** are published. [MESS, `w4-10-allied-force`] baseline: `kamig4 LOC "stall/mush"` at t = 695.3 of 700 ⇒ eight F-16s at `V = 16, M = 0`. `net-off`, `bias-early` and `bias-rail` each keep it flying ⇒ **`V = 18, M = 8`**. `bias-rail` gets there by throwing its bombs **2,794 m** wide. **17 of 154 cells** have a lever that crosses the boundary, **5** baselines sit on the wrong side | this file (level M's input, E-1) + `missions/FBMissionRunner.cpp` | **FAILS** — the advantage has no chain to the opponent at all. An exploit by §5's inverted burden |
+| **X-2** | **The pilot's pickle carries ~0.2 s of uncancelled chain latency, and a genome value buys it back** | `ATTACK_RELEASE biasS=0 leadS=0.6 ttrS=0.569` → `stores DELIVERY predErrM = 52.57 m = gs × 0.227 s` (W2 measured 0.228–0.241 s over seventeen drops) → `aimLongM 36.34` of `aimErrM 36.38` (99.9 % along) → `damage rangeM 33.66` against a Mk-84's 17.7 m. Swept on 8 strike cells over four campaigns, two stores and four altitudes, the minimum of `aimErrM(bias)` sits at **−0.20 ± 0.05 s on every one of them** — a constant TIME, not a constant distance, which is what says it is a latency. At −0.20 s, `w2-01-dome` 36.38 → **10.06 m**, the hardened dome is DESTROYED and `(V, M)` goes (2,1) → (3,2) | [`pilot.md`](pilot.md) §5 attack pass — `FBF16Pilot::AttackReleaseBiasS()` returns **0.0 s** | passes: chain named, number at every link. **Not an exploit — a defect of the default** |
+| **X-3** | **The release time is quantised at the pilot's decision tick, and the quantum is wider than the weapon's own lethal radius** | the release cue is evaluated once per `DecisionDtS_` = 0.1 s, so `aimErrM(bias)` is a STAIRCASE: 36.38, 36.38, 13.29, 13.29, 10.06, 10.06, 33.12, 56.24 m over bias 0 … −0.40 in 0.05 s steps — pairs, one step per tick. At a loaded F-16's 231 m/s one tick is **23.1 m** of track against a hardened target's **17.7 m** radius, so the best reachable lattice point can be 11.5 m off with a perfect bias and the residual floor is 10–22 m on all eight cells | [`weapons.md`](weapons.md) / [`pilot.md`](pilot.md) §5.8 — the same partition class as Exhibit C, on the release clock instead of the gun bundle | passes as a mechanism; it is §5's **partition class** and is listed as one |
+| **X-4** | **The cooperative datalink costs an F-16 on the rung whose subject is emission discipline — and NOT through the sort** | [MESS, `w1-07-emcon`, `--threads 1/2/4`, identical] `flt_src`/`flt_assign`/`sort_assign`/`eng_shots` are **0 in both** variants, so no assignment was ever made. With `dl=on` the wingman is killed at t = 338.2 and the run ends at 382 s; with `dl=off` both jets live to 600 s — `V = 3, M = 1` → **`V = 4, M = 2`**. The divergence chain is published and starts at t = 0.1: `dl_on`/`dl_xmt` → `dl_tracks`/`flt_mates`/`blk_datalink` (t = 30) → `rwr_brg` (t = 90) → trajectory (t = 150). The net is not audible (`DatalinkXmt` has no `FBEmitterSignature` and only `FBDatalinkSystem` reads it), so what moved is the FLIGHT GEOMETRY and not the picture. `net-off` improves 4 cells and worsens 10 | [`formation.md`](formation.md) — the station-keeping path, not F2's switch instability | passes X3; **what it is not is a sort finding**, and the numbers say so |
+
+**And the one lever that moves the campaign breadth is a briefed contract on an aircraft with no net.**
+`sort-near` improves the outcome class on **12 cells** and worsens it on 7; on `o5-01-cap:mig29` it
+takes `M` from 2 to 4 with `eng_shots` 1 → 4 and `sort_assign` 2 → 6. It is the strongest genuine
+doctrine signal in 2,464 runs — and every cell it moves failed S1, so §6 forbids publishing it as a
+shift. It is the first thing a passing arena should be pointed at.
 
 ### Rejected before being tried, with the reason
 
@@ -1220,3 +1389,8 @@ reading five lines of a `constexpr` table, which is the reason the table is wher
 | `sim/tools/fb_evolve.py` | §2/§3's runner: the genome out of `fb-gym --pilot-keys`, the archive, the three circling instruments |
 | `sim/tools/levers-merge.txt` | the merge phase's OWN nine lever points — the declared nine are all intercept keys and not one of them is read in `BfmCommands` |
 | `sim/tools/levers-genome.txt` | the three live genes as a lever set: the file that turns E-12 from a note into a gate run |
+| `sim/tools/fb_campaign_arena.py` | §7's gate on a COMMITTED mission: the genome spliced into a copy, one cell per `(mission, team, module)`, the run read and pruned in the worker and appended to a resumable CSV |
+| `sim/tools/fb_campaign_evolve.py` | §7's runner — the cell in the seat's place, the key cache that makes the archive free, and the grid poll of D8 |
+| `sim/tools/fb_campaign_exploit.py` | §5's X1/X4a/X4b/X4c on a campaign cell; X2 is `n/a` for D2's reason |
+| `sim/tools/arena-campaign.txt` | the 154 cells, generated by a stated rule and not curated |
+| `sim/tools/levers-campaign.txt` | the genome's alphabet on a campaign rung: 15 points, both values of the channel bit, and G6's three points scaled to one DECISION TICK rather than to its band |
