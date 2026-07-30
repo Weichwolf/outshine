@@ -2284,3 +2284,47 @@ verschiebt die Klasse jeder Zelle, deren Grundlinie oder Hebel die K.O.-Grenze k
 erreicht `kMoversMin`. Das steht als Schuld in E-17 und nicht als Argument. Das Tor wurde nicht
 gelockert, kein Genom-Schlüssel bewegt, kein Modell angefasst; `verify-models` und `verify-layers` grün,
 sieben Harnesses rc = 0, `core-lib`/`gym`/`native`/`wasm` warnungsfrei.
+
+## 2026-07-31 — `E7`: die Schuld ist bezahlt, und S1 hat das falsche Genom gemessen
+
+Zwei Dinge waren offen, beide sind geliefert: das 154-Zellen-Tor **vollständig** neu gefahren nach dem
+X-1-Fix, und S1s festes Feld mit dem Genom kommensurabel gemacht. **4.158 Läufe**, `sim/src/`
+unangetastet, kein Torkonstante gelockert.
+
+Der Befund der Runde brauchte **null Läufe**: das feste Feld unterscheidet seine sechs Mitglieder in
+`pilot_shot_rtr`, `pilot_lock_nm`, `pilot_react_s` — das Genom besteht aus fünf ganz anderen Schlüsseln,
+und alle sechs tragen dieselbe `sort`-Allele. Die Schnittmenge ist **leer**. „Informativ = S1 ∧ S2" war
+also die Konjunktion zweier Fragen über verschiedene Dinge, und drei Runden Verweigerung gehörten zuerst
+dem Instrument. Spec §9 (E15 Kommensurabilität, E16 Erweiterung statt Neuschrift, E17 die gebuchten
+Kosten) und zwei Prüfer, die sich weigern statt zu behaupten — Beleg für E16 ist die **Commit-Reihenfolge**
+(`f0d8115` vor jedem Lauf, der das Feld liest).
+
+**Die Schuld, bezahlt — und sie widerlegt die Vorhersage, mit der sie gebucht wurde.** `E6` hatte
+geschrieben, der X-1-Fix bewege die Klasse jeder der 17 Zellen an der K.O.-Grenze. Gemessen bewegt er die
+Beweger-Verteilung um **zwei Zellen** (89·46·15·3·1 → 89·46·16·2·1). Eine Beweger-Zahl ist eine
+*Differenz*, und der Fix hat Basis und Hebel meist gemeinsam über die Grenze geschoben.
+
+**S1: 13 → 0, und der Mechanismus ist Arithmetik.** Das kommensurable Feld spaltet **mehr** Zellen (61
+statt 52) und besteht S1 auf **keiner**. Alle dreizehn früheren Bestehen sind Zeile für Zeile verfolgt:
+die Klassenzahl bleibt exakt gleich (2→2, 3→3, 4→4), der Modalanteil geht 50,0 % → 72,7 % bzw. 33,3 % →
+63,6 % — also genau `(alt + 5)/11`. Kein einziges der fünf neuen Mitglieder erzeugt irgendwo eine neue
+Klasse. Ein auf einer Zelle inertes Mitglied ist eine **Stimme für den Status quo**. Die Schranke ist
+allgemein: die Basisklasse hält auf **allen 154** Zellen ≥ 2 der sechs Mitglieder, also ist der
+Modalanteil bei inertem Genom mindestens 63,6 % — über S1s 60 %. Die dreizehn waren **Falschpositive,
+jedes einzelne**. `E4`s ungeklärte Beobachtung „S1 und S2 bestehen auf verschiedenen Zellen" ist damit
+aufgelöst statt gemildert.
+
+**Die bindende Schranke ist S2, und kein Feld erreicht sie**: S2 zählt über die Hebel, nie über das Feld.
+0 von 154 Zellen erreichen die geforderten 5 Beweger, die beste der ganzen Kampagnenbreite hat 4 — und
+**5 der 15 Hebel sind auf allen 154 Zellen strukturell tot** (G2 dreimal, G7 zweimal). Selbst die
+großzügigste ehrliche Rechnung lässt **eine** Zelle bestehen, gegen S5s drei.
+
+Die Evolution ist **nicht** gelaufen, und das ist kein Versäumnis, sondern §6: auf einer Zelle, die das
+Tor nicht besteht, ist nichts ein Befund. `tools/arena-informative.txt` wird vom Tor selbst geschrieben
+und enthält null Zellen.
+
+Die fehlende Arena ist jetzt datiert statt beschrieben: **keine** der 100 Kampagnenmissionen wirft in
+CCIP (102 × `ccrp`, 32 × `opt`, 20 × `arm`), obwohl Modus und Rig existieren und kein C++ fehlt. Das ist
+zuerst eine **Realismuslücke** der Kampagnen und darum baubar, ohne die Arena um ein Gen herum zu bauen.
+Neu gebucht: E-19 — S1s Schwelle ist ein Anteil, und ein Anteil ist nicht invariant unter der Größe des
+Feldes, in dem er genommen wird. Nicht hier repariert, mit Absicht.

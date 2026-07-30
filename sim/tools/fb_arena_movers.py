@@ -44,12 +44,19 @@ def read(path):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("channels")
+    ap.add_argument("--levers", default="", help="the AUTHORITATIVE lever set. Without it the set is "
+                    "whatever the file happens to contain, and a resumed run's stale lever name then "
+                    "makes every cell look incomplete")
     ap.add_argument("--per-cell", action="store_true")
     a = ap.parse_args()
 
     rows = read(a.channels)
     cells = sorted({c for c, _ in rows})
-    levers = sorted({l for _, l in rows if l != "baseline"})
+    if a.levers:
+        import fb_campaign_arena as arena
+        levers = [v.name for v in arena.load_levers(a.levers) if v.name != "baseline"]
+    else:
+        levers = sorted({l for _, l in rows if l != "baseline"})
 
     fam_cells = collections.defaultdict(set)     # family -> cells it moves
     lever_cells = collections.defaultdict(set)   # lever  -> cells it moves

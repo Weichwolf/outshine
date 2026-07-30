@@ -1463,6 +1463,121 @@ campaign exit is unchanged.
 
 ---
 
+## State — round `E7` (2026-07-31): the debt is paid, and S1 was measuring the wrong genome
+
+Two things were owed and both are delivered: the 154-cell gate re-run in FULL after the X-1 fix, and
+S1's fixed field made commensurate with the genome (§9, E15–E17). **Nothing in `sim/src/` was
+touched.** 4,158 runs: 2,464 lever (154 cells × 16), 924 against the historical six-member field as a
+CONTROL, 770 for the five members that make it commensurate. `--elev const`, each campaign's own clock,
+`git status --porcelain sim/missions sim/assets` empty before and after.
+
+**The one-sentence result: the arena is REFUSED again, but for the first time the two criteria AGREE —
+S1's thirteen passes under the old field were passes on doctrine the evolution cannot express, and a
+field that CAN express it passes nowhere, on all 154 cells, arithmetically.**
+
+### 1. The debt, paid — and it refutes the prediction `E6` committed with it
+
+[MESS, 154 complete cells × 15 levers + baseline]
+
+| movers of 15 | 0 | 1 | 2 | 3 | 4 |
+|---|---:|---:|---:|---:|---:|
+| `E5`, before the X-1 fix | 89 | 46 | 15 | 3 | 1 |
+| `E7`, after it | 89 | 46 | **16** | **2** | 1 |
+
+`E6`'s commit message predicted the fix "moves the class of every cell whose baseline or lever crossed
+the knockout boundary, in both directions", on the 17 cells `E5` had counted. **Measured, it moves the
+mover distribution by two cells.** The reason is that a mover count is a DIFFERENCE: X-1 shifted the
+baseline and its levers across the boundary TOGETHER on nearly every affected cell, so the class moved
+and the difference did not. `w4-10-allied-force:f16` — the cell `E6` measured the exploit on — leaves
+the group entirely, 3 movers → 0, exactly as measured there. The prediction was wrong in its magnitude,
+and the measurement is the correction.
+
+**Which lever family moves an outcome class, over the whole breadth** (`tools/fb_arena_movers.py`, which
+reads published channels and flies nothing, so it cannot select anything):
+
+| family | cells it moves | the levers in it |
+|---|---:|---|
+| **G6** `pilot_attack_bias_s` | 28 | `bias-rail` 26, `bias-late` 11, `bias-early` 6 |
+| **G3** `sort` + `dl` | 30 | `sort-near` 17, `net-off` 12, `sort-left` 4 |
+| **G4** `pilot_energy_frac` | 9 | `energy-low` 6, `energy-mid` 3, `energy-high` 3 |
+| **G2** `pilot_cover_frac` | **0** | — |
+| **G7** `pilot_attack_ccip_m` | **0** | — |
+
+### 2. S1 under a commensurate field — 13 → 0, and the mechanism is arithmetic, not a coincidence
+
+| field | cells with ≥ 2 outcome classes | **S1 passes** |
+|---|---:|---:|
+| `variants-bvr.txt`, 6 members, incommensurate (the control) | 52 | **13** |
+| `variants-arena.txt`, 11 members, commensurate | **61** | **0** |
+
+The commensurate field splits MORE cells and passes S1 on none. That is not a paradox and not a
+regression — it is the repair working, and the thirteen are traceable one by one:
+
+| the 13 that passed | distinct classes, before → after | modal share, before → after |
+|---|---|---|
+| all thirteen | **unchanged** (2→2, 3→3, 4→4) | 3/6 = 50.0 % → **8/11 = 72.7 %**, or 2/6 = 33.3 % → **7/11 = 63.6 %** |
+
+**Not one of the five new members produced a new outcome class on any of the thirteen.** All five landed
+in the modal class every time, and the new share is exactly `(old modal + 5) / 11`. **A member that is
+inert on a cell is a vote for the status quo**, and five of them raise the modal share by construction.
+
+The bound is general rather than a property of these thirteen [MESS, all 154 cells, the six BVR members'
+own classes]: the class the BASELINE sits in holds **≥ 2 of the 6 members on every one of the 154 cells**
+(2 members on 5 cells, 3 on 9, 4 on 17, 5 on 21, all 6 on 102). With an inert genome the modal class is
+therefore at least `(2 + 5)/11 = 63.6 %`, above S1's 60 % everywhere. **On 0 of 154 cells could S1 be
+passed by a genome that cannot act**, and on only **9 of 154** does even one of the five members move a
+class at all.
+
+So S1 now asks exactly the question it was meant to ask — *can the doctrine under evolution move this
+cell?* — and its answer over the ten campaigns is no. The thirteen passes of the six-member field were
+**false positives, every one**: those cells were spread by `pilot_shot_rtr`, `pilot_lock_nm` and
+`pilot_react_s`, none of which the genome contains. `E4`'s unexplained observation — *"S1 and S2 pass on
+different cells"* — is dissolved rather than mitigated: they passed on different cells because they were
+asked in different alphabets.
+
+### 3. What no field can fix, and it is the binding constraint
+
+**S2 does not read the field at all** (`fb_campaign_arena.py` counts movers over `levers`, never over
+`yard`), so the extension could not have changed the verdict whatever it contained. Under this round's
+contract (E10: ≥ 3 movers AND ≥ 3/9 of the 15 swept = 5) **0 of 154 cells pass S2**; the best cell in the
+entire campaign breadth is `w3-10-package-q:f16` with **4**.
+
+And the denominator is worse than it looks: **5 of the 15 levers are structurally dead on all 154
+cells** — G2's three and G7's two, each measured at 0 movers above. Even the most generous honest
+accounting — strike the dead levers and recompute the ratio over the 10 that can act (3/9 × 10 → ≥ 4) —
+leaves **exactly one** cell passing S2, against S5's 3. The campaign breadth cannot grade this genome,
+and that statement is now robust across four readings rather than three.
+
+### 4. The two arenas that are missing, named with their census
+
+Both are E-17(c), and this round makes one of them cheap enough to date:
+
+| gene | what it needs | what the tree has |
+|---|---|---|
+| **G7** `pilot_attack_ccip_m` | one rung that delivers in **CCIP** | the mode and a rig exist (`missions/attack-ccip.fbm`); of the 100 campaign missions **not one** declares it — 102 `ccrp`, 32 `opt`, 20 `arm`. **No C++ is needed** |
+| **G2** `pilot_cover_frac` | an element whose two members' firing solutions are spread wider than the weapon's own binding | the netted element carries the AIM-120 (0.3 s binding); `flt_defer_s` is 0.0 in all 2,464 runs |
+
+The CCIP gap is a **realism** gap of the campaigns before it is a gate gap — CCIP is the F-16's standard
+visual delivery and 54 attack missions fly without it — which is what makes building it legitimate under
+§7's rule that a round may not build the arena around a gene.
+
+### 5. The cost, and what this round did not touch
+
+| | |
+|---|---|
+| runs | **4,158** (2,464 lever + 924 control + 770 commensurate) |
+| `sim/src/` | **not touched.** The round is one doc section, one data file, two refusals in a tool, one read-only reporter |
+| the gate's constants | `kModalMax` 0.60, `kMoversMin` 3, `kMoverFrac` 3/9, `kGeometriesMin` 6, `kInformativeMin` 3 — **all unchanged, none loosened** |
+| the evolution | **not run.** §6 forbids publishing anything measured on a cell that failed S1–S3, and 0 cells passed. `tools/arena-informative.txt` is written BY the gate and contains zero cells, which is the honest form of that sentence |
+
+### Deviations from the spec, found while building it
+
+| # | The spec says | What was built, and why |
+|---|---|---|
+| **D11** (`E7`) | E17(b): growing the genome moves S1, so S1 numbers are comparable only within an alphabet version | **The booking was too narrow, and the measurement says so.** Field SIZE moves S1 as well, and mechanically: S1's threshold is a SHARE, so adding *k* members that are inert on a cell raises its modal share to `(m + k)/(n + k)`. Extending a field therefore TIGHTENS S1 silently. It does not violate E10 (which forbids loosening) and it is the correct direction — an inert member must not certify a cell — but it was not foreseen, and the constant 0.60 is calibrated against a field of six |
+
+---
+
 ## Gaps
 
 | # | Thing | Known from |
@@ -1482,7 +1597,8 @@ campaign exit is unchanged.
 | **E-13** | **DIAGNOSIS REPLACED (`E2`).** The total tie was the AGGREGATION, not the genome: §1.4's cross-seat comparison returns the SEAT in both mirrored runs wherever the seat carries the key, so every variant takes one point of two. [MESS, same telemetry, only the comparison changed] cross-seat 0.500 × 12, same-seat 0.227…0.773. Three of the five genes grip when measured one at a time (§State 1). What remains true of E-13's second half: the genome and the arena still barely intersect — of the five genes exactly **one** (G3) moves an outcome class on exactly **one** geometry (`xfarsplit`) | `E1`, `E2` |
 | **E-14** | **HALVED (`E4`): the merge now has an OUTCOME, and G4's mover is a CFIT.** (a) and (b) are unchanged — no transition from the intercept phase into `Phase::Bfm`, and the merge writes no `eng_*` column, so level C is `GATE` on both sides. (c) is CLOSED: `Phase::Bfm` employs the round on the rail ([`pilot.md`](pilot.md) §5.11) and `xmerge` goes from 60/60 `(2,1)` to **30 (3,2) + 30 (1,0)** — every run decided, all 40 kills by a missile, none by the gun. The gun itself went 2.21 % → **7.68 %** of its rounds on target (§5.8) and still needs 17.0 landed 30 mm rounds against 9.53 delivered. **The new half of this gap:** all three `pilot_energy_frac` alleles now move the class on `merge` — S2's first pass on a merge cell — and all three do it with a `monitor KO ATTITUDE_CONTACT` of a jet the AIM-9 exchange had already blinded. `E-15`'s rule applies unchanged and G4 is not published |
 | **E-15** | **CLOSED (`E3`), and closing it CONFIRMED the reading: the merge's S1 pass WAS the CFIT.** At n = 120 runs per pass the merge cells produced **77 monitor KOs and every single one was the MiG-29** (38 `ATTITUDE_CONTACT`, 37 `CFIT`, 2 `STRUCTURE_CONTACT`); zero F-16 KOs, in either seat. The cause was not the pilot and not the floor: `systems/FBFlightControl` bound this airframe's own rate damper only on its FLCS path while `Phase::Bfm` commands `Manual` ([`pilot.md`](pilot.md) §5.10a). With it on the hand stick the same 120 runs produce **0 KOs** — and `xmerge`/`xmergesplit` fall from 2 outcome classes at a 50.0 % modal share to **1 class at 100 %**, i.e. they lose their S1 pass with the defect that was carrying it. That is the finding stated forwards: a geometry whose informativeness comes from one side dying of a bug is a measurement of the bug | `E2`, `E3` |
-| **E-17** | **The campaign breadth is REFUSED as an arena, and 89 of its 154 cells are not moved by the genome at all.** [MESS, `E5`, 2026-07-30] 0 informative cells under both the published `levers-genome.txt` and that round's 15-point file; 2 under the loosest reading the gate admits, which is W1's own verdict. **The three checkable points, with their state after `E6`:** (a) **CLOSED** — level C was `GATE` on 32 of the 46 cells that aim a bomb and is now `GATE` on **0 of 46**, with the two deciding levels unmoved on all 154 cells (§State `E6` 1); (b) **OPEN, unchanged** — S1 needs a fixed field that acts on the cell it judges, and the only frozen one is six BVR intercept doctrines; a ground-flavoured yardstick would fix it on paper and is refused for `E2`'s reason; (c) **OPEN, unchanged** — G2 and G7 need an arena that does not exist in the campaigns at all (a long-binding round on a netted element; a CCIP delivery). **Still open and named as this round's debt: the 154-cell gate has NOT been re-run in full.** The craft level cannot move it (S1 and S2 are computed on the outcome class `(V, M)`, measured unchanged between the two readers on all 154 cells), but the X-1 fix CAN — it moves the class of every cell whose baseline or lever crossed the knockout boundary, in both directions. Flown so far: **29 of 154 complete cells, mover distribution 24 × 0 · 4 × 1 · 1 × 2 of 15**, no cell at `kMoversMin` | `E5`, `E6`, [`campaigns/w1-red-flag.md`](campaigns/w1-red-flag.md) |
+| **E-17** | **The campaign breadth is REFUSED as an arena, and 89 of its 154 cells are not moved by the genome at all.** [MESS, `E5`, 2026-07-30] 0 informative cells under both the published `levers-genome.txt` and that round's 15-point file; 2 under the loosest reading the gate admits, which is W1's own verdict. **The three checkable points, with their state after `E6`:** (a) **CLOSED** — level C was `GATE` on 32 of the 46 cells that aim a bomb and is now `GATE` on **0 of 46**, with the two deciding levels unmoved on all 154 cells (§State `E6` 1); (b) **OPEN, unchanged** — S1 needs a fixed field that acts on the cell it judges, and the only frozen one is six BVR intercept doctrines; a ground-flavoured yardstick would fix it on paper and is refused for `E2`'s reason; (c) **OPEN, unchanged** — G2 and G7 need an arena that does not exist in the campaigns at all (a long-binding round on a netted element; a CCIP delivery). **The debt is PAID (`E7`)**: the 154-cell gate is re-run in full, 4,158 runs, and the answer refutes the prediction it was booked with — the X-1 fix moves the mover distribution by **two cells** (89·46·15·3·1 → 89·46·16·2·1), because a mover count is a difference and the fix shifted baseline and levers across the boundary together. **(b) is CLOSED (`E7`) and the closing INVERTED it**: the field was not merely ground-blind, it was disjoint from the genome in every gene, and a commensurate field passes S1 on **0 of 154** cells where the incommensurate six passed 13 — all thirteen false positives, traceable one by one (§State `E7` 2). **(c) is now the ONLY thing standing**, and it is the binding constraint: S2 does not read the field at all, 0 of 154 cells reach its 5 movers, the best in the whole breadth has 4, and **5 of the 15 levers are structurally dead everywhere** (G2's three, G7's two) | `E5`, `E6`, `E7`, [`campaigns/w1-red-flag.md`](campaigns/w1-red-flag.md) |
+| **E-19** | **S1's threshold is a SHARE, and a share is not invariant under the size of the field it is taken in.** [MESS, `E7`] adding five members that are inert on a cell raises its modal share from `m/n` to `(m+5)/(n+5)`: the thirteen cells that passed S1 kept their outcome-class count EXACTLY (2→2, 3→3, 4→4) and went 50.0 % → 72.7 % and 33.3 % → 63.6 %. The direction is right — an inert member must not certify a cell — but `kModalMax = 0.60` was calibrated against a field of six, and no constant in the gate knows how large its field is. **Not fixed here on purpose:** a threshold retuned at the end of the round that its own field made fail is exactly what E10 forbids | `E7` |
 | **E-18** | **CLOSED (`E6`, 2026-07-30). Level M could not tell "judged and unmet" from "never judged"** — both read 0, and the difference was worth 8 points of M on `w4-10`. The runner now asks every open judge after the loop, whatever ended the run, and always AFTER the combination so no verdict can move. [MESS] `w4-10-allied-force:f16` baseline goes from `V = 16, M = 0` to `V = 18, M = 8`, which is what its three levers already read; 251 missions with 0 telemetry values and 0 exit codes moved | `E5`, X-1 |
 | **E-16** | **A converged population and a circling one look alike in instrument (c).** The `E2` run's champion never changed, so "min distance to a champion 3+ generations back" is 0.0000 — the reading §3.6c gives a CYCLER. T = 0.0000 and the yardstick was flat, so this one is a fixed point; the instrument cannot tell the two apart on its own and the file now says so | `E2` |
 
