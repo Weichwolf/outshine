@@ -289,6 +289,18 @@ void FBFdm::SetFuelTotalLbs(double lbs) {
 
 void FBFdm::SetFuelPct(double pct) { SetFuelTotalLbs(GetFuelCapacityLbs() * (pct / 100.0)); }
 
+void FBFdm::SetFuelTankPriority(int idx, int priority) {
+  auto pr = P->Exec.GetPropulsion();
+  if (idx < 0 || (size_t)idx >= pr->GetNumTanks()) return;
+  pr->GetTank((unsigned)idx)->SetPriority(priority < 0 ? 0 : priority);
+}
+
+int FBFdm::GetFuelTankPriority(int idx) const {
+  auto pr = P->Exec.GetPropulsion();
+  if (idx < 0 || (size_t)idx >= pr->GetNumTanks()) return 0;
+  return pr->GetTank((unsigned)idx)->GetPriority();
+}
+
 /* The index is DISCOVERED, not counted: the model may declare pointmasses of its own, and after
  * AddPointMass ours is the last — first index whose weight property is absent is the count, minus 1. */
 int FBFdm::AddStorePointMass(const char *name, double xIn, double yIn, double zIn) {
@@ -473,6 +485,12 @@ double FBFdm::GetFuelTankLbs(int idx) const {
   auto pr = P->Exec.GetPropulsion();
   if (idx < 0 || (size_t)idx >= pr->GetNumTanks()) return 0.0;
   return pr->GetTank((unsigned)idx)->GetContents();
+}
+
+double FBFdm::GetFuelTankCapacityLbs(int idx) const {
+  auto pr = P->Exec.GetPropulsion();
+  if (idx < 0 || (size_t)idx >= pr->GetNumTanks()) return 0.0;
+  return pr->GetTank((unsigned)idx)->GetCapacity();
 }
 
 double FBFdm::GetFuelTotalLbs() const {

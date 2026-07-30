@@ -1,0 +1,45 @@
+name bingo-press-1
+timeout 300
+
+# THE COUNTER-CHECK FOR bingo-abort.fbm: that file with the ONE bingo line deleted, and nothing else
+# touched. Same geometry, same fuel, same weapons, same vector, same bandit.
+#
+# The point of the pair is that the fuel STATE is identical in both runs — 4,183 lb aboard from the
+# first tick — and only the DECLARATION differs. Without `brief_bingo_lbs` the warning block has no
+# threshold to evaluate (`FBF16Ufc::BingoLbs` 0 = the warning stays inhibited), the pilot has committed
+# to no number, and the intercept is flown to its end. A fuel state is not a decision; a number a pilot
+# committed to is.
+#
+# MEASURED against bingo-abort.fbm: `eng_state` search -> closing (52.0 s) -> attack (140.1) -> support
+# (147.9) -> attack (172.5), one AIM-120 arriving 0.55 m from the bandit at t = 172.8 s; heading never
+# leaves the vector (90.0 -> 112.1 deg). `warn_active` is 0 for the whole run against the other file's 2.
+#
+# READING RULE: exit 0 with the bandit destroyed is the correct outcome and the same one bvr-intercept.fbm
+# produces. What is being compared is not this file's result against a target value but this file's
+# result against bingo-abort.fbm's: press-on and kill, against break-off and no shot.
+
+unit viper
+  team friendly
+  module f16
+  spawn 46.90000 6.40000 8000 90.0 450
+  set gear up
+  set fuel_int_pct 60                      # 4,183 lb internal, external tanks empty
+  set datalink off
+  set fcr_mode crm                         # search, no auto-lock: the pilot decides when to lock
+  set store 3 aim120
+  set store 7 aim120
+  set brief_master_arm arm
+  set task intercept
+  wp 46.90000 8.35000 8000 450             # the controller's vector: threat bearing 090, co-altitude
+
+  objective kill unit bandit
+unit bandit
+  team hostile
+  module f16
+  spawn 46.90000 7.70000 8000 270.0 400
+  set gear up
+  set fuel_pct 70
+  set datalink off
+  set fcr_mode off                         # it does not look, and therefore never warns anyone
+  set rwr off
+  wp 46.90000 5.90000 8000 400             # a straight westbound leg through the engagement

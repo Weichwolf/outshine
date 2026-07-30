@@ -17,7 +17,9 @@ enum class FBStoreKind : uint8_t { None = 0, Mk82, Aim120, Aim9, R73, R27r,
                                    /* the air-to-ground stores (doc/air-to-ground.md §§2-3) */
                                    Agm88, Mk84, Gbu12, Cbu87, Fab250, Fab500,
                                    /* the catalogue aircraft's rounds (doc/modules/air/catalogue.md) */
-                                   K13, R60, R24r, R40r, Aim7, S530f, Magic1 };
+                                   K13, R60, R24r, R40r, Aim7, S530f, Magic1,
+                                   /* the store that is not a weapon (doc/modules/stores.md) */
+                                   Tank370 };
 
 /* WHAT KIND OF SEEKER a guided round carries — and therefore which SENSOR SLOT modules/missile gives
  * it, which is the whole difference between the three guided weapons in the tree. Not a behaviour flag
@@ -159,6 +161,13 @@ struct FBStoreSpec {
   int    SubCount = 0;
   double SubMassKg = 0.0;
   double FootAlongM = 0.0, FootAcrossM = 0.0;
+
+  /* THE FUEL THIS STORE IS HUNG WITH, and the one field that makes a row a TANK instead of a weapon:
+   * > 0 means the store needs a PLUMBED station and owns that station's model fuel tank while it hangs
+   * there. The quantity is not a second fuel account — it is written ONCE into FGTank contents at load
+   * and read back from the engine ever after. `MassLbs` above is the DRY mass; the two never overlap.
+   * 0 = every row written before this field is not a tank. doc/modules/stores.md §Spec. */
+  double FuelLbs = 0.0;
 };
 
 /* Mk-82, 500 lb GP bomb (doc/modules/f16/weapons.md §3). Perf.ArmingS 2.0 [SET], WarheadKg [T3], and
@@ -583,13 +592,35 @@ inline constexpr FBStoreSpec kMagic1{
     FBWeaponPerf{12353.0, 4.0, 0.0, 0.0, 89.0, 67.6, 0.55, 0.019359, 200.0, 0.0, 10000.0, 1.0},
     /*Seeker*/ FBSeekerKind::Infrared, /*FovHalf*/ 5.0, /*GimbalHalf*/ 55.0};
 
+/* ---- THE STORE THAT IS NOT A WEAPON: the F-16's 370-gallon wing tank -------------------------------
+ * Every figure and its provenance: doc/modules/stores.md §Knowledge. The one published number is the
+ * FULL carriage weight, 2 516 lb [T4]; MassLbs 240 is the dry mass [SET] and FuelLbs 2 276 the
+ * remainder [DERIVED], so the airframe feels the sourced number whichever way the split falls.
+ * DragAreaFt2 = 0.12 * 3.95 ft^2 [DERIVED], the frontal area itself derived from the declared volume.
+ * WarheadKg 0: it is a tank. */
+inline constexpr FBStoreSpec kTank370{
+    FBStoreKind::Tank370, "tank370", "tank370", 240.0, 0.475, 120.0,
+    /*Guided*/ false, /*RequiresLock*/ false, /*FuzeRadiusM*/ 0.0, /*WarheadKg*/ 0.0,
+    FBWeaponPerf{/*BoostThrustN*/ 0.0, /*BoostS*/ 0.0,
+                 /*SustainThrustN*/ 0.0, /*SustainS*/ 0.0,
+                 /*LaunchMassKg*/ 108.862, /*BurnoutMassKg*/ 108.862,
+                 /*DragCoefA*/ 0.12, /*RefAreaM2*/ 0.366968,
+                 /*MinSpeedMs*/ 0.0,
+                 /*ActivationRangeM*/ 0.0, /*SeekerRangeM*/ 0.0,
+                 /*ArmingS*/ 0.0},
+    /*Seeker*/ FBSeekerKind::None, /*FovHalf*/ 0.0, /*GimbalHalf*/ 0.0, /*GatherS*/ 0.0,
+    /*SeekerMemoryS*/ 0.0, /*ReleaseMinKt*/ 0.0, /*ReleaseMaxKt*/ 0.0,
+    /*SubCount*/ 0, /*SubMassKg*/ 0.0, /*FootAlongM*/ 0.0, /*FootAcrossM*/ 0.0,
+    /*FuelLbs*/ 2276.0};
+
 inline constexpr const FBStoreSpec *kStoreCatalogue[] = {&kMk82, &kAim120, &kAim9, &kR73, &kR27r,
                                                          &kV750, &kV601, &k3m9, &k9m33, &kStrela2,
                                                          &kIgla,
                                                          &kAgm88, &kMk84, &kGbu12, &kCbu87,
                                                          &kFab250, &kFab500,
                                                          &kK13, &kR60, &kR24r, &kR40r, &kAim7,
-                                                         &kS530f, &kMagic1};
+                                                         &kS530f, &kMagic1,
+                                                         &kTank370};
 
 inline const FBStoreSpec *FBFindStore(const char *key) {
   if (!key) return nullptr;

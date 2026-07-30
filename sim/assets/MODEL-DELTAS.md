@@ -68,6 +68,7 @@ ungeprüftes Modell und lässt `verify-models` fehlschlagen.
 | `aim7` | — |
 | `s530f` | — |
 | `magic1` | — |
+| `tank370` | — |
 
 Die **zehn Katalog-Jets** (`f15c` `su27` `mig21` `mig23` `mig25` `mig17` `su7` `su22` `mirf1` `f5e`)
 sind FlightBox-eigene Modelle aus EINEM Rezept und werden nicht von Hand geschrieben, sondern

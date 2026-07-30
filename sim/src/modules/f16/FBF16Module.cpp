@@ -706,6 +706,21 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
     Fdm_->SetFuelPct(pct);
     return true;
   }
+  /* DIE INNERE ZULADUNG, und der Grund, dass sie eine eigene Zeile braucht: `fuel_pct` verteilt ueber
+   * JEDEN deklarierten Tank des Modells, also auch ueber die zwei EXTERNEN, die eine Zelle ohne
+   * Zusatztank gar nicht traegt (gemessen: 3 589 lb bei `fuel_pct 60`). Diese Zeile fuellt nur, was
+   * keine Station verrohrt hat — der saubere Jet, zum ersten Mal deklarierbar.
+   * doc/modules/stores.md §Gaps 3. */
+  if (key == "fuel_int_pct") {
+    double pct = 0.0;
+    if (!ParseDouble(value, pct)) return RejectSetup("not a number", key, value);
+    if (pct < 0.0 || pct > 100.0) return RejectSetup("outside 0..100", key, value);
+    for (int t = 0; t < Fdm_->GetFuelTankCount(); t++) {
+      if (SmsSys->TankIsPlumbed(t)) continue;
+      Fdm_->SetFuelTankLbs(t, Fdm_->GetFuelTankCapacityLbs(t) * (pct / 100.0));
+    }
+    return true;
+  }
   return false;   /* unknown key: FBMissionBoot.h logs SET_UNKNOWN_KEY with the key AND value */
 }
 

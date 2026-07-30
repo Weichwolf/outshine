@@ -27,6 +27,14 @@ public:
   /* Station `number` (1-basiert wie der Jet zaehlt) im STRUKTURRAHMEN des Modells (Zoll). Stationen
    * muessen VOR AttachFdm deklariert sein. */
   void DeclareStation(int number, double xIn, double yIn, double zIn);
+  /* WELCHE STATION AN WELCHEM TANK DES MODELLS HAENGT — die Aussage des MODELLS, nicht dieser Klasse:
+   * f16.xml benennt seine beiden externen Tanks selbst nach Station 4 und 6. Nur eine so verrohrte
+   * Station nimmt einen Zusatztank an; eine Zelle ohne Verrohrung lehnt ihn ab, weil ein Pylon ohne
+   * Spritleitung ein Pylon ohne Spritleitung ist. doc/modules/stores.md §Spec. */
+  void DeclareFuelPlumbing(int station, int fdmTankIndex);
+  /* Haengt an diesem Tank des Modells ein PYLON? Die eine Frage, die eine Spritdeklaration stellen
+   * muss, um „innen" von „aussen" zu unterscheiden, ohne Tankindizes zu erfinden. */
+  bool TankIsPlumbed(int fdmTankIndex) const;
   /* Bindet die Zelle und legt je deklarierter Station eine JSBSim-Punktmasse an (Gewicht 0 = leer). */
   void AttachFdm(Fdm::FBFdm &fdm);
 
@@ -116,19 +124,32 @@ private:
   struct Station {
     double XIn = 0.0, YIn = 0.0, ZIn = 0.0;
     int    PointMass = -1;                       /* Index im FDM, -1 = nicht gebunden */
+    int    TankIdx = -1;                         /* Tank des Modells, -1 = nicht verrohrt */
     FBStoreKind Kind = FBStoreKind::None;
     double MassLbs = 0.0, DragAreaFt2 = 0.0;
+    bool   Fuel = false;                         /* der geladene Store IST ein Tank */
   };
 
   /* Sagt dem FDM die ganze Zuladung neu an. Nur bei Load und Release — zwischen diesen zwei Ereignissen
    * aendert sich an einer Zuladung nichts. */
   void PublishLoadout();
+  /* Sagt dem FDM die ENTNAHME-REIHENFOLGE an und sonst nichts: geladene Aussentanks Prioritaet 1,
+   * innere 2, eine verrohrte Station OHNE Tank leer und abgewaehlt. Ohne einen einzigen geladenen Tank
+   * bleibt jeder Tank auf der Prioritaet, mit der das Modell geladen wurde — eine Zelle ohne Zusatztank
+   * ist damit bitgleich zu einer, die nie davon gehoert hat. doc/modules/stores.md §Spec. */
+  void PublishFuelPlumbing();
+  bool AnyFuelStore() const;
   void SelectNextLoaded();
   int  IndexOf(int station) const;   /* Stationsnummer -> Arrayindex, -1 wenn undeklariert */
 
   Station Stations_[kMaxStations];
   int StationNumber_[kMaxStations]{};   /* die Pylonnummern des Jets, in Deklarationsreihenfolge */
   int Count_ = 0;
+  /* Die Prioritaeten, mit denen das MODELL geladen wurde — gelesen, nie geraten, und zurueckgeschrieben,
+   * sobald kein Zusatztank mehr haengt. */
+  static constexpr int kMaxFuelTanks = 16;
+  int TankPriority0_[kMaxFuelTanks]{};
+  int TankCount_ = 0;
   FBArmState Arm_ = FBArmState::Sim;   /* ein Jet faehrt mit Master Arm SAFE hoch */
   int Selected_ = -1;
   bool Wow_ = true;                    /* bis die Luftdaten anderes sagen: am Boden */

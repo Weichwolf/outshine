@@ -1018,10 +1018,15 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
   }
   if (defendDue) {
     EngState_ = FBEngageState::Defend;
-  } else if (EngState_ == FBEngageState::Defend && TimeS_ - IntThreatLastS_ >= Tuned(FBPilotParam::DefendHoldS, InterceptDefendHoldS())) {
-    /* Ob das der Notch war oder der Schuetze weggeflogen ist, kann dieses Flugzeug nicht wissen. Was es
+  } else if (EngState_ == FBEngageState::Defend) {
+    /* DIE ABWEHRFRIST BESITZT DEN ZUSTAND, SOLANGE SIE LAEUFT. Vorher stand hier eine Bedingung statt
+     * eines Zweigs, und der allgemeine Zweig unten nahm Defend im ERSTEN Takt nach dem Erloeschen des
+     * Symbols weg: die Frist lief nie ab, der Beam wurde genau dann abgebrochen, wenn er wirkte, und
+     * CanPressOn darunter war unerreichbarer Code (doc/campaigns/w3-desert-storm.md, Fund 1).
+     * Ob das der Notch war oder der Schuetze weggeflogen ist, kann dieses Flugzeug nicht wissen. Was es
      * beantworten kann, ist, ob es noch etwas hat, WOMIT es zurueckkommt. */
-    EngState_ = CanPressOn(state) ? FBEngageState::Search : FBEngageState::Abort;
+    if (TimeS_ - IntThreatLastS_ >= Tuned(FBPilotParam::DefendHoldS, InterceptDefendHoldS()))
+      EngState_ = CanPressOn(state) ? FBEngageState::Search : FBEngageState::Abort;
   } else if (EngState_ == FBEngageState::Support) {
     /* Der Crank wird NICHT „bis der Suchkopf uebernimmt" gehalten: das ist das Ende des UPLINK-Bedarfs,
      * nicht das Ende des Schusses. Der Deckel faengt einen Startbereich ab, der nie einen Countdown
@@ -1033,10 +1038,28 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
     if (sinceShotS >= holdS || (!locked && !Eng_.Pitbull()))
       EngState_ = weapons && haveTgt ? FBEngageState::Attack : FBEngageState::Abort;
   } else if (EngState_ != FBEngageState::Abort) {
+    /* DER SPRIT SCHLAEGT DAS BILD. Er steht ueber allem hier, weil er als Einziges eine Tatsache ueber
+     * das FLUGZEUG ist und nicht ueber das, was auf dem Scope steht; unter ihm stehen nur noch Saetze
+     * darueber, wer gerade wo ist. Ueber ihm stehen genau zwei: die Abwehr (defendDue, oben) und die
+     * eigene Runde, die noch den Uplink braucht (Support, oben) — man hoert nicht wegen Sprit auf, sich
+     * zu wehren, und man wirft keinen bereits bezahlten Schuss weg. Von den drei Instrumenten in
+     * CanPressOn wird hier NUR dieses gehoben: „Radar strahlt nicht" ist eine gebriefte Taktik (EMCON)
+     * und „Traeger leer" hat unten seinen eigenen Zweig mit eigener Ausnahme.
+     * doc/pilot.md, Abschnitt 7.4a. */
+    if (state.Warnings.H.Readable() && (state.Warnings.Active & FBWarnBingo) != 0) {
+      if (EngState_ != FBEngageState::Abort && !IntBingoLogged_) {
+        IntBingoLogged_ = true;
+        FBLog::Info("intercept", "BINGO_ABORT",
+                    {{"t", TimeS_}, {"fuelLbs", state.Airframe.H.Readable() ? state.Airframe.FuelLbs : 0.0f},
+                     {"bingoLbs", state.Ufc.H.Readable() ? state.Ufc.BingoEffectiveLbs : 0.0f},
+                     {"from", FBEngageStateStr(EngState_)}, {"haveTgt", haveTgt}});
+      }
+      EngState_ = FBEngageState::Abort;
+    }
     /* „Nichts auf dem Scope" schlaegt alles andere: ein Jet ohne Ziel fliegt seinen Brief und sucht,
      * ganz gleich, was auf den Traegern ist — ein Abbruch wegen leerer Traeger, bevor je etwas gesehen
      * wurde, waere schlicht ein Jet, der geht. */
-    if (!haveTgt) EngState_ = FBEngageState::Search;
+    else if (!haveTgt) EngState_ = FBEngageState::Search;
     else if (!weapons) EngState_ = FBEngageState::Abort;
     else if (tgtRangeM * kMToNm < Tuned(FBPilotParam::AbortRangeNm, InterceptAbortRangeNm()) && !Eng_.HaveShot())
       EngState_ = FBEngageState::Abort;   /* in Sichtweite und nie geschossen: das ist kein Abfang mehr */

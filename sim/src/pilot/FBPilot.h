@@ -403,6 +403,7 @@ private:
   double IntCrankSign_ = 1.0;       /* Richtung der Crank-Drehung, je Support-Eintritt einmal entschieden */
   bool   IntHaveCrankSign_ = false;
   bool   IntSupportBound_ = false;   /* s. SupportInhibitsDefend: einmal melden, nicht je Tick */
+  bool   IntBingoLogged_ = false;    /* der Abbruch am Mindestsprit wird EINMAL gemeldet */
   double IntCoverSinceS_ = -1.0;    /* seit wann der eigene Schuss fuer die Deckung zurueckgehalten wird */
   bool   FlightSplit_ = false;      /* der Fuehrende ist ausser Rottenreichweite — einmal melden */
   bool   IntCoverLogged_ = false;

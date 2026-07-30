@@ -18,6 +18,18 @@ void FBStoresSystem::DeclareStation(int number, double xIn, double yIn, double z
   StationNumber_[Count_ - 1] = number;
 }
 
+void FBStoresSystem::DeclareFuelPlumbing(int station, int fdmTankIndex) {
+  int i = IndexOf(station);
+  if (i < 0 || fdmTankIndex < 0) return;
+  Stations_[i].TankIdx = fdmTankIndex;
+}
+
+bool FBStoresSystem::TankIsPlumbed(int fdmTankIndex) const {
+  for (int i = 0; i < Count_; i++)
+    if (Stations_[i].TankIdx == fdmTankIndex) return true;
+  return false;
+}
+
 int FBStoresSystem::IndexOf(int station) const {
   for (int i = 0; i < Count_; i++)
     if (StationNumber_[i] == station) return i;
@@ -35,16 +47,68 @@ void FBStoresSystem::AttachFdm(Fdm::FBFdm &fdm) {
     Stations_[i].PointMass = fdm.AddStorePointMass(name, Stations_[i].XIn, Stations_[i].YIn,
                                                    Stations_[i].ZIn);
   }
+  /* Die Entnahme-Reihenfolge des Modells LESEN, damit sie spaeter zurueckgeschrieben werden kann. Nur
+   * wo ueberhaupt verrohrt wurde — sonst faellt der ganze Mechanismus weg. */
+  bool plumbed = false;
+  for (int i = 0; i < Count_; i++) plumbed = plumbed || Stations_[i].TankIdx >= 0;
+  if (!plumbed) return;
+  TankCount_ = fdm.GetFuelTankCount();
+  if (TankCount_ > kMaxFuelTanks) TankCount_ = kMaxFuelTanks;
+  for (int t = 0; t < TankCount_; t++) TankPriority0_[t] = fdm.GetFuelTankPriority(t);
+  for (int i = 0; i < Count_; i++)
+    assert(Stations_[i].TankIdx < TankCount_ && "a station is plumbed to a tank the model has not got");
+}
+
+bool FBStoresSystem::AnyFuelStore() const {
+  for (int i = 0; i < Count_; i++)
+    if (Stations_[i].Fuel) return true;
+  return false;
+}
+
+void FBStoresSystem::PublishFuelPlumbing() {
+  if (!Fdm_ || TankCount_ <= 0) return;
+  if (!AnyFuelStore()) {
+    for (int t = 0; t < TankCount_; t++) Fdm_->SetFuelTankPriority(t, TankPriority0_[t]);
+    return;
+  }
+  for (int t = 0; t < TankCount_; t++) Fdm_->SetFuelTankPriority(t, 2);
+  for (int i = 0; i < Count_; i++) {
+    const Station &s = Stations_[i];
+    if (s.TankIdx < 0) continue;
+    if (s.Fuel) {
+      Fdm_->SetFuelTankPriority(s.TankIdx, 1);
+    } else {
+      Fdm_->SetFuelTankLbs(s.TankIdx, 0.0);
+      Fdm_->SetFuelTankPriority(s.TankIdx, 0);   /* dort haengt kein Tank: der Motor sieht ihn nicht */
+    }
+  }
 }
 
 bool FBStoresSystem::Load(int station, const FBStoreSpec &spec) {
   int i = IndexOf(station);
   if (i < 0 || Stations_[i].Kind != FBStoreKind::None) return false;
+  /* EIN TANK BRAUCHT EINE LEITUNG. Sein Sprit ist FGTank-Inhalt und nichts sonst, also gibt es ihn nur
+   * dort, wo das Modell einen Tank fuer diese Station deklariert hat. */
+  bool fuel = spec.FuelLbs > 0.0;
+  if (fuel && (Stations_[i].TankIdx < 0 || !Fdm_)) return false;
   Stations_[i].Kind = spec.Kind;
-  Stations_[i].MassLbs = spec.MassLbs;
+  Stations_[i].MassLbs = spec.MassLbs;   /* TROCKEN: der Sprit wiegt im Tank des Modells */
   Stations_[i].DragAreaFt2 = spec.DragAreaFt2;
+  Stations_[i].Fuel = fuel;
+  if (fuel) {
+    double cap = Fdm_->GetFuelTankCapacityLbs(Stations_[i].TankIdx);
+    double lbs = cap > 0.0 && spec.FuelLbs > cap ? cap : spec.FuelLbs;
+    if (lbs < spec.FuelLbs)
+      FBLog::Warn("sms", "TANK_CLAMPED", {{"station", station}, {"store", spec.Key},
+                                          {"wantLbs", spec.FuelLbs}, {"capacityLbs", cap}});
+    Fdm_->SetFuelTankLbs(Stations_[i].TankIdx, lbs);
+    FBLog::Info("sms", "TANK_LOADED", {{"station", station}, {"store", spec.Key},
+                                       {"fuelLbs", lbs}, {"dryLbs", spec.MassLbs},
+                                       {"tank", Stations_[i].TankIdx}});
+  }
   if (Selected_ < 0) Selected_ = station;
   PublishLoadout();
+  PublishFuelPlumbing();
   return true;
 }
 
@@ -197,12 +261,28 @@ bool FBStoresSystem::Release(double nowS, FBCommandOutcome &outcome, FBCommandRe
    * neue Gewicht existiert einen Schritt spaeter und wird aus sms_gw_lbs gelesen. */
   double gwLbs = Fdm_ ? Fdm_->GetWeightLbs() : 0.0;
   double storesBefore = LoadedMassLbs();
+  /* DER UNTERSCHIED ZUR BOMBE: ein Tank nimmt seinen Inhalt mit. Der Sprit wird nicht uebertragen und
+   * nicht gutgeschrieben — er ist vom Flugzeug herunter, und der fallende Koerper hat die eine trockene
+   * Masse seines Decks. doc/modules/stores.md §Spec. */
+  double fuelGoneLbs = 0.0;
+  if (s.Fuel && Fdm_ && s.TankIdx >= 0) {
+    fuelGoneLbs = Fdm_->GetFuelTankLbs(s.TankIdx);
+    Fdm_->SetFuelTankLbs(s.TankIdx, 0.0);
+  }
+  bool wasFuel = s.Fuel;
   s.Kind = FBStoreKind::None;
   s.MassLbs = 0.0;
   s.DragAreaFt2 = 0.0;
+  s.Fuel = false;
   Released_++;
   SelectNextLoaded();
   PublishLoadout();   /* die Masse ist ab diesem Schritt vom Jet herunter */
+  if (wasFuel) {
+    PublishFuelPlumbing();
+    FBLog::Info("sms", "TANK_JETTISON", {{"station", rel.Station}, {"dryLbs", rel.MassLbs},
+                                         {"fuelGoneLbs", fuelGoneLbs},
+                                         {"fuelLeftLbs", Fdm_ ? Fdm_->GetFuelTotalLbs() : 0.0}});
+  }
   outcome = FBCommandOutcome::Accepted;
   reason = FBCommandReason::None;
   const FBStoreSpec *spec = FBStoreSpecOf(rel.Kind);

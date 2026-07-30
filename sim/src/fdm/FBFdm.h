@@ -69,6 +69,12 @@ public:
   void SetFuelTankLbs(int idx, double lbs);
   void SetFuelTotalLbs(double lbs);
   void SetFuelPct(double pct);          /* 0..100 of total declared capacity */
+  /* The DRAW ORDER, which is FGPropulsion's own: it empties every tank of the lowest priority that
+   * still has fuel before it touches the next, and several tanks of one priority drain together.
+   * 0 = deselected, i.e. the engine cannot see the tank at all. FlightBox declares the order and
+   * implements none of it (doc/modules/stores.md §Spec). */
+  void SetFuelTankPriority(int idx, int priority);
+  int  GetFuelTankPriority(int idx) const;
 
   /* ---- External stores through JSBSim's own mass/external-force models; locations in the loaded
    * model's STRUCTURAL frame (inches). doc/fdm.md §9. ---- */
@@ -134,6 +140,7 @@ public:
 
   int    GetFuelTankCount() const;
   double GetFuelTankLbs(int idx) const;
+  double GetFuelTankCapacityLbs(int idx) const;
   double GetFuelTotalLbs() const;
   double GetFuelCapacityLbs() const;    /* sum of every tank's own declared capacity */
 

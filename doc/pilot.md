@@ -39,6 +39,10 @@ manoeuvre, the FBW moves the hands.
 | The close-combat law may command a roll rate, never a sustained one | the judge's rule is a SUSTAINED body rate (|ω| > 60 °/s for 3 s), so a peak cap alone is not a bound. The commanded roll carries an EXTENT bound over the same window the peak is derived in — no more than one reversal (180°) per `kBfmTurnTimeS` — and the sustained fixed point that follows is half the peak. Acceptance: no departure over the 16-approach sweep, and `duel-merge` flown to its end instead of to t = 18 s (§5.7.3) |
 | **A trigger squeeze is predicted to the moment its rounds LEAVE, never to the moment they arrive** | `FBGunSolveLead` answers "where must the bore point for a round fired NOW to meet the target LATER" — the target's motion over the time of flight is already inside the solution, so a round that has left cannot benefit from the aim improving behind it. The horizon of §5.8's prediction is therefore the bus latency plus half the squeeze, and `fc.GunTofS` has no place in it. Acceptance: `R·tan(GunAimErrorDeg)` read at the tick a bundle left predicts that bundle's own closest approach, and no squeeze is commanded from outside the funnel gate the fire control publishes |
 | **The close-combat phase can employ the round on the rail, and the round decides how long it binds** | `Phase::Bfm` offers an infrared shot on five instrument readings and no new arithmetic (§5.11): the selected store is an IR round, a lock exists, the fire control's own launch zone says in-zone, the target is inside the CUEING limit of this aircraft, and the previous shot has had its time of flight. Aspect is not a gate (both rounds are documented all-aspect) and own g is not a gate (nothing in the release path models a rail load). An infrared round's `FBSeekerHandoverS` is 0, so the phase is unchanged after the release: no Support state, no illumination, nothing held. Acceptance: a merge decided by an IR round from EITHER seat, and every mission without a WVR round on a BFM task byte-identical |
+| **A pilot at minimum fuel breaks off, and the question is asked where it can be reached** | the BINGO bit is the only fuel signal this pilot has, and it says a number he committed to himself. At it he goes `Abort` — turn cold, 180° from the last thing that pointed at him — and logs `intercept BINGO_ABORT` once. Acceptance: a mission in which the break-off happens, against the identical mission with the `brief_bingo_lbs` line deleted (§7.4a) |
+| **The rank of the fuel question is: survival, then the shot in the air, then fuel, then the picture** | `defendDue` (somebody's round is in the air at ME) outranks it — a jet does not stop defending because of fuel. An unfinished SUPPORT (my round still needs my uplink) outranks it — leaving would throw away the shot that was already paid for. Everything else ranks BELOW it: "no target on the scope", "target in lock range", "too close to still be BVR" are statements about the picture, and fuel is a statement about the aeroplane |
+| **The defence hold OWNS the state while it runs** | `Defend` is left by exactly one branch — its own timer — and the general chain may not take the state away underneath it. Without that, `now − IntThreatLastS_` is one tick at the moment the threat symbol goes out, the hold never elapses, the beam is broken off at exactly the instant it is working, and `CanPressOn` (behind that branch) is unreachable code. This is a **branch ORDER**, and reordering it changes every mission with a combat in it: the list, the diff and the per-mission reason are the acceptance, split into *reports differently* and *flies differently* |
+| Only ONE of the three resumption instruments is lifted out of `CanPressOn` | fuel is a fact about the airframe and is asked everywhere. "Radar not radiating" is a briefed TACTIC (EMCON) and asking it outside a resumption would send every EMCON jet home; "racks empty" already has its own branch with its own stated exception ("an abort for empty racks before anything was ever seen is simply a jet that leaves"). Acceptance: no EMCON mission and no unarmed-CAP mission moves |
 | A pilot variant is mission text, not a class | `set pilot_*` → `FBPilotTuning`; an unset entry means "this pilot's own number", and a mission without `pilot_*` flies byte-identically |
 | Every fitness channel is computable from OWN perspective | `bfm_*` / `eng_*` telemetry — the basis of the evolutionary tournament |
 | A measured failure stays documented | rejected approaches remain under Gaps with their measurements |
@@ -67,6 +71,7 @@ refinement is the running work.
 | **The airframe's own rate DAMPER binds at the hand stick too** (§5.10a) — the fifth screw, and the one that was killing the MiG in the merge. `KqDamp`/`KpDampRoll` model the SAU-451 DAMPER and were FLCS-path-only, while BFM commands `Manual`: the jet fought every close engagement undamped. [MESS, one MiG alone in a cold BFM search, 300 s] mean `bfm_gcmd` 4.57 → 1.11, mean bank 76° → 24°, p95 \|VS\| 183 → 4 m/s, CFIT from all three start altitudes → none (F-16 on the identical search: 1.22 / 40° / 9 m/s). `duel-merge` exit 2 → 3, `mig29-bfm` `bfm_ctrl_s` 0.0 → 287.6 s. 134 of 139 missions byte-identical; the five that move are all MiG-29 | this round, [`duels.md`](duels.md) D1 |
 | **The trigger's prediction horizon was the ROUND's and is now the SQUEEZE's** (§5.8). `pred = err + rate·(latency + GunTofS)` extrapolated a ONE-TICK derivative a full second, and the time of flight had no business in it: the lead solution at the muzzle already carries the target's motion, so a round that has left cannot benefit from the aim improving behind it. [MESS, `xmergesplit`] **11 of 13** squeezes were commanded with the aim OUTSIDE the funnel gate, the first **14.6×** outside it. With `latency + burstS/2`: rounds landed per drum **6.37 → 9.53** on the same 150 fired, and over the whole 120-run merge arena **139.8 → 449.1 rounds on target off 6,318 → 5,850 fired (2.21 % → 7.68 %)**. `gun-turning` keeps its kill at t = 64.4 on **279 → 209** rounds; `gun-bfm` keeps its kill (t = 106.4 → 106.5) | built | this round |
 | **`Phase::Bfm` can employ the round on the rail** (§5.11) — five instrument gates, one module hook (`BfmWvrCueDeg`, the MiG's Shchel-3UM 60° against the F-16's default "the round's own gimbal"), no new arithmetic and nothing held after the launch. `duel-merge` **exit 3 → 0**: the viper's AIM-9 arrives 1.93 m out, 218,781 J/m² → flight controls fail → `damage KILL` at t = 10.5 s. `missions/duel-merge-stern.fbm` is the mirror proof — the MiG's R-73 arrives 1.86 m out at 590 m/s of closure and kills the F-16 at t = 21.3 s | built | this round, [`duels.md`](duels.md) D6 |
+| **A fuel state became a decision, and the branch that was blocking it was blocking the defence hold too** (§7.4a). Two changes in one chain: `Defend` now owns the state while its 12 s hold runs (before, the general branch took it away one tick after the threat symbol went out, so the hold never elapsed and `CanPressOn` behind it was unreachable code), and BINGO is asked at the head of the general chain — below survival and below an unfinished missile support, above everything that is a statement about the picture. **[MESS, `bingo-abort` vs `bingo-press`, one declaration apart]** `eng_state` search → **abort at t = 4.1 s** against search → closing → attack → support → kill at t = 172.8 s; heading 90° → 263.5°, the jet ends 65 km west of its spawn. **[MESS, `w3-06-bingo`, the file the finding was made on]** both escorts abort at t = 4.1 s and the four missile launches of the old run are gone. Blast radius over 238 stock missions: **42 move, 2 change their verdict**, and the whole list with per-mission attribution is §7.4b | 2026-07-30 |
 | **Every angle this pilot hands to an antenna carries its FRAME in its TYPE** (`core/FBBodyAngle`). The elevation the intercept law commands is built by `FromWorldElevation(worldEl, st.pitch)` where the search band is a world altitude and by `Measured(...)` where it is a contact's own return angle, and `FBCommandBus::PostAntennaAz/El` accept nothing else. It closed §Gaps 2.15 and its two siblings at once, and `verify-layers` now counts the posters (**1**) the way it counts the registry readers | 2026-07-29 |
 
 
@@ -91,6 +96,8 @@ refinement is the running work.
 | 2.14 | **A GROUND START PLUS A COMBAT TASK DESTROYS THE AIRCRAFT — so the alert scramble is not expressible.** `set task <bfm\|intercept\|attack>` sets `CurPhase` AT SPAWN (both modules' `ApplySetup`), and the phase machine has **no transition from `Route` into `Intercept`** — the only way in is the briefed task, exactly as §2.12 says of `Bfm`. A `spawn ground` unit with a combat task therefore never runs `Preflight`/`Takeoff`/`Climb` at all. [MESS, campaign O5's arena] with a `runway` line the MiG-29 steers off the strip toward its first waypoint and the monitor calls *"touchdown off the assigned runway"* at **t = 11.1 s** (59.3 m of lateral error 357 m down the roll); without one it rolls, lifts and cartwheels — `monitor KO … reason=ATTITUDE_CONTACT` at **t = 35.4 s**. The cost is named where it lands: O5's spec calls the scramble delay *"the campaign's most important single parameter"* and it had to be flown as a spawn DISPLACEMENT instead | [`campaigns/o5-airfield-defence.md`](campaigns/o5-airfield-defence.md) §State |
 | 2.15 | ~~**THE GCI SCAN-ELEVATION ENTRY IS A WORLD-FRAME ANGLE POSTED INTO A BODY-FRAME ANTENNA COMMAND.**~~ — **CLOSED 2026-07-29, and it was the third of three of exactly this kind, so it was closed STRUCTURALLY rather than one call site at a time.** The defect was `st.pitch` exactly, as O2 measured: `FBMig29Pilot` posted `atan2(g.AltM − ownAlt, g.RangeM)` — a WORLD angle — into `FBCommandTarget::RadarSlewEl`, which is BODY-referenced, while this file's own uncued search law had always posted the identical geometry **minus `st.pitch`**. It now goes through `core/FBBodyAngle::FromWorldElevation(worldEl, st.pitch)`, and the antenna entries are reachable only through `FBCommandBus::PostAntennaAz/El`, which take that type and nothing else; `make -C sim verify-layers` prints **1 antenna-cue poster(s)** and fails on a second. **[MESS, `o5-02-scramble`, the case the entry was written from]** the pair climbs at pitch **+5.646…+6.013°**, the raid sits at **−3.41…−3.74° in the body frame**, the N019's RAD bar is ±6.0°: the antenna was commanded to **+2.891°** (bar edge −3.109°, the raid 0.3–0.6° outside it) and is now commanded to **−2.754…−4.339°**. **Zero radar contacts in the whole run before, first contact at t = 48.0 s at 25.70 nm after**, both R-27R shots away by t = 106.3, and the mission's exit code moves **3 (TIMEOUT) → 0 (SUCCESS)** on an unchanged mission file. O2's runs, which the same defect did NOT delete (0.11–0.64° of margin), keep their first track at t = 30.9 and change only in the entered number (**−0.025° → −1.868°** at `ownPitchDeg` 1.843). The two SIBLINGS found with it: the same world elevation went into `modules/air`'s live net cue (**+0.025° → −3.358°** on `air-awacs-cue`, a climbing MiG-25) and into its briefed one; and the SPAWN TICK published a zero attitude to every body transform in the tree ([`sensors.md`](sensors.md) §Frames). | [`campaigns/o5-airfield-defence.md`](campaigns/o5-airfield-defence.md) §State |
 | 2.16 | **THE THREE EMPLOYMENT GATES ARE OPEN FOR THE CATALOGUE AIRCRAFT SINCE 2026-07-29, AND WHAT REMAINS SHUT IS NAMED.** All three of this file's weapon gates read `FBState::FireControl` — `InterceptCommands`' `inParams` (`fc.DlzValid && fc.InZone`), `BfmMissileShot` (the same plus a radar lock) and `BfmGunfire` (`fc.GunTolDeg`, `fc.GunInFunnel`) — and until that date NOTHING in `modules/air/` wrote that block, so every one of the eighteen catalogue rows was a flying statue ([`modules/air/module.md`](modules/air/module.md) A13). `modules/air/FBAirFireControl` now writes it for the ten armed rows and **the gates in this file did not move by one line**. Two consequences land HERE and are this file's own: (a) `BfmMissileShot`'s `state.Radar.LockIndex >= 0` requirement means a row with **no radar at all** can never launch even a fire-and-forget IR round, which is four catalogue rows (A14); (b) with a measured roll plant a `mig21` fires its cannon through §5.8's discipline and hits (four `gun HIT`, `damage SYSTEM structure degraded`) and then **cannot re-attack**: it takes 76 s to close 3.0 → 0.9 nm on a 240 kt target, overshoots, and descends into the ground from 5 000 m with `BfmFloorFt` failing to hold it (`CRASH` at t = 147.9 s, impact 424 m). That is §5's law on a GENERATED deck rather than on a measured one, it is booked as A15, and it is the reason no campaign may score a catalogue gun engagement | [`modules/air/module.md`](modules/air/module.md) §Spec 12 |
+| 2.17 | **A fuel-driven RTB does not exist — the minimum-fuel decision is a break-off inside the engagement machine and nothing more** (§7.4a). `Abort` turns the jet cold; it does not send it home. A jet in `Phase::Route` at BINGO flies its briefed route to the end regardless, so W2's eight missions without air opposition — the campaign whose whole subject is fuel — have no fuel decision at all. The mechanism is small and the reason it is not built is not: the pilot receives the flight plan `const`, so an RTB is a `SteerpointNum` command that would have to move `FBFlightPlan`'s active index, and `core/FBMissionMonitor` reads that same plan for `objective waypoints`. A pilot who skips to the landing fix therefore FAILS a mission that never declared he might, which makes this a change to the VERDICT and not only to the pilot — and it needs an `.fbm` way to say "RTB is an acceptable ending" before it may be built. | this round |
+| 2.18 | **Nobody drops an empty tank on their own** — the jettison moment is briefed, not decided ([`modules/stores.md`](modules/stores.md) §Gaps). Measured cost of not deciding it: **184.7 km of range, 4.8 %** (`tank-jettison.fbm` against `tank-radius-tanks.fbm`), and 7.1 % of the fuel per kilometre for as long as the empty tanks hang there. The instrument exists (the SMS knows its plumbed tank's contents); the decision does not. | this round |
 | 2.5 | AoA band 11–13° instead of a flat 11° on approach (ED-documented, `doc/modules/f16/procedures-landing.md`); porpoise after touchdown; `ApproachSpeed` should be weight-scheduled instead of fixed. | measurement |
 
 ### Rejected approaches (do not retry without a new argument)
@@ -1376,6 +1383,104 @@ byte the briefed one — which is why an intercept without a single contact is u
 separated for **474 s** up to 70.7 km, each with a missile aboard. Afterwards both turn around (greatest
 separation 55.6 km at t≈280 s), go back into `closing` at t≈355 s, into `attack` at t≈365 s, second shot
 at t = 527 s (43.6 m miss distance, defeated in the notch like the first). Timeout therefore 320 → 700 s.
+
+#### 7.4a The minimum-fuel decision — and the branch order that made it unreachable
+
+**The finding this section answers** ([`campaigns/w3-desert-storm.md`](campaigns/w3-desert-storm.md)
+§State, finding 1): `CanPressOn` above is the only line in the pilot that reads the BINGO warning, and
+its branch could not be reached. On `w3-06-bingo.fbm` the bit stood for **5,200 of 5,200** telemetry
+rows while `eng_state` was byte-identical to the control run with the bingo line deleted — seven of 184
+columns moved and not one metre.
+
+**Why it was unreachable, exactly.** The chain read
+
+```
+if (defendDue)                                     Defend
+else if (EngState_ == Defend && now − IntThreatLastS_ ≥ DefendHoldS)   CanPressOn ? Search : Abort
+else if (EngState_ == Support)                     …
+else if (EngState_ != Abort)                       { !haveTgt → Search; !weapons → Abort; … }
+```
+
+`IntThreatLastS_` is refreshed on every tick `mustDefend` holds. At the first tick after the threat
+symbol goes out, `defendDue` is false and the elapsed time is therefore **one tick**, so the second
+branch is false and the fourth one fires and assigns the state away from `Defend`. `Defend` is never
+seen again by the branch that would have timed it out. **Two defects in one line:** the fuel test was
+dead code, and the defence hold — 12 s, and there for a stated reason — was dead with it, so the beam
+was broken off at exactly the instant it was working.
+
+**The fix is a guard, not a reversal.** `Defend` gets a branch of its own that owns the state while its
+timer runs:
+
+```
+if (defendDue)                     Defend
+else if (EngState_ == Defend)      { if (now − IntThreatLastS_ ≥ DefendHoldS) EngState_ = CanPressOn ? Search : Abort; }
+else if (EngState_ == Support)     …
+else if (EngState_ != Abort) {
+    if (BINGO)                     Abort        ← NEW, and first in this chain
+    else if (!haveTgt)             Search
+    …
+}
+```
+
+**Why the fuel line sits first in the general chain and nowhere higher.** Rank by what the statement is
+*about*:
+
+| Rank | Test | What it is a statement about |
+|---|---|---|
+| 1 | `defendDue` | somebody's round is in the air **at me**. Nobody stops defending because of fuel |
+| 2 | `Support` with a live shot | **my** round still needs my uplink. Leaving throws away a shot already paid for; the state ends by itself and the fuel test then fires on the next tick |
+| 3 | **BINGO → `Abort`** | the **aeroplane**. True whether or not anything is on the scope |
+| 4 | `!haveTgt` / `!weapons` / range gates | the **picture** |
+
+**Only the fuel instrument is lifted out of `CanPressOn`; the other two stay behind it.** `Radar
+.Radiating` is a briefed TACTIC — lifting it would send every EMCON jet home the moment it went silent
+(`w1-07-emcon`, `duel-emcon`, `w3-05-emcon`, `w4-05-emcon`). `Stores.LoadedCount` already has its own
+branch with its own stated exception ("an abort for empty racks before anything was ever seen is simply
+a jet that leaves"). Fuel has neither property: it is monotone, it is not a choice, and it is the one
+of the three that does not depend on what the pilot is looking at.
+
+**What the pilot DOES at minimum fuel is `Abort`** — turn cold, 180° from the last thing that pointed at
+him, terminal. Not a route change: the flight plan is the mission's contract and the judge reads it, so
+a pilot who deletes waypoints changes the verdict of a mission that never declared he might. A
+fuel-driven RTB onto the landing waypoint is therefore named in §Gaps and not built.
+
+**Measured** (`bingo-abort.fbm` against `bingo-press.fbm`, one declaration apart, identical fuel state):
+
+| | `bingo-abort` | `bingo-press` |
+|---|---|---|
+| `brief_bingo_lbs` | 6000 | *(line absent)* |
+| fuel at t = 0 | 4,183 lb | 4,183 lb |
+| `warn_active` | **2** (`FBWarnBingo`) throughout | 0 throughout |
+| `eng_state` | search → **abort at t = 4.1 s**, terminal | search → closing 52.0 → attack 140.1 → support 147.9 → attack 172.5 |
+| heading | 90.0° → 230.4° (t = 60 s) → 263.5° | 90.0° → 112.1° |
+| the log line | `intercept BINGO_ABORT fuelLbs=4174.3 bingoLbs=6000 from=search haveTgt=0` | — |
+| result | TIMEOUT, no shot, 65 km **west** of the spawn | AIM-120 at 0.55 m, bandit destroyed t = 172.8 s |
+
+#### 7.4b What the branch order moved, mission by mission
+
+Snapshot of all 238 stock missions before and after (`tools/fb_regress.sh` ×2, `tools/fb_regress_diff.py`).
+**196 missions are byte-identical.** 42 move, and each one is attributed to one of the two changes:
+
+| Cause | Missions | How to tell |
+|---|---|---|
+| **the BINGO line** (new) | `w3-06-bingo` — and only this one | it is the only stock mission that both declares `brief_bingo_lbs` and runs `set task intercept`. `cmd-avionics.fbm` declares one too but flies `set task bfm`, so the intercept machine never runs and it is byte-identical; `w1-07-emcon` names the key in a comment only |
+| **the `Defend` hold guard** | the other 41 | every one of them is a mission in which a jet enters `Defend` and the threat then stops. The jet now finishes its beam instead of snapping back into the intercept one tick later |
+
+**Reports differently vs flies differently** — the split is whether any flight-state column
+(`lat`/`lon`/`altM`/`hdgDeg`/`pitchDeg`/`rollDeg`/`casKt`/`mach`/`vsMs`/`aglM`) moved:
+
+| Class | Count | Missions |
+|---|---|---|
+| **flies differently**, verdict unchanged | 39 | `bvr-defend`, `bvr-duel`, `bvr-duel-decided`, `duel-doctrine-f16`, `duel-emcon`, `duel-fulcrum-high`, `duel-headon`, `duel-viper-high`, `four-4v4-asym`, `o1-01-controlled`, `o1-02-no-gci`, `o1-03-gci-cut`, `o1-04-beam`, `o1-06-blind`, `o1-10-mole-cricket`, `o2-01-vector`, `o2-02-wrong-altitude`, `o2-09-exercise-one`, `o2-10-exercise-two`, `o3-09-two-fronts`, `o3-10-october-six`, `o4-02-bvr-offset`, `o4-03-energy-split`, `o4-10-two-v-two`, `o5-05-escorted`, `o5-08-night-one`, `o5-09-night-two`, `o5-10-batajnica`, `pair-2v2-f16`, `w1-02-two-v-one`, `w1-04-bvr-pair`, `w1-08-degraded`, `w1-09-lfe-four`, `w1-10-graduation`, `w3-06-bingo`, `w3-07-mig-cap`, `w3-09-saturation`, `w3-10-package-q`, `w4-07-cap-intercept` |
+| **reports differently only** — the flown path is byte-identical, the commands and counters are not | 1 | `o1-07-early-launch` (`eng_state`, `eng_defend_s`, the chaff counters, `cmd_*`, `pitchCmd`/`rollCmd`; no state column moves before the run ends) |
+| **the verdict moves** | 2 | below |
+
+**The two verdict changes, each with its reason:**
+
+| Mission | Before | After | Why, and whether it is right |
+|---|---|---|---|
+| `o3-07-top-cover` | exit **1**. The Israeli CAP's second AIM-120 pair kills the Egyptian striker `y7sb` at t = 512.6 s; `y7sb` FAILs ("survive objective lost") and its escort `y7cb` FAILs ("protected unit lost") | exit **3**. The run reaches its 600 s timeout with **all four Egyptians reporting SUCCESS** ("objectives met, survived") | **the chain is traceable tick by tick, and none of it is the fuel line.** `y7ba` holds the beam to the end of its 12 s hold instead of snapping back into the intercept at t = 189.3, which puts it somewhere else at t = 220.6 — and there an R-73 (7.4 kg) arrives at **2.67 m, 67,285 J/m²**, the FIRST arrival that mission's cover has ever scored (its own header records "ZERO ARRIVALS. All eight rounds expire or fall"). Its radar goes `degraded`, the Radar block stops being readable, and the resumption test — reachable for the first time — answers "no sensor" and sends it home at t = 225.9. The remaining CAP jet alone does not get the second pair away in time. The mission's ANSWER changes, and its header no longer describes it: booked in [`campaigns/o3-yom-kippur-1973.md`](campaigns/o3-yom-kippur-1973.md) |
+| `w4-10-allied-force` | exit **3**, all units TIMEOUT at 700.0 s | exit **2**: `kamig4` departs (`monitor KO … stall/mush`) at t = **695.3 s**, 4.7 s before the timeout would have ended the run | the same displaced trajectory, landing on the known MiG-29 fragility (§Gaps 2.9): the jet arrives at t = 695 in a slightly different energy state and departs there. **4.7 s of 700**, and everything the capstone measures — the four strikers, the two Weasels, the four ground objects — is unchanged up to that tick. It is a worse ending on the same substance, and it is booked rather than smoothed over |
 
 #### 7.5 The antenna control
 

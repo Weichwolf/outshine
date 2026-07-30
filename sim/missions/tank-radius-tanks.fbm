@@ -1,0 +1,29 @@
+name tank-radius-tanks-1
+timeout 32000
+
+# THE RANGE MISSION, LOADED HALF — the identical leg of tank-radius-clean.fbm with two 370-gallon wing
+# tanks on the plumbed stations 4 and 6. TWO LINES differ from the clean half.
+#
+# WHAT THE TWO LINES DO, and none of it is bookkeeping this simulator keeps: each tank puts its DRY
+# mass (240 lb) on its station as a JSBSim point mass, adds its drag area (0.475 ft^2) to the
+# `fb-stores` external force, and fills the model's OWN external tank for that station with 2,276 lb —
+# `FGTank` contents, the one fuel account there is. The draw order is JSBSim's own tank priority
+# (external 1, internal 2), so the engine empties the tanks before it touches the internal fuel and
+# FlightBox has implemented no transfer at all. doc/modules/stores.md §Spec.
+#
+# READING RULE: as in the clean half — exit 2 (fuel exhaustion at cruise altitude) is the correct
+# outcome, and the measurement is the distance and endurance of the last telemetry row against the
+# clean half's. `events.log` carries `TANK_LOADED` twice at t=0 with the quantity each tank was hung
+# with, which is where the fuel enters the engine's books and the only place it is ever written.
+
+unit viper
+  module f16
+  team friendly
+  spawn 46.90000 6.00000 8000 90.0 400       # 8,000 m ASL, due east, 400 KCAS
+  set gear up
+  set fuel_int_pct 100                       # 6,972 lb internal ...
+  set store 4 tank370                        # ... plus 2,276 lb in the left wing tank
+  set store 6 tank370                        # ... plus 2,276 lb in the right wing tank
+  set datalink off
+  set fcr_mode off
+  wp 46.90000 75.00000 8000 400              # ~5,200 km: further than any fuel state here reaches
