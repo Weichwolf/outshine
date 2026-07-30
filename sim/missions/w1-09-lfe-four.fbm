@@ -1,0 +1,317 @@
+name w1-09-lfe-four-1
+timeout 600
+
+# CAMPAIGN W1, SORTIE 9 OF 10 - LARGE FORCE EMPLOYMENT, FOUR AGAINST FOUR, RUNG 9 OF THE LADDER.
+# Spec, anchor and sources: doc/campaigns/w1-red-flag.md. Format: doc/missions/campaign.md.
+# CONTROL: none. THIS FILE IS THE FIRST STEP OF THE CAMPAIGN'S ONE CARRY CHAIN: `nvblu1..4`,
+# `nvagr1..4` and the whole ground array fly again in w1-10-graduation.fbm, and what this sortie loses
+# and expends is what the graduation ride takes off with. No other W1 file shares a callsign with any
+# other, so the chain and the two controlled pairs (03/04, 07/08) do not overlap (campaign rules 1 and 6).
+#
+# WHY THE CARRY LIVES HERE AND NOWHERE ELSE, and why W1 does NOT narrow it the way O4 did. O4 dropped
+# `units` because a DACT kill is a call and both jets land at Laage. RED FLAG IS THE OPPOSITE CASE AND THE
+# SPEC SAYS SO: its cast table lists "Range control / kill removal" as *"not a unit - a campaign-layer
+# function (C0)"*. A jet called dead at Nellis leaves the fight, and the campaign layer is exactly the
+# thing that makes it leave: a destroyed unit is DROPPED from the next mission (doc/missions/campaign.md
+# section 3). So W1 carries all three facts, and the one it carries on PURPOSE is `units` - kill removal
+# is the anchor's own range procedure and this campaign is where the layer performs it.
+#
+# THE ARENA is w1-01's lane at full length (93.9 km, `--elev const`, 0 m range floor). The one degree of
+# freedom this rung adds over rung 4: FOUR shooters and four contacts instead of two and two, plus the
+# campaign's own weather fixture.
+#
+# THE ONE TACTICAL QUESTION: with four shooters and four contacts, does the minimum-cost matching still
+# produce one target each - and how far does the assignment churn (`flt_switch`) rise with the extra
+# degrees of freedom?
+#
+# THE WEATHER IS A KNOWN QUANTITY AND NOT A SECOND EXPERIMENT. `wx fixture` is the committed GFS blob;
+# W4 measured on one file what it does and does not do - 5.014 m of along-track bomb miss per knot of wind,
+# a cloud deck that closes exactly one line of sight in ten files, and `irst_masked` = 0 everywhere. There
+# is no air-to-ground weapon in this sortie, so the deck's only reachable channel here is the eye
+# (`vis_*`) and the wind at the fight's own level. Neither has a consumer in `pilot/FBPilot`.
+#
+# THE GROUND: the campaign's shared range array, and it is shared because the chain needs it - two mock
+# vehicle convoys, a row of parked aircraft and a bunkered defensive position [T1 target kinds]. NOTHING
+# BOMBS IT IN THIS SORTIE (four air-to-air jets a side), so all four stand into the graduation ride, and
+# the `campaign CARRY` lines of step 10 are what proves it. O5's rule that ground callsigns must be
+# per-mission holds for the eight sorties that are NOT in the chain, and every one of them has its own.
+#
+# MEASURED (2026-07-30, campaign step 9 AND standalone - fingerprint ca0cbbcdf7f02fd5, identical):
+# exit 3, ONE AGGRESSOR DESTROYED, AND THREE OF FOUR BLUE SHOOTERS NEVER PRESSED.
+#   the churn    **311 `flight SORT_ASSIGN` lines** and 10 `SORT_DROP`. `flt_switch` **84 / 72 / 97 / 53**
+#                on the four Blue jets = **306** against **2 / 1 / 1 / 1 = 5** on the four aggressors.
+#                Against w1-04's 120+41 = 161 on two jets, the churn per aircraft is essentially flat
+#                (80.5 -> 76.5): the extra degrees of freedom do NOT multiply it
+#   the metric   `flt_dup && flt_free > 0` is **0 of 6,000 ticks on all eight aircraft**; `flt_dup` alone
+#                runs 304 / 323 / 712 / **1,555** ticks. **0 `COVER_DEFER`**, `flt_both_s` 0.0 everywhere
+#   THE REAL ANSWER IS NOT THE SORT, AND THIS IS THE CAMPAIGN'S SHARPEST AIR-TO-AIR NUMBER: only
+#                `nvblu4` ever fired (6 rounds, first at t = 144.1 s). `nvblu1`, `nvblu2` and `nvblu3`
+#                each spent exactly **152 ticks in `attack`** and then went `defend` for
+#                **163.9 / 101.1 / 248.1 s**, because their `eng_threat_s` is **117.9 s** - the
+#                aggressors' four R-27R left the rails at t = 126.1-126.7 s, and `pilot/FBPilot`'s rule
+#                is that a seeker on one's own aircraft is never negotiable. `nvblu4`'s warning came at
+#                **126.3 s**, 8.4 s later, and that 8.4 s is the whole difference between a shooter and a
+#                passenger. THE AGGRESSORS' 18-SECOND SHOT LEAD CONVERTED FOUR BLUE TRIGGERS INTO ONE -
+#                doc/duels.md Knowledge 3's 1.5 s margin at four-ship scale
+#   arrivals     two R-27R at **13.663 m** and **13.745 m** against a 13.8 m fuze - inside the ring,
+#                neither a kill (the fourth and fifth in this campaign). `nvblu4`'s rounds: 7.007 m (no
+#                kill), then **1.664 m** -> `damage KILL` on `nvagr4` at t = 312.6 s
+#   the weather  the fixture is in the file and there is no air-to-ground weapon in it, so its only
+#                reachable channel is the eye and the wind. Nothing consumed either
+#   the ground   all four range objects INTACT, which is what the chain needs: they enter w1-10 standing
+#
+# WHAT TO READ: `flt_assign` / `flt_dup` / `flt_switch` / `flt_free` on all four Blue jets (the violation
+# metric is `flt_dup && flt_free > 0` and its required value is zero), the count of `flight SORT_ASSIGN`
+# lines, `flt_both_s` / `flt_defer_s` (the cover rule with four members), then each side's `eng_*` block
+# and every `stores DETONATION missM` beside its own `fuzeM`. The `campaign EXPENDED` and
+# `campaign ATTRITION` lines of this step are the input to step 10.
+#
+# READING RULE: exit 3 = TIMEOUT is the expected shape (`kill team` needs all four of the other side
+# down). The verdict is the flight telemetry read beside w1-04's two-ship numbers - the question is the
+# CHURN, not the kill count. exit 2 would be a defect.
+
+wx fixture wx-2026-07-27T00Z.wxb
+
+unit nvblu1
+  team friendly
+  flight blu9 1
+  module f16
+  spawn 37.30000 -115.52000 8000 270.0 450
+  set gear up
+  set fuel_pct 80
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 37.30000 -116.58000 8000 450
+  objective kill team hostile
+  objective survive
+
+unit nvblu2
+  team friendly
+  flight blu9 2
+  module f16
+  spawn 37.28198 -115.52000 8150 270.0 450
+  set gear up
+  set fuel_pct 80
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 37.28198 -116.58000 8150 450
+  objective kill team hostile
+  objective survive
+
+unit nvblu3
+  team friendly
+  flight blu9 3
+  module f16
+  spawn 37.31802 -115.52000 8300 270.0 450
+  set gear up
+  set fuel_pct 80
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 37.31802 -116.58000 8300 450
+  objective kill team hostile
+  objective survive
+
+unit nvblu4
+  team friendly
+  flight blu9 4
+  module f16
+  spawn 37.26396 -115.52000 8450 270.0 450
+  set gear up
+  set fuel_pct 80
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 37.26396 -116.58000 8450 450
+  objective kill team hostile
+  objective survive
+
+unit nvagr1
+  team hostile
+  flight agr9 1
+  module mig29
+  spawn 37.30000 -116.58000 8000 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 27
+  set n019_emission illum
+  set kols_mode ir
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set store 1 r73
+  set store 2 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  wp 37.30000 -115.52000 8000 450
+  objective kill team friendly
+  objective survive
+
+unit nvagr2
+  team hostile
+  flight agr9 2
+  module mig29
+  spawn 37.31802 -116.58000 8150 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 27
+  set n019_emission illum
+  set kols_mode ir
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set store 1 r73
+  set store 2 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  wp 37.31802 -115.52000 8150 450
+  objective kill team friendly
+  objective survive
+
+unit nvagr3
+  team hostile
+  flight agr9 3
+  module mig29
+  spawn 37.28198 -116.58000 8300 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 27
+  set n019_emission illum
+  set kols_mode ir
+  set rwr on
+  set brief_sort right                        # the other end of the same briefed contract
+  set store 3 r27r
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set store 1 r73
+  set store 2 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  wp 37.28198 -115.52000 8300 450
+  objective kill team friendly
+  objective survive
+
+unit nvagr4
+  team hostile
+  flight agr9 4
+  module mig29
+  spawn 37.33604 -116.58000 8450 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 27
+  set n019_emission illum
+  set kols_mode ir
+  set rwr on
+  set brief_sort right
+  set store 3 r27r
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set store 1 r73
+  set store 2 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  wp 37.33604 -115.52000 8450 450
+  objective kill team friendly
+  objective survive
+
+unit nvcvy1
+  module target_soft                          # mock vehicle convoy [T1 target kind]
+  team hostile
+  spawn 37.30000 -116.14000 ground 90.0 0
+
+unit nvcvy2
+  module target_soft                          # a second convoy, 2 km south
+  team hostile
+  spawn 37.28198 -116.18000 ground 90.0 0
+
+unit nvpark
+  module target_soft                          # parked aircraft on the mock airfield [T1 target kind]
+  team hostile
+  spawn 37.31802 -116.16000 ground 90.0 0
+
+unit nvbnkr
+  module target_hard                          # bunkered defensive position [T1 target kind]
+  team hostile
+  spawn 37.30000 -116.22000 ground 90.0 0

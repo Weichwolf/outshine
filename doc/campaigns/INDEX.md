@@ -1,15 +1,17 @@
 # Campaigns — the ten scenario specifications
 
-**Status: eight of ten BUILT (O4, O1, O5, O2, W5, W3 and W4 on 2026-07-29; O3 on 2026-07-30), two spec
-only.** `sim/missions/o4-*.fbm`,
+**Status: NINE of ten BUILT (O4, O1, O5, O2, W5, W3 and W4 on 2026-07-29; O3 and W1 on 2026-07-30), one
+spec only.** `sim/missions/o4-*.fbm`,
 `sim/missions/o1-*.fbm`, `sim/missions/o5-*.fbm`, `sim/missions/o2-*.fbm`, `sim/missions/w5-*.fbm`,
-`sim/missions/w3-*.fbm`, `sim/missions/w4-*.fbm` and `sim/missions/o3-*.fbm` with their eight `.fbc` files
+`sim/missions/w3-*.fbm`, `sim/missions/w4-*.fbm`, `sim/missions/o3-*.fbm` and `sim/missions/w1-*.fbm` with
+their nine `.fbc` files
 exist, run, replay and are measured ([`o4-gaf-mig29g-dact.md`](o4-gaf-mig29g-dact.md) §State,
 [`o1-bekaa-1982.md`](o1-bekaa-1982.md) §State, [`o5-airfield-defence.md`](o5-airfield-defence.md)
 §State, [`o2-pvo-intercept.md`](o2-pvo-intercept.md) §State,
 [`w5-baltic-qra.md`](w5-baltic-qra.md) §State, [`w3-desert-storm.md`](w3-desert-storm.md) §State,
 [`w4-allied-force.md`](w4-allied-force.md) §State,
-[`o3-yom-kippur-1973.md`](o3-yom-kippur-1973.md) §State); only **W1** and **W2** have no `.fbm` file. The
+[`o3-yom-kippur-1973.md`](o3-yom-kippur-1973.md) §State,
+[`w1-red-flag.md`](w1-red-flag.md) §State); only **W2** has no `.fbm` file. The
 directory exists because the missions must not be invented: a campaign without a cited anchor is a mood,
 and a mood cannot be measured.
 
@@ -174,6 +176,25 @@ an explicit spawn altitude against the resolved ground and FAILS the mission bef
 const` is not a comparability convention for this campaign, it is a precondition, and every command in
 its record passes it explicitly.
 
+### What W1 added, and the last one inherits it too
+
+W1 was built ninth — **the only campaign whose contract is that its rungs disagree**, and therefore the
+one the saturation gate had to be pointed at. It took all twenty-two rules unchanged and passed both
+determinism criteria on the first attempt. Its two contributions are about **what a measurement is worth
+when the gate refuses the arena it was taken on**, and about the carry running backwards:
+
+| Rule | Why it exists |
+|---|---|
+| **An arena's informativeness is a property of the SEAT the lever is pulled in and of the FORCE RATIO, and a campaign that reports a ladder must report which of its rungs could have gone differently** | W1 flew the nine declared doctrine levers on all ten of its own rungs, on both seats, 180 runs. **The gate REFUSES the arena: 2 informative geometries against a required 3, in both seats.** The movers concentrate on opposite ends — Blue's on the two rungs with one aircraft a side (4 and 5 of 9), Red's on the two multi-ship rungs (4 of 9 each) — which is `duels.md`'s tournament finding (the early launch is an outcome band on the MiG and nothing on the F-16) reproduced on hand-authored geometries. And the three rungs that DECIDE anything are exactly the three at 1v1 and 2v1: **a FlightBox air-to-air result above two aircraft a side is a fixed point**, so the eight earlier campaigns' 4v4-and-larger capstones are outcome-blind by construction and only their ground halves grade. `doctrine-evolution.md` had measured *"a 2v2 is MORE saturated than a 1v1"* on generated cells; W1 is the campaign that pays for it |
+| **The carry can run BACKWARDS — removing a unit is an anchor's own mechanism, not an approximation of one — and its price must be attributed one fact at a time** | O4 dropped `units` because a DACT kill is a call. W1's spec lists *"Range control / kill removal"* as **"not a unit — a campaign-layer function (`C0`)"**, so the layer's own deletion IS the documented procedure and W1 carries all three facts on purpose. Measured: 7 `campaign CARRY` lines (one drop + six store lines) are worth **one F-16** — standalone the same file loses two Blue aircraft, in campaign one — and **1 of 17** common telemetry files stays byte-identical. Attributed with `--carry` one fact at a time: `units` alone → 1 loss, `stores` alone → 1 loss, neither → 2. **Either half alone is sufficient**, which no single comparison could have told apart |
+
+And one warning of its own, and it is the cheapest defect in the set to trip over: **a combat phase can
+be silently unarmed by an absent navigation waypoint.** `FBF16FireControl` invalidates its entire block
+when `state.Nav` is unreadable and `FBNavSystem` publishes nothing without a steerpoint, so a `set task
+bfm` jet with no `wp` line has no gun solution, no DLZ and no missile gate — measured as `blk_firecontrol`
+= 0 for 3,001 rows, 0 shots, and 14.8 s of unbroken lock from 7.5 km to 185 m. There is no rejection and
+no log line. Four committed `bfm-*` missions are in that state today.
+
 This directory is **step 4 of the owner goal** and its specification comes first, per
 [`../conventions.md`](../conventions.md)'s spec-first rule: *change the Spec of the topic file first;
 if a round cannot say what the contract becomes, it is not ready to start.*
@@ -186,7 +207,7 @@ Five in which the **F-16** flies, five in which the **MiG-29** flies. Ten missio
 
 | # | Campaign | Anchor | The hook |
 |---|---|---|---|
-| **W1** | [Red Flag / Nellis](w1-red-flag.md) | the USAF aggressor enterprise, 1975– | the training ladder — and the inversion that at Nellis the "MiG-29" is an F-16 pretending, while here it is the real module |
+| **W1** | [Red Flag / Nellis](w1-red-flag.md) **— BUILT** | the USAF aggressor enterprise, 1975– ([T1] since 2026-07-30: the 403-blocked 414th CTS fact sheet was read through the Wayback Machine) | the training ladder — and the inversion that at Nellis the "MiG-29" is an F-16 pretending, while here it is the real module. **Flown 2026-07-30, and it is the campaign that put the saturation gate to its own ten missions: the gate REFUSES the arena** (10 geometries, **2** informative against a required 3, modal share 55.6–100 %, movers 0–5 of 9), because the three rungs that decide anything are the three at 1v1 and 2v1 — **a FlightBox air-to-air result above two aircraft a side is a fixed point, and only the ground half of a package grades**. The anchor's own ten-mission rationale is now [T1] verbatim; the trigger fires at **0.978 × Rtr** on both airframes and is blind to a Raero 1.26× longer; the DCA rung's CAP is worth **11 of 184 telemetry columns and zero metres** (its control run reproduces the attack's 101.05 m miss to five decimals); total emission discipline costs Blue every shot and Red **10 launches for 0 arrivals**; a radar-less wingman is never even ASSIGNED a target; the aggressors' 18 s shot lead turns **four Blue triggers into one**; and kill removal plus a spent magazine is worth **one F-16** |
 | **W2** | [Osirak 1981](w2-osirak.md) | Operation Opera, 7 June 1981 | reach, not combat: 1,600 km, a 30 m ingress and tanks that ran dry — **the one campaign whose subject FlightBox cannot express at all** |
 | **W3** | [Desert Storm, the first nights](w3-desert-storm.md) **— BUILT** | 17 January 1991 + Package Q, 19 January | a package against an integrated air defence, and the three named ways Package Q came apart. **Flown 2026-07-29, the first campaign whose opponent is a SYSTEM:** its spec called five of ten blocked and every blocker had closed; of Package Q's three failure modes FlightBox can stage **one**, and the campaign says which and why. **A suppression element is worth one striker's release and the target — and it is worth that even when its missile falls 10 km short**, because a battery with no IFF and no threat priority empties its magazine at whatever is nearest; **emission discipline is worth the position and nothing else** (dark at 57.4 % of the round's flight, the HARM lands 214 m short, the crew comes back and shoots at the departing Weasels); the same bomb on the same radar is worth the whole strike against a one-node net and **36 % of the cue traffic** against a two-node one; and at 24 aircraft **Red killed one of its own with an R-27R** |
 | **W4** | [Allied Force 1999](w4-allied-force.md) **— BUILT** | 24 March – 10 June 1999 | mountains, cloud and an air defence that refuses to emit — the campaign the weather hook was built for. **Flown 2026-07-29, and its two anchor facts turned out to be mutually exclusive:** an AGM-88 holds a P-18 from 4 150 m and loses it at 4 200 m, at the radar's own published **+15.00°** elevation limit, so the **15 000 ft floor sits above the ceiling of its own SEAD weapon**; **a decoy is the same catalogue row as the node it protects** and three of them absorb the whole suppression element while the belt fires 7 rounds instead of 4; **total silence keeps the positions and gives up the entire engagement**, and neither policy moves the strike by one metre; the weather that is MEASURED is the **wind** (5.014 m of bomb miss per knot, and 0 of 6 kills where calm gives 3 of 6), and the deck is scenery except for **one** line of sight closed to 8.0e-13; and the carried node is worth **25 % of the cue traffic and nothing else** |
@@ -247,8 +268,8 @@ declared again rather than hidden.
 
 ## What is buildable today
 
-**50 of the 100 missions when this table was written; 80 of them are now BUILT and the O4, O1, O5, O2,
-W5, W3, W4 and O3 rows are re-counted against the tree rather than against the spec.** Per campaign:
+**50 of the 100 missions when this table was written; 90 of them are now BUILT and the O4, O1, O5, O2,
+W5, W3, W4, O3 and W1 rows are re-counted against the tree rather than against the spec.** Per campaign:
 
 | Campaign | Runnable today | Blocked | The first pair to build |
 |---|---:|---:|---|
@@ -258,7 +279,7 @@ W5, W3, W4 and O3 rows are re-counted against the tree rather than against the s
 | O5 Airfield defence | **10 — BUILT** | 0 (2 spec missions dropped with reasons in the `.fbc` header) | done: ten `.fbm` + one `.fbc`, both determinism criteria measured on the first attempt |
 | W3 Desert Storm | **10 — BUILT** | 0 (the spec called 5 blocked; all 5 blockers had closed, and 1 spec mission was dropped for `C15` with its slot named in the `.fbc` header) | done: ten `.fbm` + one `.fbc`, both determinism criteria on the first attempt, the replay run after the FIRST mission |
 | W4 Allied Force | **10 — BUILT** | 0 (the spec called 6 blocked; 4 of those blockers had closed and 2 spec missions were dropped with their reasons in the `.fbc` header) | done: ten `.fbm` + one `.fbc`, both determinism criteria on the first attempt, the replay run after the FIRST mission |
-| W1 Red Flag | **4** | 6 | `w1-01` … `w1-04`, the ladder |
+| **W1 Red Flag** | **10 — BUILT** | 0 | done: ten `.fbm` + one `.fbc`, both determinism criteria on the first attempt, the replay run after the FIRST mission. **The spec called four runnable and six blocked; six of the six blockers had closed** (`C2` `C12` `C9`, and `C1` was never needed — this campaign's Red threat is aircraft). **No spec mission was dropped, folded or added**: the ten rungs are the anchor's own [T1] number and dropping one would break the ladder. It flies **no catalogue row at all**, which is how it got around `A15` |
 | W2 Osirak | **4** | 6 | `w2-03` / `w2-04` — combat radius clean and loaded |
 | W5 Baltic QRA | **10 — BUILT** | 0 (the spec called 6 blocked; 4 of those blockers had closed and the other 2 were re-scoped in their headers) | done: ten `.fbm` + one `.fbc`, both determinism criteria measured on the first attempt, and the replay run after the FIRST mission |
 | **O3 Yom Kippur** | **10 — BUILT** | 0 | done: ten `.fbm` + one `.fbc`, both determinism criteria on the first attempt, the replay run after the FIRST mission. **The spec called ZERO runnable and the count is now ten**; 3 spec missions were dropped with their reasons in the `.fbc` header, 1 was folded into two others, and 4 are new. It flies **no catalogue row at all** — the cast did not stop it, the substitution did, and it is declared in all eleven files |
@@ -447,6 +468,17 @@ than the criterion:
 |---|---|---|---|
 | the one all published F-16 doctrine results were measured on (`mirror`, `split`) | 2 | 1 | **REFUSED** — and `mirror` itself is **100 % modal with 1 of 9 movers**, worse than the `mig21` cell that forced the criterion |
 | the rebuilt one (aspect × energy × detection × **weapon obligation**) | 8 | **4** (`far`, `split`, `xmirror`, `xclose`) | **PASSED** |
+| **a CAMPAIGN's own ten missions, 2026-07-30 — [`w1-red-flag.md`](w1-red-flag.md) §State** | 10 | **2** (Blue seat `w1-03`/`w1-10`; Red seat `w1-06`/`w1-09`) | **REFUSED** — modal share 55.6–100 %, doctrine movers 0–5 of 9, `S6` clean, `S3` n/a. 180 runs, twice, byte-identical |
+
+**W1 is the first campaign whose own missions were put through the gate, and it failed it.** The
+denominator had to be named, because the gate's instrument cannot be pointed at hand-authored files: per
+geometry the population is the **nine declared doctrine levers** applied to one seat — the population `S2`
+is defined on — not the six-variant yardstick field, so `S1`'s threshold is coarse (with n = 9, *"≤ 60 %"*
+means *"≥ 4 runs outside the modal class"*). Two things fall out and they belong to all ten campaigns:
+**the levers bite in opposite seats on opposite rungs** (Blue's on the 1v1-scale ones, Red's on the
+multi-ship ones, which is `duels.md`'s own asymmetry), and **only the three rungs at 1v1 and 2v1 decide
+anything at all**. Every capstone in this directory is 4v4 or larger; their air halves are therefore fixed
+points and only their ground halves grade.
 
 **What desaturated it was not a geometry, it was the AIRFRAME.** Eleven F-16-vs-F-16 candidates were
 flown and every one failed; the three best cells in the passing arena are the two that put a MiG-29 in

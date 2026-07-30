@@ -1,0 +1,116 @@
+name w1-red-flag
+time 2022-08-16T17:00:00Z
+carry units ground stores
+stop_on never
+
+# CAMPAIGN W1 - RED FLAG / NELLIS, the training ladder.
+# Spec, anchor and sources: doc/campaigns/w1-red-flag.md. Format: doc/missions/campaign.md.
+#
+# WHY THIS CAMPAIGN WAS UNBLOCKED. Its spec listed W1 as blocked on the aggressors: the catalogue's
+# adversary rows are ALPHA and A15 forbids an ALPHA row from being scored in a gun fight. W1's own point
+# dissolves that. At Nellis the "MiG-29" is an F-16 of the 64th Aggressor Squadron in an adversary scheme
+# [T4]; in FlightBox the aggressor is the REAL mig29 module. THE CAMPAIGN THEREFORE NEEDS NO CATALOGUE ROW
+# AT ALL - all eleven files fly `f16` and `mig29` and nothing else, which is the same discipline W3, W4 and
+# O3 demonstrated, and A15 is untouched. The substitution's DIRECTION is stated in every mission header:
+# the FlightBox aggressor carries the R-73, the KOLS and a helmet cue the real aggressor F-16 never had, so
+# Red is materially STRONGER than the historical opposing force. A Blue result that still goes well says
+# something stronger than a Nellis debrief did; one that goes badly says nothing about the 64th.
+#
+# THE ANCHOR IS [T1] AS OF THIS ROUND. The 414th Combat Training Squadron's own fact sheet has been carried
+# in doc/campaigns/PROGRESS.md as unreadable ("HTTP 403 to automated retrieval") since run 1. It is READ
+# here through the Wayback Machine's capture of the identical URL (web.archive.org/web/20240116184035/,
+# "current as of October 2022"), which is the path that lifted O2's two CIA documents, and it moves five
+# claims from [T3]/[T4] to [T1]: the exercise's purpose and form; its founding in 1975 under Lt Col Richard
+# "Moody" Suter at Gen Robert J. Dixon's direction; THE TEN-MISSION RATIONALE VERBATIM ("if a pilot
+# survived his first 10 combat missions, his probability of survival for remaining missions increased
+# substantially... Red Flag was designed to expose each 'Blue' force pilot to their first 10 'combat
+# missions'"); the five Blue mission types (offensive counter air, SEAD, combat search and rescue, dynamic
+# targeting, defensive counter air); and the NTTR target inventory the ground half of every file is drawn
+# from (mock airfields, vehicle convoys, tanks, parked aircraft, bunkered defensive positions, missile
+# sites). It also gives the aggressors' own job as "a scalable threat presentation... which aids in
+# achieving the desired learning outcomes for each mission" - THE LADDER, at [T1].
+# What it does NOT give is a single package size: the numbers are cumulative since 1975 (30,268 aircraft,
+# 423,248 sorties, 529,722 personnel) and there is no air tasking order in it. EVERY FORCE SIZE IN THIS
+# CAMPAIGN IS THEREFORE STILL [SET], and PROGRESS.md's "package sizes unsourced" row stands.
+# One temporal disagreement is carried rather than resolved: the spec has the aggressors consolidated under
+# the 57th Adversary Tactics Group, formed 1 July 2005 [T4]; the 2022 fact sheet aligns the Red force
+# threats under the 57th OPERATIONS Group [T1]. Both are stated; neither is preferred.
+#
+# THE ARENA is one east-west lane at 37.30 N from -116.58 (the aggressors' entry) to -115.52 (Blue's, the
+# Nellis side), inside the spec's own NTTR box (37.0-37.6 N, 115.5-116.6 W [T4]). It is 93.9 km long, and
+# THAT IS THE ARENA'S MOST IMPORTANT PROPERTY: the APG-68's gate against a Fulcrum-sized target is 100.0 km
+# (doc/duels.md Knowledge 1), so the range is shorter than Blue's radar reach and no Blue jet on it ever
+# flies a search phase. The N019's gate against an F-16 is 50.0 km, i.e. 53 % of the lane. Every campaign
+# result here is a result about a SHORT arena, and doc/duels.md's own numbers were taken over 111 km.
+# GROUND: `--elev const`, 0 m range floor, and passing it explicitly is a PRECONDITION and not a
+# convention - fb-gym defaults to `swiss` when the baked DEM is on disk and validates declared spawn
+# altitudes against the resolved ground (O3's warning). Every altitude in every W1 file is therefore a
+# height above a flat plane and not a chart ASL figure; the real NTTR floor is ~1.2-1.5 km and C4 means
+# there would be nothing to mask behind it anyway.
+#
+# THE CLOCK. 2022-08-16T17:00Z is 10:00 local at Nellis (PDT = UTC-7) and is what nine of the ten sorties
+# fly under; w1-10-graduation.fbm declares its own, 2022-08-17T07:00Z = local midnight, and that one
+# `time` line is the ONLY thing that makes it a night ride. Both instants are [SET] - no exercise date is
+# sourced anywhere - and the runner logs the computed sun elevation at each MISSION_START so the claim is
+# checkable in the output.
+#
+# `carry units ground stores` - ALL THREE, AND `units` IS THE ONE THAT IS CARRIED ON PURPOSE. O4 narrowed
+# `units` away with a good reason (a DACT kill is a call; both jets land at Laage). RED FLAG IS THE
+# OPPOSITE CASE AND THE SPEC SAYS SO: its cast table lists "Range control / kill removal" as *"not a unit -
+# a campaign-layer function (C0)"*. Kill removal is a documented range procedure, and dropping a destroyed
+# unit from the next mission is exactly what doc/missions/campaign.md section 3 does. W1 is therefore the
+# campaign in which the carry performs the anchor's own function rather than modelling attrition.
+#
+# WHERE THE CARRY LANDS, AND IT IS EXACTLY ONE PLACE (campaign rule 2). Sorties 09 and 10 are ONE range
+# period flown by ONE set of airframes: `nvblu1..4` and `nvagr1..4` fly both, and the four range objects
+# (`nvcvy1`, `nvcvy2`, `nvpark`, `nvbnkr`) stand in both. Nothing bombs them in 09, so all four enter the
+# graduation ride intact and the aggressors' magazines enter it as 09 left them. THE OTHER EIGHT SORTIES
+# CARRY FRESH CALLSIGNS, ground objects included, and that is not decoration: the store book is keyed by
+# callsign, so a controlled variant that shared one with its control would inherit its expenditure and stop
+# being a control (campaign rule 1). The two controlled pairs are 03/04 (one more aircraft a side) and
+# 07/08 (one token: the lead's radar), and neither overlaps the chain (campaign rule 6).
+#
+# WHAT IS NOT MODELLED, priced rather than hidden. There is no AAA and no surface-to-air missile on this
+# range (the aggressor air-defence squadrons the fact sheet names have no counterpart here - C1 is closed
+# for the eastern rows, and no Western AAA row exists at all), no tanker (C5) though every Red Flag ride
+# tanks, no AEW (C6) though the exercise's whole picture comes from one, no radio (C18), no terrain masking
+# (C4), no strafing (C11), and no time-of-day switch other than the `time` line. The consequence for the
+# CLAIM is stated once here: W1 measures the AIR-TO-AIR and AIR-TO-GROUND halves of a Red Flag ride and
+# nothing about the threat array that decides its altitudes.
+#
+# THE TEN RUNGS, EACH ADDING EXACTLY ONE DEGREE OF FREEDOM OVER THE ONE BEFORE, and each mission's own
+# header carries its binding reading rule (doc/missions/INDEX.md rule 5) - this list is the index only:
+#   01 merge          1v1 close combat, 8 km. Does a NEUTRAL merge convert on the first pass?
+#   02 two-v-one      + one Blue aircraft. With one target for two shooters, does the sort double up?
+#   03 bvr-single     + the range axis: 93.9 km, one a side. At what multiple of Rtr does he fire?
+#   04 bvr-pair       + one aircraft a side. Does the cooperative sort hold two distinct targets?
+#   05 defensive-ca   + the ground objective, on RED's side. Can a CAP deny a target it stands over?
+#   06 strike-escort  + a second Blue role. Does the escort stay tied to the strikers?
+#   07 emcon          + the sensor axis: both sides one sensor down. What does total silence buy?
+#   08 degraded       07 with ONE token changed. Is a radar-less wingman a shooter or a passenger?
+#   09 lfe-four       + two aircraft a side and the weather fixture. How far does the sort's churn rise?
+#   10 graduation     + night, two flights, and a ground job for BOTH sides. Does the package hold?
+#
+# READING RULE FOR THE CAMPAIGN. The exit code is the WORST step's code and it is expected to be non-zero:
+# most rungs are two-sided engagements whose objectives cannot all conclude while anybody is alive, and
+# each header says its verdict is its telemetry. The campaign's verdict is the `campaign MISSION_RESULT`,
+# `campaign CARRY`, `campaign ATTRITION` and `campaign EXPENDED` lines plus the per-rung readings, never
+# the code. A campaign fingerprint is comparable only within ONE ground base and ONE sky
+# (doc/missions/campaign.md section 5): compare only against runs whose campaign-summary.txt records
+# `elev const` and `time 2022-08-16T17:00:00Z`.
+#
+# AND ONE MEASUREMENT W1 OWES THE OTHER NINE. A ladder whose rungs all return the same outcome is not a
+# ladder, so this campaign is checked against doc/doctrine-evolution.md section 4.2's saturation gate with
+# its own numbers - modal outcome class <= 60 %, >= 3 of 9 doctrine levers moving the outcome class, >= 6
+# geometries per arena. The result is in doc/campaigns/w1-red-flag.md section State.
+
+mission ../missions/w1-01-merge.fbm
+mission ../missions/w1-02-two-v-one.fbm
+mission ../missions/w1-03-bvr-single.fbm
+mission ../missions/w1-04-bvr-pair.fbm
+mission ../missions/w1-05-defensive-ca.fbm
+mission ../missions/w1-06-strike-escort.fbm
+mission ../missions/w1-07-emcon.fbm
+mission ../missions/w1-08-degraded.fbm
+mission ../missions/w1-09-lfe-four.fbm
+mission ../missions/w1-10-graduation.fbm

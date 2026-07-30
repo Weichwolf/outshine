@@ -1,0 +1,149 @@
+name w1-02-two-v-one-1
+timeout 420
+
+# CAMPAIGN W1, SORTIE 2 OF 10 - A SECTION AGAINST A SINGLE, RUNG 2 OF THE LADDER.
+# Spec, anchor and sources: doc/campaigns/w1-red-flag.md. Format: doc/missions/campaign.md.
+# CONTROL: none. Its own control is rung 1 - the single degree of freedom this rung adds over
+# w1-01-merge.fbm is the SECOND BLUE AIRCRAFT, and with it a declared flight.
+#
+# THE ARENA is w1-01's lane (37.30 N, -116.58 .. -115.52, `--elev const`, 0 m range floor); the anchor,
+# the substitution and its direction, and the [T1] sourcing of the ten-mission ladder are stated in
+# w1-01-merge.fbm and are not repeated per file. Entry separation here is 40.0 km, i.e. inside Blue's
+# 100.0 km radar gate and outside the N019's 50.0 km one from t = 0.
+#
+# THE ONE TACTICAL QUESTION: with only ONE target for two shooters, does the sort DELIBERATELY double up
+# instead of leaving a member idle?
+#
+# WHY THE ANSWER IS THE INVERSE OF doc/formation.md'S OWN ACCEPTANCE, and why this file has to say so
+# before it is read. The flight contract's acceptance metric is `flt_dup && flt_free > 0` and its
+# required value is ZERO over every unit of every formation mission. Here `flt_free` is 0 BY
+# CONSTRUCTION - there is nothing else in the sky - so `flt_dup` = 1 is the CORRECT behaviour and not a
+# violation; formation.md F4 says exactly this and calls a reader of the raw column a misreader. Rung 2
+# is the file that produces the case F4 describes, so the tree has a measurement of it instead of a
+# footnote.
+#
+# WHY THIS IS AN INTERCEPT AND NOT THE SPEC'S "BFM". The fourteen `flt_*` channels and the sort exist
+# only inside `set task intercept` (doc/missions/combat.md, "Inside `set task intercept` a declared
+# flight additionally sorts its targets"); a `set task bfm` pair has a flight identity and no sort at
+# all. The spec's rung 2 asks a question about the SORT, so the phase that owns the sort is the one
+# flown, and the entry range is set to 40 km so that there is a picture to sort before the merge.
+#
+# THE GROUND: `nvpit2`, a mock vehicle convoy [T1 target kind] halfway down the lane, present for the
+# reason campaign rule 3 gives and not attacked - one `set task` per sortie, and this one is an intercept
+# (the mechanism is stated in w1-01's header).
+#
+# MEASURED (2026-07-30, campaign step 2 AND standalone - fingerprint 63fe25362f2c83c8, identical):
+# exit 0, and THE SORT DOUBLED UP DELIBERATELY, exactly as formation.md F4 says it should here.
+#   the sort     TWO `flight SORT_ASSIGN` lines, both at t = 3.9 s, both on track=1, both
+#                `src=cooperative mates=1 free=0 dup=1`. `flt_switch` 1 on each jet - the assignment is
+#                made once and never revised
+#   the metric   `flt_dup && flt_free > 0` is **0 of 948 ticks on both jets**, while `flt_dup` alone is 1
+#                for 533 and 654 ticks. The raw column reads "doubled up" and the violation metric reads
+#                clean, which is F4's warning turned into a measurement
+#   the cover    `flt_defer_s` **0.0 s** on both, `flt_both_s` 0.0. The rule that keeps one member free
+#                did NOT hold a trigger - correct, because holding one here would leave the flight with
+#                nobody shooting at the only target there is
+#   the triggers rf2blu1 t = 43.3 s at 7.704 nm (Rtr 7.897 -> **0.976 x Rtr**), rf2blu2 t = 43.4 s at
+#                7.723 nm (Rtr 7.901 -> 0.977). 0.1 s apart
+#   arrivals     two AIM-120 at **2.191 m** and **1.988 m** -> the aggressor DEAD at t = 56.9 s
+#                (failed=16383). Its own R-27R arrives at **2.320 m** and kills rf2blu1 at t = 57.2 s
+#                (failed=8191), 0.3 s later
+# SO THE SECTION PAID ONE F-16 FOR ONE FULCRUM. Two shooters on one target is a 1-for-1 trade on this
+# geometry, and the deciding fact is that the aggressor fired FIRST (t = 42.1 s, 8.118 nm at 0.983 x Rtr)
+# from a longer Raero (58.4 km against 46.9 km at the moment of the shot).
+#
+# WHAT TO READ, in this order: `flt_assign` / `flt_dup` / `flt_free` / `flt_switch` on both Blue jets,
+# the `flight SORT_ASSIGN` lines (how many, and which track), `flight COVER_DEFER` (the cover rule with
+# one target: does it hold a trigger it should not?), then `eng_shot_s` per Blue jet and the
+# `stores DETONATION missM` against the R-27R's and the AIM-120's own fuze radii.
+#
+# READING RULE: exit 3 = TIMEOUT is the expected shape - `objective kill unit` on a single MiG plus
+# `survive` on two jets does not conclude while anybody is alive - and the verdict is the flight
+# telemetry. exit 0 means the pair killed it and both came home. exit 2 would be a defect.
+
+unit rf2blu1
+  team friendly
+  flight blu2 1
+  module f16
+  spawn 37.30000 -115.86000 6000 270.0 450
+  set gear up
+  set fuel_pct 80
+  set datalink on                             # the cooperative picture the sort is computed from
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9                            # firing order, doc/duels.md D4: radar rounds low, IR high
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 37.30000 -116.40000 6000 450
+  objective kill unit rf2agr
+  objective survive
+
+unit rf2blu2
+  team friendly
+  flight blu2 2
+  module f16
+  spawn 37.28198 -115.86000 6150 270.0 450    # combat spread: 2.0 km line abreast, 150 m stack
+  set gear up
+  set fuel_pct 80
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 37.28198 -116.40000 6150 450
+  objective kill unit rf2agr
+  objective survive
+
+unit rf2agr
+  team hostile
+  module mig29
+  spawn 37.30000 -116.31200 6000 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 27
+  set n019_emission illum                     # the aggressor of rung 2 is LOUD from t=0; rung 7 is the
+                                              # file that flies the documented silent power-up state
+  set kols_mode ir
+  set rwr on
+  set store 3 r27r
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set store 1 r73
+  set store 2 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  wp 37.30000 -115.60000 6000 450
+  objective kill team friendly
+  objective survive
+
+unit nvpit2
+  module target_soft                          # mock vehicle convoy [T1 target kind]
+  team hostile
+  spawn 37.30000 -116.10000 ground 90.0 0

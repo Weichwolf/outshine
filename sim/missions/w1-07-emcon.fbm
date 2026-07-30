@@ -1,0 +1,195 @@
+name w1-07-emcon-1
+timeout 600
+
+# CAMPAIGN W1, SORTIE 7 OF 10 - THE SILENT INGRESS, RUNG 7 OF THE LADDER.
+# Spec, anchor and sources: doc/campaigns/w1-red-flag.md. Format: doc/missions/campaign.md.
+# CONTROL: this file IS the control of w1-08-degraded.fbm, and the pair is ONE TOKEN apart -
+# `rf8blu1`'s `set fcr_mode crm` where this file has `off`. Nothing else differs, including the
+# aggressors. The callsign prefixes differ (rf7*/rf8*) because the store carry is keyed by callsign and a
+# controlled variant must not inherit its control's expenditure (campaign rule 1).
+#
+# THE ARENA is w1-01's lane at full length (93.9 km, `--elev const`, 0 m range floor). The one degree of
+# freedom this rung adds over rung 4 is the SENSOR AXIS: one fewer sensor a side, on both sides at once.
+#
+# THE ONE TACTICAL QUESTION: what does going silent buy against an opponent whose primary sensor is
+# PASSIVE?
+#
+# THE SPEC'S "UNTIL COMMIT" IS NOT DECLARABLE AND IS NOT FAKED (campaign rule 7, re-checked). The spec's
+# rung 7 reads *"2 F-16, `set fcr_mode off` until commit"*. There is no brief key for the radar on this
+# airframe - `brief_master_arm`, `brief_release_s`, `brief_gun_s`, `brief_chaff_s`, `brief_lase_s`,
+# `brief_alow_ft`, `brief_bingo_lbs`, `brief_weapon`, `brief_sort` are the whole set, and none of them is a
+# radar switch - so a Blue jet declared silent is silent for the WHOLE run. This file therefore measures
+# TOTAL emission discipline, which is the more expensive of the two policies W4 priced, and says so.
+#
+# THE POLICY UNDER WHICH THE OPPONENT IS MEASURED, DECLARED IN ADVANCE (campaign rule 11). W1 is the
+# SEVENTH theatre to run the ground-controller experiment and it takes O2's policy, not O1's or O5's: the
+# aggressors spawn in the documented power-up state `set n019_emission off`, where the brief's third typed
+# entry is the only thing in the tree that ever turns the N019 on. The comparable quantity is therefore
+# "what silence is worth GIVEN an opponent who starts silent too and is talked onto the picture", and this
+# campaign predicts O2's answer (the controller is worth the intercept) rather than O1's (nothing).
+#
+# AND THE PASSIVE HALF OF THE QUESTION IS BLOCKED, WHICH IS THE FINDING THIS RUNG PRODUCES. The KOLS is
+# powered and armed on every aggressor here, and doc/duels.md D3 says why that cannot cue anything: the
+# only consumer of the Irst block in the tree is a missile seeker, and `pilot/FBPilot` builds its intercept
+# picture from the Radar block ALONE. So "silent against a passive primary sensor" is not measurable in the
+# direction the spec asks; what IS measurable, and is the honest reading, is the pair of nothings W5's rule
+# 15 demands be told apart - Blue silent means Blue NEVER ENTERS the engagement machine (no contact, no
+# lock, no shot), and Red passive means Red's own infrared track exists in telemetry and moves nothing.
+# Read `irst_contacts` beside `eng_state`: two live channels and one dead pilot.
+#
+# THE GROUND: `nvbnk7`, a bunkered defensive position [T1 target kind] behind the merge. Campaign rule 3;
+# not attacked.
+#
+# MEASURED (2026-07-30, campaign step 7 AND standalone - fingerprint f50b23b55b6c7495, identical):
+# exit 3, ALL FOUR AIRCRAFT ALIVE, AND TOTAL SILENCE BOUGHT BLUE ITS LIFE AND THE ENTIRE ENGAGEMENT.
+#   Blue         `fcr_on` **0 for all 6,000 ticks** on both jets and `fcr_contacts` **max 0** - blind by
+#                declaration and blind in fact. `eng_shot_s` **-1**, `eng_shots` **0**: not one trigger
+#   WHICH NOTHING IT IS (W5's rule 15, and the answer is not W5's): `eng_state` is NOT `idle`. It is
+#                `search` 1,282 / `defend` 4,718 ticks on the lead and `search` 5,601 / `defend` 399 on
+#                the wingman. The pilot ENTERS the engagement machine, hears the launch warning at
+#                t = 118.8 s, answers in **1.1 s** and defends for **471.8 s** and **39.9 s**, spending
+#                all 60 chaff. THIS IS BLINDNESS, NOT RESTRAINT, and it is a third case beside W5's two
+#   the aggressors both radiate from **t = 27.9 s** (`n019 EMISSION state=illum`, a `radar_emission`
+#                command with a 4.0 s latency) - i.e. after the controller's first briefed call at t = 20,
+#                which is O2's finding reproduced: on a jet that starts `off`, the brief is what turns the
+#                radar on. `irst_contacts` max **2** on both, and it moves nothing (doc/duels.md D3: no
+#                pilot reads the Irst block)
+#   the result   **10 `sms LAUNCH_SOLUTION` and 0 `stores DETONATION`**. Eight rounds EXPIRED with closest
+#                approaches of **14.85 / 18.40 / 20.45 / 23.78 m** (R-27R, 13.8 m fuze) and
+#                **96.7 / 140.6 / 410.6 / 677.6 m** (R-73); two R-73 departed
+# SO SILENCE AGAINST A GROUND-CONTROLLED OPPONENT BOUGHT SURVIVAL AND COST EVERYTHING ELSE - which is
+# W4's "emission discipline is worth the position and nothing else" one level out, with the sides swapped.
+# And the spec's question about the PASSIVE sensor is NOT answered, because it cannot be: two live KOLS
+# tracks and no consumer.
+#
+# WHAT TO READ: `fcr_on` (0 for the whole run on both Blue jets), `eng_state` per Blue jet - if it is
+# `idle` for every row, the sortie measured ABSENCE and not discipline, which is W5's rule 15 - then
+# `n019_on` per aggressor with the tick its brief turned it on, `irst_contacts`/`irst_lock` per aggressor,
+# and every `sms LAUNCH_SOLUTION` with the side that produced it.
+#
+# READING RULE: exit 3 = TIMEOUT is the expected shape; exit 1 means a Blue jet was lost while blind,
+# which is this file's answer and not a defect. The verdict is the pair (Blue's `eng_state` histogram,
+# Red's first `n019` emission tick). exit 2 would be a defect.
+
+unit rf7blu1
+  team friendly
+  flight blu7 1
+  module f16
+  spawn 37.30000 -115.52000 8000 270.0 450
+  set gear up
+  set fuel_pct 80
+  set datalink on                             # the flight keeps its cooperative net; only the radar is off
+  set fcr_mode off
+  set rwr on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 37.30000 -116.58000 8000 450
+  objective kill team hostile
+  objective survive
+
+unit rf7blu2
+  team friendly
+  flight blu7 2
+  module f16
+  spawn 37.28198 -115.52000 8150 270.0 450
+  set gear up
+  set fuel_pct 80
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 37.28198 -116.58000 8150 450
+  objective kill team hostile
+  objective survive
+
+unit rf7agr1
+  team hostile
+  flight agr7 1
+  module mig29
+  spawn 37.30000 -116.58000 8000 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 27
+  set n019_emission off                       # the documented power-up state, O2's policy
+  set kols_mode ir                            # the passive primary sensor, powered and publishing
+  set kols_laser on                           # ...and armed, so a tracked source inside 6 km gets a range
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set store 1 r73
+  set store 2 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 90 90 8                    # the controller's three BRAA calls: bearing, range in km,
+  set brief_gci 60 90 60 8                    # target altitude in km - typed, one entry per decision
+  set brief_gci 100 90 40 8                   # tick, refusable by the bus like any other input
+  wp 37.30000 -115.52000 8000 450
+  objective kill team friendly
+  objective survive
+
+unit rf7agr2
+  team hostile
+  flight agr7 2
+  module mig29
+  spawn 37.31802 -116.58000 8150 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 27
+  set n019_emission off
+  set kols_mode ir
+  set kols_laser on
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set store 1 r73
+  set store 2 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 90 90 8
+  set brief_gci 60 90 60 8
+  set brief_gci 100 90 40 8
+  wp 37.31802 -115.52000 8150 450
+  objective kill team friendly
+  objective survive
+
+unit nvbnk7
+  module target_hard                          # bunkered defensive position [T1 target kind]
+  team hostile
+  spawn 37.30000 -116.20000 ground 90.0 0

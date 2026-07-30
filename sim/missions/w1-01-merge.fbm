@@ -1,0 +1,144 @@
+name w1-01-merge-1
+timeout 300
+
+# CAMPAIGN W1, SORTIE 1 OF 10 - RED FLAG / NELLIS: THE NEUTRAL MERGE, RUNG 1 OF THE LADDER.
+# Spec, anchor and sources: doc/campaigns/w1-red-flag.md. Format: doc/missions/campaign.md.
+# CONTROL: none - it is rung 1, and it is the geometry the doctrine sweep of the saturation gate is
+# flown on (doc/doctrine-evolution.md section 4.2, S2).
+#
+# THE ANCHOR, AND IT IS [T1] SINCE THIS ROUND. The 414th Combat Training Squadron's own fact sheet was
+# HTTP 403 to automated retrieval on every previous pass and is READ here through the Wayback Machine's
+# capture of the identical URL (20240116184035, "current as of October 2022") - the same path that lifted
+# O2's two CIA documents. It says, verbatim: "Lessons from Vietnam showed that if a pilot survived his
+# first 10 combat missions, his probability of survival for remaining missions increased substantially.
+# Red Flag was designed to expose each 'Blue' force pilot to their first 10 'combat missions' here at
+# Nellis." THE TEN MISSIONS OF THIS CAMPAIGN ARE THEREFORE THE ANCHOR'S OWN NUMBER, not a [SET] choice,
+# and the aggressors' job of providing "a scalable threat presentation to Blue forces which aids in
+# achieving the desired learning outcomes for each mission" is the LADDER at [T1]. What the fact sheet
+# does NOT say is anything about package sizes: it gives cumulative totals since 1975 (30,268 aircraft,
+# 423,248 sorties) and no air tasking order, so every force size in this campaign stays [SET].
+#
+# THE SUBSTITUTION AND ITS DIRECTION - and W1 is the campaign where it runs backwards. At Nellis the
+# "MiG-29" is an F-16 of the 64th Aggressor Squadron in an adversary scheme [T4]; here it is the REAL
+# mig29 module, with the R-73, the KOLS and the helmet cue the aggressor jet never had. RED IS THEREFORE
+# MATERIALLY STRONGER THAN THE HISTORICAL OPPOSING FORCE, so a Blue result that still goes well says
+# something STRONGER than a Nellis debrief did, and one that goes badly says nothing about the 64th.
+# NO CATALOGUE ROW IS FLOWN IN ANY OF THE TEN FILES: A15 forbids an ALPHA row from answering a campaign
+# question and every aggressor here is the mig29 module, which needs no generated deck.
+#
+# THE ARENA, and every coordinate in it is [SET] inside the spec's own NTTR box (37.0-37.6 N,
+# 115.5-116.6 W [T4], "approximate, verify against DEM"): one east-west lane at 37.30 N from -116.58
+# (the aggressors' entry) to -115.52 (Blue's, the Nellis side). The lane is 93.9 km long, which is the
+# arena's single most important property and is measured rather than assumed: the APG-68's own gate
+# against a Fulcrum-sized target is 40 nm x (4.0/1.2)^0.25 = 100.0 km (doc/duels.md Knowledge 1), so THE
+# RANGE IS SHORTER THAN BLUE'S RADAR REACH and no Blue jet on this arena ever flies a search phase it
+# was not given. The N019's gate against an F-16 is 50.0 km, i.e. 53 % of the lane.
+# GROUND: `--elev const`, so the range floor is 0 m and every altitude in this file is a height above
+# THAT plane, not a chart ASL figure (the real NTTR floor is ~1.2-1.5 km; C4 means there is no terrain
+# to mask anything anyway). Passing `--elev const` explicitly is a precondition and not a convention:
+# fb-gym's own default is `swiss` whenever the baked DEM is on disk, and it validates a declared spawn
+# altitude against the resolved ground (O3's warning, doc/campaigns/INDEX.md).
+#
+# THE GROUND TARGET, and campaign rule 3. `nvpit1` is a mock vehicle convoy on the range floor under the
+# merge - one of the target kinds the fact sheet names by hand ("mock airfields, vehicle convoys, tanks,
+# parked aircraft, bunkered defensive positions, missile sites" [T1]). IT IS NOT ATTACKED IN THIS FILE
+# AND THAT IS A CAPABILITY STATEMENT, not an omission: `set task` selects ONE phase at spawn and
+# pilot/FBPilot has no Bfm -> Attack transition at all (the only transitions out of a combat phase are
+# Attack -> Route after the egress, FBPilot.cpp:1236/1245), so the spec's "post-fight Mk-82 pass" cannot
+# be flown by the jet that fought the merge. Strafing it instead is blocked by C11 (gun bundles are not
+# resolved against ground targets). The convoy is here for the reason rule 3 gives - it is why the fight
+# is over this piece of desert - and the range gunnery half of the spec's rung 1 is not in the record.
+#
+# THE ONE TACTICAL QUESTION: does the pilot convert a NEUTRAL merge into a firing position on the first
+# pass, and what happens to the fight afterwards?
+#
+# WHAT THIS RUNG ISOLATES: close combat with nothing else in the file - one aircraft a side, no BVR
+# phase, no flight, no datalink, both inside every launch zone either side owns from t = 0.
+#
+# THE `wp` LINE ON A BFM JET IS NOT DECORATION, AND THIS FILE IS WHERE THE CAMPAIGN FOUND OUT. Every
+# combat unit in all ten W1 files carries one, because `modules/f16/FBF16FireControl.cpp:141` invalidates
+# the WHOLE fire-control block when `state.Nav` is unreadable, and `systems/FBNavSystem` publishes
+# nothing at all without a steerpoint (FBNavSystem.cpp:53, `if (Have || HaveBull)`). MEASURED on the
+# first cut of this very file, which was written without one: `blk_firecontrol` = 0 for all 3,001 rows,
+# `gun_sol_err` = -1 throughout, 0 `pilot BFM_SHOT` lines, 0 rounds fired, exit 3 with both jets alive
+# and 14.8 s of unbroken lock at ranges from 7.5 km down to 185 m. Adding one `wp` line per jet and
+# changing nothing else: exit 0, Blue's AIM-9 away at t = 1.0 s. The gate is silent - no rejection, no
+# log line, and the only witness is a telemetry column nobody reads in a dogfight.
+#
+# MEASURED (2026-07-30, `--elev const`, campaign step 1 AND standalone - fingerprint 3555795c02ef346f,
+# identical both ways): exit 0, and the merge is DECIDED IN 10.1 SECONDS.
+#   detection    Blue RADAR_CONTACT + LOCK at t = 1.0/1.1 s (4.04 nm); the aggressor 2.0 s later
+#                (3.51 nm), and the 2.0 s is the F-16 spawning in `acm_hud` while the MiG's pilot must
+#                switch the N019 to ACM over the command bus - doc/duels.md row 8's mechanism, on a
+#                second arena
+#   shots        Blue `pilot BFM_SHOT` t = 1.0 s at 7,483 m (Raero 12,000, cue +-30 deg); the aggressor
+#                t = 3.0 s at 6,503 m (Raero 20,000, cue +-60 deg). NEITHER FIRES A ROUND FROM THE GUN
+#                in the whole run (`gun_fired` 0 on both)
+#   arrivals     AIM-9 at **1.819 m** -> `damage KILL` on the aggressor at t = 10.1 s (failed=4090).
+#                R-73 at **2.622 m** 1.1 s later -> Blue DEGRADED and combat-effective (failed=4016)
+#   the two radii are the reason and they are catalogue numbers: 2.32 m for the AIM-9M against this
+#   airframe, 2.08 m for the R-73 (doc/duels.md row 9). duel-merge measured the R-73 at 2.64 m and the
+#   same survival; W1 reproduces it at 2.622 m, i.e. to 0.02 m, over a different piece of the planet
+#   lock retention  15.1 s (Blue) and 7.1 s (the aggressor) out of 67.8 s of engagement
+#   the convoy   `mission UNIT_RESULT unit=nvpit1 result=INTACT`
+# SO THE ANSWER IS YES, ON THE FIRST PASS AND WITH THE ROUND ON THE RAIL. What this file does NOT measure
+# is a turning fight: doc/pilot.md 2.9 still holds and neither ACM box re-acquires after a pass.
+#
+# WHAT TO READ: `stores DETONATION missM` beside each round's own `fuzeM` (2.32 m for the AIM-9M against
+# this airframe, 2.08 m for the R-73 - doc/duels.md row 9), `eng_shot_s` on both jets, and `bfm_rng`
+# for the seconds each pilot held the other at all.
+#
+# READING RULE: exit 0 is a decided merge and a real verdict; exit 3 with both alive is the
+# re-acquisition gap of doc/pilot.md 2.9 and is a RESULT, not noise. exit 2 - a physical K.O. of a
+# healthy jet - would be a defect.
+
+unit rf1blu
+  team friendly
+  module f16
+  spawn 37.30000 -116.05500 5000 270.0 380    # 8.0 km apart, co-altitude, head-on: duel-merge's geometry
+  set gear up
+  set fuel_pct 70
+  set datalink off                            # a merge is fought on own sensors (doc/missions/combat.md)
+  set fcr_mode acm_hud                        # the auto-lock box: no thumb needed
+  set rwr on
+  set store 3 aim9
+  set store 7 aim9
+  set gun_rounds 510
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task bfm
+  wp 37.30000 -116.30000 5000 380              # the briefed range run: on WEST through the aggressors' end
+  objective kill unit rf1agr
+  objective survive
+
+unit rf1agr
+  team hostile
+  module mig29
+  spawn 37.30000 -116.14500 5000 90.0 380
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad                           # the BFM pilot switches it to ACM in the fight himself
+  set n019_range_nm 27
+  set n019_emission illum
+  set kols_mode ir_cc                         # the close-combat infrared field, +-15 deg, auto-track
+  set rwr on
+  set store 3 r73
+  set store 4 r73
+  set gun_rounds 150
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task bfm
+  wp 37.30000 -115.90000 5000 380              # ...and the aggressor's, on EAST through Blue's
+  objective kill unit rf1blu
+  objective survive
+
+unit nvpit1
+  module target_soft                          # mock vehicle convoy on the range floor [T1 target kind]
+  team hostile
+  spawn 37.30000 -116.10000 ground 90.0 0

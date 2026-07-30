@@ -1,0 +1,184 @@
+name w1-04-bvr-pair-1
+timeout 600
+
+# CAMPAIGN W1, SORTIE 4 OF 10 - THE BVR INTERCEPT, TWO AGAINST TWO, RUNG 4 OF THE LADDER.
+# Spec, anchor and sources: doc/campaigns/w1-red-flag.md. Format: doc/missions/campaign.md.
+# CONTROL: w1-03-bvr-single.fbm. Same lane, same entry longitudes, same altitude, same racks; the ONE
+# degree of freedom this rung adds is the SECOND AIRCRAFT A SIDE and the two flights that come with it.
+# It is the THIRD geometry the saturation gate's doctrine sweep is flown on (doc/doctrine-evolution.md
+# section 4.2, S2).
+#
+# THE ARENA is w1-01's lane at full length (93.9 km, `--elev const`, 0 m range floor); the anchor and the
+# substitution's direction are in w1-01-merge.fbm.
+#
+# THE ONE TACTICAL QUESTION: does the cooperative sort hold TWO DISTINCT targets through the whole run,
+# and what does the cover rule cost when both members reach Rtr at once?
+#
+# THE ASYMMETRY IS NOT MISSION DATA - it is what the two modules ARE (doc/formation.md section 7,
+# doc/modules/mig29/datalink-gci.md 5.1):
+#   channel  F-16: MIDS-LVT, every member transmitting its own fix, its flight position and a target
+#            POINT with a "my round still needs me" bit, once a second. MiG-29: NOTHING - the 9-12 has no
+#            cooperative terminal at all, so its sort is the BRIEFED contract (`set brief_sort left`)
+#            applied by each pilot to the picture he personally has.
+#   cover    the rule that keeps one member free is the same on both sides and its PRICE is not: an
+#            AIM-120 binds its shooter 0.3 s, an R-27R 17.3 s - a factor of 58 [MESS,
+#            doc/formation.md] - and the MiG has no channel on which "my leader is bound" could travel,
+#            so its deferral is 0 s BY CONSTRUCTION rather than by choice. THE COVER QUESTION IS
+#            THEREFORE CHEAP FOR BLUE AND WOULD BE EXPENSIVE FOR RED, which is the point of asking it.
+#   sort quality, on the same instrument: cooperative 0.962 against briefed contract 0.750 - one in four
+#            contract shooters doubled up on a target a mate already has.
+#
+# THE GROUND: `nvhas4`, a bunkered defensive position [T1 target kind] at -116.20 behind the merge.
+# Campaign rule 3; not attacked. Its callsign differs from w1-03's `nvhas3` on purpose - O5's rule that a
+# controlled variant's cast must be disjoint in EVERY unit it can lose, and this pair is a controlled
+# variant.
+#
+# MEASURED (2026-07-30, campaign step 4 AND standalone - fingerprint b690acd9c60de591, identical):
+# exit 3, FOUR AIRCRAFT ALIVE, AND THE COOPERATIVE SORT DID NOT SPLIT THE PAIR'S ROUNDS.
+#   the sort     **163 `flight SORT_ASSIGN` lines**. `flt_switch` **120** and **41** on the two Blue jets
+#                against **1** and **1** on the two aggressors - the cooperative channel is 80 times
+#                busier than the briefed contract and it is not better: BOTH Blue AIM-120 went to
+#                `rf4agr1` (arrivals 5.934 m and 6.116 m, 0.1 s apart) and nothing was fired at `rf4agr2`
+#                until much later. O4-10 measured the same shape at 52/19 against 2/1; W1 measures it at
+#                120/41 against 1/1
+#   the cover    **0 `flight COVER_DEFER`** on either side, `flt_defer_s` 0.0 on all four,
+#                `flt_both_s` 0.0, `flt_exposed_s` 0.3 s on the Blue pair. So the answer to the second
+#                half of the question is that the cover rule COST NOTHING - it never fired, because the
+#                AIM-120's obligation is 0.3 s and two members were never bound at once
+#   the metric   `flt_dup && flt_free > 0` is **0 of 6,000 ticks on all four aircraft**
+#   the triggers rf4blu1 t = 128.5 s at 0.981 x Rtr, rf4blu2 t = 128.3 s at 0.980; rf4agr1 t = 127.1 s at
+#                0.979, rf4agr2 t = 126.9 s at 0.977. All four within 1.6 s and within 0.004 of Rtr
+#   arrivals     nothing killed. Two AIM-120 at 5.93/6.12 m only DEGRADE `rf4agr1` (failed=4088); the
+#                aggressors' four R-27R all EXPIRE at 90 s of flight with closest approaches of
+#                **15.28 / 17.86 / 22.48 m** against a 13.8 m fuze, and two R-73 at 145 m and 371 m
+# THE ONE DEGREE OF FREEDOM COSTS THE WHOLE OUTCOME. w1-03 is this file minus one aircraft a side and it
+# ends 0 with a kill; this one ends 3 with nobody hit. That is doc/duels.md's symmetric stalemate arriving
+# at force scale, and doc/doctrine-evolution.md already measured its shape - a 2v2 is MORE saturated than
+# a 1v1, not less.
+#
+# WHAT TO READ: `flt_src` (1 = cooperative, 2 = briefed contract), `flt_assign` / `flt_dup` / `flt_switch`
+# per jet, `flt_both_s` (seconds two flight-mates were bound at once), `flt_defer_s` (seconds a trigger
+# was held to keep the cover) and `flt_exposed_s`; then the per-jet `eng_*` block and every
+# `stores DETONATION missM` beside its own `fuzeM`. The violation metric is `flt_dup && flt_free > 0` and
+# its required value is zero (doc/formation.md F4) - here, unlike rung 2, there IS something else to
+# shoot at, so the metric binds.
+#
+# READING RULE: exit 3 = TIMEOUT is the expected shape (`kill team hostile` needs BOTH aggressors down);
+# the verdict is the flight telemetry read beside w1-03's single-ship numbers. exit 2 would be a defect.
+
+unit rf4blu1
+  team friendly
+  flight blu4 1
+  module f16
+  spawn 37.30000 -115.52000 8000 270.0 450
+  set gear up
+  set fuel_pct 80
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 37.30000 -116.58000 8000 450
+  objective kill team hostile
+  objective survive
+
+unit rf4blu2
+  team friendly
+  flight blu4 2
+  module f16
+  spawn 37.28198 -115.52000 8150 270.0 450    # combat spread, 2.0 km abreast, 150 m stack
+  set gear up
+  set fuel_pct 80
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 37.28198 -116.58000 8150 450
+  objective kill team hostile
+  objective survive
+
+unit rf4agr1
+  team hostile
+  flight agr4 1
+  module mig29
+  spawn 37.30000 -116.58000 8000 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 27
+  set n019_emission illum
+  set kols_mode ir
+  set rwr on
+  set brief_sort left                         # the contract: the lead takes the left group
+  set store 3 r27r
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set store 1 r73
+  set store 2 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  wp 37.30000 -115.52000 8000 450
+  objective kill team friendly
+  objective survive
+
+unit rf4agr2
+  team hostile
+  flight agr4 2
+  module mig29
+  spawn 37.31802 -116.58000 8150 90.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 27
+  set n019_emission illum
+  set kols_mode ir
+  set rwr on
+  set brief_sort left                         # the SAME contract; the position decides which end
+  set store 3 r27r
+  set store 4 r27r
+  set store 5 r73
+  set store 6 r73
+  set store 1 r73
+  set store 2 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  wp 37.31802 -115.52000 8150 450
+  objective kill team friendly
+  objective survive
+
+unit nvhas4
+  module target_hard                          # bunkered defensive position [T1 target kind]
+  team hostile
+  spawn 37.30000 -116.20000 ground 90.0 0

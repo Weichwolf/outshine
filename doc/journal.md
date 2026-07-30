@@ -2036,3 +2036,51 @@ alle O3-Angreifer spawnen auf 300 m, weil ein 6-km-Entfernungsmesser die Wurfhö
 2,0–2,2 km deckelt. `fb-gym`s **eigener** Standard ist `--elev swiss`, und der prüft eine explizite
 Spawnhöhe gegen den aufgelösten Boden. `--elev const` ist für diese Kampagne keine
 Vergleichbarkeitskonvention, sondern Bedingung — und steht in jedem Befehl ihres Protokolls.
+
+## 2026-07-30 — Kampagne W1: die Übungsleiter steigt, aber nur ihre Bodenhälfte lässt sich noch benoten
+
+W1 galt als blockiert, weil die Nellis-Aggressoren im Katalog **ALPHA** sind und `A15` kein
+Katalog-Kanonengefecht wertet. W1s eigene Pointe löst das: in Nellis ist die „MiG-29" ein verkleideter
+F-16 — bei uns ist sie das echte Modul. **Keine der elf Dateien fliegt eine Katalogzeile**, `A15` bleibt
+unberührt, und die Richtung der Ersetzung steht in jedem Kopf: dieser Aggressor hat R-73, KOLS und
+Helmvisier, die der echte nie hatte, ist also **stärker** als die Vorlage. Zehn `.fbm`, eine `.fbc`, beide
+Determinismus-Kriterien im ersten Versuch (**9 Läufe, ein Fingerabdruck** `5de43dd5…`; **10/10** Schritte
+reproduzieren standalone), Replay nach der **ersten** Mission, kein Byte unter `sim/src/` angefasst.
+
+**Der seit Lauf 1 mit HTTP 403 vermerkte Faktenzettel ist gelesen** — über die Wayback-Kopie derselben
+URL, dieselbe Lehre wie bei O2s zwei CIA-Dokumenten, jetzt auf einem zweiten Host bestätigt. Sechs
+Aussagen steigen auf **[T1]**, darunter die Zehn-Missionen-Begründung im Wortlaut: die Missionszahl dieser
+Kampagne ist damit die Zahl des Ankers und keine `[SET]`-Wahl. Paketgrößen stehen nicht darin — nur
+Summen seit 1975 — und bleiben `[SET]`.
+
+**Die eine Messung, die W1 den anderen neun voraushat, ist ein Fehlschlag mit drei Zahlen.** Gegen das
+Sättigungstor aus `doctrine-evolution.md` §4.2, mit den neun deklarierten Doktrinhebeln auf jeder der
+zehn Sprossen und auf beiden Sitzen (180 Läufe, zweimal, byte-identisch): `S4` 10 Geometrien ≥ 6 **ok**,
+`S6` sauber, `S3` n/a — aber `S5` **2 informative gegen 3 gefordert: VERWEIGERT**. Modale Ergebnisklasse
+je Sprosse 100 / 66,7 / 55,6 / 88,9 / 100 / 88,9 / 88,9 / 88,9 / 88,9 / 55,6 %, Hebel, die die Klasse
+bewegen, 0/3/4/1/0/1/1/1/1/5 von 9 auf dem F-16-Sitz und 0/1/1/3/0/4/0/2/4/2 auf dem MiG-Sitz. **Die Hebel
+beißen in gegenläufigen Sitzen auf gegenläufigen Sprossen** — das ist die Asymmetrie aus `duels.md` auf
+handgeschriebenen Geometrien. Und die drei Sprossen, die überhaupt etwas entscheiden, sind genau die drei
+mit höchstens zwei Flugzeugen: **ein Luftkampfergebnis über 2v2 ist in diesem Baum ein Fixpunkt**, die
+Bodenhälfte entscheidet auf jeder Größe. Damit sind die 4v4-Höhepunkte der acht früheren Kampagnen
+ergebnisblind gebaut, und das ist die übertragbare Zeile dieses Laufs.
+
+Was die Leiter sonst gemessen hat: der Abzug fällt auf **0,978 × Rtr** (F-16) und **0,977 × Rtr** (MiG)
+und ist **blind gegen ein 1,26-fach längeres Raero** — `duels.md` Zeile 1 auf zwei Dezimalen reproduziert,
+auf einer Bahn, die kürzer ist als die eigene Radarreichweite (93,9 km gegen 100,0 km Gate, also gar keine
+Suchphase); die CAP der Luftverteidigungssprosse **verhindert nichts** — 11 von 184 Telemetriespalten,
+**null Bahnzellen**, und der Kontrolllauf ohne CAP wiederholt den 101,05-m-Fehlwurf auf fünf Dezimalen;
+totale Funkstille kostet Blau jeden Schuss und Rot **10 Starts bei 0 Treffern**; ein Flügelmann ohne
+eigenes Radar bekommt **gar kein Ziel zugewiesen**; der 18-Sekunden-Schussvorsprung der Aggressoren macht
+aus **vier blauen Abzügen einen**; und der Übertrag — Kill-Removal, die Verfahrensweise des Ankers selbst,
+diesmal also andersherum als bei O4 — ist **ein F-16 wert**, sauber attribuiert (`units` allein: ein
+Verlust, `stores` allein: ein Verlust, keins von beiden: zwei).
+
+Drei Befunde, keiner hier behoben. Der teuerste ist der billigste zum Hineinlaufen: **eine Kampfphase kann
+durch einen fehlenden Navigationswegpunkt lautlos entwaffnet sein.** `FBF16FireControl` verwirft den ganzen
+Block, wenn `state.Nav` unlesbar ist, und `FBNavSystem` publiziert ohne Steuerpunkt nichts — also hat ein
+`set task bfm`-Jet ohne `wp` keine Kanonenlösung, keine DLZ und kein Raketentor. Gemessen am ersten
+Zuschnitt dieser Kampagne: `blk_firecontrol` 0 über 3 001 Zeilen, 0 Schüsse, Exit 3 nach **14,8 s
+ununterbrochenem Lock von 7,5 km bis 185 m** — eine `wp`-Zeile je Jet, sonst nichts, und der Lauf endet
+0 bei t = 1,0 s. **Vorbestehend:** die Schützen von `bfm-basic`, `bfm-merge`, `bfm-offset` und `bfm-blind`
+deklarieren alle keinen `wp`, `gun-bfm` und `gun-turning` — die beiden, die schießen — beide.

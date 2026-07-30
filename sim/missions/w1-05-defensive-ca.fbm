@@ -1,0 +1,197 @@
+name w1-05-defensive-ca-1
+timeout 520
+
+# CAMPAIGN W1, SORTIE 5 OF 10 - DEFENSIVE COUNTER-AIR, RUNG 5 OF THE LADDER.
+# Spec, anchor and sources: doc/campaigns/w1-red-flag.md. Format: doc/missions/campaign.md.
+# CONTROL: the attribution run A1 is this file with both Blue jets deleted - the unopposed aggressor
+# strike - and it is not a campaign step. Rule 4: a result with two possible causes gets a control run,
+# and "the asset lived" has exactly two (the CAP denied the attack, or the attack would have missed).
+#
+# THE ANCHOR NAMES THIS RIDE BY NAME. The 414th CTS fact sheet lists what a Blue package executes at Red
+# Flag: "offensive counter air, suppression of enemy air defense, combat search and rescue, dynamic
+# targeting, and defensive counter air" [T1, Wayback capture 20240116184035]. Rungs 5 and 6 are the last
+# two of those five, and they are the anchor's words rather than the ladder's invention.
+#
+# THE ARENA is w1-01's lane; the asset stands at its EAST end, i.e. the Nellis side, at -115.60.
+# `--elev const`, 0 m range floor. Red enters from -116.10, 44.3 km out and 13.3 km NORTH of the lane, so
+# the CAP standing over the asset does not know where the crossing will be. Every coordinate [SET].
+#
+# THE ONE TACTICAL QUESTION: can a CAP that does not know where the strike will cross deny a target it is
+# standing over?
+#
+# C12 IS BUILT, SO THE SPEC'S OWN WORKAROUND IS SUPERSEDED (campaign rule 7 - a blocker is re-checked
+# against the tree, not trusted). The spec says *"the asset must survive is not declarable - it is read as
+# Red's failed kill"*. `objective protect unit <callsign>` has existed since round C12: the named unit
+# must still be combat-effective at the END of the run and any loss is an IMMEDIATE FAIL of the declaring
+# unit (doc/missions/verdict.md). Both halves are therefore declared here, on both sides, and the two
+# verdicts have to agree.
+#
+# WHAT THIS FILE CAN AND CANNOT STAGE, stated before the result (W3's rule): it can stage the DENIAL, and
+# it cannot stage "the attack would otherwise have worked". The reason is a measured airframe boundary and
+# not a mission choice - O3 measured this striker's standing cross-track error at +48.3 m on a 6.0 km
+# final, +87.2 m at 12 km and +90.9 m at 24 km, against a FAB-500 that fails a `target_soft` at 68.4 m.
+# ANY INGRESS LONG ENOUGH TO LEAVE A CAP TIME TO REACT IS LONGER THAN THIS BOMB'S ACCURACY, so the
+# attribution run A1 is what says whether the asset lived because of the CAP or because of the geometry,
+# and the campaign publishes A1's miss distance beside this file's verdict.
+#
+# THE FORCED-LOW PROFILE IS NOT A CHOICE EITHER: the KOLS rangefinder caps this airframe's level bombing
+# at 2.0-2.2 km (O3, `mig29-opt-refused.fbm`), so 300 m is what a MiG-29 striker can fly. It also means
+# the aggressors ingress inside the band an F-16's look-down radar sees best - O3 measured the low pair as
+# the F-16's FIRST contact at 21.94 nm, elDeg -7.44, nearer than the high escort.
+#
+# THE GROUND: `nvrow5` is the asset - a row of parked aircraft on a mock airfield [T1 target kind] - plus
+# `nvcvy5` (vehicle convoy) and `nvbnk5` (bunkered defensive position), the spec's own array. The asset is
+# `target_soft` and not the spec's `target_hard`, and the reason is the same measurement: a FAB-500 needs
+# 12.1 m against a hardened structure while the OPT director delivers at 46-70 m, so a hardened asset
+# would be denied by arithmetic before the CAP ever launched, and the experiment would be rigged.
+#
+# MEASURED (2026-07-30, campaign step 5 AND standalone - fingerprint b43917d0e0581b44, identical):
+# exit 3. THE ASSET LIVED AND THE CAP HAD NOTHING TO DO WITH IT - and the control run is what says so.
+#   Blue's look  `rf5blu2` had BOTH low crossers at t = 3.9 s at 17.55 and 18.95 nm, elDeg +3.85/+5.58
+#                (they are north of the lane, hence the positive elevation). Look-down worked
+#   Blue's shot  ONE AIM-120, t = 35.3 s from 17,308 m; it arrives **9.469 m** from `rf5agr1` and
+#                DEGRADES its radar (22,522 J/m2 into the nose zone, `system=radar state=degraded`).
+#                A radar the striker was not using: `set n019_emission off`
+#   Red's release both aggressors released on schedule, t = 192.0 and 202.2 s, and the OPT director's own
+#                `RELEASE_SOLUTION` predicted `aimMissM` **97.87 m** and **99.03 m** BEFORE the pickle.
+#                It released anyway - there is no refusal on a predicted miss
+#   Red's arrivals `aimErrM` **101.05 m** and **102.13 m**, of which `aimAcrossM` **99.73** and
+#                **101.18 m**: a standing cross-track offset over a 44 km diagonal ingress. It extends
+#                O3's ladder (+48.3 m at 6 km, +87.2 at 12, +90.9 at 24) by one point
+#   the damage   1,307 J/m2 and 1,295 J/m2 into the asset against a `target_soft` DEGRADE threshold of
+#                1.2e3 and a FAIL threshold of 2.8e3. Two hits, `state=degraded`, still standing
+#   the verdict  `protect unit nvrow5` **met** on both CAP jets; `kill unit nvrow5` **unmet** on both
+#                aggressors. The two judges agree
+# ATTRIBUTION RUN A1 (this file with both CAP jets deleted, nothing else changed): `aimErrM` **101.054 m**
+# and **102.128 m** at the **identical ticks** - the same digits to five decimals. Diffed cell by cell
+# over 5,200 rows, the CAP is worth **11 of 184 telemetry columns** on the lead aggressor and **9 of 184**
+# on its wingman, every one of them RWR bookkeeping plus the damage counter plus `vis_glare`, and
+# **ZERO trajectory cells**. So the answer to this file's question is: THIS CAP DENIED NOTHING. The asset
+# survived a 68.4 m weapon by 33 metres of the striker's own standing error, and an engagement that put a
+# warhead 9.5 m from the shooter changed not one metre of the attack.
+#
+# WHAT TO READ: `mission OBJECTIVE unit=rf5blu* kind="protect unit nvrow5"` against
+# `mission OBJECTIVE unit=rf5agr* kind="kill unit nvrow5"` (the two must agree), the first
+# `radar RADAR_CONTACT unit=rf5blu*` on a low crosser with its `elDeg`, `sms LAUNCH_SOLUTION` per Blue
+# jet, and - if a bomb is released at all - `stores DELIVERY aimErrM` / `aimAcrossM` beside A1's.
+#
+# READING RULE: exit 0 means Blue met everything; exit 1 means somebody's `protect` or `survive` was
+# violated and the log names whom. The verdict of the RIDE is the pair (Blue's protect, A1's miss
+# distance) and never the exit code alone. exit 2 would be a defect.
+
+unit rf5blu1
+  team friendly
+  flight cap5 1
+  module f16
+  spawn 37.30000 -115.76000 6000 270.0 420
+  set gear up
+  set fuel_pct 80
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 37.30000 -116.20000 6000 420             # the CAP's briefed vector: out along the threat axis
+  objective kill team hostile
+  objective protect unit nvrow5
+  objective survive
+
+unit rf5blu2
+  team friendly
+  flight cap5 2
+  module f16
+  spawn 37.28198 -115.76000 6150 270.0 420
+  set gear up
+  set fuel_pct 80
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 37.28198 -116.20000 6150 420
+  objective kill team hostile
+  objective protect unit nvrow5
+  objective survive
+
+unit rf5agr1
+  team hostile
+  module mig29
+  spawn 37.42000 -116.10000 300 100.0 450     # 13.3 km north of the lane, on the deck
+  set gear up
+  set fuel_pct 70
+  set n019_emission off                       # a striker does not radiate
+  set kols_mode ir
+  set rwr on
+  set store 3 fab500
+  set store 6 fab500                          # the mirror station: one pass, one store
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task attack
+  set attack_mode opt                         # the only delivery mode this airframe accepts
+  wp 37.30000 -115.60000 300 450              # THE AIM POINT: the active steerpoint IS the target
+  wp 37.36000 -116.20000 400 450              # egress north-west, off the range
+  objective kill unit nvrow5
+  objective survive
+
+unit rf5agr2
+  team hostile
+  module mig29
+  spawn 37.44000 -116.12000 300 100.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_emission off
+  set kols_mode ir
+  set rwr on
+  set store 3 fab500
+  set store 6 fab500
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task attack
+  set attack_mode opt
+  wp 37.30000 -115.60000 300 450
+  wp 37.38000 -116.20000 400 450
+  objective kill unit nvrow5
+  objective survive
+
+unit nvrow5
+  module target_soft                          # THE ASSET: a row of parked aircraft [T1 target kind]
+  team friendly
+  spawn 37.30000 -115.60000 ground 90.0 0
+
+unit nvcvy5
+  module target_soft                          # vehicle convoy on the same mock airfield
+  team friendly
+  spawn 37.30500 -115.62000 ground 90.0 0
+
+unit nvbnk5
+  module target_hard                          # bunkered defensive position
+  team friendly
+  spawn 37.29500 -115.58000 ground 90.0 0
