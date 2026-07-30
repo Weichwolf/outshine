@@ -42,10 +42,32 @@ public:
   static constexpr int kMaxGciCalls = 8;
   bool BriefGci(double atS, double brgDeg, double rangeKm, double altKm);
 
-  /* The generic phase machine, plus one thing before it: whatever the controller said is due. */
+  /* The generic phase machine, plus one thing before it (whatever the controller said is due) and one
+   * thing after it (the air-to-ground pass, which on this aircraft is not the generic one). */
   Pilot::FBPilotCommands Run(const FBState &state, FBCommandBus &avionics,
                              const Systems::FBAirframeControls &airframe, const Fdm::fb_fdm_state &st,
                              const FBFlightPlan &plan, const FBRunway *runway, double dt) override;
+
+  /* ---- THE DIRECTOR PASS. Three numbers, and the first is the only one without a source.
+   *
+   * [SET] How far ahead of the release point the pilot fires the rangefinder, in seconds. It is bounded
+   * from below by the procedure itself and not chosen freely: the documented designation window is
+   * 1.5-4 s (kConsentDelayS below), and the documented audio warning sounds 1.5-3 s before the release
+   * — so anything under ~5 s would put the tone on top of the consent and leave the ring nothing to
+   * steer. 8.0 s = 2.5 s of window plus a 5.5 s countdown, i.e. the tone still has 2.5 s of quiet run
+   * in front of it. Its measurable consequence is the whole of §5.4.4: a longer lead is a longer
+   * OPEN-LOOP segment and therefore a bigger delivery error. */
+  static constexpr double kDesignateLeadS = 8.0;
+  /* [DOC DCS-EA p.99, p.101] "The highest shooting accuracy is achieved in the range of 1.5...4
+   * seconds" after releasing LOCKON. The midpoint, so a tick of jitter either way stays inside it. */
+  static constexpr double kConsentDelayS = 2.5;
+  /* [SET] One hand, one action — the same rule the GCI entries above follow, at the HOTAS rate rather
+   * than the head-down one. */
+  static constexpr double kActSpacingS = 1.0;
+  /* [DOC DCS-EA p.99] "It is possible to re-intersect the target by pressing the LOCKON button again
+   * during the attack" — so a refused consent is retried rather than fatal. Three, because a pass that
+   * has spent three attempts has spent its geometry too. */
+  static constexpr int kMaxConsents = 3;
 
 protected:
   /* The non-locking search mode of the N019 — RAD. The generic BVR phase can only ASK for "the mode
@@ -176,6 +198,15 @@ protected:
   double BfmRollRateMaxDegS() const override { return 60.0; }
 
 private:
+  /* THE AIR-TO-GROUND PASS OF AN AIRCRAFT THAT HAS NO RELEASE CUE. Two hands and one waiting: fire the
+   * rangefinder, wait out the documented window, consent — and then fly the run-in unchanged until the
+   * AIRCRAFT lets go. It reads instruments only (the fire control's director half and the SMS counter);
+   * it computes no ballistics and holds no target position. doc/modules/mig29/weapons.md §5.4.2. */
+  void DirectorPass(const FBState &state, FBCommandBus &avionics, const Fdm::fb_fdm_state &st,
+                    const FBFlightPlan &plan, Pilot::FBPilotCommands &c);
+  void StartBreakoff(const FBState &state, const Fdm::fb_fdm_state &st, const FBFlightPlan &plan,
+                     const char *why);
+
   /* The briefed transmissions, consumed from the front in brief order — the same array-with-a-cursor
    * shape as FBPilot's release and chaff briefs, for the same reason: nothing is rewritten in the tick
    * and the order is the file's. */
@@ -185,8 +216,16 @@ private:
   GciCall Gci_[kMaxGciCalls]{};
   int GciCount_ = 0, GciNext_ = 0;
   int GciStep_ = 0;               /* which of the three entries of the current call is still to type */
-  double GciClockS_ = 0.0;        /* this pilot's own mission clock; FBPilot's is private, by design */
+  double ClockS_ = 0.0;           /* this pilot's own mission clock; FBPilot's is private, by design */
   double GciLastEntryS_ = -1e9;
+
+  double AtkActNextS_ = 0.0;      /* one hand, one action */
+  int    AtkConsents_ = 0;
+  int    AtkReleasedSeen_ = -1;   /* the SMS counter at the consent, so a release is SEEN and not assumed */
+  bool   AtkLeaving_ = false;     /* the pass is over — released, refused out or flown through */
+  bool   AtkLeftLogged_ = false;
+  double AtkLeaveUntilS_ = 0.0;
+  double AtkLeaveLatDeg_ = 0.0, AtkLeaveLonDeg_ = 0.0, AtkLeaveAltM_ = 0.0, AtkLeaveSpeedKt_ = 0.0;
 };
 
 } // namespace FlightBox::Modules

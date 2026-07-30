@@ -119,8 +119,12 @@ private:
   void ApplyPilotCommands(const Pilot::FBPilotCommands &c);
   /* The MODULE routes, for the same reason it interprets its own `set` keys: the systems are generic,
    * and which box on THIS panel owns "radar mode" is this aircraft's knowledge. */
-  void ServiceCommands(FBCommandGroup group);
-  void ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &outcome, FBCommandReason &reason);
+  void ServiceCommands(FBCommandGroup group, const Fdm::fb_fdm_state &st);
+  /* `st` travels down because ONE command on this panel is answered against the airframe's own pose:
+   * the LOCKON/trigger pair of the air-to-ground director, which ranges and plans from where the jet
+   * is at the instant the hand moved. Every other target ignores it. */
+  void ApplyCommand(const FBAvionicsCommand &c, const Fdm::fb_fdm_state &st,
+                    FBCommandOutcome &outcome, FBCommandReason &reason);
   void PublishPlatform(const Fdm::fb_fdm_state &st);
   void PublishAirframe();
   /* Flaps + slats as ONE command, because the deck couples them ([DCS-EA p.57]: either DOWN button

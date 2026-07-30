@@ -533,6 +533,113 @@ but the *pilot* behaviour differs: hold trigger, fly a director, do not pickle a
 **KMGU note** `DCS-EA p.102`: the aiming mark shows where the **first block** falls; after unloading
 starts the flight parameters must be **held constant** until the presence symbols disappear.
 
+#### 5.4 The director, stated as a contract — what FlightBox builds
+
+§5.3 says *what the manual says*. This section says **what a director IS**, because the difference
+between a director and a release cue is the whole of gap `C9`
+([`../../campaigns/o3-yom-kippur-1973.md`](../../campaigns/o3-yom-kippur-1973.md)) and a CCIP clone
+with Cyrillic labels would be a false statement about the aircraft.
+
+##### 5.4.1 Director vs. release cue — the mechanical difference
+
+| | **Release cue** (F-16 CCIP/CCRP, `modules/f16/FBF16FireControl`) | **Director** (MiG-29 OPT, `DCS-EA p.101–102`) |
+|---|---|---|
+| What the computer publishes | a **moment** — `AgTimeToReleaseS` counting down to zero, re-solved every sweep from the **measured** state | before the trigger a **range** (§5.3's "range scale"); after it a **time** and a **commanded normal load factor** |
+| Who owns the release | the **pilot**: he presses on the cue, and pressing IS releasing | the **aircraft**: *"press the missile launch trigger and hold it until the ABSP is released"* `DCS-EA p.101` |
+| What the pilot's press means | *release now* | **consent** — from that instant the computer flies the problem and the pilot flies the computer |
+| What the pilot does afterwards | escape | *"Continue horizontal flight or dive until separation of the ABSP, **aligning the end of the current vector with the center of the ring of the specified overload**"* `DCS-EA p.101` |
+| Where the accuracy lives | in the **computation**, right up to the release instant | in the **flying**, from the consent instant onwards |
+| What a tracking error costs | nothing: the next sweep re-solves against the state that actually exists | everything it is worth: the plan was made once and is never remade |
+
+`[ABL]` **The load-bearing inference, and it is stated as an inference.** The manual does not use the
+word "frozen". It does something better: it says that at the trigger press *"the range scale is
+replaced by the scale of the time remaining until the ABSP is released"* and that a **ring of a
+specified overload** appears which the pilot must fly his g-vector into. A computer that re-solved
+continuously would need neither — it would simply release when the geometry came right, which is
+precisely what a CCRP does and precisely why a CCRP shows no commanded g. **A commanded g exists only
+where there is a reference trajectory to hold.** FlightBox therefore models the director as: *at
+consent the computer plans a trajectory, commits to a release time on it, and does not re-solve.*
+The counter-reading (it re-solves and the ring is decoration) is possible and is registered in §8.11.
+
+##### 5.4.2 The phase machine and the criterion each state checks
+
+| State | Entered when | The criterion it checks | Source of the criterion |
+|---|---|---|---|
+| **Search** | the A/A–A/G switch is at GROUND and an unguided store is selected | is there an aim point at all | `DCS-EA p.59` |
+| **Ranged** | the LOCKON/LRF act produced a slant range | range ≤ the device's reach | the KOLS laser's documented **6 km** (`radar-sensars` §6 / stage 2b `LASER_RANGE maxM=6000`); the **11,500 ft** figure of `DCS-EA p.101` is the AUTO-start gate, not the reach |
+| **Consent** | trigger down | designation age ∈ **(1 s, 10 s)**, best **1.5–4 s** | `DCS-EA p.99, p.101`, verbatim |
+| **Steer** | the plan solved a release point **ahead** | *"the release angle is greater than the target sighting angle"* — a release point in the future. Angles already equal ⇒ immediate release; already past ⇒ **no procedure exists** | `DCS-EA p.101` step 7 |
+| **Release** | the frozen countdown reaches zero | audio **1.5–3 s** before it | `DCS-EA p.101` step 8 |
+
+**The three refusals**, and each is a documented boundary rather than a FlightBox rule:
+
+1. **No range.** The aim point is beyond the laser's reach at the moment the procedure needs it. The
+   consequence is the interesting one and it is derived, not set: the designation must happen a
+   *lead time* before the release point, so the reach caps the **release range**, and the release
+   range is set by the **throw**, which is set by the **altitude**. A 6 km device therefore fixes a
+   maximum level-delivery altitude for this aircraft. **This is why the type bombs from low level**,
+   and O3's anchor sentence ("came in very low") falls out of one number rather than out of taste.
+2. **Stale designation.** Consent later than the documented 10 s, or earlier than the documented 1 s.
+3. **The release point is already behind at consent.** `DCS-EA p.101` gives a procedure for
+   *angles equal* and for *release angle greater*; for *release angle smaller* it gives none, because
+   there is nothing to fly to.
+
+Plus one **abandonment** that is documented rather than inferred: *"It is allowed to release the
+missile trigger after binding to the target and then pressing it during the execution of the
+half-loop"* `DCS-EA p.104`. Consent is a **hold**; letting go stops the countdown. On this airframe
+that is not decoration — `SupportInhibitsDefend` already says this pilot cannot do two things at
+once, and a jet that has to defend during the countdown drops nothing.
+
+##### 5.4.3 What the director publishes, and what it deliberately does not
+
+`FBFireControlBlock`'s air-to-ground half (`AgValid` …) stays **false on this aircraft, permanently**.
+That is the point of the round: the block whose contract is *"a release moment"* is exactly the block
+this jet does not fill. The director appends its own fields, and their **order of appearance** is the
+instrument difference:
+
+| Before consent | After consent |
+|---|---|
+| `DirRangeM` — the laser's slant range (`DCS-EA p.102` item 1, "scale of slant range to target") | `DirTimeToReleaseS` — the frozen countdown (`DCS-EA p.101`: the range scale *is replaced by* the time scale) |
+| `DirMarkErrM` — how far the aiming mark (`DCS-EA p.102` item 3, the *"spade — line of ABSP impacts"*) sits **short of** the target | `DirCmdG` / `DirCurG` — the ring and the vector (`DCS-EA p.103` items 1 and 6) |
+| no time of any kind | no range of any kind |
+
+`[ABL]` The pilot converts a distance into a time himself. That is not pedantry: it is the one place
+the F-16's computer does arithmetic this one refuses to, and it is visible in the source as two
+different scales on the same HUD position.
+
+##### 5.4.4 Accuracy — what it hangs on, and the honest prediction
+
+The delivery error of a director is the sum of two terms, and only the first is shared with the F-16:
+
+1. **The computer's own table error** — `core/FBBallistics` integrates the stored `FBWeaponPerf`
+   while the store flies its own JSBSim deck. Identical mechanism on both aircraft, ~45 m on the
+   Mk-82 (`sim/missions/attack-ccrp.fbm`'s own header).
+2. **The open-loop term** — everything the aircraft did between consent and release that the frozen
+   plan did not know about: speed change, flight-path change, bank. It is zero for a perfectly steady
+   run and grows with the **countdown length** and with the **time of fall** that amplifies a wrong
+   release state.
+
+`[ABL]` **The prediction this round is measured against:** a MiG-29 flying a rock-steady level
+laydown will deliver *almost as well as* an F-16, because a steady aircraft gives a frozen plan
+nothing to get wrong — and that is a true statement about the physics, not a defect. The director's
+cost appears where the documented delivery actually lives: a **dive** (`DCS-EA p.101`: "dive angle of
+up to 40°"), where the speed builds under the plan, and at **altitude**, where the fall time
+multiplies the release-state error. If a measurement ever shows the director *beating* the cue on the
+same geometry, the implementation is wrong.
+
+##### 5.4.5 What this aircraft cannot do, and what follows for O3
+
+| Cannot | Source | Consequence for the campaign |
+|---|---|---|
+| Guided air-to-ground of any kind | §1 — no laser, TV or ARM store on the 9-12 | every O3 target must be killable by free fall. `target_hard` may simply be out of reach |
+| A toss/loft delivery below the modelled envelope | TOSS is a 110–130° pitch manoeuvre `DCS-EA p.103`; FlightBox's pilot has no half-loop | O3 has no stand-off option at all — the striker overflies the defence |
+| A moving target | the lead for target motion is **the pilot's own arithmetic** `DCS-EA p.101` step 5 | `o3-08-armour` gains nothing from `C14` being closed until a pilot can compute lead |
+| Wind correction | *"Determine the lead for the longitudinal and lateral drift of an aerial bomb by the wind"* — the **pilot's** job, not the computer's `DCS-EA p.101` | a windy O3 mission measures the pilot, not the jet. FlightBox's pilot does not compute it either, so every wind is a pure error |
+| Jettison | §2.4 has an emergency-release button; FlightBox has no jettison decision | `o3-07-pursued` stays unbuildable |
+| A pair release | §2.4: the real selector picks a PAIR | O3's weight-of-effort missions are one-store-per-press |
+
+---
+
 ---
 
 ### 6. Loadout templates
@@ -630,6 +737,22 @@ that would settle most `[GAP]` rows and was not available to this pass.
    intercept is (per `CLAUDE.md`) a property worth measuring rather than hiding.
 10. **The single document that would close 1, 2, 4, 5 and 8: GAF T.O. 1F-MIG29-1.** Not consulted in
     this pass. Everything above is written so that its arrival is an edit, not a rewrite.
+11. **`[GAP]` Whether the OPT release solution is FROZEN at the trigger press or re-solved to the
+    release instant.** §5.4.1 argues frozen from the existence of the commanded-overload ring, and
+    FlightBox builds it that way; the manual states neither. **The counter-reading is registered
+    here rather than dismissed:** if the solution re-solves, the ring is a piloting aid and the
+    delivery error collapses onto the F-16's, i.e. the *whole* accuracy difference this module
+    measures is a consequence of this one inference. It is the single most load-bearing `[ABL]` in
+    the file and the first thing GAF T.O. 1F-MIG29-1 should be checked against.
+12. **`[GAP]` The LRF's maximum range against a GROUND point.** `DCS-EA p.101` gives 11,500 ft only
+    as the *auto-start* condition. FlightBox carries the KOLS laser's documented air-to-air maximum
+    (6 km) across to the ground case, because it is the same device and it is the only number that
+    exists. Its consequence is not cosmetic: it is what caps this aircraft's level-bombing altitude
+    (§5.4.2 refusal 1), so a different figure moves a measured result.
+13. **`[GAP]` Whether the laser range is more accurate than the barometric fallback in any way
+    FlightBox can measure.** `DCS-EA p.100` says the fallback exists and is *"less accurate"* without
+    a number. In FlightBox both resolve to the same steerpoint elevation, so the laser's modelled
+    contribution is **permission, not precision** — stated rather than invented.
 
 ---
 

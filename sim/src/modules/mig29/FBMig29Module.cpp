@@ -53,8 +53,8 @@ void FBMig29Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitReg
     PublishAirframe();
     /* Commands before the boxes they address, so a switch the pilot threw takes effect on the next
      * sweep and not the one after it. */
-    ServiceCommands(FBCommandGroup::Sensors);
-    ServiceCommands(FBCommandGroup::Avionics);
+    ServiceCommands(FBCommandGroup::Sensors, st);
+    ServiceCommands(FBCommandGroup::Avionics, st);
     /* THE TWO AIR-TO-AIR SENSORS, active first. `units` reaches exactly these two slots and the RWR
      * below, and nothing else in this module. The damage gate is the F-16's, minus the optical head:
      * core/FBSystemHealth has no id for an optical station, and adding one would move the dmg_*
@@ -78,7 +78,18 @@ void FBMig29Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitReg
     /* What a launched round carries out of the jet — and, for a SEMI-ACTIVE round, what this jet then
      * has to keep illuminating for the whole time of flight. */
     Stores_.SetTargetState(FireCtrl_->TargetState());
-    ServiceCommands(FBCommandGroup::Stores);
+    ServiceCommands(FBCommandGroup::Stores, st);
+    /* THE AIRCRAFT LETS GO, and this is the one line that separates a director from a release cue:
+     * the pilot's trigger was a CONSENT (serviced above), the release moment belongs to the computer.
+     * The path out of the jet is still FBStoresSystem::Release and nothing else, so every interlock
+     * (master arm, weight on wheels, the store's own envelope) answers exactly as it always did. */
+    if (FireCtrl_->Director().ReleaseDue()) {
+      FBCommandOutcome dout = FBCommandOutcome::Accepted;
+      FBCommandReason dreason = FBCommandReason::None;
+      Stores_.SetReleaseSolution(FireCtrl_->Director().Solution());
+      bool ok = SystemWorking(FBSystemId::Stores) && Stores_.Release(SimTimeS, dout, dreason);
+      FireCtrl_->Director().NotifyRelease(ok, SimTimeS);
+    }
     if (SystemWorking(FBSystemId::Stores)) Stores_.Run(SharedState, dt);
     else SharedState.Stores.H.Invalidate();
     Warn_->Run(SharedState, dt);   /* LAST: a pure consumer of everything above it */
@@ -98,7 +109,7 @@ void FBMig29Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitReg
     else SharedState.Rwr.H.Invalidate();
     /* Data-flow order, the F-16's: the receiver wrote the threat picture above, due commands next so a
      * throw takes effect this sweep, then the dispenser reads the picture and answers. */
-    ServiceCommands(FBCommandGroup::Defensive);
+    ServiceCommands(FBCommandGroup::Defensive, st);
     if (SystemWorking(FBSystemId::Countermeasures)) Cm_.Run(SharedState, st, SimTimeS);
     else SharedState.Cmds.H.Invalidate();
   }
@@ -233,18 +244,18 @@ void FBMig29Module::ApplyPilotCommands(const Pilot::FBPilotCommands &c) {
  *                  reported, not silently rounded.
  *   RadarSlewEl -> the antenna elevation knob, which on this jet is the OUTPUT of the range-angle
  *                  entry the GCI loop runs through (doc/modules/mig29/datalink-gci.md §2.2). */
-void FBMig29Module::ServiceCommands(FBCommandGroup group) {
+void FBMig29Module::ServiceCommands(FBCommandGroup group, const Fdm::fb_fdm_state &st) {
   FBAvionicsCommand c{};
   while (CmdBus_.TakeDue(group, SimTimeS, c)) {
     FBCommandOutcome outcome = FBCommandOutcome::Accepted;
     FBCommandReason reason = FBCommandReason::None;
-    ApplyCommand(c, outcome, reason);
+    ApplyCommand(c, st, outcome, reason);
     CmdBus_.Complete(c, outcome, reason, SimTimeS);
   }
 }
 
-void FBMig29Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &outcome,
-                                 FBCommandReason &reason) {
+void FBMig29Module::ApplyCommand(const FBAvionicsCommand &c, const Fdm::fb_fdm_state &st,
+                                 FBCommandOutcome &outcome, FBCommandReason &reason) {
   auto reject = [&](FBCommandReason r) { outcome = FBCommandOutcome::Rejected; reason = r; };
   switch (c.Target) {
     case FBCommandTarget::RadarMode: {
@@ -289,6 +300,16 @@ void FBMig29Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &o
     case FBCommandTarget::IffTransponder: Radar_.SetIffTransponder(c.Value != 0.0); return;
     case FBCommandTarget::IffInterrogator: Radar_.SetIffInterrogator(c.Value != 0.0); return;
     case FBCommandTarget::Designate:
+      /* ONE BUTTON, TWO JOBS — which one it does is decided by the A/A-A/G switch ([DCS-EA p.59]),
+       * and the only form this tree can state that switch in is the round under the trigger: with an
+       * unguided store selected the LOCKON press is the ground procedure's preliminary target
+       * acquisition and it fires the rangefinder, not the radar. */
+      if (FireCtrl_->Director().Engaged()) {
+        if (!SystemWorking(FBSystemId::FireControl)) { reject(FBCommandReason::SystemFailed); return; }
+        if (!FireCtrl_->Director().Range(SharedState, st, SimTimeS))
+          reject(FBCommandReason::OutOfContext);
+        return;
+      }
       if (!SystemWorking(FBSystemId::Radar)) { reject(FBCommandReason::SystemFailed); return; }
       if (!Radar_.Designate((int)c.Value, SimTimeS)) {
         /* The return was gone by the time the hand had finished — the same answer the F-16 gives. */
@@ -327,6 +348,16 @@ void FBMig29Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &o
       return;
     case FBCommandTarget::WeaponRelease:
       if (!SystemWorking(FBSystemId::Stores)) { reject(FBCommandReason::SystemFailed); return; }
+      /* THE TRIGGER IS NOT THE SAME ACTION FOR BOTH HALVES OF THIS AIRCRAFT. Against an air target it
+       * launches: press = away. Against the ground it CONSENTS, and the aircraft releases when its own
+       * countdown runs out ([DCS-EA p.101], doc/modules/mig29/weapons.md §5.4). Value 0 = the pilot let
+       * go, which the source explicitly permits and which abandons the countdown. */
+      if (FireCtrl_->Director().Engaged()) {
+        if (!SystemWorking(FBSystemId::FireControl)) { reject(FBCommandReason::SystemFailed); return; }
+        if (!FireCtrl_->Director().Consent(c.Value != 0.0, SharedState, st, SimTimeS))
+          reject(FBCommandReason::OutOfContext);
+        return;
+      }
       Stores_.Release(SimTimeS, outcome, reason);   /* the BOX decides and says why; this only routes */
       return;
     case FBCommandTarget::GunTrigger:
@@ -411,19 +442,30 @@ bool FBMig29Module::ApplySetup(const std::string &key, const std::string &value)
     return true;
   }
   if (key == "task") {
-    /* `intercept` is unlocked by stage 2b: the BVR phase machine needs a radar, and this jet now has
-     * one. It runs on N019 + GCI instead of on a datalink picture, which is the whole doctrinal point.
-     * `bfm` and `attack` stay closed — both need a WEAPON (gun / stores), and a phase that reads an
-     * Invalid FireControl block forever is a jet that flies straight ahead. */
+    /* `intercept` came with stage 2b (the BVR phase machine needs a radar), `bfm` with 2c (it needs a
+     * weapon). `attack` is the LAST one and it needed neither: it needed a DELIVERY PROCEDURE, because
+     * this aircraft has no release cue to pickle on and never will. What unlocks it is
+     * FBMig29Director — the same trigger, a different meaning (doc/modules/mig29/weapons.md §5.4). */
     if (value == "route") { PilotSys->SetPhase(Pilot::FBPilot::Phase::Route); return true; }
     if (value == "intercept") { PilotSys->SetPhase(Pilot::FBPilot::Phase::Intercept); return true; }
     if (value == "bfm") { PilotSys->SetPhase(Pilot::FBPilot::Phase::Bfm); return true; }
+    if (value == "attack") { PilotSys->SetPhase(Pilot::FBPilot::Phase::Attack); return true; }
     /* `formation` needs no datalink to be DECLARED — but this jet has none, so its station keeping has
      * no lead report to hold and falls straight through to its own route. That is the doctrine, not a
      * gap: a MiG-29 flight is held together by the controller, not by a net. */
     if (value == "formation") { PilotSys->SetPhase(Pilot::FBPilot::Phase::Formation); return true; }
-    return RejectSetup("want route|intercept|bfm|formation (attack needs an air-to-ground computer "
-                       "this jet does not have)", key, value);
+    return RejectSetup("want route|intercept|bfm|attack|formation", key, value);
+  }
+  /* THE ONLY VALUE THIS AIRFRAME ACCEPTS, and the refusal of the other three is the statement: `ccip`
+   * and `ccrp` name a release cue this computer does not publish, `arm` names a weapon it does not
+   * carry. `opt` is not a fourth instrument — it is the aircraft's own procedure, in which the pilot
+   * consents and the aircraft releases. doc/modules/mig29/weapons.md §5.4. */
+  if (key == "attack_mode") {
+    if (value != "opt")
+      return RejectSetup("want opt (this jet has no CCIP/CCRP computer and no anti-radiation store)",
+                         key, value);
+    PilotSys->BriefAttack(FBDeliveryMode::Opt);
+    return true;
   }
   /* THE SORT CONTRACT. On this aircraft it is the ONLY sort there is: no cooperative terminal, so the
    * controller's split is agreed on the ground and applied by each pilot to the picture he has.

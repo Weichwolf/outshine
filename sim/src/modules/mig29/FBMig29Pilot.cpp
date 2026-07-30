@@ -1,6 +1,8 @@
 #include "FBMig29Pilot.h"
 #include "FBGeodesy.h"
 #include "FBLog.h"
+#include "FBMig29Director.h"
+#include "FBUnits.h"
 #include <cmath>
 
 namespace FlightBox::Modules {
@@ -55,11 +57,11 @@ Pilot::FBPilotCommands FBMig29Pilot::Run(const FBState &state, FBCommandBus &avi
                                          const Systems::FBAirframeControls &airframe,
                                          const Fdm::fb_fdm_state &st, const FBFlightPlan &plan,
                                          const FBRunway *runway, double dt) {
-  GciClockS_ += dt;
+  ClockS_ += dt;
 
-  while (GciNext_ < GciCount_ && GciClockS_ >= Gci_[GciNext_].AtS) {
+  while (GciNext_ < GciCount_ && ClockS_ >= Gci_[GciNext_].AtS) {
     /* A newer call supersedes an older one that is still being typed. */
-    if (GciNext_ + 1 < GciCount_ && GciClockS_ >= Gci_[GciNext_ + 1].AtS) {
+    if (GciNext_ + 1 < GciCount_ && ClockS_ >= Gci_[GciNext_ + 1].AtS) {
       if (GciStep_ != 0)
         FBLog::Info("gci", "CALL_SUPERSEDED", {{"atS", Gci_[GciNext_].AtS}, {"step", GciStep_}});
       GciNext_++;
@@ -67,13 +69,13 @@ Pilot::FBPilotCommands FBMig29Pilot::Run(const FBState &state, FBCommandBus &avi
       continue;
     }
     if (GciStep_ >= 3) break;
-    if (GciClockS_ - GciLastEntryS_ < kGciEntrySpacingS) break;
+    if (ClockS_ - GciLastEntryS_ < kGciEntrySpacingS) break;
 
     const GciCall &g = Gci_[GciNext_];
     bool refused = false;
     if (GciStep_ == 0) {
       FBLog::Info("gci", "BRAA", {{"brgDeg", g.BrgDeg}, {"rangeKm", g.RangeM * 0.001},
-          {"altKm", g.AltM * 0.001}, {"t", GciClockS_}});
+          {"altKm", g.AltM * 0.001}, {"t", ClockS_}});
       /* No Platform block, no entry: the relative altitude is a DIFFERENCE, and half of it is his own
        * instrument. A pilot who cannot read his own altimeter does not type a scan elevation. */
       if (!state.Platform.H.Readable()) break;
@@ -85,22 +87,22 @@ Pilot::FBPilotCommands FBMig29Pilot::Run(const FBState &state, FBCommandBus &avi
        * (doc/pilot.md 2.15). */
       double worldElDeg = std::atan2(relM, g.RangeM) * kRad2Deg;
       FBBodyAngle el = FBBodyAngle::FromWorldElevation(worldElDeg, st.pitch);
-      refused = avionics.PostAntennaEl(el, GciClockS_).Outcome == FBCommandOutcome::Rejected;
+      refused = avionics.PostAntennaEl(el, ClockS_).Outcome == FBCommandOutcome::Rejected;
       FBLog::Info("gci", "ENTER_ELEV", {{"relM", relM}, {"rangeM", g.RangeM},
           {"worldElDeg", worldElDeg}, {"ownPitchDeg", st.pitch}, {"elDeg", el.Deg()}});
     } else if (GciStep_ == 1) {
       FBBodyAngle az = FBBodyAngle::FromTrueBearing(g.BrgDeg, st.yaw);
-      refused = avionics.PostAntennaAz(az, GciClockS_).Outcome == FBCommandOutcome::Rejected;
+      refused = avionics.PostAntennaAz(az, ClockS_).Outcome == FBCommandOutcome::Rejected;
       FBLog::Info("gci", "ENTER_ZONE", {{"brgDeg", g.BrgDeg}, {"ownHdgDeg", st.yaw},
           {"offDeg", az.Deg()}});
     } else {
       refused = avionics.Post(FBCommandTarget::RadarEmission, (double)FBMig29Emission::Illum,
-                              GciClockS_).Outcome == FBCommandOutcome::Rejected;
+                              ClockS_).Outcome == FBCommandOutcome::Rejected;
       /* No new field for the refusal: the bus already emits CMD_REJECT with the reason, and a retry
        * shows up as a SECOND line of this one. */
-      FBLog::Info("gci", "RADAR_ILLUM", {{"t", GciClockS_}});
+      FBLog::Info("gci", "RADAR_ILLUM", {{"t", ClockS_}});
     }
-    GciLastEntryS_ = GciClockS_;
+    GciLastEntryS_ = ClockS_;
     if (!refused) {
       GciStep_++;
       if (GciStep_ >= 3) { GciNext_++; GciStep_ = 0; }
@@ -108,7 +110,123 @@ Pilot::FBPilotCommands FBMig29Pilot::Run(const FBState &state, FBCommandBus &avi
     break;   /* AT MOST ONE cockpit action per decision tick, the same rule the generic brief follows */
   }
 
-  return Pilot::FBPilot::Run(state, avionics, airframe, st, plan, runway, dt);
+  Pilot::FBPilotCommands c = Pilot::FBPilot::Run(state, avionics, airframe, st, plan, runway, dt);
+  /* AFTER the generic machine, not instead of it: the run-in leg, the flight picture and the briefed
+   * items are the same on every airframe. What is this aircraft's own is what happens on that leg —
+   * and in the Attack phase the generic pass does nothing at all here, because it waits for a release
+   * cue (FBFireControlBlock::AgValid) this computer never publishes. */
+  if (GetPhase() == Phase::Attack) DirectorPass(state, avionics, st, plan, c);
+  return c;
+}
+
+/* "After dropping the bombs, use an energetic maneuver to exit the attack" [DCS-EA p.102].
+ *
+ * THE EXIT IS THE BRIEFED ONE where the mission declares it, and that is the whole difference from the
+ * generic pass. The generic egress invents a point (track + 120 deg, 12 km, +500 m) and then hands the
+ * jet back to the Route phase — which on THIS airframe is a crash: the route's active waypoint is still
+ * the target the pass never overflew, so Route turns back onto it hard and the aircraft departs
+ * (measured: roll 97 deg, r = -323 deg/s, ATTITUDE_CONTACT 12 s into Route). A briefed egress point
+ * takes the invention out and the reversal with it. Where the mission declares none, the computed turn
+ * is used and the pass simply holds it — this pilot never hands a spent strike back to the router,
+ * because it has no way to tell the router that the target waypoint is spent (a stated limit, not a
+ * silent one: doc/modules/mig29/weapons.md §5.4.5). */
+void FBMig29Pilot::StartBreakoff(const FBState &state, const Fdm::fb_fdm_state &st,
+                                 const FBFlightPlan &plan, const char *why) {
+  AtkLeaving_ = true;
+  AtkLeaveUntilS_ = ClockS_ + AttackEgressS();
+  int next = plan.ActiveIndex() + 1;
+  if (next < plan.Size()) {
+    const FBWaypoint &wp = plan.At(next);
+    AtkLeaveLatDeg_ = wp.LatDeg; AtkLeaveLonDeg_ = wp.LonDeg; AtkLeaveAltM_ = wp.AltM;
+    AtkLeaveSpeedKt_ = wp.SpeedKt;
+  } else {
+    double trackDeg = state.AirData.H.Readable() ? state.AirData.TrackDeg : st.yaw;
+    double hdg = (trackDeg + AttackEgressTurnDeg()) * kDeg2Rad;
+    double coslat = std::cos(st.lat * kDeg2Rad);
+    double rng = AttackEgressRangeM();
+    AtkLeaveLatDeg_ = st.lat + rng * std::cos(hdg) / kMPerDeg;
+    AtkLeaveLonDeg_ = st.lon + (coslat > 1e-6 ? rng * std::sin(hdg) / (kMPerDeg * coslat) : 0.0);
+    AtkLeaveAltM_ = st.elev + AttackEgressClimbM();
+    AtkLeaveSpeedKt_ = 0.0;
+  }
+  FBLog::Info("pilot", "ATTACK_BREAKOFF", {{"why", why}, {"briefed", next < plan.Size()},
+      {"toLat", AtkLeaveLatDeg_}, {"toLon", AtkLeaveLonDeg_}, {"toAltM", AtkLeaveAltM_},
+      {"altM", st.elev}, {"gsMs", st.gs}});
+}
+
+void FBMig29Pilot::DirectorPass(const FBState &state, FBCommandBus &avionics,
+                                const Fdm::fb_fdm_state &st, const FBFlightPlan &plan,
+                                Pilot::FBPilotCommands &c) {
+  if (AtkLeaving_) {
+    if (!AtkLeftLogged_ && ClockS_ >= AtkLeaveUntilS_) {
+      AtkLeftLogged_ = true;
+      FBLog::Info("pilot", "ATTACK_PASS_COMPLETE", {{"altM", st.elev}, {"gsMs", st.gs}});
+    }
+    c = Pilot::FBPilotCommands{};
+    c.Guidance = Pilot::FBPilotGuidance::Direct;
+    c.TargetLatDeg = AtkLeaveLatDeg_; c.TargetLonDeg = AtkLeaveLonDeg_;
+    c.TargetAltM = AtkLeaveAltM_;
+    c.TargetSpeedKt = AtkLeaveSpeedKt_ > 0.0 ? AtkLeaveSpeedKt_ : st.cas * kMsToKt;
+    return;
+  }
+
+  const FBFireControlBlock &fc = state.FireControl;
+  if (!fc.H.Readable() || !fc.DirEngaged) return;
+
+  /* THE COUNTDOWN IS NOT THE PILOT'S BUSINESS. Once the ring is up his contract is to hold the run-in,
+   * and holding it is what the generic leg above already commands — so this branch does NOTHING, and
+   * that is the behaviour, not an omission. It is the exact inverse of the F-16's pass, where every
+   * tick between the cue and the pickle is a decision. */
+  if (fc.DirArmed) {
+    if (AtkReleasedSeen_ < 0 && state.Stores.H.Readable())
+      AtkReleasedSeen_ = state.Stores.ReleasedCount;
+    return;
+  }
+
+  /* The store left: the SMS counter is how a pilot sees it, the same instrument the generic pass uses. */
+  if (AtkReleasedSeen_ >= 0 && state.Stores.H.Readable() &&
+      state.Stores.ReleasedCount > AtkReleasedSeen_) {
+    StartBreakoff(state, st, plan, "released");
+    return;
+  }
+
+  double gs = st.gs;
+  /* THE ONE PIECE OF ARITHMETIC THE COMPUTER REFUSES TO DO. Before the trigger this jet shows a RANGE
+   * and where the aiming mark sits; the conversion into a time is the pilot's own, off his own
+   * groundspeed (doc/modules/mig29/weapons.md §5.4.3). */
+  double markS = gs > 1.0 ? (double)fc.DirMarkErrM / gs : 1e9;
+
+  /* Flown through it: the release point is behind and the source's procedure has no branch for that. */
+  if (markS <= 0.0) { StartBreakoff(state, st, plan, "release point passed"); return; }
+  if (fc.DirRefusal == (uint8_t)FBDirectorRefusal::NoReleasePoint ||
+      fc.DirRefusal == (uint8_t)FBDirectorRefusal::WouldNotArm) {
+    StartBreakoff(state, st, plan, FBDirectorRefusalStr((FBDirectorRefusal)fc.DirRefusal));
+    return;
+  }
+  if (AtkConsents_ >= kMaxConsents) { StartBreakoff(state, st, plan, "attempts spent"); return; }
+  if (ClockS_ < AtkActNextS_) return;
+
+  /* LOCKON. Fired at the lead the countdown needs, and only there: a rangefinder pressed earlier gives
+   * a designation that has aged past the documented 10 s by the time the trigger follows it. */
+  if (!fc.DirRanged || fc.DirRangeAgeS > FBMig29Director::kConsentMaxAgeS - kConsentDelayS) {
+    if (markS > kDesignateLeadS) return;
+    avionics.Post(FBCommandTarget::Designate, 0.0, ClockS_);
+    AtkActNextS_ = ClockS_ + kActSpacingS;
+    FBLog::Info("pilot", "ATTACK_LOCKON", {{"markErrM", (double)fc.DirMarkErrM}, {"markS", markS},
+        {"altM", st.elev}, {"gsMs", gs}});
+    return;
+  }
+
+  /* THE CONSENT, and it is deliberately LATE: the F-16's pass advances its pickle by the actuation
+   * latency, this one WAITS OUT a documented window before pressing at all. The aircraft owns
+   * everything after it. */
+  if (fc.DirRangeAgeS < kConsentDelayS) return;
+  avionics.Post(FBCommandTarget::WeaponRelease, 1.0, ClockS_);
+  AtkActNextS_ = ClockS_ + kActSpacingS;
+  AtkConsents_++;
+  FBLog::Info("pilot", "ATTACK_CONSENT", {{"attempt", AtkConsents_},
+      {"rangeAgeS", (double)fc.DirRangeAgeS}, {"rangeM", (double)fc.DirRangeM},
+      {"markErrM", (double)fc.DirMarkErrM}, {"markS", markS}, {"altM", st.elev}, {"gsMs", gs}});
 }
 
 } // namespace FlightBox::Modules

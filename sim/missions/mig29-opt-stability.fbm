@@ -1,0 +1,115 @@
+name mig29-opt-stability-1
+timeout 150
+
+# WHAT A DIRECTOR DELIVERY'S ACCURACY ACTUALLY HANGS ON — one aircraft, one weapon, one procedure,
+# THREE run-ins, and the reference base's own prediction put on trial
+# (doc/modules/mig29/weapons.md §5.4.4: *"on a director delivery the flying is the accuracy"*).
+#
+# THE INSTRUMENT THAT MAKES THIS MEASURABLE is `director DIRECTOR_RELEASE`'s **openLoopAlongM**. At the
+# release instant the same stored ballistic table is integrated twice: once as the plan predicted it
+# (frozen at the consent, several seconds earlier) and once from the state the aircraft actually has.
+# Both use the identical table, so the difference contains NO table error at all — it is exactly what
+# committing to a plan and never re-solving cost, in metres along the track. For a release CUE the same
+# quantity is zero by construction, which is what makes the two procedures comparable at all.
+#
+# THE THREE RUNS, and only one thing changes between any two of them:
+#   alpha  12 km stabilised final at 300 m   — the reference: the aircraft has held the flight
+#                                              condition for ~50 s before the plan is made
+#   bravo   6 km final at 300 m              — SAME altitude, SAME commanded speed, HALF the final.
+#                                              The only difference is how long it has been steady
+#   charlie 12 km stabilised final at 1500 m — SAME stabilisation as alpha, five times the altitude
+#
+# MEASURED (2026-07-30, --elev const):
+#   unit     final  alt     devSpeedMs  openLoopAlongM  predErrM  aimLongM  aimAcrossM   tofS
+#   alpha    12 km   300 m      -0.065          -7.98 m   14.42 m   13.94 m     92.22 m   8.05
+#   bravo     6 km   300 m      -1.490         -76.45 m   55.09 m  -54.99 m     44.99 m   8.26
+#   charlie  12 km  1500 m      -0.158          -4.29 m   18.76 m   18.82 m    100.82 m  18.46
+#
+# WHAT IT SAYS — and point 2 REFUTES this round's own written prediction, which is why it is here:
+#   1. STABILISATION decides the PROCEDURE's error. alpha -> bravo halves the final and multiplies
+#      openLoopAlongM by 9.6 (-7.98 -> -76.45 m) while altitude, speed, store and target are identical.
+#      The driver is one column to the left: 1.49 m/s of airspeed the plan did not know about, against
+#      0.065. That is the director's own cost, it exists only because the plan is never remade, and it
+#      is what makes bravo's bomb land 55 m SHORT where alpha's lands 14 m long.
+#   2. ALTITUDE decides almost NOTHING, and §5.4.4 predicted the opposite. It said a longer fall would
+#      "multiply the release-state error"; alpha -> charlie raises the fall time from 8.05 s to 18.46 s
+#      and openLoopAlongM gets SMALLER (-7.98 -> -4.29 m), while predErrM grows only 30 %
+#      (14.42 -> 18.76 m). The prediction assumed there would be a release-state error to multiply;
+#      on a stabilised aircraft there is not one, so 2.3x the lever finds nothing to lift. The written
+#      guess was wrong and the measurement stands.
+#   3. So of the reference base's three candidates — height, speed, dive angle — it is SPEED, and not
+#      its value but its STABILITY at the moment of the commit. Height buys only the shared table error,
+#      which an F-16 on a release cue pays identically.
+#   4. The cross-track column is NEITHER of those: it is this airframe's own inability to hold a
+#      straight leg (yaw channel measured OFF, doc/modules/mig29/module.md gap 4i). It saturates near
+#      90-100 m within the first ~10 km of any leg, which is why bravo's SHORT final has the SMALLEST
+#      cross error in the table and why mig29-opt-low.fbm flies a short final to kill anything at all.
+#
+# READING RULE: exit 0 = SUCCESS is bookkeeping — all three strikers declare `survive` and all three do.
+# It is NOT the measurement. This is a MEASUREMENT RIG in the shape of mig29-radar-notch/mig29-irst: no
+# striker declares a kill objective, because a miss is not a mission verdict. THE MEASUREMENT is the
+# three `director DIRECTOR_RELEASE` lines and the three `stores DELIVERY` lines beside them, read as a
+# TABLE — no single row of it proves anything, and alpha_tgt/charlie_tgt surviving is expected.
+
+unit alpha
+  module mig29
+  team hostile
+  spawn 46.90000 6.89000  300 90.0 450
+  set gear up
+  set fuel_pct 60
+  set n019_emission off
+  set store 3 fab500
+  set store 6 fab500
+  set brief_master_arm arm
+  set task attack
+  set attack_mode opt
+  wp 46.90000 7.05000 300 450
+  wp 46.95000 7.20000 2000 400
+  objective survive
+
+unit alpha_tgt
+  module target_soft
+  team friendly
+  spawn 46.90000 7.05000 ground 90.0 0
+
+unit bravo
+  module mig29
+  team hostile
+  spawn 46.83000 6.97800  300 90.0 450        # the ONE changed line: half the final, same everything
+  set gear up
+  set fuel_pct 60
+  set n019_emission off
+  set store 3 fab500
+  set store 6 fab500
+  set brief_master_arm arm
+  set task attack
+  set attack_mode opt
+  wp 46.83000 7.05000 300 450
+  wp 46.88000 7.20000 2000 400
+  objective survive
+
+unit bravo_tgt
+  module target_soft
+  team friendly
+  spawn 46.83000 7.05000 ground 90.0 0
+
+unit charlie
+  module mig29
+  team hostile
+  spawn 46.76000 6.89000 1500 90.0 450        # the ONE changed line: five times the altitude
+  set gear up
+  set fuel_pct 60
+  set n019_emission off
+  set store 3 fab500
+  set store 6 fab500
+  set brief_master_arm arm
+  set task attack
+  set attack_mode opt
+  wp 46.76000 7.05000 1500 450
+  wp 46.81000 7.20000 3000 400
+  objective survive
+
+unit charlie_tgt
+  module target_soft
+  team friendly
+  spawn 46.76000 7.05000 ground 90.0 0

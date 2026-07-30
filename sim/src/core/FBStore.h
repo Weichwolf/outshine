@@ -607,13 +607,16 @@ inline const FBStoreSpec *FBStoreSpecOf(FBStoreKind kind) {
 /* Append only — the ordinal is the mission-visible `set attack_mode` value and a telemetry column.
  * `Arm` is not a third ballistic solution: it selects which INSTRUMENT supplies the release cue. The
  * two bombing modes read the fire control's countdown; this one reads the warning receiver's bearing,
- * because an anti-radiation shot has no range to count down. doc/air-to-ground.md §7. */
-enum class FBDeliveryMode : uint8_t { Ccip = 0, Ccrp, Arm };
+ * because an anti-radiation shot has no range to count down. doc/air-to-ground.md §7.
+ * `Opt` is the fourth and it is not an instrument choice at all: it names a procedure in which the
+ * pilot does not pick a release moment, because the AIRCRAFT does. doc/modules/mig29/weapons.md §5.4. */
+enum class FBDeliveryMode : uint8_t { Ccip = 0, Ccrp, Arm, Opt };
 
 inline const char *FBDeliveryModeStr(FBDeliveryMode m) {
   switch (m) {
     case FBDeliveryMode::Ccrp: return "ccrp";
     case FBDeliveryMode::Arm: return "arm";
+    case FBDeliveryMode::Opt: return "opt";
     case FBDeliveryMode::Ccip: break;
   }
   return "ccip";

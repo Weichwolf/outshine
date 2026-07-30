@@ -1956,3 +1956,34 @@ Telemetriedateien byte-identisch, die übrigen 2–6 von 184–202 Spalten, alle
 Datenlink-Buchhaltung, **keine Bahnspalte bewegt sich**. Und `--elev tiles` über das echte Kosovo
 (Boden 547,88 m) verschiebt `predErrM` 58,08 → 46,50 m und erzeugt **null Maskierungen** — die fehlende
 Hälfte von `C4` ist eine Rechnung, keine Datenlage.
+
+## 2026-07-30 — Der Direktor der MiG-29: ungenauer als der Rechner, und genau das war der Nachweis
+
+`C9` war die einzige Lücke, die eine ganze Kampagne auf null setzte, und sie hieß nicht „CCIP fehlt"
+sondern etwas Genaueres: das Abwurfverfahren der MiG-29 ist ein **Direktor** und kein Auslösecue —
+das Flugzeug wählt den Moment, der Pilot fliegt eine Anweisung. Gebaut als `core/FBDirector.h` plus
+`modules/mig29/FBMig29Director.*`.
+
+Die Abnahme war deshalb nicht „es wirft ab", sondern die eine Messung, die eine Abkürzung entlarven
+kann: **dieselbe Geometrie, dieselbe `fab500` auf beiden Seiten** (damit die Ballistik keine Variable
+ist), F-16 im Rechnerverfahren **34,02 m** gegen MiG-29 im Direktor **65,65 m** — Faktor 1,93. Ein
+Direktor, der *besser* abschneidet als ein Rechner, wäre das Verfahren der F-16 mit kyrillischen
+Beschriftungen gewesen. Er tut es nicht.
+
+Die Verweigerung ist ein eigener, belegter Fall und keine geschriebene Regel: der Abzug darf erst 1–10 s
+nach der Entfernungsmessung gedrückt werden, der Ablauf danach muss lang genug sein, um den Abwurf zu
+fliegen — also muss die Messung mehrere Kilometer vor dem Abwurfpunkt liegen, und der einzige
+Entfernungsmesser dieses Flugzeugs reicht 6 km. Ein Anflug, der dafür keinen Raum lässt, wird
+abgewiesen: `mig29-opt-refused.fbm` fliegt den Grenzfall (löst aus, 102,9 m) und den verweigerten Fall
+(löst **gar nicht** aus) in einer Datei.
+
+Byte-Identität hält: eine MiG-29 ohne Angriffsauftrag bewegt sich nicht, Sammelhash über zwölf
+bestehende Missionen gleich, Spaltenzahl unverändert bei 184. `verify-layers` 304 Dateien, sechs
+Registry-Leser, eine Antennenbefehls-Stelle.
+
+Zwei Ehrlichkeiten zum Zustand: die drei Beweismissionen brauchen `--elev const`, weil sie auf 300 m
+spawnen und das Schweizer Geländemodell dort 492 m hoch ist — die Runde starb zweimal an Serverfehlern,
+bevor sie das prüfen konnte, und es ist beim Nachfahren aufgefallen. Und O3 ist damit **am Modul** nicht
+mehr blockiert, wohl aber an ihrer Besetzung: die Zeitgenossen sind ALPHA und dürfen keine
+Kampagnenfrage beantworten. Die Zahl der lauffähigen O3-Missionen ist bewusst **nicht** neu gezählt
+worden — das ist die erste Aufgabe der O3-Runde selbst.

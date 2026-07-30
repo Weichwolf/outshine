@@ -8,6 +8,7 @@
 #include "FBBlockStatus.h"
 #include "FBCountermeasure.h"
 #include "FBDatalinkTrack.h"
+#include "FBDirector.h"
 #include "FBIrstContact.h"
 #include "FBMode.h"
 #include "FBRadarContact.h"
@@ -126,6 +127,25 @@ struct FBFireControlBlock {
   float  AgTimeToReleaseS = 0.0f; /* AgAlongErrM at the current groundspeed; <= 0 = the cue has passed */
   float  AgArmMarginS = 0.0f;     /* fall time left once the fuze's arming delay has run; < 0 = a dud */
   bool   AgInRange = false;       /* release moment not gone past AND a release now would arm in time */
+
+  /* ---- THE DIRECTOR (doc/modules/mig29/weapons.md §5.4). APPENDED, and every field is zero on an
+   * aircraft that has none — which is every module here except the MiG-29, whose Ag* half above stays
+   * permanently false for the same reason in reverse. The two are alternatives, never both.
+   * WHAT THE ORDER OF THESE FIELDS MEANS: before consent the instrument shows a RANGE and a mark
+   * error; after consent the range scale IS REPLACED by a time scale and a commanded load factor.
+   * A consumer that reads a time before `DirArmed` is reading a number the pilot cannot see. */
+  uint8_t DirState = 0;             /* FBDirectorState ordinal */
+  uint8_t DirRefusal = 0;           /* FBDirectorRefusal ordinal of the LAST refused consent */
+  bool   DirEngaged = false;        /* an unguided store is selected: the A-G branch is live */
+  bool   DirRanged = false;         /* a slant range exists and is inside the device's reach */
+  float  DirRangeM = 0.0f;          /* what it measured — the pre-consent scale */
+  float  DirRangeAgeS = 0.0f;       /* how old it is: the documented 1..10 s consent window runs on it */
+  float  DirMarkErrM = 0.0f;        /* + = the aiming mark falls SHORT of the target, along the track */
+  bool   DirArmed = false;          /* consent held AND a plan committed to */
+  float  DirTimeToReleaseS = 0.0f;  /* the FROZEN countdown — never re-solved, which is the whole point */
+  float  DirCmdG = 0.0f;            /* the RING: the normal load factor the plan requires */
+  float  DirCurG = 0.0f;            /* the VECTOR: what the aircraft is actually pulling */
+  bool   DirAudio = false;          /* the documented 1.5-3 s pre-release tone */
 };
 
 /* ---- UFC/DED entered values: what the pilot typed into the control head and the jet committed.

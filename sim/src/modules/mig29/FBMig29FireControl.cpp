@@ -114,9 +114,13 @@ void FBMig29FireControl::Run(FBState &state, const Fdm::fb_fdm_state &own, const
   }
 
   SolveGun(state, own, gun, trk);
-  /* No air-to-ground block: this aircraft's computer does not solve one (class banner). It stays
-   * invalid, and every consumer already knows what to do with that. */
+  /* No CCIP/CCRP block, permanently: this aircraft's computer does not solve one (class banner). It
+   * stays invalid, and every consumer already knows what to do with that. */
   b.AgValid = false;
+  /* The air-to-ground half this jet DOES have. It is handed the selected round and nothing else — the
+   * aim point it reads off the nav block itself, exactly as the launch zone above reads the radar. */
+  Director_.SetSelected(selected);
+  Director_.Run(state, own, nowS);
   b.H.Publish(state.NowS);
 }
 

@@ -131,6 +131,7 @@ CORE_LIB_SRCS := \
   src/modules/mig29/FBMig29Radar.cpp src/modules/mig29/FBMig29Rwr.cpp src/modules/mig29/FBMig29Irst.cpp \
   src/modules/mig29/FBMig29Pilot.cpp src/modules/mig29/FBMig29Sms.cpp src/modules/mig29/FBMig29Gun.cpp \
   src/modules/mig29/FBMig29FireControl.cpp src/modules/mig29/FBMig29Cmds.cpp \
+  src/modules/mig29/FBMig29Director.cpp \
   src/modules/mig29/FBMig29ModuleRegistration.cpp \
   src/modules/stores/FBStoreModule.cpp src/modules/stores/FBStoreModuleRegistration.cpp \
   src/modules/ground/FBGroundModuleRegistration.cpp \
