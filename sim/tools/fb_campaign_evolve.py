@@ -148,7 +148,7 @@ def levels(pool, contenders, opponents):
                     n["V"] += 1
                 elif a[1] != b[1]:
                     n["M"] += 1
-                elif a[2] != b[2]:
+                elif fit.compare_craft(a[2], b[2]):
                     n["C"] += 1
                 else:
                     n["tie"] += 1

@@ -2224,3 +2224,63 @@ byte-identisch, `verify-models` und `verify-layers` grün, sieben Harnesses rc =
 den Gaps: eine Fitness, die zwei Angriffsdoktrinen ordnen kann (Stufe C ist auf **32 der 46**
 bombenwerfenden Zellen `GATE`), ein fester Maßstab, der auf der Zelle wirkt, die er beurteilt, und für
 G2/G7 eine Arena, die es in den Kampagnen nicht gibt.
+
+---
+
+## 2026-07-30 — Doktrin-Evolution `E6`: die Handwerksstufe lernt den Boden, und der Richter schließt immer ab
+
+`E5` hat zwei Defekte an unserer eigenen Fitness gemessen und beide stehen als Zahl da. Diese Runde
+repariert sie und veröffentlicht wieder keine Doktrinverschiebung — sie fliegt gar keinen
+Evolutionslauf. Bewegt haben sich genau zwei Dateien: `sim/tools/fb_fitness.py` und **ein Block** in
+`sim/src/missions/FBMissionRunner.cpp`.
+
+**Erstens: Stufe C hatte am Boden keinen Gradienten.** Jeder Posten war Luft-Luft, also war der
+Schlüssel einer Angriffszelle `(V, M, GATE)` und eine Bombe 20 m daneben exakt so viel wert wie eine
+2 km daneben — auf **32 der 46** bombenwerfenden Kampagnenzellen. Der neue Posten kommt aus `aimErrM`,
+das der Richter ohnehin in jede `stores DELIVERY`-Zeile schreibt: `100 · Mittel über die Abwürfe von
+1/(1 + e/10 m)`. Mittel und nicht Summe — eine Summe zahlte pro Abwurf, also pro Waffe, die der
+Missionsautor an den Jet gehängt hat, und das ist Exhibit C in einer zweiten Währung.
+
+**Und die zwei Währungen werden nicht addiert.** Ein sechster Summand hätte einen Meter Zielfehler in
+Abschussgeometrie-Punkten bepreist — genau das stehende Angebot, gegen das §1.2 argumentiert. `C` ist
+jetzt das Paar `(air, aim)`, verglichen über **Dominanz**: besser in einem und nicht schlechter im
+anderen gewinnt, besser in einem und schlechter im anderen ist **unvergleichbar** und ist ein
+Gleichstand. Es gibt keinen Wechselkurs, den eine Suche annehmen könnte, in keine Richtung. Preis:
+Auflösung, nie Ordnung — und die Zellen, auf denen niemand schießt, sind mit demselben Argument frei,
+mit dem das Tor sie vorher sperrte, denn die Torbedingung bekommt denselben Bodenarm (eine
+veröffentlichte Lieferung).
+
+Gemessen, ein Lauf je Zelle, gelesen von BEIDEN Fitness-Modulen: `C = GATE` fällt von **74 auf 42 von
+154** Zellen und von **32 auf 0 von 46** liefernden; **(V, M) bewegt sich auf 0 von 154**. Auf
+`w2-01-dome` liegen vier Hebel bei identischem `(V, M) = (2,1)` mit 36,4 / 59,5 / 82,6 / 61 294 m
+Zielfehler — vorher vier Mal `GATE`, also exakt gleich, jetzt streng geordnet 21,6 > 14,4 > 10,8 > 0,0.
+
+**Zweitens: X-1, der Exploit, den die Evolution an unserer Fitness gefunden hat.** Der Lauf endet am
+ersten Flugmonitor-K.O., und wer dann noch offen war, schloss nie ab — also null `mission
+OBJECTIVE`-Zeilen und Stufe M null für alle. **Geändert wurde nicht, WANN ein Lauf endet, sondern dass
+der Richter trotzdem abschließt:** `FirstFlightKo` ist bis auf den Takt unangetastet, und die
+Abschluss-Schleife läuft **nach** der Urteilskombination, kann also weder `ko` noch `failed` noch
+`judged` noch das Ergebnis verschieben. `w4-10-allied-force` liest jetzt in der Grundlinie
+`V = 18, M = 8` — genau das, was die drei Hebel liefern, die die MiG am Leben halten; die Beweger auf
+dieser Zelle fallen von 3 auf 0, und der Lauf endet unverändert bei t = 695,3 mit `LOC`.
+
+**Erhaltung, gemessen statt angenommen.** Über alle **251** `sim/missions/*.fbm`: **0 bewegte
+Telemetriewerte, 0 bewegte Exit-Codes**, 27 `events.log` mit neuen Zeilen (80 `OBJECTIVE`, 68
+`RESULT`, 58 `UNIT_RESULT`), Determinismus über `--threads 1/2/4` identisch. Drei Zeilen sagen etwas
+anderes statt mehr — `net-belt-high`, `o1-08-belt-netted`, `o3-10-october-six` —, und alle drei sind
+die **bestehende** Regel `ShotDownFirst`, die endlich greift: wer kampfunfähig geschossen wurde und
+danach den Boden traf, wird vom Missionsrichter gemeldet, nicht vom Physikrichter. Ein gesunder
+Abriss meldet weiter `LOC`. Die drei veröffentlichten Turnierergebnisse (`duels.md`, `formation.md`)
+wurden auf **beiden** Instrumenten neu geflogen — altes Binary + alte Fitness gegen neues + neues — und
+sind identisch bis auf die Ziffer, weil dort keine Bombe fällt und die Zielwährung in allen 70 Läufen
++0,0 ist. Elf Kampagnen: 99 Läufe, 11 Fingerabdrücke, 0 Divergenzen; 104 Einzelwiederholungen, 0
+Divergenzen. Fünf Fingerabdrücke halten byte-genau, fünf bewegen sich — und die **acht** bewegten
+Schritt-Fingerabdrücke sind exakt die acht Kampagnenmissionen aus der 27er-Liste.
+
+Was diese Runde NICHT getan hat, mit Zahl: das 154-Zellen-Tor wurde **nicht vollständig neu geflogen**.
+Die Handwerksstufe kann es nicht bewegen (S1/S2 rechnen auf `(V, M)`), die X-1-Reparatur schon — sie
+verschiebt die Klasse jeder Zelle, deren Grundlinie oder Hebel die K.O.-Grenze kreuzte. Geflogen sind
+**29 von 154** vollständigen Zellen, Beweger-Verteilung **24 × 0 · 4 × 1 · 1 × 2 von 15**; keine Zelle
+erreicht `kMoversMin`. Das steht als Schuld in E-17 und nicht als Argument. Das Tor wurde nicht
+gelockert, kein Genom-Schlüssel bewegt, kein Modell angefasst; `verify-models` und `verify-layers` grün,
+sieben Harnesses rc = 0, `core-lib`/`gym`/`native`/`wasm` warnungsfrei.

@@ -40,6 +40,14 @@ The run ends at the first DECISIVE failure (there is nothing left to prove), at 
 K.O. (no wreck keeps integrating in the background) and otherwise as soon as every unit with
 objectives has a verdict.
 
+**And whatever ended it, every judge still open is asked before the report** (`FinalizeMission`,
+[`runtime.md`](runtime.md) §5 step 3) — the run ending is not an excuse for a judge to say nothing. It
+happens AFTER the combination above, so the verdicts that existed when the run ended are the ones that
+decide it and nothing here can move the overall `RESULT` or the exit code; what it produces is the
+`mission OBJECTIVE` vector of the units the old order left silent. The defect that forced it is
+[`../doctrine-evolution.md`](../doctrine-evolution.md) X-1: an unread vector reads as "nothing met",
+so a doctrine was paid for keeping the OPPONENT's aircraft flying.
+
 ### When a waypoint is "reached" — and what a leg is
 
 Two consecutive `wp` lines are a **LEG**: the line from the previous to the active waypoint. It is
@@ -376,6 +384,7 @@ the VERDICT stays with the monitor.
 | The four new objective kinds (`C12`) | **built.** `identify`/`protect`/`no_fire`/`deny release` in `core/FBObjective.h` + `core/FBMissionMonitor`, the two roster fields filled by the runner (`missions/FBMissionRunner.cpp`) and by the browser loop; eight missions, one per case; the pre-round tree byte-identical at `--threads 1/2/4` |
 | `FBObjectiveCovers` for the C12 kinds | built as an exhaustive `switch` returning false, and measured as an exit code (`missions/objective-covers-none.fbm`, 1 correct / 0 under the patched counterfactual) |
 | **The per-objective publication** (`E1`, 2026-07-29) | **built.** `FBObjectiveState {Unmet, Met, Violated}` + `FBMissionMonitor::StateOf`, published as `mission OBJECTIVE unit=… kind="…" state=…` — one line per DECLARED objective, at the ONE point every conclusion passes through (`Conclude`), so a unit that FAILs in `Tick` publishes its vector too. `ObjectivesMet()` is now DEFINED in terms of `StateOf`, so the published vector and the verdict cannot disagree. `Violated` is reserved for the three kinds with a violation condition of their own (`survive`, `no_fire`, `protect`); everything else is simply unmet. It is the input of the middle level of [`../doctrine-evolution.md`](../doctrine-evolution.md)'s fitness. [MESS] 137 missions: **432/432 telemetry files byte-identical**, 77 logs unchanged, 60 gained exactly **136** lines, 0 removed, 0 other lines moved; deterministic over `--threads 1/2/4` |
+| **The vector of a run that was CUT SHORT** (`E6`, 2026-07-30) | **built.** `FinalizeMission` for every judge still open, after the combination and never before it, so a run stopped by an unexpected K.O. or by another unit's decisive failure still publishes. Three `UNIT_RESULT` lines in the tree change and all three are the pre-existing `ShotDownFirst` rule finally applying ([`runtime.md`](runtime.md) §5); everything else is an addition. [MESS] 251 missions: 0 telemetry values moved, 0 exit codes moved, 27 logs gained 80 `OBJECTIVE` + 68 `RESULT` lines; deterministic over `--threads 1/2/4` |
 | The sixth kind, `suppress` (`C26`) | **built.** `FBObjectiveKind::Suppress` + `FBMissionMonitor::NoteEmitting` (a monotone accumulator over a non-monotone roster bit), deferred like `survive`; two missions, one per outcome; the pre-round tree byte-identical at `--threads 1/2/4` |
 
 ## Gaps
@@ -389,7 +398,7 @@ the VERDICT stays with the monitor.
 | `no_fire` does not reject a trailing token | `objective no_fire tomorrow` parses as `no_fire`, exactly as `objective survive tomorrow` has always parsed as `survive`. Making one keyword strict would be an asymmetry; making all of them strict is a separate, format-wide decision |
 | A `protect` cover cannot be isolated in one mission | measured, see the counterfactual above: the protector's own FAIL is decisive whatever the protectee's loss counts as. The rule is held by the exhaustive `switch` and by the two kinds that can be isolated |
 | `survive` produces TIMEOUT, not FAIL, when the objectives are unmet at the end | the run has no verdict class for "survived but achieved nothing" — but the `mission OBJECTIVE` lines now say WHICH of them were unmet, which is what a reader wanted the missing class for |
-| A unit that never concludes publishes no `mission OBJECTIVE` line at all | it is the honest reading ("the judge decided nothing about it"), and a consumer must treat the absence as zero met rather than as unknown |
+| ~~A unit that never concludes publishes no `mission OBJECTIVE` line at all~~ | **CLOSED 2026-07-30.** The runner asks every open judge after the loop, whatever ended it, so a run that ENDS publishes the vector of every unit that declared one. The absence now means what it says — this unit declared nothing. [MESS] 251 missions, 27 `events.log` gained **80** `OBJECTIVE` lines, 0 telemetry values moved, 0 exit codes moved. [`../doctrine-evolution.md`](../doctrine-evolution.md) X-1 |
 | Runway footprint margin is fixed | 0 m longitudinal / 15 m lateral; the mission cannot declare it, and the `runway` line carries no width |
 | A trade reports the FAIL of the first unit | deliberate (no invented winner), but the line does not say "trade" as such |
 

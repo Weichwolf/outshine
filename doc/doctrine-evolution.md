@@ -17,6 +17,14 @@ result is a refusal with numbers:** the gate was pointed at all **154 cells of t
 `campaigns/w1-red-flag.md` reached on its own ten rungs. No doctrine shift is published; the round's
 product is that measurement, the per-gene reach table, and four findings in
 §Gaps → "Exploits the evolution found", one of which is an exploit of this file's own level M.
+**`E6` (2026-07-30) repairs the two defects `E5` measured against this file's own instrument** and
+publishes no doctrine shift either, because it flew no evolution run: the craft level grew a GROUND
+currency (§8 E12 — a pair compared by domination, never a sixth summand, so no metre of aim error is
+ever priced in shot-geometry points) and the runner now lets every judge finish a run that ENDS
+(§8 E13, X-1). Measured: `C` was `GATE` on **32 of the 46** campaign cells that aim a bomb and is on
+**0 of 46**, with `(V, M)` unmoved on all 154; the cell where three unrelated levers lifted M from 0 to
+8 now reads the same key whether the opponent's MiG departs or not; and the three published tournament
+results are re-flown on both instruments and are identical.
 `E3` took the merge apart: E-15's *"what the merge decides is a CFIT"* was exactly
 right at n = 120 runs (**77 monitor KOs, the MiG-29 in 77 of 77**), the cause was one line of the
 airframe layer (`FBFlightControl` bound this jet's own rate damper only on its FLCS path while BFM
@@ -568,6 +576,43 @@ only ones that touch an airframe number at all.
 cell has a scripted opponent, so a doctrine can be fitted to ONE file's script. A shift is publishable
 only if it survives §5's X1 on cells the champion was not selected on, and the burden of proof stays
 inverted: no chain of published channels ⇒ exploit.
+
+---
+
+### 8. Round `E6` — craft learns the ground, and the judge always finishes
+
+**Added 2026-07-30, before the round's first run.** §§0–7 are untouched; this section adds three
+contracts, and each of the three exists because `E5` MEASURED the defect it repairs — E-17(a) and X-1.
+The lexicographic order of §1.3 is not changed: **level V and level M are byte-identical, and only the
+third key grows.**
+
+| # | Contract | Acceptance / measurement anchor |
+|---|---|---|
+| **E12** | **Craft carries a SECOND currency, and the two are never added.** Every item of §1.3 is air-to-air, so a strike cell's key is `(V, M, GATE)` and a bomb 20 m out and a bomb 2 km out are exactly tied — [MESS, `E5`] on **32 of the 46** cells that aim a bomb. `C` becomes the pair `(air, aim)`, compared by **domination**: better in one and not worse in the other wins, better in one and worse in the other is INCOMPARABLE and ties | two runs with the same `V`, the same `M` and a different `aimErrM` are strictly ordered where they were exactly tied before; and **no craft value crosses a level** — both components stay bounded, so `\|C\|` stays under the 1e3 step |
+| **E13** | **A run that ENDS publishes its objective vector. WHEN a run ends is untouched.** `FirstFlightKo` keeps its meaning to the tick — the conservative reading of a wreck that must not keep integrating — but every judge still open when the loop stops is asked before the report | every `sim/missions/*.fbm` keeps its exit code and **every telemetry column byte-identical**; the `events.log` delta is ADDITIVE except where an already-owned rule (the shoot-down that explains the impact) finally applies; deterministic over `--threads 1/2/4` |
+| **E14** | **The new post comes out of a channel the judge already writes**, like every other one | `aimErrM` on `stores DELIVERY` (`missions/FBMissionRunner.cpp`, `LogStoreImpact`). **No new telemetry column, no new event, no new roster field** |
+
+**Why a pair and not a sixth summand — the decision, with its reason.** A summand would have priced one
+metre of aim error in shot-geometry points, and §1.2's whole argument is that such an exchange rate is a
+**standing offer** and a search procedure is a machine for accepting one cheaply. The tree's own answer
+to a rate it does not want to name is to make it infinite (a lexicographic level) or to refuse the
+comparison (the non-dominated archive of §3.4 B). Ordering the two currencies lexicographically would
+have required saying which of them is worth more, and nothing in this tree says that — the same argument
+that forbids ranking the nine objective kinds at level M. **Domination says neither**: it orders
+everything that is comparable and stays silent on everything that is not, so a doctrine can never buy
+aim error with air craft, nor air craft with aim error, in either direction.
+
+**Where the two currencies DO meet, and what it costs.** A unit that both fights and bombs (an escort
+that also pickles) can be incomparable to itself one lever later, and an incomparable pair scores half a
+point in §1.4's pairwise domination — the same half a point an exact tie scores. That is the price, it
+is paid in RESOLUTION and never in order, and it is reported per tournament: the `decided at level`
+line counts a C-comparison only when `compare_craft` actually decided.
+
+**The gate grows the same arm.** §1.3's engagement gate is `eng_shot_s ≥ 0 ∨ eng_lock_s ≥ 0`, which no
+striker in the ten campaigns satisfies — so without a ground arm the whole ground gradient is
+unreachable behind a `GATE`. The arm is a published `stores DELIVERY` of this unit's own store: the
+same class of fact as the two air columns (a record that survives the engagement), unfarmable, and the
+identical channel the item is computed from, so gate and item cannot disagree.
 
 ---
 
@@ -1218,6 +1263,169 @@ crosses that boundary; 5 baselines sit on the wrong side of it.**
 
 ---
 
+## State — round `E6` (2026-07-30): the craft level orders on the ground, and X-1 is closed
+
+`E5` closed with two measured defects and both are repaired here. Nothing in level V, level M, the
+genome, the archive or the gate's numbers changed: `fb_arena_check.py` is byte-identical, the four gate
+constants are untouched, and the two files that moved are `sim/tools/fb_fitness.py` (the craft level)
+and **one block** of `sim/src/missions/FBMissionRunner.cpp` (the judge finishing).
+
+### 1. The ground gradient exists, and it did not have to be weighed against the air
+
+[MESS, 154 baselines, `--elev const`, each campaign's own clock, ONE run per cell read by BOTH fitness
+modules — the old one out of `git show HEAD`, so the comparison is the reader and never the run]
+
+| | old fitness | new fitness |
+|---|---|---|
+| cells whose `C` is `GATE` | **74 of 154** | **42 of 154** |
+| of the 46 cells that deliver a store | **32 of 46** | **0 of 46** |
+| cells whose `(V, M)` differs between the two readers | — | **0 of 154** |
+
+The last row is the conservation statement that matters: the craft level grew and the two levels that
+DECIDE did not move on a single cell of the campaign breadth.
+
+**The order, on the cell `E5` used to state the defect** [MESS, `w2-01-dome:f16`, `pilot_attack_bias_s`
+at six points, one run each, and **both readers on all six of the SAME kept run trees** — the old key is
+read, not derived. `eng_shot_s` and `eng_lock_s` are −1.0 in all six, which is why the old gate closed]:
+
+| lever | `aimErrM` | old key | new key |
+|---|---:|---|---|
+| `bias -0.1` | 13.29 m | V=3 M=2 **GATE** | V=3 M=2 `(+0.0, +42.9)` |
+| baseline (`bias 0`) | 36.38 m | V=2 M=1 **GATE** | V=2 M=1 `(+0.0, +21.6)` |
+| `bias -0.05` | 36.38 m | V=2 M=1 **GATE** | V=2 M=1 `(+0.0, +21.6)` |
+| `bias +0.1` | 59.51 m | V=2 M=1 **GATE** | V=2 M=1 `(+0.0, +14.4)` |
+| `bias +0.2` | 82.64 m | V=2 M=1 **GATE** | V=2 M=1 `(+0.0, +10.8)` |
+| `bias 10` (the far rail) | 61 294 m | V=2 M=1 **GATE** | V=2 M=1 `(+0.0, +0.0)` |
+
+Four rows share `(V, M) = (2, 1)` and were **exactly tied** — `GATE` against `GATE`, and the air
+component is +0.0 on this cell because the striker never fires and never locks. They are now strictly
+ordered, by the aim currency alone, in the order of their aim error. The two runs at 36.38 m stay tied,
+which is correct: they are the same delivery.
+
+### 2. X-1 is closed, measured on the cell it was found on
+
+[MESS, `w4-10-allied-force:f16` (the eight Blue F-16s), baseline + the three levers `E5` named, `--elev
+const`, both binaries]
+
+| lever | before (the `E5` measurement) | after |
+|---|---|---|
+| baseline — `kamig4` `LOC "stall/mush"` at t = 695.3 of 700 | **V = 16, M = 0** | **V = 18, M = 8** |
+| `net-off` — the MiG lives to the timeout | V = 18, M = 8 | V = 18, M = 8 |
+| `bias-early` | V = 18, M = 8 | V = 18, M = 8 |
+| `bias-rail` — throws its bombs **2 794 m** wide | V = 18, M = 8 | V = 18, M = 8 |
+| movers of 3 on this cell | **3** | **0** |
+
+The doctrine is no longer paid for the opponent's airmanship: the four keys are identical at both
+deciding levels, and the run still ends exactly where it ended (`RESULT … result=LOC` on `kamig4`,
+t = 695.3, exit 2 — unchanged). What DOES separate the four now is the craft level, and it separates
+them in the right direction: `bias-rail`'s aim currency is **+1.4** against the baseline's **+15.9** and
+`bias-early`'s **+17.8**. `bias-rail` also carries a HIGHER air component (+333.6 against +312.5), so it
+is incomparable to the baseline rather than better than it — which is domination doing exactly the job
+it was chosen for.
+
+### 3. Conservation — the three published tournaments do not move, and it is measured, not assumed
+
+Every one re-flown twice: **old binary + old fitness** against **new binary + new fitness**, same
+geometry, same variant file, same seed field.
+
+| tournament | published | old instrument | new instrument |
+|---|---|---|---|
+| `variants-flight`, `mirror --flight 2` | `f16_solo` 1.000 > `f16_net` 0.625 | 1.000 / 0.625 / 0.625 / 0.250 / 0.000 | **identical**, craft `+448.2/+0.0` … `+208.8/+0.0` |
+| `variants-flight`, `split --flight 2` | three F-16 rows tie at 0.750 over `mig_pair` 0.250 / `mig_solo` 0.000 | 0.750 ×3 / 0.250 / 0.000, `GATE x4` on both MiG rows | **identical** |
+| `variants-mixed`, `mirror --timeout 420` | `mig_long` 1.000 > `f16_long` 0.800 > `f16_base` 0.600 > `mig_base` 0.400 > `f16_deep` 0.200 > `mig_deep` 0.000 | as published, `f16_base`/`f16_long` at V = 2.20, M = 1.20 | **identical** |
+
+V, M, the craft means, the kill/lost/draw records and the `decided at level` line are the same in all
+three. The reason is structural rather than lucky: **no store is delivered in any of the 70 runs**, so
+the aim component is +0.0 on both sides of every comparison and domination on `(air, 0)` IS the scalar
+comparison the old fitness made. `f16_base`/`f16_long` keep V = 2.20 / M = 1.20 against the published
+2.40/1.40 — that difference is `E3`/`E4`'s pilot and FLCS work and is present in the OLD instrument too,
+which is why the A/B was flown with both.
+
+### 4. What moved in the tree, split by what kind of movement it is
+
+[MESS, all **251** `sim/missions/*.fbm`, `tools/fb_regress.sh`-shaped snapshot, old binary against new]
+
+| | |
+|---|---|
+| telemetry values moved | **0** — no flight column moves, in any file, at any thread count |
+| exit codes moved | **0** (`exit.txt` byte-identical) |
+| `events.log` unchanged | **224 of 251** |
+| lines added | **80** `mission OBJECTIVE` + **68** `mission RESULT` + **58** `mission UNIT_RESULT` |
+| determinism | `--threads 1/2/4`, full snapshot each: **identical**, including exit codes |
+
+The 27 files that moved, by class — the distinction is the point, because only the third class is a
+line that says something DIFFERENT rather than something more:
+
+| class | count | files |
+|---|---:|---|
+| **A — the log gains lines only** (single-actor runs print no `UNIT_RESULT` block, so only the judge's own self-log is new) | 6 | `tank-jettison`, `tank-radius-clean`, `tank-radius-tanks`, `test-cfit-mountain`, `test-gear-up-crash`, `w2-04-loaded` |
+| **B — a `UNIT_RESULT` goes from `NONE` "still under way when the run ended" to the judge's own verdict**, plus that unit's objective vector | 18 | `air-eagle-amraam`, `air-eagle-sparrow`, `air-fishbed-guns`, `damage-amraam`, `duel-asym-probe`, `escort-protect-lost`, `gun-bfm`, `gun-turning`, `intercept-lostlock`, `mig29-intercept`, `net-jam-wire`, `o5-06-belt`, `o5-07-jammed`, `objective-covers-none`, `qra-weapons-hold`, `w2-06-escort`, `w2-10-opera`, `w4-10-allied-force` |
+| **C — a `UNIT_RESULT` goes from the PHYSICAL judge to the MISSION judge**, because `ShotDownFirst`'s precondition (`Concluded()`) is now met where it never could be: all three units took a `damage KILL … combat ineffective` **before** their `monitor KO`, which is the constellation [`missions/runtime.md`](missions/runtime.md) already gives to the mission judge | 3 | `net-belt-high` (t = 70.1 kill → t = 304.9 ground), `o1-08-belt-netted` (608.2 → 723.9), `o3-10-october-six` (379.9 → 396.5) |
+
+**Class C is a report line and never a verdict**: all three runs keep their `RESULT` line, their
+`decisive=` attribution and their exit code. A HEALTHY airframe that departs still reads `LOC`/`CRASH`
+(`CombatEffective()` is true, so the rule does not fire) — [MESS] `w4-10`'s `kamig4` before and after.
+
+### 5. The ten campaigns, both criteria, and the fingerprints follow the missions exactly
+
+Every campaign re-verified with `tools/fb_campaign_verify.py` under `--elev const` and its own recorded
+clock: criterion 1 = 3 reps × `--threads 1/2/4`, criterion 2 = every step re-run standalone from step
+*k−1*'s state file.
+
+| campaign | 9 runs → | steps that moved | replays |
+|---|---|---|---|
+| `o1-bekaa-1982` | 1 fp, **moved** `629488ce…` | 8 (`o1-08-belt-netted`) | 10/10 MATCH |
+| `o2-pvo-intercept` | 1 fp, **held** `f2fbb47e…` | — | 10/10 |
+| `o3-yom-kippur-1973` | 1 fp, **moved** `e8e5dff2…` | 10 (`o3-10-october-six`) | 10/10 |
+| `o4-gaf-mig29g-dact` | 1 fp, **held** `9c994069…` | — | 10/10 |
+| `o5-airfield-defence` | 1 fp, **moved** `8937584b…` | 6, 7 (`o5-06-belt`, `o5-07-jammed`) | 10/10 |
+| `w1-red-flag` | 1 fp, **held** `0e32e6a8…` | — | 10/10 |
+| `w2-osirak` | 1 fp, **moved** `d951102c…` | 4, 6, 10 | 10/10 |
+| `w3-desert-storm` | 1 fp, **held** `bfe4938e…` | — | 10/10 |
+| `w4-allied-force` | 1 fp, **moved** `a403d3b7…` | 10 (`w4-10-allied-force`) | 10/10 |
+| `w5-baltic-qra` | 1 fp, **held** `786b9794…` | — | 10/10 |
+| `viper-attrition` (the `C0` proof) | 1 fp `fdf1da2b…`, **identical on the PRE-round binary** | — | 4/4 |
+
+**99 campaign runs, 11 campaign fingerprints, 0 divergences; 104 standalone replays, 0 divergences.**
+Five campaigns held byte for byte and five moved — and **the eight step fingerprints that moved are
+exactly the eight campaign missions in §4's list of 27**, no more and no less. Every step exit and every
+campaign exit is unchanged.
+
+### 6. The gates
+
+| Gate | Result |
+|---|---|
+| `make -C sim core-lib gym native wasm` | all four, warning-free |
+| `verify-layers` | *"304 files, 841 internal include(s), 12 layers — no upward include, 3 restricted header(s) respected, 6 registry reader(s) inside the perception boundary, 1 antenna-cue poster(s), 291 file(s) in their layer's namespace (5 C-island file(s) exempt)"* |
+| `verify-models` | *"4 upstream-backed model path(s) match assets/MODEL-DELTAS.md (1 declared delta(s), 35 FlightBox-own)"* |
+| seven harnesses | rc = 0 each |
+| `git status --porcelain sim/assets sim/missions` | empty before and after every measurement above |
+
+### 7. What this round did NOT do
+
+- **The 154-cell gate was not re-run in full under the repaired judge.** It is the one measurement this
+  round owes and it is booked in E-17 rather than argued away: the X-1 fix moves the outcome CLASS of
+  every cell whose baseline or lever crossed the knockout boundary ([MESS, `E5`] 17 cells had such a
+  lever, 5 baselines sat on the wrong side), so mover counts can fall (a spurious mover disappears — 3
+  → 0 on `w4-10:f16`) and in principle rise (a lever that still ends in a knockout now differs from a
+  baseline that no longer does). A partial pass was flown and stopped at **29 of 154 complete cells**;
+  their mover distribution is **24 × 0, 4 × 1, 1 × 2 of 15**, i.e. not one cell reaches even `kMoversMin`
+  3, let alone E10's ratio of 5. That is consistent with `E5`'s 89/46/15/3/1 and it is NOT a verdict.
+- The gate was not loosened: `fb_arena_check.py` is byte-identical, `kModalMax`, `kMoversMin`,
+  `kGeometriesMin` and `kInformativeMin` are untouched.
+- No genome key was added, removed or re-banded; `fb-gym --pilot-keys` prints the same alphabet.
+- The model was not touched: `sim/assets` byte-identical, `verify-models` green.
+- **No doctrine shift is published**, because no evolution run was flown. The product is the two repairs
+  and their measurements — §6's rule applies to this round as it did to `E5`.
+
+### Deviations from the spec, found while building it
+
+| # | The spec says | What was built, and why |
+|---|---|---|
+| **D10** (`E6`) | §1.3/§Knowledge 1: `order_scalar` is *"ORDER-ISOMORPHIC to the tuple"* | It is order-isomorphic **at the two levels that decide** and a PROJECTION at the craft level: `v·1e6 + m·1e3 + air + aim`. A pair compared by domination has no isomorphic scalar image — that is what refusing an exchange rate means — so the one instrument that needs a number (the attribution bands, [`modules/air/module.md`](modules/air/module.md) §Spec 11) gets the sum, and the sum is stated as the projection it is. Its cells are all air-to-air, where `aim` is 0 in every run and the number is exactly the one it always was. The ranking never uses it |
+
+---
+
 ## Gaps
 
 | # | Thing | Known from |
@@ -1237,8 +1445,8 @@ crosses that boundary; 5 baselines sit on the wrong side of it.**
 | **E-13** | **DIAGNOSIS REPLACED (`E2`).** The total tie was the AGGREGATION, not the genome: §1.4's cross-seat comparison returns the SEAT in both mirrored runs wherever the seat carries the key, so every variant takes one point of two. [MESS, same telemetry, only the comparison changed] cross-seat 0.500 × 12, same-seat 0.227…0.773. Three of the five genes grip when measured one at a time (§State 1). What remains true of E-13's second half: the genome and the arena still barely intersect — of the five genes exactly **one** (G3) moves an outcome class on exactly **one** geometry (`xfarsplit`) | `E1`, `E2` |
 | **E-14** | **HALVED (`E4`): the merge now has an OUTCOME, and G4's mover is a CFIT.** (a) and (b) are unchanged — no transition from the intercept phase into `Phase::Bfm`, and the merge writes no `eng_*` column, so level C is `GATE` on both sides. (c) is CLOSED: `Phase::Bfm` employs the round on the rail ([`pilot.md`](pilot.md) §5.11) and `xmerge` goes from 60/60 `(2,1)` to **30 (3,2) + 30 (1,0)** — every run decided, all 40 kills by a missile, none by the gun. The gun itself went 2.21 % → **7.68 %** of its rounds on target (§5.8) and still needs 17.0 landed 30 mm rounds against 9.53 delivered. **The new half of this gap:** all three `pilot_energy_frac` alleles now move the class on `merge` — S2's first pass on a merge cell — and all three do it with a `monitor KO ATTITUDE_CONTACT` of a jet the AIM-9 exchange had already blinded. `E-15`'s rule applies unchanged and G4 is not published |
 | **E-15** | **CLOSED (`E3`), and closing it CONFIRMED the reading: the merge's S1 pass WAS the CFIT.** At n = 120 runs per pass the merge cells produced **77 monitor KOs and every single one was the MiG-29** (38 `ATTITUDE_CONTACT`, 37 `CFIT`, 2 `STRUCTURE_CONTACT`); zero F-16 KOs, in either seat. The cause was not the pilot and not the floor: `systems/FBFlightControl` bound this airframe's own rate damper only on its FLCS path while `Phase::Bfm` commands `Manual` ([`pilot.md`](pilot.md) §5.10a). With it on the hand stick the same 120 runs produce **0 KOs** — and `xmerge`/`xmergesplit` fall from 2 outcome classes at a 50.0 % modal share to **1 class at 100 %**, i.e. they lose their S1 pass with the defect that was carrying it. That is the finding stated forwards: a geometry whose informativeness comes from one side dying of a bug is a measurement of the bug | `E2`, `E3` |
-| **E-17** | **The campaign breadth is REFUSED as an arena, and 89 of its 154 cells are not moved by the genome at all.** [MESS, `E5`] 0 informative cells under both the published `levers-genome.txt` and this round's 15-point file; 2 under the loosest reading the gate admits, which is W1's own verdict. **What would make a run possible, named so it can be checked rather than hoped for:** (a) a fitness that can order two strike doctrines — level C is `GATE` on 32 of the 46 cells that aim a bomb, so a bomb 20 m out and a bomb 2 km out are EXACTLY tied; (b) S1 needs a fixed field that acts on the cell it judges, and the only frozen one is six BVR intercept doctrines — a ground-flavoured yardstick would fix it on paper and is refused for `E2`'s reason; (c) G2 and G7 need an arena that does not exist in the campaigns at all (a long-binding round on a netted element; a CCIP delivery) | `E5`, [`campaigns/w1-red-flag.md`](campaigns/w1-red-flag.md) |
-| **E-18** | **Level M cannot tell "judged and unmet" from "never judged".** Both read 0, and the difference is worth 8 points of M on `w4-10`. The judge publishes `OBJECTIVE` lines only from `Conclude`, and `FBMissionRunner` skips every `FinalizeMission` when a healthy unit's K.O. ends the run. Until that is closed, every campaign-cell fitness contains a term that is a property of the OPPONENT's airmanship | `E5`, X-1 |
+| **E-17** | **The campaign breadth is REFUSED as an arena, and 89 of its 154 cells are not moved by the genome at all.** [MESS, `E5`, 2026-07-30] 0 informative cells under both the published `levers-genome.txt` and that round's 15-point file; 2 under the loosest reading the gate admits, which is W1's own verdict. **The three checkable points, with their state after `E6`:** (a) **CLOSED** — level C was `GATE` on 32 of the 46 cells that aim a bomb and is now `GATE` on **0 of 46**, with the two deciding levels unmoved on all 154 cells (§State `E6` 1); (b) **OPEN, unchanged** — S1 needs a fixed field that acts on the cell it judges, and the only frozen one is six BVR intercept doctrines; a ground-flavoured yardstick would fix it on paper and is refused for `E2`'s reason; (c) **OPEN, unchanged** — G2 and G7 need an arena that does not exist in the campaigns at all (a long-binding round on a netted element; a CCIP delivery). **Still open and named as this round's debt: the 154-cell gate has NOT been re-run in full.** The craft level cannot move it (S1 and S2 are computed on the outcome class `(V, M)`, measured unchanged between the two readers on all 154 cells), but the X-1 fix CAN — it moves the class of every cell whose baseline or lever crossed the knockout boundary, in both directions. Flown so far: **29 of 154 complete cells, mover distribution 24 × 0 · 4 × 1 · 1 × 2 of 15**, no cell at `kMoversMin` | `E5`, `E6`, [`campaigns/w1-red-flag.md`](campaigns/w1-red-flag.md) |
+| **E-18** | **CLOSED (`E6`, 2026-07-30). Level M could not tell "judged and unmet" from "never judged"** — both read 0, and the difference was worth 8 points of M on `w4-10`. The runner now asks every open judge after the loop, whatever ended the run, and always AFTER the combination so no verdict can move. [MESS] `w4-10-allied-force:f16` baseline goes from `V = 16, M = 0` to `V = 18, M = 8`, which is what its three levers already read; 251 missions with 0 telemetry values and 0 exit codes moved | `E5`, X-1 |
 | **E-16** | **A converged population and a circling one look alike in instrument (c).** The `E2` run's champion never changed, so "min distance to a champion 3+ generations back" is 0.0000 — the reading §3.6c gives a CYCLER. T = 0.0000 and the yardstick was flat, so this one is a fixed point; the instrument cannot tell the two apart on its own and the file now says so | `E2` |
 
 ### Exploits the evolution found
@@ -1251,7 +1459,7 @@ number and the file that owns the defect. **Nothing here was fixed** — this ro
 
 | # | What the search found | The channel it rides, with its number | Owner | X3 |
 |---|---|---|---|---|
-| **X-1** | **A healthy departure of ANY unit, on either side, deletes level M for the whole mission** — so a doctrine is paid for keeping the OPPONENT flying | `FBMissionRunner`'s loop ends at `FirstFlightKo`; `ExpectedLoss` forgives a K.O. only for a unit that is already combat-ineffective, so nobody `Conclude`s and **0 `mission OBJECTIVE` lines** are published. [MESS, `w4-10-allied-force`] baseline: `kamig4 LOC "stall/mush"` at t = 695.3 of 700 ⇒ eight F-16s at `V = 16, M = 0`. `net-off`, `bias-early` and `bias-rail` each keep it flying ⇒ **`V = 18, M = 8`**. `bias-rail` gets there by throwing its bombs **2,794 m** wide. **17 of 154 cells** have a lever that crosses the boundary, **5** baselines sit on the wrong side | this file (level M's input, E-1) + `missions/FBMissionRunner.cpp` | **FAILS** — the advantage has no chain to the opponent at all. An exploit by §5's inverted burden |
+| **X-1** | ~~**A healthy departure of ANY unit, on either side, deletes level M for the whole mission**~~ — **CLOSED `E6`, 2026-07-30.** The finding stands with its date and its numbers | **[MESS 2026-07-30, `E5`]** `FBMissionRunner`'s loop ends at `FirstFlightKo`; `ExpectedLoss` forgives a K.O. only for a unit that is already combat-ineffective, so nobody `Conclude`s and **0 `mission OBJECTIVE` lines** are published. `w4-10-allied-force` baseline: `kamig4 LOC "stall/mush"` at t = 695.3 of 700 ⇒ eight F-16s at `V = 16, M = 0`. `net-off`, `bias-early` and `bias-rail` each keep it flying ⇒ **`V = 18, M = 8`**. `bias-rail` gets there by throwing its bombs **2,794 m** wide. **17 of 154 cells** have a lever that crosses the boundary, **5** baselines sit on the wrong side. — **[FIX, `E6`]** the runner asks every judge still open after the loop and AFTER the combination, so a run that ENDS publishes its vector while `FirstFlightKo` keeps its meaning to the tick. The same cell now reads `V = 18, M = 8` for all four, movers 3 → 0, `RESULT`/exit unchanged | this file (level M's input, E-1) + `missions/FBMissionRunner.cpp` | **FAILED** — the advantage had no chain to the opponent at all. An exploit by §5's inverted burden, and the defect was ours |
 | **X-2** | **The pilot's pickle carries ~0.2 s of uncancelled chain latency, and a genome value buys it back** | `ATTACK_RELEASE biasS=0 leadS=0.6 ttrS=0.569` → `stores DELIVERY predErrM = 52.57 m = gs × 0.227 s` (W2 measured 0.228–0.241 s over seventeen drops) → `aimLongM 36.34` of `aimErrM 36.38` (99.9 % along) → `damage rangeM 33.66` against a Mk-84's 17.7 m. Swept on 8 strike cells over four campaigns, two stores and four altitudes, the minimum of `aimErrM(bias)` sits at **−0.20 ± 0.05 s on every one of them** — a constant TIME, not a constant distance, which is what says it is a latency. At −0.20 s, `w2-01-dome` 36.38 → **10.06 m**, the hardened dome is DESTROYED and `(V, M)` goes (2,1) → (3,2) | [`pilot.md`](pilot.md) §5 attack pass — `FBF16Pilot::AttackReleaseBiasS()` returns **0.0 s** | passes: chain named, number at every link. **Not an exploit — a defect of the default** |
 | **X-3** | **The release time is quantised at the pilot's decision tick, and the quantum is wider than the weapon's own lethal radius** | the release cue is evaluated once per `DecisionDtS_` = 0.1 s, so `aimErrM(bias)` is a STAIRCASE: 36.38, 36.38, 13.29, 13.29, 10.06, 10.06, 33.12, 56.24 m over bias 0 … −0.40 in 0.05 s steps — pairs, one step per tick. At a loaded F-16's 231 m/s one tick is **23.1 m** of track against a hardened target's **17.7 m** radius, so the best reachable lattice point can be 11.5 m off with a perfect bias and the residual floor is 10–22 m on all eight cells | [`weapons.md`](weapons.md) / [`pilot.md`](pilot.md) §5.8 — the same partition class as Exhibit C, on the release clock instead of the gun bundle | passes as a mechanism; it is §5's **partition class** and is listed as one |
 | **X-4** | **The cooperative datalink costs an F-16 on the rung whose subject is emission discipline — and NOT through the sort** | [MESS, `w1-07-emcon`, `--threads 1/2/4`, identical] `flt_src`/`flt_assign`/`sort_assign`/`eng_shots` are **0 in both** variants, so no assignment was ever made. With `dl=on` the wingman is killed at t = 338.2 and the run ends at 382 s; with `dl=off` both jets live to 600 s — `V = 3, M = 1` → **`V = 4, M = 2`**. The divergence chain is published and starts at t = 0.1: `dl_on`/`dl_xmt` → `dl_tracks`/`flt_mates`/`blk_datalink` (t = 30) → `rwr_brg` (t = 90) → trajectory (t = 150). The net is not audible (`DatalinkXmt` has no `FBEmitterSignature` and only `FBDatalinkSystem` reads it), so what moved is the FLIGHT GEOMETRY and not the picture. `net-off` improves 4 cells and worsens 10 | [`formation.md`](formation.md) — the station-keeping path, not F2's switch instability | passes X3; **what it is not is a sort finding**, and the numbers say so |
@@ -1311,6 +1519,17 @@ span                                       =  590  =  3.93 · W_HIT  =  0.49 · 
 A tie-breaker worth half a kill is not a tie-breaker. Under the lexicographic order the same items are
 kept and the same arithmetic is computed — the difference is that the number is only ever consulted
 after two units have proved identical results.
+
+**The second currency (`E6`), and why it does not widen that band.** `aim = 100 · mean over deliveries
+of 1/(1 + e/10 m)` lives in a component of its own, so the bound to check is the ENCODING's and not a
+tie-breaker's: `air ∈ [−190, +300]` and `aim ∈ [0, +100]`, so the projection `air + aim` stays inside
+±400 < the 1e3 step between M levels and `order_scalar` keeps its property (D10). The half-quality
+distance of 10 m is [SET] and, unusually, **not load-bearing**: `1/(1+e/h)` is strictly decreasing for
+every positive `h`, so no choice of `h` creates or destroys an order between two deliveries — it only
+decides where the curve is steep. It is put at the bottom of the band X-3 measured as reachable
+(a residual floor of 10–22 m on all eight strike cells) so that the errors this tree can actually fly
+sit on the steep part. **The aggregation is a MEAN and not a sum** — a sum would pay per delivery, i.e.
+per store the mission author hung on the aircraft, which is Exhibit C's defect in a second currency.
 
 ### 3. Why the outcome constant of a saturated cell is readable
 
@@ -1384,7 +1603,8 @@ reading five lines of a `constexpr` table, which is the reason the table is wher
 | [`missions/campaign.md`](missions/campaign.md) | the fingerprint-and-refusal discipline the archive reuses verbatim; where a FINISHED doctrine is flown |
 | [`campaigns/INDEX.md`](campaigns/INDEX.md) | the Bekaa yardstick (`band`, `residue`) — the same measurement one level up, and the reason the arena check comes before the campaigns |
 | [`weapons.md`](weapons.md) | §3.1 the bundle, and the full-drum run that Exhibit C rests on |
-| `sim/tools/fb_fitness.py` | the fitness itself — the ONE scorer the tournament, the arena gate and the evolution runner all import |
+| `sim/tools/fb_fitness.py` | the fitness itself — the ONE scorer the tournament, the arena gate and the evolution runner all import. `compare_craft` is the craft level's own comparison (domination between the air and the aim currency, `E6`) |
+| `sim/src/missions/FBMissionRunner.cpp` | where a run ENDS and where its judges FINISH — two different things since `E6` ([`missions/runtime.md`](missions/runtime.md) §5, step 3) |
 | `sim/tools/fb_arena_check.py` | §4's gate, and the tool that measured the old arena into a refusal |
 | `sim/tools/fb_evolve.py` | §2/§3's runner: the genome out of `fb-gym --pilot-keys`, the archive, the three circling instruments |
 | `sim/tools/levers-merge.txt` | the merge phase's OWN nine lever points — the declared nine are all intercept keys and not one of them is read in `BfmCommands` |

@@ -1671,7 +1671,9 @@ V ∈ {0..3}   the judge's verdict, read from UNIT_RESULT and never recomputed
              3 SUCCESS · 2 TIMEOUT/NONE · 1 FAIL · 0 CRASH/LOC
 M ∈ {0..k}   how many of the objectives this unit DECLARED the judge marked `met`, counted off the
              `mission OBJECTIVE` lines FBMissionMonitor publishes at every conclusion
-C ∈ ℝ        craft — bounded, and consulted ONLY when V and M are exactly equal
+C            craft — bounded, and consulted ONLY when V and M are exactly equal. Since `E6` it is a
+             PAIR, `(air, aim)`, compared by DOMINATION and never added: better in one and not worse in
+             the other wins, better in one and worse in the other is incomparable and ties
 ```
 
 | Item | Weight | Note |
@@ -1683,7 +1685,8 @@ C ∈ ℝ        craft — bounded, and consulted ONLY when V and M are exactly 
 | energy | ×40 | `eng_es_min / es_start` |
 | rounds | −25 each, floored at −150 | bounded by the loadout, not by the run length |
 | **hits landed** | **REMOVED** | it paid per event on a count the simulator partitions into TICKS — measured at 900–1,278 fitness points per second of trigger |
-| **no shot** | **REMOVED, replaced by a GATE** | a price can be bought back; `C = −∞` for a unit that neither fired nor locked cannot be |
+| **no shot** | **REMOVED, replaced by a GATE** | a price can be bought back; `C = −∞` for a unit that neither fired, locked nor delivered cannot be |
+| **aim** (`E6`, the ground currency) | ×100, in a component of its OWN | `mean over the unit's deliveries of 1/(1 + aimErrM/10 m)`, off the judge's `stores DELIVERY` line. A MEAN and not a sum, so a fourth bomb cannot buy what the first three missed; in a second component, so no metre of aim error is ever priced in shot-geometry points |
 
 **Aggregation is pairwise domination, not a mean.** Per pairing the two sides' keys are compared
 directly and the variant takes 1 / ½ / 0; the fitness is `Σ points / (2 · N_opponents) ∈ [0,1]`, a

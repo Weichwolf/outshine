@@ -192,6 +192,9 @@ read out of `campaign-summary.txt` rather than assume:
 | **1 — re-run 2026-07-30** | the same criterion under the branch-order change of `b433950` ([`../pilot.md`](../pilot.md) §7.4a) | **9 runs, 1 fingerprint** `9c994069f01595c2291755fc6dc573733ba8c0e0bf3122369cb5aa4a03854f85`, `--elev const`. **The value above is kept with its date; this is the current one.** Step exits `0 3 3 1 1 1 3 1 1 3` — unchanged |
 | **2 — re-run 2026-07-30** | every step re-run STANDALONE against the new reference tree | **10/10 MATCH**, exit codes included |
 | Per-step fingerprints, 2026-07-30 | | `0bdcf37a93d411f7 86a8fd8944c61e33 64b28b2b4321b687 c397e62f2d40b1f7 c071f9b210642eb8 4f2d93487a3eba2e 177f53387eb13368 15eb7f14e31ab95a 27a23c6d0fa78e3a 7cd6ad00af518446` |
+| **1 — re-run 2026-07-30 (`E6`)** | the same criterion after the judge-completion fix of [`../doctrine-evolution.md`](../doctrine-evolution.md) X-1 | **9 runs, 1 fingerprint** `9c994069f01595c2291755fc6dc573733ba8c0e0bf3122369cb5aa4a03854f85`, `--elev const`. **The rows above are kept with their dates; this is the current one.** Step exits `0 3 3 1 1 1 3 1 1 3` — unchanged. **Unchanged, byte for byte** — campaign fingerprint and all ten step fingerprints. |
+| **2 — re-run 2026-07-30 (`E6`)** | every step re-run STANDALONE against the new reference tree | **10/10 MATCH**, exit codes included |
+| Per-step fingerprints, 2026-07-30 (`E6`) | | `0bdcf37a93d411f7 86a8fd8944c61e33 64b28b2b4321b687 c397e62f2d40b1f7 c071f9b210642eb8 4f2d93487a3eba2e 177f53387eb13368 15eb7f14e31ab95a 27a23c6d0fa78e3a 7cd6ad00af518446` |
 
 **Criterion 2 failed 9 of 10 on the first attempt, and the failure was a real hole in the campaign
 layer rather than in this campaign.** `fb-gym --mission --state` had no way to receive the CAMPAIGN

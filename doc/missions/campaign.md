@@ -215,6 +215,15 @@ headers:
 Campaign exit 3 and the same four verdicts under both. The layer adds no hidden state — a fresh process
 handed only the text state file and the recorded ground reproduces the step bit for bit.
 
+**Re-measured 2026-07-30 (`E6`, the judge-completion fix of
+[`../doctrine-evolution.md`](../doctrine-evolution.md) X-1), `--elev const`:** 9 runs, 1 campaign
+fingerprint `fdf1da2ba166fcb3670538b8cb4e20572a006f48c7919e5e0697efee00b3e774`, per-step
+`5ed024359f1c067e 9ab284a585f1a546 16da3efcae8c47fa 90aa24d31a87218e`, campaign exit 3, **4/4 standalone
+replays MATCH**. The two hashes above predate several rounds of pilot work and are kept as history; the
+value that matters for THIS round is the A/B, and it is exact — **the pre-round binary produces the same
+campaign fingerprint to the byte** (`fdf1da2b…`), because none of `viper-attrition`'s four missions ends
+before its judges are finished.
+
 ### The clock was missing from the replay half, and the second campaign found it (2026-07-29)
 
 Criterion 2 is a statement about the campaign layer, and it was only ever tested on `viper-attrition`,

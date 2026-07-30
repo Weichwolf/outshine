@@ -15,9 +15,10 @@ variant and not the seat. Runs go through `fb-gym --threads N` — the simulator
 parallelism — and are byte-reproducible whatever N is (that is `--check-determinism`).
 
 THE FITNESS lives in `tools/fb_fitness.py` and is LEXICOGRAPHIC: (V, M, C) — the judge's verdict, then
-how many of its own declared objectives the unit met, then craft. Compared left to right, so no craft
-value can ever cross a level, and a variant's score is a normalised WIN RATE over pairwise domination
-rather than a mean of numbers in a currency that has no units. doc/doctrine-evolution.md §1.
+how many of its own declared objectives the unit met, then craft (air and aim, compared by DOMINATION
+rather than added). Compared left to right, so no craft value can ever cross a level, and a variant's
+score is a normalised WIN RATE over pairwise domination rather than a mean of numbers in a currency
+that has no units. doc/doctrine-evolution.md §1.
 
 Stdlib only, no build target, no dependency on anything under sim/build except the fb-gym binary.
 """
@@ -541,8 +542,10 @@ kOutcomeTol = 0.5
 
 def attr_outcome(outdir, want_key=False):
     """ONE number per run, and it is the SAME fitness the tournament ranks on: the catalogue row's
-    lexicographic key, written down through fb_fitness.order_scalar — order-isomorphic to the tuple
-    because C is bounded, so a BAND over it is a band over the order and not over a weighting."""
+    lexicographic key, written down through fb_fitness.order_scalar — V and M keep their steps and the
+    craft level is projected onto the sum of its two bounded currencies, so a BAND over it is a band
+    over the order at the two levels that decide. Every cell of this instrument is air-to-air, so the
+    ground currency is 0 in every run of it and the number is the one it always was."""
     try:
         west, east, duration = fit.read_pair(outdir, ["bandit"], ["viper"], "bandit", "viper")
     except (OSError, IndexError):
@@ -772,7 +775,7 @@ def main():
             points[b] += 2.0 * bp
             for x, y in ((aw, bw), (ae, be)):
                 decided["V" if x[0] != y[0] else "M" if x[1] != y[1]
-                        else "C" if x[2] != y[2] else "tie"] += 1
+                        else "C" if fit.compare_craft(x[2], y[2]) else "tie"] += 1
 
     print("\n" + "=" * 100)
     print("RANKING — the fitness is a normalised WIN RATE in [0,1]: per MATCH (the two mirrored runs of")
@@ -790,7 +793,9 @@ def main():
         craft = [x[2] for x in ks if x[2] != fit.GATE]
         print("%-16s %8.3f %6.2f %6.2f %8s   %4d %4d %4d   %s" %
               (v.name, points[v.name] / n, sum(x[0] for x in ks) / n, sum(x[1] for x in ks) / n,
-               ("GATE x%d" % gated) if gated else "%+.1f" % (sum(craft) / max(1, len(craft))),
+               ("GATE x%d" % gated) if gated else "%+.1f/%+.1f" %
+               (sum(x[0] for x in craft) / max(1, len(craft)),
+                sum(x[1] for x in craft) / max(1, len(craft))),
                k, l, d, " ".join("%s=%g" % kv for kv in sorted(v.params.items())) or "(airframe defaults)"))
 
     n_cmp = sum(decided.values())

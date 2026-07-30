@@ -213,6 +213,8 @@ eight sorties carry fresh callsigns, ground objects included.
 | Conservation | annotating all ten files with their MEASURED blocks afterwards left **all ten per-mission fingerprints and the campaign fingerprint unchanged** |
 | Per-step fingerprints, as built | `3555795c02ef346f 63fe25362f2c83c8 74c5812afdbd87e7 b690acd9c60de591 b43917d0e0581b44 423844acb453ed54 f50b23b55b6c7495 900fbe8e4af71bf8 ca0cbbcdf7f02fd5 a9ad699a4e298df5` |
 | Per-step fingerprints, 2026-07-30 | `3555795c02ef346f e081ae58576df8d2 f2db17354494b8a4 1f0eb659cfab9be5 b43917d0e0581b44 d73c4369619330bf 0e76d1dc5ba38cf3 0916c5c1e98de80b 9879e7b636b6b42a c5afe4cfef819b66` |
+| **1 — re-run 2026-07-30 (`E6`)** | the same criterion after the judge-completion fix of [`../doctrine-evolution.md`](../doctrine-evolution.md) X-1 | **9 runs, 1 fingerprint** `0e32e6a8c02b153eddaa1b7fcf00278fa0f7318e3ebf088ea95bd181d3677add`, `--elev const`. Step exits `0 0 0 3 3 3 3 3 3 3` — unchanged. **Unchanged, byte for byte**: the campaign fingerprint and all ten step fingerprints are the row above. Not one W1 rung ends before its judges are finished |
+| **2 — re-run 2026-07-30 (`E6`)** | every step re-run STANDALONE against the new reference tree | **10/10 MATCH**, exit codes included |
 
 **And the two instruments do not measure the same run, which the re-run made visible.**
 [`../pilot.md`](../pilot.md) §7.4b's regression names `w1-02`, `w1-04`, `w1-08`, `w1-09` and `w1-10` as

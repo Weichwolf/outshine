@@ -452,9 +452,30 @@ loser's FAIL was the only verdict in the run and became the run's — a mission 
 down reported FAIL, and the shooter's success was invisible. An expected loss is still reported as that
 actor's own FAIL in its `UNIT_RESULT` line; what it no longer does is decide the run.
 
-**After the loop (step 4):** if the knockout is an expected loss it is taken out of the scoring
-(`ko = nullptr`) and every monitor gets `FinalizeMission` — a `survive` objective can only be answered
-here, because the run to be survived is now over.
+**After the loop (step 4), in this order and the order is the whole point:**
+
+1. if the knockout is an expected loss it is taken out of the scoring (`ko = nullptr`) and every
+   monitor gets `FinalizeMission` — a `survive` objective can only be answered here, because the run
+   to be survived is now over, and these verdicts are part of the combination below;
+2. the combination itself (`ko` / `failed` / `judged` → `result`, the table below);
+3. **`FinalizeMission` for every judge still open, whatever ended the run.** Without step 3 a run
+   stopped by an unexpected knockout — or by somebody else's decisive failure — left the other
+   monitors unconcluded, so they published no `mission OBJECTIVE` line at all and a consumer had to
+   read "never judged" as "nothing met". That paid a doctrine for keeping the OPPONENT airborne
+   ([`../doctrine-evolution.md`](../doctrine-evolution.md) X-1, closed 2026-07-30). It changes **when
+   a judge finishes, never when the RUN ends**: `FirstFlightKo` is untouched to the tick, and because
+   step 3 runs AFTER step 2, a monitor closing there cannot move `ko`, `failed`, `judged` or `result`.
+   [MESS] all 251 `sim/missions/*.fbm`: 0 telemetry values moved, 0 exit codes moved, 27 `events.log`
+   gained lines.
+
+**The one line that is not an addition, and it is a rule that already existed.** A unit that had been
+shot combat-ineffective and then hit the ground had TWO true verdicts and `ShotDownFirst` says the
+mission judge speaks — but its precondition is `Concluded()`, and before step 3 such a unit's judge
+never concluded, so the physical judge spoke by default. With the judge finishing, the documented rule
+applies where it always should have: `net-belt-high`, `o1-08-belt-netted` and `o3-10-october-six` are
+the three files in the tree where it does, and their `RESULT`/exit codes are unchanged. A HEALTHY
+airframe that departs still reports `LOC`/`CRASH` — `CombatEffective()` is true, so `ShotDownFirst` is
+false ([MESS] `w4-10-allied-force`, `kamig4` `LOC "stall/mush"` before and after).
 
 | Priority of the combined `RESULT` | Source |
 |---|---|

@@ -8,7 +8,7 @@ doc/doctrine-evolution.md §1. The order is LEXICOGRAPHIC and not weighted:
     V   the JUDGE's verdict for this unit, read from `UNIT_RESULT`, never recomputed
     M   how many of the objectives this unit DECLARED the judge marked `met`, read from the
         `mission OBJECTIVE` lines the judge publishes at every conclusion
-    C   craft — a bounded weighted sum that can never cross a level
+    C   craft — TWO bounded sums, one per currency (air, aim), compared by DOMINATION
 
 The first level that differs decides; a level is consulted only on an exact tie of every level to its
 left. That is the whole point: an exchange rate between levels would be a standing offer and a search
@@ -16,10 +16,20 @@ procedure is a machine for accepting one cheaply (§1.2). Two items of the previ
 GONE rather than re-tuned — `hits landed` (a payment per event on a count the simulator partitions
 into ticks, §1.1 exhibit C) and `no shot` (a price that could be bought back, replaced by a gate).
 
-WHY A SCALAR EXISTS ANYWAY (`OrderScalar`). C is bounded by construction, so the positional encoding
-V*1e6 + M*1e3 + C is ORDER-ISOMORPHIC to the tuple — the same comparison, expressible where an
-instrument needs a number (the attribution bands of doc/modules/air/module.md §Spec 11). It is not a
-second fitness; it is the same one, written down differently, and nothing may weight across levels.
+WHY C IS A PAIR AND NOT A SUM. Every craft item of the air half is an air-to-air quantity, so a strike
+cell's key used to be (V, M, GATE) and two doctrines that both survived and both missed were EXACTLY
+tied — [MESS, E5] on 32 of the 46 campaign cells that aim a bomb. The missing gradient is `aimErrM`,
+which the judge writes on every `stores DELIVERY` line. Adding it as a SIXTH SUMMAND would have priced
+one metre of aim error in shot-geometry points, i.e. exactly the standing offer §1.2 refuses one level
+up. So C carries the two currencies SEPARATELY and is compared by DOMINATION: better in one and not
+worse in the other wins, better in one and worse in the other is INCOMPARABLE and ties. There is no
+exchange rate to accept, and a doctrine can never buy aim error with air craft or the other way round.
+
+WHY A SCALAR EXISTS ANYWAY (`order_scalar`). Both components are bounded, so V*1e6 + M*1e3 + air + aim
+is order-CONSISTENT at the two levels that decide and collapses the craft level onto a projection. On
+an air-only cell `aim` is 0 in every run and the scalar is the number the attribution instrument of
+doc/modules/air/module.md §Spec 11 always read. It is not a second fitness and nothing may weight
+across LEVELS; the projection inside the craft level is booked as a deviation (D10).
 
 Stdlib only. Imported by fb_tournament.py, fb_arena_check.py and fb_evolve.py.
 """
@@ -48,9 +58,20 @@ W_ENERGY = 40.0      # the state the engagement is left in
 W_SHOT_COST = 25.0   # per round fired
 C_ROUNDS_FLOOR = -150.0   # bounded by the loadout, not by the run length
 
+# THE GROUND CURRENCY — one item, and it is a MEAN of a bounded per-delivery quality, never a sum over
+# deliveries: a payment per event on a count the mission author picks (how many bombs hang on the
+# aircraft) is Exhibit C's defect in a second currency. kAimHalfM is the half-quality distance and it
+# is NOT load-bearing: under a lexicographic order only the sign and the boundedness of a craft item
+# matter, and 1/(1+e/h) is strictly decreasing everywhere, so no value of h creates or destroys an
+# order between two deliveries. It is [SET] at the bottom of the measured achievable band — X-3's
+# release lattice leaves a residual floor of 10-22 m on all eight strike cells it was swept on — so
+# that the errors this tree can actually fly sit on the curve's steep part rather than in its tail.
+W_AIM = 100.0
+kAimHalfM = 10.0
+
 C_MIN = -(abs(C_ROUNDS_FLOOR) + W_LEAD)          # -190
-C_MAX = W_QUALITY + W_SUPPORT + W_LEAD + W_DEFENCE + W_ENERGY   # +300
-GATE = float("-inf")     # a unit that neither fired nor designated: last within its own outcome class
+C_MAX = W_QUALITY + W_SUPPORT + W_LEAD + W_DEFENCE + W_ENERGY + W_AIM   # +400, still < the 1e3 step
+GATE = float("-inf")     # a unit that neither fired, designated nor delivered: last in its own class
 
 
 def shot_quality(s):
@@ -65,24 +86,35 @@ def shot_quality(s):
     return zone * max(0.0, math.cos(math.radians(min(ata, 90.0))))
 
 
+def aim_quality(errs):
+    """0..1 over this unit's DELIVERIES: the mean of 1/(1 + e/kAimHalfM). Strictly decreasing in every
+    single error, so two runs that differ in one delivery can always be ordered; bounded per delivery,
+    so a fourth bomb cannot buy what the first three missed."""
+    if not errs:
+        return 0.0
+    return sum(1.0 / (1.0 + max(0.0, e) / kAimHalfM) for e in errs) / len(errs)
+
+
 def engaged(s):
     """The gate, not a price: a price can be bought back and the old -250 could be repaid by
     energy + defence + support. `eng_shot_s`/`eng_lock_s` are the two columns that survive the
-    engagement. Its known blind spot is booked as doc/doctrine-evolution.md E-10."""
-    return s.g("eng_shot_s") >= 0 or s.g("eng_lock_s") >= 0
+    engagement, and a published `stores DELIVERY` is the ground half's own record of the same fact —
+    without it every striker in the campaigns is gated and the whole ground gradient is unreachable.
+    Its known blind spot is booked as doc/doctrine-evolution.md E-10."""
+    return s.g("eng_shot_s") >= 0 or s.g("eng_lock_s") >= 0 or bool(s.deliveries)
 
 
 def craft(me, foe, duration):
-    """C for one unit in one run, itemised — the report prints the items because the point of a
-    tournament is WHY, and that has not changed."""
+    """C for one unit in one run as (air, aim), itemised — the report prints the items because the
+    point of a tournament is WHY, and that has not changed. The two currencies are accumulated apart
+    and never added together; `add` takes which one an item is paid in."""
     items = []
-    total = 0.0
+    total = {"air": 0.0, "aim": 0.0}
 
-    def add(label, value, detail):
-        nonlocal total
+    def add(label, value, detail, cur="air"):
         if abs(value) < 1e-9:
             return
-        total += value
+        total[cur] += value
         items.append((label, value, detail))
 
     shots = int(me.g("eng_shots", 0.0))
@@ -116,7 +148,12 @@ def craft(me, foe, duration):
             % (100 * frac, me.es_start, me.g("eng_es_min", 0.0)))
 
     add("rounds", max(C_ROUNDS_FLOOR, -W_SHOT_COST * shots), "%d round(s) fired" % shots)
-    return total, items
+
+    q = aim_quality(me.deliveries)
+    add("aim", W_AIM * q, "%d delivery(ies), mean aim error %.1f m (best %.1f) -> q=%.2f"
+        % (len(me.deliveries), sum(me.deliveries) / len(me.deliveries), min(me.deliveries), q)
+        if me.deliveries else "no delivery", "aim")
+    return (total["air"], total["aim"]), items
 
 
 def unit_key(me, foe, duration):
@@ -128,37 +165,53 @@ def unit_key(me, foe, duration):
 
 
 def side_key(members, foe, duration):
-    """A FLIGHT's key is the componentwise SUM over its members. V and M stay integers, so ties still
-    happen naturally at those levels, and with one member it IS the per-unit key. The engagement gate
-    is evaluated at SIDE level — a flight in which one member deliberately held its trigger under the
-    cover rule has still engaged."""
+    """A FLIGHT's key is the componentwise SUM over its members — over both craft currencies too, each
+    within its own. V and M stay integers, so ties still happen naturally at those levels, and with one
+    member it IS the per-unit key. The engagement gate is evaluated at SIDE level — a flight in which
+    one member deliberately held its trigger under the cover rule has still engaged."""
     keys = [unit_key(m, foe, duration) for m in members]
     v = sum(k[0][0] for k in keys)
     mm = sum(k[0][1] for k in keys)
-    c = sum(0.0 if k[0][2] == GATE else k[0][2] for k in keys)
+    c = tuple(sum(0.0 if k[0][2] == GATE else k[0][2][i] for k in keys) for i in (0, 1))
     if not any(engaged(m) for m in members):
         c = GATE
     return (v, mm, c), [k[1] for k in keys]
 
 
 def order_scalar(key):
-    """The tuple as ONE number, order-isomorphic because |C| < 500 < the 1e3 step between M levels and
-    the 1e6 step between V levels. For instruments that need a scalar (attribution bands); never for
-    trading one level against another, which the encoding makes arithmetically impossible anyway."""
+    """The tuple as ONE number: V and M keep their 1e6/1e3 steps and the craft level is PROJECTED onto
+    the sum of its two currencies, which is bounded by 400. Order-consistent wherever V or M decides;
+    inside the craft level it is a projection and not the order (a projection has an exchange rate, the
+    order has none), so it is for instruments that need a scalar — the attribution bands — and never
+    for a ranking. On an air-only cell `aim` is 0 and it is the number it always was."""
     v, m, c = key
     if c == GATE:
         return v * 1e6 + m * 1e3 - 1e5
-    return v * 1e6 + m * 1e3 + c
+    return v * 1e6 + m * 1e3 + c[0] + c[1]
+
+
+def compare_craft(x, y):
+    """The craft level, and the whole reason it is a pair: DOMINATION between the currencies. Better in
+    one and not worse in the other wins; better in one and worse in the other is INCOMPARABLE and ties,
+    because saying which of the two is worth more is exactly the exchange rate §1.2 refuses. GATE (the
+    unit did not engage at all) is below every craft value and equal to itself."""
+    if x == GATE or y == GATE:
+        return 0 if x == GATE and y == GATE else (-1 if x == GATE else 1)
+    ge = all(u >= v for u, v in zip(x, y))
+    le = all(u <= v for u, v in zip(x, y))
+    if ge and le:
+        return 0
+    return 1 if ge else -1 if le else 0
 
 
 def compare(a, b):
-    """-1 / 0 / +1, left to right. The whole order in four lines."""
-    for x, y in zip(a, b):
+    """-1 / 0 / +1, left to right: the first LEVEL that differs decides, and craft never crosses one."""
+    for x, y in zip(a[:2], b[:2]):
         if x < y:
             return -1
         if x > y:
             return 1
-    return 0
+    return compare_craft(a[2], b[2])
 
 
 def pair_points(a, b):
@@ -205,6 +258,7 @@ class Side:
         self.eng = {}
         self.es_start = 0.0
         self.objectives = []      # the judge's own per-objective states, in declaration order
+        self.deliveries = []      # aimErrM per `stores DELIVERY` this unit's stores produced
 
     def g(self, key, default=-1.0):
         v = self.eng.get(key, default)
@@ -242,13 +296,17 @@ def read_side(path, name):
 
 RESULT_RE = re.compile(r'UNIT_RESULT unit=(\S+) result=(\S+) reason="([^"]*)"')
 OBJECTIVE_RE = re.compile(r'mission OBJECTIVE unit=(\S+) kind=(?:"[^"]*"|\S+) state=(\S+)')
+DELIVERY_RE = re.compile(r'stores DELIVERY unit=(\S+) .*\baimErrM=([-0-9.e+]+)')
 
 
 def read_events(path, by_call):
-    """Fills `result`/`reason` and the per-objective vector, and returns the run duration. The
-    OBJECTIVE lines are level M's ONLY input (doc/doctrine-evolution.md E-1); a unit that never
-    concluded publishes none and therefore scores M = 0, which is the honest reading of "the judge
-    decided nothing about it"."""
+    """Fills `result`/`reason`, the per-objective vector and the delivery errors, and returns the run
+    duration. The OBJECTIVE lines are level M's ONLY input (doc/doctrine-evolution.md E-1); since the
+    runner asks every open judge before it reports (X-1), a run that ENDS publishes them, and a unit
+    with none declared none.
+
+    A DELIVERY is attributed to the CARRIER: the line is written in the store's own log scope and a
+    store is named `<carrier>_<key>_<n>`, so the two trailing fields come off."""
     duration = 0.0
     for line in open(path):
         m = RESULT_RE.search(line)
@@ -259,6 +317,11 @@ def read_events(path, by_call):
         o = OBJECTIVE_RE.search(line)
         if o and o.group(1) in by_call:
             by_call[o.group(1)].objectives.append(o.group(2))
+        d = DELIVERY_RE.search(line)
+        if d:
+            carrier = d.group(1).rsplit("_", 2)[0]
+            if carrier in by_call:
+                by_call[carrier].deliveries.append(float(d.group(2)))
         if "mission SUMMARY" in line:
             d = re.search(r"durationS=([0-9.]+)", line)
             if d:
@@ -269,6 +332,8 @@ def read_events(path, by_call):
 class FlightView:
     """The opposing FLIGHT as one side's craft terms need to see it: capable while ANY member is, and
     the first shot is the earliest of them. `hits` is kept for the report only — it pays nothing."""
+
+    deliveries = ()
 
     def __init__(self, members):
         self.name = members[0].name if len(members) == 1 else "%s x%d" % (members[0].name, len(members))
@@ -284,7 +349,7 @@ class FlightView:
 
 def key_str(key):
     v, m, c = key
-    return "V=%d M=%d C=%s" % (v, m, "GATE" if c == GATE else "%+.1f" % c)
+    return "V=%d M=%d C=%s" % (v, m, "GATE" if c == GATE else "%+.1f/%+.1f" % c)
 
 
 def read_pair(outdir, west_calls, east_calls, west_name, east_name):

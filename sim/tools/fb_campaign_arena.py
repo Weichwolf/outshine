@@ -300,6 +300,7 @@ class NullFoe:
     name = "-"
     effective = False
     hits = 0
+    deliveries = ()
 
     def g(self, _key, default=-1.0):
         return default
@@ -323,7 +324,8 @@ class Sink:
         if path and os.path.exists(path):
             for row in csv.DictReader(open(path)):
                 key = (int(row["V"]), int(row["M"]),
-                       fit.GATE if row["C"] == "GATE" else float(row["C"]))
+                       fit.GATE if row["C_air"] == "GATE"
+                       else (float(row["C_air"]), float(row["C_aim"])))
                 self.have[(row["cell"], row["lever"])] = (key, {k: num(v) for k, v in row.items()})
         if path and not os.path.exists(path):
             with open(path, "w") as f:
@@ -332,9 +334,10 @@ class Sink:
     def note(self, cell, vname, key, chan):
         if not self.path:
             return
+        gate = key[2] == fit.GATE
         row = [cell.name, cell.mission, cell.module, vname, key[0], key[1],
-               "GATE" if key[2] == fit.GATE else "%.1f" % key[2]]
-        row += ["%g" % chan.get(c, 0.0) for c in CSV_COLS[7:]]
+               "GATE" if gate else "%.1f" % key[2][0], "GATE" if gate else "%.1f" % key[2][1]]
+        row += ["%g" % chan.get(c, 0.0) for c in CSV_COLS[8:]]
         with self.lock:
             with open(self.path, "a") as f:
                 f.write(",".join(str(x) for x in row) + "\n")
@@ -347,7 +350,7 @@ def num(v):
         return v
 
 
-CSV_COLS = ["cell", "mission", "module", "lever", "V", "M", "C"] + list(CHAN_COLS) + \
+CSV_COLS = ["cell", "mission", "module", "lever", "V", "M", "C_air", "C_aim"] + list(CHAN_COLS) + \
            ["releases", "sort_assign", "deliveries", "aimErrM_mean", "aimErrM_min", "exit",
             "durationS"]
 

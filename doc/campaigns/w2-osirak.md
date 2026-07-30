@@ -267,6 +267,9 @@ number.
 | **2** | each step's per-mission fingerprint equals the same mission run STANDALONE with step *k−1*'s state | **10/10 MATCH**, exit codes included |
 | Conservation | annotating all ten files with their MEASURED blocks afterwards left all ten per-mission fingerprints and the campaign fingerprint unchanged |
 | Per-step fingerprints | `d169732fe9bb2409 673753b8b0cf3f3e a97fba1ebbc02613 42c542e4ec72c306 a92dfa00db6f4837 2ea54fe711951a11 7ec2fe1cf5759c1f 6cbec31db6bf0bf5 c8c33b7a793ac8a1 660805cbd5aa3b1b` |
+| **1 — re-run 2026-07-30 (`E6`)** | the same criterion after the judge-completion fix of [`../doctrine-evolution.md`](../doctrine-evolution.md) X-1 | **9 runs, 1 fingerprint** `d951102ca9e3f311da1b258bd7dd40e03ba08e8b43598ef0a0ce47a46dd53494`, `--elev const`. **The row above is kept with its date; this is the current one.** Step exits `3 0 0 2 0 1 0 3 0 1` — unchanged. The fingerprint MOVED and **exactly three step fingerprints with it** — steps 4, 6 and 10 (`w2-04-loaded`, `w2-06-escort`, `w2-10-opera`), each a run that ended before its judges were finished; the other seven are byte-identical |
+| **2 — re-run 2026-07-30 (`E6`)** | every step re-run STANDALONE against the new reference tree | **10/10 MATCH**, exit codes included |
+| Per-step fingerprints, 2026-07-30 (`E6`) | `d169732fe9bb2409 673753b8b0cf3f3e a97fba1ebbc02613 2551cb3b497c3a3a a92dfa00db6f4837 03883124b5cd9af9 7ec2fe1cf5759c1f 6cbec31db6bf0bf5 c8c33b7a793ac8a1 51862d9e17e18857` |
 
 ### The saturation gate is not run on this campaign, and the reason is the campaign's own contract
 

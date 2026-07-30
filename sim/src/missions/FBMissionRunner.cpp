@@ -933,14 +933,18 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   /* ---- Step 4: validate the world — the monitors already did; combine their verdicts ---- */
   const Units::FBSimUnit &primary = *Actors.front();
   const Units::FBSimUnit *ko = FirstFlightKo(Actors);
-  /* A K.O. always ENDS the run but only DECIDES it when it was nobody's declared objective. When it is
-   * expected, the monitors still waiting on a `survive` are asked here — the run to survive is over. */
-  if (ko && ExpectedLoss(Actors, *ko)) {
+  auto finalizeAll = [&]() {
     FBMissionRoster roster = BuildRoster();
     for (auto &a : Actors) {
       FBLogUnitScope us(a->LogLabel());
       a->FinalizeMission(simT, roster);
     }
+  };
+  /* A K.O. always ENDS the run but only DECIDES it when it was nobody's declared objective. When it is
+   * expected, the monitors still waiting on a `survive` are asked here — the run to survive is over,
+   * and their verdicts are part of the combination below. */
+  if (ko && ExpectedLoss(Actors, *ko)) {
+    finalizeAll();
     ko = nullptr;
   }
   const Units::FBSimUnit *failed = ko ? nullptr : FirstDecidingFailure(Actors);
@@ -962,6 +966,14 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     result = FBMissionResult::Timeout;   /* no actor carried objectives — only the clock could end this */
     reason = "sim time exceeded the mission timeout";
   }
+  /* EVERY OPEN JUDGE IS ASKED BEFORE THE REPORT, whatever ended the run. Without this a run stopped by
+   * an unexpected K.O. (or by somebody else's decisive failure) leaves the other monitors unconcluded,
+   * so they publish no `mission OBJECTIVE` vector at all and every consumer has to read "never judged"
+   * as "nothing met" — which pays a doctrine for keeping the OPPONENT airborne
+   * (doc/doctrine-evolution.md X-1). WHEN the run ends is untouched; only whether the judges finish.
+   * Deliberately AFTER the combination above: the verdicts that existed when the run ended decide it,
+   * and a monitor closing here can therefore not move `ko`, `failed`, `judged` or `result`. */
+  finalizeAll();
   const Fdm::fb_fdm_state &st = primary.State();
 
   /* With a single actor the RESULT line below IS that actor's verdict, so a breakdown would repeat it. */

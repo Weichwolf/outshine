@@ -301,6 +301,9 @@ Under `--elev const`, read out of `campaign-summary.txt` rather than assumed:
 | **1 — re-run 2026-07-30** | the same criterion under the branch-order change of `b433950` ([`../pilot.md`](../pilot.md) §7.4a) | **9 runs, 1 fingerprint** `9c635c594f7084206ec1193762c32b418f81c7b7691a0a42c97039c6fa0d2e59`, `--elev const`. **The value above is kept with its date; this is the current one.** Step exits `3 0 3 3 3 1 1 3 3 3` — unchanged |
 | **2 — re-run 2026-07-30** | every step re-run STANDALONE against the new reference tree | **10/10 MATCH**, exit codes included |
 | Per-step fingerprints, 2026-07-30 | | `5b076c5851cfa250 9c4dff16ea1f33b2 ec0ad60b2141913f 16db265b11e7f2b0 a91f759c1918789e f1ce0b9332b3a429 d6975683e30ca058 70f9e7eeebae4a51 aae4d0a559b16e67 230df9b36893840d` |
+| **1 — re-run 2026-07-30 (`E6`)** | the same criterion after the judge-completion fix of [`../doctrine-evolution.md`](../doctrine-evolution.md) X-1 | **9 runs, 1 fingerprint** `8937584bb37f96a929a25f459c4ea52fc5f87bf7b1dbff41363f681ec9db0795`, `--elev const`. **The rows above are kept with their dates; this is the current one.** Step exits `3 0 3 3 3 1 1 3 3 3` — unchanged. The fingerprint MOVED and **exactly two step fingerprints with it** — steps 6 and 7 (`o5-06-belt`, `o5-07-jammed`), both ended by a decisive failure that left the other units' judges open; the other eight are byte-identical. |
+| **2 — re-run 2026-07-30 (`E6`)** | every step re-run STANDALONE against the new reference tree | **10/10 MATCH**, exit codes included |
+| Per-step fingerprints, 2026-07-30 (`E6`) | | `5b076c5851cfa250 9c4dff16ea1f33b2 ec0ad60b2141913f 16db265b11e7f2b0 a91f759c1918789e de223b7bdf8d91c6 0d9494cbf108b20d 70f9e7eeebae4a51 aae4d0a559b16e67 230df9b36893840d` |
 
 **One process deviation, stated:** `INDEX.md`'s rule 5 says run `fb_campaign_verify.py replay` after the
 FIRST mission rather than after all ten. It was run after all ten. It passed 10/10 on the first attempt,
