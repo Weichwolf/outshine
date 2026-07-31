@@ -2619,3 +2619,19 @@ benotbar — sie macht eine *hohe* Beweger-Zahl überhaupt erst möglich. Acht u
 Damit steht die Anforderung vollständig, und keine ihrer vier Zeilen betrifft Genom oder Tor: **groß**
 (44 von 154), **bekämpft** (36 davon), **robust** (zehn der zwölf beweglichsten, aber nicht die zwei
 beweglichsten) und dann S2s acht Beweger — **1 von 36, und das ist eine der beiden chaotischen.**
+
+**Nachtrag `E11`, fünfte und letzte Zeile der Diagnose.** Die größte symmetrische Begegnung der Breite
+ist `o1-10-mole-cricket`, acht gegen acht — und sie trägt `(16, 0)` auf **beiden** Seiten bei null
+Bewegern. Kein Defekt: die Datei sagt selbst *„NO AIRCRAFT IN THIS SORTIE DECLARES `objective survive`,
+AND NO FIGHTER FLIES IN IT AT ALL"*, und ihre Leseregel nennt fünf Kanäle — `campaign CARRY`,
+`site LAUNCH`, `net LOST`, das `eng_*`-Debriefing je Jet, die ATTRITION-Zeile. **Die Fitness liest keinen
+davon.**
+
+Gemessen: **13 von 154 Zellen tragen `M = 0` auf allen 24 Hebeln, und keine einzige hat einen Beweger.**
+Eine Sprosse, deren Produkt ein Verschleißverlauf ist statt einer Zielzahl, ist für eine Ergebnisklasse
+aus `(V, M)` strukturell unsichtbar — und unsichtbar kann sie nie informativ sein, gleich wie groß und
+wie bekämpft.
+
+Das ist die einzige der fünf Zeilen, die sich nicht durch Missionsbau beheben lässt: sie ist eine Aussage
+darüber, was die **Fitness** liest. Level M zu verbreitern, nachdem ich gemessen habe, welche Zellen es
+nicht sieht, wäre das Instrument nach dem Ergebnis auszuwählen. Als E-24 gebucht, mit der Zahl.
