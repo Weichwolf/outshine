@@ -2441,3 +2441,31 @@ Zelle still fliegen würde, ist ebenfalls schon veröffentlicht: die MiG-29 auf 
 keine Entfernung, keine Identität), die F-16 auf Datalink und NetLink. Die Abnahme steht nach E-22
 vorab fest: G5s Hebel müssen auf EINER Zelle ≥ 3 der eigenen bewegen. Beste Zelle heute
 `w3-09-saturation:f16`, 6 von 21 gegen Schwelle 7 — Defizit 1.
+
+## 2026-07-31 — `E10`: jede Reparatur nimmt dem Tor Doktrinsignal weg
+
+`duels.md` D3a ist gebaut — `CanPressOn` fragt nach einem **Bild** statt nach einem Sender — und das
+154-Zellen-Tor ist unter dem neuen Simulator neu geflogen (3.388 Läufe, frischer Index; den alten hat
+der Wächter verweigert). Die Arena ist wieder verweigert, und *wie* sie verweigert ist, ist der Befund.
+
+`w1-07-emcon:f16` fällt von **5 Bewegern auf 0**, Basis (3,1) → (4,2). Alle fünf waren der Defekt: die
+Hebel haben umgeschaltet, **ob der Jet abbricht**, nicht wie er kämpft. Die beste Zelle der Breite bleibt
+`w3-09-saturation:f16` mit 6 von 21 gegen Schwelle 7 — Defizit weiterhin 1.
+
+**Das Muster ist jetzt vier unabhängige Fälle:** E-15s Flugregler nahm `xmerge`/`xmergesplit` ihren
+S1-Pass (2 Klassen bei 50 % → 1 bei 100 %); X-1s Richter nahm `w4-10-allied-force:f16` seine 3 Beweger;
+beide zusammen nahmen der generierten Arena 3 ihrer 4 informativen Geometrien; und D3a nimmt der
+EMCON-Sprosse alle fünf. E-15 hatte die Regel für eine Geometrie geschrieben — eine Geometrie, deren
+Informativität daher kommt, dass eine Seite an einem Bug stirbt, ist eine Messung des Bugs. Vier Fälle
+später ist es eine Eigenschaft dieser Arena: **die scheinbare Doktrinempfindlichkeit der Kampagnenbreite
+war überwiegend defektgetrieben, und jede Reparatur senkt sie.**
+
+Daraus folgt keine Ausrede. Jede der vier Reparaturen hat den Simulator korrekter gemacht, und
+`w1-07-emcon` gelingt jetzt, wo es zweimal scheiterte. Es folgt eine Aussage über das **Instrument**:
+ein Kriterium auf „bewegt sich die Ergebnisklasse" misst eine Mischung aus Doktrin und Defekt, und in
+diesem Baum war die Mischung überwiegend Defekt. Was nach den Reparaturen übrig bleibt, ist das echte
+Signal — und das ist heute **einen Beweger von S2 entfernt, auf einer Zelle von 154**. Als E-23 gebucht.
+
+Und noch eine eigene Bedingung ist gefallen und bleibt mit ihrer Messung stehen: D3as Spec verlangte ein
+NO-OP über alle 251 Missionen, gemessen bewegen sich vier. Es ist eine Verhaltensänderung, keine reine
+Vorbedingung — alle 251 Exit-Codes stehen, Determinismus über 1/2/4 Threads hält.
