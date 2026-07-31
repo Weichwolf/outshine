@@ -2,6 +2,3 @@
 # Do not edit: doc/doctrine-evolution.md §6 forbids publishing anything measured
 # on a cell that failed the gate, so this list may only ever be a gate OUTPUT.
 # cells=arena-campaign.txt levers=levers-campaign-f5.txt field=variants-arena.txt (14 members)
-o3-10-october-six            hostile   mig29   # modal 50.0%, 7 movers
-w1-09-lfe-four               hostile   mig29   # modal 50.0%, 8 movers
-w3-09-saturation             hostile   mig29   # modal 57.1%, 7 movers

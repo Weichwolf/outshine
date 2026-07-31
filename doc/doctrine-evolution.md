@@ -1463,6 +1463,27 @@ campaign exit is unchanged.
 
 ---
 
+### 10. Round `E9` — a cell is informative only if it is not a coin
+
+**Added 2026-07-31, after `E8` MEASURED X-5 and before the criterion was built.** §§0–9 are untouched.
+One contract, and it exists because the gate certified two cells whose outcome class moves with the
+initial condition.
+
+| # | Contract | Acceptance / measurement anchor |
+|---|---|---|
+| **E18** | **S7 — the outcome class of a cell's BASELINE must survive the same 0.8 m grid X4.1 uses on a champion.** A cell that flips is not informative, whatever S1 and S2 say about it: they measure sensitivity to DOCTRINE and cannot tell it from sensitivity to ANYTHING. The screen runs on the cells that already passed S1 ∧ S2, so it costs 8 runs per candidate and never more | the gate prints S7 per candidate as `flips of 8`, and `informative = S1 ∧ S2 ∧ S3 ∧ S7`. **Applied to `E8`'s three certified cells it must leave one**, i.e. it must REFUSE the arena that `E8` passed — the criterion is written knowing that, and it is written anyway |
+
+**Why the threshold is ZERO flips and not §5's two.** §5's *"2 of 8"* is a floor for reading a
+CHAMPION's advantage on a geometry that is already in the arena. S7 decides ADMISSION, and a cell that
+is admitted is one every later claim rests on, so it carries the stricter test — the same asymmetry the
+tree already applies between a lever (may try a bad idea) and a fixed field (may not).
+
+**What this may NOT become.** S7 may not be run on the champion's genome, only on the cell's own
+baseline. A screen that asked "does MY genome survive here" would select the arena on the result, which
+is what §7 forbids and what `E2` declined three times.
+
+---
+
 ## State — round `E7` (2026-07-31): the debt is paid, and S1 was measuring the wrong genome
 
 Two things were owed and both are delivered: the 154-cell gate re-run in FULL after the X-1 fix, and
@@ -1617,6 +1638,19 @@ doctrine shift, and it is an engineering backlog rather than a gate problem. Ord
 
 ## State — round `E8` (2026-07-31): the arena PASSES, the evolution RUNS, and X4 refuses the result
 
+> **RETRACTED IN PART, `E9`, same day, by my own check.** §1's mover counts and therefore §1's
+> *"3 informative"* are **CONTAMINATED and are not measurements**: the run resumed its baseline and its
+> 15 contract levers from a channels file recorded BEFORE F5 changed `FormationTrailM`, and flew only
+> the 6 shape levers under the new binary. So the six were compared against an OLD-simulator baseline,
+> and every one of them looks like a mover on exactly the cells the default change moves — the
+> four-ships. Caught by a contradiction I could not explain away: S7 read `w3-09-saturation` as flipping
+> **8 of 8** while the standalone audit had read the same cell as **0 of 8**, and the cause was the
+> comparison base, not the cell (`(11, 5)` cached vs `(10, 4)` re-flown). §§2–5 rest on §1 and are
+> retracted with it; what stands independently is F5 itself (its own regression is binary-consistent,
+> §[`formation.md`](formation.md) F5) and the X4/X-5 measurements, which never touched the cache. The
+> corrected numbers are in §State `E9`. **The structural fix is in the tool, not in a habit:** a channels
+> file now records the SHA-256 of the simulator that wrote it and refuses to be resumed under another.
+
 `E-20` said the blocker was the genome and named F5 as the first item. F5 is built
 ([`formation.md`](formation.md) §Spec `F5`), G1 is a key, and everything downstream of that follows in
 one chain — including the refusal at the end, which is the round's sharpest finding.
@@ -1768,6 +1802,8 @@ number and the file that owns the defect. **Nothing here was fixed** — this ro
 | **X-2** | **The pilot's pickle carries ~0.2 s of uncancelled chain latency, and a genome value buys it back** | `ATTACK_RELEASE biasS=0 leadS=0.6 ttrS=0.569` → `stores DELIVERY predErrM = 52.57 m = gs × 0.227 s` (W2 measured 0.228–0.241 s over seventeen drops) → `aimLongM 36.34` of `aimErrM 36.38` (99.9 % along) → `damage rangeM 33.66` against a Mk-84's 17.7 m. Swept on 8 strike cells over four campaigns, two stores and four altitudes, the minimum of `aimErrM(bias)` sits at **−0.20 ± 0.05 s on every one of them** — a constant TIME, not a constant distance, which is what says it is a latency. At −0.20 s, `w2-01-dome` 36.38 → **10.06 m**, the hardened dome is DESTROYED and `(V, M)` goes (2,1) → (3,2) | [`pilot.md`](pilot.md) §5 attack pass — `FBF16Pilot::AttackReleaseBiasS()` returns **0.0 s** | passes: chain named, number at every link. **Not an exploit — a defect of the default** |
 | **X-3** | **The release time is quantised at the pilot's decision tick, and the quantum is wider than the weapon's own lethal radius** | the release cue is evaluated once per `DecisionDtS_` = 0.1 s, so `aimErrM(bias)` is a STAIRCASE: 36.38, 36.38, 13.29, 13.29, 10.06, 10.06, 33.12, 56.24 m over bias 0 … −0.40 in 0.05 s steps — pairs, one step per tick. At a loaded F-16's 231 m/s one tick is **23.1 m** of track against a hardened target's **17.7 m** radius, so the best reachable lattice point can be 11.5 m off with a perfect bias and the residual floor is 10–22 m on all eight cells | [`weapons.md`](weapons.md) / [`pilot.md`](pilot.md) §5.8 — the same partition class as Exhibit C, on the release clock instead of the gun bundle | passes as a mechanism; it is §5's **partition class** and is listed as one |
 | **X-4** | **The cooperative datalink costs an F-16 on the rung whose subject is emission discipline — and NOT through the sort** | [MESS, `w1-07-emcon`, `--threads 1/2/4`, identical] `flt_src`/`flt_assign`/`sort_assign`/`eng_shots` are **0 in both** variants, so no assignment was ever made. With `dl=on` the wingman is killed at t = 338.2 and the run ends at 382 s; with `dl=off` both jets live to 600 s — `V = 3, M = 1` → **`V = 4, M = 2`**. The divergence chain is published and starts at t = 0.1: `dl_on`/`dl_xmt` → `dl_tracks`/`flt_mates`/`blk_datalink` (t = 30) → `rwr_brg` (t = 90) → trajectory (t = 150). The net is not audible (`DatalinkXmt` has no `FBEmitterSignature` and only `FBDatalinkSystem` reads it), so what moved is the FLIGHT GEOMETRY and not the picture. `net-off` improves 4 cells and worsens 10 | [`formation.md`](formation.md) — the station-keeping path, not F2's switch instability | passes X3; **what it is not is a sort finding**, and the numbers say so |
+
+| **X-5** | **The search bought a COIN, and neither the fitness nor the gate can see it.** [MESS, `E8`] the first evolution to run on a passing arena produced a champion whose advantage on `w1-09-lfe-four` is `C +395.6` against the yardstick baseline's `+270.4` at an identical `(V, M)`. That cell's outcome class flips on **8 of 8** spawn-longitude perturbations of ±3 m under a genome that sets one unrelated gene, and on 3 of 8 under the champion — §5's own noise floor is 2 of 8. `o3-10-october-six` flips on 3 of 8 in both. So on two of the three cells the fitness paid for a lottery, and it is `E5`'s *"a lucky trajectory dressed as a doctrine"* caught in the act rather than predicted. **The gate certified both cells**: they passed S1 and S2, and `w1-09-lfe-four` carried the most movers of the entire campaign breadth (8 of 21) — the contamination is largest exactly where the gate likes a cell most | the spawn, i.e. no channel at all: the class moves with the initial condition and nothing the pilot did | this file — S1/S2 measure sensitivity to DOCTRINE and cannot distinguish it from sensitivity to ANYTHING (`E-21`) | **FAILED by construction** — there is no chain to name, because the mover is the initial condition. §5's inverted burden applies and the champion was NOT published |
 
 **And the one lever that moves the campaign breadth is a briefed contract on an aircraft with no net.**
 `sort-near` improves the outcome class on **12 cells** and worsens it on 7; on `o5-01-cap:mig29` it

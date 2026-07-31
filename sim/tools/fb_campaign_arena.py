@@ -26,6 +26,7 @@ Stdlib only, no build target, one dependency: build/fb-gym.
 
 import argparse
 import collections
+import hashlib
 import csv
 import concurrent.futures
 import os
@@ -51,6 +52,8 @@ kMoverFrac = 3.0 / 9.0  # [SET] E10: the declared nine are the gate's own denomi
                         # lever file may not buy a pass — S2 wants 3 movers AND 3 of every 9 swept
 kGeometriesMin = 6    # S4
 kInformativeMin = 3   # S5
+kChaosSteps = [-3.0, -2.2, -1.4, -0.6, 0.6, 1.4, 2.2, 3.0]  # [SET] pilot.md's own 0.8 m grid
+kChaosMaxFlips = 0    # [SET] E18: S7 decides ADMISSION, so it is stricter than 5's 2-of-8 floor
 
 
 class Cell:
@@ -137,6 +140,44 @@ def load_levers(path):
                 if tok.startswith("dl="):
                     v.dl = tok[3:]
     return out
+
+
+def chaos_flips(gym, out, cell, baseline, elev, threads, variant=None):
+    """S7 (doc/doctrine-evolution.md 10, E18): how many of the 0.8 m spawn perturbations move this
+    cell's BASELINE outcome class. Never the champion's genome — a screen that asked whether MY genome
+    survives would select the arena on the result."""
+    import math
+    text = open(cell.path).read()
+    cells, tags = [], []
+    for i, m in enumerate(kChaosSteps):
+        out_lines, team, mod = [], "", ""
+        for raw in text.splitlines(True):
+            t = raw.split("#", 1)[0].split()
+            if t[:1] == ["unit"]:
+                team = mod = ""
+            elif len(t) > 1 and t[0] == "team":
+                team = t[1]
+            elif len(t) > 1 and t[0] == "module":
+                mod = t[1]
+            elif len(t) > 2 and t[0] == "spawn" and team == cell.team and mod == cell.module:
+                lat, lon = float(t[1]), float(t[2])
+                t[2] = "%.8f" % (lon + m / (111320.0 * max(1e-6, math.cos(math.radians(lat)))))
+                raw = "  " + " ".join(t) + "\n"
+            out_lines.append(raw)
+        d = os.path.join(out, "s7")
+        os.makedirs(d, exist_ok=True)
+        tag = "s7-%s-%s-%d" % (cell.mission, cell.module, i)
+        path = os.path.join(d, tag + ".fbm")
+        with open(path, "w") as f:
+            f.write("".join(out_lines))
+        c = Cell(cell.mission, cell.team, cell.module)
+        c.mission, c.path = tag, path
+        cells.append(c)
+        tags.append(tag)
+    v = variant or tour.Variant("baseline", {}, dl="")
+    got = fly(gym, out, cells, [v], min(8, len(cells)), threads, elev)
+    base = fit.outcome_class(baseline)
+    return sum(1 for c in cells if fit.outcome_class(got[(c.name, v.name)][0]) != base)
 
 
 def load_cells(path):
@@ -345,16 +386,39 @@ def key_of(sides, foes, duration):
     return fit.side_key(sides, foe, duration)
 
 
+def gym_identity(gym):
+    """The binary a channels file was recorded under. A resume index is valid only across runs of the
+    SAME simulator: reusing one over a behaviour change compares an OLD baseline against NEW levers,
+    and every lever then looks like a mover. [MESS, `E9`] that is not hypothetical — it inflated `E8`'s
+    headline, and this function is why it cannot happen a second time."""
+    h = hashlib.sha256()
+    with open(gym, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()[:16]
+
+
 class Sink:
     """Every finished run, appended the moment it finishes. An arena pass over the whole campaign
     breadth is 2,720 runs and about an hour of wall clock; a tool that prints only at the end throws
     all of it away when the shell that started it goes. The same file is the RESUME index — a run
     whose (cell, lever) is already in it is not flown again."""
 
-    def __init__(self, path):
+    def __init__(self, path, gym_id=""):
         self.path = path
         self.lock = threading.Lock()
         self.have = {}
+        stamp = (path + ".gym") if path else ""
+        if path and gym_id:
+            was = open(stamp).read().strip() if os.path.exists(stamp) else ""
+            if os.path.exists(path) and was != gym_id:
+                sys.exit("%s was recorded under simulator %s and this one is %s. A resume index is "
+                         "valid only across runs of the SAME binary: reusing it compares an OLD "
+                         "baseline against NEW levers, and every lever then looks like a mover. "
+                         "Delete it and re-fly, or point --channels elsewhere."
+                         % (os.path.basename(path), was or "(unrecorded)", gym_id))
+            with open(stamp, "w") as f:
+                f.write(gym_id + "\n")
         if path and os.path.exists(path):
             for row in csv.DictReader(open(path)):
                 key = (int(row["V"]), int(row["M"]),
@@ -467,6 +531,10 @@ def main():
     ap.add_argument("--elev", default="const")
     ap.add_argument("--jobs", type=int, default=6)
     ap.add_argument("--threads", type=int, default=2)
+    ap.add_argument("--chaos-screen", action="store_true",
+                    help="S7 (doc/doctrine-evolution.md 10, E18): fly each S1-and-S2 candidate's own "
+                         "baseline over the 0.8 m spawn grid and drop it if its outcome class moves. "
+                         "8 runs per candidate, never more")
     ap.add_argument("--emit-informative", default="",
                     help="write the cells that passed S1 AND S2 as a cell file for the evolution — "
                          "the arena the evolution may run on is this gate's OUTPUT, never a hand list")
@@ -502,10 +570,12 @@ def main():
     if yard:
         print("fixed field: %d members, commensurate — every gene of the genome is displaced by one"
               % len(yard))
+    gid = gym_identity(args.gym)
+    print("simulator %s — a resume index recorded under another one is REFUSED" % gid)
     keys = fly(args.gym, args.out, cells, levers, args.jobs, args.threads, args.elev,
-               args.keep, "", Sink(args.channels))
+               args.keep, "", Sink(args.channels, gid))
     ykeys = fly(args.gym, args.out, cells, yard, args.jobs, args.threads, args.elev, args.keep,
-                "y-", Sink(args.variant_channels or args.channels + ".yardstick")) if yard else {}
+                "y-", Sink(args.variant_channels or args.channels + ".yardstick", gid)) if yard else {}
 
     print("\n" + "=" * 110)
     print("PER CELL — the outcome class is (V, M), summed over the side's members (fb_fitness.side_key)")
@@ -534,6 +604,23 @@ def main():
             for v in levers:
                 k, calls = keys[(cell.name, v.name)][:2]
                 print("      %-16s %s  [%s]" % (v.name, fit.key_str(k), ",".join(calls)))
+
+    # S7 (E18): the chaos screen, on the cells that already passed S1 AND S2 and on their OWN baseline.
+    # It runs last because it is the only criterion that costs runs beyond the sweep, and it may only
+    # ever REMOVE a cell — a criterion that could add one would be a second lever set.
+    if args.chaos_screen:
+        print("\nS7 CHAOS SCREEN — each candidate's BASELINE over the 0.8 m spawn grid, %d samples"
+              % len(kChaosSteps))
+        for r in res:
+            if not (r["s1"] and r["s2"]):
+                continue
+            n = chaos_flips(args.gym, args.out, r["cell"], keys[(r["cell"].name, "baseline")][0],
+                            args.elev, args.threads)
+            r["flips"] = n
+            r["informative"] = r["informative"] and n <= kChaosMaxFlips
+            print("   %-26s %-7s %d of %d flipped   %s"
+                  % (r["cell"].mission, r["cell"].module, n, len(kChaosSteps),
+                     "ok" if n <= kChaosMaxFlips else "NO — the movers are a coin (X-5)"))
 
     informative = [r for r in res if r["informative"]]
     if args.emit_informative:

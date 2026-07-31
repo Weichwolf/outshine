@@ -2380,3 +2380,21 @@ von einer Münze unterscheiden**. Ausgerechnet die Zelle mit den meisten Beweger
 21) kippt bei jeder 0,8-m-Störung. Als E-21 gebucht, mit dem Vertrag, den es verlangt — ein siebtes
 Kriterium S7: informativ nur, wenn die Ergebnisklasse der Basis dasselbe 0,8-m-Gitter überlebt, acht
 Läufe je Zelle. Auf diese Runde angewandt bliebe **eine** Zelle, und die Arena wäre verweigert — ehrlich.
+
+**Korrektur zu `E8`, noch am selben Tag und aus eigener Prüfung.** E8s Kernzahl — „von 0 auf 3
+informative Zellen" — ist **kontaminiert und keine Messung**. Der Lauf hat Basis und die 15
+Vertragshebel aus einem Kanalindex übernommen, der **vor** F5s Änderung an `FormationTrailM`
+geschrieben wurde, und nur die 6 Formhebel mit dem neuen Binary geflogen. Damit wurden die sechs gegen
+eine Basis aus dem *alten* Simulator verglichen — und sie sehen genau auf den Zellen wie Beweger aus,
+die der Vorgabenwechsel bewegt: den Vierer-Verbänden.
+
+Gefunden habe ich es an einem Widerspruch, den ich nicht wegerklären konnte: S7 las
+`w3-09-saturation` als 8-von-8-Kipper, während das eigenständige Audit dieselbe Zelle als 0 von 8
+gelesen hatte. Die Ursache war die Vergleichsbasis, nicht die Zelle — zwischengespeichert `(11,5)`,
+frisch geflogen `(10,4)`. In einem Codepfad nachgemessen ist `w3-09-saturation` bei **0 von 8** robust,
+`o3-10` bei 3, `w1-09-lfe-four` bei 8.
+
+Der Fix ist strukturell und nicht eine Gewohnheit: ein Kanalindex trägt jetzt den SHA-256 des
+Simulators, der ihn geschrieben hat, und **verweigert** die Wiederaufnahme unter einem anderen.
+Negativtest grün. Der komplette Hebel- und Feldpass fliegt neu (3.388 + 2.156 Läufe); die korrigierten
+Zahlen kommen als `E9`.
