@@ -46,6 +46,25 @@ contract that replaces it.
 | A flight doctrine is mission text, not a class | `dl=` / `sort=` on a tournament variant line; the flight tournament runs element against element with a fitness written before flights existed |
 | Every run is deterministic | one fingerprint over `--threads 1/2/4` × 3 repeats per mission |
 
+### Round `F5` (2026-07-31) — the shape becomes mission data
+
+**Added before the round's first line of code.** The table above is untouched; this section adds three
+contracts. It exists because [`doctrine-evolution.md`](doctrine-evolution.md) `E-20` MEASURED what F5
+costs: `pilot_flight_shape` is not a key at all, `set pilot_flight_shape 1` is rejected at t = 0.0 and
+the run exits 1, so the owner goal's *Verband* gene has never been reachable — and with G5 also blocked,
+two of the five growths the goal names are not keys.
+
+| # | Contract | Acceptance / measurement anchor |
+|---|---|---|
+| **F5a** | **A shape is briefed as DIMENSIONLESS RATIOS, never as metres.** Three `Scale` keys — `pilot_flight_spread_frac`, `pilot_flight_trail_frac`, `pilot_flight_stack_frac` — each a multiple of the airframe hook it names. §2.2's boundary is unchanged and there is no new syntax: a mission cannot write a distance into a formation any more than it can write one into an energy rule | `fb-gym --pilot-keys` prints three more `scale` rows with their hooks; `static_assert(ScaleBandsAreDimensionless())` still compiles, and a key carrying a metre value does not |
+| **F5b** | **`FormationTrailM` stops being 0, and that is F5's OWN defect rather than a convenience.** F5 names it: *"a four-ship is four abreast rather than two elements in trail"*. The new default is **one spread aft** — no new number enters the tree, it is `FormationSpreadM` measured along the course line instead of across it | [DERIVED] `FormationTrailM() = FormationSpreadM() = 1852 m`. The blast radius is DECLARED in advance and is exactly the missions that fly a third flight position: **14 files, 13 of them campaign rungs**. Every other mission stays byte-identical on every column |
+| **F5c** | **The old shape stays REACHABLE, and is one brief away.** Line abreast is `pilot_flight_trail_frac = 0`, so nothing measured before this round becomes unrepeatable — it becomes a named doctrine instead of the only one | a run with `set pilot_flight_trail_frac 0` reproduces the pre-round telemetry of an affected mission BYTE-IDENTICALLY. That is the round's own regression control |
+
+**What this round may NOT do.** It may not make the three keys genes of a *different* shape than the one
+the goal names: the gene is the formation the flight is briefed, not a new airframe number. And the
+default multiplier of `Scaled()` is 1.0, so a hook that is 0 makes its key degenerate at one rail —
+which is exactly [`duels.md`](duels.md) D3's trap, and F5b exists so this file does not walk into it.
+
 ---
 
 ## State

@@ -31,6 +31,9 @@ enum class FBPilotParam {
   AttackCcipTolM,
   BfmEnergyFrac,
   CoverFrac,
+  FlightSpreadFrac,
+  FlightTrailFrac,
+  FlightStackFrac,
   Count
 };
 

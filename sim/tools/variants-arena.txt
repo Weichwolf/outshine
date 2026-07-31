@@ -43,3 +43,14 @@ earlypickle pilot_attack_bias_s=-0.1  # G6: your own hands are one decision tick
                                       # tick early. 0.1 s is 23 m of track at run-in speed
 tightcross pilot_attack_ccip_m=10     # G7: half a hardened radius of cross error and no
                                       # more — wider than that you have not aimed, you have hoped
+
+# --- die drei Mitglieder, die E15 nach der Freischaltung von G1 verlangt (formation.md F5) ----------
+# Die Vorgabe von Scaled() ist 1,0, ein Mitglied muss also von 1,0 abweichen, um sein Gen zu
+# verschieben. Zwei der drei liegen auf der unteren Bandkante, und das ist hier KEINE Schiene im Sinn
+# der Warnung oben: Line abreast und ko-altitude sind die Formen, die dieser Baum bis zum 31.07.2026
+# als einzige geflogen ist, also die am besten belegten Doktrinen im ganzen Verzeichnis.
+
+abreast    pilot_flight_trail_frac=0    # G1 laengs: beide Elemente nebeneinander — gegenseitige Sicht
+                                        # gegen ein Suchfeld, das nicht in die Tiefe gestaffelt ist
+tightwing  pilot_flight_spread_frac=0.5 # G1 quer: den Rottenflieger auf Sichtweite halten
+levelflight pilot_flight_stack_frac=0   # G1 hoch: niemand kauft Trennung mit Hoehe

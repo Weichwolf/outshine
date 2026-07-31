@@ -778,9 +778,14 @@ void FBPilot::FormationStation(const FBFlightMember &lead, double &latDeg, doubl
                                double &altM) const {
   int k = Flight_.Flight().Position - 1;          /* 0 = der Fuehrende selbst */
   int element = k / 2, inElement = k % 2;
-  double lateralM = (inElement ? 1.0 : 0.0) * FormationSpreadM() - element * 2.0 * FormationSpreadM();
-  double aftM = element * FormationTrailM();
-  altM = lead.AltM + k * FormationStackM();
+  /* Die drei Verhaeltnisse der gebrieften FORM (doc/formation.md F5a), jedes ein Vielfaches seines
+   * eigenen Hakens; ohne Brief ist der Faktor 1,0 und die Station ist die des Flugzeugs. */
+  double spreadM = TunedScale(FBPilotParam::FlightSpreadFrac, FormationSpreadM());
+  double trailM  = TunedScale(FBPilotParam::FlightTrailFrac,  FormationTrailM());
+  double stackM  = TunedScale(FBPilotParam::FlightStackFrac,  FormationStackM());
+  double lateralM = (inElement ? 1.0 : 0.0) * spreadM - element * 2.0 * spreadM;
+  double aftM = element * trailM;
+  altM = lead.AltM + k * stackM;
 
   double h = lead.HeadingDeg * kDeg2Rad;
   double fwdE = std::sin(h), fwdN = std::cos(h);   /* Kurslinie des Fuehrenden, ENU */

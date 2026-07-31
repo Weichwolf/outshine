@@ -57,8 +57,13 @@ GENES = [
     # as inert, which is a measurement, where a second list would be a place to hide one.
     ("pilot_attack_bias_s", None),        # G6 — the pickle's lead over one's own actuation
     ("pilot_attack_ccip_m", None),        # G7 — the cross error the pilot will accept before pressing
-    ("pilot_flight_shape", "doc/formation.md F5: FormationSpreadM/TrailM/StackM are airframe hooks, "
-                           "not mission data, so a flight cannot be briefed a shape at all"),
+    # G1 — die FORM des Verbands, freigeschaltet von doc/formation.md F5 (2026-07-31). Drei
+    # dimensionslose Verhaeltnisse statt eines Schluessels, weil eine Form drei unabhaengige Achsen
+    # hat: quer, laengs, hoch. `trail_frac = 0` ist Line abreast, also genau das, was dieser Baum
+    # vorher als einzige Form fliegen konnte — nichts Gemessenes wird unwiederholbar.
+    ("pilot_flight_spread_frac", None),
+    ("pilot_flight_trail_frac", None),
+    ("pilot_flight_stack_frac", None),
     ("pilot_emcon_frac", "doc/duels.md D3: the pilot's picture is built from the Radar block alone, so "
                          "'silent' means 'silent and blind' and the band is degenerate at one rail"),
 ]

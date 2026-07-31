@@ -33,6 +33,12 @@ constexpr FBPilotKey kParams[] = {
    * (1,15). G2: 0 = Regel aus, 1,0 = genau eine Bindung. */
   {"pilot_energy_frac",    FBPilotParam::BfmEnergyFrac,    FBPilotKeyKind::Scale,  0.7,    1.2, "BfmCornerSpeedKt"},
   {"pilot_cover_frac",     FBPilotParam::CoverFrac,        FBPilotKeyKind::Scale,  0.0,    3.0, "weapon ttaS"},
+  /* G1, die FORM des Verbands (doc/formation.md F5a). Drei Verhaeltnisse, kein Meter: quer, laengs und
+   * hoch, jedes ein Vielfaches des Hakens, dem die Laenge gehoert. 0 im Trail ist Line abreast, also
+   * die Form, die dieser Baum bis heute als einzige fliegen konnte. */
+  {"pilot_flight_spread_frac", FBPilotParam::FlightSpreadFrac, FBPilotKeyKind::Scale, 0.25, 3.0, "FormationSpreadM"},
+  {"pilot_flight_trail_frac",  FBPilotParam::FlightTrailFrac,  FBPilotKeyKind::Scale, 0.0,  3.0, "FormationTrailM"},
+  {"pilot_flight_stack_frac",  FBPilotParam::FlightStackFrac,  FBPilotKeyKind::Scale, 0.0,  3.0, "FormationStackM"},
 };
 
 /* DIE STRUKTURELLE SCHRANKE, und sie ist eine `static_assert` und keine Konvention: ein `Scale`-Band

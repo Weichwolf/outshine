@@ -261,7 +261,11 @@ protected:
    * hindurchsteuern, ohne dass irgendetwas falsch gerechnet haette. 1852 m (1 nm) ist dieselbe
    * Groessenordnung mit 2,7-facher Marge [SET]. doc/formation.md, Abschnitt 4.2. */
   virtual double FormationSpreadM() const { return 1852.0; }
-  virtual double FormationTrailM() const { return 0.0; }     /* Line abreast; ein zweites Element haengt zurueck */
+  /* EIN SPREAD NACH HINTEN, laengs derselben Laenge, die die Rotte quer schon benutzt — es kommt keine
+   * neue Zahl in den Baum [DERIVED = FormationSpreadM]. Bis F5 stand hier 0, und das WAR der Defekt:
+   * ein Vierer flog vier nebeneinander statt zweier Elemente in Trail. Line abreast ist seither eine
+   * gebriefte Doktrin (`pilot_flight_trail_frac 0`) statt der einzigen Form. doc/formation.md F5b. */
+  virtual double FormationTrailM() const { return FormationSpreadM(); }
   virtual double FormationStackM() const { return 150.0; }   /* [SET] Hoehenversatz je Position */
 
   /* Die BVR-Zahlen. Der Suchmodus ist ein MODUL-Ordinal, die generische Schicht kann ihn also nicht
