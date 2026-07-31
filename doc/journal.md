@@ -2497,3 +2497,20 @@ Damit hat sich der Grund der Verweigerung zum ersten Mal verschoben: nicht mehr 
 wirken" — es wirkt mit vier Familien gleichzeitig —, sondern **die Kampagnenbreite hat keine Sprosse, die
 zugleich benotbar und robust ist**. Das ist eine Aussage über die Missionen, und sie ist jetzt beziffert:
 gebraucht werden ≥ 3 Sprossen mit ≥ 8 Bewegern von 24 **und 0 Kippern von 24**.
+
+**Nachtrag `E11`: benotbar und robust stehen NICHT im Widerspruch.** Die naheliegende Sorge nach S7 war,
+dass eine Zelle nur dadurch doktrinempfindlich wird, dass sie auf einer Messerschneide sitzt. Gemessen an
+den zwölf beweglichsten Zellen, jede über S7s eigenes 0,8-m-Gitter: **zehn von zwölf sind sauber.**
+Chaotisch sind nur die zwei beweglichsten — und selbst das ist kein Gesetz, denn `o5-09-night-two:f16`
+trägt fünf Beweger bei null Kippern.
+
+Das Ziel ist damit nicht „das Chaos beheben", sondern **robuste Zellen beweglicher machen**. Die zwei
+besten Kandidaten scheitern aus verschiedenen, strukturellen Gründen: `o5-09-night-two` ist eine ROTTE,
+also können die Trail-Hebel gar nicht wirken (`aftM = element × trail`, und eine Rotte hat kein zweites
+Element) — zwei von G1s sechs Hebeln sind auf ihr unerreichbar. `w3-10-package-q` ist ein Vierer mit Netz
+und sechzehn `datalink on`, und trotzdem bewegen ihn weder Form noch Emission; das ist das Nächste zu
+messen, nicht das Nächste anzunehmen.
+
+Und was daraus NICHT werden darf: eine committete Sprosse zu ändern, WEIL es die Beweger höbe, wählt die
+Arena nach dem Ergebnis aus. Ob eine Rotte ein Vierer wird, ist eine Doktrinfrage dieser Kampagne, und
+das Tor ist die Prüfung darauf — nie der Grund dafür.

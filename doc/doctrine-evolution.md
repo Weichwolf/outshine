@@ -1937,11 +1937,41 @@ AND **0 flips of 24** on their own baseline. Neither number is negotiable and bo
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | cells | 88 | 38 | 21 | 3 | 1 | 1 | 1 | **1** |
 
-### 4. The cost
+### 4. Gradable and robust are NOT in tension — measured, and it changes the target
+
+The obvious worry after §2 is that the two properties fight each other: that a cell only becomes
+sensitive to doctrine by sitting on a knife edge. [MESS, the twelve cells with the most movers, each
+flown over S7's own 0.8 m grid] **they do not.**
+
+| cell | movers of 24 | flips of 8 |
+|---|---:|---:|
+| `w3-09-saturation:f16` | 11 | 1 |
+| `o5-08-night-one:f16` | 6 | 2 |
+| **`o5-09-night-two:f16`** | **5** | **0** |
+| **`w3-10-package-q:f16`** | **4** | **0** |
+| `o4-06-merge:f16`, `w1-09-lfe-four:f16`, `w3-06-bingo:f16` | 3 | 0 |
+| five more | 2 | 0 |
+
+**Ten of the twelve are clean.** Only the two most gradable cells are chaotic, and even that is not a
+law — `o5-09-night-two:f16` carries five movers at zero flips. So the target is not "fix the chaos"; it
+is **raise the mover count on cells that are already robust**, and the two best candidates fail for
+DIFFERENT and structural reasons:
+
+| cell | what it has | what it is missing, and why |
+|---|---|---|
+| `o5-09-night-two:f16` (5 movers: `net-off`, 2 × shape, 2 × emcon) | a net, four `datalink on`, **flight positions max 2** | the trail levers cannot act at all: `aftM = element × trail` with `element = (position−1)/2`, and a PAIR has no second element. Two of G1's six levers are structurally unreachable on it |
+| `w3-10-package-q:f16` (4 movers: 2 × sort, 2 × bias) | flight positions 4, a net, sixteen `datalink on` | neither shape NOR emcon moves it, and that is not explained by the mission text — it is the next thing to measure rather than the next thing to assume |
+
+**What this may not become.** Editing a committed rung BECAUSE it would raise a mover count is selecting
+the arena on the result, which §7 forbids and this file has declined four times. A pair becoming a
+four-ship is a doctrinal decision about that campaign, and the gate is the check on it, never the reason
+for it.
+
+### 5. The cost
 
 | | |
 |---|---|
-| runs | 3,850 lever + 15 field + 32 chaos + 502 regression + 12 probe = **4,411** |
+| runs | 3,850 lever + 15 field + 32 chaos + 502 regression + 12 probe + 108 scan = **4,519** |
 | `sim/src/` | four files: two tuning entries, two pilot hooks, one decision block, one switch branch, and the F-16's two overrides |
 | behaviour | **20 of 251 missions moved, one exit code**; eight missions lose every `FAIL`. Determinism over `--threads 1/2/4`: identical MD5 |
 | the round's declared DEBT | the reading rules of those 20 missions are **not individually audited**. The tree requires per-mission justification and it is owed |
