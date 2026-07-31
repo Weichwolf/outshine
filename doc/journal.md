@@ -2543,3 +2543,25 @@ Vierer ist oder eine Eigenschaft einer Geometrie, in der es nichts zu teilen gib
 robust: 0 Kipper von 8.** Das ist das Nächste an einer Doktrinverschiebung, was diese Datei je gemessen
 hat — und §6 verbietet weiterhin, es zu veröffentlichen, weil die Arena eine solche Zelle hat und drei
 braucht. Es steht hier als Messung, nicht als §1.
+
+**Nachtrag `E11`, und er widerlegt meine eigene Vermutung von einer Stunde vorher.** Ich hatte aus
+`w3-10-package-q:f16`s `flt_src = 0` geschlossen, dass sechzehn summierte Einheiten einen Doktrineffekt
+**verdünnen**. Über alle 154 Zellen gemessen ist das falsch, und die Wahrheit läuft andersherum:
+
+| Einheiten der benoteten Seite | Zellen | Ø Beweger von 24 | max |
+|---:|---:|---:|---:|
+| 1 | 41 | 0,44 | 3 |
+| 2 | 66 | 0,45 | 2 |
+| 4 | 30 | 1,37 | 6 |
+| 8 | 6 | **2,00** | **11** |
+| 16 | 1 | **4,00** | 4 |
+
+**Benotbarkeit steigt mit der Größe der benoteten Seite.** Und damit liegt die Masse der Arena am
+falschen Ort: **107 der 154 Zellen sind ein einzelnes Flugzeug oder eine Rotte**, im Mittel bei 0,44
+Bewegern. Ein einzelner Jet hat keinen Verband zu formen, keinen Kameraden zum Sortieren und niemanden,
+hinter dem er schweigen könnte. Diese Datei hat vier Runden lang im Genom und im Tor gesucht, was eine
+Eigenschaft der **Seitengröße** ist.
+
+Damit ist das Ziel aus §4 in seiner schärfsten Form da: die drei Sprossen, die das Tor braucht, sind
+nicht irgendwelche drei — es sind drei mit **vier Flugzeugen oder mehr**, die zugleich robust sind. Von
+denen gibt es in der Breite 38, und genau eine erreicht heute acht Beweger. Es ist die chaotische.
