@@ -2758,3 +2758,14 @@ Modalanteil, S2 bestanden, und **0 Kipper von 8** im Chaos-Schirm. `ar-06-beam-a
 **Das Tor verweigert weiter**, denn S5 will drei. Aber die Entwurfsregel ist damit belegt statt vermutet:
 Zellen, die nach den vier gemessenen Eigenschaften gebaut sind, werden benotbar — mit siebenfach höherer
 Ausbeute als die Leitern, die für etwas anderes gebaut wurden.
+
+**Nachtrag, und er qualifiziert das eigene Ergebnis:** die eine informative Zelle des Messplatzes
+besteht S1 mit **null Spielraum**. Über die 15 Feldmitglieder verteilt sich `ar-08-close-day:f16` auf
+9 / 3 / 2 / 1 Ergebnisklassen — Modalanteil **exakt 60,0 %**, und S1s Schranke ist „≤ 60 %".
+`ar-06-beam-afternoon:f16` verteilt sich 10 / 3 / 2 und verfehlt sie um **ein einziges Mitglied**.
+
+Bei 15 Mitgliedern ist 9/15 der einzige erreichbare Wert, der die Schwelle exakt trifft. Das ist
+dasselbe Zusammenspiel von Konstante und Feldgröße, das als **D11** gebucht ist: `kModalMax = 0.60` ist
+gegen ein Feld von sechs geeicht, und keine Konstante im Tor weiß, wie groß ihr Feld ist. Ein
+Bestehen auf der Schranke ist kein Bestehen mit Reserve, und es wird hier so genannt statt in einer
+Fußnote zu verschwinden.
