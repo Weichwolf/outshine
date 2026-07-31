@@ -2014,7 +2014,35 @@ This is the sharpest form of the target in §3: the three rungs the gate needs a
 they are three of **four aircraft or more** that are also robust. There are 38 such cells in the breadth
 and exactly one reaches eight movers today — and that one is the chaotic one.
 
-### 7. The cost
+### 7. How far the goal actually is, as a distance rather than a direction
+
+[MESS, all 154 cells, movers of 24 against the graded side's size, with S7 flown on the top twelve]
+
+| | |
+|---|---|
+| cells with ≥ 4 units | **44** |
+| of those, ≥ 8 movers (S2's threshold at 24 levers) | **1** — `w3-09-saturation:f16` at 11, and it flips 1 of 8 |
+| ≥ 6 movers | **2** — the second is `o5-08-night-one:f16` at 6, which flips **2** of 8 |
+| the best ROBUST cell | `o5-09-night-two:f16` — **5 movers, 0 flips**, three short |
+
+**The two most gradable cells in the campaign breadth are both chaotic, and the two robust ones are both
+short.** S5 wants three informative; the breadth supplies zero, and the nearest miss needs three more
+movers on a cell that already carries the strongest published chain in this file (§5).
+
+The three lever counts this file has now flown say the same thing from the other side:
+
+| levers | S2's threshold | best cell | cells passing S2 |
+|---:|---:|---:|---:|
+| 15 | 5 | 4 | 0 |
+| 21 | 7 | 6 | 0 |
+| 24 | 8 | **11** | **1** |
+
+Growing the genome DID eventually produce a pass — the first in this file's history — but at a rate of
+roughly one cell per two genes, against a bar that rises with every gene added (`E-22`). **There is no
+gene left to add**: the owner goal names five and all five are live. What is left is the arena itself,
+and §6 says where: 107 of 154 cells are one aircraft or two.
+
+### 8. The cost
 
 | | |
 |---|---|

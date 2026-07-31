@@ -2565,3 +2565,21 @@ Eigenschaft der **Seitengröße** ist.
 Damit ist das Ziel aus §4 in seiner schärfsten Form da: die drei Sprossen, die das Tor braucht, sind
 nicht irgendwelche drei — es sind drei mit **vier Flugzeugen oder mehr**, die zugleich robust sind. Von
 denen gibt es in der Breite 38, und genau eine erreicht heute acht Beweger. Es ist die chaotische.
+
+**Nachtrag `E11`, Abstand statt Richtung.** Von 154 Zellen haben 44 mindestens vier Einheiten. Davon
+erreicht **genau eine** S2s Schwelle von 8 Bewegern — `w3-09-saturation:f16` mit 11 —, und die kippt 1
+von 8. Die zweitbeweglichste (`o5-08-night-one:f16`, 6) kippt 2 von 8. Die beste **robuste** Zelle ist
+`o5-09-night-two:f16` mit **5 Bewegern und 0 Kippern**: drei zu wenig.
+
+Die drei Hebelsätze, die diese Datei geflogen hat, sagen dasselbe von der anderen Seite:
+
+| Hebel | Schwelle | beste Zelle | bestehen S2 |
+|---:|---:|---:|---:|
+| 15 | 5 | 4 | 0 |
+| 21 | 7 | 6 | 0 |
+| 24 | 8 | **11** | **1** |
+
+Das Genom wachsen zu lassen hat also sehr wohl irgendwann einen Pass erzeugt — den ersten überhaupt —,
+aber mit etwa einer Zelle je zwei Gene gegen eine Schranke, die mit jedem Gen mitwächst (E-22). **Und es
+ist kein Gen mehr übrig**: der Auftrag nennt fünf, alle fünf leben. Übrig ist die Arena selbst, und wo,
+steht gemessen da: 107 von 154 Zellen sind ein Flugzeug oder zwei.
