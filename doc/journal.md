@@ -2431,3 +2431,13 @@ Artefakt.
 
 Nebenbei und ohne ein Ergebnis zu ändern: der feste Maßstab fliegt nur noch auf Zellen, die S2 schon
 bestanden haben. Diese Runde sparte damit 2.156 Läufe, weil S2 nirgends hielt.
+
+**Nachtrag `E9`: D3 ist lokalisiert, und es ist eine Zeile.** `pilot/FBPilot.cpp:765` — `CanPressOn`
+liest `state.Radar.Radiating`, also entscheidet ein Pilot, der die Emission abschaltet, im selben Takt,
+dass er den Auftrag nicht fortsetzen kann. Der Befehlsweg, den er bräuchte, ist vollständig da und wird
+von ihm nicht benutzt: `FBCommandTarget::RadarEmission` existiert, `FBMig29Emission::Off` existiert,
+beide Module ehren ihn, und `FBMig29Pilot` schaltet auf GCI-Stichwort bereits auf `Illum`. Worauf jede
+Zelle still fliegen würde, ist ebenfalls schon veröffentlicht: die MiG-29 auf dem IRST-Block (Winkel,
+keine Entfernung, keine Identität), die F-16 auf Datalink und NetLink. Die Abnahme steht nach E-22
+vorab fest: G5s Hebel müssen auf EINER Zelle ≥ 3 der eigenen bewegen. Beste Zelle heute
+`w3-09-saturation:f16`, 6 von 21 gegen Schwelle 7 — Defizit 1.
