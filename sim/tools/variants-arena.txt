@@ -54,3 +54,8 @@ abreast    pilot_flight_trail_frac=0    # G1 laengs: beide Elemente nebeneinande
                                         # gegen ein Suchfeld, das nicht in die Tiefe gestaffelt ist
 tightwing  pilot_flight_spread_frac=0.5 # G1 quer: den Rottenflieger auf Sichtweite halten
 levelflight pilot_flight_stack_frac=0   # G1 hoch: niemand kauft Trennung mit Hoehe
+
+# --- das Mitglied, das E15 nach der Freischaltung von G5 verlangt (duels.md D3c) --------------------
+emconhold  pilot_emcon_frac=0.4    # G5: nicht strahlen, bevor der gemeldete Punkt auf 40 % der eigenen
+                                   # Erfassungsreichweite heran ist — das RWR des Gegners hoert einen
+                                   # Sender, und ein Sender, den er frueh hoert, ist eine Vorwarnung
