@@ -43,6 +43,18 @@ It is not a claim about the real F-16 versus the real MiG-29. The scale is stagg
 opponent hits its envelope and nothing more. What the campaign measures is whether **FlightBox's own
 model of the two systems produces decided engagements for reasons that can be named**.
 
+### Round `D3a` (2026-07-31) — "silent" must stop meaning "blind"
+
+**Added before the change.** The tree already contains the sentence this contract enforces, and the
+code contradicts it: `pilot/FBPilot.cpp`'s engagement loop says *"„Radar strahlt nicht" ist eine
+gebriefte Taktik (EMCON)"* and deliberately does not abort on it, while the ENTRY gate three hundred
+lines earlier does — `CanPressOn` reads `state.Radar.Radiating` and turns the jet for home.
+
+| # | Contract | Acceptance / measurement anchor |
+|---|---|---|
+| **D3a** | **The press-on test asks for a PICTURE, not for a transmitter.** A live source is the own radar WHILE IT RADIATES, or a report the flight or the controller sent — and `pilot/FBFlightPicture` already assembles exactly those, in every phase, from `FBDatalinkBlock` and `FBRadarBlock`. Nothing new is read, no new block, no new command | **the change must be a NO-OP today**: no mission in the tree ever switches its emission off, so the term is true either way and **all 251 missions stay byte-identical on every column and every exit code**. A single moved value falsifies the claim that this is a precondition rather than a behaviour change |
+| **D3b** | **What it unblocks is stated, and is NOT built here.** G5 (`pilot_emcon_frac`) needs a pilot who MANAGES emission; this contract only removes the reason he could never survive doing so | and the acceptance for G5 is already fixed by [`doctrine-evolution.md`](doctrine-evolution.md) `E-22`, before it is designed: its levers must move ≥ 3 of their own on ONE cell. The natural candidate is measured — `w1-07-emcon:f16`, the rung whose own subject is emission discipline, at 5 movers of 21 against a threshold of 7 |
+
 ---
 
 ## State

@@ -762,7 +762,14 @@ bool FBPilot::InterceptCockpit(const FBState &state, FBCommandBus &avionics, int
 bool FBPilot::CanPressOn(const FBState &state) const {
   bool weapons = state.Stores.H.Readable() && state.Stores.LoadedCount > 0;
   bool bingo = state.Warnings.H.Readable() && (state.Warnings.Active & FBWarnBingo) != 0;
-  bool sensor = state.Radar.H.Readable() && state.Radar.Radiating;
+  /* EIN BILD, kein Sender. Dass „Radar strahlt nicht" eine gebriefte Taktik ist, steht in dieser Datei
+   * schon einmal — bei der laufenden Schleife, die deshalb ausdruecklich NICHT abbricht — und das
+   * Eintrittstor hat ihr widersprochen. Eine lebende Quelle ist das eigene Geraet, WAEHREND es strahlt,
+   * oder eine Meldung, die die Rotte oder der Leitoffizier geschickt hat; genau diese beiden setzt
+   * FBFlightPicture ohnehin in jeder Phase zusammen. doc/duels.md D3a. */
+  bool sensor = (state.Radar.H.Readable() && state.Radar.Radiating)
+             || (state.Datalink.H.Readable() && state.Datalink.TrackCount > 0)
+             || (state.NetLink.H.Readable() && state.NetLink.TrackCount > 0);
   return weapons && !bingo && sensor;
 }
 
