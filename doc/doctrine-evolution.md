@@ -2129,6 +2129,87 @@ the result. It is booked, with its number, as `E-24`.
 
 ---
 
+## State — round `E12` (2026-08-01): the arena PASSES, the evolution RUNS, and the fixed yardstick FALLS
+
+The first passing arena in this file's history, the first evolution run on one, and a refusal that comes
+from the instrument built for exactly this case. **`sim/src/` was not touched.**
+
+### 1. The arena passes, and no constant was moved to get there
+
+`E11` measured that a cell needs four properties at once and that the campaign breadth holds **one** such
+cell in 154. The ten campaigns are LADDERS and stay untouched; a declared MEASUREMENT ARENA was built
+beside them, thirty rungs, by that rule and nothing else.
+
+```
+S4 size        : 60 cells        (>= 6) ok
+S5 yield       : 3 informative   (>= 3) ok   [ar-08-close-day, ar-15-ratio-one-two, ar-27-close-blue-high]
+S6 distinctness: 0 identical pair(s)   ok
+ARENA: PASSED   (60 cells, 3 informative)
+```
+
+All three carry 8–9 movers of 24, ≥ 3 outcome classes at ≤ 60 % modal, and **0 flips of 8**. **S7 did its
+job on a fourth**: `ar-26-beam-three-two:f16` passed S1 AND S2 and was refused at **2 of 8** — the exact
+false certification S7 was written for, and it was written before it knew any result.
+
+**Not one constant was moved.** S1's 60 %, S2's 3/9, S4's six, S5's three, S6, S7's zero flips — all as
+written. The yield the rule produces was measured first (≈ 5 % of cells) and the rung count follows from
+it: thirty rungs, sixty cells, three informative.
+
+### 2. The evolution runs, and level M decides in every generation
+
+`fb_campaign_evolve.py`, **813 runs**, 6 generations, population 45, **9 genes and no blocker** — the full
+list the owner goal names.
+
+| generation | 0 | 1 | 2 | 3 | 4 | 5 |
+|---|---:|---:|---:|---:|---:|---:|
+| decided at level **M** | 308 | 245 | 239 | 239 | 245 | **246** |
+| decided at level V | 1222 | 1412 | 1414 | 1412 | 1184 | 1126 |
+
+**Level M — the level that counts fulfilled objectives — decides 239 to 308 comparisons every
+generation.** In `E8` it decided **zero**. The fitness is finally grading the thing it was built to grade.
+
+### 3. And the refusal, which is the round's product
+
+| instrument (§3.6) | measured | acceptance |
+|---|---|---|
+| (a) fixed yardstick per generation | 0.611 · 0.611 · 0.611 · 0.611 · 0.611 · **0.444** | non-decreasing — **NO** |
+| (b) cyclic triples | **T = 1.0000** (1 of 1) | ≤ 0.05 — **NO** |
+| (c) doctrine trajectory | 0.0000 · 0.0312 · 0.0156 | moves |
+
+Three distinct champions in six generations, and they differ in **exactly one gene** — the pickle lead
+`pilot_attack_bias_s`, 0 → −0.625 → −0.3125, every other value identical:
+
+| champion | `bias_s` | fixed yardstick |
+|---|---:|---:|
+| `g0_s2` | 0 | 0.611 |
+| `g4_21` | −0.625 | 0.611 |
+| `g5_23` | −0.3125 | **0.444** |
+
+**The co-evolving fitness rose while the uninfluenceable measure fell** — `g5_23` wins its round robin at
+0.652 and scores 0.444 against the frozen field, below both of its predecessors. That is the textbook
+signature §6 names: *"a fitness rise measured only against the co-evolving population"* is not a finding.
+**No §1 is published.**
+
+**The honest weakness of (b), stated rather than leaned on:** with three distinct champions there is
+exactly ONE evaluable triple, so `T = 1.0000` rests on n = 1 and is not by itself evidence of circling.
+(a) is the load-bearing refusal: the fixed field is frozen text no genome can influence, and it fell.
+
+**And the trap this round did not walk into:** stopping at generation 4 would have shown a flat 0.611
+across the whole window and passed (a). Choosing the window after seeing the curve is the same move as
+retuning a threshold after seeing the result, and it was declined here as it was declined eight times
+before.
+
+### 4. The cost
+
+| | |
+|---|---|
+| runs | 1,500 lever + field + chaos screen (gate) + **813** (evolution) |
+| `sim/src/` | **not touched** |
+| the campaigns | **not touched** — thirty new `ar-*` rungs beside them, declared as an arena |
+| what is published | **nothing**. §6's precondition was met for the first time, and §3.6's instruments refused the result |
+
+---
+
 ## Gaps
 
 | # | Thing | Known from |

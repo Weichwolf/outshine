@@ -2894,3 +2894,35 @@ weiter den äußeren dt; das geradezuziehen verschiebt die 20-Hz-Slots und ist e
 **5.9** — zwischen Browser und Gym bleiben 1,8 m Zielfehler, und die sind Gelände: zwei Abtaster
 desselben DEM (Kachelraster gegen gebackenes Swiss-DEM; `--elev tiles` schließt sie bis auf 0,08 m
 Aufschlagebene).
+
+## 2026-08-01 — `E12`: die Arena besteht, die Evolution läuft, und der feste Maßstab fällt
+
+Die erste bestandene Arena dieser Datei, die erste Evolution darauf, und eine Verweigerung durch genau
+das Instrument, das dafür gebaut wurde.
+
+**Das Tor:** `S4 60 Zellen ≥ 6 ok · S5 3 informative ≥ 3 ok · S6 0 ok · ARENA: PASSED`. Die drei sind
+`ar-08-close-day:f16`, `ar-15-ratio-one-two:f16`, `ar-27-close-blue-high:f16` — je 8–9 Beweger von 24,
+je ≥ 3 Ergebnisklassen bei ≤ 60 % Modalanteil, **alle drei 0 Kipper von 8**. Und S7 hat einen vierten
+abgefangen: `ar-26-beam-three-two:f16` bestand S1 und S2 und wurde bei **2 von 8** verworfen — die
+Falschzertifizierung, für die er geschrieben wurde, bevor er ein Ergebnis kannte.
+
+**Keine Konstante wurde bewegt.** Die Ausbeute der Regel wurde zuerst gemessen (~5 % der Zellen), und die
+Sprossenzahl folgt daraus: dreißig Sprossen, sechzig Zellen, drei informative.
+
+**Die Evolution:** 813 Läufe, sechs Generationen, Population 45, **neun Gene und kein Blocker**. Und
+**Stufe M entscheidet in jeder Generation 239 bis 308 Vergleiche** — in `E8` waren es null. Die Fitness
+benotet endlich das, wofür sie gebaut ist.
+
+**Und dann verweigern die Instrumente.** Drei verschiedene Champions, die sich in **genau einem Gen**
+unterscheiden — dem Abwurfvorhalt: 0 → −0,625 → −0,3125, alles andere identisch. Der feste Maßstab dazu:
+0,611 · 0,611 · 0,611 · 0,611 · 0,611 · **0,444**. Die mitlaufende Fitness des letzten Champions ist mit
+0,652 die höchste, sein Wert gegen das eingefrorene Feld der niedrigste. Das ist die Signatur, vor der §6
+warnt, und es wird **kein §1 veröffentlicht**.
+
+Die Schwäche von (b) steht dabei, statt dass ich mich darauf stütze: bei drei verschiedenen Champions gibt
+es genau **ein** auswertbares Tripel, T = 1,0000 ruht also auf n = 1. Tragend ist (a) — das feste Feld ist
+eingefrorener Text, den kein Genom beeinflussen kann, und es ist gefallen.
+
+Und die Falle, in die diese Runde nicht getreten ist: bei Generation 4 aufzuhören hätte über das ganze
+Fenster flache 0,611 gezeigt und (a) bestanden. Das Fenster zu wählen, nachdem man die Kurve kennt, ist
+derselbe Griff wie eine Schwelle nachzuziehen — abgelehnt, zum neunten Mal.
