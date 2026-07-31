@@ -2692,3 +2692,43 @@ sich, verbessert beide entscheidenden Stufen und schlägt das feste Feld. Der Ma
 Generation 0 bei 1,000, also ist daran kein Anstieg messbar, und die Zelle fällt an S7 (3 Kipper von 24).
 **Es wird nichts veröffentlicht.** Was die Sonde zeigt, ist eine Eigenschaft des SUCHOPERATORS und nicht
 der Doktrin: die Maschinerie trägt, sobald die Arena sie trägt.
+
+## 2026-07-31 — Die Spieler-Schicht, erste spielbare Runde: drei Bildschirme, die nur lesen
+
+`doc/player-layer.md` §§1–6 sind gebaut, §§8–10 nicht. Die WASM-App startet jetzt in ein Menü:
+**Kampagnen-Select** (die elf `sim/campaigns/*.fbc` mit ihrer eigenen Kopfzeile und Sprossenzahl),
+**Mission-Select** (die `.fbc`-Reihenfolge IST die Leiter, Sprosse *k+1* öffnet, wenn *k* zu einem
+Urteil geflogen wurde) und **Debriefing** (welche Ziele erfüllt sind, ob es für einen Abschluss reicht —
+**kein Score, keine Punkte, keine Sterne**). Alles davon liegt in `sim/web/`; unter der Schicht wurden
+zwei Zeilen im Client angefasst und keine im Kern.
+
+**Die Schicht rechnet nichts.** „Erfüllt" ist der Zustand, den `FBMissionMonitor::Conclude` selbst in
+seine `mission OBJECTIVE`-Zeile schreibt; „abgeschlossen" ist §3.1 über genau diese Zeilen. Jede
+angezeigte Zeile trägt ihren Herkunftsschlüssel als **Konstruktorargument** — eine Zeile ohne Quelle
+lässt sich nicht bauen — und landet als `data-src` im DOM. Der Zielblock ist per Assert exakt die
+`OBJECTIVE`-Menge der Sitzposition: keine Menge wächst.
+
+**Gemessen.** §3.2s Abnahme über den Baum: `COMPLETED == (exit == 0)`, **36 Missionen, 36 Treffer, 0
+Abweichungen**. Und die Abnahme selbst war zu locker formuliert — „Ziele auf genau einer Einheit" ist
+nicht dasselbe wie „genau eine GERICHTETE Einheit": ein zweites Flugzeug, das nur eine Route erklärt,
+trägt einen Monitor und entscheidet den Exit-Code, während die Sitzposition SUCCESS hat. Vier Missionen
+haben genau diese Form (`f16-aim9`, `mig29-defend`, `mig29-r27`, `mig29-r73`); das Kriterium ist
+korrigiert, seine eigene Prosa sagte es zwei Sätze später bereits richtig.
+
+**Im Browser geflogen, nicht simuliert:** `viper-attrition` aus dem Menü heraus, Sprosse 1
+(`intercept-aim120`), 291 s bis zum Urteil des Richters — Leiter `oLLL` vor dem Lauf, `ooLL` danach,
+Speicherstand `step viper-attrition 1 attempts=1 verdicts=1 completed=0 last=TIMEOUT`.
+
+**Zwei Zeilen unter der Schicht, beide begründet.** `window.FB_MISSION` sagt dem Client, WELCHE Datei
+er fliegt (gelesen wie `FB_TILES_URL`, auf einen Dateinamen gesäubert) — ohne sie kann ein
+Mission-Select nichts auswählen. Und der Missions-Puffer des Browsers stand auf 8 KB, während
+`fb_fetch_text` still abschneidet: sechs Missionen des Baums wurden gekürzt, und ein Schnitt auf einer
+Zeilengrenze parst zu einer KLEINEREN BESETZUNG — ein Lauf gegen eine Datei, die niemand geschrieben
+hat. 64 KB, und ein voller Puffer wird jetzt verweigert.
+
+**Was fehlt, steht als Lücke da statt als Erfindung im Frontend:** die Trennung Primär/Sekundär (das
+`.fbp` aus §2.2 ist nicht gebaut, also ist per Vorgabe alles primär — und genau dadurch fällt die
+Spielregel mit dem Urteil des Richters zusammen), Schwierigkeitsstufen mit Referenzlauf, der
+Kampagnen-Carry im Client (jede Sprosse fliegt STANDALONE), `UNIT_RESULT` im Browser (§3.1 (c) liest
+ersatzweise `monitor KO` — strikt strenger, nie großzügiger) und der ganze eigene Halbteil des
+Debriefings (§5.1s Telemetriezeilen: der Browser schreibt keine Telemetriedatei).

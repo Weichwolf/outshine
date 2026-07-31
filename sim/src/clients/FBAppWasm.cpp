@@ -1,6 +1,7 @@
 /* The browser client: a live in-process F-16 flying the WebGPU engine, camera on the aircraft's eye,
  * FBWorld streaming z14 fb-tiles around it. */
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -50,9 +51,25 @@ static const char *kSandboxModule = "f16";   /* ?ap=manual has no .fbm to name a
 /* No asset root: the browser embeds the model tree and nothing else, so a mission's `wx fixture` has
  * nothing to resolve against here — live /wx is this client's weather (app/FBWeatherBoot.h). */
 static const FlightBox::Missions::FBModelRoots kWasmModelRoots{"/fb/aircraft", ""};
-static const char *kDefaultMissionUrl = "/missions/payerne-full.fbm";   /* the full autonomous sortie:
-    ground start, waypoint loop, landing to a full stop. web/missions/ is a build-time copy of
-    sim/missions/ (make wasm) served by fb-sim's web/ mount — editable without a WASM rebuild */
+static const char *kDefaultMissionName = "payerne-full";   /* the full autonomous sortie: ground start,
+    waypoint loop, landing to a full stop. web/missions/ is a build-time copy of sim/missions/
+    (make wasm) served by fb-sim's web/ mount — editable without a WASM rebuild */
+static char gMissionUrl[192] = "/missions/payerne-full.fbm";
+
+/* WHICH file this session flies — the player layer's only reach into the client (window.FB_MISSION,
+ * read exactly like FB_TILES_URL / FB_ORIGIN_LAT above it). It selects a mission and changes nothing
+ * about one: same parser, same spawn, same judges. A name is a FILENAME and never a path, so anything
+ * outside [A-Za-z0-9._-] falls back to the default rather than composing a URL from a JS string. */
+static void ResolveMissionUrl() {
+  const char *js = emscripten_run_script_string(
+      "(window.FB_MISSION||new URLSearchParams(location.search).get('mission')||'').toString()");
+  char name[128];
+  snprintf(name, sizeof name, "%s", js ? js : "");
+  for (const char *p = name; *p; p++)
+    if (!(isalnum((unsigned char)*p) || *p == '.' || *p == '_' || *p == '-')) { name[0] = 0; break; }
+  snprintf(gMissionUrl, sizeof gMissionUrl, "/missions/%s.fbm",
+           name[0] ? name : kDefaultMissionName);
+}
 
 static Render::FBRenderer R;
 static World::FBWorld W;
@@ -346,6 +363,7 @@ int main() {
    * REGISTRY NAME, so an unknown name stops the boot rather than flying something unasked for. */
   const char *jap = emscripten_run_script_string("(new URLSearchParams(location.search).get('ap')||'')");
   bool manualMode = jap && jap[0] == 'm';   /* only 'manual' is a recognised value */
+  ResolveMissionUrl();
 
   Modules::FBRegisterBuiltinModules();
 
@@ -380,13 +398,19 @@ int main() {
                                                   std::move(module), Fdm::fb_fdm_state{}, altAsl));
     FBLog::Info("gpu", "manual_boot", {{"lat", olat}, {"lon", olon}, {"altM", altAsl}, {"speedMs", kSpeedMs}});
   } else {
-    static char missionText[8192];
-    int n = fb_fetch_text(kDefaultMissionUrl, missionText, sizeof missionText);
+    /* fb_fetch_text TRUNCATES at the cap, and a mission cut at a line boundary parses into a SMALLER
+     * CAST — a run against a file nobody wrote. The buffer therefore holds the largest mission in the
+     * tree with headroom (26,490 B, o1-10-mole-cricket.fbm) and a full buffer is refused rather than
+     * flown, because a fit and a truncation are indistinguishable from the length alone. */
+    static char missionText[65536];
+    int n = fb_fetch_text(gMissionUrl, missionText, sizeof missionText);
     FlightBox::FBMission mission;
     std::string perr;
-    if (n <= 0 || !FBParseMissionFile(missionText, mission, &perr)) {
-      FBLog::Error("gpu", "mission_boot_failed", {{"url", kDefaultMissionUrl},
-          {"reason", n <= 0 ? std::string("fetch (is fb-sim serving web/missions/?)") : perr}});
+    if (n <= 0 || n >= (int)sizeof missionText - 1 || !FBParseMissionFile(missionText, mission, &perr)) {
+      FBLog::Error("gpu", "mission_boot_failed", {{"url", gMissionUrl},
+          {"reason", n <= 0 ? std::string("fetch (is fb-sim serving web/missions/?)")
+                   : n >= (int)sizeof missionText - 1 ? std::string("mission file exceeds the client buffer")
+                   : perr}});
       return 1;
     }
     for (size_t i = 0; i < mission.Units.size(); i++) {
@@ -406,7 +430,7 @@ int main() {
       std::unique_ptr<Units::FBSimUnit> unit =
           FBMissionSpawnActor(kWasmModelRoots, mission, i, groundAsl, mission.TimeoutS, &serr);
       if (!unit) {
-        FBLog::Error("gpu", "mission_boot_failed", {{"url", kDefaultMissionUrl}, {"reason", serr}});
+        FBLog::Error("gpu", "mission_boot_failed", {{"url", gMissionUrl}, {"reason", serr}});
         return 1;
       }
       FBLog::Info("gpu", "mission_boot", {{"name", mission.Name}, {"hdg", sp.HeadingDeg},
@@ -422,7 +446,7 @@ int main() {
      * picture (missions/FBClockBoot.h). */
     std::string clkErr;
     if (!Missions::FBResolveMissionClock(mission, SimUtc != 0, SimClock, &clkErr)) {
-      FBLog::Error("gpu", "mission_boot_failed", {{"url", kDefaultMissionUrl}, {"reason", clkErr}});
+      FBLog::Error("gpu", "mission_boot_failed", {{"url", gMissionUrl}, {"reason", clkErr}});
       return 1;
     }
     if (SimClock.Have) {
@@ -436,7 +460,7 @@ int main() {
     if (declared) {
       gWeather = std::move(declared);
       gWxLive = false;   /* nothing fetched, and a late arrival could not override it either */
-      FBLog::Info("wx", "source", {{"source", "mission"}, {"url", kDefaultMissionUrl}});
+      FBLog::Info("wx", "source", {{"source", "mission"}, {"url", gMissionUrl}});
     } else if (!werr.empty()) {
       /* The browser embeds no fixture (live is its default), so a fixture mission degrades to live
        * rather than refusing to fly — the opposite of fb-gym, where the declaration IS the measurement. */

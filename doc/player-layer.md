@@ -1,9 +1,9 @@
 # The player layer — FlightBox as a playable game
 
-**Status: SPECIFIED, NOT BUILT — deliberately last.** Nothing in this file may block or pre-empt the
-campaign and evolution work; it adds no keyword to `.fbm`, no field to `.fbc`, no line to any judge and
-no column to any telemetry file. It is written now so that the layer's *boundaries* are decided before
-anything is built against them.
+**Status: the first playable layer is BUILT (§11, §State); §§8–10 are not.** The rule this file was
+written to protect held through the build: it adds no keyword to `.fbm`, no field to `.fbc`, no line to
+any judge and no column to any telemetry file. Three screens in `sim/web/`, one save in `localStorage`,
+and below them exactly one name the client reads (`window.FB_MISSION`).
 
 **Subject:** the layer between a finished run and a human — campaign select, mission select with a
 difficulty ladder and an unlock rule, primary and secondary objectives, and a debriefing. Explicitly
@@ -183,12 +183,21 @@ distinction is a LIST, not a total.
 With the default of §2.2 (unmarked = primary) and a briefing that marks nothing, completion is *"every
 declared objective met, none violated, the jet not thrown away"* — which is the judge's SUCCESS.
 
-> **Acceptance:** over every `sim/missions/*.fbm` that declares objectives on **exactly one** unit,
-> `COMPLETED == (exit == 0)`. A divergence is a defect in this rule, not in the judge.
+> **Acceptance:** over every `sim/missions/*.fbm` with **exactly one JUDGED unit**, that unit being the
+> seat and declaring at least one objective, `COMPLETED == (exit == 0)`. A divergence is a defect in
+> this rule, not in the judge.
 
 The restriction to one judged unit is not a hedge: the run verdict quantifies over *all* judged units
 (the AI wingman, the opponent), the completion rule over *one seat*. Those are different questions and
 only coincide when there is one seat.
+
+**And "judged" is the operative word, not "declares objectives" — corrected here because the loose
+reading was measured and fails.** A unit is judged iff the mission gave it *a plan **or** objectives*
+(`FBMissionBoot.h`), so a mission can carry one seat with objectives and a second aircraft with nothing
+but a route, and that second aircraft's TIMEOUT is the run's exit code while the seat's own verdict is
+SUCCESS. Four missions in the tree have exactly that shape (`f16-aim9`, `mig29-defend`, `mig29-r27`,
+`mig29-r73`) and every one of them diverges under the loose filter. Under the corrected one the
+acceptance holds without exception (§State).
 
 #### 3.3 The TIMEOUT case — the annotation reads it, nobody rewrites it
 
@@ -655,12 +664,45 @@ natural fix — and it belongs in the same round as the control path, not a roun
 Determinism ends at the stick and only there: a played run has no fingerprint (§4.3), while the same
 mission flown by AI stays bit-reproducible. That is what keeps the measuring half intact.
 
+### 11. The built preview — the six decisions this round takes, and each is a narrowing
+
+The first playable layer is the three screens of §6 over gym-grade artefacts, in the browser, on top of
+a client that flies and is judged but cannot shoot (§7). Six decisions were forced by that; every one of
+them either quotes a judge line or refuses to claim something, and none of them touches the simulation.
+
+| # | Decision | Why it is a narrowing, and its anchor |
+|---|---|---|
+| **B1** | **The artefact is the CONSOLE, not a run directory.** The browser writes no `events.log`; both judges self-log at the instant they conclude (`FBMissionMonitor::Conclude`, `FBFlightMonitor`), stdout reaches JS through emscripten's `Module.print`, and the layer parses the identical text a gym `events.log` holds | same lines, other transport. The parser is one function (`FBParseLogLine`) and it is exercised against recorded `events.log` files in the node harness — one reader, two venues |
+| **B2** | **§3.1 (c) is read off `monitor KO` instead of `UNIT_RESULT`.** The browser never emits `UNIT_RESULT`: only `FBMissionRunner` does, and it is gym-only | STRICTLY STRICTER, and that direction is the whole argument: no `monitor KO` line ⇒ the physical judge never tripped ⇒ `UNIT_RESULT` is neither `CRASH` nor `LOC`. So every completion the preview claims is one §3.1 grants. The converse is not true and is booked as a gap |
+| **B3** | **The primary SET is the seat's declared `objective` lines in the `.fbm`; the STATE of each is the judge's.** An objective the judge published no state for is not `state=met` | without it a run that dies before the judge speaks completes vacuously — measured: a spawn failure publishes `mission RESULT result=FAIL` and zero `OBJECTIVE` lines, and the naive reading called it COMPLETED. The declaration is the file's own line, not a computed fact |
+| **B4** | **Unlock is ONE VERDICT, not a completion** `[SET]` | §4.2 spells the condition COMPLETED. In a client with no release path (§7.1) every combat rung ends `unmet`, so unlock-on-COMPLETED is a ladder no player can climb — the rule would be unreachable rather than strict. It is one predicate (`FBUnlocked`) and it tightens to §4.2 the day the release path lands. The save records `verdicts` and `completed` SEPARATELY, so tightening needs no new fact |
+| **B5** | **No `.fbp`, therefore nothing is marked, therefore everything is primary.** The menus show the objectives the mission declares, in its own spelling | §2.2's default made load-bearing rather than decorative: with nothing marked the completion rule IS the judge's rule, which is what §3.2 asks to be measured — and it is (36/36 below). Primary/secondary is a gap in this file, not an invention in the frontend |
+| **B6** | **The layer's entire write surface is two names:** `window.FB_MISSION` (which file to fly) and one `localStorage` key (the save) | the client reads the first exactly as it already reads `FB_TILES_URL`/`FB_ORIGIN_LAT`, sanitises it to a FILENAME, and changes nothing else about the run: same parser, same spawn, same two judges. `FBFdmBoot` stays the only state writer |
+
+**What a rung is in the browser, stated so it is not mistaken for a campaign:** it is that `.fbm` flown
+STANDALONE. `FBCampaignRunner` is gym-only (§7.6), so the client carries neither the campaign state
+(units, ground, stores) nor the campaign clock from the rung before it. The mission-select screen says
+so on the screen rather than in this file only.
+
 ---
 
 ## State
 
-**Nothing built, by decision.** No file, no tool, no menu, no format. What exists that the layer will
-consume, and which is the reason the layer is cheap once it starts:
+**The three screens are built, on artefacts a gym run and a browser run produce identically.** The
+Spec's §§1–5 reading half, §6's screens and §4.2's ladder exist; §§8–10 do not.
+
+| Piece | State | Anchor / measurement |
+|---|---|---|
+| the reading half — `.fbc`/`.fbm`/log parsers, the completion rule, the save format | **built**, DOM-free, one file (`sim/web/fbplay.js`), usable from node | 11 campaigns, 104 rungs, 104 missions parsed; the parsed objective count equals the files' own `objective` lines exactly (220 seat objectives), 0 defects |
+| **§3.2's acceptance, measured** | **holds** | over the **36** `sim/missions/*.fbm` with exactly ONE JUDGED unit, that unit being the seat and declaring an objective: `COMPLETED == (exit == 0)`, **36 agreements, 0 divergences** — one fb-gym run each, the JS rule read over that run's own `events.log`. Under the looser filter §3.2 originally spelled (57 missions) there are **4 divergences**, and they are the reason the criterion was corrected |
+| campaign select, mission select with the ladder and the unlock, debriefing | **built** (`sim/web/fbmenu.js` + `index.html`); `/` is the menu, `?campaign=`/`&step=`/`?mission=` are links | headless-Chromium frames in `sim/build/player-layer/`: `A-campaign-select.png`, `B-mission-select.png` (o4 fresh = `oLLLLLLLLL`), `4-flying.png`, `5-debrief.png`, `6-ladder-after.png` |
+| the unlock rule (B4) | **built and measured in the browser** | `viper-attrition` rung 1 (`intercept-aim120`) picked in the menu and flown to the judge's own line at **t = 291.0 s** (`mission RESULT unit=viper result=TIMEOUT`, `OBJECTIVE kind="kill unit bandit" state=unmet`): ladder `oLLL` → `ooLL`, save `step viper-attrition 1 attempts=1 verdicts=1 completed=0 last=TIMEOUT`, and `reset progress` returns it to `oLLL` |
+| provenance keys (§1 check 2) | **built and structural** | a debrief row's source is a CONSTRUCTOR ARGUMENT (`FBRow(src, …)` throws without it) and lands in the DOM as `data-src`; the objective table is asserted equal to the seat's `mission OBJECTIVE` lines — no set grows |
+| which mission the browser flies | **built** (`window.FB_MISSION`, sanitised to `[A-Za-z0-9._-]`) | `gpu mission_boot name=intercept-aim120-1` from the menu's own click |
+| the mission buffer | **fixed**: 8 KB → 64 KB, and a full buffer is now REFUSED | `fb_fetch_text` truncates silently; the largest mission is 26,490 B (`o1-10-mole-cricket.fbm`), so 6 of the tree's missions were being cut — and a cut at a line boundary parses into a SMALLER CAST, i.e. a run against a file nobody wrote |
+| everything in §§8, 9, 10 (selection, map, commanding, control path) | **not built** | this file |
+
+## Gaps
 
 | Piece | State | Anchor |
 |---|---|---|
@@ -679,6 +721,23 @@ consume, and which is the reason the layer is cheap once it starts:
 | **everything in §§1–10 of the Spec** | **not built** | this file |
 
 ## Gaps
+
+### From the built preview
+
+| Gap | Detail |
+|---|---|
+| **PRIMARY AND SECONDARY ARE NOT SEPARATED, and the frontend does not invent the split** | the `.fbm` vocabulary carries no such token (by decision, §2.1) and the `.fbp` briefing of §2.2 is **not built**, so every declared objective is primary (§2.2's default) and the debrief shows the objectives in the mission's own spelling. The consequence is stated on the screen, not only here. This is the one thing a player would notice first and it is deliberately left undone: the split is an ANNOTATION FILE, and writing one per playable mission is authoring work with a `ref` run per rung (§4.1 B) |
+| **No difficulty tier and no reference run** | §4.1's design B needs `difficulty 1..5` + a recorded AI run per offered mission, both of which live in the missing `.fbp`. The preview therefore shows the ladder POSITION (`RUNG k`) and nothing else — the `.fbc` order is the only ordinal in the tree, and no number is manufactured beside it |
+| **The browser flies a rung STANDALONE — no carry, no campaign clock** | `FBCampaignRunner` is gym-only (§7.6), so rung *k* does not start from rung *k−1*'s `campaign-state.txt` and does not inherit the `.fbc`'s `time`. §4.3's table ("nothing new is needed") holds for the GYM; in the client the carry does not exist at all, and a `--state` equivalent would be the next piece |
+| **`UNIT_RESULT` is gym-only, so §3.1 (c) is read off `monitor KO` (B2)** | the divergence has exactly one shape and it is worth naming: a seat that is SHOT DOWN and whose mission does not declare `survive` is §3.1's "mission accomplished, aircraft lost" — `UNIT_RESULT` would say FAIL/TIMEOUT rather than CRASH and the rule would COMPLETE it, while the preview sees the wreck's `monitor KO` and refuses. The preview is therefore never more generous than the rule, only occasionally stricter. Closing it means emitting `UNIT_RESULT` from the wasm frame loop, which is client work, not layer work |
+| **§3.2's acceptance restriction was too loose as written, and the measurement says so** | "declares objectives on exactly one unit" is not the right filter — the run's exit code quantifies over every JUDGED unit, and a unit is judged by *a plan or objectives* (`FBMissionBoot.h`). Under the loose filter 4 of 57 missions diverge (`f16-aim9`, `mig29-defend`, `mig29-r27`, `mig29-r73`): the seat's own verdict is SUCCESS with its objective `met`, while the run's exit 3 comes from a SECOND judged aircraft that declares only a route. Under the correct filter — exactly one judged unit — the acceptance holds without exception. §3.2's own prose already said this two sentences later; the criterion is now corrected there |
+| **The debrief is JUDGE-ONLY: none of §5.1's own-ship rows exist** | time airborne, fuel, max g, the releases, the `eng_*` engagement block, the zone dwell — all of them are TELEMETRY COLUMNS, and the browser writes no telemetry file (`FBTelemetryBus` has no sink in `FBAppWasm.cpp`). The layer refuses to re-derive them from anything else, so those rows are simply absent rather than approximated. The cheapest close is an in-memory telemetry sink in the client, and it is the natural companion of the `UNIT_RESULT` line above |
+| **The log LINE FORMAT is now an interface** | the layer parses `t=… LEVEL tag event k=v` out of `Module.print`. A change to `FBStdoutLogSink`'s spelling silently costs the debrief its input. It fails LOUDLY rather than wrongly — an unparsed line yields "no verdict", never a wrong verdict — but a format change is now a two-place edit |
+| **Unlock is one VERDICT, not one COMPLETION (B4)** | a deliberate `[SET]` relaxation of §4.2 for one measured reason: with no release path in the browser every combat rung ends with its `kill` objective `unmet`, so unlock-on-COMPLETED would lock the ladder at rung 1 for 10 of 11 campaigns. The save keeps `verdicts` and `completed` apart, so tightening it back is one predicate |
+| **Most rungs cannot be COMPLETED in the browser at all** | §7.1 again, now as a player-visible fact: the seat carries missiles, presses, and nothing leaves the jet. Every rung whose seat declares `kill` runs to its timeout. The preview says so on every screen instead of hiding it |
+| **The save is per browser origin and is exported only by eye** | the campaign-select screen prints the canonical save text (diffable, one fact per line) and offers a reset; there is no import, and no file. That is enough to inspect and to reproduce, and nothing else reads it |
+
+### From the specification
 
 | Gap | Detail |
 |---|---|
