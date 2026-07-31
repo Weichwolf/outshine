@@ -1989,7 +1989,32 @@ point, and pickles. Every link is a published column. **And the cell is robust: 
 the closest thing to a doctrine shift this file has produced, and §6 still forbids publishing it — the
 arena has one such cell and needs three. It is recorded here as a measurement, not as a §1.
 
-### 6. The cost
+### 6. Gradability RISES with the size of the graded side — and my own hypothesis was wrong
+
+`w3-10-package-q:f16` grades sixteen F-16s in four flights, twelve of them `task attack` and four
+`task intercept`, so its `flt_src = 0` is the STRIKERS' number and not a broken sort. From that I
+proposed that a sixteen-unit sum DILUTES a doctrine effect below the granularity of the outcome class.
+**Measured over all 154 cells, that is false, and the truth runs the other way** [MESS, cell size =
+units of the graded side in the committed file, against movers of 24]:
+
+| units on the graded side | cells | mean movers | max |
+|---:|---:|---:|---:|
+| 1 | 41 | 0.44 | 3 |
+| 2 | 66 | 0.45 | 2 |
+| 4 | 30 | 1.37 | 6 |
+| 8 | 6 | **2.00** | **11** |
+| 16 | 1 | **4.00** | 4 |
+
+**107 of the 154 cells are a single aircraft or a pair, and they average 0.44 movers.** The arena's mass
+sits where doctrine cannot be measured at all: a lone jet has no formation to shape, no mate to sort
+against, nobody to be silent behind. Gradability is a property of the SIDE's size, and this file spent
+four rounds looking for it in the genome and in the gate.
+
+This is the sharpest form of the target in §3: the three rungs the gate needs are not "any three rungs",
+they are three of **four aircraft or more** that are also robust. There are 38 such cells in the breadth
+and exactly one reaches eight movers today — and that one is the chaotic one.
+
+### 7. The cost
 
 | | |
 |---|---|
