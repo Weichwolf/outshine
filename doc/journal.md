@@ -2514,3 +2514,19 @@ messen, nicht das Nächste anzunehmen.
 Und was daraus NICHT werden darf: eine committete Sprosse zu ändern, WEIL es die Beweger höbe, wählt die
 Arena nach dem Ergebnis aus. Ob eine Rotte ein Vierer wird, ist eine Doktrinfrage dieser Kampagne, und
 das Tor ist die Prüfung darauf — nie der Grund dafür.
+
+**Nachtrag `E11`: die Kampagnenschicht ist unter dem aktuellen Simulator frisch nachgewiesen.** Nach F5,
+D3a und G5 stand die Determinismus-Abnahme aus — sie ist gefahren, nicht angenommen:
+
+| | |
+|---|---|
+| Kampagnenläufe | **99** = 11 Kampagnen × 3 Wiederholungen × `--threads 1/2/4` |
+| Fingerabdrücke je Kampagne | **genau einer**, 11 von 11, rc = 0 |
+| Einzelnachspiele | **104** Schritte, jeder standalone aus dem Zustandsfile des vorigen |
+| Divergenzen | **0** in beiden Kriterien |
+
+Das ist rund 1.100 Missionsläufe. Beide Kriterien aus `missions/campaign.md` §5 halten: dieselbe
+Kampagne gibt über drei Threadzahlen und drei Wiederholungen denselben Fingerabdruck, und jeder Schritt
+ist aus dem Zustand seines Vorgängers einzeln reproduzierbar — die Kampagnenschicht fügt also keinen
+verborgenen Zustand hinzu. Damit ist „mehrfach und deterministisch durchgespielt" für den heutigen Stand
+belegt, nicht für einen von gestern.
