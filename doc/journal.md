@@ -2398,3 +2398,36 @@ Der Fix ist strukturell und nicht eine Gewohnheit: ein Kanalindex trägt jetzt d
 Simulators, der ihn geschrieben hat, und **verweigert** die Wiederaufnahme unter einem anderen.
 Negativtest grün. Der komplette Hebel- und Feldpass fliegt neu (3.388 + 2.156 Läufe); die korrigierten
 Zahlen kommen als `E9`.
+
+## 2026-07-31 — `E9`: die korrigierte Zahl, und warum ein wachsendes Genom dieses Tor nicht öffnen kann
+
+E8s Kernzahl ist zurückgezogen; hier ist dieselbe Messung sauber geflogen — **3.388 Hebelläufe, jeder
+unter Simulator `4b10f951`**, und der Kanalindex trägt jetzt dessen SHA-256 und verweigert die
+Wiederaufnahme unter einem anderen.
+
+| | `E8`, kontaminiert | `E9`, sauber |
+|---|---:|---:|
+| beste Zelle, Beweger von 21 | 8 | **6** |
+| Zellen über S2s Schwelle 7 | 4 | **0** |
+| informativ | 3 | **0** |
+| Urteil | PASSED | **REFUSED** |
+
+G1s echte Reichweite je Hebel: 5 / 5 / 5 / 4 / 1 / 1 Zellen — gegen 9 / 9 / 8 / 8 / 3 / 3 im
+kontaminierten Lauf. Der S7-Schirm lief gar nicht, weil er S1∧S2-Kandidaten schirmt und es keine gab.
+
+**Der Befund ist eine Arithmetik.** S2s Schwelle ist ein Verhältnis, also hebt ein Gen mit *k* Hebeln
+die Schranke um *k/3*. G1 brachte sechs Hebel, lieferte auf der besten Zelle **drei** Beweger, und die
+Schranke stieg um **zwei**: von *beste 4 von 15, Schwelle 5* auf *beste 6 von 21, Schwelle 7* — das
+**Defizit bleibt 1**. Das ist E10 genau wie geschrieben; ungeschrieben war die Folge: **ein Gen hilft
+nur dort, wo seine eigene Reichweite JE ZELLE k/3 schlägt.** Ein Gen, das viele Zellen um je einen
+Hebel bewegt (G1: 13 Zellen), kann dieses Tor nicht öffnen — nur eines, das EINE Zelle in dreien seiner
+eigenen Hebel bewegt. Als E-22 gebucht, und für das nächste Gen vorab falsifizierbar: G5s
+EMCON-Hebel müssen auf einer einzelnen Zelle ≥ 3 der eigenen bewegen, sonst bewegen sie die Schranke
+und nicht das Urteil.
+
+Die beste Zelle der Breite ist jetzt `w3-09-saturation:f16` mit sechs Bewegern aus **drei Familien
+gleichzeitig** — und damit ein F-16-Sitz. Die drei MiG-29-Zellen, die E8 zertifiziert hatte, waren ein
+Artefakt.
+
+Nebenbei und ohne ein Ergebnis zu ändern: der feste Maßstab fliegt nur noch auf Zellen, die S2 schon
+bestanden haben. Diese Runde sparte damit 2.156 Läufe, weil S2 nirgends hielt.

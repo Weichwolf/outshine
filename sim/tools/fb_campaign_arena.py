@@ -574,8 +574,25 @@ def main():
     print("simulator %s — a resume index recorded under another one is REFUSED" % gid)
     keys = fly(args.gym, args.out, cells, levers, args.jobs, args.threads, args.elev,
                args.keep, "", Sink(args.channels, gid))
-    ykeys = fly(args.gym, args.out, cells, yard, args.jobs, args.threads, args.elev, args.keep,
-                "y-", Sink(args.variant_channels or args.channels + ".yardstick", gid)) if yard else {}
+    # S2 FIRST, and the fixed field only where it can still change the verdict. `informative` is
+    # S1 AND S2 AND S3 AND S7, so a cell that failed S2 cannot become informative whatever the field
+    # says about it — and the field is 14 runs per cell against the lever sweep's own baseline, which
+    # is already in hand. This changes no verdict and no number; it only stops flying 2,000 runs whose
+    # answer is discarded. A cell whose S1 was not computed prints `-` rather than a number, because a
+    # blank that reads as a measurement is worse than the saved hour.
+    base_movers = {}
+    for cell in cells:
+        b = fit.outcome_class(keys[(cell.name, "baseline")][0])
+        base_movers[cell.name] = [v.name for v in levers[1:]
+                                  if fit.outcome_class(keys[(cell.name, v.name)][0]) != b]
+    s2_cells = [c for c in cells
+                if len(base_movers[c.name]) >= kMoversMin
+                and len(base_movers[c.name]) >= kMoverFrac * (len(levers) - 1)]
+    if yard:
+        print("S2 holds on %d of %d cells — the fixed field flies on those and nowhere else (%d runs)"
+              % (len(s2_cells), len(cells), len(s2_cells) * len(yard)))
+    ykeys = fly(args.gym, args.out, s2_cells, yard, args.jobs, args.threads, args.elev, args.keep,
+                "y-", Sink(args.variant_channels or args.channels + ".yardstick", gid)) if yard and s2_cells else {}
 
     print("\n" + "=" * 110)
     print("PER CELL — the outcome class is (V, M), summed over the side's members (fb_fitness.side_key)")
@@ -584,22 +601,26 @@ def main():
           % ("cell", "module", "distinct", "modal", "modal cls", "movers", "which", "S1 S2"))
     res = []
     for cell in cells:
-        s1pop = ([fit.outcome_class(ykeys[(cell.name, v.name)][0]) for v in yard] if yard
-                 else [fit.outcome_class(keys[(cell.name, v.name)][0]) for v in levers])
+        have_field = yard and (cell.name, yard[0].name) in ykeys
+        s1pop = ([fit.outcome_class(ykeys[(cell.name, v.name)][0]) for v in yard] if have_field
+                 else [fit.outcome_class(keys[(cell.name, v.name)][0]) for v in levers] if not yard
+                 else [])
         classes = s1pop
         counts = collections.Counter(classes)
-        modal_class, modal_n = counts.most_common(1)[0]
-        modal = modal_n / float(len(classes))
+        modal_class, modal_n = counts.most_common(1)[0] if counts else (None, 0)
+        modal = modal_n / float(len(classes)) if classes else 0.0
         base = fit.outcome_class(keys[(cell.name, "baseline")][0])
-        movers = [v.name for v in levers[1:]
-                  if fit.outcome_class(keys[(cell.name, v.name)][0]) != base]
-        s1 = len(counts) >= 2 and modal <= kModalMax
+        movers = base_movers[cell.name]
+        s1 = bool(classes) and len(counts) >= 2 and modal <= kModalMax
         s2 = len(movers) >= kMoversMin and len(movers) >= kMoverFrac * (len(levers) - 1)
         res.append({"cell": cell, "s1": s1, "s2": s2, "informative": s1 and s2,
                     "vector": tuple(classes), "movers": movers, "modal": modal})
-        print("%-26s %-7s %8d %6.1f%% %-10s %7d %-28s %s %s"
-              % (cell.mission, cell.module, len(counts), 100 * modal, str(modal_class), len(movers),
-                 ",".join(movers)[:28] or "-", "ok" if s1 else "NO", "ok" if s2 else "NO"))
+        print("%-26s %-7s %8s %6s %-10s %7d %-28s %s %s"
+              % (cell.mission, cell.module, len(counts) if classes else "-",
+                 ("%.1f%%" % (100 * modal)) if classes else "-",
+                 str(modal_class) if classes else "-", len(movers),
+                 ",".join(movers)[:28] or "-",
+                 ("ok" if s1 else "NO") if classes else "-", "ok" if s2 else "NO"))
         if args.items:
             for v in levers:
                 k, calls = keys[(cell.name, v.name)][:2]
