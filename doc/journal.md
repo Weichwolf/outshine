@@ -2673,3 +2673,22 @@ nachgemessen:
 Beide Robustheits-Urteile halten bei dreifacher Probenzahl, und das chaotische ebenso — 3 von 24 ist
 exakt der Anteil, den 1 von 8 angezeigt hatte. Die Lage der Arena ist damit auf ihren drei
 entscheidenden Zellen mit dreifacher Strenge vermessen, und keines der Urteile hat sich gedreht.
+
+**Sonde (`E11`), und sie beantwortet die Frage der ganzen Linie.** Auf `w3-09-saturation:f16` — der einen
+Zelle, die S1 und S2 besteht und an S7 fällt — ist die Evolution als **Sonde** gelaufen, ausdrücklich
+gekennzeichnet und ohne etwas zu veröffentlichen (Präzedenz: E5s Zwei-Zellen-Sonde, „*neither publishes
+anything*"). 227 Läufe, fünf Generationen.
+
+| | Ergebnis |
+|---|---|
+| Champion | **bewegt sich**: g0 → `g1_40` → `g2_53` |
+| Stufe M entscheidet | **32 Vergleiche in Gen 3, 6 in Gen 4** — zum ersten Mal in dieser Datei überhaupt |
+| Doktrin-Trajektorie (c) | 0,5154 / 0,1250 statt der 0,0000 von `E8` |
+| fester Maßstab | 1,000 über alle fünf Generationen |
+| gegen die Basis | **V=20 M=12 gegen V=16 M=10**, C +787,9 gegen +65,1 |
+
+**Der Suchoperator war nie das Problem — er war ausgehungert.** Auf einer Zelle, die ihn trägt, bewegt er
+sich, verbessert beide entscheidenden Stufen und schlägt das feste Feld. Der Maßstab steht allerdings ab
+Generation 0 bei 1,000, also ist daran kein Anstieg messbar, und die Zelle fällt an S7 (3 Kipper von 24).
+**Es wird nichts veröffentlicht.** Was die Sonde zeigt, ist eine Eigenschaft des SUCHOPERATORS und nicht
+der Doktrin: die Maschinerie trägt, sobald die Arena sie trägt.
