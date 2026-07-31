@@ -1,0 +1,608 @@
+name ar-10-vertical-evening
+timeout 600
+time 2026-07-27T18:00:00Z
+
+# THE ARENA, RUNG 10 OF 10. THIS IS NOT A HISTORICAL SCENARIO AND IT DOES NOT DEPICT ONE. It is a
+# MEASURING STAND for doc/doctrine-evolution.md - a declared, synthetic cell on which the doctrine
+# evolution's gate (S1/S2/S7) can be flown. There is no anchor, no source and no campaign narrative
+# behind it, because there is nothing here to be faithful TO: the units, the coordinates and the clock
+# are instrument settings. Spec and the whole grid: doc/campaigns/ar-arena.md. Format:
+# doc/missions/syntax.md, doc/missions/campaign.md.
+#
+# WHY THE RUNG LOOKS THE WAY IT DOES. Round `E11` of doc/doctrine-evolution.md MEASURED, over all 154
+# committed campaign cells, that a cell can be informative only if it carries FOUR properties at once
+# (E11 sections 6, 9, 2 and 10). Every ar-* rung is built to all four and to nothing else:
+#   1 LARGE     - >= 4 aircraft on EVERY graded side. [MESS, E11 6] mean movers by side size:
+#                 1 unit 0.44 (41 cells) - 2 units 0.45 (66) - 4 units 1.37 (30) - 8 units 2.00 (6).
+#                 THIS RUNG: 8 F-16 in two flights of four, 8 MiG-29 in two flights of four.
+#   2 OPPOSED   - a hostile FIGHTER in the file. [MESS, E11 9] 8 large cells without one never exceed
+#                 2 movers; the means are equal and only the CEILING differs.
+#                 THIS RUNG: eight MiG-29 with R-27R/R-73 and a GCI brief, on the graded hostile team.
+#   3 VISIBLE TO LEVEL M - every graded group declares `objective`s that the run can actually reach.
+#                 [MESS, E11 10] 13 cells carry M = 0 on all 24 levers and not one has a single mover.
+#                 THIS RUNG: two objectives on each of the 16 aircraft, one contested (`kill unit`,
+#                 a NAMED opponent or aim point - never `kill team`, which would need every ground
+#                 unit dead as well and could not be met) and one deferred (`survive`).
+#                 MEASURED BELOW as the per-side M actually published.
+#   4 ROBUST    - the baseline outcome class survives a spawn-longitude perturbation over +-3 m
+#                 (fb_campaign_arena.py's own 0.8 m grid, 8 samples per side). MEASURED BELOW.
+#
+# WHAT THE TEN RUNGS SPAN, AND WHAT THIS ONE IS. Five entry GEOMETRIES x ten distinct ENVIRONMENTS
+# (clock and atmosphere). NO RUNG IS A CONTROL OF ANY OTHER - two coordinates differ between any pair -
+# and the set is a SPREAD, not a factorial: its job is to give the evolution ten independent cells,
+# never to attribute an effect to daylight.
+# THIS RUNG: geometry E (vertical split), evening (sun +14.48 deg) in calm air.
+#
+# THE RANGE IS A GRID ORIGIN, NOT A PLACE. 45.00000 N / 000.00000 E [SET]. A coordinate decides exactly
+# two things in this tree - where the sun is and how many metres a degree is worth - and this one makes
+# both checkable by eye: at 0 deg of longitude UTC IS local apparent solar time, so `time 12:00:00Z` is
+# solar noon by construction. `--elev const` on a 0 m datum, no terrain masking (gap C4). There is no
+# landscape here and this file claims none. Scale: 1 deg of latitude = 111 132 m, 1 deg of longitude =
+# 111 320 x cos 45 deg = 78 715 m [DERIVED]. The rung is result-neutral in the elevation source, because
+# 45 N / 0 E lies outside the baked Swiss DEM island: [MESS] `--elev const` and the gym's default
+# `--elev swiss` produce the same duration, the same exit and the same objective vector.
+#
+# THE CAST, IDENTICAL IN ALL TEN RUNGS EXCEPT WHERE THE GEOMETRY SAYS OTHERWISE:
+#   BLUE, 8 F-16, both flights four SEATS DEEP so that G1's trail levers can act at all - `aftM =
+#         element x trail` with `element = (position-1)/2`, so a pair has no second element and two of
+#         G1's six levers are structurally unreachable on one (E11 4, `o5-09-night-two`).
+#     ar10st 1..4  the STRIKE flight: CCRP, 2 x Mk 84, radar off, one named soft aim point each
+#     ar10sw 1..4  the SWEEP flight: CRM 40 nm, 4 x AIM-120 + 2 x AIM-9, one named MiG each
+#   RED, 8 MiG-29 in two flights of four under one GCI brief, R-27R + 3 x R-73, `n019_emission illum`
+#     ar10hi 1..4  the high block          ar10lo 1..4  the low block
+#   THE GROUND HALF, hostile, and it is in EVERY rung - the arena has no air-only cell:
+#     ar10ts1..4   `target_soft`, the four graded aim points, one per striker
+#     ar10th1/2    `target_hard`, present and DELIBERATELY UNGRADED. Derivation: the Mk 84's own
+#                  fragment law is flux(r) = 2.81e7 / r^2 J/m^2 (sim/missions/mk84-radius.fbm) and
+#                  `target_hard`'s structure fails at 9.0e4 (modules/ground/FBGroundTarget.h), so its
+#                  fail radius is sqrt(2.81e7 / 9.0e4) = 17.7 m [DERIVED] against a CCRP delivery this
+#                  tree lands at 32..87 m [MESS, the ten rungs' own aimErrM]. A graded objective on a
+#                  hard target would be a COIN, and property 4 forbids putting the fitness on one.
+#                  `target_soft` fails at sqrt(2.81e7 / 2.8e3) = 100.2 m [DERIVED] and is reached with
+#                  13..68 m of margin in every rung.
+#     ar10nod      P-18 early warning, `emcon free` - the net's node and the only ground emitter
+#     ar10sam      SA-6, `emcon hold`, 3 rounds     ar10aaa  ZSU-23-4, `emcon hold`, 40 rounds
+#     ar10net      the net over the three: wire, period 4.0, hold 3, wcs free, fire units on
+#                  `autonomy hold`. A FlightBox battery has NO IFF interrogator, so what it shoots at
+#                  is part of the measurement and not a briefing error.
+#   Every callsign is prefixed `ar10`, so the ten rungs are PAIRWISE DISJOINT in every unit they can
+#   lose. That is deliberate: the campaign layer's carry then has nothing to carry, each rung is
+#   measurable standalone, and campaign step k is byte-identical to its own standalone run.
+#
+# THE GEOMETRY: VERTICAL SPLIT. The reciprocal of rung A, but red flies its two flights at 10 000 and
+# 11 000 m against a sweep at 3 000 m and a strike at 2 500 m - a 6.5 to 9.0 km vertical separation, so
+# the sort has to be made in elevation and every R-27R is a look-down shot. Horizontal closure and the
+# t = 189 s pass are rung A's [DERIVED]; what changes is that the geometry is three-dimensional.
+# GCI brief [DERIVED, 90 522 - 478.4 t, with blue's block now at 3 km]:
+# t = 20 -> 81 km, t = 60 -> 62 km, t = 100 -> 43 km, bearing 270.
+#
+# THE ATMOSPHERE: no `wx` line, i.e. `calm` - no wind, no cloud, unlimited visibility
+# (doc/missions/weather.md). It is the arena's REFERENCE air and four of the ten rungs carry it,
+# so the wind and fixture rungs have something commensurate to be read against.
+#
+# MEASURED (2026-07-31, tree 8cd3a74), `fb-gym --mission ... --threads 1 --elev const`:
+#   exit 3 (TIMEOUT), run 600.0 s, sun elevation +14.48 deg at the primary actor's spawn point
+#   the ground half   4 of 4 releases accepted, 4 deliveries at aimErrM 31.7 / 42.2 / 51.5 / 40.7 m,
+#                     4 of 4 soft aim points DESTROYED
+#   the air half      11 R-27R/R-73 and 0 AIM-120/AIM-9 off the rail, 3 warhead
+#                     detonations, 3 `site LAUNCH` from the belt (no IFF: read `brgDeg`)
+#   the outcome class friendly:f16 (V, M) = (20, 12), hostile:mig29 (V, M) = (16, 8) - out of V <= 24
+#                     and M <= 16 per side (8 aircraft x 2 objectives), so both sides are graded and
+#                     neither is inert
+#   property 4 (S7)   2 flips of 8 on EACH graded side - PROPERTY 4 IS THE ONE THIS RUNG DOES NOT
+#                     CARRY, and it is published rather than tuned away. Its sibling
+#                     ar-09-vertical-predawn flies the IDENTICAL geometry E under a different
+#                     clock and atmosphere at 0 of 8, so the
+#                     coin sits in this rung's own air and not in the geometry. A rung edited until
+#                     its baseline stops moving would be a rung selected on its own result
+#   gradability, as one probe and NOT as a claim about the gate: `set pilot_emcon_frac 3.0` on the sweep
+#                     (G5's `emcon-wide`) takes rung 01 from (20, 12)/(16, 8) to (22, 14)/(14, 6) with
+#                     4 AIM-120 off the rail against 0 [MESS, rung 01]. The baseline sweep goes to radar
+#                     STANDBY at t ~ 6 s under its own emission discipline and never re-radiates; that
+#                     is the room the gene has, and it is reported, not removed.
+#
+# READING RULE, BINDING. THE EXIT CODE IS NOT THE VERDICT and no reader may quote it as one - every rung
+# of this arena is a measuring rig and TIMEOUT (exit 3) is its normal end. THE MEASUREMENT IS THE PAIR
+# (V, M) PER GRADED SIDE, computed the way doc/doctrine-evolution.md section 1 computes it: V is the sum
+# of the judge's own `UNIT_RESULT` ranks over the side's aircraft (SUCCESS 3, TIMEOUT/NONE 2, FAIL 1,
+# CRASH/LOC 0) and M is the number of that side's `mission OBJECTIVE ... state=met` lines. Read, in this
+# order: (1) both `mission OBJECTIVE` blocks - if either side publishes none, the rung has lost property
+# 3 and nothing else in the file is worth reading; (2) `stores DELIVERY aimErrM` against the 100.2 m
+# soft fail radius; (3) `site LAUNCH ... brgDeg` - the belt has no IFF and WHO it shot at is a result;
+# (4) the (V, M) pair. A reader who reports a kill count has read a warhead's arrival geometry.
+
+net ar10net
+  control ar10nod
+  link wire
+  period 4.0
+  hold 3
+  wcs free
+  member ar10nod
+  member ar10sam autonomy hold
+  member ar10aaa autonomy hold
+
+unit ar10str1
+  module f16
+  team friendly
+  flight ar10st 1
+  spawn 44.94000 0.00000 2500 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set attack_mode ccrp
+  set rwr on
+  set datalink on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  wp 44.94000 0.30000 2500 450
+  wp 44.94000 0.00000 2500 450
+  objective kill unit ar10ts1
+  objective survive
+
+unit ar10str2
+  module f16
+  team friendly
+  flight ar10st 2
+  spawn 44.98000 0.00000 2600 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set attack_mode ccrp
+  set rwr on
+  set datalink on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  wp 44.98000 0.30000 2600 450
+  wp 44.98000 0.00000 2600 450
+  objective kill unit ar10ts2
+  objective survive
+
+unit ar10str3
+  module f16
+  team friendly
+  flight ar10st 3
+  spawn 45.02000 0.00000 2700 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set attack_mode ccrp
+  set rwr on
+  set datalink on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  wp 45.02000 0.30000 2700 450
+  wp 45.02000 0.00000 2700 450
+  objective kill unit ar10ts3
+  objective survive
+
+unit ar10str4
+  module f16
+  team friendly
+  flight ar10st 4
+  spawn 45.06000 0.00000 2800 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set attack_mode ccrp
+  set rwr on
+  set datalink on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  wp 45.06000 0.30000 2800 450
+  wp 45.06000 0.00000 2800 450
+  objective kill unit ar10ts4
+  objective survive
+
+unit ar10swp1
+  module f16
+  team friendly
+  flight ar10sw 1
+  spawn 44.92000 0.05000 3000 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 44.92000 1.10000 3000 480
+  objective kill unit ar10hi1
+  objective survive
+
+unit ar10swp2
+  module f16
+  team friendly
+  flight ar10sw 2
+  spawn 44.96000 0.05000 3150 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 44.96000 1.10000 3150 480
+  objective kill unit ar10hi2
+  objective survive
+
+unit ar10swp3
+  module f16
+  team friendly
+  flight ar10sw 3
+  spawn 45.04000 0.05000 3300 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 45.04000 1.10000 3300 480
+  objective kill unit ar10lo1
+  objective survive
+
+unit ar10swp4
+  module f16
+  team friendly
+  flight ar10sw 4
+  spawn 45.08000 0.05000 3450 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 45.08000 1.10000 3450 480
+  objective kill unit ar10lo2
+  objective survive
+
+unit ar10hi1
+  module mig29
+  team hostile
+  flight ar10hi 1
+  spawn 44.94000 1.20000 11000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission illum
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 81 3
+  set brief_gci 60 270 62 3
+  set brief_gci 100 270 43 3
+  wp 44.94000 0.10000 11000 450
+  objective kill unit ar10swp1
+  objective survive
+
+unit ar10hi2
+  module mig29
+  team hostile
+  flight ar10hi 2
+  spawn 44.98000 1.20000 11150 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission illum
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 81 3
+  set brief_gci 60 270 62 3
+  set brief_gci 100 270 43 3
+  wp 44.98000 0.10000 11150 450
+  objective kill unit ar10swp2
+  objective survive
+
+unit ar10hi3
+  module mig29
+  team hostile
+  flight ar10hi 3
+  spawn 45.02000 1.24000 11300 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission illum
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 81 3
+  set brief_gci 60 270 62 3
+  set brief_gci 100 270 43 3
+  wp 45.02000 0.10000 11300 450
+  objective kill unit ar10str1
+  objective survive
+
+unit ar10hi4
+  module mig29
+  team hostile
+  flight ar10hi 4
+  spawn 45.06000 1.24000 11450 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission illum
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 81 3
+  set brief_gci 60 270 62 3
+  set brief_gci 100 270 43 3
+  wp 45.06000 0.10000 11450 450
+  objective kill unit ar10str2
+  objective survive
+
+unit ar10lo1
+  module mig29
+  team hostile
+  flight ar10lo 1
+  spawn 44.92000 1.20000 10000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission illum
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 81 3
+  set brief_gci 60 270 62 3
+  set brief_gci 100 270 43 3
+  wp 44.92000 0.10000 10000 450
+  objective kill unit ar10swp3
+  objective survive
+
+unit ar10lo2
+  module mig29
+  team hostile
+  flight ar10lo 2
+  spawn 44.96000 1.20000 10150 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission illum
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 81 3
+  set brief_gci 60 270 62 3
+  set brief_gci 100 270 43 3
+  wp 44.96000 0.10000 10150 450
+  objective kill unit ar10swp4
+  objective survive
+
+unit ar10lo3
+  module mig29
+  team hostile
+  flight ar10lo 3
+  spawn 45.04000 1.24000 10300 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission illum
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 81 3
+  set brief_gci 60 270 62 3
+  set brief_gci 100 270 43 3
+  wp 45.04000 0.10000 10300 450
+  objective kill unit ar10str3
+  objective survive
+
+unit ar10lo4
+  module mig29
+  team hostile
+  flight ar10lo 4
+  spawn 45.08000 1.24000 10450 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission illum
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 81 3
+  set brief_gci 60 270 62 3
+  set brief_gci 100 270 43 3
+  wp 45.08000 0.10000 10450 450
+  objective kill unit ar10str4
+  objective survive
+
+unit ar10ts1
+  module target_soft
+  team hostile
+  spawn 44.94000 0.30000 ground 0.0 0
+
+unit ar10ts2
+  module target_soft
+  team hostile
+  spawn 44.98000 0.30000 ground 0.0 0
+
+unit ar10ts3
+  module target_soft
+  team hostile
+  spawn 45.02000 0.30000 ground 0.0 0
+
+unit ar10ts4
+  module target_soft
+  team hostile
+  spawn 45.06000 0.30000 ground 0.0 0
+
+unit ar10th1
+  module target_hard
+  team hostile
+  spawn 45.00000 0.28000 ground 0.0 0
+
+unit ar10th2
+  module target_hard
+  team hostile
+  spawn 45.00000 0.32000 ground 0.0 0
+
+unit ar10nod
+  module p18
+  team hostile
+  spawn 45.00000 0.40000 ground 0.0 0
+  set emcon free
+
+unit ar10sam
+  module sa6
+  team hostile
+  spawn 45.04000 0.36000 ground 0.0 0
+  set emcon hold
+  set rounds 3
+
+unit ar10aaa
+  module zsu23
+  team hostile
+  spawn 45.00000 0.30500 ground 0.0 0
+  set emcon hold
+  set rounds 40

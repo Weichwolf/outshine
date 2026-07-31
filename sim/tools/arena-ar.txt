@@ -1,0 +1,22 @@
+# GENERIERT nach derselben Regel wie arena-campaign.txt: jede (mission, team, module)-Gruppe,
+# die ein FlightBox-Modul fliegt UND mindestens ein `objective` deklariert.
+ar-01-headon-noon            friendly  f16
+ar-01-headon-noon            hostile   mig29
+ar-02-headon-night           friendly  f16
+ar-02-headon-night           hostile   mig29
+ar-03-offset-morning         friendly  f16
+ar-03-offset-morning         hostile   mig29
+ar-04-offset-night           friendly  f16
+ar-04-offset-night           hostile   mig29
+ar-05-beam-dawn              friendly  f16
+ar-05-beam-dawn              hostile   mig29
+ar-06-beam-afternoon         friendly  f16
+ar-06-beam-afternoon         hostile   mig29
+ar-07-close-dusk             friendly  f16
+ar-07-close-dusk             hostile   mig29
+ar-08-close-day              friendly  f16
+ar-08-close-day              hostile   mig29
+ar-09-vertical-predawn       friendly  f16
+ar-09-vertical-predawn       hostile   mig29
+ar-10-vertical-evening       friendly  f16
+ar-10-vertical-evening       hostile   mig29
