@@ -4,3 +4,4 @@
 # cells=arena-ar.txt levers=levers-campaign-g5.txt field=variants-arena.txt (15 members)
 ar-08-close-day              friendly  f16   # modal 60.0%, 9 movers
 ar-15-ratio-one-two          friendly  f16   # modal 60.0%, 8 movers
+ar-27-close-blue-high        friendly  f16   # modal 60.0%, 8 movers
