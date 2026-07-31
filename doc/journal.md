@@ -2659,3 +2659,17 @@ zitternde Liste gar nicht erst.
 dem Kanal fällt, den diese Lücke selbst als ihr Maß deklariert hat, auf fünf Missionen, mit einer
 benennbaren Ursache. Offen bleibt: die Hysterese ist unangetastet, und auf `w3-09-saturation` fällt die
 Churn um 66 % ohne dass `flt_dup` sich bewegt.
+
+**Nachtrag `E11`, letzte Verschärfung.** S7 urteilt auf acht Proben; damit ist auch ein „0 von 8" nur
+mäßig belastbar. Die drei entscheidenden Zellen sind deshalb auf dem 0,25-m-Gitter mit **24** Proben
+nachgemessen:
+
+| Zelle | Beweger von 24 | Kipper von 24 |
+|---|---:|---:|
+| `w3-09-saturation:f16` — die einzige, die S2 besteht | 11 | **3 = 12,5 %** |
+| `o5-09-night-two:f16` — trägt die stärkste Kette | 5 | **0 = 0,0 %** |
+| `w3-10-package-q:f16` | 4 | **0 = 0,0 %** |
+
+Beide Robustheits-Urteile halten bei dreifacher Probenzahl, und das chaotische ebenso — 3 von 24 ist
+exakt der Anteil, den 1 von 8 angezeigt hatte. Die Lage der Arena ist damit auf ihren drei
+entscheidenden Zellen mit dreifacher Strenge vermessen, und keines der Urteile hat sich gedreht.
