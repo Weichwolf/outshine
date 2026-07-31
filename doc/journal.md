@@ -2732,3 +2732,29 @@ Spielregel mit dem Urteil des Richters zusammen), Schwierigkeitsstufen mit Refer
 Kampagnen-Carry im Client (jede Sprosse fliegt STANDALONE), `UNIT_RESULT` im Browser (§3.1 (c) liest
 ersatzweise `monitor KO` — strikt strenger, nie großzügiger) und der ganze eigene Halbteil des
 Debriefings (§5.1s Telemetriezeilen: der Browser schreibt keine Telemetriedatei).
+
+## 2026-07-31 — der deklarierte Messplatz: von 0 auf 1 informative Zelle, und die Entwurfsregel trägt
+
+`E11` hatte die vier Eigenschaften gemessen, die eine Zelle informativ machen können — groß, bekämpft,
+für Stufe M sichtbar, robust — und festgestellt, dass die Kampagnenbreite genau **eine** solche Zelle
+hat, wo S5 drei verlangt. Die zehn Kampagnen sind Leitern und bleiben unangetastet; sie zu ändern,
+damit das Tor aufgeht, wäre die Arena nach dem Ergebnis auszuwählen.
+
+Also entsteht der Messplatz getrennt und **deklariert sich als solcher**: zehn `ar-*`-Sprossen, je 8
+eigene Flugzeuge in Vierern gegen 16 Gegner, 32 `mission OBJECTIVE`-Zeilen je Lauf, Tageszeiten von
+00:30 bis 22:00, Determinismus 10 von 10 über `--threads 1/2/4`. Gebaut nach den vier Eigenschaften und
+nach nichts sonst — Robustheit ist **nicht** hineingebaut, sondern wird vom Tor geprüft.
+
+| | Kampagnenbreite | Messplatz |
+|---|---:|---:|
+| Zellen | 154 | 20 |
+| informativ | 1 | **1** |
+| Ausbeute | 0,6 % | **5 %** |
+
+Die eine ist `ar-08-close-day:f16`: **9 Beweger von 24**, S1 mit vier Ergebnisklassen bei 60,0 %
+Modalanteil, S2 bestanden, und **0 Kipper von 8** im Chaos-Schirm. `ar-06-beam-afternoon:f16` steht bei
+8 Bewegern und fällt an S1 mit 66,7 % — knapp. `ar-05-beam-dawn:f16` bei 7 an S2.
+
+**Das Tor verweigert weiter**, denn S5 will drei. Aber die Entwurfsregel ist damit belegt statt vermutet:
+Zellen, die nach den vier gemessenen Eigenschaften gebaut sind, werden benotbar — mit siebenfach höherer
+Ausbeute als die Leitern, die für etwas anderes gebaut wurden.
