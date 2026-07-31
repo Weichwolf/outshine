@@ -59,7 +59,9 @@ void FBF16Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegis
   /* The DED gate: unpublished air data reads as 1 g — a jet with no ADC is not manoeuvring by any
    * measurement this aircraft has. */
   CmdBus_.SetLoadFactor(SharedState.AirData.H.Readable() ? SharedState.AirData.GLoad : 1.0f);
-  Input->Run(Mode, dt);
+  /* Before every box below it: what a hand did this frame must be on the bus by the time the group
+   * that answers it is serviced, exactly like a pilot's post. */
+  Input->Run(Mode, CmdBus_, SimTimeS, dt);
   Propulsion->Run(st, dt);
 
   if (Due(SensorAccS, dt, 10.0)) {
@@ -166,8 +168,17 @@ void FBF16Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegis
    * pre-capture active waypoint. Whether the MISSION concluded from that same capture is a separate,
    * independent judgement the caller owns. */
   if (Due(PilotAccS, dt, 10.0)) {
-    ApplyPilotCommands(PilotSys->Run(SharedState, CmdBus_, *AirframeCtrl, st, Plan_,
-                                     HaveRunway_ ? &Rwy_ : nullptr, dt));
+    /* ONE seat, ONE set of hands: with a human on the stick the AI pilot does not decide alongside him
+     * — it does not run at all, so nothing of it reaches the jet and its own channels freeze where he
+     * took over. What DOES reach the jet is the identical FBPilotCommands the pilot would have
+     * returned, applied by the identical function. doc/player-layer.md §10.1. */
+    if (Input->Engaged()) {
+      if (Input->NeedsSeed())
+        Input->Seed(LastCtl.Thr, AirframeCtrl->GetSpeedbrake(), AirframeCtrl->GetGearPosition() > 0.5);
+      ApplyPilotCommands(HandsToCommands(Input->Stick()));
+    }
+    else ApplyPilotCommands(PilotSys->Run(SharedState, CmdBus_, *AirframeCtrl, st, Plan_,
+                                          HaveRunway_ ? &Rwy_ : nullptr, dt));
     /* Forwarded like the platform block: the writer is one system, it just does not hold the bus. */
     SharedState.Bfm = PilotSys->BfmTrack().Block();
     NavSys->AdvanceWaypoint(Plan_, st.lat, st.lon);
@@ -177,8 +188,8 @@ void FBF16Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegis
   LastSub = 0;
   for (int k = 0; AccS >= Fdm::FBFdm::kStepS && k < 12; k++) {
     LastG = AP->Run(st);
-    Systems::FBControls c = FC->Run(LastG, st);
-    fdm.SetControls(c.Roll, c.Pitch, c.Yaw, c.Thr);
+    LastCtl = FC->Run(LastG, st);
+    fdm.SetControls(LastCtl.Roll, LastCtl.Pitch, LastCtl.Yaw, LastCtl.Thr);
     fdm.Step(st);
     AccS -= Fdm::FBFdm::kStepS;
     LastSub++;
@@ -381,6 +392,22 @@ void FBF16Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &out
       reason = FBCommandReason::OutOfContext;
       return;
   }
+}
+
+/* The human's hands, spelled as the pilot's own output type — so the seat has ONE application path and
+ * a reader can see that the man in it commands nothing the AI could not have commanded. */
+Pilot::FBPilotCommands FBF16Module::HandsToCommands(const Systems::FBStickInput &s) {
+  Pilot::FBPilotCommands c;
+  c.Guidance = Pilot::FBPilotGuidance::Manual;
+  c.ManualRoll = s.Roll;
+  c.ManualPitch = s.Pitch;
+  c.ManualYaw = s.Yaw;
+  c.ManualThr = s.Throttle;
+  c.GearDown = s.GearDown;
+  c.Speedbrake = s.Speedbrake;
+  c.WheelBrakeLeft = s.WheelBrake;
+  c.WheelBrakeRight = s.WheelBrake;
+  return c;
 }
 
 /* Only the fields actually SET — which is what keeps an un-started pilot (Phase::Idle, everything

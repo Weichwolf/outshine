@@ -101,6 +101,7 @@ public:
   void SetMasterMode(FBMasterMode m) { Mode = m; }
 
   FBF16Pilot &PilotSystem() override { return *PilotSys; }   /* covariant: the base returns FBPilot& */
+  Systems::FBInputSystem *HumanInput() override { return Input.get(); }
   Systems::FBAirframeControls &Controls() override { return *AirframeCtrl; }
   Systems::FBAirDataSystem &AirDataSystem() override { return *AirData; }
   Systems::FBWarningSystem &WarningSystem() override { return *Warn_; }
@@ -131,6 +132,7 @@ public:
   const FBDamageLayout &DamageLayout() const override { return FBF16DamageLayout(); }
 
 private:
+  static Pilot::FBPilotCommands HandsToCommands(const Systems::FBStickInput &s);
   void ApplyPilotCommands(const Pilot::FBPilotCommands &c);
   void PublishPlatform(const Fdm::fb_fdm_state &st);
   void PublishAirframe();
@@ -181,6 +183,9 @@ private:
   FBState SharedState{};   /* Sensors WRITE, Displays READ — no display queries a sensor directly */
 
   Systems::FBGuidance LastG{};
+  /* The last FLCS command, kept beside the guidance it came from and for one further reason: it is
+   * what the throttle was doing when a pair of human hands took the jet over (FBInputSystem::Seed). */
+  Systems::FBControls LastCtl{};
   double AccS = 0.0;
   int LastSub = 0;
   double DisplayAccS = 0.0, SensorAccS = 0.0, WeaponAccS = 0.0, DefensiveAccS = 0.0, CommsAccS = 0.0;

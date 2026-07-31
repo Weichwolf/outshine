@@ -19,6 +19,7 @@
 #include "FBFlightControl.h"
 #include "FBFlightPlan.h"
 #include "FBGunSystem.h"
+#include "FBInputSystem.h"
 #include "FBIrstSystem.h"
 #include "FBNavSystem.h"
 #include "FBPilot.h"
@@ -131,6 +132,12 @@ public:
    * the perception boundary is the cheat the whole architecture exists to prevent (doc/sensors.md §9.1). */
   virtual Sensors::FBVisualSystem &Visual() = 0;
   virtual Sensors::FBCountermeasureSystem &Countermeasures() = 0;
+  /* THE SEAT A HUMAN CAN TAKE, and null is the honest default: a missile, a store and a ground battery
+   * have no cockpit, so there is nothing for a pair of hands to hold. A module that HAS one hands out
+   * the slot it already cycles — the human then works the identical bus, latency and rejection
+   * catalogue its own pilot works, because it is the same hardware. doc/player-layer.md §10.2. */
+  virtual Systems::FBInputSystem *HumanInput() { return nullptr; }
+
   /* The client drains these two queues: a released store and a fired burst become part of the world,
    * and only the client may create units (fdm/FBFdmBoot.h) or decide what a round hits. */
   virtual Weapons::FBStoresSystem &Stores() = 0;

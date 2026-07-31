@@ -99,8 +99,9 @@ check against the current commit.
 1. **No TD box, no locked-target symbol.** `doc/modules/f16/hud-symbology.md` knows neither (the radar-adjacent
    entry is the HMC, a different function). A lock therefore lives exclusively in
    `FBState`/telemetry/events. Before any extension the symbology source must genuinely cover it.
-2. **No HOTAS binding.** `FBInputSystem` is the NoOp default; `?ap=manual` exists, a bound stick does
-   not.
+2. **No HOTAS binding beyond a keyboard.** `FBInputSystem` is REAL since the player-control round and
+   `FBF16Module::HumanInput()` hands it out; the browser binds eleven keys to it. No gamepad, and the
+   stick's force-sensor curve is still undecided ([`hotas.md`](hotas.md) §State).
 3. **Further empty/NoOp slots:** `FBPropulsionSystem` (engine logic above the raw FDM) and
    `FBWeaponSystem` (the generic weapons slot; the real effect lives in `FBStoresSystem`/
    `FBGunSystem`).
@@ -240,7 +241,7 @@ future override is hooked in by replacing a slot default with a derivation.
 |---|---|---|
 | Guidance | `systems/FBAutopilot` | **default, unchanged** |
 | Flight control | `systems/FBFlightControl` | **default** with the gain preset `FBFlightControl::F16()` |
-| Input/HOTAS | `systems/FBInputSystem` | default = **NoOp** (no HOTAS binding) |
+| Input/HOTAS | `systems/FBInputSystem` | **default, REAL** — cycled before every box, handed this module's own `FBCommandBus`; `HumanInput()` publishes it, and with it engaged `FBF16Pilot` is not run |
 | Propulsion | `systems/FBPropulsionSystem` | default = **NoOp** |
 | Weapons (generic slot) | `systems/FBWeaponSystem` | default = **NoOp** (weapon effect lives in stores/gun) |
 | Air data | `systems/FBAirDataSystem` | **default, unchanged** |

@@ -5,12 +5,15 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <ctime>
 #include <limits>
 #include <memory>
 #include <string>
 #include <emscripten.h>
+#include <emscripten/html5.h>
 #include "FBRenderer.h"
+#include "FBOrdnance.h"
 #include "FBWorld.h"
 #include "FBCamera.h"
 #include "FBModuleRegistry.h"
@@ -84,6 +87,9 @@ static std::vector<const Units::FBSimUnit *> gRosterUnit;   /* index-parallel: w
  * computed — the same gate the headless runner uses (missions/FBMissionRunner.cpp). */
 static bool gNeedRanges = false;
 static Units::FBSimUnit *gOwnship = nullptr;
+/* WHAT LEAVES THE JET AND WHAT IT DOES — the identical object fb-gym drives (missions/FBOrdnance.h).
+ * Without it the browser could press the pickle and the round would sit in the SMS queue forever. */
+static Missions::FBOrdnance gOrdnance{kWasmModelRoots};
 /* Monotonic sim clock for the monitors' sustain timers: this loop has no discrete 10 Hz mission tick,
  * it integrates whatever the rAF period gives it. */
 static double gSimT = 0.0;
@@ -155,6 +161,82 @@ static void GroundSet(int photo) {
 extern "C" EMSCRIPTEN_KEEPALIVE void fb_toggle_ground(void) { GroundSet(!R.GetGroundMode()); }
 extern "C" EMSCRIPTEN_KEEPALIVE void fb_set_ground(int photo) { GroundSet(photo); }
 
+/* ---- THE HUMAN IN THE SEAT ---------------------------------------------------------------------
+ * The keyboard is bound HERE and reaches exactly one object: the ownship's FBInputSystem slot. It
+ * writes no FDM property, no autopilot setter and no weapon system — the analogue half becomes Manual
+ * guidance through the module's own ApplyPilotCommands, the discrete half becomes an FBCommandBus post
+ * with the AI's latency, occupancy and rejection catalogue. No new extern "C" symbol either: the
+ * callbacks below are registered with emscripten's own HTML5 event API, so the browser calls a static
+ * C++ function by POINTER and nothing has to be exported by name. doc/player-layer.md §10.2. */
+static struct FBHeldKeys {
+  bool NoseUp = false, NoseDown = false, RollL = false, RollR = false;
+  bool YawL = false, YawR = false, ThrUp = false, ThrDn = false;
+  bool Brake = false, Trigger = false;
+} gKeys;
+
+static Systems::FBInputSystem *Hands() {
+  return gOwnship ? gOwnship->Module().HumanInput() : nullptr;
+}
+
+/* A refusal the BUS would never see, because the hands are not on the jet at all — said out loud in the
+ * same channel every other refusal uses, so the player learns the rule rather than pressing into a void. */
+static void NoStick(const char *action) {
+  FBLog::Warn("hotas", "NO_STICK", {{"action", action}, {"hint", "press P to take the stick"}});
+}
+
+static bool HandleKey(const char *k, bool down, bool repeat) {
+  Systems::FBInputSystem *in = Hands();
+  if (!in) return false;
+  auto is = [k](const char *s) { return std::strcmp(k, s) == 0; };
+  auto press = [&](Systems::FBHotasAction a, double v, const char *name) {
+    if (!down || repeat) return true;   /* a switch is a FLANK; auto-repeat is the keyboard's, not a hand's */
+    if (!in->Engaged()) { NoStick(name); return true; }
+    if (!in->Press(a, v)) FBLog::Warn("hotas", "QUEUE_FULL", {{"action", name}});
+    return true;
+  };
+
+  if (is("ArrowUp"))    { gKeys.NoseDown = down; return true; }   /* stick forward = nose down */
+  if (is("ArrowDown"))  { gKeys.NoseUp = down; return true; }
+  if (is("ArrowLeft"))  { gKeys.RollL = down; return true; }
+  if (is("ArrowRight")) { gKeys.RollR = down; return true; }
+  if (is(",") || is("<")) { gKeys.YawL = down; return true; }
+  if (is(".") || is(">")) { gKeys.YawR = down; return true; }
+  if (is("w") || is("W")) { gKeys.ThrUp = down; return true; }
+  if (is("s") || is("S")) { gKeys.ThrDn = down; return true; }
+  if (is("b") || is("B")) { gKeys.Brake = down; return true; }
+  if (is(" ")) {
+    gKeys.Trigger = down;
+    if (down && !repeat && !in->Engaged()) NoStick("gun_trigger");
+    return true;
+  }
+  if (is("Enter")) return press(Systems::FBHotasAction::WeaponRelease, 0.0, "weapon_release");
+  if (is("m") || is("M")) {
+    /* The switch has two positions and the jet knows which one it is in; the key is the THROW. */
+    bool armed = gOwnship && gOwnship->Module().Telemetry().Stores.Arm == FBArmState::Arm;
+    return press(Systems::FBHotasAction::MasterArm, armed ? 0.0 : 1.0, "master_arm");
+  }
+  if (k[0] >= '1' && k[0] <= '9' && k[1] == 0)
+    return press(Systems::FBHotasAction::StationSelect, (double)(k[0] - '0'), "station_select");
+  if (is("g") || is("G")) {
+    if (!down || repeat) return true;
+    if (!in->Engaged()) { NoStick("gear"); return true; }
+    in->SetGearDown(!in->Stick().GearDown);
+    return true;
+  }
+  if (is("p") || is("P")) {
+    if (!down || repeat) return true;
+    if (in->Engaged()) { in->ReleaseStick(); FBLog::Info("hotas", "STICK", {{"state", "released"}}); }
+    else { in->TakeStick(); FBLog::Info("hotas", "STICK", {{"state", "taken"}}); }
+    return true;
+  }
+  return false;
+}
+
+static EM_BOOL OnKey(int type, const EmscriptenKeyboardEvent *e, void *) {
+  if (e->ctrlKey || e->metaKey || e->altKey) return EM_FALSE;
+  return HandleKey(e->key, type == EMSCRIPTEN_EVENT_KEYDOWN, e->repeat != 0) ? EM_TRUE : EM_FALSE;
+}
+
 static void frame(void) {
   double now = emscripten_get_now();
   double dt = LastMs > 0.0 ? (now - LastMs) / 1000.0 : 0.0;
@@ -208,18 +290,35 @@ static void frame(void) {
   /* JSBSim gets the terrain ASL under the aircraft BEFORE stepping, from the same DEM the renderer
    * draws, so gear/contact/crash collide against real terrain. A cold /elev keeps the last good value
    * for BOTH the FDM and the HUD/radar-alt path — they must not disagree about where the ground is. */
-  for (auto &a : gActors) a->UpdateGroundAsl(fb_stream_ground(a->State().lat, a->State().lon));
+  for (auto &a : gActors)
+    if (a->Active()) a->UpdateGroundAsl(fb_stream_ground(a->State().lat, a->State().lon));
   /* The air mass, from the same seam every client uses. Sampled per frame beside the ground for the same
    * reason: one number, one place, before anything integrates. */
   for (auto &a : gActors)
-    a->UpdateWind(gWeather->WindNedMs(a->State().lat, a->State().lon, a->State().elev));
+    if (a->Active()) a->UpdateWind(gWeather->WindNedMs(a->State().lat, a->State().lon, a->State().elev));
+  /* THE HANDS, before the module they belong to is stepped: keys held this frame become an axis
+   * INTENT, and the slot's own ramp turns it into a deflection. Nothing else of the keyboard survives
+   * past this line. */
+  if (Systems::FBInputSystem *in = Hands()) {
+    in->SetAxisIntent((gKeys.RollR ? 1 : 0) - (gKeys.RollL ? 1 : 0),
+                      (gKeys.NoseUp ? 1 : 0) - (gKeys.NoseDown ? 1 : 0),
+                      (gKeys.YawR ? 1 : 0) - (gKeys.YawL ? 1 : 0));
+    in->SetThrottleIntent((gKeys.ThrUp ? 1 : 0) - (gKeys.ThrDn ? 1 : 0));
+    in->SetSpeedbrake(gKeys.Brake ? 1.0 : 0.0);
+    in->SetTrigger(gKeys.Trigger);
+  }
   double gForHud = gOwnship->GroundAslM();
   double cp_b = emscripten_get_now();   /* end: ground/bridges */
 
   /* Every actor in mission order, then the pose barrier — the same snapshot discipline the headless
    * runner uses, so tick order cannot change the outcome. */
-  for (auto &a : gActors) { FBLogUnitScope us(a->LogLabel()); a->Run(dt, &gUnits, &W); }
-  for (auto &a : gActors) a->PublishPose();
+  for (auto &a : gActors) {
+    if (!a->Active()) continue;   /* an impacted store integrates no further (FBSimUnit::Retire) */
+    FBLogUnitScope us(a->LogLabel());
+    a->Run(dt, &gUnits, &W);
+  }
+  for (auto &a : gActors)
+    if (a->Active()) a->PublishPose();
   const Fdm::fb_fdm_state &St = gOwnship->State();
   Systems::FBGuidance g = gOwnship->Module().LastGuidance();
   int nSub = gOwnship->Module().LastSubsteps();
@@ -244,6 +343,7 @@ static void frame(void) {
     }
   FBMissionRoster roster{gRoster.data(), (int)gRoster.size()};
   for (auto &a : gActors) {
+    if (!a->Active()) continue;
     FBLogUnitScope us(a->LogLabel());
     if (gNeedRanges) {
       Units::FBUnitPose self = a->GetPose();
@@ -254,6 +354,13 @@ static void frame(void) {
     }
     a->RunMonitors(gSimT, roster);
   }
+  /* THE SAME THREE PHASES, IN THE SAME ORDER, as the headless runner's tick: fly and resolve what was
+   * already in the air, then let this frame's releases become units, then snapshot the poses the next
+   * closest-approach is measured over. A round is therefore never resolved in the frame it left the
+   * rail — in the browser exactly as in fb-gym. */
+  gOrdnance.Resolve(gActors, gSimT, dt);
+  gOrdnance.Launch(gActors, gUnits, gSimT);
+  gOrdnance.SnapPoses(gActors);
 
   R.SetAgl((float)gOwnship->AglM());   /* the unit's own AGL, so FBRadarAltimeter and the HUD agree */
 
@@ -287,6 +394,16 @@ static void frame(void) {
       FBLog::Info("flight", "home", {{"dist", (double)hs.Platform.HomeDistM}, {"brg", (double)hs.Platform.HomeBearingDeg},
           {"hdg", St.yaw}, {"lon", St.lon}});
       FBLog::Info("pilot", "phase", {{"phase", Pilot::FBPilot::PhaseName(gOwnship->Module().PilotSystem().GetPhase())}});
+      /* THE ARMAMENT PANEL, and every field is a PUBLISHED BLOCK the seat's own boxes wrote — the same
+       * numbers the HUD reads, on the same bus, so the player's panel can show nothing his instruments
+       * do not. Beside the flight line and at the same rate, for the same reason. */
+      Systems::FBInputSystem *in = Hands();
+      FBLog::Info("hotas", "armament",
+          {{"stick", in && in->Engaged() ? "human" : "ai"}, {"arm", hs.Stores.Arm == FBArmState::Arm},
+           {"station", hs.Stores.SelectedStation}, {"loaded", hs.Stores.LoadedCount},
+           {"released", hs.Stores.ReleasedCount}, {"rounds", hs.Gun.RoundsRemaining},
+           {"gunReady", hs.Gun.Ready}, {"hits", gOwnship->Health().Hits()},
+           {"effective", gOwnship->Health().CombatEffective()}});
     } }
   /* Used only in photo mode; SVS pins a constant day. */
   double utc = SimClock.Have ? SimClock.At(gSimT) : (double)(SimUtc ? SimUtc : time(nullptr));
@@ -479,8 +596,21 @@ int main() {
   }
 
   gOwnship = gActors.front().get();
-  gRoster.reserve(gActors.size());
+  /* The exact ceiling once every loadout is applied — one further actor per loaded station and not one
+   * more, the same count FBMissionRunner computes. Everything index-parallel is sized for it here, so
+   * no buffer grows while a frame is holding a reference into it. */
+  size_t maxActors = gActors.size();
+  for (auto &a : gActors) maxActors += (size_t)a->Module().MaxReleases();
+  gActors.reserve(maxActors);
+  gRoster.reserve(maxActors);
+  gRosterUnit.reserve(maxActors);
+  gOrdnance.Reserve(maxActors);
   for (auto &a : gActors) a->PrimeState();   /* one step each to fill state before the first guidance step */
+
+  /* The keyboard, on the WINDOW so a canvas that never took focus still flies. Returning EM_TRUE from
+   * the handler is what keeps the arrow keys from scrolling the page under the cockpit. */
+  emscripten_set_keydown_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, 1, OnKey);
+  emscripten_set_keyup_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, 1, OnKey);
 
   /* HUD nav placeholder: a concrete moving relative bearing, so the guide's "diamond in FOV" and
    * "crossed-out" cases both occur across a run. */

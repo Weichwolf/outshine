@@ -133,10 +133,14 @@ command-block model needs to reproduce *when* a HOTAS input is valid/what it act
 
 ## State
 
-**No HOTAS binding exists.** `FBInputSystem` is still the NoOp default; `?ap=manual` gives a direct stick
-path through the FBW, but nothing is bound to it — the browser client has no bound controller
-([`../flightbox/clients/clients.md`](../../clients/clients.md), stage 5.3: deliberately last,
-"it is only a mapping").
+**A KEYBOARD binding exists; a HOTAS binding does not.** `systems/FBInputSystem` is a real slot since the
+player-control round and the browser binds eleven keys to it (the table in
+[`../../clients/clients.md`](../../clients/clients.md) §Knowledge). What that covers of THIS file is
+four switches — master arm, station select, the pickle and the trigger — plus three axes and the
+throttle. Everything else in the tables below is still unbound, and two things are still absent by
+name: **no gamepad**, and **no control curve** — the axis ramps to full deflection over
+`FBCommandBus::kHotasLatencyS`, which is a hand's own speed, not this jet's force-sensor law. No source
+for that law has been read, so it has not been invented.
 
 What *does* exist is the other half of this file: the **actions** these switches trigger are modelled as
 bus commands, and the autonomous pilot issues them exactly as a hand would.

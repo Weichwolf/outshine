@@ -80,6 +80,9 @@ JSB_HOST     := build/jsbsim-host
 INC_MODULES := -Isrc/core -Isrc/render -Isrc/world -Isrc/units -Isrc/systems -Isrc/sensors -Isrc/weapons -Isrc/pilot -Isrc/modules -Isrc/modules/f16 -Isrc/modules/f16/displays -Isrc/modules/mig29 -Isrc/modules/stores -Isrc/modules/missile -Isrc/modules/ground -Isrc/modules/air
 # The two roots only a CLIENT link line needs: the orchestrator and the I/O sinks it attaches.
 INC_CLIENT := -Isrc/missions -Isrc/clients
+# missions/ IS part of the core library (CLAUDE.md's layer list), so its headers belong on the core-lib
+# compile line; only the two orchestrator TUs (FBMissionRunner/FBTickPool) stay client-side.
+INC_CORELIB := $(INC_MODULES) -Isrc/missions
 INC_WASM   := $(INC_MODULES) -Isrc/fdm -Isrc/world/terrain -I$(JSBSIM)/src
 INC_NATIVE := $(INC_MODULES) -Isrc/fdm -Isrc/world/terrain
 INC_TILES := -I../tiles/src
@@ -115,6 +118,7 @@ CORE_LIB_SRCS := \
   src/systems/FBAutopilot.cpp src/systems/FBFlightControl.cpp src/systems/FBDisplaySystem.cpp \
   src/systems/FBAirDataSystem.cpp src/systems/FBRadarAltimeter.cpp src/systems/FBNavSystem.cpp \
   src/systems/FBAirframeControls.cpp src/systems/FBWarningSystem.cpp src/systems/FBHudGeometry.cpp \
+  src/systems/FBInputSystem.cpp \
   src/sensors/FBDatalinkSystem.cpp src/sensors/FBRadarSystem.cpp \
   src/sensors/FBRwrSystem.cpp src/sensors/FBCountermeasureSystem.cpp \
   src/sensors/FBIrstSystem.cpp src/sensors/FBVisualSystem.cpp \
@@ -145,7 +149,8 @@ CORE_LIB_SRCS := \
   src/modules/missile/FBMissileGuidance.cpp \
   src/modules/missile/FBMissileUplink.cpp \
   src/modules/f16/displays/FBF16Hud.cpp \
-  src/units/FBSimUnit.cpp
+  src/units/FBSimUnit.cpp \
+  src/missions/FBOrdnance.cpp
 
 .PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun test-weather test-mig29 test-air verify-models verify-layers image up down restart clean
 
@@ -166,7 +171,7 @@ wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,w
 	    -include src/fdm/em_compat.h -I$(JSBSIM)/src -Isrc/fdm -Isrc/core -c -o "$$o"; \
 	  for f in $(filter-out src/fdm/FBFdm.cpp,$(CORE_LIB_SRCS)); do \
 	    o=build/obj-wasm/$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/fdm $(INC_MODULES) -Isrc/world/terrain -c -o "$$o"; \
+	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/fdm $(INC_CORELIB) -Isrc/world/terrain -c -o "$$o"; \
 	  done; \
 	  emcc build/obj-wasm/*.o $(JSB_WASM)/src/libJSBSim.a \
 	    src/clients/FBAppWasm.cpp src/clients/FBLogSinks.cpp src/render/FBRenderer.cpp src/world/FBWorld.cpp \
@@ -208,7 +213,7 @@ core-lib:        ## build the FlightBox core library (sim+missions+FDM, no rende
 	    -Isrc/fdm -Isrc/core -isystem $(JSB_HOST)/include/JSBSim -c -o "$$o"; \
 	  for f in $(filter-out src/fdm/FBFdm.cpp,$(CORE_LIB_SRCS)); do \
 	    o=build/obj-core/$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || c++ "$$f" -std=c++17 -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/fdm $(INC_NATIVE) -c -o "$$o"; \
+	    fb_uptodate "$$o" "$$f" || c++ "$$f" -std=c++17 -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/fdm $(INC_CORELIB) -Isrc/world/terrain -c -o "$$o"; \
 	  done; \
 	  ar rcs build/libfbcore.a build/obj-core/*.o; \
 	  echo "core-lib -> build/libfbcore.a ($$(ls build/obj-core/*.o | wc -l | tr -d ' ') objects)"

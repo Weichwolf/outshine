@@ -1,6 +1,6 @@
-/* FlightBox — die noch NoOp gebliebenen Systemslots eines Moduls (Input/HOTAS, Propulsion, Weapons).
- * Slots, deren Default REAL wurde, sind in eigene Dateien herausgewachsen.
- * doc/systems.md, Abschnitt 10. */
+/* FlightBox — die noch NoOp gebliebenen Systemslots eines Moduls (Propulsion, Weapons).
+ * Slots, deren Default REAL wurde, sind in eigene Dateien herausgewachsen — Input/HOTAS zuletzt
+ * (systems/FBInputSystem.h). doc/systems.md, Abschnitt 10. */
 #ifndef FBSYSTEMSLOTS_H
 #define FBSYSTEMSLOTS_H
 
@@ -16,13 +16,6 @@
 namespace FlightBox::World { class FBWorld; }   /* nur geborgt */
 
 namespace FlightBox::Systems {
-
-/* HOTAS (SSC+TQS) + ICP: Stick-/Schalterereignisse nach aktivem Master-Mode geroutet. */
-class FBInputSystem {
-public:
-  virtual ~FBInputSystem() = default;
-  virtual void Run(FBMasterMode mode, double dt) { (void)mode; (void)dt; }
-};
 
 /* Triebwerks-SYSTEM-Logik ueber dem rohen FDM (F110+DEEC, BINGO/JOKER, EPU) — JSBSims Antriebsmodell
  * treibt den Schub bereits, hier legt sich das Management darueber. */

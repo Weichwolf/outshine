@@ -96,6 +96,7 @@ Derivations, formulas and measured constants — the distilled body of this file
 | `units/FBUnitRegistry.h` | "Who exists" — list of borrowed `const FBUnit*`, in declaration order. |
 | `missions/FBMissionRunner.h/.cpp` | The orchestrator (`FBRunMission`) + `FBMissionTickHook` + `FBMissionResult`. |
 | `missions/FBMissionBoot.h` | `FBMissionSpawnActor` (actor from a mission block) and `FBMissionSpawnStore` (actor from the carrier state). Header-only. |
+| `missions/FBOrdnance.h/.cpp` | Everything a released store and a fired burst DO once they have left the jet — the gun pool, the store tracks, closest approach, the fuze, the impact and the four damage resolutions. **The actor list's one growth point.** Three calls per tick in this order: `Resolve` → `Launch` → `SnapPoses`, so a round is never resolved in the tick it was created in. On the core-lib list, because the browser frame loop drives the identical object. |
 | `missions/FBTickPool.h/.cpp` | The GYM-ONLY lockstep worker pool of the STEP phase. |
 | `missions/FBModelRoots.h` | The two JSBSim model roots of a client. |
 | `modules/FBModule.h` | The module interface: wiring, generic system accessors, `ApplySetup`. |

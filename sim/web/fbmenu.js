@@ -9,8 +9,26 @@
 const SAVE_KEY = 'fb.player.save.v1';
 const DEFAULT_MISSION = 'payerne-full';   /* the client's own default: FBAppWasm.cpp kDefaultMissionUrl */
 const PREVIEW =
-  'PREVIEW — the browser flies, renders and is judged, but has no weapon release path, no damage ' +
-  'path and no bound stick (doc/clients/clients.md 5.1–5.3). Combat rungs run to their timeout.';
+  'PLAYABLE — keyboard stick, master arm, station select, pickle and gun trigger all travel the ' +
+  'command bus the AI uses, and a released round flies, hits and damages through the same apparatus ' +
+  'fb-gym drives. Still missing: cockpit displays, lock/TD-box symbology and a campaign carry ' +
+  '(doc/clients/clients.md 5.2/5.4).';
+
+/* The cockpit strip is the same VIEW the debrief is: it reads the run's own log lines and omits.
+ * Every row below resolves to one line the simulation wrote about the seat's own instruments. */
+const CONTROLS = [
+  ['P', 'take / release the stick'], ['↑↓', 'pitch'], ['←→', 'roll'],
+  [', .', 'rudder'], ['W S', 'throttle'], ['B', 'speedbrake'], ['G', 'gear'],
+  ['M', 'master arm'], ['1..9', 'station select'], ['ENTER', 'pickle'], ['SPACE', 'gun'],
+];
+const FEED_TAGS = {
+  'sms RELEASE': 'ok', 'sms RELEASE_REJECTED': 'no', 'sms RELEASE_ENVELOPE': 'no',
+  'sms LAUNCH_OUT_OF_ZONE': 'no', 'gun TRIGGER': 'ok', 'gun BURST_DROPPED': 'no',
+  'gun HIT': 'ok', 'gun DRY': 'no', 'cmd CMD_REJECT': 'no', 'damage SYSTEM': 'no',
+  'damage KILL': 'ok', 'damage DAMAGE': 'ok', 'damage CLUSTER': 'ok', 'stores IMPACT': 'ok',
+  'stores DETONATION': 'ok', 'stores EXPIRED': 'no', 'hotas NO_STICK': 'no',
+  'hotas QUEUE_FULL': 'no', 'hotas STICK': 'ok', 'monitor KO': 'no',
+};
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -151,6 +169,46 @@ async function ScreenMissions(name) {
 
 const Run = { Lines: [], Mission: null, Campaign: '', Step: 0, Attempt: 0, Recorded: false, Booted: false };
 
+/* ---------------- the cockpit strip ----------------
+ * Armament state and what just happened, both read off the run's own log lines and nothing else. The
+ * armament row is the seat's PUBLISHED blocks (`hotas armament`, written from FBState); the feed
+ * quotes the box that spoke. Nothing here is computed, so the strip can show no fact the run lacks. */
+function Cockpit(r) {
+  const arm = $('fb-arm'), feed = $('fb-feed');
+  if (!arm || !feed) return;
+  if (r.Tag === 'hotas' && r.Event === 'armament') {
+    const f = r.F;
+    arm.innerHTML = '';
+    const cell = (k, v, cls) => { const n = el('span', 'fb-c' + (cls ? ' ' + cls : '')); n.appendChild(el('b', 'fb-ck', k)); n.appendChild(document.createTextNode(' ' + v)); arm.appendChild(n); };
+    cell('STICK', f.stick === 'human' ? 'HUMAN' : 'AI', f.stick === 'human' ? 'fb-ok' : '');
+    cell('ARM', f.arm === '1' ? 'ARM' : 'SAFE', f.arm === '1' ? 'fb-ok' : 'fb-no');
+    cell('STA', f.station === '-1' ? '—' : f.station);
+    cell('STORES', f.loaded + (f.released !== '0' ? ' (-' + f.released + ')' : ''));
+    cell('GUN', f.rounds, f.gunReady === '1' ? 'fb-ok' : 'fb-no');
+    cell('HITS', f.hits, f.effective === '1' ? '' : 'fb-no');
+    if (f.effective !== '1') cell('STATE', 'COMBAT INEFFECTIVE', 'fb-no');
+    return;
+  }
+  const cls = FEED_TAGS[r.Tag + ' ' + r.Event];
+  if (!cls) return;
+  const text = r.T.toFixed(1) + '  ' + r.Tag + ' ' + r.Event + '  ' +
+    Object.keys(r.F).filter((k) => k !== 'unit').slice(0, 4).map((k) => k + '=' + r.F[k]).join(' ') +
+    (r.F.unit ? '  [' + r.F.unit + ']' : '');
+  /* A burst writes the same refusal fifty times a second. Collapsing consecutive repeats of one
+   * tag/event OMITS — it never merges two different things and never invents a count. */
+  const top = feed.firstChild;
+  if (top && top.dataset.key === r.Tag + ' ' + r.Event) {
+    top.dataset.n = String((parseInt(top.dataset.n, 10) || 1) + 1);
+    top.textContent = text + '   x' + top.dataset.n;
+    return;
+  }
+  const line = el('div', 'fb-fl ' + (cls === 'no' ? 'fb-no' : 'fb-ok'), text);
+  line.dataset.key = r.Tag + ' ' + r.Event;
+  line.dataset.n = '1';
+  feed.insertBefore(line, feed.firstChild);
+  while (feed.childNodes.length > 9) feed.removeChild(feed.lastChild);
+}
+
 /* Emscripten's stdout, i.e. exactly what the console shows — the two judges write their conclusions
  * there themselves (FBMissionMonitor::Conclude, FBFlightMonitor). Nothing else is intercepted. */
 function CaptureLine(s) {
@@ -159,6 +217,7 @@ function CaptureLine(s) {
   if (!r) return;
   Run.Lines.push(r);
   if (r.Tag === 'gpu' && r.Event === 'world_ready') Run.Booted = true;
+  Cockpit(r);
   const seat = Run.Mission && Run.Mission.Seat ? Run.Mission.Seat.Id : undefined;
   const mine = r.F.unit === undefined || r.F.unit === seat;
   if (!mine) return;
@@ -191,6 +250,7 @@ function ShowDebrief() {
 
   const body = Screen('DEBRIEFING', PREVIEW);
   $('fb-ui').dataset.screen = 'debrief';
+  $('fb-hud').style.display = 'none';
   const verdict = el('div', 'fb-verdict ' + (d.Completion.Completed ? 'fb-ok' : 'fb-no'),
     d.Completion.Judged ? (d.Completion.Completed ? 'MISSION COMPLETED' : 'MISSION NOT COMPLETED')
                         : 'NO VERDICT — the judge had not concluded when the run was left');
@@ -233,7 +293,7 @@ function ShowDebrief() {
   home.onclick = () => { location.search = ''; };
   foot.appendChild(home);
   const keep = el('button', null, 'keep watching');
-  keep.onclick = () => { $('fb-ui').style.display = 'none'; $('fb-ui').dataset.screen = ''; $('fb-bar').style.display = 'flex'; };
+  keep.onclick = () => { $('fb-ui').style.display = 'none'; $('fb-ui').dataset.screen = ''; $('fb-bar').style.display = 'flex'; $('fb-hud').style.display = 'block'; };
   foot.appendChild(keep);
   body.appendChild(foot);
 }
@@ -252,6 +312,22 @@ function StartRun(missionName, campaign, step, manual) {
   const leave = el('button', null, '← menu');
   leave.onclick = () => { location.search = campaign ? '?campaign=' + encodeURIComponent(campaign) : ''; };
   bar.appendChild(leave);
+
+  const hud = $('fb-hud');
+  hud.style.display = 'block';
+  const keys = el('div', 'fb-keys');
+  for (const [k, what] of CONTROLS) {
+    const n = el('span', 'fb-c');
+    n.appendChild(el('b', 'fb-ck', k));
+    n.appendChild(document.createTextNode(' ' + what));
+    keys.appendChild(n);
+  }
+  hud.appendChild(keys);
+  const arm = el('div', 'fb-armrow'); arm.id = 'fb-arm';
+  arm.appendChild(el('span', 'fb-c', 'waiting for the jet…'));
+  hud.appendChild(arm);
+  const feed = el('div', 'fb-feedrow'); feed.id = 'fb-feed';
+  hud.appendChild(feed);
 
   if (campaign) {
     const save = LoadSave();

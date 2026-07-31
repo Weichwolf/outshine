@@ -215,10 +215,19 @@ radar slot powered, so **a bunker and a falling Mk-82 each radiate an `AirborneF
 - **Weapons are invisible in the renderer.** `render/stages/FBUnitsStage` and `FBSpritesStage` are NoOps
   (wired into the encode order but without content) — a missile, a store and a ground target exist
   completely in the simulation and not at all in the picture.
-- **WASM has neither a release nor a damage path.** `clients/FBAppWasm.cpp` drains neither
-  `Stores().TakeRelease()` nor `Guns().TakeBurst()`, holds no `FBGunProjectiles` pool and resolves no
-  burst. The browser client can load and carry a weapon (point mass + drag act), but nothing leaves the
-  jet. The whole chapter 5 apparatus lives in `missions/FBMissionRunner.cpp`.
+- ~~**WASM has neither a release nor a damage path.**~~ **CLOSED in the player-control round.** The whole
+  chapter 5 apparatus moved out of `missions/FBMissionRunner.cpp` into **`missions/FBOrdnance`** and both
+  clients drive the identical object: `Resolve` (fly what is already in the air and resolve what it
+  reached) → `Launch` (this tick's `TakeRelease`/`TakeBurst` become units) → `SnapPoses` (the segment the
+  next closest-approach is measured over). The runner keeps exactly one thing of its own, a telemetry CSV
+  per released store, through the `OnStoreSpawned` hook — the browser has no file system. The move is
+  behaviour-neutral: 12 missions across gun/missile/CCIP/CCRP/cluster/ARM/net/duel, every `events.log`
+  and every `telemetry*.csv` byte-identical, exit codes unchanged.
+- **But the browser's TICK is not the runner's, and weapons made that visible.** One bundle per `Run()`
+  means one bundle per FRAME: 60/s in the browser against 10/s in the runner, so a held trigger reaches
+  `kMaxBundles = 64` in about a second and the log fills with `gun BURST_DROPPED … live=64`. Rounds are
+  conserved (the gun integrates its rate); BUNDLES are not, and a bundle is the unit of hit resolution.
+  Measured, booked as [`clients/clients.md`](clients/clients.md) 5.5, deliberately not worked around.
 - **No strafing.** Gun bursts are only resolved against `Aircraft`, and ground targets declare area/extent
   0. Fixing that would mean: tracking projectiles down to the ground (expressly not done today, via
   `kMaxAgeS`/`kMaxPathM`) AND setting a presented area for ground targets.
@@ -804,8 +813,9 @@ fidelity to the MODEL, not fidelity to reality, and must not be quoted as fideli
 #### 4.3 `FBGunProjectiles` — the pool
 
 `sim/src/core/FBGunProjectiles.{h,cpp}`. Fixed capacity `kMaxBundles = 64` (enough for four continuously
-firing aircraft over the full lifetime of a bundle, with reserve). Owned by the CLIENT, ticked by it, read
-by it. The structural sibling of `core/FBDamageModel`:
+firing aircraft over the full lifetime of a bundle, with reserve — **at the runner's 10 Hz tick; a client
+that ticks faster makes proportionally more bundles and overruns it, measured in the browser at 60 fps**).
+Owned by the CLIENT through `missions/FBOrdnance`, ticked by it, read by it. The structural sibling of `core/FBDamageModel`:
 
 - no module can reach it or construct one — no aircraft flies its own projectiles and none decides what
   they did;

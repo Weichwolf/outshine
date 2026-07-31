@@ -1,6 +1,7 @@
 # The player layer — FlightBox as a playable game
 
-**Status: the first playable layer is BUILT (§11, §State); §§8–10 are not.** The rule this file was
+**Status: the first playable layer is BUILT (§11, §State), and since the player-control round §10 is
+built too — a bound stick, a trigger and a visible damage path. §§8 and 9 are not.** The rule this file was
 written to protect held through the build: it adds no keyword to `.fbm`, no field to `.fbc`, no line to
 any judge and no column to any telemetry file. Three screens in `sim/web/`, one save in `localStorage`,
 and below them exactly one name the client reads (`window.FB_MISSION`).
@@ -356,7 +357,11 @@ It is not reachable from the game client, so there is no switch to get wrong.
 
 ### 7. The expensive part, named honestly
 
-**There is no way to fly FlightBox today.** Not "partially" — no bound input device exists. What is
+> **Superseded in part.** Items 1 and 3 of the table below CLOSED in the player-control round; they are
+> kept with their original wording because the table is the reason the rest of this file is shaped the
+> way it is. What replaced them is §10 and [`clients/clients.md`](clients/clients.md) §Knowledge.
+
+**There was no way to fly FlightBox.** Not "partially" — no bound input device existed. What is
 missing, from the tree's own gap tables, ordered by how hard it blocks a playable combat mission:
 
 | # | Missing | Where it is stated | Blocks |
@@ -604,12 +609,12 @@ on the map and entering it must therefore *lose* information — if it gains any
 *(The interaction precedent the owner names, Armored Fist, is exactly this shape: one map, one seat, and
 the seat sees less than the map. FlightBox's addition is that the map sees less than the world.)*
 
-### 10. The control path — planned, and subordinate
+### 10. The control path — **built**
 
-> The owner: *"Steuerpfad kommt, ist aber erstmal zweitrangig."*
+> The owner: *"Steuerpfad kommt, ist aber erstmal zweitrangig."* — it came.
 
-So it is **not** an open question: a human will fly a unit. It is simply later than everything else, and
-this section exists so the design does not narrow around its absence.
+So it is **not** an open question: a human flies a unit. What §§10.1–10.3 predicted about it is now
+either measured or still open, and each is marked below.
 
 **Two rules that hold the shape open:** the view must be complete without it (§§9.1–9.7 all work on a
 run flown entirely by unit AI), and nothing specified here may assume that the seat is AI-flown. The
@@ -645,12 +650,27 @@ be, and the difference is worth having in writing before anyone builds it:
 
 | Boundary | Carried by | Verdict |
 |---|---|---|
+| *(the three rows marked "discipline today" below were the round's own shopping list; what the build did about each is the table after this one)* | | |
 | **Perception** — he sees only what the blocks hold | the registry is reachable from six files, pinned in `RESTRICTED`, and the gate prints the number | **structural.** A UI reads published state and cannot widen it |
 | **Damage** — he cannot repair himself | `FBSystemHealth` is monotone, all mutators private, exactly one friend; *self-healing does not compile* | **structural** |
 | **Verdict** — he cannot be excused | both judges are outside every module and see no seats | **structural** |
 | **State writing** — he cannot teleport, refuel or re-arm mid-run | `FBFdm`'s loading constructor is private with `FBFdmBoot` as its only friend — **but `FBFdmBoot` is reachable from `clients/`, and the player client IS a client** | **discipline today.** The boot-only usage is a convention, not a compiler error. The cheap gate, named so it is not improvised later: make the boot path refuse after the spawn window, in the shape the other gates take |
 | **Avionics** — his switch actions obey the same latency, the same rejection catalogue, the same 1.5 g DED rule | only if the UI goes through `FBCommandBus`. A UI calling a system setter directly would bypass all three | **discipline today.** Same cheap gate: the setters private, the bus their friend |
 | **Control inputs** — his stick goes through the FLCS like the autopilot's commands | only if the input path writes the same `fcs/*-cmd-norm` seam. Nothing structurally stops a client from touching an FDM property | **discipline today**, and the one most likely to be violated by accident in a hurry |
+
+#### 10.2b What the build actually did about those three — and it is two out of three
+
+| Boundary | State after the round |
+|---|---|
+| **State writing** | **still discipline.** `FBFdmBoot` is still reachable from `clients/` with no boot-window check. The player client does not use it after boot, and nothing forces that. UNCHANGED and still the cheapest gate in the list |
+| **Avionics** | **structural in PRACTICE, not yet in the compiler.** The human's switch actions have no path except `FBCommandBus::Post`: `FBInputSystem` holds a queue of `FBHotasAction` and its only exit is `Post`, and the client never sees `FBStoresSystem` or `FBGunSystem` at all. The SETTERS are still public, so the gate ("setters private, the bus their friend") is still open |
+| **Control inputs** | **structural.** The client cannot reach an FDM property: `FBInputSystem` lives in `systems/`, publishes a plain `FBStickInput`, and the MODULE turns it into the same `FBPilotCommands` the pilot returns. There is exactly one `ApplyPilotCommands`, and both seats go through it. The FDM is touched in one place, `FBF16Module::Run`'s substep loop, as before |
+
+**And one boundary the build discovered rather than inherited:** with a human engaged the AI pilot is
+**not run at all** — not run alongside and overridden, but skipped. Two sets of hands on one stick would
+have been two writers of the same guidance, and whichever ran last would have won silently. The visible
+consequence is that `pilot`'s own telemetry channels FREEZE where the human took over, which is honest:
+that pilot did not decide anything after that moment.
 
 #### 10.3 One thing to build with it, not after it
 
@@ -661,8 +681,23 @@ called from `FBPilot::Run`. A human seat calls none of them, so §5.1's engageme
 (*"`FBPilot::Run` decides, this class records"*), so feeding it from the human's own actions is the
 natural fix — and it belongs in the same round as the control path, not a round later.
 
+**NOT built, and it is exactly where §10.3 said it would hurt:** `pilot/FBEngagement`'s `Note*` methods
+are still called only from `FBPilot::Run`, and `FBPilot::Run` does not run for a human seat. So the
+`eng_*` block is empty for precisely the seat the player cares about — the gap is unchanged in size and
+is now REACHABLE, which it was not before.
+
 Determinism ends at the stick and only there: a played run has no fingerprint (§4.3), while the same
 mission flown by AI stays bit-reproducible. That is what keeps the measuring half intact.
+
+**Except that in the browser it does not — measured, and booked as
+[`clients/clients.md`](clients/clients.md) 5.5.** The browser paces its tick by rAF and the runner by a
+fixed 0.1 s, and once weapons existed in the browser that difference became a different RESULT out of
+the same file: on `cbu87-footprint` the AI's CCIP release executes at `aimMissM = 122.7 m` in Chrome
+against `22.5 m` in fb-gym, and the run ends SUCCESS-without-a-kill where the gym kills two. A held gun
+trigger fills `FBGunProjectiles`' 64-bundle pool in about a second, because the gun slot is unthrottled
+by design and therefore emits one bundle per FRAME. This is principle 4's own case and it is a bug; it
+is named here rather than worked around, because the fix is a fixed browser tick and that moves the
+camera to 10 Hz — its own round.
 
 ### 11. The built preview — the six decisions this round takes, and each is a narrowing
 
@@ -700,7 +735,10 @@ Spec's §§1–5 reading half, §6's screens and §4.2's ladder exist; §§8–1
 | provenance keys (§1 check 2) | **built and structural** | a debrief row's source is a CONSTRUCTOR ARGUMENT (`FBRow(src, …)` throws without it) and lands in the DOM as `data-src`; the objective table is asserted equal to the seat's `mission OBJECTIVE` lines — no set grows |
 | which mission the browser flies | **built** (`window.FB_MISSION`, sanitised to `[A-Za-z0-9._-]`) | `gpu mission_boot name=intercept-aim120-1` from the menu's own click |
 | the mission buffer | **fixed**: 8 KB → 64 KB, and a full buffer is now REFUSED | `fb_fetch_text` truncates silently; the largest mission is 26,490 B (`o1-10-mole-cricket.fbm`), so 6 of the tree's missions were being cut — and a cut at a line boundary parses into a SMALLER CAST, i.e. a run against a file nobody wrote |
-| everything in §§8, 9, 10 (selection, map, commanding, control path) | **not built** | this file |
+| **§10, the control path** | **built** | `systems/FBInputSystem` (the slot that was NoOp), `FBModule::HumanInput()` (null for every module without a cockpit), `FBF16Module`'s one-branch seat, `missions/FBOrdnance` (the shared release/gun/damage apparatus) and the keyboard in `clients/FBAppWasm.cpp`. Browser proof below |
+| **the browser proof of §10** | **measured in Chrome for Testing, `?mission=attack-ccip`** | one run: `hotas STICK state=taken` (t=12.8) → `gun TRIGGER burstS=0.6 rounds=510` + `CMD_ACK gun_trigger accepted` (t=15.1, three squeezes for one held key, 510 → 378 rounds) → `sms RELEASE station=3 store=mk82` + `CMD_ACK weapon_release accepted` (t=18.6) → **`cmd CMD_REJECT seq=6 target=weapon_release reason=channel_busy`** (t=18.9, the bus refusing the human) → `sms RELEASE_REJECTED reason=hardware_precedence detail="master arm not in ARM"` + `CMD_ACK rejected` (t=24.1) → `CMD_ACK gun_trigger rejected reason=hardware_precedence` (t=25.3) → `stores IMPACT tofS=10.17` (t=29.4) |
+| **the damage path in the browser** | **measured, hands off** | same file, nothing pressed: `sms RELEASE` → `stores SEPARATION` → `stores IMPACT` → `damage DAMAGE unit=bunker zone=center rangeM=53.8 fluxJm2=1962.7 warheadKg=87 degraded=4 hits=1` → `damage SYSTEM unit=bunker system=structure state=degraded`. `FBDamageModel` and `FBSystemHealth` both act in the browser and both are on the player's screen |
+| §§8, 9 (selection, map, commanding) | **not built** | this file |
 
 ## Gaps
 
@@ -734,7 +772,9 @@ Spec's §§1–5 reading half, §6's screens and §4.2's ladder exist; §§8–1
 | **The debrief is JUDGE-ONLY: none of §5.1's own-ship rows exist** | time airborne, fuel, max g, the releases, the `eng_*` engagement block, the zone dwell — all of them are TELEMETRY COLUMNS, and the browser writes no telemetry file (`FBTelemetryBus` has no sink in `FBAppWasm.cpp`). The layer refuses to re-derive them from anything else, so those rows are simply absent rather than approximated. The cheapest close is an in-memory telemetry sink in the client, and it is the natural companion of the `UNIT_RESULT` line above |
 | **The log LINE FORMAT is now an interface** | the layer parses `t=… LEVEL tag event k=v` out of `Module.print`. A change to `FBStdoutLogSink`'s spelling silently costs the debrief its input. It fails LOUDLY rather than wrongly — an unparsed line yields "no verdict", never a wrong verdict — but a format change is now a two-place edit |
 | **Unlock is one VERDICT, not one COMPLETION (B4)** | a deliberate `[SET]` relaxation of §4.2 for one measured reason: with no release path in the browser every combat rung ends with its `kill` objective `unmet`, so unlock-on-COMPLETED would lock the ladder at rung 1 for 10 of 11 campaigns. The save keeps `verdicts` and `completed` apart, so tightening it back is one predicate |
-| **Most rungs cannot be COMPLETED in the browser at all** | §7.1 again, now as a player-visible fact: the seat carries missiles, presses, and nothing leaves the jet. Every rung whose seat declares `kill` runs to its timeout. The preview says so on every screen instead of hiding it |
+| ~~**Most rungs cannot be COMPLETED in the browser at all**~~ | **half closed.** Something now leaves the jet, and a released round flies, fuzes, impacts and damages through the same apparatus fb-gym drives. What is still in the way is not the release path but the browser's TICK: on a measuring rig calibrated against the runner's fixed 0.1 s the browser's release lands ~100 m short ([`clients/clients.md`](clients/clients.md) 5.5), so an attack rung can end without its kill for a reason that has nothing to do with how it was flown. The preview banner says PLAYABLE now and names what is still missing |
+| **The armament panel is not a cockpit display** | the strip at the bottom of the screen shows arm state, selected station, stores carried/released, rounds, hits and combat-effectiveness — all of it off the seat's OWN published blocks, carried by one 1 Hz `hotas armament` log line, and all of it a subset of what the HUD already reads. It is not an MFD and does not pretend to be ([`clients/clients.md`](clients/clients.md) 5.2) |
+| **The event feed is a LOG READER, so its selection is a hand-kept list** | `FEED_TAGS` in `web/fbmenu.js` names the twenty `tag event` pairs worth showing. A new refusal spelled by a new box is invisible until it is added there — the same two-place edit the log-format gap below already books, one level finer |
 | **The save is per browser origin and is exported only by eye** | the campaign-select screen prints the canonical save text (diffable, one fact per line) and offers a reset; there is no import, and no file. That is enough to inspect and to reproduce, and nothing else reads it |
 
 ### From the specification

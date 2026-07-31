@@ -43,7 +43,8 @@ airframe controls. Sensors, pilot and weapons slots are documented in their own 
 | `FBAirDataSystem`, `FBRadarAltimeter`, `FBNavSystem`, `FBWarningSystem` | built | `071ea2b` |
 | `FBDisplaySystem` (generic MIL-STD-1787-like HUD) | built | `4cb92e8` |
 | `FBAirframeControls` + `FBJsbsimAirframeControls` | built | `681c5f8` |
-| `FBInputSystem`, `FBPropulsionSystem`, `FBWeaponSystem` | NoOp defaults | — |
+| `FBInputSystem` (the HUMAN'S HANDS: axes with a ramp + a queue of switch throws that leave only as `FBCommandBus::Post`) | **built** | player-control round |
+| `FBPropulsionSystem`, `FBWeaponSystem` | NoOp defaults | — |
 
 ## Gaps
 
@@ -136,12 +137,12 @@ In `systems/` that concretely means:
 | Navigation | `systems/FBNavSystem.h/.cpp` | REAL | `Run(FBState&, const fb_fdm_state&, dt)` | 1 steerpoint + bullseye |
 | Displays | `systems/FBDisplaySystem.h/.cpp` | REAL | `BuildHud()` (+ `Run()`) | generic HUD |
 | Airframe controls | `systems/FBAirframeControls.h/.cpp` | NoOp + real derivation | every virtual method | full (`FBJsbsimAirframeControls`) |
-| Input/HOTAS | `systems/FBSystemSlots.h` (`FBInputSystem`) | NoOp | `Run(FBMasterMode, dt)` | empty |
+| Input/HOTAS | `systems/FBInputSystem.h/.cpp` | REAL | `Run(FBMasterMode, FBCommandBus&, nowS, dt)` | keyboard stick + 3 switch actions + the held trigger |
 | Propulsion | `systems/FBSystemSlots.h` (`FBPropulsionSystem`) | NoOp | `Run(const fb_fdm_state&, dt)` | empty |
 | Weapons (legacy stub) | `systems/FBSystemSlots.h` (`FBWeaponSystem`) | NoOp | `Run(FBMasterMode, const FBWorld*, dt)` | vestigial, see Gaps |
 
 **What has GROWN OUT of `FBSystemSlots.h`** — because its default became REAL instead of NoOp, it got a
-file of its own: Displays (`FBDisplaySystem.h`), Comms/datalink (`FBDatalinkSystem.h`), Sensors
+file of its own: Input/HOTAS (`FBInputSystem.h`), Displays (`FBDisplaySystem.h`), Comms/datalink (`FBDatalinkSystem.h`), Sensors
 (`FBRadarSystem.h`), Defensive (`FBRwrSystem.h` + `FBCountermeasureSystem.h`), Stores
 (`FBStoresSystem.h`), Gun (`FBGunSystem.h`). That is why `FBSystemSlots.h` contains neither an
 `FBCommsSystem` nor an `FBSensorSystem` stub.
@@ -956,12 +957,32 @@ module and called at its rate — its `Run()` is empty.
 
 | Class | Signature | What belongs in it |
 |---|---|---|
-| `FBInputSystem` | `Run(FBMasterMode mode, double dt)` | HOTAS (SSC+TQS) + ICP: routes stick/switch events according to the active master mode. **Input routing is module authority, not global.** NoOp until a module binds real input. |
 | `FBPropulsionSystem` | `Run(const fb_fdm_state &s, double dt)` | engine SYSTEM logic ABOVE the raw FDM (F110+DEEC state, BINGO/JOKER calls, EPU). **JSBSim's own propulsion model already drives the thrust** — engine management layers on top of it here. |
 | `FBWeaponSystem` | `Run(FBMasterMode, const FBWorld*, double dt)` | historical stub for SMS/CCIP/CCRP/gun; **superseded** by `FBStoresSystem`/`FBGunSystem` (see Gaps) |
 
 **Cost:** a NoOp slot that is not due costs one throttle comparison, one that is due costs an empty
 virtual call. No heap allocation per frame, no dispatch in the inner 100 Hz maths.
+
+### 10.1 `FBInputSystem` — the slot that stopped being NoOp
+
+Two halves, and the split IS the class: the ANALOGUE half (stick, throttle, speedbrake, gear) leaves as
+a plain `FBStickInput` the MODULE turns into the same `FBPilotCommands{Manual}` its pilot returns; the
+DISCRETE half (master arm, station select, pickle, trigger) leaves ONLY as `FBCommandBus::Post`. There
+is no third exit, which is what makes "a human gets no right the AI does not have" a property of the
+code rather than a promise.
+
+| Thing | Value | Where it comes from |
+|---|---|---|
+| `kAxisRampS` — centre to full deflection | `FBCommandBus::kHotasLatencyS` = 0.5 s | REUSED, not invented: it is the tree's one figure for how long a HOTAS action takes. A key is a switch and a stick is not; without a ramp every input is a jump to the stop. It is NOT the F-16's force-sensor law — that decision does not exist yet (`doc/modules/f16/hotas.md`) |
+| `kTriggerRepeatS` — squeeze length, and the floor on the repeat | `kHotasLatencyS + kTriggerLatencyS` = 0.6 s | a held trigger is the same action repeated. This covers the window BEFORE the first completion, where the bus's own occupancy rule is still silent — without it one keypress filled the 8-slot queue (measured) |
+| when the next squeeze is allowed | `FBCommandBus::SwitchReady()` | the window runs from the COMPLETION, and how late that falls is the answering box's cadence. Computing it earned one `ChannelBusy` per repeat (measured); asking costs one const call |
+| the ONE virtual | `Route(FBHotasAction, FBMasterMode) -> FBCommandTarget` | input routing is module authority, not global. The default ignores the master mode deliberately: on this airframe the pickle is the pickle in every mode, and whether it ACHIEVES anything is the answering box's `OutOfContext` |
+
+The seat is `TakeStick()` / `ReleaseStick()`, and taking it is a HANDOVER rather than a flag: the module
+SEEDS the slot from the airframe it is taking over (throttle from the last FLCS command, speedbrake and
+gear from `FBAirframeControls`), because a seat booting on defaults would put the gear down at altitude.
+Until somebody takes it the slot does nothing at all, so a module that composes it and is flown by its
+own pilot is bit-identical to one that never had it — measured over 12 missions, 0 differing artefacts.
 
 **The borrowed `const FBWorld*`** is already in the signature although nobody reads it: sensors/weapons/
 defensive get the world read-only per tick. A weapon system that spawns real ordnance would need a

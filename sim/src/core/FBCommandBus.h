@@ -53,6 +53,13 @@ public:
     return Post(FBCommandTarget::RadarSlewEl, el.Deg(), nowS);
   }
 
+  /* IS THIS SWITCH FREE AGAIN — the OCCUPANCY rule above, asked instead of guessed. A hand that keeps
+   * a switch held has to know when it may throw it again, and the window is not derivable from the
+   * outside: it runs kHotasLatencyS from the COMPLETION, and how long a completion takes is the owning
+   * system's cadence. Guessing it costs one ChannelBusy rejection per repeat — a real refusal, but of a
+   * command nobody meant to send. Changes no outcome: Post() applies the identical test. */
+  bool SwitchReady(FBCommandTarget target, double nowS) const { return !SameSwitchBusy(target, nowS); }
+
   /* The module's side: hand out the next command of `group` whose latency has elapsed. Returns false
    * when there is nothing due. */
   bool TakeDue(FBCommandGroup group, double nowS, FBAvionicsCommand &out);

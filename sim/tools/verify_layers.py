@@ -111,6 +111,10 @@ REGISTRY_OWNERS = (
     "missions/FBMissionRunner.h",
     "missions/FBMissionRunner.cpp",
     "missions/FBMissionBoot.h",
+    # The owner's ordnance book: a released store BECOMES a unit, so the thing that creates it is the
+    # thing that must enter it in the registry. It reads nothing out of it -- Register() is the only
+    # member it names -- which is exactly what separates this list from PERCEPTION_READERS above.
+    "missions/FBOrdnance.cpp",
     "clients/FBAppWasm.cpp",
 )
 

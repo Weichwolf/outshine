@@ -2769,3 +2769,51 @@ dasselbe Zusammenspiel von Konstante und Feldgröße, das als **D11** gebucht is
 gegen ein Feld von sechs geeicht, und keine Konstante im Tor weiß, wie groß ihr Feld ist. Ein
 Bestehen auf der Schranke ist kein Bestehen mit Reserve, und es wird hier so genannt statt in einer
 Fußnote zu verschwinden.
+
+## 2026-07-31 — Der Spieler bekommt Hände: gebundener Knüppel, Auslöser am selben Bus, sichtbarer Schaden
+
+`doc/player-layer.md` §10 ist gebaut. Der Browser fliegt nicht mehr nur zu, er wird **geflogen** — und
+zwar über exakt die Wege, die die KI benutzt. Drei Stücke:
+
+**1. `systems/FBInputSystem` ist kein NoOp mehr.** Der Slot, den `FBSystemSlots.h` seit Anfang als
+Platzhalter führte, ist eine echte Klasse mit zwei Hälften, und die Trennung IST die Klasse: die
+**analoge** (Stick, Schub, Bremsklappe, Fahrwerk) verlässt sie als schlichtes `FBStickInput`, das *das
+Modul* in dieselben `FBPilotCommands{Manual}` übersetzt, die sein Pilot zurückgibt — eine einzige
+`ApplyPilotCommands`, zwei Sitzinsassen. Die **diskrete** (Master Arm, Stationswahl, Pickle, Abzug)
+verlässt sie **ausschließlich** als `FBCommandBus::Post`. Es gibt keinen dritten Ausgang, und deshalb
+ist „der Mensch bekommt kein Recht, das die KI nicht hat" hier eine Eigenschaft des Codes und kein
+Versprechen. `FBModule::HumanInput()` reicht den Slot heraus und ist **null** für jedes Modul ohne
+Cockpit — eine Rakete, ein Store und eine Bodenstellung haben nichts, was eine Hand halten könnte.
+Sitzt ein Mensch drin, läuft der KI-Pilot **gar nicht** (nicht daneben und überschrieben): zwei Hände
+an einem Knüppel wären zwei Schreiber derselben Guidance gewesen.
+
+**2. `missions/FBOrdnance` — ein Apparat, zwei Besitzer.** Alles, was eine abgeworfene Waffe und ein
+Feuerstoß TUN, nachdem sie den Jet verlassen haben, lag in `FBMissionRunner.cpp` und liegt jetzt in
+einer Klasse, die der Runner und die Browser-Schleife identisch fahren: `Resolve` → `Launch` →
+`SnapPoses`, in dieser Reihenfolge, weil die Reihenfolge die Semantik ist. Der Runner behält genau eine
+eigene Sache, die Telemetrie-CSV je Store, über einen Haken. **Reiner Umzug, gemessen:** 12 Missionen
+über Kanone/Lenkflugkörper/CCIP/CCRP/Cluster/ARM/Netz/Duell, jede `events.log` und jede
+`telemetry*.csv` **bytegleich**, Exit-Codes unverändert.
+
+**3. Gemessen im echten Browser** (Chrome for Testing über CDP, `?mission=attack-ccip`), ein Lauf:
+`hotas STICK state=taken` → `gun TRIGGER burstS=0.6 rounds=510` → `sms RELEASE station=3 store=mk82` →
+**`cmd CMD_REJECT seq=6 target=weapon_release reason=channel_busy`** — der Bus lehnt den Menschen ab wie
+jeden anderen — → `sms RELEASE_REJECTED reason=hardware_precedence detail="master arm not in ARM"` →
+`CMD_ACK gun_trigger outcome=rejected reason=hardware_precedence` → `stores IMPACT tofS=10.17`. Und
+ohne eine einzige Taste: `damage DAMAGE unit=bunker zone=center fluxJm2=1962.7` + `damage SYSTEM
+system=structure state=degraded`. `FBDamageModel` und `FBSystemHealth` wirken im Browser und stehen auf
+dem Schirm des Spielers.
+
+**Und der Fund, der nicht weggeräumt wurde.** Sobald Waffen im Browser existieren, wird sichtbar, dass
+seine Schleife **rAF-getaktet** ist und die des Runners **fix 0,1 s** — und dass daraus aus derselben
+Datei ein anderes Ergebnis wird. `cbu87-footprint`: der CCIP-Abwurf löst im Browser bei `aimMissM =
+122,7 m` aus, in fb-gym bei `22,5 m`; die Kassette landet ~100 m kurz, beide Ziele liegen außerhalb des
+400 × 200 m-Fußabdrucks, der Lauf endet SUCCESS **ohne** die zwei Abschüsse, die das Gym erzielt. Ein
+gehaltener Abzug füllt `FBGunProjectiles`' 64 Bündel in etwa einer Sekunde, weil der Kanonen-Slot je
+`Run()` ein Bündel erzeugt — also je FRAME, 60/s gegen 10/s. Das ist **Prinzip 4s eigener Fall**
+(„gibt das Tempo das Ergebnis … ein Bug") und wird als `doc/clients/clients.md` 5.5 gebucht statt
+umgangen: ein fester 0,1-s-Takt im Browser setzt die Kamera auf 10 Hz und ist eine eigene Runde.
+
+Offen und benannt: kein Gamepad, keine Stick-Kraftkennlinie (die Rampe ist `kHotasLatencyS`, also die
+Geschwindigkeit einer Hand, nicht das Gesetz dieser Zelle), `eng_*` bleibt für einen handgeflogenen
+Sitz leer, und `FBFdmBoot` ist weiter Disziplin statt Compiler.

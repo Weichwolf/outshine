@@ -45,6 +45,8 @@ Nothing about the physics or the verdict may depend on which client is running.
 | Contract | Acceptance / measurement anchor |
 |---|---|
 | Same source list, other toolchain (emcc/wasm32) — cross-compile, not a second architecture | `make -C sim wasm` builds gpu.js/gpu.wasm **and** the tile worker |
+| **A human in the seat gets no right the AI does not have** | his stick reaches the FLCS only as `FBPilotGuidance::Manual` through the module's own `ApplyPilotCommands`, and EVERY switch action of his exists only as an `FBCommandBus::Post` — same latency class, same occupancy rule, same rejection catalogue. Acceptance: a browser run shows `CMD_REJECT`/`CMD_ACK outcome=rejected` against the human exactly as against a pilot, and the set of state writers is unchanged (`FBFdmBoot` only) |
+| **What leaves the jet is resolved by ONE apparatus, not by a client's copy of one** | `missions/FBOrdnance` is on the core-lib source list and both the runner and the browser call the same three per-tick methods. Acceptance: moving it out of `FBMissionRunner.cpp` changed no artefact byte |
 | Single-threaded sim loop by design | real time needs no parallel physics, and the browser is spared the pthreads/SharedArrayBuffer build |
 | Model and mission data travel in Emscripten's virtual FS | one embedded model root, one build-copied mission directory (never a hand-kept second copy) |
 | The frame loop must mirror the runner's phase order | elevation before STEP, publish barrier, monitors, roster |
@@ -56,7 +58,9 @@ Nothing about the physics or the verdict may depend on which client is running.
 |---|---|---|
 | `fb-gym` | **built and load-bearing.** All 85 missions, all seven harnesses and the tournament runner drive it. Threading proven deterministic. | `705c90a`, `6d7ed5a` |
 | `gpu_native` | **built.** Terrain + HUD frames; last proof `gpu_native --mission payerne-takeoff --interval 20` → 28 PNGs. | `c9206eb`…`2099cb0` |
-| wasm | **built, but partial.** Flies, renders, trims (`trimConverged=1` from the embedded `/fb/aircraft`); no weapon release path, no damage path, no cockpit displays, no bound HOTAS. | `705c90a` + model-root round |
+| wasm | **built, and now playable.** Flies, renders, trims (`trimConverged=1` from the embedded `/fb/aircraft`), and since the player-control round: a bound keyboard stick, master arm / station select / pickle / gun trigger over `FBCommandBus`, and the full release + damage apparatus (`missions/FBOrdnance`) the runner drives. Still missing: cockpit displays and lock/TD-box symbology. | `705c90a` + model-root round + this round |
+| wasm: the human in the seat (`5.1`, `5.3`) | **built.** `systems/FBInputSystem` is a REAL slot; `FBModule::HumanInput()` hands it out and is null for every module without a cockpit. The analogue half becomes `FBPilotGuidance::Manual` through the module's own `ApplyPilotCommands`; the discrete half exists ONLY as `FBCommandBus::Post`. With a human engaged the AI pilot is not run at all. | measured in Chrome: `hotas STICK state=taken` → `gun TRIGGER burstS=0.6 rounds=510` → `sms RELEASE station=3 store=mk82` → `stores IMPACT tofS=10.17` → `damage DAMAGE unit=bunker` (§Knowledge, browser proof) |
+| wasm: the ordnance world (`5.1`) | **built and SHARED.** The store/gun apparatus moved out of `FBMissionRunner.cpp` into `missions/FBOrdnance` — three calls per tick (`Resolve` → `Launch` → `SnapPoses`), driven identically by the runner and the browser frame loop. The runner keeps ONE thing of its own: opening a telemetry CSV per released store, through `OnStoreSpawned`. | pure move: **31 missions** (12 chosen for weapon coverage — gun/missile/CCIP/CCRP/cluster/ARM/net/duel — plus 19 of a stratified every-4th-file sweep, incl. the 8-ship `ar-*` arena rungs), **368 artefacts** (`events.log` + every `telemetry*.csv`) **byte-identical** to the pre-move binary, 0 exit-code differences |
 | wasm: WHICH mission it flies | **selectable.** `window.FB_MISSION` (or `?mission=`), sanitised to a filename and resolved against the build-copied `web/missions/`; absent = `payerne-full` as before. The mission buffer went 8 KB → 64 KB and a FULL buffer is now refused, because `fb_fetch_text` truncates silently and a mission cut at a line boundary parses into a smaller cast | the player layer's only reach into the client, [`../player-layer.md`](../player-layer.md) §11 B6 |
 | the mission clock (`C2`) | **built in all three.** `missions/FBClockBoot.h` decides, `core/FBEphemeris.h` computes, `FBEnvironmentBlock` carries it. The 84 pre-round missions are byte-identical; the flag collision is a boot error with a printed reason | `26dd3f2` |
 | the campaign layer (`C0`) | **built in the gym only, by decision.** `fb-gym --campaign` loops `FBRunMission`; the 104 missions run singly stay byte-identical, 9 campaign runs give 1 fingerprint and every step replays standalone, under `swiss` as well as `const` | this round |
@@ -67,9 +71,12 @@ Nothing about the physics or the verdict may depend on which client is running.
 
 | # | Client | Thing |
 |---|---|---|
-| 5.1 | wasm | **No release and no damage path.** `FBAppWasm.cpp` drains neither `Stores().TakeRelease()` nor `Guns().TakeBurst()`, holds no `FBGunProjectiles` pool and resolves no burst. The browser can carry a weapon (point mass + drag act) but nothing leaves the jet. The whole apparatus lives in `missions/FBMissionRunner.cpp`. |
-| 5.2 | wasm | Cockpit displays: the values are on the bus, the presentation is missing entirely. |
-| 5.3 | wasm | HOTAS binding — deliberately last, it is only a mapping. `FBInputSystem` is NoOp. |
+| ~~5.1~~ | wasm | **CLOSED this round.** The apparatus is `missions/FBOrdnance` and both clients drive it. |
+| 5.2 | wasm | Cockpit displays: the values are on the bus, the presentation is missing entirely. The player strip in `web/index.html` shows the ARMAMENT half only (arm state, selected station, stores, rounds, hits) and reads it off the seat's own published blocks through one 1 Hz `hotas armament` log line — it is not an MFD. |
+| ~~5.3~~ | wasm | **CLOSED this round** for the keyboard. A gamepad is still unbound, and the CONTROL CURVE is still undecided (below). |
+| **5.5** | wasm | **The browser's frame-paced tick makes a different run out of the same file, and weapons made it visible.** The runner steps a fixed `dt = 0.1 s`; the browser steps whatever rAF gives it (~0.0167 s at 60 fps, clamped at 0.1). Three measurements, same binaries, same missions: (a) `cbu87-footprint` — the pilot's CCIP release executes at `aimMissM = 122.7 m` in the browser against `22.5 m` in the gym, so the canister lands ~100 m short, both targets sit outside the 400 × 200 m footprint and the run ends SUCCESS-without-a-kill where the gym kills two; (b) a held gun trigger produces `gun BURST_DROPPED … live=64` after ~1 s, because `FBF16Module` runs the gun ONCE PER `Run()` by design ("its output is a round count INTEGRATED over time") — which conserves ROUNDS but makes the number of BUNDLES equal to the FRAME RATE, 60/s against the runner's 10/s, and `FBGunProjectiles::kMaxBundles` is 64; (c) `gun-bfm` flies 520 s of browser sim with zero bursts where the gym's first hits fall at `t = 62.8 s` (confounded: the browser flew the real DEM at 1813–2059 m ground, the gym `--elev const` at 430 m, so the BFM floor is not the same problem). **This is principle 4's own case** — "gibt das Tempo das Ergebnis, ist die Kopplung nicht-deterministisch — ein Bug". Two candidate mechanisms, both UNVERIFIED: the outer `dt` itself, and `FBF16Module::Due`, which subtracts ONE period per call and therefore runs a 20 Hz slot at 10 Hz under `dt = 0.1` and at its true rate under `dt = 0.0167`. Not touched here by decision: a fixed 0.1 s browser tick moves the camera to 10 Hz and is its own round with its own acceptance. |
+| **5.6** | wasm | **No control curve** (`doc/player-layer.md` §7 3b, unchanged). A key is a switch, so `FBInputSystem` ramps the axis to full deflection over `kAxisRampS`, and that constant is `FBCommandBus::kHotasLatencyS` — reused, not invented, because it is the tree's one measure of how long a HOTAS action takes. It is NOT the F-16's force-sensor law, and no source for one has been read. |
+| **5.7** | wasm | **The keyboard is bound to the WINDOW for the whole session**, so the arrow keys do not scroll the debriefing either. The handler consumes only the keys it uses and returns `EM_FALSE` for everything else. |
 | 5.4 | wasm/native | No lock / TD-box HUD symbology, because `doc/modules/f16/hud-symbology.md` documents none. It will not be invented — see [`../render/hud.md`](../render/hud.md). |
 
 ### Open work (from the retired `TODO.md` §4.2)
@@ -100,6 +107,21 @@ visual acquisition) is a `sensors/` gap, not a client one.
 | Threading measurements (2 units 1.29–1.41× at 2 threads; 4 units up to 1.77× at 4 threads; the ceiling is the machine) | [`../missions/runtime.md`](../missions/runtime.md) |
 | `missions/FBTickPool` is gym-only, not part of the core lib, never reaches the WASM build | [`../architecture.md`](../architecture.md) |
 | Host operation: podman VM, `tiles/up.sh` (:8081), `sim/up.sh` (:8080, mounts `sim/web` live) | [`../build-and-ops.md`](../build-and-ops.md) |
+
+### The human in the seat — what is bound, and where each half goes
+
+| Key | Half | Where it lands |
+|---|---|---|
+| `P` | seat | `FBInputSystem::TakeStick()` / `ReleaseStick()`. Taking it SEEDS the slot from the airframe (throttle from the last FLCS command, speedbrake and gear from `FBAirframeControls`) — a seat booting on defaults would put the gear down at altitude |
+| `↑ ↓` `← →` `, .` | analogue | axis INTENT (−1/0/+1) → ramp over `kAxisRampS` → `FBStickInput` → `FBPilotCommands{Manual}` → `ApplyPilotCommands` → `FBAutopilot::SetManual` → FLCS → `FBFdm::SetControls`. The identical path the AI's Manual guidance takes |
+| `W` `S` | analogue | throttle intent; the throttle HOLDS at intent 0 where the stick self-centres — a quadrant is not a spring |
+| `B` `G` | analogue | speedbrake / gear, through the same `FBPilotCommands` fields the pilot uses |
+| `M` | discrete | `FBCommandTarget::MasterArm`, value read off the seat's own published `FBStoresBlock::Arm` — the key is the THROW, the jet knows the position |
+| `1..9` | discrete | `FBCommandTarget::StationSelect`; an empty station answers `OutOfContext` and the player sees why |
+| `ENTER` | discrete | `FBCommandTarget::WeaponRelease` — the pickle, the one way a store leaves |
+| `SPACE` | discrete, HELD | `FBCommandTarget::GunTrigger`, value = the squeeze length. A held key is the same action REPEATED, paced by two guards: `kTriggerRepeatS` (= `kHotasLatencyS + kTriggerLatencyS`) covers the time before the first completion, and `FBCommandBus::SwitchReady` covers the time after it. Only the first guard is derivable; the window itself runs from the COMPLETION, whose time is the answering box's cadence, so it is ASKED. Without either, one keypress filled the whole 8-slot queue or earned one `ChannelBusy` per repeat — both measured |
+
+`FBCommandBus::SwitchReady` is the round's one new bus member: a const query of the occupancy rule `Post()` already applies, so it changes no outcome and only stops a doomed post from being made.
 
 ### Weather defaults per client (R4, commit `43b82b5`)
 

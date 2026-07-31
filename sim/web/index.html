@@ -43,11 +43,21 @@ button:hover{background:#14241a;border-color:#6ee08a}
 #fb-bar{display:none;position:fixed;top:0;left:0;right:0;gap:10px;align-items:center;
         background:rgba(5,7,10,.72);border-bottom:1px solid #1e2a1e;padding:5px 10px;font-size:12px}
 .fb-bar-t{color:#a8c8a8;letter-spacing:.1em;margin-right:auto}
+/* The cockpit strip: what the hands can do, what the armament boxes published, what just happened.
+   Pointer-events off — it is a readout, never a control surface. */
+#fb-hud{display:none;position:fixed;left:0;right:0;bottom:0;padding:6px 10px 8px;font-size:12px;
+        background:linear-gradient(rgba(5,7,10,0),rgba(5,7,10,.78) 40%);pointer-events:none}
+.fb-keys,.fb-armrow{display:flex;flex-wrap:wrap;gap:14px;color:#7f8f7f}
+.fb-armrow{margin-top:4px;color:#c8d2c8;letter-spacing:.06em}
+.fb-ck{color:#6ee08a;font-weight:400;letter-spacing:.1em}
+.fb-feedrow{margin-top:5px;max-height:118px;overflow:hidden}
+.fb-fl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#8fa08f}
 </style>
 </head>
 <body>
 <canvas id="gpu" width="1280" height="720"></canvas>
 <div id="fb-bar"></div>
+<div id="fb-hud"></div>
 <div id="fb-ui"></div>
 <!-- FlightBox: WebGPU engine (JSBSim in-process + FBWorld + Hillaire + MIL-STD-1787 HUD). -->
 <script src="config.js"></script>
