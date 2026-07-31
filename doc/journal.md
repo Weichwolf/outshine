@@ -2817,3 +2817,27 @@ umgangen: ein fester 0,1-s-Takt im Browser setzt die Kamera auf 10 Hz und ist ei
 Offen und benannt: kein Gamepad, keine Stick-Kraftkennlinie (die Rampe ist `kHotasLatencyS`, also die
 Geschwindigkeit einer Hand, nicht das Gesetz dieser Zelle), `eng_*` bleibt für einen handgeflogenen
 Sitz leer, und `FBFdmBoot` ist weiter Disziplin statt Compiler.
+
+**Messplatz auf zwanzig Sprossen: 2 informative Zellen von 40.** Die zehn neuen spannen die drei Achsen,
+die §4.2 fordert und die ersten zehn nicht hatten (Energieasymmetrie, Kräfteverhältnis, Waffenbindung),
+jede allein und zusätzlich gekreuzt. Das Tor über alle 40 Zellen:
+
+| | informativ | von |
+|---|---:|---:|
+| Kampagnenbreite | 1 | 154 |
+| Messplatz, erste zehn | 1 | 20 |
+| Messplatz, zwanzig | **2** | 40 |
+
+Es sind `ar-08-close-day:f16` (9 Beweger, 4 Klassen bei 60,0 %, **0 Kipper von 8**) und
+`ar-15-ratio-one-two:f16` (8 Beweger, 3 Klassen bei 60,0 %, **0 Kipper von 8**). S5 will drei.
+
+**Die dritte fehlt um ein einziges Feldmitglied.** `ar-06-beam-afternoon:f16` hat ebenfalls 8 Beweger
+und verteilt sich über die 15 Feldmitglieder auf 10/3/2 — Modalanteil 66,7 % gegen S1s 60,0 %. Beide
+bestandenen Zellen liegen mit 9/15 **exakt auf der Schranke**; bei 15 Mitgliedern ist das der einzige
+erreichbare Wert, der sie trifft (D11: `kModalMax` ist gegen ein Feld von sechs geeicht).
+
+Die Ausbeute steht damit als Zahl da: **5 % der Zellen**, und sie ist über beide Zehnerblöcke stabil.
+Der Weg zur dritten ist deshalb kein Argument, sondern eine Rechnung — und die Sicherung, die ihn von
+Würfeln unterscheidet, ist hingeschrieben: **keine Sprosse wird entfernt, weil sie durchfällt.** Der
+Messplatz wächst monoton, S4 zählt jede Sprosse mit, und welche informativ sind, ist seine Ausgabe und
+nicht seine Eingabe.
