@@ -1967,11 +1967,33 @@ the arena on the result, which §7 forbids and this file has declined four times
 four-ship is a doctrinal decision about that campaign, and the gate is the check on it, never the reason
 for it.
 
-### 5. The cost
+### 5. What the two robust candidates actually publish — and one of them carries a mechanism
+
+[MESS, `build/arena-g5-channels.csv`, the cells' own columns]
+
+| cell | lever | `flt_mates` | `flt_src` | `flt_assign` | `releases` | `deliveries` | `(V, M)` |
+|---|---|---:|---:|---:|---:|---:|---|
+| `w3-10-package-q:f16` | baseline | 3 | **0** | **0** | 8 | 7 | (40, 24) |
+| | every shape and emcon lever | 3 | **0** | **0** | 8 | 7 | (40, 24) |
+| `o5-09-night-two:f16` | baseline | 1 | 1 | 3 | **0** | **0** | (7, 1) |
+| | `emcon-tight` | 1 | 1 | 3 | **2** | **2** | **(8, 4)** |
+
+**`w3-10-package-q` is a four-ship whose sort never engages**: three mates and `flt_src = 0`,
+`flt_assign = 0` on the baseline and on every shape and emcon lever alike. Whether that is a defect of
+the flight logic on a four-ship or a property of a geometry with nothing to divide is the next thing to
+MEASURE, and this file will not guess it.
+
+**`o5-09-night-two` carries a chain.** Emission discipline takes the cell from zero stores delivered to
+two, and level M from 1 to 4 — the jet that does not radiate is not warned about, survives to its release
+point, and pickles. Every link is a published column. **And the cell is robust: 0 flips of 8.** This is
+the closest thing to a doctrine shift this file has produced, and §6 still forbids publishing it — the
+arena has one such cell and needs three. It is recorded here as a measurement, not as a §1.
+
+### 6. The cost
 
 | | |
 |---|---|
-| runs | 3,850 lever + 15 field + 32 chaos + 502 regression + 12 probe + 108 scan = **4,519** |
+| runs | 3,850 lever + 15 field + 32 chaos + 502 regression + 12 probe + 108 scan = **4,519**, plus **1,094** campaign-layer runs (99 campaign runs × 10 steps + 104 standalone replays) |
 | `sim/src/` | four files: two tuning entries, two pilot hooks, one decision block, one switch branch, and the F-16's two overrides |
 | behaviour | **20 of 251 missions moved, one exit code**; eight missions lose every `FAIL`. Determinism over `--threads 1/2/4`: identical MD5 |
 | the round's declared DEBT | the reading rules of those 20 missions are **not individually audited**. The tree requires per-mission justification and it is owed |

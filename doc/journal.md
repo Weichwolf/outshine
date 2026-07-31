@@ -2530,3 +2530,16 @@ Kampagne gibt über drei Threadzahlen und drei Wiederholungen denselben Fingerab
 ist aus dem Zustand seines Vorgängers einzeln reproduzierbar — die Kampagnenschicht fügt also keinen
 verborgenen Zustand hinzu. Damit ist „mehrfach und deterministisch durchgespielt" für den heutigen Stand
 belegt, nicht für einen von gestern.
+
+**Nachtrag `E11`, letzter: was die zwei robusten Kandidaten publizieren.** `w3-10-package-q:f16` ist ein
+Vierer mit drei Kameraden, dessen Sortierung **nie greift** — `flt_src = 0` und `flt_assign = 0` auf der
+Basis und auf jedem Form- und Emissionshebel gleichermaßen. Ob das ein Defekt der Verbandslogik im
+Vierer ist oder eine Eigenschaft einer Geometrie, in der es nichts zu teilen gibt, ist als Nächstes zu
+**messen** — geraten wird es hier nicht.
+
+`o5-09-night-two:f16` dagegen trägt eine **Kette**: `emcon-tight` hebt `releases` von 0 auf 2,
+`deliveries` von 0 auf 2 und damit `M` von 1 auf 4. Der Jet, der nicht strahlt, wird nicht gewarnt,
+überlebt bis zum Abwurfpunkt und drückt. Jedes Glied ist eine publizierte Spalte, und **die Zelle ist
+robust: 0 Kipper von 8.** Das ist das Nächste an einer Doktrinverschiebung, was diese Datei je gemessen
+hat — und §6 verbietet weiterhin, es zu veröffentlichen, weil die Arena eine solche Zelle hat und drei
+braucht. Es steht hier als Messung, nicht als §1.
