@@ -1880,6 +1880,74 @@ real signal, and today it is one mover short of S2 on one cell of 154.
 
 ---
 
+## State — round `E11` (2026-07-31): the genome is complete, S2 falls for the first time, and S7 holds
+
+G5 is built ([`duels.md`](duels.md) D3c). **No gene of the owner goal's list is blocked any more** — nine
+live genes, zero blockers, where two rounds ago two of five were not keys at all. The 154-cell gate is
+re-flown with 24 levers under the new simulator (3,850 runs, fresh index).
+
+**The one-sentence result: `E-22`'s criterion predicted correctly, S2 fell for the first time in this
+file's history — and S7, written two rounds ago before it knew any result, refuses the cell anyway.**
+
+### 1. The first S2 pass, and it is not marginal
+
+| | |
+|---|---|
+| cell | `w3-09-saturation:f16` |
+| movers | **11 of 24** against S2's threshold of `3/9 × 24 = 8` |
+| the families that move it | **four at once** — G3 (`net-off`), G6 (`bias-late`, `bias-rail`), G1 (all six shape levers), G5 (`emcon-tight`, `emcon-wide`) |
+| S1 | **ok** — 3 distinct outcome classes at a 53.3 % modal share |
+| S7 | **NO** — 1 of 8 |
+
+`E-22` had fixed the acceptance for G5 in advance: *"its levers must move ≥ 3 of their own on ONE cell"*.
+Measured before the sweep on 12 probe runs, EMCON moved **2 of 3** on this cell — and the sweep then took
+the cell from 6 movers of 21 to 11 of 24. That is the first quantitative prediction in this file that was
+stated before the run and came true.
+
+**Why 6 → 11 and not 6 → 8.** G5's default moved the cell's own baseline from `(20, 12)` to `(16, 10)`,
+and in that regime the four shape levers that were inert before are not. The gene bought its own two and
+unlocked three more, which is a property of the cell rather than a general rule and is reported as one.
+
+### 2. S7 refuses it, and sharpening the MEASUREMENT confirms the refusal
+
+The threshold is `kChaosMaxFlips = 0` and it is not touched: it was `[SET]` in §10 with the argument that
+admission carries a stricter test than §5's 2-of-8 floor for reading a champion, and it was written with
+the explicit expectation that it must refuse `E8`'s arena. Retuning it now, knowing it would open the
+gate, is the move this round refused three times.
+
+What IS legitimate is to sharpen the instrument rather than the criterion — with 8 samples a single flip
+has a wide interval. Re-flown on a **0.25 m grid, 24 samples**:
+
+| grid | flips | share |
+|---|---|---|
+| 0.8 m, 8 samples (S7's own) | 1 | 12.5 % |
+| **0.25 m, 24 samples** | **3** | **12.5 %** |
+
+Identical. The cell is genuinely a coin one time in eight, the single flip was not a sampling artefact,
+and S7 is right about it.
+
+### 3. Where that leaves the arena, stated as a number rather than a mood
+
+The gate no longer refuses because the genome cannot act — it acts on four families at once on this cell.
+It refuses because **the campaign breadth has no rung that is both gradable and robust**. That is a
+statement about the missions, and it is now specified: what is needed is ≥ 3 rungs with ≥ 8 movers of 24
+AND **0 flips of 24** on their own baseline. Neither number is negotiable and both are measured.
+
+| movers of 24 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 11 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| cells | 88 | 38 | 21 | 3 | 1 | 1 | 1 | **1** |
+
+### 4. The cost
+
+| | |
+|---|---|
+| runs | 3,850 lever + 15 field + 32 chaos + 502 regression + 12 probe = **4,411** |
+| `sim/src/` | four files: two tuning entries, two pilot hooks, one decision block, one switch branch, and the F-16's two overrides |
+| behaviour | **20 of 251 missions moved, one exit code**; eight missions lose every `FAIL`. Determinism over `--threads 1/2/4`: identical MD5 |
+| the round's declared DEBT | the reading rules of those 20 missions are **not individually audited**. The tree requires per-mission justification and it is owed |
+
+---
+
 ## Gaps
 
 | # | Thing | Known from |

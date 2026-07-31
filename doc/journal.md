@@ -2469,3 +2469,31 @@ Signal — und das ist heute **einen Beweger von S2 entfernt, auf einer Zelle vo
 Und noch eine eigene Bedingung ist gefallen und bleibt mit ihrer Messung stehen: D3as Spec verlangte ein
 NO-OP über alle 251 Missionen, gemessen bewegen sich vier. Es ist eine Verhaltensänderung, keine reine
 Vorbedingung — alle 251 Exit-Codes stehen, Determinismus über 1/2/4 Threads hält.
+
+## 2026-07-31 — `E11`: das Genom ist vollständig, S2 fällt zum ersten Mal, und S7 hält
+
+G5 ist gebaut. **Kein Gen der Auftragsliste ist mehr blockiert** — neun lebende Gene, null Blocker, wo
+vor zwei Runden zwei von fünf nicht einmal Schlüssel waren. Das 154-Zellen-Tor ist mit 24 Hebeln neu
+geflogen (3.850 Läufe, frischer Index).
+
+**`w3-09-saturation:f16` besteht S2 — die erste Zelle überhaupt in dieser Datei**, und nicht knapp:
+**11 Beweger von 24** gegen Schwelle 8, drei Ergebnisklassen bei 53,3 % Modalanteil (S1 ok), und **vier
+Genfamilien wirken gleichzeitig** — Netz, Abwurfvorhalt, Form und Emission.
+
+E-22 hatte die Abnahme für G5 **vorher** festgelegt: seine Hebel müssen auf einer Zelle ≥ 3 der eigenen
+bewegen. Zwölf Probeläufe vor dem Sweep zeigten 2 von 3, und der Sweep hob die Zelle von 6 von 21 auf 11
+von 24. Das ist die erste quantitative Vorhersage dieser Datei, die vor dem Lauf stand und eintrat.
+
+**Und S7 verweigert sie trotzdem: 1 Kipper von 8.** Die Schwelle bleibt bei null — sie wurde in §10 mit
+der Begründung gesetzt, dass Zulassung strenger prüft als §5s 2-von-8-Boden für das Lesen eines
+Champions, und ausdrücklich mit der Erwartung geschrieben, E8s Arena verweigern zu müssen. Sie jetzt zu
+lockern, wo ich weiß, dass es das Tor öffnete, ist genau der Griff, den diese Runde dreimal abgelehnt hat.
+
+Legitim ist, das **Instrument** zu schärfen statt des Kriteriums. Auf einem 0,25-m-Gitter mit 24 Proben:
+**3 Kipper von 24 = 12,5 %** — exakt derselbe Anteil wie 1 von 8. Die Zelle ist wirklich zu einem Achtel
+eine Münze, und S7 hat recht.
+
+Damit hat sich der Grund der Verweigerung zum ersten Mal verschoben: nicht mehr „das Genom kann nicht
+wirken" — es wirkt mit vier Familien gleichzeitig —, sondern **die Kampagnenbreite hat keine Sprosse, die
+zugleich benotbar und robust ist**. Das ist eine Aussage über die Missionen, und sie ist jetzt beziffert:
+gebraucht werden ≥ 3 Sprossen mit ≥ 8 Bewegern von 24 **und 0 Kippern von 24**.
