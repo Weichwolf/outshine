@@ -34,6 +34,7 @@ enum class FBPilotParam {
   FlightSpreadFrac,
   FlightTrailFrac,
   FlightStackFrac,
+  EmconFrac,
   Count
 };
 

@@ -39,6 +39,10 @@ constexpr FBPilotKey kParams[] = {
   {"pilot_flight_spread_frac", FBPilotParam::FlightSpreadFrac, FBPilotKeyKind::Scale, 0.25, 3.0, "FormationSpreadM"},
   {"pilot_flight_trail_frac",  FBPilotParam::FlightTrailFrac,  FBPilotKeyKind::Scale, 0.0,  3.0, "FormationTrailM"},
   {"pilot_flight_stack_frac",  FBPilotParam::FlightStackFrac,  FBPilotKeyKind::Scale, 0.0,  3.0, "FormationStackM"},
+  /* G5, das EMISSIONS-TIMING (doc/duels.md D3c). Vielfaches der eigenen Erfassungsreichweite dieses
+   * Flugzeugs: 1,0 = strahlen, sobald ueberhaupt etwas darin sein koennte; kleiner = laenger still auf
+   * fremdem Bild; 3,0 = praktisch Dauerstrahlen, also die Form vor dieser Runde. */
+  {"pilot_emcon_frac",     FBPilotParam::EmconFrac,        FBPilotKeyKind::Scale,  0.0,    3.0, "EmconRadiateNm"},
 };
 
 /* DIE STRUKTURELLE SCHRANKE, und sie ist eine `static_assert` und keine Konvention: ein `Scale`-Band

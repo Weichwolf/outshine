@@ -746,6 +746,18 @@ bool FBPilot::InterceptCockpit(const FBState &state, FBCommandBus &avionics, int
   }
   /* ...und, EINMAL, der Suchmodus: diese Phase wird in einem Modus geflogen, der alles findet und nichts
    * lockt. Ordinal < 0 = das Modul hat keinen; das Geraet bleibt, wie die Mission es setzte. */
+  /* EMCON zuerst, denn er kann in BEIDE Richtungen schalten, waehrend der Suchmodus darunter eine
+   * einmalige Setzung ist. Ein Flugzeug ohne stillen Modus faellt hier ohne einen einzigen Befehl
+   * durch, also ist die Aenderung fuer es strukturell ein No-op. */
+  int silentMode = SilentRadarModeOrdinal();
+  if (silentMode >= 0 && state.Radar.H.Readable()) {
+    int want = EmconSilent_ ? silentMode : SearchRadarModeOrdinal();
+    if (want >= 0 && state.Radar.ModeOrdinal != want) {
+      IntCmdMode_ = !EmconSilent_;   /* der Suchmodus gilt als gesetzt, sobald wir ihn selbst posten */
+      post(FBCommandTarget::RadarMode, want);
+      return true;
+    }
+  }
   int searchMode = SearchRadarModeOrdinal();
   if (!IntCmdMode_ && searchMode >= 0 && state.Radar.H.Readable() &&
       state.Radar.ModeOrdinal != searchMode) {
@@ -1246,6 +1258,47 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
         c.TargetAltM = f.TargetAltM; c.TargetSpeedKt = f.TargetSpeedKt;
       }
     }
+  }
+
+  /* ---- 6a. EMISSIONSDISZIPLIN (doc/duels.md D3c) ----------------------------------------------
+   * Still sein darf nur, wer noch ein BILD hat: ein einzelner Jaeger ohne Netz kann nicht schweigen,
+   * denn dann schweigt er blind — genau der Satz, an dem D3 haengt. Der Naechste, den das Bild haelt,
+   * entscheidet: das eigene Echo, solange gestrahlt wird, sonst der vom Rottenkameraden gemeldete
+   * PUNKT (FBNetReport, ohne Kennung, ohne Typ, mit eigenem Blickalter). Liegt er innerhalb des
+   * gebrieften Bruchteils der eigenen Erfassungsreichweite, wird gestrahlt. */
+  EmconSilent_ = false;
+  if (SilentRadarModeOrdinal() >= 0 && EmconRadiateNm() > 0.0) {
+    double radiateM = TunedScale(FBPilotParam::EmconFrac, EmconRadiateNm()) * kNmToM;
+    double nearestM = 1e12;
+    if (radarUp)
+      for (int i = 0; i < fcr.ContactCount; i++)
+        nearestM = std::fmin(nearestM, (double)fcr.Contacts[i].RangeM);
+    /* BEIDE Meldeblöcke, und dass es zwei sind, ist eine Entscheidung dieses Baums und kein Versehen:
+     * FBDatalinkBlock traegt die kooperative Rotte, FBNetLinkBlock den Leitoffizier — derselbe Typ,
+     * getrennter Block, weil ein Block genau einen Schreiber hat (core/FBAvionicsBlocks.h). Ein Pilot,
+     * der nur einen von beiden liest, ist auf der Haelfte der Sprossen blind. */
+    bool other = false;
+    const FBDatalinkBlock *srcs[2] = {&state.Datalink, &state.NetLink};
+    for (const FBDatalinkBlock *b : srcs) {
+      if (!b->H.Readable()) continue;
+      for (int i = 0; i < b->TrackCount; i++) {
+        /* ZWEI Meldearten, und beide sind ein PUNKT ohne Kennung: die VERBANDS-Haelfte, die ein
+         * Rottenkamerad fuellt, waehrend er ein Ziel bearbeitet (FBFlightReport), und die
+         * LUFTVERTEIDIGUNGS-Haelfte, die ein Netzknoten meldet (FBNetReport). Ein Jaeger fliegt in
+         * diesem Baum fast immer auf der ersten — die zweite gehoert den Netzen, und in den Kampagnen
+         * gehoeren die dem Gegner. */
+        const FBFlightReport &r = b->Tracks[i].Report;
+        if (r.Engaging) {
+          other = true;
+          nearestM = std::fmin(nearestM, FBPlanarDistM(st.lat, st.lon, r.TgtLatDeg, r.TgtLonDeg));
+        }
+        const FBNetReport &n = b->Tracks[i].Net;
+        if (!n.Reporting) continue;
+        other = true;
+        nearestM = std::fmin(nearestM, FBPlanarDistM(st.lat, st.lon, n.LatDeg, n.LonDeg));
+      }
+    }
+    EmconSilent_ = other && nearestM > radiateM;
   }
 
   /* ---- 7. die Haende ---- */

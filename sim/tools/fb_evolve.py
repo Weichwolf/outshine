@@ -64,8 +64,9 @@ GENES = [
     ("pilot_flight_spread_frac", None),
     ("pilot_flight_trail_frac", None),
     ("pilot_flight_stack_frac", None),
-    ("pilot_emcon_frac", "doc/duels.md D3: the pilot's picture is built from the Radar block alone, so "
-                         "'silent' means 'silent and blind' and the band is degenerate at one rail"),
+    # G5 — das EMISSIONS-TIMING, freigeschaltet von doc/duels.md D3a/D3c (2026-07-31): CanPressOn
+    # fragt nach einem Bild statt nach einem Sender, und der Pilot fuehrt seine Emission selbst.
+    ("pilot_emcon_frac", None),
 ]
 
 # G3's alphabet, and the four entries are the four BEHAVIOURALLY DISTINCT ones. [MESS, 2v2 F-16 both

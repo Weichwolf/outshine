@@ -268,6 +268,13 @@ protected:
   virtual double FormationTrailM() const { return FormationSpreadM(); }
   virtual double FormationStackM() const { return 150.0; }   /* [SET] Hoehenversatz je Position */
 
+  /* EMISSIONSDISZIPLIN. Beide Vorgaben heissen „dieses Flugzeug fuehrt seine Emission nicht": ein
+   * Modul, das nichts ueberschreibt, verhaelt sich Bit fuer Bit wie vor doc/duels.md D3c.
+   * SilentRadarModeOrdinal ist das Modul-Ordinal eines Modus, der NICHT strahlt (-1 = gibt es nicht);
+   * EmconRadiateNm ist die eigene Erfassungsreichweite dieses Geraets, an der das Gen skaliert. */
+  virtual int    SilentRadarModeOrdinal() const { return -1; }
+  virtual double EmconRadiateNm() const { return 0.0; }
+
   /* Die BVR-Zahlen. Der Suchmodus ist ein MODUL-Ordinal, die generische Schicht kann ihn also nicht
    * benennen, nur anfordern; -1 = „dieses Modul hat keinen eigenen nicht-lockenden Suchmodus". */
   virtual int    SearchRadarModeOrdinal() const { return -1; }
@@ -354,6 +361,7 @@ private:
                                     const Fdm::fb_fdm_state &st, const FBFlightPlan &plan, double dt);
   /* EINE Bedienhandlung je Entscheidungstakt, in Prioritaetsreihenfolge: die defensiven zuerst, denn
    * wer beschossen wird, editiert keinen Radarmodus. */
+  bool EmconSilent_ = false;   /* letzte Entscheidung des Emissionsmanagements, je Takt gesetzt */
   bool InterceptCockpit(const FBState &state, FBCommandBus &avionics, int designateTrack, bool wantShot,
                         bool wantChaff, FBBodyAngle wantEl);
   /* Steckt in diesem Jet noch ein Kampf? Waffen, Sprit, ein strahlendes Radar — fehlt eines davon, ist

@@ -64,6 +64,12 @@ protected:
    * chosen; the derivations are doc/modules-f16.md §3.4. */
   int    SearchRadarModeOrdinal() const override { return 1; }   /* FBF16FcrMode::Crm, as an ORDINAL:
                                                                   * the generic layer knows neither */
+  /* EMCON (doc/duels.md D3c). This jet has no separate emission switch — its module REJECTS
+   * `RadarEmission` as NotImplemented, and rightly so — but `FBF16FcrMode::Off` sets `Active = false`,
+   * so the FCR knob IS the emission control and nothing new is claimed. The radiate range is the
+   * FCR's own search gate against a fighter-size target, not a number chosen here. */
+  int    SilentRadarModeOrdinal() const override { return 0; }   /* FBF16FcrMode::Off */
+  double EmconRadiateNm() const override { return 40.0; }        /* [= FBF16Fcr::kSearchRangeNm] */
   double InterceptSpeedKt() const override { return 550.0; }
   double InterceptLockRangeNm() const override { return 16.0; }
   double InterceptShotRtrFactor() const override { return 1.0; }
