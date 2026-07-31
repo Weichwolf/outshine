@@ -1615,6 +1615,119 @@ doctrine shift, and it is an engineering backlog rather than a gate problem. Ord
 
 ---
 
+## State — round `E8` (2026-07-31): the arena PASSES, the evolution RUNS, and X4 refuses the result
+
+`E-20` said the blocker was the genome and named F5 as the first item. F5 is built
+([`formation.md`](formation.md) §Spec `F5`), G1 is a key, and everything downstream of that follows in
+one chain — including the refusal at the end, which is the round's sharpest finding.
+
+**The one-sentence result: unblocking ONE gene took the campaign breadth from 0 informative cells to 3
+and let the first evolution in this line run to completion — and then X4 disqualified two of those
+three cells as CHAOTIC, so no doctrine shift is published and the gate is shown to be blind to the
+difference between "sensitive to doctrine" and "sensitive to anything".**
+
+### 1. G1 moves the breadth, and the gate opens
+
+[MESS, 154 cells × 21 levers, `levers-campaign-f5.txt` = the 15 contract levers + 6 shape levers]
+
+| movers of 21 | 0 | 1 | 2 | 3 | 4 | 5 | **7** | **8** |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| cells | 84 | 44 | 15 | 4 | 2 | 1 | **3** | **1** |
+
+S2's threshold at 21 levers is `3/9 × 21 = 7`, and **four cells reach it** — the first S2 passes in this
+file's history. G1 alone moves the outcome class on **13 cells**: `shape-flat`/`shape-stacked` 9 each,
+`shape-tight`/`shape-wide` 8 each, `shape-abreast`/`shape-trail` 3 each (trail acts only from a
+four-ship, `aftM = element × trail` with `element = (position−1)/2`).
+
+With the field extended to 14 members (E16: the six BVR lines still byte-identical, three added for the
+three new genes), the gate reads:
+
+```
+S4 154 cells >= 6 ok · S5 3 informative >= 3 ok · S6 0 identical pair(s) ok · S3 n/a
+ARENA: PASSED   (154 cells, 3 informative)
+```
+
+The three are `o3-10-october-six`, `w1-09-lfe-four` and `w3-09-saturation` — **all three the MiG-29
+seat**. `w3-09-saturation:f16` passes S2 with 7 movers and fails S1, so this round can evolve one
+airframe's doctrine, not both, and that is stated rather than glossed.
+
+### 2. The evolution, run on the gate's own output
+
+`fb_campaign_evolve.py --cells tools/arena-informative.txt --generations 6`, **723 runs**, population
+40, 8 live genes (only G5 still blocked). The cell list was WRITTEN by the gate (`--emit-informative`),
+never by hand.
+
+| | |
+|---|---|
+| champion | `g0_s2` — the generation-0 grid point plus `sort=near`, and it never changed |
+| fitness against the co-evolving population | 0.667 vs the seed's 0.496 — **expressly not a finding** (§6) |
+| the fixed yardstick, per generation | 0.556 · 0.556 · 0.556 · 0.556 · 0.556 · 0.556 — **flat** |
+| circling instruments | (b) T = 0.0000, 0 cyclic triples of 0; (c) 0.0000 — the reading `E-16` says is ambiguous, and with a flat yardstick it is a **fixed point** |
+| saturation | **no** — at generation 5 level V decided **612** comparisons, C 299, exact ties 4126 |
+
+**Six generations of grid poll over seven numeric genes moved nothing.** The only gene that decided was
+the sort allele. Against the yardstick's baseline the champion is better on two cells and worse on one:
+
+| cell | champion | yardstick baseline | |
+|---|---|---|---|
+| `o3-10-october-six` | V=29 M=6 | V=33 M=6 | worse |
+| `w1-09-lfe-four` | V=6 M=2, C +395.6 | V=6 M=2, C +270.4 | better (craft only) |
+| `w3-09-saturation` | V=11 M=5 | V=10 M=4 | better on both deciding levels |
+
+### 3. X3 passes — the mechanism is a chain of published channels
+
+[MESS, the arena's own channel CSV, baseline against `sort-near`]
+
+| cell | `flt_src` | `flt_assign` | `SORT_ASSIGN` | `flt_switch` |
+|---|---|---|---|---|
+| `o3-10-october-six` | **0 → 2** | **0 → 4** | **0 → 20** | 0 → 7 |
+| `w1-09-lfe-four` | 2 → 2 | 5 → 4 | 6 → 11 | 2 → 4 |
+| `w3-09-saturation` | 2 → 2 | 13 → 16 | 32 → 31 | **12 → 9** |
+
+On `o3-10` the flight has **no assignment source at all** without the briefed contract — the MiG-29 has
+no cooperative terminal, so `E2`'s *"a contract beside a live net is dead text"* is inverted: the
+contract is the only text there is. On `w3-09` the range contract is also more STABLE than what the rung
+briefed, three re-sorts fewer over the engagement.
+
+### 4. X4 fails, and the failure is a property of the CELLS rather than of the champion
+
+| detector | `o3-10-october-six` | `w1-09-lfe-four` | `w3-09-saturation` |
+|---|---|---|---|
+| **X4.1** spawn longitude ±3 m, 8 samples, with the champion | **3 of 8 flip** | **3 of 8 flip** | 0 of 8 |
+| the same, with a near-empty genome | **3 of 8** | **8 of 8** | 0 of 8 |
+| **X4.2** timeout × 1.5 | held | held | held |
+
+§5's noise floor is *"the yardstick itself flips in 2 of 8 samples in a chaotic geometry — and if it
+does, **no claim may be made on that geometry at all**"*. Two of the three certified cells are over it,
+and the second measurement settles what it belongs to: **`w1-09-lfe-four` flips on all eight
+perturbations under a genome that sets one unrelated gene.** The chaos is the cell's.
+
+With two geometries disqualified, X1 (*"the advantage survives on ≥ 2 informative geometries"*) has one
+left and cannot be satisfied. **§6's rule is binding and is applied: no §1 is published.** The champion
+stands as a candidate with its mechanism, not as a doctrine shift.
+
+### 5. What that says about the gate, and it is the round's product
+
+S1 asks whether a cell's outcome is spread over a field of doctrines. S2 asks whether the baseline moves
+under the genome's levers. **Neither can tell a lever from a coin.** A cell that flips on 0.8 m of spawn
+produces distinct classes and plenty of movers for a reason that has nothing to do with doctrine — and
+the measurement shows this is not hypothetical: `w1-09-lfe-four` carried **the most movers of the entire
+campaign breadth (8 of 21)** and flips on **8 of 8** perturbations.
+
+So S2's mover count is contaminated by chaos exactly where it is largest, and the gate has no criterion
+for it although the detector has existed all along as a post-hoc audit. That is booked as **E-21** with
+the number, and the screen it asks for is cheap: 8 runs per cell, the same 0.8 m grid.
+
+### 6. The cost
+
+| | |
+|---|---|
+| runs | 924 (G1's levers over 154 cells) + 462 (the field's three new members) + **723** (the evolution) + 51 (X4 on two genomes) = **2,160** |
+| `sim/src/` | four files, all of them F5's: two lines of enum, three table rows, one hook default, one station computation |
+| `git status --porcelain sim/missions sim/assets` | empty before and after every run, and the audit tool checks it too |
+
+---
+
 ## Gaps
 
 | # | Thing | Known from |
@@ -1635,6 +1748,7 @@ doctrine shift, and it is an engineering backlog rather than a gate problem. Ord
 | **E-14** | **HALVED (`E4`): the merge now has an OUTCOME, and G4's mover is a CFIT.** (a) and (b) are unchanged — no transition from the intercept phase into `Phase::Bfm`, and the merge writes no `eng_*` column, so level C is `GATE` on both sides. (c) is CLOSED: `Phase::Bfm` employs the round on the rail ([`pilot.md`](pilot.md) §5.11) and `xmerge` goes from 60/60 `(2,1)` to **30 (3,2) + 30 (1,0)** — every run decided, all 40 kills by a missile, none by the gun. The gun itself went 2.21 % → **7.68 %** of its rounds on target (§5.8) and still needs 17.0 landed 30 mm rounds against 9.53 delivered. **The new half of this gap:** all three `pilot_energy_frac` alleles now move the class on `merge` — S2's first pass on a merge cell — and all three do it with a `monitor KO ATTITUDE_CONTACT` of a jet the AIM-9 exchange had already blinded. `E-15`'s rule applies unchanged and G4 is not published |
 | **E-15** | **CLOSED (`E3`), and closing it CONFIRMED the reading: the merge's S1 pass WAS the CFIT.** At n = 120 runs per pass the merge cells produced **77 monitor KOs and every single one was the MiG-29** (38 `ATTITUDE_CONTACT`, 37 `CFIT`, 2 `STRUCTURE_CONTACT`); zero F-16 KOs, in either seat. The cause was not the pilot and not the floor: `systems/FBFlightControl` bound this airframe's own rate damper only on its FLCS path while `Phase::Bfm` commands `Manual` ([`pilot.md`](pilot.md) §5.10a). With it on the hand stick the same 120 runs produce **0 KOs** — and `xmerge`/`xmergesplit` fall from 2 outcome classes at a 50.0 % modal share to **1 class at 100 %**, i.e. they lose their S1 pass with the defect that was carrying it. That is the finding stated forwards: a geometry whose informativeness comes from one side dying of a bug is a measurement of the bug | `E2`, `E3` |
 | **E-17** | **The campaign breadth is REFUSED as an arena, and 89 of its 154 cells are not moved by the genome at all.** [MESS, `E5`, 2026-07-30] 0 informative cells under both the published `levers-genome.txt` and that round's 15-point file; 2 under the loosest reading the gate admits, which is W1's own verdict. **The three checkable points, with their state after `E6`:** (a) **CLOSED** — level C was `GATE` on 32 of the 46 cells that aim a bomb and is now `GATE` on **0 of 46**, with the two deciding levels unmoved on all 154 cells (§State `E6` 1); (b) **OPEN, unchanged** — S1 needs a fixed field that acts on the cell it judges, and the only frozen one is six BVR intercept doctrines; a ground-flavoured yardstick would fix it on paper and is refused for `E2`'s reason; (c) **OPEN, unchanged** — G2 and G7 need an arena that does not exist in the campaigns at all (a long-binding round on a netted element; a CCIP delivery). **The debt is PAID (`E7`)**: the 154-cell gate is re-run in full, 4,158 runs, and the answer refutes the prediction it was booked with — the X-1 fix moves the mover distribution by **two cells** (89·46·15·3·1 → 89·46·16·2·1), because a mover count is a difference and the fix shifted baseline and levers across the boundary together. **(b) is CLOSED (`E7`) and the closing INVERTED it**: the field was not merely ground-blind, it was disjoint from the genome in every gene, and a commensurate field passes S1 on **0 of 154** cells where the incommensurate six passed 13 — all thirteen false positives, traceable one by one (§State `E7` 2). **(c) is now the ONLY thing standing**, and it is the binding constraint: S2 does not read the field at all, 0 of 154 cells reach its 5 movers, the best in the whole breadth has 4, and **5 of the 15 levers are structurally dead everywhere** (G2's three, G7's two) | `E5`, `E6`, `E7`, [`campaigns/w1-red-flag.md`](campaigns/w1-red-flag.md) |
+| **E-21** | **The gate cannot tell a lever from a coin, and the contamination is largest where the gate likes the cell most.** [MESS, `E8`] `w1-09-lfe-four:mig29` carried the **most movers of the whole campaign breadth (8 of 21)** and its outcome class flips on **8 of 8** spawn perturbations of ±3 m under a genome that sets one unrelated gene; `o3-10-october-six:mig29` flips on 3 of 8. Both passed S1 AND S2 and were certified informative. §5's noise floor is 2 of 8, so both are geometries on which *"no claim may be made at all"* — and the gate that certified them has **no chaos criterion**, although the detector has existed all along as a post-hoc audit on the champion. **The contract this asks for (next round, not retrofitted here): a seventh criterion S7 — a cell is informative only if its BASELINE outcome class survives the same 0.8 m grid. Cost: 8 runs per cell.** Applied to this round's three it would leave one, and the arena would be REFUSED — honestly | `E8` |
 | **E-20** | **BOTH arenas are refused, so the blocker is the GENOME.** [MESS, `E7`] the campaign breadth 0 informative of 154, the generated geometries **1 of 12** at `--flight 1` against the **4** E-12 recorded — three were lost to the tree's own repairs (`E-15`'s FLCS damper, X-1's judge), which is `E-15`'s rule applied to itself. Of the five genome growths the owner goal names, **two are not keys at all** (G1 blocked by [`formation.md`](formation.md) F5, G5 by [`duels.md`](duels.md) D3 — both `SET_REJECTED` at t = 0.0, exit 1), G2 is inert for want of a weapon binding, G4 lives only in `Phase::Bfm`, and G3 alone acts broadly. The backlog that follows is ordered in §State `E7` 5 | `E7`, `E-12`, `E-15` |
 | **E-19** | **S1's threshold is a SHARE, and a share is not invariant under the size of the field it is taken in.** [MESS, `E7`] adding five members that are inert on a cell raises its modal share from `m/n` to `(m+5)/(n+5)`: the thirteen cells that passed S1 kept their outcome-class count EXACTLY (2→2, 3→3, 4→4) and went 50.0 % → 72.7 % and 33.3 % → 63.6 %. The direction is right — an inert member must not certify a cell — but `kModalMax = 0.60` was calibrated against a field of six, and no constant in the gate knows how large its field is. **Not fixed here on purpose:** a threshold retuned at the end of the round that its own field made fail is exactly what E10 forbids | `E7` |
 | **E-18** | **CLOSED (`E6`, 2026-07-30). Level M could not tell "judged and unmet" from "never judged"** — both read 0, and the difference was worth 8 points of M on `w4-10`. The runner now asks every open judge after the loop, whatever ended the run, and always AFTER the combination so no verdict can move. [MESS] `w4-10-allied-force:f16` baseline goes from `V = 16, M = 0` to `V = 18, M = 8`, which is what its three levers already read; 251 missions with 0 telemetry values and 0 exit codes moved | `E5`, X-1 |

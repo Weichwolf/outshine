@@ -2343,3 +2343,40 @@ Waffenbindung inert (0 Beweger auf 154 Zellen), G4 lebt nur in `Phase::Bfm` (9 Z
 bewegt die Breite (30 Zellen). Das erklärt vier Runden ohne veröffentlichbare Doktrinverschiebung
 vollständig — und es ist ein Baurückstand, kein Torproblem. Als E-20 gebucht, mit einer nach
 Freischaltwirkung geordneten Liste; der erste Posten ist F5, der zweite D3.
+
+## 2026-07-31 — `E8`: die Arena besteht, die Evolution läuft, und X4 verweigert das Ergebnis
+
+`E-20` hatte gemessen, dass der Blocker das Genom ist, und F5 als ersten Posten benannt. F5 ist gebaut,
+G1 ist ein Schlüssel — und alles Weitere folgt in einer Kette, bis zur Verweigerung am Ende, die der
+schärfste Befund der Runde ist.
+
+**Ein Gen freizuschalten hat die Kampagnenbreite von 0 auf 3 informative Zellen gehoben** und die erste
+Evolution dieser Linie vollständig laufen lassen. G1 bewegt die Ergebnisklasse auf **13 Zellen**; bei 21
+Hebeln liegt S2s Schwelle bei 7, und **vier Zellen** erreichen sie — die ersten S2-Bestehen überhaupt.
+Das Tor: `S4 154 ≥ 6 ok · S5 3 ≥ 3 ok · S6 0 ok · ARENA: PASSED`. Alle drei informativen Zellen sind der
+MiG-29-Sitz; `w3-09-saturation:f16` besteht S2 mit 7 Bewegern und fällt an S1. Diese Runde evolviert
+also eine Doktrin, nicht zwei.
+
+**Die Evolution:** 723 Läufe, sechs Generationen, Population 40, acht lebende Gene. Der Champion stammt
+aus Generation 0 und hat sich nie bewegt — sechs Generationen Gitterabtastung über sieben numerische
+Gene bewegen nichts, entschieden hat allein `sort=near`. Der feste Maßstab bleibt über alle sechs
+Generationen bei 0,556, also **flach**; mit T = 0,0000 ist das nach E-16 ein Fixpunkt und kein Kreisen.
+Gesättigt ist die Arena nicht: Stufe V entscheidet in Generation 5 **612** Vergleiche.
+
+**X3 besteht.** Die Kette ist mit Zahlen benennbar: auf `o3-10` geht `flt_src` 0 → 2, `flt_assign` 0 → 4,
+`SORT_ASSIGN` 0 → 20 — ohne den gebrieften Vertrag hat der Verband **gar keine Zuweisungsquelle**, denn
+die MiG-29 hat kein kooperatives Terminal. E2s Satz „ein Vertrag neben einem lebenden Netz ist toter
+Text" ist hier umgekehrt: der Vertrag ist der einzige Text. Auf `w3-09` sortiert er zusätzlich
+**stabiler**, `flt_switch` 12 → 9.
+
+**Und X4 verweigert.** Die Bahnstörung über ±3 m kippt die Ergebnisklasse auf `o3-10` in 3 von 8 und auf
+`w1-09-lfe-four` in 3 von 8 Proben; §5s Rauschboden ist 2 von 8, und darüber gilt „no claim may be made
+on that geometry at all". Die zweite Messung klärt, wem das Chaos gehört: mit einem Genom, das ein
+einziges unbeteiligtes Gen setzt, kippt `w1-09-lfe-four` in **8 von 8**. Es ist die Zelle, nicht der
+Champion. Damit bleibt X1 eine Geometrie, und §6 ist bindend: **es wird kein §1 veröffentlicht.**
+
+Das ist das Produkt der Runde, und es qualifiziert das Tor selbst: S1 und S2 können **einen Hebel nicht
+von einer Münze unterscheiden**. Ausgerechnet die Zelle mit den meisten Bewegern der ganzen Breite (8 von
+21) kippt bei jeder 0,8-m-Störung. Als E-21 gebucht, mit dem Vertrag, den es verlangt — ein siebtes
+Kriterium S7: informativ nur, wenn die Ergebnisklasse der Basis dasselbe 0,8-m-Gitter überlebt, acht
+Läufe je Zelle. Auf diese Runde angewandt bliebe **eine** Zelle, und die Arena wäre verweigert — ehrlich.
