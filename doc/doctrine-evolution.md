@@ -2068,7 +2068,38 @@ all — one of which is chaotic.
 whether the set of ten ladders should carry more tops. It cannot be taken from a mover count without
 selecting the arena on the result, and this file has declined that five times.
 
-### 9. The cost
+### 9. Opposition raises the CEILING, not the average — and that closes the diagnosis
+
+`w2-10-opera:f16` puts **ten** aircraft on the graded side and carries **2** movers. Its campaign says
+why in its own contract: *"eight of the ten missions have no air opposition at all — the subject is
+reach, not combat."* Split the 44 large cells on whether the committed file puts a hostile FIGHTER in
+them [MESS]:
+
+| large cells (≥ 4 own aircraft) | cells | mean movers | **max** |
+|---|---:|---:|---:|
+| opposed | 36 | 1.47 | **11** |
+| unopposed | 8 | 1.50 | **2** |
+
+**The means are the same and the ceilings are not.** Opposition does not make a cell gradable on
+average; it is what makes a HIGH mover count possible at all — eight unopposed cells never exceed two,
+because an air doctrine has nobody to be a doctrine against.
+
+So the requirement, in its final and complete form, is three conditions and none of them is about the
+genome or the gate:
+
+| a cell can be informative only if it is | today |
+|---|---|
+| **large** — ≥ 4 aircraft on the graded side (§6) | 44 of 154 |
+| **opposed** — a hostile fighter in the file (§9) | 36 of those 44 |
+| **robust** — 0 flips of its own baseline (§2, `E-21`) | of the top twelve by movers, ten are; the two most gradable are not |
+| and then reach S2's 8 movers of 24 | **1 of 36**, and it is one of the two chaotic ones |
+
+That is the whole diagnosis, measured end to end, and every one of the four rows was found this round
+rather than assumed. The gate is not waiting on a gene — the genome is complete. It is waiting on the
+campaign set to contain three rungs that are large, opposed and robust at once, and the set contains
+one.
+
+### 10. The cost
 
 | | |
 |---|---|

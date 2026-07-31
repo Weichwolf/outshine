@@ -2601,3 +2601,21 @@ Doktrin überhaupt messbar ist. Eine davon ist chaotisch.
 Die Entscheidung, auf die das Tor wartet, ist damit eine **Kampagnen-Entwurfsentscheidung**: ob der Satz
 aus zehn Leitern mehr Spitzen tragen soll. Aus einer Beweger-Zahl lässt sie sich nicht ableiten, ohne die
 Arena nach dem Ergebnis auszuwählen — und das hat diese Datei fünfmal abgelehnt.
+
+**Nachtrag `E11`, Abschluss der Diagnose.** `w2-10-opera:f16` stellt **zehn** Flugzeuge und trägt **2**
+Beweger — der Vertrag seiner Kampagne sagt warum: *„eight of the ten missions have no air opposition at
+all — the subject is reach, not combat."* Teilt man die 44 großen Zellen danach, ob die committete Datei
+einen gegnerischen Jäger enthält:
+
+| große Zellen (≥ 4 eigene) | Zellen | Ø Beweger | **max** |
+|---|---:|---:|---:|
+| bekämpft | 36 | 1,47 | **11** |
+| unbekämpft | 8 | 1,50 | **2** |
+
+**Die Mittelwerte sind gleich, die Decken nicht.** Gegnerschaft macht eine Zelle nicht im Schnitt
+benotbar — sie macht eine *hohe* Beweger-Zahl überhaupt erst möglich. Acht unbekämpfte Zellen kommen nie
+über zwei, weil eine Luftdoktrin niemanden hat, gegen den sie eine wäre.
+
+Damit steht die Anforderung vollständig, und keine ihrer vier Zeilen betrifft Genom oder Tor: **groß**
+(44 von 154), **bekämpft** (36 davon), **robust** (zehn der zwölf beweglichsten, aber nicht die zwei
+beweglichsten) und dann S2s acht Beweger — **1 von 36, und das ist eine der beiden chaotischen.**
