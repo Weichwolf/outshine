@@ -213,10 +213,19 @@ def main():
         win = round_robin(pool, pop, opponents)
         fitness = {n: sum(v.values()) / max(1, len(v)) for n, v in win.items()}
         order = sorted(pop, key=lambda g: -fitness[g.name])
-        champ = order[0]
+        # E19: THE CHAMPION IS THE GENOME THE FIXED FIELD RANKS HIGHEST, not the one that wins the round
+        # robin. Paragraph 6 names "a fitness rise measured only against the co-evolving population" as
+        # expressly not a finding, and a runner that SELECTS by that measure and then offers its champion
+        # as the round's result publishes exactly that, one step removed. [MESS, E12] g5_23 won its round
+        # robin at 0.652, the highest of its generation, and scored 0.444 against the frozen field, the
+        # lowest of all three champions — the runner followed the round robin and the yardstick fell.
+        # The round robin stays where it belongs: paragraph 3.4 B builds the ARCHIVE out of it, which is a
+        # statement about the population and not about the round's result.
+        yall = round_robin(pool, pop, yard)
+        yfit = {n: sum(v.values()) / max(1, len(v)) for n, v in yall.items()}
+        champ = sorted(pop, key=lambda g: (-yfit[g.name], -fitness[g.name]))[0]
         champions.append(champ)
-        yw = round_robin(pool, [champ], yard)
-        ys = sum(yw[champ.name].values()) / max(1, len(yw[champ.name]))
+        ys = yfit[champ.name]
         champ_scores.append(ys)
         lv = levels(pool, pop, opponents)
 

@@ -1484,6 +1484,31 @@ is what §7 forbids and what `E2` declined three times.
 
 ---
 
+### 11. Round `E13` — the runner selects by a measure §6 forbids publishing
+
+**Added 2026-08-01, after `E12` measured it and before the line was changed.** §§0–10 are untouched. One
+contract, and it removes an inconsistency that has been in this file since `E2`.
+
+`fb_campaign_evolve.py` picks its champion from `round_robin(pop, pop + archive)` — the CO-EVOLVING
+population. §6's list of what is expressly not a finding names, second: *"a fitness rise measured only
+against the co-evolving population"*. A runner that SELECTS by that measure and then offers its champion
+as the round's result publishes exactly what §6 forbids, one step removed.
+
+[MESS, `E12`] the inconsistency is not theoretical: `g5_23` wins its round robin at **0.652**, the highest
+of its generation, and scores **0.444** against the frozen field, the lowest of all three champions. The
+runner followed the round robin and the fixed yardstick fell.
+
+| # | Contract | Acceptance / measurement anchor |
+|---|---|---|
+| **E19** | **The champion is the genome the FIXED FIELD ranks highest.** The round robin stays where it is needed — §3.4 B's non-domination test builds the archive out of it, and that is a statement about the population, not about the round's result. But the CHAMPION, the one object a round would publish, is selected by the frozen text no genome can influence | **checked BEFORE building, and it buys nothing:** the yardstick-best champion of `E12` scores 0.611 on generations 0–4 and the change therefore cannot manufacture a rise where there was none. A repair that would have produced a result is a repair to distrust; this one is proposed because it does not |
+
+**What this is not.** It is not a loosening and not a new criterion — §3.6a already declares the fixed
+field the valid measure and §6 already forbids the other one. The runner simply did not follow its own
+file. And the selection cannot become a back door: the field is committed text (E16), extended only by
+rule and only before the run that reads it.
+
+---
+
 ## State — round `E7` (2026-07-31): the debt is paid, and S1 was measuring the wrong genome
 
 Two things were owed and both are delivered: the 154-cell gate re-run in FULL after the X-1 fix, and
