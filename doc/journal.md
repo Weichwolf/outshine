@@ -2635,3 +2635,27 @@ wie bekämpft.
 Das ist die einzige der fünf Zeilen, die sich nicht durch Missionsbau beheben lässt: sie ist eine Aussage
 darüber, was die **Fitness** liest. Level M zu verbreitern, nachdem ich gemessen habe, welche Zellen es
 nicht sieht, wäre das Instrument nach dem Ergebnis auszuwählen. Als E-24 gebucht, mit der Zahl.
+
+**Nachtrag `E11`, das Audit der 20 bewegten Missionen — und es findet mehr als eine Rechtfertigung.**
+Die gebuchte Schuld ist bezahlt: von den 20 Missionen, die G5s Vorgabe bewegt hat, tragen **fünf** eine
+identische Ergebnisbilanz (nur Telemetrie), **fünfzehn** bewegen ihr Ergebnis, **einer** seinen
+Exit-Code. Und keine einzige ihrer Leseregeln nennt eine `FAIL`-Zahl oder einen Exit-Code als Urteil —
+mehrere schließen es in Großbuchstaben aus: *„Read the DETECTION TIMES, not the kills"* (w3-07),
+*„A reader who reports a kill count has read a warhead's arrival geometry"* (w3-09), *„NEITHER CODE IS
+THE VERDICT"* (o3-10), *„Do NOT read a kill as a lever's effect"* (w4-10).
+
+Das allein wäre eine Ausrede. Die ehrliche Prüfung ist, ob sich die Werte bewegt haben, die jede Regel
+**benennt** — und bei `w1-09-lfe-four` tun sie es hart: seine Regel sagt *„the question is the CHURN,
+not the kill count"*, und `flt_switch` fällt von **179 auf 17**, `flt_dup` von 3 auf 0.
+
+Über fünf unabhängige Missionen gemessen ist das systematisch: `flt_switch` 117→15, 179→17, 178→60,
+48→3, 42→9 — **65 bis 94 Prozent** —, und `flt_dup` geht auf **vier von fünf** auf null. Das ist
+`formation.md` **F2**, seit der Formationsrunde offen, und der Mechanismus ist F2s eigene zweite Ursache
+vorwärts gelesen: F2 nannte „einen Per-Frame-Jitter in der Kontaktliste, den die Hysterese nicht fängt" —
+und EMCON schaltet das Radar dort ab, wo das Bild des Rottenkameraden ohnehin trägt, also entsteht die
+zitternde Liste gar nicht erst.
+
+**Das ist keine Doktrinverschiebung** in §6s Sinn — keine Arena hat bestanden. Es ist die Churn, die in
+dem Kanal fällt, den diese Lücke selbst als ihr Maß deklariert hat, auf fünf Missionen, mit einer
+benennbaren Ursache. Offen bleibt: die Hysterese ist unangetastet, und auf `w3-09-saturation` fällt die
+Churn um 66 % ohne dass `flt_dup` sich bewegt.
