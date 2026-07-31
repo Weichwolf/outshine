@@ -27,6 +27,7 @@
 #include "FBEphemeris.h"
 #include "FBGeodesy.h"
 #include "FBTerrainLoader.h"
+#include "FBSimTick.h"
 #include "FBSimUnit.h"
 #include "FBUnitRegistry.h"
 #include "FBLog.h"
@@ -90,9 +91,19 @@ static Units::FBSimUnit *gOwnship = nullptr;
 /* WHAT LEAVES THE JET AND WHAT IT DOES — the identical object fb-gym drives (missions/FBOrdnance.h).
  * Without it the browser could press the pickle and the round would sit in the SMS queue forever. */
 static Missions::FBOrdnance gOrdnance{kWasmModelRoots};
-/* Monotonic sim clock for the monitors' sustain timers: this loop has no discrete 10 Hz mission tick,
- * it integrates whatever the rAF period gives it. */
+/* Monotonic sim clock for the monitors' sustain timers, advanced ONLY by whole ticks — the same clock
+ * the headless runner keeps, which is what lets one events.log be diffed against the other. */
 static double gSimT = 0.0;
+/* THE TICK PACER: wall time waiting to be turned into whole kSimTickS steps, and the last two tick
+ * poses of the eye the camera is carried between. The frame clamp is what bounds the work of one
+ * frame — at most ceil(kMaxFrameS / kSimTickS) + 1 = 3 ticks — so a machine too slow for the tick rate
+ * loses sim time instead of spiralling. */
+static double gTickAccS = 0.0;
+static constexpr double kMaxFrameS = 0.25;
+static Units::FBUnitPose gPosePrev, gPoseCur;
+static bool gHavePose = false;
+static double gTickGroundMs = 0.0;
+static int gTickSubsteps = 0;
 static constexpr double kConfigGroundM = 430.0;   /* boot fallback until the first real /elev sample */
 static double LastMs = 0.0;
 static double Olat = 47.179846, Olon = 7.411427;   /* ENU/home origin (config.js) */
@@ -237,12 +248,112 @@ static EM_BOOL OnKey(int type, const EmscriptenKeyboardEvent *e, void *) {
   return HandleKey(e->key, type == EMSCRIPTEN_EVENT_KEYDOWN, e->repeat != 0) ? EM_TRUE : EM_FALSE;
 }
 
+/* ONE FIXED SIM TICK — the headless runner's tick body, phase for phase, and the reason it is a
+ * function: it must be possible to run it a whole number of times per frame and never with the frame's
+ * own dt. FBMissionRunner.cpp, "Step 3". */
+static void SimTick() {
+  const double dt = Missions::kSimTickS;
+  double t0 = emscripten_get_now();
+
+  /* JSBSim gets the terrain ASL under the aircraft BEFORE stepping, from the same DEM the renderer
+   * draws, so gear/contact/crash collide against real terrain. A cold /elev keeps the last good value
+   * for BOTH the FDM and the HUD/radar-alt path — they must not disagree about where the ground is. */
+  for (auto &a : gActors)
+    if (a->Active()) a->UpdateGroundAsl(fb_stream_ground(a->State().lat, a->State().lon));
+  /* The air mass, from the same seam every client uses. Sampled per tick beside the ground for the same
+   * reason: one number, one place, before anything integrates. */
+  for (auto &a : gActors)
+    if (a->Active()) a->UpdateWind(gWeather->WindNedMs(a->State().lat, a->State().lon, a->State().elev));
+  /* THE HANDS, before the module they belong to is stepped: keys held into this tick become an axis
+   * INTENT, and the slot's own ramp turns it into a deflection. Nothing else of the keyboard survives
+   * past this line. */
+  if (Systems::FBInputSystem *in = Hands()) {
+    in->SetAxisIntent((gKeys.RollR ? 1 : 0) - (gKeys.RollL ? 1 : 0),
+                      (gKeys.NoseUp ? 1 : 0) - (gKeys.NoseDown ? 1 : 0),
+                      (gKeys.YawR ? 1 : 0) - (gKeys.YawL ? 1 : 0));
+    in->SetThrottleIntent((gKeys.ThrUp ? 1 : 0) - (gKeys.ThrDn ? 1 : 0));
+    in->SetSpeedbrake(gKeys.Brake ? 1.0 : 0.0);
+    in->SetTrigger(gKeys.Trigger);
+  }
+  gTickGroundMs += emscripten_get_now() - t0;   /* end: ground/bridges */
+
+  /* Every actor in mission order, then the pose barrier — the same snapshot discipline the headless
+   * runner uses, so tick order cannot change the outcome. */
+  for (auto &a : gActors) {
+    if (!a->Active()) continue;   /* an impacted store integrates no further (FBSimUnit::Retire) */
+    FBLogUnitScope us(a->LogLabel());
+    a->Run(dt, &gUnits, &W);
+  }
+  for (auto &a : gActors)
+    if (a->Active()) a->PublishPose();
+  gPosePrev = gHavePose ? gPoseCur : gOwnship->GetPose();
+  gPoseCur = gOwnship->GetPose();
+  gHavePose = true;
+
+  /* The same two incorruptible judges the headless runner feeds, on the same classes and thresholds —
+   * neither stops or special-cases the render loop below; a console RESULT is the whole verdict here. */
+  gSimT += dt;
+  FBLog::SetTime(gSimT);   /* SIM seconds, exactly like the runner's: the same event at the same t */
+  gRoster.clear();
+  gRosterUnit.clear();
+  for (auto &a : gActors)
+    if (a->GetKind() != Units::FBUnitKind::Weapon) {
+      /* The radiating bit, off the signature this unit publishes at the barrier — the same
+       * construction the two bits before it use, and the same one FBMissionRunner fills. */
+      bool emitting = false;
+      const Units::FBUnitSignature sig = a->GetSignature();
+      for (int bi = 0; bi < kMaxEmitterBeams; bi++)
+        emitting = emitting || sig.Radar[bi].Mode != FBEmitterMode::None;
+      gRoster.push_back({a->GetName().c_str(), a->GetTeam(), a->Health().CombatEffective(),
+                         a->ReleasedWeapon(), emitting, std::numeric_limits<double>::infinity()});
+      gRosterUnit.push_back(a.get());
+    }
+  FBMissionRoster roster{gRoster.data(), (int)gRoster.size()};
+  for (auto &a : gActors) {
+    if (!a->Active()) continue;
+    FBLogUnitScope us(a->LogLabel());
+    if (gNeedRanges) {
+      Units::FBUnitPose self = a->GetPose();
+      for (size_t i = 0; i < gRoster.size(); i++) {
+        Units::FBUnitPose q = gRosterUnit[i]->GetPose();
+        gRoster[i].RangeM = FBPlanarDistM(self.LatDeg, self.LonDeg, q.LatDeg, q.LonDeg);
+      }
+    }
+    a->RunMonitors(gSimT, roster);
+  }
+  /* THE SAME THREE PHASES, IN THE SAME ORDER, as the headless runner's tick: fly and resolve what was
+   * already in the air, then let this tick's releases become units, then snapshot the poses the next
+   * closest-approach is measured over. A round is therefore never resolved in the tick it left the
+   * rail — in the browser exactly as in fb-gym. */
+  gOrdnance.Resolve(gActors, gSimT, dt);
+  gOrdnance.Launch(gActors, gUnits, gSimT);
+  gOrdnance.SnapPoses(gActors);
+
+  gTickSubsteps += gOwnship->Module().LastSubsteps();
+}
+
+/* WHERE THE EYE IS BETWEEN TWO TICKS, and nothing else: the sim never sees this pose. Extrapolated
+ * rather than interpolated because interpolation would hold the camera a full tick behind the HUD,
+ * which is drawn from the newest published state — this way both sit on the same instant at alpha 0
+ * and drift apart by at most one tick's attitude change. */
+static Units::FBUnitPose EyeAt(double alpha) {
+  if (!gHavePose) return gOwnship->GetPose();   /* before the first tick there is nothing to carry */
+  const Units::FBUnitPose &a = gPosePrev, &b = gPoseCur;
+  Units::FBUnitPose p = b;
+  p.LatDeg = b.LatDeg + alpha * (b.LatDeg - a.LatDeg);
+  p.LonDeg = b.LonDeg + alpha * FBWrap180(b.LonDeg - a.LonDeg);
+  p.ElevM = b.ElevM + alpha * (b.ElevM - a.ElevM);
+  p.RollDeg = b.RollDeg + alpha * FBWrap180(b.RollDeg - a.RollDeg);
+  p.PitchDeg = b.PitchDeg + alpha * FBWrap180(b.PitchDeg - a.PitchDeg);
+  p.YawDeg = b.YawDeg + alpha * FBWrap180(b.YawDeg - a.YawDeg);
+  return p;
+}
+
 static void frame(void) {
   double now = emscripten_get_now();
   double dt = LastMs > 0.0 ? (now - LastMs) / 1000.0 : 0.0;
   LastMs = now;
-  if (dt > 0.1) dt = 0.1;   /* clamp a stall/tab-switch so the sim doesn't lurch */
-  FBLog::SetTime(now / 1000.0);   /* wall-clock seconds since page load — correlates every log line this frame */
+  if (dt > kMaxFrameS) dt = kMaxFrameS;   /* clamp a stall/tab-switch so the sim doesn't lurch */
 
   /* THE ATOMIC SWITCH, and the only place it can happen: before this frame reads the wind at all. */
   if (gWxIncoming) {
@@ -287,85 +398,32 @@ static void frame(void) {
    * CPU-side command recording + submit, not the render. */
   double cp_a = emscripten_get_now();
 
-  /* JSBSim gets the terrain ASL under the aircraft BEFORE stepping, from the same DEM the renderer
-   * draws, so gear/contact/crash collide against real terrain. A cold /elev keeps the last good value
-   * for BOTH the FDM and the HUD/radar-alt path — they must not disagree about where the ground is. */
-  for (auto &a : gActors)
-    if (a->Active()) a->UpdateGroundAsl(fb_stream_ground(a->State().lat, a->State().lon));
-  /* The air mass, from the same seam every client uses. Sampled per frame beside the ground for the same
-   * reason: one number, one place, before anything integrates. */
-  for (auto &a : gActors)
-    if (a->Active()) a->UpdateWind(gWeather->WindNedMs(a->State().lat, a->State().lon, a->State().elev));
-  /* THE HANDS, before the module they belong to is stepped: keys held this frame become an axis
-   * INTENT, and the slot's own ramp turns it into a deflection. Nothing else of the keyboard survives
-   * past this line. */
-  if (Systems::FBInputSystem *in = Hands()) {
-    in->SetAxisIntent((gKeys.RollR ? 1 : 0) - (gKeys.RollL ? 1 : 0),
-                      (gKeys.NoseUp ? 1 : 0) - (gKeys.NoseDown ? 1 : 0),
-                      (gKeys.YawR ? 1 : 0) - (gKeys.YawL ? 1 : 0));
-    in->SetThrottleIntent((gKeys.ThrUp ? 1 : 0) - (gKeys.ThrDn ? 1 : 0));
-    in->SetSpeedbrake(gKeys.Brake ? 1.0 : 0.0);
-    in->SetTrigger(gKeys.Trigger);
+  /* THE CLOCK SPLIT, and this round's whole point: the SIM advances only in whole kSimTickS steps —
+   * the same tick fb-gym steps, so the same file gives the same run — while the CAMERA keeps the
+   * frame rate below. A frame runs 0..kMaxTicksPerFrame ticks; what a slower machine loses is sim
+   * time per second, never the outcome of a tick. doc/clients/clients.md §5.5. */
+  gTickGroundMs = 0.0;
+  gTickSubsteps = 0;
+  gTickAccS += dt;
+  int ticks = 0;
+  while (gTickAccS >= Missions::kSimTickS) {
+    SimTick();
+    gTickAccS -= Missions::kSimTickS;
+    ticks++;
   }
+  double cp_b = cp_a + gTickGroundMs;   /* the elevation/wind/hands part, summed over this frame's ticks */
   double gForHud = gOwnship->GroundAslM();
-  double cp_b = emscripten_get_now();   /* end: ground/bridges */
 
-  /* Every actor in mission order, then the pose barrier — the same snapshot discipline the headless
-   * runner uses, so tick order cannot change the outcome. */
-  for (auto &a : gActors) {
-    if (!a->Active()) continue;   /* an impacted store integrates no further (FBSimUnit::Retire) */
-    FBLogUnitScope us(a->LogLabel());
-    a->Run(dt, &gUnits, &W);
-  }
-  for (auto &a : gActors)
-    if (a->Active()) a->PublishPose();
   const Fdm::fb_fdm_state &St = gOwnship->State();
   Systems::FBGuidance g = gOwnship->Module().LastGuidance();
-  int nSub = gOwnship->Module().LastSubsteps();
-  double cp_c = emscripten_get_now();   /* end: jsbsim substeps */
-
-  /* The same two incorruptible judges the headless runner feeds, on the same classes and thresholds —
-   * neither stops or special-cases the render loop below; a console RESULT is the whole verdict here. */
-  gSimT += dt;
-  gRoster.clear();
-  gRosterUnit.clear();
-  for (auto &a : gActors)
-    if (a->GetKind() != Units::FBUnitKind::Weapon) {
-      /* The radiating bit, off the signature this unit publishes at the barrier — the same
-       * construction the two bits before it use, and the same one FBMissionRunner fills. */
-      bool emitting = false;
-      const Units::FBUnitSignature sig = a->GetSignature();
-      for (int bi = 0; bi < kMaxEmitterBeams; bi++)
-        emitting = emitting || sig.Radar[bi].Mode != FBEmitterMode::None;
-      gRoster.push_back({a->GetName().c_str(), a->GetTeam(), a->Health().CombatEffective(),
-                         a->ReleasedWeapon(), emitting, std::numeric_limits<double>::infinity()});
-      gRosterUnit.push_back(a.get());
-    }
-  FBMissionRoster roster{gRoster.data(), (int)gRoster.size()};
-  for (auto &a : gActors) {
-    if (!a->Active()) continue;
-    FBLogUnitScope us(a->LogLabel());
-    if (gNeedRanges) {
-      Units::FBUnitPose self = a->GetPose();
-      for (size_t i = 0; i < gRoster.size(); i++) {
-        Units::FBUnitPose q = gRosterUnit[i]->GetPose();
-        gRoster[i].RangeM = FBPlanarDistM(self.LatDeg, self.LonDeg, q.LatDeg, q.LonDeg);
-      }
-    }
-    a->RunMonitors(gSimT, roster);
-  }
-  /* THE SAME THREE PHASES, IN THE SAME ORDER, as the headless runner's tick: fly and resolve what was
-   * already in the air, then let this frame's releases become units, then snapshot the poses the next
-   * closest-approach is measured over. A round is therefore never resolved in the frame it left the
-   * rail — in the browser exactly as in fb-gym. */
-  gOrdnance.Resolve(gActors, gSimT, dt);
-  gOrdnance.Launch(gActors, gUnits, gSimT);
-  gOrdnance.SnapPoses(gActors);
+  int nSub = gTickSubsteps;
+  double cp_c = emscripten_get_now();   /* end: the tick loop */
 
   R.SetAgl((float)gOwnship->AglM());   /* the unit's own AGL, so FBRadarAltimeter and the HUD agree */
 
-  /* Camera = the aircraft eye. */
-  Units::FBUnitPose p = gOwnship->GetPose();
+  /* Camera = the aircraft eye, carried across the sub-tick gap so the picture keeps the frame rate
+   * while the sim keeps its own. Nothing downstream of here is read by the simulation. */
+  Units::FBUnitPose p = EyeAt(gTickAccS / Missions::kSimTickS);
   double eye[3], fwd[3], right[3], up[3];
   FBGeoToEcef(p.LatDeg, p.LonDeg, p.ElevM, eye);
   FBCameraBasisEcef(p.YawDeg, p.PitchDeg, p.RollDeg, p.LatDeg, p.LonDeg, fwd, right, up);
@@ -385,8 +443,8 @@ static void frame(void) {
   hs.Platform.HomeBearingDeg = (float)rel;
   hs.Platform.Mode = gOwnship->Module().Autopilot().GetMode();
   /* 1 Hz flight telemetry from the sim tick, device-loss-proof: the gate's measurement convention. */
-  { static double accLog = 0.0; accLog += dt;
-    if (accLog >= 1.0) { accLog = 0.0;
+  { static double lastLogS = 0.0;
+    if (gSimT - lastLogS >= 1.0) { lastLogS = gSimT;
       FBLog::Info("flight", "agl", {{"alt", St.elev}, {"agl", gOwnship->AglM()}, {"ground", gForHud},
           {"fdmGnd", gOwnship->Fdm() ? gOwnship->Fdm()->GetGroundElevM() : 0.0}, {"spd", St.speed}, {"cas", St.cas}, {"bank", St.roll},
           {"hdg", St.yaw}, {"vs", St.vy}, {"ringDist", g.RingDistM},
@@ -433,18 +491,20 @@ static void frame(void) {
   double cp_f = emscripten_get_now();   /* end: render (CPU-side record + submit) */
 
   { static double aGround = 0, aJsbsim = 0, aPose = 0, aWorld = 0, aRender = 0, aPeriod = 0, acc = 0;
-    static long nF = 0, sSub = 0;
+    static long nF = 0, sSub = 0, sTicks = 0;
     aGround += cp_b - cp_a; aJsbsim += cp_c - cp_b; aPose += cp_d - cp_c;
     aWorld += cp_e - cp_d; aRender += cp_f - cp_e; aPeriod += dt * 1000.0;
-    sSub += nSub; nF++; acc += dt;
+    sSub += nSub; sTicks += ticks; nF++; acc += dt;
     if (acc >= 1.0) {
       double loop = aGround + aJsbsim + aPose + aWorld + aRender;
       double per = aPeriod / nF;   /* mean rAF period (ms) — the 1/refresh budget */
       FBLog::Debug("cpuprof", "summary", {{"loopMs", loop / nF}, {"pctOfRaf", per > 0 ? 100.0 * (loop / nF) / per : 0.0},
           {"rafMs", per}, {"groundMs", aGround / nF}, {"jsbsimMs", aJsbsim / nF}, {"poseMs", aPose / nF},
           {"worldMs", aWorld / nF}, {"renderMs", aRender / nF}, {"draws", R.DrawCount()},
-          {"tilebufB", R.DrawCount() * 32}, {"substepsPerFrame", (double)sSub / nF}, {"frames", (int)nF}});
-      aGround = aJsbsim = aPose = aWorld = aRender = aPeriod = acc = 0; nF = 0; sSub = 0;
+          {"tilebufB", R.DrawCount() * 32}, {"substepsPerFrame", (double)sSub / nF},
+          /* THE SPLIT this loop exists for: frames follow the display, ticks follow kSimTickS. */
+          {"simTicksPerS", acc > 0 ? (double)sTicks / acc : 0.0}, {"frames", (int)nF}});
+      aGround = aJsbsim = aPose = aWorld = aRender = aPeriod = acc = 0; nF = 0; sSub = 0; sTicks = 0;
     }
   }
 }

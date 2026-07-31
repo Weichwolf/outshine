@@ -353,7 +353,7 @@ judges. It adds no step and no phase.
 |---|---|
 | **1 — load mission** | Read the file, `FBParseMissionFile` (pure text→`FBMission` function), resolve the timeout (`timeoutOverride > 0` beats the file value), log `MISSION_START`. |
 | **2 — set up the world with its actors** | Per `unit` block: resolve the elevation at the spawn point, check consistency, call `FBMissionSpawnActor`, append it to the `FBActorList`. Then: reserve capacities, fill the `FBUnitRegistry`, open a telemetry file per actor, `hook->OnMissionStart`. |
-| **3 — run the actors** | The tick loop at `dt = 0.1 s` (10 Hz decision rate) — elevation, STEP, barrier, monitors, telemetry, projectiles/stores, hook, growth, pose memorisation. |
+| **3 — run the actors** | The tick loop at `dt = kSimTickS` (`missions/FBSimTick.h`, 0.1 s, 10 Hz decision rate — the constant exists because the browser steps the same one and a client that picked its own flew a different jet, [`../clients/clients.md`](../clients/clients.md) §5.5) — elevation, STEP, barrier, monitors, telemetry, projectiles/stores, hook, growth, pose memorisation. |
 | **4 — validate the world** | The monitors decided long ago; here N verdicts are combined into ONE exit code and `UNIT_RESULT`/`RESULT`/`SUMMARY` are emitted. |
 
 #### What it does NOT know
@@ -587,7 +587,8 @@ mid-run resizes no buffer that a worker thread is currently referencing.
 
 ### 7. The tick, phase by phase
 
-From the loop in `FBMissionRunner.cpp` (`dt = 0.1 s`):
+From the loop in `FBMissionRunner.cpp` (`dt = kSimTickS = 0.1 s`; the browser's `SimTick()` runs the
+same phases in the same order for the same constant):
 
 | # | Phase | Parallel? | Why |
 |---|---|---|---|

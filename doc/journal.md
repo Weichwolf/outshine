@@ -2841,3 +2841,56 @@ Der Weg zur dritten ist deshalb kein Argument, sondern eine Rechnung — und die
 Würfeln unterscheidet, ist hingeschrieben: **keine Sprosse wird entfernt, weil sie durchfällt.** Der
 Messplatz wächst monoton, S4 zählt jede Sprosse mit, und welche informativ sind, ist seine Ausgabe und
 nicht seine Eingabe.
+
+## 2026-07-31 — Der Browser bekommt den Takt des Gyms: ein fester Takt, eine Kamera, die trotzdem läuft
+
+`doc/clients/clients.md` 5.5 ist geschlossen, und zwar erst, nachdem der Mechanismus **überführt**
+war. Zwei Kandidaten standen benannt und ungeprüft im Fund: das äußere `dt` und `FBF16Module::Due`.
+
+**`Due` ist unschuldig.** Es entscheidet nur, WANN ein Slot läuft, und das tut es bei jedem dt richtig:
+bei 1/60 s feuert ein 10-Hz-Slot jeden 6. Frame — also weiter mit 10 Hz. Schuldig ist das `dt`, das
+**durchgereicht** wird. `FBPilot::Run` rechnet `TimeS_ += dt` und wird mit 10 Hz aufgerufen; bekommt es
+den Frame-dt, läuft seine eigene Uhr mit `dt / 0,1` der Simulationsgeschwindigkeit. Zwei Sonden im Gym
+(beide zurückgebaut) haben das gezeigt:
+
+| Sonde | Messung |
+|---|---|
+| Takt im **Gym** auf 1/60 s gezwungen | `aimMissM 22,5 → 117,9 m`, `leadS 0,6 → 0,5167` — der Browser-Fehler entsteht ohne einen einzigen Browser |
+| dieselbe Sonde, Pilotenuhr mitgeloggt | **Pilot bei 11,92 s, Welt bei 71,5 s** — Faktor 6,0. Der Pickle trägt einen 60 s alten Stempel, der Bus findet ihn sofort fällig, die 0,5 s HOTAS-Latenz, auf die der Pilot vorhält, passiert nie: 0,42 s zu früh × 231 m/s = 97 m kurz |
+| jedem gedrosselten Slot seine EIGENE Periode statt des Frame-dt | bei 1/60 s: `aimMissM = 12,1 m`, beide Ziele tot — der Rest ist Abtastphase, kein Bias |
+
+**Die Reparatur ist die des Clients, nicht des Moduls.** `missions/FBSimTick.h` hält die eine Zahl
+(`kSimTickS = 0,1 s`); `FBMissionRunner` und die Browser-Schleife schreiten sie beide ab. Die
+rAF-Schleife sammelt Wandzeit und ruft `SimTick()` — den Tick-Rumpf des Runners, Phase für Phase, als
+EINE Funktion — in ganzen Vielfachen auf. Die Kamera bleibt bei der Bildrate: `EyeAt(alpha)`
+extrapoliert die Augenpose zwischen den letzten zwei Ticks, und **nichts, was die Simulation liest,
+hängt daran**. Der Preis steht dabei: das HUD wird vom Display-Slot mit 10 Hz erzeugt, im Manöver
+stehen seine Symbole also bis zu einen Tick neben dem Gelände.
+
+**Gemessen, gleiche Datei, gleiche Luft (`wx calm`), gleiche Maschine, headless Chrome:**
+
+| `cbu87-footprint` | fb-gym | Browser VORHER | Browser NACHHER |
+|---|---:|---:|---:|
+| `aimMissM` | 22,54 m | **114,12 m** | **20,77 m** |
+| `leadS` | 0,6 | 0,5167 | 0,6 |
+| Ziele zerstört | 2 von 3 | **0** | 2 von 3 |
+
+Und die Bildrate entscheidet nichts mehr: derselbe Lauf bei 60 fps und bei ~600 fps
+(`--disable-frame-rate-limit`) gibt `aimMissM = 20,7715`, `alongM = 97,7188 / 157,968` — Ziffer für
+Ziffer identisch, bei 10,0 Ticks/s in beiden Fällen. Der gehaltene Abzug liefert Bündel im 0,1-s-Raster
+mit `1, 5, 9, 10, 10 …` Schuss — **exakt die Folge, die `gun-bfm` im Gym schreibt** — 53 Bündel in
+5,3 s und **0 `BURST_DROPPED`**; vorher 128 Bündel à 1 Schuss und **185** verworfene. Gegenprobe
+`attack-ccrp`: `aimLongM` Gym +38,56 m, Browser nachher +41,98 m, Browser vorher **−72,63 m** und ohne
+eine einzige `damage DAMAGE`-Zeile.
+
+**Die Regression bewegt sich nicht, und das ist beweisbar statt gemessen:** `build/fb-gym` ist vor und
+nach der Änderung **bytegleich** (`909655e6…`) — die einzige Core-Änderung ersetzt das Literal `0.1`
+durch die Konstante gleichen Wertes, der Rest liegt im wasm-Client, der nicht dazugelinkt wird. Die
+Stichprobe aus 37 Missionen (Kanone/CCIP/CCRP/Cluster/ARM/BVR/Duell/Arena + jede 12.) über beide
+Binaries: alle Artefakte identisch, alle Exit-Codes identisch.
+
+Offen und gebucht: **5.8** — im Modul ist die Falle nur entschärft, nicht entfernt (der Slot bekommt
+weiter den äußeren dt; das geradezuziehen verschiebt die 20-Hz-Slots und ist eine eigene Runde) — und
+**5.9** — zwischen Browser und Gym bleiben 1,8 m Zielfehler, und die sind Gelände: zwei Abtaster
+desselben DEM (Kachelraster gegen gebackenes Swiss-DEM; `--elev tiles` schließt sie bis auf 0,08 m
+Aufschlagebene).

@@ -12,6 +12,7 @@
 #include "FBTickPool.h"
 #include "FBGeodesy.h"
 #include "FBOrdnance.h"
+#include "FBSimTick.h"
 #include "FBUnits.h"
 #include <cerrno>
 #include <chrono>
@@ -417,7 +418,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
    * FBCloudSky::AnchorLatDeg. */
   const double skyAnchorLat = Actors.empty() ? 0.0 : Actors.front()->State().lat;
   const double skyAnchorLon = Actors.empty() ? 0.0 : Actors.front()->State().lon;
-  const double dt = 0.1;
+  const double dt = kSimTickS;
   double simT = 0.0;
   /* steady_clock, not clock(): the latter sums every thread's CPU time and would report a FASTER
    * parallel run as a slower one. */

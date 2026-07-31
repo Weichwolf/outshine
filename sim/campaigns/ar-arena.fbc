@@ -3,13 +3,13 @@ time 2026-07-27T12:00:00Z
 carry units ground stores
 stop_on never
 
-# THE ARENA — TWENTY MEASURING RUNGS FOR THE DOCTRINE EVOLUTION. NOT A CAMPAIGN, NOT A HISTORY.
+# THE ARENA — THIRTY MEASURING RUNGS FOR THE DOCTRINE EVOLUTION. NOT A CAMPAIGN, NOT A HISTORY.
 # Spec, grid and the whole derivation: doc/campaigns/ar-arena.md. Format: doc/missions/campaign.md.
 #
 # THIS FILE IS NOT ONE OF THE TEN CAMPAIGNS OF doc/campaigns/INDEX.md AND MUST NOT BE READ AS ONE. Those
 # ten are scenario specifications with cited anchors, and INDEX.md's own sentence — "a campaign without a
 # cited anchor is a mood, and a mood cannot be measured" — is exactly why this file declares up front
-# that it HAS no anchor and is not trying to have one. It is an INSTRUMENT: twenty synthetic cells built
+# that it HAS no anchor and is not trying to have one. It is an INSTRUMENT: thirty synthetic cells built
 # to the four properties `E11` of doc/doctrine-evolution.md measured a cell needs before it can be
 # informative, and to nothing else.
 #
@@ -33,7 +33,7 @@ stop_on never
 #              `kill team`, which on these files would need every ground unit dead as well and could
 #              therefore never be met
 #   4 ROBUST   the baseline outcome class over `fb_campaign_arena.py`'s own ±3 m spawn grid. Rungs
-#              01…10 publish it per rung; rungs 11…20 deliberately do NOT measure it, because S7 is the
+#              01…10 publish it per rung; rungs 11…30 deliberately do NOT measure it, because S7 is the
 #              GATE's screen and a rung built until its own baseline stops moving is a rung selected on
 #              its own result
 #
@@ -52,7 +52,7 @@ stop_on never
 # The sun elevations are MEASURED, off each run's own `mission CLOCK` line at the primary actor's spawn
 # point; the range sits on the prime meridian so UTC IS local apparent solar time and the clock column
 # is checkable by eye. NO RUNG IS A CONTROL OF ANY OTHER — two coordinates differ between any pair — and
-# the set is a SPREAD, not a factorial. It exists to give the evolution twenty independent cells, never
+# the set is a SPREAD, not a factorial. It exists to give the evolution thirty independent cells, never
 # to attribute an effect to daylight, and a reader who reads a light/weather effect out of two rungs is
 # reading a geometry change as well.
 #
@@ -83,14 +83,43 @@ stop_on never
 # lives in, measured with `build/fb-test-weather` and restated as a closed form, which is the rule rungs
 # 02/05/09 already use.
 #
-# ONE THING RUNGS 11…20 DO THAT RUNGS 01…10 DO NOT, and it is a correction rather than a variation: their
+# WHAT THE THIRD TEN SPAN — NOTHING NEW, AND THAT IS THE POINT. Rungs 21…30 add no axis; they fill the
+# four the arena already spans DENSER, in (aspect, force, energy, weapon) tuples that appear in no rung
+# of 01…20, and each carries a clock that appears in none either. The reason is a measurement rather
+# than a taste: [MESS, the gate over all 40 cells of rungs 01…20, tree 5866aae] TWO cells are informative
+# — `ar-08-close-day:f16` at 9 movers and `ar-15-ratio-one-two:f16` at 8, both at 0 flips of 8 — and the
+# yield is 5 % of cells in BOTH tens. S5 wants three. At a stable 5 % the remaining question is a COUNT,
+# not a lever, and the honest way to answer a count is to add cells built to the same rule.
+#   #  rung                geom          b:r  energy            weapon blue/red clock      sun  wx
+#   21 headon-two-three    A head-on    8:12  co-alt/co-speed   free / FREE    07:10Z  +24.51  calm
+#   22 headon-three-two    A head-on    12:8  RED  12 km/500    BOUND / bound  14:20Z  +52.18  wind 9.2/30.9
+#   23 offset-blue-high    B offset      8:8  BLUE 12 km/500    BOUND / FREE   21:15Z  −15.05  GFS fixture
+#   24 offset-three-three  B offset    12:12  co-alt/co-speed   free / bound   02:25Z  −18.51  calm
+#   25 beam-red-high       C beam        8:8  RED  12 km/500    BOUND / bound  12:50Z  +62.65  wind 335/19.6
+#   26 beam-three-two      C beam       12:8  co-alt/co-speed   free / bound   18:40Z   +7.67  GFS fixture
+#   27 close-blue-high     D close      8:12  BLUE 12 km/500    free / bound   00:05Z  −25.81  GFS fixture
+#   28 close-two-one       D close       8:4  co-alt/co-speed   free / FREE    10:45Z  +59.15  calm
+#   29 vertical-two-one    E vertical    8:4  stack 11…11.5 km  BOUND / bound  16:00Z  +35.59  calm
+#   30 vertical-two-three  E vertical   8:12  stack 9…11.5 km   free / FREE    03:55Z   −7.50  wind 5.1/28.3
+# Two ratios here exist nowhere in 01…20 — 12:8 (`ar-22`, `ar-26`) and 12:12 (`ar-24`) — so the force
+# axis now carries SEVEN distinct ratios instead of five. Geometry E is carried into this ten at two force
+# ratios, and its stack is a FORCE coordinate acting inside the geometry: rungs 09/10 stack two flights
+# at 10…11.5 km, `ar-29` stacks one at 11…11.5 and `ar-30` three at 9…11.5, one shelf per flight.
+# THE FIFTH AXIS OF §4.2 IS STILL NOT SPANNED, and no rung of this file pretends otherwise: DETECTION
+# SYMMETRY is a CONSTANT of all thirty — red `n019 rad` at 54 nm, blue `crm` at 40 nm, in every file.
+# Spanning it is a fourth ten, not a denser third.
+# AND THE SAFETY CATCH: rungs 21…30 are built to the rule and NOT toward a mover count. No rung of this
+# arena is edited because it fails and none is removed; the stand grows monotonically, and WHICH cells
+# are informative is the gate's OUTPUT and never its input.
+#
+# ONE THING RUNGS 11…30 DO THAT RUNGS 01…10 DO NOT, and it is a correction rather than a variation: their
 # `kill unit` assignment COVERS EVERY AIRCRAFT ON BOTH SIDES — once, or twice where the naming side is
 # the smaller one, but never zero times. doc/missions/verdict.md's
 # expected-loss rule makes a loss decisive unless another unit declared a `kill` naming it, and a
 # decisive loss ENDS the run — [MESS, the first pass of the second ten under the partial assignment of
 # rungs 01…10] `ar-16` exited 1 truncated at t = 149.2 s and `ar-19` exited 1 at t = 99.4 s, each on one
 # aircraft nobody had named, so the run LENGTH and with it the ground half's reachability depended on
-# WHICH aircraft happened to die. Under complete coverage all ten end in TIMEOUT by construction.
+# WHICH aircraft happened to die. Under complete coverage all twenty end in TIMEOUT by construction.
 #
 # EVERY RUNG COMBINES AIR AND GROUND. There is no air-only and no ground-only cell: four `target_soft`
 # aim points (one graded objective each, on the four strikers), two `target_hard` present and
@@ -99,11 +128,11 @@ stop_on never
 #
 # THE CARRY IS DECLARED AND INERT, AND THAT IS THE POINT. `carry units ground stores` is the default and
 # is written out rather than narrowed, but every callsign is prefixed with its own rung (`ar01*` …
-# `ar20*`), so the twenty casts are PAIRWISE DISJOINT in every unit they can lose and the overlay has
+# `ar30*`), so the thirty casts are PAIRWISE DISJOINT in every unit they can lose and the overlay has
 # nothing to apply. Consequence, and it is what an arena needs: each rung is measurable STANDALONE, the
 # gate flies them one at a time, and campaign step k is byte-identical to its own standalone run —
 # doc/missions/campaign.md §5 criterion 2 holds by construction instead of by measurement. `stop_on
-# never` for the same reason: a rung that ends badly must not delete the nineteen measurements behind it.
+# never` for the same reason: a rung that ends badly must not delete the measurements behind it.
 #
 # READING RULE FOR THE WHOLE FILE, BINDING. THE CAMPAIGN EXIT CODE IS NOT A VERDICT and neither is any
 # rung's. Every rung is a measuring rig whose normal end is TIMEOUT (exit 3), and the campaign exit is
@@ -136,3 +165,13 @@ mission ../missions/ar-17-ratio-two-three.fbm
 mission ../missions/ar-18-bind-both.fbm
 mission ../missions/ar-19-bind-neither.fbm
 mission ../missions/ar-20-bind-blue-high.fbm
+mission ../missions/ar-21-headon-two-three.fbm
+mission ../missions/ar-22-headon-three-two.fbm
+mission ../missions/ar-23-offset-blue-high.fbm
+mission ../missions/ar-24-offset-three-three.fbm
+mission ../missions/ar-25-beam-red-high.fbm
+mission ../missions/ar-26-beam-three-two.fbm
+mission ../missions/ar-27-close-blue-high.fbm
+mission ../missions/ar-28-close-two-one.fbm
+mission ../missions/ar-29-vertical-two-one.fbm
+mission ../missions/ar-30-vertical-two-three.fbm
