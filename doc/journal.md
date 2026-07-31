@@ -2583,3 +2583,21 @@ Das Genom wachsen zu lassen hat also sehr wohl irgendwann einen Pass erzeugt —
 aber mit etwa einer Zelle je zwei Gene gegen eine Schranke, die mit jedem Gen mitwächst (E-22). **Und es
 ist kein Gen mehr übrig**: der Auftrag nennt fünf, alle fünf leben. Übrig ist die Arena selbst, und wo,
 steht gemessen da: 107 von 154 Zellen sind ein Flugzeug oder zwei.
+
+**Nachtrag `E11`, Korrektur an mir selbst.** Ich hatte geschrieben, die Masse der Arena liege „am
+falschen Ort". Das ist über die Messung richtig und über die Ursache falsch. Gemessen an der Zahl
+befreundeter F-16/MiG-29 je Sprosse: **jede Kampagne ist eine LEITER** — w1 hat sechs Sprossen mit ein
+bis zwei Flugzeugen und steigt auf sechs, w3 hat zwei kleine und steigt auf **sechzehn**, o5 sechs kleine
+und steigt auf sechs. Die 107 kleinen Zellen sind die unteren Sprossen und für eine Leiter genau richtig:
+`w1-01-merge` ist einer gegen einen, weil ein Lehrplan damit anfängt. Sie „falsch platziert" zu nennen
+war mein Fehler.
+
+Die wirkliche Grenze ist enger und betrifft den **Satz**, nicht die einzelne Kampagne: zehn Leitern
+ergeben zehn Spitzen, und **nur zwei Sprossen der ganzen Breite stellen acht oder mehr Flugzeuge auf die
+benotete Seite** (`w3-09-saturation` mit 8, `w3-10-package-q` mit 16). Benotbarkeit steigt mit der
+Seitengröße, S5 will drei informative Zellen — und die Breite bietet zwei Sprossen der Größe, in der
+Doktrin überhaupt messbar ist. Eine davon ist chaotisch.
+
+Die Entscheidung, auf die das Tor wartet, ist damit eine **Kampagnen-Entwurfsentscheidung**: ob der Satz
+aus zehn Leitern mehr Spitzen tragen soll. Aus einer Beweger-Zahl lässt sie sich nicht ableiten, ohne die
+Arena nach dem Ergebnis auszuwählen — und das hat diese Datei fünfmal abgelehnt.

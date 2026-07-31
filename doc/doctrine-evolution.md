@@ -2042,7 +2042,33 @@ roughly one cell per two genes, against a bar that rises with every gene added (
 gene left to add**: the owner goal names five and all five are live. What is left is the arena itself,
 and §6 says where: 107 of 154 cells are one aircraft or two.
 
-### 8. The cost
+### 8. The small cells are NOT a defect — the campaigns are ladders, and that is the real limit
+
+§6 said the arena's mass "sits where doctrine cannot be measured at all". That is true of the
+measurement and WRONG about the cause, and the correction is one command [MESS, friendly F-16/MiG-29
+count per rung]:
+
+| campaign | rungs of 1–2 aircraft | rungs of ≥ 4 | its top rung |
+|---|---:|---:|---|
+| `w1` Red Flag | 6 | 3 | 6 (`graduation`) |
+| `w3` Desert Storm | 2 | 8 | **16** (`package-q`) |
+| `o5` airfield defence | 6 | 4 | 6 (`batajnica`) |
+
+**Every campaign is a LADDER**: it starts at one or two aircraft and climbs to its own top. The 107
+small cells are the lower rungs, and they are correct for what a ladder is — `w1-01-merge` is one jet
+against one because that is the first thing a syllabus teaches. Calling them misplaced was wrong.
+
+The real limit is narrower and it is about the SET rather than any campaign: ten ladders produce ten
+tops, and **only two rungs in the whole breadth put eight or more aircraft on the graded side**
+(`w3-09-saturation` at 8, `w3-10-package-q` at 16). Gradability rises with side size (§6), S5 wants
+three informative cells, and the breadth offers two rungs of the size where doctrine is measurable at
+all — one of which is chaotic.
+
+**So the decision the gate is waiting on is a campaign-design decision, and it belongs to the owner**:
+whether the set of ten ladders should carry more tops. It cannot be taken from a mover count without
+selecting the arena on the result, and this file has declined that five times.
+
+### 9. The cost
 
 | | |
 |---|---|
