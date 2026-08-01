@@ -30,6 +30,7 @@ import fb_campaign_arena as arena
 import fb_fitness as fit
 import fb_tournament as tour
 
+kClaimFloor = 2   # [SET] Paragraph 5 X4.1: ab 2 von 8 darf auf dieser Geometrie NICHTS behauptet werden
 kSteps = [-3.0, -2.2, -1.4, -0.6, 0.6, 1.4, 2.2, 3.0]   # metres, the 0.8 m grid of pilot.md
 
 
@@ -121,7 +122,11 @@ def main():
             k = keys["%s-p%d" % (c.mission, i)]
             if fit.outcome_class(k) != bcls:
                 flips.append("%+.1f m -> %s" % (m, fit.outcome_class(k)))
-        ok = not flips
+        # Paragraph 5s Boden fuer einen CHAMPION ist 2 von 8, nicht null: "the yardstick itself flips in
+        # 2 of 8 samples in a chaotic geometry — and if it does, no claim may be made on that geometry at
+        # all". S7s null gilt der ZULASSUNG einer Zelle und ist absichtlich strenger (Paragraph 10, E18).
+        # Dieses Werkzeug hat bis 2026-08-01 S7s Schwelle auf einen Champion angewandt.
+        ok = len(flips) < kClaimFloor
         verdict = verdict and ok
         print("   %-26s base %-9s  %d of 8 flipped  %s   %s"
               % (c.mission, str(bcls), len(flips), "ok" if ok else "NO", "; ".join(flips)))

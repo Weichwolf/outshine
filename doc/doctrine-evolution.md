@@ -2235,6 +2235,105 @@ before.
 
 ---
 
+## State — round `E13` (2026-08-01): THE FIRST PUBLISHED DOCTRINE SHIFT
+
+`E12` passed the gate and its own instruments refused the champion, because the runner selected by the
+co-evolving round robin — a measure §6 forbids publishing. E19 made the selection follow the fixed field.
+Re-run on the identical arena, identical genome, identical 813 runs: all three circling instruments pass,
+the fixed yardstick RISES, and the four exploit tests hold. This is §6's template, filled.
+
+### §1 — The shift, in one sentence
+
+**A netted four-ship halves its vertical stack: `pilot_flight_stack_frac` 1.5 → 0.75.**
+
+### §2 — The genome diff, with bands
+
+| gene | seed | champion | band | on a rail? |
+|---|---:|---:|---|---|
+| **`pilot_flight_stack_frac`** | 1.5 | **0.75** | 0 … 3 | no |
+| `pilot_attack_bias_s` | 0 | −0.625 | −10 … 10 | no |
+| `pilot_flight_trail_frac` | 1.5 | 1.125 | 0 … 3 | no |
+| `pilot_flight_spread_frac` | 1.625 | 1.5391 | 0.25 … 3 | no |
+| `dl` | — | on | allele | — |
+| the other four | unchanged | unchanged | | |
+
+No gene sits on a rail, so none of them is an unbounded band reported as a finding.
+
+### §3 — The outcome ledger, against the FIXED yardstick
+
+| generation | 0 | 1 | 2 | 3 | 4 | 5 |
+|---|---:|---:|---:|---:|---:|---:|
+| fixed yardstick | 0.722 | **0.889** | 0.889 | 0.889 | 0.889 | 0.889 |
+
+| cell | champion | yardstick baseline | |
+|---|---|---|---|
+| `ar-08-close-day:f16` | V=19 M=11 | V=18 M=10 | better on both deciding levels |
+| `ar-15-ratio-one-two:f16` | V=20 M=13 | V=19 M=11 | better on both |
+| `ar-27-close-blue-high:f16` | V=20 M=16 | V=20 M=15 | better on M |
+
+### §4 — The mechanism, as a chain of published channels
+
+[MESS, the three cells, four genomes: the seed, the seed + `dl=on`, that + the halved stack, and the
+champion. One run each, the arena's own channel CSV.]
+
+| cell | `flt_switch` seed → half-stack | `(V, M)` |
+|---|---|---|
+| `ar-08-close-day` | **83 → 77** | (18,10) → (19,11) |
+| `ar-15-ratio-one-two` | **66 → 39** | (20,13) → (20,**12**) |
+| `ar-27-close-blue-high` | **11 → 7** | (20,15) → (20,16) |
+
+**The chain:** `pilot_flight_stack_frac` scales `FormationStackM` in `FBPilot::FormationStation`
+(`altM = lead.AltM + k · stackM`) → the flight's members sit closer in altitude → **`flt_switch`, the
+sort's re-assignment count, falls on all three cells** → on two of the three that converts into a higher
+objective count.
+
+**And the datalink bit is NOT the mechanism**: `dl=on` alone leaves every channel and both deciding
+levels identical to the seed on all three cells. The shift is the stack.
+
+**The honest limit, stated with the finding:** on `ar-15-ratio-one-two` the halved stack alone COSTS one
+objective (M 13 → 12) while raising `eng_shots` 1 → 6 and `flt_assign` 7 → 31; the champion's other two
+genes recover it to M = 13. The channel moves in one direction on all three cells; **the outcome does
+not**, and "less churn is better" is therefore not published as a law.
+
+### §5 — The counter
+
+The archive holds **15** members. The one that comes closest is `g5_23`, the champion `E12` produced under
+the old selection: same family, `pilot_attack_bias_s = −0.3125` instead of −0.625, and it scores **0.444**
+against the same fixed field where this champion scores 0.889. The counter to this doctrine is therefore
+its own neighbour in one gene — which is the honest way of saying the pickle lead is sharp and the stack
+is not.
+
+### §6 — The exploit audit
+
+| test | result |
+|---|---|
+| **X1** arena invariance — advantage survives on ≥ 2 informative geometries | **PASS.** Better on all three; the claim rests on `ar-15` and `ar-27`, which flip **0 of 8** |
+| **X2** invariance to declared ignorance | **n/a**, the same reason S3 is: both airframes are FlightBox's read-only model copies, so there is no declared-ignorance band to perturb |
+| **X3** mechanism nameable in published channels | **PASS** — §4, with the column and the number at every link |
+| **X4** the physical audit | **PASS.** Spawn ±3 m, 8 samples: `ar-15` 0/8, `ar-27` 0/8, `ar-08` 1/8 (§5's floor is 2/8). Timeout × 1.5: all three held. Partition class: the fitness contains no such count (§1.3) |
+
+**Two disclosures that belong to the audit, not to a footnote.** (a) `ar-08` reads 1 of 8 on the coarse
+grid and **4 of 24 = 16.7 %** on the 0.25 m grid — below §5's 25 % floor, but closer to it than the coarse
+reading suggests, which is why the claim is carried by the two cells that flip zero. (b) `fb_champion_audit.py`
+applied S7's ADMISSION threshold (0 flips) to a champion audit until today; §10/E18 wrote the distinction
+down in advance, and the tool now uses §5's floor with that quote in its source.
+
+### §7 — The cost
+
+| | |
+|---|---|
+| runs | 813 (evolution) + 12 (mechanism) + 27 (X4) + 24 (the fine grid on `ar-08`) |
+| `sim/src/` | **not touched** |
+| the campaigns | **not touched** |
+| what moved | one line of `tools/fb_campaign_evolve.py` (E19) and one threshold in `tools/fb_champion_audit.py` |
+
+### §8 — Exploits found
+
+**None new.** X-1 through X-5 stand as they are. The round's own near-miss is disclosed in §6(a) rather
+than filed as an exploit: `ar-08` is noisier than the coarse grid showed, and the claim does not rest on it.
+
+---
+
 ## Gaps
 
 | # | Thing | Known from |

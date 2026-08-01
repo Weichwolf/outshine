@@ -2926,3 +2926,39 @@ eingefrorener Text, den kein Genom beeinflussen kann, und es ist gefallen.
 Und die Falle, in die diese Runde nicht getreten ist: bei Generation 4 aufzuhören hätte über das ganze
 Fenster flache 0,611 gezeigt und (a) bestanden. Das Fenster zu wählen, nachdem man die Kurve kennt, ist
 derselbe Griff wie eine Schwelle nachzuziehen — abgelehnt, zum neunten Mal.
+
+## 2026-08-01 — `E13`: die erste veröffentlichte Doktrinverschiebung
+
+`E12` hatte das Tor bestanden und den eigenen Champion verworfen, weil der Läufer nach der mitlaufenden
+Population auswählte — einem Maß, das §6 zu veröffentlichen verbietet. **E19** hat die Auswahl auf das
+feste Feld umgestellt, geprüft *vorher*, dass es nichts kauft. Derselbe Lauf, dasselbe Genom, dieselben
+813 Läufe:
+
+| Instrument | Wert | |
+|---|---|---|
+| (a) fester Maßstab | 0,722 → **0,889** → 0,889 … | steigt, nicht fallend — **ok** |
+| (b) zyklische Tripel | T = 0,0000 (0 von 10) | **ok** |
+| (c) Trajektorie | 0,2795 / 0,1288 / 0,0442 | bewegt sich |
+| X1 / X2 / X3 / X4 | PASS / n.z. / PASS / PASS | |
+
+**Die Verschiebung: ein vernetzter Vierer halbiert seine Höhenstaffelung — `pilot_flight_stack_frac`
+1,5 → 0,75.** Kein Gen liegt auf einer Schiene.
+
+**Der Mechanismus, in publizierten Kanälen:** der Wert skaliert `FormationStackM` in
+`FBPilot::FormationStation` (`altM = lead.AltM + k · stackM`), die Verbandsmitglieder sitzen enger
+beieinander in der Höhe, und **`flt_switch` — die Zahl der Umsortierungen — fällt auf allen drei Zellen**
+(83→77, 66→39, 11→7). Auf zwei von dreien wird daraus eine höhere Zielzahl.
+
+**Und das Datenlink-Bit ist NICHT der Mechanismus:** `dl=on` allein lässt jeden Kanal und beide
+entscheidenden Stufen identisch. Die Verschiebung ist die Staffelung.
+
+**Die ehrliche Grenze steht beim Befund:** auf `ar-15` kostet die halbierte Staffelung allein ein Ziel
+(M 13 → 12) und hebt `eng_shots` von 1 auf 6; erst die zwei anderen Gene des Champions holen es zurück.
+Der Kanal bewegt sich auf allen dreien in eine Richtung, **das Ergebnis nicht** — „weniger Churn ist
+besser" wird deshalb *nicht* als Gesetz veröffentlicht.
+
+Zwei Offenlegungen gehören zum Audit: `ar-08` liest 1 von 8 grob und **4 von 24 = 16,7 %** fein — unter
+§5s 25-%-Boden, aber näher dran als die grobe Zahl vermuten lässt, weshalb die Behauptung auf den zwei
+Zellen ruht, die null Mal kippen. Und `fb_champion_audit.py` hat bis heute S7s **Zulassungsschwelle**
+(null Kipper) auf einen Champion angewandt; §10/E18 hatte die Unterscheidung im Voraus aufgeschrieben,
+und das Werkzeug benutzt jetzt §5s Boden mit diesem Zitat im Quelltext.
