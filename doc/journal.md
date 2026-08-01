@@ -2962,3 +2962,30 @@ Zwei Offenlegungen gehören zum Audit: `ar-08` liest 1 von 8 grob und **4 von 24
 Zellen ruht, die null Mal kippen. Und `fb_champion_audit.py` hat bis heute S7s **Zulassungsschwelle**
 (null Kipper) auf einen Champion angewandt; §10/E18 hatte die Unterscheidung im Voraus aufgeschrieben,
 und das Werkzeug benutzt jetzt §5s Boden mit diesem Zitat im Quelltext.
+
+**Nachtrag `E13`: die Validierung widerlegt die Übertragung.** §1 wurde unter §5s Tests verdient, und
+X1 verlangt nur, dass der Vorteil auf *„the arena's other informative geometries"* hält — davon gibt es
+drei. Also wurde die Verschiebung auf den Satz getragen, auf dem sie **nicht** ausgewählt wurde: die 154
+Kampagnenzellen.
+
+| Champion gegen seine Saat, Kampagnenbreite | |
+|---|---:|
+| besser | **17** |
+| schlechter | **38** |
+| gleich oder unvergleichbar | 99 |
+| `flt_switch` fällt / steigt / gleich | 6 / 9 / 139 |
+
+**Die Verschiebung überträgt sich nicht, und auf den Kampagnen ist sie netto schädlich.** Der Mechanismus
+ebenso wenig: die Umsortierungen fallen auf 6 Zellen und **steigen auf 9**, gegen drei von drei auf dem
+Messplatz.
+
+§1 bleibt veröffentlicht — es wurde unter den Tests verdient, die diese Datei deklariert. Was es **nicht**
+ist, ist eine Doktrin für diesen Baum: es ist eine Doktrin für Nahbereichs-Vierer der Bauart, aus der der
+Messplatz besteht. Der Auftrag selbst spricht das Urteil: *„über die Kampagnenbreite, nicht über einzelne
+Geometrien."* Daran gemessen fällt die Verschiebung durch, und dieser Fehlschlag ist die wertvollere
+Hälfte der Runde.
+
+Und er benennt eine Instrumentenschwäche, die keine frühere Runde sehen konnte: X1 ist auf einer
+Drei-Zellen-Arena fast leer — „mindestens zwei von dreien" ist ein Zwei-Proben-Test. Als **E-25** gebucht,
+und **nicht** nachträglich in §5 eingebaut: ein Kriterium, das in der Runde umgeschrieben wird, deren
+Ergebnis es ändern würde, ist keins.
