@@ -3014,3 +3014,28 @@ wurde auf 154 Zellen bezahlt, die sie nie angesehen hat.
 
 §1 nennt jetzt `g1_61`. Die drei späteren Gene sind aus der Behauptung zurückgezogen und stehen mit ihrer
 Messung da — die Regel dieses Baums für einen verworfenen Ansatz.
+
+**`E13` §7c: die Selektion auf der Breite — und sie zeigt in die Gegenrichtung.** Die Achse, die §4s
+Mechanismus benennt, ist über alle 154 Zellen abgetastet worden (1.078 Läufe, alles außer der
+Höhenstaffelung auf der Saat):
+
+| `stack_frac` | besser | schlechter | netto | Test |
+|---:|---:|---:|---:|---|
+| 0 | 11 | **21** | −10 | **p ≈ 0,025 für „schlechter"** |
+| 0,25 | 13 | 18 | −5 | |
+| 0,5 | 12 | 18 | −6 | |
+| **0,75** (veröffentlicht) | 14 | 15 | **−1** | p = 0,644, also nichts |
+| 1,0 | 9 | 18 | −9 | |
+| **2,0** | **17** | 10 | **+7** | p = 0,124 — **nicht signifikant** |
+
+**Belegt ist nur das schädliche Ende:** die Staffelung ganz zu kollabieren ist auf der Kampagnenbreite
+messbar schlecht. Dass eine *weitere* Staffelung besser wäre, sieht so aus, ist aber bei 17 von 27
+bewegten Zellen nicht belegt — nötig wären 19.
+
+**Die Überschrift ist die Uneinigkeit.** Die Arena wählte 0,75 und erreichte dort ihr Maximum; der beste
+Wert der Breite ist **2,0, die Gegenrichtung**, und die Wahl der Arena ist dort exakt neutral. Die beiden
+Messplätze unterscheiden sich nicht bloß in der Stärke — **sie zeigen auf demselben Gen in
+entgegengesetzte Richtungen.**
+
+§1 mit 2,0 neu zu veröffentlichen wäre eine Auswahl auf p = 0,124 und damit derselbe Griff wie eine
+nachgezogene Schwelle. Abgelehnt; der Wert steht hier mit seiner Messung.

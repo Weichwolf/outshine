@@ -2391,6 +2391,41 @@ champions tied on the fixed yardstick, the one to publish is the one that costs 
 not selected on. `g1_61` and `g5_40` are indistinguishable on the arena (0.889 both) and 20 cells apart
 on the breadth.
 
+### §7c — SELECTION ON THE BREADTH: the gene's own axis, swept over all 154 cells
+
+§7b showed the core gene is breadth-neutral. The obvious next question is whether ANY value of it is
+breadth-POSITIVE, and it is answerable without fishing: the axis is the one §4's mechanism already names,
+and it is swept end to end rather than searched. [MESS, 154 cells × 7 genomes = 1,078 runs, everything
+but `pilot_flight_stack_frac` held at the seed, `dl=on`]
+
+| `stack_frac` | better | worse | unchanged | net | one-sided binomial |
+|---:|---:|---:|---:|---:|---|
+| 0 | 11 | **21** | 122 | −10 | **p ≈ 0.025 for WORSE** |
+| 0.25 | 13 | 18 | 123 | −5 | — |
+| 0.5 | 12 | 18 | 124 | −6 | — |
+| **0.75** (published) | 14 | 15 | 125 | **−1** | p = 0.644, i.e. nothing |
+| 1.0 | 9 | 18 | 127 | −9 | — |
+| **2.0** | **17** | 10 | 127 | **+7** | p = 0.124 — **not significant** (19 of 27 would be needed) |
+
+**Two statements, and only one of them is established.**
+
+1. **Collapsing the stack is measurably harmful on the campaign breadth.** `stack = 0` — every member of
+   the flight at the lead's altitude — scores 11 better against 21 worse, and the reverse test gives
+   **p ≈ 0.025**. That is a finding.
+2. **Widening it looks better and is NOT established.** `stack = 2.0` is the only value net-positive on
+   the breadth (+7), and at 17 of 27 responsive cells it misses significance (p = 0.124). It is reported
+   as a direction worth another round, not as a doctrine.
+
+**And the headline is the disagreement.** The arena selected 0.75 — halve the stack — and reached its
+yardstick maximum there. The breadth's own best value is **2.0, the opposite direction**, and the arena's
+choice is exactly neutral on it. The two measurement sets do not merely differ in strength; **they point
+opposite ways on the same gene.** §7a called the shift arena-specific; §7c says what the breadth would
+have chosen instead.
+
+**What this does NOT license.** Republishing §1 with `stack = 2.0` would be selecting on a p = 0.124
+result, which is the same move as retuning a threshold — declined. The value stands here with its
+measurement, which is this file's rule for a candidate that did not reach its bar.
+
 ### §8 — Exploits found
 
 **None new.** X-1 through X-5 stand as they are. The round's own near-miss is disclosed in §6(a) rather
