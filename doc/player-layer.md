@@ -773,7 +773,8 @@ Spec's §§1–5 reading half, §6's screens and §4.2's ladder exist; §§8–1
 | **The log LINE FORMAT is now an interface** | the layer parses `t=… LEVEL tag event k=v` out of `Module.print`. A change to `FBStdoutLogSink`'s spelling silently costs the debrief its input. It fails LOUDLY rather than wrongly — an unparsed line yields "no verdict", never a wrong verdict — but a format change is now a two-place edit |
 | **Unlock is one VERDICT, not one COMPLETION (B4)** | a deliberate `[SET]` relaxation of §4.2 for one measured reason: with no release path in the browser every combat rung ends with its `kill` objective `unmet`, so unlock-on-COMPLETED would lock the ladder at rung 1 for 10 of 11 campaigns. The save keeps `verdicts` and `completed` apart, so tightening it back is one predicate |
 | ~~**Most rungs cannot be COMPLETED in the browser at all**~~ | **half closed.** Something now leaves the jet, and a released round flies, fuzes, impacts and damages through the same apparatus fb-gym drives. What is still in the way is not the release path but the browser's TICK: on a measuring rig calibrated against the runner's fixed 0.1 s the browser's release lands ~100 m short ([`clients/clients.md`](clients/clients.md) 5.5), so an attack rung can end without its kill for a reason that has nothing to do with how it was flown. The preview banner says PLAYABLE now and names what is still missing |
-| **The armament panel is not a cockpit display** | the strip at the bottom of the screen shows arm state, selected station, stores carried/released, rounds, hits and combat-effectiveness — all of it off the seat's OWN published blocks, carried by one 1 Hz `hotas armament` log line, and all of it a subset of what the HUD already reads. It is not an MFD and does not pretend to be ([`clients/clients.md`](clients/clients.md) 5.2) |
+| **The armament panel is not a cockpit display** — and since the cockpit round it is REDUNDANT with one | the strip at the bottom of the screen shows arm state, selected station, stores carried/released, rounds, hits and combat-effectiveness — all of it off the seat's OWN published blocks, carried by one 1 Hz `hotas armament` log line. Every one of those numbers is now also on the SMS page of the MFD bank, drawn from the same blocks at 20 Hz; the strip row is kept because it survives a device loss and because it is the venue the ATTENTION row sits in, and that duplication is stated rather than tidied away ([`clients/clients.md`](clients/clients.md) 5.2) |
+| **The cockpit round produced NOTHING the tactical map (§9) can inherit, and that is deliberate** | the owner's own separation — *"piloten ki sicht und taktische verwaltung sind zwei verschiedene dinge"* — is an architectural one: the cockpit reads the published blocks of ONE unit, the map the fused picture of ONE FACTION. The TAB path was not touched (TAB still toggles the ground albedo, `web/index.html`), no view-mode state machine was introduced, and no fusion object was built ahead of need. **What the map round will still have to build is unchanged from §9.1:** the force-level merge of several flights' pictures, and a 2D map stage in the client. **What it can reuse** is smaller and worth naming: `FBHudGeometry` + the HUD stage's two pipelines draw arbitrary 2D strokes and text into the existing HUD pass at zero extra passes (the MFD bank is the proof), `FBHudEnv` already carries a sub-rect of the frame, the HSD page is a worked example of "own heading up, bearings from published blocks, an age printed beside every symbol", and `web/fbmenu.js`'s log reader is the browser's existing route from a C++ fact to a drawn one |
 | **The event feed is a LOG READER, so its selection is a hand-kept list** | `FEED_TAGS` in `web/fbmenu.js` names the twenty `tag event` pairs worth showing. A new refusal spelled by a new box is invisible until it is added there — the same two-place edit the log-format gap below already books, one level finer |
 | **The save is per browser origin and is exported only by eye** | the campaign-select screen prints the canonical save text (diffable, one fact per line) and offers a reset; there is no import, and no file. That is enough to inspect and to reproduce, and nothing else reads it |
 
@@ -857,3 +858,59 @@ Spec's §§1–5 reading half, §6's screens and §4.2's ladder exist; §§8–1
   name, and the sim's carefully anonymous contacts become identified by a screen he reads afterwards.
   The layer's whole value proposition is that the *representation* is simplified while the *world* is
   not; showing him the world's interior would trade away exactly the thing he is paying for.
+
+---
+
+## The tactical map — the round after the cockpit, and its two preconditions
+
+The owner set the architecture in one sentence: *"du hast die übergeordnete ki ja schon gebaut. ihr
+gehört die kartenansicht und ich kann in die sicht jeder einheit wechseln, die von einer piloten ki
+gesteuert wird."* That is exactly right and it decides the design:
+
+| view | whose picture it is | already built |
+|---|---|---|
+| **cockpit** | the PILOT AI of one unit — its own published blocks | yes (this file, the MFD round) |
+| **tactical map** | the SUPERORDINATE AI — the connected air defence's controller node | yes, [`air-defence-network.md`](air-defence-network.md), status BUILT |
+
+The map is therefore **not a UI invention**: it renders a picture that already exists and is already
+bound by the perception boundary. `FBNetReport` carries a POINT, a look age and **no identity**
+(`core/FBNetReport.h`), so a map drawn from it cannot know more than the faction measured.
+
+### Precondition 1 — the player's own faction has never had a net
+
+[MESS, 2026-08-02] **78 missions declare a `net`, and the controller of all 78 sits on the `hostile`
+team.** The capability is generic — `net <name>` with `control`, `member`, `period`, `hold`, `wcs` — and
+no mission has ever given one to the side the player commands. Without a friendly net the map has no
+source, and inventing one in the frontend would be exactly the omniscience this tree forbids.
+
+**So the map round begins with a mission-side change, not a client-side one:** the player's faction gets
+a declared net, and what the map shows is what that net's controller fused.
+
+### Precondition 2 — the symbology is a standard, and the standard already encodes our uncertainty
+
+The owner asked for every decision to be visible and pointed at the references. The right ones are
+**NATO APP-6 / MIL-STD-2525** (joint military symbology), and they fit this tree better than a
+hand-drawn set would, for a reason worth writing down:
+
+**The standard's affiliation vocabulary is graded, and so is our knowledge.** APP-6 distinguishes
+PENDING · UNKNOWN · ASSUMED FRIEND · FRIEND · NEUTRAL · SUSPECT · HOSTILE, and it has a status axis
+(PRESENT vs ANTICIPATED/PLANNED). That maps onto what this simulation can honestly assert:
+
+| what the tree measured | the symbol it earns |
+|---|---|
+| valid IFF Mode 4 reply | **FRIEND** — the only positive identification this tree has |
+| a radar echo with no reply | **UNKNOWN**, never HOSTILE — silence proves nothing, and that IS the identification problem |
+| an RWR bearing without range | UNKNOWN, drawn as a **bearing line**, not a point |
+| a visual contact | a TYPE without a range, once angular size allows it |
+| a contact nobody has looked at recently | PRESENT fades to a **datum with its age**, per `FBNetReport::TgtLookAgeS` |
+
+**The rule that follows: the map may never draw HOSTILE from IFF alone**, because `sensors.md`'s IFF has
+exactly two answers — a valid friendly reply, or silence. A hostile marking would be a claim no sensor
+in this tree can support. Where a mission's own declaration makes a side hostile, that is mission text
+and may be shown as such; where it comes from a sensor, it may not.
+
+**And "all decisions visible" is the same discipline applied to the command half:** every order the
+player gives is a posted command with an acknowledgement or a refusal, and the map shows both — the
+intent, the unit that received it, and what the pilot AI did with it. An order that the AI could not
+carry out must be visible as a refusal, not silently absent.
+
