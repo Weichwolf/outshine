@@ -3077,3 +3077,26 @@ entgegengesetzte Richtungen.**
 
 §1 mit 2,0 neu zu veröffentlichen wäre eine Auswahl auf p = 0,124 und damit derselbe Griff wie eine
 nachgezogene Schwelle. Abgelehnt; der Wert steht hier mit seiner Messung.
+
+## 2026-08-03 — der zweite Determinismus-Nachweis, über sechs Architekturänderungen hinweg
+
+Der erste Nachweis (2026-07-31) lief vor F5, D3a und G5. Seither sind **sechs Architekturänderungen** in
+den Baum gegangen: die Verbandsform als Missionsdaten (F5), `CanPressOn` gegen ein Bild statt einen
+Sender (D3a), das Emissionsmanagement des Piloten (G5), der feste Simulationstakt im Browser, die
+Herauslösung der Waffenapparatur aus dem Missionsläufer, und das Cockpit mit drei MFDs.
+
+Der Nachweis ist deshalb **vollständig wiederholt**:
+
+| | erster Nachweis | zweiter Nachweis |
+|---|---|---|
+| Kampagnen | 11 | **12** (`ar-arena` ist dazugekommen) |
+| Läufe | 99 = 11 × 3 Wiederholungen × Threads 1/2/4 | **108** |
+| Fingerabdrücke je Kampagne | genau einer, 11 von 11 | **genau einer, 12 von 12** |
+| Einzelnachspiele | 104, null Divergenzen | (Kriterium 2 steht aus) |
+| rc | 0 auf allen | **0 auf allen** |
+
+**Die Fingerabdrücke selbst haben sich bewegt** — das müssen sie, denn sechs Änderungen haben Verhalten
+verschoben und jede ist einzeln gemessen und begründet. Was sich **nicht** bewegt hat, ist die
+Eigenschaft: dieselbe Kampagne gibt über drei Threadzahlen und drei Wiederholungen denselben
+Fingerabdruck, vor den Änderungen wie danach. Determinismus ist damit nicht für einen Stand belegt,
+sondern **über einen Architekturwechsel hinweg**.
