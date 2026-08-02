@@ -2357,6 +2357,40 @@ standard this shift fails, and the failure is the more valuable half of the roun
 three is a two-sample test. A champion can pass X1 and be net negative on 154 independent cells, and this
 round measured exactly that. Booked as **E-25**.
 
+### §7b — CORRECTED: the shift that transfers is `g1_61`, and the damage is what the search added AFTER it
+
+§7a measured the FINAL champion on the breadth and found it net harmful. That was the right test on the
+wrong genome. Every champion of the run was then carried to the same 154 cells [MESS, 924 runs]:
+
+| champion | what it adds | arena yardstick | breadth better / worse | net |
+|---|---|---:|---|---:|
+| `g0_s3` | `dl=on` | 0.722 | 0 / 0 | **+0** |
+| **`g1_61`** | **`stack` 1.5 → 0.75** | **0.889** | 14 / 15 | **−1** |
+| `g2_51` | — | 0.889 | 14 / 15 | −1 |
+| `g4_21` | `bias_s` → −0.625 | 0.889 | 18 / 37 | **−19** |
+| `g5_40` | `trail` → 1.125 | 0.889 | 17 / 38 | **−21** |
+
+**The published shift's core gene is breadth-NEUTRAL.** Halving the vertical stack costs one cell of 154
+— fourteen better against fifteen worse — while taking the arena's fixed yardstick from 0.722 to its
+maximum 0.889. `dl=on` alone is exactly neutral on all 154, which confirms on the breadth what the arena
+already showed: the datalink bit is not the mechanism.
+
+**The damage is entirely what the search added afterwards.** From generation 1 the arena's yardstick is
+FLAT at 0.889 — the arena cannot see any further improvement — and the search kept moving anyway, adding
+`bias_s = −0.625` (breadth −19) and then `trail = 1.125` (breadth −21). **A flat yardstick is not a
+plateau to walk across; it is the arena saying it has nothing left to tell you, and the walk was paid for
+on 154 cells the arena never looked at.**
+
+**§1 is therefore corrected to name `g1_61`**: `pilot_flight_stack_frac` 1.5 → 0.75, `dl=on`, everything
+else at the seed. It rises on the arena, it is neutral on the breadth, and its mechanism (§4) is the
+channel that carried it. The three later genes of §2 are withdrawn from the claim and stand here with
+their measurement, which is this file's rule for a rejected approach.
+
+**And the selection rule this yields, stated as a consequence rather than a new criterion:** among
+champions tied on the fixed yardstick, the one to publish is the one that costs least on the set it was
+not selected on. `g1_61` and `g5_40` are indistinguishable on the arena (0.889 both) and 20 cells apart
+on the breadth.
+
 ### §8 — Exploits found
 
 **None new.** X-1 through X-5 stand as they are. The round's own near-miss is disclosed in §6(a) rather

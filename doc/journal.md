@@ -2989,3 +2989,28 @@ Und er benennt eine Instrumentenschwäche, die keine frühere Runde sehen konnte
 Drei-Zellen-Arena fast leer — „mindestens zwei von dreien" ist ein Zwei-Proben-Test. Als **E-25** gebucht,
 und **nicht** nachträglich in §5 eingebaut: ein Kriterium, das in der Runde umgeschrieben wird, deren
 Ergebnis es ändern würde, ist keins.
+
+**Korrektur zu `E13`, und sie schärft den Befund erheblich.** §7a hat den *letzten* Champion auf der
+Breite gemessen — der richtige Test am falschen Genom. Alle fünf Champions des Laufs, auf dieselben 154
+Zellen getragen (924 Läufe):
+
+| Champion | fügt hinzu | Arena | Breite besser/schlechter | Netto |
+|---|---|---:|---|---:|
+| `g0_s3` | `dl=on` | 0,722 | 0 / 0 | **+0** |
+| **`g1_61`** | **`stack` 1,5 → 0,75** | **0,889** | 14 / 15 | **−1** |
+| `g2_51` | — | 0,889 | 14 / 15 | −1 |
+| `g4_21` | `bias_s` −0,625 | 0,889 | 18 / 37 | −19 |
+| `g5_40` | `trail` 1,125 | 0,889 | 17 / 38 | −21 |
+
+**Das Kerngen der Verschiebung ist auf der Breite neutral** — die halbierte Höhenstaffelung kostet eine
+Zelle von 154 und hebt den Arena-Maßstab von 0,722 auf sein Maximum. `dl=on` allein ist auf allen 154
+exakt neutral, was auf der Breite bestätigt, was die Arena schon zeigte: das Netz ist nicht der
+Mechanismus.
+
+**Der Schaden ist ausschließlich das, was die Suche danach hinzufügte.** Ab Generation 1 steht der
+Arena-Maßstab **flach** bei 0,889 — die Arena hat nichts mehr zu sagen —, und die Suche lief weiter.
+Ein flacher Maßstab ist kein Plateau zum Überqueren; er ist die Arena, die schweigt, und der Spaziergang
+wurde auf 154 Zellen bezahlt, die sie nie angesehen hat.
+
+§1 nennt jetzt `g1_61`. Die drei späteren Gene sind aus der Behauptung zurückgezogen und stehen mit ihrer
+Messung da — die Regel dieses Baums für einen verworfenen Ansatz.
