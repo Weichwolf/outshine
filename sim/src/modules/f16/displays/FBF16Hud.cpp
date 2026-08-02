@@ -68,7 +68,10 @@ void ClampToRect(const Aperture &ap, float px, float py, float insetX, float ins
  * eye-relative window, not the render target. Element table: doc/modules-f16.md §12.2. */
 void FBF16Hud::BuildHud(const FBState &state, const Systems::FBHudEnv &env, Systems::FBHudGeometry &out) const {
   out.Reset();
-  float cx = 0.5f * (float)env.Width, cy = 0.5f * (float)env.Height;
+  /* Der Kombinierer sitzt in der Mitte der SCHEIBE (den oberen zwei Rasterreihen), waehrend Kc unten
+   * an env.Height haengt: der Projektor-Massstab ist der der Szene, und der aendert sich durch das
+   * Raster nicht — die Szene wird beschnitten, nicht gestaucht. */
+  float cx = 0.5f * (float)env.Width, cy = 0.5f * (float)env.ViewH;
   if (!env.Have) {
     out.Text(cx - 60 * kHudMagnify, 30 * kHudMagnify, 3 * kHudMagnify, 1, 0.8f, 0.2f, "NO TELEMETRY");
     return;
@@ -209,55 +212,39 @@ void FBF16Hud::BuildHud(const FBState &state, const Systems::FBHudEnv &env, Syst
     out.Line(px, py, px + (nx * 5.f - tx * 2.5f) * mg, py + (ny * 5.f - ty * 2.5f) * mg, kHgR, kHgG, kHgB);
   }
 
-  /* ----- G-load, top-left. THE VALIDITY RULE (§12.4): every readout asks its source block's head
-   * first, because a pilot must be able to tell a FAILED sensor from a quiet one — 1.0 g and zero
-   * knots are not what a dead ADC means. ----- */
+  /* ----- DER SCHNITT (Eigner, diese Runde): das HUD traegt, WOMIT MAN ZIELT UND NAVIGIERT, und sonst
+   * nichts. Was Zustand IST — Waffen-/Stationsinventar, Rundenzahl, Master-Arm, Sprit, Systemlage,
+   * Warnungen, das Radarbild, RWR, Datenlink — steht unten in der MFD-Bank (systems/FBDisplaySystem
+   * BuildMfd), weil ein HUD mit Systemzustand den Piloten im falschen Moment lesen laesst.
+   * Hier weggefallen und nach unten gewandert: G/Spitzen-G/Mach, ARM/SIM, Radarhoehe, ALOW.
+   * Geblieben ist die Navigationszeile, denn ein Wegpunkt IST die Zielaufgabe dieser Phase. ----- */
   const bool airDataOk = state.AirData.H.Readable();
-  if (airDataOk)
-    out.Printf(ap.x0 + 2.f * kHudMagnify, ap.y0 + 2.f * kHudMagnify, kHudSecondaryScale * kHudMagnify, kHgR, kHgG, kHgB, "%.1f", state.AirData.GLoad);
-  else
-    out.Text(ap.x0 + 2.f * kHudMagnify, ap.y0 + 2.f * kHudMagnify, kHudSecondaryScale * kHudMagnify, kHgR, kHgG, kHgB, "-.-");
 
-  /* ----- Left status block: NAV, Mach, Peak-G, ARM/SIM, bullseye. ARM/SIM is a documented ADDITION —
-   * the reference layout has no counterpart for it at this position. ----- */
-  {
-    float lx = ap.x0 + 2.f * kHudMagnify, ls = 8.f * kHudMagnify, s = kHudSecondaryScale * kHudMagnify;
-    float ly = cy + 0.136f * winHalfH;
-    out.Text(lx, ly, s, kHgR, kHgG, kHgB, "NAV");
-    if (airDataOk) {
-      out.Printf(lx, ly + ls, s, kHgR, kHgG, kHgB, "%.2f", state.AirData.Mach);
-      out.Printf(lx, ly + 2 * ls, s, kHgR, kHgG, kHgB, "%.1f", state.AirData.GLoadPeak);
-    } else {
-      out.Text(lx, ly + ls, s, kHgR, kHgG, kHgB, "-.--");
-      out.Text(lx, ly + 2 * ls, s, kHgR, kHgG, kHgB, "-.-");
-    }
-    out.Text(lx, ly + 3 * ls, s, kHgR, kHgG, kHgB, state.Stores.Arm == FBArmState::Arm ? "ARM" : "SIM");
-    out.Printf(lx, ly + 4 * ls, s, kHgR, kHgG, kHgB, "%03d %02.0f",
+  /* ----- Links: der Bullseye-Bezug — eine Peilung, mit der man navigiert und ein Ziel BENENNT. ----- */
+  if (state.Nav.H.Readable()) {
+    float lx = ap.x0 + 2.f * kHudMagnify, s = kHudSecondaryScale * kHudMagnify;
+    out.Printf(lx, cy + 0.136f * winHalfH, s, kHgR, kHgG, kHgB, "%03d %02.0f",
               ((int)(state.Nav.BullBearingDeg + 0.5f) % 360 + 360) % 360, state.Nav.BullDistNm);
   }
 
-  /* ----- Right status block: R (radar altitude, a documented ADDITION), AL, 'B' slant range, TTG,
-   * distance>steerpoint. A HELD block still shows its value — deliberately frozen is not broken, and
-   * blanking it would throw away information the pilot is entitled to. ----- */
+  /* ----- Rechts: die STEUER-Zahlen zum Wegpunkt — Schraegentfernung mit ihrem Quellenbuchstaben,
+   * Restflugzeit, Entfernung>Steuerpunkt. Ein HELD-Block zeigt seinen Wert weiter; bewusst eingefroren
+   * ist nicht kaputt. ----- */
   {
     float rx = ap.x1 - 46.f * kHudMagnify, ls = 8.f * kHudMagnify, s = kHudSecondaryScale * kHudMagnify;
     float ry = cy + 0.136f * winHalfH;
-    if (state.RadarAlt.H.Readable()) out.Printf(rx, ry, s, kHgR, kHgG, kHgB, "R%4.0f", state.RadarAlt.AglFt);
-    else out.Text(rx, ry, s, kHgR, kHgG, kHgB, "R----");
-    if (state.Ufc.H.Readable()) out.Printf(rx, ry + ls, s, kHgR, kHgG, kHgB, "AL%3.0f", state.Ufc.AlowFt);
-    else out.Text(rx, ry + ls, s, kHgR, kHgG, kHgB, "AL---");
     if (state.FireControl.H.Readable())
-      out.Printf(rx, ry + 2 * ls, s, kHgR, kHgG, kHgB, "%c%05.1f",
+      out.Printf(rx, ry, s, kHgR, kHgG, kHgB, "%c%05.1f",
                  state.FireControl.RangeProvider ? state.FireControl.RangeProvider : 'B',
                  state.FireControl.SteerSlantNm);
-    else out.Text(rx, ry + 2 * ls, s, kHgR, kHgG, kHgB, "B---.-");
+    else out.Text(rx, ry, s, kHgR, kHgG, kHgB, "B---.-");
     if (state.Cruise.H.Readable()) {
       int ttgM = (int)(state.Cruise.SteerTtgS / 60.f), ttgS = (int)state.Cruise.SteerTtgS % 60;
-      out.Printf(rx, ry + 3 * ls, s, kHgR, kHgG, kHgB, "%03d:%02d", ttgM, ttgS);
-    } else out.Text(rx, ry + 3 * ls, s, kHgR, kHgG, kHgB, "---:--");
+      out.Printf(rx, ry + ls, s, kHgR, kHgG, kHgB, "%03d:%02d", ttgM, ttgS);
+    } else out.Text(rx, ry + ls, s, kHgR, kHgG, kHgB, "---:--");
     if (state.Nav.H.Readable())
-      out.Printf(rx, ry + 4 * ls, s, kHgR, kHgG, kHgB, "%03.0f>%02d", state.Nav.SteerDistNm, state.Ufc.SteerNum);
-    else out.Text(rx, ry + 4 * ls, s, kHgR, kHgG, kHgB, "---> --");
+      out.Printf(rx, ry + 2 * ls, s, kHgR, kHgG, kHgB, "%03.0f>%02d", state.Nav.SteerDistNm, state.Ufc.SteerNum);
+    else out.Text(rx, ry + 2 * ls, s, kHgR, kHgG, kHgB, "---> --");
   }
 
   /* ----- Airspeed tape (CAS): minor ticks every 20 kt, boxed exact value, inset from the aperture

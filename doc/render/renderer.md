@@ -29,6 +29,7 @@ physics or the termination logic.
 | Ground truth from model geometry | eye height at ground from JSBSim's gear geometry, not a fixed number |
 | Native and WASM render the same frame | `gpu_native` is the headless PNG oracle for frame proofs (`../build-and-ops.md`) |
 | Feature gates are baked constants | a disabled pass costs nothing |
+| **The frame is a 3x3 grid: the windscreen is the top two rows, the MFD bank the bottom one** | the scene and cloud passes carry a viewport/scissor of `Width x ViewH` (`ViewH = Height - Height/3`); the projection CROPS instead of squeezing (§2.4); the bank costs no pass — `passcount` stays 6 / 7 with a deck / 5 with the HUD off |
 
 ## State
 
@@ -240,6 +241,32 @@ Supplementary rules from `FBDrawStage.h`:
 - **`FBGpu`** (device/queue/formats/size/instance) is given to a stage ONCE at `Init`/`Configure`,
   never per frame. **`FBFrameContext`** is the shared per-frame state (camera basis, MVP, sun, moon,
   day factor, weather, frame number, size) — a stage never reaches back into `FBRenderer`.
+
+#### 2.4 The 3x3 grid — a viewport, not an overlay
+
+The cockpit takes the bottom third of the screen. Two ways to arrive there and only one of them is
+honest:
+
+- **Overlay.** Draw the scene full-frame and paint the bank over it. The boresight then sits 120 px
+  above the panel edge, half the pitch ladder is behind the panel, and the GPU shades pixels nobody
+  sees.
+- **Viewport (built).** The scene and cloud passes are given
+  `SetViewport(0, 0, Width, ViewH)` + the matching scissor, and the projection is corrected so the
+  picture is CROPPED rather than letterboxed: `MvpCamRel` takes the viewport height AND the frame
+  height and scales `f` by `hFull/hVp`, which leaves `f/asp = hFull/(w·tan)` — the horizontal term —
+  bit for bit what it was. The atmosphere uniform does the same in its own form
+  (`a[32] = tan(halfFov)·hVp/hFull`, `a[33] = w/hVp`), so the product `tanHalf·aspect` is unchanged and
+  sky and terrain still agree on the ray. Pixels per radian is therefore identical to the pre-grid
+  frame; the window is simply shorter.
+
+The tonemap pass deliberately gets **no** viewport: it is a 1:1 `HdrTex -> FrameTex` map, and the
+bottom row is the part of `HdrTex` the scene pass left at its clear value — `ACES(0) = 0`, i.e. the
+black the bank is drawn on.
+
+`FBHudStage` draws the bank by appending into the SAME `FBHudGeometry` `BuildHud` just filled, so
+three more displays cost **zero** `Begin*Pass` calls — measured: `passcount passes=6 clouds=1
+cloudPass=0 hud=1` on `payerne-full` and `passes=7 … cloudPass=1` in the browser, both unchanged.
+`ViewH == Height` whenever the HUD is off (the cloud lab), so those frames are untouched.
 
 #### 2.1 The complete encode order
 

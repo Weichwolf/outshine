@@ -364,6 +364,11 @@ private:
   bool EmconSilent_ = false;   /* letzte Entscheidung des Emissionsmanagements, je Takt gesetzt */
   bool InterceptCockpit(const FBState &state, FBCommandBus &avionics, int designateTrack, bool wantShot,
                         bool wantChaff, FBBodyAngle wantEl);
+  /* WAS DER PILOT ANSIEHT — eine Bedienhandlung je Entscheidungstakt wie jede andere, und der EINZIGE
+   * Weg dorthin ist FBCommandTarget::MfdPageSelect. Er waehlt eine ROLLE nach der Rangfolge, die diese
+   * Klasse ohnehin fliegt; welches Ordinal das in DIESEM Cockpit ist, steht im publizierten Katalog,
+   * und was dort fehlt, kann er nicht waehlen. */
+  bool SelectCockpitPage(const FBState &state, FBCommandBus &avionics);
   /* Steckt in diesem Jet noch ein Kampf? Waffen, Sprit, ein strahlendes Radar — fehlt eines davon, ist
    * Umdrehen kein Mut, sondern ein Jet ohne Auftrag im Startbereich eines anderen. Liest nur Bloecke. */
   bool CanPressOn(const FBState &state) const;
@@ -402,6 +407,10 @@ private:
   double IntBriefHdgDeg_ = 0.0;     /* der Vektor, solange nichts auf dem Scope ist */
   bool   IntAnchored_ = false;
   double IntLastActionS_ = -1e9;    /* eine Bedienhandlung nach der anderen */
+  /* EIGENER Takt, nicht IntLastActionS_: ein Seitenknopf am Schirmrand darf einen Duppelwurf, eine
+   * Designation oder einen Schuss nicht um eine halbe Sekunde verschieben. Was das trotzdem verhindert
+   * — zwei Seitenwechsel im selben Takt — ist genau der Zweck derselben Konstante. */
+  double MfdLastActionS_ = -1e9;
   double IntLastShotS_ = -1e9;
   double IntNextShotS_ = -1e9;      /* nicht bevor die Runde in der Luft ihre Chance hatte */
   double IntLastChaffS_ = -1e9;

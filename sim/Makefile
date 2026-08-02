@@ -118,7 +118,7 @@ CORE_LIB_SRCS := \
   src/systems/FBAutopilot.cpp src/systems/FBFlightControl.cpp src/systems/FBDisplaySystem.cpp \
   src/systems/FBAirDataSystem.cpp src/systems/FBRadarAltimeter.cpp src/systems/FBNavSystem.cpp \
   src/systems/FBAirframeControls.cpp src/systems/FBWarningSystem.cpp src/systems/FBHudGeometry.cpp \
-  src/systems/FBInputSystem.cpp \
+  src/systems/FBInputSystem.cpp src/systems/FBMfdSystem.cpp \
   src/sensors/FBDatalinkSystem.cpp src/sensors/FBRadarSystem.cpp \
   src/sensors/FBRwrSystem.cpp src/sensors/FBCountermeasureSystem.cpp \
   src/sensors/FBIrstSystem.cpp src/sensors/FBVisualSystem.cpp \

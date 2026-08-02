@@ -30,6 +30,7 @@ manoeuvre, the FBW moves the hands.
 |---|---|
 | The pilot decides at ~10 Hz over 100 Hz FDM substeps | the module throttles the slot like any other |
 | The pilot sees other units only through `FBState` | he holds no registry, no `FBWorld`, no system pointers |
+| **What the pilot LOOKS AT is an operating action like any other** | the page on the cockpit's attention display changes because `FBPilot::SelectCockpitPage` posted `FBCommandTarget::MfdPageSelect`, with the ordinal read out of the published catalogue (`FBMfdBlock`) — he knows page ROLES, never a jet's page numbers, and a role his cockpit does not offer he cannot choose. Rank: somebody's round in the air > a warning on the aeroplane > the phase's own job. Acceptance: a `CMD_ISSUE`/`CMD_ACK` pair per switch and no other write path |
 | The pilot operates avionics ONLY through the command bus | with human reaction time on top and the risk of rejection; what he enters is his BRIEF (`brief_*` mission lines) |
 | Without a brief he operates nothing | a mission that does not brief a switch gets the boot state |
 | Phases are the procedure skeleton | Idle/Preflight/Takeoff/Climb/Route/Approach/Flare/Rollout/Shutdown + Attack/Bfm/Intercept/Formation, per `doc/modules/f16/procedures-*.md` |
@@ -72,6 +73,7 @@ refinement is the running work.
 | **The trigger's prediction horizon was the ROUND's and is now the SQUEEZE's** (§5.8). `pred = err + rate·(latency + GunTofS)` extrapolated a ONE-TICK derivative a full second, and the time of flight had no business in it: the lead solution at the muzzle already carries the target's motion, so a round that has left cannot benefit from the aim improving behind it. [MESS, `xmergesplit`] **11 of 13** squeezes were commanded with the aim OUTSIDE the funnel gate, the first **14.6×** outside it. With `latency + burstS/2`: rounds landed per drum **6.37 → 9.53** on the same 150 fired, and over the whole 120-run merge arena **139.8 → 449.1 rounds on target off 6,318 → 5,850 fired (2.21 % → 7.68 %)**. `gun-turning` keeps its kill at t = 64.4 on **279 → 209** rounds; `gun-bfm` keeps its kill (t = 106.4 → 106.5) | built | this round |
 | **`Phase::Bfm` can employ the round on the rail** (§5.11) — five instrument gates, one module hook (`BfmWvrCueDeg`, the MiG's Shchel-3UM 60° against the F-16's default "the round's own gimbal"), no new arithmetic and nothing held after the launch. `duel-merge` **exit 3 → 0**: the viper's AIM-9 arrives 1.93 m out, 218,781 J/m² → flight controls fail → `damage KILL` at t = 10.5 s. `missions/duel-merge-stern.fbm` is the mirror proof — the MiG's R-73 arrives 1.86 m out at 590 m/s of closure and kills the F-16 at t = 21.3 s | built | this round, [`duels.md`](duels.md) D6 |
 | **A fuel state became a decision, and the branch that was blocking it was blocking the defence hold too** (§7.4a). Two changes in one chain: `Defend` now owns the state while its 12 s hold runs (before, the general branch took it away one tick after the threat symbol went out, so the hold never elapsed and `CanPressOn` behind it was unreachable code), and BINGO is asked at the head of the general chain — below survival and below an unfinished missile support, above everything that is a statement about the picture. **[MESS, `bingo-abort` vs `bingo-press`, one declaration apart]** `eng_state` search → **abort at t = 4.1 s** against search → closing → attack → support → kill at t = 172.8 s; heading 90° → 263.5°, the jet ends 65 km west of its spawn. **[MESS, `w3-06-bingo`, the file the finding was made on]** both escorts abort at t = 4.1 s and the four missile launches of the old run are gone. Blast radius over 238 stock missions: **42 move, 2 change their verdict**, and the whole list with per-mission attribution is §7.4b | 2026-07-30 |
+| **What he is looking at is now visible, and it is a command** (§7.6a). `SelectCockpitPage` runs once per decision tick under the same "cockpit work only in flight" gate as the briefed entries, on its OWN spacing timer — a page button at the screen's edge may not take the hand away from a chaff throw, a designation or a shot, and that separation is what the regression measures. **[MESS, `mig29-intercept`]** the MiG spawns `n019_emission off`, so there is no FCR page and he takes RWR at t = 0.0; the emission acks at **t = 27.9**, the FCR page comes into existence and he posts `mfd_page 0` in that same tick (ack t = 28.4). **[MESS, `payerne-full`]** three selects in 734 s: SYS at 0.0, HSD at 16.0 (the Nav block came up), SYS at 663.2 (ALOW went active on the approach) | this round, [`modules/f16/cockpit-displays.md`](modules/f16/cockpit-displays.md) |
 | **Every angle this pilot hands to an antenna carries its FRAME in its TYPE** (`core/FBBodyAngle`). The elevation the intercept law commands is built by `FromWorldElevation(worldEl, st.pitch)` where the search band is a world altitude and by `Measured(...)` where it is a contact's own return angle, and `FBCommandBus::PostAntennaAz/El` accept nothing else. It closed §Gaps 2.15 and its two siblings at once, and `verify-layers` now counts the posters (**1**) the way it counts the registry readers | 2026-07-29 |
 
 
@@ -1504,6 +1506,35 @@ Snapshot of all 238 stock missions before and after (`tools/fb_regress.sh` ×2, 
   `cmd_*` counters move; in `bvr-duel` 29 of 7,000 ticks additionally carry one extra SEARCH-class RWR
   contact behind the jet, which `mustDefend` skips by construction. Every flight-state column, every
   shot and every verdict is unchanged.
+
+#### 7.6a What he is looking at (`SelectCockpitPage`) — every phase, not just this one
+
+It sits with the briefed entries at the head of `Run()`, under the identical gate ("not `Idle`, not on
+the wheels"), and it is the only place in this class that posts `FBCommandTarget::MfdPageSelect`.
+
+**The rank is this file's own rank, applied to attention** (§7.4a): survival first, then the aeroplane,
+then the picture.
+
+| Rank | Read from | Wants, in order |
+|---|---|---|
+| 1 | `Rwr.MissileLaunch` | `Rwr`, `Sys` |
+| 2 | `Warnings.Active != 0` | `Sys`, `Fcr` |
+| 3 | `Phase::Attack` | `Sms`, `Fcr`, `Sys` |
+| 3 | `Phase::Bfm` / `Phase::Intercept` | `Fcr`, `Rwr`, `Sys` |
+| 3 | everything else | `Hsd`, `Fcr`, `Sys` |
+
+**Why a LIST per rank and not one page.** A cockpit that does not offer the wanted page — because the
+airframe never had it, or because the loadout has just taken it away — would otherwise leave the pilot
+staring at a dead display. The list is short, every entry is defensible, and `Sys` closes it because an
+aeroplane always has an aeroplane.
+
+**Why its own spacing timer** (`MfdLastActionS_`, same constant as `InterceptCockpit`'s): the rule
+"one operating action per decision tick" holds for page selection against ITSELF, but a bezel button
+must not delay a chaff throw or a shot by half a second. That the tactical channels did not move is a
+measured claim, not an assumed one.
+
+He posts nothing when the wanted ordinal is already on the attention bay, and nothing at all when
+`FBMfdBlock` is unreadable — a module without a bank is untouched by this method.
 
 #### 7.6 The hands (`InterceptCockpit`)
 

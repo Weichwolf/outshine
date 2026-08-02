@@ -9,7 +9,10 @@
      injected only when there is something to fly. -->
 <style>
 html,body{margin:0;height:100%;background:#000;color:#c8d2c8;font:14px/1.45 ui-monospace,Menlo,Consolas,monospace}
-canvas{display:block;width:100vw;height:100vh;object-fit:contain}
+/* Das 3x3-Raster IST der Canvas: obere zwei Reihen Aussenansicht+HUD, untere Reihe die MFD-Bank.
+   Deshalb darf keine DOM-Schicht darauf liegen — Leiste oben und Streifen unten nehmen ihre Hoehe
+   aus dem Canvas heraus, statt in die Quadranten hineinzuragen. */
+canvas{display:block;width:100vw;height:calc(100vh - 28px - 108px);margin-top:28px;object-fit:contain}
 #fb-ui{position:fixed;inset:0;overflow:auto;background:#05070a;padding:28px 32px 48px;box-sizing:border-box}
 #fb-ui h1{font-size:20px;letter-spacing:.22em;margin:0 0 6px;color:#e8f0e8}
 #fb-ui h2{font-size:12px;letter-spacing:.18em;margin:22px 0 6px;color:#7f8f7f;font-weight:400}
@@ -45,12 +48,13 @@ button:hover{background:#14241a;border-color:#6ee08a}
 .fb-bar-t{color:#a8c8a8;letter-spacing:.1em;margin-right:auto}
 /* The cockpit strip: what the hands can do, what the armament boxes published, what just happened.
    Pointer-events off — it is a readout, never a control surface. */
-#fb-hud{display:none;position:fixed;left:0;right:0;bottom:0;padding:6px 10px 8px;font-size:12px;
-        background:linear-gradient(rgba(5,7,10,0),rgba(5,7,10,.78) 40%);pointer-events:none}
+#fb-hud{display:none;position:fixed;left:0;right:0;bottom:0;height:108px;box-sizing:border-box;
+        padding:4px 10px 6px;font-size:12px;overflow:hidden;
+        background:#05070a;border-top:1px solid #1e2a1e;pointer-events:none}
 .fb-keys,.fb-armrow{display:flex;flex-wrap:wrap;gap:14px;color:#7f8f7f}
 .fb-armrow{margin-top:4px;color:#c8d2c8;letter-spacing:.06em}
 .fb-ck{color:#6ee08a;font-weight:400;letter-spacing:.1em}
-.fb-feedrow{margin-top:5px;max-height:118px;overflow:hidden}
+.fb-feedrow{margin-top:4px;max-height:44px;overflow:hidden}
 .fb-fl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#8fa08f}
 </style>
 </head>

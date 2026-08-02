@@ -260,6 +260,7 @@ answerable question.
 | `FBBfmBlock Bfm` | `pilot/FBBfmTrack` (published onto the bus by the module after the pilot decision tick) | `Locked`, range, az/el (body-referenced = ATA), closure, aspect (AT THE TARGET: 0 = we sit on his tail, 180 = head-on), HCA, estimated ENU offset + estimated target velocity vector |
 | `FBIrstBlock Irst` | `sensors/FBIrstSystem` | `Powered`, `Searching`, `ModeOrdinal`, contact count, `LockIndex` (−1 = none), `LaserArmed`, `CloudMaskedCount`, `FBIrstContact Contacts[8]` |
 | `FBVisualBlock Visual` | `sensors/FBVisualSystem` | `Powered`, contact count, `CloudMaskedCount`, `GlareFactor` (1 = no glare), `FBVisualContact Contacts[8]`. **The one block whose writer READS another** — `FBEnvironmentBlock`'s sun angles decide whether an eye works at all; documented, one-way, and named in the block's own comment |
+| `FBMfdBlock Mfd` | `systems/FBMfdSystem` | the cockpit's OWN readout: `Pages[8]` (the module's fixed catalogue, ordinal -> role), `Available` (the bit mask the current loadout and the block heads leave standing), `Bay[3]` (which ordinal each display carries, −1 = dark), `LastSelectPage`/`LastSelectS`. It exists so that WHICH page a display shows is itself a published reading rather than renderer-side state — the same rule every other symbol on the screen obeys. **Deliberately absent from `FBStateBusTelemetry`'s column list**: appending there would move a column in every telemetry.csv ever measured |
 
 **Where `Held` is the NORMAL case, not the exception:**
 
@@ -436,6 +437,25 @@ derived from `FBCommandClassOf`/`FBCommandGroupOf` (`FBCommandBus.cpp`), not sto
 | `CmConsent` | `cm_consent` | HOTAS | Defensive | CMS aft/right: SEMI/AUTO consent |
 | `CmdsMode` | `cmds_mode` | **DED** | Defensive | `FBCmdsMode` ordinal |
 | `GunTrigger` | `gun_trigger` | HOTAS | Stores | **duration of the trigger squeeze in seconds** |
+| `IrstMode` / `IrstDesignate` / `IrstLaser` | `irst_*` | HOTAS | Sensors | the passive optical head; the laser is the one ACTIVE thing it does |
+| `RadarEmission` | `radar_emission` | **DED** | Sensors | a radar with an emission switch SEPARATE from power (the MiG-29's PUR-31); `FBRadarEmission` ordinal |
+| `MfdPageSelect` | `mfd_page` | HOTAS | Avionics | **the MODULE's own page ordinal** (`core/FBMfdPage.h` names the roles, the module names the catalogue) |
+
+**Why `MfdPageSelect` carries a page and not a display.** Three bays, one target: the command names
+WHICH PICTURE the pilot wants, and the cockpit's placement rule (`core/FBMfdPage.h`,
+`kMfdAttentionBay`) decides where it lands. Packing a bay index into the same scalar would be a second
+field pretending to be a value — `Designate` carries a track number, `CmDispense` a program, and each
+of those is one quantity. A second target for "which bay" is a later decision with its own acceptance,
+booked as gap D1 in `doc/modules/f16/cockpit-displays.md`.
+
+**Why it is HOTAS and not DED.** A page button is one press on the display's own bezel, not a typed
+field edit — and the classification is load-bearing rather than cosmetic: DED class is refused above
+`kDedMaxG`, so a DED-classed page select would go dark in exactly the fight a watcher wants to read.
+
+**Why the value is a MODULE ordinal.** The same reason `RadarMode`'s is. A generic page enum in the
+command would let a jet accept a page it does not have; here the module publishes its catalogue
+(`FBMfdBlock`), the pilot looks the ordinal up in it, and a page outside the catalogue is answered
+`Rejected/OutOfContext`.
 
 **Why `CmdsMode` is DED and `CmDispense`/`CmConsent` are not**: the CMDS mode knob sits on the left
 auxiliary console, not on the stick — a hand off the throttle and the head down

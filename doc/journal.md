@@ -32,6 +32,44 @@ State of the entries below: commit `793e1fe` + the model-root/delta round (2026-
 
 ## Chronology
 
+### 2026-08-02 — Das Cockpit als Fenster in die Aufmerksamkeit der KI: drei MFDs, und der Pilot schaltet sie über den Bus
+
+Der Bildschirm ist ein **3x3-Raster**: obere zwei Reihen Aussenansicht + HUD, untere Reihe drei
+Multifunktionsdisplays. Kein Overlay — die Szene bekommt einen echten **Viewport** und die Projektion
+wird so korrigiert, dass sie BESCHNITTEN und nicht gestaucht wird (`f` skaliert mit `hFull/hVp`, der
+horizontale Term `f/asp` bleibt bitgleich). Die Bank zeichnet in dieselbe `FBHudGeometry` wie das HUD:
+**`passcount` bleibt 6 / 7 mit Wolkendeck / 5 ohne HUD.**
+
+**Der Kern ist nicht das Layout, sondern wer schaltet.** Ein Display wechselt seine Seite, weil
+`FBPilot::SelectCockpitPage` eine Bedienhandlung gepostet hat — neues Kommandoziel `MfdPageSelect`,
+HOTAS-Klasse, Wert = das Seitenordinal DIESES Moduls. Damit sieht der Zuschauer, worauf die KI gerade
+schaut. **[MESS, `mig29-intercept`]** die MiG spawnt mit `n019_emission off`, es GIBT also keine
+FCR-Seite, und der Pilot nimmt bei t = 0,0 die RWR-Seite; das Emissionskommando wird bei **t = 27,9**
+quittiert, die FCR-Seite entsteht, und im selben Takt postet er `mfd_page 0` (Quittung t = 28,4).
+**[MESS, `payerne-full`]** drei Wechsel in 734 s: SYS bei 0,0, HSD bei 16,0 (der Nav-Block kam hoch),
+SYS bei 663,2 — die ALOW-Warnung ging im Anflug an, und die SYS-Seite zeigt genau sie in Bernstein.
+
+**Die Schichtung liegt im KATALOG, nicht in einer Unterklasse.** `systems/FBMfdSystem` hat kein einziges
+virtual; jedes Modul meldet einmal seine Seiten an. F-16 `{FCR, SMS, HSD, RWR, SYS}` — Datenlink ja,
+IRST nein, wie ihr `NotImplemented` auf `IrstMode`. MiG-29 `{FCR, IRST, SMS, RWR, SYS}`. Darüber
+schneidet die **Beladung** aus dem publizierten `FBStoresBlock`: leere Rails und leere Trommel = keine
+SMS-Seite, und zwar mitten im Einsatz.
+
+**Das HUD wurde entkernt**: G, Spitzen-G, Mach, ARM/SIM, Radarhöhe und ALOW sind nach unten gewandert.
+Geblieben ist, womit man zielt und navigiert. Gelöscht wurde nichts — jede dieser Zahlen steht auf einem
+publizierten Block und wird auf SYS oder SMS gezeichnet.
+
+**Die Regression bewegt sich in genau einer Dimension.** Über 281 Missionen: **0 Exit-Code-Änderungen**
+und, nach Abzug der neuen `mfd_page`-Zeilen und der dadurch verschobenen `seq=`-Nummern, **0 echte
+Unterschiede im Ereignisstrom**. Auf einer geschichteten Stichprobe von 10 Missionen wurden alle
+Telemetriespalten Zelle für Zelle verglichen: bewegt haben sich **ausschliesslich** die sieben
+`cmd_*`-Buchhaltungsspalten. Keine Flug-, Sensor-, Waffen-, Engagement- oder Urteilsspalte.
+
+**Ein Defekt fiel dabei an und wurde behoben statt gebucht:** der Pilot wiederholte einen Seitenwunsch,
+solange die Quittung ausstand, und kassierte zwei `channel_busy`-Ablehnungen in `four-4v4-asym`. Das
+Werkzeug dagegen steht seit Langem im Bus (`FBCommandBus::SwitchReady` — *„gefragt statt geraten"*);
+mit ihm sind die Ablehnungen wieder Zeile für Zeile die des Basisstands.
+
 ### 2026-07-29 — Koordinatenrahmen: dreimal derselbe Fehler, also wurde der TYP gebaut und nicht die vierte Stelle geflickt
 
 Drei Runden hintereinander fanden je einen Defekt derselben Art — ein **Weltwinkel** in einem

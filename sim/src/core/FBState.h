@@ -35,6 +35,9 @@ struct FBState {
   /* The SECOND comms block, and the one interface price doc/modules/air/module.md §Spec 7 names in
    * advance: a controller feed needs its own, because the one above it is occupied. */
   FBNetLinkBlock     NetLink;
+  /* The cockpit's own readout: which page each bay carries and which pages the current loadout still
+   * makes choosable. Appended last, like the three above it. */
+  FBMfdBlock         Mfd;
 };
 
 } // namespace FlightBox

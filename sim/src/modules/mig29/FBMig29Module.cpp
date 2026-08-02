@@ -19,7 +19,12 @@ FBMig29Module::FBMig29Module()
       Warn_(std::make_unique<Systems::FBWarningSystem>()),
       PilotSys(std::make_unique<FBMig29Pilot>()),
       AirframeCtrl(std::make_unique<Systems::FBAirframeControls>()),
-      FireCtrl_(std::make_unique<FBMig29FireControl>()) {}
+      FireCtrl_(std::make_unique<FBMig29FireControl>()) {
+  /* Reihenfolge IST die Ordinalvergabe (ein Ordinal ist ein Kommandowert), erster Eintrag = Einschaltseite. */
+  static const FBMfdPage kPages[] = {FBMfdPage::Fcr, FBMfdPage::Irst, FBMfdPage::Sms, FBMfdPage::Rwr,
+                                     FBMfdPage::Sys};
+  Mfd_.DeclarePages(kPages, (int)(sizeof kPages / sizeof kPages[0]));
+}
 
 void FBMig29Module::AttachFdm(Fdm::FBFdm &fdm) {
   Fdm_ = &fdm;
@@ -113,7 +118,9 @@ void FBMig29Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitReg
     if (SystemWorking(FBSystemId::Countermeasures)) Cm_.Run(SharedState, st, SimTimeS);
     else SharedState.Cmds.H.Invalidate();
   }
-  if (Due(DisplayAccS, dt, 20.0)) Disp->Run(SharedState, Mode, dt);
+  /* Die Bank vor der Anzeigenlogik, aus demselben Grund wie in der F-16: erst schneiden und
+   * veroeffentlichen, dann zeichnet, was den Block liest. */
+  if (Due(DisplayAccS, dt, 20.0)) { Mfd_.Run(SharedState, SimTimeS); Disp->Run(SharedState, Mode, dt); }
 
   if (Due(PilotAccS, dt, 10.0)) {
     ApplyPilotCommands(PilotSys->Run(SharedState, CmdBus_, *AirframeCtrl, st, Plan_,
@@ -383,6 +390,11 @@ void FBMig29Module::ApplyCommand(const FBAvionicsCommand &c, const Fdm::fb_fdm_s
       Cm_.SetMode((FBCmdsMode)ord);
       return;
     }
+    /* Wert = das Seitenordinal DIESES Cockpits; was der Katalog gerade nicht hergibt, ist
+     * OutOfContext — der Knopf ist da, die Seite nicht. */
+    case FBCommandTarget::MfdPageSelect:
+      if (!Mfd_.Select((int)c.Value, SimTimeS)) reject(FBCommandReason::OutOfContext);
+      return;
     default:
       /* Every remaining target names a box this aircraft does not compose (datalink, dispensers, UFC).
        * Answering it would report success for a switch with nothing behind it. */

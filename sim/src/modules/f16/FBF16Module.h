@@ -22,6 +22,7 @@
 #include "FBF16Ufc.h"
 #include "FBFlightControl.h"
 #include "FBFlightPlan.h"
+#include "FBMfdSystem.h"
 #include "FBModule.h"
 #include "FBNavSystem.h"
 #include "FBPilot.h"
@@ -149,6 +150,10 @@ private:
   std::unique_ptr<Systems::FBInputSystem> Input;
   std::unique_ptr<Systems::FBPropulsionSystem> Propulsion;
   std::unique_ptr<Systems::FBDisplaySystem> Disp;
+  /* DER SEITENKATALOG DIESES COCKPITS und sonst nichts Modulspezifisches: die Bank selbst ist generisch.
+   * Die F-16 hat den kooperativen Datenlink (HSD) und KEINEN IRST — ihr Modul weist `IrstMode` schon
+   * als NotImplemented ab, also darf hier auch keine IRST-Seite stehen. doc/modules/f16/cockpit-displays.md. */
+  Systems::FBMfdSystem Mfd_;
   std::unique_ptr<FBF16Max7456> Chip;
   std::unique_ptr<FBF16Fcr> Fcr_;
   std::unique_ptr<Systems::FBWeaponSystem> Weapons;

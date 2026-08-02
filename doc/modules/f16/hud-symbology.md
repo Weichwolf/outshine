@@ -267,9 +267,12 @@ is built against it element by element, inside the real combiner aperture.
 | Item of this reference | FlightBox | Where |
 |---|---|---|
 | FPM, conformal pitch ladder, horizon line, bank scale, waterline | **built** | [`module.md`](module.md) §12 |
-| Heading / CAS / altitude tapes, G load, Mach, peak G, master-mode text | **built** | same |
+| Heading / CAS / altitude tapes | **built** | same |
+| G load, Mach, peak G, master-mode text, ARM/SIM, R (radar altitude), AL (ALOW) | **REMOVED from the HUD this round and moved to the MFD bank** ([`cockpit-displays.md`](cockpit-displays.md)) on the owner's rule *"HUD hat nur zielerfassung/wegpunkte und alles andere im heads down"*: each of them is aircraft STATE, and a HUD that carries state makes the pilot read at the wrong moment. Nothing was deleted — every one of them is on a published block and is drawn on the SYS or SMS page | this round |
 | Steerpoint diamond (crossed out beyond the real F-16C TFOV/2) + Tadpole / Great Circle Steering Cue | **built** | same |
-| Right status block: R (radar altitude) → AL (ALOW) → 'B' slant range → TTG → distance to steerpoint | **built**; 'R' is carried as a documented FlightBox addition with no FlightGear counterpart | same |
+| Right status block: 'B' slant range → TTG → distance to steerpoint | **built**, and since this round it is the WHOLE right block: R (radar altitude) and AL (ALOW) went to the SYS page with the rest of the state. The three that stayed are steering numbers, which is the HUD's remaining job | same |
+| Left status block: the bullseye bearing/range | **built**, and since this round it is the whole left block | same |
+| **The aiming cue at release** (DLZ scale, CCIP pipper, TD box) | **still not implemented** — the owner's cut keeps it in the HUD, and this file documents none of them, so none was invented. The employment gates read `FBState::FireControl`, which HAS the numbers (`DlzValid`, `InZone`, `AgMissM`, the EEGS funnel); what is missing is a documented DRAWING. Named as a gap rather than sketched | this round |
 | The combiner aperture itself (~25° TFOV, aspect-correct), conformal symbology scissored at the window edge | **built** — tapes and blocks at the aperture edges, conformal elements clipped, the diamond clamp coincident with the window edge | [`../flightbox/render/hud.md`](../../render/hud.md) |
 | Bitmap font + MAX7456 look | **built** as two separate things: a generic coverage-antialiased font system in `render/`, and an F-16-specific chip hook (`FBF16Max7456`) that is a real, instantiated NoOp | [`module.md`](module.md) §11 |
 | ILS symbology (localizer/glideslope bars, command steering) | **not implemented** — there is no ILS receiver | — |

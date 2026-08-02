@@ -320,9 +320,12 @@ void FBRenderer::UpdateAtmosphere(const double eye[3], const double sunDir[3], c
   };
   put(0, camMm); put(1, sunDir); put(2, up); put(3, sunTan); put(4, side);
   put(5, right); put(6, camUp); put(7, fwd);
+  /* The same crop as MvpCamRel's, in the form the sky/cloud ray reconstruction uses: the product
+   * tanHalf*aspect (the HORIZONTAL half-extent) is unchanged, the vertical one shrinks with the
+   * viewport. Sky and terrain must agree on the ray or the horizon parts company with the ground. */
   const float halfFov = 60.0f * 3.14159265f / 180.0f / 2.0f;
-  a[32] = std::tan(halfFov);
-  a[33] = (float)Width / (float)Height;
+  a[32] = std::tan(halfFov) * (float)ViewH() / (float)Height;
+  a[33] = (float)Width / (float)ViewH();
   a[34] = std::cos(0.5f * 3.14159265f / 180.0f);   /* sun angular radius */
   a[35] = 30.0f;                                    /* sun disc intensity */
   put(9, moonDir); a[39] = (float)moonPh;           /* moonDir.w = phase */
@@ -336,10 +339,15 @@ void FBRenderer::UpdateAtmosphere(const double eye[3], const double sunDir[3], c
 /* Camera-relative: vertices arrive pre-translated by (origin-cam), so the eye is at the ORIGIN and the
  * view is pure rotation — no absolute ECEF coordinate ever reaches float.
  * Herleitung: doc/render/renderer.md §1.2. */
-static void MvpCamRel(float *m, const double R[3], const double Uc[3], const double F[3], int w, int h) {
-  const float fov = 60.0f * 3.14159265f / 180.0f, asp = (float)w / (float)h;
+/* `hVp` is the out-the-window viewport's height, `hFull` the frame's. The vertical FOV is scaled by
+ * their ratio, so the pixels-per-radian of the picture is IDENTICAL at both: a cockpit that takes the
+ * bottom third of the screen CROPS the windscreen, it does not squeeze it into a letterbox. With
+ * hVp == hFull every term below is the number it was before the grid existed. */
+static void MvpCamRel(float *m, const double R[3], const double Uc[3], const double F[3], int w,
+                      int hVp, int hFull) {
+  const float fov = 60.0f * 3.14159265f / 180.0f, asp = (float)w / (float)hVp;
   const float zn = 0.05f;
-  const float f = 1.0f / std::tan(fov / 2.0f);
+  const float f = (1.0f / std::tan(fov / 2.0f)) * ((float)hFull / (float)hVp);
   float v[16] = {(float)R[0],  (float)Uc[0],  -(float)F[0],  0,
                  (float)R[1],  (float)Uc[1],  -(float)F[1],  0,
                  (float)R[2],  (float)Uc[2],  -(float)F[2],  0,
@@ -468,7 +476,7 @@ void FBRenderer::RenderFrame(void) {
   if (LoadingScreen) {
     FrameNo++;
     FBFrameContext lctx{};   /* Upscale::Encode ignores ctx today; kept for interface uniformity */
-    lctx.Width = Width; lctx.Height = Height;
+    lctx.Width = Width; lctx.Height = Height; lctx.ViewH = Height;
     wgpu::CommandEncoder lenc = Device.CreateCommandEncoder();
     {
       wgpu::RenderPassColorAttachment ca{};
@@ -526,7 +534,7 @@ void FBRenderer::RenderFrame(void) {
   Cross3(zax, up, east); Norm3(east); Cross3(up, east, north);
 
   float u[20];
-  MvpCamRel(u, right, camUp, fwd, Width, Height);
+  MvpCamRel(u, right, camUp, fwd, Width, ViewH(), Height);
   /* ONE sun for terrain diffuse and atmosphere, so sky and ground agree. SVS is a time-independent
    * database view -> a fixed 45° sun facing south; EVS is the real camera -> the live ephemeris sun. */
   double elDeg = 45.0, azDeg = 180.0;
@@ -564,7 +572,7 @@ void FBRenderer::RenderFrame(void) {
   ctx.CloudCover = HudState.Env.CloudCover;
   ctx.CloudLow = HudState.Env.CloudLow; ctx.CloudMid = HudState.Env.CloudMid; ctx.CloudHigh = HudState.Env.CloudHigh;
   ctx.CloudBaseAGL = HudState.Env.CloudBaseAglM; ctx.AltM = HudState.Platform.AltM;
-  ctx.FrameNo = FrameNo; ctx.Width = Width; ctx.Height = Height;
+  ctx.FrameNo = FrameNo; ctx.Width = Width; ctx.Height = Height; ctx.ViewH = ViewH();
 
   if (CloudsOn) Clouds->Update(ctx);
   const bool cloudPass = CloudsOn && Clouds->Active();
@@ -609,6 +617,12 @@ void FBRenderer::RenderFrame(void) {
   sp.depthStencilAttachment = &da;
   wgpu::RenderPassEncoder scene = enc.BeginRenderPass(&sp);
   passCount++;
+  /* The windscreen is the grid's top two rows. Scissor as well as viewport: the viewport only maps
+   * NDC, and a stage that ever draws with a guard-band-sized primitive must not paint over the bank. */
+  if (ctx.ViewH < Height) {
+    scene.SetViewport(0, 0, (float)Width, (float)ctx.ViewH, 0.0f, 1.0f);
+    scene.SetScissorRect(0, 0, (uint32_t)Width, (uint32_t)ctx.ViewH);
+  }
   Sky->Encode(ctx, scene);                 /* physically-based sky background, first in the pass */
 
   Sun->Encode(ctx, scene);     /* additive (One/One), right after Sky */
@@ -641,10 +655,18 @@ void FBRenderer::RenderFrame(void) {
     cp.colorAttachments = &cca;
     wgpu::RenderPassEncoder cl = enc.BeginRenderPass(&cp);
     passCount++;
+    if (ctx.ViewH < Height) {   /* same window as the scene it blends into, same depth texels */
+      cl.SetViewport(0, 0, (float)Width, (float)ctx.ViewH, 0.0f, 1.0f);
+      cl.SetScissorRect(0, 0, (uint32_t)Width, (uint32_t)ctx.ViewH);
+    }
     Clouds->Encode(ctx, cl);
     cl.End();
   }
 
+  /* NO viewport here, deliberately: the tonemap is a 1:1 HdrTex -> FrameTex map, and the grid's bottom
+   * row is simply the part of HdrTex the scene pass left at its clear value — ACES(0) = 0, i.e. the
+   * black the MFD bank is then drawn on. Cropping this pass too would squeeze the whole HDR frame back
+   * into the window. */
   wgpu::RenderPassColorAttachment tca{};   /* tonemap -> FrameTex: ACES, sRGB-encode on store, no depth */
   tca.view = frameView;
   tca.loadOp = wgpu::LoadOp::Clear;

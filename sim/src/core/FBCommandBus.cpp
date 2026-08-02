@@ -34,12 +34,16 @@ const char *FBCommandTargetStr(FBCommandTarget t) {
     case FBCommandTarget::IrstDesignate: return "irst_designate";
     case FBCommandTarget::IrstLaser: return "irst_laser";
     case FBCommandTarget::RadarEmission: return "radar_emission";
+    case FBCommandTarget::MfdPageSelect: return "mfd_page";
   }
   return "?";
 }
 
 /* HOTAS = a throw the hand already rests on; DED = a typed field edit. Range/threshold/steerpoint
- * entries are typed; modes, switches and cursor slews are not. */
+ * entries are typed; modes, switches and cursor slews are not — and neither is an MFD page button,
+ * which is one press on the display's own bezel. That classification is load-bearing rather than
+ * cosmetic: DED class is refused above kDedMaxG, and a page the pilot cannot change while pulling is
+ * a page that goes dark in exactly the fight a watcher wants to read. */
 FBCommandClass FBCommandClassOf(FBCommandTarget t) {
   switch (t) {
     case FBCommandTarget::RadarRangeNm:

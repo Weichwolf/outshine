@@ -21,6 +21,10 @@ struct FBFrameContext {
   float Dt;
   unsigned FrameNo;
   int Width, Height;        /* fixed scene resolution (FrameTex) */
+  /* THE 3x3 GRID (doc/render/renderer.md §2.4): the out-the-window viewport is the top two rows and
+   * ViewH is its lower edge; the bottom row is the MFD bank. Equal to Height when the cockpit is off
+   * (the cloud lab), which is what keeps those frames unchanged. */
+  int ViewH;
 };
 
 } // namespace FlightBox::Render

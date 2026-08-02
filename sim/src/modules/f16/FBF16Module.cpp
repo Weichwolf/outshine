@@ -30,7 +30,13 @@ FBF16Module::FBF16Module()
       GunSys(std::make_unique<FBF16Gun>()),
       Warn_(std::make_unique<Systems::FBWarningSystem>()),
       PilotSys(std::make_unique<FBF16Pilot>()),
-      AirframeCtrl(std::make_unique<Systems::FBAirframeControls>()) {}   /* NoOp until an airframe is attached */
+      AirframeCtrl(std::make_unique<Systems::FBAirframeControls>()) {   /* NoOp until an airframe is attached */
+  /* Reihenfolge IST die Ordinalvergabe, und ein Ordinal ist ein Kommandowert: hier nichts umsortieren.
+   * Der erste Eintrag ist zugleich die Einschaltseite der Bank. */
+  static const FBMfdPage kPages[] = {FBMfdPage::Fcr, FBMfdPage::Sms, FBMfdPage::Hsd, FBMfdPage::Rwr,
+                                     FBMfdPage::Sys};
+  Mfd_.DeclarePages(kPages, (int)(sizeof kPages / sizeof kPages[0]));
+}
 
 void FBF16Module::AttachFdm(Fdm::FBFdm &fdm) {
   Fdm_ = &fdm;
@@ -120,7 +126,9 @@ void FBF16Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegis
     /* LAST: a pure consumer of everything above it, including their validity heads. */
     Warn_->Run(SharedState, dt);
   }
-  if (Due(DisplayAccS, dt, 20.0)) Disp->Run(SharedState, Mode, dt);
+  /* Die Bank VOR der Anzeigenlogik: sie schneidet den Katalog gegen die aktuelle Beladung und die
+   * Blockkoepfe und veroeffentlicht ihn, und was danach zeichnet, liest genau diesen Block. */
+  if (Due(DisplayAccS, dt, 20.0)) { Mfd_.Run(SharedState, SimTimeS); Disp->Run(SharedState, Mode, dt); }
   if (Due(WeaponAccS, dt, 20.0)) Weapons->Run(Mode, world, dt);
   /* THE GUN, once per Run() with the FULL dt — deliberately unthrottled: its output is a round count
    * INTEGRATED over time, so any other cadence would drop rounds or invent them. */
@@ -371,6 +379,15 @@ void FBF16Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &out
      * OutOfContext, not a range error: the return is gone by the time the hand finished moving. */
     case FBCommandTarget::Designate:
       if (!Fcr_->Designate((int)c.Value, SimTimeS)) {
+        outcome = FBCommandOutcome::Rejected;
+        reason = FBCommandReason::OutOfContext;
+      }
+      return;
+    /* Value = das Seitenordinal DIESES Cockpits. Eine Seite, die der Katalog gerade nicht hergibt —
+     * weil das Modul sie nie hatte oder weil die Beladung sie hat verfallen lassen — ist
+     * OutOfContext: der Knopf existiert, die Seite dahinter nicht. */
+    case FBCommandTarget::MfdPageSelect:
+      if (!Mfd_.Select((int)c.Value, SimTimeS)) {
         outcome = FBCommandOutcome::Rejected;
         reason = FBCommandReason::OutOfContext;
       }

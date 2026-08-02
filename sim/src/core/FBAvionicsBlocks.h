@@ -10,6 +10,7 @@
 #include "FBDatalinkTrack.h"
 #include "FBDirector.h"
 #include "FBIrstContact.h"
+#include "FBMfdPage.h"
 #include "FBMode.h"
 #include "FBRadarContact.h"
 #include "FBRwrThreat.h"
@@ -322,6 +323,28 @@ struct FBVisualBlock {
  * it moves an antenna and it is never a track. doc/modules/air/module.md §Spec 7.
  * APPENDED LAST, same column rule as the two blocks above it. */
 using FBNetLinkBlock = FBDatalinkBlock;
+
+/* ---- MFD BANK: which page stands on which bay, and which pages can be chosen AT ALL right now.
+ * WRITER: systems/FBMfdSystem. The block exists so that the thing a display shows is itself a
+ * published reading rather than a fact the renderer keeps on the side — the same rule every other
+ * symbol on the screen obeys.
+ * `Pages` is the MODULE's catalogue and is fixed for the aircraft's life, so an ordinal means the same
+ * page for the whole sortie (that is what makes it a command VALUE). `Available` is the LOADOUT and
+ * block-validity cut over it and changes as the sortie does: a jet that has dropped its last bomb can
+ * no longer choose its stores page. APPENDED LAST, same telemetry-column rule as the three above. */
+struct FBMfdBlock {
+  FBBlockHeader H;
+  int       PageCount = 0;
+  FBMfdPage Pages[kMfdMaxPages]{};
+  uint32_t  Available = 0;         /* bit i = ordinal i is selectable right now */
+  int       Bay[kMfdBays] = {-1, -1, -1};   /* the ordinal on each bay; -1 = dark */
+  int       LastSelectPage = -1;   /* the ordinal the last COMMITTED select put on the attention bay */
+  double    LastSelectS = -1.0;    /* ...and when the box committed it: the "when" a viewer reads */
+
+  bool Selectable(int ord) const {
+    return ord >= 0 && ord < PageCount && (Available & (1u << ord)) != 0;
+  }
+};
 
 } // namespace FlightBox
 #endif

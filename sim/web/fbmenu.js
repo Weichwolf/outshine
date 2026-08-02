@@ -169,6 +169,33 @@ async function ScreenMissions(name) {
 
 const Run = { Lines: [], Mission: null, Campaign: '', Step: 0, Attempt: 0, Recorded: false, Booted: false };
 
+/* WER GERADE UMGESCHALTET HAT, WANN UND AUS WELCHER LAGE — die Zeile, die den Seitenwechsel lesbar
+ * macht statt nur richtig. Beide Quellen sind Zeilen, die der Lauf ohnehin schreibt: die Phase, die
+ * der Client im Sekundentakt loggt, und der Kommandostrom des Busses selbst (`cmd CMD_ISSUE/CMD_ACK
+ * target=mfd_page`). Nichts wird hier berechnet: WELCHE Seite steht auf dem MFD, diese Zeile sagt nur,
+ * wessen Bedienhandlung sie dorthin gebracht hat und wie das Geraet geantwortet hat. */
+function Attention(r) {
+  const att = $('fb-att');
+  if (!att) return;
+  const d = att.dataset;
+  if (r.Tag === 'pilot' && r.Event === 'phase') d.phase = r.F.phase || '?';
+  else if (r.Tag === 'cmd' && r.F.target === 'mfd_page') {
+    if (r.Event === 'CMD_ISSUE') d.issue = 't=' + r.T.toFixed(1) + '  page ' + r.F.value;
+    else if (r.Event === 'CMD_ACK') d.ack = r.F.outcome + ' +' + r.F.latencyS + 's';
+    else if (r.Event === 'CMD_REJECT') d.ack = 'rejected ' + r.F.reason;
+  } else return;
+  att.innerHTML = '';
+  const cell = (k, v) => {
+    const n = el('span', 'fb-c');
+    n.appendChild(el('b', 'fb-ck', k));
+    n.appendChild(document.createTextNode(' ' + v));
+    att.appendChild(n);
+  };
+  cell('PILOT PHASE', d.phase || '—');
+  cell('MFD SELECT', d.issue || 'none yet');
+  cell('ACK', d.ack || '—');
+}
+
 /* ---------------- the cockpit strip ----------------
  * Armament state and what just happened, both read off the run's own log lines and nothing else. The
  * armament row is the seat's PUBLISHED blocks (`hotas armament`, written from FBState); the feed
@@ -176,6 +203,7 @@ const Run = { Lines: [], Mission: null, Campaign: '', Step: 0, Attempt: 0, Recor
 function Cockpit(r) {
   const arm = $('fb-arm'), feed = $('fb-feed');
   if (!arm || !feed) return;
+  Attention(r);
   if (r.Tag === 'hotas' && r.Event === 'armament') {
     const f = r.F;
     arm.innerHTML = '';
@@ -323,6 +351,9 @@ function StartRun(missionName, campaign, step, manual) {
     keys.appendChild(n);
   }
   hud.appendChild(keys);
+  const att = el('div', 'fb-armrow'); att.id = 'fb-att';
+  att.appendChild(el('span', 'fb-c', 'waiting for the pilot…'));
+  hud.appendChild(att);
   const arm = el('div', 'fb-armrow'); arm.id = 'fb-arm';
   arm.appendChild(el('span', 'fb-c', 'waiting for the jet…'));
   hud.appendChild(arm);

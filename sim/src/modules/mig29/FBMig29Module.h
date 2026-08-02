@@ -26,6 +26,7 @@
 #include "FBMig29Damage.h"
 #include "FBMig29FireControl.h"
 #include "FBMig29Gun.h"
+#include "FBMfdSystem.h"
 #include "FBMig29Irst.h"
 #include "FBMig29Pilot.h"
 #include "FBMig29Radar.h"
@@ -135,6 +136,10 @@ private:
   std::unique_ptr<Systems::FBAutopilot> AP;
   std::unique_ptr<Systems::FBFlightControl> FC;
   std::unique_ptr<Systems::FBDisplaySystem> Disp;
+  /* DER KATALOG DIESES COCKPITS. Die MiG-29 hat den passiven OEPS-29/KOLS (IRST-Seite) und den
+   * SPO-15 — und KEINE kooperative Lageseite: ihr Datenlink ist ein Kommandokanal vom Boden, keine
+   * Verbandslage. Was fehlt, ist als Luecke aufgeschrieben statt der F-16 entliehen. */
+  Systems::FBMfdSystem Mfd_;
   std::unique_ptr<Systems::FBAirDataSystem> AirData;
   std::unique_ptr<Systems::FBRadarAltimeter> RadarAlt;
   std::unique_ptr<Systems::FBNavSystem> NavSys;

@@ -768,6 +768,48 @@ bool FBPilot::InterceptCockpit(const FBState &state, FBCommandBus &avionics, int
   return false;
 }
 
+/* WAS DER PILOT ANSIEHT. Die Rangfolge ist die, die diese Klasse ohnehin fliegt (§7.4a): erst
+ * Ueberleben — jemandes Runde ist in der Luft —, dann das Flugzeug selbst, dann die Aufgabe der Phase.
+ * Je Rang eine kurze Wunschliste statt einer einzigen Seite, denn ein Cockpit, dem die gewuenschte
+ * Seite fehlt oder dem die Beladung sie gerade genommen hat, soll auf die naechste ausweichen und
+ * nicht auf einer toten stehenbleiben. Gewaehlt wird eine ROLLE; das Ordinal dazu liest er aus dem
+ * publizierten Katalog, denn welche Seiten es gibt, ist Sache des Flugzeugs und nicht seine. */
+bool FBPilot::SelectCockpitPage(const FBState &state, FBCommandBus &avionics) {
+  const FBMfdBlock &m = state.Mfd;
+  if (!m.H.Readable() || m.PageCount <= 0) return false;   /* dieses Muster hat keine Bank */
+  if (TimeS_ - MfdLastActionS_ < Tuned(FBPilotParam::ActionSpacingS, kInterceptActionS)) return false;
+  /* GEFRAGT statt geraten (FBCommandBus::SwitchReady): das Fenster laeuft ab der ABARBEITUNG, und wie
+   * lange die dauert, weiss nur die antwortende Box. Ohne die Frage kostet jede Wiederholung eine
+   * ChannelBusy-Ablehnung eines Befehls, den niemand senden wollte — gemessen: zwei in `four-4v4-asym`. */
+  if (!avionics.SwitchReady(FBCommandTarget::MfdPageSelect, TimeS_)) return false;
+
+  FBMfdPage want[3] = {FBMfdPage::None, FBMfdPage::None, FBMfdPage::None};
+  if (state.Rwr.H.Readable() && state.Rwr.MissileLaunch) {
+    want[0] = FBMfdPage::Rwr; want[1] = FBMfdPage::Sys;
+  } else if (state.Warnings.H.Readable() && state.Warnings.Active != 0) {
+    want[0] = FBMfdPage::Sys; want[1] = FBMfdPage::Fcr;
+  } else switch (CurPhase) {
+    case Phase::Attack:
+      want[0] = FBMfdPage::Sms; want[1] = FBMfdPage::Fcr; want[2] = FBMfdPage::Sys; break;
+    case Phase::Bfm:
+    case Phase::Intercept:
+      want[0] = FBMfdPage::Fcr; want[1] = FBMfdPage::Rwr; want[2] = FBMfdPage::Sys; break;
+    default:
+      want[0] = FBMfdPage::Hsd; want[1] = FBMfdPage::Fcr; want[2] = FBMfdPage::Sys; break;
+  }
+
+  int ord = -1;
+  for (int i = 0; i < 3 && ord < 0; i++) {
+    if (want[i] == FBMfdPage::None) continue;
+    for (int k = 0; k < m.PageCount && ord < 0; k++)
+      if (m.Pages[k] == want[i] && m.Selectable(k)) ord = k;
+  }
+  if (ord < 0 || ord == m.Bay[kMfdAttentionBay]) return false;
+  MfdLastActionS_ = TimeS_;
+  avionics.Post(FBCommandTarget::MfdPageSelect, (double)ord, TimeS_);
+  return true;
+}
+
 /* Drei Instrumente, drei Gruende heimzufliegen, jeder vom BUS abgelesen statt gewusst. Die
  * Sprit-Beurteilung traegt der WARN-Block, weil BINGO eine Zahl ist, zu der sich der PILOT verpflichtet
  * hat — kein Bruchteil, den diese Klasse erfinden darf. */
@@ -1501,6 +1543,10 @@ FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
     ReleaseBriefedStores(avionics);
     DispenseBriefedCm(avionics);
     FireBriefedGun(avionics);
+    /* NACH den gebrieften Eingaben und vor der Phase: was er ansieht, entscheidet er aus der Phase,
+     * in der er diesen Takt beginnt — und mit eigenem Takt, damit dieser Knopf keiner taktischen
+     * Handlung die Hand wegnimmt. */
+    SelectCockpitPage(state, avionics);
   }
 
   /* Telemetriecache: dieselbe Wegpunktdistanz, die der Missions-Runner frueher von aussen rechnete. */

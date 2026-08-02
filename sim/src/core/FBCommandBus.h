@@ -93,7 +93,7 @@ private:
   double LoadFactorG_ = 1.0;
   /* Last completion per target ordinal — the same-switch window; flat array = O(1), no allocation. */
   static constexpr int kTargetSlots = 32;
-  static_assert((int)FBCommandTarget::GunTrigger < kTargetSlots, "widen kTargetSlots for new targets");
+  static_assert((int)FBCommandTarget::MfdPageSelect < kTargetSlots, "widen kTargetSlots for new targets");
   double LastActionS_[kTargetSlots]{};
   bool   HaveLastAction_[kTargetSlots]{};
 

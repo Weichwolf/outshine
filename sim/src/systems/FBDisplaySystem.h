@@ -14,6 +14,11 @@ namespace FlightBox::Systems {
  * getrennt, statt FBState fuer einen Konsumenten aufzublaehen. */
 struct FBHudEnv {
   int Width, Height;
+  /* DAS 3x3-RASTER. Die oberen zwei Reihen sind die Scheibe: dort und nur dort steht Aussenansicht +
+   * HUD, und ViewH ist ihre Unterkante. Der Kombinierer wird darin zentriert, waehrend der
+   * Projektor-MASSSTAB an Height haengt — die Szene wird oben BESCHNITTEN, nicht gestaucht, also
+   * bleibt px/rad dasselbe. Die dritte Reihe darunter ist die MFD-Bank. */
+  int ViewH;
   float Agl;   /* m, ASL - DEM-Boden; AGL-Anzeige + Horizont-Dip-Fallback bei alt<=1 */
   bool Have;   /* Telemetrie vorhanden; false -> nur der NO-TELEMETRY-Fallback */
 };
@@ -26,6 +31,13 @@ public:
 
   /* Const: BuildHud LIEST Zustand, es besitzt keinen. */
   virtual void BuildHud(const FBState &state, const FBHudEnv &env, FBHudGeometry &out) const;
+
+  /* DIE UNTERE RASTERREIHE: drei Schaechte, jeder mit der Seite, die FBMfdBlock fuer ihn ausweist.
+   * Kein Reset() — es HAENGT AN, was BuildHud aufgebaut hat, damit beide in derselben Geometrie und
+   * damit im selben Renderpass landen (die Pass-Zahl je Frame ist der Vertrag).
+   * Der dritte Override-Punkt: ein Modul, dessen Seiten wirklich anders AUSSEHEN, ersetzt ihn; welche
+   * Seiten es GIBT, sagt dagegen sein Katalog (systems/FBMfdSystem) und nicht diese Methode. */
+  virtual void BuildMfd(const FBState &state, const FBHudEnv &env, FBHudGeometry &out) const;
 };
 
 } // namespace FlightBox::Systems

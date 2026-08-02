@@ -44,6 +44,7 @@ airframe controls. Sensors, pilot and weapons slots are documented in their own 
 | `FBDisplaySystem` (generic MIL-STD-1787-like HUD) | built | `4cb92e8` |
 | `FBAirframeControls` + `FBJsbsimAirframeControls` | built | `681c5f8` |
 | `FBInputSystem` (the HUMAN'S HANDS: axes with a ramp + a queue of switch throws that leave only as `FBCommandBus::Post`) | **built** | player-control round |
+| `FBMfdSystem` (THE MFD BANK: the module's page catalogue, cut per tick against the published blocks and the current loadout, placed on three bays, published as `FBMfdBlock`) | **built** | cockpit round, §10 |
 | `FBPropulsionSystem`, `FBWeaponSystem` | NoOp defaults | — |
 
 ## Gaps
@@ -827,8 +828,12 @@ default — which is why it grew out of `FBSystemSlots.h`.
 |---|---|---|---|
 | `Run(const FBState&, FBMasterMode, dt)` | 20 Hz (module) | `FBF16Module::Run` | periodic display logic (MFD pages, warning lamps) — default empty |
 | `BuildHud(const FBState&, const FBHudEnv&, FBHudGeometry&) const` | 1× per rendered frame | `render/stages/FBHudStage::Encode` | regenerate the whole symbology |
+| `BuildMfd(const FBState&, const FBHudEnv&, FBHudGeometry&) const` | 1× per rendered frame | same | the bottom grid row: three bays, the page each carries taken from `FBMfdBlock`. **Appends** — it does not `Reset()` — so HUD and bank land in ONE geometry and therefore ONE render pass |
 
-`BuildHud` is `const`: it READS state, it owns none.
+`FBHudEnv` carries the grid: `Width`/`Height` stay the frame the projector's pixel scale is defined by,
+and the added `ViewH` is the windscreen's lower edge — the combiner is centred in `ViewH`, the bank is
+drawn between `ViewH` and `Height`. `ViewH == Height` means "no cockpit", and every frame drawn that
+way is what it was before the grid existed.
 
 #### 8.2 Division of labour with `render/`
 
@@ -949,6 +954,41 @@ every caller uses. That is why it works unchanged for the NoOp default AND for
 `FBJsbsimAirframeControls`; neither of them overrides telemetry. Columns: `gearPos`, `wow`, `speedbrake`.
 
 ---
+
+### 9a. `FBMfdSystem` — the MFD bank as a box, not as a renderer feature
+
+`systems/FBMfdSystem.h/.cpp`. Four verbs and **no virtual at all**, which is the point: a cockpit
+differs in its CATALOGUE, not in how a bezel button works.
+
+| Verb | Who calls it | What it does |
+|---|---|---|
+| `DeclarePages(pages, n)` | the module's constructor, once | ordinal `i` is `pages[i]` **for the aircraft's life** — that ordinal is what a command carries, so it may never be re-sorted. `pages[0]` is also the bank's power-up page |
+| `Run(FBState&, nowS)` | the module, at the Displays cadence (20 Hz), BEFORE the display logic | re-cuts the catalogue against the published blocks and the loadout, re-places the bays, publishes `FBMfdBlock` |
+| `Select(ordinal, nowS)` | the module's `ApplyCommand`, from `FBCommandTarget::MfdPageSelect` | puts the page on the attention bay; **false** = not selectable, which the module answers as `Rejected/OutOfContext` |
+| `Attention()` | — | the ordinal on the middle bay |
+
+**What makes a page exist** (`PageAvailable`), and both kinds of death are modelled because the
+aircraft has both: a page dies when its BOX dies (`H.Readable()` goes false) and when its SUBJECT is
+gone (the racks and the drum are empty). The loadout is read from `FBStoresBlock`/`FBGunBlock` and
+never from the mission text — the block is what the jet reports, the mission is what somebody wrote
+down.
+
+| Page | Exists while |
+|---|---|
+| `Fcr` | `Radar.H.Readable()` |
+| `Sms` | `Stores.LoadedCount > 0` **or** `Gun.RoundsRemaining > 0` |
+| `Hsd` | `Nav`, `Datalink` or `NetLink` readable |
+| `Rwr` | `Rwr.H.Readable()` |
+| `Irst` | `Irst.H.Readable()` |
+| `Sys` | `Airframe.H.Readable()` |
+
+**Placement.** One command target names a PAGE, not a display, so where it lands is the cockpit's own
+rule: the middle bay (`kMfdAttentionBay`) is the pilot's choice, the flanking two carry the remaining
+selectable pages in catalogue order. Three bays therefore never show the same page twice, and a viewer
+reads the AI's attention off the middle one.
+
+`BuildHud` is `const`: it READS state, it owns none.
+
 
 ### 10. The still-empty slots
 

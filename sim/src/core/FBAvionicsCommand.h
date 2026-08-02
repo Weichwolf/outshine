@@ -26,6 +26,13 @@ enum class FBCommandTarget : uint8_t {
   /* The EMISSION control of a radar that has one as a separate switch from power (ILLUM/DUMMY/OFF on
    * the MiG-29's PUR-31). Value = the module's own ordinal, like RadarMode. */
   RadarEmission,
+  /* WHICH PAGE THE PILOT IS LOOKING AT. Value = the MODULE's own page ordinal, like RadarMode — the
+   * catalogue is the aircraft's (an F-16 has no IRST page, a MiG-29 no datalink one), so a generic
+   * page enum in the command would claim capabilities across airframes. ONE target for three bays:
+   * the command names the PAGE, and WHERE it lands is the cockpit's placement rule
+   * (core/FBMfdPage.h) — a bay index packed into the same scalar would be a second field pretending
+   * to be a value. */
+  MfdPageSelect,
 };
 
 const char *FBCommandTargetStr(FBCommandTarget t);

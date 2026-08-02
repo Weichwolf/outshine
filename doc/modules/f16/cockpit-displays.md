@@ -450,11 +450,47 @@ ever expands.
 - **Mechanical clock**: 8-day wind-up backup timepiece — no functional relevance to FlightBox beyond
   completeness.
 
+## Spec — the MFD bank (this round)
+
+The owner's four sentences are the contract:
+
+> *"Bitte in den unteren drei Bildschirm-Quadranten (3x3) zwei Multifunktionsdisplays und ein
+> Heads-Down-Display bauen. Die oberen 6 Quadranten nur fuer Zielerfassung."* ·
+> *"du kannst auch drei Multifunktionsdisplays machen und Heads-Down ist einfach ein Modus.
+> **Die Piloten-KI soll aber schalten, was sie grad ansieht.**"* ·
+> *"und HUD vereinfachen. HUD hat nur zielerfassung/wegpunkte und alles andere im heads down"* ·
+> *"du kannst f16 und mig29 prinzipiell gleich gestalten nur die verfuegbaren ansichten unterscheiden
+> sich"* · *"je nach beladung unterscheiden sie sich ja auch"*
+
+| Contract | Acceptance / measurement anchor |
+|---|---|
+| The screen is a 3x3 grid: the upper six quadrants are out-the-window + HUD, the lower three are the MFD bank | one rendered frame; the scene pass carries a viewport of the top two rows and the bank is drawn below it |
+| The bank costs no render pass | `render passcount` is 6 (7 with a cloud deck, 5 with the HUD off) before and after — the bank appends into the HUD stage's own geometry |
+| **The pilot AI switches the page, and it does so over the COMMAND BUS** | `FBCommandTarget::MfdPageSelect`, value = this module's page ordinal, HOTAS class. A `CMD_ISSUE`/`CMD_ACK` pair per switch in `events.log`, and no other write path exists |
+| A display shows only PUBLISHED blocks | every page reads `FBState` and nothing else; which page a bay carries is itself a published block (`FBMfdBlock`), not renderer-side state |
+| The FRAME is generic, the CATALOGUE belongs to the module | `systems/FBMfdSystem` has no virtual at all; each module calls `DeclarePages` once. The F-16 has HSD (cooperative datalink) and NO IRST page; the MiG-29 has IRST and no HSD |
+| The catalogue is a function of **(module, current stores)** — read from `FBStoresBlock`, never from the mission text | a jet whose racks and drum are empty loses its SMS page mid-sortie; the page then becomes unselectable and the pilot's next tick moves off it |
+| The HUD carries only what one aims and navigates with | everything that is STATE moved down: master arm, station/store inventory, rounds, fuel, systems, warnings, radar/RWR/datalink |
+| The switch is READABLE, not merely correct | the bay carries its page label, the attention bay a second frame and the box's own `SEL <t>` stamp; the browser strip shows the pilot phase and the `mfd_page` CMD_ISSUE/CMD_ACK pair |
+
 ## State
 
-**FlightBox has no cockpit displays.** The values are on the bus; the presentation is missing — that is
-the state, stated as such in the project journal ("Cockpit-Displays: nicht begonnen"). Only the HUD is
-drawn ([`hud-symbology.md`](hud-symbology.md)).
+**Built this round: three MFDs across the bottom row of a 3x3 screen, switched by the pilot AI over the
+command bus.** What is still missing is every *panel* — ICP, DED, OSB bezels, DTE, analog instruments.
+The HUD is drawn as before, minus the state readouts this round moved down
+([`hud-symbology.md`](hud-symbology.md)).
+
+| Piece | Status | Anchor |
+|---|---|---|
+| `core/FBMfdPage.h` — the page ROLE vocabulary (Fcr/Sms/Hsd/Rwr/Irst/Sys), three bays, the middle one the attention bay | built | this round |
+| `core/FBMfdBlock` — catalogue + `Available` mask + the ordinal per bay + the last select's page and time | built, **not in `FBStateBusTelemetry`'s column list** (no telemetry.csv column moved) | this round |
+| `FBCommandTarget::MfdPageSelect` — HOTAS class, Avionics group, value = the module's page ordinal | built | this round |
+| `systems/FBMfdSystem` — declares/cuts/places/publishes; no virtual | built | this round |
+| `systems/FBDisplaySystem::BuildMfd` — the generic six pages, the third override point | built | this round |
+| F-16 catalogue `{FCR, SMS, HSD, RWR, SYS}`; MiG-29 catalogue `{FCR, IRST, SMS, RWR, SYS}` | built | this round |
+| `FBPilot::SelectCockpitPage` — one action per decision tick on its OWN spacing timer, rank: someone's round in the air > a warning > the phase's own job | built | this round |
+| **Measured, `mig29-intercept`:** the MiG spawns with `n019_emission off`, so there IS no FCR page and the pilot takes RWR at t = 0.0; the emission command acks at **t = 27.9** and the FCR page appears; the pilot posts `mfd_page 0` **in that same tick** and it acks at t = 28.4 | measured | browser + `gpu_native` |
+| **Measured, `payerne-full`:** three selects in 734 s — SYS at t = 0.0 (nothing else published yet), HSD at t = 16.0 (the Nav block came up), SYS at t = 663.2 (the ALOW warning went active on the approach, and the SYS page shows ALOW in amber) | measured | `events.log` |
 
 What this file *did* shape is not a display but an architecture: the DED's edit protocol is the
 reference pattern for FlightBox's avionics command bus, and the CRUS "gear down freezes the computed
@@ -492,9 +528,23 @@ independently re-extracted this pass, marked TODO above.
 - *Modelled:* the interaction *semantics* — command/acknowledge/reject, latency classes, held-vs-invalid
   data — plus the handful of DED-entered values the HUD needs (ALOW, BNGO, steerpoint number) and the
   caution set as warning bits.
+- *Built this round:* three MFD bays, six generic page formats, the module-owned catalogue and the
+  pilot's page selection over the bus.
 - *Partially:* master mode (a value without a selector), warnings (a bitmask without a panel).
-- *Not at all:* every rendered display — ICP, DED, both MFDs and all their formats, DTE, analog
-  instruments, the physical panels and their switches.
+- *Not at all:* ICP, DED, the OSB bezels and the master menu, DTE, analog instruments, the physical
+  panels and their switches.
+
+**Gaps this round opened, each named rather than papered over**
+
+| # | Gap | Why it is a gap and not a decision to hide |
+|---|---|---|
+| D1 | **A page is not chosen at a BEZEL.** The real jet has an OSB per format per display; here ONE command target names a PAGE and the cockpit's placement rule puts it on the middle bay while the flanking two carry the remaining catalogue pages in declared order. A bay index packed into the same scalar would be a second field pretending to be a value; a second target was explicitly out of scope this round. | the pilot's DECISION (which picture) is the thing that travels; where it lands is the cockpit's |
+| D2 | **A command carries no AUTHOR.** `FBAvionicsCommand` has `{Seq, Target, Value, IssuedS, DueS}` and nothing that says whether a hand or the AI posted it, so no display can show "who". The cockpit strip shows the pilot's PHASE beside the select instead, which is a different fact honestly labelled. Adding an author field touches every command ever logged and is a round of its own. | the alternative was inventing the field in the frontend |
+| D3 | **The pilot's PHASE and ENGAGEMENT STATE are not published blocks.** They exist as telemetry columns (`eng_state`) and as an `FBLog` line, which is why the browser strip can read them at all; a WGSL-drawn MFD cannot, because it reads `FBState` only. Publishing the AI's own state onto the avionics bus would put a brain on an instrument bus and make it readable by every system — not done, and named here instead. | doc/player-layer.md §1's one-way rule |
+| D4 | **The page labels are the generic ROLE names**, not each jet's own nomenclature (the MiG-29 has no box called "FCR"). The role vocabulary is generic on purpose; per-airframe legends would be a second module table. | cosmetic, but it IS a claim about the aircraft |
+| D5 | **No page has a range knob, a cursor or a declutter level.** The FCR/HSD scope scale is auto-chosen as the smallest of {5,10,20,40,80,160} nm that contains everything published, and the number is printed so nobody has to guess it. The radar block publishes no selected range scale to read instead. | the honest alternative to inventing a knob |
+| D6 | **The IRST page only exists while the head is powered.** In `mig29-intercept` the KOLS is never switched on (`blk_irst = 0` for all 782 rows), so the MiG shows no IRST page at all there; `o2-05-late-radar` (`set kols_mode …`) does show it with a contact. Correct by the availability rule, and worth stating because it makes the F-16/MiG asymmetry invisible in exactly the missions where one would look for it. | — |
+| D7 | **The MiG-29 gets no situation page** although it composes a datalink system. Its Lazur-M is a ground COMMAND channel, not a flight's shared picture, and no source for a MiG situation display was read. Its `FBDatalinkBlock` is therefore published and undisplayed. | the fourth addendum's own rule: do not lend it the F-16's page |
 
 ## Knowledge
 
